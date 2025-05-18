@@ -1,0 +1,9 @@
+- [ ] when we can't figure out where someone lives at all, mark as error and display messed up clients warning
+- [ ] frontend
+  - [ ] 4 boxes in form
+    - [ ] location
+    - [ ] da/eval
+    - [ ] evaluator
+    - [ ] date
+      - [ ] future: before we know when an evaluator is available, add google calendar integration so that when Karen schedules, it makes the event (she will still have to do therapyappointment and asana) (until we do)
+  - [ ] reverse lookup - by client
