@@ -2,6 +2,7 @@ import json
 import os
 from datetime import datetime
 from typing import Callable, Optional
+from urllib.parse import urlparse
 
 import mysql.connector
 import pandas as pd
@@ -271,19 +272,21 @@ def get_evaluators() -> dict:
 
 def put_evaluators_in_db(evaluators_dict: dict) -> None:
     logger.debug("Inserting evaluators into database")
+    db_url = urlparse(os.getenv("DATABASE_URL"))
     db_connection = mysql.connector.connect(
-        host=os.getenv("DB_HOST"),
-        user=os.getenv("DB_USER"),
-        password=os.getenv("DB_PASSWORD"),
-        database=os.getenv("DB_NAME"),
+        host=db_url.hostname,
+        port=db_url.port,
+        user=db_url.username,
+        password=db_url.password,
+        database=db_url.path[1:],
     )
 
     cursor = db_connection.cursor()
 
     sql = """
-        INSERT INTO schedule-helper_evaluators (
+        INSERT INTO schedule_evaluator (
             npi, providerName, SCM, BABYNET, Molina, MolinaMarketplace, ATC, Humana, SH, HB, AETNA, TriCare, United_Optum, Location
-        ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+        ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
         ON DUPLICATE KEY UPDATE
             providerName = VALUES(providerName),
             SCM = VALUES(SCM),
@@ -343,20 +346,22 @@ def get_clients() -> pd.DataFrame:
 
 def put_clients_in_db(clients_df):
     logger.debug("Inserting clients into database")
+    db_url = urlparse(os.getenv("DATABASE_URL"))
     db_connection = mysql.connector.connect(
-        host=os.getenv("DB_HOST"),
-        user=os.getenv("DB_USER"),
-        password=os.getenv("DB_PASSWORD"),
-        database=os.getenv("DB_NAME"),
+        host=db_url.hostname,
+        port=db_url.port,
+        user=db_url.username,
+        password=db_url.password,
+        database=db_url.path[1:],
     )
 
     cursor = db_connection.cursor()
 
     insert_query = """
-        INSERT INTO `schedule-helper_clients` (id, added_date, dob, firstname, lastname, preferredName, address, closestOffice, primaryInsurance, secondaryInsurance)
+        INSERT INTO `schedule_client` (id, addedDate, dob, firstname, lastname, preferredName, address, closestOffice, primaryInsurance, secondaryInsurance)
         VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
         ON DUPLICATE KEY UPDATE
-            added_date = VALUES(added_date),
+            addedDate = VALUES(addedDate),
             dob = VALUES(dob),
             firstname = VALUES(firstname),
             lastname = VALUES(lastname),
@@ -402,28 +407,27 @@ def put_clients_in_db(clients_df):
     db_connection.close()
 
 
-def link_client_provider(client_id: str, provider_id: str) -> None:
+def link_client_provider(client_id: str, npi: str) -> None:
     logger.debug(
-        f"Inserting client-provider link into database for {client_id} and %{provider_id}",
+        f"Inserting client-provider link into database for {client_id} and {npi}",
     )
+    db_url = urlparse(os.getenv("DATABASE_URL"))
     db_connection = mysql.connector.connect(
-        host=os.getenv("DB_HOST"),
-        user=os.getenv("DB_USER"),
-        password=os.getenv("DB_PASSWORD"),
-        database=os.getenv("DB_NAME"),
+        host=db_url.hostname,
+        port=db_url.port,
+        user=db_url.username,
+        password=db_url.password,
+        database=db_url.path[1:],
     )
 
     cursor = db_connection.cursor()
 
     insert_query = """
-    INSERT INTO schedule-helper_client_providers (client_id, provider_id)
+    INSERT INTO schedule_client_eval (id, npi)
     VALUES (%s, %s)
-    ON DUPLICATE KEY UPDATE
-        client_id = VALUES(client_id),
-        provider_id = VALUES(provider_id)
     """
 
-    values = (client_id, provider_id)
+    values = (client_id, npi)
 
     cursor.execute(insert_query, values)
     db_connection.commit()
@@ -455,6 +459,13 @@ def match_by_insurance(client: pd.Series, evaluators: dict):
                         eligible_evaluators.append(evaluator)
 
     return eligible_evaluators
+
+
+def insert_by_insurance(clients: pd.DataFrame, evaluators: dict):
+    for _, client in clients.iterrows():
+        eligible_evaluators = match_by_insurance(client, evaluators)
+        for evaluator in eligible_evaluators:
+            link_client_provider(client.CLIENT_ID, evaluators[evaluator]["NPI"])
 
 
 GEOLOCATOR = Nominatim(user_agent="driftwood-schedule-helper")
@@ -566,24 +577,20 @@ def get_closest_office(client: pd.Series) -> str:
     return closest_office
 
 
-clients = get_clients()
-evaluators = get_evaluators()
-test_amount = 5
-while True:
-    sampled_clients = clients.sample(n=test_amount)
-    if any(
-        pd.notna(client.USER_ADDRESS_ADDRESS2)
-        for _, client in sampled_clients.iterrows()
-    ):
-        break
-clients = sampled_clients
-clients["CLOSEST_OFFICE"] = clients.apply(get_closest_office, axis=1)
-clients["INSURANCE_EVALUATORS"] = clients.apply(
-    lambda client: match_by_insurance(client, evaluators), axis=1
-)
+def main():
+    clients = get_clients()
+    evaluators = get_evaluators()
 
-print(
-    clients[
-        ["FIRSTNAME", "LASTNAME", "ADDRESS", "CLOSEST_OFFICE", "INSURANCE_EVALUATORS"]
-    ]
-)
+    # Sample for now
+    clients = clients.sample(n=20)
+
+    clients["CLOSEST_OFFICE"] = clients.apply(get_closest_office, axis=1)
+
+    put_evaluators_in_db(evaluators)
+    put_clients_in_db(clients)
+
+    insert_by_insurance(clients, evaluators)
+
+
+if __name__ == "__main__":
+    main()

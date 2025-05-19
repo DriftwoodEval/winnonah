@@ -8,8 +8,55 @@ import type { AdapterAccount } from "next-auth/adapters";
  *
  * @see https://orm.drizzle.team/docs/goodies#multi-project-schema
  */
-export const createTable = mysqlTableCreator(
-	(name) => `schedule-helper_${name}`,
+export const createTable = mysqlTableCreator((name) => `schedule_${name}`);
+
+export const evaluators = createTable("evaluator", (d) => ({
+	npi: d.varchar({ length: 255 }).notNull().primaryKey(),
+	providerName: d.varchar({ length: 255 }).notNull(),
+	SCM: d.boolean().notNull(),
+	BABYNET: d.boolean().notNull(),
+	Molina: d.boolean().notNull(),
+	MolinaMarketplace: d.boolean().notNull(),
+	ATC: d.boolean().notNull(),
+	Humana: d.boolean().notNull(),
+	SH: d.boolean().notNull(),
+	HB: d.boolean().notNull(),
+	AETNA: d.boolean().notNull(),
+	TriCare: d.boolean().notNull(),
+	United_Optum: d.boolean().notNull(),
+	Location: d.varchar({ length: 255 }).notNull(),
+}));
+
+export const clients = createTable("client", (d) => ({
+	id: d.varchar({ length: 255 }).notNull().primaryKey(),
+	addedDate: d.date().notNull(),
+	dob: d.date().notNull(),
+	firstname: d.varchar({ length: 255 }).notNull(),
+	lastname: d.varchar({ length: 255 }).notNull(),
+	preferredName: d.varchar({ length: 255 }),
+	address: d.varchar({ length: 255 }),
+	closestOffice: d.varchar({ length: 255 }),
+	primaryInsurance: d.varchar({ length: 255 }),
+	secondaryInsurance: d.varchar({ length: 255 }),
+}));
+
+export const clientsEvaluators = createTable(
+	"client_eval",
+	(d) => ({
+		id: d
+			.varchar({ length: 255 })
+			.notNull()
+			.references(() => clients.id, { onDelete: "cascade" }),
+		npi: d
+			.varchar({ length: 255 })
+			.notNull()
+			.references(() => evaluators.npi, { onDelete: "cascade" }),
+	}),
+	(t) => [
+		primaryKey({
+			columns: [t.id, t.npi],
+		}),
+	],
 );
 
 export const posts = createTable(
