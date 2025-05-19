@@ -1,16 +1,6 @@
 #!/usr/bin/env bash
 # Use this script to start a docker container for a local development database
 
-# TO RUN ON WINDOWS:
-# 1. Install WSL (Windows Subsystem for Linux) - https://learn.microsoft.com/en-us/windows/wsl/install
-# 2. Install Docker Desktop or Podman Deskop
-# - Docker Desktop for Windows - https://docs.docker.com/docker-for-windows/install/
-# - Podman Desktop - https://podman.io/getting-started/installation
-# 3. Open WSL - `wsl`
-# 4. Run this script - `./start-database.sh`
-
-# On Linux and macOS you can run this script directly - `./start-database.sh`
-
 set -a
 source .env
 
@@ -50,12 +40,12 @@ else
   fi
 fi
 
-if [ "$($DOCKER_CMD ps -q -f name=$DB_CONTAINER_NAME)" ]; then
+if [ "$($DOCKER_CMD ps -q -f name="$DB_CONTAINER_NAME")" ]; then
   echo "Database container '$DB_CONTAINER_NAME' already running"
   exit 0
 fi
 
-if [ "$($DOCKER_CMD ps -q -a -f name=$DB_CONTAINER_NAME)" ]; then
+if [ "$($DOCKER_CMD ps -q -a -f name="$DB_CONTAINER_NAME")" ]; then
   $DOCKER_CMD start "$DB_CONTAINER_NAME"
   echo "Existing database container '$DB_CONTAINER_NAME' started"
   exit 0
@@ -74,7 +64,7 @@ if [ "$DB_PASSWORD" == "password" ]; then
 fi
 
 $DOCKER_CMD run -d \
-  --name $DB_CONTAINER_NAME \
+  --name "$DB_CONTAINER_NAME" \
   -e MYSQL_ROOT_PASSWORD="$DB_PASSWORD" \
   -e MYSQL_DATABASE="$DB_NAME" \
   -p "$DB_PORT":3306 \
