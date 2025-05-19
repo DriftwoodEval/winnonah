@@ -84,6 +84,7 @@ def normalize_client_names(df: pd.DataFrame) -> pd.DataFrame:
     logger.debug("Normalizing client names")
     for col in ["LASTNAME", "FIRSTNAME", "PREFERRED_NAME"]:
         df[col] = df[col].str.title().replace({"Iii": "III", "Ii": "II"}, regex=True)
+    df.loc[df.PREFERRED_NAME == df.FIRSTNAME, "PREFERRED_NAME"] = ""
     return df
 
 
