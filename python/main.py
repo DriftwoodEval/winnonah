@@ -422,10 +422,12 @@ def link_client_provider(client_id: str, npi: str) -> None:
     )
 
     cursor = db_connection.cursor()
-
     insert_query = """
     INSERT INTO schedule_client_eval (id, npi)
     VALUES (%s, %s)
+    ON DUPLICATE KEY UPDATE
+        id = VALUES(id),
+        npi = VALUES(npi)
     """
 
     values = (client_id, npi)
