@@ -8,7 +8,7 @@ import { Separator } from "~/app/_components/ui/separator";
 import { api } from "~/trpc/react";
 
 export function Clients() {
-	const clients = api.clients.getAll.useQuery();
+	const clients = api.clients.getSorted.useQuery();
 
 	const searchParams = useSearchParams();
 
@@ -19,7 +19,7 @@ export function Clients() {
 			searchParams.get("eval") as string,
 		);
 		if (evalClients.data) {
-			filteredClients = evalClients.data.map((client) => client.client);
+			filteredClients = evalClients.data;
 		}
 	}
 
@@ -33,7 +33,7 @@ export function Clients() {
 	const [name, setName] = useState("");
 
 	return (
-		<ScrollArea className="dark h-72 w-96 rounded-md border bg-card text-card-foreground">
+		<ScrollArea className="dark h-72 w-full rounded-md border bg-card text-card-foreground">
 			<div className="p-4">
 				<h4 className="mb-4 font-medium text-sm leading-none">Clients</h4>
 				{filteredClients.map((client) => (
