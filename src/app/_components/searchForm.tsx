@@ -31,7 +31,6 @@ export default function SearchForm() {
 	const evaluators = api.evaluators.getAll.useQuery();
 	const officesQuery = api.offices.getAll.useQuery();
 	const offices = officesQuery.data ?? {};
-	console.log(offices);
 
 	const form = useForm<z.infer<typeof formSchema>>({
 		resolver: zodResolver(formSchema),

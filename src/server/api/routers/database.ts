@@ -43,7 +43,6 @@ export type Offices = {
 export const officeRouter = createTRPCRouter({
 	getAll: protectedProcedure.query(() => {
 		const offices: Offices = JSON.parse(env.OFFICE_ADDRESSES);
-		console.log(offices);
 		return offices ?? null;
 	}),
 });
