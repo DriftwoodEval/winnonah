@@ -1,7 +1,7 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import { X } from "lucide-react";
+import { Search, X } from "lucide-react";
 import { useSearchParams } from "next/navigation";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
@@ -94,6 +94,9 @@ export function Clients() {
 								</FormItem>
 							)}
 						/>
+						<Button type="submit" variant="outline" size="icon">
+							<Search />
+						</Button>
 						{searchParams.get("search") && (
 							<Button
 								type="button"
