@@ -1,7 +1,7 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import { format } from "date-fns";
+import { format, formatISO } from "date-fns";
 import { CalendarIcon } from "lucide-react";
 import { useSearchParams } from "next/navigation";
 import { useForm } from "react-hook-form";
@@ -60,6 +60,8 @@ export default function SearchForm() {
 		const url = new URL(window.location.href);
 		url.searchParams.set("eval", encodeURIComponent(values.evaluator));
 		url.searchParams.set("office", encodeURIComponent(values.office));
+		url.searchParams.set("daeval", encodeURIComponent(values.daeval));
+		url.searchParams.set("date", formatISO(values.date));
 		url.searchParams.delete("search");
 		window.location.href = url.toString();
 	}
@@ -147,7 +149,7 @@ export default function SearchForm() {
 											<SelectItem key="Eval" value="Eval">
 												Eval
 											</SelectItem>
-											<SelectItem key="DA + Eval" value="DA + Eval">
+											<SelectItem key="DAEval" value="DAEval">
 												DA + Eval
 											</SelectItem>
 										</SelectContent>
