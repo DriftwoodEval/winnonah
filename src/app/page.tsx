@@ -18,9 +18,6 @@ export default async function Home() {
 					</div>
 					<div className="flex flex-col items-center gap-2">
 						<div className="flex flex-col items-center justify-center gap-4">
-							<p className="text-center text-2xl text-white">
-								{session && <span>Logged in as {session.user?.name}</span>}
-							</p>
 							<Link
 								href={session ? "/api/auth/signout" : "/api/auth/signin"}
 								className="dark rounded-full bg-card px-10 py-3 font-semibold text-card-foreground no-underline transition hover:bg-card/20"
