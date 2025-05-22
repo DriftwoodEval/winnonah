@@ -60,6 +60,7 @@ export default function SearchForm() {
 		const url = new URL(window.location.href);
 		url.searchParams.set("eval", encodeURIComponent(values.evaluator));
 		url.searchParams.set("office", encodeURIComponent(values.office));
+		url.searchParams.delete("search");
 		window.location.href = url.toString();
 	}
 
