@@ -1,7 +1,7 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Search, X } from "lucide-react";
+import { Check, ChevronsUpDown, Search, X } from "lucide-react";
 import { useSearchParams } from "next/navigation";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
@@ -14,10 +14,19 @@ import {
 	FormItem,
 	FormMessage,
 } from "~/app/_components/ui/form";
-import { Input } from "~/app/_components/ui/input";
 import { ScrollArea } from "~/app/_components/ui/scroll-area";
 import { Separator } from "~/app/_components/ui/separator";
+import { cn } from "~/lib/utils";
 import { api } from "~/trpc/react";
+import {
+	Command,
+	CommandEmpty,
+	CommandGroup,
+	CommandInput,
+	CommandItem,
+	CommandList,
+} from "./ui/command";
+import { Popover, PopoverContent, PopoverTrigger } from "./ui/popover";
 
 const formSchema = z.object({
 	search: z.string().optional(),
@@ -47,9 +56,8 @@ export function Clients() {
 
 	if (searchParams.get("search")) {
 		filteredClients = filteredClients.filter((client) => {
-			const clientFullname = `${client.firstname} ${client.preferredName} ${client.lastname}`;
-			return clientFullname
-				.toLowerCase()
+			return client.fullName
+				?.toLowerCase()
 				.includes(searchParams.get("search")?.toLowerCase() as string);
 		});
 	}
@@ -57,7 +65,7 @@ export function Clients() {
 	const form = useForm<z.infer<typeof formSchema>>({
 		resolver: zodResolver(formSchema),
 		defaultValues: {
-			search: searchParams.get("search") ?? undefined,
+			search: (searchParams.get("search") as string) ?? undefined,
 		},
 	});
 
@@ -66,7 +74,7 @@ export function Clients() {
 		if (values.search === "" || values.search === undefined) {
 			url.searchParams.delete("search");
 		} else {
-			url.searchParams.set("search", encodeURIComponent(values.search));
+			url.searchParams.set("search", values.search);
 		}
 		window.location.href = url.toString();
 	}
@@ -86,10 +94,58 @@ export function Clients() {
 							control={form.control}
 							name="search"
 							render={({ field }) => (
-								<FormItem>
-									<FormControl>
-										<Input placeholder="Search" {...field} />
-									</FormControl>
+								<FormItem className="flex flex-col">
+									<Popover>
+										<PopoverTrigger asChild>
+											<FormControl>
+												<Button
+													variant="outline"
+													// biome-ignore lint/a11y/useSemanticElements: <explanation>
+													role="combobox"
+													className={cn(
+														"w-[200px] justify-between",
+														!field.value && "text-muted-foreground",
+													)}
+												>
+													{field.value
+														? filteredClients.find(
+																(client) => client.fullName === field.value,
+															)?.fullName
+														: "Search"}
+													<ChevronsUpDown className="opacity-50" />
+												</Button>
+											</FormControl>
+										</PopoverTrigger>
+										<PopoverContent className="w-[200px] p-0">
+											<Command>
+												<CommandInput placeholder="Search..." className="h-9" />
+												<CommandList>
+													<CommandEmpty>No clients found.</CommandEmpty>
+													<CommandGroup>
+														{filteredClients.map((client) => (
+															<CommandItem
+																value={client.fullName}
+																key={client.fullName}
+																onSelect={() => {
+																	form.setValue("search", client.fullName);
+																}}
+															>
+																{client.fullName}
+																<Check
+																	className={cn(
+																		"ml-auto",
+																		client.fullName === field.value
+																			? "opacity-100"
+																			: "opacity-0",
+																	)}
+																/>
+															</CommandItem>
+														))}
+													</CommandGroup>
+												</CommandList>
+											</Command>
+										</PopoverContent>
+									</Popover>
 									<FormMessage />
 								</FormItem>
 							)}
@@ -122,9 +178,7 @@ export function Clients() {
 					{filteredClients.map((client) => (
 						<div key={client.id}>
 							<div key={client.id} className="text-sm">
-								{client.firstname}{" "}
-								{client.preferredName ? `(${client.preferredName})` : ""}{" "}
-								{client.lastname}
+								{client.fullName}
 							</div>
 							<Separator key="separator" className="my-2" />
 						</div>

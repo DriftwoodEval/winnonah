@@ -83,8 +83,13 @@ def filter_inactive_clients(df: pd.DataFrame) -> pd.DataFrame:
 def normalize_client_names(df: pd.DataFrame) -> pd.DataFrame:
     logger.debug("Normalizing client names")
     for col in ["LASTNAME", "FIRSTNAME", "PREFERRED_NAME"]:
-        df[col] = df[col].str.title().replace({"Iii": "III", "Ii": "II"}, regex=True)
-    df.loc[df.PREFERRED_NAME == df.FIRSTNAME, "PREFERRED_NAME"] = ""
+        df[col] = (
+            df[col]
+            .str.title()
+            .replace({"Iiii": "IIII", "Iii": "III", "Ii": "II"}, regex=True)
+        )
+    df.loc[df.PREFERRED_NAME == df.FIRSTNAME, "PREFERRED_NAME"] = None
+    df.loc[df.FIRSTNAME.isin(df.PREFERRED_NAME), "PREFERRED_NAME"] = None
     return df
 
 
@@ -359,14 +364,15 @@ def put_clients_in_db(clients_df):
     cursor = db_connection.cursor()
 
     insert_query = """
-        INSERT INTO `schedule_client` (id, addedDate, dob, firstname, lastname, preferredName, address, closestOffice, primaryInsurance, secondaryInsurance)
-        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+        INSERT INTO `schedule_client` (id, addedDate, dob, firstName, lastName, preferredName, fullName, address, closestOffice, primaryInsurance, secondaryInsurance)
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
         ON DUPLICATE KEY UPDATE
             addedDate = VALUES(addedDate),
             dob = VALUES(dob),
-            firstname = VALUES(firstname),
-            lastname = VALUES(lastname),
+            firstName = VALUES(firstName),
+            lastName = VALUES(lastName),
             preferredName = VALUES(preferredName),
+            fullName = VALUES(fullName),
             address = VALUES(address),
             closestOffice = VALUES(closestOffice),
             primaryInsurance = VALUES(primaryInsurance),
@@ -389,6 +395,7 @@ def put_clients_in_db(clients_df):
             client.FIRSTNAME,
             client.LASTNAME,
             client.PREFERRED_NAME if pd.notna(client.PREFERRED_NAME) else None,
+            f"{client.FIRSTNAME}{' (' + client.PREFERRED_NAME + ') ' if pd.notna(client.PREFERRED_NAME) else ' '}{client.LASTNAME}",
             client.ADDRESS,
             client.CLOSEST_OFFICE if pd.notna(client.CLOSEST_OFFICE) else None,
             client.INSURANCE_COMPANYNAME
