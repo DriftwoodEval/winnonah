@@ -41,20 +41,26 @@ export const clientRouter = createTRPCRouter({
 			.select({ client: clients })
 			.from(clients);
 
-		const correctedRestOfClients = restOfClients.map(({ client }) => client);
-
-		correctedRestOfClients.filter(
-			(client) => !clientsBabynetAboveAge.includes(client),
-		);
+		let correctedRestOfClients = restOfClients.map(({ client }) => client);
 
 		correctedRestOfClients.sort(
 			(a, b) =>
 				new Date(a.addedDate).getTime() - new Date(b.addedDate).getTime(),
 		);
 
-		clientsBabynetAboveAge.push(...correctedRestOfClients);
+		correctedRestOfClients = correctedRestOfClients.filter(
+			(client) =>
+				!clientsBabynetAboveAge.some(
+					(babynetClient) => babynetClient.id === client.id,
+				),
+		);
 
-		return clientsBabynetAboveAge ?? null;
+		const sortedClients = [
+			...clientsBabynetAboveAge,
+			...correctedRestOfClients,
+		];
+
+		return sortedClients ?? null;
 	}),
 
 	getByNpi: protectedProcedure
