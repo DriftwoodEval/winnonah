@@ -350,6 +350,39 @@ def get_clients() -> pd.DataFrame:
     return clients_df
 
 
+def remove_previous_clients(clients: pd.DataFrame):
+    logger.debug("Checking previous clients")
+    db_url = urlparse(os.getenv("DATABASE_URL"))
+    db_connection = mysql.connector.connect(
+        host=db_url.hostname,
+        port=db_url.port,
+        user=db_url.username,
+        password=db_url.password,
+        database=db_url.path[1:],
+    )
+
+    cursor = db_connection.cursor()
+    cursor.execute("SELECT id, address FROM schedule_client")
+    previous_attributes: list = cursor.fetchall()
+
+    ic(clients)
+
+    for index, row in clients.iterrows():
+        client_id = row["CLIENT_ID"]
+        address = row["ADDRESS"]
+        previous_client_ids = [x[0] for x in previous_attributes]
+        previous_addresses = [x[1] for x in previous_attributes]
+        for previous_client_id, previous_address in zip(
+            previous_client_ids, previous_addresses
+        ):
+            if client_id == int(previous_client_id) and address == previous_address:
+                print("Duplicate client", client_id)
+                clients.drop(index, inplace=True)
+
+    ic(clients)
+    return clients
+
+
 def put_clients_in_db(clients_df):
     logger.debug("Inserting clients into database")
     db_url = urlparse(os.getenv("DATABASE_URL"))
@@ -603,6 +636,8 @@ def main():
 
     # Sample for now
     clients = clients.sample(n=20)
+
+    clients = remove_previous_clients(clients)
 
     clients["CLOSEST_OFFICE"] = clients.apply(get_closest_office, axis=1)
 
