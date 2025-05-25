@@ -39,8 +39,7 @@ declare module "next-auth" {
  */
 export const authConfig = {
 	providers: [
-		DiscordProvider,
-		GoogleProvider,
+		process.env.NODE_ENV !== "production" ? DiscordProvider : GoogleProvider,
 		/**
 		 * ...add more providers here.
 		 *
