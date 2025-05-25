@@ -18,14 +18,12 @@ export const env = createEnv({
 			.enum(["development", "test", "production"])
 			.default("development"),
 		PROVIDER_CREDENTIALING_ID: z.string(),
-		OFFICE_ADDRESSES: z.string().refine((val) => {
-			try {
-				JSON.parse(val);
-				return true;
-			} catch (error) {
-				return false;
-			}
-		}, "Invalid JSON"),
+		OFFICE_ADDRESSES: z
+			.string()
+			.regex(
+				/^(?:[A-Z]+:[-0-9.]+,[-0-9.]+,[a-zA-Z ]+;?)+$/,
+				"Invalid office addresses format",
+			),
 	},
 
 	/**

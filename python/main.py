@@ -554,12 +554,22 @@ def geocode_address(client: pd.Series) -> Location | None:
     return geocoded_location
 
 
-def get_offices():
+def get_offices() -> dict:
     logger.debug("Getting offices")
     office_env = os.getenv("OFFICE_ADDRESSES")
     if office_env is None:
         raise ValueError("OFFICE_ADDRESSES not set")
-    return json.loads(office_env)
+
+    addresses = {}
+    for address in office_env.split(";"):
+        key, values = address.split(":")
+        latitude, longitude, pretty_name = values.split(",")
+        addresses[key] = {
+            "latitude": latitude,
+            "longitude": longitude,
+            "pretty_name": pretty_name,
+        }
+    return addresses
 
 
 OFFICES = get_offices()

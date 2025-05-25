@@ -96,7 +96,22 @@ export type Offices = {
 
 export const officeRouter = createTRPCRouter({
 	getAll: protectedProcedure.query(() => {
-		const offices: Offices = JSON.parse(env.OFFICE_ADDRESSES);
+		const officeAddresses = env.OFFICE_ADDRESSES;
+		const offices: Offices = officeAddresses
+			.split(";")
+			.reduce((acc: Offices, address) => {
+				const [key, ...values] = address.split(":");
+				const [latitude, longitude, prettyName] = (values[0] ?? "").split(",");
+				if (
+					key !== undefined &&
+					latitude !== undefined &&
+					longitude !== undefined &&
+					prettyName !== undefined
+				) {
+					acc[key] = { latitude, longitude, prettyName };
+				}
+				return acc;
+			}, {});
 		return offices ?? null;
 	}),
 });
