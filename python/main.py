@@ -217,7 +217,7 @@ def get_evaluators() -> dict:
             col_index > 2
         ):  # Skip the first three columns ('', '# of appointments needed', 'Prior Auth')
             if (
-                "-term" in provider_name
+                "-term" in provider_name or "-reports" in provider_name
             ):  # Skip evaluators that have been terminated or quit
                 continue
             provider_data = {}
