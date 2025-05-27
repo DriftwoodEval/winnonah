@@ -1,11 +1,13 @@
 import json
 import os
+import re
 from datetime import datetime
 from typing import Callable, Optional
 from urllib.parse import urlparse
 
 import mysql.connector
 import pandas as pd
+import requests
 from dotenv import load_dotenv
 from geopy import distance
 from geopy.extra.rate_limiter import RateLimiter
@@ -218,59 +220,34 @@ def get_evaluators() -> dict:
         ):  # Skip the first three columns ('', '# of appointments needed', 'Prior Auth')
             if (
                 "-term" in provider_name or "-reports" in provider_name
-            ):  # Skip evaluators that have been terminated or quit
+            ):  # Skip evaluators that have been terminated or quit, and report writers
                 continue
+
             provider_data = {}
+            replacements = str.maketrans({" ": "", "/": "_", "-": "_"})
+
             for i, key in enumerate(keys_to_extract):
                 if key.lower().startswith("united/optum"):
                     key = "United/Optum"
+                key = key.translate(replacements).strip()
                 try:
                     value = data_rows[i][col_index].strip()
-                    if key == "NPI":
-                        provider_data["NPI"] = value
-                        continue
-                    if key.startswith("Location"):
-                        provider_data["Location"] = value
+                    if key == "NPI" or key == "DistrictInfo" or key == "Offices":
+                        provider_data[key] = value
                         continue
                     if value.upper() == "X":
-                        provider_data[
-                            key.replace(" ", "")
-                            .replace("/", "_")
-                            .replace("-", "_")
-                            .strip()
-                        ] = True
+                        provider_data[key] = True
                     elif value.lower() == "denied":
-                        provider_data[
-                            key.replace(" ", "")
-                            .replace("/", "_")
-                            .replace("-", "_")
-                            .strip()
-                        ] = False
+                        provider_data[key] = False
                     elif "/" in value:
-                        provider_data[
-                            key.replace(" ", "")
-                            .replace("/", "_")
-                            .replace("-", "_")
-                            .strip()
-                        ] = False
+                        provider_data[key] = False
                     elif value:
-                        provider_data[
-                            key.replace(" ", "")
-                            .replace("/", "_")
-                            .replace("-", "_")
-                            .strip()
-                        ] = True
+                        provider_data[key] = True
                     else:
-                        provider_data[
-                            key.replace(" ", "")
-                            .replace("/", "_")
-                            .replace("-", "_")
-                            .strip()
-                        ] = False
+                        provider_data[key] = False
                 except IndexError:
-                    provider_data[
-                        key.replace(" ", "").replace("/", "_").replace("-", "_").strip()
-                    ] = False
+                    provider_data[key] = False
+
             evaluators[provider_name.strip()] = provider_data
 
     return evaluators
@@ -291,7 +268,7 @@ def put_evaluators_in_db(evaluators_dict: dict) -> None:
 
     sql = """
         INSERT INTO schedule_evaluator (
-            npi, providerName, SCM, BABYNET, Molina, MolinaMarketplace, ATC, Humana, SH, HB, AETNA, TriCare, United_Optum, Location
+            npi, providerName, SCM, BABYNET, Molina, MolinaMarketplace, ATC, Humana, SH, HB, AETNA, United_Optum, Districts, Offices
         ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
         ON DUPLICATE KEY UPDATE
             providerName = VALUES(providerName),
@@ -304,9 +281,9 @@ def put_evaluators_in_db(evaluators_dict: dict) -> None:
             SH = VALUES(SH),
             HB = VALUES(HB),
             AETNA = VALUES(AETNA),
-            TriCare = VALUES(TriCare),
             United_Optum = VALUES(United_Optum),
-            Location = VALUES(Location)
+            Districts = VALUES(Districts),
+            Offices = VALUES(Offices);
     """
 
     for provider_name, provider_data in evaluators_dict.items():
@@ -322,9 +299,9 @@ def put_evaluators_in_db(evaluators_dict: dict) -> None:
             provider_data["SH"],
             provider_data["HB"],
             provider_data["AETNA"],
-            provider_data["TriCare"],
             provider_data["United_Optum"],
-            provider_data["Location"],
+            provider_data["DistrictInfo"],
+            provider_data["Offices"],
         )
 
         try:
@@ -365,8 +342,6 @@ def remove_previous_clients(clients: pd.DataFrame):
     cursor.execute("SELECT id, address FROM schedule_client")
     previous_attributes: list = cursor.fetchall()
 
-    ic(clients)
-
     for index, row in clients.iterrows():
         client_id = row["CLIENT_ID"]
         address = row["ADDRESS"]
@@ -376,10 +351,8 @@ def remove_previous_clients(clients: pd.DataFrame):
             previous_client_ids, previous_addresses
         ):
             if client_id == int(previous_client_id) and address == previous_address:
-                print("Duplicate client", client_id)
                 clients.drop(index, inplace=True)
 
-    ic(clients)
     return clients
 
 
@@ -397,8 +370,8 @@ def put_clients_in_db(clients_df):
     cursor = db_connection.cursor()
 
     insert_query = """
-        INSERT INTO `schedule_client` (id, addedDate, dob, firstName, lastName, preferredName, fullName, address, closestOffice, primaryInsurance, secondaryInsurance)
-        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+        INSERT INTO `schedule_client` (id, addedDate, dob, firstName, lastName, preferredName, fullName, address, schoolDistrict, closestOffice, primaryInsurance, secondaryInsurance, privatePay)
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
         ON DUPLICATE KEY UPDATE
             addedDate = VALUES(addedDate),
             dob = VALUES(dob),
@@ -407,9 +380,11 @@ def put_clients_in_db(clients_df):
             preferredName = VALUES(preferredName),
             fullName = VALUES(fullName),
             address = VALUES(address),
+            schoolDistrict = VALUES(schoolDistrict),
             closestOffice = VALUES(closestOffice),
             primaryInsurance = VALUES(primaryInsurance),
-            secondaryInsurance = VALUES(secondaryInsurance)
+            secondaryInsurance = VALUES(secondaryInsurance),
+            privatePay = VALUES(privatePay);
     """
 
     for _, client in clients_df.iterrows():
@@ -430,6 +405,7 @@ def put_clients_in_db(clients_df):
             client.PREFERRED_NAME if pd.notna(client.PREFERRED_NAME) else None,
             f"{client.FIRSTNAME}{' (' + client.PREFERRED_NAME + ') ' if pd.notna(client.PREFERRED_NAME) else ' '}{client.LASTNAME}",
             client.ADDRESS,
+            client.SCHOOL_DISTRICT,
             client.CLOSEST_OFFICE if pd.notna(client.CLOSEST_OFFICE) else None,
             client.INSURANCE_COMPANYNAME
             if pd.notna(client.INSURANCE_COMPANYNAME)
@@ -437,6 +413,7 @@ def put_clients_in_db(clients_df):
             client.SECONDARY_INSURANCE_COMPANYNAME
             if pd.notna(client.SECONDARY_INSURANCE_COMPANYNAME)
             else None,
+            bool(client.POLICY_PRIVATEPAY),
         )
 
         try:
@@ -482,7 +459,12 @@ def match_by_insurance(client: pd.Series, evaluators: dict):
         f"Matching evaluators by insurance for {client.FIRSTNAME} {client.LASTNAME}"
     )
     eligible_evaluators = []
+
     for evaluator, data in evaluators.items():
+        if client.POLICY_PRIVATEPAY == 1:
+            if evaluator not in eligible_evaluators:
+                eligible_evaluators.append(evaluator)
+
         if client.INSURANCE_COMPANYNAME in data and data[client.INSURANCE_COMPANYNAME]:
             logger.debug(f"{evaluator} takes {client.INSURANCE_COMPANYNAME}")
             if evaluator not in eligible_evaluators:
@@ -504,11 +486,141 @@ def match_by_insurance(client: pd.Series, evaluators: dict):
     return eligible_evaluators
 
 
-def insert_by_insurance(clients: pd.DataFrame, evaluators: dict):
+def match_by_school_district(client: pd.Series, evaluators: dict):
+    logger.debug(
+        f"Matching evaluators by school district for {client.FIRSTNAME} {client.LASTNAME}"
+    )
+    if client.SCHOOL_DISTRICT == "Unknown":
+        logger.warning(
+            f"Client {client.FIRSTNAME} {client.LASTNAME} has no school district, so can't be matched by school district"
+        )
+        return []
+
+    for evaluator, data in evaluators.items():
+        data["DistrictInfo"] = re.sub(r"\s*\([^)]*\)", "", data["DistrictInfo"]).strip()
+        data["DistrictInfo"].lower().replace("no", "").strip()
+
+    eligible_evaluators = []
+    for evaluator, data in evaluators.items():
+        if data["DistrictInfo"].lower() == "all":
+            logger.debug(f"{evaluator} is ok for {client.SCHOOL_DISTRICT}")
+            if evaluator not in eligible_evaluators:
+                eligible_evaluators.append(evaluator)
+        if client.SCHOOL_DISTRICT.lower() not in data["DistrictInfo"].lower():
+            logger.debug(f"{evaluator} is ok for {client.SCHOOL_DISTRICT}")
+            if evaluator not in eligible_evaluators:
+                eligible_evaluators.append(evaluator)
+
+    return eligible_evaluators
+
+
+def insert_by_matching_criteria(clients: pd.DataFrame, evaluators: dict):
     for _, client in clients.iterrows():
-        eligible_evaluators = match_by_insurance(client, evaluators)
-        for evaluator in eligible_evaluators:
+        eligible_evaluators_by_district = match_by_school_district(client, evaluators)
+        eligible_evaluators_by_insurance = match_by_insurance(client, evaluators)
+
+        matched_evaluators = list(
+            set(eligible_evaluators_by_district) & set(eligible_evaluators_by_insurance)
+        )
+        for evaluator in matched_evaluators:
             link_client_provider(client.CLIENT_ID, evaluators[evaluator]["NPI"])
+
+
+def search_district(params: dict) -> str | None:
+    response = requests.get(
+        "https://geocoding.geo.census.gov/geocoder/geographies/address", params=params
+    )
+    response.raise_for_status()
+    data = response.json()
+
+    if data["result"]["addressMatches"]:
+        district: str = data["result"]["addressMatches"][0]["geographies"][
+            "Unified School Districts"
+        ][0]["NAME"]
+        return district
+    else:
+        return None
+
+
+def get_client_district(client: pd.Series) -> str:
+    params = {
+        "street": (
+            str(client.USER_ADDRESS_ADDRESS1).strip()
+            if not pd.isna(client.USER_ADDRESS_ADDRESS1)
+            else None
+        ),
+        "city": (
+            str(client.USER_ADDRESS_CITY).strip()
+            if not pd.isna(client.USER_ADDRESS_CITY)
+            else None
+        ),
+        "state": (
+            str(client.USER_ADDRESS_STATE).strip()
+            if not pd.isna(client.USER_ADDRESS_STATE)
+            else None
+        ),
+        "zip": (
+            str(client.USER_ADDRESS_ZIP).strip().rstrip("-")
+            if not pd.isna(client.USER_ADDRESS_ZIP)
+            else None
+        ),
+        "benchmark": "Public_AR_Current",
+        "format": "json",
+        "vintage": "Current_Current",
+        "layers": 14,
+    }
+
+    if any(param is None for param in params.values()):
+        logger.warning("Client address is incomplete, skipping district search.")
+        return "Unknown"
+
+    try:
+        logger.debug(
+            f"Searching for school district for {params['street']} {params['city']}, {params['state']} {params['zip']}"
+        )
+        district = search_district(params)
+        if district:
+            return map_district_name(district)
+
+        logger.warning("Search failed, attempting again without a ZIP code...")
+        params_without_zip = params.copy()
+        params_without_zip.pop("zip")
+        district = search_district(params_without_zip)
+        if district:
+            return map_district_name(district)
+
+        logger.warning("Search failed again, attempting with ZIP but without city...")
+        params_without_city = params.copy()
+        params_without_city.pop("city")
+        district = search_district(params_without_city)
+        if district:
+            return map_district_name(district)
+
+        logger.error("No district found.")
+        return "Unknown"
+    except requests.RequestException as e:
+        logger.error(f"Error fetching school district data: {e}")
+        return "Unknown"
+
+
+def map_district_name(district: str) -> str:
+    district_replacements = {
+        "Bamberg County School District": "Bamberg",
+        "Berkeley County School District": "Berkeley",
+        "Charleston County School District": "Charleston",
+        "Colleton County School District": "Colleton",
+        "Dorchester School District 2": "DD2",
+        "Dorchester School District 4": "DD4",
+        "Georgetown County School District": "Georgetown",
+        "Horry County School District": "Horry",
+        "Orangeburg County School District": "Orangeburg",
+        "Richland School District 2": "Richland 2",
+    }
+
+    for old, new in district_replacements.items():
+        district = district.replace(old, new)
+
+    return district
 
 
 GEOLOCATOR = Nominatim(user_agent="driftwood-schedule-helper")
@@ -547,9 +659,9 @@ def geocode_address(client: pd.Series) -> Location | None:
 
     if geocoded_location is None and (
         not pd.isna(client.USER_ADDRESS_ADDRESS2)
-        and client.USER_ADDRESS_ADDRESS1 != client.USER_ADDRESS_ADDRESS2
+        and client.USER_ADDRESS_ADDRESS1.lower() != client.USER_ADDRESS_ADDRESS2.lower()
         or not pd.isna(client.USER_ADDRESS_ADDRESS3)
-        and client.USER_ADDRESS_ADDRESS1 != client.USER_ADDRESS_ADDRESS3
+        and client.USER_ADDRESS_ADDRESS1.lower() != client.USER_ADDRESS_ADDRESS3.lower()
     ):
         logger.warning(
             f"Location data not found for {attempt_string}, trying again with Address 2/3 removed"
@@ -609,6 +721,8 @@ OFFICES = get_offices()
 
 
 def get_closest_office(client: pd.Series) -> str:
+    if pd.isna(client.ADDRESS) or client.ADDRESS is None or client.ADDRESS == "":
+        return "Unknown"
     logger.debug(f"Getting closest office for {client['ADDRESS']}")
     geocoded_location = geocode_address(client)
     closest_office = "Unknown"
@@ -635,16 +749,19 @@ def main():
     evaluators = get_evaluators()
 
     # Sample for now
-    clients = clients.sample(n=20)
+    clients = clients.sample(500)
+
+    clients = clients[clients.POLICY_PRIVATEPAY == 1]
 
     clients = remove_previous_clients(clients)
 
+    clients["SCHOOL_DISTRICT"] = clients.apply(get_client_district, axis=1)
     clients["CLOSEST_OFFICE"] = clients.apply(get_closest_office, axis=1)
 
     put_evaluators_in_db(evaluators)
     put_clients_in_db(clients)
 
-    insert_by_insurance(clients, evaluators)
+    insert_by_matching_criteria(clients, evaluators)
 
 
 if __name__ == "__main__":

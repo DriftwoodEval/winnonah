@@ -22,9 +22,9 @@ export const evaluators = createTable("evaluator", (d) => ({
 	SH: d.boolean().notNull(),
 	HB: d.boolean().notNull(),
 	AETNA: d.boolean().notNull(),
-	TriCare: d.boolean().notNull(),
 	United_Optum: d.boolean().notNull(),
-	Location: d.varchar({ length: 255 }).notNull(),
+	Districts: d.varchar({ length: 255 }),
+	Offices: d.varchar({ length: 255 }),
 }));
 
 export const clients = createTable("client", (d) => ({
@@ -36,9 +36,11 @@ export const clients = createTable("client", (d) => ({
 	preferredName: d.varchar({ length: 255 }),
 	fullName: d.varchar({ length: 255 }).notNull(),
 	address: d.varchar({ length: 255 }),
+	schoolDistrict: d.varchar({ length: 255 }),
 	closestOffice: d.varchar({ length: 255 }),
 	primaryInsurance: d.varchar({ length: 255 }),
 	secondaryInsurance: d.varchar({ length: 255 }),
+	privatePay: d.boolean().notNull().default(false),
 }));
 
 export const clientsEvaluators = createTable(
