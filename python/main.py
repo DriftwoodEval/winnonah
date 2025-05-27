@@ -749,9 +749,7 @@ def main():
     evaluators = get_evaluators()
 
     # Sample for now
-    clients = clients.sample(500)
-
-    clients = clients[clients.POLICY_PRIVATEPAY == 1]
+    clients = clients.sample(100)
 
     clients = remove_previous_clients(clients)
 
