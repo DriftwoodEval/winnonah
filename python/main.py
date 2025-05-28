@@ -780,8 +780,8 @@ def main():
             coordinates = None
 
         if isinstance(coordinates, dict):
-            clients.at[index, "LATITUDE"] = coordinates.get("x")
-            clients.at[index, "LONGITUDE"] = coordinates.get("y")
+            clients.at[index, "LATITUDE"] = coordinates.get("y")
+            clients.at[index, "LONGITUDE"] = coordinates.get("x")
 
     clients["CLOSEST_OFFICE"] = clients.apply(get_closest_office, axis=1)
 
