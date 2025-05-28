@@ -3,7 +3,7 @@ import { eq, or } from "drizzle-orm";
 import { z } from "zod";
 import { env } from "~/env";
 import { createTRPCRouter, protectedProcedure } from "~/server/api/trpc";
-import { clients, clientsEvaluators } from "~/server/db/schema";
+import { clients, clientsEvaluators, evaluators } from "~/server/db/schema";
 
 export const clientRouter = createTRPCRouter({
 	getAll: protectedProcedure.query(async ({ ctx }) => {
@@ -110,8 +110,30 @@ export const evaluatorRouter = createTRPCRouter({
 	getAll: protectedProcedure.query(async ({ ctx }) => {
 		const evaluators = await ctx.db.query.evaluators.findMany({});
 
-		return evaluators ?? null;
+		return (
+			evaluators.sort((a, b) => a.providerName.localeCompare(b.providerName)) ??
+			null
+		);
 	}),
+
+	getEligibleForClient: protectedProcedure
+		.input(z.string())
+		.query(async ({ ctx, input }) => {
+			const evaluatorsByClient = await ctx.db
+				.select({ evaluator: evaluators })
+				.from(evaluators)
+				.innerJoin(
+					clientsEvaluators,
+					eq(evaluators.npi, clientsEvaluators.evaluator_npi),
+				)
+				.where(eq(clientsEvaluators.client_id, input));
+
+			const correctedEvaluatorsByClient = evaluatorsByClient
+				.map(({ evaluator }) => evaluator)
+				.sort((a, b) => a.providerName.localeCompare(b.providerName));
+
+			return correctedEvaluatorsByClient ?? null;
+		}),
 });
 
 export type Offices = {

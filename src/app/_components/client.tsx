@@ -1,6 +1,7 @@
 "use client";
 
-// import { ErrorPage } from "~/app/(error)";
+import { ScrollArea } from "~/app/_components/ui/scroll-area";
+import { Separator } from "~/app/_components/ui/separator";
 import { Skeleton } from "~/app/_components/ui/skeleton";
 import { api } from "~/trpc/react";
 
@@ -12,6 +13,9 @@ export function Client({ hash }: { hash: string }) {
 		value: hash,
 	});
 	const client = clientResponse.data;
+	const eligibleEvaluatorsResponse =
+		api.evaluators.getEligibleForClient.useQuery(client?.id ?? "");
+	const eligibleEvaluators = eligibleEvaluatorsResponse.data;
 
 	if (clientResponse.error) {
 		return <div>{clientResponse.error.message}</div>;
@@ -89,6 +93,21 @@ export function Client({ hash }: { hash: string }) {
 						<p className="font-bold">Closest Office</p>
 						<p>{closestOffice?.prettyName}</p>
 					</div>
+					<ScrollArea className="dark h-72 w-full rounded-md border bg-card text-card-foreground">
+						<div className="p-4">
+							<h4 className="mb-4 font-bold leading-none">
+								Eligible Evaluators
+							</h4>
+							{eligibleEvaluators?.map((evaluator) => (
+								<div key={evaluator.npi}>
+									<div key={evaluator.npi} className="text-sm">
+										{evaluator.providerName}
+									</div>
+									<Separator key="separator" className="my-2" />
+								</div>
+							))}
+						</div>
+					</ScrollArea>
 				</div>
 			) : (
 				<Skeleton className="h-40 w-[250px] rounded-md sm:w-[500px]" />
