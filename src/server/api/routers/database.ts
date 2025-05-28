@@ -1,3 +1,4 @@
+import { TRPCError } from "@trpc/server";
 import { eq, or } from "drizzle-orm";
 import { z } from "zod";
 import { env } from "~/env";
@@ -69,12 +70,39 @@ export const clientRouter = createTRPCRouter({
 			const clientsByNpi = await ctx.db
 				.select({ client: clients })
 				.from(clients)
-				.innerJoin(clientsEvaluators, eq(clients.id, clientsEvaluators.id))
-				.where(eq(clientsEvaluators.npi, input));
+				.innerJoin(
+					clientsEvaluators,
+					eq(clients.id, clientsEvaluators.client_id),
+				)
+				.where(eq(clientsEvaluators.evaluator_npi, input));
 
 			const correctedClientsByNpi = clientsByNpi.map(({ client }) => client);
 
 			return correctedClientsByNpi ?? null;
+		}),
+
+	getOne: protectedProcedure
+		.input(
+			z.object({
+				column: z.enum(["id", "hash"]),
+				value: z.string(),
+			}),
+		)
+		.query(async ({ ctx, input }) => {
+			const [foundClient] = await ctx.db
+				.select({ client: clients })
+				.from(clients)
+				.where(eq(clients[input.column], input.value))
+				.limit(1);
+
+			if (!foundClient) {
+				throw new TRPCError({
+					code: "NOT_FOUND",
+					message: `Client with ${input.column} ${input.value} not found`,
+				});
+			}
+
+			return foundClient.client;
 		}),
 });
 

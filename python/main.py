@@ -1,8 +1,9 @@
+import hashlib
 import json
 import os
 import re
 from datetime import datetime
-from typing import Callable, Optional
+from typing import Callable, Literal, Optional
 from urllib.parse import urlparse
 
 import mysql.connector
@@ -370,9 +371,10 @@ def put_clients_in_db(clients_df):
     cursor = db_connection.cursor()
 
     insert_query = """
-        INSERT INTO `schedule_client` (id, addedDate, dob, firstName, lastName, preferredName, fullName, address, schoolDistrict, closestOffice, primaryInsurance, secondaryInsurance, privatePay)
-        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+        INSERT INTO `schedule_client` (id, hash, addedDate, dob, firstName, lastName, preferredName, fullName, address, schoolDistrict, closestOffice, primaryInsurance, secondaryInsurance, privatePay)
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
         ON DUPLICATE KEY UPDATE
+            hash = VALUES(hash),
             addedDate = VALUES(addedDate),
             dob = VALUES(dob),
             firstName = VALUES(firstName),
@@ -398,6 +400,7 @@ def put_clients_in_db(clients_df):
 
         record_values = (
             client.CLIENT_ID,
+            hashlib.sha256(str(client.CLIENT_ID).encode("utf-8")).hexdigest(),
             datetime.strptime(client.ADDED_DATE, "%m/%d/%Y").strftime("%Y-%m-%d"),
             datetime.strptime(client.DOB, "%m/%d/%Y").strftime("%Y-%m-%d"),
             client.FIRSTNAME,
@@ -440,11 +443,11 @@ def link_client_provider(client_id: str, npi: str) -> None:
 
     cursor = db_connection.cursor()
     insert_query = """
-    INSERT INTO schedule_client_eval (id, npi)
+    INSERT INTO schedule_client_eval (client_id, evaluator_npi)
     VALUES (%s, %s)
     ON DUPLICATE KEY UPDATE
-        id = VALUES(id),
-        npi = VALUES(npi)
+        client_id = VALUES(client_id),
+        evaluator_npi = VALUES(evaluator_npi)
     """
 
     values = (client_id, npi)
@@ -526,7 +529,7 @@ def insert_by_matching_criteria(clients: pd.DataFrame, evaluators: dict):
             link_client_provider(client.CLIENT_ID, evaluators[evaluator]["NPI"])
 
 
-def search_district(params: dict) -> str | None:
+def search_census(params: dict) -> tuple[str, dict] | None:
     response = requests.get(
         "https://geocoding.geo.census.gov/geocoder/geographies/address", params=params
     )
@@ -537,12 +540,13 @@ def search_district(params: dict) -> str | None:
         district: str = data["result"]["addressMatches"][0]["geographies"][
             "Unified School Districts"
         ][0]["NAME"]
-        return district
+        coordinates = data["result"]["addressMatches"][0]["coordinates"]
+        return district, coordinates
     else:
         return None
 
 
-def get_client_district(client: pd.Series) -> str:
+def get_client_census_data(client: pd.Series) -> tuple[str, dict] | Literal["Unknown"]:
     params = {
         "street": (
             str(client.USER_ADDRESS_ADDRESS1).strip()
@@ -578,23 +582,23 @@ def get_client_district(client: pd.Series) -> str:
         logger.debug(
             f"Searching for school district for {params['street']} {params['city']}, {params['state']} {params['zip']}"
         )
-        district = search_district(params)
-        if district:
-            return map_district_name(district)
+        census_data = search_census(params)
+        if census_data:
+            return map_district_name(census_data[0]), census_data[1]
 
         logger.warning("Search failed, attempting again without a ZIP code...")
         params_without_zip = params.copy()
         params_without_zip.pop("zip")
-        district = search_district(params_without_zip)
-        if district:
-            return map_district_name(district)
+        census_data = search_census(params_without_zip)
+        if census_data:
+            return map_district_name(census_data[0]), census_data[1]
 
         logger.warning("Search failed again, attempting with ZIP but without city...")
         params_without_city = params.copy()
         params_without_city.pop("city")
-        district = search_district(params_without_city)
-        if district:
-            return map_district_name(district)
+        census_data = search_census(params_without_city)
+        if census_data:
+            return map_district_name(census_data[0]), census_data[1]
 
         logger.error("No district found.")
         return "Unknown"
@@ -625,7 +629,7 @@ def map_district_name(district: str) -> str:
 
 GEOLOCATOR = Nominatim(user_agent="driftwood-schedule-helper")
 geocode: Callable[[str], Optional[Location]] = RateLimiter(
-    GEOLOCATOR.geocode, min_delay_seconds=1
+    GEOLOCATOR.geocode, min_delay_seconds=2
 )
 
 
@@ -720,19 +724,12 @@ def get_offices() -> dict:
 OFFICES = get_offices()
 
 
-def get_closest_office(client: pd.Series) -> str:
-    if pd.isna(client.ADDRESS) or client.ADDRESS is None or client.ADDRESS == "":
-        return "Unknown"
-    logger.debug(f"Getting closest office for {client['ADDRESS']}")
-    geocoded_location = geocode_address(client)
-    closest_office = "Unknown"
-    if geocoded_location is None:
-        logger.error(f"Location data not found for {client['ADDRESS']}")
-        return closest_office
+def calculate_closest_office(client: pd.Series, latitude: str, longitude: str) -> str:
     closest_miles = float("inf")
+    closest_office = "Unknown"
     for office_name, office in OFFICES.items():
         miles = distance.distance(
-            (geocoded_location.latitude, geocoded_location.longitude),
+            (latitude, longitude),
             (office["latitude"], office["longitude"]),
         ).miles
         logger.debug(
@@ -744,16 +741,48 @@ def get_closest_office(client: pd.Series) -> str:
     return closest_office
 
 
+def get_closest_office(client: pd.Series) -> str:
+    logger.debug(f"Getting closest office for {client['ADDRESS']}")
+
+    if pd.isna(client.ADDRESS) or client.ADDRESS is None or client.ADDRESS == "":
+        logger.error(f"{client.FIRSTNAME} {client.LASTNAME} has no address")
+        return "Unknown"
+
+    if not pd.isna(client.LATITUDE) and not pd.isna(client.LONGITUDE):
+        return calculate_closest_office(client, client.LATITUDE, client.LONGITUDE)
+
+    geocoded_location = geocode_address(client)
+    if geocoded_location is None:
+        logger.error(f"Location data not found for {client['ADDRESS']}")
+        return "Unknown"
+
+    return calculate_closest_office(
+        client, geocoded_location.latitude, geocoded_location.longitude
+    )
+
+
 def main():
     clients = get_clients()
     evaluators = get_evaluators()
 
     # Sample for now
-    clients = clients.sample(100)
+    clients = clients.sample(10)
 
     clients = remove_previous_clients(clients)
 
-    clients["SCHOOL_DISTRICT"] = clients.apply(get_client_district, axis=1)
+    for index, client in clients.iterrows():
+        census_result = get_client_census_data(client)
+
+        if census_result != "Unknown":
+            clients.at[index, "SCHOOL_DISTRICT"], coordinates = census_result
+        else:
+            clients.at[index, "SCHOOL_DISTRICT"] = "Unknown"
+            coordinates = None
+
+        if isinstance(coordinates, dict):
+            clients.at[index, "LATITUDE"] = coordinates.get("x")
+            clients.at[index, "LONGITUDE"] = coordinates.get("y")
+
     clients["CLOSEST_OFFICE"] = clients.apply(get_closest_office, axis=1)
 
     put_evaluators_in_db(evaluators)

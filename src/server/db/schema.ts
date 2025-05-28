@@ -29,6 +29,8 @@ export const evaluators = createTable("evaluator", (d) => ({
 
 export const clients = createTable("client", (d) => ({
 	id: d.varchar({ length: 255 }).notNull().primaryKey(),
+	hash: d.varchar({ length: 255 }).notNull(),
+	asanaId: d.varchar({ length: 255 }),
 	addedDate: d.date().notNull(),
 	dob: d.date().notNull(),
 	firstName: d.varchar({ length: 255 }).notNull(),
@@ -43,42 +45,38 @@ export const clients = createTable("client", (d) => ({
 	privatePay: d.boolean().notNull().default(false),
 }));
 
-export const clientsEvaluators = createTable(
-	"client_eval",
-	(d) => ({
-		id: d
-			.varchar({ length: 255 })
-			.notNull()
-			.references(() => clients.id, { onDelete: "cascade" }),
-		npi: d
-			.varchar({ length: 255 })
-			.notNull()
-			.references(() => evaluators.npi, { onDelete: "cascade" }),
-	}),
-	(t) => [
-		primaryKey({
-			columns: [t.id, t.npi],
-		}),
-	],
-);
+export const clientsEvaluators = createTable("client_eval", (d) => ({
+	client_id: d
+		.varchar({ length: 255 })
+		.notNull()
+		.references(() => clients.id, { onDelete: "cascade" }),
+	evaluator_npi: d
+		.varchar({ length: 255 })
+		.notNull()
+		.references(() => evaluators.npi, { onDelete: "cascade" }),
+}));
 
-export const posts = createTable(
-	"post",
-	(d) => ({
-		id: d.bigint({ mode: "number" }).primaryKey().autoincrement(),
-		name: d.varchar({ length: 256 }),
-		createdById: d
-			.varchar({ length: 255 })
-			.notNull()
-			.references(() => users.id),
-		createdAt: d.timestamp().default(sql`CURRENT_TIMESTAMP`).notNull(),
-		updatedAt: d.timestamp().onUpdateNow(),
-	}),
-	(t) => [
-		index("created_by_idx").on(t.createdById),
-		index("name_idx").on(t.name),
-	],
-);
+// export const clientsRelations = relations(clients, ({ many }) => ({
+// 	evaluators: many(clientsEvaluators),
+// }));
+
+// export const evaluatorsRelations = relations(evaluators, ({ many }) => ({
+// 	clients: many(clientsEvaluators),
+// }));
+
+// export const clientsEvaluatorsRelations = relations(
+// 	clientsEvaluators,
+// 	({ one }) => ({
+// 		client: one(clients, {
+// 			fields: [clientsEvaluators.client_id],
+// 			references: [clients.id],
+// 		}),
+// 		evaluator: one(evaluators, {
+// 			fields: [clientsEvaluators.evaluator_npi],
+// 			references: [evaluators.npi],
+// 		}),
+// 	}),
+// );
 
 export const users = createTable("user", (d) => ({
 	id: d
