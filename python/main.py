@@ -226,6 +226,13 @@ def consolidate_clients_by_id(clients: pd.DataFrame) -> pd.DataFrame:
     return merged_df
 
 
+def get_primary_insurance(client: pd.Series) -> str:
+    if client["POLICY_TYPE"] == "PRIMARY":
+        return client["INSURANCE_COMPANYNAME"]
+    else:
+        return ""
+
+
 def combine_client_address_info(clients: pd.DataFrame) -> pd.DataFrame:
     def _combine_address(client) -> str:
         address_parts = []
@@ -407,6 +414,9 @@ def get_clients() -> pd.DataFrame:
     clients_df = normalize_client_names(clients_df)
     clients_df = remove_test_names(clients_df, TEST_NAMES)
     clients_df = map_insurance_names(clients_df)
+    clients_df["PRIMARY_INSURANCE_COMPANYNAME"] = clients_df.apply(
+        get_primary_insurance, axis=1
+    )
     clients_df = consolidate_clients_by_id(clients_df)
     clients_df = combine_client_address_info(clients_df)
     return clients_df
@@ -498,8 +508,9 @@ def put_clients_in_db(clients_df):
             client.ADDRESS,
             client.SCHOOL_DISTRICT,
             client.CLOSEST_OFFICE if pd.notna(client.CLOSEST_OFFICE) else None,
-            client.INSURANCE_COMPANYNAME
-            if pd.notna(client.INSURANCE_COMPANYNAME)
+            client.PRIMARY_INSURANCE_COMPANYNAME
+            if pd.notna(client.PRIMARY_INSURANCE_COMPANYNAME)
+            and client.PRIMARY_INSURANCE_COMPANYNAME != ""
             else None,
             client.SECONDARY_INSURANCE_COMPANYNAME
             if pd.notna(client.SECONDARY_INSURANCE_COMPANYNAME)
