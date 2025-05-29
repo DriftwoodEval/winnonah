@@ -96,7 +96,7 @@ def search_by_name(projects: list | None, name: str) -> dict | None:
     if project_count == 0:
         logger.warning(f"No projects found for {name}.")
     elif project_count == 1:
-        logger.info(f"Found 1 project for {name}.")
+        logger.debug(f"Found 1 project for {name}.")
         correct_project = filtered_projects[0]
     else:
         logger.warning(f"Found {project_count} projects for {name}.")
@@ -104,6 +104,15 @@ def search_by_name(projects: list | None, name: str) -> dict | None:
         return correct_project
     else:
         return None
+
+
+def get_asd_adhd(project: dict) -> str:
+    if r"\basd\b" in project["name"].lower() and r"\badhd\b" in project["name"].lower():
+        return "Both"
+    elif r"\badhd\b" in project["name"].lower():
+        return "ADHD"
+    else:
+        return "ASD"
 
 
 def get_creds():
@@ -373,10 +382,11 @@ def put_evaluators_in_db(evaluators_dict: dict) -> None:
 
         try:
             cursor.execute(sql, values)
-        except mysql.connector.errors.IntegrityError:
-            pass
+            cursor.nextset()
+            db_connection.commit()
+        except mysql.connector.errors.IntegrityError as e:
+            logger.error(e)
 
-    db_connection.commit()
     db_connection.close()
 
 
@@ -384,7 +394,9 @@ def get_clients() -> pd.DataFrame:
     logger.debug("Getting clients from spreadsheets")
     insurance_df = open_local_spreadsheet("input/clients-insurance.csv")
     demo_df = open_local_spreadsheet("input/clients-demographics.csv")
+    appointments_df = open_local_spreadsheet("input/clients-appointments.csv")
     clients_df = pd.merge(demo_df, insurance_df)
+    clients_df = pd.merge(clients_df, appointments_df)
     clients_df = filter_inactive_clients(clients_df)
     clients_df = normalize_client_names(clients_df)
     clients_df = remove_test_names(clients_df, TEST_NAMES)
@@ -437,8 +449,8 @@ def put_clients_in_db(clients_df):
     cursor = db_connection.cursor()
 
     insert_query = """
-        INSERT INTO `schedule_client` (id, hash, asanaId, addedDate, dob, firstName, lastName, preferredName, fullName, address, schoolDistrict, closestOffice, primaryInsurance, secondaryInsurance, privatePay)
-        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+        INSERT INTO `schedule_client` (id, hash, asanaId, addedDate, dob, firstName, lastName, preferredName, fullName, address, schoolDistrict, closestOffice, primaryInsurance, secondaryInsurance, privatePay, asdAdhd)
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
         ON DUPLICATE KEY UPDATE
             hash = VALUES(hash),
             asanaId = VALUES(asanaId),
@@ -453,7 +465,8 @@ def put_clients_in_db(clients_df):
             closestOffice = VALUES(closestOffice),
             primaryInsurance = VALUES(primaryInsurance),
             secondaryInsurance = VALUES(secondaryInsurance),
-            privatePay = VALUES(privatePay);
+            privatePay = VALUES(privatePay),
+            asdAdhd = VALUES(asdAdhd);
     """
 
     for _, client in clients_df.iterrows():
@@ -485,14 +498,16 @@ def put_clients_in_db(clients_df):
             if pd.notna(client.SECONDARY_INSURANCE_COMPANYNAME)
             else None,
             bool(client.POLICY_PRIVATEPAY),
+            client.ASD_ADHD if pd.notna(client.ASD_ADHD) else None,
         )
 
         try:
             cursor.execute(insert_query, record_values)
-        except mysql.connector.errors.IntegrityError:
-            continue
+            cursor.nextset()
+            db_connection.commit()
+        except mysql.connector.errors.IntegrityError as e:
+            logger.error(e)
 
-    db_connection.commit()
     db_connection.close()
 
 
@@ -845,8 +860,14 @@ def main():
         asana_project = search_by_name(
             asana_projects, f"{client.FIRSTNAME} {client.LASTNAME}"
         )
+        asana_id = None
+        asd_adhd = None
         if asana_project:
-            clients.at[index, "ASANA_ID"] = asana_project["gid"]
+            asana_id = asana_project["gid"]
+            asd_adhd = get_asd_adhd(asana_project)
+
+        clients.at[index, "ASANA_ID"] = asana_id
+        clients.at[index, "ASD_ADHD"] = asd_adhd
 
         census_result = get_client_census_data(client)
 
