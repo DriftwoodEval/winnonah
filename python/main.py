@@ -115,6 +115,14 @@ def get_asd_adhd(project: dict) -> str:
         return "ASD"
 
 
+def get_interpreter(project: dict) -> bool:
+    if "*i*" in project["name"].lower():
+        logger.debug(f"{project['name']} includes interpreter")
+        return True
+    else:
+        return False
+
+
 def get_creds():
     creds = None
     logger.debug("Checking if Google token exists")
@@ -394,9 +402,7 @@ def get_clients() -> pd.DataFrame:
     logger.debug("Getting clients from spreadsheets")
     insurance_df = open_local_spreadsheet("input/clients-insurance.csv")
     demo_df = open_local_spreadsheet("input/clients-demographics.csv")
-    appointments_df = open_local_spreadsheet("input/clients-appointments.csv")
     clients_df = pd.merge(demo_df, insurance_df)
-    clients_df = pd.merge(clients_df, appointments_df)
     clients_df = filter_inactive_clients(clients_df)
     clients_df = normalize_client_names(clients_df)
     clients_df = remove_test_names(clients_df, TEST_NAMES)
@@ -449,8 +455,8 @@ def put_clients_in_db(clients_df):
     cursor = db_connection.cursor()
 
     insert_query = """
-        INSERT INTO `schedule_client` (id, hash, asanaId, addedDate, dob, firstName, lastName, preferredName, fullName, address, schoolDistrict, closestOffice, primaryInsurance, secondaryInsurance, privatePay, asdAdhd)
-        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+        INSERT INTO `schedule_client` (id, hash, asanaId, addedDate, dob, firstName, lastName, preferredName, fullName, address, schoolDistrict, closestOffice, primaryInsurance, secondaryInsurance, privatePay, asdAdhd, interpreter)
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
         ON DUPLICATE KEY UPDATE
             hash = VALUES(hash),
             asanaId = VALUES(asanaId),
@@ -466,7 +472,8 @@ def put_clients_in_db(clients_df):
             primaryInsurance = VALUES(primaryInsurance),
             secondaryInsurance = VALUES(secondaryInsurance),
             privatePay = VALUES(privatePay),
-            asdAdhd = VALUES(asdAdhd);
+            asdAdhd = VALUES(asdAdhd),
+            interpreter = VALUES(interpreter);
     """
 
     for _, client in clients_df.iterrows():
@@ -499,6 +506,7 @@ def put_clients_in_db(clients_df):
             else None,
             bool(client.POLICY_PRIVATEPAY),
             client.ASD_ADHD if pd.notna(client.ASD_ADHD) else None,
+            client.INTERPRETER,
         )
 
         try:
@@ -850,8 +858,8 @@ def main():
 
     clients = get_clients()
     evaluators = get_evaluators()
+    appointments_df = open_local_spreadsheet("input/clients-appointments.csv")
 
-    # Sample for now
     clients = clients.sample(10)
 
     clients = remove_previous_clients(clients)
@@ -862,12 +870,15 @@ def main():
         )
         asana_id = None
         asd_adhd = None
+        interpreter = False
         if asana_project:
             asana_id = asana_project["gid"]
             asd_adhd = get_asd_adhd(asana_project)
+            interpreter = get_interpreter(asana_project)
 
         clients.at[index, "ASANA_ID"] = asana_id
         clients.at[index, "ASD_ADHD"] = asd_adhd
+        clients.at[index, "INTERPRETER"] = interpreter
 
         census_result = get_client_census_data(client)
 

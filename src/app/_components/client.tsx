@@ -30,7 +30,13 @@ export function Client({ hash }: { hash: string }) {
 				) : (
 					<Skeleton className="h-6 w-36 rounded-md" />
 				)}
-				<p>{client?.id}</p>
+				<div className="flex h-5 items-center gap-2">
+					<span>{client?.id}</span>
+					<Separator orientation="vertical" />
+					{client?.interpreter && (
+						<span className="font-bold">Interpreter Needed</span>
+					)}
+				</div>
 			</div>
 			{client ? (
 				<div className="flex max-w-3xl flex-wrap gap-6 rounded-md border-2 bg-card p-4">
@@ -60,7 +66,8 @@ export function Client({ hash }: { hash: string }) {
 						</p>
 					</div>
 					{!client?.privatePay && (
-						<>
+						// TODO: Put insurance in a conditional box
+						<div>
 							{client?.primaryInsurance && (
 								<div>
 									<p className="font-bold">Primary Insurance</p>
@@ -73,7 +80,7 @@ export function Client({ hash }: { hash: string }) {
 									<p>{client.secondaryInsurance}</p>
 								</div>
 							)}
-						</>
+						</div>
 					)}
 					{client?.privatePay && (
 						<div>

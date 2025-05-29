@@ -44,6 +44,7 @@ export const clients = createTable("client", (d) => ({
 	secondaryInsurance: d.varchar({ length: 255 }),
 	privatePay: d.boolean().notNull().default(false),
 	asdAdhd: d.varchar({ length: 255 }),
+	interpreter: d.boolean().notNull().default(false),
 }));
 
 export const clientsEvaluators = createTable("client_eval", (d) => ({
