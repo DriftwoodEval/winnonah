@@ -3,6 +3,7 @@ name = "schedule-helper-python"
 version = "0.1.0"
 requires-python = ">=3.13"
 dependencies = [
+    "asana>=5.1.0",
     "dotenv>=0.9.9",
     "geopy>=2.4.1",
     "google-api-python-client>=2.169.0",

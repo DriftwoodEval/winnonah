@@ -6,9 +6,11 @@ from datetime import datetime
 from typing import Callable, Literal, Optional
 from urllib.parse import urlparse
 
+import asana
 import mysql.connector
 import pandas as pd
 import requests
+from asana.rest import ApiException
 from dotenv import load_dotenv
 from geopy import distance
 from geopy.extra.rate_limiter import RateLimiter
@@ -38,6 +40,70 @@ TEST_NAMES = [
 ### GOOGLE AUTH
 # If modifying these scopes, delete the file token.json.
 SCOPES = ["https://www.googleapis.com/auth/spreadsheets.readonly"]
+
+
+def init_asana() -> asana.ProjectsApi:
+    logger.debug("Initializing Asana")
+    configuration = asana.Configuration()
+    ASANA_TOKEN = os.environ.get("ASANA_TOKEN")
+    if not ASANA_TOKEN:
+        raise ValueError("ASANA_TOKEN is not set")
+    configuration.access_token = ASANA_TOKEN
+    projects_api = asana.ProjectsApi(asana.ApiClient(configuration))
+    return projects_api
+
+
+def get_asana_projects(projects_api: asana.ProjectsApi) -> list | None:
+    opts = {
+        "limit": 100,
+        "archived": False,
+        "opt_fields": "name,color,permalink_url,notes",
+    }
+
+    logger.debug("Getting Asana projects")
+    ASANA_WORKSPACE = os.environ.get("ASANA_WORKSPACE")
+    if not ASANA_WORKSPACE:
+        raise ValueError("ASANA_WORKSPACE is not set")
+    try:
+        api_response = list(
+            projects_api.get_projects_for_workspace(
+                ASANA_WORKSPACE,
+                opts,  # pyright: ignore (asana api is strange)
+            )
+        )
+        return api_response
+
+    except ApiException as e:
+        logger.error(
+            "Exception when calling ProjectsApi->get_projects_for_workspace: %s\n" % e
+        )
+        return
+
+
+def search_by_name(projects: list | None, name: str) -> dict | None:
+    if not projects:
+        return
+    filtered_projects = [
+        data
+        for data in projects
+        if name.lower()
+        in re.sub(r"\s+", " ", data["name"].replace('"', "")).strip().lower()
+    ]
+    project_count = len(filtered_projects)
+
+    correct_project = None
+
+    if project_count == 0:
+        logger.warning(f"No projects found for {name}.")
+    elif project_count == 1:
+        logger.info(f"Found 1 project for {name}.")
+        correct_project = filtered_projects[0]
+    else:
+        logger.warning(f"Found {project_count} projects for {name}.")
+    if correct_project:
+        return correct_project
+    else:
+        return None
 
 
 def get_creds():
@@ -371,10 +437,11 @@ def put_clients_in_db(clients_df):
     cursor = db_connection.cursor()
 
     insert_query = """
-        INSERT INTO `schedule_client` (id, hash, addedDate, dob, firstName, lastName, preferredName, fullName, address, schoolDistrict, closestOffice, primaryInsurance, secondaryInsurance, privatePay)
-        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+        INSERT INTO `schedule_client` (id, hash, asanaId, addedDate, dob, firstName, lastName, preferredName, fullName, address, schoolDistrict, closestOffice, primaryInsurance, secondaryInsurance, privatePay)
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
         ON DUPLICATE KEY UPDATE
             hash = VALUES(hash),
+            asanaId = VALUES(asanaId),
             addedDate = VALUES(addedDate),
             dob = VALUES(dob),
             firstName = VALUES(firstName),
@@ -401,6 +468,7 @@ def put_clients_in_db(clients_df):
         record_values = (
             client.CLIENT_ID,
             hashlib.sha256(str(client.CLIENT_ID).encode("utf-8")).hexdigest(),
+            client.ASANA_ID if pd.notna(client.ASANA_ID) else None,
             datetime.strptime(client.ADDED_DATE, "%m/%d/%Y").strftime("%Y-%m-%d"),
             datetime.strptime(client.DOB, "%m/%d/%Y").strftime("%Y-%m-%d"),
             client.FIRSTNAME,
@@ -762,6 +830,9 @@ def get_closest_office(client: pd.Series) -> str:
 
 
 def main():
+    projects_api = init_asana()
+    asana_projects = get_asana_projects(projects_api)
+
     clients = get_clients()
     evaluators = get_evaluators()
 
@@ -771,6 +842,12 @@ def main():
     clients = remove_previous_clients(clients)
 
     for index, client in clients.iterrows():
+        asana_project = search_by_name(
+            asana_projects, f"{client.FIRSTNAME} {client.LASTNAME}"
+        )
+        if asana_project:
+            clients.at[index, "ASANA_ID"] = asana_project["gid"]
+
         census_result = get_client_census_data(client)
 
         if census_result != "Unknown":
