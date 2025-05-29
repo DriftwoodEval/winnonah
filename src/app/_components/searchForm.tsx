@@ -152,6 +152,9 @@ export default function SearchForm() {
 											<SelectItem key="DAEval" value="DAEval">
 												DA + Eval
 											</SelectItem>
+											<SelectItem key="ADHDDA" value="ADHDDA">
+												ADHD DA
+											</SelectItem>
 										</SelectContent>
 									</Select>
 									<FormMessage />
