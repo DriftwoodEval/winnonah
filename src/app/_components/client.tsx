@@ -3,6 +3,7 @@
 import { ScrollArea } from "~/app/_components/ui/scroll-area";
 import { Separator } from "~/app/_components/ui/separator";
 import { Skeleton } from "~/app/_components/ui/skeleton";
+import { cn } from "~/lib/utils";
 import { api } from "~/trpc/react";
 
 export function Client({ hash }: { hash: string }) {
@@ -32,7 +33,7 @@ export function Client({ hash }: { hash: string }) {
 				)}
 				<div className="flex h-5 items-center gap-2">
 					<span>{client?.id}</span>
-					<Separator orientation="vertical" />
+					{client?.interpreter && <Separator orientation="vertical" />}
 					{client?.interpreter && (
 						<span className="font-bold">Interpreter Needed</span>
 					)}
@@ -67,17 +68,22 @@ export function Client({ hash }: { hash: string }) {
 					</div>
 					{!client?.privatePay && (
 						// TODO: Put insurance in a conditional box
-						<div>
+						<div
+							className={cn(
+								"",
+								client?.secondaryInsurance && "flex flex-wrap gap-3 rounded-md",
+							)}
+						>
 							{client?.primaryInsurance && (
 								<div>
 									<p className="font-bold">Primary Insurance</p>
-									<p>{client.primaryInsurance}</p>
+									<p>{client.primaryInsurance.replace(/_/g, " ")}</p>
 								</div>
 							)}
 							{client?.secondaryInsurance && (
 								<div>
 									<p className="font-bold">Secondary Insurance</p>
-									<p>{client.secondaryInsurance}</p>
+									<p>{client.secondaryInsurance.replace(/_/g, " ")}</p>
 								</div>
 							)}
 						</div>

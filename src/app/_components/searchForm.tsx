@@ -68,8 +68,11 @@ export default function SearchForm() {
 
 	return (
 		<Form {...form}>
-			<form onSubmit={form.handleSubmit(onSubmit)} className="w-2/3 space-y-6">
-				<div className="flex gap-6">
+			<form
+				onSubmit={form.handleSubmit(onSubmit)}
+				className="w-full space-y-6 sm:w-2/3"
+			>
+				<div className="flex flex-col gap-6 sm:flex-row">
 					<div className="flex flex-col gap-6">
 						<FormField
 							control={form.control}
@@ -206,7 +209,7 @@ export default function SearchForm() {
 						/>
 					</div>
 				</div>
-				<div className="flex gap-3">
+				<div className="flex justify-center gap-3 sm:justify-start">
 					<Button type="submit">Search</Button>
 					<Button
 						type="button"

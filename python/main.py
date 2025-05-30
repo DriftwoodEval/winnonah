@@ -209,13 +209,22 @@ def map_insurance_names(clients: pd.DataFrame) -> pd.DataFrame:
 
 
 def consolidate_clients_by_id(clients: pd.DataFrame) -> pd.DataFrame:
-    def _merge_secondary_insurance(group: pd.DataFrame) -> pd.Series:
+    def _merge_insurance(group: pd.DataFrame) -> pd.Series:
         merged_row = group.iloc[0].copy()
+        primary_insurance = set(
+            group[group["POLICY_TYPE"] == "PRIMARY"]["INSURANCE_COMPANYNAME"]
+            .dropna()
+            .tolist()
+        )
         secondary_insurance = set(
             group[group["POLICY_TYPE"] == "SECONDARY"]["INSURANCE_COMPANYNAME"]
             .dropna()
             .tolist()
         )
+        if primary_insurance:
+            merged_row["PRIMARY_INSURANCE_COMPANYNAME"] = list(primary_insurance)[0]
+        else:
+            merged_row["PRIMARY_INSURANCE_COMPANYNAME"] = None
         if secondary_insurance:
             merged_row["SECONDARY_INSURANCE_COMPANYNAME"] = list(secondary_insurance)
         else:
@@ -225,7 +234,7 @@ def consolidate_clients_by_id(clients: pd.DataFrame) -> pd.DataFrame:
     logger.debug("Consolidating clients by ID")
     merged_df = (
         clients.groupby("CLIENT_ID", as_index=False)
-        .apply(_merge_secondary_insurance, include_groups=False)
+        .apply(_merge_insurance, include_groups=False)
         .reset_index(drop=True)
     )
     return merged_df
@@ -419,9 +428,6 @@ def get_clients() -> pd.DataFrame:
     clients_df = normalize_client_names(clients_df)
     clients_df = remove_test_names(clients_df, TEST_NAMES)
     clients_df = map_insurance_names(clients_df)
-    clients_df["PRIMARY_INSURANCE_COMPANYNAME"] = clients_df.apply(
-        get_primary_insurance, axis=1
-    )
     clients_df = consolidate_clients_by_id(clients_df)
     clients_df = combine_client_address_info(clients_df)
     return clients_df
@@ -876,7 +882,7 @@ def main():
     evaluators = get_evaluators()
     appointments_df = open_local_spreadsheet("input/clients-appointments.csv")
 
-    clients = clients.sample(10)
+    clients = clients.sample(50)
 
     clients = remove_previous_clients(clients)
 
