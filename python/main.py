@@ -107,9 +107,14 @@ def search_by_name(projects: list | None, name: str) -> dict | None:
 
 
 def get_asd_adhd(project: dict) -> str:
-    if r"\basd\b" in project["name"].lower() and r"\badhd\b" in project["name"].lower():
+    both = re.search(
+        r"\basd\b.*\badhd\b|\badhd\b.*\basd\b|\basdadhd\b|\badhdasd\b",
+        project["name"].lower(),
+    )
+    adhd = re.search(r"\badhd\b", project["name"].lower())
+    if both:
         return "Both"
-    elif r"\badhd\b" in project["name"].lower():
+    elif adhd:
         return "ADHD"
     else:
         return "ASD"
