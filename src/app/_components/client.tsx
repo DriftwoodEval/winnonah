@@ -37,6 +37,12 @@ export function Client({ hash }: { hash: string }) {
 					{client?.interpreter && (
 						<span className="font-bold">Interpreter Needed</span>
 					)}
+					{client?.asdAdhd && <Separator orientation="vertical" />}
+					{client?.asdAdhd === "Both" ? (
+						<span>ASD + ADHD</span>
+					) : (
+						<span>{client?.asdAdhd}</span>
+					)}
 				</div>
 			</div>
 			{client ? (
@@ -65,6 +71,10 @@ export function Client({ hash }: { hash: string }) {
 									})()
 								: ""}
 						</p>
+					</div>
+					<div>
+						<p className="font-bold">Date of Entry</p>
+						<p>{client?.addedDate.toLocaleDateString("en-US")}</p>
 					</div>
 					{!client?.privatePay && (
 						// TODO: Put insurance in a conditional box

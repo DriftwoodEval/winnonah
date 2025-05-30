@@ -880,9 +880,9 @@ def main():
 
     clients = get_clients()
     evaluators = get_evaluators()
-    appointments_df = open_local_spreadsheet("input/clients-appointments.csv")
+    # appointments_df = open_local_spreadsheet("input/clients-appointments.csv")
 
-    clients = clients.sample(50)
+    clients = clients.sample(500)
 
     clients = remove_previous_clients(clients)
 
