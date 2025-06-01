@@ -199,7 +199,7 @@ def map_insurance_names(clients: pd.DataFrame) -> pd.DataFrame:
         "Absolute Total Care - Medical": "ATC",
         "Select Health of South Carolina": "SH",
         "Healthy Blue South Carolina": "HB",
-        "BabyNet (Combined DA and Eval)": "BABYNET",
+        "BabyNet (Combined DA and Eval)": "BabyNet",
         "Aetna Health, Inc.": "AETNA",
         "TriCare East": "Tricare",
         "United Healthcare/OptumHealth / OptumHealth Behavioral Solutions": "United_Optum",
@@ -373,12 +373,12 @@ def put_evaluators_in_db(evaluators_dict: dict) -> None:
 
     sql = """
         INSERT INTO schedule_evaluator (
-            npi, providerName, SCM, BABYNET, Molina, MolinaMarketplace, ATC, Humana, SH, HB, AETNA, United_Optum, Districts, Offices
+            npi, providerName, SCM, BabyNet, Molina, MolinaMarketplace, ATC, Humana, SH, HB, AETNA, United_Optum, Districts, Offices
         ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
         ON DUPLICATE KEY UPDATE
             providerName = VALUES(providerName),
             SCM = VALUES(SCM),
-            BABYNET = VALUES(BABYNET),
+            BabyNet = VALUES(BabyNet),
             Molina = VALUES(Molina),
             MolinaMarketplace = VALUES(MolinaMarketplace),
             ATC = VALUES(ATC),
@@ -396,7 +396,7 @@ def put_evaluators_in_db(evaluators_dict: dict) -> None:
             provider_data["NPI"],
             provider_name,
             provider_data["SCM"],
-            provider_data["BABYNET"],
+            provider_data["BabyNet"],
             provider_data["Molina"],
             provider_data["MolinaMarketplace"],
             provider_data["ATC"],
@@ -731,6 +731,7 @@ def map_district_name(district: str) -> str:
         "Georgetown County School District": "Georgetown",
         "Horry County School District": "Horry",
         "Orangeburg County School District": "Orangeburg",
+        "Pickens County School District": "Pickens",
         "Richland School District 2": "Richland 2",
     }
 
@@ -880,7 +881,6 @@ def main():
 
     clients = get_clients()
     evaluators = get_evaluators()
-    # appointments_df = open_local_spreadsheet("input/clients-appointments.csv")
 
     clients = clients.sample(500)
 

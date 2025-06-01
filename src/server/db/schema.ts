@@ -14,7 +14,7 @@ export const evaluators = createTable("evaluator", (d) => ({
 	npi: d.varchar({ length: 255 }).notNull().primaryKey(),
 	providerName: d.varchar({ length: 255 }).notNull(),
 	SCM: d.boolean().notNull(),
-	BABYNET: d.boolean().notNull(),
+	BabyNet: d.boolean().notNull(),
 	Molina: d.boolean().notNull(),
 	MolinaMarketplace: d.boolean().notNull(),
 	ATC: d.boolean().notNull(),
