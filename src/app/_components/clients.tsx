@@ -6,6 +6,7 @@ import { useMemo, useState } from "react";
 import { Input } from "~/app/_components/ui/input";
 import { ScrollArea } from "~/app/_components/ui/scroll-area";
 import { Separator } from "~/app/_components/ui/separator";
+import { formatClientAge } from "~/lib/utils";
 import { api } from "~/trpc/react";
 
 export function Clients() {
@@ -55,8 +56,19 @@ export function Clients() {
 
 					{filteredClients.map((client) => (
 						<Link href={`/clients/${client.hash}`} key={client.id}>
-							<div key={client.hash} className="text-sm">
+							<div key={client.hash} className="flex justify-between text-sm">
 								{client.fullName}
+								<span className="text-muted-foreground">
+									{client.sortReason === "BabyNet above 2:6"
+										? `BabyNet: ${formatClientAge(new Date(client.dob), "short")}`
+										: client.sortReason === "Added date"
+											? `Added: ${client.addedDate.toLocaleString("en-US", {
+													year: "numeric",
+													month: "short",
+													day: "numeric",
+												})}`
+											: client.sortReason}
+								</span>
 							</div>
 							<Separator key="separator" className="my-2" />
 						</Link>
