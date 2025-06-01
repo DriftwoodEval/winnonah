@@ -7,7 +7,7 @@ from googleapiclient.discovery import build
 from loguru import logger
 
 PROVIDER_CREDENTIALING_ID = os.getenv("PROVIDER_CREDENTIALING_ID")
-PROVIDER_CREDENTIALING_RANGE = "Prov Credentialing!A1:R16"
+PROVIDER_CREDENTIALING_RANGE = "Prov Credentialing!A1:R17"
 
 ### GOOGLE AUTH
 # If modifying these scopes, delete the file token.json.
@@ -94,7 +94,12 @@ def get_evaluators() -> dict:
                 key = key.translate(replacements).strip()
                 try:
                     value = data_rows[i][col_index].strip()
-                    if key == "NPI" or key == "DistrictInfo" or key == "Offices":
+                    if (
+                        key == "Email"
+                        or key == "NPI"
+                        or key == "DistrictInfo"
+                        or key == "Offices"
+                    ):
                         provider_data[key] = value
                         continue
                     if value.upper() == "X":

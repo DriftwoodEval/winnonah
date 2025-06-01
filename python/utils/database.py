@@ -32,10 +32,11 @@ def put_evaluators_in_db(evaluators_dict: dict) -> None:
 
     sql = """
         INSERT INTO schedule_evaluator (
-            npi, providerName, SCM, BabyNet, Molina, MolinaMarketplace, ATC, Humana, SH, HB, AETNA, United_Optum, Districts, Offices
-        ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            npi, providerName, email, SCM, BabyNet, Molina, MolinaMarketplace, ATC, Humana, SH, HB, AETNA, United_Optum, Districts, Offices
+        ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
         ON DUPLICATE KEY UPDATE
             providerName = VALUES(providerName),
+            email = VALUES(email),
             SCM = VALUES(SCM),
             BabyNet = VALUES(BabyNet),
             Molina = VALUES(Molina),
@@ -54,6 +55,7 @@ def put_evaluators_in_db(evaluators_dict: dict) -> None:
         values = (
             provider_data["NPI"],
             provider_name,
+            provider_data["Email"],
             provider_data["SCM"],
             provider_data["BabyNet"],
             provider_data["Molina"],

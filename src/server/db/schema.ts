@@ -13,6 +13,7 @@ export const createTable = mysqlTableCreator((name) => `schedule_${name}`);
 export const evaluators = createTable("evaluator", (d) => ({
 	npi: d.int().notNull().primaryKey(),
 	providerName: d.varchar({ length: 255 }).notNull(),
+	email: d.varchar({ length: 255 }).notNull(),
 	SCM: d.boolean().notNull(),
 	BabyNet: d.boolean().notNull(),
 	Molina: d.boolean().notNull(),
@@ -62,28 +63,6 @@ export const clientsEvaluators = createTable("client_eval", (d) => ({
 		.notNull()
 		.references(() => evaluators.npi, { onDelete: "cascade" }),
 }));
-
-// export const clientsRelations = relations(clients, ({ many }) => ({
-// 	evaluators: many(clientsEvaluators),
-// }));
-
-// export const evaluatorsRelations = relations(evaluators, ({ many }) => ({
-// 	clients: many(clientsEvaluators),
-// }));
-
-// export const clientsEvaluatorsRelations = relations(
-// 	clientsEvaluators,
-// 	({ one }) => ({
-// 		client: one(clients, {
-// 			fields: [clientsEvaluators.client_id],
-// 			references: [clients.id],
-// 		}),
-// 		evaluator: one(evaluators, {
-// 			fields: [clientsEvaluators.evaluator_npi],
-// 			references: [evaluators.npi],
-// 		}),
-// 	}),
-// );
 
 export const users = createTable("user", (d) => ({
 	id: d
