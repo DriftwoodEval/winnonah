@@ -476,8 +476,8 @@ def put_clients_in_db(clients_df):
     cursor = db_connection.cursor()
 
     insert_query = """
-        INSERT INTO `schedule_client` (id, hash, asanaId, addedDate, dob, firstName, lastName, preferredName, fullName, address, schoolDistrict, closestOffice, primaryInsurance, secondaryInsurance, privatePay, asdAdhd, interpreter)
-        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+        INSERT INTO `schedule_client` (id, hash, asanaId, addedDate, dob, firstName, lastName, preferredName, fullName, address, schoolDistrict, closestOffice, closestOfficeMiles, secondClosestOffice, secondClosestOfficeMiles, thirdClosestOffice, thirdClosestOfficeMiles, primaryInsurance, secondaryInsurance, privatePay, asdAdhd, interpreter)
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
         ON DUPLICATE KEY UPDATE
             hash = VALUES(hash),
             asanaId = VALUES(asanaId),
@@ -490,6 +490,11 @@ def put_clients_in_db(clients_df):
             address = VALUES(address),
             schoolDistrict = VALUES(schoolDistrict),
             closestOffice = VALUES(closestOffice),
+            closestOfficeMiles = VALUES(closestOfficeMiles),
+            secondClosestOffice = VALUES(secondClosestOffice),
+            secondClosestOfficeMiles = VALUES(secondClosestOfficeMiles),
+            thirdClosestOffice = VALUES(thirdClosestOffice),
+            thirdClosestOfficeMiles = VALUES(thirdClosestOfficeMiles),
             primaryInsurance = VALUES(primaryInsurance),
             secondaryInsurance = VALUES(secondaryInsurance),
             privatePay = VALUES(privatePay),
@@ -519,6 +524,21 @@ def put_clients_in_db(clients_df):
             client.ADDRESS,
             client.SCHOOL_DISTRICT,
             client.CLOSEST_OFFICE if pd.notna(client.CLOSEST_OFFICE) else None,
+            client.CLOSEST_OFFICE_MILES
+            if pd.notna(client.CLOSEST_OFFICE_MILES)
+            else None,
+            client.SECOND_CLOSEST_OFFICE
+            if pd.notna(client.SECOND_CLOSEST_OFFICE)
+            else None,
+            client.SECOND_CLOSEST_OFFICE_MILES
+            if pd.notna(client.SECOND_CLOSEST_OFFICE_MILES)
+            else None,
+            client.THIRD_CLOSEST_OFFICE
+            if pd.notna(client.THIRD_CLOSEST_OFFICE)
+            else None,
+            client.THIRD_CLOSEST_OFFICE_MILES
+            if pd.notna(client.THIRD_CLOSEST_OFFICE_MILES)
+            else None,
             client.PRIMARY_INSURANCE_COMPANYNAME
             if pd.notna(client.PRIMARY_INSURANCE_COMPANYNAME)
             and client.PRIMARY_INSURANCE_COMPANYNAME != ""
@@ -838,9 +858,8 @@ def get_offices() -> dict:
 OFFICES = get_offices()
 
 
-def calculate_closest_office(client: pd.Series, latitude: str, longitude: str) -> str:
-    closest_miles = float("inf")
-    closest_office = "Unknown"
+def calculate_closest_offices(client: pd.Series, latitude: str, longitude: str) -> dict:
+    closest_offices = []
     for office_name, office in OFFICES.items():
         miles = distance.distance(
             (latitude, longitude),
@@ -849,28 +868,49 @@ def calculate_closest_office(client: pd.Series, latitude: str, longitude: str) -
         logger.debug(
             f"{office_name} office is {int(miles)} miles away from {client.FIRSTNAME} {client.LASTNAME}"
         )
-        if miles < closest_miles:
-            closest_office = office_name
-            closest_miles = miles
-    return closest_office
+        closest_offices.append((office_name, int(miles)))
+    closest_offices.sort(key=lambda x: x[1])
+    ic(closest_offices)
+    return {
+        "closest_office": closest_offices[0][0],
+        "closest_office_miles": closest_offices[0][1],
+        "second_closest_office": closest_offices[1][0],
+        "second_closest_office_miles": closest_offices[1][1],
+        "third_closest_office": closest_offices[2][0],
+        "third_closest_office_miles": closest_offices[2][1],
+    }
 
 
-def get_closest_office(client: pd.Series) -> str:
+def get_closest_offices(client: pd.Series) -> dict:
     logger.debug(f"Getting closest office for {client['ADDRESS']}")
 
     if pd.isna(client.ADDRESS) or client.ADDRESS is None or client.ADDRESS == "":
         logger.error(f"{client.FIRSTNAME} {client.LASTNAME} has no address")
-        return "Unknown"
+        return {
+            "closest_office": "Unknown",
+            "closest_office_miles": "Unknown",
+            "second_closest_office": "Unknown",
+            "second_closest_office_miles": "Unknown",
+            "third_closest_office": "Unknown",
+            "third_closest_office_miles": "Unknown",
+        }
 
     if not pd.isna(client.LATITUDE) and not pd.isna(client.LONGITUDE):
-        return calculate_closest_office(client, client.LATITUDE, client.LONGITUDE)
+        return calculate_closest_offices(client, client.LATITUDE, client.LONGITUDE)
 
     geocoded_location = geocode_address(client)
     if geocoded_location is None:
         logger.error(f"Location data not found for {client['ADDRESS']}")
-        return "Unknown"
+        return {
+            "closest_office": "Unknown",
+            "closest_office_miles": "Unknown",
+            "second_closest_office": "Unknown",
+            "second_closest_office_miles": "Unknown",
+            "third_closest_office": "Unknown",
+            "third_closest_office_miles": "Unknown",
+        }
 
-    return calculate_closest_office(
+    return calculate_closest_offices(
         client, geocoded_location.latitude, geocoded_location.longitude
     )
 
@@ -882,7 +922,7 @@ def main():
     clients = get_clients()
     evaluators = get_evaluators()
 
-    clients = clients.sample(500)
+    clients = clients.sample(10)
 
     clients = remove_previous_clients(clients)
 
@@ -914,7 +954,16 @@ def main():
             clients.at[index, "LATITUDE"] = coordinates.get("y")
             clients.at[index, "LONGITUDE"] = coordinates.get("x")
 
-    clients["CLOSEST_OFFICE"] = clients.apply(get_closest_office, axis=1)
+    clients[
+        [
+            "CLOSEST_OFFICE",
+            "CLOSEST_OFFICE_MILES",
+            "SECOND_CLOSEST_OFFICE",
+            "SECOND_CLOSEST_OFFICE_MILES",
+            "THIRD_CLOSEST_OFFICE",
+            "THIRD_CLOSEST_OFFICE_MILES",
+        ]
+    ] = clients.apply(get_closest_offices, axis=1, result_type="expand")
 
     put_evaluators_in_db(evaluators)
     put_clients_in_db(clients)
