@@ -628,9 +628,9 @@ def match_by_school_district(client: pd.Series, evaluators: dict):
     )
     if client.SCHOOL_DISTRICT == "Unknown":
         logger.warning(
-            f"Client {client.FIRSTNAME} {client.LASTNAME} has no school district, so can't be matched by school district"
+            f"Client {client.FIRSTNAME} {client.LASTNAME} has no school district, adding all evaluators for now"
         )
-        return []
+        return list(evaluators.keys())
 
     for evaluator, data in evaluators.items():
         data["DistrictInfo"] = re.sub(r"\s*\([^)]*\)", "", data["DistrictInfo"]).strip()
@@ -650,13 +650,40 @@ def match_by_school_district(client: pd.Series, evaluators: dict):
     return eligible_evaluators
 
 
+def match_by_office(client: pd.Series, evaluators: dict):
+    logger.debug(
+        f"Matching evaluators by office for {client.FIRSTNAME} {client.LASTNAME}"
+    )
+    if client.CLOSEST_OFFICE == "Unknown":
+        logger.warning(
+            f"Client {client.FIRSTNAME} {client.LASTNAME} has no closest office, adding all evaluators for now"
+        )
+        return list(evaluators.keys())
+
+    eligible_evaluators = []
+    for evaluator, data in evaluators.items():
+        if isinstance(data["Offices"], str):
+            if (
+                client.CLOSEST_OFFICE.lower() in data["Offices"].lower()
+                or data["Offices"].lower() == "all".lower()
+            ):
+                logger.debug(f"{evaluator} is ok for {client.CLOSEST_OFFICE}")
+                if evaluator not in eligible_evaluators:
+                    eligible_evaluators.append(evaluator)
+
+    return eligible_evaluators
+
+
 def insert_by_matching_criteria(clients: pd.DataFrame, evaluators: dict):
     for _, client in clients.iterrows():
         eligible_evaluators_by_district = match_by_school_district(client, evaluators)
         eligible_evaluators_by_insurance = match_by_insurance(client, evaluators)
+        eligible_evaluators_by_office = match_by_office(client, evaluators)
 
         matched_evaluators = list(
-            set(eligible_evaluators_by_district) & set(eligible_evaluators_by_insurance)
+            set(eligible_evaluators_by_district)
+            & set(eligible_evaluators_by_insurance)
+            & set(eligible_evaluators_by_office)
         )
         for evaluator in matched_evaluators:
             link_client_provider(client.CLIENT_ID, evaluators[evaluator]["NPI"])
@@ -870,7 +897,6 @@ def calculate_closest_offices(client: pd.Series, latitude: str, longitude: str) 
         )
         closest_offices.append((office_name, int(miles)))
     closest_offices.sort(key=lambda x: x[1])
-    ic(closest_offices)
     return {
         "closest_office": closest_offices[0][0],
         "closest_office_miles": closest_offices[0][1],
