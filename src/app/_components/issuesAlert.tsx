@@ -4,7 +4,7 @@ import Link from "next/link";
 import { Button } from "~/app/_components/ui/button";
 import { api } from "~/trpc/react";
 
-export function ErrorAlert() {
+export function IssuesAlert() {
 	const asanaErrorsResponse = api.clients.getAsanaErrors.useQuery();
 	const asanaErrors = asanaErrorsResponse.data;
 
@@ -19,7 +19,7 @@ export function ErrorAlert() {
 	}
 
 	return (
-		<Link href="/errors">
+		<Link href="/issues">
 			<Button className="rounded-full bg-destructive text-foreground">
 				{errorsLength} issues
 			</Button>

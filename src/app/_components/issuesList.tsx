@@ -4,7 +4,7 @@ import { api } from "~/trpc/react";
 import { ScrollArea } from "./ui/scroll-area";
 import { Separator } from "./ui/separator";
 
-export function ErrorsList() {
+export function IssuesList() {
 	const asanaErrorsResponse = api.clients.getAsanaErrors.useQuery();
 	const asanaErrors = asanaErrorsResponse.data;
 

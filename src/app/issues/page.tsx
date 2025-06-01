@@ -1,9 +1,9 @@
-import { ErrorsList } from "~/app/_components/errorsList";
+import { IssuesList } from "~/app/_components/issuesList";
 
 export default async function Page() {
 	return (
 		<main className="flex min-h-screen flex-col items-center justify-center">
-			<ErrorsList />
+			<IssuesList />
 		</main>
 	);
 }

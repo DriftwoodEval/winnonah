@@ -1,7 +1,7 @@
 import Link from "next/link";
 
 import { Clients } from "~/app/_components/clients";
-import { ErrorAlert } from "~/app/_components/errorAlert";
+import { IssuesAlert } from "~/app/_components/issuesAlert";
 import SearchForm from "~/app/_components/searchForm";
 import { auth } from "~/server/auth";
 import { HydrateClient } from "~/trpc/server";
@@ -14,7 +14,7 @@ export default async function Home() {
 		<HydrateClient>
 			<main className="flex min-h-screen flex-col items-center justify-center">
 				<div className="absolute top-0 right-0 m-2 flex gap-3">
-					<ErrorAlert />
+					<IssuesAlert />
 					<Link href={session ? "/api/auth/signout" : "/api/auth/signin"}>
 						<Button>{session ? "Sign out" : "Sign in"}</Button>
 					</Link>
