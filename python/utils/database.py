@@ -123,8 +123,8 @@ def put_clients_in_db(clients_df):
     cursor = db_connection.cursor()
 
     insert_query = """
-        INSERT INTO `schedule_client` (id, hash, asanaId, addedDate, dob, firstName, lastName, preferredName, fullName, address, schoolDistrict, closestOffice, closestOfficeMiles, secondClosestOffice, secondClosestOfficeMiles, thirdClosestOffice, thirdClosestOfficeMiles, primaryInsurance, secondaryInsurance, privatePay, asdAdhd, interpreter)
-        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+        INSERT INTO `schedule_client` (id, hash, asanaId, addedDate, dob, firstName, lastName, preferredName, fullName, address, schoolDistrict, closestOffice, closestOfficeMiles, secondClosestOffice, secondClosestOfficeMiles, thirdClosestOffice, thirdClosestOfficeMiles, primaryInsurance, secondaryInsurance, privatePay, asdAdhd, interpreter, gender, phoneNumber)
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
         ON DUPLICATE KEY UPDATE
             hash = VALUES(hash),
             asanaId = VALUES(asanaId),
@@ -146,7 +146,9 @@ def put_clients_in_db(clients_df):
             secondaryInsurance = VALUES(secondaryInsurance),
             privatePay = VALUES(privatePay),
             asdAdhd = VALUES(asdAdhd),
-            interpreter = VALUES(interpreter);
+            interpreter = VALUES(interpreter),
+            gender = VALUES(gender),
+            phoneNumber = VALUES(phoneNumber);
     """
 
     for _, client in clients_df.iterrows():
@@ -196,6 +198,8 @@ def put_clients_in_db(clients_df):
             bool(client.POLICY_PRIVATEPAY),
             client.ASD_ADHD if pd.notna(client.ASD_ADHD) else None,
             client.INTERPRETER,
+            client.GENDER.title().split(".")[-1] if pd.notna(client.GENDER) else None,
+            f"{client.PHONE1:.0f}" if pd.notna(client.PHONE1) else None,
         )
 
         try:

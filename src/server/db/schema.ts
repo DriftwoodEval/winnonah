@@ -51,6 +51,34 @@ export const clients = createTable("client", (d) => ({
 	privatePay: d.boolean().notNull().default(false),
 	asdAdhd: d.varchar({ length: 255 }),
 	interpreter: d.boolean().notNull().default(false),
+	phoneNumber: d.varchar({ length: 255 }),
+	gender: d.mysqlEnum(["Male", "Female", "Other"]),
+}));
+
+export const appointments = createTable("appointment", (d) => ({
+	id: d.int().notNull().autoincrement().primaryKey(),
+	client_id: d
+		.int()
+		.notNull()
+		.references(() => clients.id, { onDelete: "cascade" }),
+	evaluator_npi: d
+		.int()
+		.notNull()
+		.references(() => evaluators.npi, { onDelete: "cascade" }),
+	date: d.date().notNull(),
+	type: d.mysqlEnum(["EVAL", "DA", "DAEVAL"]),
+}));
+
+export const questionnaires = createTable("questionnaire", (d) => ({
+	id: d.int().notNull().autoincrement().primaryKey(),
+	appointment_id: d
+		.int()
+		.notNull()
+		.references(() => appointments.id),
+	questionnaireType: d.varchar({ length: 255 }).notNull(),
+	link: d.varchar({ length: 255 }).notNull(),
+	sent: d.date().notNull(),
+	completed: d.boolean().notNull().default(false),
 }));
 
 export const clientsEvaluators = createTable("client_eval", (d) => ({
