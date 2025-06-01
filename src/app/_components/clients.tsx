@@ -55,12 +55,10 @@ export function Clients() {
 
 					{filteredClients.map((client) => (
 						<Link href={`/clients/${client.hash}`} key={client.id}>
-							<div key={client.id}>
-								<div key={client.id} className="text-sm">
-									{client.fullName}
-								</div>
-								<Separator key="separator" className="my-2" />
+							<div key={client.hash} className="text-sm">
+								{client.fullName}
 							</div>
+							<Separator key="separator" className="my-2" />
 						</Link>
 					))}
 				</div>
