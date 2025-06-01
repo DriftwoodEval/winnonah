@@ -1,9 +1,10 @@
 import { TRPCError } from "@trpc/server";
-import { eq, isNull, or } from "drizzle-orm";
+import { eq, isNull } from "drizzle-orm";
 import { z } from "zod";
 import { env } from "~/env";
 import { createTRPCRouter, protectedProcedure } from "~/server/api/trpc";
 import { clients, clientsEvaluators, evaluators } from "~/server/db/schema";
+import { sortClients } from "~/server/lib/utils";
 
 export const clientRouter = createTRPCRouter({
 	getAll: protectedProcedure.query(async ({ ctx }) => {
@@ -13,55 +14,9 @@ export const clientRouter = createTRPCRouter({
 	}),
 
 	getSorted: protectedProcedure.query(async ({ ctx }) => {
-		const babynetClients = await ctx.db
-			.select({ client: clients })
-			.from(clients)
-			.where(
-				or(
-					eq(clients.primaryInsurance, "BABYNET"),
-					eq(clients.secondaryInsurance, "BABYNET"),
-				),
-			);
+		const allClients = await ctx.db.query.clients.findMany({});
 
-		const correctedBabynetClients = babynetClients.map(({ client }) => client);
-
-		// Get clients that are older than 2 years:6 months
-		const minAge = new Date();
-		minAge.setFullYear(minAge.getFullYear() - 2);
-		minAge.setMonth(minAge.getMonth() - 6);
-
-		const clientsBabynetAboveAge = correctedBabynetClients.filter(
-			(client) => client.dob && new Date(client.dob) < minAge,
-		);
-
-		clientsBabynetAboveAge.sort(
-			(a, b) => new Date(a.dob).getTime() - new Date(b.dob).getTime(),
-		);
-
-		const restOfClients = await ctx.db
-			.select({ client: clients })
-			.from(clients);
-
-		let correctedRestOfClients = restOfClients.map(({ client }) => client);
-
-		correctedRestOfClients.sort(
-			(a, b) =>
-				new Date(a.addedDate).getTime() - new Date(b.addedDate).getTime(),
-		);
-
-		correctedRestOfClients = correctedRestOfClients.filter(
-			(client) =>
-				!clientsBabynetAboveAge.some(
-					(babynetClient) => babynetClient.id === client.id,
-				),
-		);
-
-		const sortedClients = [
-			...clientsBabynetAboveAge,
-			...correctedRestOfClients,
-		];
-
-		return sortedClients ?? null;
+		return sortClients(allClients) ?? null;
 	}),
 
 	getByNpi: protectedProcedure
@@ -78,7 +33,7 @@ export const clientRouter = createTRPCRouter({
 
 			const correctedClientsByNpi = clientsByNpi.map(({ client }) => client);
 
-			return correctedClientsByNpi ?? null;
+			return sortClients(correctedClientsByNpi) ?? null;
 		}),
 
 	getOne: protectedProcedure
