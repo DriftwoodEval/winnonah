@@ -476,8 +476,8 @@ def put_clients_in_db(clients_df):
     cursor = db_connection.cursor()
 
     insert_query = """
-        INSERT INTO `schedule_client` (id, hash, asanaId, addedDate, dob, firstName, lastName, preferredName, fullName, address, schoolDistrict, closestOffice, primaryInsurance, secondaryInsurance, privatePay, asdAdhd, interpreter)
-        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+        INSERT INTO `schedule_client` (id, hash, asanaId, addedDate, dob, firstName, lastName, preferredName, fullName, address, schoolDistrict, closestOffice, primaryInsurance, secondaryInsurance, privatePay, asdAdhd, interpreter, daScheduled)
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
         ON DUPLICATE KEY UPDATE
             hash = VALUES(hash),
             asanaId = VALUES(asanaId),
@@ -494,7 +494,8 @@ def put_clients_in_db(clients_df):
             secondaryInsurance = VALUES(secondaryInsurance),
             privatePay = VALUES(privatePay),
             asdAdhd = VALUES(asdAdhd),
-            interpreter = VALUES(interpreter);
+            interpreter = VALUES(interpreter),
+            daScheduled = VALUES(daScheduled);
     """
 
     for _, client in clients_df.iterrows():
@@ -529,6 +530,7 @@ def put_clients_in_db(clients_df):
             bool(client.POLICY_PRIVATEPAY),
             client.ASD_ADHD if pd.notna(client.ASD_ADHD) else None,
             client.INTERPRETER,
+            client.DA_SCHEDULED,
         )
 
         try:
@@ -874,13 +876,20 @@ def get_closest_office(client: pd.Series) -> str:
     )
 
 
+def check_for_da(client: pd.Series, appointments: pd.DataFrame) -> bool:
+    client_appointments = appointments[appointments["CLIENT_ID"] == client["CLIENT_ID"]]
+    ic(client_appointments)
+    if any(client_appointments["NAME"].str.contains("90791", na=False)):
+        return True
+    return False
+
+
 def main():
     projects_api = init_asana()
     asana_projects = get_asana_projects(projects_api)
 
     clients = get_clients()
     evaluators = get_evaluators()
-    # appointments_df = open_local_spreadsheet("input/clients-appointments.csv")
 
     clients = clients.sample(500)
 
