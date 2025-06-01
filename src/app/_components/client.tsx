@@ -9,7 +9,7 @@ import {
 import { ScrollArea } from "~/app/_components/ui/scroll-area";
 import { Separator } from "~/app/_components/ui/separator";
 import { Skeleton } from "~/app/_components/ui/skeleton";
-import { cn } from "~/lib/utils";
+import { cn, formatClientAge } from "~/lib/utils";
 import { api } from "~/trpc/react";
 import { Alert, AlertTitle } from "./ui/alert";
 
@@ -69,24 +69,7 @@ export function Client({ hash }: { hash: string }) {
 					</div>
 					<div>
 						<p className="font-bold">Age</p>
-						<p>
-							{client?.dob
-								? (() => {
-										const ageInMilliseconds =
-											new Date().getTime() - client.dob.getTime();
-										const years = Math.floor(
-											ageInMilliseconds / (1000 * 60 * 60 * 24 * 365.25),
-										);
-										const months = Math.floor(
-											(ageInMilliseconds % (1000 * 60 * 60 * 24 * 365.25)) /
-												(1000 * 60 * 60 * 24 * 30.44),
-										);
-										return years < 3
-											? `${years} years, ${months} months`
-											: `${years} years`;
-									})()
-								: ""}
-						</p>
+						<p>{client?.dob ? formatClientAge(client?.dob) : ""}</p>
 					</div>
 					<div>
 						<p className="font-bold">Date of Entry</p>
