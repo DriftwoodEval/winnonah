@@ -9,8 +9,8 @@ token.accessToken = env.ASANA_TOKEN;
 
 const opts = { opt_fields: "name,color,permalink_url,notes" };
 export const asanaRouter = createTRPCRouter({
-	getProject: protectedProcedure.input(z.number()).query(async ({ input }) => {
-		if (input === 0) {
+	getProject: protectedProcedure.input(z.string()).query(async ({ input }) => {
+		if (input === "") {
 			return null;
 		}
 		const projectsApiInstance = new Asana.ProjectsApi();

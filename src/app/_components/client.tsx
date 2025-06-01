@@ -41,7 +41,7 @@ export function Client({ hash }: { hash: string }) {
 	const thirdClosestOfficeMiles = client?.thirdClosestOfficeMiles ?? null;
 
 	const asanaProjectResponse = api.asana.getProject.useQuery(
-		client?.asanaId ?? 0,
+		client?.asanaId ?? "",
 	);
 	const asanaProject = asanaProjectResponse?.data?.data;
 	return (
