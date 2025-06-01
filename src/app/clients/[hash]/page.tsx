@@ -6,7 +6,7 @@ export default async function Page({
 	const parameters = await params;
 	const hash = parameters.hash;
 	return (
-		<main className="flex min-h-screen flex-col items-center justify-center">
+		<main className="grid h-full place-content-center overflow-auto">
 			<Client hash={hash} />
 		</main>
 	);

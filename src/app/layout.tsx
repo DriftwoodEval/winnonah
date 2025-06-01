@@ -21,8 +21,8 @@ export default function RootLayout({
 	children,
 }: Readonly<{ children: React.ReactNode }>) {
 	return (
-		<html lang="en" className={`${geist.variable}`}>
-			<body className="dark bg-background">
+		<html lang="en" className={`${geist.variable} h-full overflow-hidden`}>
+			<body className="dark h-full bg-background">
 				<Link href="/">
 					<h1 className="m-2 font-bold text-2xl">Schedule Helper</h1>
 				</Link>
