@@ -1,5 +1,6 @@
 "use client";
 
+import { AlertTriangleIcon } from "lucide-react";
 import {
 	Popover,
 	PopoverContent,
@@ -10,6 +11,7 @@ import { Separator } from "~/app/_components/ui/separator";
 import { Skeleton } from "~/app/_components/ui/skeleton";
 import { cn } from "~/lib/utils";
 import { api } from "~/trpc/react";
+import { Alert, AlertTitle } from "./ui/alert";
 
 export function Client({ hash }: { hash: string }) {
 	const officeResponse = api.offices.getAll.useQuery();
@@ -152,6 +154,15 @@ export function Client({ hash }: { hash: string }) {
 							{closestOffice?.prettyName} ({closestOfficeMiles} mi)
 						</p>
 					</div>
+					{client?.schoolDistrict === "Unknown" && (
+						<Alert variant="destructive">
+							<AlertTriangleIcon />
+							<AlertTitle>
+								Unable to determine school district, double-check evaluators.
+							</AlertTitle>
+						</Alert>
+					)}
+
 					<ScrollArea className="dark w-full rounded-md border bg-card text-card-foreground">
 						<div className="p-4">
 							<h4 className="mb-4 font-bold leading-none">
