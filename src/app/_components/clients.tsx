@@ -59,6 +59,9 @@ export function Clients() {
 							<div key={client.hash} className="flex justify-between text-sm">
 								{client.fullName}
 								<span className="text-muted-foreground">
+									<span className="font-bold">
+										{client.interpreter ? "Interpreter " : ""}
+									</span>
 									{client.sortReason === "BabyNet above 2:6"
 										? `BabyNet: ${formatClientAge(new Date(client.dob), "short")}`
 										: client.sortReason === "Added date"
