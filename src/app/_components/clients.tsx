@@ -54,7 +54,7 @@ export function Clients() {
 				<div className="p-4">
 					<h4 className="mb-4 font-medium text-sm leading-none">Clients</h4>
 
-					{filteredClients.map((client) => (
+					{filteredClients.map((client, index) => (
 						<Link href={`/clients/${client.hash}`} key={client.id}>
 							<div key={client.hash} className="flex justify-between text-sm">
 								{client.fullName}
@@ -70,7 +70,9 @@ export function Clients() {
 											: client.sortReason}
 								</span>
 							</div>
-							<Separator key="separator" className="my-2" />
+							{index !== filteredClients.length - 1 && (
+								<Separator key="separator" className="my-2" />
+							)}
 						</Link>
 					))}
 				</div>

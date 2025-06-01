@@ -1,6 +1,7 @@
 "use client";
 
 import { AlertTriangleIcon } from "lucide-react";
+import { Alert, AlertTitle } from "~/app/_components/ui/alert";
 import {
 	Popover,
 	PopoverContent,
@@ -11,7 +12,6 @@ import { Separator } from "~/app/_components/ui/separator";
 import { Skeleton } from "~/app/_components/ui/skeleton";
 import { cn, formatClientAge } from "~/lib/utils";
 import { api } from "~/trpc/react";
-import { Alert, AlertTitle } from "./ui/alert";
 
 export function Client({ hash }: { hash: string }) {
 	const officeResponse = api.offices.getAll.useQuery();
@@ -146,17 +146,19 @@ export function Client({ hash }: { hash: string }) {
 						</Alert>
 					)}
 
-					<ScrollArea className="dark w-full rounded-md border bg-card text-card-foreground">
+					<ScrollArea className="max-h-60 w-full rounded-md border">
 						<div className="p-4">
 							<h4 className="mb-4 font-bold leading-none">
 								Eligible Evaluators
 							</h4>
-							{eligibleEvaluators?.map((evaluator) => (
+							{eligibleEvaluators?.map((evaluator, index) => (
 								<div key={evaluator.npi}>
 									<div key={evaluator.npi} className="text-sm">
 										{evaluator.providerName}
 									</div>
+									{index !== eligibleEvaluators.length - 1 && (
 									<Separator key="separator" className="my-2" />
+									)}
 								</div>
 							))}
 						</div>
