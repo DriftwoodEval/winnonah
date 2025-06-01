@@ -38,6 +38,8 @@ export const env = createEnv({
 				/^(?:[A-Z]+:[-0-9.]+,[-0-9.]+,[a-zA-Z ]+;?)+$/,
 				"Invalid office addresses format",
 			),
+		ASANA_TOKEN: z.string(),
+		ASANA_WORKSPACE: z.string(),
 	},
 
 	/**
@@ -63,6 +65,8 @@ export const env = createEnv({
 		NODE_ENV: process.env.NODE_ENV,
 		PROVIDER_CREDENTIALING_ID: process.env.PROVIDER_CREDENTIALING_ID,
 		OFFICE_ADDRESSES: process.env.OFFICE_ADDRESSES,
+		ASANA_TOKEN: process.env.ASANA_TOKEN,
+		ASANA_WORKSPACE: process.env.ASANA_WORKSPACE,
 	},
 	/**
 	 * Run `build` or `dev` with `SKIP_ENV_VALIDATION` to skip env validation. This is especially

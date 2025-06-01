@@ -1,3 +1,4 @@
+import { asanaRouter } from "~/server/api/routers/asana";
 import {
 	clientRouter,
 	evaluatorRouter,
@@ -14,6 +15,7 @@ export const appRouter = createTRPCRouter({
 	evaluators: evaluatorRouter,
 	clients: clientRouter,
 	offices: officeRouter,
+	asana: asanaRouter,
 });
 
 // export type definition of API

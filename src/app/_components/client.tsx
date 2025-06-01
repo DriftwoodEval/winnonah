@@ -39,6 +39,11 @@ export function Client({ hash }: { hash: string }) {
 	const closestOfficeMiles = client?.closestOfficeMiles ?? null;
 	const secondClosestOfficeMiles = client?.secondClosestOfficeMiles ?? null;
 	const thirdClosestOfficeMiles = client?.thirdClosestOfficeMiles ?? null;
+
+	const asanaProjectResponse = api.asana.getProject.useQuery(
+		client?.asanaId ?? 0,
+	);
+	const asanaProject = asanaProjectResponse?.data?.data;
 	return (
 		<div className="mx-10 flex flex-col gap-6">
 			<div className="flex flex-col gap-2">
@@ -157,12 +162,18 @@ export function Client({ hash }: { hash: string }) {
 										{evaluator.providerName}
 									</div>
 									{index !== eligibleEvaluators.length - 1 && (
-									<Separator key="separator" className="my-2" />
+										<Separator key="separator" className="my-2" />
 									)}
 								</div>
 							))}
 						</div>
 					</ScrollArea>
+					{asanaProject && (
+						<ScrollArea className="max-h-60 w-full whitespace-pre-wrap rounded-md border p-4">
+							<h4 className="mb-4 font-bold leading-none">Asana Notes</h4>
+							{asanaProject.notes}
+						</ScrollArea>
+					)}
 				</div>
 			) : (
 				<Skeleton className="h-40 w-[250px] rounded-md sm:w-[500px]" />
