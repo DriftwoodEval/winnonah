@@ -1,5 +1,10 @@
 "use client";
 
+import {
+	Popover,
+	PopoverContent,
+	PopoverTrigger,
+} from "~/app/_components/ui/popover";
 import { ScrollArea } from "~/app/_components/ui/scroll-area";
 import { Separator } from "~/app/_components/ui/separator";
 import { Skeleton } from "~/app/_components/ui/skeleton";
@@ -14,8 +19,9 @@ export function Client({ hash }: { hash: string }) {
 		value: hash,
 	});
 	const client = clientResponse.data;
+
 	const eligibleEvaluatorsResponse =
-		api.evaluators.getEligibleForClient.useQuery(client?.id ?? "");
+		api.evaluators.getEligibleForClient.useQuery(client?.id ?? 0);
 	const eligibleEvaluators = eligibleEvaluatorsResponse.data;
 
 	if (clientResponse.error) {
@@ -23,6 +29,14 @@ export function Client({ hash }: { hash: string }) {
 	}
 
 	const closestOffice = offices?.[client?.closestOffice ?? ""] ?? null;
+	const secondClosestOffice =
+		offices?.[client?.secondClosestOffice ?? ""] ?? null;
+	const thirdClosestOffice =
+		offices?.[client?.thirdClosestOffice ?? ""] ?? null;
+
+	const closestOfficeMiles = client?.closestOfficeMiles ?? null;
+	const secondClosestOfficeMiles = client?.secondClosestOfficeMiles ?? null;
+	const thirdClosestOfficeMiles = client?.thirdClosestOfficeMiles ?? null;
 	return (
 		<div className="mx-10 flex flex-col gap-6">
 			<div className="flex flex-col gap-2">
@@ -77,7 +91,6 @@ export function Client({ hash }: { hash: string }) {
 						<p>{client?.addedDate.toLocaleDateString("en-US")}</p>
 					</div>
 					{!client?.privatePay && (
-						// TODO: Put insurance in a conditional box
 						<div
 							className={cn(
 								"",
@@ -113,10 +126,33 @@ export function Client({ hash }: { hash: string }) {
 						<p>{client?.schoolDistrict}</p>
 					</div>
 					<div>
-						<p className="font-bold">Closest Office</p>
-						<p>{closestOffice?.prettyName}</p>
+						<p className="font-bold">
+							Closest Office{" "}
+							<Popover>
+								<PopoverTrigger asChild>
+									<span className="cursor-pointer font-normal text-muted-foreground underline">
+										(Compare)
+									</span>
+								</PopoverTrigger>
+								<PopoverContent side="right">
+									<ul className="list-disc p-3">
+										<li>
+											{secondClosestOffice?.prettyName} (
+											{secondClosestOfficeMiles} mi)
+										</li>
+										<li>
+											{thirdClosestOffice?.prettyName} (
+											{thirdClosestOfficeMiles} mi)
+										</li>
+									</ul>
+								</PopoverContent>
+							</Popover>
+						</p>
+						<p>
+							{closestOffice?.prettyName} ({closestOfficeMiles} mi)
+						</p>
 					</div>
-					<ScrollArea className="dark h-72 w-full rounded-md border bg-card text-card-foreground">
+					<ScrollArea className="dark w-full rounded-md border bg-card text-card-foreground">
 						<div className="p-4">
 							<h4 className="mb-4 font-bold leading-none">
 								Eligible Evaluators
