@@ -1,5 +1,5 @@
 import { TRPCError } from "@trpc/server";
-import { eq, or } from "drizzle-orm";
+import { eq, isNull, or } from "drizzle-orm";
 import { z } from "zod";
 import { env } from "~/env";
 import { createTRPCRouter, protectedProcedure } from "~/server/api/trpc";
@@ -104,6 +104,15 @@ export const clientRouter = createTRPCRouter({
 
 			return foundClient.client;
 		}),
+
+	getAsanaErrors: protectedProcedure.query(async ({ ctx }) => {
+		const clientsWithoutAsanaId = await ctx.db
+			.select({ client: clients })
+			.from(clients)
+			.where(isNull(clients.asanaId));
+
+		return clientsWithoutAsanaId.map(({ client }) => client);
+	}),
 });
 
 export const evaluatorRouter = createTRPCRouter({
