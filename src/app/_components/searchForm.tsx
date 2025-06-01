@@ -220,6 +220,8 @@ export default function SearchForm() {
 							const url = new URL(window.location.href);
 							url.searchParams.delete("eval");
 							url.searchParams.delete("office");
+							url.searchParams.delete("daeval");
+							url.searchParams.delete("date");
 							window.location.href = url.toString();
 						}}
 					>
