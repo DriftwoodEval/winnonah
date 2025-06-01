@@ -91,7 +91,10 @@ export default function SearchForm() {
 										</FormControl>
 										<SelectContent>
 											{evaluators.data?.map((evaluator) => (
-												<SelectItem key={evaluator.npi} value={evaluator.npi}>
+												<SelectItem
+													key={evaluator.npi}
+													value={evaluator.npi.toString()}
+												>
 													{evaluator.providerName}
 												</SelectItem>
 											))}

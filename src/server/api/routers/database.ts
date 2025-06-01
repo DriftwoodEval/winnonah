@@ -65,7 +65,7 @@ export const clientRouter = createTRPCRouter({
 	}),
 
 	getByNpi: protectedProcedure
-		.input(z.string())
+		.input(z.number())
 		.query(async ({ ctx, input }) => {
 			const clientsByNpi = await ctx.db
 				.select({ client: clients })
@@ -117,7 +117,7 @@ export const evaluatorRouter = createTRPCRouter({
 	}),
 
 	getEligibleForClient: protectedProcedure
-		.input(z.string())
+		.input(z.number())
 		.query(async ({ ctx, input }) => {
 			const evaluatorsByClient = await ctx.db
 				.select({ evaluator: evaluators })

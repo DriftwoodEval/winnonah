@@ -11,7 +11,7 @@ import type { AdapterAccount } from "next-auth/adapters";
 export const createTable = mysqlTableCreator((name) => `schedule_${name}`);
 
 export const evaluators = createTable("evaluator", (d) => ({
-	npi: d.varchar({ length: 255 }).notNull().primaryKey(),
+	npi: d.int().notNull().primaryKey(),
 	providerName: d.varchar({ length: 255 }).notNull(),
 	SCM: d.boolean().notNull(),
 	BabyNet: d.boolean().notNull(),
@@ -28,9 +28,9 @@ export const evaluators = createTable("evaluator", (d) => ({
 }));
 
 export const clients = createTable("client", (d) => ({
-	id: d.varchar({ length: 255 }).notNull().primaryKey(),
+	id: d.int().notNull().primaryKey(),
 	hash: d.varchar({ length: 255 }).notNull(),
-	asanaId: d.varchar({ length: 255 }),
+	asanaId: d.int(),
 	addedDate: d.date().notNull(),
 	dob: d.date().notNull(),
 	firstName: d.varchar({ length: 255 }).notNull(),
@@ -54,11 +54,11 @@ export const clients = createTable("client", (d) => ({
 
 export const clientsEvaluators = createTable("client_eval", (d) => ({
 	client_id: d
-		.varchar({ length: 255 })
+		.int()
 		.notNull()
 		.references(() => clients.id, { onDelete: "cascade" }),
 	evaluator_npi: d
-		.varchar({ length: 255 })
+		.int()
 		.notNull()
 		.references(() => evaluators.npi, { onDelete: "cascade" }),
 }));

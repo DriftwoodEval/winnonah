@@ -17,11 +17,14 @@ export function Clients() {
 	let initiallyFilteredClients = clients.data ?? [];
 
 	if (searchParams.get("eval") != null) {
-		const evalClients = api.clients.getByNpi.useQuery(
-			searchParams.get("eval") as string,
-		);
-		if (evalClients.data) {
-			initiallyFilteredClients = evalClients.data;
+		const evalParam = searchParams.get("eval") ?? "";
+		const evalNumber = Number.parseInt(evalParam, 10);
+
+		if (!Number.isNaN(evalNumber)) {
+			const evalClients = api.clients.getByNpi.useQuery(evalNumber);
+			if (evalClients.data) {
+				initiallyFilteredClients = evalClients.data;
+			}
 		}
 	}
 
