@@ -2,6 +2,7 @@ import hashlib
 import json
 import os
 import re
+import string
 from datetime import datetime
 from typing import Callable, Literal, Optional
 from urllib.parse import urlparse
@@ -521,7 +522,7 @@ def put_clients_in_db(clients_df):
             client.LASTNAME,
             client.PREFERRED_NAME if pd.notna(client.PREFERRED_NAME) else None,
             f"{client.FIRSTNAME}{' (' + client.PREFERRED_NAME + ') ' if pd.notna(client.PREFERRED_NAME) else ' '}{client.LASTNAME}",
-            client.ADDRESS,
+            string.capwords(client.ADDRESS),
             client.SCHOOL_DISTRICT,
             client.CLOSEST_OFFICE if pd.notna(client.CLOSEST_OFFICE) else None,
             client.CLOSEST_OFFICE_MILES
