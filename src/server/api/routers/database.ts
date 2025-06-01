@@ -113,6 +113,15 @@ export const clientRouter = createTRPCRouter({
 
 		return clientsWithoutAsanaId.map(({ client }) => client);
 	}),
+
+	getDistrictErrors: protectedProcedure.query(async ({ ctx }) => {
+		const clientsWithoutDistrict = await ctx.db
+			.select({ client: clients })
+			.from(clients)
+			.where(eq(clients.schoolDistrict, "Unknown"));
+
+		return clientsWithoutDistrict.map(({ client }) => client);
+	}),
 });
 
 export const evaluatorRouter = createTRPCRouter({
