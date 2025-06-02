@@ -8,12 +8,12 @@ import type { AdapterAccount } from "next-auth/adapters";
  *
  * @see https://orm.drizzle.team/docs/goodies#multi-project-schema
  */
-export const createTable = mysqlTableCreator((name) => `schedule_${name}`);
+export const createTable = mysqlTableCreator((name) => `emr_${name}`);
 
 export const evaluators = createTable("evaluator", (d) => ({
 	npi: d.int().notNull().primaryKey(),
 	providerName: d.varchar({ length: 255 }).notNull(),
-	email: d.varchar({ length: 255 }).notNull(),
+	email: d.varchar({ length: 255 }).notNull().unique(),
 	SCM: d.boolean().notNull(),
 	BabyNet: d.boolean().notNull(),
 	Molina: d.boolean().notNull(),
@@ -32,7 +32,7 @@ export const clients = createTable("client", (d) => ({
 	id: d.int().notNull().primaryKey(),
 	hash: d.varchar({ length: 255 }).notNull(),
 	asanaId: d.varchar({ length: 255 }),
-	addedDate: d.date().notNull(),
+	addedDate: d.date(),
 	dob: d.date().notNull(),
 	firstName: d.varchar({ length: 255 }).notNull(),
 	lastName: d.varchar({ length: 255 }).notNull(),
@@ -57,36 +57,37 @@ export const clients = createTable("client", (d) => ({
 
 export const appointments = createTable("appointment", (d) => ({
 	id: d.int().notNull().autoincrement().primaryKey(),
-	client_id: d
+	clientId: d
 		.int()
 		.notNull()
 		.references(() => clients.id, { onDelete: "cascade" }),
-	evaluator_npi: d
+	evaluatorNpi: d
 		.int()
 		.notNull()
 		.references(() => evaluators.npi, { onDelete: "cascade" }),
 	date: d.date().notNull(),
+	status: d.varchar({ length: 255 }),
 	type: d.mysqlEnum(["EVAL", "DA", "DAEVAL"]),
 }));
 
 export const questionnaires = createTable("questionnaire", (d) => ({
 	id: d.int().notNull().autoincrement().primaryKey(),
-	appointment_id: d
+	appointmentId: d
 		.int()
 		.notNull()
 		.references(() => appointments.id),
 	questionnaireType: d.varchar({ length: 255 }).notNull(),
 	link: d.varchar({ length: 255 }).notNull(),
-	sent: d.date().notNull(),
+	sent: d.date(),
 	completed: d.boolean().notNull().default(false),
 }));
 
 export const clientsEvaluators = createTable("client_eval", (d) => ({
-	client_id: d
+	clientId: d
 		.int()
 		.notNull()
 		.references(() => clients.id, { onDelete: "cascade" }),
-	evaluator_npi: d
+	evaluatorNpi: d
 		.int()
 		.notNull()
 		.references(() => evaluators.npi, { onDelete: "cascade" }),

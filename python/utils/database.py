@@ -17,8 +17,7 @@ def open_local_spreadsheet(file) -> pd.DataFrame:
         return df
 
 
-def put_evaluators_in_db(evaluators_dict: dict) -> None:
-    logger.debug("Inserting evaluators into database")
+def get_db():
     db_url = urlparse(os.getenv("DATABASE_URL"))
     db_connection = mysql.connector.connect(
         host=db_url.hostname,
@@ -27,11 +26,16 @@ def put_evaluators_in_db(evaluators_dict: dict) -> None:
         password=db_url.password,
         database=db_url.path[1:],
     )
-
     cursor = db_connection.cursor()
+    return db_connection, cursor
+
+
+def put_evaluators_in_db(evaluators_dict: dict) -> None:
+    logger.debug("Inserting evaluators into database")
+    db_connection, cursor = get_db()
 
     sql = """
-        INSERT INTO schedule_evaluator (
+        INSERT INTO emr_evaluator (
             npi, providerName, email, SCM, BabyNet, Molina, MolinaMarketplace, ATC, Humana, SH, HB, AETNA, United_Optum, Districts, Offices
         ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
         ON DUPLICATE KEY UPDATE
@@ -82,17 +86,9 @@ def put_evaluators_in_db(evaluators_dict: dict) -> None:
 
 def remove_previous_clients(clients: pd.DataFrame):
     logger.debug("Checking previous clients")
-    db_url = urlparse(os.getenv("DATABASE_URL"))
-    db_connection = mysql.connector.connect(
-        host=db_url.hostname,
-        port=db_url.port,
-        user=db_url.username,
-        password=db_url.password,
-        database=db_url.path[1:],
-    )
+    db_connection, cursor = get_db()
 
-    cursor = db_connection.cursor()
-    cursor.execute("SELECT id, address FROM schedule_client")
+    cursor.execute("SELECT id, address FROM emr_client")
     previous_attributes: list = cursor.fetchall()
 
     for index, row in clients.iterrows():
@@ -111,19 +107,10 @@ def remove_previous_clients(clients: pd.DataFrame):
 
 def put_clients_in_db(clients_df):
     logger.debug("Inserting clients into database")
-    db_url = urlparse(os.getenv("DATABASE_URL"))
-    db_connection = mysql.connector.connect(
-        host=db_url.hostname,
-        port=db_url.port,
-        user=db_url.username,
-        password=db_url.password,
-        database=db_url.path[1:],
-    )
-
-    cursor = db_connection.cursor()
+    db_connection, cursor = get_db()
 
     insert_query = """
-        INSERT INTO `schedule_client` (id, hash, asanaId, addedDate, dob, firstName, lastName, preferredName, fullName, address, schoolDistrict, closestOffice, closestOfficeMiles, secondClosestOffice, secondClosestOfficeMiles, thirdClosestOffice, thirdClosestOfficeMiles, primaryInsurance, secondaryInsurance, privatePay, asdAdhd, interpreter, gender, phoneNumber)
+        INSERT INTO `emr_client` (id, hash, asanaId, addedDate, dob, firstName, lastName, preferredName, fullName, address, schoolDistrict, closestOffice, closestOfficeMiles, secondClosestOffice, secondClosestOfficeMiles, thirdClosestOffice, thirdClosestOfficeMiles, primaryInsurance, secondaryInsurance, privatePay, asdAdhd, interpreter, gender, phoneNumber)
         VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
         ON DUPLICATE KEY UPDATE
             hash = VALUES(hash),
@@ -216,22 +203,14 @@ def link_client_provider(client_id: str, npi: str) -> None:
     logger.debug(
         f"Inserting client-provider link into database for {client_id} and {npi}",
     )
-    db_url = urlparse(os.getenv("DATABASE_URL"))
-    db_connection = mysql.connector.connect(
-        host=db_url.hostname,
-        port=db_url.port,
-        user=db_url.username,
-        password=db_url.password,
-        database=db_url.path[1:],
-    )
+    db_connection, cursor = get_db()
 
-    cursor = db_connection.cursor()
     insert_query = """
-    INSERT INTO schedule_client_eval (client_id, evaluator_npi)
+    INSERT INTO emr_client_eval (clientId, evaluatorNpi)
     VALUES (%s, %s)
     ON DUPLICATE KEY UPDATE
-        client_id = VALUES(client_id),
-        evaluator_npi = VALUES(evaluator_npi)
+        clientId = VALUES(clientId),
+        evaluatorNpi = VALUES(evaluatorNpi)
     """
 
     values = (client_id, npi)
