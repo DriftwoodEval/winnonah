@@ -6,8 +6,12 @@ from urllib.parse import urlparse
 
 import mysql.connector
 import pandas as pd
-import utils.relationships
+from dotenv import load_dotenv
 from loguru import logger
+
+import utils.relationships
+
+load_dotenv()
 
 
 def open_local_spreadsheet(file) -> pd.DataFrame:

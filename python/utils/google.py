@@ -1,10 +1,13 @@
 import os
 
+from dotenv import load_dotenv
 from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import InstalledAppFlow
 from googleapiclient.discovery import build
 from loguru import logger
+
+load_dotenv()
 
 PROVIDER_CREDENTIALING_ID = os.getenv("PROVIDER_CREDENTIALING_ID")
 PROVIDER_CREDENTIALING_RANGE = "Prov Credentialing!A1:R17"

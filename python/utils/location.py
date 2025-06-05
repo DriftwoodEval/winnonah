@@ -3,11 +3,14 @@ from typing import Callable, Literal, Optional
 
 import pandas as pd
 import requests
+from dotenv import load_dotenv
 from geopy import distance
 from geopy.extra.rate_limiter import RateLimiter
 from geopy.geocoders import Nominatim
 from geopy.location import Location
 from loguru import logger
+
+load_dotenv()
 
 
 def search_census(params: dict) -> tuple[str, dict] | None:
