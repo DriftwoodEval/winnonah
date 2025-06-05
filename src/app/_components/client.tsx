@@ -76,10 +76,12 @@ export function Client({ hash }: { hash: string }) {
 						<p className="font-bold">Age</p>
 						<p>{client?.dob ? formatClientAge(client?.dob) : ""}</p>
 					</div>
-					<div>
-						<p className="font-bold">Date of Entry</p>
-						<p>{client?.addedDate.toLocaleDateString("en-US")}</p>
-					</div>
+					{!client?.addedDate && (
+						<div>
+							<p className="font-bold">Date of Entry</p>
+							<p>{client?.addedDate?.toLocaleDateString("en-US")}</p>
+						</div>
+					)}
 					{!client?.privatePay && (
 						<div
 							className={cn(

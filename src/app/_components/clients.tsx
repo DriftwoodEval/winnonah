@@ -65,7 +65,7 @@ export function Clients() {
 									{client.sortReason === "BabyNet above 2:6"
 										? `BabyNet: ${formatClientAge(new Date(client.dob), "short")}`
 										: client.sortReason === "Added date"
-											? `Added: ${client.addedDate.toLocaleString("en-US", {
+											? `Added: ${client.addedDate?.toLocaleString("en-US", {
 													year: "numeric",
 													month: "short",
 													day: "numeric",
