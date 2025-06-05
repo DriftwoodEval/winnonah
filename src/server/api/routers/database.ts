@@ -27,9 +27,9 @@ export const clientRouter = createTRPCRouter({
 				.from(clients)
 				.innerJoin(
 					clientsEvaluators,
-					eq(clients.id, clientsEvaluators.client_id),
+					eq(clients.id, clientsEvaluators.clientId),
 				)
-				.where(eq(clientsEvaluators.evaluator_npi, input));
+				.where(eq(clientsEvaluators.evaluatorNpi, input));
 
 			const correctedClientsByNpi = clientsByNpi.map(({ client }) => client);
 
@@ -97,9 +97,9 @@ export const evaluatorRouter = createTRPCRouter({
 				.from(evaluators)
 				.innerJoin(
 					clientsEvaluators,
-					eq(evaluators.npi, clientsEvaluators.evaluator_npi),
+					eq(evaluators.npi, clientsEvaluators.evaluatorNpi),
 				)
-				.where(eq(clientsEvaluators.client_id, input));
+				.where(eq(clientsEvaluators.clientId, input));
 
 			const correctedEvaluatorsByClient = evaluatorsByClient
 				.map(({ evaluator }) => evaluator)
