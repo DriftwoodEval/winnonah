@@ -137,7 +137,7 @@ def combine_address_info(clients: pd.DataFrame) -> pd.DataFrame:
 def get_clients() -> pd.DataFrame:
     logger.debug("Getting clients from spreadsheets")
     insurance_df = utils.database.open_local_spreadsheet("input/clients-insurance.csv")
-    demo_df = utils.database.open_local_spreadsheet("input/clients-demographics.csv")
+    demo_df = utils.database.open_local_spreadsheet("input/clients-demographic.csv")
     clients_df = pd.merge(demo_df, insurance_df)
     clients_df = filter_inactive(clients_df)
     clients_df = normalize_names(clients_df)

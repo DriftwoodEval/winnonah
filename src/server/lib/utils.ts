@@ -36,7 +36,9 @@ export const sortRemainingClientsByAddedDate = (clients: SortedClient[]) => {
 	}));
 
 	sorted.sort(
-		(a, b) => new Date(a.addedDate).getTime() - new Date(b.addedDate).getTime(),
+		(a, b) =>
+			new Date(a.addedDate ?? "").getTime() -
+			new Date(b.addedDate ?? "").getTime(),
 	);
 
 	return sorted;
