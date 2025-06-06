@@ -164,21 +164,15 @@ def put_clients_in_db(clients_df):
             string.capwords(client.ADDRESS),
             client.SCHOOL_DISTRICT,
             client.CLOSEST_OFFICE if pd.notna(client.CLOSEST_OFFICE) else None,
-            client.CLOSEST_OFFICE_MILES
-            if pd.notna(client.CLOSEST_OFFICE_MILES)
-            else None,
+            client.CLOSEST_OFFICE_MILES if pd.notna(client.CLOSEST_OFFICE_MILES) and client.CLOSEST_OFFICE != "Unknown" else None,
             client.SECOND_CLOSEST_OFFICE
             if pd.notna(client.SECOND_CLOSEST_OFFICE)
             else None,
-            client.SECOND_CLOSEST_OFFICE_MILES
-            if pd.notna(client.SECOND_CLOSEST_OFFICE_MILES)
-            else None,
+            client.SECOND_CLOSEST_OFFICE_MILES if pd.notna(client.SECOND_CLOSEST_OFFICE_MILES) and client.SECOND_CLOSEST_OFFICE != "Unknown" else None,
             client.THIRD_CLOSEST_OFFICE
             if pd.notna(client.THIRD_CLOSEST_OFFICE)
             else None,
-            client.THIRD_CLOSEST_OFFICE_MILES
-            if pd.notna(client.THIRD_CLOSEST_OFFICE_MILES)
-            else None,
+            client.THIRD_CLOSEST_OFFICE_MILES if pd.notna(client.THIRD_CLOSEST_OFFICE_MILES) and client.THIRD_CLOSEST_OFFICE != "Unknown" else None,
             client.PRIMARY_INSURANCE_COMPANYNAME
             if pd.notna(client.PRIMARY_INSURANCE_COMPANYNAME)
             and client.PRIMARY_INSURANCE_COMPANYNAME != ""
