@@ -72,10 +72,10 @@ export const appointments = createTable("appointment", (d) => ({
 
 export const questionnaires = createTable("questionnaire", (d) => ({
 	id: d.int().notNull().autoincrement().primaryKey(),
-	appointmentId: d
+	clientId: d
 		.int()
 		.notNull()
-		.references(() => appointments.id),
+		.references(() => clients.id, { onDelete: "cascade" }),
 	questionnaireType: d.varchar({ length: 255 }).notNull(),
 	link: d.varchar({ length: 255 }).notNull(),
 	sent: d.date(),
