@@ -11,8 +11,14 @@ export function IssuesAlert() {
 	const districtErrorsResponse = api.clients.getDistrictErrors.useQuery();
 	const districtErrors = districtErrorsResponse.data;
 
+	const archivedAsanaErrorsResponse =
+		api.clients.getArchivedAsanaErrors.useQuery();
+	const archivedAsanaErrors = archivedAsanaErrorsResponse.data;
+
 	const errorsLength =
-		(asanaErrors?.length ?? 0) + (districtErrors?.length ?? 0);
+		(asanaErrors?.length ?? 0) +
+		(districtErrors?.length ?? 0) +
+		(archivedAsanaErrors?.length ?? 0);
 
 	if (errorsLength === 0) {
 		return null;

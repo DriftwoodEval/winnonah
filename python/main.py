@@ -11,29 +11,37 @@ load_dotenv()
 def main():
     projects_api = utils.asana.init()
     asana_projects = utils.asana.get_projects(projects_api)
+    archived_asana_projects = utils.asana.get_projects(projects_api, archived=True)
 
     clients = utils.clients.get_clients()
     evaluators = utils.google.get_evaluators()
 
-    clients = clients.sample(10)
+    clients = clients.sample(100)
 
     clients = utils.database.remove_previous_clients(clients)
 
     for index, client in clients.iterrows():
-        asana_project = utils.asana.search_by_name(
-            asana_projects, f"{client.FIRSTNAME} {client.LASTNAME}"
-        )
         asana_id = None
         asd_adhd = None
         interpreter = False
+        archived_in_asana = False
+        asana_project = utils.asana.search_by_name(
+            asana_projects, str(client.CLIENT_ID)
+        )
+        if not asana_project:
+            asana_project = utils.asana.search_by_name(
+                archived_asana_projects, str(client.CLIENT_ID)
+            )
         if asana_project:
             asana_id = asana_project["gid"]
             asd_adhd = utils.asana.is_asd_adhd(asana_project)
             interpreter = utils.asana.is_interpreter(asana_project)
+            archived_in_asana = asana_project["archived"]
 
         clients.at[index, "ASANA_ID"] = asana_id
         clients.at[index, "ASD_ADHD"] = asd_adhd
         clients.at[index, "INTERPRETER"] = interpreter
+        clients.at[index, "ARCHIVED_IN_ASANA"] = archived_in_asana
 
         census_result = utils.location.get_client_census_data(client)
 

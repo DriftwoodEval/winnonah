@@ -32,6 +32,7 @@ export const clients = createTable("client", (d) => ({
 	id: d.int().notNull().primaryKey(),
 	hash: d.varchar({ length: 255 }).notNull(),
 	asanaId: d.varchar({ length: 255 }),
+	archivedInAsana: d.boolean().notNull().default(false),
 	addedDate: d.date(),
 	dob: d.date().notNull(),
 	firstName: d.varchar({ length: 255 }).notNull(),

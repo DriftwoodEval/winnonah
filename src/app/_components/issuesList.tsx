@@ -11,6 +11,10 @@ export function IssuesList() {
 	const districtErrorsResponse = api.clients.getDistrictErrors.useQuery();
 	const districtErrors = districtErrorsResponse.data;
 
+	const archivedAsanaErrorsResponse =
+		api.clients.getArchivedAsanaErrors.useQuery();
+	const archivedAsanaErrors = archivedAsanaErrorsResponse.data;
+
 	return (
 		<div className="flex flex-wrap gap-6">
 			{/* TODO: Link to clients in edit mode */}
@@ -41,6 +45,25 @@ export function IssuesList() {
 								Missing Districts
 							</h1>
 							{districtErrors.map((client) => (
+								<Link href={`/clients/${client.hash}`} key={client.hash}>
+									<div key={client.hash} className="text-sm">
+										{client.fullName}
+									</div>
+									<Separator key="separator" className="my-2" />
+								</Link>
+							))}
+						</div>
+					</ScrollArea>
+				</div>
+			)}
+			{archivedAsanaErrors && archivedAsanaErrors.length !== 0 && (
+				<div>
+					<ScrollArea className="dark w-full rounded-md border bg-card text-card-foreground">
+						<div className="p-4">
+							<h1 className="mb-4 font-bold text-lg leading-none">
+								Missing Asana IDs
+							</h1>
+							{archivedAsanaErrors.map((client) => (
 								<Link href={`/clients/${client.hash}`} key={client.hash}>
 									<div key={client.hash} className="text-sm">
 										{client.fullName}

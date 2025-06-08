@@ -6,10 +6,9 @@ from urllib.parse import urlparse
 
 import mysql.connector
 import pandas as pd
+import utils.relationships
 from dotenv import load_dotenv
 from loguru import logger
-
-import utils.relationships
 
 load_dotenv()
 
@@ -114,11 +113,12 @@ def put_clients_in_db(clients_df):
     db_connection, cursor = get_db()
 
     insert_query = """
-        INSERT INTO `emr_client` (id, hash, asanaId, addedDate, dob, firstName, lastName, preferredName, fullName, address, schoolDistrict, closestOffice, closestOfficeMiles, secondClosestOffice, secondClosestOfficeMiles, thirdClosestOffice, thirdClosestOfficeMiles, primaryInsurance, secondaryInsurance, privatePay, asdAdhd, interpreter, gender, phoneNumber)
-        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+        INSERT INTO `emr_client` (id, hash, asanaId, archivedInAsana, addedDate, dob, firstName, lastName, preferredName, fullName, address, schoolDistrict, closestOffice, closestOfficeMiles, secondClosestOffice, secondClosestOfficeMiles, thirdClosestOffice, thirdClosestOfficeMiles, primaryInsurance, secondaryInsurance, privatePay, asdAdhd, interpreter, gender, phoneNumber)
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
         ON DUPLICATE KEY UPDATE
             hash = VALUES(hash),
             asanaId = VALUES(asanaId),
+            archivedInAsana = VALUES(archivedInAsana),
             addedDate = VALUES(addedDate),
             dob = VALUES(dob),
             firstName = VALUES(firstName),
@@ -155,6 +155,7 @@ def put_clients_in_db(clients_df):
             client.CLIENT_ID,
             hashlib.sha256(str(client.CLIENT_ID).encode("utf-8")).hexdigest(),
             client.ASANA_ID if pd.notna(client.ASANA_ID) else None,
+            client.ARCHIVED_IN_ASANA,
             datetime.strptime(client.ADDED_DATE, "%m/%d/%Y").strftime("%Y-%m-%d"),
             datetime.strptime(client.DOB, "%m/%d/%Y").strftime("%Y-%m-%d"),
             client.FIRSTNAME,
@@ -164,15 +165,24 @@ def put_clients_in_db(clients_df):
             string.capwords(client.ADDRESS),
             client.SCHOOL_DISTRICT,
             client.CLOSEST_OFFICE if pd.notna(client.CLOSEST_OFFICE) else None,
-            client.CLOSEST_OFFICE_MILES if pd.notna(client.CLOSEST_OFFICE_MILES) and client.CLOSEST_OFFICE != "Unknown" else None,
+            client.CLOSEST_OFFICE_MILES
+            if pd.notna(client.CLOSEST_OFFICE_MILES)
+            and client.CLOSEST_OFFICE != "Unknown"
+            else None,
             client.SECOND_CLOSEST_OFFICE
             if pd.notna(client.SECOND_CLOSEST_OFFICE)
             else None,
-            client.SECOND_CLOSEST_OFFICE_MILES if pd.notna(client.SECOND_CLOSEST_OFFICE_MILES) and client.SECOND_CLOSEST_OFFICE != "Unknown" else None,
+            client.SECOND_CLOSEST_OFFICE_MILES
+            if pd.notna(client.SECOND_CLOSEST_OFFICE_MILES)
+            and client.SECOND_CLOSEST_OFFICE != "Unknown"
+            else None,
             client.THIRD_CLOSEST_OFFICE
             if pd.notna(client.THIRD_CLOSEST_OFFICE)
             else None,
-            client.THIRD_CLOSEST_OFFICE_MILES if pd.notna(client.THIRD_CLOSEST_OFFICE_MILES) and client.THIRD_CLOSEST_OFFICE != "Unknown" else None,
+            client.THIRD_CLOSEST_OFFICE_MILES
+            if pd.notna(client.THIRD_CLOSEST_OFFICE_MILES)
+            and client.THIRD_CLOSEST_OFFICE != "Unknown"
+            else None,
             client.PRIMARY_INSURANCE_COMPANYNAME
             if pd.notna(client.PRIMARY_INSURANCE_COMPANYNAME)
             and client.PRIMARY_INSURANCE_COMPANYNAME != ""

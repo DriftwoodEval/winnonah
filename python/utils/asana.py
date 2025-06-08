@@ -17,11 +17,13 @@ def init() -> asana.ProjectsApi:
     return projects_api
 
 
-def get_projects(projects_api: asana.ProjectsApi) -> list | None:
+def get_projects(
+    projects_api: asana.ProjectsApi, archived: bool = False
+) -> list | None:
     opts = {
         "limit": 100,
-        "archived": False,
-        "opt_fields": "name,color,permalink_url,notes",
+        "archived": archived,
+        "opt_fields": "archived,name,color,permalink_url,notes",
     }
 
     logger.debug("Getting Asana projects")
