@@ -15,5 +15,8 @@ export function formatClientAge(dob: Date, format = "long") {
 	if (format === "short") {
 		return `${years}:${months}`;
 	}
+	if (format === "years") {
+		return `${years}`;
+	}
 	return years >= 3 ? `${years} years` : `${years} years, ${months} months`;
 }

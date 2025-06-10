@@ -81,6 +81,7 @@ export const questionnaires = createTable("questionnaire", (d) => ({
 	link: d.varchar({ length: 255 }).notNull(),
 	sent: d.date(),
 	completed: d.boolean().notNull().default(false),
+	status: d.mysqlEnum(["PENDING", "COMPLETED", "RESCHEDULED"]),
 }));
 
 export const clientsEvaluators = createTable("client_eval", (d) => ({

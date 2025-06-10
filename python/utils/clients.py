@@ -3,7 +3,7 @@ import utils.database
 from loguru import logger
 
 TEST_NAMES = [
-    "Testman Testson",
+    # "Testman Testson",
     "Testman Testson Jr.",
     "Johnny Smonny",
     "Johnny Smonathan",

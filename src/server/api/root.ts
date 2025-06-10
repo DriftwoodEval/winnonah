@@ -4,6 +4,7 @@ import {
 	evaluatorRouter,
 	officeRouter,
 } from "~/server/api/routers/database";
+import { pythonRouter } from "~/server/api/routers/python";
 import { createCallerFactory, createTRPCRouter } from "~/server/api/trpc";
 
 /**
@@ -16,6 +17,7 @@ export const appRouter = createTRPCRouter({
 	clients: clientRouter,
 	offices: officeRouter,
 	asana: asanaRouter,
+	python: pythonRouter,
 });
 
 // export type definition of API

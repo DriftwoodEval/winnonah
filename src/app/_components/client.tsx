@@ -12,6 +12,7 @@ import { Separator } from "~/app/_components/ui/separator";
 import { Skeleton } from "~/app/_components/ui/skeleton";
 import { cn, formatClientAge } from "~/lib/utils";
 import { api } from "~/trpc/react";
+import { ApiButton } from "./apiButton";
 
 export function Client({ hash }: { hash: string }) {
 	const officeResponse = api.offices.getAll.useQuery();
@@ -44,6 +45,7 @@ export function Client({ hash }: { hash: string }) {
 		client?.asanaId ?? "",
 	);
 	const asanaProject = asanaProjectResponse?.data?.data;
+
 	return (
 		<div className="mx-10 flex flex-col gap-6">
 			<div className="flex flex-col gap-2">
@@ -66,6 +68,13 @@ export function Client({ hash }: { hash: string }) {
 					)}
 				</div>
 			</div>
+			{client?.dob && client?.asdAdhd && (
+				<ApiButton
+					age={Number(formatClientAge(client.dob, "years"))}
+					type={client.asdAdhd}
+					daeval="DA"
+				/>
+			)}
 			{client ? (
 				<div className="flex max-w-3xl flex-wrap gap-6 rounded-md border-2 bg-card p-4">
 					<div>
