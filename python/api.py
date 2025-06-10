@@ -58,14 +58,6 @@ def get_questionnaires(age: int, type: str, daeval: str):
                 return "Too young"
             elif age < 6:
                 return ["ASRS (2-5 Years)"]
-            elif age < 7:
-                return ["ASRS (6-18 Years)"]
-            elif age < 8:
-                return ["ASRS (6-18 Years)"]
-            elif age < 12:
-                return ["ASRS (6-18 Years)"]
-            elif age < 18:
-                return ["ASRS (6-18 Years)"]
             elif age < 19:
                 return ["ASRS (6-18 Years)"]
             elif age < 22:
@@ -94,8 +86,6 @@ def get_questionnaires(age: int, type: str, daeval: str):
                 "BASC Preschool",
                 "Conners EC",
             ]
-        elif age < 7:
-            return ["ASRS (6-18 Years)", "Vineland", "BASC Child", "Conners 4"]
         elif age < 12:
             return [
                 "ASRS (6-18 Years)",

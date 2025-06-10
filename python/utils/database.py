@@ -162,7 +162,7 @@ def put_clients_in_db(clients_df):
             client.LASTNAME,
             client.PREFERRED_NAME if pd.notna(client.PREFERRED_NAME) else None,
             f"{client.FIRSTNAME}{' (' + client.PREFERRED_NAME + ') ' if pd.notna(client.PREFERRED_NAME) else ' '}{client.LASTNAME}",
-            string.capwords(client.ADDRESS),
+            client.ADDRESS,
             client.SCHOOL_DISTRICT,
             client.CLOSEST_OFFICE if pd.notna(client.CLOSEST_OFFICE) else None,
             client.CLOSEST_OFFICE_MILES

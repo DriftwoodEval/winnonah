@@ -1,3 +1,5 @@
+import string
+
 import pandas as pd
 import utils.database
 from loguru import logger
@@ -102,16 +104,18 @@ def combine_address_info(clients: pd.DataFrame) -> pd.DataFrame:
             client.USER_ADDRESS_ADDRESS3,
         ]:
             if not pd.isna(a) and a != "" and a not in address_parts:
-                address_parts.append(str(a).strip().replace(",", "").replace('"', ""))
+                address_parts.append(
+                    string.capwords(str(a).strip().replace(",", "").replace('"', ""))
+                )
         address = ", ".join(address_parts)
 
         city = (
-            str(client.USER_ADDRESS_CITY).strip()
+            string.capwords(str(client.USER_ADDRESS_CITY).strip())
             if not pd.isna(client.USER_ADDRESS_CITY)
             else ""
         )
         state = (
-            str(client.USER_ADDRESS_STATE).strip()
+            str(client.USER_ADDRESS_STATE).strip().upper()
             if not pd.isna(client.USER_ADDRESS_STATE)
             else ""
         )
