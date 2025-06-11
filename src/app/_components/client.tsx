@@ -1,6 +1,7 @@
 "use client";
 
 import { AlertTriangleIcon } from "lucide-react";
+import { QuestionnaireForm } from "~/app/_components/questionnaireForm";
 import { Alert, AlertTitle } from "~/app/_components/ui/alert";
 import {
 	Popover,
@@ -12,7 +13,6 @@ import { Separator } from "~/app/_components/ui/separator";
 import { Skeleton } from "~/app/_components/ui/skeleton";
 import { cn, formatClientAge } from "~/lib/utils";
 import { api } from "~/trpc/react";
-import { ApiButton } from "./apiButton";
 
 export function Client({ hash }: { hash: string }) {
 	const officeResponse = api.offices.getAll.useQuery();
@@ -68,13 +68,7 @@ export function Client({ hash }: { hash: string }) {
 					)}
 				</div>
 			</div>
-			{client?.dob && client?.asdAdhd && (
-				<ApiButton
-					age={Number(formatClientAge(client.dob, "years"))}
-					type={client.asdAdhd}
-					daeval="DA"
-				/>
-			)}
+
 			{client ? (
 				<div className="flex max-w-3xl flex-wrap gap-6 rounded-md border-2 bg-card p-4">
 					<div>
@@ -161,7 +155,15 @@ export function Client({ hash }: { hash: string }) {
 							</AlertTitle>
 						</Alert>
 					)}
-
+					{client?.dob &&
+						client?.asdAdhd &&
+						asanaProject &&
+						client.primaryInsurance && (
+							<QuestionnaireForm
+								client={client}
+								asanaText={asanaProject.notes}
+							/>
+						)}
 					<ScrollArea className="max-h-60 w-full rounded-md border">
 						<div className="p-4">
 							<h4 className="mb-4 font-bold leading-none">
