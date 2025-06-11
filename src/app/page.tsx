@@ -14,7 +14,7 @@ export default async function Home() {
 		<HydrateClient>
 			<main className="flex min-h-screen flex-col items-center justify-center">
 				<div className="absolute top-0 right-0 m-2 flex gap-3">
-					<IssuesAlert />
+					{session?.user && <IssuesAlert />}
 					<Link href={session ? "/api/auth/signout" : "/api/auth/signin"}>
 						<Button>{session ? "Sign out" : "Sign in"}</Button>
 					</Link>
