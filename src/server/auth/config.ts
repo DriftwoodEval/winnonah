@@ -1,6 +1,6 @@
 import { DrizzleAdapter } from "@auth/drizzle-adapter";
+import { eq } from "drizzle-orm/sql";
 import type { DefaultSession, NextAuthConfig } from "next-auth";
-import DiscordProvider from "next-auth/providers/discord";
 import GoogleProvider from "next-auth/providers/google";
 
 import { db } from "~/server/db";
@@ -19,8 +19,11 @@ import {
  */
 declare module "next-auth" {
 	interface Session extends DefaultSession {
+		accessToken?: string;
 		user: {
 			id: string;
+			accessToken?: string;
+			refreshToken?: string;
 			// ...other properties
 			// role: UserRole;
 		} & DefaultSession["user"];
@@ -39,7 +42,19 @@ declare module "next-auth" {
  */
 export const authConfig = {
 	providers: [
-		process.env.NODE_ENV !== "production" ? DiscordProvider : GoogleProvider,
+		GoogleProvider({
+			clientId: process.env.AUTH_GOOGLE_ID,
+			clientSecret: process.env.AUTH_GOOGLE_SECRET,
+			authorization: {
+				params: {
+					prompt: "consent",
+					access_type: "offline",
+					response_type: "code",
+					scope:
+						"openid email profile https://www.googleapis.com/auth/spreadsheets.readonly",
+				},
+			},
+		}),
 		/**
 		 * ...add more providers here.
 		 *
@@ -57,12 +72,21 @@ export const authConfig = {
 		verificationTokensTable: verificationTokens,
 	}),
 	callbacks: {
-		session: ({ session, user }) => ({
-			...session,
-			user: {
-				...session.user,
-				id: user.id,
-			},
-		}),
+		async session({ session, token, user }) {
+			const getToken = await db.query.accounts.findFirst({
+				where: eq(accounts.userId, user.id),
+			});
+
+			let accessToken: string | null = null;
+			let refreshToken: string | null = null;
+
+			if (getToken) {
+				accessToken = getToken.access_token;
+				refreshToken = getToken.refresh_token;
+			}
+			session.user.accessToken = accessToken ?? undefined;
+			session.user.refreshToken = refreshToken ?? undefined;
+			return session;
+		},
 	},
 } satisfies NextAuthConfig;

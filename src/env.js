@@ -11,27 +11,20 @@ export const env = createEnv({
 			process.env.NODE_ENV === "production"
 				? z.string()
 				: z.string().optional(),
-		AUTH_DISCORD_ID:
-			process.env.NODE_ENV === "production"
-				? z.string().optional()
-				: z.string(),
-		AUTH_DISCORD_SECRET:
-			process.env.NODE_ENV === "production"
-				? z.string().optional()
-				: z.string(),
-		AUTH_GOOGLE_ID:
-			process.env.NODE_ENV === "production"
-				? z.string()
-				: z.string().optional(),
-		AUTH_GOOGLE_SECRET:
-			process.env.NODE_ENV === "production"
-				? z.string()
-				: z.string().optional(),
+		AUTH_URL: z.string(),
+		AUTH_GOOGLE_ID: z.string(),
+		AUTH_GOOGLE_SECRET: z.string(),
 		DATABASE_URL: z.string().url(),
 		NODE_ENV: z
 			.enum(["development", "test", "production"])
 			.default("development"),
 		PROVIDER_CREDENTIALING_ID: z.string(),
+		PROVIDER_CREDENTIALING_RANGE: z
+			.string()
+			.regex(
+				/^[\w\s]+![A-Z]+[1-9][0-9]*:[A-Z]+[1-9][0-9]*$/,
+				"Invalid Google Sheets range format. Must be, e.g. 'Sheet1!A1:B2'",
+			),
 		OFFICE_ADDRESSES: z
 			.string()
 			.regex(
@@ -57,13 +50,13 @@ export const env = createEnv({
 	 */
 	runtimeEnv: {
 		AUTH_SECRET: process.env.AUTH_SECRET,
-		AUTH_DISCORD_ID: process.env.AUTH_DISCORD_ID,
-		AUTH_DISCORD_SECRET: process.env.AUTH_DISCORD_SECRET,
+		AUTH_URL: process.env.AUTH_URL,
 		AUTH_GOOGLE_ID: process.env.AUTH_GOOGLE_ID,
 		AUTH_GOOGLE_SECRET: process.env.AUTH_GOOGLE_SECRET,
 		DATABASE_URL: process.env.DATABASE_URL,
 		NODE_ENV: process.env.NODE_ENV,
 		PROVIDER_CREDENTIALING_ID: process.env.PROVIDER_CREDENTIALING_ID,
+		PROVIDER_CREDENTIALING_RANGE: process.env.PROVIDER_CREDENTIALING_RANGE,
 		OFFICE_ADDRESSES: process.env.OFFICE_ADDRESSES,
 		ASANA_TOKEN: process.env.ASANA_TOKEN,
 		ASANA_WORKSPACE: process.env.ASANA_WORKSPACE,
