@@ -61,7 +61,7 @@ export function IssuesList() {
 					<ScrollArea className="dark w-full rounded-md border bg-card text-card-foreground">
 						<div className="p-4">
 							<h1 className="mb-4 font-bold text-lg leading-none">
-								Missing Asana IDs
+								Archived in Asana, Active in TA
 							</h1>
 							{archivedAsanaErrors.map((client) => (
 								<Link href={`/clients/${client.hash}`} key={client.hash}>
