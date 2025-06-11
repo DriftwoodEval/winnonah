@@ -50,7 +50,7 @@ export const clients = createTable("client", (d) => ({
 	primaryInsurance: d.varchar({ length: 255 }),
 	secondaryInsurance: d.varchar({ length: 255 }),
 	privatePay: d.boolean().notNull().default(false),
-	asdAdhd: d.varchar({ length: 255 }),
+	asdAdhd: d.mysqlEnum(["ASD", "ADHD", "Both"]),
 	interpreter: d.boolean().notNull().default(false),
 	phoneNumber: d.varchar({ length: 255 }),
 	gender: d.mysqlEnum(["Male", "Female", "Other"]),
