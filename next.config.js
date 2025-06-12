@@ -19,6 +19,7 @@ const config = {
 			config.resolve.fallback.net = false;
 			config.resolve.fallback.child_process = false;
 		}
+		return config;
 	},
 };
 
