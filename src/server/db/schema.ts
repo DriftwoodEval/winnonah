@@ -80,7 +80,10 @@ export const questionnaires = createTable("questionnaire", (d) => ({
 	questionnaireType: d.varchar({ length: 255 }).notNull(),
 	link: d.varchar({ length: 255 }).notNull(),
 	sent: d.date(),
-	status: d.mysqlEnum(["PENDING", "COMPLETED", "RESCHEDULED"]).default("PENDING"),
+	status: d
+		.mysqlEnum(["PENDING", "COMPLETED", "RESCHEDULED"])
+		.default("PENDING"),
+	reminded: d.int().default(0),
 }));
 
 export const clientsEvaluators = createTable("client_eval", (d) => ({
