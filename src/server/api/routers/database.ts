@@ -1,7 +1,8 @@
 import { TRPCError } from "@trpc/server";
-import { eq, isNull } from "drizzle-orm";
+import { eq, isNull, or } from "drizzle-orm";
 import { z } from "zod";
 import { env } from "~/env";
+import { formatClientAge } from "~/lib/utils";
 import { createTRPCRouter, protectedProcedure } from "~/server/api/trpc";
 import { clients, clientsEvaluators, evaluators } from "~/server/db/schema";
 import { sortClients } from "~/server/lib/utils";
@@ -85,6 +86,31 @@ export const clientRouter = createTRPCRouter({
 			.where(eq(clients.schoolDistrict, "Unknown"));
 
 		return clientsWithoutDistrict.map(({ client }) => client);
+	}),
+
+	getBabyNetErrors: protectedProcedure.query(async ({ ctx }) => {
+		const clientsTooOldForBabyNet = await ctx.db
+			.select({ client: clients })
+			.from(clients)
+			.where(
+				or(
+					eq(clients.primaryInsurance, "BabyNet"),
+					eq(clients.secondaryInsurance, "BabyNet"),
+				),
+			);
+
+		let correctedClientsTooOldForBabyNet = clientsTooOldForBabyNet.map(
+			({ client }) => client,
+		);
+
+		correctedClientsTooOldForBabyNet = correctedClientsTooOldForBabyNet.filter(
+			(client) => {
+				const age = formatClientAge(client.dob, "years");
+				return Number(age) >= 3;
+			},
+		);
+
+		return correctedClientsTooOldForBabyNet;
 	}),
 });
 

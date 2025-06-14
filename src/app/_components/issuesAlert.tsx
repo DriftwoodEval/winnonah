@@ -15,10 +15,14 @@ export function IssuesAlert() {
 		api.clients.getArchivedAsanaErrors.useQuery();
 	const archivedAsanaErrors = archivedAsanaErrorsResponse.data;
 
+	const babyNetErrorsResponse = api.clients.getBabyNetErrors.useQuery();
+	const babyNetErrors = babyNetErrorsResponse.data;
+
 	const errorsLength =
 		(asanaErrors?.length ?? 0) +
 		(districtErrors?.length ?? 0) +
-		(archivedAsanaErrors?.length ?? 0);
+		(archivedAsanaErrors?.length ?? 0) +
+		(babyNetErrors?.length ?? 0);
 
 	if (errorsLength === 0) {
 		return null;
