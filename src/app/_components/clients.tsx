@@ -35,6 +35,12 @@ export function Clients() {
 		);
 	}
 
+	if (searchParams.get("hideBabyNet")) {
+		initiallyFilteredClients = initiallyFilteredClients.filter(
+			(client) => client.sortReason !== "BabyNet above 2:6",
+		);
+	}
+
 	const filteredClients = useMemo(() => {
 		if (!searchInput) return initiallyFilteredClients;
 

@@ -8,6 +8,7 @@ import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { Button } from "~/app/_components/ui/button";
 import { Calendar } from "~/app/_components/ui/calendar";
+import { Checkbox } from "~/app/_components/ui/checkbox";
 import {
 	Form,
 	FormControl,
@@ -36,6 +37,7 @@ const formSchema = z.object({
 	office: z.string(),
 	daeval: z.string(),
 	date: z.date(),
+	hideBabyNet: z.boolean(),
 });
 
 export default function SearchForm() {
@@ -53,6 +55,7 @@ export default function SearchForm() {
 			date: searchParams.get("date")
 				? new Date(searchParams.get("date") as string)
 				: undefined,
+			hideBabyNet: false,
 		},
 	});
 
@@ -62,6 +65,7 @@ export default function SearchForm() {
 		url.searchParams.set("office", encodeURIComponent(values.office));
 		url.searchParams.set("daeval", encodeURIComponent(values.daeval));
 		url.searchParams.set("date", formatISO(values.date));
+		url.searchParams.set("hideBabyNet", values.hideBabyNet ? "1" : "0");
 		url.searchParams.delete("search");
 		window.location.href = url.toString();
 	}
@@ -213,6 +217,29 @@ export default function SearchForm() {
 					</div>
 				</div>
 				<div className="flex justify-center gap-3 sm:justify-start">
+					<FormField
+						control={form.control}
+						name="hideBabyNet"
+						render={({ field }) => {
+							return (
+								<FormItem className="flex flex-row items-center gap-2">
+									<FormControl>
+										<Checkbox
+											checked={field.value}
+											onCheckedChange={(checked) => {
+												field.onChange(checked);
+											}}
+										/>
+									</FormControl>
+									<FormLabel className="font-normal text-sm">
+										Hide BabyNet
+									</FormLabel>
+								</FormItem>
+							);
+						}}
+					/>
+				</div>
+				<div className="flex justify-center gap-3 sm:justify-start">
 					<Button type="submit">Search</Button>
 					<Button
 						type="button"
@@ -222,6 +249,7 @@ export default function SearchForm() {
 							url.searchParams.delete("office");
 							url.searchParams.delete("daeval");
 							url.searchParams.delete("date");
+							url.searchParams.delete("showBabynet");
 							window.location.href = url.toString();
 						}}
 					>
