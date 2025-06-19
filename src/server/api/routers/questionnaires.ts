@@ -78,7 +78,7 @@ export const questionnaireRouter = createTRPCRouter({
 					site: "MHS",
 					ageRanges: { min: 6, max: 19 },
 				},
-				{ name: "Vineland", site: "QGlobal", ageRanges: { min: 18, max: 80 } },
+				{ name: "Vineland", site: "QGlobal", ageRanges: { min: 0, max: 80 } },
 				{ name: "PAI", site: "Unknown", ageRanges: { min: 18, max: 99 } },
 				{ name: "CAARS 2", site: "Unknown", ageRanges: { min: 18, max: 80 } },
 				{ name: "SRS-2", site: "Unknown", ageRanges: { min: 19, max: 99 } },
