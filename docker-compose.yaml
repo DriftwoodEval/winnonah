@@ -5,6 +5,7 @@ services:
       dockerfile: Dockerfile
       args:
         NEXT_PUBLIC_CLIENTVAR: "clientvar"
+    restart: always
     working_dir: /app
     ports:
       - 3000:3000
@@ -39,7 +40,7 @@ services:
 
   cloudflared:
     image: cloudflare/cloudflared:latest
-    container_name: cloudflared
+    container_name: cloudflared-schedule-helper
     command: tunnel --no-autoupdate run --token
       ${CF_TOKEN}
     restart: always
