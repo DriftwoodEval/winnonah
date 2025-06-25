@@ -42,7 +42,6 @@ services:
     command: tunnel --no-autoupdate run --token
       ${CF_TOKEN}
     restart: always
-    network_mode: host
 
 volumes:
   db-data:
