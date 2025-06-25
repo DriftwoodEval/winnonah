@@ -112,6 +112,65 @@ export const clientRouter = createTRPCRouter({
 
 		return correctedClientsTooOldForBabyNet;
 	}),
+
+	addAsanaId: protectedProcedure
+		.input(
+			z.object({
+				hash: z.string(),
+				asanaId: z.string(),
+			}),
+		)
+		.mutation(async ({ ctx, input }) => {
+			await ctx.db
+				.update(clients)
+				.set({ asanaId: input.asanaId })
+				.where(eq(clients.hash, input.hash));
+		}),
+
+	updateClient: protectedProcedure
+		.input(
+			z.object({
+				hash: z.string(),
+				firstName: z.string(),
+			}),
+		)
+		.mutation(async ({ ctx, input }) => {
+			const [client] = await ctx.db
+				.select({ client: clients })
+				.from(clients)
+				.where(eq(clients.hash, input.hash))
+				.limit(1);
+
+			if (!client) {
+				throw new TRPCError({
+					code: "NOT_FOUND",
+					message: `Client with hash ${input.hash} not found`,
+				});
+			}
+
+			const fullName = `${input.firstName}${client.client.preferredName ? `(${client.client.preferredName})` : " "}${client.client.lastName}`;
+
+			await ctx.db
+				.update(clients)
+				.set({ firstName: input.firstName, fullName })
+				.where(eq(clients.hash, input.hash));
+
+			const [updatedClient] = await ctx.db
+				.select({ client: clients })
+				.from(clients)
+				.where(eq(clients.hash, input.hash))
+				.limit(1);
+
+			if (!updatedClient) {
+				throw new TRPCError({
+					code: "NOT_FOUND",
+					message: `Client with hash ${input.hash} not found`,
+				});
+			}
+
+			console.log(updatedClient);
+			return updatedClient;
+		}),
 });
 
 export const evaluatorRouter = createTRPCRouter({

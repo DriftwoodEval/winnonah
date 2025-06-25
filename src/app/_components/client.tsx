@@ -13,6 +13,7 @@ import { Separator } from "~/app/_components/ui/separator";
 import { Skeleton } from "~/app/_components/ui/skeleton";
 import { cn, formatClientAge } from "~/lib/utils";
 import { api } from "~/trpc/react";
+import { AddAsanaIdButton } from "./addAsanaIdButton";
 
 export function Client({ hash }: { hash: string }) {
 	const officeResponse = api.offices.getAll.useQuery();
@@ -50,7 +51,10 @@ export function Client({ hash }: { hash: string }) {
 		<div className="mx-10 flex flex-col gap-6">
 			<div className="flex flex-col gap-2">
 				{client ? (
-					<h1 className="font-bold text-2xl">{client?.fullName}</h1>
+					<div className="flex items-center gap-2">
+						<h1 className="font-bold text-2xl">{client?.fullName}</h1>
+						{!client?.asanaId && <AddAsanaIdButton client={client} />}
+					</div>
 				) : (
 					<Skeleton className="h-6 w-36 rounded-md" />
 				)}

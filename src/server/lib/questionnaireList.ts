@@ -1,12 +1,10 @@
 "use server";
-import type { InferSelectModel } from "drizzle-orm";
 import { OAuth2Client } from "google-auth-library";
 import { google } from "googleapis";
 import { env } from "~/env";
 import { formatClientAge } from "~/lib/utils";
 import { auth } from "~/server/auth";
-import type { clients } from "~/server/db/schema";
-export type Client = InferSelectModel<typeof clients>;
+import type { Client } from "~/server/lib/utils";
 
 export const getRecommendedQuestionnaires = async (
 	client: Client,

@@ -1,7 +1,6 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import type { InferSelectModel } from "drizzle-orm";
 import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
@@ -13,12 +12,10 @@ import {
 	FormMessage,
 } from "~/app/_components/ui/form";
 import MultipleSelector from "~/app/_components/ui/multiple-selector";
-import type { clients } from "~/server/db/schema";
 import { getRecommendedQuestionnaires } from "~/server/lib/questionnaireList";
+import type { Client } from "~/server/lib/utils";
 import { api } from "~/trpc/react";
 import { Button } from "./ui/button";
-
-export type Client = InferSelectModel<typeof clients>;
 
 const optionSchema = z.object({
 	label: z.string(),

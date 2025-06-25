@@ -30,7 +30,7 @@ export function IssuesAlert() {
 
 	return (
 		<Link href="/issues">
-			<Button className="rounded-full bg-destructive text-foreground">
+			<Button variant="destructive" className="rounded-full">
 				{errorsLength} issues
 			</Button>
 		</Link>
