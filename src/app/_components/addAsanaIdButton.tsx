@@ -46,7 +46,7 @@ export function AddAsanaIdButton({ client }: { client: Client }) {
 
 	function onSubmit(values: z.infer<typeof formSchema>) {
 		editClient(values.asanaId);
-		console.log(values);
+		window.location.reload();
 	}
 	return (
 		<Dialog>
