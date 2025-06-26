@@ -3,6 +3,7 @@ import { eq, isNull, or } from "drizzle-orm";
 import { z } from "zod";
 import { env } from "~/env";
 import { formatClientAge } from "~/lib/utils";
+import { addClientIdToProject } from "~/server/api/routers/asana";
 import { createTRPCRouter, protectedProcedure } from "~/server/api/trpc";
 import { clients, clientsEvaluators, evaluators } from "~/server/db/schema";
 import { sortClients } from "~/server/lib/utils";
@@ -116,7 +117,7 @@ export const clientRouter = createTRPCRouter({
 	addAsanaId: protectedProcedure
 		.input(
 			z.object({
-				hash: z.string(),
+				clientId: z.number(),
 				asanaId: z.string(),
 			}),
 		)
@@ -124,7 +125,11 @@ export const clientRouter = createTRPCRouter({
 			await ctx.db
 				.update(clients)
 				.set({ asanaId: input.asanaId })
-				.where(eq(clients.hash, input.hash));
+				.where(eq(clients.id, input.clientId));
+
+			const project = await addClientIdToProject(input.asanaId, input.clientId);
+
+			return project;
 		}),
 
 	updateClient: protectedProcedure

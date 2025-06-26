@@ -32,7 +32,7 @@ export function AddAsanaIdButton({ client }: { client: Client }) {
 
 	const editClient = (asanaId: string) => {
 		sql.mutate({
-			hash: client.hash,
+			clientId: client.id,
 			asanaId: asanaId,
 		});
 	};
