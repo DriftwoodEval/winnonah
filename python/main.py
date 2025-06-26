@@ -11,7 +11,6 @@ load_dotenv()
 def main():
     projects_api = utils.asana.init()
     asana_projects = utils.asana.get_projects(projects_api)
-    archived_asana_projects = utils.asana.get_projects(projects_api, archived=True)
 
     clients = utils.clients.get_clients()
     evaluators = utils.google.get_evaluators()
@@ -31,10 +30,6 @@ def main():
             asana_project = utils.asana.search_by_name(
                 asana_projects, str(client.CLIENT_ID)
             )
-            if not asana_project:
-                asana_project = utils.asana.search_by_name(
-                    archived_asana_projects, str(client.CLIENT_ID)
-                )
             if asana_project:
                 asana_id = asana_project["gid"]
                 asd_adhd = utils.asana.is_asd_adhd(asana_project)

@@ -17,12 +17,9 @@ def init() -> asana.ProjectsApi:
     return projects_api
 
 
-def get_projects(
-    projects_api: asana.ProjectsApi, archived: bool = False
-) -> list | None:
+def get_projects(projects_api: asana.ProjectsApi) -> list | None:
     opts = {
         "limit": 100,
-        "archived": archived,
         "opt_fields": "archived,name,color,permalink_url,notes",
     }
 

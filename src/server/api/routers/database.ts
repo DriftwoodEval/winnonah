@@ -168,7 +168,6 @@ export const clientRouter = createTRPCRouter({
 				});
 			}
 
-			console.log(updatedClient);
 			return updatedClient;
 		}),
 });
