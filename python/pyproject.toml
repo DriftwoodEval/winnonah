@@ -11,12 +11,10 @@ dependencies = [
     "google-auth-httplib2>=0.2.0",
     "google-auth-oauthlib>=1.2.2",
     "loguru>=0.7.3",
-    "mysql-connector-python>=9.3.0",
     "pandas>=2.2.3",
+    "pymysql>=1.1.1",
     "selenium>=4.33.0",
 ]
 
 [dependency-groups]
-dev = [
-    "icecream>=2.1.4",
-]
+dev = ["icecream>=2.1.4"]
