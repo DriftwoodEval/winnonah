@@ -83,7 +83,7 @@ def put_evaluators_in_db(evaluators_dict: dict) -> None:
         db_connection.commit()
 
 
-def remove_inactive_clients(clients: pd.DataFrame):
+def delete_inactive_clients(clients: pd.DataFrame):
     logger.debug("Removing inactive clients")
     inactive_clients = clients[clients["STATUS"] == "Inactive"]
     db_connection = get_db()
