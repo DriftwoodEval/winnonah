@@ -85,7 +85,7 @@ export default function SearchForm() {
 										defaultValue={field.value}
 									>
 										<FormControl>
-											<SelectTrigger className="w-60">
+											<SelectTrigger className="w-full sm:w-60">
 												<SelectValue placeholder="John Doe" />
 											</SelectTrigger>
 										</FormControl>
@@ -115,7 +115,7 @@ export default function SearchForm() {
 										defaultValue={field.value}
 									>
 										<FormControl>
-											<SelectTrigger className="w-60">
+											<SelectTrigger className="w-full sm:w-60">
 												<SelectValue placeholder="Town" />
 											</SelectTrigger>
 										</FormControl>
@@ -144,7 +144,7 @@ export default function SearchForm() {
 										defaultValue={field.value}
 									>
 										<FormControl>
-											<SelectTrigger className="w-60">
+											<SelectTrigger className="w-full sm:w-60">
 												<SelectValue placeholder="Appointment Type" />
 											</SelectTrigger>
 										</FormControl>
@@ -179,7 +179,7 @@ export default function SearchForm() {
 												<Button
 													variant={"outline"}
 													className={cn(
-														"w-[240px] pl-3 text-left font-normal",
+														"w-full pl-3 text-left font-normal sm:w-60",
 														!field.value && "text-muted-foreground",
 													)}
 												>

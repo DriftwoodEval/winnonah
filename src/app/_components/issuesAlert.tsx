@@ -1,9 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { Button } from "~/app/_components/ui/button";
+import { Badge } from "~/app/_components/ui/badge";
 import { api } from "~/trpc/react";
-
 export function IssuesAlert() {
 	const asanaErrorsResponse = api.clients.getAsanaErrors.useQuery();
 	const asanaErrors = asanaErrorsResponse.data;
@@ -29,10 +28,13 @@ export function IssuesAlert() {
 	}
 
 	return (
-		<Link href="/issues">
-			<Button variant="destructive" className="rounded-full">
-				{errorsLength} issues
-			</Button>
-		</Link>
+		<Badge variant="destructive" asChild>
+			<Link href="/issues" className="flex items-center gap-1">
+				{errorsLength}{" "}
+				<span className="hidden sm:inline">
+					{errorsLength === 1 ? "issue" : "issues"}
+				</span>
+			</Link>
+		</Badge>
 	);
 }

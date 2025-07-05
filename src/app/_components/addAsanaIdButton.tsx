@@ -50,8 +50,10 @@ export function AddAsanaIdButton({ client }: { client: Client }) {
 	}
 	return (
 		<Dialog>
-			<DialogTrigger className="inline-flex h-9 shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-md bg-destructive px-4 py-2 font-medium text-sm text-white shadow-xs outline-none transition-all hover:bg-destructive/90 focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-destructive/20 disabled:pointer-events-none disabled:opacity-50 has-[>svg]:px-3 aria-invalid:border-destructive aria-invalid:ring-destructive/20 dark:bg-destructive/60 dark:aria-invalid:ring-destructive/40 dark:focus-visible:ring-destructive/40 [&_svg:not([class*='size-'])]:size-4 [&_svg]:pointer-events-none [&_svg]:shrink-0">
-				Add Asana ID
+			<DialogTrigger asChild>
+				<Button variant="destructive" size="sm">
+					Add Asana ID
+				</Button>
 			</DialogTrigger>
 			<DialogContent>
 				<DialogHeader>
