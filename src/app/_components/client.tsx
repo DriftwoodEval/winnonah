@@ -28,10 +28,6 @@ export function Client({ hash }: { hash: string }) {
 		api.evaluators.getEligibleForClient.useQuery(client?.id ?? 0);
 	const eligibleEvaluators = eligibleEvaluatorsResponse.data;
 
-	if (clientResponse.error) {
-		return <div>{clientResponse.error.message}</div>;
-	}
-
 	const closestOffice = offices?.[client?.closestOffice ?? ""] ?? null;
 	const secondClosestOffice =
 		offices?.[client?.secondClosestOffice ?? ""] ?? null;
