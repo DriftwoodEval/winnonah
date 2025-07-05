@@ -1,2 +1,7 @@
+autoInstallPeers: true
 onlyBuiltDependencies:
+  - '@biomejs/biome'
+  - '@tailwindcss/oxide'
   - core-js
+  - esbuild
+  - sharp

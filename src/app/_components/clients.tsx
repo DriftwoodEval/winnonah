@@ -27,16 +27,15 @@ export function Clients() {
 
 	let initiallyFilteredClients = clients.data ?? [];
 
-	if (searchParams.get("eval") != null) {
-		const evalParam = searchParams.get("eval") ?? "";
-		const evalNumber = Number.parseInt(evalParam, 10);
+	const evalParam = searchParams.get("eval") ?? "";
+	const evalNumber = Number.parseInt(evalParam, 10);
 
-		if (!Number.isNaN(evalNumber)) {
-			const evalClients = api.clients.getByNpi.useQuery(evalNumber);
-			if (evalClients.data) {
-				initiallyFilteredClients = evalClients.data;
-			}
-		}
+	const evalClients = api.clients.getByNpi.useQuery(evalNumber, {
+		enabled: !Number.isNaN(evalNumber),
+	});
+
+	if (evalClients.data) {
+		initiallyFilteredClients = evalClients.data;
 	}
 
 	if (searchParams.get("office")) {
