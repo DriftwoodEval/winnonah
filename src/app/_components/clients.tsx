@@ -1,9 +1,19 @@
 "use client";
 
+import { Filter } from "lucide-react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useMemo, useState } from "react";
+import { Button } from "~/app/_components/ui/button";
+import { Checkbox } from "~/app/_components/ui/checkbox";
 import { Input } from "~/app/_components/ui/input";
+import { Label } from "~/app/_components/ui/label";
+import {
+	Popover,
+	PopoverContent,
+	PopoverTrigger,
+} from "~/app/_components/ui/popover";
+import { RadioGroup, RadioGroupItem } from "~/app/_components/ui/radio-group";
 import { ScrollArea } from "~/app/_components/ui/scroll-area";
 import { Separator } from "~/app/_components/ui/separator";
 import { cn, formatClientAge } from "~/lib/utils";
@@ -35,27 +45,94 @@ export function Clients() {
 		);
 	}
 
-	if (searchParams.get("hideBabyNet")) {
-		initiallyFilteredClients = initiallyFilteredClients.filter(
-			(client) => client.sortReason !== "BabyNet above 2:6",
-		);
-	}
+	const [hideBabyNet, setHideBabyNet] = useState(false);
+	const [statusFilter, setStatusFilter] = useState<
+		"active" | "inactive" | "all"
+	>("active");
 
 	const filteredClients = useMemo(() => {
-		if (!searchInput) return initiallyFilteredClients;
+		let clients = initiallyFilteredClients;
 
-		return initiallyFilteredClients.filter((client) => {
-			return client.fullName?.toLowerCase().includes(searchInput.toLowerCase());
-		});
-	}, [initiallyFilteredClients, searchInput]);
+		if (searchInput) {
+			clients = clients.filter((client) =>
+				client.fullName?.toLowerCase().includes(searchInput.toLowerCase()),
+			);
+		}
+
+		if (hideBabyNet) {
+			const babyNetClients = clients.filter((client) => {
+				return (
+					client.primaryInsurance === "BabyNet" ||
+					client.secondaryInsurance === "BabyNet"
+				);
+			});
+
+			clients = clients.filter((client) => !babyNetClients.includes(client));
+		}
+
+		if (statusFilter === "active") {
+			clients = clients.filter((client) => client.status);
+		} else if (statusFilter === "inactive") {
+			clients = clients.filter((client) => !client.status);
+		}
+
+		return clients;
+	}, [initiallyFilteredClients, searchInput, hideBabyNet, statusFilter]);
+
+	const handleBabyNetCheckboxClick = () => {
+		setHideBabyNet(!hideBabyNet);
+	};
+
+	const handleStatusFilterClick = (status: "active" | "inactive" | "all") => {
+		setStatusFilter(status);
+	};
 
 	return (
 		<div className="flex flex-col gap-3">
-			<Input
-				placeholder="Search by name"
-				value={searchInput}
-				onChange={(e) => setSearchInput(e.target.value)}
-			/>
+			<div className="flex flex-row gap-3">
+				<Input
+					placeholder="Search by name"
+					value={searchInput}
+					onChange={(e) => setSearchInput(e.target.value)}
+				/>
+				<Popover>
+					<PopoverTrigger asChild>
+						<Button variant="outline">
+							<Filter />
+						</Button>
+					</PopoverTrigger>
+					<PopoverContent align="end">
+						<Label htmlFor="hide-babynet" className="w-full">
+							<Checkbox
+								id="hide-babynet"
+								checked={hideBabyNet}
+								onCheckedChange={handleBabyNetCheckboxClick}
+							/>
+							Hide BabyNet
+						</Label>
+						<Separator orientation="horizontal" className="my-2" />
+						<p className="mb-2">Client Status</p>
+						<RadioGroup
+							className="w-full"
+							value={statusFilter}
+							onValueChange={handleStatusFilterClick}
+						>
+							<Label htmlFor="status-active" className="w-full">
+								<RadioGroupItem value="active" id="status-active" />
+								Active
+							</Label>
+							<Label htmlFor="status-inactive" className="w-full">
+								<RadioGroupItem value="inactive" id="status-inactive" />
+								Inactive
+							</Label>
+							<Label htmlFor="status-all" className="w-full">
+								<RadioGroupItem value="all" id="status-all" />
+								All
+							</Label>
+						</RadioGroup>
+					</PopoverContent>
+				</Popover>
+			</div>
 			<ScrollArea className="dark h-72 w-full rounded-md border bg-card text-card-foreground">
 				<div className="p-4">
 					<h4 className="mb-4 font-medium text-sm leading-none">Clients</h4>
@@ -75,7 +152,10 @@ export function Clients() {
 										{client.interpreter ? "Interpreter " : ""}
 									</span>
 									{client.sortReason === "BabyNet above 2:6"
-										? `BabyNet: ${formatClientAge(new Date(client.dob), "short")}`
+										? `BabyNet: ${formatClientAge(
+												new Date(client.dob),
+												"short",
+											)}`
 										: client.sortReason === "Added date"
 											? `Added: ${client.addedDate?.toLocaleString("en-US", {
 													year: "numeric",

@@ -45,22 +45,28 @@ export const sortRemainingClientsByAddedDate = (clients: SortedClient[]) => {
 };
 
 export const sortClients = (clients: SortedClient[]) => {
-	const babyNetClients = clients.filter((client) => {
-		return (
+	const clientsWithBabyNet = clients.filter(
+		(client) =>
 			client.primaryInsurance === "BabyNet" ||
-			client.secondaryInsurance === "BabyNet"
-		);
-	});
+			client.secondaryInsurance === "BabyNet",
+	);
 
-	const clientsBabynetAboveAge = getBabyNetClientsAboveAge(babyNetClients);
+	const clientsWithBabyNetAboveAge = getBabyNetClientsAboveAge(clientsWithBabyNet);
+
+	const remainingClientsWithBabyNet = clientsWithBabyNet.filter(
+		(client) =>
+			!clientsWithBabyNetAboveAge.some((clientAboveAge) => clientAboveAge.id === client.id),
+	);
 
 	const remainingClients = clients.filter(
 		(client) =>
-			!babyNetClients.some((babynetClient) => babynetClient.id === client.id),
+			!clientsWithBabyNet.some((clientWithBabyNet) => clientWithBabyNet.id === client.id),
 	);
 
-	const sortedRemainingClients =
-		sortRemainingClientsByAddedDate(remainingClients);
+	const sortedRemainingClients = sortRemainingClientsByAddedDate([
+		...remainingClientsWithBabyNet,
+		...remainingClients,
+	]);
 
-	return [...clientsBabynetAboveAge, ...sortedRemainingClients];
+	return [...clientsWithBabyNetAboveAge, ...sortedRemainingClients];
 };

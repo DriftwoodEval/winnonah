@@ -31,6 +31,7 @@ export const evaluators = createTable("evaluator", (d) => ({
 export const clients = createTable("client", (d) => ({
 	id: d.int().notNull().primaryKey(),
 	hash: d.varchar({ length: 255 }).notNull(),
+	status: d.boolean().notNull().default(true),
 	asanaId: d.varchar({ length: 255 }),
 	archivedInAsana: d.boolean().notNull().default(false),
 	addedDate: d.date(),
