@@ -14,11 +14,6 @@ TEST_NAMES = [
 ]
 
 
-def filter_inactive(df: pd.DataFrame) -> pd.DataFrame:
-    logger.debug("Filtering inactive clients")
-    return df[df.STATUS != "Inactive"]
-
-
 def normalize_names(df: pd.DataFrame) -> pd.DataFrame:
     logger.debug("Normalizing client names")
     for col in ["LASTNAME", "FIRSTNAME", "PREFERRED_NAME"]:
@@ -138,16 +133,22 @@ def combine_address_info(clients: pd.DataFrame) -> pd.DataFrame:
     return clients
 
 
+def get_inactive_clients(df: pd.DataFrame) -> pd.DataFrame:
+    logger.debug("Getting inactive clients")
+    return df[df.STATUS == "Inactive"]
+
+
 def get_clients() -> pd.DataFrame:
     logger.debug("Getting clients from spreadsheets")
     insurance_df = utils.database.open_local_spreadsheet("input/clients-insurance.csv")
     demo_df = utils.database.open_local_spreadsheet("input/clients-demographic.csv")
     clients_df = pd.merge(demo_df, insurance_df)
-    utils.database.delete_inactive_clients(clients_df)
-    clients_df = filter_inactive(clients_df)
     clients_df = normalize_names(clients_df)
     clients_df = remove_test_names(clients_df, TEST_NAMES)
     clients_df = map_insurance_names(clients_df)
     clients_df = consolidate_by_id(clients_df)
     clients_df = combine_address_info(clients_df)
+
+    utils.database.set_inactive_clients(get_inactive_clients(clients_df))
+
     return clients_df

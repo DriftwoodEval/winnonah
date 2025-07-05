@@ -83,22 +83,22 @@ def put_evaluators_in_db(evaluators_dict: dict) -> None:
         db_connection.commit()
 
 
-def delete_inactive_clients(clients: pd.DataFrame):
-    logger.debug("Removing inactive clients")
-    inactive_clients = clients[clients["STATUS"] == "Inactive"]
+def set_inactive_clients(clients_df: pd.DataFrame):
+    logger.debug("Setting inactive clients")
     db_connection = get_db()
 
     with db_connection:
         with db_connection.cursor() as cursor:
-            for _, row in inactive_clients.iterrows():
-                client_id = row["CLIENT_ID"]
+            sql = "UPDATE emr_client SET status = 0 WHERE id = %s"
+            for _, client in clients_df.iterrows():
+                client_id = client["CLIENT_ID"]
+                cursor.execute(sql, (client_id,))
 
-                cursor.execute("DELETE FROM emr_client WHERE id = %s", (client_id,))
         db_connection.commit()
 
 
 def remove_previous_clients(clients: pd.DataFrame):
-    logger.debug("Checking previous clients")
+    logger.debug("Skipping clients already in database with same address")
     db_connection = get_db()
 
     with db_connection:
@@ -123,10 +123,11 @@ def put_clients_in_db(clients_df):
     with db_connection:
         with db_connection.cursor() as cursor:
             sql = """
-                INSERT INTO `emr_client` (id, hash, asanaId, archivedInAsana, addedDate, dob, firstName, lastName, preferredName, fullName, address, schoolDistrict, closestOffice, closestOfficeMiles, secondClosestOffice, secondClosestOfficeMiles, thirdClosestOffice, thirdClosestOfficeMiles, primaryInsurance, secondaryInsurance, privatePay, asdAdhd, interpreter, gender, phoneNumber)
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                INSERT INTO `emr_client` (id, hash, status, asanaId, archivedInAsana, addedDate, dob, firstName, lastName, preferredName, fullName, address, schoolDistrict, closestOffice, closestOfficeMiles, secondClosestOffice, secondClosestOfficeMiles, thirdClosestOffice, thirdClosestOfficeMiles, primaryInsurance, secondaryInsurance, privatePay, asdAdhd, interpreter, gender, phoneNumber)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                 ON DUPLICATE KEY UPDATE
                     hash = VALUES(hash),
+                    status = VALUES(status),
                     asanaId = VALUES(asanaId),
                     archivedInAsana = VALUES(archivedInAsana),
                     addedDate = VALUES(addedDate),
@@ -164,6 +165,7 @@ def put_clients_in_db(clients_df):
                 values = (
                     client.CLIENT_ID,
                     hashlib.sha256(str(client.CLIENT_ID).encode("utf-8")).hexdigest(),
+                    not client.STATUS == "Inactive",
                     client.ASANA_ID if pd.notna(client.ASANA_ID) else None,
                     client.ARCHIVED_IN_ASANA,
                     datetime.strptime(client.ADDED_DATE, "%m/%d/%Y").strftime(
