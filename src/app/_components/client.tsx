@@ -1,7 +1,9 @@
 "use client";
 
+import parse from "html-react-parser";
 import { AlertTriangleIcon } from "lucide-react";
-import { QuestionnaireForm } from "~/app/_components/questionnaireForm";
+import Link from "next/link";
+import sanitizeHtml from "sanitize-html";
 import { Alert, AlertTitle } from "~/app/_components/ui/alert";
 import {
 	Popover,
@@ -42,6 +44,26 @@ export function Client({ hash }: { hash: string }) {
 		client?.asanaId ?? "",
 	);
 	const asanaProject = asanaProjectResponse?.data?.data;
+	const asanaNotes = asanaProject?.html_notes
+		? parse(
+				sanitizeHtml(asanaProject.html_notes, {
+					allowedAttributes: {
+						a: ["className"],
+					},
+					transformTags: {
+						a: (tagName, attribs) => {
+							return {
+								tagName,
+								attribs: {
+									...attribs,
+									className: "text-blue-600",
+								},
+							};
+						},
+					},
+				}).replace(/\n/g, "</p><p>"),
+			)
+		: null;
 
 	return (
 		<div className="mx-10 flex flex-col gap-6">
@@ -52,7 +74,10 @@ export function Client({ hash }: { hash: string }) {
 						{!client?.asanaId && <AddAsanaIdButton client={client} />}
 					</div>
 				) : (
-					<Skeleton className="h-6 w-36 rounded-md" />
+					<div className="flex flex-col gap-2">
+						<Skeleton className="h-[var(--text-2xl)] w-[32ch] rounded-md" />
+						<Skeleton className="h-[var(--text-base)] w-[9ch] rounded-md" />
+					</div>
 				)}
 				<div className="flex h-5 items-center gap-2">
 					<span>{client?.id}</span>
@@ -70,7 +95,7 @@ export function Client({ hash }: { hash: string }) {
 			</div>
 
 			{client ? (
-				<div className="flex max-w-3xl flex-wrap gap-6 rounded-md border-2 bg-card p-4">
+				<div className="flex w-[calc(100vw-32px)] flex-wrap gap-6 rounded-md border-2 bg-card p-4 sm:w-3xl">
 					<div>
 						<p className="font-bold">Date of Birth</p>
 						<p>{client?.dob?.toLocaleDateString("en-US")}</p>
@@ -155,7 +180,7 @@ export function Client({ hash }: { hash: string }) {
 							</AlertTitle>
 						</Alert>
 					)}
-					{client?.dob &&
+					{/* {client?.dob &&
 						client?.asdAdhd &&
 						asanaProject &&
 						client.primaryInsurance && (
@@ -163,33 +188,59 @@ export function Client({ hash }: { hash: string }) {
 								client={client}
 								asanaText={asanaProject.notes}
 							/>
-						)}
+						)} */}
 					<ScrollArea className="max-h-60 w-full rounded-md border">
 						<div className="p-4">
 							<h4 className="mb-4 font-bold leading-none">
 								Eligible Evaluators
 							</h4>
-							{eligibleEvaluators?.map((evaluator, index) => (
-								<div key={evaluator.npi}>
-									<div key={evaluator.npi} className="text-sm">
-										{evaluator.providerName}
+							{eligibleEvaluators ? (
+								eligibleEvaluators.map((evaluator, index) => (
+									<div key={evaluator.npi}>
+										<div key={evaluator.npi} className="text-sm">
+											{evaluator.providerName}
+										</div>
+										{index !== eligibleEvaluators.length - 1 && (
+											<Separator key="separator" className="my-2" />
+										)}
 									</div>
-									{index !== eligibleEvaluators.length - 1 && (
-										<Separator key="separator" className="my-2" />
-									)}
+								))
+							) : (
+								<div className="flex flex-col gap-2">
+									{[...Array(5)].map((_, i) => (
+										<Skeleton
+											key={`skeleton-${i}-${client?.hash}`}
+											className="h-[var(--text-sm)] w-full rounded-md"
+										/>
+									))}
 								</div>
-							))}
+							)}
 						</div>
 					</ScrollArea>
-					{asanaProject && (
-						<ScrollArea className="max-h-60 w-full whitespace-pre-wrap rounded-md border p-4">
-							<h4 className="mb-4 font-bold leading-none">Asana Notes</h4>
-							{asanaProject.notes}
+					{client?.asanaId && (
+						<ScrollArea className="max-h-60 w-full rounded-md border p-4">
+							<h4 className="mb-4 font-bold leading-none">
+								{asanaProject?.permalink_url ? (
+									<Link href={asanaProject?.permalink_url}>Asana Notes</Link>
+								) : (
+									<span className="font-bold">Asana Notes</span>
+								)}
+							</h4>
+							{asanaProject ? (
+								<div className="w-full">{asanaNotes}</div>
+							) : (
+								<div className="flex flex-col gap-2">
+									<Skeleton
+										key="asana-skeleton"
+										className="h-20 w-full rounded-md"
+									/>
+								</div>
+							)}
 						</ScrollArea>
 					)}
 				</div>
 			) : (
-				<Skeleton className="h-40 w-[250px] rounded-md sm:w-[500px]" />
+				<Skeleton className="h-96 w-[calc(100vw-32px)] rounded-md sm:h-96 sm:w-3xl" />
 			)}
 		</div>
 	);
