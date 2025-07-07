@@ -1,4 +1,4 @@
-import utils.selenium as s
+import utils.webdriving as w
 from fastapi import FastAPI
 
 app = FastAPI()
@@ -6,5 +6,5 @@ app = FastAPI()
 
 @app.get("/")
 def read_root():
-    driver, actions = s.initialize_selenium()
+    driver, actions = w.initialize_selenium()
     return {"Hello": "World"}

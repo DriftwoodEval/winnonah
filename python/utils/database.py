@@ -13,10 +13,16 @@ load_dotenv()
 
 
 def open_local_spreadsheet(file) -> pd.DataFrame:
-    with open(file, "r", errors="ignore") as f:
-        logger.debug(f"Opening {file}")
-        df = pd.read_csv(f)
-        return df
+    try:
+        with open(file, "r", encoding="utf-8") as f:
+            logger.debug(f"Opening {file}")
+            df = pd.read_csv(f)
+    except UnicodeDecodeError:
+        logger.warning(f"UnicodeDecodeError for {file}")
+        with open(file, "r", encoding="latin1") as f:
+            logger.debug(f"Opening {file} with latin1 encoding")
+            df = pd.read_csv(f)
+    return df
 
 
 def get_db():
@@ -97,7 +103,7 @@ def set_inactive_clients(clients_df: pd.DataFrame):
         db_connection.commit()
 
 
-def remove_previous_clients(clients: pd.DataFrame):
+def remove_previous_clients(clients: pd.DataFrame) -> pd.DataFrame:
     logger.debug("Skipping clients already in database with same address")
     db_connection = get_db()
 
@@ -113,7 +119,7 @@ def remove_previous_clients(clients: pd.DataFrame):
                 )
             ]
 
-    return clients
+            return clients
 
 
 def put_clients_in_db(clients_df):

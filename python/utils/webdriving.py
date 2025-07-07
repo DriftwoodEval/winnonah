@@ -1,24 +1,6 @@
-import base64
-import hashlib
-import logging
 import os
-import re
-from datetime import date, datetime
-from email.message import EmailMessage
-from time import sleep, strftime, strptime
-from urllib.parse import urlparse
+from time import sleep
 
-import asana
-import mysql.connector
-import requests
-import yaml
-from asana.rest import ApiException
-from dateutil.relativedelta import relativedelta
-from google.auth.transport.requests import Request
-from google.oauth2.credentials import Credentials
-from google_auth_oauthlib.flow import InstalledAppFlow
-from googleapiclient.discovery import build
-from googleapiclient.errors import HttpError
 from loguru import logger
 from selenium import webdriver
 from selenium.common.exceptions import (
@@ -31,7 +13,6 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.remote.webdriver import WebDriver
 from selenium.webdriver.remote.webelement import WebElement
-from selenium.webdriver.support.ui import Select
 
 
 ### UTILS ###
@@ -42,6 +23,15 @@ def initialize_selenium() -> tuple[WebDriver, ActionChains]:
     if os.getenv("HEADLESS") == "true":
         chrome_options.add_argument("--headless")
     chrome_options.add_argument("--disable-dev-shm-usage")
+    chrome_options.add_experimental_option(
+        "prefs",
+        {
+            "download.default_directory": f"{os.getcwd()}/temp/downloads",
+            "download.prompt_for_download": False,
+            "download.directory_upgrade": True,
+            "safebrowsing.enabled": True,
+        },
+    )
     driver = webdriver.Chrome(options=chrome_options)
     actions = ActionChains(driver)
     driver.implicitly_wait(5)

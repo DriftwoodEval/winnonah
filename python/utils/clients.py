@@ -2,10 +2,11 @@ import string
 
 import pandas as pd
 import utils.database
+from download_ta import download_csvs
 from loguru import logger
 
 TEST_NAMES = [
-    # "Testman Testson",
+    "Testman Testson",
     "Testman Testson Jr.",
     "Johnny Smonny",
     "Johnny Smonathan",
@@ -83,13 +84,6 @@ def consolidate_by_id(clients: pd.DataFrame) -> pd.DataFrame:
     return merged_df
 
 
-def get_primary_insurance(client: pd.Series) -> str:
-    if client["POLICY_TYPE"] == "PRIMARY":
-        return client["INSURANCE_COMPANYNAME"]
-    else:
-        return ""
-
-
 def combine_address_info(clients: pd.DataFrame) -> pd.DataFrame:
     def _combine_address(client) -> str:
         address_parts = []
@@ -139,6 +133,7 @@ def get_inactive_clients(df: pd.DataFrame) -> pd.DataFrame:
 
 
 def get_clients() -> pd.DataFrame:
+    download_csvs()
     logger.debug("Getting clients from spreadsheets")
     insurance_df = utils.database.open_local_spreadsheet("input/clients-insurance.csv")
     demo_df = utils.database.open_local_spreadsheet("input/clients-demographic.csv")
