@@ -20,8 +20,8 @@ export const getBabyNetClientsAboveAge = (clients: SortedClient[]) => {
     .filter((client) => {
       return (
         client.dob &&
-        new Date(client.dob) < maxAge &&
-        new Date(client.dob) > minAge
+        new Date(client.dob) > maxAge &&
+        new Date(client.dob) < minAge
       );
     })
     .map((client) => ({
