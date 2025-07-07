@@ -19,8 +19,6 @@ def main():
 
     utils.database.put_evaluators_in_db(evaluators)
 
-    clients = clients.sample(100)
-
     clients = utils.database.remove_previous_clients(clients)
 
     if not clients.empty:
