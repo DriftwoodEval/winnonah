@@ -1,5 +1,6 @@
 import utils.asana
 import utils.clients
+import utils.config
 import utils.database
 import utils.google
 import utils.location
@@ -9,6 +10,7 @@ load_dotenv()
 
 
 def main():
+    utils.config.validate_config()
     projects_api = utils.asana.init()
     asana_projects = utils.asana.get_projects(projects_api)
 
