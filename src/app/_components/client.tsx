@@ -1,6 +1,5 @@
 "use client";
 
-import parse from "html-react-parser";
 import { AlertTriangleIcon } from "lucide-react";
 import Link from "next/link";
 import sanitizeHtml from "sanitize-html";
@@ -16,6 +15,7 @@ import { Skeleton } from "~/app/_components/ui/skeleton";
 import { cn, formatClientAge } from "~/lib/utils";
 import { api } from "~/trpc/react";
 import { AddAsanaIdButton } from "./addAsanaIdButton";
+import { AsanaEditor } from "./asanaEditor";
 
 export function Client({ hash }: { hash: string }) {
 	const officeResponse = api.offices.getAll.useQuery();
@@ -44,25 +44,23 @@ export function Client({ hash }: { hash: string }) {
 		client?.asanaId ?? "",
 	);
 	const asanaProject = asanaProjectResponse?.data?.data;
-	const asanaNotes = asanaProject?.html_notes
-		? parse(
-				sanitizeHtml(asanaProject.html_notes, {
-					allowedAttributes: {
-						a: ["className"],
+	const asanaHtmlNotes = asanaProject?.html_notes
+		? sanitizeHtml(asanaProject.html_notes, {
+				allowedAttributes: {
+					a: ["className"],
+				},
+				transformTags: {
+					a: (tagName, attribs) => {
+						return {
+							tagName,
+							attribs: {
+								...attribs,
+								className: "text-blue-600",
+							},
+						};
 					},
-					transformTags: {
-						a: (tagName, attribs) => {
-							return {
-								tagName,
-								attribs: {
-									...attribs,
-									className: "text-blue-600",
-								},
-							};
-						},
-					},
-				}).replace(/\n/g, "</p><p>"),
-			)
+				},
+			}).replace(/\n/g, "<br>")
 		: null;
 
 	return (
@@ -95,7 +93,7 @@ export function Client({ hash }: { hash: string }) {
 			</div>
 
 			{client ? (
-				<div className="flex w-[calc(100vw-32px)] flex-wrap gap-6 rounded-md border-2 bg-card p-4 sm:w-3xl">
+				<div className="flex w-[calc(100vw-32px)] flex-wrap gap-6 rounded-md border-2 bg-card p-4 sm:w-4xl">
 					<div>
 						<p className="font-bold">Date of Birth</p>
 						<p>{client?.dob?.toLocaleDateString("en-US")}</p>
@@ -218,7 +216,7 @@ export function Client({ hash }: { hash: string }) {
 						</div>
 					</ScrollArea>
 					{client?.asanaId && (
-						<ScrollArea className="max-h-60 w-full rounded-md border p-4">
+						<div className="w-full">
 							<h4 className="mb-4 font-bold leading-none">
 								{asanaProject?.permalink_url ? (
 									<Link href={asanaProject?.permalink_url}>Asana Notes</Link>
@@ -226,8 +224,8 @@ export function Client({ hash }: { hash: string }) {
 									<span className="font-bold">Asana Notes</span>
 								)}
 							</h4>
-							{asanaProject ? (
-								<div className="w-full">{asanaNotes}</div>
+							{asanaHtmlNotes ? (
+								<AsanaEditor initialHtml={asanaHtmlNotes} />
 							) : (
 								<div className="flex flex-col gap-2">
 									<Skeleton
@@ -236,7 +234,7 @@ export function Client({ hash }: { hash: string }) {
 									/>
 								</div>
 							)}
-						</ScrollArea>
+						</div>
 					)}
 				</div>
 			) : (

@@ -2,8 +2,8 @@ import string
 
 import pandas as pd
 import utils.database
-from download_ta import download_csvs
 from loguru import logger
+from utils.download_ta import download_csvs
 
 TEST_NAMES = [
     "Testman Testson",

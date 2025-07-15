@@ -39,7 +39,7 @@ def validate_config() -> None:
     if not os.getenv("TA_PASSWORD"):
         raise ValueError("TA_PASSWORD is not set")
 
-    if not re.match(r"^[\w]+(,[\w]+)*$", os.getenv("EXCLUDED_TA") or ""):
+    if not re.match(r"^([^,]+(?:,[^,]+)*)$", os.getenv("EXCLUDED_TA") or ""):
         raise ValueError(
             f"Invalid EXCLUDED_TA format. Must be comma-separated values, e.g. 'Jane Smith,John Doe'. Got: {os.getenv('EXCLUDED_TA')}"
         )
