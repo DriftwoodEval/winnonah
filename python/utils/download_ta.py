@@ -5,7 +5,7 @@ import time
 from typing import Callable
 
 import pandas as pd
-import webdriving as w
+import utils.webdriving as w
 from loguru import logger
 from selenium.common.exceptions import NoSuchElementException
 from selenium.webdriver.common.by import By
