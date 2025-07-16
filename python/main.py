@@ -1,3 +1,5 @@
+import shutil
+
 import utils.asana
 import utils.clients
 import utils.config
@@ -73,3 +75,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+    shutil.rmtree("temp", ignore_errors=True)

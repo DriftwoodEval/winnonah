@@ -1,6 +1,5 @@
 import glob
 import os
-import shutil
 import time
 from typing import Callable
 
@@ -100,7 +99,6 @@ def loop_therapists(driver: WebDriver, func: Callable):
             logger.debug(f"Skipping therapist: {therapist_element.text}")
             count += 1
             return count
-        print(count)
         logger.debug(f"Looping for therapist: {therapist_element.text}")
         therapist_element.click()
         return count
@@ -161,7 +159,6 @@ def combine_files():
 def download_csvs():
     logger.debug("Downloading CSVs from TherapyAppointment")
     driver, actions = w.initialize_selenium()
-    shutil.rmtree("temp", ignore_errors=True)
     w.login_ta(driver, actions)
     open_profile(driver)
     loop_therapists(driver, export_data)

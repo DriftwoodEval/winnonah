@@ -1,4 +1,3 @@
-import shutil
 import string
 
 import pandas as pd
@@ -142,7 +141,6 @@ def get_clients() -> pd.DataFrame:
     demo_df = utils.database.open_local_spreadsheet(
         "temp/input/clients-demographic.csv"
     )
-    shutil.rmtree("temp/input", ignore_errors=True)
     clients_df = pd.merge(demo_df, insurance_df)
     clients_df = normalize_names(clients_df)
     clients_df = remove_test_names(clients_df, TEST_NAMES)
