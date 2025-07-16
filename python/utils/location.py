@@ -145,6 +145,8 @@ def geocode_address(client: pd.Series) -> Location | None:
     )
 
     attempt_string = client.ADDRESS
+    if not any(char.isalnum() for char in attempt_string):
+        return None
     geocoded_location = geocode(attempt_string)
 
     if geocoded_location is None and (
