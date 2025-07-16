@@ -141,21 +141,27 @@ def combine_files():
         df = pd.concat(df_list)
         df.to_csv(output_file, index=False, encoding="utf-8")
 
+    output_directory = os.path.dirname("temp/input/")
+    if not os.path.exists(output_directory):
+        os.makedirs(output_directory)
     read_and_concat_files(
-        "temp/downloads/dataExport-appointments*.csv", "input/clients-appointments.csv"
+        "temp/downloads/dataExport-appointments*.csv",
+        os.path.join(output_directory, "clients-appointments.csv"),
     )
     read_and_concat_files(
-        "temp/downloads/dataExport-demographic*.csv", "input/clients-demographic.csv"
+        "temp/downloads/dataExport-demographic*.csv",
+        os.path.join(output_directory, "clients-demographic.csv"),
     )
     read_and_concat_files(
-        "temp/downloads/dataExport-insurance*.csv", "input/clients-insurance.csv"
+        "temp/downloads/dataExport-insurance*.csv",
+        os.path.join(output_directory, "clients-insurance.csv"),
     )
 
 
 def download_csvs():
     logger.debug("Downloading CSVs from TherapyAppointment")
     driver, actions = w.initialize_selenium()
-    shutil.rmtree("temp/downloads", ignore_errors=True)
+    shutil.rmtree("temp", ignore_errors=True)
     w.login_ta(driver, actions)
     open_profile(driver)
     loop_therapists(driver, export_data)
