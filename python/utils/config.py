@@ -49,3 +49,6 @@ def validate_config() -> None:
 
     if not os.getenv("ASANA_WORKSPACE"):
         raise ValueError("ASANA_WORKSPACE is not set")
+
+    if not os.getenv("CENSUS_API_KEY"):
+        raise ValueError("CENSUS_API_KEY is not set")
