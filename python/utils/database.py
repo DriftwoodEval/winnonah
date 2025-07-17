@@ -91,20 +91,18 @@ def put_evaluators_in_db(evaluators_dict: dict) -> None:
 
 def set_inactive_clients(clients_df: pd.DataFrame):
     logger.debug("Setting inactive clients")
+    client_ids = clients_df["CLIENT_ID"].tolist()
     db_connection = get_db()
 
     with db_connection:
         with db_connection.cursor() as cursor:
-            sql = "UPDATE emr_client SET status = 0 WHERE id = %s"
-            for _, client in clients_df.iterrows():
-                client_id = client["CLIENT_ID"]
-                cursor.execute(sql, (client_id,))
+            sql = "UPDATE emr_client SET status = 0 WHERE id IN %s"
+            cursor.execute(sql, (tuple(client_ids),))
 
         db_connection.commit()
 
 
 def filter_clients_with_changed_address(clients: pd.DataFrame) -> pd.DataFrame:
-    logger.debug("Skipping clients already in database with same address")
     db_connection = get_db()
 
     with db_connection:
@@ -128,7 +126,6 @@ def filter_clients_with_changed_address(clients: pd.DataFrame) -> pd.DataFrame:
 
 
 def get_missing_asana_clients() -> pd.DataFrame:
-    logger.debug("Getting clients missing Asana IDs")
     db_connection = get_db()
 
     with db_connection:
