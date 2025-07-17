@@ -72,7 +72,8 @@ def main():
 
         utils.database.insert_by_matching_criteria(clients, evaluators)
 
+        shutil.rmtree("temp", ignore_errors=True)
+
 
 if __name__ == "__main__":
     main()
-    shutil.rmtree("temp", ignore_errors=True)
