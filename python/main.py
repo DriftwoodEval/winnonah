@@ -42,12 +42,12 @@ def main():
                 interpreter = utils.asana.is_interpreter(asana_project)
                 archived_in_asana = asana_project["archived"]
 
-                missing_asana_clients.at[index, "ASANA_ID"] = asana_id
-                missing_asana_clients.at[index, "ASD_ADHD"] = asd_adhd
-                missing_asana_clients.at[index, "INTERPRETER"] = interpreter
-                missing_asana_clients.at[index, "ARCHIVED_IN_ASANA"] = archived_in_asana
+            missing_asana_clients.at[index, "ASANA_ID"] = asana_id
+            missing_asana_clients.at[index, "ASD_ADHD"] = asd_adhd
+            missing_asana_clients.at[index, "INTERPRETER"] = interpreter
+            missing_asana_clients.at[index, "ARCHIVED_IN_ASANA"] = archived_in_asana
 
-                utils.database.update_asana_information(missing_asana_clients)
+        utils.database.update_asana_information(missing_asana_clients)
 
     if not new_clients.empty:
         for index, client in clients.iterrows():
