@@ -119,6 +119,9 @@ def combine_address_info(clients: pd.DataFrame) -> pd.DataFrame:
 
         address += f"{city}, {state} {zip}"
 
+        if not any(char.isalnum() for char in address):
+            address = ""
+
         return address
 
     logger.debug("Combining client address info")

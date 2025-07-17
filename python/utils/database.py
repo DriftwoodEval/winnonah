@@ -107,22 +107,22 @@ def filter_clients_with_changed_address(clients: pd.DataFrame) -> pd.DataFrame:
 
     with db_connection:
         with db_connection.cursor() as cursor:
-            cursor.execute("SELECT id, address FROM emr_client")
+            cursor.execute("SELECT id, LOWER(address) as address FROM emr_client")
             previous_clients = {row["id"]: row["address"] for row in cursor.fetchall()}
 
             clients["ADDRESS_CHANGED"] = clients.apply(
-                lambda row: previous_clients.get(row["CLIENT_ID"], None)
-                != row["ADDRESS"],
+                lambda row: previous_clients.get(row["CLIENT_ID"], "")
+                != row["ADDRESS"].lower().strip(),
                 axis=1,
             )
 
-            clients = clients[clients["ADDRESS_CHANGED"]]
+            clients_with_new_address = clients[clients["ADDRESS_CHANGED"]]
 
             logger.debug(
-                f"Skipping {len(clients)} clients already in database with same address"
+                f"Skipping {len(clients) - len(clients_with_new_address)} clients already in database with same address ({len(clients_with_new_address)} new clients)"
             )
 
-            return clients
+            return clients_with_new_address.copy()
 
 
 def get_missing_asana_clients() -> pd.DataFrame:
@@ -199,7 +199,9 @@ def put_clients_in_db(clients_df):
                     client.LASTNAME,
                     client.PREFERRED_NAME if pd.notna(client.PREFERRED_NAME) else None,
                     f"{client.FIRSTNAME}{' (' + client.PREFERRED_NAME + ') ' if pd.notna(client.PREFERRED_NAME) else ' '}{client.LASTNAME}",
-                    client.ADDRESS,
+                    client.ADDRESS
+                    if pd.notna(client.ADDRESS) and client.ADDRESS != ""
+                    else None,
                     client.SCHOOL_DISTRICT,
                     client.CLOSEST_OFFICE if pd.notna(client.CLOSEST_OFFICE) else None,
                     client.CLOSEST_OFFICE_MILES
