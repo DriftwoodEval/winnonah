@@ -248,7 +248,7 @@ def get_closest_offices(client: pd.Series) -> dict:
             "third_closest_office_miles": "Unknown",
         }
 
-    if not pd.isna(client.LATITUDE) and not pd.isna(client.LONGITUDE):
+    if "LATITUDE" in client and "LONGITUDE" in client:
         return calculate_closest_offices(client, client.LATITUDE, client.LONGITUDE)
 
     geocoded_location = geocode_address(client)

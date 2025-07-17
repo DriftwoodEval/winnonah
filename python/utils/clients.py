@@ -141,7 +141,8 @@ def get_clients() -> pd.DataFrame:
     demo_df = utils.database.open_local_spreadsheet(
         "temp/input/clients-demographic.csv"
     )
-    clients_df = pd.merge(demo_df, insurance_df)
+
+    clients_df = pd.merge(demo_df, insurance_df, "outer")
     clients_df = normalize_names(clients_df)
     clients_df = remove_test_names(clients_df, TEST_NAMES)
     clients_df = map_insurance_names(clients_df)

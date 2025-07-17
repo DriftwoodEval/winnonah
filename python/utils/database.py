@@ -103,23 +103,36 @@ def set_inactive_clients(clients_df: pd.DataFrame):
         db_connection.commit()
 
 
-def remove_previous_clients(clients: pd.DataFrame) -> pd.DataFrame:
+def filter_clients_with_changed_address(clients: pd.DataFrame) -> pd.DataFrame:
     logger.debug("Skipping clients already in database with same address")
     db_connection = get_db()
 
     with db_connection:
         with db_connection.cursor() as cursor:
             cursor.execute("SELECT id, address FROM emr_client")
-            previous_clients = {tuple(row) for row in cursor.fetchall()}
+            previous_clients = {row["id"]: row["address"] for row in cursor.fetchall()}
 
-            clients = clients[
-                ~clients.apply(
-                    lambda row: (row["CLIENT_ID"], row["ADDRESS"]) in previous_clients,
-                    axis=1,
-                )
-            ]
+            clients["ADDRESS_CHANGED"] = clients.apply(
+                lambda row: previous_clients.get(row["CLIENT_ID"], None)
+                != row["ADDRESS"],
+                axis=1,
+            )
+
+            clients = clients[clients["ADDRESS_CHANGED"]]
 
             return clients
+
+
+def get_missing_asana_clients() -> pd.DataFrame:
+    logger.debug("Getting clients missing Asana IDs")
+    db_connection = get_db()
+
+    with db_connection:
+        with db_connection.cursor() as cursor:
+            cursor.execute("SELECT id FROM emr_client WHERE asanaId IS NULL")
+            clients = cursor.fetchall()
+            client_ids = [client["id"] for client in clients]
+            return pd.DataFrame(client_ids, columns=["CLIENT_ID"])
 
 
 def put_clients_in_db(clients_df):
@@ -217,6 +230,32 @@ def put_clients_in_db(clients_df):
                     if pd.notna(client.GENDER)
                     else None,
                     f"{client.PHONE1:.0f}" if pd.notna(client.PHONE1) else None,
+                )
+
+                cursor.execute(sql, values)
+
+        db_connection.commit()
+
+
+def update_asana_information(clients_df: pd.DataFrame):
+    logger.debug("Updating Asana information")
+    db_connection = get_db()
+
+    with db_connection:
+        with db_connection.cursor() as cursor:
+            sql = """
+            UPDATE emr_client
+            SET asanaId = %s, archivedInAsana = %s, asdAdhd = %s, interpreter = %s
+            WHERE id = %s
+            """
+
+            for _, client in clients_df.iterrows():
+                values = (
+                    client.ASANA_ID if pd.notna(client.ASANA_ID) else None,
+                    client.ARCHIVED_IN_ASANA,
+                    client.ASD_ADHD if pd.notna(client.ASD_ADHD) else None,
+                    client.INTERPRETER,
+                    client.CLIENT_ID,
                 )
 
                 cursor.execute(sql, values)
