@@ -36,6 +36,10 @@ def main():
             asana_project = utils.asana.search_by_name(
                 asana_projects, str(client.CLIENT_ID)
             )
+            if not asana_project:
+                asana_project = utils.asana.search_and_add_id(
+                    projects_api, asana_projects, client
+                )
             if asana_project:
                 asana_id = asana_project["gid"]
                 asd_adhd = utils.asana.is_asd_adhd(asana_project)

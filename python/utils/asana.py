@@ -2,6 +2,7 @@ import os
 import re
 
 import asana
+import pandas as pd
 from asana.rest import ApiException
 from loguru import logger
 
@@ -67,6 +68,35 @@ def search_by_name(projects: list | None, name: str) -> dict | None:
         return correct_project
     else:
         return None
+
+
+def change_title(projects_api: asana.ProjectsApi, project_gid: str, title: str) -> bool:
+    logger.info(f"Updating project {project_gid} with new title '{title}'")
+    body = {"data": {"name": title}}
+    try:
+        projects_api.update_project(body, project_gid, opts={"opt_fields": "name"})
+        return True
+    except ApiException as e:
+        logger.exception(f"Exception when calling ProjectsApi->update_project: {e}")
+        return False
+
+
+def search_and_add_id(
+    projects_api: asana.ProjectsApi, projects: list | None, client: pd.Series
+) -> dict | None:
+    if not projects:
+        return
+    project = search_by_name(
+        projects, f"{str(client.FIRSTNAME).strip()} {str(client.LASTNAME).strip()}"
+    )
+    if project and isinstance(project, dict):
+        new_title = (
+            re.sub(r"\s+", " ", str(project.get("name"))).strip()
+            + f" [{str(client.CLIENT_ID)}]"
+        )
+        if "[" not in str(project.get("name")):
+            change_title(projects_api, project["gid"], new_title)
+            return project
 
 
 def is_asd_adhd(project: dict) -> str:

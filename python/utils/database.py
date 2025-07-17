@@ -130,13 +130,14 @@ def get_missing_asana_clients() -> pd.DataFrame:
 
     with db_connection:
         with db_connection.cursor() as cursor:
-            cursor.execute("SELECT id FROM emr_client WHERE asanaId IS NULL")
+            cursor.execute(
+                "SELECT id AS CLIENT_ID, firstName AS FIRSTNAME, lastName AS LASTNAME FROM emr_client WHERE asanaId IS NULL"
+            )
             clients = cursor.fetchall()
-            client_ids = [client["id"] for client in clients]
 
-            logger.debug(f"Found {len(client_ids)} clients missing Asana IDs")
+            logger.debug(f"Found {len(clients)} clients missing Asana IDs")
 
-            return pd.DataFrame(client_ids, columns=["CLIENT_ID"])
+            return pd.DataFrame(clients)
 
 
 def put_clients_in_db(clients_df):
