@@ -120,6 +120,10 @@ def filter_clients_with_changed_address(clients: pd.DataFrame) -> pd.DataFrame:
 
             clients = clients[clients["ADDRESS_CHANGED"]]
 
+            logger.debug(
+                f"Skipping {len(clients)} clients already in database with same address"
+            )
+
             return clients
 
 
@@ -132,6 +136,9 @@ def get_missing_asana_clients() -> pd.DataFrame:
             cursor.execute("SELECT id FROM emr_client WHERE asanaId IS NULL")
             clients = cursor.fetchall()
             client_ids = [client["id"] for client in clients]
+
+            logger.debug(f"Found {len(client_ids)} clients missing Asana IDs")
+
             return pd.DataFrame(client_ids, columns=["CLIENT_ID"])
 
 
