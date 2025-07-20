@@ -1,8 +1,12 @@
 "use client";
 
+import { debounce } from "lodash";
 import { AlertTriangleIcon } from "lucide-react";
 import Link from "next/link";
+import { useEffect } from "react";
 import sanitizeHtml from "sanitize-html";
+import { AddAsanaIdButton } from "~/app/_components/addAsanaIdButton";
+import { RichTextEditor } from "~/app/_components/richTextEditor";
 import { Alert, AlertTitle } from "~/app/_components/ui/alert";
 import {
 	Popover,
@@ -14,8 +18,6 @@ import { Separator } from "~/app/_components/ui/separator";
 import { Skeleton } from "~/app/_components/ui/skeleton";
 import { cn, formatClientAge } from "~/lib/utils";
 import { api } from "~/trpc/react";
-import { AddAsanaIdButton } from "./addAsanaIdButton";
-import { AsanaEditor } from "./asanaEditor";
 
 export function Client({ hash }: { hash: string }) {
 	const officeResponse = api.offices.getAll.useQuery();
@@ -45,23 +47,35 @@ export function Client({ hash }: { hash: string }) {
 	);
 	const asanaProject = asanaProjectResponse?.data?.data;
 	const asanaHtmlNotes = asanaProject?.html_notes
-		? sanitizeHtml(asanaProject.html_notes, {
-				allowedAttributes: {
-					a: ["className"],
-				},
-				transformTags: {
-					a: (tagName, attribs) => {
-						return {
-							tagName,
-							attribs: {
-								...attribs,
-								className: "text-blue-600",
-							},
-						};
-					},
-				},
-			}).replace(/\n/g, "<br>")
+		? sanitizeHtml(asanaProject.html_notes).replace(/\n/g, "<br>")
 		: null;
+
+	const mutateAsanaProject = api.asana.updateProject.useMutation();
+
+	const asanaTimer = debounce((html_notes: string) => {
+		const html = html_notes.trim();
+		const wrapInBodyTag =
+			!html.startsWith("<body>") && !html.startsWith("<BODY>");
+		const htmlWithoutParagraphTags = html
+			.replace(/<p[^>]*>/g, "")
+			.replace(/<\/p>/g, "\n")
+			.replace(/<br[^>]*>/g, "\n");
+		const wrappedHtml = wrapInBodyTag
+			? `<body>${htmlWithoutParagraphTags}</body>`
+			: htmlWithoutParagraphTags;
+		mutateAsanaProject.mutate({
+			id: client?.asanaId ?? "",
+			html_notes: wrappedHtml,
+		});
+	}, 10 * 1000); // 10 seconds
+
+	useEffect(() => {
+		const handleBeforeUnload = () => {
+			asanaTimer.flush();
+		};
+		window.addEventListener("beforeunload", handleBeforeUnload);
+		return () => window.removeEventListener("beforeunload", handleBeforeUnload);
+	}, [asanaTimer]);
 
 	return (
 		<div className="mx-10 flex flex-col gap-6">
@@ -224,8 +238,15 @@ export function Client({ hash }: { hash: string }) {
 									<span className="font-bold">Asana Notes</span>
 								)}
 							</h4>
-							{asanaHtmlNotes ? (
-								<AsanaEditor initialHtml={asanaHtmlNotes} />
+							{typeof asanaHtmlNotes === "string" ? (
+								<div>
+									<RichTextEditor
+										value={asanaHtmlNotes}
+										onChange={(value) => {
+											asanaTimer(value);
+										}}
+									/>
+								</div>
 							) : (
 								<div className="flex flex-col gap-2">
 									<Skeleton

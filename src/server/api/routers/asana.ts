@@ -18,7 +18,7 @@ export const getProject = async (id: string) => {
 
 export const updateProject = async (
   id: string,
-  data: { name?: string; notes?: string }
+  data: { name?: string; html_notes?: string }
 ) => {
   const projectsApiInstance = new Asana.ProjectsApi();
   const project = await projectsApiInstance.updateProject({ data }, id, opts);
@@ -49,4 +49,20 @@ export const asanaRouter = createTRPCRouter({
     }
     return await getProject(input);
   }),
+
+  updateProject: protectedProcedure
+    .input(
+      z.object({
+        id: z.string(),
+        name: z.string().optional(),
+        html_notes: z.string().optional(),
+      })
+    )
+    .mutation(async ({ input }) => {
+      const data = {
+        name: input.name,
+        html_notes: input.html_notes,
+      };
+      return await updateProject(input.id, data);
+    }),
 });
