@@ -1,7 +1,7 @@
 import "~/styles/globals.css";
 
 import type { Metadata } from "next";
-import { Geist } from "next/font/google";
+import { Lora, Plus_Jakarta_Sans, Roboto_Mono } from "next/font/google";
 import { Header } from "~/app/_components/Header";
 import { TRPCReactProvider } from "~/trpc/react";
 
@@ -11,16 +11,29 @@ export const metadata: Metadata = {
 	icons: [{ rel: "icon", url: "/favicon.ico" }],
 };
 
-const geist = Geist({
+const plusJakartaSans = Plus_Jakarta_Sans({
 	subsets: ["latin"],
-	variable: "--font-geist-sans",
+	variable: "--font-plus-jakarta-sans",
+});
+
+const lora = Lora({
+	subsets: ["latin"],
+	variable: "--font-lora",
+});
+
+const robotoMono = Roboto_Mono({
+	subsets: ["latin"],
+	variable: "--font-roboto-mono",
 });
 
 export default function RootLayout({
 	children,
 }: Readonly<{ children: React.ReactNode }>) {
 	return (
-		<html lang="en" className={`${geist.variable} h-full`}>
+		<html
+			lang="en"
+			className={`${plusJakartaSans.variable} ${lora.variable} ${robotoMono.variable} h-full`}
+		>
 			<body className="dark h-full bg-background">
 				<TRPCReactProvider>
 					<Header />
