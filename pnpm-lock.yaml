@@ -71,12 +71,6 @@ importers:
       '@trpc/server':
         specifier: ^11.4.3
         version: 11.4.3(typescript@5.8.3)
-      '@types/lodash':
-        specifier: ^4.17.20
-        version: 4.17.20
-      '@types/sanitize-html':
-        specifier: ^2.16.0
-        version: 2.16.0
       asana:
         specifier: ^3.1.0
         version: 3.1.0(@babel/core@7.27.4)
@@ -131,9 +125,6 @@ importers:
       react-hook-form:
         specifier: ^7.60.0
         version: 7.60.0(react@19.1.0)
-      react-simple-wysiwyg:
-        specifier: ^3.4.0
-        version: 3.4.0(react@19.1.0)
       sanitize-html:
         specifier: ^2.17.0
         version: 2.17.0
@@ -156,6 +147,9 @@ importers:
       '@tailwindcss/postcss':
         specifier: ^4.1.11
         version: 4.1.11
+      '@types/lodash':
+        specifier: ^4.17.20
+        version: 4.17.20
       '@types/node':
         specifier: ^24.0.15
         version: 24.0.15
@@ -165,6 +159,9 @@ importers:
       '@types/react-dom':
         specifier: ^19.1.6
         version: 19.1.6(@types/react@19.1.8)
+      '@types/sanitize-html':
+        specifier: ^2.16.0
+        version: 2.16.0
       biome:
         specifier: ^0.3.3
         version: 0.3.3
@@ -2786,11 +2783,6 @@ packages:
     peerDependenciesMeta:
       '@types/react':
         optional: true
-
-  react-simple-wysiwyg@3.4.0:
-    resolution: {integrity: sha512-2RYJoUBqXOH+i8Q3vUQCg8O0ZRlb3RsZRpHNQwGLLFOosscdT4grEcPZbrB2xrq0ir/5N2MitRp/sHzxJu6a7w==}
-    peerDependencies:
-      react: '>=16.8'
 
   react-style-singleton@2.2.3:
     resolution: {integrity: sha512-b6jSvxvVnyptAiLjbkWLE/lOnR4lfTtDAl+eUC7RZy+QQWc6wRzIV2CE6xBuMmDxc2qIihtDCZD5NPOFl7fRBQ==}
@@ -5496,10 +5488,6 @@ snapshots:
       use-sidecar: 1.1.3(@types/react@19.1.8)(react@19.1.0)
     optionalDependencies:
       '@types/react': 19.1.8
-
-  react-simple-wysiwyg@3.4.0(react@19.1.0):
-    dependencies:
-      react: 19.1.0
 
   react-style-singleton@2.2.3(@types/react@19.1.8)(react@19.1.0):
     dependencies:
