@@ -172,7 +172,7 @@ export function RichTextEditor({
 				</ToggleGroup>
 			</div>
 
-			<EditorContent editor={editor} />
+			<EditorContent className="rounded-md shadow" editor={editor} />
 		</div>
 	);
 }

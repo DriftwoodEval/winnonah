@@ -1,61 +1,33 @@
 "use client";
 
-import { debounce } from "lodash";
-import { AlertTriangleIcon, CheckIcon } from "lucide-react";
-import Link from "next/link";
 import { useEffect, useState } from "react";
-import sanitizeHtml from "sanitize-html";
-import { AddAsanaIdButton } from "~/app/_components/addAsanaIdButton";
-import { RichTextEditor } from "~/app/_components/richTextEditor";
-import { Alert, AlertTitle } from "~/app/_components/ui/alert";
-import {
-	Popover,
-	PopoverContent,
-	PopoverTrigger,
-} from "~/app/_components/ui/popover";
-import { ScrollArea } from "~/app/_components/ui/scroll-area";
-import { Separator } from "~/app/_components/ui/separator";
 import { Skeleton } from "~/app/_components/ui/skeleton";
-import {
-	asanaColorMap,
-	cn,
-	formatClientAge,
-	getColorFromMap,
-} from "~/lib/utils";
 import { api } from "~/trpc/react";
+import { AsanaNotesEditor } from "./client/asanaNotesEditor";
+import { ClientDetailsCard } from "./client/clientDetailsCard";
+import { ClientHeader } from "./client/clientHeader";
+import { EligibleEvaluatorsList } from "./client/eligibleEvaluatorsList";
 
 export function Client({ hash }: { hash: string }) {
-	const officeResponse = api.offices.getAll.useQuery();
-	const offices = officeResponse.data;
-	const clientResponse = api.clients.getOne.useQuery({
-		column: "hash",
-		value: hash,
+	// Data Fetching
+	const { data: offices, isLoading: isLoadingOffices } =
+		api.offices.getAll.useQuery();
+	const { data: client, isLoading: isLoadingClient } =
+		api.clients.getOne.useQuery({
+			column: "hash",
+			value: hash,
+		});
+
+	const {
+		data: asanaProjectData,
+		isLoading: isLoadingAsanaProject,
+		refetch: refetchAsanaProject,
+	} = api.asana.getProject.useQuery(client?.asanaId ?? "", {
+		enabled: !!client?.asanaId, // Only run query if asanaId exists
 	});
-	const client = clientResponse.data;
+	const asanaProject = asanaProjectData?.data;
 
-	const eligibleEvaluatorsResponse =
-		api.evaluators.getEligibleForClient.useQuery(client?.id ?? 0);
-	const eligibleEvaluators = eligibleEvaluatorsResponse.data;
-
-	const closestOffice = offices?.[client?.closestOffice ?? ""] ?? null;
-	const secondClosestOffice =
-		offices?.[client?.secondClosestOffice ?? ""] ?? null;
-	const thirdClosestOffice =
-		offices?.[client?.thirdClosestOffice ?? ""] ?? null;
-
-	const closestOfficeMiles = client?.closestOfficeMiles ?? null;
-	const secondClosestOfficeMiles = client?.secondClosestOfficeMiles ?? null;
-	const thirdClosestOfficeMiles = client?.thirdClosestOfficeMiles ?? null;
-
-	const asanaProjectResponse = api.asana.getProject.useQuery(
-		client?.asanaId ?? "",
-		{ enabled: !!client?.asanaId },
-	);
-	const asanaProject = asanaProjectResponse?.data?.data;
-	const asanaHtmlNotes = asanaProject?.html_notes
-		? sanitizeHtml(asanaProject.html_notes).replace(/\n/g, "<br>")
-		: null;
-
+	// Asana Color State and Mutations
 	const [selectedAsanaColorKey, setSelectedAsanaColorKey] = useState<
 		string | null
 	>(null);
@@ -66,20 +38,16 @@ export function Client({ hash }: { hash: string }) {
 		}
 	}, [asanaProject?.color]);
 
-	const currentHexAsanaColor = selectedAsanaColorKey
-		? getColorFromMap(selectedAsanaColorKey)
-		: null;
-
 	const mutateAsanaProject = api.asana.updateProject.useMutation({
 		onSuccess: () => {
-			asanaProjectResponse.refetch();
+			refetchAsanaProject();
 		},
 		onError: (error) => {
-			console.error("Failed to update Asana project color:", error);
+			console.error("Failed to update Asana project:", error);
 		},
 	});
 
-	const updateAsanaColorAndClosePopover = (colorKey: string) => {
+	const updateAsanaColor = (colorKey: string) => {
 		setSelectedAsanaColorKey(colorKey);
 		mutateAsanaProject.mutate({
 			id: client?.asanaId ?? "",
@@ -87,253 +55,28 @@ export function Client({ hash }: { hash: string }) {
 		});
 	};
 
-	const asanaTimer = debounce((html_notes: string) => {
-		const html = html_notes.trim();
-		const wrapInBodyTag =
-			!html.startsWith("<body>") && !html.startsWith("<BODY>");
-		const htmlWithoutParagraphTags = html
-			.replace(/<p[^>]*>/g, "")
-			.replace(/<\/p>/g, "\n")
-			.replace(/<br[^>]*>/g, "\n");
-		const wrappedHtml = wrapInBodyTag
-			? `<body>${htmlWithoutParagraphTags}</body>`
-			: htmlWithoutParagraphTags;
-		mutateAsanaProject.mutate({
-			id: client?.asanaId ?? "",
-			html_notes: wrappedHtml,
-		});
-	}, 10 * 1000); // 10 seconds
-
-	useEffect(() => {
-		const handleBeforeUnload = () => {
-			asanaTimer.flush();
-		};
-		window.addEventListener("beforeunload", handleBeforeUnload);
-		return () => window.removeEventListener("beforeunload", handleBeforeUnload);
-	}, [asanaTimer]);
+	const isLoading =
+		isLoadingClient || isLoadingOffices || isLoadingAsanaProject;
 
 	return (
 		<div className="mx-10 flex flex-col gap-6">
-			<div className="flex flex-col gap-2">
-				{client ? (
-					<div className="flex items-center gap-2">
-						<h1 className="font-bold text-2xl">{client?.fullName}</h1>
-						{!client?.asanaId && <AddAsanaIdButton client={client} />}
-					</div>
-				) : (
-					<div className="flex flex-col gap-2">
-						<Skeleton className="h-[var(--text-2xl)] w-[32ch] rounded-md" />
-						<Skeleton className="h-[var(--text-base)] w-[9ch] rounded-md" />
-					</div>
-				)}
-				<div className="flex h-5 items-center gap-2">
-					<span>{client?.id}</span>
-					{client?.interpreter && <Separator orientation="vertical" />}
-					{client?.interpreter && (
-						<span className="font-bold">Interpreter Needed</span>
-					)}
-					{client?.asdAdhd && <Separator orientation="vertical" />}
-					{client?.asdAdhd === "Both" ? (
-						<span>ASD + ADHD</span>
-					) : (
-						<span>{client?.asdAdhd}</span>
-					)}
-					{currentHexAsanaColor && <Separator orientation="vertical" />}
-					{currentHexAsanaColor && (
-						<Popover>
-							<PopoverTrigger asChild>
-								<span
-									className="h-5 w-5 rounded-full"
-									role="button"
-									tabIndex={0}
-									style={{ background: currentHexAsanaColor }}
-								/>
-							</PopoverTrigger>
-							<PopoverContent>
-								<div className="grid grid-cols-4 place-items-center gap-2">
-									{Object.entries(asanaColorMap).map(([key, value]) => (
-										<button
-											key={key}
-											type="button"
-											className="relative h-10 w-10 rounded-sm"
-											style={{ backgroundColor: value }}
-											onClick={() => updateAsanaColorAndClosePopover(key)}
-										>
-											{selectedAsanaColorKey === key && (
-												<CheckIcon
-													className="-translate-x-1/2 -translate-y-1/2 absolute top-1/2 left-1/2"
-													style={{
-														color:
-															Number.parseInt(value.replace("#", ""), 16) >
-															0xffffff / 2
-																? "#333"
-																: "#FFF",
-													}}
-												/>
-											)}
-										</button>
-									))}
-								</div>
-							</PopoverContent>
-						</Popover>
-					)}
-				</div>
-			</div>
+			<ClientHeader
+				client={client}
+				asanaProjectColorKey={selectedAsanaColorKey}
+				onAsanaColorChange={updateAsanaColor}
+				isLoading={isLoading}
+			/>
 
-			{client ? (
-				<div className="flex w-[calc(100vw-32px)] flex-wrap gap-6 rounded-md border-2 bg-card p-4 sm:w-4xl">
-					<div>
-						<p className="font-bold">Date of Birth</p>
-						<p>{client?.dob?.toLocaleDateString("en-US")}</p>
-					</div>
-					<div>
-						<p className="font-bold">Age</p>
-						<p>{client?.dob ? formatClientAge(client?.dob) : ""}</p>
-					</div>
-					{!client?.addedDate && (
-						<div>
-							<p className="font-bold">Date of Entry</p>
-							<p>{client?.addedDate?.toLocaleDateString("en-US")}</p>
-						</div>
-					)}
-					{!client?.privatePay && (
-						<div
-							className={cn(
-								"",
-								client?.secondaryInsurance && "flex flex-wrap gap-3 rounded-md",
-							)}
-						>
-							{client?.primaryInsurance && (
-								<div>
-									<p className="font-bold">Primary Insurance</p>
-									<p>{client.primaryInsurance.replace(/_/g, " ")}</p>
-								</div>
-							)}
-							{client?.secondaryInsurance && (
-								<div>
-									<p className="font-bold">Secondary Insurance</p>
-									<p>{client.secondaryInsurance.replace(/_/g, " ")}</p>
-								</div>
-							)}
-						</div>
-					)}
-					{client?.privatePay && (
-						<div>
-							<p className="font-bold">Payment Type</p>
-							<p>Private Pay</p>
-						</div>
-					)}
-					<div>
-						<p className="font-bold">Address</p>
-						<p>{client?.address}</p>
-					</div>
-					<div>
-						<p className="font-bold">School District</p>
-						<p>{client?.schoolDistrict}</p>
-					</div>
-					<div>
-						<p className="font-bold">
-							Closest Office{" "}
-							<Popover>
-								<PopoverTrigger asChild>
-									<span className="cursor-pointer font-normal text-muted-foreground underline">
-										(Compare)
-									</span>
-								</PopoverTrigger>
-								<PopoverContent side="right">
-									<ul className="list-disc p-3">
-										<li>
-											{secondClosestOffice?.prettyName} (
-											{secondClosestOfficeMiles} mi)
-										</li>
-										<li>
-											{thirdClosestOffice?.prettyName} (
-											{thirdClosestOfficeMiles} mi)
-										</li>
-									</ul>
-								</PopoverContent>
-							</Popover>
-						</p>
-						<p>
-							{closestOffice?.prettyName} ({closestOfficeMiles} mi)
-						</p>
-					</div>
-					{client?.schoolDistrict === "Unknown" && (
-						<Alert variant="destructive">
-							<AlertTriangleIcon />
-							<AlertTitle>
-								Unable to determine school district, double-check evaluators.
-							</AlertTitle>
-						</Alert>
-					)}
-					{/* {client?.dob &&
-                        client?.asdAdhd &&
-                        asanaProject &&
-                        client.primaryInsurance && (
-                            <QuestionnaireForm
-                                client={client}
-                                asanaText={asanaProject.notes}
-                            />
-                        )} */}
-					<ScrollArea className="max-h-60 w-full rounded-md border">
-						<div className="p-4">
-							<h4 className="mb-4 font-bold leading-none">
-								Eligible Evaluators
-							</h4>
-							{eligibleEvaluators ? (
-								eligibleEvaluators.map((evaluator, index) => (
-									<div key={evaluator.npi}>
-										<div key={evaluator.npi} className="text-sm">
-											{evaluator.providerName}
-										</div>
-										{index !== eligibleEvaluators.length - 1 && (
-											<Separator key="separator" className="my-2" />
-										)}
-									</div>
-								))
-							) : (
-								<div className="flex flex-col gap-2">
-									{[...Array(5)].map((_, i) => (
-										<Skeleton
-											key={`skeleton-${i}-${client?.hash}`}
-											className="h-[var(--text-sm)] w-full rounded-md"
-										/>
-									))}
-								</div>
-							)}
-						</div>
-					</ScrollArea>
-					{client?.asanaId && (
-						<div className="w-full">
-							<h4 className="mb-4 font-bold leading-none">
-								{asanaProject?.permalink_url ? (
-									<Link href={asanaProject?.permalink_url}>Asana Notes</Link>
-								) : (
-									<span className="font-bold">Asana Notes</span>
-								)}
-							</h4>
-							{typeof asanaHtmlNotes === "string" ? (
-								<div>
-									<RichTextEditor
-										value={asanaHtmlNotes}
-										onChange={(value) => {
-											asanaTimer(value);
-										}}
-									/>
-								</div>
-							) : (
-								<div className="flex flex-col gap-2">
-									<Skeleton
-										key="asana-skeleton"
-										className="h-20 w-full rounded-md"
-									/>
-								</div>
-							)}
-						</div>
-					)}
-				</div>
-			) : (
+			{isLoading || !client ? ( // This check now covers the entire details section
 				<Skeleton className="h-96 w-[calc(100vw-32px)] rounded-md sm:h-96 sm:w-3xl" />
+			) : (
+				<>
+					<ClientDetailsCard client={client} offices={offices} />
+
+					<EligibleEvaluatorsList clientId={client.id} />
+
+					{client.asanaId && <AsanaNotesEditor asanaId={client.asanaId} />}
+				</>
 			)}
 		</div>
 	);
