@@ -5,7 +5,7 @@ import { LinkIcon } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useMemo } from "react";
 import sanitizeHtml from "sanitize-html";
-import { RichTextEditor } from "~/app/_components/richTextEditor";
+import { RichTextEditor } from "~/app/_components/RichTextEditor";
 import { Skeleton } from "~/app/_components/ui/skeleton";
 import { api } from "~/trpc/react";
 

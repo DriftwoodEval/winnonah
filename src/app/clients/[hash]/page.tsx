@@ -1,4 +1,4 @@
-import { Client } from "~/app/_components/client";
+import { Client } from "~/app/_components/Client";
 
 export default async function Page({
 	params,

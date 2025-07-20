@@ -2,7 +2,7 @@
 
 import { CheckIcon } from "lucide-react";
 import { useState } from "react";
-import { AddAsanaIdButton } from "~/app/_components/addAsanaIdButton";
+import { AddAsanaIdButton } from "~/app/_components/client/AddAsanaIdButton";
 import {
 	Popover,
 	PopoverContent,

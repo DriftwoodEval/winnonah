@@ -19,7 +19,7 @@ import { Separator } from "~/app/_components/ui/separator";
 import { cn, formatClientAge } from "~/lib/utils";
 import { api } from "~/trpc/react";
 
-export function Clients() {
+export function ClientsList() {
 	const clients = api.clients.getSorted.useQuery();
 
 	const searchParams = useSearchParams();

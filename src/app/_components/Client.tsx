@@ -1,12 +1,12 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { AsanaNotesEditor } from "~/app/_components/client/AsanaNotesEditor";
+import { ClientDetailsCard } from "~/app/_components/client/ClientDetailsCard";
+import { ClientHeader } from "~/app/_components/client/ClientHeader";
+import { EligibleEvaluatorsList } from "~/app/_components/client/EligibleEvaluatorsList";
 import { Skeleton } from "~/app/_components/ui/skeleton";
 import { api } from "~/trpc/react";
-import { AsanaNotesEditor } from "./client/asanaNotesEditor";
-import { ClientDetailsCard } from "./client/clientDetailsCard";
-import { ClientHeader } from "./client/clientHeader";
-import { EligibleEvaluatorsList } from "./client/eligibleEvaluatorsList";
 
 export function Client({ hash }: { hash: string }) {
 	// Data Fetching
