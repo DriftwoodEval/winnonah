@@ -1,9 +1,9 @@
 "use client";
 
 import { debounce } from "lodash";
-import { AlertTriangleIcon } from "lucide-react";
+import { AlertTriangleIcon, CheckIcon } from "lucide-react";
 import Link from "next/link";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import sanitizeHtml from "sanitize-html";
 import { AddAsanaIdButton } from "~/app/_components/addAsanaIdButton";
 import { RichTextEditor } from "~/app/_components/richTextEditor";
@@ -16,7 +16,12 @@ import {
 import { ScrollArea } from "~/app/_components/ui/scroll-area";
 import { Separator } from "~/app/_components/ui/separator";
 import { Skeleton } from "~/app/_components/ui/skeleton";
-import { cn, formatClientAge } from "~/lib/utils";
+import {
+	asanaColorMap,
+	cn,
+	formatClientAge,
+	getColorFromMap,
+} from "~/lib/utils";
 import { api } from "~/trpc/react";
 
 export function Client({ hash }: { hash: string }) {
@@ -44,13 +49,43 @@ export function Client({ hash }: { hash: string }) {
 
 	const asanaProjectResponse = api.asana.getProject.useQuery(
 		client?.asanaId ?? "",
+		{ enabled: !!client?.asanaId },
 	);
 	const asanaProject = asanaProjectResponse?.data?.data;
 	const asanaHtmlNotes = asanaProject?.html_notes
 		? sanitizeHtml(asanaProject.html_notes).replace(/\n/g, "<br>")
 		: null;
 
-	const mutateAsanaProject = api.asana.updateProject.useMutation();
+	const [selectedAsanaColorKey, setSelectedAsanaColorKey] = useState<
+		string | null
+	>(null);
+
+	useEffect(() => {
+		if (asanaProject?.color) {
+			setSelectedAsanaColorKey(asanaProject.color);
+		}
+	}, [asanaProject?.color]);
+
+	const currentHexAsanaColor = selectedAsanaColorKey
+		? getColorFromMap(selectedAsanaColorKey)
+		: null;
+
+	const mutateAsanaProject = api.asana.updateProject.useMutation({
+		onSuccess: () => {
+			asanaProjectResponse.refetch();
+		},
+		onError: (error) => {
+			console.error("Failed to update Asana project color:", error);
+		},
+	});
+
+	const updateAsanaColorAndClosePopover = (colorKey: string) => {
+		setSelectedAsanaColorKey(colorKey);
+		mutateAsanaProject.mutate({
+			id: client?.asanaId ?? "",
+			color: colorKey,
+		});
+	};
 
 	const asanaTimer = debounce((html_notes: string) => {
 		const html = html_notes.trim();
@@ -102,6 +137,45 @@ export function Client({ hash }: { hash: string }) {
 						<span>ASD + ADHD</span>
 					) : (
 						<span>{client?.asdAdhd}</span>
+					)}
+					{currentHexAsanaColor && <Separator orientation="vertical" />}
+					{currentHexAsanaColor && (
+						<Popover>
+							<PopoverTrigger asChild>
+								<span
+									className="h-5 w-5 rounded-full"
+									role="button"
+									tabIndex={0}
+									style={{ background: currentHexAsanaColor }}
+								/>
+							</PopoverTrigger>
+							<PopoverContent>
+								<div className="grid grid-cols-4 place-items-center gap-2">
+									{Object.entries(asanaColorMap).map(([key, value]) => (
+										<button
+											key={key}
+											type="button"
+											className="relative h-10 w-10 rounded-sm"
+											style={{ backgroundColor: value }}
+											onClick={() => updateAsanaColorAndClosePopover(key)}
+										>
+											{selectedAsanaColorKey === key && (
+												<CheckIcon
+													className="-translate-x-1/2 -translate-y-1/2 absolute top-1/2 left-1/2"
+													style={{
+														color:
+															Number.parseInt(value.replace("#", ""), 16) >
+															0xffffff / 2
+																? "#333"
+																: "#FFF",
+													}}
+												/>
+											)}
+										</button>
+									))}
+								</div>
+							</PopoverContent>
+						</Popover>
 					)}
 				</div>
 			</div>
@@ -193,14 +267,14 @@ export function Client({ hash }: { hash: string }) {
 						</Alert>
 					)}
 					{/* {client?.dob &&
-						client?.asdAdhd &&
-						asanaProject &&
-						client.primaryInsurance && (
-							<QuestionnaireForm
-								client={client}
-								asanaText={asanaProject.notes}
-							/>
-						)} */}
+                        client?.asdAdhd &&
+                        asanaProject &&
+                        client.primaryInsurance && (
+                            <QuestionnaireForm
+                                client={client}
+                                asanaText={asanaProject.notes}
+                            />
+                        )} */}
 					<ScrollArea className="max-h-60 w-full rounded-md border">
 						<div className="p-4">
 							<h4 className="mb-4 font-bold leading-none">
