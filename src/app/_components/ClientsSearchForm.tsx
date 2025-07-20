@@ -216,6 +216,7 @@ export default function ClientsSearchForm() {
 					<Button type="submit">Search</Button>
 					<Button
 						type="button"
+						variant="outline"
 						onClick={() => {
 							const url = new URL(window.location.href);
 							url.searchParams.delete("eval");

@@ -60,10 +60,10 @@ export function QuestionnaireForm({
 			);
 			const formattedQuestionnaires = reccommendedQuestionnaireList
 				.filter(
-					(questionnaire) =>
+					(questionnaire: string) =>
 						questionnaire !== "Too Young" && questionnaire !== "Done",
 				)
-				.map((questionnaire) => ({
+				.map((questionnaire: string) => ({
 					label: questionnaire,
 					value: questionnaire,
 				}));
