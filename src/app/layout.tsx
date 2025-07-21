@@ -1,8 +1,8 @@
 import "~/styles/globals.css";
 
+import { Header } from "@components/Header";
 import type { Metadata } from "next";
 import { Lora, Plus_Jakarta_Sans, Roboto_Mono } from "next/font/google";
-import { Header } from "~/app/_components/Header";
 import { TRPCReactProvider } from "~/trpc/react";
 
 export const metadata: Metadata = {

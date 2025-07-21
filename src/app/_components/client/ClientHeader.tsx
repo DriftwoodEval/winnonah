@@ -1,15 +1,15 @@
 "use client";
 
-import { CheckIcon } from "lucide-react";
-import { useState } from "react";
-import { AddAsanaIdButton } from "~/app/_components/client/AddAsanaIdButton";
+import { AddAsanaIdButton } from "@components/client/AddAsanaIdButton";
 import {
 	Popover,
 	PopoverContent,
 	PopoverTrigger,
-} from "~/app/_components/ui/popover";
-import { Separator } from "~/app/_components/ui/separator";
-import { Skeleton } from "~/app/_components/ui/skeleton";
+} from "@components/ui/popover";
+import { Separator } from "@components/ui/separator";
+import { Skeleton } from "@components/ui/skeleton";
+import { CheckIcon } from "lucide-react";
+import { useState } from "react";
 import { asanaColorMap, getColorFromMap } from "~/lib/utils";
 import type { Client } from "~/server/lib/utils";
 

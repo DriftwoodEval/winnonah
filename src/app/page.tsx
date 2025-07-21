@@ -1,5 +1,5 @@
-import { ClientsList } from "~/app/_components/ClientsList";
-import ClientsSearchForm from "~/app/_components/ClientsSearchForm";
+import { ClientsList } from "@components/ClientsList";
+import ClientsSearchForm from "@components/ClientsSearchForm";
 import { auth } from "~/server/auth";
 import { HydrateClient } from "~/trpc/server";
 

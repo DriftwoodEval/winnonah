@@ -1,7 +1,7 @@
 "use client";
 
+import { Badge } from "@components/ui/badge";
 import Link from "next/link";
-import { Badge } from "~/app/_components/ui/badge";
 import { api } from "~/trpc/react";
 export function IssuesAlert() {
 	const asanaErrorsResponse = api.clients.getAsanaErrors.useQuery();

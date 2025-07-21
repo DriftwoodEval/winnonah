@@ -1,11 +1,11 @@
 "use client";
 
+import { AsanaNotesEditor } from "@components/client/AsanaNotesEditor";
+import { ClientDetailsCard } from "@components/client/ClientDetailsCard";
+import { ClientHeader } from "@components/client/ClientHeader";
+import { EligibleEvaluatorsList } from "@components/client/EligibleEvaluatorsList";
+import { Skeleton } from "@components/ui/skeleton";
 import { useEffect, useState } from "react";
-import { AsanaNotesEditor } from "~/app/_components/client/AsanaNotesEditor";
-import { ClientDetailsCard } from "~/app/_components/client/ClientDetailsCard";
-import { ClientHeader } from "~/app/_components/client/ClientHeader";
-import { EligibleEvaluatorsList } from "~/app/_components/client/EligibleEvaluatorsList";
-import { Skeleton } from "~/app/_components/ui/skeleton";
 import { api } from "~/trpc/react";
 
 export function Client({ hash }: { hash: string }) {

@@ -1,4 +1,4 @@
-import { IssuesList } from "~/app/_components/issuesList";
+import { IssuesList } from "@components/issuesList";
 
 export default async function Page() {
 	return (

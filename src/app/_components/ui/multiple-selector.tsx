@@ -1,17 +1,16 @@
 "use client";
 
-import { Command as CommandPrimitive, useCommandState } from "cmdk";
-import { X } from "lucide-react";
-import * as React from "react";
-import { forwardRef, useEffect } from "react";
-
-import { Badge } from "~/app/_components/ui/badge";
+import { Badge } from "@components/ui/badge";
 import {
 	Command,
 	CommandGroup,
 	CommandItem,
 	CommandList,
-} from "~/app/_components/ui/command";
+} from "@components/ui/command";
+import { Command as CommandPrimitive, useCommandState } from "cmdk";
+import { X } from "lucide-react";
+import * as React from "react";
+import { forwardRef, useEffect } from "react";
 import { cn } from "~/lib/utils";
 
 export interface Option {

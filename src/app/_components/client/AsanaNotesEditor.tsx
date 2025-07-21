@@ -1,12 +1,10 @@
-// components/asana/asanaNotesEditor.tsx
-
+import { RichTextEditor } from "@components/RichTextEditor";
+import { Skeleton } from "@components/ui/skeleton";
 import { debounce } from "lodash";
 import { LinkIcon } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useMemo } from "react";
 import sanitizeHtml from "sanitize-html";
-import { RichTextEditor } from "~/app/_components/RichTextEditor";
-import { Skeleton } from "~/app/_components/ui/skeleton";
 import { api } from "~/trpc/react";
 
 interface AsanaNotesEditorProps {

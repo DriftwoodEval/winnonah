@@ -1,5 +1,6 @@
 "use client";
 
+import { ToggleGroup, ToggleGroupItem } from "@components/ui/toggle-group";
 import Placeholder from "@tiptap/extension-placeholder";
 import { EditorContent, useEditor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
@@ -14,10 +15,6 @@ import {
 	Undo,
 	Unlink,
 } from "lucide-react";
-import {
-	ToggleGroup,
-	ToggleGroupItem,
-} from "~/app/_components/ui/toggle-group";
 import { cn } from "~/lib/utils";
 
 interface RichTextEditorProps {
