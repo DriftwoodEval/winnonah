@@ -13,15 +13,17 @@ import { RadioGroup, RadioGroupItem } from "@components/ui/radio-group";
 import { ScrollArea } from "@components/ui/scroll-area";
 import { Separator } from "@components/ui/separator";
 import { Filter } from "lucide-react";
-import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useMemo, useState } from "react";
-import { cn, formatClientAge, getColorFromMap } from "~/lib/utils";
+import type { AsanaProject } from "~/server/lib/types";
 import { api } from "~/trpc/react";
+import { ClientListItem } from "./clients/ClientListItem";
 
 export function ClientsList() {
 	const clients = api.clients.getSorted.useQuery();
-	const asanaProjects = api.asana.getAllProjects.useQuery();
+	const asanaProjects = api.asana.getAllProjects.useQuery(undefined, {
+		enabled: !!clients.data, // Wait for clients.data to load
+	});
 
 	const searchParams = useSearchParams();
 	const [searchInput, setSearchInput] = useState("");
@@ -88,11 +90,13 @@ export function ClientsList() {
 	};
 
 	const asanaProjectMap = useMemo(() => {
-		if (!asanaProjects.data || asanaProjects.data.length === 0) {
-			return new Map();
+		if (!asanaProjects.data) {
+			return undefined;
 		}
 
-		return new Map(asanaProjects.data.map((project) => [project.gid, project]));
+		return new Map<string, AsanaProject>(
+			asanaProjects.data.map((project: AsanaProject) => [project.gid, project]),
+		);
 	}, [asanaProjects.data]);
 
 	return (
@@ -145,52 +149,17 @@ export function ClientsList() {
 				<div className="p-4">
 					<h4 className="mb-4 font-medium text-sm leading-none">Clients</h4>
 
-					{filteredClients.map((client, index) => {
-						const asanaProject = asanaProjectMap.get(client.asanaId);
-						const asanaColor = getColorFromMap(asanaProject?.color ?? "");
-
-						return (
-							<Link href={`/clients/${client.hash}`} key={client.id}>
-								<div key={client.hash} className="flex justify-between text-sm">
-									<div className="flex items-center gap-2">
-										{asanaColor && (
-											<span
-												className="h-3 w-3 rounded-full"
-												style={{ backgroundColor: asanaColor }}
-											/>
-										)}
-										<span>{client.fullName}</span>
-									</div>
-									<span
-										className={cn(
-											"text-muted-foreground",
-											client.sortReason === "BabyNet above 2:6" &&
-												"text-destructive",
-										)}
-									>
-										<span className="font-bold text-muted-foreground">
-											{client.interpreter ? "Interpreter " : ""}
-										</span>
-										{client.sortReason === "BabyNet above 2:6"
-											? `BabyNet: ${formatClientAge(
-													new Date(client.dob),
-													"short",
-												)}`
-											: client.sortReason === "Added date"
-												? `Added: ${client.addedDate?.toLocaleString("en-US", {
-														year: "numeric",
-														month: "short",
-														day: "numeric",
-													})}`
-												: client.sortReason}
-									</span>
-								</div>
-								{index !== filteredClients.length - 1 && (
-									<Separator key="separator" className="my-2" />
-								)}
-							</Link>
-						);
-					})}
+					{filteredClients.map((client, index) => (
+						<div key={client.hash}>
+							<ClientListItem
+								client={client}
+								asanaProjectMap={asanaProjectMap}
+							/>
+							{index < filteredClients.length - 1 && (
+								<Separator className="my-2" />
+							)}
+						</div>
+					))}
 				</div>
 			</ScrollArea>
 		</div>

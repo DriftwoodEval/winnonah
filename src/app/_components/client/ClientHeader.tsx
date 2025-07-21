@@ -11,7 +11,7 @@ import { Skeleton } from "@components/ui/skeleton";
 import { CheckIcon } from "lucide-react";
 import { useState } from "react";
 import { asanaColorMap, getColorFromMap } from "~/lib/utils";
-import type { Client } from "~/server/lib/utils";
+import type { Client } from "~/server/lib/types";
 
 interface ClientHeaderProps {
 	client: Client | undefined;

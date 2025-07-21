@@ -1,11 +1,4 @@
-import type { InferSelectModel } from "drizzle-orm";
-import type { clients } from "~/server/db/schema";
-
-export type Client = InferSelectModel<typeof clients>;
-
-export interface SortedClient extends Client {
-  sortReason?: string;
-}
+import type { SortedClient } from "./types";
 
 export const getBabyNetClientsAboveAge = (clients: SortedClient[]) => {
   // Get clients that are older than 2 years:6 months and under 3 years

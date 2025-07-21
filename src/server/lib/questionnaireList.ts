@@ -4,7 +4,7 @@ import { google } from "googleapis";
 import { env } from "~/env";
 import { formatClientAge } from "~/lib/utils";
 import { auth } from "~/server/auth";
-import type { Client } from "~/server/lib/utils";
+import type { Client } from "~/server/lib/types";
 
 export const getRecommendedQuestionnaires = async (
   client: Client,
@@ -48,7 +48,7 @@ export const getRecommendedQuestionnaires = async (
       }
 
       if (rowHeader && daEvalPart) {
-        const key = rowHeader.replace(/[\/-]/g, "_").replace(/\s+/g, "");
+        const key = rowHeader.replace(/[/-]/g, "_").replace(/\s+/g, "");
         daevalInsurance[
           key.toLowerCase().startsWith("united_optum") ? "United_Optum" : key
         ] = daEvalPart.trim();

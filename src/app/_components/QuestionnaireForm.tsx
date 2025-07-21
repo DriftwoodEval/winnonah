@@ -13,7 +13,7 @@ import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { getRecommendedQuestionnaires } from "~/server/lib/questionnaireList";
-import type { Client } from "~/server/lib/utils";
+import type { Client } from "~/server/lib/types";
 import { api } from "~/trpc/react";
 import { Button } from "./ui/button";
 

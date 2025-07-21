@@ -20,7 +20,7 @@ import { Input } from "@components/ui/input";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
-import type { Client } from "~/server/lib/utils";
+import type { Client } from "~/server/lib/types";
 import { api } from "~/trpc/react";
 
 const formSchema = z.object({

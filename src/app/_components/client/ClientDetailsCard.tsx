@@ -8,7 +8,7 @@ import {
 import { AlertTriangleIcon } from "lucide-react";
 import { cn, formatClientAge } from "~/lib/utils";
 import type { Offices } from "~/server/api/routers/database";
-import type { Client } from "~/server/lib/utils";
+import type { Client } from "~/server/lib/types";
 
 interface ClientDetailsCardProps {
 	client: Client;

@@ -9,16 +9,21 @@ const client = Asana.ApiClient.instance;
 const token = client.authentications.token;
 token.accessToken = env.ASANA_TOKEN;
 const workspaceId = env.ASANA_WORKSPACE;
+
+// CONFIGURATION
+const CACHE_TTL_SECONDS = 300; // 5 minutes
+const LOCK_TTL_SECONDS = 30;
+const ALL_PROJECTS_CACHE_KEY = "asana:all_projects";
+const FETCH_LOCK_KEY = "lock:asana:fetching_all_projects";
+const projectCacheKey = (id: string) => `asana:project:${id}`;
+
 const opts = {
   opt_fields: "name,color,permalink_url,notes,offset,html_notes",
   workspace: workspaceId,
   limit: 100,
 };
 
-const CACHE_TTL_SECONDS = 300; // 5 minutes
-const PROJECT_KEY_PREFIX = "project:";
-const ALL_PROJECTS_IDS_KEY = "projects:all_ids";
-
+// HELPER FUNCTIONS
 const getProjectFromAsana = async (id: string) => {
   const projectsApiInstance = new Asana.ProjectsApi();
   const { data } = await projectsApiInstance.getProject(id, opts);
@@ -30,7 +35,6 @@ const getAllProjectsFromAsana = async () => {
   const projectsApiInstance = new Asana.ProjectsApi();
   // biome-ignore lint/suspicious/noExplicitAny: Asana API is not typed
   const allProjects: any[] = [];
-  const projectIds: string[] = [];
   let response = await projectsApiInstance.getProjects(opts);
   allProjects.push(...response.data);
 
@@ -42,20 +46,8 @@ const getAllProjectsFromAsana = async () => {
     });
     allProjects.push(...response.data);
   }
-
-  for (const project of allProjects) {
-    projectIds.push(project.gid);
-  }
-
-  return { allProjects, projectIds };
-};
-
-const invalidateProjectCache = async (id: string) => {
-  const projectKey = `${PROJECT_KEY_PREFIX}${id}`;
-  await redis.del(projectKey, ALL_PROJECTS_IDS_KEY);
-  console.log(
-    `CACHE INVALIDATED for: ${projectKey} and ${ALL_PROJECTS_IDS_KEY}`
-  );
+  console.log(`Fetched ${allProjects.length} projects from Asana`);
+  return allProjects;
 };
 
 const updateProject = async (
@@ -67,6 +59,7 @@ const updateProject = async (
   return project;
 };
 
+// TRPC ROUTER
 export const asanaRouter = createTRPCRouter({
   getProject: protectedProcedure
     .input(z.string())
@@ -75,7 +68,7 @@ export const asanaRouter = createTRPCRouter({
         return null;
       }
 
-      const cacheKey = `${PROJECT_KEY_PREFIX}${id}`;
+      const cacheKey = projectCacheKey(id);
       const cachedProject = await redis.get(cacheKey);
       if (cachedProject) {
         console.log(`CACHE HIT: ${cacheKey}`);
@@ -85,59 +78,61 @@ export const asanaRouter = createTRPCRouter({
       console.log(`CACHE MISS: ${cacheKey}`);
       const project = await getProjectFromAsana(id);
 
-      await redis.setex(cacheKey, CACHE_TTL_SECONDS, JSON.stringify(project));
+      if (project) {
+        await redis.setex(cacheKey, CACHE_TTL_SECONDS, JSON.stringify(project));
+      }
+
       return project;
     }),
 
-  getAllProjects: protectedProcedure
-    .input(z.boolean().optional())
-    .query(async ({ input: forceRefresh }) => {
-      if (forceRefresh) {
-        console.log("CACHE CLEAR: Forcing refresh for all projects.");
-        const allProjectKeys = await redis.keys(`${PROJECT_KEY_PREFIX}*`);
-        if (allProjectKeys.length > 0) {
-          await redis.del(...allProjectKeys, ALL_PROJECTS_IDS_KEY);
-        }
-      }
+  getAllProjects: protectedProcedure.query(async () => {
+    const cachedProjects = await redis.get(ALL_PROJECTS_CACHE_KEY);
+    if (cachedProjects) {
+      console.log(`CACHE HIT: ${ALL_PROJECTS_CACHE_KEY}`);
+      return JSON.parse(cachedProjects);
+    }
 
-      const cachedProjectIds = await redis.get(ALL_PROJECTS_IDS_KEY);
-      if (cachedProjectIds) {
-        console.log(`CACHE HIT: ${ALL_PROJECTS_IDS_KEY}`);
-        const projectIds = JSON.parse(cachedProjectIds) as string[];
-        if (projectIds.length === 0) return [];
+    console.log(`CACHE MISS: ${ALL_PROJECTS_CACHE_KEY}.`);
 
-        const projectKeys = projectIds.map(
-          (id) => `${PROJECT_KEY_PREFIX}${id}`
-        );
-        const cachedProjects = await redis.mget(...projectKeys);
-        return cachedProjects.filter((p) => p).map((p) => JSON.parse(p ?? ""));
-      }
+    const lockAcquired = await redis.set(
+      FETCH_LOCK_KEY,
+      "true",
+      "EX",
+      LOCK_TTL_SECONDS,
+      "NX"
+    );
 
-      console.log(`CACHE MISS: ${ALL_PROJECTS_IDS_KEY}.`);
-      const { allProjects, projectIds } = await getAllProjectsFromAsana();
-
-      if (allProjects.length > 0) {
-        const pipeline = redis.pipeline();
-        for (const project of allProjects) {
-          pipeline.setex(
-            `${PROJECT_KEY_PREFIX}${project.gid}`,
-            CACHE_TTL_SECONDS,
-            JSON.stringify(project)
-          );
-        }
-        pipeline.setex(
-          ALL_PROJECTS_IDS_KEY,
+    if (lockAcquired) {
+      console.log("Lock acquired. Fetching projects from Asana.");
+      try {
+        const projects = await getAllProjectsFromAsana();
+        await redis.setex(
+          ALL_PROJECTS_CACHE_KEY,
           CACHE_TTL_SECONDS,
-          JSON.stringify(projectIds)
+          JSON.stringify(projects)
         );
-        await pipeline.exec();
-        console.log(
-          `CACHE SET: Cached ${allProjects.length} projects and their IDs.`
-        );
+        console.log(`CACHE SET: Cached ${projects.length} projects.`);
+        return projects;
+      } finally {
+        await redis.del(FETCH_LOCK_KEY);
+        console.log("Lock released.");
       }
-
-      return allProjects;
-    }),
+    } else {
+      console.log(
+        "Could not acquire lock. Waiting for another instance to populate the cache."
+      );
+      for (let i = 0; i < 15; i++) {
+        // Poll for up to 30 seconds
+        await new Promise((res) => setTimeout(res, 2000)); // Wait 2s
+        const projects = await redis.get(ALL_PROJECTS_CACHE_KEY);
+        if (projects) {
+          console.log("Cache populated by another instance. Returning data.");
+          return JSON.parse(projects);
+        }
+      }
+      throw new Error("Timed out waiting for cache to be populated.");
+    }
+  }),
 
   updateProject: protectedProcedure
     .input(
@@ -150,9 +145,12 @@ export const asanaRouter = createTRPCRouter({
     )
     .mutation(async ({ input }) => {
       const { id, ...data } = input;
-
+      const individualProjectKey = projectCacheKey(id);
       const updatedProject = await updateProject(id, data);
-      await invalidateProjectCache(id);
+      await redis.del(ALL_PROJECTS_CACHE_KEY, individualProjectKey);
+      console.log(
+        `CACHE INVALIDATED: ${ALL_PROJECTS_CACHE_KEY} and ${individualProjectKey}`
+      );
       return updatedProject;
     }),
 
@@ -174,7 +172,11 @@ export const asanaRouter = createTRPCRouter({
         name: newName,
       });
 
-      await invalidateProjectCache(projectId);
+      const individualProjectKey = projectCacheKey(projectId);
+      await redis.del(ALL_PROJECTS_CACHE_KEY, individualProjectKey);
+      console.log(
+        `CACHE INVALIDATED: ${ALL_PROJECTS_CACHE_KEY} and ${individualProjectKey}`
+      );
       return updatedProject;
     }),
 });
