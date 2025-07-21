@@ -6,8 +6,8 @@ import { Lora, Plus_Jakarta_Sans, Roboto_Mono } from "next/font/google";
 import { TRPCReactProvider } from "~/trpc/react";
 
 export const metadata: Metadata = {
-	title: "Schedule Helper",
-	description: "Schedule Helper",
+	title: "Winnonah",
+	description: "Winnonah",
 	icons: [{ rel: "icon", url: "/favicon.ico" }],
 };
 

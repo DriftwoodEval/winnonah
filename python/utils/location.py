@@ -113,7 +113,7 @@ def map_district_name(district: str) -> str:
     return district
 
 
-GEOLOCATOR = Nominatim(user_agent="driftwood-schedule-helper")
+GEOLOCATOR = Nominatim(user_agent="driftwood-winnonah")
 geocode: Callable[[str], Optional[Location]] = RateLimiter(
     GEOLOCATOR.geocode, min_delay_seconds=2
 )
