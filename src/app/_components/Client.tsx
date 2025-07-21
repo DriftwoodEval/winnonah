@@ -19,13 +19,12 @@ export function Client({ hash }: { hash: string }) {
 		});
 
 	const {
-		data: asanaProjectData,
+		data: asanaProject,
 		isLoading: isLoadingAsanaProject,
 		refetch: refetchAsanaProject,
 	} = api.asana.getProject.useQuery(client?.asanaId ?? "", {
 		enabled: !!client?.asanaId, // Only run query if asanaId exists
 	});
-	const asanaProject = asanaProjectData?.data;
 
 	// Asana Color State and Mutations
 	const [selectedAsanaColorKey, setSelectedAsanaColorKey] = useState<
@@ -67,7 +66,7 @@ export function Client({ hash }: { hash: string }) {
 				isLoading={isLoading}
 			/>
 
-			{isLoading || !client ? ( // This check now covers the entire details section
+			{isLoading || !client ? (
 				<Skeleton className="h-96 w-[calc(100vw-32px)] rounded-md sm:h-96 sm:w-3xl" />
 			) : (
 				<>

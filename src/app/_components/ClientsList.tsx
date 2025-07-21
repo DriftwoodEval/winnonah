@@ -16,11 +16,12 @@ import { Filter } from "lucide-react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useMemo, useState } from "react";
-import { cn, formatClientAge } from "~/lib/utils";
+import { cn, formatClientAge, getColorFromMap } from "~/lib/utils";
 import { api } from "~/trpc/react";
 
 export function ClientsList() {
 	const clients = api.clients.getSorted.useQuery();
+	const asanaProjects = api.asana.getAllProjects.useQuery();
 
 	const searchParams = useSearchParams();
 	const [searchInput, setSearchInput] = useState("");
@@ -86,6 +87,14 @@ export function ClientsList() {
 		setStatusFilter(status);
 	};
 
+	const asanaProjectMap = useMemo(() => {
+		if (!asanaProjects.data || asanaProjects.data.length === 0) {
+			return new Map();
+		}
+
+		return new Map(asanaProjects.data.map((project) => [project.gid, project]));
+	}, [asanaProjects.data]);
+
 	return (
 		<div className="flex flex-col gap-3">
 			<div className="flex flex-row gap-3">
@@ -136,39 +145,52 @@ export function ClientsList() {
 				<div className="p-4">
 					<h4 className="mb-4 font-medium text-sm leading-none">Clients</h4>
 
-					{filteredClients.map((client, index) => (
-						<Link href={`/clients/${client.hash}`} key={client.id}>
-							<div key={client.hash} className="flex justify-between text-sm">
-								{client.fullName}
-								<span
-									className={cn(
-										"text-muted-foreground",
-										client.sortReason === "BabyNet above 2:6" &&
-											"text-destructive",
-									)}
-								>
-									<span className="font-bold text-muted-foreground">
-										{client.interpreter ? "Interpreter " : ""}
+					{filteredClients.map((client, index) => {
+						const asanaProject = asanaProjectMap.get(client.asanaId);
+						const asanaColor = getColorFromMap(asanaProject?.color ?? "");
+
+						return (
+							<Link href={`/clients/${client.hash}`} key={client.id}>
+								<div key={client.hash} className="flex justify-between text-sm">
+									<div className="flex items-center gap-2">
+										{asanaColor && (
+											<span
+												className="h-3 w-3 rounded-full"
+												style={{ backgroundColor: asanaColor }}
+											/>
+										)}
+										<span>{client.fullName}</span>
+									</div>
+									<span
+										className={cn(
+											"text-muted-foreground",
+											client.sortReason === "BabyNet above 2:6" &&
+												"text-destructive",
+										)}
+									>
+										<span className="font-bold text-muted-foreground">
+											{client.interpreter ? "Interpreter " : ""}
+										</span>
+										{client.sortReason === "BabyNet above 2:6"
+											? `BabyNet: ${formatClientAge(
+													new Date(client.dob),
+													"short",
+												)}`
+											: client.sortReason === "Added date"
+												? `Added: ${client.addedDate?.toLocaleString("en-US", {
+														year: "numeric",
+														month: "short",
+														day: "numeric",
+													})}`
+												: client.sortReason}
 									</span>
-									{client.sortReason === "BabyNet above 2:6"
-										? `BabyNet: ${formatClientAge(
-												new Date(client.dob),
-												"short",
-											)}`
-										: client.sortReason === "Added date"
-											? `Added: ${client.addedDate?.toLocaleString("en-US", {
-													year: "numeric",
-													month: "short",
-													day: "numeric",
-												})}`
-											: client.sortReason}
-								</span>
-							</div>
-							{index !== filteredClients.length - 1 && (
-								<Separator key="separator" className="my-2" />
-							)}
-						</Link>
-					))}
+								</div>
+								{index !== filteredClients.length - 1 && (
+									<Separator key="separator" className="my-2" />
+								)}
+							</Link>
+						);
+					})}
 				</div>
 			</ScrollArea>
 		</div>

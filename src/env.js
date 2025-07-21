@@ -2,73 +2,75 @@ import { createEnv } from "@t3-oss/env-nextjs";
 import { z } from "zod";
 
 export const env = createEnv({
-	/**
-	 * Specify your server-side environment variables schema here. This way you can ensure the app
-	 * isn't built with invalid env vars.
-	 */
-	server: {
-		AUTH_SECRET:
-			process.env.NODE_ENV === "production"
-				? z.string()
-				: z.string().optional(),
-		AUTH_URL: z.string(),
-		AUTH_GOOGLE_ID: z.string(),
-		AUTH_GOOGLE_SECRET: z.string(),
-		DATABASE_URL: z.string().url(),
-		NODE_ENV: z
-			.enum(["development", "test", "production"])
-			.default("development"),
-		PROVIDER_CREDENTIALING_ID: z.string(),
-		PROVIDER_CREDENTIALING_RANGE: z
-			.string()
-			.regex(
-				/^[\w\s]+![A-Z]+[1-9][0-9]*:[A-Z]+[1-9][0-9]*$/,
-				"Invalid Google Sheets range format. Must be, e.g. 'Sheet1!A1:B2'",
-			),
-		OFFICE_ADDRESSES: z
-			.string()
-			.regex(
-				/^(?:[A-Z]+:[-0-9.]+,[-0-9.]+,[a-zA-Z ]+;?)+$/,
-				"Invalid office addresses format",
-			),
-		ASANA_TOKEN: z.string(),
-		ASANA_WORKSPACE: z.string(),
-	},
+  /**
+   * Specify your server-side environment variables schema here. This way you can ensure the app
+   * isn't built with invalid env vars.
+   */
+  server: {
+    AUTH_SECRET:
+      process.env.NODE_ENV === "production"
+        ? z.string()
+        : z.string().optional(),
+    AUTH_URL: z.string(),
+    AUTH_GOOGLE_ID: z.string(),
+    AUTH_GOOGLE_SECRET: z.string(),
+    DATABASE_URL: z.string().url(),
+    NODE_ENV: z
+      .enum(["development", "test", "production"])
+      .default("development"),
+    PROVIDER_CREDENTIALING_ID: z.string(),
+    PROVIDER_CREDENTIALING_RANGE: z
+      .string()
+      .regex(
+        /^[\w\s]+![A-Z]+[1-9][0-9]*:[A-Z]+[1-9][0-9]*$/,
+        "Invalid Google Sheets range format. Must be, e.g. 'Sheet1!A1:B2'"
+      ),
+    OFFICE_ADDRESSES: z
+      .string()
+      .regex(
+        /^(?:[A-Z]+:[-0-9.]+,[-0-9.]+,[a-zA-Z ]+;?)+$/,
+        "Invalid office addresses format"
+      ),
+    ASANA_TOKEN: z.string(),
+    ASANA_WORKSPACE: z.string(),
+    REDIS_HOST: z.string(),
+  },
 
-	/**
-	 * Specify your client-side environment variables schema here. This way you can ensure the app
-	 * isn't built with invalid env vars. To expose them to the client, prefix them with
-	 * `NEXT_PUBLIC_`.
-	 */
-	client: {
-		// NEXT_PUBLIC_CLIENTVAR: z.string(),
-	},
+  /**
+   * Specify your client-side environment variables schema here. This way you can ensure the app
+   * isn't built with invalid env vars. To expose them to the client, prefix them with
+   * `NEXT_PUBLIC_`.
+   */
+  client: {
+    // NEXT_PUBLIC_CLIENTVAR: z.string(),
+  },
 
-	/**
-	 * You can't destruct `process.env` as a regular object in the Next.js edge runtimes (e.g.
-	 * middlewares) or client-side so we need to destruct manually.
-	 */
-	runtimeEnv: {
-		AUTH_SECRET: process.env.AUTH_SECRET,
-		AUTH_URL: process.env.AUTH_URL,
-		AUTH_GOOGLE_ID: process.env.AUTH_GOOGLE_ID,
-		AUTH_GOOGLE_SECRET: process.env.AUTH_GOOGLE_SECRET,
-		DATABASE_URL: process.env.DATABASE_URL,
-		NODE_ENV: process.env.NODE_ENV,
-		PROVIDER_CREDENTIALING_ID: process.env.PROVIDER_CREDENTIALING_ID,
-		PROVIDER_CREDENTIALING_RANGE: process.env.PROVIDER_CREDENTIALING_RANGE,
-		OFFICE_ADDRESSES: process.env.OFFICE_ADDRESSES,
-		ASANA_TOKEN: process.env.ASANA_TOKEN,
-		ASANA_WORKSPACE: process.env.ASANA_WORKSPACE,
-	},
-	/**
-	 * Run `build` or `dev` with `SKIP_ENV_VALIDATION` to skip env validation. This is especially
-	 * useful for Docker builds.
-	 */
-	skipValidation: !!process.env.SKIP_ENV_VALIDATION,
-	/**
-	 * Makes it so that empty strings are treated as undefined. `SOME_VAR: z.string()` and
-	 * `SOME_VAR=''` will throw an error.
-	 */
-	emptyStringAsUndefined: true,
+  /**
+   * You can't destruct `process.env` as a regular object in the Next.js edge runtimes (e.g.
+   * middlewares) or client-side so we need to destruct manually.
+   */
+  runtimeEnv: {
+    AUTH_SECRET: process.env.AUTH_SECRET,
+    AUTH_URL: process.env.AUTH_URL,
+    AUTH_GOOGLE_ID: process.env.AUTH_GOOGLE_ID,
+    AUTH_GOOGLE_SECRET: process.env.AUTH_GOOGLE_SECRET,
+    DATABASE_URL: process.env.DATABASE_URL,
+    NODE_ENV: process.env.NODE_ENV,
+    PROVIDER_CREDENTIALING_ID: process.env.PROVIDER_CREDENTIALING_ID,
+    PROVIDER_CREDENTIALING_RANGE: process.env.PROVIDER_CREDENTIALING_RANGE,
+    OFFICE_ADDRESSES: process.env.OFFICE_ADDRESSES,
+    ASANA_TOKEN: process.env.ASANA_TOKEN,
+    ASANA_WORKSPACE: process.env.ASANA_WORKSPACE,
+    REDIS_HOST: process.env.REDIS_HOST,
+  },
+  /**
+   * Run `build` or `dev` with `SKIP_ENV_VALIDATION` to skip env validation. This is especially
+   * useful for Docker builds.
+   */
+  skipValidation: !!process.env.SKIP_ENV_VALIDATION,
+  /**
+   * Makes it so that empty strings are treated as undefined. `SOME_VAR: z.string()` and
+   * `SOME_VAR=''` will throw an error.
+   */
+  emptyStringAsUndefined: true,
 });

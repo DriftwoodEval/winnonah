@@ -14,13 +14,12 @@ interface AsanaNotesEditorProps {
 export function AsanaNotesEditor({ asanaId }: AsanaNotesEditorProps) {
 	// Data Fetching
 	const {
-		data: asanaProjectData,
+		data: asanaProject,
 		isLoading: isLoadingAsanaProject,
 		refetch: refetchAsanaProject,
 	} = api.asana.getProject.useQuery(asanaId, {
 		enabled: !!asanaId,
 	});
-	const asanaProject = asanaProjectData?.data;
 
 	// Derived State and Memoized Values
 	const asanaHtmlNotes = useMemo(

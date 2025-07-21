@@ -21,6 +21,7 @@ services:
      - OFFICE_ADDRESSES=${OFFICE_ADDRESSES}
      - ASANA_TOKEN=${ASANA_TOKEN}
      - ASANA_WORKSPACE=${ASANA_WORKSPACE}
+     - REDIS_HOST=${REDIS_HOST}
 
   driftwood-db:
     image: mysql
@@ -35,6 +36,11 @@ services:
       - 3306:3306
     volumes:
       - db-data:/var/lib/mysql
+
+  redis:
+    image: redis:alpine
+    container_name: redis-schedule-helper
+    restart: always
 
   cloudflared:
     image: cloudflare/cloudflared:latest
