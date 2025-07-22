@@ -1,21 +1,35 @@
 "use client";
 
 import { Badge } from "@components/ui/badge";
+import { ClientLoadingContext } from "@context/ClientLoadingContext";
 import Link from "next/link";
+import { useContext } from "react";
 import { api } from "~/trpc/react";
 export function IssuesAlert() {
-	const asanaErrorsResponse = api.clients.getAsanaErrors.useQuery();
-	const asanaErrors = asanaErrorsResponse.data;
+	const { isClientsLoaded } = useContext(ClientLoadingContext);
 
-	const districtErrorsResponse = api.clients.getDistrictErrors.useQuery();
-	const districtErrors = districtErrorsResponse.data;
+	const { data: asanaErrors } = api.clients.getAsanaErrors.useQuery(undefined, {
+		enabled: isClientsLoaded,
+	});
 
-	const archivedAsanaErrorsResponse =
-		api.clients.getArchivedAsanaErrors.useQuery();
-	const archivedAsanaErrors = archivedAsanaErrorsResponse.data;
+	const { data: districtErrors } = api.clients.getDistrictErrors.useQuery(
+		undefined,
+		{
+			enabled: isClientsLoaded,
+		},
+	);
 
-	const babyNetErrorsResponse = api.clients.getBabyNetErrors.useQuery();
-	const babyNetErrors = babyNetErrorsResponse.data;
+	const { data: archivedAsanaErrors } =
+		api.clients.getArchivedAsanaErrors.useQuery(undefined, {
+			enabled: isClientsLoaded,
+		});
+
+	const { data: babyNetErrors } = api.clients.getBabyNetErrors.useQuery(
+		undefined,
+		{
+			enabled: isClientsLoaded,
+		},
+	);
 
 	const errorsLength =
 		(asanaErrors?.length ?? 0) +

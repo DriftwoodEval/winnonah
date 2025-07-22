@@ -14,13 +14,22 @@ import { ScrollArea } from "@components/ui/scroll-area";
 import { Separator } from "@components/ui/separator";
 import { Filter } from "lucide-react";
 import { useSearchParams } from "next/navigation";
-import { useMemo, useState } from "react";
+import { useContext, useEffect, useMemo, useState } from "react";
+import { ClientLoadingContext } from "~/app/_context/ClientLoadingContext";
 import type { AsanaProject } from "~/server/lib/types";
 import { api } from "~/trpc/react";
 import { ClientListItem } from "./clients/ClientListItem";
 
 export function ClientsList() {
 	const clients = api.clients.getSorted.useQuery();
+	const { setClientsLoaded } = useContext(ClientLoadingContext);
+
+	useEffect(() => {
+		if (clients.isSuccess) {
+			setClientsLoaded(true);
+		}
+	}, [clients.isSuccess, setClientsLoaded]);
+
 	const asanaProjects = api.asana.getAllProjects.useQuery(undefined, {
 		enabled: !!clients.data, // Wait for clients.data to load
 	});
