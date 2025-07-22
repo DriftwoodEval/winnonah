@@ -103,11 +103,9 @@ export const clientRouter = createTRPCRouter({
       })
     )
     .query(async ({ ctx, input }) => {
-      const [foundClient] = await ctx.db
-        .select({ client: clients })
-        .from(clients)
-        .where(eq(clients[input.column], input.value))
-        .limit(1);
+      const foundClient = await ctx.db.query.clients.findFirst({
+        where: eq(clients[input.column], input.value),
+      });
 
       if (!foundClient) {
         throw new TRPCError({
@@ -116,7 +114,7 @@ export const clientRouter = createTRPCRouter({
         });
       }
 
-      return foundClient.client;
+      return foundClient;
     }),
 
   getAsanaErrors: protectedProcedure.query(async ({ ctx }) => {
@@ -131,39 +129,34 @@ export const clientRouter = createTRPCRouter({
   }),
 
   getArchivedAsanaErrors: protectedProcedure.query(async ({ ctx }) => {
-    const clientsArchivedInAsana = await ctx.db
-      .select({ client: clients })
-      .from(clients)
-      .where(eq(clients.archivedInAsana, true));
+    const clientsArchivedInAsana = await ctx.db.query.clients.findMany({
+      where: and(eq(clients.archivedInAsana, true), eq(clients.status, true)),
+    });
 
-    return clientsArchivedInAsana.map(({ client }) => client);
+    return clientsArchivedInAsana;
   }),
 
   getDistrictErrors: protectedProcedure.query(async ({ ctx }) => {
-    const clientsWithoutDistrict = await ctx.db
-      .select({ client: clients })
-      .from(clients)
-      .where(eq(clients.schoolDistrict, "Unknown"));
+    const clientsWithoutDistrict = await ctx.db.query.clients.findMany({
+      where: eq(clients.schoolDistrict, "Unknown"),
+    });
 
-    return clientsWithoutDistrict.map(({ client }) => client);
+    return clientsWithoutDistrict;
   }),
 
   getBabyNetErrors: protectedProcedure.query(async ({ ctx }) => {
     const ageOutDate = new Date();
     ageOutDate.setFullYear(ageOutDate.getFullYear() - 3); // 3 years old
 
-    const clientsTooOldForBabyNet = await ctx.db
-      .select()
-      .from(clients)
-      .where(
-        and(
-          or(
-            eq(clients.primaryInsurance, "BabyNet"),
-            eq(clients.secondaryInsurance, "BabyNet")
-          ),
-          lt(clients.dob, ageOutDate)
-        )
-      );
+    const clientsTooOldForBabyNet = await ctx.db.query.clients.findMany({
+      where: and(
+        or(
+          eq(clients.primaryInsurance, "BabyNet"),
+          eq(clients.secondaryInsurance, "BabyNet")
+        ),
+        lt(clients.dob, ageOutDate)
+      ),
+    });
 
     return clientsTooOldForBabyNet;
   }),
@@ -198,11 +191,9 @@ export const clientRouter = createTRPCRouter({
       })
     )
     .mutation(async ({ ctx, input }) => {
-      const [client] = await ctx.db
-        .select({ client: clients })
-        .from(clients)
-        .where(eq(clients.hash, input.hash))
-        .limit(1);
+      const client = await ctx.db.query.clients.findFirst({
+        where: eq(clients.hash, input.hash),
+      });
 
       if (!client) {
         throw new TRPCError({
@@ -212,19 +203,17 @@ export const clientRouter = createTRPCRouter({
       }
 
       const fullName = `${input.firstName}${
-        client.client.preferredName ? `(${client.client.preferredName})` : " "
-      }${client.client.lastName}`;
+        client.preferredName ? `(${client.preferredName})` : " "
+      }${client.lastName}`;
 
       await ctx.db
         .update(clients)
         .set({ firstName: input.firstName, fullName })
         .where(eq(clients.hash, input.hash));
 
-      const [updatedClient] = await ctx.db
-        .select({ client: clients })
-        .from(clients)
-        .where(eq(clients.hash, input.hash))
-        .limit(1);
+      const updatedClient = await ctx.db.query.clients.findFirst({
+        where: eq(clients.hash, input.hash),
+      });
 
       if (!updatedClient) {
         throw new TRPCError({
