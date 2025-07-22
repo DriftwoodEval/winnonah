@@ -7,8 +7,7 @@ import {
 } from "@components/ui/popover";
 import { AlertTriangleIcon } from "lucide-react";
 import { cn, formatClientAge } from "~/lib/utils";
-import type { Offices } from "~/server/api/routers/database";
-import type { Client } from "~/server/lib/types";
+import type { Client, Offices } from "~/server/lib/types";
 
 interface ClientDetailsCardProps {
 	client: Client;

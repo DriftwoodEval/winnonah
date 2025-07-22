@@ -76,7 +76,7 @@ export function AsanaNotesEditor({ asanaId }: AsanaNotesEditorProps) {
 				<Skeleton key="asana-skeleton-header" className="h-6 w-48 rounded-md" />
 				<Skeleton
 					key="asana-skeleton-editor"
-					className="h-20 w-full rounded-md"
+					className="h-20 w-[calc(100vw-32px)] rounded-md sm:w-4xl"
 				/>
 			</div>
 		);
@@ -92,7 +92,7 @@ export function AsanaNotesEditor({ asanaId }: AsanaNotesEditorProps) {
 	}
 
 	return (
-		<div className="w-full">
+		<div className="w-[calc(100vw-32px)] sm:w-4xl">
 			<h4 className="mb-4 font-bold leading-none">
 				{asanaProject.permalink_url ? (
 					<Link

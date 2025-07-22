@@ -18,7 +18,7 @@ export function EligibleEvaluatorsList({
 		});
 
 	return (
-		<ScrollArea className="h-52 w-full rounded-md border shadow">
+		<ScrollArea className="h-52 w-[calc(100vw-32px)] rounded-md border shadow sm:w-4xl">
 			<div className="p-4">
 				<h4 className="mb-4 font-bold leading-none">Eligible Evaluators</h4>
 				{isLoadingEvaluators ? (
