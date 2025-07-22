@@ -108,9 +108,7 @@ export const clientsEvaluators = createTable(
       .notNull()
       .references(() => evaluators.npi, { onDelete: "cascade" }),
   }),
-  (t) => ({
-    pk: primaryKey({ columns: [t.clientId, t.evaluatorNpi] }),
-  })
+  (t) => [primaryKey({ columns: [t.clientId, t.evaluatorNpi] })]
 );
 
 export const clientsRelations = relations(clients, ({ many }) => ({
