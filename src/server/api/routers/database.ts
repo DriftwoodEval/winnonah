@@ -31,27 +31,19 @@ export const clientRouter = createTRPCRouter({
     );
 
     const allSortedClients = await ctx.db.query.clients.findMany({
+      extras: {
+        sortReason:
+          sql<string>`CASE WHEN ${isHighPriority} THEN 'BabyNet above 2:6' ELSE 'Added date' END`.as(
+            "sortReason"
+          ),
+      },
       orderBy: [
         sql`CASE WHEN ${isHighPriority} THEN 0 ELSE 1 END`,
         sql`CASE WHEN ${isHighPriority} THEN ${clients.dob} ELSE ${clients.addedDate} END`,
       ],
     });
 
-    const results = allSortedClients.map((client) => {
-      // We need to re-check the condition to assign the reason
-      const isClientHighPriority =
-        (client.primaryInsurance === "BabyNet" ||
-          client.secondaryInsurance === "BabyNet") &&
-        client.dob < highPriorityBNAge &&
-        client.dob > BNAgeOutDate;
-
-      return {
-        ...client,
-        sortReason: isClientHighPriority ? "BabyNet above 2:6" : "Added date",
-      };
-    });
-
-    return results;
+    return allSortedClients;
   }),
 
   getByNpi: protectedProcedure
@@ -72,8 +64,14 @@ export const clientRouter = createTRPCRouter({
         gt(clients.dob, BNAgeOutDate)
       );
 
-      const clientsByNpi = await ctx.db
-        .select({ client: clients })
+      const clientsWithReason = await ctx.db
+        .select({
+          client: clients,
+          sortReason:
+            sql<string>`CASE WHEN ${isHighPriority} THEN 'BabyNet above 2:6' ELSE 'Added date' END`.as(
+              "sortReason"
+            ),
+        })
         .from(clients)
         .innerJoin(
           clientsEvaluators,
@@ -85,22 +83,14 @@ export const clientRouter = createTRPCRouter({
           sql`CASE WHEN ${isHighPriority} THEN ${clients.dob} ELSE ${clients.addedDate} END`
         );
 
-      if (!clientsByNpi || clientsByNpi.length === 0) {
+      if (!clientsWithReason || clientsWithReason.length === 0) {
         return null;
       }
 
-      const results = clientsByNpi.map(({ client }) => {
-        const isClientHighPriority =
-          (client.primaryInsurance === "BabyNet" ||
-            client.secondaryInsurance === "BabyNet") &&
-          client.dob < highPriorityBNAge &&
-          client.dob > BNAgeOutDate;
-
-        return {
-          ...client,
-          sortReason: isClientHighPriority ? "BabyNet above 2:6" : "Added date",
-        };
-      });
+      const results = clientsWithReason.map((row) => ({
+        ...row.client,
+        sortReason: row.sortReason,
+      }));
 
       return results;
     }),
@@ -130,12 +120,14 @@ export const clientRouter = createTRPCRouter({
     }),
 
   getAsanaErrors: protectedProcedure.query(async ({ ctx }) => {
-    const clientsWithoutAsanaId = await ctx.db
-      .select({ client: clients })
-      .from(clients)
-      .where(isNull(clients.asanaId));
+    const clientsWithoutAsanaId = await ctx.db.query.clients.findMany({
+      where: and(
+        isNull(clients.asanaId),
+        gt(clients.addedDate, new Date("2023-01-01"))
+      ),
+    });
 
-    return clientsWithoutAsanaId.map(({ client }) => client);
+    return clientsWithoutAsanaId;
   }),
 
   getArchivedAsanaErrors: protectedProcedure.query(async ({ ctx }) => {
