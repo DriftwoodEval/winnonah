@@ -3,9 +3,8 @@ import { and, eq, gt, isNull, lt, or, sql } from "drizzle-orm";
 import { z } from "zod";
 import { env } from "~/env";
 import { createTRPCRouter, protectedProcedure } from "~/server/api/trpc";
-import { clients, clientsEvaluators, evaluators } from "~/server/db/schema";
+import { clients, clientsEvaluators } from "~/server/db/schema";
 import type { Offices } from "~/server/lib/types";
-import { sortClients } from "~/server/lib/utils";
 import { asanaRouter } from "./asana";
 
 export const clientRouter = createTRPCRouter({
@@ -58,6 +57,21 @@ export const clientRouter = createTRPCRouter({
   getByNpi: protectedProcedure
     .input(z.number())
     .query(async ({ ctx, input }) => {
+      const BNAgeOutDate = new Date();
+      BNAgeOutDate.setFullYear(BNAgeOutDate.getFullYear() - 3);
+
+      const highPriorityBNAge = new Date();
+      highPriorityBNAge.setMonth(highPriorityBNAge.getMonth() - 30);
+
+      const isHighPriority = and(
+        or(
+          eq(clients.primaryInsurance, "BabyNet"),
+          eq(clients.secondaryInsurance, "BabyNet")
+        ),
+        lt(clients.dob, highPriorityBNAge),
+        gt(clients.dob, BNAgeOutDate)
+      );
+
       const clientsByNpi = await ctx.db
         .select({ client: clients })
         .from(clients)
@@ -65,11 +79,30 @@ export const clientRouter = createTRPCRouter({
           clientsEvaluators,
           eq(clients.id, clientsEvaluators.clientId)
         )
-        .where(eq(clientsEvaluators.evaluatorNpi, input));
+        .where(eq(clientsEvaluators.evaluatorNpi, input))
+        .orderBy(
+          sql`CASE WHEN ${isHighPriority} THEN 0 ELSE 1 END`,
+          sql`CASE WHEN ${isHighPriority} THEN ${clients.dob} ELSE ${clients.addedDate} END`
+        );
 
-      const correctedClientsByNpi = clientsByNpi.map(({ client }) => client);
+      if (!clientsByNpi || clientsByNpi.length === 0) {
+        return null;
+      }
 
-      return sortClients(correctedClientsByNpi) ?? null;
+      const results = clientsByNpi.map(({ client }) => {
+        const isClientHighPriority =
+          (client.primaryInsurance === "BabyNet" ||
+            client.secondaryInsurance === "BabyNet") &&
+          client.dob < highPriorityBNAge &&
+          client.dob > BNAgeOutDate;
+
+        return {
+          ...client,
+          sortReason: isClientHighPriority ? "BabyNet above 2:6" : "Added date",
+        };
+      });
+
+      return results;
     }),
 
   getOne: protectedProcedure
@@ -225,17 +258,23 @@ export const evaluatorRouter = createTRPCRouter({
   getEligibleForClient: protectedProcedure
     .input(z.number())
     .query(async ({ ctx, input }) => {
-      const evaluatorsByClient = await ctx.db
-        .select({ evaluator: evaluators })
-        .from(evaluators)
-        .innerJoin(
-          clientsEvaluators,
-          eq(evaluators.npi, clientsEvaluators.evaluatorNpi)
-        )
-        .where(eq(clientsEvaluators.clientId, input));
+      const clientWithEvaluators = await ctx.db.query.clients.findFirst({
+        where: eq(clients.id, input),
+        with: {
+          clientsEvaluators: {
+            with: {
+              evaluator: true,
+            },
+          },
+        },
+      });
 
-      const correctedEvaluatorsByClient = evaluatorsByClient
-        .map(({ evaluator }) => evaluator)
+      if (!clientWithEvaluators) {
+        return null;
+      }
+
+      const correctedEvaluatorsByClient = clientWithEvaluators.clientsEvaluators
+        .map((link) => link.evaluator)
         .sort((a, b) => a.providerName.localeCompare(b.providerName));
 
       return correctedEvaluatorsByClient ?? null;

@@ -96,16 +96,40 @@ export const questionnaires = createTable("questionnaire", (d) => ({
   lastReminded: d.date(),
 }));
 
-export const clientsEvaluators = createTable("client_eval", (d) => ({
-  clientId: d
-    .int()
-    .notNull()
-    .references(() => clients.id, { onDelete: "cascade" }),
-  evaluatorNpi: d
-    .int()
-    .notNull()
-    .references(() => evaluators.npi, { onDelete: "cascade" }),
+export const clientsEvaluators = createTable(
+  "client_eval",
+  (d) => ({
+    clientId: d
+      .int()
+      .notNull()
+      .references(() => clients.id, { onDelete: "cascade" }),
+    evaluatorNpi: d
+      .int()
+      .notNull()
+      .references(() => evaluators.npi, { onDelete: "cascade" }),
+  }),
+  (t) => ({
+    pk: primaryKey({ columns: [t.clientId, t.evaluatorNpi] }),
+  })
+);
+
+export const clientsRelations = relations(clients, ({ many }) => ({
+  clientsEvaluators: many(clientsEvaluators),
 }));
+
+export const clientsEvaluatorsRelations = relations(
+  clientsEvaluators,
+  ({ one }) => ({
+    client: one(clients, {
+      fields: [clientsEvaluators.clientId],
+      references: [clients.id],
+    }),
+    evaluator: one(evaluators, {
+      fields: [clientsEvaluators.evaluatorNpi],
+      references: [evaluators.npi],
+    }),
+  })
+);
 
 export const users = createTable("user", (d) => ({
   id: d
