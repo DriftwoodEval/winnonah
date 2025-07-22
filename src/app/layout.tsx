@@ -9,7 +9,7 @@ import { TRPCReactProvider } from "~/trpc/react";
 export const metadata: Metadata = {
 	title: "Winnonah",
 	description: "Winnonah",
-	icons: [{ rel: "icon", url: "/favicon.ico" }],
+	icons: [{ rel: "icon", url: "/favicon.png" }],
 };
 
 const plusJakartaSans = Plus_Jakarta_Sans({
