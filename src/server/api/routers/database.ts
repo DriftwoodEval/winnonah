@@ -262,7 +262,7 @@ export const evaluatorRouter = createTRPCRouter({
     }),
 });
 
-const officeAddresses = env.OFFICE_ADDRESSES;
+const officeAddresses = env.OFFICE_ADDRESSES || "";
 const ALL_OFFICES: Offices = officeAddresses
   .split(";")
   .reduce((acc: Offices, address) => {
