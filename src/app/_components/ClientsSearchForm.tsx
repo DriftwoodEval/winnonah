@@ -32,10 +32,10 @@ import { cn } from "~/lib/utils";
 import { api } from "~/trpc/react";
 
 const formSchema = z.object({
-	evaluator: z.string(),
-	office: z.string(),
-	daeval: z.string(),
-	date: z.date(),
+	evaluator: z.string().optional(),
+	office: z.string().optional(),
+	daeval: z.string().optional(),
+	date: z.date().optional(),
 });
 
 export default function ClientsSearchForm() {
@@ -58,10 +58,18 @@ export default function ClientsSearchForm() {
 
 	function onSubmit(values: z.infer<typeof formSchema>) {
 		const url = new URL(window.location.href);
-		url.searchParams.set("eval", encodeURIComponent(values.evaluator));
-		url.searchParams.set("office", encodeURIComponent(values.office));
-		url.searchParams.set("daeval", encodeURIComponent(values.daeval));
-		url.searchParams.set("date", formatISO(values.date));
+		if (values.evaluator !== undefined) {
+			url.searchParams.set("eval", encodeURIComponent(values.evaluator));
+		}
+		if (values.office !== undefined) {
+			url.searchParams.set("office", encodeURIComponent(values.office));
+		}
+		if (values.daeval !== undefined) {
+			url.searchParams.set("daeval", encodeURIComponent(values.daeval));
+		}
+		if (values.date !== undefined) {
+			url.searchParams.set("date", formatISO(values.date));
+		}
 		url.searchParams.delete("search");
 		window.location.href = url.toString();
 	}
