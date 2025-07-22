@@ -11,3 +11,11 @@ export type AsanaProject = {
   gid: string;
   color?: string;
 };
+
+export type Offices = {
+  [key: string]: {
+    latitude: string;
+    longitude: string;
+    prettyName: string;
+  };
+};

@@ -1,10 +1,10 @@
 import { TRPCError } from "@trpc/server";
-import { eq, isNull, or } from "drizzle-orm";
+import { and, eq, gt, isNull, lt, or, sql } from "drizzle-orm";
 import { z } from "zod";
 import { env } from "~/env";
-import { formatClientAge } from "~/lib/utils";
 import { createTRPCRouter, protectedProcedure } from "~/server/api/trpc";
 import { clients, clientsEvaluators, evaluators } from "~/server/db/schema";
+import type { Offices } from "~/server/lib/types";
 import { sortClients } from "~/server/lib/utils";
 import { asanaRouter } from "./asana";
 
@@ -16,9 +16,43 @@ export const clientRouter = createTRPCRouter({
   }),
 
   getSorted: protectedProcedure.query(async ({ ctx }) => {
-    const allClients = await ctx.db.query.clients.findMany({});
+    const BNAgeOutDate = new Date();
+    BNAgeOutDate.setFullYear(BNAgeOutDate.getFullYear() - 3); // 3 years old
 
-    return sortClients(allClients) ?? null;
+    const highPriorityBNAge = new Date();
+    highPriorityBNAge.setMonth(highPriorityBNAge.getMonth() - 30); // Older than 2 years and 6 months;
+
+    const isHighPriority = and(
+      or(
+        eq(clients.primaryInsurance, "BabyNet"),
+        eq(clients.secondaryInsurance, "BabyNet")
+      ),
+      lt(clients.dob, highPriorityBNAge),
+      gt(clients.dob, BNAgeOutDate)
+    );
+
+    const allSortedClients = await ctx.db.query.clients.findMany({
+      orderBy: [
+        sql`CASE WHEN ${isHighPriority} THEN 0 ELSE 1 END`,
+        sql`CASE WHEN ${isHighPriority} THEN ${clients.dob} ELSE ${clients.addedDate} END`,
+      ],
+    });
+
+    const results = allSortedClients.map((client) => {
+      // We need to re-check the condition to assign the reason
+      const isClientHighPriority =
+        (client.primaryInsurance === "BabyNet" ||
+          client.secondaryInsurance === "BabyNet") &&
+        client.dob < highPriorityBNAge &&
+        client.dob > BNAgeOutDate;
+
+      return {
+        ...client,
+        sortReason: isClientHighPriority ? "BabyNet above 2:6" : "Added date",
+      };
+    });
+
+    return results;
   }),
 
   getByNpi: protectedProcedure
@@ -90,28 +124,23 @@ export const clientRouter = createTRPCRouter({
   }),
 
   getBabyNetErrors: protectedProcedure.query(async ({ ctx }) => {
+    const ageOutDate = new Date();
+    ageOutDate.setFullYear(ageOutDate.getFullYear() - 3); // 3 years old
+
     const clientsTooOldForBabyNet = await ctx.db
-      .select({ client: clients })
+      .select()
       .from(clients)
       .where(
-        or(
-          eq(clients.primaryInsurance, "BabyNet"),
-          eq(clients.secondaryInsurance, "BabyNet")
+        and(
+          or(
+            eq(clients.primaryInsurance, "BabyNet"),
+            eq(clients.secondaryInsurance, "BabyNet")
+          ),
+          lt(clients.dob, ageOutDate)
         )
       );
 
-    let correctedClientsTooOldForBabyNet = clientsTooOldForBabyNet.map(
-      ({ client }) => client
-    );
-
-    correctedClientsTooOldForBabyNet = correctedClientsTooOldForBabyNet.filter(
-      (client) => {
-        const age = formatClientAge(client.dob, "years");
-        return Number(age) >= 3;
-      }
-    );
-
-    return correctedClientsTooOldForBabyNet;
+    return clientsTooOldForBabyNet;
   }),
 
   addAsanaId: protectedProcedure
@@ -213,32 +242,25 @@ export const evaluatorRouter = createTRPCRouter({
     }),
 });
 
-export type Offices = {
-  [key: string]: {
-    latitude: string;
-    longitude: string;
-    prettyName: string;
-  };
-};
+const officeAddresses = env.OFFICE_ADDRESSES;
+const ALL_OFFICES: Offices = officeAddresses
+  .split(";")
+  .reduce((acc: Offices, address) => {
+    const [key, ...values] = address.split(":");
+    const [latitude, longitude, prettyName] = (values[0] ?? "").split(",");
+    if (
+      key !== undefined &&
+      latitude !== undefined &&
+      longitude !== undefined &&
+      prettyName !== undefined
+    ) {
+      acc[key] = { latitude, longitude, prettyName };
+    }
+    return acc;
+  }, {});
 
 export const officeRouter = createTRPCRouter({
   getAll: protectedProcedure.query(() => {
-    const officeAddresses = env.OFFICE_ADDRESSES;
-    const offices: Offices = officeAddresses
-      .split(";")
-      .reduce((acc: Offices, address) => {
-        const [key, ...values] = address.split(":");
-        const [latitude, longitude, prettyName] = (values[0] ?? "").split(",");
-        if (
-          key !== undefined &&
-          latitude !== undefined &&
-          longitude !== undefined &&
-          prettyName !== undefined
-        ) {
-          acc[key] = { latitude, longitude, prettyName };
-        }
-        return acc;
-      }, {});
-    return offices ?? null;
+    return ALL_OFFICES ?? null;
   }),
 });
