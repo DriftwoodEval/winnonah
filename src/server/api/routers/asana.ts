@@ -59,6 +59,35 @@ const updateProject = async (
   return project;
 };
 
+const updateCachedProjects = async (updatedProject: { gid: string }) => {
+  await redis.setex(
+    projectCacheKey(updatedProject.gid),
+    CACHE_TTL_SECONDS,
+    JSON.stringify(updatedProject)
+  );
+
+  const allProjectsStr = await redis.get(ALL_PROJECTS_CACHE_KEY);
+  if (allProjectsStr) {
+    // biome-ignore lint/suspicious/noExplicitAny: Asana API is not typed
+    const allProjects: any[] = JSON.parse(allProjectsStr);
+    const projectIndex = allProjects.findIndex(
+      (p) => p.gid === updatedProject.gid
+    );
+
+    if (projectIndex !== -1) {
+      allProjects[projectIndex] = updatedProject;
+      await redis.setex(
+        ALL_PROJECTS_CACHE_KEY,
+        CACHE_TTL_SECONDS,
+        JSON.stringify(allProjects)
+      );
+      console.log(
+        `CACHE UPDATED: Project ${updatedProject.gid} in ${ALL_PROJECTS_CACHE_KEY}`
+      );
+    }
+  }
+};
+
 // TRPC ROUTER
 export const asanaRouter = createTRPCRouter({
   getProject: protectedProcedure
@@ -145,12 +174,8 @@ export const asanaRouter = createTRPCRouter({
     )
     .mutation(async ({ input }) => {
       const { id, ...data } = input;
-      const individualProjectKey = projectCacheKey(id);
       const updatedProject = await updateProject(id, data);
-      await redis.del(ALL_PROJECTS_CACHE_KEY, individualProjectKey);
-      console.log(
-        `CACHE INVALIDATED: ${ALL_PROJECTS_CACHE_KEY} and ${individualProjectKey}`
-      );
+      await updateCachedProjects(updatedProject.data);
       return updatedProject;
     }),
 
@@ -172,11 +197,84 @@ export const asanaRouter = createTRPCRouter({
         name: newName,
       });
 
-      const individualProjectKey = projectCacheKey(projectId);
-      await redis.del(ALL_PROJECTS_CACHE_KEY, individualProjectKey);
-      console.log(
-        `CACHE INVALIDATED: ${ALL_PROJECTS_CACHE_KEY} and ${individualProjectKey}`
+      await updateCachedProjects(updatedProject.data);
+      return updatedProject;
+    }),
+
+  addQuestionnaires: protectedProcedure
+    .input(
+      z.object({
+        projectId: z.string(),
+        automatic: z.boolean(),
+        questionnaires: z.array(
+          z.object({
+            link: z.url(),
+            type: z.string(),
+          })
+        ),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      const { projectId, questionnaires } = input;
+
+      if (!projectId || questionnaires.length === 0) {
+        return null;
+      }
+
+      const user = ctx.session.user;
+
+      const userInitials =
+        user?.name
+          ?.split(" ")
+          .map((namePart) => namePart?.[0])
+          .join("") ?? "";
+
+      const today = new Date().toLocaleDateString("en-US", {
+        month: "2-digit",
+        day: "2-digit",
+      });
+
+      const todayTitle = `${today} Qs sent ${
+        input.automatic ? "automatically" : userInitials
+      }`;
+
+      const newQuestionnaireLinks = questionnaires.map(
+        (item) => `<a href='${item.link}'>${item.link}</a> - ${item.type}`
       );
+
+      const currentProject = await getProjectFromAsana(projectId);
+      const currentNotes = currentProject.html_notes || "";
+      const cleanedNotes = currentNotes
+        .replace(/^<body.*?>|<\/body>$/gs, "")
+        .trim();
+      const notesByLine = cleanedNotes.split("\n");
+
+      const existingTitleIndex = notesByLine.findIndex(
+        (line: string) => line.trim() === todayTitle
+      );
+
+      if (existingTitleIndex !== -1) {
+        notesByLine.splice(existingTitleIndex + 1, 0, ...newQuestionnaireLinks);
+      } else {
+        const newContentBlock = [todayTitle, ...newQuestionnaireLinks];
+
+        const blankLineIndex = notesByLine
+          .slice(0, 5)
+          .findIndex((line: string) => !line.trim());
+
+        if (blankLineIndex !== -1) {
+          notesByLine.splice(blankLineIndex + 1, 0, ...newContentBlock, "");
+        } else {
+          notesByLine.unshift(...newContentBlock, "");
+        }
+      }
+
+      const finalHtmlNotes = `<body>${notesByLine.join("\n")}</body>`;
+      const updatedProject = await updateProject(projectId, {
+        html_notes: finalHtmlNotes,
+      });
+
+      await updateCachedProjects(updatedProject.data);
       return updatedProject;
     }),
 });

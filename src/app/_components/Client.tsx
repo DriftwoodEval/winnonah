@@ -4,6 +4,7 @@ import { AsanaNotesEditor } from "@components/client/AsanaNotesEditor";
 import { ClientDetailsCard } from "@components/client/ClientDetailsCard";
 import { ClientHeader } from "@components/client/ClientHeader";
 import { EligibleEvaluatorsList } from "@components/client/EligibleEvaluatorsList";
+import { QuestionnairesSent } from "@components/client/QuestionnairesSent";
 import { Skeleton } from "@components/ui/skeleton";
 import { useEffect, useState } from "react";
 import { api } from "~/trpc/react";
@@ -71,6 +72,8 @@ export function Client({ hash }: { hash: string }) {
 			) : (
 				<>
 					<ClientDetailsCard client={client} offices={offices} />
+
+					<QuestionnairesSent clientId={client.id} asanaId={client.asanaId} />
 
 					<EligibleEvaluatorsList clientId={client.id} />
 

@@ -110,6 +110,7 @@ export function AsanaNotesEditor({ asanaId }: AsanaNotesEditorProps) {
 			{typeof asanaHtmlNotes === "string" ? (
 				<div>
 					<RichTextEditor
+						key={asanaHtmlNotes}
 						value={asanaHtmlNotes}
 						onChange={(value) => {
 							asanaTimer(value);

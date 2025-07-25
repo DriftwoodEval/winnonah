@@ -3,7 +3,7 @@ import { and, eq, gt, isNull, lt, or, sql } from "drizzle-orm";
 import { z } from "zod";
 import { env } from "~/env";
 import { createTRPCRouter, protectedProcedure } from "~/server/api/trpc";
-import { clients, clientsEvaluators } from "~/server/db/schema";
+import { clients, clientsEvaluators, questionnaires } from "~/server/db/schema";
 import type { Offices } from "~/server/lib/types";
 import { asanaRouter } from "./asana";
 
@@ -223,6 +223,65 @@ export const clientRouter = createTRPCRouter({
       }
 
       return updatedClient;
+    }),
+
+  getSentQuestionnaires: protectedProcedure
+    .input(z.number())
+    .query(async ({ ctx, input }) => {
+      const clientWithQuestionnaires = await ctx.db.query.clients.findFirst({
+        where: eq(clients.id, input),
+        with: {
+          questionnaires: true,
+        },
+      });
+
+      if (!clientWithQuestionnaires) {
+        return null;
+      }
+
+      return clientWithQuestionnaires.questionnaires ?? null;
+    }),
+
+  addQuestionnaire: protectedProcedure
+    .input(
+      z.object({
+        clientId: z.number(),
+        questionnaireType: z
+          .string()
+          .min(1, { message: "Questionnaire type is required" }),
+        link: z.url({ message: "Link must be a valid URL" }),
+        sent: z.date().optional(),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      const client = await ctx.db.query.clients.findFirst({
+        where: eq(clients.id, input.clientId),
+      });
+
+      if (!client) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: `Client with id ${input.clientId} not found`,
+        });
+      }
+
+      const result = await ctx.db.insert(questionnaires).values({
+        clientId: input.clientId,
+        questionnaireType: input.questionnaireType,
+        link: input.link,
+        sent: input.sent ?? new Date(),
+        status: "PENDING",
+        reminded: 0,
+        lastReminded: null,
+      });
+
+      const newId = result[0].insertId;
+
+      const newQuestionnaire = await ctx.db.query.questionnaires.findFirst({
+        where: eq(questionnaires.id, newId),
+      });
+
+      return newQuestionnaire;
     }),
 });
 

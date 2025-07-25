@@ -18,9 +18,11 @@ export function EligibleEvaluatorsList({
 		});
 
 	return (
-		<ScrollArea className="h-52 w-[calc(100vw-32px)] rounded-md border shadow sm:w-4xl">
-			<div className="p-4">
-				<h4 className="mb-4 font-bold leading-none">Eligible Evaluators</h4>
+		<div className="max-h-52 w-[calc(100vw-32px)] overflow-auto rounded-md border shadow sm:w-4xl">
+			<h4 className="sticky top-0 z-10 h-full w-full bg-background p-4 font-bold leading-none">
+				Eligible Evaluators
+			</h4>
+			<ScrollArea className="p-4">
 				{isLoadingEvaluators ? (
 					<div className="flex flex-col gap-2">
 						{[...Array(5)].map((_, i) => (
@@ -47,7 +49,7 @@ export function EligibleEvaluatorsList({
 						No eligible evaluators found.
 					</p>
 				)}
-			</div>
-		</ScrollArea>
+			</ScrollArea>
+		</div>
 	);
 }

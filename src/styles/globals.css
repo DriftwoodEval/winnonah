@@ -180,5 +180,5 @@
 }
 
 .tiptap a {
-  @apply text-chart-1 cursor-pointer;
+  @apply text-primary cursor-pointer;
 }

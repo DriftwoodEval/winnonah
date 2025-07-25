@@ -21,8 +21,8 @@ export const evaluators = createTable("evaluator", (d) => ({
   HB: d.boolean().notNull(),
   AETNA: d.boolean().notNull(),
   United_Optum: d.boolean().notNull(),
-  Districts: d.varchar({ length: 255 }),
-  Offices: d.varchar({ length: 255 }),
+  districts: d.varchar({ length: 255 }),
+  offices: d.varchar({ length: 255 }),
 }));
 
 export const clients = createTable(
@@ -55,14 +55,14 @@ export const clients = createTable(
     phoneNumber: d.varchar({ length: 255 }),
     gender: d.mysqlEnum(["Male", "Female", "Other"]),
   }),
-  (t) => ({
-    asanaIdIdx: index("asana_id_idx").on(t.asanaId),
-    archivedIdx: index("archived_idx").on(t.archivedInAsana),
-    districtIdx: index("district_idx").on(t.schoolDistrict),
-    dobIdx: index("dob_idx").on(t.dob),
-    addedDateIdx: index("added_date_idx").on(t.addedDate),
-    insuranceIdx: index("insurnance_idx").on(t.primaryInsurance),
-  })
+  (t) => [
+    index("asana_id_idx").on(t.asanaId),
+    index("archived_idx").on(t.archivedInAsana),
+    index("district_idx").on(t.schoolDistrict),
+    index("dob_idx").on(t.dob),
+    index("added_date_idx").on(t.addedDate),
+    index("insurnance_idx").on(t.primaryInsurance),
+  ]
 );
 
 export const appointments = createTable("appointment", (d) => ({
@@ -96,6 +96,18 @@ export const questionnaires = createTable("questionnaire", (d) => ({
   lastReminded: d.date(),
 }));
 
+export const clientRelations = relations(clients, ({ many }) => ({
+  questionnaires: many(questionnaires),
+  clientsEvaluators: many(clientsEvaluators),
+}));
+
+export const questionnaireRelations = relations(questionnaires, ({ one }) => ({
+  client: one(clients, {
+    fields: [questionnaires.clientId],
+    references: [clients.id],
+  }),
+}));
+
 export const clientsEvaluators = createTable(
   "client_eval",
   (d) => ({
@@ -110,10 +122,6 @@ export const clientsEvaluators = createTable(
   }),
   (t) => [primaryKey({ columns: [t.clientId, t.evaluatorNpi] })]
 );
-
-export const clientsRelations = relations(clients, ({ many }) => ({
-  clientsEvaluators: many(clientsEvaluators),
-}));
 
 export const clientsEvaluatorsRelations = relations(
   clientsEvaluators,
