@@ -59,6 +59,8 @@ export function QuestionnairesSent({
 								<TableCell>
 									<Link
 										className="text-primary hover:underline"
+										target="_blank"
+										rel="noopener noreferrer"
 										href={questionnaire.link}
 									>
 										{questionnaire.link}
