@@ -73,11 +73,11 @@ export function Client({ hash }: { hash: string }) {
 				<>
 					<ClientDetailsCard client={client} offices={offices} />
 
+					{client.asanaId && <AsanaNotesEditor asanaId={client.asanaId} />}
+
 					<QuestionnairesSent clientId={client.id} asanaId={client.asanaId} />
 
 					<EligibleEvaluatorsList clientId={client.id} />
-
-					{client.asanaId && <AsanaNotesEditor asanaId={client.asanaId} />}
 				</>
 			)}
 		</div>
