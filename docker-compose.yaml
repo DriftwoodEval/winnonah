@@ -1,27 +1,21 @@
 services:
   winnonah:
-    build:
-      context: .
-      dockerfile: Dockerfile
-      args:
-        NEXT_PUBLIC_CLIENTVAR: "clientvar"
     restart: always
-    working_dir: /app
-    image: winnonah
+    image: ghcr.io/driftwoodeval/winnonah:latest
     container_name: winnonah
     environment:
-     - DATABASE_URL=${DOCKER_DATABASE_URL}
-     - AUTH_SECRET=${AUTH_SECRET}
-     - AUTH_TRUST_HOST=true
-     - AUTH_GOOGLE_ID=${AUTH_GOOGLE_ID}
-     - AUTH_GOOGLE_SECRET=${AUTH_GOOGLE_SECRET}
-     - AUTH_URL=${AUTH_URL}
-     - PROVIDER_CREDENTIALING_ID=${PROVIDER_CREDENTIALING_ID}
-     - PROVIDER_CREDENTIALING_RANGE=${PROVIDER_CREDENTIALING_RANGE}
-     - OFFICE_ADDRESSES=${OFFICE_ADDRESSES}
-     - ASANA_TOKEN=${ASANA_TOKEN}
-     - ASANA_WORKSPACE=${ASANA_WORKSPACE}
-     - REDIS_HOST=${REDIS_HOST}
+      - DATABASE_URL=${DOCKER_DATABASE_URL}
+      - AUTH_SECRET=${AUTH_SECRET}
+      - AUTH_TRUST_HOST=true
+      - AUTH_GOOGLE_ID=${AUTH_GOOGLE_ID}
+      - AUTH_GOOGLE_SECRET=${AUTH_GOOGLE_SECRET}
+      - AUTH_URL=${AUTH_URL}
+      - PROVIDER_CREDENTIALING_ID=${PROVIDER_CREDENTIALING_ID}
+      - PROVIDER_CREDENTIALING_RANGE=${PROVIDER_CREDENTIALING_RANGE}
+      - OFFICE_ADDRESSES=${OFFICE_ADDRESSES}
+      - ASANA_TOKEN=${ASANA_TOKEN}
+      - ASANA_WORKSPACE=${ASANA_WORKSPACE}
+      - REDIS_HOST=${DOCKER_REDIS_HOST}
 
   driftwood-db:
     image: mysql
@@ -33,7 +27,7 @@ services:
     ports:
       - 3306:3306
     volumes:
-      - db-data:/var/lib/mysql
+      - winnonah_db-data:/var/lib/mysql
 
   redis:
     image: redis:alpine
@@ -47,5 +41,31 @@ services:
       ${CF_TOKEN}
     restart: always
 
+  winnonah-python:
+    image: ghcr.io/driftwoodeval/winnonah-python:latest
+    container_name: winnonah-python
+    environment:
+      - HEADLESS=true
+      - DATABASE_URL=${DOCKER_DATABASE_URL}
+      - PROVIDER_CREDENTIALING_ID=${PROVIDER_CREDENTIALING_ID}
+      - PROVIDER_CREDENTIALING_RANGE=${PROVIDER_CREDENTIALING_RANGE}
+      - OFFICE_ADDRESSES=${OFFICE_ADDRESSES}
+      - TA_USERNAME=${TA_USERNAME}
+      - TA_PASSWORD=${TA_PASSWORD}
+      - EXCLUDED_TA=${EXCLUDED_TA}
+      - ASANA_TOKEN=${ASANA_TOKEN}
+      - ASANA_WORKSPACE=${ASANA_WORKSPACE}
+      - CENSUS_API_KEY=${CENSUS_API_KEY}
+    volumes:
+      - ./auth_cache:/app/auth_cache
+
+  watchtower:
+    image: containrrr/watchtower
+    container_name: watchtower
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    restart: always
+
 volumes:
-  db-data:
+  winnonah_db-data:
+    external: true

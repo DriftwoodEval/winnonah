@@ -1,0 +1,22 @@
+# Python bytecode and cache
+__pycache__/
+*.pyc
+
+# Configuration, logs, and data directories.
+# These are handled by volume mounts at runtime and should not be in the image.
+config/
+logs/
+put/
+
+# Docker and environment files are not needed inside the image
+Dockerfile
+docker-compose.yaml
+.env
+*.env
+
+# Git directory
+.git/
+
+# Other cache/state files
+previous_clients.yml
+*.log
