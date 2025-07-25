@@ -89,7 +89,7 @@ export const questionnaireRouter = createTRPCRouter({
       const age = Number(formatClientAge(foundClient.dob, "years"));
 
       return QUESTIONNAIRES.filter(
-        (q) => q.ageRanges.min < age && q.ageRanges.max > age
+        (q) => q.ageRanges.min <= age && q.ageRanges.max >= age
       );
     }),
 });
