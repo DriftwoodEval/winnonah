@@ -130,11 +130,6 @@ def combine_address_info(clients: pd.DataFrame) -> pd.DataFrame:
     return clients
 
 
-def get_inactive_clients(df: pd.DataFrame) -> pd.DataFrame:
-    logger.debug("Getting inactive clients")
-    return df[df.STATUS == "Inactive"]
-
-
 def get_clients() -> pd.DataFrame:
     download_csvs()
     logger.debug("Getting clients from spreadsheets")
@@ -152,6 +147,6 @@ def get_clients() -> pd.DataFrame:
     clients_df = consolidate_by_id(clients_df)
     clients_df = combine_address_info(clients_df)
 
-    utils.database.set_inactive_clients(get_inactive_clients(clients_df))
+    utils.database.sync_client_statuses(clients_df)
 
     return clients_df

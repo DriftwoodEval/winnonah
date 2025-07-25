@@ -89,17 +89,42 @@ def put_evaluators_in_db(evaluators_dict: dict) -> None:
         db_connection.commit()
 
 
-def set_inactive_clients(clients_df: pd.DataFrame):
-    logger.debug("Setting inactive clients")
-    client_ids = clients_df["CLIENT_ID"].tolist()
-    db_connection = get_db()
+def sync_client_statuses(clients_df: pd.DataFrame):
+    """
+    Updates the status for all clients in the DataFrame.
+    - Sets status to 1 for active clients.
+    - Sets status to 0 for inactive clients.
+    """
+    logger.debug("Syncing all client statuses")
 
-    with db_connection:
+    active_ids = tuple(
+        clients_df[clients_df["STATUS"] == "Active"]["CLIENT_ID"].tolist()
+    )
+    inactive_ids = tuple(
+        clients_df[clients_df["STATUS"] == "Inactive"]["CLIENT_ID"].tolist()
+    )
+
+    db_connection = get_db()
+    try:
         with db_connection.cursor() as cursor:
-            sql = "UPDATE emr_client SET status = 0 WHERE id IN %s"
-            cursor.execute(sql, (tuple(client_ids),))
+            if active_ids:
+                logger.debug(f"Activating {len(active_ids)} clients.")
+                sql_activate = "UPDATE emr_client SET status = 1 WHERE id IN %s"
+                cursor.execute(sql_activate, (active_ids,))
+
+            if inactive_ids:
+                logger.debug(f"Deactivating {len(inactive_ids)} clients.")
+                sql_deactivate = "UPDATE emr_client SET status = 0 WHERE id IN %s"
+                cursor.execute(sql_deactivate, (inactive_ids,))
 
         db_connection.commit()
+        logger.debug("Client status sync complete.")
+
+    except Exception as e:
+        logger.error(f"Database error during client sync: {e}")
+        db_connection.rollback()
+    finally:
+        db_connection.close()
 
 
 def filter_clients_with_changed_address(clients: pd.DataFrame) -> pd.DataFrame:
