@@ -14,7 +14,7 @@ export function EligibleEvaluatorsList({
 }: EligibleEvaluatorsListProps) {
 	const { data: eligibleEvaluators, isLoading: isLoadingEvaluators } =
 		api.evaluators.getEligibleForClient.useQuery(clientId ?? 0, {
-			enabled: typeof clientId === "number" && clientId > 0, // Ensure clientId is valid
+			enabled: typeof clientId === "number" && clientId > 0,
 		});
 
 	return (

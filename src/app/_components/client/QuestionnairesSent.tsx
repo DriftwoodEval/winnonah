@@ -23,7 +23,7 @@ export function QuestionnairesSent({
 }: QuestionnairesSentProps) {
 	const { data: questionnairesSent, isLoading: isLoadingQuestionnaires } =
 		api.clients.getSentQuestionnaires.useQuery(clientId ?? 0, {
-			enabled: typeof clientId === "number" && clientId > 0, // Ensure clientId is valid
+			enabled: typeof clientId === "number" && clientId > 0,
 		});
 
 	return (
