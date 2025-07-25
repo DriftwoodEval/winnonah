@@ -42,8 +42,8 @@ export function IssuesAlert() {
 	}
 
 	return (
-		<Badge variant="destructive" asChild>
-			<Link href="/issues" className="flex items-center gap-1">
+		<Badge asChild variant="destructive">
+			<Link className="flex items-center gap-1" href="/issues">
 				{errorsLength}{" "}
 				<span className="hidden sm:inline">
 					{errorsLength === 1 ? "issue" : "issues"}

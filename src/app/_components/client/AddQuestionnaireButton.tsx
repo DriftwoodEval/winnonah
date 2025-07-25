@@ -63,7 +63,7 @@ export function AddQuestionnaireButton({
 		);
 
 	const addQuestionnaireToAsana = api.asana.addQuestionnaires.useMutation({
-		onSuccess: (data, variables) => {
+		onSuccess: (_data, variables) => {
 			utils.asana.getProject.invalidate(variables.projectId);
 		},
 		onError: (error) => {
@@ -73,7 +73,7 @@ export function AddQuestionnaireButton({
 	});
 
 	const addQuestionnaire = api.clients.addQuestionnaire.useMutation({
-		onSuccess: (data, variables) => {
+		onSuccess: (_data, variables) => {
 			if (!asanaId) return;
 			utils.clients.getSentQuestionnaires.invalidate(clientId);
 
@@ -118,9 +118,9 @@ export function AddQuestionnaireButton({
 		});
 	}
 	return (
-		<Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+		<Dialog onOpenChange={setIsDialogOpen} open={isDialogOpen}>
 			<DialogTrigger asChild>
-				<Button size="sm" disabled={!asanaId}>
+				<Button disabled={!asanaId} size="sm">
 					Add Questionnaire
 				</Button>
 			</DialogTrigger>
@@ -129,7 +129,7 @@ export function AddQuestionnaireButton({
 					<DialogTitle>Add New Questionnaire</DialogTitle>
 				</DialogHeader>
 				<Form {...form}>
-					<form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+					<form className="space-y-6" onSubmit={form.handleSubmit(onSubmit)}>
 						<div className="flex flex-wrap justify-between">
 							<FormField
 								control={form.control}
@@ -138,20 +138,20 @@ export function AddQuestionnaireButton({
 									<FormItem className="flex w-5/10 flex-col">
 										<FormLabel>Type</FormLabel>
 										<Popover
-											open={isPopoverOpen}
 											onOpenChange={setIsPopoverOpen}
+											open={isPopoverOpen}
 										>
 											<PopoverTrigger asChild>
 												<FormControl>
 													{/** biome-ignore lint/a11y/useSemanticElements: ShadCN, so use special component */}
 													<Button
-														variant="outline"
-														role="combobox"
-														disabled={isLoadingList}
 														className={cn(
 															"w-full justify-between",
 															!field.value && "text-muted-foreground",
 														)}
+														disabled={isLoadingList}
+														role="combobox"
+														variant="outline"
 													>
 														{field.value
 															? questionnaireList?.find(
@@ -172,12 +172,12 @@ export function AddQuestionnaireButton({
 														<CommandGroup>
 															{questionnaireList?.map((q) => (
 																<CommandItem
-																	value={q.name}
 																	key={q.name}
 																	onSelect={() => {
 																		form.setValue("questionnaireType", q.name);
 																		setIsPopoverOpen(false);
 																	}}
+																	value={q.name}
 																>
 																	<Check
 																		className={cn(
@@ -209,11 +209,11 @@ export function AddQuestionnaireButton({
 											<PopoverTrigger asChild>
 												<FormControl>
 													<Button
-														variant={"outline"}
 														className={cn(
 															"w-full pl-3 text-left font-normal",
 															!field.value && "text-muted-foreground",
 														)}
+														variant={"outline"}
 													>
 														{field.value ? (
 															format(field.value, "MMM d, yyyy")
@@ -224,14 +224,14 @@ export function AddQuestionnaireButton({
 													</Button>
 												</FormControl>
 											</PopoverTrigger>
-											<PopoverContent className="w-auto p-0" align="start">
+											<PopoverContent align="start" className="w-auto p-0">
 												<Calendar
-													mode="single"
-													selected={field.value}
-													onSelect={field.onChange}
 													disabled={(date) =>
 														date > new Date() || date < new Date("1900-01-01")
 													}
+													mode="single"
+													onSelect={field.onChange}
+													selected={field.value}
 												/>
 											</PopoverContent>
 										</Popover>
@@ -256,8 +256,8 @@ export function AddQuestionnaireButton({
 						/>
 
 						<Button
-							type="submit"
 							disabled={addQuestionnaire.isPending || isLoadingList}
+							type="submit"
 						>
 							{addQuestionnaire.isPending ? "Submitting..." : "Submit"}
 						</Button>

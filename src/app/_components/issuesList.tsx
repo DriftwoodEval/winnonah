@@ -17,11 +17,11 @@ const IssueList = ({ title, clients }: IssueListProps) => (
 				<h1 className="mb-4 font-bold text-lg leading-none">{title}</h1>
 				{clients.map((client, index) => (
 					<Link href={`/clients/${client.hash}`} key={client.hash}>
-						<div key={client.hash} className="text-sm">
+						<div className="text-sm" key={client.hash}>
 							{client.fullName}
 						</div>
 						{index !== clients.length - 1 && (
-							<Separator key="separator" className="my-2" />
+							<Separator className="my-2" key="separator" />
 						)}
 					</Link>
 				))}
@@ -47,19 +47,19 @@ export function IssuesList() {
 	return (
 		<div className="flex flex-wrap gap-6">
 			{asanaErrors && asanaErrors.length !== 0 && (
-				<IssueList title="Missing Asana IDs" clients={asanaErrors} />
+				<IssueList clients={asanaErrors} title="Missing Asana IDs" />
 			)}
 			{districtErrors && districtErrors.length !== 0 && (
-				<IssueList title="Missing Districts" clients={districtErrors} />
+				<IssueList clients={districtErrors} title="Missing Districts" />
 			)}
 			{archivedAsanaErrors && archivedAsanaErrors.length !== 0 && (
 				<IssueList
-					title="Archived in Asana, Active in TA"
 					clients={archivedAsanaErrors}
+					title="Archived in Asana, Active in TA"
 				/>
 			)}
 			{babyNetErrors && babyNetErrors.length !== 0 && (
-				<IssueList title="Too Old for BabyNet" clients={babyNetErrors} />
+				<IssueList clients={babyNetErrors} title="Too Old for BabyNet" />
 			)}
 		</div>
 	);

@@ -27,11 +27,11 @@ export function EligibleEvaluatorsList({
 					<div className="flex flex-col gap-2">
 						{[...Array(5)].map((_, i) => (
 							<Skeleton
+								className="h-[var(--text-sm)] w-full rounded-md"
 								key={`skeleton-evaluator-${
 									// biome-ignore lint/suspicious/noArrayIndexKey: Skeletons can have array based keys
 									i
 								}`}
-								className="h-[var(--text-sm)] w-full rounded-md"
 							/>
 						))}
 					</div>

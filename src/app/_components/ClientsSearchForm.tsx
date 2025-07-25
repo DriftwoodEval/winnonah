@@ -77,8 +77,8 @@ export default function ClientsSearchForm() {
 	return (
 		<Form {...form}>
 			<form
-				onSubmit={form.handleSubmit(onSubmit)}
 				className="w-full space-y-6 sm:w-2/3"
+				onSubmit={form.handleSubmit(onSubmit)}
 			>
 				<div className="flex flex-col gap-6 sm:flex-row">
 					<div className="flex flex-col gap-6">
@@ -89,8 +89,8 @@ export default function ClientsSearchForm() {
 								<FormItem>
 									<FormLabel>Evaluator</FormLabel>
 									<Select
-										onValueChange={field.onChange}
 										defaultValue={field.value}
+										onValueChange={field.onChange}
 									>
 										<FormControl>
 											<SelectTrigger className="w-full sm:w-60">
@@ -119,8 +119,8 @@ export default function ClientsSearchForm() {
 								<FormItem>
 									<FormLabel>Office</FormLabel>
 									<Select
-										onValueChange={field.onChange}
 										defaultValue={field.value}
+										onValueChange={field.onChange}
 									>
 										<FormControl>
 											<SelectTrigger className="w-full sm:w-60">
@@ -148,8 +148,8 @@ export default function ClientsSearchForm() {
 								<FormItem>
 									<FormLabel>DA/Eval</FormLabel>
 									<Select
-										onValueChange={field.onChange}
 										defaultValue={field.value}
+										onValueChange={field.onChange}
 									>
 										<FormControl>
 											<SelectTrigger className="w-full sm:w-60">
@@ -185,11 +185,11 @@ export default function ClientsSearchForm() {
 										<PopoverTrigger asChild>
 											<FormControl>
 												<Button
-													variant={"outline"}
 													className={cn(
 														"w-full pl-3 text-left font-normal sm:w-60",
 														!field.value && "text-muted-foreground",
 													)}
+													variant={"outline"}
 												>
 													{field.value ? (
 														format(field.value, "PPP")
@@ -200,17 +200,17 @@ export default function ClientsSearchForm() {
 												</Button>
 											</FormControl>
 										</PopoverTrigger>
-										<PopoverContent className="w-auto p-0" align="start">
+										<PopoverContent align="start" className="w-auto p-0">
 											<Calendar
-												mode="single"
-												selected={field.value}
-												onSelect={field.onChange}
 												disabled={(date) => {
 													const yesterday = new Date();
 													yesterday.setDate(yesterday.getDate() - 1);
 													return date < yesterday;
 												}}
 												initialFocus
+												mode="single"
+												onSelect={field.onChange}
+												selected={field.value}
 											/>
 										</PopoverContent>
 									</Popover>
@@ -223,8 +223,6 @@ export default function ClientsSearchForm() {
 				<div className="flex justify-center gap-3 sm:justify-start">
 					<Button type="submit">Search</Button>
 					<Button
-						type="button"
-						variant="outline"
 						onClick={() => {
 							const url = new URL(window.location.href);
 							url.searchParams.delete("eval");
@@ -234,6 +232,8 @@ export default function ClientsSearchForm() {
 							url.searchParams.delete("showBabynet");
 							window.location.href = url.toString();
 						}}
+						type="button"
+						variant="outline"
 					>
 						Reset
 					</Button>

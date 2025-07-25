@@ -30,7 +30,7 @@ export function QuestionnairesSent({
 		<div className="max-h-52 w-[calc(100vw-32px)] overflow-auto rounded-md border shadow sm:w-4xl">
 			<div className="sticky top-0 z-10 flex items-center gap-2 bg-background p-4">
 				<h4 className="font-bold leading-none">Questionnaires Sent</h4>
-				<AddQuestionnaireButton clientId={clientId} asanaId={asanaId} />
+				<AddQuestionnaireButton asanaId={asanaId} clientId={clientId} />
 			</div>
 			<div className="px-4 pb-4">
 				<Table>
@@ -59,9 +59,9 @@ export function QuestionnairesSent({
 								<TableCell>
 									<Link
 										className="text-primary hover:underline"
-										target="_blank"
-										rel="noopener noreferrer"
 										href={questionnaire.link}
+										rel="noopener noreferrer"
+										target="_blank"
 									>
 										{questionnaire.link}
 									</Link>

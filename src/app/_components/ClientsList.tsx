@@ -112,9 +112,9 @@ export function ClientsList() {
 		<div className="flex flex-col gap-3">
 			<div className="flex flex-row gap-3">
 				<Input
+					onChange={(e) => setSearchInput(e.target.value)}
 					placeholder="Search by name"
 					value={searchInput}
-					onChange={(e) => setSearchInput(e.target.value)}
 				/>
 				<Popover>
 					<PopoverTrigger asChild>
@@ -123,31 +123,31 @@ export function ClientsList() {
 						</Button>
 					</PopoverTrigger>
 					<PopoverContent align="end">
-						<Label htmlFor="hide-babynet" className="w-full">
+						<Label className="w-full" htmlFor="hide-babynet">
 							<Checkbox
-								id="hide-babynet"
 								checked={hideBabyNet}
+								id="hide-babynet"
 								onCheckedChange={handleBabyNetCheckboxClick}
 							/>
 							Hide BabyNet
 						</Label>
-						<Separator orientation="horizontal" className="my-2" />
+						<Separator className="my-2" orientation="horizontal" />
 						<p className="mb-2">Client Status</p>
 						<RadioGroup
 							className="w-full"
-							value={statusFilter}
 							onValueChange={handleStatusFilterClick}
+							value={statusFilter}
 						>
-							<Label htmlFor="status-active" className="w-full">
-								<RadioGroupItem value="active" id="status-active" />
+							<Label className="w-full" htmlFor="status-active">
+								<RadioGroupItem id="status-active" value="active" />
 								Active
 							</Label>
-							<Label htmlFor="status-inactive" className="w-full">
-								<RadioGroupItem value="inactive" id="status-inactive" />
+							<Label className="w-full" htmlFor="status-inactive">
+								<RadioGroupItem id="status-inactive" value="inactive" />
 								Inactive
 							</Label>
-							<Label htmlFor="status-all" className="w-full">
-								<RadioGroupItem value="all" id="status-all" />
+							<Label className="w-full" htmlFor="status-all">
+								<RadioGroupItem id="status-all" value="all" />
 								All
 							</Label>
 						</RadioGroup>
@@ -161,8 +161,8 @@ export function ClientsList() {
 					{filteredClients.map((client, index) => (
 						<div key={client.hash}>
 							<ClientListItem
-								client={client}
 								asanaProjectMap={asanaProjectMap}
+								client={client}
 							/>
 							{index < filteredClients.length - 1 && (
 								<Separator className="my-2" />

@@ -73,10 +73,10 @@ export function AsanaNotesEditor({ asanaId }: AsanaNotesEditorProps) {
 	if (isLoadingAsanaProject) {
 		return (
 			<div className="flex flex-col gap-2">
-				<Skeleton key="asana-skeleton-header" className="h-6 w-48 rounded-md" />
+				<Skeleton className="h-6 w-48 rounded-md" key="asana-skeleton-header" />
 				<Skeleton
-					key="asana-skeleton-editor"
 					className="h-20 w-[calc(100vw-32px)] rounded-md sm:w-4xl"
+					key="asana-skeleton-editor"
 				/>
 			</div>
 		);
@@ -96,10 +96,10 @@ export function AsanaNotesEditor({ asanaId }: AsanaNotesEditorProps) {
 			<h4 className="mb-4 font-bold leading-none">
 				{asanaProject.permalink_url ? (
 					<Link
-						href={asanaProject.permalink_url}
-						target="_blank"
-						rel="noopener noreferrer"
 						className="flex items-center gap-2"
+						href={asanaProject.permalink_url}
+						rel="noopener noreferrer"
+						target="_blank"
 					>
 						Asana Notes <LinkIcon size="1em" />
 					</Link>
@@ -111,15 +111,15 @@ export function AsanaNotesEditor({ asanaId }: AsanaNotesEditorProps) {
 				<div>
 					<RichTextEditor
 						key={asanaHtmlNotes}
-						value={asanaHtmlNotes}
 						onChange={(value) => {
 							asanaTimer(value);
 						}}
+						value={asanaHtmlNotes}
 					/>
 				</div>
 			) : (
 				<div className="flex flex-col gap-2">
-					<Skeleton key="asana-skeleton" className="h-20 w-full rounded-md" />
+					<Skeleton className="h-20 w-full rounded-md" key="asana-skeleton" />
 				</div>
 			)}
 		</div>

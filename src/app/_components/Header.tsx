@@ -15,7 +15,7 @@ export async function Header() {
 			<div className="m-2 flex items-center gap-3">
 				{session?.user && <IssuesAlert />}
 				<Link href={session ? "/api/auth/signout" : "/api/auth/signin"}>
-					<Button variant="secondary" size="sm">
+					<Button size="sm" variant="secondary">
 						<span className="hidden sm:block">
 							{session ? "Sign out" : "Sign in"}
 						</span>

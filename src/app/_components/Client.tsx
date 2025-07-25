@@ -61,10 +61,10 @@ export function Client({ hash }: { hash: string }) {
 	return (
 		<div className="mx-10 flex flex-col gap-6">
 			<ClientHeader
-				client={client}
 				asanaProjectColorKey={selectedAsanaColorKey}
-				onAsanaColorChange={updateAsanaColor}
+				client={client}
 				isLoading={isLoading}
+				onAsanaColorChange={updateAsanaColor}
 			/>
 
 			{isLoading || !client ? (
@@ -75,7 +75,7 @@ export function Client({ hash }: { hash: string }) {
 
 					{client.asanaId && <AsanaNotesEditor asanaId={client.asanaId} />}
 
-					<QuestionnairesSent clientId={client.id} asanaId={client.asanaId} />
+					<QuestionnairesSent asanaId={client.asanaId} clientId={client.id} />
 
 					<EligibleEvaluatorsList clientId={client.id} />
 				</>

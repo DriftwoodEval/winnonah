@@ -6,12 +6,10 @@ import "./src/env.js";
 
 /** @type {import("next").NextConfig} */
 const config = {
+  allowedDevOrigins: ["winnonah.xyz", "*.winnonah.xyz"],
   output: "standalone",
-  allowedDevOrigins: [
-    "http://localhost:3000",
-    "https://dev.winnonah.xyz",
-    "*.winnonah.xyz",
-  ],
+
+  turbopack: {},
   webpack: (config, { isServer }) => {
     if (!isServer) {
       config.resolve.fallback.fs = false;
@@ -21,8 +19,6 @@ const config = {
     }
     return config;
   },
-
-  turbopack: {},
 };
 
 export default config;

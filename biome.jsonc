@@ -1,20 +1,23 @@
 {
   "$schema": "https://biomejs.dev/schemas/2.1.2/schema.json",
-  "vcs": {
-    "enabled": true,
-    "clientKind": "git",
-    "useIgnoreFile": true
+  "assist": {
+    "actions": {
+      "source": {
+        "organizeImports": "on",
+        "useSortedAttributes": "on",
+        "useSortedProperties": "on"
+      }
+    }
   },
   "files": { "ignoreUnknown": true },
   "formatter": { "enabled": true },
-  "assist": { "actions": { "source": { "organizeImports": "on" } } },
   "linter": {
     "enabled": true,
     "rules": {
       "nursery": {
         "useSortedClasses": {
-          "level": "warn",
           "fix": "safe",
+          "level": "warn",
           "options": {
             "functions": ["clsx", "cva", "cn"]
           }
@@ -22,5 +25,10 @@
       },
       "recommended": true
     }
+  },
+  "vcs": {
+    "clientKind": "git",
+    "enabled": true,
+    "useIgnoreFile": true
   }
 }

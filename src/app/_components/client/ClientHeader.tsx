@@ -64,29 +64,29 @@ export function ClientHeader({
 
 				{currentHexAsanaColor && <Separator orientation="vertical" />}
 				{currentHexAsanaColor && (
-					<Popover open={isPopoverOpen} onOpenChange={setIsPopoverOpen}>
+					<Popover onOpenChange={setIsPopoverOpen} open={isPopoverOpen}>
 						<PopoverTrigger asChild>
 							<button
-								className="h-5 w-5 cursor-pointer rounded-full"
-								type="button"
-								tabIndex={0}
-								style={{ background: currentHexAsanaColor }}
 								aria-label={`Current Asana color: ${asanaProjectColorKey}`}
+								className="h-5 w-5 cursor-pointer rounded-full"
+								style={{ background: currentHexAsanaColor }}
+								tabIndex={0}
+								type="button"
 							/>
 						</PopoverTrigger>
 						<PopoverContent className="w-auto p-2">
 							<div className="grid grid-cols-4 place-items-center gap-2">
 								{Object.entries(asanaColorMap).map(([key, value]) => (
 									<button
-										key={key}
-										type="button"
+										aria-label={`Select Asana color: ${key}`}
 										className="relative h-10 w-10 rounded-sm"
-										style={{ backgroundColor: value }}
+										key={key}
 										onClick={() => {
 											onAsanaColorChange(key);
 											setIsPopoverOpen(false);
 										}}
-										aria-label={`Select Asana color: ${key}`}
+										style={{ backgroundColor: value }}
+										type="button"
 									>
 										{asanaProjectColorKey === key && (
 											<CheckIcon

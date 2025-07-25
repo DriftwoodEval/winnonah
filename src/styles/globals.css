@@ -167,16 +167,16 @@
     @apply border-border outline-ring/50;
   }
   body {
-    @apply bg-background text-foreground;
     letter-spacing: var(--tracking-normal);
+    @apply bg-background text-foreground;
   }
 }
 
 .tiptap .is-editor-empty:first-child::before {
-  content: attr(data-placeholder);
-  @apply pointer-events-none float-left;
   height: 0;
   color: var(--muted-foreground);
+  content: attr(data-placeholder);
+  @apply pointer-events-none float-left;
 }
 
 .tiptap a {

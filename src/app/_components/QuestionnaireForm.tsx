@@ -80,8 +80,8 @@ export function QuestionnaireForm({
 	return (
 		<Form {...form}>
 			<form
-				onSubmit={form.handleSubmit(onSubmit)}
 				className="flex w-full items-center gap-4"
+				onSubmit={form.handleSubmit(onSubmit)}
 			>
 				<FormField
 					control={form.control}
@@ -91,10 +91,10 @@ export function QuestionnaireForm({
 							<FormControl>
 								<MultipleSelector
 									{...field}
-									options={options}
 									groupBy="group"
-									placeholder="Select questionnaires to send..."
 									hidePlaceholderWhenSelected={true}
+									options={options}
+									placeholder="Select questionnaires to send..."
 								/>
 							</FormControl>
 							<FormMessage />

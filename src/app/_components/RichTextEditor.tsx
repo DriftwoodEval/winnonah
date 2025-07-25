@@ -54,63 +54,71 @@ export function RichTextEditor({
 	return (
 		<div className={className}>
 			<div className="mb-3 flex flex-wrap items-center gap-2">
-				<ToggleGroup type="multiple" size="sm" variant="outline">
+				<ToggleGroup size="sm" type="multiple" variant="outline">
 					<ToggleGroupItem
-						value="bold"
 						aria-label="Toggle bold"
-						onClick={() => editor.chain().focus().toggleBold().run()}
-						disabled={!editor.can().chain().focus().toggleBold().run()}
 						data-state={editor.isActive("bold") ? "on" : "off"}
+						disabled={!editor.can().chain().focus().toggleBold().run()}
+						onClick={() => editor.chain().focus().toggleBold().run()}
+						value="bold"
 					>
 						<Bold className="size-4" />
 					</ToggleGroupItem>
 					<ToggleGroupItem
-						value="strike"
 						aria-label="Toggle strikethrough"
-						onClick={() => editor.chain().focus().toggleStrike().run()}
-						disabled={!editor.can().chain().focus().toggleStrike().run()}
 						data-state={editor.isActive("strike") ? "on" : "off"}
+						disabled={!editor.can().chain().focus().toggleStrike().run()}
+						onClick={() => editor.chain().focus().toggleStrike().run()}
+						value="strike"
 					>
 						<Strikethrough className="size-4" />
 					</ToggleGroupItem>
 					<ToggleGroupItem
-						value="italic"
 						aria-label="Toggle italic"
-						onClick={() => editor.chain().focus().toggleItalic().run()}
-						disabled={!editor.can().chain().focus().toggleItalic().run()}
 						data-state={editor.isActive("italic") ? "on" : "off"}
+						disabled={!editor.can().chain().focus().toggleItalic().run()}
+						onClick={() => editor.chain().focus().toggleItalic().run()}
+						value="italic"
 					>
 						<Italic className="size-4" />
 					</ToggleGroupItem>
 					<ToggleGroupItem
-						value="underline"
 						aria-label="Toggle underline"
-						onClick={() => editor.chain().focus().toggleUnderline().run()}
-						disabled={!editor.can().chain().focus().toggleUnderline().run()}
 						data-state={editor.isActive("underline") ? "on" : "off"}
+						disabled={!editor.can().chain().focus().toggleUnderline().run()}
+						onClick={() => editor.chain().focus().toggleUnderline().run()}
+						value="underline"
 					>
 						<UnderlineIcon className="size-4" />
 					</ToggleGroupItem>
 
 					<ToggleGroupItem
-						value="clear"
 						aria-label="Clear formatting"
-						onClick={() =>
-							editor.chain().focus().clearNodes().unsetAllMarks().run()
-						}
+						data-state="off"
 						disabled={
 							!editor.can().chain().focus().clearNodes().unsetAllMarks().run()
 						}
-						data-state="off"
+						onClick={() =>
+							editor.chain().focus().clearNodes().unsetAllMarks().run()
+						}
+						value="clear"
 					>
 						<RemoveFormattingIcon className="size-4" />
 					</ToggleGroupItem>
 				</ToggleGroup>
 
-				<ToggleGroup type="single" size="sm" variant="outline">
+				<ToggleGroup size="sm" type="single" variant="outline">
 					<ToggleGroupItem
-						value="link"
 						aria-label="Add link"
+						data-state={editor.isActive("link") ? "on" : "off"}
+						disabled={
+							!editor
+								.can()
+								.chain()
+								.focus()
+								.setLink({ href: "https://example.com" })
+								.run()
+						}
 						onClick={() => {
 							const url = window.prompt("Enter URL");
 							if (url) {
@@ -125,44 +133,36 @@ export function RichTextEditor({
 									.run();
 							}
 						}}
-						disabled={
-							!editor
-								.can()
-								.chain()
-								.focus()
-								.setLink({ href: "https://example.com" })
-								.run()
-						}
-						data-state={editor.isActive("link") ? "on" : "off"}
+						value="link"
 					>
 						<LinkIcon className="size-4" />
 					</ToggleGroupItem>
 					<ToggleGroupItem
-						value="link"
 						aria-label="Add link"
+						disabled={!editor.can().chain().focus().unsetLink().run()}
 						onClick={() => {
 							editor.chain().focus().unsetLink().run();
 						}}
-						disabled={!editor.can().chain().focus().unsetLink().run()}
+						value="link"
 					>
 						<Unlink className="size-4" />
 					</ToggleGroupItem>
 				</ToggleGroup>
 
-				<ToggleGroup type="single" size="sm" variant="outline">
+				<ToggleGroup size="sm" type="single" variant="outline">
 					<ToggleGroupItem
-						value="undo"
 						aria-label="Undo"
-						onClick={() => editor.chain().focus().undo().run()}
 						disabled={!editor.can().chain().focus().undo().run()}
+						onClick={() => editor.chain().focus().undo().run()}
+						value="undo"
 					>
 						<Undo className="size-4" />
 					</ToggleGroupItem>
 					<ToggleGroupItem
-						value="redo"
 						aria-label="Redo"
-						onClick={() => editor.chain().focus().redo().run()}
 						disabled={!editor.can().chain().focus().redo().run()}
+						onClick={() => editor.chain().focus().redo().run()}
+						value="redo"
 					>
 						<Redo className="size-4" />
 					</ToggleGroupItem>

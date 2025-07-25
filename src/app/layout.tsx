@@ -32,8 +32,8 @@ export default function RootLayout({
 }: Readonly<{ children: React.ReactNode }>) {
 	return (
 		<html
-			lang="en"
 			className={`${plusJakartaSans.variable} ${lora.variable} ${robotoMono.variable} h-full`}
+			lang="en"
 		>
 			<body className="dark h-full bg-background">
 				<TRPCReactProvider>
