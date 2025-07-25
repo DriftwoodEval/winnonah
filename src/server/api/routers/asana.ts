@@ -222,7 +222,6 @@ export const asanaRouter = createTRPCRouter({
       }
 
       const user = ctx.session.user;
-
       const userInitials =
         user?.name
           ?.split(" ")
@@ -254,7 +253,21 @@ export const asanaRouter = createTRPCRouter({
       );
 
       if (existingTitleIndex !== -1) {
-        notesByLine.splice(existingTitleIndex + 1, 0, ...newQuestionnaireLinks);
+        let insertionIndex = existingTitleIndex + 1;
+
+        while (insertionIndex < notesByLine.length) {
+          const currentLine = notesByLine[insertionIndex].trim();
+
+          const isLinkLine = /^<a href/i.test(currentLine);
+
+          if (isLinkLine) {
+            insertionIndex++;
+          } else {
+            break;
+          }
+        }
+
+        notesByLine.splice(insertionIndex, 0, ...newQuestionnaireLinks);
       } else {
         const newContentBlock = [todayTitle, ...newQuestionnaireLinks];
 
