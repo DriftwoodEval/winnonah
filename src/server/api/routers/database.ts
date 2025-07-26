@@ -265,11 +265,25 @@ export const clientRouter = createTRPCRouter({
         });
       }
 
+      const sentDate = input.sent ?? new Date();
+
+      const normalizedDate = new Date(
+        Date.UTC(
+          sentDate.getUTCFullYear(),
+          sentDate.getUTCMonth(),
+          sentDate.getUTCDate(),
+          12, // Hours (12 = noon)
+          0, // Minutes
+          0, // Seconds
+          0 // Milliseconds
+        )
+      );
+
       const result = await ctx.db.insert(questionnaires).values({
         clientId: input.clientId,
         questionnaireType: input.questionnaireType,
         link: input.link,
-        sent: input.sent ?? new Date(),
+        sent: normalizedDate,
         status: "PENDING",
         reminded: 0,
         lastReminded: null,

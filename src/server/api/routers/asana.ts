@@ -206,6 +206,7 @@ export const asanaRouter = createTRPCRouter({
       z.object({
         projectId: z.string(),
         automatic: z.boolean(),
+        sent: z.date().optional(),
         questionnaires: z.array(
           z.object({
             link: z.url(),
@@ -228,12 +229,15 @@ export const asanaRouter = createTRPCRouter({
           .map((namePart) => namePart?.[0])
           .join("") ?? "";
 
-      const today = new Date().toLocaleDateString("en-US", {
-        month: "2-digit",
-        day: "2-digit",
-      });
+      const sentString = (input.sent || new Date()).toLocaleDateString(
+        "en-US",
+        {
+          month: "2-digit",
+          day: "2-digit",
+        }
+      );
 
-      const todayTitle = `${today} Qs sent ${
+      const sentTitle = `${sentString} Qs sent ${
         input.automatic ? "automatically" : userInitials
       }`;
 
@@ -249,7 +253,7 @@ export const asanaRouter = createTRPCRouter({
       const notesByLine = cleanedNotes.split("\n");
 
       const existingTitleIndex = notesByLine.findIndex(
-        (line: string) => line.trim() === todayTitle
+        (line: string) => line.trim() === sentTitle
       );
 
       if (existingTitleIndex !== -1) {
@@ -269,7 +273,7 @@ export const asanaRouter = createTRPCRouter({
 
         notesByLine.splice(insertionIndex, 0, ...newQuestionnaireLinks);
       } else {
-        const newContentBlock = [todayTitle, ...newQuestionnaireLinks];
+        const newContentBlock = [sentTitle, ...newQuestionnaireLinks];
 
         const blankLineIndex = notesByLine
           .slice(0, 5)

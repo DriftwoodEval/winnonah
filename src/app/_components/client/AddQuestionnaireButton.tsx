@@ -80,6 +80,7 @@ export function AddQuestionnaireButton({
 			addQuestionnaireToAsana.mutate({
 				projectId: asanaId,
 				automatic: false,
+				sent: variables.sent,
 				questionnaires: [
 					{
 						type: variables.questionnaireType,
