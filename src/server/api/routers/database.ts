@@ -1,5 +1,5 @@
 import { TRPCError } from "@trpc/server";
-import { and, eq, gt, isNull, lt, or, sql } from "drizzle-orm";
+import { and, desc, eq, gt, isNull, lt, or, sql } from "drizzle-orm";
 import { z } from "zod";
 import { env } from "~/env";
 import { createTRPCRouter, protectedProcedure } from "~/server/api/trpc";
@@ -231,7 +231,9 @@ export const clientRouter = createTRPCRouter({
       const clientWithQuestionnaires = await ctx.db.query.clients.findFirst({
         where: eq(clients.id, input),
         with: {
-          questionnaires: true,
+          questionnaires: {
+            orderBy: desc(questionnaires.sent),
+          },
         },
       });
 
