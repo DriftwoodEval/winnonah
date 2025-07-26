@@ -26,8 +26,20 @@ export function QuestionnairesSent({
 			enabled: typeof clientId === "number" && clientId > 0,
 		});
 
+	const truncateLink = (link: string | null, maxLength: number = 25) => {
+		if (!link) return "";
+
+		let truncated = link.replace(/^https?:\/\/(www\.)?/, "");
+
+		if (truncated.length > maxLength) {
+			truncated = `${truncated.slice(0, maxLength - 3)}...`;
+		}
+
+		return truncated;
+	};
+
 	return (
-		<div className="max-h-52 w-[calc(100vw-32px)] overflow-auto rounded-md border shadow sm:w-4xl">
+		<div className="max-h-52 w-full overflow-scroll rounded-md border shadow">
 			<div className="sticky top-0 z-10 flex items-center gap-2 bg-background p-4">
 				<h4 className="font-bold leading-none">Questionnaires Sent</h4>
 				<AddQuestionnaireButton asanaId={asanaId} clientId={clientId} />
@@ -50,8 +62,8 @@ export function QuestionnairesSent({
 									{questionnaire.sent
 										? new Intl.DateTimeFormat("en-US", {
 												year: "2-digit",
-												month: "2-digit",
-												day: "2-digit",
+												month: "numeric",
+												day: "numeric",
 											}).format(new Date(questionnaire.sent))
 										: ""}
 								</TableCell>
@@ -63,7 +75,7 @@ export function QuestionnairesSent({
 										rel="noopener noreferrer"
 										target="_blank"
 									>
-										{questionnaire.link}
+										{truncateLink(questionnaire.link)}
 									</Link>
 								</TableCell>
 								<TableCell>{questionnaire.reminded}</TableCell>

@@ -21,7 +21,7 @@ export function ClientDetailsCard({ client, offices }: ClientDetailsCardProps) {
 	const thirdClosestOffice = offices?.[client.thirdClosestOffice ?? ""] ?? null;
 
 	return (
-		<div className="flex w-[calc(100vw-32px)] flex-wrap gap-6 rounded-md border-2 bg-card p-4 shadow sm:w-4xl">
+		<div className="flex w-full flex-wrap gap-6 rounded-md border-2 bg-card p-4 shadow">
 			<div>
 				<p className="font-bold">Date of Birth</p>
 				<p>{client.dob?.toLocaleDateString("en-US")}</p>

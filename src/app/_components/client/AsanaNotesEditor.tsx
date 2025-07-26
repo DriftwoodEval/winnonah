@@ -75,7 +75,7 @@ export function AsanaNotesEditor({ asanaId }: AsanaNotesEditorProps) {
 			<div className="flex flex-col gap-2">
 				<Skeleton className="h-6 w-48 rounded-md" key="asana-skeleton-header" />
 				<Skeleton
-					className="h-20 w-[calc(100vw-32px)] rounded-md sm:w-4xl"
+					className="h-20 w-full rounded-md"
 					key="asana-skeleton-editor"
 				/>
 			</div>
@@ -92,7 +92,7 @@ export function AsanaNotesEditor({ asanaId }: AsanaNotesEditorProps) {
 	}
 
 	return (
-		<div className="w-[calc(100vw-32px)] sm:w-4xl">
+		<div className="w-full">
 			<h4 className="mb-4 font-bold leading-none">
 				{asanaProject.permalink_url ? (
 					<Link

@@ -68,9 +68,9 @@ export function Client({ hash }: { hash: string }) {
 			/>
 
 			{isLoading || !client ? (
-				<Skeleton className="h-96 w-[calc(100vw-32px)] rounded-md sm:h-96 sm:w-3xl" />
+				<Skeleton className="h-96 w-[calc(100vw-32px)] rounded-md sm:h-96 lg:w-4xl" />
 			) : (
-				<>
+				<div className="flex w-[calc(100vw-32px)] flex-col items-center gap-6 lg:w-4xl">
 					<ClientDetailsCard client={client} offices={offices} />
 
 					{client.asanaId && <AsanaNotesEditor asanaId={client.asanaId} />}
@@ -78,7 +78,7 @@ export function Client({ hash }: { hash: string }) {
 					<QuestionnairesSent asanaId={client.asanaId} clientId={client.id} />
 
 					<EligibleEvaluatorsList clientId={client.id} />
-				</>
+				</div>
 			)}
 		</div>
 	);
