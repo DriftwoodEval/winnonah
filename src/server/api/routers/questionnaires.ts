@@ -1,9 +1,9 @@
 import { TRPCError } from "@trpc/server";
-import { eq } from "drizzle-orm";
+import { desc, eq } from "drizzle-orm";
 import { z } from "zod";
-import { formatClientAge } from "~/lib/utils";
+import { formatClientAge, normalizeDate } from "~/lib/utils";
 import { createTRPCRouter, protectedProcedure } from "~/server/api/trpc";
-import { clients } from "~/server/db/schema";
+import { clients, questionnaires } from "~/server/db/schema";
 
 interface QuestionnaireDetails {
   name: string;
@@ -91,5 +91,100 @@ export const questionnaireRouter = createTRPCRouter({
       return QUESTIONNAIRES.filter(
         (q) => q.ageRanges.min <= age && q.ageRanges.max >= age
       );
+    }),
+
+  getSentQuestionnaires: protectedProcedure
+    .input(z.number())
+    .query(async ({ ctx, input }) => {
+      const clientWithQuestionnaires = await ctx.db.query.clients.findFirst({
+        where: eq(clients.id, input),
+        with: {
+          questionnaires: {
+            orderBy: desc(questionnaires.sent),
+          },
+        },
+      });
+
+      if (!clientWithQuestionnaires) {
+        return null;
+      }
+
+      return clientWithQuestionnaires.questionnaires ?? null;
+    }),
+
+  addQuestionnaire: protectedProcedure
+    .input(
+      z.object({
+        clientId: z.number(),
+        questionnaireType: z
+          .string()
+          .min(1, { message: "Questionnaire type is required" }),
+        link: z.url({ message: "Link must be a valid URL" }),
+        sent: z.date().optional(),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      const client = await ctx.db.query.clients.findFirst({
+        where: eq(clients.id, input.clientId),
+      });
+
+      if (!client) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: `Client with id ${input.clientId} not found`,
+        });
+      }
+
+      const sentDate = input.sent ?? new Date();
+
+      const result = await ctx.db.insert(questionnaires).values({
+        clientId: input.clientId,
+        questionnaireType: input.questionnaireType,
+        link: input.link,
+        sent: normalizeDate(sentDate),
+        status: "PENDING",
+        reminded: 0,
+        lastReminded: null,
+      });
+
+      const newId = result[0].insertId;
+
+      const newQuestionnaire = await ctx.db.query.questionnaires.findFirst({
+        where: eq(questionnaires.id, newId),
+      });
+
+      return newQuestionnaire;
+    }),
+
+  updateQuestionnaire: protectedProcedure
+    .input(
+      z.object({
+        id: z.number(),
+        questionnaireType: z.string().min(1),
+        link: z.url(),
+        sent: z.date(),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      await ctx.db
+        .update(questionnaires)
+        .set({
+          questionnaireType: input.questionnaireType,
+          link: input.link,
+          sent: normalizeDate(input.sent),
+        })
+        .where(eq(questionnaires.id, input.id));
+
+      return { success: true };
+    }),
+
+  deleteQuestionnaire: protectedProcedure
+    .input(z.object({ id: z.number() }))
+    .mutation(async ({ ctx, input }) => {
+      await ctx.db
+        .delete(questionnaires)
+        .where(eq(questionnaires.id, input.id));
+
+      return { success: true };
     }),
 });

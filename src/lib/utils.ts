@@ -45,3 +45,54 @@ export function isColorKey(key: string): key is keyof typeof asanaColorMap {
 export function getColorFromMap(key: string): string {
   return asanaColorMap[key as keyof typeof asanaColorMap];
 }
+
+export const normalizeDate = (date: Date) => {
+  return new Date(
+    Date.UTC(
+      date.getUTCFullYear(),
+      date.getUTCMonth(),
+      date.getUTCDate(),
+      12,
+      0,
+      0,
+      0
+    )
+  );
+};
+
+export type QuestionnaireStatus =
+  | "COMPLETED"
+  | "PENDING"
+  | "RESCHEDULED"
+  | string
+  | null
+  | undefined;
+
+const STATUS_COLOR_MAP: Record<string, string> = {
+  COMPLETED: "text-green-300",
+  PENDING: "text-yellow-500",
+  RESCHEDULED: "text-red-500",
+};
+
+export function getStatusColorClass(status: QuestionnaireStatus): string {
+  if (!status) return "text-gray-500"; // Default color for unknown/null status
+  return STATUS_COLOR_MAP[status] ?? "text-gray-500";
+}
+
+export function getReminderColorClass(
+  count: number | null | undefined
+): string {
+  if (!count || count === 0) {
+    return "";
+  }
+  if (count >= 3) {
+    return "text-red-500";
+  }
+  if (count >= 2) {
+    return "text-yellow-500";
+  }
+  if (count >= 1) {
+    return "text-green-300";
+  }
+  return "";
+}
