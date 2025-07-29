@@ -161,6 +161,14 @@ export const clientRouter = createTRPCRouter({
     return clientsTooOldForBabyNet;
   }),
 
+  getNotInTAErrors: protectedProcedure.query(async ({ ctx }) => {
+    const clientsNotInTA = await ctx.db.query.clients.findMany({
+      where: isNull(clients.addedDate),
+    });
+
+    return clientsNotInTA;
+  }),
+
   addAsanaId: protectedProcedure
     .input(
       z.object({

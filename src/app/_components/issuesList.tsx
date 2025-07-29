@@ -31,18 +31,12 @@ const IssueList = ({ title, clients }: IssueListProps) => (
 );
 
 export function IssuesList() {
-	const asanaErrorsResponse = api.clients.getAsanaErrors.useQuery();
-	const asanaErrors = asanaErrorsResponse.data;
-
-	const districtErrorsResponse = api.clients.getDistrictErrors.useQuery();
-	const districtErrors = districtErrorsResponse.data;
-
-	const archivedAsanaErrorsResponse =
+	const { data: asanaErrors } = api.clients.getAsanaErrors.useQuery();
+	const { data: districtErrors } = api.clients.getDistrictErrors.useQuery();
+	const { data: archivedAsanaErrors } =
 		api.clients.getArchivedAsanaErrors.useQuery();
-	const archivedAsanaErrors = archivedAsanaErrorsResponse.data;
-
-	const babyNetErrorsResponse = api.clients.getBabyNetErrors.useQuery();
-	const babyNetErrors = babyNetErrorsResponse.data;
+	const { data: babyNetErrors } = api.clients.getBabyNetErrors.useQuery();
+	const { data: notInTAErrors } = api.clients.getNotInTAErrors.useQuery();
 
 	return (
 		<div className="flex flex-wrap gap-6">
@@ -60,6 +54,9 @@ export function IssuesList() {
 			)}
 			{babyNetErrors && babyNetErrors.length !== 0 && (
 				<IssueList clients={babyNetErrors} title="Too Old for BabyNet" />
+			)}
+			{notInTAErrors && notInTAErrors.length !== 0 && (
+				<IssueList clients={notInTAErrors} title="Not in TA" />
 			)}
 		</div>
 	);

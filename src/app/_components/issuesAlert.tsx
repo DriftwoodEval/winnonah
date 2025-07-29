@@ -31,11 +31,19 @@ export function IssuesAlert() {
 		},
 	);
 
+	const { data: notInTAErrors } = api.clients.getNotInTAErrors.useQuery(
+		undefined,
+		{
+			enabled: isClientsLoaded,
+		},
+	);
+
 	const errorsLength =
 		(asanaErrors?.length ?? 0) +
 		(districtErrors?.length ?? 0) +
 		(archivedAsanaErrors?.length ?? 0) +
-		(babyNetErrors?.length ?? 0);
+		(babyNetErrors?.length ?? 0) +
+		(notInTAErrors?.length ?? 0);
 
 	if (errorsLength === 0) {
 		return null;
