@@ -7,14 +7,7 @@ import { clients, clientsEvaluators } from "~/server/db/schema";
 import type { Offices } from "~/server/lib/types";
 import { asanaRouter } from "./asana";
 
-export const clientRouter = createTRPCRouter({
-  getAll: protectedProcedure.query(async ({ ctx }) => {
-    const clients = await ctx.db.query.clients.findMany({});
-
-    return clients ?? null;
-  }),
-
-  getSorted: protectedProcedure.query(async ({ ctx }) => {
+const getBabyNetPriorityInfo = () => {
     const BNAgeOutDate = new Date();
     BNAgeOutDate.setFullYear(BNAgeOutDate.getFullYear() - 3); // 3 years old
 
@@ -30,17 +23,32 @@ export const clientRouter = createTRPCRouter({
       gt(clients.dob, BNAgeOutDate)
     );
 
+  const sortReasonSQL =
+    sql<string>`CASE WHEN ${isHighPriority} THEN 'BabyNet above 2:6' ELSE 'Added date' END`.as(
+      "sortReason"
+    );
+
+  const orderBySQL = [
+    sql`CASE WHEN ${isHighPriority} THEN 0 ELSE 1 END`, // Priority clients first
+    sql`CASE WHEN ${isHighPriority} THEN ${clients.dob} ELSE ${clients.addedDate} END`,
+  ];
+
+  return { isHighPriority, sortReasonSQL, orderBySQL };
+};
+
+export const clientRouter = createTRPCRouter({
+  getAll: protectedProcedure.query(async ({ ctx }) => {
+    const clients = await ctx.db.query.clients.findMany({});
+
+    return clients ?? null;
+  }),
+
+  getSorted: protectedProcedure.query(async ({ ctx }) => {
+    const { sortReasonSQL, orderBySQL } = getBabyNetPriorityInfo();
+
     const allSortedClients = await ctx.db.query.clients.findMany({
-      extras: {
-        sortReason:
-          sql<string>`CASE WHEN ${isHighPriority} THEN 'BabyNet above 2:6' ELSE 'Added date' END`.as(
-            "sortReason"
-          ),
-      },
-      orderBy: [
-        sql`CASE WHEN ${isHighPriority} THEN 0 ELSE 1 END`,
-        sql`CASE WHEN ${isHighPriority} THEN ${clients.dob} ELSE ${clients.addedDate} END`,
-      ],
+      extras: { sortReason: sortReasonSQL },
+      orderBy: orderBySQL,
     });
 
     return allSortedClients;
@@ -49,28 +57,12 @@ export const clientRouter = createTRPCRouter({
   getByNpi: protectedProcedure
     .input(z.number())
     .query(async ({ ctx, input }) => {
-      const BNAgeOutDate = new Date();
-      BNAgeOutDate.setFullYear(BNAgeOutDate.getFullYear() - 3);
-
-      const highPriorityBNAge = new Date();
-      highPriorityBNAge.setMonth(highPriorityBNAge.getMonth() - 30);
-
-      const isHighPriority = and(
-        or(
-          eq(clients.primaryInsurance, "BabyNet"),
-          eq(clients.secondaryInsurance, "BabyNet")
-        ),
-        lt(clients.dob, highPriorityBNAge),
-        gt(clients.dob, BNAgeOutDate)
-      );
+      const { sortReasonSQL, orderBySQL } = getBabyNetPriorityInfo();
 
       const clientsWithReason = await ctx.db
         .select({
           client: clients,
-          sortReason:
-            sql<string>`CASE WHEN ${isHighPriority} THEN 'BabyNet above 2:6' ELSE 'Added date' END`.as(
-              "sortReason"
-            ),
+          sortReason: sortReasonSQL,
         })
         .from(clients)
         .innerJoin(
@@ -78,10 +70,7 @@ export const clientRouter = createTRPCRouter({
           eq(clients.id, clientsEvaluators.clientId)
         )
         .where(eq(clientsEvaluators.evaluatorNpi, input))
-        .orderBy(
-          sql`CASE WHEN ${isHighPriority} THEN 0 ELSE 1 END`,
-          sql`CASE WHEN ${isHighPriority} THEN ${clients.dob} ELSE ${clients.addedDate} END`
-        );
+        .orderBy(...orderBySQL);
 
       if (!clientsWithReason || clientsWithReason.length === 0) {
         return null;
