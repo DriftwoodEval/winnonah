@@ -225,12 +225,11 @@ export const clientRouter = createTRPCRouter({
 
 export const evaluatorRouter = createTRPCRouter({
   getAll: protectedProcedure.query(async ({ ctx }) => {
-    const evaluators = await ctx.db.query.evaluators.findMany({});
+    const evaluators = await ctx.db.query.evaluators.findMany({
+      orderBy: (evaluators, { asc }) => [asc(evaluators.providerName)],
+    });
 
-    return (
-      evaluators.sort((a, b) => a.providerName.localeCompare(b.providerName)) ??
-      null
-    );
+    return evaluators;
   }),
 
   getEligibleForClient: protectedProcedure
