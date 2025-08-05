@@ -1,4 +1,5 @@
 import { TRPCError } from "@trpc/server";
+import { subMonths, subYears } from "date-fns";
 import { and, eq, gt, isNull, lt, or, sql } from "drizzle-orm";
 import { z } from "zod";
 import { env } from "~/env";
@@ -8,20 +9,18 @@ import type { Offices } from "~/server/lib/types";
 import { asanaRouter } from "./asana";
 
 const getBabyNetPriorityInfo = () => {
-    const BNAgeOutDate = new Date();
-    BNAgeOutDate.setFullYear(BNAgeOutDate.getFullYear() - 3); // 3 years old
+  const now = new Date();
+  const BNAgeOutDate = subYears(now, 3);
+  const highPriorityBNAge = subMonths(now, 30); // 2 years and 6 months
 
-    const highPriorityBNAge = new Date();
-    highPriorityBNAge.setMonth(highPriorityBNAge.getMonth() - 30); // Older than 2 years and 6 months;
-
-    const isHighPriority = and(
-      or(
-        eq(clients.primaryInsurance, "BabyNet"),
-        eq(clients.secondaryInsurance, "BabyNet")
-      ),
-      lt(clients.dob, highPriorityBNAge),
-      gt(clients.dob, BNAgeOutDate)
-    );
+  const isHighPriority = and(
+    or(
+      eq(clients.primaryInsurance, "BabyNet"),
+      eq(clients.secondaryInsurance, "BabyNet")
+    ),
+    lt(clients.dob, highPriorityBNAge),
+    gt(clients.dob, BNAgeOutDate)
+  );
 
   const sortReasonSQL =
     sql<string>`CASE WHEN ${isHighPriority} THEN 'BabyNet above 2:6' ELSE 'Added date' END`.as(
@@ -40,7 +39,7 @@ export const clientRouter = createTRPCRouter({
   getAll: protectedProcedure.query(async ({ ctx }) => {
     const clients = await ctx.db.query.clients.findMany({});
 
-    return clients ?? null;
+    return clients;
   }),
 
   getSorted: protectedProcedure.query(async ({ ctx }) => {
@@ -254,7 +253,7 @@ export const evaluatorRouter = createTRPCRouter({
         .map((link) => link.evaluator)
         .sort((a, b) => a.providerName.localeCompare(b.providerName));
 
-      return correctedEvaluatorsByClient ?? null;
+      return correctedEvaluatorsByClient;
     }),
 });
 
@@ -277,6 +276,6 @@ const ALL_OFFICES: Offices = officeAddresses
 
 export const officeRouter = createTRPCRouter({
   getAll: protectedProcedure.query(() => {
-    return ALL_OFFICES ?? null;
+    return ALL_OFFICES;
   }),
 });
