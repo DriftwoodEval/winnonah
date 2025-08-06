@@ -80,7 +80,8 @@ export function GlobalClientSearch() {
 		}
 	}, [open]);
 
-	const showSpinner = isLoading || isPlaceholderData;
+	const showSpinner =
+		isLoading || (isPlaceholderData && searchInput.length >= 3);
 
 	return (
 		<>
@@ -114,6 +115,7 @@ export function GlobalClientSearch() {
 						</div>
 					)}
 
+					{/* TODO: display warning about too short search when backspacing / placeholder data */}
 					<CommandEmpty>
 						{isLoading || isPlaceholderData
 							? null
