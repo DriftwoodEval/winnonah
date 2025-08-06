@@ -80,6 +80,7 @@ export function ClientsDashboard() {
 			<div className="flex flex-col gap-3">
 				<div className="flex flex-row gap-3">
 					<Input
+						autoFocus
 						id="name-search"
 						onChange={(e) => handleNameSearchChange(e.target.value)}
 						placeholder="Search by name..."
