@@ -2,13 +2,11 @@
 
 import { Button } from "@ui/button";
 import { Checkbox } from "@ui/checkbox";
-import { Input } from "@ui/input";
 import { Label } from "@ui/label";
 import { Popover, PopoverContent, PopoverTrigger } from "@ui/popover";
 import { RadioGroup, RadioGroupItem } from "@ui/radio-group";
 import { Separator } from "@ui/separator";
 import { Skeleton } from "@ui/skeleton";
-import { debounce } from "lodash";
 import { CheckIcon, Filter } from "lucide-react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useMemo, useState } from "react";
@@ -21,13 +19,13 @@ import {
 import { api } from "~/trpc/react";
 import { ClientsList } from "./ClientsList";
 import ClientsSearchForm from "./ClientsSearchForm";
+import { NameSearchInput } from "./NameSearchInput";
 
 export function ClientsDashboard() {
 	const router = useRouter();
 	const pathname = usePathname();
 	const searchParams = useSearchParams();
 
-	const [nameSearchInput, setNameSearchInput] = useState("");
 	const [debouncedNameForQuery, setDebouncedNameForQuery] = useState("");
 
 	const filters = useMemo(() => {
@@ -60,20 +58,7 @@ export function ClientsDashboard() {
 		placeholderData: (previousData) => previousData,
 	});
 
-	const debouncedQueryUpdate = useCallback(
-		debounce((value: string) => {
-			setDebouncedNameForQuery(value);
-		}, 500),
-		[],
-	);
-
-	const handleNameSearchChange = (value: string) => {
-		setNameSearchInput(value);
-		debouncedQueryUpdate(value);
-	};
-
 	const handleReset = useCallback(() => {
-		setNameSearchInput("");
 		setDebouncedNameForQuery("");
 	}, []);
 
@@ -91,12 +76,10 @@ export function ClientsDashboard() {
 		<div className="grid w-full grid-cols-1 gap-4 lg:grid-cols-2 lg:gap-8">
 			<div className="flex flex-col gap-3">
 				<div className="flex flex-row gap-3">
-					<Input
-						autoFocus
-						id="name-search"
-						onChange={(e) => handleNameSearchChange(e.target.value)}
-						placeholder="Search by name..."
-						value={nameSearchInput}
+					<NameSearchInput
+						debounceMs={300}
+						initialValue={""}
+						onDebouncedChange={setDebouncedNameForQuery}
 					/>
 
 					<Popover>
