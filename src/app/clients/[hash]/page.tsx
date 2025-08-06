@@ -1,4 +1,4 @@
-import { Client } from "@components/Client";
+import { Client } from "@components/client/Client";
 import { auth } from "~/server/auth";
 
 export default async function Page({

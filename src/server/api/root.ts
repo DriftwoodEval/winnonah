@@ -1,13 +1,11 @@
-import { asanaRouter } from "~/server/api/routers/asana";
-import {
-  clientRouter,
-  evaluatorRouter,
-  officeRouter,
-} from "~/server/api/routers/database";
-import { noteRouter } from "~/server/api/routers/notes";
-import { pythonRouter } from "~/server/api/routers/python";
-import { questionnaireRouter } from "~/server/api/routers/questionnaires";
-import { createCallerFactory, createTRPCRouter } from "~/server/api/trpc";
+import { asanaRouter } from "./routers/asana";
+import { clientRouter } from "./routers/client";
+import { evaluatorRouter } from "./routers/evaluator";
+import { noteRouter } from "./routers/notes";
+import { officeRouter } from "./routers/office";
+import { pythonRouter } from "./routers/python";
+import { questionnaireRouter } from "./routers/questionnaires";
+import { createCallerFactory, createTRPCRouter } from "./trpc";
 
 /**
  * This is the primary router for your server.
