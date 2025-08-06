@@ -1,21 +1,15 @@
 "use client";
 
-import {
-	Form,
-	FormControl,
-	FormField,
-	FormItem,
-	FormMessage,
-} from "@components/ui/form";
-import MultipleSelector from "@components/ui/multiple-selector";
 import { zodResolver } from "@hookform/resolvers/zod";
+import { Button } from "@ui/button";
+import { Form, FormControl, FormField, FormItem, FormMessage } from "@ui/form";
+import MultipleSelector from "@ui/multiple-selector";
 import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { getRecommendedQuestionnaires } from "~/server/lib/questionnaireList";
 import type { Client } from "~/server/lib/types";
 import { api } from "~/trpc/react";
-import { Button } from "./ui/button";
 
 const optionSchema = z.object({
 	label: z.string(),

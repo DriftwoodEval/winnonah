@@ -1,8 +1,8 @@
 import { eq } from "drizzle-orm";
 import z from "zod";
+import { createTRPCRouter, protectedProcedure } from "~/server/api/trpc";
 import { clients } from "~/server/db/schema";
 import type { Evaluator } from "~/server/lib/types";
-import { createTRPCRouter, protectedProcedure } from "../trpc";
 
 const CACHE_TTL = 3600;
 

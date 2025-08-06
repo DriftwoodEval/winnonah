@@ -1,6 +1,6 @@
 import { env } from "~/env";
+import { createTRPCRouter, protectedProcedure } from "~/server/api/trpc";
 import type { Offices } from "~/server/lib/types";
-import { createTRPCRouter, protectedProcedure } from "../trpc";
 
 const officeAddresses = env.OFFICE_ADDRESSES || "";
 export const ALL_OFFICES: Offices = officeAddresses

@@ -1,10 +1,6 @@
 "use client";
-import { Alert, AlertTitle } from "@components/ui/alert";
-import {
-	Popover,
-	PopoverContent,
-	PopoverTrigger,
-} from "@components/ui/popover";
+import { Alert, AlertTitle } from "@ui/alert";
+import { Popover, PopoverContent, PopoverTrigger } from "@ui/popover";
 import { AlertTriangleIcon } from "lucide-react";
 import { cn, formatClientAge } from "~/lib/utils";
 import type { Client, Offices } from "~/server/lib/types";

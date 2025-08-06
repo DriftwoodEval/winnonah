@@ -9,20 +9,15 @@ import {
 	AlertDialogFooter,
 	AlertDialogHeader,
 	AlertDialogTitle,
-} from "@components/ui/alert-dialog";
-import { Button } from "@components/ui/button";
-import {
-	Dialog,
-	DialogContent,
-	DialogHeader,
-	DialogTitle,
-} from "@components/ui/dialog";
+} from "@ui/alert-dialog";
+import { Button } from "@ui/button";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@ui/dialog";
 import {
 	DropdownMenu,
 	DropdownMenuContent,
 	DropdownMenuItem,
 	DropdownMenuTrigger,
-} from "@components/ui/dropdown-menu";
+} from "@ui/dropdown-menu";
 import { MoreHorizontal } from "lucide-react";
 import { useState } from "react";
 import { api, type RouterOutputs } from "~/trpc/react";

@@ -1,9 +1,9 @@
 "use client";
 
+import { ScrollArea } from "@ui/scroll-area";
+import { Separator } from "@ui/separator";
+import { Skeleton } from "@ui/skeleton";
 import { api } from "~/trpc/react";
-import { ScrollArea } from "../ui/scroll-area";
-import { Separator } from "../ui/separator";
-import { Skeleton } from "../ui/skeleton";
 
 interface EligibleEvaluatorsListProps {
 	clientId: number | undefined;

@@ -1,5 +1,5 @@
-import { RichTextEditor } from "@components/RichTextEditor";
-import { Skeleton } from "@components/ui/skeleton";
+import { RichTextEditor } from "@components/shared/RichTextEditor";
+import { Skeleton } from "@ui/skeleton";
 import { debounce } from "lodash";
 import { useEffect, useMemo } from "react";
 import { api } from "~/trpc/react";

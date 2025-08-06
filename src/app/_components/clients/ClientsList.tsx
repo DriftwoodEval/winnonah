@@ -1,7 +1,7 @@
 "use client";
 
-import { ScrollArea } from "@components/ui/scroll-area";
-import { Separator } from "@components/ui/separator";
+import { ScrollArea } from "@ui/scroll-area";
+import { Separator } from "@ui/separator";
 import type { SortedClient } from "~/server/lib/types";
 import { ClientListItem } from "./ClientListItem";
 

@@ -5,7 +5,7 @@ import { ClientHeader } from "@components/client/ClientHeader";
 import { ClientNoteEditor } from "@components/client/ClientNoteEditor";
 import { EligibleEvaluatorsList } from "@components/client/EligibleEvaluatorsList";
 import { QuestionnairesSent } from "@components/client/QuestionnairesSent";
-import { Skeleton } from "@components/ui/skeleton";
+import { Skeleton } from "@ui/skeleton";
 import { useEffect, useState } from "react";
 import type { ClientColor } from "~/lib/colors";
 import { api } from "~/trpc/react";

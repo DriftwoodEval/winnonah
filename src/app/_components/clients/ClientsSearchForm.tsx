@@ -1,7 +1,8 @@
 "use client";
 
-import { Button } from "@components/ui/button";
-import { Calendar } from "@components/ui/calendar";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { Button } from "@ui/button";
+import { Calendar } from "@ui/calendar";
 import {
 	Form,
 	FormControl,
@@ -9,20 +10,15 @@ import {
 	FormItem,
 	FormLabel,
 	FormMessage,
-} from "@components/ui/form";
-import {
-	Popover,
-	PopoverContent,
-	PopoverTrigger,
-} from "@components/ui/popover";
+} from "@ui/form";
+import { Popover, PopoverContent, PopoverTrigger } from "@ui/popover";
 import {
 	Select,
 	SelectContent,
 	SelectItem,
 	SelectTrigger,
 	SelectValue,
-} from "@components/ui/select";
-import { zodResolver } from "@hookform/resolvers/zod";
+} from "@ui/select";
 import { format, formatISO, parseISO } from "date-fns";
 import { CalendarIcon } from "lucide-react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";

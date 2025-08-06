@@ -1,12 +1,12 @@
 "use client";
-import { Button } from "@components/ui/button";
+import { Button } from "@ui/button";
 import {
 	Dialog,
 	DialogContent,
 	DialogHeader,
 	DialogTitle,
 	DialogTrigger,
-} from "@components/ui/dialog";
+} from "@ui/dialog";
 import { useState } from "react";
 import { normalizeDate } from "~/lib/utils";
 import { api } from "~/trpc/react";
