@@ -21,42 +21,6 @@ export function formatClientAge(dob: Date, format = "long") {
   return years >= 3 ? `${years} years` : `${years} years, ${months} months`;
 }
 
-export const asanaColorMap = {
-  none: "#c5c5c5",
-  red: "#ff878a",
-  orange: "#fea06a",
-  "yellow-orange": "#f7bd51",
-  yellow: "#f6d861",
-  "yellow-green": "#c3e684",
-  green: "#85d7a2",
-  "blue-green": "#77d3e9",
-  aqua: "#a1e7dd",
-  blue: "#79abff",
-  indigo: "#b8acff",
-  purple: "#e39ef2",
-  magenta: "#faaee9",
-  "hot-pink": "#ff95c9",
-  pink: "#ffafc1",
-  "cool-gray": "#aaa",
-};
-
-export function isColorKey(key: string): key is keyof typeof asanaColorMap {
-  return key in asanaColorMap;
-}
-
-export function getColorFromMap(key: string): string {
-  switch (key) {
-    case "dark-teal":
-      return asanaColorMap.aqua;
-    case "light-blue":
-      return asanaColorMap.blue;
-    case "light-purple":
-      return asanaColorMap.purple;
-    default:
-      return asanaColorMap[key as keyof typeof asanaColorMap];
-  }
-}
-
 export const normalizeDate = (date: Date) => {
   return new Date(
     Date.UTC(

@@ -16,13 +16,9 @@ import { QuestionnaireActionsMenu } from "./QuestionnaireTableActionsMenu";
 
 interface QuestionnairesSentProps {
 	clientId: number | undefined;
-	asanaId: string | undefined | null;
 }
 
-export function QuestionnairesSent({
-	clientId,
-	asanaId,
-}: QuestionnairesSentProps) {
+export function QuestionnairesSent({ clientId }: QuestionnairesSentProps) {
 	const { data: questionnairesSent, isLoading: isLoadingQuestionnaires } =
 		api.questionnaires.getSentQuestionnaires.useQuery(clientId ?? 0, {
 			enabled: typeof clientId === "number" && clientId > 0,
@@ -47,7 +43,7 @@ export function QuestionnairesSent({
 				<h4 className="hidden font-bold leading-none sm:block">
 					Questionnaires Sent
 				</h4>
-				<AddQuestionnaireButton asanaId={asanaId} clientId={clientId} />
+				<AddQuestionnaireButton clientId={clientId} />
 			</div>
 			<div className="px-4 pb-4">
 				<Table>

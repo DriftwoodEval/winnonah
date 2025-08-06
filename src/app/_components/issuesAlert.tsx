@@ -8,21 +8,12 @@ import { api } from "~/trpc/react";
 export function IssuesAlert() {
 	const { isClientsLoaded } = useContext(ClientLoadingContext);
 
-	const { data: asanaErrors } = api.clients.getAsanaErrors.useQuery(undefined, {
-		enabled: isClientsLoaded,
-	});
-
 	const { data: districtErrors } = api.clients.getDistrictErrors.useQuery(
 		undefined,
 		{
 			enabled: isClientsLoaded,
 		},
 	);
-
-	const { data: archivedAsanaErrors } =
-		api.clients.getArchivedAsanaErrors.useQuery(undefined, {
-			enabled: isClientsLoaded,
-		});
 
 	const { data: babyNetErrors } = api.clients.getBabyNetErrors.useQuery(
 		undefined,
@@ -39,9 +30,7 @@ export function IssuesAlert() {
 	);
 
 	const errorsLength =
-		(asanaErrors?.length ?? 0) +
 		(districtErrors?.length ?? 0) +
-		(archivedAsanaErrors?.length ?? 0) +
 		(babyNetErrors?.length ?? 0) +
 		(notInTAErrors?.length ?? 0);
 

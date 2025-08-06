@@ -1,6 +1,5 @@
 "use client";
 
-import { AddAsanaIdButton } from "@components/client/AddAsanaIdButton";
 import {
 	Popover,
 	PopoverContent,
@@ -10,26 +9,26 @@ import { Separator } from "@components/ui/separator";
 import { Skeleton } from "@components/ui/skeleton";
 import { CheckIcon } from "lucide-react";
 import { useState } from "react";
-import { asanaColorMap, getColorFromMap } from "~/lib/utils";
+import {
+	CLIENT_COLOR_KEYS,
+	CLIENT_COLOR_MAP,
+	type ClientColor,
+} from "~/lib/colors";
 import type { Client } from "~/server/lib/types";
 
 interface ClientHeaderProps {
 	client: Client | undefined;
-	asanaProjectColorKey: string | null;
-	onAsanaColorChange: (colorKey: string) => void;
+	selectedColor: ClientColor | null;
+	onColorChange: (color: ClientColor) => void;
 	isLoading: boolean;
 }
 
 export function ClientHeader({
 	client,
-	asanaProjectColorKey,
-	onAsanaColorChange,
+	selectedColor,
+	onColorChange,
 	isLoading,
 }: ClientHeaderProps) {
-	const currentHexAsanaColor = asanaProjectColorKey
-		? getColorFromMap(asanaProjectColorKey)
-		: null;
-
 	const [isPopoverOpen, setIsPopoverOpen] = useState(false);
 
 	if (isLoading || !client) {
@@ -41,11 +40,14 @@ export function ClientHeader({
 		);
 	}
 
+	const currentHexColor = selectedColor
+		? CLIENT_COLOR_MAP[selectedColor]
+		: null;
+
 	return (
 		<div className="flex flex-col gap-2">
 			<div className="flex items-center gap-2">
 				{client && <h1 className="font-bold text-2xl">{client.fullName}</h1>}
-				{!client.asanaId && <AddAsanaIdButton client={client} />}
 			</div>
 			<div className="flex h-5 items-center gap-2">
 				<span>{client.id}</span>
@@ -62,38 +64,38 @@ export function ClientHeader({
 					client.asdAdhd && <span>{client.asdAdhd}</span>
 				)}
 
-				{currentHexAsanaColor && <Separator orientation="vertical" />}
-				{currentHexAsanaColor && (
+				{currentHexColor && <Separator orientation="vertical" />}
+				{currentHexColor && (
 					<Popover onOpenChange={setIsPopoverOpen} open={isPopoverOpen}>
 						<PopoverTrigger asChild>
 							<button
-								aria-label={`Current Asana color: ${asanaProjectColorKey}`}
+								aria-label={`Current color: ${selectedColor}`}
 								className="h-5 w-5 cursor-pointer rounded-full"
-								style={{ background: currentHexAsanaColor }}
+								style={{ background: currentHexColor }}
 								tabIndex={0}
 								type="button"
 							/>
 						</PopoverTrigger>
 						<PopoverContent className="w-auto p-2">
 							<div className="grid grid-cols-4 place-items-center gap-2">
-								{Object.entries(asanaColorMap).map(([key, value]) => (
+								{CLIENT_COLOR_KEYS.map((colorKey) => (
 									<button
-										aria-label={`Select Asana color: ${key}`}
+										aria-label={`Select color: ${colorKey}`}
 										className="relative h-10 w-10 rounded-sm"
-										key={key}
+										key={colorKey}
 										onClick={() => {
-											onAsanaColorChange(key);
+											onColorChange(colorKey);
 											setIsPopoverOpen(false);
 										}}
-										style={{ backgroundColor: value }}
+										style={{ backgroundColor: CLIENT_COLOR_MAP[colorKey] }}
 										type="button"
 									>
-										{asanaProjectColorKey === key && (
+										{selectedColor === colorKey && (
 											<CheckIcon
 												className="-translate-x-1/2 -translate-y-1/2 absolute top-1/2 left-1/2"
 												style={{
 													color:
-														Number.parseInt(value.replace("#", ""), 16) >
+														Number.parseInt(colorKey.replace("#", ""), 16) >
 														0xffffff / 2
 															? "#333"
 															: "#FFF",

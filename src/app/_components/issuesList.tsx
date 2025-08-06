@@ -31,26 +31,14 @@ const IssueList = ({ title, clients }: IssueListProps) => (
 );
 
 export function IssuesList() {
-	const { data: asanaErrors } = api.clients.getAsanaErrors.useQuery();
 	const { data: districtErrors } = api.clients.getDistrictErrors.useQuery();
-	const { data: archivedAsanaErrors } =
-		api.clients.getArchivedAsanaErrors.useQuery();
 	const { data: babyNetErrors } = api.clients.getBabyNetErrors.useQuery();
 	const { data: notInTAErrors } = api.clients.getNotInTAErrors.useQuery();
 
 	return (
 		<div className="flex flex-wrap gap-6">
-			{asanaErrors && asanaErrors.length !== 0 && (
-				<IssueList clients={asanaErrors} title="Missing Asana IDs" />
-			)}
 			{districtErrors && districtErrors.length !== 0 && (
 				<IssueList clients={districtErrors} title="Missing Districts" />
-			)}
-			{archivedAsanaErrors && archivedAsanaErrors.length !== 0 && (
-				<IssueList
-					clients={archivedAsanaErrors}
-					title="Archived in Asana, Active in TA"
-				/>
 			)}
 			{babyNetErrors && babyNetErrors.length !== 0 && (
 				<IssueList clients={babyNetErrors} title="Too Old for BabyNet" />

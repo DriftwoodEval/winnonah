@@ -1,9 +1,10 @@
 import { asanaRouter } from "~/server/api/routers/asana";
 import {
-	clientRouter,
-	evaluatorRouter,
-	officeRouter,
+  clientRouter,
+  evaluatorRouter,
+  officeRouter,
 } from "~/server/api/routers/database";
+import { noteRouter } from "~/server/api/routers/notes";
 import { pythonRouter } from "~/server/api/routers/python";
 import { questionnaireRouter } from "~/server/api/routers/questionnaires";
 import { createCallerFactory, createTRPCRouter } from "~/server/api/trpc";
@@ -14,12 +15,13 @@ import { createCallerFactory, createTRPCRouter } from "~/server/api/trpc";
  * All routers added in /api/routers should be manually added here.
  */
 export const appRouter = createTRPCRouter({
-	evaluators: evaluatorRouter,
-	clients: clientRouter,
-	offices: officeRouter,
-	asana: asanaRouter,
-	python: pythonRouter,
-	questionnaires: questionnaireRouter,
+  evaluators: evaluatorRouter,
+  clients: clientRouter,
+  offices: officeRouter,
+  asana: asanaRouter,
+  python: pythonRouter,
+  questionnaires: questionnaireRouter,
+  notes: noteRouter,
 });
 
 // export type definition of API

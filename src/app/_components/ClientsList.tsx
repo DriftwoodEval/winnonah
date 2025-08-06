@@ -16,7 +16,6 @@ import { Filter } from "lucide-react";
 import { useSearchParams } from "next/navigation";
 import { useContext, useEffect, useMemo, useState } from "react";
 import { ClientLoadingContext } from "~/app/_context/ClientLoadingContext";
-import type { AsanaProject } from "~/server/lib/types";
 import { api } from "~/trpc/react";
 import { ClientListItem } from "./clients/ClientListItem";
 
@@ -29,10 +28,6 @@ export function ClientsList() {
 			setClientsLoaded(true);
 		}
 	}, [clients.isSuccess, setClientsLoaded]);
-
-	const asanaProjects = api.asana.getAllProjects.useQuery(undefined, {
-		enabled: !!clients.data, // Wait for clients.data to load
-	});
 
 	const searchParams = useSearchParams();
 	const [searchInput, setSearchInput] = useState("");
@@ -98,16 +93,6 @@ export function ClientsList() {
 		setStatusFilter(status);
 	};
 
-	const asanaProjectMap = useMemo(() => {
-		if (!asanaProjects.data) {
-			return undefined;
-		}
-
-		return new Map<string, AsanaProject>(
-			asanaProjects.data.map((project: AsanaProject) => [project.gid, project]),
-		);
-	}, [asanaProjects.data]);
-
 	return (
 		<div className="flex flex-col gap-3">
 			<div className="flex flex-row gap-3">
@@ -160,10 +145,7 @@ export function ClientsList() {
 
 					{filteredClients.map((client, index) => (
 						<div key={client.hash}>
-							<ClientListItem
-								asanaProjectMap={asanaProjectMap}
-								client={client}
-							/>
+							<ClientListItem client={client} />
 							{index < filteredClients.length - 1 && (
 								<Separator className="my-2" />
 							)}

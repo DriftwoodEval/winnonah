@@ -7,11 +7,6 @@ export interface SortedClient extends Client {
   sortReason?: string;
 }
 
-export type AsanaProject = {
-  gid: string;
-  color?: string;
-};
-
 export type Offices = {
   [key: string]: {
     latitude: string;
