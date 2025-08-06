@@ -1,11 +1,12 @@
+import type { inferRouterOutputs } from "@trpc/server";
 import type { InferSelectModel } from "drizzle-orm";
+import type { clientRouter } from "~/server/api/routers/client";
 import type { clients } from "~/server/db/schema";
 
-export type Client = InferSelectModel<typeof clients>;
+type RouterOutput = inferRouterOutputs<typeof clientRouter>;
 
-export interface SortedClient extends Client {
-  sortReason?: string;
-}
+export type Client = InferSelectModel<typeof clients>;
+export type SortedClient = RouterOutput["search"][0];
 
 export type Offices = {
   [key: string]: {

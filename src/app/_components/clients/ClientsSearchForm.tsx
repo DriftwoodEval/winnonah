@@ -23,9 +23,10 @@ import {
 	SelectValue,
 } from "@components/ui/select";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { format, formatISO } from "date-fns";
+import { format, formatISO, parseISO } from "date-fns";
 import { CalendarIcon } from "lucide-react";
-import { useSearchParams } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import React from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { cn } from "~/lib/utils";
@@ -34,12 +35,19 @@ import { api } from "~/trpc/react";
 const formSchema = z.object({
 	evaluator: z.string().optional(),
 	office: z.string().optional(),
-	daeval: z.string().optional(),
+	type: z.string().optional(),
 	date: z.date().optional(),
 });
 
-export default function ClientsSearchForm() {
+interface ClientsSearchFormProps {
+	onResetFilters: () => void;
+}
+
+function ClientsSearchForm({ onResetFilters }: ClientsSearchFormProps) {
+	const router = useRouter();
+	const pathname = usePathname();
 	const searchParams = useSearchParams();
+
 	const evaluators = api.evaluators.getAll.useQuery();
 	const officesQuery = api.offices.getAll.useQuery();
 	const offices = officesQuery.data ?? {};
@@ -47,39 +55,52 @@ export default function ClientsSearchForm() {
 	const form = useForm<z.infer<typeof formSchema>>({
 		resolver: zodResolver(formSchema),
 		defaultValues: {
-			evaluator: searchParams.get("eval") ?? undefined,
+			evaluator: searchParams.get("evaluator") ?? undefined,
 			office: searchParams.get("office") ?? undefined,
-			daeval: searchParams.get("daeval") ?? undefined,
+			type: searchParams.get("type") ?? undefined,
 			date: searchParams.get("date")
-				? new Date(searchParams.get("date") as string)
+				? parseISO(searchParams.get("date") ?? "")
 				: undefined,
 		},
 	});
 
 	function onSubmit(values: z.infer<typeof formSchema>) {
-		const url = new URL(window.location.href);
-		if (values.evaluator !== undefined) {
-			url.searchParams.set("eval", encodeURIComponent(values.evaluator));
+		const params = new URLSearchParams(searchParams);
+
+		const updateParam = (key: string, value: string | undefined) => {
+			if (value) params.set(key, value);
+			else params.delete(key);
+		};
+
+		updateParam("evaluator", values.evaluator);
+		updateParam("office", values.office);
+		updateParam("type", values.type);
+
+		if (values.date) {
+			params.set("date", formatISO(values.date, { representation: "date" }));
+		} else {
+			params.delete("date");
 		}
-		if (values.office !== undefined) {
-			url.searchParams.set("office", encodeURIComponent(values.office));
-		}
-		if (values.daeval !== undefined) {
-			url.searchParams.set("daeval", encodeURIComponent(values.daeval));
-		}
-		if (values.date !== undefined) {
-			url.searchParams.set("date", formatISO(values.date));
-		}
-		url.searchParams.delete("search");
-		window.location.href = url.toString();
+
+		router.push(`${pathname}?${params.toString()}`);
 	}
+
+	function handleReset() {
+		form.reset({
+			evaluator: undefined,
+			office: undefined,
+			type: undefined,
+			date: undefined,
+		});
+		onResetFilters();
+		router.push(pathname);
+	}
+
+	const handleChange = () => form.handleSubmit(onSubmit)();
 
 	return (
 		<Form {...form}>
-			<form
-				className="w-full space-y-6 sm:w-2/3"
-				onSubmit={form.handleSubmit(onSubmit)}
-			>
+			<form className="w-full space-y-6 sm:w-2/3" onChange={handleChange}>
 				<div className="flex flex-col gap-6 sm:flex-row">
 					<div className="flex flex-col gap-6">
 						<FormField
@@ -89,8 +110,8 @@ export default function ClientsSearchForm() {
 								<FormItem>
 									<FormLabel>Evaluator</FormLabel>
 									<Select
-										defaultValue={field.value}
 										onValueChange={field.onChange}
+										value={field.value ?? ""}
 									>
 										<FormControl>
 											<SelectTrigger className="w-full sm:w-60">
@@ -119,8 +140,8 @@ export default function ClientsSearchForm() {
 								<FormItem>
 									<FormLabel>Office</FormLabel>
 									<Select
-										defaultValue={field.value}
 										onValueChange={field.onChange}
+										value={field.value ?? ""}
 									>
 										<FormControl>
 											<SelectTrigger className="w-full sm:w-60">
@@ -143,13 +164,13 @@ export default function ClientsSearchForm() {
 					<div className="flex flex-col gap-6">
 						<FormField
 							control={form.control}
-							name="daeval"
+							name="type"
 							render={({ field }) => (
 								<FormItem>
 									<FormLabel>DA/Eval</FormLabel>
 									<Select
-										defaultValue={field.value}
 										onValueChange={field.onChange}
+										value={field.value ?? ""}
 									>
 										<FormControl>
 											<SelectTrigger className="w-full sm:w-60">
@@ -220,25 +241,14 @@ export default function ClientsSearchForm() {
 						/>
 					</div>
 				</div>
-				<div className="flex justify-center gap-3 sm:justify-start">
-					<Button type="submit">Search</Button>
-					<Button
-						onClick={() => {
-							const url = new URL(window.location.href);
-							url.searchParams.delete("eval");
-							url.searchParams.delete("office");
-							url.searchParams.delete("daeval");
-							url.searchParams.delete("date");
-							url.searchParams.delete("showBabynet");
-							window.location.href = url.toString();
-						}}
-						type="button"
-						variant="outline"
-					>
-						Reset
+				<div className="flex justify-start gap-3">
+					<Button onClick={handleReset} type="button" variant="outline">
+						Reset Filters
 					</Button>
 				</div>
 			</form>
 		</Form>
 	);
 }
+
+export default React.memo(ClientsSearchForm);

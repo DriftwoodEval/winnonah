@@ -1,12 +1,22 @@
 import { TRPCError } from "@trpc/server";
 import { subMonths, subYears } from "date-fns";
-import { and, eq, gt, isNull, lt, or, sql } from "drizzle-orm";
+import {
+  and,
+  eq,
+  getTableColumns,
+  gt,
+  inArray,
+  isNull,
+  like,
+  lt,
+  not,
+  or,
+  sql,
+} from "drizzle-orm";
 import { z } from "zod";
-import { env } from "~/env";
 import { CLIENT_COLOR_KEYS } from "~/lib/colors";
 import { createTRPCRouter, protectedProcedure } from "~/server/api/trpc";
 import { clients, clientsEvaluators } from "~/server/db/schema";
-import type { Offices } from "~/server/lib/types";
 
 const getBabyNetPriorityInfo = () => {
   const now = new Date();
@@ -179,62 +189,71 @@ export const clientRouter = createTRPCRouter({
 
       return updatedClient;
     }),
-});
 
-export const evaluatorRouter = createTRPCRouter({
-  getAll: protectedProcedure.query(async ({ ctx }) => {
-    const evaluators = await ctx.db.query.evaluators.findMany({
-      orderBy: (evaluators, { asc }) => [asc(evaluators.providerName)],
-    });
-
-    return evaluators;
-  }),
-
-  getEligibleForClient: protectedProcedure
-    .input(z.number())
+  search: protectedProcedure
+    .input(
+      z.object({
+        evaluatorNpi: z.number().optional(),
+        office: z.string().optional(),
+        appointmentType: z.enum(["EVAL", "DA", "DAEVAL"]).optional(),
+        appointmentDate: z.date().optional(),
+        nameSearch: z.string().optional(),
+        hideBabyNet: z.boolean().optional(),
+        status: z.enum(["active", "inactive", "all"]).optional(),
+      })
+    )
     .query(async ({ ctx, input }) => {
-      const clientWithEvaluators = await ctx.db.query.clients.findFirst({
-        where: eq(clients.id, input),
-        with: {
-          clientsEvaluators: {
-            with: {
-              evaluator: true,
-            },
-          },
-        },
-      });
+      const {
+        evaluatorNpi,
+        office,
+        appointmentType,
+        appointmentDate,
+        nameSearch,
+        hideBabyNet,
+        status,
+      } = input;
 
-      if (!clientWithEvaluators) {
-        return null;
+      const effectiveStatus = status ?? "active";
+
+      const conditions = [];
+
+      if (nameSearch) {
+        conditions.push(like(clients.fullName, `%${nameSearch}%`));
+      }
+      if (office) {
+        conditions.push(eq(clients.closestOffice, office));
+      }
+      if (effectiveStatus === "active") {
+        conditions.push(eq(clients.status, true));
+      } else if (effectiveStatus === "inactive") {
+        conditions.push(eq(clients.status, false));
+      }
+      if (hideBabyNet) {
+        conditions.push(
+          and(
+            not(eq(clients.primaryInsurance, "BabyNet")),
+            not(eq(clients.secondaryInsurance, "BabyNet"))
+          )
+        );
       }
 
-      const correctedEvaluatorsByClient = clientWithEvaluators.clientsEvaluators
-        .map((link) => link.evaluator)
-        .sort((a, b) => a.providerName.localeCompare(b.providerName));
+      if (evaluatorNpi) {
+        const clientIdsQuery = ctx.db
+          .select({ id: clientsEvaluators.clientId })
+          .from(clientsEvaluators)
+          .where(eq(clientsEvaluators.evaluatorNpi, evaluatorNpi));
 
-      return correctedEvaluatorsByClient;
+        conditions.push(inArray(clients.id, clientIdsQuery));
+      }
+
+      const { sortReasonSQL, orderBySQL } = getBabyNetPriorityInfo();
+
+      const filteredAndSortedClients = await ctx.db
+        .select({ ...getTableColumns(clients), sortReason: sortReasonSQL })
+        .from(clients)
+        .where(conditions.length > 0 ? and(...conditions) : undefined)
+        .orderBy(...orderBySQL);
+
+      return filteredAndSortedClients;
     }),
-});
-
-const officeAddresses = env.OFFICE_ADDRESSES || "";
-const ALL_OFFICES: Offices = officeAddresses
-  .split(";")
-  .reduce((acc: Offices, address) => {
-    const [key, ...values] = address.split(":");
-    const [latitude, longitude, prettyName] = (values[0] ?? "").split(",");
-    if (
-      key !== undefined &&
-      latitude !== undefined &&
-      longitude !== undefined &&
-      prettyName !== undefined
-    ) {
-      acc[key] = { latitude, longitude, prettyName };
-    }
-    return acc;
-  }, {});
-
-export const officeRouter = createTRPCRouter({
-  getAll: protectedProcedure.query(() => {
-    return ALL_OFFICES;
-  }),
 });
