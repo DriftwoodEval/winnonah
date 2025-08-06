@@ -9,10 +9,15 @@ import { RadioGroup, RadioGroupItem } from "@ui/radio-group";
 import { Separator } from "@ui/separator";
 import { Skeleton } from "@ui/skeleton";
 import { debounce } from "lodash";
-import { Filter } from "lucide-react";
+import { CheckIcon, Filter } from "lucide-react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useMemo, useState } from "react";
-import type { ClientColor } from "~/lib/colors";
+import {
+	CLIENT_COLOR_KEYS,
+	CLIENT_COLOR_MAP,
+	type ClientColor,
+	formatColorName,
+} from "~/lib/colors";
 import { api } from "~/trpc/react";
 import { ClientsList } from "./ClientsList";
 import ClientsSearchForm from "./ClientsSearchForm";
@@ -42,7 +47,7 @@ export function ClientsDashboard() {
 			evaluatorNpi: evaluator ? parseInt(evaluator, 10) : undefined,
 			hideBabyNet,
 			status: status as "active" | "inactive" | "all" | undefined,
-color,
+			color,
 		};
 	}, [searchParams, debouncedNameForQuery]);
 
@@ -123,6 +128,47 @@ color,
 											<Label htmlFor="s-all">All</Label>
 										</div>
 									</RadioGroup>
+								</div>
+								<Separator />
+								<div className="space-y-2">
+									<p className="font-medium text-sm">Color</p>
+									<div className="grid grid-cols-6 gap-2 pt-1">
+										{CLIENT_COLOR_KEYS.map((colorKey) => (
+											<button
+												aria-label={`Filter by color: ${formatColorName(
+													colorKey,
+												)}`}
+												className="relative flex h-8 w-8 items-center justify-center rounded-full"
+												key={colorKey}
+												onClick={() => {
+													const currentValue = filters.color;
+													const newValue =
+														currentValue === colorKey ? false : colorKey;
+													handleUrlParamChange("color", newValue);
+												}}
+												style={{
+													backgroundColor: CLIENT_COLOR_MAP[colorKey],
+												}}
+												type="button"
+											>
+												{filters.color === colorKey && (
+													<CheckIcon
+														className="h-5 w-5"
+														style={{
+															color:
+																Number.parseInt(
+																	CLIENT_COLOR_MAP[colorKey].replace("#", ""),
+																	16,
+																) >
+																0xffffff / 2
+																	? "#333"
+																	: "#FFF",
+														}}
+													/>
+												)}
+											</button>
+										))}
+									</div>
 								</div>
 								<Separator />
 								<div className="flex items-center space-x-2">
