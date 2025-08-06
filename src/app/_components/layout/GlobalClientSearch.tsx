@@ -45,7 +45,7 @@ export function GlobalClientSearch() {
 	} = api.clients.search.useQuery(
 		{ nameSearch: debouncedSearchTerm },
 		{
-			enabled: debouncedSearchTerm.length > 0 && open,
+			enabled: debouncedSearchTerm.length >= 3 && open,
 			placeholderData: (previousData) => previousData,
 		},
 	);
@@ -117,9 +117,11 @@ export function GlobalClientSearch() {
 					<CommandEmpty>
 						{isLoading || isPlaceholderData
 							? null
-							: debouncedSearchTerm.length > 0
-								? "No clients found."
-								: "Start typing to search for a client."}
+							: debouncedSearchTerm.length > 0 && debouncedSearchTerm.length < 3
+								? "Please enter 3 or more characters."
+								: debouncedSearchTerm.length >= 3
+									? "No clients found."
+									: "Start typing to search for a client."}
 					</CommandEmpty>
 
 					{clients && clients.length > 0 && (

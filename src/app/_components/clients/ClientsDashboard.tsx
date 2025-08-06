@@ -32,8 +32,12 @@ export function ClientsDashboard() {
 		const status = searchParams.get("status") ?? undefined;
 		const color = (searchParams.get("color") as ClientColor) ?? undefined;
 
+		// TODO: Provide user feedback that the name search is too short
+		const finalNameSearch =
+			debouncedNameForQuery.length >= 3 ? debouncedNameForQuery : undefined;
+
 		return {
-			nameSearch: debouncedNameForQuery,
+			nameSearch: finalNameSearch,
 			office,
 			evaluatorNpi: evaluator ? parseInt(evaluator, 10) : undefined,
 			hideBabyNet,
