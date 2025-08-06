@@ -1,12 +1,8 @@
 "use client";
 
-import {
-	Popover,
-	PopoverContent,
-	PopoverTrigger,
-} from "@components/ui/popover";
-import { Separator } from "@components/ui/separator";
-import { Skeleton } from "@components/ui/skeleton";
+import { Popover, PopoverContent, PopoverTrigger } from "@ui/popover";
+import { Separator } from "@ui/separator";
+import { Skeleton } from "@ui/skeleton";
 import { CheckIcon } from "lucide-react";
 import { useState } from "react";
 import {

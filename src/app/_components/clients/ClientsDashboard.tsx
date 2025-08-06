@@ -1,18 +1,18 @@
 "use client";
 
+import { Button } from "@ui/button";
+import { Checkbox } from "@ui/checkbox";
+import { Input } from "@ui/input";
+import { Label } from "@ui/label";
+import { Popover, PopoverContent, PopoverTrigger } from "@ui/popover";
+import { RadioGroup, RadioGroupItem } from "@ui/radio-group";
+import { Separator } from "@ui/separator";
+import { Skeleton } from "@ui/skeleton";
 import { debounce } from "lodash";
 import { Filter } from "lucide-react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useMemo, useState } from "react";
 import { api } from "~/trpc/react";
-import { Button } from "../ui/button";
-import { Checkbox } from "../ui/checkbox";
-import { Input } from "../ui/input";
-import { Label } from "../ui/label";
-import { Popover, PopoverContent, PopoverTrigger } from "../ui/popover";
-import { RadioGroup, RadioGroupItem } from "../ui/radio-group";
-import { Separator } from "../ui/separator";
-import { Skeleton } from "../ui/skeleton";
 import { ClientsList } from "./ClientsList";
 import ClientsSearchForm from "./ClientsSearchForm";
 

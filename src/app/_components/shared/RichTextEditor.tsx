@@ -1,9 +1,9 @@
 "use client";
 
-import { ToggleGroup, ToggleGroupItem } from "@components/ui/toggle-group";
 import Placeholder from "@tiptap/extension-placeholder";
 import { EditorContent, type JSONContent, useEditor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
+import { ToggleGroup, ToggleGroupItem } from "@ui/toggle-group";
 import {
 	Bold,
 	Italic,

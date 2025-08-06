@@ -7,7 +7,7 @@ import {
 	TableHead,
 	TableHeader,
 	TableRow,
-} from "@components/ui/table";
+} from "@ui/table";
 import Link from "next/link";
 import { cn, getReminderColorClass, getStatusColorClass } from "~/lib/utils";
 import { api } from "~/trpc/react";

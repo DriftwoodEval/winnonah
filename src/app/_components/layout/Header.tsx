@@ -1,9 +1,9 @@
+import { IssuesAlert } from "@components/issues/issuesAlert";
+import { Button } from "@ui/button";
 import { LogIn, LogOut } from "lucide-react";
 import Link from "next/link";
 import { metadata } from "~/app/layout";
 import { auth } from "~/server/auth";
-import { IssuesAlert } from "./issuesAlert";
-import { Button } from "./ui/button";
 
 export async function Header() {
 	const session = await auth();

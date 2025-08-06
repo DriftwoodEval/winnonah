@@ -29,7 +29,8 @@
     "paths": {
       "~/*": ["./src/*"],
       "@components/*": ["./src/app/_components/*"],
-      "@context/*": ["./src/app/_context/*"]
+      "@context/*": ["./src/app/_context/*"],
+      "@ui/*": ["./src/app/_components/ui/*"]
     }
   },
   "include": [

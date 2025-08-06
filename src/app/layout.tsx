@@ -1,6 +1,6 @@
 import "~/styles/globals.css";
 
-import { Header } from "@components/Header";
+import { Header } from "@components/layout/Header";
 import { ClientLoadingProvider } from "@context/ClientLoadingContext";
 import type { Metadata } from "next";
 import { Lora, Plus_Jakarta_Sans, Roboto_Mono } from "next/font/google";
