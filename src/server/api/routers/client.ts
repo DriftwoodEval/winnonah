@@ -220,7 +220,7 @@ export const clientRouter = createTRPCRouter({
 
       const conditions = [];
 
-      if (nameSearch) {
+      if (nameSearch && nameSearch.length >= 3) {
         conditions.push(like(clients.fullName, `%${nameSearch}%`));
       }
       if (office) {
