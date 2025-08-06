@@ -66,30 +66,23 @@ export function ClientNoteEditor({ clientId }: ClientNoteEditorProps) {
 		};
 	}, [debouncedSave]);
 
-	if (isLoading) {
-		return (
-			<div className="flex flex-col gap-2">
-				<Skeleton className="h-6 w-48 rounded-md" key="asana-skeleton-header" />
-				<Skeleton
-					className="h-20 w-full rounded-md"
-					key="asana-skeleton-editor"
-				/>
-			</div>
-		);
-	}
-
 	return (
 		<div className="w-full">
 			<h4 className="mb-4 font-bold leading-none">
 				<span className="font-bold">Notes</span>
 			</h4>
-			<RichTextEditor
-				onChange={(newContent) => {
-					debouncedSave(newContent);
-				}}
-				placeholder="Start typing client notes..."
-				value={note?.contentJson ?? ""}
-			/>
+			{isLoading ? (
+				<div className="flex flex-col gap-2">
+					<Skeleton className="h-9 w-sm rounded-md" />
+					<Skeleton className="h-20 w-full rounded-md" key="skeleton-editor" />
+				</div>
+			) : (
+				<RichTextEditor
+					onChange={debouncedSave}
+					placeholder="Start typing client notes..."
+					value={note?.contentJson ?? ""}
+				/>
+			)}
 		</div>
 	);
 }
