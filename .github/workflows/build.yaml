@@ -19,17 +19,6 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Check for file changes
-        id: changes
-        uses: dorny/paths-filter@v3.0.2
-        with:
-          filters: |
-            python_app:
-              - 'python/**'
-
-            main_app:
-              - '**/!(python)/**'
-
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
@@ -41,7 +30,6 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Extract metadata for main image
-        if: steps.changes.outputs.main_app == 'true'
         id: meta-main
         uses: docker/metadata-action@v5
         with:
@@ -51,7 +39,6 @@ jobs:
             type=raw,value=latest,enable={{is_default_branch}}
 
       - name: Build and push main Docker image
-        if: steps.changes.outputs.main_app == 'true'
         uses: docker/build-push-action@v5
         with:
           context: .
@@ -62,7 +49,6 @@ jobs:
           cache-to: type=gha,mode=max
 
       - name: Extract metadata for Python image
-        if: steps.changes.outputs.python_app == 'true'
         id: meta-python
         uses: docker/metadata-action@v5
         with:
@@ -72,7 +58,6 @@ jobs:
             type=raw,value=latest,enable={{is_default_branch}}
 
       - name: Build and push Python Docker image
-        if: steps.changes.outputs.python_app == 'true'
         uses: docker/build-push-action@v5
         with:
           context: ./python
