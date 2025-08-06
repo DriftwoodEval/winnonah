@@ -202,12 +202,12 @@ export default function ClientsSearchForm() {
 										</PopoverTrigger>
 										<PopoverContent align="start" className="w-auto p-0">
 											<Calendar
+												autoFocus
 												disabled={(date) => {
 													const yesterday = new Date();
 													yesterday.setDate(yesterday.getDate() - 1);
 													return date < yesterday;
 												}}
-												initialFocus
 												mode="single"
 												onSelect={field.onChange}
 												selected={field.value}

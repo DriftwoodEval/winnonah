@@ -2,32 +2,26 @@
 
 import Link from "next/link";
 import { useMemo } from "react";
-import { cn, formatClientAge, getColorFromMap } from "~/lib/utils";
-import type { AsanaProject, SortedClient } from "~/server/lib/types";
+import { getHexFromColor } from "~/lib/colors";
+import { cn, formatClientAge } from "~/lib/utils";
+import type { SortedClient } from "~/server/lib/types";
 
 type ClientListItemProps = {
 	client: SortedClient;
-	asanaProjectMap?: Map<string, AsanaProject>;
 };
 
-export function ClientListItem({
-	client,
-	asanaProjectMap,
-}: ClientListItemProps) {
-	const asanaColor = useMemo(() => {
-		if (!asanaProjectMap || !client.asanaId || client.asanaId === "N/A")
-			return null;
-		const project = asanaProjectMap?.get(client.asanaId);
-		return getColorFromMap(project?.color ?? "");
-	}, [client.asanaId, asanaProjectMap]);
+export function ClientListItem({ client }: ClientListItemProps) {
+	const clientHexColor = useMemo(() => {
+		return client.color ? getHexFromColor(client.color) : undefined;
+	}, [client.color]);
 	return (
 		<Link href={`/clients/${client.hash}`}>
 			<div className="flex justify-between text-sm">
 				<div className="flex items-center gap-2">
-					{asanaColor && (
+					{client.color && client.color !== "none" && clientHexColor && (
 						<span
 							className="h-3 w-3 rounded-full"
-							style={{ backgroundColor: asanaColor }}
+							style={{ backgroundColor: clientHexColor }}
 						/>
 					)}
 					<span>{client.fullName}</span>

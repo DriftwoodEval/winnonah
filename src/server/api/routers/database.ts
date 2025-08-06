@@ -3,10 +3,10 @@ import { subMonths, subYears } from "date-fns";
 import { and, eq, gt, isNull, lt, or, sql } from "drizzle-orm";
 import { z } from "zod";
 import { env } from "~/env";
+import { CLIENT_COLOR_KEYS } from "~/lib/colors";
 import { createTRPCRouter, protectedProcedure } from "~/server/api/trpc";
 import { clients, clientsEvaluators } from "~/server/db/schema";
 import type { Offices } from "~/server/lib/types";
-import { asanaRouter } from "./asana";
 
 const getBabyNetPriorityInfo = () => {
   const now = new Date();
@@ -105,25 +105,6 @@ export const clientRouter = createTRPCRouter({
       return foundClient;
     }),
 
-  getAsanaErrors: protectedProcedure.query(async ({ ctx }) => {
-    const clientsWithoutAsanaId = await ctx.db.query.clients.findMany({
-      where: and(
-        isNull(clients.asanaId),
-        gt(clients.addedDate, new Date("2023-01-01"))
-      ),
-    });
-
-    return clientsWithoutAsanaId;
-  }),
-
-  getArchivedAsanaErrors: protectedProcedure.query(async ({ ctx }) => {
-    const clientsArchivedInAsana = await ctx.db.query.clients.findMany({
-      where: and(eq(clients.archivedInAsana, true), eq(clients.status, true)),
-    });
-
-    return clientsArchivedInAsana;
-  }),
-
   getDistrictErrors: protectedProcedure.query(async ({ ctx }) => {
     const clientsWithoutDistrict = await ctx.db.query.clients.findMany({
       where: eq(clients.schoolDistrict, "Unknown"),
@@ -157,26 +138,15 @@ export const clientRouter = createTRPCRouter({
     return clientsNotInTA;
   }),
 
-  addAsanaId: protectedProcedure
-    .input(
-      z.object({
-        clientId: z.number(),
-        asanaId: z.string(),
-      })
-    )
+  updateColor: protectedProcedure
+    .input(z.object({ hash: z.string(), color: z.enum(CLIENT_COLOR_KEYS) }))
     .mutation(async ({ ctx, input }) => {
       await ctx.db
         .update(clients)
-        .set({ asanaId: input.asanaId })
-        .where(eq(clients.id, input.clientId));
+        .set({ color: input.color })
+        .where(eq(clients.hash, input.hash));
 
-      const asanaCaller = asanaRouter.createCaller(ctx);
-      const updatedAsanaProject = await asanaCaller.addClientId({
-        projectId: input.asanaId,
-        clientId: input.clientId,
-      });
-
-      return updatedAsanaProject;
+      return { success: true };
     }),
 
   updateClient: protectedProcedure

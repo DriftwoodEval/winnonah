@@ -2,7 +2,7 @@
 
 import { ToggleGroup, ToggleGroupItem } from "@components/ui/toggle-group";
 import Placeholder from "@tiptap/extension-placeholder";
-import { EditorContent, useEditor } from "@tiptap/react";
+import { EditorContent, type JSONContent, useEditor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import {
 	Bold,
@@ -18,9 +18,9 @@ import {
 import { cn } from "~/lib/utils";
 
 interface RichTextEditorProps {
-	value?: string;
+	value?: JSONContent | string;
 	placeholder?: string;
-	onChange?: (content: string) => void;
+	onChange?: (content: JSONContent) => void;
 	className?: string;
 }
 
@@ -35,7 +35,7 @@ export function RichTextEditor({
 		extensions: [StarterKit, Placeholder.configure({ placeholder })],
 		content: value,
 		onUpdate: ({ editor }) => {
-			onChange?.(editor.getHTML());
+			onChange?.(editor.getJSON());
 		},
 		editorProps: {
 			attributes: {

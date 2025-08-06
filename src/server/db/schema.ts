@@ -1,6 +1,7 @@
 import { relations, sql } from "drizzle-orm";
 import { index, mysqlTableCreator, primaryKey } from "drizzle-orm/mysql-core";
 import type { AdapterAccount } from "next-auth/adapters";
+import { CLIENT_COLOR_KEYS } from "~/lib/colors";
 
 /**
  * @see https://orm.drizzle.team/docs/goodies#multi-project-schema
@@ -54,6 +55,7 @@ export const clients = createTable(
     interpreter: d.boolean().notNull().default(false),
     phoneNumber: d.varchar({ length: 255 }),
     gender: d.mysqlEnum(["Male", "Female", "Other"]),
+    color: d.mysqlEnum("color", CLIENT_COLOR_KEYS).notNull().default("none"),
   }),
   (t) => [
     index("asana_id_idx").on(t.asanaId),
@@ -61,9 +63,69 @@ export const clients = createTable(
     index("district_idx").on(t.schoolDistrict),
     index("dob_idx").on(t.dob),
     index("added_date_idx").on(t.addedDate),
-    index("insurnance_idx").on(t.primaryInsurance),
+    index("insurance_idx").on(t.primaryInsurance),
   ]
 );
+
+export const notes = createTable(
+  "note",
+  (d) => ({
+    id: d.int().notNull().autoincrement().primaryKey(),
+    content: d.json("content").notNull(),
+    clientId: d
+      .int()
+      .notNull()
+      .references(() => clients.id, { onDelete: "cascade" }),
+    createdAt: d
+      .timestamp("created_at")
+      .default(sql`CURRENT_TIMESTAMP`)
+      .notNull(),
+    updatedAt: d
+      .timestamp("updated_at")
+      .onUpdateNow()
+      .default(sql`CURRENT_TIMESTAMP`),
+  }),
+  (t) => [index("note_client_idx").on(t.clientId)]
+);
+
+export const noteHistory = createTable(
+  "note_history",
+  (d) => ({
+    id: d.int().notNull().autoincrement().primaryKey(),
+    noteId: d
+      .int()
+      .notNull()
+      .references(() => notes.id, { onDelete: "cascade" }),
+    content: d.json("content").notNull(),
+    updatedBy: d
+      .varchar("updated_by", { length: 255 })
+      .references(() => users.id, { onDelete: "set null" }),
+    createdAt: d
+      .timestamp("created_at")
+      .default(sql`CURRENT_TIMESTAMP`)
+      .notNull(),
+  }),
+  (t) => [index("note_history_note_idx").on(t.noteId)]
+);
+
+export const noteRelations = relations(notes, ({ one, many }) => ({
+  client: one(clients, {
+    fields: [notes.clientId],
+    references: [clients.id],
+  }),
+  history: many(noteHistory),
+}));
+
+export const noteHistoryRelations = relations(noteHistory, ({ one }) => ({
+  note: one(notes, {
+    fields: [noteHistory.noteId],
+    references: [notes.id],
+  }),
+  author: one(users, {
+    fields: [noteHistory.updatedBy],
+    references: [users.id],
+  }),
+}));
 
 export const appointments = createTable("appointment", (d) => ({
   id: d.int().notNull().autoincrement().primaryKey(),

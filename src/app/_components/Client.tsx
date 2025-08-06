@@ -1,70 +1,62 @@
 "use client";
 
-import { AsanaNotesEditor } from "@components/client/AsanaNotesEditor";
 import { ClientDetailsCard } from "@components/client/ClientDetailsCard";
 import { ClientHeader } from "@components/client/ClientHeader";
+import { ClientNoteEditor } from "@components/client/ClientNoteEditor";
 import { EligibleEvaluatorsList } from "@components/client/EligibleEvaluatorsList";
 import { QuestionnairesSent } from "@components/client/QuestionnairesSent";
 import { Skeleton } from "@components/ui/skeleton";
 import { useEffect, useState } from "react";
+import type { ClientColor } from "~/lib/colors";
 import { api } from "~/trpc/react";
 
 export function Client({ hash }: { hash: string }) {
 	// Data Fetching
 	const { data: offices, isLoading: isLoadingOffices } =
 		api.offices.getAll.useQuery();
-	const { data: client, isLoading: isLoadingClient } =
-		api.clients.getOne.useQuery({
-			column: "hash",
-			value: hash,
-		});
-
 	const {
-		data: asanaProject,
-		isLoading: isLoadingAsanaProject,
-		refetch: refetchAsanaProject,
-	} = api.asana.getProject.useQuery(client?.asanaId ?? "", {
-		enabled: !!client?.asanaId && client.asanaId !== "N/A", // Only run query if asanaId exists and is not "N/A"
+		data: client,
+		isLoading: isLoadingClient,
+		refetch: refetchClient,
+	} = api.clients.getOne.useQuery({
+		column: "hash",
+		value: hash,
 	});
 
-	// Asana Color State and Mutations
-	const [selectedAsanaColorKey, setSelectedAsanaColorKey] = useState<
-		string | null
-	>(null);
+	const [selectedColor, setSelectedColor] = useState<ClientColor | null>(null);
 
 	useEffect(() => {
-		if (asanaProject?.color) {
-			setSelectedAsanaColorKey(asanaProject.color);
+		if (client?.color) {
+			setSelectedColor(client.color);
 		}
-	}, [asanaProject?.color]);
+	}, [client?.color]);
 
-	const mutateAsanaProject = api.asana.updateProject.useMutation({
+	const updateClientColorMutation = api.clients.updateColor.useMutation({
 		onSuccess: () => {
-			refetchAsanaProject();
+			refetchClient();
 		},
+
 		onError: (error) => {
-			console.error("Failed to update Asana project:", error);
+			console.error("Failed to update client color:", error);
+			// TODO: Add a toast notification for the user
 		},
 	});
 
-	const updateAsanaColor = (colorKey: string) => {
-		setSelectedAsanaColorKey(colorKey);
-		mutateAsanaProject.mutate({
-			id: client?.asanaId && client.asanaId !== "N/A" ? client.asanaId : "",
-			color: colorKey,
-		});
+	const handleColorChange = (color: ClientColor) => {
+		if (!client) return;
+		setSelectedColor(color);
+		updateClientColorMutation.mutate({ hash: client.hash, color });
 	};
 
-	const isLoading =
-		isLoadingClient || isLoadingOffices || isLoadingAsanaProject;
+	const isLoading = isLoadingClient || isLoadingOffices;
 
 	return (
 		<div className="mx-10 flex flex-col gap-6">
 			<ClientHeader
-				asanaProjectColorKey={selectedAsanaColorKey}
 				client={client}
 				isLoading={isLoading}
-				onAsanaColorChange={updateAsanaColor}
+				onColorChange={handleColorChange}
+				selectedColor={selectedColor}
 			/>
 
 			{isLoading || !client ? (
@@ -73,11 +65,9 @@ export function Client({ hash }: { hash: string }) {
 				<div className="flex w-[calc(100vw-32px)] flex-col items-center gap-6 lg:w-4xl">
 					<ClientDetailsCard client={client} offices={offices} />
 
-					{client.asanaId && client.asanaId !== "N/A" && (
-						<AsanaNotesEditor asanaId={client.asanaId} />
-					)}
+					<ClientNoteEditor clientId={client.id} />
 
-					<QuestionnairesSent asanaId={client.asanaId} clientId={client.id} />
+					<QuestionnairesSent clientId={client.id} />
 
 					<EligibleEvaluatorsList clientId={client.id} />
 				</div>
