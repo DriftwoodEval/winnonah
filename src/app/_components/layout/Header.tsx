@@ -1,9 +1,7 @@
-import { IssuesAlert } from "@components/issues/issuesAlert";
-import { Button } from "@ui/button";
-import { LogIn, LogOut } from "lucide-react";
 import Link from "next/link";
 import { metadata } from "~/app/layout";
 import { auth } from "~/server/auth";
+import { HeaderActions } from "./HeaderActions";
 
 export async function Header() {
 	const session = await auth();
@@ -12,19 +10,7 @@ export async function Header() {
 			<Link href="/">
 				<h1 className="m-2 font-bold text-2xl">{metadata.title as string}</h1>
 			</Link>
-			<div className="m-2 flex items-center gap-3">
-				{session?.user && <IssuesAlert />}
-				<Link href={session ? "/api/auth/signout" : "/api/auth/signin"}>
-					<Button size="sm" variant="secondary">
-						<span className="hidden sm:block">
-							{session ? "Sign out" : "Sign in"}
-						</span>
-						<span className="block sm:hidden">
-							{session ? <LogOut /> : <LogIn />}
-						</span>
-					</Button>
-				</Link>
-			</div>
+			<HeaderActions session={session} />
 		</div>
 	);
 }
