@@ -20,11 +20,17 @@ import {
 	SelectValue,
 } from "@ui/select";
 import { format, formatISO, parseISO } from "date-fns";
-import { CalendarIcon } from "lucide-react";
+import { CalendarIcon, CheckIcon } from "lucide-react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import React from "react";
+import React, { useState } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
+import {
+	CLIENT_COLOR_KEYS,
+	CLIENT_COLOR_MAP,
+	type ClientColor,
+	formatColorName,
+} from "~/lib/colors";
 import { cn } from "~/lib/utils";
 import { api } from "~/trpc/react";
 
@@ -33,6 +39,7 @@ const formSchema = z.object({
 	office: z.string().optional(),
 	type: z.string().optional(),
 	date: z.date().optional(),
+	color: z.enum(CLIENT_COLOR_KEYS).optional(),
 });
 
 interface ClientsSearchFormProps {
@@ -43,6 +50,8 @@ function ClientsSearchForm({ onResetFilters }: ClientsSearchFormProps) {
 	const router = useRouter();
 	const pathname = usePathname();
 	const searchParams = useSearchParams();
+
+	const [isColorPopoverOpen, setIsColorPopoverOpen] = useState(false);
 
 	const evaluators = api.evaluators.getAll.useQuery();
 	const officesQuery = api.offices.getAll.useQuery();
@@ -57,6 +66,7 @@ function ClientsSearchForm({ onResetFilters }: ClientsSearchFormProps) {
 			date: searchParams.get("date")
 				? parseISO(searchParams.get("date") ?? "")
 				: undefined,
+			color: (searchParams.get("color") as ClientColor) ?? undefined,
 		},
 	});
 
@@ -71,6 +81,7 @@ function ClientsSearchForm({ onResetFilters }: ClientsSearchFormProps) {
 		updateParam("evaluator", values.evaluator);
 		updateParam("office", values.office);
 		updateParam("type", values.type);
+		updateParam("color", values.color);
 
 		if (values.date) {
 			params.set("date", formatISO(values.date, { representation: "date" }));
@@ -87,16 +98,15 @@ function ClientsSearchForm({ onResetFilters }: ClientsSearchFormProps) {
 			office: undefined,
 			type: undefined,
 			date: undefined,
+			color: undefined,
 		});
 		onResetFilters();
 		router.push(pathname);
 	}
 
-	const handleChange = () => form.handleSubmit(onSubmit)();
-
 	return (
 		<Form {...form}>
-			<form className="w-full space-y-6 sm:w-2/3" onChange={handleChange}>
+			<form className="w-full space-y-6 sm:w-2/3">
 				<div className="flex flex-col gap-6 sm:flex-row">
 					<div className="flex flex-col gap-6">
 						<FormField
@@ -106,7 +116,10 @@ function ClientsSearchForm({ onResetFilters }: ClientsSearchFormProps) {
 								<FormItem>
 									<FormLabel>Evaluator</FormLabel>
 									<Select
-										onValueChange={field.onChange}
+										onValueChange={(value) => {
+											field.onChange(value);
+											form.handleSubmit(onSubmit)();
+										}}
 										value={field.value ?? ""}
 									>
 										<FormControl>
@@ -136,7 +149,10 @@ function ClientsSearchForm({ onResetFilters }: ClientsSearchFormProps) {
 								<FormItem>
 									<FormLabel>Office</FormLabel>
 									<Select
-										onValueChange={field.onChange}
+										onValueChange={(value) => {
+											field.onChange(value);
+											form.handleSubmit(onSubmit)();
+										}}
 										value={field.value ?? ""}
 									>
 										<FormControl>
@@ -165,7 +181,10 @@ function ClientsSearchForm({ onResetFilters }: ClientsSearchFormProps) {
 								<FormItem>
 									<FormLabel>DA/Eval</FormLabel>
 									<Select
-										onValueChange={field.onChange}
+										onValueChange={(value) => {
+											field.onChange(value);
+											form.handleSubmit(onSubmit)();
+										}}
 										value={field.value ?? ""}
 									>
 										<FormControl>
@@ -226,9 +245,103 @@ function ClientsSearchForm({ onResetFilters }: ClientsSearchFormProps) {
 													return date < yesterday;
 												}}
 												mode="single"
-												onSelect={field.onChange}
+												onSelect={(date) => {
+													field.onChange(date);
+													form.handleSubmit(onSubmit)();
+												}}
 												selected={field.value}
 											/>
+										</PopoverContent>
+									</Popover>
+									<FormMessage />
+								</FormItem>
+							)}
+						/>
+						<FormField
+							control={form.control}
+							name="color"
+							render={({ field }) => (
+								<FormItem className="flex flex-col">
+									<FormLabel>Color</FormLabel>
+									<Popover
+										onOpenChange={setIsColorPopoverOpen}
+										open={isColorPopoverOpen}
+									>
+										<PopoverTrigger asChild>
+											<FormControl>
+												{/** biome-ignore lint/a11y/useSemanticElements: using shadcn */}
+												<Button
+													className={cn(
+														"w-full justify-start sm:w-60",
+														!field.value && "text-muted-foreground",
+													)}
+													role="combobox"
+													variant="outline"
+												>
+													<div className="flex w-full items-center gap-2">
+														{field.value ? (
+															<div
+																className="h-4 w-4 rounded-full border"
+																style={{
+																	backgroundColor:
+																		CLIENT_COLOR_MAP[
+																			field.value as ClientColor
+																		],
+																}}
+															/>
+														) : null}
+														<span className="flex-grow text-left">
+															{field.value
+																? formatColorName(field.value)
+																: "Select a color"}
+														</span>
+													</div>
+												</Button>
+											</FormControl>
+										</PopoverTrigger>
+										<PopoverContent className="w-auto p-2">
+											<div className="grid grid-cols-4 place-items-center gap-2">
+												{CLIENT_COLOR_KEYS.map((colorKey) => (
+													<button
+														aria-label={`Select color: ${formatColorName(colorKey)}`}
+														className="relative h-10 w-10 rounded-sm"
+														key={colorKey}
+														onClick={() => {
+															const newValue =
+																field.value === colorKey ? undefined : colorKey;
+															field.onChange(newValue);
+															form.handleSubmit(onSubmit)();
+															setTimeout(
+																() => setIsColorPopoverOpen(false),
+																100,
+															);
+														}}
+														style={{
+															backgroundColor: CLIENT_COLOR_MAP[colorKey],
+														}}
+														type="button"
+													>
+														{field.value === colorKey && (
+															<CheckIcon
+																className="-translate-x-1/2 -translate-y-1/2 absolute top-1/2 left-1/2"
+																style={{
+																	color:
+																		Number.parseInt(
+																			CLIENT_COLOR_MAP[colorKey].replace(
+																				"#",
+																				"",
+																			),
+																			16,
+																		) >
+																		0xffffff / 2
+																			? "#333"
+																			: "#FFF",
+																}}
+															/>
+														)}
+													</button>
+												))}
+											</div>
 										</PopoverContent>
 									</Popover>
 									<FormMessage />

@@ -12,6 +12,7 @@ import { debounce } from "lodash";
 import { Filter } from "lucide-react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useMemo, useState } from "react";
+import type { ClientColor } from "~/lib/colors";
 import { api } from "~/trpc/react";
 import { ClientsList } from "./ClientsList";
 import ClientsSearchForm from "./ClientsSearchForm";
@@ -29,6 +30,7 @@ export function ClientsDashboard() {
 		const evaluator = searchParams.get("evaluator") ?? undefined;
 		const hideBabyNet = searchParams.get("hideBabyNet") === "true";
 		const status = searchParams.get("status") ?? undefined;
+		const color = (searchParams.get("color") as ClientColor) ?? undefined;
 
 		return {
 			nameSearch: debouncedNameForQuery,
@@ -36,6 +38,7 @@ export function ClientsDashboard() {
 			evaluatorNpi: evaluator ? parseInt(evaluator, 10) : undefined,
 			hideBabyNet,
 			status: status as "active" | "inactive" | "all" | undefined,
+color,
 		};
 	}, [searchParams, debouncedNameForQuery]);
 
