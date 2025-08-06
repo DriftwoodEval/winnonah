@@ -1,7 +1,6 @@
 import "~/styles/globals.css";
 
 import { Header } from "@components/layout/Header";
-import { ClientLoadingProvider } from "@context/ClientLoadingContext";
 import type { Metadata } from "next";
 import { Lora, Plus_Jakarta_Sans, Roboto_Mono } from "next/font/google";
 import { TRPCReactProvider } from "~/trpc/react";
@@ -37,10 +36,8 @@ export default function RootLayout({
 		>
 			<body className="dark h-full bg-background">
 				<TRPCReactProvider>
-					<ClientLoadingProvider>
-						<Header />
-						{children}
-					</ClientLoadingProvider>
+					<Header />
+					{children}
 				</TRPCReactProvider>
 			</body>
 		</html>
