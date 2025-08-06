@@ -9,6 +9,7 @@ import {
 	CLIENT_COLOR_KEYS,
 	CLIENT_COLOR_MAP,
 	type ClientColor,
+	formatColorName,
 } from "~/lib/colors";
 import type { Client } from "~/server/lib/types";
 
@@ -35,6 +36,8 @@ export function ClientHeader({
 			</div>
 		);
 	}
+
+	selectedColor ??= "none";
 
 	const currentHexColor = selectedColor
 		? CLIENT_COLOR_MAP[selectedColor]
@@ -65,7 +68,7 @@ export function ClientHeader({
 					<Popover onOpenChange={setIsPopoverOpen} open={isPopoverOpen}>
 						<PopoverTrigger asChild>
 							<button
-								aria-label={`Current color: ${selectedColor}`}
+								aria-label={`Current color: ${formatColorName(selectedColor)}`}
 								className="h-5 w-5 cursor-pointer rounded-full"
 								style={{ background: currentHexColor }}
 								tabIndex={0}
@@ -76,7 +79,7 @@ export function ClientHeader({
 							<div className="grid grid-cols-4 place-items-center gap-2">
 								{CLIENT_COLOR_KEYS.map((colorKey) => (
 									<button
-										aria-label={`Select color: ${colorKey}`}
+										aria-label={`Select color: ${formatColorName(colorKey)}`}
 										className="relative h-10 w-10 rounded-sm"
 										key={colorKey}
 										onClick={() => {

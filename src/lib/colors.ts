@@ -17,6 +17,12 @@ export const CLIENT_COLOR_MAP = {
   "cool-gray": "#aaa",
 };
 
+export const formatColorName = (name: string) =>
+  name
+    .split("-")
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(" ");
+
 export type ClientColor = keyof typeof CLIENT_COLOR_MAP;
 
 export const CLIENT_COLOR_KEYS = Object.keys(CLIENT_COLOR_MAP) as [

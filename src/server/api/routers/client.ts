@@ -200,17 +200,20 @@ export const clientRouter = createTRPCRouter({
         nameSearch: z.string().optional(),
         hideBabyNet: z.boolean().optional(),
         status: z.enum(["active", "inactive", "all"]).optional(),
+        color: z.enum(CLIENT_COLOR_KEYS).optional(),
       })
     )
     .query(async ({ ctx, input }) => {
       const {
         evaluatorNpi,
         office,
-        appointmentType,
-        appointmentDate,
+        // Future implementation
+        // appointmentType,
+        // appointmentDate,
         nameSearch,
         hideBabyNet,
         status,
+        color,
       } = input;
 
       const effectiveStatus = status ?? "active";
@@ -244,6 +247,10 @@ export const clientRouter = createTRPCRouter({
           .where(eq(clientsEvaluators.evaluatorNpi, evaluatorNpi));
 
         conditions.push(inArray(clients.id, clientIdsQuery));
+      }
+
+      if (color) {
+        conditions.push(eq(clients.color, color));
       }
 
       const { sortReasonSQL, orderBySQL } = getBabyNetPriorityInfo();
