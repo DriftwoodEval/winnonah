@@ -52,6 +52,28 @@ export const clientRouter = createTRPCRouter({
     return clients;
   }),
 
+  getOne: protectedProcedure
+    .input(
+      z.object({
+        column: z.enum(["id", "hash"]),
+        value: z.string(),
+      })
+    )
+    .query(async ({ ctx, input }) => {
+      const foundClient = await ctx.db.query.clients.findFirst({
+        where: eq(clients[input.column], input.value),
+      });
+
+      if (!foundClient) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: `Client with ${input.column} ${input.value} not found`,
+        });
+      }
+
+      return foundClient;
+    }),
+
   getSorted: protectedProcedure.query(async ({ ctx }) => {
     const { sortReasonSQL, orderBySQL } = getBabyNetPriorityInfo();
 
@@ -91,28 +113,6 @@ export const clientRouter = createTRPCRouter({
       }));
 
       return results;
-    }),
-
-  getOne: protectedProcedure
-    .input(
-      z.object({
-        column: z.enum(["id", "hash"]),
-        value: z.string(),
-      })
-    )
-    .query(async ({ ctx, input }) => {
-      const foundClient = await ctx.db.query.clients.findFirst({
-        where: eq(clients[input.column], input.value),
-      });
-
-      if (!foundClient) {
-        throw new TRPCError({
-          code: "NOT_FOUND",
-          message: `Client with ${input.column} ${input.value} not found`,
-        });
-      }
-
-      return foundClient;
     }),
 
   getDistrictErrors: protectedProcedure.query(async ({ ctx }) => {

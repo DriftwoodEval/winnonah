@@ -1,13 +1,41 @@
 import { eq } from "drizzle-orm";
 import z from "zod";
 import { clients } from "~/server/db/schema";
+import type { Evaluator } from "~/server/lib/types";
 import { createTRPCRouter, protectedProcedure } from "../trpc";
+
+const CACHE_TTL = 3600;
 
 export const evaluatorRouter = createTRPCRouter({
   getAll: protectedProcedure.query(async ({ ctx }) => {
+    // TODO: invalidate this when a new evaluator is added
+    const cacheKey = "evaluators:all";
+
+    try {
+      const cachedEvaluators = await ctx.redis.get(cacheKey);
+      if (cachedEvaluators) {
+        console.log("CACHE HIT for", cacheKey);
+        return JSON.parse(cachedEvaluators) as Evaluator[];
+      }
+    } catch (err) {
+      console.error("Redis error in evaluatorRouter.getAll:", err);
+    }
+
+    console.log("CACHE MISS for", cacheKey);
     const evaluators = await ctx.db.query.evaluators.findMany({
       orderBy: (evaluators, { asc }) => [asc(evaluators.providerName)],
     });
+
+    try {
+      await ctx.redis.set(
+        cacheKey,
+        JSON.stringify(evaluators),
+        "EX",
+        CACHE_TTL
+      );
+    } catch (err) {
+      console.error("Redus SET failed:", err);
+    }
 
     return evaluators;
   }),
