@@ -1,32 +1,39 @@
 "use client";
 
-import { ClientLoadingContext } from "@context/ClientLoadingContext";
 import { Badge } from "@ui/badge";
 import Link from "next/link";
-import { useContext } from "react";
+import { useEffect, useState } from "react";
 import { api } from "~/trpc/react";
+
 export function IssuesAlert() {
-	const { isClientsLoaded } = useContext(ClientLoadingContext);
+	const [isReadyToFetch, setIsReadyToFetch] = useState(false);
+
+	useEffect(() => {
+		const timer = setTimeout(() => {
+			setIsReadyToFetch(true);
+		}, 2000); // 2 seconds
+
+		return () => clearTimeout(timer);
+	}, []);
+
+	const queryOptions = {
+		enabled: isReadyToFetch,
+		staleTime: 1000 * 60 * 5, // 5 minutes
+	};
 
 	const { data: districtErrors } = api.clients.getDistrictErrors.useQuery(
 		undefined,
-		{
-			enabled: isClientsLoaded,
-		},
+		queryOptions,
 	);
 
 	const { data: babyNetErrors } = api.clients.getBabyNetErrors.useQuery(
 		undefined,
-		{
-			enabled: isClientsLoaded,
-		},
+		queryOptions,
 	);
 
 	const { data: notInTAErrors } = api.clients.getNotInTAErrors.useQuery(
 		undefined,
-		{
-			enabled: isClientsLoaded,
-		},
+		queryOptions,
 	);
 
 	const errorsLength =
@@ -34,7 +41,7 @@ export function IssuesAlert() {
 		(babyNetErrors?.length ?? 0) +
 		(notInTAErrors?.length ?? 0);
 
-	if (errorsLength === 0) {
+	if (!isReadyToFetch || errorsLength === 0) {
 		return null;
 	}
 
