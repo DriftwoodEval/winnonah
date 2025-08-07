@@ -128,6 +128,8 @@ def loop_therapists(driver: WebDriver, func: Callable):
 
 
 def combine_files():
+    logger.debug("Combining CSVs")
+
     def read_and_concat_files(pattern, output_file):
         files = glob.glob(pattern)
         df_list = []
