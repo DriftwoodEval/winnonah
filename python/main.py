@@ -22,6 +22,8 @@ def main():
 
     utils.config.validate_config()
 
+    shutil.rmtree("temp", ignore_errors=True)
+
     if args.download_only:
         logger.info("Running download only")
         utils.download_ta.download_csvs()
