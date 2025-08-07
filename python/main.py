@@ -6,9 +6,11 @@ import utils.asana
 import utils.clients
 import utils.config
 import utils.database
+import utils.download_ta
 import utils.google
 import utils.location
 from dotenv import load_dotenv
+from loguru import logger
 
 load_dotenv()
 
@@ -21,7 +23,8 @@ def main():
     utils.config.validate_config()
 
     if args.download_only:
-        utils.clients.download_csvs()
+        logger.info("Running download only")
+        utils.download_ta.download_csvs()
         return
 
     projects_api = utils.asana.init()
