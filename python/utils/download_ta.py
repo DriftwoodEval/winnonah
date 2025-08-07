@@ -135,9 +135,12 @@ def combine_files():
         df_list = []
         for file in files:
             try:
-                df_list.append(pd.read_csv(file, encoding="utf-8", dtype=str))
+                df = pd.read_csv(file, encoding="utf-8", dtype=str)
             except UnicodeDecodeError:
-                df_list.append(pd.read_csv(file, encoding="latin1", dtype=str))
+                df = pd.read_csv(file, encoding="latin1", dtype=str)
+
+            df.dropna(how="all", inplace=True)
+            df_list.append(df)
         df = pd.concat(df_list)
         df.to_csv(output_file, index=False, encoding="utf-8")
 
