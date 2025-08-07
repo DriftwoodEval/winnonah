@@ -1,7 +1,7 @@
-FROM selenium/standalone-chrome:4 as base
+FROM selenium/standalone-chrome:4 AS base
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
 
-FROM base as build
+FROM base AS build
 USER root
 WORKDIR /app
 
