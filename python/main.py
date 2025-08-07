@@ -1,5 +1,6 @@
 import shutil
 
+import pandas as pd
 import utils.asana
 import utils.clients
 import utils.config
@@ -73,17 +74,26 @@ def main():
             new_clients.at[index, "INTERPRETER"] = interpreter
             new_clients.at[index, "ARCHIVED_IN_ASANA"] = archived_in_asana
 
-            census_result = utils.location.get_client_census_data(client)
-
-            if census_result != "Unknown":
-                new_clients.at[index, "SCHOOL_DISTRICT"], coordinates = census_result
-            else:
+            if (
+                pd.isna(client.ADDRESS)
+                or client.ADDRESS is None
+                or client.ADDRESS == ""
+            ):
                 new_clients.at[index, "SCHOOL_DISTRICT"] = "Unknown"
-                coordinates = None
+            else:
+                census_result = utils.location.get_client_census_data(client)
 
-            if isinstance(coordinates, dict):
-                new_clients.at[index, "LATITUDE"] = coordinates.get("y")
-                new_clients.at[index, "LONGITUDE"] = coordinates.get("x")
+                if census_result != "Unknown":
+                    new_clients.at[index, "SCHOOL_DISTRICT"], coordinates = (
+                        census_result
+                    )
+                else:
+                    new_clients.at[index, "SCHOOL_DISTRICT"] = "Unknown"
+                    coordinates = None
+
+                if isinstance(coordinates, dict):
+                    new_clients.at[index, "LATITUDE"] = coordinates.get("y")
+                    new_clients.at[index, "LONGITUDE"] = coordinates.get("x")
 
         new_clients[
             [

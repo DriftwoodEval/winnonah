@@ -145,6 +145,7 @@ def get_clients() -> pd.DataFrame:
     clients_df = remove_test_names(clients_df, TEST_NAMES)
     clients_df = map_insurance_names(clients_df)
     clients_df = consolidate_by_id(clients_df)
+    clients_df.dropna(subset=["FIRSTNAME", "LASTNAME"], inplace=True)
     clients_df = combine_address_info(clients_df)
 
     utils.database.sync_client_statuses(clients_df)
