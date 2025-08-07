@@ -1,3 +1,4 @@
+import argparse
 import shutil
 
 import pandas as pd
@@ -13,7 +14,16 @@ load_dotenv()
 
 
 def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--download-only", action="store_true")
+    args = parser.parse_args()
+
     utils.config.validate_config()
+
+    if args.download_only:
+        utils.clients.download_csvs()
+        return
+
     projects_api = utils.asana.init()
     asana_projects = utils.asana.get_projects(projects_api)
 
