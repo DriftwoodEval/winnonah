@@ -1,10 +1,42 @@
 import { type ClassValue, clsx } from "clsx";
 import { twMerge } from "tailwind-merge";
+import { type UserRole, userRoles } from "./types";
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
+/**
+ * Checks if a user's role is sufficient to access a protected resource.
+ * @param userRole The role of the current user.
+ * @param requiredRole The minimum role required for access.
+ * @returns boolean
+ */
+export const checkRole = (
+  userRole: UserRole,
+  requiredRole: UserRole
+): boolean => {
+  const userRoleIndex = userRoles.indexOf(userRole);
+  const requiredRoleIndex = userRoles.indexOf(requiredRole);
+
+  // If a role is not found, treat it as an insufficient permission.
+  if (userRoleIndex === -1 || requiredRoleIndex === -1) {
+    return false;
+  }
+
+  // A user's role is sufficient if its index is greater than or equal to the required role's index.
+  return userRoleIndex >= requiredRoleIndex;
+};
+
+/**
+ * Format a client's age given their date of birth.
+ * @param dob The client's date of birth.
+ * @param format The format of the returned age. Can be "short", "years", or "long".
+ *   - "short": "X:Y" where X is the number of years and Y is the number of months.
+ *   - "years": The number of years as a string.
+ *   - "long": A human-readable string like "X years" or "X years, Y months".
+ * @returns The formatted age.
+ */
 export function formatClientAge(dob: Date, format = "long") {
   const ageInMilliseconds = Date.now() - dob.getTime();
   const years = Math.floor(ageInMilliseconds / (1000 * 60 * 60 * 24 * 365.25));
@@ -21,6 +53,13 @@ export function formatClientAge(dob: Date, format = "long") {
   return years >= 3 ? `${years} years` : `${years} years, ${months} months`;
 }
 
+/**
+ * Normalize a Date object to a specific time of day.
+ *
+ * @param date The Date object to normalize.
+ * @returns A new Date object with the same year, month, and day as the original,
+ *   but with the time set to 12:00 UTC.
+ */
 export const normalizeDate = (date: Date) => {
   return new Date(
     Date.UTC(

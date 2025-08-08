@@ -4,6 +4,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@ui/popover";
 import { Separator } from "@ui/separator";
 import { Skeleton } from "@ui/skeleton";
 import { CheckIcon } from "lucide-react";
+import { useSession } from "next-auth/react";
 import { useState } from "react";
 import {
 	CLIENT_COLOR_KEYS,
@@ -11,6 +12,7 @@ import {
 	type ClientColor,
 	formatColorName,
 } from "~/lib/colors";
+import { checkRole } from "~/lib/utils";
 import type { Client } from "~/server/lib/types";
 
 interface ClientHeaderProps {
@@ -26,6 +28,9 @@ export function ClientHeader({
 	onColorChange,
 	isLoading,
 }: ClientHeaderProps) {
+	const { data: session } = useSession();
+	const admin = session ? checkRole(session.user.role, "admin") : false;
+
 	const [isPopoverOpen, setIsPopoverOpen] = useState(false);
 
 	if (isLoading || !client) {
@@ -64,7 +69,7 @@ export function ClientHeader({
 				)}
 
 				{currentHexColor && <Separator orientation="vertical" />}
-				{currentHexColor && (
+				{currentHexColor && admin ? (
 					<Popover onOpenChange={setIsPopoverOpen} open={isPopoverOpen}>
 						<PopoverTrigger asChild>
 							<button
@@ -106,7 +111,15 @@ export function ClientHeader({
 							</div>
 						</PopoverContent>
 					</Popover>
-				)}
+				) : currentHexColor ? (
+					<button
+						aria-label={`Current color: ${formatColorName(selectedColor)}`}
+						className="h-5 w-5 rounded-full"
+						style={{ background: currentHexColor }}
+						tabIndex={0}
+						type="button"
+					/>
+				) : null}
 			</div>
 		</div>
 	);

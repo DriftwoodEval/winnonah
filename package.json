@@ -17,6 +17,11 @@
     "start": "next start",
     "typecheck": "tsc --noEmit"
   },
+  "pnpm": {
+    "overrides": {
+      "@auth/core": "0.40.0"
+    }
+  },
   "dependencies": {
     "@auth/drizzle-adapter": "^1.10.0",
     "@hookform/resolvers": "^5.2.1",
