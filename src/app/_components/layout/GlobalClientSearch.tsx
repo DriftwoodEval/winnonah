@@ -38,15 +38,10 @@ export function GlobalClientSearch() {
 		debouncedQueryUpdate(value);
 	};
 
-	const {
-		data: clients,
-		isLoading,
-		isPlaceholderData,
-	} = api.clients.search.useQuery(
+	const { data: clients, isLoading } = api.clients.search.useQuery(
 		{ nameSearch: debouncedSearchTerm },
 		{
 			enabled: debouncedSearchTerm.length >= 3 && open,
-			placeholderData: (previousData) => previousData,
 		},
 	);
 
@@ -80,8 +75,7 @@ export function GlobalClientSearch() {
 		}
 	}, [open]);
 
-	const showSpinner =
-		isLoading || (isPlaceholderData && searchInput.length >= 3);
+	const showSpinner = isLoading;
 
 	return (
 		<>
@@ -103,21 +97,15 @@ export function GlobalClientSearch() {
 					value={searchInput}
 				/>
 
-				<CommandList
-					className={cn(
-						"relative h-[300px] overflow-y-auto transition-opacity",
-						isPlaceholderData ? "opacity-60" : "opacity-100",
-					)}
-				>
+				<CommandList className="relative h-[300px] overflow-y-auto transition-opacity">
 					{showSpinner && (
 						<div className="absolute inset-0 z-10 flex items-center justify-center">
 							<Spinner />
 						</div>
 					)}
 
-					{/* TODO: display warning about too short search when backspacing / placeholder data */}
 					<CommandEmpty>
-						{isLoading || isPlaceholderData
+						{isLoading
 							? null
 							: debouncedSearchTerm.length > 0 && debouncedSearchTerm.length < 3
 								? "Please enter 3 or more characters."
