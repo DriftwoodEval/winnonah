@@ -53,6 +53,7 @@ export function QuestionnairesSent({
 				<Table>
 					<TableHeader>
 						<TableRow>
+							<TableHead className="w-[20px]"></TableHead>
 							<TableHead className="w-[100px]">Date</TableHead>
 							<TableHead className="hidden w-[100px] sm:table-cell">
 								Type
@@ -72,6 +73,9 @@ export function QuestionnairesSent({
 						)}
 						{questionnairesSent?.map((questionnaire) => (
 							<TableRow key={questionnaire.id}>
+								<TableCell>
+									<QuestionnaireActionsMenu questionnaire={questionnaire} />
+								</TableCell>
 								<TableCell>
 									{questionnaire.sent
 										? new Intl.DateTimeFormat("en-US", {
@@ -124,9 +128,6 @@ export function QuestionnairesSent({
 									)}
 								>
 									{questionnaire.status}
-								</TableCell>
-								<TableCell className="text-right">
-									<QuestionnaireActionsMenu questionnaire={questionnaire} />
 								</TableCell>
 							</TableRow>
 						))}

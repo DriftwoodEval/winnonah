@@ -91,7 +91,6 @@ export function QuestionnaireTableForm({
 								<Popover onOpenChange={setIsPopoverOpen} open={isPopoverOpen}>
 									<PopoverTrigger asChild>
 										<FormControl>
-											{/** biome-ignore lint/a11y/useSemanticElements: Shadcn */}
 											<Button
 												className={cn(
 													"w-full justify-between",
