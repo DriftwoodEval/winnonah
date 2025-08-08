@@ -8,6 +8,7 @@ import {
 	DialogTrigger,
 } from "@ui/dialog";
 import { useState } from "react";
+import { toast } from "sonner";
 import { normalizeDate } from "~/lib/utils";
 import { api } from "~/trpc/react";
 import type { QuestionnaireTableFormValues } from "./QuestionnaireTableForm";
@@ -31,7 +32,9 @@ export function AddQuestionnaireButton({
 		},
 		onError: (error) => {
 			console.error("Failed to add questionnaire:", error);
-			// TODO: Implement user-friendly error notification (e.g., toast)
+			toast.error("Failed to add questionnaire", {
+				description: String(error.message),
+			});
 		},
 	});
 

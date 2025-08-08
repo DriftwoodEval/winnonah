@@ -7,6 +7,7 @@ import { EligibleEvaluatorsList } from "@components/client/EligibleEvaluatorsLis
 import { QuestionnairesSent } from "@components/client/QuestionnairesSent";
 import { Skeleton } from "@ui/skeleton";
 import { useEffect, useState } from "react";
+import { toast } from "sonner";
 import type { ClientColor } from "~/lib/colors";
 import { api } from "~/trpc/react";
 
@@ -38,7 +39,9 @@ export function Client({ hash }: { hash: string }) {
 
 		onError: (error) => {
 			console.error("Failed to update client color:", error);
-			// TODO: Add a toast notification for the user
+			toast.error("Failed to update color", {
+				description: String(error.message),
+			});
 		},
 	});
 

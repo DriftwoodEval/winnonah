@@ -1,6 +1,7 @@
 import "~/styles/globals.css";
 
 import { Header } from "@components/layout/Header";
+import { Toaster } from "@ui/sonner";
 import type { Metadata } from "next";
 import { Lora, Plus_Jakarta_Sans, Roboto_Mono } from "next/font/google";
 import Providers from "./providers";
@@ -38,6 +39,7 @@ export default function RootLayout({
 				<Providers>
 					<Header />
 					{children}
+					<Toaster position="top-center" richColors />
 				</Providers>
 			</body>
 		</html>

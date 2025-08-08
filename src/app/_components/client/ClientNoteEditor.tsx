@@ -3,6 +3,7 @@ import { Skeleton } from "@ui/skeleton";
 import { debounce } from "lodash";
 import { useSession } from "next-auth/react";
 import { useEffect, useMemo } from "react";
+import { toast } from "sonner";
 import { checkRole } from "~/lib/utils";
 import { api } from "~/trpc/react";
 
@@ -26,7 +27,9 @@ export function ClientNoteEditor({ clientId }: ClientNoteEditorProps) {
 	const updateNoteMutation = api.notes.updateNote.useMutation({
 		onError: (error) => {
 			console.error("Failed to update note:", error);
-			// TODO: Implement user-friendly error notification (e.g., toast)
+			toast.error("Failed to update note", {
+				description: String(error.message),
+			});
 		},
 	});
 
@@ -38,8 +41,12 @@ export function ClientNoteEditor({ clientId }: ClientNoteEditorProps) {
 				}
 			}
 		},
-		onError: (error) => console.error("Failed to create note:", error),
-		// TODO: Implement user-friendly error notification (e.g., toast)
+		onError: (error) => {
+			console.error("Failed to create note:", error);
+			toast.error("Failed to add questionnaire", {
+				description: String(error.message),
+			});
+		},
 	});
 
 	const debouncedSave = useMemo(
