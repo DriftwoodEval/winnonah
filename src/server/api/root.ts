@@ -5,6 +5,7 @@ import { noteRouter } from "./routers/notes";
 import { officeRouter } from "./routers/office";
 import { pythonRouter } from "./routers/python";
 import { questionnaireRouter } from "./routers/questionnaires";
+import { userRouter } from "./routers/users";
 import { createCallerFactory, createTRPCRouter } from "./trpc";
 
 /**
@@ -20,6 +21,7 @@ export const appRouter = createTRPCRouter({
   python: pythonRouter,
   questionnaires: questionnaireRouter,
   notes: noteRouter,
+  users: userRouter,
 });
 
 // export type definition of API
