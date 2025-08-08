@@ -41,7 +41,7 @@ export function AddQuestionnaireButton({
 
 			setIsDialogOpen(false);
 
-			if (asanaId) {
+			if (asanaId && asanaId !== "N/A") {
 				addQuestionnaireToAsana.mutate({
 					projectId: asanaId,
 					automatic: false,
@@ -75,7 +75,7 @@ export function AddQuestionnaireButton({
 	return (
 		<Dialog onOpenChange={setIsDialogOpen} open={isDialogOpen}>
 			<DialogTrigger asChild>
-				<Button disabled={!asanaId || !clientId} size="sm">
+				<Button disabled={!asanaId || asanaId === "N/A" || !clientId} size="sm">
 					<span className="hidden sm:block">Add Questionnaire</span>
 					<span className="sm:hidden">Add</span>
 				</Button>

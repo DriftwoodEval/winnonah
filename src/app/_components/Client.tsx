@@ -24,7 +24,7 @@ export function Client({ hash }: { hash: string }) {
 		isLoading: isLoadingAsanaProject,
 		refetch: refetchAsanaProject,
 	} = api.asana.getProject.useQuery(client?.asanaId ?? "", {
-		enabled: !!client?.asanaId, // Only run query if asanaId exists
+		enabled: !!client?.asanaId && client.asanaId !== "N/A", // Only run query if asanaId exists and is not "N/A"
 	});
 
 	// Asana Color State and Mutations
@@ -50,7 +50,7 @@ export function Client({ hash }: { hash: string }) {
 	const updateAsanaColor = (colorKey: string) => {
 		setSelectedAsanaColorKey(colorKey);
 		mutateAsanaProject.mutate({
-			id: client?.asanaId ?? "",
+			id: client?.asanaId && client.asanaId !== "N/A" ? client.asanaId : "",
 			color: colorKey,
 		});
 	};
@@ -73,7 +73,9 @@ export function Client({ hash }: { hash: string }) {
 				<div className="flex w-[calc(100vw-32px)] flex-col items-center gap-6 lg:w-4xl">
 					<ClientDetailsCard client={client} offices={offices} />
 
-					{client.asanaId && <AsanaNotesEditor asanaId={client.asanaId} />}
+					{client.asanaId && client.asanaId !== "N/A" && (
+						<AsanaNotesEditor asanaId={client.asanaId} />
+					)}
 
 					<QuestionnairesSent asanaId={client.asanaId} clientId={client.id} />
 

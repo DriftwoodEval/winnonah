@@ -182,39 +182,28 @@ export const clientRouter = createTRPCRouter({
   updateClient: protectedProcedure
     .input(
       z.object({
-        hash: z.string(),
-        firstName: z.string(),
+        clientId: z.number(),
+        asanaId: z.string().optional(),
       })
     )
     .mutation(async ({ ctx, input }) => {
-      const client = await ctx.db.query.clients.findFirst({
-        where: eq(clients.hash, input.hash),
-      });
+      const updateData: { asanaId?: string } = {};
 
-      if (!client) {
-        throw new TRPCError({
-          code: "NOT_FOUND",
-          message: `Client with hash ${input.hash} not found`,
-        });
-      }
-
-      const fullName = `${input.firstName}${
-        client.preferredName ? `(${client.preferredName})` : " "
-      }${client.lastName}`;
+      if (input.asanaId !== undefined) updateData.asanaId = input.asanaId;
 
       await ctx.db
         .update(clients)
-        .set({ firstName: input.firstName, fullName })
-        .where(eq(clients.hash, input.hash));
+        .set(updateData)
+        .where(eq(clients.id, input.clientId));
 
       const updatedClient = await ctx.db.query.clients.findFirst({
-        where: eq(clients.hash, input.hash),
+        where: eq(clients.id, input.clientId),
       });
 
       if (!updatedClient) {
         throw new TRPCError({
           code: "NOT_FOUND",
-          message: `Client with hash ${input.hash} not found`,
+          message: `Client with ID ${input.clientId} not found`,
         });
       }
 

@@ -15,7 +15,8 @@ export function ClientListItem({
 	asanaProjectMap,
 }: ClientListItemProps) {
 	const asanaColor = useMemo(() => {
-		if (!asanaProjectMap || !client.asanaId) return null;
+		if (!asanaProjectMap || !client.asanaId || client.asanaId === "N/A")
+			return null;
 		const project = asanaProjectMap?.get(client.asanaId);
 		return getColorFromMap(project?.color ?? "");
 	}, [client.asanaId, asanaProjectMap]);

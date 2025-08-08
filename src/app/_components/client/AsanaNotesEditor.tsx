@@ -18,7 +18,7 @@ export function AsanaNotesEditor({ asanaId }: AsanaNotesEditorProps) {
 		isLoading: isLoadingAsanaProject,
 		refetch: refetchAsanaProject,
 	} = api.asana.getProject.useQuery(asanaId, {
-		enabled: !!asanaId,
+		enabled: !!asanaId && asanaId !== "N/A", // Only run query if asanaId exists and is not "N/A"
 	});
 
 	// Derived State and Memoized Values
