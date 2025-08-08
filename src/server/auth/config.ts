@@ -2,6 +2,7 @@ import { DrizzleAdapter } from "@auth/drizzle-adapter";
 import { eq } from "drizzle-orm/sql";
 import type { DefaultSession, NextAuthConfig } from "next-auth";
 import GoogleProvider from "next-auth/providers/google";
+import type { UserRole } from "~/lib/types";
 
 import { db } from "~/server/db";
 import {
@@ -10,8 +11,6 @@ import {
   users,
   verificationTokens,
 } from "~/server/db/schema";
-
-export type UserRole = "superadmin" | "admin" | "user";
 
 /**
  * Module augmentation for `next-auth` types. Allows us to add custom properties to the `session`
@@ -30,9 +29,9 @@ declare module "next-auth" {
     } & DefaultSession["user"];
   }
 
-  // interface User {
-  //   role: UserRole;
-  // }
+  interface User {
+    role: UserRole;
+  }
 }
 
 /**
@@ -43,12 +42,6 @@ declare module "next-auth" {
 export const authConfig = {
   providers: [
     GoogleProvider({
-      profile(profile) {
-        return {
-          role: profile.role ?? "user",
-          ...profile,
-        };
-      },
       clientId: process.env.AUTH_GOOGLE_ID,
       clientSecret: process.env.AUTH_GOOGLE_SECRET,
       authorization: {
@@ -74,10 +67,6 @@ export const authConfig = {
         where: eq(accounts.userId, user.id),
       });
 
-      const userInDb = await db.query.users.findFirst({
-        where: eq(users.id, user.id),
-      });
-
       let accessToken: string | null = null;
       let refreshToken: string | null = null;
 
@@ -88,8 +77,9 @@ export const authConfig = {
       session.user.accessToken = accessToken ?? undefined;
       session.user.refreshToken = refreshToken ?? undefined;
 
-      if (userInDb) {
-        session.user.role = userInDb.role;
+      if (user) {
+        session.user.id = user.id;
+        session.user.role = user.role;
       }
       return session;
     },

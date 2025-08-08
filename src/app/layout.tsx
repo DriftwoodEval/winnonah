@@ -3,7 +3,7 @@ import "~/styles/globals.css";
 import { Header } from "@components/layout/Header";
 import type { Metadata } from "next";
 import { Lora, Plus_Jakarta_Sans, Roboto_Mono } from "next/font/google";
-import { TRPCReactProvider } from "~/trpc/react";
+import Providers from "./providers";
 
 export const metadata: Metadata = {
 	title: "Winnonah",
@@ -35,10 +35,10 @@ export default function RootLayout({
 			lang="en"
 		>
 			<body className="dark h-full bg-background">
-				<TRPCReactProvider>
+				<Providers>
 					<Header />
 					{children}
-				</TRPCReactProvider>
+				</Providers>
 			</body>
 		</html>
 	);

@@ -1,7 +1,9 @@
 import { RichTextEditor } from "@components/shared/RichTextEditor";
 import { Skeleton } from "@ui/skeleton";
 import { debounce } from "lodash";
+import { useSession } from "next-auth/react";
 import { useEffect, useMemo } from "react";
+import { checkRole } from "~/lib/utils";
 import { api } from "~/trpc/react";
 
 interface ClientNoteEditorProps {
@@ -9,6 +11,9 @@ interface ClientNoteEditorProps {
 }
 
 export function ClientNoteEditor({ clientId }: ClientNoteEditorProps) {
+	const { data: session } = useSession();
+	const admin = session ? checkRole(session.user.role, "admin") : false;
+
 	const utils = api.useUtils();
 
 	const { data: note, isLoading } = api.notes.getNoteByClientId.useQuery(
@@ -77,11 +82,14 @@ export function ClientNoteEditor({ clientId }: ClientNoteEditorProps) {
 					<Skeleton className="h-20 w-full rounded-md" key="skeleton-editor" />
 				</div>
 			) : (
-				<RichTextEditor
-					onChange={debouncedSave}
-					placeholder="Start typing client notes..."
-					value={note?.contentJson ?? ""}
-				/>
+				<div>
+					<RichTextEditor
+						onChange={debouncedSave}
+						placeholder="Start typing client notes..."
+						readonly={!admin}
+						value={note?.contentJson ?? ""}
+					/>
+				</div>
 			)}
 		</div>
 	);

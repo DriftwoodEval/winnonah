@@ -8,8 +8,14 @@ import {
 	TableHeader,
 	TableRow,
 } from "@ui/table";
+import { useSession } from "next-auth/react";
 import Link from "next/link";
-import { cn, getReminderColorClass, getStatusColorClass } from "~/lib/utils";
+import {
+	checkRole,
+	cn,
+	getReminderColorClass,
+	getStatusColorClass,
+} from "~/lib/utils";
 import { api } from "~/trpc/react";
 import { AddQuestionnaireButton } from "./AddQuestionnaireButton";
 import { QuestionnaireActionsMenu } from "./QuestionnaireTableActionsMenu";
@@ -19,6 +25,9 @@ interface QuestionnairesSentProps {
 }
 
 export function QuestionnairesSent({ clientId }: QuestionnairesSentProps) {
+	const { data: session } = useSession();
+	const admin = session ? checkRole(session.user.role, "admin") : false;
+
 	const { data: questionnairesSent, isLoading: isLoadingQuestionnaires } =
 		api.questionnaires.getSentQuestionnaires.useQuery(clientId ?? 0, {
 			enabled: typeof clientId === "number" && clientId > 0,
@@ -43,13 +52,13 @@ export function QuestionnairesSent({ clientId }: QuestionnairesSentProps) {
 				<h4 className="hidden font-bold leading-none sm:block">
 					Questionnaires Sent
 				</h4>
-				<AddQuestionnaireButton clientId={clientId} />
+				{admin && <AddQuestionnaireButton clientId={clientId} />}
 			</div>
 			<div className="px-4 pb-4">
 				<Table>
 					<TableHeader>
 						<TableRow>
-							<TableHead className="w-[20px]"></TableHead>
+							{admin && <TableHead className="w-[20px]"></TableHead>}
 							<TableHead className="w-[100px]">Date</TableHead>
 							<TableHead className="hidden w-[100px] sm:table-cell">
 								Type
@@ -69,9 +78,11 @@ export function QuestionnairesSent({ clientId }: QuestionnairesSentProps) {
 						)}
 						{questionnairesSent?.map((questionnaire) => (
 							<TableRow key={questionnaire.id}>
-								<TableCell>
-									<QuestionnaireActionsMenu questionnaire={questionnaire} />
-								</TableCell>
+								{admin && (
+									<TableCell>
+										<QuestionnaireActionsMenu questionnaire={questionnaire} />
+									</TableCell>
+								)}
 								<TableCell>
 									{questionnaire.sent
 										? new Intl.DateTimeFormat("en-US", {

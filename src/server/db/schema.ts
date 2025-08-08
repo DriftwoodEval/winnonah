@@ -2,6 +2,7 @@ import { relations, sql } from "drizzle-orm";
 import { index, mysqlTableCreator, primaryKey } from "drizzle-orm/mysql-core";
 import type { AdapterAccount } from "next-auth/adapters";
 import { CLIENT_COLOR_KEYS } from "~/lib/colors";
+import { userRoles } from "~/lib/types";
 
 /**
  * @see https://orm.drizzle.team/docs/goodies#multi-project-schema
@@ -213,7 +214,7 @@ export const users = createTable("user", (d) => ({
       fsp: 3,
     })
     .default(sql`CURRENT_TIMESTAMP(3)`),
-  role: d.mysqlEnum(["superadmin", "admin", "user"]).notNull().default("user"),
+  role: d.mysqlEnum("role", userRoles).notNull().default("user"),
   image: d.varchar({ length: 255 }),
 }));
 
