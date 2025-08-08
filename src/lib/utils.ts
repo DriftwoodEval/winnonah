@@ -22,20 +22,22 @@ export function formatClientAge(dob: Date, format = "long") {
 }
 
 export const asanaColorMap = {
-  "dark-green": "#83C9A9",
-  "dark-red": "#F06A6A",
-  "light-purple": "#CD95EA",
-  "dark-purple": "#9E97E7",
-  "dark-brown": "#F8DF72",
-  "dark-orange": "#EC8D71",
-  "light-blue": "#4573D2",
-  "dark-teal": "#9EE7E3",
-  "light-teal": "#4ECBC4",
-  "light-red": "#FC979A",
-  "dark-pink": "#F26FB2",
-  "light-pink": "#F9AAEF",
-  "light-warm-gray": "#6D6E6F",
-  none: "#C7C4C4",
+  none: "#c5c5c5",
+  red: "#ff878a",
+  orange: "#fea06a",
+  "yellow-orange": "#f7bd51",
+  yellow: "#f6d861",
+  "yellow-green": "#c3e684",
+  green: "#85d7a2",
+  "blue-green": "#77d3e9",
+  aqua: "#a1e7dd",
+  blue: "#79abff",
+  indigo: "#b8acff",
+  purple: "#e39ef2",
+  magenta: "#faaee9",
+  "hot-pink": "#ff95c9",
+  pink: "#ffafc1",
+  "cool-gray": "#aaa",
 };
 
 export function isColorKey(key: string): key is keyof typeof asanaColorMap {
@@ -43,7 +45,16 @@ export function isColorKey(key: string): key is keyof typeof asanaColorMap {
 }
 
 export function getColorFromMap(key: string): string {
-  return asanaColorMap[key as keyof typeof asanaColorMap];
+  switch (key) {
+    case "dark-teal":
+      return asanaColorMap.aqua;
+    case "light-blue":
+      return asanaColorMap.blue;
+    case "light-purple":
+      return asanaColorMap.purple;
+    default:
+      return asanaColorMap[key as keyof typeof asanaColorMap];
+  }
 }
 
 export const normalizeDate = (date: Date) => {
