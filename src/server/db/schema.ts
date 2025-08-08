@@ -213,6 +213,7 @@ export const users = createTable("user", (d) => ({
       fsp: 3,
     })
     .default(sql`CURRENT_TIMESTAMP(3)`),
+  role: d.mysqlEnum(["superadmin", "admin", "user"]).notNull().default("user"),
   image: d.varchar({ length: 255 }),
 }));
 

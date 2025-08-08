@@ -5,11 +5,13 @@ import GoogleProvider from "next-auth/providers/google";
 
 import { db } from "~/server/db";
 import {
-	accounts,
-	sessions,
-	users,
-	verificationTokens,
+  accounts,
+  sessions,
+  users,
+  verificationTokens,
 } from "~/server/db/schema";
+
+export type UserRole = "superadmin" | "admin" | "user";
 
 /**
  * Module augmentation for `next-auth` types. Allows us to add custom properties to the `session`
@@ -18,21 +20,19 @@ import {
  * @see https://next-auth.js.org/getting-started/typescript#module-augmentation
  */
 declare module "next-auth" {
-	interface Session extends DefaultSession {
-		accessToken?: string;
-		user: {
-			id: string;
-			accessToken?: string;
-			refreshToken?: string;
-			// ...other properties
-			// role: UserRole;
-		} & DefaultSession["user"];
-	}
+  interface Session extends DefaultSession {
+    accessToken?: string;
+    user: {
+      id: string;
+      accessToken?: string;
+      refreshToken?: string;
+      role: UserRole;
+    } & DefaultSession["user"];
+  }
 
-	// interface User {
-	//   // ...other properties
-	//   // role: UserRole;
-	// }
+  // interface User {
+  //   role: UserRole;
+  // }
 }
 
 /**
@@ -41,52 +41,57 @@ declare module "next-auth" {
  * @see https://next-auth.js.org/configuration/options
  */
 export const authConfig = {
-	providers: [
-		GoogleProvider({
-			clientId: process.env.AUTH_GOOGLE_ID,
-			clientSecret: process.env.AUTH_GOOGLE_SECRET,
-			authorization: {
-				params: {
-					prompt: "consent",
-					access_type: "offline",
-					response_type: "code",
-					scope:
-						"openid email profile https://www.googleapis.com/auth/spreadsheets.readonly",
-				},
-			},
-		}),
-		/**
-		 * ...add more providers here.
-		 *
-		 * Most other providers require a bit more work than the Discord provider. For example, the
-		 * GitHub provider requires you to add the `refresh_token_expires_in` field to the Account
-		 * model. Refer to the NextAuth.js docs for the provider you want to use. Example:
-		 *
-		 * @see https://next-auth.js.org/providers/github
-		 */
-	],
-	adapter: DrizzleAdapter(db, {
-		usersTable: users,
-		accountsTable: accounts,
-		sessionsTable: sessions,
-		verificationTokensTable: verificationTokens,
-	}),
-	callbacks: {
-		async session({ session, token, user }) {
-			const getToken = await db.query.accounts.findFirst({
-				where: eq(accounts.userId, user.id),
-			});
+  providers: [
+    GoogleProvider({
+      profile(profile) {
+        return {
+          role: profile.role ?? "user",
+          ...profile,
+        };
+      },
+      clientId: process.env.AUTH_GOOGLE_ID,
+      clientSecret: process.env.AUTH_GOOGLE_SECRET,
+      authorization: {
+        params: {
+          prompt: "consent",
+          access_type: "offline",
+          response_type: "code",
+          scope:
+            "openid email profile https://www.googleapis.com/auth/spreadsheets.readonly",
+        },
+      },
+    }),
+  ],
+  adapter: DrizzleAdapter(db, {
+    usersTable: users,
+    accountsTable: accounts,
+    sessionsTable: sessions,
+    verificationTokensTable: verificationTokens,
+  }),
+  callbacks: {
+    async session({ session, token, user }) {
+      const accountInDb = await db.query.accounts.findFirst({
+        where: eq(accounts.userId, user.id),
+      });
 
-			let accessToken: string | null = null;
-			let refreshToken: string | null = null;
+      const userInDb = await db.query.users.findFirst({
+        where: eq(users.id, user.id),
+      });
 
-			if (getToken) {
-				accessToken = getToken.access_token;
-				refreshToken = getToken.refresh_token;
-			}
-			session.user.accessToken = accessToken ?? undefined;
-			session.user.refreshToken = refreshToken ?? undefined;
-			return session;
-		},
-	},
+      let accessToken: string | null = null;
+      let refreshToken: string | null = null;
+
+      if (accountInDb) {
+        accessToken = accountInDb.access_token;
+        refreshToken = accountInDb.refresh_token;
+      }
+      session.user.accessToken = accessToken ?? undefined;
+      session.user.refreshToken = refreshToken ?? undefined;
+
+      if (userInDb) {
+        session.user.role = userInDb.role;
+      }
+      return session;
+    },
+  },
 } satisfies NextAuthConfig;
