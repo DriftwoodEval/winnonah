@@ -54,13 +54,13 @@ export function HeaderActions() {
 						</Avatar>
 					</DropdownMenuTrigger>
 					<DropdownMenuContent align="end">
-						<DropdownMenuItem>
-							<Link href="/settings">Settings</Link>
-						</DropdownMenuItem>
+						<Link href="/settings">
+							<DropdownMenuItem>Settings</DropdownMenuItem>
+						</Link>
 						<DropdownMenuSeparator />
-						<DropdownMenuItem>
-							<Link href="/api/auth/signout">Sign out</Link>
-						</DropdownMenuItem>
+						<Link href="/api/auth/signout">
+							<DropdownMenuItem>Sign out</DropdownMenuItem>
+						</Link>
 					</DropdownMenuContent>
 				</DropdownMenu>
 			)}

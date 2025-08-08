@@ -13,6 +13,7 @@ import Link from "next/link";
 import { checkRole } from "~/lib/utils";
 import { api } from "~/trpc/react";
 import { Avatar, AvatarFallback, AvatarImage } from "../ui/avatar";
+import { UsersTableActionsMenu } from "./UsersTableActionsMenu";
 
 export default function UsersTable() {
 	const { data: session } = useSession();
@@ -21,15 +22,13 @@ export default function UsersTable() {
 	const { data: users, isLoading: isLoadingUsers } =
 		api.users.getAll.useQuery();
 
-	console.log(users);
-
 	return (
 		<div className="px-4 pb-4">
 			<Table>
 				<TableHeader>
 					<TableRow>
-						{/* <TableHead className="w-[20px]"></TableHead> */}
-						<TableHead className="w-[20px]"></TableHead>
+						{admin && <TableHead className="w-[20px]"></TableHead>}
+						<TableHead className="w-[20px]">Icon</TableHead>
 						<TableHead className="w-[100px]">Name</TableHead>
 						<TableHead className="w-[100px]">Email</TableHead>
 						<TableHead className="w-[100px]">Role</TableHead>
@@ -45,11 +44,11 @@ export default function UsersTable() {
 					)}
 					{users?.map((user) => (
 						<TableRow key={user.id}>
-							{/* {admin && (
-									<TableCell>
-										<UsersTableActionsMenu questionnaire={questionnaire} />
-									</TableCell>
-								)} */}
+							{admin && (
+								<TableCell>
+									<UsersTableActionsMenu user={user} />
+								</TableCell>
+							)}
 							<TableCell>
 								<Avatar>
 									<AvatarImage src={user.image ?? ""} />
