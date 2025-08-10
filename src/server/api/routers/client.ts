@@ -148,28 +148,26 @@ export const clientRouter = createTRPCRouter({
     return clientsNotInTA;
   }),
 
-  updateColor: protectedProcedure
-    .input(z.object({ hash: z.string(), color: z.enum(CLIENT_COLOR_KEYS) }))
-    .mutation(async ({ ctx, input }) => {
-      await ctx.db
-        .update(clients)
-        .set({ color: input.color })
-        .where(eq(clients.hash, input.hash));
-
-      return { success: true };
-    }),
-
   updateClient: protectedProcedure
     .input(
       z.object({
         clientId: z.number(),
         asanaId: z.string().optional(),
+        color: z.enum(CLIENT_COLOR_KEYS).optional(),
       })
     )
     .mutation(async ({ ctx, input }) => {
-      const updateData: { asanaId?: string } = {};
+      const updateData: {
+        asanaId?: string;
+        color?: (typeof CLIENT_COLOR_KEYS)[number];
+      } = {};
 
-      if (input.asanaId !== undefined) updateData.asanaId = input.asanaId;
+      if (input.asanaId !== undefined) {
+        updateData.asanaId = input.asanaId;
+      }
+      if (input.color !== undefined) {
+        updateData.color = input.color;
+      }
 
       await ctx.db
         .update(clients)

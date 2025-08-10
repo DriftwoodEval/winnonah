@@ -32,7 +32,7 @@ export function Client({ hash }: { hash: string }) {
 		}
 	}, [client?.color]);
 
-	const updateClientColorMutation = api.clients.updateColor.useMutation({
+	const updateClientColorMutation = api.clients.updateClient.useMutation({
 		onSuccess: () => {
 			refetchClient();
 		},
@@ -48,7 +48,7 @@ export function Client({ hash }: { hash: string }) {
 	const handleColorChange = (color: ClientColor) => {
 		if (!client) return;
 		setSelectedColor(color);
-		updateClientColorMutation.mutate({ hash: client.hash, color });
+		updateClientColorMutation.mutate({ clientId: client.id, color });
 	};
 
 	const isLoading = isLoadingClient || isLoadingOffices;
