@@ -39,7 +39,11 @@ def main():
 
     # clients = clients[clients["LASTNAME"] == "Testson"]
 
-    new_clients = utils.database.filter_clients_with_changed_address(clients)
+    new_clients = pd.DataFrame()
+
+    if not clients.empty:
+        new_clients = utils.database.filter_clients_with_changed_address(clients)
+        new_clients = utils.clients.remove_invalid_clients(new_clients)
 
     missing_asana_clients = utils.database.get_missing_asana_clients()
 

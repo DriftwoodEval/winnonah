@@ -8,6 +8,7 @@ import pymysql.cursors
 import utils.relationships
 from dotenv import load_dotenv
 from loguru import logger
+from utils.misc import get_column
 
 load_dotenv()
 
@@ -203,65 +204,103 @@ def put_clients_in_db(clients_df):
             """
 
             for _, client in clients_df.iterrows():
-                if isinstance(client.SECONDARY_INSURANCE_COMPANYNAME, list):
-                    if str(client.SECONDARY_INSURANCE_COMPANYNAME) == "[nan]":
-                        client.SECONDARY_INSURANCE_COMPANYNAME = None
-                    else:
-                        client.SECONDARY_INSURANCE_COMPANYNAME = ",".join(
-                            client.SECONDARY_INSURANCE_COMPANYNAME
-                        )
+                client_id = get_column(client, "CLIENT_ID")
+                if client_id is None:
+                    logger.warning(
+                        f"Skipping {client.FIRSTNAME} {client.LASTNAME} with no ID"
+                    )
+                    continue
+
+                secondary_insurance = get_column(
+                    client, "SECONDARY_INSURANCE_COMPANYNAME"
+                )
+                if (
+                    isinstance(secondary_insurance, list)
+                    and str(secondary_insurance) != "[nan]"
+                ):
+                    secondary_insurance = ",".join(secondary_insurance)
+
+                firstname = get_column(client, "FIRSTNAME")
+                lastname = get_column(client, "LASTNAME")
+                preferred_name = get_column(client, "PREFERRED_NAME")
+
+                full_name = ""
+                if isinstance(firstname, str) and firstname:
+                    full_name += firstname
+                if isinstance(preferred_name, str) and preferred_name:
+                    full_name += f" ({preferred_name})"
+                if isinstance(lastname, str) and lastname:
+                    full_name += f" {lastname}"
+
+                added_date_data = get_column(client, "ADDED_DATE")
+                added_date_formatted = None
+
+                if isinstance(added_date_data, str) and added_date_data:
+                    try:
+                        added_date_formatted = datetime.strptime(
+                            added_date_data, "%m/%d/%Y"
+                        ).strftime("%Y-%m-%d")
+                    except ValueError:
+                        logger.warning(f"Could not parse date: {added_date_data}")
+
+                dob_data = get_column(client, "DOB")
+                dob_formatted = None
+
+                if isinstance(dob_data, str) and dob_data:
+                    try:
+                        dob_formatted = datetime.strptime(
+                            dob_data, "%m/%d/%Y"
+                        ).strftime("%Y-%m-%d")
+                    except ValueError:
+                        logger.warning(f"Could not parse date: {dob_data}")
+
+                gender_data = get_column(client, "GENDER")
+                gender = None
+
+                if isinstance(gender_data, str) and gender_data:
+                    gender = gender_data.title().split(".")[-1]
 
                 values = (
-                    client.CLIENT_ID,
+                    get_column(client, "CLIENT_ID"),
                     hashlib.sha256(str(client.CLIENT_ID).encode("utf-8")).hexdigest(),
-                    not client.STATUS == "Inactive",
-                    client.ASANA_ID if pd.notna(client.ASANA_ID) else None,
-                    client.ARCHIVED_IN_ASANA,
-                    datetime.strptime(client.ADDED_DATE, "%m/%d/%Y").strftime(
-                        "%Y-%m-%d"
-                    ),
-                    datetime.strptime(client.DOB, "%m/%d/%Y").strftime("%Y-%m-%d"),
-                    client.FIRSTNAME,
-                    client.LASTNAME,
-                    client.PREFERRED_NAME if pd.notna(client.PREFERRED_NAME) else None,
-                    f"{client.FIRSTNAME}{' (' + client.PREFERRED_NAME + ') ' if pd.notna(client.PREFERRED_NAME) else ' '}{client.LASTNAME}",
-                    client.ADDRESS
-                    if pd.notna(client.ADDRESS) and client.ADDRESS != ""
+                    get_column(client, "STATUS") != "Inactive",
+                    get_column(client, "ASANA_ID"),
+                    get_column(client, "ARCHIVED_IN_ASANA", default=False),
+                    added_date_formatted,
+                    dob_formatted,
+                    firstname,
+                    lastname,
+                    preferred_name,
+                    full_name.strip(),
+                    get_column(client, "ADDRESS"),
+                    get_column(client, "SCHOOL_DISTRICT"),
+                    get_column(client, "CLOSEST_OFFICE")
+                    if get_column(client, "CLOSEST_OFFICE") != "Unknown"
                     else None,
-                    client.SCHOOL_DISTRICT,
-                    client.CLOSEST_OFFICE if pd.notna(client.CLOSEST_OFFICE) else None,
-                    client.CLOSEST_OFFICE_MILES
-                    if pd.notna(client.CLOSEST_OFFICE_MILES)
-                    and client.CLOSEST_OFFICE != "Unknown"
+                    get_column(client, "CLOSEST_OFFICE_MILES")
+                    if get_column(client, "CLOSEST_OFFICE") != "Unknown"
                     else None,
-                    client.SECOND_CLOSEST_OFFICE
-                    if pd.notna(client.SECOND_CLOSEST_OFFICE)
+                    get_column(client, "SECOND_CLOSEST_OFFICE")
+                    if get_column(client, "SECOND_CLOSEST_OFFICE") != "Unknown"
                     else None,
-                    client.SECOND_CLOSEST_OFFICE_MILES
-                    if pd.notna(client.SECOND_CLOSEST_OFFICE_MILES)
-                    and client.SECOND_CLOSEST_OFFICE != "Unknown"
+                    get_column(client, "SECOND_CLOSEST_OFFICE_MILES")
+                    if get_column(client, "SECOND_CLOSEST_OFFICE") != "Unknown"
                     else None,
-                    client.THIRD_CLOSEST_OFFICE
-                    if pd.notna(client.THIRD_CLOSEST_OFFICE)
+                    get_column(client, "THIRD_CLOSEST_OFFICE")
+                    if get_column(client, "THIRD_CLOSEST_OFFICE") != "Unknown"
                     else None,
-                    client.THIRD_CLOSEST_OFFICE_MILES
-                    if pd.notna(client.THIRD_CLOSEST_OFFICE_MILES)
-                    and client.THIRD_CLOSEST_OFFICE != "Unknown"
+                    get_column(client, "THIRD_CLOSEST_OFFICE_MILES")
+                    if get_column(client, "THIRD_CLOSEST_OFFICE") != "Unknown"
                     else None,
-                    client.PRIMARY_INSURANCE_COMPANYNAME
-                    if pd.notna(client.PRIMARY_INSURANCE_COMPANYNAME)
-                    and client.PRIMARY_INSURANCE_COMPANYNAME != ""
+                    get_column(client, "PRIMARY_INSURANCE_COMPANYNAME"),
+                    secondary_insurance,
+                    bool(get_column(client, "POLICY_PRIVATEPAY", default=False)),
+                    get_column(client, "ASD_ADHD"),
+                    get_column(client, "INTERPRETER", default=False),
+                    gender,
+                    f"{get_column(client, 'PHONE1'):.0f}"
+                    if get_column(client, "PHONE1")
                     else None,
-                    client.SECONDARY_INSURANCE_COMPANYNAME
-                    if pd.notna(client.SECONDARY_INSURANCE_COMPANYNAME)
-                    else None,
-                    bool(client.POLICY_PRIVATEPAY),
-                    client.ASD_ADHD if pd.notna(client.ASD_ADHD) else None,
-                    client.INTERPRETER,
-                    client.GENDER.title().split(".")[-1]
-                    if pd.notna(client.GENDER)
-                    else None,
-                    f"{client.PHONE1:.0f}" if pd.notna(client.PHONE1) else None,
                 )
 
                 cursor.execute(sql, values)

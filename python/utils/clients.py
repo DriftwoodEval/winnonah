@@ -130,6 +130,12 @@ def combine_address_info(clients: pd.DataFrame) -> pd.DataFrame:
     return clients
 
 
+def remove_invalid_clients(clients_df: pd.DataFrame) -> pd.DataFrame:
+    logger.debug("Removing clients with invalid IDs")
+    clients_df = clients_df[pd.notna(clients_df["CLIENT_ID"])]
+    return clients_df
+
+
 def get_clients() -> pd.DataFrame:
     download_csvs()
     logger.debug("Getting clients from spreadsheets")
@@ -145,7 +151,7 @@ def get_clients() -> pd.DataFrame:
     clients_df = remove_test_names(clients_df, TEST_NAMES)
     clients_df = map_insurance_names(clients_df)
     clients_df = consolidate_by_id(clients_df)
-    clients_df.dropna(how="all", inplace=True)
+    clients_df = remove_invalid_clients(clients_df)
     clients_df = combine_address_info(clients_df)
 
     utils.database.sync_client_statuses(clients_df)
