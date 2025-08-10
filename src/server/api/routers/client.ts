@@ -154,12 +154,14 @@ export const clientRouter = createTRPCRouter({
         clientId: z.number(),
         asanaId: z.string().optional(),
         color: z.enum(CLIENT_COLOR_KEYS).optional(),
+        schoolDistrict: z.string().optional(),
       })
     )
     .mutation(async ({ ctx, input }) => {
       const updateData: {
         asanaId?: string;
         color?: (typeof CLIENT_COLOR_KEYS)[number];
+        schoolDistrict?: string;
       } = {};
 
       if (input.asanaId !== undefined) {
@@ -167,6 +169,9 @@ export const clientRouter = createTRPCRouter({
       }
       if (input.color !== undefined) {
         updateData.color = input.color;
+      }
+      if (input.schoolDistrict !== undefined) {
+        updateData.schoolDistrict = input.schoolDistrict;
       }
 
       await ctx.db
