@@ -1,13 +1,15 @@
 import { z } from "zod";
 import { env } from "~/env";
+import { logger } from "~/lib/logger";
 import { createTRPCRouter, protectedProcedure } from "~/server/api/trpc";
 import { redis } from "~/server/lib/redis";
 
 const Asana = require("asana");
 
+const log = logger.child({ module: "trpc" });
+
 const client = Asana.ApiClient.instance;
-const token = client.authentications.token;
-token.accessToken = env.ASANA_TOKEN;
+client.authentications.token.accessToken = env.ASANA_TOKEN;
 const workspaceId = env.ASANA_WORKSPACE;
 
 // CONFIGURATION
@@ -25,13 +27,14 @@ const opts = {
 
 // HELPER FUNCTIONS
 const getProjectFromAsana = async (id: string) => {
+  log.info({ id: id }, "Fetching project from Asana");
   const projectsApiInstance = new Asana.ProjectsApi();
   const { data } = await projectsApiInstance.getProject(id, opts);
   return data;
 };
 
 const getAllProjectsFromAsana = async () => {
-  console.log("Fetching all projects from Asana");
+  log.info("Fetching all projects from Asana");
   const projectsApiInstance = new Asana.ProjectsApi();
   // biome-ignore lint/suspicious/noExplicitAny: Asana API is not typed
   const allProjects: any[] = [];
@@ -46,7 +49,7 @@ const getAllProjectsFromAsana = async () => {
     });
     allProjects.push(...response.data);
   }
-  console.log(`Fetched ${allProjects.length} projects from Asana`);
+  log.info(`Fetched ${allProjects.length} projects from Asana`);
   return allProjects;
 };
 
@@ -56,6 +59,7 @@ const updateProject = async (
 ) => {
   const projectsApiInstance = new Asana.ProjectsApi();
   const project = await projectsApiInstance.updateProject({ data }, id, opts);
+  log.info({ id: id }, "Updated project in Asana");
   return project;
 };
 
@@ -81,8 +85,9 @@ const updateCachedProjects = async (updatedProject: { gid: string }) => {
         CACHE_TTL_SECONDS,
         JSON.stringify(allProjects)
       );
-      console.log(
-        `CACHE UPDATED: Project ${updatedProject.gid} in ${ALL_PROJECTS_CACHE_KEY}`
+      log.info(
+        { id: updatedProject.gid, cacheKey: ALL_PROJECTS_CACHE_KEY },
+        `CACHE UPDATED`
       );
     }
   }
@@ -100,11 +105,11 @@ export const asanaRouter = createTRPCRouter({
       const cacheKey = projectCacheKey(id);
       const cachedProject = await redis.get(cacheKey);
       if (cachedProject) {
-        console.log(`CACHE HIT: ${cacheKey}`);
+        log.info({ cacheKey: cacheKey }, "CACHE HIT");
         return JSON.parse(cachedProject);
       }
 
-      console.log(`CACHE MISS: ${cacheKey}`);
+      log.info({ cacheKey: cacheKey }, "CACHE MISS");
       const project = await getProjectFromAsana(id);
 
       if (project) {
@@ -117,11 +122,11 @@ export const asanaRouter = createTRPCRouter({
   getAllProjects: protectedProcedure.query(async () => {
     const cachedProjects = await redis.get(ALL_PROJECTS_CACHE_KEY);
     if (cachedProjects) {
-      console.log(`CACHE HIT: ${ALL_PROJECTS_CACHE_KEY}`);
+      log.info({ cacheKey: ALL_PROJECTS_CACHE_KEY }, "CACHE HIT");
       return JSON.parse(cachedProjects);
     }
 
-    console.log(`CACHE MISS: ${ALL_PROJECTS_CACHE_KEY}.`);
+    log.info({ cacheKey: ALL_PROJECTS_CACHE_KEY }, "CACHE MISS");
 
     const lockAcquired = await redis.set(
       FETCH_LOCK_KEY,
@@ -132,7 +137,7 @@ export const asanaRouter = createTRPCRouter({
     );
 
     if (lockAcquired) {
-      console.log("Lock acquired. Fetching projects from Asana.");
+      log.info("Lock acquired. Fetching projects from Asana.");
       try {
         const projects = await getAllProjectsFromAsana();
         await redis.setex(
@@ -140,14 +145,14 @@ export const asanaRouter = createTRPCRouter({
           CACHE_TTL_SECONDS,
           JSON.stringify(projects)
         );
-        console.log(`CACHE SET: Cached ${projects.length} projects.`);
+        log.info(`CACHE SET: Cached ${projects.length} projects.`);
         return projects;
       } finally {
         await redis.del(FETCH_LOCK_KEY);
-        console.log("Lock released.");
+        log.info("Lock released.");
       }
     } else {
-      console.log(
+      log.warn(
         "Could not acquire lock. Waiting for another instance to populate the cache."
       );
       for (let i = 0; i < 15; i++) {
@@ -155,7 +160,7 @@ export const asanaRouter = createTRPCRouter({
         await new Promise((res) => setTimeout(res, 2000)); // Wait 2s
         const projects = await redis.get(ALL_PROJECTS_CACHE_KEY);
         if (projects) {
-          console.log("Cache populated by another instance. Returning data.");
+          log.info("Cache populated by another instance. Returning data.");
           return JSON.parse(projects);
         }
       }

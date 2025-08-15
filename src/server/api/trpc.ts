@@ -10,10 +10,13 @@
 import { initTRPC, TRPCError } from "@trpc/server";
 import superjson from "superjson";
 import { ZodError } from "zod";
+import { logger } from "~/lib/logger";
 
 import { auth } from "~/server/auth";
 import { db } from "~/server/db";
 import { redis } from "~/server/lib/redis";
+
+const log = logger.child({ module: "trpc" });
 
 /**
  * 1. CONTEXT
@@ -98,7 +101,7 @@ const timingMiddleware = t.middleware(async ({ next, path }) => {
   const result = await next();
 
   const end = Date.now();
-  console.log(`[TRPC] ${path} took ${end - start}ms to execute`);
+  log.debug(`${path} took ${end - start}ms to execute`);
 
   return result;
 });

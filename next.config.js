@@ -9,6 +9,8 @@ const config = {
   allowedDevOrigins: ["winnonah.xyz", "*.winnonah.xyz"],
   output: "standalone",
 
+  serverExternalPackages: ["pino", "pino-pretty"],
+
   turbopack: {},
   webpack: (config, { isServer }) => {
     if (!isServer) {
