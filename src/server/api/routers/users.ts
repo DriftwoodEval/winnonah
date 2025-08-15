@@ -3,7 +3,7 @@ import { eq } from "drizzle-orm";
 import z from "zod";
 import { type UserRole, userRoles } from "~/lib/types";
 import { createTRPCRouter, protectedProcedure } from "~/server/api/trpc";
-import { users } from "~/server/db/schema";
+import { invitations, users } from "~/server/db/schema";
 export const userRouter = createTRPCRouter({
   getAll: protectedProcedure.query(async ({ ctx }) => {
     const users = await ctx.db.query.users.findMany({
@@ -60,4 +60,42 @@ export const userRouter = createTRPCRouter({
 
       return updatedUser;
     }),
+
+  createInvitation: protectedProcedure
+    .input(z.object({ email: z.email(), role: z.enum(userRoles) }))
+    .mutation(async ({ ctx, input }) => {
+      if (ctx.session.user.role !== "superadmin") {
+        throw new TRPCError({
+          code: "UNAUTHORIZED",
+        });
+      }
+
+      await ctx.db
+        .insert(invitations)
+        .values({ email: input.email, role: input.role });
+      return {
+        success: true,
+        message: `Invitation created for ${input.email}`,
+      };
+    }),
+
+  getPendingInvitations: protectedProcedure.query(async ({ ctx }) => {
+    const pendingInvitations = await ctx.db.query.invitations.findMany({
+      where: eq(invitations.status, "pending"),
+      orderBy: (invitations, { desc }) => [desc(invitations.createdAt)],
+    });
+    return pendingInvitations;
+  }),
+
+  deleteInvitation: protectedProcedure
+    .input(
+      z.object({
+        id: z.number(),
+      })
+    )
+    .mutation(async ({ ctx, input }) => ({
+      success: await ctx.db
+        .delete(invitations)
+        .where(eq(invitations.id, input.id)),
+    })),
 });

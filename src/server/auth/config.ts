@@ -1,5 +1,5 @@
 import { DrizzleAdapter } from "@auth/drizzle-adapter";
-import { eq } from "drizzle-orm/sql";
+import { and, eq } from "drizzle-orm/sql";
 import type { DefaultSession, NextAuthConfig } from "next-auth";
 import GoogleProvider from "next-auth/providers/google";
 import type { UserRole } from "~/lib/types";
@@ -7,6 +7,8 @@ import type { UserRole } from "~/lib/types";
 import { db } from "~/server/db";
 import {
   accounts,
+  evaluators,
+  invitations,
   sessions,
   users,
   verificationTokens,
@@ -26,11 +28,13 @@ declare module "next-auth" {
       accessToken?: string;
       refreshToken?: string;
       role: UserRole;
+      evaluatorId?: number | null;
     } & DefaultSession["user"];
   }
 
   interface User {
     role: UserRole;
+    evaluatorId?: number | null;
   }
 }
 
@@ -62,6 +66,49 @@ export const authConfig = {
     verificationTokensTable: verificationTokens,
   }),
   callbacks: {
+    async signIn({ user, account, profile }) {
+      if (!user.email) return false;
+
+      const existingUser = await db.query.users.findFirst({
+        where: eq(users.email, user.email ?? ""),
+      });
+
+      if (existingUser) {
+        return true;
+      }
+
+      const evaluatorProfile = await db.query.evaluators.findFirst({
+        where: eq(evaluators.email, user.email ?? ""),
+      });
+
+      if (evaluatorProfile) {
+        user.evaluatorId = evaluatorProfile.npi;
+      }
+
+      const invitation = await db.query.invitations.findFirst({
+        where: and(
+          eq(invitations.email, user.email ?? ""),
+          eq(invitations.status, "pending")
+        ),
+      });
+
+      if (invitation) {
+        user.role = invitation.role as UserRole;
+
+        await db
+          .update(invitations)
+          .set({
+            status: "accepted",
+            usedAt: new Date(),
+          })
+          .where(eq(invitations.id, invitation.id));
+      } else {
+        user.role = "user";
+      }
+
+      return true;
+    },
+
     async session({ session, token, user }) {
       const accountInDb = await db.query.accounts.findFirst({
         where: eq(accounts.userId, user.id),
@@ -80,6 +127,7 @@ export const authConfig = {
       if (user) {
         session.user.id = user.id;
         session.user.role = user.role;
+        session.user.evaluatorId = user.evaluatorId;
       }
       return session;
     },

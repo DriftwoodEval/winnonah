@@ -1,3 +1,4 @@
+import InvitesTable from "@components/settings/InvitesTable";
 import UsersTable from "@components/settings/UsersTable";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@ui/tabs";
 import { checkRole } from "~/lib/utils";
@@ -20,12 +21,14 @@ export default async function Home() {
 	return (
 		<main className="flex min-h-screen items-center justify-center">
 			<div className="mx-10 flex w-full flex-col gap-6">
+				<h1 className="font-bold text-2xl">Settings</h1>
 				<Tabs defaultValue="users">
 					<TabsList className="w-full">
 						<TabsTrigger value="users">Users</TabsTrigger>
 					</TabsList>
 					<TabsContent value="users">
 						<UsersTable />
+						<InvitesTable />
 					</TabsContent>
 				</Tabs>
 			</div>
