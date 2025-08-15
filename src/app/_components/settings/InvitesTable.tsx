@@ -10,6 +10,28 @@ import {
 	DialogTrigger,
 } from "@ui/dialog";
 import {
+	DropdownMenu,
+	DropdownMenuContent,
+	DropdownMenuItem,
+	DropdownMenuTrigger,
+} from "@ui/dropdown-menu";
+import {
+	Form,
+	FormControl,
+	FormField,
+	FormItem,
+	FormLabel,
+	FormMessage,
+} from "@ui/form";
+import { Input } from "@ui/input";
+import {
+	Select,
+	SelectContent,
+	SelectItem,
+	SelectTrigger,
+	SelectValue,
+} from "@ui/select";
+import {
 	Table,
 	TableBody,
 	TableCell,
@@ -17,6 +39,7 @@ import {
 	TableHeader,
 	TableRow,
 } from "@ui/table";
+import { MoreHorizontal } from "lucide-react";
 import { useSession } from "next-auth/react";
 import Link from "next/link";
 import { useState } from "react";
@@ -25,24 +48,8 @@ import { toast } from "sonner";
 import z from "zod";
 import { userRoles } from "~/lib/types";
 import { checkRole } from "~/lib/utils";
+import type { Invitation } from "~/server/lib/types";
 import { api } from "~/trpc/react";
-import {
-	Form,
-	FormControl,
-	FormField,
-	FormItem,
-	FormLabel,
-	FormMessage,
-} from "../ui/form";
-import { Input } from "../ui/input";
-import {
-	Select,
-	SelectContent,
-	SelectItem,
-	SelectTrigger,
-	SelectValue,
-} from "../ui/select";
-import { InvitesTableActionsMenu } from "./InvitesTableActionsMenu";
 
 const formSchema = z.object({
 	email: z.email(),
@@ -180,6 +187,34 @@ function AddInviteButton() {
 	);
 }
 
+function InvitesTableActionsMenu({ invite }: { invite: Invitation }) {
+	const utils = api.useUtils();
+
+	const { mutate: deleteInvite, isPending: isUpdating } =
+		api.users.deleteInvitation.useMutation({
+			onSuccess: () => {
+				utils.users.getPendingInvitations.invalidate();
+			},
+			onError: (error) => console.error("Failed to update:", error),
+		});
+
+	return (
+		<DropdownMenu>
+			<DropdownMenuTrigger asChild>
+				<Button className="h-8 w-8 p-0" variant="ghost">
+					<span className="sr-only">Open menu</span>
+					<MoreHorizontal className="h-4 w-4" />
+				</Button>
+			</DropdownMenuTrigger>
+			<DropdownMenuContent align="start">
+				<DropdownMenuItem onClick={() => deleteInvite({ id: invite.id })}>
+					Delete
+				</DropdownMenuItem>
+			</DropdownMenuContent>
+		</DropdownMenu>
+	);
+}
+
 export default function InvitesTable() {
 	const { data: session } = useSession();
 	const admin = session ? checkRole(session.user.role, "admin") : false;
@@ -217,7 +252,12 @@ export default function InvitesTable() {
 								</TableCell>
 							)}
 							<TableCell>
-								<Link href={`mailto:${invite.email}`}>{invite.email}</Link>
+								<Link
+									className="hover:underline"
+									href={`mailto:${invite.email}`}
+								>
+									{invite.email}
+								</Link>
 							</TableCell>
 							<TableCell>
 								{invite.role.charAt(0).toUpperCase() + invite.role.slice(1)}

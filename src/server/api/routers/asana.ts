@@ -69,6 +69,10 @@ const updateCachedProjects = async (updatedProject: { gid: string }) => {
     CACHE_TTL_SECONDS,
     JSON.stringify(updatedProject)
   );
+  log.info(
+    { id: updatedProject.gid, cacheKey: projectCacheKey(updatedProject.gid) },
+    `CACHE SET`
+  );
 
   const allProjectsStr = await redis.get(ALL_PROJECTS_CACHE_KEY);
   if (allProjectsStr) {
@@ -87,7 +91,7 @@ const updateCachedProjects = async (updatedProject: { gid: string }) => {
       );
       log.info(
         { id: updatedProject.gid, cacheKey: ALL_PROJECTS_CACHE_KEY },
-        `CACHE UPDATED`
+        `CACHE SET`
       );
     }
   }
@@ -114,6 +118,7 @@ export const asanaRouter = createTRPCRouter({
 
       if (project) {
         await redis.setex(cacheKey, CACHE_TTL_SECONDS, JSON.stringify(project));
+        log.info({ cacheKey: cacheKey }, "CACHE SET");
       }
 
       return project;
