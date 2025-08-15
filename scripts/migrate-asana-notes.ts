@@ -9,18 +9,9 @@ import { env } from "~/env";
 import * as schema from "~/server/db/schema";
 
 const require = createRequire(import.meta.url);
-
 const Asana = require("asana");
 const asanaClient = Asana.ApiClient.instance;
-const token = asanaClient.authentications.token;
-token.accessToken = env.ASANA_TOKEN;
-const workspaceId = env.ASANA_WORKSPACE;
-
-const opts = {
-  opt_fields: "name,gid,html_notes,color",
-  workspace: workspaceId,
-  limit: 100,
-};
+asanaClient.authentications.token.accessToken = env.ASANA_TOKEN;
 
 interface UnmatchedLog {
   asanaProjectId: string;
@@ -34,6 +25,12 @@ const getAllProjectsFromAsana = async () => {
   const projectsApiInstance = new Asana.ProjectsApi();
   // biome-ignore lint/suspicious/noExplicitAny: asana API is not typed
   const allProjects: any[] = [];
+
+  const opts = {
+    opt_fields: "name,gid,html_notes,color",
+    workspace: env.ASANA_WORKSPACE,
+    limit: 100,
+  };
   let response = await projectsApiInstance.getProjects(opts);
   allProjects.push(...response.data);
 
@@ -84,7 +81,7 @@ const runMigration = async () => {
           reason: "Client with this Asana ID was not found in the database.",
           html_content: html_notes,
         });
-        continue; // <-- Skip to the next project
+        continue;
       }
 
       // Step 3: If a client IS found, update their color.
@@ -114,9 +111,11 @@ const runMigration = async () => {
         continue;
       }
 
-      const cleanedHtml = html_notes.replace(/<br[^>]*>/g, "\n");
+      const cleanedHtml = html_notes
+        .replace(/^<body.*?>|<\/body>$/gs, "")
+        .trim()
+        .replace("/\n/g", "<br>");
       const tiptapJson = generateJSON(cleanedHtml, [StarterKit]);
-      console.log(tiptapJson);
 
       await db.insert(schema.notes).values({
         clientId: client.id,
@@ -124,7 +123,9 @@ const runMigration = async () => {
       });
 
       migratedNotes++;
-      console.log(`✅ Migrated note for client ID: ${client.id}`);
+      console.log(
+        `✅ Migrated note for client ID:  ${client.fullName} (ID: ${client.id})`
+      );
     } catch (error) {
       console.error(
         `❌ An error occurred processing Asana project ${asanaId} (${name})`,
