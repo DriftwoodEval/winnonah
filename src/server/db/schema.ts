@@ -216,11 +216,17 @@ export const users = createTable("user", (d) => ({
     .default(sql`CURRENT_TIMESTAMP(3)`),
   role: d.mysqlEnum("role", userRoles).notNull().default("user"),
   image: d.varchar({ length: 255 }),
+  evaluatorId: d.int().references(() => evaluators.npi),
 }));
 
-export const usersRelations = relations(users, ({ many }) => ({
+export const usersRelations = relations(users, ({ many, one }) => ({
   accounts: many(accounts),
   sessions: many(sessions),
+
+  evaluator: one(evaluators, {
+    fields: [users.evaluatorId],
+    references: [evaluators.npi],
+  }),
 }));
 
 export const accounts = createTable(
@@ -251,6 +257,21 @@ export const accounts = createTable(
 
 export const accountsRelations = relations(accounts, ({ one }) => ({
   user: one(users, { fields: [accounts.userId], references: [users.id] }),
+}));
+
+export const invitations = createTable("invitation", (d) => ({
+  id: d.int().notNull().autoincrement().primaryKey(),
+  email: d.varchar({ length: 255 }).notNull().unique(),
+  role: d.mysqlEnum("role", userRoles).notNull().default("user"),
+  status: d
+    .mysqlEnum("status", ["pending", "accepted"])
+    .notNull()
+    .default("pending"),
+  usedAt: d.timestamp(),
+  createdAt: d
+    .timestamp("created_at")
+    .default(sql`CURRENT_TIMESTAMP`)
+    .notNull(),
 }));
 
 export const sessions = createTable(
