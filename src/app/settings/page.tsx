@@ -1,3 +1,4 @@
+import EvaluatorsTable from "@components/settings/EvaluatorsTable";
 import InvitesTable from "@components/settings/InvitesTable";
 import UsersTable from "@components/settings/UsersTable";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@ui/tabs";
@@ -19,16 +20,20 @@ export default async function Home() {
 	}
 
 	return (
-		<main className="flex min-h-screen items-center justify-center">
-			<div className="mx-10 flex w-full flex-col gap-6">
+		<main className="flex min-h-screen">
+			<div className="mx-10 my-10 flex w-full flex-col gap-6">
 				<h1 className="font-bold text-2xl">Settings</h1>
 				<Tabs defaultValue="users">
 					<TabsList className="w-full">
 						<TabsTrigger value="users">Users</TabsTrigger>
+						<TabsTrigger value="evaluators">Evaluators</TabsTrigger>
 					</TabsList>
 					<TabsContent value="users">
 						<UsersTable />
 						<InvitesTable />
+					</TabsContent>
+					<TabsContent value="evaluators">
+						<EvaluatorsTable />
 					</TabsContent>
 				</Tabs>
 			</div>

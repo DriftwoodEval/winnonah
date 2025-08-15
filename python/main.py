@@ -22,6 +22,7 @@ def main():
 
     utils.config.validate_config()
 
+    logger.debug("Removing temp directory")
     shutil.rmtree("temp", ignore_errors=True)
 
     if args.download_only:
