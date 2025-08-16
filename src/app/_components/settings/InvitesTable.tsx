@@ -46,6 +46,7 @@ import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 import z from "zod";
+import { useMediaQuery } from "~/hooks/use-media-query";
 import { logger } from "~/lib/logger";
 import { userRoles } from "~/lib/types";
 import { checkRole } from "~/lib/utils";
@@ -193,6 +194,9 @@ function AddInviteButton() {
 function InvitesTableActionsMenu({ invite }: { invite: Invitation }) {
 	const utils = api.useUtils();
 
+	const isDesktop = useMediaQuery("(min-width: 768px)");
+	const alignValue = isDesktop ? "start" : "end";
+
 	const deleteInvite = api.users.deleteInvitation.useMutation({
 		onSuccess: () => {
 			utils.users.getPendingInvitations.invalidate();
@@ -213,7 +217,7 @@ function InvitesTableActionsMenu({ invite }: { invite: Invitation }) {
 					<MoreHorizontal className="h-4 w-4" />
 				</Button>
 			</DropdownMenuTrigger>
-			<DropdownMenuContent align="start">
+			<DropdownMenuContent align={alignValue}>
 				<DropdownMenuItem
 					className="text-destructive"
 					onClick={() => deleteInvite.mutate({ id: invite.id })}

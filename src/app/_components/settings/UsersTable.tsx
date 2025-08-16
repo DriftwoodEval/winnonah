@@ -40,6 +40,7 @@ import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 import { z } from "zod";
+import { useMediaQuery } from "~/hooks/use-media-query";
 import { logger } from "~/lib/logger";
 import { userRoles } from "~/lib/types";
 import { checkRole } from "~/lib/utils";
@@ -125,6 +126,9 @@ function UsersTableForm({
 function UsersTableActionsMenu({ user }: { user: User }) {
 	const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
 
+	const isDesktop = useMediaQuery("(min-width: 768px)");
+	const alignValue = isDesktop ? "start" : "end";
+
 	const { mutate: updateUser, isPending: isUpdating } =
 		api.users.updateUser.useMutation({
 			onSuccess: () => {
@@ -155,7 +159,7 @@ function UsersTableActionsMenu({ user }: { user: User }) {
 						<MoreHorizontal className="h-4 w-4" />
 					</Button>
 				</DropdownMenuTrigger>
-				<DropdownMenuContent align="start">
+				<DropdownMenuContent align={alignValue}>
 					<DropdownMenuItem onClick={() => setIsEditDialogOpen(true)}>
 						Edit
 					</DropdownMenuItem>
