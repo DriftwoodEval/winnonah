@@ -123,8 +123,8 @@ export const blockedZipCodesRelations = relations(
 
 export const offices = createTable("office", (d) => ({
   key: d.varchar({ length: 255 }).notNull().primaryKey(),
-  latitude: d.varchar({ length: 255 }).notNull(),
-  longitude: d.varchar({ length: 255 }).notNull(),
+  latitude: d.decimal({ precision: 10, scale: 8 }).notNull(),
+  longitude: d.decimal({ precision: 11, scale: 8 }).notNull(),
   prettyName: d.varchar({ length: 255 }).notNull(),
 }));
 
