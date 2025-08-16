@@ -1,4 +1,4 @@
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import z from "zod";
 import { logger } from "~/lib/logger";
 import {
@@ -6,7 +6,14 @@ import {
   createTRPCRouter,
   protectedProcedure,
 } from "~/server/api/trpc";
-import { clients, evaluatorOffices, evaluators } from "~/server/db/schema";
+import {
+  blockedSchoolDistricts,
+  blockedZipCodes,
+  clients,
+  evaluatorOffices,
+  evaluators,
+  zipCodes,
+} from "~/server/db/schema";
 import type { Evaluator } from "~/server/lib/types";
 
 const log = logger.child({ module: "evaluator" });
@@ -29,6 +36,8 @@ export const evaluatorInputSchema = z.object({
   United_Optum: z.boolean().default(false),
   districts: z.string().default(""),
   offices: z.array(z.string()).default([]),
+  blockedDistricts: z.array(z.number()).default([]),
+  blockedZips: z.array(z.string().regex(/^\d{5}$/)).default([]),
 });
 
 export const evaluatorRouter = createTRPCRouter({
@@ -49,17 +58,19 @@ export const evaluatorRouter = createTRPCRouter({
     const evaluatorsWithOffices = await ctx.db.query.evaluators.findMany({
       orderBy: (evaluators, { asc }) => [asc(evaluators.providerName)],
       with: {
-        offices: {
-          with: {
-            office: true,
-          },
-        },
+        offices: { with: { office: true } },
+        blockedSchoolDistricts: { with: { schoolDistrict: true } },
+        blockedZipCodes: { with: { zipCode: true } },
       },
     });
 
     const formattedEvaluators = evaluatorsWithOffices.map((evaluator) => ({
       ...evaluator,
       offices: evaluator.offices.map((link) => link.office),
+      blockedDistricts: evaluator.blockedSchoolDistricts.map(
+        (link) => link.schoolDistrict
+      ),
+      blockedZips: evaluator.blockedZipCodes.map((link) => link.zipCode),
     }));
 
     try {
@@ -105,7 +116,8 @@ export const evaluatorRouter = createTRPCRouter({
     .input(evaluatorInputSchema)
     .mutation(async ({ ctx, input }) => {
       const npiAsInt = parseInt(input.npi, 10);
-      const { offices, ...evaluatorData } = input;
+      const { offices, blockedDistricts, blockedZips, ...evaluatorData } =
+        input;
 
       const result = await ctx.db.transaction(async (tx) => {
         await tx.insert(evaluators).values({
@@ -113,12 +125,40 @@ export const evaluatorRouter = createTRPCRouter({
           npi: npiAsInt,
         });
 
-        if (offices && offices.length > 0) {
-          const officeRelationships = offices.map((officeKey) => ({
-            evaluatorNpi: npiAsInt,
-            officeKey: officeKey,
-          }));
-          await tx.insert(evaluatorOffices).values(officeRelationships);
+        // Link offices
+        if (offices.length > 0) {
+          await tx.insert(evaluatorOffices).values(
+            offices.map((officeKey) => ({
+              evaluatorNpi: npiAsInt,
+              officeKey,
+            }))
+          );
+        }
+
+        // Link blocked districts
+        if (blockedDistricts.length > 0) {
+          await tx.insert(blockedSchoolDistricts).values(
+            blockedDistricts.map((schoolDistrictId) => ({
+              evaluatorNpi: npiAsInt,
+              schoolDistrictId,
+            }))
+          );
+        }
+
+        // Ensure zip codes exist and link them
+        if (blockedZips.length > 0) {
+          // Ensure all zip codes exist in the main table, ignoring duplicates
+          await tx
+            .insert(zipCodes)
+            .values(blockedZips.map((zip) => ({ zip })))
+            .onDuplicateKeyUpdate({ set: { zip: sql`zip` } });
+          // Link the evaluator to the blocked zip codes
+          await tx.insert(blockedZipCodes).values(
+            blockedZips.map((zipCode) => ({
+              evaluatorNpi: npiAsInt,
+              zipCode,
+            }))
+          );
         }
       });
 
@@ -136,24 +176,60 @@ export const evaluatorRouter = createTRPCRouter({
     .input(evaluatorInputSchema)
     .mutation(async ({ ctx, input }) => {
       const npiAsInt = parseInt(input.npi, 10);
-      const { offices, ...evaluatorData } = input;
+      const { offices, blockedDistricts, blockedZips, ...evaluatorData } =
+        input;
 
       const result = await ctx.db.transaction(async (tx) => {
+        // Update core evaluator data
         await tx
           .update(evaluators)
           .set({ ...evaluatorData, npi: npiAsInt })
           .where(eq(evaluators.npi, npiAsInt));
 
+        // Delete all existing relationships
         await tx
           .delete(evaluatorOffices)
           .where(eq(evaluatorOffices.evaluatorNpi, npiAsInt));
+        await tx
+          .delete(blockedSchoolDistricts)
+          .where(eq(blockedSchoolDistricts.evaluatorNpi, npiAsInt));
+        await tx
+          .delete(blockedZipCodes)
+          .where(eq(blockedZipCodes.evaluatorNpi, npiAsInt));
 
+        // Re-insert offices
         if (offices && offices.length > 0) {
           const officeRelationships = offices.map((officeKey) => ({
             evaluatorNpi: npiAsInt,
             officeKey: officeKey,
           }));
           await tx.insert(evaluatorOffices).values(officeRelationships);
+        }
+
+        // Re-insert blocked districts
+        if (blockedDistricts.length > 0) {
+          await tx.insert(blockedSchoolDistricts).values(
+            blockedDistricts.map((schoolDistrictId) => ({
+              evaluatorNpi: npiAsInt,
+              schoolDistrictId,
+            }))
+          );
+        }
+
+        // Ensure zip codes exist and re-insert blocked zips
+        if (blockedZips.length > 0) {
+          // Ensure all zip codes exist in the main table, ignoring duplicates
+          await tx
+            .insert(zipCodes)
+            .values(blockedZips.map((zip) => ({ zip })))
+            .onDuplicateKeyUpdate({ set: { zip: sql`zip` } });
+          // Link the evaluator to the blocked zip codes
+          await tx.insert(blockedZipCodes).values(
+            blockedZips.map((zipCode) => ({
+              evaluatorNpi: npiAsInt,
+              zipCode,
+            }))
+          );
         }
       });
 
@@ -172,13 +248,7 @@ export const evaluatorRouter = createTRPCRouter({
     .mutation(async ({ ctx, input }) => {
       const npiAsInt = parseInt(input.npi, 10);
 
-      const result = await ctx.db.transaction(async (tx) => {
-        await tx
-          .delete(evaluatorOffices)
-          .where(eq(evaluatorOffices.evaluatorNpi, npiAsInt));
-
-        await tx.delete(evaluators).where(eq(evaluators.npi, npiAsInt));
-      });
+      await ctx.db.delete(evaluators).where(eq(evaluators.npi, npiAsInt));
 
       try {
         await ctx.redis.del("evaluators:all");
@@ -186,7 +256,15 @@ export const evaluatorRouter = createTRPCRouter({
       } catch (err) {
         log.error(err);
       }
-
-      return result;
     }),
+
+  getAllZipCodes: protectedProcedure.query(async ({ ctx }) => {
+    return ctx.db.query.zipCodes.findMany({
+      orderBy: (zipCodes, { asc }) => [asc(zipCodes.zip)],
+    });
+  }),
+
+  getAllSchoolDistricts: protectedProcedure.query(async ({ ctx }) => {
+    return ctx.db.query.schoolDistricts.findMany();
+  }),
 });
