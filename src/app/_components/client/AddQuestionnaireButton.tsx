@@ -9,10 +9,13 @@ import {
 } from "@ui/dialog";
 import { useState } from "react";
 import { toast } from "sonner";
+import { logger } from "~/lib/logger";
 import { normalizeDate } from "~/lib/utils";
 import { api } from "~/trpc/react";
 import type { QuestionnaireTableFormValues } from "./QuestionnaireTableForm";
 import { QuestionnaireTableForm } from "./QuestionnaireTableForm";
+
+const log = logger.child({ module: "AddQuestionnaireButton" });
 
 interface AddQuestionnaireButtonProps {
 	clientId: number | undefined;
@@ -31,7 +34,7 @@ export function AddQuestionnaireButton({
 			setIsDialogOpen(false);
 		},
 		onError: (error) => {
-			console.error("Failed to add questionnaire:", error);
+			log.error(error, "Failed to add questionnaire:");
 			toast.error("Failed to add questionnaire", {
 				description: String(error.message),
 			});

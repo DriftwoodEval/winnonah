@@ -21,11 +21,54 @@ export const evaluators = createTable("evaluator", (d) => ({
   Humana: d.boolean().notNull(),
   SH: d.boolean().notNull(),
   HB: d.boolean().notNull(),
-  AETNA: d.boolean().notNull(),
+  Aetna: d.boolean().notNull(),
   United_Optum: d.boolean().notNull(),
   districts: d.varchar({ length: 255 }),
-  offices: d.varchar({ length: 255 }),
 }));
+
+export const evaluatorRelations = relations(evaluators, ({ many }) => ({
+  offices: many(evaluatorOffices),
+}));
+
+export const offices = createTable("office", (d) => ({
+  key: d.varchar({ length: 255 }).notNull().primaryKey(),
+  latitude: d.varchar({ length: 255 }).notNull(),
+  longitude: d.varchar({ length: 255 }).notNull(),
+  prettyName: d.varchar({ length: 255 }).notNull(),
+}));
+
+export const officesRelations = relations(offices, ({ many }) => ({
+  evaluators: many(evaluatorOffices),
+}));
+
+export const evaluatorOffices = createTable(
+  "evaluator_office",
+  (d) => ({
+    evaluatorNpi: d
+      .int()
+      .notNull()
+      .references(() => evaluators.npi, { onDelete: "cascade" }),
+    officeKey: d
+      .varchar({ length: 255 })
+      .notNull()
+      .references(() => offices.key, { onDelete: "cascade" }),
+  }),
+  (t) => [primaryKey({ columns: [t.evaluatorNpi, t.officeKey] })]
+);
+
+export const evaluatorOfficesRelations = relations(
+  evaluatorOffices,
+  ({ one }) => ({
+    evaluator: one(evaluators, {
+      fields: [evaluatorOffices.evaluatorNpi],
+      references: [evaluators.npi],
+    }),
+    office: one(offices, {
+      fields: [evaluatorOffices.officeKey],
+      references: [offices.key],
+    }),
+  })
+);
 
 export const clients = createTable(
   "client",

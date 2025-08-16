@@ -38,11 +38,15 @@ import Link from "next/link";
 import { useSession } from "next-auth/react";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
+import { toast } from "sonner";
 import { z } from "zod";
+import { logger } from "~/lib/logger";
 import { userRoles } from "~/lib/types";
 import { checkRole } from "~/lib/utils";
 import type { User } from "~/server/lib/types";
 import { api } from "~/trpc/react";
+
+const log = logger.child({ module: "UsersTable" });
 
 const formSchema = z.object({
 	role: z.enum(userRoles),
@@ -126,7 +130,12 @@ function UsersTableActionsMenu({ user }: { user: User }) {
 			onSuccess: () => {
 				setIsEditDialogOpen(false);
 			},
-			onError: (error) => console.error("Failed to update:", error),
+			onError: (error) => {
+				toast.error("Failed to update user", {
+					description: String(error.message),
+				});
+				log.error(error, "Failed to update user");
+			},
 		});
 
 	const handleEditSubmit = (values: UsersTableFormValues) => {
