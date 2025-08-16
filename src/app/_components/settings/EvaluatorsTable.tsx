@@ -48,7 +48,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@ui/tooltip";
 import { MoreHorizontal } from "lucide-react";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 import { z } from "zod";
@@ -68,7 +68,7 @@ const INSURANCE_DISPLAY_NAMES: { [key: string]: string } = {
 	Humana: "Humana",
 	SH: "SH",
 	HB: "HB",
-	AETNA: "Aetna",
+	Aetna: "Aetna",
 	United_Optum: "United/Optum",
 } as const;
 
@@ -86,10 +86,10 @@ const formSchema = z.object({
 	Humana: z.boolean(),
 	SH: z.boolean(),
 	HB: z.boolean(),
-	AETNA: z.boolean(),
+	Aetna: z.boolean(),
 	United_Optum: z.boolean(),
 	districts: z.string(),
-	offices: z.string(),
+	offices: z.array(z.string()),
 });
 
 type EvaluatorFormValues = z.infer<typeof formSchema>;
@@ -109,25 +109,53 @@ function EvaluatorForm({
 }: EvaluatorFormProps) {
 	const isEditing = !!initialData;
 
+	const { data: allOffices, isLoading: isLoadingOffices } =
+		api.offices.getAll.useQuery();
+
+	const defaultValues = useMemo(() => {
+		// If we are editing, populate from initialData
+		if (initialData) {
+			return {
+				npi: initialData.npi.toString(),
+				providerName: initialData.providerName,
+				email: initialData.email,
+				SCM: initialData.SCM,
+				BabyNet: initialData.BabyNet,
+				Molina: initialData.Molina,
+				MolinaMarketplace: initialData.MolinaMarketplace,
+				ATC: initialData.ATC,
+				Humana: initialData.Humana,
+				SH: initialData.SH,
+				HB: initialData.HB,
+				Aetna: initialData.Aetna,
+				United_Optum: initialData.United_Optum,
+				districts: initialData.districts ?? "",
+				offices: initialData.offices.map((office) => office.key),
+			};
+		}
+		// If creating a new one, provide a complete, empty state
+		return {
+			npi: "",
+			providerName: "",
+			email: "",
+			SCM: false,
+			BabyNet: false,
+			Molina: false,
+			MolinaMarketplace: false,
+			ATC: false,
+			Humana: false,
+			SH: false,
+			HB: false,
+			Aetna: false,
+			United_Optum: false,
+			districts: "",
+			offices: [],
+		};
+	}, [initialData]);
+
 	const form = useForm<EvaluatorFormValues>({
 		resolver: zodResolver(formSchema),
-		defaultValues: {
-			npi: initialData?.npi ? initialData.npi.toString() : "",
-			providerName: initialData?.providerName ?? "",
-			email: initialData?.email ?? "",
-			SCM: initialData?.SCM ?? false,
-			BabyNet: initialData?.BabyNet ?? false,
-			Molina: initialData?.Molina ?? false,
-			MolinaMarketplace: initialData?.MolinaMarketplace ?? false,
-			ATC: initialData?.ATC ?? false,
-			Humana: initialData?.Humana ?? false,
-			SH: initialData?.SH ?? false,
-			HB: initialData?.HB ?? false,
-			AETNA: initialData?.AETNA ?? false,
-			United_Optum: initialData?.United_Optum ?? false,
-			districts: initialData?.districts ?? "",
-			offices: initialData?.offices ?? "",
-		},
+		defaultValues,
 	});
 
 	return (
@@ -203,7 +231,7 @@ function EvaluatorForm({
 								key={insuranceKey}
 								name={insuranceKey}
 								render={({ field }) => (
-									<FormItem className="flex flex-row items-start space-x-3 space-y-0">
+									<FormItem className="flex items-center space-x-2 space-y-0">
 										<FormControl>
 											<Checkbox
 												checked={field.value as boolean}
@@ -241,16 +269,51 @@ function EvaluatorForm({
 					<FormField
 						control={form.control}
 						name="offices"
-						render={({ field }) => (
+						render={({ field: _ }) => (
 							<FormItem>
 								<FormLabel>Offices</FormLabel>
-								<FormControl>
-									<Input
-										disabled={isLoading}
-										placeholder="Main St Office, Downtown Branch"
-										{...field}
-									/>
-								</FormControl>
+								<div className="grid grid-cols-2 gap-4 rounded-md border p-4 sm:grid-cols-3">
+									{isLoadingOffices ? (
+										<p>Loading offices...</p>
+									) : (
+										allOffices?.map((office) => (
+											<FormField
+												control={form.control}
+												key={office.key}
+												name="offices"
+												render={({ field }) => {
+													return (
+														<FormItem
+															className="flex items-center"
+															key={office.key}
+														>
+															<FormControl>
+																<Checkbox
+																	checked={field.value?.includes(office.key)}
+																	onCheckedChange={(checked) => {
+																		return checked
+																			? field.onChange([
+																					...field.value,
+																					office.key,
+																				])
+																			: field.onChange(
+																					field.value?.filter(
+																						(value) => value !== office.key,
+																					),
+																				);
+																	}}
+																/>
+															</FormControl>
+															<FormLabel className="font-normal">
+																{office.key}
+															</FormLabel>
+														</FormItem>
+													);
+												}}
+											/>
+										))
+									)}
+								</div>
 								<FormMessage />
 							</FormItem>
 						)}
@@ -433,7 +496,7 @@ export default function EvaluatorsTable() {
 			"Humana",
 			"SH",
 			"HB",
-			"AETNA",
+			"Aetna",
 			"United_Optum",
 		];
 		return insurances.filter((p) => evaluator[p]);
@@ -497,7 +560,15 @@ export default function EvaluatorsTable() {
 									</div>
 								</TableCell>
 								<TableCell>{evaluator.districts}</TableCell>
-								<TableCell>{evaluator.offices}</TableCell>
+								<TableCell>
+									<div className="flex flex-wrap gap-1">
+										{evaluator.offices?.map((office) => (
+											<Badge key={office.key} variant="secondary">
+												{office.prettyName}
+											</Badge>
+										))}
+									</div>
+								</TableCell>
 							</TableRow>
 						))
 					) : (

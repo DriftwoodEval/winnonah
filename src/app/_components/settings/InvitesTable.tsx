@@ -46,10 +46,13 @@ import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 import z from "zod";
+import { logger } from "~/lib/logger";
 import { userRoles } from "~/lib/types";
 import { checkRole } from "~/lib/utils";
 import type { Invitation } from "~/server/lib/types";
 import { api } from "~/trpc/react";
+
+const log = logger.child({ module: "InvitesTable" });
 
 const formSchema = z.object({
 	email: z.email(),
@@ -151,7 +154,7 @@ function AddInviteButton() {
 			setIsDialogOpen(false);
 		},
 		onError: (error) => {
-			console.error("Failed to create invite:", error);
+			log.error(error, "Failed to create invite");
 			toast.error("Failed to create invite", {
 				description: String(error.message),
 			});
@@ -194,7 +197,12 @@ function InvitesTableActionsMenu({ invite }: { invite: Invitation }) {
 		onSuccess: () => {
 			utils.users.getPendingInvitations.invalidate();
 		},
-		onError: (error) => console.error("Failed to update:", error),
+		onError: (error) => {
+			toast.error("Failed to delete invite", {
+				description: String(error.message),
+			});
+			log.error(error, "Failed to delete invite");
+		},
 	});
 
 	return (

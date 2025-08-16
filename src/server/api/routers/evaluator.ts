@@ -6,7 +6,7 @@ import {
   createTRPCRouter,
   protectedProcedure,
 } from "~/server/api/trpc";
-import { clients, evaluators } from "~/server/db/schema";
+import { clients, evaluatorOffices, evaluators } from "~/server/db/schema";
 import type { Evaluator } from "~/server/lib/types";
 
 const log = logger.child({ module: "evaluator" });
@@ -25,44 +25,55 @@ export const evaluatorInputSchema = z.object({
   Humana: z.boolean().default(false),
   SH: z.boolean().default(false),
   HB: z.boolean().default(false),
-  AETNA: z.boolean().default(false),
+  Aetna: z.boolean().default(false),
   United_Optum: z.boolean().default(false),
   districts: z.string().default(""),
-  offices: z.string().default(""),
+  offices: z.array(z.string()).default([]),
 });
 
 export const evaluatorRouter = createTRPCRouter({
   getAll: protectedProcedure.query(async ({ ctx }) => {
-    // TODO: invalidate this when a new evaluator is added
     const cacheKey = "evaluators:all";
 
     try {
       const cachedEvaluators = await ctx.redis.get(cacheKey);
       if (cachedEvaluators) {
-        log.info({ cacheKey: cacheKey }, "CACHE HIT");
+        log.info({ cacheKey: cacheKey }, "Cache hit");
         return JSON.parse(cachedEvaluators) as Evaluator[];
       }
     } catch (err) {
-      console.error("Redis error in evaluatorRouter.getAll:", err);
+      log.error(err);
     }
 
-    log.info({ cacheKey: cacheKey }, "CACHE MISS");
-    const evaluators = await ctx.db.query.evaluators.findMany({
+    log.info({ cacheKey: cacheKey }, "Cache miss");
+    const evaluatorsWithOffices = await ctx.db.query.evaluators.findMany({
       orderBy: (evaluators, { asc }) => [asc(evaluators.providerName)],
+      with: {
+        offices: {
+          with: {
+            office: true,
+          },
+        },
+      },
     });
+
+    const formattedEvaluators = evaluatorsWithOffices.map((evaluator) => ({
+      ...evaluator,
+      offices: evaluator.offices.map((link) => link.office),
+    }));
 
     try {
       await ctx.redis.set(
         cacheKey,
-        JSON.stringify(evaluators),
+        JSON.stringify(formattedEvaluators),
         "EX",
         CACHE_TTL
       );
     } catch (err) {
-      console.error("Redus SET failed:", err);
+      log.error(err);
     }
 
-    return evaluators;
+    return formattedEvaluators;
   }),
 
   getEligibleForClient: protectedProcedure
@@ -94,22 +105,21 @@ export const evaluatorRouter = createTRPCRouter({
     .input(evaluatorInputSchema)
     .mutation(async ({ ctx, input }) => {
       const npiAsInt = parseInt(input.npi, 10);
-      const resultHeader = await ctx.db.insert(evaluators).values({
-        npi: npiAsInt,
-        providerName: input.providerName,
-        email: input.email,
-        SCM: input.SCM,
-        BabyNet: input.BabyNet,
-        Molina: input.Molina,
-        MolinaMarketplace: input.MolinaMarketplace,
-        ATC: input.ATC,
-        Humana: input.Humana,
-        SH: input.SH,
-        HB: input.HB,
-        AETNA: input.AETNA,
-        United_Optum: input.United_Optum,
-        districts: input.districts,
-        offices: input.offices,
+      const { offices, ...evaluatorData } = input;
+
+      const result = await ctx.db.transaction(async (tx) => {
+        await tx.insert(evaluators).values({
+          ...evaluatorData,
+          npi: npiAsInt,
+        });
+
+        if (offices && offices.length > 0) {
+          const officeRelationships = offices.map((officeKey) => ({
+            evaluatorNpi: npiAsInt,
+            officeKey: officeKey,
+          }));
+          await tx.insert(evaluatorOffices).values(officeRelationships);
+        }
       });
 
       try {
@@ -119,32 +129,33 @@ export const evaluatorRouter = createTRPCRouter({
         log.error(err);
       }
 
-      return resultHeader;
+      return result;
     }),
 
   update: adminProcedure
     .input(evaluatorInputSchema)
     .mutation(async ({ ctx, input }) => {
       const npiAsInt = parseInt(input.npi, 10);
-      const resultHeader = ctx.db
-        .update(evaluators)
-        .set({
-          providerName: input.providerName,
-          email: input.email,
-          SCM: input.SCM,
-          BabyNet: input.BabyNet,
-          Molina: input.Molina,
-          MolinaMarketplace: input.MolinaMarketplace,
-          ATC: input.ATC,
-          Humana: input.Humana,
-          SH: input.SH,
-          HB: input.HB,
-          AETNA: input.AETNA,
-          United_Optum: input.United_Optum,
-          districts: input.districts,
-          offices: input.offices,
-        })
-        .where(eq(evaluators.npi, npiAsInt));
+      const { offices, ...evaluatorData } = input;
+
+      const result = await ctx.db.transaction(async (tx) => {
+        await tx
+          .update(evaluators)
+          .set({ ...evaluatorData, npi: npiAsInt })
+          .where(eq(evaluators.npi, npiAsInt));
+
+        await tx
+          .delete(evaluatorOffices)
+          .where(eq(evaluatorOffices.evaluatorNpi, npiAsInt));
+
+        if (offices && offices.length > 0) {
+          const officeRelationships = offices.map((officeKey) => ({
+            evaluatorNpi: npiAsInt,
+            officeKey: officeKey,
+          }));
+          await tx.insert(evaluatorOffices).values(officeRelationships);
+        }
+      });
 
       try {
         await ctx.redis.del("evaluators:all");
@@ -153,16 +164,21 @@ export const evaluatorRouter = createTRPCRouter({
         log.error(err);
       }
 
-      return resultHeader;
+      return result;
     }),
 
   delete: adminProcedure
     .input(z.object({ npi: z.string() }))
     .mutation(async ({ ctx, input }) => {
       const npiAsInt = parseInt(input.npi, 10);
-      const resultHeader = ctx.db
-        .delete(evaluators)
-        .where(eq(evaluators.npi, npiAsInt));
+
+      const result = await ctx.db.transaction(async (tx) => {
+        await tx
+          .delete(evaluatorOffices)
+          .where(eq(evaluatorOffices.evaluatorNpi, npiAsInt));
+
+        await tx.delete(evaluators).where(eq(evaluators.npi, npiAsInt));
+      });
 
       try {
         await ctx.redis.del("evaluators:all");
@@ -171,6 +187,6 @@ export const evaluatorRouter = createTRPCRouter({
         log.error(err);
       }
 
-      return resultHeader;
+      return result;
     }),
 });

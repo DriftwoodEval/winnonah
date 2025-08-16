@@ -71,7 +71,7 @@ const updateCachedProjects = async (updatedProject: { gid: string }) => {
   );
   log.info(
     { id: updatedProject.gid, cacheKey: projectCacheKey(updatedProject.gid) },
-    `CACHE SET`
+    "Cache set"
   );
 
   const allProjectsStr = await redis.get(ALL_PROJECTS_CACHE_KEY);
@@ -91,7 +91,7 @@ const updateCachedProjects = async (updatedProject: { gid: string }) => {
       );
       log.info(
         { id: updatedProject.gid, cacheKey: ALL_PROJECTS_CACHE_KEY },
-        `CACHE SET`
+        "Cache set"
       );
     }
   }
@@ -109,16 +109,16 @@ export const asanaRouter = createTRPCRouter({
       const cacheKey = projectCacheKey(id);
       const cachedProject = await redis.get(cacheKey);
       if (cachedProject) {
-        log.info({ cacheKey: cacheKey }, "CACHE HIT");
+        log.info({ cacheKey: cacheKey }, "Cache hit");
         return JSON.parse(cachedProject);
       }
 
-      log.info({ cacheKey: cacheKey }, "CACHE MISS");
+      log.info({ cacheKey: cacheKey }, "Cache miss");
       const project = await getProjectFromAsana(id);
 
       if (project) {
         await redis.setex(cacheKey, CACHE_TTL_SECONDS, JSON.stringify(project));
-        log.info({ cacheKey: cacheKey }, "CACHE SET");
+        log.info({ cacheKey: cacheKey }, "Cache set");
       }
 
       return project;
@@ -127,11 +127,11 @@ export const asanaRouter = createTRPCRouter({
   getAllProjects: protectedProcedure.query(async () => {
     const cachedProjects = await redis.get(ALL_PROJECTS_CACHE_KEY);
     if (cachedProjects) {
-      log.info({ cacheKey: ALL_PROJECTS_CACHE_KEY }, "CACHE HIT");
+      log.info({ cacheKey: ALL_PROJECTS_CACHE_KEY }, "Cache hit");
       return JSON.parse(cachedProjects);
     }
 
-    log.info({ cacheKey: ALL_PROJECTS_CACHE_KEY }, "CACHE MISS");
+    log.info({ cacheKey: ALL_PROJECTS_CACHE_KEY }, "Cache miss");
 
     const lockAcquired = await redis.set(
       FETCH_LOCK_KEY,
@@ -150,7 +150,7 @@ export const asanaRouter = createTRPCRouter({
           CACHE_TTL_SECONDS,
           JSON.stringify(projects)
         );
-        log.info(`CACHE SET: Cached ${projects.length} projects.`);
+        log.info(`Cache set: Cached ${projects.length} projects.`);
         return projects;
       } finally {
         await redis.del(FETCH_LOCK_KEY);

@@ -3,18 +3,26 @@ import { Alert, AlertTitle } from "@ui/alert";
 import { Popover, PopoverContent, PopoverTrigger } from "@ui/popover";
 import { AlertTriangleIcon } from "lucide-react";
 import { cn, formatClientAge } from "~/lib/utils";
-import type { Client, Offices } from "~/server/lib/types";
+import type { Client } from "~/server/lib/types";
+import { api } from "~/trpc/react";
 
 interface ClientDetailsCardProps {
 	client: Client;
-	offices: Offices | undefined;
 }
 
-export function ClientDetailsCard({ client, offices }: ClientDetailsCardProps) {
-	const closestOffice = offices?.[client.closestOffice ?? ""] ?? null;
-	const secondClosestOffice =
-		offices?.[client.secondClosestOffice ?? ""] ?? null;
-	const thirdClosestOffice = offices?.[client.thirdClosestOffice ?? ""] ?? null;
+export function ClientDetailsCard({ client }: ClientDetailsCardProps) {
+	const closestOffice = api.offices.getOne.useQuery({
+		column: "key",
+		value: client.closestOffice ?? "",
+	}).data;
+	const secondClosestOffice = api.offices.getOne.useQuery({
+		column: "key",
+		value: client.secondClosestOffice ?? "",
+	}).data;
+	const thirdClosestOffice = api.offices.getOne.useQuery({
+		column: "key",
+		value: client.thirdClosestOffice ?? "",
+	}).data;
 
 	return (
 		<div className="flex w-full flex-wrap gap-6 rounded-md border-2 bg-card p-4 shadow">

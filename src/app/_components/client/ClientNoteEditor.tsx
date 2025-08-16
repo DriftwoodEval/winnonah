@@ -4,8 +4,11 @@ import { debounce } from "lodash";
 import { useSession } from "next-auth/react";
 import { useEffect, useMemo } from "react";
 import { toast } from "sonner";
+import { logger } from "~/lib/logger";
 import { checkRole } from "~/lib/utils";
 import { api } from "~/trpc/react";
+
+const log = logger.child({ module: "ClientNoteEditor" });
 
 interface ClientNoteEditorProps {
 	clientId: number;
@@ -26,7 +29,7 @@ export function ClientNoteEditor({ clientId }: ClientNoteEditorProps) {
 
 	const updateNoteMutation = api.notes.updateNote.useMutation({
 		onError: (error) => {
-			console.error("Failed to update note:", error);
+			log.error(error, "Failed to update note");
 			toast.error("Failed to update note", {
 				description: String(error.message),
 			});
@@ -42,7 +45,7 @@ export function ClientNoteEditor({ clientId }: ClientNoteEditorProps) {
 			}
 		},
 		onError: (error) => {
-			console.error("Failed to create note:", error);
+			log.error(error, "Failed to create note");
 			toast.error("Failed to add questionnaire", {
 				description: String(error.message),
 			});
