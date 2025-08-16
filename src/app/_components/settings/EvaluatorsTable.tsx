@@ -53,6 +53,7 @@ import { useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 import { z } from "zod";
+import { useMediaQuery } from "~/hooks/use-media-query";
 import { logger } from "~/lib/logger";
 import { checkRole } from "~/lib/utils";
 import type { Evaluator } from "~/server/lib/types";
@@ -467,6 +468,9 @@ function EvaluatorActionsMenu({ evaluator }: { evaluator: Evaluator }) {
 	const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
 	const utils = api.useUtils();
 
+	const isDesktop = useMediaQuery("(min-width: 768px)");
+	const alignValue = isDesktop ? "start" : "end";
+
 	const updateEvaluator = api.evaluators.update.useMutation({
 		onSuccess: () => {
 			toast.success("Evaluator updated successfully!");
@@ -505,7 +509,7 @@ function EvaluatorActionsMenu({ evaluator }: { evaluator: Evaluator }) {
 						<MoreHorizontal className="h-4 w-4" />
 					</Button>
 				</DropdownMenuTrigger>
-				<DropdownMenuContent align="end">
+				<DropdownMenuContent align={alignValue}>
 					<DropdownMenuItem onClick={() => setIsEditDialogOpen(true)}>
 						Edit
 					</DropdownMenuItem>
