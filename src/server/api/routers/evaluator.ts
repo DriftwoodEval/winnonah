@@ -14,11 +14,9 @@ import {
   evaluators,
   zipCodes,
 } from "~/server/db/schema";
-import type { Evaluator } from "~/server/lib/types";
+import { fetchWithCache, invalidateCache } from "~/server/lib/cache";
 
 const log = logger.child({ module: "evaluator" });
-
-const CACHE_TTL = 3600;
 
 export const evaluatorInputSchema = z.object({
   npi: z.string().regex(/^\d{10}$/),
@@ -40,51 +38,29 @@ export const evaluatorInputSchema = z.object({
   blockedZips: z.array(z.string().regex(/^\d{5}$/)).default([]),
 });
 
+const CACHE_KEY_ALL_EVALUATORS = "evaluators:all";
+
 export const evaluatorRouter = createTRPCRouter({
   getAll: protectedProcedure.query(async ({ ctx }) => {
-    const cacheKey = "evaluators:all";
+    return fetchWithCache(ctx, CACHE_KEY_ALL_EVALUATORS, async () => {
+      const evaluatorsWithOffices = await ctx.db.query.evaluators.findMany({
+        orderBy: (evaluators, { asc }) => [asc(evaluators.providerName)],
+        with: {
+          offices: { with: { office: true } },
+          blockedSchoolDistricts: { with: { schoolDistrict: true } },
+          blockedZipCodes: { with: { zipCode: true } },
+        },
+      });
 
-    try {
-      const cachedEvaluators = await ctx.redis.get(cacheKey);
-      if (cachedEvaluators) {
-        log.info({ cacheKey: cacheKey }, "Cache hit");
-        return JSON.parse(cachedEvaluators) as Evaluator[];
-      }
-    } catch (err) {
-      log.error(err);
-    }
-
-    log.info({ cacheKey: cacheKey }, "Cache miss");
-    const evaluatorsWithOffices = await ctx.db.query.evaluators.findMany({
-      orderBy: (evaluators, { asc }) => [asc(evaluators.providerName)],
-      with: {
-        offices: { with: { office: true } },
-        blockedSchoolDistricts: { with: { schoolDistrict: true } },
-        blockedZipCodes: { with: { zipCode: true } },
-      },
+      return evaluatorsWithOffices.map((evaluator) => ({
+        ...evaluator,
+        offices: evaluator.offices.map((link) => link.office),
+        blockedDistricts: evaluator.blockedSchoolDistricts.map(
+          (link) => link.schoolDistrict
+        ),
+        blockedZips: evaluator.blockedZipCodes.map((link) => link.zipCode),
+      }));
     });
-
-    const formattedEvaluators = evaluatorsWithOffices.map((evaluator) => ({
-      ...evaluator,
-      offices: evaluator.offices.map((link) => link.office),
-      blockedDistricts: evaluator.blockedSchoolDistricts.map(
-        (link) => link.schoolDistrict
-      ),
-      blockedZips: evaluator.blockedZipCodes.map((link) => link.zipCode),
-    }));
-
-    try {
-      await ctx.redis.set(
-        cacheKey,
-        JSON.stringify(formattedEvaluators),
-        "EX",
-        CACHE_TTL
-      );
-    } catch (err) {
-      log.error(err);
-    }
-
-    return formattedEvaluators;
   }),
 
   getEligibleForClient: protectedProcedure
@@ -162,12 +138,7 @@ export const evaluatorRouter = createTRPCRouter({
         }
       });
 
-      try {
-        await ctx.redis.del("evaluators:all");
-        log.info({ cacheKey: "evaluators:all" }, "Cache invalidated");
-      } catch (err) {
-        log.error(err);
-      }
+      await invalidateCache(ctx, CACHE_KEY_ALL_EVALUATORS);
 
       return result;
     }),
@@ -233,12 +204,7 @@ export const evaluatorRouter = createTRPCRouter({
         }
       });
 
-      try {
-        await ctx.redis.del("evaluators:all");
-        log.info({ cacheKey: "evaluators:all" }, "Cache invalidated");
-      } catch (err) {
-        log.error(err);
-      }
+      await invalidateCache(ctx, CACHE_KEY_ALL_EVALUATORS);
 
       return result;
     }),

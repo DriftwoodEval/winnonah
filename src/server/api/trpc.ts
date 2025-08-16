@@ -19,6 +19,7 @@ import { redis } from "~/server/lib/redis";
 
 const log = logger.child({ module: "trpc" });
 
+export type Context = Awaited<ReturnType<typeof createTRPCContext>>;
 /**
  * 1. CONTEXT
  *
