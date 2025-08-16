@@ -3,17 +3,17 @@
 import { IssuesAlert } from "@components/issues/issuesAlert";
 import { Avatar, AvatarFallback, AvatarImage } from "@ui/avatar";
 import { Button } from "@ui/button";
-import { LogIn } from "lucide-react";
-import { useSession } from "next-auth/react";
-import Link from "next/link";
-import { usePathname } from "next/navigation";
 import {
 	DropdownMenu,
 	DropdownMenuContent,
 	DropdownMenuItem,
 	DropdownMenuSeparator,
 	DropdownMenuTrigger,
-} from "../ui/dropdown-menu";
+} from "@ui/dropdown-menu";
+import { LogIn } from "lucide-react";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+import { useSession } from "next-auth/react";
 import { GlobalClientSearch } from "./GlobalClientSearch";
 
 export function HeaderActions() {

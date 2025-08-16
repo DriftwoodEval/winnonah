@@ -1,7 +1,19 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
+import {
+	AlertDialog,
+	AlertDialogAction,
+	AlertDialogCancel,
+	AlertDialogContent,
+	AlertDialogDescription,
+	AlertDialogFooter,
+	AlertDialogHeader,
+	AlertDialogTitle,
+} from "@ui/alert-dialog";
+import { Badge } from "@ui/badge";
 import { Button } from "@ui/button";
+import { Checkbox } from "@ui/checkbox";
 import {
 	Dialog,
 	DialogContent,
@@ -32,18 +44,20 @@ import {
 	TableHeader,
 	TableRow,
 } from "@ui/table";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@ui/tooltip";
 import { MoreHorizontal } from "lucide-react";
-import { useSession } from "next-auth/react";
 import Link from "next/link";
+import { useSession } from "next-auth/react";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 import { z } from "zod";
+import { logger } from "~/lib/logger";
 import { checkRole } from "~/lib/utils";
 import type { Evaluator } from "~/server/lib/types";
 import { api } from "~/trpc/react";
-import { Badge } from "../ui/badge";
-import { Checkbox } from "../ui/checkbox";
+
+const log = logger.child({ module: "EvaluatorsTable" });
 
 const INSURANCE_DISPLAY_NAMES: { [key: string]: string } = {
 	SCM: "SCM",
@@ -271,6 +285,7 @@ function AddEvaluatorButton() {
 			setIsDialogOpen(false);
 		},
 		onError: (error) => {
+			log.error(error, "Failed to create evaluator");
 			toast.error("Failed to create evaluator", {
 				description: error.message,
 			});
@@ -305,6 +320,7 @@ function AddEvaluatorButton() {
 
 function EvaluatorActionsMenu({ evaluator }: { evaluator: Evaluator }) {
 	const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+	const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
 	const utils = api.useUtils();
 
 	const updateEvaluator = api.evaluators.update.useMutation({
@@ -314,6 +330,7 @@ function EvaluatorActionsMenu({ evaluator }: { evaluator: Evaluator }) {
 			setIsEditDialogOpen(false);
 		},
 		onError: (error) => {
+			log.error(error, "Failed to update evaluator");
 			toast.error("Failed to update evaluator", { description: error.message });
 		},
 	});
@@ -322,8 +339,10 @@ function EvaluatorActionsMenu({ evaluator }: { evaluator: Evaluator }) {
 		onSuccess: () => {
 			toast.success("Evaluator deleted.");
 			utils.evaluators.getAll.invalidate();
+			setIsDeleteDialogOpen(false);
 		},
 		onError: (error) => {
+			log.error(error, "Failed to delete evaluator");
 			toast.error("Failed to delete evaluator", { description: error.message });
 		},
 	});
@@ -334,7 +353,7 @@ function EvaluatorActionsMenu({ evaluator }: { evaluator: Evaluator }) {
 	}
 
 	return (
-		<Dialog onOpenChange={setIsEditDialogOpen} open={isEditDialogOpen}>
+		<>
 			<DropdownMenu>
 				<DropdownMenuTrigger asChild>
 					<Button className="h-8 w-8 p-0" variant="ghost">
@@ -343,33 +362,59 @@ function EvaluatorActionsMenu({ evaluator }: { evaluator: Evaluator }) {
 					</Button>
 				</DropdownMenuTrigger>
 				<DropdownMenuContent align="end">
-					<DialogTrigger asChild>
-						<DropdownMenuItem>Edit</DropdownMenuItem>
-					</DialogTrigger>
-					{/* TODO: Add a delete confirmation dialog */}
+					<DropdownMenuItem onClick={() => setIsEditDialogOpen(true)}>
+						Edit
+					</DropdownMenuItem>
+					{/*  TODO: Should we allow deleting evaluators? Probably archive them */}
 					<DropdownMenuItem
-						className="text-red-600"
-						disabled={deleteEvaluator.isPending}
-						onClick={() =>
-							deleteEvaluator.mutate({ npi: String(evaluator.npi) })
-						}
+						className="text-destructive"
+						onClick={() => setIsDeleteDialogOpen(true)}
 					>
 						Delete
 					</DropdownMenuItem>
 				</DropdownMenuContent>
 			</DropdownMenu>
-			<DialogContent>
-				<DialogHeader>
-					<DialogTitle>Edit Evaluator</DialogTitle>
-				</DialogHeader>
-				<EvaluatorForm
-					initialData={evaluator}
-					isLoading={updateEvaluator.isPending}
-					onClose={() => setIsEditDialogOpen(false)}
-					onSubmit={onEditSubmit}
-				/>
-			</DialogContent>
-		</Dialog>
+
+			<Dialog onOpenChange={setIsEditDialogOpen} open={isEditDialogOpen}>
+				<DialogContent>
+					<DialogHeader>
+						<DialogTitle>Edit Evaluator</DialogTitle>
+					</DialogHeader>
+					<EvaluatorForm
+						initialData={evaluator}
+						isLoading={updateEvaluator.isPending}
+						onClose={() => setIsEditDialogOpen(false)}
+						onSubmit={onEditSubmit}
+					/>
+				</DialogContent>
+			</Dialog>
+
+			<AlertDialog
+				onOpenChange={setIsDeleteDialogOpen}
+				open={isDeleteDialogOpen}
+			>
+				<AlertDialogContent>
+					<AlertDialogHeader>
+						<AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+						<AlertDialogDescription>
+							This action cannot be undone. This will permanently delete the
+							evaluator.
+						</AlertDialogDescription>
+					</AlertDialogHeader>
+					<AlertDialogFooter>
+						<AlertDialogCancel>Cancel</AlertDialogCancel>
+						<AlertDialogAction
+							className="bg-destructive text-destructive-foreground hover:bg-destructive/80"
+							onClick={() =>
+								deleteEvaluator.mutate({ npi: String(evaluator.npi) })
+							}
+						>
+							Delete
+						</AlertDialogAction>
+					</AlertDialogFooter>
+				</AlertDialogContent>
+			</AlertDialog>
+		</>
 	);
 }
 
@@ -395,21 +440,21 @@ export default function EvaluatorsTable() {
 	};
 
 	return (
-		<div className="rounded-lg border p-4">
+		<div className="px-4">
 			<div className="flex items-center justify-between pb-4">
 				<h3 className="font-bold text-lg">Evaluators</h3>
 				{isAdmin && <AddEvaluatorButton />}
 			</div>
 			<Table>
 				<TableHeader>
-					<TableRow>
-						{isAdmin && <TableHead className="w-[50px]">Actions</TableHead>}
-						<TableHead className="w-[120px]">NPI</TableHead>
-						<TableHead>Provider Name</TableHead>
-						<TableHead>Email</TableHead>
-						<TableHead>Programs</TableHead>
-						<TableHead>Blocked Areas</TableHead>
-						<TableHead>Offices</TableHead>
+					<TableRow className="hover:bg-transparent">
+						{isAdmin && <TableHead className="w-[50px]"></TableHead>}
+						<TableHead className="w-[100px]">NPI</TableHead>
+						<TableHead className="w-[100px]">Provider Name</TableHead>
+						<TableHead className="w-[100px]">Email</TableHead>
+						<TableHead className="w-[100px]">Insurance</TableHead>
+						<TableHead className="w-[100px]">Blocked Areas</TableHead>
+						<TableHead className="w-[100px]">Offices</TableHead>
 					</TableRow>
 				</TableHeader>
 				<TableBody>
@@ -421,7 +466,7 @@ export default function EvaluatorsTable() {
 						</TableRow>
 					) : evaluators && evaluators.length > 0 ? (
 						evaluators.map((evaluator) => (
-							<TableRow key={evaluator.npi}>
+							<TableRow className="hover:bg-transparent" key={evaluator.npi}>
 								{isAdmin && (
 									<TableCell>
 										<EvaluatorActionsMenu evaluator={evaluator} />
@@ -430,12 +475,17 @@ export default function EvaluatorsTable() {
 								<TableCell>{evaluator.npi}</TableCell>
 								<TableCell>{evaluator.providerName}</TableCell>
 								<TableCell>
-									<Link
-										className="hover:underline"
-										href={`mailto:${evaluator.email}`}
-									>
-										{evaluator.email}
-									</Link>
+									<Tooltip>
+										<TooltipTrigger asChild>
+											<Link
+												className="hover:underline"
+												href={`mailto:${evaluator.email}`}
+											>
+												{evaluator.email.split("@")[0]}@...
+											</Link>
+										</TooltipTrigger>
+										<TooltipContent>{evaluator.email}</TooltipContent>
+									</Tooltip>
 								</TableCell>
 								<TableCell>
 									<div className="flex flex-wrap gap-1">
