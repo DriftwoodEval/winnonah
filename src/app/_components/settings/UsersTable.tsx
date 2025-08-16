@@ -186,59 +186,110 @@ export default function UsersTable() {
 	const { data: users, isLoading: isLoadingUsers } =
 		api.users.getAll.useQuery();
 
+	const getInitials = (name: string | null | undefined) => {
+		if (!name) return "";
+		return name
+			.split(" ")
+			.map((n) => (n ?? "")[0]?.toUpperCase())
+			.join("");
+	};
+
 	return (
-		<div className="px-4 pb-4">
-			<Table>
-				<TableHeader>
-					<TableRow>
-						{admin && <TableHead className="w-[20px]"></TableHead>}
-						<TableHead className="w-[20px]">Icon</TableHead>
-						<TableHead className="w-[100px]">Name</TableHead>
-						<TableHead className="w-[100px]">Email</TableHead>
-						<TableHead className="w-[100px]">Role</TableHead>
-					</TableRow>
-				</TableHeader>
-				<TableBody>
-					{isLoadingUsers && (
+		<div className="px-4">
+			<h3 className="pb-4 font-bold text-lg">Users</h3>
+			{/* Table for Medium Screens and Up (sm:) */}
+			<div className="hidden sm:block">
+				<Table>
+					<TableHeader>
 						<TableRow>
-							<TableCell className="text-center" colSpan={6}>
-								Loading...
-							</TableCell>
+							{admin && <TableHead className="w-[20px]"></TableHead>}
+							<TableHead className="w-[20px]"></TableHead>
+							<TableHead>Name</TableHead>
+							<TableHead>Email</TableHead>
+							<TableHead>Role</TableHead>
 						</TableRow>
-					)}
-					{users?.map((user) => (
-						<TableRow key={user.id}>
-							{admin && (
-								<TableCell>
-									<UsersTableActionsMenu user={user} />
+					</TableHeader>
+					<TableBody>
+						{isLoadingUsers ? (
+							<TableRow>
+								<TableCell className="text-center" colSpan={admin ? 5 : 4}>
+									Loading...
 								</TableCell>
-							)}
-							<TableCell>
-								<Avatar>
-									<AvatarImage src={user.image ?? ""} />
-									<AvatarFallback>
-										{user.name
-											? user.name
-													.split(" ")
-													.map((n) => (n ?? "")[0]?.toUpperCase())
-													.join("")
-											: ""}
-									</AvatarFallback>
-								</Avatar>
-							</TableCell>
-							<TableCell>{user.name}</TableCell>
-							<TableCell>
-								<Link className="hover:underline" href={`mailto:${user.email}`}>
-									{user.email}
-								</Link>
-							</TableCell>
-							<TableCell>
-								{user.role.charAt(0).toUpperCase() + user.role.slice(1)}
-							</TableCell>
-						</TableRow>
-					))}
-				</TableBody>
-			</Table>
+							</TableRow>
+						) : users && users.length > 0 ? (
+							users.map((user) => (
+								<TableRow key={user.id}>
+									{admin && (
+										<TableCell>
+											<UsersTableActionsMenu user={user} />
+										</TableCell>
+									)}
+									<TableCell>
+										<Avatar>
+											<AvatarImage src={user.image ?? ""} />
+											<AvatarFallback>{getInitials(user.name)}</AvatarFallback>
+										</Avatar>
+									</TableCell>
+									<TableCell className="font-medium">{user.name}</TableCell>
+									<TableCell>
+										<Link
+											className="hover:underline"
+											href={`mailto:${user.email}`}
+										>
+											{user.email}
+										</Link>
+									</TableCell>
+									<TableCell className="capitalize">{user.role}</TableCell>
+								</TableRow>
+							))
+						) : (
+							<TableRow>
+								<TableCell className="text-center" colSpan={admin ? 5 : 4}>
+									No users found.
+								</TableCell>
+							</TableRow>
+						)}
+					</TableBody>
+				</Table>
+			</div>
+
+			{/* Card Layout for Small Screens (mobile) */}
+			<div className="grid grid-cols-1 gap-4 sm:hidden">
+				{isLoadingUsers ? (
+					<p className="text-center text-muted-foreground">Loading...</p>
+				) : users && users.length > 0 ? (
+					users.map((user) => (
+						<div
+							className="rounded-lg border bg-card p-4 text-card-foreground"
+							key={user.id}
+						>
+							<div className="flex items-start justify-between">
+								<div className="flex items-center gap-4">
+									<Avatar>
+										<AvatarImage src={user.image ?? ""} />
+										<AvatarFallback>{getInitials(user.name)}</AvatarFallback>
+									</Avatar>
+									<div className="space-y-1">
+										<p className="font-medium">{user.name}</p>
+										<p className="text-muted-foreground text-sm">
+											{user.email}
+										</p>
+									</div>
+								</div>
+								{admin && <UsersTableActionsMenu user={user} />}
+							</div>
+							<div className="mt-4 border-t pt-4">
+								<dl className="flex justify-between text-sm">
+									<dt className="text-muted-foreground">Role</dt>
+									<dd className="font-medium capitalize">{user.role}</dd>
+								</dl>
+							</div>
+						</div>
+					))
+				) : (
+					<p className="text-center text-muted-foreground">No users found.</p>
+				)}
+			</div>
 		</div>
 	);
 }
