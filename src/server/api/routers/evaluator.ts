@@ -1,6 +1,7 @@
 import { eq, sql } from "drizzle-orm";
 import z from "zod";
 import { logger } from "~/lib/logger";
+import { createCaller } from "~/server/api/root";
 import {
   adminProcedure,
   createTRPCRouter,
@@ -89,7 +90,12 @@ export const evaluatorRouter = createTRPCRouter({
     }),
 
   create: adminProcedure
-    .input(evaluatorInputSchema)
+    .input(
+      z.object({
+        addInvite: z.boolean().optional(),
+        ...evaluatorInputSchema.shape,
+      })
+    )
     .mutation(async ({ ctx, input }) => {
       const npiAsInt = parseInt(input.npi, 10);
       const { offices, blockedDistricts, blockedZips, ...evaluatorData } =
@@ -137,6 +143,15 @@ export const evaluatorRouter = createTRPCRouter({
           );
         }
       });
+
+      const caller = createCaller(ctx);
+
+      if (input.addInvite) {
+        await caller.users.createInvitation({
+          email: input.email,
+          role: "evaluator",
+        });
+      }
 
       await invalidateCache(ctx, CACHE_KEY_ALL_EVALUATORS);
 
