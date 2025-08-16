@@ -6,7 +6,9 @@ import type {
   evaluators,
   invitations,
   offices,
+  schoolDistricts,
   users,
+  zipCodes,
 } from "~/server/db/schema";
 
 type RouterOutput = inferRouterOutputs<typeof clientRouter>;
@@ -18,9 +20,13 @@ export type User = InferSelectModel<typeof users>;
 export type Invitation = InferSelectModel<typeof invitations>;
 
 export type Office = InferSelectModel<typeof offices>;
+export type SchoolDistrict = InferSelectModel<typeof schoolDistricts>;
+export type ZipCode = InferSelectModel<typeof zipCodes>;
 
 type EvaluatorSchema = InferSelectModel<typeof evaluators>;
 
 export type Evaluator = Omit<EvaluatorSchema, "offices"> & {
   offices: Office[];
+  blockedDistricts: SchoolDistrict[];
+  blockedZips: ZipCode[];
 };

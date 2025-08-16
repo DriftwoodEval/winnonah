@@ -1,5 +1,10 @@
 import { relations, sql } from "drizzle-orm";
-import { index, mysqlTableCreator, primaryKey } from "drizzle-orm/mysql-core";
+import {
+  foreignKey,
+  index,
+  mysqlTableCreator,
+  primaryKey,
+} from "drizzle-orm/mysql-core";
 import type { AdapterAccount } from "next-auth/adapters";
 import { CLIENT_COLOR_KEYS } from "~/lib/colors";
 import { userRoles } from "~/lib/types";
@@ -23,12 +28,98 @@ export const evaluators = createTable("evaluator", (d) => ({
   HB: d.boolean().notNull(),
   Aetna: d.boolean().notNull(),
   United_Optum: d.boolean().notNull(),
-  districts: d.varchar({ length: 255 }),
 }));
+
+export const schoolDistricts = createTable("school_district", (d) => ({
+  id: d.int().notNull().primaryKey(),
+  shortName: d.varchar({ length: 255 }).notNull(),
+  fullName: d.varchar({ length: 255 }).notNull(),
+}));
+
+export const zipCodes = createTable("zip_code", (d) => ({
+  zip: d.varchar({ length: 5 }).notNull().primaryKey(),
+}));
+
+export const blockedSchoolDistricts = createTable(
+  "blocked_school_district",
+  (d) => ({
+    evaluatorNpi: d.int().notNull(),
+    schoolDistrictId: d.int().notNull(),
+  }),
+  (t) => [
+    primaryKey({ columns: [t.evaluatorNpi, t.schoolDistrictId] }),
+    foreignKey({
+      columns: [t.evaluatorNpi],
+      foreignColumns: [evaluators.npi],
+      name: "blocked_districts_evaluator_fk",
+    }).onDelete("cascade"),
+    foreignKey({
+      columns: [t.schoolDistrictId],
+      foreignColumns: [schoolDistricts.id],
+      name: "blocked_districts_district_fk",
+    }).onDelete("cascade"),
+  ]
+);
+
+export const blockedZipCodes = createTable(
+  "blocked_zip_code",
+  (d) => ({
+    evaluatorNpi: d
+      .int()
+      .notNull()
+      .references(() => evaluators.npi, { onDelete: "cascade" }),
+    zipCode: d
+      .varchar({ length: 5 })
+      .notNull()
+      .references(() => zipCodes.zip, { onDelete: "cascade" }),
+  }),
+  (t) => [primaryKey({ columns: [t.evaluatorNpi, t.zipCode] })]
+);
 
 export const evaluatorRelations = relations(evaluators, ({ many }) => ({
   offices: many(evaluatorOffices),
+  blockedSchoolDistricts: many(blockedSchoolDistricts),
+  blockedZipCodes: many(blockedZipCodes),
 }));
+
+export const schoolDistrictRelations = relations(
+  schoolDistricts,
+  ({ many }) => ({
+    blockedEvaluators: many(blockedSchoolDistricts),
+  })
+);
+
+export const zipCodeRelations = relations(zipCodes, ({ many }) => ({
+  blockedEvaluators: many(blockedZipCodes),
+}));
+
+export const blockedSchoolDistrictsRelations = relations(
+  blockedSchoolDistricts,
+  ({ one }) => ({
+    evaluator: one(evaluators, {
+      fields: [blockedSchoolDistricts.evaluatorNpi],
+      references: [evaluators.npi],
+    }),
+    schoolDistrict: one(schoolDistricts, {
+      fields: [blockedSchoolDistricts.schoolDistrictId],
+      references: [schoolDistricts.id],
+    }),
+  })
+);
+
+export const blockedZipCodesRelations = relations(
+  blockedZipCodes,
+  ({ one }) => ({
+    evaluator: one(evaluators, {
+      fields: [blockedZipCodes.evaluatorNpi],
+      references: [evaluators.npi],
+    }),
+    zipCode: one(zipCodes, {
+      fields: [blockedZipCodes.zipCode],
+      references: [zipCodes.zip],
+    }),
+  })
+);
 
 export const offices = createTable("office", (d) => ({
   key: d.varchar({ length: 255 }).notNull().primaryKey(),
