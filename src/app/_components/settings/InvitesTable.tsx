@@ -215,6 +215,7 @@ function InvitesTableActionsMenu({ invite }: { invite: Invitation }) {
 			</DropdownMenuTrigger>
 			<DropdownMenuContent align="start">
 				<DropdownMenuItem
+					className="text-destructive"
 					onClick={() => deleteInvite.mutate({ id: invite.id })}
 				>
 					Delete
@@ -232,49 +233,86 @@ export default function InvitesTable() {
 		api.users.getPendingInvitations.useQuery();
 
 	return (
-		<div className="mt-4 px-4 pb-4">
-			<div className="flex items-center justify-between">
-				<h4 className="font-bold leading-none">Invites</h4>
+		<div className="px-4">
+			<div className="flex items-center justify-between pb-4">
+				<h3 className="font-bold text-lg">Pending Invites</h3>
 				{admin && <AddInviteButton />}
 			</div>
-			<Table>
-				<TableHeader>
-					<TableRow>
-						{admin && <TableHead className="w-[20px]"></TableHead>}
-						<TableHead className="w-[100px]">Email</TableHead>
-						<TableHead className="w-[100px]">Role</TableHead>
-					</TableRow>
-				</TableHeader>
-				<TableBody>
-					{isLoadingInvites && (
+
+			{/* Table for Medium Screens and Up (sm:) */}
+			<div className="hidden sm:block">
+				<Table>
+					<TableHeader>
 						<TableRow>
-							<TableCell className="text-center" colSpan={6}>
-								Loading...
-							</TableCell>
+							{admin && <TableHead className="w-[50px]"></TableHead>}
+							<TableHead>Email</TableHead>
+							<TableHead>Role</TableHead>
 						</TableRow>
-					)}
-					{invites?.map((invite) => (
-						<TableRow key={invite.id}>
-							{admin && (
-								<TableCell>
-									<InvitesTableActionsMenu invite={invite} />
+					</TableHeader>
+					<TableBody>
+						{isLoadingInvites ? (
+							<TableRow>
+								<TableCell className="text-center" colSpan={admin ? 3 : 2}>
+									Loading invites...
 								</TableCell>
-							)}
-							<TableCell>
-								<Link
-									className="hover:underline"
-									href={`mailto:${invite.email}`}
-								>
-									{invite.email}
-								</Link>
-							</TableCell>
-							<TableCell>
-								{invite.role.charAt(0).toUpperCase() + invite.role.slice(1)}
-							</TableCell>
-						</TableRow>
-					))}
-				</TableBody>
-			</Table>
+							</TableRow>
+						) : invites && invites.length > 0 ? (
+							invites.map((invite) => (
+								<TableRow key={invite.id}>
+									{admin && (
+										<TableCell>
+											<InvitesTableActionsMenu invite={invite} />
+										</TableCell>
+									)}
+									<TableCell>
+										<Link
+											className="font-medium hover:underline"
+											href={`mailto:${invite.email}`}
+										>
+											{invite.email}
+										</Link>
+									</TableCell>
+									<TableCell className="capitalize">{invite.role}</TableCell>
+								</TableRow>
+							))
+						) : (
+							<TableRow>
+								<TableCell className="text-center" colSpan={admin ? 3 : 2}>
+									No pending invites found.
+								</TableCell>
+							</TableRow>
+						)}
+					</TableBody>
+				</Table>
+			</div>
+
+			{/* Card Layout for Small Screens (mobile) */}
+			<div className="space-y-4 sm:hidden">
+				{isLoadingInvites ? (
+					<p className="text-center text-muted-foreground">
+						Loading invites...
+					</p>
+				) : invites && invites.length > 0 ? (
+					invites.map((invite) => (
+						<div
+							className="flex items-center justify-between rounded-lg border bg-card p-4 text-card-foreground"
+							key={invite.id}
+						>
+							<div>
+								<p className="font-medium text-sm">{invite.email}</p>
+								<p className="text-muted-foreground text-sm capitalize">
+									{invite.role}
+								</p>
+							</div>
+							{admin && <InvitesTableActionsMenu invite={invite} />}
+						</div>
+					))
+				) : (
+					<p className="text-center text-muted-foreground">
+						No pending invites found.
+					</p>
+				)}
+			</div>
 		</div>
 	);
 }
