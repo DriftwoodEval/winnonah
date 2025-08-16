@@ -9,7 +9,7 @@ import { Separator } from "@ui/separator";
 import { Skeleton } from "@ui/skeleton";
 import { CheckIcon, Filter } from "lucide-react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useId, useMemo, useState } from "react";
 import {
 	CLIENT_COLOR_KEYS,
 	CLIENT_COLOR_MAP,
@@ -25,6 +25,11 @@ export function ClientsDashboard() {
 	const router = useRouter();
 	const pathname = usePathname();
 	const searchParams = useSearchParams();
+
+	const activeId = useId();
+	const inactiveId = useId();
+	const allId = useId();
+	const hideBabyNetId = useId();
 
 	const [debouncedNameForQuery, setDebouncedNameForQuery] = useState("");
 
@@ -73,8 +78,8 @@ export function ClientsDashboard() {
 	};
 
 	return (
-		<div className="grid w-full grid-cols-1 gap-4 lg:grid-cols-2 lg:gap-8">
-			<div className="flex flex-col gap-3">
+		<div className="flex w-full flex-col items-start justify-center gap-4 lg:flex-row lg:gap-8">
+			<div className="flex w-full flex-col gap-3 lg:w-1/3">
 				<div className="flex flex-row gap-3">
 					<NameSearchInput
 						debounceMs={300}
@@ -99,16 +104,16 @@ export function ClientsDashboard() {
 										value={filters.status ?? "active"}
 									>
 										<div className="flex items-center space-x-2">
-											<RadioGroupItem id="s-active" value="active" />
-											<Label htmlFor="s-active">Active</Label>
+											<RadioGroupItem id={activeId} value="active" />
+											<Label htmlFor={activeId}>Active</Label>
 										</div>
 										<div className="flex items-center space-x-2">
-											<RadioGroupItem id="s-inactive" value="inactive" />
-											<Label htmlFor="s-inactive">Inactive</Label>
+											<RadioGroupItem id={inactiveId} value="inactive" />
+											<Label htmlFor={inactiveId}>Inactive</Label>
 										</div>
 										<div className="flex items-center space-x-2">
-											<RadioGroupItem id="s-all" value="all" />
-											<Label htmlFor="s-all">All</Label>
+											<RadioGroupItem id={allId} value="all" />
+											<Label htmlFor={allId}>All</Label>
 										</div>
 									</RadioGroup>
 								</div>
@@ -157,12 +162,15 @@ export function ClientsDashboard() {
 								<div className="flex items-center space-x-2">
 									<Checkbox
 										checked={filters.hideBabyNet}
-										id="hide-babynet"
+										id={hideBabyNetId}
 										onCheckedChange={(checked) =>
 											handleUrlParamChange("hideBabyNet", !!checked)
 										}
 									/>
-									<Label className="font-medium text-sm" htmlFor="hide-babynet">
+									<Label
+										className="font-medium text-sm"
+										htmlFor={hideBabyNetId}
+									>
 										Hide BabyNet Clients
 									</Label>
 								</div>
