@@ -95,6 +95,7 @@ const formSchema = z.object({
 	blockedZips: z.array(
 		z.string().regex(/^\d{5}$/, "Must be a 5-digit zip code"),
 	),
+	addInvite: z.boolean().optional(),
 });
 
 type EvaluatorFormValues = z.infer<typeof formSchema>;
@@ -142,6 +143,7 @@ function EvaluatorForm({
 				npi: initialData.npi.toString(),
 				providerName: initialData.providerName,
 				email: initialData.email,
+				addInvite: undefined,
 				SCM: initialData.SCM,
 				BabyNet: initialData.BabyNet,
 				Molina: initialData.Molina,
@@ -162,6 +164,7 @@ function EvaluatorForm({
 			npi: "",
 			providerName: "",
 			email: "",
+			addInvite: false,
 			SCM: false,
 			BabyNet: false,
 			Molina: false,
@@ -224,24 +227,42 @@ function EvaluatorForm({
 					/>
 				</div>
 
-				<FormField
-					control={form.control}
-					name="email"
-					render={({ field }) => (
-						<FormItem>
-							<FormLabel>Email</FormLabel>
-							<FormControl>
-								<Input
-									disabled={isLoading}
-									placeholder="evaluator@domain.com"
-									type="email"
-									{...field}
-								/>
-							</FormControl>
-							<FormMessage />
-						</FormItem>
-					)}
-				/>
+				<div className="flex items-center gap-4">
+					<FormField
+						control={form.control}
+						name="email"
+						render={({ field }) => (
+							<FormItem className="w-full">
+								<FormLabel>Email</FormLabel>
+								<FormControl>
+									<Input
+										disabled={isLoading}
+										placeholder="evaluator@domain.com"
+										type="email"
+										{...field}
+									/>
+								</FormControl>
+								<FormMessage />
+							</FormItem>
+						)}
+					/>
+					<FormField
+						control={form.control}
+						name="addInvite"
+						render={({ field }) => (
+							<FormItem className="flex w-1/3 pt-6">
+								<FormControl>
+									<Checkbox
+										checked={field.value as boolean}
+										disabled={isLoading || isEditing}
+										onCheckedChange={field.onChange}
+									/>
+								</FormControl>
+								<FormLabel className="font-normal">Add to users</FormLabel>
+							</FormItem>
+						)}
+					/>
+				</div>
 
 				<div className="space-y-2">
 					<FormLabel>Insurance</FormLabel>
@@ -371,6 +392,7 @@ function EvaluatorForm({
 						<FormItem>
 							<FormLabel>Blocked Zip Codes</FormLabel>
 							<FormControl>
+								{/* TODO: This doesn't take keyboard tab focus properly */}
 								<MultipleSelector
 									badgeClassName="bg-secondary text-secondary-foreground"
 									creatable={true}
@@ -427,6 +449,7 @@ function AddEvaluatorButton() {
 		onSuccess: () => {
 			toast.success("Evaluator created successfully!");
 			utils.evaluators.getAll.invalidate();
+			utils.users.getPendingInvitations.invalidate();
 			setIsDialogOpen(false);
 		},
 		onError: (error) => {

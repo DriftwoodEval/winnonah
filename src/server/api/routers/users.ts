@@ -73,6 +73,7 @@ export const userRouter = createTRPCRouter({
       await ctx.db
         .insert(invitations)
         .values({ email: input.email, role: input.role });
+
       return {
         success: true,
         message: `Invitation created for ${input.email}`,

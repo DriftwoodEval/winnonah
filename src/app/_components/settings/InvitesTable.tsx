@@ -151,7 +151,6 @@ function AddInviteButton() {
 	const addInvitation = api.users.createInvitation.useMutation({
 		onSuccess: () => {
 			utils.users.getPendingInvitations.invalidate();
-
 			setIsDialogOpen(false);
 		},
 		onError: (error) => {
