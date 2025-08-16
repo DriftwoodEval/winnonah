@@ -40,8 +40,8 @@ import {
 	TableRow,
 } from "@ui/table";
 import { MoreHorizontal } from "lucide-react";
-import { useSession } from "next-auth/react";
 import Link from "next/link";
+import { useSession } from "next-auth/react";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
@@ -190,13 +190,12 @@ function AddInviteButton() {
 function InvitesTableActionsMenu({ invite }: { invite: Invitation }) {
 	const utils = api.useUtils();
 
-	const { mutate: deleteInvite, isPending: isUpdating } =
-		api.users.deleteInvitation.useMutation({
-			onSuccess: () => {
-				utils.users.getPendingInvitations.invalidate();
-			},
-			onError: (error) => console.error("Failed to update:", error),
-		});
+	const deleteInvite = api.users.deleteInvitation.useMutation({
+		onSuccess: () => {
+			utils.users.getPendingInvitations.invalidate();
+		},
+		onError: (error) => console.error("Failed to update:", error),
+	});
 
 	return (
 		<DropdownMenu>
@@ -207,7 +206,9 @@ function InvitesTableActionsMenu({ invite }: { invite: Invitation }) {
 				</Button>
 			</DropdownMenuTrigger>
 			<DropdownMenuContent align="start">
-				<DropdownMenuItem onClick={() => deleteInvite({ id: invite.id })}>
+				<DropdownMenuItem
+					onClick={() => deleteInvite.mutate({ id: invite.id })}
+				>
 					Delete
 				</DropdownMenuItem>
 			</DropdownMenuContent>

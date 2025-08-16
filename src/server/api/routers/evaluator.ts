@@ -1,8 +1,11 @@
 import { eq } from "drizzle-orm";
 import z from "zod";
 import { logger } from "~/lib/logger";
-import { checkRole } from "~/lib/utils";
-import { createTRPCRouter, protectedProcedure } from "~/server/api/trpc";
+import {
+  adminProcedure,
+  createTRPCRouter,
+  protectedProcedure,
+} from "~/server/api/trpc";
 import { clients, evaluators } from "~/server/db/schema";
 import type { Evaluator } from "~/server/lib/types";
 
@@ -26,19 +29,6 @@ export const evaluatorInputSchema = z.object({
   United_Optum: z.boolean().default(false),
   districts: z.string().default(""),
   offices: z.string().default(""),
-});
-
-const adminProcedure = protectedProcedure.use(({ ctx, next }) => {
-  if (checkRole(ctx.session.user.role, "admin") === false) {
-    throw new Error(
-      "UNAUTHORIZED: You must be an admin to perform this action."
-    );
-  }
-  return next({
-    ctx: {
-      session: { ...ctx.session, user: ctx.session.user },
-    },
-  });
 });
 
 export const evaluatorRouter = createTRPCRouter({

@@ -11,6 +11,7 @@ import { initTRPC, TRPCError } from "@trpc/server";
 import superjson from "superjson";
 import { ZodError } from "zod";
 import { logger } from "~/lib/logger";
+import { checkRole } from "~/lib/utils";
 
 import { auth } from "~/server/auth";
 import { db } from "~/server/db";
@@ -136,3 +137,17 @@ export const protectedProcedure = t.procedure
       },
     });
   });
+
+export const adminProcedure = protectedProcedure.use(({ ctx, next }) => {
+  if (checkRole(ctx.session.user.role, "admin") === false) {
+    throw new TRPCError({
+      code: "UNAUTHORIZED",
+      message: "You must be an admin to perform this action",
+    });
+  }
+  return next({
+    ctx: {
+      session: { ...ctx.session, user: ctx.session.user },
+    },
+  });
+});

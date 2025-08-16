@@ -1,9 +1,9 @@
 "use client";
+import { ScrollArea } from "@ui/scroll-area";
+import { Separator } from "@ui/separator";
 import Link from "next/link";
 import type { Client } from "~/server/lib/types";
 import { api } from "~/trpc/react";
-import { ScrollArea } from "./ui/scroll-area";
-import { Separator } from "./ui/separator";
 
 interface IssueListProps {
 	title: string;

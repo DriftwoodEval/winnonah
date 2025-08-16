@@ -20,11 +20,15 @@ import {
 } from "@ui/dropdown-menu";
 import { MoreHorizontal } from "lucide-react";
 import { useState } from "react";
+import { toast } from "sonner";
+import { logger } from "~/lib/logger";
 import { api, type RouterOutputs } from "~/trpc/react";
 import {
 	QuestionnaireTableForm,
 	type QuestionnaireTableFormValues,
 } from "./QuestionnaireTableForm";
+
+const log = logger.child({ module: "QuestionnaireTableActionsMenu" });
 
 type Questionnaire = NonNullable<
 	RouterOutputs["questionnaires"]["getSentQuestionnaires"]
@@ -49,7 +53,10 @@ export function QuestionnaireActionsMenu({
 				);
 				setIsEditDialogOpen(false);
 			},
-			onError: (error) => console.error("Failed to update:", error),
+			onError: (error) => {
+				log.error(error, "Failed to update");
+				toast.error("Failed to update", { description: error.message });
+			},
 		});
 
 	const { mutate: deleteQuestionnaire, isPending: isDeleting } =
@@ -60,7 +67,10 @@ export function QuestionnaireActionsMenu({
 				);
 				setIsDeleteDialogOpen(false);
 			},
-			onError: (error) => console.error("Failed to delete:", error),
+			onError: (error) => {
+				log.error(error, "Failed to delete");
+				toast.error("Failed to delete", { description: error.message });
+			},
 		});
 
 	const handleEditSubmit = (values: QuestionnaireTableFormValues) => {
