@@ -1,10 +1,10 @@
+import fs from "node:fs";
+import { createRequire } from "node:module";
 import { generateJSON } from "@tiptap/html/server";
 import StarterKit from "@tiptap/starter-kit";
 import { eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
 import mysql from "mysql2/promise";
-import fs from "node:fs";
-import { createRequire } from "node:module";
 import { env } from "~/env";
 import * as schema from "~/server/db/schema";
 
@@ -114,7 +114,9 @@ const runMigration = async () => {
       const cleanedHtml = html_notes
         .replace(/^<body.*?>|<\/body>$/gs, "")
         .trim()
-        .replace("/\n/g", "<br>");
+        .split(/\r?\n/)
+        .map((line: string) => `<p>${line}</p>`)
+        .join("");
       const tiptapJson = generateJSON(cleanedHtml, [StarterKit]);
 
       await db.insert(schema.notes).values({
