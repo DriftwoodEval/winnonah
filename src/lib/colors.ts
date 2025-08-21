@@ -1,20 +1,20 @@
 export const CLIENT_COLOR_MAP = {
-  none: "#c5c5c5",
-  red: "#ff878a",
-  orange: "#fea06a",
-  "yellow-orange": "#f7bd51",
-  yellow: "#f6d861",
-  "yellow-green": "#c3e684",
-  green: "#85d7a2",
-  "blue-green": "#77d3e9",
-  aqua: "#a1e7dd",
-  blue: "#79abff",
-  indigo: "#b8acff",
-  purple: "#e39ef2",
-  magenta: "#faaee9",
-  "hot-pink": "#ff95c9",
-  pink: "#ffafc1",
-  "cool-gray": "#aaa",
+  none: "#c5c5c5", // Gray
+  red: "#ff878a", // Red
+  orange: "#fea06a", // Orange
+  "yellow-orange": "#f7bd51", // Drop This
+  yellow: "#f6d861", // Yellow
+  "yellow-green": "#c3e684", // Drop This
+  green: "#85d7a2", // Green
+  "blue-green": "#77d3e9", // Teal
+  aqua: "#a1e7dd", // Drop This
+  blue: "#79abff", // Blue
+  indigo: "#b8acff", // Drop This
+  purple: "#e39ef2", // Purple
+  magenta: "#faaee9", // Light Pink
+  "hot-pink": "#ff95c9", // Hot Pink
+  pink: "#ffafc1", // Drop This
+  "cool-gray": "#aaa", // Drop This
 };
 
 export const formatColorName = (name: string) =>

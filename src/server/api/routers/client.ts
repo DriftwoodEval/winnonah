@@ -252,6 +252,15 @@ export const clientRouter = createTRPCRouter({
         conditions.push(inArray(clients.id, clientIdsQuery));
       }
 
+      const countByColor = await ctx.db
+        .select({
+          color: clients.color,
+          count: sql<number>`COUNT(*)`.as("count"),
+        })
+        .from(clients)
+        .where(conditions.length > 0 ? and(...conditions) : undefined)
+        .groupBy(clients.color);
+
       if (color) {
         conditions.push(eq(clients.color, color));
       }
@@ -264,6 +273,9 @@ export const clientRouter = createTRPCRouter({
         .where(conditions.length > 0 ? and(...conditions) : undefined)
         .orderBy(...orderBySQL);
 
-      return filteredAndSortedClients;
+      return {
+        clients: filteredAndSortedClients,
+        colorCounts: countByColor,
+      };
     }),
 });

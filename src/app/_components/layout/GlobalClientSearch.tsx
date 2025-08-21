@@ -38,12 +38,14 @@ export function GlobalClientSearch() {
 		debouncedQueryUpdate(value);
 	};
 
-	const { data: clients, isLoading } = api.clients.search.useQuery(
+	const { data: SearchQuery, isLoading } = api.clients.search.useQuery(
 		{ nameSearch: debouncedSearchTerm },
 		{
 			enabled: debouncedSearchTerm.length >= 3 && open,
 		},
 	);
+
+	const clients = SearchQuery?.clients;
 
 	useEffect(() => {
 		if (navigator.userAgent.includes("Mac")) {

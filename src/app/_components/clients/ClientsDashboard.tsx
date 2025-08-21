@@ -55,13 +55,16 @@ export function ClientsDashboard() {
 	}, [searchParams, debouncedNameForQuery]);
 
 	const {
-		data: clients,
+		data: searchQuery,
 		isLoading,
 		isPlaceholderData,
 	} = api.clients.search.useQuery(filters, {
 		// The `placeholderData` option keeps the old data on screen while new data is fetched.
 		placeholderData: (previousData) => previousData,
 	});
+
+	const clients = searchQuery?.clients;
+	const colorCounts = searchQuery?.colorCounts;
 
 	const handleReset = useCallback(() => {
 		setDebouncedNameForQuery("");
@@ -126,7 +129,7 @@ export function ClientsDashboard() {
 												aria-label={`Filter by color: ${formatColorName(
 													colorKey,
 												)}`}
-												className="relative flex h-8 w-8 items-center justify-center rounded-full"
+												className="relative flex h-8 w-8 items-center justify-center rounded-full text-sm"
 												key={colorKey}
 												onClick={() => {
 													const currentValue = filters.color;
@@ -135,24 +138,22 @@ export function ClientsDashboard() {
 													handleUrlParamChange("color", newValue);
 												}}
 												style={{
+													color:
+														Number.parseInt(
+															CLIENT_COLOR_MAP[colorKey].replace("#", ""),
+															16,
+														) >
+														0xffffff / 2
+															? "#333"
+															: "#FFF",
 													backgroundColor: CLIENT_COLOR_MAP[colorKey],
 												}}
 												type="button"
 											>
+												{colorCounts?.find((c) => c.color === colorKey)
+													?.count ?? 0}
 												{filters.color === colorKey && (
-													<CheckIcon
-														className="h-5 w-5"
-														style={{
-															color:
-																Number.parseInt(
-																	CLIENT_COLOR_MAP[colorKey].replace("#", ""),
-																	16,
-																) >
-																0xffffff / 2
-																	? "#333"
-																	: "#FFF",
-														}}
-													/>
+													<CheckIcon className="h-5 w-5" />
 												)}
 											</button>
 										))}
