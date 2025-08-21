@@ -1,4 +1,4 @@
-import { IssuesList } from "@components/issuesList";
+import { IssuesList } from "@components/issues/issuesList";
 
 export default async function Page() {
 	return (
