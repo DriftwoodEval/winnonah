@@ -28,8 +28,10 @@ export function ClientListItem({ client }: ClientListItemProps) {
 				</div>
 				<span
 					className={cn(
-						"text-muted-foreground",
-						client.sortReason === "BabyNet above 2:6" && "text-destructive",
+						"text-muted-foreground text-xs",
+						(client.sortReason === "BabyNet above 2:6" ||
+							client.sortReason === "High Priority") &&
+							"text-destructive",
 					)}
 				>
 					<span className="font-bold text-muted-foreground">

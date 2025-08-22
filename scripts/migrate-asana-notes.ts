@@ -90,6 +90,17 @@ const runMigration = async () => {
         .set({ color: asanaColor })
         .where(eq(schema.clients.id, client.id));
 
+      if (name.trim().charAt(0) === "!") {
+        await db
+          .update(schema.clients)
+          .set({ highPriority: true })
+          .where(eq(schema.clients.id, client.id));
+
+        console.log(
+          `⭐ Updated highPriority for client: ${client.fullName} (ID: ${client.id})`
+        );
+      }
+
       updatedClients++;
       console.log(
         `🎨 Updated color for client: ${client.fullName} (ID: ${client.id})`
@@ -100,16 +111,16 @@ const runMigration = async () => {
         continue; // No note content to migrate
       }
 
-      const existingNote = await db.query.notes.findFirst({
-        where: eq(schema.notes.clientId, client.id),
-      });
+      // const existingNote = await db.query.notes.findFirst({
+      //   where: eq(schema.notes.clientId, client.id),
+      // });
 
-      if (existingNote) {
-        console.log(
-          `⚠️ Note for client ${client.id} already exists. Skipping.`
-        );
-        continue;
-      }
+      // if (existingNote) {
+      //   console.log(
+      //     `⚠️ Note for client ${client.id} already exists. Skipping.`
+      //   );
+      //   continue;
+      // }
 
       const cleanedHtml = html_notes
         .replace(/^<body.*?>|<\/body>$/gs, "")

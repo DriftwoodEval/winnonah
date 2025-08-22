@@ -33,7 +33,7 @@ export function Client({ hash }: { hash: string }) {
 		}
 	}, [client?.color]);
 
-	const updateClientColorMutation = api.clients.updateClient.useMutation({
+	const updateClientColorMutation = api.clients.update.useMutation({
 		onSuccess: () => {
 			refetchClient();
 		},

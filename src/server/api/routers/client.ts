@@ -18,12 +18,14 @@ import { CLIENT_COLOR_KEYS } from "~/lib/colors";
 import { createTRPCRouter, protectedProcedure } from "~/server/api/trpc";
 import { clients, clientsEvaluators } from "~/server/db/schema";
 
-const getBabyNetPriorityInfo = () => {
+const getPriorityInfo = () => {
   const now = new Date();
   const BNAgeOutDate = subYears(now, 3);
   const highPriorityBNAge = subMonths(now, 30); // 2 years and 6 months
 
-  const isHighPriority = and(
+  const isHighPriorityClient = eq(clients.highPriority, true);
+
+  const isHighPriorityBN = and(
     or(
       eq(clients.primaryInsurance, "BabyNet"),
       eq(clients.secondaryInsurance, "BabyNet")
@@ -32,17 +34,30 @@ const getBabyNetPriorityInfo = () => {
     gt(clients.dob, BNAgeOutDate)
   );
 
-  const sortReasonSQL =
-    sql<string>`CASE WHEN ${isHighPriority} THEN 'BabyNet above 2:6' ELSE 'Added date' END`.as(
-      "sortReason"
-    );
+  const sortReasonSQL = sql<string>`CASE
+      WHEN ${isHighPriorityClient} THEN 'High Priority'
+      WHEN ${isHighPriorityBN} THEN 'BabyNet above 2:6'
+      ELSE 'Added date'
+    END`.as("sortReason");
 
   const orderBySQL = [
-    sql`CASE WHEN ${isHighPriority} THEN 0 ELSE 1 END`, // Priority clients first
-    sql`CASE WHEN ${isHighPriority} THEN ${clients.dob} ELSE ${clients.addedDate} END`,
+    // Primary sorting: 0 for BabyNet, 1 for top priority, 2 for everyone else
+    sql`CASE
+      WHEN ${isHighPriorityBN} THEN 0
+      WHEN ${isHighPriorityClient} THEN 1
+      ELSE 2
+    END`,
+    // Secondary sorting: BabyNet group is sorted by DOB, all others by added date
+    sql`CASE
+      WHEN ${isHighPriorityBN} THEN ${clients.dob}
+      ELSE ${clients.addedDate}
+    END`,
   ];
 
-  return { isHighPriority, sortReasonSQL, orderBySQL };
+  // A combined flag for any type of priority status
+  const isPriority = or(isHighPriorityClient, isHighPriorityBN);
+
+  return { isPriority, sortReasonSQL, orderBySQL };
 };
 
 export const clientRouter = createTRPCRouter({
@@ -75,7 +90,7 @@ export const clientRouter = createTRPCRouter({
     }),
 
   getSorted: protectedProcedure.query(async ({ ctx }) => {
-    const { sortReasonSQL, orderBySQL } = getBabyNetPriorityInfo();
+    const { sortReasonSQL, orderBySQL } = getPriorityInfo();
 
     const allSortedClients = await ctx.db.query.clients.findMany({
       extras: { sortReason: sortReasonSQL },
@@ -88,7 +103,7 @@ export const clientRouter = createTRPCRouter({
   getByNpi: protectedProcedure
     .input(z.number())
     .query(async ({ ctx, input }) => {
-      const { sortReasonSQL, orderBySQL } = getBabyNetPriorityInfo();
+      const { sortReasonSQL, orderBySQL } = getPriorityInfo();
 
       const clientsWithReason = await ctx.db
         .select({
@@ -148,13 +163,14 @@ export const clientRouter = createTRPCRouter({
     return clientsNotInTA;
   }),
 
-  updateClient: protectedProcedure
+  update: protectedProcedure
     .input(
       z.object({
         clientId: z.number(),
         asanaId: z.string().optional(),
         color: z.enum(CLIENT_COLOR_KEYS).optional(),
         schoolDistrict: z.string().optional(),
+        highPriority: z.boolean().optional(),
       })
     )
     .mutation(async ({ ctx, input }) => {
@@ -162,6 +178,7 @@ export const clientRouter = createTRPCRouter({
         asanaId?: string;
         color?: (typeof CLIENT_COLOR_KEYS)[number];
         schoolDistrict?: string;
+        highPriority?: boolean;
       } = {};
 
       if (input.asanaId !== undefined) {
@@ -172,6 +189,9 @@ export const clientRouter = createTRPCRouter({
       }
       if (input.schoolDistrict !== undefined) {
         updateData.schoolDistrict = input.schoolDistrict;
+      }
+      if (input.highPriority !== undefined) {
+        updateData.highPriority = input.highPriority;
       }
 
       await ctx.db
@@ -265,7 +285,7 @@ export const clientRouter = createTRPCRouter({
         conditions.push(eq(clients.color, color));
       }
 
-      const { sortReasonSQL, orderBySQL } = getBabyNetPriorityInfo();
+      const { sortReasonSQL, orderBySQL } = getPriorityInfo();
 
       const filteredAndSortedClients = await ctx.db
         .select({ ...getTableColumns(clients), sortReason: sortReasonSQL })

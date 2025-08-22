@@ -191,6 +191,7 @@ export const clients = createTable(
     phoneNumber: d.varchar({ length: 255 }),
     gender: d.mysqlEnum(["Male", "Female", "Other"]),
     color: d.mysqlEnum("color", CLIENT_COLOR_KEYS).notNull().default("none"),
+    highPriority: d.boolean().notNull().default(false),
   }),
   (t) => [
     index("asana_id_idx").on(t.asanaId),
@@ -205,12 +206,12 @@ export const clients = createTable(
 export const notes = createTable(
   "note",
   (d) => ({
-    id: d.int().notNull().autoincrement().primaryKey(),
-    content: d.json("content").notNull(),
     clientId: d
       .int()
       .notNull()
+      .primaryKey()
       .references(() => clients.id, { onDelete: "cascade" }),
+    content: d.json("content").notNull(),
     createdAt: d
       .timestamp("created_at")
       .default(sql`CURRENT_TIMESTAMP`)
@@ -230,7 +231,7 @@ export const noteHistory = createTable(
     noteId: d
       .int()
       .notNull()
-      .references(() => notes.id, { onDelete: "cascade" }),
+      .references(() => notes.clientId, { onDelete: "cascade" }),
     content: d.json("content").notNull(),
     updatedBy: d
       .varchar("updated_by", { length: 255 })
@@ -254,7 +255,7 @@ export const noteRelations = relations(notes, ({ one, many }) => ({
 export const noteHistoryRelations = relations(noteHistory, ({ one }) => ({
   note: one(notes, {
     fields: [noteHistory.noteId],
-    references: [notes.id],
+    references: [notes.clientId],
   }),
   author: one(users, {
     fields: [noteHistory.updatedBy],

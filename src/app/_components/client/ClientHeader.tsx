@@ -1,19 +1,33 @@
 "use client";
 
+import { Button } from "@ui/button";
+import { Checkbox } from "@ui/checkbox";
+import {
+	Dialog,
+	DialogContent,
+	DialogDescription,
+	DialogFooter,
+	DialogHeader,
+	DialogTitle,
+} from "@ui/dialog";
+import { Label } from "@ui/label";
 import { Popover, PopoverContent, PopoverTrigger } from "@ui/popover";
 import { Separator } from "@ui/separator";
 import { Skeleton } from "@ui/skeleton";
 import { CheckIcon } from "lucide-react";
 import { useSession } from "next-auth/react";
-import { useState } from "react";
+import { useId, useState } from "react";
+import { toast } from "sonner";
 import {
 	CLIENT_COLOR_KEYS,
 	CLIENT_COLOR_MAP,
 	type ClientColor,
 	formatColorName,
 } from "~/lib/colors";
-import { checkRole } from "~/lib/utils";
+import { logger } from "~/lib/logger";
+import { checkRole, cn } from "~/lib/utils";
 import type { Client } from "~/server/lib/types";
+import { api } from "~/trpc/react";
 
 interface ClientHeaderProps {
 	client: Client | undefined;
@@ -21,6 +35,8 @@ interface ClientHeaderProps {
 	onColorChange: (color: ClientColor) => void;
 	isLoading: boolean;
 }
+
+const log = logger.child({ module: "ClientHeader" });
 
 export function ClientHeader({
 	client,
@@ -31,7 +47,32 @@ export function ClientHeader({
 	const { data: session } = useSession();
 	const admin = session ? checkRole(session.user.role, "admin") : false;
 
-	const [isPopoverOpen, setIsPopoverOpen] = useState(false);
+	const utils = api.useUtils();
+
+	const [isColorOpen, setIsColorOpen] = useState(false);
+	const [isHPOpen, setIsHPOpen] = useState(false);
+
+	const highPriorityId = useId();
+
+	const editClient = api.clients.update.useMutation({
+		onSuccess: () => {
+			setIsColorOpen(false);
+		},
+		onError: (error) => {
+			log.error(error, "Failed to update client");
+			toast.error("Failed to update client", { description: error.message });
+		},
+	});
+
+	function onHighPriorityChange() {
+		if (client) {
+			editClient.mutate({
+				clientId: client.id,
+				highPriority: !client.highPriority,
+			});
+			utils.clients.getOne.invalidate();
+		}
+	}
 
 	if (isLoading || !client) {
 		return (
@@ -70,7 +111,7 @@ export function ClientHeader({
 
 				{currentHexColor && <Separator orientation="vertical" />}
 				{currentHexColor && admin ? (
-					<Popover onOpenChange={setIsPopoverOpen} open={isPopoverOpen}>
+					<Popover onOpenChange={setIsColorOpen} open={isColorOpen}>
 						<PopoverTrigger asChild>
 							<button
 								aria-label={`Current color: ${formatColorName(selectedColor)}`}
@@ -89,7 +130,7 @@ export function ClientHeader({
 										key={colorKey}
 										onClick={() => {
 											onColorChange(colorKey);
-											setIsPopoverOpen(false);
+											setIsColorOpen(false);
 										}}
 										style={{ backgroundColor: CLIENT_COLOR_MAP[colorKey] }}
 										type="button"
@@ -120,6 +161,45 @@ export function ClientHeader({
 						type="button"
 					/>
 				) : null}
+
+				<Separator orientation="vertical" />
+				<div
+					className={cn(
+						"flex items-center gap-2",
+						!client.highPriority && "text-muted-foreground",
+					)}
+				>
+					<Checkbox
+						// disabled={!admin}
+						checked={client.highPriority}
+						id={highPriorityId}
+						onClick={() => setIsHPOpen(true)}
+					/>
+					<Label htmlFor={highPriorityId}>High Priority</Label>
+					<Dialog onOpenChange={setIsHPOpen} open={isHPOpen}>
+						<DialogContent>
+							<DialogHeader>
+								<DialogTitle>Change Priority</DialogTitle>
+								<DialogDescription>
+									{client.highPriority
+										? "Remove client from high priority list?"
+										: "Add client to high priority list?"}
+								</DialogDescription>
+							</DialogHeader>
+							<DialogFooter>
+								<Button
+									disabled={!admin}
+									onClick={() => {
+										onHighPriorityChange();
+										setIsHPOpen(false);
+									}}
+								>
+									{client.highPriority ? "Remove" : "Add"}
+								</Button>
+							</DialogFooter>
+						</DialogContent>
+					</Dialog>
+				</div>
 			</div>
 		</div>
 	);
