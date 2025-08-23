@@ -1,9 +1,7 @@
-import { asanaRouter } from "./routers/asana";
 import { clientRouter } from "./routers/client";
 import { evaluatorRouter } from "./routers/evaluator";
 import { noteRouter } from "./routers/notes";
 import { officeRouter } from "./routers/office";
-import { pythonRouter } from "./routers/python";
 import { questionnaireRouter } from "./routers/questionnaires";
 import { userRouter } from "./routers/users";
 import { createCallerFactory, createTRPCRouter } from "./trpc";
@@ -17,8 +15,6 @@ export const appRouter = createTRPCRouter({
   evaluators: evaluatorRouter,
   clients: clientRouter,
   offices: officeRouter,
-  asana: asanaRouter,
-  python: pythonRouter,
   questionnaires: questionnaireRouter,
   notes: noteRouter,
   users: userRouter,

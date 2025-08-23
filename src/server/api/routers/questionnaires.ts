@@ -2,7 +2,11 @@ import { TRPCError } from "@trpc/server";
 import { desc, eq } from "drizzle-orm";
 import { z } from "zod";
 import { formatClientAge } from "~/lib/utils";
-import { createTRPCRouter, protectedProcedure } from "~/server/api/trpc";
+import {
+  adminProcedure,
+  createTRPCRouter,
+  protectedProcedure,
+} from "~/server/api/trpc";
 import { clients, questionnaires } from "~/server/db/schema";
 
 interface QuestionnaireDetails {
@@ -119,7 +123,7 @@ export const questionnaireRouter = createTRPCRouter({
       return formattedQuestionnaires ?? null;
     }),
 
-  addQuestionnaire: protectedProcedure
+  addQuestionnaire: adminProcedure
     .input(
       z.object({
         clientId: z.number(),

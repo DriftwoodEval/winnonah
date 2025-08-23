@@ -15,7 +15,11 @@ import {
 } from "drizzle-orm";
 import { z } from "zod";
 import { CLIENT_COLOR_KEYS } from "~/lib/colors";
-import { createTRPCRouter, protectedProcedure } from "~/server/api/trpc";
+import {
+  adminProcedure,
+  createTRPCRouter,
+  protectedProcedure,
+} from "~/server/api/trpc";
 import { clients, clientsEvaluators } from "~/server/db/schema";
 
 const getPriorityInfo = () => {
@@ -164,11 +168,10 @@ export const clientRouter = createTRPCRouter({
     return clientsNotInTA;
   }),
 
-  update: protectedProcedure
+  update: adminProcedure
     .input(
       z.object({
         clientId: z.number(),
-        asanaId: z.string().optional(),
         color: z.enum(CLIENT_COLOR_KEYS).optional(),
         schoolDistrict: z.string().optional(),
         highPriority: z.boolean().optional(),
@@ -176,15 +179,11 @@ export const clientRouter = createTRPCRouter({
     )
     .mutation(async ({ ctx, input }) => {
       const updateData: {
-        asanaId?: string;
         color?: (typeof CLIENT_COLOR_KEYS)[number];
         schoolDistrict?: string;
         highPriority?: boolean;
       } = {};
 
-      if (input.asanaId !== undefined) {
-        updateData.asanaId = input.asanaId;
-      }
       if (input.color !== undefined) {
         updateData.color = input.color;
       }

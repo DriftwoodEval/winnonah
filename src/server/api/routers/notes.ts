@@ -1,6 +1,10 @@
 import { eq } from "drizzle-orm";
 import { z } from "zod";
-import { createTRPCRouter, protectedProcedure } from "~/server/api/trpc";
+import {
+  adminProcedure,
+  createTRPCRouter,
+  protectedProcedure,
+} from "~/server/api/trpc";
 import { noteHistory, notes } from "~/server/db/schema";
 
 export const noteRouter = createTRPCRouter({
@@ -19,7 +23,7 @@ export const noteRouter = createTRPCRouter({
       };
     }),
 
-  updateNote: protectedProcedure
+  updateNote: adminProcedure
     .input(
       z.object({
         noteId: z.number(),
@@ -53,7 +57,7 @@ export const noteRouter = createTRPCRouter({
       return { success: true };
     }),
 
-  createNote: protectedProcedure
+  createNote: adminProcedure
     .input(
       z.object({
         clientId: z.number(),

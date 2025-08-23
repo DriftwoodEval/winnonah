@@ -2,7 +2,11 @@ import { TRPCError } from "@trpc/server";
 import { eq } from "drizzle-orm";
 import z from "zod";
 import { type UserRole, userRoles } from "~/lib/types";
-import { createTRPCRouter, protectedProcedure } from "~/server/api/trpc";
+import {
+  adminProcedure,
+  createTRPCRouter,
+  protectedProcedure,
+} from "~/server/api/trpc";
 import { invitations, users } from "~/server/db/schema";
 export const userRouter = createTRPCRouter({
   getAll: protectedProcedure.query(async ({ ctx }) => {
@@ -30,7 +34,7 @@ export const userRouter = createTRPCRouter({
       return user;
     }),
 
-  updateUser: protectedProcedure
+  updateUser: adminProcedure
     .input(
       z.object({
         userId: z.string(),
@@ -61,7 +65,7 @@ export const userRouter = createTRPCRouter({
       return updatedUser;
     }),
 
-  createInvitation: protectedProcedure
+  createInvitation: adminProcedure
     .input(z.object({ email: z.email(), role: z.enum(userRoles) }))
     .mutation(async ({ ctx, input }) => {
       if (ctx.session.user.role !== "superadmin") {
@@ -88,7 +92,7 @@ export const userRouter = createTRPCRouter({
     return pendingInvitations;
   }),
 
-  deleteInvitation: protectedProcedure
+  deleteInvitation: adminProcedure
     .input(
       z.object({
         id: z.number(),

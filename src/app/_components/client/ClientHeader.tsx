@@ -49,8 +49,6 @@ export function ClientHeader({
 }: ClientHeaderProps) {
 	const { data: session } = useSession();
 	const admin = session ? checkRole(session.user.role, "admin") : false;
-	const router = useRouter();
-	const searchParams = useSearchParams();
 
 	const utils = api.useUtils();
 
@@ -58,12 +56,6 @@ export function ClientHeader({
 	const [isHPOpen, setIsHPOpen] = useState(false);
 
 	const highPriorityId = useId();
-
-	const handleEditClick = () => {
-		const params = new URLSearchParams(searchParams);
-		params.set("edit", "true");
-		router.push(`?${params.toString()}`);
-	};
 
 	const editClient = api.clients.update.useMutation({
 		onSuccess: () => {
@@ -105,7 +97,7 @@ export function ClientHeader({
 			{client && (
 				<div className="flex items-center gap-2">
 					<h1 className="font-bold text-2xl">{client.fullName}</h1>
-					<ClientEditButton client={client} />
+					{admin && <ClientEditButton client={client} />}
 				</div>
 			)}
 			<div className="flex h-5 items-center gap-2">

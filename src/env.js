@@ -31,8 +31,6 @@ export const env = createEnv({
         /^(?:[A-Z]+:[-0-9.]+,[-0-9.]+,[a-zA-Z ]+;?)+$/,
         "Invalid office addresses format"
       ),
-    ASANA_TOKEN: z.string(),
-    ASANA_WORKSPACE: z.string(),
     REDIS_HOST: z.string(),
     OPENPHONE_API_TOKEN: z.string(),
   },
@@ -60,8 +58,6 @@ export const env = createEnv({
     PROVIDER_CREDENTIALING_ID: process.env.PROVIDER_CREDENTIALING_ID,
     PROVIDER_CREDENTIALING_RANGE: process.env.PROVIDER_CREDENTIALING_RANGE,
     OFFICE_ADDRESSES: process.env.OFFICE_ADDRESSES,
-    ASANA_TOKEN: process.env.ASANA_TOKEN,
-    ASANA_WORKSPACE: process.env.ASANA_WORKSPACE,
     REDIS_HOST: process.env.REDIS_HOST,
     OPENPHONE_API_TOKEN: process.env.OPENPHONE_API_TOKEN,
   },
