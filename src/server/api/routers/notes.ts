@@ -14,7 +14,7 @@ export const noteRouter = createTRPCRouter({
       if (!data) return null;
 
       return {
-        id: data.id,
+        id: data.clientId,
         contentJson: data.content,
       };
     }),
@@ -29,7 +29,7 @@ export const noteRouter = createTRPCRouter({
     .mutation(async ({ ctx, input }) => {
       await ctx.db.transaction(async (tx) => {
         const currentNote = await tx.query.notes.findFirst({
-          where: eq(notes.id, input.noteId),
+          where: eq(notes.clientId, input.noteId),
         });
 
         if (!currentNote) {
@@ -37,7 +37,7 @@ export const noteRouter = createTRPCRouter({
         }
 
         await tx.insert(noteHistory).values({
-          noteId: currentNote.id,
+          noteId: currentNote.clientId,
           content: currentNote.content,
           updatedBy: ctx.session.user.id,
         });
@@ -47,7 +47,7 @@ export const noteRouter = createTRPCRouter({
           .set({
             content: input.contentJson,
           })
-          .where(eq(notes.id, input.noteId));
+          .where(eq(notes.clientId, input.noteId));
       });
 
       return { success: true };
@@ -73,7 +73,7 @@ export const noteRouter = createTRPCRouter({
       }
 
       const newNote = await ctx.db.query.notes.findFirst({
-        where: eq(notes.id, newNoteId),
+        where: eq(notes.clientId, newNoteId),
       });
 
       return newNote;

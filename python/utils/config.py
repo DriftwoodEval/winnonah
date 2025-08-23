@@ -2,10 +2,9 @@ import os
 import re
 from urllib.parse import urlparse
 
-from loguru import logger
-
 
 def validate_config() -> None:
+    """Validates the environment variables."""
     if not (database_url := os.getenv("DATABASE_URL")) or not urlparse(database_url):
         raise ValueError(
             f"Invalid DATABASE_URL. Must be a valid URL. Got {database_url}"
@@ -52,3 +51,6 @@ def validate_config() -> None:
 
     if not os.getenv("CENSUS_API_KEY"):
         raise ValueError("CENSUS_API_KEY is not set")
+
+    if not os.getenv("OPENPHONE_API_TOKEN"):
+        raise ValueError("OPENPHONE_API_TOKEN is not set")

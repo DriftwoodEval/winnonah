@@ -2,8 +2,10 @@ import string
 
 import pandas as pd
 import utils.database
+from nameparser import HumanName
 from loguru import logger
 from utils.download_ta import download_csvs
+import numpy as np
 
 TEST_NAMES = [
     "Testman Testson",
@@ -16,19 +18,35 @@ TEST_NAMES = [
 
 
 def normalize_names(df: pd.DataFrame) -> pd.DataFrame:
+    """Normalizes client names using the nameparser library for intelligent capitalization and handles redundant preferred names."""
+
+    def capitalize_name(name: str) -> str:
+        """Applies nameparser capitalization and handles Roman numberals."""
+        if pd.isna(name) or not isinstance(name, str):
+            return ""
+        parsed_name = HumanName(name)
+        parsed_name.capitalize(force=True)
+        # Handle suffixes that nameparser might misinterpret in this context
+        parsed_name.string_format = "{first} {last}"
+        # Re-add suffixes after capitalization
+        if parsed_name.suffix:
+            suffix = parsed_name.suffix.replace("Iii", "III").replace("Ii", "II")
+            return f"{str(parsed_name)} {suffix}".strip()
+        return str(parsed_name)
+
     logger.debug("Normalizing client names")
     for col in ["LASTNAME", "FIRSTNAME", "PREFERRED_NAME"]:
-        df[col] = (
-            df[col]
-            .str.title()
-            .replace({"Iiii": "IIII", "Iii": "III", "Ii": "II"}, regex=True)
-        )
-    df.loc[df.PREFERRED_NAME == df.FIRSTNAME, "PREFERRED_NAME"] = None
-    df.loc[df.FIRSTNAME.isin(df.PREFERRED_NAME), "PREFERRED_NAME"] = None
+        if col in df.columns:
+            df.loc[:, col] = df[col].apply(capitalize_name)
+
+    # Nullify preferred name if it's the same as the first name
+    if "PREFERRED_NAME" in df.columns and "FIRSTNAME" in df.columns:
+        df.loc[df["PREFERRED_NAME"] == df["FIRSTNAME"], "PREFERRED_NAME"] = np.nan
     return df
 
 
 def remove_test_names(df: pd.DataFrame, test_names: list) -> pd.DataFrame:
+    """Removes test names from a DataFrame."""
     logger.debug("Removing test names")
     return df[
         ~df.apply(lambda row: f"{row.FIRSTNAME} {row.LASTNAME}" in test_names, axis=1)
@@ -36,6 +54,7 @@ def remove_test_names(df: pd.DataFrame, test_names: list) -> pd.DataFrame:
 
 
 def map_insurance_names(clients: pd.DataFrame) -> pd.DataFrame:
+    """Maps insurance company names to their corresponding internal names."""
     logger.debug("Mapping insurance names")
     insurance_mapping = {
         "Molina Healthcare of South Carolina": "Molina",
@@ -53,6 +72,12 @@ def map_insurance_names(clients: pd.DataFrame) -> pd.DataFrame:
 
 
 def consolidate_by_id(clients: pd.DataFrame) -> pd.DataFrame:
+    """Consolidates a DataFrame of clients by their IDs. This function expects a DataFrame with columns for the client ID, insurance company name, and policy type. It will group by client ID and merge the insurance company names into separate columns for primary and secondary insurance. If a client has multiple primary or secondary insurances, it will only keep the first one it encounters.
+
+    Returns:
+        pd.DataFrame: A DataFrame with the same columns as the input, but with the insurance information merged and the duplicates removed.
+    """
+
     def _merge_insurance(group: pd.DataFrame) -> pd.Series:
         merged_row = group.iloc[0].copy()
         primary_insurance = set(
@@ -85,6 +110,13 @@ def consolidate_by_id(clients: pd.DataFrame) -> pd.DataFrame:
 
 
 def combine_address_info(clients: pd.DataFrame) -> pd.DataFrame:
+    """Combines address information from a DataFrame of clients into a single column.
+
+    Expects a DataFrame with columns for the client ID, address parts (USER_ADDRESS_ADDRESS1, USER_ADDRESS_ADDRESS2, USER_ADDRESS_ADDRESS3), city (USER_ADDRESS_CITY), state (USER_ADDRESS_STATE), and zip (USER_ADDRESS_ZIP).
+
+    Returns a DataFrame with the same columns as the input, but with an additional column "ADDRESS" containing the combined address information.
+    """
+
     def _combine_address(client) -> str:
         address_parts = []
         for a in [

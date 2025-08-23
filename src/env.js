@@ -34,6 +34,7 @@ export const env = createEnv({
     ASANA_TOKEN: z.string(),
     ASANA_WORKSPACE: z.string(),
     REDIS_HOST: z.string(),
+    OPENPHONE_API_TOKEN: z.string(),
   },
 
   /**
@@ -62,6 +63,7 @@ export const env = createEnv({
     ASANA_TOKEN: process.env.ASANA_TOKEN,
     ASANA_WORKSPACE: process.env.ASANA_WORKSPACE,
     REDIS_HOST: process.env.REDIS_HOST,
+    OPENPHONE_API_TOKEN: process.env.OPENPHONE_API_TOKEN,
   },
   /**
    * Run `build` or `dev` with `SKIP_ENV_VALIDATION` to skip env validation. This is especially

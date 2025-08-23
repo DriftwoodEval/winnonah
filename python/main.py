@@ -9,27 +9,14 @@ import utils.database
 import utils.download_ta
 import utils.google
 import utils.location
+import utils.openphone
 from dotenv import load_dotenv
 from loguru import logger
 
 load_dotenv()
 
 
-def main():
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--download-only", action="store_true")
-    args = parser.parse_args()
-
-    utils.config.validate_config()
-
-    logger.debug("Removing temp directory")
-    shutil.rmtree("temp", ignore_errors=True)
-
-    if args.download_only:
-        logger.info("Running download only")
-        utils.download_ta.download_csvs()
-        return
-
+def import_from_ta():
     projects_api = utils.asana.init()
     asana_projects = utils.asana.get_projects(projects_api)
 
@@ -133,6 +120,47 @@ def main():
         utils.database.insert_by_matching_criteria(new_clients, evaluators)
 
     shutil.rmtree("temp", ignore_errors=True)
+
+
+def main():
+    """Main entry point for the script.
+
+    This function is responsible for parsing the command line arguments and
+    running the appropriate function.
+
+    The available options are:
+
+    * --download-only: Only download the CSVs from TA and exit
+    * --openphone: Run the OpenPhone sync and exit
+
+    If neither of the above options are specified, the script will run the full
+    import_from_ta function, which will download the CSVs from TA, import them
+    into the database, and then sync the OpenPhone numbers.
+
+    :return: None
+    """
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--download-only", action="store_true")
+    parser.add_argument("--openphone", action="store_true")
+    args = parser.parse_args()
+
+    utils.config.validate_config()
+
+    logger.debug("Removing temp directory")
+    shutil.rmtree("temp", ignore_errors=True)
+
+    if args.download_only:
+        logger.info("Running download only")
+        utils.download_ta.download_csvs()
+        return
+
+    if args.openphone:
+        logger.info("Running OpenPhone sync")
+        utils.download_ta.download_csvs()
+        utils.openphone.sync_openphone()
+        return
+
+    import_from_ta()
 
 
 if __name__ == "__main__":

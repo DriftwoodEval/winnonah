@@ -14,7 +14,7 @@ import type {
 type RouterOutput = inferRouterOutputs<typeof clientRouter>;
 
 export type Client = InferSelectModel<typeof clients>;
-export type SortedClient = RouterOutput["search"][0];
+export type SortedClient = RouterOutput["search"]["clients"][0];
 
 export type User = InferSelectModel<typeof users>;
 export type Invitation = InferSelectModel<typeof invitations>;
