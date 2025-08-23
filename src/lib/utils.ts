@@ -110,3 +110,34 @@ export function getReminderColorClass(
   }
   return "";
 }
+
+export function formatPhoneNumber(phoneNumber: string, formatType: string) {
+  // Remove all non-digit characters from the input string.
+  const cleaned = phoneNumber.toString().replace(/\D/g, "");
+
+  if (formatType === "human") {
+    const match = cleaned.match(/^(1|)?(\d{3})(\d{3})(\d{4})$/);
+    if (match) {
+      // match[2] is area code, match[3] is prefix, match[4] is line number.
+      return `(${match[2]}) ${match[3]}-${match[4]}`;
+    }
+    // If it doesn't match a 10 or 11 digit number, return the original input.
+    return phoneNumber;
+  }
+
+  if (formatType === "api") {
+    // For the API, we need to ensure it starts with '+1'.
+    if (cleaned.length === 10) {
+      // If we have 10 digits, prepend '+1'.
+      return `+1${cleaned}`;
+    } else if (cleaned.length === 11 && cleaned.startsWith("1")) {
+      // If we have 11 digits and it starts with '1', just prepend '+'.
+      return `+${cleaned}`;
+    }
+    // If it's not a recognizable US number, return the original input.
+    return phoneNumber;
+  }
+
+  // If formatType is invalid, return the original number.
+  return phoneNumber;
+}

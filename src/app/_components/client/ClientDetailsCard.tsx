@@ -2,7 +2,7 @@
 import { Alert, AlertTitle } from "@ui/alert";
 import { Popover, PopoverContent, PopoverTrigger } from "@ui/popover";
 import { AlertTriangleIcon } from "lucide-react";
-import { cn, formatClientAge } from "~/lib/utils";
+import { cn, formatClientAge, formatPhoneNumber } from "~/lib/utils";
 import type { Client } from "~/server/lib/types";
 import { api } from "~/trpc/react";
 
@@ -23,6 +23,14 @@ export function ClientDetailsCard({ client }: ClientDetailsCardProps) {
 		column: "key",
 		value: client.thirdClosestOffice ?? "",
 	}).data;
+
+	const { data: messages } = api.openPhone.getMessages.useQuery({
+		participants: [
+			formatPhoneNumber(client?.phoneNumber?.toString() || "", "api"),
+		],
+	});
+
+	console.log("messages", messages);
 
 	return (
 		<div className="flex w-full flex-wrap gap-6 rounded-md border-2 bg-card p-4 shadow">
@@ -116,6 +124,21 @@ export function ClientDetailsCard({ client }: ClientDetailsCardProps) {
 					</AlertTitle>
 				</Alert>
 			)}
+
+			<div>
+				{messages?.length > 0 && (
+					<div>
+						{messages?.[0] && (
+							<div>
+								<p className="font-bold">Last Message</p>
+								<p>
+									{messages[0].direction}: {messages[0].text}
+								</p>
+							</div>
+						)}
+					</div>
+				)}
+			</div>
 		</div>
 	);
 }
