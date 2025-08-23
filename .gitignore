@@ -43,5 +43,9 @@ yarn-error.log*
 # idea files
 .idea
 
-python/temp
+# data files
+*.csv
+*.xlsx
+
+# local dev overrides
 docker-compose.override.yaml

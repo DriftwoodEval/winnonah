@@ -131,7 +131,7 @@ function EvaluatorForm({
 		return (
 			allSchoolDistricts?.map((district) => ({
 				value: district.id.toString(),
-				label: district.shortName,
+				label: district.shortName || district.fullName,
 			})) ?? []
 		);
 	}, [allSchoolDistricts]);

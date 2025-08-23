@@ -32,7 +32,7 @@ export const evaluators = createTable("evaluator", (d) => ({
 
 export const schoolDistricts = createTable("school_district", (d) => ({
   id: d.int().notNull().primaryKey(),
-  shortName: d.varchar({ length: 255 }).notNull(),
+  shortName: d.varchar({ length: 255 }),
   fullName: d.varchar({ length: 255 }).notNull(),
 }));
 

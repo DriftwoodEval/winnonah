@@ -15,8 +15,8 @@ export default async function Page() {
 	}
 
 	return (
-		<main className="flex min-h-screen flex-col items-center justify-center">
+		<div className="mx-10 my-10 flex w-full flex-col gap-6">
 			<IssuesList />
-		</main>
+		</div>
 	);
 }
