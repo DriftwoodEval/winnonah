@@ -148,7 +148,8 @@ export const clientRouter = createTRPCRouter({
           eq(clients.primaryInsurance, "BabyNet"),
           eq(clients.secondaryInsurance, "BabyNet")
         ),
-        lt(clients.dob, ageOutDate)
+        lt(clients.dob, ageOutDate),
+        eq(clients.status, true)
       ),
     });
 
