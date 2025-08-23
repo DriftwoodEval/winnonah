@@ -18,7 +18,6 @@ export default async function Home() {
 	}
 
 	return (
-		<main className="flex min-h-screen">
 			<div className="mx-10 my-10 flex w-full flex-col gap-6">
 				<h1 className="font-bold text-2xl">Settings</h1>
 				<Tabs defaultValue="users">
@@ -37,6 +36,5 @@ export default async function Home() {
 					</TabsContent>
 				</Tabs>
 			</div>
-		</main>
 	);
 }

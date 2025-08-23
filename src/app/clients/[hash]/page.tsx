@@ -21,8 +21,8 @@ export default async function Page({
 	}
 
 	return (
-		<main className="flex min-h-screen items-center justify-center">
+		<div className="mx-4 flex flex-grow items-center justify-center">
 			<Client hash={hash} />
-		</main>
+		</div>
 	);
 }

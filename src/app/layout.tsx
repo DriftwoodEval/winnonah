@@ -35,10 +35,10 @@ export default function RootLayout({
 			className={`${plusJakartaSans.variable} ${lora.variable} ${robotoMono.variable} h-full`}
 			lang="en"
 		>
-			<body className="dark h-full bg-background">
+			<body className="dark flex min-h-screen flex-col bg-background">
 				<Providers>
 					<Header />
-					<div className="mt-10">{children}</div>
+					<main className="flex flex-grow pt-10">{children}</main>
 					<Toaster position="top-center" richColors />
 				</Providers>
 			</body>

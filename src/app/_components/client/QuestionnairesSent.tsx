@@ -8,8 +8,8 @@ import {
 	TableHeader,
 	TableRow,
 } from "@ui/table";
-import { useSession } from "next-auth/react";
 import Link from "next/link";
+import { useSession } from "next-auth/react";
 import {
 	checkRole,
 	cn,
@@ -46,7 +46,7 @@ export function QuestionnairesSent({ clientId }: QuestionnairesSentProps) {
 	};
 
 	return (
-		<div className="max-h-80 w-full overflow-scroll rounded-md border shadow">
+		<div className="w-full overflow-scroll rounded-md border shadow">
 			<div className="sticky top-0 z-10 flex items-center justify-between gap-2 bg-background p-4">
 				<h4 className="font-bold leading-none sm:hidden">Questionnaires</h4>
 				<h4 className="hidden font-bold leading-none sm:block">

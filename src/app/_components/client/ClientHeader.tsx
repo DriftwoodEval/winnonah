@@ -76,7 +76,7 @@ export function ClientHeader({
 
 	if (isLoading || !client) {
 		return (
-			<div className="flex flex-col gap-2">
+			<div className="flex w-full flex-col gap-2">
 				<Skeleton className="h-[var(--text-2xl)] w-[32ch] rounded-md" />
 				<Skeleton className="h-[var(--text-base)] w-[9ch] rounded-md" />
 			</div>
@@ -90,7 +90,7 @@ export function ClientHeader({
 		: null;
 
 	return (
-		<div className="flex flex-col gap-2">
+		<div className="flex w-full flex-col gap-2">
 			<div className="flex items-center gap-2">
 				{client && <h1 className="font-bold text-2xl">{client.fullName}</h1>}
 			</div>

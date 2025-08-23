@@ -55,7 +55,7 @@ export function Client({ hash }: { hash: string }) {
 	const isLoading = isLoadingClient;
 
 	return (
-		<div className="mx-10 flex flex-col gap-6">
+		<div className="flex w-[calc(100vw-32px)] flex-col items-center gap-6 lg:w-4xl">
 			<ClientHeader
 				client={client}
 				isLoading={isLoading}
@@ -64,9 +64,9 @@ export function Client({ hash }: { hash: string }) {
 			/>
 
 			{isLoading || !client ? (
-				<Skeleton className="h-96 w-[calc(100vw-32px)] rounded-md sm:h-96 lg:w-4xl" />
+				<Skeleton className="h-96 w-full rounded-md sm:h-96" />
 			) : (
-				<div className="flex w-[calc(100vw-32px)] flex-col items-center gap-6 lg:w-4xl">
+				<div className="flex flex-col items-center gap-6">
 					<ClientDetailsCard client={client} />
 
 					<ClientNoteEditor clientId={client.id} />
