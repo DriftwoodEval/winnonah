@@ -14,7 +14,8 @@ import { Label } from "@ui/label";
 import { Popover, PopoverContent, PopoverTrigger } from "@ui/popover";
 import { Separator } from "@ui/separator";
 import { Skeleton } from "@ui/skeleton";
-import { CheckIcon } from "lucide-react";
+import { CheckIcon, Pencil } from "lucide-react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { useId, useState } from "react";
 import { toast } from "sonner";
@@ -29,6 +30,7 @@ import { checkRole, cn } from "~/lib/utils";
 import type { Client } from "~/server/lib/types";
 import { api } from "~/trpc/react";
 import { Badge } from "../ui/badge";
+import { ClientEditButton } from "./EditClientDialog";
 
 interface ClientHeaderProps {
 	client: Client | undefined;
@@ -47,6 +49,8 @@ export function ClientHeader({
 }: ClientHeaderProps) {
 	const { data: session } = useSession();
 	const admin = session ? checkRole(session.user.role, "admin") : false;
+	const router = useRouter();
+	const searchParams = useSearchParams();
 
 	const utils = api.useUtils();
 
@@ -54,6 +58,12 @@ export function ClientHeader({
 	const [isHPOpen, setIsHPOpen] = useState(false);
 
 	const highPriorityId = useId();
+
+	const handleEditClick = () => {
+		const params = new URLSearchParams(searchParams);
+		params.set("edit", "true");
+		router.push(`?${params.toString()}`);
+	};
 
 	const editClient = api.clients.update.useMutation({
 		onSuccess: () => {
@@ -92,9 +102,12 @@ export function ClientHeader({
 
 	return (
 		<div className="flex w-full flex-col gap-2">
-			<div className="flex items-center gap-2">
-				{client && <h1 className="font-bold text-2xl">{client.fullName}</h1>}
-			</div>
+			{client && (
+				<div className="flex items-center gap-2">
+					<h1 className="font-bold text-2xl">{client.fullName}</h1>
+					<ClientEditButton client={client} />
+				</div>
+			)}
 			<div className="flex h-5 items-center gap-2">
 				<div className="flex items-center gap-2">
 					<span>{client.id}</span>

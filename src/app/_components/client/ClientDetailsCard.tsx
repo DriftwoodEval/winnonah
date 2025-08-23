@@ -11,18 +11,31 @@ interface ClientDetailsCardProps {
 }
 
 export function ClientDetailsCard({ client }: ClientDetailsCardProps) {
-	const closestOffice = api.offices.getOne.useQuery({
-		column: "key",
-		value: client.closestOffice ?? "",
-	}).data;
-	const secondClosestOffice = api.offices.getOne.useQuery({
-		column: "key",
-		value: client.secondClosestOffice ?? "",
-	}).data;
-	const thirdClosestOffice = api.offices.getOne.useQuery({
-		column: "key",
-		value: client.thirdClosestOffice ?? "",
-	}).data;
+	const { data: closestOffice } = api.offices.getOne.useQuery(
+		{
+			column: "key",
+			value: client.closestOffice ?? "",
+		},
+		{
+			enabled: !!client.closestOffice,
+		},
+	);
+	const { data: secondClosestOffice } = api.offices.getOne.useQuery(
+		{
+			column: "key",
+			value: client.secondClosestOffice ?? "",
+		},
+		{
+			enabled: !!client.secondClosestOffice,
+		},
+	);
+	const { data: thirdClosestOffice } = api.offices.getOne.useQuery(
+		{
+			column: "key",
+			value: client.thirdClosestOffice ?? "",
+		},
+		{ enabled: !!client.thirdClosestOffice },
+	);
 
 	return (
 		<div className="flex w-full flex-wrap gap-6 rounded-md border-2 bg-card p-4 shadow">
@@ -86,34 +99,37 @@ export function ClientDetailsCard({ client }: ClientDetailsCardProps) {
 
 			<div>
 				<p className="font-bold">School District</p>
-				<p>{client.schoolDistrict}</p>
+				<p>{client.schoolDistrict ?? "Unknown"}</p>
 			</div>
 
 			<div>
 				<p className="font-bold">
 					Closest Office{" "}
-					<Popover>
-						<PopoverTrigger asChild>
-							<span className="cursor-pointer font-normal text-muted-foreground underline">
-								(Compare)
-							</span>
-						</PopoverTrigger>
-						<PopoverContent side="right">
-							<ul className="list-disc p-3">
-								<li>
-									{secondClosestOffice?.prettyName} (
-									{client.secondClosestOfficeMiles} mi)
-								</li>
-								<li>
-									{thirdClosestOffice?.prettyName} (
-									{client.thirdClosestOfficeMiles} mi)
-								</li>
-							</ul>
-						</PopoverContent>
-					</Popover>
+					{(secondClosestOffice || thirdClosestOffice) && (
+						<Popover>
+							<PopoverTrigger asChild>
+								<span className="cursor-pointer font-normal text-muted-foreground underline">
+									(Compare)
+								</span>
+							</PopoverTrigger>
+							<PopoverContent side="right">
+								<ul className="list-disc p-3">
+									<li>
+										{secondClosestOffice?.prettyName} (
+										{client.secondClosestOfficeMiles} mi)
+									</li>
+									<li>
+										{thirdClosestOffice?.prettyName} (
+										{client.thirdClosestOfficeMiles} mi)
+									</li>
+								</ul>
+							</PopoverContent>
+						</Popover>
+					)}
 				</p>
 				<p>
-					{closestOffice?.prettyName} ({client.closestOfficeMiles} mi)
+					{closestOffice?.prettyName ?? "Unknown"}{" "}
+					{client.closestOfficeMiles ? `(${client.closestOfficeMiles} mi)` : ""}
 				</p>
 			</div>
 

@@ -172,6 +172,10 @@
   }
 }
 
+.tiptap {
+  @apply break-all;
+}
+
 .tiptap .is-editor-empty:first-child::before {
   height: 0;
   color: var(--muted-foreground);
