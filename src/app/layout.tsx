@@ -38,7 +38,7 @@ export default function RootLayout({
 			<body className="dark h-full bg-background">
 				<Providers>
 					<Header />
-					{children}
+					<div className="mt-10">{children}</div>
 					<Toaster position="top-center" richColors />
 				</Providers>
 			</body>
