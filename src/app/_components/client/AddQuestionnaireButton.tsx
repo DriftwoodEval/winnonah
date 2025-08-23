@@ -10,7 +10,6 @@ import {
 import { useState } from "react";
 import { toast } from "sonner";
 import { logger } from "~/lib/logger";
-import { normalizeDate } from "~/lib/utils";
 import { api } from "~/trpc/react";
 import type { QuestionnaireTableFormValues } from "./QuestionnaireTableForm";
 import { QuestionnaireTableForm } from "./QuestionnaireTableForm";
@@ -48,7 +47,7 @@ export function AddQuestionnaireButton({
 			clientId: clientId,
 			questionnaireType: values.questionnaireType,
 			link: values.link,
-			sent: normalizeDate(values.sent),
+			sent: values.sent,
 		});
 	}
 

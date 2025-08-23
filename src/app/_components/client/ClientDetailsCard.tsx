@@ -28,7 +28,16 @@ export function ClientDetailsCard({ client }: ClientDetailsCardProps) {
 		<div className="flex w-full flex-wrap gap-6 rounded-md border-2 bg-card p-4 shadow">
 			<div>
 				<p className="font-bold">Date of Birth</p>
-				<p>{client.dob?.toLocaleDateString("en-US")}</p>
+				<p>
+					{client.dob
+						? new Intl.DateTimeFormat("en-US", {
+								year: "numeric",
+								month: "2-digit",
+								day: "2-digit",
+								timeZone: "UTC",
+							}).format(new Date(client.dob))
+						: ""}
+				</p>
 			</div>
 
 			<div>

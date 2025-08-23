@@ -53,27 +53,6 @@ export function formatClientAge(dob: Date, format = "long") {
   return years >= 3 ? `${years} years` : `${years} years, ${months} months`;
 }
 
-/**
- * Normalize a Date object to a specific time of day.
- *
- * @param date The Date object to normalize.
- * @returns A new Date object with the same year, month, and day as the original,
- *   but with the time set to 12:00 UTC.
- */
-export const normalizeDate = (date: Date) => {
-  return new Date(
-    Date.UTC(
-      date.getUTCFullYear(),
-      date.getUTCMonth(),
-      date.getUTCDate(),
-      12,
-      0,
-      0,
-      0
-    )
-  );
-};
-
 export type QuestionnaireStatus =
   | "COMPLETED"
   | "PENDING"

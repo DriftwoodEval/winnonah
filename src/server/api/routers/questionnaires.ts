@@ -1,7 +1,7 @@
 import { TRPCError } from "@trpc/server";
 import { desc, eq } from "drizzle-orm";
 import { z } from "zod";
-import { formatClientAge, normalizeDate } from "~/lib/utils";
+import { formatClientAge } from "~/lib/utils";
 import { createTRPCRouter, protectedProcedure } from "~/server/api/trpc";
 import { clients, questionnaires } from "~/server/db/schema";
 
@@ -109,7 +109,14 @@ export const questionnaireRouter = createTRPCRouter({
         return null;
       }
 
-      return clientWithQuestionnaires.questionnaires ?? null;
+      // Map the questionnaires to explicitly convert the date to an ISO string
+      const formattedQuestionnaires =
+        clientWithQuestionnaires.questionnaires.map((q) => ({
+          ...q,
+          sent: q.sent?.toISOString(),
+        }));
+
+      return formattedQuestionnaires ?? null;
     }),
 
   addQuestionnaire: protectedProcedure
@@ -141,7 +148,7 @@ export const questionnaireRouter = createTRPCRouter({
         clientId: input.clientId,
         questionnaireType: input.questionnaireType,
         link: input.link,
-        sent: normalizeDate(sentDate),
+        sent: new Date(sentDate.toUTCString()),
         status: "PENDING",
         reminded: 0,
         lastReminded: null,
@@ -171,7 +178,7 @@ export const questionnaireRouter = createTRPCRouter({
         .set({
           questionnaireType: input.questionnaireType,
           link: input.link,
-          sent: normalizeDate(input.sent),
+          sent: new Date(input.sent.toUTCString()),
         })
         .where(eq(questionnaires.id, input.id));
 
