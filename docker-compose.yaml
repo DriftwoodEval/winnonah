@@ -16,6 +16,8 @@ services:
       - ASANA_TOKEN=${ASANA_TOKEN}
       - ASANA_WORKSPACE=${ASANA_WORKSPACE}
       - REDIS_HOST=${DOCKER_REDIS_HOST}
+      - OPENPHONE_API_TOKEN=${OPENPHONE_API_TOKEN}
+      - OPENPHONE_NUMBER_ID=${OPENPHONE_NUMBER_ID}
 
   driftwood-db:
     image: mysql
@@ -57,7 +59,7 @@ services:
       - ASANA_WORKSPACE=${ASANA_WORKSPACE}
       - CENSUS_API_KEY=${CENSUS_API_KEY}
     volumes:
-      - ./auth_cache:/app/auth_cache
+      - ./python/auth_cache:/app/auth_cache
 
   watchtower:
     image: containrrr/watchtower
