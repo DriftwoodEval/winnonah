@@ -24,6 +24,7 @@ export function ClientNoteEditor({ clientId }: ClientNoteEditorProps) {
 		clientId,
 		{
 			enabled: !!clientId,
+			refetchInterval: 10000, // 10 seconds
 		},
 	);
 
