@@ -30,6 +30,7 @@ export function ClientsDashboard() {
 	const inactiveId = useId();
 	const allId = useId();
 	const hideBabyNetId = useId();
+	const privatePayId = useId();
 
 	const [debouncedNameForQuery, setDebouncedNameForQuery] = useState("");
 
@@ -39,6 +40,7 @@ export function ClientsDashboard() {
 		const hideBabyNet = searchParams.get("hideBabyNet") === "true";
 		const status = searchParams.get("status") ?? undefined;
 		const color = (searchParams.get("color") as ClientColor) ?? undefined;
+		const privatePay = searchParams.get("privatePay") === "true";
 
 		// TODO: Provide user feedback that the name search is too short
 		const finalNameSearch =
@@ -51,6 +53,7 @@ export function ClientsDashboard() {
 			hideBabyNet,
 			status: status as "active" | "inactive" | "all" | undefined,
 			color,
+			privatePay,
 		};
 	}, [searchParams, debouncedNameForQuery]);
 
@@ -173,6 +176,18 @@ export function ClientsDashboard() {
 										htmlFor={hideBabyNetId}
 									>
 										Hide BabyNet Clients
+									</Label>
+								</div>
+								<div className="flex items-center space-x-2">
+									<Checkbox
+										checked={filters.privatePay}
+										id={privatePayId}
+										onCheckedChange={(checked) =>
+											handleUrlParamChange("privatePay", !!checked)
+										}
+									/>
+									<Label className="font-medium text-sm" htmlFor={privatePayId}>
+										Private Pay Only
 									</Label>
 								</div>
 							</div>

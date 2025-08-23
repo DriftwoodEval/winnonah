@@ -224,6 +224,7 @@ export const clientRouter = createTRPCRouter({
         hideBabyNet: z.boolean().optional(),
         status: z.enum(["active", "inactive", "all"]).optional(),
         color: z.enum(CLIENT_COLOR_KEYS).optional(),
+        privatePay: z.boolean().optional(),
       })
     )
     .query(async ({ ctx, input }) => {
@@ -237,6 +238,7 @@ export const clientRouter = createTRPCRouter({
         hideBabyNet,
         status,
         color,
+        privatePay,
       } = input;
 
       const effectiveStatus = status ?? "active";
@@ -270,6 +272,10 @@ export const clientRouter = createTRPCRouter({
           .where(eq(clientsEvaluators.evaluatorNpi, evaluatorNpi));
 
         conditions.push(inArray(clients.id, clientIdsQuery));
+      }
+
+      if (privatePay) {
+        conditions.push(eq(clients.privatePay, true));
       }
 
       const countByColor = await ctx.db
