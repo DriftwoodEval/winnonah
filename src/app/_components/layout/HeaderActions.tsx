@@ -13,7 +13,7 @@ import {
 import { LogIn } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useSession } from "next-auth/react";
+import { signIn, signOut, useSession } from "next-auth/react";
 import { GlobalClientSearch } from "./GlobalClientSearch";
 
 export function HeaderActions() {
@@ -27,15 +27,13 @@ export function HeaderActions() {
 			{session && <IssuesAlert />}
 
 			{!session && (
-				<Link href="/api/auth/signin">
-					<Button size="sm" variant="secondary">
-						<span className="hidden sm:block">Sign in</span>
+				<Button onClick={() => signIn("google")} size="sm" variant="secondary">
+					<span className="hidden sm:block">Sign in</span>
 
-						<span className="block sm:hidden">
-							<LogIn />
-						</span>
-					</Button>
-				</Link>
+					<span className="block sm:hidden">
+						<LogIn />
+					</span>
+				</Button>
 			)}
 
 			{session && (
@@ -58,9 +56,9 @@ export function HeaderActions() {
 							<DropdownMenuItem>Settings</DropdownMenuItem>
 						</Link>
 						<DropdownMenuSeparator />
-						<Link href="/api/auth/signout">
+						<button className="w-full" onClick={() => signOut()} type="button">
 							<DropdownMenuItem>Sign out</DropdownMenuItem>
-						</Link>
+						</button>
 					</DropdownMenuContent>
 				</DropdownMenu>
 			)}
