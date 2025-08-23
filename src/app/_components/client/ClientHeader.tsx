@@ -28,6 +28,7 @@ import { logger } from "~/lib/logger";
 import { checkRole, cn } from "~/lib/utils";
 import type { Client } from "~/server/lib/types";
 import { api } from "~/trpc/react";
+import { Badge } from "../ui/badge";
 
 interface ClientHeaderProps {
 	client: Client | undefined;
@@ -95,7 +96,12 @@ export function ClientHeader({
 				{client && <h1 className="font-bold text-2xl">{client.fullName}</h1>}
 			</div>
 			<div className="flex h-5 items-center gap-2">
-				<span>{client.id}</span>
+				<div className="flex items-center gap-2">
+					<span>{client.id}</span>
+					<Badge variant={client.status ? "default" : "destructive"}>
+						{client.status ? "Active" : "Inactive"}
+					</Badge>
+				</div>
 
 				{client.interpreter && <Separator orientation="vertical" />}
 				{client.interpreter && (
