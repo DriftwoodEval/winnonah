@@ -1,7 +1,7 @@
 post-checkout:
   commands:
     install:
-      run: pnpm i --prevfer-frozen-lockfile
+      run: pnpm i prefer-frozen-lockfile
 
 pre-commit:
   commands:

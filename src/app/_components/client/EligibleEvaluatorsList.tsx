@@ -19,7 +19,7 @@ export function EligibleEvaluatorsList({
 
 	return (
 		<div className="max-h-52 w-full overflow-auto rounded-md border shadow">
-			<h4 className="sticky top-0 z-10 h-full w-full bg-background p-4 font-bold leading-none">
+			<h4 className="sticky top-0 z-10 h-full w-full p-4 font-bold leading-none">
 				Eligible Evaluators
 			</h4>
 			<ScrollArea className="p-4">

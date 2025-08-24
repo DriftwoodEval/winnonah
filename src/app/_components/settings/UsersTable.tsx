@@ -264,9 +264,12 @@ export default function UsersTable() {
 				) : users && users.length > 0 ? (
 					users.map((user) => (
 						<div
-							className="rounded-lg border bg-card p-4 text-card-foreground"
+							className="relative rounded-lg border bg-card p-4 text-card-foreground"
 							key={user.id}
 						>
+							<div className="absolute top-2 right-2">
+								{admin && <UsersTableActionsMenu user={user} />}
+							</div>
 							<div className="flex items-start justify-between">
 								<div className="flex items-center gap-4">
 									<Avatar>
@@ -276,11 +279,12 @@ export default function UsersTable() {
 									<div className="space-y-1">
 										<p className="font-medium">{user.name}</p>
 										<p className="text-muted-foreground text-sm">
-											{user.email}
+											{user.email.length > 25
+												? `${user.email.slice(0, 22)}...`
+												: user.email}
 										</p>
 									</div>
 								</div>
-								{admin && <UsersTableActionsMenu user={user} />}
 							</div>
 							<div className="mt-4 border-t pt-4">
 								<dl className="flex justify-between text-sm">

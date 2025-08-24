@@ -14,6 +14,7 @@ import { LogIn } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { signIn, signOut, useSession } from "next-auth/react";
+import { ThemeSwitcher } from "../shared/ThemeSwitcher";
 import { GlobalClientSearch } from "./GlobalClientSearch";
 
 export function HeaderActions() {
@@ -25,6 +26,8 @@ export function HeaderActions() {
 			{session && pathname !== "/" && <GlobalClientSearch />}
 
 			{session && <IssuesAlert />}
+
+			<ThemeSwitcher />
 
 			{!session && (
 				<Button onClick={() => signIn("google")} size="sm" variant="secondary">

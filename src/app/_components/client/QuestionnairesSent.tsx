@@ -49,7 +49,7 @@ export function QuestionnairesSent({ clientId }: QuestionnairesSentProps) {
 
 	return (
 		<div className="w-full rounded-md border shadow">
-			<div className="sticky top-0 z-10 flex items-center justify-between gap-2 bg-background p-4">
+			<div className="sticky top-0 z-10 flex items-center justify-between gap-2 p-4">
 				<h4 className="font-bold leading-none sm:hidden">Questionnaires</h4>
 				<h4 className="hidden font-bold leading-none sm:block">
 					Questionnaires Sent

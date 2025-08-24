@@ -12,7 +12,7 @@ interface IssueListProps {
 
 const IssueList = ({ title, clients }: IssueListProps) => (
 	<div>
-		<ScrollArea className="dark w-full rounded-md border bg-card text-card-foreground">
+		<ScrollArea className="w-full rounded-md border bg-card text-card-foreground">
 			<div className="p-4">
 				<h1 className="mb-4 font-bold text-lg leading-none">{title}</h1>
 				{clients.map((client, index) => (

@@ -3,7 +3,11 @@ import "~/styles/globals.css";
 import { Header } from "@components/layout/Header";
 import { Toaster } from "@ui/sonner";
 import type { Metadata } from "next";
-import { Lora, Plus_Jakarta_Sans, Roboto_Mono } from "next/font/google";
+import {
+	JetBrains_Mono,
+	Plus_Jakarta_Sans,
+	Source_Serif_4,
+} from "next/font/google";
 import Providers from "./providers";
 
 export const metadata: Metadata = {
@@ -17,14 +21,14 @@ const plusJakartaSans = Plus_Jakarta_Sans({
 	variable: "--font-plus-jakarta-sans",
 });
 
-const lora = Lora({
+const sourceSerif4 = Source_Serif_4({
 	subsets: ["latin"],
-	variable: "--font-lora",
+	variable: "--font-source-serif-4",
 });
 
-const robotoMono = Roboto_Mono({
+const jetBrainsMono = JetBrains_Mono({
 	subsets: ["latin"],
-	variable: "--font-roboto-mono",
+	variable: "--font-jetbrains-mono",
 });
 
 export default function RootLayout({
@@ -32,10 +36,11 @@ export default function RootLayout({
 }: Readonly<{ children: React.ReactNode }>) {
 	return (
 		<html
-			className={`${plusJakartaSans.variable} ${lora.variable} ${robotoMono.variable} h-full`}
+			className={`${plusJakartaSans.variable} ${sourceSerif4.variable} ${jetBrainsMono.variable} h-full`}
 			lang="en"
+			suppressHydrationWarning
 		>
-			<body className="dark flex min-h-screen flex-col bg-background">
+			<body className="flex min-h-screen flex-col bg-background">
 				<Providers>
 					<Header />
 					<main className="flex flex-grow pt-10">{children}</main>
