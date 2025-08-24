@@ -245,9 +245,31 @@ export const clientRouter = createTRPCRouter({
 
       const conditions = [];
 
-      if (nameSearch && nameSearch.length >= 3) {
-        conditions.push(like(clients.fullName, `%${nameSearch}%`));
+      if (nameSearch) {
+        const numericId = parseInt(nameSearch.trim(), 10);
+        if (!Number.isNaN(numericId)) {
+          conditions.push(like(clients.id, `${numericId}%`));
+        } else if (nameSearch.length >= 3) {
+          // Clean the user's input string by replacing hyphens and apostrophes with spaces
+          const cleanedSearchString = nameSearch.replace(/[-']/g, " ");
+
+          // Split the cleaned string by spaces and filter out any empty strings
+          const searchWords = cleanedSearchString.split(" ").filter(Boolean);
+
+          if (searchWords.length > 0) {
+            // Clean the fullName column in the database
+            const cleanedFullName = sql`REPLACE(REPLACE(${clients.fullName}, '-', ''), '''', '')`;
+
+            // Map the cleaned search words to LIKE conditions
+            const nameConditions = searchWords.map((word) =>
+              like(cleanedFullName, `%${word}%`)
+            );
+
+            conditions.push(and(...nameConditions));
+          }
+        }
       }
+
       if (office) {
         conditions.push(eq(clients.closestOffice, office));
       }
