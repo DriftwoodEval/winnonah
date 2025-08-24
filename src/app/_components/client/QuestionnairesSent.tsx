@@ -48,7 +48,7 @@ export function QuestionnairesSent({ clientId }: QuestionnairesSentProps) {
 	};
 
 	return (
-		<div className="w-full overflow-scroll rounded-md border shadow">
+		<div className="w-full rounded-md border shadow">
 			<div className="sticky top-0 z-10 flex items-center justify-between gap-2 bg-background p-4">
 				<h4 className="font-bold leading-none sm:hidden">Questionnaires</h4>
 				<h4 className="hidden font-bold leading-none sm:block">
@@ -57,17 +57,15 @@ export function QuestionnairesSent({ clientId }: QuestionnairesSentProps) {
 				{admin && <AddQuestionnaireButton clientId={clientId} />}
 			</div>
 			<div className="px-4 pb-4">
-				<Table>
+				<Table className="text-xs">
 					<TableHeader>
 						<TableRow>
-							{admin && <TableHead className="w-[20px]"></TableHead>}
-							<TableHead className="w-[100px]">Date</TableHead>
-							<TableHead className="hidden w-[100px] sm:table-cell">
-								Type
-							</TableHead>
-							<TableHead className="w-[100px]">Link</TableHead>
-							<TableHead className="w-[100px]">Reminded</TableHead>
-							<TableHead className="w-[100px]">Status</TableHead>
+							{admin && <TableHead className="w-2.5"></TableHead>}
+							<TableHead className="hidden w-20 sm:table-cell">Date</TableHead>
+							<TableHead className="hidden w-20 sm:table-cell">Type</TableHead>
+							<TableHead className="w-20">Link</TableHead>
+							<TableHead className="w-20">Reminded</TableHead>
+							<TableHead className="w-20">Status</TableHead>
 						</TableRow>
 					</TableHeader>
 					<TableBody>
@@ -85,7 +83,7 @@ export function QuestionnairesSent({ clientId }: QuestionnairesSentProps) {
 										<QuestionnaireActionsMenu questionnaire={questionnaire} />
 									</TableCell>
 								)}
-								<TableCell>
+								<TableCell className="hidden sm:table-cell">
 									{questionnaire.sent
 										? new Intl.DateTimeFormat("en-US", {
 												year: "2-digit",
