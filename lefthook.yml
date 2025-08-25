@@ -5,9 +5,17 @@ post-checkout:
 
 pre-commit:
   commands:
-    check:
+    biome-check:
       run: pnpm biome check --write {staged_files} --no-errors-on-unmatched --files-ignore-unknown=true --colors=off
       stage_fixed: true
+    ruff-check:
+      glob: "*.py"
+      stage_fixed: true
+      run: uvx ruff check {staged_files} --fix --exit-non-zero-on-fix
+    ruff-fmt:
+      glob: "*.py"
+      stage_fixed: true
+      run: uvx ruff format {staged_files}
 
 commit-msg:
   commands:
