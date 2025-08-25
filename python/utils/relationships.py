@@ -1,125 +1,106 @@
-import re
-
 import pandas as pd
-from loguru import logger
+
 from utils.misc import get_column
 
 
 def match_by_insurance(client: pd.Series, evaluators: dict):
-    logger.debug(
-        f"Matching evaluators by insurance for {get_column(client, 'FIRSTNAME')} {get_column(client, 'LASTNAME')}"
-    )
-    eligible_evaluators = []
+    """Matches evaluators to a client based on insurance information.
+
+    An evaluator is considered eligible if they accept the client's
+    primary insurance, secondary insurance, or if the client is private pay.
+
+    Args:
+        client (pd.Series): A pandas Series representing a single client.
+        evaluators (dict): A dictionary of all evaluators, keyed by NPI.
+
+    Returns:
+        list: A list of NPIs for evaluators who are eligible for the client.
+    """
+    # logger.debug(
+    #     f"Matching evaluators by insurance for {get_column(client, 'FIRSTNAME')} {get_column(client, 'LASTNAME')}"
+    # )
 
     is_private_pay = get_column(client, "POLICY_PRIVATEPAY") == 1
+
+    # Check for private pay first. If true, all evaluators are eligible.
+    if is_private_pay:
+        # logger.debug("Client is private pay, all evaluators are eligible.")
+        return list(evaluators.keys())
+
+    eligible_evaluator_npis = set()
     primary_insurance = get_column(client, "INSURANCE_COMPANYNAME")
     secondary_insurance = get_column(client, "SECONDARY_INSURANCE_COMPANYNAME")
 
-    for evaluator, data in evaluators.items():
-        if is_private_pay:
-            if evaluator not in eligible_evaluators:
-                eligible_evaluators.append(evaluator)
+    insurances_to_check = [primary_insurance]
+    if isinstance(secondary_insurance, str):
+        insurances_to_check.extend(
+            [name.strip() for name in secondary_insurance.split(",")]
+        )
+    elif isinstance(secondary_insurance, list):
+        insurances_to_check.extend(secondary_insurance)
 
-        if primary_insurance and primary_insurance in data and data[primary_insurance]:
-            logger.debug(f"{evaluator} takes {client.INSURANCE_COMPANYNAME}")
-            if evaluator not in eligible_evaluators:
-                eligible_evaluators.append(evaluator)
+    for npi, evaluator_data in evaluators.items():
+        evaluator_name = evaluator_data.get("providerName", "Unknown Evaluator")
+        # Check for matching insurance
+        for insurance in insurances_to_check:
+            # The client's insurance name should match a boolean column in the evaluator data
+            if isinstance(insurance, str) and evaluator_data.get(insurance, False):
+                # logger.debug(f"{evaluator_name} accepts {insurance}.")
+                eligible_evaluator_npis.add(npi)
+                break  # Break out of the inner loop once a match is found for this evaluator
 
-        if secondary_insurance:
-            secondary_insurance_names = (
-                secondary_insurance.split(",")
-                if isinstance(secondary_insurance, str)
-                else secondary_insurance
-            )
-
-            for sec_insurance_name in secondary_insurance_names:
-                if (
-                    sec_insurance_name
-                    and sec_insurance_name in data
-                    and data[sec_insurance_name]
-                ):
-                    logger.debug(f"{evaluator} takes {sec_insurance_name}")
-                    if evaluator not in eligible_evaluators:
-                        eligible_evaluators.append(evaluator)
-
-    return eligible_evaluators
+    return list(eligible_evaluator_npis)
 
 
 def match_by_school_district(client: pd.Series, evaluators: dict):
-    logger.debug(
-        f"Matching evaluators by school district for {get_column(client, 'FIRSTNAME')} {get_column(client, 'LASTNAME')}"
-    )
+    """Matches evaluators to a client based on school district.
 
+    This function iterates through all evaluators and adds them to a list
+    of eligible evaluators if the client's school district is NOT in their
+    list of blocked districts.
+
+    Args:
+        client (pd.Series): A pandas Series representing a single client.
+        evaluators (dict): A dictionary of all evaluators, keyed by NPI,
+                           with their details and lists of blocked locations.
+
+    Returns:
+        list: A list of NPIs for evaluators who are eligible for the client.
+    """
     client_school_district = get_column(client, "SCHOOL_DISTRICT")
-    client_district_lower = None
-    if isinstance(client_school_district, str):
-        client_district_lower = client_school_district.lower()
 
-    if client_school_district is None or client_school_district == "Unknown":
-        logger.warning(
-            f"Client {get_column(client, 'FIRSTNAME')} {get_column(client, 'LASTNAME')} has no school district, adding all evaluators for now"
-        )
+    # logger.debug(
+    #     f"Matching evaluators by school district for {get_column(client, 'FIRSTNAME')} {get_column(client, 'LASTNAME')}"
+    # )
+
+    if not isinstance(
+        client_school_district, str
+    ) or client_school_district.lower() in ["unknown", "n/a", "no", None]:
+        # logger.debug(
+        #     f"{get_column(client, 'FIRSTNAME')} {get_column(client, 'LASTNAME')} has no valid school district information. No exclusions applied. All evaluators are eligible."
+        # )
         return list(evaluators.keys())
 
-    processed_evaluators = {}
-    for evaluator, data in evaluators.items():
-        district_info = get_column(data, "DistrictInfo")
-        if isinstance(district_info, str):
-            # remove text in parentheses and convert to lowercase
-            processed_district_info = re.sub(r"\s*\([^)]*\)", "", district_info).strip()
-            # replace no with a blank string to handle it as an exclusion
-            processed_district_info = (
-                processed_district_info.lower().replace("no", "").strip()
-            )
-            processed_evaluators[evaluator] = processed_district_info
-        else:
-            processed_evaluators[evaluator] = ""
-
     eligible_evaluators = []
-    for evaluator, data in evaluators.items():
-        processed_district_info = processed_evaluators.get(evaluator, "")
-        if processed_district_info == "all":
-            logger.debug(f"{evaluator} is ok for {client_school_district}")
-            if evaluator not in eligible_evaluators:
-                eligible_evaluators.append(evaluator)
-        elif client_district_lower not in processed_district_info:
-            logger.debug(f"{evaluator} is ok for {client_school_district}")
-            if evaluator not in eligible_evaluators:
-                eligible_evaluators.append(evaluator)
+    client_district_lower = client_school_district.lower().strip()
 
-    return eligible_evaluators
+    for npi, evaluator_data in evaluators.items():
+        evaluator_name = evaluator_data.get("providerName", "Unknown Evaluator")
+        blocked_districts = evaluator_data.get("blockedSchoolDistricts", [])
 
+        is_blocked = False
+        for blocked_name in blocked_districts:
+            if client_district_lower == blocked_name.lower().strip():
+                is_blocked = True
+                # logger.debug(
+                #     f"Evaluator {evaluator_name} ({npi}) CANNOT work in {client_school_district}."
+                # )
+                break
 
-def match_by_office(client: pd.Series, evaluators: dict):
-    logger.debug(
-        f"Matching evaluators by office for {get_column(client, 'FIRSTNAME')} {get_column(client, 'LASTNAME')}"
-    )
-
-    client_closest_office = get_column(client, "CLOSEST_OFFICE")
-    client_closest_office_lower = None
-
-    if not isinstance(client_closest_office, str) or client_closest_office in (
-        "Unknown",
-        "",
-    ):
-        logger.warning(
-            f"Client {get_column(client, 'FIRSTNAME')} {get_column(client, 'LASTNAME')} has no closest office, adding all evaluators for now"
-        )
-        return list(evaluators.keys())
-
-    client_closest_office_lower = client_closest_office.lower()
-    eligible_evaluators = []
-
-    for evaluator, data in evaluators.items():
-        evaluator_offices = get_column(data, "Offices", default="")
-        if isinstance(evaluator_offices, str):
-            evaluator_offices_lower = evaluator_offices.lower()
-            if (
-                evaluator_offices_lower == "all"
-                or client_closest_office_lower in evaluator_offices_lower
-            ):
-                logger.debug(f"{evaluator} is ok for {client_closest_office}")
-                if evaluator not in eligible_evaluators:
-                    eligible_evaluators.append(evaluator)
+        if not is_blocked:
+            eligible_evaluators.append(npi)
+            # logger.debug(
+            #     f"Evaluator {evaluator_name} can work with {client_school_district}."
+            # )
 
     return eligible_evaluators

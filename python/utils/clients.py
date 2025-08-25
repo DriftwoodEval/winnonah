@@ -1,11 +1,12 @@
 import string
 
-import pandas as pd
-import utils.database
-from nameparser import HumanName
-from loguru import logger
-from utils.download_ta import download_csvs
 import numpy as np
+import pandas as pd
+from loguru import logger
+from nameparser import HumanName
+
+import utils.database
+from utils.download_ta import download_csvs
 
 TEST_NAMES = [
     "Testman Testson",
@@ -163,12 +164,14 @@ def combine_address_info(clients: pd.DataFrame) -> pd.DataFrame:
 
 
 def remove_invalid_clients(clients_df: pd.DataFrame) -> pd.DataFrame:
+    """Removes clients with invalid IDs."""
     logger.debug("Removing clients with invalid IDs")
     clients_df = clients_df[pd.notna(clients_df["CLIENT_ID"])]
     return clients_df
 
 
 def get_clients() -> pd.DataFrame:
+    """Downloads CSVs from TherapyAppointment, cleans them, and returns a DataFrame of clients."""
     download_csvs()
     logger.debug("Getting clients from spreadsheets")
     insurance_df = utils.database.open_local_spreadsheet(
@@ -185,7 +188,5 @@ def get_clients() -> pd.DataFrame:
     clients_df = consolidate_by_id(clients_df)
     clients_df = remove_invalid_clients(clients_df)
     clients_df = combine_address_info(clients_df)
-
-    utils.database.sync_client_statuses(clients_df)
 
     return clients_df

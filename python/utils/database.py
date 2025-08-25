@@ -5,15 +5,24 @@ from urllib.parse import urlparse
 
 import pandas as pd
 import pymysql.cursors
-import utils.relationships
 from dotenv import load_dotenv
 from loguru import logger
-from utils.misc import get_column
+
+import utils.relationships
+from utils.misc import (
+    format_date,
+    format_gender,
+    format_phone_number,
+    get_boolean_value,
+    get_column,
+    get_full_name,
+)
 
 load_dotenv()
 
 
 def open_local_spreadsheet(file) -> pd.DataFrame:
+    """Reads a CSV file and returns a DataFrame."""
     try:
         with open(file, "r", encoding="utf-8") as f:
             logger.debug(f"Opening {file}")
@@ -27,6 +36,7 @@ def open_local_spreadsheet(file) -> pd.DataFrame:
 
 
 def get_db():
+    """Returns a connection to the database."""
     db_url = urlparse(os.getenv("DATABASE_URL", ""))
     connection = pymysql.connect(
         host=db_url.hostname,
@@ -39,60 +49,9 @@ def get_db():
     return connection
 
 
-def put_evaluators_in_db(evaluators_dict: dict) -> None:
-    logger.debug("Inserting evaluators into database")
-    db_connection = get_db()
-
-    with db_connection:
-        with db_connection.cursor() as cursor:
-            sql = """
-                INSERT INTO emr_evaluator (
-                    npi, providerName, email, SCM, BabyNet, Molina, MolinaMarketplace, ATC, Humana, SH, HB, AETNA, United_Optum, Districts, Offices
-                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-                ON DUPLICATE KEY UPDATE
-                    providerName = VALUES(providerName),
-                    email = VALUES(email),
-                    SCM = VALUES(SCM),
-                    BabyNet = VALUES(BabyNet),
-                    Molina = VALUES(Molina),
-                    MolinaMarketplace = VALUES(MolinaMarketplace),
-                    ATC = VALUES(ATC),
-                    Humana = VALUES(Humana),
-                    SH = VALUES(SH),
-                    HB = VALUES(HB),
-                    AETNA = VALUES(AETNA),
-                    United_Optum = VALUES(United_Optum),
-                    Districts = VALUES(Districts),
-                    Offices = VALUES(Offices);
-            """
-
-            for provider_name, provider_data in evaluators_dict.items():
-                values = (
-                    provider_data["NPI"],
-                    provider_name,
-                    provider_data["Email"],
-                    provider_data["SCM"],
-                    provider_data["BabyNet"],
-                    provider_data["Molina"],
-                    provider_data["MolinaMarketplace"],
-                    provider_data["ATC"],
-                    provider_data["Humana"],
-                    provider_data["SH"],
-                    provider_data["HB"],
-                    provider_data["AETNA"],
-                    provider_data["United_Optum"],
-                    provider_data["DistrictInfo"],
-                    provider_data["Offices"],
-                )
-
-                cursor.execute(sql, values)
-
-        db_connection.commit()
-
-
 def sync_client_statuses(clients_df: pd.DataFrame):
-    """
-    Updates the status for all clients in the DataFrame.
+    """Updates the status for all clients in the DataFrame.
+
     - Sets status to 1 for active clients.
     - Sets status to 0 for inactive clients.
     """
@@ -129,215 +88,240 @@ def sync_client_statuses(clients_df: pd.DataFrame):
 
 
 def filter_clients_with_changed_address(clients: pd.DataFrame) -> pd.DataFrame:
-    db_connection = get_db()
+    """Identifies clients with new or changed addresses by comparing them to records in the database. Also, filters out clients with no address.
 
+    Args:
+      clients (pd.DataFrame): A DataFrame of client data from TA.
+
+    Returns:
+        pd.DataFrame: A DataFrame of clients with new or changed addresses.
+    """
+    initial_count = len(clients)
+    clients_with_address = clients.dropna(subset=["ADDRESS"])
+    clients_with_address = clients_with_address[
+        clients_with_address["ADDRESS"].str.strip() != ""
+    ]
+    no_address_count = initial_count - len(clients_with_address)
+    if no_address_count > 0:
+        logger.debug(f"Skipping {no_address_count} clients with no address.")
+
+    if clients_with_address.empty:
+        logger.debug("No clients with an address to process.")
+        return clients_with_address
+
+    db_connection = get_db()
     with db_connection:
         with db_connection.cursor() as cursor:
-            cursor.execute("SELECT id, LOWER(address) as address FROM emr_client")
-            previous_clients = {row["id"]: row["address"] for row in cursor.fetchall()}
+            cursor.execute("SELECT id, address FROM emr_client")
+            db_addresses = pd.DataFrame(cursor.fetchall())
 
-            clients["ADDRESS_CHANGED"] = clients.apply(
-                lambda row: previous_clients.get(row["CLIENT_ID"], "")
-                != row["ADDRESS"].lower().strip(),
-                axis=1,
-            )
+    if db_addresses.empty:
+        logger.debug(
+            "No existing clients found in the database. All clients will be geocoded."
+        )
+        return clients_with_address.copy()
 
-            clients_with_new_address = clients[clients["ADDRESS_CHANGED"]]
+    db_addresses.rename(
+        columns={"id": "CLIENT_ID", "address": "DB_ADDRESS"}, inplace=True
+    )
+    db_addresses["CLIENT_ID"] = db_addresses["CLIENT_ID"].astype(str)
 
-            logger.debug(
-                f"Skipping {len(clients) - len(clients_with_new_address)} clients already in database with same address ({len(clients_with_new_address)} new clients)"
-            )
+    clients_with_address["CLIENT_ID"] = clients_with_address["CLIENT_ID"].astype(str)
+    clients_with_address["NORMALIZED_ADDRESS"] = (
+        clients_with_address["ADDRESS"].fillna("").str.lower().str.strip()
+    )
+    db_addresses["NORMALIZED_ADDRESS"] = (
+        db_addresses["DB_ADDRESS"].fillna("").str.lower().str.strip()
+    )
 
-            return clients_with_new_address.copy()
+    merged_df = pd.merge(
+        clients_with_address,
+        db_addresses,
+        on="CLIENT_ID",
+        how="left",
+        suffixes=("_new", "_db"),
+    )
+
+    changed_mask = (
+        merged_df["NORMALIZED_ADDRESS_new"] != merged_df["NORMALIZED_ADDRESS_db"]
+    ) | merged_df["NORMALIZED_ADDRESS_db"].isnull()
+
+    changed_clients = merged_df[changed_mask]
+
+    logger.debug(
+        f"Skipping {len(clients_with_address) - len(changed_clients)} clients with same address "
+        f"({len(changed_clients)} clients with new/changed addresses)."
+    )
+
+    return clients_with_address[
+        clients_with_address["CLIENT_ID"].isin(changed_clients["CLIENT_ID"])
+    ].copy()
 
 
-def get_missing_asana_clients() -> pd.DataFrame:
+def get_all_clients() -> pd.DataFrame:
+    """Fetches all clients from the database.
+
+    Returns:
+        pd.DataFrame: A DataFrame containing all client records.
+    """
     db_connection = get_db()
-
     with db_connection:
         with db_connection.cursor() as cursor:
-            cursor.execute(
-                "SELECT id AS CLIENT_ID, firstName AS FIRSTNAME, lastName AS LASTNAME FROM emr_client WHERE asanaId IS NULL"
-            )
+            cursor.execute("SELECT * FROM emr_client")
             clients = cursor.fetchall()
+            df = pd.DataFrame(clients)
 
-            logger.debug(f"Found {len(clients)} clients missing Asana IDs")
+    column_mapping = {
+        "id": "CLIENT_ID",
+        "hash": "HASH",
+        "status": "STATUS",
+        "asanaId": "ASANA_ID",
+        "archivedInAsana": "ARCHIVED_IN_ASANA",
+        "addedDate": "ADDED_DATE",
+        "dob": "DOB",
+        "firstName": "FIRSTNAME",
+        "lastName": "LASTNAME",
+        "preferredName": "PREFERRED_NAME",
+        "fullName": "FULL_NAME",
+        "address": "ADDRESS",
+        "schoolDistrict": "SCHOOL_DISTRICT",
+        "closestOffice": "CLOSEST_OFFICE",
+        "closestOfficeMiles": "CLOSEST_OFFICE_MILES",
+        "secondClosestOffice": "SECOND_CLOSEST_OFFICE",
+        "secondClosestOfficeMiles": "SECOND_CLOSEST_OFFICE_MILES",
+        "thirdClosestOffice": "THIRD_CLOSEST_OFFICE",
+        "thirdClosestOfficeMiles": "THIRD_CLOSEST_OFFICE_MILES",
+        "primaryInsurance": "INSURANCE_COMPANYNAME",
+        "secondaryInsurance": "SECONDARY_INSURANCE_COMPANYNAME",
+        "privatePay": "POLICY_PRIVATEPAY",
+        "asdAdhd": "ASD_ADHD",
+        "interpreter": "INTERPRETER",
+        "phoneNumber": "PHONE1",
+        "gender": "GENDER",
+        "highPriority": "HIGH_PRIORITY",
+        "color": "COLOR",
+    }
 
-            return pd.DataFrame(clients)
+    df.rename(columns=column_mapping, inplace=True)
+    return df
 
 
 def put_clients_in_db(clients_df):
+    """Inserts or updates client data in teh database from a DataFrame."""
     logger.debug("Inserting clients into database")
     db_connection = get_db()
 
-    with db_connection:
-        with db_connection.cursor() as cursor:
-            sql = """
-                INSERT INTO `emr_client` (id, hash, status, asanaId, archivedInAsana, addedDate, dob, firstName, lastName, preferredName, fullName, address, schoolDistrict, closestOffice, closestOfficeMiles, secondClosestOffice, secondClosestOfficeMiles, thirdClosestOffice, thirdClosestOfficeMiles, primaryInsurance, secondaryInsurance, privatePay, asdAdhd, interpreter, gender, phoneNumber)
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-                ON DUPLICATE KEY UPDATE
-                    hash = VALUES(hash),
-                    status = VALUES(status),
-                    asanaId = VALUES(asanaId),
-                    archivedInAsana = VALUES(archivedInAsana),
-                    addedDate = VALUES(addedDate),
-                    dob = VALUES(dob),
-                    firstName = VALUES(firstName),
-                    lastName = VALUES(lastName),
-                    preferredName = VALUES(preferredName),
-                    fullName = VALUES(fullName),
-                    address = VALUES(address),
-                    schoolDistrict = VALUES(schoolDistrict),
-                    closestOffice = VALUES(closestOffice),
-                    closestOfficeMiles = VALUES(closestOfficeMiles),
-                    secondClosestOffice = VALUES(secondClosestOffice),
-                    secondClosestOfficeMiles = VALUES(secondClosestOfficeMiles),
-                    thirdClosestOffice = VALUES(thirdClosestOffice),
-                    thirdClosestOfficeMiles = VALUES(thirdClosestOfficeMiles),
-                    primaryInsurance = VALUES(primaryInsurance),
-                    secondaryInsurance = VALUES(secondaryInsurance),
-                    privatePay = VALUES(privatePay),
-                    asdAdhd = VALUES(asdAdhd),
-                    interpreter = VALUES(interpreter),
-                    gender = VALUES(gender),
-                    phoneNumber = VALUES(phoneNumber);
-            """
+    values_to_insert = []
 
-            for _, client in clients_df.iterrows():
-                client_id = get_column(client, "CLIENT_ID")
-                if client_id is None:
-                    logger.warning(
-                        f"Skipping {client.FIRSTNAME} {client.LASTNAME} with no ID"
-                    )
-                    continue
+    for _, client in clients_df.iterrows():
+        client_id = get_column(client, "CLIENT_ID")
+        if client_id is None:
+            logger.warning(
+                f"Skipping {get_column(client, 'FIRSTNAME')} {get_column(client, 'LASTNAME')} with no ID"
+            )
+            continue
 
-                secondary_insurance = get_column(
-                    client, "SECONDARY_INSURANCE_COMPANYNAME"
-                )
-                if (
-                    isinstance(secondary_insurance, list)
-                    and str(secondary_insurance) != "[nan]"
-                ):
-                    secondary_insurance = ",".join(secondary_insurance)
+        secondary_insurance = get_column(client, "SECONDARY_INSURANCE_COMPANYNAME")
+        if isinstance(secondary_insurance, list):
+            secondary_insurance = ",".join(
+                str(item)
+                for item in secondary_insurance
+                if not (isinstance(item, float) and float("nan") == item)
+            )
 
-                firstname = get_column(client, "FIRSTNAME")
-                lastname = get_column(client, "LASTNAME")
-                preferred_name = get_column(client, "PREFERRED_NAME")
+        firstname = get_column(client, "FIRSTNAME")
+        lastname = get_column(client, "LASTNAME")
+        preferred_name = get_column(client, "PREFERRED_NAME")
 
-                full_name = ""
-                if isinstance(firstname, str) and firstname:
-                    full_name += firstname
-                if isinstance(preferred_name, str) and preferred_name:
-                    full_name += f" ({preferred_name})"
-                if isinstance(lastname, str) and lastname:
-                    full_name += f" {lastname}"
+        full_name = get_full_name(firstname, lastname, preferred_name)
+        added_date_formatted = format_date(get_column(client, "ADDED_DATE"))
+        dob_formatted = format_date(get_column(client, "DOB")) or "1900-01-01"
+        gender = format_gender(get_column(client, "GENDER"))
+        phone_number = format_phone_number(get_column(client, "PHONE1"))
 
-                added_date_data = get_column(client, "ADDED_DATE")
-                added_date_formatted = None
+        values = (
+            client_id,
+            hashlib.sha256(str(client_id).encode("utf-8")).hexdigest(),
+            get_column(client, "STATUS") != "Inactive",
+            added_date_formatted,
+            dob_formatted,
+            firstname,
+            lastname,
+            preferred_name,
+            full_name,
+            get_column(client, "ADDRESS"),
+            get_column(client, "SCHOOL_DISTRICT"),
+            None
+            if get_column(client, "CLOSEST_OFFICE") == "Unknown"
+            else get_column(client, "CLOSEST_OFFICE"),
+            None
+            if get_column(client, "CLOSEST_OFFICE") == "Unknown"
+            else get_column(client, "CLOSEST_OFFICE_MILES"),
+            None
+            if get_column(client, "SECOND_CLOSEST_OFFICE") == "Unknown"
+            else get_column(client, "SECOND_CLOSEST_OFFICE"),
+            None
+            if get_column(client, "SECOND_CLOSEST_OFFICE") == "Unknown"
+            else get_column(client, "SECOND_CLOSEST_OFFICE_MILES"),
+            None
+            if get_column(client, "THIRD_CLOSEST_OFFICE") == "Unknown"
+            else get_column(client, "THIRD_CLOSEST_OFFICE"),
+            None
+            if get_column(client, "THIRD_CLOSEST_OFFICE") == "Unknown"
+            else get_column(client, "THIRD_CLOSEST_OFFICE_MILES"),
+            get_column(client, "PRIMARY_INSURANCE_COMPANYNAME"),
+            secondary_insurance,
+            get_boolean_value(client, "POLICY_PRIVATEPAY"),
+            get_column(client, "ASD_ADHD"),
+            get_column(client, "INTERPRETER", default=False),
+            gender,
+            phone_number,
+        )
+        values_to_insert.append(values)
 
-                if isinstance(added_date_data, str) and added_date_data:
-                    try:
-                        added_date_formatted = datetime.strptime(
-                            added_date_data, "%m/%d/%Y"
-                        ).strftime("%Y-%m-%d")
-                    except ValueError:
-                        logger.warning(f"Could not parse date: {added_date_data}")
-
-                dob_data = get_column(client, "DOB")
-                dob_formatted = None
-
-                if isinstance(dob_data, str) and dob_data:
-                    try:
-                        dob_formatted = datetime.strptime(
-                            dob_data, "%m/%d/%Y"
-                        ).strftime("%Y-%m-%d")
-                    except ValueError:
-                        logger.warning(f"Could not parse date: {dob_data}")
-
-                gender_data = get_column(client, "GENDER")
-                gender = None
-
-                if isinstance(gender_data, str) and gender_data:
-                    gender = gender_data.title().split(".")[-1]
-
-                values = (
-                    get_column(client, "CLIENT_ID"),
-                    hashlib.sha256(str(client.CLIENT_ID).encode("utf-8")).hexdigest(),
-                    get_column(client, "STATUS") != "Inactive",
-                    get_column(client, "ASANA_ID"),
-                    get_column(client, "ARCHIVED_IN_ASANA", default=False),
-                    added_date_formatted,
-                    dob_formatted,
-                    firstname,
-                    lastname,
-                    preferred_name,
-                    full_name.strip(),
-                    get_column(client, "ADDRESS"),
-                    get_column(client, "SCHOOL_DISTRICT"),
-                    get_column(client, "CLOSEST_OFFICE")
-                    if get_column(client, "CLOSEST_OFFICE") != "Unknown"
-                    else None,
-                    get_column(client, "CLOSEST_OFFICE_MILES")
-                    if get_column(client, "CLOSEST_OFFICE") != "Unknown"
-                    else None,
-                    get_column(client, "SECOND_CLOSEST_OFFICE")
-                    if get_column(client, "SECOND_CLOSEST_OFFICE") != "Unknown"
-                    else None,
-                    get_column(client, "SECOND_CLOSEST_OFFICE_MILES")
-                    if get_column(client, "SECOND_CLOSEST_OFFICE") != "Unknown"
-                    else None,
-                    get_column(client, "THIRD_CLOSEST_OFFICE")
-                    if get_column(client, "THIRD_CLOSEST_OFFICE") != "Unknown"
-                    else None,
-                    get_column(client, "THIRD_CLOSEST_OFFICE_MILES")
-                    if get_column(client, "THIRD_CLOSEST_OFFICE") != "Unknown"
-                    else None,
-                    get_column(client, "PRIMARY_INSURANCE_COMPANYNAME"),
-                    secondary_insurance,
-                    bool(get_column(client, "POLICY_PRIVATEPAY", default=False)),
-                    get_column(client, "ASD_ADHD"),
-                    get_column(client, "INTERPRETER", default=False),
-                    gender,
-                    f"{get_column(client, 'PHONE1'):.0f}"
-                    if get_column(client, "PHONE1")
-                    else None,
-                )
-
-                cursor.execute(sql, values)
-
-        db_connection.commit()
-
-
-def update_asana_information(clients_df: pd.DataFrame):
-    logger.debug("Updating Asana information")
-    db_connection = get_db()
+    sql = """
+        INSERT INTO `emr_client` (id, hash, status, addedDate, dob, firstName, lastName, preferredName, fullName, address, schoolDistrict, closestOffice, closestOfficeMiles, secondClosestOffice, secondClosestOfficeMiles, thirdClosestOffice, thirdClosestOfficeMiles, primaryInsurance, secondaryInsurance, privatePay, asdAdhd, interpreter, gender, phoneNumber)
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+        ON DUPLICATE KEY UPDATE
+            hash = VALUES(hash),
+            status = VALUES(status),
+            addedDate = VALUES(addedDate),
+            dob = VALUES(dob),
+            firstName = VALUES(firstName),
+            lastName = VALUES(lastName),
+            preferredName = VALUES(preferredName),
+            fullName = VALUES(fullName),
+            address = VALUES(address),
+            schoolDistrict = CASE WHEN VALUES(schoolDistrict) IS NOT NULL AND VALUES(schoolDistrict) != 'Unknown' THEN VALUES(schoolDistrict) ELSE schoolDistrict END,
+            closestOffice = CASE WHEN VALUES(closestOffice) IS NOT NULL AND VALUES(closestOffice) != 'Unknown' THEN VALUES(closestOffice) ELSE closestOffice END,
+            closestOfficeMiles = CASE WHEN VALUES(closestOfficeMiles) IS NOT NULL THEN VALUES(closestOfficeMiles) ELSE closestOfficeMiles END,
+            secondClosestOffice = CASE WHEN VALUES(secondClosestOffice) IS NOT NULL AND VALUES(secondClosestOffice) != 'Unknown' THEN VALUES(secondClosestOffice) ELSE secondClosestOffice END,
+            secondClosestOfficeMiles = CASE WHEN VALUES(secondClosestOfficeMiles) IS NOT NULL THEN VALUES(secondClosestOfficeMiles) ELSE secondClosestOfficeMiles END,
+            thirdClosestOffice = CASE WHEN VALUES(thirdClosestOffice) IS NOT NULL AND VALUES(thirdClosestOffice) != 'Unknown' THEN VALUES(thirdClosestOffice) ELSE thirdClosestOffice END,
+            thirdClosestOfficeMiles = CASE WHEN VALUES(thirdClosestOfficeMiles) IS NOT NULL THEN VALUES(thirdClosestOfficeMiles) ELSE thirdClosestOfficeMiles END,
+            primaryInsurance = VALUES(primaryInsurance),
+            secondaryInsurance = VALUES(secondaryInsurance),
+            privatePay = VALUES(privatePay),
+            asdAdhd = VALUES(asdAdhd),
+            interpreter = VALUES(interpreter),
+            gender = VALUES(gender),
+            phoneNumber = VALUES(phoneNumber);
+    """
 
     with db_connection:
         with db_connection.cursor() as cursor:
-            sql = """
-            UPDATE emr_client
-            SET asanaId = %s, archivedInAsana = %s, asdAdhd = %s, interpreter = %s
-            WHERE id = %s
-            """
-
-            for _, client in clients_df.iterrows():
-                values = (
-                    client.ASANA_ID if pd.notna(client.ASANA_ID) else None,
-                    client.ARCHIVED_IN_ASANA,
-                    client.ASD_ADHD if pd.notna(client.ASD_ADHD) else None,
-                    client.INTERPRETER,
-                    client.CLIENT_ID,
-                )
-
-                cursor.execute(sql, values)
-
+            # Using executemany for efficiency
+            cursor.executemany(sql, values_to_insert)
         db_connection.commit()
+
+    logger.info(f"Successfully inserted/updated {len(values_to_insert)} clients.")
 
 
 def link_client_provider(client_id: str, npi: str) -> None:
-    logger.debug(
-        f"Inserting client-provider link into database for {client_id} and {npi}",
-    )
+    """Inserts a client-provider link into the database."""
+    # logger.debug(
+    #     f"Inserting client-provider link into database for {client_id} and {npi}",
+    # )
     db_connection = get_db()
 
     with db_connection:
@@ -357,22 +341,109 @@ def link_client_provider(client_id: str, npi: str) -> None:
         db_connection.commit()
 
 
+def get_evaluators_with_blocked_locations():
+    """Fetches evaluators from the database, including their blocked zip codes and school districts.
+
+    Returns:
+        dict: A dictionary of evaluators, keyed by NPI, with their details
+              and lists of blocked school districts and zip codes.
+    """
+    db_connection = get_db()
+    evaluators = {}
+
+    try:
+        with db_connection.cursor() as cursor:
+            sql_evaluators = "SELECT * FROM emr_evaluator"
+            cursor.execute(sql_evaluators)
+            for row in cursor.fetchall():
+                npi = row["npi"]
+                evaluators[npi] = {
+                    **row,
+                    "blockedSchoolDistricts": [],
+                    "blockedZipCodes": [],
+                }
+
+            sql_blocked_districts = """
+                SELECT
+                    bsd.evaluatorNpi,
+                    sd.fullName AS schoolDistrictName
+                FROM
+                    emr_blocked_school_district AS bsd
+                JOIN
+                    emr_school_district AS sd
+                ON
+                    bsd.schoolDistrictId = sd.id
+            """
+            cursor.execute(sql_blocked_districts)
+            for row in cursor.fetchall():
+                npi = row["evaluatorNpi"]
+                if npi in evaluators:
+                    evaluators[npi]["blockedSchoolDistricts"].append(
+                        row["schoolDistrictName"]
+                    )
+
+            sql_blocked_zips = "SELECT evaluatorNpi, zipCode FROM emr_blocked_zip_code"
+            cursor.execute(sql_blocked_zips)
+            for row in cursor.fetchall():
+                npi = row["evaluatorNpi"]
+                if npi in evaluators:
+                    evaluators[npi]["blockedZipCodes"].append(row["zipCode"])
+
+    except Exception as e:
+        logger.error(f"Database error while fetching evaluators: {e}")
+        return {}
+    finally:
+        db_connection.close()
+
+    return evaluators
+
+
+def delete_all_client_eval_links():
+    """Deletes all existing client-evaluator relationships."""
+    logger.debug(
+        "Deleting all existing client-evaluator relationships from the database."
+    )
+    db_connection = get_db()
+
+    with db_connection:
+        with db_connection.cursor() as cursor:
+            sql = "DELETE FROM emr_client_eval"
+            try:
+                cursor.execute(sql)
+                db_connection.commit()
+                logger.debug("Successfully deleted all existing matches.")
+            except Exception as e:
+                logger.error(f"Failed to delete all existing matches: {e}")
+                db_connection.rollback()
+
+
 def insert_by_matching_criteria(clients: pd.DataFrame, evaluators: dict):
+    """Inserts client-provider links based on matching criteria."""
+    delete_all_client_eval_links()
+    logger.debug("Starting to match clients with evaluators...")
+
     for _, client in clients.iterrows():
+        client_id_raw = get_column(client, "CLIENT_ID")
+        client_id = str(client_id_raw)
+        if not client_id or client_id == "nan" or client_id == "None":
+            logger.warning(
+                f"Skipping client with invalid ID: {client.get('FIRSTNAME')} {client.get('LASTNAME')}"
+            )
+            continue
+
+        logger.debug(
+            f"Matching evaluators for {get_column(client, 'FIRSTNAME')} {get_column(client, 'LASTNAME')}"
+        )
         eligible_evaluators_by_district = utils.relationships.match_by_school_district(
             client, evaluators
         )
         eligible_evaluators_by_insurance = utils.relationships.match_by_insurance(
             client, evaluators
         )
-        eligible_evaluators_by_office = utils.relationships.match_by_office(
-            client, evaluators
+
+        matched_evaluator_npis = list(
+            set(eligible_evaluators_by_district) & set(eligible_evaluators_by_insurance)
         )
 
-        matched_evaluators = list(
-            set(eligible_evaluators_by_district)
-            & set(eligible_evaluators_by_insurance)
-            & set(eligible_evaluators_by_office)
-        )
-        for evaluator in matched_evaluators:
-            link_client_provider(client.CLIENT_ID, evaluators[evaluator]["NPI"])
+        for npi in matched_evaluator_npis:
+            link_client_provider(client_id, npi)

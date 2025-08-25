@@ -1,7 +1,14 @@
+from datetime import datetime
+from typing import Any, List, Union
+
 import pandas as pd
+from loguru import logger
 
 
-def get_column(series, column, default=None):
+def get_column(
+    series: pd.Series, column: str, default: Any = None
+) -> Union[Any, List[Any], None]:
+    """Safely gets a column from a pandas Series, returning a default if the column does not exist or has a NaN value."""
     if column in series:
         value = series[column]
 
@@ -15,3 +22,46 @@ def get_column(series, column, default=None):
             return value
 
     return default
+
+
+def get_full_name(firstname: Any, lastname: Any, preferred_name: Any) -> str:
+    """Combines first, last, and preferred names into a single string."""
+    parts = [firstname, preferred_name, lastname]
+    parts = [part for part in parts if isinstance(part, str) and part]
+    return " ".join(parts).strip()
+
+
+def format_date(date_str: Union[str, Any, None]) -> str | None:
+    """Attempts to format a date string to 'YYYY-MM-DD'."""
+    if not isinstance(date_str, str) or not date_str:
+        return None
+    try:
+        return datetime.strptime(date_str, "%m/%d/%Y").strftime("%Y-%m-%d")
+    except ValueError:
+        logger.warning(f"Could not parse date: {date_str}")
+        return None
+
+
+def format_gender(gender_data: Any) -> str | None:
+    """Cleans and formats gender data."""
+    if not isinstance(gender_data, str) or not gender_data:
+        return None
+    return gender_data.title().split(".")[-1]
+
+
+def get_boolean_value(row, column_name, default=False) -> bool:
+    """Safely gets a boolean value for a column."""
+    value = get_column(row, column_name, default)
+    if isinstance(value, str):
+        return value.lower() == "true"
+    return bool(value)
+
+
+def format_phone_number(phone_number: Any) -> str | None:
+    """Formats a phone number, handling float conversion."""
+    if not phone_number:
+        return None
+    try:
+        return f"{float(phone_number):.0f}"
+    except (ValueError, TypeError):
+        return None

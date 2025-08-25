@@ -10,6 +10,8 @@ from geopy.geocoders import Nominatim
 from geopy.location import Location
 from loguru import logger
 
+import utils.database
+
 load_dotenv()
 
 
@@ -192,29 +194,39 @@ def geocode_address(client: pd.Series) -> Location | None:
 
 
 def get_offices() -> dict:
-    logger.debug("Getting offices")
-    office_env = os.getenv("OFFICE_ADDRESSES")
-    if office_env is None:
-        raise ValueError("OFFICE_ADDRESSES not set")
+    """Fetches all office locations from the database.
 
+    Returns:
+        dict: A dictionary of offices, keyed by their unique 'key' with their
+              latitude, longitude, and pretty name.
+    """
+    logger.debug("Getting offices from the database")
+    db_connection = utils.database.get_db()
     addresses = {}
-    for address in office_env.split(";"):
-        key, values = address.split(":")
-        latitude, longitude, pretty_name = values.split(",")
-        addresses[key] = {
-            "latitude": latitude,
-            "longitude": longitude,
-            "pretty_name": pretty_name,
-        }
+
+    with db_connection:
+        with db_connection.cursor() as cursor:
+            sql = "SELECT `key`, latitude, longitude, prettyName FROM emr_office"
+            cursor.execute(sql)
+
+            results = cursor.fetchall()
+            if not results:
+                logger.warning("No offices found in the database.")
+                return addresses
+
+            for row in results:
+                addresses[row["key"]] = {
+                    "latitude": float(row["latitude"]),
+                    "longitude": float(row["longitude"]),
+                    "pretty_name": row["prettyName"],
+                }
     return addresses
 
 
-OFFICES = get_offices()
-
-
 def calculate_closest_offices(client: pd.Series, latitude: str, longitude: str) -> dict:
+    offices = get_offices()
     closest_offices = []
-    for office_name, office in OFFICES.items():
+    for office_name, office in offices.items():
         miles = distance.distance(
             (latitude, longitude),
             (office["latitude"], office["longitude"]),
@@ -235,7 +247,9 @@ def calculate_closest_offices(client: pd.Series, latitude: str, longitude: str) 
 
 
 def get_closest_offices(client: pd.Series) -> dict:
-    logger.debug(f"Getting closest office for {client['ADDRESS']}")
+    logger.debug(
+        f"Getting closest office for {client['FIRSTNAME']} {client['LASTNAME']}"
+    )
 
     if pd.isna(client.ADDRESS) or client.ADDRESS is None or client.ADDRESS == "":
         logger.error(f"{client.FIRSTNAME} {client.LASTNAME} has no address")
