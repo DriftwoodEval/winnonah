@@ -20,7 +20,7 @@ def import_from_ta():
     clients = utils.clients.get_clients()
     evaluators = utils.database.get_evaluators_with_blocked_locations()
 
-    clients = clients[clients["LASTNAME"] == "Testson"]
+    # clients = clients[clients["LASTNAME"] == "Testson"]
 
     # Pre-emptively add empty columns
     new_cols = [
