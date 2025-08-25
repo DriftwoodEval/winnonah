@@ -62,9 +62,9 @@ export type QuestionnaireStatus =
   | undefined;
 
 const STATUS_COLOR_MAP: Record<string, string> = {
-  COMPLETED: "text-green-300",
-  PENDING: "text-yellow-500",
-  RESCHEDULED: "text-red-500",
+  COMPLETED: "text-success",
+  PENDING: "text-warning",
+  RESCHEDULED: "text-error",
 };
 
 export function getStatusColorClass(status: QuestionnaireStatus): string {
@@ -79,13 +79,13 @@ export function getReminderColorClass(
     return "";
   }
   if (count >= 3) {
-    return "text-red-500";
+    return "text-error";
   }
   if (count >= 2) {
-    return "text-yellow-500";
+    return "text-warning";
   }
   if (count >= 1) {
-    return "text-green-300";
+    return "text-success";
   }
   return "";
 }

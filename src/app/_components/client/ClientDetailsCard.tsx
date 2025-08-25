@@ -81,7 +81,12 @@ export function ClientDetailsCard({ client }: ClientDetailsCardProps) {
 					{client.secondaryInsurance && (
 						<div>
 							<p className="font-bold">Secondary Insurance</p>
-							<p>{client.secondaryInsurance.replace(/_/g, " ")}</p>
+							<p>
+								{client.secondaryInsurance
+									.split(",")
+									.map((s) => s.trim().replace(/_/g, " "))
+									.join(", ")}
+							</p>
 						</div>
 					)}
 				</div>
@@ -133,7 +138,7 @@ export function ClientDetailsCard({ client }: ClientDetailsCardProps) {
 				</p>
 			</div>
 
-			{client.schoolDistrict === "Unknown" && (
+			{(client.schoolDistrict === "Unknown" || !client.schoolDistrict) && (
 				<Alert variant="destructive">
 					<AlertTriangleIcon />
 					<AlertTitle>
