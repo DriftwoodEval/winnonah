@@ -12,7 +12,7 @@ interface IssueListProps {
 
 const IssueList = ({ title, clients }: IssueListProps) => (
 	<div>
-		<ScrollArea className="w-full rounded-md border bg-card text-card-foreground">
+		<ScrollArea className="w-full rounded-md border bg-card text-card-foreground shadow">
 			<div className="p-4">
 				<h1 className="mb-4 font-bold text-lg leading-none">{title}</h1>
 				{clients.map((client, index) => (
@@ -36,7 +36,7 @@ export function IssuesList() {
 	const { data: notInTAErrors } = api.clients.getNotInTAErrors.useQuery();
 
 	return (
-		<div className="flex flex-wrap gap-6">
+		<div className="flex flex-wrap justify-center gap-14">
 			{districtErrors && districtErrors.length !== 0 && (
 				<IssueList clients={districtErrors} title="Missing Districts" />
 			)}
