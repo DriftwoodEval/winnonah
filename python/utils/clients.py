@@ -19,30 +19,48 @@ TEST_NAMES = [
 
 
 def normalize_names(df: pd.DataFrame) -> pd.DataFrame:
-    """Normalizes client names using the nameparser library for intelligent capitalization and handles redundant preferred names."""
+    """Normalizes client names intelligently, handling capitalization and suffixes."""
+    logger.debug("Normalizing client names")
 
-    def capitalize_name(name: str) -> str:
-        """Applies nameparser capitalization and handles Roman numberals."""
+    def capitalize_name_with_exceptions(name: str) -> str:
         if pd.isna(name) or not isinstance(name, str):
             return ""
         parsed_name = HumanName(name)
         parsed_name.capitalize(force=True)
-        # Handle suffixes that nameparser might misinterpret in this context
-        parsed_name.string_format = "{first} {last}"
-        # Re-add suffixes after capitalization
-        if parsed_name.suffix:
-            suffix = parsed_name.suffix.replace("Iii", "III").replace("Ii", "II")
-            return f"{str(parsed_name)} {suffix}".strip()
-        return str(parsed_name)
 
-    logger.debug("Normalizing client names")
-    for col in ["LASTNAME", "FIRSTNAME", "PREFERRED_NAME"]:
+        # Handle suffixes like Jr, Sr, etc. and Roman numerals
+        words = str(parsed_name).split()
+        if words:
+            last_word = words[-1].upper()
+            if last_word in {"JR", "SR", "II", "III", "IV", "V"}:
+                words[-1] = last_word
+        return " ".join(words)
+
+    for col in ["LASTNAME", "FIRSTNAME"]:
         if col in df.columns:
-            df.loc[:, col] = df[col].apply(capitalize_name)
+            df[col] = df[col].apply(capitalize_name_with_exceptions)
 
-    # Nullify preferred name if it's the same as the first name
+    # Handle PREFERRED_NAME separately
     if "PREFERRED_NAME" in df.columns and "FIRSTNAME" in df.columns:
-        df.loc[df["PREFERRED_NAME"] == df["FIRSTNAME"], "PREFERRED_NAME"] = np.nan
+        # Only capitalize PREFERRED_NAME if it's not a known suffix
+        known_suffixes = {"JR", "SR", "II", "III", "IV", "V"}
+        df["PREFERRED_NAME_UPPER"] = df["PREFERRED_NAME"].str.upper()
+
+        df.loc[~df["PREFERRED_NAME_UPPER"].isin(known_suffixes), "PREFERRED_NAME"] = (
+            df.loc[
+                ~df["PREFERRED_NAME_UPPER"].isin(known_suffixes), "PREFERRED_NAME"
+            ].apply(capitalize_name_with_exceptions)
+        )
+
+        # Nullify preferred name only if it's an exact match for the first name and not a suffix
+        df.loc[
+            (df["PREFERRED_NAME"] == df["FIRSTNAME"])
+            & (~df["PREFERRED_NAME_UPPER"].isin(known_suffixes)),
+            "PREFERRED_NAME",
+        ] = np.nan
+
+        df = df.drop(columns=["PREFERRED_NAME_UPPER"])
+
     return df
 
 
