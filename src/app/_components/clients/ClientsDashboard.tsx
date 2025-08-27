@@ -129,7 +129,19 @@ export function ClientsDashboard() {
 
 					<Popover>
 						<PopoverTrigger asChild>
-							<Button variant="outline">
+							<Button
+								className={
+									["hideBabynet", "status", "privatepay", "color"].some(
+										(key) =>
+											filters[key as keyof typeof filters] !== false &&
+											filters[key as keyof typeof filters] !== undefined &&
+											filters[key as keyof typeof filters] !== "active",
+									)
+										? "bg-secondary text-secondary-foreground hover:bg-secondary/80 hover:text-secondary-foreground"
+										: ""
+								}
+								variant="outline"
+							>
 								<Filter />
 							</Button>
 						</PopoverTrigger>
