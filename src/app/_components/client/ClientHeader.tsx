@@ -14,8 +14,7 @@ import { Label } from "@ui/label";
 import { Popover, PopoverContent, PopoverTrigger } from "@ui/popover";
 import { Separator } from "@ui/separator";
 import { Skeleton } from "@ui/skeleton";
-import { CheckIcon, Pencil } from "lucide-react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { CheckIcon } from "lucide-react";
 import { useSession } from "next-auth/react";
 import { useId, useState } from "react";
 import { toast } from "sonner";
@@ -86,7 +85,7 @@ export function ClientHeader({
 		);
 	}
 
-	selectedColor ??= "none";
+	selectedColor ??= "gray";
 
 	const currentHexColor = selectedColor
 		? CLIENT_COLOR_MAP[selectedColor]

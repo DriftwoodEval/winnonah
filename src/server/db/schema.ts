@@ -190,7 +190,7 @@ export const clients = createTable(
     interpreter: d.boolean().notNull().default(false),
     phoneNumber: d.varchar({ length: 255 }),
     gender: d.mysqlEnum(["Male", "Female", "Other"]),
-    color: d.mysqlEnum("color", CLIENT_COLOR_KEYS).notNull().default("none"),
+    color: d.mysqlEnum("color", CLIENT_COLOR_KEYS).notNull().default("gray"),
     highPriority: d.boolean().notNull().default(false),
   }),
   (t) => [

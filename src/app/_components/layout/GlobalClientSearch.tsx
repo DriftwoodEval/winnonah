@@ -132,14 +132,12 @@ export function GlobalClientSearch() {
 									>
 										<div className="flex w-full justify-between text-sm">
 											<div className="flex items-center gap-2">
-												{client.color &&
-													client.color !== "none" &&
-													clientHexColor && (
-														<span
-															className="h-3 w-3 shrink-0 rounded-full"
-															style={{ backgroundColor: clientHexColor }}
-														/>
-													)}
+												{client.color && clientHexColor && (
+													<span
+														className="h-3 w-3 shrink-0 rounded-full"
+														style={{ backgroundColor: clientHexColor }}
+													/>
+												)}
 												<span>{client.fullName}</span>
 											</div>
 											<span

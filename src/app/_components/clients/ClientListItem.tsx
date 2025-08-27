@@ -27,7 +27,7 @@ function ClientListItemComponent({
 				)}
 			>
 				<div className="flex items-center gap-2">
-					{client.color && client.color !== "none" && clientHexColor && (
+					{client.color && clientHexColor && (
 						<span
 							className="h-3 w-3 rounded-full"
 							style={{ backgroundColor: clientHexColor }}

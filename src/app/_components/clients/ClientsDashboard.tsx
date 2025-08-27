@@ -7,16 +7,10 @@ import { Popover, PopoverContent, PopoverTrigger } from "@ui/popover";
 import { RadioGroup, RadioGroupItem } from "@ui/radio-group";
 import { Separator } from "@ui/separator";
 import { Skeleton } from "@ui/skeleton";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@ui/tooltip";
 import { CheckIcon, Filter } from "lucide-react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import {
-	useCallback,
-	useEffect,
-	useId,
-	useMemo,
-	useRef,
-	useState,
-} from "react";
+import { useCallback, useEffect, useId, useMemo, useState } from "react";
 import {
 	CLIENT_COLOR_KEYS,
 	CLIENT_COLOR_MAP,
@@ -168,37 +162,48 @@ export function ClientsDashboard() {
 									<p className="font-medium text-sm">Color</p>
 									<div className="grid grid-cols-6 gap-2 pt-1">
 										{CLIENT_COLOR_KEYS.map((colorKey) => (
-											<button
-												aria-label={`Filter by color: ${formatColorName(
-													colorKey,
-												)}`}
-												className="relative flex h-8 w-8 items-center justify-center rounded-full text-sm"
-												key={colorKey}
-												onClick={() => {
-													const currentValue = filters.color;
-													const newValue =
-														currentValue === colorKey ? false : colorKey;
-													handleUrlParamChange("color", newValue);
-												}}
-												style={{
-													color:
-														Number.parseInt(
-															CLIENT_COLOR_MAP[colorKey].replace("#", ""),
-															16,
-														) >
-														0xffffff / 2
-															? "#333"
-															: "#FFF",
-													backgroundColor: CLIENT_COLOR_MAP[colorKey],
-												}}
-												type="button"
-											>
-												{colorCounts?.find((c) => c.color === colorKey)
-													?.count ?? 0}
-												{filters.color === colorKey && (
-													<CheckIcon className="h-5 w-5" />
-												)}
-											</button>
+											<Tooltip key={colorKey}>
+												<TooltipTrigger asChild>
+													<button
+														aria-label={`Filter by color: ${formatColorName(
+															colorKey,
+														)}`}
+														className="relative flex h-8 w-8 items-center justify-center rounded-full text-sm"
+														key={colorKey}
+														onClick={() => {
+															const currentValue = filters.color;
+															const newValue =
+																currentValue === colorKey ? false : colorKey;
+															handleUrlParamChange("color", newValue);
+														}}
+														style={{
+															color:
+																Number.parseInt(
+																	CLIENT_COLOR_MAP[colorKey].replace("#", ""),
+																	16,
+																) >
+																0xffffff / 2
+																	? "#333"
+																	: "#FFF",
+															backgroundColor: CLIENT_COLOR_MAP[colorKey],
+														}}
+														type="button"
+													>
+														{filters.color === colorKey ? (
+															<CheckIcon className="h-5 w-5" />
+														) : (
+															(colorCounts?.find((c) => c.color === colorKey)
+																?.count ?? 0)
+														)}
+													</button>
+												</TooltipTrigger>
+												<TooltipContent
+													arrowClassName="bg-background fill-background"
+													className="bg-background"
+												>
+													<p>{formatColorName(colorKey)}</p>
+												</TooltipContent>
+											</Tooltip>
 										))}
 									</div>
 								</div>
