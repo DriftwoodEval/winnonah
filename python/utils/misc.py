@@ -24,15 +24,17 @@ def get_column(
     return default
 
 
-def get_full_name(firstname: str, lastname: str, preferred_name: str) -> str:
+def get_full_name(firstname: Any, lastname: Any, preferred_name: Any) -> str:
     """Combines first, last, and preferred names into a single string."""
     name_parts = [
         preferred_name,
-        f'({firstname})' if firstname and preferred_name else firstname,
-        lastname
+        f"({firstname})" if firstname and preferred_name else firstname,
+        lastname,
     ]
-    
-    return ' '.join(part for part in name_parts if isinstance(part, str) and part).strip()
+
+    return " ".join(
+        part for part in name_parts if isinstance(part, str) and part
+    ).strip()
 
 
 def format_date(date_str: Union[str, Any, None]) -> str | None:

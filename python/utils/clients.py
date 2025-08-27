@@ -44,22 +44,26 @@ def normalize_names(df: pd.DataFrame) -> pd.DataFrame:
     if "PREFERRED_NAME" in df.columns and "FIRSTNAME" in df.columns:
         # Only capitalize PREFERRED_NAME if it's not a known suffix
         known_suffixes = {"JR", "SR", "II", "III", "IV", "V"}
-        df["PREFERRED_NAME_UPPER"] = df["PREFERRED_NAME"].str.upper()
 
-        df.loc[~df["PREFERRED_NAME_UPPER"].isin(known_suffixes), "PREFERRED_NAME"] = (
-            df.loc[
-                ~df["PREFERRED_NAME_UPPER"].isin(known_suffixes), "PREFERRED_NAME"
-            ].apply(capitalize_name_with_exceptions)
+        # Create a boolean mask to filter out rows where PREFERRED_NAME is NaN or a known suffix
+        mask = df["PREFERRED_NAME"].notna() & ~df["PREFERRED_NAME"].str.upper().isin(
+            known_suffixes
+        )
+
+        # Apply the function only to the rows that match the mask
+        df.loc[mask, "PREFERRED_NAME"] = df.loc[mask, "PREFERRED_NAME"].apply(
+            capitalize_name_with_exceptions
         )
 
         # Nullify preferred name only if it's an exact match for the first name and not a suffix
+        # The mask for this operation needs to be carefully constructed.
+        # We must ensure we're not comparing NaN values.
         df.loc[
             (df["PREFERRED_NAME"] == df["FIRSTNAME"])
-            & (~df["PREFERRED_NAME_UPPER"].isin(known_suffixes)),
+            & (df["PREFERRED_NAME"].notna())
+            & (~df["PREFERRED_NAME"].str.upper().isin(known_suffixes)),
             "PREFERRED_NAME",
         ] = np.nan
-
-        df = df.drop(columns=["PREFERRED_NAME_UPPER"])
 
     return df
 
