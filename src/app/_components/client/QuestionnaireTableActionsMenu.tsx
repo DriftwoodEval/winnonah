@@ -116,6 +116,7 @@ export function QuestionnaireActionsMenu({
 						clientId={questionnaire.clientId}
 						initialData={questionnaire}
 						isLoading={isUpdating}
+						newQ={false}
 						onFinished={() => setIsEditDialogOpen(false)}
 						onSubmit={handleEditSubmit}
 					/>

@@ -21,6 +21,13 @@ import {
 } from "@ui/form";
 import { Input } from "@ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@ui/popover";
+import {
+	Select,
+	SelectContent,
+	SelectItem,
+	SelectTrigger,
+	SelectValue,
+} from "@ui/select";
 import { format } from "date-fns";
 import { CalendarIcon, Check, ChevronsUpDown } from "lucide-react";
 import { useState } from "react";
@@ -33,6 +40,7 @@ const formSchema = z.object({
 	questionnaireType: z.string().min(1, "Type is required"),
 	link: z.url("Must be a valid URL"),
 	sent: z.date(),
+	status: z.enum(["PENDING", "COMPLETED", "RESCHEDULED"]).optional(),
 });
 
 export type QuestionnaireTableFormValues = z.infer<typeof formSchema>;
@@ -46,7 +54,7 @@ interface QuestionnaireFormProps {
 	onSubmit: (values: QuestionnaireTableFormValues) => void;
 	isLoading: boolean;
 	onFinished: () => void;
-	submitButtonText?: string;
+	newQ: boolean;
 }
 
 export function QuestionnaireTableForm({
@@ -55,7 +63,7 @@ export function QuestionnaireTableForm({
 	onSubmit,
 	isLoading,
 	onFinished,
-	submitButtonText = "Save Changes",
+	newQ,
 }: QuestionnaireFormProps) {
 	const [isPopoverOpen, setIsPopoverOpen] = useState(false);
 
@@ -71,6 +79,7 @@ export function QuestionnaireTableForm({
 			questionnaireType: initialData?.questionnaireType ?? "",
 			link: initialData?.link ?? "",
 			sent: initialData?.sent ? new Date(initialData.sent) : new Date(),
+			status: initialData?.status ?? "PENDING",
 		},
 	});
 
@@ -196,12 +205,38 @@ export function QuestionnaireTableForm({
 						</FormItem>
 					)}
 				/>
+				<FormField
+					control={form.control}
+					name="status"
+					render={({ field }) => (
+						<FormItem>
+							<FormLabel>Status</FormLabel>
+							<Select defaultValue={field.value} onValueChange={field.onChange}>
+								<FormControl>
+									<SelectTrigger>
+										<SelectValue placeholder="Select a verified email to display" />
+									</SelectTrigger>
+								</FormControl>
+								<SelectContent>
+									<SelectItem value="PENDING">Pending</SelectItem>
+									<SelectItem value="COMPLETED">Completed</SelectItem>
+									<SelectItem value="RESCHEDULED">Rescheduled</SelectItem>
+								</SelectContent>
+							</Select>
+							<FormMessage />
+						</FormItem>
+					)}
+				/>
 				<div className="flex justify-end gap-2">
 					<Button onClick={onFinished} type="button" variant="ghost">
 						Cancel
 					</Button>
 					<Button disabled={isLoading || isLoadingList} type="submit">
-						{isLoading ? "Saving..." : submitButtonText}
+						{newQ
+							? "Add Questionnaire"
+							: isLoading
+								? "Saving..."
+								: "Save Changes"}
 					</Button>
 				</div>
 			</form>

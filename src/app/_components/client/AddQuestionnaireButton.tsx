@@ -67,9 +67,9 @@ export function AddQuestionnaireButton({
 					<QuestionnaireTableForm
 						clientId={clientId}
 						isLoading={addQuestionnaire.isPending}
+						newQ={true}
 						onFinished={() => setIsDialogOpen(false)}
 						onSubmit={onSubmit}
-						submitButtonText="Add Questionnaire"
 					/>
 				) : (
 					<p className="text-center text-muted-foreground">
