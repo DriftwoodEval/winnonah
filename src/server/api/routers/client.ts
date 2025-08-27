@@ -253,19 +253,19 @@ export const clientRouter = createTRPCRouter({
         if (!Number.isNaN(numericId)) {
           conditions.push(like(clients.id, `${numericId}%`));
         } else if (nameSearch.length >= 3) {
-          // Clean the user's input string by replacing hyphens and apostrophes with spaces
-          const cleanedSearchString = nameSearch.replace(/[-']/g, " ");
+          // Clean the user's input string by replacing non-alphanumeric characters with spaces
+          const cleanedSearchString = nameSearch.replace(/[^\w ]/g, " ");
 
           // Split the cleaned string by spaces and filter out any empty strings
           const searchWords = cleanedSearchString.split(" ").filter(Boolean);
 
           if (searchWords.length > 0) {
-            // Clean the fullName column in the database
-            const cleanedFullName = sql`REPLACE(REPLACE(${clients.fullName}, '-', ''), '''', '')`;
-
-            // Map the cleaned search words to LIKE conditions
-            const nameConditions = searchWords.map((word) =>
-              like(cleanedFullName, `%${word}%`)
+            const nameConditions = searchWords.map(
+              (word) =>
+                sql`REGEXP_REPLACE(${
+                  clients.fullName
+                  // As bizarre as this looks, we have to escape the slash for both JS and SQL
+                }, '[^\\\\w ]', '') like ${`%${word}%`}`
             );
 
             conditions.push(and(...nameConditions));
