@@ -594,6 +594,8 @@ export default function EvaluatorsTable() {
 	const isAdmin = session ? checkRole(session.user.role, "admin") : false;
 	const { data: evaluators, isLoading } = api.evaluators.getAll.useQuery();
 
+	console.log(evaluators);
+
 	const getActiveInsurance = (evaluator: Evaluator) => {
 		const insurances: (keyof Evaluator)[] = [
 			"SCM",
@@ -701,7 +703,7 @@ export default function EvaluatorsTable() {
 																key={`dist-${district.id}`}
 																variant="destructive"
 															>
-																{district.shortName}
+																{district.shortName || district.fullName}
 															</Badge>
 														))}
 														{evaluator.blockedZips?.map((zip) => (
@@ -782,7 +784,7 @@ export default function EvaluatorsTable() {
 												key={`dist-card-${district.id}`}
 												variant="destructive"
 											>
-												{district.shortName}
+												{district.shortName || district.fullName}
 											</Badge>
 										))}
 										{evaluator.blockedZips?.map((zip) => (
