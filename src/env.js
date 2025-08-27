@@ -25,12 +25,6 @@ export const env = createEnv({
         /^[\w\s]+![A-Z]+[1-9][0-9]*:[A-Z]+[1-9][0-9]*$/,
         "Invalid Google Sheets range format. Must be, e.g. 'Sheet1!A1:B2'"
       ),
-    OFFICE_ADDRESSES: z
-      .string()
-      .regex(
-        /^(?:[A-Z]+:[-0-9.]+,[-0-9.]+,[a-zA-Z ]+;?)+$/,
-        "Invalid office addresses format"
-      ),
     REDIS_HOST: z.string(),
     OPENPHONE_API_TOKEN: z.string(),
   },
@@ -57,7 +51,6 @@ export const env = createEnv({
     NODE_ENV: process.env.NODE_ENV,
     PROVIDER_CREDENTIALING_ID: process.env.PROVIDER_CREDENTIALING_ID,
     PROVIDER_CREDENTIALING_RANGE: process.env.PROVIDER_CREDENTIALING_RANGE,
-    OFFICE_ADDRESSES: process.env.OFFICE_ADDRESSES,
     REDIS_HOST: process.env.REDIS_HOST,
     OPENPHONE_API_TOKEN: process.env.OPENPHONE_API_TOKEN,
   },

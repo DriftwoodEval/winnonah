@@ -24,14 +24,6 @@ def validate_config() -> None:
             f"Invalid Google Sheets range format. Must be, e.g. 'Sheet1!A1:B2'. Got: {os.getenv('PROVIDER_CREDENTIALING_RANGE')}"
         )
 
-    if not re.match(
-        r"^(?:[A-Z]+:[-0-9.]+,[-0-9.]+,[a-zA-Z ]+;?)+$",
-        os.getenv("OFFICE_ADDRESSES") or "",
-    ):
-        raise ValueError(
-            f"Invalid office addresses format. Must be, e.g. 'LOC:12.0087995,-8.0545544,Pretty Name;LOC2:14.8079196,-7.7155156,Pretty Name 2'. Got: {os.getenv('OFFICE_ADDRESSES')}"
-        )
-
     if not os.getenv("TA_USERNAME"):
         raise ValueError("TA_USERNAME is not set")
 
