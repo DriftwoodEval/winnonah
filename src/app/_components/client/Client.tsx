@@ -66,14 +66,14 @@ export function Client({ hash }: { hash: string }) {
 			{isLoading || !client ? (
 				<Skeleton className="h-96 w-full rounded-md sm:h-96" />
 			) : (
-				<div className="flex flex-col items-center gap-6">
+				<div className="mb-6 flex flex-col items-center gap-6">
 					<ClientDetailsCard client={client} />
 
 					<ClientNoteEditor clientId={client.id} />
 
 					<QuestionnairesSent clientId={client.id} />
 
-					<EligibleEvaluatorsList clientId={client.id} />
+					<EligibleEvaluatorsList client={client} />
 				</div>
 			)}
 		</div>

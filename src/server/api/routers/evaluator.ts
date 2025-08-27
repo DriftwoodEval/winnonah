@@ -72,7 +72,15 @@ export const evaluatorRouter = createTRPCRouter({
         with: {
           clientsEvaluators: {
             with: {
-              evaluator: true,
+              evaluator: {
+                with: {
+                  offices: { with: { office: true } },
+                  blockedSchoolDistricts: {
+                    with: { schoolDistrict: true },
+                  },
+                  blockedZipCodes: { with: { zipCode: true } },
+                },
+              },
             },
           },
         },
@@ -82,8 +90,21 @@ export const evaluatorRouter = createTRPCRouter({
         return null;
       }
 
+      // Map and format the data in a flattened structure
       const correctedEvaluatorsByClient = clientWithEvaluators.clientsEvaluators
-        .map((link) => link.evaluator)
+        .map((link) => {
+          const evaluator = link.evaluator;
+          return {
+            ...evaluator,
+            offices: evaluator.offices.map((officeLink) => officeLink.office),
+            blockedDistricts: evaluator.blockedSchoolDistricts.map(
+              (districtLink) => districtLink.schoolDistrict
+            ),
+            blockedZips: evaluator.blockedZipCodes.map(
+              (zipLink) => zipLink.zipCode
+            ),
+          };
+        })
         .sort((a, b) => a.providerName.localeCompare(b.providerName));
 
       return correctedEvaluatorsByClient;
