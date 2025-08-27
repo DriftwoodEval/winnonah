@@ -1,22 +1,31 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo } from "react";
+import { memo, useMemo } from "react";
 import { getHexFromColor } from "~/lib/colors";
 import { cn, formatClientAge } from "~/lib/utils";
 import type { SortedClient } from "~/server/lib/types";
 
 type ClientListItemProps = {
 	client: SortedClient;
+	isHighlighted?: boolean;
 };
 
-export function ClientListItem({ client }: ClientListItemProps) {
+function ClientListItemComponent({
+	client,
+	isHighlighted,
+}: ClientListItemProps) {
 	const clientHexColor = useMemo(() => {
 		return client.color ? getHexFromColor(client.color) : undefined;
 	}, [client.color]);
 	return (
 		<Link href={`/clients/${client.hash}`}>
-			<div className="flex justify-between text-sm">
+			<div
+				className={cn(
+					"flex justify-between text-sm",
+					isHighlighted && "bg-muted/50",
+				)}
+			>
 				<div className="flex items-center gap-2">
 					{client.color && client.color !== "none" && clientHexColor && (
 						<span
@@ -51,3 +60,5 @@ export function ClientListItem({ client }: ClientListItemProps) {
 		</Link>
 	);
 }
+
+export const ClientListItem = memo(ClientListItemComponent);

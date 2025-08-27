@@ -9,7 +9,14 @@ import { Separator } from "@ui/separator";
 import { Skeleton } from "@ui/skeleton";
 import { CheckIcon, Filter } from "lucide-react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { useCallback, useId, useMemo, useState } from "react";
+import {
+	useCallback,
+	useEffect,
+	useId,
+	useMemo,
+	useRef,
+	useState,
+} from "react";
 import {
 	CLIENT_COLOR_KEYS,
 	CLIENT_COLOR_MAP,
@@ -33,6 +40,8 @@ export function ClientsDashboard() {
 	const privatePayId = useId();
 
 	const [debouncedNameForQuery, setDebouncedNameForQuery] = useState("");
+
+	const [highlightedIndex, setHighlightedIndex] = useState(-1);
 
 	const filters = useMemo(() => {
 		const office = searchParams.get("office") ?? undefined;
@@ -69,8 +78,36 @@ export function ClientsDashboard() {
 	const clients = searchQuery?.clients;
 	const colorCounts = searchQuery?.colorCounts;
 
+	useEffect(() => {
+		const handleKeyDown = (event: KeyboardEvent) => {
+			if (!clients?.length) return;
+
+			if (event.key === "ArrowDown") {
+				event.preventDefault();
+				setHighlightedIndex((prevIndex) => (prevIndex + 1) % clients.length);
+			} else if (event.key === "ArrowUp") {
+				event.preventDefault();
+				setHighlightedIndex(
+					(prevIndex) => (prevIndex - 1 + clients.length) % clients.length,
+				);
+			} else if (event.key === "Enter") {
+				event.preventDefault();
+				if (highlightedIndex !== -1 && clients?.[highlightedIndex]) {
+					const client = clients[highlightedIndex];
+					router.push(`/clients/${client.hash}`);
+				}
+			}
+		};
+
+		document.addEventListener("keydown", handleKeyDown);
+		return () => {
+			document.removeEventListener("keydown", handleKeyDown);
+		};
+	}, [clients, highlightedIndex, router]);
+
 	const handleReset = useCallback(() => {
 		setDebouncedNameForQuery("");
+		setHighlightedIndex(-1);
 	}, []);
 
 	const handleUrlParamChange = (key: string, value: string | boolean) => {
@@ -90,7 +127,10 @@ export function ClientsDashboard() {
 					<NameSearchInput
 						debounceMs={300}
 						initialValue={""}
-						onDebouncedChange={setDebouncedNameForQuery}
+						onDebouncedChange={(name) => {
+							setDebouncedNameForQuery(name);
+							setHighlightedIndex(-1);
+						}}
 					/>
 
 					<Popover>
@@ -205,7 +245,10 @@ export function ClientsDashboard() {
 					{isLoading ? (
 						<Skeleton className="h-[400px] w-full" />
 					) : (
-						<ClientsList clients={clients ?? []} />
+						<ClientsList
+							clients={clients ?? []}
+							highlightedIndex={highlightedIndex}
+						/>
 					)}
 				</div>
 			</div>

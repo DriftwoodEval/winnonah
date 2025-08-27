@@ -7,8 +7,9 @@ import { ClientListItem } from "./ClientListItem";
 
 interface ClientsListProps {
 	clients: SortedClient[];
+	highlightedIndex: number;
 }
-export function ClientsList({ clients }: ClientsListProps) {
+export function ClientsList({ clients, highlightedIndex }: ClientsListProps) {
 	if (clients.length === 0) {
 		return (
 			<div className="flex h-[400px] w-full items-center justify-center rounded-md border border-dashed">
@@ -31,7 +32,10 @@ export function ClientsList({ clients }: ClientsListProps) {
 
 				{clients.map((client, index) => (
 					<div key={client.hash}>
-						<ClientListItem client={client} />
+						<ClientListItem
+							client={client}
+							isHighlighted={index === highlightedIndex}
+						/>
 						{index < clients.length - 1 && <Separator className="my-2" />}
 					</div>
 				))}
