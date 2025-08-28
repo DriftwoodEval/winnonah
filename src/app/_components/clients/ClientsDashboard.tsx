@@ -211,7 +211,7 @@ export function ClientsDashboard() {
 												</TooltipTrigger>
 												<TooltipContent
 													arrowClassName="bg-background fill-background"
-													className="bg-background"
+													className="bg-background text-foreground"
 												>
 													<p>{formatColorName(colorKey)}</p>
 												</TooltipContent>
