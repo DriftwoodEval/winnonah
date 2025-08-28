@@ -95,32 +95,76 @@ def map_insurance_names(clients: pd.DataFrame) -> pd.DataFrame:
 
 
 def consolidate_by_id(clients: pd.DataFrame) -> pd.DataFrame:
-    """Consolidates a DataFrame of clients by their IDs. This function expects a DataFrame with columns for the client ID, insurance company name, and policy type. It will group by client ID and merge the insurance company names into separate columns for primary and secondary insurance. If a client has multiple primary or secondary insurances, it will only keep the first one it encounters.
+    """Consolidates a DataFrame of clients by their IDs. It will group by client ID and merge the insurance company names into separate columns for primary and secondary insurance. For primary insurance, it gets the most recent policy that is currently active (in date). For secondary insurance, it gets all policies that are currently active."""
 
-    Returns:
-        pd.DataFrame: A DataFrame with the same columns as the input, but with the insurance information merged and the duplicates removed.
-    """
+    def _convert_dates(df: pd.DataFrame) -> pd.DataFrame:
+        """Convert date columns to datetime, handling invalid dates."""
+        df = df.copy()
+        for col in ["POLICY_STARTDATE", "POLICY_ENDDATE"]:
+            if col in df.columns:
+                try:
+                    df[col] = pd.to_datetime(
+                        df[col], format="%m/%d/%Y", errors="coerce"
+                    )
+                except:
+                    df[col] = pd.to_datetime(df[col], errors="coerce")
+        return df.dropna(subset=["POLICY_STARTDATE"])
+
+    def _filter_active_policies(
+        df: pd.DataFrame, current_date: pd.Timestamp
+    ) -> pd.DataFrame:
+        """Filter policies that are currently active (in date)."""
+        if "POLICY_ENDDATE" in df.columns:
+            return df[
+                (df["POLICY_STARTDATE"] <= current_date)
+                & (
+                    (df["POLICY_ENDDATE"].isna())
+                    | (df["POLICY_ENDDATE"] >= current_date)
+                )
+            ]
+        else:
+            return df[df["POLICY_STARTDATE"] <= current_date]
 
     def _merge_insurance(group: pd.DataFrame) -> pd.Series:
         merged_row = group.iloc[0].copy()
-        primary_insurance = set(
-            group[group["POLICY_TYPE"] == "PRIMARY"]["INSURANCE_COMPANYNAME"]
-            .dropna()
-            .tolist()
+        current_date = pd.Timestamp.now().normalize()
+
+        # Process primary insurance - get most recent active policy
+        primary_policies = group[group["POLICY_TYPE"] == "PRIMARY"].dropna(
+            subset=["INSURANCE_COMPANYNAME"]
         )
-        secondary_insurance = set(
-            group[group["POLICY_TYPE"] == "SECONDARY"]["INSURANCE_COMPANYNAME"]
-            .dropna()
-            .tolist()
-        )
-        if primary_insurance:
-            merged_row["PRIMARY_INSURANCE_COMPANYNAME"] = list(primary_insurance)[0]
+        if not primary_policies.empty:
+            primary_policies = _convert_dates(primary_policies)
+            active_primary = _filter_active_policies(primary_policies, current_date)
+            if not active_primary.empty:
+                most_recent = active_primary.sort_values(
+                    "POLICY_STARTDATE", ascending=False
+                ).iloc[0]
+                merged_row["PRIMARY_INSURANCE_COMPANYNAME"] = most_recent[
+                    "INSURANCE_COMPANYNAME"
+                ]
+            else:
+                merged_row["PRIMARY_INSURANCE_COMPANYNAME"] = None
         else:
             merged_row["PRIMARY_INSURANCE_COMPANYNAME"] = None
-        if secondary_insurance:
-            merged_row["SECONDARY_INSURANCE_COMPANYNAME"] = list(secondary_insurance)
+
+        # Process secondary insurance - get all active policies
+        secondary_policies = group[group["POLICY_TYPE"] == "SECONDARY"].dropna(
+            subset=["INSURANCE_COMPANYNAME"]
+        )
+        if not secondary_policies.empty:
+            secondary_policies = _convert_dates(secondary_policies)
+            active_secondary = _filter_active_policies(secondary_policies, current_date)
+            if not active_secondary.empty:
+                secondary_companies = (
+                    active_secondary["INSURANCE_COMPANYNAME"].unique().tolist()
+                )
+                merged_row["SECONDARY_INSURANCE_COMPANYNAME"] = secondary_companies
+            else:
+                merged_row["SECONDARY_INSURANCE_COMPANYNAME"] = None
         else:
             merged_row["SECONDARY_INSURANCE_COMPANYNAME"] = None
+
         return merged_row
 
     logger.debug("Consolidating clients by ID")

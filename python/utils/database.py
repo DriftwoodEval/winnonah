@@ -317,30 +317,6 @@ def put_clients_in_db(clients_df):
     logger.info(f"Successfully inserted/updated {len(values_to_insert)} clients.")
 
 
-def link_client_provider(client_id: str, npi: str) -> None:
-    """Inserts a client-provider link into the database."""
-    # logger.debug(
-    #     f"Inserting client-provider link into database for {client_id} and {npi}",
-    # )
-    db_connection = get_db()
-
-    with db_connection:
-        with db_connection.cursor() as cursor:
-            sql = """
-            INSERT INTO emr_client_eval (clientId, evaluatorNpi)
-            VALUES (%s, %s)
-            ON DUPLICATE KEY UPDATE
-                clientId = VALUES(clientId),
-                evaluatorNpi = VALUES(evaluatorNpi)
-            """
-
-            values = (client_id, npi)
-
-            cursor.execute(sql, values)
-
-        db_connection.commit()
-
-
 def get_evaluators_with_blocked_locations():
     """Fetches evaluators from the database, including their blocked zip codes and school districts.
 
@@ -396,6 +372,30 @@ def get_evaluators_with_blocked_locations():
         db_connection.close()
 
     return evaluators
+
+
+def link_client_provider(client_id: str, npi: str) -> None:
+    """Inserts a client-provider link into the database."""
+    # logger.debug(
+    #     f"Inserting client-provider link into database for {client_id} and {npi}",
+    # )
+    db_connection = get_db()
+
+    with db_connection:
+        with db_connection.cursor() as cursor:
+            sql = """
+            INSERT INTO emr_client_eval (clientId, evaluatorNpi)
+            VALUES (%s, %s)
+            ON DUPLICATE KEY UPDATE
+                clientId = VALUES(clientId),
+                evaluatorNpi = VALUES(evaluatorNpi)
+            """
+
+            values = (client_id, npi)
+
+            cursor.execute(sql, values)
+
+        db_connection.commit()
 
 
 def delete_all_client_eval_links():

@@ -33,8 +33,6 @@ export function QuestionnairesSent({ clientId }: QuestionnairesSentProps) {
 			enabled: typeof clientId === "number" && clientId > 0,
 		});
 
-	console.log(questionnairesSent);
-
 	const truncateLink = (link: string | null, maxLength: number = 25) => {
 		if (!link) return "";
 
