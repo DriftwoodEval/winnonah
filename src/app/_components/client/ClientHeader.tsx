@@ -1,5 +1,6 @@
 "use client";
 
+import { Badge } from "@ui/badge";
 import { Button } from "@ui/button";
 import { Checkbox } from "@ui/checkbox";
 import {
@@ -14,6 +15,7 @@ import { Label } from "@ui/label";
 import { Popover, PopoverContent, PopoverTrigger } from "@ui/popover";
 import { Separator } from "@ui/separator";
 import { Skeleton } from "@ui/skeleton";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@ui/tooltip";
 import { CheckIcon } from "lucide-react";
 import { useSession } from "next-auth/react";
 import { useId, useState } from "react";
@@ -28,7 +30,6 @@ import { logger } from "~/lib/logger";
 import { checkRole, cn } from "~/lib/utils";
 import type { Client } from "~/server/lib/types";
 import { api } from "~/trpc/react";
-import { Badge } from "../ui/badge";
 import { ClientEditButton } from "./EditClientDialog";
 
 interface ClientHeaderProps {
@@ -132,32 +133,41 @@ export function ClientHeader({
 							/>
 						</PopoverTrigger>
 						<PopoverContent className="w-auto p-2">
-							<div className="grid grid-cols-4 place-items-center gap-2">
+							<div className="grid grid-cols-6 gap-2 pt-1">
 								{CLIENT_COLOR_KEYS.map((colorKey) => (
-									<button
-										aria-label={`Select color: ${formatColorName(colorKey)}`}
-										className="relative h-10 w-10 rounded-sm"
-										key={colorKey}
-										onClick={() => {
-											onColorChange(colorKey);
-											setIsColorOpen(false);
-										}}
-										style={{ backgroundColor: CLIENT_COLOR_MAP[colorKey] }}
-										type="button"
-									>
-										{selectedColor === colorKey && (
-											<CheckIcon
-												className="-translate-x-1/2 -translate-y-1/2 absolute top-1/2 left-1/2"
+									<Tooltip key={colorKey}>
+										<TooltipTrigger asChild>
+											<button
+												aria-label={`Select color: ${formatColorName(colorKey)}`}
+												className="relative flex h-8 w-8 items-center justify-center rounded-sm text-sm"
+												key={colorKey}
+												onClick={() => {
+													onColorChange(colorKey);
+													setIsColorOpen(false);
+												}}
 												style={{
 													color:
-														Number.parseInt(colorKey.replace("#", ""), 16) >
+														Number.parseInt(
+															CLIENT_COLOR_MAP[colorKey].replace("#", ""),
+															16,
+														) >
 														0xffffff / 2
 															? "#333"
 															: "#FFF",
+													backgroundColor: CLIENT_COLOR_MAP[colorKey],
 												}}
-											/>
-										)}
-									</button>
+												type="button"
+											>
+												{selectedColor === colorKey && <CheckIcon />}
+											</button>
+										</TooltipTrigger>
+										<TooltipContent
+											arrowClassName="bg-background fill-background"
+											className="bg-background text-foreground"
+										>
+											<p>{formatColorName(colorKey)}</p>
+										</TooltipContent>
+									</Tooltip>
 								))}
 							</div>
 						</PopoverContent>
