@@ -54,7 +54,7 @@ export function ClientNoteEditor({ clientId }: ClientNoteEditorProps) {
 		},
 		onError: (error) => {
 			log.error(error, "Failed to create note");
-			toast.error("Failed to add questionnaire", {
+			toast.error("Failed to create note", {
 				description: String(error.message),
 			});
 		},
@@ -147,7 +147,7 @@ export function ClientNoteEditor({ clientId }: ClientNoteEditorProps) {
 			) : (
 				<div>
 					<Input
-						className="mb-3 text-xl disabled:opacity-100 md:text-xl"
+						className="mb-3 text-xl placeholder:text-sm disabled:opacity-100 md:text-xl"
 						disabled={!admin}
 						name="title"
 						onChange={(e) => {
@@ -155,6 +155,7 @@ export function ClientNoteEditor({ clientId }: ClientNoteEditorProps) {
 							setLocalTitle(e.target.value);
 							debouncedSaveTitle(e.target.value);
 						}}
+						placeholder="Add a title..."
 						value={localTitle}
 					/>
 					<RichTextEditor

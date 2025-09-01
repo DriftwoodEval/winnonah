@@ -49,7 +49,7 @@ export function EligibleEvaluatorsList({
 					</SelectTrigger>
 					<SelectContent>
 						<SelectItem key="all" value="all">
-							All Offfices
+							All Offices
 						</SelectItem>
 						{offices?.map((office) => (
 							<SelectItem key={office.key} value={office.key}>

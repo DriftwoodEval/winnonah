@@ -2,13 +2,14 @@
 
 import { Button } from "@ui/button";
 import { Checkbox } from "@ui/checkbox";
+import { Dialog, DialogContent, DialogTitle, DialogTrigger } from "@ui/dialog";
 import { Label } from "@ui/label";
 import { Popover, PopoverContent, PopoverTrigger } from "@ui/popover";
 import { RadioGroup, RadioGroupItem } from "@ui/radio-group";
 import { Separator } from "@ui/separator";
 import { Skeleton } from "@ui/skeleton";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@ui/tooltip";
-import { CheckIcon, Filter } from "lucide-react";
+import { CheckIcon, Filter, Plus } from "lucide-react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useId, useMemo, useState } from "react";
 import {
@@ -18,6 +19,8 @@ import {
 	formatColorName,
 } from "~/lib/colors";
 import { api } from "~/trpc/react";
+import type { Client } from "../client/Client";
+import ClientCreateForm from "./ClientCreateForm";
 import { ClientsList } from "./ClientsList";
 import ClientsSearchForm from "./ClientsSearchForm";
 import { NameSearchInput } from "./NameSearchInput";
@@ -127,6 +130,18 @@ export function ClientsDashboard() {
 						}}
 					/>
 
+					<Dialog>
+						<DialogTrigger asChild>
+							<Button size="icon" variant="outline">
+								<Plus />
+							</Button>
+						</DialogTrigger>
+						<DialogContent>
+							<DialogTitle>Create Note/Shell Client</DialogTitle>
+							<ClientCreateForm />
+						</DialogContent>
+					</Dialog>
+
 					<Popover>
 						<PopoverTrigger asChild>
 							<Button
@@ -140,6 +155,7 @@ export function ClientsDashboard() {
 										? "bg-secondary text-secondary-foreground hover:bg-secondary/80 hover:text-secondary-foreground"
 										: ""
 								}
+								size="icon"
 								variant="outline"
 							>
 								<Filter />

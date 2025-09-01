@@ -104,7 +104,11 @@ export function ClientHeader({
 				<div className="flex items-center gap-2">
 					<span>{client.id}</span>
 					<Badge variant={client.status ? "default" : "destructive"}>
-						{client.status ? "Active" : "Inactive"}
+						{client.id.toString().length === 5
+							? "Note Only"
+							: client.status
+								? "Active"
+								: "Inactive"}
 					</Badge>
 				</div>
 
@@ -182,44 +186,48 @@ export function ClientHeader({
 					/>
 				) : null}
 
-				<Separator orientation="vertical" />
-				<div
-					className={cn(
-						"flex items-center gap-2",
-						!client.highPriority && "text-muted-foreground",
-					)}
-				>
-					<Checkbox
-						checked={client.highPriority}
-						disabled={!admin}
-						id={highPriorityId}
-						onClick={() => setIsHPOpen(true)}
-					/>
-					<Label htmlFor={highPriorityId}>High Priority</Label>
-					<Dialog onOpenChange={setIsHPOpen} open={isHPOpen}>
-						<DialogContent>
-							<DialogHeader>
-								<DialogTitle>Change Priority</DialogTitle>
-								<DialogDescription>
-									{client.highPriority
-										? "Remove client from high priority list?"
-										: "Add client to high priority list?"}
-								</DialogDescription>
-							</DialogHeader>
-							<DialogFooter>
-								<Button
-									disabled={!admin}
-									onClick={() => {
-										onHighPriorityChange();
-										setIsHPOpen(false);
-									}}
-								>
-									{client.highPriority ? "Remove" : "Add"}
-								</Button>
-							</DialogFooter>
-						</DialogContent>
-					</Dialog>
-				</div>
+				{client.id.toString().length !== 5 && (
+					<>
+						<Separator orientation="vertical" />
+						<div
+							className={cn(
+								"flex items-center gap-2",
+								!client.highPriority && "text-muted-foreground",
+							)}
+						>
+							<Checkbox
+								checked={client.highPriority}
+								disabled={!admin}
+								id={highPriorityId}
+								onClick={() => setIsHPOpen(true)}
+							/>
+							<Label htmlFor={highPriorityId}>High Priority</Label>
+							<Dialog onOpenChange={setIsHPOpen} open={isHPOpen}>
+								<DialogContent>
+									<DialogHeader>
+										<DialogTitle>Change Priority</DialogTitle>
+										<DialogDescription>
+											{client.highPriority
+												? "Remove client from high priority list?"
+												: "Add client to high priority list?"}
+										</DialogDescription>
+									</DialogHeader>
+									<DialogFooter>
+										<Button
+											disabled={!admin}
+											onClick={() => {
+												onHighPriorityChange();
+												setIsHPOpen(false);
+											}}
+										>
+											{client.highPriority ? "Remove" : "Add"}
+										</Button>
+									</DialogFooter>
+								</DialogContent>
+							</Dialog>
+						</div>
+					</>
+				)}
 			</div>
 		</div>
 	);

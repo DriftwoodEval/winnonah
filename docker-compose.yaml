@@ -73,4 +73,3 @@ services:
 
 volumes:
   winnonah_db-data:
-    external: true
