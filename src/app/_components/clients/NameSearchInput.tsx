@@ -2,7 +2,7 @@
 
 import { Input } from "@ui/input";
 import { debounce } from "lodash";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useId, useState } from "react";
 
 interface NameSearchInputProps {
 	initialValue: string;
@@ -35,12 +35,14 @@ export function NameSearchInput({
 		setInputValue(initialValue);
 	}, [initialValue]);
 
+	const inputId = useId();
+
 	return (
 		<Input
 			autoFocus
-			id="name-search"
+			id={inputId}
 			onChange={handleChange}
-			placeholder="Search by name..."
+			placeholder="Search by name or id..."
 			value={inputValue}
 		/>
 	);
