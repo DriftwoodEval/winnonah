@@ -117,6 +117,7 @@ export function GlobalClientSearch() {
 					</CommandEmpty>
 
 					{clients && clients.length > 0 && (
+						// BUG: Sometimes doesn't display when only one client would be returned based on ID?
 						<CommandGroup>
 							{clients.map((client) => {
 								const clientHexColor = client.color

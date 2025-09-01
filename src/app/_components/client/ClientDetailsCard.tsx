@@ -99,7 +99,7 @@ export function ClientDetailsCard({ client }: ClientDetailsCardProps) {
 
 			<div>
 				<p className="font-bold">Address</p>
-				<p>{client.address}</p>
+				<p>{client.address ?? "Unknown"}</p>
 			</div>
 
 			<div>

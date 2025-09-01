@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { TRPCError } from "@trpc/server";
 import { subMonths, subYears } from "date-fns";
 import {
@@ -171,6 +172,32 @@ export const clientRouter = createTRPCRouter({
     return clientsNotInTA;
   }),
 
+  createShell: adminProcedure
+    .input(z.object({ firstName: z.string(), lastName: z.string() }))
+    .mutation(async ({ ctx, input }) => {
+      const id = Math.floor(10000 + Math.random() * 90000); // Random 5 digit number
+      await ctx.db.insert(clients).values({
+        id: id,
+        hash: createHash("md5").update(String(id)).digest("hex"),
+        dob: new Date(0),
+        firstName: input.firstName,
+        lastName: input.lastName,
+        fullName: `${input.firstName} ${input.lastName}`,
+      });
+
+      const newClient = await ctx.db.query.clients.findFirst({
+        where: eq(clients.id, id),
+      });
+
+      if (!newClient) {
+        throw new Error(
+          "Failed to create client: could not retrieve new client."
+        );
+      }
+
+      return newClient.hash;
+    }),
+
   update: adminProcedure
     .input(
       z.object({
@@ -324,7 +351,12 @@ export const clientRouter = createTRPCRouter({
       const filteredAndSortedClients = await ctx.db
         .select({ ...getTableColumns(clients), sortReason: sortReasonSQL })
         .from(clients)
-        .where(conditions.length > 0 ? and(...conditions) : undefined)
+        .where(
+          and(
+            conditions.length > 0 ? and(...conditions) : undefined
+            // eq(sql`CHAR_LENGTH(${clients.id})`, 7)
+          )
+        )
         .orderBy(...orderBySQL);
 
       return {

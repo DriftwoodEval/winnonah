@@ -82,16 +82,10 @@ export const noteRouter = createTRPCRouter({
         title: input.title,
       };
 
-      const resultHeader = await ctx.db.insert(notes).values(notePayload);
-
-      const newNoteId = resultHeader[0]?.insertId;
-
-      if (!newNoteId) {
-        throw new Error("Failed to create note: could not retrieve insert ID.");
-      }
+      await ctx.db.insert(notes).values(notePayload);
 
       const newNote = await ctx.db.query.notes.findFirst({
-        where: eq(notes.clientId, newNoteId),
+        where: eq(notes.clientId, input.clientId),
       });
 
       if (!newNote) {

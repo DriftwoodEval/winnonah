@@ -66,14 +66,20 @@ export function Client({ hash }: { hash: string }) {
 			{isLoading || !client ? (
 				<Skeleton className="h-96 w-full rounded-md sm:h-96" />
 			) : (
-				<div className="mb-6 flex flex-col items-center gap-6">
-					<ClientDetailsCard client={client} />
+				<div className="mb-6 flex w-full flex-col items-center gap-6">
+					{client.id.toString().length !== 5 && (
+						<ClientDetailsCard client={client} />
+					)}
 
 					<ClientNoteEditor clientId={client.id} />
 
-					<QuestionnairesSent clientId={client.id} />
+					{client.id.toString().length !== 5 && (
+						<QuestionnairesSent clientId={client.id} />
+					)}
 
-					<EligibleEvaluatorsList client={client} />
+					{client.id.toString().length !== 5 && (
+						<EligibleEvaluatorsList client={client} />
+					)}
 				</div>
 			)}
 		</div>

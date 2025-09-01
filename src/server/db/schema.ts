@@ -211,7 +211,7 @@ export const notes = createTable(
       .notNull()
       .primaryKey()
       .references(() => clients.id, { onDelete: "cascade" }),
-    content: d.json("content").notNull(),
+    content: d.json("content"),
     title: d.text(),
     createdAt: d
       .timestamp("created_at")
