@@ -190,8 +190,8 @@ export function ClientHeader({
 					)}
 				>
 					<Checkbox
-						// disabled={!admin}
 						checked={client.highPriority}
+						disabled={!admin}
 						id={highPriorityId}
 						onClick={() => setIsHPOpen(true)}
 					/>
