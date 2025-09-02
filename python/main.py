@@ -82,7 +82,7 @@ def import_from_ta():
 
     utils.database.insert_by_matching_criteria(all_clients_from_db, evaluators)
 
-    shutil.rmtree("temp", ignore_errors=True)
+    # shutil.rmtree("temp", ignore_errors=True)
 
 
 def main():
