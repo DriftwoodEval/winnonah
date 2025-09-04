@@ -285,7 +285,10 @@ export const clientRouter = createTRPCRouter({
         conditions.push(
           and(
             not(eq(clients.primaryInsurance, "BabyNet")),
-            not(eq(clients.secondaryInsurance, "BabyNet"))
+            or(
+              not(eq(clients.secondaryInsurance, "BabyNet")),
+              isNull(clients.secondaryInsurance)
+            )
           )
         );
       }
