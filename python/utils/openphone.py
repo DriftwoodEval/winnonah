@@ -1,13 +1,13 @@
 import os
 import sys
 import time
-from tqdm import tqdm
+
 import pandas as pd
 import requests
-
 from loguru import logger
-from utils.clients import TEST_NAMES, normalize_names, remove_test_names
+from tqdm import tqdm
 
+from utils.clients import TEST_NAMES, normalize_names, remove_test_names
 
 API_TOKEN = os.getenv("OPENPHONE_API_TOKEN")
 
@@ -205,11 +205,11 @@ def sync_openphone():
         return
 
     final_df = process_demographic_data(demo_df, openphone_df)
-    final_df = final_df.head(1)
 
     if final_df is not None:
         final_df.to_csv("openphone-merged.csv", index=False)
-        create_openphone_contacts(final_df)
-        logger.success("OpenPhone sync completed successfully.")
+        # This currently doesn't show contacts in OpenPhone until a conversation has been started with them, which is pretty useless. Just import the CSV.
+        # create_openphone_contacts(final_df)
+        logger.success("OpenPhone CSV created.")
     else:
         logger.error("Failed to process OpenPhone data. Skipping OpenPhone sync.")

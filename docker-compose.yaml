@@ -59,6 +59,7 @@ services:
 
     volumes:
       - ./python/auth_cache:/app/auth_cache
+      - ./python/temp:/app/temp
 
   watchtower:
     image: containrrr/watchtower
