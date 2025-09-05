@@ -54,6 +54,7 @@ export function ClientHeader({
 
 	const [isColorOpen, setIsColorOpen] = useState(false);
 	const [isHPOpen, setIsHPOpen] = useState(false);
+	const [isMergeOpen, setIsMergeOpen] = useState(false);
 
 	const highPriorityId = useId();
 
@@ -74,6 +75,12 @@ export function ClientHeader({
 				highPriority: !client.highPriority,
 			});
 			utils.clients.getOne.invalidate();
+		}
+	}
+
+	function onMerge() {
+		if (client) {
+			console.log("merge", client.id);
 		}
 	}
 
@@ -103,7 +110,15 @@ export function ClientHeader({
 			<div className="flex h-5 items-center gap-2">
 				<div className="flex items-center gap-2">
 					<span>{client.id}</span>
-					<Badge variant={client.status ? "default" : "destructive"}>
+					<Badge
+						variant={
+							client.id.toString().length === 5
+								? "outline"
+								: client.status
+									? "default"
+									: "destructive"
+						}
+					>
 						{client.id.toString().length === 5
 							? "Note Only"
 							: client.status
@@ -111,6 +126,36 @@ export function ClientHeader({
 								: "Inactive"}
 					</Badge>
 				</div>
+
+				{client.id.toString().length === 5 && (
+					<>
+						<Separator orientation="vertical" />
+						<Dialog onOpenChange={setIsMergeOpen} open={isMergeOpen}>
+							<DialogContent>
+								<DialogHeader>
+									<DialogTitle>Merge</DialogTitle>
+									<DialogDescription>
+										Merge this note-only shell with a real client.
+									</DialogDescription>
+								</DialogHeader>
+								<DialogFooter>
+									<Button
+										disabled={!admin}
+										onClick={() => {
+											onMerge();
+											setIsMergeOpen(false);
+										}}
+									>
+										Merge
+									</Button>
+								</DialogFooter>
+							</DialogContent>
+						</Dialog>
+						<Button onClick={() => setIsMergeOpen(true)} size="sm">
+							Merge with Client
+						</Button>
+					</>
+				)}
 
 				{client.interpreter && <Separator orientation="vertical" />}
 				{client.interpreter && (
@@ -124,8 +169,10 @@ export function ClientHeader({
 					client.asdAdhd && <span>{client.asdAdhd}</span>
 				)}
 
-				{currentHexColor && <Separator orientation="vertical" />}
-				{currentHexColor && admin ? (
+				{client.id.toString().length !== 5 && currentHexColor && (
+					<Separator orientation="vertical" />
+				)}
+				{client.id.toString().length !== 5 && currentHexColor && admin ? (
 					<Popover onOpenChange={setIsColorOpen} open={isColorOpen}>
 						<PopoverTrigger asChild>
 							<button
@@ -176,7 +223,7 @@ export function ClientHeader({
 							</div>
 						</PopoverContent>
 					</Popover>
-				) : currentHexColor ? (
+				) : client.id.toString().length !== 5 && currentHexColor ? (
 					<button
 						aria-label={`Current color: ${formatColorName(selectedColor)}`}
 						className="h-5 w-5 rounded-full"
