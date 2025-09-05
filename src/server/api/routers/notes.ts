@@ -20,6 +20,7 @@ export const noteRouter = createTRPCRouter({
       return {
         id: data.clientId,
         contentJson: data.content,
+        title: data.title,
       };
     }),
 
@@ -27,7 +28,8 @@ export const noteRouter = createTRPCRouter({
     .input(
       z.object({
         noteId: z.number(),
-        contentJson: z.any(),
+        contentJson: z.any().optional(),
+        title: z.string().optional(),
       })
     )
     .mutation(async ({ ctx, input }) => {
@@ -43,14 +45,22 @@ export const noteRouter = createTRPCRouter({
         await tx.insert(noteHistory).values({
           noteId: currentNote.clientId,
           content: currentNote.content,
+          title: currentNote.title,
           updatedBy: ctx.session.user.id,
         });
 
+        // biome-ignore lint/suspicious/noExplicitAny: JSON
+        const updatePayload: { content?: any; title?: string } = {};
+        if (input.contentJson !== undefined) {
+          updatePayload.content = input.contentJson;
+        }
+        if (input.title !== undefined) {
+          updatePayload.title = input.title;
+        }
+
         await tx
           .update(notes)
-          .set({
-            content: input.contentJson,
-          })
+          .set(updatePayload)
           .where(eq(notes.clientId, input.noteId));
       });
 
@@ -61,16 +71,20 @@ export const noteRouter = createTRPCRouter({
     .input(
       z.object({
         clientId: z.number(),
-        contentJson: z.any(),
+        contentJson: z.any().optional(),
+        title: z.string().optional(),
       })
     )
     .mutation(async ({ ctx, input }) => {
-      const resultHeader = await ctx.db.insert(notes).values({
+      const notePayload = {
         clientId: input.clientId,
         content: input.contentJson,
-      });
+        title: input.title,
+      };
 
-      const newNoteId = resultHeader[0].insertId;
+      const resultHeader = await ctx.db.insert(notes).values(notePayload);
+
+      const newNoteId = resultHeader[0]?.insertId;
 
       if (!newNoteId) {
         throw new Error("Failed to create note: could not retrieve insert ID.");
@@ -79,6 +93,10 @@ export const noteRouter = createTRPCRouter({
       const newNote = await ctx.db.query.notes.findFirst({
         where: eq(notes.clientId, newNoteId),
       });
+
+      if (!newNote) {
+        throw new Error("Failed to retrieve the newly created note.");
+      }
 
       return newNote;
     }),
