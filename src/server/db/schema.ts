@@ -212,7 +212,7 @@ export const notes = createTable(
       .primaryKey()
       .references(() => clients.id, { onDelete: "cascade" }),
     content: d.json("content").notNull(),
-    title: d.varchar({ length: 255 }),
+    title: d.text(),
     createdAt: d
       .timestamp("created_at")
       .default(sql`CURRENT_TIMESTAMP`)
@@ -234,7 +234,7 @@ export const noteHistory = createTable(
       .notNull()
       .references(() => notes.clientId, { onDelete: "cascade" }),
     content: d.json("content").notNull(),
-    title: d.varchar({ length: 255 }),
+    title: d.text(),
     updatedBy: d
       .varchar("updated_by", { length: 255 })
       .references(() => users.id, { onDelete: "set null" }),

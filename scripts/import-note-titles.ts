@@ -9,6 +9,7 @@ import { clients, notes } from "~/server/db/schema";
 type RawNoteEntry = {
   name: string;
   title: string;
+  url: string;
 };
 
 type NoteInsert = InferInsertModel<typeof notes>;
@@ -17,8 +18,6 @@ type UnprocessedEntry = {
   reason: string;
   entry: RawNoteEntry;
 };
-
-const TITLE_MAX_LENGTH = 255;
 
 async function importNotes() {
   const logFile = "unprocessed_notes.json";
@@ -55,56 +54,62 @@ async function importNotes() {
         continue;
       }
 
-      if (entry.title && entry.title.length > TITLE_MAX_LENGTH) {
-        console.log(
-          `➡️ Skipping entry because title is too long (${entry.title.length} chars).`
-        );
-        unprocessedEntries.push({
-          reason: `Title exceeds max length of ${TITLE_MAX_LENGTH}`,
-          entry,
-        });
-        continue;
+      let clientId: number | null = null;
+      let asanaId: string | null = null;
+      const idRegex = /\[(\d+)\]/;
+      const idMatch = entry.name.match(idRegex);
+      if (idMatch?.[1]) {
+        clientId = parseInt(idMatch[1], 10);
       }
 
-      const regex = /\[(\d+)\]/;
-      const match = entry.name.match(regex);
-      const clientId = match?.[1] ? parseInt(match[1], 10) : null;
+      if (!clientId) {
+        const urlRegex = /\/(\d+)$/;
+        const urlMatch = entry.url?.match(urlRegex);
+        if (urlMatch?.[1]) {
+          asanaId = urlMatch[1];
+        }
+      }
+
+      let clientExists = null;
 
       if (clientId) {
-        const clientExists = await db.query.clients.findFirst({
+        clientExists = await db.query.clients.findFirst({
           where: sql`${clients.id} = ${clientId}`,
         });
-
-        if (clientExists) {
-          const noteToInsertOrUpdate: NoteInsert = {
-            clientId: clientId,
-            title: entry.title,
-            content: {},
-          };
-
-          await db
-            .insert(notes)
-            .values(noteToInsertOrUpdate)
-            .onDuplicateKeyUpdate({
-              set: {
-                title: noteToInsertOrUpdate.title,
-              },
-            });
-
-          console.log(`✅ Note for client ID ${clientId} inserted or updated.`);
-        } else {
-          console.log(`❌ Client ID ${clientId} not found. Logging entry.`);
-          unprocessedEntries.push({
-            reason: `Client ID ${clientId} not found in the database`,
-            entry,
-          });
-        }
-      } else {
-        console.log(`❌ No client ID found in '${entry.name}'. Logging entry.`);
-        unprocessedEntries.push({
-          reason: "No valid client ID found in the name field",
-          entry,
+      } else if (asanaId) {
+        clientExists = await db.query.clients.findFirst({
+          where: sql`${clients.asanaId} = ${asanaId}`,
         });
+      }
+
+      if (clientExists) {
+        const noteToInsertOrUpdate: NoteInsert = {
+          clientId: clientExists.id,
+          title: entry.title,
+          content: {},
+        };
+
+        await db
+          .insert(notes)
+          .values(noteToInsertOrUpdate)
+          .onDuplicateKeyUpdate({
+            set: {
+              title: noteToInsertOrUpdate.title,
+            },
+          });
+
+        console.log(
+          `✅ Note for client ID ${clientExists.id} inserted or updated.`
+        );
+      } else {
+        let reason = "No valid client ID or Asana ID found";
+        if (clientId) {
+          reason = `Client ID ${clientId} not found in the database`;
+        } else if (asanaId) {
+          reason = `Asana ID ${asanaId} not found in the database`;
+        }
+        console.log(`❌ Client not found. Logging entry.`);
+        unprocessedEntries.push({ reason, entry });
       }
     }
 
