@@ -4,10 +4,24 @@ COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
 USER root
 WORKDIR /app
 
-COPY pyproject.toml uv.lock ./
+COPY --chmod=555 ./docker/scripts/*.sh .
 
+ENV SUPERCRONIC_URL=https://github.com/aptible/supercronic/releases/download/v0.2.34/supercronic-linux-amd64 \
+    SUPERCRONIC_SHA1SUM=e8631edc1775000d119b70fd40339a7238eece14 \
+    SUPERCRONIC=supercronic-linux-amd64
+
+RUN curl -fsSLO "$SUPERCRONIC_URL" \
+ && echo "${SUPERCRONIC_SHA1SUM}  ${SUPERCRONIC}" | sha1sum -c - \
+ && chmod +x "$SUPERCRONIC" \
+ && mv "$SUPERCRONIC" "/usr/local/bin/${SUPERCRONIC}" \
+ && ln -s "/usr/local/bin/${SUPERCRONIC}" /usr/local/bin/supercronic
+
+COPY pyproject.toml uv.lock ./
 RUN uv sync --frozen
 
 COPY . .
 
-CMD ["uv", "run", "main.py"]
+ENV TZ=America/New_York \
+    CRON_SCHEDULE="0 22 * * *"
+
+ENTRYPOINT ["/app/entrypoint-winnonah-python.sh"]
