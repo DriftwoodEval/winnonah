@@ -1,9 +1,9 @@
-import { inArray } from "drizzle-orm";
+import { type InferSelectModel, inArray } from "drizzle-orm";
 import { OAuth2Client } from "google-auth-library";
 import { google } from "googleapis";
 import z from "zod";
 import { env } from "~/env";
-import type { PunchClient } from "~/lib/types";
+import type { FullClientInfo, PunchClient } from "~/lib/types";
 import { createTRPCRouter, protectedProcedure } from "~/server/api/trpc";
 import { db } from "~/server/db";
 import { clients } from "~/server/db/schema";
@@ -29,7 +29,7 @@ const getPunchData = async (accessToken: string, refreshToken: string) => {
   const headers = data[0] ?? [];
   const rows = data.slice(1);
 
-  const normalizedData: PunchClient[] = rows
+  const normalizedSheetData: PunchClient[] = rows
     .filter((row) => typeof row[1] === "string" && row[1].trim() !== "")
     .map((row) => {
       const punchClient: Partial<PunchClient> = {};
@@ -65,27 +65,33 @@ const getPunchData = async (accessToken: string, refreshToken: string) => {
       return punchClient as PunchClient;
     });
 
-  const clientIds = normalizedData
+  const clientIds = normalizedSheetData
     .map((client) => parseInt(client["Client ID"] ?? "", 10))
     .filter((id) => !Number.isNaN(id));
 
-  const dbHashes = await db
-    .select({ id: clients.id, hash: clients.hash })
+  const dbClients = await db
+    .select()
     .from(clients)
     .where(inArray(clients.id, clientIds));
 
-  const hashLookup = new Map(dbHashes.map((c) => [c.id, c.hash]));
+  const dbClientMap = new Map<number, InferSelectModel<typeof clients>>(
+    dbClients.map((client) => [client.id, client])
+  );
 
-  const finalData = normalizedData.map((client) => {
-    const clientId = parseInt(client["Client ID"] ?? "", 10);
-    const hash = hashLookup.get(clientId);
-    return {
-      ...client,
-      hash: hash || undefined,
-    };
+  const finalData: FullClientInfo[] = normalizedSheetData.map((sheetClient) => {
+    const clientId = parseInt(sheetClient["Client ID"] ?? "", 10);
+    const dbInfo = dbClientMap.get(clientId);
+
+    if (dbInfo) {
+      // Merge the sheet data and database info
+      return { ...dbInfo, ...sheetClient } as FullClientInfo;
+    }
+
+    // If no match is found, just return the sheet info
+    return sheetClient as FullClientInfo;
   });
 
-  return finalData as PunchClient[];
+  return finalData;
 };
 
 export const googleRouter = createTRPCRouter({

@@ -10,11 +10,11 @@ import { ScrollArea } from "@ui/scroll-area";
 import { Separator } from "@ui/separator";
 import { Skeleton } from "@ui/skeleton";
 import Link from "next/link";
-import type { PunchClient } from "~/lib/types";
+import type { FullClientInfo as MergedPunchClient } from "~/lib/types";
 import { api } from "~/trpc/react";
 
 interface PunchListAccordionProps {
-	clients: PunchClient[];
+	clients: MergedPunchClient[];
 	title: string;
 }
 
@@ -35,7 +35,7 @@ function PunchListAccordionItem({ clients, title }: PunchListAccordionProps) {
 						{clients?.map((client, index) => (
 							<div key={client["Client ID"]}>
 								<Link className="block w-full" href={`/clients/${client.hash}`}>
-									{client["Client Name"]}
+									{client.fullName ?? client["Client Name"]}
 								</Link>
 								{index < clients.length - 1 && <Separator className="my-2" />}
 							</div>
@@ -59,6 +59,11 @@ export default function Dashboard() {
 	const justAdded = clients?.filter(
 		(client) =>
 			client["DA Qs Needed"] === "FALSE" &&
+			client["DA Qs Sent"] === "FALSE" &&
+			client["DA Qs Done"] === "FALSE" &&
+			client["DA Scheduled"] === "FALSE" &&
+			client["EVAL Qs Sent"] === "FALSE" &&
+			client["EVAL Qs Done"] === "FALSE" &&
 			client["EVAL Qs Needed"] === "FALSE",
 	);
 
@@ -83,11 +88,11 @@ export default function Dashboard() {
 			client["PA Requested? (Aetna, ADHD,BabyNet, Molina, PP-N/A)"] === "FALSE",
 	);
 
-	const paRequested = clients?.filter(
-		(client) =>
-			client["PA Requested? (Aetna, ADHD,BabyNet, Molina, PP-N/A)"] !==
-				"FALSE" && client["EVAL Qs Needed"] === "FALSE",
-	);
+	// const paRequested = clients?.filter(
+	// 	(client) =>
+	// 		client["PA Requested? (Aetna, ADHD,BabyNet, Molina, PP-N/A)"] !==
+	// 			"FALSE" && client["EVAL Qs Needed"] === "FALSE",
+	// );
 
 	const evalQsPending = clients?.filter(
 		(client) =>
@@ -114,6 +119,38 @@ export default function Dashboard() {
 			client["Protocols scanned?"] === "FALSE" &&
 			new Date(client["EVAL date"] ?? "") < new Date(),
 	);
+
+	const allFilteredLists = [
+		justAdded,
+		daQsPending,
+		daQsSent,
+		daQsDone,
+		daScheduled,
+		// paRequested,
+		evalQsPending,
+		evalQsSent,
+		evalQsDone,
+		evalScheduled,
+		needsProtocolsScanned,
+	];
+
+	const clientCounts = new Map<string, number>();
+
+	allFilteredLists.forEach((list) => {
+		list?.forEach((client) => {
+			const clientId = client["Client ID"] ?? "";
+			clientCounts.set(clientId, (clientCounts.get(clientId) || 0) + 1);
+		});
+	});
+
+	const clientsInMultipleFilters: MergedPunchClient[] = [];
+
+	clients?.forEach((client) => {
+		const clientId = client["Client ID"] ?? "";
+		if ((clientCounts.get(clientId) ?? 0) > 1) {
+			clientsInMultipleFilters.push(client);
+		}
+	});
 
 	if (isLoading)
 		return (
@@ -146,10 +183,10 @@ export default function Dashboard() {
 					clients={daScheduled ?? []}
 					title="DA Scheduled"
 				/>
-				<PunchListAccordionItem
+				{/* <PunchListAccordionItem
 					clients={paRequested ?? []}
 					title="PA Requested"
-				/>
+				/> */}
 				<PunchListAccordionItem
 					clients={evalQsPending ?? []}
 					title="Eval Qs Pending"
@@ -169,6 +206,10 @@ export default function Dashboard() {
 				<PunchListAccordionItem
 					clients={needsProtocolsScanned ?? []}
 					title="Needs Protocols Scanned"
+				/>
+				<PunchListAccordionItem
+					clients={clientsInMultipleFilters ?? []}
+					title="Clients in Multiple Filters"
 				/>
 			</Accordion>
 		</div>

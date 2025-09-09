@@ -1,3 +1,6 @@
+import type { InferSelectModel } from "drizzle-orm";
+import type { clients } from "~/server/db/schema";
+
 export const userRoles = ["user", "evaluator", "admin", "superadmin"] as const;
 export type UserRole = (typeof userRoles)[number];
 
@@ -33,3 +36,8 @@ export type PunchClient = {
   "Billed?": string | undefined;
   hash: string;
 };
+
+export type DBClient = InferSelectModel<typeof clients>;
+
+// Combined type for the final result
+export type FullClientInfo = PunchClient & DBClient;
