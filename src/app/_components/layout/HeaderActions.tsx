@@ -14,12 +14,14 @@ import { LogIn } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { signIn, signOut, useSession } from "next-auth/react";
+import { useMediaQuery } from "~/hooks/use-media-query";
 import { ThemeSwitcher } from "../shared/ThemeSwitcher";
 import { GlobalClientSearch } from "./GlobalClientSearch";
 
 export function HeaderActions() {
 	const pathname = usePathname();
 	const { data: session } = useSession();
+	const isDesktop = useMediaQuery("(min-width: 768px)");
 
 	return (
 		<div className="m-2 flex items-center gap-3">
@@ -27,7 +29,7 @@ export function HeaderActions() {
 
 			{session && <IssuesAlert />}
 
-			<ThemeSwitcher />
+			{isDesktop && <ThemeSwitcher />}
 
 			{!session && (
 				<Button onClick={() => signIn("google")} size="sm" variant="secondary">

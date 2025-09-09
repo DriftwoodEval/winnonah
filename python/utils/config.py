@@ -10,18 +10,18 @@ def validate_config() -> None:
             f"Invalid DATABASE_URL. Must be a valid URL. Got {database_url}"
         )
 
-    if not os.getenv("PROVIDER_CREDENTIALING_ID"):
-        raise ValueError("PROVIDER_CREDENTIALING_ID is not set")
+    if not os.getenv("PUNCHLIST_ID"):
+        raise ValueError("PUNCHLIST_ID is not set")
 
-    if not os.getenv("PROVIDER_CREDENTIALING_RANGE"):
-        raise ValueError("PROVIDER_CREDENTIALING_RANGE is not set")
+    if not os.getenv("PUNCHLIST_RANGE"):
+        raise ValueError("PUNCHLIST_RANGE is not set")
 
     if not re.match(
         r"^[\w\s]+![A-Z]+[1-9][0-9]*:[A-Z]+[1-9][0-9]*$",
-        os.getenv("PROVIDER_CREDENTIALING_RANGE") or "",
+        os.getenv("PUNCHLIST_RANGE") or "",
     ):
         raise ValueError(
-            f"Invalid Google Sheets range format. Must be, e.g. 'Sheet1!A1:B2'. Got: {os.getenv('PROVIDER_CREDENTIALING_RANGE')}"
+            f"Invalid Google Sheets range format. Must be, e.g. 'Sheet1!A1:B2'. Got: {os.getenv('PUNCHLIST_RANGE')}"
         )
 
     if not os.getenv("TA_USERNAME"):

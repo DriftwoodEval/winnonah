@@ -18,8 +18,8 @@ export const env = createEnv({
     NODE_ENV: z
       .enum(["development", "test", "production"])
       .default("development"),
-    PROVIDER_CREDENTIALING_ID: z.string(),
-    PROVIDER_CREDENTIALING_RANGE: z
+    PUNCHLIST_ID: z.string(),
+    PUNCHLIST_RANGE: z
       .string()
       .regex(
         /^[\w\s]+![A-Z]+[1-9][0-9]*:[A-Z]+[1-9][0-9]*$/,
@@ -49,8 +49,8 @@ export const env = createEnv({
     AUTH_GOOGLE_SECRET: process.env.AUTH_GOOGLE_SECRET,
     DATABASE_URL: process.env.DATABASE_URL,
     NODE_ENV: process.env.NODE_ENV,
-    PROVIDER_CREDENTIALING_ID: process.env.PROVIDER_CREDENTIALING_ID,
-    PROVIDER_CREDENTIALING_RANGE: process.env.PROVIDER_CREDENTIALING_RANGE,
+    PUNCHLIST_ID: process.env.PUNCHLIST_ID,
+    PUNCHLIST_RANGE: process.env.PUNCHLIST_RANGE,
     REDIS_HOST: process.env.REDIS_HOST,
     OPENPHONE_API_TOKEN: process.env.OPENPHONE_API_TOKEN,
   },

@@ -87,7 +87,7 @@ export function GlobalClientSearch() {
 				variant="ghost"
 			>
 				<Search className="h-4 w-4 text-muted-foreground" />
-				<kbd className="pointer-events-none inline-flex h-5 select-none items-center gap-1 rounded px-1.5 font-medium font-mono text-[10px] text-muted-foreground opacity-100">
+				<kbd className="pointer-events-none hidden h-5 select-none items-center gap-1 rounded px-1.5 font-medium font-mono text-[10px] text-muted-foreground opacity-100 lg:inline-flex">
 					<span className="text-xs">{osKey}</span>K
 				</kbd>
 			</Button>

@@ -4,7 +4,7 @@ import UsersTable from "@components/settings/UsersTable";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@ui/tabs";
 import { auth } from "~/server/auth";
 
-export default async function Home() {
+export default async function Settings() {
 	const session = await auth();
 
 	if (!session) {
