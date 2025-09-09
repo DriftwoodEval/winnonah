@@ -79,7 +79,9 @@ export default function Dashboard() {
 
 	const daQsDone = clients?.filter(
 		(client) =>
-			client["DA Qs Done"] === "TRUE" && client["EVAL Qs Needed"] === "FALSE",
+			client["DA Qs Done"] === "TRUE" &&
+			client["EVAL Qs Needed"] === "FALSE" &&
+			!/^(TRUE|[0-9]+\/[0-9]+)$/.test(client["DA Scheduled"] ?? ""),
 	);
 
 	const daScheduled = clients?.filter(
