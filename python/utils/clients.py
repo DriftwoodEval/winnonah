@@ -55,11 +55,12 @@ def normalize_names(df: pd.DataFrame) -> pd.DataFrame:
             capitalize_name_with_exceptions
         )
 
-        # Nullify preferred name only if it's an exact match for the first name and not a suffix
-        # The mask for this operation needs to be carefully constructed.
-        # We must ensure we're not comparing NaN values.
+        # Nullify preferred name only if it's an exact match for the first name or first name and last name, and not a suffix
         df.loc[
-            (df["PREFERRED_NAME"] == df["FIRSTNAME"])
+            (
+                (df["PREFERRED_NAME"] == df["FIRSTNAME"])
+                | (df["PREFERRED_NAME"] == df["FIRSTNAME"] + " " + df["LASTNAME"])
+            )
             & (df["PREFERRED_NAME"].notna())
             & (~df["PREFERRED_NAME"].str.upper().isin(known_suffixes)),
             "PREFERRED_NAME",
