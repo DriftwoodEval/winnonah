@@ -8,54 +8,51 @@ import {
 } from "@ui/accordion";
 import { ScrollArea } from "@ui/scroll-area";
 import { Separator } from "@ui/separator";
+import { Skeleton } from "@ui/skeleton";
 import Link from "next/link";
 import type { PunchClient } from "~/lib/types";
 import { api } from "~/trpc/react";
-
-interface PunchClientListProps {
-	clients: PunchClient[];
-}
 
 interface PunchListAccordionProps {
 	clients: PunchClient[];
 	title: string;
 }
 
-function PunchClientList({ clients }: PunchClientListProps) {
-	return (
-		<ScrollArea className="h-[400px] w-full rounded-md border bg-card text-card-foreground shadow">
-			<div className="p-4">
-				<h4 className="mb-4 font-medium text-muted-foreground text-sm leading-none">
-					Showing {clients?.length} Client
-					{clients?.length === 1 ? "" : "s"}
-				</h4>
-
-				{clients?.map((client, index) => (
-					<div key={client["Client ID"]}>
-						<Link className="block w-full" href={`/clients/${client.hash}`}>
-							{client["Client Name"]}
-						</Link>
-						{index < clients.length - 1 && <Separator className="my-2" />}
-					</div>
-				))}
-			</div>
-		</ScrollArea>
-	);
-}
-
 function PunchListAccordionItem({ clients, title }: PunchListAccordionProps) {
 	return (
 		<AccordionItem value={title.replace(" ", "-")}>
-			<AccordionTrigger>{title}</AccordionTrigger>
+			<AccordionTrigger>
+				<span className="flex items-center gap-1">
+					{title}
+					<span className="text-muted-foreground text-sm">
+						({clients?.length})
+					</span>
+				</span>
+			</AccordionTrigger>
 			<AccordionContent>
-				<PunchClientList clients={clients} />
+				<ScrollArea className="h-[400px] w-full rounded-md border bg-card text-card-foreground shadow">
+					<div className="p-4">
+						{clients?.map((client, index) => (
+							<div key={client["Client ID"]}>
+								<Link className="block w-full" href={`/clients/${client.hash}`}>
+									{client["Client Name"]}
+								</Link>
+								{index < clients.length - 1 && <Separator className="my-2" />}
+							</div>
+						))}
+					</div>
+				</ScrollArea>
 			</AccordionContent>
 		</AccordionItem>
 	);
 }
 
 export default function Dashboard() {
-	const { data: clients } = api.google.getPunch.useQuery(undefined, {
+	const {
+		data: clients,
+		isLoading,
+		isError,
+	} = api.google.getPunch.useQuery(undefined, {
 		refetchInterval: 30000, // 30 seconds
 	});
 
@@ -105,21 +102,32 @@ export default function Dashboard() {
 	const evalQsDone = clients?.filter(
 		(client) =>
 			client["EVAL Qs Done"] === "TRUE" &&
-			!/^(TRUE|[0-9]+\/[0-9]+)$/.test(client["EVAL date"] ?? ""),
+			(client["EVAL date"] === undefined || client["EVAL date"] === ""),
 	);
 
 	const evalScheduled = clients?.filter(
-		(client) =>
-			// Check if it is in the future
-			new Date(client["EVAL date"] ?? "") > new Date(),
+		(client) => new Date(client["EVAL date"] ?? "") > new Date(),
 	);
 
 	const needsProtocolsScanned = clients?.filter(
-		// Check if it is in the past and protocols not scanned
 		(client) =>
 			client["Protocols scanned?"] === "FALSE" &&
 			new Date(client["EVAL date"] ?? "") < new Date(),
 	);
+
+	if (isLoading)
+		return (
+			<div className="mx-4 flex flex-grow items-center justify-center">
+				<Skeleton className="h-1/2 w-full bg-muted md:w-1/2" />
+			</div>
+		);
+
+	if (isError)
+		return (
+			<div className="mx-4 flex flex-grow items-center justify-center">
+				Error
+			</div>
+		);
 
 	return (
 		<div className="mx-4 flex flex-grow items-center justify-center">
