@@ -1,9 +1,12 @@
+import { inArray } from "drizzle-orm";
 import { OAuth2Client } from "google-auth-library";
 import { google } from "googleapis";
 import z from "zod";
 import { env } from "~/env";
 import type { PunchClient } from "~/lib/types";
 import { createTRPCRouter, protectedProcedure } from "~/server/api/trpc";
+import { db } from "~/server/db";
+import { clients } from "~/server/db/schema";
 
 const getPunchData = async (accessToken: string, refreshToken: string) => {
   const { AUTH_GOOGLE_ID, AUTH_GOOGLE_SECRET, PUNCHLIST_ID, PUNCHLIST_RANGE } =
@@ -62,7 +65,27 @@ const getPunchData = async (accessToken: string, refreshToken: string) => {
       return punchClient as PunchClient;
     });
 
-  return normalizedData;
+  const clientIds = normalizedData
+    .map((client) => parseInt(client["Client ID"] ?? "", 10))
+    .filter((id) => !Number.isNaN(id));
+
+  const dbHashes = await db
+    .select({ id: clients.id, hash: clients.hash })
+    .from(clients)
+    .where(inArray(clients.id, clientIds));
+
+  const hashLookup = new Map(dbHashes.map((c) => [c.id, c.hash]));
+
+  const finalData = normalizedData.map((client) => {
+    const clientId = parseInt(client["Client ID"] ?? "", 10);
+    const hash = hashLookup.get(clientId);
+    return {
+      ...client,
+      hash: hash || undefined,
+    };
+  });
+
+  return finalData as PunchClient[];
 };
 
 export const googleRouter = createTRPCRouter({

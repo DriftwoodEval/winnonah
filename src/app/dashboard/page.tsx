@@ -8,6 +8,7 @@ import {
 } from "@ui/accordion";
 import { ScrollArea } from "@ui/scroll-area";
 import { Separator } from "@ui/separator";
+import Link from "next/link";
 import type { PunchClient } from "~/lib/types";
 import { api } from "~/trpc/react";
 
@@ -31,7 +32,9 @@ function PunchClientList({ clients }: PunchClientListProps) {
 
 				{clients?.map((client, index) => (
 					<div key={client["Client ID"]}>
-						<span>{client["Client Name"]}</span>
+						<Link className="block w-full" href={`/clients/${client.hash}`}>
+							{client["Client Name"]}
+						</Link>
 						{index < clients.length - 1 && <Separator className="my-2" />}
 					</div>
 				))}

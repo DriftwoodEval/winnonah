@@ -31,4 +31,5 @@ export type PunchClient = {
   "AJP Review Done": string | undefined;
   "BRIDGES billed?": string | undefined;
   "Billed?": string | undefined;
+  hash: string;
 };
