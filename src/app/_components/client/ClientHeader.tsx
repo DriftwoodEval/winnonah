@@ -37,6 +37,7 @@ interface ClientHeaderProps {
 	selectedColor: ClientColor | null;
 	onColorChange: (color: ClientColor) => void;
 	isLoading: boolean;
+	readOnly?: boolean;
 }
 
 const log = logger.child({ module: "ClientHeader" });
@@ -46,6 +47,7 @@ export function ClientHeader({
 	selectedColor,
 	onColorChange,
 	isLoading,
+	readOnly,
 }: ClientHeaderProps) {
 	const { data: session } = useSession();
 	const admin = session ? checkRole(session.user.role, "admin") : false;
@@ -54,7 +56,6 @@ export function ClientHeader({
 
 	const [isColorOpen, setIsColorOpen] = useState(false);
 	const [isHPOpen, setIsHPOpen] = useState(false);
-	const [isMergeOpen, setIsMergeOpen] = useState(false);
 
 	const highPriorityId = useId();
 
@@ -78,17 +79,11 @@ export function ClientHeader({
 		}
 	}
 
-	function onMerge() {
-		if (client) {
-			console.log("merge", client.id);
-		}
-	}
-
 	if (isLoading || !client) {
 		return (
 			<div className="flex w-full flex-col gap-2">
-				<Skeleton className="h-[var(--text-2xl)] w-[32ch] rounded-md" />
-				<Skeleton className="h-[var(--text-base)] w-[9ch] rounded-md" />
+				<Skeleton className="h-[var(--text-2xl)] w-[18ch] rounded-md" />
+				<Skeleton className="h-[var(--text-base)] w-[8ch] rounded-md" />
 			</div>
 		);
 	}
@@ -104,7 +99,9 @@ export function ClientHeader({
 			{client && (
 				<div className="flex items-center gap-2">
 					<h1 className="font-bold text-2xl">{client.fullName}</h1>
-					{admin && <ClientEditButton client={client} />}
+					{admin && !readOnly && client.id.toString().length !== 5 && (
+						<ClientEditButton client={client} />
+					)}
 				</div>
 			)}
 			<div className="flex h-5 items-center gap-2">
@@ -127,36 +124,6 @@ export function ClientHeader({
 					</Badge>
 				</div>
 
-				{client.id.toString().length === 5 && (
-					<>
-						<Separator orientation="vertical" />
-						<Dialog onOpenChange={setIsMergeOpen} open={isMergeOpen}>
-							<DialogContent>
-								<DialogHeader>
-									<DialogTitle>Merge</DialogTitle>
-									<DialogDescription>
-										Merge this note-only shell with a real client.
-									</DialogDescription>
-								</DialogHeader>
-								<DialogFooter>
-									<Button
-										disabled={!admin}
-										onClick={() => {
-											onMerge();
-											setIsMergeOpen(false);
-										}}
-									>
-										Merge
-									</Button>
-								</DialogFooter>
-							</DialogContent>
-						</Dialog>
-						<Button onClick={() => setIsMergeOpen(true)} size="sm">
-							Merge with Client
-						</Button>
-					</>
-				)}
-
 				{client.interpreter && <Separator orientation="vertical" />}
 				{client.interpreter && (
 					<span className="font-bold">Interpreter Needed</span>
@@ -177,7 +144,8 @@ export function ClientHeader({
 						<PopoverTrigger asChild>
 							<button
 								aria-label={`Current color: ${formatColorName(selectedColor)}`}
-								className="h-5 w-5 cursor-pointer rounded-full"
+								className="h-5 w-5 rounded-full"
+								disabled={!admin || readOnly}
 								style={{ background: currentHexColor }}
 								tabIndex={0}
 								type="button"
@@ -244,7 +212,7 @@ export function ClientHeader({
 						>
 							<Checkbox
 								checked={client.highPriority}
-								disabled={!admin}
+								disabled={!admin || readOnly}
 								id={highPriorityId}
 								onClick={() => setIsHPOpen(true)}
 							/>

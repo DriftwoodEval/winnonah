@@ -14,7 +14,13 @@ import { api } from "~/trpc/react";
 
 const log = logger.child({ module: "Client" });
 
-export function Client({ hash }: { hash: string }) {
+export function Client({
+	hash,
+	readOnly,
+}: {
+	hash: string;
+	readOnly?: boolean;
+}) {
 	// Data Fetching
 	const {
 		data: client,
@@ -55,11 +61,12 @@ export function Client({ hash }: { hash: string }) {
 	const isLoading = isLoadingClient;
 
 	return (
-		<div className="flex w-[calc(100vw-32px)] flex-col items-center gap-6 lg:w-4xl">
+		<div className="flex w-[calc(100%-32px)] flex-col items-center gap-6 lg:w-[calc(100%-500px)]">
 			<ClientHeader
 				client={client}
 				isLoading={isLoading}
 				onColorChange={handleColorChange}
+				readOnly={readOnly}
 				selectedColor={selectedColor}
 			/>
 
@@ -71,10 +78,10 @@ export function Client({ hash }: { hash: string }) {
 						<ClientDetailsCard client={client} />
 					)}
 
-					<ClientNoteEditor clientId={client.id} />
+					<ClientNoteEditor clientId={client.id} readOnly={readOnly} />
 
 					{client.id.toString().length !== 5 && (
-						<QuestionnairesSent clientId={client.id} />
+						<QuestionnairesSent clientId={client.id} readOnly={readOnly} />
 					)}
 
 					{client.id.toString().length !== 5 && (

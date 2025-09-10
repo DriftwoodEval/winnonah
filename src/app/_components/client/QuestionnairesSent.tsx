@@ -22,9 +22,13 @@ import { QuestionnaireActionsMenu } from "./QuestionnaireTableActionsMenu";
 
 interface QuestionnairesSentProps {
 	clientId: number | undefined;
+	readOnly?: boolean;
 }
 
-export function QuestionnairesSent({ clientId }: QuestionnairesSentProps) {
+export function QuestionnairesSent({
+	clientId,
+	readOnly,
+}: QuestionnairesSentProps) {
 	const { data: session } = useSession();
 	const admin = session ? checkRole(session.user.role, "admin") : false;
 
@@ -52,13 +56,13 @@ export function QuestionnairesSent({ clientId }: QuestionnairesSentProps) {
 				<h4 className="hidden font-bold leading-none sm:block">
 					Questionnaires Sent
 				</h4>
-				{admin && <AddQuestionnaireButton clientId={clientId} />}
+				{admin && !readOnly && <AddQuestionnaireButton clientId={clientId} />}
 			</div>
 			<div className="px-4 pb-4">
 				<Table className="text-xs">
 					<TableHeader>
 						<TableRow>
-							{admin && <TableHead className="w-2.5"></TableHead>}
+							{admin && !readOnly && <TableHead className="w-2.5"></TableHead>}
 							<TableHead className="hidden w-20 sm:table-cell">Date</TableHead>
 							<TableHead className="hidden w-20 sm:table-cell">Type</TableHead>
 							<TableHead className="w-20">Link</TableHead>
@@ -76,7 +80,7 @@ export function QuestionnairesSent({ clientId }: QuestionnairesSentProps) {
 						)}
 						{questionnairesSent?.map((questionnaire) => (
 							<TableRow key={questionnaire.id}>
-								{admin && (
+								{admin && !readOnly && (
 									<TableCell>
 										<QuestionnaireActionsMenu questionnaire={questionnaire} />
 									</TableCell>

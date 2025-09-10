@@ -65,7 +65,7 @@ export const authConfig = {
     verificationTokensTable: verificationTokens,
   }),
   callbacks: {
-    async signIn({ user, account, profile }) {
+    async signIn({ user }) {
       if (!user.email) return false;
 
       const existingUser = await db.query.users.findFirst({
@@ -108,7 +108,7 @@ export const authConfig = {
       return true;
     },
 
-    async session({ session, token, user }) {
+    async session({ session, user }) {
       const accountInDb = await db.query.accounts.findFirst({
         where: eq(accounts.userId, user.id),
       });

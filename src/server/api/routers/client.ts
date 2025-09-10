@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import type { JSONContent } from "@tiptap/core";
 import { TRPCError } from "@trpc/server";
 import { subMonths, subYears } from "date-fns";
 import {
@@ -21,7 +22,7 @@ import {
   createTRPCRouter,
   protectedProcedure,
 } from "~/server/api/trpc";
-import { clients, clientsEvaluators } from "~/server/db/schema";
+import { clients, clientsEvaluators, notes } from "~/server/db/schema";
 
 const getPriorityInfo = () => {
   const now = new Date();
@@ -255,6 +256,7 @@ export const clientRouter = createTRPCRouter({
         status: z.enum(["active", "inactive", "all"]).optional(),
         color: z.enum(CLIENT_COLOR_KEYS).optional(),
         privatePay: z.boolean().optional(),
+        noteOnly: z.boolean().optional(),
       })
     )
     .query(async ({ ctx, input }) => {
@@ -269,6 +271,7 @@ export const clientRouter = createTRPCRouter({
         status,
         color,
         privatePay,
+        noteOnly,
       } = input;
 
       const effectiveStatus = status ?? "active";
@@ -299,6 +302,13 @@ export const clientRouter = createTRPCRouter({
           }
         }
       }
+
+      if (noteOnly) {
+        conditions.push(eq(sql`LENGTH(${clients.id})`, 5));
+      }
+      // else {
+      //   conditions.push(not(eq(sql`LENGTH(${clients.id})`, 5)));
+      // }
 
       if (office) {
         conditions.push(eq(clients.closestOffice, office));
@@ -363,5 +373,90 @@ export const clientRouter = createTRPCRouter({
         clients: filteredAndSortedClients,
         colorCounts: countByColor,
       };
+    }),
+
+  replaceNotes: protectedProcedure
+    .input(
+      z.object({
+        clientId: z.number(),
+        fakeClientId: z.number(),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      const { clientId, fakeClientId } = input;
+
+      const [realClientNote] = await ctx.db
+        .select()
+        .from(notes)
+        .where(eq(notes.clientId, clientId))
+        .limit(1);
+
+      const [fakeClientNote] = await ctx.db
+        .select()
+        .from(notes)
+        .where(eq(notes.clientId, fakeClientId))
+        .limit(1);
+
+      if (!fakeClientNote) {
+        throw new Error("Fake client note does not exist to merge.");
+      }
+
+      const fakeContent = fakeClientNote.content as JSONContent;
+
+      if (!fakeContent?.content || !Array.isArray(fakeContent.content)) {
+        throw new Error(
+          "Fake client note content is not in the expected Tiptap format."
+        );
+      }
+
+      let mergedContent: JSONContent;
+
+      if (realClientNote) {
+        // Case 1: Real note exists. Merge content and add a separator.
+        const realContent = realClientNote.content as JSONContent;
+
+        if (!realContent?.content || !Array.isArray(realContent.content)) {
+          throw new Error(
+            "Real client note content is not in the expected Tiptap format."
+          );
+        }
+
+        const separator = {
+          type: "paragraph",
+        };
+
+        // Combine the content with the separator in between.
+        mergedContent = {
+          type: "doc",
+          content: [...realContent.content, separator, ...fakeContent.content],
+        };
+
+        // Update the existing note.
+        await ctx.db
+          .update(notes)
+          .set({
+            content: mergedContent,
+            updatedAt: new Date(),
+            title: fakeClientNote.title,
+          })
+          .where(eq(notes.clientId, clientId));
+      } else {
+        // Case 2: Real note does not exist. Create a new one.
+        mergedContent = {
+          type: "doc",
+          content: [...fakeContent.content],
+        };
+
+        // Insert a new note entry for the real client.
+        await ctx.db.insert(notes).values({
+          clientId: clientId,
+          content: mergedContent,
+          title: fakeClientNote.title,
+        });
+      }
+
+      await ctx.db.delete(clients).where(eq(clients.id, fakeClientId));
+
+      return { success: true };
     }),
 });

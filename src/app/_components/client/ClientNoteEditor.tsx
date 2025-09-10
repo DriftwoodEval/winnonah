@@ -13,9 +13,13 @@ const log = logger.child({ module: "ClientNoteEditor" });
 
 interface ClientNoteEditorProps {
 	clientId: number;
+	readOnly?: boolean;
 }
 
-export function ClientNoteEditor({ clientId }: ClientNoteEditorProps) {
+export function ClientNoteEditor({
+	clientId,
+	readOnly,
+}: ClientNoteEditorProps) {
 	const { data: session } = useSession();
 	const admin = session ? checkRole(session.user.role, "admin") : false;
 
@@ -141,17 +145,17 @@ export function ClientNoteEditor({ clientId }: ClientNoteEditorProps) {
 			{isLoading ? (
 				<div className="flex flex-col gap-2">
 					<Skeleton className="h-9 w-full rounded-md" />
-					<Skeleton className="h-9 w-sm rounded-md" />
+					<Skeleton className="h-9 w-1/4 rounded-md" />
 					<Skeleton className="h-20 w-full rounded-md" key="skeleton-editor" />
 				</div>
 			) : (
 				<div>
 					<Input
 						className="mb-3 text-xl placeholder:text-sm disabled:opacity-100 md:text-xl"
-						disabled={!admin}
+						disabled={!admin || readOnly}
 						name="title"
 						onChange={(e) => {
-							if (!admin) return;
+							if (!admin || readOnly) return;
 							setLocalTitle(e.target.value);
 							debouncedSaveTitle(e.target.value);
 						}}
@@ -161,7 +165,7 @@ export function ClientNoteEditor({ clientId }: ClientNoteEditorProps) {
 					<RichTextEditor
 						onChange={debouncedSaveContent}
 						placeholder="Start typing client notes..."
-						readonly={!admin}
+						readonly={!admin || readOnly}
 						value={note?.contentJson ?? ""}
 					/>
 				</div>

@@ -42,7 +42,7 @@ export function NameSearchInput({
 			autoFocus
 			id={inputId}
 			onChange={handleChange}
-			placeholder="Search by name or id..."
+			placeholder="Search by name or ID..."
 			value={inputValue}
 		/>
 	);

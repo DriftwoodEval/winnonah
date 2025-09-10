@@ -19,7 +19,6 @@ import {
 	formatColorName,
 } from "~/lib/colors";
 import { api } from "~/trpc/react";
-import type { Client } from "../client/Client";
 import ClientCreateForm from "./ClientCreateForm";
 import { ClientsList } from "./ClientsList";
 import ClientsSearchForm from "./ClientsSearchForm";
