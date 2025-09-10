@@ -128,7 +128,7 @@ export function Merge() {
 				</DialogTrigger>
 				<DialogContent className="max-h-[calc(100vh-4rem)] max-w-fit overflow-x-hidden overflow-y-scroll sm:max-w-fit">
 					<DialogTitle>Preview Merge</DialogTitle>
-					<div className="flex w-full flex-col justify-between gap-10 sm:min-w-5xl sm:flex-row">
+					<div className="flex w-full min-w-[calc(100vw-5rem)] flex-col justify-between gap-10 md:flex-row lg:min-w-5xl">
 						<Client hash={selectedClient?.hash ?? ""} readOnly />
 						<div className="flex flex-col items-center gap-4">
 							<Button
@@ -182,6 +182,7 @@ export function Merge() {
 							clients={notes ?? []}
 							onSelectionChange={setSelectedNote}
 							selectedClient={selectedNote}
+							showId={false}
 						/>
 					</div>
 				)}

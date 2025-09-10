@@ -17,6 +17,7 @@ import { Separator } from "@ui/separator";
 import { Skeleton } from "@ui/skeleton";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@ui/tooltip";
 import { CheckIcon } from "lucide-react";
+import Link from "next/link";
 import { useSession } from "next-auth/react";
 import { useId, useState } from "react";
 import { toast } from "sonner";
@@ -123,6 +124,15 @@ export function ClientHeader({
 								: "Inactive"}
 					</Badge>
 				</div>
+
+				{client.id.toString().length === 5 && !readOnly && (
+					<>
+						<Separator orientation="vertical" />
+						<Link href={`/clients/merge`}>
+							<Button disabled={!admin}>Merge with Real Client</Button>
+						</Link>
+					</>
+				)}
 
 				{client.interpreter && <Separator orientation="vertical" />}
 				{client.interpreter && (

@@ -11,12 +11,14 @@ interface SelectableClientsListProps {
 	clients: SortedClient[];
 	onSelectionChange: (selectedClient: SortedClient | null) => void;
 	selectedClient?: SortedClient | null;
+	showId?: boolean;
 }
 
 export function SelectableClientsList({
 	clients,
 	onSelectionChange,
 	selectedClient,
+	showId = true,
 }: SelectableClientsListProps) {
 	if (clients.length === 0) {
 		return (
@@ -49,6 +51,7 @@ export function SelectableClientsList({
 							client={client}
 							isSelected={selectedClient?.hash === client.hash}
 							onSelect={handleSelect}
+							showId={showId}
 						/>
 						{index < clients.length - 1 && <Separator className="my-2" />}
 					</div>
