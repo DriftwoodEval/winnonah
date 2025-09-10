@@ -169,6 +169,7 @@ export const clients = createTable(
     status: d.boolean().notNull().default(true),
     asanaId: d.varchar({ length: 255 }),
     archivedInAsana: d.boolean().notNull().default(false),
+    driveId: d.varchar({ length: 255 }),
     addedDate: d.date(),
     dob: d.date().notNull(),
     firstName: d.varchar({ length: 255 }).notNull(),
