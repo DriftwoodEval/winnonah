@@ -161,6 +161,7 @@ export function GlobalClientSearch() {
 																	year: "numeric",
 																	month: "short",
 																	day: "numeric",
+																	timeZone: "UTC",
 																},
 															)}`
 														: client.sortReason}

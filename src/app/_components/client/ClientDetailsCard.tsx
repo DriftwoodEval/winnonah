@@ -42,14 +42,12 @@ export function ClientDetailsCard({ client }: ClientDetailsCardProps) {
 			<div>
 				<p className="font-bold">Date of Birth</p>
 				<p>
-					{client.dob
-						? new Intl.DateTimeFormat("en-US", {
-								year: "numeric",
-								month: "2-digit",
-								day: "2-digit",
-								timeZone: "UTC",
-							}).format(new Date(client.dob))
-						: ""}
+					{client.dob?.toLocaleDateString("en-US", {
+						year: "numeric",
+						month: "numeric",
+						day: "numeric",
+						timeZone: "UTC",
+					})}
 				</p>
 			</div>
 
@@ -61,7 +59,14 @@ export function ClientDetailsCard({ client }: ClientDetailsCardProps) {
 			{client.addedDate && (
 				<div>
 					<p className="font-bold">Date of Entry</p>
-					<p>{client.addedDate?.toLocaleDateString("en-US")}</p>
+					<p>
+						{client.addedDate?.toLocaleDateString("en-US", {
+							year: "numeric",
+							month: "numeric",
+							day: "numeric",
+							timeZone: "UTC",
+						})}
+					</p>
 				</div>
 			)}
 
