@@ -184,6 +184,7 @@ export const clientRouter = createTRPCRouter({
         firstName: input.firstName,
         lastName: input.lastName,
         fullName: `${input.firstName} ${input.lastName}`,
+        addedDate: new Date(),
       });
 
       const newClient = await ctx.db.query.clients.findFirst({
@@ -254,9 +255,9 @@ export const clientRouter = createTRPCRouter({
         nameSearch: z.string().optional(),
         hideBabyNet: z.boolean().optional(),
         status: z.enum(["active", "inactive", "all"]).optional(),
+        type: z.enum(["both", "real", "note"]).optional(),
         color: z.enum(CLIENT_COLOR_KEYS).optional(),
         privatePay: z.boolean().optional(),
-        noteOnly: z.boolean().optional(),
       })
     )
     .query(async ({ ctx, input }) => {
@@ -269,12 +270,13 @@ export const clientRouter = createTRPCRouter({
         nameSearch,
         hideBabyNet,
         status,
+        type,
         color,
         privatePay,
-        noteOnly,
       } = input;
 
       const effectiveStatus = status ?? "active";
+      const effectiveType = type ?? "both";
 
       const conditions = [];
 
@@ -303,21 +305,22 @@ export const clientRouter = createTRPCRouter({
         }
       }
 
-      if (noteOnly) {
-        conditions.push(eq(sql`LENGTH(${clients.id})`, 5));
-      }
-      // else {
-      //   conditions.push(not(eq(sql`LENGTH(${clients.id})`, 5)));
-      // }
-
       if (office) {
         conditions.push(eq(clients.closestOffice, office));
       }
+
       if (effectiveStatus === "active") {
         conditions.push(eq(clients.status, true));
       } else if (effectiveStatus === "inactive") {
         conditions.push(eq(clients.status, false));
       }
+
+      if (effectiveType === "real") {
+        conditions.push(not(eq(sql`LENGTH(${clients.id})`, 5)));
+      } else if (effectiveType === "note") {
+        conditions.push(eq(sql`LENGTH(${clients.id})`, 5));
+      }
+
       if (hideBabyNet) {
         conditions.push(
           and(

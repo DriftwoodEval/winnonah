@@ -33,6 +33,9 @@ export function ClientsDashboard() {
 	const inactiveId = useId();
 	const allId = useId();
 	const hideBabyNetId = useId();
+	const allTypesId = useId();
+	const realTypeId = useId();
+	const noteTypeId = useId();
 	const privatePayId = useId();
 
 	const [debouncedNameForQuery, setDebouncedNameForQuery] = useState("");
@@ -44,6 +47,7 @@ export function ClientsDashboard() {
 		const evaluator = searchParams.get("evaluator") ?? undefined;
 		const hideBabyNet = searchParams.get("hideBabyNet") === "true";
 		const status = searchParams.get("status") ?? undefined;
+		const type = searchParams.get("type") ?? undefined;
 		const color = (searchParams.get("color") as ClientColor) ?? undefined;
 		const privatePay = searchParams.get("privatePay") === "true";
 
@@ -57,6 +61,7 @@ export function ClientsDashboard() {
 			evaluatorNpi: evaluator ? parseInt(evaluator, 10) : undefined,
 			hideBabyNet,
 			status: status as "active" | "inactive" | "all" | undefined,
+			type: type as "both" | "real" | "note" | undefined,
 			color,
 			privatePay,
 		};
@@ -108,7 +113,7 @@ export function ClientsDashboard() {
 
 	const handleUrlParamChange = (key: string, value: string | boolean) => {
 		const params = new URLSearchParams(searchParams);
-		if (value === false || value === "active") {
+		if (value === false || value === "active" || value === "both") {
 			params.delete(key);
 		} else {
 			params.set(key, String(value));
@@ -145,11 +150,12 @@ export function ClientsDashboard() {
 						<PopoverTrigger asChild>
 							<Button
 								className={
-									["hideBabynet", "status", "privatepay", "color"].some(
+									["hideBabynet", "status", "type", "privatepay", "color"].some(
 										(key) =>
 											filters[key as keyof typeof filters] !== false &&
 											filters[key as keyof typeof filters] !== undefined &&
-											filters[key as keyof typeof filters] !== "active",
+											filters[key as keyof typeof filters] !== "active" &&
+											filters[key as keyof typeof filters] !== "both",
 									)
 										? "bg-secondary text-secondary-foreground hover:bg-secondary/80 hover:text-secondary-foreground"
 										: ""
@@ -181,6 +187,29 @@ export function ClientsDashboard() {
 										<div className="flex items-center space-x-2">
 											<RadioGroupItem id={allId} value="all" />
 											<Label htmlFor={allId}>All</Label>
+										</div>
+									</RadioGroup>
+								</div>
+								<Separator />
+								<div className="space-y-2">
+									<p className="font-medium text-sm">Client Type</p>
+									<RadioGroup
+										onValueChange={(value) =>
+											handleUrlParamChange("type", value)
+										}
+										value={filters.type ?? "both"}
+									>
+										<div className="flex items-center space-x-2">
+											<RadioGroupItem id={allTypesId} value="both" />
+											<Label htmlFor={allTypesId}>Both</Label>
+										</div>
+										<div className="flex items-center space-x-2">
+											<RadioGroupItem id={realTypeId} value="real" />
+											<Label htmlFor={realTypeId}>Real</Label>
+										</div>
+										<div className="flex items-center space-x-2">
+											<RadioGroupItem id={noteTypeId} value="note" />
+											<Label htmlFor={noteTypeId}>Notes Only</Label>
 										</div>
 									</RadioGroup>
 								</div>

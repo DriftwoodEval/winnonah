@@ -59,7 +59,7 @@ export function Merge() {
 		isLoading: isLoadingNotes,
 		isPlaceholderData: isPlaceholderNotes,
 	} = api.clients.search.useQuery(
-		{ nameSearch: finalNotesNameSearch, noteOnly: true },
+		{ nameSearch: finalNotesNameSearch, type: "note" },
 		{
 			// The `placeholderData` option keeps the old data on screen while new data is fetched.
 			placeholderData: (previousData) => previousData,
@@ -80,7 +80,7 @@ export function Merge() {
 	const { mutate: replaceNotes } = api.clients.replaceNotes.useMutation({
 		onSuccess: () => {
 			setMergeDialogOpen(false);
-			utils.clients.search.invalidate({ noteOnly: true });
+			utils.clients.search.invalidate({ type: "note" });
 		},
 		onError: (error) => {
 			toast.error("Failed to replace notes", {
