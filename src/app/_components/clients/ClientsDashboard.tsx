@@ -9,7 +9,7 @@ import { RadioGroup, RadioGroupItem } from "@ui/radio-group";
 import { Separator } from "@ui/separator";
 import { Skeleton } from "@ui/skeleton";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@ui/tooltip";
-import { CheckIcon, Filter, Plus } from "lucide-react";
+import { ArrowDownUp, CheckIcon, Filter, Plus } from "lucide-react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useId, useMemo, useState } from "react";
 import {
@@ -37,12 +37,15 @@ export function ClientsDashboard() {
 	const realTypeId = useId();
 	const noteTypeId = useId();
 	const privatePayId = useId();
+	const sortPriorityId = useId();
+	const sortFirstNameId = useId();
+	const sortLastNameId = useId();
 
 	const [debouncedNameForQuery, setDebouncedNameForQuery] = useState("");
 
 	const [highlightedIndex, setHighlightedIndex] = useState(-1);
 
-	const filters = useMemo(() => {
+	const queryParams = useMemo(() => {
 		const office = searchParams.get("office") ?? undefined;
 		const evaluator = searchParams.get("evaluator") ?? undefined;
 		const hideBabyNet = searchParams.get("hideBabyNet") === "true";
@@ -50,6 +53,7 @@ export function ClientsDashboard() {
 		const type = searchParams.get("type") ?? undefined;
 		const color = (searchParams.get("color") as ClientColor) ?? undefined;
 		const privatePay = searchParams.get("privatePay") === "true";
+		const sort = searchParams.get("sort") ?? undefined;
 
 		// TODO: Provide user feedback that the name search is too short
 		const finalNameSearch =
@@ -64,6 +68,7 @@ export function ClientsDashboard() {
 			type: type as "both" | "real" | "note" | undefined,
 			color,
 			privatePay,
+			sort: sort as "priority" | "firstName" | "lastName" | undefined,
 		};
 	}, [searchParams, debouncedNameForQuery]);
 
@@ -71,7 +76,7 @@ export function ClientsDashboard() {
 		data: searchQuery,
 		isLoading,
 		isPlaceholderData,
-	} = api.clients.search.useQuery(filters, {
+	} = api.clients.search.useQuery(queryParams, {
 		// The `placeholderData` option keeps the old data on screen while new data is fetched.
 		placeholderData: (previousData) => previousData,
 	});
@@ -113,7 +118,12 @@ export function ClientsDashboard() {
 
 	const handleUrlParamChange = (key: string, value: string | boolean) => {
 		const params = new URLSearchParams(searchParams);
-		if (value === false || value === "active" || value === "both") {
+		if (
+			value === false ||
+			value === "active" ||
+			value === "both" ||
+			value === "priority"
+		) {
 			params.delete(key);
 		} else {
 			params.set(key, String(value));
@@ -150,12 +160,60 @@ export function ClientsDashboard() {
 						<PopoverTrigger asChild>
 							<Button
 								className={
+									["sort"].some(
+										(key) =>
+											queryParams[key as keyof typeof queryParams] !==
+											undefined,
+									)
+										? "bg-secondary text-secondary-foreground hover:bg-secondary/80 hover:text-secondary-foreground"
+										: ""
+								}
+								size="icon"
+								variant="outline"
+							>
+								<ArrowDownUp />
+							</Button>
+						</PopoverTrigger>
+						<PopoverContent align="end">
+							<div className="space-y-4">
+								<div className="space-y-2">
+									<p className="font-medium text-sm">Sort By</p>
+									<RadioGroup
+										onValueChange={(value) =>
+											handleUrlParamChange("sort", value)
+										}
+										value={queryParams.sort ?? "priority"}
+									>
+										<div className="flex items-center space-x-2">
+											<RadioGroupItem id={sortPriorityId} value="priority" />
+											<Label htmlFor={sortPriorityId}>Priority</Label>
+										</div>
+										<div className="flex items-center space-x-2">
+											<RadioGroupItem id={sortLastNameId} value="lastName" />
+											<Label htmlFor={sortLastNameId}>Last Name</Label>
+										</div>
+										<div className="flex items-center space-x-2">
+											<RadioGroupItem id={sortFirstNameId} value="firstName" />
+											<Label htmlFor={sortFirstNameId}>First Name</Label>
+										</div>
+									</RadioGroup>
+								</div>
+							</div>
+						</PopoverContent>
+					</Popover>
+
+					<Popover>
+						<PopoverTrigger asChild>
+							<Button
+								className={
 									["hideBabynet", "status", "type", "privatepay", "color"].some(
 										(key) =>
-											filters[key as keyof typeof filters] !== false &&
-											filters[key as keyof typeof filters] !== undefined &&
-											filters[key as keyof typeof filters] !== "active" &&
-											filters[key as keyof typeof filters] !== "both",
+											queryParams[key as keyof typeof queryParams] !== false &&
+											queryParams[key as keyof typeof queryParams] !==
+												undefined &&
+											queryParams[key as keyof typeof queryParams] !==
+												"active" &&
+											queryParams[key as keyof typeof queryParams] !== "both",
 									)
 										? "bg-secondary text-secondary-foreground hover:bg-secondary/80 hover:text-secondary-foreground"
 										: ""
@@ -174,7 +232,7 @@ export function ClientsDashboard() {
 										onValueChange={(value) =>
 											handleUrlParamChange("status", value)
 										}
-										value={filters.status ?? "active"}
+										value={queryParams.status ?? "active"}
 									>
 										<div className="flex items-center space-x-2">
 											<RadioGroupItem id={activeId} value="active" />
@@ -197,7 +255,7 @@ export function ClientsDashboard() {
 										onValueChange={(value) =>
 											handleUrlParamChange("type", value)
 										}
-										value={filters.type ?? "both"}
+										value={queryParams.type ?? "both"}
 									>
 										<div className="flex items-center space-x-2">
 											<RadioGroupItem id={allTypesId} value="both" />
@@ -227,7 +285,7 @@ export function ClientsDashboard() {
 														className="relative flex h-8 w-8 items-center justify-center rounded-full text-sm"
 														key={colorKey}
 														onClick={() => {
-															const currentValue = filters.color;
+															const currentValue = queryParams.color;
 															const newValue =
 																currentValue === colorKey ? false : colorKey;
 															handleUrlParamChange("color", newValue);
@@ -245,11 +303,13 @@ export function ClientsDashboard() {
 														}}
 														type="button"
 													>
-														{filters.color === colorKey ? (
+														{queryParams.color === colorKey ? (
 															<CheckIcon className="h-5 w-5" />
 														) : (
-															(colorCounts?.find((c) => c.color === colorKey)
-																?.count ?? 0)
+															(
+																colorCounts?.find((c) => c.color === colorKey)
+																	?.count ?? 0
+															).toString()
 														)}
 													</button>
 												</TooltipTrigger>
@@ -266,7 +326,7 @@ export function ClientsDashboard() {
 								<Separator />
 								<div className="flex items-center space-x-2">
 									<Checkbox
-										checked={filters.hideBabyNet}
+										checked={queryParams.hideBabyNet}
 										id={hideBabyNetId}
 										onCheckedChange={(checked) =>
 											handleUrlParamChange("hideBabyNet", !!checked)
@@ -281,7 +341,7 @@ export function ClientsDashboard() {
 								</div>
 								<div className="flex items-center space-x-2">
 									<Checkbox
-										checked={filters.privatePay}
+										checked={queryParams.privatePay}
 										id={privatePayId}
 										onCheckedChange={(checked) =>
 											handleUrlParamChange("privatePay", !!checked)
