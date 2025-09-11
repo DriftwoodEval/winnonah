@@ -18,6 +18,26 @@ function ClientListItemComponent({
 	const clientHexColor = useMemo(() => {
 		return client.color ? getHexFromColor(client.color) : undefined;
 	}, [client.color]);
+
+	let sortReason = client.sortReason;
+
+	if (client.sortReason === "Added date") {
+		sortReason = `Added: ${client.addedDate?.toLocaleDateString("en-US", {
+			year: "numeric",
+			month: "short",
+			day: "numeric",
+			timeZone: "UTC",
+		})}`;
+	}
+
+	if (client.sortReason === "BabyNet above 2:6") {
+		sortReason = `BabyNet: ${formatClientAge(new Date(client.dob), "short")}`;
+	}
+
+	if (client.sortReason === "BabyNet and High Priority") {
+		sortReason = `High Priority, BabyNet: ${formatClientAge(new Date(client.dob), "short")}`;
+	}
+
 	return (
 		<Link href={`/clients/${client.hash}`}>
 			<div
@@ -39,23 +59,15 @@ function ClientListItemComponent({
 					className={cn(
 						"flex gap-2 text-muted-foreground text-xs",
 						(client.sortReason === "BabyNet above 2:6" ||
-							client.sortReason === "High Priority") &&
+							client.sortReason === "High Priority" ||
+							client.sortReason === "BabyNet and High Priority") &&
 							"text-destructive",
 					)}
 				>
 					<span className="font-bold text-muted-foreground">
 						{client.interpreter ? "Interpreter " : ""}
 					</span>
-					{client.sortReason === "BabyNet above 2:6"
-						? `BabyNet: ${formatClientAge(new Date(client.dob), "short")}`
-						: client.sortReason === "Added date"
-							? `Added: ${client.addedDate?.toLocaleDateString("en-US", {
-									year: "numeric",
-									month: "short",
-									day: "numeric",
-									timeZone: "UTC",
-								})}`
-							: client.sortReason}
+					{sortReason}
 				</span>
 			</div>
 		</Link>

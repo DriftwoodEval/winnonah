@@ -41,8 +41,9 @@ const getPriorityInfo = () => {
   );
 
   const sortReasonSQL = sql<string>`CASE
-      WHEN ${isHighPriorityClient} THEN 'High Priority'
+      WHEN ${isHighPriorityBN} AND ${isHighPriorityClient} THEN 'BabyNet and High Priority'
       WHEN ${isHighPriorityBN} THEN 'BabyNet above 2:6'
+      WHEN ${isHighPriorityClient} THEN 'High Priority'
       ELSE 'Added date'
     END`.as("sortReason");
 
