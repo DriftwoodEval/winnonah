@@ -15,7 +15,7 @@ export async function Header() {
 						{(metadata.title as string) ? (metadata.title as string)[0] : ""}
 					</h1>
 				</Link>
-				<NavigationLinks />
+				{process.env.NODE_ENV !== "production" && <NavigationLinks />}
 			</div>
 			<HeaderActions />
 		</header>
