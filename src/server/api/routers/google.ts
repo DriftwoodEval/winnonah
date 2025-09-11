@@ -1,4 +1,4 @@
-import { type InferSelectModel, eq, inArray } from "drizzle-orm";
+import { eq, type InferSelectModel, inArray } from "drizzle-orm";
 import { OAuth2Client } from "google-auth-library";
 import { google } from "googleapis";
 import z from "zod";
@@ -169,4 +169,32 @@ export const googleRouter = createTRPCRouter({
 
     return punchClient.For;
   }),
+
+  getLang: protectedProcedure
+    .input(z.string())
+    .query(async ({ ctx, input }) => {
+      if (!ctx.session.user.accessToken || !ctx.session.user.refreshToken) {
+        throw new Error("No access token or refresh token");
+      }
+
+      const punchClient = await getClientFromPunchData(
+        ctx.session.user.accessToken,
+        ctx.session.user.refreshToken,
+        input
+      );
+
+      if (!punchClient) {
+        throw new Error("Client not found");
+      }
+
+      if (!punchClient?.Language || punchClient.Language === "") {
+        return false;
+      } else {
+        await ctx.db
+          .update(clients)
+          .set({ interpreter: true })
+          .where(eq(clients.id, Number(input)));
+        return true;
+      }
+    }),
 });

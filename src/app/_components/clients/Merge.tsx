@@ -1,4 +1,5 @@
 "use client";
+import { Dialog, DialogContent, DialogTitle, DialogTrigger } from "@ui/dialog";
 import { ArrowLeft, ArrowUp } from "lucide-react";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
@@ -9,12 +10,6 @@ import { Skeleton } from "~/app/_components/ui/skeleton";
 import type { SortedClient } from "~/server/lib/types";
 import { api } from "~/trpc/react";
 import { Client } from "../client/Client";
-import {
-	Dialog,
-	DialogContent,
-	DialogTitle,
-	DialogTrigger,
-} from "../ui/dialog";
 
 export function Merge() {
 	const utils = api.useUtils();

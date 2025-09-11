@@ -62,10 +62,21 @@ export function ClientHeader({
 		},
 	);
 
+	const { data: punchInterp } = api.google.getLang.useQuery(
+		String(client?.id) ?? "",
+		{
+			enabled: !!client?.id,
+		},
+	);
+
+	console.log(punchInterp);
+
 	const [isColorOpen, setIsColorOpen] = useState(false);
 	const [isHPOpen, setIsHPOpen] = useState(false);
 
 	const highPriorityId = useId();
+
+	// TODO: Add checkbox for BabyNet that will show up in sort, for not technically being insurance on TA
 
 	const editClient = api.clients.update.useMutation({
 		onSuccess: () => {
@@ -114,7 +125,7 @@ export function ClientHeader({
 			)}
 			<div className="flex h-5 items-center gap-2">
 				<div className="flex items-center gap-2">
-					<span>{client.id}</span>
+					{client.id.toString().length !== 5 && <span>{client.id}</span>}
 					<Badge
 						variant={
 							client.id.toString().length === 5
@@ -141,8 +152,10 @@ export function ClientHeader({
 					</>
 				)}
 
-				{client.interpreter && <Separator orientation="vertical" />}
-				{client.interpreter && (
+				{(client.interpreter || punchInterp) && (
+					<Separator orientation="vertical" />
+				)}
+				{(client.interpreter || punchInterp) && (
 					<span className="font-bold">Interpreter Needed</span>
 				)}
 

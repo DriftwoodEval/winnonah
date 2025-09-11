@@ -55,6 +55,7 @@ export function Dashboard() {
 	} = api.google.getPunch.useQuery(undefined, {
 		refetchInterval: 30000, // 30 seconds
 	});
+	// TODO: DA Done & PA not Requested, PA Requested but Eval not scheduled
 
 	const justAdded = clients?.filter(
 		(client) =>
@@ -67,6 +68,8 @@ export function Dashboard() {
 			client["EVAL Qs Needed"] === "FALSE",
 	);
 
+	// TODO: Records needed, requested, received / reviewed
+
 	const daQsPending = clients?.filter(
 		(client) =>
 			client["DA Qs Needed"] === "TRUE" && client["DA Qs Sent"] === "FALSE",
@@ -77,7 +80,7 @@ export function Dashboard() {
 			client["DA Qs Sent"] === "TRUE" && client["DA Qs Done"] === "FALSE",
 	);
 
-	const daQsDone = clients?.filter(
+	const daReadyToSchedule = clients?.filter(
 		(client) =>
 			client["DA Qs Done"] === "TRUE" &&
 			client["EVAL Qs Needed"] === "FALSE" &&
@@ -86,6 +89,7 @@ export function Dashboard() {
 
 	const daScheduled = clients?.filter(
 		(client) =>
+			// Check if this date has passed
 			/^(TRUE|[0-9]+\/[0-9]+)$/.test(client["DA Scheduled"] ?? "") &&
 			client["PA Requested? (Aetna, ADHD,BabyNet, Molina, PP-N/A)"] === "FALSE",
 	);
@@ -106,10 +110,12 @@ export function Dashboard() {
 			client["EVAL Qs Sent"] === "TRUE" && client["EVAL Qs Done"] === "FALSE",
 	);
 
-	const evalQsDone = clients?.filter(
+	const evalReadyToSchedule = clients?.filter(
 		(client) =>
 			client["EVAL Qs Done"] === "TRUE" &&
-			(client["EVAL date"] === undefined || client["EVAL date"] === ""),
+			(client["EVAL date"] === undefined || client["EVAL date"] === "") &&
+			client["Records Requested?"] === "TRUE" &&
+			client["Records Reviewed?"] === "TRUE",
 	);
 
 	const evalScheduled = clients?.filter(
@@ -126,12 +132,12 @@ export function Dashboard() {
 		justAdded,
 		daQsPending,
 		daQsSent,
-		daQsDone,
+		daReadyToSchedule,
 		daScheduled,
 		// paRequested,
 		evalQsPending,
 		evalQsSent,
-		evalQsDone,
+		evalReadyToSchedule,
 		evalScheduled,
 		needsProtocolsScanned,
 	];
@@ -178,7 +184,7 @@ export function Dashboard() {
 				/>
 				<PunchListAccordionItem clients={daQsSent ?? []} title="DA Qs Sent" />
 				<PunchListAccordionItem
-					clients={daQsDone ?? []}
+					clients={daReadyToSchedule ?? []}
 					title="DA Ready to Schedule"
 				/>
 				<PunchListAccordionItem
@@ -198,7 +204,7 @@ export function Dashboard() {
 					title="Eval Qs Sent"
 				/>
 				<PunchListAccordionItem
-					clients={evalQsDone ?? []}
+					clients={evalReadyToSchedule ?? []}
 					title="Eval Ready to Schedule"
 				/>
 				<PunchListAccordionItem
