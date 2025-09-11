@@ -138,9 +138,12 @@ export const clientRouter = createTRPCRouter({
 
   getDistrictErrors: protectedProcedure.query(async ({ ctx }) => {
     const clientsWithoutDistrict = await ctx.db.query.clients.findMany({
-      where: or(
-        eq(clients.schoolDistrict, "Unknown"),
-        isNull(clients.schoolDistrict)
+      where: and(
+        or(
+          eq(clients.schoolDistrict, "Unknown"),
+          isNull(clients.schoolDistrict)
+        ),
+        not(eq(sql`LENGTH(${clients.id})`, 5))
       ),
     });
 
