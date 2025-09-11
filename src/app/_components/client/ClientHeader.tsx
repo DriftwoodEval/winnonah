@@ -55,6 +55,13 @@ export function ClientHeader({
 
 	const utils = api.useUtils();
 
+	const { data: punchFor } = api.google.getFor.useQuery(
+		String(client?.id) ?? "",
+		{
+			enabled: !!client?.id,
+		},
+	);
+
 	const [isColorOpen, setIsColorOpen] = useState(false);
 	const [isHPOpen, setIsHPOpen] = useState(false);
 
@@ -139,11 +146,9 @@ export function ClientHeader({
 					<span className="font-bold">Interpreter Needed</span>
 				)}
 
-				{client.asdAdhd && <Separator orientation="vertical" />}
-				{client.asdAdhd === "Both" ? (
-					<span>ASD + ADHD</span>
-				) : (
-					client.asdAdhd && <span>{client.asdAdhd}</span>
+				{(client.asdAdhd || punchFor) && <Separator orientation="vertical" />}
+				{(client.asdAdhd || punchFor) && (
+					<span>{punchFor ?? client.asdAdhd}</span>
 				)}
 
 				{client.id.toString().length !== 5 && currentHexColor && (

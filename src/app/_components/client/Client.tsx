@@ -21,7 +21,6 @@ export function Client({
 	hash: string;
 	readOnly?: boolean;
 }) {
-	// Data Fetching
 	const {
 		data: client,
 		isLoading: isLoadingClient,

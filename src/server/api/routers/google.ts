@@ -1,4 +1,4 @@
-import { type InferSelectModel, inArray } from "drizzle-orm";
+import { type InferSelectModel, eq, inArray } from "drizzle-orm";
 import { OAuth2Client } from "google-auth-library";
 import { google } from "googleapis";
 import z from "zod";
@@ -7,6 +7,7 @@ import type { FullClientInfo, PunchClient } from "~/lib/types";
 import { createTRPCRouter, protectedProcedure } from "~/server/api/trpc";
 import { db } from "~/server/db";
 import { clients } from "~/server/db/schema";
+import type { Client } from "~/server/lib/types";
 
 const getPunchData = async (accessToken: string, refreshToken: string) => {
   const { AUTH_GOOGLE_ID, AUTH_GOOGLE_SECRET, PUNCHLIST_ID, PUNCHLIST_RANGE } =
@@ -94,6 +95,15 @@ const getPunchData = async (accessToken: string, refreshToken: string) => {
   return finalData;
 };
 
+const getClientFromPunchData = async (
+  accessToken: string,
+  refreshToken: string,
+  id: string
+) => {
+  const data = await getPunchData(accessToken, refreshToken);
+  return data.find((client) => client["Client ID"] === id);
+};
+
 export const googleRouter = createTRPCRouter({
   getPunch: protectedProcedure.query(async ({ ctx }) => {
     if (!ctx.session.user.accessToken || !ctx.session.user.refreshToken) {
@@ -111,10 +121,52 @@ export const googleRouter = createTRPCRouter({
       if (!ctx.session.user.accessToken || !ctx.session.user.refreshToken) {
         throw new Error("No access token or refresh token");
       }
-      const data = await getPunchData(
+
+      const punchClient = await getClientFromPunchData(
         ctx.session.user.accessToken,
-        ctx.session.user.refreshToken
+        ctx.session.user.refreshToken,
+        input
       );
-      return data.find((client) => client["Client ID"] === input);
+
+      if (!punchClient) {
+        throw new Error("Client not found");
+      }
+
+      return punchClient;
     }),
+
+  getFor: protectedProcedure.input(z.string()).query(async ({ ctx, input }) => {
+    if (!ctx.session.user.accessToken || !ctx.session.user.refreshToken) {
+      throw new Error("No access token or refresh token");
+    }
+
+    const punchClient = await getClientFromPunchData(
+      ctx.session.user.accessToken,
+      ctx.session.user.refreshToken,
+      input
+    );
+
+    if (!punchClient || !punchClient?.For) {
+      throw new Error("Client not found");
+    }
+
+    const allowedValues = [
+      "ASD",
+      "ADHD",
+      "ASD+ADHD",
+      "ASD+LD",
+      "ADHD+LD",
+      "LD",
+    ];
+    if (allowedValues.includes(punchClient.For)) {
+      await ctx.db
+        .update(clients)
+        .set({ asdAdhd: punchClient.For as Client["asdAdhd"] })
+        .where(eq(clients.id, Number(input)));
+    } else {
+      throw new Error(`Invalid value for asdAdhd: ${punchClient.For}`);
+    }
+
+    return punchClient.For;
+  }),
 });
