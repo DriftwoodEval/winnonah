@@ -125,7 +125,7 @@ function ClientForm({
 					render={({ field }) => (
 						<FormItem className="flex flex-col">
 							<FormLabel>School District</FormLabel>
-							<Popover>
+							<Popover modal>
 								<PopoverTrigger asChild>
 									<FormControl>
 										<Button
