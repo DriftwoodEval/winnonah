@@ -17,7 +17,12 @@ const IssueList = ({ title, clients, action }: IssueListProps) => (
 		<ScrollArea className="w-full rounded-md border bg-card text-card-foreground shadow">
 			<div className="p-4">
 				<div className="flex items-center justify-between gap-4">
-					<h1 className="mb-4 font-bold text-lg leading-none">{title}</h1>
+					<h1 className="mb-4 font-bold text-lg leading-none">
+						{title}{" "}
+						<span className="font-medium text-muted-foreground text-sm">
+							({clients.length})
+						</span>
+					</h1>
 					{action && <div className="mb-4">{action}</div>}
 				</div>
 				{clients.map((client, index) => (
@@ -38,6 +43,7 @@ const IssueList = ({ title, clients, action }: IssueListProps) => (
 export function IssuesList() {
 	const { data: districtErrors } = api.clients.getDistrictErrors.useQuery();
 	const { data: babyNetErrors } = api.clients.getBabyNetErrors.useQuery();
+	const { data: noPaymentMethod } = api.clients.getNoPaymentMethod.useQuery();
 	const { data: notInTAErrors } = api.clients.getNotInTAErrors.useQuery();
 	const { data: noteOnlyClients } = api.clients.getNoteOnlyClients.useQuery();
 
@@ -48,6 +54,9 @@ export function IssuesList() {
 			)}
 			{babyNetErrors && babyNetErrors.length !== 0 && (
 				<IssueList clients={babyNetErrors} title="Too Old for BabyNet" />
+			)}
+			{noPaymentMethod && noPaymentMethod.length !== 0 && (
+				<IssueList clients={noPaymentMethod} title="No Payment Method" />
 			)}
 			{notInTAErrors && notInTAErrors.length !== 0 && (
 				<IssueList clients={notInTAErrors} title="Not in TA" />

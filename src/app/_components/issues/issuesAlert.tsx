@@ -41,11 +41,17 @@ export function IssuesAlert() {
 		queryOptions,
 	);
 
+	const { data: noPaymentMethod } = api.clients.getNoPaymentMethod.useQuery(
+		undefined,
+		queryOptions,
+	);
+
 	const errorsLength =
 		(districtErrors?.length ?? 0) +
 		(babyNetErrors?.length ?? 0) +
 		(notInTAErrors?.length ?? 0) +
-		(noteOnlyClients?.length ?? 0);
+		(noteOnlyClients?.length ?? 0) +
+		(noPaymentMethod?.length ?? 0);
 
 	if (!isReadyToFetch || errorsLength === 0) {
 		return null;

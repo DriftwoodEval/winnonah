@@ -202,6 +202,20 @@ export const clientRouter = createTRPCRouter({
     return noteOnlyClients;
   }),
 
+  getNoPaymentMethod: protectedProcedure.query(async ({ ctx }) => {
+    const noPaymentMethod = await ctx.db.query.clients.findMany({
+      where: and(
+        isNull(clients.primaryInsurance),
+        isNull(clients.secondaryInsurance),
+        eq(clients.privatePay, false),
+        eq(clients.status, true),
+        not(eq(sql`LENGTH(${clients.id})`, 5))
+      ),
+    });
+
+    return noPaymentMethod;
+  }),
+
   createShell: adminProcedure
     .input(z.object({ firstName: z.string(), lastName: z.string() }))
     .mutation(async ({ ctx, input }) => {
