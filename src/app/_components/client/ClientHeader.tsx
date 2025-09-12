@@ -17,7 +17,7 @@ import { Separator } from "@ui/separator";
 import { Skeleton } from "@ui/skeleton";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@ui/tooltip";
 import { subYears } from "date-fns";
-import { CheckIcon } from "lucide-react";
+import { CheckIcon, Folder } from "lucide-react";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
 import { useId, useState } from "react";
@@ -137,9 +137,23 @@ export function ClientHeader({
 			{client && (
 				<div className="flex items-center gap-2">
 					<h1 className="font-bold text-2xl">{client.fullName}</h1>
-					{admin && !readOnly && client.id.toString().length !== 5 && (
-						<ClientEditButton client={client} />
-					)}
+					<div className="flex h-[16px] gap-2">
+						{admin && !readOnly && client.id.toString().length !== 5 && (
+							<ClientEditButton client={client} />
+						)}
+						{admin &&
+							!readOnly &&
+							client.id.toString().length !== 5 &&
+							client.driveId && <Separator orientation="vertical" />}
+						{client.driveId && (
+							<Link
+								href={`https://drive.google.com/open?id=${client.driveId}`}
+								target="_blank"
+							>
+								<Folder size={16} />
+							</Link>
+						)}
+					</div>
 				</div>
 			)}
 			<div className="flex h-5 items-center gap-2">
