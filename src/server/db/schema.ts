@@ -200,6 +200,7 @@ export const clients = createTable(
     gender: d.mysqlEnum(["Male", "Female", "Other"]),
     color: d.mysqlEnum("color", CLIENT_COLOR_KEYS).notNull().default("gray"),
     highPriority: d.boolean().notNull().default(false),
+    babyNet: d.boolean().notNull().default(false),
   }),
   (t) => [
     index("asana_id_idx").on(t.asanaId),

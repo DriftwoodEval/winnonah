@@ -16,6 +16,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@ui/popover";
 import { Separator } from "@ui/separator";
 import { Skeleton } from "@ui/skeleton";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@ui/tooltip";
+import { subYears } from "date-fns";
 import { CheckIcon } from "lucide-react";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
@@ -55,6 +56,14 @@ export function ClientHeader({
 
 	const utils = api.useUtils();
 
+	const BNAgeOutDate = subYears(new Date(), 3);
+
+	const showBabyNetCheckbox =
+		client &&
+		client.dob > BNAgeOutDate &&
+		client.primaryInsurance !== "BabyNet" &&
+		client.secondaryInsurance !== "BabyNet";
+
 	const { data: punchFor } = api.google.getFor.useQuery(
 		String(client?.id) ?? "",
 		{
@@ -69,12 +78,12 @@ export function ClientHeader({
 		},
 	);
 
-	console.log(punchInterp);
-
 	const [isColorOpen, setIsColorOpen] = useState(false);
 	const [isHPOpen, setIsHPOpen] = useState(false);
+	const [isBabyNetOpen, setIsBabyNetOpen] = useState(false);
 
 	const highPriorityId = useId();
+	const babyNetId = useId();
 
 	// TODO: Add checkbox for BabyNet that will show up in sort, for not technically being insurance on TA
 
@@ -93,6 +102,16 @@ export function ClientHeader({
 			editClient.mutate({
 				clientId: client.id,
 				highPriority: !client.highPriority,
+			});
+			utils.clients.getOne.invalidate();
+		}
+	}
+
+	function onBabyNetChange() {
+		if (client) {
+			editClient.mutate({
+				clientId: client.id,
+				babyNet: !client.babyNet,
 			});
 			utils.clients.getOne.invalidate();
 		}
@@ -264,6 +283,49 @@ export function ClientHeader({
 											}}
 										>
 											{client.highPriority ? "Remove" : "Add"}
+										</Button>
+									</DialogFooter>
+								</DialogContent>
+							</Dialog>
+						</div>
+					</>
+				)}
+
+				{client.id.toString().length !== 5 && showBabyNetCheckbox && (
+					<>
+						<Separator orientation="vertical" />
+						<div
+							className={cn(
+								"flex items-center gap-2",
+								!client.babyNet && "text-muted-foreground",
+							)}
+						>
+							<Checkbox
+								checked={client.babyNet}
+								disabled={!admin || readOnly}
+								id={babyNetId}
+								onClick={() => setIsBabyNetOpen(true)}
+							/>
+							<Label htmlFor={babyNetId}>BabyNet</Label>
+							<Dialog onOpenChange={setIsBabyNetOpen} open={isBabyNetOpen}>
+								<DialogContent>
+									<DialogHeader>
+										<DialogTitle>Set BabyNet</DialogTitle>
+										<DialogDescription>
+											{client.babyNet
+												? "Unset client as BabyNet?"
+												: "Set client as BabyNet?"}
+										</DialogDescription>
+									</DialogHeader>
+									<DialogFooter>
+										<Button
+											disabled={!admin}
+											onClick={() => {
+												onBabyNetChange();
+												setIsBabyNetOpen(false);
+											}}
+										>
+											{client.babyNet ? "Unset" : "Set"}
 										</Button>
 									</DialogFooter>
 								</DialogContent>

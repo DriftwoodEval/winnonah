@@ -34,7 +34,8 @@ const getPriorityInfo = () => {
   const isHighPriorityBN = and(
     or(
       eq(clients.primaryInsurance, "BabyNet"),
-      eq(clients.secondaryInsurance, "BabyNet")
+      eq(clients.secondaryInsurance, "BabyNet"),
+      eq(clients.babyNet, true)
     ),
     lt(clients.dob, highPriorityBNAge),
     gt(clients.dob, BNAgeOutDate)
@@ -166,6 +167,22 @@ export const clientRouter = createTRPCRouter({
       ),
     });
 
+    // Discussed in meeting on 9/11/25: Automatically disable BabyNet bool for clients that age out
+    const clientsTooOldForBabyNetBool = await ctx.db.query.clients.findMany({
+      where: and(
+        eq(clients.babyNet, true),
+        lt(clients.dob, ageOutDate),
+        eq(clients.status, true)
+      ),
+    });
+
+    for (const client of clientsTooOldForBabyNetBool) {
+      await ctx.db
+        .update(clients)
+        .set({ babyNet: false })
+        .where(eq(clients.id, client.id));
+    }
+
     return clientsTooOldForBabyNet;
   }),
 
@@ -211,6 +228,7 @@ export const clientRouter = createTRPCRouter({
         color: z.enum(CLIENT_COLOR_KEYS).optional(),
         schoolDistrict: z.string().optional(),
         highPriority: z.boolean().optional(),
+        babyNet: z.boolean().optional(),
       })
     )
     .mutation(async ({ ctx, input }) => {
@@ -218,6 +236,7 @@ export const clientRouter = createTRPCRouter({
         color?: (typeof CLIENT_COLOR_KEYS)[number];
         schoolDistrict?: string;
         highPriority?: boolean;
+        babyNet?: boolean;
       } = {};
 
       if (input.color !== undefined) {
@@ -228,6 +247,9 @@ export const clientRouter = createTRPCRouter({
       }
       if (input.highPriority !== undefined) {
         updateData.highPriority = input.highPriority;
+      }
+      if (input.babyNet !== undefined) {
+        updateData.babyNet = input.babyNet;
       }
 
       await ctx.db
@@ -336,7 +358,8 @@ export const clientRouter = createTRPCRouter({
             or(
               not(eq(clients.secondaryInsurance, "BabyNet")),
               isNull(clients.secondaryInsurance)
-            )
+            ),
+            not(eq(clients.babyNet, true))
           )
         );
       }
