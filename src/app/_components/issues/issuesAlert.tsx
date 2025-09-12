@@ -36,10 +36,16 @@ export function IssuesAlert() {
 		queryOptions,
 	);
 
+	const { data: noteOnlyClients } = api.clients.getNoteOnlyClients.useQuery(
+		undefined,
+		queryOptions,
+	);
+
 	const errorsLength =
 		(districtErrors?.length ?? 0) +
 		(babyNetErrors?.length ?? 0) +
-		(notInTAErrors?.length ?? 0);
+		(notInTAErrors?.length ?? 0) +
+		(noteOnlyClients?.length ?? 0);
 
 	if (!isReadyToFetch || errorsLength === 0) {
 		return null;

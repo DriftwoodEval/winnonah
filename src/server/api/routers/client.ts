@@ -194,6 +194,14 @@ export const clientRouter = createTRPCRouter({
     return clientsNotInTA;
   }),
 
+  getNoteOnlyClients: protectedProcedure.query(async ({ ctx }) => {
+    const noteOnlyClients = await ctx.db.query.clients.findMany({
+      where: eq(sql`LENGTH(${clients.id})`, 5),
+    });
+
+    return noteOnlyClients;
+  }),
+
   createShell: adminProcedure
     .input(z.object({ firstName: z.string(), lastName: z.string() }))
     .mutation(async ({ ctx, input }) => {
