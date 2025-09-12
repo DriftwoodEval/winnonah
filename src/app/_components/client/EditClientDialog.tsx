@@ -1,32 +1,16 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import {
-	AlertDialog,
-	AlertDialogAction,
-	AlertDialogCancel,
-	AlertDialogContent,
-	AlertDialogDescription,
-	AlertDialogFooter,
-	AlertDialogHeader,
-	AlertDialogTitle,
-} from "@ui/alert-dialog";
-import { Badge } from "@ui/badge";
 import { Button } from "@ui/button";
-import { Checkbox } from "@ui/checkbox";
 import {
-	Dialog,
-	DialogContent,
-	DialogHeader,
-	DialogTitle,
-	DialogTrigger,
-} from "@ui/dialog";
-import {
-	DropdownMenu,
-	DropdownMenuContent,
-	DropdownMenuItem,
-	DropdownMenuTrigger,
-} from "@ui/dropdown-menu";
+	Command,
+	CommandEmpty,
+	CommandGroup,
+	CommandInput,
+	CommandItem,
+	CommandList,
+} from "@ui/command";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@ui/dialog";
 import {
 	Form,
 	FormControl,
@@ -35,39 +19,15 @@ import {
 	FormLabel,
 	FormMessage,
 } from "@ui/form";
-import { Input } from "@ui/input";
-import MultipleSelector from "@ui/multiple-selector";
-import {
-	Table,
-	TableBody,
-	TableCell,
-	TableHead,
-	TableHeader,
-	TableRow,
-} from "@ui/table";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@ui/tooltip";
-import { Check, ChevronsUpDown, MoreHorizontal, Pencil } from "lucide-react";
-import Link from "next/link";
-import { useSession } from "next-auth/react";
+import { Popover, PopoverContent, PopoverTrigger } from "@ui/popover";
+import { Check, ChevronsUpDown, Pencil } from "lucide-react";
 import { useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 import { z } from "zod";
-import { useMediaQuery } from "~/hooks/use-media-query";
-import { logger } from "~/lib/logger";
-import { checkRole, cn } from "~/lib/utils";
-import type { Client, Evaluator } from "~/server/lib/types";
+import { cn } from "~/lib/utils";
+import type { Client } from "~/server/lib/types";
 import { api } from "~/trpc/react";
-import {
-	Command,
-	CommandEmpty,
-	CommandGroup,
-	CommandInput,
-	CommandItem,
-	CommandList,
-} from "../ui/command";
-import { Popover, PopoverContent, PopoverTrigger } from "../ui/popover";
-import { Select } from "../ui/select";
 
 const formSchema = z.object({
 	schoolDistrict: z.string(),
@@ -88,19 +48,8 @@ function ClientForm({
 	isLoading,
 	onClose,
 }: ClientFormProps) {
-	const isEditing = !!initialData;
-
 	const { data: allSchoolDistricts, isLoading: isLoadingSchoolDistricts } =
 		api.evaluators.getAllSchoolDistricts.useQuery();
-
-	const districtOptions = useMemo(() => {
-		return (
-			allSchoolDistricts?.map((district) => ({
-				value: district.fullName,
-				label: district.shortName || district.fullName,
-			})) ?? []
-		);
-	}, [allSchoolDistricts]);
 
 	const defaultValues = useMemo(() => {
 		// If we are editing, populate from initialData
@@ -192,11 +141,7 @@ function ClientForm({
 						Cancel
 					</Button>
 					<Button disabled={isLoading} type="submit">
-						{isLoading
-							? "Saving..."
-							: isEditing
-								? "Save Changes"
-								: "Create Evaluator"}
+						{isLoading ? "Saving..." : "Save Changes"}
 					</Button>
 				</div>
 			</form>
@@ -215,7 +160,7 @@ export function ClientEditButton({ client }: { client: Client }) {
 			setIsEditDialogOpen(false);
 		},
 		onError: (error) => {
-			toast.error("Failed to update evaluator", { description: error.message });
+			toast.error("Failed to update client", { description: error.message });
 		},
 	});
 
