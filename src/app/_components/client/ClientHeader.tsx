@@ -17,7 +17,8 @@ import { Separator } from "@ui/separator";
 import { Skeleton } from "@ui/skeleton";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@ui/tooltip";
 import { subYears } from "date-fns";
-import { CheckIcon, Folder } from "lucide-react";
+import { CheckIcon } from "lucide-react";
+import Image from "next/image";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
 import { useId, useState } from "react";
@@ -150,7 +151,13 @@ export function ClientHeader({
 								href={`https://drive.google.com/open?id=${client.driveId}`}
 								target="_blank"
 							>
-								<Folder size={16} />
+								<Image
+									alt="Open Google Drive"
+									className="dark:invert"
+									height={16}
+									src="/icons/google-drive.svg"
+									width={16}
+								/>
 							</Link>
 						)}
 					</div>
