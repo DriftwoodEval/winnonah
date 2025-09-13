@@ -1,3 +1,5 @@
+from datetime import datetime
+
 import pandas as pd
 
 from utils.misc import get_column
@@ -80,6 +82,24 @@ def match_by_school_district(client: pd.Series, evaluators: dict):
         #     f"{get_column(client, 'FIRSTNAME')} {get_column(client, 'LASTNAME')} has no valid school district information. No exclusions applied. All evaluators are eligible."
         # )
         return list(evaluators.keys())
+
+    client_dob = get_column(client, "DOB")
+    if client_dob is not None and isinstance(client_dob, str):
+        client_dob = datetime.strptime(client_dob, "%Y-%m-%d")
+        current_date = datetime.now()
+        client_age = (
+            current_date.year
+            - client_dob.year
+            - (
+                (current_date.month, current_date.day)
+                < (client_dob.month, client_dob.day)
+            )
+        )
+        if client_age > 20:
+            # logger.debug(
+            #     f"{get_column(client, 'FIRSTNAME')} {get_column(client, 'LASTNAME')} is over 20 years old. No exclusions applied. All evaluators are eligible."
+            # )
+            return list(evaluators.keys())
 
     eligible_evaluators = []
     client_district_lower = client_school_district.lower().strip()

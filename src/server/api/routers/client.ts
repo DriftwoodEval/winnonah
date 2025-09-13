@@ -145,6 +145,7 @@ export const clientRouter = createTRPCRouter({
           eq(clients.schoolDistrict, "Unknown"),
           isNull(clients.schoolDistrict)
         ),
+        gt(clients.dob, subYears(new Date(), 21)),
         not(eq(sql`LENGTH(${clients.id})`, 5))
       ),
     });
