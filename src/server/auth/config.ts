@@ -52,13 +52,15 @@ export const authConfig = {
         params: {
           access_type: "offline",
           response_type: "code",
-          prompt: "consent",
           scope:
             "openid email profile https://www.googleapis.com/auth/spreadsheets.readonly",
         },
       },
     }),
   ],
+  session: {
+    maxAge: 60 * 60 * 24 * 7, // 1 week
+  },
   adapter: DrizzleAdapter(db, {
     usersTable: users,
     accountsTable: accounts,
