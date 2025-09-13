@@ -89,3 +89,14 @@ export function getReminderColorClass(
   }
   return "";
 }
+
+export function formatPhoneNumber(phoneNumber: string) {
+  const digits = phoneNumber.replace(/\D/g, "");
+  return digits.replace(
+    /^(1)?(\d{3})(\d{3})(\d{4})$/,
+    (_, country, a, b, c) => {
+      const prefix = country ? "+1 " : "";
+      return `${prefix}(${a}) ${b}-${c}`;
+    }
+  );
+}

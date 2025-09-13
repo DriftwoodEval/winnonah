@@ -86,8 +86,6 @@ export function ClientHeader({
 	const highPriorityId = useId();
 	const babyNetId = useId();
 
-	// TODO: Add checkbox for BabyNet that will show up in sort, for not technically being insurance on TA
-
 	const editClient = api.clients.update.useMutation({
 		onSuccess: () => {
 			setIsColorOpen(false);

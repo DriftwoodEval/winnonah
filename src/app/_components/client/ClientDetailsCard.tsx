@@ -2,7 +2,8 @@
 import { Alert, AlertTitle } from "@ui/alert";
 import { Popover, PopoverContent, PopoverTrigger } from "@ui/popover";
 import { AlertTriangleIcon } from "lucide-react";
-import { cn, formatClientAge } from "~/lib/utils";
+import Link from "next/link";
+import { cn, formatClientAge, formatPhoneNumber } from "~/lib/utils";
 import type { Client } from "~/server/lib/types";
 import { api } from "~/trpc/react";
 
@@ -142,6 +143,22 @@ export function ClientDetailsCard({ client }: ClientDetailsCardProps) {
 					{client.closestOfficeMiles ? `(${client.closestOfficeMiles} mi)` : ""}
 				</p>
 			</div>
+
+			{client.phoneNumber && (
+				<div>
+					<p className="font-bold">Phone Number</p>
+					<Link href={`tel:${client.phoneNumber}`}>
+						{formatPhoneNumber(client.phoneNumber)}
+					</Link>
+				</div>
+			)}
+
+			{client.email && (
+				<div>
+					<p className="font-bold">Email</p>
+					<Link href={`mailto:${client.email}`}>{client.email}</Link>
+				</div>
+			)}
 
 			{(client.schoolDistrict === "Unknown" || !client.schoolDistrict) && (
 				<Alert variant="destructive">

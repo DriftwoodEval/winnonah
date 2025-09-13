@@ -282,7 +282,7 @@ def put_clients_in_db(clients_df):
         values_to_insert.append(values)
 
     sql = """
-        INSERT INTO `emr_client` (id, hash, status, addedDate, dob, firstName, lastName, preferredName, fullName, address, schoolDistrict, closestOffice, closestOfficeMiles, secondClosestOffice, secondClosestOfficeMiles, thirdClosestOffice, thirdClosestOfficeMiles, primaryInsurance, secondaryInsurance, privatePay, asdAdhd, interpreter, gender, phoneNumber)
+        INSERT INTO `emr_client` (id, hash, status, addedDate, dob, firstName, lastName, preferredName, fullName, address, schoolDistrict, closestOffice, closestOfficeMiles, secondClosestOffice, secondClosestOfficeMiles, thirdClosestOffice, thirdClosestOfficeMiles, primaryInsurance, secondaryInsurance, privatePay, asdAdhd, interpreter, gender, phoneNumber, email)
         VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
         ON DUPLICATE KEY UPDATE
             hash = VALUES(hash),
@@ -307,7 +307,7 @@ def put_clients_in_db(clients_df):
             asdAdhd = VALUES(asdAdhd),
             interpreter = VALUES(interpreter),
             gender = VALUES(gender),
-            phoneNumber = VALUES(phoneNumber);
+            phoneNumber = VALUES(phoneNumber),
             email = VALUES(email);
     """
 
