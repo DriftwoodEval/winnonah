@@ -132,7 +132,7 @@ def consolidate_by_id(clients: pd.DataFrame) -> pd.DataFrame:
 
         # Process primary insurance - get most recent active policy
         primary_policies = group[group["POLICY_TYPE"] == "PRIMARY"].dropna(
-            subset=["INSURANCE_COMPANYNAME"]
+            subset=["INSURANCE_COMPANYNAME", "POLICY_COMPANYNAME"]
         )
         if not primary_policies.empty:
             primary_policies = _convert_dates(primary_policies)
@@ -141,9 +141,11 @@ def consolidate_by_id(clients: pd.DataFrame) -> pd.DataFrame:
                 most_recent = active_primary.sort_values(
                     "POLICY_STARTDATE", ascending=False
                 ).iloc[0]
-                merged_row["PRIMARY_INSURANCE_COMPANYNAME"] = most_recent[
-                    "INSURANCE_COMPANYNAME"
-                ]
+                merged_row["PRIMARY_INSURANCE_COMPANYNAME"] = (
+                    most_recent["INSURANCE_COMPANYNAME"]
+                    if pd.notna(most_recent["INSURANCE_COMPANYNAME"])
+                    else most_recent["POLICY_COMPANYNAME"]
+                )
             else:
                 merged_row["PRIMARY_INSURANCE_COMPANYNAME"] = None
         else:
@@ -151,16 +153,26 @@ def consolidate_by_id(clients: pd.DataFrame) -> pd.DataFrame:
 
         # Process secondary insurance - get all active policies
         secondary_policies = group[group["POLICY_TYPE"] == "SECONDARY"].dropna(
-            subset=["INSURANCE_COMPANYNAME"]
+            subset=["INSURANCE_COMPANYNAME", "POLICY_COMPANYNAME"]
         )
+
         if not secondary_policies.empty:
             secondary_policies = _convert_dates(secondary_policies)
             active_secondary = _filter_active_policies(secondary_policies, current_date)
+
             if not active_secondary.empty:
                 secondary_companies = (
                     active_secondary["INSURANCE_COMPANYNAME"].unique().tolist()
                 )
-                merged_row["SECONDARY_INSURANCE_COMPANYNAME"] = secondary_companies
+                # Check for empty secondary insurance company names
+                for idx, company in enumerate(secondary_companies):
+                    if pd.isna(company):
+                        secondary_companies[idx] = active_secondary.iloc[idx][
+                            "POLICY_COMPANYNAME"
+                        ]
+                merged_row["SECONDARY_INSURANCE_COMPANYNAME"] = list(
+                    set(secondary_companies)
+                )  # Remove duplicates
             else:
                 merged_row["SECONDARY_INSURANCE_COMPANYNAME"] = None
         else:
