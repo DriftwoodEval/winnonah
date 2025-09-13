@@ -238,6 +238,7 @@ def put_clients_in_db(clients_df):
         dob_formatted = format_date(get_column(client, "DOB")) or "1900-01-01"
         gender = format_gender(get_column(client, "GENDER"))
         phone_number = format_phone_number(get_column(client, "PHONE1"))
+        email = get_column(client, "EMAIL")
 
         values = (
             client_id,
@@ -276,12 +277,13 @@ def put_clients_in_db(clients_df):
             get_column(client, "INTERPRETER", default=False),
             gender,
             phone_number,
+            email,
         )
         values_to_insert.append(values)
 
     sql = """
         INSERT INTO `emr_client` (id, hash, status, addedDate, dob, firstName, lastName, preferredName, fullName, address, schoolDistrict, closestOffice, closestOfficeMiles, secondClosestOffice, secondClosestOfficeMiles, thirdClosestOffice, thirdClosestOfficeMiles, primaryInsurance, secondaryInsurance, privatePay, asdAdhd, interpreter, gender, phoneNumber)
-        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
         ON DUPLICATE KEY UPDATE
             hash = VALUES(hash),
             status = VALUES(status),
@@ -306,6 +308,7 @@ def put_clients_in_db(clients_df):
             interpreter = VALUES(interpreter),
             gender = VALUES(gender),
             phoneNumber = VALUES(phoneNumber);
+            email = VALUES(email);
     """
 
     with db_connection:
