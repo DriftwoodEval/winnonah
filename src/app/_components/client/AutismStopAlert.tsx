@@ -17,22 +17,31 @@ type Props = {
 };
 
 export function AutismStopAlert({ client }: Props) {
-	const VISIT_COUNT_KEY = `visitCount:${client.hash}`;
+	const VISIT_DATA_KEY = `visitData:${client.hash}`;
 
 	const [isAutismRecordsWarningOpen, setIsAutismRecordsWarningOpen] =
 		useState(false);
 
 	useEffect(() => {
-		const visitCount = parseInt(
-			localStorage.getItem(VISIT_COUNT_KEY) || "0",
-			10,
-		);
+		const storedData = localStorage.getItem(VISIT_DATA_KEY);
+		const now = Date.now();
 
-		if (visitCount < 6 && client.autismStop) {
-			localStorage.setItem(VISIT_COUNT_KEY, (visitCount + 1).toString());
+		let visitData = { count: 0, timestamp: now };
+
+		if (storedData) {
+			visitData = JSON.parse(storedData);
+			if (now - visitData.timestamp > 7 * 24 * 60 * 60 * 1000) {
+				visitData.count = 0;
+			}
+		}
+
+		if (visitData.count < 6 && client.autismStop) {
+			visitData.count += 1;
+			visitData.timestamp = now;
+			localStorage.setItem(VISIT_DATA_KEY, JSON.stringify(visitData));
 			setIsAutismRecordsWarningOpen(true);
 		}
-	}, [client?.autismStop, VISIT_COUNT_KEY]);
+	}, [client?.autismStop, VISIT_DATA_KEY]);
 
 	return (
 		<>
