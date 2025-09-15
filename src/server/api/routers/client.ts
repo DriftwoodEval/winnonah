@@ -4,6 +4,7 @@ import { TRPCError } from "@trpc/server";
 import { subMonths, subYears } from "date-fns";
 import {
   and,
+  count,
   eq,
   getTableColumns,
   gt,
@@ -215,6 +216,31 @@ export const clientRouter = createTRPCRouter({
     });
 
     return noPaymentMethod;
+  }),
+
+  getDuplicateDriveIdErrors: protectedProcedure.query(async ({ ctx }) => {
+    const duplicateDriveIds = await ctx.db
+      .select({
+        driveId: clients.driveId,
+        count: count().as("count"),
+      })
+      .from(clients)
+      .where(sql`${clients.driveId} IS NOT NULL`)
+      .groupBy(clients.driveId)
+      .having(gt(count(), 1));
+
+    const duplicateIds = duplicateDriveIds.map((row) => row.driveId);
+
+    if (duplicateIds.length === 0) {
+      return [];
+    }
+
+    const duplicateRecords = await ctx.db
+      .select()
+      .from(clients)
+      .where(sql`${clients.driveId} IN (${duplicateIds})`);
+
+    return duplicateRecords;
   }),
 
   createShell: adminProcedure

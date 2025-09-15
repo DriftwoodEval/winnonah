@@ -46,6 +46,8 @@ export function IssuesList() {
 	const { data: noPaymentMethod } = api.clients.getNoPaymentMethod.useQuery();
 	const { data: notInTAErrors } = api.clients.getNotInTAErrors.useQuery();
 	const { data: noteOnlyClients } = api.clients.getNoteOnlyClients.useQuery();
+	const { data: duplicateDriveIds } =
+		api.clients.getDuplicateDriveIdErrors.useQuery();
 
 	return (
 		<div className="flex flex-wrap justify-center gap-14">
@@ -73,6 +75,9 @@ export function IssuesList() {
 					clients={noteOnlyClients}
 					title="Notes Only"
 				/>
+			)}
+			{duplicateDriveIds && duplicateDriveIds.length !== 0 && (
+				<IssueList clients={duplicateDriveIds} title="Duplicate Drive IDs" />
 			)}
 		</div>
 	);
