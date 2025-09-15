@@ -54,6 +54,9 @@ export function ClientHeader({
 }: ClientHeaderProps) {
 	const { data: session } = useSession();
 	const admin = session ? checkRole(session.user.role, "admin") : false;
+	const superadmin = session
+		? checkRole(session.user.role, "superadmin")
+		: false;
 
 	const utils = api.useUtils();
 
@@ -81,9 +84,11 @@ export function ClientHeader({
 
 	const [isColorOpen, setIsColorOpen] = useState(false);
 	const [isHPOpen, setIsHPOpen] = useState(false);
+	const [isAutismStopOpen, setIsAutismStopOpen] = useState(false);
 	const [isBabyNetOpen, setIsBabyNetOpen] = useState(false);
 
 	const highPriorityId = useId();
+	const autismStopId = useId();
 	const babyNetId = useId();
 
 	const editClient = api.clients.update.useMutation({
@@ -93,6 +98,15 @@ export function ClientHeader({
 		onError: (error) => {
 			log.error(error, "Failed to update client");
 			toast.error("Failed to update client", { description: error.message });
+		},
+	});
+
+	const updateAutismStop = api.clients.autismStop.useMutation({
+		onError: (error) => {
+			log.error(error, "Failed to update autism stop");
+			toast.error("Failed to update autism stop", {
+				description: String(error.message),
+			});
 		},
 	});
 
@@ -111,6 +125,16 @@ export function ClientHeader({
 			editClient.mutate({
 				clientId: client.id,
 				babyNet: !client.babyNet,
+			});
+			utils.clients.getOne.invalidate();
+		}
+	}
+
+	function onAutismStopChange() {
+		if (client) {
+			updateAutismStop.mutate({
+				clientId: client.id,
+				autismStop: !client.autismStop,
 			});
 			utils.clients.getOne.invalidate();
 		}
@@ -300,8 +324,56 @@ export function ClientHeader({
 												onHighPriorityChange();
 												setIsHPOpen(false);
 											}}
+											variant={client.highPriority ? "destructive" : "default"}
 										>
 											{client.highPriority ? "Remove" : "Add"}
+										</Button>
+									</DialogFooter>
+								</DialogContent>
+							</Dialog>
+						</div>
+					</>
+				)}
+
+				{client.id.toString().length !== 5 && (
+					<>
+						<Separator orientation="vertical" />
+						<div
+							className={cn(
+								"flex items-center gap-2",
+								!client.autismStop && "text-muted-foreground",
+							)}
+						>
+							<Checkbox
+								checked={client.autismStop}
+								disabled={readOnly || (!superadmin && client.autismStop)}
+								id={autismStopId}
+								onClick={() => setIsAutismStopOpen(true)}
+							/>
+							<Label htmlFor={autismStopId}>"Autism" in Records</Label>
+							<Dialog
+								onOpenChange={setIsAutismStopOpen}
+								open={isAutismStopOpen}
+							>
+								<DialogContent>
+									<DialogHeader>
+										<DialogTitle>"Autism" in Records Flag</DialogTitle>
+										<DialogDescription>
+											{client.autismStop
+												? "Remove \"'Autism' found in records\" flag?"
+												: "Add \"'Autism' found in records\" flag? This will show a popup warning on everyone's first few visits to this page, and a persistent banner."}
+										</DialogDescription>
+									</DialogHeader>
+									<DialogFooter>
+										<Button
+											disabled={!admin}
+											onClick={() => {
+												onAutismStopChange();
+												setIsAutismStopOpen(false);
+											}}
+											variant={client.autismStop ? "destructive" : "default"}
+										>
+											{client.autismStop ? "Remove" : "Add"}
 										</Button>
 									</DialogFooter>
 								</DialogContent>

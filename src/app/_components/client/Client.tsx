@@ -11,6 +11,7 @@ import { toast } from "sonner";
 import type { ClientColor } from "~/lib/colors";
 import { logger } from "~/lib/logger";
 import { api } from "~/trpc/react";
+import { AutismStopAlert } from "./AutismStopAlert";
 
 const log = logger.child({ module: "Client" });
 
@@ -73,6 +74,8 @@ export function Client({
 				<Skeleton className="h-96 w-full rounded-md sm:h-96" />
 			) : (
 				<div className="mb-6 flex w-full flex-col items-center gap-6">
+					<AutismStopAlert client={client} />
+
 					{client.id.toString().length !== 5 && (
 						<ClientDetailsCard client={client} />
 					)}

@@ -244,6 +244,35 @@ export const clientRouter = createTRPCRouter({
       return newClient.hash;
     }),
 
+  autismStop: protectedProcedure
+    .input(
+      z.object({
+        clientId: z.number(),
+        autismStop: z.boolean(),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      await ctx.db
+        .update(clients)
+        .set({
+          autismStop: input.autismStop,
+        })
+        .where(eq(clients.id, input.clientId));
+
+      const updatedClient = await ctx.db.query.clients.findFirst({
+        where: eq(clients.id, input.clientId),
+      });
+
+      if (!updatedClient) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: `Client with ID ${input.clientId} not found`,
+        });
+      }
+
+      return updatedClient;
+    }),
+
   update: adminProcedure
     .input(
       z.object({
