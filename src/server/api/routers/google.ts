@@ -129,7 +129,7 @@ export const googleRouter = createTRPCRouter({
       );
 
       if (!punchClient) {
-        throw new Error("Client not found");
+        return null;
       }
 
       return punchClient;
@@ -146,8 +146,8 @@ export const googleRouter = createTRPCRouter({
       input
     );
 
-    if (!punchClient || !punchClient?.For) {
-      throw new Error("Client not found");
+    if (!punchClient?.For) {
+      return null;
     }
 
     const allowedValues = [
@@ -182,10 +182,6 @@ export const googleRouter = createTRPCRouter({
         ctx.session.user.refreshToken,
         input
       );
-
-      if (!punchClient) {
-        throw new Error("Client not found");
-      }
 
       if (!punchClient?.Language || punchClient.Language === "") {
         return false;
