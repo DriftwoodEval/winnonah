@@ -109,7 +109,14 @@ export function ClientDetailsCard({ client }: ClientDetailsCardProps) {
 
 			<div>
 				<p className="font-bold">Address</p>
-				<p>{client.address ?? "Unknown"}</p>
+				{(client.address && (
+					<Link
+						className="hover:underline"
+						href={`https://maps.google.com/?q=${encodeURIComponent(client.address)}`}
+					>
+						{client.address}
+					</Link>
+				)) || <p>Unknown</p>}
 			</div>
 
 			<div>
@@ -123,7 +130,7 @@ export function ClientDetailsCard({ client }: ClientDetailsCardProps) {
 					{(secondClosestOffice || thirdClosestOffice) && (
 						<Popover>
 							<PopoverTrigger asChild>
-								<span className="cursor-pointer font-normal text-muted-foreground underline">
+								<span className="cursor-pointer font-normal text-muted-foreground hover:underline">
 									(Compare)
 								</span>
 							</PopoverTrigger>
@@ -151,7 +158,7 @@ export function ClientDetailsCard({ client }: ClientDetailsCardProps) {
 			{client.phoneNumber && (
 				<div>
 					<p className="font-bold">Phone Number</p>
-					<Link href={`tel:${client.phoneNumber}`}>
+					<Link className="hover:underline" href={`tel:${client.phoneNumber}`}>
 						{formatPhoneNumber(client.phoneNumber)}
 					</Link>
 				</div>
@@ -160,7 +167,9 @@ export function ClientDetailsCard({ client }: ClientDetailsCardProps) {
 			{client.email && (
 				<div>
 					<p className="font-bold">Email</p>
-					<Link href={`mailto:${client.email}`}>{client.email}</Link>
+					<Link className="hover:underline" href={`mailto:${client.email}`}>
+						{client.email}
+					</Link>
 				</div>
 			)}
 
