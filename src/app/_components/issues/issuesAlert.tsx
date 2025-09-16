@@ -31,6 +31,11 @@ export function IssuesAlert() {
 		queryOptions,
 	);
 
+	const { data: noPaymentMethod } = api.clients.getNoPaymentMethod.useQuery(
+		undefined,
+		queryOptions,
+	);
+
 	const { data: notInTAErrors } = api.clients.getNotInTAErrors.useQuery(
 		undefined,
 		queryOptions,
@@ -41,17 +46,28 @@ export function IssuesAlert() {
 		queryOptions,
 	);
 
-	const { data: noPaymentMethod } = api.clients.getNoPaymentMethod.useQuery(
-		undefined,
-		queryOptions,
-	);
+	const { data: noEligibleEvaluators } =
+		api.clients.getNoEligibleEvaluators.useQuery(undefined, queryOptions);
+
+	const filteredNoEligibleEvaluators =
+		noEligibleEvaluators?.filter(
+			(client) =>
+				!noPaymentMethod?.some(
+					(paymentClient) => paymentClient.hash === client.hash,
+				),
+		) ?? [];
+
+	const { data: duplicateDriveIds } =
+		api.clients.getDuplicateDriveIdErrors.useQuery(undefined, queryOptions);
 
 	const errorsLength =
 		(districtErrors?.length ?? 0) +
 		(babyNetErrors?.length ?? 0) +
+		(noPaymentMethod?.length ?? 0) +
 		(notInTAErrors?.length ?? 0) +
 		(noteOnlyClients?.length ?? 0) +
-		(noPaymentMethod?.length ?? 0);
+		(filteredNoEligibleEvaluators?.length ?? 0) +
+		(duplicateDriveIds?.length ?? 0);
 
 	if (!isReadyToFetch || errorsLength === 0) {
 		return null;

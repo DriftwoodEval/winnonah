@@ -46,8 +46,18 @@ export function IssuesList() {
 	const { data: noPaymentMethod } = api.clients.getNoPaymentMethod.useQuery();
 	const { data: notInTAErrors } = api.clients.getNotInTAErrors.useQuery();
 	const { data: noteOnlyClients } = api.clients.getNoteOnlyClients.useQuery();
+	const { data: noEligibleEvaluators } =
+		api.clients.getNoEligibleEvaluators.useQuery();
 	const { data: duplicateDriveIds } =
 		api.clients.getDuplicateDriveIdErrors.useQuery();
+
+	const filteredNoEligibleEvaluators =
+		noEligibleEvaluators?.filter(
+			(client) =>
+				!noPaymentMethod?.some(
+					(paymentClient) => paymentClient.hash === client.hash,
+				),
+		) ?? [];
 
 	return (
 		<div className="flex flex-wrap justify-center gap-14">
@@ -76,6 +86,13 @@ export function IssuesList() {
 					title="Notes Only"
 				/>
 			)}
+			{filteredNoEligibleEvaluators &&
+				filteredNoEligibleEvaluators.length !== 0 && (
+					<IssueList
+						clients={filteredNoEligibleEvaluators}
+						title="No Eligible Evaluators"
+					/>
+				)}
 			{duplicateDriveIds && duplicateDriveIds.length !== 0 && (
 				<IssueList clients={duplicateDriveIds} title="Duplicate Drive IDs" />
 			)}

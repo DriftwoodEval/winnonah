@@ -243,6 +243,22 @@ export const clientRouter = createTRPCRouter({
     return duplicateRecords;
   }),
 
+  getNoEligibleEvaluators: protectedProcedure.query(async ({ ctx }) => {
+    const clientsWithoutEvaluators = await ctx.db
+      .select(getTableColumns(clients))
+      .from(clients)
+      .leftJoin(clientsEvaluators, eq(clients.id, clientsEvaluators.clientId))
+      .where(
+        and(
+          isNull(clientsEvaluators.clientId),
+          eq(clients.status, true),
+          not(eq(sql`LENGTH(${clients.id})`, 5))
+        )
+      );
+
+    return clientsWithoutEvaluators;
+  }),
+
   createShell: adminProcedure
     .input(z.object({ firstName: z.string(), lastName: z.string() }))
     .mutation(async ({ ctx, input }) => {
