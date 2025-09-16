@@ -2,7 +2,6 @@
 
 import { Button } from "@ui/button";
 import { Checkbox } from "@ui/checkbox";
-import { Dialog, DialogContent, DialogTitle, DialogTrigger } from "@ui/dialog";
 import { Label } from "@ui/label";
 import { Popover, PopoverContent, PopoverTrigger } from "@ui/popover";
 import { RadioGroup, RadioGroupItem } from "@ui/radio-group";
@@ -19,6 +18,7 @@ import {
 	formatColorName,
 } from "~/lib/colors";
 import { api } from "~/trpc/react";
+import { ResponsiveDialog } from "../shared/ResponsiveDialog";
 import ClientCreateForm from "./ClientCreateForm";
 import { ClientsList } from "./ClientsList";
 import ClientsSearchForm from "./ClientsSearchForm";
@@ -130,6 +130,12 @@ export function ClientsDashboard() {
 		router.push(`${pathname}?${params.toString()}`);
 	};
 
+	const clientFormTrigger = (
+		<Button size="icon" variant="outline">
+			<Plus />
+		</Button>
+	);
+
 	return (
 		<div className="flex w-full flex-col items-start justify-center gap-4 lg:flex-row lg:gap-8">
 			<div className="flex w-full flex-col gap-3 lg:w-1/3">
@@ -143,17 +149,12 @@ export function ClientsDashboard() {
 						}}
 					/>
 
-					<Dialog>
-						<DialogTrigger asChild>
-							<Button size="icon" variant="outline">
-								<Plus />
-							</Button>
-						</DialogTrigger>
-						<DialogContent>
-							<DialogTitle>Create Note/Shell Client</DialogTitle>
-							<ClientCreateForm />
-						</DialogContent>
-					</Dialog>
+					<ResponsiveDialog
+						title="Create Note/Shell Client"
+						trigger={clientFormTrigger}
+					>
+						<ClientCreateForm />
+					</ResponsiveDialog>
 
 					<Popover>
 						<PopoverTrigger asChild>

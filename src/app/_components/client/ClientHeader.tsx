@@ -2,35 +2,22 @@
 
 import { Badge } from "@ui/badge";
 import { Button } from "@ui/button";
-import { Checkbox } from "@ui/checkbox";
-import {
-	Dialog,
-	DialogContent,
-	DialogDescription,
-	DialogFooter,
-	DialogHeader,
-	DialogTitle,
-} from "@ui/dialog";
-import { Label } from "@ui/label";
 import { Popover, PopoverContent, PopoverTrigger } from "@ui/popover";
 import { Separator } from "@ui/separator";
 import { Skeleton } from "@ui/skeleton";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@ui/tooltip";
-import { subYears } from "date-fns";
 import { CheckIcon } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
-import { useId, useState } from "react";
-import { toast } from "sonner";
+import { useState } from "react";
 import {
 	CLIENT_COLOR_KEYS,
 	CLIENT_COLOR_MAP,
 	type ClientColor,
 	formatColorName,
 } from "~/lib/colors";
-import { logger } from "~/lib/logger";
-import { checkRole, cn } from "~/lib/utils";
+import { checkRole } from "~/lib/utils";
 import type { Client } from "~/server/lib/types";
 import { api } from "~/trpc/react";
 import { ClientEditButton } from "./EditClientDialog";
@@ -43,8 +30,6 @@ interface ClientHeaderProps {
 	readOnly?: boolean;
 }
 
-const log = logger.child({ module: "ClientHeader" });
-
 export function ClientHeader({
 	client,
 	selectedColor,
@@ -54,19 +39,6 @@ export function ClientHeader({
 }: ClientHeaderProps) {
 	const { data: session } = useSession();
 	const admin = session ? checkRole(session.user.role, "admin") : false;
-	const superadmin = session
-		? checkRole(session.user.role, "superadmin")
-		: false;
-
-	const utils = api.useUtils();
-
-	const BNAgeOutDate = subYears(new Date(), 3);
-
-	const showBabyNetCheckbox =
-		client &&
-		client.dob > BNAgeOutDate &&
-		client.primaryInsurance !== "BabyNet" &&
-		client.secondaryInsurance !== "BabyNet";
 
 	const { data: punchFor } = api.google.getFor.useQuery(
 		String(client?.id) ?? "",
@@ -83,62 +55,6 @@ export function ClientHeader({
 	);
 
 	const [isColorOpen, setIsColorOpen] = useState(false);
-	const [isHPOpen, setIsHPOpen] = useState(false);
-	const [isAutismStopOpen, setIsAutismStopOpen] = useState(false);
-	const [isBabyNetOpen, setIsBabyNetOpen] = useState(false);
-
-	const highPriorityId = useId();
-	const autismStopId = useId();
-	const babyNetId = useId();
-
-	const editClient = api.clients.update.useMutation({
-		onSuccess: () => {
-			setIsColorOpen(false);
-		},
-		onError: (error) => {
-			log.error(error, "Failed to update client");
-			toast.error("Failed to update client", { description: error.message });
-		},
-	});
-
-	const updateAutismStop = api.clients.autismStop.useMutation({
-		onError: (error) => {
-			log.error(error, "Failed to update autism stop");
-			toast.error("Failed to update autism stop", {
-				description: String(error.message),
-			});
-		},
-	});
-
-	function onHighPriorityChange() {
-		if (client) {
-			editClient.mutate({
-				clientId: client.id,
-				highPriority: !client.highPriority,
-			});
-			utils.clients.getOne.invalidate();
-		}
-	}
-
-	function onBabyNetChange() {
-		if (client) {
-			editClient.mutate({
-				clientId: client.id,
-				babyNet: !client.babyNet,
-			});
-			utils.clients.getOne.invalidate();
-		}
-	}
-
-	function onAutismStopChange() {
-		if (client) {
-			updateAutismStop.mutate({
-				clientId: client.id,
-				autismStop: !client.autismStop,
-			});
-			utils.clients.getOne.invalidate();
-		}
-	}
 
 	if (isLoading || !client) {
 		return (
@@ -158,10 +74,10 @@ export function ClientHeader({
 	return (
 		<div className="flex w-full flex-col gap-2">
 			{client && (
-				<div className="flex items-center gap-2">
-					<h1 className="font-bold text-2xl">{client.fullName}</h1>
-					<div className="flex h-[16px] gap-2">
-						{admin && !readOnly && client.id.toString().length !== 5 && (
+				<div className="flex items-center gap-4">
+					<h1 className="font-bold text-xl md:text-2xl">{client.fullName}</h1>
+					<div className="flex h-[16px] items-center gap-2">
+						{!readOnly && client.id.toString().length !== 5 && (
 							<ClientEditButton client={client} />
 						)}
 						{admin &&
@@ -215,15 +131,17 @@ export function ClientHeader({
 				)}
 
 				{(client.interpreter || punchInterp) && (
-					<Separator orientation="vertical" />
-				)}
-				{(client.interpreter || punchInterp) && (
-					<span className="font-bold">Interpreter Needed</span>
+					<>
+						<Separator orientation="vertical" />
+						<span className="font-bold">Interpreter Needed</span>
+					</>
 				)}
 
-				{(client.asdAdhd || punchFor) && <Separator orientation="vertical" />}
 				{(client.asdAdhd || punchFor) && (
-					<span>{punchFor ?? client.asdAdhd}</span>
+					<>
+						<Separator orientation="vertical" />
+						<span>{punchFor ?? client.asdAdhd}</span>
+					</>
 				)}
 
 				{client.id.toString().length !== 5 && currentHexColor && (
@@ -290,140 +208,6 @@ export function ClientHeader({
 						type="button"
 					/>
 				) : null}
-
-				{client.id.toString().length !== 5 && (
-					<>
-						<Separator orientation="vertical" />
-						<div
-							className={cn(
-								"flex items-center gap-2",
-								!client.highPriority && "text-muted-foreground",
-							)}
-						>
-							<Checkbox
-								checked={client.highPriority}
-								disabled={!admin || readOnly}
-								id={highPriorityId}
-								onClick={() => setIsHPOpen(true)}
-							/>
-							<Label htmlFor={highPriorityId}>High Priority</Label>
-							<Dialog onOpenChange={setIsHPOpen} open={isHPOpen}>
-								<DialogContent>
-									<DialogHeader>
-										<DialogTitle>Change Priority</DialogTitle>
-										<DialogDescription>
-											{client.highPriority
-												? "Remove client from high priority list?"
-												: "Add client to high priority list?"}
-										</DialogDescription>
-									</DialogHeader>
-									<DialogFooter>
-										<Button
-											disabled={!admin}
-											onClick={() => {
-												onHighPriorityChange();
-												setIsHPOpen(false);
-											}}
-											variant={client.highPriority ? "destructive" : "default"}
-										>
-											{client.highPriority ? "Remove" : "Add"}
-										</Button>
-									</DialogFooter>
-								</DialogContent>
-							</Dialog>
-						</div>
-					</>
-				)}
-
-				{client.id.toString().length !== 5 && (
-					<>
-						<Separator orientation="vertical" />
-						<div
-							className={cn(
-								"flex items-center gap-2",
-								!client.autismStop && "text-muted-foreground",
-							)}
-						>
-							<Checkbox
-								checked={client.autismStop}
-								disabled={readOnly || (!superadmin && client.autismStop)}
-								id={autismStopId}
-								onClick={() => setIsAutismStopOpen(true)}
-							/>
-							<Label htmlFor={autismStopId}>"Autism" in Records</Label>
-							<Dialog
-								onOpenChange={setIsAutismStopOpen}
-								open={isAutismStopOpen}
-							>
-								<DialogContent>
-									<DialogHeader>
-										<DialogTitle>"Autism" in Records Flag</DialogTitle>
-										<DialogDescription>
-											{client.autismStop
-												? "Remove \"'Autism' found in records\" flag?"
-												: "Add \"'Autism' found in records\" flag? This will show a popup warning on everyone's first few visits to this page, and a persistent banner."}
-										</DialogDescription>
-									</DialogHeader>
-									<DialogFooter>
-										<Button
-											disabled={!admin}
-											onClick={() => {
-												onAutismStopChange();
-												setIsAutismStopOpen(false);
-											}}
-											variant={client.autismStop ? "destructive" : "default"}
-										>
-											{client.autismStop ? "Remove" : "Add"}
-										</Button>
-									</DialogFooter>
-								</DialogContent>
-							</Dialog>
-						</div>
-					</>
-				)}
-
-				{client.id.toString().length !== 5 && showBabyNetCheckbox && (
-					<>
-						<Separator orientation="vertical" />
-						<div
-							className={cn(
-								"flex items-center gap-2",
-								!client.babyNet && "text-muted-foreground",
-							)}
-						>
-							<Checkbox
-								checked={client.babyNet}
-								disabled={!admin || readOnly}
-								id={babyNetId}
-								onClick={() => setIsBabyNetOpen(true)}
-							/>
-							<Label htmlFor={babyNetId}>BabyNet</Label>
-							<Dialog onOpenChange={setIsBabyNetOpen} open={isBabyNetOpen}>
-								<DialogContent>
-									<DialogHeader>
-										<DialogTitle>Set BabyNet</DialogTitle>
-										<DialogDescription>
-											{client.babyNet
-												? "Unset client as BabyNet?"
-												: "Set client as BabyNet?"}
-										</DialogDescription>
-									</DialogHeader>
-									<DialogFooter>
-										<Button
-											disabled={!admin}
-											onClick={() => {
-												onBabyNetChange();
-												setIsBabyNetOpen(false);
-											}}
-										>
-											{client.babyNet ? "Unset" : "Set"}
-										</Button>
-									</DialogFooter>
-								</DialogContent>
-							</Dialog>
-						</div>
-					</>
-				)}
 			</div>
 		</div>
 	);

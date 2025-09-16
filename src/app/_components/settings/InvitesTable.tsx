@@ -52,6 +52,10 @@ import { userRoles } from "~/lib/types";
 import { checkRole } from "~/lib/utils";
 import type { Invitation } from "~/server/lib/types";
 import { api } from "~/trpc/react";
+import {
+	ResponsiveDialog,
+	useResponsiveDialog,
+} from "../shared/ResponsiveDialog";
 
 const log = logger.child({ module: "InvitesTable" });
 
@@ -145,13 +149,13 @@ function InvitesTableForm({
 }
 
 function AddInviteButton() {
-	const [isDialogOpen, setIsDialogOpen] = useState(false);
+	const dialog = useResponsiveDialog();
 	const utils = api.useUtils();
 
 	const addInvitation = api.users.createInvitation.useMutation({
 		onSuccess: () => {
 			utils.users.getPendingInvitations.invalidate();
-			setIsDialogOpen(false);
+			dialog.closeDialog();
 		},
 		onError: (error) => {
 			log.error(error, "Failed to create invite");
@@ -161,6 +165,13 @@ function AddInviteButton() {
 		},
 	});
 
+	const trigger = (
+		<Button size="sm">
+			<span className="hidden sm:block">Create Invite</span>
+			<span className="sm:hidden">Create</span>
+		</Button>
+	);
+
 	function onSubmit(values: InvitesTableFormValues) {
 		addInvitation.mutate({
 			email: values.email,
@@ -169,24 +180,18 @@ function AddInviteButton() {
 	}
 
 	return (
-		<Dialog onOpenChange={setIsDialogOpen} open={isDialogOpen}>
-			<DialogTrigger asChild>
-				<Button size="sm">
-					<span className="hidden sm:block">Create Invite</span>
-					<span className="sm:hidden">Create</span>
-				</Button>
-			</DialogTrigger>
-			<DialogContent>
-				<DialogHeader>
-					<DialogTitle>Create New Invite</DialogTitle>
-				</DialogHeader>
-				<InvitesTableForm
-					isLoading={addInvitation.isPending}
-					onFinished={() => setIsDialogOpen(false)}
-					onSubmit={onSubmit}
-				/>
-			</DialogContent>
-		</Dialog>
+		<ResponsiveDialog
+			open={dialog.open}
+			setOpen={dialog.setOpen}
+			title="Create Invite"
+			trigger={trigger}
+		>
+			<InvitesTableForm
+				isLoading={addInvitation.isPending}
+				onFinished={dialog.closeDialog}
+				onSubmit={onSubmit}
+			/>
+		</ResponsiveDialog>
 	);
 }
 

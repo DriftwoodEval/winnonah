@@ -2,6 +2,7 @@
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Button } from "@ui/button";
+import { Checkbox } from "@ui/checkbox";
 import {
 	Command,
 	CommandEmpty,
@@ -10,27 +11,37 @@ import {
 	CommandItem,
 	CommandList,
 } from "@ui/command";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@ui/dialog";
 import {
 	Form,
 	FormControl,
+	FormDescription,
 	FormField,
 	FormItem,
 	FormLabel,
 	FormMessage,
 } from "@ui/form";
 import { Popover, PopoverContent, PopoverTrigger } from "@ui/popover";
+import { subYears } from "date-fns";
 import { Check, ChevronsUpDown, Pencil } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useSession } from "next-auth/react";
+import { useMemo } from "react";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 import { z } from "zod";
-import { cn } from "~/lib/utils";
+import { logger } from "~/lib/logger";
+import { checkRole, cn } from "~/lib/utils";
 import type { Client } from "~/server/lib/types";
 import { api } from "~/trpc/react";
+import {
+	ResponsiveDialog,
+	useResponsiveDialog,
+} from "../shared/ResponsiveDialog";
 
 const formSchema = z.object({
 	schoolDistrict: z.string(),
+	highPriority: z.boolean(),
+	autismStop: z.boolean(),
+	babyNet: z.boolean(),
 });
 
 type ClientFormValues = z.infer<typeof formSchema>;
@@ -40,22 +51,34 @@ interface ClientFormProps {
 	onSubmit: (values: ClientFormValues) => void;
 	isLoading: boolean;
 	onClose: () => void;
+	showBabyNetCheckbox?: boolean;
 }
+
+const log = logger.child({ module: "EditClientDialog" });
 
 function ClientForm({
 	initialData,
 	onSubmit,
 	isLoading,
 	onClose,
+	showBabyNetCheckbox = false,
 }: ClientFormProps) {
-	const { data: allSchoolDistricts, isLoading: isLoadingSchoolDistricts } =
+	const { data: allSchoolDistricts } =
 		api.evaluators.getAllSchoolDistricts.useQuery();
 
+	const { data: session } = useSession();
+	const admin = session ? checkRole(session.user.role, "admin") : false;
+	const superadmin = session
+		? checkRole(session.user.role, "superadmin")
+		: false;
+
 	const defaultValues = useMemo(() => {
-		// If we are editing, populate from initialData
 		if (initialData) {
 			return {
 				schoolDistrict: initialData.schoolDistrict ?? "",
+				highPriority: initialData.highPriority ?? false,
+				autismStop: initialData.autismStop ?? false,
+				babyNet: initialData.babyNet ?? false,
 			};
 		}
 	}, [initialData]);
@@ -75,7 +98,7 @@ function ClientForm({
 						<FormItem className="flex flex-col">
 							<FormLabel>School District</FormLabel>
 							<Popover modal>
-								<PopoverTrigger asChild>
+								<PopoverTrigger asChild disabled={!admin}>
 									<FormControl>
 										<Button
 											className={cn(
@@ -130,11 +153,77 @@ function ClientForm({
 									</Command>
 								</PopoverContent>
 							</Popover>
-
 							<FormMessage />
 						</FormItem>
 					)}
 				/>
+
+				<div className="space-y-4">
+					<FormField
+						control={form.control}
+						name="highPriority"
+						render={({ field }) => (
+							<FormItem className="flex flex-row">
+								<FormControl>
+									<Checkbox
+										checked={field.value}
+										disabled={!admin}
+										onCheckedChange={field.onChange}
+									/>
+								</FormControl>
+								<div className="space-y-1 leading-none">
+									<FormLabel>High Priority</FormLabel>
+								</div>
+							</FormItem>
+						)}
+					/>
+					<FormField
+						control={form.control}
+						name="autismStop"
+						render={({ field }) => (
+							<FormItem className="flex flex-row">
+								<FormControl>
+									<Checkbox
+										checked={field.value}
+										disabled={!superadmin && field.value}
+										onCheckedChange={field.onChange}
+									/>
+								</FormControl>
+								<div className="space-y-1 leading-none">
+									<FormLabel>"Autism" in Records</FormLabel>
+									<FormDescription>
+										Show a popup warning on everyone's first few visits to this
+										page and a persistent banner.
+									</FormDescription>
+								</div>
+							</FormItem>
+						)}
+					/>
+
+					{showBabyNetCheckbox && (
+						<FormField
+							control={form.control}
+							name="babyNet"
+							render={({ field }) => (
+								<FormItem className="flex flex-row">
+									<FormControl>
+										<Checkbox
+											checked={field.value}
+											disabled={!admin}
+											onCheckedChange={field.onChange}
+										/>
+									</FormControl>
+									<div className="space-y-1 leading-none">
+										<FormLabel>BabyNet</FormLabel>
+										<FormDescription>
+											Treat client as BabyNet, regardless of insurance on file.
+										</FormDescription>
+									</div>
+								</FormItem>
+							)}
+						/>
+					)}
+				</div>
 
 				<div className="flex justify-end gap-2 pt-4">
 					<Button onClick={onClose} type="button" variant="ghost">
@@ -150,46 +239,77 @@ function ClientForm({
 }
 
 export function ClientEditButton({ client }: { client: Client }) {
-	const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+	const dialog = useResponsiveDialog();
 	const utils = api.useUtils();
+
+	const BNAgeOutDate = subYears(new Date(), 3);
+
+	const showBabyNetCheckbox =
+		client &&
+		client.dob > BNAgeOutDate &&
+		client.primaryInsurance !== "BabyNet" &&
+		client.secondaryInsurance !== "BabyNet";
 
 	const updateClient = api.clients.update.useMutation({
 		onSuccess: () => {
 			toast.success("Client updated successfully!");
 			utils.clients.getOne.invalidate();
-			setIsEditDialogOpen(false);
+			dialog.closeDialog();
 		},
 		onError: (error) => {
 			toast.error("Failed to update client", { description: error.message });
+			log.error(error, "Failed to update client");
+		},
+	});
+
+	const updateAutismStop = api.clients.autismStop.useMutation({
+		onSuccess: () => {
+			utils.clients.getOne.invalidate();
+		},
+		onError: (error) => {
+			toast.error("Failed to update autism stop", {
+				description: String(error.message),
+			});
+			log.error(error, "Failed to update autism stop");
 		},
 	});
 
 	function onEditSubmit(values: ClientFormValues) {
-		const updatedValues = { ...values, clientId: client.id };
+		const autismStopChanged = values.autismStop !== client.autismStop;
+
+		const updatedValues = {
+			clientId: client.id,
+			schoolDistrict: values.schoolDistrict,
+			highPriority: values.highPriority,
+			babyNet: values.babyNet,
+		};
+
 		updateClient.mutate(updatedValues);
+
+		if (autismStopChanged) {
+			updateAutismStop.mutate({
+				clientId: client.id,
+				autismStop: values.autismStop,
+			});
+		}
 	}
 
-	return (
-		<>
-			<Pencil
-				className="cursor-pointer"
-				onClick={() => setIsEditDialogOpen(true)}
-				size={16}
-			/>
+	const trigger = <Pencil className="cursor-pointer" size={16} />;
 
-			<Dialog onOpenChange={setIsEditDialogOpen} open={isEditDialogOpen}>
-				<DialogContent>
-					<DialogHeader>
-						<DialogTitle>Edit Client</DialogTitle>
-					</DialogHeader>
-					<ClientForm
-						initialData={client}
-						isLoading={updateClient.isPending}
-						onClose={() => setIsEditDialogOpen(false)}
-						onSubmit={onEditSubmit}
-					/>
-				</DialogContent>
-			</Dialog>
-		</>
+	return (
+		<ResponsiveDialog
+			open={dialog.open}
+			setOpen={dialog.setOpen}
+			title="Edit Client"
+			trigger={trigger}
+		>
+			<ClientForm
+				initialData={client}
+				isLoading={updateClient.isPending || updateAutismStop.isPending}
+				onClose={dialog.closeDialog}
+				onSubmit={onEditSubmit}
+				showBabyNetCheckbox={showBabyNetCheckbox}
+			/>
+		</ResponsiveDialog>
 	);
 }

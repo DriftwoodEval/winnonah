@@ -69,8 +69,9 @@ export default function ClientCreateForm() {
 						)}
 					/>
 				</div>
-
-				<Button type="submit">Save</Button>
+				<div className="flex justify-end">
+					<Button type="submit">Save</Button>
+				</div>
 			</form>
 		</Form>
 	);

@@ -294,6 +294,15 @@ export const clientRouter = createTRPCRouter({
       })
     )
     .mutation(async ({ ctx, input }) => {
+      if (
+        ctx.session.user.role !== "superadmin" &&
+        input.autismStop === false
+      ) {
+        throw new TRPCError({
+          code: "UNAUTHORIZED",
+        });
+      }
+
       await ctx.db
         .update(clients)
         .set({
