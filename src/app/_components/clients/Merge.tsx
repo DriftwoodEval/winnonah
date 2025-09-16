@@ -7,12 +7,15 @@ import { NameSearchInput } from "~/app/_components/clients/NameSearchInput";
 import { SelectableClientsList } from "~/app/_components/clients/SelectableClientsList";
 import { Button } from "~/app/_components/ui/button";
 import { Skeleton } from "~/app/_components/ui/skeleton";
+import { useMediaQuery } from "~/hooks/use-media-query";
 import type { SortedClient } from "~/server/lib/types";
 import { api } from "~/trpc/react";
 import { Client } from "../client/Client";
 
 export function Merge() {
 	const utils = api.useUtils();
+	const isDesktop = useMediaQuery("(min-width: 768px)");
+
 	const [
 		debouncedNameForImportedClientsQuery,
 		setDebouncedNameForImportedClientsQuery,
@@ -140,14 +143,20 @@ export function Merge() {
 								<ArrowUp className="sm:hidden" />
 								Append Notes & Delete Fake
 							</Button>
-							<p className="max-w-[20ch] text-muted-foreground text-sm">
-								Notes from the client on the right will be added to the end of
-								the notes of the client on the left.
-							</p>
-							<p className="max-w-[20ch] text-muted-foreground text-sm">
-								The title of the notes on the right will replace the title of
-								the notes on the left.
-							</p>
+							<div className="flex flex-col items-center gap-4">
+								<p className="max-w-[20ch] text-muted-foreground text-sm">
+									Notes from the client on the
+									{isDesktop ? " right " : " bottom "}
+									will be added to the end of the notes of the client on the
+									{isDesktop ? " left" : " top"}.
+								</p>
+								<p className="max-w-[20ch] text-muted-foreground text-sm">
+									The title of the notes on the
+									{isDesktop ? " right " : " bottom "}
+									will replace the title of the notes on the
+									{isDesktop ? " left" : " top"}.
+								</p>
+							</div>
 						</div>
 						<Client hash={selectedNote?.hash ?? ""} readOnly />
 					</div>
