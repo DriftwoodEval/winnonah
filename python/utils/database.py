@@ -425,18 +425,24 @@ def insert_by_matching_criteria(clients: pd.DataFrame, evaluators: dict):
     delete_all_client_eval_links()
     logger.debug("Starting to match clients with evaluators...")
 
+    processed_count = 0
+    report_interval = 100
+
     for _, client in clients.iterrows():
         client_id_raw = get_column(client, "CLIENT_ID")
         client_id = str(client_id_raw)
         if not client_id or client_id == "nan" or client_id == "None":
+            # This should never be possible, but for type safety, we'll check for it anyway
             logger.warning(
                 f"Skipping client with invalid ID: {client.get('FIRSTNAME')} {client.get('LASTNAME')}"
             )
             continue
 
-        logger.debug(
-            f"Matching evaluators for {get_column(client, 'FIRSTNAME')} {get_column(client, 'LASTNAME')}"
-        )
+        processed_count += 1
+
+        if processed_count % report_interval == 0:
+            logger.info(f"Matched {processed_count} clients...")
+
         eligible_evaluators_by_district = utils.relationships.match_by_school_district(
             client, evaluators
         )

@@ -81,7 +81,11 @@ export function ClientDetailsCard({ client }: ClientDetailsCardProps) {
 					{client.primaryInsurance && (
 						<div>
 							<p className="font-bold">Primary Insurance</p>
-							<p>{client.primaryInsurance.replace(/_/g, " ")}</p>
+							<p>
+								{client.primaryInsurance
+									.replace(/_/g, " ")
+									.replace("MolinaMarketplace", "Molina Marketplace")}
+							</p>
 						</div>
 					)}
 					{client.secondaryInsurance && (

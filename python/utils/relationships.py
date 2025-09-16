@@ -69,19 +69,24 @@ def match_by_school_district(client: pd.Series, evaluators: dict):
     Returns:
         list: A list of NPIs for evaluators who are eligible for the client.
     """
-    client_school_district = get_column(client, "SCHOOL_DISTRICT")
-
     # logger.debug(
     #     f"Matching evaluators by school district for {get_column(client, 'FIRSTNAME')} {get_column(client, 'LASTNAME')}"
     # )
 
-    if not isinstance(
-        client_school_district, str
-    ) or client_school_district.lower() in ["unknown", "n/a", "no", None]:
+    client_school_district = get_column(client, "SCHOOL_DISTRICT")
+    client_address = get_column(client, "ADDRESS")
+
+    if (
+        not isinstance(client_school_district, str)
+        or client_school_district.lower() in ["unknown", "n/a", "no", None]
+        or not isinstance(client_address, str)
+    ):
         # logger.debug(
-        #     f"{get_column(client, 'FIRSTNAME')} {get_column(client, 'LASTNAME')} has no valid school district information. No exclusions applied. All evaluators are eligible."
+        #     f"{get_column(client, 'FIRSTNAME')} {get_column(client, 'LASTNAME')} has no valid school district information or no address. No exclusions applied. All evaluators are eligible."
         # )
         return list(evaluators.keys())
+
+    client_zip = client_address.split(" ")[-1] if client_address else None
 
     client_dob = get_column(client, "DOB")
     if client_dob is not None and isinstance(client_dob, str):
@@ -107,8 +112,10 @@ def match_by_school_district(client: pd.Series, evaluators: dict):
     for npi, evaluator_data in evaluators.items():
         evaluator_name = evaluator_data.get("providerName", "Unknown Evaluator")
         blocked_districts = evaluator_data.get("blockedSchoolDistricts", [])
+        blocked_zips = evaluator_data.get("blockedZipCodes", [])
 
         is_blocked = False
+
         for blocked_name in blocked_districts:
             if client_district_lower == blocked_name.lower().strip():
                 is_blocked = True
@@ -116,6 +123,15 @@ def match_by_school_district(client: pd.Series, evaluators: dict):
                 #     f"Evaluator {evaluator_name} ({npi}) CANNOT work in {client_school_district}."
                 # )
                 break
+
+        if not is_blocked:
+            for blocked_zip in blocked_zips:
+                if client_zip == blocked_zip:
+                    is_blocked = True
+                    # logger.debug(
+                    #     f"Evaluator {evaluator_name} ({npi}) CANNOT work in {client_zip}."
+                    # )
+                    break
 
         if not is_blocked:
             eligible_evaluators.append(npi)
