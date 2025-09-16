@@ -68,7 +68,17 @@ export function Dashboard() {
 			client["EVAL Qs Needed"] === "FALSE",
 	);
 
-	// TODO: Records needed, requested, received / reviewed
+	const recordsNeeded = clients?.filter(
+		(client) => client["Records Needed"] === "TRUE",
+	);
+
+	const recordsRequested = clients?.filter(
+		(client) => client["Records Requested?"] === "TRUE",
+	);
+
+	const recordsReviewed = clients?.filter(
+		(client) => client["Records Reviewed?"] === "TRUE",
+	);
 
 	const daQsPending = clients?.filter(
 		(client) =>
@@ -130,6 +140,9 @@ export function Dashboard() {
 
 	const allFilteredLists = [
 		justAdded,
+		recordsNeeded,
+		recordsRequested,
+		recordsReviewed,
 		daQsPending,
 		daQsSent,
 		daReadyToSchedule,
@@ -178,6 +191,18 @@ export function Dashboard() {
 		<div className="mx-4 flex flex-grow items-center justify-center">
 			<Accordion className="md:w-1/2" type="multiple">
 				<PunchListAccordionItem clients={justAdded ?? []} title="Just Added" />
+				<PunchListAccordionItem
+					clients={recordsNeeded ?? []}
+					title="Records Needed"
+				/>
+				<PunchListAccordionItem
+					clients={recordsRequested ?? []}
+					title="Records Requested"
+				/>
+				<PunchListAccordionItem
+					clients={recordsReviewed ?? []}
+					title="Records Reviewed"
+				/>
 				<PunchListAccordionItem
 					clients={daQsPending ?? []}
 					title="DA Qs Pending"

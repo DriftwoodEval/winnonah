@@ -392,7 +392,7 @@ function EvaluatorForm({
 						<FormItem>
 							<FormLabel>Blocked Zip Codes</FormLabel>
 							<FormControl>
-								{/* TODO: This doesn't take keyboard tab focus properly */}
+								{/* BUG: This doesn't take keyboard tab focus properly */}
 								<MultipleSelector
 									badgeClassName="bg-secondary text-secondary-foreground"
 									creatable={true}

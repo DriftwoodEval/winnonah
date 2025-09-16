@@ -20,6 +20,7 @@ export type PunchClient = {
   "PA Requested? (Aetna, ADHD,BabyNet, Molina, PP-N/A)": string | undefined;
   "Primary Payer": string | undefined;
   "Secondary Payer": string | undefined;
+  "Records Needed": string | undefined;
   "Records Requested?": string | undefined;
   "Records Reviewed?": string | undefined;
   "EVAL date": string | undefined;
