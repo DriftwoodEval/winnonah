@@ -1,4 +1,5 @@
 import argparse
+import os
 import shutil
 
 import pandas as pd
@@ -110,7 +111,8 @@ def main():
     utils.config.validate_config()
 
     logger.debug("Removing temp directory")
-    shutil.rmtree("temp", ignore_errors=True)
+    if not os.getenv("DEV_TOGGLE"):
+        shutil.rmtree("temp", ignore_errors=True)
 
     if args.download_only:
         logger.info("Running download only")

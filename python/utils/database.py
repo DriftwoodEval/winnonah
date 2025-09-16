@@ -207,7 +207,7 @@ def get_all_clients() -> pd.DataFrame:
 
 
 def put_clients_in_db(clients_df):
-    """Inserts or updates client data in teh database from a DataFrame."""
+    """Inserts or updates client data in the database from a DataFrame."""
     logger.debug("Inserting clients into database")
     db_connection = get_db()
 
