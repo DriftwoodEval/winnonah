@@ -154,7 +154,6 @@ const runMigration = async () => {
   }
 
   // Save all unmatched/failed items to a file for review
-  // TODO: Figure out how to resolve these (manually, on the website?)
   if (unmatchedLogs.length > 0) {
     fs.writeFileSync(
       "unmatched_migration_logs.json",

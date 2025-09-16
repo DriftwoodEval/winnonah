@@ -55,7 +55,6 @@ export function ClientsDashboard() {
 		const privatePay = searchParams.get("privatePay") === "true";
 		const sort = searchParams.get("sort") ?? undefined;
 
-		// TODO: Provide user feedback that the name search is too short
 		const finalNameSearch =
 			debouncedNameForQuery.length >= 3 ? debouncedNameForQuery : undefined;
 
