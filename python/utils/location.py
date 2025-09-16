@@ -15,7 +15,8 @@ import utils.database
 load_dotenv()
 
 
-def search_census(params: dict) -> tuple[str, dict] | None:
+def _search_census(params: dict) -> tuple[str, dict] | None:
+    """Searches for a given address in the Census API and returns the associated school district and coordinates if found."""
     response = requests.get(
         "https://geocoding.geo.census.gov/geocoder/geographies/address",
         params={**params, "api": os.getenv("CENSUS_API_KEY")},
@@ -34,6 +35,7 @@ def search_census(params: dict) -> tuple[str, dict] | None:
 
 
 def get_client_census_data(client: pd.Series) -> tuple[str, dict] | Literal["Unknown"]:
+    """Searches for a client's address in the Census API, removing portions and re-attempting if necessary, and returns the associated school district and coordinates if found."""
     params = {
         "street": (
             str(client.USER_ADDRESS_ADDRESS1).strip()
@@ -69,23 +71,23 @@ def get_client_census_data(client: pd.Series) -> tuple[str, dict] | Literal["Unk
         logger.debug(
             f"Searching for school district for {params['street']} {params['city']}, {params['state']} {params['zip']}"
         )
-        census_data = search_census(params)
+        census_data = _search_census(params)
         if census_data:
-            return map_district_name(census_data[0]), census_data[1]
+            return census_data[0], census_data[1]
 
         logger.warning("Search failed, attempting again without a ZIP code...")
         params_without_zip = params.copy()
         params_without_zip.pop("zip")
-        census_data = search_census(params_without_zip)
+        census_data = _search_census(params_without_zip)
         if census_data:
-            return map_district_name(census_data[0]), census_data[1]
+            return census_data[0], census_data[1]
 
         logger.warning("Search failed again, attempting with ZIP but without city...")
         params_without_city = params.copy()
         params_without_city.pop("city")
-        census_data = search_census(params_without_city)
+        census_data = _search_census(params_without_city)
         if census_data:
-            return map_district_name(census_data[0]), census_data[1]
+            return census_data[0], census_data[1]
 
         logger.error("No district found.")
         return "Unknown"
@@ -94,34 +96,14 @@ def get_client_census_data(client: pd.Series) -> tuple[str, dict] | Literal["Unk
         return "Unknown"
 
 
-def map_district_name(district: str) -> str:
-    district_replacements = {
-        "Bamberg County School District": "Bamberg",
-        "Berkeley County School District": "Berkeley",
-        "Charleston County School District": "Charleston",
-        "Colleton County School District": "Colleton",
-        "Dorchester School District 2": "DD2",
-        "Dorchester School District 4": "DD4",
-        "Georgetown County School District": "Georgetown",
-        "Horry County School District": "Horry",
-        "Orangeburg County School District": "Orangeburg",
-        "Pickens County School District": "Pickens",
-        "Richland School District 2": "Richland 2",
-    }
-
-    for old, new in district_replacements.items():
-        district = district.replace(old, new)
-
-    return district
-
-
 GEOLOCATOR = Nominatim(user_agent="driftwood-winnonah")
 geocode: Callable[[str], Optional[Location]] = RateLimiter(
     GEOLOCATOR.geocode, min_delay_seconds=2
 )
 
 
-def geocode_address(client: pd.Series) -> Location | None:
+def _geocode_address(client: pd.Series) -> Location | None:
+    """Geocodes a client's address, decreasing in specificity and tryimng again if necessary, and returns the coordinates if found."""
     logger.debug(f"Geocoding {client.ADDRESS}")
 
     street_address = (
@@ -129,7 +111,6 @@ def geocode_address(client: pd.Series) -> Location | None:
         if not pd.isna(client.USER_ADDRESS_ADDRESS1)
         else ""
     )
-
     city = (
         str(client.USER_ADDRESS_CITY).strip()
         if not pd.isna(client.USER_ADDRESS_CITY)
@@ -194,12 +175,7 @@ def geocode_address(client: pd.Series) -> Location | None:
 
 
 def get_offices() -> dict:
-    """Fetches all office locations from the database.
-
-    Returns:
-        dict: A dictionary of offices, keyed by their unique 'key' with their
-              latitude, longitude, and pretty name.
-    """
+    """Fetches all office locations from the database."""
     logger.debug("Getting offices from the database")
     db_connection = utils.database.get_db()
     addresses = {}
@@ -223,7 +199,10 @@ def get_offices() -> dict:
     return addresses
 
 
-def calculate_closest_offices(client: pd.Series, latitude: str, longitude: str) -> dict:
+def _calculate_closest_offices(
+    client: pd.Series, latitude: str, longitude: str
+) -> dict:
+    """Calculates the closest offices to a client's address, using their latitude and longitude that have been geocoded."""
     offices = get_offices()
     closest_offices = []
     for office_name, office in offices.items():
@@ -247,6 +226,7 @@ def calculate_closest_offices(client: pd.Series, latitude: str, longitude: str) 
 
 
 def get_closest_offices(client: pd.Series) -> dict:
+    """Geocode and calculate the closest offices to a client's address."""
     logger.debug(
         f"Getting closest office for {client['FIRSTNAME']} {client['LASTNAME']}"
     )
@@ -268,9 +248,9 @@ def get_closest_offices(client: pd.Series) -> dict:
         and not pd.isna(client.LATITUDE)
         and not pd.isna(client.LONGITUDE)
     ):
-        return calculate_closest_offices(client, client.LATITUDE, client.LONGITUDE)
+        return _calculate_closest_offices(client, client.LATITUDE, client.LONGITUDE)
 
-    geocoded_location = geocode_address(client)
+    geocoded_location = _geocode_address(client)
     if geocoded_location is None:
         logger.error(f"Location data not found for {client['ADDRESS']}")
         return {
@@ -282,6 +262,6 @@ def get_closest_offices(client: pd.Series) -> dict:
             "third_closest_office_miles": "Unknown",
         }
 
-    return calculate_closest_offices(
+    return _calculate_closest_offices(
         client, geocoded_location.latitude, geocoded_location.longitude
     )
