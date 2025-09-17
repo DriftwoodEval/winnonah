@@ -53,7 +53,6 @@ interface QuestionnaireFormProps {
 	initialData?: Questionnaire;
 	onSubmit: (values: QuestionnaireTableFormValues) => void;
 	isLoading: boolean;
-	onFinished: () => void;
 	newQ: boolean;
 }
 
@@ -62,7 +61,6 @@ export function QuestionnaireTableForm({
 	initialData,
 	onSubmit,
 	isLoading,
-	onFinished,
 	newQ,
 }: QuestionnaireFormProps) {
 	const [isPopoverOpen, setIsPopoverOpen] = useState(false);
@@ -228,9 +226,6 @@ export function QuestionnaireTableForm({
 					)}
 				/>
 				<div className="flex justify-end gap-2">
-					<Button onClick={onFinished} type="button" variant="ghost">
-						Cancel
-					</Button>
 					<Button disabled={isLoading || isLoadingList} type="submit">
 						{newQ
 							? "Add Questionnaire"
