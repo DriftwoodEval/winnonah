@@ -265,3 +265,25 @@ def get_closest_offices(client: pd.Series) -> dict:
     return _calculate_closest_offices(
         client, geocoded_location.latitude, geocoded_location.longitude
     )
+
+
+def add_census_data(client):
+    """Gets the school district and coordinates for a client from the Census API, for use in .apply."""
+    census_result = get_client_census_data(client)
+    if census_result != "Unknown":
+        district_name, coordinates = census_result
+        return pd.Series(
+            {
+                "SCHOOL_DISTRICT": district_name,
+                "LATITUDE": coordinates.get("y")
+                if isinstance(coordinates, dict)
+                else None,
+                "LONGITUDE": coordinates.get("x")
+                if isinstance(coordinates, dict)
+                else None,
+            }
+        )
+    else:
+        return pd.Series(
+            {"SCHOOL_DISTRICT": "Unknown", "LATITUDE": None, "LONGITUDE": None}
+        )

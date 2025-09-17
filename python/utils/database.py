@@ -313,7 +313,6 @@ def put_clients_in_db(clients_df):
 
     with db_connection:
         with db_connection.cursor() as cursor:
-            # Using executemany for efficiency
             cursor.executemany(sql, values_to_insert)
         db_connection.commit()
 

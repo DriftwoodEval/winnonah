@@ -5,6 +5,7 @@ import numpy as np
 import pandas as pd
 from loguru import logger
 from nameparser import HumanName
+from pandas._libs.missing import NAType
 
 import utils.database
 from utils.download_ta import download_csvs
@@ -186,7 +187,7 @@ def consolidate_by_id(clients: pd.DataFrame) -> pd.DataFrame:
     logger.debug("Consolidating clients by ID")
     merged_df = (
         clients.groupby("CLIENT_ID", as_index=False)
-        .apply(_merge_insurance, include_groups=False)
+        .apply(_merge_insurance)
         .reset_index(drop=True)
     )
     return merged_df
@@ -200,7 +201,7 @@ def combine_address_info(clients: pd.DataFrame) -> pd.DataFrame:
     Returns a DataFrame with the same columns as the input, but with an additional column "ADDRESS" containing the combined address information.
     """
 
-    def _combine_address(client) -> str:
+    def _combine_address(client) -> NAType | str:
         address_parts = []
         for a in [
             client.USER_ADDRESS_ADDRESS1,
@@ -235,7 +236,7 @@ def combine_address_info(clients: pd.DataFrame) -> pd.DataFrame:
         address += f"{city}, {state} {zip}"
 
         if not any(char.isalnum() for char in address):
-            address = ""
+            address = pd.NA
 
         return address
 
