@@ -75,7 +75,8 @@ export function ClientDetailsCard({ client }: ClientDetailsCardProps) {
 				<div
 					className={cn(
 						"",
-						client.secondaryInsurance && "flex flex-wrap gap-3 rounded-md",
+						(client.secondaryInsurance || client.precertExpires) &&
+							"flex flex-wrap gap-3",
 					)}
 				>
 					{client.primaryInsurance && (
@@ -96,6 +97,19 @@ export function ClientDetailsCard({ client }: ClientDetailsCardProps) {
 									.split(",")
 									.map((s) => s.trim().replace(/_/g, " "))
 									.join(", ")}
+							</p>
+						</div>
+					)}
+					{client.precertExpires && (
+						<div>
+							<p className="font-bold">PA Expires</p>
+							<p>
+								{client.precertExpires?.toLocaleDateString("en-US", {
+									year: "numeric",
+									month: "numeric",
+									day: "numeric",
+									timeZone: "UTC",
+								})}
 							</p>
 						</div>
 					)}

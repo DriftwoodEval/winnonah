@@ -387,7 +387,9 @@ export const clientRouter = createTRPCRouter({
         type: z.enum(["both", "real", "note"]).optional(),
         color: z.enum(CLIENT_COLOR_KEYS).optional(),
         privatePay: z.boolean().optional(),
-        sort: z.enum(["priority", "firstName", "lastName"]).optional(),
+        sort: z
+          .enum(["priority", "firstName", "lastName", "paExpiration"])
+          .optional(),
       })
     )
     .query(async ({ ctx, input }) => {
@@ -500,6 +502,11 @@ export const clientRouter = createTRPCRouter({
         orderBySQL = [sql`${clients.firstName}`];
       } else if (effectiveSort === "lastName") {
         orderBySQL = [sql`${clients.lastName}`];
+      } else if (effectiveSort === "paExpiration") {
+        orderBySQL = [
+          sql`CASE WHEN ${clients.precertExpires} IS NULL THEN 1 ELSE 0 END`,
+          sql`${clients.precertExpires}`,
+        ];
       }
 
       const filteredAndSortedClients = await ctx.db

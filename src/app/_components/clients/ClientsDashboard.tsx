@@ -40,6 +40,7 @@ export function ClientsDashboard() {
 	const sortPriorityId = useId();
 	const sortFirstNameId = useId();
 	const sortLastNameId = useId();
+	const sortPaExpirationId = useId();
 
 	const [debouncedNameForQuery, setDebouncedNameForQuery] = useState("");
 
@@ -67,7 +68,12 @@ export function ClientsDashboard() {
 			type: type as "both" | "real" | "note" | undefined,
 			color,
 			privatePay,
-			sort: sort as "priority" | "firstName" | "lastName" | undefined,
+			sort: sort as
+				| "priority"
+				| "firstName"
+				| "lastName"
+				| "paExpiration"
+				| undefined,
 		};
 	}, [searchParams, debouncedNameForQuery]);
 
@@ -195,6 +201,13 @@ export function ClientsDashboard() {
 										<div className="flex items-center space-x-2">
 											<RadioGroupItem id={sortFirstNameId} value="firstName" />
 											<Label htmlFor={sortFirstNameId}>First Name</Label>
+										</div>
+										<div className="flex items-center space-x-2">
+											<RadioGroupItem
+												id={sortPaExpirationId}
+												value="paExpiration"
+											/>
+											<Label htmlFor={sortPaExpirationId}>PA Expiration</Label>
 										</div>
 									</RadioGroup>
 								</div>

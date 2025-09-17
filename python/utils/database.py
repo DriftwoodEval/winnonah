@@ -272,6 +272,7 @@ def put_clients_in_db(clients_df):
             else get_column(client, "THIRD_CLOSEST_OFFICE_MILES"),
             get_column(client, "PRIMARY_INSURANCE_COMPANYNAME"),
             secondary_insurance,
+            get_column(client, "PRECERT_EXPIREDATE"),
             get_boolean_value(client, "POLICY_PRIVATEPAY"),
             get_column(client, "ASD_ADHD"),
             get_column(client, "INTERPRETER", default=False),
@@ -282,8 +283,8 @@ def put_clients_in_db(clients_df):
         values_to_insert.append(values)
 
     sql = """
-        INSERT INTO `emr_client` (id, hash, status, addedDate, dob, firstName, lastName, preferredName, fullName, address, schoolDistrict, closestOffice, closestOfficeMiles, secondClosestOffice, secondClosestOfficeMiles, thirdClosestOffice, thirdClosestOfficeMiles, primaryInsurance, secondaryInsurance, privatePay, asdAdhd, interpreter, gender, phoneNumber, email)
-        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+        INSERT INTO `emr_client` (id, hash, status, addedDate, dob, firstName, lastName, preferredName, fullName, address, schoolDistrict, closestOffice, closestOfficeMiles, secondClosestOffice, secondClosestOfficeMiles, thirdClosestOffice, thirdClosestOfficeMiles, primaryInsurance, secondaryInsurance, precertExpires, privatePay, asdAdhd, interpreter, gender, phoneNumber, email)
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
         ON DUPLICATE KEY UPDATE
             hash = VALUES(hash),
             status = VALUES(status),
@@ -303,6 +304,7 @@ def put_clients_in_db(clients_df):
             thirdClosestOfficeMiles = CASE WHEN VALUES(thirdClosestOfficeMiles) IS NOT NULL THEN VALUES(thirdClosestOfficeMiles) ELSE thirdClosestOfficeMiles END,
             primaryInsurance = VALUES(primaryInsurance),
             secondaryInsurance = VALUES(secondaryInsurance),
+            precertExpires = VALUES(precertExpires),
             privatePay = VALUES(privatePay),
             asdAdhd = VALUES(asdAdhd),
             interpreter = VALUES(interpreter),

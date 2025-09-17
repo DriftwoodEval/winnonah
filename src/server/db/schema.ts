@@ -186,6 +186,7 @@ export const clients = createTable(
     thirdClosestOfficeMiles: d.int(),
     primaryInsurance: d.varchar({ length: 255 }),
     secondaryInsurance: d.varchar({ length: 255 }),
+    precertExpires: d.date(),
     privatePay: d.boolean().notNull().default(false),
     asdAdhd: d.mysqlEnum([
       "ASD",
