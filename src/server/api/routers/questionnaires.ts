@@ -263,6 +263,7 @@ export const questionnaireRouter = createTRPCRouter({
         questionnaireType: z.string().min(1),
         link: z.url(),
         sent: z.date(),
+        status: z.enum(["PENDING", "COMPLETED", "RESCHEDULED"]),
       })
     )
     .mutation(async ({ ctx, input }) => {
@@ -272,6 +273,7 @@ export const questionnaireRouter = createTRPCRouter({
           questionnaireType: input.questionnaireType,
           link: input.link,
           sent: new Date(input.sent.toUTCString()),
+          status: input.status,
         })
         .where(eq(questionnaires.id, input.id));
 

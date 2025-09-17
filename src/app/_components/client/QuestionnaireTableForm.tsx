@@ -40,7 +40,7 @@ const formSchema = z.object({
 	questionnaireType: z.string().min(1, "Type is required"),
 	link: z.url("Must be a valid URL"),
 	sent: z.date(),
-	status: z.enum(["PENDING", "COMPLETED", "RESCHEDULED"]).optional(),
+	status: z.enum(["PENDING", "COMPLETED", "RESCHEDULED"]),
 });
 
 export type QuestionnaireTableFormValues = z.infer<typeof formSchema>;
