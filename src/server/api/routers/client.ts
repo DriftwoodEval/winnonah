@@ -46,6 +46,7 @@ const getPriorityInfo = () => {
       WHEN ${isHighPriorityBN} AND ${isHighPriorityClient} THEN 'BabyNet and High Priority'
       WHEN ${isHighPriorityBN} THEN 'BabyNet above 2:6'
       WHEN ${isHighPriorityClient} THEN 'High Priority'
+      WHEN CHAR_LENGTH(${clients.id}) = 5 THEN 'Note only'
       ELSE 'Added date'
     END`.as("sortReason");
 
@@ -608,7 +609,10 @@ export const clientRouter = createTRPCRouter({
         });
       }
 
-      await ctx.db.delete(clients).where(eq(clients.id, fakeClientId));
+      await ctx.db
+        .update(clients)
+        .set({ status: false })
+        .where(eq(clients.id, fakeClientId));
 
       return { success: true };
     }),
