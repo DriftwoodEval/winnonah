@@ -504,7 +504,11 @@ export const clientRouter = createTRPCRouter({
         orderBySQL = [sql`${clients.lastName}`];
       } else if (effectiveSort === "paExpiration") {
         orderBySQL = [
-          sql`CASE WHEN ${clients.precertExpires} IS NULL THEN 1 ELSE 0 END`,
+          sql`CASE
+            WHEN ${clients.precertExpires} IS NULL THEN 3
+            WHEN ${clients.precertExpires} < NOW() THEN 2
+            ELSE 1
+        END`,
           sql`${clients.precertExpires}`,
         ];
       }
