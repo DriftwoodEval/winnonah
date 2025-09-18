@@ -45,7 +45,7 @@ export function Merge() {
 		isLoading: isLoadingImportedClients,
 		isPlaceholderData: isPlaceholderImportedClients,
 	} = api.clients.search.useQuery(
-		{ nameSearch: finalImportedClientsNameSearch },
+		{ nameSearch: finalImportedClientsNameSearch, type: "real" },
 		{
 			// The `placeholderData` option keeps the old data on screen while new data is fetched.
 			placeholderData: (previousData) => previousData,
