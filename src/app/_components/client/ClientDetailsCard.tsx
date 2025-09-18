@@ -127,6 +127,7 @@ export function ClientDetailsCard({ client }: ClientDetailsCardProps) {
 					<Link
 						className="hover:underline"
 						href={`https://maps.google.com/?q=${encodeURIComponent(client.address)}`}
+						target="_blank"
 					>
 						{client.address}
 					</Link>
