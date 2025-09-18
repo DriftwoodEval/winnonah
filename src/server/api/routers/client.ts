@@ -386,6 +386,7 @@ export const clientRouter = createTRPCRouter({
         type: z.enum(["both", "real", "note"]).optional(),
         color: z.enum(CLIENT_COLOR_KEYS).optional(),
         privatePay: z.boolean().optional(),
+        autismStop: z.boolean().optional(),
         sort: z
           .enum(["priority", "firstName", "lastName", "paExpiration"])
           .optional(),
@@ -404,6 +405,7 @@ export const clientRouter = createTRPCRouter({
         type,
         color,
         privatePay,
+        autismStop,
         sort,
       } = input;
 
@@ -479,6 +481,10 @@ export const clientRouter = createTRPCRouter({
 
       if (privatePay) {
         conditions.push(eq(clients.privatePay, true));
+      }
+
+      if (autismStop) {
+        conditions.push(eq(clients.autismStop, true));
       }
 
       const countByColor = await ctx.db

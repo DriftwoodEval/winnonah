@@ -37,6 +37,7 @@ export function ClientsDashboard() {
 	const realTypeId = useId();
 	const noteTypeId = useId();
 	const privatePayId = useId();
+	const autismStopId = useId();
 	const sortPriorityId = useId();
 	const sortFirstNameId = useId();
 	const sortLastNameId = useId();
@@ -54,6 +55,7 @@ export function ClientsDashboard() {
 		const type = searchParams.get("type") ?? undefined;
 		const color = (searchParams.get("color") as ClientColor) ?? undefined;
 		const privatePay = searchParams.get("privatePay") === "true";
+		const autismStop = searchParams.get("autismStop") === "true";
 		const sort = searchParams.get("sort") ?? undefined;
 
 		const finalNameSearch =
@@ -68,6 +70,7 @@ export function ClientsDashboard() {
 			type: type as "both" | "real" | "note" | undefined,
 			color,
 			privatePay,
+			autismStop,
 			sort: sort as
 				| "priority"
 				| "firstName"
@@ -362,6 +365,18 @@ export function ClientsDashboard() {
 									/>
 									<Label className="font-medium text-sm" htmlFor={privatePayId}>
 										Private Pay Only
+									</Label>
+								</div>
+								<div className="flex items-center space-x-2">
+									<Checkbox
+										checked={queryParams.autismStop}
+										id={autismStopId}
+										onCheckedChange={(checked) =>
+											handleUrlParamChange("autismStop", !!checked)
+										}
+									/>
+									<Label className="font-medium text-sm" htmlFor={autismStopId}>
+										Autism Stop
 									</Label>
 								</div>
 							</div>
