@@ -119,6 +119,9 @@ export function ClientHeader({
 								? "Active"
 								: "Inactive"}
 					</Badge>
+					{client.highPriority && (
+						<Badge variant="destructive">High Priority</Badge>
+					)}
 				</div>
 
 				{client.id.toString().length === 5 && !readOnly && (
