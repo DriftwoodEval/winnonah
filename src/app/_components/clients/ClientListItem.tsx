@@ -38,6 +38,18 @@ function ClientListItemComponent({
 		sortReason = `High Priority, BabyNet: ${formatClientAge(new Date(client.dob), "short")}`;
 	}
 
+	if (client.sortReason === "Expiration date") {
+		sortReason = `Expires: ${client.precertExpires?.toLocaleDateString(
+			"en-US",
+			{
+				year: "numeric",
+				month: "short",
+				day: "numeric",
+				timeZone: "UTC",
+			},
+		)}`;
+	}
+
 	return (
 		<Link href={`/clients/${client.hash}`}>
 			<div

@@ -511,6 +511,11 @@ export const clientRouter = createTRPCRouter({
         END`,
           sql`${clients.precertExpires}`,
         ];
+        sortReasonSQL = sql<string>`CASE
+      WHEN ${clients.precertExpires} IS NULL THEN 'No PA'
+      WHEN ${clients.precertExpires} < NOW() THEN 'Expired PA'
+      ELSE 'Expiration date'
+    END`.as("sortReason");
       }
 
       const filteredAndSortedClients = await ctx.db
