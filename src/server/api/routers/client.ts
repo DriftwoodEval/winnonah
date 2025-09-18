@@ -204,20 +204,6 @@ export const clientRouter = createTRPCRouter({
     return noteOnlyClients;
   }),
 
-  getNoPaymentMethod: protectedProcedure.query(async ({ ctx }) => {
-    const noPaymentMethod = await ctx.db.query.clients.findMany({
-      where: and(
-        isNull(clients.primaryInsurance),
-        isNull(clients.secondaryInsurance),
-        eq(clients.privatePay, false),
-        eq(clients.status, true),
-        not(eq(sql`LENGTH(${clients.id})`, 5))
-      ),
-    });
-
-    return noPaymentMethod;
-  }),
-
   getDuplicateDriveIdErrors: protectedProcedure.query(async ({ ctx }) => {
     const duplicateDriveIds = await ctx.db
       .select({
@@ -243,20 +229,27 @@ export const clientRouter = createTRPCRouter({
     return duplicateRecords;
   }),
 
-  getNoEligibleEvaluators: protectedProcedure.query(async ({ ctx }) => {
-    const clientsWithoutEvaluators = await ctx.db
+  getPossiblePrivatePay: protectedProcedure.query(async ({ ctx }) => {
+    const noPaymentMethodOrNoEligibleEvaluators = await ctx.db
       .select(getTableColumns(clients))
       .from(clients)
       .leftJoin(clientsEvaluators, eq(clients.id, clientsEvaluators.clientId))
       .where(
         and(
-          isNull(clientsEvaluators.clientId),
+          or(
+            and(
+              isNull(clients.primaryInsurance),
+              isNull(clients.secondaryInsurance),
+              eq(clients.privatePay, false)
+            ),
+            isNull(clientsEvaluators.clientId)
+          ),
           eq(clients.status, true),
           not(eq(sql`LENGTH(${clients.id})`, 5))
         )
       );
 
-    return clientsWithoutEvaluators;
+    return noPaymentMethodOrNoEligibleEvaluators;
   }),
 
   createShell: adminProcedure

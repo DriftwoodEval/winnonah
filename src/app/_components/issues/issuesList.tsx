@@ -43,21 +43,12 @@ const IssueList = ({ title, clients, action }: IssueListProps) => (
 export function IssuesList() {
 	const { data: districtErrors } = api.clients.getDistrictErrors.useQuery();
 	const { data: babyNetErrors } = api.clients.getBabyNetErrors.useQuery();
-	const { data: noPaymentMethod } = api.clients.getNoPaymentMethod.useQuery();
 	const { data: notInTAErrors } = api.clients.getNotInTAErrors.useQuery();
 	const { data: noteOnlyClients } = api.clients.getNoteOnlyClients.useQuery();
-	const { data: noEligibleEvaluators } =
-		api.clients.getNoEligibleEvaluators.useQuery();
 	const { data: duplicateDriveIds } =
 		api.clients.getDuplicateDriveIdErrors.useQuery();
-
-	const filteredNoEligibleEvaluators =
-		noEligibleEvaluators?.filter(
-			(client) =>
-				!noPaymentMethod?.some(
-					(paymentClient) => paymentClient.hash === client.hash,
-				),
-		) ?? [];
+	const { data: possiblePrivatePay } =
+		api.clients.getPossiblePrivatePay.useQuery();
 
 	return (
 		<div className="flex flex-wrap justify-center gap-14">
@@ -66,9 +57,6 @@ export function IssuesList() {
 			)}
 			{babyNetErrors && babyNetErrors.length !== 0 && (
 				<IssueList clients={babyNetErrors} title="Too Old for BabyNet" />
-			)}
-			{noPaymentMethod && noPaymentMethod.length !== 0 && (
-				<IssueList clients={noPaymentMethod} title="No Payment Method" />
 			)}
 			{notInTAErrors && notInTAErrors.length !== 0 && (
 				<IssueList clients={notInTAErrors} title="Not in TA" />
@@ -86,15 +74,11 @@ export function IssuesList() {
 					title="Notes Only"
 				/>
 			)}
-			{filteredNoEligibleEvaluators &&
-				filteredNoEligibleEvaluators.length !== 0 && (
-					<IssueList
-						clients={filteredNoEligibleEvaluators}
-						title="No Eligible Evaluators"
-					/>
-				)}
 			{duplicateDriveIds && duplicateDriveIds.length !== 0 && (
 				<IssueList clients={duplicateDriveIds} title="Duplicate Drive IDs" />
+			)}
+			{possiblePrivatePay && possiblePrivatePay.length !== 0 && (
+				<IssueList clients={possiblePrivatePay} title="Possible Private Pay" />
 			)}
 		</div>
 	);
