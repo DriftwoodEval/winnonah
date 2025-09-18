@@ -168,6 +168,7 @@ export const clientRouter = createTRPCRouter({
         lt(clients.dob, ageOutDate),
         eq(clients.status, true)
       ),
+      orderBy: clients.addedDate,
     });
 
     // Discussed in meeting on 9/11/25: Automatically disable BabyNet bool for clients that age out
@@ -192,6 +193,7 @@ export const clientRouter = createTRPCRouter({
   getNotInTAErrors: protectedProcedure.query(async ({ ctx }) => {
     const clientsNotInTA = await ctx.db.query.clients.findMany({
       where: isNull(clients.addedDate),
+      orderBy: clients.addedDate,
     });
 
     return clientsNotInTA;
@@ -200,6 +202,7 @@ export const clientRouter = createTRPCRouter({
   getNoteOnlyClients: protectedProcedure.query(async ({ ctx }) => {
     const noteOnlyClients = await ctx.db.query.clients.findMany({
       where: eq(sql`LENGTH(${clients.id})`, 5),
+      orderBy: clients.addedDate,
     });
 
     return noteOnlyClients;
@@ -225,7 +228,8 @@ export const clientRouter = createTRPCRouter({
     const duplicateRecords = await ctx.db
       .select()
       .from(clients)
-      .where(sql`${clients.driveId} IN (${duplicateIds})`);
+      .where(sql`${clients.driveId} IN (${duplicateIds})`)
+      .orderBy(clients.addedDate);
 
     return duplicateRecords;
   }),
@@ -248,7 +252,8 @@ export const clientRouter = createTRPCRouter({
           eq(clients.status, true),
           not(eq(sql`LENGTH(${clients.id})`, 5))
         )
-      );
+      )
+      .orderBy(clients.addedDate);
 
     return noPaymentMethodOrNoEligibleEvaluators;
   }),
