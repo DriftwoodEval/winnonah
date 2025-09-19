@@ -376,7 +376,7 @@ export function ClientsDashboard() {
 										}
 									/>
 									<Label className="font-medium text-sm" htmlFor={autismStopId}>
-										Autism Stop
+										"Autism" in Records
 									</Label>
 								</div>
 							</div>
