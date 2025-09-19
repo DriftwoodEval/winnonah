@@ -78,7 +78,7 @@ export function IssuesList() {
 				<IssueList clients={duplicateDriveIds} title="Duplicate Drive IDs" />
 			)}
 			{possiblePrivatePay && possiblePrivatePay.length !== 0 && (
-				<IssueList clients={possiblePrivatePay} title="Possible Private Pay" />
+				<IssueList clients={possiblePrivatePay} title="Potential Private Pay" />
 			)}
 		</div>
 	);
