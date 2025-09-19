@@ -41,6 +41,10 @@ def match_by_insurance(client: pd.Series, evaluators: dict):
     elif isinstance(secondary_insurance, list):
         insurances_to_check.extend(secondary_insurance)
 
+    if "Ambetter (ATC)" in insurances_to_check:
+        insurances_to_check.remove("Ambetter (ATC)")
+        insurances_to_check.append("ATC")
+
     for npi, evaluator_data in evaluators.items():
         evaluator_name = evaluator_data.get("providerName", "Unknown Evaluator")
         # Check for matching insurance
