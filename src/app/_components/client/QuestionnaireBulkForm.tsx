@@ -2,14 +2,7 @@
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Button } from "@ui/button";
-import {
-	Form,
-	FormControl,
-	FormField,
-	FormItem,
-	FormLabel,
-	FormMessage,
-} from "@ui/form";
+import { Form, FormControl, FormField, FormItem, FormMessage } from "@ui/form";
 import { Textarea } from "@ui/textarea";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
@@ -18,7 +11,7 @@ const formSchema = z.object({
 	text: z.string().refine(
 		(text) => {
 			const lines = text.split("\n").filter((line) => line.trim() !== "");
-			const lineRegex = /^(?:\d+\)?\s*)?(https?:\/\/[^\s]+) - [\w\s]+$/;
+			const lineRegex = /^(?:\d+\)?\s*)?(https?:\/\/[^\s]+) - .+$/;
 			return lines.every((line) => lineRegex.test(line));
 		},
 		{
