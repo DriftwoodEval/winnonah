@@ -4,6 +4,7 @@ import { googleRouter } from "./routers/google";
 import { noteRouter } from "./routers/notes";
 import { officeRouter } from "./routers/office";
 import { questionnaireRouter } from "./routers/questionnaires";
+import { twilioRouter } from "./routers/twilio";
 import { userRouter } from "./routers/users";
 import { createCallerFactory, createTRPCRouter } from "./trpc";
 
@@ -20,6 +21,7 @@ export const appRouter = createTRPCRouter({
   notes: noteRouter,
   users: userRouter,
   google: googleRouter,
+  twilio: twilioRouter,
 });
 
 // export type definition of API

@@ -350,6 +350,15 @@ export const clientsEvaluatorsRelations = relations(
   })
 );
 
+export const sms = createTable("sms", (d) => ({
+  messageSid: d.varchar({ length: 255 }).notNull().primaryKey(),
+  accountSid: d.varchar({ length: 255 }).notNull(),
+  messageStatus: d.varchar({ length: 255 }),
+  to: d.varchar({ length: 255 }).notNull(),
+  from: d.varchar({ length: 255 }).notNull(),
+  body: d.text(),
+}));
+
 export const users = createTable("user", (d) => ({
   id: d
     .varchar({ length: 255 })
