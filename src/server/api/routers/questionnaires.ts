@@ -154,6 +154,9 @@ export const questionnaireRouter = createTRPCRouter({
           .min(1, { message: "Questionnaire type is required" }),
         link: z.url({ message: "Link must be a valid URL" }),
         sent: z.date().optional(),
+        status: z
+          .enum(["PENDING", "COMPLETED", "RESCHEDULED", "LANGUAGE", "TEACHER"])
+          .default("PENDING"),
       })
     )
     .mutation(async ({ ctx, input }) => {
@@ -175,7 +178,7 @@ export const questionnaireRouter = createTRPCRouter({
         questionnaireType: input.questionnaireType,
         link: input.link,
         sent: new Date(sentDate.toUTCString()),
-        status: "PENDING",
+        status: input.status,
         reminded: 0,
         lastReminded: null,
       });
@@ -263,7 +266,13 @@ export const questionnaireRouter = createTRPCRouter({
         questionnaireType: z.string().min(1),
         link: z.url(),
         sent: z.date(),
-        status: z.enum(["PENDING", "COMPLETED", "RESCHEDULED"]),
+        status: z.enum([
+          "PENDING",
+          "COMPLETED",
+          "RESCHEDULED",
+          "LANGUAGE",
+          "TEACHER",
+        ]),
       })
     )
     .mutation(async ({ ctx, input }) => {

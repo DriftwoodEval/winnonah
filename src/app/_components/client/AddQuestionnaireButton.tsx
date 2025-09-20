@@ -64,6 +64,7 @@ export function AddQuestionnaireButton({
 			questionnaireType: values.questionnaireType,
 			link: values.link,
 			sent: values.sent,
+			status: values.status,
 		});
 	}
 

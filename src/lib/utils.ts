@@ -57,6 +57,8 @@ export type QuestionnaireStatus =
   | "COMPLETED"
   | "PENDING"
   | "RESCHEDULED"
+  | "LANGUAGE"
+  | "TEACHER"
   | string
   | null
   | undefined;
