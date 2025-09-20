@@ -54,7 +54,7 @@ function ClientListItemComponent({
 		<Link href={`/clients/${client.hash}`}>
 			<div
 				className={cn(
-					"flex justify-between text-sm",
+					"flex items-center justify-between text-sm",
 					isHighlighted && "bg-muted/50",
 				)}
 			>
@@ -76,9 +76,10 @@ function ClientListItemComponent({
 							"text-destructive",
 					)}
 				>
-					<span className="font-bold text-muted-foreground">
-						{client.interpreter ? "Interpreter " : ""}
-					</span>
+					{client.interpreter && (
+						<span className="font-bold text-muted-foreground">Interpreter</span>
+					)}
+
 					{sortReason}
 				</span>
 			</div>
