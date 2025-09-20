@@ -366,6 +366,7 @@ export const users = createTable("user", (d) => ({
   role: d.mysqlEnum("role", userRoles).notNull().default("user"),
   image: d.varchar({ length: 255 }),
   evaluatorId: d.int().references(() => evaluators.npi),
+  savedPlaces: d.json(),
 }));
 
 export const usersRelations = relations(users, ({ many, one }) => ({

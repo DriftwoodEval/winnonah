@@ -397,6 +397,7 @@ export function ClientsDashboard() {
 						<ClientsList
 							clients={clients ?? []}
 							highlightedIndex={highlightedIndex}
+							savedPlace={queryParams.color}
 						/>
 					)}
 				</div>

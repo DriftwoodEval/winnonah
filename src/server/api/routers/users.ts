@@ -103,4 +103,113 @@ export const userRouter = createTRPCRouter({
         .delete(invitations)
         .where(eq(invitations.id, input.id)),
     })),
+
+  getSavedPlaces: protectedProcedure.query(async ({ ctx }) => {
+    const userFromDb = await ctx.db.query.users.findFirst({
+      where: eq(users.id, ctx.session.user.id),
+    });
+
+    if (!userFromDb) {
+      throw new TRPCError({
+        code: "NOT_FOUND",
+        message: `User with ID ${ctx.session.user.id} not found`,
+      });
+    }
+
+    const savedPlaces = JSON.parse(
+      userFromDb.savedPlaces?.toString() || "{}"
+    ) as Record<string, string>;
+
+    return savedPlaces;
+  }),
+
+  updateSavedPlaces: protectedProcedure
+    .input(z.object({ hash: z.string(), key: z.string() }))
+    .mutation(async ({ ctx, input }) => {
+      const userFromDb = await ctx.db.query.users.findFirst({
+        where: eq(users.id, ctx.session.user.id),
+      });
+
+      if (!userFromDb) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: `User with ID ${ctx.session.user.id} not found`,
+        });
+      }
+
+      const savedPlaces = JSON.parse(
+        userFromDb.savedPlaces?.toString() || "{}"
+      );
+
+      savedPlaces[input.key] = input.hash;
+
+      await ctx.db
+        .update(users)
+        .set({
+          savedPlaces: JSON.stringify(savedPlaces),
+        })
+        .where(eq(users.id, ctx.session.user.id));
+
+      const updatedUser = await ctx.db.query.users.findFirst({
+        where: eq(users.id, ctx.session.user.id),
+      });
+
+      if (!updatedUser) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: `User with ID ${ctx.session.user.id} not found`,
+        });
+      }
+
+      const updatedSavedPlaces = JSON.parse(
+        updatedUser.savedPlaces?.toString() || "{}"
+      );
+
+      return updatedSavedPlaces;
+    }),
+
+  deleteSavedPlace: protectedProcedure
+    .input(z.object({ key: z.string() }))
+    .mutation(async ({ ctx, input }) => {
+      const userFromDb = await ctx.db.query.users.findFirst({
+        where: eq(users.id, ctx.session.user.id),
+      });
+
+      if (!userFromDb) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: `User with ID ${ctx.session.user.id} not found`,
+        });
+      }
+
+      const savedPlaces = JSON.parse(
+        userFromDb.savedPlaces?.toString() || "{}"
+      );
+
+      delete savedPlaces[input.key];
+
+      await ctx.db
+        .update(users)
+        .set({
+          savedPlaces: JSON.stringify(savedPlaces),
+        })
+        .where(eq(users.id, ctx.session.user.id));
+
+      const updatedUser = await ctx.db.query.users.findFirst({
+        where: eq(users.id, ctx.session.user.id),
+      });
+
+      if (!updatedUser) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: `User with ID ${ctx.session.user.id} not found`,
+        });
+      }
+
+      const updatedSavedPlaces = JSON.parse(
+        updatedUser.savedPlaces?.toString() || "{}"
+      );
+
+      return updatedSavedPlaces;
+    }),
 });
