@@ -2,7 +2,9 @@
 import { Button } from "@ui/button";
 import { ScrollArea } from "@ui/scroll-area";
 import { Separator } from "@ui/separator";
+import { MapIcon, Pin, PinOff } from "lucide-react";
 import Link from "next/link";
+import { useRef } from "react";
 import type { Client } from "~/server/lib/types";
 import { api } from "~/trpc/react";
 
@@ -10,35 +12,137 @@ interface IssueListProps {
 	title: string;
 	clients: Client[];
 	action?: React.ReactNode;
+	savedPlaceKey?: string;
 }
 
-const IssueList = ({ title, clients, action }: IssueListProps) => (
-	<div>
-		<ScrollArea className="w-full rounded-md border bg-card text-card-foreground shadow">
-			<div className="p-4">
-				<div className="flex items-center justify-between gap-4">
-					<h1 className="mb-4 font-bold text-lg leading-none">
-						{title}{" "}
-						<span className="font-medium text-muted-foreground text-sm">
-							({clients.length})
-						</span>
-					</h1>
-					{action && <div className="mb-4">{action}</div>}
-				</div>
-				{clients.map((client, index) => (
-					<Link href={`/clients/${client.hash}`} key={client.hash}>
-						<div className="text-sm" key={client.hash}>
-							{client.fullName}
+const IssueList = ({ title, clients, action }: IssueListProps) => {
+	const utils = api.useUtils();
+	const savedClientRef = useRef<HTMLDivElement>(null);
+	const savedPlaceKey = title
+		.split(" ")
+		.map((word, index) =>
+			index === 0
+				? word.toLowerCase()
+				: word.replace(/^[a-z]/, (letter) => letter.toUpperCase()),
+		)
+		.join("");
+	const { data: savedPlaces } = api.users.getSavedPlaces.useQuery();
+	const savedPlaceHash = savedPlaces?.[savedPlaceKey || ""] || "";
+
+	const { mutate: updateSavedPlaces } = api.users.updateSavedPlaces.useMutation(
+		{
+			onSuccess: () => {
+				utils.users.getSavedPlaces.invalidate();
+			},
+		},
+	);
+
+	const { mutate: deleteSavedPlace } = api.users.deleteSavedPlace.useMutation({
+		onSuccess: () => {
+			utils.users.getSavedPlaces.invalidate();
+		},
+	});
+
+	const isSavedClient = (clientHash: string) => {
+		return savedPlaceKey && savedPlaceHash === clientHash;
+	};
+
+	const scrollToSavedClient = () => {
+		if (savedClientRef.current) {
+			savedClientRef.current.scrollIntoView({
+				behavior: "smooth",
+			});
+		}
+	};
+
+	return (
+		<div>
+			<ScrollArea className="w-full rounded-md border bg-card text-card-foreground shadow md:min-w-xs">
+				<div className="p-4">
+					<div className="flex items-center justify-between gap-4">
+						<h1 className="mb-4 font-bold text-lg leading-none">
+							{title}{" "}
+							<span className="font-medium text-muted-foreground text-sm">
+								({clients.length})
+							</span>
+						</h1>
+						<div className="mb-4 flex items-center gap-2">
+							{savedPlaceKey && savedPlaceHash && (
+								<Button
+									aria-label="Scroll to saved client"
+									className="font-medium text-muted-foreground text-xs"
+									onClick={scrollToSavedClient}
+									size="sm"
+									type="button"
+									variant="ghost"
+								>
+									<MapIcon className="h-3 w-3" />
+									<span className="hidden sm:block">Go to saved</span>
+								</Button>
+							)}
+							{action && <div>{action}</div>}
 						</div>
-						{index !== clients.length - 1 && (
-							<Separator className="my-2" key="separator" />
-						)}
-					</Link>
-				))}
-			</div>
-		</ScrollArea>
-	</div>
-);
+					</div>
+					{clients.map((client, index) => (
+						<div
+							className="scroll-mt-12"
+							key={client.hash}
+							ref={isSavedClient(client.hash) ? savedClientRef : null}
+						>
+							<Link href={`/clients/${client.hash}`} key={client.hash}>
+								<div className="text-sm" key={client.hash}>
+									{client.fullName}
+								</div>
+							</Link>
+							{isSavedClient(client.hash) && (
+								<button
+									aria-label={`Remove ${client.fullName} as saved client for ${title}`}
+									className="group relative flex w-full cursor-pointer items-center py-2"
+									onClick={() => {
+										if (savedPlaceKey) {
+											deleteSavedPlace({ key: savedPlaceKey });
+										}
+									}}
+									type="button"
+								>
+									<Separator className="my-2 flex-1 rounded bg-accent data-[orientation=horizontal]:h-1" />
+									<div className="-translate-x-1/2 -translate-y-1/2 pointer-events-none absolute top-1/2 right-0 z-10 rounded-full bg-accent px-2 py-1 opacity-0 transition-opacity duration-200 group-hover:opacity-100 group-focus:opacity-100">
+										<PinOff className="h-4 w-4" />
+									</div>
+								</button>
+							)}
+
+							{index < clients.length - 1 &&
+								savedPlaceKey &&
+								!isSavedClient(client.hash) && (
+									<button
+										aria-label={`Set ${client.fullName} as saved client for ${title}`}
+										className="group relative flex w-full cursor-pointer items-center py-2"
+										onClick={() => {
+											updateSavedPlaces({
+												key: savedPlaceKey,
+												hash: client.hash,
+											});
+										}}
+										type="button"
+									>
+										<Separator className="flex-1" />
+										<div className="-translate-x-1/2 -translate-y-1/2 pointer-events-none absolute top-1/2 right-0 z-10 rounded-full bg-muted px-2 py-1 opacity-0 transition-opacity duration-200 group-hover:opacity-100 group-focus:opacity-100">
+											<Pin className="h-4 w-4" />
+										</div>
+									</button>
+								)}
+
+							{index < clients.length - 1 && !savedPlaceKey && (
+								<Separator className="my-2" />
+							)}
+						</div>
+					))}
+				</div>
+			</ScrollArea>
+		</div>
+	);
+};
 
 export function IssuesList() {
 	const { data: districtErrors } = api.clients.getDistrictErrors.useQuery();

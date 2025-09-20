@@ -3,7 +3,7 @@
 import { Button } from "@ui/button";
 import { ScrollArea } from "@ui/scroll-area";
 import { Separator } from "@ui/separator";
-import { Pin, PinOff } from "lucide-react";
+import { MapIcon, Pin, PinOff } from "lucide-react";
 import { useRef } from "react";
 import type { SortedClient } from "~/server/lib/types";
 import { api } from "~/trpc/react";
@@ -79,7 +79,7 @@ export function ClientsList({
 							type="button"
 							variant="ghost"
 						>
-							<Pin className="h-3 w-3" />
+							<MapIcon className="h-3 w-3" />
 							Go to saved
 						</Button>
 					)}
@@ -95,58 +95,41 @@ export function ClientsList({
 							isHighlighted={index === highlightedIndex}
 						/>
 						{isSavedClient(client.hash) && (
-							// biome-ignore lint/a11y/useSemanticElements: rescaping button styling. should probably fix later. TODO
-							<div
+							<button
 								aria-label={`Remove ${client.fullName} as saved client for ${savedPlace}`}
-								className="group relative flex cursor-pointer items-center py-2"
+								className="group relative flex w-full cursor-pointer items-center py-2"
 								onClick={() => {
 									if (savedPlace) {
 										deleteSavedPlace({ key: savedPlace });
 									}
 								}}
-								onKeyUp={(event) => {
-									if (event.key === "Enter" && savedPlace) {
-										deleteSavedPlace({ key: savedPlace });
-									}
-								}}
-								role="button"
-								tabIndex={0}
+								type="button"
 							>
 								<Separator className="my-2 flex-1 rounded bg-accent data-[orientation=horizontal]:h-1" />
-								<div className="-translate-x-1/2 -translate-y-1/2 pointer-events-none absolute top-1/2 left-1/2 rounded-full bg-accent px-2 py-1 opacity-0 transition-opacity duration-200 group-hover:opacity-100">
+								<div className="-translate-x-1/2 -translate-y-1/2 pointer-events-none absolute top-1/2 left-1/2 rounded-full bg-accent px-2 py-1 opacity-0 transition-opacity duration-200 group-hover:opacity-100 group-focus:opacity-100">
 									<PinOff className="h-4 w-4" />
 								</div>
-							</div>
+							</button>
 						)}
 						{index < clients.length - 1 &&
 							savedPlace &&
 							!isSavedClient(client.hash) && (
-								// biome-ignore lint/a11y/useSemanticElements: escaping button styling. should probably fix later. TODO
-								<div
+								<button
 									aria-label={`Set ${client.fullName} as saved client for ${savedPlace}`}
-									className="group relative flex cursor-pointer items-center py-2"
+									className="group relative flex w-full cursor-pointer items-center py-2"
 									onClick={() => {
 										updateSavedPlaces({
 											key: savedPlace,
 											hash: client.hash,
 										});
 									}}
-									onKeyUp={(event) => {
-										if (event.key === "Enter") {
-											updateSavedPlaces({
-												key: savedPlace,
-												hash: client.hash,
-											});
-										}
-									}}
-									role="button"
-									tabIndex={0}
+									type="button"
 								>
 									<Separator className="flex-1" />
-									<div className="-translate-x-1/2 -translate-y-1/2 pointer-events-none absolute top-1/2 left-1/2 rounded-full bg-muted px-2 py-1 opacity-0 transition-opacity duration-200 group-hover:opacity-100">
+									<div className="-translate-x-1/2 -translate-y-1/2 pointer-events-none absolute top-1/2 left-1/2 rounded-full bg-muted px-2 py-1 opacity-0 transition-opacity duration-200 group-hover:opacity-100 group-focus:opacity-100">
 										<Pin className="h-4 w-4" />
 									</div>
-								</div>
+								</button>
 							)}
 						{index < clients.length - 1 && !savedPlace && (
 							<Separator className="my-2" />
