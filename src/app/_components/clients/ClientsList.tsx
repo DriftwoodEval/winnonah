@@ -1,8 +1,10 @@
 "use client";
 
+import { Button } from "@ui/button";
 import { ScrollArea } from "@ui/scroll-area";
 import { Separator } from "@ui/separator";
-import { Plus, X } from "lucide-react";
+import { Pin, PinOff } from "lucide-react";
+import { useRef } from "react";
 import type { SortedClient } from "~/server/lib/types";
 import { api } from "~/trpc/react";
 import { ClientListItem } from "./ClientListItem";
@@ -18,6 +20,7 @@ export function ClientsList({
 	savedPlace,
 }: ClientsListProps) {
 	const utils = api.useUtils();
+	const savedClientRef = useRef<HTMLDivElement>(null);
 	const { data: savedPlaces } = api.users.getSavedPlaces.useQuery();
 	const savedPlaceHash = savedPlaces?.[savedPlace || ""] || "";
 
@@ -39,6 +42,14 @@ export function ClientsList({
 		return savedPlace && savedPlaceHash === clientHash;
 	};
 
+	const scrollToSavedClient = () => {
+		if (savedClientRef.current) {
+			savedClientRef.current.scrollIntoView({
+				behavior: "smooth",
+			});
+		}
+	};
+
 	if (clients.length === 0) {
 		return (
 			<div className="flex h-[400px] w-full items-center justify-center rounded-md border border-dashed">
@@ -55,12 +66,30 @@ export function ClientsList({
 	return (
 		<ScrollArea className="h-[400px] w-full rounded-md border bg-card text-card-foreground shadow">
 			<div className="p-4">
-				<h4 className="mb-4 font-medium text-muted-foreground text-sm leading-none">
-					Showing {clients.length} Client{clients.length === 1 ? "" : "s"}
-				</h4>
+				<div className="mb-2 flex min-h-8 items-center justify-between">
+					<h4 className="font-medium text-muted-foreground text-sm leading-none">
+						Showing {clients.length} Client{clients.length === 1 ? "" : "s"}
+					</h4>
+					{savedPlaceHash && (
+						<Button
+							aria-label="Scroll to saved client"
+							className="font-medium text-muted-foreground text-xs"
+							onClick={scrollToSavedClient}
+							size="sm"
+							type="button"
+							variant="ghost"
+						>
+							<Pin className="h-3 w-3" />
+							Go to saved
+						</Button>
+					)}
+				</div>
 
 				{clients.map((client, index) => (
-					<div key={client.hash}>
+					<div
+						key={client.hash}
+						ref={isSavedClient(client.hash) ? savedClientRef : null}
+					>
 						<ClientListItem
 							client={client}
 							isHighlighted={index === highlightedIndex}
@@ -83,9 +112,9 @@ export function ClientsList({
 								role="button"
 								tabIndex={0}
 							>
-								<Separator className="my-2 flex-1 rounded bg-primary data-[orientation=horizontal]:h-1" />
-								<div className="-translate-x-1/2 -translate-y-1/2 pointer-events-none absolute top-1/2 left-1/2 rounded-full bg-primary px-2 py-1 opacity-0 transition-opacity duration-200 group-hover:opacity-100">
-									<X className="h-4 w-4" />
+								<Separator className="my-2 flex-1 rounded bg-accent data-[orientation=horizontal]:h-1" />
+								<div className="-translate-x-1/2 -translate-y-1/2 pointer-events-none absolute top-1/2 left-1/2 rounded-full bg-accent px-2 py-1 opacity-0 transition-opacity duration-200 group-hover:opacity-100">
+									<PinOff className="h-4 w-4" />
 								</div>
 							</div>
 						)}
@@ -115,7 +144,7 @@ export function ClientsList({
 								>
 									<Separator className="flex-1" />
 									<div className="-translate-x-1/2 -translate-y-1/2 pointer-events-none absolute top-1/2 left-1/2 rounded-full bg-muted px-2 py-1 opacity-0 transition-opacity duration-200 group-hover:opacity-100">
-										<Plus className="h-4 w-4" />
+										<Pin className="h-4 w-4" />
 									</div>
 								</div>
 							)}
