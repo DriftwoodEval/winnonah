@@ -4,14 +4,16 @@ import time
 from typing import Callable
 
 import pandas as pd
-import utils.webdriving as w
 from loguru import logger
 from selenium.common.exceptions import NoSuchElementException
 from selenium.webdriver.common.by import By
 from selenium.webdriver.remote.webdriver import WebDriver
 
+import utils.webdriving as w
+
 
 def open_profile(driver: WebDriver):
+    """Opens the therapist profile page."""
     logger.debug("Opening profile")
     w.click_element(driver, By.CLASS_NAME, "user-menu-button")
     w.click_element(
@@ -22,6 +24,8 @@ def open_profile(driver: WebDriver):
 
 
 def export_data(driver: WebDriver):
+    """Exports therapist data to CSV files."""
+
     def _helper(driver: WebDriver, data_title: str) -> bool:
         logger.debug(f"Exporting {data_title}")
         try:
@@ -58,9 +62,13 @@ def export_data(driver: WebDriver):
     w.click_element(driver, By.CSS_SELECTOR, "[data-dismiss='modal']")
     _helper(driver, "Insurance Policies and Benefits")
     w.click_element(driver, By.CSS_SELECTOR, "[data-dismiss='modal']")
+    _helper(driver, "Client Charts")
+    w.click_element(driver, By.CSS_SELECTOR, "[data-dismiss='modal']")
 
 
 def download_data(driver: WebDriver):
+    """Downloads therapist data to CSV files."""
+
     def _helper(driver: WebDriver, data_title: str):
         logger.debug(f"Downloading {data_title}")
         try:
@@ -85,9 +93,13 @@ def download_data(driver: WebDriver):
     time.sleep(2)
     _helper(driver, "Insurance Policies and Benefits")
     time.sleep(2)
+    _helper(driver, "Client Charts")
+    time.sleep(2)
 
 
 def loop_therapists(driver: WebDriver, func: Callable):
+    """Loops through therapists and runs a function for each therapist."""
+
     def _helper(driver: WebDriver, count: int) -> int:
         therapist_element = w.find_element(
             driver, By.CSS_SELECTOR, f"#nav-staff-menu>ul>li:nth-child({count + 1})>a"
@@ -128,6 +140,7 @@ def loop_therapists(driver: WebDriver, func: Callable):
 
 
 def combine_files():
+    """Combines multiple therapists' CSV files into a single CSV file."""
     logger.debug("Combining CSVs")
 
     def read_and_concat_files(pattern, output_file):
@@ -159,9 +172,14 @@ def combine_files():
         "temp/downloads/dataExport-insurance*.csv",
         os.path.join(output_directory, "clients-insurance.csv"),
     )
+    read_and_concat_files(
+        "temp/downloads/dataExport-chart*.csv",
+        os.path.join(output_directory, "clients-chart.csv"),
+    )
 
 
 def download_csvs():
+    """Downloads CSVs from TherapyAppointment."""
     logger.debug("Downloading CSVs from TherapyAppointment")
     driver, actions = w.initialize_selenium()
     w.login_ta(driver, actions)
