@@ -43,7 +43,7 @@ export function ClientsDashboard() {
 	const sortLastNameId = useId();
 	const sortPaExpirationId = useId();
 
-	const [debouncedNameForQuery, setDebouncedNameForQuery] = useState("");
+	const [debouncedSearchTerm, setDebouncedSearchTerm] = useState("");
 
 	const [highlightedIndex, setHighlightedIndex] = useState(-1);
 
@@ -58,11 +58,11 @@ export function ClientsDashboard() {
 		const autismStop = searchParams.get("autismStop") === "true";
 		const sort = searchParams.get("sort") ?? undefined;
 
-		const finalNameSearch =
-			debouncedNameForQuery.length >= 3 ? debouncedNameForQuery : undefined;
+		const finalSearchTerm =
+			debouncedSearchTerm.length >= 3 ? debouncedSearchTerm : undefined;
 
 		return {
-			nameSearch: finalNameSearch,
+			nameSearch: finalSearchTerm,
 			office,
 			evaluatorNpi: evaluator ? parseInt(evaluator, 10) : undefined,
 			hideBabyNet,
@@ -78,7 +78,7 @@ export function ClientsDashboard() {
 				| "paExpiration"
 				| undefined,
 		};
-	}, [searchParams, debouncedNameForQuery]);
+	}, [searchParams, debouncedSearchTerm]);
 
 	const {
 		data: searchQuery,
@@ -120,7 +120,7 @@ export function ClientsDashboard() {
 	}, [clients, highlightedIndex, router]);
 
 	const handleReset = useCallback(() => {
-		setDebouncedNameForQuery("");
+		setDebouncedSearchTerm("");
 		setHighlightedIndex(-1);
 	}, []);
 
@@ -153,7 +153,7 @@ export function ClientsDashboard() {
 						debounceMs={300}
 						initialValue={""}
 						onDebouncedChange={(name) => {
-							setDebouncedNameForQuery(name);
+							setDebouncedSearchTerm(name);
 							setHighlightedIndex(-1);
 						}}
 					/>

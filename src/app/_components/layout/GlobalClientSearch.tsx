@@ -1,51 +1,78 @@
 "use client";
 
 import { Button } from "@ui/button";
+import { Dialog, DialogContent, DialogHeader } from "@ui/dialog";
 import {
-	CommandDialog,
-	CommandEmpty,
-	CommandGroup,
-	CommandInput,
-	CommandItem,
-	CommandList,
-} from "@ui/command";
-import { Spinner } from "@ui/spinner";
-import { debounce } from "lodash";
+	Select,
+	SelectContent,
+	SelectItem,
+	SelectTrigger,
+	SelectValue,
+} from "@ui/select";
+import { Skeleton } from "@ui/skeleton";
 import { Search } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useState } from "react";
-import { getHexFromColor } from "~/lib/colors";
-import { cn, formatClientAge } from "~/lib/utils";
-import type { SortedClient } from "~/server/lib/types";
+import { useEffect, useMemo, useState } from "react";
 import { api } from "~/trpc/react";
+import { ClientsList } from "../clients/ClientsList";
+import { NameSearchInput } from "../clients/NameSearchInput";
 
 export function GlobalClientSearch() {
 	const router = useRouter();
+
 	const [open, setOpen] = useState(false);
-	const [searchInput, setSearchInput] = useState("");
 	const [debouncedSearchTerm, setDebouncedSearchTerm] = useState("");
+	const [statusFilter, setStatusFilter] = useState("active");
+	const [highlightedIndex, setHighlightedIndex] = useState(-1);
 	const [osKey, setOsKey] = useState("Ctrl");
 
-	const debouncedQueryUpdate = useCallback(
-		debounce((value: string) => {
-			setDebouncedSearchTerm(value.trim());
-		}, 300),
-		[],
-	);
+	const queryParams = useMemo(() => {
+		const status = statusFilter;
+		const finalSearchTerm =
+			debouncedSearchTerm.length >= 3 ? debouncedSearchTerm : undefined;
+		return {
+			nameSearch: finalSearchTerm,
+			status: status as "active" | "inactive" | "all",
+		};
+	}, [debouncedSearchTerm, statusFilter]);
 
-	const handleValueChange = (value: string) => {
-		setSearchInput(value);
-		debouncedQueryUpdate(value);
-	};
+	const {
+		data: searchQuery,
+		isLoading,
+		isPlaceholderData,
+	} = api.clients.search.useQuery(queryParams, {
+		enabled: open,
+		placeholderData: (previousData) => previousData,
+	});
 
-	const { data: SearchQuery, isLoading } = api.clients.search.useQuery(
-		{ nameSearch: debouncedSearchTerm },
-		{
-			enabled: debouncedSearchTerm.length >= 3 && open,
-		},
-	);
+	const clients = searchQuery?.clients;
 
-	const clients = SearchQuery?.clients;
+	useEffect(() => {
+		const handleKeyDown = (event: KeyboardEvent) => {
+			if (!clients?.length) return;
+
+			if (event.key === "ArrowDown") {
+				event.preventDefault();
+				setHighlightedIndex((prevIndex) => (prevIndex + 1) % clients.length);
+			} else if (event.key === "ArrowUp") {
+				event.preventDefault();
+				setHighlightedIndex(
+					(prevIndex) => (prevIndex - 1 + clients.length) % clients.length,
+				);
+			} else if (event.key === "Enter") {
+				event.preventDefault();
+				if (highlightedIndex !== -1 && clients?.[highlightedIndex]) {
+					const client = clients[highlightedIndex];
+					router.push(`/clients/${client.hash}`);
+				}
+			}
+		};
+
+		document.addEventListener("keydown", handleKeyDown);
+		return () => {
+			document.removeEventListener("keydown", handleKeyDown);
+		};
+	}, [clients, highlightedIndex, router]);
 
 	useEffect(() => {
 		if (navigator.userAgent.includes("Mac")) {
@@ -65,115 +92,64 @@ export function GlobalClientSearch() {
 		return () => document.removeEventListener("keydown", down);
 	}, []);
 
-	const handleSelectClient = (client: SortedClient) => {
-		router.push(`/clients/${client.hash}`);
-		setOpen(false);
-	};
-
-	useEffect(() => {
-		if (!open) {
-			setSearchInput("");
-			setDebouncedSearchTerm("");
-		}
-	}, [open]);
-
-	const showSpinner = isLoading;
-
 	return (
 		<>
 			<Button
-				className="flex h-9 w-auto items-center gap-2 px-2"
+				className="flex h-9 w-auto items-center gap-2 border-none bg-transparent px-2 shadow-none hover:bg-transparent"
 				onClick={() => setOpen(true)}
-				variant="ghost"
 			>
 				<Search className="h-4 w-4 text-muted-foreground" />
-				<kbd className="pointer-events-none hidden h-5 select-none items-center gap-1 rounded px-1.5 font-medium font-mono text-[10px] text-muted-foreground opacity-100 lg:inline-flex">
-					<span className="text-xs">{osKey}</span>K
-				</kbd>
+				<div className="flex gap-1">
+					<kbd className="pointer-events-none flex h-5 select-none items-center justify-center gap-1 rounded-sm border bg-background px-1 font-sans text-[0.7rem] text-muted-foreground">
+						{osKey}
+					</kbd>
+					<kbd className="pointer-events-none flex aspect-square h-5 select-none items-center justify-center gap-1 rounded-sm border bg-background px-1 font-sans text-[0.7rem] text-muted-foreground">
+						K
+					</kbd>
+				</div>
 			</Button>
 
-			<CommandDialog onOpenChange={setOpen} open={open}>
-				<CommandInput
-					onValueChange={handleValueChange}
-					placeholder="Type a client name..."
-					value={searchInput}
-				/>
-
-				<CommandList className="relative h-[300px] overflow-y-auto transition-opacity">
-					{showSpinner && (
-						<div className="absolute inset-0 z-10 flex items-center justify-center">
-							<Spinner />
-						</div>
-					)}
-
-					<CommandEmpty>
-						{isLoading
-							? null
-							: debouncedSearchTerm.length > 0 && debouncedSearchTerm.length < 3
-								? "Please enter 3 or more characters."
-								: debouncedSearchTerm.length >= 3
-									? "No clients found."
-									: "Start typing to search for a client."}
-					</CommandEmpty>
-
-					{clients && clients.length > 0 && (
-						// BUG: Sometimes doesn't display when only one client would be returned based on ID?
-						<CommandGroup>
-							{clients.map((client) => {
-								const clientHexColor = client.color
-									? getHexFromColor(client.color)
-									: undefined;
-
-								return (
-									<CommandItem
-										// className="[&[data-selected]]:bg-accent/50"
-										key={client.hash}
-										onSelect={() => handleSelectClient(client)}
-										value={`${client.fullName} ${client.hash}`}
-									>
-										<div className="flex w-full justify-between text-sm">
-											<div className="flex items-center gap-2">
-												{client.color && clientHexColor && (
-													<span
-														className="h-3 w-3 shrink-0 rounded-full"
-														style={{ backgroundColor: clientHexColor }}
-													/>
-												)}
-												<span>{client.fullName}</span>
-											</div>
-											<span
-												className={cn(
-													"text-muted-foreground text-xs",
-													(client.sortReason === "BabyNet above 2:6" ||
-														client.sortReason === "High Priority") &&
-														"text-destructive",
-												)}
-											>
-												<span className="font-bold text-muted-foreground">
-													{client.interpreter ? "Interpreter " : ""}
-												</span>
-												{client.sortReason === "BabyNet above 2:6"
-													? `BabyNet: ${formatClientAge(new Date(client.dob), "short")}`
-													: client.sortReason === "Added date"
-														? `Added: ${client.addedDate?.toLocaleDateString(
-																"en-US",
-																{
-																	year: "numeric",
-																	month: "short",
-																	day: "numeric",
-																	timeZone: "UTC",
-																},
-															)}`
-														: client.sortReason}
-											</span>
-										</div>
-									</CommandItem>
-								);
-							})}
-						</CommandGroup>
-					)}
-				</CommandList>
-			</CommandDialog>
+			<Dialog onOpenChange={setOpen} open={open}>
+				<DialogContent>
+					<DialogHeader></DialogHeader>
+					<div className="flex gap-2">
+						<NameSearchInput
+							debounceMs={300}
+							initialValue={""}
+							onDebouncedChange={(name) => {
+								setDebouncedSearchTerm(name);
+								setHighlightedIndex(-1);
+							}}
+						/>
+						<Select defaultValue="active" onValueChange={setStatusFilter}>
+							<SelectTrigger>
+								<SelectValue placeholder="Status" />
+							</SelectTrigger>
+							<SelectContent>
+								<SelectItem value="active">Active</SelectItem>
+								<SelectItem value="inactive">Inactive</SelectItem>
+								<SelectItem value="all">All</SelectItem>
+							</SelectContent>
+						</Select>
+					</div>
+					<div
+						className={
+							isPlaceholderData
+								? "opacity-60 transition-opacity duration-200"
+								: "opacity-100 transition-opacity duration-200"
+						}
+					>
+						{isLoading ? (
+							<Skeleton className="h-[400px] w-full bg-muted" />
+						) : (
+							<ClientsList
+								clients={clients ?? []}
+								highlightedIndex={highlightedIndex}
+							/>
+						)}
+					</div>
+				</DialogContent>
+			</Dialog>
 		</>
 	);
 }
