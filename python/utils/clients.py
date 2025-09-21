@@ -157,6 +157,8 @@ def consolidate_by_id(clients: pd.DataFrame) -> pd.DataFrame:
         .reset_index()
     )
 
+    private_pay = clients.groupby("CLIENT_ID")["POLICY_PRIVATEPAY"].any().reset_index()
+
     calculated_cols = [
         "POLICY_TYPE",
         "POLICY_STARTDATE",
@@ -164,6 +166,7 @@ def consolidate_by_id(clients: pd.DataFrame) -> pd.DataFrame:
         "INSURANCE_COMPANYNAME",
         "POLICY_COMPANYNAME",
         "PRECERT_EXPIREDATE",
+        "POLICY_PRIVATEPAY",
     ]
 
     client_base_info = clients.drop(
@@ -173,6 +176,7 @@ def consolidate_by_id(clients: pd.DataFrame) -> pd.DataFrame:
     consolidated = pd.merge(client_base_info, primary_final, on="CLIENT_ID", how="left")
     consolidated = pd.merge(consolidated, secondary_final, on="CLIENT_ID", how="left")
     consolidated = pd.merge(consolidated, precert_dates, on="CLIENT_ID", how="left")
+    consolidated = pd.merge(consolidated, private_pay, on="CLIENT_ID", how="left")
 
     return consolidated
 
