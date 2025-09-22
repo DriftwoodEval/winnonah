@@ -11,7 +11,7 @@ import {
 } from "@ui/select";
 import { Skeleton } from "@ui/skeleton";
 import { Search } from "lucide-react";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { api } from "~/trpc/react";
 import { ClientsList } from "../clients/ClientsList";
@@ -19,6 +19,7 @@ import { NameSearchInput } from "../clients/NameSearchInput";
 
 export function GlobalClientSearch() {
 	const router = useRouter();
+	const pathname = usePathname();
 
 	const [open, setOpen] = useState(false);
 	const [debouncedSearchTerm, setDebouncedSearchTerm] = useState("");
@@ -92,10 +93,15 @@ export function GlobalClientSearch() {
 		return () => document.removeEventListener("keydown", down);
 	}, []);
 
+	// biome-ignore lint/correctness/useExhaustiveDependencies: We want to reset the open state when the path changes, although we don't care what the path changes to.
+	useEffect(() => {
+		setOpen(false);
+	}, [pathname]);
+
 	return (
 		<>
 			<Button
-				className="flex h-9 w-auto items-center gap-2 border-none bg-transparent px-2 shadow-none hover:bg-transparent"
+				className="flex h-9 w-auto cursor-pointer items-center gap-2 border-none bg-transparent px-2 shadow-none hover:bg-transparent"
 				onClick={() => setOpen(true)}
 			>
 				<Search className="h-4 w-4 text-muted-foreground" />
