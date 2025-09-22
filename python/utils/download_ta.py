@@ -58,11 +58,11 @@ def export_data(driver: WebDriver):
     if not started:
         return
     w.click_element(driver, By.CSS_SELECTOR, "[data-dismiss='modal']")
+    _helper(driver, "Client Charts")
+    w.click_element(driver, By.CSS_SELECTOR, "[data-dismiss='modal']")
     _helper(driver, "Clients")
     w.click_element(driver, By.CSS_SELECTOR, "[data-dismiss='modal']")
     _helper(driver, "Insurance Policies and Benefits")
-    w.click_element(driver, By.CSS_SELECTOR, "[data-dismiss='modal']")
-    _helper(driver, "Client Charts")
     w.click_element(driver, By.CSS_SELECTOR, "[data-dismiss='modal']")
 
 
@@ -89,11 +89,11 @@ def download_data(driver: WebDriver):
     if not started:
         return
     time.sleep(2)
+    _helper(driver, "Client Charts")
+    time.sleep(2)
     _helper(driver, "Clients")
     time.sleep(2)
     _helper(driver, "Insurance Policies and Benefits")
-    time.sleep(2)
-    _helper(driver, "Client Charts")
     time.sleep(2)
 
 
