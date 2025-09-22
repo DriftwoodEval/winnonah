@@ -15,6 +15,8 @@ import utils.openphone
 
 load_dotenv()
 
+logger.add("logs/winnonah-python.log", rotation="500 MB")
+
 
 def import_from_ta():
     """Imports data from TA CSVs into the database."""
