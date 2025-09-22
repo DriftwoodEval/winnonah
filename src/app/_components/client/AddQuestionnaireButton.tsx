@@ -1,4 +1,13 @@
 "use client";
+import { Button } from "@ui/button";
+import {
+	Dialog,
+	DialogContent,
+	DialogDescription,
+	DialogHeader,
+	DialogTitle,
+} from "@ui/dialog";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { useMediaQuery } from "~/hooks/use-media-query";
 import { logger } from "~/lib/logger";
@@ -29,10 +38,48 @@ export function AddQuestionnaireButton({
 	const utils = api.useUtils();
 	const isDesktop = useMediaQuery("(min-width: 768px)");
 
+	const [qsSentDialog, setQsSentDialog] = useState(false);
+	const [shouldBlockNavigation, setShouldBlockNavigation] = useState(false);
+
+	const { data: qsSent } = api.google.getQsSent.useQuery(
+		clientId ? clientId.toString() : "",
+		{
+			enabled: !!clientId,
+		},
+	);
+
+	const { mutate: setQsSent } = api.google.setQsSent.useMutation({
+		onSuccess: () => {
+			utils.google.getQsSent.invalidate(clientId?.toString() ?? "");
+			setQsSentDialog(false);
+			setShouldBlockNavigation(false);
+		},
+	});
+
+	useEffect(() => {
+		if (!shouldBlockNavigation) return;
+
+		const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+			e.preventDefault();
+			setQsSentDialog(true);
+			return "";
+		};
+
+		window.addEventListener("beforeunload", handleBeforeUnload);
+
+		return () => {
+			window.removeEventListener("beforeunload", handleBeforeUnload);
+		};
+	}, [shouldBlockNavigation]);
+
 	const addQuestionnaire = api.questionnaires.addQuestionnaire.useMutation({
 		onSuccess: () => {
 			utils.questionnaires.getSentQuestionnaires.invalidate(clientId);
 			addSingleQDialog.closeDialog();
+
+			qsSent &&
+				(!qsSent?.["DA Qs Sent"] || !qsSent?.["EVAL Qs Sent"]) &&
+				setShouldBlockNavigation(true);
 		},
 		onError: (error) => {
 			log.error(error, "Failed to add questionnaire:");
@@ -47,6 +94,9 @@ export function AddQuestionnaireButton({
 			onSuccess: () => {
 				utils.questionnaires.getSentQuestionnaires.invalidate(clientId);
 				addBulkQDialog.closeDialog();
+				qsSent &&
+					(!qsSent?.["DA Qs Sent"] || !qsSent?.["EVAL Qs Sent"]) &&
+					setQsSentDialog(true);
 			},
 			onError: (error) => {
 				log.error(error, "Failed to add bulk questionnaires:");
@@ -77,6 +127,18 @@ export function AddQuestionnaireButton({
 		});
 	}
 
+	const handleSetDASent = () => {
+		if (clientId) {
+			setQsSent({ id: clientId.toString(), daSent: true });
+		}
+	};
+
+	const handleSetEvalSent = () => {
+		if (clientId) {
+			setQsSent({ id: clientId.toString(), evalSent: true });
+		}
+	};
+
 	const addQTrigger = (
 		<SplitButton
 			disabled={!clientId}
@@ -100,7 +162,19 @@ export function AddQuestionnaireButton({
 		);
 
 	return (
-		<>
+		<div className="flex items-center gap-2">
+			{qsSent && !qsSent?.["DA Qs Sent"] && clientId ? (
+				<Button onClick={handleSetDASent} size="sm" variant="secondary">
+					Set DA Sent
+				</Button>
+			) : null}
+
+			{qsSent && !qsSent?.["EVAL Qs Sent"] && clientId ? (
+				<Button onClick={handleSetEvalSent} size="sm" variant="secondary">
+					Set Eval Sent
+				</Button>
+			) : null}
+
 			<ResponsiveDialog
 				open={addSingleQDialog.open}
 				setOpen={addSingleQDialog.setOpen}
@@ -123,6 +197,38 @@ export function AddQuestionnaireButton({
 					</p>
 				)}
 			</ResponsiveDialog>
-		</>
+
+			<Dialog onOpenChange={() => {}} open={qsSentDialog}>
+				<DialogContent className="sm:max-w-md" showCloseButton={false}>
+					<DialogHeader>
+						<DialogTitle>Questionnaires Sent</DialogTitle>
+						<DialogDescription>
+							You added questionnaires, do you need to mark the whole group
+							sent?
+						</DialogDescription>
+					</DialogHeader>
+					<div className="flex flex-col gap-3 pt-4">
+						{qsSent && !qsSent?.["DA Qs Sent"] && clientId && (
+							<Button
+								className="w-full"
+								onClick={handleSetDASent}
+								variant="secondary"
+							>
+								Set DA Sent
+							</Button>
+						)}
+						{qsSent && !qsSent?.["EVAL Qs Sent"] && clientId && (
+							<Button
+								className="w-full"
+								onClick={handleSetEvalSent}
+								variant="secondary"
+							>
+								Set Eval Sent
+							</Button>
+						)}
+					</div>
+				</DialogContent>
+			</Dialog>
+		</div>
 	);
 }

@@ -52,8 +52,9 @@ export const authConfig = {
         params: {
           access_type: "offline",
           response_type: "code",
+          prompt: "consent",
           scope:
-            "openid email profile https://www.googleapis.com/auth/spreadsheets.readonly",
+            "openid email profile https://www.googleapis.com/auth/spreadsheets",
         },
       },
     }),

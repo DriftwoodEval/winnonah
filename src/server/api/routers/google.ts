@@ -1,6 +1,6 @@
 import { eq, type InferSelectModel, inArray } from "drizzle-orm";
 import { OAuth2Client } from "google-auth-library";
-import { google } from "googleapis";
+import { google, type sheets_v4 } from "googleapis";
 import z from "zod";
 import { env } from "~/env";
 import type { FullClientInfo, PunchClient } from "~/lib/types";
@@ -93,6 +93,82 @@ const getPunchData = async (accessToken: string, refreshToken: string) => {
   });
 
   return finalData;
+};
+
+const updatePunchData = async (
+  accessToken: string,
+  refreshToken: string,
+  clientId: string,
+  updates: { daSent?: boolean; evalSent?: boolean }
+) => {
+  const { AUTH_GOOGLE_ID, AUTH_GOOGLE_SECRET, PUNCHLIST_ID, PUNCHLIST_RANGE } =
+    env;
+
+  const oauth2Client = new OAuth2Client({
+    clientId: AUTH_GOOGLE_ID,
+    clientSecret: AUTH_GOOGLE_SECRET,
+  });
+  oauth2Client.setCredentials({
+    access_token: accessToken,
+    refresh_token: refreshToken,
+  });
+  const sheetsApi = google.sheets({ version: "v4", auth: oauth2Client });
+
+  const response = await sheetsApi.spreadsheets.values.get({
+    spreadsheetId: PUNCHLIST_ID,
+    range: PUNCHLIST_RANGE,
+  });
+
+  const data = response.data.values ?? [];
+  const headers = data[0] ?? [];
+  const rows = data.slice(1);
+
+  const clientRowIndex = rows.findIndex((row) => row[1] === clientId);
+
+  if (clientRowIndex === -1) {
+    throw new Error(`Client ID ${clientId} not found in Punchlist`);
+  }
+
+  const daSentIndex = headers.indexOf("DA Qs Sent");
+  const evalSentIndex = headers.indexOf("EVAL Qs Sent");
+
+  if (daSentIndex === -1 || evalSentIndex === -1) {
+    throw new Error("DA Qs Sent or EVAL Qs Sent column not found in Punchlist");
+  }
+
+  const updateRequests: sheets_v4.Schema$ValueRange[] = [];
+
+  if (updates.daSent !== undefined) {
+    const cellAddress = `${String.fromCharCode(65 + daSentIndex)}${
+      clientRowIndex + 2
+    }`; // +2 because of 0-index + header row
+    updateRequests.push({
+      range: cellAddress,
+      values: [[updates.daSent ? "TRUE" : "FALSE"]],
+    });
+  }
+
+  if (updates.evalSent !== undefined) {
+    const cellAddress = `${String.fromCharCode(65 + evalSentIndex)}${
+      clientRowIndex + 2
+    }`;
+    updateRequests.push({
+      range: cellAddress,
+      values: [[updates.evalSent ? "TRUE" : "FALSE"]],
+    });
+  }
+
+  if (updateRequests.length > 0) {
+    await sheetsApi.spreadsheets.values.batchUpdate({
+      spreadsheetId: PUNCHLIST_ID,
+      requestBody: {
+        valueInputOption: "USER_ENTERED",
+        data: updateRequests,
+      },
+    });
+  }
+
+  return true;
 };
 
 const getClientFromPunchData = async (
@@ -191,6 +267,76 @@ export const googleRouter = createTRPCRouter({
           .set({ interpreter: true })
           .where(eq(clients.id, Number(input)));
         return true;
+      }
+    }),
+
+  getQsSent: protectedProcedure
+    .input(z.string())
+    .query(async ({ ctx, input }) => {
+      if (!ctx.session.user.accessToken || !ctx.session.user.refreshToken) {
+        throw new Error("No access token or refresh token");
+      }
+
+      const punchClient = await getClientFromPunchData(
+        ctx.session.user.accessToken,
+        ctx.session.user.refreshToken,
+        input
+      );
+
+      if (!punchClient) {
+        return null;
+      }
+
+      const qsSent = {
+        "DA Qs Sent": punchClient["DA Qs Sent"] === "TRUE",
+        "EVAL Qs Sent": punchClient["EVAL Qs Sent"] === "TRUE",
+      };
+
+      console.log(qsSent);
+
+      return qsSent;
+    }),
+
+  setQsSent: protectedProcedure
+    .input(
+      z.object({
+        id: z.string(),
+        daSent: z.boolean().optional(),
+        evalSent: z.boolean().optional(),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      if (!ctx.session.user.accessToken || !ctx.session.user.refreshToken) {
+        throw new Error("No access token or refresh token");
+      }
+
+      // Validate that at least one field is being updated
+      if (input.daSent === undefined && input.evalSent === undefined) {
+        throw new Error("At least one field must be provided for update");
+      }
+
+      try {
+        await updatePunchData(
+          ctx.session.user.accessToken,
+          ctx.session.user.refreshToken,
+          input.id,
+          {
+            daSent: input.daSent,
+            evalSent: input.evalSent,
+          }
+        );
+
+        return {
+          success: true,
+          message: "Questionnaire status updated successfully",
+        };
+      } catch (error) {
+        console.error("Error updating questionnaire status:", error);
+        throw new Error(
+          `Failed to update questionnaire status: ${
+            error instanceof Error ? error.message : "Unknown error"
+          }`
+        );
       }
     }),
 });
