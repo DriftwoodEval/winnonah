@@ -10,6 +10,7 @@ import { Skeleton } from "@ui/skeleton";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@ui/tooltip";
 import { ArrowDownUp, CheckIcon, Filter, Plus } from "lucide-react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { useSession } from "next-auth/react";
 import { useCallback, useEffect, useId, useMemo, useState } from "react";
 import {
 	CLIENT_COLOR_KEYS,
@@ -17,6 +18,7 @@ import {
 	type ClientColor,
 	formatColorName,
 } from "~/lib/colors";
+import { checkRole } from "~/lib/utils";
 import { api } from "~/trpc/react";
 import { ResponsiveDialog } from "../shared/ResponsiveDialog";
 import ClientCreateForm from "./ClientCreateForm";
@@ -88,6 +90,8 @@ export function ClientsDashboard() {
 		// The `placeholderData` option keeps the old data on screen while new data is fetched.
 		placeholderData: (previousData) => previousData,
 	});
+	const { data: session } = useSession();
+	const admin = session ? checkRole(session.user.role, "admin") : false;
 
 	const clients = searchQuery?.clients;
 	const colorCounts = searchQuery?.colorCounts;
@@ -158,12 +162,14 @@ export function ClientsDashboard() {
 						}}
 					/>
 
-					<ResponsiveDialog
-						title="Create Note/Shell Client"
-						trigger={clientFormTrigger}
-					>
-						<ClientCreateForm />
-					</ResponsiveDialog>
+					{admin && (
+						<ResponsiveDialog
+							title="Create Note/Shell Client"
+							trigger={clientFormTrigger}
+						>
+							<ClientCreateForm />
+						</ResponsiveDialog>
+					)}
 
 					<Popover>
 						<PopoverTrigger asChild>
