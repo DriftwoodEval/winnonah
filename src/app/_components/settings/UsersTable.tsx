@@ -143,12 +143,17 @@ function UsersTableForm({
 							<Checkbox
 								checked={getGroupState(group.permissions)}
 								id={groupKey}
-								onCheckedChange={(checked) => {
+								onCheckedChange={() => {
+									const currentState = getGroupState(group.permissions);
+
+									// If false, become true, if checked OR indeterminate, become false
+									const newCheckedState = currentState === false;
+
 									const currentPermissions = {
 										...form.getValues("permissions"),
 									};
 									group.permissions.forEach((p) => {
-										currentPermissions[p.id] = !!checked;
+										currentPermissions[p.id] = newCheckedState;
 									});
 									form.setValue("permissions", currentPermissions, {
 										shouldDirty: true,
