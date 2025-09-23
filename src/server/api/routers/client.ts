@@ -18,11 +18,8 @@ import {
 } from "drizzle-orm";
 import { z } from "zod";
 import { CLIENT_COLOR_KEYS } from "~/lib/colors";
-import {
-  adminProcedure,
-  createTRPCRouter,
-  protectedProcedure,
-} from "~/server/api/trpc";
+import { hasPermission } from "~/lib/utils";
+import { createTRPCRouter, protectedProcedure } from "~/server/api/trpc";
 import { clients, clientsEvaluators, notes } from "~/server/db/schema";
 
 const getPriorityInfo = () => {
@@ -267,9 +264,15 @@ export const clientRouter = createTRPCRouter({
     return noPaymentMethodOrNoEligibleEvaluators;
   }),
 
-  createShell: adminProcedure
+  createShell: protectedProcedure
     .input(z.object({ firstName: z.string(), lastName: z.string() }))
     .mutation(async ({ ctx, input }) => {
+      if (!hasPermission(ctx.session.user.permissions, "clients:shell")) {
+        throw new TRPCError({
+          code: "UNAUTHORIZED",
+          message: "You do not have permission to create a shell client.",
+        });
+      }
       const id = Math.floor(10000 + Math.random() * 90000); // Random 5 digit number
       await ctx.db.insert(clients).values({
         id: id,
@@ -303,7 +306,10 @@ export const clientRouter = createTRPCRouter({
     )
     .mutation(async ({ ctx, input }) => {
       if (
-        ctx.session.user.role !== "superadmin" &&
+        !hasPermission(
+          ctx.session.user.permissions,
+          "clients:autismstop:disable"
+        ) &&
         input.autismStop === false
       ) {
         throw new TRPCError({
@@ -332,7 +338,7 @@ export const clientRouter = createTRPCRouter({
       return updatedClient;
     }),
 
-  update: adminProcedure
+  update: protectedProcedure
     .input(
       z.object({
         clientId: z.number(),
@@ -344,6 +350,37 @@ export const clientRouter = createTRPCRouter({
       })
     )
     .mutation(async ({ ctx, input }) => {
+      const unauthorizedPermissions = [
+        ...(input.color !== undefined &&
+        !hasPermission(ctx.session.user.permissions, "clients:color")
+          ? ["clients:color"]
+          : []),
+        ...(input.schoolDistrict !== undefined &&
+        !hasPermission(ctx.session.user.permissions, "clients:schooldistrict")
+          ? ["clients:schooldistrict"]
+          : []),
+        ...(input.highPriority !== undefined &&
+        !hasPermission(ctx.session.user.permissions, "clients:priority")
+          ? ["clients:priority"]
+          : []),
+        ...(input.babyNet !== undefined &&
+        !hasPermission(ctx.session.user.permissions, "clients:babynet")
+          ? ["clients:babynet"]
+          : []),
+        ...(input.eiAttends !== undefined &&
+        !hasPermission(ctx.session.user.permissions, "clients:ei")
+          ? ["clients:ei"]
+          : []),
+      ];
+      if (unauthorizedPermissions.length > 0) {
+        throw new TRPCError({
+          code: "UNAUTHORIZED",
+          message: `You do not have permission to set ${unauthorizedPermissions.join(
+            ", "
+          )}.`,
+        });
+      }
+
       const updateData: {
         color?: (typeof CLIENT_COLOR_KEYS)[number];
         schoolDistrict?: string;

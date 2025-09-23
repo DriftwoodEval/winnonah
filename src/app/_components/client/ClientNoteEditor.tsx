@@ -6,7 +6,7 @@ import { useSession } from "next-auth/react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { logger } from "~/lib/logger";
-import { checkRole } from "~/lib/utils";
+import { hasPermission } from "~/lib/utils";
 import { api } from "~/trpc/react";
 
 const log = logger.child({ module: "ClientNoteEditor" });
@@ -21,7 +21,9 @@ export function ClientNoteEditor({
 	readOnly,
 }: ClientNoteEditorProps) {
 	const { data: session } = useSession();
-	const admin = session ? checkRole(session.user.role, "admin") : false;
+	const canNote = session
+		? hasPermission(session.user.permissions, "clients:notes")
+		: false;
 
 	const utils = api.useUtils();
 
@@ -152,10 +154,10 @@ export function ClientNoteEditor({
 				<div>
 					<Input
 						className="mb-3 text-xl placeholder:text-sm disabled:opacity-100 md:text-xl"
-						disabled={!admin || readOnly}
+						disabled={!canNote || readOnly}
 						name="title"
 						onChange={(e) => {
-							if (!admin || readOnly) return;
+							if (!canNote || readOnly) return;
 							setLocalTitle(e.target.value);
 							debouncedSaveTitle(e.target.value);
 						}}
@@ -165,7 +167,7 @@ export function ClientNoteEditor({
 					<RichTextEditor
 						onChange={debouncedSaveContent}
 						placeholder="Start typing client notes..."
-						readonly={!admin || readOnly}
+						readonly={!canNote || readOnly}
 						value={note?.contentJson ?? ""}
 					/>
 				</div>

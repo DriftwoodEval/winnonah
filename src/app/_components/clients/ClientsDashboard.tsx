@@ -18,7 +18,7 @@ import {
 	type ClientColor,
 	formatColorName,
 } from "~/lib/colors";
-import { checkRole } from "~/lib/utils";
+import { hasPermission } from "~/lib/utils";
 import { api } from "~/trpc/react";
 import { ResponsiveDialog } from "../shared/ResponsiveDialog";
 import ClientCreateForm from "./ClientCreateForm";
@@ -91,7 +91,9 @@ export function ClientsDashboard() {
 		placeholderData: (previousData) => previousData,
 	});
 	const { data: session } = useSession();
-	const admin = session ? checkRole(session.user.role, "admin") : false;
+	const canShell = session
+		? hasPermission(session.user.permissions, "clients:shell")
+		: false;
 
 	const clients = searchQuery?.clients;
 	const colorCounts = searchQuery?.colorCounts;
@@ -162,7 +164,7 @@ export function ClientsDashboard() {
 						}}
 					/>
 
-					{admin && (
+					{canShell && (
 						<ResponsiveDialog
 							title="Create Note/Shell Client"
 							trigger={clientFormTrigger}

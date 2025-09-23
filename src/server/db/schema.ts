@@ -7,7 +7,7 @@ import {
 } from "drizzle-orm/mysql-core";
 import type { AdapterAccount } from "next-auth/adapters";
 import { CLIENT_COLOR_KEYS } from "~/lib/colors";
-import { userRoles } from "~/lib/types";
+import type { PermissionsObject } from "~/lib/types";
 
 /**
  * @see https://orm.drizzle.team/docs/goodies#multi-project-schema
@@ -364,10 +364,10 @@ export const users = createTable("user", (d) => ({
       fsp: 3,
     })
     .default(sql`CURRENT_TIMESTAMP(3)`),
-  role: d.mysqlEnum("role", userRoles).notNull().default("user"),
   image: d.varchar({ length: 255 }),
   evaluatorId: d.int().references(() => evaluators.npi),
   savedPlaces: d.json(),
+  permissions: d.json("permissions").$type<PermissionsObject>(),
 }));
 
 export const usersRelations = relations(users, ({ many, one }) => ({
@@ -413,7 +413,7 @@ export const accountsRelations = relations(accounts, ({ one }) => ({
 export const invitations = createTable("invitation", (d) => ({
   id: d.int().notNull().autoincrement().primaryKey(),
   email: d.varchar({ length: 255 }).notNull().unique(),
-  role: d.mysqlEnum("role", userRoles).notNull().default("user"),
+  permissions: d.json("permissions").$type<PermissionsObject>(),
   status: d
     .mysqlEnum("status", ["pending", "accepted"])
     .notNull()

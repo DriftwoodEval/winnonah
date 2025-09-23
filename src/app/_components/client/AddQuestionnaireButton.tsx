@@ -7,10 +7,12 @@ import {
 	DialogHeader,
 	DialogTitle,
 } from "@ui/dialog";
+import { useSession } from "next-auth/react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { useMediaQuery } from "~/hooks/use-media-query";
 import { logger } from "~/lib/logger";
+import { hasPermission } from "~/lib/utils";
 import { api } from "~/trpc/react";
 import {
 	ResponsiveDialog,
@@ -33,6 +35,17 @@ interface AddQuestionnaireButtonProps {
 export function AddQuestionnaireButton({
 	clientId,
 }: AddQuestionnaireButtonProps) {
+	const { data: session } = useSession();
+	const canQuestionnaires = session
+		? hasPermission(session.user.permissions, "clients:questionnaires:create")
+		: false;
+	const canBulk = session
+		? hasPermission(
+				session.user.permissions,
+				"clients:questionnaires:createbulk",
+			)
+		: false;
+
 	const addSingleQDialog = useResponsiveDialog();
 	const addBulkQDialog = useResponsiveDialog();
 	const utils = api.useUtils();
@@ -141,7 +154,7 @@ export function AddQuestionnaireButton({
 		}
 	};
 
-	const addQTrigger = (
+	const addQTrigger = canBulk ? (
 		<SplitButton
 			disabled={!clientId}
 			dropdownItems={[
@@ -149,7 +162,21 @@ export function AddQuestionnaireButton({
 			]}
 			mainButtonText={isDesktop ? "Add Questionnaire" : "Add"}
 		/>
+	) : (
+		<Button disabled={!clientId}>
+			{isDesktop ? "Add Questionnaire" : "Add"}
+		</Button>
 	);
+
+	// const addQTrigger = (
+	// 	<SplitButton
+	// 		disabled={!clientId}
+	// 		dropdownItems={[
+	// 			{ label: "Bulk Add", onClick: () => addBulkQDialog.openDialog() },
+	// 		]}
+	// 		mainButtonText={isDesktop ? "Add Questionnaire" : "Add"}
+	// 	/>
+	// );
 
 	const addQContent =
 		typeof clientId === "number" ? (

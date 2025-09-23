@@ -1,10 +1,8 @@
+import { TRPCError } from "@trpc/server";
 import { eq } from "drizzle-orm";
 import { z } from "zod";
-import {
-  adminProcedure,
-  createTRPCRouter,
-  protectedProcedure,
-} from "~/server/api/trpc";
+import { hasPermission } from "~/lib/utils";
+import { createTRPCRouter, protectedProcedure } from "~/server/api/trpc";
 import { noteHistory, notes } from "~/server/db/schema";
 
 export const noteRouter = createTRPCRouter({
@@ -24,7 +22,7 @@ export const noteRouter = createTRPCRouter({
       };
     }),
 
-  updateNote: adminProcedure
+  updateNote: protectedProcedure
     .input(
       z.object({
         noteId: z.number(),
@@ -33,6 +31,12 @@ export const noteRouter = createTRPCRouter({
       })
     )
     .mutation(async ({ ctx, input }) => {
+      if (!hasPermission(ctx.session.user.permissions, "clients:notes")) {
+        throw new TRPCError({
+          code: "UNAUTHORIZED",
+        });
+      }
+
       await ctx.db.transaction(async (tx) => {
         const currentNote = await tx.query.notes.findFirst({
           where: eq(notes.clientId, input.noteId),
@@ -67,7 +71,7 @@ export const noteRouter = createTRPCRouter({
       return { success: true };
     }),
 
-  createNote: adminProcedure
+  createNote: protectedProcedure
     .input(
       z.object({
         clientId: z.number(),
@@ -76,6 +80,12 @@ export const noteRouter = createTRPCRouter({
       })
     )
     .mutation(async ({ ctx, input }) => {
+      if (!hasPermission(ctx.session.user.permissions, "clients:notes")) {
+        throw new TRPCError({
+          code: "UNAUTHORIZED",
+        });
+      }
+
       const notePayload = {
         clientId: input.clientId,
         content: input.contentJson,

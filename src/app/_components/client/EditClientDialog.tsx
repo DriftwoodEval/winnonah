@@ -29,7 +29,7 @@ import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 import { z } from "zod";
 import { logger } from "~/lib/logger";
-import { checkRole, cn } from "~/lib/utils";
+import { cn, hasPermission } from "~/lib/utils";
 import type { Client } from "~/server/lib/types";
 import { api } from "~/trpc/react";
 import {
@@ -70,9 +70,20 @@ function ClientForm({
 		api.evaluators.getAllSchoolDistricts.useQuery();
 
 	const { data: session } = useSession();
-	const admin = session ? checkRole(session.user.role, "admin") : false;
-	const superadmin = session
-		? checkRole(session.user.role, "superadmin")
+	const canDistrict = session
+		? hasPermission(session.user.permissions, "clients:schooldistrict")
+		: false;
+	const canPriority = session
+		? hasPermission(session.user.permissions, "clients:priority")
+		: false;
+	const canBabyNet = session
+		? hasPermission(session.user.permissions, "clients:babynet")
+		: false;
+	const canSetEI = session
+		? hasPermission(session.user.permissions, "clients:ei")
+		: false;
+	const canAutismStopDisable = session
+		? hasPermission(session.user.permissions, "clients:autismstop:disable")
 		: false;
 
 	const defaultValues = useMemo(() => {
@@ -108,7 +119,7 @@ function ClientForm({
 								onOpenChange={setDistrictsOpen}
 								open={districtsOpen}
 							>
-								<PopoverTrigger asChild disabled={!admin}>
+								<PopoverTrigger asChild disabled={!canDistrict}>
 									<FormControl>
 										<Button
 											className={cn(
@@ -178,7 +189,7 @@ function ClientForm({
 								<FormControl>
 									<Checkbox
 										checked={field.value}
-										disabled={!admin}
+										disabled={!canPriority}
 										onCheckedChange={field.onChange}
 									/>
 								</FormControl>
@@ -196,7 +207,7 @@ function ClientForm({
 								<FormControl>
 									<Checkbox
 										checked={field.value}
-										disabled={!superadmin && field.value}
+										disabled={!canAutismStopDisable && field.value}
 										onCheckedChange={field.onChange}
 									/>
 								</FormControl>
@@ -220,7 +231,7 @@ function ClientForm({
 									<FormControl>
 										<Checkbox
 											checked={field.value}
-											disabled={!admin}
+											disabled={!canBabyNet}
 											onCheckedChange={field.onChange}
 										/>
 									</FormControl>
@@ -244,7 +255,7 @@ function ClientForm({
 									<FormControl>
 										<Checkbox
 											checked={field.value}
-											disabled={!admin}
+											disabled={!canSetEI}
 											onCheckedChange={field.onChange}
 										/>
 									</FormControl>

@@ -17,7 +17,7 @@ import {
 	type ClientColor,
 	formatColorName,
 } from "~/lib/colors";
-import { checkRole } from "~/lib/utils";
+import { hasPermission } from "~/lib/utils";
 import type { Client } from "~/server/lib/types";
 import { api } from "~/trpc/react";
 import { ClientEditButton } from "./EditClientDialog";
@@ -38,7 +38,12 @@ export function ClientHeader({
 	readOnly,
 }: ClientHeaderProps) {
 	const { data: session } = useSession();
-	const admin = session ? checkRole(session.user.role, "admin") : false;
+	const canMerge = session
+		? hasPermission(session.user.permissions, "clients:merge")
+		: false;
+	const canColor = session
+		? hasPermission(session.user.permissions, "clients:color")
+		: false;
 
 	const { data: punchFor } = api.google.getFor.useQuery(
 		String(client?.id) ?? "",
@@ -80,8 +85,7 @@ export function ClientHeader({
 						{!readOnly && client.id.toString().length !== 5 && (
 							<ClientEditButton client={client} />
 						)}
-						{admin &&
-							!readOnly &&
+						{!readOnly &&
 							client.id.toString().length !== 5 &&
 							client.driveId && <Separator orientation="vertical" />}
 						{client.driveId && (
@@ -125,11 +129,11 @@ export function ClientHeader({
 					{client.eiAttends && <Badge variant="secondary">EI Attends</Badge>}
 				</div>
 
-				{client.id.toString().length === 5 && !readOnly && (
+				{client.id.toString().length === 5 && !readOnly && canMerge && (
 					<>
 						<Separator orientation="vertical" />
 						<Link href={`/clients/merge`}>
-							<Button disabled={!admin}>Merge with Real Client</Button>
+							<Button>Merge with Real Client</Button>
 						</Link>
 					</>
 				)}
@@ -151,13 +155,13 @@ export function ClientHeader({
 				{client.id.toString().length !== 5 && currentHexColor && (
 					<Separator orientation="vertical" />
 				)}
-				{client.id.toString().length !== 5 && currentHexColor && admin ? (
+				{client.id.toString().length !== 5 && currentHexColor && canColor ? (
 					<Popover onOpenChange={setIsColorOpen} open={isColorOpen}>
 						<PopoverTrigger asChild>
 							<button
 								aria-label={`Current color: ${formatColorName(selectedColor)}`}
 								className="h-5 w-5 rounded-full"
-								disabled={!admin || readOnly}
+								disabled={readOnly}
 								style={{ background: currentHexColor }}
 								tabIndex={0}
 								type="button"

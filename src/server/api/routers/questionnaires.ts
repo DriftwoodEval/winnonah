@@ -1,12 +1,8 @@
 import { TRPCError } from "@trpc/server";
 import { and, asc, desc, eq, gte } from "drizzle-orm";
 import { z } from "zod";
-import { formatClientAge } from "~/lib/utils";
-import {
-  adminProcedure,
-  createTRPCRouter,
-  protectedProcedure,
-} from "~/server/api/trpc";
+import { formatClientAge, hasPermission } from "~/lib/utils";
+import { createTRPCRouter, protectedProcedure } from "~/server/api/trpc";
 import { clients, questionnaires } from "~/server/db/schema";
 
 interface QuestionnaireDetails {
@@ -145,7 +141,7 @@ export const questionnaireRouter = createTRPCRouter({
       return formattedQuestionnaires ?? null;
     }),
 
-  addQuestionnaire: adminProcedure
+  addQuestionnaire: protectedProcedure
     .input(
       z.object({
         clientId: z.number(),
@@ -160,6 +156,16 @@ export const questionnaireRouter = createTRPCRouter({
       })
     )
     .mutation(async ({ ctx, input }) => {
+      if (
+        !hasPermission(
+          ctx.session.user.permissions,
+          "clients:questionnaires:create"
+        )
+      ) {
+        throw new TRPCError({
+          code: "UNAUTHORIZED",
+        });
+      }
       const client = await ctx.db.query.clients.findFirst({
         where: eq(clients.id, input.clientId),
       });
@@ -192,7 +198,7 @@ export const questionnaireRouter = createTRPCRouter({
       return newQuestionnaire;
     }),
 
-  addBulkQuestionnaires: adminProcedure
+  addBulkQuestionnaires: protectedProcedure
     .input(
       z.object({
         clientId: z.number(),
@@ -200,6 +206,16 @@ export const questionnaireRouter = createTRPCRouter({
       })
     )
     .mutation(async ({ ctx, input }) => {
+      if (
+        !hasPermission(
+          ctx.session.user.permissions,
+          "clients:questionnaires:createbulk"
+        )
+      ) {
+        throw new TRPCError({
+          code: "UNAUTHORIZED",
+        });
+      }
       const client = await ctx.db.query.clients.findFirst({
         where: eq(clients.id, input.clientId),
       });
@@ -276,6 +292,17 @@ export const questionnaireRouter = createTRPCRouter({
       })
     )
     .mutation(async ({ ctx, input }) => {
+      if (
+        !hasPermission(
+          ctx.session.user.permissions,
+          "clients:questionnaires:create"
+        )
+      ) {
+        throw new TRPCError({
+          code: "UNAUTHORIZED",
+        });
+      }
+
       await ctx.db
         .update(questionnaires)
         .set({
@@ -292,6 +319,17 @@ export const questionnaireRouter = createTRPCRouter({
   deleteQuestionnaire: protectedProcedure
     .input(z.object({ id: z.number() }))
     .mutation(async ({ ctx, input }) => {
+      if (
+        !hasPermission(
+          ctx.session.user.permissions,
+          "clients:questionnaires:create"
+        )
+      ) {
+        throw new TRPCError({
+          code: "UNAUTHORIZED",
+        });
+      }
+
       await ctx.db
         .delete(questionnaires)
         .where(eq(questionnaires.id, input.id));

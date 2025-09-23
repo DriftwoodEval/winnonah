@@ -1,8 +1,82 @@
 import type { InferSelectModel } from "drizzle-orm";
+import z from "zod";
 import type { clients } from "~/server/db/schema";
 
-export const userRoles = ["user", "evaluator", "admin", "superadmin"] as const;
-export type UserRole = (typeof userRoles)[number];
+export const permissions = {
+  clients: {
+    title: "Client Management",
+    permissions: [
+      { id: "clients:notes", title: "Edit Client Note Title & Content" },
+      { id: "clients:priority", title: "Edit High Priority Status" },
+      { id: "clients:color", title: "Edit Client Color" },
+      { id: "clients:babynet", title: "Edit BabyNet Status" },
+      { id: "clients:ei", title: "Edit EI Attends Status" },
+      { id: "clients:schooldistrict", title: "Edit School District" },
+      { id: "clients:shell", title: "Create Fake/Shell Client Notes" },
+      { id: "clients:merge", title: "Merge with Real Client Record" },
+      { id: "clients:autismstop:enable", title: "Enable Autism Stop" },
+      { id: "clients:autismstop:disable", title: "Disable Autism Stop" },
+      { id: "clients:questionnaires:create", title: "Create Questionnaires" },
+      {
+        id: "clients:questionnaires:createbulk",
+        title: "Create Bulk Questionnaires",
+      },
+    ],
+  },
+  system: {
+    title: "System Settings",
+    permissions: [
+      { id: "settings:users:edit", title: "Edit Users" },
+      { id: "settings:users:invite", title: "Invite Users" },
+      { id: "settings:evaluators", title: "Manage Evaluators" },
+    ],
+  },
+} as const;
+
+export type PermissionId =
+  (typeof permissions)[keyof typeof permissions]["permissions"][number]["id"];
+export type PermissionsObject = Partial<Record<PermissionId, boolean>>;
+export const permissionsSchema = z.record(z.string(), z.boolean().optional());
+
+const allPermissionIds = Object.values(permissions).flatMap((group) =>
+  group.permissions.map((p) => p.id)
+);
+const basePermissions = Object.fromEntries(
+  allPermissionIds.map((id) => [id, false])
+);
+
+export const permissionPresets = [
+  {
+    value: "user",
+    label: "User",
+    permissions: { ...basePermissions, "clients:autismstop:enable": true },
+  },
+  {
+    value: "admin",
+    label: "Admin",
+    permissions: {
+      ...basePermissions,
+      "clients:autismstop:enable": true,
+      "clients:notes": true,
+      "clients:priority": true,
+      "clients:color": true,
+      "clients:babynet": true,
+      "clients:ei": true,
+      "clients:schooldistrict": true,
+      "clients:shell": true,
+      "clients:merge": true,
+      "clients:questionnaires:create": true,
+      "settings:users:edit": true,
+      "settings:users:invite": true,
+      "settings:evaluators": true,
+    },
+  },
+  {
+    value: "superadmin",
+    label: "Super Admin",
+    permissions: Object.fromEntries(allPermissionIds.map((id) => [id, true])),
+  },
+];
 
 export type PunchClient = {
   "Client Name": string | undefined;

@@ -1,12 +1,10 @@
+import { TRPCError } from "@trpc/server";
 import { eq, sql } from "drizzle-orm";
 import z from "zod";
 import { logger } from "~/lib/logger";
+import { hasPermission } from "~/lib/utils";
 import { createCaller } from "~/server/api/root";
-import {
-  adminProcedure,
-  createTRPCRouter,
-  protectedProcedure,
-} from "~/server/api/trpc";
+import { createTRPCRouter, protectedProcedure } from "~/server/api/trpc";
 import {
   blockedSchoolDistricts,
   blockedZipCodes,
@@ -110,14 +108,19 @@ export const evaluatorRouter = createTRPCRouter({
       return correctedEvaluatorsByClient;
     }),
 
-  create: adminProcedure
+  create: protectedProcedure
     .input(
       z.object({
-        addInvite: z.boolean().optional(),
         ...evaluatorInputSchema.shape,
       })
     )
     .mutation(async ({ ctx, input }) => {
+      if (!hasPermission(ctx.session.user.permissions, "settings:evaluators")) {
+        throw new TRPCError({
+          code: "UNAUTHORIZED",
+        });
+      }
+
       const npiAsInt = parseInt(input.npi, 10);
       const { offices, blockedDistricts, blockedZips, ...evaluatorData } =
         input;
@@ -165,23 +168,20 @@ export const evaluatorRouter = createTRPCRouter({
         }
       });
 
-      const caller = createCaller(ctx);
-
-      if (input.addInvite) {
-        await caller.users.createInvitation({
-          email: input.email,
-          role: "evaluator",
-        });
-      }
-
       await invalidateCache(ctx, CACHE_KEY_ALL_EVALUATORS);
 
       return result;
     }),
 
-  update: adminProcedure
+  update: protectedProcedure
     .input(evaluatorInputSchema)
     .mutation(async ({ ctx, input }) => {
+      if (!hasPermission(ctx.session.user.permissions, "settings:evaluators")) {
+        throw new TRPCError({
+          code: "UNAUTHORIZED",
+        });
+      }
+
       const npiAsInt = parseInt(input.npi, 10);
       const { offices, blockedDistricts, blockedZips, ...evaluatorData } =
         input;
@@ -245,9 +245,15 @@ export const evaluatorRouter = createTRPCRouter({
       return result;
     }),
 
-  delete: adminProcedure
+  delete: protectedProcedure
     .input(z.object({ npi: z.string() }))
     .mutation(async ({ ctx, input }) => {
+      if (!hasPermission(ctx.session.user.permissions, "settings:evaluators")) {
+        throw new TRPCError({
+          code: "UNAUTHORIZED",
+        });
+      }
+
       const npiAsInt = parseInt(input.npi, 10);
 
       await ctx.db.delete(evaluators).where(eq(evaluators.npi, npiAsInt));

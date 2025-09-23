@@ -1,32 +1,17 @@
 import { type ClassValue, clsx } from "clsx";
 import { twMerge } from "tailwind-merge";
-import { type UserRole, userRoles } from "./types";
+import type { PermissionId, PermissionsObject } from "./types";
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
-/**
- * Checks if a user's role is sufficient to access a protected resource.
- * @param userRole The role of the current user.
- * @param requiredRole The minimum role required for access.
- * @returns boolean
- */
-export const checkRole = (
-  userRole: UserRole,
-  requiredRole: UserRole
-): boolean => {
-  const userRoleIndex = userRoles.indexOf(userRole);
-  const requiredRoleIndex = userRoles.indexOf(requiredRole);
-
-  // If a role is not found, treat it as an insufficient permission.
-  if (userRoleIndex === -1 || requiredRoleIndex === -1) {
-    return false;
-  }
-
-  // A user's role is sufficient if its index is greater than or equal to the required role's index.
-  return userRoleIndex >= requiredRoleIndex;
-};
+export function hasPermission(
+  userPerms: PermissionsObject,
+  permission: PermissionId
+): boolean {
+  return !!userPerms[permission];
+}
 
 /**
  * Format a client's age given their date of birth.

@@ -11,10 +11,10 @@ import {
 import Link from "next/link";
 import { useSession } from "next-auth/react";
 import {
-	checkRole,
 	cn,
 	getReminderColorClass,
 	getStatusColorClass,
+	hasPermission,
 } from "~/lib/utils";
 import { api } from "~/trpc/react";
 import { AddQuestionnaireButton } from "./AddQuestionnaireButton";
@@ -30,7 +30,9 @@ export function QuestionnairesSent({
 	readOnly,
 }: QuestionnairesSentProps) {
 	const { data: session } = useSession();
-	const admin = session ? checkRole(session.user.role, "admin") : false;
+	const canQuestionnaires = session
+		? hasPermission(session.user.permissions, "clients:questionnaires:create")
+		: false;
 
 	const { data: questionnairesSent, isLoading: isLoadingQuestionnaires } =
 		api.questionnaires.getSentQuestionnaires.useQuery(clientId ?? 0, {
@@ -56,13 +58,17 @@ export function QuestionnairesSent({
 				<h4 className="hidden font-bold leading-none sm:block">
 					Questionnaires Sent
 				</h4>
-				{admin && !readOnly && <AddQuestionnaireButton clientId={clientId} />}
+				{canQuestionnaires && !readOnly && (
+					<AddQuestionnaireButton clientId={clientId} />
+				)}
 			</div>
 			<div className="px-4 pb-4">
 				<Table className="text-xs">
 					<TableHeader>
 						<TableRow>
-							{admin && !readOnly && <TableHead className="w-2.5"></TableHead>}
+							{canQuestionnaires && !readOnly && (
+								<TableHead className="w-2.5"></TableHead>
+							)}
 							<TableHead className="hidden w-20 sm:table-cell">Date</TableHead>
 							<TableHead className="hidden w-20 sm:table-cell">Type</TableHead>
 							<TableHead className="w-20">Link</TableHead>
@@ -80,7 +86,7 @@ export function QuestionnairesSent({
 						)}
 						{questionnairesSent?.map((questionnaire) => (
 							<TableRow key={questionnaire.id}>
-								{admin && !readOnly && (
+								{canQuestionnaires && !readOnly && (
 									<TableCell>
 										<QuestionnaireActionsMenu questionnaire={questionnaire} />
 									</TableCell>

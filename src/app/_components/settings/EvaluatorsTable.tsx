@@ -55,7 +55,7 @@ import { toast } from "sonner";
 import { z } from "zod";
 import { useMediaQuery } from "~/hooks/use-media-query";
 import { logger } from "~/lib/logger";
-import { checkRole } from "~/lib/utils";
+import { hasPermission } from "~/lib/utils";
 import type { Evaluator } from "~/server/lib/types";
 import { api } from "~/trpc/react";
 
@@ -95,7 +95,6 @@ const formSchema = z.object({
 	blockedZips: z.array(
 		z.string().regex(/^\d{5}$/, "Must be a 5-digit zip code"),
 	),
-	addInvite: z.boolean().optional(),
 });
 
 type EvaluatorFormValues = z.infer<typeof formSchema>;
@@ -143,7 +142,6 @@ function EvaluatorForm({
 				npi: initialData.npi.toString(),
 				providerName: initialData.providerName,
 				email: initialData.email,
-				addInvite: undefined,
 				SCM: initialData.SCM,
 				BabyNet: initialData.BabyNet,
 				Molina: initialData.Molina,
@@ -164,7 +162,6 @@ function EvaluatorForm({
 			npi: "",
 			providerName: "",
 			email: "",
-			addInvite: false,
 			SCM: false,
 			BabyNet: false,
 			Molina: false,
@@ -243,22 +240,6 @@ function EvaluatorForm({
 									/>
 								</FormControl>
 								<FormMessage />
-							</FormItem>
-						)}
-					/>
-					<FormField
-						control={form.control}
-						name="addInvite"
-						render={({ field }) => (
-							<FormItem className="flex w-1/3 pt-6">
-								<FormControl>
-									<Checkbox
-										checked={field.value as boolean}
-										disabled={isLoading || isEditing}
-										onCheckedChange={field.onChange}
-									/>
-								</FormControl>
-								<FormLabel className="font-normal">Add to users</FormLabel>
 							</FormItem>
 						)}
 					/>
@@ -591,7 +572,9 @@ function EvaluatorActionsMenu({ evaluator }: { evaluator: Evaluator }) {
 
 export default function EvaluatorsTable() {
 	const { data: session } = useSession();
-	const isAdmin = session ? checkRole(session.user.role, "admin") : false;
+	const canEdit = session
+		? hasPermission(session.user.permissions, "settings:evaluators")
+		: false;
 	const { data: evaluators, isLoading } = api.evaluators.getAll.useQuery();
 
 	console.log(evaluators);
@@ -615,7 +598,7 @@ export default function EvaluatorsTable() {
 	// Helper for loading/empty states to avoid repetition
 	const renderTableMessage = (message: string) => (
 		<TableRow>
-			<TableCell className="h-24 text-center" colSpan={isAdmin ? 7 : 6}>
+			<TableCell className="h-24 text-center" colSpan={canEdit ? 7 : 6}>
 				{message}
 			</TableCell>
 		</TableRow>
@@ -625,14 +608,14 @@ export default function EvaluatorsTable() {
 		<div className="px-4">
 			<div className="flex items-center justify-between pb-4">
 				<h3 className="font-bold text-lg">Evaluators</h3>
-				{isAdmin && <AddEvaluatorButton />}
+				{canEdit && <AddEvaluatorButton />}
 			</div>
 			{/* Table for Medium Screens and Up (md:) */}
 			<div className="hidden md:block">
 				<Table>
 					<TableHeader>
 						<TableRow className="hover:bg-transparent">
-							{isAdmin && <TableHead className="w-[50px]"></TableHead>}
+							{canEdit && <TableHead className="w-[50px]"></TableHead>}
 							<TableHead>NPI</TableHead>
 							<TableHead>Provider Name</TableHead>
 							<TableHead className="hidden lg:table-cell">Email</TableHead>
@@ -650,7 +633,7 @@ export default function EvaluatorsTable() {
 											className="hover:bg-transparent"
 											key={evaluator.npi}
 										>
-											{isAdmin && (
+											{canEdit && (
 												<TableCell>
 													<EvaluatorActionsMenu evaluator={evaluator} />
 												</TableCell>
@@ -760,7 +743,7 @@ export default function EvaluatorsTable() {
 										{evaluator.email}
 									</Link>
 								</div>
-								{isAdmin && <EvaluatorActionsMenu evaluator={evaluator} />}
+								{canEdit && <EvaluatorActionsMenu evaluator={evaluator} />}
 							</div>
 							<div>
 								<h5 className="mb-1 font-medium text-sm">Insurance</h5>

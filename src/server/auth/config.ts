@@ -2,7 +2,7 @@ import { DrizzleAdapter } from "@auth/drizzle-adapter";
 import { and, eq } from "drizzle-orm/sql";
 import type { DefaultSession, NextAuthConfig } from "next-auth";
 import GoogleProvider from "next-auth/providers/google";
-import type { UserRole } from "~/lib/types";
+import type { PermissionsObject } from "~/lib/types";
 
 import { db } from "~/server/db";
 import {
@@ -27,13 +27,13 @@ declare module "next-auth" {
       id: string;
       accessToken?: string;
       refreshToken?: string;
-      role: UserRole;
+      permissions: PermissionsObject;
       evaluatorId?: number | null;
     } & DefaultSession["user"];
   }
 
   interface User {
-    role: UserRole;
+    permissions: PermissionsObject;
     evaluatorId?: number | null;
   }
 }
@@ -96,7 +96,7 @@ export const authConfig = {
       });
 
       if (invitation) {
-        user.role = invitation.role as UserRole;
+        user.permissions = invitation.permissions as PermissionsObject;
 
         await db
           .update(invitations)
@@ -106,7 +106,7 @@ export const authConfig = {
           })
           .where(eq(invitations.id, invitation.id));
       } else {
-        user.role = "user";
+        user.permissions = "{}" as PermissionsObject;
       }
 
       return true;
@@ -129,7 +129,7 @@ export const authConfig = {
 
       if (user) {
         session.user.id = user.id;
-        session.user.role = user.role;
+        session.user.permissions = user.permissions;
         session.user.evaluatorId = user.evaluatorId;
       }
       return session;

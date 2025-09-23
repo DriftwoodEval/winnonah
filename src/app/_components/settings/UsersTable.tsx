@@ -3,7 +3,7 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Avatar, AvatarFallback, AvatarImage } from "@ui/avatar";
 import { Button } from "@ui/button";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@ui/dialog";
+import { Checkbox } from "@ui/checkbox";
 import {
 	DropdownMenu,
 	DropdownMenuContent,
@@ -36,21 +36,27 @@ import {
 import { MoreHorizontal } from "lucide-react";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 import { z } from "zod";
 import { useMediaQuery } from "~/hooks/use-media-query";
 import { logger } from "~/lib/logger";
-import { userRoles } from "~/lib/types";
-import { checkRole } from "~/lib/utils";
+import {
+	type PermissionsObject,
+	permissionPresets,
+	permissions,
+	permissionsSchema,
+} from "~/lib/types";
+import { hasPermission } from "~/lib/utils";
 import type { User } from "~/server/lib/types";
 import { api } from "~/trpc/react";
+import { ResponsiveDialog } from "../shared/ResponsiveDialog";
 
 const log = logger.child({ module: "UsersTable" });
 
 const formSchema = z.object({
-	role: z.enum(userRoles),
+	permissions: permissionsSchema,
 });
 
 type UsersTableFormValues = z.infer<typeof formSchema>;
@@ -72,44 +78,117 @@ function UsersTableForm({
 	const form = useForm<UsersTableFormValues>({
 		resolver: zodResolver(formSchema),
 		defaultValues: {
-			role: initialData?.role ?? undefined,
+			permissions: {},
 		},
 	});
 
+	const watchedPermissions = form.watch("permissions");
+	const { setValue } = form;
+
+	useEffect(() => {
+		if (initialData?.permissions) {
+			setValue("permissions", initialData.permissions as PermissionsObject);
+		}
+	}, [initialData, setValue]);
+
+	const getGroupState = (
+		groupPermissions: readonly { id: string; title: string }[],
+	) => {
+		const allChecked = groupPermissions.every(
+			(p) => watchedPermissions?.[p.id],
+		);
+		const anyChecked = groupPermissions.some((p) => watchedPermissions?.[p.id]);
+
+		if (allChecked) return true;
+		if (anyChecked) return "indeterminate";
+		return false;
+	};
+
+	const handlePresetChange = (presetValue: string) => {
+		const selectedPreset = permissionPresets.find(
+			(p) => p.value === presetValue,
+		);
+		if (selectedPreset) {
+			form.setValue("permissions", selectedPreset.permissions, {
+				shouldDirty: true,
+				shouldValidate: true,
+			});
+		}
+	};
+
 	return (
 		<Form {...form}>
-			<form className="space-y-6" onSubmit={form.handleSubmit(onSubmit)}>
-				<div className="flex flex-wrap justify-between">
-					<FormField
-						control={form.control}
-						name="role"
-						render={({ field }) => (
-							<FormItem>
-								<FormLabel>Role</FormLabel>
-								<Select
-									defaultValue={field.value}
-									onValueChange={field.onChange}
-								>
-									<FormControl>
-										<SelectTrigger>
-											<SelectValue />
-										</SelectTrigger>
-									</FormControl>
-									<SelectContent>
-										{Object.entries(userRoles).map(([key, value]) => (
-											<SelectItem key={key} value={value}>
-												{value.charAt(0).toUpperCase() + value.slice(1)}
-											</SelectItem>
-										))}
-									</SelectContent>
-								</Select>
-
-								<FormMessage />
-							</FormItem>
-						)}
-					/>
+			<form
+				className="relative space-y-6"
+				onSubmit={form.handleSubmit(onSubmit)}
+			>
+				<div className="relative w-full sm:absolute sm:flex sm:justify-end">
+					<Select onValueChange={handlePresetChange}>
+						<SelectTrigger className="w-full sm:w-fit">
+							<SelectValue placeholder="Select a preset..." />
+						</SelectTrigger>
+						<SelectContent>
+							{permissionPresets.map((preset) => (
+								<SelectItem key={preset.value} value={preset.value}>
+									{preset.label}
+								</SelectItem>
+							))}
+						</SelectContent>
+					</Select>
 				</div>
+				{Object.entries(permissions).map(([groupKey, group]) => (
+					<div key={groupKey}>
+						{/* Group Checkbox */}
+						<div className="mb-3 flex items-center space-x-2">
+							<Checkbox
+								checked={getGroupState(group.permissions)}
+								id={groupKey}
+								onCheckedChange={(checked) => {
+									const currentPermissions = {
+										...form.getValues("permissions"),
+									};
+									group.permissions.forEach((p) => {
+										currentPermissions[p.id] = !!checked;
+									});
+									form.setValue("permissions", currentPermissions, {
+										shouldDirty: true,
+										shouldValidate: true,
+									});
+								}}
+							/>
+							<FormLabel className="font-semibold text-lg" htmlFor={groupKey}>
+								{group.title}
+							</FormLabel>
+						</div>
 
+						{/* Individual Checkboxes */}
+						<div className="ml-8 space-y-2">
+							{group.permissions.map((p) => (
+								<FormField
+									control={form.control}
+									key={p.id}
+									name={`permissions.${p.id}`}
+									render={({ field }) => (
+										<FormItem>
+											<div className="flex items-center space-x-2">
+												<FormControl>
+													<Checkbox
+														checked={field.value}
+														id={p.id}
+														onCheckedChange={field.onChange}
+													/>
+												</FormControl>
+												<FormLabel htmlFor={p.id}>{p.title}</FormLabel>
+											</div>
+											<FormMessage />
+										</FormItem>
+									)}
+								/>
+							))}
+						</div>
+					</div>
+				))}
+				{/* Submit and Cancel Buttons */}
 				<div className="flex justify-end gap-2">
 					<Button onClick={onFinished} type="button" variant="ghost">
 						Cancel
@@ -125,6 +204,7 @@ function UsersTableForm({
 
 function UsersTableActionsMenu({ user }: { user: User }) {
 	const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+	const utils = api.useUtils();
 
 	const isDesktop = useMediaQuery("(min-width: 768px)");
 	const alignValue = isDesktop ? "start" : "end";
@@ -132,6 +212,7 @@ function UsersTableActionsMenu({ user }: { user: User }) {
 	const { mutate: updateUser, isPending: isUpdating } =
 		api.users.updateUser.useMutation({
 			onSuccess: () => {
+				utils.users.getAll.invalidate();
 				setIsEditDialogOpen(false);
 			},
 			onError: (error) => {
@@ -147,7 +228,6 @@ function UsersTableActionsMenu({ user }: { user: User }) {
 			userId: user.id,
 			...values,
 		});
-		window.location.reload();
 	};
 
 	return (
@@ -166,26 +246,27 @@ function UsersTableActionsMenu({ user }: { user: User }) {
 				</DropdownMenuContent>
 			</DropdownMenu>
 
-			<Dialog onOpenChange={setIsEditDialogOpen} open={isEditDialogOpen}>
-				<DialogContent>
-					<DialogHeader>
-						<DialogTitle>Edit User</DialogTitle>
-					</DialogHeader>
-					<UsersTableForm
-						initialData={user}
-						isLoading={isUpdating}
-						onFinished={() => setIsEditDialogOpen(false)}
-						onSubmit={handleEditSubmit}
-					/>
-				</DialogContent>
-			</Dialog>
+			<ResponsiveDialog
+				open={isEditDialogOpen}
+				setOpen={setIsEditDialogOpen}
+				title="Create Invite"
+			>
+				<UsersTableForm
+					initialData={user}
+					isLoading={isUpdating}
+					onFinished={() => setIsEditDialogOpen(false)}
+					onSubmit={handleEditSubmit}
+				/>
+			</ResponsiveDialog>
 		</>
 	);
 }
 
 export default function UsersTable() {
 	const { data: session } = useSession();
-	const admin = session ? checkRole(session.user.role, "admin") : false;
+	const canEdit = session
+		? hasPermission(session.user.permissions, "settings:users:edit")
+		: false;
 
 	const { data: users, isLoading: isLoadingUsers } =
 		api.users.getAll.useQuery();
@@ -206,24 +287,23 @@ export default function UsersTable() {
 				<Table>
 					<TableHeader>
 						<TableRow>
-							{admin && <TableHead className="w-[20px]"></TableHead>}
+							{canEdit && <TableHead className="w-[20px]"></TableHead>}
 							<TableHead className="w-[20px]"></TableHead>
 							<TableHead>Name</TableHead>
 							<TableHead>Email</TableHead>
-							<TableHead>Role</TableHead>
 						</TableRow>
 					</TableHeader>
 					<TableBody>
 						{isLoadingUsers ? (
 							<TableRow>
-								<TableCell className="text-center" colSpan={admin ? 5 : 4}>
+								<TableCell className="text-center" colSpan={canEdit ? 5 : 4}>
 									Loading...
 								</TableCell>
 							</TableRow>
 						) : users && users.length > 0 ? (
 							users.map((user) => (
 								<TableRow key={user.id}>
-									{admin && (
+									{canEdit && (
 										<TableCell>
 											<UsersTableActionsMenu user={user} />
 										</TableCell>
@@ -243,12 +323,11 @@ export default function UsersTable() {
 											{user.email}
 										</Link>
 									</TableCell>
-									<TableCell className="capitalize">{user.role}</TableCell>
 								</TableRow>
 							))
 						) : (
 							<TableRow>
-								<TableCell className="text-center" colSpan={admin ? 5 : 4}>
+								<TableCell className="text-center" colSpan={canEdit ? 5 : 4}>
 									No users found.
 								</TableCell>
 							</TableRow>
@@ -268,7 +347,7 @@ export default function UsersTable() {
 							key={user.id}
 						>
 							<div className="absolute top-2 right-2">
-								{admin && <UsersTableActionsMenu user={user} />}
+								{canEdit && <UsersTableActionsMenu user={user} />}
 							</div>
 							<div className="flex items-start justify-between">
 								<div className="flex items-center gap-4">
@@ -285,12 +364,6 @@ export default function UsersTable() {
 										</p>
 									</div>
 								</div>
-							</div>
-							<div className="mt-4 border-t pt-4">
-								<dl className="flex justify-between text-sm">
-									<dt className="text-muted-foreground">Role</dt>
-									<dd className="font-medium capitalize">{user.role}</dd>
-								</dl>
 							</div>
 						</div>
 					))

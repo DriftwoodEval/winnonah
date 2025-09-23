@@ -1,12 +1,9 @@
 import { TRPCError } from "@trpc/server";
 import { eq } from "drizzle-orm";
 import z from "zod";
-import { type UserRole, userRoles } from "~/lib/types";
-import {
-  adminProcedure,
-  createTRPCRouter,
-  protectedProcedure,
-} from "~/server/api/trpc";
+import { type PermissionsObject, permissionsSchema } from "~/lib/types";
+import { hasPermission } from "~/lib/utils";
+import { createTRPCRouter, protectedProcedure } from "~/server/api/trpc";
 import { invitations, users } from "~/server/db/schema";
 export const userRouter = createTRPCRouter({
   getAll: protectedProcedure.query(async ({ ctx }) => {
@@ -34,41 +31,44 @@ export const userRouter = createTRPCRouter({
       return user;
     }),
 
-  updateUser: adminProcedure
+  updateUser: protectedProcedure
     .input(
       z.object({
         userId: z.string(),
-        role: z.enum(userRoles).optional(),
+        permissions: permissionsSchema.optional(),
       })
     )
     .mutation(async ({ ctx, input }) => {
-      const updateData: { role?: UserRole } = {};
+      if (!hasPermission(ctx.session.user.permissions, "settings:users:edit")) {
+        throw new TRPCError({
+          code: "UNAUTHORIZED",
+        });
+      }
 
-      if (input.role !== undefined) updateData.role = input.role;
+      const updateData: { permissions?: PermissionsObject } = {};
+
+      if (input.permissions !== undefined)
+        updateData.permissions = input.permissions;
+
+      if (Object.keys(updateData).length === 0) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "No data provided to update.",
+        });
+      }
 
       await ctx.db
         .update(users)
         .set(updateData)
         .where(eq(users.id, input.userId));
-
-      const updatedUser = await ctx.db.query.users.findFirst({
-        where: eq(users.id, input.userId),
-      });
-
-      if (!updatedUser) {
-        throw new TRPCError({
-          code: "NOT_FOUND",
-          message: `User with ID ${input.userId} not found`,
-        });
-      }
-
-      return updatedUser;
     }),
 
-  createInvitation: adminProcedure
-    .input(z.object({ email: z.email(), role: z.enum(userRoles) }))
+  createInvitation: protectedProcedure
+    .input(z.object({ email: z.email(), permissions: permissionsSchema }))
     .mutation(async ({ ctx, input }) => {
-      if (ctx.session.user.role !== "superadmin") {
+      if (
+        !hasPermission(ctx.session.user.permissions, "settings:users:invite")
+      ) {
         throw new TRPCError({
           code: "UNAUTHORIZED",
         });
@@ -76,7 +76,7 @@ export const userRouter = createTRPCRouter({
 
       await ctx.db
         .insert(invitations)
-        .values({ email: input.email, role: input.role });
+        .values({ email: input.email, permissions: input.permissions });
 
       return {
         success: true,
@@ -85,24 +85,33 @@ export const userRouter = createTRPCRouter({
     }),
 
   getPendingInvitations: protectedProcedure.query(async ({ ctx }) => {
-    const pendingInvitations = await ctx.db.query.invitations.findMany({
+    return await ctx.db.query.invitations.findMany({
       where: eq(invitations.status, "pending"),
       orderBy: (invitations, { desc }) => [desc(invitations.createdAt)],
     });
-    return pendingInvitations;
   }),
 
-  deleteInvitation: adminProcedure
+  deleteInvitation: protectedProcedure
     .input(
       z.object({
         id: z.number(),
       })
     )
-    .mutation(async ({ ctx, input }) => ({
-      success: await ctx.db
-        .delete(invitations)
-        .where(eq(invitations.id, input.id)),
-    })),
+    .mutation(async ({ ctx, input }) => {
+      if (
+        !hasPermission(ctx.session.user.permissions, "settings:users:invite")
+      ) {
+        throw new TRPCError({
+          code: "UNAUTHORIZED",
+        });
+      }
+
+      return {
+        success: await ctx.db
+          .delete(invitations)
+          .where(eq(invitations.id, input.id)),
+      };
+    }),
 
   getSavedPlaces: protectedProcedure.query(async ({ ctx }) => {
     const userFromDb = await ctx.db.query.users.findFirst({

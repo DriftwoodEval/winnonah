@@ -3,13 +3,6 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Button } from "@ui/button";
 import {
-	Dialog,
-	DialogContent,
-	DialogHeader,
-	DialogTitle,
-	DialogTrigger,
-} from "@ui/dialog";
-import {
 	DropdownMenu,
 	DropdownMenuContent,
 	DropdownMenuItem,
@@ -42,26 +35,26 @@ import {
 import { MoreHorizontal } from "lucide-react";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
-import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 import z from "zod";
 import { useMediaQuery } from "~/hooks/use-media-query";
 import { logger } from "~/lib/logger";
-import { userRoles } from "~/lib/types";
-import { checkRole } from "~/lib/utils";
+import { permissionPresets, permissions, permissionsSchema } from "~/lib/types";
+import { hasPermission } from "~/lib/utils";
 import type { Invitation } from "~/server/lib/types";
 import { api } from "~/trpc/react";
 import {
 	ResponsiveDialog,
 	useResponsiveDialog,
 } from "../shared/ResponsiveDialog";
+import { Checkbox } from "../ui/checkbox";
 
 const log = logger.child({ module: "InvitesTable" });
 
 const formSchema = z.object({
 	email: z.email(),
-	role: z.enum(userRoles),
+	permissions: permissionsSchema,
 });
 
 type InvitesTableFormValues = z.infer<typeof formSchema>;
@@ -80,60 +73,126 @@ function InvitesTableForm({
 	const form = useForm<InvitesTableFormValues>({
 		resolver: zodResolver(formSchema),
 		defaultValues: {
-			role: "user",
+			permissions: {},
 		},
 	});
 
+	const watchedPermissions = form.watch("permissions");
+
+	const getGroupState = (
+		groupPermissions: readonly { id: string; title: string }[],
+	) => {
+		const allChecked = groupPermissions.every(
+			(p) => watchedPermissions?.[p.id],
+		);
+		const anyChecked = groupPermissions.some((p) => watchedPermissions?.[p.id]);
+
+		if (allChecked) return true;
+		if (anyChecked) return "indeterminate";
+		return false;
+	};
+
+	const handlePresetChange = (presetValue: string) => {
+		const selectedPreset = permissionPresets.find(
+			(p) => p.value === presetValue,
+		);
+		if (selectedPreset) {
+			form.setValue("permissions", selectedPreset.permissions, {
+				shouldDirty: true,
+				shouldValidate: true,
+			});
+		}
+	};
+
 	return (
 		<Form {...form}>
-			<form className="space-y-6" onSubmit={form.handleSubmit(onSubmit)}>
-				<div className="flex flex-wrap gap-6">
-					<FormField
-						control={form.control}
-						name="email"
-						render={({ field }) => (
-							<FormItem>
-								<FormLabel>Email</FormLabel>
-								<Input
-									disabled={isLoading}
-									{...field}
-									autoComplete="off"
-									type="email"
-								/>
+			<form
+				className="relative space-y-6"
+				onSubmit={form.handleSubmit(onSubmit)}
+			>
+				<FormField
+					control={form.control}
+					name="email"
+					render={({ field }) => (
+						<FormItem>
+							<FormLabel>Email</FormLabel>
+							<Input
+								disabled={isLoading}
+								{...field}
+								autoComplete="off"
+								type="email"
+							/>
 
-								<FormMessage />
-							</FormItem>
-						)}
-					/>
-					<FormField
-						control={form.control}
-						name="role"
-						render={({ field }) => (
-							<FormItem>
-								<FormLabel>Role</FormLabel>
-								<Select
-									defaultValue={field.value}
-									onValueChange={field.onChange}
-								>
-									<FormControl>
-										<SelectTrigger>
-											<SelectValue />
-										</SelectTrigger>
-									</FormControl>
-									<SelectContent>
-										{Object.entries(userRoles).map(([key, value]) => (
-											<SelectItem key={key} value={value}>
-												{value.charAt(0).toUpperCase() + value.slice(1)}
-											</SelectItem>
-										))}
-									</SelectContent>
-								</Select>
-
-								<FormMessage />
-							</FormItem>
-						)}
-					/>
+							<FormMessage />
+						</FormItem>
+					)}
+				/>
+				<div className="relative w-full sm:absolute sm:flex sm:justify-end">
+					<Select onValueChange={handlePresetChange}>
+						<SelectTrigger className="w-full sm:w-fit">
+							<SelectValue placeholder="Select a preset..." />
+						</SelectTrigger>
+						<SelectContent>
+							{permissionPresets.map((preset) => (
+								<SelectItem key={preset.value} value={preset.value}>
+									{preset.label}
+								</SelectItem>
+							))}
+						</SelectContent>
+					</Select>
 				</div>
+				{Object.entries(permissions).map(([groupKey, group]) => (
+					<div key={groupKey}>
+						{/* Group Checkbox */}
+						<div className="mb-3 flex items-center space-x-2">
+							<Checkbox
+								checked={getGroupState(group.permissions)}
+								id={groupKey}
+								onCheckedChange={(checked) => {
+									const currentPermissions = {
+										...form.getValues("permissions"),
+									};
+									group.permissions.forEach((p) => {
+										currentPermissions[p.id] = !!checked;
+									});
+									form.setValue("permissions", currentPermissions, {
+										shouldDirty: true,
+										shouldValidate: true,
+									});
+								}}
+							/>
+							<FormLabel className="font-semibold text-lg" htmlFor={groupKey}>
+								{group.title}
+							</FormLabel>
+						</div>
+
+						{/* Individual Checkboxes */}
+						<div className="ml-8 space-y-2">
+							{group.permissions.map((p) => (
+								<FormField
+									control={form.control}
+									key={p.id}
+									name={`permissions.${p.id}`}
+									render={({ field }) => (
+										<FormItem>
+											<div className="flex items-center space-x-2">
+												<FormControl>
+													<Checkbox
+														checked={field.value}
+														id={p.id}
+														onCheckedChange={field.onChange}
+													/>
+												</FormControl>
+												<FormLabel htmlFor={p.id}>{p.title}</FormLabel>
+											</div>
+											<FormMessage />
+										</FormItem>
+									)}
+								/>
+							))}
+						</div>
+					</div>
+				))}
 
 				<div className="flex justify-end gap-2">
 					<Button onClick={onFinished} type="button" variant="ghost">
@@ -174,8 +233,7 @@ function AddInviteButton() {
 
 	function onSubmit(values: InvitesTableFormValues) {
 		addInvitation.mutate({
-			email: values.email,
-			role: values.role,
+			...values,
 		});
 	}
 
@@ -235,7 +293,9 @@ function InvitesTableActionsMenu({ invite }: { invite: Invitation }) {
 
 export default function InvitesTable() {
 	const { data: session } = useSession();
-	const admin = session ? checkRole(session.user.role, "admin") : false;
+	const canInvite = session
+		? hasPermission(session.user.permissions, "settings:users:invite")
+		: false;
 
 	const { data: invites, isLoading: isLoadingInvites } =
 		api.users.getPendingInvitations.useQuery();
@@ -244,7 +304,7 @@ export default function InvitesTable() {
 		<div className="px-4">
 			<div className="flex items-center justify-between pb-4">
 				<h3 className="font-bold text-lg">Pending Invites</h3>
-				{admin && <AddInviteButton />}
+				{canInvite && <AddInviteButton />}
 			</div>
 
 			{/* Table for Medium Screens and Up (sm:) */}
@@ -252,22 +312,21 @@ export default function InvitesTable() {
 				<Table>
 					<TableHeader>
 						<TableRow>
-							{admin && <TableHead className="w-[50px]"></TableHead>}
+							{canInvite && <TableHead className="w-[50px]"></TableHead>}
 							<TableHead>Email</TableHead>
-							<TableHead>Role</TableHead>
 						</TableRow>
 					</TableHeader>
 					<TableBody>
 						{isLoadingInvites ? (
 							<TableRow>
-								<TableCell className="text-center" colSpan={admin ? 3 : 2}>
+								<TableCell className="text-center" colSpan={canInvite ? 3 : 2}>
 									Loading invites...
 								</TableCell>
 							</TableRow>
 						) : invites && invites.length > 0 ? (
 							invites.map((invite) => (
 								<TableRow key={invite.id}>
-									{admin && (
+									{canInvite && (
 										<TableCell>
 											<InvitesTableActionsMenu invite={invite} />
 										</TableCell>
@@ -280,12 +339,11 @@ export default function InvitesTable() {
 											{invite.email}
 										</Link>
 									</TableCell>
-									<TableCell className="capitalize">{invite.role}</TableCell>
 								</TableRow>
 							))
 						) : (
 							<TableRow>
-								<TableCell className="text-center" colSpan={admin ? 3 : 2}>
+								<TableCell className="text-center" colSpan={canInvite ? 3 : 2}>
 									No pending invites found.
 								</TableCell>
 							</TableRow>
@@ -308,11 +366,8 @@ export default function InvitesTable() {
 						>
 							<div>
 								<p className="font-medium text-sm">{invite.email}</p>
-								<p className="text-muted-foreground text-sm capitalize">
-									{invite.role}
-								</p>
 							</div>
-							{admin && <InvitesTableActionsMenu invite={invite} />}
+							{canInvite && <InvitesTableActionsMenu invite={invite} />}
 						</div>
 					))
 				) : (
