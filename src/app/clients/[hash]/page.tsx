@@ -1,4 +1,5 @@
 import { Client } from "@components/client/Client";
+import { AuthRejection } from "@components/layout/AuthRejection";
 import { auth } from "~/server/auth";
 
 export default async function Page({
@@ -11,13 +12,7 @@ export default async function Page({
 	const hash = parameters.hash;
 
 	if (!session) {
-		return (
-			<main className="flex min-h-screen items-center justify-center">
-				<h1 className="font-bold text-2xl">
-					You must be logged in to view this page.
-				</h1>
-			</main>
-		);
+		return <AuthRejection />;
 	}
 
 	return (

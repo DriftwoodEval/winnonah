@@ -1,3 +1,4 @@
+import { AuthRejection } from "@components/layout/AuthRejection";
 import EvaluatorsTable from "@components/settings/EvaluatorsTable";
 import InvitesTable from "@components/settings/InvitesTable";
 import UsersTable from "@components/settings/UsersTable";
@@ -8,13 +9,7 @@ export default async function Settings() {
 	const session = await auth();
 
 	if (!session) {
-		return (
-			<main className="flex min-h-screen items-center justify-center">
-				<h1 className="font-bold text-2xl">
-					You must be logged in to view this page.
-				</h1>
-			</main>
-		);
+		return <AuthRejection />;
 	}
 
 	return (
