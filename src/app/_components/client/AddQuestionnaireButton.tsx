@@ -130,12 +130,14 @@ export function AddQuestionnaireButton({
 	const handleSetDASent = () => {
 		if (clientId) {
 			setQsSent({ id: clientId.toString(), daSent: true });
+			setShouldBlockNavigation(false);
 		}
 	};
 
 	const handleSetEvalSent = () => {
 		if (clientId) {
 			setQsSent({ id: clientId.toString(), evalSent: true });
+			setShouldBlockNavigation(false);
 		}
 	};
 
