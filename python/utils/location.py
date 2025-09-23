@@ -138,31 +138,35 @@ def _geocode_address(client: pd.Series) -> Location | None:
         or not pd.isna(client.USER_ADDRESS_ADDRESS3)
         and client.USER_ADDRESS_ADDRESS1.lower() != client.USER_ADDRESS_ADDRESS3.lower()
     ):
-        logger.warning(
-            f"Location data not found for {attempt_string}, trying again with Address 2/3 removed"
-        )
+        old_attempt_string = attempt_string
         attempt_string = " ".join([street_address, city, state, zip])
+        logger.warning(
+            f"Location data not found for {old_attempt_string}, trying again with Address 2/3 removed: {attempt_string}"
+        )
         geocoded_location = geocode(attempt_string)
 
     if geocoded_location is None:
-        logger.warning(
-            f"Location data not found for {attempt_string}, trying again without street number"
-        )
+        old_attempt_string = attempt_string
         attempt_string = " ".join(attempt_string.split(" ")[1:])
+        logger.warning(
+            f"Location data not found for {old_attempt_string}, trying again without street number: {attempt_string}"
+        )
         geocoded_location = geocode(attempt_string)
 
         if geocoded_location is None:
-            logger.warning(
-                f"Location data not found for {attempt_string}, trying again without street"
-            )
+            old_attempt_string = attempt_string
             attempt_string = city + ", " + state + " " + zip
+            logger.warning(
+                f"Location data not found for {old_attempt_string}, trying again without street: {attempt_string}"
+            )
             geocoded_location = geocode(attempt_string)
 
             if geocoded_location is None:
-                logger.warning(
-                    f"Location data not found for {attempt_string}, trying again with just ZIP"
-                )
+                old_attempt_string = attempt_string
                 attempt_string = zip
+                logger.warning(
+                    f"Location data not found for {old_attempt_string}, trying again with just ZIP: {attempt_string}"
+                )
                 geocoded_location = geocode(attempt_string)
 
                 if geocoded_location is None:
