@@ -44,6 +44,11 @@ export function IssuesAlert() {
 	const { data: duplicateDriveIds } =
 		api.clients.getDuplicateDriveIdErrors.useQuery(undefined, queryOptions);
 
+	const { data: noDriveIds } = api.clients.getNoDriveIdErrors.useQuery(
+		undefined,
+		queryOptions,
+	);
+
 	const { data: possiblePrivatePay } =
 		api.clients.getPossiblePrivatePay.useQuery(undefined, queryOptions);
 
@@ -53,6 +58,7 @@ export function IssuesAlert() {
 		(notInTAErrors?.length ?? 0) +
 		(noteOnlyClients?.length ?? 0) +
 		(duplicateDriveIds?.length ?? 0) +
+		(noDriveIds?.length ?? 0) +
 		(possiblePrivatePay?.length ?? 0);
 
 	if (!isReadyToFetch || errorsLength === 0) {

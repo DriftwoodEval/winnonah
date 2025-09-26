@@ -151,6 +151,7 @@ export function IssuesList() {
 	const { data: noteOnlyClients } = api.clients.getNoteOnlyClients.useQuery();
 	const { data: duplicateDriveIds } =
 		api.clients.getDuplicateDriveIdErrors.useQuery();
+	const { data: noDriveIds } = api.clients.getNoDriveIdErrors.useQuery();
 	const { data: possiblePrivatePay } =
 		api.clients.getPossiblePrivatePay.useQuery();
 
@@ -180,6 +181,9 @@ export function IssuesList() {
 			)}
 			{duplicateDriveIds && duplicateDriveIds.length !== 0 && (
 				<IssueList clients={duplicateDriveIds} title="Duplicate Drive IDs" />
+			)}
+			{noDriveIds && noDriveIds.length !== 0 && (
+				<IssueList clients={noDriveIds} title="No Drive IDs" />
 			)}
 			{possiblePrivatePay && possiblePrivatePay.length !== 0 && (
 				<IssueList clients={possiblePrivatePay} title="Potential Private Pay" />

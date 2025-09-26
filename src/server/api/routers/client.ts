@@ -234,6 +234,15 @@ export const clientRouter = createTRPCRouter({
     return duplicateRecords;
   }),
 
+  getNoDriveIdErrors: protectedProcedure.query(async ({ ctx }) => {
+    const noDriveId = await ctx.db.query.clients.findMany({
+      where: isNull(clients.driveId),
+      orderBy: clients.addedDate,
+    });
+
+    return noDriveId;
+  }),
+
   getPossiblePrivatePay: protectedProcedure.query(async ({ ctx }) => {
     const noPaymentMethodOrNoEligibleEvaluators = await ctx.db
       .select(getTableColumns(clients))
