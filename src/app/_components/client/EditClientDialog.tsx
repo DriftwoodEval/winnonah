@@ -24,7 +24,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@ui/popover";
 import { subYears } from "date-fns";
 import { Check, ChevronsUpDown, Pencil } from "lucide-react";
 import { useSession } from "next-auth/react";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 import { z } from "zod";
@@ -88,6 +88,8 @@ function ClientForm({
 		defaultValues,
 	});
 
+	const [districtsOpen, setDistrictsOpen] = useState(false);
+
 	return (
 		<Form {...form}>
 			<form className="space-y-6" onSubmit={form.handleSubmit(onSubmit)}>
@@ -97,7 +99,11 @@ function ClientForm({
 					render={({ field }) => (
 						<FormItem className="flex flex-col">
 							<FormLabel>School District</FormLabel>
-							<Popover modal>
+							<Popover
+								modal
+								onOpenChange={setDistrictsOpen}
+								open={districtsOpen}
+							>
 								<PopoverTrigger asChild disabled={!admin}>
 									<FormControl>
 										<Button
@@ -134,6 +140,7 @@ function ClientForm({
 																"schoolDistrict",
 																district.fullName,
 															);
+															setDistrictsOpen(false);
 														}}
 														value={district.fullName}
 													>
