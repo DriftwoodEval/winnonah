@@ -204,6 +204,7 @@ export const clients = createTable(
     highPriority: d.boolean().notNull().default(false),
     babyNet: d.boolean().notNull().default(false),
     autismStop: d.boolean().notNull().default(false),
+    eiAttends: d.boolean().notNull().default(false),
   }),
   (t) => [
     index("asana_id_idx").on(t.asanaId),

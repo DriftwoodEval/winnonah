@@ -42,6 +42,7 @@ const formSchema = z.object({
 	highPriority: z.boolean(),
 	autismStop: z.boolean(),
 	babyNet: z.boolean(),
+	eiAttends: z.boolean(),
 });
 
 type ClientFormValues = z.infer<typeof formSchema>;
@@ -52,6 +53,7 @@ interface ClientFormProps {
 	isLoading: boolean;
 	onClose: () => void;
 	showBabyNetCheckbox?: boolean;
+	showEICheckbox?: boolean;
 }
 
 const log = logger.child({ module: "EditClientDialog" });
@@ -62,6 +64,7 @@ function ClientForm({
 	isLoading,
 	onClose,
 	showBabyNetCheckbox = false,
+	showEICheckbox = false,
 }: ClientFormProps) {
 	const { data: allSchoolDistricts } =
 		api.evaluators.getAllSchoolDistricts.useQuery();
@@ -79,6 +82,7 @@ function ClientForm({
 				highPriority: initialData.highPriority ?? false,
 				autismStop: initialData.autismStop ?? false,
 				babyNet: initialData.babyNet ?? false,
+				eiAttends: initialData.eiAttends ?? false,
 			};
 		}
 	}, [initialData]);
@@ -230,6 +234,30 @@ function ClientForm({
 							)}
 						/>
 					)}
+
+					{showEICheckbox && (
+						<FormField
+							control={form.control}
+							name="eiAttends"
+							render={({ field }) => (
+								<FormItem className="flex flex-row">
+									<FormControl>
+										<Checkbox
+											checked={field.value}
+											disabled={!admin}
+											onCheckedChange={field.onChange}
+										/>
+									</FormControl>
+									<div className="space-y-1 leading-none">
+										<FormLabel>EI Attends</FormLabel>
+										<FormDescription>
+											Client's EI wants to be included in meetings.
+										</FormDescription>
+									</div>
+								</FormItem>
+							)}
+						/>
+					)}
 				</div>
 
 				<div className="flex justify-end gap-2 pt-4">
@@ -251,9 +279,10 @@ export function ClientEditButton({ client }: { client: Client }) {
 
 	const BNAgeOutDate = subYears(new Date(), 3);
 
+	const underBNAge = client && client.dob > BNAgeOutDate;
+
 	const showBabyNetCheckbox =
-		client &&
-		client.dob > BNAgeOutDate &&
+		underBNAge &&
 		client.primaryInsurance !== "BabyNet" &&
 		client.secondaryInsurance !== "BabyNet";
 
@@ -289,6 +318,7 @@ export function ClientEditButton({ client }: { client: Client }) {
 			schoolDistrict: values.schoolDistrict,
 			highPriority: values.highPriority,
 			babyNet: values.babyNet,
+			eiAttends: values.eiAttends,
 		};
 
 		updateClient.mutate(updatedValues);
@@ -316,6 +346,7 @@ export function ClientEditButton({ client }: { client: Client }) {
 				onClose={dialog.closeDialog}
 				onSubmit={onEditSubmit}
 				showBabyNetCheckbox={showBabyNetCheckbox}
+				showEICheckbox={underBNAge}
 			/>
 		</ResponsiveDialog>
 	);

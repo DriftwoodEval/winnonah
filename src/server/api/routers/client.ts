@@ -340,6 +340,7 @@ export const clientRouter = createTRPCRouter({
         schoolDistrict: z.string().optional(),
         highPriority: z.boolean().optional(),
         babyNet: z.boolean().optional(),
+        eiAttends: z.boolean().optional(),
       })
     )
     .mutation(async ({ ctx, input }) => {
@@ -348,6 +349,7 @@ export const clientRouter = createTRPCRouter({
         schoolDistrict?: string;
         highPriority?: boolean;
         babyNet?: boolean;
+        eiAttends?: boolean;
       } = {};
 
       if (input.color !== undefined) {
@@ -361,6 +363,9 @@ export const clientRouter = createTRPCRouter({
       }
       if (input.babyNet !== undefined) {
         updateData.babyNet = input.babyNet;
+      }
+      if (input.eiAttends !== undefined) {
+        updateData.eiAttends = input.eiAttends;
       }
 
       await ctx.db
