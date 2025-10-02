@@ -196,6 +196,16 @@ export function ClientDetailsCard({ client }: ClientDetailsCardProps) {
 					</AlertTitle>
 				</Alert>
 			)}
+
+			{client.flag === "district_from_shapefile" && (
+				<Alert variant="destructive">
+					<AlertTriangleIcon />
+					<AlertTitle>
+						School district was found after cutting address, double-check that
+						it's correct.
+					</AlertTitle>
+				</Alert>
+			)}
 		</div>
 	);
 }

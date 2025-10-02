@@ -149,7 +149,19 @@ export const clientRouter = createTRPCRouter({
       ),
     });
 
-    return clientsWithoutDistrict;
+    const clientsWithDistrictFromShapefile =
+      await ctx.db.query.clients.findMany({
+        where: and(
+          eq(clients.flag, "district_from_shapefile"),
+          gt(clients.dob, subYears(new Date(), 21)),
+          not(eq(sql`LENGTH(${clients.id})`, 5))
+        ),
+      });
+
+    return {
+      clientsWithoutDistrict,
+      clientsWithDistrictFromShapefile,
+    };
   }),
 
   getBabyNetErrors: protectedProcedure.query(async ({ ctx }) => {
@@ -381,12 +393,17 @@ export const clientRouter = createTRPCRouter({
         });
       }
 
+      const currentClient = await ctx.db.query.clients.findFirst({
+        where: eq(clients.id, input.clientId),
+      });
+
       const updateData: {
         color?: (typeof CLIENT_COLOR_KEYS)[number];
         schoolDistrict?: string;
         highPriority?: boolean;
         babyNet?: boolean;
         eiAttends?: boolean;
+        flag?: string | null;
       } = {};
 
       if (input.color !== undefined) {
@@ -394,6 +411,9 @@ export const clientRouter = createTRPCRouter({
       }
       if (input.schoolDistrict !== undefined) {
         updateData.schoolDistrict = input.schoolDistrict;
+        if (currentClient?.flag === "district_from_shapefile") {
+          updateData.flag = null;
+        }
       }
       if (input.highPriority !== undefined) {
         updateData.highPriority = input.highPriority;

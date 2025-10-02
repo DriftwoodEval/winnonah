@@ -100,6 +100,7 @@ def import_from_ta(
         "SECOND_CLOSEST_OFFICE_MILES",
         "THIRD_CLOSEST_OFFICE",
         "THIRD_CLOSEST_OFFICE_MILES",
+        "FLAG",
     ]
     for col in new_cols:
         if col not in clients.columns:
@@ -123,12 +124,12 @@ def import_from_ta(
     if not clients_to_geocode.empty:
         logger.debug(f"Found {len(clients_to_geocode)} clients to geocode")
 
-        clients_to_geocode[["SCHOOL_DISTRICT", "LATITUDE", "LONGITUDE"]] = (
-            clients_to_geocode.apply(utils.location.add_census_data, axis=1)
-        )
-
         clients_to_geocode[
             [
+                "SCHOOL_DISTRICT",
+                "LATITUDE",
+                "LONGITUDE",
+                "FLAG",
                 "CLOSEST_OFFICE",
                 "CLOSEST_OFFICE_MILES",
                 "SECOND_CLOSEST_OFFICE",
@@ -136,9 +137,7 @@ def import_from_ta(
                 "THIRD_CLOSEST_OFFICE",
                 "THIRD_CLOSEST_OFFICE_MILES",
             ]
-        ] = clients_to_geocode.apply(
-            utils.location.get_closest_offices, axis=1, result_type="expand"
-        )
+        ] = clients_to_geocode.apply(utils.location.add_location_data, axis=1)
 
         clients.set_index("CLIENT_ID", inplace=True)
         clients_to_geocode.set_index("CLIENT_ID", inplace=True)

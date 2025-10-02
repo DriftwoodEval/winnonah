@@ -205,6 +205,7 @@ export const clients = createTable(
     babyNet: d.boolean().notNull().default(false),
     autismStop: d.boolean().notNull().default(false),
     eiAttends: d.boolean().notNull().default(false),
+    flag: d.varchar({ length: 255 }),
   }),
   (t) => [
     index("asana_id_idx").on(t.asanaId),

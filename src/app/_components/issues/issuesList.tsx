@@ -146,6 +146,8 @@ const IssueList = ({ title, clients, action }: IssueListProps) => {
 
 export function IssuesList() {
 	const { data: districtErrors } = api.clients.getDistrictErrors.useQuery();
+	const { clientsWithoutDistrict = [], clientsWithDistrictFromShapefile = [] } =
+		districtErrors ?? {};
 	const { data: babyNetErrors } = api.clients.getBabyNetErrors.useQuery();
 	const { data: notInTAErrors } = api.clients.getNotInTAErrors.useQuery();
 	const { data: noteOnlyClients } = api.clients.getNoteOnlyClients.useQuery();
@@ -157,9 +159,16 @@ export function IssuesList() {
 
 	return (
 		<div className="flex flex-wrap justify-center gap-14">
-			{districtErrors && districtErrors.length !== 0 && (
-				<IssueList clients={districtErrors} title="Missing Districts" />
+			{clientsWithoutDistrict && clientsWithoutDistrict.length !== 0 && (
+				<IssueList clients={clientsWithoutDistrict} title="Missing Districts" />
 			)}
+			{clientsWithDistrictFromShapefile &&
+				clientsWithDistrictFromShapefile.length !== 0 && (
+					<IssueList
+						clients={clientsWithDistrictFromShapefile}
+						title="District Found After Cut Address"
+					/>
+				)}
 			{babyNetErrors && babyNetErrors.length !== 0 && (
 				<IssueList clients={babyNetErrors} title="Too Old for BabyNet" />
 			)}

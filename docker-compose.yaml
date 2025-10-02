@@ -62,6 +62,7 @@ services:
       - ./python/auth_cache:/app/auth_cache
       - ./python/temp:/app/temp
       - ./python/logs:/app/logs
+      - ./python/shapefiles:/app/shapefiles
 
   watchtower:
     image: containrrr/watchtower

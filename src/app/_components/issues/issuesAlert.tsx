@@ -53,7 +53,8 @@ export function IssuesAlert() {
 		api.clients.getPossiblePrivatePay.useQuery(undefined, queryOptions);
 
 	const errorsLength =
-		(districtErrors?.length ?? 0) +
+		(districtErrors?.clientsWithoutDistrict.length ?? 0) +
+		(districtErrors?.clientsWithDistrictFromShapefile.length ?? 0) +
 		(babyNetErrors?.length ?? 0) +
 		(notInTAErrors?.length ?? 0) +
 		(noteOnlyClients?.length ?? 0) +
