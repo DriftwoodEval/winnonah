@@ -408,6 +408,7 @@ export const accountsRelations = relations(accounts, ({ one }) => ({
 export const invitations = createTable("invitation", (d) => ({
   id: d.int().notNull().autoincrement().primaryKey(),
   email: d.varchar({ length: 255 }).notNull().unique(),
+  savedPlaces: d.json(),
   permissions: d.json("permissions").$type<PermissionsObject>(),
   status: d
     .mysqlEnum("status", ["pending", "accepted"])

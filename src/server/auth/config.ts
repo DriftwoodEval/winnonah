@@ -34,6 +34,7 @@ declare module "next-auth" {
 
   interface User {
     permissions: PermissionsObject;
+    savedPlaces: string;
     evaluatorId?: number | null;
   }
 }
@@ -97,6 +98,7 @@ export const authConfig = {
 
       if (invitation) {
         user.permissions = invitation.permissions as PermissionsObject;
+        user.savedPlaces = invitation.savedPlaces as string;
 
         await db
           .update(invitations)
