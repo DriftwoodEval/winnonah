@@ -7,7 +7,7 @@ from loguru import logger
 from nameparser import HumanName
 from pandas._libs.missing import NAType
 
-import utils.database
+import utils.spreadsheets
 from utils.download_ta import download_csvs
 
 TEST_NAMES = [
@@ -246,12 +246,8 @@ def get_clients() -> pd.DataFrame:
     if not os.getenv("DEV_TOGGLE"):
         download_csvs()
     logger.debug("Getting clients from spreadsheets")
-    insurance_df = utils.database.open_local_spreadsheet(
-        "temp/input/clients-insurance.csv"
-    )
-    demo_df = utils.database.open_local_spreadsheet(
-        "temp/input/clients-demographic.csv"
-    )
+    insurance_df = utils.spreadsheets.open_local("temp/input/clients-insurance.csv")
+    demo_df = utils.spreadsheets.open_local("temp/input/clients-demographic.csv")
 
     clients_df = pd.merge(demo_df, insurance_df, "outer")
     clients_df = normalize_names(clients_df)

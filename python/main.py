@@ -1,5 +1,6 @@
 import argparse
 import os
+import re
 import shutil
 from typing import Callable, Optional, Union
 
@@ -11,8 +12,10 @@ import utils.clients
 import utils.config
 import utils.database
 import utils.download_ta
+import utils.google
 import utils.location
 import utils.openphone
+import utils.spreadsheets
 
 logger.add("logs/winnonah-python.log", rotation="500 MB")
 load_dotenv()
@@ -158,6 +161,77 @@ def import_from_ta(
     )
 
 
+def extract_digits(string: str) -> Optional[str]:
+    """Extract only digits from a string."""
+    digits_only = re.sub(r"\D", "", string)
+    return digits_only if digits_only else None
+
+
+def format_fax_number(string: str) -> Optional[str]:
+    """Format a fax number as (XXX) XXX-XXXX."""
+    digits_only = re.sub(r"\D", "", string)
+
+    if len(digits_only) != 10:
+        return None  # Invalid fax number length
+
+    return f"({digits_only[:3]}) {digits_only[3:6]}-{digits_only[6:]}"
+
+
+def make_referral_fax_folders(referrals: pd.DataFrame):
+    """Make folders for referrals in the TO BE FAXED folder in Google Drive."""
+    logger.debug("Making folders for referrals")
+    ref_names = utils.spreadsheets.get_unique_values(referrals, "Referral Name")
+    # exceptions = {"MUSC", "DDSN", "SC", "NC", "DSS", "MP", "LLC", "CMC"}
+    ref_data = []
+    for ref_name in ref_names:
+        # cleaned_name = " ".join(
+        #     [
+        #         txt if any(x in exceptions for x in txt.split()) else txt.title()
+        #         for txt in ref_name.split()
+        #     ]
+        # )
+        cleaned_name = re.sub(r"\([^)]*\)|[^a-zA-Z\s/.]", "", ref_name).strip()
+        raw_fax_number = extract_digits(ref_name)
+        fax_number = format_fax_number(raw_fax_number) if raw_fax_number else None
+        ref_data.append(
+            {
+                "cleaned_name": cleaned_name,
+                "fax_number": fax_number,
+                "raw_fax_number": extract_digits(ref_name),
+            }
+        )
+    fax_folder_id = os.getenv("FAX_FOLDER_ID")
+    if fax_folder_id is None:
+        logger.error("FAX_FOLDER_ID is not set")
+        return
+    existing_referral_folders = utils.google.get_items_in_folder(fax_folder_id)
+    if existing_referral_folders is None:
+        logger.error("Failed to get existing referral folders")
+        return
+    existing_referral_faxes = [
+        extract_digits(folder["name"]) for folder in existing_referral_folders
+    ]
+    ref_data = [
+        entry
+        for entry in ref_data
+        if entry["raw_fax_number"] not in existing_referral_faxes
+        and entry["cleaned_name"] != "No Referral Source"
+    ]
+    for ref in ref_data:
+        folder_name = ref["cleaned_name"] + " " + ref["fax_number"]
+        utils.google.create_folder_in_folder(folder_name, fax_folder_id)
+
+    logger.debug("Folders for referrals made")
+
+
+def process_referrals():
+    """Process referrals, creating folders for them in Google Drive."""
+    # TODO: Also generate fax pdfs for new referrals that have appointments here
+    logger.debug("Processing referrals")
+    ref_df = utils.spreadsheets.open_local("temp/input/client-referral-report.csv")
+    make_referral_fax_folders(ref_df)
+
+
 def main():
     """Main entry point for the script.
 
@@ -168,9 +242,9 @@ def main():
 
     * --download-only: Only download the CSVs from TA and exit
     * --openphone: Run the OpenPhone sync and exit
+    * --referrals: Run the Referrals process and exit
     * --client-name: Process specific client(s) by name (case insensitive partial match)
     * --client-id: Process specific client(s) by ID
-
 
     If none of the above options are specified, the script will run the full
     import_from_ta function normaly.
@@ -180,6 +254,7 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--download-only", action="store_true")
     parser.add_argument("--openphone", action="store_true")
+    parser.add_argument("--referrals", action="store_true")
     parser.add_argument(
         "--client-name",
         type=str,
@@ -208,6 +283,12 @@ def main():
         logger.info("Running OpenPhone sync")
         utils.download_ta.download_csvs()
         utils.openphone.sync_openphone()
+        return
+
+    if args.referrals:
+        logger.info("Running Referrals process")
+        utils.download_ta.download_csvs()
+        process_referrals()
         return
 
     force_clients: Optional[pd.DataFrame] = None
@@ -242,6 +323,7 @@ def main():
                     )
 
     import_from_ta(clients=clients, force_clients=force_clients)
+    process_referrals()
 
 
 if __name__ == "__main__":

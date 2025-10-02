@@ -57,6 +57,7 @@ services:
       - CENSUS_API_KEY=${CENSUS_API_KEY}
       - OPENPHONE_API_TOKEN=${OPENPHONE_API_TOKEN}
       - OPENPHONE_NUMBER_ID=${OPENPHONE_NUMBER_ID}
+      - FAX_FOLDER_ID=${FAX_FOLDER_ID}
     volumes:
       - ./python/auth_cache:/app/auth_cache
       - ./python/temp:/app/temp

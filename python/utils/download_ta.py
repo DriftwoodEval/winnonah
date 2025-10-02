@@ -1,5 +1,6 @@
 import glob
 import os
+import shutil
 import time
 from typing import Callable
 
@@ -178,6 +179,20 @@ def combine_files():
     )
 
 
+def download_referrals(driver: WebDriver):
+    """Downloads referrals CSV from reports."""
+    logger.debug("Opening reports page")
+    driver.get(
+        "https://api.portal.therapyappointment.com/n/reporting/businessintelligence/referralsource"
+    )
+    w.click_element(driver, By.XPATH, "//span[contains(text(), 'Export CSV')]")
+    time.sleep(2)
+    shutil.move(
+        os.path.join("temp", "downloads", "client-referral-report.csv"),
+        os.path.join("temp", "input", "client-referral-report.csv"),
+    )
+
+
 def download_csvs():
     """Downloads CSVs from TherapyAppointment."""
     logger.debug("Downloading CSVs from TherapyAppointment")
@@ -187,3 +202,4 @@ def download_csvs():
     loop_therapists(driver, export_data)
     loop_therapists(driver, download_data)
     combine_files()
+    download_referrals(driver)
