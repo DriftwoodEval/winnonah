@@ -127,13 +127,10 @@ export function ClientNoteEditor({
 	);
 
 	useEffect(() => {
-		const handleBeforeUnload = () => {
+		return () => {
+			// Save on unmount (navigation away from page, browser close, etc.)
 			debouncedSaveContent.flush();
 			debouncedSaveTitle.flush();
-		};
-		window.addEventListener("beforeunload", handleBeforeUnload);
-		return () => {
-			window.removeEventListener("beforeunload", handleBeforeUnload);
 			debouncedSaveContent.cancel();
 			debouncedSaveTitle.cancel();
 		};
