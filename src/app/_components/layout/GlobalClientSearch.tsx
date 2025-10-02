@@ -1,7 +1,7 @@
 "use client";
 
 import { Button } from "@ui/button";
-import { Dialog, DialogContent, DialogHeader } from "@ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@ui/dialog";
 import {
 	Select,
 	SelectContent,
@@ -50,7 +50,7 @@ export function GlobalClientSearch() {
 
 	useEffect(() => {
 		const handleKeyDown = (event: KeyboardEvent) => {
-			if (!clients?.length) return;
+			if (!clients?.length || !open) return;
 
 			if (event.key === "ArrowDown") {
 				event.preventDefault();
@@ -73,7 +73,7 @@ export function GlobalClientSearch() {
 		return () => {
 			document.removeEventListener("keydown", handleKeyDown);
 		};
-	}, [clients, highlightedIndex, router]);
+	}, [clients, open, highlightedIndex, router]);
 
 	useEffect(() => {
 		if (navigator.userAgent.includes("Mac")) {
@@ -117,7 +117,9 @@ export function GlobalClientSearch() {
 
 			<Dialog onOpenChange={setOpen} open={open}>
 				<DialogContent>
-					<DialogHeader></DialogHeader>
+					<DialogHeader>
+						<DialogTitle className="sr-only">Search Clients</DialogTitle>
+					</DialogHeader>
 					<div className="flex gap-2">
 						<NameSearchInput
 							debounceMs={300}
