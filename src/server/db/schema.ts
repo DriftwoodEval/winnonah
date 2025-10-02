@@ -248,9 +248,7 @@ export const noteHistory = createTable(
       .references(() => notes.clientId, { onDelete: "cascade" }),
     content: d.json("content").notNull(),
     title: d.text(),
-    updatedBy: d
-      .varchar("updated_by", { length: 255 })
-      .references(() => users.id, { onDelete: "set null" }),
+    updatedBy: d.varchar("updated_by", { length: 255 }),
     createdAt: d
       .timestamp("created_at")
       .default(sql`CURRENT_TIMESTAMP`)
@@ -271,10 +269,6 @@ export const noteHistoryRelations = relations(noteHistory, ({ one }) => ({
   note: one(notes, {
     fields: [noteHistory.noteId],
     references: [notes.clientId],
-  }),
-  author: one(users, {
-    fields: [noteHistory.updatedBy],
-    references: [users.id],
   }),
 }));
 

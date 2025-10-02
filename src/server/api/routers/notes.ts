@@ -50,7 +50,7 @@ export const noteRouter = createTRPCRouter({
           noteId: currentNote.clientId,
           content: currentNote.content,
           title: currentNote.title,
-          updatedBy: ctx.session.user.id,
+          updatedBy: ctx.session.user.email,
         });
 
         // biome-ignore lint/suspicious/noExplicitAny: JSON
