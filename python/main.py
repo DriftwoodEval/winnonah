@@ -217,11 +217,14 @@ def make_referral_fax_folders(referrals: pd.DataFrame):
         if entry["raw_fax_number"] not in existing_referral_faxes
         and entry["cleaned_name"] != "No Referral Source"
     ]
+    if len(ref_data) == 0:
+        logger.debug("No new referral sources to create folders for")
+        return
     for ref in ref_data:
         folder_name = ref["cleaned_name"] + " " + ref["fax_number"]
         utils.google.create_folder_in_folder(folder_name, fax_folder_id)
 
-    logger.debug("Folders for referrals made")
+    logger.debug(f"Created {len(ref_data)} folders for referrals")
 
 
 def process_referrals():
