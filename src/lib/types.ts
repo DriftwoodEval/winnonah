@@ -66,8 +66,6 @@ export const permissionPresets = [
       "clients:shell": true,
       "clients:merge": true,
       "clients:questionnaires:create": true,
-      "settings:users:edit": true,
-      "settings:users:invite": true,
       "settings:evaluators": true,
     },
   },
