@@ -35,44 +35,6 @@ def get_db():
     return connection
 
 
-def sync_client_statuses(clients_df: pd.DataFrame):
-    """Updates the status for all clients in the DataFrame.
-
-    - Sets status to 1 for active clients.
-    - Sets status to 0 for inactive clients.
-    """
-    logger.debug("Syncing all client statuses")
-
-    active_ids = tuple(
-        clients_df[clients_df["STATUS"] == "Active"]["CLIENT_ID"].tolist()
-    )
-    inactive_ids = tuple(
-        clients_df[clients_df["STATUS"] == "Inactive"]["CLIENT_ID"].tolist()
-    )
-
-    db_connection = get_db()
-    try:
-        with db_connection.cursor() as cursor:
-            if active_ids:
-                logger.debug(f"Activating {len(active_ids)} clients.")
-                sql_activate = "UPDATE emr_client SET status = 1 WHERE id IN %s"
-                cursor.execute(sql_activate, (active_ids,))
-
-            if inactive_ids:
-                logger.debug(f"Deactivating {len(inactive_ids)} clients.")
-                sql_deactivate = "UPDATE emr_client SET status = 0 WHERE id IN %s"
-                cursor.execute(sql_deactivate, (inactive_ids,))
-
-        db_connection.commit()
-        logger.debug("Client status sync complete.")
-
-    except Exception as e:
-        logger.error(f"Database error during client sync: {e}")
-        db_connection.rollback()
-    finally:
-        db_connection.close()
-
-
 def filter_clients_with_changed_address(clients: pd.DataFrame) -> pd.DataFrame:
     """Identifies clients with new or changed addresses by comparing them to records in the database. Also, filters out clients with no address.
 
@@ -366,7 +328,7 @@ def get_evaluators_with_blocked_locations():
     return evaluators
 
 
-def get_existing_client_eval_links() -> Dict[str, Set[str]]:
+def _get_existing_client_eval_links() -> Dict[str, Set[str]]:
     """Gets all existing client-evaluator relationships from the database.
 
     Returns:
@@ -403,7 +365,7 @@ def get_existing_client_eval_links() -> Dict[str, Set[str]]:
     return existing_links
 
 
-def delete_client_eval_links(client_id: str, evaluator_npis: Set[str]) -> None:
+def _delete_client_eval_links(client_id: str, evaluator_npis: Set[str]) -> None:
     """Deletes specific client-evaluator relationships from the database.
 
     Args:
@@ -433,7 +395,7 @@ def delete_client_eval_links(client_id: str, evaluator_npis: Set[str]) -> None:
                 db_connection.rollback()
 
 
-def insert_client_eval_links(client_id: str, evaluator_npis: Set[str]) -> None:
+def _insert_client_eval_links(client_id: str, evaluator_npis: Set[str]) -> None:
     """Inserts specific client-evaluator relationships.
 
     Args:
@@ -444,10 +406,10 @@ def insert_client_eval_links(client_id: str, evaluator_npis: Set[str]) -> None:
         return
 
     for npi in evaluator_npis:
-        link_client_provider(client_id, npi)
+        _link_client_provider(client_id, npi)
 
 
-def delete_all_relationships_for_clients(client_ids: Set[str]) -> None:
+def _delete_all_relationships_for_clients(client_ids: Set[str]) -> None:
     """Deletes all relationships for specific clients.
 
     Args:
@@ -474,7 +436,7 @@ def delete_all_relationships_for_clients(client_ids: Set[str]) -> None:
                 db_connection.rollback()
 
 
-def link_client_provider(client_id: str, npi: str) -> None:
+def _link_client_provider(client_id: str, npi: str) -> None:
     """Inserts a client-provider link into the database."""
     db_connection = get_db()
 
@@ -495,25 +457,6 @@ def link_client_provider(client_id: str, npi: str) -> None:
         db_connection.commit()
 
 
-def delete_all_client_eval_links():
-    """Deletes all existing client-evaluator relationships."""
-    logger.debug(
-        "Deleting all existing client-evaluator relationships from the database."
-    )
-    db_connection = get_db()
-
-    with db_connection:
-        with db_connection.cursor() as cursor:
-            sql = "DELETE FROM emr_client_eval"
-            try:
-                cursor.execute(sql)
-                db_connection.commit()
-                logger.debug("Successfully deleted all existing matches.")
-            except Exception as e:
-                logger.error(f"Failed to delete all existing matches: {e}")
-                db_connection.rollback()
-
-
 def insert_by_matching_criteria_incremental(
     clients: pd.DataFrame, evaluators: dict
 ) -> None:
@@ -525,7 +468,7 @@ def insert_by_matching_criteria_incremental(
     """
     logger.debug("Starting incremental client-evaluator matching...")
 
-    existing_links = get_existing_client_eval_links()
+    existing_links = _get_existing_client_eval_links()
 
     processed_count = 0
     updated_count = 0
@@ -576,11 +519,11 @@ def insert_by_matching_criteria_incremental(
                 # logger.debug(
                 #     f"Client {client_id}: Removing {len(to_remove)} relationships"
                 # )
-                delete_client_eval_links(client_id, to_remove)
+                _delete_client_eval_links(client_id, to_remove)
 
             if to_add:
                 # logger.debug(f"Client {client_id}: Adding {len(to_add)} relationships")
-                insert_client_eval_links(client_id, to_add)
+                _insert_client_eval_links(client_id, to_add)
 
             # Update our tracking
             existing_links[client_id] = current_should_be
@@ -613,7 +556,7 @@ def insert_by_matching_criteria_client_specific(
         clients["CLIENT_ID"].astype(str).isin(specific_client_ids)
     ]
 
-    delete_all_relationships_for_clients(specific_client_ids)
+    _delete_all_relationships_for_clients(specific_client_ids)
 
     updated_count = 0
 
@@ -635,7 +578,7 @@ def insert_by_matching_criteria_client_specific(
         )
 
         for npi in matched_evaluator_npis:
-            link_client_provider(client_id, npi)
+            _link_client_provider(client_id, npi)
 
         updated_count += 1
         full_name = (

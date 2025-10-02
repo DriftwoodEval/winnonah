@@ -13,7 +13,7 @@ from selenium.webdriver.remote.webdriver import WebDriver
 import utils.webdriving as w
 
 
-def open_profile(driver: WebDriver):
+def _open_profile(driver: WebDriver):
     """Opens the therapist profile page."""
     logger.debug("Opening profile")
     w.click_element(driver, By.CLASS_NAME, "user-menu-button")
@@ -24,7 +24,7 @@ def open_profile(driver: WebDriver):
     )
 
 
-def export_data(driver: WebDriver):
+def _export_data(driver: WebDriver):
     """Exports therapist data to CSV files."""
 
     def _helper(driver: WebDriver, data_title: str) -> bool:
@@ -67,7 +67,7 @@ def export_data(driver: WebDriver):
     w.click_element(driver, By.CSS_SELECTOR, "[data-dismiss='modal']")
 
 
-def download_data(driver: WebDriver):
+def _download_data(driver: WebDriver):
     """Downloads therapist data to CSV files."""
 
     def _helper(driver: WebDriver, data_title: str):
@@ -98,7 +98,7 @@ def download_data(driver: WebDriver):
     time.sleep(2)
 
 
-def loop_therapists(driver: WebDriver, func: Callable):
+def _loop_therapists(driver: WebDriver, func: Callable):
     """Loops through therapists and runs a function for each therapist."""
 
     def _helper(driver: WebDriver, count: int) -> int:
@@ -140,7 +140,7 @@ def loop_therapists(driver: WebDriver, func: Callable):
         therapist_iterator += 1
 
 
-def combine_files():
+def _combine_files():
     """Combines multiple therapists' CSV files into a single CSV file."""
     logger.debug("Combining CSVs")
 
@@ -179,7 +179,7 @@ def combine_files():
     )
 
 
-def download_referrals(driver: WebDriver):
+def _download_referrals(driver: WebDriver):
     """Downloads referrals CSV from reports."""
     logger.debug("Opening reports page")
     driver.get(
@@ -198,8 +198,8 @@ def download_csvs():
     logger.debug("Downloading CSVs from TherapyAppointment")
     driver, actions = w.initialize_selenium()
     w.login_ta(driver, actions)
-    open_profile(driver)
-    loop_therapists(driver, export_data)
-    loop_therapists(driver, download_data)
-    combine_files()
-    download_referrals(driver)
+    _open_profile(driver)
+    _loop_therapists(driver, _export_data)
+    _loop_therapists(driver, _download_data)
+    _combine_files()
+    _download_referrals(driver)

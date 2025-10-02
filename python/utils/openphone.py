@@ -7,12 +7,12 @@ import requests
 from loguru import logger
 from tqdm import tqdm
 
-from utils.clients import TEST_NAMES, normalize_names, remove_test_names
+from utils.clients import TEST_NAMES, _normalize_names, _remove_test_names
 
 API_TOKEN = os.getenv("OPENPHONE_API_TOKEN")
 
 
-def get_all_openphone_contacts():
+def _get_all_openphone_contacts():
     """Retrieve all contacts from the OpenPhone into a dataframe."""
     url = "https://api.openphone.com/v1/contacts"
     headers = {"Authorization": API_TOKEN}
@@ -80,7 +80,7 @@ def get_all_openphone_contacts():
     return pd.DataFrame(processed_records)
 
 
-def normalize_phone_number(phone_series: pd.Series) -> pd.Series:
+def _normalize_phone_number(phone_series: pd.Series) -> pd.Series:
     """Normalizes a pandas Series of phone numbers to a consistent 11-digit format for NA numbers.
 
     - Strips non-digits.
@@ -94,7 +94,7 @@ def normalize_phone_number(phone_series: pd.Series) -> pd.Series:
     return cleaned_series.apply(lambda x: "1" + x if len(x) == 10 else x)
 
 
-def create_openphone_contacts(contacts_df: pd.DataFrame):
+def _create_openphone_contacts(contacts_df: pd.DataFrame):
     """Creates contacts in OpenPhone from a DataFrame."""
     url = "https://api.openphone.com/v1/contacts"
     headers = {"Authorization": API_TOKEN, "Content-Type": "application/json"}
@@ -133,7 +133,7 @@ def create_openphone_contacts(contacts_df: pd.DataFrame):
     )
 
 
-def process_demographic_data(
+def _process_demographic_data(
     demo_df: pd.DataFrame, openphone_df: pd.DataFrame
 ) -> pd.DataFrame:
     """Process demographic data by cleaning, filtering, and removing duplicates."""
@@ -146,9 +146,9 @@ def process_demographic_data(
     active_df = demo_df[demo_df["STATUS"] != "Inactive"].copy()
     logger.debug(f"Removed {len(demo_df) - len(active_df)} inactive clients.")
 
-    filtered_df = remove_test_names(active_df, TEST_NAMES)
+    filtered_df = _remove_test_names(active_df, TEST_NAMES)
 
-    filtered_df = normalize_names(filtered_df)
+    filtered_df = _normalize_names(filtered_df)
 
     # Create a boolean mask for rows where PREFERRED_NAME is valid and should be used.
     preferred_name_mask = pd.notna(filtered_df["PREFERRED_NAME"]) & (
@@ -160,10 +160,10 @@ def process_demographic_data(
     ]
 
     logger.debug("Cleaning phone numbers...")
-    openphone_df.loc[:, "phone_normalized"] = normalize_phone_number(
+    openphone_df.loc[:, "phone_normalized"] = _normalize_phone_number(
         openphone_df["phone_number_1"]
     )
-    filtered_df.loc[:, "phone_normalized"] = normalize_phone_number(
+    filtered_df.loc[:, "phone_normalized"] = _normalize_phone_number(
         filtered_df["PHONE1"]
     )
 
@@ -198,18 +198,18 @@ def sync_openphone():
     logger.info("Syncing OpenPhone contacts...")
     demo_df = pd.read_csv("temp/input/clients-demographic.csv", dtype=str)
 
-    openphone_df = get_all_openphone_contacts()
+    openphone_df = _get_all_openphone_contacts()
 
     if openphone_df is None:
         logger.error("Failed to fetch OpenPhone contacts. Skipping OpenPhone sync.")
         return
 
-    final_df = process_demographic_data(demo_df, openphone_df)
+    final_df = _process_demographic_data(demo_df, openphone_df)
 
     if final_df is not None:
         final_df.to_csv("openphone-merged.csv", index=False)
         # This currently doesn't show contacts in OpenPhone until a conversation has been started with them, which is pretty useless. Just import the CSV.
-        # create_openphone_contacts(final_df)
+        # _create_openphone_contacts(final_df)
         logger.success("OpenPhone CSV created.")
     else:
         logger.error("Failed to process OpenPhone data. Skipping OpenPhone sync.")

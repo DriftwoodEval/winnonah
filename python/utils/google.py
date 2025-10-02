@@ -13,7 +13,7 @@ SCOPES = [
 ]
 
 
-def google_authenticate():
+def _google_authenticate():
     """Authenticate with Google using the credentials in ./auth_cache/credentials.json (obtained from Google Cloud Console) and ./auth_cache/token.json (user-specific).
 
     If the credentials are not valid, the user is prompted to log in.
@@ -50,7 +50,7 @@ def google_authenticate():
 
 def get_items_in_folder(folder_id: str):
     """Get all items in the given folder."""
-    creds = google_authenticate()
+    creds = _google_authenticate()
     try:
         service = build("drive", "v3", credentials=creds)
         files = []
@@ -80,7 +80,7 @@ def get_items_in_folder(folder_id: str):
 
 def create_folder_in_folder(new_folder_name: str, parent_folder_id: str):
     """Create a new folder in the given parent folder."""
-    creds = google_authenticate()
+    creds = _google_authenticate()
     try:
         service = build("drive", "v3", credentials=creds)
         file_metadata = {

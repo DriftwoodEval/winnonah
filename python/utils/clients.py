@@ -21,7 +21,7 @@ TEST_NAMES = [
 ]
 
 
-def normalize_names(df: pd.DataFrame) -> pd.DataFrame:
+def _normalize_names(df: pd.DataFrame) -> pd.DataFrame:
     """Normalizes client names intelligently, handling capitalization and suffixes."""
     logger.debug("Normalizing client names")
 
@@ -72,7 +72,7 @@ def normalize_names(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
-def remove_test_names(df: pd.DataFrame, test_names: list) -> pd.DataFrame:
+def _remove_test_names(df: pd.DataFrame, test_names: list) -> pd.DataFrame:
     """Removes test names from a DataFrame."""
     logger.debug("Removing test names")
     return df[
@@ -80,7 +80,7 @@ def remove_test_names(df: pd.DataFrame, test_names: list) -> pd.DataFrame:
     ]
 
 
-def map_insurance_names(clients: pd.DataFrame) -> pd.DataFrame:
+def _map_insurance_names(clients: pd.DataFrame) -> pd.DataFrame:
     """Maps insurance company names to their corresponding internal names."""
     logger.debug("Mapping insurance names")
     insurance_mapping = {
@@ -99,7 +99,7 @@ def map_insurance_names(clients: pd.DataFrame) -> pd.DataFrame:
     return clients.replace({"INSURANCE_COMPANYNAME": insurance_mapping})
 
 
-def consolidate_by_id(clients: pd.DataFrame) -> pd.DataFrame:
+def _consolidate_by_id(clients: pd.DataFrame) -> pd.DataFrame:
     """Consolidates a DataFrame of clients by their IDs. It will group by client ID and merge the insurance company names into separate columns for primary and secondary insurance. For primary insurance, it gets the most recent policy that is currently active (in date). For secondary insurance, it gets all policies that are currently active."""
     logger.debug("Consolidating clients by ID")
     df = clients.copy()
@@ -181,7 +181,7 @@ def consolidate_by_id(clients: pd.DataFrame) -> pd.DataFrame:
     return consolidated
 
 
-def combine_address_info(clients: pd.DataFrame) -> pd.DataFrame:
+def _combine_address_info(clients: pd.DataFrame) -> pd.DataFrame:
     """Combines address information from a DataFrame of clients into a single column.
 
     Expects a DataFrame with columns for the client ID, address parts (USER_ADDRESS_ADDRESS1, USER_ADDRESS_ADDRESS2, USER_ADDRESS_ADDRESS3), city (USER_ADDRESS_CITY), state (USER_ADDRESS_STATE), and zip (USER_ADDRESS_ZIP).
@@ -234,7 +234,7 @@ def combine_address_info(clients: pd.DataFrame) -> pd.DataFrame:
     return clients
 
 
-def remove_invalid_clients(clients_df: pd.DataFrame) -> pd.DataFrame:
+def _remove_invalid_clients(clients_df: pd.DataFrame) -> pd.DataFrame:
     """Removes clients with invalid IDs."""
     logger.debug("Removing clients with invalid IDs")
     clients_df = clients_df[pd.notna(clients_df["CLIENT_ID"])]
@@ -250,11 +250,11 @@ def get_clients() -> pd.DataFrame:
     demo_df = utils.spreadsheets.open_local("temp/input/clients-demographic.csv")
 
     clients_df = pd.merge(demo_df, insurance_df, "outer")
-    clients_df = normalize_names(clients_df)
-    clients_df = remove_test_names(clients_df, TEST_NAMES)
-    clients_df = map_insurance_names(clients_df)
-    clients_df = consolidate_by_id(clients_df)
-    clients_df = remove_invalid_clients(clients_df)
-    clients_df = combine_address_info(clients_df)
+    clients_df = _normalize_names(clients_df)
+    clients_df = _remove_test_names(clients_df, TEST_NAMES)
+    clients_df = _map_insurance_names(clients_df)
+    clients_df = _consolidate_by_id(clients_df)
+    clients_df = _remove_invalid_clients(clients_df)
+    clients_df = _combine_address_info(clients_df)
 
     return clients_df
