@@ -359,6 +359,7 @@ export const clientRouter = createTRPCRouter({
         highPriority: z.boolean().optional(),
         babyNet: z.boolean().optional(),
         eiAttends: z.boolean().optional(),
+        driveId: z.string().optional(),
       })
     )
     .mutation(async ({ ctx, input }) => {
@@ -383,6 +384,10 @@ export const clientRouter = createTRPCRouter({
         !hasPermission(ctx.session.user.permissions, "clients:ei")
           ? ["clients:ei"]
           : []),
+        ...(input.driveId !== undefined &&
+        !hasPermission(ctx.session.user.permissions, "clients:drive")
+          ? ["clients:drive"]
+          : []),
       ];
       if (unauthorizedPermissions.length > 0) {
         throw new TRPCError({
@@ -404,6 +409,7 @@ export const clientRouter = createTRPCRouter({
         babyNet?: boolean;
         eiAttends?: boolean;
         flag?: string | null;
+        driveId?: string | null;
       } = {};
 
       if (input.color !== undefined) {
@@ -423,6 +429,9 @@ export const clientRouter = createTRPCRouter({
       }
       if (input.eiAttends !== undefined) {
         updateData.eiAttends = input.eiAttends;
+      }
+      if (input.driveId !== undefined) {
+        updateData.driveId = input.driveId;
       }
 
       await ctx.db

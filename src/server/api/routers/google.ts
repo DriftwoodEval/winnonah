@@ -1,14 +1,55 @@
+import { TRPCError } from "@trpc/server";
 import { eq, type InferSelectModel, inArray } from "drizzle-orm";
 import { OAuth2Client } from "google-auth-library";
 import { google, type sheets_v4 } from "googleapis";
 import z from "zod";
 import { env } from "~/env";
 import type { FullClientInfo, PunchClient } from "~/lib/types";
+import { hasPermission } from "~/lib/utils";
 import { createTRPCRouter, protectedProcedure } from "~/server/api/trpc";
 import { db } from "~/server/db";
 import { clients } from "~/server/db/schema";
 import type { Client } from "~/server/lib/types";
 
+const renameFolder = async (
+  accessToken: string,
+  refreshToken: string,
+  folderId: string,
+  clientId: string
+) => {
+  const { AUTH_GOOGLE_ID, AUTH_GOOGLE_SECRET } = env;
+  const oauth2Client = new OAuth2Client({
+    clientId: AUTH_GOOGLE_ID,
+    clientSecret: AUTH_GOOGLE_SECRET,
+  });
+  oauth2Client.setCredentials({
+    access_token: accessToken,
+    refresh_token: refreshToken,
+  });
+  const driveApi = google.drive({ version: "v3", auth: oauth2Client });
+
+  const folder = await driveApi.files.get({
+    fileId: folderId,
+    fields: "name",
+  });
+
+  const folderName = folder.data.name;
+  const regex = /\[\d+\]/;
+  if (folderName && regex.test(folderName)) {
+    throw new TRPCError({
+      code: "BAD_REQUEST",
+      message: `${folderName} already has a client ID`,
+    });
+  } else {
+    const newFolderName = `${folderName?.trim()} [${clientId}]`;
+    await driveApi.files.update({
+      fileId: folderId,
+      requestBody: {
+        name: newFolderName,
+      },
+    });
+  }
+};
 const getPunchData = async (accessToken: string, refreshToken: string) => {
   const { AUTH_GOOGLE_ID, AUTH_GOOGLE_SECRET, PUNCHLIST_ID, PUNCHLIST_RANGE } =
     env;
@@ -338,5 +379,30 @@ export const googleRouter = createTRPCRouter({
           }`
         );
       }
+    }),
+
+  addIdToFolder: protectedProcedure
+    .input(
+      z.object({
+        id: z.string(),
+        folderId: z.string(),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      if (!ctx.session.user.accessToken || !ctx.session.user.refreshToken) {
+        throw new Error("No access token or refresh token");
+      }
+      if (!hasPermission(ctx.session.user.permissions, "clients:drive")) {
+        throw new TRPCError({
+          code: "UNAUTHORIZED",
+        });
+      }
+
+      await renameFolder(
+        ctx.session.user.accessToken,
+        ctx.session.user.refreshToken,
+        input.folderId,
+        input.id
+      );
     }),
 });

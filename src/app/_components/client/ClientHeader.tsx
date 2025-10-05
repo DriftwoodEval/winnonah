@@ -20,6 +20,7 @@ import {
 import { hasPermission } from "~/lib/utils";
 import type { Client } from "~/server/lib/types";
 import { api } from "~/trpc/react";
+import { AddDriveButton } from "./AddDrive";
 import { ClientEditButton } from "./EditClientDialog";
 
 interface ClientHeaderProps {
@@ -43,6 +44,9 @@ export function ClientHeader({
 		: false;
 	const canColor = session
 		? hasPermission(session.user.permissions, "clients:color")
+		: false;
+	const canDrive = session
+		? hasPermission(session.user.permissions, "clients:drive")
 		: false;
 
 	const { data: punchFor } = api.google.getFor.useQuery(
@@ -85,6 +89,15 @@ export function ClientHeader({
 						{!readOnly && client.id.toString().length !== 5 && (
 							<ClientEditButton client={client} />
 						)}
+						{!readOnly &&
+							client.id.toString().length !== 5 &&
+							!client.driveId &&
+							canDrive && (
+								<>
+									<Separator orientation="vertical" />
+									<AddDriveButton client={client} />
+								</>
+							)}
 						{!readOnly &&
 							client.id.toString().length !== 5 &&
 							client.driveId && <Separator orientation="vertical" />}

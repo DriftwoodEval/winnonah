@@ -2,7 +2,7 @@ import { DrizzleAdapter } from "@auth/drizzle-adapter";
 import { and, eq } from "drizzle-orm/sql";
 import type { DefaultSession, NextAuthConfig } from "next-auth";
 import GoogleProvider from "next-auth/providers/google";
-import type { PermissionsObject } from "~/lib/types";
+import { type PermissionsObject, permissionPresets } from "~/lib/types";
 
 import { db } from "~/server/db";
 import {
@@ -55,7 +55,7 @@ export const authConfig = {
           response_type: "code",
           prompt: "consent",
           scope:
-            "openid email profile https://www.googleapis.com/auth/spreadsheets",
+            "openid email profile https://www.googleapis.com/auth/spreadsheets https://www.googleapis.com/auth/drive",
         },
       },
     }),
@@ -108,7 +108,12 @@ export const authConfig = {
           })
           .where(eq(invitations.id, invitation.id));
       } else {
-        user.permissions = "{}" as PermissionsObject;
+        const preset = permissionPresets.find((p) => p.value === "user");
+        if (preset) {
+          user.permissions = preset.permissions as PermissionsObject;
+        } else {
+          user.permissions = {};
+        }
       }
 
       return true;
