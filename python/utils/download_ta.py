@@ -24,7 +24,7 @@ def _open_profile(driver: WebDriver):
     )
 
 
-def _export_data(driver: WebDriver):
+def _export_data(driver: WebDriver, npi: str):
     """Exports therapist data to CSV files."""
 
     def _helper(driver: WebDriver, data_title: str) -> bool:
@@ -67,10 +67,17 @@ def _export_data(driver: WebDriver):
     w.click_element(driver, By.CSS_SELECTOR, "[data-dismiss='modal']")
 
 
-def _download_data(driver: WebDriver):
+def _download_data(driver: WebDriver, npi: str):
     """Downloads therapist data to CSV files."""
 
-    def _helper(driver: WebDriver, data_title: str):
+    def _helper(
+        driver: WebDriver,
+        data_title: str,
+    ):
+        def get_newest_downloaded_file():
+            files = glob.glob(f"{os.getcwd()}/temp/downloads/*.csv")
+            return max(files, key=os.path.getctime)
+
         logger.debug(f"Downloading {data_title}")
         try:
             w.click_element(
@@ -79,6 +86,12 @@ def _download_data(driver: WebDriver):
                 f"//h5[contains(normalize-space(text()), '{data_title}')]/following-sibling::p/a[contains(text(), 'Download')]",
                 1,
             )
+            time.sleep(2)
+            if data_title == "Client Appointments":
+                os.rename(
+                    get_newest_downloaded_file(),
+                    f"temp/downloads/clients-appointments_{npi}.csv",
+                )
             return True
         except NoSuchElementException:
             logger.error(f"Could not find {data_title} Download button")
@@ -105,14 +118,14 @@ def _loop_therapists(driver: WebDriver, func: Callable):
         therapist_element = w.find_element(
             driver, By.CSS_SELECTOR, f"#nav-staff-menu>ul>li:nth-child({count + 1})>a"
         )
+        therapist_name = therapist_element.text
         if any(
-            s in therapist_element.text
-            for s in os.environ.get("EXCLUDED_TA", "").split(",")
+            s in therapist_name for s in os.environ.get("EXCLUDED_TA", "").split(",")
         ):
-            logger.debug(f"Skipping therapist: {therapist_element.text}")
+            logger.debug(f"Skipping therapist: {therapist_name}")
             count += 1
             return count
-        logger.debug(f"Looping for therapist: {therapist_element.text}")
+        logger.debug(f"Looping for therapist: {therapist_name}")
         therapist_element.click()
         return count
 
@@ -136,7 +149,18 @@ def _loop_therapists(driver: WebDriver, func: Callable):
         if new_count == therapist_iterator + 1:
             therapist_iterator += 1
             continue
-        func(driver)
+        try:
+            therapist_npi = w.find_element(
+                driver,
+                By.XPATH,
+                "//div[contains(text(), 'Individual (Type 1) NPI Number')]/following-sibling::div",
+                1,
+            ).text.split()[0]
+        except NoSuchElementException:
+            logger.error("Could not find therapist NPI, skipping!")
+            therapist_iterator += 1
+            continue
+        func(driver, therapist_npi)
         therapist_iterator += 1
 
 
@@ -144,7 +168,7 @@ def _combine_files():
     """Combines multiple therapists' CSV files into a single CSV file."""
     logger.debug("Combining CSVs")
 
-    def read_and_concat_files(pattern, output_file):
+    def _read_and_concat_files(pattern, output_file: str):
         files = glob.glob(pattern)
         df_list = []
         for file in files:
@@ -158,22 +182,39 @@ def _combine_files():
         df = pd.concat(df_list)
         df.to_csv(output_file, index=False, encoding="utf-8")
 
+    def _add_npi_and_merge(pattern: str, output_file: str):
+        files = glob.glob(pattern)
+        df_list = []
+        for file in files:
+            npi = os.path.basename(file).split("_")[-1].split(".")[0]
+            try:
+                df = pd.read_csv(file, encoding="utf-8", dtype=str)
+            except UnicodeDecodeError:
+                df = pd.read_csv(file, encoding="latin1", dtype=str)
+            df.dropna(how="all", inplace=True)
+
+            df["NPI"] = npi
+            df_list.append(df)
+        df = pd.concat(df_list)
+        df.to_csv(output_file, index=False, encoding="utf-8")
+
     output_directory = os.path.dirname("temp/input/")
     if not os.path.exists(output_directory):
         os.makedirs(output_directory)
-    read_and_concat_files(
-        "temp/downloads/dataExport-appointments*.csv",
+
+    _add_npi_and_merge(
+        "temp/downloads/clients-appointments_*.csv",
         os.path.join(output_directory, "clients-appointments.csv"),
     )
-    read_and_concat_files(
+    _read_and_concat_files(
         "temp/downloads/dataExport-demographic*.csv",
         os.path.join(output_directory, "clients-demographic.csv"),
     )
-    read_and_concat_files(
+    _read_and_concat_files(
         "temp/downloads/dataExport-insurance*.csv",
         os.path.join(output_directory, "clients-insurance.csv"),
     )
-    read_and_concat_files(
+    _read_and_concat_files(
         "temp/downloads/dataExport-chart*.csv",
         os.path.join(output_directory, "clients-chart.csv"),
     )
