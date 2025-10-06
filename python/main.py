@@ -159,6 +159,8 @@ def import_from_ta(
         all_clients_from_db, evaluators, force_clients_ids
     )
 
+    utils.database.insert_appointments()
+
 
 def extract_digits(string: str) -> Optional[str]:
     """Extract only digits from a string."""

@@ -274,7 +274,7 @@ export const noteHistoryRelations = relations(noteHistory, ({ one }) => ({
 }));
 
 export const appointments = createTable("appointment", (d) => ({
-  id: d.int().notNull().autoincrement().primaryKey(),
+  id: d.varchar({ length: 255 }).notNull().primaryKey(),
   clientId: d
     .int()
     .notNull()
@@ -283,9 +283,12 @@ export const appointments = createTable("appointment", (d) => ({
     .int()
     .notNull()
     .references(() => evaluators.npi, { onDelete: "cascade" }),
-  date: d.date().notNull(),
-  status: d.varchar({ length: 255 }),
-  type: d.mysqlEnum(["EVAL", "DA", "DAEVAL"]),
+  startTime: d.timestamp("startTime").notNull(),
+  endTime: d.timestamp("endTime").notNull(),
+  type: d.mysqlEnum(["EVAL", "DA", "LD"]),
+  cpt: d.varchar({ length: 255 }),
+  cancelled: d.boolean().notNull().default(false),
+  location: d.varchar({ length: 255 }),
 }));
 
 export const questionnaires = createTable("questionnaire", (d) => ({

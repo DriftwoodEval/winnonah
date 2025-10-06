@@ -1,6 +1,8 @@
 import hashlib
 import os
-from typing import Dict, Optional, Set
+import re
+from datetime import datetime
+from typing import Dict, Literal, Optional, Set
 from urllib.parse import urlparse
 
 import pandas as pd
@@ -9,6 +11,7 @@ from dotenv import load_dotenv
 from loguru import logger
 
 import utils.relationships
+from utils.clients import TEST_NAMES
 from utils.misc import (
     format_date,
     format_gender,
@@ -269,6 +272,49 @@ def put_clients_in_db(clients_df):
         db_connection.commit()
 
     logger.info(f"Successfully inserted/updated {len(values_to_insert)} clients.")
+
+
+def put_appointment_in_db(
+    appointment_id: str,
+    client_id: int,
+    evaluator_npi: int,
+    start_time: datetime,
+    end_time: datetime,
+    cancelled: bool,
+    type: Literal["EVAL", "DA", "DA+EVAL", "LD"],
+    location: str | None = None,
+):
+    """Inserts an appointment into the database."""
+    db_connection = get_db()
+
+    with db_connection:
+        with db_connection.cursor() as cursor:
+            sql = """
+                INSERT INTO `emr_appointment` (id, clientId, evaluatorNpi, startTime, endTime, cancelled, type, location)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                ON DUPLICATE KEY UPDATE
+                    clientId = VALUES(clientId),
+                    evaluatorNpi = VALUES(evaluatorNpi),
+                    startTime = VALUES(startTime),
+                    endTime = VALUES(endTime),
+                    cancelled = VALUES(cancelled),
+                    type = VALUES(type),
+                    location = CASE WHEN VALUES(location) IS NOT NULL THEN VALUES(location) ELSE location END;
+            """
+            cursor.execute(
+                sql,
+                (
+                    appointment_id,
+                    client_id,
+                    evaluator_npi,
+                    start_time,
+                    end_time,
+                    cancelled,
+                    type,
+                    location,
+                ),
+            )
+            db_connection.commit()
 
 
 def get_evaluators_with_blocked_locations():
@@ -614,3 +660,41 @@ def insert_by_matching_criteria(
         # Update all clients incrementally (only change what's different)
         logger.info("Running incremental update for all clients")
         insert_by_matching_criteria_incremental(clients, evaluators)
+
+
+def insert_appointments():
+    """Inserts appointments into the database from a CSV."""
+    appointments_df = pd.read_csv("temp/input/clients-appointments.csv")
+    for appointment in appointments_df.iterrows():
+        appointment_id = appointment[1]["APPOINTMENT_ID"]
+        clientId = appointment[1]["CLIENT_ID"]
+        evaluatorNpi = appointment[1]["NPI"]
+        startTime = appointment[1]["STARTTIME"]
+        endTime = appointment[1]["ENDTIME"]
+        startTime = pd.to_datetime(startTime).to_pydatetime()
+        endTime = pd.to_datetime(endTime).to_pydatetime()
+        cancelled = appointment[1]["CANCELBYNAME"]
+        name = re.sub(r"[\d\(\)]", "", appointment[1]["NAME"]).strip()
+        if name in TEST_NAMES:
+            continue
+        if type(cancelled) == str:
+            cancelled = True
+        else:
+            cancelled = False
+        duration = endTime - startTime
+        if duration.total_seconds() > 60 * 60 * 3:  # 3 hours
+            daeval = "LD"
+        elif duration.total_seconds() > 60 * 60:  # 1 hour
+            daeval = "EVAL"
+        else:
+            daeval = "DA"
+
+        put_appointment_in_db(
+            appointment_id,
+            clientId,
+            evaluatorNpi,
+            startTime,
+            endTime,
+            cancelled,
+            daeval,
+        )
