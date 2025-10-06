@@ -277,7 +277,6 @@ def main():
     if not os.getenv("DEV_TOGGLE"):
         logger.debug("Removing temp directory")
         shutil.rmtree("temp", ignore_errors=True)
-    os.mkdir("temp")
 
     if args.download_only:
         logger.info("Running download only")
