@@ -201,8 +201,8 @@ export function ClientDetailsCard({ client }: ClientDetailsCardProps) {
 				<Alert variant="destructive">
 					<AlertTriangleIcon />
 					<AlertTitle>
-						School district was found after cutting address, double-check that
-						it's correct.
+						School district was found after cutting address, confirm that it's
+						correct by editing the client and submitting.
 					</AlertTitle>
 				</Alert>
 			)}
