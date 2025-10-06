@@ -49,15 +49,18 @@ export function AddDriveButton({ client }: { client: Client }) {
 	});
 
 	const formSchema = z.object({
-		link: z
-			.url()
-			.refine(
-				(link) => link.startsWith("https://drive.google.com/drive/folders/"),
-				{
-					message:
-						"Link must start with https://drive.google.com/drive/folders/",
-				},
-			),
+		link: z.union([
+			z
+				.url()
+				.refine(
+					(link) => link.startsWith("https://drive.google.com/drive/folders/"),
+					{
+						message:
+							"Link must start with https://drive.google.com/drive/folders/",
+					},
+				),
+			z.string().refine((string) => string.toLowerCase() === "n/a"),
+		]),
 	});
 
 	type driveIdValues = z.infer<typeof formSchema>;
@@ -67,6 +70,14 @@ export function AddDriveButton({ client }: { client: Client }) {
 	});
 
 	function onSubmit(values: driveIdValues) {
+		if (values.link.toLowerCase() === "n/a") {
+			updateClient.mutate({
+				clientId: client.id,
+				driveId: "N/A",
+			});
+			addDriveDialog.closeDialog();
+			return;
+		}
 		const match = values.link.match(/\/folders\/([^/]+)/);
 		if (match && typeof match[1] === "string" && match[1]) {
 			addIdToFolder.mutate({
@@ -96,7 +107,7 @@ export function AddDriveButton({ client }: { client: Client }) {
 						name="link"
 						render={({ field }) => (
 							<FormItem>
-								<FormLabel>Link to Folder</FormLabel>
+								<FormLabel>Link to Folder (or N/A)</FormLabel>
 								<FormControl>
 									<Input {...field} />
 								</FormControl>

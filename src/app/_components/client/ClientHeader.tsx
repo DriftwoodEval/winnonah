@@ -100,8 +100,9 @@ export function ClientHeader({
 							)}
 						{!readOnly &&
 							client.id.toString().length !== 5 &&
-							client.driveId && <Separator orientation="vertical" />}
-						{client.driveId && (
+							client.driveId &&
+							client.driveId !== "N/A" && <Separator orientation="vertical" />}
+						{client?.driveId !== "N/A" && (
 							<Link
 								href={`https://drive.google.com/open?id=${client.driveId}`}
 								target="_blank"

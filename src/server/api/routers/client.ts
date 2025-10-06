@@ -9,6 +9,7 @@ import {
   getTableColumns,
   gt,
   inArray,
+  isNotNull,
   isNull,
   like,
   lt,
@@ -224,7 +225,7 @@ export const clientRouter = createTRPCRouter({
         count: count().as("count"),
       })
       .from(clients)
-      .where(sql`${clients.driveId} IS NOT NULL`)
+      .where(and(isNotNull(clients.driveId), not(eq(clients.driveId, "N/A"))))
       .groupBy(clients.driveId)
       .having(gt(count(), 1));
 
