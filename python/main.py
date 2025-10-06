@@ -245,6 +245,7 @@ def main():
     * --download-only: Only download the CSVs from TA and exit
     * --openphone: Run the OpenPhone sync and exit
     * --referrals: Run the Referrals process and exit
+    * --dirve-ids: Run the Drive IDs process and exit
     * --client-name: Process specific client(s) by name (case insensitive partial match)
     * --client-id: Process specific client(s) by ID
 
@@ -257,6 +258,7 @@ def main():
     parser.add_argument("--download-only", action="store_true")
     parser.add_argument("--openphone", action="store_true")
     parser.add_argument("--referrals", action="store_true")
+    parser.add_argument("--drive-ids", action="store_true")
     parser.add_argument(
         "--client-name",
         type=str,
@@ -275,6 +277,7 @@ def main():
     if not os.getenv("DEV_TOGGLE"):
         logger.debug("Removing temp directory")
         shutil.rmtree("temp", ignore_errors=True)
+    os.mkdir("temp")
 
     if args.download_only:
         logger.info("Running download only")
@@ -291,6 +294,11 @@ def main():
         logger.info("Running Referrals process")
         utils.download_ta.download_csvs()
         process_referrals()
+        return
+
+    if args.drive_ids:
+        logger.info("Running Drive IDs process")
+        utils.google.add_client_ids_to_drive()
         return
 
     force_clients: Optional[pd.DataFrame] = None
@@ -325,7 +333,14 @@ def main():
                     )
 
     import_from_ta(clients=clients, force_clients=force_clients)
-    process_referrals()
+    try:
+        process_referrals()
+    except Exception as e:
+        logger.error(f"Failed to process referrals: {e}")
+    try:
+        utils.google.add_client_ids_to_drive()
+    except Exception as e:
+        logger.error(f"Failed to add client IDs to drive: {e}")
 
 
 if __name__ == "__main__":

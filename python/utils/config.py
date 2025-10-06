@@ -17,6 +17,7 @@ def validate_config() -> None:
         "CENSUS_API_KEY",
         "OPENPHONE_API_TOKEN",
         "FAX_FOLDER_ID",
+        "BASE_FOLDER_ID",
     ]
 
     for variable in required_variables:

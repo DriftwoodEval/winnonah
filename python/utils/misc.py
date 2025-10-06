@@ -1,3 +1,4 @@
+import csv
 from datetime import datetime
 from typing import Any, List, Union
 
@@ -71,3 +72,10 @@ def format_phone_number(phone_number: Any) -> str | None:
         return f"{float(phone_number):.0f}"
     except (ValueError, TypeError):
         return None
+
+
+def save_to_csv(row: str, filename: str):
+    """Saves file name and drive link to CSV."""
+    with open(filename, "a", newline="", encoding="utf-8") as f:
+        writer = csv.writer(f)
+        writer.writerow(row)
