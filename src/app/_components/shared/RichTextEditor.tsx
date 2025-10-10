@@ -124,8 +124,12 @@ export function RichTextEditor({
 									.run()
 							}
 							onClick={() => {
-								const url = window.prompt("Enter URL");
+								let url = window.prompt("Enter URL");
 								if (url) {
+									url =
+										url.startsWith("http://") || url.startsWith("https://")
+											? url
+											: `https://${url}`;
 									editor
 										.chain()
 										.focus()
