@@ -188,6 +188,20 @@ export const questionnaireRouter = createTRPCRouter({
         });
       }
 
+      const linkSearch = await ctx.db.query.questionnaires.findFirst({
+        where: eq(questionnaires.link, input.link),
+      });
+
+      if (linkSearch) {
+        const existingClient = await ctx.db.query.clients.findFirst({
+          where: eq(clients.id, linkSearch.clientId),
+        });
+        throw new TRPCError({
+          code: "CONFLICT",
+          message: `Questionnaire with link ${input.link} already exists for ${existingClient?.fullName}`,
+        });
+      }
+
       const sentDate = input.sent ?? new Date();
 
       const result = await ctx.db.insert(questionnaires).values({
