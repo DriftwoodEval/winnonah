@@ -8,16 +8,37 @@ import { useForm } from "react-hook-form";
 import { z } from "zod";
 
 const formSchema = z.object({
-	text: z.string().refine(
-		(text) => {
-			const lines = text.split("\n").filter((line) => line.trim() !== "");
-			const lineRegex = /^(?:\d+\)?\s*)?(https?:\/\/[^\s]+) - .+$/;
-			return lines.every((line) => lineRegex.test(line));
-		},
-		{
-			message: "Each line must match the format: [number)] url - type",
-		},
-	),
+	text: z
+		.string()
+		.refine(
+			(text) => {
+				const lines = text.split("\n").filter((line) => line.trim() !== "");
+				const lineRegex = /^(?:\d+\)?\s*)?(https?:\/\/[^\s]+) - .+$/;
+				return lines.every((line) => lineRegex.test(line));
+			},
+			{
+				message: "Each line must match the format: [number)] url - type",
+			},
+		)
+		.refine(
+			(text) => {
+				const lines = text.split("\n").filter((line) => line.trim() !== "");
+				const lineRegexWithCapture = /^(?:\d+\)?\s*)?(https?:\/\/[^\s]+) - .+$/;
+
+				const urls = lines.reduce<string[]>((acc, line) => {
+					const match = line.match(lineRegexWithCapture);
+					if (match?.[1]) {
+						acc.push(match[1]);
+					}
+					return acc;
+				}, []);
+
+				const uniqueUrls = new Set(urls);
+
+				return uniqueUrls.size === urls.length;
+			},
+			{ message: "Duplicate links are not allowed." },
+		),
 });
 
 export type QuestionnaireBulkFormValues = z.infer<typeof formSchema>;
