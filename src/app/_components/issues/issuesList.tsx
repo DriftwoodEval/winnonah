@@ -56,7 +56,7 @@ const IssueList = ({ title, clients, action }: IssueListProps) => {
 	};
 
 	return (
-		<div>
+		<div className="flex max-h-80">
 			<ScrollArea className="w-full rounded-md border bg-card text-card-foreground shadow md:min-w-xs">
 				<div className="p-4">
 					<div className="flex items-center justify-between gap-4">
@@ -156,9 +156,20 @@ export function IssuesList() {
 	const { data: noDriveIds } = api.clients.getNoDriveIdErrors.useQuery();
 	const { data: possiblePrivatePay } =
 		api.clients.getPossiblePrivatePay.useQuery();
+	const { data: duplicateQLinks } =
+		api.questionnaires.getDuplicateLinks.useQuery();
+
+	const duplicatePerClientList =
+		duplicateQLinks?.duplicatePerClient
+			.map((item) => item.client)
+			.filter((client): client is Client => client !== undefined)
+			.filter(
+				(client, index, self) =>
+					self.findIndex((c) => c.id === client.id) === index,
+			) ?? [];
 
 	return (
-		<div className="flex flex-wrap justify-center gap-14">
+		<div className="flex flex-wrap justify-center gap-10">
 			{clientsWithoutDistrict && clientsWithoutDistrict.length !== 0 && (
 				<IssueList clients={clientsWithoutDistrict} title="Missing Districts" />
 			)}
@@ -197,6 +208,53 @@ export function IssuesList() {
 			{possiblePrivatePay && possiblePrivatePay.length !== 0 && (
 				<IssueList clients={possiblePrivatePay} title="Potential Private Pay" />
 			)}
+			{duplicatePerClientList.length > 0 && (
+				<IssueList
+					clients={duplicatePerClientList}
+					title="Clients with Duplicate Questionnaire Links"
+				/>
+			)}
+			{duplicateQLinks?.sharedAcrossClients &&
+				duplicateQLinks.sharedAcrossClients.length > 0 && (
+					<div className="w-full rounded-md border bg-card text-card-foreground shadow md:min-w-xs">
+						<div className="p-4">
+							<h1 className="mb-4 font-bold text-lg leading-none">
+								Clients Sharing Questionnaires{" "}
+								<span className="font-medium text-muted-foreground text-sm">
+									({duplicateQLinks.sharedAcrossClients.length} shared links)
+								</span>
+							</h1>
+							<div className="space-y-6">
+								{duplicateQLinks.sharedAcrossClients.map(
+									({ link, clients }) => (
+										<div className="rounded-md border p-3" key={link}>
+											<div className="mb-2 font-medium text-muted-foreground text-sm">
+												Link: {link}
+											</div>
+											<div className="space-y-2">
+												{clients.map(({ client, count }, index) => (
+													<div key={client.id}>
+														<Link href={`/clients/${client.hash}`}>
+															<div className="text-sm hover:underline">
+																{client.fullName}
+																<span className="ml-2 text-muted-foreground text-xs">
+																	({count} time{count > 1 ? "s" : ""})
+																</span>
+															</div>
+														</Link>
+														{index < clients.length - 1 && (
+															<Separator className="my-2" />
+														)}
+													</div>
+												))}
+											</div>
+										</div>
+									),
+								)}
+							</div>
+						</div>
+					</div>
+				)}
 		</div>
 	);
 }

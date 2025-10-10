@@ -1,5 +1,16 @@
 import { TRPCError } from "@trpc/server";
-import { and, asc, desc, eq, gte } from "drizzle-orm";
+import {
+  and,
+  asc,
+  count,
+  countDistinct,
+  desc,
+  eq,
+  gt,
+  gte,
+  inArray,
+  isNotNull,
+} from "drizzle-orm";
 import { z } from "zod";
 import { formatClientAge, hasPermission } from "~/lib/utils";
 import { createTRPCRouter, protectedProcedure } from "~/server/api/trpc";
@@ -336,4 +347,69 @@ export const questionnaireRouter = createTRPCRouter({
 
       return { success: true };
     }),
+
+  getDuplicateLinks: protectedProcedure.query(async ({ ctx }) => {
+    // 1. Clients with the same link multiple times (grouped by link + clientId)
+    const duplicatePerClient = await ctx.db
+      .select({
+        link: questionnaires.link,
+        clientId: questionnaires.clientId,
+        count: count().as("count"),
+      })
+      .from(questionnaires)
+      .where(isNotNull(questionnaires.link))
+      .groupBy(questionnaires.link, questionnaires.clientId)
+      .having(gt(count(), 1));
+
+    // Get full client objects for duplicatePerClient
+    const clientIdsForDuplicates = duplicatePerClient.map(
+      (row) => row.clientId
+    );
+    const clientsForDuplicates =
+      clientIdsForDuplicates.length > 0
+        ? await ctx.db
+            .select()
+            .from(clients)
+            .where(inArray(clients.id, clientIdsForDuplicates))
+        : [];
+
+    // 2. Links shared across multiple clients
+    const sharedAcrossClients = await ctx.db
+      .select({
+        link: questionnaires.link,
+      })
+      .from(questionnaires)
+      .where(isNotNull(questionnaires.link))
+      .groupBy(questionnaires.link)
+      .having(gt(countDistinct(questionnaires.clientId), 1));
+
+    // Get all clients for each shared link
+    const sharedLinksWithClients = await Promise.all(
+      sharedAcrossClients.map(async ({ link }) => {
+        const clientsWithLink = await ctx.db
+          .select({
+            client: clients,
+            count: count().as("count"),
+          })
+          .from(questionnaires)
+          .innerJoin(clients, eq(questionnaires.clientId, clients.id))
+          .where(eq(questionnaires.link, link))
+          .groupBy(clients.id);
+
+        return {
+          link,
+          clients: clientsWithLink,
+        };
+      })
+    );
+
+    return {
+      duplicatePerClient: duplicatePerClient.map((row) => ({
+        link: row.link,
+        client: clientsForDuplicates.find((c) => c.id === row.clientId),
+        count: row.count,
+      })),
+      sharedAcrossClients: sharedLinksWithClients,
+    };
+  }),
 });
