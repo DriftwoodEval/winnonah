@@ -57,7 +57,10 @@ const IssueList = ({ title, clients, action }: IssueListProps) => {
 
 	return (
 		<div className="flex max-h-80">
-			<ScrollArea className="w-full rounded-md border bg-card text-card-foreground shadow md:min-w-xs">
+			<ScrollArea
+				className="w-full rounded-md border bg-card text-card-foreground shadow md:min-w-xs"
+				type="auto"
+			>
 				<div className="p-4">
 					<div className="flex items-center justify-between gap-4">
 						<h1 className="mb-4 font-bold text-lg leading-none">
