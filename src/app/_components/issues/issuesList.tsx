@@ -232,7 +232,7 @@ export function IssuesList() {
 									({ link, clients }) => (
 										<div className="rounded-md border p-3" key={link}>
 											<div className="mb-2 font-medium text-muted-foreground text-sm">
-												Link: {link}
+												Link: <Link href={link}>{link}</Link>
 											</div>
 											<div className="space-y-2">
 												{clients.map(({ client, count }, index) => (
