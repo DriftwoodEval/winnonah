@@ -52,6 +52,9 @@ export function IssuesAlert() {
 	const { data: possiblePrivatePay } =
 		api.clients.getPossiblePrivatePay.useQuery(undefined, queryOptions);
 
+	const { data: duplicateQLinks } =
+		api.questionnaires.getDuplicateLinks.useQuery(undefined, queryOptions);
+
 	const errorsLength =
 		(districtErrors?.clientsWithoutDistrict.length ?? 0) +
 		(districtErrors?.clientsWithDistrictFromShapefile.length ?? 0) +
@@ -60,7 +63,9 @@ export function IssuesAlert() {
 		(noteOnlyClients?.length ?? 0) +
 		(duplicateDriveIds?.length ?? 0) +
 		(noDriveIds?.length ?? 0) +
-		(possiblePrivatePay?.length ?? 0);
+		(possiblePrivatePay?.length ?? 0) +
+		(duplicateQLinks?.duplicatePerClient.length ?? 0) +
+		(duplicateQLinks?.sharedAcrossClients.length ?? 0);
 
 	if (!isReadyToFetch || errorsLength === 0) {
 		return null;
