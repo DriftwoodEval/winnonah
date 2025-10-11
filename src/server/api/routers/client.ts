@@ -211,7 +211,7 @@ export const clientRouter = createTRPCRouter({
 
   getNoteOnlyClients: protectedProcedure.query(async ({ ctx }) => {
     const noteOnlyClients = await ctx.db.query.clients.findMany({
-      where: eq(sql`LENGTH(${clients.id})`, 5),
+      where: and(eq(sql`LENGTH(${clients.id})`, 5), eq(clients.status, true)),
       orderBy: clients.addedDate,
     });
 
