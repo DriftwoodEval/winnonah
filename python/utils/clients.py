@@ -94,6 +94,10 @@ def _map_insurance_names(clients: pd.DataFrame) -> pd.DataFrame:
         "Aetna Health, Inc.": "Aetna",
         "TriCare East": "Tricare",
         "United Healthcare/OptumHealth / OptumHealth Behavioral Solutions": "United_Optum",
+        "United Healthcare": "United_Optum",
+        "All Savers Alternate Funding-UHC": "United_Optum",
+        "UMR (UHC)": "United_Optum",
+        "GEHA UnitedHealthcare Shared Services (UHSS)": "United_Optum",
         "Medicaid South Carolina": "SCM",
     }
     return clients.replace({"INSURANCE_COMPANYNAME": insurance_mapping})
