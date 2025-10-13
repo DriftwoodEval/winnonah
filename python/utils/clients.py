@@ -91,6 +91,7 @@ def _map_insurance_names(clients: pd.DataFrame) -> pd.DataFrame:
         "Select Health of South Carolina": "SH",
         "Healthy Blue South Carolina": "HB",
         "BabyNet (Combined DA and Eval)": "BabyNet",
+        "Meritain Health Aetna": "Aetna",
         "Aetna Health, Inc.": "Aetna",
         "TriCare East": "Tricare",
         "United Healthcare/OptumHealth / OptumHealth Behavioral Solutions": "United_Optum",
