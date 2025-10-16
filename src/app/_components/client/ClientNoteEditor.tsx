@@ -48,6 +48,7 @@ export function ClientNoteEditor({
 			log.error(error, "Failed to update note");
 			toast.error("Failed to update note", {
 				description: String(error.message),
+				duration: 10000,
 			});
 		},
 	});
@@ -62,6 +63,7 @@ export function ClientNoteEditor({
 			log.error(error, "Failed to create note");
 			toast.error("Failed to create note", {
 				description: String(error.message),
+				duration: 10000,
 			});
 		},
 	});

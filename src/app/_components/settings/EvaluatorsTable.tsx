@@ -437,6 +437,7 @@ function AddEvaluatorButton() {
 			log.error(error, "Failed to create evaluator");
 			toast.error("Failed to create evaluator", {
 				description: error.message,
+				duration: 10000,
 			});
 		},
 	});
@@ -483,7 +484,10 @@ function EvaluatorActionsMenu({ evaluator }: { evaluator: Evaluator }) {
 		},
 		onError: (error) => {
 			log.error(error, "Failed to update evaluator");
-			toast.error("Failed to update evaluator", { description: error.message });
+			toast.error("Failed to update evaluator", {
+				description: error.message,
+				duration: 10000,
+			});
 		},
 	});
 
@@ -495,7 +499,10 @@ function EvaluatorActionsMenu({ evaluator }: { evaluator: Evaluator }) {
 		},
 		onError: (error) => {
 			log.error(error, "Failed to delete evaluator");
-			toast.error("Failed to delete evaluator", { description: error.message });
+			toast.error("Failed to delete evaluator", {
+				description: error.message,
+				duration: 10000,
+			});
 		},
 	});
 

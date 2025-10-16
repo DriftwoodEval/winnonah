@@ -304,7 +304,10 @@ export function ClientEditButton({ client }: { client: Client }) {
 			dialog.closeDialog();
 		},
 		onError: (error) => {
-			toast.error("Failed to update client", { description: error.message });
+			toast.error("Failed to update client", {
+				description: error.message,
+				duration: 10000,
+			});
 			log.error(error, "Failed to update client");
 		},
 	});
@@ -316,6 +319,7 @@ export function ClientEditButton({ client }: { client: Client }) {
 		onError: (error) => {
 			toast.error("Failed to update autism stop", {
 				description: String(error.message),
+				duration: 10000,
 			});
 			log.error(error, "Failed to update autism stop");
 		},

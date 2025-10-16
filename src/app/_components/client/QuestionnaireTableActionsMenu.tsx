@@ -55,7 +55,10 @@ export function QuestionnaireActionsMenu({
 			},
 			onError: (error) => {
 				log.error(error, "Failed to update");
-				toast.error("Failed to update", { description: error.message });
+				toast.error("Failed to update", {
+					description: error.message,
+					duration: 10000,
+				});
 			},
 		});
 
@@ -69,7 +72,10 @@ export function QuestionnaireActionsMenu({
 			},
 			onError: (error) => {
 				log.error(error, "Failed to delete");
-				toast.error("Failed to delete", { description: error.message });
+				toast.error("Failed to delete", {
+					description: error.message,
+					duration: 10000,
+				});
 			},
 		});
 

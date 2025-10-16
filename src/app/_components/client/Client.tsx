@@ -48,6 +48,7 @@ export function Client({
 			log.error(error, "Failed to update client color");
 			toast.error("Failed to update color", {
 				description: String(error.message),
+				duration: 10000,
 			});
 		},
 	});

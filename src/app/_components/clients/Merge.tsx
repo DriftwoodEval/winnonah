@@ -83,6 +83,7 @@ export function Merge() {
 		onError: (error) => {
 			toast.error("Failed to replace notes", {
 				description: String(error.message),
+				duration: 10000,
 			});
 		},
 	});

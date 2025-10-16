@@ -33,7 +33,10 @@ export function AddDriveButton({ client }: { client: Client }) {
 			utils.clients.getOne.invalidate();
 		},
 		onError: (error) => {
-			toast.error("Failed to update client", { description: error.message });
+			toast.error("Failed to update client", {
+				description: error.message,
+				duration: 10000,
+			});
 			log.error(error, "Failed to update client");
 		},
 	});
@@ -43,7 +46,10 @@ export function AddDriveButton({ client }: { client: Client }) {
 			toast.success("Folder name updated successfully!");
 		},
 		onError: (error) => {
-			toast.error("Failed to update folder", { description: error.message });
+			toast.error("Failed to update folder", {
+				description: error.message,
+				duration: 10000,
+			});
 			log.error(error, "Failed to update folder");
 		},
 	});

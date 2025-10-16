@@ -220,6 +220,7 @@ function AddInviteButton() {
 			log.error(error, "Failed to create invite");
 			toast.error("Failed to create invite", {
 				description: String(error.message),
+				duration: 10000,
 			});
 		},
 	});
@@ -266,6 +267,7 @@ function InvitesTableActionsMenu({ invite }: { invite: Invitation }) {
 		onError: (error) => {
 			toast.error("Failed to delete invite", {
 				description: String(error.message),
+				duration: 10000,
 			});
 			log.error(error, "Failed to delete invite");
 		},

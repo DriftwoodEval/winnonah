@@ -98,6 +98,7 @@ export function AddQuestionnaireButton({
 			log.error(error, "Failed to add questionnaire:");
 			toast.error("Failed to add questionnaire", {
 				description: String(error.message),
+				duration: 10000,
 			});
 		},
 	});
@@ -115,6 +116,7 @@ export function AddQuestionnaireButton({
 				log.error(error, "Failed to add bulk questionnaires:");
 				toast.error("Failed to add bulk questionnaires", {
 					description: String(error.message),
+					duration: 10000,
 				});
 			},
 		});

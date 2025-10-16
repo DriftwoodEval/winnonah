@@ -223,6 +223,7 @@ function UsersTableActionsMenu({ user }: { user: User }) {
 			onError: (error) => {
 				toast.error("Failed to update user", {
 					description: String(error.message),
+					duration: 10000,
 				});
 				log.error(error, "Failed to update user");
 			},

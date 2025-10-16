@@ -32,6 +32,7 @@ export default function ClientCreateForm() {
 			log.error(error, "Failed to create client");
 			toast.error("Failed to create client", {
 				description: String(error.message),
+				duration: 10000,
 			});
 		},
 	});
