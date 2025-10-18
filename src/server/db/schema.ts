@@ -307,6 +307,18 @@ export const questionnaires = createTable("questionnaire", (d) => ({
   lastReminded: d.date(),
 }));
 
+export const failures = createTable("failure", (d) => ({
+  id: d.int().notNull().autoincrement().primaryKey(),
+  clientId: d
+    .int()
+    .notNull()
+    .references(() => clients.id, { onDelete: "cascade" }),
+  reason: d.varchar({ length: 255 }).notNull(),
+  failedDate: d.date().notNull(),
+  reminded: d.int().default(0),
+  lastReminded: d.date(),
+}));
+
 export const clientRelations = relations(clients, ({ many }) => ({
   questionnaires: many(questionnaires),
   clientsEvaluators: many(clientsEvaluators),
