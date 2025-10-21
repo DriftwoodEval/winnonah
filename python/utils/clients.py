@@ -99,6 +99,8 @@ def _map_insurance_names(clients: pd.DataFrame) -> pd.DataFrame:
         "All Savers Alternate Funding-UHC": "United_Optum",
         "UMR (UHC)": "United_Optum",
         "GEHA UnitedHealthcare Shared Services (UHSS)": "United_Optum",
+        "Oxford-UHC": "United_Optum",
+        "Surest Health Plan (UHC)": "United_Optum",
         "Medicaid South Carolina": "SCM",
     }
     return clients.replace({"INSURANCE_COMPANYNAME": insurance_mapping})
