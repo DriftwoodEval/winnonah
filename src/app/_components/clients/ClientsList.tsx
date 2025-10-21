@@ -23,15 +23,9 @@ export function ClientsList({
 	const savedClientRef = useRef<HTMLDivElement>(null);
 	const { data: savedPlaces } = api.users.getSavedPlaces.useQuery();
 
-	const savedPlaceData = savedPlaces?.[savedPlace || ""] || "";
-	const savedPlaceHash =
-		typeof savedPlaceData === "string"
-			? savedPlaceData
-			: savedPlaceData?.hash || "";
-	const savedPlaceIndex =
-		typeof savedPlaceData === "object" && savedPlaceData !== null
-			? savedPlaceData?.index
-			: undefined;
+	const savedPlaceData = savedPlaces?.[savedPlace || ""];
+	const savedPlaceHash = savedPlaceData?.hash;
+	const savedPlaceIndex = savedPlaceData?.index;
 
 	const { mutate: updateSavedPlaces } = api.users.updateSavedPlaces.useMutation(
 		{
@@ -57,7 +51,7 @@ export function ClientsList({
 		if (savedClientIndex === -1) {
 			const fallbackIndex =
 				savedPlaceIndex !== undefined
-					? Math.min(savedPlaceIndex, clients.length - 1)
+					? Math.min(savedPlaceIndex - 1, clients.length - 1)
 					: 0;
 
 			if (clients[fallbackIndex]) {

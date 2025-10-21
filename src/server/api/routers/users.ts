@@ -127,7 +127,7 @@ export const userRouter = createTRPCRouter({
 
     const savedPlaces = JSON.parse(
       userFromDb.savedPlaces?.toString() || "{}"
-    ) as Record<string, string | { hash: string; index?: number }>;
+    ) as Record<string, { hash: string; index?: number }>;
 
     return savedPlaces;
   }),

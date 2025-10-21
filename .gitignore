@@ -51,4 +51,4 @@ scripts/*.json
 python/*.txt
 
 # local dev overrides
-docker-compose.override.yaml
+docker-compose.override.*

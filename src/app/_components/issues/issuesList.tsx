@@ -29,10 +29,7 @@ const IssueList = ({ title, clients, action }: IssueListProps) => {
 
 	const { data: savedPlaces } = api.users.getSavedPlaces.useQuery();
 	const savedPlaceData = savedPlaces?.[savedPlaceKey || ""];
-	const savedPlaceHash =
-		typeof savedPlaceData === "string"
-			? savedPlaceData
-			: savedPlaceData?.hash || "";
+	const savedPlaceHash = savedPlaceData?.hash;
 	const savedPlaceIndex =
 		typeof savedPlaceData === "object" && savedPlaceData !== null
 			? savedPlaceData?.index
@@ -62,7 +59,7 @@ const IssueList = ({ title, clients, action }: IssueListProps) => {
 		if (savedClientIndex === -1) {
 			const fallbackIndex =
 				savedPlaceIndex !== undefined
-					? Math.min(savedPlaceIndex, clients.length - 1)
+					? Math.min(savedPlaceIndex - 1, clients.length - 1)
 					: 0;
 
 			if (clients[fallbackIndex]) {
