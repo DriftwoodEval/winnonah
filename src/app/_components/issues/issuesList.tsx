@@ -4,7 +4,7 @@ import { ScrollArea } from "@ui/scroll-area";
 import { Separator } from "@ui/separator";
 import { MapIcon, Pin, PinOff } from "lucide-react";
 import Link from "next/link";
-import { useRef } from "react";
+import { useEffect, useRef } from "react";
 import type { Client } from "~/server/lib/types";
 import { api } from "~/trpc/react";
 
@@ -26,8 +26,17 @@ const IssueList = ({ title, clients, action }: IssueListProps) => {
 				: word.replace(/^[a-z]/, (letter) => letter.toUpperCase()),
 		)
 		.join("");
+
 	const { data: savedPlaces } = api.users.getSavedPlaces.useQuery();
-	const savedPlaceHash = savedPlaces?.[savedPlaceKey || ""] || "";
+	const savedPlaceData = savedPlaces?.[savedPlaceKey || ""];
+	const savedPlaceHash =
+		typeof savedPlaceData === "string"
+			? savedPlaceData
+			: savedPlaceData?.hash || "";
+	const savedPlaceIndex =
+		typeof savedPlaceData === "object" && savedPlaceData !== null
+			? savedPlaceData?.index
+			: undefined;
 
 	const { mutate: updateSavedPlaces } = api.users.updateSavedPlaces.useMutation(
 		{
@@ -42,6 +51,35 @@ const IssueList = ({ title, clients, action }: IssueListProps) => {
 			utils.users.getSavedPlaces.invalidate();
 		},
 	});
+
+	useEffect(() => {
+		if (!savedPlaceKey || !savedPlaceHash || clients.length === 0) return;
+
+		const savedClientIndex = clients.findIndex(
+			(client) => client.hash === savedPlaceHash,
+		);
+
+		if (savedClientIndex === -1) {
+			const fallbackIndex =
+				savedPlaceIndex !== undefined
+					? Math.min(savedPlaceIndex, clients.length - 1)
+					: 0;
+
+			if (clients[fallbackIndex]) {
+				updateSavedPlaces({
+					key: savedPlaceKey,
+					hash: clients[fallbackIndex].hash,
+					index: fallbackIndex,
+				});
+			}
+		}
+	}, [
+		clients,
+		savedPlaceKey,
+		savedPlaceHash,
+		savedPlaceIndex,
+		updateSavedPlaces,
+	]);
 
 	const isSavedClient = (clientHash: string) => {
 		return savedPlaceKey && savedPlaceHash === clientHash;
@@ -125,6 +163,7 @@ const IssueList = ({ title, clients, action }: IssueListProps) => {
 											updateSavedPlaces({
 												key: savedPlaceKey,
 												hash: client.hash,
+												index,
 											});
 										}}
 										type="button"

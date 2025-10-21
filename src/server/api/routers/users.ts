@@ -127,13 +127,19 @@ export const userRouter = createTRPCRouter({
 
     const savedPlaces = JSON.parse(
       userFromDb.savedPlaces?.toString() || "{}"
-    ) as Record<string, string>;
+    ) as Record<string, string | { hash: string; index?: number }>;
 
     return savedPlaces;
   }),
 
   updateSavedPlaces: protectedProcedure
-    .input(z.object({ hash: z.string(), key: z.string() }))
+    .input(
+      z.object({
+        key: z.string(),
+        hash: z.string(),
+        index: z.number().optional(),
+      })
+    )
     .mutation(async ({ ctx, input }) => {
       const userFromDb = await ctx.db.query.users.findFirst({
         where: eq(users.id, ctx.session.user.id),
@@ -148,9 +154,9 @@ export const userRouter = createTRPCRouter({
 
       const savedPlaces = JSON.parse(
         userFromDb.savedPlaces?.toString() || "{}"
-      );
+      ) as Record<string, string | { hash: string; index?: number }>;
 
-      savedPlaces[input.key] = input.hash;
+      savedPlaces[input.key] = { hash: input.hash, index: input.index };
 
       await ctx.db
         .update(users)

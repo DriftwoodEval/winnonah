@@ -4,7 +4,7 @@ import { Button } from "@ui/button";
 import { ScrollArea } from "@ui/scroll-area";
 import { Separator } from "@ui/separator";
 import { MapIcon, Pin, PinOff } from "lucide-react";
-import { useRef } from "react";
+import { useEffect, useRef } from "react";
 import type { SortedClient } from "~/server/lib/types";
 import { api } from "~/trpc/react";
 import { ClientListItem } from "./ClientListItem";
@@ -22,7 +22,16 @@ export function ClientsList({
 	const utils = api.useUtils();
 	const savedClientRef = useRef<HTMLDivElement>(null);
 	const { data: savedPlaces } = api.users.getSavedPlaces.useQuery();
-	const savedPlaceHash = savedPlaces?.[savedPlace || ""] || "";
+
+	const savedPlaceData = savedPlaces?.[savedPlace || ""] || "";
+	const savedPlaceHash =
+		typeof savedPlaceData === "string"
+			? savedPlaceData
+			: savedPlaceData?.hash || "";
+	const savedPlaceIndex =
+		typeof savedPlaceData === "object" && savedPlaceData !== null
+			? savedPlaceData?.index
+			: undefined;
 
 	const { mutate: updateSavedPlaces } = api.users.updateSavedPlaces.useMutation(
 		{
@@ -37,6 +46,29 @@ export function ClientsList({
 			utils.users.getSavedPlaces.invalidate();
 		},
 	});
+
+	useEffect(() => {
+		if (!savedPlace || !savedPlaceHash || clients.length === 0) return;
+
+		const savedClientIndex = clients.findIndex(
+			(client) => client.hash === savedPlaceHash,
+		);
+
+		if (savedClientIndex === -1) {
+			const fallbackIndex =
+				savedPlaceIndex !== undefined
+					? Math.min(savedPlaceIndex, clients.length - 1)
+					: 0;
+
+			if (clients[fallbackIndex]) {
+				updateSavedPlaces({
+					key: savedPlace,
+					hash: clients[fallbackIndex].hash,
+					index: fallbackIndex,
+				});
+			}
+		}
+	}, [clients, savedPlace, savedPlaceHash, savedPlaceIndex, updateSavedPlaces]);
 
 	const isSavedClient = (clientHash: string) => {
 		return savedPlace && savedPlaceHash === clientHash;
@@ -121,6 +153,7 @@ export function ClientsList({
 										updateSavedPlaces({
 											key: savedPlace,
 											hash: client.hash,
+											index,
 										});
 									}}
 									type="button"
