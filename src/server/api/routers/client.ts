@@ -643,8 +643,20 @@ export const clientRouter = createTRPCRouter({
         .where(eq(notes.clientId, fakeClientId))
         .limit(1);
 
-      if (!fakeClientNote) {
-        throw new Error("Fake client note does not exist to merge.");
+      const [realClient] = await ctx.db
+        .select()
+        .from(clients)
+        .where(eq(clients.id, clientId))
+        .limit(1);
+
+      const [fakeClient] = await ctx.db
+        .select()
+        .from(clients)
+        .where(eq(clients.id, fakeClientId))
+        .limit(1);
+
+      if (!fakeClientNote || !realClient || !fakeClient) {
+        throw new Error("Data does not exist.");
       }
 
       const fakeContent = fakeClientNote.content as JSONContent;
@@ -706,6 +718,9 @@ export const clientRouter = createTRPCRouter({
         .set({ status: false })
         .where(eq(clients.id, fakeClientId));
 
-      return { success: true };
+      return {
+        success: true,
+        message: `Merged ${fakeClient.fullName}'s notes into ${realClient.fullName}.`,
+      };
     }),
 });
