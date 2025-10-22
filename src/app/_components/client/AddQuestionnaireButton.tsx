@@ -1,5 +1,6 @@
 "use client";
 import { Button } from "@ui/button";
+import { ButtonGroup } from "@ui/button-group";
 import {
 	Dialog,
 	DialogContent,
@@ -7,6 +8,7 @@ import {
 	DialogHeader,
 	DialogTitle,
 } from "@ui/dialog";
+import { CopyPlus, Plus } from "lucide-react";
 import { useSession } from "next-auth/react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
@@ -18,7 +20,6 @@ import {
 	ResponsiveDialog,
 	useResponsiveDialog,
 } from "../shared/ResponsiveDialog";
-import { SplitButton } from "../shared/SplitButton";
 import {
 	QuestionnaireBulkForm,
 	type QuestionnaireBulkFormValues,
@@ -36,9 +37,6 @@ export function AddQuestionnaireButton({
 	clientId,
 }: AddQuestionnaireButtonProps) {
 	const { data: session } = useSession();
-	const canQuestionnaires = session
-		? hasPermission(session.user.permissions, "clients:questionnaires:create")
-		: false;
 	const canBulk = session
 		? hasPermission(
 				session.user.permissions,
@@ -156,29 +154,17 @@ export function AddQuestionnaireButton({
 		}
 	};
 
-	const addQTrigger = canBulk ? (
-		<SplitButton
-			disabled={!clientId}
-			dropdownItems={[
-				{ label: "Bulk Add", onClick: () => addBulkQDialog.openDialog() },
-			]}
-			mainButtonText={isDesktop ? "Add Questionnaire" : "Add"}
-		/>
-	) : (
-		<Button disabled={!clientId}>
-			{isDesktop ? "Add Questionnaire" : "Add"}
+	const addQTrigger = (
+		<Button disabled={!clientId} variant="outline">
+			{isDesktop ? (
+				<span className="flex items-center gap-2">
+					<Plus /> Add Questionnaire
+				</span>
+			) : (
+				<Plus />
+			)}
 		</Button>
 	);
-
-	// const addQTrigger = (
-	// 	<SplitButton
-	// 		disabled={!clientId}
-	// 		dropdownItems={[
-	// 			{ label: "Bulk Add", onClick: () => addBulkQDialog.openDialog() },
-	// 		]}
-	// 		mainButtonText={isDesktop ? "Add Questionnaire" : "Add"}
-	// 	/>
-	// );
 
 	const addQContent =
 		typeof clientId === "number" ? (
@@ -206,14 +192,31 @@ export function AddQuestionnaireButton({
 				</Button>
 			) : null}
 
-			<ResponsiveDialog
-				open={addSingleQDialog.open}
-				setOpen={addSingleQDialog.setOpen}
-				title="Add New Questionnaire"
-				trigger={addQTrigger}
-			>
-				{addQContent}
-			</ResponsiveDialog>
+			<ButtonGroup>
+				<ResponsiveDialog
+					open={addSingleQDialog.open}
+					setOpen={addSingleQDialog.setOpen}
+					title="Add New Questionnaire"
+					trigger={addQTrigger}
+				>
+					{addQContent}
+				</ResponsiveDialog>
+				{canBulk && (
+					<Button
+						disabled={!clientId}
+						onClick={addBulkQDialog.openDialog}
+						variant="outline"
+					>
+						{isDesktop ? (
+							<span className="flex items-center gap-2">
+								<CopyPlus /> Bulk Add
+							</span>
+						) : (
+							<CopyPlus />
+						)}
+					</Button>
+				)}
+			</ButtonGroup>
 
 			<ResponsiveDialog
 				open={addBulkQDialog.open}

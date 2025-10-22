@@ -2,6 +2,7 @@
 
 import { Button } from "@ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@ui/dialog";
+import { Kbd, KbdGroup } from "@ui/kbd";
 import {
 	Select,
 	SelectContent,
@@ -105,14 +106,9 @@ export function GlobalClientSearch() {
 				onClick={() => setOpen(true)}
 			>
 				<Search className="h-4 w-4 text-muted-foreground" />
-				<div className="flex gap-1">
-					<kbd className="pointer-events-none flex h-5 select-none items-center justify-center gap-1 rounded-sm border bg-background px-1 font-sans text-[0.7rem] text-muted-foreground">
-						{osKey}
-					</kbd>
-					<kbd className="pointer-events-none flex aspect-square h-5 select-none items-center justify-center gap-1 rounded-sm border bg-background px-1 font-sans text-[0.7rem] text-muted-foreground">
-						K
-					</kbd>
-				</div>
+				<KbdGroup>
+					<Kbd>{osKey} + K</Kbd>
+				</KbdGroup>
 			</Button>
 
 			<Dialog onOpenChange={setOpen} open={open}>
