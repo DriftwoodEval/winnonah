@@ -4,6 +4,7 @@ import { googleRouter } from "./routers/google";
 import { noteRouter } from "./routers/notes";
 import { officeRouter } from "./routers/office";
 import { questionnaireRouter } from "./routers/questionnaires";
+import { sessionRouter } from "./routers/sessions";
 import { userRouter } from "./routers/users";
 import { createCallerFactory, createTRPCRouter } from "./trpc";
 
@@ -19,6 +20,7 @@ export const appRouter = createTRPCRouter({
   questionnaires: questionnaireRouter,
   notes: noteRouter,
   users: userRouter,
+  sessions: sessionRouter,
   google: googleRouter,
 });
 

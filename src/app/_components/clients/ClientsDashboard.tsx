@@ -8,10 +8,17 @@ import { RadioGroup, RadioGroupItem } from "@ui/radio-group";
 import { Separator } from "@ui/separator";
 import { Skeleton } from "@ui/skeleton";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@ui/tooltip";
-import { ArrowDownUp, CheckIcon, Filter, Plus } from "lucide-react";
+import { ArrowDownUp, Check, Filter, Plus } from "lucide-react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useSession } from "next-auth/react";
-import { useCallback, useEffect, useId, useMemo, useState } from "react";
+import {
+	useCallback,
+	useEffect,
+	useId,
+	useMemo,
+	useRef,
+	useState,
+} from "react";
 import {
 	CLIENT_COLOR_KEYS,
 	CLIENT_COLOR_MAP,
@@ -45,9 +52,72 @@ export function ClientsDashboard() {
 	const sortLastNameId = useId();
 	const sortPaExpirationId = useId();
 
-	const [debouncedSearchTerm, setDebouncedSearchTerm] = useState("");
+	const { data: session } = useSession();
 
+	const [debouncedSearchTerm, setDebouncedSearchTerm] = useState("");
 	const [highlightedIndex, setHighlightedIndex] = useState(-1);
+	const [isInitialized, setIsInitialized] = useState(false);
+	const lastSavedFiltersRef = useRef<string>("");
+
+	// Fetch saved filters from the session
+	const { data: savedFiltersData } = api.sessions.getClientFilters.useQuery(
+		undefined,
+		{
+			enabled: !!session,
+		},
+	);
+
+	// Mutation to save filters to the session
+	const saveFiltersMutation = api.sessions.saveClientFilters.useMutation();
+
+	const savedFilters = useMemo(() => {
+		try {
+			return savedFiltersData?.clientFilters
+				? JSON.parse(savedFiltersData.clientFilters)
+				: {};
+		} catch {
+			return {};
+		}
+	}, [savedFiltersData?.clientFilters]);
+
+	// Initialize URL from saved filters on first load
+	useEffect(() => {
+		if (isInitialized || !session) return;
+
+		const hasUrlParams = Array.from(searchParams.keys()).some(
+			(key) => !["office", "evaluator"].includes(key),
+		);
+
+		// Only apply saved filters if there are no URL params
+		if (!hasUrlParams && Object.keys(savedFilters).length > 0) {
+			const params = new URLSearchParams(searchParams);
+
+			Object.entries(savedFilters).forEach(([key, value]) => {
+				if (
+					value !== false &&
+					value !== "active" &&
+					value !== "both" &&
+					value !== "priority"
+				) {
+					params.set(key, String(value));
+				}
+			});
+
+			router.replace(`${pathname}?${params.toString()}`);
+		}
+
+		// Initialize the ref with current saved filters
+		lastSavedFiltersRef.current = savedFiltersData?.clientFilters || "{}";
+		setIsInitialized(true);
+	}, [
+		session,
+		savedFilters,
+		searchParams,
+		pathname,
+		router,
+		isInitialized,
+		savedFiltersData?.clientFilters,
+	]);
 
 	const queryParams = useMemo(() => {
 		const office = searchParams.get("office") ?? undefined;
@@ -82,15 +152,59 @@ export function ClientsDashboard() {
 		};
 	}, [searchParams, debouncedSearchTerm]);
 
+	// Save filters to session whenever URL changes
+	useEffect(() => {
+		if (!isInitialized) return;
+
+		const filtersToSave = {
+			hideBabyNet: queryParams.hideBabyNet,
+			status: queryParams.status,
+			type: queryParams.type,
+			color: queryParams.color,
+			privatePay: queryParams.privatePay,
+			autismStop: queryParams.autismStop,
+			sort: queryParams.sort,
+		};
+
+		// Remove undefined/default values
+		const cleanedFilters = Object.fromEntries(
+			Object.entries(filtersToSave).filter(
+				([_, value]) =>
+					value !== undefined &&
+					value !== false &&
+					value !== "active" &&
+					value !== "both" &&
+					value !== "priority",
+			),
+		);
+
+		const newFiltersString = JSON.stringify(cleanedFilters);
+
+		// Only update if filters actually changed
+		if (newFiltersString !== lastSavedFiltersRef.current) {
+			lastSavedFiltersRef.current = newFiltersString;
+			saveFiltersMutation.mutate({ clientFilters: newFiltersString });
+		}
+	}, [
+		queryParams.hideBabyNet,
+		queryParams.status,
+		queryParams.type,
+		queryParams.color,
+		queryParams.privatePay,
+		queryParams.autismStop,
+		queryParams.sort,
+		isInitialized,
+		saveFiltersMutation,
+	]);
+
 	const {
 		data: searchQuery,
 		isLoading,
 		isPlaceholderData,
 	} = api.clients.search.useQuery(queryParams, {
-		// The `placeholderData` option keeps the old data on screen while new data is fetched.
 		placeholderData: (previousData) => previousData,
 	});
-	const { data: session } = useSession();
+
 	const canShell = session
 		? hasPermission(session.user.permissions, "clients:shell")
 		: false;
@@ -183,10 +297,9 @@ export function ClientsDashboard() {
 											undefined,
 									)
 										? "bg-secondary text-secondary-foreground hover:bg-secondary/80 hover:text-secondary-foreground"
-										: ""
+										: "border bg-background shadow-xs hover:bg-accent hover:text-accent-foreground dark:border-input dark:bg-input/30 dark:hover:bg-input/50"
 								}
 								size="icon"
-								variant="outline"
 							>
 								<ArrowDownUp />
 							</Button>
@@ -240,10 +353,9 @@ export function ClientsDashboard() {
 											queryParams[key as keyof typeof queryParams] !== "both",
 									)
 										? "bg-secondary text-secondary-foreground hover:bg-secondary/80 hover:text-secondary-foreground"
-										: ""
+										: "border bg-background shadow-xs hover:bg-accent hover:text-accent-foreground dark:border-input dark:bg-input/30 dark:hover:bg-input/50"
 								}
 								size="icon"
-								variant="outline"
 							>
 								<Filter />
 							</Button>
@@ -328,7 +440,7 @@ export function ClientsDashboard() {
 														type="button"
 													>
 														{queryParams.color === colorKey ? (
-															<CheckIcon className="h-5 w-5" />
+															<Check className="h-5 w-5" />
 														) : (
 															(
 																colorCounts?.find((c) => c.color === colorKey)

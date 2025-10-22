@@ -29,6 +29,7 @@ declare module "next-auth" {
       refreshToken?: string;
       permissions: PermissionsObject;
       evaluatorId?: number | null;
+      clientFilters?: string;
     } & DefaultSession["user"];
   }
 

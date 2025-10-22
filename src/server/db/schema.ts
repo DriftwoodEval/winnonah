@@ -446,6 +446,7 @@ export const sessions = createTable(
       .notNull()
       .references(() => users.id),
     expires: d.timestamp({ mode: "date" }).notNull(),
+    clientFilters: d.text(),
   }),
   (t) => [index("session_user_id_idx").on(t.userId)]
 );

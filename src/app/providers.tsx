@@ -1,9 +1,9 @@
 "use client";
 
+import { SessionExpiryMonitor } from "@components/shared/SessionExpiryMonitor";
 import { ThemeProvider } from "@components/shared/ThemeProvider";
 import { SessionProvider } from "next-auth/react";
 import { TRPCReactProvider } from "~/trpc/react";
-import { SessionExpiryMonitor } from "./_components/shared/SessionExpiryMonitor";
 
 export default function Providers({ children }: { children: React.ReactNode }) {
 	return (
