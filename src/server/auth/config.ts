@@ -61,7 +61,8 @@ export const authConfig = {
     }),
   ],
   session: {
-    maxAge: 60 * 60 * 24 * 7, // 1 week
+    maxAge: 60 * 60 * 5, // 5 hours
+    updateAge: 60 * 10, // 10 minutes
   },
   adapter: DrizzleAdapter(db, {
     usersTable: users,
