@@ -301,7 +301,7 @@ export const questionnaires = createTable("questionnaire", (d) => ({
   link: d.varchar({ length: 255 }).notNull(),
   sent: d.date(),
   status: d
-    .mysqlEnum(["PENDING", "COMPLETED", "RESCHEDULED", "LANGUAGE", "TEACHER"])
+    .mysqlEnum(["PENDING", "COMPLETED", "IGNORING", "LANGUAGE", "TEACHER"])
     .default("PENDING"),
   reminded: d.int().default(0),
   lastReminded: d.date(),

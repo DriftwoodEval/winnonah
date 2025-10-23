@@ -162,7 +162,7 @@ export const questionnaireRouter = createTRPCRouter({
         link: z.url({ message: "Link must be a valid URL" }),
         sent: z.date().optional(),
         status: z
-          .enum(["PENDING", "COMPLETED", "RESCHEDULED", "LANGUAGE", "TEACHER"])
+          .enum(["PENDING", "COMPLETED", "IGNORING", "LANGUAGE", "TEACHER"])
           .default("PENDING"),
       })
     )
@@ -310,7 +310,7 @@ export const questionnaireRouter = createTRPCRouter({
         status: z.enum([
           "PENDING",
           "COMPLETED",
-          "RESCHEDULED",
+          "IGNORING",
           "LANGUAGE",
           "TEACHER",
         ]),

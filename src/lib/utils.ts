@@ -41,7 +41,7 @@ export function formatClientAge(dob: Date, format = "long") {
 export type QuestionnaireStatus =
   | "COMPLETED"
   | "PENDING"
-  | "RESCHEDULED"
+  | "IGNORING"
   | "LANGUAGE"
   | "TEACHER"
   | string
@@ -51,7 +51,7 @@ export type QuestionnaireStatus =
 const STATUS_COLOR_MAP: Record<string, string> = {
   COMPLETED: "text-success",
   PENDING: "text-warning",
-  RESCHEDULED: "text-error",
+  IGNORING: "text-error",
 };
 
 export function getStatusColorClass(status: QuestionnaireStatus): string {

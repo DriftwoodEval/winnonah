@@ -40,13 +40,7 @@ const formSchema = z.object({
 	questionnaireType: z.string().min(1, "Type is required"),
 	link: z.url("Must be a valid URL"),
 	sent: z.date(),
-	status: z.enum([
-		"PENDING",
-		"COMPLETED",
-		"RESCHEDULED",
-		"LANGUAGE",
-		"TEACHER",
-	]),
+	status: z.enum(["PENDING", "COMPLETED", "IGNORING", "LANGUAGE", "TEACHER"]),
 });
 
 export type QuestionnaireTableFormValues = z.infer<typeof formSchema>;
@@ -224,7 +218,7 @@ export function QuestionnaireTableForm({
 								<SelectContent>
 									<SelectItem value="PENDING">Pending</SelectItem>
 									<SelectItem value="COMPLETED">Completed</SelectItem>
-									<SelectItem value="RESCHEDULED">Rescheduled</SelectItem>
+									<SelectItem value="IGNORING">Ignoring</SelectItem>
 									<SelectItem value="LANGUAGE">Language</SelectItem>
 									<SelectItem value="TEACHER">Teacher</SelectItem>
 								</SelectContent>
