@@ -233,10 +233,7 @@ export const clientRouter = createTRPCRouter({
 
     for (const client of overRemindedQs) {
       if (client.questionnaires.length > 0) {
-        const maxReminded = Math.max(
-          ...client.questionnaires.map((q) => q.reminded ?? 0)
-        );
-        const reason = `Qs Pending (${maxReminded} reminders)`;
+        const reason = `Qs Pending (3 reminders)`;
 
         // Create a clean client object without the joined data
         const { questionnaires: _, ...clientData } = client;
@@ -252,7 +249,7 @@ export const clientRouter = createTRPCRouter({
       where: eq(clients.status, true),
       with: {
         failures: {
-          where: gt(failures.reminded, 3),
+          where: and(gt(failures.reminded, 3), lt(failures.reminded, 100)),
         },
       },
     });
@@ -269,7 +266,7 @@ export const clientRouter = createTRPCRouter({
           }
         }
 
-        const newReason = `${failureReasonText} (${maxReminded} reminders)`;
+        const newReason = `${failureReasonText} (3 reminders)`;
 
         // Create a clean client object without the joined data
         const { failures: _, ...clientData } = client;
