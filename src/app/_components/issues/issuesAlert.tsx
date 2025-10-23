@@ -36,6 +36,11 @@ export function IssuesAlert() {
 		queryOptions,
 	);
 
+	const { data: dropList } = api.clients.getDropList.useQuery(
+		undefined,
+		queryOptions,
+	);
+
 	const { data: noteOnlyClients } = api.clients.getNoteOnlyClients.useQuery(
 		undefined,
 		queryOptions,
@@ -60,6 +65,7 @@ export function IssuesAlert() {
 		(districtErrors?.clientsWithDistrictFromShapefile.length ?? 0) +
 		(babyNetErrors?.length ?? 0) +
 		(notInTAErrors?.length ?? 0) +
+		(dropList?.length ?? 0) +
 		(noteOnlyClients?.length ?? 0) +
 		(duplicateDriveIds?.length ?? 0) +
 		(noDriveIds?.length ?? 0) +

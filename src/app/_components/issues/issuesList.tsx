@@ -5,12 +5,12 @@ import { Separator } from "@ui/separator";
 import { MapIcon, Pin, PinOff } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useRef } from "react";
-import type { Client } from "~/server/lib/types";
+import type { Client, ClientWithIssueInfo } from "~/server/lib/types";
 import { api } from "~/trpc/react";
 
 interface IssueListProps {
 	title: string;
-	clients: Client[];
+	clients: ClientWithIssueInfo[];
 	action?: React.ReactNode;
 	savedPlaceKey?: string;
 }
@@ -129,7 +129,12 @@ const IssueList = ({ title, clients, action }: IssueListProps) => {
 						>
 							<Link href={`/clients/${client.hash}`} key={client.hash}>
 								<div className="text-sm" key={client.hash}>
-									{client.fullName}
+									{client.fullName}{" "}
+									{client.additionalInfo && (
+										<span className="text-muted-foreground">
+											{client.additionalInfo}
+										</span>
+									)}
 								</div>
 							</Link>
 							{isSavedClient(client.hash) && (
@@ -189,6 +194,7 @@ export function IssuesList() {
 		districtErrors ?? {};
 	const { data: babyNetErrors } = api.clients.getBabyNetErrors.useQuery();
 	const { data: notInTAErrors } = api.clients.getNotInTAErrors.useQuery();
+	const { data: dropList } = api.clients.getDropList.useQuery();
 	const { data: noteOnlyClients } = api.clients.getNoteOnlyClients.useQuery();
 	const { data: duplicateDriveIds } =
 		api.clients.getDuplicateDriveIdErrors.useQuery();
@@ -224,6 +230,9 @@ export function IssuesList() {
 			)}
 			{notInTAErrors && notInTAErrors.length !== 0 && (
 				<IssueList clients={notInTAErrors} title="Not in TA" />
+			)}
+			{dropList && dropList.length !== 0 && (
+				<IssueList clients={dropList} title="Drop List" />
 			)}
 			{noteOnlyClients && noteOnlyClients.length !== 0 && (
 				<IssueList

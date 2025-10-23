@@ -322,12 +322,20 @@ export const failures = createTable("failure", (d) => ({
 
 export const clientRelations = relations(clients, ({ many }) => ({
   questionnaires: many(questionnaires),
+  failures: many(failures),
   clientsEvaluators: many(clientsEvaluators),
 }));
 
 export const questionnaireRelations = relations(questionnaires, ({ one }) => ({
   client: one(clients, {
     fields: [questionnaires.clientId],
+    references: [clients.id],
+  }),
+}));
+
+export const failureRelations = relations(failures, ({ one }) => ({
+  client: one(clients, {
+    fields: [failures.clientId],
     references: [clients.id],
   }),
 }));

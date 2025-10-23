@@ -21,7 +21,14 @@ import { z } from "zod";
 import { CLIENT_COLOR_KEYS } from "~/lib/colors";
 import { hasPermission } from "~/lib/utils";
 import { createTRPCRouter, protectedProcedure } from "~/server/api/trpc";
-import { clients, clientsEvaluators, notes } from "~/server/db/schema";
+import {
+  clients,
+  clientsEvaluators,
+  failures,
+  notes,
+  questionnaires,
+} from "~/server/db/schema";
+import type { ClientWithIssueInfo } from "~/server/lib/types";
 
 const getPriorityInfo = () => {
   const now = new Date();
@@ -207,6 +214,83 @@ export const clientRouter = createTRPCRouter({
     });
 
     return clientsNotInTA;
+  }),
+
+  getDropList: protectedProcedure.query(async ({ ctx }) => {
+    const uniqueClientsMap = new Map<number, ClientWithIssueInfo>();
+
+    const overRemindedQs = await ctx.db.query.clients.findMany({
+      where: eq(clients.status, true),
+      with: {
+        questionnaires: {
+          where: and(
+            eq(questionnaires.status, "PENDING"),
+            gt(questionnaires.reminded, 3)
+          ),
+        },
+      },
+    });
+
+    for (const client of overRemindedQs) {
+      if (client.questionnaires.length > 0) {
+        const maxReminded = Math.max(
+          ...client.questionnaires.map((q) => q.reminded ?? 0)
+        );
+        const reason = `Qs Pending (${maxReminded} reminders)`;
+
+        // Create a clean client object without the joined data
+        const { questionnaires: _, ...clientData } = client;
+
+        uniqueClientsMap.set(clientData.id, {
+          ...(clientData as typeof clients.$inferSelect),
+          additionalInfo: reason,
+        });
+      }
+    }
+
+    const clientsWithFailures = await ctx.db.query.clients.findMany({
+      where: eq(clients.status, true),
+      with: {
+        failures: {
+          where: gt(failures.reminded, 3),
+        },
+      },
+    });
+
+    for (const client of clientsWithFailures) {
+      if (client.failures.length > 0) {
+        let maxReminded = 0;
+        let failureReasonText = "";
+
+        for (const f of client.failures) {
+          if (f.reminded && f.reminded > maxReminded) {
+            maxReminded = f.reminded;
+            failureReasonText = f.reason;
+          }
+        }
+
+        const newReason = `${failureReasonText} (${maxReminded} reminders)`;
+
+        // Create a clean client object without the joined data
+        const { failures: _, ...clientData } = client;
+
+        if (uniqueClientsMap.has(clientData.id)) {
+          // Client already found (e.g., in the questionnaire query), so append the reason
+          const existingClient = uniqueClientsMap.get(clientData.id);
+          if (existingClient) {
+            existingClient.additionalInfo += ` / ${newReason}`;
+          }
+        } else {
+          // New client, add with the failure reason
+          uniqueClientsMap.set(clientData.id, {
+            ...(clientData as typeof clients.$inferSelect),
+            additionalInfo: newReason,
+          });
+        }
+      }
+    }
+
+    return Array.from(uniqueClientsMap.values());
   }),
 
   getNoteOnlyClients: protectedProcedure.query(async ({ ctx }) => {
@@ -504,6 +588,7 @@ export const clientRouter = createTRPCRouter({
         } else if (nameSearch.length >= 3) {
           // Clean the user's input string by replacing non-alphanumeric characters with spaces
           const cleanedSearchString = nameSearch.replace(/[^\w ]/g, " ");
+          3424620;
 
           // Split the cleaned string by spaces and filter out any empty strings
           const searchWords = cleanedSearchString.split(" ").filter(Boolean);
