@@ -307,18 +307,21 @@ export const questionnaires = createTable("questionnaire", (d) => ({
   lastReminded: d.date(),
 }));
 
-export const failures = createTable("failure", (d) => ({
-  id: d.int().notNull().autoincrement().primaryKey(),
-  clientId: d
-    .int()
-    .notNull()
-    .references(() => clients.id, { onDelete: "cascade" }),
-  reason: d.text().notNull(),
-  daEval: d.mysqlEnum(["DA", "EVAL", "DAEVAL"]),
-  failedDate: d.date().notNull(),
-  reminded: d.int().default(0),
-  lastReminded: d.date(),
-}));
+export const failures = createTable(
+  "failure",
+  (d) => ({
+    clientId: d
+      .int()
+      .notNull()
+      .references(() => clients.id, { onDelete: "cascade" }),
+    reason: d.varchar({ length: 767 }).notNull(), // Max length for primary key
+    daEval: d.mysqlEnum(["DA", "EVAL", "DAEVAL"]),
+    failedDate: d.date().notNull(),
+    reminded: d.int().default(0),
+    lastReminded: d.date(),
+  }),
+  (t) => [primaryKey({ columns: [t.clientId, t.reason] })]
+);
 
 export const clientRelations = relations(clients, ({ many }) => ({
   questionnaires: many(questionnaires),
