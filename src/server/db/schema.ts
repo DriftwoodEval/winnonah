@@ -313,8 +313,8 @@ export const failures = createTable("failure", (d) => ({
     .int()
     .notNull()
     .references(() => clients.id, { onDelete: "cascade" }),
-  reason: d.varchar({ length: 255 }).notNull(),
-  daEval: d.mysqlEnum(["DA", "EVAL", "DA+EVAL"]),
+  reason: d.text().notNull(),
+  daEval: d.mysqlEnum(["DA", "EVAL", "DAEVAL"]),
   failedDate: d.date().notNull(),
   reminded: d.int().default(0),
   lastReminded: d.date(),
