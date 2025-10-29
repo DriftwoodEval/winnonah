@@ -37,6 +37,15 @@ export function AddQuestionnaireButton({
 	clientId,
 }: AddQuestionnaireButtonProps) {
 	const { data: session } = useSession();
+	const canAddSingle = session
+		? hasPermission(session.user.permissions, "clients:questionnaires:create")
+		: false;
+	const canAddExternal = session
+		? hasPermission(
+				session.user.permissions,
+				"clients:questionnaires:createexternal",
+			)
+		: false;
 	const canBulk = session
 		? hasPermission(
 				session.user.permissions,
@@ -84,11 +93,12 @@ export function AddQuestionnaireButton({
 	}, [shouldBlockNavigation]);
 
 	const addQuestionnaire = api.questionnaires.addQuestionnaire.useMutation({
-		onSuccess: () => {
+		onSuccess: (data) => {
 			utils.questionnaires.getSentQuestionnaires.invalidate(clientId);
 			addSingleQDialog.closeDialog();
 
 			qsSent &&
+				data?.status === "PENDING" &&
 				(!qsSent?.["DA Qs Sent"] || !qsSent?.["EVAL Qs Sent"]) &&
 				setShouldBlockNavigation(true);
 		},
@@ -170,6 +180,7 @@ export function AddQuestionnaireButton({
 		typeof clientId === "number" ? (
 			<QuestionnaireTableForm
 				clientId={clientId}
+				externalOnly={canAddExternal && !canAddSingle}
 				isLoading={addQuestionnaire.isPending}
 				newQ={true}
 				onSubmit={onSingleQSubmit}
@@ -193,14 +204,16 @@ export function AddQuestionnaireButton({
 			) : null}
 
 			<ButtonGroup>
-				<ResponsiveDialog
-					open={addSingleQDialog.open}
-					setOpen={addSingleQDialog.setOpen}
-					title="Add New Questionnaire"
-					trigger={addQTrigger}
-				>
-					{addQContent}
-				</ResponsiveDialog>
+				{(canAddSingle || canAddExternal) && (
+					<ResponsiveDialog
+						open={addSingleQDialog.open}
+						setOpen={addSingleQDialog.setOpen}
+						title="Add Questionnaire"
+						trigger={addQTrigger}
+					>
+						{addQContent}
+					</ResponsiveDialog>
+				)}
 				{canBulk && (
 					<Button
 						disabled={!clientId}

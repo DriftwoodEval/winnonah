@@ -19,6 +19,10 @@ export const permissions = {
       { id: "clients:autismstop:disable", title: "Disable Autism Stop" },
       { id: "clients:questionnaires:create", title: "Create Questionnaires" },
       {
+        id: "clients:questionnaires:createexternal",
+        title: "Create External Questionniares",
+      },
+      {
         id: "clients:questionnaires:createbulk",
         title: "Create Bulk Questionnaires",
       },
@@ -68,6 +72,7 @@ export const permissionPresets = [
       "clients:shell": true,
       "clients:merge": true,
       "clients:questionnaires:create": true,
+      "clients:questionniares:createexternal": true,
       "settings:evaluators": true,
     },
   },

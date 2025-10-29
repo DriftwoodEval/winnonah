@@ -9,13 +9,7 @@ import {
 	TableRow,
 } from "@ui/table";
 import Link from "next/link";
-import { useSession } from "next-auth/react";
-import {
-	cn,
-	getReminderColorClass,
-	getStatusColorClass,
-	hasPermission,
-} from "~/lib/utils";
+import { cn, getReminderColorClass, getStatusColorClass } from "~/lib/utils";
 import { api } from "~/trpc/react";
 import { AddQuestionnaireButton } from "./AddQuestionnaireButton";
 import { QuestionnaireActionsMenu } from "./QuestionnaireTableActionsMenu";
@@ -29,11 +23,6 @@ export function QuestionnairesSent({
 	clientId,
 	readOnly,
 }: QuestionnairesSentProps) {
-	const { data: session } = useSession();
-	const canQuestionnaires = session
-		? hasPermission(session.user.permissions, "clients:questionnaires:create")
-		: false;
-
 	const { data: questionnairesSent, isLoading: isLoadingQuestionnaires } =
 		api.questionnaires.getSentQuestionnaires.useQuery(clientId ?? 0, {
 			enabled: typeof clientId === "number" && clientId > 0,
@@ -58,17 +47,13 @@ export function QuestionnairesSent({
 				<h4 className="hidden font-bold leading-none sm:block">
 					Questionnaires Sent
 				</h4>
-				{canQuestionnaires && !readOnly && (
-					<AddQuestionnaireButton clientId={clientId} />
-				)}
+				{!readOnly && <AddQuestionnaireButton clientId={clientId} />}
 			</div>
 			<div className="px-4 pb-4">
 				<Table className="text-xs">
 					<TableHeader>
 						<TableRow>
-							{canQuestionnaires && !readOnly && (
-								<TableHead className="w-2.5"></TableHead>
-							)}
+							{!readOnly && <TableHead className="w-2.5"></TableHead>}
 							<TableHead className="hidden w-20 sm:table-cell">Date</TableHead>
 							<TableHead className="hidden w-20 sm:table-cell">Type</TableHead>
 							<TableHead className="w-20">Link</TableHead>
@@ -86,7 +71,7 @@ export function QuestionnairesSent({
 						)}
 						{questionnairesSent?.map((questionnaire) => (
 							<TableRow key={questionnaire.id}>
-								{canQuestionnaires && !readOnly && (
+								{!readOnly && (
 									<TableCell>
 										<QuestionnaireActionsMenu questionnaire={questionnaire} />
 									</TableCell>

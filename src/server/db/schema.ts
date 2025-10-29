@@ -298,10 +298,17 @@ export const questionnaires = createTable("questionnaire", (d) => ({
     .notNull()
     .references(() => clients.id, { onDelete: "cascade" }),
   questionnaireType: d.varchar({ length: 255 }).notNull(),
-  link: d.varchar({ length: 255 }).notNull(),
+  link: d.varchar({ length: 255 }),
   sent: d.date(),
   status: d
-    .mysqlEnum(["PENDING", "COMPLETED", "IGNORING", "LANGUAGE", "TEACHER"])
+    .mysqlEnum([
+      "PENDING",
+      "COMPLETED",
+      "IGNORING",
+      "LANGUAGE",
+      "TEACHER",
+      "EXTERNAL",
+    ])
     .default("PENDING"),
   reminded: d.int().default(0),
   lastReminded: d.date(),

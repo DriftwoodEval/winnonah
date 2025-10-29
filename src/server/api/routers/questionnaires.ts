@@ -159,14 +159,33 @@ export const questionnaireRouter = createTRPCRouter({
         questionnaireType: z
           .string()
           .min(1, { message: "Questionnaire type is required" }),
-        link: z.url({ message: "Link must be a valid URL" }),
+        link: z.url({ message: "Link must be a valid URL" }).optional(),
         sent: z.date().optional(),
         status: z
-          .enum(["PENDING", "COMPLETED", "IGNORING", "LANGUAGE", "TEACHER"])
+          .enum([
+            "PENDING",
+            "COMPLETED",
+            "IGNORING",
+            "LANGUAGE",
+            "TEACHER",
+            "EXTERNAL",
+          ])
           .default("PENDING"),
       })
     )
     .mutation(async ({ ctx, input }) => {
+      if (
+        input.status !== "EXTERNAL" &&
+        !hasPermission(
+          ctx.session.user.permissions,
+          "clients:questionnaires:createexternal"
+        )
+      ) {
+        throw new TRPCError({
+          code: "UNAUTHORIZED",
+        });
+      }
+
       if (
         !hasPermission(
           ctx.session.user.permissions,
@@ -188,27 +207,29 @@ export const questionnaireRouter = createTRPCRouter({
         });
       }
 
-      const linkSearch = await ctx.db.query.questionnaires.findFirst({
-        where: eq(questionnaires.link, input.link),
-      });
+      if (input.link !== undefined) {
+        const linkSearch = await ctx.db.query.questionnaires.findFirst({
+          where: eq(questionnaires.link, input.link),
+        });
 
-      if (linkSearch) {
-        const existingClient = await ctx.db.query.clients.findFirst({
-          where: eq(clients.id, linkSearch.clientId),
-        });
-        throw new TRPCError({
-          code: "CONFLICT",
-          message: `Questionnaire with link ${input.link} already exists for ${existingClient?.fullName}`,
-        });
+        if (linkSearch) {
+          const existingClient = await ctx.db.query.clients.findFirst({
+            where: eq(clients.id, linkSearch.clientId),
+          });
+          throw new TRPCError({
+            code: "CONFLICT",
+            message: `Questionnaire with link ${input.link} already exists for ${existingClient?.fullName}`,
+          });
+        }
       }
 
-      const sentDate = input.sent ?? new Date();
+      const sentDate = input.sent ? new Date(input.sent.toUTCString()) : null;
 
       const result = await ctx.db.insert(questionnaires).values({
         clientId: input.clientId,
         questionnaireType: input.questionnaireType,
         link: input.link,
-        sent: new Date(sentDate.toUTCString()),
+        sent: sentDate,
         status: input.status,
         reminded: 0,
         lastReminded: null,
@@ -313,6 +334,7 @@ export const questionnaireRouter = createTRPCRouter({
           "IGNORING",
           "LANGUAGE",
           "TEACHER",
+          "EXTERNAL",
         ]),
       })
     )
@@ -400,6 +422,13 @@ export const questionnaireRouter = createTRPCRouter({
     // Get all clients for each shared link
     const sharedLinksWithClients = await Promise.all(
       sharedAcrossClients.map(async ({ link }) => {
+        if (link === null) {
+          return {
+            link: null,
+            clients: [],
+          };
+        }
+
         const clientsWithLink = await ctx.db
           .select({
             client: clients,
