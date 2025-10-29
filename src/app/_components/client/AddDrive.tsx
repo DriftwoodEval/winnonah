@@ -57,12 +57,29 @@ export function AddDriveButton({ client }: { client: Client }) {
 	const formSchema = z.object({
 		link: z.union([
 			z
-				.url()
+				.string()
 				.refine(
-					(link) => link.startsWith("https://drive.google.com/drive/folders/"),
+					(link) => {
+						const driveFolderRegex =
+							/^https:\/\/drive\.google\.com\/drive\/(u\/\d+\/)?folders\//i;
+						return driveFolderRegex.test(link);
+					},
 					{
 						message:
-							"Link must start with https://drive.google.com/drive/folders/",
+							"Link must be a valid Google Drive folder link, starting with https://drive.google.com/drive/folders/ (or /drive/u/x/folders/ if you have multiple accounts).",
+					},
+				)
+				.refine(
+					(link) => {
+						try {
+							new URL(link);
+							return true;
+						} catch (_e) {
+							return false;
+						}
+					},
+					{
+						message: "Invalid URL format.",
 					},
 				),
 			z.string().refine((string) => string.toLowerCase() === "n/a"),
