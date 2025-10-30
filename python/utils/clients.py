@@ -86,6 +86,7 @@ def _map_insurance_names(clients: pd.DataFrame) -> pd.DataFrame:
     insurance_mapping = {
         "Molina Healthcare of South Carolina": "Molina",
         "Molina Marketplace of South Carolina": "MolinaMarketplace",
+        "Marketplace (Molina) of South Carolina": "MolinaMarketplace",
         "Humana Behavioral Health (formerly LifeSynch)": "Humana",
         "Absolute Total Care - Medical": "ATC",
         "Select Health of South Carolina": "SH",
