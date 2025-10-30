@@ -326,8 +326,8 @@ export const questionnaireRouter = createTRPCRouter({
       z.object({
         id: z.number(),
         questionnaireType: z.string().min(1),
-        link: z.url(),
-        sent: z.date(),
+        link: z.url().optional(),
+        sent: z.date().optional(),
         status: z.enum([
           "PENDING",
           "COMPLETED",
@@ -350,12 +350,30 @@ export const questionnaireRouter = createTRPCRouter({
         });
       }
 
+      if (input.link !== undefined) {
+        const linkSearch = await ctx.db.query.questionnaires.findFirst({
+          where: eq(questionnaires.link, input.link),
+        });
+
+        if (linkSearch) {
+          const existingClient = await ctx.db.query.clients.findFirst({
+            where: eq(clients.id, linkSearch.clientId),
+          });
+          throw new TRPCError({
+            code: "CONFLICT",
+            message: `Questionnaire with link ${input.link} already exists for ${existingClient?.fullName}`,
+          });
+        }
+      }
+
+      const sentDate = input.sent ? new Date(input.sent.toUTCString()) : null;
+
       await ctx.db
         .update(questionnaires)
         .set({
           questionnaireType: input.questionnaireType,
           link: input.link,
-          sent: new Date(input.sent.toUTCString()),
+          sent: sentDate,
           status: input.status,
         })
         .where(eq(questionnaires.id, input.id));
