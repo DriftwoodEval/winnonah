@@ -84,30 +84,38 @@ export function QuestionnairesSent({
 												day: "numeric",
 												timeZone: "UTC",
 											}).format(new Date(questionnaire.sent))
-										: ""}
+										: "N/A"}
 								</TableCell>
 								<TableCell className="hidden sm:table-cell">
 									{questionnaire.questionnaireType}
 								</TableCell>
 								<TableCell className="hidden sm:table-cell">
-									<Link
-										className="text-primary hover:underline"
-										href={questionnaire.link}
-										rel="noopener noreferrer"
-										target="_blank"
-									>
-										{truncateLink(questionnaire.link)}
-									</Link>
+									{questionnaire.link ? (
+										<Link
+											className="text-primary hover:underline"
+											href={questionnaire.link}
+											rel="noopener noreferrer"
+											target="_blank"
+										>
+											{truncateLink(questionnaire.link)}
+										</Link>
+									) : (
+										"N/A"
+									)}
 								</TableCell>
 								<TableCell className="table-cell sm:hidden">
-									<Link
-										className="text-primary hover:underline"
-										href={questionnaire.link}
-										rel="noopener noreferrer"
-										target="_blank"
-									>
-										{questionnaire.questionnaireType}
-									</Link>
+									{questionnaire.link ? (
+										<Link
+											className="text-primary hover:underline"
+											href={questionnaire.link}
+											rel="noopener noreferrer"
+											target="_blank"
+										>
+											{questionnaire.questionnaireType}
+										</Link>
+									) : (
+										"N/A"
+									)}
 								</TableCell>
 								<TableCell
 									className={getReminderColorClass(questionnaire.reminded)}
