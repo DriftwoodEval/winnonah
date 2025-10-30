@@ -277,7 +277,8 @@ export function IssuesList() {
 									({ link, clients }) => (
 										<div className="rounded-md border p-3" key={link}>
 											<div className="mb-2 font-medium text-muted-foreground text-sm">
-												Link: <Link href={link}>{link}</Link>
+												Link: <Link href={link as string}>{link}</Link>{" "}
+												{/* Link will be a string since we exclude null values in the api??*/}
 											</div>
 											<div className="space-y-2">
 												{clients.map(({ client, count }, index) => (
