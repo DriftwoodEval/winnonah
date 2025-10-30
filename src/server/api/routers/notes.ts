@@ -16,7 +16,7 @@ export const noteRouter = createTRPCRouter({
       if (!data) return null;
 
       return {
-        id: data.clientId,
+        clientId: data.clientId,
         contentJson: data.content,
         title: data.title,
       };
@@ -25,50 +25,68 @@ export const noteRouter = createTRPCRouter({
   updateNote: protectedProcedure
     .input(
       z.object({
-        noteId: z.number(),
+        clientId: z.number(),
         contentJson: z.any().optional(),
         title: z.string().optional(),
       })
     )
     .mutation(async ({ ctx, input }) => {
-      if (!hasPermission(ctx.session.user.permissions, "clients:notes")) {
+      try {
+        if (!hasPermission(ctx.session.user.permissions, "clients:notes")) {
+          throw new TRPCError({
+            code: "UNAUTHORIZED",
+          });
+        }
+
+        await ctx.db.transaction(async (tx) => {
+          const currentNote = await tx.query.notes.findFirst({
+            where: eq(notes.clientId, input.clientId),
+          });
+
+          if (!currentNote) {
+            throw new TRPCError({
+              code: "NOT_FOUND",
+              message: "Note not found",
+            });
+          }
+
+          await tx.insert(noteHistory).values({
+            noteId: currentNote.clientId,
+            content: currentNote.content,
+            title: currentNote.title,
+            updatedBy: ctx.session.user.email,
+          });
+
+          // biome-ignore lint/suspicious/noExplicitAny: JSON
+          const updatePayload: { content?: any; title?: string } = {};
+          if (input.contentJson !== undefined) {
+            updatePayload.content = input.contentJson;
+          }
+          if (input.title !== undefined) {
+            updatePayload.title = input.title;
+          }
+
+          await tx
+            .update(notes)
+            .set(updatePayload)
+            .where(eq(notes.clientId, input.clientId));
+        });
+
+        return { success: true };
+      } catch (error) {
+        console.error("Update note error:", error);
+
+        if (error instanceof TRPCError) {
+          throw error;
+        }
+
         throw new TRPCError({
-          code: "UNAUTHORIZED",
+          code: "INTERNAL_SERVER_ERROR",
+          message:
+            error instanceof Error ? error.message : "Failed to update note",
+          cause: error,
         });
       }
-
-      await ctx.db.transaction(async (tx) => {
-        const currentNote = await tx.query.notes.findFirst({
-          where: eq(notes.clientId, input.noteId),
-        });
-
-        if (!currentNote) {
-          throw new Error("Note not found");
-        }
-
-        await tx.insert(noteHistory).values({
-          noteId: currentNote.clientId,
-          content: currentNote.content,
-          title: currentNote.title,
-          updatedBy: ctx.session.user.email,
-        });
-
-        // biome-ignore lint/suspicious/noExplicitAny: JSON
-        const updatePayload: { content?: any; title?: string } = {};
-        if (input.contentJson !== undefined) {
-          updatePayload.content = input.contentJson;
-        }
-        if (input.title !== undefined) {
-          updatePayload.title = input.title;
-        }
-
-        await tx
-          .update(notes)
-          .set(updatePayload)
-          .where(eq(notes.clientId, input.noteId));
-      });
-
-      return { success: true };
     }),
 
   createNote: protectedProcedure

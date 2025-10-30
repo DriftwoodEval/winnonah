@@ -91,9 +91,9 @@ export function ClientNoteEditor({
 					stateRef.current;
 				if (!clientId) return;
 
-				if (note?.id) {
+				if (note?.clientId) {
 					updateNoteMutation.mutate({
-						noteId: note.id,
+						clientId: note.clientId,
 						title: newTitle,
 					});
 				} else {
@@ -113,9 +113,9 @@ export function ClientNoteEditor({
 					stateRef.current;
 				if (!clientId) return;
 
-				if (note?.id) {
+				if (note?.clientId) {
 					updateNoteMutation.mutate({
-						noteId: note.id,
+						clientId: note.clientId,
 						contentJson: editorContent,
 					});
 				} else {
