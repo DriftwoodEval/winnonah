@@ -280,9 +280,12 @@ def put_appointment_in_db(
     evaluator_npi: int,
     start_time: datetime,
     end_time: datetime,
-    cancelled: bool,
-    type: Literal["EVAL", "DA", "DA+EVAL", "LD"],
-    location: str | None = None,
+    da_eval: Optional[Literal["EVAL", "DA", "DAEVAL"]] = None,
+    asd_adhd: Optional[
+        Literal["ASD", "ADHD", "ASD+ADHD", "ASD+LD", "ADHD+LD", "LD"]
+    ] = None,
+    cancelled: Optional[bool] = False,
+    location: Optional[str] = None,
 ):
     """Inserts an appointment into the database."""
     db_connection = get_db()
@@ -290,15 +293,16 @@ def put_appointment_in_db(
     with db_connection:
         with db_connection.cursor() as cursor:
             sql = """
-                INSERT INTO `emr_appointment` (id, clientId, evaluatorNpi, startTime, endTime, cancelled, type, location)
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                INSERT INTO `emr_appointment` (id, clientId, evaluatorNpi, startTime, endTime, daEval, asdAdhd, cancelled, location)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                 ON DUPLICATE KEY UPDATE
                     clientId = VALUES(clientId),
                     evaluatorNpi = VALUES(evaluatorNpi),
                     startTime = VALUES(startTime),
                     endTime = VALUES(endTime),
+                    daEval = CASE WHEN VALUES(daEval) IS NOT NULL THEN VALUES(daEval) ELSE daEval END,
+                    asdAdhd = CASE WHEN VALUES(asdAdhd) IS NOT NULL THEN VALUES(asdAdhd) ELSE asdAdhd END,
                     cancelled = VALUES(cancelled),
-                    type = VALUES(type),
                     location = CASE WHEN VALUES(location) IS NOT NULL THEN VALUES(location) ELSE location END;
             """
             cursor.execute(
@@ -309,8 +313,9 @@ def put_appointment_in_db(
                     evaluator_npi,
                     start_time,
                     end_time,
+                    da_eval,
+                    asd_adhd,
                     cancelled,
-                    type,
                     location,
                 ),
             )
@@ -681,13 +686,6 @@ def insert_appointments():
             cancelled = True
         else:
             cancelled = False
-        duration = endTime - startTime
-        if duration.total_seconds() > 60 * 60 * 3:  # 3 hours
-            daeval = "LD"
-        elif duration.total_seconds() > 60 * 60:  # 1 hour
-            daeval = "EVAL"
-        else:
-            daeval = "DA"
 
         put_appointment_in_db(
             appointment_id,
@@ -695,6 +693,5 @@ def insert_appointments():
             evaluatorNpi,
             startTime,
             endTime,
-            cancelled,
-            daeval,
+            cancelled=cancelled,
         )
