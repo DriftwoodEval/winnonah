@@ -159,6 +159,7 @@ def import_from_ta(
         all_clients_from_db, evaluators, force_clients_ids
     )
 
+    # TODO: Connect with Google Calendars to get appointment information in combination with the CSV
     utils.database.insert_appointments()
 
 

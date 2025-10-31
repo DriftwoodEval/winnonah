@@ -284,10 +284,13 @@ export const appointments = createTable("appointment", (d) => ({
     .references(() => evaluators.npi, { onDelete: "cascade" }),
   startTime: d.timestamp("startTime").notNull(),
   endTime: d.timestamp("endTime").notNull(),
-  type: d.mysqlEnum(["EVAL", "DA", "LD"]),
-  cpt: d.varchar({ length: 255 }),
+  daEval: d.mysqlEnum(["EVAL", "DA", "DAEVAL"]),
+  asdAdhd: d.mysqlEnum(["ASD", "ADHD", "ASD+ADHD", "ASD+LD", "ADHD+LD", "LD"]),
   cancelled: d.boolean().notNull().default(false),
-  location: d.varchar({ length: 255 }),
+  placeholder: d.boolean().notNull().default(false),
+  locationKey: d
+    .varchar({ length: 255 })
+    .references(() => offices.key, { onDelete: "cascade" }),
 }));
 
 export const questionnaires = createTable(
