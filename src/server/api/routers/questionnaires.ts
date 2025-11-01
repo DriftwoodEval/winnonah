@@ -10,6 +10,7 @@ import {
   gte,
   inArray,
   isNotNull,
+  not,
 } from "drizzle-orm";
 import { z } from "zod";
 import { formatClientAge, hasPermission } from "~/lib/utils";
@@ -352,7 +353,10 @@ export const questionnaireRouter = createTRPCRouter({
 
       if (input.link !== undefined) {
         const linkSearch = await ctx.db.query.questionnaires.findFirst({
-          where: eq(questionnaires.link, input.link),
+          where: and(
+            eq(questionnaires.link, input.link),
+            not(eq(questionnaires.id, input.id))
+          ),
         });
 
         if (linkSearch) {
