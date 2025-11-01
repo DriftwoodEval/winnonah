@@ -13,11 +13,14 @@ interface ClientsListProps {
 	clients: SortedClient[];
 	highlightedIndex: number;
 	savedPlace?: string;
+	highlightedItemRef?: React.RefObject<HTMLDivElement | null>;
 }
+
 export function ClientsList({
 	clients,
 	highlightedIndex,
 	savedPlace,
+	highlightedItemRef,
 }: ClientsListProps) {
 	const utils = api.useUtils();
 	const savedClientRef = useRef<HTMLDivElement>(null);
@@ -76,6 +79,19 @@ export function ClientsList({
 		}
 	};
 
+	const getClientRef = (index: number, clientHash: string) => {
+		const isHighlighted = index === highlightedIndex;
+		const isSaved = isSavedClient(clientHash);
+
+		if (isHighlighted && highlightedItemRef) {
+			return highlightedItemRef;
+		}
+		if (isSaved) {
+			return savedClientRef;
+		}
+		return null;
+	};
+
 	if (clients.length === 0) {
 		return (
 			<div className="flex h-[400px] w-full items-center justify-center rounded-md border border-dashed">
@@ -112,10 +128,7 @@ export function ClientsList({
 				</div>
 
 				{clients.map((client, index) => (
-					<div
-						key={client.hash}
-						ref={isSavedClient(client.hash) ? savedClientRef : null}
-					>
+					<div key={client.hash} ref={getClientRef(index, client.hash)}>
 						<ClientListItem
 							client={client}
 							isHighlighted={index === highlightedIndex}
