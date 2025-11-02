@@ -291,6 +291,7 @@ export const appointments = createTable("appointment", (d) => ({
   locationKey: d
     .varchar({ length: 255 })
     .references(() => offices.key, { onDelete: "cascade" }),
+  calendarEventId: d.varchar({ length: 255 }),
 }));
 
 export const questionnaires = createTable(

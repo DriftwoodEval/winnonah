@@ -160,7 +160,7 @@ def import_from_ta(
     )
 
     # TODO: Connect with Google Calendars to get appointment information in combination with the CSV
-    utils.database.insert_appointments()
+    utils.database.insert_appointments_with_gcal()
 
 
 def extract_digits(string: str) -> Optional[str]:

@@ -2,16 +2,19 @@ import hashlib
 import os
 import re
 from datetime import datetime
-from typing import Dict, Literal, Optional, Set
+from typing import Dict, Literal, Optional, Set, Tuple
 from urllib.parse import urlparse
 
 import pandas as pd
 import pymysql.cursors
+from dateutil import parser
 from dotenv import load_dotenv
+from googleapiclient.discovery import build
 from loguru import logger
 
 import utils.relationships
 from utils.clients import TEST_NAMES
+from utils.google import google_authenticate
 from utils.misc import (
     format_date,
     format_gender,
@@ -286,6 +289,7 @@ def put_appointment_in_db(
     ] = None,
     cancelled: Optional[bool] = False,
     location: Optional[str] = None,
+    gcal_event_id: Optional[str] = None,
 ):
     """Inserts an appointment into the database."""
     db_connection = get_db()
@@ -293,7 +297,7 @@ def put_appointment_in_db(
     with db_connection:
         with db_connection.cursor() as cursor:
             sql = """
-                INSERT INTO `emr_appointment` (id, clientId, evaluatorNpi, startTime, endTime, daEval, asdAdhd, cancelled, location)
+                INSERT INTO `emr_appointment` (id, clientId, evaluatorNpi, startTime, endTime, daEval, asdAdhd, cancelled, locationKey, calendarEventId)
                 VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                 ON DUPLICATE KEY UPDATE
                     clientId = VALUES(clientId),
@@ -303,7 +307,8 @@ def put_appointment_in_db(
                     daEval = CASE WHEN VALUES(daEval) IS NOT NULL THEN VALUES(daEval) ELSE daEval END,
                     asdAdhd = CASE WHEN VALUES(asdAdhd) IS NOT NULL THEN VALUES(asdAdhd) ELSE asdAdhd END,
                     cancelled = VALUES(cancelled),
-                    location = CASE WHEN VALUES(location) IS NOT NULL THEN VALUES(location) ELSE location END;
+                    locationKey = CASE WHEN VALUES(locationKey) IS NOT NULL THEN VALUES(locationKey) ELSE locationKey END,
+                    calendarEventId = CASE WHEN VALUES(calendarEventId) IS NOT NULL THEN VALUES(calendarEventId) ELSE calendarEventId END;
             """
             cursor.execute(
                 sql,
@@ -317,6 +322,7 @@ def put_appointment_in_db(
                     asd_adhd,
                     cancelled,
                     location,
+                    gcal_event_id,
                 ),
             )
             db_connection.commit()
@@ -667,25 +673,174 @@ def insert_by_matching_criteria(
         insert_by_matching_criteria_incremental(clients, evaluators)
 
 
-def insert_appointments():
-    """Inserts appointments into the database from a CSV."""
+def check_and_merge_appointments():
+    """Checks Google Calendar for appointments and merges with CSV data."""
+    limit = 5
+    creds = google_authenticate()
+
+    service = build("calendar", "v3", credentials=creds)
+
     appointments_df = pd.read_csv("temp/input/clients-appointments.csv")
-    for appointment in appointments_df.iterrows():
-        appointment_id = appointment[1]["APPOINTMENT_ID"]
-        clientId = appointment[1]["CLIENT_ID"]
-        evaluatorNpi = appointment[1]["NPI"]
-        startTime = appointment[1]["STARTTIME"]
-        endTime = appointment[1]["ENDTIME"]
+
+    # Add new columns for Google Calendar data
+    appointments_df["gcal_event_id"] = None
+    appointments_df["gcal_title"] = None
+    appointments_df["gcal_calendar_name"] = None
+
+    now = datetime.now()
+
+    # Get list of all calendars
+    calendar_list = service.calendarList().list().execute()
+    calendars = calendar_list.get("items", [])
+
+    logger.debug(f"Searching across {len(calendars)} calendars...")
+    count = 0
+
+    for idx, appointment in appointments_df.iterrows():
+        client_id = appointment["CLIENT_ID"]
+        name = re.sub(r"[\d\(\)]", "", appointment["NAME"]).strip()
+        start_time = pd.to_datetime(appointment["STARTTIME"]).to_pydatetime()
+
+        # Skip test names and past appointments
+        if name in TEST_NAMES or start_time < now:
+            continue
+
+        logger.debug(f"Searching for Client ID: {client_id} ({name})...")
+        # logger.debug(f"Expected start time: {start_time}")
+
+        found = False
+        for calendar in calendars:
+            calendar_id = calendar["id"]
+
+            try:
+                # Search for events with this client ID in description
+                events_result = (
+                    service.events()
+                    .list(
+                        calendarId=calendar_id,
+                        timeMin=now.isoformat() + "Z",
+                        q=str(client_id),
+                        singleEvents=True,
+                        orderBy="startTime",
+                    )
+                    .execute()
+                )
+
+                events = events_result.get("items", [])
+
+                # Check if client ID is actually in the description
+                for event in events:
+                    description = event.get("description", "")
+                    if str(client_id) in description:
+                        event_start = event["start"].get(
+                            "dateTime", event["start"].get("date")
+                        )
+                        event_start_dt = parser.parse(event_start)
+
+                        # Make timezone-naive for comparison if needed
+                        if event_start_dt.tzinfo is not None:
+                            event_start_dt = event_start_dt.replace(tzinfo=None)
+                        if start_time.tzinfo is not None:
+                            start_time = start_time.replace(tzinfo=None)
+
+                        # Check if start times match (within 1 minute tolerance for rounding)
+                        time_diff = abs((event_start_dt - start_time).total_seconds())
+
+                        if time_diff <= 60:  # 1 minute tolerance
+                            appointments_df.at[idx, "gcal_event_id"] = event["id"]
+                            appointments_df.at[idx, "gcal_title"] = event.get(
+                                "summary", "No title"
+                            )
+                            appointments_df.at[idx, "gcal_calendar_name"] = (
+                                calendar.get("summary", "Unknown")
+                            )
+
+                            # logger.success(f"Found: Event ID: {event['id']}")
+                            # logger.success(f"Title: {event.get('summary', 'No title')}")
+                            # logger.success(
+                            #     f"Calendar: {calendar.get('summary', 'Unknown')}"
+                            # )
+                            # logger.success(f"Event start time: {event_start_dt}")
+                            found = True
+                            break  # Stop after first match
+                        else:
+                            logger.warning(
+                                f"Found event with Client ID but wrong time:"
+                            )
+                            logger.warning(
+                                f"Event start: {event_start_dt}, Expected: {start_time}"
+                            )
+                            logger.warning(f"Time difference: {time_diff} seconds")
+
+                if found:
+                    count += 1
+                    break  # Stop searching other calendars
+
+            except Exception:
+                logger.exception(
+                    f"Error searching calendar {calendar.get('summary', 'Unknown')}"
+                )
+
+        if not found:
+            logger.error(f"Not found in any calendar with matching time")
+        if count == limit:
+            break
+
+    return appointments_df
+
+
+def parse_location_and_type(title: str) -> Tuple[Optional[str], Optional[str]]:
+    """Extracts location and evaluation type from calendar title."""
+    match = re.search(r"\[([A-Z]+)-([A-Z]+)\]", title)
+    if match:
+        location = match.group(1)
+        if location == "COLUMBIA":
+            location = "COL"
+        evaluation_type_map = {"E": "EVAL", "D": "DA", "DE": "DAEVAL"}
+        return (
+            location,
+            evaluation_type_map.get(match.group(2)),
+        )
+    elif "[V]" in title:  # Virtual can only be DA
+        return None, "DA"
+    return None, None
+
+
+def insert_appointments_with_gcal():
+    """Inserts appointments into the database with Google Calendar data."""
+    logger.info("Inserting appointments with Google Calendar data")
+    appointments_df = check_and_merge_appointments()
+
+    now = datetime.now()
+
+    for _, appointment in appointments_df.iterrows():
+        appointment_id = appointment["APPOINTMENT_ID"]
+        clientId = appointment["CLIENT_ID"]
+        evaluatorNpi = appointment["NPI"]
+        startTime = appointment["STARTTIME"]
+        endTime = appointment["ENDTIME"]
         startTime = pd.to_datetime(startTime).to_pydatetime()
         endTime = pd.to_datetime(endTime).to_pydatetime()
-        cancelled = appointment[1]["CANCELBYNAME"]
-        name = re.sub(r"[\d\(\)]", "", appointment[1]["NAME"]).strip()
-        if name in TEST_NAMES:
+        cancelled = appointment["CANCELBYNAME"]
+        name = re.sub(r"[\d\(\)]", "", appointment["NAME"]).strip()
+
+        # Skip test names and past appointments
+        if name in TEST_NAMES or startTime < now:
             continue
+
         if type(cancelled) == str:
             cancelled = True
         else:
             cancelled = False
+
+        gcal_event_id = appointment.get("gcal_event_id")
+        gcal_event_title = appointment.get("gcal_title")
+        gcal_location = None
+        gcal_daeval = None
+
+        if gcal_event_title:
+            gcal_location, gcal_daeval = parse_location_and_type(gcal_event_title)
+            print(gcal_event_title, gcal_location, gcal_daeval)
 
         put_appointment_in_db(
             appointment_id,
@@ -693,5 +848,8 @@ def insert_appointments():
             evaluatorNpi,
             startTime,
             endTime,
+            location=gcal_location,
+            da_eval=gcal_daeval,
             cancelled=cancelled,
+            gcal_event_id=gcal_event_id,
         )
