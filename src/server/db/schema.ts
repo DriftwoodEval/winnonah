@@ -208,8 +208,7 @@ export const clients = createTable(
     flag: d.varchar({ length: 255 }),
   }),
   (t) => [
-    index("asana_id_idx").on(t.asanaId),
-    index("archived_idx").on(t.archivedInAsana),
+    index("hash_idx").on(t.hash),
     index("district_idx").on(t.schoolDistrict),
     index("dob_idx").on(t.dob),
     index("added_date_idx").on(t.addedDate),
@@ -291,28 +290,32 @@ export const appointments = createTable("appointment", (d) => ({
   location: d.varchar({ length: 255 }),
 }));
 
-export const questionnaires = createTable("questionnaire", (d) => ({
-  id: d.int().notNull().autoincrement().primaryKey(),
-  clientId: d
-    .int()
-    .notNull()
-    .references(() => clients.id, { onDelete: "cascade" }),
-  questionnaireType: d.varchar({ length: 255 }).notNull(),
-  link: d.varchar({ length: 255 }),
-  sent: d.date(),
-  status: d
-    .mysqlEnum([
-      "PENDING",
-      "COMPLETED",
-      "IGNORING",
-      "LANGUAGE",
-      "TEACHER",
-      "EXTERNAL",
-    ])
-    .default("PENDING"),
-  reminded: d.int().default(0),
-  lastReminded: d.date(),
-}));
+export const questionnaires = createTable(
+  "questionnaire",
+  (d) => ({
+    id: d.int().notNull().autoincrement().primaryKey(),
+    clientId: d
+      .int()
+      .notNull()
+      .references(() => clients.id, { onDelete: "cascade" }),
+    questionnaireType: d.varchar({ length: 255 }).notNull(),
+    link: d.varchar({ length: 255 }),
+    sent: d.date(),
+    status: d
+      .mysqlEnum([
+        "PENDING",
+        "COMPLETED",
+        "IGNORING",
+        "LANGUAGE",
+        "TEACHER",
+        "EXTERNAL",
+      ])
+      .default("PENDING"),
+    reminded: d.int().default(0),
+    lastReminded: d.date(),
+  }),
+  (t) => [index("questionnaire_client_idx").on(t.clientId)]
+);
 
 export const failures = createTable(
   "failure",
