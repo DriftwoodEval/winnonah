@@ -712,7 +712,6 @@ def check_and_merge_appointments():
     calendars = calendar_list.get("items", [])
 
     logger.debug(f"Searching across {len(calendars)} calendars...")
-    count = 0
 
     for idx, appointment in appointments_df.iterrows():
         client_id = appointment["CLIENT_ID"]
@@ -788,7 +787,6 @@ def check_and_merge_appointments():
                             logger.warning(f"Time difference: {time_diff} seconds")
 
                 if found:
-                    count += 1
                     break  # Stop searching other calendars
 
             except Exception:
@@ -800,8 +798,6 @@ def check_and_merge_appointments():
             logger.error(
                 f"Not found in any calendar with matching time (expected: {start_time})"
             )
-        if count == limit:
-            break
 
     return appointments_df
 
