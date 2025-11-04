@@ -673,6 +673,24 @@ def insert_by_matching_criteria(
         insert_by_matching_criteria_incremental(clients, evaluators)
 
 
+def get_all_evaluators_npi_map() -> Dict[str, int]:
+    """Gets a map of email (str) to NPI (int) for all evaluators."""
+    evaluator_map = {}
+    db_connection = get_db()
+    with db_connection:
+        with db_connection.cursor() as cursor:
+            sql = "SELECT npi, email FROM emr_evaluator"
+            try:
+                cursor.execute(sql)
+                results = cursor.fetchall()
+                for row in results:
+                    evaluator_map[row["email"]] = row["npi"]
+            except Exception:
+                logger.exception(f"Failed to get all evaluators NPI map")
+                return {}
+    return evaluator_map
+
+
 def check_and_merge_appointments():
     """Checks Google Calendar for appointments and merges with CSV data."""
     limit = 5
@@ -685,7 +703,7 @@ def check_and_merge_appointments():
     # Add new columns for Google Calendar data
     appointments_df["gcal_event_id"] = None
     appointments_df["gcal_title"] = None
-    appointments_df["gcal_calendar_name"] = None
+    appointments_df["gcal_calendar_id"] = None
 
     now = datetime.now()
 
@@ -743,17 +761,14 @@ def check_and_merge_appointments():
                         if start_time.tzinfo is not None:
                             start_time = start_time.replace(tzinfo=None)
 
-                        # Check if start times match (within 1 minute tolerance for rounding)
                         time_diff = abs((event_start_dt - start_time).total_seconds())
 
-                        if time_diff <= 60:  # 1 minute tolerance
+                        if time_diff <= 3600:  # 1 hour tolerance
                             appointments_df.at[idx, "gcal_event_id"] = event["id"]
                             appointments_df.at[idx, "gcal_title"] = event.get(
                                 "summary", "No title"
                             )
-                            appointments_df.at[idx, "gcal_calendar_name"] = (
-                                calendar.get("summary", "Unknown")
-                            )
+                            appointments_df.at[idx, "gcal_calendar_id"] = calendar_id
 
                             # logger.success(f"Found: Event ID: {event['id']}")
                             # logger.success(f"Title: {event.get('summary', 'No title')}")
@@ -782,7 +797,9 @@ def check_and_merge_appointments():
                 )
 
         if not found:
-            logger.error(f"Not found in any calendar with matching time")
+            logger.error(
+                f"Not found in any calendar with matching time (expected: {start_time})"
+            )
         if count == limit:
             break
 
@@ -812,42 +829,55 @@ def insert_appointments_with_gcal():
     appointments_df = check_and_merge_appointments()
 
     now = datetime.now()
+    npi_cache = get_all_evaluators_npi_map()
 
     for _, appointment in appointments_df.iterrows():
         appointment_id = appointment["APPOINTMENT_ID"]
-        clientId = appointment["CLIENT_ID"]
-        evaluatorNpi = appointment["NPI"]
-        startTime = appointment["STARTTIME"]
-        endTime = appointment["ENDTIME"]
-        startTime = pd.to_datetime(startTime).to_pydatetime()
-        endTime = pd.to_datetime(endTime).to_pydatetime()
-        cancelled = appointment["CANCELBYNAME"]
+        client_id = appointment["CLIENT_ID"]
+        start_time = pd.to_datetime(appointment["STARTTIME"]).to_pydatetime()
+        end_time = pd.to_datetime(appointment["ENDTIME"]).to_pydatetime()
+        cancelled = type(appointment["CANCELBYNAME"]) == str
         name = re.sub(r"[\d\(\)]", "", appointment["NAME"]).strip()
 
         # Skip test names and past appointments
-        if name in TEST_NAMES or startTime < now:
+        if name in TEST_NAMES or start_time < now:
             continue
-
-        if type(cancelled) == str:
-            cancelled = True
-        else:
-            cancelled = False
 
         gcal_event_id = appointment.get("gcal_event_id")
         gcal_event_title = appointment.get("gcal_title")
+        gcal_calendar_id = appointment.get("gcal_calendar_id")
+        evaluatorNpi = None
+
+        if cancelled:
+            evaluatorNpi = appointment["NPI"]
+
+        elif gcal_calendar_id:
+            evaluatorNpi = npi_cache.get(gcal_calendar_id)
+            if evaluatorNpi is None:
+                logger.error(
+                    f"NPI not found for calendar ID (email): {gcal_calendar_id}"
+                )
+                continue
+
+        if evaluatorNpi is None:
+            logger.error(
+                f"Skipping {name} {start_time}: Could not determine NPI "
+                f"or no matching GCal event found."
+            )
+            # TODO: send error
+            continue
+
         gcal_location = None
         gcal_daeval = None
-
         if gcal_event_title:
             gcal_location, gcal_daeval = parse_location_and_type(gcal_event_title)
-            print(gcal_event_title, gcal_location, gcal_daeval)
 
         put_appointment_in_db(
             appointment_id,
-            clientId,
+            client_id,
             evaluatorNpi,
-            startTime,
-            endTime,
+            start_time,
+            end_time,
             location=gcal_location,
             da_eval=gcal_daeval,
             cancelled=cancelled,
