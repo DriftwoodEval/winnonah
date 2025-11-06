@@ -7,7 +7,7 @@ import {
 } from "drizzle-orm/mysql-core";
 import type { AdapterAccount } from "next-auth/adapters";
 import { CLIENT_COLOR_KEYS } from "~/lib/colors";
-import type { PermissionsObject } from "~/lib/types";
+import { type PermissionsObject, QUESTIONNAIRE_STATUSES } from "~/lib/types";
 
 /**
  * @see https://orm.drizzle.team/docs/goodies#multi-project-schema
@@ -301,16 +301,7 @@ export const questionnaires = createTable(
     questionnaireType: d.varchar({ length: 255 }).notNull(),
     link: d.varchar({ length: 255 }),
     sent: d.date(),
-    status: d
-      .mysqlEnum([
-        "PENDING",
-        "COMPLETED",
-        "IGNORING",
-        "LANGUAGE",
-        "TEACHER",
-        "EXTERNAL",
-      ])
-      .default("PENDING"),
+    status: d.mysqlEnum(QUESTIONNAIRE_STATUSES).default("PENDING"),
     reminded: d.int().default(0),
     lastReminded: d.date(),
   }),

@@ -33,6 +33,7 @@ import { CalendarIcon, Check, ChevronsUpDown } from "lucide-react";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
+import { QUESTIONNAIRE_STATUSES } from "~/lib/types";
 import { cn } from "~/lib/utils";
 import { api, type RouterOutputs } from "~/trpc/react";
 
@@ -41,14 +42,7 @@ const formSchema = z
 		questionnaireType: z.string().min(1, "Type is required"),
 		link: z.url("Must be a valid URL").optional(),
 		sent: z.date().optional(),
-		status: z.enum([
-			"PENDING",
-			"COMPLETED",
-			"IGNORING",
-			"LANGUAGE",
-			"TEACHER",
-			"EXTERNAL",
-		]),
+		status: z.enum(QUESTIONNAIRE_STATUSES),
 	})
 	.superRefine((data, ctx) => {
 		if (data.status !== "EXTERNAL") {
@@ -271,12 +265,17 @@ export function QuestionnaireTableForm({
 										</SelectTrigger>
 									</FormControl>
 									<SelectContent>
-										<SelectItem value="PENDING">Pending</SelectItem>
-										<SelectItem value="COMPLETED">Completed</SelectItem>
-										<SelectItem value="IGNORING">Ignoring</SelectItem>
-										<SelectItem value="LANGUAGE">Language</SelectItem>
-										<SelectItem value="TEACHER">Teacher</SelectItem>
-										<SelectItem value="EXTERNAL">External</SelectItem>
+										{Object.values(QUESTIONNAIRE_STATUSES)
+											.filter(
+												(status) =>
+													status !== "ARCHIVED" && status !== "JUST_ADDED",
+											)
+											.map((status) => (
+												<SelectItem key={status} value={status}>
+													{status.charAt(0).toUpperCase()}
+													{status.slice(1).replace(/_/g, " ").toLowerCase()}
+												</SelectItem>
+											))}
 									</SelectContent>
 								</Select>
 								<FormMessage />

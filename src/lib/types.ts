@@ -2,6 +2,17 @@ import type { InferSelectModel } from "drizzle-orm";
 import z from "zod";
 import type { clients } from "~/server/db/schema";
 
+export const QUESTIONNAIRE_STATUSES = [
+  "PENDING",
+  "COMPLETED",
+  "IGNORING",
+  "LANGUAGE",
+  "TEACHER",
+  "EXTERNAL",
+  "ARCHIVED",
+  "JUST_ADDED",
+] as const;
+
 export const permissions = {
   clients: {
     title: "Client Management",

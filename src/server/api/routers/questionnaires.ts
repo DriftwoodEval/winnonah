@@ -13,6 +13,7 @@ import {
   not,
 } from "drizzle-orm";
 import { z } from "zod";
+import { QUESTIONNAIRE_STATUSES } from "~/lib/types";
 import { formatClientAge, hasPermission } from "~/lib/utils";
 import { createTRPCRouter, protectedProcedure } from "~/server/api/trpc";
 import { clients, questionnaires } from "~/server/db/schema";
@@ -162,16 +163,7 @@ export const questionnaireRouter = createTRPCRouter({
           .min(1, { message: "Questionnaire type is required" }),
         link: z.url({ message: "Link must be a valid URL" }).optional(),
         sent: z.date().optional(),
-        status: z
-          .enum([
-            "PENDING",
-            "COMPLETED",
-            "IGNORING",
-            "LANGUAGE",
-            "TEACHER",
-            "EXTERNAL",
-          ])
-          .default("PENDING"),
+        status: z.enum(QUESTIONNAIRE_STATUSES).default("PENDING"),
       })
     )
     .mutation(async ({ ctx, input }) => {
@@ -329,14 +321,7 @@ export const questionnaireRouter = createTRPCRouter({
         questionnaireType: z.string().min(1),
         link: z.url().optional(),
         sent: z.date().optional(),
-        status: z.enum([
-          "PENDING",
-          "COMPLETED",
-          "IGNORING",
-          "LANGUAGE",
-          "TEACHER",
-          "EXTERNAL",
-        ]),
+        status: z.enum(QUESTIONNAIRE_STATUSES),
       })
     )
     .mutation(async ({ ctx, input }) => {

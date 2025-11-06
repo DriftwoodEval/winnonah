@@ -1,6 +1,10 @@
 import { type ClassValue, clsx } from "clsx";
 import { twMerge } from "tailwind-merge";
-import type { PermissionId, PermissionsObject } from "./types";
+import type {
+  PermissionId,
+  PermissionsObject,
+  QUESTIONNAIRE_STATUSES,
+} from "~/lib/types";
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -38,23 +42,15 @@ export function formatClientAge(dob: Date, format = "long") {
   return years >= 3 ? `${years} years` : `${years} years, ${months} months`;
 }
 
-export type QuestionnaireStatus =
-  | "COMPLETED"
-  | "PENDING"
-  | "IGNORING"
-  | "LANGUAGE"
-  | "TEACHER"
-  | string
-  | null
-  | undefined;
-
 const STATUS_COLOR_MAP: Record<string, string> = {
   COMPLETED: "text-success",
   PENDING: "text-warning",
   IGNORING: "text-error",
 };
 
-export function getStatusColorClass(status: QuestionnaireStatus): string {
+export function getStatusColorClass(
+  status: (typeof QUESTIONNAIRE_STATUSES)[number] | null
+): string {
   if (!status) return "text-gray-500"; // Default color for unknown/null status
   return STATUS_COLOR_MAP[status] ?? "text-gray-500";
 }
