@@ -584,8 +584,6 @@ export default function EvaluatorsTable() {
 		: false;
 	const { data: evaluators, isLoading } = api.evaluators.getAll.useQuery();
 
-	console.log(evaluators);
-
 	const getActiveInsurance = (evaluator: Evaluator) => {
 		const insurances: (keyof Evaluator)[] = [
 			"SCM",

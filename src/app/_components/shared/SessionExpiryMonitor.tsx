@@ -16,8 +16,6 @@ export function SessionExpiryMonitor() {
 			const response = await fetch("/api/auth/session");
 			const currentSession = await response.json();
 
-			console.log("currentSession", currentSession);
-
 			if (!currentSession || !currentSession.user) {
 				// Session expired, force logout
 				await signOut({ callbackUrl: "/login?timeout=true" });

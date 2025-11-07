@@ -333,8 +333,6 @@ export const googleRouter = createTRPCRouter({
         "EVAL Qs Sent": punchClient["EVAL Qs Sent"] === "TRUE",
       };
 
-      console.log(qsSent);
-
       return qsSent;
     }),
 
