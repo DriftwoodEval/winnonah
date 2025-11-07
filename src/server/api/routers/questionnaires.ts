@@ -171,7 +171,7 @@ export const questionnaireRouter = createTRPCRouter({
         input.status !== "EXTERNAL" &&
         !hasPermission(
           ctx.session.user.permissions,
-          "clients:questionnaires:createexternal"
+          "clients:questionnaires:create"
         )
       ) {
         throw new TRPCError({
