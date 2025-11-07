@@ -69,77 +69,79 @@ export function QuestionnairesSent({
 								</TableCell>
 							</TableRow>
 						)}
-						{questionnairesSent?.map((questionnaire) => (
-							<TableRow key={questionnaire.id}>
-								{!readOnly && (
-									<TableCell>
-										<QuestionnaireActionsMenu questionnaire={questionnaire} />
+						{questionnairesSent
+							?.filter((questionaire) => questionaire.status !== "ARCHIVED")
+							.map((questionnaire) => (
+								<TableRow key={questionnaire.id}>
+									{!readOnly && (
+										<TableCell>
+											<QuestionnaireActionsMenu questionnaire={questionnaire} />
+										</TableCell>
+									)}
+									<TableCell className="hidden sm:table-cell">
+										{questionnaire.sent
+											? new Intl.DateTimeFormat("en-US", {
+													year: "2-digit",
+													month: "numeric",
+													day: "numeric",
+													timeZone: "UTC",
+												}).format(new Date(questionnaire.sent))
+											: "N/A"}
 									</TableCell>
-								)}
-								<TableCell className="hidden sm:table-cell">
-									{questionnaire.sent
-										? new Intl.DateTimeFormat("en-US", {
-												year: "2-digit",
-												month: "numeric",
-												day: "numeric",
-												timeZone: "UTC",
-											}).format(new Date(questionnaire.sent))
-										: "N/A"}
-								</TableCell>
-								<TableCell className="hidden sm:table-cell">
-									{questionnaire.questionnaireType}
-								</TableCell>
-								<TableCell className="hidden sm:table-cell">
-									{questionnaire.link ? (
-										<Link
-											className="text-primary hover:underline"
-											href={questionnaire.link}
-											rel="noopener noreferrer"
-											target="_blank"
-										>
-											{truncateLink(questionnaire.link)}
-										</Link>
-									) : (
-										"N/A"
-									)}
-								</TableCell>
-								<TableCell className="table-cell sm:hidden">
-									{questionnaire.link ? (
-										<Link
-											className="text-primary hover:underline"
-											href={questionnaire.link}
-											rel="noopener noreferrer"
-											target="_blank"
-										>
-											{questionnaire.questionnaireType}
-										</Link>
-									) : (
-										"N/A"
-									)}
-								</TableCell>
-								<TableCell
-									className={getReminderColorClass(questionnaire.reminded)}
-								>
-									{questionnaire.reminded}
-								</TableCell>
-								<TableCell
-									className={cn(
-										"table-cell sm:hidden",
-										getStatusColorClass(questionnaire.status),
-									)}
-								>
-									{questionnaire?.status ? questionnaire.status[0] : "U"}
-								</TableCell>
-								<TableCell
-									className={cn(
-										"hidden sm:table-cell",
-										getStatusColorClass(questionnaire.status),
-									)}
-								>
-									{questionnaire.status}
-								</TableCell>
-							</TableRow>
-						))}
+									<TableCell className="hidden sm:table-cell">
+										{questionnaire.questionnaireType}
+									</TableCell>
+									<TableCell className="hidden sm:table-cell">
+										{questionnaire.link ? (
+											<Link
+												className="text-primary hover:underline"
+												href={questionnaire.link}
+												rel="noopener noreferrer"
+												target="_blank"
+											>
+												{truncateLink(questionnaire.link)}
+											</Link>
+										) : (
+											"N/A"
+										)}
+									</TableCell>
+									<TableCell className="table-cell sm:hidden">
+										{questionnaire.link ? (
+											<Link
+												className="text-primary hover:underline"
+												href={questionnaire.link}
+												rel="noopener noreferrer"
+												target="_blank"
+											>
+												{questionnaire.questionnaireType}
+											</Link>
+										) : (
+											"N/A"
+										)}
+									</TableCell>
+									<TableCell
+										className={getReminderColorClass(questionnaire.reminded)}
+									>
+										{questionnaire.reminded}
+									</TableCell>
+									<TableCell
+										className={cn(
+											"table-cell sm:hidden",
+											getStatusColorClass(questionnaire.status),
+										)}
+									>
+										{questionnaire?.status ? questionnaire.status[0] : "U"}
+									</TableCell>
+									<TableCell
+										className={cn(
+											"hidden sm:table-cell",
+											getStatusColorClass(questionnaire.status),
+										)}
+									>
+										{questionnaire.status}
+									</TableCell>
+								</TableRow>
+							))}
 					</TableBody>
 				</Table>
 			</div>

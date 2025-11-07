@@ -385,7 +385,8 @@ export const questionnaireRouter = createTRPCRouter({
       }
 
       await ctx.db
-        .delete(questionnaires)
+        .update(questionnaires)
+        .set({ status: "ARCHIVED" })
         .where(eq(questionnaires.id, input.id));
 
       return { success: true };
