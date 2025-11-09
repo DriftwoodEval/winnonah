@@ -1,6 +1,9 @@
+import base64
 import csv
 import os
 import time
+from email.message import EmailMessage
+from typing import Optional
 
 from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
@@ -15,6 +18,8 @@ import utils.misc
 # If modifying these scopes, delete the file token.json.
 SCOPES = [
     "https://www.googleapis.com/auth/drive",
+    "https://www.googleapis.com/auth/calendar.readonly",
+    "https://www.googleapis.com/auth/gmail.compose",
 ]
 
 
@@ -234,3 +239,44 @@ def add_client_ids_to_drive():
                 ).execute()
             elif matches >= 2:
                 logger.debug("Multiple clients with name", matched_first, matched_last)
+
+
+def send_gmail(
+    message_text: str,
+    subject: str,
+    to_addr: str,
+    from_addr: str,
+    cc_addr: Optional[str] = None,
+    html: Optional[str] = None,
+):
+    """Send an email using the Gmail API."""
+    creds = google_authenticate()
+
+    try:
+        service = build("gmail", "v1", credentials=creds)
+
+        message = EmailMessage()
+        message.set_content(message_text)
+        message["Subject"] = subject
+        message["To"] = to_addr
+        message["From"] = from_addr
+        if cc_addr:
+            message["Cc"] = cc_addr
+
+        if html:
+            message.add_alternative(html, subtype="html")
+
+        encoded_message = base64.urlsafe_b64encode(message.as_bytes()).decode()
+
+        create_message = {"raw": encoded_message}
+
+        send_message = (
+            service.users().messages().send(userId="me", body=create_message).execute()
+        )
+
+        logger.info(f"Sent email to {to_addr}: {subject}")
+
+    except HttpError as error:
+        logger.exception(error)
+        send_message = None
+    return send_message

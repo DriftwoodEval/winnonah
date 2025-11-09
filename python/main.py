@@ -8,6 +8,7 @@ import pandas as pd
 from dotenv import load_dotenv
 from loguru import logger
 
+import utils.appointments
 import utils.clients
 import utils.config
 import utils.database
@@ -159,7 +160,7 @@ def import_from_ta(
         all_clients_from_db, evaluators, force_clients_ids
     )
 
-    utils.database.insert_appointments()
+    utils.appointments.insert_appointments_with_gcal()
 
 
 def extract_digits(string: str) -> Optional[str]:

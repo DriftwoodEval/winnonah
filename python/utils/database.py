@@ -1,6 +1,5 @@
 import hashlib
 import os
-import re
 from datetime import datetime
 from typing import Dict, Literal, Optional, Set
 from urllib.parse import urlparse
@@ -11,7 +10,6 @@ from dotenv import load_dotenv
 from loguru import logger
 
 import utils.relationships
-from utils.clients import TEST_NAMES
 from utils.misc import (
     format_date,
     format_gender,
@@ -280,9 +278,13 @@ def put_appointment_in_db(
     evaluator_npi: int,
     start_time: datetime,
     end_time: datetime,
-    cancelled: bool,
-    type: Literal["EVAL", "DA", "DA+EVAL", "LD"],
-    location: str | None = None,
+    da_eval: Optional[Literal["EVAL", "DA", "DAEVAL"]] = None,
+    asd_adhd: Optional[
+        Literal["ASD", "ADHD", "ASD+ADHD", "ASD+LD", "ADHD+LD", "LD"]
+    ] = None,
+    cancelled: Optional[bool] = False,
+    location: Optional[str] = None,
+    gcal_event_id: Optional[str] = None,
 ):
     """Inserts an appointment into the database."""
     db_connection = get_db()
@@ -290,16 +292,18 @@ def put_appointment_in_db(
     with db_connection:
         with db_connection.cursor() as cursor:
             sql = """
-                INSERT INTO `emr_appointment` (id, clientId, evaluatorNpi, startTime, endTime, cancelled, type, location)
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                INSERT INTO `emr_appointment` (id, clientId, evaluatorNpi, startTime, endTime, daEval, asdAdhd, cancelled, locationKey, calendarEventId)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                 ON DUPLICATE KEY UPDATE
                     clientId = VALUES(clientId),
                     evaluatorNpi = VALUES(evaluatorNpi),
                     startTime = VALUES(startTime),
                     endTime = VALUES(endTime),
+                    daEval = CASE WHEN VALUES(daEval) IS NOT NULL THEN VALUES(daEval) ELSE daEval END,
+                    asdAdhd = CASE WHEN VALUES(asdAdhd) IS NOT NULL THEN VALUES(asdAdhd) ELSE asdAdhd END,
                     cancelled = VALUES(cancelled),
-                    type = VALUES(type),
-                    location = CASE WHEN VALUES(location) IS NOT NULL THEN VALUES(location) ELSE location END;
+                    locationKey = CASE WHEN VALUES(locationKey) IS NOT NULL THEN VALUES(locationKey) ELSE locationKey END,
+                    calendarEventId = CASE WHEN VALUES(calendarEventId) IS NOT NULL THEN VALUES(calendarEventId) ELSE calendarEventId END;
             """
             cursor.execute(
                 sql,
@@ -309,9 +313,11 @@ def put_appointment_in_db(
                     evaluator_npi,
                     start_time,
                     end_time,
+                    da_eval,
+                    asd_adhd,
                     cancelled,
-                    type,
                     location,
+                    gcal_event_id,
                 ),
             )
             db_connection.commit()
@@ -662,39 +668,15 @@ def insert_by_matching_criteria(
         insert_by_matching_criteria_incremental(clients, evaluators)
 
 
-def insert_appointments():
-    """Inserts appointments into the database from a CSV."""
-    appointments_df = pd.read_csv("temp/input/clients-appointments.csv")
-    for appointment in appointments_df.iterrows():
-        appointment_id = appointment[1]["APPOINTMENT_ID"]
-        clientId = appointment[1]["CLIENT_ID"]
-        evaluatorNpi = appointment[1]["NPI"]
-        startTime = appointment[1]["STARTTIME"]
-        endTime = appointment[1]["ENDTIME"]
-        startTime = pd.to_datetime(startTime).to_pydatetime()
-        endTime = pd.to_datetime(endTime).to_pydatetime()
-        cancelled = appointment[1]["CANCELBYNAME"]
-        name = re.sub(r"[\d\(\)]", "", appointment[1]["NAME"]).strip()
-        if name in TEST_NAMES:
-            continue
-        if type(cancelled) == str:
-            cancelled = True
-        else:
-            cancelled = False
-        duration = endTime - startTime
-        if duration.total_seconds() > 60 * 60 * 3:  # 3 hours
-            daeval = "LD"
-        elif duration.total_seconds() > 60 * 60:  # 1 hour
-            daeval = "EVAL"
-        else:
-            daeval = "DA"
-
-        put_appointment_in_db(
-            appointment_id,
-            clientId,
-            evaluatorNpi,
-            startTime,
-            endTime,
-            cancelled,
-            daeval,
-        )
+def get_all_evaluators_npi_map() -> Dict[str, int]:
+    """Gets a map of email (str) to NPI (int) for all evaluators."""
+    db_connection = get_db()
+    try:
+        with db_connection:
+            with db_connection.cursor() as cursor:
+                cursor.execute("SELECT npi, email FROM emr_evaluator")
+                results = cursor.fetchall()
+                return {row["email"]: row["npi"] for row in results}
+    except Exception as e:
+        logger.exception("Unexpected error while fetching evaluator NPI map")
+        raise
