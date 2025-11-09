@@ -1,6 +1,5 @@
 import hashlib
 import os
-import re
 from datetime import datetime
 from typing import Dict, Literal, Optional, Set
 from urllib.parse import urlparse
@@ -11,11 +10,6 @@ from dotenv import load_dotenv
 from loguru import logger
 
 import utils.relationships
-from utils.appointments import (
-    check_and_merge_appointments,
-    parse_location_and_type,
-    should_skip_appointment,
-)
 from utils.misc import (
     format_date,
     format_gender,
@@ -686,64 +680,3 @@ def get_all_evaluators_npi_map() -> Dict[str, int]:
     except Exception as e:
         logger.exception("Unexpected error while fetching evaluator NPI map")
         raise
-
-
-def insert_appointments_with_gcal():
-    """Inserts appointments into the database with Google Calendar data."""
-    logger.info("Inserting appointments with Google Calendar data")
-    appointments_df = check_and_merge_appointments()
-
-    now = datetime.now()
-    npi_cache = get_all_evaluators_npi_map()
-
-    for _, appointment in appointments_df.iterrows():
-        appointment_id = appointment["APPOINTMENT_ID"]
-        client_id = appointment["CLIENT_ID"]
-        start_time = pd.to_datetime(appointment["STARTTIME"]).to_pydatetime()
-        end_time = pd.to_datetime(appointment["ENDTIME"]).to_pydatetime()
-        cancelled = type(appointment["CANCELBYNAME"]) == str
-        name = re.sub(r"[\d\(\)]", "", appointment["NAME"]).strip()
-
-        if should_skip_appointment(appointment, now):
-            continue
-
-        gcal_event_id = appointment.get("gcal_event_id")
-        gcal_event_title = appointment.get("gcal_title")
-        gcal_calendar_id = appointment.get("gcal_calendar_id")
-        evaluatorNpi = None
-
-        if cancelled:
-            evaluatorNpi = appointment["NPI"]
-
-        elif gcal_calendar_id:
-            evaluatorNpi = npi_cache.get(gcal_calendar_id)
-            if evaluatorNpi is None:
-                logger.error(
-                    f"NPI not found for calendar ID (email): {gcal_calendar_id}"
-                )
-                continue
-
-        if evaluatorNpi is None:
-            logger.error(
-                f"Skipping {name} {start_time}: Could not determine NPI "
-                f"or no matching GCal event found."
-            )
-            # TODO: send error
-            continue
-
-        gcal_location = None
-        gcal_daeval = None
-        if gcal_event_title:
-            gcal_location, gcal_daeval = parse_location_and_type(gcal_event_title)
-
-        put_appointment_in_db(
-            appointment_id,
-            client_id,
-            evaluatorNpi,
-            start_time,
-            end_time,
-            location=gcal_location,
-            da_eval=gcal_daeval,
-            cancelled=cancelled,
-            gcal_event_id=gcal_event_id,
-        )
