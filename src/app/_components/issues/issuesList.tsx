@@ -728,6 +728,8 @@ export function IssuesList() {
 	const { data: dd4, isLoading: isLoadingDD4 } = api.clients.getDD4.useQuery();
 	const { data: possiblePrivatePay, isLoading: isLoadingPossiblePrivatePay } =
 		api.clients.getPossiblePrivatePay.useQuery();
+	const { data: unreviewedRecords } =
+		api.clients.getUnreviewedRecords.useQuery();
 	const { data: duplicateQLinks, isLoading: isLoadingDuplicateQLinks } =
 		api.questionnaires.getDuplicateLinks.useQuery();
 	const { data: punchlistIssues, isLoading: isLoadingPunchlistIssues } =
@@ -841,6 +843,12 @@ export function IssuesList() {
 						title="Potential Private Pay"
 					/>
 				)}
+			{unreviewedRecords && unreviewedRecords.length !== 0 && (
+				<IssueList
+					clients={unreviewedRecords}
+					title="Unreviewed/Unreceived Records"
+				/>
+			)}
 			{isLoadingDuplicateFolderNames && <IssueListSkeleton />}
 			{!isLoadingDuplicateFolderNames &&
 				duplicateFolderNames &&

@@ -255,6 +255,7 @@ export const clients = createTable(
 		eiAttends: d.boolean().notNull().default(false),
 		flag: d.varchar({ length: 255 }),
 		taHash: d.varchar({ length: 255 }),
+		recordsNeeded: d.boolean().notNull().default(false),
 	}),
 	(t) => [
 		index("hash_idx").on(t.hash),
@@ -322,6 +323,72 @@ export const noteHistoryRelations = relations(noteHistory, ({ one }) => ({
 		references: [notes.clientId],
 	}),
 }));
+
+export const externalRecords = createTable(
+	"external_record",
+	(d) => ({
+		clientId: d
+			.int()
+			.notNull()
+			.primaryKey()
+			.references(() => clients.id, { onDelete: "cascade" }),
+		content: d.json("content"),
+		createdAt: d
+			.timestamp("created_at")
+			.default(sql`CURRENT_TIMESTAMP`)
+			.notNull(),
+		updatedAt: d
+			.timestamp("updated_at")
+			.onUpdateNow()
+			.default(sql`CURRENT_TIMESTAMP`),
+		requested: d.date(),
+	}),
+	(t) => [index("note_client_idx").on(t.clientId)],
+);
+
+export const externalRecordHistory = createTable(
+	"external_record_history",
+	(d) => ({
+		id: d.int().notNull().autoincrement().primaryKey(),
+		externalRecordId: d.int().notNull(),
+		content: d.json("content").notNull(),
+		title: d.text(),
+		updatedBy: d.varchar("updated_by", { length: 255 }),
+		createdAt: d
+			.timestamp("created_at")
+			.default(sql`CURRENT_TIMESTAMP`)
+			.notNull(),
+	}),
+	(t) => [
+		index("external_record_history_idx").on(t.externalRecordId),
+		foreignKey({
+			columns: [t.externalRecordId],
+			foreignColumns: [externalRecords.clientId],
+			name: "external_record_id_fk",
+		}).onDelete("cascade"),
+	],
+);
+
+export const externalRecordsRelations = relations(
+	externalRecords,
+	({ one, many }) => ({
+		client: one(clients, {
+			fields: [externalRecords.clientId],
+			references: [clients.id],
+		}),
+		history: many(externalRecordHistory),
+	}),
+);
+
+export const externalRecordsHistoryRelations = relations(
+	externalRecordHistory,
+	({ one }) => ({
+		externalRecord: one(externalRecords, {
+			fields: [externalRecordHistory.externalRecordId],
+			references: [externalRecords.clientId],
+		}),
+	}),
+);
 
 export const appointments = createTable("appointment", (d) => ({
 	id: d.varchar({ length: 255 }).notNull().primaryKey(),

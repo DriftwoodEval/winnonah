@@ -54,6 +54,11 @@ export function IssuesAlert() {
 	const { data: possiblePrivatePay } =
 		api.clients.getPossiblePrivatePay.useQuery(undefined, queryOptions);
 
+	const { data: unreviewedRecords } = api.clients.getUnreviewedRecords.useQuery(
+		undefined,
+		queryOptions,
+	);
+
 	const { data: duplicateQLinks } =
 		api.questionnaires.getDuplicateLinks.useQuery(undefined, queryOptions);
 
@@ -73,6 +78,7 @@ export function IssuesAlert() {
 		(noDriveIds?.length ?? 0) +
 		(dd4?.length ?? 0) +
 		(possiblePrivatePay?.length ?? 0) +
+		(unreviewedRecords?.length ?? 0) +
 		(duplicateQLinks?.duplicatePerClient.length ?? 0) +
 		(duplicateQLinks?.sharedAcrossClients.length ?? 0) +
 		(punchlistIssues?.clientsNotInDb.length ?? 0) +
