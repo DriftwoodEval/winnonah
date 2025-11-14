@@ -104,6 +104,19 @@ export const clientRouter = createTRPCRouter({
       return foundClient;
     }),
 
+  getFailures: protectedProcedure
+    .input(z.number().optional())
+    .query(async ({ ctx, input }) => {
+      if (!input) {
+        return [];
+      }
+      const clientFailures = await ctx.db.query.failures.findMany({
+        where: and(eq(failures.clientId, input), lt(failures.reminded, 100)),
+      });
+
+      return clientFailures;
+    }),
+
   getSorted: protectedProcedure.query(async ({ ctx }) => {
     const { sortReasonSQL, orderBySQL } = getPriorityInfo();
 

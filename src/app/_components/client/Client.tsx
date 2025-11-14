@@ -1,17 +1,19 @@
 "use client";
 
-import { ClientDetailsCard } from "@components/client/ClientDetailsCard";
-import { ClientHeader } from "@components/client/ClientHeader";
-import { ClientNoteEditor } from "@components/client/ClientNoteEditor";
-import { EligibleEvaluatorsList } from "@components/client/EligibleEvaluatorsList";
-import { QuestionnairesSent } from "@components/client/QuestionnairesSent";
+import { Alert, AlertTitle } from "@ui/alert";
 import { Skeleton } from "@ui/skeleton";
+import { Clock } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import type { ClientColor } from "~/lib/colors";
 import { logger } from "~/lib/logger";
 import { api } from "~/trpc/react";
 import { AutismStopAlert } from "./AutismStopAlert";
+import { ClientDetailsCard } from "./ClientDetailsCard";
+import { ClientHeader } from "./ClientHeader";
+import { ClientNoteEditor } from "./ClientNoteEditor";
+import { EligibleEvaluatorsList } from "./EligibleEvaluatorsList";
+import { QuestionnairesSent } from "./QuestionnairesSent";
 
 const log = logger.child({ module: "Client" });
 
@@ -59,6 +61,10 @@ export function Client({
 		updateClientColorMutation.mutate({ clientId: client.id, color });
 	};
 
+	const { data: clientFailures } = api.clients.getFailures.useQuery(
+		client?.id ?? undefined,
+	);
+
 	const isLoading = isLoadingClient;
 
 	return (
@@ -79,6 +85,21 @@ export function Client({
 
 					{client.id.toString().length !== 5 && (
 						<ClientDetailsCard client={client} />
+					)}
+
+					{clientFailures?.map((failure) =>
+						failure.reason === "docs not signed" ||
+						failure.reason === "portal not opened" ? (
+							<Alert key={failure.reason} variant="destructive">
+								<Clock />
+								<AlertTitle>
+									{failure.reason?.replace(
+										/^\S/g,
+										(c) => c.toUpperCase() + c.toLowerCase().slice(1),
+									)}
+								</AlertTitle>
+							</Alert>
+						) : null,
 					)}
 
 					<ClientNoteEditor clientId={client.id} readOnly={readOnly} />
