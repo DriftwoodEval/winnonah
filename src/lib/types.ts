@@ -39,6 +39,11 @@ export const permissions = {
         id: "clients:questionnaires:createbulk",
         title: "Create Bulk Questionnaires",
       },
+      { id: "clients:records:needed", title: "Set Records Needed" },
+      {
+        id: "clients:records:create",
+        title: "Create Records Entries",
+      },
     ],
   },
   system: {
