@@ -164,6 +164,13 @@ export function AddQuestionnaireButton({
 		}
 	};
 
+	const handleSetBothSent = () => {
+		if (clientId) {
+			setQsSent({ id: clientId.toString(), daSent: true, evalSent: true });
+			setShouldBlockNavigation(false);
+		}
+	};
+
 	const addQTrigger = (
 		<Button disabled={!clientId} variant="outline">
 			{isDesktop ? (
@@ -191,17 +198,27 @@ export function AddQuestionnaireButton({
 
 	return (
 		<div className="flex items-center gap-2">
-			{qsSent && !qsSent?.["DA Qs Sent"] && clientId ? (
+			{isDesktop && qsSent && !qsSent?.["DA Qs Sent"] && clientId && (
 				<Button onClick={handleSetDASent} size="sm" variant="secondary">
 					Set DA Sent
 				</Button>
-			) : null}
+			)}
 
-			{qsSent && !qsSent?.["EVAL Qs Sent"] && clientId ? (
+			{isDesktop && qsSent && !qsSent?.["EVAL Qs Sent"] && clientId && (
 				<Button onClick={handleSetEvalSent} size="sm" variant="secondary">
 					Set Eval Sent
 				</Button>
-			) : null}
+			)}
+
+			{isDesktop &&
+				qsSent &&
+				!qsSent?.["DA Qs Sent"] &&
+				!qsSent?.["EVAL Qs Sent"] &&
+				clientId && (
+					<Button onClick={handleSetBothSent} size="sm" variant="secondary">
+						Set Both Sent
+					</Button>
+				)}
 
 			<ButtonGroup>
 				{(canAddSingle || canAddExternal) && (
@@ -273,6 +290,19 @@ export function AddQuestionnaireButton({
 								Set Eval Sent
 							</Button>
 						)}
+
+						{qsSent &&
+							!qsSent?.["DA Qs Sent"] &&
+							!qsSent?.["EVAL Qs Sent"] &&
+							clientId && (
+								<Button
+									onClick={handleSetBothSent}
+									size="sm"
+									variant="secondary"
+								>
+									Set Both Sent
+								</Button>
+							)}
 					</div>
 				</DialogContent>
 			</Dialog>
