@@ -25,6 +25,7 @@ import { createTRPCRouter, protectedProcedure } from "~/server/api/trpc";
 import {
   clients,
   clientsEvaluators,
+  externalRecords,
   failures,
   notes,
   questionnaires,
@@ -429,6 +430,27 @@ export const clientRouter = createTRPCRouter({
     return autismStops;
   }),
 
+  getUnreviewedRecords: protectedProcedure.query(async ({ ctx }) => {
+    const threeDaysAgo = sql`DATE_SUB(CURRENT_TIMESTAMP(), INTERVAL 3 DAY)`;
+
+    const results = await ctx.db
+      .select({
+        ...getTableColumns(clients),
+        additionalInfo: sql<string>`CONCAT('(Requested: ', DATE_FORMAT(${externalRecords.requested}, '%m/%d/%y'), ')')`,
+      })
+      .from(clients)
+      .innerJoin(externalRecords, eq(clients.id, externalRecords.clientId))
+      .where(
+        and(
+          eq(clients.recordsNeeded, true),
+          lt(externalRecords.requested, threeDaysAgo),
+          isNull(externalRecords.content)
+        )
+      );
+
+    return results;
+  }),
+
   createShell: protectedProcedure
     .input(z.object({ firstName: z.string(), lastName: z.string() }))
     .mutation(async ({ ctx, input }) => {
@@ -526,6 +548,7 @@ export const clientRouter = createTRPCRouter({
         eiAttends: z.boolean().optional(),
         driveId: z.string().optional(),
         status: z.boolean().optional(),
+        recordsNeeded: z.boolean().optional(),
       })
     )
     .mutation(async ({ ctx, input }) => {
@@ -569,6 +592,10 @@ export const clientRouter = createTRPCRouter({
         !hasPermission(ctx.session.user.permissions, "clients:shell")
           ? ["clients:shell"]
           : []),
+        ...(input.recordsNeeded !== undefined &&
+        !hasPermission(ctx.session.user.permissions, "clients:records:needed")
+          ? ["clients:records:needed"]
+          : []),
       ];
       if (unauthorizedPermissions.length > 0) {
         throw new TRPCError({
@@ -594,6 +621,7 @@ export const clientRouter = createTRPCRouter({
         flag?: string | null;
         driveId?: string | null;
         status?: boolean;
+        recordsNeeded?: boolean;
       } = {};
 
       if (input.color !== undefined) {
@@ -619,6 +647,9 @@ export const clientRouter = createTRPCRouter({
       }
       if (input.status !== undefined) {
         updateData.status = input.status;
+      }
+      if (input.recordsNeeded !== undefined) {
+        updateData.recordsNeeded = input.recordsNeeded;
       }
 
       await ctx.db
