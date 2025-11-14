@@ -209,7 +209,7 @@ function ClientsSearchForm({ onResetFilters }: ClientsSearchFormProps) {
 													"w-full pl-3 text-left font-normal",
 													!field.value && "text-muted-foreground",
 												)}
-												variant={"outline"}
+												variant="outline"
 											>
 												{field.value ? (
 													format(field.value, "PPP")

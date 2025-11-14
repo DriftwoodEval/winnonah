@@ -15,6 +15,7 @@ import { ClientHeader } from "./ClientHeader";
 import { ClientNoteEditor } from "./ClientNoteEditor";
 import { EligibleEvaluatorsList } from "./EligibleEvaluatorsList";
 import { QuestionnairesTable } from "./QuestionnairesTable";
+import { RecordsNoteEditor } from "./RecordsNoteEditor";
 
 const log = logger.child({ module: "Client" });
 
@@ -141,6 +142,10 @@ export function Client({
 
 					{client.id.toString().length !== 5 && (
 						<EligibleEvaluatorsList client={client} />
+					)}
+
+					{client.id.toString().length !== 5 && (
+						<RecordsNoteEditor clientId={client.id} readOnly={readOnly} />
 					)}
 				</div>
 			)}

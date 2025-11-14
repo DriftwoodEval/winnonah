@@ -201,6 +201,8 @@ export function IssuesList() {
 	const { data: noDriveIds } = api.clients.getNoDriveIdErrors.useQuery();
 	const { data: possiblePrivatePay } =
 		api.clients.getPossiblePrivatePay.useQuery();
+	const { data: unreviewedRecords } =
+		api.clients.getUnreviewedRecords.useQuery();
 	const { data: duplicateQLinks } =
 		api.questionnaires.getDuplicateLinks.useQuery();
 
@@ -255,6 +257,12 @@ export function IssuesList() {
 			)}
 			{possiblePrivatePay && possiblePrivatePay.length !== 0 && (
 				<IssueList clients={possiblePrivatePay} title="Potential Private Pay" />
+			)}
+			{unreviewedRecords && unreviewedRecords.length !== 0 && (
+				<IssueList
+					clients={unreviewedRecords}
+					title="Unreviewed/Unreceived Records"
+				/>
 			)}
 			{duplicatePerClientList.length > 0 && (
 				<IssueList
