@@ -83,3 +83,19 @@ export function formatPhoneNumber(phoneNumber: string) {
     }
   );
 }
+
+export const getServerDateAsLocal = (
+  date: Date | undefined | null
+): Date | undefined => {
+  if (!date) return undefined;
+  const serverDate = new Date(date);
+  // Normalizing to a local date at noon (to avoid timezone issues with date-only selection)
+  return new Date(
+    serverDate.getFullYear(),
+    serverDate.getMonth(),
+    serverDate.getDate(),
+    12,
+    0,
+    0
+  );
+};
