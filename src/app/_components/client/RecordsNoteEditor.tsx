@@ -174,11 +174,14 @@ export function RecordsNoteEditor({
 	};
 
 	const isLoading = isLoadingRecord || isLoadingClient;
-	const isReadOnly = !canRecordNote || readOnly;
+	const isReadOnly =
+		!canRecordNote || readOnly || !recordsNeeded || !requestedDate;
 	const isNeedeedReadOnly = !canRecordsNeeded || readOnly;
 
 	const recordsNeededId = useId();
 	const recordsRequestedId = useId();
+
+	const editorKey = `${isReadOnly}-${clientId}`;
 
 	return (
 		<div className="w-full">
@@ -213,6 +216,8 @@ export function RecordsNoteEditor({
 			) : (
 				<div>
 					<RichTextEditor
+						formatBar={false}
+						key={editorKey}
 						onChange={debouncedSaveContent}
 						placeholder="Entering data into this box will mark records as received..."
 						readonly={isReadOnly}
