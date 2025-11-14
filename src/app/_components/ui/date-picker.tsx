@@ -45,7 +45,7 @@ export function DatePicker({
             variant="outline"
             size="sm"
             id={id}
-            className={cn("w-48 justify-between font-normal", !date && "text-muted-foreground")}
+            className={cn("max-w-32 justify-between font-normal", !date && "text-muted-foreground")}
             disabled={disabled}
           >
             {date ? date.toLocaleDateString() : placeholder}

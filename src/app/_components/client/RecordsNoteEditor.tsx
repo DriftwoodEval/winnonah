@@ -1,17 +1,17 @@
 import { RichTextEditor } from "@components/shared/RichTextEditor";
 import type { CheckedState } from "@radix-ui/react-checkbox";
+import { Checkbox } from "@ui/checkbox";
+import { DatePicker } from "@ui/date-picker";
+import { Label } from "@ui/label";
+import { Separator } from "@ui/separator";
 import { Skeleton } from "@ui/skeleton";
 import { debounce } from "lodash";
 import { useSession } from "next-auth/react";
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { logger } from "~/lib/logger";
-import { getServerDateAsLocal, hasPermission } from "~/lib/utils";
+import { getLocalDayFromUTCDate, hasPermission } from "~/lib/utils";
 import { api } from "~/trpc/react";
-import { Checkbox } from "../ui/checkbox";
-import { DatePicker } from "../ui/date-picker";
-import { Label } from "../ui/label";
-import { Separator } from "../ui/separator";
 
 const log = logger.child({ module: "RecordsNoteEditor" });
 
@@ -51,7 +51,7 @@ export function RecordsNoteEditor({
 
 	const [recordsNeeded, setRecordsNeeded] = useState(false);
 	const [requestedDate, setRequestedDate] = useState<Date | undefined>(
-		getServerDateAsLocal(record?.requested),
+		getLocalDayFromUTCDate(record?.requested) ?? undefined,
 	);
 
 	useEffect(() => {
@@ -59,7 +59,7 @@ export function RecordsNoteEditor({
 	}, [client?.recordsNeeded]);
 
 	useEffect(() => {
-		setRequestedDate(getServerDateAsLocal(record?.requested));
+		setRequestedDate(getLocalDayFromUTCDate(record?.requested) ?? undefined);
 	}, [record?.requested]);
 
 	const handleError = (error: unknown, action: string) => {
@@ -196,11 +196,11 @@ export function RecordsNoteEditor({
 				<Separator orientation="vertical" />
 				<DatePicker
 					date={requestedDate}
-					disabled={isReadOnly}
+					disabled={isReadOnly || !recordsNeeded}
 					flexDirection="flex-row"
 					id={recordsRequestedId}
 					label="Requested"
-					placeholder="Set requested date"
+					placeholder="Pick date"
 					setDate={handleRequestedDateChange}
 				/>
 			</div>
