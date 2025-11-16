@@ -172,7 +172,7 @@ export function AddQuestionnaireButton({
 	};
 
 	const addQTrigger = (
-		<Button disabled={!clientId} variant="outline">
+		<Button disabled={!clientId} size="sm" variant="outline">
 			{isDesktop ? (
 				<span className="flex items-center gap-2">
 					<Plus /> Add Questionnaire
@@ -197,7 +197,7 @@ export function AddQuestionnaireButton({
 		);
 
 	return (
-		<div className="flex items-center gap-2">
+		<div className="flex flex-wrap items-center justify-end gap-2">
 			{isDesktop && qsSent && !qsSent?.["DA Qs Sent"] && clientId && (
 				<Button onClick={handleSetDASent} size="sm" variant="secondary">
 					Set DA Sent
@@ -235,6 +235,7 @@ export function AddQuestionnaireButton({
 					<Button
 						disabled={!clientId}
 						onClick={addBulkQDialog.openDialog}
+						size="sm"
 						variant="outline"
 					>
 						{isDesktop ? (
