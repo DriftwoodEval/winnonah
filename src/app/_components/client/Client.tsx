@@ -7,6 +7,7 @@ import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import type { ClientColor } from "~/lib/colors";
 import { logger } from "~/lib/logger";
+import { getLocalDayFromUTCDate } from "~/lib/utils";
 import { api } from "~/trpc/react";
 import { AutismStopAlert } from "./AutismStopAlert";
 import { ClientDetailsCard } from "./ClientDetailsCard";
@@ -96,7 +97,11 @@ export function Client({
 									{failure.reason?.replace(
 										/^\S/g,
 										(c) => c.toUpperCase() + c.toLowerCase().slice(1),
-									)}
+									)}{" "}
+									- noted{" "}
+									{getLocalDayFromUTCDate(
+										failure.failedDate,
+									)?.toLocaleDateString()}
 								</AlertTitle>
 							</Alert>
 						) : null,

@@ -83,3 +83,14 @@ export function formatPhoneNumber(phoneNumber: string) {
     }
   );
 }
+
+export const getLocalDayFromUTCDate = (
+  utcDate: Date | undefined | null
+): Date | undefined => {
+  if (!utcDate) return undefined;
+  return new Date(
+    utcDate.getUTCFullYear(),
+    utcDate.getUTCMonth(),
+    utcDate.getUTCDate()
+  );
+};
