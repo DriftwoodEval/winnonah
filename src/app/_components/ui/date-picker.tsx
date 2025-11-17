@@ -19,6 +19,7 @@ interface DatePickerProps {
   date: Date | undefined
   setDate: (date: Date | undefined) => void
   disabled?: boolean
+  allowClear?: boolean
   placeholder?: string
   flexDirection?: "flex-col" | "flex-row"
 }
@@ -29,6 +30,7 @@ export function DatePicker({
   date,
   setDate,
   disabled = false,
+  allowClear = false,
   placeholder = "Select date",
   flexDirection = "flex-col",
 }: DatePickerProps) {
@@ -57,9 +59,19 @@ export function DatePicker({
             mode="single"
             selected={date}
             onSelect={(selectedDate) => {
-              setDate(selectedDate)
+              let newDate = selectedDate;
+
+              if (allowClear && date && selectedDate) {
+                const isSameDay = date.getFullYear() === selectedDate.getFullYear() && date.getMonth() === selectedDate.getMonth() && date.getDate() === selectedDate.getDate();
+                if (isSameDay) {
+                  newDate = undefined;
+                }
+              }
+
+              setDate(newDate)
               setOpen(false)
             }}
+            disabled={disabled}
           />
         </PopoverContent>
       </Popover>
