@@ -14,7 +14,7 @@ import { ClientDetailsCard } from "./ClientDetailsCard";
 import { ClientHeader } from "./ClientHeader";
 import { ClientNoteEditor } from "./ClientNoteEditor";
 import { EligibleEvaluatorsList } from "./EligibleEvaluatorsList";
-import { QuestionnairesSent } from "./QuestionnairesSent";
+import { QuestionnairesTable } from "./QuestionnairesTable";
 
 const log = logger.child({ module: "Client" });
 
@@ -136,7 +136,7 @@ export function Client({
 					<ClientNoteEditor clientId={client.id} readOnly={readOnly} />
 
 					{client.id.toString().length !== 5 && (
-						<QuestionnairesSent clientId={client.id} readOnly={readOnly} />
+						<QuestionnairesTable clientId={client.id} readOnly={readOnly} />
 					)}
 
 					{client.id.toString().length !== 5 && (

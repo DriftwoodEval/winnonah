@@ -144,14 +144,7 @@ export const questionnaireRouter = createTRPCRouter({
         return null;
       }
 
-      // Map the questionnaires to explicitly convert the date to an ISO string
-      const formattedQuestionnaires =
-        clientWithQuestionnaires.questionnaires.map((q) => ({
-          ...q,
-          sent: q.sent?.toISOString(),
-        }));
-
-      return formattedQuestionnaires ?? null;
+      return clientWithQuestionnaires.questionnaires ?? null;
     }),
 
   addQuestionnaire: protectedProcedure

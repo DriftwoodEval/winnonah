@@ -9,20 +9,25 @@ import {
 	TableRow,
 } from "@ui/table";
 import Link from "next/link";
-import { cn, getReminderColorClass, getStatusColorClass } from "~/lib/utils";
+import {
+	cn,
+	getLocalDayFromUTCDate,
+	getReminderColorClass,
+	getStatusColorClass,
+} from "~/lib/utils";
 import { api } from "~/trpc/react";
 import { AddQuestionnaireButton } from "./AddQuestionnaireButton";
 import { QuestionnaireActionsMenu } from "./QuestionnaireTableActionsMenu";
 
-interface QuestionnairesSentProps {
+interface QuestionnairesTableProps {
 	clientId: number | undefined;
 	readOnly?: boolean;
 }
 
-export function QuestionnairesSent({
+export function QuestionnairesTable({
 	clientId,
 	readOnly,
-}: QuestionnairesSentProps) {
+}: QuestionnairesTableProps) {
 	const { data: questionnairesSent, isLoading: isLoadingQuestionnaires } =
 		api.questionnaires.getSentQuestionnaires.useQuery(clientId ?? 0, {
 			enabled: typeof clientId === "number" && clientId > 0,
@@ -43,10 +48,8 @@ export function QuestionnairesSent({
 	return (
 		<div className="w-full rounded-md border shadow">
 			<div className="sticky top-0 z-10 flex items-center justify-between gap-2 p-4">
-				<h4 className="font-bold leading-none sm:hidden">Questionnaires</h4>
-				<h4 className="hidden font-bold leading-none sm:block">
-					Questionnaires Sent
-				</h4>
+				<h4 className="font-bold leading-none">Questionnaires</h4>
+
 				{!readOnly && <AddQuestionnaireButton clientId={clientId} />}
 			</div>
 			<div className="px-4 pb-4">
@@ -59,6 +62,7 @@ export function QuestionnairesSent({
 							<TableHead className="w-20">Link</TableHead>
 							<TableHead className="w-20">Reminded</TableHead>
 							<TableHead className="w-20">Status</TableHead>
+							<TableHead className="hidden w-20 sm:table-cell">As Of</TableHead>
 						</TableRow>
 					</TableHeader>
 					<TableBody>
@@ -79,14 +83,13 @@ export function QuestionnairesSent({
 										</TableCell>
 									)}
 									<TableCell className="hidden sm:table-cell">
-										{questionnaire.sent
-											? new Intl.DateTimeFormat("en-US", {
-													year: "2-digit",
-													month: "numeric",
-													day: "numeric",
-													timeZone: "UTC",
-												}).format(new Date(questionnaire.sent))
-											: "N/A"}
+										{getLocalDayFromUTCDate(
+											questionnaire.sent,
+										)?.toLocaleDateString(undefined, {
+											year: "2-digit",
+											month: "numeric",
+											day: "numeric",
+										}) ?? "N/A"}
 									</TableCell>
 									<TableCell className="hidden sm:table-cell">
 										{questionnaire.questionnaireType}
@@ -139,6 +142,15 @@ export function QuestionnairesSent({
 										)}
 									>
 										{questionnaire.status}
+									</TableCell>
+									<TableCell className="hidden sm:table-cell">
+										{getLocalDayFromUTCDate(
+											questionnaire.updatedAt,
+										)?.toLocaleDateString(undefined, {
+											year: "2-digit",
+											month: "numeric",
+											day: "numeric",
+										}) ?? "N/A"}
 									</TableCell>
 								</TableRow>
 							))}

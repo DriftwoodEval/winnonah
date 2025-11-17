@@ -308,6 +308,10 @@ export const questionnaires = createTable(
     status: d.mysqlEnum(QUESTIONNAIRE_STATUSES).default("PENDING"),
     reminded: d.int().default(0),
     lastReminded: d.date(),
+    updatedAt: d
+      .timestamp("updated_at")
+      .onUpdateNow()
+      .default(sql`CURRENT_TIMESTAMP`),
   }),
   (t) => [index("questionnaire_client_idx").on(t.clientId)]
 );
