@@ -1,6 +1,6 @@
 "use client";
 
-import { Alert, AlertTitle } from "@ui/alert";
+import { Alert, AlertDescription, AlertTitle } from "@ui/alert";
 import { Skeleton } from "@ui/skeleton";
 import { Clock } from "lucide-react";
 import { useEffect, useState } from "react";
@@ -88,24 +88,50 @@ export function Client({
 						<ClientDetailsCard client={client} />
 					)}
 
-					{clientFailures?.map((failure) =>
-						failure.reason === "docs not signed" ||
-						failure.reason === "portal not opened" ? (
-							<Alert key={failure.reason} variant="destructive">
-								<Clock />
-								<AlertTitle>
-									{failure.reason?.replace(
-										/^\S/g,
-										(c) => c.toUpperCase() + c.toLowerCase().slice(1),
-									)}{" "}
-									- noted{" "}
-									{getLocalDayFromUTCDate(
-										failure.failedDate,
-									)?.toLocaleDateString()}
-								</AlertTitle>
-							</Alert>
-						) : null,
-					)}
+					{clientFailures?.map((failure) => {
+						if (
+							failure.reason === "docs not signed" ||
+							failure.reason === "portal not opened"
+						) {
+							const reasonText = `${failure.reason?.replace(
+								/^\S/g,
+								(c) => c.toUpperCase() + c.toLowerCase().slice(1),
+							)}.`;
+
+							const formattedUpdatedDate =
+								getLocalDayFromUTCDate(failure.updatedAt)?.toLocaleDateString(
+									undefined,
+									{
+										year: "2-digit",
+										month: "numeric",
+										day: "numeric",
+									},
+								) ?? null;
+
+							const formattedFailedDate =
+								getLocalDayFromUTCDate(failure.failedDate)?.toLocaleDateString(
+									undefined,
+									{
+										year: "2-digit",
+										month: "numeric",
+										day: "numeric",
+									},
+								) ?? "Unknown Date";
+
+							const dateString = formattedUpdatedDate
+								? `As of ${formattedUpdatedDate} (first noted ${formattedFailedDate}).`
+								: `First noted ${formattedFailedDate}.`;
+
+							return (
+								<Alert key={failure.reason} variant="destructive">
+									<Clock />
+									<AlertTitle>{reasonText}</AlertTitle>
+									<AlertDescription>{dateString}</AlertDescription>
+								</Alert>
+							);
+						}
+						return null;
+					})}
 
 					<ClientNoteEditor clientId={client.id} readOnly={readOnly} />
 

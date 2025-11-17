@@ -322,6 +322,10 @@ export const failures = createTable(
     reason: d.varchar({ length: 767 }).notNull(), // Max length for primary key
     daEval: d.mysqlEnum(["DA", "EVAL", "DAEVAL"]),
     failedDate: d.date().notNull(),
+    updatedAt: d
+      .timestamp("updated_at")
+      .onUpdateNow()
+      .default(sql`CURRENT_TIMESTAMP`),
     reminded: d.int().default(0),
     lastReminded: d.date(),
   }),
