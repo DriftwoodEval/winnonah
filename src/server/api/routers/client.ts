@@ -538,15 +538,33 @@ export const clientRouter = createTRPCRouter({
 		const results = await ctx.db
 			.select({
 				...getTableColumns(clients),
-				additionalInfo: sql<string>`CONCAT('(Requested: ', DATE_FORMAT(${externalRecords.requested}, '%m/%d/%y'), ')')`,
+				additionalInfo: sql<string>`CONCAT(
+          '(Requested: ',
+          DATE_FORMAT(
+            CASE
+              WHEN ${externalRecords.needsSecondRequest} = TRUE THEN ${externalRecords.secondRequestDate}
+              ELSE ${externalRecords.requested}
+            END,
+            '%m/%d/%y'
+          ),
+          ')'
+        )`,
 			})
 			.from(clients)
 			.innerJoin(externalRecords, eq(clients.id, externalRecords.clientId))
 			.where(
-				and(
-					eq(clients.recordsNeeded, true),
-					lt(externalRecords.requested, threeDaysAgo),
-					isNull(externalRecords.content),
+				or(
+					and(
+						eq(clients.recordsNeeded, true),
+						lt(externalRecords.requested, threeDaysAgo),
+						eq(externalRecords.needsSecondRequest, false),
+						isNull(externalRecords.content),
+					),
+					and(
+						eq(externalRecords.needsSecondRequest, true),
+						lt(externalRecords.secondRequestDate, threeDaysAgo),
+						isNull(externalRecords.content),
+					),
 				),
 			);
 
