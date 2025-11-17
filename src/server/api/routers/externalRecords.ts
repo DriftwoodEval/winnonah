@@ -19,14 +19,16 @@ export const externalRecordRouter = createTRPCRouter({
         clientId: data.clientId,
         contentJson: data.content,
         requested: data.requested,
+        needsSecondRequest: data.needsSecondRequest,
+        secondRequestDate: data.secondRequestDate,
       };
     }),
 
-  setRequestedDate: protectedProcedure
+  setFirstRequestDate: protectedProcedure
     .input(
       z.object({
         clientId: z.number(),
-        requested: z.date(),
+        requested: z.date().nullable(),
       })
     )
     .mutation(async ({ ctx, input }) => {
@@ -53,6 +55,54 @@ export const externalRecordRouter = createTRPCRouter({
           .set({ requested: input.requested })
           .where(eq(externalRecords.clientId, input.clientId));
       }
+    }),
+
+  setNeedsSecondRequest: protectedProcedure
+    .input(
+      z.object({
+        clientId: z.number(),
+        needsSecondRequest: z.boolean(),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      if (
+        !hasPermission(ctx.session.user.permissions, "clients:records:create")
+      ) {
+        throw new TRPCError({
+          code: "UNAUTHORIZED",
+        });
+      }
+
+      await ctx.db
+        .update(externalRecords)
+        .set({ needsSecondRequest: input.needsSecondRequest })
+        .where(eq(externalRecords.clientId, input.clientId));
+    }),
+
+  setSecondRequestDate: protectedProcedure
+    .input(
+      z.object({
+        clientId: z.number(),
+        secondRequestDate: z.date().nullable(),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      if (
+        !hasPermission(ctx.session.user.permissions, "clients:records:create")
+      ) {
+        throw new TRPCError({
+          code: "UNAUTHORIZED",
+        });
+      }
+
+      const updatePayload = {
+        secondRequestDate: input.secondRequestDate,
+      };
+
+      await ctx.db
+        .update(externalRecords)
+        .set(updatePayload)
+        .where(eq(externalRecords.clientId, input.clientId));
     }),
 
   updateExternalRecordNote: protectedProcedure

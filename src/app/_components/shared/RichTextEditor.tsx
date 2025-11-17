@@ -180,7 +180,13 @@ export function RichTextEditor({
 				</div>
 			)}
 
-			<EditorContent className="rounded-md shadow" editor={editor} />
+			<EditorContent
+				className={cn(
+					"rounded-md shadow",
+					readonly ? "opacity-50" : "opacity-100",
+				)}
+				editor={editor}
+			/>
 		</div>
 	);
 }
