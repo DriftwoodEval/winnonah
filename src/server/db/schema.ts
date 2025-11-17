@@ -342,6 +342,8 @@ export const externalRecords = createTable(
 			.onUpdateNow()
 			.default(sql`CURRENT_TIMESTAMP`),
 		requested: d.date(),
+		needsSecondRequest: d.boolean().notNull().default(false),
+		secondRequestDate: d.date(),
 	}),
 	(t) => [index("note_client_idx").on(t.clientId)],
 );
