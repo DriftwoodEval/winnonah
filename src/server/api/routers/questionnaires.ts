@@ -160,28 +160,30 @@ export const questionnaireRouter = createTRPCRouter({
       })
     )
     .mutation(async ({ ctx, input }) => {
-      if (
-        input.status !== "EXTERNAL" &&
-        !hasPermission(
-          ctx.session.user.permissions,
-          "clients:questionnaires:createexternal"
-        )
-      ) {
-        throw new TRPCError({
-          code: "UNAUTHORIZED",
-        });
+      if (input.status === "EXTERNAL") {
+        if (
+          !hasPermission(
+            ctx.session.user.permissions,
+            "clients:questionnaires:createexternal"
+          )
+        ) {
+          throw new TRPCError({
+            code: "UNAUTHORIZED",
+          });
+        }
+      } else {
+        if (
+          !hasPermission(
+            ctx.session.user.permissions,
+            "clients:questionnaires:create"
+          )
+        ) {
+          throw new TRPCError({
+            code: "UNAUTHORIZED",
+          });
+        }
       }
 
-      if (
-        !hasPermission(
-          ctx.session.user.permissions,
-          "clients:questionnaires:create"
-        )
-      ) {
-        throw new TRPCError({
-          code: "UNAUTHORIZED",
-        });
-      }
       const client = await ctx.db.query.clients.findFirst({
         where: eq(clients.id, input.clientId),
       });
