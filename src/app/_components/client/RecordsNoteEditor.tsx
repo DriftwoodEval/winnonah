@@ -285,7 +285,7 @@ export function RecordsNoteEditor({
 	return (
 		<div className="w-full">
 			<div className="mb-4 flex h-[16px] flex-row items-center gap-3">
-				<h4 className="font-bold leading-none">Records</h4>
+				<h4 className="font-bold leading-none">School Records</h4>
 
 				<Tooltip>
 					<TooltipTrigger>
