@@ -324,7 +324,7 @@ export const failures = createTable(
       .notNull()
       .references(() => clients.id, { onDelete: "cascade" }),
     reason: d.varchar({ length: 767 }).notNull(), // Max length for primary key
-    daEval: d.mysqlEnum(["DA", "EVAL", "DAEVAL"]),
+    daEval: d.mysqlEnum(["DA", "EVAL", "DAEVAL", "Records"]),
     failedDate: d.date().notNull(),
     updatedAt: d
       .timestamp("updated_at")
