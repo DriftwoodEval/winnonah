@@ -751,38 +751,71 @@ export const clientRouter = createTRPCRouter({
         .limit(1);
 
       if (!fakeClientNote || !realClient || !fakeClient) {
-        throw new Error("Data does not exist.");
+        throw new Error("Client data does not exist for merge operation.");
       }
 
       const fakeContent = fakeClientNote.content as JSONContent;
+      const fakeTitle = fakeClientNote.title;
 
-      if (!fakeContent?.content || !Array.isArray(fakeContent.content)) {
+      const fakeHasContent =
+        fakeContent?.content &&
+        Array.isArray(fakeContent.content) &&
+        fakeContent.content.length > 0;
+
+      if (!fakeHasContent && !fakeTitle) {
         throw new Error(
-          "Fake client note content is not in the expected Tiptap format."
+          '"Notes Only" client is empty. It must have content or a title to merge.'
         );
+      }
+
+      let mergedTitle: string | null;
+
+      if (realClientNote?.title && fakeTitle) {
+        mergedTitle = `${realClientNote.title} | ${fakeTitle}`;
+      } else if (realClientNote?.title) {
+        mergedTitle = realClientNote.title;
+      } else if (fakeTitle) {
+        mergedTitle = fakeTitle;
+      } else {
+        mergedTitle = null;
       }
 
       let mergedContent: JSONContent;
 
       if (realClientNote) {
-        // Case 1: Real note exists. Merge content and add a separator.
+        // Real note exists. Check if we need to merge content.
         const realContent = realClientNote.content as JSONContent;
 
         if (!realContent?.content || !Array.isArray(realContent.content)) {
           throw new Error(
-            "Real client note content is not in the expected Tiptap format."
+            "Imported client note content is not in the expected Tiptap format."
           );
         }
 
-        const separator = {
-          type: "paragraph",
-        };
+        const realHasContent = realContent.content.length > 0;
 
-        // Combine the content with the separator in between.
-        mergedContent = {
-          type: "doc",
-          content: [...realContent.content, separator, ...fakeContent.content],
-        };
+        if (realHasContent && fakeHasContent) {
+          // Both have content. Merge content with a separator.
+          const separator = { type: "paragraph" }; // Using an empty paragraph as separator
+
+          mergedContent = {
+            type: "doc",
+            content: [
+              ...(realContent.content || []),
+              separator,
+              ...(fakeContent.content || []),
+            ],
+          };
+        } else if (realHasContent) {
+          // Only real note has content (fake note has only title, or is empty content). Keep real content.
+          mergedContent = realContent;
+        } else if (fakeHasContent) {
+          // SOnly fake note has content (real note has only title, or is empty content). Use fake content.
+          mergedContent = fakeContent;
+        } else {
+          // Neither has content (e.g., both have only titles). Keep real content structure, even though empty.
+          mergedContent = realContent;
+        }
 
         // Update the existing note.
         await ctx.db
@@ -790,21 +823,20 @@ export const clientRouter = createTRPCRouter({
           .set({
             content: mergedContent,
             updatedAt: new Date(),
-            title: fakeClientNote.title,
+            title: mergedTitle,
           })
           .where(eq(notes.clientId, clientId));
       } else {
-        // Case 2: Real note does not exist. Create a new one.
-        mergedContent = {
-          type: "doc",
-          content: [...fakeContent.content],
-        };
+        // Real note does not exist. Create a new one.
+        mergedContent = fakeHasContent
+          ? fakeContent
+          : { type: "doc", content: [] };
 
         // Insert a new note entry for the real client.
         await ctx.db.insert(notes).values({
           clientId: clientId,
           content: mergedContent,
-          title: fakeClientNote.title,
+          title: mergedTitle,
         });
       }
 
@@ -815,7 +847,7 @@ export const clientRouter = createTRPCRouter({
 
       return {
         success: true,
-        message: `Merged ${fakeClient.fullName}'s notes into ${realClient.fullName}.`,
+        message: `Merged ${fakeClient.fullName}'s notes/title into ${realClient.fullName}.`,
       };
     }),
 });

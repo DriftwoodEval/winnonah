@@ -77,11 +77,11 @@ export function Merge() {
 
 	const { mutate: replaceNotes } = api.clients.replaceNotes.useMutation({
 		onSuccess: (data) => {
-			setMergeDialogOpen(false);
 			utils.clients.search.invalidate({ type: "note" });
 			toast.success("Merged successfully!", {
 				description: String(data.message),
 			});
+			setMergeDialogOpen(false);
 		},
 		onError: (error) => {
 			toast.error("Failed to replace notes", {
