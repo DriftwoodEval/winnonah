@@ -235,6 +235,7 @@ def process_referrals():
     logger.debug("Processing referrals")
     ref_df = utils.spreadsheets.open_local("temp/input/client-referral-report.csv")
     make_referral_fax_folders(ref_df)
+    logger.debug("Finished processing referrals")
 
 
 def main():

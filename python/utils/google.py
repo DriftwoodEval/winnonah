@@ -1,10 +1,12 @@
 import base64
-import csv
 import os
+import re
 import time
+from collections import deque
 from email.message import EmailMessage
 from typing import Optional
 
+import pandas as pd
 from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import InstalledAppFlow
@@ -108,137 +110,156 @@ def create_folder_in_folder(new_folder_name: str, parent_folder_id: str):
         logger.error(f"An error occurred: {err}")
 
 
-def get_folder(folder_id):
-    """Get the folder with the given ID."""
+def get_drive_service():
+    """Get the Google Drive service."""
     creds = google_authenticate()
-    try:
-        service = build("drive", "v3", credentials=creds)
-        folder = service.files().get(fileId=folder_id).execute()
-        return folder
-    except HttpError as err:
-        logger.error(f"An error occurred: {err}")
+    return build("drive", "v3", credentials=creds)
 
 
-DRIVE_FILES_CSV = "temp/drive_files.csv"
+def _normalize_name_tokens(name: str):
+    """Converts 'John Smith-Doe' to a set: {'john', 'smith', 'doe'}. Removes punctuation, double spaces, and lowercases."""
+    if not name:
+        return set()
+    clean_name = re.sub(r"[^\w\s]", " ", name).lower()
+    return set(clean_name.split())
 
 
-def recurse_folders(folder: dict, depth=0):
-    """Recursively checks for subfolders in the given folder and saves to CSV."""
-    files = get_items_in_folder(folder["id"])
-    if files is None:
-        return
-    length = len(files)
-    if length > 100:
-        logger.debug(f"Processing {length} items in {folder['name']} ({folder['id']})")
-    for i, file in enumerate(files):
-        if length > 100 and i % ((length // 100) + 1) == 0:
-            logger.debug(f"{100 * i // length}% done")
-        if "folder" in file["webViewLink"].lower():  # Check if file is a folder
-            if (
-                "[" not in file["name"] and "]" not in file["name"]
-            ):  # Folder name doesn't already have an ID in brackets
-                utils.misc.save_to_csv(f"{file['name']},{file['id']}", DRIVE_FILES_CSV)
-            if depth < 2:
-                logger.debug(f"{file['name']} ({file['id']})")
-            recurse_folders(
-                file,
-                depth + 1,
+def _build_client_lookup(df_clients: pd.DataFrame):
+    """Pre-processes clients into a list of dicts for faster matching. Structure: [{'id': 1, 'tokens': {'john', 'smith'}}, ...]."""
+    client_lookup = []
+    for _, row in df_clients.iterrows():
+        tokens = _normalize_name_tokens(f"{row['FIRSTNAME']} {row['LASTNAME']}")
+        client_data = {
+            "id": row["CLIENT_ID"],
+            "tokens": tokens,
+            "original_first": row["FIRSTNAME"],
+            "original_last": row["LASTNAME"],
+        }
+        client_lookup.append(client_data)
+
+        if row["PREFERRED_NAME"]:
+            pref_tokens = _normalize_name_tokens(
+                f"{row['PREFERRED_NAME']} {row['LASTNAME']}"
             )
+            if pref_tokens != tokens:
+                client_lookup.append(
+                    {
+                        "id": row["CLIENT_ID"],
+                        "tokens": pref_tokens,
+                        "original_first": row["PREFERRED_NAME"],
+                        "original_last": row["LASTNAME"],
+                    }
+                )
+    return client_lookup
+
+
+def _process_folders_queued(service, start_folder_id, client_lookup, db_connection):
+    """Iterative Breadth-First Search using a Queue."""
+    folder_queue = deque([start_folder_id])
+
+    while folder_queue:
+        current_folder_id = folder_queue.popleft()
+
+        query = (
+            f"'{current_folder_id}' in parents and "
+            f"mimeType = 'application/vnd.google-apps.folder' and "
+            f"trashed = false"
+        )
+
+        page_token = None
+        while True:
+            try:
+                response = (
+                    service.files()
+                    .list(
+                        q=query,
+                        spaces="drive",
+                        fields="nextPageToken, files(id, name)",
+                        pageToken=page_token,
+                        pageSize=1000,
+                    )
+                    .execute()
+                )
+            except HttpError as err:
+                logger.error(f"API Error on folder {current_folder_id}: {err}")
+                time.sleep(2)
+                continue
+
+            files = response.get("files", [])
+
+            for file in files:
+                folder_name = file["name"]
+                drive_id = file["id"]
+
+                # Add subfolder to queue to process later (BFS)
+                # Check for brackets to avoid re-renaming, but
+                # add it to the queue regardless to find sub-sub-folders.
+                folder_queue.append(drive_id)
+
+                if "[" in folder_name and "]" in folder_name:
+                    continue
+
+                folder_tokens = _normalize_name_tokens(folder_name)
+                matches = []
+
+                for client in client_lookup:
+                    if client["tokens"].issubset(folder_tokens):
+                        matches.append(client)
+
+                # Deduplicate by ID
+                unique_matches = {m["id"]: m for m in matches}.values()
+
+                if len(unique_matches) == 1:
+                    match = list(unique_matches)[0]
+                    new_name = f"{folder_name} [{match['id']}]"
+
+                    logger.debug(
+                        f"MATCH: {folder_name} ({drive_id}) -> {match['original_first']} {match['original_last']}"
+                    )
+
+                    try:
+                        # Update DB
+                        with db_connection.cursor() as cursor:
+                            sql = "UPDATE emr_client SET driveId = %s WHERE id = %s"
+                            cursor.execute(sql, (drive_id, match["id"]))
+                        db_connection.commit()
+
+                        # Rename Drive Folder
+                        service.files().update(
+                            fileId=drive_id, body={"name": new_name}
+                        ).execute()
+                    except Exception as e:
+                        logger.error(f"Error updating {folder_name}: {e}")
+
+                elif len(unique_matches) > 1:
+                    ids = [m["id"] for m in unique_matches]
+                    logger.warning(f"AMBIGUOUS: '{folder_name}' matches IDs: {ids}")
+
+            page_token = response.get("nextPageToken", None)
+            if page_token is None:
+                break
 
 
 def add_client_ids_to_drive():
-    """Add client IDs to drive."""
-    initial_folder = get_folder(os.getenv("BASE_FOLDER_ID"))
+    """Add client IDs to Drive folder names, and add Drive IDs to DB."""
+    logger.debug("Starting Drive Sync...")
 
-    if initial_folder is None:
-        logger.error("Failed to get initial folder")
+    service = get_drive_service()
+    db_connection = utils.database.get_db()
+    base_folder_id = os.getenv("BASE_FOLDER_ID")
+
+    if base_folder_id is None:
+        logger.error("BASE_FOLDER_ID is not set")
         return
 
-    try:
-        recurse_folders(
-            {"id": initial_folder["id"], "name": initial_folder["name"]},
-        )
-    except Exception as e:
-        logger.error(e)
+    logger.debug("Building client lookup index...")
+    df_clients = utils.database.get_all_clients()
+    client_lookup = _build_client_lookup(df_clients)
 
-    creds = google_authenticate()
-    service = build("drive", "v3", credentials=creds)
+    logger.debug("Scanning folders...")
+    _process_folders_queued(service, base_folder_id, client_lookup, db_connection)
 
-    db_clients = utils.database.get_all_clients()
-
-    with open(DRIVE_FILES_CSV, "r") as f:
-        data = csv.reader(f)
-        for row in data:
-            matches = 0
-            folder_name = row[0]
-            folder_name_parts = folder_name.split()
-            drive_id = row[1]
-            (
-                matched_first,
-                matched_last,
-                matched_drive_id,
-                matched_client_id,
-                new_folder_name,
-            ) = "", "", "", "", ""
-            for _, client in db_clients.iterrows():
-                client_first = client["FIRSTNAME"]
-                client_last = client["LASTNAME"]
-                client_id = client["CLIENT_ID"]
-                if client["PREFERRED_NAME"] != None:
-                    client_preferred = client["PREFERRED_NAME"]
-                    if (
-                        # Ex. client name is "Will Smith" and folder is "William Smith"
-                        (client_first in folder_name or client_preferred in folder_name)
-                        and client_last in folder_name
-                    ) or (
-                        # Ex. client name is "William Smith" and folder is "Will Smith"
-                        len(folder_name_parts) == 2
-                        and (
-                            folder_name_parts[0] in client_first
-                            or folder_name_parts[0] in client_preferred
-                        )
-                        and folder_name_parts[1] in client_last
-                    ):
-                        matches += 1
-                        matched_first = client_first
-                        matched_last = client_last
-                        matched_drive_id = drive_id
-                        matched_client_id = client_id
-                        new_folder_name = f"{folder_name} [{matched_client_id}]"
-                else:
-                    # Same as above, but no preferred name
-                    if (client_first in folder_name and client_last in folder_name) or (
-                        len(folder_name_parts) == 2
-                        and folder_name_parts[0] in client_first
-                        and folder_name_parts[1] in client_last
-                    ):
-                        matches += 1
-                        matched_first = client_first
-                        matched_last = client_last
-                        matched_drive_id = drive_id
-                        matched_client_id = client_id
-                        new_folder_name = f"{folder_name} [{matched_client_id}]"
-            if matches == 1:
-                logger.debug(
-                    matched_first,
-                    matched_last,
-                    folder_name,
-                    matched_client_id,
-                    matched_drive_id,
-                    new_folder_name,
-                )
-                db_connection = utils.database.get_db()
-                with db_connection.cursor() as cursor:
-                    sql = f"UPDATE emr_client SET driveId = '{matched_drive_id}' WHERE id = '{matched_client_id}'"
-                    cursor.execute(sql)
-                db_connection.commit()
-                service.files().update(
-                    fileId=matched_drive_id,
-                    body={"name": new_folder_name},
-                    fields="id, name",
-                ).execute()
-            elif matches >= 2:
-                logger.debug("Multiple clients with name", matched_first, matched_last)
+    logger.debug("Finished.")
 
 
 def send_gmail(

@@ -108,15 +108,11 @@ def filter_clients_with_changed_address(clients: pd.DataFrame) -> pd.DataFrame:
 
 
 def get_all_clients() -> pd.DataFrame:
-    """Fetches all clients from the database.
-
-    Returns:
-        pd.DataFrame: A DataFrame containing all client records.
-    """
+    """Fetches all clients from the database that do not have an ID of 5 characters."""
     db_connection = get_db()
     with db_connection:
         with db_connection.cursor() as cursor:
-            cursor.execute("SELECT * FROM emr_client")
+            cursor.execute("SELECT * FROM emr_client WHERE LENGTH(id) != 5")
             clients = cursor.fetchall()
             df = pd.DataFrame(clients)
 
@@ -126,6 +122,7 @@ def get_all_clients() -> pd.DataFrame:
         "status": "STATUS",
         "asanaId": "ASANA_ID",
         "archivedInAsana": "ARCHIVED_IN_ASANA",
+        "driveId": "DRIVE_ID",
         "addedDate": "ADDED_DATE",
         "dob": "DOB",
         "firstName": "FIRSTNAME",
@@ -142,13 +139,19 @@ def get_all_clients() -> pd.DataFrame:
         "thirdClosestOfficeMiles": "THIRD_CLOSEST_OFFICE_MILES",
         "primaryInsurance": "INSURANCE_COMPANYNAME",
         "secondaryInsurance": "SECONDARY_INSURANCE_COMPANYNAME",
+        "precertExpires": "PRECERT_EXPIRES",
         "privatePay": "POLICY_PRIVATEPAY",
         "asdAdhd": "ASD_ADHD",
         "interpreter": "INTERPRETER",
         "phoneNumber": "PHONE1",
+        "email": "EMAIL",
         "gender": "GENDER",
-        "highPriority": "HIGH_PRIORITY",
         "color": "COLOR",
+        "highPriority": "HIGH_PRIORITY",
+        "babyNet": "BABYNET",
+        "autismStop": "AUTISM_STOP",
+        "eiAttends": "EI_ATTENDS",
+        "flag": "FLAG",
     }
 
     df.rename(columns=column_mapping, inplace=True)
