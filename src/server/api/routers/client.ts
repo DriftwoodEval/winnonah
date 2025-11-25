@@ -455,9 +455,21 @@ export const clientRouter = createTRPCRouter({
         babyNet: z.boolean().optional(),
         eiAttends: z.boolean().optional(),
         driveId: z.string().optional(),
+        status: z.boolean().optional(),
       })
     )
     .mutation(async ({ ctx, input }) => {
+      if (
+        input.status !== undefined &&
+        input.clientId.toString().length !== 5
+      ) {
+        throw new TRPCError({
+          code: "NOT_IMPLEMENTED",
+          message:
+            "Imported client's status can only be edited at source data.",
+        });
+      }
+
       const unauthorizedPermissions = [
         ...(input.color !== undefined &&
         !hasPermission(ctx.session.user.permissions, "clients:color")
@@ -483,6 +495,10 @@ export const clientRouter = createTRPCRouter({
         !hasPermission(ctx.session.user.permissions, "clients:drive")
           ? ["clients:drive"]
           : []),
+        ...(input.status !== undefined &&
+        !hasPermission(ctx.session.user.permissions, "clients:shell")
+          ? ["clients:shell"]
+          : []),
       ];
       if (unauthorizedPermissions.length > 0) {
         throw new TRPCError({
@@ -505,6 +521,7 @@ export const clientRouter = createTRPCRouter({
         eiAttends?: boolean;
         flag?: string | null;
         driveId?: string | null;
+        status?: boolean;
       } = {};
 
       if (input.color !== undefined) {
@@ -527,6 +544,9 @@ export const clientRouter = createTRPCRouter({
       }
       if (input.driveId !== undefined) {
         updateData.driveId = input.driveId;
+      }
+      if (input.status !== undefined) {
+        updateData.status = input.status;
       }
 
       await ctx.db
@@ -693,21 +713,16 @@ export const clientRouter = createTRPCRouter({
           sql`${clients.precertExpires}`,
         ];
         sortReasonSQL = sql<string>`CASE
-      WHEN ${clients.precertExpires} IS NULL THEN 'No PA'
-      WHEN ${clients.precertExpires} < NOW() THEN 'Expired PA'
-      ELSE 'Expiration date'
-    END`.as("sortReason");
+          WHEN ${clients.precertExpires} IS NULL THEN 'No PA'
+          WHEN ${clients.precertExpires} < NOW() THEN 'Expired PA'
+          ELSE 'Expiration date'
+        END`.as("sortReason");
       }
 
       const filteredAndSortedClients = await ctx.db
         .select({ ...getTableColumns(clients), sortReason: sortReasonSQL })
         .from(clients)
-        .where(
-          and(
-            conditions.length > 0 ? and(...conditions) : undefined
-            // eq(sql`CHAR_LENGTH(${clients.id})`, 7)
-          )
-        )
+        .where(and(conditions.length > 0 ? and(...conditions) : undefined))
         .orderBy(...orderBySQL);
 
       return {

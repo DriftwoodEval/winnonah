@@ -11,12 +11,14 @@ import Image from "next/image";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
 import { useState } from "react";
+import { toast } from "sonner";
 import {
 	CLIENT_COLOR_KEYS,
 	CLIENT_COLOR_MAP,
 	type ClientColor,
 	formatColorName,
 } from "~/lib/colors";
+import { logger } from "~/lib/logger";
 import { hasPermission } from "~/lib/utils";
 import type { Client } from "~/server/lib/types";
 import { api } from "~/trpc/react";
@@ -31,6 +33,8 @@ interface ClientHeaderProps {
 	readOnly?: boolean;
 }
 
+const log = logger.child({ module: "ClientHeader" });
+
 export function ClientHeader({
 	client,
 	selectedColor,
@@ -39,6 +43,8 @@ export function ClientHeader({
 	readOnly,
 }: ClientHeaderProps) {
 	const { data: session } = useSession();
+	const utils = api.useUtils();
+
 	const canMerge = session
 		? hasPermission(session.user.permissions, "clients:merge")
 		: false;
@@ -47,6 +53,9 @@ export function ClientHeader({
 		: false;
 	const canDrive = session
 		? hasPermission(session.user.permissions, "clients:drive")
+		: false;
+	const canShell = session
+		? hasPermission(session.user.permissions, "clients:shell")
 		: false;
 
 	const { data: punchFor } = api.google.getFor.useQuery(
@@ -62,6 +71,20 @@ export function ClientHeader({
 			enabled: !!client?.id,
 		},
 	);
+
+	const updateClient = api.clients.update.useMutation({
+		onSuccess: () => {
+			toast.success("Client updated successfully!");
+			utils.clients.getOne.invalidate();
+		},
+		onError: (error) => {
+			toast.error("Failed to update client", {
+				description: error.message,
+				duration: 10000,
+			});
+			log.error(error, "Failed to update client");
+		},
+	});
 
 	const [isColorOpen, setIsColorOpen] = useState(false);
 
@@ -79,6 +102,18 @@ export function ClientHeader({
 	const currentHexColor = selectedColor
 		? CLIENT_COLOR_MAP[selectedColor]
 		: null;
+
+	const archiveClient = () =>
+		updateClient.mutate({
+			clientId: client.id,
+			status: false,
+		});
+
+	const unarchiveClient = () =>
+		updateClient.mutate({
+			clientId: client.id,
+			status: true,
+		});
 
 	return (
 		<div className="flex w-full flex-col gap-2">
@@ -132,7 +167,7 @@ export function ClientHeader({
 						}
 					>
 						{client.id.toString().length === 5
-							? "Note Only"
+							? `Note Only${client.status ? "" : ", Archived"}`
 							: client.status
 								? "Active"
 								: "Inactive"}
@@ -149,6 +184,21 @@ export function ClientHeader({
 						<Link href={`/clients/merge`}>
 							<Button>Merge with Real Client</Button>
 						</Link>
+					</>
+				)}
+
+				{client.id.toString().length === 5 && !readOnly && canShell && (
+					<>
+						<Separator orientation="vertical" />
+						{client.status === false ? (
+							<Button onClick={unarchiveClient} variant="outline">
+								Unarchive
+							</Button>
+						) : (
+							<Button onClick={archiveClient} variant="destructive">
+								Archive
+							</Button>
+						)}
 					</>
 				)}
 
