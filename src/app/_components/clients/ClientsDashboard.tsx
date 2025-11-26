@@ -25,7 +25,7 @@ import {
 	type ClientColor,
 	formatColorName,
 } from "~/lib/colors";
-import { hasPermission } from "~/lib/utils";
+import { cn, hasPermission } from "~/lib/utils";
 import { api } from "~/trpc/react";
 import { ResponsiveDialog } from "../shared/ResponsiveDialog";
 import ClientCreateForm from "./ClientCreateForm";
@@ -290,15 +290,16 @@ export function ClientsDashboard() {
 					<Popover>
 						<PopoverTrigger asChild>
 							<Button
-								className={
+								className={cn(
+									"text-foreground",
 									["sort"].some(
 										(key) =>
 											queryParams[key as keyof typeof queryParams] !==
 											undefined,
 									)
-										? "bg-secondary text-secondary-foreground hover:bg-secondary/80 hover:text-secondary-foreground"
-										: "border bg-background shadow-xs hover:bg-accent hover:text-accent-foreground dark:border-input dark:bg-input/30 dark:hover:bg-input/50"
-								}
+										? "bg-secondary hover:bg-secondary/80"
+										: "border bg-background shadow-xs hover:bg-accent hover:text-accent-foreground dark:border-input dark:bg-input/30 dark:hover:bg-input/50",
+								)}
 								size="icon"
 							>
 								<ArrowDownUp />
@@ -342,7 +343,8 @@ export function ClientsDashboard() {
 					<Popover>
 						<PopoverTrigger asChild>
 							<Button
-								className={
+								className={cn(
+									"text-foreground",
 									["hideBabynet", "status", "type", "privatepay", "color"].some(
 										(key) =>
 											queryParams[key as keyof typeof queryParams] !== false &&
@@ -352,9 +354,9 @@ export function ClientsDashboard() {
 												"active" &&
 											queryParams[key as keyof typeof queryParams] !== "both",
 									)
-										? "bg-secondary text-secondary-foreground hover:bg-secondary/80 hover:text-secondary-foreground"
-										: "border bg-background shadow-xs hover:bg-accent hover:text-accent-foreground dark:border-input dark:bg-input/30 dark:hover:bg-input/50"
-								}
+										? "bg-secondary hover:bg-secondary/80"
+										: "border bg-background shadow-xs hover:bg-accent hover:text-accent-foreground dark:border-input dark:bg-input/30 dark:hover:bg-input/50",
+								)}
 								size="icon"
 							>
 								<Filter />
