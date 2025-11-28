@@ -237,7 +237,10 @@ export const clientRouter = createTRPCRouter({
       with: {
         questionnaires: {
           where: and(
-            eq(questionnaires.status, "PENDING"),
+            or(
+              eq(questionnaires.status, "PENDING"),
+              eq(questionnaires.status, "SPANISH")
+            ),
             gt(questionnaires.reminded, 3)
           ),
         },

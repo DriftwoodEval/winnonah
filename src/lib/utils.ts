@@ -45,6 +45,7 @@ export function formatClientAge(dob: Date, format = "long") {
 const STATUS_COLOR_MAP: Record<string, string> = {
   COMPLETED: "text-success",
   PENDING: "text-warning",
+  SPANISH: "text-warning",
   IGNORING: "text-error",
 };
 

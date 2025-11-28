@@ -6,6 +6,7 @@ export const QUESTIONNAIRE_STATUSES = [
   "PENDING",
   "COMPLETED",
   "IGNORING",
+  "SPANISH",
   "LANGUAGE",
   "TEACHER",
   "EXTERNAL",
