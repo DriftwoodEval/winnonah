@@ -13,11 +13,11 @@ import { useEffect, useState } from "react";
 import type { Client } from "~/server/lib/types";
 
 type Props = {
-	client: Client;
+	client: Client | undefined;
 };
 
 export function AutismStopAlert({ client }: Props) {
-	const VISIT_DATA_KEY = `visitData:${client.hash}`;
+	const VISIT_DATA_KEY = `visitData:${client?.hash}`;
 
 	const [isAutismRecordsWarningOpen, setIsAutismRecordsWarningOpen] =
 		useState(false);
@@ -35,7 +35,7 @@ export function AutismStopAlert({ client }: Props) {
 			}
 		}
 
-		if (visitData.count < 6 && client.autismStop) {
+		if (visitData.count < 6 && client?.autismStop) {
 			visitData.count += 1;
 			visitData.timestamp = now;
 			localStorage.setItem(VISIT_DATA_KEY, JSON.stringify(visitData));
@@ -45,7 +45,7 @@ export function AutismStopAlert({ client }: Props) {
 
 	return (
 		<>
-			{client.autismStop && (
+			{client?.autismStop && (
 				<Alert className="bg-destructive text-destructive-foreground">
 					<FileText />
 					<AlertTitle>"Autism" in Records</AlertTitle>
