@@ -14,6 +14,7 @@ import { ClientDetailsCard } from "./ClientDetailsCard";
 import { ClientHeader } from "./ClientHeader";
 import { ClientNoteEditor } from "./ClientNoteEditor";
 import { EligibleEvaluatorsList } from "./EligibleEvaluatorsList";
+import { IFSPBoxes } from "./IFSPBoxes";
 import { QuestionnairesTable } from "./QuestionnairesTable";
 import { RecordsNoteEditor } from "./RecordsNoteEditor";
 
@@ -78,13 +79,12 @@ export function Client({
 				readOnly={readOnly}
 				selectedColor={selectedColor}
 			/>
+			<AutismStopAlert client={client} />
 
 			{isLoading || !client ? (
 				<Skeleton className="h-96 w-full rounded-md sm:h-96" />
 			) : (
 				<div className="mb-6 flex w-full flex-col items-center gap-6">
-					<AutismStopAlert client={client} />
-
 					{client.id.toString().length !== 5 && (
 						<ClientDetailsCard client={client} />
 					)}
@@ -142,6 +142,10 @@ export function Client({
 
 					{client.id.toString().length !== 5 && (
 						<EligibleEvaluatorsList client={client} />
+					)}
+
+					{client.id.toString().length !== 5 && (
+						<IFSPBoxes clientId={client.id} readOnly={readOnly} />
 					)}
 
 					{client.id.toString().length !== 5 && (
