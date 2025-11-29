@@ -715,6 +715,8 @@ export function IssuesList() {
 		api.clients.getDropList.useQuery();
 	const { data: autismStops, isLoading: isLoadingAutismStops } =
 		api.clients.getAutismStops.useQuery();
+	const { data: needsIFSPDownloaded } =
+		api.clients.getNeedsIFSPDownloaded.useQuery();
 	const { data: noteOnlyClients, isLoading: isLoadingNoteOnlyClients } =
 		api.clients.getNoteOnlyClients.useQuery();
 	const { data: mergeSuggestions, isLoading: isLoadingMergeSuggestions } =
@@ -817,6 +819,12 @@ export function IssuesList() {
 			{isLoadingAutismStops && <IssueListSkeleton />}
 			{!isLoadingAutismStops && autismStops && autismStops.length !== 0 && (
 				<IssueList clients={autismStops} title="Autism Stops" />
+			)}
+			{needsIFSPDownloaded && needsIFSPDownloaded.length !== 0 && (
+				<IssueList
+					clients={needsIFSPDownloaded}
+					title="Needs IFSP Downloaded"
+				/>
 			)}
 			{(isLoadingNoteOnlyClients || isLoadingMergeSuggestions) && (
 				<IssueListSkeleton />

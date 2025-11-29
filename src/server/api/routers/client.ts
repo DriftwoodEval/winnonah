@@ -413,6 +413,15 @@ export const clientRouter = createTRPCRouter({
 		});
 	}),
 
+	getNeedsIFSPDownloaded: protectedProcedure.query(async ({ ctx }) => {
+		const needsIFSPDownloaded = await ctx.db.query.clients.findMany({
+			where: and(eq(clients.ifspDownloaded, false), eq(clients.ifsp, true)),
+			orderBy: clients.dob,
+		});
+
+		return needsIFSPDownloaded;
+	}),
+
 	getNoteOnlyClients: protectedProcedure.query(async ({ ctx }) => {
 		const noteOnlyClients = await ctx.db.query.clients.findMany({
 			where: and(isNoteOnly, eq(clients.status, true)),
