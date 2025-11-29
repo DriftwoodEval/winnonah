@@ -2,6 +2,7 @@
 
 import { Alert, AlertDescription, AlertTitle } from "@ui/alert";
 import { Skeleton } from "@ui/skeleton";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@ui/tabs";
 import { Clock, FileText, MapPinOff } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
@@ -83,7 +84,7 @@ export function Client({
 			{isLoading || !client ? (
 				<Skeleton className="h-96 w-full rounded-md sm:h-96" />
 			) : (
-				<div className="mb-6 flex w-full flex-col items-center gap-6">
+				<>
 					<PersistentStatusAlert
 						condition={!!client.autismStop}
 						description="Records suggest this client has already been identified. If this is incorrect, please let Andrew know."
@@ -102,73 +103,87 @@ export function Client({
 						title="Dorchester District 4"
 					/>
 
-					{client.id.toString().length !== 5 && (
-						<ClientDetailsCard client={client} />
-					)}
+					<Tabs className="w-full" defaultValue="info">
+						<TabsList className="w-full">
+							<TabsTrigger value="info">Info</TabsTrigger>
+							<TabsTrigger value="records">Records</TabsTrigger>
+						</TabsList>
+						<TabsContent value="info">
+							<div className="mb-6 flex w-full flex-col items-center gap-6">
+								{client.id.toString().length !== 5 && (
+									<ClientDetailsCard client={client} />
+								)}
 
-					{clientFailures?.map((failure) => {
-						if (
-							failure.reason === "docs not signed" ||
-							failure.reason === "portal not opened"
-						) {
-							const reasonText = `${failure.reason?.replace(
-								/^\S/g,
-								(c) => c.toUpperCase() + c.toLowerCase().slice(1),
-							)}.`;
+								{clientFailures?.map((failure) => {
+									if (
+										failure.reason === "docs not signed" ||
+										failure.reason === "portal not opened"
+									) {
+										const reasonText = `${failure.reason?.replace(
+											/^\S/g,
+											(c) => c.toUpperCase() + c.toLowerCase().slice(1),
+										)}.`;
 
-							const formattedUpdatedDate =
-								getLocalDayFromUTCDate(failure.updatedAt)?.toLocaleDateString(
-									undefined,
-									{
-										year: "2-digit",
-										month: "numeric",
-										day: "numeric",
-									},
-								) ?? null;
+										const formattedUpdatedDate =
+											getLocalDayFromUTCDate(
+												failure.updatedAt,
+											)?.toLocaleDateString(undefined, {
+												year: "2-digit",
+												month: "numeric",
+												day: "numeric",
+											}) ?? null;
 
-							const formattedFailedDate =
-								getLocalDayFromUTCDate(failure.failedDate)?.toLocaleDateString(
-									undefined,
-									{
-										year: "2-digit",
-										month: "numeric",
-										day: "numeric",
-									},
-								) ?? "Unknown Date";
+										const formattedFailedDate =
+											getLocalDayFromUTCDate(
+												failure.failedDate,
+											)?.toLocaleDateString(undefined, {
+												year: "2-digit",
+												month: "numeric",
+												day: "numeric",
+											}) ?? "Unknown Date";
 
-							const dateString = formattedUpdatedDate
-								? `As of ${formattedUpdatedDate} (first noted ${formattedFailedDate}).`
-								: `First noted ${formattedFailedDate}.`;
+										const dateString = formattedUpdatedDate
+											? `As of ${formattedUpdatedDate} (first noted ${formattedFailedDate}).`
+											: `First noted ${formattedFailedDate}.`;
 
-							return (
-								<Alert key={failure.reason} variant="destructive">
-									<Clock />
-									<AlertTitle>{reasonText}</AlertTitle>
-									<AlertDescription>{dateString}</AlertDescription>
-								</Alert>
-							);
-						}
-						return null;
-					})}
+										return (
+											<Alert key={failure.reason} variant="destructive">
+												<Clock />
+												<AlertTitle>{reasonText}</AlertTitle>
+												<AlertDescription>{dateString}</AlertDescription>
+											</Alert>
+										);
+									}
+									return null;
+								})}
 
-					<ClientNoteEditor clientId={client.id} readOnly={readOnly} />
+								<ClientNoteEditor clientId={client.id} readOnly={readOnly} />
 
-					{client.id.toString().length !== 5 && (
-						<QuestionnairesTable clientId={client.id} readOnly={readOnly} />
-					)}
+								{client.id.toString().length !== 5 && (
+									<QuestionnairesTable
+										clientId={client.id}
+										readOnly={readOnly}
+									/>
+								)}
 
-					{client.id.toString().length !== 5 && (
-						<EligibleEvaluatorsList client={client} />
-					)}
+								{client.id.toString().length !== 5 && (
+									<EligibleEvaluatorsList client={client} />
+								)}
+							</div>
+						</TabsContent>
+						<TabsContent value="records">
+							<div className="mb-6 flex min-w-full flex-col items-center gap-6">
+								{client.id.toString().length !== 5 && (
+									<IFSPBoxes clientId={client.id} readOnly={readOnly} />
+								)}
 
-					{client.id.toString().length !== 5 && (
-						<IFSPBoxes clientId={client.id} readOnly={readOnly} />
-					)}
-
-					{client.id.toString().length !== 5 && (
-						<RecordsNoteEditor clientId={client.id} readOnly={readOnly} />
-					)}
-				</div>
+								{client.id.toString().length !== 5 && (
+									<RecordsNoteEditor clientId={client.id} readOnly={readOnly} />
+								)}
+							</div>
+						</TabsContent>
+					</Tabs>
+				</>
 			)}
 		</div>
 	);
