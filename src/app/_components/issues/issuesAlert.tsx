@@ -46,6 +46,9 @@ export function IssuesAlert() {
 		queryOptions,
 	);
 
+	const { data: needsIFSPDownloaded } =
+		api.clients.getNeedsIFSPDownloaded.useQuery(undefined, queryOptions);
+
 	const { data: noteOnlyClients } = api.clients.getNoteOnlyClients.useQuery(
 		undefined,
 		queryOptions,
@@ -77,6 +80,7 @@ export function IssuesAlert() {
 		(notInTAErrors?.length ?? 0) +
 		(dropList?.length ?? 0) +
 		(autismStops?.length ?? 0) +
+		(needsIFSPDownloaded?.length ?? 0) +
 		(noteOnlyClients?.length ?? 0) +
 		(duplicateDriveIds?.length ?? 0) +
 		(noDriveIds?.length ?? 0) +

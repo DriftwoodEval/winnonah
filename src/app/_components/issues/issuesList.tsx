@@ -196,6 +196,8 @@ export function IssuesList() {
 	const { data: notInTAErrors } = api.clients.getNotInTAErrors.useQuery();
 	const { data: dropList } = api.clients.getDropList.useQuery();
 	const { data: autismStops } = api.clients.getAutismStops.useQuery();
+	const { data: needsIFSPDownloaded } =
+		api.clients.getNeedsIFSPDownloaded.useQuery();
 	const { data: noteOnlyClients } = api.clients.getNoteOnlyClients.useQuery();
 	const { data: duplicateDriveIds } =
 		api.clients.getDuplicateDriveIdErrors.useQuery();
@@ -239,6 +241,12 @@ export function IssuesList() {
 			)}
 			{autismStops && autismStops.length !== 0 && (
 				<IssueList clients={autismStops} title="Autism Stops" />
+			)}
+			{needsIFSPDownloaded && needsIFSPDownloaded.length !== 0 && (
+				<IssueList
+					clients={needsIFSPDownloaded}
+					title="Needs IFSP Downloaded"
+				/>
 			)}
 			{noteOnlyClients && noteOnlyClients.length !== 0 && (
 				<IssueList
