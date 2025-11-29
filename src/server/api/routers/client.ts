@@ -670,6 +670,8 @@ export const clientRouter = createTRPCRouter({
 				driveId: z.string().optional(),
 				status: z.boolean().optional(),
 				recordsNeeded: z.boolean().optional(),
+				ifsp: z.boolean().optional(),
+				ifspDownloaded: z.boolean().optional(),
 			}),
 		)
 		.mutation(async ({ ctx, input }) => {
@@ -713,9 +715,13 @@ export const clientRouter = createTRPCRouter({
 				!hasPermission(ctx.session.user.permissions, "clients:shell")
 					? ["clients:shell"]
 					: []),
-				...(input.recordsNeeded !== undefined &&
+				...((input.recordsNeeded !== undefined || input.ifsp !== undefined) &&
 				!hasPermission(ctx.session.user.permissions, "clients:records:needed")
 					? ["clients:records:needed"]
+					: []),
+				...(input.ifspDownloaded !== undefined &&
+				!hasPermission(ctx.session.user.permissions, "clients:records:create")
+					? ["clients:records:create"]
 					: []),
 			];
 			if (unauthorizedPermissions.length > 0) {
@@ -743,6 +749,8 @@ export const clientRouter = createTRPCRouter({
 				driveId?: string | null;
 				status?: boolean;
 				recordsNeeded?: boolean;
+				ifsp?: boolean;
+				ifspDownloaded?: boolean;
 			} = {};
 
 			if (input.color !== undefined) {
@@ -785,6 +793,12 @@ export const clientRouter = createTRPCRouter({
 			}
 			if (input.recordsNeeded !== undefined) {
 				updateData.recordsNeeded = input.recordsNeeded;
+			}
+			if (input.ifsp !== undefined) {
+				updateData.ifsp = input.ifsp;
+			}
+			if (input.ifspDownloaded !== undefined) {
+				updateData.ifspDownloaded = input.ifspDownloaded;
 			}
 
 			await ctx.db
