@@ -299,7 +299,7 @@ export function RecordsNoteEditor({
 							<Label htmlFor={recordsNeededId}>Needed</Label>
 						</div>
 					</TooltipTrigger>
-					{!canEditRecordsNeeded && (
+					{!canEditRecordsNeeded && !readOnly && (
 						<TooltipContent>
 							<p>{tooltipRecordsNeeded}</p>
 						</TooltipContent>
@@ -320,7 +320,7 @@ export function RecordsNoteEditor({
 							setDate={handleFirstRequestedDateChange}
 						/>
 					</TooltipTrigger>
-					{!canEditFirstDate && (
+					{!canEditFirstDate && !readOnly && (
 						<TooltipContent>
 							<p>{tooltipFirstDate}</p>
 						</TooltipContent>
@@ -342,7 +342,7 @@ export function RecordsNoteEditor({
 									<Label htmlFor={secondNeededId}>Request Again?</Label>
 								</div>
 							</TooltipTrigger>
-							{!canEditSecondNeeded && (
+							{!canEditSecondNeeded && !readOnly && (
 								<TooltipContent>
 									<p>{tooltipSecondNeeded}</p>
 								</TooltipContent>
@@ -367,7 +367,7 @@ export function RecordsNoteEditor({
 									setDate={handleSecondRequestedDateChange}
 								/>
 							</TooltipTrigger>
-							{!canEditSecondDate && (
+							{!canEditSecondDate && !readOnly && (
 								<TooltipContent>
 									<p>{tooltipSecondDate}</p>
 								</TooltipContent>

@@ -13,6 +13,7 @@ import { ClientDetailsCard } from "./ClientDetailsCard";
 import { ClientHeader } from "./ClientHeader";
 import { ClientNoteEditor } from "./ClientNoteEditor";
 import { EligibleEvaluatorsList } from "./EligibleEvaluatorsList";
+import { IFSPBoxes } from "./IFSPBoxes";
 import { PersistentStatusAlert } from "./PersistentStatusAlert";
 import { QuestionnairesTable } from "./QuestionnairesTable";
 import { RecordsNoteEditor } from "./RecordsNoteEditor";
@@ -158,6 +159,10 @@ export function Client({
 
 					{client.id.toString().length !== 5 && (
 						<EligibleEvaluatorsList client={client} />
+					)}
+
+					{client.id.toString().length !== 5 && (
+						<IFSPBoxes clientId={client.id} readOnly={readOnly} />
 					)}
 
 					{client.id.toString().length !== 5 && (
