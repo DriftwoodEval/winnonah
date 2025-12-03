@@ -8,7 +8,7 @@ import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import type { ClientColor } from "~/lib/colors";
 import { logger } from "~/lib/logger";
-import { getLocalDayFromUTCDate } from "~/lib/utils";
+import { formatClientAge, getLocalDayFromUTCDate } from "~/lib/utils";
 import { api } from "~/trpc/react";
 import { ClientDetailsCard } from "./ClientDetailsCard";
 import { ClientHeader } from "./ClientHeader";
@@ -173,9 +173,10 @@ export function Client({
 						</TabsContent>
 						<TabsContent value="records">
 							<div className="mb-6 flex min-w-full flex-col items-center gap-6">
-								{client.id.toString().length !== 5 && (
-									<IFSPBoxes clientId={client.id} readOnly={readOnly} />
-								)}
+								{client.id.toString().length !== 5 &&
+									Number(formatClientAge(client.dob)) < 4 && (
+										<IFSPBoxes clientId={client.id} readOnly={readOnly} />
+									)}
 
 								{client.id.toString().length !== 5 && (
 									<RecordsNoteEditor clientId={client.id} readOnly={readOnly} />
