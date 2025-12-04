@@ -272,8 +272,9 @@ export function QuestionnaireTableForm({
 											)
 											.map((status) => (
 												<SelectItem key={status} value={status}>
-													{status.charAt(0).toUpperCase()}
-													{status.slice(1).replace(/_/g, " ").toLowerCase()}
+													{status === "POSTEVAL_PENDING"
+														? "Post-Eval, Pending"
+														: `${status.charAt(0).toUpperCase()}${status.slice(1).toLowerCase()}`}
 												</SelectItem>
 											))}
 									</SelectContent>

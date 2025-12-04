@@ -5,6 +5,7 @@ import type { clients } from "~/server/db/schema";
 export const QUESTIONNAIRE_STATUSES = [
   "PENDING",
   "COMPLETED",
+  "POSTEVAL_PENDING",
   "IGNORING",
   "SPANISH",
   "LANGUAGE",
