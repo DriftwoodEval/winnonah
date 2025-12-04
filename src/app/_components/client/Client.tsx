@@ -90,6 +90,7 @@ export function Client({
 						<TabsTrigger value="info">Info</TabsTrigger>
 						<TabsTrigger value="records">Records</TabsTrigger>
 					</TabsList>
+					)}
 					<TabsContent value="info">
 						<div className="mb-6 flex w-full flex-col items-center gap-6">
 							{client.id.toString().length !== 5 && (
