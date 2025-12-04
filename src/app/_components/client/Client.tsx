@@ -86,10 +86,11 @@ export function Client({
 				<Skeleton className="h-96 w-full rounded-md sm:h-96" />
 			) : (
 				<Tabs className="w-full" defaultValue="info">
-					<TabsList className="w-full">
-						<TabsTrigger value="info">Info</TabsTrigger>
-						<TabsTrigger value="records">Records</TabsTrigger>
-					</TabsList>
+					{client.id.toString().length !== 5 && (
+						<TabsList className="w-full">
+							<TabsTrigger value="info">Info</TabsTrigger>
+							<TabsTrigger value="records">Records</TabsTrigger>
+						</TabsList>
 					)}
 					<TabsContent value="info">
 						<div className="mb-6 flex w-full flex-col items-center gap-6">
@@ -153,6 +154,10 @@ export function Client({
 					</TabsContent>
 					<TabsContent value="records">
 						<div className="mb-6 flex min-w-full flex-col items-center gap-6">
+							{client.id.toString().length !== 5 && (
+								<ClientDetailsCard client={client} truncated />
+							)}
+
 							{client.id.toString().length !== 5 &&
 								Number(formatClientAge(client.dob)) < 4 && (
 									<IFSPBoxes clientId={client.id} readOnly={readOnly} />
