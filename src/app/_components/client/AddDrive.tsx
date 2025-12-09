@@ -101,7 +101,15 @@ export function AddDriveButton({ client }: { client: Client }) {
 			addDriveDialog.closeDialog();
 			return;
 		}
-		const match = values.link.match(/\/folders\/([^/]+)/);
+
+		let linkToProcess = values.link;
+		try {
+			const url = new URL(values.link);
+			linkToProcess = url.pathname;
+		} catch (e) {
+			log.error(e, "Failed to process link");
+		}
+		const match = linkToProcess.match(/\/folders\/([^/]+)/);
 		if (match && typeof match[1] === "string" && match[1]) {
 			addIdToFolder.mutate({
 				folderId: match[1],
