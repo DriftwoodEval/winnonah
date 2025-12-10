@@ -110,7 +110,7 @@ def import_from_ta(
     clients_to_geocode = utils.database.filter_clients_with_changed_address(clients)
 
     if force_clients is not None and not force_clients.empty:
-        logger.info(f"Force prcessing {len(force_clients)} clients")
+        logger.info(f"Force processing {len(force_clients)} clients")
 
         if not clients_to_geocode.empty:
             # Remove clients that are already on the geocoding list to avoid duplicates
@@ -249,9 +249,10 @@ def main():
     * --download-only: Only download the CSVs from TA and exit
     * --openphone: Run the OpenPhone sync and exit
     * --referrals: Run the Referrals process and exit
-    * --dirve-ids: Run the Drive IDs process and exit
+    * --drive-ids: Run the Drive IDs process and exit
     * --client-name: Process specific client(s) by name (case insensitive partial match)
     * --client-id: Process specific client(s) by ID
+    * --force-all: Force all clients through geocoding process
 
     If none of the above options are specified, the script will run the full
     import_from_ta function normaly.

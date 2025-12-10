@@ -112,6 +112,9 @@ geocode: Callable[[str], Optional[Location]] = RateLimiter(
 
 def _geocode_address(client: pd.Series) -> Tuple[Location | None, int]:
     """Geocodes a client's address, decreasing in specificity and trying again if necessary, and returns the coordinates if found."""
+    if pd.isna(client.ADDRESS):
+        return None, 0
+
     logger.debug(f"Geocoding {client.ADDRESS}")
 
     street_address = (
