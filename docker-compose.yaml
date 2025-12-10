@@ -15,6 +15,8 @@ services:
       - REDIS_HOST=${DOCKER_REDIS_HOST}
       - OPENPHONE_API_TOKEN=${OPENPHONE_API_TOKEN}
       - OPENPHONE_NUMBER_ID=${OPENPHONE_NUMBER_ID}
+    volumes:
+      - ./logs:/app/logs
 
   driftwood-db:
     image: mysql

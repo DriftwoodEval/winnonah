@@ -3,7 +3,6 @@ import { eq, sql } from "drizzle-orm";
 import z from "zod";
 import { logger } from "~/lib/logger";
 import { hasPermission } from "~/lib/utils";
-import { createCaller } from "~/server/api/root";
 import { createTRPCRouter, protectedProcedure } from "~/server/api/trpc";
 import {
   blockedSchoolDistricts,
@@ -15,7 +14,7 @@ import {
 } from "~/server/db/schema";
 import { fetchWithCache, invalidateCache } from "~/server/lib/cache";
 
-const log = logger.child({ module: "evaluator" });
+const log = logger.child({ module: "EvaluatorApi" });
 
 export const evaluatorInputSchema = z.object({
   npi: z.string().regex(/^\d{10}$/),
@@ -121,6 +120,11 @@ export const evaluatorRouter = createTRPCRouter({
         });
       }
 
+      log.info(
+        { user: ctx.session.user.email, ...input },
+        "Creating evaluator"
+      );
+
       const npiAsInt = parseInt(input.npi, 10);
       const { offices, blockedDistricts, blockedZips, ...evaluatorData } =
         input;
@@ -181,6 +185,11 @@ export const evaluatorRouter = createTRPCRouter({
           code: "UNAUTHORIZED",
         });
       }
+
+      log.info(
+        { user: ctx.session.user.email, ...input },
+        "Updating evaluator"
+      );
 
       const npiAsInt = parseInt(input.npi, 10);
       const { offices, blockedDistricts, blockedZips, ...evaluatorData } =
@@ -254,13 +263,18 @@ export const evaluatorRouter = createTRPCRouter({
         });
       }
 
+      log.info(
+        { user: ctx.session.user.email, ...input },
+        "Deleting evaluator"
+      );
+
       const npiAsInt = parseInt(input.npi, 10);
 
       await ctx.db.delete(evaluators).where(eq(evaluators.npi, npiAsInt));
 
       try {
         await ctx.redis.del("evaluators:all");
-        log.info({ cacheKey: "evaluators:all" }, "Cache invalidated");
+        log.debug({ cacheKey: "evaluators:all" }, "Cache invalidated");
       } catch (err) {
         log.error(err);
       }

@@ -1,10 +1,13 @@
 import { TRPCError } from "@trpc/server";
 import { eq } from "drizzle-orm";
 import z from "zod";
+import { logger } from "~/lib/logger";
 import { type PermissionsObject, permissionsSchema } from "~/lib/types";
 import { hasPermission } from "~/lib/utils";
 import { createTRPCRouter, protectedProcedure } from "~/server/api/trpc";
 import { invitations, users } from "~/server/db/schema";
+
+const log = logger.child({ module: "UsersApi" });
 export const userRouter = createTRPCRouter({
   getAll: protectedProcedure.query(async ({ ctx }) => {
     const users = await ctx.db.query.users.findMany({
@@ -45,6 +48,8 @@ export const userRouter = createTRPCRouter({
         });
       }
 
+      log.info({ user: ctx.session.user.email, ...input }, "Updating user");
+
       const updateData: { permissions?: PermissionsObject } = {};
 
       if (input.permissions !== undefined)
@@ -73,6 +78,11 @@ export const userRouter = createTRPCRouter({
           code: "UNAUTHORIZED",
         });
       }
+
+      log.info(
+        { user: ctx.session.user.email, ...input },
+        "Creating invitation"
+      );
 
       await ctx.db
         .insert(invitations)
@@ -105,6 +115,11 @@ export const userRouter = createTRPCRouter({
           code: "UNAUTHORIZED",
         });
       }
+
+      log.info(
+        { user: ctx.session.user.email, ...input },
+        "Deleting invitation"
+      );
 
       return {
         success: await ctx.db

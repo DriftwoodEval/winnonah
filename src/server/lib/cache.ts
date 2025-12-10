@@ -25,7 +25,7 @@ export async function fetchWithCache<T>(
   try {
     const cachedData = await ctx.redis.get(key);
     if (cachedData) {
-      log.info({ cacheKey: key }, "Cache hit");
+      log.debug({ cacheKey: key }, "Cache hit");
       return JSON.parse(cachedData) as T;
     }
   } catch (err) {
@@ -33,7 +33,7 @@ export async function fetchWithCache<T>(
   }
 
   // On a cache miss, run the fetcher
-  log.info({ cacheKey: key }, "Cache miss");
+  log.debug({ cacheKey: key }, "Cache miss");
   const freshData = await fetcher();
 
   // Set the new data in cache
@@ -60,7 +60,7 @@ export async function invalidateCache(
 
   try {
     await ctx.redis.del(keys);
-    log.info({ cacheKeys: keys }, "Cache invalidated");
+    log.debug({ cacheKeys: keys }, "Cache invalidated");
   } catch (err) {
     log.error({ cacheKeys: keys, error: err }, "Failed to invalidate cache");
   }

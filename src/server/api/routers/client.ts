@@ -19,6 +19,7 @@ import {
 } from "drizzle-orm";
 import { z } from "zod";
 import { CLIENT_COLOR_KEYS } from "~/lib/colors";
+import { logger } from "~/lib/logger";
 import { hasPermission } from "~/lib/utils";
 import { createTRPCRouter, protectedProcedure } from "~/server/api/trpc";
 import {
@@ -29,6 +30,8 @@ import {
   questionnaires,
 } from "~/server/db/schema";
 import type { ClientWithIssueInfo } from "~/server/lib/types";
+
+const log = logger.child({ module: "ClientApi" });
 
 const getPriorityInfo = () => {
   const now = new Date();
@@ -90,6 +93,15 @@ export const clientRouter = createTRPCRouter({
       })
     )
     .query(async ({ ctx, input }) => {
+      log.info(
+        {
+          user: ctx.session.user.email,
+          column: input.column,
+          value: input.value,
+        },
+        "Getting client"
+      );
+
       const foundClient = await ctx.db.query.clients.findFirst({
         where: eq(clients[input.column], input.value),
       });
@@ -110,6 +122,7 @@ export const clientRouter = createTRPCRouter({
       if (!input) {
         return [];
       }
+
       const clientFailures = await ctx.db.query.failures.findMany({
         where: and(eq(failures.clientId, input), lt(failures.reminded, 100)),
       });
@@ -383,6 +396,9 @@ export const clientRouter = createTRPCRouter({
           message: "You do not have permission to create a shell client.",
         });
       }
+
+      log.info({ user: ctx.session.user.id }, "Creating shell client");
+
       const id = Math.floor(10000 + Math.random() * 90000); // Random 5 digit number
       await ctx.db.insert(clients).values({
         id: id,
@@ -426,6 +442,15 @@ export const clientRouter = createTRPCRouter({
           code: "UNAUTHORIZED",
         });
       }
+
+      log.info(
+        {
+          user: ctx.session.user.id,
+          autismStop: input.autismStop,
+          id: input.clientId,
+        },
+        "Updating autism stop for client"
+      );
 
       await ctx.db
         .update(clients)
@@ -511,6 +536,8 @@ export const clientRouter = createTRPCRouter({
           )}.`,
         });
       }
+
+      log.info({ user: ctx.session.user.id, ...input }, "Updating client");
 
       const currentClient = await ctx.db.query.clients.findFirst({
         where: eq(clients.id, input.clientId),
@@ -742,6 +769,8 @@ export const clientRouter = createTRPCRouter({
       })
     )
     .mutation(async ({ ctx, input }) => {
+      log.info({ user: ctx.session.user, ...input }, "Merging shell client");
+
       const { clientId, fakeClientId } = input;
 
       const [realClientNote] = await ctx.db

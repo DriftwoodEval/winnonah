@@ -4,12 +4,15 @@ import { OAuth2Client } from "google-auth-library";
 import { google, type sheets_v4 } from "googleapis";
 import z from "zod";
 import { env } from "~/env";
+import { logger } from "~/lib/logger";
 import type { FullClientInfo, PunchClient } from "~/lib/types";
 import { hasPermission } from "~/lib/utils";
 import { createTRPCRouter, protectedProcedure } from "~/server/api/trpc";
 import { db } from "~/server/db";
 import { clients } from "~/server/db/schema";
 import type { Client } from "~/server/lib/types";
+
+const log = logger.child({ module: "GoogleApi" });
 
 const renameFolder = async (
   accessToken: string,
@@ -354,6 +357,11 @@ export const googleRouter = createTRPCRouter({
         throw new Error("At least one field must be provided for update");
       }
 
+      log.info(
+        { user: ctx.session.user.email, request: input },
+        "Updating questionnaire status"
+      );
+
       try {
         await updatePunchData(
           ctx.session.user.accessToken,
@@ -395,6 +403,11 @@ export const googleRouter = createTRPCRouter({
           code: "UNAUTHORIZED",
         });
       }
+
+      log.info(
+        { user: ctx.session.user.email, request: input },
+        "Adding client ID to folder"
+      );
 
       await renameFolder(
         ctx.session.user.accessToken,

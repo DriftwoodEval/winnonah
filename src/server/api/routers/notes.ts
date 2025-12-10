@@ -1,9 +1,12 @@
 import { TRPCError } from "@trpc/server";
 import { eq } from "drizzle-orm";
 import { z } from "zod";
+import { logger } from "~/lib/logger";
 import { hasPermission } from "~/lib/utils";
 import { createTRPCRouter, protectedProcedure } from "~/server/api/trpc";
 import { noteHistory, notes } from "~/server/db/schema";
+
+const log = logger.child({ module: "NoteApi" });
 
 export const noteRouter = createTRPCRouter({
   getNoteByClientId: protectedProcedure
@@ -37,6 +40,7 @@ export const noteRouter = createTRPCRouter({
             code: "UNAUTHORIZED",
           });
         }
+        log.info({ user: ctx.session.user.email }, "Updating note");
 
         await ctx.db.transaction(async (tx) => {
           const currentNote = await tx.query.notes.findFirst({
@@ -103,6 +107,8 @@ export const noteRouter = createTRPCRouter({
           code: "UNAUTHORIZED",
         });
       }
+
+      log.info({ user: ctx.session.user.email }, "Creating note");
 
       const notePayload = {
         clientId: input.clientId,

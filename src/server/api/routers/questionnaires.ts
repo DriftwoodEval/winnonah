@@ -13,11 +13,13 @@ import {
   not,
 } from "drizzle-orm";
 import { z } from "zod";
+import { logger } from "~/lib/logger";
 import { QUESTIONNAIRE_STATUSES } from "~/lib/types";
 import { formatClientAge, hasPermission } from "~/lib/utils";
 import { createTRPCRouter, protectedProcedure } from "~/server/api/trpc";
 import { clients, questionnaires } from "~/server/db/schema";
 
+const log = logger.child({ module: "QuestionnaireApi" });
 interface QuestionnaireDetails {
   name: string;
   site: string;
@@ -185,6 +187,11 @@ export const questionnaireRouter = createTRPCRouter({
         }
       }
 
+      log.info(
+        { user: ctx.session.user.email, ...input },
+        "Creating questionnaire"
+      );
+
       const client = await ctx.db.query.clients.findFirst({
         where: eq(clients.id, input.clientId),
       });
@@ -251,6 +258,12 @@ export const questionnaireRouter = createTRPCRouter({
           code: "UNAUTHORIZED",
         });
       }
+
+      log.info(
+        { user: ctx.session.user.email, ...input },
+        "Creating bulk questionnaires"
+      );
+
       const client = await ctx.db.query.clients.findFirst({
         where: eq(clients.id, input.clientId),
       });
@@ -332,6 +345,11 @@ export const questionnaireRouter = createTRPCRouter({
         });
       }
 
+      log.info(
+        { user: ctx.session.user.email, ...input },
+        "Updating questionnaire"
+      );
+
       if (input.link !== undefined) {
         const linkSearch = await ctx.db.query.questionnaires.findFirst({
           where: and(
@@ -379,6 +397,11 @@ export const questionnaireRouter = createTRPCRouter({
           code: "UNAUTHORIZED",
         });
       }
+
+      log.info(
+        { user: ctx.session.user.email, ...input },
+        "Deleting questionnaire"
+      );
 
       await ctx.db
         .update(questionnaires)
