@@ -1,13 +1,11 @@
 import { TRPCError } from "@trpc/server";
 import {
   and,
-  asc,
   count,
   countDistinct,
   desc,
   eq,
   gt,
-  gte,
   inArray,
   isNotNull,
   not,
@@ -18,6 +16,7 @@ import { QUESTIONNAIRE_STATUSES } from "~/lib/types";
 import { formatClientAge, hasPermission } from "~/lib/utils";
 import { createTRPCRouter, protectedProcedure } from "~/server/api/trpc";
 import { clients, questionnaires } from "~/server/db/schema";
+import type { InsertingQuestionnaire } from "~/server/lib/types";
 
 const log = logger.child({ module: "QuestionnaireApi" });
 interface QuestionnaireDetails {
@@ -283,44 +282,67 @@ export const questionnaireRouter = createTRPCRouter({
         });
       }
 
-      const questionnairesToInsert = parsedQuestionnaires.map((q) => ({
-        clientId: input.clientId,
-        questionnaireType: q.questionnaireType,
-        link: q.link,
-        sent: new Date(),
-        status: "PENDING" as "PENDING",
-        reminded: 0,
-        lastReminded: null,
-      }));
-
-      try {
-        const result = await ctx.db
-          .insert(questionnaires)
-          .values(questionnairesToInsert);
-
-        const firstInsertId = result[0].insertId;
-        const insertedQuestionnaires =
-          await ctx.db.query.questionnaires.findMany({
-            where: and(
-              eq(questionnaires.clientId, input.clientId),
-              gte(questionnaires.id, firstInsertId)
-            ),
-            orderBy: asc(questionnaires.id),
-            limit: questionnairesToInsert.length,
-          });
-
-        return {
-          success: true,
-          count: questionnairesToInsert.length,
-          questionnaires: insertedQuestionnaires,
-        };
-      } catch (error) {
-        throw new TRPCError({
-          code: "INTERNAL_SERVER_ERROR",
-          message: "Failed to insert questionnaires",
-          cause: error,
+      const questionnairesToInsert: InsertingQuestionnaire[] = [];
+      const justAddedQuestionnaires =
+        await ctx.db.query.questionnaires.findMany({
+          where: and(
+            eq(questionnaires.clientId, input.clientId),
+            eq(questionnaires.status, "JUST_ADDED")
+          ),
+          columns: {
+            id: true,
+            link: true,
+            questionnaireType: true,
+          },
         });
+
+      for (const newQuestionnaire of parsedQuestionnaires) {
+        const existingQuestionnaire = justAddedQuestionnaires.find(
+          (q) =>
+            q.questionnaireType === newQuestionnaire.questionnaireType &&
+            q.link === newQuestionnaire.link
+        );
+
+        if (existingQuestionnaire) {
+          await ctx.db
+            .update(questionnaires)
+            .set({
+              status: "PENDING",
+              sent: new Date(),
+              reminded: 0,
+              lastReminded: null,
+            })
+            .where(eq(questionnaires.id, existingQuestionnaire.id));
+        } else {
+          questionnairesToInsert.push({
+            clientId: input.clientId,
+            questionnaireType: newQuestionnaire.questionnaireType,
+            link: newQuestionnaire.link,
+            sent: new Date(),
+            status: "PENDING" as "PENDING",
+            reminded: 0,
+            lastReminded: null,
+          });
+        }
       }
+
+      if (questionnairesToInsert.length > 0) {
+        try {
+          await ctx.db.transaction(async (tx) => {
+            await tx.insert(questionnaires).values(questionnairesToInsert);
+          });
+        } catch (error) {
+          throw new TRPCError({
+            code: "INTERNAL_SERVER_ERROR",
+            message: "Failed to insert new questionnaires",
+            cause: error,
+          });
+        }
+      }
+
+      return {
+        success: true,
+      };
     }),
 
   updateQuestionnaire: protectedProcedure

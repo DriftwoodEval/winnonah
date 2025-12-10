@@ -6,6 +6,7 @@ import type {
   evaluators,
   invitations,
   offices,
+  questionnaires,
   schoolDistricts,
   users,
   zipCodes,
@@ -18,6 +19,11 @@ export type SortedClient = RouterOutput["search"]["clients"][0];
 export type ClientWithIssueInfo = Client & {
   additionalInfo?: string;
 };
+
+export type InsertingQuestionnaire = Pick<
+  InferSelectModel<typeof questionnaires>,
+  Exclude<keyof InferSelectModel<typeof questionnaires>, "id" | "updatedAt">
+>;
 
 export type User = InferSelectModel<typeof users>;
 export type Invitation = InferSelectModel<typeof invitations>;
