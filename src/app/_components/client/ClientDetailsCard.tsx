@@ -122,6 +122,11 @@ export function ClientDetailsCard({ client }: ClientDetailsCardProps) {
 			)}
 
 			<div>
+				<p className="font-bold">Gender</p>
+				<p>{client.gender ?? "Unknown"}</p>
+			</div>
+
+			<div>
 				<p className="font-bold">Address</p>
 				{(client.address && (
 					<Link
