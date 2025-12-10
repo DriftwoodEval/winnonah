@@ -78,6 +78,7 @@ const QUESTIONNAIRES: QuestionnaireDetails[] = [
   { name: "SRS-2", site: "Unknown", ageRanges: { min: 19, max: 99 } },
   { name: "SRS Self", site: "Unknown", ageRanges: { min: 19, max: 99 } },
   { name: "ABAS 3", site: "Unknown", ageRanges: { min: 16, max: 89 } },
+  { name: "CAT-Q", site: "NovoPsych", ageRanges: { min: 16, max: 99 } },
 ];
 
 function parseQuestionnairesFromText(text: string) {
