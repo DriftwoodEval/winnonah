@@ -11,11 +11,11 @@ import {
 import { Separator } from "@ui/separator";
 import { Skeleton } from "@ui/skeleton";
 import { useState } from "react";
-import type { Client } from "~/server/lib/types";
+import type { ClientWithOffice } from "~/server/lib/types";
 import { api } from "~/trpc/react";
 
 interface EligibleEvaluatorsListProps {
-	client: Client;
+	client: ClientWithOffice;
 }
 
 export function EligibleEvaluatorsList({
@@ -26,12 +26,11 @@ export function EligibleEvaluatorsList({
 			enabled: typeof client.id === "number" && client.id > 0,
 		});
 	const { data: offices } = api.offices.getAll.useQuery();
-	const [selectedOffice, setSelectedOffice] = useState<string>(
-		client.closestOffice === null ||
-			client.closestOffice.toLowerCase() === "unknown"
-			? "all"
-			: client.closestOffice,
-	);
+	const closestOffices = client.closestOffices || [];
+	const initialOfficeKey = closestOffices[0]?.key ?? "all";
+	const [selectedOffice, setSelectedOffice] =
+		useState<string>(initialOfficeKey);
+
 	const filteredEvaluators = eligibleEvaluators?.filter((evaluator) => {
 		if (selectedOffice === "all") return true;
 		return evaluator.offices.some((office) => office.key === selectedOffice);

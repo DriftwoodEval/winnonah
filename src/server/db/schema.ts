@@ -123,9 +123,9 @@ export const blockedZipCodesRelations = relations(
 
 export const offices = createTable("office", (d) => ({
   key: d.varchar({ length: 255 }).notNull().primaryKey(),
+  prettyName: d.varchar({ length: 255 }).notNull(),
   latitude: d.decimal({ precision: 10, scale: 8 }).notNull(),
   longitude: d.decimal({ precision: 11, scale: 8 }).notNull(),
-  prettyName: d.varchar({ length: 255 }).notNull(),
 }));
 
 export const officesRelations = relations(offices, ({ many }) => ({
@@ -178,6 +178,8 @@ export const clients = createTable(
     fullName: d.varchar({ length: 255 }).notNull(),
     address: d.varchar({ length: 255 }),
     schoolDistrict: d.varchar({ length: 255 }),
+    latitude: d.decimal({ precision: 10, scale: 8 }),
+    longitude: d.decimal({ precision: 11, scale: 8 }),
     closestOffice: d.varchar({ length: 255 }),
     closestOfficeMiles: d.int(),
     secondClosestOffice: d.varchar({ length: 255 }),
@@ -213,6 +215,7 @@ export const clients = createTable(
     index("dob_idx").on(t.dob),
     index("added_date_idx").on(t.addedDate),
     index("insurance_idx").on(t.primaryInsurance),
+    index("coords_idx").on(t.latitude, t.longitude),
   ]
 );
 

@@ -131,6 +131,8 @@ def get_all_clients() -> pd.DataFrame:
         "fullName": "FULL_NAME",
         "address": "ADDRESS",
         "schoolDistrict": "SCHOOL_DISTRICT",
+        "latitude": "LATITUDE",
+        "longitude": "LONGITUDE",
         "closestOffice": "CLOSEST_OFFICE",
         "closestOfficeMiles": "CLOSEST_OFFICE_MILES",
         "secondClosestOffice": "SECOND_CLOSEST_OFFICE",
@@ -205,6 +207,12 @@ def put_clients_in_db(clients_df):
             get_column(client, "ADDRESS"),
             get_column(client, "SCHOOL_DISTRICT"),
             None
+            if get_column(client, "LATITUDE") == "Unknown"
+            else get_column(client, "LATITUDE"),
+            None
+            if get_column(client, "LONGITUDE") == "Unknown"
+            else get_column(client, "LONGITUDE"),
+            None
             if get_column(client, "CLOSEST_OFFICE") == "Unknown"
             else get_column(client, "CLOSEST_OFFICE"),
             None
@@ -236,8 +244,8 @@ def put_clients_in_db(clients_df):
         values_to_insert.append(values)
 
     sql = """
-        INSERT INTO `emr_client` (id, hash, status, addedDate, dob, firstName, lastName, preferredName, fullName, address, schoolDistrict, closestOffice, closestOfficeMiles, secondClosestOffice, secondClosestOfficeMiles, thirdClosestOffice, thirdClosestOfficeMiles, primaryInsurance, secondaryInsurance, precertExpires, privatePay, asdAdhd, interpreter, gender, phoneNumber, email, flag)
-        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+        INSERT INTO `emr_client` (id, hash, status, addedDate, dob, firstName, lastName, preferredName, fullName, address, schoolDistrict, latitude, longitude, closestOffice, closestOfficeMiles, secondClosestOffice, secondClosestOfficeMiles, thirdClosestOffice, thirdClosestOfficeMiles, primaryInsurance, secondaryInsurance, precertExpires, privatePay, asdAdhd, interpreter, gender, phoneNumber, email, flag)
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
         ON DUPLICATE KEY UPDATE
             hash = VALUES(hash),
             status = VALUES(status),
@@ -249,6 +257,8 @@ def put_clients_in_db(clients_df):
             fullName = VALUES(fullName),
             address = VALUES(address),
             schoolDistrict = CASE WHEN VALUES(schoolDistrict) IS NOT NULL AND VALUES(schoolDistrict) != 'Unknown' THEN VALUES(schoolDistrict) ELSE schoolDistrict END,
+            latitude = CASE WHEN VALUES(latitude) IS NOT NULL THEN VALUES(latitude) ELSE latitude END,
+            longitude = CASE WHEN VALUES(longitude) IS NOT NULL THEN VALUES(longitude) ELSE longitude END,
             closestOffice = CASE WHEN VALUES(closestOffice) IS NOT NULL AND VALUES(closestOffice) != 'Unknown' THEN VALUES(closestOffice) ELSE closestOffice END,
             closestOfficeMiles = CASE WHEN VALUES(closestOfficeMiles) IS NOT NULL THEN VALUES(closestOfficeMiles) ELSE closestOfficeMiles END,
             secondClosestOffice = CASE WHEN VALUES(secondClosestOffice) IS NOT NULL AND VALUES(secondClosestOffice) != 'Unknown' THEN VALUES(secondClosestOffice) ELSE secondClosestOffice END,

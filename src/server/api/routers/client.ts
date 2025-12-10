@@ -113,7 +113,43 @@ export const clientRouter = createTRPCRouter({
         });
       }
 
-      return foundClient;
+      type ClosestOffice = {
+        key: string;
+        prettyName: string;
+        latitude: string;
+        longitude: string;
+        distanceMiles: number;
+      };
+
+      let closestOffices: ClosestOffice[] = [];
+      if (foundClient.latitude && foundClient.longitude) {
+        const [rows] = await ctx.db.execute<ClosestOffice>(sql`
+        SELECT
+          o.key,
+          o.prettyName,
+          o.latitude,
+          o.longitude,
+          (3959 * acos(
+            cos(radians(${foundClient.latitude})) *
+            cos(radians(o.latitude)) *
+            cos(radians(o.longitude) - radians(${foundClient.longitude})) +
+            sin(radians(${foundClient.latitude})) *
+            sin(radians(o.latitude))
+          )) as distanceMiles
+        FROM emr_office o
+        ORDER BY distanceMiles
+        LIMIT 3
+      `);
+
+        closestOffices = rows as unknown as ClosestOffice[];
+      }
+
+      console.log("closestOffices", closestOffices);
+
+      return {
+        ...foundClient,
+        closestOffices,
+      };
     }),
 
   getFailures: protectedProcedure
@@ -667,9 +703,10 @@ export const clientRouter = createTRPCRouter({
         }
       }
 
-      if (office) {
-        conditions.push(eq(clients.closestOffice, office));
-      }
+      // TODO: Implement office searching
+      // if (office) {
+      //   conditions.push(eq(clients.closestOffice, office));
+      // }
 
       if (effectiveStatus === "active") {
         conditions.push(eq(clients.status, true));

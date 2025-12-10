@@ -4,40 +4,13 @@ import { Popover, PopoverContent, PopoverTrigger } from "@ui/popover";
 import { AlertTriangleIcon } from "lucide-react";
 import Link from "next/link";
 import { cn, formatClientAge, formatPhoneNumber } from "~/lib/utils";
-import type { Client } from "~/server/lib/types";
-import { api } from "~/trpc/react";
+import type { ClientWithOffice } from "~/server/lib/types";
 
 interface ClientDetailsCardProps {
-	client: Client;
+	client: ClientWithOffice;
 }
 
 export function ClientDetailsCard({ client }: ClientDetailsCardProps) {
-	const { data: closestOffice } = api.offices.getOne.useQuery(
-		{
-			column: "key",
-			value: client.closestOffice ?? "",
-		},
-		{
-			enabled: !!client.closestOffice,
-		},
-	);
-	const { data: secondClosestOffice } = api.offices.getOne.useQuery(
-		{
-			column: "key",
-			value: client.secondClosestOffice ?? "",
-		},
-		{
-			enabled: !!client.secondClosestOffice,
-		},
-	);
-	const { data: thirdClosestOffice } = api.offices.getOne.useQuery(
-		{
-			column: "key",
-			value: client.thirdClosestOffice ?? "",
-		},
-		{ enabled: !!client.thirdClosestOffice },
-	);
-
 	return (
 		<div className="flex w-full flex-wrap gap-6 rounded-md border-2 bg-card p-4 shadow">
 			<div>
@@ -147,31 +120,26 @@ export function ClientDetailsCard({ client }: ClientDetailsCardProps) {
 			<div>
 				<p className="font-bold">
 					Closest Office{" "}
-					{(secondClosestOffice || thirdClosestOffice) && (
-						<Popover>
-							<PopoverTrigger asChild>
-								<span className="cursor-pointer font-normal text-muted-foreground hover:underline">
-									(Compare)
-								</span>
-							</PopoverTrigger>
-							<PopoverContent side="right">
-								<ul className="list-disc p-3">
-									<li>
-										{secondClosestOffice?.prettyName} (
-										{client.secondClosestOfficeMiles} mi)
+					<Popover>
+						<PopoverTrigger asChild>
+							<span className="cursor-pointer font-normal text-muted-foreground hover:underline">
+								(Compare)
+							</span>
+						</PopoverTrigger>
+						<PopoverContent side="right">
+							<ul className="list-disc p-3">
+								{client.closestOffices.slice(1).map((office, i) => (
+									<li key={`${office.key}-${i}`}>
+										{office.prettyName} ({office.distanceMiles.toFixed(0)} mi)
 									</li>
-									<li>
-										{thirdClosestOffice?.prettyName} (
-										{client.thirdClosestOfficeMiles} mi)
-									</li>
-								</ul>
-							</PopoverContent>
-						</Popover>
-					)}
+								))}
+							</ul>
+						</PopoverContent>
+					</Popover>
 				</p>
 				<p>
-					{closestOffice?.prettyName ?? "Unknown"}{" "}
-					{client.closestOfficeMiles ? `(${client.closestOfficeMiles} mi)` : ""}
+					{client.closestOffices[0]?.prettyName ?? "Unknown"}{" "}
+					{client.closestOffices[0]?.distanceMiles ? `(${client.closestOffices[0]?.distanceMiles.toFixed(0)} mi)` : ""}
 				</p>
 			</div>
 

@@ -525,7 +525,7 @@ export function ClientsDashboard() {
 				</div>
 			</div>
 
-			<ClientsSearchForm onResetFilters={handleReset} />
+			{/* <ClientsSearchForm onResetFilters={handleReset} /> */}
 		</div>
 	);
 }
