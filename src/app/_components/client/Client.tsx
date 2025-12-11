@@ -159,7 +159,7 @@ export function Client({
 							)}
 
 							{client.id.toString().length !== 5 &&
-								Number(formatClientAge(client.dob)) < 4 && (
+								Number(formatClientAge(client.dob, "years")) < 4 && (
 									<IFSPBoxes clientId={client.id} readOnly={readOnly} />
 								)}
 
