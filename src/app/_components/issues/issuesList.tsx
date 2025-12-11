@@ -195,6 +195,7 @@ export function IssuesList() {
 	const { data: babyNetErrors } = api.clients.getBabyNetErrors.useQuery();
 	const { data: notInTAErrors } = api.clients.getNotInTAErrors.useQuery();
 	const { data: dropList } = api.clients.getDropList.useQuery();
+	const { data: autismStops } = api.clients.getAutismStops.useQuery();
 	const { data: noteOnlyClients } = api.clients.getNoteOnlyClients.useQuery();
 	const { data: duplicateDriveIds } =
 		api.clients.getDuplicateDriveIdErrors.useQuery();
@@ -233,6 +234,9 @@ export function IssuesList() {
 			)}
 			{dropList && dropList.length !== 0 && (
 				<IssueList clients={dropList} title="Drop List" />
+			)}
+			{autismStops && autismStops.length !== 0 && (
+				<IssueList clients={autismStops} title="Autism Stops" />
 			)}
 			{noteOnlyClients && noteOnlyClients.length !== 0 && (
 				<IssueList

@@ -423,6 +423,14 @@ export const clientRouter = createTRPCRouter({
     return noPaymentMethodOrNoEligibleEvaluators;
   }),
 
+  getAutismStops: protectedProcedure.query(async ({ ctx }) => {
+    const autismStops = await ctx.db.query.clients.findMany({
+      where: and(eq(clients.autismStop, true), eq(clients.status, true)),
+    });
+
+    return autismStops;
+  }),
+
   createShell: protectedProcedure
     .input(z.object({ firstName: z.string(), lastName: z.string() }))
     .mutation(async ({ ctx, input }) => {
@@ -656,8 +664,8 @@ export const clientRouter = createTRPCRouter({
     .query(async ({ ctx, input }) => {
       const {
         evaluatorNpi,
-        office,
         // Future implementation
+        // office,
         // appointmentType,
         // appointmentDate,
         nameSearch,
