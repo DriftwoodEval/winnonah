@@ -62,7 +62,10 @@ def _normalize_names(df: pd.DataFrame) -> pd.DataFrame:
         df.loc[
             (
                 (df["PREFERRED_NAME"] == df["FIRSTNAME"])
-                | (df["PREFERRED_NAME"] == df["FIRSTNAME"] + " " + df["LASTNAME"])
+                | (
+                    df["PREFERRED_NAME"]
+                    == df["FIRSTNAME"].astype(str) + " " + df["LASTNAME"].astype(str)
+                )
             )
             & (df["PREFERRED_NAME"].notna())
             & (~df["PREFERRED_NAME"].str.upper().isin(known_suffixes)),

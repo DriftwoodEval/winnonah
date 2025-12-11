@@ -46,7 +46,9 @@ def filter_clients_by_criteria(
             filtered_clients["FIRSTNAME"].str.contains(name, case=False, na=False)
             | filtered_clients["LASTNAME"].str.contains(name, case=False, na=False)
             | (
-                filtered_clients["FIRSTNAME"] + " " + filtered_clients["LASTNAME"]
+                filtered_clients["FIRSTNAME"].astype(str)
+                + " "
+                + filtered_clients["LASTNAME"].astype(str)
             ).str.contains(name, case=False, na=False)
         )
 
@@ -139,6 +141,14 @@ def import_from_ta(
                 "THIRD_CLOSEST_OFFICE_MILES",
             ]
         ] = clients_to_geocode.apply(utils.location.add_location_data, axis=1)
+
+        clients["CLIENT_ID"] = clients["CLIENT_ID"].astype(str)
+        clients_to_geocode["CLIENT_ID"] = clients_to_geocode["CLIENT_ID"].astype(str)
+
+        clients = clients.drop_duplicates(subset=["CLIENT_ID"], keep="first")
+        clients_to_geocode = clients_to_geocode.drop_duplicates(
+            subset=["CLIENT_ID"], keep="last"
+        )
 
         clients.set_index("CLIENT_ID", inplace=True)
         clients_to_geocode.set_index("CLIENT_ID", inplace=True)
