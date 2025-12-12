@@ -15,6 +15,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { signIn, signOut, useSession } from "next-auth/react";
 import { useMediaQuery } from "~/hooks/use-media-query";
+import { IssueFormLink } from "../shared/IssueFormLink";
 import { ThemeSwitcher } from "../shared/ThemeSwitcher";
 import { GlobalClientSearch } from "./GlobalClientSearch";
 
@@ -28,6 +29,8 @@ export function HeaderActions() {
 			{session && pathname !== "/" && <GlobalClientSearch />}
 
 			{session && <IssuesAlert />}
+
+			<IssueFormLink />
 
 			{isDesktop && <ThemeSwitcher />}
 
