@@ -343,6 +343,7 @@ export const externalRecords = createTable(
 			.timestamp("updated_at")
 			.onUpdateNow()
 			.default(sql`CURRENT_TIMESTAMP`),
+		updatedBy: d.varchar("updated_by", { length: 255 }),
 		requested: d.date(),
 		needsSecondRequest: d.boolean().notNull().default(false),
 		secondRequestDate: d.date(),

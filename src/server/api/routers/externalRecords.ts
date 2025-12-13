@@ -215,13 +215,16 @@ export const externalRecordRouter = createTRPCRouter({
             await tx.insert(externalRecordHistory).values({
               externalRecordId: currentRecordNote.clientId,
               content: currentRecordNote.content,
-              updatedBy: ctx.session.user.email,
+              updatedBy: currentRecordNote.updatedBy,
             });
           }
 
           await tx
             .update(externalRecords)
-            .set({ content: input.contentJson })
+            .set({
+              content: input.contentJson,
+              updatedBy: ctx.session.user.email,
+            })
             .where(eq(externalRecords.clientId, input.clientId));
         });
 
@@ -280,6 +283,7 @@ export const externalRecordRouter = createTRPCRouter({
       const notePayload = {
         clientId: input.clientId,
         content: input.contentJson,
+        updatedBy: ctx.session.user.email,
       };
 
       await ctx.db.insert(externalRecords).values(notePayload);
