@@ -1,9 +1,16 @@
+import EventEmitter from "node:events";
 import { TRPCError } from "@trpc/server";
 import { eq } from "drizzle-orm";
 import { z } from "zod";
+import { logger } from "~/lib/logger";
 import { hasPermission } from "~/lib/utils";
 import { createTRPCRouter, protectedProcedure } from "~/server/api/trpc";
 import { externalRecordHistory, externalRecords } from "~/server/db/schema";
+
+const log = logger.child({ module: "ExternalRecordsApi" });
+
+const externalRecordsEmitter = new EventEmitter();
+externalRecordsEmitter.setMaxListeners(100);
 
 export const externalRecordRouter = createTRPCRouter({
   getExternalRecordByClientId: protectedProcedure
@@ -39,6 +46,7 @@ export const externalRecordRouter = createTRPCRouter({
           code: "UNAUTHORIZED",
         });
       }
+      log.info({ user: ctx.session.user.email }, "Setting first request date");
 
       const existingRecord = await ctx.db.query.externalRecords.findFirst({
         where: eq(externalRecords.clientId, input.clientId),
@@ -73,6 +81,11 @@ export const externalRecordRouter = createTRPCRouter({
         });
       }
 
+      log.info(
+        { user: ctx.session.user.email },
+        "Setting needs second request"
+      );
+
       await ctx.db
         .update(externalRecords)
         .set({ needsSecondRequest: input.needsSecondRequest })
@@ -95,6 +108,8 @@ export const externalRecordRouter = createTRPCRouter({
         });
       }
 
+      log.info({ user: ctx.session.user.email }, "Setting second request date");
+
       const updatePayload = {
         secondRequestDate: input.secondRequestDate,
       };
@@ -103,6 +118,63 @@ export const externalRecordRouter = createTRPCRouter({
         .update(externalRecords)
         .set(updatePayload)
         .where(eq(externalRecords.clientId, input.clientId));
+    }),
+
+  onExternalRecordNoteUpdate: protectedProcedure
+    .input(z.number()) // clientId
+    .subscription(async function* ({ input: clientId }) {
+      // Create a promise-based queue for events
+      const eventQueue: Array<{
+        clientId: number;
+        // biome-ignore lint/suspicious/noExplicitAny: JSON
+        contentJson: any;
+        requested: Date | null;
+        needsSecondRequest: boolean;
+        secondRequestDate: Date | null;
+      }> = [];
+      let resolveNext: (() => void) | null = null;
+
+      const onUpdate = (data: {
+        clientId: number;
+        // biome-ignore lint/suspicious/noExplicitAny: JSON
+        contentJson: any;
+        requested: Date | null;
+        needsSecondRequest: boolean;
+        secondRequestDate: Date | null;
+      }) => {
+        // Only queue events for this specific client
+        if (data.clientId === clientId) {
+          eventQueue.push(data);
+          if (resolveNext) {
+            resolveNext();
+            resolveNext = null;
+          }
+        }
+      };
+
+      externalRecordsEmitter.on("externalRecordsNoteUpdate", onUpdate);
+
+      try {
+        while (true) {
+          // Wait for an event if queue is empty
+          if (eventQueue.length === 0) {
+            await new Promise<void>((resolve) => {
+              resolveNext = resolve;
+            });
+          }
+
+          // Yield all queued events
+          while (eventQueue.length > 0) {
+            const event = eventQueue.shift();
+            if (event) {
+              yield event;
+            }
+          }
+        }
+      } finally {
+        // Cleanup when subscription ends
+        externalRecordsEmitter.off("externalRecordsNoteUpdate", onUpdate);
+      }
     }),
 
   updateExternalRecordNote: protectedProcedure
@@ -121,6 +193,11 @@ export const externalRecordRouter = createTRPCRouter({
             code: "UNAUTHORIZED",
           });
         }
+
+        log.info(
+          { user: ctx.session.user.email },
+          "Updating external records note"
+        );
 
         await ctx.db.transaction(async (tx) => {
           const currentRecordNote = await tx.query.externalRecords.findFirst({
@@ -147,6 +224,20 @@ export const externalRecordRouter = createTRPCRouter({
             .set({ content: input.contentJson })
             .where(eq(externalRecords.clientId, input.clientId));
         });
+
+        const updatedNote = await ctx.db.query.externalRecords.findFirst({
+          where: eq(externalRecords.clientId, input.clientId),
+        });
+
+        if (updatedNote) {
+          externalRecordsEmitter.emit("externalRecordsNoteUpdate", {
+            clientId: updatedNote.clientId,
+            contentJson: updatedNote.content,
+            requested: updatedNote.requested,
+            needsSecondRequest: updatedNote.needsSecondRequest,
+            secondRequestDate: updatedNote.secondRequestDate,
+          });
+        }
 
         return { success: true };
       } catch (error) {
@@ -181,6 +272,11 @@ export const externalRecordRouter = createTRPCRouter({
         });
       }
 
+      log.info(
+        { user: ctx.session.user.email },
+        "Creating external records note"
+      );
+
       const notePayload = {
         clientId: input.clientId,
         content: input.contentJson,
@@ -195,6 +291,14 @@ export const externalRecordRouter = createTRPCRouter({
       if (!newRecordNote) {
         throw new Error("Failed to retrieve the newly created record.");
       }
+
+      externalRecordsEmitter.emit("externalRecordsNoteUpdate", {
+        clientId: newRecordNote.clientId,
+        contentJson: newRecordNote.content,
+        requested: newRecordNote.requested,
+        needsSecondRequest: newRecordNote.needsSecondRequest,
+        secondRequestDate: newRecordNote.secondRequestDate,
+      });
 
       return newRecordNote;
     }),
