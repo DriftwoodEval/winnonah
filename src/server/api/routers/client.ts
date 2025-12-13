@@ -144,8 +144,6 @@ export const clientRouter = createTRPCRouter({
         closestOffices = rows as unknown as ClosestOffice[];
       }
 
-      console.log("closestOffices", closestOffices);
-
       return {
         ...foundClient,
         closestOffices,
