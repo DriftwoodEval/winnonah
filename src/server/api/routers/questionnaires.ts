@@ -12,11 +12,11 @@ import {
 } from "drizzle-orm";
 import { z } from "zod";
 import { logger } from "~/lib/logger";
+import type { InsertingQuestionnaire } from "~/lib/types";
 import { QUESTIONNAIRE_STATUSES } from "~/lib/types";
 import { formatClientAge, hasPermission } from "~/lib/utils";
 import { createTRPCRouter, protectedProcedure } from "~/server/api/trpc";
 import { clients, questionnaires } from "~/server/db/schema";
-import type { InsertingQuestionnaire } from "~/server/lib/types";
 
 const log = logger.child({ module: "QuestionnaireApi" });
 interface QuestionnaireDetails {

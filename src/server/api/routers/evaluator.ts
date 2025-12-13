@@ -1,6 +1,7 @@
 import { TRPCError } from "@trpc/server";
 import { eq, sql } from "drizzle-orm";
 import z from "zod";
+import { fetchWithCache, invalidateCache } from "~/lib/cache";
 import { logger } from "~/lib/logger";
 import { hasPermission } from "~/lib/utils";
 import { createTRPCRouter, protectedProcedure } from "~/server/api/trpc";
@@ -12,7 +13,6 @@ import {
   evaluators,
   zipCodes,
 } from "~/server/db/schema";
-import { fetchWithCache, invalidateCache } from "~/server/lib/cache";
 
 const log = logger.child({ module: "EvaluatorApi" });
 

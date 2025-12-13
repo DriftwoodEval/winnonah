@@ -40,9 +40,9 @@ import { toast } from "sonner";
 import z from "zod";
 import { useMediaQuery } from "~/hooks/use-media-query";
 import { logger } from "~/lib/logger";
+import type { Invitation } from "~/lib/types";
 import { permissionPresets, permissions, permissionsSchema } from "~/lib/types";
 import { hasPermission } from "~/lib/utils";
-import type { Invitation } from "~/server/lib/types";
 import { api } from "~/trpc/react";
 import {
 	ResponsiveDialog,

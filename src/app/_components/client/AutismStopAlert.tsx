@@ -10,7 +10,7 @@ import {
 } from "@ui/dialog";
 import { FileText } from "lucide-react";
 import { useEffect, useState } from "react";
-import type { Client } from "~/server/lib/types";
+import type { Client } from "~/lib/types";
 
 type Props = {
 	client: Client;

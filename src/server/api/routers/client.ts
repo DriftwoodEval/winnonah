@@ -20,6 +20,7 @@ import {
 import { z } from "zod";
 import { CLIENT_COLOR_KEYS } from "~/lib/colors";
 import { logger } from "~/lib/logger";
+import type { ClientWithIssueInfo } from "~/lib/types";
 import { hasPermission } from "~/lib/utils";
 import { createTRPCRouter, protectedProcedure } from "~/server/api/trpc";
 import {
@@ -29,7 +30,6 @@ import {
   notes,
   questionnaires,
 } from "~/server/db/schema";
-import type { ClientWithIssueInfo } from "~/server/lib/types";
 
 const log = logger.child({ module: "ClientApi" });
 

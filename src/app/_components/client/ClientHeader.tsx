@@ -19,8 +19,8 @@ import {
 	formatColorName,
 } from "~/lib/colors";
 import { logger } from "~/lib/logger";
+import type { Client } from "~/lib/types";
 import { hasPermission } from "~/lib/utils";
-import type { Client } from "~/server/lib/types";
 import { api } from "~/trpc/react";
 import { AddDriveButton } from "./AddDrive";
 import { ClientEditButton } from "./EditClientDialog";

@@ -11,7 +11,7 @@ import {
 import { Separator } from "@ui/separator";
 import { Skeleton } from "@ui/skeleton";
 import { useState } from "react";
-import type { ClientWithOffice } from "~/server/lib/types";
+import type { ClientWithOffice } from "~/lib/types";
 import { api } from "~/trpc/react";
 
 interface EligibleEvaluatorsListProps {

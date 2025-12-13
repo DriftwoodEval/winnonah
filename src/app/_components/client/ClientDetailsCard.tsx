@@ -3,8 +3,8 @@ import { Alert, AlertTitle } from "@ui/alert";
 import { Popover, PopoverContent, PopoverTrigger } from "@ui/popover";
 import { AlertTriangleIcon } from "lucide-react";
 import Link from "next/link";
+import type { ClientWithOffice } from "~/lib/types";
 import { cn, formatClientAge, formatPhoneNumber } from "~/lib/utils";
-import type { ClientWithOffice } from "~/server/lib/types";
 
 interface ClientDetailsCardProps {
 	client: ClientWithOffice;
@@ -139,7 +139,9 @@ export function ClientDetailsCard({ client }: ClientDetailsCardProps) {
 				</p>
 				<p>
 					{client.closestOffices[0]?.prettyName ?? "Unknown"}{" "}
-					{client.closestOffices[0]?.distanceMiles ? `(${client.closestOffices[0]?.distanceMiles.toFixed(0)} mi)` : ""}
+					{client.closestOffices[0]?.distanceMiles
+						? `(${client.closestOffices[0]?.distanceMiles.toFixed(0)} mi)`
+						: ""}
 				</p>
 			</div>
 

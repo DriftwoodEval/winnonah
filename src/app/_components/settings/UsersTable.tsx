@@ -42,6 +42,7 @@ import { toast } from "sonner";
 import { z } from "zod";
 import { useMediaQuery } from "~/hooks/use-media-query";
 import { logger } from "~/lib/logger";
+import type { User } from "~/lib/types";
 import {
 	type PermissionsObject,
 	permissionPresets,
@@ -49,7 +50,6 @@ import {
 	permissionsSchema,
 } from "~/lib/types";
 import { hasPermission } from "~/lib/utils";
-import type { User } from "~/server/lib/types";
 import { api } from "~/trpc/react";
 import { ResponsiveDialog } from "../shared/ResponsiveDialog";
 

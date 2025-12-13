@@ -5,7 +5,7 @@ import { Separator } from "@ui/separator";
 import { MapIcon, Pin, PinOff } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useRef } from "react";
-import type { Client, ClientWithIssueInfo } from "~/server/lib/types";
+import type { Client, ClientWithIssueInfo } from "~/lib/types";
 import { api } from "~/trpc/react";
 
 interface IssueListProps {
