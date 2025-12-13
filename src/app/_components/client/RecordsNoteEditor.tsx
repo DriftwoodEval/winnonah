@@ -38,8 +38,17 @@ export function RecordsNoteEditor({
 	const { data: record, isLoading: isLoadingRecord } =
 		api.externalRecords.getExternalRecordByClientId.useQuery(clientId, {
 			enabled: !!clientId,
-			refetchInterval: 10000, // 10 seconds
 		});
+
+	api.externalRecords.onExternalRecordNoteUpdate.useSubscription(clientId, {
+		enabled: !!clientId,
+		onData: (updatedExternalRecordsNote) => {
+			utils.externalRecords.getExternalRecordByClientId.setData(
+				clientId,
+				updatedExternalRecordsNote,
+			);
+		},
+	});
 
 	// Fetch Client for the "recordsNeeded" checkbox
 	const { data: client, isLoading: isLoadingClient } =
