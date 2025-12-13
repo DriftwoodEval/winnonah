@@ -2,12 +2,16 @@ import { RichTextEditor } from "@components/shared/RichTextEditor";
 import { Input } from "@ui/input";
 import { Skeleton } from "@ui/skeleton";
 import { debounce } from "lodash";
+import { History } from "lucide-react";
 import { useSession } from "next-auth/react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { logger } from "~/lib/logger";
 import { hasPermission } from "~/lib/utils";
 import { api } from "~/trpc/react";
+import { NoteHistory } from "../shared/NoteHistory";
+import { ResponsiveDialog } from "../shared/ResponsiveDialog";
+import { Button } from "../ui/button";
 
 const log = logger.child({ module: "ClientNoteEditor" });
 
@@ -144,11 +148,24 @@ export function ClientNoteEditor({
 		};
 	}, [debouncedSaveContent, debouncedSaveTitle]);
 
+	const historyTrigger = (
+		<Button className="cursor-pointer rounded-full" size="icon" variant="ghost">
+			<History />
+		</Button>
+	);
+
 	return (
 		<div className="w-full">
-			<h4 className="mb-4 font-bold leading-none">
-				<span className="font-bold">Notes</span>
-			</h4>
+			<div className="mb-2 flex items-center justify-between">
+				<h4 className="font-bold leading-none">Notes</h4>
+				<ResponsiveDialog
+					className="max-h-[calc(100vh-4rem)] max-w-fit overflow-x-hidden overflow-y-scroll sm:max-w-fit"
+					title="Note History"
+					trigger={historyTrigger}
+				>
+					<NoteHistory noteId={clientId} />
+				</ResponsiveDialog>
+			</div>
 			{isLoading ? (
 				<div className="flex flex-col gap-2">
 					<Skeleton className="h-9 w-full rounded-md" />

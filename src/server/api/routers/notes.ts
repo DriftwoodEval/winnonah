@@ -1,16 +1,24 @@
 import { EventEmitter } from "node:events";
 import { TRPCError } from "@trpc/server";
-import { eq } from "drizzle-orm";
+import { desc, eq } from "drizzle-orm";
 import { z } from "zod";
 import { logger } from "~/lib/logger";
 import { hasPermission } from "~/lib/utils";
 import { createTRPCRouter, protectedProcedure } from "~/server/api/trpc";
-import { noteHistory, notes } from "~/server/db/schema";
+import { noteHistory, notes, users } from "~/server/db/schema";
 
 const log = logger.child({ module: "NoteApi" });
 
 const noteEmitter = new EventEmitter();
 noteEmitter.setMaxListeners(100);
+
+// biome-ignore lint/suspicious/noExplicitAny: JSON
+const areContentsEqual = (current: any, incoming: any): boolean => {
+  if (current === undefined || incoming === undefined) {
+    return false; // Treat undefined as a change if the other is defined
+  }
+  return JSON.stringify(current) === JSON.stringify(incoming);
+};
 
 export const noteRouter = createTRPCRouter({
   getNoteByClientId: protectedProcedure
@@ -111,12 +119,33 @@ export const noteRouter = createTRPCRouter({
             });
           }
 
-          await tx.insert(noteHistory).values({
-            noteId: currentNote.clientId,
-            content: currentNote.content,
-            title: currentNote.title,
-            updatedBy: currentNote.updatedBy,
-          });
+          const newContent =
+            input.contentJson !== undefined
+              ? input.contentJson
+              : currentNote.content;
+          const newTitle =
+            input.title !== undefined ? input.title : currentNote.title;
+
+          const contentChanged = !areContentsEqual(
+            currentNote.content,
+            newContent
+          );
+          const titleChanged = currentNote.title !== newTitle;
+
+          if (contentChanged || titleChanged) {
+            await tx.insert(noteHistory).values({
+              noteId: currentNote.clientId,
+              content: currentNote.content,
+              title: currentNote.title,
+              updatedBy: currentNote.updatedBy,
+            });
+          } else {
+            log.info(
+              { user: ctx.session.user.email },
+              "No changes detected in note"
+            );
+            return;
+          }
 
           const updatePayload: {
             // biome-ignore lint/suspicious/noExplicitAny: JSON
@@ -207,5 +236,49 @@ export const noteRouter = createTRPCRouter({
       });
 
       return newNote;
+    }),
+
+  getHistory: protectedProcedure
+    .input(z.object({ noteId: z.number() }))
+    .query(async ({ ctx, input }) => {
+      const history = await ctx.db
+        .select({
+          id: noteHistory.id,
+          content: noteHistory.content,
+          title: noteHistory.title,
+          updatedBy: noteHistory.updatedBy,
+          createdAt: noteHistory.createdAt,
+          updatedByName: users.name,
+          updatedByImage: users.image,
+        })
+        .from(noteHistory)
+        .leftJoin(users, eq(noteHistory.updatedBy, users.email))
+        .where(eq(noteHistory.noteId, input.noteId))
+        .orderBy(desc(noteHistory.createdAt));
+
+      const current = await ctx.db
+        .select({
+          id: notes.clientId,
+          content: notes.content,
+          title: notes.title,
+          updatedBy: notes.updatedBy,
+          createdAt: notes.updatedAt,
+          updatedByName: users.name,
+          updatedByImage: users.image,
+        })
+        .from(notes)
+        .leftJoin(users, eq(notes.updatedBy, users.email))
+        .where(eq(notes.clientId, input.noteId))
+        .limit(1);
+
+      if (!current[0]) return [];
+
+      const currentVersion = {
+        ...current[0],
+        id: -1,
+        isCurrent: true,
+      };
+
+      return [currentVersion, ...history];
     }),
 });
