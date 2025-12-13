@@ -115,11 +115,15 @@ export const noteRouter = createTRPCRouter({
             noteId: currentNote.clientId,
             content: currentNote.content,
             title: currentNote.title,
-            updatedBy: ctx.session.user.email,
+            updatedBy: currentNote.updatedBy,
           });
 
-          // biome-ignore lint/suspicious/noExplicitAny: JSON
-          const updatePayload: { content?: any; title?: string } = {};
+          const updatePayload: {
+            // biome-ignore lint/suspicious/noExplicitAny: JSON
+            content?: any;
+            title?: string;
+            updatedBy?: string | null;
+          } = { updatedBy: ctx.session.user.email };
           if (input.contentJson !== undefined) {
             updatePayload.content = input.contentJson;
           }
@@ -183,6 +187,7 @@ export const noteRouter = createTRPCRouter({
         clientId: input.clientId,
         content: input.contentJson,
         title: input.title,
+        updatedBy: ctx.session.user.email,
       };
 
       await ctx.db.insert(notes).values(notePayload);

@@ -237,6 +237,7 @@ export const notes = createTable(
       .timestamp("updated_at")
       .onUpdateNow()
       .default(sql`CURRENT_TIMESTAMP`),
+    updatedBy: d.varchar("updated_by", { length: 255 }),
   }),
   (t) => [index("note_client_idx").on(t.clientId)]
 );
