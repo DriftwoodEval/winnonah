@@ -31,9 +31,15 @@ export function ClientNoteEditor({
 		clientId,
 		{
 			enabled: !!clientId,
-			refetchInterval: 10000, // 10 seconds
 		},
 	);
+
+	api.notes.onNoteUpdate.useSubscription(clientId, {
+		enabled: !!clientId,
+		onData: (updatedNote) => {
+			utils.notes.getNoteByClientId.setData(clientId, updatedNote);
+		},
+	});
 
 	const [localTitle, setLocalTitle] = useState(note?.title ?? "");
 

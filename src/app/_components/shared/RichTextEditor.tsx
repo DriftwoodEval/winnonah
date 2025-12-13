@@ -15,6 +15,7 @@ import {
 	Undo,
 	Unlink,
 } from "lucide-react";
+import { useEffect } from "react";
 import { cn } from "~/lib/utils";
 
 interface RichTextEditorProps {
@@ -49,6 +50,17 @@ export function RichTextEditor({
 			},
 		},
 	});
+
+	useEffect(() => {
+		if (editor && value !== undefined) {
+			const currentContent = editor.getJSON();
+			const newContent = value;
+
+			if (JSON.stringify(currentContent) !== JSON.stringify(newContent)) {
+				editor.commands.setContent(newContent);
+			}
+		}
+	}, [editor, value]);
 
 	if (!editor) {
 		return null;
