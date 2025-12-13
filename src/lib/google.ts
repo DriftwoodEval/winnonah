@@ -1,3 +1,4 @@
+import { calendar } from "@googleapis/calendar";
 import { drive } from "@googleapis/drive";
 import { sheets, type sheets_v4 } from "@googleapis/sheets";
 import { TRPCError } from "@trpc/server";
@@ -484,3 +485,147 @@ export const getClientFromPunchData = async (
 	const data = await getPunchData(session, redis);
 	return data.find((client) => client["Client ID"] === id);
 };
+
+// Google Calendar
+export function getCalendarClient(session: Session) {
+	if (!session.user.accessToken || !session.user.refreshToken) {
+		throw new Error("Missing access token for Google Calendar API.");
+	}
+
+	const { AUTH_GOOGLE_ID, AUTH_GOOGLE_SECRET } = env;
+	const oauth2Client = new OAuth2Client({
+		clientId: AUTH_GOOGLE_ID,
+		clientSecret: AUTH_GOOGLE_SECRET,
+	});
+	oauth2Client.setCredentials({
+		access_token: session.user.accessToken,
+		refresh_token: session.user.refreshToken,
+	});
+
+	return calendar({ version: "v3", auth: oauth2Client });
+}
+
+interface AvailabilityEvent {
+	summary: string;
+	start: Date;
+	end: Date;
+	isRecurring: boolean;
+	recurrenceRule?: string;
+	isUnavailability: boolean;
+}
+
+export async function createAvailabilityEvent(
+	session: Session,
+	eventData: AvailabilityEvent,
+) {
+	const calendar = getCalendarClient(session);
+
+	const formatDateTime = (date: Date) => {
+		const year = date.getFullYear();
+		const month = String(date.getMonth() + 1).padStart(2, "0");
+		const day = String(date.getDate()).padStart(2, "0");
+		const hours = String(date.getHours()).padStart(2, "0");
+		const minutes = String(date.getMinutes()).padStart(2, "0");
+		const seconds = String(date.getSeconds()).padStart(2, "0");
+
+		return `${year}-${month}-${day}T${hours}:${minutes}:${seconds}`;
+	};
+
+	const event: any = {
+		summary: eventData.summary,
+		start: {
+			dateTime: eventData.isRecurring
+				? formatDateTime(eventData.start)
+				: eventData.start.toISOString(),
+			timeZone: "America/New_York",
+		},
+		end: {
+			dateTime: eventData.isRecurring
+				? formatDateTime(eventData.end)
+				: eventData.end.toISOString(),
+			timeZone: "America/New_York",
+		},
+	};
+
+	if (eventData.isUnavailability) {
+		event.eventType = "outOfOffice";
+		event.transparency = "opaque";
+	}
+
+	if (eventData.isRecurring && eventData.recurrenceRule) {
+		event.recurrence = [eventData.recurrenceRule];
+	}
+
+	const response = await calendar.events.insert({
+		calendarId: "primary",
+		requestBody: event,
+	});
+
+	return response.data;
+}
+
+interface CalendarEvent {
+	id: string | null | undefined;
+	summary: string | null | undefined;
+	start: Date;
+	end: Date;
+	isUnavailability: boolean;
+	officeKey?: string;
+}
+
+export async function getAvailabilityEvents(
+	session: Session,
+	startDate: Date,
+	endDate: Date,
+): Promise<CalendarEvent[]> {
+	const calendar = getCalendarClient(session);
+
+	const response = await calendar.events.list({
+		calendarId: "primary",
+		timeMin: startDate.toISOString(),
+		timeMax: endDate.toISOString(),
+		singleEvents: true, // Expand recurring events
+		orderBy: "startTime",
+	});
+
+	const events = response.data.items ?? [];
+
+	const allOffices = await db.query.offices.findMany({});
+	const nameToKeyMap = new Map(
+		allOffices.map((office) => [office.prettyName, office.key]),
+	);
+
+	const officeRegex = /Available\s*-\s*(.*)/i;
+
+	return events
+		.filter(
+			(event) =>
+				event.summary?.toLowerCase().includes("available") ||
+				event.summary?.toLowerCase().includes("out of office"),
+		)
+		.map((event) => {
+			const startDateTime = event.start?.dateTime || event.start?.date;
+			const endDateTime = event.end?.dateTime || event.end?.date;
+			const isOOO = event.eventType === "outOfOffice";
+
+			let extractedOfficeKey: string | undefined;
+
+			if (event.summary && !isOOO) {
+				const match = event.summary.match(officeRegex);
+				if (match?.[1]) {
+					const officeName = match[1].trim();
+					// 2. Try to map the extracted name to a known key
+					extractedOfficeKey = nameToKeyMap.get(officeName);
+				}
+			}
+
+			return {
+				id: event.id,
+				summary: event.summary,
+				start: startDateTime ? new Date(startDateTime) : new Date(),
+				end: endDateTime ? new Date(endDateTime) : new Date(),
+				isUnavailability: isOOO,
+				officeKey: extractedOfficeKey,
+			};
+		});
+}

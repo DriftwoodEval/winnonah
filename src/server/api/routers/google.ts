@@ -4,7 +4,9 @@ import z from "zod";
 import { fetchWithCache, invalidateCache } from "~/lib/cache";
 import { ALLOWED_ASD_ADHD_VALUES, TEST_NAMES } from "~/lib/constants";
 import {
+	createAvailabilityEvent,
 	findDuplicateIdFolders,
+	getAvailabilityEvents,
 	getClientFromPunchData,
 	getPunchData,
 	renameDriveFolder,
@@ -20,6 +22,16 @@ import {
 import { clients } from "~/server/db/schema";
 
 const CACHE_KEY_DUPLICATES = "google:drive:duplicate-ids";
+
+const availabilitySchema = z.object({
+	summary: z.string().min(1),
+	startDate: z.date(),
+	endDate: z.date(),
+	isRecurring: z.boolean(),
+	recurrenceRule: z.string().optional(),
+	isUnavailability: z.boolean(),
+	officeKey: z.string().optional(),
+});
 
 export const googleRouter = createTRPCRouter({
 	// Google Drive
@@ -297,6 +309,134 @@ export const googleRouter = createTRPCRouter({
 					}`,
 				);
 			}
+		}),
+
+	// Google Calendar
+	createAvailability: protectedProcedure
+		.input(availabilitySchema)
+		.mutation(async ({ ctx, input }) => {
+			if (!ctx.session) {
+				throw new TRPCError({
+					code: "UNAUTHORIZED",
+				});
+			}
+
+			const event = await createAvailabilityEvent(ctx.session, {
+				summary: input.summary,
+				start: input.startDate,
+				end: input.endDate,
+				isRecurring: input.isRecurring,
+				recurrenceRule: input.recurrenceRule,
+				isUnavailability: input.isUnavailability,
+			});
+
+			return {
+				success: true,
+				message: "Availability event created successfully.",
+				eventId: event.id,
+			};
+		}),
+
+	getAvailability: protectedProcedure
+		.input(
+			z.object({
+				startDate: z.date(),
+				endDate: z.date(),
+			}),
+		)
+		.query(async ({ ctx, input }) => {
+			if (!ctx.session) {
+				throw new TRPCError({
+					code: "UNAUTHORIZED",
+				});
+			}
+
+			const events = await getAvailabilityEvents(
+				ctx.session,
+				input.startDate,
+				input.endDate,
+			);
+
+			if (!events) {
+				return [];
+			}
+
+			type CalendarEvent = (typeof events)[number];
+
+			const allEvents: (CalendarEvent & { start: Date; end: Date })[] =
+				events.map((e) => ({
+					...e,
+					start: new Date(e.start as string | Date),
+					end: new Date(e.end as string | Date),
+				}));
+
+			const officeEvents = allEvents.filter((event) => !event.isUnavailability);
+			const outOfOfficeEvents = allEvents.filter(
+				(event) => event.isUnavailability,
+			);
+
+			if (outOfOfficeEvents.length === 0) {
+				allEvents.sort((a, b) => a.start.getTime() - b.start.getTime());
+				return allEvents;
+			}
+
+			outOfOfficeEvents.sort((a, b) => a.start.getTime() - b.start.getTime());
+
+			const mergedOutOfOffice = outOfOfficeEvents.reduce<
+				typeof outOfOfficeEvents
+			>((acc, current) => {
+				const last = acc[acc.length - 1];
+				if (!last || current.start.getTime() > last.end.getTime()) {
+					acc.push(current);
+				} else if (current.end.getTime() > last.end.getTime()) {
+					last.end = current.end;
+				}
+				return acc;
+			}, []);
+
+			const finalAvailability: typeof officeEvents = [];
+
+			for (const officeEvent of officeEvents) {
+				let currentEventParts = [officeEvent];
+
+				for (const oooEvent of mergedOutOfOffice) {
+					const newParts: typeof officeEvents = [];
+					for (const part of currentEventParts) {
+						const overlap =
+							part.start.getTime() < oooEvent.end.getTime() &&
+							part.end.getTime() > oooEvent.start.getTime();
+
+						if (!overlap) {
+							newParts.push(part);
+							continue;
+						}
+
+						if (part.start.getTime() < oooEvent.start.getTime()) {
+							newParts.push({
+								...part,
+								id: `${part.id}-1`,
+								end: oooEvent.start,
+							});
+						}
+
+						if (part.end.getTime() > oooEvent.end.getTime()) {
+							newParts.push({
+								...part,
+								id: `${part.id}-2`,
+								start: oooEvent.end,
+							});
+						}
+					}
+					currentEventParts = newParts;
+				}
+
+				finalAvailability.push(...currentEventParts);
+			}
+
+			const result = [...finalAvailability, ...outOfOfficeEvents];
+			result.sort((a, b) => a.start.getTime() - b.start.getTime());
+
+			return result;
 		}),
 
 	verifyPunchClients: protectedProcedure.query(async ({ ctx }) => {
