@@ -1,6 +1,6 @@
 import { z } from "zod";
+import { fetchWithCache } from "~/lib/cache";
 import { createTRPCRouter, protectedProcedure } from "~/server/api/trpc";
-import { fetchWithCache } from "~/server/lib/cache";
 
 export const officeRouter = createTRPCRouter({
   getAll: protectedProcedure.query(async ({ ctx }) => {

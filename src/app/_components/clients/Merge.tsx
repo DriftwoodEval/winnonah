@@ -8,7 +8,7 @@ import { SelectableClientsList } from "~/app/_components/clients/SelectableClien
 import { Button } from "~/app/_components/ui/button";
 import { Skeleton } from "~/app/_components/ui/skeleton";
 import { useMediaQuery } from "~/hooks/use-media-query";
-import type { SortedClient } from "~/server/lib/types";
+import type { SortedClient } from "~/lib/types";
 import { api } from "~/trpc/react";
 import { Client } from "../client/Client";
 

@@ -5,12 +5,11 @@ import { google, type sheets_v4 } from "googleapis";
 import z from "zod";
 import { env } from "~/env";
 import { logger } from "~/lib/logger";
-import type { FullClientInfo, PunchClient } from "~/lib/types";
+import type { Client, FullClientInfo, PunchClient } from "~/lib/types";
 import { hasPermission } from "~/lib/utils";
 import { createTRPCRouter, protectedProcedure } from "~/server/api/trpc";
 import { db } from "~/server/db";
 import { clients } from "~/server/db/schema";
-import type { Client } from "~/server/lib/types";
 
 const log = logger.child({ module: "GoogleApi" });
 

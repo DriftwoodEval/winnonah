@@ -29,8 +29,8 @@ import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 import { z } from "zod";
 import { logger } from "~/lib/logger";
+import type { Client } from "~/lib/types";
 import { cn, hasPermission } from "~/lib/utils";
-import type { Client } from "~/server/lib/types";
 import { api } from "~/trpc/react";
 import {
 	ResponsiveDialog,

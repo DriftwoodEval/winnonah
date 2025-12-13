@@ -5,7 +5,7 @@ import { ScrollArea } from "@ui/scroll-area";
 import { Separator } from "@ui/separator";
 import { MapIcon, Pin, PinOff } from "lucide-react";
 import { useEffect, useRef } from "react";
-import type { SortedClient } from "~/server/lib/types";
+import type { SortedClient } from "~/lib/types";
 import { api } from "~/trpc/react";
 import { ClientListItem } from "./ClientListItem";
 

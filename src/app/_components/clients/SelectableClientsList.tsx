@@ -4,7 +4,7 @@
 
 import { ScrollArea } from "@ui/scroll-area";
 import { Separator } from "@ui/separator";
-import type { SortedClient } from "~/server/lib/types";
+import type { SortedClient } from "~/lib/types";
 import { SelectableClientListItem } from "./SelectableClientListItem";
 
 interface SelectableClientsListProps {

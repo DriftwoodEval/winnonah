@@ -3,8 +3,8 @@
 import Link from "next/link";
 import { memo, useMemo } from "react";
 import { getHexFromColor } from "~/lib/colors";
+import type { SortedClient } from "~/lib/types";
 import { cn, formatClientAge } from "~/lib/utils";
-import type { SortedClient } from "~/server/lib/types";
 
 type ClientListItemProps = {
 	client: SortedClient;
