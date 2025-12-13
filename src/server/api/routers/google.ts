@@ -1,229 +1,65 @@
 import { TRPCError } from "@trpc/server";
-import { eq, type InferSelectModel, inArray } from "drizzle-orm";
-import { OAuth2Client } from "google-auth-library";
-import { google, type sheets_v4 } from "googleapis";
+import { eq } from "drizzle-orm";
 import z from "zod";
-import { env } from "~/env";
+import {
+  createAvailabilityEvent,
+  getAvailabilityEvents,
+  getClientFromPunchData,
+  getPunchData,
+  renameDriveFolder,
+  updatePunchData,
+} from "~/lib/google";
 import { logger } from "~/lib/logger";
-import type { Client, FullClientInfo, PunchClient } from "~/lib/types";
+import type { Client } from "~/lib/types";
 import { hasPermission } from "~/lib/utils";
 import { createTRPCRouter, protectedProcedure } from "~/server/api/trpc";
-import { db } from "~/server/db";
 import { clients } from "~/server/db/schema";
 
 const log = logger.child({ module: "GoogleApi" });
 
-const renameFolder = async (
-  accessToken: string,
-  refreshToken: string,
-  folderId: string,
-  clientId: string
-) => {
-  const { AUTH_GOOGLE_ID, AUTH_GOOGLE_SECRET } = env;
-  const oauth2Client = new OAuth2Client({
-    clientId: AUTH_GOOGLE_ID,
-    clientSecret: AUTH_GOOGLE_SECRET,
-  });
-  oauth2Client.setCredentials({
-    access_token: accessToken,
-    refresh_token: refreshToken,
-  });
-  const driveApi = google.drive({ version: "v3", auth: oauth2Client });
-
-  const folder = await driveApi.files.get({
-    fileId: folderId,
-    fields: "name",
-  });
-
-  const folderName = folder.data.name;
-  const regex = /\[\d+\]/;
-  if (folderName && regex.test(folderName)) {
-    throw new TRPCError({
-      code: "BAD_REQUEST",
-      message: `${folderName} already has a client ID`,
-    });
-  } else {
-    const newFolderName = `${folderName?.trim()} [${clientId}]`;
-    await driveApi.files.update({
-      fileId: folderId,
-      requestBody: {
-        name: newFolderName,
-      },
-    });
-  }
-};
-const getPunchData = async (accessToken: string, refreshToken: string) => {
-  const { AUTH_GOOGLE_ID, AUTH_GOOGLE_SECRET, PUNCHLIST_ID, PUNCHLIST_RANGE } =
-    env;
-  const oauth2Client = new OAuth2Client({
-    clientId: AUTH_GOOGLE_ID,
-    clientSecret: AUTH_GOOGLE_SECRET,
-  });
-  oauth2Client.setCredentials({
-    access_token: accessToken,
-    refresh_token: refreshToken,
-  });
-  const sheetsApi = google.sheets({ version: "v4", auth: oauth2Client });
-  const response = await sheetsApi.spreadsheets.values.get({
-    spreadsheetId: PUNCHLIST_ID,
-    range: PUNCHLIST_RANGE,
-  });
-
-  const data = response.data.values ?? [];
-  const headers = data[0] ?? [];
-  const rows = data.slice(1);
-
-  const normalizedSheetData: PunchClient[] = rows
-    .filter((row) => typeof row[1] === "string" && row[1].trim() !== "")
-    .map((row) => {
-      const punchClient: Partial<PunchClient> = {};
-      const clientId = row[1];
-      punchClient["Client ID"] = clientId;
-      const rawName = row[0];
-      let name = rawName
-        .toLowerCase()
-        .split(" ")
-        .map((word: string) => word.charAt(0).toUpperCase() + word.slice(1))
-        .join(" ");
-      name = name
-        .split("-")
-        .map((word: string) => word.charAt(0).toUpperCase() + word.slice(1))
-        .join("-");
-      name = name
-        .split("(")
-        .map((word: string) => word.charAt(0).toUpperCase() + word.slice(1))
-        .join("(");
-      name = name
-        .split('"')
-        .map((word: string) => word.charAt(0).toUpperCase() + word.slice(1))
-        .join('"');
-
-      punchClient["Client Name"] = name;
-
-      headers.slice(1).forEach((header, index) => {
-        const key = header as keyof PunchClient;
-        if (key) {
-          punchClient[key] = row[index + 1] as PunchClient[keyof PunchClient];
-        }
-      });
-      return punchClient as PunchClient;
-    });
-
-  const clientIds = normalizedSheetData
-    .map((client) => parseInt(client["Client ID"] ?? "", 10))
-    .filter((id) => !Number.isNaN(id));
-
-  const dbClients = await db
-    .select()
-    .from(clients)
-    .where(inArray(clients.id, clientIds));
-
-  const dbClientMap = new Map<number, InferSelectModel<typeof clients>>(
-    dbClients.map((client) => [client.id, client])
-  );
-
-  const finalData: FullClientInfo[] = normalizedSheetData.map((sheetClient) => {
-    const clientId = parseInt(sheetClient["Client ID"] ?? "", 10);
-    const dbInfo = dbClientMap.get(clientId);
-
-    if (dbInfo) {
-      // Merge the sheet data and database info
-      return { ...dbInfo, ...sheetClient } as FullClientInfo;
-    }
-
-    // If no match is found, just return the sheet info
-    return sheetClient as FullClientInfo;
-  });
-
-  return finalData;
-};
-
-const updatePunchData = async (
-  accessToken: string,
-  refreshToken: string,
-  clientId: string,
-  updates: { daSent?: boolean; evalSent?: boolean }
-) => {
-  const { AUTH_GOOGLE_ID, AUTH_GOOGLE_SECRET, PUNCHLIST_ID, PUNCHLIST_RANGE } =
-    env;
-
-  const oauth2Client = new OAuth2Client({
-    clientId: AUTH_GOOGLE_ID,
-    clientSecret: AUTH_GOOGLE_SECRET,
-  });
-  oauth2Client.setCredentials({
-    access_token: accessToken,
-    refresh_token: refreshToken,
-  });
-  const sheetsApi = google.sheets({ version: "v4", auth: oauth2Client });
-
-  const response = await sheetsApi.spreadsheets.values.get({
-    spreadsheetId: PUNCHLIST_ID,
-    range: PUNCHLIST_RANGE,
-  });
-
-  const data = response.data.values ?? [];
-  const headers = data[0] ?? [];
-  const rows = data.slice(1);
-
-  const clientRowIndex = rows.findIndex((row) => row[1] === clientId);
-
-  if (clientRowIndex === -1) {
-    throw new Error(`Client ID ${clientId} not found in Punchlist`);
-  }
-
-  const daSentIndex = headers.indexOf("DA Qs Sent");
-  const evalSentIndex = headers.indexOf("EVAL Qs Sent");
-
-  if (daSentIndex === -1 || evalSentIndex === -1) {
-    throw new Error("DA Qs Sent or EVAL Qs Sent column not found in Punchlist");
-  }
-
-  const updateRequests: sheets_v4.Schema$ValueRange[] = [];
-
-  if (updates.daSent !== undefined) {
-    const cellAddress = `${String.fromCharCode(65 + daSentIndex)}${
-      clientRowIndex + 2
-    }`; // +2 because of 0-index + header row
-    updateRequests.push({
-      range: cellAddress,
-      values: [[updates.daSent ? "TRUE" : "FALSE"]],
-    });
-  }
-
-  if (updates.evalSent !== undefined) {
-    const cellAddress = `${String.fromCharCode(65 + evalSentIndex)}${
-      clientRowIndex + 2
-    }`;
-    updateRequests.push({
-      range: cellAddress,
-      values: [[updates.evalSent ? "TRUE" : "FALSE"]],
-    });
-  }
-
-  if (updateRequests.length > 0) {
-    await sheetsApi.spreadsheets.values.batchUpdate({
-      spreadsheetId: PUNCHLIST_ID,
-      requestBody: {
-        valueInputOption: "USER_ENTERED",
-        data: updateRequests,
-      },
-    });
-  }
-
-  return true;
-};
-
-const getClientFromPunchData = async (
-  accessToken: string,
-  refreshToken: string,
-  id: string
-) => {
-  const data = await getPunchData(accessToken, refreshToken);
-  return data.find((client) => client["Client ID"] === id);
-};
+const availabilitySchema = z.object({
+  summary: z.string().min(1),
+  startDate: z.date(),
+  endDate: z.date(),
+  isRecurring: z.boolean(),
+  recurrenceRule: z.string().optional(),
+  isUnavailability: z.boolean(),
+  officeKey: z.string().optional(),
+});
 
 export const googleRouter = createTRPCRouter({
+  // Google Drive
+  addIdToFolder: protectedProcedure
+    .input(
+      z.object({
+        id: z.string(),
+        folderId: z.string(),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      if (!ctx.session.user.accessToken || !ctx.session.user.refreshToken) {
+        throw new Error("No access token or refresh token");
+      }
+      if (!hasPermission(ctx.session.user.permissions, "clients:drive")) {
+        throw new TRPCError({
+          code: "UNAUTHORIZED",
+        });
+      }
+
+      log.info(
+        { user: ctx.session.user.email, request: input },
+        "Adding client ID to folder"
+      );
+
+      await renameDriveFolder(
+        ctx.session.user.accessToken,
+        ctx.session.user.refreshToken,
+        input.folderId,
+        input.id
+      );
+    }),
+
+  // Google Sheets
   getPunch: protectedProcedure.query(async ({ ctx }) => {
     if (!ctx.session.user.accessToken || !ctx.session.user.refreshToken) {
       throw new Error("No access token or refresh token");
@@ -386,33 +222,54 @@ export const googleRouter = createTRPCRouter({
       }
     }),
 
-  addIdToFolder: protectedProcedure
-    .input(
-      z.object({
-        id: z.string(),
-        folderId: z.string(),
-      })
-    )
+  // Google Calendar
+  createAvailability: protectedProcedure
+    .input(availabilitySchema)
     .mutation(async ({ ctx, input }) => {
-      if (!ctx.session.user.accessToken || !ctx.session.user.refreshToken) {
-        throw new Error("No access token or refresh token");
-      }
-      if (!hasPermission(ctx.session.user.permissions, "clients:drive")) {
+      if (!ctx.session) {
         throw new TRPCError({
           code: "UNAUTHORIZED",
         });
       }
 
-      log.info(
-        { user: ctx.session.user.email, request: input },
-        "Adding client ID to folder"
+      const event = await createAvailabilityEvent(ctx.session, {
+        summary: input.summary,
+        start: input.startDate,
+        end: input.endDate,
+        isRecurring: input.isRecurring,
+        recurrenceRule: input.recurrenceRule,
+        isUnavailability: input.isUnavailability,
+      });
+
+      return {
+        success: true,
+        message: "Availability event created successfully.",
+        eventId: event.id,
+      };
+    }),
+
+  getAvailability: protectedProcedure
+    .input(
+      z.object({
+        startDate: z.date(),
+        endDate: z.date(),
+      })
+    )
+    .query(async ({ ctx, input }) => {
+      if (!ctx.session) {
+        throw new TRPCError({
+          code: "UNAUTHORIZED",
+        });
+      }
+
+      const events = await getAvailabilityEvents(
+        ctx.session,
+        input.startDate,
+        input.endDate
       );
 
-      await renameFolder(
-        ctx.session.user.accessToken,
-        ctx.session.user.refreshToken,
-        input.folderId,
-        input.id
-      );
+      console.log(events);
+
+      return events;
     }),
 });

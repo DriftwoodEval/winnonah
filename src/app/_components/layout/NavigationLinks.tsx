@@ -25,6 +25,7 @@ export default function NavigationLinks() {
 	return (
 		<div className="flex gap-4 text-sm">
 			<NavigationLink href="/">Clients</NavigationLink>
+			<NavigationLink href="/availability">Availability</NavigationLink>
 			<NavigationLink href="/dashboard">Dashboard</NavigationLink>
 		</div>
 	);
