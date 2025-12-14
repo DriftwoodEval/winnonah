@@ -50,6 +50,8 @@ yarn-error.log*
 *.xlsx
 scripts/*.json
 python/*.txt
+*.sql
+*.sql.gz
 
 # local dev overrides
 docker-compose.override.*
