@@ -291,7 +291,7 @@ export function IssuesList() {
 															<div className="text-sm hover:underline">
 																{client.fullName}
 																<span className="ml-2 text-muted-foreground text-xs">
-																	({count} time{count > 1 ? "s" : ""})
+																	({count} count{count > 1 ? "s" : ""})
 																</span>
 															</div>
 														</Link>
