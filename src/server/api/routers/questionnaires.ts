@@ -442,7 +442,12 @@ export const questionnaireRouter = createTRPCRouter({
         count: count().as("count"),
       })
       .from(questionnaires)
-      .where(isNotNull(questionnaires.link))
+      .where(
+        and(
+          isNotNull(questionnaires.link),
+          not(eq(questionnaires.status, "ARCHIVED"))
+        )
+      )
       .groupBy(questionnaires.link, questionnaires.clientId)
       .having(gt(count(), 1));
 
@@ -464,7 +469,12 @@ export const questionnaireRouter = createTRPCRouter({
         link: questionnaires.link,
       })
       .from(questionnaires)
-      .where(isNotNull(questionnaires.link))
+      .where(
+        and(
+          isNotNull(questionnaires.link),
+          not(eq(questionnaires.status, "ARCHIVED"))
+        )
+      )
       .groupBy(questionnaires.link)
       .having(gt(countDistinct(questionnaires.clientId), 1));
 
