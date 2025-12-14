@@ -495,7 +495,12 @@ export const questionnaireRouter = createTRPCRouter({
           })
           .from(questionnaires)
           .innerJoin(clients, eq(questionnaires.clientId, clients.id))
-          .where(eq(questionnaires.link, link))
+          .where(
+            and(
+              eq(questionnaires.link, link),
+              not(eq(questionnaires.status, "ARCHIVED"))
+            )
+          )
           .groupBy(clients.id);
 
         return {
