@@ -66,7 +66,7 @@ export function AddDriveButton({ client }: { client: Client }) {
 					},
 					{
 						message:
-							"Link must be a valid Google Drive folder link, starting with https://drive.google.com/drive/folders/ (or /drive/u/x/folders/ if you have multiple accounts).",
+							"Link must be a valid Google Drive folder link, starting with https://drive.google.com/drive/folders/ (or /drive/u/x/folders/ if you have multiple accounts) or https://drive.google.com/open?id=.",
 					},
 				)
 				.refine(
@@ -103,13 +103,11 @@ export function AddDriveButton({ client }: { client: Client }) {
 		}
 
 		let linkToProcess = values.link;
-		try {
-			const url = new URL(values.link);
-			linkToProcess = url.pathname;
-		} catch (e) {
-			log.error(e, "Failed to process link");
-		}
-		const match = linkToProcess.match(/\/folders\/([^/]+)/);
+		const url = new URL(values.link);
+		linkToProcess = url.search + url.pathname;
+
+		const match = linkToProcess.match(/(?:\/folders\/|\?id=)([a-zA-Z0-9_-]+)/);
+
 		if (match && typeof match[1] === "string" && match[1]) {
 			addIdToFolder.mutate({
 				folderId: match[1],
