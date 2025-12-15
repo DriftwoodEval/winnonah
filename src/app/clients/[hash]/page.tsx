@@ -21,7 +21,7 @@ export default async function Page({
 	log.info({ user: session.user.email, hash }, "Viewing client");
 
 	return (
-		<div className="mx-4 flex flex-grow items-center justify-center">
+		<div className="mx-4 my-4 flex flex-grow justify-center">
 			<Client hash={hash} />
 		</div>
 	);
