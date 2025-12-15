@@ -26,6 +26,7 @@ export function getDriveClient(session: Session) {
 
   return google.drive({ version: "v3", auth: oauth2Client });
 }
+
 export const renameDriveFolder = async (
   session: Session,
   folderId: string,
@@ -54,6 +55,114 @@ export const renameDriveFolder = async (
       },
     });
   }
+};
+
+interface DuplicateFolder {
+  id: string;
+  name: string;
+  url?: string;
+  isDbMatch: boolean;
+}
+
+interface DuplicateGroup {
+  clientId: string;
+  clientHash: string;
+  clientFullName: string;
+  folders: DuplicateFolder[];
+}
+
+export const findDuplicateIdFolders = async (session: Session) => {
+  const driveApi = getDriveClient(session);
+
+  const query =
+    "mimeType = 'application/vnd.google-apps.folder' and name contains '[' and trashed = false";
+
+  const duplicatesMap = new Map<string, DuplicateGroup["folders"]>();
+  let pageToken: string | undefined;
+
+  do {
+    const response = await driveApi.files.list({
+      q: query,
+      pageSize: 1000,
+      pageToken: pageToken,
+      fields: "nextPageToken, files(id, name, webViewLink)",
+    });
+
+    const files = response.data.files || [];
+    const idRegex = /\[(\d+)\]/;
+
+    for (const file of files) {
+      if (!file.name || !file.id) continue;
+
+      const match = file.name.match(idRegex);
+      if (match?.[1]) {
+        const clientId = match[1];
+
+        const folderData: Omit<DuplicateFolder, "isDbMatch"> = {
+          id: file.id,
+          name: file.name,
+          url: file.webViewLink ?? undefined,
+        };
+
+        if (duplicatesMap.has(clientId)) {
+          duplicatesMap.get(clientId)?.push(folderData as DuplicateFolder);
+        } else {
+          duplicatesMap.set(clientId, [folderData as DuplicateFolder]);
+        }
+      }
+    }
+
+    pageToken = response.data.nextPageToken ?? undefined;
+  } while (pageToken);
+
+  const allDuplicateClientIds = Array.from(duplicatesMap.keys()).map((id) =>
+    Number(id)
+  );
+
+  if (allDuplicateClientIds.length === 0) {
+    return [];
+  }
+
+  const dbClients = await db
+    .select({
+      id: clients.id,
+      hash: clients.hash,
+      fullName: clients.fullName,
+      driveId: clients.driveId,
+    })
+    .from(clients)
+    .where(inArray(clients.id, allDuplicateClientIds));
+
+  const dbClientMap = new Map<string, (typeof dbClients)[number]>(
+    dbClients.map((client) => [client.id.toString(), client])
+  );
+
+  const results: DuplicateGroup[] = [];
+  for (const [clientId, driveFolders] of duplicatesMap.entries()) {
+    if (driveFolders.length > 1) {
+      const dbInfo = dbClientMap.get(clientId);
+
+      // We only return entries if we can successfully link them to a client in our DB
+      if (dbInfo?.hash && dbInfo.fullName) {
+        // Tag the folder that matches the driveId stored in the database
+        const foldersWithDbMatch: DuplicateFolder[] = driveFolders.map(
+          (folder) => ({
+            ...folder,
+            isDbMatch: folder.id === dbInfo.driveId,
+          })
+        );
+
+        results.push({
+          clientId: clientId,
+          clientHash: dbInfo.hash,
+          clientFullName: dbInfo.fullName,
+          folders: foldersWithDbMatch,
+        });
+      }
+    }
+  }
+
+  return results;
 };
 
 // Google Sheets

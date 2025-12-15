@@ -1,7 +1,9 @@
 import { TRPCError } from "@trpc/server";
 import { eq } from "drizzle-orm";
 import z from "zod";
+import { fetchWithCache, invalidateCache } from "~/lib/cache";
 import {
+  findDuplicateIdFolders,
   getClientFromPunchData,
   getPunchData,
   renameDriveFolder,
@@ -14,6 +16,8 @@ import { createTRPCRouter, protectedProcedure } from "~/server/api/trpc";
 import { clients } from "~/server/db/schema";
 
 const log = logger.child({ module: "GoogleApi" });
+
+const CACHE_KEY_DUPLICATES = "google:drive:duplicate-ids";
 
 export const googleRouter = createTRPCRouter({
   // Google Drive
@@ -40,7 +44,24 @@ export const googleRouter = createTRPCRouter({
       );
 
       await renameDriveFolder(ctx.session, input.folderId, input.id);
+
+      await invalidateCache(ctx, CACHE_KEY_DUPLICATES);
     }),
+
+  findDuplicates: protectedProcedure.query(async ({ ctx }) => {
+    if (!ctx.session.user.accessToken || !ctx.session.user.refreshToken) {
+      throw new Error("No access token or refresh token");
+    }
+
+    return fetchWithCache(
+      ctx,
+      CACHE_KEY_DUPLICATES,
+      async () => {
+        return findDuplicateIdFolders(ctx.session);
+      },
+      1800
+    );
+  }),
 
   // Google Sheets
   getPunch: protectedProcedure.query(async ({ ctx }) => {

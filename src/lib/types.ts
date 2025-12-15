@@ -1,7 +1,7 @@
 import type { inferRouterOutputs } from "@trpc/server";
 import type { InferSelectModel } from "drizzle-orm";
 import z from "zod";
-import type { clientRouter } from "~/server/api/routers/client";
+import type { AppRouter } from "~/server/api/root";
 import type {
   clients,
   evaluators,
@@ -13,11 +13,11 @@ import type {
   zipCodes,
 } from "~/server/db/schema";
 
-type RouterOutput = inferRouterOutputs<typeof clientRouter>;
+type ClientRouterOutput = inferRouterOutputs<AppRouter>["clients"];
 
 export type Client = InferSelectModel<typeof clients>;
-export type ClientWithOffice = RouterOutput["getOne"];
-export type SortedClient = RouterOutput["search"]["clients"][0];
+export type ClientWithOffice = ClientRouterOutput["getOne"];
+export type SortedClient = ClientRouterOutput["search"]["clients"][0];
 export type ClientWithIssueInfo = Client & {
   additionalInfo?: string;
 };
@@ -41,6 +41,19 @@ export type Evaluator = Omit<EvaluatorSchema, "offices"> & {
   blockedDistricts: SchoolDistrict[];
   blockedZips: ZipCode[];
 };
+
+export type GoogleRouterOutput = inferRouterOutputs<AppRouter>["google"];
+export type DuplicateDriveGroup = NonNullable<
+  GoogleRouterOutput["findDuplicates"]
+>[number];
+
+export type QuestionnaireRouterOutput =
+  inferRouterOutputs<AppRouter>["questionnaires"];
+export type DuplicateQLinksData = NonNullable<
+  QuestionnaireRouterOutput["getDuplicateLinks"]
+>;
+export type SharedQuestionnaireData =
+  DuplicateQLinksData["sharedAcrossClients"][number];
 
 export const QUESTIONNAIRE_STATUSES = [
   "PENDING",

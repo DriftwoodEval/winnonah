@@ -5,14 +5,18 @@ import { Separator } from "@ui/separator";
 import { MapIcon, Pin, PinOff } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useRef } from "react";
-import type { Client, ClientWithIssueInfo } from "~/lib/types";
+import type {
+	Client,
+	ClientWithIssueInfo,
+	DuplicateDriveGroup,
+	SharedQuestionnaireData,
+} from "~/lib/types";
 import { api } from "~/trpc/react";
 
 interface IssueListProps {
 	title: string;
 	clients: ClientWithIssueInfo[];
 	action?: React.ReactNode;
-	savedPlaceKey?: string;
 }
 
 const IssueList = ({ title, clients, action }: IssueListProps) => {
@@ -188,6 +192,121 @@ const IssueList = ({ title, clients, action }: IssueListProps) => {
 	);
 };
 
+const DuplicateDriveIdsList = ({
+	duplicates,
+}: {
+	duplicates: DuplicateDriveGroup[];
+}) => {
+	return (
+		<div className="flex max-h-80">
+			<ScrollArea
+				className="w-full rounded-md border bg-card text-card-foreground shadow md:min-w-xs"
+				type="auto"
+			>
+				<div className="p-4">
+					<h1 className="mb-4 font-bold text-lg leading-none">
+						Duplicate Drive Folders{" "}
+						<span className="font-medium text-muted-foreground text-sm">
+							({duplicates.length} client{duplicates.length !== 1 ? "s" : ""})
+						</span>
+					</h1>
+					<div className="space-y-6">
+						{duplicates.map((group) => (
+							<div className="rounded-md border p-3" key={group.clientId}>
+								<div className="mb-2 font-bold text-lg">
+									<Link href={`/clients/${group.clientHash}`}>
+										<span className="hover:underline">
+											{group.clientFullName}
+										</span>
+									</Link>
+									<span className="ml-2 font-medium text-muted-foreground text-sm">
+										[{group.clientId}]
+									</span>
+								</div>
+
+								<div className="space-y-2">
+									{group.folders.map((folder) => (
+										<div key={folder.id}>
+											<Link
+												href={folder.url ?? "#"}
+												rel="noopener noreferrer"
+												target="_blank"
+											>
+												<div className="flex items-baseline gap-1 text-sm hover:underline">
+													<span>{folder.name}</span>
+													{folder.isDbMatch && (
+														<span className="font-semibold text-primary text-xs">
+															(W Folder)
+														</span>
+													)}
+												</div>
+											</Link>
+										</div>
+									))}
+								</div>
+							</div>
+						))}
+					</div>
+				</div>
+			</ScrollArea>
+		</div>
+	);
+};
+
+const ClientsSharingQuestionnaires = ({
+	sharedLinksData,
+}: {
+	sharedLinksData: SharedQuestionnaireData[];
+}) => {
+	return (
+		<div className="flex max-h-80">
+			<ScrollArea
+				className="w-full rounded-md border bg-card text-card-foreground shadow md:min-w-xs"
+				type="auto"
+			>
+				<div className="p-4">
+					<h1 className="mb-4 font-bold text-lg leading-none">
+						Clients Sharing Questionnaires{" "}
+						<span className="font-medium text-muted-foreground text-sm">
+							({sharedLinksData.length} shared link
+							{sharedLinksData.length > 1 ? "s" : ""})
+						</span>
+					</h1>
+					<div className="space-y-4">
+						{sharedLinksData.map(({ link, clients }) => (
+							<div className="rounded-md border p-3" key={link}>
+								<div className="mb-2 font-medium text-muted-foreground text-sm">
+									Link:{" "}
+									<Link href={link ?? "#"} target="_blank">
+										{link}
+									</Link>
+								</div>
+								<div className="space-y-2">
+									{clients.map(({ client, count }, index) => (
+										<div key={client.id}>
+											<Link href={`/clients/${client.hash}`}>
+												<div className="text-sm hover:underline">
+													{client.fullName}
+													<span className="ml-2 text-muted-foreground text-xs">
+														({count} count{count > 1 ? "s" : ""})
+													</span>
+												</div>
+											</Link>
+											{index < clients.length - 1 && (
+												<Separator className="my-2" />
+											)}
+										</div>
+									))}
+								</div>
+							</div>
+						))}
+					</div>
+				</div>
+			</ScrollArea>
+		</div>
+	);
+};
+
 export function IssuesList() {
 	const { data: districtErrors } = api.clients.getDistrictErrors.useQuery();
 	const { clientsWithoutDistrict = [], clientsWithDistrictFromShapefile = [] } =
@@ -197,15 +316,20 @@ export function IssuesList() {
 	const { data: dropList } = api.clients.getDropList.useQuery();
 	const { data: autismStops } = api.clients.getAutismStops.useQuery();
 	const { data: noteOnlyClients } = api.clients.getNoteOnlyClients.useQuery();
+
 	const { data: duplicateDriveIds } =
 		api.clients.getDuplicateDriveIdErrors.useQuery();
 	const { data: noDriveIds } = api.clients.getNoDriveIdErrors.useQuery();
+
+	const { data: duplicateFolderNames } = api.google.findDuplicates.useQuery();
+
 	const { data: possiblePrivatePay } =
 		api.clients.getPossiblePrivatePay.useQuery();
+
 	const { data: duplicateQLinks } =
 		api.questionnaires.getDuplicateLinks.useQuery();
 
-	const duplicatePerClientList =
+	const clientsWithDuplicateLinks =
 		duplicateQLinks?.duplicatePerClient
 			.map((item) => item.client)
 			.filter((client): client is Client => client !== undefined)
@@ -260,53 +384,20 @@ export function IssuesList() {
 			{possiblePrivatePay && possiblePrivatePay.length !== 0 && (
 				<IssueList clients={possiblePrivatePay} title="Potential Private Pay" />
 			)}
-			{duplicatePerClientList.length > 0 && (
+			{duplicateFolderNames && duplicateFolderNames.length > 0 && (
+				<DuplicateDriveIdsList duplicates={duplicateFolderNames} />
+			)}
+			{clientsWithDuplicateLinks.length > 0 && (
 				<IssueList
-					clients={duplicatePerClientList}
+					clients={clientsWithDuplicateLinks}
 					title="Clients with Duplicate Questionnaire Links"
 				/>
 			)}
 			{duplicateQLinks?.sharedAcrossClients &&
 				duplicateQLinks.sharedAcrossClients.length > 0 && (
-					<div className="w-full rounded-md border bg-card text-card-foreground shadow md:min-w-xs">
-						<div className="p-4">
-							<h1 className="mb-4 font-bold text-lg leading-none">
-								Clients Sharing Questionnaires{" "}
-								<span className="font-medium text-muted-foreground text-sm">
-									({duplicateQLinks.sharedAcrossClients.length} shared links)
-								</span>
-							</h1>
-							<div className="space-y-6">
-								{duplicateQLinks.sharedAcrossClients.map(
-									({ link, clients }) => (
-										<div className="rounded-md border p-3" key={link}>
-											<div className="mb-2 font-medium text-muted-foreground text-sm">
-												Link: <Link href={link as string}>{link}</Link>{" "}
-												{/* Link will be a string since we exclude null values in the api??*/}
-											</div>
-											<div className="space-y-2">
-												{clients.map(({ client, count }, index) => (
-													<div key={client.id}>
-														<Link href={`/clients/${client.hash}`}>
-															<div className="text-sm hover:underline">
-																{client.fullName}
-																<span className="ml-2 text-muted-foreground text-xs">
-																	({count} count{count > 1 ? "s" : ""})
-																</span>
-															</div>
-														</Link>
-														{index < clients.length - 1 && (
-															<Separator className="my-2" />
-														)}
-													</div>
-												))}
-											</div>
-										</div>
-									),
-								)}
-							</div>
-						</div>
-					</div>
+					<ClientsSharingQuestionnaires
+						sharedLinksData={duplicateQLinks.sharedAcrossClients}
+					/>
 				)}
 		</div>
 	);
