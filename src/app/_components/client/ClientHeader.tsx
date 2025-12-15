@@ -116,7 +116,7 @@ export function ClientHeader({
 		});
 
 	return (
-		<div className="flex w-full flex-col gap-2">
+		<div className="flex w-full flex-col gap-4">
 			{client && (
 				<div className="flex items-center gap-4">
 					<h1 className="font-bold text-xl md:text-2xl">{client.fullName}</h1>
@@ -124,15 +124,12 @@ export function ClientHeader({
 						{!readOnly && client.id.toString().length !== 5 && (
 							<ClientEditButton client={client} />
 						)}
-						{!readOnly &&
-							client.id.toString().length !== 5 &&
-							!client.driveId &&
-							canDrive && (
-								<>
-									<Separator orientation="vertical" />
-									<AddDriveButton client={client} />
-								</>
-							)}
+						{!readOnly && !client.driveId && canDrive && (
+							<>
+								<Separator orientation="vertical" />
+								<AddDriveButton client={client} />
+							</>
+						)}
 						{!readOnly &&
 							client.id.toString().length !== 5 &&
 							client.driveId &&
