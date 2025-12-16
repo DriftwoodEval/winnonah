@@ -1,7 +1,7 @@
 import re
 from collections import defaultdict
-from datetime import datetime, timedelta, timezone
-from typing import Any, Dict, List, Optional, Tuple
+from datetime import datetime, timedelta
+from typing import Dict, List, Optional, Tuple
 
 import pandas as pd
 from dateutil import parser
@@ -20,61 +20,30 @@ def should_skip_appointment(appointment: pd.Series, now: datetime) -> bool:
     start_time = pd.to_datetime(appointment["STARTTIME"]).to_pydatetime()
     cancelled = isinstance(appointment["CANCELBYNAME"], str)
 
-    two_weeks_ago = now - timedelta(weeks=2)
-    two_weeks_from_now = now + timedelta(weeks=2)
+    four_weeks_ago = now - timedelta(weeks=4)
+    four_weeks_from_now = now + timedelta(weeks=4)
 
     return (
         name in TEST_NAMES
         or "96130" in cpt
-        or start_time < two_weeks_ago
-        or start_time > two_weeks_from_now
+        or start_time < four_weeks_ago
+        or start_time > four_weeks_from_now
         or cancelled
     )
 
 
-def get_existing_appointments_from_db() -> Dict[str, Dict]:
-    """Loads appointments from the database."""
+def clear_all_appointments_from_db():
+    """Deletes all appointments from the database to prepare for a fresh sync."""
     db_connection = get_db()
     try:
         with db_connection:
             with db_connection.cursor() as cursor:
-                cursor.execute("""
-                    SELECT id, clientId, evaluatorNpi, startTime, endTime,
-                           calendarEventId, cancelled, daEval, asdAdhd, locationKey
-                    FROM emr_appointment
-                    WHERE startTime >= DATE_SUB(NOW(), INTERVAL 2 WEEK)
-                      AND startTime <= DATE_ADD(NOW(), INTERVAL 2 WEEK)
-                """)
-                results = cursor.fetchall()
-                return {row["id"]: row for row in results}
+                logger.warning("Clearing all data from 'emr_appointment' table...")
+                cursor.execute("DELETE FROM emr_appointment")
+        logger.info("Database cleared successfully.")
     except Exception:
-        logger.exception("Error fetching existing appointments from database")
-        return {}
-
-
-def appointment_needs_update(csv_row: pd.Series, db_row: Optional[Dict]) -> bool:
-    """Check if appointment is new or has changes requiring an update."""
-    if db_row is None:
-        return True  # New appointment
-
-    # Check if key fields have changed
-    csv_start = pd.to_datetime(csv_row["STARTTIME"]).to_pydatetime()
-    csv_end = pd.to_datetime(csv_row["ENDTIME"]).to_pydatetime()
-    csv_cancelled = isinstance(csv_row["CANCELBYNAME"], str)
-    csv_npi = int(csv_row["NPI"])
-
-    # Skip if calendar event exists and nothing changed
-    if (
-        db_row.get("calendarEventId")
-        and db_row["clientId"] == csv_row["CLIENT_ID"]
-        and db_row["startTime"] == csv_start
-        and db_row["endTime"] == csv_end
-        and db_row["cancelled"] == csv_cancelled
-        and db_row["evaluatorNpi"] == csv_npi
-    ):
-        return False
-
-    return True
+        logger.exception("Critical Error: Failed to clear appointments from database.")
+        raise  # Stop execution to prevent inserting duplicates on top of old data
 
 
 def batch_search_calendar_events(
@@ -168,11 +137,8 @@ def batch_search_calendar_events(
     return results
 
 
-def check_and_merge_appointments():
-    """Match CSV appointments with Google Calendar events and filter out invalid ones.
-
-    Returns DataFrame with appointments that need processing, enriched with gcal data.
-    """
+def prepare_appointments_from_csv():
+    """Load CSV, filter invalid rows, and merge with Google Calendar data."""
     creds = google_authenticate()
     service = build("calendar", "v3", credentials=creds)
 
@@ -183,11 +149,6 @@ def check_and_merge_appointments():
 
     now = datetime.now()
 
-    existing_appointments = get_existing_appointments_from_db()
-    logger.debug(
-        f"Found {len(existing_appointments)} existing appointments in database"
-    )
-
     # Track dates to detect next-day 'appointments' for insurance
     client_date_set = set()
     for _, app in appointments_df.iterrows():
@@ -195,23 +156,14 @@ def check_and_merge_appointments():
         start_date = pd.to_datetime(app["STARTTIME"]).date()
         client_date_set.add((client_id, start_date))
 
-    skipped_existing = 0
     indices_to_drop = set()
 
     for idx, appointment in appointments_df.iterrows():
-        appointment_id = appointment["APPOINTMENT_ID"]
-
         if should_skip_appointment(appointment, now):
             indices_to_drop.add(idx)
             continue
 
-        existing = existing_appointments.get(appointment_id)
-        if not appointment_needs_update(appointment, existing):
-            indices_to_drop.add(idx)
-            skipped_existing += 1
-            continue
-
-        # Skip if client was seen previous day, this is likely an insurance 'appointment'
+        # Skip if client was seen previous day (insurance 'appointment')
         client_id = appointment["CLIENT_ID"]
         start_time = pd.to_datetime(appointment["STARTTIME"]).to_pydatetime()
         current_app_date = start_time.date()
@@ -226,21 +178,19 @@ def check_and_merge_appointments():
             indices_to_drop.add(idx)
             continue
 
-    logger.info(f"Skipped {skipped_existing} unchanged appointments from database")
-
     if indices_to_drop:
         appointments_df = appointments_df.drop(index=indices_to_drop).reset_index(
             drop=True
         )
 
     if appointments_df.empty:
-        logger.info("No appointments need calendar search")
+        logger.info("No valid appointments found in CSV to process.")
         return appointments_df
 
-    # Get all calendars and batch search
+    logger.info(f"Searching Google Calendar for {len(appointments_df)} appointments...")
+
     calendar_list = service.calendarList().list().execute()
     calendars = calendar_list.get("items", [])
-    logger.debug(f"Searching across {len(calendars)} calendars...")
 
     search_results = batch_search_calendar_events(service, calendars, appointments_df)
 
@@ -267,16 +217,21 @@ def check_and_merge_appointments():
             drop=True
         )
 
-    logger.info(f"Inserting {len(appointments_df)} appointments into database")
-
     return appointments_df
 
 
 def insert_appointments_with_gcal():
-    """Sync appointments from CSV to database using Google Calendar for evaluator matching."""
-    logger.info("Inserting appointments with Google Calendar data")
-    appointments_df = check_and_merge_appointments()
+    """Sync appointments from CSV to database using Google Calendar for evaluator matching. Clears existing data first."""
+    clear_all_appointments_from_db()
 
+    logger.info("Processing appointments from CSV and Google Calendar...")
+    appointments_df = prepare_appointments_from_csv()
+
+    if appointments_df.empty:
+        logger.warning("No appointments to insert.")
+        return
+
+    logger.info(f"Inserting {len(appointments_df)} new appointments into database...")
     npi_cache = get_all_evaluators_npi_map()
 
     for _, appointment in appointments_df.iterrows():
