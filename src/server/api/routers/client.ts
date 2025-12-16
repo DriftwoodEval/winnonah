@@ -615,7 +615,18 @@ export const clientRouter = createTRPCRouter({
         updateData.eiAttends = input.eiAttends;
       }
       if (input.driveId !== undefined) {
-        updateData.driveId = input.driveId;
+        const existingClient = await ctx.db.query.clients.findFirst({
+          where: eq(clients.driveId, input.driveId),
+        });
+
+        if (existingClient) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: `A client already has this folder linked: ${existingClient.fullName} (ID: ${existingClient.id})`,
+          });
+        } else {
+          updateData.driveId = input.driveId;
+        }
       }
       if (input.status !== undefined) {
         updateData.status = input.status;
