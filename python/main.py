@@ -351,10 +351,10 @@ def main():
         process_referrals()
     except Exception as e:
         logger.error(f"Failed to process referrals: {e}")
-    try:
-        utils.google.add_client_ids_to_drive()
-    except Exception as e:
-        logger.error(f"Failed to add client IDs to drive: {e}")
+    #try:
+        #utils.google.add_client_ids_to_drive()
+    #except Exception as e:
+        #logger.error(f"Failed to add client IDs to drive: {e}")
 
 
 if __name__ == "__main__":
