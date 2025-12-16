@@ -2,7 +2,7 @@
 import { Button } from "@ui/button";
 import { ScrollArea } from "@ui/scroll-area";
 import { Separator } from "@ui/separator";
-import { MapIcon, Pin, PinOff } from "lucide-react";
+import { MapIcon, Pin, PinOff, RotateCw } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useRef } from "react";
 import type {
@@ -192,27 +192,86 @@ const IssueList = ({ title, clients, action }: IssueListProps) => {
 	);
 };
 
-const DuplicateDriveIdsList = ({
+const IssueListSkeleton = () => (
+	<div className="flex max-h-80 w-80 animate-pulse">
+		<div className="w-full rounded-md border bg-card p-4 shadow">
+			<div className="flex items-center justify-between gap-4">
+				<div className="mb-4 h-6 w-3/4 rounded bg-muted-foreground/20" />
+				<div className="mb-4 h-8 w-12 rounded bg-muted-foreground/20" />
+			</div>
+			<div className="space-y-4">
+				<div className="h-4 w-11/12 rounded bg-muted-foreground/10" />
+				<div className="h-4 w-10/12 rounded bg-muted-foreground/10" />
+				<div className="h-4 w-9/12 rounded bg-muted-foreground/10" />
+				<div className="h-4 w-11/12 rounded bg-muted-foreground/10" />
+			</div>
+		</div>
+	</div>
+);
+
+const DuplicateDriveFoldersList = ({
 	duplicates,
 }: {
 	duplicates: DuplicateDriveGroup[];
 }) => {
+	const utils = api.useUtils();
+
+	const { mutate: invalidateCacheMutate, isPending } =
+		api.google.invalidateDuplicatesCache.useMutation({
+			onSuccess: async () => {
+				await utils.google.findDuplicates.invalidate();
+				await utils.google.findDuplicates.refetch();
+			},
+		});
+
+	const handleForceRefresh = () => {
+		invalidateCacheMutate();
+	};
+
 	return (
 		<div className="flex max-h-80">
 			<ScrollArea
 				className="w-full rounded-md border bg-card text-card-foreground shadow md:min-w-xs"
 				type="auto"
 			>
-				<div className="p-4">
-					<h1 className="mb-4 font-bold text-lg leading-none">
-						Duplicate Drive Folders{" "}
-						<span className="font-medium text-muted-foreground text-sm">
-							({duplicates.length} client{duplicates.length !== 1 ? "s" : ""})
-						</span>
-					</h1>
-					<div className="space-y-6">
+				<div className="flex flex-col p-4">
+					<div className="flex items-center justify-between">
+						<h1 className="font-bold text-lg leading-none">
+							Duplicate Drive Folders{" "}
+							<span className="font-medium text-muted-foreground text-sm">
+								({duplicates.length} client{duplicates.length !== 1 ? "s" : ""})
+							</span>
+						</h1>
+						<Button
+							aria-label="Force refresh duplicate drive folders"
+							className="cursor-pointer"
+							disabled={isPending}
+							onClick={handleForceRefresh}
+							size="icon-sm"
+							variant="outline"
+						>
+							{isPending ? (
+								<span className="rotate-180 transform animate-spin">
+									<RotateCw />
+								</span>
+							) : (
+								<span>
+									<RotateCw />
+								</span>
+							)}
+						</Button>
+					</div>
+					<p className="mb-4 max-w-md text-muted-foreground text-sm">
+						This list updates every 12 hours, since the request is large. You
+						can force a request with the button on the right, expect it to take
+						10+ seconds.
+					</p>
+					<div className="flex flex-col gap-4">
 						{duplicates.map((group) => (
-							<div className="rounded-md border p-3" key={group.clientId}>
+							<div
+								className="rounded-md border bg-muted p-3"
+								key={group.clientId}
+							>
 								<div className="mb-2 font-bold text-lg">
 									<Link href={`/clients/${group.clientHash}`}>
 										<span className="hover:underline">
@@ -308,25 +367,31 @@ const ClientsSharingQuestionnaires = ({
 };
 
 export function IssuesList() {
-	const { data: districtErrors } = api.clients.getDistrictErrors.useQuery();
+	const { data: districtErrors, isLoading: isLoadingDistrictErrors } =
+		api.clients.getDistrictErrors.useQuery();
 	const { clientsWithoutDistrict = [], clientsWithDistrictFromShapefile = [] } =
 		districtErrors ?? {};
-	const { data: babyNetErrors } = api.clients.getBabyNetErrors.useQuery();
-	const { data: notInTAErrors } = api.clients.getNotInTAErrors.useQuery();
-	const { data: dropList } = api.clients.getDropList.useQuery();
-	const { data: autismStops } = api.clients.getAutismStops.useQuery();
-	const { data: noteOnlyClients } = api.clients.getNoteOnlyClients.useQuery();
-
-	const { data: duplicateDriveIds } =
+	const { data: babyNetErrors, isLoading: isLoadingBabyNetErrors } =
+		api.clients.getBabyNetErrors.useQuery();
+	const { data: notInTAErrors, isLoading: isLoadingNotInTAErrors } =
+		api.clients.getNotInTAErrors.useQuery();
+	const { data: dropList, isLoading: isLoadingDropList } =
+		api.clients.getDropList.useQuery();
+	const { data: autismStops, isLoading: isLoadingAutismStops } =
+		api.clients.getAutismStops.useQuery();
+	const { data: noteOnlyClients, isLoading: isLoadingNoteOnlyClients } =
+		api.clients.getNoteOnlyClients.useQuery();
+	const { data: duplicateDriveIds, isLoading: isLoadingDuplicateDriveIds } =
 		api.clients.getDuplicateDriveIdErrors.useQuery();
-	const { data: noDriveIds } = api.clients.getNoDriveIdErrors.useQuery();
-
-	const { data: duplicateFolderNames } = api.google.findDuplicates.useQuery();
-
-	const { data: possiblePrivatePay } =
+	const { data: noDriveIds, isLoading: isLoadingNoDriveIds } =
+		api.clients.getNoDriveIdErrors.useQuery();
+	const {
+		data: duplicateFolderNames,
+		isLoading: isLoadingDuplicateFolderNames,
+	} = api.google.findDuplicates.useQuery();
+	const { data: possiblePrivatePay, isLoading: isLoadingPossiblePrivatePay } =
 		api.clients.getPossiblePrivatePay.useQuery();
-
-	const { data: duplicateQLinks } =
+	const { data: duplicateQLinks, isLoading: isLoadingDuplicateQLinks } =
 		api.questionnaires.getDuplicateLinks.useQuery();
 
 	const clientsWithDuplicateLinks =
@@ -340,60 +405,97 @@ export function IssuesList() {
 
 	return (
 		<div className="flex flex-wrap justify-center gap-10">
-			{clientsWithoutDistrict && clientsWithoutDistrict.length !== 0 && (
-				<IssueList clients={clientsWithoutDistrict} title="Missing Districts" />
-			)}
-			{clientsWithDistrictFromShapefile &&
+			{isLoadingDistrictErrors && <IssueListSkeleton />}
+			{!isLoadingDistrictErrors &&
+				clientsWithoutDistrict &&
+				clientsWithoutDistrict.length !== 0 && (
+					<IssueList
+						clients={clientsWithoutDistrict}
+						title="Missing Districts"
+					/>
+				)}
+			{isLoadingDistrictErrors && <IssueListSkeleton />}
+			{!isLoadingDistrictErrors &&
+				clientsWithDistrictFromShapefile &&
 				clientsWithDistrictFromShapefile.length !== 0 && (
 					<IssueList
 						clients={clientsWithDistrictFromShapefile}
 						title="District Found After Cut Address"
 					/>
 				)}
-			{babyNetErrors && babyNetErrors.length !== 0 && (
-				<IssueList clients={babyNetErrors} title="Too Old for BabyNet" />
-			)}
-			{notInTAErrors && notInTAErrors.length !== 0 && (
-				<IssueList clients={notInTAErrors} title="Not in TA" />
-			)}
-			{dropList && dropList.length !== 0 && (
+			{isLoadingBabyNetErrors && <IssueListSkeleton />}
+			{!isLoadingBabyNetErrors &&
+				babyNetErrors &&
+				babyNetErrors.length !== 0 && (
+					<IssueList clients={babyNetErrors} title="Too Old for BabyNet" />
+				)}
+			{isLoadingNotInTAErrors && <IssueListSkeleton />}
+			{!isLoadingNotInTAErrors &&
+				notInTAErrors &&
+				notInTAErrors.length !== 0 && (
+					<IssueList clients={notInTAErrors} title="Not in TA" />
+				)}
+			{isLoadingDropList && <IssueListSkeleton />}
+			{!isLoadingDropList && dropList && dropList.length !== 0 && (
 				<IssueList clients={dropList} title="Drop List" />
 			)}
-			{autismStops && autismStops.length !== 0 && (
+			{isLoadingAutismStops && <IssueListSkeleton />}
+			{!isLoadingAutismStops && autismStops && autismStops.length !== 0 && (
 				<IssueList clients={autismStops} title="Autism Stops" />
 			)}
-			{noteOnlyClients && noteOnlyClients.length !== 0 && (
-				<IssueList
-					action={
-						<Link href="/clients/merge">
-							<Button size="sm" variant="outline">
-								Merge
-							</Button>
-						</Link>
-					}
-					clients={noteOnlyClients}
-					title="Notes Only"
-				/>
-			)}
-			{duplicateDriveIds && duplicateDriveIds.length !== 0 && (
-				<IssueList clients={duplicateDriveIds} title="Duplicate Drive IDs" />
-			)}
-			{noDriveIds && noDriveIds.length !== 0 && (
+			{isLoadingNoteOnlyClients && <IssueListSkeleton />}
+			{!isLoadingNoteOnlyClients &&
+				noteOnlyClients &&
+				noteOnlyClients.length !== 0 && (
+					<IssueList
+						action={
+							<Link href="/clients/merge">
+								<Button size="sm" variant="outline">
+									Merge
+								</Button>
+							</Link>
+						}
+						clients={noteOnlyClients}
+						title="Notes Only"
+					/>
+				)}
+			{isLoadingDuplicateDriveIds && <IssueListSkeleton />}
+			{!isLoadingDuplicateDriveIds &&
+				duplicateDriveIds &&
+				duplicateDriveIds.length !== 0 && (
+					<IssueList clients={duplicateDriveIds} title="Duplicate Drive IDs" />
+				)}
+			{isLoadingNoDriveIds && <IssueListSkeleton />}
+			{!isLoadingNoDriveIds && noDriveIds && noDriveIds.length !== 0 && (
 				<IssueList clients={noDriveIds} title="No Drive IDs" />
 			)}
-			{possiblePrivatePay && possiblePrivatePay.length !== 0 && (
-				<IssueList clients={possiblePrivatePay} title="Potential Private Pay" />
-			)}
-			{duplicateFolderNames && duplicateFolderNames.length > 0 && (
-				<DuplicateDriveIdsList duplicates={duplicateFolderNames} />
-			)}
-			{clientsWithDuplicateLinks.length > 0 && (
-				<IssueList
-					clients={clientsWithDuplicateLinks}
-					title="Clients with Duplicate Questionnaire Links"
-				/>
-			)}
-			{duplicateQLinks?.sharedAcrossClients &&
+			{isLoadingPossiblePrivatePay && <IssueListSkeleton />}
+			{!isLoadingPossiblePrivatePay &&
+				possiblePrivatePay &&
+				possiblePrivatePay.length !== 0 && (
+					<IssueList
+						clients={possiblePrivatePay}
+						title="Potential Private Pay"
+					/>
+				)}
+			{isLoadingDuplicateFolderNames && <IssueListSkeleton />}
+			{!isLoadingDuplicateFolderNames &&
+				duplicateFolderNames &&
+				duplicateFolderNames.length > 0 && (
+					<DuplicateDriveFoldersList duplicates={duplicateFolderNames} />
+				)}
+			{isLoadingDuplicateQLinks && <IssueListSkeleton />}
+			{!isLoadingDuplicateQLinks &&
+				duplicateQLinks &&
+				clientsWithDuplicateLinks.length > 0 && (
+					<IssueList
+						clients={clientsWithDuplicateLinks}
+						title="Clients with Duplicate Questionnaire Links"
+					/>
+				)}
+			{isLoadingDuplicateQLinks && <IssueListSkeleton />}
+			{!isLoadingDuplicateQLinks &&
+				duplicateQLinks?.sharedAcrossClients &&
 				duplicateQLinks.sharedAcrossClients.length > 0 && (
 					<ClientsSharingQuestionnaires
 						sharedLinksData={duplicateQLinks.sharedAcrossClients}

@@ -2,22 +2,10 @@
 
 import { Badge } from "@ui/badge";
 import Link from "next/link";
-import { useEffect, useState } from "react";
 import { api } from "~/trpc/react";
 
 export function IssuesAlert() {
-	const [isReadyToFetch, setIsReadyToFetch] = useState(false);
-
-	useEffect(() => {
-		const timer = setTimeout(() => {
-			setIsReadyToFetch(true);
-		}, 2000); // 2 seconds
-
-		return () => clearTimeout(timer);
-	}, []);
-
 	const queryOptions = {
-		enabled: isReadyToFetch,
 		staleTime: 1000 * 60 * 5, // 5 minutes
 	};
 
@@ -85,7 +73,7 @@ export function IssuesAlert() {
 		(duplicateQLinks?.duplicatePerClient.length ?? 0) +
 		(duplicateQLinks?.sharedAcrossClients.length ?? 0);
 
-	if (!isReadyToFetch || errorsLength === 0) {
+	if (errorsLength === 0) {
 		return null;
 	}
 

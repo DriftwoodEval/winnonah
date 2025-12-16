@@ -59,8 +59,13 @@ export const googleRouter = createTRPCRouter({
       async () => {
         return findDuplicateIdFolders(ctx.session);
       },
-      1800
+      60 * 60 * 12 // 12 hours
     );
+  }),
+
+  invalidateDuplicatesCache: protectedProcedure.mutation(async ({ ctx }) => {
+    await invalidateCache(ctx, CACHE_KEY_DUPLICATES);
+    return { success: true, key: CACHE_KEY_DUPLICATES };
   }),
 
   // Google Sheets
