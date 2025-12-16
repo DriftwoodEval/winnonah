@@ -48,6 +48,32 @@ export const googleRouter = createTRPCRouter({
       await invalidateCache(ctx, CACHE_KEY_DUPLICATES);
     }),
 
+  removeIdFromFolder: protectedProcedure
+    .input(
+      z.object({
+        folderId: z.string(),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      if (!ctx.session.user.accessToken || !ctx.session.user.refreshToken) {
+        throw new Error("No access token or refresh token");
+      }
+      if (!hasPermission(ctx.session.user.permissions, "clients:drive")) {
+        throw new TRPCError({
+          code: "UNAUTHORIZED",
+        });
+      }
+
+      log.info(
+        { user: ctx.session.user.email, request: input },
+        "Removing client ID from folder"
+      );
+
+      await renameDriveFolder(ctx.session, input.folderId, null);
+
+      await invalidateCache(ctx, CACHE_KEY_DUPLICATES);
+    }),
+
   findDuplicates: protectedProcedure.query(async ({ ctx }) => {
     if (!ctx.session.user.accessToken || !ctx.session.user.refreshToken) {
       throw new Error("No access token or refresh token");

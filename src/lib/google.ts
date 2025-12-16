@@ -30,7 +30,7 @@ export function getDriveClient(session: Session) {
 export const renameDriveFolder = async (
   session: Session,
   folderId: string,
-  clientId: string
+  clientId: string | null
 ) => {
   const driveApi = getDriveClient(session);
 
@@ -40,8 +40,18 @@ export const renameDriveFolder = async (
   });
 
   const folderName = folder.data.name;
-  const regex = /\[\d+\]/;
-  if (folderName && regex.test(folderName)) {
+  const regex = /\[\d+\]/g;
+  if (clientId === null) {
+    const newFolderName = folderName?.replace(regex, "");
+    if (newFolderName !== folderName) {
+      await driveApi.files.update({
+        fileId: folderId,
+        requestBody: {
+          name: newFolderName,
+        },
+      });
+    }
+  } else if (folderName && regex.test(folderName)) {
     throw new TRPCError({
       code: "BAD_REQUEST",
       message: `${folderName} already has a client ID`,

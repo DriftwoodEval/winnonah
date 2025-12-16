@@ -2,6 +2,12 @@
 
 import { Badge } from "@ui/badge";
 import { Button } from "@ui/button";
+import {
+	ContextMenu,
+	ContextMenuContent,
+	ContextMenuItem,
+	ContextMenuTrigger,
+} from "@ui/context-menu";
 import { Popover, PopoverContent, PopoverTrigger } from "@ui/popover";
 import { Separator } from "@ui/separator";
 import { Skeleton } from "@ui/skeleton";
@@ -22,8 +28,10 @@ import { logger } from "~/lib/logger";
 import type { Client } from "~/lib/types";
 import { hasPermission } from "~/lib/utils";
 import { api } from "~/trpc/react";
+import { ResponsiveDialog } from "../shared/ResponsiveDialog";
 import { AddDriveButton } from "./AddDrive";
 import { ClientEditButton } from "./EditClientDialog";
+import { EditDriveForm } from "./EditDriveForm";
 
 interface ClientHeaderProps {
 	client: Client | undefined;
@@ -87,6 +95,7 @@ export function ClientHeader({
 	});
 
 	const [isColorOpen, setIsColorOpen] = useState(false);
+	const [editDriveOpen, setEditDriveOpen] = useState(false);
 
 	if (isLoading || !client) {
 		return (
@@ -117,6 +126,17 @@ export function ClientHeader({
 
 	return (
 		<div className="flex w-full flex-col gap-4">
+			<ResponsiveDialog
+				description="Update the Google Drive folder link. The system will remove the Client ID from the old folder name and add it to the new folder name automatically."
+				open={editDriveOpen}
+				setOpen={setEditDriveOpen}
+				title="Edit Drive"
+			>
+				<EditDriveForm
+					client={client}
+					editDriveDialog={{ open: editDriveOpen, setOpen: setEditDriveOpen }}
+				/>
+			</ResponsiveDialog>
 			{client && (
 				<div className="flex items-center gap-4">
 					<h1 className="font-bold text-xl md:text-2xl">{client.fullName}</h1>
@@ -135,18 +155,32 @@ export function ClientHeader({
 							client.driveId &&
 							client.driveId !== "N/A" && <Separator orientation="vertical" />}
 						{client.driveId && client.driveId !== "N/A" && (
-							<Link
-								href={`https://drive.google.com/open?id=${client.driveId}`}
-								target="_blank"
-							>
-								<Image
-									alt="Open Google Drive"
-									className="dark:invert"
-									height={16}
-									src="/icons/google-drive.svg"
-									width={16}
-								/>
-							</Link>
+							<ContextMenu>
+								<ContextMenuTrigger>
+									<Link
+										href={`https://drive.google.com/open?id=${client.driveId}`}
+										target="_blank"
+									>
+										<Image
+											alt="Open Google Drive"
+											className="dark:invert"
+											height={16}
+											src="/icons/google-drive.svg"
+											width={16}
+										/>
+									</Link>
+								</ContextMenuTrigger>
+								<ContextMenuContent>
+									<ContextMenuItem>
+										<button
+											onClick={() => setEditDriveOpen(true)}
+											type="button"
+										>
+											Edit Drive
+										</button>
+									</ContextMenuItem>
+								</ContextMenuContent>
+							</ContextMenu>
 						)}
 					</div>
 				</div>
@@ -234,7 +268,9 @@ export function ClientHeader({
 									<Tooltip key={colorKey}>
 										<TooltipTrigger asChild>
 											<button
-												aria-label={`Select color: ${formatColorName(colorKey)}`}
+												aria-label={`Select color: ${formatColorName(
+													colorKey,
+												)}`}
 												className="relative flex h-8 w-8 items-center justify-center rounded-sm text-sm"
 												key={colorKey}
 												onClick={() => {
