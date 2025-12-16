@@ -45,7 +45,7 @@ export type Evaluator = Omit<EvaluatorSchema, "offices"> & {
 export type GoogleRouterOutput = inferRouterOutputs<AppRouter>["google"];
 export type DuplicateDriveGroup = NonNullable<
   GoogleRouterOutput["findDuplicates"]
->[number];
+>["data"][number];
 
 export type QuestionnaireRouterOutput =
   inferRouterOutputs<AppRouter>["questionnaires"];

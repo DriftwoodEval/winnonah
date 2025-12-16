@@ -2,6 +2,7 @@
 import { Button } from "@ui/button";
 import { ScrollArea } from "@ui/scroll-area";
 import { Separator } from "@ui/separator";
+import { formatDistanceToNow } from "date-fns";
 import { MapIcon, Pin, PinOff, RotateCw } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useRef } from "react";
@@ -211,8 +212,10 @@ const IssueListSkeleton = () => (
 
 const DuplicateDriveFoldersList = ({
 	duplicates,
+	lastFetched,
 }: {
 	duplicates: DuplicateDriveGroup[];
+	lastFetched: number;
 }) => {
 	const utils = api.useUtils();
 
@@ -261,11 +264,29 @@ const DuplicateDriveFoldersList = ({
 							)}
 						</Button>
 					</div>
-					<p className="mb-4 max-w-md text-muted-foreground text-sm">
-						This list updates every 12 hours, since the request is large. You
-						can force a request with the button on the right, expect it to take
-						10+ seconds.
-					</p>
+					<div className="mb-2">
+						<p className="flex gap-1 text-sm">
+							<span>Last updated:</span>
+							<span>
+								{formatDistanceToNow(new Date(lastFetched), {
+									addSuffix: true,
+								})}
+							</span>
+							<span className="text-muted-foreground">
+								{new Intl.DateTimeFormat("en-US", {
+									day: "2-digit",
+									month: "2-digit",
+									hour: "numeric",
+									minute: "numeric",
+									timeZone: "America/New_York",
+								}).format(new Date(lastFetched))}
+							</span>
+						</p>
+						<p className="max-w-md text-muted-foreground text-sm">
+							This list updates every 12 hours. You can force a request with the
+							button on the right, expect it to take 10+ seconds.
+						</p>
+					</div>
 					<div className="flex flex-col gap-4">
 						{duplicates.map((group) => (
 							<div
@@ -481,8 +502,11 @@ export function IssuesList() {
 			{isLoadingDuplicateFolderNames && <IssueListSkeleton />}
 			{!isLoadingDuplicateFolderNames &&
 				duplicateFolderNames &&
-				duplicateFolderNames.length > 0 && (
-					<DuplicateDriveFoldersList duplicates={duplicateFolderNames} />
+				duplicateFolderNames.data.length > 0 && (
+					<DuplicateDriveFoldersList
+						duplicates={duplicateFolderNames.data}
+						lastFetched={duplicateFolderNames.lastFetched}
+					/>
 				)}
 			{isLoadingDuplicateQLinks && <IssueListSkeleton />}
 			{!isLoadingDuplicateQLinks &&

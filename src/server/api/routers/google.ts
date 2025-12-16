@@ -85,7 +85,8 @@ export const googleRouter = createTRPCRouter({
       async () => {
         return findDuplicateIdFolders(ctx.session);
       },
-      60 * 60 * 12 // 12 hours
+      60 * 60 * 12, // 12 hours
+      true // Enable timestamp
     );
   }),
 

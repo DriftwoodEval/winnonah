@@ -4,6 +4,22 @@ import type { Context } from "~/server/api/trpc";
 const log = logger.child({ module: "cache" });
 const DEFAULT_CACHE_TTL = 3600; // 1 hour in seconds
 
+export async function fetchWithCache<T>(
+  ctx: Context,
+  key: string,
+  fetcher: () => Promise<T>,
+  ttl: number,
+  wantTimestamp: true
+): Promise<{ data: T; lastFetched: number }>;
+
+export async function fetchWithCache<T>(
+  ctx: Context,
+  key: string,
+  fetcher: () => Promise<T>,
+  ttl?: number,
+  wantTimestamp?: false
+): Promise<T>;
+
 /**
  * A reusable function to fetch data with a cache-aside strategy.
  * It tries to get data from Redis first. If it's a miss, it calls the
@@ -19,14 +35,24 @@ export async function fetchWithCache<T>(
   ctx: Context,
   key: string,
   fetcher: () => Promise<T>,
-  ttl: number = DEFAULT_CACHE_TTL
-): Promise<T> {
+  ttl: number = DEFAULT_CACHE_TTL,
+  wantTimestamp?: boolean
+): Promise<T | { data: T; lastFetched: number }> {
   // Try to get from cache
   try {
     const cachedData = await ctx.redis.get(key);
     if (cachedData) {
+      const data = JSON.parse(cachedData) as T;
+
+      if (wantTimestamp) {
+        const remainingSeconds = await ctx.redis.ttl(key);
+        const elapsedSeconds = ttl - remainingSeconds;
+        const lastFetched = Date.now() - elapsedSeconds * 1000;
+        log.debug({ cacheKey: key }, "Cache hit with timestamp");
+        return { data, lastFetched };
+      }
       log.debug({ cacheKey: key }, "Cache hit");
-      return JSON.parse(cachedData) as T;
+      return data;
     }
   } catch (err) {
     log.error({ cacheKey: key, error: err }, "Failed to get from cache");
@@ -41,6 +67,10 @@ export async function fetchWithCache<T>(
     await ctx.redis.set(key, JSON.stringify(freshData), "EX", ttl);
   } catch (err) {
     log.error({ cacheKey: key, error: err }, "Failed to set cache");
+  }
+
+  if (wantTimestamp) {
+    return { data: freshData, lastFetched: Date.now() };
   }
 
   return freshData;

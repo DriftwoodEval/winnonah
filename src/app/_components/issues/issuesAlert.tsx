@@ -67,7 +67,7 @@ export function IssuesAlert() {
 		(autismStops?.length ?? 0) +
 		(noteOnlyClients?.length ?? 0) +
 		(duplicateDriveIds?.length ?? 0) +
-		(duplicateFolderNames?.length ?? 0) +
+		(duplicateFolderNames?.data.length ?? 0) +
 		(noDriveIds?.length ?? 0) +
 		(possiblePrivatePay?.length ?? 0) +
 		(duplicateQLinks?.duplicatePerClient.length ?? 0) +
