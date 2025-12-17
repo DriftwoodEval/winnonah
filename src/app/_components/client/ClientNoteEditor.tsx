@@ -1,7 +1,7 @@
 import { RichTextEditor } from "@components/shared/RichTextEditor";
 import { Input } from "@ui/input";
 import { Skeleton } from "@ui/skeleton";
-import { debounce } from "lodash";
+import { debounce, isEqual } from "lodash";
 import { History } from "lucide-react";
 import { useSession } from "next-auth/react";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -46,12 +46,20 @@ export function ClientNoteEditor({
 	});
 
 	const [localTitle, setLocalTitle] = useState(note?.title ?? "");
+	const [localContent, setLocalContent] = useState(note?.contentJson ?? "");
 
 	useEffect(() => {
 		if (note?.title) {
 			setLocalTitle(note.title);
 		}
 	}, [note?.title]);
+
+	useEffect(() => {
+        if (note?.contentJson && !isEqual(note.contentJson, localContent)) {
+            setLocalContent(note.contentJson);
+        }
+        // We exclude localContent from deps to avoid loops, we only care when note updates
+    }, [note?.contentJson]);
 
 	const updateNoteMutation = api.notes.updateNote.useMutation({
 		onError: (error) => {
@@ -187,10 +195,13 @@ export function ClientNoteEditor({
 						value={localTitle}
 					/>
 					<RichTextEditor
-						onChange={debouncedSaveContent}
+						onChange={(content) => {
+                            setLocalContent(content);
+                            debouncedSaveContent(content);
+                        }}
 						placeholder="Start typing client notes..."
 						readonly={!canNote || readOnly}
-						value={note?.contentJson ?? ""}
+						value={localContent}
 					/>
 				</div>
 			)}
