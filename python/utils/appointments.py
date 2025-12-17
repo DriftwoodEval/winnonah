@@ -1,7 +1,8 @@
+import os
 import re
 from collections import defaultdict
 from datetime import datetime, timedelta
-from typing import Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 import pandas as pd
 from dateutil import parser
@@ -9,8 +10,113 @@ from googleapiclient.discovery import build
 from loguru import logger
 
 from utils.clients import TEST_NAMES
-from utils.database import get_all_evaluators_npi_map, get_db, put_appointment_in_db
-from utils.google import google_authenticate
+from utils.database import (
+    get_all_evaluators_npi_map,
+    get_db,
+    get_npi_to_name_map,
+    put_appointment_in_db,
+)
+from utils.google import google_authenticate, send_gmail
+
+
+class SyncReporter:
+    """Collects synchronization errors and sends a summary email."""
+
+    def __init__(self):
+        """Initialize empty lists for different error types."""
+        self.time_mismatches: List[Dict[str, Any]] = []
+        self.missing_in_gcal: List[Dict[str, Any]] = []
+        self.missing_npis: List[str] = []
+
+    def log_time_mismatch(
+        self,
+        client_name: str,
+        client_id: int,
+        found_time: datetime,
+        expected_time: datetime,
+    ):
+        """Log a time mismatch error."""
+        self.time_mismatches.append(
+            {
+                "client_name": client_name,
+                "client_id": client_id,
+                "found_time": found_time,
+                "expected_time": expected_time,
+            }
+        )
+
+    def log_missing_in_gcal(
+        self, name: str, client_id: int, start_time: datetime, evaluator_name: str
+    ):
+        """Log an appointment missing in Google Calendar."""
+        self.missing_in_gcal.append(
+            {
+                "name": name,
+                "client_id": client_id,
+                "start_time": start_time,
+                "evaluator_name": evaluator_name,
+            }
+        )
+
+    def log_missing_npi(self, calendar_id: str):
+        """Log a missing NPI for a calendar ID."""
+        self.missing_npis.append(calendar_id)
+
+    def has_errors(self) -> bool:
+        """Check if any errors have been logged."""
+        return any([self.time_mismatches, self.missing_in_gcal, self.missing_npis])
+
+    def send_report(self, recipient_email: str):
+        """Send a summary email of all logged errors."""
+        if not self.has_errors():
+            logger.debug("No errors to report. Skipping email.")
+            return
+
+        logger.info("Errors logged. Preparing email.")
+
+        text_summary = "Errors were detected during the appointment sync."
+        html_content = ""
+
+        if self.missing_npis:
+            html_content += "<h3>Missing NPIs</h3>"
+            html_content += (
+                "<p>The following calendar emails do not have an NPI mapping:</p>"
+            )
+            html_content += (
+                "<ul>"
+                + "".join([f"<li>{email}</li>" for email in self.missing_npis])
+                + "</ul>"
+            )
+
+        if self.missing_in_gcal:
+            html_content += "<h3>Appointments Missing in Google Calendar</h3>"
+            html_content += (
+                "<p>These appointments are in TA but not found on any calendar:</p><ul>"
+            )
+            for item in self.missing_in_gcal:
+                html_content += (
+                    f"<li><b>{item['name']}</b> (ID: {item['client_id']}) @ {item['start_time']} "
+                    f"<br>&nbsp;&nbsp;<i>Expected Evaluator: {item['evaluator_name']}</i></li>"
+                )
+            html_content += "</ul>"
+
+        if self.time_mismatches:
+            html_content += "<h3>Time Mismatches (>1hr difference)</h3>"
+            html_content += "<p>The TA start time differs significantly from the calendar start time:</p><ul>"
+            for item in self.time_mismatches:
+                html_content += (
+                    f"<li><b>{item['client_name']}</b> (ID: {item['client_id']}): GCal is {item['found_time']}, "
+                    f"TA has {item['expected_time']}</li>"
+                )
+            html_content += "</ul>"
+
+        send_gmail(
+            message_text=text_summary,
+            subject=f"Appointment Sync Errors - {datetime.now().strftime('%Y-%m-%d')}",
+            to_addr=recipient_email,
+            from_addr="me",
+            html=html_content,
+        )
 
 
 def should_skip_appointment(appointment: pd.Series, now: datetime) -> bool:
@@ -47,7 +153,10 @@ def clear_all_appointments_from_db():
 
 
 def batch_search_calendar_events(
-    service, calendars: List[Dict], appointments_df: pd.DataFrame
+    service,
+    calendars: List[Dict],
+    appointments_df: pd.DataFrame,
+    reporter: SyncReporter,
 ) -> Dict[int, Dict]:
     """Search Google Calendar events in batches by date.
 
@@ -122,11 +231,18 @@ def batch_search_calendar_events(
                             }
                             break
                         else:
-                            # TODO: send error email
                             logger.warning(
                                 f"Found event with Client ID {client_id} but wrong time: "
-                                f"Event: {event_start_dt}, Expected: {start_time}, "
-                                f"Diff: {time_diff}s"
+                                f"Event: {event_start_dt.strftime('%m/%d %I:%M %p')}, Expected: {start_time.strftime('%m/%d %I:%M %p')}, "
+                                f"Diff: {int(time_diff)}s"
+                            )
+                            reporter.log_time_mismatch(
+                                client_name=re.sub(
+                                    r"[\d\(\)]", "", appointment["NAME"]
+                                ).strip(),
+                                client_id=client_id,
+                                found_time=event_start_dt.strftime("%m/%d %I:%M %p"),
+                                expected_time=start_time.strftime("%m/%d %I:%M %p"),
                             )
 
             except Exception:
@@ -137,7 +253,7 @@ def batch_search_calendar_events(
     return results
 
 
-def prepare_appointments_from_csv():
+def prepare_appointments_from_csv(reporter: SyncReporter):
     """Load CSV, filter invalid rows, and merge with Google Calendar data."""
     creds = google_authenticate()
     service = build("calendar", "v3", credentials=creds)
@@ -146,6 +262,8 @@ def prepare_appointments_from_csv():
     appointments_df["gcal_event_id"] = None
     appointments_df["gcal_title"] = None
     appointments_df["gcal_calendar_id"] = None
+
+    npi_map = get_npi_to_name_map()
 
     now = datetime.now()
 
@@ -192,7 +310,9 @@ def prepare_appointments_from_csv():
     calendar_list = service.calendarList().list().execute()
     calendars = calendar_list.get("items", [])
 
-    search_results = batch_search_calendar_events(service, calendars, appointments_df)
+    search_results = batch_search_calendar_events(
+        service, calendars, appointments_df, reporter
+    )
 
     # Apply results and log missing events
     indices_to_drop = set()
@@ -205,10 +325,27 @@ def prepare_appointments_from_csv():
         else:
             name = re.sub(r"[\d\(\)]", "", appointment["NAME"]).strip()
             start_time = pd.to_datetime(appointment["STARTTIME"]).to_pydatetime()
-            # TODO: Send error email
+
+            raw_npi = appointment.get("NPI")
+
+            try:
+                npi_int = int(raw_npi) if pd.notna(raw_npi) else 0
+            except ValueError:
+                npi_int = 0
+
+            evaluator_name = npi_map.get(npi_int, f"Unknown NPI ({raw_npi})")
+
             logger.error(
-                f"Not found in any calendar: {name} (Client: {appointment['CLIENT_ID']}) "
-                f"at {start_time.strftime('%Y-%m-%d %H:%M')}"
+                f"Not found in any calendar: {name} ({appointment['CLIENT_ID']}) "
+                f"at {start_time.strftime('%m/%d %I:%M %p')} "
+                f"[Expected Evaluator: {evaluator_name}]"
+            )
+
+            reporter.log_missing_in_gcal(
+                name=name,
+                client_id=appointment["CLIENT_ID"],
+                start_time=start_time.strftime("%m/%d %I:%M %p"),
+                evaluator_name=evaluator_name,
             )
             indices_to_drop.add(idx)
 
@@ -222,10 +359,13 @@ def prepare_appointments_from_csv():
 
 def insert_appointments_with_gcal():
     """Sync appointments from CSV to database using Google Calendar for evaluator matching. Clears existing data first."""
+    email_for_errors = os.getenv("ERROR_EMAILS", "")
     clear_all_appointments_from_db()
 
+    reporter = SyncReporter()
+
     logger.info("Processing appointments from CSV and Google Calendar...")
-    appointments_df = prepare_appointments_from_csv()
+    appointments_df = prepare_appointments_from_csv(reporter)
 
     if appointments_df.empty:
         logger.warning("No appointments to insert.")
@@ -248,7 +388,7 @@ def insert_appointments_with_gcal():
 
         if evaluatorNpi is None:
             logger.error(f"NPI not found for calendar ID (email): {gcal_calendar_id}")
-            # TODO: send error
+            reporter.log_missing_npi(gcal_calendar_id)
             continue
 
         gcal_location, gcal_daeval = parse_location_and_type(gcal_event_title)
@@ -264,6 +404,8 @@ def insert_appointments_with_gcal():
             cancelled=cancelled,
             gcal_event_id=gcal_event_id,
         )
+
+    reporter.send_report(email_for_errors)
 
 
 def parse_location_and_type(title: str) -> Tuple[Optional[str], Optional[str]]:

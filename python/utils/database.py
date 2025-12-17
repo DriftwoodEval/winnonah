@@ -693,3 +693,18 @@ def get_all_evaluators_npi_map() -> Dict[str, int]:
     except Exception as e:
         logger.exception("Unexpected error while fetching evaluator NPI map")
         raise
+
+
+def get_npi_to_name_map() -> Dict[int, str]:
+    """Returns a dictionary mapping NPI (int) to Evaluator Name (str)."""
+    db_connection = get_db()
+    try:
+        with db_connection:
+            with db_connection.cursor() as cursor:
+                cursor.execute("SELECT npi, providerName FROM emr_evaluator")
+                results = cursor.fetchall()
+
+                return {row["npi"]: row["providerName"] for row in results}
+    except Exception:
+        logger.exception("Error fetching NPI to Name map")
+        return {}
