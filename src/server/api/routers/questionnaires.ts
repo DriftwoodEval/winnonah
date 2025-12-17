@@ -9,7 +9,9 @@ import {
   inArray,
   isNotNull,
   not,
+  or,
 } from "drizzle-orm";
+import { link } from "fs";
 import { z } from "zod";
 import { logger } from "~/lib/logger";
 import type { InsertingQuestionnaire } from "~/lib/types";
@@ -202,23 +204,49 @@ export const questionnaireRouter = createTRPCRouter({
         });
       }
 
+      const sentDate = input.sent ? new Date(input.sent.toUTCString()) : null;
+
       if (input.link !== undefined) {
         const linkSearch = await ctx.db.query.questionnaires.findFirst({
           where: eq(questionnaires.link, input.link),
         });
 
         if (linkSearch) {
-          const existingClient = await ctx.db.query.clients.findFirst({
-            where: eq(clients.id, linkSearch.clientId),
-          });
-          throw new TRPCError({
-            code: "CONFLICT",
-            message: `Questionnaire with link ${input.link} already exists for ${existingClient?.fullName}`,
-          });
+          // If link exists for DIFFERENT client -> CONFLICT
+          if (linkSearch.clientId !== input.clientId) {
+            const existingClient = await ctx.db.query.clients.findFirst({
+              where: eq(clients.id, linkSearch.clientId),
+            });
+            throw new TRPCError({
+              code: "CONFLICT",
+              message: `Questionnaire with link ${input.link} already exists for ${existingClient?.fullName}`,
+            });
+          }
+
+          if (linkSearch.clientId === input.clientId) {
+            if (linkSearch.status === "ARCHIVED") {
+              await ctx.db
+                .update(questionnaires)
+                .set({
+                  questionnaireType: input.questionnaireType,
+                  sent: sentDate,
+                  status: input.status,
+                  reminded: 0,
+                  lastReminded: null,
+                })
+                .where(eq(questionnaires.id, linkSearch.id));
+              return await ctx.db.query.questionnaires.findFirst({
+                where: eq(questionnaires.id, linkSearch.id),
+              });
+            } else {
+              throw new TRPCError({
+                code: "CONFLICT",
+                message: `Questionnaire with link ${input.link} already exists for this client.`,
+              });
+            }
+          }
         }
       }
-
-      const sentDate = input.sent ? new Date(input.sent.toUTCString()) : null;
 
       const result = await ctx.db.insert(questionnaires).values({
         clientId: input.clientId,
@@ -283,21 +311,22 @@ export const questionnaireRouter = createTRPCRouter({
       }
 
       const questionnairesToInsert: InsertingQuestionnaire[] = [];
-      const justAddedQuestionnaires =
-        await ctx.db.query.questionnaires.findMany({
+
+      const existingQuestionnaires = await ctx.db.query.questionnaires.findMany(
+        {
           where: and(
             eq(questionnaires.clientId, input.clientId),
-            eq(questionnaires.status, "JUST_ADDED")
+            or(
+              eq(questionnaires.status, "JUST_ADDED"),
+              eq(questionnaires.status, "ARCHIVED")
+            )
           ),
-          columns: {
-            id: true,
-            link: true,
-            questionnaireType: true,
-          },
-        });
+          columns: { id: true, link: true, questionnaireType: true },
+        }
+      );
 
       for (const newQuestionnaire of parsedQuestionnaires) {
-        const existingQuestionnaire = justAddedQuestionnaires.find(
+        const existingQuestionnaire = existingQuestionnaires.find(
           (q) =>
             q.questionnaireType === newQuestionnaire.questionnaireType &&
             q.link === newQuestionnaire.link
