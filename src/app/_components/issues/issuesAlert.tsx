@@ -39,9 +39,6 @@ export function IssuesAlert() {
 		queryOptions,
 	);
 
-	const { data: duplicateDriveIds } =
-		api.clients.getDuplicateDriveIdErrors.useQuery(undefined, queryOptions);
-
 	const { data: duplicateFolderNames } = api.google.findDuplicates.useQuery(
 		undefined,
 		queryOptions,
@@ -66,7 +63,6 @@ export function IssuesAlert() {
 		(dropList?.length ?? 0) +
 		(autismStops?.length ?? 0) +
 		(noteOnlyClients?.length ?? 0) +
-		(duplicateDriveIds?.length ?? 0) +
 		(duplicateFolderNames?.data.length ?? 0) +
 		(noDriveIds?.length ?? 0) +
 		(possiblePrivatePay?.length ?? 0) +

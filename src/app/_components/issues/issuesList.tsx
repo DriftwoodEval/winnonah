@@ -402,8 +402,6 @@ export function IssuesList() {
 		api.clients.getAutismStops.useQuery();
 	const { data: noteOnlyClients, isLoading: isLoadingNoteOnlyClients } =
 		api.clients.getNoteOnlyClients.useQuery();
-	const { data: duplicateDriveIds, isLoading: isLoadingDuplicateDriveIds } =
-		api.clients.getDuplicateDriveIdErrors.useQuery();
 	const { data: noDriveIds, isLoading: isLoadingNoDriveIds } =
 		api.clients.getNoDriveIdErrors.useQuery();
 	const {
@@ -479,12 +477,6 @@ export function IssuesList() {
 						clients={noteOnlyClients}
 						title="Notes Only"
 					/>
-				)}
-			{isLoadingDuplicateDriveIds && <IssueListSkeleton />}
-			{!isLoadingDuplicateDriveIds &&
-				duplicateDriveIds &&
-				duplicateDriveIds.length !== 0 && (
-					<IssueList clients={duplicateDriveIds} title="Duplicate Drive IDs" />
 				)}
 			{isLoadingNoDriveIds && <IssueListSkeleton />}
 			{!isLoadingNoDriveIds && noDriveIds && noDriveIds.length !== 0 && (

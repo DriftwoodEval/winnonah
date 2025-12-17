@@ -362,32 +362,6 @@ export const clientRouter = createTRPCRouter({
     return noteOnlyClients;
   }),
 
-  getDuplicateDriveIdErrors: protectedProcedure.query(async ({ ctx }) => {
-    const duplicateDriveIds = await ctx.db
-      .select({
-        driveId: clients.driveId,
-        count: count().as("count"),
-      })
-      .from(clients)
-      .where(and(isNotNull(clients.driveId), not(eq(clients.driveId, "N/A"))))
-      .groupBy(clients.driveId)
-      .having(gt(count(), 1));
-
-    const duplicateIds = duplicateDriveIds.map((row) => row.driveId);
-
-    if (duplicateIds.length === 0) {
-      return [];
-    }
-
-    const duplicateRecords = await ctx.db
-      .select()
-      .from(clients)
-      .where(sql`${clients.driveId} IN (${duplicateIds})`)
-      .orderBy(clients.addedDate);
-
-    return duplicateRecords;
-  }),
-
   getNoDriveIdErrors: protectedProcedure.query(async ({ ctx }) => {
     const noDriveId = await ctx.db.query.clients.findMany({
       where: isNull(clients.driveId),
