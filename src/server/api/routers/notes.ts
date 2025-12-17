@@ -107,6 +107,8 @@ export const noteRouter = createTRPCRouter({
         }
         log.info({ user: ctx.session.user.email }, "Updating note");
 
+        const HISTORY_MERGE_WINDOW = 5 * 60 * 1000; // 5 minutes
+
         await ctx.db.transaction(async (tx) => {
           const currentNote = await tx.query.notes.findFirst({
             where: eq(notes.clientId, input.clientId),
@@ -133,12 +135,27 @@ export const noteRouter = createTRPCRouter({
           const titleChanged = currentNote.title !== newTitle;
 
           if (contentChanged || titleChanged) {
-            await tx.insert(noteHistory).values({
-              noteId: currentNote.clientId,
-              content: currentNote.content,
-              title: currentNote.title,
-              updatedBy: currentNote.updatedBy,
-            });
+            const timeSinceLastUpdate = currentNote.updatedAt
+              ? new Date().getTime() - new Date(currentNote.updatedAt).getTime()
+              : Number.POSITIVE_INFINITY;
+
+            const isRecentEditBySameUser =
+              currentNote.updatedBy === ctx.session.user.email &&
+              timeSinceLastUpdate < HISTORY_MERGE_WINDOW;
+
+            if (!isRecentEditBySameUser) {
+              await tx.insert(noteHistory).values({
+                noteId: currentNote.clientId,
+                content: currentNote.content,
+                title: currentNote.title,
+                updatedBy: currentNote.updatedBy,
+              });
+            } else {
+              log.info(
+                { user: ctx.session.user.email },
+                "Skipping history log (squash edit)"
+              );
+            }
           } else {
             log.info(
               { user: ctx.session.user.email },
