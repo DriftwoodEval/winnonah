@@ -263,7 +263,7 @@ def get_clients() -> pd.DataFrame:
     clients_df = pd.merge(demo_df, insurance_df, "outer")
     clients_df = _normalize_names(clients_df)
     clients_df = _remove_test_names(clients_df, TEST_NAMES)
-    clients_df = _map_insurance_names(clients_df)
+    # clients_df = _map_insurance_names(clients_df)
     clients_df = _consolidate_by_id(clients_df)
     clients_df = _remove_invalid_clients(clients_df)
     clients_df = _combine_address_info(clients_df)

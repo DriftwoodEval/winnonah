@@ -100,8 +100,8 @@ export function ClientHeader({
 	if (isLoading || !client) {
 		return (
 			<div className="flex w-full flex-col gap-2">
-				<Skeleton className="h-[var(--text-2xl)] w-[18ch] rounded-md" />
-				<Skeleton className="h-[var(--text-base)] w-[8ch] rounded-md" />
+				<Skeleton className="h-(--text-2xl) w-[18ch] rounded-md" />
+				<Skeleton className="h-(--text-base) w-[8ch] rounded-md" />
 			</div>
 		);
 	}

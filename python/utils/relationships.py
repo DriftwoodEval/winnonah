@@ -1,8 +1,55 @@
+import re
 from datetime import datetime
 
 import pandas as pd
 
 from utils.misc import get_column
+
+RAW_INSURANCE_MAPPING = {
+    "Absolute Total Care - Medical": "ATC",
+    "Absolute Total Care": "ATC",
+    "Aetna Health, Inc.": "Aetna",
+    "All Savers Alternate Funding-UHC": "United_Optum",
+    "BabyNet (Combined DA and Eval)": "BabyNet",
+    "GEHA UnitedHealthcare Shared Services (UHSS)": "United_Optum",
+    "Healthy Blue South Carolina": "HB",
+    "Humana Behavioral Health (formerly LifeSynch)": "Humana",
+    "Marketplace (Molina) of South Carolina": "MolinaMarketplace",
+    "Medicaid South Carolina": "SCM",
+    "Meritain Health Aetna": "Aetna",
+    "Molina Healthcare of South Carolina": "Molina",
+    "Molina Marketplace of South Carolina": "MolinaMarketplace",
+    "Oxford-UHC": "United_Optum",
+    "Select Health of SC": "SH",
+    "Select Health of South Carolina": "SH",
+    "Select health sc": "SH",
+    "TriCare East": "Tricare",
+    "United Healthcare": "United_Optum",
+    "United Healthcare/OptumHealth / OptumHealth Behavioral Solutions": "United_Optum",
+}
+
+STANDARDIZED_MAPPING = {
+    "".join(key.lower().split()): value for key, value in RAW_INSURANCE_MAPPING.items()
+}
+
+
+def _normalize_insurance_name(name: str) -> str:
+    """Helper function to convert insurance names to a normalized, matchable format."""
+    if not isinstance(name, str):
+        return ""
+
+    if re.search(r"\(ATC\)", name, re.IGNORECASE):
+        name = "ATC"
+    elif re.search(r"\(UHC\)", name, re.IGNORECASE):
+        name = "United_Optum"
+
+    normalized_for_lookup = name.lower()
+    normalized_for_lookup = "".join(normalized_for_lookup.split())
+
+    if normalized_for_lookup in STANDARDIZED_MAPPING:
+        return STANDARDIZED_MAPPING[normalized_for_lookup]
+
+    return name
 
 
 def match_by_insurance(client: pd.Series, evaluators: dict):
@@ -33,27 +80,34 @@ def match_by_insurance(client: pd.Series, evaluators: dict):
     primary_insurance = get_column(client, "INSURANCE_COMPANYNAME")
     secondary_insurance = get_column(client, "SECONDARY_INSURANCE_COMPANYNAME")
 
-    insurances_to_check = [primary_insurance]
+    raw_insurances_to_check = [primary_insurance]
     if isinstance(secondary_insurance, str):
-        insurances_to_check.extend(
+        raw_insurances_to_check.extend(
             [name.strip() for name in secondary_insurance.split(",")]
         )
     elif isinstance(secondary_insurance, list):
-        insurances_to_check.extend(secondary_insurance)
+        raw_insurances_to_check.extend(secondary_insurance)
 
-    if "Ambetter (ATC)" in insurances_to_check:
-        insurances_to_check.remove("Ambetter (ATC)")
-        insurances_to_check.append("ATC")
+    standardized_client_insurances = set()
+    for raw_name in raw_insurances_to_check:
+        normalized_name = _normalize_insurance_name(raw_name)
+        if normalized_name:
+            standardized_client_insurances.add(normalized_name)
+
+    eligible_evaluator_npis = set()
 
     for npi, evaluator_data in evaluators.items():
-        evaluator_name = evaluator_data.get("providerName", "Unknown Evaluator")
-        # Check for matching insurance
-        for insurance in insurances_to_check:
-            # The client's insurance name should match a boolean column in the evaluator data
-            if isinstance(insurance, str) and evaluator_data.get(insurance, False):
-                # logger.debug(f"{evaluator_name} accepts {insurance}.")
-                eligible_evaluator_npis.add(npi)
-                break  # Break out of the inner loop once a match is found for this evaluator
+        # evaluator_name = evaluator_data.get("providerName", "Unknown Evaluator")
+        is_eligible = False
+        for insurance in standardized_client_insurances:
+            val = evaluator_data.get(insurance)
+
+            if val:
+                is_eligible = True
+                break
+
+        if is_eligible:
+            eligible_evaluator_npis.add(npi)
 
     return list(eligible_evaluator_npis)
 
