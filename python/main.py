@@ -249,31 +249,24 @@ def process_referrals():
 
 
 def main():
-    """Main entry point for the script.
-
-    This function is responsible for parsing the command line arguments and
-    running the appropriate function.
-
-    The available options are:
-
-    * --download-only: Only download the CSVs from TA and exit
-    * --openphone: Run the OpenPhone sync and exit
-    * --referrals: Run the Referrals process and exit
-    * --drive-ids: Run the Drive IDs process and exit
-    * --client-name: Process specific client(s) by name (case insensitive partial match)
-    * --client-id: Process specific client(s) by ID
-    * --force-all: Force all clients through geocoding process
-
-    If none of the above options are specified, the script will run the full
-    import_from_ta function normaly.
-
-    :return: None
-    """
+    """Main entry point for the script, parses the command line arguments and runs the appropriate functions."""
     parser = argparse.ArgumentParser()
-    parser.add_argument("--download-only", action="store_true")
-    parser.add_argument("--openphone", action="store_true")
-    parser.add_argument("--referrals", action="store_true")
-    parser.add_argument("--drive-ids", action="store_true")
+    parser.add_argument(
+        "--download-only", action="store_true", help="Download TA CSVs and exit"
+    )
+    parser.add_argument(
+        "--openphone",
+        action="store_true",
+        help="Download TA CSVs and sync OpenPhone data",
+    )
+    parser.add_argument(
+        "--referrals",
+        action="store_true",
+        help="Download TA CSVs and process referrals",
+    )
+    parser.add_argument(
+        "--drive-ids", action="store_true", help="Add client IDs to Google Drive"
+    )
     parser.add_argument(
         "--client-name",
         type=str,
@@ -289,7 +282,12 @@ def main():
 
     utils.config.validate_config()
 
-    if not os.getenv("DEV_TOGGLE"):
+    if (
+        not os.getenv("DEV_TOGGLE")
+        and not args.openphone
+        and not args.download_only
+        and not args.referrals
+    ):
         logger.debug("Removing temp directory")
         shutil.rmtree("temp", ignore_errors=True)
 
