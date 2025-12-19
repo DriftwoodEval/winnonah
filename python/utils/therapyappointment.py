@@ -3,7 +3,7 @@ import os
 import shutil
 import time
 from time import sleep
-from typing import Callable
+from typing import Callable, Dict
 
 import pandas as pd
 from loguru import logger
@@ -410,14 +410,26 @@ def save_ta_hashes():
     driver, actions = w.initialize_selenium()
     clients = utils.database.get_all_clients()
 
-    clients = clients[(clients["TA_HASH"].isna()) | (clients["TA_HASH"] == "NONE")]
+    clients_to_update = clients[
+        (clients["TA_HASH"].isna()) | (clients["TA_HASH"] == "NONE")
+    ]
 
-    for index, client in clients.iterrows():
+    hashes_to_update: Dict[str, str] = {}
+
+    for i, (_, client) in enumerate(clients_to_update.iterrows()):
         client_id = get_column(client, "CLIENT_ID")
         if not isinstance(client_id, (int, str)):
             continue
         client_id = str(client_id).strip()
         ta_hash = get_ta_hash(driver, actions, client_id)
-        clients.loc[index, "TA_HASH"] = ta_hash
+        if ta_hash:
+            hashes_to_update[client_id] = ta_hash
 
-    utils.database.put_clients_in_db(clients)
+        if (i + 1) % 10 == 0 and hashes_to_update:
+            logger.info(f"Saving a batch of {len(hashes_to_update)} TA hashes...")
+            utils.database.update_client_ta_hashes(hashes_to_update)
+            hashes_to_update = {}
+
+    if hashes_to_update:
+        logger.info(f"Saving the final batch of {len(hashes_to_update)} TA hashes...")
+        utils.database.update_client_ta_hashes(hashes_to_update)

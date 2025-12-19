@@ -300,6 +300,29 @@ def put_clients_in_db(clients_df):
     logger.info(f"Successfully inserted/updated {len(values_to_insert)} clients.")
 
 
+def update_client_ta_hashes(hashes_to_update: Dict[str, str]) -> None:
+    """Updates taHash for multiple clients in a single transaction."""
+    if not hashes_to_update:
+        return
+
+    db_connection = get_db()
+
+    updates_for_executemany = [(v, k) for k, v in hashes_to_update.items()]
+
+    with db_connection:
+        with db_connection.cursor() as cursor:
+            sql = "UPDATE emr_client SET taHash = %s WHERE id = %s"
+            try:
+                cursor.executemany(sql, updates_for_executemany)
+                db_connection.commit()
+                logger.info(
+                    f"Successfully updated taHash for {len(updates_for_executemany)} clients."
+                )
+            except Exception as e:
+                logger.error(f"Failed to update taHashes: {e}")
+                db_connection.rollback()
+
+
 def put_appointment_in_db(
     appointment_id: str,
     client_id: int,
