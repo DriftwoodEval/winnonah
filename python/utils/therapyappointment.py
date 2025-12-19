@@ -92,7 +92,7 @@ def _export_data(driver: WebDriver, npi: str):
                 1,
             )
             return True
-        except NoSuchElementException:
+        except (NoSuchElementException, TimeoutException):
             try:
                 logger.error(
                     f"Could not find {data_title} Re-Export button, has it never been started before?"
@@ -104,7 +104,7 @@ def _export_data(driver: WebDriver, npi: str):
                     1,
                 )
                 return True
-            except NoSuchElementException:
+            except (NoSuchElementException, TimeoutException):
                 logger.error(f"Could not find {data_title} Start button")
                 return False
 
@@ -148,7 +148,7 @@ def _download_data(driver: WebDriver, npi: str):
                     f"temp/downloads/clients-appointments_{npi}.csv",
                 )
             return True
-        except NoSuchElementException:
+        except (NoSuchElementException, TimeoutException):
             logger.error(f"Could not find {data_title} Download button")
             return False
 
@@ -211,7 +211,7 @@ def _loop_therapists(driver: WebDriver, func: Callable):
                 "//div[contains(text(), 'Individual (Type 1) NPI Number')]/following-sibling::div",
                 1,
             ).text.split()[0]
-        except NoSuchElementException:
+        except (NoSuchElementException, TimeoutException):
             logger.error("Could not find therapist NPI, skipping!")
             therapist_iterator += 1
             continue
