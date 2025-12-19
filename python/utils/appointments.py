@@ -2,7 +2,7 @@ import os
 import re
 from collections import defaultdict
 from datetime import datetime, timedelta
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Literal, Optional, Tuple
 
 import pandas as pd
 from dateutil import parser
@@ -17,6 +17,8 @@ from utils.database import (
     put_appointment_in_db,
 )
 from utils.google import google_authenticate, send_gmail
+
+DAEvalType = Literal["EVAL", "DA", "DAEVAL"]
 
 
 class SyncReporter:
@@ -317,6 +319,9 @@ def prepare_appointments_from_csv(reporter: SyncReporter):
     # Apply results and log missing events
     indices_to_drop = set()
     for idx, appointment in appointments_df.iterrows():
+        print(type(idx))
+        if not isinstance(idx, int):
+            continue
         result = search_results.get(idx)
         if result:
             appointments_df.at[idx, "gcal_event_id"] = result["event_id"]
@@ -408,7 +413,7 @@ def insert_appointments_with_gcal():
     reporter.send_report(email_for_errors)
 
 
-def parse_location_and_type(title: str) -> Tuple[Optional[str], Optional[str]]:
+def parse_location_and_type(title: str) -> Tuple[Optional[str], Optional[DAEvalType]]:
     """Extract location code and evaluation type from calendar title format [LOC-TYPE].
 
     Examples:
@@ -417,15 +422,24 @@ def parse_location_and_type(title: str) -> Tuple[Optional[str], Optional[str]]:
         "[V]" -> (None, "DA")
     """
     match = re.search(r"\[([A-Z]+)-([A-Z]+)\]", title)
+
+    evaluation_type_map: Dict[str, DAEvalType] = {
+        "E": "EVAL",
+        "D": "DA",
+        "DE": "DAEVAL",
+    }
+
     if match:
         location = match.group(1)
         if location == "COLUMBIA":
             location = "COL"
-        evaluation_type_map = {"E": "EVAL", "D": "DA", "DE": "DAEVAL"}
+
         return (
             location,
             evaluation_type_map.get(match.group(2)),
         )
+
     elif "[V]" in title:  # Virtual can only be DA
         return None, "DA"
+
     return None, None

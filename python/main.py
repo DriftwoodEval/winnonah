@@ -289,6 +289,8 @@ def main():
         and not args.openphone
         and not args.download_only
         and not args.referrals
+        and not args.drive_ids
+        and not args.save_ta_hashes
     ):
         logger.debug("Removing temp directory")
         shutil.rmtree("temp", ignore_errors=True)
