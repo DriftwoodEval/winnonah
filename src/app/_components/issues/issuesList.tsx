@@ -10,6 +10,7 @@ import type {
 	Client,
 	ClientWithIssueInfo,
 	DuplicateDriveGroup,
+	PunchClient,
 	SharedQuestionnaireData,
 } from "~/lib/types";
 import { api } from "~/trpc/react";
@@ -98,7 +99,7 @@ const IssueList = ({ title, clients, action }: IssueListProps) => {
 	return (
 		<div className="flex max-h-80">
 			<ScrollArea
-				className="w-full rounded-md border bg-card text-card-foreground shadow md:min-w-xs"
+				className="w-xs rounded-md border bg-card text-card-foreground shadow"
 				type="auto"
 			>
 				<div className="p-4">
@@ -193,6 +194,187 @@ const IssueList = ({ title, clients, action }: IssueListProps) => {
 	);
 };
 
+const PunchlistIssueList = ({
+	title,
+	clients,
+}: {
+	title: string;
+	clients: PunchClient[];
+}) => {
+	const utils = api.useUtils();
+	const savedClientRef = useRef<HTMLDivElement>(null);
+	const savedPlaceKey = title
+		.split(" ")
+		.map((word, index) =>
+			index === 0
+				? word.toLowerCase()
+				: word.replace(/^[a-z]/, (letter) => letter.toUpperCase()),
+		)
+		.join("");
+
+	const { data: savedPlaces } = api.users.getSavedPlaces.useQuery();
+	const savedPlaceData = savedPlaces?.[savedPlaceKey || ""];
+	const savedPlaceHash = savedPlaceData?.hash;
+	const savedPlaceIndex =
+		typeof savedPlaceData === "object" && savedPlaceData !== null
+			? savedPlaceData?.index
+			: undefined;
+
+	const { mutate: updateSavedPlaces } = api.users.updateSavedPlaces.useMutation(
+		{
+			onSuccess: () => {
+				utils.users.getSavedPlaces.invalidate();
+			},
+		},
+	);
+
+	const { mutate: deleteSavedPlace } = api.users.deleteSavedPlace.useMutation({
+		onSuccess: () => {
+			utils.users.getSavedPlaces.invalidate();
+		},
+	});
+
+	useEffect(() => {
+		if (!savedPlaceKey || !savedPlaceHash || clients.length === 0) return;
+
+		const savedClientIndex = clients.findIndex(
+			(client) => client["Client ID"] === savedPlaceHash,
+		);
+
+		if (savedClientIndex === -1) {
+			const fallbackIndex =
+				savedPlaceIndex !== undefined
+					? Math.min(savedPlaceIndex - 1, clients.length - 1)
+					: 0;
+
+			if (clients[fallbackIndex]) {
+				updateSavedPlaces({
+					key: savedPlaceKey,
+					hash: clients[fallbackIndex]?.["Client ID"] ?? "",
+					index: fallbackIndex,
+				});
+			}
+		}
+	}, [
+		clients,
+		savedPlaceKey,
+		savedPlaceHash,
+		savedPlaceIndex,
+		updateSavedPlaces,
+	]);
+
+	const isSavedClient = (clientId: string) => {
+		return savedPlaceKey && savedPlaceHash === clientId;
+	};
+
+	const scrollToSavedClient = () => {
+		if (savedClientRef.current) {
+			savedClientRef.current.scrollIntoView({
+				behavior: "smooth",
+			});
+		}
+	};
+
+	return (
+		<div className="flex max-h-80">
+			<ScrollArea
+				className="w-xs rounded-md border bg-card text-card-foreground shadow"
+				type="auto"
+			>
+				<div className="p-4">
+					<div className="flex items-center justify-between gap-4">
+						<h1 className="mb-4 font-bold text-lg leading-none">
+							{title}{" "}
+							<span className="font-medium text-muted-foreground text-sm">
+								({clients.length})
+							</span>
+						</h1>
+						<div className="mb-4 flex items-center gap-2">
+							{savedPlaceKey && savedPlaceHash && (
+								<Button
+									aria-label="Scroll to saved client"
+									className="font-medium text-muted-foreground text-xs"
+									onClick={scrollToSavedClient}
+									size="sm"
+									type="button"
+									variant="ghost"
+								>
+									<MapIcon className="h-3 w-3" />
+									<span className="hidden sm:block">Go to saved</span>
+								</Button>
+							)}
+						</div>
+					</div>
+					{clients.map((client, index) => (
+						<div
+							className="scroll-mt-12"
+							key={client["Client ID"]}
+							ref={
+								client["Client ID"] && isSavedClient(client["Client ID"])
+									? savedClientRef
+									: null
+							}
+						>
+							<div className="text-sm">
+								{client["Client Name"]}{" "}
+								<span className="text-muted-foreground">
+									(ID: {client["Client ID"]})
+								</span>
+							</div>
+							{client["Client ID"] && isSavedClient(client["Client ID"]) && (
+								<button
+									aria-label={`Remove ${client["Client Name"]} as saved client for ${title}`}
+									className="group relative flex w-full cursor-pointer items-center py-2"
+									onClick={() => {
+										if (savedPlaceKey) {
+											deleteSavedPlace({ key: savedPlaceKey });
+										}
+									}}
+									type="button"
+								>
+									<Separator className="my-2 flex-1 rounded bg-accent data-[orientation=horizontal]:h-1" />
+									<div className="-translate-x-1/2 -translate-y-1/2 pointer-events-none absolute top-1/2 right-0 z-10 rounded-full bg-accent px-2 py-1 opacity-0 transition-opacity duration-200 group-hover:opacity-100 group-focus:opacity-100">
+										<PinOff className="h-4 w-4" />
+									</div>
+								</button>
+							)}
+
+							{index < clients.length - 1 &&
+								savedPlaceKey &&
+								client["Client ID"] &&
+								!isSavedClient(client["Client ID"]) && (
+									<button
+										aria-label={`Set ${client["Client Name"]} as saved client for ${title}`}
+										className="group relative flex w-full cursor-pointer items-center py-2"
+										onClick={() => {
+											if (client["Client ID"]) {
+												updateSavedPlaces({
+													key: savedPlaceKey,
+													hash: client["Client ID"],
+													index,
+												});
+											}
+										}}
+										type="button"
+									>
+										<Separator className="flex-1" />
+										<div className="-translate-x-1/2 -translate-y-1/2 pointer-events-none absolute top-1/2 right-0 z-10 rounded-full bg-muted px-2 py-1 opacity-0 transition-opacity duration-200 group-hover:opacity-100 group-focus:opacity-100">
+											<Pin className="h-4 w-4" />
+										</div>
+									</button>
+								)}
+
+							{index < clients.length - 1 && !savedPlaceKey && (
+								<Separator className="my-2" />
+							)}
+						</div>
+					))}
+				</div>
+			</ScrollArea>
+		</div>
+	);
+};
+
 const IssueListSkeleton = () => (
 	<div className="flex max-h-80 w-80 animate-pulse">
 		<div className="w-full rounded-md border bg-card p-4 shadow">
@@ -234,7 +416,7 @@ const DuplicateDriveFoldersList = ({
 	return (
 		<div className="flex max-h-80">
 			<ScrollArea
-				className="w-full rounded-md border bg-card text-card-foreground shadow md:min-w-xs"
+				className="w-md rounded-md border bg-card text-card-foreground shadow"
 				type="auto"
 			>
 				<div className="flex flex-col p-4">
@@ -341,7 +523,7 @@ const ClientsSharingQuestionnaires = ({
 	return (
 		<div className="flex max-h-80">
 			<ScrollArea
-				className="w-full rounded-md border bg-card text-card-foreground shadow md:min-w-xs"
+				className="w-md rounded-md border bg-card text-card-foreground shadow"
 				type="auto"
 			>
 				<div className="p-4">
@@ -413,6 +595,12 @@ export function IssuesList() {
 		api.clients.getPossiblePrivatePay.useQuery();
 	const { data: duplicateQLinks, isLoading: isLoadingDuplicateQLinks } =
 		api.questionnaires.getDuplicateLinks.useQuery();
+	const { data: punchlistIssues, isLoading: isLoadingPunchlistIssues } =
+		api.google.verifyPunchClients.useQuery();
+	const {
+		data: missingFromPunchlist,
+		isLoading: isLoadingMissingFromPunchlist,
+	} = api.google.getMissingFromPunchlist.useQuery();
 
 	const clientsWithDuplicateLinks =
 		duplicateQLinks?.duplicatePerClient
@@ -436,6 +624,32 @@ export function IssuesList() {
 					<IssueList
 						clients={clientsWithoutDistrict}
 						title="Missing Districts"
+					/>
+				)}
+			{isLoadingPunchlistIssues && <IssueListSkeleton />}
+			{!isLoadingPunchlistIssues &&
+				punchlistIssues &&
+				punchlistIssues.clientsNotInDb.length > 0 && (
+					<PunchlistIssueList
+						clients={punchlistIssues.clientsNotInDb}
+						title="Punchlist Clients Not In DB"
+					/>
+				)}
+			{!isLoadingPunchlistIssues &&
+				punchlistIssues &&
+				punchlistIssues.inactiveClients.length > 0 && (
+					<IssueList
+						clients={punchlistIssues.inactiveClients}
+						title="Punchlist Clients Inactive"
+					/>
+				)}
+			{isLoadingMissingFromPunchlist && <IssueListSkeleton />}
+			{!isLoadingMissingFromPunchlist &&
+				missingFromPunchlist &&
+				missingFromPunchlist.length > 0 && (
+					<IssueList
+						clients={missingFromPunchlist}
+						title="Active Clients Not On Punchlist"
 					/>
 				)}
 			{isLoadingDistrictErrors && <IssueListSkeleton />}

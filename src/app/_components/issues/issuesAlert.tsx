@@ -57,6 +57,10 @@ export function IssuesAlert() {
 	const { data: duplicateQLinks } =
 		api.questionnaires.getDuplicateLinks.useQuery(undefined, queryOptions);
 
+	const { data: punchlistIssues } = api.google.verifyPunchClients.useQuery();
+	const { data: missingFromPunchlist } =
+		api.google.getMissingFromPunchlist.useQuery();
+
 	const errorsLength =
 		(districtErrors?.clientsWithoutDistrict.length ?? 0) +
 		(districtErrors?.clientsWithDistrictFromShapefile.length ?? 0) +
@@ -70,7 +74,10 @@ export function IssuesAlert() {
 		(dd4?.length ?? 0) +
 		(possiblePrivatePay?.length ?? 0) +
 		(duplicateQLinks?.duplicatePerClient.length ?? 0) +
-		(duplicateQLinks?.sharedAcrossClients.length ?? 0);
+		(duplicateQLinks?.sharedAcrossClients.length ?? 0) +
+		(punchlistIssues?.clientsNotInDb.length ?? 0) +
+		(punchlistIssues?.inactiveClients.length ?? 0) +
+		(missingFromPunchlist?.length ?? 0);
 
 	if (errorsLength === 0) {
 		return null;

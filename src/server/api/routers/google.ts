@@ -233,4 +233,49 @@ export const googleRouter = createTRPCRouter({
         );
       }
     }),
+
+  verifyPunchClients: protectedProcedure.query(async ({ ctx }) => {
+    if (!ctx.session.user.accessToken || !ctx.session.user.refreshToken) {
+      throw new Error("No access token or refresh token");
+    }
+
+    const punchData = await getPunchData(ctx.session);
+
+    const clientsNotInDb = punchData.filter(
+      (client) => typeof client.id !== "number"
+    );
+    const inactiveClients = punchData.filter(
+      (client) => typeof client.id === "number" && client.status === false
+    );
+
+    return { clientsNotInDb, inactiveClients };
+  }),
+
+  getMissingFromPunchlist: protectedProcedure.query(async ({ ctx }) => {
+    if (!ctx.session.user.accessToken || !ctx.session.user.refreshToken) {
+      throw new Error("No access token or refresh token");
+    }
+
+    const punchClients = await getPunchData(ctx.session);
+    const punchClientIds = new Set(
+      punchClients
+        .map((c) => c["Client ID"])
+        .filter(
+          (id): id is string => typeof id === "string" && id.trim() !== ""
+        )
+        .map((id) => parseInt(id, 10))
+        .filter((id) => !Number.isNaN(id))
+    );
+
+    const activeDbClients = await ctx.db
+      .select()
+      .from(clients)
+      .where(eq(clients.status, true));
+
+    const missingClients = activeDbClients.filter(
+      (client) => !punchClientIds.has(client.id)
+    );
+
+    return missingClients;
+  }),
 });
