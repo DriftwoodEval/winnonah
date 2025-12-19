@@ -83,33 +83,6 @@ def _remove_test_names(df: pd.DataFrame, test_names: list) -> pd.DataFrame:
     ]
 
 
-def _map_insurance_names(clients: pd.DataFrame) -> pd.DataFrame:
-    """Maps insurance company names to their corresponding internal names."""
-    logger.debug("Mapping insurance names")
-    insurance_mapping = {
-        "Molina Healthcare of South Carolina": "Molina",
-        "Molina Marketplace of South Carolina": "MolinaMarketplace",
-        "Marketplace (Molina) of South Carolina": "MolinaMarketplace",
-        "Humana Behavioral Health (formerly LifeSynch)": "Humana",
-        "Absolute Total Care - Medical": "ATC",
-        "Select Health of South Carolina": "SH",
-        "Healthy Blue South Carolina": "HB",
-        "BabyNet (Combined DA and Eval)": "BabyNet",
-        "Meritain Health Aetna": "Aetna",
-        "Aetna Health, Inc.": "Aetna",
-        "TriCare East": "Tricare",
-        "United Healthcare/OptumHealth / OptumHealth Behavioral Solutions": "United_Optum",
-        "United Healthcare": "United_Optum",
-        "All Savers Alternate Funding-UHC": "United_Optum",
-        "UMR (UHC)": "United_Optum",
-        "GEHA UnitedHealthcare Shared Services (UHSS)": "United_Optum",
-        "Oxford-UHC": "United_Optum",
-        "Surest Health Plan (UHC)": "United_Optum",
-        "Medicaid South Carolina": "SCM",
-    }
-    return clients.replace({"INSURANCE_COMPANYNAME": insurance_mapping})
-
-
 def _consolidate_by_id(clients: pd.DataFrame) -> pd.DataFrame:
     """Consolidates a DataFrame of clients by their IDs. It will group by client ID and merge the insurance company names into separate columns for primary and secondary insurance. For primary insurance, it gets the most recent policy that is currently active (in date). For secondary insurance, it gets all policies that are currently active."""
     logger.debug("Consolidating clients by ID")
@@ -263,7 +236,6 @@ def get_clients() -> pd.DataFrame:
     clients_df = pd.merge(demo_df, insurance_df, "outer")
     clients_df = _normalize_names(clients_df)
     clients_df = _remove_test_names(clients_df, TEST_NAMES)
-    # clients_df = _map_insurance_names(clients_df)
     clients_df = _consolidate_by_id(clients_df)
     clients_df = _remove_invalid_clients(clients_df)
     clients_df = _combine_address_info(clients_df)

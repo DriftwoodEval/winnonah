@@ -12,7 +12,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@ui/popover";
 import { Separator } from "@ui/separator";
 import { Skeleton } from "@ui/skeleton";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@ui/tooltip";
-import { CheckIcon } from "lucide-react";
+import { Armchair, CheckIcon } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
@@ -181,6 +181,16 @@ export function ClientHeader({
 									</ContextMenuItem>
 								</ContextMenuContent>
 							</ContextMenu>
+						)}
+						{((client.driveId && client.driveId === "N/A") ||
+							(!readOnly && client.id.toString().length !== 5)) &&
+							client.taHash && <Separator orientation="vertical" />}
+						{client.taHash && (
+							<Link
+								href={`https://api.portal.therapyappointment.com/n/client/${client.taHash}`}
+							>
+								<Armchair height="16" width="16" />
+							</Link>
 						)}
 					</div>
 				</div>

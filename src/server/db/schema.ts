@@ -208,6 +208,7 @@ export const clients = createTable(
     autismStop: d.boolean().notNull().default(false),
     eiAttends: d.boolean().notNull().default(false),
     flag: d.varchar({ length: 255 }),
+    taHash: d.varchar({ length: 255 }),
   }),
   (t) => [
     index("hash_idx").on(t.hash),
