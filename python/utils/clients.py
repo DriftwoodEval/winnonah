@@ -8,7 +8,7 @@ from nameparser import HumanName
 from pandas._libs.missing import NAType
 
 import utils.spreadsheets
-from utils.download_ta import download_csvs
+from utils.therapyappointment import download_csvs
 
 TEST_NAMES = [
     "Testman Testson",

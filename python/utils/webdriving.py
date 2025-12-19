@@ -6,22 +6,25 @@ from selenium import webdriver
 from selenium.common.exceptions import (
     NoSuchElementException,
     StaleElementReferenceException,
+    TimeoutException,
 )
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.action_chains import ActionChains
-from selenium.webdriver.common.by import By
-from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.remote.webdriver import WebDriver
 from selenium.webdriver.remote.webelement import WebElement
+from selenium.webdriver.support import expected_conditions as EC
+from selenium.webdriver.support.ui import WebDriverWait
 
 
 ### UTILS ###
 def initialize_selenium() -> tuple[WebDriver, ActionChains]:
+    """Initialize a Selenium WebDriver with the given options."""
     logger.info("Initializing Selenium")
     chrome_options: Options = Options()
     chrome_options.add_argument("--no-sandbox")
     if os.getenv("HEADLESS") == "true":
         chrome_options.add_argument("--headless")
+    # /dev/shm partition can be too small in VMs, causing Chrome to crash, make a temp dir instead
     chrome_options.add_argument("--disable-dev-shm-usage")
     chrome_options.add_experimental_option(
         "prefs",
@@ -44,77 +47,58 @@ def click_element(
     by: str,
     locator: str,
     max_attempts: int = 3,
-    delay: int = 1,
+    timeout: int = 5,
     refresh: bool = False,
 ) -> None:
+    """Click on a web element located by the specified method within the given attempts."""
     for attempt in range(max_attempts):
         try:
-            element = driver.find_element(by, locator)
+            element = find_element(
+                driver, by, locator, timeout, condition=EC.element_to_be_clickable
+            )
             element.click()
             return
-        except (StaleElementReferenceException, NoSuchElementException) as e:
-            logger.warning(f"Attempt {attempt + 1} failed: {type(e).__name__}.")
-            sleep(delay)
+        except StaleElementReferenceException:
+            f"Attempt {attempt + 1}/{max_attempts} failed: Stale element. Retrying..."
             if refresh:
                 logger.info("Refreshing page")
                 driver.refresh()
-            sleep(delay)
-    raise NoSuchElementException(f"Element not found after {max_attempts} attempts")
+                sleep(1)
+        except (NoSuchElementException, TimeoutException) as e:
+            if attempt == max_attempts - 1:
+                raise e
+            else:
+                logger.warning("Click element failed: trying again after 1s.")
+                sleep(1)
 
 
 def find_element(
-    driver: WebDriver, by: str, locator: str, max_attempts: int = 3, delay: int = 1
+    driver: WebDriver,
+    by: str,
+    locator: str,
+    timeout: int = 5,
+    condition=EC.presence_of_element_located,
 ) -> WebElement:
-    for attempt in range(max_attempts):
-        try:
-            element = driver.find_element(by, locator)
-            return element
-        except (StaleElementReferenceException, NoSuchElementException) as e:
-            logger.warning(
-                f"Attempt {attempt + 1} failed: {type(e).__name__}. Retrying..."
-            )
-            sleep(delay)
-    raise NoSuchElementException(f"Element not found after {max_attempts} attempts")
+    """Find a web element using an explicit wait."""
+    try:
+        element = WebDriverWait(driver, timeout).until(condition((by, locator)))
+        return element
+    except TimeoutException as e:
+        logger.warning(
+            f"Timeout ({timeout}s) waiting for element with {by}='{locator}'."
+        )
+        raise e
 
 
 def check_if_element_exists(
-    driver: WebDriver, by: str, locator: str, max_attempts: int = 3, delay: int = 1
+    driver: WebDriver,
+    by: str,
+    locator: str,
+    timeout: int = 5,
 ) -> bool:
-    for attempt in range(max_attempts):
-        try:
-            driver.find_element(by, locator)
-            return True
-        except (StaleElementReferenceException, NoSuchElementException) as e:
-            logger.warning(
-                f"Attempt {attempt + 1} failed: {type(e).__name__}. Retrying..."
-            )
-            sleep(delay)
-    logger.error(f"Failed to find element after {max_attempts} attempts")
-    return False
-
-
-### THERAPYAPPOINTMENT ###
-def login_ta(driver: WebDriver, actions: ActionChains) -> None:
-    logger.info("Logging in to TherapyAppointment")
-
-    logger.debug("Going to login page")
-    driver.get("https://portal.therapyappointment.com")
-
-    logger.debug("Entering username")
-    username_field = find_element(driver, By.NAME, "user_username")
-    ta_username = os.getenv("TA_USERNAME")
-    if ta_username is None:
-        raise ValueError("TA_USERNAME environment variable is not set")
-
-    username_field.send_keys(ta_username)
-
-    logger.debug("Entering password")
-    password_field = find_element(driver, By.NAME, "user_password")
-    ta_password = os.getenv("TA_PASSWORD")
-    if ta_password is None:
-        raise ValueError("TA_PASSWORD environment variable is not set")
-    password_field.send_keys(ta_password)
-
-    logger.debug("Submitting login form")
-    actions.send_keys(Keys.ENTER)
-    actions.perform()
+    """Check if a web element exists using an explicit wait."""
+    try:
+        find_element(driver, by, locator, timeout)
+        return True
+    except (NoSuchElementException, TimeoutException):
+        return False

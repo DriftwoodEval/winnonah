@@ -90,6 +90,7 @@ def match_by_insurance(client: pd.Series, evaluators: dict):
 
     standardized_client_insurances = set()
     for raw_name in raw_insurances_to_check:
+        raw_name = str(raw_name)
         normalized_name = _normalize_insurance_name(raw_name)
         if normalized_name:
             standardized_client_insurances.add(normalized_name)
@@ -168,7 +169,7 @@ def match_by_school_district(client: pd.Series, evaluators: dict):
     client_district_lower = client_school_district.lower().strip()
 
     for npi, evaluator_data in evaluators.items():
-        evaluator_name = evaluator_data.get("providerName", "Unknown Evaluator")
+        # evaluator_name = evaluator_data.get("providerName", "Unknown Evaluator")
         blocked_districts = evaluator_data.get("blockedSchoolDistricts", [])
         blocked_zips = evaluator_data.get("blockedZipCodes", [])
 

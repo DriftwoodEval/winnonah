@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import date, datetime
 from typing import Any, List, Union
 
 import pandas as pd
@@ -37,10 +37,10 @@ def get_full_name(firstname: Any, lastname: Any, preferred_name: Any) -> str:
     ).strip()
 
 
-def format_date(date_str: Union[str, Any, None]) -> str | None:
-    """Attempts to format a date string to 'YYYY-MM-DD'."""
-    if not isinstance(date_str, str) or not date_str:
-        return None
+def format_date(date_str: Union[str, date]) -> str | None:
+    """Attempts to format a date string or date to 'YYYY-MM-DD'."""
+    if isinstance(date_str, date):
+        return date_str.strftime("%Y-%m-%d")
     try:
         return datetime.strptime(date_str, "%m/%d/%Y").strftime("%Y-%m-%d")
     except ValueError:

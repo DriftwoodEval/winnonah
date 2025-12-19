@@ -12,11 +12,11 @@ import utils.appointments
 import utils.clients
 import utils.config
 import utils.database
-import utils.download_ta
 import utils.google
 import utils.location
 import utils.openphone
 import utils.spreadsheets
+import utils.therapyappointment
 
 logger.add("logs/winnonah-python.log", rotation="500 MB")
 load_dotenv()
@@ -268,6 +268,9 @@ def main():
         "--drive-ids", action="store_true", help="Add client IDs to Google Drive"
     )
     parser.add_argument(
+        "--save-ta-hashes", action="store_true", help="Save TA hashes to DB"
+    )
+    parser.add_argument(
         "--client-name",
         type=str,
         help="Process specific client(s) by name (partial match on first/last/preferred name)",
@@ -293,24 +296,29 @@ def main():
 
     if args.download_only:
         logger.info("Running download only")
-        utils.download_ta.download_csvs()
+        utils.therapyappointment.download_csvs()
         return
 
     if args.openphone:
         logger.info("Running OpenPhone sync")
-        utils.download_ta.download_csvs()
+        utils.therapyappointment.download_csvs()
         utils.openphone.sync_openphone()
         return
 
     if args.referrals:
         logger.info("Running Referrals process")
-        utils.download_ta.download_csvs()
+        utils.therapyappointment.download_csvs()
         process_referrals()
         return
 
     if args.drive_ids:
         logger.info("Running Drive IDs process")
         utils.google.add_client_ids_to_drive()
+        return
+
+    if args.save_ta_hashes:
+        logger.info("Saving TA hashes")
+        utils.therapyappointment.save_ta_hashes()
         return
 
     force_clients: Optional[pd.DataFrame] = None
@@ -345,10 +353,18 @@ def main():
                     )
 
     import_from_ta(clients=clients, force_clients=force_clients)
+
     try:
         process_referrals()
     except Exception as e:
         logger.error(f"Failed to process referrals: {e}")
+
+    try:
+        utils.therapyappointment.save_ta_hashes()
+    except Exception as e:
+        logger.error(f"Failed to save TA hashes: {e}")
+
+    # TODO: Prevent multiple folders matching the same client?
     # try:
     #     utils.google.add_client_ids_to_drive()
     # except Exception as e:

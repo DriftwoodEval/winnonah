@@ -1,6 +1,6 @@
 import hashlib
 import os
-from datetime import datetime
+from datetime import date, datetime
 from typing import Dict, Literal, Optional, Set
 from urllib.parse import urlparse
 
@@ -8,6 +8,7 @@ import pandas as pd
 import pymysql.cursors
 from dotenv import load_dotenv
 from loguru import logger
+from numpy import isin
 
 import utils.relationships
 from utils.misc import (
@@ -154,6 +155,7 @@ def get_all_clients() -> pd.DataFrame:
         "autismStop": "AUTISM_STOP",
         "eiAttends": "EI_ATTENDS",
         "flag": "FLAG",
+        "taHash": "TA_HASH",
     }
 
     df.rename(columns=column_mapping, inplace=True)
@@ -188,8 +190,19 @@ def put_clients_in_db(clients_df):
         preferred_name = get_column(client, "PREFERRED_NAME")
 
         full_name = get_full_name(firstname, lastname, preferred_name)
-        added_date_formatted = format_date(get_column(client, "ADDED_DATE"))
-        dob_formatted = format_date(get_column(client, "DOB")) or "1900-01-01"
+
+        added_date = get_column(client, "ADDED_DATE")
+        if not isinstance(added_date, (str, date)):
+            added_date_formatted = None
+        else:
+            added_date_formatted = format_date(added_date)
+
+        dob = get_column(client, "DOB")
+        if not isinstance(dob, (str, date)):
+            dob_formatted = "1900-01-01"
+        else:
+            dob_formatted = format_date(dob)
+
         gender = format_gender(get_column(client, "GENDER"))
         phone_number = format_phone_number(get_column(client, "PHONE1"))
         email = get_column(client, "EMAIL")
@@ -240,12 +253,13 @@ def put_clients_in_db(clients_df):
             phone_number,
             email,
             get_column(client, "FLAG"),
+            get_column(client, "TA_HASH"),
         )
         values_to_insert.append(values)
 
     sql = """
-        INSERT INTO `emr_client` (id, hash, status, addedDate, dob, firstName, lastName, preferredName, fullName, address, schoolDistrict, latitude, longitude, closestOffice, closestOfficeMiles, secondClosestOffice, secondClosestOfficeMiles, thirdClosestOffice, thirdClosestOfficeMiles, primaryInsurance, secondaryInsurance, precertExpires, privatePay, asdAdhd, interpreter, gender, phoneNumber, email, flag)
-        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+        INSERT INTO `emr_client` (id, hash, status, addedDate, dob, firstName, lastName, preferredName, fullName, address, schoolDistrict, latitude, longitude, closestOffice, closestOfficeMiles, secondClosestOffice, secondClosestOfficeMiles, thirdClosestOffice, thirdClosestOfficeMiles, primaryInsurance, secondaryInsurance, precertExpires, privatePay, asdAdhd, interpreter, gender, phoneNumber, email, flag, taHash)
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
         ON DUPLICATE KEY UPDATE
             hash = VALUES(hash),
             status = VALUES(status),
@@ -274,7 +288,8 @@ def put_clients_in_db(clients_df):
             gender = VALUES(gender),
             phoneNumber = VALUES(phoneNumber),
             email = VALUES(email),
-            flag = VALUES(flag);
+            flag = VALUES(flag),
+            taHash = VALUES(taHash);
     """
 
     with db_connection:

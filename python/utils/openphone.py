@@ -103,7 +103,7 @@ def _create_openphone_contacts(contacts_df: pd.DataFrame):
     success_count = 0
     error_count = 0
 
-    for index, row in tqdm(
+    for _, row in tqdm(
         contacts_df.iterrows(), total=len(contacts_df), desc="Creating Contacts"
     ):
         payload = {
