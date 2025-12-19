@@ -193,15 +193,8 @@ def make_referral_fax_folders(referrals: pd.DataFrame):
     """Make folders for referrals in the TO BE FAXED folder in Google Drive."""
     logger.debug("Making folders for referrals")
     ref_names = utils.spreadsheets.get_unique_values(referrals, "Referral Name")
-    # exceptions = {"MUSC", "DDSN", "SC", "NC", "DSS", "MP", "LLC", "CMC"}
     ref_data = []
     for ref_name in ref_names:
-        # cleaned_name = " ".join(
-        #     [
-        #         txt if any(x in exceptions for x in txt.split()) else txt.title()
-        #         for txt in ref_name.split()
-        #     ]
-        # )
         cleaned_name = re.sub(r"\([^)]*\)|[^a-zA-Z\s/.]", "", ref_name).strip()
         raw_fax_number = extract_digits(ref_name)
         fax_number = format_fax_number(raw_fax_number) if raw_fax_number else None
@@ -229,14 +222,20 @@ def make_referral_fax_folders(referrals: pd.DataFrame):
         if entry["raw_fax_number"] not in existing_referral_faxes
         and entry["cleaned_name"] != "No Referral Source"
     ]
-    if len(ref_data) == 0:
+    if not ref_data or len(ref_data) == 0:
         logger.debug("No new referral sources to create folders for")
         return
-    for ref in ref_data:
-        folder_name = ref["cleaned_name"] + " " + ref["fax_number"]
-        utils.google.create_folder_in_folder(folder_name, fax_folder_id)
 
-    logger.debug(f"Created {len(ref_data)} folders for referrals")
+    created_count = 0
+    for ref in ref_data:
+        parts = [ref["cleaned_name"], ref["fax_number"]]
+        folder_name = " ".join(part for part in parts if part)
+        if folder_name:
+            utils.google.create_folder_in_folder(folder_name, fax_folder_id)
+            created_count += 1
+
+    if created_count > 0:
+        logger.debug(f"Created {created_count} folders for referrals")
 
 
 def process_referrals():
