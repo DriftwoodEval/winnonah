@@ -49,6 +49,8 @@ export function IssuesAlert() {
 		queryOptions,
 	);
 
+	const { data: dd4 } = api.clients.getDD4.useQuery(undefined, queryOptions);
+
 	const { data: possiblePrivatePay } =
 		api.clients.getPossiblePrivatePay.useQuery(undefined, queryOptions);
 
@@ -65,6 +67,7 @@ export function IssuesAlert() {
 		(noteOnlyClients?.length ?? 0) +
 		(duplicateFolderNames?.data.length ?? 0) +
 		(noDriveIds?.length ?? 0) +
+		(dd4?.length ?? 0) +
 		(possiblePrivatePay?.length ?? 0) +
 		(duplicateQLinks?.duplicatePerClient.length ?? 0) +
 		(duplicateQLinks?.sharedAcrossClients.length ?? 0);

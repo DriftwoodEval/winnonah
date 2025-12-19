@@ -2,18 +2,18 @@
 
 import { Alert, AlertDescription, AlertTitle } from "@ui/alert";
 import { Skeleton } from "@ui/skeleton";
-import { Clock } from "lucide-react";
+import { Clock, FileText, MapPinOff } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import type { ClientColor } from "~/lib/colors";
 import { logger } from "~/lib/logger";
 import { getLocalDayFromUTCDate } from "~/lib/utils";
 import { api } from "~/trpc/react";
-import { AutismStopAlert } from "./AutismStopAlert";
 import { ClientDetailsCard } from "./ClientDetailsCard";
 import { ClientHeader } from "./ClientHeader";
 import { ClientNoteEditor } from "./ClientNoteEditor";
 import { EligibleEvaluatorsList } from "./EligibleEvaluatorsList";
+import { PersistentStatusAlert } from "./PersistentStatusAlert";
 import { QuestionnairesTable } from "./QuestionnairesTable";
 
 const log = logger.child({ module: "Client" });
@@ -82,7 +82,23 @@ export function Client({
 				<Skeleton className="h-96 w-full rounded-md sm:h-96" />
 			) : (
 				<div className="mb-6 flex w-full flex-col items-center gap-6">
-					<AutismStopAlert client={client} />
+					<PersistentStatusAlert
+						condition={!!client.autismStop}
+						description="Records suggest this client has already been identified. If this is incorrect, please let Andrew know."
+						icon={FileText}
+						identifier={client.hash}
+						slug="autism-stop"
+						title='"Autism" in Records'
+					/>
+
+					<PersistentStatusAlert
+						condition={client.schoolDistrict === "Dorchester School District 4"}
+						description="This client's address is in DD4. If this is incorrect, please edit the client's district."
+						icon={MapPinOff}
+						identifier={client.hash}
+						slug="dd4"
+						title="Dorchester District 4"
+					/>
 
 					{client.id.toString().length !== 5 && (
 						<ClientDetailsCard client={client} />

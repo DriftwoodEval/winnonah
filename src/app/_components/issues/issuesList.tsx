@@ -408,6 +408,7 @@ export function IssuesList() {
 		data: duplicateFolderNames,
 		isLoading: isLoadingDuplicateFolderNames,
 	} = api.google.findDuplicates.useQuery();
+	const { data: dd4, isLoading: isLoadingDD4 } = api.clients.getDD4.useQuery();
 	const { data: possiblePrivatePay, isLoading: isLoadingPossiblePrivatePay } =
 		api.clients.getPossiblePrivatePay.useQuery();
 	const { data: duplicateQLinks, isLoading: isLoadingDuplicateQLinks } =
@@ -424,6 +425,10 @@ export function IssuesList() {
 
 	return (
 		<div className="flex flex-wrap justify-center gap-10">
+			{isLoadingDD4 && <IssueListSkeleton />}
+			{!isLoadingDD4 && dd4 && dd4.length !== 0 && (
+				<IssueList clients={dd4} title="In DD4" />
+			)}
 			{isLoadingDistrictErrors && <IssueListSkeleton />}
 			{!isLoadingDistrictErrors &&
 				clientsWithoutDistrict &&

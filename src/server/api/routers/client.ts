@@ -4,12 +4,10 @@ import { TRPCError } from "@trpc/server";
 import { subMonths, subYears } from "date-fns";
 import {
   and,
-  count,
   eq,
   getTableColumns,
   gt,
   inArray,
-  isNotNull,
   isNull,
   like,
   lt,
@@ -371,6 +369,17 @@ export const clientRouter = createTRPCRouter({
     return noDriveId;
   }),
 
+  getDD4: protectedProcedure.query(async ({ ctx }) => {
+    const dd4 = await ctx.db.query.clients.findMany({
+      where: and(
+        eq(clients.schoolDistrict, "Dorchester School District 4"),
+        eq(clients.status, true)
+      ),
+      orderBy: clients.addedDate,
+    });
+    return dd4;
+  }),
+
   getPossiblePrivatePay: protectedProcedure.query(async ({ ctx }) => {
     const noPaymentMethodOrNoEligibleEvaluators = await ctx.db
       .select(getTableColumns(clients))
@@ -382,7 +391,8 @@ export const clientRouter = createTRPCRouter({
             and(
               isNull(clients.primaryInsurance),
               isNull(clients.secondaryInsurance),
-              eq(clients.privatePay, false)
+              eq(clients.privatePay, false),
+              not(eq(clients.schoolDistrict, "Dorchester School District 4")) // We can't work with anyone in DD4
             ),
             isNull(clientsEvaluators.clientId)
           ),
