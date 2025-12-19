@@ -72,7 +72,31 @@ export const authConfig = {
     verificationTokensTable: verificationTokens,
   }),
   callbacks: {
-    async signIn({ user }) {
+    async signIn({ user, account }) {
+      if (account?.provider === "google" && user.id) {
+        const existingAccount = await db.query.accounts.findFirst({
+          where: and(
+            eq(accounts.userId, user.id),
+            eq(accounts.provider, "google"),
+            eq(accounts.providerAccountId, account.providerAccountId)
+          ),
+        });
+
+        if (existingAccount && existingAccount.scope !== account.scope) {
+          await db
+            .update(accounts)
+            .set({
+              access_token: account.access_token,
+              refresh_token: account.refresh_token,
+              scope: account.scope,
+              expires_at: account.expires_at,
+              token_type: account.token_type,
+              id_token: account.id_token,
+            })
+            .where(eq(accounts.userId, existingAccount.userId));
+        }
+      }
+
       if (!user.email) return false;
 
       const existingUser = await db.query.users.findFirst({
