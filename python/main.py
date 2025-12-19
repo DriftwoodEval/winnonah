@@ -364,11 +364,10 @@ def main():
     except Exception as e:
         logger.error(f"Failed to save TA hashes: {e}")
 
-    # TODO: Prevent multiple folders matching the same client?
-    # try:
-    #     utils.google.add_client_ids_to_drive()
-    # except Exception as e:
-    #     logger.error(f"Failed to add client IDs to drive: {e}")
+    try:
+        utils.google.add_client_ids_to_drive()
+    except Exception as e:
+        logger.error(f"Failed to add client IDs to drive: {e}")
 
 
 if __name__ == "__main__":
