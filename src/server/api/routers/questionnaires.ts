@@ -11,7 +11,6 @@ import {
   not,
   or,
 } from "drizzle-orm";
-import { link } from "fs";
 import { z } from "zod";
 import { logger } from "~/lib/logger";
 import type { InsertingQuestionnaire } from "~/lib/types";
@@ -327,15 +326,14 @@ export const questionnaireRouter = createTRPCRouter({
 
       for (const newQuestionnaire of parsedQuestionnaires) {
         const existingQuestionnaire = existingQuestionnaires.find(
-          (q) =>
-            q.questionnaireType === newQuestionnaire.questionnaireType &&
-            q.link === newQuestionnaire.link
+          (q) => q.link === newQuestionnaire.link
         );
 
         if (existingQuestionnaire) {
           await ctx.db
             .update(questionnaires)
             .set({
+              questionnaireType: newQuestionnaire.questionnaireType,
               status: "PENDING",
               sent: new Date(),
               reminded: 0,
