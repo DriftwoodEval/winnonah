@@ -414,6 +414,8 @@ def save_ta_hashes():
         (clients["TA_HASH"].isna()) | (clients["TA_HASH"] == "NONE")
     ]
 
+    logger.info(f"{len(clients_to_update)} clients to search for TA hashes")
+
     hashes_to_update: Dict[str, str] = {}
 
     for i, (_, client) in enumerate(clients_to_update.iterrows()):
