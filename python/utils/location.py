@@ -1,4 +1,5 @@
 import os
+from functools import partial
 from typing import Callable, Literal, Optional, Tuple
 
 import geopandas as gpd
@@ -105,8 +106,9 @@ def _get_client_census_data(client: pd.Series) -> tuple[str, dict] | Literal["Un
 geopy.geocoders.options.default_timeout = 7
 geopy.geocoders.options.default_user_agent = "driftwood-winnonah"
 GEOLOCATOR = Nominatim()
+geocode_us = partial(GEOLOCATOR.geocode, country_codes="us")
 geocode: Callable[[str], Optional[Location]] = RateLimiter(
-    GEOLOCATOR.geocode, min_delay_seconds=2
+    geocode_us, min_delay_seconds=2
 )
 
 
