@@ -61,6 +61,7 @@ services:
       - OPENPHONE_NUMBER_ID=${OPENPHONE_NUMBER_ID}
       - FAX_FOLDER_ID=${FAX_FOLDER_ID}
       - BASE_FOLDER_ID=${BASE_FOLDER_ID}
+      - ERROR_EMAILS=${ERROR_EMAILS}
     volumes:
       - ./python/auth_cache:/app/auth_cache
       - ./python/temp:/app/temp

@@ -18,6 +18,7 @@ def validate_config() -> None:
         "OPENPHONE_API_TOKEN",
         "FAX_FOLDER_ID",
         "BASE_FOLDER_ID",
+        "ERROR_EMAILS",
     ]
 
     for variable in required_variables:
