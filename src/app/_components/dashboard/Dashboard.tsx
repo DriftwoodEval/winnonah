@@ -97,12 +97,12 @@ export function Dashboard() {
 			!/^(TRUE|[0-9]+\/[0-9]+)$/.test(client["DA Scheduled"] ?? ""),
 	);
 
-	const daScheduled = clients?.filter(
-		(client) =>
-			// Check if this date has passed
-			/^(TRUE|[0-9]+\/[0-9]+)$/.test(client["DA Scheduled"] ?? "") &&
-			client["PA Requested? (Aetna, ADHD,BabyNet, Molina, PP-N/A)"] === "FALSE",
-	);
+	// const daScheduled = clients?.filter(
+	// 	(client) =>
+	// 		// Check if this date has passed
+	// 		/^(TRUE|[0-9]+\/[0-9]+)$/.test(client["DA Scheduled"] ?? "") &&
+	// 		client["PA Requested? (Aetna, ADHD,BabyNet, Molina, PP-N/A)"] === "FALSE",
+	// );
 
 	// const paRequested = clients?.filter(
 	// 	(client) =>
@@ -146,7 +146,7 @@ export function Dashboard() {
 		daQsPending,
 		daQsSent,
 		daReadyToSchedule,
-		daScheduled,
+		// daScheduled,
 		// paRequested,
 		evalQsPending,
 		evalQsSent,
@@ -175,20 +175,20 @@ export function Dashboard() {
 
 	if (isLoading)
 		return (
-			<div className="mx-4 flex flex-grow items-center justify-center">
+			<div className="mx-4 flex grow items-center justify-center">
 				<Skeleton className="h-1/2 w-full bg-muted md:w-1/2" />
 			</div>
 		);
 
 	if (isError)
 		return (
-			<div className="mx-4 flex flex-grow items-center justify-center">
+			<div className="mx-4 flex grow items-center justify-center">
 				Error
 			</div>
 		);
 
 	return (
-		<div className="mx-4 flex flex-grow items-center justify-center">
+		<div className="mx-4 flex grow items-center justify-center">
 			<Accordion className="md:w-1/2" type="multiple">
 				<PunchListAccordionItem clients={justAdded ?? []} title="Just Added" />
 				<PunchListAccordionItem
@@ -212,10 +212,10 @@ export function Dashboard() {
 					clients={daReadyToSchedule ?? []}
 					title="DA Ready to Schedule"
 				/>
-				<PunchListAccordionItem
+				{/* <PunchListAccordionItem
 					clients={daScheduled ?? []}
 					title="DA Scheduled"
-				/>
+				/> */}
 				{/* <PunchListAccordionItem
           clients={paRequested ?? []}
           title="PA Requested"

@@ -154,6 +154,9 @@ export type PunchClient = {
   "Client ID": string | undefined;
   For: string | undefined;
   Language: string | undefined;
+  "Records Needed": string | undefined;
+  "Records Requested?": string | undefined;
+  "Records Reviewed?": string | undefined;
   "DA Qs Needed": string | undefined;
   "DA Qs Sent": string | undefined;
   "DA Qs Done": string | undefined;
@@ -162,12 +165,9 @@ export type PunchClient = {
   "EVAL Qs Sent": string | undefined;
   "EVAL Qs Done": string | undefined;
   "PA Assigned to": string | undefined;
-  "PA Requested? (Aetna, ADHD,BabyNet, Molina, PP-N/A)": string | undefined;
+  "PA Expiration": string | undefined;
   "Primary Payer": string | undefined;
   "Secondary Payer": string | undefined;
-  "Records Needed": string | undefined;
-  "Records Requested?": string | undefined;
-  "Records Reviewed?": string | undefined;
   "EVAL date": string | undefined;
   Location: string | undefined;
   Comments: string | undefined;
@@ -177,7 +177,7 @@ export type PunchClient = {
   Evaluator: string | undefined;
   "Assigned to OR added to report writing folder": string | undefined;
   "MCS Review Needed": string | undefined;
-  "AJP Review Done": string | undefined;
+  "AJP Review Done/Hold for payroll": string | undefined;
   "BRIDGES billed?": string | undefined;
   "Billed?": string | undefined;
   hash: string;
