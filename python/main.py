@@ -339,7 +339,9 @@ def main():
     clients: Optional[pd.DataFrame] = None
 
     if args.client_name or args.client_id or args.force_all:
-        clients = utils.clients.get_clients()
+        clients = utils.clients.get_clients(
+            not (args.client_name or args.client_id) and not args.force_all
+        )
 
         if args.force_all:
             logger.info("Force processing ALL clients")

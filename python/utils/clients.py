@@ -1,5 +1,6 @@
 import os
 import string
+from typing import Optional
 
 import numpy as np
 import pandas as pd
@@ -225,9 +226,9 @@ def _remove_invalid_clients(clients_df: pd.DataFrame) -> pd.DataFrame:
     return clients_df
 
 
-def get_clients() -> pd.DataFrame:
+def get_clients(should_download_csvs: Optional[bool] = True) -> pd.DataFrame:
     """Downloads CSVs from TherapyAppointment, cleans them, and returns a DataFrame of clients."""
-    if not os.getenv("DEV_TOGGLE"):
+    if not os.getenv("DEV_TOGGLE") and should_download_csvs:
         download_csvs()
     logger.debug("Getting clients from spreadsheets")
     insurance_df = utils.spreadsheets.open_local("temp/input/clients-insurance.csv")

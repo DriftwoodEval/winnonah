@@ -136,7 +136,7 @@ export const noteRouter = createTRPCRouter({
 
           if (contentChanged || titleChanged) {
             const timeSinceLastUpdate = currentNote.updatedAt
-              ? new Date().getTime() - new Date(currentNote.updatedAt).getTime()
+              ? Date.now() - new Date(currentNote.updatedAt).getTime()
               : Number.POSITIVE_INFINITY;
 
             const isRecentEditBySameUser =
