@@ -2,7 +2,7 @@ import argparse
 import os
 import re
 import shutil
-from typing import Callable, Optional, Union
+from typing import Callable, List, Optional, Union
 
 import pandas as pd
 from dotenv import load_dotenv
@@ -24,16 +24,16 @@ load_dotenv()
 
 def filter_clients_by_criteria(
     clients: pd.DataFrame,
-    name: Optional[str] = None,
-    client_id: Optional[Union[str, int]] = None,
+    names: Optional[List[str]] = None,
+    client_ids: Optional[List[Union[str, int]]] = None,
     criteria_func: Optional[Callable[[pd.Series], bool]] = None,
 ) -> pd.DataFrame | None:
     """Filter clients based on various criteria.
 
     Args:
         clients: DataFrame of all clients
-        name: Full or partial name to match (case insensitive)
-        client_id: Specific client ID to match
+        names: A list of full or partial names to match (case insensitive).
+        client_ids: A list of specific client IDs to match.
         criteria_func: Custom function that takes a DataFrame row and returns bool
 
     Returns:
@@ -41,29 +41,40 @@ def filter_clients_by_criteria(
     """
     filtered_clients = clients.copy()
 
-    if name:
-        name_match = (
-            filtered_clients["FIRSTNAME"].str.contains(name, case=False, na=False)
-            | filtered_clients["LASTNAME"].str.contains(name, case=False, na=False)
-            | (
-                filtered_clients["FIRSTNAME"].astype(str)
-                + " "
-                + filtered_clients["LASTNAME"].astype(str)
-            ).str.contains(name, case=False, na=False)
-        )
+    name_match = pd.Series(
+        [False] * len(filtered_clients), index=filtered_clients.index
+    )
+    id_match = pd.Series([False] * len(filtered_clients), index=filtered_clients.index)
 
-        if "PREFERRED_NAME" in filtered_clients.columns:
-            preferred_match = filtered_clients["PREFERRED_NAME"].str.contains(
-                name, case=False, na=False
+    if names:
+        for name in names:
+            if not name:
+                continue
+            current_match = (
+                filtered_clients["FIRSTNAME"].str.contains(name, case=False, na=False)
+                | filtered_clients["LASTNAME"].str.contains(name, case=False, na=False)
+                | (
+                    filtered_clients["FIRSTNAME"].astype(str)
+                    + " "
+                    + filtered_clients["LASTNAME"].astype(str)
+                ).str.contains(name, case=False, na=False)
             )
-            name_match = name_match | preferred_match
 
-        filtered_clients = filtered_clients[name_match]
+            if "PREFERRED_NAME" in filtered_clients.columns:
+                preferred_match = filtered_clients["PREFERRED_NAME"].str.contains(
+                    name, case=False, na=False
+                )
+                current_match = current_match | preferred_match
+            name_match = name_match | current_match
 
-    if client_id is not None:
-        filtered_clients = filtered_clients[
-            filtered_clients["CLIENT_ID"].astype(str) == str(client_id)
-        ]
+    if client_ids:
+        str_client_ids = [str(cid) for cid in client_ids if cid]
+        if str_client_ids:
+            id_match = filtered_clients["CLIENT_ID"].astype(str).isin(str_client_ids)
+
+    if names or client_ids:
+        combined_match = name_match | id_match
+        filtered_clients = filtered_clients[combined_match]
 
     if criteria_func:
         filtered_clients = filtered_clients[
@@ -291,6 +302,8 @@ def main():
         and not args.referrals
         and not args.drive_ids
         and not args.save_ta_hashes
+        and not args.client_name
+        and not args.client_id
     ):
         logger.debug("Removing temp directory")
         shutil.rmtree("temp", ignore_errors=True)
@@ -332,17 +345,28 @@ def main():
             logger.info("Force processing ALL clients")
             force_clients = clients
         elif args.client_name or args.client_id:
+            names_to_filter = []
+            if args.client_name is not None:
+                names_to_filter = [
+                    name.strip() for name in args.client_name.split(",") if name
+                ]
+
+            ids_to_filter = []
+            if args.client_id is not None:
+                ids_to_filter = [id.strip() for id in args.client_id.split(",") if id]
+
             force_clients = filter_clients_by_criteria(
-                clients, name=args.client_name, client_id=args.client_id
+                clients, names=names_to_filter, client_ids=ids_to_filter
             )
 
             if force_clients is None or force_clients.empty:
-                search_term = args.client_name or args.client_id
+                search_term = ", ".join(names_to_filter + ids_to_filter)
                 logger.warning(f"No clients found matching '{search_term}'")
                 return
             else:
-                logger.info(f"Found {len(force_clients)} client(s) matching criteria:")
-                # Log the matched clients
+                logger.info(
+                    f"Found {len(force_clients)} client{'' if len(force_clients) == 1 else 's'} matching criteria:"
+                )
                 for _, client in force_clients.iterrows():
                     full_name = f"{client.get('FIRSTNAME', '')} {client.get('LASTNAME', '')}".strip()
                     preferred_name = client.get("PREFERRED_NAME", "")
