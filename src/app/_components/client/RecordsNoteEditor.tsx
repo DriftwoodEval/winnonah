@@ -1,5 +1,6 @@
 import { RichTextEditor } from "@components/shared/RichTextEditor";
 import type { CheckedState } from "@radix-ui/react-checkbox";
+import { Button } from "@ui/button";
 import { Checkbox } from "@ui/checkbox";
 import { DatePicker } from "@ui/date-picker";
 import { Label } from "@ui/label";
@@ -7,12 +8,15 @@ import { Separator } from "@ui/separator";
 import { Skeleton } from "@ui/skeleton";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@ui/tooltip";
 import { debounce, isEqual } from "lodash";
+import { History } from "lucide-react";
 import { useSession } from "next-auth/react";
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { logger } from "~/lib/logger";
 import { getLocalDayFromUTCDate, hasPermission } from "~/lib/utils";
 import { api } from "~/trpc/react";
+import { NoteHistory } from "../shared/NoteHistory";
+import { ResponsiveDialog } from "../shared/ResponsiveDialog";
 
 const log = logger.child({ module: "RecordsNoteEditor" });
 
@@ -213,6 +217,12 @@ export function RecordsNoteEditor({
 		};
 	}, [debouncedSaveContent]);
 
+	const historyTrigger = (
+		<Button className="cursor-pointer rounded-full" size="icon" variant="ghost">
+			<History />
+		</Button>
+	);
+
 	const handleNeededChange = (checked: CheckedState) => {
 		const newCheckedState = checked === "indeterminate" ? false : checked;
 
@@ -315,97 +325,103 @@ export function RecordsNoteEditor({
 
 	return (
 		<div className="w-full">
-			<div className="mb-4 flex h-[16px] flex-row items-center gap-3">
-				<h4 className="font-bold leading-none">School Records</h4>
-
-				<Tooltip>
-					<TooltipTrigger>
-						<div className="flex items-center gap-2">
-							<Checkbox
-								checked={recordsNeeded}
-								disabled={!canEditRecordsNeeded}
-								id={recordsNeededId}
-								onCheckedChange={handleNeededChange}
-							/>
-							<Label htmlFor={recordsNeededId}>Needed</Label>
-						</div>
-					</TooltipTrigger>
-					{!canEditRecordsNeeded && !readOnly && (
-						<TooltipContent>
-							<p>{tooltipRecordsNeeded}</p>
-						</TooltipContent>
-					)}
-				</Tooltip>
-
-				<Separator orientation="vertical" />
-				<Tooltip>
-					<TooltipTrigger>
-						<DatePicker
-							allowClear={canEditFirstDate && !!firstRequestedDate}
-							date={firstRequestedDate}
-							disabled={!canEditFirstDate}
-							flexDirection="flex-row"
-							id={firstRequestedId}
-							label="Requested"
-							placeholder="Pick date"
-							setDate={handleFirstRequestedDateChange}
-						/>
-					</TooltipTrigger>
-					{!canEditFirstDate && !readOnly && (
-						<TooltipContent>
-							<p>{tooltipFirstDate}</p>
-						</TooltipContent>
-					)}
-				</Tooltip>
-
-				{!!firstRequestedDate && (
-					<>
-						<Separator orientation="vertical" />
-						<Tooltip>
-							<TooltipTrigger>
-								<div className="flex items-center gap-2">
-									<Checkbox
-										checked={needsSecondRequest}
-										disabled={!canEditSecondNeeded}
-										id={secondNeededId}
-										onCheckedChange={handleNeedsSecondRequestChange}
-									/>
-									<Label htmlFor={secondNeededId}>Request Again?</Label>
-								</div>
-							</TooltipTrigger>
-							{!canEditSecondNeeded && !readOnly && (
-								<TooltipContent>
-									<p>{tooltipSecondNeeded}</p>
-								</TooltipContent>
-							)}
-						</Tooltip>
-					</>
-				)}
-
-				{(needsSecondRequest || !!secondRequestDate) && (
-					<>
-						<Separator orientation="vertical" />
-						<Tooltip>
-							<TooltipTrigger>
-								<DatePicker
-									allowClear={canEditSecondDate && !!secondRequestDate}
-									date={secondRequestDate}
-									disabled={!canEditSecondDate}
-									flexDirection="flex-row"
-									id={secondRequestedId}
-									label="Requested (2nd)"
-									placeholder="Pick date"
-									setDate={handleSecondRequestedDateChange}
+			<div className="mb-4 flex h-[16px] flex-row items-center justify-between gap-3">
+				<div className="flex h-[16px] flex-row items-center gap-3">
+					<h4 className="font-bold leading-none">School Records</h4>
+					<Tooltip>
+						<TooltipTrigger>
+							<div className="flex items-center gap-2">
+								<Checkbox
+									checked={recordsNeeded}
+									disabled={!canEditRecordsNeeded}
+									id={recordsNeededId}
+									onCheckedChange={handleNeededChange}
 								/>
-							</TooltipTrigger>
-							{!canEditSecondDate && !readOnly && (
-								<TooltipContent>
-									<p>{tooltipSecondDate}</p>
-								</TooltipContent>
-							)}
-						</Tooltip>
-					</>
-				)}
+								<Label htmlFor={recordsNeededId}>Needed</Label>
+							</div>
+						</TooltipTrigger>
+						{!canEditRecordsNeeded && !readOnly && (
+							<TooltipContent>
+								<p>{tooltipRecordsNeeded}</p>
+							</TooltipContent>
+						)}
+					</Tooltip>
+					<Separator orientation="vertical" />
+					<Tooltip>
+						<TooltipTrigger>
+							<DatePicker
+								allowClear={canEditFirstDate && !!firstRequestedDate}
+								date={firstRequestedDate}
+								disabled={!canEditFirstDate}
+								flexDirection="flex-row"
+								id={firstRequestedId}
+								label="Requested"
+								placeholder="Pick date"
+								setDate={handleFirstRequestedDateChange}
+							/>
+						</TooltipTrigger>
+						{!canEditFirstDate && !readOnly && (
+							<TooltipContent>
+								<p>{tooltipFirstDate}</p>
+							</TooltipContent>
+						)}
+					</Tooltip>
+					{!!firstRequestedDate && (
+						<>
+							<Separator orientation="vertical" />
+							<Tooltip>
+								<TooltipTrigger>
+									<div className="flex items-center gap-2">
+										<Checkbox
+											checked={needsSecondRequest}
+											disabled={!canEditSecondNeeded}
+											id={secondNeededId}
+											onCheckedChange={handleNeedsSecondRequestChange}
+										/>
+										<Label htmlFor={secondNeededId}>Request Again?</Label>
+									</div>
+								</TooltipTrigger>
+								{!canEditSecondNeeded && !readOnly && (
+									<TooltipContent>
+										<p>{tooltipSecondNeeded}</p>
+									</TooltipContent>
+								)}
+							</Tooltip>
+						</>
+					)}
+					{(needsSecondRequest || !!secondRequestDate) && (
+						<>
+							<Separator orientation="vertical" />
+							<Tooltip>
+								<TooltipTrigger>
+									<DatePicker
+										allowClear={canEditSecondDate && !!secondRequestDate}
+										date={secondRequestDate}
+										disabled={!canEditSecondDate}
+										flexDirection="flex-row"
+										id={secondRequestedId}
+										label="Requested (2nd)"
+										placeholder="Pick date"
+										setDate={handleSecondRequestedDateChange}
+									/>
+								</TooltipTrigger>
+								{!canEditSecondDate && !readOnly && (
+									<TooltipContent>
+										<p>{tooltipSecondDate}</p>
+									</TooltipContent>
+								)}
+							</Tooltip>
+						</>
+					)}
+				</div>
+
+				<ResponsiveDialog
+					className="max-h-[calc(100vh-4rem)] max-w-fit overflow-x-hidden overflow-y-scroll sm:max-w-fit"
+					title="Note History"
+					trigger={historyTrigger}
+				>
+					<NoteHistory id={clientId} type="record" />
+				</ResponsiveDialog>
 			</div>
 			{isLoading ? (
 				<div className="flex flex-col gap-2">
