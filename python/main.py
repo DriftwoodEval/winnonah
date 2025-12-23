@@ -380,6 +380,8 @@ def main():
                     )
 
     import_from_ta(clients=clients, force_clients=force_clients)
+    if args.client_name or args.client_id or args.force_all:
+        return
 
     try:
         process_referrals()
