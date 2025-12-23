@@ -59,7 +59,7 @@ const DiffRenderer = ({ diffChanges }: { diffChanges: Change[] }) => {
 					<React.Fragment key={`${value}-truncated`}>
 						{leadingContext && (
 							<span
-								className={`${color} whitespace-pre-wrap break-words rounded px-0.5`}
+								className={`${color} wrap-break-word whitespace-pre-wrap rounded px-0.5`}
 							>
 								{leadingContext}
 							</span>
@@ -83,7 +83,7 @@ const DiffRenderer = ({ diffChanges }: { diffChanges: Change[] }) => {
 						{/* Trailing Context (if applicable) */}
 						{trailingContext && (
 							<span
-								className={`${color} whitespace-pre-wrap break-words rounded px-0.5`}
+								className={`${color} wrap-break-word whitespace-pre-wrap rounded px-0.5`}
 							>
 								{trailingContext}
 							</span>
@@ -94,7 +94,7 @@ const DiffRenderer = ({ diffChanges }: { diffChanges: Change[] }) => {
 				// Expanded: Show full text
 				elements.push(
 					<span
-						className={`${color} whitespace-pre-wrap break-words rounded px-0.5`}
+						className={`${color} wrap-break-word whitespace-pre-wrap rounded px-0.5`}
 						key={`${value}`}
 					>
 						{value}
@@ -105,7 +105,7 @@ const DiffRenderer = ({ diffChanges }: { diffChanges: Change[] }) => {
 			// Show full text for short unchanged parts or all changed parts
 			elements.push(
 				<span
-					className={`${color} whitespace-pre-wrap break-words rounded px-0.5`}
+					className={`${color} wrap-break-word whitespace-pre-wrap rounded px-0.5`}
 					key={`${value}`}
 				>
 					{value}
