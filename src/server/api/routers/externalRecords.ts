@@ -12,6 +12,14 @@ const log = logger.child({ module: "ExternalRecordsApi" });
 const externalRecordsEmitter = new EventEmitter();
 externalRecordsEmitter.setMaxListeners(100);
 
+// biome-ignore lint/suspicious/noExplicitAny: JSON
+const areContentsEqual = (current: any, incoming: any): boolean => {
+  if (current === undefined || incoming === undefined) {
+    return false; // Treat undefined as a change if the other is defined
+  }
+  return JSON.stringify(current) === JSON.stringify(incoming);
+};
+
 export const externalRecordRouter = createTRPCRouter({
   getExternalRecordByClientId: protectedProcedure
     .input(z.number())
@@ -63,6 +71,17 @@ export const externalRecordRouter = createTRPCRouter({
           .set({ requested: input.requested })
           .where(eq(externalRecords.clientId, input.clientId));
       }
+
+      const updatedNote = await ctx.db.query.externalRecords.findFirst({
+        where: eq(externalRecords.clientId, input.clientId),
+      });
+
+      if (updatedNote) {
+        externalRecordsEmitter.emit("externalRecordsNoteUpdate", {
+          clientId: updatedNote.clientId,
+          requested: updatedNote.requested,
+        });
+      }
     }),
 
   setNeedsSecondRequest: protectedProcedure
@@ -90,6 +109,17 @@ export const externalRecordRouter = createTRPCRouter({
         .update(externalRecords)
         .set({ needsSecondRequest: input.needsSecondRequest })
         .where(eq(externalRecords.clientId, input.clientId));
+
+      const updatedNote = await ctx.db.query.externalRecords.findFirst({
+        where: eq(externalRecords.clientId, input.clientId),
+      });
+
+      if (updatedNote) {
+        externalRecordsEmitter.emit("externalRecordsNoteUpdate", {
+          clientId: updatedNote.clientId,
+          needsSecondRequest: updatedNote.needsSecondRequest,
+        });
+      }
     }),
 
   setSecondRequestDate: protectedProcedure
@@ -118,6 +148,17 @@ export const externalRecordRouter = createTRPCRouter({
         .update(externalRecords)
         .set(updatePayload)
         .where(eq(externalRecords.clientId, input.clientId));
+
+      const updatedNote = await ctx.db.query.externalRecords.findFirst({
+        where: eq(externalRecords.clientId, input.clientId),
+      });
+
+      if (updatedNote) {
+        externalRecordsEmitter.emit("externalRecordsNoteUpdate", {
+          clientId: updatedNote.clientId,
+          secondRequestDate: updatedNote.secondRequestDate,
+        });
+      }
     }),
 
   onExternalRecordNoteUpdate: protectedProcedure
@@ -199,6 +240,8 @@ export const externalRecordRouter = createTRPCRouter({
           "Updating external records note"
         );
 
+        const HISTORY_MERGE_WINDOW = 5 * 60 * 1000; // 5 minutes
+
         await ctx.db.transaction(async (tx) => {
           const currentRecordNote = await tx.query.externalRecords.findFirst({
             where: eq(externalRecords.clientId, input.clientId),
@@ -211,12 +254,43 @@ export const externalRecordRouter = createTRPCRouter({
             });
           }
 
-          if (currentRecordNote.content !== null) {
-            await tx.insert(externalRecordHistory).values({
-              externalRecordId: currentRecordNote.clientId,
-              content: currentRecordNote.content,
-              updatedBy: currentRecordNote.updatedBy,
-            });
+          const newContent =
+            input.contentJson !== undefined
+              ? input.contentJson
+              : currentRecordNote.content;
+
+          const contentChanged = !areContentsEqual(
+            currentRecordNote.content,
+            newContent
+          );
+
+          if (contentChanged) {
+            const timeSinceLastUpdate = currentRecordNote.updatedAt
+              ? Date.now() - new Date(currentRecordNote.updatedAt).getTime()
+              : Number.POSITIVE_INFINITY;
+
+            const isRecentEditBySameUser =
+              currentRecordNote.updatedBy === ctx.session.user.email &&
+              timeSinceLastUpdate < HISTORY_MERGE_WINDOW;
+
+            if (!isRecentEditBySameUser && currentRecordNote.content !== null) {
+              await tx.insert(externalRecordHistory).values({
+                externalRecordId: currentRecordNote.clientId,
+                content: currentRecordNote.content,
+                updatedBy: currentRecordNote.updatedBy,
+              });
+            } else {
+              log.info(
+                { user: ctx.session.user.email },
+                "Skipping history log (squash edit)"
+              );
+            }
+          } else {
+            log.info(
+              { user: ctx.session.user.email },
+              "No changes detected in note"
+            );
+            return;
           }
 
           await tx
@@ -236,9 +310,6 @@ export const externalRecordRouter = createTRPCRouter({
           externalRecordsEmitter.emit("externalRecordsNoteUpdate", {
             clientId: updatedNote.clientId,
             contentJson: updatedNote.content,
-            requested: updatedNote.requested,
-            needsSecondRequest: updatedNote.needsSecondRequest,
-            secondRequestDate: updatedNote.secondRequestDate,
           });
         }
 
