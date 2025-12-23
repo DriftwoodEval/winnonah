@@ -54,12 +54,12 @@ export function ClientNoteEditor({
 		}
 	}, [note?.title]);
 
+	// biome-ignore lint/correctness/useExhaustiveDependencies: We exclude localContent from deps to avoid loops, we only care when note updates
 	useEffect(() => {
-        if (note?.contentJson && !isEqual(note.contentJson, localContent)) {
-            setLocalContent(note.contentJson);
-        }
-        // We exclude localContent from deps to avoid loops, we only care when note updates
-    }, [note?.contentJson]);
+		if (note?.contentJson && !isEqual(note.contentJson, localContent)) {
+			setLocalContent(note.contentJson);
+		}
+	}, [note?.contentJson]);
 
 	const updateNoteMutation = api.notes.updateNote.useMutation({
 		onError: (error) => {
@@ -196,9 +196,9 @@ export function ClientNoteEditor({
 					/>
 					<RichTextEditor
 						onChange={(content) => {
-                            setLocalContent(content);
-                            debouncedSaveContent(content);
-                        }}
+							setLocalContent(content);
+							debouncedSaveContent(content);
+						}}
 						placeholder="Start typing client notes..."
 						readonly={!canNote || readOnly}
 						value={localContent}
