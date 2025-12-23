@@ -4,6 +4,13 @@ import { Button } from "@ui/button";
 import { Checkbox } from "@ui/checkbox";
 import { DatePicker } from "@ui/date-picker";
 import { Label } from "@ui/label";
+import {
+	Select,
+	SelectContent,
+	SelectItem,
+	SelectTrigger,
+	SelectValue,
+} from "@ui/select";
 import { Separator } from "@ui/separator";
 import { Skeleton } from "@ui/skeleton";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@ui/tooltip";
@@ -19,6 +26,55 @@ import { NoteHistory } from "../shared/NoteHistory";
 import { ResponsiveDialog } from "../shared/ResponsiveDialog";
 
 const log = logger.child({ module: "RecordsNoteEditor" });
+
+// biome-ignore lint/suspicious/noExplicitAny: JSON
+const extractTextFromTiptapJson = (tiptapJson: any): string => {
+	if (
+		!tiptapJson ||
+		typeof tiptapJson !== "object" ||
+		!Array.isArray(tiptapJson.content)
+	) {
+		return "";
+	}
+
+	let fullText = "";
+
+	// biome-ignore lint/suspicious/noExplicitAny: JSON
+	const traverse = (node: any) => {
+		if (node.type === "text" && node.text) {
+			fullText += node.text;
+		}
+		if (node.content && Array.isArray(node.content)) {
+			node.content.forEach(traverse);
+		}
+	};
+
+	tiptapJson.content.forEach(traverse);
+	return fullText;
+};
+
+const noteTemplates = [
+	{
+		value: "district-dx",
+		label: "District - DX",
+		text: "Testing has been done by the school district and a diagnosis has been given.",
+	},
+	{
+		value: "district-no-dx",
+		label: "District - No DX",
+		text: "Testing has been done by the school district and no diagnosis has been given.",
+	},
+	{
+		value: "outside-dx",
+		label: "Outside - DX",
+		text: "Testing has been done by an outside medical provider and a diagnosis has been given.",
+	},
+	{
+		value: "outside-no-dx",
+		label: "Outside - No DX",
+		text: "Testing has been done by an outside medical provider and no diagnosis has been given.",
+	},
+];
 
 interface RecordsNoteEditorProps {
 	clientId: number;
@@ -282,6 +338,65 @@ export function RecordsNoteEditor({
 		});
 	};
 
+	const handleTemplateChange = (value: string) => {
+		const template = noteTemplates.find((t) => t.value === value);
+		if (!template) return;
+
+		const templateText = template.text;
+
+		const newParagraph = {
+			type: "paragraph",
+			content: [{ type: "text", text: templateText }],
+		};
+
+		const currentContent = localContent || { type: "doc", content: [] };
+
+		// biome-ignore lint/suspicious/noExplicitAny: JSON/TipTap
+		let newDoc: any;
+
+		if (
+			currentContent &&
+			typeof currentContent === "object" &&
+			"content" in currentContent &&
+			Array.isArray(currentContent.content)
+		) {
+			const contentArray = currentContent.content;
+			const firstNode = contentArray[0];
+
+			const isEffectivelyEmpty =
+				contentArray.length === 0 ||
+				(contentArray.length === 1 &&
+					firstNode.type === "paragraph" &&
+					(!firstNode.content || firstNode.content.length === 0));
+
+			if (isEffectivelyEmpty) {
+				newDoc = {
+					...currentContent,
+					content: [newParagraph, { type: "paragraph", content: [] }],
+				};
+			} else {
+				newDoc = {
+					...currentContent,
+					content: [
+						newParagraph,
+						{ type: "paragraph", content: [] },
+						...contentArray,
+					],
+				};
+			}
+		} else {
+			// This case handles if localContent is "" or some unexpected format.
+			// We just create a new document with the template.
+			newDoc = {
+				type: "doc",
+				content: [newParagraph],
+			};
+		}
+
+		setLocalContent(newDoc);
+		debouncedSaveContent(newDoc);
+	};
+
 	const isLoading = isLoadingRecord || isLoadingClient;
 	const canEditRecordsNeeded =
 		canRecordsNeeded && !readOnly && !firstRequestedDate;
@@ -322,6 +437,27 @@ export function RecordsNoteEditor({
 	const secondRequestedId = useId();
 
 	const editorKey = `${isEditorReadOnly}-${clientId}`;
+
+	const isTemplateUsed = useMemo(() => {
+		// Guard against non-objects or null
+		if (typeof localContent !== "object" || localContent === null) {
+			return false;
+		}
+
+		// Guard against object not having 'content' property.
+		if (!("content" in localContent)) {
+			return false;
+		}
+
+		const content = (localContent as { content: unknown }).content;
+
+		if (!Array.isArray(content)) {
+			return false;
+		}
+
+		const editorText = extractTextFromTiptapJson(localContent);
+		return noteTemplates.some((template) => editorText.includes(template.text));
+	}, [localContent]);
 
 	return (
 		<div className="w-full">
@@ -415,13 +551,31 @@ export function RecordsNoteEditor({
 					)}
 				</div>
 
-				<ResponsiveDialog
-					className="max-h-[calc(100vh-4rem)] max-w-fit overflow-x-hidden overflow-y-scroll sm:max-w-fit"
-					title="Note History"
-					trigger={historyTrigger}
-				>
-					<NoteHistory id={clientId} type="record" />
-				</ResponsiveDialog>
+				<div className="flex flex-row items-center gap-3">
+					<Select
+						disabled={isEditorReadOnly || isTemplateUsed}
+						onValueChange={handleTemplateChange}
+					>
+						<SelectTrigger className="w-[240px]" size="sm">
+							<SelectValue placeholder="Use a template..." />
+						</SelectTrigger>
+						<SelectContent>
+							{noteTemplates.map((template) => (
+								<SelectItem key={template.value} value={template.value}>
+									{template.label}
+								</SelectItem>
+							))}
+						</SelectContent>
+					</Select>
+
+					<ResponsiveDialog
+						className="max-h-[calc(100vh-4rem)] max-w-fit overflow-x-hidden overflow-y-scroll sm:max-w-fit"
+						title="Note History"
+						trigger={historyTrigger}
+					>
+						<NoteHistory id={clientId} type="record" />
+					</ResponsiveDialog>
+				</div>
 			</div>
 			{isLoading ? (
 				<div className="flex flex-col gap-2">
