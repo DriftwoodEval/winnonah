@@ -6,7 +6,7 @@ import { Label } from "@ui/label";
 import { Separator } from "@ui/separator";
 import { Skeleton } from "@ui/skeleton";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@ui/tooltip";
-import { debounce } from "lodash";
+import { debounce, isEqual } from "lodash";
 import { useSession } from "next-auth/react";
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
@@ -39,13 +39,27 @@ export function RecordsNoteEditor({
 		api.externalRecords.getExternalRecordByClientId.useQuery(clientId, {
 			enabled: !!clientId,
 		});
-
 	api.externalRecords.onExternalRecordNoteUpdate.useSubscription(clientId, {
 		enabled: !!clientId,
 		onData: (updatedExternalRecordsNote) => {
+			log.info(
+				{
+					clientId,
+					updatedExternalRecordsNote,
+				},
+				"External record note updated",
+			);
 			utils.externalRecords.getExternalRecordByClientId.setData(
 				clientId,
-				updatedExternalRecordsNote,
+				(oldData) => {
+					if (!oldData) {
+						return updatedExternalRecordsNote;
+					}
+					return {
+						...oldData,
+						...updatedExternalRecordsNote,
+					};
+				},
 			);
 		},
 	});
@@ -64,11 +78,12 @@ export function RecordsNoteEditor({
 	const [recordsNeeded, setRecordsNeeded] = useState(false);
 	const [firstRequestedDate, setFirstRequestedDate] = useState<
 		Date | undefined
-	>(getLocalDayFromUTCDate(record?.requested) ?? undefined);
+	>();
 	const [needsSecondRequest, setNeedsSecondRequest] = useState(false);
-	const [secondRequestDate, setSecondRequestDate] = useState<Date | undefined>(
-		getLocalDayFromUTCDate(record?.secondRequestDate) ?? undefined,
-	);
+	const [secondRequestDate, setSecondRequestDate] = useState<
+		Date | undefined
+	>();
+	const [localContent, setLocalContent] = useState(record?.contentJson ?? "");
 
 	useEffect(() => {
 		setRecordsNeeded(client?.recordsNeeded ?? false);
@@ -87,6 +102,13 @@ export function RecordsNoteEditor({
 		record?.needsSecondRequest,
 		record?.secondRequestDate,
 	]);
+
+	// biome-ignore lint/correctness/useExhaustiveDependencies: We exclude localContent from deps to avoid loops, we only care when note updates
+	useEffect(() => {
+		if (record?.contentJson && !isEqual(record.contentJson, localContent)) {
+			setLocalContent(record.contentJson);
+		}
+	}, [record?.contentJson]);
 
 	const handleError = (error: unknown, action: string) => {
 		const message = error instanceof Error ? error.message : "Unknown error";
@@ -396,13 +418,16 @@ export function RecordsNoteEditor({
 					<RichTextEditor
 						formatBar={false}
 						key={editorKey}
-						onChange={debouncedSaveContent}
+						onChange={(content) => {
+							setLocalContent(content);
+							debouncedSaveContent(content);
+						}}
 						placeholder="Entering data into this box will mark records as received..."
 						readonly={isEditorReadOnly}
 						value={
-							!record?.contentJson && isEditorReadOnly
+							!localContent && isEditorReadOnly
 								? "Records summary cannot be added until a request is made."
-								: (record?.contentJson ?? "")
+								: localContent
 						}
 					/>
 				</div>

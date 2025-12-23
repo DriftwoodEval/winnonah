@@ -87,14 +87,18 @@ export function formatPhoneNumber(phoneNumber: string) {
 }
 
 export const getLocalDayFromUTCDate = (
-	utcDate: Date | undefined | null,
+	utcDate: Date | string | undefined | null,
 ): Date | undefined => {
 	if (!utcDate) return undefined;
-	return new Date(
-		utcDate.getUTCFullYear(),
-		utcDate.getUTCMonth(),
-		utcDate.getUTCDate(),
-	);
+
+	const d = new Date(utcDate);
+
+	// Check if d is a valid date
+	if (Number.isNaN(d.getTime())) {
+		return undefined;
+	}
+
+	return new Date(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate());
 };
 
 export const getDistanceSQL = (
