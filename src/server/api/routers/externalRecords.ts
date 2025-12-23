@@ -1,11 +1,15 @@
 import EventEmitter from "node:events";
 import { TRPCError } from "@trpc/server";
-import { eq } from "drizzle-orm";
+import { desc, eq } from "drizzle-orm";
 import { z } from "zod";
 import { logger } from "~/lib/logger";
 import { hasPermission } from "~/lib/utils";
 import { createTRPCRouter, protectedProcedure } from "~/server/api/trpc";
-import { externalRecordHistory, externalRecords } from "~/server/db/schema";
+import {
+  externalRecordHistory,
+  externalRecords,
+  users,
+} from "~/server/db/schema";
 
 const log = logger.child({ module: "ExternalRecordsApi" });
 
@@ -376,5 +380,47 @@ export const externalRecordRouter = createTRPCRouter({
       });
 
       return newRecordNote;
+    }),
+
+  getHistory: protectedProcedure
+    .input(z.object({ noteId: z.number() }))
+    .query(async ({ ctx, input }) => {
+      const history = await ctx.db
+        .select({
+          id: externalRecordHistory.id,
+          content: externalRecordHistory.content,
+          updatedBy: externalRecordHistory.updatedBy,
+          createdAt: externalRecordHistory.createdAt,
+          updatedByName: users.name,
+          updatedByImage: users.image,
+        })
+        .from(externalRecordHistory)
+        .leftJoin(users, eq(externalRecordHistory.updatedBy, users.email))
+        .where(eq(externalRecordHistory.externalRecordId, input.noteId))
+        .orderBy(desc(externalRecordHistory.createdAt));
+
+      const current = await ctx.db
+        .select({
+          id: externalRecords.clientId,
+          content: externalRecords.content,
+          updatedBy: externalRecords.updatedBy,
+          createdAt: externalRecords.updatedAt,
+          updatedByName: users.name,
+          updatedByImage: users.image,
+        })
+        .from(externalRecords)
+        .leftJoin(users, eq(externalRecords.updatedBy, users.email))
+        .where(eq(externalRecords.clientId, input.noteId))
+        .limit(1);
+
+      if (!current[0]) return [];
+
+      const currentVersion = {
+        ...current[0],
+        id: -1,
+        isCurrent: true,
+      };
+
+      return [currentVersion, ...history];
     }),
 });

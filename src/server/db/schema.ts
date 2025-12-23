@@ -357,7 +357,6 @@ export const externalRecordHistory = createTable(
 		id: d.int().notNull().autoincrement().primaryKey(),
 		externalRecordId: d.int().notNull(),
 		content: d.json("content").notNull(),
-		title: d.text(),
 		updatedBy: d.varchar("updated_by", { length: 255 }),
 		createdAt: d
 			.timestamp("created_at")

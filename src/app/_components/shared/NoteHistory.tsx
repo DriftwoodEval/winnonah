@@ -143,10 +143,34 @@ const DiffRenderer = ({ diffChanges }: { diffChanges: Change[] }) => {
 	return <>{elements}</>;
 };
 
-export function NoteHistory({ noteId }: { noteId: number }) {
-	const { data: history, isLoading } = api.notes.getHistory.useQuery({
-		noteId,
-	});
+export function NoteHistory({
+	id,
+	type,
+}: {
+	id: number;
+	type: "note" | "record";
+}) {
+	const { data: noteHistory, isLoading: isNoteHistoryLoading } =
+		api.notes.getHistory.useQuery(
+			{
+				noteId: id,
+			},
+			{ enabled: type === "note" },
+		);
+
+	const { data: recordHistory, isLoading: isRecordHistoryLoading } =
+		api.externalRecords.getHistory.useQuery(
+			{
+				noteId: id,
+			},
+			{ enabled: type === "record" },
+		);
+
+	const history = (type === "note" ? noteHistory : recordHistory) as
+		| typeof noteHistory
+		| typeof recordHistory;
+	const isLoading =
+		type === "note" ? isNoteHistoryLoading : isRecordHistoryLoading;
 
 	if (isLoading)
 		return (
@@ -157,22 +181,19 @@ export function NoteHistory({ noteId }: { noteId: number }) {
 		?.map((version, index) => {
 			const previousVersion = history[index + 1];
 
-			// If this is the oldest history item and it's not the current version (meaning we have nothing to compare it to),
-			// we can skip it, but we keep the current version to show the latest state.
 			if (!previousVersion && index !== history.length - 1) return null;
 
-			const currentTitleText = version.title || "";
-			const previousTitleText = previousVersion
-				? previousVersion.title || ""
-				: "";
-
-			const titleDiffChanges = calculateDiff(
-				previousTitleText,
-				currentTitleText,
-			);
-			const hasTitleChanges = titleDiffChanges.some(
-				(p) => p.added || p.removed,
-			);
+			let titleDiffChanges: Change[] = [];
+			let hasTitleChanges = false;
+			if (type === "note") {
+				const currentTitleText =
+					(version as NonNullable<typeof noteHistory>[number]).title || "";
+				const previousTitleText =
+					(previousVersion as NonNullable<typeof noteHistory>[number])?.title ||
+					"";
+				titleDiffChanges = calculateDiff(previousTitleText, currentTitleText);
+				hasTitleChanges = titleDiffChanges.some((p) => p.added || p.removed);
+			}
 
 			const currentContentText = extractTextFromTipTap(
 				version.content as JSONContent | null | undefined,
@@ -231,7 +252,7 @@ export function NoteHistory({ noteId }: { noteId: number }) {
 					</CardHeader>
 					<CardContent className="space-y-3 p-4 pt-0">
 						{/* Title Diff Display */}
-						{hasTitleChanges && (
+						{type === "note" && hasTitleChanges && (
 							<div className="rounded-md border p-3">
 								<h4 className="mb-1 font-semibold text-sm">Title Change:</h4>
 								<div className="font-bold text-lg leading-snug">
@@ -250,7 +271,7 @@ export function NoteHistory({ noteId }: { noteId: number }) {
 				</Card>
 			);
 		})
-		.filter(Boolean); // Filter out null values
+		.filter(Boolean);
 
 	if (!versionCards?.length)
 		return (
