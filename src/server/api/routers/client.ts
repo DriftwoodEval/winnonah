@@ -600,7 +600,10 @@ export const clientRouter = createTRPCRouter({
       }
       if (input.driveId !== undefined) {
         const existingClient = await ctx.db.query.clients.findFirst({
-          where: eq(clients.driveId, input.driveId),
+          where: and(
+            eq(clients.driveId, input.driveId),
+            not(eq(clients.driveId, "N/A"))
+          ),
         });
 
         if (existingClient) {
