@@ -112,6 +112,8 @@ class SyncReporter:
                 )
             html_content += "</ul>"
 
+        html_content += f"<p>This email was generated and sent automatically.</p>"
+
         send_gmail(
             message_text=text_summary,
             subject=f"Appointment Sync Errors - {datetime.now().strftime('%Y-%m-%d')}",
