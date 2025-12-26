@@ -148,6 +148,7 @@ def clear_all_appointments_from_db():
             with db_connection.cursor() as cursor:
                 logger.warning("Clearing all data from 'emr_appointment' table...")
                 cursor.execute("DELETE FROM emr_appointment")
+                db_connection.commit()
         logger.info("Database cleared successfully.")
     except Exception:
         logger.exception("Critical Error: Failed to clear appointments from database.")
