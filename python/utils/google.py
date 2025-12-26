@@ -254,6 +254,9 @@ def add_client_ids_to_drive():
 
     logger.debug("Building client lookup index...")
     df_clients = utils.database.get_all_clients()
+
+    df_clients = df_clients[pd.isna(df_clients["DRIVE_ID"])]
+
     client_lookup = _build_client_lookup(df_clients)
 
     logger.debug("Scanning folders...")
