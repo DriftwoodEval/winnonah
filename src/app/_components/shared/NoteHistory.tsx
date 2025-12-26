@@ -188,7 +188,7 @@ export function NoteHistory({ noteId }: { noteId: number }) {
 
 			const isCurrent = "isCurrent" in version;
 
-			if (!isCurrent && !hasTitleChanges && !hasContentChanges) {
+			if (!hasTitleChanges && !hasContentChanges) {
 				return null;
 			}
 
