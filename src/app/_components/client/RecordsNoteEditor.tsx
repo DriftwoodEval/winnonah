@@ -55,24 +55,24 @@ const extractTextFromTiptapJson = (tiptapJson: any): string => {
 
 const noteTemplates = [
 	{
-		value: "district-dx",
-		label: "District - DX",
-		text: "Testing has been done by the school district and a diagnosis has been given.",
+		value: "district-autism",
+		label: "District - Autism",
+		text: "Testing has been done by the school district and autism is listed in the records.",
 	},
 	{
-		value: "district-no-dx",
-		label: "District - No DX",
-		text: "Testing has been done by the school district and no diagnosis has been given.",
+		value: "district-no-autism",
+		label: "District - No Autism",
+		text: "Testing has been done by the school district and autism was not found in the records.",
 	},
 	{
-		value: "outside-dx",
-		label: "Outside - DX",
-		text: "Testing has been done by an outside medical provider and a diagnosis has been given.",
+		value: "outside-autism",
+		label: "Outside - Autism",
+		text: "Testing has been done by an outside medical provider and autism is listed in the records.",
 	},
 	{
-		value: "outside-no-dx",
-		label: "Outside - No DX",
-		text: "Testing has been done by an outside medical provider and no diagnosis has been given.",
+		value: "outside-no-autism",
+		label: "Outside - No Autism",
+		text: "Testing has been done by an outside medical provider and autism was not listed in the records.",
 	},
 ];
 
