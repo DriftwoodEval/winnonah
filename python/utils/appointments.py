@@ -320,7 +320,6 @@ def prepare_appointments_from_csv(reporter: SyncReporter):
     # Apply results and log missing events
     indices_to_drop = set()
     for idx, appointment in appointments_df.iterrows():
-        print(type(idx))
         if not isinstance(idx, int):
             continue
         result = search_results.get(idx)

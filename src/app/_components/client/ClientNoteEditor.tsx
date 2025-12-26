@@ -47,6 +47,7 @@ export function ClientNoteEditor({
 
 	const [localTitle, setLocalTitle] = useState(note?.title ?? "");
 	const [localContent, setLocalContent] = useState(note?.contentJson ?? "");
+	const isTyping = useRef(false);
 
 	useEffect(() => {
 		if (note?.title) {
@@ -56,12 +57,19 @@ export function ClientNoteEditor({
 
 	// biome-ignore lint/correctness/useExhaustiveDependencies: We exclude localContent from deps to avoid loops, we only care when note updates
 	useEffect(() => {
-		if (note?.contentJson && !isEqual(note.contentJson, localContent)) {
+		if (
+			note?.contentJson &&
+			!isEqual(note.contentJson, localContent) &&
+			!isTyping.current
+		) {
 			setLocalContent(note.contentJson);
 		}
 	}, [note?.contentJson]);
 
 	const updateNoteMutation = api.notes.updateNote.useMutation({
+		onSettled: () => {
+			isTyping.current = false;
+		},
 		onError: (error) => {
 			log.error(error, "Failed to update note");
 			toast.error("Failed to update note", {
@@ -76,6 +84,9 @@ export function ClientNoteEditor({
 			if (clientId) {
 				utils.notes.getNoteByClientId.invalidate(clientId);
 			}
+		},
+		onSettled: () => {
+			isTyping.current = false;
 		},
 		onError: (error) => {
 			log.error(error, "Failed to create note");
@@ -196,6 +207,7 @@ export function ClientNoteEditor({
 					/>
 					<RichTextEditor
 						onChange={(content) => {
+							isTyping.current = true;
 							setLocalContent(content);
 							debouncedSaveContent(content);
 						}}
