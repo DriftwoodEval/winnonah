@@ -13,6 +13,7 @@ import {
 import { Skeleton } from "@ui/skeleton";
 import { Search } from "lucide-react";
 import { usePathname, useRouter } from "next/navigation";
+import { useSession } from "next-auth/react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { api } from "~/trpc/react";
 import { ClientsList } from "../clients/ClientsList";
@@ -21,6 +22,7 @@ import { NameSearchInput } from "../clients/NameSearchInput";
 export function GlobalClientSearch() {
 	const router = useRouter();
 	const pathname = usePathname();
+	const { data: session } = useSession();
 
 	const [open, setOpen] = useState(false);
 	const [debouncedSearchTerm, setDebouncedSearchTerm] = useState("");
@@ -29,6 +31,52 @@ export function GlobalClientSearch() {
 	const [osKey, setOsKey] = useState("Ctrl");
 
 	const highlightedItemRef = useRef<HTMLDivElement>(null);
+
+	// Fetch saved filters from the session
+	const { data: savedFiltersData } = api.sessions.getClientFilters.useQuery(
+		undefined,
+		{
+			enabled: !!session,
+		},
+	);
+
+	// Mutation to save filters to the session
+	const saveFiltersMutation = api.sessions.saveClientFilters.useMutation();
+
+	const savedFilters = useMemo(() => {
+		try {
+			return savedFiltersData?.clientFilters
+				? JSON.parse(savedFiltersData.clientFilters)
+				: {};
+		} catch {
+			return {};
+		}
+	}, [savedFiltersData?.clientFilters]);
+
+	// Initialize and sync status filter from saved filters
+	useEffect(() => {
+		if (session) {
+			setStatusFilter(savedFilters.status ?? "active");
+		}
+	}, [savedFilters.status, session]);
+
+	const handleStatusChange = (newStatus: string) => {
+		setStatusFilter(newStatus);
+		if (!session) return;
+
+		const filtersToSave = { ...savedFilters };
+		if (newStatus !== "active") {
+			filtersToSave.status = newStatus;
+		} else {
+			delete filtersToSave.status;
+		}
+
+		const newFiltersString = JSON.stringify(filtersToSave);
+
+		if (newFiltersString !== (savedFiltersData?.clientFilters ?? "{}")) {
+			saveFiltersMutation.mutate({ clientFilters: newFiltersString });
+		}
+	};
 
 	const queryParams = useMemo(() => {
 		const status = statusFilter;
@@ -136,7 +184,7 @@ export function GlobalClientSearch() {
 								setHighlightedIndex(-1);
 							}}
 						/>
-						<Select defaultValue="active" onValueChange={setStatusFilter}>
+						<Select onValueChange={handleStatusChange} value={statusFilter}>
 							<SelectTrigger>
 								<SelectValue placeholder="Status" />
 							</SelectTrigger>
