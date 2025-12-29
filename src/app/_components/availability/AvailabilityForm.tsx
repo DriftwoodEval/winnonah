@@ -70,11 +70,33 @@ type FormValues = z.infer<typeof formSchema>;
 
 export function AvailabilityForm() {
 	const utils = api.useUtils();
+
+	const defaultDate = new Date();
+	defaultDate.setDate(defaultDate.getDate() + 14);
+
+	const defaultStartDate = new Date(
+		defaultDate.getFullYear(),
+		defaultDate.getMonth(),
+		defaultDate.getDate(),
+		9,
+		0,
+		0,
+	);
+
+	const defaultEndDate = new Date(
+		defaultDate.getFullYear(),
+		defaultDate.getMonth(),
+		defaultDate.getDate(),
+		17,
+		0,
+		0,
+	);
+
 	const form = useForm<FormValues>({
 		resolver: zodResolver(formSchema),
 		defaultValues: {
-			startDate: new Date(),
-			endDate: new Date(Date.now() + 3600000), // 1 hour later
+			startDate: defaultStartDate,
+			endDate: defaultEndDate,
 			isUnavailability: false,
 			isRecurring: false,
 			recurrenceFreq: "never",
