@@ -49,16 +49,22 @@ const formSchema = z
 		recurrenceEndDate: z.date().optional().nullable(),
 		recurrenceCount: z.number().min(1).optional().nullable(),
 		recurrenceEndType: z.enum(["never", "on", "after"]),
-		officeKey: z.string().optional(),
+		officeKeys: z.array(z.string()).optional(),
 	})
 	.refine((data) => data.startDate < data.endDate, {
 		message: "End time must be after start time.",
 		path: ["endDate"],
 	})
-	.refine((data) => data.isUnavailability || data.officeKey !== undefined, {
-		message: "Office key is required if not unavailable.",
-		path: ["officeKey"],
-	});
+	.refine(
+		(data) =>
+			data.isUnavailability ||
+			(data.officeKeys !== undefined && data.officeKeys.length > 0),
+		{
+			message:
+				"At least one office must be selected if not inputting availability.",
+			path: ["officeKeys"],
+		},
+	);
 
 type FormValues = z.infer<typeof formSchema>;
 
@@ -77,7 +83,7 @@ export function AvailabilityForm() {
 			recurrenceEndDate: null,
 			recurrenceCount: null,
 			recurrenceEndType: "never",
-			officeKey: undefined,
+			officeKeys: [],
 		},
 	});
 
@@ -85,14 +91,20 @@ export function AvailabilityForm() {
 	const isRecurring = form.watch("isRecurring");
 	const recurrenceFreq = form.watch("recurrenceFreq");
 	const recurrenceEndType = form.watch("recurrenceEndType");
+	const officeKeys = form.watch("officeKeys");
 
 	const { data: offices, isLoading: isLoadingOffices } =
 		api.offices.getAll.useQuery();
 
 	const createAvailability = api.google.createAvailability.useMutation({
-		onSuccess: () => {
+		onSuccess: (_, variables) => {
+			const officeText =
+				variables.officeKeys && variables.officeKeys.length > 1
+					? `${variables.officeKeys.length} offices`
+					: offices?.find((o) => o.key === variables.officeKeys?.[0])
+							?.prettyName || "Selected Office";
 			toast.success(
-				`Event created! Type: ${isUnavailability ? "Out of Office" : "Available"}`,
+				`Event created! Type: ${isUnavailability ? "Out of Office" : `Available at ${officeText}`}`,
 			);
 			form.reset();
 		},
@@ -139,24 +151,17 @@ export function AvailabilityForm() {
 			return;
 		}
 
-		const officeName = offices?.find(
-			(o) => o.key === values.officeKey,
-		)?.prettyName;
-
-		const summary = values.isUnavailability
-			? "Out of office"
-			: `Available - ${officeName || "Location Unknown"}`;
-
 		const rruleString = buildRRule(values);
 
+		const finalOfficeKeys = values.officeKeys;
+
 		await createAvailability.mutateAsync({
-			summary: summary,
 			startDate: values.startDate,
 			endDate: values.endDate,
 			isRecurring: values.isRecurring,
 			recurrenceRule: rruleString,
 			isUnavailability: values.isUnavailability,
-			officeKey: values.officeKey,
+			officeKeys: finalOfficeKeys,
 		});
 
 		utils.google.getAvailability.invalidate();
@@ -200,37 +205,57 @@ export function AvailabilityForm() {
 					{!isUnavailability && (
 						<FormField
 							control={form.control}
-							name="officeKey"
+							name="officeKeys"
 							render={({ field }) => (
 								<FormItem className="space-y-3 rounded-md border p-4">
 									<FormLabel className="font-semibold text-base">
-										Available Office Location
+										Available Office Locations
 									</FormLabel>
 
 									{isLoadingOffices ? (
 										<p>Loading offices...</p>
 									) : (
-										<FormControl>
-											<RadioGroup
-												className="flex flex-row flex-wrap gap-4"
-												defaultValue={field.value}
-												onValueChange={field.onChange}
-											>
+										<div className="flex flex-col gap-2">
+											<FormItem className="flex items-center space-x-2">
+												<Checkbox
+													checked={officeKeys?.length === offices?.length}
+													onCheckedChange={(checked) => {
+														const allOfficeKeys =
+															offices?.map((o) => o.key) || [];
+														field.onChange(checked ? allOfficeKeys : []);
+													}}
+												/>
+												<FormLabel className="font-normal">
+													Any Office
+												</FormLabel>
+											</FormItem>
+											<div className="flex flex-row flex-wrap gap-4">
 												{offices?.map((office) => (
 													<FormItem
-														className="flex items-center space-y-0"
+														className="flex items-center space-x-2"
 														key={office.key}
 													>
 														<FormControl>
-															<RadioGroupItem value={office.key} />
+															<Checkbox
+																checked={field.value?.includes(office.key)}
+																onCheckedChange={(checked) => {
+																	const current = field.value || [];
+																	const updated = checked
+																		? [...current, office.key]
+																		: current.filter(
+																				(key) => key !== office.key,
+																			);
+																	field.onChange(updated);
+																}}
+															/>
 														</FormControl>
 														<FormLabel className="font-normal">
 															{office.prettyName}
 														</FormLabel>
 													</FormItem>
 												))}
-											</RadioGroup>
-										</FormControl>
+											</div>
+										</div>
 									)}
 									<FormMessage />
 								</FormItem>
