@@ -14,23 +14,30 @@ import {
 } from "~/lib/google";
 import type { Client } from "~/lib/models";
 import { getPriorityInfo } from "~/server/api/routers/client";
+<<<<<<< HEAD
 import {
 	assertPermission,
 	createTRPCRouter,
 	protectedProcedure,
 } from "~/server/api/trpc";
 import { clients } from "~/server/db/schema";
+||||||| parent of 595c371 (feat: allow selecting multiple office locations)
+import { createTRPCRouter, protectedProcedure } from "~/server/api/trpc";
+import { clients } from "~/server/db/schema";
+=======
+import { createTRPCRouter, protectedProcedure } from "~/server/api/trpc";
+import { clients, offices } from "~/server/db/schema";
+>>>>>>> 595c371 (feat: allow selecting multiple office locations)
 
 const CACHE_KEY_DUPLICATES = "google:drive:duplicate-ids";
 
 const availabilitySchema = z.object({
-	summary: z.string().min(1),
 	startDate: z.date(),
 	endDate: z.date(),
 	isRecurring: z.boolean(),
 	recurrenceRule: z.string().optional(),
 	isUnavailability: z.boolean(),
-	officeKey: z.string().optional(),
+	officeKeys: z.array(z.string()).optional(),
 });
 
 export const googleRouter = createTRPCRouter({
@@ -321,8 +328,36 @@ export const googleRouter = createTRPCRouter({
 				});
 			}
 
+			let summary: string;
+
+			if (input.isUnavailability) {
+				summary = "Out of office";
+			} else {
+				const allOffices = await ctx.db.select().from(offices);
+				const officeMap = new Map(allOffices.map((o) => [o.key, o.prettyName]));
+
+				if (!input.officeKeys || input.officeKeys.length === 0) {
+					throw new TRPCError({
+						code: "BAD_REQUEST",
+						message: "At least one office must be selected if not unavailable.",
+					});
+				}
+
+				const selectedOfficeNames = input.officeKeys
+					.map((key) => officeMap.get(key))
+					.filter((name): name is string => name !== undefined);
+
+				if (selectedOfficeNames.length === 0) {
+					summary = "Available - Location Unknown";
+				} else if (selectedOfficeNames.length === 1) {
+					summary = `Available - ${selectedOfficeNames[0]}`;
+				} else {
+					summary = `Available - ${selectedOfficeNames.join(", ")}`;
+				}
+			}
+
 			const event = await createAvailabilityEvent(ctx.session, {
-				summary: input.summary,
+				summary: summary,
 				start: input.startDate,
 				end: input.endDate,
 				isRecurring: input.isRecurring,

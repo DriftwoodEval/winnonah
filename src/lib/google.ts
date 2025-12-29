@@ -514,6 +514,15 @@ interface AvailabilityEvent {
 	isUnavailability: boolean;
 }
 
+interface Event {
+	summary: string;
+	start: { dateTime: string; timeZone: string };
+	end: { dateTime: string; timeZone: string };
+	eventType?: string;
+	transparency?: string;
+	recurrence?: string[];
+}
+
 export async function createAvailabilityEvent(
 	session: Session,
 	eventData: AvailabilityEvent,
@@ -531,7 +540,7 @@ export async function createAvailabilityEvent(
 		return `${year}-${month}-${day}T${hours}:${minutes}:${seconds}`;
 	};
 
-	const event: any = {
+	const event: Event = {
 		summary: eventData.summary,
 		start: {
 			dateTime: eventData.isRecurring
