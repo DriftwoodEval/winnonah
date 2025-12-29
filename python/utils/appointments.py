@@ -32,6 +32,7 @@ class SyncReporter:
 
     def log_time_mismatch(
         self,
+        appointment_idx: int,
         client_name: str,
         client_id: int,
         found_time: datetime,
@@ -40,6 +41,7 @@ class SyncReporter:
         """Log a time mismatch error."""
         self.time_mismatches.append(
             {
+                "appointment_idx": appointment_idx,
                 "client_name": client_name,
                 "client_id": client_id,
                 "found_time": found_time,
@@ -242,6 +244,7 @@ def batch_search_calendar_events(
                                 f"Diff: {int(time_diff)}s"
                             )
                             reporter.log_time_mismatch(
+                                appointment_idx=idx,
                                 client_name=re.sub(
                                     r"[\d\(\)]", "", appointment["NAME"]
                                 ).strip(),
@@ -249,6 +252,7 @@ def batch_search_calendar_events(
                                 found_time=event_start_dt.strftime("%m/%d %I:%M %p"),
                                 expected_time=start_time.strftime("%m/%d %I:%M %p"),
                             )
+                            break
 
             except Exception:
                 logger.exception(
@@ -319,6 +323,8 @@ def prepare_appointments_from_csv(reporter: SyncReporter):
         service, calendars, appointments_df, reporter
     )
 
+    mismatched_indices = {item["appointment_idx"] for item in reporter.time_mismatches}
+
     # Apply results and log missing events
     indices_to_drop = set()
     for idx, appointment in appointments_df.iterrows():
@@ -329,6 +335,10 @@ def prepare_appointments_from_csv(reporter: SyncReporter):
             appointments_df.at[idx, "gcal_event_id"] = result["event_id"]
             appointments_df.at[idx, "gcal_title"] = result["title"]
             appointments_df.at[idx, "gcal_calendar_id"] = result["calendar_id"]
+        elif idx in mismatched_indices:
+            # This appointment had a time mismatch, so it's "found" but not for insertion
+            # We already logged the mismatch, so just add to drop list
+            indices_to_drop.add(idx)
         else:
             name = re.sub(r"[\d\(\)]", "", appointment["NAME"]).strip()
             start_time = pd.to_datetime(appointment["STARTTIME"]).to_pydatetime()
