@@ -226,7 +226,7 @@ def _remove_invalid_clients(clients_df: pd.DataFrame) -> pd.DataFrame:
     return clients_df
 
 
-def get_clients(should_download_csvs: Optional[bool] = True) -> pd.DataFrame:
+def get_clients(should_download_csvs: bool | None = True) -> pd.DataFrame:
     """Downloads CSVs from TherapyAppointment, cleans them, and returns a DataFrame of clients."""
     if not os.getenv("DEV_TOGGLE") and should_download_csvs:
         download_csvs()

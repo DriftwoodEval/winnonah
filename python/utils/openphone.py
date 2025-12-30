@@ -170,12 +170,10 @@ def _process_demographic_data(
     op_phones_normalized = set(openphone_df["phone_normalized"].dropna())
 
     with open("openphone_phones.txt", "w") as f:
-        for phone in op_phones_normalized:
-            f.write(phone + "\n")
+        f.writelines(phone + "\n" for phone in op_phones_normalized)
 
     with open("filtered_phones.txt", "w") as f:
-        for phone in filtered_df["phone_normalized"].dropna():
-            f.write(phone + "\n")
+        f.writelines(phone + "\n" for phone in filtered_df["phone_normalized"].dropna())
 
     final_df = filtered_df[
         ~filtered_df["phone_normalized"].isin(op_phones_normalized)

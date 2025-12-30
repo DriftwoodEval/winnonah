@@ -2,8 +2,8 @@ import glob
 import os
 import shutil
 import time
+from collections.abc import Callable
 from time import sleep
-from typing import Callable, Dict
 
 import pandas as pd
 from loguru import logger
@@ -416,7 +416,7 @@ def save_ta_hashes():
 
     logger.info(f"{len(clients_to_update)} clients to search for TA hashes")
 
-    hashes_to_update: Dict[str, str] = {}
+    hashes_to_update: dict[str, str] = {}
 
     for i, (_, client) in enumerate(clients_to_update.iterrows()):
         client_id = get_column(client, "CLIENT_ID")

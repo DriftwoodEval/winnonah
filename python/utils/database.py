@@ -1,14 +1,13 @@
 import hashlib
 import os
 from datetime import date, datetime
-from typing import Dict, Literal, Optional, Set
+from typing import Literal
 from urllib.parse import urlparse
 
 import pandas as pd
 import pymysql.cursors
 from dotenv import load_dotenv
 from loguru import logger
-from numpy import isin
 
 import utils.relationships
 from utils.misc import (
@@ -298,7 +297,7 @@ def put_clients_in_db(clients_df):
     logger.info(f"Successfully inserted/updated {len(values_to_insert)} clients.")
 
 
-def update_client_ta_hashes(hashes_to_update: Dict[str, str]) -> None:
+def update_client_ta_hashes(hashes_to_update: dict[str, str]) -> None:
     """Updates taHash for multiple clients in a single transaction."""
     if not hashes_to_update:
         return
@@ -327,13 +326,12 @@ def put_appointment_in_db(
     evaluator_npi: int,
     start_time: datetime,
     end_time: datetime,
-    da_eval: Optional[Literal["EVAL", "DA", "DAEVAL"]] = None,
-    asd_adhd: Optional[
-        Literal["ASD", "ADHD", "ASD+ADHD", "ASD+LD", "ADHD+LD", "LD"]
-    ] = None,
-    cancelled: Optional[bool] = False,
-    location: Optional[str] = None,
-    gcal_event_id: Optional[str] = None,
+    da_eval: Literal["EVAL", "DA", "DAEVAL"] | None = None,
+    asd_adhd: Literal["ASD", "ADHD", "ASD+ADHD", "ASD+LD", "ADHD+LD", "LD"]
+    | None = None,
+    cancelled: bool | None = False,
+    location: str | None = None,
+    gcal_event_id: str | None = None,
 ):
     """Inserts an appointment into the database."""
     db_connection = get_db()
@@ -429,7 +427,7 @@ def get_evaluators_with_blocked_locations():
     return evaluators
 
 
-def _get_existing_client_eval_links() -> Dict[str, Set[str]]:
+def _get_existing_client_eval_links() -> dict[str, set[str]]:
     """Gets all existing client-evaluator relationships from the database.
 
     Returns:
@@ -466,7 +464,7 @@ def _get_existing_client_eval_links() -> Dict[str, Set[str]]:
     return existing_links
 
 
-def _delete_client_eval_links(client_id: str, evaluator_npis: Set[str]) -> None:
+def _delete_client_eval_links(client_id: str, evaluator_npis: set[str]) -> None:
     """Deletes specific client-evaluator relationships from the database.
 
     Args:
@@ -496,7 +494,7 @@ def _delete_client_eval_links(client_id: str, evaluator_npis: Set[str]) -> None:
                 db_connection.rollback()
 
 
-def _insert_client_eval_links(client_id: str, evaluator_npis: Set[str]) -> None:
+def _insert_client_eval_links(client_id: str, evaluator_npis: set[str]) -> None:
     """Inserts specific client-evaluator relationships.
 
     Args:
@@ -510,7 +508,7 @@ def _insert_client_eval_links(client_id: str, evaluator_npis: Set[str]) -> None:
         _link_client_provider(client_id, npi)
 
 
-def _delete_all_relationships_for_clients(client_ids: Set[str]) -> None:
+def _delete_all_relationships_for_clients(client_ids: set[str]) -> None:
     """Deletes all relationships for specific clients.
 
     Args:
@@ -635,7 +633,7 @@ def insert_by_matching_criteria_incremental(
 
 
 def insert_by_matching_criteria_client_specific(
-    clients: pd.DataFrame, evaluators: dict, specific_client_ids: Set[str]
+    clients: pd.DataFrame, evaluators: dict, specific_client_ids: set[str]
 ) -> None:
     """Updates client-evaluator relationships for specific clients only.
 
@@ -693,7 +691,7 @@ def insert_by_matching_criteria_client_specific(
 
 
 def insert_by_matching_criteria(
-    clients: pd.DataFrame, evaluators: dict, force_client_ids: Optional[Set[str]] = None
+    clients: pd.DataFrame, evaluators: dict, force_client_ids: set[str] | None = None
 ) -> None:
     """Enhanced client-evaluator matching with options for full or partial updates.
 
@@ -717,7 +715,7 @@ def insert_by_matching_criteria(
         insert_by_matching_criteria_incremental(clients, evaluators)
 
 
-def get_all_evaluators_npi_map() -> Dict[str, int]:
+def get_all_evaluators_npi_map() -> dict[str, int]:
     """Gets a map of email (str) to NPI (int) for all evaluators."""
     db_connection = get_db()
     try:
@@ -731,7 +729,7 @@ def get_all_evaluators_npi_map() -> Dict[str, int]:
         raise
 
 
-def get_npi_to_name_map() -> Dict[int, str]:
+def get_npi_to_name_map() -> dict[int, str]:
     """Returns a dictionary mapping NPI (int) to Evaluator Name (str)."""
     db_connection = get_db()
     try:

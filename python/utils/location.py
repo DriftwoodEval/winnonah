@@ -1,6 +1,7 @@
 import os
+from collections.abc import Callable
 from functools import partial
-from typing import Callable, Literal, Optional, Tuple
+from typing import Literal
 
 import geopandas as gpd
 import geopy.geocoders
@@ -107,12 +108,10 @@ geopy.geocoders.options.default_timeout = 7
 geopy.geocoders.options.default_user_agent = "driftwood-winnonah"
 GEOLOCATOR = Nominatim()
 geocode_us = partial(GEOLOCATOR.geocode, country_codes="us")
-geocode: Callable[[str], Optional[Location]] = RateLimiter(
-    geocode_us, min_delay_seconds=2
-)
+geocode: Callable[[str], Location | None] = RateLimiter(geocode_us, min_delay_seconds=2)
 
 
-def _geocode_address(client: pd.Series) -> Tuple[Location | None, int]:
+def _geocode_address(client: pd.Series) -> tuple[Location | None, int]:
     """Geocodes a client's address, decreasing in specificity and trying again if necessary, and returns the coordinates if found."""
     if pd.isna(client.ADDRESS):
         return None, 0

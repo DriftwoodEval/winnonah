@@ -2,7 +2,7 @@ import argparse
 import os
 import re
 import shutil
-from typing import Callable, List, Optional, Union
+from collections.abc import Callable
 
 import pandas as pd
 from dotenv import load_dotenv
@@ -24,9 +24,9 @@ load_dotenv()
 
 def filter_clients_by_criteria(
     clients: pd.DataFrame,
-    names: Optional[List[str]] = None,
-    client_ids: Optional[List[Union[str, int]]] = None,
-    criteria_func: Optional[Callable[[pd.Series], bool]] = None,
+    names: list[str] | None = None,
+    client_ids: list[str | int] | None = None,
+    criteria_func: Callable[[pd.Series], bool] | None = None,
 ) -> pd.DataFrame | None:
     """Filter clients based on various criteria.
 
@@ -91,7 +91,7 @@ def filter_clients_by_criteria(
 
 
 def import_from_ta(
-    clients: Optional[pd.DataFrame] = None, force_clients: Optional[pd.DataFrame] = None
+    clients: pd.DataFrame | None = None, force_clients: pd.DataFrame | None = None
 ):
     """Imports data from TA CSVs into the database.
 
@@ -184,13 +184,13 @@ def import_from_ta(
     utils.appointments.insert_appointments_with_gcal()
 
 
-def extract_digits(string: str) -> Optional[str]:
+def extract_digits(string: str) -> str | None:
     """Extract only digits from a string."""
     digits_only = re.sub(r"\D", "", string)
     return digits_only if digits_only else None
 
 
-def format_fax_number(string: str) -> Optional[str]:
+def format_fax_number(string: str) -> str | None:
     """Format a fax number as (XXX) XXX-XXXX."""
     digits_only = re.sub(r"\D", "", string)
 
@@ -335,8 +335,8 @@ def main():
         utils.therapyappointment.save_ta_hashes()
         return
 
-    force_clients: Optional[pd.DataFrame] = None
-    clients: Optional[pd.DataFrame] = None
+    force_clients: pd.DataFrame | None = None
+    clients: pd.DataFrame | None = None
 
     if args.client_name or args.client_id or args.force_all:
         clients = utils.clients.get_clients(

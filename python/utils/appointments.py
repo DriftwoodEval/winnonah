@@ -2,7 +2,7 @@ import os
 import re
 from collections import defaultdict
 from datetime import datetime, timedelta
-from typing import Any, Dict, List, Literal, Optional, Tuple
+from typing import Any, Literal
 
 import pandas as pd
 from dateutil import parser
@@ -26,9 +26,9 @@ class SyncReporter:
 
     def __init__(self):
         """Initialize empty lists for different error types."""
-        self.time_mismatches: List[Dict[str, Any]] = []
-        self.missing_in_gcal: List[Dict[str, Any]] = []
-        self.missing_npis: List[str] = []
+        self.time_mismatches: list[dict[str, Any]] = []
+        self.missing_in_gcal: list[dict[str, Any]] = []
+        self.missing_npis: list[str] = []
 
     def log_time_mismatch(
         self,
@@ -161,10 +161,10 @@ def clear_all_appointments_from_db():
 
 def batch_search_calendar_events(
     service,
-    calendars: List[Dict],
+    calendars: list[dict],
     appointments_df: pd.DataFrame,
     reporter: SyncReporter,
-) -> Dict[int, Dict]:
+) -> dict[int, dict]:
     """Search Google Calendar events in batches by date.
 
     Returns dict mapping appointment index to event details (id, title, calendar_id).
@@ -425,7 +425,7 @@ def insert_appointments_with_gcal():
     reporter.send_report(email_for_errors)
 
 
-def parse_location_and_type(title: str) -> Tuple[Optional[str], Optional[DAEvalType]]:
+def parse_location_and_type(title: str) -> tuple[str | None, DAEvalType | None]:
     """Extract location code and evaluation type from calendar title format [LOC-TYPE].
 
     Examples:
@@ -435,7 +435,7 @@ def parse_location_and_type(title: str) -> Tuple[Optional[str], Optional[DAEvalT
     """
     match = re.search(r"\[([A-Z]+)-([A-Z]+)\]", title)
 
-    evaluation_type_map: Dict[str, DAEvalType] = {
+    evaluation_type_map: dict[str, DAEvalType] = {
         "E": "EVAL",
         "D": "DA",
         "DE": "DAEVAL",

@@ -1,5 +1,5 @@
 from datetime import date, datetime
-from typing import Any, List, Union
+from typing import Any
 
 import pandas as pd
 from loguru import logger
@@ -7,7 +7,7 @@ from loguru import logger
 
 def get_column(
     series: pd.Series, column: str, default: Any = None
-) -> Union[Any, List[Any], None]:
+) -> Any | list[Any] | None:
     """Safely gets a column from a pandas Series, returning a default if the column does not exist or has a NaN value."""
     if column in series:
         value = series[column]
@@ -37,7 +37,7 @@ def get_full_name(firstname: Any, lastname: Any, preferred_name: Any) -> str:
     ).strip()
 
 
-def format_date(date_str: Union[str, date]) -> str | None:
+def format_date(date_str: str | date) -> str | None:
     """Attempts to format a date string or date to 'YYYY-MM-DD'."""
     if isinstance(date_str, date):
         return date_str.strftime("%Y-%m-%d")

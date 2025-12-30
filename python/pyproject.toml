@@ -23,8 +23,7 @@ dependencies = [
 dev = ["icecream>=2.1.4", "ruff>=0.12.8"]
 
 [tool.ruff.lint]
-select = ["D"]
-ignore = ["D100"]
+select = ["UP", "FURB"]
 
 [tool.ruff.lint.pydocstyle]
 convention = "google"

@@ -270,8 +270,8 @@ def send_gmail(
     subject: str,
     to_addr: str,
     from_addr: str,
-    cc_addr: Optional[str] = None,
-    html: Optional[str] = None,
+    cc_addr: str | None = None,
+    html: str | None = None,
 ):
     """Send an email using the Gmail API."""
     creds = google_authenticate()
