@@ -162,7 +162,7 @@ export function TestUnitManager() {
 				setOpen={setManagerOpen}
 				title="Manage Test Units"
 			>
-				<div className="space-y-4 p-4">
+				<div className="max-h-[calc(100vh-200px)] space-y-4 overflow-y-auto p-4">
 					<Button
 						className="w-full justify-start"
 						onClick={() => {
