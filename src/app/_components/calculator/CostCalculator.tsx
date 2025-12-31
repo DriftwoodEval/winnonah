@@ -39,19 +39,49 @@ export default function CostCalculator() {
 		field: string;
 	} | null>(null);
 
+	const codes: Record<string, { label: string; weight: number }> = {
+		"90791": { label: "Diagnostic evaluation", weight: 2 },
+		"96130": {
+			label:
+				"(Review) Psychological testing evaluation services by physician or other qualified health care professional - first hour",
+			weight: 2,
+		},
+		"96131": {
+			label:
+				"(Report) Psychological testing evaluation services by physician (Each addl. 60 minutes )",
+			weight: 2,
+		},
+		"96136": {
+			label:
+				"(Evaluation) Psychological or neuropsychological testing - first 30 min",
+			weight: 1,
+		},
+		"96137": {
+			label:
+				"(Evaluation) Psychological or neuropsychological test administration and scoring by physician or other (Each addl. 30 minutes)",
+			weight: 1,
+		},
+	};
+
 	const applyTargetTotal = () => {
-		const totalUnits = costItems.reduce((sum, item) => sum + item.units, 0);
+		const totalWeightedUnits = costItems.reduce((sum, item) => {
+			const weight = codes[item.name]?.weight ?? 1;
+			return sum + item.units * weight;
+		}, 0);
 
 		// Prevent division by zero
-		if (totalUnits === 0 || targetTotal === 0) return;
+		if (totalWeightedUnits === 0 || targetTotal === 0) return;
 
-		const baseRate = targetTotal / totalUnits;
+		const baseRate = targetTotal / totalWeightedUnits;
 		let runningTotal = 0;
 
 		const newItems = costItems.map((item, index) => {
 			const isLast = index === costItems.length - 1;
+			const weight = codes[item.name]?.weight ?? 1;
+
 			if (!isLast) {
-				const roundedRate = Number(baseRate.toFixed(2));
+				const rawRate = baseRate * weight;
+				const roundedRate = Number(rawRate.toFixed(2));
 				runningTotal += item.units * roundedRate;
 				return { ...item, costPerUnit: roundedRate };
 			} else {
@@ -120,18 +150,6 @@ export default function CostCalculator() {
 		);
 	};
 
-	const codes = {
-		"90791": "Diagnostic evaluation",
-		"96130":
-			"(Review) Psychological testing evaluation services by physician or other qualified health care professional - first hour",
-		"96131":
-			"(Report) Psychological testing evaluation services by physician (Each addl. 60 minutes )",
-		"96136":
-			"(Evaluation) Psychological or neuropsychological testing - first 30 min",
-		"96137":
-			"(Evaluation) Psychological or neuropsychological test administration and scoring by physician or other (Each addl. 30 minutes)",
-	};
-
 	const isDesktop = useMediaQuery("(min-width: 768px)");
 
 	return (
@@ -182,10 +200,10 @@ export default function CostCalculator() {
 											<SelectValue placeholder="Code" />
 										</SelectTrigger>
 										<SelectContent>
-											{Object.entries(codes).map(([code, text]) => {
+											{Object.entries(codes).map(([code, metadata]) => {
 												return (
 													<SelectItem key={code} value={code}>
-														{isDesktop ? `${code} - ${text}` : code}
+														{isDesktop ? `${code} - ${metadata.label}` : code}
 													</SelectItem>
 												);
 											})}
