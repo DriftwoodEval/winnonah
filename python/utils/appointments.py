@@ -125,23 +125,13 @@ class SyncReporter:
         )
 
 
-def should_skip_appointment(appointment: pd.Series, now: datetime) -> bool:
-    """Skip test clients, 'Reports' CPT code, out-of-range dates, or cancelled appointments."""
+def should_skip_appointment(appointment: pd.Series) -> bool:
+    """Skip test clients, 'Reports' CPT code, or cancelled appointments."""
     name = re.sub(r"[\d\(\)]", "", appointment["NAME"]).strip()
     cpt = re.sub(r"\D", "", appointment["NAME"])
-    start_time = pd.to_datetime(appointment["STARTTIME"]).to_pydatetime()
     cancelled = isinstance(appointment["CANCELBYNAME"], str)
 
-    four_weeks_ago = now - timedelta(weeks=4)
-    four_weeks_from_now = now + timedelta(weeks=4)
-
-    return (
-        name in TEST_NAMES
-        or "96130" in cpt
-        or start_time < four_weeks_ago
-        or start_time > four_weeks_from_now
-        or cancelled
-    )
+    return name in TEST_NAMES or "96130" in cpt or cancelled
 
 
 def clear_all_appointments_from_db():
@@ -268,6 +258,9 @@ def prepare_appointments_from_csv(reporter: SyncReporter):
     service = build("calendar", "v3", credentials=creds)
 
     appointments_df = pd.read_csv("temp/input/clients-appointments.csv")
+    appointments_df = appointments_df.sort_values(
+        by=["CLIENT_ID", "STARTTIME"]
+    ).reset_index(drop=True)
     appointments_df["gcal_event_id"] = None
     appointments_df["gcal_title"] = None
     appointments_df["gcal_calendar_id"] = None
@@ -284,15 +277,32 @@ def prepare_appointments_from_csv(reporter: SyncReporter):
         client_date_set.add((client_id, start_date))
 
     indices_to_drop = set()
+    last_90000_appointment_date: dict[int, datetime] = {}
 
     for idx, appointment in appointments_df.iterrows():
-        if should_skip_appointment(appointment, now):
+        if should_skip_appointment(appointment):
             indices_to_drop.add(idx)
             continue
 
-        # Skip if client was seen previous day (insurance 'appointment')
         client_id = appointment["CLIENT_ID"]
         start_time = pd.to_datetime(appointment["STARTTIME"]).to_pydatetime()
+        cpt_string = re.sub(r"\D", "", appointment["NAME"])
+
+        # Filter out 90000 CPT codes within 6 months of each other
+        if re.search(r"90000", cpt_string):
+            last_date = last_90000_appointment_date.get(client_id)
+            if last_date and (start_time.date() - last_date.date()) < timedelta(
+                days=182
+            ):
+                logger.info(
+                    f"Skipping appointment for client {client_id} on {start_time.date()} "
+                    f"with 90000 CPT code as it is within 6 months of a previous one on {last_date.date()}."
+                )
+                indices_to_drop.add(idx)
+                continue
+            last_90000_appointment_date[client_id] = start_time
+
+        # Skip if client was seen previous day (insurance 'appointment')
         current_app_date = start_time.date()
         previous_app_date = current_app_date - timedelta(days=1)
 
@@ -310,8 +320,16 @@ def prepare_appointments_from_csv(reporter: SyncReporter):
             drop=True
         )
 
+    four_weeks_ago = now - timedelta(weeks=4)
+    four_weeks_from_now = now + timedelta(weeks=4)
+
+    appointments_df = appointments_df[
+        (pd.to_datetime(appointments_df["STARTTIME"]) >= four_weeks_ago)
+        & (pd.to_datetime(appointments_df["STARTTIME"]) <= four_weeks_from_now)
+    ]
+
     if appointments_df.empty:
-        logger.info("No valid appointments found in CSV to process.")
+        logger.info("No valid appointments found in the processing window.")
         return appointments_df
 
     logger.info(f"Searching Google Calendar for {len(appointments_df)} appointments...")
