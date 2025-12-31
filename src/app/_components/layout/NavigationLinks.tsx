@@ -2,30 +2,52 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-
-function isActive(path: string) {
-	return path === usePathname();
-}
+import { useSession } from "next-auth/react";
+import { hasPermission } from "~/lib/utils";
 
 export function NavigationLink({
 	href,
 	children,
+	pathname,
 }: {
 	href: string;
 	children: string;
+	pathname: string;
 }) {
+	const isActive = pathname === href;
 	return (
-		<Link className={isActive(href) ? "text-accent" : ""} href={href}>
+		<Link className={isActive ? "text-accent" : ""} href={href}>
 			{children}
 		</Link>
 	);
 }
 
 export default function NavigationLinks() {
+	const { data: session } = useSession();
+	const pathname = usePathname();
+
+	const canDashboard = session
+		? hasPermission(session.user.permissions, "pages:dashboard")
+		: false;
+	const canCalculator = session
+		? hasPermission(session.user.permissions, "pages:calculator")
+		: false;
+
 	return (
 		<div className="flex gap-4 text-sm">
-			<NavigationLink href="/">Clients</NavigationLink>
-			<NavigationLink href="/dashboard">Dashboard</NavigationLink>
+			<NavigationLink href="/" pathname={pathname}>
+				Clients
+			</NavigationLink>
+			{canDashboard && (
+				<NavigationLink href="/dashboard" pathname={pathname}>
+					Dashboard
+				</NavigationLink>
+			)}
+			{canCalculator && (
+				<NavigationLink href="/calculator" pathname={pathname}>
+					Calculator
+				</NavigationLink>
+			)}
 		</div>
 	);
 }

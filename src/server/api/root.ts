@@ -5,6 +5,7 @@ import { noteRouter } from "./routers/notes";
 import { officeRouter } from "./routers/office";
 import { questionnaireRouter } from "./routers/questionnaires";
 import { sessionRouter } from "./routers/sessions";
+import { testUnitsRouter } from "./routers/testUnits";
 import { userRouter } from "./routers/users";
 import { createCallerFactory, createTRPCRouter } from "./trpc";
 
@@ -14,14 +15,15 @@ import { createCallerFactory, createTRPCRouter } from "./trpc";
  * All routers added in /api/routers should be manually added here.
  */
 export const appRouter = createTRPCRouter({
-  evaluators: evaluatorRouter,
-  clients: clientRouter,
-  offices: officeRouter,
-  questionnaires: questionnaireRouter,
-  notes: noteRouter,
-  users: userRouter,
-  sessions: sessionRouter,
-  google: googleRouter,
+	clients: clientRouter,
+	evaluators: evaluatorRouter,
+	google: googleRouter,
+	notes: noteRouter,
+	offices: officeRouter,
+	questionnaires: questionnaireRouter,
+	sessions: sessionRouter,
+	testUnits: testUnitsRouter,
+	users: userRouter,
 });
 
 // export type definition of API
