@@ -97,15 +97,17 @@ export default function UnitCalculator() {
 								id={String(test.id)}
 								onCheckedChange={() => handleTestSelection(test.id)}
 							/>
-							<label
-								className="grow cursor-pointer font-medium text-sm leading-none"
-								htmlFor={String(test.id)}
-							>
-								{test.name}
-							</label>
-							<span className="text-muted-foreground text-sm leading-none">
-								{test.minutes} min
-							</span>
+							<div className="flex w-1/2 text-sm leading-none">
+								<label
+									className="grow cursor-pointer"
+									htmlFor={String(test.id)}
+								>
+									{test.name}
+								</label>
+								<span className="text-muted-foreground">
+									{test.minutes} min
+								</span>
+							</div>
 						</div>
 					))}
 				</div>

@@ -96,7 +96,7 @@ export function TestUnitEditor({
 		<ResponsiveDialog
 			open={open}
 			setOpen={onOpenChange}
-			title={isEditing ? "Edit Unit" : "Add New Unit"}
+			title={isEditing ? "Edit Test" : "Add New Test"}
 		>
 			<Form {...form}>
 				<form className="space-y-4 p-4" onSubmit={form.handleSubmit(onSubmit)}>
