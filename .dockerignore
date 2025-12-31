@@ -23,6 +23,9 @@ docker-compose.override.yaml
 biome.jsonc
 drizzle.config.ts
 README.md
+commitlint.config.js
+lefthook.yml
+scripts/
 
 # Separate image
 python/
