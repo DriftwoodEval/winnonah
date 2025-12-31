@@ -1,3 +1,5 @@
+"use client";
+
 import { Button } from "@ui/button";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@ui/card";
 import { Input } from "@ui/input";
