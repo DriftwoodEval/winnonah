@@ -75,6 +75,7 @@ function UsersTableForm({
 	isLoading,
 	onFinished,
 }: UsersTableFormProps) {
+	const { data: session } = useSession();
 	const form = useForm<UsersTableFormValues>({
 		resolver: zodResolver(formSchema),
 		defaultValues: {
@@ -84,6 +85,12 @@ function UsersTableForm({
 
 	const watchedPermissions = form.watch("permissions");
 	const { setValue } = form;
+
+	const isPermissionDisabled = (permissionId: string) => {
+		const isSelf = session?.user?.id === initialData?.id;
+		const isEditUsersPermission = permissionId === "settings:users:edit";
+		return isSelf && isEditUsersPermission;
+	};
 
 	useEffect(() => {
 		if (initialData?.permissions) {
@@ -109,7 +116,13 @@ function UsersTableForm({
 			(p) => p.value === presetValue,
 		);
 		if (selectedPreset) {
-			form.setValue("permissions", selectedPreset.permissions, {
+			const newPermissions = { ...selectedPreset.permissions };
+
+			if (isPermissionDisabled("settings:users:edit")) {
+				newPermissions["settings:users:edit"] = true;
+			}
+
+			form.setValue("permissions", newPermissions, {
 				shouldDirty: true,
 				shouldValidate: true,
 			});
@@ -153,7 +166,9 @@ function UsersTableForm({
 										...form.getValues("permissions"),
 									};
 									group.permissions.forEach((p) => {
-										currentPermissions[p.id] = newCheckedState;
+										if (!isPermissionDisabled(p.id)) {
+											currentPermissions[p.id] = newCheckedState;
+										}
 									});
 									form.setValue("permissions", currentPermissions, {
 										shouldDirty: true,
@@ -179,6 +194,7 @@ function UsersTableForm({
 												<FormControl>
 													<Checkbox
 														checked={field.value}
+														disabled={isPermissionDisabled(p.id)}
 														id={p.id}
 														onCheckedChange={field.onChange}
 													/>
