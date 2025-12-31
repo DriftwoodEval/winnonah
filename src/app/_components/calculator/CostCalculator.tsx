@@ -145,7 +145,7 @@ export default function CostCalculator() {
 				</div>
 				<Table>
 					<TableHeader>
-						<TableRow>
+						<TableRow className="hover:bg-inherit">
 							<TableHead>Item</TableHead>
 							<TableHead className="w-[120px]">Units</TableHead>
 							<TableHead className="w-[150px]">Cost/Unit</TableHead>
@@ -155,7 +155,7 @@ export default function CostCalculator() {
 					</TableHeader>
 					<TableBody>
 						{costItems.map((item) => (
-							<TableRow key={item.id}>
+							<TableRow className="hover:bg-inherit" key={item.id}>
 								<TableCell>
 									<Select
 										onValueChange={(val) =>
