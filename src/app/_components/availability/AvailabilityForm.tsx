@@ -22,6 +22,8 @@ import { Separator } from "@ui/separator";
 import { Switch } from "@ui/switch";
 import { format } from "date-fns";
 import { CalendarIcon } from "lucide-react";
+import { useSession } from "next-auth/react";
+import { useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 import { z } from "zod";
@@ -70,6 +72,13 @@ type FormValues = z.infer<typeof formSchema>;
 
 export function AvailabilityForm() {
 	const utils = api.useUtils();
+	const { data: session } = useSession();
+	const evaluatorId = session?.user.evaluatorId ?? 0;
+
+	const { data: outOfOfficePriority, isLoading: isLoadingOutOfOfficePriority } =
+		api.evaluators.getOutOfOfficePriority.useQuery(evaluatorId, {
+			enabled: !!evaluatorId,
+		});
 
 	const defaultDate = new Date();
 	defaultDate.setDate(defaultDate.getDate() + 14);
@@ -108,6 +117,13 @@ export function AvailabilityForm() {
 			officeKeys: [],
 		},
 	});
+
+	// Effect to set isUnavailability and disable switch if outOfOfficePriority is true
+	useEffect(() => {
+		if (outOfOfficePriority) {
+			form.setValue("isUnavailability", true);
+		}
+	}, [outOfOfficePriority, form]);
 
 	const isUnavailability = form.watch("isUnavailability");
 	const isRecurring = form.watch("isRecurring");
@@ -211,12 +227,17 @@ export function AvailabilityForm() {
 											field.value ? "text-destructive" : "text-primary"
 										}
 									>
-										{field.value ? "I am UNavailable." : "I am available."}
+										{outOfOfficePriority
+											? "Out of Office priority enabled. Only Out of Office events can be created."
+											: field.value
+												? "You are declaring unavailability."
+												: "You are declaring availability."}
 									</FormDescription>
 								</div>
 								<FormControl>
 									<Switch
 										checked={field.value}
+										disabled={outOfOfficePriority}
 										onCheckedChange={field.onChange}
 									/>
 								</FormControl>
@@ -349,7 +370,7 @@ export function AvailabilityForm() {
 						<Label className="font-semibold text-base">Repeating Event</Label>
 						<Switch
 							checked={isRecurring}
-							onCheckedChange={(checked) => {
+							onCheckedChange={(checked: boolean) => {
 								form.setValue("isRecurring", checked);
 								if (!checked) {
 									form.setValue("recurrenceFreq", "never");
