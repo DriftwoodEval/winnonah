@@ -20,6 +20,7 @@ import {
 } from "@ui/table";
 import { X } from "lucide-react";
 import { useId, useState } from "react";
+import { useMediaQuery } from "~/hooks/use-media-query";
 
 interface CostItem {
 	id: string;
@@ -119,13 +120,27 @@ export default function CostCalculator() {
 		);
 	};
 
+	const codes = {
+		"90791": "Diagnostic evaluation",
+		"96130":
+			"(Review) Psychological testing evaluation services by physician or other qualified health care professional - first hour",
+		"96131":
+			"(Report) Psychological testing evaluation services by physician (Each addl. 60 minutes )",
+		"96136":
+			"(Evaluation) Psychological or neuropsychological testing - first 30 min",
+		"96137":
+			"(Evaluation) Psychological or neuropsychological test administration and scoring by physician or other (Each addl. 30 minutes)",
+	};
+
+	const isDesktop = useMediaQuery("(min-width: 768px)");
+
 	return (
 		<Card className="mt-8">
 			<CardHeader>
 				<CardTitle>Cost Calculator</CardTitle>
 			</CardHeader>
 			<CardContent>
-				<div className="mb-6 flex items-end gap-4 rounded-lg bg-muted/50 p-4">
+				<div className="mb-6 flex flex-wrap items-end gap-4 rounded-lg bg-muted/50 p-4">
 					<div className="grid gap-2">
 						<label className="font-medium text-sm" htmlFor={targetTotalId}>
 							Target Total ($)
@@ -167,13 +182,13 @@ export default function CostCalculator() {
 											<SelectValue placeholder="Code" />
 										</SelectTrigger>
 										<SelectContent>
-											{["90791", "96136", "96137", "96130", "96131"].map(
-												(code) => (
+											{Object.entries(codes).map(([code, text]) => {
+												return (
 													<SelectItem key={code} value={code}>
-														{code}
+														{isDesktop ? `${code} - ${text}` : code}
 													</SelectItem>
-												),
-											)}
+												);
+											})}
 										</SelectContent>
 									</Select>
 								</TableCell>

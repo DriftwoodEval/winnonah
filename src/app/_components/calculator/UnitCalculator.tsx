@@ -100,7 +100,7 @@ export default function UnitCalculator() {
 								id={String(test.id)}
 								onCheckedChange={() => handleTestSelection(test.id)}
 							/>
-							<div className="flex w-1/2 text-sm leading-none">
+							<div className="flex w-full text-sm leading-none md:w-1/2">
 								<label
 									className="grow cursor-pointer"
 									htmlFor={String(test.id)}
