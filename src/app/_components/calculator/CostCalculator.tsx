@@ -133,6 +133,7 @@ export default function CostCalculator() {
 			activeField?.id === item.id && activeField?.field === field;
 		return (
 			<Input
+				min="0"
 				onBlur={() => setActiveField(null)}
 				onChange={(e) =>
 					onChange(
@@ -212,6 +213,7 @@ export default function CostCalculator() {
 								</TableCell>
 								<TableCell>
 									<Input
+										min="0"
 										onChange={(e) =>
 											handleCostItemChange(
 												item.id,
