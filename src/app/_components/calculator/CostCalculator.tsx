@@ -31,7 +31,11 @@ interface CostItem {
 
 export default function CostCalculator() {
 	const [costItems, setCostItems] = useState<CostItem[]>([
-		{ id: crypto.randomUUID(), name: "", units: 0, costPerUnit: 0 },
+		{ id: crypto.randomUUID(), name: "90791", units: 1, costPerUnit: 0 },
+		{ id: crypto.randomUUID(), name: "96136", units: 1, costPerUnit: 0 },
+		{ id: crypto.randomUUID(), name: "96137", units: 11, costPerUnit: 0 },
+		{ id: crypto.randomUUID(), name: "96130", units: 1, costPerUnit: 0 },
+		{ id: crypto.randomUUID(), name: "96131", units: 3, costPerUnit: 0 },
 	]);
 	const [targetTotal, setTargetTotal] = useState<number>(2000);
 	const [activeField, setActiveField] = useState<{
