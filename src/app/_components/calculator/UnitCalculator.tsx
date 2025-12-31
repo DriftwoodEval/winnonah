@@ -12,7 +12,7 @@ import { useEffect, useState } from "react";
 import { api } from "~/trpc/react";
 import { TestUnitManager } from "./TestUnitsForm";
 
-const STORAGE_KEY = "calculaor-selected-tests";
+const STORAGE_KEY = "calculator-selected-tests";
 
 export default function UnitCalculator() {
 	const { data: dbUnits, isLoading } = api.testUnits.getAll.useQuery();

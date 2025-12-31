@@ -9,6 +9,7 @@ import type {
 	offices,
 	questionnaires,
 	schoolDistricts,
+	testUnits,
 	users,
 	zipCodes,
 } from "~/server/db/schema";
@@ -41,6 +42,8 @@ export type Evaluator = Omit<EvaluatorSchema, "offices"> & {
 	blockedDistricts: SchoolDistrict[];
 	blockedZips: ZipCode[];
 };
+
+export type TestUnit = InferSelectModel<typeof testUnits>;
 
 export type GoogleRouterOutput = inferRouterOutputs<AppRouter>["google"];
 export type DuplicateDriveGroup = NonNullable<

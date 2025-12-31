@@ -41,16 +41,34 @@ export default function CostCalculator() {
 	const applyTargetTotal = () => {
 		const totalUnits = costItems.reduce((sum, item) => sum + item.units, 0);
 
+		// Prevent division by zero
 		if (totalUnits === 0 || targetTotal === 0) return;
 
-		const ratePerUnit = targetTotal / totalUnits;
+		const baseRate = targetTotal / totalUnits;
+		let runningTotal = 0;
 
-		setCostItems(
-			costItems.map((item) => ({
-				...item,
-				costPerUnit: Number(ratePerUnit.toFixed(2)),
-			})),
-		);
+		const newItems = costItems.map((item, index) => {
+			const isLast = index === costItems.length - 1;
+
+			if (!isLast) {
+				const roundedRate = Number(baseRate.toFixed(2));
+				runningTotal += item.units * roundedRate;
+				return {
+					...item,
+					costPerUnit: roundedRate,
+				};
+			} else {
+				const remainingBalance = targetTotal - runningTotal;
+				const adjustedRate =
+					item.units !== 0 ? remainingBalance / item.units : 0;
+				return {
+					...item,
+					costPerUnit: adjustedRate,
+				};
+			}
+		});
+
+		setCostItems(newItems);
 	};
 
 	const handleCostItemChange = (

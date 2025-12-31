@@ -14,6 +14,7 @@ import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 import z from "zod";
+import type { TestUnit } from "~/lib/types";
 import { api } from "~/trpc/react";
 import { ResponsiveDialog } from "../shared/ResponsiveDialog";
 
@@ -139,7 +140,7 @@ export function TestUnitEditor({
 export function TestUnitManager() {
 	const [managerOpen, setManagerOpen] = useState(false);
 	const [editorOpen, setEditorOpen] = useState(false);
-	const [selectedUnit, setSelectedUnit] = useState<any>(null);
+	const [selectedUnit, setSelectedUnit] = useState<TestUnit | null>(null);
 
 	const { data: units } = api.testUnits.getAll.useQuery();
 
