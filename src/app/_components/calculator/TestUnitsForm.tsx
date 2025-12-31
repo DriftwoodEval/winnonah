@@ -142,6 +142,9 @@ export function TestUnitManager() {
 	const [selectedUnit, setSelectedUnit] = useState<any>(null);
 
 	const { data: units } = api.testUnits.getAll.useQuery();
+
+	units?.sort((a, b) => a.name.localeCompare(b.name));
+
 	const utils = api.useUtils();
 	const deleteMutation = api.testUnits.delete.useMutation({
 		onSuccess: () => utils.testUnits.getAll.invalidate(),

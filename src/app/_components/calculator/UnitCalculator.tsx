@@ -34,7 +34,7 @@ export default function UnitCalculator() {
 				};
 			});
 
-			setTests(mergedTests);
+			setTests(mergedTests.sort((a, b) => a.name.localeCompare(b.name)));
 		}
 	}, [dbUnits]);
 
