@@ -1,12 +1,5 @@
 import { Button } from "@ui/button";
-import {
-	Card,
-	CardContent,
-	CardDescription,
-	CardFooter,
-	CardHeader,
-	CardTitle,
-} from "@ui/card";
+import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@ui/card";
 import { Input } from "@ui/input";
 import {
 	Select,
@@ -32,11 +25,16 @@ interface CostItem {
 	units: number;
 	costPerUnit: number;
 }
+
 export default function CostCalculator() {
 	const [costItems, setCostItems] = useState<CostItem[]>([
 		{ id: crypto.randomUUID(), name: "", units: 0, costPerUnit: 0 },
 	]);
 	const [targetTotal, setTargetTotal] = useState<number>(2000);
+	const [activeField, setActiveField] = useState<{
+		id: string;
+		field: string;
+	} | null>(null);
 
 	const applyTargetTotal = () => {
 		const totalUnits = costItems.reduce((sum, item) => sum + item.units, 0);
@@ -49,22 +47,15 @@ export default function CostCalculator() {
 
 		const newItems = costItems.map((item, index) => {
 			const isLast = index === costItems.length - 1;
-
 			if (!isLast) {
 				const roundedRate = Number(baseRate.toFixed(2));
 				runningTotal += item.units * roundedRate;
-				return {
-					...item,
-					costPerUnit: roundedRate,
-				};
+				return { ...item, costPerUnit: roundedRate };
 			} else {
-				const remainingBalance = targetTotal - runningTotal;
-				const adjustedRate =
-					item.units !== 0 ? remainingBalance / item.units : 0;
-				return {
-					...item,
-					costPerUnit: adjustedRate,
-				};
+				// Last item absorbs the difference to hit exactly targetTotal
+				const remaining = targetTotal - runningTotal;
+				const adjustedRate = item.units !== 0 ? remaining / item.units : 0;
+				return { ...item, costPerUnit: adjustedRate };
 			}
 		});
 
@@ -76,59 +67,72 @@ export default function CostCalculator() {
 		field: keyof CostItem,
 		value: string | number,
 	) => {
-		setCostItems(
-			costItems.map((item) =>
-				item.id === id ? { ...item, [field]: value } : item,
-			),
+		setCostItems((prev) =>
+			prev.map((item) => (item.id === id ? { ...item, [field]: value } : item)),
 		);
 	};
 
 	const handleTotalChange = (id: string, newTotal: number) => {
-		setCostItems(
-			costItems.map((item) => {
+		setCostItems((prev) =>
+			prev.map((item) => {
 				if (item.id === id) {
-					// Prevent division by zero; if units are 0, we can't calculate back to costPerUnit easily
-					const updatedCostPerUnit =
-						item.units !== 0 ? newTotal / item.units : 0;
-					return { ...item, costPerUnit: updatedCostPerUnit };
+					const updatedRate = item.units !== 0 ? newTotal / item.units : 0;
+					return { ...item, costPerUnit: updatedRate };
 				}
 				return item;
 			}),
 		);
 	};
 
-	const addCostItem = () => {
-		setCostItems([
-			...costItems,
-			{ id: crypto.randomUUID(), name: "", units: 0, costPerUnit: 0 },
-		]);
-	};
-
-	const removeCostItem = (id: string) => {
-		setCostItems(costItems.filter((item) => item.id !== id));
-	};
-
-	const totalCost = costItems.reduce((total, item) => {
-		return total + item.units * item.costPerUnit;
-	}, 0);
-
+	const totalCost = costItems.reduce(
+		(total, item) => total + item.units * item.costPerUnit,
+		0,
+	);
 	const targetTotalId = useId();
+
+	const renderNumericInput = (
+		item: CostItem,
+		field: string,
+		value: number,
+		onChange: (val: number) => void,
+	) => {
+		const isEditing =
+			activeField?.id === item.id && activeField?.field === field;
+		return (
+			<Input
+				onBlur={() => setActiveField(null)}
+				onChange={(e) =>
+					onChange(
+						e.target.value === "" ? 0 : Number.parseFloat(e.target.value),
+					)
+				}
+				onFocus={(e) => {
+					e.target.select();
+					setActiveField({ id: item.id, field });
+				}}
+				step="0.01"
+				type="number"
+				value={isEditing ? value || "" : value.toFixed(2)}
+			/>
+		);
+	};
+
 	return (
 		<Card className="mt-8">
 			<CardHeader>
 				<CardTitle>Cost Calculator</CardTitle>
-				<CardDescription>Add items to calculate total cost.</CardDescription>
 			</CardHeader>
 			<CardContent>
 				<div className="mb-6 flex items-end gap-4 rounded-lg bg-muted/50 p-4">
 					<div className="grid gap-2">
-						<label className="font-medium text-sm" htmlFor="targetTotal">
+						<label className="font-medium text-sm" htmlFor={targetTotalId}>
 							Target Total ($)
 						</label>
 						<Input
 							className="w-32"
 							id={targetTotalId}
 							onChange={(e) => setTargetTotal(Number(e.target.value))}
+							onFocus={(e) => e.target.select()}
 							type="number"
 							value={targetTotal}
 						/>
@@ -140,8 +144,8 @@ export default function CostCalculator() {
 				<Table>
 					<TableHeader>
 						<TableRow>
-							<TableHead className="hidden sm:block">Item</TableHead>
-							<TableHead className="w-[150px]">Units</TableHead>
+							<TableHead>Item</TableHead>
+							<TableHead className="w-[120px]">Units</TableHead>
 							<TableHead className="w-[150px]">Cost/Unit</TableHead>
 							<TableHead className="w-[150px]">Total</TableHead>
 							<TableHead className="w-[50px]" />
@@ -157,15 +161,17 @@ export default function CostCalculator() {
 										}
 										value={item.name}
 									>
-										<SelectTrigger className="w-full">
-											<SelectValue placeholder="Select Code" />
+										<SelectTrigger>
+											<SelectValue placeholder="Code" />
 										</SelectTrigger>
 										<SelectContent>
-											<SelectItem value="90791">90791</SelectItem>
-											<SelectItem value="96136">96136</SelectItem>
-											<SelectItem value="96137">96137</SelectItem>
-											<SelectItem value="96130">96130</SelectItem>
-											<SelectItem value="96131">96131</SelectItem>
+											{["90791", "96136", "96137", "96130", "96131"].map(
+												(code) => (
+													<SelectItem key={code} value={code}>
+														{code}
+													</SelectItem>
+												),
+											)}
 										</SelectContent>
 									</Select>
 								</TableCell>
@@ -175,47 +181,42 @@ export default function CostCalculator() {
 											handleCostItemChange(
 												item.id,
 												"units",
-												Number.parseFloat(e.target.value || "0"),
+												Number(e.target.value),
 											)
 										}
+										onFocus={(e) => e.target.select()}
 										type="number"
 										value={item.units}
 									/>
 								</TableCell>
 								<TableCell>
-									<div className="flex items-center">
-										<span className="mr-1">$</span>
-										<Input
-											onChange={(e) =>
-												handleCostItemChange(
-													item.id,
-													"costPerUnit",
-													Number.parseFloat(e.target.value || "0"),
-												)
-											}
-											type="number"
-											value={item.costPerUnit.toFixed(2)}
-										/>
+									<div className="flex items-center gap-1">
+										<span>$</span>
+										{renderNumericInput(
+											item,
+											"costPerUnit",
+											item.costPerUnit,
+											(val) =>
+												handleCostItemChange(item.id, "costPerUnit", val),
+										)}
 									</div>
 								</TableCell>
 								<TableCell>
-									<div className="flex items-center">
-										<span className="mr-1">$</span>
-										<Input
-											onChange={(e) =>
-												handleTotalChange(
-													item.id,
-													Number.parseFloat(e.target.value || "0"),
-												)
-											}
-											type="number"
-											value={(item.units * item.costPerUnit).toFixed(2)}
-										></Input>
+									<div className="flex items-center gap-1">
+										<span>$</span>
+										{renderNumericInput(
+											item,
+											"rowTotal",
+											item.units * item.costPerUnit,
+											(val) => handleTotalChange(item.id, val),
+										)}
 									</div>
 								</TableCell>
 								<TableCell>
 									<Button
-										onClick={() => removeCostItem(item.id)}
+										onClick={() =>
+											setCostItems(costItems.filter((i) => i.id !== item.id))
+										}
 										size="icon"
 										variant="ghost"
 									>
@@ -226,13 +227,22 @@ export default function CostCalculator() {
 						))}
 					</TableBody>
 				</Table>
-				<Button className="mt-4" onClick={addCostItem}>
+				<Button
+					className="mt-4"
+					onClick={() =>
+						setCostItems([
+							...costItems,
+							{ id: crypto.randomUUID(), name: "", units: 1, costPerUnit: 0 },
+						])
+					}
+				>
 					Add Item
 				</Button>
 			</CardContent>
-			<CardFooter>
-				<div className="w-full text-right font-bold text-xl">
-					Total Cost: ${totalCost.toFixed(2)}
+			<CardFooter className="justify-end border-t p-6">
+				<div className="text-right">
+					<p className="text-muted-foreground text-sm">Total Cost</p>
+					<p className="font-bold text-2xl">${totalCost.toFixed(2)}</p>
 				</div>
 			</CardFooter>
 		</Card>
