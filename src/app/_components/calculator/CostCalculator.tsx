@@ -206,8 +206,15 @@ export default function CostCalculator() {
 										</SelectTrigger>
 										<SelectContent>
 											{Object.entries(codes).map(([code, metadata]) => {
+												const isSelected = costItems.some(
+													(i) => i.name === code && i.id !== item.id,
+												);
 												return (
-													<SelectItem key={code} value={code}>
+													<SelectItem
+														disabled={isSelected}
+														key={code}
+														value={code}
+													>
 														{isDesktop ? `${code} - ${metadata.label}` : code}
 													</SelectItem>
 												);
