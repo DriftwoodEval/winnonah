@@ -21,6 +21,7 @@ export const evaluators = createTable("evaluator", (d) => ({
 	npi: d.int().notNull().primaryKey(),
 	providerName: d.varchar({ length: 255 }).notNull(),
 	email: d.varchar({ length: 255 }).notNull().unique(),
+	outOfOfficePriority: d.boolean().notNull().default(false),
 }));
 
 export const insurances = createTable("insurance", (d) => ({
