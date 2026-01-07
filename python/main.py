@@ -209,6 +209,9 @@ def make_referral_fax_folders(referrals: pd.DataFrame):
         cleaned_name = re.sub(r"\([^)]*\)|[^a-zA-Z\s/.]", "", ref_name).strip()
         raw_fax_number = extract_digits(ref_name)
         fax_number = format_fax_number(raw_fax_number) if raw_fax_number else None
+        if not fax_number:
+            logger.warning(f"Invalid fax number: {ref_name}")
+            continue
         ref_data.append(
             {
                 "cleaned_name": cleaned_name,
