@@ -104,14 +104,14 @@ export default function TimeCalculator() {
 			name: "96136",
 			date: today,
 			startTime: "09:00",
-			endTime: "10:00",
+			endTime: "09:30",
 		},
 		{
 			id: crypto.randomUUID(),
 			name: "96137",
 			date: today,
 			startTime: "09:00",
-			endTime: "10:00",
+			endTime: "14:30",
 		},
 		{
 			id: crypto.randomUUID(),
@@ -125,7 +125,7 @@ export default function TimeCalculator() {
 			name: "96131",
 			date: today,
 			startTime: "09:00",
-			endTime: "10:00",
+			endTime: "13:00",
 		},
 	]);
 
