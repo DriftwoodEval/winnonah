@@ -32,6 +32,9 @@ export default function NavigationLinks() {
 	const canCalculator = session
 		? hasPermission(session.user.permissions, "pages:calculator")
 		: false;
+	const canSchedule = session
+		? hasPermission(session.user.permissions, "pages:scheduling")
+		: false;
 
 	return (
 		<div className="flex gap-4 text-sm">
@@ -46,6 +49,11 @@ export default function NavigationLinks() {
 			{canCalculator && (
 				<NavigationLink href="/calculator" pathname={pathname}>
 					Calculator
+				</NavigationLink>
+			)}
+			{canSchedule && (
+				<NavigationLink href="/scheduling" pathname={pathname}>
+					Scheduling
 				</NavigationLink>
 			)}
 		</div>

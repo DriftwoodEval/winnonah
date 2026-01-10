@@ -111,6 +111,7 @@ export const permissions = {
 		permissions: [
 			{ id: "pages:dashboard", title: "Dashboard" },
 			{ id: "pages:calculator", title: "Calculator" },
+			{ id: "pages:scheduling", title: "Scheduling" },
 		],
 	},
 } as const;
