@@ -155,7 +155,7 @@ const IssueList = ({ title, clients, action }: IssueListProps) => {
 									type="button"
 								>
 									<Separator className="my-2 flex-1 rounded bg-accent data-[orientation=horizontal]:h-1" />
-									<div className="-translate-x-1/2 -translate-y-1/2 pointer-events-none absolute top-1/2 right-0 z-10 rounded-full bg-accent px-2 py-1 opacity-0 transition-opacity duration-200 group-hover:opacity-100 group-focus:opacity-100">
+									<div className="pointer-events-none absolute top-1/2 right-0 z-10 -translate-x-1/2 -translate-y-1/2 rounded-full bg-accent px-2 py-1 opacity-0 transition-opacity duration-200 group-hover:opacity-100 group-focus:opacity-100">
 										<PinOff className="h-4 w-4" />
 									</div>
 								</button>
@@ -177,7 +177,7 @@ const IssueList = ({ title, clients, action }: IssueListProps) => {
 										type="button"
 									>
 										<Separator className="flex-1" />
-										<div className="-translate-x-1/2 -translate-y-1/2 pointer-events-none absolute top-1/2 right-0 z-10 rounded-full bg-muted px-2 py-1 opacity-0 transition-opacity duration-200 group-hover:opacity-100 group-focus:opacity-100">
+										<div className="pointer-events-none absolute top-1/2 right-0 z-10 -translate-x-1/2 -translate-y-1/2 rounded-full bg-muted px-2 py-1 opacity-0 transition-opacity duration-200 group-hover:opacity-100 group-focus:opacity-100">
 											<Pin className="h-4 w-4" />
 										</div>
 									</button>
@@ -333,7 +333,7 @@ const PunchlistIssueList = ({
 									type="button"
 								>
 									<Separator className="my-2 flex-1 rounded bg-accent data-[orientation=horizontal]:h-1" />
-									<div className="-translate-x-1/2 -translate-y-1/2 pointer-events-none absolute top-1/2 right-0 z-10 rounded-full bg-accent px-2 py-1 opacity-0 transition-opacity duration-200 group-hover:opacity-100 group-focus:opacity-100">
+									<div className="pointer-events-none absolute top-1/2 right-0 z-10 -translate-x-1/2 -translate-y-1/2 rounded-full bg-accent px-2 py-1 opacity-0 transition-opacity duration-200 group-hover:opacity-100 group-focus:opacity-100">
 										<PinOff className="h-4 w-4" />
 									</div>
 								</button>
@@ -358,7 +358,7 @@ const PunchlistIssueList = ({
 										type="button"
 									>
 										<Separator className="flex-1" />
-										<div className="-translate-x-1/2 -translate-y-1/2 pointer-events-none absolute top-1/2 right-0 z-10 rounded-full bg-muted px-2 py-1 opacity-0 transition-opacity duration-200 group-hover:opacity-100 group-focus:opacity-100">
+										<div className="pointer-events-none absolute top-1/2 right-0 z-10 -translate-x-1/2 -translate-y-1/2 rounded-full bg-muted px-2 py-1 opacity-0 transition-opacity duration-200 group-hover:opacity-100 group-focus:opacity-100">
 											<Pin className="h-4 w-4" />
 										</div>
 									</button>
