@@ -161,93 +161,122 @@ def batch_search_calendar_events(
     """
     results = {}
 
-    # Group by date to minimize API calls
+    if appointments_df.empty:
+        return results
+
+    # Calculate search window
+    timestamps = pd.to_datetime(appointments_df["STARTTIME"])
+    min_time = timestamps.min().to_pydatetime()
+    max_time = timestamps.max().to_pydatetime()
+
+    # Add buffer: -1 day start, +1 day end to handle timezone shifts
+    search_start = (min_time - timedelta(days=1)).isoformat() + "Z"
+    search_end = (max_time + timedelta(days=2)).isoformat() + "Z"
+
     appointments_by_date = defaultdict(list)
     for idx, appointment in appointments_df.iterrows():
         start_time = pd.to_datetime(appointment["STARTTIME"]).to_pydatetime()
         date_key = start_time.date()
         appointments_by_date[date_key].append((idx, appointment))
 
-    # Search each calendar once per date
+    logger.info(f"Searching calendars from {search_start} to {search_end}...")
+
     for calendar in calendars:
         calendar_id = calendar["id"]
+        all_events = []
+        page_token = None
 
-        for date_key, date_appointments in appointments_by_date.items():
-            try:
-                # Fetch all events for this day
-                day_start = datetime.combine(date_key, datetime.min.time())
-                day_end = day_start + timedelta(days=1)
-
+        try:
+            while True:
                 events_result = (
                     service.events()
                     .list(
                         calendarId=calendar_id,
-                        timeMin=day_start.isoformat() + "Z",
-                        timeMax=day_end.isoformat() + "Z",
+                        timeMin=search_start,
+                        timeMax=search_end,
                         singleEvents=True,
                         orderBy="startTime",
+                        pageToken=page_token,
                     )
                     .execute()
                 )
 
                 events = events_result.get("items", [])
+                all_events.extend(events)
 
-                # Match events to appointments by client ID and time
-                for idx, appointment in date_appointments:
-                    if idx in results:  # Already found
+                page_token = events_result.get("nextPageToken")
+                if not page_token:
+                    break
+        except Exception:
+            logger.exception(
+                f"Error searching calendar {calendar.get('summary', 'Unknown')}"
+            )
+            continue
+
+        if not all_events:
+            continue
+
+        events_by_date = defaultdict(list)
+        for event in all_events:
+            event_start = event["start"].get("dateTime", event["start"].get("date"))
+            if not event_start:
+                continue
+
+            # Parse and strip tzinfo for date grouping
+            dt = parser.parse(event_start)
+            if dt.tzinfo is not None:
+                dt = dt.replace(tzinfo=None)  # Convert to naive for date matching
+
+            events_by_date[dt.date()].append((dt, event))
+
+        # We iterate our requested appointments and look up the relevant day in our fetched events
+        for date_key, date_appointments in appointments_by_date.items():
+            # Only look at events that happened on this specific day
+            day_events = events_by_date.get(date_key, [])
+
+            for idx, appointment in date_appointments:
+                if idx in results:  # Already found in a previous calendar
+                    continue
+
+                client_id = appointment["CLIENT_ID"]
+                start_time = pd.to_datetime(appointment["STARTTIME"]).to_pydatetime()
+                if start_time.tzinfo is not None:
+                    start_time = start_time.replace(tzinfo=None)
+
+                # Iterate only the events for this specific day
+                for event_dt, event in day_events:
+                    description = event.get("description", "")
+
+                    # Check Client ID
+                    if str(client_id) not in description:
                         continue
 
-                    client_id = appointment["CLIENT_ID"]
-                    start_time = pd.to_datetime(
-                        appointment["STARTTIME"]
-                    ).to_pydatetime()
+                    # Check Time Difference
+                    time_diff = abs((event_dt - start_time).total_seconds())
 
-                    for event in events:
-                        description = event.get("description", "")
-                        if str(client_id) not in description:
-                            continue
-
-                        event_start = event["start"].get(
-                            "dateTime", event["start"].get("date")
+                    if time_diff <= 3600:  # 1 hour tolerance
+                        results[idx] = {
+                            "event_id": event["id"],
+                            "title": event.get("summary", "No title"),
+                            "calendar_id": calendar_id,
+                        }
+                        break
+                    else:
+                        # Log specific mismatch
+                        logger.warning(
+                            f"Found event with Client ID {client_id} but wrong time: "
+                            f"Event: {event_dt}, Expected: {start_time}, Diff: {int(time_diff)}s"
                         )
-                        event_start_dt = parser.parse(event_start)
-
-                        # Compare times (timezone-naive)
-                        if event_start_dt.tzinfo is not None:
-                            event_start_dt = event_start_dt.replace(tzinfo=None)
-                        if start_time.tzinfo is not None:
-                            start_time = start_time.replace(tzinfo=None)
-
-                        time_diff = abs((event_start_dt - start_time).total_seconds())
-
-                        if time_diff <= 3600:  # 1 hour tolerance
-                            results[idx] = {
-                                "event_id": event["id"],
-                                "title": event.get("summary", "No title"),
-                                "calendar_id": calendar_id,
-                            }
-                            break
-                        else:
-                            logger.warning(
-                                f"Found event with Client ID {client_id} but wrong time: "
-                                f"Event: {event_start_dt.strftime('%m/%d %I:%M %p')}, Expected: {start_time.strftime('%m/%d %I:%M %p')}, "
-                                f"Diff: {int(time_diff)}s"
-                            )
-                            reporter.log_time_mismatch(
-                                appointment_idx=idx,
-                                client_name=re.sub(
-                                    r"[\d\(\)]", "", appointment["NAME"]
-                                ).strip(),
-                                client_id=client_id,
-                                found_time=event_start_dt.strftime("%m/%d %I:%M %p"),
-                                expected_time=start_time.strftime("%m/%d %I:%M %p"),
-                            )
-                            break
-
-            except Exception:
-                logger.exception(
-                    f"Error searching calendar {calendar.get('summary', 'Unknown')}"
-                )
+                        reporter.log_time_mismatch(
+                            appointment_idx=idx,
+                            client_name=re.sub(
+                                r"[\d\(\)]", "", appointment["NAME"]
+                            ).strip(),
+                            client_id=client_id,
+                            found_time=event_dt,
+                            expected_time=start_time.strftime("%m/%d %I:%M %p"),
+                        )
+                        break
 
     return results
 
@@ -316,7 +345,7 @@ def prepare_appointments_from_csv(reporter: SyncReporter):
             continue
 
     if indices_to_drop:
-        appointments_df = appointments_df.drop(index=indices_to_drop).reset_index(
+        appointments_df = appointments_df.drop(index=list(indices_to_drop)).reset_index(
             drop=True
         )
 
@@ -385,7 +414,7 @@ def prepare_appointments_from_csv(reporter: SyncReporter):
             indices_to_drop.add(idx)
 
     if indices_to_drop:
-        appointments_df = appointments_df.drop(index=indices_to_drop).reset_index(
+        appointments_df = appointments_df.drop(index=list(indices_to_drop)).reset_index(
             drop=True
         )
 
@@ -418,6 +447,14 @@ def insert_appointments_with_gcal():
         gcal_event_id = appointment.get("gcal_event_id")
         gcal_event_title = appointment.get("gcal_title")
         gcal_calendar_id = appointment.get("gcal_calendar_id")
+
+        if not gcal_calendar_id:
+            logger.error(f"No calendar ID found for event ID: {gcal_event_id}")
+            continue
+
+        if not gcal_event_title:
+            logger.error(f"No title found for event ID: {gcal_event_id}")
+            continue
 
         evaluatorNpi = npi_cache.get(gcal_calendar_id)
 
