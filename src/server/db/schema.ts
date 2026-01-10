@@ -499,3 +499,32 @@ export const verificationTokens = createTable(
 	}),
 	(t) => [primaryKey({ columns: [t.identifier, t.token] })],
 );
+
+export const schedulingClients = createTable(
+	"scheduling_client",
+	(d) => ({
+		clientId: d
+			.int()
+			.notNull()
+			.primaryKey()
+			.references(() => clients.id, { onDelete: "cascade" }),
+		evaluator: d.int().references(() => evaluators.npi),
+		archived: d.boolean().notNull().default(false),
+		date: d.text(),
+		time: d.text(),
+		office: d.varchar({ length: 255 }),
+		karenNotes: d.text(),
+		barbaraNotes: d.text(),
+	}),
+	(t) => [index("scheduling_client_id_idx").on(t.clientId)],
+);
+
+export const schedulingClientsRelations = relations(
+	schedulingClients,
+	({ one }) => ({
+		client: one(clients, {
+			fields: [schedulingClients.clientId],
+			references: [clients.id],
+		}),
+	}),
+);
