@@ -17,6 +17,7 @@ import {
 } from "drizzle-orm";
 import { z } from "zod";
 import { CLIENT_COLOR_KEYS } from "~/lib/colors";
+import { syncPunchData } from "~/lib/google";
 import { logger } from "~/lib/logger";
 import type { ClientWithIssueInfo } from "~/lib/types";
 import { hasPermission } from "~/lib/utils";
@@ -111,6 +112,21 @@ export const clientRouter = createTRPCRouter({
 				});
 			}
 
+			if (ctx.session.user.accessToken && ctx.session.user.refreshToken) {
+				await syncPunchData(ctx.session, [foundClient.id], ctx.redis);
+			}
+
+			const syncedClient = await ctx.db.query.clients.findFirst({
+				where: eq(clients.id, foundClient.id),
+			});
+
+			if (!syncedClient) {
+				throw new TRPCError({
+					code: "INTERNAL_SERVER_ERROR",
+					message: "Failed to retrieve synced client data",
+				});
+			}
+
 			type ClosestOffice = {
 				key: string;
 				prettyName: string;
@@ -120,7 +136,7 @@ export const clientRouter = createTRPCRouter({
 			};
 
 			let closestOffices: ClosestOffice[] = [];
-			if (foundClient.latitude && foundClient.longitude) {
+			if (syncedClient.latitude && syncedClient.longitude) {
 				const [rows] = await ctx.db.execute<ClosestOffice>(sql`
         SELECT
           o.key,
@@ -128,10 +144,10 @@ export const clientRouter = createTRPCRouter({
           o.latitude,
           o.longitude,
           (3959 * acos(
-            cos(radians(${foundClient.latitude})) *
+            cos(radians(${syncedClient.latitude})) *
             cos(radians(o.latitude)) *
-            cos(radians(o.longitude) - radians(${foundClient.longitude})) +
-            sin(radians(${foundClient.latitude})) *
+            cos(radians(o.longitude) - radians(${syncedClient.longitude})) +
+            sin(radians(${syncedClient.latitude})) *
             sin(radians(o.latitude))
           )) as distanceMiles
         FROM emr_office o
@@ -143,7 +159,7 @@ export const clientRouter = createTRPCRouter({
 			}
 
 			return {
-				...foundClient,
+				...syncedClient,
 				closestOffices,
 			};
 		}),

@@ -3,12 +3,10 @@ import { eq } from "drizzle-orm";
 import z from "zod";
 import { fetchWithCache, invalidateCache } from "~/lib/cache";
 import {
-	ALLOWED_ASD_ADHD_VALUES,
 	findDuplicateIdFolders,
 	getClientFromPunchData,
 	getPunchData,
 	renameDriveFolder,
-	syncPunchData,
 	updatePunchData,
 } from "~/lib/google";
 import { logger } from "~/lib/logger";
@@ -122,52 +120,6 @@ export const googleRouter = createTRPCRouter({
 			}
 
 			return punchClient;
-		}),
-
-	getFor: protectedProcedure.input(z.string()).query(async ({ ctx, input }) => {
-		if (!ctx.session.user.accessToken || !ctx.session.user.refreshToken) {
-			throw new Error("No access token or refresh token");
-		}
-
-		const clientId = parseInt(input, 10);
-		const allPunchData = await syncPunchData(
-			ctx.session,
-			[clientId],
-			ctx.redis,
-		);
-		const punchClient = allPunchData.find((p) => p["Client ID"] === input);
-
-		if (!punchClient?.For) {
-			return null;
-		}
-
-		if (
-			!(ALLOWED_ASD_ADHD_VALUES as unknown as string[]).includes(
-				punchClient.For,
-			)
-		) {
-			throw new Error(`Invalid value for asdAdhd: ${punchClient.For}`);
-		}
-
-		return punchClient.For;
-	}),
-
-	getLang: protectedProcedure
-		.input(z.string())
-		.query(async ({ ctx, input }) => {
-			if (!ctx.session.user.accessToken || !ctx.session.user.refreshToken) {
-				throw new Error("No access token or refresh token");
-			}
-
-			const clientId = parseInt(input, 10);
-			const allPunchData = await syncPunchData(
-				ctx.session,
-				[clientId],
-				ctx.redis,
-			);
-			const punchClient = allPunchData.find((p) => p["Client ID"] === input);
-
-			return !!(punchClient?.Language && punchClient.Language !== "");
 		}),
 
 	getQsSent: protectedProcedure

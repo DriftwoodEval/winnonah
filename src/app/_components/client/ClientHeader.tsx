@@ -66,20 +66,6 @@ export function ClientHeader({
 		? hasPermission(session.user.permissions, "clients:shell")
 		: false;
 
-	const { data: punchFor } = api.google.getFor.useQuery(
-		String(client?.id) ?? "",
-		{
-			enabled: !!client?.id,
-		},
-	);
-
-	const { data: punchInterp } = api.google.getLang.useQuery(
-		String(client?.id) ?? "",
-		{
-			enabled: !!client?.id,
-		},
-	);
-
 	const updateClient = api.clients.update.useMutation({
 		onSuccess: () => {
 			toast.success("Client updated successfully!");
@@ -244,17 +230,17 @@ export function ClientHeader({
 					</>
 				)}
 
-				{(client.interpreter || punchInterp) && (
+				{client.interpreter && (
 					<>
 						<Separator orientation="vertical" />
 						<span className="font-bold">Interpreter Needed</span>
 					</>
 				)}
 
-				{(client.asdAdhd || punchFor) && (
+				{client.asdAdhd && (
 					<>
 						<Separator orientation="vertical" />
-						<span>{punchFor ?? client.asdAdhd}</span>
+						<span>{client.asdAdhd}</span>
 					</>
 				)}
 
