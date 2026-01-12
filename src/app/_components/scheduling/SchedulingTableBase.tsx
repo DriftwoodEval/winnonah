@@ -280,8 +280,7 @@ export function SchedulingTableHeader({
 		{ key: "district", label: "District" },
 		{ key: "paDate", label: "PA Date" },
 		{ key: "age", label: "Age" },
-		{ key: "karenNotes", label: "Karen Notes" },
-		{ key: "barbaraNotes", label: "Barbara Notes" },
+		{ key: "notes", label: "Notes", noFilter: true },
 	];
 
 	return (
@@ -314,8 +313,7 @@ export interface ScheduledClient {
 	date: string | null;
 	time: string | null;
 	office: string | null;
-	karenNotes: string | null;
-	barbaraNotes: string | null;
+	notes: string | null;
 	code: string | null;
 	color: string | null;
 	archived: boolean;
@@ -349,12 +347,7 @@ export function SchedulingTableRow({
 }) {
 	const [localDate, setLocalDate] = useState(scheduledClient.date ?? "");
 	const [localTime, setLocalTime] = useState(scheduledClient.time ?? "");
-	const [localKarenNotes, setLocalKarenNotes] = useState(
-		scheduledClient.karenNotes ?? "",
-	);
-	const [localBarbaraNotes, setLocalBarbaraNotes] = useState(
-		scheduledClient.barbaraNotes ?? "",
-	);
+	const [localNotes, setLocalNotes] = useState(scheduledClient.notes ?? "");
 
 	useEffect(() => {
 		setLocalDate(scheduledClient.date ?? "");
@@ -365,12 +358,8 @@ export function SchedulingTableRow({
 	}, [scheduledClient.time]);
 
 	useEffect(() => {
-		setLocalKarenNotes(scheduledClient.karenNotes ?? "");
-	}, [scheduledClient.karenNotes]);
-
-	useEffect(() => {
-		setLocalBarbaraNotes(scheduledClient.barbaraNotes ?? "");
-	}, [scheduledClient.barbaraNotes]);
+		setLocalNotes(scheduledClient.notes ?? "");
+	}, [scheduledClient.notes]);
 
 	const color =
 		scheduledClient.color && isSchedulingColor(scheduledClient.color)
@@ -545,31 +534,14 @@ export function SchedulingTableRow({
 					<Input
 						onBlur={() =>
 							onUpdate?.(scheduledClient.clientId, {
-								karenNotes: localKarenNotes,
+								notes: localNotes,
 							})
 						}
-						onChange={(e) => setLocalKarenNotes(e.target.value)}
-						value={localKarenNotes}
+						onChange={(e) => setLocalNotes(e.target.value)}
+						value={localNotes}
 					/>
 				) : (
-					scheduledClient.karenNotes || "-"
-				)}
-			</TableCell>
-			<TableCell
-				className={isEditable ? "min-w-[300px]" : "max-w-[300px] truncate"}
-			>
-				{isEditable ? (
-					<Input
-						onBlur={() =>
-							onUpdate?.(scheduledClient.clientId, {
-								barbaraNotes: localBarbaraNotes,
-							})
-						}
-						onChange={(e) => setLocalBarbaraNotes(e.target.value)}
-						value={localBarbaraNotes}
-					/>
-				) : (
-					scheduledClient.barbaraNotes || "-"
+					scheduledClient.notes || "-"
 				)}
 			</TableCell>
 

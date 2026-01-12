@@ -89,8 +89,7 @@ export const schedulingRouter = createTRPCRouter({
 				date: z.string().optional(),
 				time: z.string().optional(),
 				office: z.string().optional(),
-				karenNotes: z.string().optional(),
-				barbaraNotes: z.string().optional(),
+				notes: z.string().optional(),
 				code: z.string().optional(),
 				color: z.string().nullable().optional(),
 			}),
@@ -101,8 +100,7 @@ export const schedulingRouter = createTRPCRouter({
 				date?: string;
 				time?: string;
 				office?: string;
-				karenNotes?: string;
-				barbaraNotes?: string;
+				notes?: string;
 				code?: string;
 				color?: string | null;
 			} = {};
@@ -119,11 +117,8 @@ export const schedulingRouter = createTRPCRouter({
 			if (input.office !== undefined) {
 				updateData.office = input.office;
 			}
-			if (input.karenNotes !== undefined) {
-				updateData.karenNotes = input.karenNotes;
-			}
-			if (input.barbaraNotes !== undefined) {
-				updateData.barbaraNotes = input.barbaraNotes;
+			if (input.notes !== undefined) {
+				updateData.notes = input.notes;
 			}
 			if (input.code !== undefined) {
 				updateData.code = input.code;

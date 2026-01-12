@@ -513,8 +513,7 @@ export const schedulingClients = createTable(
 		date: d.text(),
 		time: d.text(),
 		office: d.varchar({ length: 255 }),
-		karenNotes: d.text(),
-		barbaraNotes: d.text(),
+		notes: d.text(),
 		code: d.text(),
 		color: d.varchar({ length: 50 }),
 		createdAt: d

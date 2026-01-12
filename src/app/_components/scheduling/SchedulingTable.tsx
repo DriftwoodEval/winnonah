@@ -41,8 +41,7 @@ function useSchedulingFilters(
 			district: new Set(),
 			paDate: new Set(),
 			age: new Set(),
-			karenNotes: new Set(),
-			barbaraNotes: new Set(),
+			notes: new Set(),
 		};
 
 		for (const client of clients) {
@@ -90,8 +89,7 @@ function useSchedulingFilters(
 			const age = client.client.dob ? formatClientAge(client.client.dob) : "";
 			values.age?.add(normalize(age));
 
-			values.karenNotes?.add(normalize(client.karenNotes));
-			values.barbaraNotes?.add(normalize(client.barbaraNotes));
+			values.notes?.add(normalize(client.notes));
 		}
 
 		const result: Record<string, string[]> = {};
@@ -172,11 +170,8 @@ function useSchedulingFilters(
 							client.client.dob ? formatClientAge(client.client.dob) : "",
 						);
 						break;
-					case "karenNotes":
-						value = normalize(client.karenNotes);
-						break;
-					case "barbaraNotes":
-						value = normalize(client.barbaraNotes);
+					case "notes":
+						value = normalize(client.notes);
 						break;
 				}
 				return selectedValues.includes(value);
