@@ -63,6 +63,7 @@ export const schedulingRouter = createTRPCRouter({
 				office: z.string().optional(),
 				karenNotes: z.string().optional(),
 				barbaraNotes: z.string().optional(),
+				code: z.string().optional(),
 			}),
 		)
 		.mutation(async ({ input }) => {
@@ -73,6 +74,7 @@ export const schedulingRouter = createTRPCRouter({
 				office?: string;
 				karenNotes?: string;
 				barbaraNotes?: string;
+				code?: string;
 			} = {};
 
 			if (input.evaluatorNpi !== undefined) {
@@ -92,6 +94,9 @@ export const schedulingRouter = createTRPCRouter({
 			}
 			if (input.barbaraNotes !== undefined) {
 				updateData.barbaraNotes = input.barbaraNotes;
+			}
+			if (input.code !== undefined) {
+				updateData.code = input.code;
 			}
 			await db
 				.update(schedulingClients)

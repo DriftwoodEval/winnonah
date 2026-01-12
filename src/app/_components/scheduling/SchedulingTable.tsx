@@ -104,6 +104,7 @@ function ActiveSchedulingTable() {
 	const [clientOffices, setClientOffices] = useState<Record<number, string>>(
 		{},
 	);
+	const [clientCodes, setClientCodes] = useState<Record<number, string>>({});
 	const [clientScheduleDetails, setClientScheduleDetails] = useState<
 		Record<number, { date: string; time: string }>
 	>({});
@@ -119,6 +120,7 @@ function ActiveSchedulingTable() {
 				{ date: string; time: string }
 			> = {};
 			const initialOffices: Record<number, string> = {};
+			const initialCodes: Record<number, string> = {};
 			const initialNotes: Record<
 				number,
 				{ karenNotes: string; barbaraNotes: string }
@@ -132,6 +134,7 @@ function ActiveSchedulingTable() {
 				};
 				initialOffices[scheduledClient.clientId] =
 					scheduledClient.office ?? scheduledClient.client.closestOffice ?? "";
+				initialCodes[scheduledClient.clientId] = scheduledClient.code ?? "";
 				initialNotes[scheduledClient.clientId] = {
 					karenNotes: scheduledClient.karenNotes ?? "",
 					barbaraNotes: scheduledClient.barbaraNotes ?? "",
@@ -140,10 +143,10 @@ function ActiveSchedulingTable() {
 			setClientEvaluators(initialEvaluators);
 			setClientScheduleDetails(initialScheduleDetails);
 			setClientOffices(initialOffices);
+			setClientCodes(initialCodes);
 			setClientNotes(initialNotes);
 		}
 	}, [data?.clients]);
-
 	if (isLoading) {
 		return (
 			<div className="flex h-full w-full flex-col items-center justify-center gap-2">
@@ -174,6 +177,14 @@ function ActiveSchedulingTable() {
 		updateMutation.mutate({
 			clientId,
 			office,
+		});
+	};
+
+	const handleCodeChange = (clientId: number, code: string) => {
+		setClientCodes((prev) => ({ ...prev, [clientId]: code }));
+		updateMutation.mutate({
+			clientId,
+			code,
 		});
 	};
 
@@ -219,6 +230,7 @@ function ActiveSchedulingTable() {
 					<TableHead>Time</TableHead>
 					<TableHead>ASD/ADHD</TableHead>
 					<TableHead>Insurance</TableHead>
+					<TableHead>Code</TableHead>
 					<TableHead>Location</TableHead>
 					<TableHead>District</TableHead>
 					<TableHead>PA Date</TableHead>
@@ -302,6 +314,23 @@ function ActiveSchedulingTable() {
 							]
 								.filter(Boolean)
 								.join(" | ") || "-"}
+						</TableCell>
+
+						<TableCell>
+							<Select
+								onValueChange={(value) =>
+									handleCodeChange(scheduledClient.clientId, value)
+								}
+								value={clientCodes[scheduledClient.clientId] ?? ""}
+							>
+								<SelectTrigger>
+									<SelectValue placeholder="Select Code" />
+								</SelectTrigger>
+								<SelectContent>
+									<SelectItem value="90791">90791</SelectItem>
+									<SelectItem value="96136">96136</SelectItem>
+								</SelectContent>
+							</Select>
 						</TableCell>
 
 						<TableCell className="min-w-fit">
