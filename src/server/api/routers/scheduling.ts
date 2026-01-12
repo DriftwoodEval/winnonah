@@ -31,8 +31,13 @@ export const schedulingRouter = createTRPCRouter({
 			},
 		});
 
+		const allEvaluators = await db.query.evaluators.findMany();
+		const allOffices = await db.query.offices.findMany();
+
 		return {
 			clients: scheduledClients,
+			evaluators: allEvaluators,
+			offices: allOffices,
 		};
 	}),
 
