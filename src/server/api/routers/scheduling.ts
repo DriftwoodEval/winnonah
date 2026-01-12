@@ -1,11 +1,21 @@
 import { eq } from "drizzle-orm";
 import { z } from "zod";
+import { syncPunchData } from "~/lib/google";
 import { createTRPCRouter, protectedProcedure } from "~/server/api/trpc";
 import { db } from "~/server/db";
 import { clients, schedulingClients } from "~/server/db/schema";
 
 export const schedulingRouter = createTRPCRouter({
-	get: protectedProcedure.query(async () => {
+	get: protectedProcedure.query(async ({ ctx }) => {
+		const scheduledClientsRaw = await db.query.schedulingClients.findMany({
+			where: eq(schedulingClients.archived, false),
+		});
+
+		const clientIds = scheduledClientsRaw.map((sc) => sc.clientId);
+		if (clientIds.length > 0) {
+			await syncPunchData(ctx.session, clientIds, ctx.redis);
+		}
+
 		const scheduledClients = await db.query.schedulingClients.findMany({
 			where: eq(schedulingClients.archived, false),
 			with: {
@@ -23,7 +33,16 @@ export const schedulingRouter = createTRPCRouter({
 		};
 	}),
 
-	getArchived: protectedProcedure.query(async () => {
+	getArchived: protectedProcedure.query(async ({ ctx }) => {
+		const scheduledClientsRaw = await db.query.schedulingClients.findMany({
+			where: eq(schedulingClients.archived, true),
+		});
+
+		const clientIds = scheduledClientsRaw.map((sc) => sc.clientId);
+		if (clientIds.length > 0) {
+			await syncPunchData(ctx.session, clientIds, ctx.redis);
+		}
+
 		const scheduledClients = await db.query.schedulingClients.findMany({
 			where: eq(schedulingClients.archived, true),
 			with: {
