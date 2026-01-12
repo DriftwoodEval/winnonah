@@ -1,6 +1,12 @@
 "use client";
 
 import { Button } from "@components/ui/button";
+import {
+	DropdownMenu,
+	DropdownMenuContent,
+	DropdownMenuItem,
+	DropdownMenuTrigger,
+} from "@components/ui/dropdown-menu";
 import { Input } from "@components/ui/input";
 import {
 	Select,
@@ -20,13 +26,60 @@ import {
 } from "@components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@components/ui/tabs";
 import { Skeleton } from "@ui/skeleton";
-import { Loader2, X } from "lucide-react";
+import { Circle, Loader2, X } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
+import {
+	formatColorName,
+	SCHEDULING_COLOR_KEYS,
+	SCHEDULING_COLOR_MAP,
+	type SchedulingColor,
+} from "~/lib/scheduling-colors";
 import type { Evaluator, Office } from "~/lib/types";
 import { formatClientAge, getLocalDayFromUTCDate } from "~/lib/utils";
 import { api } from "~/trpc/react";
 import { ArchivedSchedulingTable } from "./ArchivedSchedulingTable";
+
+function ColorPicker({
+	value,
+	onChange,
+}: {
+	value?: SchedulingColor;
+	onChange: (value: SchedulingColor) => void;
+}) {
+	return (
+		<DropdownMenu>
+			<DropdownMenuTrigger asChild>
+				<Button size="icon-sm" variant="ghost">
+					<Circle
+						className="h-4 w-4"
+						fill={value ? SCHEDULING_COLOR_MAP[value] : "transparent"}
+						style={{
+							color: value ? SCHEDULING_COLOR_MAP[value] : "currentColor",
+						}}
+					/>
+				</Button>
+			</DropdownMenuTrigger>
+			<DropdownMenuContent align="start">
+				{SCHEDULING_COLOR_KEYS.map((color) => (
+					<DropdownMenuItem
+						key={color}
+						onClick={() => onChange(color)}
+						onSelect={() => onChange(color)}
+					>
+						<div className="flex items-center gap-2">
+							<div
+								className="h-4 w-4 rounded-full"
+								style={{ backgroundColor: SCHEDULING_COLOR_MAP[color] }}
+							/>
+							{formatColorName(color)}
+						</div>
+					</DropdownMenuItem>
+				))}
+			</DropdownMenuContent>
+		</DropdownMenu>
+	);
+}
 
 function EvaluatorSelect({
 	clientId,
@@ -111,6 +164,9 @@ function ActiveSchedulingTable() {
 	const [clientNotes, setClientNotes] = useState<
 		Record<number, { karenNotes: string; barbaraNotes: string }>
 	>({});
+	const [clientColors, setClientColors] = useState<
+		Record<number, SchedulingColor>
+	>({});
 
 	useEffect(() => {
 		if (data?.clients) {
@@ -125,6 +181,7 @@ function ActiveSchedulingTable() {
 				number,
 				{ karenNotes: string; barbaraNotes: string }
 			> = {};
+			const initialColors: Record<number, SchedulingColor> = {};
 			data.clients.forEach((scheduledClient) => {
 				initialEvaluators[scheduledClient.clientId] =
 					scheduledClient.evaluator?.toString() ?? "";
@@ -139,12 +196,17 @@ function ActiveSchedulingTable() {
 					karenNotes: scheduledClient.karenNotes ?? "",
 					barbaraNotes: scheduledClient.barbaraNotes ?? "",
 				};
+				if (scheduledClient.color) {
+					initialColors[scheduledClient.clientId] =
+						scheduledClient.color as SchedulingColor;
+				}
 			});
 			setClientEvaluators(initialEvaluators);
 			setClientScheduleDetails(initialScheduleDetails);
 			setClientOffices(initialOffices);
 			setClientCodes(initialCodes);
 			setClientNotes(initialNotes);
+			setClientColors(initialColors);
 		}
 	}, [data?.clients]);
 	if (isLoading) {
@@ -177,6 +239,14 @@ function ActiveSchedulingTable() {
 		updateMutation.mutate({
 			clientId,
 			office,
+		});
+	};
+
+	const handleColorChange = (clientId: number, color: SchedulingColor) => {
+		setClientColors((prev) => ({ ...prev, [clientId]: color }));
+		updateMutation.mutate({
+			clientId,
+			color,
 		});
 	};
 
@@ -241,198 +311,220 @@ function ActiveSchedulingTable() {
 				</TableRow>
 			</TableHeader>
 			<TableBody>
-				{clients.map((scheduledClient) => (
-					<TableRow className="hover:bg-inherit" key={scheduledClient.clientId}>
-						<TableCell>
-							<Link
-								className="hover:underline"
-								href={`/clients/${scheduledClient.client.hash}`}
-							>
-								{scheduledClient.client.fullName}
-							</Link>
-						</TableCell>
+				{clients.map((scheduledClient) => {
+					const color = clientColors[scheduledClient.clientId];
+					const backgroundColor = color
+						? `${SCHEDULING_COLOR_MAP[color]}10`
+						: "transparent";
+					return (
+						<TableRow
+							className="hover:bg-inherit"
+							key={scheduledClient.clientId}
+							style={{ backgroundColor }}
+						>
+							<TableCell>
+								<div className="flex items-center gap-1">
+									<ColorPicker
+										onChange={(value) =>
+											handleColorChange(scheduledClient.clientId, value)
+										}
+										value={clientColors[scheduledClient.clientId]}
+									/>
+									<Link
+										className="hover:underline"
+										href={`/clients/${scheduledClient.client.hash}`}
+									>
+										{scheduledClient.client.fullName}
+									</Link>
+								</div>
+							</TableCell>
 
-						<TableCell>
-							<EvaluatorSelect
-								allEvaluators={evaluators}
-								clientId={scheduledClient.clientId}
-								onChange={(value) =>
-									handleEvaluatorChange(scheduledClient.clientId, value)
-								}
-								value={clientEvaluators[scheduledClient.clientId] ?? ""}
-							/>
-						</TableCell>
+							<TableCell>
+								<EvaluatorSelect
+									allEvaluators={evaluators}
+									clientId={scheduledClient.clientId}
+									onChange={(value) =>
+										handleEvaluatorChange(scheduledClient.clientId, value)
+									}
+									value={clientEvaluators[scheduledClient.clientId] ?? ""}
+								/>
+							</TableCell>
 
-						<TableCell className="min-w-[100px]">
-							<Input
-								onBlur={() =>
-									updateMutation.mutate({
-										clientId: scheduledClient.clientId,
-										date: clientScheduleDetails[scheduledClient.clientId]?.date,
-									})
-								}
-								onChange={(e) =>
-									handleScheduleDetailChange(
-										scheduledClient.clientId,
-										"date",
-										e.target.value,
-									)
-								}
-								value={
-									clientScheduleDetails[scheduledClient.clientId]?.date ?? ""
-								}
-							/>
-						</TableCell>
+							<TableCell className="min-w-[100px]">
+								<Input
+									onBlur={() =>
+										updateMutation.mutate({
+											clientId: scheduledClient.clientId,
+											date: clientScheduleDetails[scheduledClient.clientId]
+												?.date,
+										})
+									}
+									onChange={(e) =>
+										handleScheduleDetailChange(
+											scheduledClient.clientId,
+											"date",
+											e.target.value,
+										)
+									}
+									value={
+										clientScheduleDetails[scheduledClient.clientId]?.date ?? ""
+									}
+								/>
+							</TableCell>
 
-						<TableCell className="min-w-[100px]">
-							<Input
-								onBlur={() =>
-									updateMutation.mutate({
-										clientId: scheduledClient.clientId,
-										time: clientScheduleDetails[scheduledClient.clientId]?.time,
-									})
-								}
-								onChange={(e) =>
-									handleScheduleDetailChange(
-										scheduledClient.clientId,
-										"time",
-										e.target.value,
-									)
-								}
-								value={
-									clientScheduleDetails[scheduledClient.clientId]?.time ?? ""
-								}
-							/>
-						</TableCell>
+							<TableCell className="min-w-[100px]">
+								<Input
+									onBlur={() =>
+										updateMutation.mutate({
+											clientId: scheduledClient.clientId,
+											time: clientScheduleDetails[scheduledClient.clientId]
+												?.time,
+										})
+									}
+									onChange={(e) =>
+										handleScheduleDetailChange(
+											scheduledClient.clientId,
+											"time",
+											e.target.value,
+										)
+									}
+									value={
+										clientScheduleDetails[scheduledClient.clientId]?.time ?? ""
+									}
+								/>
+							</TableCell>
 
-						<TableCell>{scheduledClient.client.asdAdhd ?? "-"}</TableCell>
+							<TableCell>{scheduledClient.client.asdAdhd ?? "-"}</TableCell>
 
-						<TableCell>
-							{[
-								scheduledClient.client.primaryInsurance,
-								scheduledClient.client.secondaryInsurance,
-							]
-								.filter(Boolean)
-								.join(" | ") || "-"}
-						</TableCell>
+							<TableCell>
+								{[
+									scheduledClient.client.primaryInsurance,
+									scheduledClient.client.secondaryInsurance,
+								]
+									.filter(Boolean)
+									.join(" | ") || "-"}
+							</TableCell>
 
-						<TableCell>
-							<Select
-								onValueChange={(value) =>
-									handleCodeChange(scheduledClient.clientId, value)
-								}
-								value={clientCodes[scheduledClient.clientId] ?? ""}
-							>
-								<SelectTrigger>
-									<SelectValue placeholder="Select Code" />
-								</SelectTrigger>
-								<SelectContent>
-									<SelectItem value="90791">90791</SelectItem>
-									<SelectItem value="96136">96136</SelectItem>
-								</SelectContent>
-							</Select>
-						</TableCell>
+							<TableCell>
+								<Select
+									onValueChange={(value) =>
+										handleCodeChange(scheduledClient.clientId, value)
+									}
+									value={clientCodes[scheduledClient.clientId] ?? ""}
+								>
+									<SelectTrigger>
+										<SelectValue placeholder="Select Code" />
+									</SelectTrigger>
+									<SelectContent>
+										<SelectItem value="90791">90791</SelectItem>
+										<SelectItem value="96136">96136</SelectItem>
+									</SelectContent>
+								</Select>
+							</TableCell>
 
-						<TableCell className="min-w-fit">
-							<Select
-								onValueChange={(value) =>
-									handleOfficeChange(scheduledClient.clientId, value)
-								}
-								value={clientOffices[scheduledClient.clientId] ?? ""}
-							>
-								<SelectTrigger>
-									<SelectValue placeholder="Select Office" />
-								</SelectTrigger>
-								<SelectContent>
-									<SelectItem value="Virtual">Virtual</SelectItem>
-									{offices.map((office) => (
-										<SelectItem key={office.key} value={office.key}>
-											{office.prettyName}
-										</SelectItem>
-									))}
-								</SelectContent>
-							</Select>
-						</TableCell>
+							<TableCell className="min-w-fit">
+								<Select
+									onValueChange={(value) =>
+										handleOfficeChange(scheduledClient.clientId, value)
+									}
+									value={clientOffices[scheduledClient.clientId] ?? ""}
+								>
+									<SelectTrigger>
+										<SelectValue placeholder="Select Office" />
+									</SelectTrigger>
+									<SelectContent>
+										<SelectItem value="Virtual">Virtual</SelectItem>
+										{offices.map((office) => (
+											<SelectItem key={office.key} value={office.key}>
+												{office.prettyName}
+											</SelectItem>
+										))}
+									</SelectContent>
+								</Select>
+							</TableCell>
 
-						<TableCell>
-							{scheduledClient.client.schoolDistrict
-								? scheduledClient.client.schoolDistrict
-										?.replace(/ County School District$/, "")
-										.replace(/ School District$/, "")
-								: "-"}
-						</TableCell>
+							<TableCell>
+								{scheduledClient.client.schoolDistrict
+									? scheduledClient.client.schoolDistrict
+											?.replace(/ County School District$/, "")
+											.replace(/ School District$/, "")
+									: "-"}
+							</TableCell>
 
-						<TableCell>
-							{scheduledClient.client.precertExpires
-								? getLocalDayFromUTCDate(
-										scheduledClient.client.precertExpires,
-									)?.toLocaleDateString()
-								: "-"}
-						</TableCell>
+							<TableCell>
+								{scheduledClient.client.precertExpires
+									? getLocalDayFromUTCDate(
+											scheduledClient.client.precertExpires,
+										)?.toLocaleDateString()
+									: "-"}
+							</TableCell>
 
-						<TableCell>
-							{scheduledClient.client.dob
-								? formatClientAge(scheduledClient.client.dob)
-								: ""}
-						</TableCell>
+							<TableCell>
+								{scheduledClient.client.dob
+									? formatClientAge(scheduledClient.client.dob)
+									: ""}
+							</TableCell>
 
-						<TableCell className="min-w-[300px]">
-							<Input
-								onBlur={() =>
-									updateMutation.mutate({
-										clientId: scheduledClient.clientId,
-										karenNotes:
-											clientNotes[scheduledClient.clientId]?.karenNotes,
-									})
-								}
-								onChange={(e) =>
-									handleNotesChange(
-										scheduledClient.clientId,
-										"karenNotes",
-										e.target.value,
-									)
-								}
-								value={clientNotes[scheduledClient.clientId]?.karenNotes ?? ""}
-							/>
-						</TableCell>
-						<TableCell className="min-w-[300px]">
-							<Input
-								onBlur={() =>
-									updateMutation.mutate({
-										clientId: scheduledClient.clientId,
-										barbaraNotes:
-											clientNotes[scheduledClient.clientId]?.barbaraNotes,
-									})
-								}
-								onChange={(e) =>
-									handleNotesChange(
-										scheduledClient.clientId,
-										"barbaraNotes",
-										e.target.value,
-									)
-								}
-								value={
-									clientNotes[scheduledClient.clientId]?.barbaraNotes ?? ""
-								}
-							/>
-						</TableCell>
+							<TableCell className="min-w-[300px]">
+								<Input
+									onBlur={() =>
+										updateMutation.mutate({
+											clientId: scheduledClient.clientId,
+											karenNotes:
+												clientNotes[scheduledClient.clientId]?.karenNotes,
+										})
+									}
+									onChange={(e) =>
+										handleNotesChange(
+											scheduledClient.clientId,
+											"karenNotes",
+											e.target.value,
+										)
+									}
+									value={
+										clientNotes[scheduledClient.clientId]?.karenNotes ?? ""
+									}
+								/>
+							</TableCell>
+							<TableCell className="min-w-[300px]">
+								<Input
+									onBlur={() =>
+										updateMutation.mutate({
+											clientId: scheduledClient.clientId,
+											barbaraNotes:
+												clientNotes[scheduledClient.clientId]?.barbaraNotes,
+										})
+									}
+									onChange={(e) =>
+										handleNotesChange(
+											scheduledClient.clientId,
+											"barbaraNotes",
+											e.target.value,
+										)
+									}
+									value={
+										clientNotes[scheduledClient.clientId]?.barbaraNotes ?? ""
+									}
+								/>
+							</TableCell>
 
-						<TableCell>
-							<Button
-								disabled={archiveMutation.isPending}
-								onClick={() => handleArchive(scheduledClient.clientId)}
-								size="sm"
-								variant="destructive"
-							>
-								{archiveMutation.isPending ? (
-									<Loader2 className="mr-2 h-4 w-4 animate-spin" />
-								) : (
-									<X />
-								)}
-							</Button>
-						</TableCell>
-					</TableRow>
-				))}
+							<TableCell>
+								<Button
+									disabled={archiveMutation.isPending}
+									onClick={() => handleArchive(scheduledClient.clientId)}
+									size="sm"
+									variant="destructive"
+								>
+									{archiveMutation.isPending ? (
+										<Loader2 className="mr-2 h-4 w-4 animate-spin" />
+									) : (
+										<X />
+									)}
+								</Button>
+							</TableCell>
+						</TableRow>
+					);
+				})}
 			</TableBody>
 		</Table>
 	);

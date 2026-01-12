@@ -516,6 +516,7 @@ export const schedulingClients = createTable(
     karenNotes: d.text(),
     barbaraNotes: d.text(),
     code: d.text(),
+    color: d.varchar("color", { length: 50 }),
   }),
   (t) => [index("scheduling_client_id_idx").on(t.clientId)],
 );
