@@ -1,6 +1,7 @@
 "use client";
 
 import { Button } from "@components/ui/button";
+import { Checkbox } from "@components/ui/checkbox";
 import {
 	DropdownMenu,
 	DropdownMenuContent,
@@ -17,7 +18,7 @@ import {
 	SelectValue,
 } from "@components/ui/select";
 import { TableCell, TableHead, TableRow } from "@components/ui/table";
-import { Circle } from "lucide-react";
+import { Circle, Filter } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import {
@@ -30,6 +31,95 @@ import {
 import type { Evaluator, Office } from "~/lib/types";
 import { formatClientAge, getLocalDayFromUTCDate } from "~/lib/utils";
 import { api } from "~/trpc/react";
+
+export function ColumnFilter({
+	columnName,
+	options,
+	selectedValues,
+	onFilterChange,
+}: {
+	columnName: string;
+	options: string[];
+	selectedValues: string[];
+	onFilterChange: (values: string[]) => void;
+}) {
+	const [search, setSearch] = useState("");
+
+	const filteredOptions = useMemo(() => {
+		return options
+			.filter((option) => option.toLowerCase().includes(search.toLowerCase()))
+			.sort((a, b) => a.localeCompare(b));
+	}, [options, search]);
+
+	const toggleValue = (value: string) => {
+		const newValues = selectedValues.includes(value)
+			? selectedValues.filter((v) => v !== value)
+			: [...selectedValues, value];
+		onFilterChange(newValues);
+	};
+
+	return (
+		<DropdownMenu>
+			<DropdownMenuTrigger asChild>
+				<Button
+					className={
+						selectedValues.length > 0 ? "text-primary" : "text-muted-foreground"
+					}
+					size="icon-sm"
+					variant="ghost"
+				>
+					<Filter className="h-3.5 w-3.5" />
+				</Button>
+			</DropdownMenuTrigger>
+			<DropdownMenuContent align="start" className="w-56">
+				<div className="p-2">
+					<Input
+						className="mb-2 h-8"
+						onChange={(e) => setSearch(e.target.value)}
+						placeholder={`Search ${columnName}...`}
+						value={search}
+					/>
+					<div className="max-h-60 overflow-y-auto">
+						{filteredOptions.length === 0 && (
+							<div className="p-2 text-muted-foreground text-sm">
+								No results found
+							</div>
+						)}
+						{filteredOptions.map((option) => (
+							<div
+								className="flex items-center space-x-2 p-1"
+								key={option || "empty"}
+							>
+								<Checkbox
+									checked={selectedValues.includes(option)}
+									id={`${columnName}-${option}`}
+									onCheckedChange={() => toggleValue(option)}
+								/>
+								<label
+									className="flex-1 cursor-pointer font-medium text-sm leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+									htmlFor={`${columnName}-${option}`}
+								>
+									{option || "(Empty)"}
+								</label>
+							</div>
+						))}
+					</div>
+				</div>
+				{selectedValues.length > 0 && (
+					<>
+						<SelectSeparator />
+						<DropdownMenuItem
+							className="justify-center text-destructive"
+							onClick={() => onFilterChange([])}
+						>
+							Clear Filter
+						</DropdownMenuItem>
+					</>
+				)}
+			</DropdownMenuContent>
+		</DropdownMenu>
+	);
+}
 
 export function ColorPicker({
 	value,
@@ -158,22 +248,61 @@ export function EvaluatorSelect({
 	);
 }
 
-export function SchedulingTableHeader() {
+export function SchedulingTableHeader({
+	filters,
+	onFilterChange,
+	uniqueValues,
+}: {
+	filters: Record<string, string[]>;
+	onFilterChange: (column: string, values: string[]) => void;
+	uniqueValues: Record<string, string[]>;
+}) {
+	const columns: {
+		key: string;
+		label: string;
+		noFilter?: boolean;
+		filterKey?: string;
+		filterLabel?: string;
+	}[] = [
+		{
+			key: "fullName",
+			label: "Name",
+			filterKey: "color",
+			filterLabel: "Color",
+		},
+		{ key: "evaluator", label: "Evaluator" },
+		{ key: "date", label: "Date" },
+		{ key: "time", label: "Time" },
+		{ key: "asdAdhd", label: "ASD/ADHD" },
+		{ key: "insurance", label: "Insurance" },
+		{ key: "code", label: "Code" },
+		{ key: "location", label: "Location" },
+		{ key: "district", label: "District" },
+		{ key: "paDate", label: "PA Date" },
+		{ key: "age", label: "Age" },
+		{ key: "karenNotes", label: "Karen Notes" },
+		{ key: "barbaraNotes", label: "Barbara Notes" },
+	];
+
 	return (
 		<TableRow className="hover:bg-inherit">
-			<TableHead>Name</TableHead>
-			<TableHead>Evaluator</TableHead>
-			<TableHead>Date</TableHead>
-			<TableHead>Time</TableHead>
-			<TableHead>ASD/ADHD</TableHead>
-			<TableHead>Insurance</TableHead>
-			<TableHead>Code</TableHead>
-			<TableHead>Location</TableHead>
-			<TableHead>District</TableHead>
-			<TableHead>PA Date</TableHead>
-			<TableHead>Age</TableHead>
-			<TableHead>Karen Notes</TableHead>
-			<TableHead>Barbara Notes</TableHead>
+			{columns.map((col) => (
+				<TableHead key={col.key}>
+					<div className="flex items-center gap-1">
+						{col.label}
+						{!col.noFilter && (
+							<ColumnFilter
+								columnName={col.filterLabel ?? col.label}
+								onFilterChange={(values) =>
+									onFilterChange(col.filterKey ?? col.key, values)
+								}
+								options={uniqueValues[col.filterKey ?? col.key] || []}
+								selectedValues={filters[col.filterKey ?? col.key] || []}
+							/>
+						)}
+					</div>
+				</TableHead>
+			))}
 			<TableHead>Actions</TableHead>
 		</TableRow>
 	);
