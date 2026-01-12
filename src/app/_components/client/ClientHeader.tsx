@@ -188,6 +188,7 @@ export function ClientHeader({
 						{client.taHash && (
 							<Link
 								href={`https://api.portal.therapyappointment.com/n/client/${client.taHash}`}
+								target="_blank"
 							>
 								<Armchair height="16" width="16" />
 							</Link>
