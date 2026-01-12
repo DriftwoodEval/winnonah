@@ -24,6 +24,7 @@ import { Loader2, X } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import type { Evaluator, Office } from "~/lib/types";
+import { formatClientAge, getLocalDayFromUTCDate } from "~/lib/utils";
 import { api } from "~/trpc/react";
 import { ArchivedSchedulingTable } from "./ArchivedSchedulingTable";
 
@@ -221,6 +222,7 @@ function ActiveSchedulingTable() {
 					<TableHead>Location</TableHead>
 					<TableHead>District</TableHead>
 					<TableHead>PA Date</TableHead>
+					<TableHead>Age</TableHead>
 					<TableHead>Karen Notes</TableHead>
 					<TableHead>Barbara Notes</TableHead>
 					<TableHead>Actions</TableHead>
@@ -333,10 +335,16 @@ function ActiveSchedulingTable() {
 
 						<TableCell>
 							{scheduledClient.client.precertExpires
-								? new Date(
+								? getLocalDayFromUTCDate(
 										scheduledClient.client.precertExpires,
-									).toLocaleDateString()
+									)?.toLocaleDateString()
 								: "-"}
+						</TableCell>
+
+						<TableCell>
+							{scheduledClient.client.dob
+								? formatClientAge(scheduledClient.client.dob)
+								: ""}
 						</TableCell>
 
 						<TableCell className="min-w-[300px]">
