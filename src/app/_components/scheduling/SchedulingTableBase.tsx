@@ -463,9 +463,13 @@ export function SchedulingTableRow({
 			<TableCell>
 				{isEditable ? (
 					<Select
-						onValueChange={(value) =>
-							onUpdate?.(scheduledClient.clientId, { code: value })
-						}
+						onValueChange={(value) => {
+							const updates: any = { code: value };
+							if (value === "90791") {
+								updates.office = "Virtual";
+							}
+							onUpdate?.(scheduledClient.clientId, updates);
+						}}
 						value={scheduledClient.code ?? ""}
 					>
 						<SelectTrigger>
