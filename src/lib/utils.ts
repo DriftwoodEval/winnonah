@@ -1,20 +1,20 @@
 import { type ClassValue, clsx } from "clsx";
 import { twMerge } from "tailwind-merge";
 import type {
-  PermissionId,
-  PermissionsObject,
-  QUESTIONNAIRE_STATUSES,
+	PermissionId,
+	PermissionsObject,
+	QUESTIONNAIRE_STATUSES,
 } from "~/lib/types";
 
 export function cn(...inputs: ClassValue[]) {
-  return twMerge(clsx(inputs));
+	return twMerge(clsx(inputs));
 }
 
 export function hasPermission(
-  userPerms: PermissionsObject,
-  permission: PermissionId
+	userPerms: PermissionsObject,
+	permission: PermissionId,
 ): boolean {
-  return !!userPerms[permission];
+	return !!userPerms[permission];
 }
 
 /**
@@ -27,71 +27,71 @@ export function hasPermission(
  * @returns The formatted age.
  */
 export function formatClientAge(dob: Date, format = "long") {
-  const ageInMilliseconds = Date.now() - dob.getTime();
-  const years = Math.floor(ageInMilliseconds / (1000 * 60 * 60 * 24 * 365.25));
-  const months = Math.floor(
-    (ageInMilliseconds % (1000 * 60 * 60 * 24 * 365.25)) /
-      (1000 * 60 * 60 * 24 * 30.44)
-  );
-  if (format === "short") {
-    return `${years}:${months}`;
-  }
-  if (format === "years") {
-    return `${years}`;
-  }
-  return years >= 3 ? `${years} years` : `${years} years, ${months} months`;
+	const ageInMilliseconds = Date.now() - dob.getTime();
+	const years = Math.floor(ageInMilliseconds / (1000 * 60 * 60 * 24 * 365.25));
+	const months = Math.floor(
+		(ageInMilliseconds % (1000 * 60 * 60 * 24 * 365.25)) /
+			(1000 * 60 * 60 * 24 * 30.44),
+	);
+	if (format === "short") {
+		return years >= 3 ? `${years}` : `${years}:${months}`;
+	}
+	if (format === "years") {
+		return `${years}`;
+	}
+	return years >= 3 ? `${years} years` : `${years} years, ${months} months`;
 }
 
 const STATUS_COLOR_MAP: Record<string, string> = {
-  COMPLETED: "text-success",
-  PENDING: "text-warning",
-  SPANISH: "text-warning",
-  IGNORING: "text-error",
+	COMPLETED: "text-success",
+	PENDING: "text-warning",
+	SPANISH: "text-warning",
+	IGNORING: "text-error",
 };
 
 export function getStatusColorClass(
-  status: (typeof QUESTIONNAIRE_STATUSES)[number] | null
+	status: (typeof QUESTIONNAIRE_STATUSES)[number] | null,
 ): string {
-  if (!status) return "text-gray-500"; // Default color for unknown/null status
-  return STATUS_COLOR_MAP[status] ?? "text-gray-500";
+	if (!status) return "text-gray-500"; // Default color for unknown/null status
+	return STATUS_COLOR_MAP[status] ?? "text-gray-500";
 }
 
 export function getReminderColorClass(
-  count: number | null | undefined
+	count: number | null | undefined,
 ): string {
-  if (!count || count === 0) {
-    return "";
-  }
-  if (count >= 3) {
-    return "text-error";
-  }
-  if (count >= 2) {
-    return "text-warning";
-  }
-  if (count >= 1) {
-    return "text-success";
-  }
-  return "";
+	if (!count || count === 0) {
+		return "";
+	}
+	if (count >= 3) {
+		return "text-error";
+	}
+	if (count >= 2) {
+		return "text-warning";
+	}
+	if (count >= 1) {
+		return "text-success";
+	}
+	return "";
 }
 
 export function formatPhoneNumber(phoneNumber: string) {
-  const digits = phoneNumber.replace(/\D/g, "");
-  return digits.replace(
-    /^(1)?(\d{3})(\d{3})(\d{4})$/,
-    (_, country, a, b, c) => {
-      const prefix = country ? "+1 " : "";
-      return `${prefix}(${a}) ${b}-${c}`;
-    }
-  );
+	const digits = phoneNumber.replace(/\D/g, "");
+	return digits.replace(
+		/^(1)?(\d{3})(\d{3})(\d{4})$/,
+		(_, country, a, b, c) => {
+			const prefix = country ? "+1 " : "";
+			return `${prefix}(${a}) ${b}-${c}`;
+		},
+	);
 }
 
 export const getLocalDayFromUTCDate = (
-  utcDate: Date | undefined | null
+	utcDate: Date | undefined | null,
 ): Date | undefined => {
-  if (!utcDate) return undefined;
-  return new Date(
-    utcDate.getUTCFullYear(),
-    utcDate.getUTCMonth(),
-    utcDate.getUTCDate()
-  );
+	if (!utcDate) return undefined;
+	return new Date(
+		utcDate.getUTCFullYear(),
+		utcDate.getUTCMonth(),
+		utcDate.getUTCDate(),
+	);
 };

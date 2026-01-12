@@ -523,7 +523,7 @@ export function SchedulingTableRow({
 
 			<TableCell>
 				{scheduledClient.client.dob
-					? formatClientAge(scheduledClient.client.dob)
+					? formatClientAge(scheduledClient.client.dob, "short")
 					: ""}
 			</TableCell>
 
