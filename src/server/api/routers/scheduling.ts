@@ -1,4 +1,4 @@
-import { eq } from "drizzle-orm";
+import { asc, eq } from "drizzle-orm";
 import { z } from "zod";
 import { syncPunchData } from "~/lib/google";
 import { createTRPCRouter, protectedProcedure } from "~/server/api/trpc";
@@ -21,6 +21,7 @@ export const schedulingRouter = createTRPCRouter({
 			with: {
 				client: true,
 			},
+			orderBy: asc(schedulingClients.createdAt),
 		});
 
 		const allEvaluators = await db.query.evaluators.findMany();
@@ -48,6 +49,7 @@ export const schedulingRouter = createTRPCRouter({
 			with: {
 				client: true,
 			},
+			orderBy: asc(schedulingClients.createdAt),
 		});
 
 		const allEvaluators = await db.query.evaluators.findMany();
@@ -74,7 +76,9 @@ export const schedulingRouter = createTRPCRouter({
 					archived: false,
 					office: client?.closestOffice,
 				})
-				.onDuplicateKeyUpdate({ set: { archived: false } });
+				.onDuplicateKeyUpdate({
+					set: { archived: false, createdAt: new Date() },
+				});
 		}),
 
 	update: protectedProcedure
@@ -147,7 +151,7 @@ export const schedulingRouter = createTRPCRouter({
 		.mutation(async ({ input }) => {
 			await db
 				.update(schedulingClients)
-				.set({ archived: false })
+				.set({ archived: false, createdAt: new Date() })
 				.where(eq(schedulingClients.clientId, input.clientId));
 		}),
 });

@@ -517,6 +517,10 @@ export const schedulingClients = createTable(
 		barbaraNotes: d.text(),
 		code: d.text(),
 		color: d.varchar({ length: 50 }),
+		createdAt: d
+			.timestamp("created_at")
+			.default(sql`CURRENT_TIMESTAMP`)
+			.notNull(),
 	}),
 	(t) => [index("scheduling_client_id_idx").on(t.clientId)],
 );
