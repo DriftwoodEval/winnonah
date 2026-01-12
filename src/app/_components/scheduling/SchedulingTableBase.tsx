@@ -26,7 +26,7 @@ import {
 	SCHEDULING_COLOR_KEYS,
 	SCHEDULING_COLOR_MAP,
 	type SchedulingColor,
-} from "~/lib/scheduling-colors";
+} from "~/lib/colors";
 import type { Evaluator, Office } from "~/lib/types";
 import { formatClientAge, getLocalDayFromUTCDate } from "~/lib/utils";
 import { api } from "~/trpc/react";
