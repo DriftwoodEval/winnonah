@@ -37,7 +37,7 @@ export function ColorPicker({
 	disabled,
 }: {
 	value?: SchedulingColor;
-	onChange: (value: SchedulingColor) => void;
+	onChange: (value: SchedulingColor | null) => void;
 	disabled?: boolean;
 }) {
 	if (disabled) {
@@ -66,6 +66,13 @@ export function ColorPicker({
 				</Button>
 			</DropdownMenuTrigger>
 			<DropdownMenuContent align="start">
+				<DropdownMenuItem
+					key="no-color"
+					onClick={() => onChange(null)}
+					onSelect={() => onChange(null)}
+				>
+					No Color
+				</DropdownMenuItem>
 				{SCHEDULING_COLOR_KEYS.map((color) => (
 					<DropdownMenuItem
 						key={color}

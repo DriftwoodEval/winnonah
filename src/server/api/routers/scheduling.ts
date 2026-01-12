@@ -69,7 +69,7 @@ export const schedulingRouter = createTRPCRouter({
 				karenNotes: z.string().optional(),
 				barbaraNotes: z.string().optional(),
 				code: z.string().optional(),
-				color: z.string().optional(),
+				color: z.string().nullable().optional(),
 			}),
 		)
 		.mutation(async ({ input }) => {
@@ -81,7 +81,7 @@ export const schedulingRouter = createTRPCRouter({
 				karenNotes?: string;
 				barbaraNotes?: string;
 				code?: string;
-				color?: string;
+				color?: string | null;
 			} = {};
 
 			if (input.evaluatorNpi !== undefined) {
