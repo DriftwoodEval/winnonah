@@ -41,8 +41,8 @@ const getPriorityInfo = () => {
 
 	const isHighPriorityBN = and(
 		or(
-			eq(clients.primaryInsurance, "BabyNet"),
-			eq(clients.secondaryInsurance, "BabyNet"),
+			like(clients.primaryInsurance, "%BabyNet%"),
+			like(clients.secondaryInsurance, "%BabyNet%"),
 			eq(clients.babyNet, true),
 		),
 		lt(clients.dob, highPriorityBNAge),
@@ -60,9 +60,10 @@ const getPriorityInfo = () => {
 	const orderBySQL = [
 		// Primary sorting: 0 for BabyNet, 1 for top priority, 2 for everyone else
 		sql`CASE
-      WHEN ${isHighPriorityBN} THEN 0
-      WHEN ${isHighPriorityClient} THEN 1
-      ELSE 2
+			WHEN ${isHighPriorityBN} AND ${isHighPriorityClient} THEN 0
+      WHEN ${isHighPriorityBN} THEN 1
+      WHEN ${isHighPriorityClient} THEN 2
+      ELSE 3
     END`,
 		// Secondary sorting: BabyNet group is sorted by DOB, all others by added date
 		sql`CASE
@@ -253,8 +254,8 @@ export const clientRouter = createTRPCRouter({
 		const clientsTooOldForBabyNet = await ctx.db.query.clients.findMany({
 			where: and(
 				or(
-					eq(clients.primaryInsurance, "BabyNet"),
-					eq(clients.secondaryInsurance, "BabyNet"),
+					like(clients.primaryInsurance, "%BabyNet%"),
+					like(clients.secondaryInsurance, "%BabyNet%"),
 				),
 				lt(clients.dob, ageOutDate),
 				eq(clients.status, true),
@@ -742,9 +743,9 @@ export const clientRouter = createTRPCRouter({
 			if (hideBabyNet) {
 				conditions.push(
 					and(
-						not(eq(clients.primaryInsurance, "BabyNet")),
+						not(like(clients.primaryInsurance, "%BabyNet%")),
 						or(
-							not(eq(clients.secondaryInsurance, "BabyNet")),
+							not(like(clients.secondaryInsurance, "%BabyNet%")),
 							isNull(clients.secondaryInsurance),
 						),
 						not(eq(clients.babyNet, true)),
