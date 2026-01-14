@@ -32,7 +32,7 @@ import {
 
 const log = logger.child({ module: "ClientApi" });
 
-const getPriorityInfo = () => {
+export const getPriorityInfo = () => {
 	const now = new Date();
 	const BNAgeOutDate = subYears(now, 3);
 	const highPriorityBNAge = subMonths(now, 30); // 2 years and 6 months

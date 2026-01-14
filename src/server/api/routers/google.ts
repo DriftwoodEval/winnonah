@@ -12,6 +12,7 @@ import {
 import { logger } from "~/lib/logger";
 import { TEST_NAMES } from "~/lib/types";
 import { hasPermission } from "~/lib/utils";
+import { getPriorityInfo } from "~/server/api/routers/client";
 import { createTRPCRouter, protectedProcedure } from "~/server/api/trpc";
 import { clients } from "~/server/db/schema";
 
@@ -224,6 +225,8 @@ export const googleRouter = createTRPCRouter({
 				.filter((id) => !Number.isNaN(id)),
 		);
 
+		const { orderBySQL } = getPriorityInfo();
+
 		const activeDbClients = await ctx.db
 			.select()
 			.from(clients)
@@ -232,7 +235,8 @@ export const googleRouter = createTRPCRouter({
 					eq(clients.status, true),
 					notInArray(clients.fullName, TEST_NAMES as unknown as string[]),
 				),
-			);
+			)
+			.orderBy(...orderBySQL);
 
 		const missingClients = activeDbClients.filter(
 			(client) => !punchClientIds.has(client.id),
