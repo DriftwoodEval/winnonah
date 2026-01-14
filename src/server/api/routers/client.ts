@@ -454,6 +454,7 @@ export const clientRouter = createTRPCRouter({
 	getAutismStops: protectedProcedure.query(async ({ ctx }) => {
 		const autismStops = await ctx.db.query.clients.findMany({
 			where: and(eq(clients.autismStop, true), eq(clients.status, true)),
+			orderBy: clients.addedDate,
 		});
 
 		return autismStops;
