@@ -2,7 +2,7 @@
 import { Button } from "@ui/button";
 import { ScrollArea } from "@ui/scroll-area";
 import { Separator } from "@ui/separator";
-import { formatDistanceToNow } from "date-fns";
+import { format, formatDistanceToNow } from "date-fns";
 import { MapIcon, Pin, PinOff, RotateCw } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useRef } from "react";
@@ -139,6 +139,12 @@ const IssueList = ({ title, clients, action }: IssueListProps) => {
 									{client.additionalInfo && (
 										<span className="text-muted-foreground">
 											{client.additionalInfo}
+										</span>
+									)}
+									{client.initialFailureDate && (
+										<span className="ml-1 text-muted-foreground">
+											(first failed{" "}
+											{format(new Date(client.initialFailureDate), "MM/dd/yy")})
 										</span>
 									)}
 								</div>

@@ -21,6 +21,7 @@ export type ClientWithOffice = ClientRouterOutput["getOne"];
 export type SortedClient = ClientRouterOutput["search"]["clients"][0];
 export type ClientWithIssueInfo = Client & {
 	additionalInfo?: string;
+	initialFailureDate?: Date;
 };
 
 export type InsertingQuestionnaire = Pick<

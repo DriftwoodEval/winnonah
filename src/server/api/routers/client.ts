@@ -311,14 +311,25 @@ export const clientRouter = createTRPCRouter({
 
 		for (const client of overRemindedQs) {
 			if (client.questionnaires.length > 0) {
-				const reason = `Qs Pending (3 reminders)`;
+				const reason = "Qs Pending (3 reminders)";
 
 				// Create a clean client object without the joined data
-				const { questionnaires: _, ...clientData } = client;
+				const { questionnaires: qList, ...clientData } = client;
+
+				let oldestDate: Date | undefined;
+				for (const q of qList) {
+					if (q.sent) {
+						const d = new Date(q.sent);
+						if (!oldestDate || d < oldestDate) {
+							oldestDate = d;
+						}
+					}
+				}
 
 				uniqueClientsMap.set(clientData.id, {
 					...(clientData as typeof clients.$inferSelect),
 					additionalInfo: reason,
+					initialFailureDate: oldestDate,
 				});
 			}
 		}
@@ -336,11 +347,16 @@ export const clientRouter = createTRPCRouter({
 			if (client.failures.length > 0) {
 				let maxReminded = 0;
 				let failureReasonText = "";
+				let oldestFailureDate: Date | undefined;
 
 				for (const f of client.failures) {
 					if (f.reminded && f.reminded > maxReminded) {
 						maxReminded = f.reminded;
 						failureReasonText = f.reason;
+					}
+					const d = new Date(f.failedDate);
+					if (!oldestFailureDate || d < oldestFailureDate) {
+						oldestFailureDate = d;
 					}
 				}
 
@@ -354,18 +370,31 @@ export const clientRouter = createTRPCRouter({
 					const existingClient = uniqueClientsMap.get(clientData.id);
 					if (existingClient) {
 						existingClient.additionalInfo += ` / ${newReason}`;
+						if (
+							oldestFailureDate &&
+							(!existingClient.initialFailureDate ||
+								oldestFailureDate < existingClient.initialFailureDate)
+						) {
+							existingClient.initialFailureDate = oldestFailureDate;
+						}
 					}
 				} else {
 					// New client, add with the failure reason
 					uniqueClientsMap.set(clientData.id, {
 						...(clientData as typeof clients.$inferSelect),
 						additionalInfo: newReason,
+						initialFailureDate: oldestFailureDate,
 					});
 				}
 			}
 		}
 
-		return Array.from(uniqueClientsMap.values());
+		return Array.from(uniqueClientsMap.values()).sort((a, b) => {
+			if (!a.initialFailureDate && !b.initialFailureDate) return 0;
+			if (!a.initialFailureDate) return 1;
+			if (!b.initialFailureDate) return -1;
+			return a.initialFailureDate.getTime() - b.initialFailureDate.getTime();
+		});
 	}),
 
 	getNoteOnlyClients: protectedProcedure.query(async ({ ctx }) => {
