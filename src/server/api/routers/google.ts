@@ -1,5 +1,5 @@
 import { TRPCError } from "@trpc/server";
-import { eq } from "drizzle-orm";
+import { and, eq, notInArray } from "drizzle-orm";
 import z from "zod";
 import { fetchWithCache, invalidateCache } from "~/lib/cache";
 import {
@@ -10,6 +10,7 @@ import {
 	updatePunchData,
 } from "~/lib/google";
 import { logger } from "~/lib/logger";
+import { TEST_NAMES } from "~/lib/types";
 import { hasPermission } from "~/lib/utils";
 import { createTRPCRouter, protectedProcedure } from "~/server/api/trpc";
 import { clients } from "~/server/db/schema";
@@ -194,7 +195,11 @@ export const googleRouter = createTRPCRouter({
 		const punchData = await getPunchData(ctx.session, ctx.redis);
 
 		const clientsNotInDb = punchData.filter(
-			(client) => typeof client.id !== "number",
+			(client) =>
+				typeof client.id !== "number" &&
+				!TEST_NAMES.includes(
+					(client["Client Name"] as (typeof TEST_NAMES)[number]) ?? "",
+				),
 		);
 		const inactiveClients = punchData.filter(
 			(client) => typeof client.id === "number" && client.status === false,
@@ -222,7 +227,12 @@ export const googleRouter = createTRPCRouter({
 		const activeDbClients = await ctx.db
 			.select()
 			.from(clients)
-			.where(eq(clients.status, true));
+			.where(
+				and(
+					eq(clients.status, true),
+					notInArray(clients.fullName, TEST_NAMES as unknown as string[]),
+				),
+			);
 
 		const missingClients = activeDbClients.filter(
 			(client) => !punchClientIds.has(client.id),

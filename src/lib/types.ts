@@ -71,6 +71,16 @@ export const QUESTIONNAIRE_STATUSES = [
 	"JUST_ADDED",
 ] as const;
 
+export const TEST_NAMES = [
+	"Testman Testson",
+	"Testman Testson Jr.",
+	"Johnny Smonny",
+	"Johnny Smonathan",
+	"Test Mctest",
+	"Test Test",
+	"Barbara Steele",
+] as const;
+
 export const permissions = {
 	clients: {
 		title: "Client Management",
