@@ -4,6 +4,7 @@ import { TRPCError } from "@trpc/server";
 import { subMonths, subYears } from "date-fns";
 import {
 	and,
+	desc,
 	eq,
 	getTableColumns,
 	gt,
@@ -400,7 +401,7 @@ export const clientRouter = createTRPCRouter({
 	getNoteOnlyClients: protectedProcedure.query(async ({ ctx }) => {
 		const noteOnlyClients = await ctx.db.query.clients.findMany({
 			where: and(eq(sql`LENGTH(${clients.id})`, 5), eq(clients.status, true)),
-			orderBy: clients.addedDate,
+			orderBy: desc(clients.addedDate),
 		});
 
 		return noteOnlyClients;
