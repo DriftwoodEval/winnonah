@@ -113,9 +113,11 @@ export const permissions = {
 			},
 			{ id: "clients:records:needed", title: "Set Records Needed" },
 			{
-				id: "clients:records:create",
-				title: "Create Records Entries",
+				id: "clients:records:requested",
+				title: "Set Records Requested",
 			},
+			{ id: "clients:records:reviewed", title: "Set Records Reviewed" },
+			{ id: "clients:records:ifsp", title: "Set IFSP Needed/IFSP Downloaded" },
 		],
 	},
 	system: {

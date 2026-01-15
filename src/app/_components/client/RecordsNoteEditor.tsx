@@ -91,8 +91,11 @@ export function RecordsNoteEditor({
 	const canRecordsNeeded = session
 		? hasPermission(session.user.permissions, "clients:records:needed")
 		: false;
+	const canRecordRequested = session
+		? hasPermission(session.user.permissions, "clients:records:requested")
+		: false;
 	const canRecordNote = session
-		? hasPermission(session.user.permissions, "clients:records:create")
+		? hasPermission(session.user.permissions, "clients:records:reviewed")
 		: false;
 
 	const { data: record, isLoading: isLoadingRecord } =
@@ -400,14 +403,15 @@ export function RecordsNoteEditor({
 	const isLoading = isLoadingRecord || isLoadingClient;
 	const canEditRecordsNeeded =
 		canRecordsNeeded && !readOnly && !firstRequestedDate;
-	const canEditFirstDate = canRecordNote && !readOnly && recordsNeeded;
+	const canEditFirstDate = canRecordRequested && !readOnly && recordsNeeded;
 	const canEditSecondNeeded =
-		canRecordNote &&
+		canRecordsNeeded &&
 		!readOnly &&
 		recordsNeeded &&
 		!!firstRequestedDate &&
 		!secondRequestDate;
-	const canEditSecondDate = canRecordNote && !readOnly && needsSecondRequest;
+	const canEditSecondDate =
+		canRecordRequested && !readOnly && needsSecondRequest;
 
 	// Text Editor is editable if records are needed, a request was made, and not read-only
 	const isEditorReadOnly =

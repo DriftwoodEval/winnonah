@@ -25,7 +25,7 @@ export function IFSPBoxes({ clientId, readOnly = false }: IFSPBoxesProps) {
 		? hasPermission(session.user.permissions, "clients:records:needed")
 		: false;
 	const canRecordsReceived = session
-		? hasPermission(session.user.permissions, "clients:records:create")
+		? hasPermission(session.user.permissions, "clients:records:ifsp")
 		: false;
 
 	const { data: client } = api.clients.getOne.useQuery(
@@ -80,11 +80,10 @@ export function IFSPBoxes({ clientId, readOnly = false }: IFSPBoxesProps) {
 	const handleIFSPDownloadedChange = (checked: CheckedState) => {
 		const newCheckedState = checked === "indeterminate" ? false : checked;
 
-		setIFSPDownloaded(newCheckedState);
-
 		if (!clientId) return;
 
-		if (client?.ifsp) {
+		if (client?.ifsp || IFSP) {
+			setIFSPDownloaded(newCheckedState);
 			updateClientMutation.mutate({
 				clientId: clientId,
 				ifspDownloaded: newCheckedState,

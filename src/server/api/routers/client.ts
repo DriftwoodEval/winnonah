@@ -729,8 +729,8 @@ export const clientRouter = createTRPCRouter({
 					? ["clients:records:needed"]
 					: []),
 				...(input.ifspDownloaded !== undefined &&
-				!hasPermission(ctx.session.user.permissions, "clients:records:create")
-					? ["clients:records:create"]
+				!hasPermission(ctx.session.user.permissions, "clients:records:ifsp")
+					? ["clients:records:ifsp"]
 					: []),
 			];
 			if (unauthorizedPermissions.length > 0) {
