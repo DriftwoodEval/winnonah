@@ -12,8 +12,11 @@ WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 
 ARG NEXT_PUBLIC_COMMIT_HASH
+ARG NEXT_PUBLIC_GIT_BRANCH
 ARG NEXT_PUBLIC_BUILD_DATE
+
 ENV NEXT_PUBLIC_COMMIT_HASH=$NEXT_PUBLIC_COMMIT_HASH
+ENV NEXT_PUBLIC_GIT_BRANCH=$NEXT_PUBLIC_GIT_BRANCH
 ENV NEXT_PUBLIC_BUILD_DATE=$NEXT_PUBLIC_BUILD_DATE
 
 COPY next.config.js* tsconfig.json* ./
@@ -26,10 +29,16 @@ FROM gcr.io/distroless/nodejs20-debian12 AS runner
 WORKDIR /app
 
 ENV NODE_ENV=production
+ENV PORT=3000
+ENV NEXT_TELEMETRY_DISABLED=1
+
 ARG NEXT_PUBLIC_COMMIT_HASH
+ARG NEXT_PUBLIC_GIT_BRANCH
 ARG NEXT_PUBLIC_BUILD_DATE
 ENV NEXT_PUBLIC_COMMIT_HASH=$NEXT_PUBLIC_COMMIT_HASH
+ENV NEXT_PUBLIC_GIT_BRANCH=$NEXT_PUBLIC_GIT_BRANCH
 ENV NEXT_PUBLIC_BUILD_DATE=$NEXT_PUBLIC_BUILD_DATE
+
 USER nonroot
 
 COPY --from=builder --chown=nonroot:nonroot /app/.next/standalone ./
@@ -38,6 +47,5 @@ COPY --from=builder --chown=nonroot:nonroot /app/public ./public
 COPY --from=builder --chown=nonroot:nonroot /app/next.config.js ./
 
 EXPOSE 3000
-ENV PORT=3000
 
 CMD ["server.js"]

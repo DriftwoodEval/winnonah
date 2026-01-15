@@ -91,6 +91,7 @@ jobs:
           labels: ${{ steps.meta-main.outputs.labels }}
           build-args: |
             NEXT_PUBLIC_COMMIT_HASH=${{ env.SHORT_SHA }}
+            NEXT_PUBLIC_GIT_BRANCH=${{ github.ref_name }}
             NEXT_PUBLIC_BUILD_DATE=${{ github.event.head_commit.timestamp }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
