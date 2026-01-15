@@ -79,6 +79,9 @@ jobs:
             type=sha
             type=raw,value=latest,enable={{is_default_branch}}
 
+      - name: Set Short SHA
+        run: echo "SHORT_SHA=$(echo ${{ github.sha }} | cut -c1-7)" >> $GITHUB_ENV
+
       - name: Build and push main Docker image
         uses: docker/build-push-action@v5
         with:
@@ -86,6 +89,9 @@ jobs:
           push: true
           tags: ${{ steps.meta-main.outputs.tags }}
           labels: ${{ steps.meta-main.outputs.labels }}
+          build-args: |
+            NEXT_PUBLIC_COMMIT_HASH=${{ env.SHORT_SHA }}
+            NEXT_PUBLIC_BUILD_DATE=${{ github.event.head_commit.timestamp }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
