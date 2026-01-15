@@ -13,8 +13,11 @@ export const userRouter = createTRPCRouter({
 		.input(z.object({ archived: z.boolean().optional() }).optional())
 		.query(async ({ ctx, input }) => {
 			const usersData = await ctx.db.query.users.findMany({
-				where: input?.archived === undefined ? undefined : eq(users.archived, input.archived),
-				orderBy: (users, { desc }) => [desc(users.name)],
+				where:
+					input?.archived === undefined
+						? undefined
+						: eq(users.archived, input.archived),
+				orderBy: (users, { asc }) => [asc(users.name)],
 			});
 
 			return usersData;
