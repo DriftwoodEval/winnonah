@@ -422,9 +422,8 @@ def prepare_appointments_from_csv(reporter: SyncReporter):
 
 
 def insert_appointments_with_gcal():
-    """Sync appointments from CSV to database using Google Calendar for evaluator matching. Clears existing data first."""
+    """Sync appointments from CSV to database using Google Calendar for evaluator matching."""
     email_for_errors = os.getenv("ERROR_EMAILS", "")
-    clear_all_appointments_from_db()
 
     reporter = SyncReporter()
 
@@ -435,7 +434,7 @@ def insert_appointments_with_gcal():
         logger.warning("No appointments to insert.")
         return
 
-    logger.info(f"Inserting {len(appointments_df)} new appointments into database...")
+    logger.info(f"Inserting {len(appointments_df)} appointments into database...")
     npi_cache = get_all_evaluators_npi_map()
 
     for _, appointment in appointments_df.iterrows():
