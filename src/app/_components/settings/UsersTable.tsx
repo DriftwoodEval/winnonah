@@ -311,7 +311,7 @@ function UsersTableActionsMenu({ user }: { user: User }) {
 			<ResponsiveDialog
 				open={isEditDialogOpen}
 				setOpen={setIsEditDialogOpen}
-				title="Create Invite"
+				title="Edit User"
 			>
 				<UsersTableForm
 					initialData={user}
