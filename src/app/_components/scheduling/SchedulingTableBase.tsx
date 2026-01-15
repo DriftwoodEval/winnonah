@@ -526,7 +526,11 @@ export function SchedulingTableRow({
 				{scheduledClient.client.precertExpires
 					? getLocalDayFromUTCDate(
 							scheduledClient.client.precertExpires,
-						)?.toLocaleDateString()
+						)?.toLocaleDateString("en-US", {
+							month: "numeric",
+							day: "numeric",
+							year: "2-digit",
+						})
 					: "-"}
 			</TableCell>
 
