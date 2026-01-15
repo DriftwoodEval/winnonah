@@ -11,7 +11,11 @@ export default function VersionFooter() {
 			) : (
 				<span>
 					{hash} •{" "}
-					{buildDate ? new Date(buildDate).toLocaleDateString() : "n/a"}
+					{buildDate
+						? new Date(buildDate).toLocaleDateString("en-US", {
+								year: "2-digit",
+							})
+						: "n/a"}
 				</span>
 			)}
 		</div>
