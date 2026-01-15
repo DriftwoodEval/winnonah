@@ -1,6 +1,16 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
+import {
+	AlertDialog,
+	AlertDialogAction,
+	AlertDialogCancel,
+	AlertDialogContent,
+	AlertDialogDescription,
+	AlertDialogFooter,
+	AlertDialogHeader,
+	AlertDialogTitle,
+} from "@ui/alert-dialog";
 import { Avatar, AvatarFallback, AvatarImage } from "@ui/avatar";
 import { Button } from "@ui/button";
 import { Checkbox } from "@ui/checkbox";
@@ -8,6 +18,7 @@ import {
 	DropdownMenu,
 	DropdownMenuContent,
 	DropdownMenuItem,
+	DropdownMenuSeparator,
 	DropdownMenuTrigger,
 } from "@ui/dropdown-menu";
 import {
@@ -52,6 +63,7 @@ import {
 import { hasPermission } from "~/lib/utils";
 import { api } from "~/trpc/react";
 import { ResponsiveDialog } from "../shared/ResponsiveDialog";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "../ui/tabs";
 
 const log = logger.child({ module: "UsersTable" });
 
@@ -225,6 +237,7 @@ function UsersTableForm({
 
 function UsersTableActionsMenu({ user }: { user: User }) {
 	const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+	const [isArchiveDialogOpen, setIsArchiveDialogOpen] = useState(false);
 	const utils = api.useUtils();
 
 	const isDesktop = useMediaQuery("(min-width: 768px)");
@@ -245,11 +258,31 @@ function UsersTableActionsMenu({ user }: { user: User }) {
 			},
 		});
 
+	const { mutate: updateUserArchiveStatus, isPending: isUpdatingStatus } =
+		api.users.updateUserArchiveStatus.useMutation({
+			onSuccess: () => {
+				utils.users.getAll.invalidate();
+				setIsArchiveDialogOpen(false);
+				toast.success("User status updated");
+			},
+			onError: (error) => {
+				toast.error("Failed to update user status", {
+					description: String(error.message),
+					duration: 10000,
+				});
+				log.error(error, "Failed to update user status");
+			},
+		});
+
 	const handleEditSubmit = (values: UsersTableFormValues) => {
 		updateUser({
 			userId: user.id,
 			...values,
 		});
+	};
+
+	const handleArchiveToggle = () => {
+		updateUserArchiveStatus({ userId: user.id, archived: !user.archived });
 	};
 
 	return (
@@ -264,6 +297,13 @@ function UsersTableActionsMenu({ user }: { user: User }) {
 				<DropdownMenuContent align={alignValue}>
 					<DropdownMenuItem onClick={() => setIsEditDialogOpen(true)}>
 						Edit
+					</DropdownMenuItem>
+					<DropdownMenuSeparator />
+					<DropdownMenuItem
+						className={user.archived ? "" : "text-destructive"}
+						onClick={() => setIsArchiveDialogOpen(true)}
+					>
+						{user.archived ? "Unarchive" : "Archive"}
 					</DropdownMenuItem>
 				</DropdownMenuContent>
 			</DropdownMenu>
@@ -280,6 +320,40 @@ function UsersTableActionsMenu({ user }: { user: User }) {
 					onSubmit={handleEditSubmit}
 				/>
 			</ResponsiveDialog>
+
+			<AlertDialog
+				onOpenChange={setIsArchiveDialogOpen}
+				open={isArchiveDialogOpen}
+			>
+				<AlertDialogContent>
+					<AlertDialogHeader>
+						<AlertDialogTitle>Are you sure?</AlertDialogTitle>
+						<AlertDialogDescription>
+							{user.archived
+								? "Unarchiving a user will allow them to log in again."
+								: "Archiving a user will prevent them from logging in. This action can be reversed."}
+						</AlertDialogDescription>
+					</AlertDialogHeader>
+					<AlertDialogFooter>
+						<AlertDialogCancel>Cancel</AlertDialogCancel>
+						<AlertDialogAction
+							className={
+								!user.archived ? "bg-destructive hover:bg-destructive/90" : ""
+							}
+							disabled={isUpdatingStatus}
+							onClick={handleArchiveToggle}
+						>
+							{isUpdatingStatus
+								? user.archived
+									? "Unarchiving..."
+									: "Archiving..."
+								: user.archived
+									? "Unarchive"
+									: "Archive"}
+						</AlertDialogAction>
+					</AlertDialogFooter>
+				</AlertDialogContent>
+			</AlertDialog>
 		</>
 	);
 }
@@ -290,8 +364,10 @@ export default function UsersTable() {
 		? hasPermission(session.user.permissions, "settings:users:edit")
 		: false;
 
-	const { data: users, isLoading: isLoadingUsers } =
-		api.users.getAll.useQuery();
+	const { data: activeUsers, isLoading: isLoadingActiveUsers } =
+		api.users.getAll.useQuery({ archived: false });
+	const { data: archivedUsers, isLoading: isLoadingArchivedUsers } =
+		api.users.getAll.useQuery({ archived: true });
 
 	const getInitials = (name: string | null | undefined) => {
 		if (!name) return "";
@@ -304,95 +380,218 @@ export default function UsersTable() {
 	return (
 		<div className="px-4">
 			<h3 className="pb-4 font-bold text-lg">Users</h3>
-			{/* Table for Medium Screens and Up (sm:) */}
-			<div className="hidden sm:block">
-				<Table>
-					<TableHeader>
-						<TableRow>
-							{canEdit && <TableHead className="w-[20px]"></TableHead>}
-							<TableHead className="w-[20px]"></TableHead>
-							<TableHead>Name</TableHead>
-							<TableHead>Email</TableHead>
-						</TableRow>
-					</TableHeader>
-					<TableBody>
-						{isLoadingUsers ? (
-							<TableRow>
-								<TableCell className="text-center" colSpan={canEdit ? 5 : 4}>
-									Loading...
-								</TableCell>
-							</TableRow>
-						) : users && users.length > 0 ? (
-							users.map((user) => (
-								<TableRow key={user.id}>
-									{canEdit && (
-										<TableCell>
-											<UsersTableActionsMenu user={user} />
-										</TableCell>
-									)}
-									<TableCell>
-										<Avatar>
-											<AvatarImage src={user.image ?? ""} />
-											<AvatarFallback>{getInitials(user.name)}</AvatarFallback>
-										</Avatar>
-									</TableCell>
-									<TableCell className="font-medium">{user.name}</TableCell>
-									<TableCell>
-										<Link
-											className="hover:underline"
-											href={`mailto:${user.email}`}
-										>
-											{user.email}
-										</Link>
-									</TableCell>
+			<Tabs defaultValue="active">
+				<TabsList>
+					<TabsTrigger value="active">Active Users</TabsTrigger>
+					<TabsTrigger value="archived">Archived Users</TabsTrigger>
+				</TabsList>
+				<TabsContent value="active">
+					{/* Table for Medium Screens and Up (sm:) */}
+					<div className="hidden sm:block">
+						<Table>
+							<TableHeader>
+								<TableRow>
+									{canEdit && <TableHead className="w-[20px]"></TableHead>}
+									<TableHead className="w-[20px]"></TableHead>
+									<TableHead>Name</TableHead>
+									<TableHead>Email</TableHead>
 								</TableRow>
-							))
-						) : (
-							<TableRow>
-								<TableCell className="text-center" colSpan={canEdit ? 5 : 4}>
-									No users found.
-								</TableCell>
-							</TableRow>
-						)}
-					</TableBody>
-				</Table>
-			</div>
+							</TableHeader>
+							<TableBody>
+								{isLoadingActiveUsers ? (
+									<TableRow>
+										<TableCell
+											className="text-center"
+											colSpan={canEdit ? 5 : 4}
+										>
+											Loading...
+										</TableCell>
+									</TableRow>
+								) : activeUsers && activeUsers.length > 0 ? (
+									activeUsers.map((user) => (
+										<TableRow key={user.id}>
+											{canEdit && (
+												<TableCell>
+													<UsersTableActionsMenu user={user} />
+												</TableCell>
+											)}
+											<TableCell>
+												<Avatar>
+													<AvatarImage src={user.image ?? ""} />
+													<AvatarFallback>
+														{getInitials(user.name)}
+													</AvatarFallback>
+												</Avatar>
+											</TableCell>
+											<TableCell className="font-medium">{user.name}</TableCell>
+											<TableCell>
+												<Link
+													className="hover:underline"
+													href={`mailto:${user.email}`}
+												>
+													{user.email}
+												</Link>
+											</TableCell>
+										</TableRow>
+									))
+								) : (
+									<TableRow>
+										<TableCell
+											className="text-center"
+											colSpan={canEdit ? 5 : 4}
+										>
+											No active users found.
+										</TableCell>
+									</TableRow>
+								)}
+							</TableBody>
+						</Table>
+					</div>
 
-			{/* Card Layout for Small Screens (mobile) */}
-			<div className="grid grid-cols-1 gap-4 sm:hidden">
-				{isLoadingUsers ? (
-					<p className="text-center text-muted-foreground">Loading...</p>
-				) : users && users.length > 0 ? (
-					users.map((user) => (
-						<div
-							className="relative rounded-lg border bg-card p-4 text-card-foreground"
-							key={user.id}
-						>
-							<div className="absolute top-2 right-2">
-								{canEdit && <UsersTableActionsMenu user={user} />}
-							</div>
-							<div className="flex items-start justify-between">
-								<div className="flex items-center gap-4">
-									<Avatar>
-										<AvatarImage src={user.image ?? ""} />
-										<AvatarFallback>{getInitials(user.name)}</AvatarFallback>
-									</Avatar>
-									<div className="space-y-1">
-										<p className="font-medium">{user.name}</p>
-										<p className="text-muted-foreground text-sm">
-											{user.email.length > 25
-												? `${user.email.slice(0, 22)}...`
-												: user.email}
-										</p>
+					{/* Card Layout for Small Screens (mobile) */}
+					<div className="grid grid-cols-1 gap-4 sm:hidden">
+						{isLoadingActiveUsers ? (
+							<p className="text-center text-muted-foreground">Loading...</p>
+						) : activeUsers && activeUsers.length > 0 ? (
+							activeUsers.map((user) => (
+								<div
+									className="relative rounded-lg border bg-card p-4 text-card-foreground"
+									key={user.id}
+								>
+									<div className="absolute top-2 right-2">
+										{canEdit && <UsersTableActionsMenu user={user} />}
+									</div>
+									<div className="flex items-start justify-between">
+										<div className="flex items-center gap-4">
+											<Avatar>
+												<AvatarImage src={user.image ?? ""} />
+												<AvatarFallback>
+													{getInitials(user.name)}
+												</AvatarFallback>
+											</Avatar>
+											<div className="space-y-1">
+												<p className="font-medium">{user.name}</p>
+												<p className="text-muted-foreground text-sm">
+													{user.email.length > 25
+														? `${user.email.slice(0, 22)}...`
+														: user.email}
+												</p>
+											</div>
+										</div>
 									</div>
 								</div>
-							</div>
-						</div>
-					))
-				) : (
-					<p className="text-center text-muted-foreground">No users found.</p>
-				)}
-			</div>
+							))
+						) : (
+							<p className="text-center text-muted-foreground">
+								No active users found.
+							</p>
+						)}
+					</div>
+				</TabsContent>
+				<TabsContent value="archived">
+					{/* Table for Medium Screens and Up (sm:) */}
+					<div className="hidden sm:block">
+						<Table>
+							<TableHeader>
+								<TableRow>
+									{canEdit && <TableHead className="w-[20px]"></TableHead>}
+									<TableHead className="w-[20px]"></TableHead>
+									<TableHead>Name</TableHead>
+									<TableHead>Email</TableHead>
+								</TableRow>
+							</TableHeader>
+							<TableBody>
+								{isLoadingArchivedUsers ? (
+									<TableRow>
+										<TableCell
+											className="text-center"
+											colSpan={canEdit ? 5 : 4}
+										>
+											Loading...
+										</TableCell>
+									</TableRow>
+								) : archivedUsers && archivedUsers.length > 0 ? (
+									archivedUsers.map((user) => (
+										<TableRow key={user.id}>
+											{canEdit && (
+												<TableCell>
+													<UsersTableActionsMenu user={user} />
+												</TableCell>
+											)}
+											<TableCell>
+												<Avatar>
+													<AvatarImage src={user.image ?? ""} />
+													<AvatarFallback>
+														{getInitials(user.name)}
+													</AvatarFallback>
+												</Avatar>
+											</TableCell>
+											<TableCell className="font-medium">{user.name}</TableCell>
+											<TableCell>
+												<Link
+													className="hover:underline"
+													href={`mailto:${user.email}`}
+												>
+													{user.email}
+												</Link>
+											</TableCell>
+										</TableRow>
+									))
+								) : (
+									<TableRow>
+										<TableCell
+											className="text-center"
+											colSpan={canEdit ? 5 : 4}
+										>
+											No archived users found.
+										</TableCell>
+									</TableRow>
+								)}
+							</TableBody>
+						</Table>
+					</div>
+
+					{/* Card Layout for Small Screens (mobile) */}
+					<div className="grid grid-cols-1 gap-4 sm:hidden">
+						{isLoadingArchivedUsers ? (
+							<p className="text-center text-muted-foreground">Loading...</p>
+						) : archivedUsers && archivedUsers.length > 0 ? (
+							archivedUsers.map((user) => (
+								<div
+									className="relative rounded-lg border bg-card p-4 text-card-foreground"
+									key={user.id}
+								>
+									<div className="absolute top-2 right-2">
+										{canEdit && <UsersTableActionsMenu user={user} />}
+									</div>
+									<div className="flex items-start justify-between">
+										<div className="flex items-center gap-4">
+											<Avatar>
+												<AvatarImage src={user.image ?? ""} />
+												<AvatarFallback>
+													{getInitials(user.name)}
+												</AvatarFallback>
+											</Avatar>
+											<div className="space-y-1">
+												<p className="font-medium">{user.name}</p>
+												<p className="text-muted-foreground text-sm">
+													{user.email.length > 25
+														? `${user.email.slice(0, 22)}...`
+														: user.email}
+												</p>
+											</div>
+										</div>
+									</div>
+								</div>
+							))
+						) : (
+							<p className="text-center text-muted-foreground">
+								No archived users found.
+							</p>
+						)}
+					</div>
+				</TabsContent>
+			</Tabs>
 		</div>
 	);
 }

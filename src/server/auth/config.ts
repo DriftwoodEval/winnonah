@@ -30,6 +30,7 @@ declare module "next-auth" {
       permissions: PermissionsObject;
       evaluatorId?: number | null;
       clientFilters?: string;
+      archived?: boolean | null;
     } & DefaultSession["user"];
   }
 
@@ -37,6 +38,7 @@ declare module "next-auth" {
     permissions: PermissionsObject;
     savedPlaces: string;
     evaluatorId?: number | null;
+    archived?: boolean | null;
   }
 }
 
@@ -73,6 +75,15 @@ export const authConfig = {
   }),
   callbacks: {
     async signIn({ user, account }) {
+      if (!user.email) return false;
+
+      const userInDb = await db.query.users.findFirst({
+        where: eq(users.email, user.email),
+      });
+
+      if (userInDb?.archived) {
+        return false;
+      }
       if (account?.provider === "google" && user.id) {
         const existingAccount = await db.query.accounts.findFirst({
           where: and(
@@ -97,13 +108,7 @@ export const authConfig = {
         }
       }
 
-      if (!user.email) return false;
-
-      const existingUser = await db.query.users.findFirst({
-        where: eq(users.email, user.email ?? ""),
-      });
-
-      if (existingUser) {
+      if (userInDb) {
         return true;
       }
 
@@ -164,6 +169,7 @@ export const authConfig = {
         session.user.id = user.id;
         session.user.permissions = user.permissions;
         session.user.evaluatorId = user.evaluatorId;
+        session.user.archived = user.archived;
       }
       return session;
     },

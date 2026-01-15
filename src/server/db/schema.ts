@@ -414,6 +414,7 @@ export const users = createTable("user", (d) => ({
 	evaluatorId: d.int().references(() => evaluators.npi),
 	savedPlaces: d.json(),
 	permissions: d.json("permissions").$type<PermissionsObject>(),
+	archived: d.boolean("archived").notNull().default(false)
 }));
 
 export const usersRelations = relations(users, ({ many, one }) => ({

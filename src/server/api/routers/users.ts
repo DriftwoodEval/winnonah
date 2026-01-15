@@ -9,237 +9,274 @@ import { invitations, users } from "~/server/db/schema";
 
 const log = logger.child({ module: "UsersApi" });
 export const userRouter = createTRPCRouter({
-  getAll: protectedProcedure.query(async ({ ctx }) => {
-    const users = await ctx.db.query.users.findMany({
-      orderBy: (users, { desc }) => [desc(users.name)],
-    });
+	getAll: protectedProcedure
+		.input(z.object({ archived: z.boolean().optional() }).optional())
+		.query(async ({ ctx, input }) => {
+			const usersData = await ctx.db.query.users.findMany({
+				where: input?.archived === undefined ? undefined : eq(users.archived, input.archived),
+				orderBy: (users, { desc }) => [desc(users.name)],
+			});
 
-    return users;
-  }),
+			return usersData;
+		}),
 
-  getOne: protectedProcedure
-    .input(z.object({ userId: z.string() }))
-    .query(async ({ ctx, input }) => {
-      const user = await ctx.db.query.users.findFirst({
-        where: eq(users.id, input.userId),
-      });
+	getOne: protectedProcedure
+		.input(z.object({ userId: z.string() }))
+		.query(async ({ ctx, input }) => {
+			const user = await ctx.db.query.users.findFirst({
+				where: eq(users.id, input.userId),
+			});
 
-      if (!user) {
-        throw new TRPCError({
-          code: "NOT_FOUND",
-          message: `User with ID ${input.userId} not found`,
-        });
-      }
+			if (!user) {
+				throw new TRPCError({
+					code: "NOT_FOUND",
+					message: `User with ID ${input.userId} not found`,
+				});
+			}
 
-      return user;
-    }),
+			return user;
+		}),
 
-  updateUser: protectedProcedure
-    .input(
-      z.object({
-        userId: z.string(),
-        permissions: permissionsSchema.optional(),
-      })
-    )
-    .mutation(async ({ ctx, input }) => {
-      if (!hasPermission(ctx.session.user.permissions, "settings:users:edit")) {
-        throw new TRPCError({
-          code: "UNAUTHORIZED",
-        });
-      }
+	updateUser: protectedProcedure
+		.input(
+			z.object({
+				userId: z.string(),
+				permissions: permissionsSchema.optional(),
+			}),
+		)
+		.mutation(async ({ ctx, input }) => {
+			if (!hasPermission(ctx.session.user.permissions, "settings:users:edit")) {
+				throw new TRPCError({
+					code: "UNAUTHORIZED",
+				});
+			}
 
-      log.info({ user: ctx.session.user.email, ...input }, "Updating user");
+			log.info({ user: ctx.session.user.email, ...input }, "Updating user");
 
-      const updateData: { permissions?: PermissionsObject } = {};
+			const updateData: { permissions?: PermissionsObject } = {};
 
-      if (input.permissions !== undefined)
-        updateData.permissions = input.permissions;
+			if (input.permissions !== undefined)
+				updateData.permissions = input.permissions;
 
-      if (Object.keys(updateData).length === 0) {
-        throw new TRPCError({
-          code: "BAD_REQUEST",
-          message: "No data provided to update.",
-        });
-      }
+			if (Object.keys(updateData).length === 0) {
+				throw new TRPCError({
+					code: "BAD_REQUEST",
+					message: "No data provided to update.",
+				});
+			}
 
-      await ctx.db
-        .update(users)
-        .set(updateData)
-        .where(eq(users.id, input.userId));
-    }),
+			await ctx.db
+				.update(users)
+				.set(updateData)
+				.where(eq(users.id, input.userId));
+		}),
 
-  createInvitation: protectedProcedure
-    .input(z.object({ email: z.email(), permissions: permissionsSchema }))
-    .mutation(async ({ ctx, input }) => {
-      if (
-        !hasPermission(ctx.session.user.permissions, "settings:users:invite")
-      ) {
-        throw new TRPCError({
-          code: "UNAUTHORIZED",
-        });
-      }
+	updateUserArchiveStatus: protectedProcedure
+		.input(
+			z.object({
+				userId: z.string(),
+				archived: z.boolean(),
+			}),
+		)
+		.mutation(async ({ ctx, input }) => {
+			if (!hasPermission(ctx.session.user.permissions, "settings:users:edit")) {
+				throw new TRPCError({
+					code: "UNAUTHORIZED",
+				});
+			}
 
-      log.info(
-        { user: ctx.session.user.email, ...input },
-        "Creating invitation"
-      );
+			if (ctx.session.user.id === input.userId) {
+				throw new TRPCError({
+					code: "BAD_REQUEST",
+					message: "You cannot archive yourself.",
+				});
+			}
 
-      await ctx.db
-        .insert(invitations)
-        .values({ email: input.email, permissions: input.permissions });
+			log.info(
+				{ user: ctx.session.user.email, ...input },
+				"Updating user archive status",
+			);
 
-      return {
-        success: true,
-        message: `Invitation created for ${input.email}`,
-      };
-    }),
+			await ctx.db
+				.update(users)
+				.set({
+					archived: input.archived,
+				})
+				.where(eq(users.id, input.userId));
+		}),
 
-  getPendingInvitations: protectedProcedure.query(async ({ ctx }) => {
-    return await ctx.db.query.invitations.findMany({
-      where: eq(invitations.status, "pending"),
-      orderBy: (invitations, { desc }) => [desc(invitations.createdAt)],
-    });
-  }),
+	createInvitation: protectedProcedure
+		.input(z.object({ email: z.email(), permissions: permissionsSchema }))
+		.mutation(async ({ ctx, input }) => {
+			if (
+				!hasPermission(ctx.session.user.permissions, "settings:users:invite")
+			) {
+				throw new TRPCError({
+					code: "UNAUTHORIZED",
+				});
+			}
 
-  deleteInvitation: protectedProcedure
-    .input(
-      z.object({
-        id: z.number(),
-      })
-    )
-    .mutation(async ({ ctx, input }) => {
-      if (
-        !hasPermission(ctx.session.user.permissions, "settings:users:invite")
-      ) {
-        throw new TRPCError({
-          code: "UNAUTHORIZED",
-        });
-      }
+			log.info(
+				{ user: ctx.session.user.email, ...input },
+				"Creating invitation",
+			);
 
-      log.info(
-        { user: ctx.session.user.email, ...input },
-        "Deleting invitation"
-      );
+			await ctx.db
+				.insert(invitations)
+				.values({ email: input.email, permissions: input.permissions });
 
-      return {
-        success: await ctx.db
-          .delete(invitations)
-          .where(eq(invitations.id, input.id)),
-      };
-    }),
+			return {
+				success: true,
+				message: `Invitation created for ${input.email}`,
+			};
+		}),
 
-  getSavedPlaces: protectedProcedure.query(async ({ ctx }) => {
-    const userFromDb = await ctx.db.query.users.findFirst({
-      where: eq(users.id, ctx.session.user.id),
-    });
+	getPendingInvitations: protectedProcedure.query(async ({ ctx }) => {
+		return await ctx.db.query.invitations.findMany({
+			where: eq(invitations.status, "pending"),
+			orderBy: (invitations, { desc }) => [desc(invitations.createdAt)],
+		});
+	}),
 
-    if (!userFromDb) {
-      throw new TRPCError({
-        code: "NOT_FOUND",
-        message: `User with ID ${ctx.session.user.id} not found`,
-      });
-    }
+	deleteInvitation: protectedProcedure
+		.input(
+			z.object({
+				id: z.number(),
+			}),
+		)
+		.mutation(async ({ ctx, input }) => {
+			if (
+				!hasPermission(ctx.session.user.permissions, "settings:users:invite")
+			) {
+				throw new TRPCError({
+					code: "UNAUTHORIZED",
+				});
+			}
 
-    const savedPlaces = JSON.parse(
-      userFromDb.savedPlaces?.toString() || "{}"
-    ) as Record<string, { hash: string; index?: number }>;
+			log.info(
+				{ user: ctx.session.user.email, ...input },
+				"Deleting invitation",
+			);
 
-    return savedPlaces;
-  }),
+			return {
+				success: await ctx.db
+					.delete(invitations)
+					.where(eq(invitations.id, input.id)),
+			};
+		}),
 
-  updateSavedPlaces: protectedProcedure
-    .input(
-      z.object({
-        key: z.string(),
-        hash: z.string(),
-        index: z.number().optional(),
-      })
-    )
-    .mutation(async ({ ctx, input }) => {
-      const userFromDb = await ctx.db.query.users.findFirst({
-        where: eq(users.id, ctx.session.user.id),
-      });
+	getSavedPlaces: protectedProcedure.query(async ({ ctx }) => {
+		const userFromDb = await ctx.db.query.users.findFirst({
+			where: eq(users.id, ctx.session.user.id),
+		});
 
-      if (!userFromDb) {
-        throw new TRPCError({
-          code: "NOT_FOUND",
-          message: `User with ID ${ctx.session.user.id} not found`,
-        });
-      }
+		if (!userFromDb) {
+			throw new TRPCError({
+				code: "NOT_FOUND",
+				message: `User with ID ${ctx.session.user.id} not found`,
+			});
+		}
 
-      const savedPlaces = JSON.parse(
-        userFromDb.savedPlaces?.toString() || "{}"
-      ) as Record<string, string | { hash: string; index?: number }>;
+		const savedPlaces = JSON.parse(
+			userFromDb.savedPlaces?.toString() || "{}",
+		) as Record<string, { hash: string; index?: number }>;
 
-      savedPlaces[input.key] = { hash: input.hash, index: input.index };
+		return savedPlaces;
+	}),
 
-      await ctx.db
-        .update(users)
-        .set({
-          savedPlaces: JSON.stringify(savedPlaces),
-        })
-        .where(eq(users.id, ctx.session.user.id));
+	updateSavedPlaces: protectedProcedure
+		.input(
+			z.object({
+				key: z.string(),
+				hash: z.string(),
+				index: z.number().optional(),
+			}),
+		)
+		.mutation(async ({ ctx, input }) => {
+			const userFromDb = await ctx.db.query.users.findFirst({
+				where: eq(users.id, ctx.session.user.id),
+			});
 
-      const updatedUser = await ctx.db.query.users.findFirst({
-        where: eq(users.id, ctx.session.user.id),
-      });
+			if (!userFromDb) {
+				throw new TRPCError({
+					code: "NOT_FOUND",
+					message: `User with ID ${ctx.session.user.id} not found`,
+				});
+			}
 
-      if (!updatedUser) {
-        throw new TRPCError({
-          code: "NOT_FOUND",
-          message: `User with ID ${ctx.session.user.id} not found`,
-        });
-      }
+			const savedPlaces = JSON.parse(
+				userFromDb.savedPlaces?.toString() || "{}",
+			) as Record<string, string | { hash: string; index?: number }>;
 
-      const updatedSavedPlaces = JSON.parse(
-        updatedUser.savedPlaces?.toString() || "{}"
-      );
+			savedPlaces[input.key] = { hash: input.hash, index: input.index };
 
-      return updatedSavedPlaces;
-    }),
+			await ctx.db
+				.update(users)
+				.set({
+					savedPlaces: JSON.stringify(savedPlaces),
+				})
+				.where(eq(users.id, ctx.session.user.id));
 
-  deleteSavedPlace: protectedProcedure
-    .input(z.object({ key: z.string() }))
-    .mutation(async ({ ctx, input }) => {
-      const userFromDb = await ctx.db.query.users.findFirst({
-        where: eq(users.id, ctx.session.user.id),
-      });
+			const updatedUser = await ctx.db.query.users.findFirst({
+				where: eq(users.id, ctx.session.user.id),
+			});
 
-      if (!userFromDb) {
-        throw new TRPCError({
-          code: "NOT_FOUND",
-          message: `User with ID ${ctx.session.user.id} not found`,
-        });
-      }
+			if (!updatedUser) {
+				throw new TRPCError({
+					code: "NOT_FOUND",
+					message: `User with ID ${ctx.session.user.id} not found`,
+				});
+			}
 
-      const savedPlaces = JSON.parse(
-        userFromDb.savedPlaces?.toString() || "{}"
-      );
+			const updatedSavedPlaces = JSON.parse(
+				updatedUser.savedPlaces?.toString() || "{}",
+			);
 
-      delete savedPlaces[input.key];
+			return updatedSavedPlaces;
+		}),
 
-      await ctx.db
-        .update(users)
-        .set({
-          savedPlaces: JSON.stringify(savedPlaces),
-        })
-        .where(eq(users.id, ctx.session.user.id));
+	deleteSavedPlace: protectedProcedure
+		.input(z.object({ key: z.string() }))
+		.mutation(async ({ ctx, input }) => {
+			const userFromDb = await ctx.db.query.users.findFirst({
+				where: eq(users.id, ctx.session.user.id),
+			});
 
-      const updatedUser = await ctx.db.query.users.findFirst({
-        where: eq(users.id, ctx.session.user.id),
-      });
+			if (!userFromDb) {
+				throw new TRPCError({
+					code: "NOT_FOUND",
+					message: `User with ID ${ctx.session.user.id} not found`,
+				});
+			}
 
-      if (!updatedUser) {
-        throw new TRPCError({
-          code: "NOT_FOUND",
-          message: `User with ID ${ctx.session.user.id} not found`,
-        });
-      }
+			const savedPlaces = JSON.parse(
+				userFromDb.savedPlaces?.toString() || "{}",
+			);
 
-      const updatedSavedPlaces = JSON.parse(
-        updatedUser.savedPlaces?.toString() || "{}"
-      );
+			delete savedPlaces[input.key];
 
-      return updatedSavedPlaces;
-    }),
+			await ctx.db
+				.update(users)
+				.set({
+					savedPlaces: JSON.stringify(savedPlaces),
+				})
+				.where(eq(users.id, ctx.session.user.id));
+
+			const updatedUser = await ctx.db.query.users.findFirst({
+				where: eq(users.id, ctx.session.user.id),
+			});
+
+			if (!updatedUser) {
+				throw new TRPCError({
+					code: "NOT_FOUND",
+					message: `User with ID ${ctx.session.user.id} not found`,
+				});
+			}
+
+			const updatedSavedPlaces = JSON.parse(
+				updatedUser.savedPlaces?.toString() || "{}",
+			);
+
+			return updatedSavedPlaces;
+		}),
 });
