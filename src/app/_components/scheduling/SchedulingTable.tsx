@@ -6,7 +6,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@components/ui/tabs";
 import { Skeleton } from "@ui/skeleton";
 import { ArchiveRestore, Loader2, X } from "lucide-react";
 import { useMemo, useState } from "react";
-import type { Evaluator, Office } from "~/lib/types";
+import type { Evaluator, Office, SchoolDistrict } from "~/lib/types";
 import { formatClientAge, getLocalDayFromUTCDate } from "~/lib/utils";
 import { api } from "~/trpc/react";
 import {
@@ -24,6 +24,7 @@ function useSchedulingFilters(
 	clients: ScheduledClient[],
 	evaluators: Evaluator[],
 	offices: Office[],
+	districts: SchoolDistrict[],
 ) {
 	const [filters, setFilters] = useState<Record<string, string[]>>({});
 
@@ -72,12 +73,17 @@ function useSchedulingFilters(
 					: office?.prettyName || client.client.closestOffice || "";
 			values.location?.add(normalize(location));
 
-			const district = client.client.schoolDistrict
-				? client.client.schoolDistrict
-						?.replace(/ County School District$/, "")
-						.replace(/ School District$/, "")
-				: "";
-			values.district?.add(normalize(district));
+			const district = districts.find(
+				(d) => d.fullName === client.client.schoolDistrict,
+			);
+			values.district?.add(
+				normalize(
+					district?.shortName ||
+						client.client.schoolDistrict
+							?.replace(/ County School District$/, "")
+							.replace(/ School District$/, ""),
+				),
+			);
 
 			const paDate = client.client.precertExpires
 				? getLocalDayFromUTCDate(
@@ -99,7 +105,7 @@ function useSchedulingFilters(
 			);
 		}
 		return result;
-	}, [clients, evaluators, offices]);
+	}, [clients, evaluators, offices, districts]);
 
 	const filteredClients = useMemo(() => {
 		return clients.filter((client) => {
@@ -147,15 +153,18 @@ function useSchedulingFilters(
 						);
 						break;
 					}
-					case "district":
+					case "district": {
+						const district = districts.find(
+							(d) => d.fullName === client.client.schoolDistrict,
+						);
 						value = normalize(
-							client.client.schoolDistrict
-								? client.client.schoolDistrict
-										?.replace(/ County School District$/, "")
-										.replace(/ School District$/, "")
-								: "",
+							district?.shortName ||
+								client.client.schoolDistrict
+									?.replace(/ County School District$/, "")
+									.replace(/ School District$/, ""),
 						);
 						break;
+					}
 					case "paDate":
 						value = normalize(
 							client.client.precertExpires
@@ -177,7 +186,7 @@ function useSchedulingFilters(
 				return selectedValues.includes(value);
 			});
 		});
-	}, [clients, filters, evaluators, offices]);
+	}, [clients, filters, evaluators, offices, districts]);
 
 	const handleFilterChange = (column: string, selected: string[]) => {
 		setFilters((prev) => ({
@@ -207,9 +216,10 @@ function ActiveSchedulingTable() {
 	const clients = (data?.clients || []) as ScheduledClient[];
 	const evaluators = (data?.evaluators as Evaluator[]) || [];
 	const offices = (data?.offices as Office[]) || [];
+	const districts = (data?.schoolDistricts as SchoolDistrict[]) || [];
 
 	const { filteredClients, filters, handleFilterChange, uniqueValues } =
-		useSchedulingFilters(clients, evaluators, offices);
+		useSchedulingFilters(clients, evaluators, offices, districts);
 
 	if (isLoading) {
 		return (
@@ -258,6 +268,7 @@ function ActiveSchedulingTable() {
 								)}
 							</Button>
 						}
+						districts={districts}
 						evaluators={evaluators}
 						isEditable={true}
 						key={scheduledClient.clientId}
@@ -285,9 +296,10 @@ function ArchivedSchedulingTable() {
 	const clients = (data?.clients || []) as ScheduledClient[];
 	const evaluators = (data?.evaluators as Evaluator[]) || [];
 	const offices = (data?.offices as Office[]) || [];
+	const districts = (data?.schoolDistricts as SchoolDistrict[]) || [];
 
 	const { filteredClients, filters, handleFilterChange, uniqueValues } =
-		useSchedulingFilters(clients, evaluators, offices);
+		useSchedulingFilters(clients, evaluators, offices, districts);
 
 	if (isLoading)
 		return (
@@ -330,6 +342,7 @@ function ArchivedSchedulingTable() {
 								)}
 							</Button>
 						}
+						districts={districts}
 						evaluators={evaluators}
 						isEditable={false}
 						key={scheduledClient.clientId}

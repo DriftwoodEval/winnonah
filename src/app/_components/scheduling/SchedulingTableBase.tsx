@@ -28,7 +28,7 @@ import {
 	SCHEDULING_COLOR_MAP,
 	type SchedulingColor,
 } from "~/lib/colors";
-import type { Evaluator, Office } from "~/lib/types";
+import type { Evaluator, Office, SchoolDistrict } from "~/lib/types";
 import { formatClientAge, getLocalDayFromUTCDate } from "~/lib/utils";
 import { api } from "~/trpc/react";
 
@@ -334,6 +334,7 @@ export function SchedulingTableRow({
 	scheduledClient,
 	evaluators,
 	offices,
+	districts,
 	isEditable,
 	onUpdate,
 	actions,
@@ -341,6 +342,7 @@ export function SchedulingTableRow({
 	scheduledClient: ScheduledClient;
 	evaluators: Evaluator[];
 	offices: Office[];
+	districts?: SchoolDistrict[];
 	isEditable?: boolean;
 	onUpdate?: (clientId: number, data: any) => void;
 	actions: React.ReactNode;
@@ -506,11 +508,18 @@ export function SchedulingTableRow({
 			</TableCell>
 
 			<TableCell>
-				{scheduledClient.client.schoolDistrict
-					? scheduledClient.client.schoolDistrict
+				{(() => {
+					if (!scheduledClient.client.schoolDistrict) return "-";
+					const district = districts?.find(
+						(d) => d.fullName === scheduledClient.client.schoolDistrict,
+					);
+					return (
+						district?.shortName ||
+						scheduledClient.client.schoolDistrict
 							?.replace(/ County School District$/, "")
 							.replace(/ School District$/, "")
-					: "-"}
+					);
+				})()}
 			</TableCell>
 
 			<TableCell>

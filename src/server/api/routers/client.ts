@@ -29,6 +29,7 @@ import {
 	failures,
 	notes,
 	questionnaires,
+	schoolDistricts,
 } from "~/server/db/schema";
 
 const log = logger.child({ module: "ClientApi" });
@@ -129,6 +130,10 @@ export const clientRouter = createTRPCRouter({
 				});
 			}
 
+			const district = await ctx.db.query.schoolDistricts.findFirst({
+				where: eq(schoolDistricts.fullName, syncedClient.schoolDistrict ?? ""),
+			});
+
 			type ClosestOffice = {
 				key: string;
 				prettyName: string;
@@ -163,6 +168,7 @@ export const clientRouter = createTRPCRouter({
 			return {
 				...syncedClient,
 				closestOffices,
+				schoolDistrictDetails: district,
 			};
 		}),
 
