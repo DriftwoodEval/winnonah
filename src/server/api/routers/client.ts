@@ -552,9 +552,10 @@ export const clientRouter = createTRPCRouter({
 			});
 
 			if (!newClient) {
-				throw new Error(
-					"Failed to create client: could not retrieve new client.",
-				);
+				throw new TRPCError({
+					code: "INTERNAL_SERVER_ERROR",
+					message: "Failed to create client: could not retrieve new client.",
+				});
 			}
 
 			return newClient.hash;
@@ -956,7 +957,10 @@ export const clientRouter = createTRPCRouter({
 				.limit(1);
 
 			if (!fakeClientNote || !realClient || !fakeClient) {
-				throw new Error("Client data does not exist for merge operation.");
+				throw new TRPCError({
+					code: "NOT_FOUND",
+					message: "Client data does not exist for merge operation.",
+				});
 			}
 
 			const fakeContent = fakeClientNote.content as JSONContent;
@@ -968,9 +972,11 @@ export const clientRouter = createTRPCRouter({
 				fakeContent.content.length > 0;
 
 			if (!fakeHasContent && !fakeTitle) {
-				throw new Error(
-					'"Notes Only" client is empty. It must have content or a title to merge.',
-				);
+				throw new TRPCError({
+					code: "BAD_REQUEST",
+					message:
+						'"Notes Only" client is empty. It must have content or a title to merge.',
+				});
 			}
 
 			let mergedTitle: string | null;
@@ -992,9 +998,11 @@ export const clientRouter = createTRPCRouter({
 				const realContent = realClientNote.content as JSONContent;
 
 				if (!realContent?.content || !Array.isArray(realContent.content)) {
-					throw new Error(
-						"Imported client note content is not in the expected Tiptap format.",
-					);
+					throw new TRPCError({
+						code: "INTERNAL_SERVER_ERROR",
+						message:
+							"Imported client note content is not in the expected Tiptap format.",
+					});
 				}
 
 				const realHasContent = realContent.content.length > 0;

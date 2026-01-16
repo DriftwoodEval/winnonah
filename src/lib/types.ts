@@ -104,7 +104,7 @@ export const permissions = {
 			{ id: "clients:questionnaires:create", title: "Create Questionnaires" },
 			{
 				id: "clients:questionnaires:createexternal",
-				title: "Create External Questionniares",
+				title: "Create External Questionnaires",
 			},
 			{
 				id: "clients:questionnaires:createbulk",
@@ -165,7 +165,7 @@ export const permissionPresets = [
 			"clients:shell": true,
 			"clients:merge": true,
 			"clients:questionnaires:create": true,
-			"clients:questionniares:createexternal": true,
+			"clients:questionnaires:createexternal": true,
 			"settings:evaluators": true,
 		},
 	},
