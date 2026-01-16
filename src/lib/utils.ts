@@ -1,4 +1,5 @@
 import { type ClassValue, clsx } from "clsx";
+import { type AnyColumn, type SQL, sql } from "drizzle-orm";
 import { twMerge } from "tailwind-merge";
 import type {
 	PermissionId,
@@ -94,4 +95,19 @@ export const getLocalDayFromUTCDate = (
 		utcDate.getUTCMonth(),
 		utcDate.getUTCDate(),
 	);
+};
+
+export const getDistanceSQL = (
+	lat1: SQL | AnyColumn | string | number | null | undefined,
+	lon1: SQL | AnyColumn | string | number | null | undefined,
+	lat2: SQL | AnyColumn | string | number | null | undefined,
+	lon2: SQL | AnyColumn | string | number | null | undefined,
+) => {
+	return sql<number>`(3959 * acos(
+		cos(radians(${lat1})) *
+		cos(radians(${lat2})) *
+		cos(radians(${lon2}) - radians(${lon1})) +
+		sin(radians(${lat1})) *
+		sin(radians(${lat2}))
+	))`;
 };

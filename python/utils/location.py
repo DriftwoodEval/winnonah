@@ -1,3 +1,4 @@
+import math
 import os
 from collections.abc import Callable
 from functools import partial
@@ -8,7 +9,6 @@ import geopy.geocoders
 import pandas as pd
 import requests
 from dotenv import load_dotenv
-from geopy import distance
 from geopy.extra.rate_limiter import RateLimiter
 from geopy.geocoders import Nominatim
 from geopy.location import Location
@@ -16,8 +16,30 @@ from loguru import logger
 from shapely import Point
 
 import utils.database
+from utils.constants import TABLE_OFFICE
 
 load_dotenv()
+
+
+def calculate_spherical_distance(
+    lat1: float, lon1: float, lat2: float, lon2: float
+) -> float:
+    """Calculates distance in miles using the Spherical Law of Cosines, matching the database implementation."""
+    try:
+        phi1, phi2 = math.radians(lat1), math.radians(lat2)
+        delta_lambda = math.radians(lon2 - lon1)
+
+        cos_c = math.sin(phi1) * math.sin(phi2) + math.cos(phi1) * math.cos(
+            phi2
+        ) * math.cos(delta_lambda)
+
+        # Clamp cos_c to [-1, 1] to avoid math domain error in acos
+        cos_c = max(-1.0, min(1.0, cos_c))
+
+        return math.acos(cos_c) * 3959
+    except Exception as e:
+        logger.error(f"Error calculating distance: {e}")
+        return 0.0
 
 
 def _search_census(params: dict) -> tuple[str, dict] | None:
@@ -221,7 +243,7 @@ def get_offices() -> dict:
 
     with db_connection:
         with db_connection.cursor() as cursor:
-            sql = "SELECT `key`, latitude, longitude, prettyName FROM emr_office"
+            sql = f"SELECT `key`, latitude, longitude, prettyName FROM {TABLE_OFFICE}"
             cursor.execute(sql)
 
             results = cursor.fetchall()
@@ -238,70 +260,32 @@ def get_offices() -> dict:
     return addresses
 
 
-def _calculate_closest_offices(
-    client: pd.Series, latitude: str, longitude: str
-) -> dict:
-    """Calculates the closest offices to a client's address, using their latitude and longitude that have been geocoded."""
-    offices = get_offices()
-    closest_offices = []
-    for office_name, office in offices.items():
-        miles = distance.distance(
-            (latitude, longitude),
-            (office["latitude"], office["longitude"]),
-        ).miles
-        logger.debug(
-            f"{office_name} office is {int(miles)} miles away from {client.FIRSTNAME} {client.LASTNAME}"
-        )
-        closest_offices.append((office_name, int(miles)))
-    closest_offices.sort(key=lambda x: x[1])
-    return {
-        "CLOSEST_OFFICE": closest_offices[0][0],
-        "CLOSEST_OFFICE_MILES": closest_offices[0][1],
-        "SECOND_CLOSEST_OFFICE": closest_offices[1][0],
-        "SECOND_CLOSEST_OFFICE_MILES": closest_offices[1][1],
-        "THIRD_CLOSEST_OFFICE": closest_offices[2][0],
-        "THIRD_CLOSEST_OFFICE_MILES": closest_offices[2][1],
-    }
-
-
-def add_location_data(client):
+def add_location_data(client: pd.Series) -> pd.Series:
     """Gets the school district and coordinates for a client, for use in .apply."""
     census_result = _get_client_census_data(client)
     if census_result != "Unknown":
         district_name, coordinates = census_result
         if isinstance(coordinates, dict):
-            closest_offices = _calculate_closest_offices(
-                client, coordinates["y"], coordinates["x"]
-            )
+            lat, lon = float(coordinates["y"]), float(coordinates["x"])
 
             return pd.Series(
                 {
                     "SCHOOL_DISTRICT": district_name,
-                    "LATITUDE": coordinates.get("y")
-                    if isinstance(coordinates, dict)
-                    else None,
-                    "LONGITUDE": coordinates.get("x")
-                    if isinstance(coordinates, dict)
-                    else None,
+                    "LATITUDE": lat,
+                    "LONGITUDE": lon,
                     "FLAG": None,
-                    **closest_offices,
                 }
             )
 
     geocoded_location, attempt_count = _geocode_address(client)
     if geocoded_location is not None:
-        closest_offices = _calculate_closest_offices(
-            client, geocoded_location.latitude, geocoded_location.longitude
-        )
+        lat, lon = float(geocoded_location.latitude), float(geocoded_location.longitude)
         return pd.Series(
             {
-                "SCHOOL_DISTRICT": _get_school_district_from_coords(
-                    geocoded_location.latitude, geocoded_location.longitude
-                ),
-                "LATITUDE": geocoded_location.latitude,
-                "LONGITUDE": geocoded_location.longitude,
+                "SCHOOL_DISTRICT": _get_school_district_from_coords(lat, lon),
+                "LATITUDE": lat,
+                "LONGITUDE": lon,
                 "FLAG": "district_from_shapefile" if attempt_count > 1 else None,
-                **closest_offices,
             }
         )
     else:
@@ -311,11 +295,5 @@ def add_location_data(client):
                 "LATITUDE": None,
                 "LONGITUDE": None,
                 "FLAG": None,
-                "CLOSEST_OFFICE": "Unknown",
-                "CLOSEST_OFFICE_MILES": "Unknown",
-                "SECOND_CLOSEST_OFFICE": "Unknown",
-                "SECOND_CLOSEST_OFFICE_MILES": "Unknown",
-                "THIRD_CLOSEST_OFFICE": "Unknown",
-                "THIRD_CLOSEST_OFFICE_MILES": "Unknown",
             }
         )

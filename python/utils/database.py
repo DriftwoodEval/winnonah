@@ -9,8 +9,23 @@ import pandas as pd
 import pymysql.cursors
 from dotenv import load_dotenv
 from loguru import logger
+from pymysql.connections import Connection
+from pymysql.cursors import DictCursor
 
 import utils.relationships
+from utils.constants import (
+    CLIENT_COLUMN_MAPPING,
+    TABLE_APPOINTMENT,
+    TABLE_BLOCKED_SCHOOL_DISTRICT,
+    TABLE_BLOCKED_ZIP_CODE,
+    TABLE_CLIENT,
+    TABLE_CLIENT_EVAL,
+    TABLE_EVALUATOR,
+    TABLE_EVALUATORS_TO_INSURANCES,
+    TABLE_INSURANCE,
+    TABLE_INSURANCE_ALIAS,
+    TABLE_SCHOOL_DISTRICT,
+)
 from utils.misc import (
     format_date,
     format_gender,
@@ -23,7 +38,7 @@ from utils.misc import (
 load_dotenv()
 
 
-def get_db():
+def get_db() -> Connection[DictCursor]:
     """Returns a connection to the database."""
     db_url = urlparse(os.getenv("DATABASE_URL", ""))
     connection = pymysql.connect(
@@ -48,7 +63,7 @@ def db_session():
 
 
 def filter_clients_with_changed_address(
-    clients: pd.DataFrame, connection=None
+    clients: pd.DataFrame, connection: Connection[DictCursor] | None = None
 ) -> pd.DataFrame:
     """Identifies clients with new or changed addresses by comparing them to records in the database. Also, filters out clients with no address."""
     initial_count = len(clients)
@@ -66,12 +81,12 @@ def filter_clients_with_changed_address(
 
     if connection:
         with connection.cursor() as cursor:
-            cursor.execute("SELECT id, address FROM emr_client")
+            cursor.execute(f"SELECT id, address FROM {TABLE_CLIENT}")
             db_addresses = pd.DataFrame(cursor.fetchall())
     else:
         with db_session() as db_connection:
             with db_connection.cursor() as cursor:
-                cursor.execute("SELECT id, address FROM emr_client")
+                cursor.execute(f"SELECT id, address FROM {TABLE_CLIENT}")
                 db_addresses = pd.DataFrame(cursor.fetchall())
 
     if db_addresses.empty:
@@ -117,67 +132,28 @@ def filter_clients_with_changed_address(
     ].copy()
 
 
-def get_all_clients(connection=None) -> pd.DataFrame:
+def get_all_clients(connection: Connection[DictCursor] | None = None) -> pd.DataFrame:
     """Fetches all clients from the database that do not have an ID of 5 characters."""
     if connection:
         with connection.cursor() as cursor:
-            cursor.execute("SELECT * FROM emr_client WHERE LENGTH(id) != 5")
+            cursor.execute(f"SELECT * FROM {TABLE_CLIENT} WHERE LENGTH(id) != 5")
             clients_data = cursor.fetchall()
     else:
         with db_session() as db_connection:
             with db_connection.cursor() as cursor:
-                cursor.execute("SELECT * FROM emr_client WHERE LENGTH(id) != 5")
+                cursor.execute(f"SELECT * FROM {TABLE_CLIENT} WHERE LENGTH(id) != 5")
                 clients_data = cursor.fetchall()
 
     df = pd.DataFrame(clients_data) if clients_data else pd.DataFrame()
 
-    column_mapping = {
-        "id": "CLIENT_ID",
-        "hash": "HASH",
-        "status": "STATUS",
-        "asanaId": "ASANA_ID",
-        "archivedInAsana": "ARCHIVED_IN_ASANA",
-        "driveId": "DRIVE_ID",
-        "addedDate": "ADDED_DATE",
-        "dob": "DOB",
-        "firstName": "FIRSTNAME",
-        "lastName": "LASTNAME",
-        "preferredName": "PREFERRED_NAME",
-        "fullName": "FULL_NAME",
-        "address": "ADDRESS",
-        "schoolDistrict": "SCHOOL_DISTRICT",
-        "latitude": "LATITUDE",
-        "longitude": "LONGITUDE",
-        "closestOffice": "CLOSEST_OFFICE",
-        "closestOfficeMiles": "CLOSEST_OFFICE_MILES",
-        "secondClosestOffice": "SECOND_CLOSEST_OFFICE",
-        "secondClosestOfficeMiles": "SECOND_CLOSEST_OFFICE_MILES",
-        "thirdClosestOffice": "THIRD_CLOSEST_OFFICE",
-        "thirdClosestOfficeMiles": "THIRD_CLOSEST_OFFICE_MILES",
-        "primaryInsurance": "INSURANCE_COMPANYNAME",
-        "secondaryInsurance": "SECONDARY_INSURANCE_COMPANYNAME",
-        "precertExpires": "PRECERT_EXPIRES",
-        "privatePay": "POLICY_PRIVATEPAY",
-        "asdAdhd": "ASD_ADHD",
-        "interpreter": "INTERPRETER",
-        "phoneNumber": "PHONE1",
-        "email": "EMAIL",
-        "gender": "GENDER",
-        "color": "COLOR",
-        "highPriority": "HIGH_PRIORITY",
-        "babyNet": "BABYNET",
-        "autismStop": "AUTISM_STOP",
-        "eiAttends": "EI_ATTENDS",
-        "flag": "FLAG",
-        "taHash": "TA_HASH",
-    }
-
     if not df.empty:
-        df.rename(columns=column_mapping, inplace=True)
+        df.rename(columns=CLIENT_COLUMN_MAPPING, inplace=True)
     return df
 
 
-def put_clients_in_db(clients_df, connection=None):
+def put_clients_in_db(
+    clients_df: pd.DataFrame, connection: Connection[DictCursor] | None = None
+):
     """Inserts or updates client data in the database from a DataFrame."""
     logger.debug("Inserting clients into database")
 
@@ -206,15 +182,13 @@ def put_clients_in_db(clients_df, connection=None):
         full_name = get_full_name(firstname, lastname, preferred_name)
 
         added_date = get_column(client, "ADDED_DATE")
-        if not isinstance(added_date, (str, date)):
-            added_date_formatted = None
-        else:
+        added_date_formatted: str | None = None
+        if isinstance(added_date, (str, date)):
             added_date_formatted = format_date(added_date)
 
         dob = get_column(client, "DOB")
-        if not isinstance(dob, (str, date)):
-            dob_formatted = "1900-01-01"
-        else:
+        dob_formatted: str | None = "1900-01-01"
+        if isinstance(dob, (str, date)):
             dob_formatted = format_date(dob)
 
         gender = format_gender(get_column(client, "GENDER"))
@@ -239,24 +213,6 @@ def put_clients_in_db(clients_df, connection=None):
             None
             if get_column(client, "LONGITUDE") == "Unknown"
             else get_column(client, "LONGITUDE"),
-            None
-            if get_column(client, "CLOSEST_OFFICE") == "Unknown"
-            else get_column(client, "CLOSEST_OFFICE"),
-            None
-            if get_column(client, "CLOSEST_OFFICE") == "Unknown"
-            else get_column(client, "CLOSEST_OFFICE_MILES"),
-            None
-            if get_column(client, "SECOND_CLOSEST_OFFICE") == "Unknown"
-            else get_column(client, "SECOND_CLOSEST_OFFICE"),
-            None
-            if get_column(client, "SECOND_CLOSEST_OFFICE") == "Unknown"
-            else get_column(client, "SECOND_CLOSEST_OFFICE_MILES"),
-            None
-            if get_column(client, "THIRD_CLOSEST_OFFICE") == "Unknown"
-            else get_column(client, "THIRD_CLOSEST_OFFICE"),
-            None
-            if get_column(client, "THIRD_CLOSEST_OFFICE") == "Unknown"
-            else get_column(client, "THIRD_CLOSEST_OFFICE_MILES"),
             get_column(client, "PRIMARY_INSURANCE_COMPANYNAME"),
             secondary_insurance,
             get_column(client, "PRECERT_EXPIREDATE"),
@@ -270,9 +226,9 @@ def put_clients_in_db(clients_df, connection=None):
         )
         values_to_insert.append(values)
 
-    sql = """
-        INSERT INTO `emr_client` (id, hash, status, addedDate, dob, firstName, lastName, preferredName, fullName, address, schoolDistrict, latitude, longitude, closestOffice, closestOfficeMiles, secondClosestOffice, secondClosestOfficeMiles, thirdClosestOffice, thirdClosestOfficeMiles, primaryInsurance, secondaryInsurance, precertExpires, privatePay, asdAdhd, interpreter, gender, phoneNumber, email, flag)
-        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+    sql = f"""
+        INSERT INTO `{TABLE_CLIENT}` (id, hash, status, addedDate, dob, firstName, lastName, preferredName, fullName, address, schoolDistrict, latitude, longitude, primaryInsurance, secondaryInsurance, precertExpires, privatePay, asdAdhd, interpreter, gender, phoneNumber, email, flag)
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
         ON DUPLICATE KEY UPDATE
             hash = VALUES(hash),
             status = VALUES(status),
@@ -286,12 +242,6 @@ def put_clients_in_db(clients_df, connection=None):
             schoolDistrict = CASE WHEN VALUES(schoolDistrict) IS NOT NULL AND VALUES(schoolDistrict) != 'Unknown' THEN VALUES(schoolDistrict) ELSE schoolDistrict END,
             latitude = CASE WHEN VALUES(latitude) IS NOT NULL THEN VALUES(latitude) ELSE latitude END,
             longitude = CASE WHEN VALUES(longitude) IS NOT NULL THEN VALUES(longitude) ELSE longitude END,
-            closestOffice = CASE WHEN VALUES(closestOffice) IS NOT NULL AND VALUES(closestOffice) != 'Unknown' THEN VALUES(closestOffice) ELSE closestOffice END,
-            closestOfficeMiles = CASE WHEN VALUES(closestOfficeMiles) IS NOT NULL THEN VALUES(closestOfficeMiles) ELSE closestOfficeMiles END,
-            secondClosestOffice = CASE WHEN VALUES(secondClosestOffice) IS NOT NULL AND VALUES(secondClosestOffice) != 'Unknown' THEN VALUES(secondClosestOffice) ELSE secondClosestOffice END,
-            secondClosestOfficeMiles = CASE WHEN VALUES(secondClosestOfficeMiles) IS NOT NULL THEN VALUES(secondClosestOfficeMiles) ELSE secondClosestOfficeMiles END,
-            thirdClosestOffice = CASE WHEN VALUES(thirdClosestOffice) IS NOT NULL AND VALUES(thirdClosestOffice) != 'Unknown' THEN VALUES(thirdClosestOffice) ELSE thirdClosestOffice END,
-            thirdClosestOfficeMiles = CASE WHEN VALUES(thirdClosestOfficeMiles) IS NOT NULL THEN VALUES(thirdClosestOfficeMiles) ELSE thirdClosestOfficeMiles END,
             primaryInsurance = VALUES(primaryInsurance),
             secondaryInsurance = VALUES(secondaryInsurance),
             precertExpires = VALUES(precertExpires),
@@ -317,15 +267,17 @@ def put_clients_in_db(clients_df, connection=None):
     logger.info(f"Successfully inserted/updated {len(values_to_insert)} clients.")
 
 
-def update_client_ta_hashes(hashes_to_update: dict[str, str], connection=None) -> None:
+def update_client_ta_hashes(
+    hashes_to_update: dict[str, str], connection: Connection[DictCursor] | None = None
+) -> None:
     """Updates taHash for multiple clients in a single transaction."""
     if not hashes_to_update:
         return
 
     updates_for_executemany = [(v, k) for k, v in hashes_to_update.items()]
-    sql = "UPDATE emr_client SET taHash = %s WHERE id = %s"
+    sql = f"UPDATE {TABLE_CLIENT} SET taHash = %s WHERE id = %s"
 
-    def _execute(conn):
+    def _execute(conn: Connection[DictCursor]):
         with conn.cursor() as cursor:
             try:
                 cursor.executemany(sql, updates_for_executemany)
@@ -356,11 +308,11 @@ def put_appointment_in_db(
     cancelled: bool | None = False,
     location: str | None = None,
     gcal_event_id: str | None = None,
-    connection=None,
+    connection: Connection[DictCursor] | None = None,
 ):
     """Inserts an appointment into the database."""
-    sql = """
-        INSERT INTO `emr_appointment` (id, clientId, evaluatorNpi, startTime, endTime, daEval, asdAdhd, cancelled, locationKey, calendarEventId)
+    sql = f"""
+        INSERT INTO `{TABLE_APPOINTMENT}` (id, clientId, evaluatorNpi, startTime, endTime, daEval, asdAdhd, cancelled, locationKey, calendarEventId)
         VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
         ON DUPLICATE KEY UPDATE
             clientId = VALUES(clientId),
@@ -397,13 +349,15 @@ def put_appointment_in_db(
                 db_connection.commit()
 
 
-def get_evaluators_with_blocked_locations(connection=None):
+def get_evaluators_with_blocked_locations(
+    connection: Connection[DictCursor] | None = None,
+):
     """Fetches evaluators from the database, including their blocked zip codes and school districts."""
-    evaluators = {}
+    evaluators: dict[int, dict] = {}
 
-    def _fetch(conn):
+    def _fetch(conn: Connection[DictCursor]):
         with conn.cursor() as cursor:
-            sql_evaluators = "SELECT * FROM emr_evaluator"
+            sql_evaluators = f"SELECT * FROM {TABLE_EVALUATOR}"
             cursor.execute(sql_evaluators)
             for row in cursor.fetchall():
                 npi = row["npi"]
@@ -413,14 +367,14 @@ def get_evaluators_with_blocked_locations(connection=None):
                     "blockedZipCodes": [],
                 }
 
-            sql_blocked_districts = """
+            sql_blocked_districts = f"""
                 SELECT
                     bsd.evaluatorNpi,
                     sd.fullName AS schoolDistrictName
                 FROM
-                    emr_blocked_school_district AS bsd
+                    {TABLE_BLOCKED_SCHOOL_DISTRICT} AS bsd
                 JOIN
-                    emr_school_district AS sd
+                    {TABLE_SCHOOL_DISTRICT} AS sd
                 ON
                     bsd.schoolDistrictId = sd.id
             """
@@ -432,21 +386,23 @@ def get_evaluators_with_blocked_locations(connection=None):
                         row["schoolDistrictName"]
                     )
 
-            sql_blocked_zips = "SELECT evaluatorNpi, zipCode FROM emr_blocked_zip_code"
+            sql_blocked_zips = (
+                f"SELECT evaluatorNpi, zipCode FROM {TABLE_BLOCKED_ZIP_CODE}"
+            )
             cursor.execute(sql_blocked_zips)
             for row in cursor.fetchall():
                 npi = row["evaluatorNpi"]
                 if npi in evaluators:
                     evaluators[npi]["blockedZipCodes"].append(row["zipCode"])
 
-            sql_insurances = """
+            sql_insurances = f"""
                 SELECT
                     eti.evaluatorNpi,
                     i.shortName
                 FROM
-                    emr_evaluators_to_insurances AS eti
+                    {TABLE_EVALUATORS_TO_INSURANCES} AS eti
                 JOIN
-                    emr_insurance AS i
+                    {TABLE_INSURANCE} AS i
                 ON
                     eti.insuranceId = i.id
             """
@@ -469,13 +425,15 @@ def get_evaluators_with_blocked_locations(connection=None):
     return evaluators
 
 
-def _get_existing_client_eval_links(connection=None) -> dict[str, set[str]]:
+def _get_existing_client_eval_links(
+    connection: Connection[DictCursor] | None = None,
+) -> dict[str, set[str]]:
     """Gets all existing client-evaluator relationships from the database."""
-    existing_links = {}
+    existing_links: dict[str, set[str]] = {}
 
-    def _fetch(conn):
+    def _fetch(conn: Connection[DictCursor]):
         with conn.cursor() as cursor:
-            sql = "SELECT clientId, evaluatorNpi FROM emr_client_eval"
+            sql = f"SELECT clientId, evaluatorNpi FROM {TABLE_CLIENT_EVAL}"
             try:
                 cursor.execute(sql)
                 results = cursor.fetchall()
@@ -501,17 +459,19 @@ def _get_existing_client_eval_links(connection=None) -> dict[str, set[str]]:
 
 
 def _delete_client_eval_links(
-    client_id: str, evaluator_npis: set[str], connection=None
+    client_id: str,
+    evaluator_npis: set[str],
+    connection: Connection[DictCursor] | None = None,
 ) -> None:
     """Deletes specific client-evaluator relationships from the database."""
     if not evaluator_npis:
         return
 
     placeholders = ",".join(["%s"] * len(evaluator_npis))
-    sql = f"DELETE FROM emr_client_eval WHERE clientId = %s AND evaluatorNpi IN ({placeholders})"
+    sql = f"DELETE FROM {TABLE_CLIENT_EVAL} WHERE clientId = %s AND evaluatorNpi IN ({placeholders})"
     params = [client_id] + list(evaluator_npis)
 
-    def _execute(conn):
+    def _execute(conn: Connection[DictCursor]):
         with conn.cursor() as cursor:
             try:
                 cursor.execute(sql, params)
@@ -533,7 +493,9 @@ def _delete_client_eval_links(
 
 
 def _insert_client_eval_links(
-    client_id: str, evaluator_npis: set[str], connection=None
+    client_id: str,
+    evaluator_npis: set[str],
+    connection: Connection[DictCursor] | None = None,
 ) -> None:
     """Inserts specific client-evaluator relationships."""
     if not evaluator_npis:
@@ -544,17 +506,17 @@ def _insert_client_eval_links(
 
 
 def _delete_all_relationships_for_clients(
-    client_ids: set[str], connection=None
+    client_ids: set[str], connection: Connection[DictCursor] | None = None
 ) -> None:
     """Deletes all relationships for specific clients."""
     if not client_ids:
         return
 
     placeholders = ",".join(["%s"] * len(client_ids))
-    sql = f"DELETE FROM emr_client_eval WHERE clientId IN ({placeholders})"
+    sql = f"DELETE FROM {TABLE_CLIENT_EVAL} WHERE clientId IN ({placeholders})"
     params = list(client_ids)
 
-    def _execute(conn):
+    def _execute(conn: Connection[DictCursor]):
         with conn.cursor() as cursor:
             try:
                 cursor.execute(sql, params)
@@ -574,10 +536,12 @@ def _delete_all_relationships_for_clients(
             _execute(db_connection)
 
 
-def _link_client_provider(client_id: str, npi: str, connection=None) -> None:
+def _link_client_provider(
+    client_id: str, npi: str, connection: Connection[DictCursor] | None = None
+) -> None:
     """Inserts a client-provider link into the database."""
-    sql = """
-    INSERT INTO emr_client_eval (clientId, evaluatorNpi)
+    sql = f"""
+    INSERT INTO {TABLE_CLIENT_EVAL} (clientId, evaluatorNpi)
     VALUES (%s, %s)
     ON DUPLICATE KEY UPDATE
         clientId = VALUES(clientId),
@@ -597,7 +561,9 @@ def _link_client_provider(client_id: str, npi: str, connection=None) -> None:
 
 
 def insert_by_matching_criteria_incremental(
-    clients: pd.DataFrame, evaluators: dict, connection=None
+    clients: pd.DataFrame,
+    evaluators: dict,
+    connection: Connection[DictCursor] | None = None,
 ) -> None:
     """Inserts client-provider links based on matching criteria using incremental updates."""
     logger.debug("Starting incremental client-evaluator matching...")
@@ -657,7 +623,7 @@ def insert_by_matching_criteria_client_specific(
     clients: pd.DataFrame,
     evaluators: dict,
     specific_client_ids: set[str],
-    connection=None,
+    connection: Connection[DictCursor] | None = None,
 ) -> None:
     """Updates client-evaluator relationships for specific clients only."""
     logger.debug(
@@ -709,7 +675,7 @@ def insert_by_matching_criteria(
     clients: pd.DataFrame,
     evaluators: dict,
     force_client_ids: set[str] | None = None,
-    connection=None,
+    connection: Connection[DictCursor] | None = None,
 ) -> None:
     """Enhanced client-evaluator matching with options for full or partial updates."""
     if force_client_ids:
@@ -726,20 +692,22 @@ def insert_by_matching_criteria(
         )
 
 
-def get_insurance_mappings(connection=None) -> dict[str, str]:
+def get_insurance_mappings(
+    connection: Connection[DictCursor] | None = None,
+) -> dict[str, str]:
     """Fetches insurance aliases and their canonical short names from the database."""
-    mappings = {}
+    mappings: dict[str, str] = {}
 
-    def _fetch(conn):
+    def _fetch(conn: Connection[DictCursor]):
         with conn.cursor() as cursor:
-            sql = """
+            sql = f"""
                 SELECT
                     ia.name AS alias,
                     i.shortName
                 FROM
-                    emr_insurance_alias AS ia
+                    {TABLE_INSURANCE_ALIAS} AS ia
                 JOIN
-                    emr_insurance AS i
+                    {TABLE_INSURANCE} AS i
                 ON
                     ia.insuranceId = i.id
             """
@@ -756,33 +724,37 @@ def get_insurance_mappings(connection=None) -> dict[str, str]:
     return mappings
 
 
-def get_all_evaluators_npi_map(connection=None) -> dict[str, int]:
+def get_all_evaluators_npi_map(
+    connection: Connection[DictCursor] | None = None,
+) -> dict[str, int]:
     """Gets a map of email (str) to NPI (int) for all evaluators."""
     if connection:
         with connection.cursor() as cursor:
-            cursor.execute("SELECT npi, email FROM emr_evaluator")
+            cursor.execute(f"SELECT npi, email FROM {TABLE_EVALUATOR}")
             results = cursor.fetchall()
             return {row["email"]: row["npi"] for row in results}
     else:
         with db_session() as db_connection:
             with db_connection.cursor() as cursor:
-                cursor.execute("SELECT npi, email FROM emr_evaluator")
+                cursor.execute(f"SELECT npi, email FROM {TABLE_EVALUATOR}")
                 results = cursor.fetchall()
                 return {row["email"]: row["npi"] for row in results}
 
 
-def get_npi_to_name_map(connection=None) -> dict[int, str]:
+def get_npi_to_name_map(
+    connection: Connection[DictCursor] | None = None,
+) -> dict[int, str]:
     """Returns a dictionary mapping NPI (int) to Evaluator Name (str)."""
     try:
         if connection:
             with connection.cursor() as cursor:
-                cursor.execute("SELECT npi, providerName FROM emr_evaluator")
+                cursor.execute(f"SELECT npi, providerName FROM {TABLE_EVALUATOR}")
                 results = cursor.fetchall()
                 return {row["npi"]: row["providerName"] for row in results}
         else:
             with db_session() as db_connection:
                 with db_connection.cursor() as cursor:
-                    cursor.execute("SELECT npi, providerName FROM emr_evaluator")
+                    cursor.execute(f"SELECT npi, providerName FROM {TABLE_EVALUATOR}")
                     results = cursor.fetchall()
                     return {row["npi"]: row["providerName"] for row in results}
     except Exception:

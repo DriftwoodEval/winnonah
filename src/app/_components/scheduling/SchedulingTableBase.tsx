@@ -329,11 +329,20 @@ export interface ScheduledClient {
 		asdAdhd: string | null;
 		primaryInsurance: string | null;
 		secondaryInsurance: string | null;
-		closestOffice: string | null;
 		schoolDistrict: string | null;
 		precertExpires: Date | null;
 		dob: Date | null;
 	};
+}
+
+export interface SchedulingUpdateData {
+	evaluatorNpi?: number | null;
+	date?: string;
+	time?: string;
+	office?: string;
+	notes?: string;
+	code?: string;
+	color?: string | null;
 }
 
 export function SchedulingTableRow({
@@ -352,7 +361,7 @@ export function SchedulingTableRow({
 	districts?: SchoolDistrict[];
 	insurances: InsuranceWithAliases[];
 	isEditable?: boolean;
-	onUpdate?: (clientId: number, data: any) => void;
+	onUpdate?: (clientId: number, data: SchedulingUpdateData) => void;
 	actions: React.ReactNode;
 }) {
 	const [localDate, setLocalDate] = useState(scheduledClient.date ?? "");
@@ -503,7 +512,7 @@ export function SchedulingTableRow({
 				{isEditable ? (
 					<Select
 						onValueChange={(value) => {
-							const updates: any = { code: value };
+							const updates: SchedulingUpdateData = { code: value };
 							if (value === "90791") {
 								updates.office = "Virtual";
 							}
@@ -530,11 +539,7 @@ export function SchedulingTableRow({
 						onValueChange={(value) =>
 							onUpdate?.(scheduledClient.clientId, { office: value })
 						}
-						value={
-							scheduledClient.office ??
-							scheduledClient.client.closestOffice ??
-							""
-						}
+						value={scheduledClient.office ?? ""}
 					>
 						<SelectTrigger>
 							<SelectValue placeholder="Select Office" />
@@ -551,7 +556,7 @@ export function SchedulingTableRow({
 				) : scheduledClient.office === "Virtual" ? (
 					"Virtual"
 				) : (
-					office?.prettyName || scheduledClient.client.closestOffice || "-"
+					office?.prettyName || "-"
 				)}
 			</TableCell>
 

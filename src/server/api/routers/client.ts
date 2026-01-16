@@ -22,7 +22,7 @@ import { CLIENT_COLOR_KEYS } from "~/lib/colors";
 import { syncPunchData } from "~/lib/google";
 import { logger } from "~/lib/logger";
 import type { ClientWithIssueInfo } from "~/lib/types";
-import { hasPermission } from "~/lib/utils";
+import { getDistanceSQL, hasPermission } from "~/lib/utils";
 import { createTRPCRouter, protectedProcedure } from "~/server/api/trpc";
 import {
 	clients,
@@ -34,6 +34,8 @@ import {
 } from "~/server/db/schema";
 
 const log = logger.child({ module: "ClientApi" });
+
+const isNoteOnly = eq(sql`LENGTH(${clients.id})`, 5);
 
 export const getPriorityInfo = () => {
 	const now = new Date();
@@ -56,7 +58,7 @@ export const getPriorityInfo = () => {
       WHEN ${isHighPriorityBN} AND ${isHighPriorityClient} THEN 'BabyNet and High Priority'
       WHEN ${isHighPriorityBN} THEN 'BabyNet above 2:6'
       WHEN ${isHighPriorityClient} THEN 'High Priority'
-      WHEN CHAR_LENGTH(${clients.id}) = 5 THEN 'Note only'
+      WHEN ${isNoteOnly} THEN 'Note only'
       ELSE 'Added date'
     END`.as("sortReason");
 
@@ -151,13 +153,7 @@ export const clientRouter = createTRPCRouter({
           o.prettyName,
           o.latitude,
           o.longitude,
-          (3959 * acos(
-            cos(radians(${syncedClient.latitude})) *
-            cos(radians(o.latitude)) *
-            cos(radians(o.longitude) - radians(${syncedClient.longitude})) +
-            sin(radians(${syncedClient.latitude})) *
-            sin(radians(o.latitude))
-          )) as distanceMiles
+          ${getDistanceSQL(syncedClient.latitude, syncedClient.longitude, sql`o.latitude`, sql`o.longitude`)} as distanceMiles
         FROM emr_office o
         ORDER BY distanceMiles
         LIMIT 3
@@ -236,7 +232,7 @@ export const clientRouter = createTRPCRouter({
 					isNull(clients.schoolDistrict),
 				),
 				gt(clients.dob, subYears(new Date(), 21)),
-				not(eq(sql`LENGTH(${clients.id})`, 5)),
+				not(isNoteOnly),
 			),
 		});
 
@@ -245,7 +241,7 @@ export const clientRouter = createTRPCRouter({
 				where: and(
 					eq(clients.flag, "district_from_shapefile"),
 					gt(clients.dob, subYears(new Date(), 21)),
-					not(eq(sql`LENGTH(${clients.id})`, 5)),
+					not(isNoteOnly),
 				),
 			});
 
@@ -418,7 +414,7 @@ export const clientRouter = createTRPCRouter({
 
 	getNoteOnlyClients: protectedProcedure.query(async ({ ctx }) => {
 		const noteOnlyClients = await ctx.db.query.clients.findMany({
-			where: and(eq(sql`LENGTH(${clients.id})`, 5), eq(clients.status, true)),
+			where: and(isNoteOnly, eq(clients.status, true)),
 			orderBy: desc(clients.addedDate),
 		});
 
@@ -502,7 +498,7 @@ export const clientRouter = createTRPCRouter({
 	}),
 
 	getPossiblePrivatePay: protectedProcedure.query(async ({ ctx }) => {
-		const noPaymentMethodOrNoEligibleEvaluators = await ctx.db
+		const noPaymentMethodOrNoEligors = await ctx.db
 			.select(getTableColumns(clients))
 			.from(clients)
 			.leftJoin(clientsEvaluators, eq(clients.id, clientsEvaluators.clientId))
@@ -518,12 +514,12 @@ export const clientRouter = createTRPCRouter({
 						isNull(clientsEvaluators.clientId),
 					),
 					eq(clients.status, true),
-					not(eq(sql`LENGTH(${clients.id})`, 5)),
+					not(isNoteOnly),
 				),
 			)
 			.orderBy(clients.addedDate);
 
-		return noPaymentMethodOrNoEligibleEvaluators;
+		return noPaymentMethodOrNoEligors;
 	}),
 
 	getAutismStops: protectedProcedure.query(async ({ ctx }) => {
@@ -830,8 +826,50 @@ export const clientRouter = createTRPCRouter({
 				}
 			}
 
-			if (office) {
-				conditions.push(eq(clients.closestOffice, office));
+			const allOffices = await ctx.db.query.offices.findMany();
+
+			if (office && allOffices.length > 0) {
+				const distanceExprs = allOffices.map((o) => ({
+					key: o.key,
+					dist: getDistanceSQL(
+						clients.latitude,
+						clients.longitude,
+						o.latitude,
+						o.longitude,
+					),
+				}));
+
+				// Build a CASE statement to find the key of the office with the minimum distance
+				let closestOfficeKeyCase = sql`CASE `;
+				for (let i = 0; i < distanceExprs.length; i++) {
+					const current = distanceExprs[i];
+					if (!current) continue;
+					const others = distanceExprs.filter((_, idx) => idx !== i);
+
+					if (others.length === 0) {
+						closestOfficeKeyCase = sql`${current.key}`;
+						break;
+					}
+
+					const isClosestConditions = others.map(
+						(other) => sql`${current.dist} <= ${other.dist}`,
+					);
+					closestOfficeKeyCase = sql.join([
+						closestOfficeKeyCase,
+						sql`WHEN `,
+						sql.join(isClosestConditions, sql` AND `),
+						sql` THEN ${current.key} `,
+					]);
+				}
+				closestOfficeKeyCase = sql.join([closestOfficeKeyCase, sql`END`]);
+
+				conditions.push(
+					and(
+						not(isNull(clients.latitude)),
+						not(isNull(clients.longitude)),
+						eq(closestOfficeKeyCase, office),
+					),
+				);
 			}
 
 			if (effectiveStatus === "active") {
@@ -841,9 +879,9 @@ export const clientRouter = createTRPCRouter({
 			}
 
 			if (effectiveType === "real") {
-				conditions.push(not(eq(sql`LENGTH(${clients.id})`, 5)));
+				conditions.push(not(isNoteOnly));
 			} else if (effectiveType === "note") {
-				conditions.push(eq(sql`LENGTH(${clients.id})`, 5));
+				conditions.push(isNoteOnly);
 			}
 
 			if (hideBabyNet) {
@@ -912,8 +950,33 @@ export const clientRouter = createTRPCRouter({
         END`.as("sortReason");
 			}
 
+			let selectedOfficeCoords: { latitude: string; longitude: string } | null =
+				null;
+			if (office) {
+				const officeData = allOffices.find((o) => o.key === office);
+				if (officeData) {
+					selectedOfficeCoords = {
+						latitude: officeData.latitude,
+						longitude: officeData.longitude,
+					};
+				}
+			}
+
+			const distanceToOfficeSQL = selectedOfficeCoords
+				? getDistanceSQL(
+						clients.latitude,
+						clients.longitude,
+						selectedOfficeCoords.latitude,
+						selectedOfficeCoords.longitude,
+					).as("distanceToOffice")
+				: sql<null>`NULL`.as("distanceToOffice");
+
 			const filteredAndSortedClients = await ctx.db
-				.select({ ...getTableColumns(clients), sortReason: sortReasonSQL })
+				.select({
+					...getTableColumns(clients),
+					sortReason: sortReasonSQL,
+					distanceToOffice: distanceToOfficeSQL,
+				})
 				.from(clients)
 				.where(and(conditions.length > 0 ? and(...conditions) : undefined))
 				.orderBy(...orderBySQL);

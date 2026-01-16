@@ -1,6 +1,7 @@
-import { asc, eq } from "drizzle-orm";
+import { asc, eq, getTableColumns, sql } from "drizzle-orm";
 import { z } from "zod";
 import { syncPunchData } from "~/lib/google";
+import { getDistanceSQL } from "~/lib/utils";
 import { createTRPCRouter, protectedProcedure } from "~/server/api/trpc";
 import { db } from "~/server/db";
 import { clients, schedulingClients } from "~/server/db/schema";
@@ -16,16 +17,65 @@ export const schedulingRouter = createTRPCRouter({
 			await syncPunchData(ctx.session, clientIds, ctx.redis);
 		}
 
-		const scheduledClients = await db.query.schedulingClients.findMany({
-			where: eq(schedulingClients.archived, false),
-			with: {
-				client: true,
-			},
-			orderBy: asc(schedulingClients.createdAt),
-		});
+		const allOffices = await db.query.offices.findMany();
+
+		const distanceExprs = allOffices.map((o) => ({
+			key: o.key,
+			dist: getDistanceSQL(
+				clients.latitude,
+				clients.longitude,
+				o.latitude,
+				o.longitude,
+			),
+		}));
+
+		let closestOfficeKeyCase = sql`NULL`;
+		if (distanceExprs.length > 0) {
+			closestOfficeKeyCase = sql`CASE `;
+			for (let i = 0; i < distanceExprs.length; i++) {
+				const current = distanceExprs[i];
+				if (!current) continue;
+				const others = distanceExprs.filter((_, idx) => idx !== i);
+
+				if (others.length === 0) {
+					closestOfficeKeyCase = sql`${current.key}`;
+					break;
+				}
+
+				const isClosestConditions = others.map(
+					(other) => sql`${current.dist} <= ${other.dist}`,
+				);
+				closestOfficeKeyCase = sql.join([
+					closestOfficeKeyCase,
+					sql`WHEN `,
+					sql.join(isClosestConditions, sql` AND `),
+					sql` THEN ${current.key} `,
+				]);
+			}
+			closestOfficeKeyCase = sql.join([closestOfficeKeyCase, sql`END`]);
+		}
+
+		const scheduledClients = await ctx.db
+			.select({
+				...getTableColumns(schedulingClients),
+				client: {
+					hash: clients.hash,
+					fullName: clients.fullName,
+					asdAdhd: clients.asdAdhd,
+					primaryInsurance: clients.primaryInsurance,
+					secondaryInsurance: clients.secondaryInsurance,
+					schoolDistrict: clients.schoolDistrict,
+					precertExpires: clients.precertExpires,
+					dob: clients.dob,
+					closestOfficeKey: closestOfficeKeyCase,
+				},
+			})
+			.from(schedulingClients)
+			.innerJoin(clients, eq(schedulingClients.clientId, clients.id))
+			.where(eq(schedulingClients.archived, false))
+			.orderBy(asc(schedulingClients.createdAt));
 
 		const allEvaluators = await db.query.evaluators.findMany();
-		const allOffices = await db.query.offices.findMany();
 		const allDistricts = await db.query.schoolDistricts.findMany();
 		const allInsurances = await db.query.insurances.findMany({
 			with: {
@@ -34,7 +84,10 @@ export const schedulingRouter = createTRPCRouter({
 		});
 
 		return {
-			clients: scheduledClients,
+			clients: scheduledClients.map((item) => ({
+				...item,
+				office: item.office ?? item.client.closestOfficeKey,
+			})),
 			evaluators: allEvaluators,
 			offices: allOffices,
 			schoolDistricts: allDistricts,
@@ -52,16 +105,65 @@ export const schedulingRouter = createTRPCRouter({
 			await syncPunchData(ctx.session, clientIds, ctx.redis);
 		}
 
-		const scheduledClients = await db.query.schedulingClients.findMany({
-			where: eq(schedulingClients.archived, true),
-			with: {
-				client: true,
-			},
-			orderBy: asc(schedulingClients.createdAt),
-		});
+		const allOffices = await db.query.offices.findMany();
+
+		const distanceExprs = allOffices.map((o) => ({
+			key: o.key,
+			dist: getDistanceSQL(
+				clients.latitude,
+				clients.longitude,
+				o.latitude,
+				o.longitude,
+			),
+		}));
+
+		let closestOfficeKeyCase = sql`NULL`;
+		if (distanceExprs.length > 0) {
+			closestOfficeKeyCase = sql`CASE `;
+			for (let i = 0; i < distanceExprs.length; i++) {
+				const current = distanceExprs[i];
+				if (!current) continue;
+				const others = distanceExprs.filter((_, idx) => idx !== i);
+
+				if (others.length === 0) {
+					closestOfficeKeyCase = sql`${current.key}`;
+					break;
+				}
+
+				const isClosestConditions = others.map(
+					(other) => sql`${current.dist} <= ${other.dist}`,
+				);
+				closestOfficeKeyCase = sql.join([
+					closestOfficeKeyCase,
+					sql`WHEN `,
+					sql.join(isClosestConditions, sql` AND `),
+					sql` THEN ${current.key} `,
+				]);
+			}
+			closestOfficeKeyCase = sql.join([closestOfficeKeyCase, sql`END`]);
+		}
+
+		const scheduledClients = await ctx.db
+			.select({
+				...getTableColumns(schedulingClients),
+				client: {
+					hash: clients.hash,
+					fullName: clients.fullName,
+					asdAdhd: clients.asdAdhd,
+					primaryInsurance: clients.primaryInsurance,
+					secondaryInsurance: clients.secondaryInsurance,
+					schoolDistrict: clients.schoolDistrict,
+					precertExpires: clients.precertExpires,
+					dob: clients.dob,
+					closestOfficeKey: closestOfficeKeyCase,
+				},
+			})
+			.from(schedulingClients)
+			.innerJoin(clients, eq(schedulingClients.clientId, clients.id))
+			.where(eq(schedulingClients.archived, true))
+			.orderBy(asc(schedulingClients.createdAt));
 
 		const allEvaluators = await db.query.evaluators.findMany();
-		const allOffices = await db.query.offices.findMany();
 		const allDistricts = await db.query.schoolDistricts.findMany();
 		const allInsurances = await db.query.insurances.findMany({
 			with: {
@@ -70,7 +172,10 @@ export const schedulingRouter = createTRPCRouter({
 		});
 
 		return {
-			clients: scheduledClients,
+			clients: scheduledClients.map((item) => ({
+				...item,
+				office: item.office ?? item.client.closestOfficeKey,
+			})),
 			evaluators: allEvaluators,
 			offices: allOffices,
 			schoolDistricts: allDistricts,
@@ -81,16 +186,11 @@ export const schedulingRouter = createTRPCRouter({
 	add: protectedProcedure
 		.input(z.object({ clientId: z.number() }))
 		.mutation(async ({ input }) => {
-			const client = await db.query.clients.findFirst({
-				where: eq(clients.id, input.clientId),
-			});
-
 			await db
 				.insert(schedulingClients)
 				.values({
 					clientId: input.clientId,
 					archived: false,
-					office: client?.closestOffice,
 				})
 				.onDuplicateKeyUpdate({
 					set: { archived: false, createdAt: new Date() },

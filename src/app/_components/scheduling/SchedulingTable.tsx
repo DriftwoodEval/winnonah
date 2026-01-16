@@ -18,6 +18,7 @@ import {
 	type ScheduledClient,
 	SchedulingTableHeader,
 	SchedulingTableRow,
+	type SchedulingUpdateData,
 } from "./SchedulingTableBase";
 
 const normalize = (val: string | null | undefined) => {
@@ -93,9 +94,7 @@ function useSchedulingFilters(
 
 			const office = offices.find((o) => o.key === client.office);
 			const location =
-				client.office === "Virtual"
-					? "Virtual"
-					: office?.prettyName || client.client.closestOffice || "";
+				client.office === "Virtual" ? "Virtual" : office?.prettyName || "";
 			values.location?.add(normalize(location));
 
 			const district = districts.find(
@@ -174,9 +173,7 @@ function useSchedulingFilters(
 					case "location": {
 						const o = offices.find((of) => of.key === client.office);
 						value = normalize(
-							client.office === "Virtual"
-								? "Virtual"
-								: o?.prettyName || client.client.closestOffice || "",
+							client.office === "Virtual" ? "Virtual" : o?.prettyName || "",
 						);
 						break;
 					}
@@ -262,7 +259,7 @@ function ActiveSchedulingTable() {
 
 	if (error) return <div>Error: {error.message}</div>;
 
-	const handleUpdate = (clientId: number, updateData: any) => {
+	const handleUpdate = (clientId: number, updateData: SchedulingUpdateData) => {
 		updateMutation.mutate({ clientId, ...updateData });
 	};
 

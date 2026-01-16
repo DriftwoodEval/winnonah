@@ -112,12 +112,6 @@ def import_from_ta(
             "SCHOOL_DISTRICT",
             "LATITUDE",
             "LONGITUDE",
-            "CLOSEST_OFFICE",
-            "CLOSEST_OFFICE_MILES",
-            "SECOND_CLOSEST_OFFICE",
-            "SECOND_CLOSEST_OFFICE_MILES",
-            "THIRD_CLOSEST_OFFICE",
-            "THIRD_CLOSEST_OFFICE_MILES",
             "FLAG",
         ]
         for col in new_cols:
@@ -150,12 +144,6 @@ def import_from_ta(
                     "LATITUDE",
                     "LONGITUDE",
                     "FLAG",
-                    "CLOSEST_OFFICE",
-                    "CLOSEST_OFFICE_MILES",
-                    "SECOND_CLOSEST_OFFICE",
-                    "SECOND_CLOSEST_OFFICE_MILES",
-                    "THIRD_CLOSEST_OFFICE",
-                    "THIRD_CLOSEST_OFFICE_MILES",
                 ]
             ] = clients_to_geocode.apply(utils.location.add_location_data, axis=1)
 
