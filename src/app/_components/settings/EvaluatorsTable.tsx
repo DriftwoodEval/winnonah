@@ -61,35 +61,13 @@ import { api } from "~/trpc/react";
 
 const log = logger.child({ module: "EvaluatorsTable" });
 
-const INSURANCE_DISPLAY_NAMES: { [key: string]: string } = {
-	SCM: "SCM",
-	BabyNet: "BabyNet",
-	Molina: "Molina",
-	MolinaMarketplace: "Molina Marketplace",
-	ATC: "ATC",
-	Humana: "Humana",
-	SH: "SH",
-	HB: "HB",
-	Aetna: "Aetna",
-	United_Optum: "United/Optum",
-} as const;
-
 const formSchema = z.object({
 	npi: z.string().length(10, {
 		message: "NPI must be exactly 10 digits.",
 	}),
 	providerName: z.string().min(1, { message: "Provider name is required." }),
 	email: z.email(),
-	SCM: z.boolean(),
-	BabyNet: z.boolean(),
-	Molina: z.boolean(),
-	MolinaMarketplace: z.boolean(),
-	ATC: z.boolean(),
-	Humana: z.boolean(),
-	SH: z.boolean(),
-	HB: z.boolean(),
-	Aetna: z.boolean(),
-	United_Optum: z.boolean(),
+	insurances: z.array(z.number()),
 	offices: z.array(z.string()),
 	blockedDistricts: z.array(z.number()),
 	blockedZips: z.array(
@@ -120,6 +98,8 @@ function EvaluatorForm({
 		api.evaluators.getAllZipCodes.useQuery();
 	const { data: allSchoolDistricts, isLoading: isLoadingSchoolDistricts } =
 		api.evaluators.getAllSchoolDistricts.useQuery();
+	const { data: allInsurances, isLoading: isLoadingInsurances } =
+		api.insurances.getAll.useQuery();
 
 	const zipCodeOptions = useMemo(() => {
 		if (!allZipCodes) return [];
@@ -142,16 +122,7 @@ function EvaluatorForm({
 				npi: initialData.npi.toString(),
 				providerName: initialData.providerName,
 				email: initialData.email,
-				SCM: initialData.SCM,
-				BabyNet: initialData.BabyNet,
-				Molina: initialData.Molina,
-				MolinaMarketplace: initialData.MolinaMarketplace,
-				ATC: initialData.ATC,
-				Humana: initialData.Humana,
-				SH: initialData.SH,
-				HB: initialData.HB,
-				Aetna: initialData.Aetna,
-				United_Optum: initialData.United_Optum,
+				insurances: initialData.insurances.map((i) => i.id),
 				offices: initialData.offices.map((office) => office.key),
 				blockedDistricts: initialData?.blockedDistricts?.map((d) => d.id) ?? [],
 				blockedZips: initialData?.blockedZips?.map((z) => z.zip) ?? [],
@@ -162,16 +133,7 @@ function EvaluatorForm({
 			npi: "",
 			providerName: "",
 			email: "",
-			SCM: false,
-			BabyNet: false,
-			Molina: false,
-			MolinaMarketplace: false,
-			ATC: false,
-			Humana: false,
-			SH: false,
-			HB: false,
-			Aetna: false,
-			United_Optum: false,
+			insurances: [],
 			offices: [],
 			blockedDistricts: [],
 			blockedZips: [],
@@ -248,30 +210,38 @@ function EvaluatorForm({
 				<div className="space-y-2">
 					<FormLabel>Insurance</FormLabel>
 					<div className="grid grid-cols-2 gap-4 rounded-md border p-4 sm:grid-cols-3">
-						{(
-							Object.keys(INSURANCE_DISPLAY_NAMES) as Array<
-								keyof EvaluatorFormValues
-							>
-						).map((insuranceKey) => (
-							<FormField
-								control={form.control}
-								key={insuranceKey}
-								name={insuranceKey}
-								render={({ field }) => (
-									<FormItem className="flex items-center space-x-2 space-y-0">
-										<FormControl>
-											<Checkbox
-												checked={field.value as boolean}
-												onCheckedChange={field.onChange}
-											/>
-										</FormControl>
-										<FormLabel className="font-normal">
-											{INSURANCE_DISPLAY_NAMES[insuranceKey]}
-										</FormLabel>
-									</FormItem>
-								)}
-							/>
-						))}
+						{isLoadingInsurances ? (
+							<p>Loading insurances...</p>
+						) : (
+							allInsurances?.map((insurance) => (
+								<FormField
+									control={form.control}
+									key={insurance.id}
+									name="insurances"
+									render={({ field }) => (
+										<FormItem className="flex items-center space-x-2 space-y-0">
+											<FormControl>
+												<Checkbox
+													checked={field.value?.includes(insurance.id)}
+													onCheckedChange={(checked) => {
+														return checked
+															? field.onChange([...field.value, insurance.id])
+															: field.onChange(
+																	field.value?.filter(
+																		(value: number) => value !== insurance.id,
+																	),
+																);
+													}}
+												/>
+											</FormControl>
+											<FormLabel className="font-normal">
+												{insurance.shortName}
+											</FormLabel>
+										</FormItem>
+									)}
+								/>
+							))
+						)}
 					</div>
 				</div>
 
@@ -584,22 +554,6 @@ export default function EvaluatorsTable() {
 		: false;
 	const { data: evaluators, isLoading } = api.evaluators.getAll.useQuery();
 
-	const getActiveInsurance = (evaluator: Evaluator) => {
-		const insurances: (keyof Evaluator)[] = [
-			"SCM",
-			"BabyNet",
-			"Molina",
-			"MolinaMarketplace",
-			"ATC",
-			"Humana",
-			"SH",
-			"HB",
-			"Aetna",
-			"United_Optum",
-		];
-		return insurances.filter((p) => evaluator[p]);
-	};
-
 	// Helper for loading/empty states to avoid repetition
 	const renderTableMessage = (message: string) => (
 		<TableRow>
@@ -673,9 +627,9 @@ export default function EvaluatorsTable() {
 											</TableCell>
 											<TableCell>
 												<div className="flex flex-wrap gap-1">
-													{getActiveInsurance(evaluator).map((insurance) => (
-														<Badge key={insurance} variant="secondary">
-															{INSURANCE_DISPLAY_NAMES[insurance]}
+													{evaluator.insurances.map((insurance) => (
+														<Badge key={insurance.id} variant="secondary">
+															{insurance.shortName}
 														</Badge>
 													))}
 												</div>
@@ -753,9 +707,9 @@ export default function EvaluatorsTable() {
 							<div>
 								<h5 className="mb-1 font-medium text-sm">Insurance</h5>
 								<div className="flex flex-wrap gap-1">
-									{getActiveInsurance(evaluator).map((insurance) => (
-										<Badge key={insurance} variant="secondary">
-											{INSURANCE_DISPLAY_NAMES[insurance]}
+									{evaluator.insurances.map((insurance) => (
+										<Badge key={insurance.id} variant="secondary">
+											{insurance.shortName}
 										</Badge>
 									))}
 								</div>

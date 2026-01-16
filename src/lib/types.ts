@@ -5,6 +5,7 @@ import type { AppRouter } from "~/server/api/root";
 import type {
 	clients,
 	evaluators,
+	insurances,
 	invitations,
 	offices,
 	questionnaires,
@@ -35,13 +36,16 @@ export type Invitation = InferSelectModel<typeof invitations>;
 export type Office = InferSelectModel<typeof offices>;
 export type SchoolDistrict = InferSelectModel<typeof schoolDistricts>;
 export type ZipCode = InferSelectModel<typeof zipCodes>;
+export type Insurance = InferSelectModel<typeof insurances>;
+export type InsuranceWithAliases = Insurance & { aliases: { name: string }[] };
 
 type EvaluatorSchema = InferSelectModel<typeof evaluators>;
 
-export type Evaluator = Omit<EvaluatorSchema, "offices"> & {
+export type Evaluator = EvaluatorSchema & {
 	offices: Office[];
 	blockedDistricts: SchoolDistrict[];
 	blockedZips: ZipCode[];
+	insurances: Insurance[];
 };
 
 export type TestUnit = InferSelectModel<typeof testUnits>;

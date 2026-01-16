@@ -27,12 +27,18 @@ export const schedulingRouter = createTRPCRouter({
 		const allEvaluators = await db.query.evaluators.findMany();
 		const allOffices = await db.query.offices.findMany();
 		const allDistricts = await db.query.schoolDistricts.findMany();
+		const allInsurances = await db.query.insurances.findMany({
+			with: {
+				aliases: true,
+			},
+		});
 
 		return {
 			clients: scheduledClients,
 			evaluators: allEvaluators,
 			offices: allOffices,
 			schoolDistricts: allDistricts,
+			insurances: allInsurances,
 		};
 	}),
 
@@ -57,12 +63,18 @@ export const schedulingRouter = createTRPCRouter({
 		const allEvaluators = await db.query.evaluators.findMany();
 		const allOffices = await db.query.offices.findMany();
 		const allDistricts = await db.query.schoolDistricts.findMany();
+		const allInsurances = await db.query.insurances.findMany({
+			with: {
+				aliases: true,
+			},
+		});
 
 		return {
 			clients: scheduledClients,
 			evaluators: allEvaluators,
 			offices: allOffices,
 			schoolDistricts: allDistricts,
+			insurances: allInsurances,
 		};
 	}),
 

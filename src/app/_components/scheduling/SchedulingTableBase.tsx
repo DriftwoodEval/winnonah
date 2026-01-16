@@ -29,7 +29,12 @@ import {
 	SCHEDULING_COLOR_MAP,
 	type SchedulingColor,
 } from "~/lib/colors";
-import type { Evaluator, Office, SchoolDistrict } from "~/lib/types";
+import type {
+	Evaluator,
+	InsuranceWithAliases,
+	Office,
+	SchoolDistrict,
+} from "~/lib/types";
 import { formatClientAge, getLocalDayFromUTCDate } from "~/lib/utils";
 import { api } from "~/trpc/react";
 
@@ -336,6 +341,7 @@ export function SchedulingTableRow({
 	evaluators,
 	offices,
 	districts,
+	insurances,
 	isEditable,
 	onUpdate,
 	actions,
@@ -344,6 +350,7 @@ export function SchedulingTableRow({
 	evaluators: Evaluator[];
 	offices: Office[];
 	districts?: SchoolDistrict[];
+	insurances: InsuranceWithAliases[];
 	isEditable?: boolean;
 	onUpdate?: (clientId: number, data: any) => void;
 	actions: React.ReactNode;
@@ -374,6 +381,26 @@ export function SchedulingTableRow({
 		: "transparent";
 
 	const office = offices.find((o) => o.key === scheduledClient.office);
+
+	const mapInsuranceToShortNames = (
+		primary: string | null,
+		secondary: string | null,
+		insurances: InsuranceWithAliases[],
+	) => {
+		const getShortName = (officialName: string | null) => {
+			if (!officialName) return null;
+			const insurance = insurances.find(
+				(i) =>
+					i.shortName === officialName ||
+					i.aliases.some((a) => a.name === officialName),
+			);
+			return insurance?.shortName || officialName;
+		};
+
+		return [getShortName(primary), getShortName(secondary)]
+			.filter(Boolean)
+			.join(" | ");
+	};
 
 	return (
 		<TableRow
@@ -465,12 +492,11 @@ export function SchedulingTableRow({
 			<TableCell>{scheduledClient.client.asdAdhd ?? "-"}</TableCell>
 
 			<TableCell>
-				{[
+				{mapInsuranceToShortNames(
 					scheduledClient.client.primaryInsurance,
 					scheduledClient.client.secondaryInsurance,
-				]
-					.filter(Boolean)
-					.join(" | ") || "-"}
+					insurances,
+				) || "-"}
 			</TableCell>
 
 			<TableCell>

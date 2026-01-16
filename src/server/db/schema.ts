@@ -18,17 +18,39 @@ export const evaluators = createTable("evaluator", (d) => ({
 	npi: d.int().notNull().primaryKey(),
 	providerName: d.varchar({ length: 255 }).notNull(),
 	email: d.varchar({ length: 255 }).notNull().unique(),
-	SCM: d.boolean().notNull(),
-	BabyNet: d.boolean().notNull(),
-	Molina: d.boolean().notNull(),
-	MolinaMarketplace: d.boolean().notNull(),
-	ATC: d.boolean().notNull(),
-	Humana: d.boolean().notNull(),
-	SH: d.boolean().notNull(),
-	HB: d.boolean().notNull(),
-	Aetna: d.boolean().notNull(),
-	United_Optum: d.boolean().notNull(),
 }));
+
+export const insurances = createTable("insurance", (d) => ({
+	id: d.int().notNull().autoincrement().primaryKey(),
+	shortName: d.varchar({ length: 255 }).notNull().unique(),
+	preAuthNeeded: d.boolean().notNull().default(false),
+	preAuthLockin: d.boolean().notNull().default(false),
+	appointmentsRequired: d.int().notNull().default(1),
+}));
+
+export const insuranceAliases = createTable("insurance_alias", (d) => ({
+	id: d.int().notNull().autoincrement().primaryKey(),
+	name: d.varchar({ length: 255 }).notNull().unique(),
+	insuranceId: d
+		.int()
+		.notNull()
+		.references(() => insurances.id, { onDelete: "cascade" }),
+}));
+
+export const evaluatorsToInsurances = createTable(
+	"evaluators_to_insurances",
+	(d) => ({
+		evaluatorNpi: d
+			.int()
+			.notNull()
+			.references(() => evaluators.npi, { onDelete: "cascade" }),
+		insuranceId: d
+			.int()
+			.notNull()
+			.references(() => insurances.id, { onDelete: "cascade" }),
+	}),
+	(t) => [primaryKey({ columns: [t.evaluatorNpi, t.insuranceId] })],
+);
 
 export const schoolDistricts = createTable("school_district", (d) => ({
 	id: d.int().notNull().primaryKey(),
@@ -80,7 +102,37 @@ export const evaluatorRelations = relations(evaluators, ({ many }) => ({
 	offices: many(evaluatorOffices),
 	blockedSchoolDistricts: many(blockedSchoolDistricts),
 	blockedZipCodes: many(blockedZipCodes),
+	insurances: many(evaluatorsToInsurances),
 }));
+
+export const insurancesRelations = relations(insurances, ({ many }) => ({
+	evaluators: many(evaluatorsToInsurances),
+	aliases: many(insuranceAliases),
+}));
+
+export const insuranceAliasesRelations = relations(
+	insuranceAliases,
+	({ one }) => ({
+		insurance: one(insurances, {
+			fields: [insuranceAliases.insuranceId],
+			references: [insurances.id],
+		}),
+	}),
+);
+
+export const evaluatorsToInsurancesRelations = relations(
+	evaluatorsToInsurances,
+	({ one }) => ({
+		evaluator: one(evaluators, {
+			fields: [evaluatorsToInsurances.evaluatorNpi],
+			references: [evaluators.npi],
+		}),
+		insurance: one(insurances, {
+			fields: [evaluatorsToInsurances.insuranceId],
+			references: [insurances.id],
+		}),
+	}),
+);
 
 export const schoolDistrictRelations = relations(
 	schoolDistricts,
@@ -414,7 +466,7 @@ export const users = createTable("user", (d) => ({
 	evaluatorId: d.int().references(() => evaluators.npi),
 	savedPlaces: d.json(),
 	permissions: d.json("permissions").$type<PermissionsObject>(),
-	archived: d.boolean("archived").notNull().default(false)
+	archived: d.boolean("archived").notNull().default(false),
 }));
 
 export const usersRelations = relations(users, ({ many, one }) => ({

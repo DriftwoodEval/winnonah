@@ -5,35 +5,8 @@ import pandas as pd
 
 from utils.misc import get_column
 
-RAW_INSURANCE_MAPPING = {
-    "Absolute Total Care - Medical": "ATC",
-    "Absolute Total Care": "ATC",
-    "Aetna Health, Inc.": "Aetna",
-    "All Savers Alternate Funding-UHC": "United_Optum",
-    "BabyNet (Combined DA and Eval)": "BabyNet",
-    "GEHA UnitedHealthcare Shared Services (UHSS)": "United_Optum",
-    "Healthy Blue South Carolina": "HB",
-    "Humana Behavioral Health (formerly LifeSynch)": "Humana",
-    "Marketplace (Molina) of South Carolina": "MolinaMarketplace",
-    "Medicaid South Carolina": "SCM",
-    "Meritain Health Aetna": "Aetna",
-    "Molina Healthcare of South Carolina": "Molina",
-    "Molina Marketplace of South Carolina": "MolinaMarketplace",
-    "Oxford-UHC": "United_Optum",
-    "Select Health of SC": "SH",
-    "Select Health of South Carolina": "SH",
-    "Select health sc": "SH",
-    "TriCare East": "Tricare",
-    "United Healthcare": "United_Optum",
-    "United Healthcare/OptumHealth / OptumHealth Behavioral Solutions": "United_Optum",
-}
 
-STANDARDIZED_MAPPING = {
-    "".join(key.lower().split()): value for key, value in RAW_INSURANCE_MAPPING.items()
-}
-
-
-def _normalize_insurance_name(name: str) -> str:
+def _normalize_insurance_name(name: str, insurance_mappings: dict) -> str:
     """Helper function to convert insurance names to a normalized, matchable format."""
     if not isinstance(name, str):
         return ""
@@ -46,13 +19,18 @@ def _normalize_insurance_name(name: str) -> str:
     normalized_for_lookup = name.lower()
     normalized_for_lookup = "".join(normalized_for_lookup.split())
 
-    if normalized_for_lookup in STANDARDIZED_MAPPING:
-        return STANDARDIZED_MAPPING[normalized_for_lookup]
+    # Create a standardized mapping for lookup (lowercase, no spaces)
+    standardized_lookup = {
+        "".join(k.lower().split()): v for k, v in insurance_mappings.items()
+    }
+
+    if normalized_for_lookup in standardized_lookup:
+        return standardized_lookup[normalized_for_lookup]
 
     return name
 
 
-def match_by_insurance(client: pd.Series, evaluators: dict):
+def match_by_insurance(client: pd.Series, evaluators: dict, insurance_mappings: dict):
     """Matches evaluators to a client based on insurance information.
 
     An evaluator is considered eligible if they accept the client's
@@ -61,6 +39,7 @@ def match_by_insurance(client: pd.Series, evaluators: dict):
     Args:
         client (pd.Series): A pandas Series representing a single client.
         evaluators (dict): A dictionary of all evaluators, keyed by NPI.
+        insurance_mappings (dict): A dictionary of alias -> shortName mappings.
 
     Returns:
         list: A list of NPIs for evaluators who are eligible for the client.
@@ -91,7 +70,7 @@ def match_by_insurance(client: pd.Series, evaluators: dict):
     standardized_client_insurances = set()
     for raw_name in raw_insurances_to_check:
         raw_name = str(raw_name)
-        normalized_name = _normalize_insurance_name(raw_name)
+        normalized_name = _normalize_insurance_name(raw_name, insurance_mappings)
         if normalized_name:
             standardized_client_insurances.add(normalized_name)
 

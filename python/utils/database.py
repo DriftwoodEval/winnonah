@@ -418,6 +418,23 @@ def get_evaluators_with_blocked_locations():
                 if npi in evaluators:
                     evaluators[npi]["blockedZipCodes"].append(row["zipCode"])
 
+            sql_insurances = """
+                SELECT
+                    eti.evaluatorNpi,
+                    i.shortName
+                FROM
+                    emr_evaluators_to_insurances AS eti
+                JOIN
+                    emr_insurance AS i
+                ON
+                    eti.insuranceId = i.id
+            """
+            cursor.execute(sql_insurances)
+            for row in cursor.fetchall():
+                npi = row["evaluatorNpi"]
+                if npi in evaluators:
+                    evaluators[npi][row["shortName"]] = True
+
     except Exception as e:
         logger.error(f"Database error while fetching evaluators: {e}")
         return {}
@@ -568,6 +585,7 @@ def insert_by_matching_criteria_incremental(
     logger.debug("Starting incremental client-evaluator matching...")
 
     existing_links = _get_existing_client_eval_links()
+    insurance_mappings = get_insurance_mappings()
 
     processed_count = 0
     updated_count = 0
@@ -594,7 +612,7 @@ def insert_by_matching_criteria_incremental(
             client, evaluators
         )
         eligible_evaluators_by_insurance = utils.relationships.match_by_insurance(
-            client, evaluators
+            client, evaluators, insurance_mappings
         )
         current_should_be = set(
             set(eligible_evaluators_by_district) & set(eligible_evaluators_by_insurance)
@@ -656,6 +674,7 @@ def insert_by_matching_criteria_client_specific(
     ]
 
     _delete_all_relationships_for_clients(specific_client_ids)
+    insurance_mappings = get_insurance_mappings()
 
     updated_count = 0
 
@@ -670,7 +689,7 @@ def insert_by_matching_criteria_client_specific(
             client, evaluators
         )
         eligible_evaluators_by_insurance = utils.relationships.match_by_insurance(
-            client, evaluators
+            client, evaluators, insurance_mappings
         )
         matched_evaluator_npis = list(
             set(eligible_evaluators_by_district) & set(eligible_evaluators_by_insurance)
@@ -713,6 +732,39 @@ def insert_by_matching_criteria(
         # Update all clients incrementally (only change what's different)
         logger.info("Running incremental update for all clients")
         insert_by_matching_criteria_incremental(clients, evaluators)
+
+
+def get_insurance_mappings() -> dict[str, str]:
+    """Fetches insurance aliases and their canonical short names from the database.
+
+    Returns:
+        dict: A dictionary mapping alias names to canonical short names.
+    """
+    db_connection = get_db()
+    mappings = {}
+
+    try:
+        with db_connection.cursor() as cursor:
+            sql = """
+                SELECT
+                    ia.name AS alias,
+                    i.shortName
+                FROM
+                    emr_insurance_alias AS ia
+                JOIN
+                    emr_insurance AS i
+                ON
+                    ia.insuranceId = i.id
+            """
+            cursor.execute(sql)
+            for row in cursor.fetchall():
+                mappings[row["alias"]] = row["shortName"]
+    except Exception as e:
+        logger.error(f"Database error while fetching insurance mappings: {e}")
+    finally:
+        db_connection.close()
+
+    return mappings
 
 
 def get_all_evaluators_npi_map() -> dict[str, int]:

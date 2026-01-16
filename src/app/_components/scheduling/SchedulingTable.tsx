@@ -6,7 +6,12 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@components/ui/tabs";
 import { Skeleton } from "@ui/skeleton";
 import { ArchiveRestore, Loader2, X } from "lucide-react";
 import { useMemo, useState } from "react";
-import type { Evaluator, Office, SchoolDistrict } from "~/lib/types";
+import type {
+	Evaluator,
+	InsuranceWithAliases,
+	Office,
+	SchoolDistrict,
+} from "~/lib/types";
 import { formatClientAge, getLocalDayFromUTCDate } from "~/lib/utils";
 import { api } from "~/trpc/react";
 import {
@@ -20,11 +25,32 @@ const normalize = (val: string | null | undefined) => {
 	return val;
 };
 
+const mapInsuranceToShortNames = (
+	primary: string | null,
+	secondary: string | null,
+	insurances: InsuranceWithAliases[],
+) => {
+	const getShortName = (officialName: string | null) => {
+		if (!officialName) return null;
+		const insurance = insurances.find(
+			(i) =>
+				i.shortName === officialName ||
+				i.aliases.some((a) => a.name === officialName),
+		);
+		return insurance?.shortName || officialName;
+	};
+
+	return [getShortName(primary), getShortName(secondary)]
+		.filter(Boolean)
+		.join(" | ");
+};
+
 function useSchedulingFilters(
 	clients: ScheduledClient[],
 	evaluators: Evaluator[],
 	offices: Office[],
 	districts: SchoolDistrict[],
+	insurances: InsuranceWithAliases[],
 ) {
 	const [filters, setFilters] = useState<Record<string, string[]>>({});
 
@@ -56,12 +82,11 @@ function useSchedulingFilters(
 			values.time?.add(normalize(client.time));
 			values.asdAdhd?.add(normalize(client.client.asdAdhd));
 
-			const insurance = [
+			const insurance = mapInsuranceToShortNames(
 				client.client.primaryInsurance,
 				client.client.secondaryInsurance,
-			]
-				.filter(Boolean)
-				.join(" | ");
+				insurances,
+			);
 			values.insurance?.add(normalize(insurance));
 
 			values.code?.add(normalize(client.code));
@@ -105,7 +130,7 @@ function useSchedulingFilters(
 			);
 		}
 		return result;
-	}, [clients, evaluators, offices, districts]);
+	}, [clients, evaluators, offices, districts, insurances]);
 
 	const filteredClients = useMemo(() => {
 		return clients.filter((client) => {
@@ -136,9 +161,11 @@ function useSchedulingFilters(
 						break;
 					case "insurance":
 						value = normalize(
-							[client.client.primaryInsurance, client.client.secondaryInsurance]
-								.filter(Boolean)
-								.join(" | "),
+							mapInsuranceToShortNames(
+								client.client.primaryInsurance,
+								client.client.secondaryInsurance,
+								insurances,
+							),
 						);
 						break;
 					case "code":
@@ -186,7 +213,7 @@ function useSchedulingFilters(
 				return selectedValues.includes(value);
 			});
 		});
-	}, [clients, filters, evaluators, offices, districts]);
+	}, [clients, filters, evaluators, offices, districts, insurances]);
 
 	const handleFilterChange = (column: string, selected: string[]) => {
 		setFilters((prev) => ({
@@ -217,9 +244,10 @@ function ActiveSchedulingTable() {
 	const evaluators = (data?.evaluators as Evaluator[]) || [];
 	const offices = (data?.offices as Office[]) || [];
 	const districts = (data?.schoolDistricts as SchoolDistrict[]) || [];
+	const insurances = (data?.insurances as InsuranceWithAliases[]) || [];
 
 	const { filteredClients, filters, handleFilterChange, uniqueValues } =
-		useSchedulingFilters(clients, evaluators, offices, districts);
+		useSchedulingFilters(clients, evaluators, offices, districts, insurances);
 
 	if (isLoading) {
 		return (
@@ -270,6 +298,7 @@ function ActiveSchedulingTable() {
 						}
 						districts={districts}
 						evaluators={evaluators}
+						insurances={insurances}
 						isEditable={true}
 						key={scheduledClient.clientId}
 						offices={offices}
@@ -297,9 +326,10 @@ function ArchivedSchedulingTable() {
 	const evaluators = (data?.evaluators as Evaluator[]) || [];
 	const offices = (data?.offices as Office[]) || [];
 	const districts = (data?.schoolDistricts as SchoolDistrict[]) || [];
+	const insurances = (data?.insurances as InsuranceWithAliases[]) || [];
 
 	const { filteredClients, filters, handleFilterChange, uniqueValues } =
-		useSchedulingFilters(clients, evaluators, offices, districts);
+		useSchedulingFilters(clients, evaluators, offices, districts, insurances);
 
 	if (isLoading)
 		return (
@@ -344,6 +374,7 @@ function ArchivedSchedulingTable() {
 						}
 						districts={districts}
 						evaluators={evaluators}
+						insurances={insurances}
 						isEditable={false}
 						key={scheduledClient.clientId}
 						offices={offices}

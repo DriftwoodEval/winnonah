@@ -1,6 +1,7 @@
 import { clientRouter } from "./routers/client";
 import { evaluatorRouter } from "./routers/evaluator";
 import { googleRouter } from "./routers/google";
+import { insuranceRouter } from "./routers/insurance";
 import { noteRouter } from "./routers/notes";
 import { officeRouter } from "./routers/office";
 import { questionnaireRouter } from "./routers/questionnaires";
@@ -19,6 +20,7 @@ export const appRouter = createTRPCRouter({
 	clients: clientRouter,
 	evaluators: evaluatorRouter,
 	google: googleRouter,
+	insurances: insuranceRouter,
 	notes: noteRouter,
 	offices: officeRouter,
 	questionnaires: questionnaireRouter,
