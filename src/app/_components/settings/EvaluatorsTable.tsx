@@ -424,7 +424,7 @@ function AddEvaluatorButton() {
 					<span className="sm:hidden">Add</span>
 				</Button>
 			</DialogTrigger>
-			<DialogContent>
+			<DialogContent className="sm:max-w-2xl">
 				<DialogHeader>
 					<DialogTitle>Add New Evaluator</DialogTitle>
 				</DialogHeader>
@@ -505,7 +505,7 @@ function EvaluatorActionsMenu({ evaluator }: { evaluator: Evaluator }) {
 			</DropdownMenu>
 
 			<Dialog onOpenChange={setIsEditDialogOpen} open={isEditDialogOpen}>
-				<DialogContent>
+				<DialogContent className="sm:max-w-2xl">
 					<DialogHeader>
 						<DialogTitle>Edit Evaluator</DialogTitle>
 					</DialogHeader>
