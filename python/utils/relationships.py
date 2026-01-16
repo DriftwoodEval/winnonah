@@ -1,5 +1,6 @@
 import re
 from datetime import datetime
+from typing import Any
 
 import pandas as pd
 
@@ -55,7 +56,7 @@ def match_by_insurance(client: pd.Series, evaluators: dict, insurance_mappings: 
         # logger.debug("Client is private pay, all evaluators are eligible.")
         return list(evaluators.keys())
 
-    eligible_evaluator_npis = set()
+    eligible_evaluator_npis: set[Any] = set()
     primary_insurance = get_column(client, "INSURANCE_COMPANYNAME")
     secondary_insurance = get_column(client, "SECONDARY_INSURANCE_COMPANYNAME")
 
@@ -67,7 +68,7 @@ def match_by_insurance(client: pd.Series, evaluators: dict, insurance_mappings: 
     elif isinstance(secondary_insurance, list):
         raw_insurances_to_check.extend(secondary_insurance)
 
-    standardized_client_insurances = set()
+    standardized_client_insurances: set[str] = set()
     for raw_name in raw_insurances_to_check:
         raw_name = str(raw_name)
         normalized_name = _normalize_insurance_name(raw_name, insurance_mappings)

@@ -1,11 +1,11 @@
+import type { JSONContent } from "@tiptap/core";
 import { type Change, diffWords } from "diff";
 
-// biome-ignore lint/suspicious/noExplicitAny: JSON
-export const extractTextFromTipTap = (node: any): string => {
+export const extractTextFromTipTap = (node: JSONContent | null | undefined): string => {
   if (!node) return "";
   if (node.type === "text") return node.text || "";
 
-  const separator = ["paragraph", "heading"].includes(node.type) ? "\n" : "";
+  const separator = node.type && ["paragraph", "heading"].includes(node.type) ? "\n" : "";
 
   if (node.content && Array.isArray(node.content)) {
     return node.content.map(extractTextFromTipTap).join("") + separator;

@@ -93,10 +93,14 @@ async function seed() {
 					appointmentsRequired: 1,
 				})
 				.onDuplicateKeyUpdate({ set: { shortName: insurance.shortName } });
-		} catch (err: any) {
+		} catch (err) {
 			// If fullName still exists and is required, we might hit an error
 			if (
+				err instanceof Error &&
+				"code" in err &&
 				err.code === "ER_NO_DEFAULT_FOR_FIELD" &&
+				"sqlMessage" in err &&
+				typeof err.sqlMessage === "string" &&
 				err.sqlMessage.includes("fullName")
 			) {
 				console.log(
@@ -139,8 +143,8 @@ async function seed() {
 	const [allEvaluators] = await db.execute(sql`SELECT * FROM emr_evaluator`);
 
 	if (Array.isArray(allEvaluators)) {
-		for (const evaluator of allEvaluators as any[]) {
-			const npi = evaluator.npi;
+		for (const evaluator of allEvaluators as Record<string, unknown>[]) {
+			const npi = evaluator.npi as number;
 			console.log(`Processing evaluator ${npi}: ${evaluator.providerName}`);
 
 			for (const col of OLD_COLUMNS) {
