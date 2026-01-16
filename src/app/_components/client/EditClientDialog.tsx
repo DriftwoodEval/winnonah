@@ -134,8 +134,8 @@ function ClientForm({
 														(district) => district.fullName === field.value,
 													)?.shortName ||
 													field.value
-														.replace(/ County School District$/, "")
-														.replace(/ School District$/, "")
+														.replace(/ County School District/, "")
+														.replace(/ School District/, "")
 												: "Select district"}
 											<ChevronsUpDown className="opacity-50" />
 										</Button>
@@ -164,8 +164,8 @@ function ClientForm({
 													>
 														{district.shortName ||
 															district.fullName
-																.replace(/ County School District$/, "")
-																.replace(/ School District$/, "")}
+																.replace(/ County School District/, "")
+																.replace(/ School District/, "")}
 														<Check
 															className={cn(
 																"ml-auto",

@@ -80,8 +80,8 @@ function useSchedulingFilters(
 				normalize(
 					district?.shortName ||
 						client.client.schoolDistrict
-							?.replace(/ County School District$/, "")
-							.replace(/ School District$/, ""),
+							?.replace(/ County School District/, "")
+							.replace(/ School District/, ""),
 				),
 			);
 
@@ -160,8 +160,8 @@ function useSchedulingFilters(
 						value = normalize(
 							district?.shortName ||
 								client.client.schoolDistrict
-									?.replace(/ County School District$/, "")
-									.replace(/ School District$/, ""),
+									?.replace(/ County School District/, "")
+									.replace(/ School District/, ""),
 						);
 						break;
 					}

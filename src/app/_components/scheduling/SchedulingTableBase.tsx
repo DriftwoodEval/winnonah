@@ -538,8 +538,8 @@ export function SchedulingTableRow({
 					return (
 						district?.shortName ||
 						scheduledClient.client.schoolDistrict
-							?.replace(/ County School District$/, "")
-							.replace(/ School District$/, "")
+							?.replace(/ County School District/, "")
+							.replace(/ School District/, "")
 					);
 				})()}
 			</TableCell>

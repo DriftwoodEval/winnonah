@@ -117,8 +117,9 @@ export function ClientDetailsCard({ client }: ClientDetailsCardProps) {
 				<p>
 					{(client.schoolDistrictDetails?.shortName ||
 						client.schoolDistrict
-							?.replace(/ County School District$/, "")
-							.replace(/ School District$/, "")) ?? "Unknown"}
+							?.replace(/ County School District/, "")
+							.replace(/ School District/, "")) ??
+						"Unknown"}
 				</p>
 			</div>
 
