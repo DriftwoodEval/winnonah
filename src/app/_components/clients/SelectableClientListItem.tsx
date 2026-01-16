@@ -1,6 +1,6 @@
 "use client";
 
-import { memo } from "react";
+import { forwardRef, memo } from "react";
 import type { SortedClient } from "~/lib/types";
 import { cn } from "~/lib/utils";
 
@@ -11,12 +11,10 @@ type SelectableClientListItemProps = {
 	showId?: boolean;
 };
 
-function SelectableClientListItemComponent({
-	client,
-	isSelected,
-	onSelect,
-	showId,
-}: SelectableClientListItemProps) {
+const SelectableClientListItemComponent = forwardRef<
+	HTMLButtonElement,
+	SelectableClientListItemProps
+>(({ client, isSelected, onSelect, showId }, ref) => {
 	return (
 		<button
 			className={cn(
@@ -24,6 +22,7 @@ function SelectableClientListItemComponent({
 				isSelected ? "bg-accent text-accent-foreground" : "hover:bg-muted/50",
 			)}
 			onClick={() => onSelect(client)}
+			ref={ref}
 			type="button"
 		>
 			<span>{client.fullName}</span>
@@ -39,6 +38,8 @@ function SelectableClientListItemComponent({
 			)}
 		</button>
 	);
-}
+});
+
+SelectableClientListItemComponent.displayName = "SelectableClientListItem";
 
 export const SelectableClientListItem = memo(SelectableClientListItemComponent);

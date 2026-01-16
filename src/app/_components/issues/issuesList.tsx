@@ -1,4 +1,5 @@
 "use client";
+import { MergePreviewDialog } from "@components/clients/MergePreviewDialog";
 import { Button } from "@ui/button";
 import { ScrollArea } from "@ui/scroll-area";
 import { Separator } from "@ui/separator";
@@ -10,6 +11,7 @@ import type {
 	Client,
 	ClientWithIssueInfo,
 	DuplicateDriveGroup,
+	MergeSuggestion,
 	PunchClient,
 	SharedQuestionnaireData,
 } from "~/lib/types";
@@ -575,6 +577,114 @@ const ClientsSharingQuestionnaires = ({
 	);
 };
 
+const NoteOnlyList = ({
+	noteOnlyClients,
+	suggestions,
+}: {
+	noteOnlyClients: Client[];
+	suggestions: MergeSuggestion[];
+}) => {
+	const sortedClients = [...noteOnlyClients].sort((a, b) => {
+		const aHasSuggestion = suggestions.some(
+			(s) => s.noteOnlyClient.id === a.id,
+		);
+		const bHasSuggestion = suggestions.some(
+			(s) => s.noteOnlyClient.id === b.id,
+		);
+
+		if (aHasSuggestion && !bHasSuggestion) return -1;
+		if (!aHasSuggestion && bHasSuggestion) return 1;
+
+		// Maintain existing order (addedDate) for clients within the same group
+		return noteOnlyClients.indexOf(a) - noteOnlyClients.indexOf(b);
+	});
+
+	return (
+		<div className="flex max-h-80">
+			<ScrollArea
+				className="w-md rounded-md border bg-card text-card-foreground shadow"
+				type="auto"
+			>
+				<div className="p-4">
+					<div className="flex items-center justify-between gap-4">
+						<h1 className="mb-4 font-bold text-lg leading-none">
+							Notes Only{" "}
+							<span className="font-medium text-muted-foreground text-sm">
+								({noteOnlyClients.length})
+							</span>
+						</h1>
+						<div className="mb-4 flex items-center gap-2">
+							<Link href="/clients/merge">
+								<Button className="cursor-pointer" size="sm" variant="outline">
+									Merge Menu
+								</Button>
+							</Link>
+						</div>
+					</div>
+					<div className="space-y-4">
+						{sortedClients.map((client, index) => {
+							const suggestion = suggestions.find(
+								(s) => s.noteOnlyClient.id === client.id,
+							);
+							return (
+								<div key={client.hash}>
+									<div className="mb-1">
+										<Link href={`/clients/${client.hash}`}>
+											<div className="font-medium text-sm hover:underline">
+												{client.fullName}
+											</div>
+										</Link>
+									</div>
+
+									{suggestion && (
+										<div className="mt-2 rounded-md border bg-muted p-2">
+											<p className="mb-1 font-bold text-[10px] text-muted-foreground uppercase tracking-wider">
+												Suggestions:
+											</p>
+											<div className="space-y-2">
+												{suggestion.suggestedRealClients.map((real) => (
+													<div
+														className="flex items-center justify-between gap-2"
+														key={real.id}
+													>
+														<Link href={`/clients/${real.hash}`}>
+															<div className="text-xs hover:underline">
+																{real.fullName}
+																<span className="ml-1 text-muted-foreground">
+																	(ID: {real.id})
+																</span>
+															</div>
+														</Link>
+														<MergePreviewDialog
+															fakeClient={client}
+															realClient={real}
+														>
+															<Button
+																className="h-6 cursor-pointer px-2 text-[10px]"
+																size="sm"
+																variant="outline"
+															>
+																Merge
+															</Button>
+														</MergePreviewDialog>
+													</div>
+												))}
+											</div>
+										</div>
+									)}
+									{index < sortedClients.length - 1 && (
+										<Separator className="mt-4" />
+									)}
+								</div>
+							);
+						})}
+					</div>
+				</div>
+			</ScrollArea>
+		</div>
+	);
+};
+
 export function IssuesList() {
 	const { data: districtErrors, isLoading: isLoadingDistrictErrors } =
 		api.clients.getDistrictErrors.useQuery();
@@ -590,6 +700,8 @@ export function IssuesList() {
 		api.clients.getAutismStops.useQuery();
 	const { data: noteOnlyClients, isLoading: isLoadingNoteOnlyClients } =
 		api.clients.getNoteOnlyClients.useQuery();
+	const { data: mergeSuggestions, isLoading: isLoadingMergeSuggestions } =
+		api.clients.getMergeSuggestions.useQuery();
 	const { data: noDriveIds, isLoading: isLoadingNoDriveIds } =
 		api.clients.getNoDriveIdErrors.useQuery();
 	const {
@@ -687,20 +799,16 @@ export function IssuesList() {
 			{!isLoadingAutismStops && autismStops && autismStops.length !== 0 && (
 				<IssueList clients={autismStops} title="Autism Stops" />
 			)}
-			{isLoadingNoteOnlyClients && <IssueListSkeleton />}
+			{(isLoadingNoteOnlyClients || isLoadingMergeSuggestions) && (
+				<IssueListSkeleton />
+			)}
 			{!isLoadingNoteOnlyClients &&
+				!isLoadingMergeSuggestions &&
 				noteOnlyClients &&
 				noteOnlyClients.length !== 0 && (
-					<IssueList
-						action={
-							<Link href="/clients/merge">
-								<Button size="sm" variant="outline">
-									Merge
-								</Button>
-							</Link>
-						}
-						clients={noteOnlyClients}
-						title="Notes Only"
+					<NoteOnlyList
+						noteOnlyClients={noteOnlyClients}
+						suggestions={mergeSuggestions ?? []}
 					/>
 				)}
 			{isLoadingNoDriveIds && <IssueListSkeleton />}

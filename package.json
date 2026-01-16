@@ -68,6 +68,7 @@
     "date-fns": "^4.1.0",
     "diff": "^8.0.2",
     "drizzle-orm": "^0.44.5",
+    "fastest-levenshtein": "^1.0.16",
     "google-auth-library": "^10.3.0",
     "googleapis": "^159.0.0",
     "html-react-parser": "^5.2.6",

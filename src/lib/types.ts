@@ -207,3 +207,6 @@ export type PunchClient = {
 };
 
 export type FullClientInfo = PunchClient & Client;
+export type MergeSuggestion = NonNullable<
+	ClientRouterOutput["getMergeSuggestions"]
+>[number];

@@ -209,7 +209,7 @@ export function ClientHeader({
 				{client.id.toString().length === 5 && !readOnly && canMerge && (
 					<>
 						<Separator orientation="vertical" />
-						<Link href={`/clients/merge`}>
+						<Link href={`/clients/merge?fake=${client.hash}`}>
 							<Button>Merge with Real Client</Button>
 						</Link>
 					</>

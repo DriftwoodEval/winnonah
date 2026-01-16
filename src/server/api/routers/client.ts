@@ -16,6 +16,7 @@ import {
 	or,
 	sql,
 } from "drizzle-orm";
+import { distance as levDistance } from "fastest-levenshtein";
 import { z } from "zod";
 import { CLIENT_COLOR_KEYS } from "~/lib/colors";
 import { syncPunchData } from "~/lib/google";
@@ -411,6 +412,62 @@ export const clientRouter = createTRPCRouter({
 		});
 
 		return noteOnlyClients;
+	}),
+
+	getMergeSuggestions: protectedProcedure.query(async ({ ctx }) => {
+		const allClients = await ctx.db.query.clients.findMany({
+			where: eq(clients.status, true),
+		});
+
+		const noteOnlyClients = allClients.filter(
+			(c) => c.id.toString().length === 5,
+		);
+		const realClients = allClients.filter((c) => c.id.toString().length !== 5);
+
+		const suggestions: {
+			noteOnlyClient: typeof clients.$inferSelect;
+			suggestedRealClients: (typeof clients.$inferSelect & {
+				distance: number;
+			})[];
+		}[] = [];
+
+		for (const noteOnly of noteOnlyClients) {
+			let matchingRealClients = [];
+			const noteOnlyName = noteOnly.fullName.toLowerCase();
+
+			for (const real of realClients) {
+				const realName = real.fullName.toLowerCase();
+				const distance = levDistance(noteOnlyName, realName);
+
+				if (
+					distance <= 3 ||
+					(noteOnlyName.includes(realName) &&
+						noteOnlyName.length - realName.length <= 4) ||
+					(realName.includes(noteOnlyName) &&
+						realName.length - noteOnlyName.length <= 4)
+				) {
+					matchingRealClients.push({ ...real, distance });
+				}
+			}
+
+			if (matchingRealClients.length > 0) {
+				const exactMatches = matchingRealClients.filter(
+					(c) => c.distance === 0,
+				);
+				if (exactMatches.length > 0) {
+					matchingRealClients = exactMatches;
+				}
+
+				suggestions.push({
+					noteOnlyClient: noteOnly,
+					suggestedRealClients: matchingRealClients
+						.sort((a, b) => a.distance - b.distance)
+						.slice(0, 5), // Limit to top 5 suggestions
+				});
+			}
+		}
+
+		return suggestions;
 	}),
 
 	getNoDriveIdErrors: protectedProcedure.query(async ({ ctx }) => {
@@ -863,6 +920,13 @@ export const clientRouter = createTRPCRouter({
 			}),
 		)
 		.mutation(async ({ ctx, input }) => {
+			if (!hasPermission(ctx.session.user.permissions, "clients:merge")) {
+				throw new TRPCError({
+					code: "UNAUTHORIZED",
+					message: "You do not have permission to merge clients.",
+				});
+			}
+
 			log.info({ user: ctx.session.user, ...input }, "Merging shell client");
 
 			const { clientId, fakeClientId } = input;

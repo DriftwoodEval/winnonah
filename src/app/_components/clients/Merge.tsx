@@ -1,20 +1,19 @@
 "use client";
-import { Dialog, DialogContent, DialogTitle, DialogTrigger } from "@ui/dialog";
-import { ArrowLeft, ArrowUp } from "lucide-react";
-import { useMemo, useState } from "react";
-import { toast } from "sonner";
-import { NameSearchInput } from "~/app/_components/clients/NameSearchInput";
-import { SelectableClientsList } from "~/app/_components/clients/SelectableClientsList";
-import { Button } from "~/app/_components/ui/button";
-import { Skeleton } from "~/app/_components/ui/skeleton";
-import { useMediaQuery } from "~/hooks/use-media-query";
+
+import { MergePreviewDialog } from "@components/clients/MergePreviewDialog";
+import { NameSearchInput } from "@components/clients/NameSearchInput";
+import { SelectableClientsList } from "@components/clients/SelectableClientsList";
+import { Button } from "@ui/button";
+import { Skeleton } from "@ui/skeleton";
+import { useSearchParams } from "next/navigation";
+import { useEffect, useMemo, useState } from "react";
 import type { SortedClient } from "~/lib/types";
 import { api } from "~/trpc/react";
-import { Client } from "../client/Client";
 
 export function Merge() {
-	const utils = api.useUtils();
-	const isDesktop = useMediaQuery("(min-width: 768px)");
+	const searchParams = useSearchParams();
+	const realHash = searchParams.get("real");
+	const fakeHash = searchParams.get("fake");
 
 	const [
 		debouncedNameForImportedClientsQuery,
@@ -23,6 +22,16 @@ export function Merge() {
 
 	const [debouncedNameForNotesQuery, setDebouncedNameForNotesQuery] =
 		useState("");
+
+	const { data: preSelectedReal } = api.clients.getOne.useQuery(
+		{ column: "hash", value: realHash ?? "" },
+		{ enabled: !!realHash },
+	);
+
+	const { data: preSelectedFake } = api.clients.getOne.useQuery(
+		{ column: "hash", value: fakeHash ?? "" },
+		{ enabled: !!fakeHash },
+	);
 
 	const finalImportedClientsNameSearch = useMemo(
 		() =>
@@ -64,32 +73,45 @@ export function Merge() {
 		},
 	);
 
-	const clients = importedClientsQuery?.clients;
+	const clients = useMemo(() => {
+		const baseClients = importedClientsQuery?.clients ?? [];
+		if (
+			preSelectedReal &&
+			!baseClients.some((c) => c.id === preSelectedReal.id)
+		) {
+			return [preSelectedReal, ...baseClients] as SortedClient[];
+		}
+		return baseClients as SortedClient[];
+	}, [importedClientsQuery, preSelectedReal]);
+
 	const [selectedClient, setSelectedClient] = useState<SortedClient | null>(
 		null,
 	);
 
-	const notes = notesQuery?.clients;
+	const notes = useMemo(() => {
+		const baseNotes = notesQuery?.clients ?? [];
+		if (
+			preSelectedFake &&
+			!baseNotes.some((c) => c.id === preSelectedFake.id)
+		) {
+			return [preSelectedFake, ...baseNotes] as SortedClient[];
+		}
+		return baseNotes as SortedClient[];
+	}, [notesQuery, preSelectedFake]);
 
 	const [selectedNote, setSelectedNote] = useState<SortedClient | null>(null);
 
-	const [mergeDialogOpen, setMergeDialogOpen] = useState(false);
+	useEffect(() => {
+		if (preSelectedReal) {
+			setSelectedClient(preSelectedReal as unknown as SortedClient);
+		}
+	}, [preSelectedReal]);
 
-	const { mutate: replaceNotes } = api.clients.replaceNotes.useMutation({
-		onSuccess: (data) => {
-			utils.clients.search.invalidate({ type: "note" });
-			toast.success("Merged successfully!", {
-				description: String(data.message),
-			});
-			setMergeDialogOpen(false);
-		},
-		onError: (error) => {
-			toast.error("Failed to replace notes", {
-				description: String(error.message),
-				duration: 10000,
-			});
-		},
-	});
+	useEffect(() => {
+		if (preSelectedFake) {
+			setSelectedNote(preSelectedFake as unknown as SortedClient);
+		}
+	}, [preSelectedFake]);
 
 	return (
 		<div className="mx-4 flex w-full flex-col items-center justify-center gap-4 lg:flex-row lg:gap-8">
@@ -121,51 +143,20 @@ export function Merge() {
 				)}
 			</div>
 
-			<Dialog onOpenChange={setMergeDialogOpen} open={mergeDialogOpen}>
-				<DialogTrigger
-					asChild
+			<MergePreviewDialog
+				fakeClient={selectedNote}
+				onSuccess={() => {
+					setSelectedNote(null);
+				}}
+				realClient={selectedClient}
+			>
+				<Button
 					disabled={selectedClient === null || selectedNote === null}
+					size="lg"
 				>
-					<Button size="lg">Preview Merge</Button>
-				</DialogTrigger>
-				<DialogContent className="max-h-[calc(100vh-4rem)] max-w-fit overflow-x-hidden overflow-y-scroll sm:max-w-fit">
-					<DialogTitle>Preview Merge</DialogTitle>
-					<div className="flex w-full min-w-[calc(100vw-5rem)] flex-col justify-between gap-10 md:flex-row lg:min-w-5xl">
-						<Client hash={selectedClient?.hash ?? ""} readOnly />
-						<div className="flex flex-col items-center gap-4">
-							<Button
-								onClick={() =>
-									selectedClient?.id !== undefined &&
-									selectedNote?.id !== undefined &&
-									replaceNotes({
-										clientId: selectedClient?.id,
-										fakeClientId: selectedNote?.id,
-									})
-								}
-							>
-								<ArrowLeft className="hidden sm:block" />
-								<ArrowUp className="sm:hidden" />
-								Append Notes & Delete Fake
-							</Button>
-							<div className="flex flex-col items-center gap-4">
-								<p className="max-w-[20ch] text-muted-foreground text-sm">
-									Notes from the client on the
-									{isDesktop ? " right " : " bottom "}
-									will be added to the end of the notes of the client on the
-									{isDesktop ? " left" : " top"}.
-								</p>
-								<p className="max-w-[20ch] text-muted-foreground text-sm">
-									The title of the notes on the
-									{isDesktop ? " right " : " bottom "}
-									will replace the title of the notes on the
-									{isDesktop ? " left" : " top"}.
-								</p>
-							</div>
-						</div>
-						<Client hash={selectedNote?.hash ?? ""} readOnly />
-					</div>
-				</DialogContent>
-			</Dialog>
+					Preview Merge
+				</Button>
+			</MergePreviewDialog>
 
 			<div className="flex w-full flex-col gap-3 lg:w-1/3">
 				<h2 className="font-semibold text-xl">Notes Only</h2>
