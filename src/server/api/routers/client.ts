@@ -564,7 +564,7 @@ export const clientRouter = createTRPCRouter({
 			.where(
 				or(
 					and(
-						eq(clients.recordsNeeded, true),
+						eq(clients.recordsNeeded, "Needed"),
 						lt(externalRecords.requested, threeDaysAgo),
 						eq(externalRecords.needsSecondRequest, false),
 						isNull(externalRecords.content),
@@ -678,7 +678,7 @@ export const clientRouter = createTRPCRouter({
 				eiAttends: z.boolean().optional(),
 				driveId: z.string().optional(),
 				status: z.boolean().optional(),
-				recordsNeeded: z.boolean().optional(),
+				recordsNeeded: z.enum(["Needed", "Not Needed"]).optional(),
 				ifsp: z.boolean().optional(),
 				ifspDownloaded: z.boolean().optional(),
 			}),
@@ -757,7 +757,7 @@ export const clientRouter = createTRPCRouter({
 				flag?: string | null;
 				driveId?: string | null;
 				status?: boolean;
-				recordsNeeded?: boolean;
+				recordsNeeded?: "Needed" | "Not Needed";
 				ifsp?: boolean;
 				ifspDownloaded?: boolean;
 			} = {};

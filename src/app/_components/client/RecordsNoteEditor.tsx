@@ -127,7 +127,7 @@ export function RecordsNoteEditor({
 		},
 	});
 
-	// Fetch Client for the "recordsNeeded" checkbox
+	// Fetch Client for the "recordsNeeded" dropdown
 	const { data: client, isLoading: isLoadingClient } =
 		api.clients.getOne.useQuery(
 			{
@@ -138,7 +138,9 @@ export function RecordsNoteEditor({
 		);
 
 	// States
-	const [recordsNeeded, setRecordsNeeded] = useState(false);
+	const [recordsNeeded, setRecordsNeeded] = useState<
+		"Needed" | "Not Needed" | undefined
+	>();
 	const [firstRequestedDate, setFirstRequestedDate] = useState<
 		Date | undefined
 	>();
@@ -149,7 +151,7 @@ export function RecordsNoteEditor({
 	const [localContent, setLocalContent] = useState(record?.contentJson ?? "");
 
 	useEffect(() => {
-		setRecordsNeeded(client?.recordsNeeded ?? false);
+		setRecordsNeeded(client?.recordsNeeded as "Needed" | "Not Needed");
 	}, [client?.recordsNeeded]);
 
 	useEffect(() => {
@@ -282,16 +284,15 @@ export function RecordsNoteEditor({
 		</Button>
 	);
 
-	const handleNeededChange = (checked: CheckedState) => {
-		const newCheckedState = checked === "indeterminate" ? false : checked;
-
-		setRecordsNeeded(newCheckedState);
+	const handleNeededChange = (value: string) => {
+		const newValue = value as "Needed" | "Not Needed";
+		setRecordsNeeded(newValue);
 
 		if (!clientId) return;
 
 		updateClientMutation.mutate({
 			clientId: clientId,
-			recordsNeeded: newCheckedState,
+			recordsNeeded: newValue,
 		});
 	};
 
@@ -403,11 +404,12 @@ export function RecordsNoteEditor({
 	const isLoading = isLoadingRecord || isLoadingClient;
 	const canEditRecordsNeeded =
 		canRecordsNeeded && !readOnly && !firstRequestedDate;
-	const canEditFirstDate = canRecordRequested && !readOnly && recordsNeeded;
+	const canEditFirstDate =
+		canRecordRequested && !readOnly && recordsNeeded === "Needed";
 	const canEditSecondNeeded =
 		canRecordsNeeded &&
 		!readOnly &&
-		recordsNeeded &&
+		recordsNeeded === "Needed" &&
 		!!firstRequestedDate &&
 		!secondRequestDate;
 	const canEditSecondDate =
@@ -415,15 +417,19 @@ export function RecordsNoteEditor({
 
 	// Text Editor is editable if records are needed, a request was made, and not read-only
 	const isEditorReadOnly =
-		!canRecordNote || readOnly || !recordsNeeded || !firstRequestedDate;
+		!canRecordNote ||
+		readOnly ||
+		recordsNeeded !== "Needed" ||
+		!firstRequestedDate;
 
 	const tooltipRecordsNeeded = firstRequestedDate
 		? "The request date is already set."
 		: !canRecordNote && "Missing permissions.";
 
-	const tooltipFirstDate = !recordsNeeded
-		? "The 'Needed' flag must be set first."
-		: !canRecordNote && "Missing permissions.";
+	const tooltipFirstDate =
+		recordsNeeded !== "Needed"
+			? "The 'Needed' flag must be set first."
+			: !canRecordNote && "Missing permissions.";
 
 	const tooltipSecondNeeded = !firstRequestedDate
 		? "The first request date must be set before requesting again."
@@ -470,15 +476,19 @@ export function RecordsNoteEditor({
 					<h4 className="font-bold leading-none">School Records</h4>
 					<Tooltip>
 						<TooltipTrigger>
-							<div className="flex items-center gap-2">
-								<Checkbox
-									checked={recordsNeeded}
-									disabled={!canEditRecordsNeeded}
-									id={recordsNeededId}
-									onCheckedChange={handleNeededChange}
-								/>
-								<Label htmlFor={recordsNeededId}>Needed</Label>
-							</div>
+							<Select
+								disabled={!canEditRecordsNeeded}
+								onValueChange={handleNeededChange}
+								value={recordsNeeded ?? ""}
+							>
+								<SelectTrigger id={recordsNeededId}>
+									<SelectValue placeholder="Records Needed?" />
+								</SelectTrigger>
+								<SelectContent>
+									<SelectItem value="Not Needed">Not Needed</SelectItem>
+									<SelectItem value="Needed">Needed</SelectItem>
+								</SelectContent>
+							</Select>
 						</TooltipTrigger>
 						{!canEditRecordsNeeded && !readOnly && (
 							<TooltipContent>

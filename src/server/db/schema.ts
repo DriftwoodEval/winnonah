@@ -255,7 +255,7 @@ export const clients = createTable(
 		eiAttends: d.boolean().notNull().default(false),
 		flag: d.varchar({ length: 255 }),
 		taHash: d.varchar({ length: 255 }),
-		recordsNeeded: d.boolean().notNull().default(false),
+		recordsNeeded: d.mysqlEnum("recordsNeeded", ["Needed", "Not Needed"]),
 		ifsp: d.boolean().notNull().default(false),
 		ifspDownloaded: d.boolean().notNull().default(false),
 	}),
