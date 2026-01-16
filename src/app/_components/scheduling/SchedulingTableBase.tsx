@@ -18,6 +18,7 @@ import {
 	SelectValue,
 } from "@components/ui/select";
 import { TableCell, TableHead, TableRow } from "@components/ui/table";
+import { Textarea } from "@components/ui/textarea";
 import { Circle, Filter } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
@@ -271,6 +272,7 @@ export function SchedulingTableHeader({
 			filterLabel: "Color",
 		},
 		{ key: "evaluator", label: "Evaluator" },
+		{ key: "notes", label: "Notes", noFilter: true },
 		{ key: "date", label: "Date" },
 		{ key: "time", label: "Time" },
 		{ key: "asdAdhd", label: "ASD/ADHD" },
@@ -280,7 +282,6 @@ export function SchedulingTableHeader({
 		{ key: "district", label: "District" },
 		{ key: "paDate", label: "PA Date" },
 		{ key: "age", label: "Age" },
-		{ key: "notes", label: "Notes", noFilter: true },
 	];
 
 	return (
@@ -412,6 +413,27 @@ export function SchedulingTableRow({
 				/>
 			</TableCell>
 
+			<TableCell className="min-w-[200px] max-w-[200px]">
+				{isEditable ? (
+					<Textarea
+						className="max-h-[2.5rem] min-h-[2.5rem] resize-none transition-all duration-200 focus:min-h-[10rem]"
+						onBlur={() =>
+							onUpdate?.(scheduledClient.clientId, {
+								notes: localNotes,
+							})
+						}
+						onChange={(e) => setLocalNotes(e.target.value)}
+						value={localNotes}
+					/>
+				) : (
+					<Textarea
+						className="max-h-[2.5rem] min-h-[2.5rem] resize-none transition-all duration-200 focus:min-h-[10rem]"
+						readOnly
+						value={scheduledClient.notes || ""}
+					/>
+				)}
+			</TableCell>
+
 			<TableCell className="min-w-[100px]">
 				{isEditable ? (
 					<Input
@@ -538,24 +560,6 @@ export function SchedulingTableRow({
 				{scheduledClient.client.dob
 					? formatClientAge(scheduledClient.client.dob, "short")
 					: ""}
-			</TableCell>
-
-			<TableCell
-				className={isEditable ? "min-w-[300px]" : "max-w-[300px] truncate"}
-			>
-				{isEditable ? (
-					<Input
-						onBlur={() =>
-							onUpdate?.(scheduledClient.clientId, {
-								notes: localNotes,
-							})
-						}
-						onChange={(e) => setLocalNotes(e.target.value)}
-						value={localNotes}
-					/>
-				) : (
-					scheduledClient.notes || "-"
-				)}
 			</TableCell>
 
 			<TableCell>{actions}</TableCell>
