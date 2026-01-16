@@ -208,7 +208,7 @@ def put_clients_in_db(clients_df):
 
         values = (
             client_id,
-            hashlib.sha256(str(client_id).encode("utf-8")).hexdigest(),
+            hashlib.md5(str(client_id).encode("utf-8")).hexdigest(),
             get_column(client, "STATUS") != "Inactive",
             added_date_formatted,
             dob_formatted,
