@@ -686,12 +686,29 @@ const NoteOnlyList = ({
 };
 
 export function IssuesList() {
+	const utils = api.useUtils();
 	const { data: districtErrors, isLoading: isLoadingDistrictErrors } =
 		api.clients.getDistrictErrors.useQuery();
 	const { clientsWithoutDistrict = [], clientsWithDistrictFromShapefile = [] } =
 		districtErrors ?? {};
 	const { data: babyNetErrors, isLoading: isLoadingBabyNetErrors } =
 		api.clients.getBabyNetErrors.useQuery();
+
+	const { mutate: autoUpdateBabyNet } =
+		api.clients.autoUpdateBabyNet.useMutation({
+			onSuccess: (data) => {
+				if (data.count > 0) {
+					utils.clients.getBabyNetErrors.invalidate();
+				}
+			},
+		});
+
+	useEffect(() => {
+		if (babyNetErrors && babyNetErrors.length > 0) {
+			autoUpdateBabyNet();
+		}
+	}, [babyNetErrors, autoUpdateBabyNet]);
+
 	const { data: notInTAErrors, isLoading: isLoadingNotInTAErrors } =
 		api.clients.getNotInTAErrors.useQuery();
 	const { data: dropList, isLoading: isLoadingDropList } =

@@ -271,6 +271,13 @@ export const clientRouter = createTRPCRouter({
 			orderBy: clients.addedDate,
 		});
 
+		return clientsTooOldForBabyNet;
+	}),
+
+	autoUpdateBabyNet: protectedProcedure.mutation(async ({ ctx }) => {
+		const ageOutDate = new Date();
+		ageOutDate.setFullYear(ageOutDate.getFullYear() - 3); // 3 years old
+
 		// Discussed in meeting on 9/11/25: Automatically disable BabyNet bool for clients that age out
 		const clientsTooOldForBabyNetBool = await ctx.db.query.clients.findMany({
 			where: and(
@@ -280,6 +287,10 @@ export const clientRouter = createTRPCRouter({
 			),
 		});
 
+		if (clientsTooOldForBabyNetBool.length === 0) {
+			return { count: 0 };
+		}
+
 		for (const client of clientsTooOldForBabyNetBool) {
 			await ctx.db
 				.update(clients)
@@ -287,7 +298,7 @@ export const clientRouter = createTRPCRouter({
 				.where(eq(clients.id, client.id));
 		}
 
-		return clientsTooOldForBabyNet;
+		return { count: clientsTooOldForBabyNetBool.length };
 	}),
 
 	getNotInTAErrors: protectedProcedure.query(async ({ ctx }) => {
