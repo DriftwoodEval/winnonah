@@ -9,6 +9,7 @@ import {
 	externalRecordHistory,
 	externalRecords,
 	users,
+	clients,
 } from "~/server/db/schema";
 
 const log = logger.child({ module: "ExternalRecordsApi" });
@@ -22,6 +23,32 @@ const areContentsEqual = (current: any, incoming: any): boolean => {
 		return false; // Treat undefined as a change if the other is defined
 	}
 	return JSON.stringify(current) === JSON.stringify(incoming);
+};
+
+// biome-ignore lint/suspicious/noExplicitAny: JSON
+const extractTextFromTiptapJson = (tiptapJson: any): string => {
+	if (
+		!tiptapJson ||
+		typeof tiptapJson !== "object" ||
+		!Array.isArray(tiptapJson.content)
+	) {
+		return "";
+	}
+
+	let fullText = "";
+
+	// biome-ignore lint/suspicious/noExplicitAny: JSON
+	const traverse = (node: any) => {
+		if (node.type === "text" && node.text) {
+			fullText += node.text;
+		}
+		if (node.content && Array.isArray(node.content)) {
+			node.content.forEach(traverse);
+		}
+	};
+
+	tiptapJson.content.forEach(traverse);
+	return fullText;
 };
 
 export const externalRecordRouter = createTRPCRouter({
@@ -313,6 +340,14 @@ export const externalRecordRouter = createTRPCRouter({
 							updatedBy: ctx.session.user.email,
 						})
 						.where(eq(externalRecords.clientId, input.clientId));
+
+					const textContent = extractTextFromTiptapJson(newContent);
+					if (textContent.includes("autism is listed in the records")) {
+						await tx
+							.update(clients)
+							.set({ autismStop: true })
+							.where(eq(clients.id, input.clientId));
+					}
 				});
 
 				const updatedNote = await ctx.db.query.externalRecords.findFirst({
@@ -371,6 +406,14 @@ export const externalRecordRouter = createTRPCRouter({
 			};
 
 			await ctx.db.insert(externalRecords).values(notePayload);
+
+			const textContent = extractTextFromTiptapJson(input.contentJson);
+			if (textContent.includes("autism is listed in the records")) {
+				await ctx.db
+					.update(clients)
+					.set({ autismStop: true })
+					.where(eq(clients.id, input.clientId));
+			}
 
 			const newRecordNote = await ctx.db.query.externalRecords.findFirst({
 				where: eq(externalRecords.clientId, input.clientId),
