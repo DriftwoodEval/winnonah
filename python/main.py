@@ -298,16 +298,9 @@ def main():
 
     utils.config.validate_config()
 
-    if (
-        not os.getenv("DEV_TOGGLE")
-        and not args.openphone
-        and not args.download_only
-        and not args.referrals
-        and not args.drive_ids
-        and not args.save_ta_hashes
-        and not args.client_name
-        and not args.client_id
-    ):
+    trigger_args = [args.openphone, args.download_only]
+
+    if not os.getenv("DEV_TOGGLE") or any(trigger_args):
         logger.debug("Removing temp directory")
         shutil.rmtree("temp", ignore_errors=True)
 
