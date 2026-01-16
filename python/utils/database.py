@@ -1,5 +1,6 @@
 import hashlib
 import os
+from contextlib import contextmanager
 from datetime import date, datetime
 from typing import Literal
 from urllib.parse import urlparse
@@ -36,15 +37,20 @@ def get_db():
     return connection
 
 
-def filter_clients_with_changed_address(clients: pd.DataFrame) -> pd.DataFrame:
-    """Identifies clients with new or changed addresses by comparing them to records in the database. Also, filters out clients with no address.
+@contextmanager
+def db_session():
+    """Context manager for database connections."""
+    connection = get_db()
+    try:
+        yield connection
+    finally:
+        connection.close()
 
-    Args:
-      clients (pd.DataFrame): A DataFrame of client data from TA.
 
-    Returns:
-        pd.DataFrame: A DataFrame of clients with new or changed addresses.
-    """
+def filter_clients_with_changed_address(
+    clients: pd.DataFrame, connection=None
+) -> pd.DataFrame:
+    """Identifies clients with new or changed addresses by comparing them to records in the database. Also, filters out clients with no address."""
     initial_count = len(clients)
     clients_with_address = clients.dropna(subset=["ADDRESS"])
     clients_with_address = clients_with_address[
@@ -58,11 +64,15 @@ def filter_clients_with_changed_address(clients: pd.DataFrame) -> pd.DataFrame:
         logger.debug("No clients with an address to process.")
         return clients_with_address
 
-    db_connection = get_db()
-    with db_connection:
-        with db_connection.cursor() as cursor:
+    if connection:
+        with connection.cursor() as cursor:
             cursor.execute("SELECT id, address FROM emr_client")
             db_addresses = pd.DataFrame(cursor.fetchall())
+    else:
+        with db_session() as db_connection:
+            with db_connection.cursor() as cursor:
+                cursor.execute("SELECT id, address FROM emr_client")
+                db_addresses = pd.DataFrame(cursor.fetchall())
 
     if db_addresses.empty:
         logger.debug(
@@ -107,14 +117,19 @@ def filter_clients_with_changed_address(clients: pd.DataFrame) -> pd.DataFrame:
     ].copy()
 
 
-def get_all_clients() -> pd.DataFrame:
+def get_all_clients(connection=None) -> pd.DataFrame:
     """Fetches all clients from the database that do not have an ID of 5 characters."""
-    db_connection = get_db()
-    with db_connection:
-        with db_connection.cursor() as cursor:
+    if connection:
+        with connection.cursor() as cursor:
             cursor.execute("SELECT * FROM emr_client WHERE LENGTH(id) != 5")
-            clients = cursor.fetchall()
-            df = pd.DataFrame(clients)
+            clients_data = cursor.fetchall()
+    else:
+        with db_session() as db_connection:
+            with db_connection.cursor() as cursor:
+                cursor.execute("SELECT * FROM emr_client WHERE LENGTH(id) != 5")
+                clients_data = cursor.fetchall()
+
+    df = pd.DataFrame(clients_data) if clients_data else pd.DataFrame()
 
     column_mapping = {
         "id": "CLIENT_ID",
@@ -157,14 +172,14 @@ def get_all_clients() -> pd.DataFrame:
         "taHash": "TA_HASH",
     }
 
-    df.rename(columns=column_mapping, inplace=True)
+    if not df.empty:
+        df.rename(columns=column_mapping, inplace=True)
     return df
 
 
-def put_clients_in_db(clients_df):
+def put_clients_in_db(clients_df, connection=None):
     """Inserts or updates client data in the database from a DataFrame."""
     logger.debug("Inserting clients into database")
-    db_connection = get_db()
 
     values_to_insert = []
 
@@ -289,35 +304,44 @@ def put_clients_in_db(clients_df):
             flag = VALUES(flag);
     """
 
-    with db_connection:
-        with db_connection.cursor() as cursor:
+    if connection:
+        with connection.cursor() as cursor:
             cursor.executemany(sql, values_to_insert)
-        db_connection.commit()
+        connection.commit()
+    else:
+        with db_session() as db_connection:
+            with db_connection.cursor() as cursor:
+                cursor.executemany(sql, values_to_insert)
+            db_connection.commit()
 
     logger.info(f"Successfully inserted/updated {len(values_to_insert)} clients.")
 
 
-def update_client_ta_hashes(hashes_to_update: dict[str, str]) -> None:
+def update_client_ta_hashes(hashes_to_update: dict[str, str], connection=None) -> None:
     """Updates taHash for multiple clients in a single transaction."""
     if not hashes_to_update:
         return
 
-    db_connection = get_db()
-
     updates_for_executemany = [(v, k) for k, v in hashes_to_update.items()]
+    sql = "UPDATE emr_client SET taHash = %s WHERE id = %s"
 
-    with db_connection:
-        with db_connection.cursor() as cursor:
-            sql = "UPDATE emr_client SET taHash = %s WHERE id = %s"
+    def _execute(conn):
+        with conn.cursor() as cursor:
             try:
                 cursor.executemany(sql, updates_for_executemany)
-                db_connection.commit()
+                conn.commit()
                 logger.info(
                     f"Successfully updated taHash for {len(updates_for_executemany)} clients."
                 )
             except Exception as e:
                 logger.error(f"Failed to update taHashes: {e}")
-                db_connection.rollback()
+                conn.rollback()
+
+    if connection:
+        _execute(connection)
+    else:
+        with db_session() as db_connection:
+            _execute(db_connection)
 
 
 def put_appointment_in_db(
@@ -332,56 +356,53 @@ def put_appointment_in_db(
     cancelled: bool | None = False,
     location: str | None = None,
     gcal_event_id: str | None = None,
+    connection=None,
 ):
     """Inserts an appointment into the database."""
-    db_connection = get_db()
-
-    with db_connection:
-        with db_connection.cursor() as cursor:
-            sql = """
-                INSERT INTO `emr_appointment` (id, clientId, evaluatorNpi, startTime, endTime, daEval, asdAdhd, cancelled, locationKey, calendarEventId)
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-                ON DUPLICATE KEY UPDATE
-                    clientId = VALUES(clientId),
-                    evaluatorNpi = VALUES(evaluatorNpi),
-                    startTime = VALUES(startTime),
-                    endTime = VALUES(endTime),
-                    daEval = CASE WHEN VALUES(daEval) IS NOT NULL THEN VALUES(daEval) ELSE daEval END,
-                    asdAdhd = CASE WHEN VALUES(asdAdhd) IS NOT NULL THEN VALUES(asdAdhd) ELSE asdAdhd END,
-                    cancelled = VALUES(cancelled),
-                    locationKey = CASE WHEN VALUES(locationKey) IS NOT NULL THEN VALUES(locationKey) ELSE locationKey END,
-                    calendarEventId = CASE WHEN VALUES(calendarEventId) IS NOT NULL THEN VALUES(calendarEventId) ELSE calendarEventId END;
-            """
-            cursor.execute(
-                sql,
-                (
-                    appointment_id,
-                    client_id,
-                    evaluator_npi,
-                    start_time,
-                    end_time,
-                    da_eval,
-                    asd_adhd,
-                    cancelled,
-                    location,
-                    gcal_event_id,
-                ),
-            )
-            db_connection.commit()
-
-
-def get_evaluators_with_blocked_locations():
-    """Fetches evaluators from the database, including their blocked zip codes and school districts.
-
-    Returns:
-        dict: A dictionary of evaluators, keyed by NPI, with their details
-              and lists of blocked school districts and zip codes.
+    sql = """
+        INSERT INTO `emr_appointment` (id, clientId, evaluatorNpi, startTime, endTime, daEval, asdAdhd, cancelled, locationKey, calendarEventId)
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+        ON DUPLICATE KEY UPDATE
+            clientId = VALUES(clientId),
+            evaluatorNpi = VALUES(evaluatorNpi),
+            startTime = VALUES(startTime),
+            endTime = VALUES(endTime),
+            daEval = CASE WHEN VALUES(daEval) IS NOT NULL THEN VALUES(daEval) ELSE daEval END,
+            asdAdhd = CASE WHEN VALUES(asdAdhd) IS NOT NULL THEN VALUES(asdAdhd) ELSE asdAdhd END,
+            cancelled = VALUES(cancelled),
+            locationKey = CASE WHEN VALUES(locationKey) IS NOT NULL THEN VALUES(locationKey) ELSE locationKey END,
+            calendarEventId = CASE WHEN VALUES(calendarEventId) IS NOT NULL THEN VALUES(calendarEventId) ELSE calendarEventId END;
     """
-    db_connection = get_db()
+    params = (
+        appointment_id,
+        client_id,
+        evaluator_npi,
+        start_time,
+        end_time,
+        da_eval,
+        asd_adhd,
+        cancelled,
+        location,
+        gcal_event_id,
+    )
+
+    if connection:
+        with connection.cursor() as cursor:
+            cursor.execute(sql, params)
+            connection.commit()
+    else:
+        with db_session() as db_connection:
+            with db_connection.cursor() as cursor:
+                cursor.execute(sql, params)
+                db_connection.commit()
+
+
+def get_evaluators_with_blocked_locations(connection=None):
+    """Fetches evaluators from the database, including their blocked zip codes and school districts."""
     evaluators = {}
 
-    try:
-        with db_connection.cursor() as cursor:
+    def _fetch(conn):
+        with conn.cursor() as cursor:
             sql_evaluators = "SELECT * FROM emr_evaluator"
             cursor.execute(sql_evaluators)
             for row in cursor.fetchall():
@@ -435,72 +456,66 @@ def get_evaluators_with_blocked_locations():
                 if npi in evaluators:
                     evaluators[npi][row["shortName"]] = True
 
+    try:
+        if connection:
+            _fetch(connection)
+        else:
+            with db_session() as db_connection:
+                _fetch(db_connection)
     except Exception as e:
         logger.error(f"Database error while fetching evaluators: {e}")
         return {}
-    finally:
-        db_connection.close()
 
     return evaluators
 
 
-def _get_existing_client_eval_links() -> dict[str, set[str]]:
-    """Gets all existing client-evaluator relationships from the database.
-
-    Returns:
-        Dict mapping client_id -> set of evaluator NPIs
-    """
-    db_connection = get_db()
+def _get_existing_client_eval_links(connection=None) -> dict[str, set[str]]:
+    """Gets all existing client-evaluator relationships from the database."""
     existing_links = {}
 
-    with db_connection:
-        with db_connection.cursor() as cursor:
+    def _fetch(conn):
+        with conn.cursor() as cursor:
             sql = "SELECT clientId, evaluatorNpi FROM emr_client_eval"
             try:
                 cursor.execute(sql)
                 results = cursor.fetchall()
-
-                # Iterate over each dictionary (row) in the results
                 for row in results:
-                    client_id = row["clientId"]
-                    evaluator_npi = row["evaluatorNpi"]
-
-                    client_id_str = str(client_id)
-                    evaluator_npi_str = str(evaluator_npi)
-
+                    client_id_str = str(row["clientId"])
+                    evaluator_npi_str = str(row["evaluatorNpi"])
                     if client_id_str not in existing_links:
                         existing_links[client_id_str] = set()
                     existing_links[client_id_str].add(evaluator_npi_str)
-
                 logger.debug(
                     f"Found {len(results)} existing client-evaluator relationships"
                 )
             except Exception as e:
                 logger.error(f"Failed to fetch existing relationships: {e}")
 
+    if connection:
+        _fetch(connection)
+    else:
+        with db_session() as db_connection:
+            _fetch(db_connection)
+
     return existing_links
 
 
-def _delete_client_eval_links(client_id: str, evaluator_npis: set[str]) -> None:
-    """Deletes specific client-evaluator relationships from the database.
-
-    Args:
-        client_id (str): The client ID
-        evaluator_npis (Set[str]): Set of evaluator NPIs ro remove for this client
-    """
+def _delete_client_eval_links(
+    client_id: str, evaluator_npis: set[str], connection=None
+) -> None:
+    """Deletes specific client-evaluator relationships from the database."""
     if not evaluator_npis:
         return
 
-    db_connection = get_db()
-    with db_connection:
-        with db_connection.cursor() as cursor:
-            # Create placeholders for the IN clause
-            placeholders = ",".join(["%s"] * len(evaluator_npis))
-            sql = f"DELETE FROM emr_client_eval WHERE clientId = %s AND evaluatorNpi IN ({placeholders})"
+    placeholders = ",".join(["%s"] * len(evaluator_npis))
+    sql = f"DELETE FROM emr_client_eval WHERE clientId = %s AND evaluatorNpi IN ({placeholders})"
+    params = [client_id] + list(evaluator_npis)
 
+    def _execute(conn):
+        with conn.cursor() as cursor:
             try:
-                cursor.execute(sql, [client_id] + list(evaluator_npis))
-                db_connection.commit()
+                cursor.execute(sql, params)
+                conn.commit()
                 logger.debug(
                     f"Deleted {len(evaluator_npis)} relationships for client {client_id}"
                 )
@@ -508,84 +523,87 @@ def _delete_client_eval_links(client_id: str, evaluator_npis: set[str]) -> None:
                 logger.error(
                     f"Failed to delete relationships for client {client_id}: {e}"
                 )
-                db_connection.rollback()
+                conn.rollback()
+
+    if connection:
+        _execute(connection)
+    else:
+        with db_session() as db_connection:
+            _execute(db_connection)
 
 
-def _insert_client_eval_links(client_id: str, evaluator_npis: set[str]) -> None:
-    """Inserts specific client-evaluator relationships.
-
-    Args:
-        client_id: The client ID
-        evaluator_npis: Set of evaluator NPIs to add for this client
-    """
+def _insert_client_eval_links(
+    client_id: str, evaluator_npis: set[str], connection=None
+) -> None:
+    """Inserts specific client-evaluator relationships."""
     if not evaluator_npis:
         return
 
     for npi in evaluator_npis:
-        _link_client_provider(client_id, npi)
+        _link_client_provider(client_id, npi, connection=connection)
 
 
-def _delete_all_relationships_for_clients(client_ids: set[str]) -> None:
-    """Deletes all relationships for specific clients.
-
-    Args:
-        client_ids: Set of client IDs to clear all relationships for
-    """
+def _delete_all_relationships_for_clients(
+    client_ids: set[str], connection=None
+) -> None:
+    """Deletes all relationships for specific clients."""
     if not client_ids:
         return
 
-    db_connection = get_db()
-    with db_connection:
-        with db_connection.cursor() as cursor:
-            placeholders = ",".join(["%s"] * len(client_ids))
-            sql = f"DELETE FROM emr_client_eval WHERE clientId IN ({placeholders})"
+    placeholders = ",".join(["%s"] * len(client_ids))
+    sql = f"DELETE FROM emr_client_eval WHERE clientId IN ({placeholders})"
+    params = list(client_ids)
 
+    def _execute(conn):
+        with conn.cursor() as cursor:
             try:
-                cursor.execute(sql, list(client_ids))
+                cursor.execute(sql, params)
                 deleted_count = cursor.rowcount
-                db_connection.commit()
+                conn.commit()
                 logger.debug(
                     f"Deleted {deleted_count} existing relationships for {len(client_ids)} clients"
                 )
             except Exception as e:
                 logger.error(f"Failed to delete relationships for clients: {e}")
-                db_connection.rollback()
+                conn.rollback()
+
+    if connection:
+        _execute(connection)
+    else:
+        with db_session() as db_connection:
+            _execute(db_connection)
 
 
-def _link_client_provider(client_id: str, npi: str) -> None:
+def _link_client_provider(client_id: str, npi: str, connection=None) -> None:
     """Inserts a client-provider link into the database."""
-    db_connection = get_db()
+    sql = """
+    INSERT INTO emr_client_eval (clientId, evaluatorNpi)
+    VALUES (%s, %s)
+    ON DUPLICATE KEY UPDATE
+        clientId = VALUES(clientId),
+        evaluatorNpi = VALUES(evaluatorNpi)
+    """
+    params = (client_id, npi)
 
-    with db_connection:
-        with db_connection.cursor() as cursor:
-            sql = """
-            INSERT INTO emr_client_eval (clientId, evaluatorNpi)
-            VALUES (%s, %s)
-            ON DUPLICATE KEY UPDATE
-                clientId = VALUES(clientId),
-                evaluatorNpi = VALUES(evaluatorNpi)
-            """
-
-            values = (client_id, npi)
-
-            cursor.execute(sql, values)
-
-        db_connection.commit()
+    if connection:
+        with connection.cursor() as cursor:
+            cursor.execute(sql, params)
+            connection.commit()
+    else:
+        with db_session() as db_connection:
+            with db_connection.cursor() as cursor:
+                cursor.execute(sql, params)
+                db_connection.commit()
 
 
 def insert_by_matching_criteria_incremental(
-    clients: pd.DataFrame, evaluators: dict
+    clients: pd.DataFrame, evaluators: dict, connection=None
 ) -> None:
-    """Inserts client-provider links based on matching criteria using incremental updates.
-
-    1. Gets existing relationships from database
-    2. Calculates what the relationships should be for each client
-    3. Only updates relationships that have actually changed
-    """
+    """Inserts client-provider links based on matching criteria using incremental updates."""
     logger.debug("Starting incremental client-evaluator matching...")
 
-    existing_links = _get_existing_client_eval_links()
-    insurance_mappings = get_insurance_mappings()
+    existing_links = _get_existing_client_eval_links(connection=connection)
+    insurance_mappings = get_insurance_mappings(connection=connection)
 
     processed_count = 0
     updated_count = 0
@@ -607,7 +625,6 @@ def insert_by_matching_criteria_incremental(
                 f"Processed {processed_count} clients, updated {updated_count}..."
             )
 
-        # Calculate what the relationships should be
         eligible_evaluators_by_district = utils.relationships.match_by_school_district(
             client, evaluators
         )
@@ -617,32 +634,18 @@ def insert_by_matching_criteria_incremental(
         current_should_be = set(
             set(eligible_evaluators_by_district) & set(eligible_evaluators_by_insurance)
         )
-
-        # Convert to strings for consistency
         current_should_be = {str(npi) for npi in current_should_be}
-
         current_exists = existing_links.get(client_id, set())
 
-        # Calculate differences
-        # print(client_id, current_should_be, current_exists)
         to_add = current_should_be - current_exists
         to_remove = current_exists - current_should_be
 
-        # Only update if there are changes
         if to_add or to_remove:
             updated_count += 1
-
             if to_remove:
-                # logger.debug(
-                #     f"Client {client_id}: Removing {len(to_remove)} relationships"
-                # )
-                _delete_client_eval_links(client_id, to_remove)
-
+                _delete_client_eval_links(client_id, to_remove, connection=connection)
             if to_add:
-                # logger.debug(f"Client {client_id}: Adding {len(to_add)} relationships")
-                _insert_client_eval_links(client_id, to_add)
-
-            # Update our tracking
+                _insert_client_eval_links(client_id, to_add, connection=connection)
             existing_links[client_id] = current_should_be
 
     logger.info(
@@ -651,30 +654,23 @@ def insert_by_matching_criteria_incremental(
 
 
 def insert_by_matching_criteria_client_specific(
-    clients: pd.DataFrame, evaluators: dict, specific_client_ids: set[str]
+    clients: pd.DataFrame,
+    evaluators: dict,
+    specific_client_ids: set[str],
+    connection=None,
 ) -> None:
-    """Updates client-evaluator relationships for specific clients only.
-
-    This is useful when you want to force-update specific clients without
-    affecting all other relationships.
-
-    Args:
-        clients: All clients DataFrame
-        evaluators: Evaluators dictionary
-        specific_client_ids: Set of client IDs to update
-    """
+    """Updates client-evaluator relationships for specific clients only."""
     logger.debug(
         f"Starting client-specific matching for {len(specific_client_ids)} clients..."
     )
 
     specific_client_ids = {str(id).strip() for id in specific_client_ids}
-
     clients_to_process = clients[
         clients["CLIENT_ID"].astype(str).isin(specific_client_ids)
     ]
 
-    _delete_all_relationships_for_clients(specific_client_ids)
-    insurance_mappings = get_insurance_mappings()
+    _delete_all_relationships_for_clients(specific_client_ids, connection=connection)
+    insurance_mappings = get_insurance_mappings(connection=connection)
 
     updated_count = 0
 
@@ -696,7 +692,7 @@ def insert_by_matching_criteria_client_specific(
         )
 
         for npi in matched_evaluator_npis:
-            _link_client_provider(client_id, npi)
+            _link_client_provider(client_id, npi, connection=connection)
 
         updated_count += 1
         full_name = (
@@ -710,41 +706,32 @@ def insert_by_matching_criteria_client_specific(
 
 
 def insert_by_matching_criteria(
-    clients: pd.DataFrame, evaluators: dict, force_client_ids: set[str] | None = None
+    clients: pd.DataFrame,
+    evaluators: dict,
+    force_client_ids: set[str] | None = None,
+    connection=None,
 ) -> None:
-    """Enhanced client-evaluator matching with options for full or partial updates.
-
-    Args:
-        clients: All clients DataFrame
-        evaluators: Evaluators dictionary
-        force_client_ids: If provided, only these clients will be updated.
-                         If None, all clients are processed incrementally.
-    """
+    """Enhanced client-evaluator matching with options for full or partial updates."""
     if force_client_ids:
-        # Update only specific clients (delete and recreate their relationships)
         logger.info(
             f"Force-updating relationships for {len(force_client_ids)} specific clients"
         )
         insert_by_matching_criteria_client_specific(
-            clients, evaluators, force_client_ids
+            clients, evaluators, force_client_ids, connection=connection
         )
     else:
-        # Update all clients incrementally (only change what's different)
         logger.info("Running incremental update for all clients")
-        insert_by_matching_criteria_incremental(clients, evaluators)
+        insert_by_matching_criteria_incremental(
+            clients, evaluators, connection=connection
+        )
 
 
-def get_insurance_mappings() -> dict[str, str]:
-    """Fetches insurance aliases and their canonical short names from the database.
-
-    Returns:
-        dict: A dictionary mapping alias names to canonical short names.
-    """
-    db_connection = get_db()
+def get_insurance_mappings(connection=None) -> dict[str, str]:
+    """Fetches insurance aliases and their canonical short names from the database."""
     mappings = {}
 
-    try:
-        with db_connection.cursor() as cursor:
+    def _fetch(conn):
+        with conn.cursor() as cursor:
             sql = """
                 SELECT
                     ia.name AS alias,
@@ -759,38 +746,45 @@ def get_insurance_mappings() -> dict[str, str]:
             cursor.execute(sql)
             for row in cursor.fetchall():
                 mappings[row["alias"]] = row["shortName"]
-    except Exception as e:
-        logger.error(f"Database error while fetching insurance mappings: {e}")
-    finally:
-        db_connection.close()
+
+    if connection:
+        _fetch(connection)
+    else:
+        with db_session() as db_connection:
+            _fetch(db_connection)
 
     return mappings
 
 
-def get_all_evaluators_npi_map() -> dict[str, int]:
+def get_all_evaluators_npi_map(connection=None) -> dict[str, int]:
     """Gets a map of email (str) to NPI (int) for all evaluators."""
-    db_connection = get_db()
-    try:
-        with db_connection:
+    if connection:
+        with connection.cursor() as cursor:
+            cursor.execute("SELECT npi, email FROM emr_evaluator")
+            results = cursor.fetchall()
+            return {row["email"]: row["npi"] for row in results}
+    else:
+        with db_session() as db_connection:
             with db_connection.cursor() as cursor:
                 cursor.execute("SELECT npi, email FROM emr_evaluator")
                 results = cursor.fetchall()
                 return {row["email"]: row["npi"] for row in results}
-    except Exception as e:
-        logger.exception("Unexpected error while fetching evaluator NPI map")
-        raise
 
 
-def get_npi_to_name_map() -> dict[int, str]:
+def get_npi_to_name_map(connection=None) -> dict[int, str]:
     """Returns a dictionary mapping NPI (int) to Evaluator Name (str)."""
-    db_connection = get_db()
     try:
-        with db_connection:
-            with db_connection.cursor() as cursor:
+        if connection:
+            with connection.cursor() as cursor:
                 cursor.execute("SELECT npi, providerName FROM emr_evaluator")
                 results = cursor.fetchall()
-
                 return {row["npi"]: row["providerName"] for row in results}
+        else:
+            with db_session() as db_connection:
+                with db_connection.cursor() as cursor:
+                    cursor.execute("SELECT npi, providerName FROM emr_evaluator")
+                    results = cursor.fetchall()
+                    return {row["npi"]: row["providerName"] for row in results}
     except Exception:
         logger.exception("Error fetching NPI to Name map")
         return {}

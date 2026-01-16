@@ -408,30 +408,36 @@ def get_ta_hash(driver: WebDriver, actions: ActionChains, client_id: str) -> str
 def save_ta_hashes():
     """Goes to each client's profile and saves their hash from their link."""
     driver, actions = w.initialize_selenium()
-    clients = utils.database.get_all_clients()
 
-    clients_to_update = clients[
-        (clients["TA_HASH"].isna()) | (clients["TA_HASH"] == "NONE")
-    ]
+    with utils.database.db_session() as conn:
+        clients = utils.database.get_all_clients(connection=conn)
 
-    logger.info(f"{len(clients_to_update)} clients to search for TA hashes")
+        clients_to_update = clients[
+            (clients["TA_HASH"].isna()) | (clients["TA_HASH"] == "NONE")
+        ]
 
-    hashes_to_update: dict[str, str] = {}
+        logger.info(f"{len(clients_to_update)} clients to search for TA hashes")
 
-    for i, (_, client) in enumerate(clients_to_update.iterrows()):
-        client_id = get_column(client, "CLIENT_ID")
-        if not isinstance(client_id, (int, str)):
-            continue
-        client_id = str(client_id).strip()
-        ta_hash = get_ta_hash(driver, actions, client_id)
-        if ta_hash:
-            hashes_to_update[client_id] = ta_hash
+        hashes_to_update: dict[str, str] = {}
 
-        if (i + 1) % 10 == 0 and hashes_to_update:
-            logger.info(f"Saving a batch of {len(hashes_to_update)} TA hashes...")
-            utils.database.update_client_ta_hashes(hashes_to_update)
-            hashes_to_update = {}
+        for i, (_, client) in enumerate(clients_to_update.iterrows()):
+            client_id = get_column(client, "CLIENT_ID")
+            if not isinstance(client_id, (int, str)):
+                continue
+            client_id = str(client_id).strip()
+            ta_hash = get_ta_hash(driver, actions, client_id)
+            if ta_hash:
+                hashes_to_update[client_id] = ta_hash
 
-    if hashes_to_update:
-        logger.info(f"Saving the final batch of {len(hashes_to_update)} TA hashes...")
-        utils.database.update_client_ta_hashes(hashes_to_update)
+            if (i + 1) % 10 == 0 and hashes_to_update:
+                logger.info(f"Saving a batch of {len(hashes_to_update)} TA hashes...")
+                utils.database.update_client_ta_hashes(
+                    hashes_to_update, connection=conn
+                )
+                hashes_to_update = {}
+
+        if hashes_to_update:
+            logger.info(
+                f"Saving the final batch of {len(hashes_to_update)} TA hashes..."
+            )
+            utils.database.update_client_ta_hashes(hashes_to_update, connection=conn)

@@ -101,87 +101,95 @@ def import_from_ta(
     """
     if clients is None:
         clients = utils.clients.get_clients()
-    evaluators = utils.database.get_evaluators_with_blocked_locations()
 
-    # Pre-emptively add empty columns
-    new_cols = [
-        "SCHOOL_DISTRICT",
-        "LATITUDE",
-        "LONGITUDE",
-        "CLOSEST_OFFICE",
-        "CLOSEST_OFFICE_MILES",
-        "SECOND_CLOSEST_OFFICE",
-        "SECOND_CLOSEST_OFFICE_MILES",
-        "THIRD_CLOSEST_OFFICE",
-        "THIRD_CLOSEST_OFFICE_MILES",
-        "FLAG",
-    ]
-    for col in new_cols:
-        if col not in clients.columns:
-            clients[col] = pd.NA
+    with utils.database.db_session() as conn:
+        evaluators = utils.database.get_evaluators_with_blocked_locations(
+            connection=conn
+        )
 
-    clients_to_geocode = utils.database.filter_clients_with_changed_address(clients)
+        # Pre-emptively add empty columns
+        new_cols = [
+            "SCHOOL_DISTRICT",
+            "LATITUDE",
+            "LONGITUDE",
+            "CLOSEST_OFFICE",
+            "CLOSEST_OFFICE_MILES",
+            "SECOND_CLOSEST_OFFICE",
+            "SECOND_CLOSEST_OFFICE_MILES",
+            "THIRD_CLOSEST_OFFICE",
+            "THIRD_CLOSEST_OFFICE_MILES",
+            "FLAG",
+        ]
+        for col in new_cols:
+            if col not in clients.columns:
+                clients[col] = pd.NA
 
-    if force_clients is not None and not force_clients.empty:
-        logger.info(f"Force processing {len(force_clients)} clients")
+        clients_to_geocode = utils.database.filter_clients_with_changed_address(
+            clients, connection=conn
+        )
+
+        if force_clients is not None and not force_clients.empty:
+            logger.info(f"Force processing {len(force_clients)} clients")
+
+            if not clients_to_geocode.empty:
+                # Remove clients that are already on the geocoding list to avoid duplicates
+                clients_to_geocode = clients_to_geocode[
+                    ~clients_to_geocode["CLIENT_ID"].isin(force_clients["CLIENT_ID"])
+                ]
+
+            clients_to_geocode = pd.concat(
+                [clients_to_geocode, force_clients], ignore_index=True
+            )
 
         if not clients_to_geocode.empty:
-            # Remove clients that are already on the geocoding list to avoid duplicates
-            clients_to_geocode = clients_to_geocode[
-                ~clients_to_geocode["CLIENT_ID"].isin(force_clients["CLIENT_ID"])
-            ]
+            logger.debug(f"Found {len(clients_to_geocode)} clients to geocode")
 
-        clients_to_geocode = pd.concat(
-            [clients_to_geocode, force_clients], ignore_index=True
+            clients_to_geocode[
+                [
+                    "SCHOOL_DISTRICT",
+                    "LATITUDE",
+                    "LONGITUDE",
+                    "FLAG",
+                    "CLOSEST_OFFICE",
+                    "CLOSEST_OFFICE_MILES",
+                    "SECOND_CLOSEST_OFFICE",
+                    "SECOND_CLOSEST_OFFICE_MILES",
+                    "THIRD_CLOSEST_OFFICE",
+                    "THIRD_CLOSEST_OFFICE_MILES",
+                ]
+            ] = clients_to_geocode.apply(utils.location.add_location_data, axis=1)
+
+            clients["CLIENT_ID"] = clients["CLIENT_ID"].astype(str)
+            clients_to_geocode["CLIENT_ID"] = clients_to_geocode["CLIENT_ID"].astype(
+                str
+            )
+
+            clients = clients.drop_duplicates(subset=["CLIENT_ID"], keep="first")
+            clients_to_geocode = clients_to_geocode.drop_duplicates(
+                subset=["CLIENT_ID"], keep="last"
+            )
+
+            clients.set_index("CLIENT_ID", inplace=True)
+            clients_to_geocode.set_index("CLIENT_ID", inplace=True)
+
+            clients.index = clients.index.astype(str)
+            clients_to_geocode.index = clients_to_geocode.index.astype(str)
+
+            clients.update(clients_to_geocode)
+
+        clients.reset_index(inplace=True)
+        utils.database.put_clients_in_db(clients, connection=conn)
+        all_clients_from_db = utils.database.get_all_clients(connection=conn)
+
+        force_clients_ids = (
+            set(force_clients["CLIENT_ID"]) if force_clients is not None else None
         )
 
-    if not clients_to_geocode.empty:
-        logger.debug(f"Found {len(clients_to_geocode)} clients to geocode")
-
-        clients_to_geocode[
-            [
-                "SCHOOL_DISTRICT",
-                "LATITUDE",
-                "LONGITUDE",
-                "FLAG",
-                "CLOSEST_OFFICE",
-                "CLOSEST_OFFICE_MILES",
-                "SECOND_CLOSEST_OFFICE",
-                "SECOND_CLOSEST_OFFICE_MILES",
-                "THIRD_CLOSEST_OFFICE",
-                "THIRD_CLOSEST_OFFICE_MILES",
-            ]
-        ] = clients_to_geocode.apply(utils.location.add_location_data, axis=1)
-
-        clients["CLIENT_ID"] = clients["CLIENT_ID"].astype(str)
-        clients_to_geocode["CLIENT_ID"] = clients_to_geocode["CLIENT_ID"].astype(str)
-
-        clients = clients.drop_duplicates(subset=["CLIENT_ID"], keep="first")
-        clients_to_geocode = clients_to_geocode.drop_duplicates(
-            subset=["CLIENT_ID"], keep="last"
+        utils.database.insert_by_matching_criteria(
+            all_clients_from_db, evaluators, force_clients_ids, connection=conn
         )
 
-        clients.set_index("CLIENT_ID", inplace=True)
-        clients_to_geocode.set_index("CLIENT_ID", inplace=True)
-
-        clients.index = clients.index.astype(str)
-        clients_to_geocode.index = clients_to_geocode.index.astype(str)
-
-        clients.update(clients_to_geocode)
-
-    clients.reset_index(inplace=True)
-    utils.database.put_clients_in_db(clients)
-    all_clients_from_db = utils.database.get_all_clients()
-
-    force_clients_ids = (
-        set(force_clients["CLIENT_ID"]) if force_clients is not None else None
-    )
-
-    utils.database.insert_by_matching_criteria(
-        all_clients_from_db, evaluators, force_clients_ids
-    )
-
-    utils.appointments.insert_appointments_with_gcal()
+        utils.appointments.insert_appointments_with_gcal()
 
 
 def extract_digits(string: str) -> str | None:
