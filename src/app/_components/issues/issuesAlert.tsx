@@ -34,6 +34,9 @@ export function IssuesAlert() {
 		queryOptions,
 	);
 
+	const { data: needsIFSPDownloaded } =
+		api.clients.getNeedsIFSPDownloaded.useQuery(undefined, queryOptions);
+
 	const { data: noteOnlyClients } = api.clients.getNoteOnlyClients.useQuery(
 		undefined,
 		queryOptions,
@@ -54,6 +57,11 @@ export function IssuesAlert() {
 	const { data: possiblePrivatePay } =
 		api.clients.getPossiblePrivatePay.useQuery(undefined, queryOptions);
 
+	const { data: unreviewedRecords } = api.clients.getUnreviewedRecords.useQuery(
+		undefined,
+		queryOptions,
+	);
+
 	const { data: duplicateQLinks } =
 		api.questionnaires.getDuplicateLinks.useQuery(undefined, queryOptions);
 
@@ -68,11 +76,13 @@ export function IssuesAlert() {
 		(notInTAErrors?.length ?? 0) +
 		(dropList?.length ?? 0) +
 		(autismStops?.length ?? 0) +
+		(needsIFSPDownloaded?.length ?? 0) +
 		(noteOnlyClients?.length ?? 0) +
 		(duplicateFolderNames?.data.length ?? 0) +
 		(noDriveIds?.length ?? 0) +
 		(dd4?.length ?? 0) +
 		(possiblePrivatePay?.length ?? 0) +
+		(unreviewedRecords?.length ?? 0) +
 		(duplicateQLinks?.duplicatePerClient.length ?? 0) +
 		(duplicateQLinks?.sharedAcrossClients.length ?? 0) +
 		(punchlistIssues?.clientsNotInDb.length ?? 0) +

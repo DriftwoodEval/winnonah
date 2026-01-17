@@ -182,7 +182,7 @@ export function ClientNoteEditor({
 					title="Note History"
 					trigger={historyTrigger}
 				>
-					<NoteHistory noteId={clientId} />
+					<NoteHistory id={clientId} type="note" />
 				</ResponsiveDialog>
 			</div>
 			{isLoading ? (

@@ -2,19 +2,22 @@
 
 import { Alert, AlertDescription, AlertTitle } from "@ui/alert";
 import { Skeleton } from "@ui/skeleton";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@ui/tabs";
 import { Clock, FileText, MapPinOff } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import type { ClientColor } from "~/lib/colors";
 import { logger } from "~/lib/logger";
-import { getLocalDayFromUTCDate } from "~/lib/utils";
+import { formatClientAge, getLocalDayFromUTCDate } from "~/lib/utils";
 import { api } from "~/trpc/react";
 import { ClientDetailsCard } from "./ClientDetailsCard";
 import { ClientHeader } from "./ClientHeader";
 import { ClientNoteEditor } from "./ClientNoteEditor";
 import { EligibleEvaluatorsList } from "./EligibleEvaluatorsList";
+import { IFSPBoxes } from "./IFSPBoxes";
 import { PersistentStatusAlert } from "./PersistentStatusAlert";
 import { QuestionnairesTable } from "./QuestionnairesTable";
+import { RecordsNoteEditor } from "./RecordsNoteEditor";
 
 const log = logger.child({ module: "Client" });
 
@@ -81,7 +84,7 @@ export function Client({
 			{isLoading || !client ? (
 				<Skeleton className="h-96 w-full rounded-md sm:h-96" />
 			) : (
-				<div className="mb-6 flex w-full flex-col items-center gap-6">
+				<>
 					<PersistentStatusAlert
 						condition={!!client.autismStop}
 						description="Records suggest this client has already been identified. If this is incorrect, please let Andrew know."
@@ -100,65 +103,92 @@ export function Client({
 						title="Dorchester District 4"
 					/>
 
-					{client.id.toString().length !== 5 && (
-						<ClientDetailsCard client={client} />
-					)}
+					<Tabs className="w-full" defaultValue="info">
+						{client.id.toString().length !== 5 && (
+							<TabsList className="w-full">
+								<TabsTrigger value="info">Info</TabsTrigger>
+								<TabsTrigger value="records">Records</TabsTrigger>
+							</TabsList>
+						)}
 
-					{clientFailures?.map((failure) => {
-						if (
-							failure.reason === "docs not signed" ||
-							failure.reason === "portal not opened"
-						) {
-							const reasonText = `${failure.reason?.replace(
-								/^\S/g,
-								(c) => c.toUpperCase() + c.toLowerCase().slice(1),
-							)}.`;
+						<TabsContent value="info">
+							<div className="mb-6 flex w-full flex-col items-center gap-6">
+								{client.id.toString().length !== 5 && (
+									<ClientDetailsCard client={client} />
+								)}
 
-							const formattedUpdatedDate =
-								getLocalDayFromUTCDate(failure.updatedAt)?.toLocaleDateString(
-									undefined,
-									{
-										year: "2-digit",
-										month: "numeric",
-										day: "numeric",
-									},
-								) ?? null;
+								{clientFailures?.map((failure) => {
+									if (
+										failure.reason === "docs not signed" ||
+										failure.reason === "portal not opened"
+									) {
+										const reasonText = `${failure.reason?.replace(
+											/^\S/g,
+											(c) => c.toUpperCase() + c.toLowerCase().slice(1),
+										)}.`;
 
-							const formattedFailedDate =
-								getLocalDayFromUTCDate(failure.failedDate)?.toLocaleDateString(
-									undefined,
-									{
-										year: "2-digit",
-										month: "numeric",
-										day: "numeric",
-									},
-								) ?? "Unknown Date";
+										const formattedUpdatedDate =
+											getLocalDayFromUTCDate(
+												failure.updatedAt,
+											)?.toLocaleDateString(undefined, {
+												year: "2-digit",
+												month: "numeric",
+												day: "numeric",
+											}) ?? null;
 
-							const dateString = formattedUpdatedDate
-								? `As of ${formattedUpdatedDate} (first noted ${formattedFailedDate}).`
-								: `First noted ${formattedFailedDate}.`;
+										const formattedFailedDate =
+											getLocalDayFromUTCDate(
+												failure.failedDate,
+											)?.toLocaleDateString(undefined, {
+												year: "2-digit",
+												month: "numeric",
+												day: "numeric",
+											}) ?? "Unknown Date";
 
-							return (
-								<Alert key={failure.reason} variant="destructive">
-									<Clock />
-									<AlertTitle>{reasonText}</AlertTitle>
-									<AlertDescription>{dateString}</AlertDescription>
-								</Alert>
-							);
-						}
-						return null;
-					})}
+										const dateString = formattedUpdatedDate
+											? `As of ${formattedUpdatedDate} (first noted ${formattedFailedDate}).`
+											: `First noted ${formattedFailedDate}.`;
 
-					<ClientNoteEditor clientId={client.id} readOnly={readOnly} />
+										return (
+											<Alert key={failure.reason} variant="destructive">
+												<Clock />
+												<AlertTitle>{reasonText}</AlertTitle>
+												<AlertDescription>{dateString}</AlertDescription>
+											</Alert>
+										);
+									}
+									return null;
+								})}
 
-					{client.id.toString().length !== 5 && (
-						<QuestionnairesTable clientId={client.id} readOnly={readOnly} />
-					)}
+								<ClientNoteEditor clientId={client.id} readOnly={readOnly} />
 
-					{client.id.toString().length !== 5 && (
-						<EligibleEvaluatorsList client={client} />
-					)}
-				</div>
+								{client.id.toString().length !== 5 && (
+									<QuestionnairesTable
+										clientId={client.id}
+										readOnly={readOnly}
+									/>
+								)}
+
+								{client.id.toString().length !== 5 && (
+									<EligibleEvaluatorsList client={client} />
+								)}
+							</div>
+						</TabsContent>
+						{client.id.toString().length !== 5 && (
+							<TabsContent value="records">
+								<div className="mb-6 flex min-w-full flex-col items-center gap-6">
+									<ClientDetailsCard client={client} truncated />
+
+									{Number(formatClientAge(client.dob, "years")) < 4 && (
+										<IFSPBoxes clientId={client.id} readOnly={readOnly} />
+									)}
+
+									<RecordsNoteEditor clientId={client.id} readOnly={readOnly} />
+								</div>
+							</TabsContent>
+						)}
+					</Tabs>
+				</>
 			)}
 		</div>
 	);

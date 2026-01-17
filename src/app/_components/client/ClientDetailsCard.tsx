@@ -8,29 +8,35 @@ import { cn, formatClientAge, formatPhoneNumber } from "~/lib/utils";
 
 interface ClientDetailsCardProps {
 	client: ClientWithOffice;
+	truncated?: boolean;
 }
 
-export function ClientDetailsCard({ client }: ClientDetailsCardProps) {
+export function ClientDetailsCard({
+	client,
+	truncated = false,
+}: ClientDetailsCardProps) {
 	return (
 		<div className="flex w-full flex-wrap gap-6 rounded-md border-2 bg-card p-4 shadow">
-			<div>
-				<p className="font-bold">Date of Birth</p>
-				<p>
-					{client.dob?.toLocaleDateString("en-US", {
-						year: "numeric",
-						month: "numeric",
-						day: "numeric",
-						timeZone: "UTC",
-					})}
-				</p>
-			</div>
+			{!truncated && (
+				<div>
+					<p className="font-bold">Date of Birth</p>
+					<p>
+						{client.dob?.toLocaleDateString("en-US", {
+							year: "numeric",
+							month: "numeric",
+							day: "numeric",
+							timeZone: "UTC",
+						})}
+					</p>
+				</div>
+			)}
 
 			<div>
 				<p className="font-bold">Age</p>
 				<p>{client.dob ? formatClientAge(client.dob) : ""}</p>
 			</div>
 
-			{client.addedDate && (
+			{client.addedDate && !truncated && (
 				<div>
 					<p className="font-bold">Date of Entry</p>
 					<p>
@@ -73,7 +79,7 @@ export function ClientDetailsCard({ client }: ClientDetailsCardProps) {
 							</p>
 						</div>
 					)}
-					{client.precertExpires && (
+					{client.precertExpires && !truncated && (
 						<div>
 							<p className="font-bold">PA Expires</p>
 							<p>
@@ -94,23 +100,27 @@ export function ClientDetailsCard({ client }: ClientDetailsCardProps) {
 				</div>
 			)}
 
-			<div>
-				<p className="font-bold">Gender</p>
-				<p>{client.gender ?? "Unknown"}</p>
-			</div>
+			{!truncated && (
+				<div>
+					<p className="font-bold">Gender</p>
+					<p>{client.gender ?? "Unknown"}</p>
+				</div>
+			)}
 
-			<div>
-				<p className="font-bold">Address</p>
-				{(client.address && (
-					<Link
-						className="hover:underline"
-						href={`https://maps.google.com/?q=${encodeURIComponent(client.address)}`}
-						target="_blank"
-					>
-						{client.address}
-					</Link>
-				)) || <p>Unknown</p>}
-			</div>
+			{!truncated && (
+				<div>
+					<p className="font-bold">Address</p>
+					{(client.address && (
+						<Link
+							className="hover:underline"
+							href={`https://maps.google.com/?q=${encodeURIComponent(client.address)}`}
+							target="_blank"
+						>
+							{client.address}
+						</Link>
+					)) || <p>Unknown</p>}
+				</div>
+			)}
 
 			<div>
 				<p className="font-bold">School District</p>
@@ -123,33 +133,35 @@ export function ClientDetailsCard({ client }: ClientDetailsCardProps) {
 				</p>
 			</div>
 
-			<div>
-				<p className="font-bold">
-					Closest Office{" "}
-					<Popover>
-						<PopoverTrigger asChild>
-							<span className="cursor-pointer font-normal text-muted-foreground hover:underline">
-								(Compare)
-							</span>
-						</PopoverTrigger>
-						<PopoverContent side="right">
-							<ul className="list-disc p-3">
-								{client.closestOffices.slice(1).map((office, i) => (
-									<li key={`${office.key}-${i}`}>
-										{office.prettyName} ({office.distanceMiles.toFixed(0)} mi)
-									</li>
-								))}
-							</ul>
-						</PopoverContent>
-					</Popover>
-				</p>
-				<p>
-					{client.closestOffices[0]?.prettyName ?? "Unknown"}{" "}
-					{client.closestOffices[0]?.distanceMiles
-						? `(${client.closestOffices[0]?.distanceMiles.toFixed(0)} mi)`
-						: ""}
-				</p>
-			</div>
+			{!truncated && (
+				<div>
+					<p className="font-bold">
+						Closest Office{" "}
+						<Popover>
+							<PopoverTrigger asChild>
+								<span className="cursor-pointer font-normal text-muted-foreground hover:underline">
+									(Compare)
+								</span>
+							</PopoverTrigger>
+							<PopoverContent side="right">
+								<ul className="list-disc p-3">
+									{client.closestOffices.slice(1).map((office, i) => (
+										<li key={`${office.key}-${i}`}>
+											{office.prettyName} ({office.distanceMiles.toFixed(0)} mi)
+										</li>
+									))}
+								</ul>
+							</PopoverContent>
+						</Popover>
+					</p>
+					<p>
+						{client.closestOffices[0]?.prettyName ?? "Unknown"}{" "}
+						{client.closestOffices[0]?.distanceMiles
+							? `(${client.closestOffices[0]?.distanceMiles.toFixed(0)} mi)`
+							: ""}
+					</p>
+				</div>
+			)}
 
 			{client.phoneNumber && (
 				<div>

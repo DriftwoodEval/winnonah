@@ -4,6 +4,7 @@ import { TRPCError } from "@trpc/server";
 import { subMonths, subYears } from "date-fns";
 import {
 	and,
+	asc,
 	desc,
 	eq,
 	getTableColumns,
@@ -27,6 +28,7 @@ import { createTRPCRouter, protectedProcedure } from "~/server/api/trpc";
 import {
 	clients,
 	clientsEvaluators,
+	externalRecords,
 	failures,
 	notes,
 	questionnaires,
@@ -412,6 +414,15 @@ export const clientRouter = createTRPCRouter({
 		});
 	}),
 
+	getNeedsIFSPDownloaded: protectedProcedure.query(async ({ ctx }) => {
+		const needsIFSPDownloaded = await ctx.db.query.clients.findMany({
+			where: and(eq(clients.ifspDownloaded, false), eq(clients.ifsp, true)),
+			orderBy: clients.dob,
+		});
+
+		return needsIFSPDownloaded;
+	}),
+
 	getNoteOnlyClients: protectedProcedure.query(async ({ ctx }) => {
 		const noteOnlyClients = await ctx.db.query.clients.findMany({
 			where: and(isNoteOnly, eq(clients.status, true)),
@@ -531,6 +542,50 @@ export const clientRouter = createTRPCRouter({
 		return autismStops;
 	}),
 
+	getUnreviewedRecords: protectedProcedure.query(async ({ ctx }) => {
+		const threeDaysAgo = sql`DATE_SUB(CURRENT_TIMESTAMP(), INTERVAL 3 DAY)`;
+
+		const results = await ctx.db
+			.select({
+				...getTableColumns(clients),
+				additionalInfo: sql<string>`CONCAT(
+          '(Requested: ',
+          DATE_FORMAT(
+            CASE
+              WHEN ${externalRecords.needsSecondRequest} = TRUE THEN ${externalRecords.secondRequestDate}
+              ELSE ${externalRecords.requested}
+            END,
+            '%m/%d/%y'
+          ),
+          ')'
+        )`,
+			})
+			.from(clients)
+			.innerJoin(externalRecords, eq(clients.id, externalRecords.clientId))
+			.where(
+				or(
+					and(
+						eq(clients.recordsNeeded, "Needed"),
+						lt(externalRecords.requested, threeDaysAgo),
+						eq(externalRecords.needsSecondRequest, false),
+						isNull(externalRecords.content),
+					),
+					and(
+						eq(externalRecords.needsSecondRequest, true),
+						lt(externalRecords.secondRequestDate, threeDaysAgo),
+						isNull(externalRecords.content),
+					),
+				),
+			)
+			.orderBy(
+				asc(
+					sql`CASE WHEN ${externalRecords.needsSecondRequest} = TRUE THEN ${externalRecords.secondRequestDate} ELSE ${externalRecords.requested} END`,
+				),
+			);
+
+		return results;
+	}),
+
 	createShell: protectedProcedure
 		.input(z.object({ firstName: z.string(), lastName: z.string() }))
 		.mutation(async ({ ctx, input }) => {
@@ -629,6 +684,9 @@ export const clientRouter = createTRPCRouter({
 				eiAttends: z.boolean().optional(),
 				driveId: z.string().optional(),
 				status: z.boolean().optional(),
+				recordsNeeded: z.enum(["Needed", "Not Needed"]).optional(),
+				ifsp: z.boolean().optional(),
+				ifspDownloaded: z.boolean().optional(),
 			}),
 		)
 		.mutation(async ({ ctx, input }) => {
@@ -672,6 +730,14 @@ export const clientRouter = createTRPCRouter({
 				!hasPermission(ctx.session.user.permissions, "clients:shell")
 					? ["clients:shell"]
 					: []),
+				...((input.recordsNeeded !== undefined || input.ifsp !== undefined) &&
+				!hasPermission(ctx.session.user.permissions, "clients:records:needed")
+					? ["clients:records:needed"]
+					: []),
+				...(input.ifspDownloaded !== undefined &&
+				!hasPermission(ctx.session.user.permissions, "clients:records:ifsp")
+					? ["clients:records:ifsp"]
+					: []),
 			];
 			if (unauthorizedPermissions.length > 0) {
 				throw new TRPCError({
@@ -697,6 +763,9 @@ export const clientRouter = createTRPCRouter({
 				flag?: string | null;
 				driveId?: string | null;
 				status?: boolean;
+				recordsNeeded?: "Needed" | "Not Needed";
+				ifsp?: boolean;
+				ifspDownloaded?: boolean;
 			} = {};
 
 			if (input.color !== undefined) {
@@ -736,6 +805,15 @@ export const clientRouter = createTRPCRouter({
 			}
 			if (input.status !== undefined) {
 				updateData.status = input.status;
+			}
+			if (input.recordsNeeded !== undefined) {
+				updateData.recordsNeeded = input.recordsNeeded;
+			}
+			if (input.ifsp !== undefined) {
+				updateData.ifsp = input.ifsp;
+			}
+			if (input.ifspDownloaded !== undefined) {
+				updateData.ifspDownloaded = input.ifspDownloaded;
 			}
 
 			await ctx.db

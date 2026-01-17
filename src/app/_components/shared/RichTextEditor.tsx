@@ -24,6 +24,7 @@ interface RichTextEditorProps {
 	onChange?: (content: JSONContent) => void;
 	className?: string;
 	readonly?: boolean;
+	formatBar?: boolean;
 }
 
 export function RichTextEditor({
@@ -32,6 +33,7 @@ export function RichTextEditor({
 	placeholder = "",
 	className,
 	readonly,
+	formatBar = true,
 }: RichTextEditorProps) {
 	const editor = useEditor({
 		editable: !readonly,
@@ -68,7 +70,7 @@ export function RichTextEditor({
 
 	return (
 		<div className={className}>
-			{!readonly && (
+			{!readonly && formatBar && (
 				<div className="mb-3 flex flex-wrap items-center gap-2">
 					<ToggleGroup size="sm" type="multiple" variant="outline">
 						<ToggleGroupItem
@@ -190,7 +192,13 @@ export function RichTextEditor({
 				</div>
 			)}
 
-			<EditorContent className="rounded-md shadow" editor={editor} />
+			<EditorContent
+				className={cn(
+					"rounded-md shadow",
+					readonly ? "opacity-50" : "opacity-100",
+				)}
+				editor={editor}
+			/>
 		</div>
 	);
 }
