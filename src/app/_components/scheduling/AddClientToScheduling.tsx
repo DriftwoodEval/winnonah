@@ -45,7 +45,9 @@ export function AddClientToScheduling({
 	});
 
 	const clients = useMemo(() => {
-		return searchResults?.clients.filter((c) => !scheduledClientIds.has(c.id)) || [];
+		return (
+			searchResults?.clients.filter((c) => !scheduledClientIds.has(c.id)) || []
+		);
 	}, [searchResults, scheduledClientIds]);
 
 	return (

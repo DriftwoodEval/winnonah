@@ -182,9 +182,7 @@ export function Dashboard() {
 
 	if (isError)
 		return (
-			<div className="mx-4 flex grow items-center justify-center">
-				Error
-			</div>
+			<div className="mx-4 flex grow items-center justify-center">Error</div>
 		);
 
 	return (

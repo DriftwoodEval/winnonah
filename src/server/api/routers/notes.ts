@@ -154,13 +154,13 @@ export const noteRouter = createTRPCRouter({
 						} else {
 							log.info(
 								{ user: ctx.session.user.email },
-								"Skipping history log (squash edit)"
+								"Skipping history log (squash edit)",
 							);
 						}
 					} else {
 						log.info(
 							{ user: ctx.session.user.email },
-							"No changes detected in note"
+							"No changes detected in note",
 						);
 						return;
 					}
@@ -255,47 +255,47 @@ export const noteRouter = createTRPCRouter({
 			return newNote;
 		}),
 
-  getHistory: protectedProcedure
-    .input(z.object({ noteId: z.number() }))
-    .query(async ({ ctx, input }) => {
-      const history = await ctx.db
-        .select({
-          id: noteHistory.id,
-          content: noteHistory.content,
-          title: noteHistory.title,
-          updatedBy: noteHistory.updatedBy,
-          createdAt: noteHistory.createdAt,
-          updatedByName: users.name,
-          updatedByImage: users.image,
-        })
-        .from(noteHistory)
-        .leftJoin(users, eq(noteHistory.updatedBy, users.email))
-        .where(eq(noteHistory.noteId, input.noteId))
-        .orderBy(desc(noteHistory.createdAt));
+	getHistory: protectedProcedure
+		.input(z.object({ noteId: z.number() }))
+		.query(async ({ ctx, input }) => {
+			const history = await ctx.db
+				.select({
+					id: noteHistory.id,
+					content: noteHistory.content,
+					title: noteHistory.title,
+					updatedBy: noteHistory.updatedBy,
+					createdAt: noteHistory.createdAt,
+					updatedByName: users.name,
+					updatedByImage: users.image,
+				})
+				.from(noteHistory)
+				.leftJoin(users, eq(noteHistory.updatedBy, users.email))
+				.where(eq(noteHistory.noteId, input.noteId))
+				.orderBy(desc(noteHistory.createdAt));
 
-      const current = await ctx.db
-        .select({
-          id: notes.clientId,
-          content: notes.content,
-          title: notes.title,
-          updatedBy: notes.updatedBy,
-          createdAt: notes.updatedAt,
-          updatedByName: users.name,
-          updatedByImage: users.image,
-        })
-        .from(notes)
-        .leftJoin(users, eq(notes.updatedBy, users.email))
-        .where(eq(notes.clientId, input.noteId))
-        .limit(1);
+			const current = await ctx.db
+				.select({
+					id: notes.clientId,
+					content: notes.content,
+					title: notes.title,
+					updatedBy: notes.updatedBy,
+					createdAt: notes.updatedAt,
+					updatedByName: users.name,
+					updatedByImage: users.image,
+				})
+				.from(notes)
+				.leftJoin(users, eq(notes.updatedBy, users.email))
+				.where(eq(notes.clientId, input.noteId))
+				.limit(1);
 
-      if (!current[0]) return [];
+			if (!current[0]) return [];
 
-      const currentVersion = {
-        ...current[0],
-        id: -1,
-        isCurrent: true,
-      };
+			const currentVersion = {
+				...current[0],
+				id: -1,
+				isCurrent: true,
+			};
 
-      return [currentVersion, ...history];
-    }),
+			return [currentVersion, ...history];
+		}),
 });

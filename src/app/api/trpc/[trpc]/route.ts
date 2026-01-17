@@ -13,23 +13,23 @@ const log = logger.child({ module: "trpc" });
  * handling a HTTP request (e.g. when you make requests from Client Components).
  */
 const createContext = async (req: NextRequest) => {
-  return createTRPCContext({
-    headers: req.headers,
-  });
+	return createTRPCContext({
+		headers: req.headers,
+	});
 };
 
 const handler = (req: NextRequest) =>
-  fetchRequestHandler({
-    endpoint: "/api/trpc",
-    req,
-    router: appRouter,
-    createContext: () => createContext(req),
-    onError:
-      env.NODE_ENV === "development"
-        ? ({ path, error }) => {
-            log.error({ path, error: error.message }, "tRPC error");
-          }
-        : undefined,
-  });
+	fetchRequestHandler({
+		endpoint: "/api/trpc",
+		req,
+		router: appRouter,
+		createContext: () => createContext(req),
+		onError:
+			env.NODE_ENV === "development"
+				? ({ path, error }) => {
+						log.error({ path, error: error.message }, "tRPC error");
+					}
+				: undefined,
+	});
 
 export { handler as GET, handler as POST };

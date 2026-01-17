@@ -367,7 +367,6 @@ export const updatePunchData = async (
 	return true;
 };
 
-
 export const syncPunchData = async (session: Session, redis?: Redis) => {
 	const cacheKey = "google:sheets:punchlist";
 	if (redis) {

@@ -5,19 +5,19 @@ const log = logger.child({ module: "cache" });
 const DEFAULT_CACHE_TTL = 3600; // 1 hour in seconds
 
 export async function fetchWithCache<T>(
-  ctx: Context,
-  key: string,
-  fetcher: () => Promise<T>,
-  ttl: number,
-  wantTimestamp: true
+	ctx: Context,
+	key: string,
+	fetcher: () => Promise<T>,
+	ttl: number,
+	wantTimestamp: true,
 ): Promise<{ data: T; lastFetched: number }>;
 
 export async function fetchWithCache<T>(
-  ctx: Context,
-  key: string,
-  fetcher: () => Promise<T>,
-  ttl?: number,
-  wantTimestamp?: false
+	ctx: Context,
+	key: string,
+	fetcher: () => Promise<T>,
+	ttl?: number,
+	wantTimestamp?: false,
 ): Promise<T>;
 
 /**
@@ -32,48 +32,48 @@ export async function fetchWithCache<T>(
  * @returns The data from the cache or the fetcher.
  */
 export async function fetchWithCache<T>(
-  ctx: Context,
-  key: string,
-  fetcher: () => Promise<T>,
-  ttl: number = DEFAULT_CACHE_TTL,
-  wantTimestamp?: boolean
+	ctx: Context,
+	key: string,
+	fetcher: () => Promise<T>,
+	ttl: number = DEFAULT_CACHE_TTL,
+	wantTimestamp?: boolean,
 ): Promise<T | { data: T; lastFetched: number }> {
-  // Try to get from cache
-  try {
-    const cachedData = await ctx.redis.get(key);
-    if (cachedData) {
-      const data = JSON.parse(cachedData) as T;
+	// Try to get from cache
+	try {
+		const cachedData = await ctx.redis.get(key);
+		if (cachedData) {
+			const data = JSON.parse(cachedData) as T;
 
-      if (wantTimestamp) {
-        const remainingSeconds = await ctx.redis.ttl(key);
-        const elapsedSeconds = ttl - remainingSeconds;
-        const lastFetched = Date.now() - elapsedSeconds * 1000;
-        log.debug({ cacheKey: key }, "Cache hit with timestamp");
-        return { data, lastFetched };
-      }
-      log.debug({ cacheKey: key }, "Cache hit");
-      return data;
-    }
-  } catch (err) {
-    log.error({ cacheKey: key, error: err }, "Failed to get from cache");
-  }
+			if (wantTimestamp) {
+				const remainingSeconds = await ctx.redis.ttl(key);
+				const elapsedSeconds = ttl - remainingSeconds;
+				const lastFetched = Date.now() - elapsedSeconds * 1000;
+				log.debug({ cacheKey: key }, "Cache hit with timestamp");
+				return { data, lastFetched };
+			}
+			log.debug({ cacheKey: key }, "Cache hit");
+			return data;
+		}
+	} catch (err) {
+		log.error({ cacheKey: key, error: err }, "Failed to get from cache");
+	}
 
-  // On a cache miss, run the fetcher
-  log.debug({ cacheKey: key }, "Cache miss");
-  const freshData = await fetcher();
+	// On a cache miss, run the fetcher
+	log.debug({ cacheKey: key }, "Cache miss");
+	const freshData = await fetcher();
 
-  // Set the new data in cache
-  try {
-    await ctx.redis.set(key, JSON.stringify(freshData), "EX", ttl);
-  } catch (err) {
-    log.error({ cacheKey: key, error: err }, "Failed to set cache");
-  }
+	// Set the new data in cache
+	try {
+		await ctx.redis.set(key, JSON.stringify(freshData), "EX", ttl);
+	} catch (err) {
+		log.error({ cacheKey: key, error: err }, "Failed to set cache");
+	}
 
-  if (wantTimestamp) {
-    return { data: freshData, lastFetched: Date.now() };
-  }
+	if (wantTimestamp) {
+		return { data: freshData, lastFetched: Date.now() };
+	}
 
-  return freshData;
+	return freshData;
 }
 
 /**
@@ -83,15 +83,15 @@ export async function fetchWithCache<T>(
  * @param keys The cache key(s) to delete.
  */
 export async function invalidateCache(
-  ctx: Context,
-  ...keys: string[]
+	ctx: Context,
+	...keys: string[]
 ): Promise<void> {
-  if (keys.length === 0) return;
+	if (keys.length === 0) return;
 
-  try {
-    await ctx.redis.del(keys);
-    log.debug({ cacheKeys: keys }, "Cache invalidated");
-  } catch (err) {
-    log.error({ cacheKeys: keys, error: err }, "Failed to invalidate cache");
-  }
+	try {
+		await ctx.redis.del(keys);
+		log.debug({ cacheKeys: keys }, "Cache invalidated");
+	} catch (err) {
+		log.error({ cacheKeys: keys, error: err }, "Failed to invalidate cache");
+	}
 }
