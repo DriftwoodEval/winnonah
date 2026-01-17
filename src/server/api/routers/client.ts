@@ -4,6 +4,7 @@ import { TRPCError } from "@trpc/server";
 import { subMonths, subYears } from "date-fns";
 import {
 	and,
+	asc,
 	desc,
 	eq,
 	getTableColumns,
@@ -574,6 +575,11 @@ export const clientRouter = createTRPCRouter({
 						lt(externalRecords.secondRequestDate, threeDaysAgo),
 						isNull(externalRecords.content),
 					),
+				),
+			)
+			.orderBy(
+				asc(
+					sql`CASE WHEN ${externalRecords.needsSecondRequest} = TRUE THEN ${externalRecords.secondRequestDate} ELSE ${externalRecords.requested} END`,
 				),
 			);
 
