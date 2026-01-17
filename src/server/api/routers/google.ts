@@ -10,7 +10,7 @@ import {
 	updatePunchData,
 } from "~/lib/google";
 import { logger } from "~/lib/logger";
-import { TEST_NAMES } from "~/lib/types";
+import { ALLOWED_ASD_ADHD_VALUES, TEST_NAMES } from "~/lib/types";
 import { hasPermission } from "~/lib/utils";
 import { getPriorityInfo } from "~/server/api/routers/client";
 import { createTRPCRouter, protectedProcedure } from "~/server/api/trpc";
@@ -186,6 +186,51 @@ export const googleRouter = createTRPCRouter({
 					}`,
 				);
 			}
+		}),
+
+	setAsdAdhd: protectedProcedure
+		.input(
+			z.object({
+				clientId: z.number(),
+				asdAdhd: z.enum(ALLOWED_ASD_ADHD_VALUES),
+			}),
+		)
+		.mutation(async ({ ctx, input }) => {
+			if (!ctx.session.user.accessToken || !ctx.session.user.refreshToken) {
+				throw new Error("No access token or refresh token");
+			}
+
+			log.info(
+				{ user: ctx.session.user.email, request: input },
+				"Updating ASD/ADHD status",
+			);
+
+			try {
+				await updatePunchData(ctx.session, input.clientId.toString(), {
+					asdAdhd: input.asdAdhd,
+				});
+			} catch (error) {
+				console.error(
+					"Error updating ASD/ADHD status in Google Sheets:",
+					error,
+				);
+
+				throw new Error(
+					`Failed to update ASD/ADHD status in Google Sheets: ${
+						error instanceof Error ? error.message : "Unknown error"
+					}`,
+				);
+			}
+
+			await ctx.db
+				.update(clients)
+				.set({ asdAdhd: input.asdAdhd })
+				.where(eq(clients.id, input.clientId));
+
+			return {
+				success: true,
+				message: "ASD/ADHD status updated successfully",
+			};
 		}),
 
 	verifyPunchClients: protectedProcedure.query(async ({ ctx }) => {

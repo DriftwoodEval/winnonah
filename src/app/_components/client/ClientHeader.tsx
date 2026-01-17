@@ -31,6 +31,7 @@ import { api } from "~/trpc/react";
 import { ResponsiveDialog } from "../shared/ResponsiveDialog";
 import { AddDriveButton } from "./AddDrive";
 import { ClientEditButton } from "./EditClientDialog";
+import { EditAsdAdhdDialog } from "./EditAsdAdhdDialog";
 import { EditDriveForm } from "./EditDriveForm";
 
 interface ClientHeaderProps {
@@ -65,6 +66,9 @@ export function ClientHeader({
 	const canShell = session
 		? hasPermission(session.user.permissions, "clients:shell")
 		: false;
+	const canAsdAdhd = session
+		? hasPermission(session.user.permissions, "clients:asdadhd")
+		: false;
 
 	const updateClient = api.clients.update.useMutation({
 		onSuccess: () => {
@@ -82,6 +86,7 @@ export function ClientHeader({
 
 	const [isColorOpen, setIsColorOpen] = useState(false);
 	const [editDriveOpen, setEditDriveOpen] = useState(false);
+	const [editAsdAdhdOpen, setEditAsdAdhdOpen] = useState(false);
 
 	if (isLoading || !client) {
 		return (
@@ -121,6 +126,18 @@ export function ClientHeader({
 				<EditDriveForm
 					client={client}
 					editDriveDialog={{ open: editDriveOpen, setOpen: setEditDriveOpen }}
+				/>
+			</ResponsiveDialog>
+			<ResponsiveDialog
+				description="Update the client's ASD/ADHD status. This will push the change to the Punchlist."
+				open={editAsdAdhdOpen}
+				setOpen={setEditAsdAdhdOpen}
+				title="Edit ASD/ADHD"
+			>
+				<EditAsdAdhdDialog
+					client={client}
+					setOpen={setEditAsdAdhdOpen}
+					key={client.asdAdhd}
 				/>
 			</ResponsiveDialog>
 			{client && (
@@ -240,7 +257,17 @@ export function ClientHeader({
 				{client.asdAdhd && (
 					<>
 						<Separator orientation="vertical" />
-						<span>{client.asdAdhd}</span>
+						{readOnly || !canAsdAdhd ? (
+							<span>{client.asdAdhd}</span>
+						) : (
+							<button
+								className="hover:underline"
+								type="button"
+								onClick={() => setEditAsdAdhdOpen(true)}
+							>
+								{client.asdAdhd}
+							</button>
+						)}
 					</>
 				)}
 

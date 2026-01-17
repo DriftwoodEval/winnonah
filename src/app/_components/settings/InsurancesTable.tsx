@@ -363,7 +363,7 @@ function InsuranceActionsMenu({
 export default function InsurancesTable() {
 	const { data: session } = useSession();
 	const canEdit = session
-		? hasPermission(session.user.permissions, "settings:evaluators")
+		? hasPermission(session.user.permissions, "settings:insurances")
 		: false;
 	const { data: insurances, isLoading } = api.insurances.getAll.useQuery();
 

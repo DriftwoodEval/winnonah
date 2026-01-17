@@ -99,6 +99,7 @@ export const permissions = {
 			{ id: "clients:schooldistrict", title: "Edit School District" },
 			{ id: "clients:shell", title: "Create Fake/Shell Client Notes" },
 			{ id: "clients:merge", title: "Merge with Real Client Record" },
+			{ id: "clients:asdadhd", title: "Edit ASD/ADHD Status" },
 			{ id: "clients:autismstop:enable", title: "Enable Autism Stop" },
 			{ id: "clients:autismstop:disable", title: "Disable Autism Stop" },
 			{ id: "clients:questionnaires:create", title: "Create Questionnaires" },
@@ -118,6 +119,7 @@ export const permissions = {
 			{ id: "settings:users:edit", title: "Edit Users" },
 			{ id: "settings:users:invite", title: "Invite Users" },
 			{ id: "settings:evaluators", title: "Manage Evaluators" },
+			{ id: "settings:insurances", title: "Manage Insurances" },
 			{ id: "settings:testUnits", title: "Manage Test Units" },
 		],
 	},
@@ -164,9 +166,11 @@ export const permissionPresets = [
 			"clients:schooldistrict": true,
 			"clients:shell": true,
 			"clients:merge": true,
+			"clients:asdadhd": true,
 			"clients:questionnaires:create": true,
 			"clients:questionnaires:createexternal": true,
 			"settings:evaluators": true,
+			"settings:insurances": true,
 		},
 	},
 	{
@@ -211,6 +215,16 @@ export type PunchClient = {
 };
 
 export type FullClientInfo = PunchClient & Client;
+
 export type MergeSuggestion = NonNullable<
 	ClientRouterOutput["getMergeSuggestions"]
 >[number];
+
+export const ALLOWED_ASD_ADHD_VALUES = [
+	"ASD",
+	"ADHD",
+	"ASD+ADHD",
+	"ASD+LD",
+	"ADHD+LD",
+	"LD",
+] as const;
