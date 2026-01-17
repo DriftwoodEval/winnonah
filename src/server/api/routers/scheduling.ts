@@ -14,7 +14,7 @@ export const schedulingRouter = createTRPCRouter({
 
 		const clientIds = scheduledClientsRaw.map((sc) => sc.clientId);
 		if (clientIds.length > 0) {
-			await syncPunchData(ctx.session, clientIds, ctx.redis);
+			await syncPunchData(ctx.session, ctx.redis);
 		}
 
 		const allOffices = await db.query.offices.findMany();
@@ -102,7 +102,7 @@ export const schedulingRouter = createTRPCRouter({
 
 		const clientIds = scheduledClientsRaw.map((sc) => sc.clientId);
 		if (clientIds.length > 0) {
-			await syncPunchData(ctx.session, clientIds, ctx.redis);
+			await syncPunchData(ctx.session, ctx.redis);
 		}
 
 		const allOffices = await db.query.offices.findMany();

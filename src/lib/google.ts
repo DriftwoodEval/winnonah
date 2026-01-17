@@ -359,18 +359,18 @@ export const ALLOWED_ASD_ADHD_VALUES = [
 	"LD",
 ] as const;
 
-export const syncPunchData = async (
-	session: Session,
-	clientIds?: number[],
-	redis?: Redis,
-) => {
-	const allPunchData = await getPunchData(session, redis);
-	const targetClients = allPunchData.filter(
-		(p): p is FullClientInfo =>
-			"id" in p && (!clientIds || clientIds.includes(p.id)),
-	);
+export const syncPunchData = async (session: Session, redis?: Redis) => {
+	const cacheKey = "google:sheets:punchlist";
+	if (redis) {
+		const cached = await redis.get(cacheKey);
+		if (cached) {
+			return;
+		}
+	}
 
-	for (const client of targetClients) {
+	const allPunchData = await getPunchData(session, redis);
+
+	for (const client of allPunchData) {
 		const updates: Partial<InferSelectModel<typeof clients>> = {};
 
 		if (
@@ -395,8 +395,6 @@ export const syncPunchData = async (
 			await db.update(clients).set(updates).where(eq(clients.id, client.id));
 		}
 	}
-
-	return allPunchData;
 };
 
 export const getClientFromPunchData = async (
