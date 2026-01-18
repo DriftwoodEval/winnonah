@@ -321,7 +321,7 @@ function ActiveSchedulingTable() {
 	};
 
 	return (
-		<Table>
+		<Table classNameWrapper="h-[70vh]">
 			<TableHeader>
 				<SchedulingTableHeader
 					filters={filters}
