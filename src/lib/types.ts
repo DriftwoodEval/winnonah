@@ -193,9 +193,6 @@ export type PunchClient = {
 	"Client ID": string | undefined;
 	For: string | undefined;
 	Language: string | undefined;
-	"Records Needed": string | undefined;
-	"Records Requested?": string | undefined;
-	"Records Reviewed?": string | undefined;
 	"DA Qs Needed": string | undefined;
 	"DA Qs Sent": string | undefined;
 	"DA Qs Done": string | undefined;

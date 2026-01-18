@@ -68,18 +68,6 @@ export function Dashboard() {
 			client["EVAL Qs Needed"] === "FALSE",
 	);
 
-	const recordsNeeded = clients?.filter(
-		(client) => client["Records Needed"] === "TRUE",
-	);
-
-	const recordsRequested = clients?.filter(
-		(client) => client["Records Requested?"] === "TRUE",
-	);
-
-	const recordsReviewed = clients?.filter(
-		(client) => client["Records Reviewed?"] === "TRUE",
-	);
-
 	const daQsPending = clients?.filter(
 		(client) =>
 			client["DA Qs Needed"] === "TRUE" && client["DA Qs Sent"] === "FALSE",
@@ -120,13 +108,13 @@ export function Dashboard() {
 			client["EVAL Qs Sent"] === "TRUE" && client["EVAL Qs Done"] === "FALSE",
 	);
 
-	const evalReadyToSchedule = clients?.filter(
-		(client) =>
-			client["EVAL Qs Done"] === "TRUE" &&
-			(client["EVAL date"] === undefined || client["EVAL date"] === "") &&
-			client["Records Requested?"] === "TRUE" &&
-			client["Records Reviewed?"] === "TRUE",
-	);
+	// const evalReadyToSchedule = clients?.filter(
+	// 	(client) =>
+	// 		client["EVAL Qs Done"] === "TRUE" &&
+	// 		(client["EVAL date"] === undefined || client["EVAL date"] === "") &&
+	// 		client["Records Requested?"] === "TRUE" &&
+	// 		client["Records Reviewed?"] === "TRUE",
+	// );
 
 	const evalScheduled = clients?.filter(
 		(client) => new Date(client["EVAL date"] ?? "") > new Date(),
@@ -140,9 +128,9 @@ export function Dashboard() {
 
 	const allFilteredLists = [
 		justAdded,
-		recordsNeeded,
-		recordsRequested,
-		recordsReviewed,
+		// recordsNeeded,
+		// recordsRequested,
+		// recordsReviewed,
 		daQsPending,
 		daQsSent,
 		daReadyToSchedule,
@@ -150,7 +138,7 @@ export function Dashboard() {
 		// paRequested,
 		evalQsPending,
 		evalQsSent,
-		evalReadyToSchedule,
+		// evalReadyToSchedule,
 		evalScheduled,
 		needsProtocolsScanned,
 	];
@@ -189,7 +177,7 @@ export function Dashboard() {
 		<div className="mx-4 flex grow items-center justify-center">
 			<Accordion className="md:w-1/2" type="multiple">
 				<PunchListAccordionItem clients={justAdded ?? []} title="Just Added" />
-				<PunchListAccordionItem
+				{/* <PunchListAccordionItem
 					clients={recordsNeeded ?? []}
 					title="Records Needed"
 				/>
@@ -200,7 +188,7 @@ export function Dashboard() {
 				<PunchListAccordionItem
 					clients={recordsReviewed ?? []}
 					title="Records Reviewed"
-				/>
+				/> */}
 				<PunchListAccordionItem
 					clients={daQsPending ?? []}
 					title="DA Qs Pending"
@@ -226,10 +214,10 @@ export function Dashboard() {
 					clients={evalQsSent ?? []}
 					title="Eval Qs Sent"
 				/>
-				<PunchListAccordionItem
+				{/* <PunchListAccordionItem
 					clients={evalReadyToSchedule ?? []}
 					title="Eval Ready to Schedule"
-				/>
+				/> */}
 				<PunchListAccordionItem
 					clients={evalScheduled ?? []}
 					title="Eval Scheduled"
