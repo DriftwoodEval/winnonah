@@ -31,7 +31,9 @@ import {
 import { Input } from "@ui/input";
 import { Separator } from "@ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@ui/tabs";
-import { Loader2, Lock, LockOpen, Plus, Trash2 } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@ui/tooltip";
+import { Info, Loader2, Lock, LockOpen, Plus, Trash2 } from "lucide-react";
+import { useSession } from "next-auth/react";
 import { useEffect, useState } from "react";
 import {
 	type Control,
@@ -45,6 +47,8 @@ import {
 } from "react-hook-form";
 import { toast } from "sonner";
 import { z } from "zod";
+import type { PermissionsObject } from "~/lib/types";
+import { cn, hasPermission } from "~/lib/utils";
 import {
 	pythonConfigSchema,
 	serviceSchema,
@@ -65,9 +69,9 @@ const formSchema = z.object({
 	config: z.object({
 		initials: z.string(),
 		name: z.string(),
-		email: z.string().email(),
-		automated_email: z.string().email(),
-		qreceive_emails: z.array(arrItem(z.string().email())),
+		email: z.email(),
+		automated_email: z.email(),
+		qreceive_emails: z.array(arrItem(z.email())),
 		punch_list_id: z.string(),
 		punch_list_range: z.string(),
 		failed_sheet_id: z.string(),
@@ -77,7 +81,7 @@ const formSchema = z.object({
 		records_folder_id: z.string(),
 		sent_records_folder_id: z.string(),
 		records_emails: z.array(
-			keyVal(z.object({ email: z.string().email(), fax: z.boolean() })),
+			keyVal(z.object({ email: z.email(), fax: z.boolean() })),
 		),
 		piecework: z.object({
 			costs: z.array(
@@ -130,6 +134,8 @@ function FieldInput<T extends FieldValues>({
 	type,
 	placeholder,
 	className,
+	disabled,
+	description,
 }: {
 	control: Control<T>;
 	name: Path<T>;
@@ -137,6 +143,8 @@ function FieldInput<T extends FieldValues>({
 	type?: string;
 	placeholder?: string;
 	className?: string;
+	disabled?: boolean;
+	description?: string;
 }) {
 	return (
 		<FormField
@@ -144,10 +152,23 @@ function FieldInput<T extends FieldValues>({
 			name={name}
 			render={({ field }) => (
 				<FormItem className={className}>
-					{label && <FormLabel>{label}</FormLabel>}
+					<div className="flex items-center gap-2">
+						{label && <FormLabel>{label}</FormLabel>}
+						{description && (
+							<Tooltip>
+								<TooltipTrigger asChild>
+									<Info className="h-4 w-4 cursor-help text-muted-foreground" />
+								</TooltipTrigger>
+								<TooltipContent>
+									<p className="max-w-xs">{description}</p>
+								</TooltipContent>
+							</Tooltip>
+						)}
+					</div>
 					<FormControl>
 						<Input
 							{...field}
+							disabled={disabled}
 							placeholder={placeholder}
 							type={type}
 							value={field.value?.toString() ?? ""}
@@ -167,6 +188,8 @@ function ProtectedFieldInput<T extends FieldValues>({
 	type,
 	placeholder,
 	className,
+	disabled,
+	description,
 }: {
 	control: Control<T>;
 	name: Path<T>;
@@ -174,6 +197,8 @@ function ProtectedFieldInput<T extends FieldValues>({
 	type?: string;
 	placeholder?: string;
 	className?: string;
+	disabled?: boolean;
+	description?: string;
 }) {
 	const [isUnlocked, setIsUnlocked] = useState(false);
 
@@ -183,12 +208,24 @@ function ProtectedFieldInput<T extends FieldValues>({
 			name={name}
 			render={({ field }) => (
 				<FormItem className={className}>
-					{label && <FormLabel>{label}</FormLabel>}
+					<div className="flex items-center gap-2">
+						{label && <FormLabel>{label}</FormLabel>}
+						{description && (
+							<Tooltip>
+								<TooltipTrigger asChild>
+									<Info className="h-4 w-4 cursor-help text-muted-foreground" />
+								</TooltipTrigger>
+								<TooltipContent>
+									<p className="max-w-xs">{description}</p>
+								</TooltipContent>
+							</Tooltip>
+						)}
+					</div>
 					<div className="flex items-center gap-2">
 						<FormControl>
 							<Input
 								{...field}
-								disabled={!isUnlocked}
+								disabled={disabled || !isUnlocked}
 								placeholder={placeholder}
 								type={type}
 								value={field.value?.toString() ?? ""}
@@ -198,7 +235,11 @@ function ProtectedFieldInput<T extends FieldValues>({
 							<AlertDialog>
 								<AlertDialogTrigger asChild>
 									<Button
-										className="shrink-0"
+										className={cn(
+											"shrink-0 cursor-pointer",
+											disabled ?? "cursor-not-allowed",
+										)}
+										disabled={disabled}
 										size="icon"
 										type="button"
 										variant="outline"
@@ -225,6 +266,7 @@ function ProtectedFieldInput<T extends FieldValues>({
 						) : (
 							<Button
 								className="shrink-0"
+								disabled={disabled}
 								onClick={() => setIsUnlocked(false)}
 								size="icon"
 								type="button"
@@ -247,12 +289,16 @@ function ListEditor<T extends FieldValues, Name extends FieldArrayPath<T>>({
 	label,
 	renderItem,
 	newItem,
+	disabled,
+	description,
 }: {
 	control: Control<T>;
 	name: Name;
 	label: string;
 	renderItem: (index: number) => React.ReactNode;
 	newItem: Parameters<UseFieldArrayReturn<T, Name>["append"]>[0];
+	disabled?: boolean;
+	description?: string;
 }) {
 	const { fields, append, remove } = useFieldArray({
 		control,
@@ -261,11 +307,24 @@ function ListEditor<T extends FieldValues, Name extends FieldArrayPath<T>>({
 
 	return (
 		<div className="space-y-2">
-			<FormLabel>{label}</FormLabel>
+			<div className="flex items-center gap-2">
+				<FormLabel>{label}</FormLabel>
+				{description && (
+					<Tooltip>
+						<TooltipTrigger asChild>
+							<Info className="h-4 w-4 cursor-help text-muted-foreground" />
+						</TooltipTrigger>
+						<TooltipContent>
+							<p className="max-w-xs">{description}</p>
+						</TooltipContent>
+					</Tooltip>
+				)}
+			</div>
 			{fields.map((field, i) => (
-				<div className="mb-2 flex items-start gap-2" key={field.id}>
+				<div className="mb-2 flex w-full items-end gap-2" key={field.id}>
 					{renderItem(i)}
 					<Button
+						disabled={disabled}
 						onClick={() => remove(i)}
 						size="icon"
 						type="button"
@@ -277,6 +336,7 @@ function ListEditor<T extends FieldValues, Name extends FieldArrayPath<T>>({
 			))}
 			<Button
 				className="w-full"
+				disabled={disabled}
 				onClick={() => append(newItem)}
 				size="sm"
 				type="button"
@@ -295,17 +355,25 @@ function KeyValueList<T extends FieldValues, Name extends FieldArrayPath<T>>({
 	keyLabel,
 	defaultValue,
 	renderValue,
+	keyClassName = "w-1/3",
+	disabled,
+	description,
 }: {
 	control: Control<T>;
 	name: Name;
 	label: string;
 	keyLabel: string;
 	defaultValue: unknown;
-	renderValue: (prefix: string) => React.ReactNode;
+	renderValue: (prefix: string, disabled?: boolean) => React.ReactNode;
+	keyClassName?: string;
+	disabled?: boolean;
+	description?: string;
 }) {
 	return (
 		<ListEditor
 			control={control}
+			description={description}
+			disabled={disabled}
 			label={label}
 			name={name}
 			newItem={
@@ -316,14 +384,15 @@ function KeyValueList<T extends FieldValues, Name extends FieldArrayPath<T>>({
 			}
 			renderItem={(i) => (
 				<>
-					<div className="w-1/3">
+					<div className={keyClassName}>
 						<FieldInput
 							control={control}
+							disabled={disabled}
 							name={`${name}.${i}.key` as Path<T>}
 							placeholder={keyLabel}
 						/>
 					</div>
-					{renderValue(`${name}.${i}.value`)}
+					{renderValue(`${name}.${i}.value`, disabled)}
 				</>
 			)}
 		/>
@@ -342,6 +411,17 @@ export function ConfigEditor() {
 		},
 		onError: (e) => toast.error(e.message),
 	});
+
+	const { data: session } = useSession();
+	const perms = session?.user.permissions as PermissionsObject;
+
+	const canEditGeneral = hasPermission(perms, "settings:qsuite:general");
+	const canEditServices = hasPermission(perms, "settings:qsuite:services");
+	const canEditRecords = hasPermission(perms, "settings:qsuite:records");
+	const canEditPiecework = hasPermission(perms, "settings:qsuite:piecework");
+
+	const canEditAny =
+		canEditGeneral || canEditServices || canEditRecords || canEditPiecework;
 
 	const form = useForm<FormValues>({ resolver: zodResolver(formSchema) });
 
@@ -407,11 +487,11 @@ export function ConfigEditor() {
 		return <Loader2 className="mx-auto mt-20 h-8 w-8 animate-spin" />;
 
 	return (
-		<div className="container max-w-5xl space-y-6 py-8">
+		<div className="container mx-auto max-w-5xl space-y-6 py-8">
 			<div className="flex items-center justify-between">
-				<h1 className="font-bold text-3xl">Configuration</h1>
+				<h1 className="font-bold text-3xl">QSuite Config</h1>
 				<Button
-					disabled={mutation.isPending}
+					disabled={mutation.isPending || !canEditAny}
 					onClick={form.handleSubmit(onSubmit)}
 				>
 					{mutation.isPending && (
@@ -431,16 +511,16 @@ export function ConfigEditor() {
 					</TabsList>
 					<div className="mt-6 space-y-6">
 						<TabsContent value="general">
-							<GeneralTab form={form} />
+							<GeneralTab disabled={!canEditGeneral} form={form} />
 						</TabsContent>
 						<TabsContent value="services">
-							<ServicesTab form={form} />
+							<ServicesTab disabled={!canEditServices} form={form} />
 						</TabsContent>
 						<TabsContent value="records">
-							<RecordsTab form={form} />
+							<RecordsTab disabled={!canEditRecords} form={form} />
 						</TabsContent>
 						<TabsContent value="piecework">
-							<PieceworkTab form={form} />
+							<PieceworkTab disabled={!canEditPiecework} form={form} />
 						</TabsContent>
 					</div>
 				</Tabs>
@@ -451,7 +531,13 @@ export function ConfigEditor() {
 
 // --- Tab Components ---
 
-function GeneralTab({ form }: { form: UseFormReturn<FormValues> }) {
+function GeneralTab({
+	form,
+	disabled,
+}: {
+	form: UseFormReturn<FormValues>;
+	disabled?: boolean;
+}) {
 	const c = form.control;
 	return (
 		<div className="grid gap-6">
@@ -460,12 +546,32 @@ function GeneralTab({ form }: { form: UseFormReturn<FormValues> }) {
 					<CardTitle>Identity</CardTitle>
 				</CardHeader>
 				<CardContent className="grid grid-cols-2 gap-4">
-					<FieldInput control={c} label="Initials" name="config.initials" />
-					<FieldInput control={c} label="Name" name="config.name" />
-					<FieldInput control={c} label="Email" name="config.email" />
 					<FieldInput
 						control={c}
-						label="Bot Email"
+						description="Initials of the person sending questionnaires. Will be filled in on questionnaire sites."
+						disabled={disabled}
+						label="Initials"
+						name="config.initials"
+					/>
+					<FieldInput
+						control={c}
+						description="First name of the person sending questionnaires. Will be inserted into reminder messages. Must be the name of a Quo user."
+						disabled={disabled}
+						label="Name"
+						name="config.name"
+					/>
+					<FieldInput
+						control={c}
+						description="Email entered into WPS for the DP-4."
+						disabled={disabled}
+						label="DP-4 Email"
+						name="config.email"
+					/>
+					<FieldInput
+						control={c}
+						description="The email address used as the alias that sends Receive Run emails."
+						disabled={disabled}
+						label="Receive From Email"
 						name="config.automated_email"
 					/>
 				</CardContent>
@@ -477,27 +583,37 @@ function GeneralTab({ form }: { form: UseFormReturn<FormValues> }) {
 				<CardContent className="grid grid-cols-2 gap-4">
 					<ProtectedFieldInput
 						control={c}
+						description="The Google Sheet ID for the Punch List."
+						disabled={disabled}
 						label="Punch List ID"
 						name="config.punch_list_id"
 					/>
 					<FieldInput
 						control={c}
+						description="The cell range to read from the Punch List."
+						disabled={disabled}
 						label="Punch List Range"
 						name="config.punch_list_range"
 					/>
 					<ProtectedFieldInput
 						control={c}
+						description="The Google Sheet ID for logging failed operations."
+						disabled={disabled}
 						label="Failed Sheet ID"
 						name="config.failed_sheet_id"
 					/>
 					<FieldInput
 						control={c}
+						description="The Google Drive folder ID for payroll documents."
+						disabled={disabled}
 						label="Payroll Folder ID"
 						name="config.payroll_folder_id"
 					/>
 					<ProtectedFieldInput
 						className="col-span-2"
 						control={c}
+						description="The connection string for the database."
+						disabled={disabled}
 						label="DB URL"
 						name="config.database_url"
 					/>
@@ -506,19 +622,24 @@ function GeneralTab({ form }: { form: UseFormReturn<FormValues> }) {
 			<div className="grid grid-cols-2 gap-6">
 				<ListEditor
 					control={c}
-					label="Q-Receive Emails"
+					description="List of emails that receive Receive Run emails."
+					disabled={disabled}
+					label="QReceive Emails"
 					name="config.qreceive_emails"
 					newItem={{ value: "" }}
 					renderItem={(i) => (
 						<FieldInput
 							className="w-full"
 							control={c}
+							disabled={disabled}
 							name={`config.qreceive_emails.${i}.value` as Path<FormValues>}
 						/>
 					)}
 				/>
 				<ListEditor
 					control={c}
+					description="List of TherapyAppointment users to exclude when downloading information."
+					disabled={disabled}
 					label="Excluded TA"
 					name="config.excluded_ta"
 					newItem={{ value: "" }}
@@ -526,6 +647,7 @@ function GeneralTab({ form }: { form: UseFormReturn<FormValues> }) {
 						<FieldInput
 							className="w-full"
 							control={c}
+							disabled={disabled}
 							name={`config.excluded_ta.${i}.value` as Path<FormValues>}
 						/>
 					)}
@@ -535,7 +657,13 @@ function GeneralTab({ form }: { form: UseFormReturn<FormValues> }) {
 	);
 }
 
-function ServicesTab({ form }: { form: UseFormReturn<FormValues> }) {
+function ServicesTab({
+	form,
+	disabled,
+}: {
+	form: UseFormReturn<FormValues>;
+	disabled?: boolean;
+}) {
 	const c = form.control;
 	const commonServices = ["mhs", "qglobal", "wps"] as const;
 
@@ -548,22 +676,27 @@ function ServicesTab({ form }: { form: UseFormReturn<FormValues> }) {
 				<CardContent className="grid grid-cols-2 gap-4">
 					<FieldInput
 						control={c}
+						description="Username for TherapyAppointment (This user will be used to send questionnaires)."
+						disabled={disabled}
 						label="User"
 						name="services.therapyappointment.username"
 					/>
 					<FieldInput
 						control={c}
-						label="Pass"
+						disabled={disabled}
+						label="Password"
 						name="services.therapyappointment.password"
 						type="password"
 					/>
 					<FieldInput
 						control={c}
+						disabled={disabled}
 						label="Admin User"
 						name="services.therapyappointment.admin_username"
 					/>
 					<FieldInput
 						control={c}
+						disabled={disabled}
 						label="Admin Pass"
 						name="services.therapyappointment.admin_password"
 						type="password"
@@ -579,11 +712,13 @@ function ServicesTab({ form }: { form: UseFormReturn<FormValues> }) {
 						<CardContent className="space-y-2">
 							<FieldInput
 								control={c}
+								disabled={disabled}
 								label="User"
 								name={`services.${svc}.username`}
 							/>
 							<FieldInput
 								control={c}
+								disabled={disabled}
 								label="Pass"
 								name={`services.${svc}.password`}
 								type="password"
@@ -594,17 +729,20 @@ function ServicesTab({ form }: { form: UseFormReturn<FormValues> }) {
 			</div>
 			<Card>
 				<CardHeader>
-					<CardTitle>OpenPhone</CardTitle>
+					<CardTitle>Quo</CardTitle>
 				</CardHeader>
 				<CardContent className="space-y-4">
 					<div className="grid grid-cols-2 gap-4">
 						<ProtectedFieldInput
 							control={c}
+							description="API Key for Quo integration."
+							disabled={disabled}
 							label="API Key"
 							name="services.openphone.key"
 						/>
 						<ProtectedFieldInput
 							control={c}
+							disabled={disabled}
 							label="Main #"
 							name="services.openphone.main_number"
 						/>
@@ -613,18 +751,22 @@ function ServicesTab({ form }: { form: UseFormReturn<FormValues> }) {
 					<KeyValueList
 						control={c}
 						defaultValue={{ id: "", phone: "" }}
+						description="Map of Quo user IDs to phone numbers."
+						disabled={disabled}
 						keyLabel="Name"
 						label="Users"
 						name="services.openphone.users"
-						renderValue={(p) => (
+						renderValue={(p, d) => (
 							<div className="grid flex-1 grid-cols-2 gap-2">
 								<FieldInput
 									control={c}
+									disabled={d}
 									name={`${p}.id` as Path<FormValues>}
 									placeholder="ID"
 								/>
 								<FieldInput
 									control={c}
+									disabled={d}
 									name={`${p}.phone` as Path<FormValues>}
 									placeholder="Phone"
 								/>
@@ -637,18 +779,28 @@ function ServicesTab({ form }: { form: UseFormReturn<FormValues> }) {
 	);
 }
 
-function RecordsTab({ form }: { form: UseFormReturn<FormValues> }) {
+function RecordsTab({
+	form,
+	disabled,
+}: {
+	form: UseFormReturn<FormValues>;
+	disabled?: boolean;
+}) {
 	return (
 		<div className="grid gap-6">
 			<Card>
 				<CardContent className="grid grid-cols-2 gap-4 pt-6">
 					<ProtectedFieldInput
 						control={form.control}
+						description="The Google Drive folder ID for storing client records consent forms."
+						disabled={disabled}
 						label="Records Folder ID"
 						name="config.records_folder_id"
 					/>
 					<ProtectedFieldInput
 						control={form.control}
+						description="The Google Drive folder ID where sent records consent forms are archived."
+						disabled={disabled}
 						label="Sent Folder ID"
 						name="config.sent_records_folder_id"
 					/>
@@ -657,19 +809,24 @@ function RecordsTab({ form }: { form: UseFormReturn<FormValues> }) {
 			<Card>
 				<CardHeader>
 					<CardTitle>Emails Map</CardTitle>
+					<CardDescription>
+						Map of school districts to emails to send records requests to.
+					</CardDescription>
 				</CardHeader>
 				<CardContent>
 					<KeyValueList
 						control={form.control}
 						defaultValue={{ email: "", fax: false }}
+						disabled={disabled}
 						keyLabel="Identifier"
 						label=""
 						name="config.records_emails"
-						renderValue={(p) => (
+						renderValue={(p, d) => (
 							<div className="flex flex-1 items-center gap-2">
 								<FieldInput
 									className="flex-1"
 									control={form.control}
+									disabled={d}
 									name={`${p}.email` as Path<FormValues>}
 									placeholder="Email"
 								/>
@@ -682,6 +839,7 @@ function RecordsTab({ form }: { form: UseFormReturn<FormValues> }) {
 												<Input
 													checked={field.value as boolean}
 													className="h-4 w-4"
+													disabled={d}
 													onChange={field.onChange}
 													type="checkbox"
 												/>
@@ -699,22 +857,29 @@ function RecordsTab({ form }: { form: UseFormReturn<FormValues> }) {
 	);
 }
 
-function PieceworkTab({ form }: { form: UseFormReturn<FormValues> }) {
+function PieceworkTab({
+	form,
+	disabled,
+}: {
+	form: UseFormReturn<FormValues>;
+	disabled?: boolean;
+}) {
 	return (
 		<div className="grid gap-6">
 			<Card>
 				<CardHeader>
 					<CardTitle>Costs</CardTitle>
-					<CardDescription>Per evaluator rates</CardDescription>
+					<CardDescription>Per evaluator rates.</CardDescription>
 				</CardHeader>
 				<CardContent>
 					<KeyValueList
 						control={form.control}
 						defaultValue={{}}
+						disabled={disabled}
 						keyLabel="Evaluator"
 						label=""
 						name="config.piecework.costs"
-						renderValue={(p) => (
+						renderValue={(p, d) => (
 							<div className="grid flex-1 grid-cols-4 gap-2">
 								{["DA", "EVAL", "DAEVAL", "REPORT"].map((k) => (
 									<FormField
@@ -723,10 +888,13 @@ function PieceworkTab({ form }: { form: UseFormReturn<FormValues> }) {
 										name={`${p}.${k}` as Path<FormValues>}
 										render={({ field }) => (
 											<FormItem>
-												<FormLabel className="text-[10px]">{k}</FormLabel>
+												<FormLabel className="text-[10px] text-muted-foreground">
+													{k}
+												</FormLabel>
 												<FormControl>
 													<Input
-														step="0.01"
+														disabled={d}
+														step="1"
 														type="number"
 														{...field}
 														onChange={(e) =>
@@ -749,17 +917,24 @@ function PieceworkTab({ form }: { form: UseFormReturn<FormValues> }) {
 			<Card>
 				<CardHeader>
 					<CardTitle>Name Map</CardTitle>
+					<CardDescription>
+						Initial to name map for report writers.
+					</CardDescription>
 				</CardHeader>
 				<CardContent>
 					<KeyValueList
 						control={form.control}
 						defaultValue=""
+						disabled={disabled}
+						keyClassName="w-32"
 						keyLabel="Initials"
 						label=""
 						name="config.piecework.name_map"
-						renderValue={(p) => (
+						renderValue={(p, d) => (
 							<FieldInput
+								className="flex-1"
 								control={form.control}
+								disabled={d}
 								name={p as Path<FormValues>}
 								placeholder="Full Name"
 							/>

@@ -160,6 +160,27 @@ export const permissions = {
 					{ id: "settings:testUnits", title: "Manage Test Units" },
 				],
 			},
+			qsuite: {
+				title: "QSuite",
+				permissions: [
+					{
+						id: "settings:qsuite:general",
+						title: "Edit QSuite General Config",
+					},
+					{
+						id: "settings:qsuite:services",
+						title: "Edit QSuite Services Config",
+					},
+					{
+						id: "settings:qsuite:records",
+						title: "Edit QSuite Records Config",
+					},
+					{
+						id: "settings:qsuite:piecework",
+						title: "Edit QSuite Piecework Config",
+					},
+				],
+			},
 		},
 	},
 	pages: {
