@@ -560,7 +560,7 @@ export const accounts = createTable(
 		access_token: d.text(),
 		expires_at: d.int(),
 		token_type: d.varchar({ length: 255 }),
-		scope: d.varchar({ length: 255 }),
+		scope: d.text(),
 		id_token: d.text(),
 		session_state: d.varchar({ length: 255 }),
 	}),

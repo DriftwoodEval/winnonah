@@ -56,7 +56,7 @@ export const authConfig = {
 				params: {
 					access_type: "offline",
 					response_type: "code",
-					prompt: "consent",
+					include_granted_scopes: "true",
 					scope:
 						"openid email profile https://www.googleapis.com/auth/spreadsheets https://www.googleapis.com/auth/drive https://www.googleapis.com/auth/calendar",
 				},
@@ -93,12 +93,13 @@ export const authConfig = {
 					),
 				});
 
-				if (existingAccount && existingAccount.scope !== account.scope) {
+				if (existingAccount) {
 					await db
 						.update(accounts)
 						.set({
 							access_token: account.access_token,
-							refresh_token: account.refresh_token,
+							refresh_token:
+								account.refresh_token ?? existingAccount.refresh_token,
 							scope: account.scope,
 							expires_at: account.expires_at,
 							token_type: account.token_type,
