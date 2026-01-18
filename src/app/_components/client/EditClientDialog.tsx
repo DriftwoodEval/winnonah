@@ -133,9 +133,7 @@ function ClientForm({
 												? allSchoolDistricts.find(
 														(district) => district.fullName === field.value,
 													)?.shortName ||
-													field.value
-														.replace(/ County School District/, "")
-														.replace(/ School District/, "")
+													field.value.replace(/ (County )?School District/, "")
 												: "Select district"}
 											<ChevronsUpDown className="opacity-50" />
 										</Button>
@@ -163,9 +161,10 @@ function ClientForm({
 														value={district.fullName}
 													>
 														{district.shortName ||
-															district.fullName
-																.replace(/ County School District/, "")
-																.replace(/ School District/, "")}
+															district.fullName.replace(
+																/ (County )?School District/,
+																"",
+															)}
 														<Check
 															className={cn(
 																"ml-auto",

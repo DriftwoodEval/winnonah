@@ -89,9 +89,7 @@ export function getScheduledClientDisplayValues(
 		),
 		district: normalize(
 			district?.shortName ||
-				client.client.schoolDistrict
-					?.replace(/ County School District/, "")
-					.replace(/ School District/, ""),
+				client.client.schoolDistrict?.replace(/ (County )?School District/, ""),
 		),
 		paDate: normalize(
 			client.client.precertExpires

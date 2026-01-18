@@ -126,9 +126,7 @@ export function ClientDetailsCard({
 				<p className="font-bold">School District</p>
 				<p>
 					{(client.schoolDistrictDetails?.shortName ||
-						client.schoolDistrict
-							?.replace(/ County School District/, "")
-							.replace(/ School District/, "")) ??
+						client.schoolDistrict?.replace(/ (County )?School District/, "")) ??
 						"Unknown"}
 				</p>
 			</div>
