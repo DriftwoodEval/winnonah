@@ -2,6 +2,7 @@ import { type ClassValue, clsx } from "clsx";
 import { type AnyColumn, type SQL, sql } from "drizzle-orm";
 import { twMerge } from "tailwind-merge";
 import type {
+	InsuranceWithAliases,
 	PermissionId,
 	PermissionsObject,
 	QUESTIONNAIRE_STATUSES,
@@ -17,6 +18,26 @@ export function hasPermission(
 ): boolean {
 	return !!userPerms[permission];
 }
+
+export const mapInsuranceToShortNames = (
+	primary: string | null,
+	secondary: string | null,
+	insurances: InsuranceWithAliases[],
+) => {
+	const getShortName = (officialName: string | null) => {
+		if (!officialName) return null;
+		const insurance = insurances.find(
+			(i) =>
+				i.shortName === officialName ||
+				i.aliases.some((a) => a.name === officialName),
+		);
+		return insurance?.shortName || officialName;
+	};
+
+	return [getShortName(primary), getShortName(secondary)]
+		.filter(Boolean)
+		.join(" | ");
+};
 
 /**
  * Format a client's age given their date of birth.

@@ -6,6 +6,7 @@ import {
 	DropdownMenu,
 	DropdownMenuContent,
 	DropdownMenuItem,
+	DropdownMenuSeparator,
 	DropdownMenuTrigger,
 } from "@components/ui/dropdown-menu";
 import { Input } from "@components/ui/input";
@@ -22,7 +23,7 @@ import { Textarea } from "@components/ui/textarea";
 import type { inferRouterOutputs } from "@trpc/server";
 import { Circle, Filter } from "lucide-react";
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { memo, useEffect, useMemo, useState } from "react";
 import {
 	formatColorName,
 	isSchedulingColor,
@@ -36,12 +37,75 @@ import type {
 	Office,
 	SchoolDistrict,
 } from "~/lib/types";
-import { formatClientAge, getLocalDayFromUTCDate } from "~/lib/utils";
+import {
+	cn,
+	formatClientAge,
+	getLocalDayFromUTCDate,
+	mapInsuranceToShortNames,
+} from "~/lib/utils";
 import type { AppRouter } from "~/server/api/root";
 import { api } from "~/trpc/react";
 
+export const normalize = (val: string | null | undefined) => {
+	if (!val || val === "-") return "";
+	return val;
+};
+
 type SchedulingRouterOutput = inferRouterOutputs<AppRouter>["scheduling"];
 export type ScheduledClient = SchedulingRouterOutput["get"]["clients"][number];
+
+export function getScheduledClientDisplayValues(
+	client: ScheduledClient,
+	evaluators: Map<number, Evaluator>,
+	offices: Map<string, Office>,
+	districts: Map<string, SchoolDistrict>,
+	insurances: InsuranceWithAliases[],
+) {
+	const evaluator = client.evaluator
+		? evaluators.get(client.evaluator as number)
+		: null;
+	const office = client.office ? offices.get(client.office as string) : null;
+	const district = client.client.schoolDistrict
+		? districts.get(client.client.schoolDistrict)
+		: null;
+
+	const insurance = mapInsuranceToShortNames(
+		client.client.primaryInsurance,
+		client.client.secondaryInsurance,
+		insurances,
+	);
+
+	return {
+		color: normalize(client.color),
+		fullName: normalize(client.client.fullName),
+		evaluator: normalize(evaluator?.providerName.split(" ")[0]),
+		date: normalize(client.date),
+		time: normalize(client.time),
+		asdAdhd: normalize(client.client.asdAdhd),
+		insurance: normalize(insurance),
+		code: normalize(client.code),
+		location: normalize(
+			client.office === "Virtual" ? "Virtual" : office?.prettyName || "",
+		),
+		district: normalize(
+			district?.shortName ||
+				client.client.schoolDistrict
+					?.replace(/ County School District/, "")
+					.replace(/ School District/, ""),
+		),
+		paDate: normalize(
+			client.client.precertExpires
+				? getLocalDayFromUTCDate(
+						client.client.precertExpires,
+					)?.toLocaleDateString() || ""
+				: "",
+		),
+		age: normalize(
+			client.client.dob ? formatClientAge(client.client.dob, "short") : "",
+		),
+		notes: normalize(client.notes),
+	};
+}
 
 export function ColumnFilter({
 	columnName,
@@ -118,7 +182,7 @@ export function ColumnFilter({
 				</div>
 				{selectedValues.length > 0 && (
 					<>
-						<SelectSeparator />
+						<DropdownMenuSeparator />
 						<DropdownMenuItem
 							className="justify-center text-destructive"
 							onClick={() => onFilterChange([])}
@@ -207,9 +271,10 @@ export function EvaluatorSelect({
 	onChange: (value: string) => void;
 	disabled?: boolean;
 }) {
+	const [hasBeenOpened, setHasBeenOpened] = useState(false);
 	const { data: eligibleEvaluators, isLoading } =
 		api.evaluators.getEligibleForClient.useQuery(clientId, {
-			enabled: !disabled,
+			enabled: !disabled && hasBeenOpened,
 		});
 
 	const { eligible, other } = useMemo(() => {
@@ -232,7 +297,11 @@ export function EvaluatorSelect({
 	}
 
 	return (
-		<Select onValueChange={onChange} value={value === "none" ? "" : value}>
+		<Select
+			onOpenChange={(open) => open && setHasBeenOpened(true)}
+			onValueChange={onChange}
+			value={value === "none" ? "" : value}
+		>
 			<SelectTrigger>
 				<SelectValue placeholder="Evaluator" />
 			</SelectTrigger>
@@ -249,6 +318,11 @@ export function EvaluatorSelect({
 							</SelectItem>
 						))}
 						{eligible.length > 0 && other.length > 0 && <SelectSeparator />}
+						{eligible.length > 0 && other.length > 0 && (
+							<span className="text-[8pt] text-muted-foreground">
+								Ineligible
+							</span>
+						)}
 						{other.map((evaluator) => (
 							<SelectItem key={evaluator.npi} value={evaluator.npi.toString()}>
 								{evaluator.providerName.split(" ")[0]}
@@ -265,10 +339,14 @@ export function SchedulingTableHeader({
 	filters,
 	onFilterChange,
 	uniqueValues,
+	isScrolledLeft,
+	isScrolledTop,
 }: {
 	filters: Record<string, string[]>;
 	onFilterChange: (column: string, values: string[]) => void;
 	uniqueValues: Record<string, string[]>;
+	isScrolledLeft?: boolean;
+	isScrolledTop?: boolean;
 }) {
 	const columns: {
 		key: string;
@@ -297,9 +375,21 @@ export function SchedulingTableHeader({
 	];
 
 	return (
-		<TableRow className="hover:bg-inherit">
-			{columns.map((col) => (
-				<TableHead key={col.key}>
+		<TableRow
+			className={cn(
+				"transition-shadow duration-200 hover:bg-inherit",
+				isScrolledTop && "shadow-lg",
+			)}
+		>
+			{columns.map((col, index) => (
+				<TableHead
+					className={cn(
+						index === 0 &&
+							"sticky top-0 left-0 z-30 bg-background transition-shadow duration-200",
+						index === 0 && isScrolledLeft && "shadow-lg",
+					)}
+					key={col.key}
+				>
 					<div className="flex items-center gap-1">
 						{col.label}
 						{!col.noFilter && (
@@ -330,7 +420,7 @@ export interface SchedulingUpdateData {
 	color?: string | null;
 }
 
-export function SchedulingTableRow({
+export const SchedulingTableRow = memo(function SchedulingTableRow({
 	scheduledClient,
 	evaluators,
 	offices,
@@ -339,6 +429,7 @@ export function SchedulingTableRow({
 	isEditable,
 	onUpdate,
 	actions,
+	isScrolledLeft,
 }: {
 	scheduledClient: ScheduledClient;
 	evaluators: Evaluator[];
@@ -348,6 +439,7 @@ export function SchedulingTableRow({
 	isEditable?: boolean;
 	onUpdate?: (clientId: number, data: SchedulingUpdateData) => void;
 	actions: React.ReactNode;
+	isScrolledLeft?: boolean;
 }) {
 	const [localDate, setLocalDate] = useState(scheduledClient.date ?? "");
 	const [localTime, setLocalTime] = useState(scheduledClient.time ?? "");
@@ -371,32 +463,33 @@ export function SchedulingTableRow({
 			: undefined;
 
 	const backgroundColor = color
-		? `${SCHEDULING_COLOR_MAP[color]}10`
-		: "transparent";
+		? `color-mix(in srgb, ${SCHEDULING_COLOR_MAP[color]}, var(--background) 90%)`
+		: "var(--background)";
 
-	const office = offices.find(
-		(o) => o.key === (scheduledClient.office as string | null),
+	const evaluatorMap = useMemo(
+		() => new Map(evaluators.map((e) => [e.npi, e])),
+		[evaluators],
+	);
+	const officeMap = useMemo(
+		() => new Map(offices.map((o) => [o.key, o])),
+		[offices],
+	);
+	const districtMap = useMemo(
+		() => new Map((districts ?? []).map((d) => [d.fullName, d])),
+		[districts],
 	);
 
-	const mapInsuranceToShortNames = (
-		primary: string | null,
-		secondary: string | null,
-		insurances: InsuranceWithAliases[],
-	) => {
-		const getShortName = (officialName: string | null) => {
-			if (!officialName) return null;
-			const insurance = insurances.find(
-				(i) =>
-					i.shortName === officialName ||
-					i.aliases.some((a) => a.name === officialName),
-			);
-			return insurance?.shortName || officialName;
-		};
-
-		return [getShortName(primary), getShortName(secondary)]
-			.filter(Boolean)
-			.join(" | ");
-	};
+	const displayValues = useMemo(
+		() =>
+			getScheduledClientDisplayValues(
+				scheduledClient,
+				evaluatorMap,
+				officeMap,
+				districtMap,
+				insurances,
+			),
+		[scheduledClient, evaluatorMap, officeMap, districtMap, insurances],
+	);
 
 	return (
 		<TableRow
@@ -404,13 +497,25 @@ export function SchedulingTableRow({
 			key={scheduledClient.clientId}
 			style={{ backgroundColor }}
 		>
-			<TableCell>
+			<TableCell
+				className={cn(
+					"sticky left-0 z-5 bg-background transition-shadow duration-200",
+					isScrolledLeft && "shadow-lg",
+				)}
+				style={{
+					backgroundColor: color
+						? `color-mix(in srgb, ${SCHEDULING_COLOR_MAP[color]}, var(--background) 90%)`
+						: "var(--background)",
+				}}
+			>
 				<div className="flex items-center gap-2">
 					<ColorPicker
 						disabled={!isEditable}
-						onChange={(value) =>
-							onUpdate?.(scheduledClient.clientId, { color: value })
-						}
+						onChange={(value) => {
+							if (value !== (scheduledClient.color as SchedulingColor | null)) {
+								onUpdate?.(scheduledClient.clientId, { color: value });
+							}
+						}}
 						value={color}
 					/>
 					<Link
@@ -421,17 +526,19 @@ export function SchedulingTableRow({
 					</Link>
 				</div>
 			</TableCell>
-
 			<TableCell>
 				<EvaluatorSelect
 					allEvaluators={evaluators}
 					clientId={scheduledClient.clientId}
 					disabled={!isEditable}
-					onChange={(value) =>
-						onUpdate?.(scheduledClient.clientId, {
-							evaluatorNpi: value === "none" ? null : parseInt(value, 10),
-						})
-					}
+					onChange={(value) => {
+						const currentVal = scheduledClient.evaluator?.toString() ?? "none";
+						if (value !== currentVal) {
+							onUpdate?.(scheduledClient.clientId, {
+								evaluatorNpi: value === "none" ? null : parseInt(value, 10),
+							});
+						}
+					}}
 					value={scheduledClient.evaluator?.toString() ?? "none"}
 				/>
 			</TableCell>
@@ -440,11 +547,13 @@ export function SchedulingTableRow({
 				{isEditable ? (
 					<Textarea
 						className="max-h-[2.5rem] min-h-[2.5rem] resize-none transition-all duration-200 focus:min-h-[10rem]"
-						onBlur={() =>
-							onUpdate?.(scheduledClient.clientId, {
-								notes: localNotes,
-							})
-						}
+						onBlur={() => {
+							if (localNotes !== (scheduledClient.notes ?? "")) {
+								onUpdate?.(scheduledClient.clientId, {
+									notes: localNotes,
+								});
+							}
+						}}
 						onChange={(e) => setLocalNotes(e.target.value)}
 						value={localNotes}
 					/>
@@ -452,58 +561,58 @@ export function SchedulingTableRow({
 					<Textarea
 						className="max-h-[2.5rem] min-h-[2.5rem] resize-none transition-all duration-200 focus:min-h-[10rem]"
 						readOnly
-						value={scheduledClient.notes || ""}
+						value={displayValues.notes}
 					/>
 				)}
 			</TableCell>
 
-			<TableCell className="min-w-[100px]">
+			<TableCell className="min-w-[100px] max-w-[120px]">
 				{isEditable ? (
 					<Input
-						onBlur={() =>
-							onUpdate?.(scheduledClient.clientId, { date: localDate })
-						}
+						onBlur={() => {
+							if (localDate !== (scheduledClient.date ?? "")) {
+								onUpdate?.(scheduledClient.clientId, { date: localDate });
+							}
+						}}
 						onChange={(e) => setLocalDate(e.target.value)}
 						value={localDate}
 					/>
 				) : (
-					scheduledClient.date || "-"
+					displayValues.date || "-"
 				)}
 			</TableCell>
 
-			<TableCell className="min-w-[100px]">
+			<TableCell className="min-w-[100px] max-w-[120px]">
 				{isEditable ? (
 					<Input
-						onBlur={() =>
-							onUpdate?.(scheduledClient.clientId, { time: localTime })
-						}
+						onBlur={() => {
+							if (localTime !== (scheduledClient.time ?? "")) {
+								onUpdate?.(scheduledClient.clientId, { time: localTime });
+							}
+						}}
 						onChange={(e) => setLocalTime(e.target.value)}
 						value={localTime}
 					/>
 				) : (
-					scheduledClient.time || "-"
+					displayValues.time || "-"
 				)}
 			</TableCell>
 
-			<TableCell>{scheduledClient.client.asdAdhd ?? "-"}</TableCell>
+			<TableCell>{displayValues.asdAdhd || "-"}</TableCell>
 
-			<TableCell>
-				{mapInsuranceToShortNames(
-					scheduledClient.client.primaryInsurance,
-					scheduledClient.client.secondaryInsurance,
-					insurances,
-				) || "-"}
-			</TableCell>
+			<TableCell>{displayValues.insurance || "-"}</TableCell>
 
 			<TableCell>
 				{isEditable ? (
 					<Select
 						onValueChange={(value) => {
-							const updates: SchedulingUpdateData = { code: value };
-							if (value === "90791") {
-								updates.office = "Virtual";
+							if (value !== (scheduledClient.code as string | null)) {
+								const updates: SchedulingUpdateData = { code: value };
+								if (value === "90791") {
+									updates.office = "Virtual";
+								}
+								onUpdate?.(scheduledClient.clientId, updates);
 							}
-							onUpdate?.(scheduledClient.clientId, updates);
 						}}
 						value={(scheduledClient.code as string | null) ?? ""}
 					>
@@ -516,16 +625,18 @@ export function SchedulingTableRow({
 						</SelectContent>
 					</Select>
 				) : (
-					(scheduledClient.code as string | null) || "-"
+					displayValues.code || "-"
 				)}
 			</TableCell>
 
 			<TableCell className="min-w-fit">
 				{isEditable ? (
 					<Select
-						onValueChange={(value) =>
-							onUpdate?.(scheduledClient.clientId, { office: value })
-						}
+						onValueChange={(value) => {
+							if (value !== (scheduledClient.office as string | null)) {
+								onUpdate?.(scheduledClient.clientId, { office: value });
+							}
+						}}
 						value={(scheduledClient.office as string | null) ?? ""}
 					>
 						<SelectTrigger>
@@ -540,47 +651,18 @@ export function SchedulingTableRow({
 							))}
 						</SelectContent>
 					</Select>
-				) : scheduledClient.office === "Virtual" ? (
-					"Virtual"
 				) : (
-					office?.prettyName || "-"
+					displayValues.location || "-"
 				)}
 			</TableCell>
 
-			<TableCell>
-				{(() => {
-					if (!scheduledClient.client.schoolDistrict) return "-";
-					const district = districts?.find(
-						(d) => d.fullName === scheduledClient.client.schoolDistrict,
-					);
-					return (
-						district?.shortName ||
-						scheduledClient.client.schoolDistrict
-							?.replace(/ County School District/, "")
-							.replace(/ School District/, "")
-					);
-				})()}
-			</TableCell>
+			<TableCell>{displayValues.district || "-"}</TableCell>
 
-			<TableCell>
-				{scheduledClient.client.precertExpires
-					? getLocalDayFromUTCDate(
-							scheduledClient.client.precertExpires,
-						)?.toLocaleDateString("en-US", {
-							month: "numeric",
-							day: "numeric",
-							year: "2-digit",
-						})
-					: "-"}
-			</TableCell>
+			<TableCell>{displayValues.paDate || "-"}</TableCell>
 
-			<TableCell>
-				{scheduledClient.client.dob
-					? formatClientAge(scheduledClient.client.dob, "short")
-					: ""}
-			</TableCell>
+			<TableCell>{displayValues.age}</TableCell>
 
 			<TableCell>{actions}</TableCell>
 		</TableRow>
 	);
-}
+});

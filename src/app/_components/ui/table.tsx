@@ -1,19 +1,19 @@
 "use client";
 
-import type * as React from "react";
+import * as React from "react";
 
 import { cn } from "~/lib/utils";
 
-function Table({
-  className,
-  classNameWrapper,
-  ...props
-}: React.ComponentProps<"table"> & {
-  classNameWrapper?: React.ComponentProps<"div">["className"];
-}) {
+const Table = React.forwardRef<
+  HTMLDivElement,
+  React.ComponentProps<"table"> & {
+    classNameWrapper?: React.ComponentProps<"div">["className"];
+  }
+>(({ className, classNameWrapper, ...props }, ref) => {
   return (
     <div
       data-slot="table-container"
+      ref={ref}
       className={cn(
         "relative w-full overflow-x-auto",
         "overflow-y-auto",
@@ -27,7 +27,8 @@ function Table({
       />
     </div>
   );
-}
+});
+Table.displayName = "Table";
 
 function TableHeader({ className, ...props }: React.ComponentProps<"thead">) {
   return (
@@ -35,7 +36,7 @@ function TableHeader({ className, ...props }: React.ComponentProps<"thead">) {
       data-slot="table-header"
       className={cn(
         "[&_tr]:border-b",
-        "sticky top-0 z-10 bg-background",
+        "sticky top-0 z-20 bg-background",
         className,
       )}
       {...props}

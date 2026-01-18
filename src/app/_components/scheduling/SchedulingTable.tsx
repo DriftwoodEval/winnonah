@@ -5,46 +5,47 @@ import { Table, TableBody, TableHeader } from "@components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@components/ui/tabs";
 import { Skeleton } from "@ui/skeleton";
 import { ArchiveRestore, Loader2, X } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type {
 	Evaluator,
 	InsuranceWithAliases,
 	Office,
 	SchoolDistrict,
 } from "~/lib/types";
-import { formatClientAge, getLocalDayFromUTCDate } from "~/lib/utils";
+import {
+	cn,
+} from "~/lib/utils";
 import { api } from "~/trpc/react";
 import {
+	getScheduledClientDisplayValues,
 	type ScheduledClient,
 	SchedulingTableHeader,
 	SchedulingTableRow,
 	type SchedulingUpdateData,
 } from "./SchedulingTableBase";
 
-const normalize = (val: string | null | undefined) => {
-	if (!val || val === "-") return "";
-	return val;
-};
+function useTableScroll() {
+	const [isScrolledLeft, setIsScrolledLeft] = useState(false);
+	const [isScrolledTop, setIsScrolledTop] = useState(false);
+	const tableRef = useRef<HTMLDivElement>(null);
 
-const mapInsuranceToShortNames = (
-	primary: string | null,
-	secondary: string | null,
-	insurances: InsuranceWithAliases[],
-) => {
-	const getShortName = (officialName: string | null) => {
-		if (!officialName) return null;
-		const insurance = insurances.find(
-			(i) =>
-				i.shortName === officialName ||
-				i.aliases.some((a) => a.name === officialName),
-		);
-		return insurance?.shortName || officialName;
-	};
+	useEffect(() => {
+		const table = tableRef.current;
+		if (!table) return;
 
-	return [getShortName(primary), getShortName(secondary)]
-		.filter(Boolean)
-		.join(" | ");
-};
+		const handleScroll = () => {
+			setIsScrolledLeft(table.scrollLeft > 0);
+			setIsScrolledTop(table.scrollTop > 0);
+		};
+
+		handleScroll();
+
+		table.addEventListener("scroll", handleScroll);
+		return () => table.removeEventListener("scroll", handleScroll);
+	}, []);
+
+	return { isScrolledLeft, isScrolledTop, tableRef };
+}
 
 function useSchedulingFilters(
 	clients: ScheduledClient[],
@@ -54,6 +55,32 @@ function useSchedulingFilters(
 	insurances: InsuranceWithAliases[],
 ) {
 	const [filters, setFilters] = useState<Record<string, string[]>>({});
+
+	const evaluatorMap = useMemo(
+		() => new Map(evaluators.map((e) => [e.npi, e])),
+		[evaluators],
+	);
+	const officeMap = useMemo(
+		() => new Map(offices.map((o) => [o.key, o])),
+		[offices],
+	);
+	const districtMap = useMemo(
+		() => new Map(districts.map((d) => [d.fullName, d])),
+		[districts],
+	);
+
+	const clientDisplayValues = useMemo(() => {
+		return clients.map((client) => ({
+			client,
+			displayValues: getScheduledClientDisplayValues(
+				client,
+				evaluatorMap,
+				officeMap,
+				districtMap,
+				insurances,
+			),
+		}));
+	}, [clients, evaluatorMap, officeMap, districtMap, insurances]);
 
 	const uniqueValues = useMemo(() => {
 		const values: Record<string, Set<string>> = {
@@ -72,145 +99,35 @@ function useSchedulingFilters(
 			notes: new Set(),
 		};
 
-		for (const client of clients) {
-			values.color?.add(normalize(client.color));
-			values.fullName?.add(normalize(client.client.fullName));
-
-			const evaluator = evaluators.find((e) => e.npi === client.evaluator);
-			values.evaluator?.add(normalize(evaluator?.providerName.split(" ")[0]));
-
-			values.date?.add(normalize(client.date));
-			values.time?.add(normalize(client.time));
-			values.asdAdhd?.add(normalize(client.client.asdAdhd));
-
-			const insurance = mapInsuranceToShortNames(
-				client.client.primaryInsurance,
-				client.client.secondaryInsurance,
-				insurances,
-			);
-			values.insurance?.add(normalize(insurance));
-
-			values.code?.add(normalize(client.code));
-
-			const office = offices.find((o) => o.key === client.office);
-			const location =
-				client.office === "Virtual" ? "Virtual" : office?.prettyName || "";
-			values.location?.add(normalize(location));
-
-			const district = districts.find(
-				(d) => d.fullName === client.client.schoolDistrict,
-			);
-			values.district?.add(
-				normalize(
-					district?.shortName ||
-						client.client.schoolDistrict
-							?.replace(/ County School District/, "")
-							.replace(/ School District/, ""),
-				),
-			);
-
-			const paDate = client.client.precertExpires
-				? getLocalDayFromUTCDate(
-						client.client.precertExpires,
-					)?.toLocaleDateString() || ""
-				: "";
-			values.paDate?.add(normalize(paDate));
-
-			const age = client.client.dob ? formatClientAge(client.client.dob) : "";
-			values.age?.add(normalize(age));
-
-			values.notes?.add(normalize(client.notes));
+		for (const { displayValues } of clientDisplayValues) {
+			for (const key in values) {
+				const val = displayValues[key as keyof typeof displayValues];
+				if (val !== undefined) {
+					values[key]?.add(val);
+				}
+			}
 		}
 
 		const result: Record<string, string[]> = {};
 		for (const key in values) {
-			result[key] = Array.from(values[key] || []).filter(
-				(v) => v !== undefined,
-			);
+			result[key] = Array.from(values[key] || [])
+				.filter((v) => v !== undefined)
+				.sort();
 		}
 		return result;
-	}, [clients, evaluators, offices, districts, insurances]);
+	}, [clientDisplayValues]);
 
 	const filteredClients = useMemo(() => {
-		return clients.filter((client) => {
-			return Object.entries(filters).every(([key, selectedValues]) => {
-				if (!selectedValues || selectedValues.length === 0) return true;
-
-				let value = "";
-				switch (key) {
-					case "color":
-						value = normalize(client.color);
-						break;
-					case "fullName":
-						value = normalize(client.client.fullName);
-						break;
-					case "evaluator": {
-						const e = evaluators.find((ev) => ev.npi === client.evaluator);
-						value = normalize(e?.providerName.split(" ")[0]);
-						break;
-					}
-					case "date":
-						value = normalize(client.date);
-						break;
-					case "time":
-						value = normalize(client.time);
-						break;
-					case "asdAdhd":
-						value = normalize(client.client.asdAdhd);
-						break;
-					case "insurance":
-						value = normalize(
-							mapInsuranceToShortNames(
-								client.client.primaryInsurance,
-								client.client.secondaryInsurance,
-								insurances,
-							),
-						);
-						break;
-					case "code":
-						value = normalize(client.code);
-						break;
-					case "location": {
-						const o = offices.find((of) => of.key === client.office);
-						value = normalize(
-							client.office === "Virtual" ? "Virtual" : o?.prettyName || "",
-						);
-						break;
-					}
-					case "district": {
-						const district = districts.find(
-							(d) => d.fullName === client.client.schoolDistrict,
-						);
-						value = normalize(
-							district?.shortName ||
-								client.client.schoolDistrict
-									?.replace(/ County School District/, "")
-									.replace(/ School District/, ""),
-						);
-						break;
-					}
-					case "paDate":
-						value = normalize(
-							client.client.precertExpires
-								? getLocalDayFromUTCDate(
-										client.client.precertExpires,
-									)?.toLocaleDateString() || ""
-								: "",
-						);
-						break;
-					case "age":
-						value = normalize(
-							client.client.dob ? formatClientAge(client.client.dob) : "",
-						);
-						break;
-					case "notes":
-						value = normalize(client.notes);
-						break;
-				}
-				return selectedValues.includes(value);
-			});
-		});
-	}, [clients, filters, evaluators, offices, districts, insurances]);
+		return clientDisplayValues
+			.filter(({ displayValues }) => {
+				return Object.entries(filters).every(([key, selectedValues]) => {
+					if (!selectedValues || selectedValues.length === 0) return true;
+					const value = displayValues[key as keyof typeof displayValues];
+					return selectedValues.includes(value || "");
+				});
+			})
+			.map(({ client }) => client);
+	}, [clientDisplayValues, filters]);
 
 	const handleFilterChange = (column: string, selected: string[]) => {
 		setFilters((prev) => ({
@@ -222,46 +139,142 @@ function useSchedulingFilters(
 	return { filteredClients, filters, handleFilterChange, uniqueValues };
 }
 
+interface InternalSchedulingTableProps {
+	clients: ScheduledClient[];
+	evaluators: Evaluator[];
+	offices: Office[];
+	districts: SchoolDistrict[];
+	insurances: InsuranceWithAliases[];
+	isEditable: boolean;
+	onUpdate?: (clientId: number, data: SchedulingUpdateData) => void;
+	onAction: (clientId: number) => void;
+	actionIcon: React.ReactNode;
+	actionVariant: "default" | "destructive";
+	isActionPending: boolean;
+}
+
+function InternalSchedulingTable({
+	clients,
+	evaluators,
+	offices,
+	districts,
+	insurances,
+	isEditable,
+	onUpdate,
+	onAction,
+	actionIcon,
+	actionVariant,
+	isActionPending,
+}: InternalSchedulingTableProps) {
+	const { isScrolledLeft, isScrolledTop, tableRef } = useTableScroll();
+	const { filteredClients, filters, handleFilterChange, uniqueValues } =
+		useSchedulingFilters(clients, evaluators, offices, districts, insurances);
+
+	return (
+		<Table
+			className="min-w-max"
+			classNameWrapper={cn(
+				"min-h-0 flex-1",
+				isScrolledLeft && "scrolled-left",
+				isScrolledTop && "scrolled-top",
+			)}
+			ref={tableRef}
+		>
+			<TableHeader>
+				<SchedulingTableHeader
+					filters={filters}
+					isScrolledLeft={isScrolledLeft}
+					isScrolledTop={isScrolledTop}
+					onFilterChange={handleFilterChange}
+					uniqueValues={uniqueValues}
+				/>
+			</TableHeader>
+
+			<TableBody>
+				{filteredClients.map((scheduledClient) => (
+					<SchedulingTableRow
+						actions={
+							<Button
+								disabled={isActionPending}
+								onClick={() => onAction(scheduledClient.clientId)}
+								size="sm"
+								variant={actionVariant}
+							>
+								{isActionPending ? (
+									<Loader2 className="mr-2 h-4 w-4 animate-spin" />
+								) : (
+									actionIcon
+								)}
+							</Button>
+						}
+						districts={districts}
+						evaluators={evaluators}
+						insurances={insurances}
+						isEditable={isEditable}
+						isScrolledLeft={isScrolledLeft}
+						key={scheduledClient.clientId}
+						offices={offices}
+						onUpdate={onUpdate}
+						scheduledClient={scheduledClient}
+					/>
+				))}
+			</TableBody>
+		</Table>
+	);
+}
+
 function ActiveSchedulingTable() {
 	const utils = api.useUtils();
-	const { data, isLoading, error, refetch } = api.scheduling.get.useQuery();
+
+	const { data, isLoading, error } = api.scheduling.get.useQuery();
+
 	const updateMutation = api.scheduling.update.useMutation({
 		onMutate: async (newUpdate) => {
 			await utils.scheduling.get.cancel();
+
 			const previousData = utils.scheduling.get.getData();
 
 			utils.scheduling.get.setData(undefined, (old) => {
 				if (!old) return old;
+
 				return {
 					...old,
+
 					clients: old.clients.map((c) =>
 						c.clientId === newUpdate.clientId
 							? {
 									...c,
+
 									evaluator:
 										newUpdate.evaluatorNpi !== undefined
 											? newUpdate.evaluatorNpi
 											: (c.evaluator as number | null),
+
 									date:
 										newUpdate.date !== undefined
 											? newUpdate.date
 											: (c.date as string | null),
+
 									time:
 										newUpdate.time !== undefined
 											? newUpdate.time
 											: (c.time as string | null),
+
 									office:
 										newUpdate.office !== undefined
 											? newUpdate.office
 											: (c.office as string | null),
+
 									notes:
 										newUpdate.notes !== undefined
 											? newUpdate.notes
 											: (c.notes as string | null),
+
 									code:
 										newUpdate.code !== undefined
 											? newUpdate.code
 											: (c.code as string | null),
+
 									color:
 										newUpdate.color !== undefined
 											? newUpdate.color
@@ -274,37 +287,31 @@ function ActiveSchedulingTable() {
 
 			return { previousData };
 		},
+
 		onError: (_err, _newUpdate, context) => {
 			if (context?.previousData) {
 				utils.scheduling.get.setData(undefined, context.previousData);
 			}
 		},
+
 		onSettled: () => {
 			utils.scheduling.get.invalidate();
 		},
 	});
+
 	const archiveMutation = api.scheduling.archive.useMutation({
 		onSuccess: () => {
-			refetch();
+			utils.scheduling.get.invalidate();
+
 			utils.scheduling.getArchived.invalidate();
 		},
 	});
 
-	const clients = (data?.clients || []) as ScheduledClient[];
-	const evaluators = (data?.evaluators as Evaluator[]) || [];
-	const offices = (data?.offices as Office[]) || [];
-	const districts = (data?.schoolDistricts as SchoolDistrict[]) || [];
-	const insurances = (data?.insurances as InsuranceWithAliases[]) || [];
-
-	const { filteredClients, filters, handleFilterChange, uniqueValues } =
-		useSchedulingFilters(clients, evaluators, offices, districts, insurances);
-
 	if (isLoading) {
 		return (
 			<div className="flex h-full w-full flex-col items-center justify-center gap-2">
-				{Array.from({ length: 5 }).map((_, i) => (
-					// biome-ignore lint/suspicious/noArrayIndexKey: it's just a skeleton
-					<Skeleton className="h-10 w-full" key={i} />
+				{["sk1", "sk2", "sk3", "sk4", "sk5"].map((id) => (
+					<Skeleton className="h-10 w-full" key={id} />
 				))}
 			</div>
 		);
@@ -312,141 +319,81 @@ function ActiveSchedulingTable() {
 
 	if (error) return <div>Error: {error.message}</div>;
 
-	const handleUpdate = (clientId: number, updateData: SchedulingUpdateData) => {
-		updateMutation.mutate({ clientId, ...updateData });
-	};
-
-	const handleArchive = (clientId: number) => {
-		archiveMutation.mutate({ clientId });
-	};
-
 	return (
-		<Table classNameWrapper="h-[70vh]">
-			<TableHeader>
-				<SchedulingTableHeader
-					filters={filters}
-					onFilterChange={handleFilterChange}
-					uniqueValues={uniqueValues}
-				/>
-			</TableHeader>
-			<TableBody>
-				{filteredClients.map((scheduledClient) => (
-					<SchedulingTableRow
-						actions={
-							<Button
-								disabled={archiveMutation.isPending}
-								onClick={() => handleArchive(scheduledClient.clientId)}
-								size="sm"
-								variant="destructive"
-							>
-								{archiveMutation.isPending ? (
-									<Loader2 className="mr-2 h-4 w-4 animate-spin" />
-								) : (
-									<X />
-								)}
-							</Button>
-						}
-						districts={districts}
-						evaluators={evaluators}
-						insurances={insurances}
-						isEditable={true}
-						key={scheduledClient.clientId}
-						offices={offices}
-						onUpdate={handleUpdate}
-						scheduledClient={scheduledClient}
-					/>
-				))}
-			</TableBody>
-		</Table>
+		<InternalSchedulingTable
+			actionIcon={<X />}
+			actionVariant="destructive"
+			clients={(data?.clients || []) as ScheduledClient[]}
+			districts={(data?.schoolDistricts as SchoolDistrict[]) || []}
+			evaluators={(data?.evaluators as Evaluator[]) || []}
+			insurances={(data?.insurances as InsuranceWithAliases[]) || []}
+			isActionPending={archiveMutation.isPending}
+			isEditable={true}
+			offices={(data?.offices as Office[]) || []}
+			onAction={(clientId) => archiveMutation.mutate({ clientId })}
+			onUpdate={(clientId, updateData) =>
+				updateMutation.mutate({ clientId, ...updateData })
+			}
+		/>
 	);
 }
 
 function ArchivedSchedulingTable() {
 	const utils = api.useUtils();
-	const { data, isLoading, error, refetch } =
-		api.scheduling.getArchived.useQuery();
+
+	const { data, isLoading, error } = api.scheduling.getArchived.useQuery();
+
 	const unarchiveMutation = api.scheduling.unarchive.useMutation({
 		onSuccess: () => {
-			refetch();
+			utils.scheduling.getArchived.invalidate();
+
 			utils.scheduling.get.invalidate();
 		},
 	});
 
-	const clients = (data?.clients || []) as ScheduledClient[];
-	const evaluators = (data?.evaluators as Evaluator[]) || [];
-	const offices = (data?.offices as Office[]) || [];
-	const districts = (data?.schoolDistricts as SchoolDistrict[]) || [];
-	const insurances = (data?.insurances as InsuranceWithAliases[]) || [];
-
-	const { filteredClients, filters, handleFilterChange, uniqueValues } =
-		useSchedulingFilters(clients, evaluators, offices, districts, insurances);
-
 	if (isLoading)
 		return (
 			<div className="flex h-full w-full flex-col items-center justify-center gap-2">
-				{Array.from({ length: 5 }).map((_, i) => (
-					// biome-ignore lint/suspicious/noArrayIndexKey: it's just a skeleton
-					<Skeleton className="h-10 w-full" key={i} />
+				{["sk1", "sk2", "sk3", "sk4", "sk5"].map((id) => (
+					<Skeleton className="h-10 w-full" key={id} />
 				))}
 			</div>
 		);
 	if (error) return <div>Error: {error.message}</div>;
 
-	const handleUnarchive = (clientId: number) => {
-		unarchiveMutation.mutate({ clientId });
-	};
-
 	return (
-		<Table>
-			<TableHeader>
-				<SchedulingTableHeader
-					filters={filters}
-					onFilterChange={handleFilterChange}
-					uniqueValues={uniqueValues}
-				/>
-			</TableHeader>
-			<TableBody>
-				{filteredClients.map((scheduledClient) => (
-					<SchedulingTableRow
-						actions={
-							<Button
-								disabled={unarchiveMutation.isPending}
-								onClick={() => handleUnarchive(scheduledClient.clientId)}
-								size="sm"
-								variant="default"
-							>
-								{unarchiveMutation.isPending ? (
-									<Loader2 className="mr-2 h-4 w-4 animate-spin" />
-								) : (
-									<ArchiveRestore />
-								)}
-							</Button>
-						}
-						districts={districts}
-						evaluators={evaluators}
-						insurances={insurances}
-						isEditable={false}
-						key={scheduledClient.clientId}
-						offices={offices}
-						scheduledClient={scheduledClient}
-					/>
-				))}
-			</TableBody>
-		</Table>
+		<InternalSchedulingTable
+			actionIcon={<ArchiveRestore />}
+			actionVariant="default"
+			clients={(data?.clients || []) as ScheduledClient[]}
+			districts={(data?.schoolDistricts as SchoolDistrict[]) || []}
+			evaluators={(data?.evaluators as Evaluator[]) || []}
+			insurances={(data?.insurances as InsuranceWithAliases[]) || []}
+			isActionPending={unarchiveMutation.isPending}
+			isEditable={false}
+			offices={(data?.offices as Office[]) || []}
+			onAction={(clientId) => unarchiveMutation.mutate({ clientId })}
+		/>
 	);
 }
 
 export function SchedulingTable() {
 	return (
-		<Tabs defaultValue="active">
-			<TabsList>
+		<Tabs className="flex h-full flex-col" defaultValue="active">
+			<TabsList className="shrink-0">
 				<TabsTrigger value="active">Active</TabsTrigger>
 				<TabsTrigger value="archived">Archived</TabsTrigger>
 			</TabsList>
-			<TabsContent value="active">
+			<TabsContent
+				className="flex min-h-0 flex-1 flex-col data-[state=inactive]:hidden"
+				value="active"
+			>
 				<ActiveSchedulingTable />
 			</TabsContent>
-			<TabsContent value="archived">
+			<TabsContent
+				className="flex min-h-0 flex-1 flex-col data-[state=inactive]:hidden"
+				value="archived"
+			>
 				<ArchivedSchedulingTable />
 			</TabsContent>
 		</Tabs>
