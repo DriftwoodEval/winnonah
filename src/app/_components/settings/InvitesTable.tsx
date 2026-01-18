@@ -129,7 +129,7 @@ function InvitesTableForm({
 				/>
 				<div className="relative w-full sm:absolute sm:flex sm:justify-end">
 					<Select onValueChange={handlePresetChange}>
-						<SelectTrigger className="w-full sm:w-fit">
+						<SelectTrigger className="w-full sm:w-fit" size="sm">
 							<SelectValue placeholder="Select a preset..." />
 						</SelectTrigger>
 						<SelectContent>
@@ -141,58 +141,80 @@ function InvitesTableForm({
 						</SelectContent>
 					</Select>
 				</div>
-				{Object.entries(permissions).map(([groupKey, group]) => (
-					<div key={groupKey}>
-						{/* Group Checkbox */}
-						<div className="mb-3 flex items-center space-x-2">
-							<Checkbox
-								checked={getGroupState(group.permissions)}
-								id={groupKey}
-								onCheckedChange={(checked) => {
-									const currentPermissions = {
-										...form.getValues("permissions"),
-									};
-									group.permissions.forEach((p) => {
-										currentPermissions[p.id] = !!checked;
-									});
-									form.setValue("permissions", currentPermissions, {
-										shouldDirty: true,
-										shouldValidate: true,
-									});
-								}}
-							/>
-							<FormLabel className="font-semibold text-lg" htmlFor={groupKey}>
-								{group.title}
-							</FormLabel>
-						</div>
-
-						{/* Individual Checkboxes */}
-						<div className="ml-8 space-y-2">
-							{group.permissions.map((p) => (
-								<FormField
-									control={form.control}
-									key={p.id}
-									name={`permissions.${p.id}`}
-									render={({ field }) => (
-										<FormItem>
-											<div className="flex items-center space-x-2">
-												<FormControl>
-													<Checkbox
-														checked={field.value}
-														id={p.id}
-														onCheckedChange={field.onChange}
-													/>
-												</FormControl>
-												<FormLabel htmlFor={p.id}>{p.title}</FormLabel>
+				<div className="space-y-8">
+					{Object.entries(permissions).map(([categoryKey, category]) => (
+						<div className="space-y-4" key={categoryKey}>
+							<h4 className="border-b pb-2 font-bold text-lg">
+								{category.title}
+							</h4>
+							<div className="ml-4 grid grid-cols-1 gap-x-12 gap-y-8 md:grid-cols-2">
+								{Object.entries(category.subgroups).map(
+									([subgroupKey, subgroup]) => (
+										<div key={subgroupKey}>
+											{/* Subgroup Checkbox */}
+											<div className="mb-3 flex items-center space-x-2">
+												<Checkbox
+													checked={getGroupState(subgroup.permissions)}
+													id={`${categoryKey}-${subgroupKey}`}
+													onCheckedChange={(checked) => {
+														const currentPermissions = {
+															...form.getValues("permissions"),
+														};
+														subgroup.permissions.forEach(
+															(p: { id: string; title: string }) => {
+																currentPermissions[p.id] = !!checked;
+															},
+														);
+														form.setValue("permissions", currentPermissions, {
+															shouldDirty: true,
+															shouldValidate: true,
+														});
+													}}
+												/>
+												<FormLabel
+													className="font-semibold text-md"
+													htmlFor={`${categoryKey}-${subgroupKey}`}
+												>
+													{subgroup.title}
+												</FormLabel>
 											</div>
-											<FormMessage />
-										</FormItem>
-									)}
-								/>
-							))}
+
+											{/* Individual Checkboxes */}
+											<div className="ml-8 space-y-2">
+												{subgroup.permissions.map(
+													(p: { id: string; title: string }) => (
+														<FormField
+															control={form.control}
+															key={p.id}
+															name={`permissions.${p.id}`}
+															render={({ field }) => (
+																<FormItem>
+																	<div className="flex items-center space-x-2">
+																		<FormControl>
+																			<Checkbox
+																				checked={field.value}
+																				id={p.id}
+																				onCheckedChange={field.onChange}
+																			/>
+																		</FormControl>
+																		<FormLabel htmlFor={p.id}>
+																			{p.title}
+																		</FormLabel>
+																	</div>
+																	<FormMessage />
+																</FormItem>
+															)}
+														/>
+													),
+												)}
+											</div>
+										</div>
+									),
+								)}
+							</div>
 						</div>
-					</div>
-				))}
+					))}
+				</div>
 
 				<div className="flex justify-end gap-2">
 					<Button onClick={onFinished} type="button" variant="ghost">
@@ -240,6 +262,7 @@ function AddInviteButton() {
 
 	return (
 		<ResponsiveDialog
+			className="sm:max-w-3xl"
 			open={dialog.open}
 			setOpen={dialog.setOpen}
 			title="Create Invite"

@@ -19,6 +19,7 @@ import {
 } from "@ui/drawer";
 import { type ReactNode, useState } from "react";
 import { useMediaQuery } from "~/hooks/use-media-query";
+import { cn } from "~/lib/utils";
 
 interface ResponsiveDialogProps {
 	children: ReactNode;
@@ -53,7 +54,12 @@ export function ResponsiveDialog({
 		return (
 			<Dialog onOpenChange={setOpen} open={open}>
 				{trigger && <DialogTrigger asChild>{trigger}</DialogTrigger>}
-				<DialogContent className={className}>
+				<DialogContent
+					className={cn(
+						"max-h-[calc(100vh-4rem)] max-w-fit overflow-x-hidden overflow-y-scroll",
+						className,
+					)}
+				>
 					<DialogHeader>
 						<DialogTitle>{title}</DialogTitle>
 						{description && (
