@@ -16,6 +16,7 @@ export const SCHEDULING_COLOR_MAP = {
 	"Ready to reach out": "#00b5ff",
 	"Check insurance": "#ccb6eb",
 	Priority: "#d82000",
+	"On hold": "#ffb400",
 };
 
 export type ClientColor = keyof typeof CLIENT_COLOR_MAP;

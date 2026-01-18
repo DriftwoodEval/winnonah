@@ -238,21 +238,23 @@ export function ColorPicker({
 				>
 					No Color
 				</DropdownMenuItem>
-				{SCHEDULING_COLOR_KEYS.map((color) => (
-					<DropdownMenuItem
-						key={color}
-						onClick={() => onChange(color)}
-						onSelect={() => onChange(color)}
-					>
-						<div className="flex items-center gap-2">
-							<div
-								className="h-4 w-4 rounded-full"
-								style={{ backgroundColor: SCHEDULING_COLOR_MAP[color] }}
-							/>
-							{formatColorName(color)}
-						</div>
-					</DropdownMenuItem>
-				))}
+				{SCHEDULING_COLOR_KEYS.sort((a, b) => a.localeCompare(b)).map(
+					(color) => (
+						<DropdownMenuItem
+							key={color}
+							onClick={() => onChange(color)}
+							onSelect={() => onChange(color)}
+						>
+							<div className="flex items-center gap-2">
+								<div
+									className="h-4 w-4 rounded-full"
+									style={{ backgroundColor: SCHEDULING_COLOR_MAP[color] }}
+								/>
+								{formatColorName(color)}
+							</div>
+						</DropdownMenuItem>
+					),
+				)}
 			</DropdownMenuContent>
 		</DropdownMenu>
 	);
