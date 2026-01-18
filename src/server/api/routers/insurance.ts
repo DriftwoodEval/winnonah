@@ -3,7 +3,7 @@ import { eq } from "drizzle-orm";
 import { z } from "zod";
 import { hasPermission } from "~/lib/utils";
 import { createTRPCRouter, protectedProcedure } from "~/server/api/trpc";
-import { insuranceAliases, insurances } from "~/server/db/schema";
+import { clients, insuranceAliases, insurances } from "~/server/db/schema";
 
 export const insuranceRouter = createTRPCRouter({
 	getAll: protectedProcedure.query(async ({ ctx }) => {
@@ -13,6 +13,26 @@ export const insuranceRouter = createTRPCRouter({
 				aliases: true,
 			},
 		});
+	}),
+
+	getUniqueNamesFromClients: protectedProcedure.query(async ({ ctx }) => {
+		const primaryInsurances = await ctx.db
+			.selectDistinct({ name: clients.primaryInsurance })
+			.from(clients);
+
+		const secondaryInsurances = await ctx.db
+			.selectDistinct({ name: clients.secondaryInsurance })
+			.from(clients);
+
+		const allNames = new Set<string>();
+		for (const row of primaryInsurances) {
+			if (row.name) allNames.add(row.name);
+		}
+		for (const row of secondaryInsurances) {
+			if (row.name) allNames.add(row.name);
+		}
+
+		return Array.from(allNames).sort();
 	}),
 
 	create: protectedProcedure

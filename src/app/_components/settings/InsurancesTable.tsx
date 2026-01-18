@@ -86,6 +86,8 @@ function InsuranceForm({
 	onClose,
 }: InsuranceFormProps) {
 	const isEditing = !!initialData;
+	const { data: clientInsuranceNames } =
+		api.insurances.getUniqueNamesFromClients.useQuery();
 
 	const defaultValues = useMemo(() => {
 		if (initialData) {
@@ -148,6 +150,10 @@ function InsuranceForm({
 									onChange={(options) =>
 										field.onChange(options.map((opt) => opt.value))
 									}
+									options={clientInsuranceNames?.map((name) => ({
+										label: name,
+										value: name,
+									}))}
 									placeholder="Add official names..."
 									value={(field.value ?? []).map((name) => ({
 										label: name,
