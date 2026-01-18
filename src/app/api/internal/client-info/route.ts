@@ -2,9 +2,56 @@ import { eq } from "drizzle-orm";
 import { type NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { db } from "~/server/db";
-import { clients } from "~/server/db/schema";
+import { clients, externalRecords } from "~/server/db/schema";
 
 const QuerySchema = z.object({ id: z.string().min(1) });
+
+interface TiptapNode {
+	type?: string;
+	text?: string;
+	content?: TiptapNode[];
+	// biome-ignore lint/suspicious/noExplicitAny: allow for other properties
+	[key: string]: any;
+}
+
+const extractTextFromTiptapJson = (tiptapJson: TiptapNode | null): string => {
+	if (
+		!tiptapJson ||
+		typeof tiptapJson !== "object" ||
+		!Array.isArray(tiptapJson.content)
+	) {
+		return "";
+	}
+
+	let fullText = "";
+
+	const traverse = (node: TiptapNode) => {
+		if (node.type === "text" && node.text) {
+			fullText += node.text;
+		}
+
+		if (node.content && Array.isArray(node.content)) {
+			node.content.forEach(traverse);
+		}
+
+		// Add spaces after block-level elements for readability
+		if (
+			node.type === "paragraph" ||
+			node.type === "heading" ||
+			node.type === "listItem"
+		) {
+			if (!fullText.endsWith(" ")) {
+				fullText += " ";
+			}
+		}
+	};
+
+	tiptapJson.content.forEach(traverse);
+
+	return fullText
+		.replace(/[ \t]+/g, " ") // Replace multiple spaces/tabs with a single space
+		.trim();
+};
 
 export async function GET(req: NextRequest) {
 	const authHeader = req.headers.get("authorization");
@@ -31,6 +78,9 @@ export async function GET(req: NextRequest) {
 			where: eq(clients.id, clientId),
 			columns: {
 				fullName: true,
+				recordsNeeded: true,
+				ifsp: true,
+				ifspDownloaded: true,
 			},
 		});
 
@@ -38,7 +88,48 @@ export async function GET(req: NextRequest) {
 			return NextResponse.json({ error: "Client not found" }, { status: 404 });
 		}
 
-		return NextResponse.json({ fullName: client.fullName });
+		const externalRecord = await db.query.externalRecords.findFirst({
+			where: eq(externalRecords.clientId, clientId),
+			columns: {
+				content: true,
+				requested: true,
+				needsSecondRequest: true,
+				secondRequestDate: true,
+			},
+		});
+
+		const recordsNote = extractTextFromTiptapJson(
+			externalRecord?.content as TiptapNode,
+		).trim();
+		const recordsReviewed = recordsNote.length > 0;
+
+		let recordsStatus: string | boolean = false;
+		if (client.recordsNeeded === "Needed") {
+			if (recordsReviewed) {
+				recordsStatus = recordsNote;
+			} else if (!externalRecord?.requested) {
+				recordsStatus = "needed but not requested";
+			} else if (externalRecord.secondRequestDate) {
+				recordsStatus = `requested again ${externalRecord.secondRequestDate} and not reviewed`;
+			} else if (externalRecord.needsSecondRequest) {
+				recordsStatus = `requested ${externalRecord.requested}, second request needed but not made, and not reviewed`;
+			} else {
+				recordsStatus = `requested ${externalRecord.requested} and not reviewed`;
+			}
+		}
+
+		let ifspStatus: string | boolean = false;
+		if (client.ifsp) {
+			ifspStatus = client.ifspDownloaded
+				? "Downloaded"
+				: "Needed but not downloaded";
+		}
+
+		return NextResponse.json({
+			fullName: client.fullName,
+			records: recordsStatus,
+			ifsp: ifspStatus,
+		});
 	} catch (error) {
 		console.error("Database query failed:", error);
 		return NextResponse.json(
