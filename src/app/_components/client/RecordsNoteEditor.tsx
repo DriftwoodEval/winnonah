@@ -16,11 +16,11 @@ import { Skeleton } from "@ui/skeleton";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@ui/tooltip";
 import { debounce, isEqual } from "lodash";
 import { History } from "lucide-react";
-import { useSession } from "next-auth/react";
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
+import { useCheckPermission } from "~/hooks/use-check-permission";
 import { logger } from "~/lib/logger";
-import { getLocalDayFromUTCDate, hasPermission } from "~/lib/utils";
+import { getLocalDayFromUTCDate } from "~/lib/utils";
 import { api } from "~/trpc/react";
 import { NoteHistory } from "../shared/NoteHistory";
 import { ResponsiveDialog } from "../shared/ResponsiveDialog";
@@ -85,18 +85,12 @@ export function RecordsNoteEditor({
 	clientId,
 	readOnly = false,
 }: RecordsNoteEditorProps) {
-	const { data: session } = useSession();
 	const utils = api.useUtils();
+	const can = useCheckPermission();
 
-	const canRecordsNeeded = session
-		? hasPermission(session.user.permissions, "clients:records:needed")
-		: false;
-	const canRecordRequested = session
-		? hasPermission(session.user.permissions, "clients:records:requested")
-		: false;
-	const canRecordNote = session
-		? hasPermission(session.user.permissions, "clients:records:reviewed")
-		: false;
+	const canRecordsNeeded = can("clients:records:needed");
+	const canRecordRequested = can("clients:records:requested");
+	const canRecordNote = can("clients:records:reviewed");
 
 	const { data: record, isLoading: isLoadingRecord } =
 		api.externalRecords.getExternalRecordByClientId.useQuery(clientId, {

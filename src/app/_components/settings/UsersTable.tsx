@@ -51,6 +51,7 @@ import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 import { z } from "zod";
+import { useCheckPermission } from "~/hooks/use-check-permission";
 import { useMediaQuery } from "~/hooks/use-media-query";
 import { logger } from "~/lib/logger";
 import type { User } from "~/lib/types";
@@ -60,7 +61,6 @@ import {
 	permissions,
 	permissionsSchema,
 } from "~/lib/types";
-import { hasPermission } from "~/lib/utils";
 import { api } from "~/trpc/react";
 import { ResponsiveDialog } from "../shared/ResponsiveDialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../ui/tabs";
@@ -385,10 +385,8 @@ function UsersTableActionsMenu({ user }: { user: User }) {
 }
 
 export default function UsersTable() {
-	const { data: session } = useSession();
-	const canEdit = session
-		? hasPermission(session.user.permissions, "settings:users:edit")
-		: false;
+	const can = useCheckPermission();
+	const canEdit = can("settings:users:edit");
 
 	const { data: activeUsers, isLoading: isLoadingActiveUsers } =
 		api.users.getAll.useQuery({ archived: false });

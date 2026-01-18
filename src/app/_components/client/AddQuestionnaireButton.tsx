@@ -9,12 +9,11 @@ import {
 	DialogTitle,
 } from "@ui/dialog";
 import { CopyPlus, Plus } from "lucide-react";
-import { useSession } from "next-auth/react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
+import { useCheckPermission } from "~/hooks/use-check-permission";
 import { useMediaQuery } from "~/hooks/use-media-query";
 import { logger } from "~/lib/logger";
-import { hasPermission } from "~/lib/utils";
 import { api } from "~/trpc/react";
 import {
 	ResponsiveDialog,
@@ -36,22 +35,10 @@ interface AddQuestionnaireButtonProps {
 export function AddQuestionnaireButton({
 	clientId,
 }: AddQuestionnaireButtonProps) {
-	const { data: session } = useSession();
-	const canAddSingle = session
-		? hasPermission(session.user.permissions, "clients:questionnaires:create")
-		: false;
-	const canAddExternal = session
-		? hasPermission(
-				session.user.permissions,
-				"clients:questionnaires:createexternal",
-			)
-		: false;
-	const canBulk = session
-		? hasPermission(
-				session.user.permissions,
-				"clients:questionnaires:createbulk",
-			)
-		: false;
+	const can = useCheckPermission();
+	const canAddSingle = can("clients:questionnaires:create");
+	const canAddExternal = can("clients:questionnaires:createexternal");
+	const canBulk = can("clients:questionnaires:createbulk");
 
 	const addSingleQDialog = useResponsiveDialog();
 	const addBulkQDialog = useResponsiveDialog();

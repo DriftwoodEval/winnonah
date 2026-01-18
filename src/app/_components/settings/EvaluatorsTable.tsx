@@ -48,15 +48,14 @@ import {
 import { Tooltip, TooltipContent, TooltipTrigger } from "@ui/tooltip";
 import { MoreHorizontal } from "lucide-react";
 import Link from "next/link";
-import { useSession } from "next-auth/react";
 import { useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 import { z } from "zod";
+import { useCheckPermission } from "~/hooks/use-check-permission";
 import { useMediaQuery } from "~/hooks/use-media-query";
 import { logger } from "~/lib/logger";
 import type { Evaluator } from "~/lib/types";
-import { hasPermission } from "~/lib/utils";
 import { api } from "~/trpc/react";
 
 const log = logger.child({ module: "EvaluatorsTable" });
@@ -548,10 +547,8 @@ function EvaluatorActionsMenu({ evaluator }: { evaluator: Evaluator }) {
 }
 
 export default function EvaluatorsTable() {
-	const { data: session } = useSession();
-	const canEdit = session
-		? hasPermission(session.user.permissions, "settings:evaluators")
-		: false;
+	const can = useCheckPermission();
+	const canEdit = can("settings:evaluators");
 	const { data: evaluators, isLoading } = api.evaluators.getAll.useQuery();
 
 	// Helper for loading/empty states to avoid repetition

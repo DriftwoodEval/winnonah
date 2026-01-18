@@ -41,7 +41,6 @@ import { Separator } from "@ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@ui/tabs";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@ui/tooltip";
 import { Info, Loader2, Lock, LockOpen, Plus, Trash2 } from "lucide-react";
-import { useSession } from "next-auth/react";
 import { useEffect, useState } from "react";
 import {
 	type Control,
@@ -55,8 +54,8 @@ import {
 } from "react-hook-form";
 import { toast } from "sonner";
 import { z } from "zod";
-import type { PermissionsObject } from "~/lib/types";
-import { cn, hasPermission } from "~/lib/utils";
+import { useCheckPermission } from "~/hooks/use-check-permission";
+import { cn } from "~/lib/utils";
 import {
 	pythonConfigSchema,
 	serviceSchema,
@@ -440,14 +439,11 @@ export function ConfigEditor() {
 		onError: (e) => toast.error(e.message),
 	});
 
-	const { data: session } = useSession();
-	const perms = session?.user.permissions as PermissionsObject;
-
-	const canEditGeneral = hasPermission(perms, "settings:qsuite:general");
-	const canEditServices = hasPermission(perms, "settings:qsuite:services");
-	const canEditRecords = hasPermission(perms, "settings:qsuite:records");
-	const canEditPiecework = hasPermission(perms, "settings:qsuite:piecework");
-
+	const can = useCheckPermission();
+	const canEditGeneral = can("settings:qsuite:general");
+	const canEditServices = can("settings:qsuite:services");
+	const canEditRecords = can("settings:qsuite:records");
+	const canEditPiecework = can("settings:qsuite:piecework");
 	const canEditAny =
 		canEditGeneral || canEditServices || canEditRecords || canEditPiecework;
 

@@ -23,14 +23,14 @@ import {
 import { Popover, PopoverContent, PopoverTrigger } from "@ui/popover";
 import { subYears } from "date-fns";
 import { Check, ChevronsUpDown, Pencil } from "lucide-react";
-import { useSession } from "next-auth/react";
 import { useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 import { z } from "zod";
+import { useCheckPermission } from "~/hooks/use-check-permission";
 import { logger } from "~/lib/logger";
 import type { Client } from "~/lib/types";
-import { cn, hasPermission } from "~/lib/utils";
+import { cn } from "~/lib/utils";
 import { api } from "~/trpc/react";
 import {
 	ResponsiveDialog,
@@ -69,22 +69,12 @@ function ClientForm({
 	const { data: allSchoolDistricts } =
 		api.evaluators.getAllSchoolDistricts.useQuery();
 
-	const { data: session } = useSession();
-	const canDistrict = session
-		? hasPermission(session.user.permissions, "clients:schooldistrict")
-		: false;
-	const canPriority = session
-		? hasPermission(session.user.permissions, "clients:priority")
-		: false;
-	const canBabyNet = session
-		? hasPermission(session.user.permissions, "clients:babynet")
-		: false;
-	const canSetEI = session
-		? hasPermission(session.user.permissions, "clients:ei")
-		: false;
-	const canAutismStopDisable = session
-		? hasPermission(session.user.permissions, "clients:autismstop:disable")
-		: false;
+	const can = useCheckPermission();
+	const canDistrict = can("clients:schooldistrict");
+	const canPriority = can("clients:priority");
+	const canBabyNet = can("clients:babynet");
+	const canSetEI = can("clients:ei");
+	const canAutismStopDisable = can("clients:autismstop:disable");
 
 	const defaultValues = useMemo(() => {
 		if (initialData) {

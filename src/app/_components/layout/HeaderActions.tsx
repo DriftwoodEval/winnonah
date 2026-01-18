@@ -14,8 +14,8 @@ import { LogIn } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { signIn, signOut, useSession } from "next-auth/react";
+import { useCheckPermission } from "~/hooks/use-check-permission";
 import { useMediaQuery } from "~/hooks/use-media-query";
-import { hasPermission } from "~/lib/utils";
 import { IssueFormLink } from "../shared/IssueFormLink";
 import { ThemeSwitcher } from "../shared/ThemeSwitcher";
 import { GlobalClientSearch } from "./GlobalClientSearch";
@@ -23,11 +23,10 @@ import { GlobalClientSearch } from "./GlobalClientSearch";
 export function HeaderActions() {
 	const pathname = usePathname();
 	const { data: session } = useSession();
+	const can = useCheckPermission();
 	const isDesktop = useMediaQuery("(min-width: 768px)");
 
-	const canQSuite = session
-		? hasPermission(session.user.permissions, "pages:qsuite-config")
-		: false;
+	const canQSuite = can("pages:qsuite-config");
 
 	return (
 		<div className="m-2 flex items-center gap-3">

@@ -46,15 +46,14 @@ import {
 	TableRow,
 } from "@ui/table";
 import { Check, MoreHorizontal, X } from "lucide-react";
-import { useSession } from "next-auth/react";
 import { useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 import { z } from "zod";
+import { useCheckPermission } from "~/hooks/use-check-permission";
 import { useMediaQuery } from "~/hooks/use-media-query";
 import { logger } from "~/lib/logger";
 import type { Insurance } from "~/lib/types";
-import { hasPermission } from "~/lib/utils";
 import { api } from "~/trpc/react";
 
 const log = logger.child({ module: "InsurancesTable" });
@@ -367,10 +366,8 @@ function InsuranceActionsMenu({
 }
 
 export default function InsurancesTable() {
-	const { data: session } = useSession();
-	const canEdit = session
-		? hasPermission(session.user.permissions, "settings:insurances")
-		: false;
+	const can = useCheckPermission();
+	const canEdit = can("settings:insurances");
 	const { data: insurances, isLoading } = api.insurances.getAll.useQuery();
 
 	if (isLoading)

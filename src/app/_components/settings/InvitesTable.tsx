@@ -34,15 +34,14 @@ import {
 } from "@ui/table";
 import { MoreHorizontal } from "lucide-react";
 import Link from "next/link";
-import { useSession } from "next-auth/react";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 import z from "zod";
+import { useCheckPermission } from "~/hooks/use-check-permission";
 import { useMediaQuery } from "~/hooks/use-media-query";
 import { logger } from "~/lib/logger";
 import type { Invitation } from "~/lib/types";
 import { permissionPresets, permissions, permissionsSchema } from "~/lib/types";
-import { hasPermission } from "~/lib/utils";
 import { api } from "~/trpc/react";
 import {
 	ResponsiveDialog,
@@ -317,10 +316,8 @@ function InvitesTableActionsMenu({ invite }: { invite: Invitation }) {
 }
 
 export default function InvitesTable() {
-	const { data: session } = useSession();
-	const canInvite = session
-		? hasPermission(session.user.permissions, "settings:users:invite")
-		: false;
+	const can = useCheckPermission();
+	const canInvite = can("settings:users:invite");
 
 	const { data: invites, isLoading: isLoadingInvites } =
 		api.users.getPendingInvitations.useQuery();

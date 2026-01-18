@@ -15,9 +15,9 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@ui/tooltip";
 import { Armchair, CheckIcon } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
-import { useSession } from "next-auth/react";
 import { useState } from "react";
 import { toast } from "sonner";
+import { useCheckPermission } from "~/hooks/use-check-permission";
 import {
 	CLIENT_COLOR_KEYS,
 	CLIENT_COLOR_MAP,
@@ -26,12 +26,11 @@ import {
 } from "~/lib/colors";
 import { logger } from "~/lib/logger";
 import type { Client } from "~/lib/types";
-import { hasPermission } from "~/lib/utils";
 import { api } from "~/trpc/react";
 import { ResponsiveDialog } from "../shared/ResponsiveDialog";
 import { AddDriveButton } from "./AddDrive";
-import { ClientEditButton } from "./EditClientDialog";
 import { EditAsdAdhdDialog } from "./EditAsdAdhdDialog";
+import { ClientEditButton } from "./EditClientDialog";
 import { EditDriveForm } from "./EditDriveForm";
 
 interface ClientHeaderProps {
@@ -51,24 +50,14 @@ export function ClientHeader({
 	isLoading,
 	readOnly,
 }: ClientHeaderProps) {
-	const { data: session } = useSession();
+	const can = useCheckPermission();
 	const utils = api.useUtils();
 
-	const canMerge = session
-		? hasPermission(session.user.permissions, "clients:merge")
-		: false;
-	const canColor = session
-		? hasPermission(session.user.permissions, "clients:color")
-		: false;
-	const canDrive = session
-		? hasPermission(session.user.permissions, "clients:drive")
-		: false;
-	const canShell = session
-		? hasPermission(session.user.permissions, "clients:shell")
-		: false;
-	const canAsdAdhd = session
-		? hasPermission(session.user.permissions, "clients:asdadhd")
-		: false;
+	const canMerge = can("clients:merge");
+	const canColor = can("clients:color");
+	const canDrive = can("clients:drive");
+	const canShell = can("clients:shell");
+	const canAsdAdhd = can("clients:asdadhd");
 
 	const updateClient = api.clients.update.useMutation({
 		onSuccess: () => {
@@ -136,8 +125,8 @@ export function ClientHeader({
 			>
 				<EditAsdAdhdDialog
 					client={client}
-					setOpen={setEditAsdAdhdOpen}
 					key={client.asdAdhd}
+					setOpen={setEditAsdAdhdOpen}
 				/>
 			</ResponsiveDialog>
 			{client && (
@@ -262,8 +251,8 @@ export function ClientHeader({
 						) : (
 							<button
 								className="hover:underline"
-								type="button"
 								onClick={() => setEditAsdAdhdOpen(true)}
+								type="button"
 							>
 								{client.asdAdhd}
 							</button>

@@ -19,13 +19,14 @@ import {
 	useRef,
 	useState,
 } from "react";
+import { useCheckPermission } from "~/hooks/use-check-permission";
 import {
 	CLIENT_COLOR_KEYS,
 	CLIENT_COLOR_MAP,
 	type ClientColor,
 	formatColorName,
 } from "~/lib/colors";
-import { cn, hasPermission } from "~/lib/utils";
+import { cn } from "~/lib/utils";
 import { api } from "~/trpc/react";
 import { ResponsiveDialog } from "../shared/ResponsiveDialog";
 import ClientCreateForm from "./ClientCreateForm";
@@ -205,9 +206,8 @@ export function ClientsDashboard() {
 		placeholderData: (previousData) => previousData,
 	});
 
-	const canShell = session
-		? hasPermission(session.user.permissions, "clients:shell")
-		: false;
+	const can = useCheckPermission();
+	const canShell = can("clients:shell");
 
 	const clients = searchQuery?.clients;
 	const colorCounts = searchQuery?.colorCounts;

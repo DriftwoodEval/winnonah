@@ -1,17 +1,16 @@
 import { RichTextEditor } from "@components/shared/RichTextEditor";
+import { Button } from "@ui/button";
 import { Input } from "@ui/input";
 import { Skeleton } from "@ui/skeleton";
 import { debounce, isEqual } from "lodash";
 import { History } from "lucide-react";
-import { useSession } from "next-auth/react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
+import { useCheckPermission } from "~/hooks/use-check-permission";
 import { logger } from "~/lib/logger";
-import { hasPermission } from "~/lib/utils";
 import { api } from "~/trpc/react";
 import { NoteHistory } from "../shared/NoteHistory";
 import { ResponsiveDialog } from "../shared/ResponsiveDialog";
-import { Button } from "../ui/button";
 
 const log = logger.child({ module: "ClientNoteEditor" });
 
@@ -24,10 +23,8 @@ export function ClientNoteEditor({
 	clientId,
 	readOnly,
 }: ClientNoteEditorProps) {
-	const { data: session } = useSession();
-	const canNote = session
-		? hasPermission(session.user.permissions, "clients:notes")
-		: false;
+	const can = useCheckPermission();
+	const canNote = can("clients:notes");
 
 	const utils = api.useUtils();
 

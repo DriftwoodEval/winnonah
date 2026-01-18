@@ -11,8 +11,7 @@ import {
 import { Menu } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useSession } from "next-auth/react";
-import { hasPermission } from "~/lib/utils";
+import { useCheckPermission } from "~/hooks/use-check-permission";
 
 export function NavigationLink({
 	href,
@@ -32,7 +31,7 @@ export function NavigationLink({
 }
 
 export default function NavigationLinks() {
-	const { data: session } = useSession();
+	const can = useCheckPermission();
 	const pathname = usePathname();
 
 	const navItems = [
@@ -44,23 +43,17 @@ export default function NavigationLinks() {
 		{
 			href: "/dashboard",
 			label: "Dashboard",
-			show: session
-				? hasPermission(session.user.permissions, "pages:dashboard")
-				: false,
+			show: can("pages:dashboard"),
 		},
 		{
 			href: "/calculator",
 			label: "Calculator",
-			show: session
-				? hasPermission(session.user.permissions, "pages:calculator")
-				: false,
+			show: can("pages:calculator"),
 		},
 		{
 			href: "/scheduling",
 			label: "Scheduling",
-			show: session
-				? hasPermission(session.user.permissions, "pages:scheduling")
-				: false,
+			show: can("pages:scheduling"),
 		},
 	].filter((item) => item.show);
 

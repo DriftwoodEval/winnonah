@@ -1,8 +1,8 @@
 "use client";
 
 import { useSession } from "next-auth/react";
-import type { PermissionId, PermissionsObject } from "~/lib/types";
-import { hasPermission } from "~/lib/utils";
+import { useCheckPermission } from "~/hooks/use-check-permission";
+import type { PermissionId } from "~/lib/types";
 import { AuthRejection } from "./AuthRejection";
 
 interface GuardProps {
@@ -13,6 +13,7 @@ interface GuardProps {
 
 export function Guard({ children, permission }: GuardProps) {
 	const { data: session, status } = useSession();
+	const can = useCheckPermission();
 
 	if (status === "loading") return null;
 
@@ -20,12 +21,8 @@ export function Guard({ children, permission }: GuardProps) {
 		return <AuthRejection reason="unauthenticated" />;
 	}
 
-	if (permission) {
-		const hasKey = hasPermission(
-			session.user.permissions as PermissionsObject,
-			permission,
-		);
-		if (!hasKey) return <AuthRejection reason="unauthorized" />;
+	if (permission && !can(permission)) {
+		return <AuthRejection reason="unauthorized" />;
 	}
 
 	return <>{children}</>;

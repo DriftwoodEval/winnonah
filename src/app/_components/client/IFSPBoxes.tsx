@@ -3,11 +3,10 @@ import { Checkbox } from "@ui/checkbox";
 import { Label } from "@ui/label";
 import { Separator } from "@ui/separator";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@ui/tooltip";
-import { useSession } from "next-auth/react";
 import { useEffect, useId, useState } from "react";
 import { toast } from "sonner";
+import { useCheckPermission } from "~/hooks/use-check-permission";
 import { logger } from "~/lib/logger";
-import { hasPermission } from "~/lib/utils";
 import { api } from "~/trpc/react";
 
 const log = logger.child({ module: "IFSPBoxes" });
@@ -18,15 +17,10 @@ interface IFSPBoxesProps {
 }
 
 export function IFSPBoxes({ clientId, readOnly = false }: IFSPBoxesProps) {
-	const { data: session } = useSession();
 	const utils = api.useUtils();
-
-	const canRecordsNeeded = session
-		? hasPermission(session.user.permissions, "clients:records:needed")
-		: false;
-	const canRecordsReceived = session
-		? hasPermission(session.user.permissions, "clients:records:ifsp")
-		: false;
+	const can = useCheckPermission();
+	const canIFSPNeeded = can("clients:records:needed");
+	const canIFSPDownloaded = can("clients:records:ifsp");
 
 	const { data: client } = api.clients.getOne.useQuery(
 		{
@@ -95,8 +89,8 @@ export function IFSPBoxes({ clientId, readOnly = false }: IFSPBoxesProps) {
 		}
 	};
 
-	const canEditIFSP = !readOnly && !IFSPDownloaded && canRecordsNeeded;
-	const canEditIFSPDownloaded = !readOnly && IFSP && canRecordsReceived;
+	const canEditIFSP = !readOnly && !IFSPDownloaded && canIFSPNeeded;
+	const canEditIFSPDownloaded = !readOnly && IFSP && canIFSPDownloaded;
 
 	const IFSPId = useId();
 	const IFSPDownloadedId = useId();
