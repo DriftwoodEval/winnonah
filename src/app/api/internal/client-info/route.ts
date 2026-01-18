@@ -108,13 +108,13 @@ export async function GET(req: NextRequest) {
 			if (recordsReviewed) {
 				recordsStatus = recordsNote;
 			} else if (!externalRecord?.requested) {
-				recordsStatus = "needed but not requested";
+				recordsStatus = "Needed but not requested";
 			} else if (externalRecord.secondRequestDate) {
-				recordsStatus = `requested again ${externalRecord.secondRequestDate} and not reviewed`;
+				recordsStatus = `Requested again ${externalRecord.secondRequestDate} and not received/reviewed`;
 			} else if (externalRecord.needsSecondRequest) {
-				recordsStatus = `requested ${externalRecord.requested}, second request needed but not made, and not reviewed`;
+				recordsStatus = `Requested ${externalRecord.requested}, second request needed but not made, and not received/reviewed`;
 			} else {
-				recordsStatus = `requested ${externalRecord.requested} and not reviewed`;
+				recordsStatus = `Requested ${externalRecord.requested} and not received/reviewed`;
 			}
 		}
 
