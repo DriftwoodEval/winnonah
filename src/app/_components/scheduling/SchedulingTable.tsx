@@ -226,8 +226,61 @@ function ActiveSchedulingTable() {
 	const utils = api.useUtils();
 	const { data, isLoading, error, refetch } = api.scheduling.get.useQuery();
 	const updateMutation = api.scheduling.update.useMutation({
-		onSuccess: () => {
-			refetch();
+		onMutate: async (newUpdate) => {
+			await utils.scheduling.get.cancel();
+			const previousData = utils.scheduling.get.getData();
+
+			utils.scheduling.get.setData(undefined, (old) => {
+				if (!old) return old;
+				return {
+					...old,
+					clients: old.clients.map((c) =>
+						c.clientId === newUpdate.clientId
+							? {
+									...c,
+									evaluator:
+										newUpdate.evaluatorNpi !== undefined
+											? newUpdate.evaluatorNpi
+											: (c.evaluator as number | null),
+									date:
+										newUpdate.date !== undefined
+											? newUpdate.date
+											: (c.date as string | null),
+									time:
+										newUpdate.time !== undefined
+											? newUpdate.time
+											: (c.time as string | null),
+									office:
+										newUpdate.office !== undefined
+											? newUpdate.office
+											: (c.office as string | null),
+									notes:
+										newUpdate.notes !== undefined
+											? newUpdate.notes
+											: (c.notes as string | null),
+									code:
+										newUpdate.code !== undefined
+											? newUpdate.code
+											: (c.code as string | null),
+									color:
+										newUpdate.color !== undefined
+											? newUpdate.color
+											: (c.color as string | null),
+								}
+							: c,
+					),
+				};
+			});
+
+			return { previousData };
+		},
+		onError: (_err, _newUpdate, context) => {
+			if (context?.previousData) {
+				utils.scheduling.get.setData(undefined, context.previousData);
+			}
+		},
+		onSettled: () => {
+			utils.scheduling.get.invalidate();
 		},
 	});
 	const archiveMutation = api.scheduling.archive.useMutation({

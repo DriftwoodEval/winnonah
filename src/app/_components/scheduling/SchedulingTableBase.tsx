@@ -19,6 +19,7 @@ import {
 } from "@components/ui/select";
 import { TableCell, TableHead, TableRow } from "@components/ui/table";
 import { Textarea } from "@components/ui/textarea";
+import type { inferRouterOutputs } from "@trpc/server";
 import { Circle, Filter } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
@@ -36,7 +37,11 @@ import type {
 	SchoolDistrict,
 } from "~/lib/types";
 import { formatClientAge, getLocalDayFromUTCDate } from "~/lib/utils";
+import type { AppRouter } from "~/server/api/root";
 import { api } from "~/trpc/react";
+
+type SchedulingRouterOutput = inferRouterOutputs<AppRouter>["scheduling"];
+export type ScheduledClient = SchedulingRouterOutput["get"]["clients"][number];
 
 export function ColumnFilter({
 	columnName,
@@ -227,7 +232,7 @@ export function EvaluatorSelect({
 	}
 
 	return (
-		<Select onValueChange={onChange} value={value}>
+		<Select onValueChange={onChange} value={value === "none" ? "" : value}>
 			<SelectTrigger>
 				<SelectValue placeholder="Evaluator" />
 			</SelectTrigger>
@@ -236,6 +241,8 @@ export function EvaluatorSelect({
 					<div className="p-2 text-muted-foreground text-sm">Loading...</div>
 				) : (
 					<>
+						<SelectItem value="none">None</SelectItem>
+						<SelectSeparator />
 						{eligible.map((evaluator) => (
 							<SelectItem key={evaluator.npi} value={evaluator.npi.toString()}>
 								{evaluator.providerName.split(" ")[0]}
@@ -313,28 +320,6 @@ export function SchedulingTableHeader({
 	);
 }
 
-export interface ScheduledClient {
-	clientId: number;
-	evaluator: number | null;
-	date: string | null;
-	time: string | null;
-	office: string | null;
-	notes: string | null;
-	code: string | null;
-	color: string | null;
-	archived: boolean;
-	client: {
-		hash: string;
-		fullName: string;
-		asdAdhd: string | null;
-		primaryInsurance: string | null;
-		secondaryInsurance: string | null;
-		schoolDistrict: string | null;
-		precertExpires: Date | null;
-		dob: Date | null;
-	};
-}
-
 export interface SchedulingUpdateData {
 	evaluatorNpi?: number | null;
 	date?: string;
@@ -389,7 +374,9 @@ export function SchedulingTableRow({
 		? `${SCHEDULING_COLOR_MAP[color]}10`
 		: "transparent";
 
-	const office = offices.find((o) => o.key === scheduledClient.office);
+	const office = offices.find(
+		(o) => o.key === (scheduledClient.office as string | null),
+	);
 
 	const mapInsuranceToShortNames = (
 		primary: string | null,
@@ -442,10 +429,10 @@ export function SchedulingTableRow({
 					disabled={!isEditable}
 					onChange={(value) =>
 						onUpdate?.(scheduledClient.clientId, {
-							evaluatorNpi: value ? parseInt(value, 10) : null,
+							evaluatorNpi: value === "none" ? null : parseInt(value, 10),
 						})
 					}
-					value={scheduledClient.evaluator?.toString() ?? ""}
+					value={scheduledClient.evaluator?.toString() ?? "none"}
 				/>
 			</TableCell>
 
@@ -518,7 +505,7 @@ export function SchedulingTableRow({
 							}
 							onUpdate?.(scheduledClient.clientId, updates);
 						}}
-						value={scheduledClient.code ?? ""}
+						value={(scheduledClient.code as string | null) ?? ""}
 					>
 						<SelectTrigger>
 							<SelectValue placeholder="Select Code" />
@@ -529,7 +516,7 @@ export function SchedulingTableRow({
 						</SelectContent>
 					</Select>
 				) : (
-					scheduledClient.code || "-"
+					(scheduledClient.code as string | null) || "-"
 				)}
 			</TableCell>
 
@@ -539,7 +526,7 @@ export function SchedulingTableRow({
 						onValueChange={(value) =>
 							onUpdate?.(scheduledClient.clientId, { office: value })
 						}
-						value={scheduledClient.office ?? ""}
+						value={(scheduledClient.office as string | null) ?? ""}
 					>
 						<SelectTrigger>
 							<SelectValue placeholder="Select Office" />
