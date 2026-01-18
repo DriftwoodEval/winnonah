@@ -29,6 +29,14 @@ import {
 	FormMessage,
 } from "@ui/form";
 import { Input } from "@ui/input";
+import { Label } from "@ui/label";
+import {
+	Select,
+	SelectContent,
+	SelectItem,
+	SelectTrigger,
+	SelectValue,
+} from "@ui/select";
 import { Separator } from "@ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@ui/tabs";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@ui/tooltip";
@@ -56,6 +64,9 @@ import {
 } from "~/lib/validations";
 import { api } from "~/trpc/react";
 
+const stripSuffix = (name: string) =>
+	name.replace(/ (County )?School District/, "");
+
 // --- Types & Schema Helpers ---
 
 const keyVal = <V extends z.ZodTypeAny>(val: V) =>
@@ -81,7 +92,13 @@ const formSchema = z.object({
 		records_folder_id: z.string(),
 		sent_records_folder_id: z.string(),
 		records_emails: z.array(
-			keyVal(z.object({ email: z.email(), fax: z.boolean() })),
+			keyVal(
+				z.object({
+					email: z.email(),
+					fax: z.boolean(),
+					aliases: z.string().optional(),
+				}),
+			),
 		),
 		piecework: z.object({
 			costs: z.array(
@@ -101,7 +118,7 @@ const formSchema = z.object({
 		openphone: z.object({
 			key: z.string(),
 			main_number: z.string(),
-			users: z.array(keyVal(z.object({ id: z.string(), phone: z.string() }))),
+			users: z.array(keyVal(z.object({ id: z.string() }))),
 		}),
 		therapyappointment: serviceWithAdminSchema,
 		mhs: serviceSchema,
@@ -115,7 +132,9 @@ type FormValues = z.infer<typeof formSchema>;
 // --- Transformations ---
 
 const toEntries = <T,>(rec: Record<string, T>): KV<T>[] =>
-	Object.entries(rec).map(([key, value]) => ({ key, value }));
+	Object.entries(rec)
+		.map(([key, value]) => ({ key, value }))
+		.sort((a, b) => a.key.localeCompare(b.key));
 const fromEntries = <T,>(arr: KV<T>[]): Record<string, T> =>
 	arr.reduce(
 		(acc, { key, value }) => {
@@ -136,6 +155,7 @@ function FieldInput<T extends FieldValues>({
 	className,
 	disabled,
 	description,
+	list,
 }: {
 	control: Control<T>;
 	name: Path<T>;
@@ -145,6 +165,7 @@ function FieldInput<T extends FieldValues>({
 	className?: string;
 	disabled?: boolean;
 	description?: string;
+	list?: string;
 }) {
 	return (
 		<FormField
@@ -169,6 +190,7 @@ function FieldInput<T extends FieldValues>({
 						<Input
 							{...field}
 							disabled={disabled}
+							list={list}
 							placeholder={placeholder}
 							type={type}
 							value={field.value?.toString() ?? ""}
@@ -354,6 +376,7 @@ function KeyValueList<T extends FieldValues, Name extends FieldArrayPath<T>>({
 	label,
 	keyLabel,
 	defaultValue,
+	renderKey,
 	renderValue,
 	keyClassName = "w-1/3",
 	disabled,
@@ -364,6 +387,7 @@ function KeyValueList<T extends FieldValues, Name extends FieldArrayPath<T>>({
 	label: string;
 	keyLabel: string;
 	defaultValue: unknown;
+	renderKey?: (prefix: string, disabled?: boolean) => React.ReactNode;
 	renderValue: (prefix: string, disabled?: boolean) => React.ReactNode;
 	keyClassName?: string;
 	disabled?: boolean;
@@ -385,12 +409,16 @@ function KeyValueList<T extends FieldValues, Name extends FieldArrayPath<T>>({
 			renderItem={(i) => (
 				<>
 					<div className={keyClassName}>
-						<FieldInput
-							control={control}
-							disabled={disabled}
-							name={`${name}.${i}.key` as Path<T>}
-							placeholder={keyLabel}
-						/>
+						{renderKey ? (
+							renderKey(`${name}.${i}.key`, disabled)
+						) : (
+							<FieldInput
+								control={control}
+								disabled={disabled}
+								name={`${name}.${i}.key` as Path<T>}
+								placeholder={keyLabel}
+							/>
+						)}
 					</div>
 					{renderValue(`${name}.${i}.value`, disabled)}
 				</>
@@ -425,6 +453,10 @@ export function ConfigEditor() {
 
 	const form = useForm<FormValues>({ resolver: zodResolver(formSchema) });
 
+	const apiKey = form.watch("services.openphone.key");
+	const { data: opUsers, isLoading: isLoadingOpUsers } =
+		api.pyConfig.getOpenPhoneUsers.useQuery({ apiKey }, { enabled: !!apiKey });
+
 	useEffect(() => {
 		if (!config) return;
 		const { config: c, services: s } = config;
@@ -434,7 +466,14 @@ export function ConfigEditor() {
 				...c,
 				qreceive_emails: c.qreceive_emails.map((value) => ({ value })),
 				excluded_ta: c.excluded_ta.map((value) => ({ value })),
-				records_emails: toEntries(c.records_emails),
+				records_emails: toEntries(c.records_emails).map((e) => ({
+					key: stripSuffix(e.key),
+					value: {
+						email: e.value.email,
+						fax: e.value.fax,
+						aliases: e.value.aliases?.join(", ") ?? "",
+					},
+				})),
 				piecework: {
 					costs: toEntries(c.piecework.costs).map((item) => ({
 						key: item.key,
@@ -463,7 +502,21 @@ export function ConfigEditor() {
 						...data.config,
 						qreceive_emails: data.config.qreceive_emails.map((v) => v.value),
 						excluded_ta: data.config.excluded_ta.map((v) => v.value),
-						records_emails: fromEntries(data.config.records_emails),
+						records_emails: fromEntries(
+							data.config.records_emails.map((e) => ({
+								key: e.key,
+								value: {
+									email: e.value.email,
+									fax: e.value.fax,
+									aliases: e.value.aliases
+										? e.value.aliases
+												.split(",")
+												.map((s) => s.trim())
+												.filter(Boolean)
+										: [],
+								},
+							})),
+						),
 						piecework: {
 							costs: fromEntries(data.config.piecework.costs),
 							name_map: fromEntries(data.config.piecework.name_map),
@@ -511,10 +564,19 @@ export function ConfigEditor() {
 					</TabsList>
 					<div className="mt-6 space-y-6">
 						<TabsContent value="general">
-							<GeneralTab disabled={!canEditGeneral} form={form} />
+							<GeneralTab
+								disabled={!canEditGeneral}
+								form={form}
+								opUsers={opUsers}
+							/>
 						</TabsContent>
 						<TabsContent value="services">
-							<ServicesTab disabled={!canEditServices} form={form} />
+							<ServicesTab
+								disabled={!canEditServices}
+								form={form}
+								isLoadingOpUsers={isLoadingOpUsers}
+								opUsers={opUsers}
+							/>
 						</TabsContent>
 						<TabsContent value="records">
 							<RecordsTab disabled={!canEditRecords} form={form} />
@@ -534,9 +596,11 @@ export function ConfigEditor() {
 function GeneralTab({
 	form,
 	disabled,
+	opUsers,
 }: {
 	form: UseFormReturn<FormValues>;
 	disabled?: boolean;
+	opUsers?: { id: string; name: string; phone: string }[];
 }) {
 	const c = form.control;
 	return (
@@ -553,12 +617,55 @@ function GeneralTab({
 						label="Initials"
 						name="config.initials"
 					/>
-					<FieldInput
+					<FormField
 						control={c}
-						description="First name of the person sending questionnaires. Will be inserted into reminder messages. Must be the name of a Quo user."
-						disabled={disabled}
-						label="Name"
 						name="config.name"
+						render={({ field }) => (
+							<FormItem>
+								<div className="flex items-center gap-2">
+									<FormLabel>Name</FormLabel>
+									<Tooltip>
+										<TooltipTrigger asChild>
+											<Info className="h-4 w-4 cursor-help text-muted-foreground" />
+										</TooltipTrigger>
+										<TooltipContent>
+											<p className="max-w-xs">
+												First name of the person sending questionnaires. Will be
+												inserted into reminder messages and blamed in Quo. Must
+												be the name of a Quo user.
+											</p>
+										</TooltipContent>
+									</Tooltip>
+								</div>
+								<Select
+									disabled={disabled || !opUsers}
+									onValueChange={field.onChange}
+									value={field.value}
+								>
+									<FormControl>
+										<SelectTrigger>
+											<SelectValue placeholder="Select a user" />
+										</SelectTrigger>
+									</FormControl>
+									<SelectContent>
+										{Array.from(
+											new Set(
+												opUsers
+													?.map((u) => u.name.split(" ")[0])
+													.filter((n): n is string => !!n) ?? [],
+											),
+										)
+											.sort()
+											.map((name) => (
+												<SelectItem key={name} value={name}>
+													{name}
+												</SelectItem>
+											))}
+									</SelectContent>
+								</Select>
+								<FormMessage />
+							</FormItem>
+						)}
 					/>
 					<FieldInput
 						control={c}
@@ -602,7 +709,7 @@ function GeneralTab({
 						label="Failed Sheet ID"
 						name="config.failed_sheet_id"
 					/>
-					<FieldInput
+					<ProtectedFieldInput
 						control={c}
 						description="The Google Drive folder ID for payroll documents."
 						disabled={disabled}
@@ -660,12 +767,30 @@ function GeneralTab({
 function ServicesTab({
 	form,
 	disabled,
+	opUsers,
+	isLoadingOpUsers,
 }: {
 	form: UseFormReturn<FormValues>;
 	disabled?: boolean;
+	opUsers?: { id: string; name: string; phone: string }[];
+	isLoadingOpUsers?: boolean;
 }) {
 	const c = form.control;
 	const commonServices = ["mhs", "qglobal", "wps"] as const;
+
+	const syncOpenPhoneUsers = () => {
+		if (!opUsers) return;
+		form.setValue(
+			"services.openphone.users",
+			opUsers
+				.map((u) => ({
+					key: u.name,
+					value: { id: u.id, phone: u.phone },
+				}))
+				.sort((a, b) => a.key.localeCompare(b.key)),
+		);
+		toast.success(`Synced ${opUsers.length} users`);
+	};
 
 	return (
 		<div className="grid gap-6">
@@ -684,6 +809,12 @@ function ServicesTab({
 					<FieldInput
 						control={c}
 						disabled={disabled}
+						label="Admin User"
+						name="services.therapyappointment.admin_username"
+					/>
+					<FieldInput
+						control={c}
+						disabled={disabled}
 						label="Password"
 						name="services.therapyappointment.password"
 						type="password"
@@ -691,13 +822,7 @@ function ServicesTab({
 					<FieldInput
 						control={c}
 						disabled={disabled}
-						label="Admin User"
-						name="services.therapyappointment.admin_username"
-					/>
-					<FieldInput
-						control={c}
-						disabled={disabled}
-						label="Admin Pass"
+						label="Admin Password"
 						name="services.therapyappointment.admin_password"
 						type="password"
 					/>
@@ -719,7 +844,7 @@ function ServicesTab({
 							<FieldInput
 								control={c}
 								disabled={disabled}
-								label="Pass"
+								label="Password"
 								name={`services.${svc}.password`}
 								type="password"
 							/>
@@ -748,31 +873,45 @@ function ServicesTab({
 						/>
 					</div>
 					<Separator />
-					<KeyValueList
-						control={c}
-						defaultValue={{ id: "", phone: "" }}
-						description="Map of Quo user IDs to phone numbers."
-						disabled={disabled}
-						keyLabel="Name"
-						label="Users"
-						name="services.openphone.users"
-						renderValue={(p, d) => (
-							<div className="grid flex-1 grid-cols-2 gap-2">
-								<FieldInput
-									control={c}
-									disabled={d}
-									name={`${p}.id` as Path<FormValues>}
-									placeholder="ID"
-								/>
-								<FieldInput
-									control={c}
-									disabled={d}
-									name={`${p}.phone` as Path<FormValues>}
-									placeholder="Phone"
-								/>
-							</div>
-						)}
-					/>
+					<div className="space-y-4">
+						<div className="mb-0 flex items-center justify-between">
+							<Label className="font-medium text-sm">Users</Label>
+							<Button
+								disabled={disabled || isLoadingOpUsers || !opUsers}
+								onClick={syncOpenPhoneUsers}
+								size="sm"
+								type="button"
+								variant="outline"
+							>
+								{isLoadingOpUsers ? (
+									<Loader2 className="mr-2 h-3 w-3 animate-spin" />
+								) : (
+									<Plus className="mr-2 h-3 w-3" />
+								)}
+								Sync from API
+							</Button>
+						</div>
+						<KeyValueList
+							control={c}
+							defaultValue={{ id: "" }}
+							disabled={disabled}
+							keyClassName="flex-1"
+							keyLabel="Name"
+							label=""
+							name="services.openphone.users"
+							renderValue={(p, d) => (
+								<div>
+									<FieldInput
+										className="flex-1"
+										control={c}
+										disabled={d}
+										name={`${p}.id` as Path<FormValues>}
+										placeholder="ID"
+									/>
+								</div>
+							)}
+						/>
+					</div>
 				</CardContent>
 			</Card>
 		</div>
@@ -786,6 +925,12 @@ function RecordsTab({
 	form: UseFormReturn<FormValues>;
 	disabled?: boolean;
 }) {
+	const { data: allSchoolDistricts } =
+		api.evaluators.getAllSchoolDistricts.useQuery();
+	const recordsEmails = form.watch("config.records_emails");
+
+	const selectedDistricts = recordsEmails.map((e) => e.key);
+
 	return (
 		<div className="grid gap-6">
 			<Card>
@@ -816,25 +961,69 @@ function RecordsTab({
 				<CardContent>
 					<KeyValueList
 						control={form.control}
-						defaultValue={{ email: "", fax: false }}
+						defaultValue={{ email: "", fax: false, aliases: "" }}
 						disabled={disabled}
-						keyLabel="Identifier"
+						keyLabel="District Name"
 						label=""
 						name="config.records_emails"
+						renderKey={(p, d) => (
+							<FormField
+								control={form.control}
+								name={p as Path<FormValues>}
+								render={({ field }) => (
+									<FormItem>
+										<Select
+											disabled={d}
+											onValueChange={field.onChange}
+											value={field.value as string}
+										>
+											<FormControl>
+												<SelectTrigger className="w-full">
+													<SelectValue placeholder="Select District" />
+												</SelectTrigger>
+											</FormControl>
+											<SelectContent>
+												{allSchoolDistricts
+													?.filter(
+														(dist) =>
+															!selectedDistricts.includes(
+																stripSuffix(dist.fullName),
+															) || stripSuffix(dist.fullName) === field.value,
+													)
+													.map((dist) => (
+														<SelectItem
+															key={dist.id}
+															value={stripSuffix(dist.fullName)}
+														>
+															{stripSuffix(dist.fullName)}
+														</SelectItem>
+													))}
+											</SelectContent>
+										</Select>
+										<FormMessage />
+									</FormItem>
+								)}
+							/>
+						)}
 						renderValue={(p, d) => (
-							<div className="flex flex-1 items-center gap-2">
+							<div className="flex items-center gap-2">
 								<FieldInput
-									className="flex-1"
 									control={form.control}
 									disabled={d}
 									name={`${p}.email` as Path<FormValues>}
 									placeholder="Email"
 								/>
+								<FieldInput
+									control={form.control}
+									disabled={d}
+									name={`${p}.aliases` as Path<FormValues>}
+									placeholder="Aliases (comma separated)"
+								/>
 								<FormField
 									control={form.control}
 									name={`${p}.fax` as Path<FormValues>}
 									render={({ field }) => (
-										<FormItem className="flex items-center gap-2 space-y-0">
+										<FormItem className="mt-2 flex items-center gap-2 space-y-0">
 											<FormControl>
 												<Input
 													checked={field.value as boolean}
@@ -864,6 +1053,13 @@ function PieceworkTab({
 	form: UseFormReturn<FormValues>;
 	disabled?: boolean;
 }) {
+	const { data: evaluators } = api.evaluators.getAll.useQuery();
+	const costs = form.watch("config.piecework.costs");
+	const selectedCostsEvaluators = costs.map((c) => c.key);
+
+	const nameMap = form.watch("config.piecework.name_map");
+	const selectedFullNames = nameMap.map((m) => m.value);
+
 	return (
 		<div className="grid gap-6">
 			<Card>
@@ -879,6 +1075,46 @@ function PieceworkTab({
 						keyLabel="Evaluator"
 						label=""
 						name="config.piecework.costs"
+						renderKey={(p, d) => (
+							<FormField
+								control={form.control}
+								name={p as Path<FormValues>}
+								render={({ field }) => (
+									<FormItem>
+										<Select
+											disabled={d}
+											onValueChange={field.onChange}
+											value={field.value as string}
+										>
+											<FormControl>
+												<SelectTrigger className="w-full">
+													<SelectValue placeholder="Select Evaluator" />
+												</SelectTrigger>
+											</FormControl>
+											<SelectContent>
+												{(!selectedCostsEvaluators.includes("default") ||
+													field.value === "default") && (
+													<SelectItem value="default">default</SelectItem>
+												)}
+												{evaluators
+													?.filter(
+														(ev) =>
+															!selectedCostsEvaluators.includes(
+																ev.providerName,
+															) || ev.providerName === field.value,
+													)
+													.map((ev) => (
+														<SelectItem key={ev.npi} value={ev.providerName}>
+															{ev.providerName}
+														</SelectItem>
+													))}
+											</SelectContent>
+										</Select>
+										<FormMessage />
+									</FormItem>
+								)}
+							/>
+						)}
 						renderValue={(p, d) => (
 							<div className="grid flex-1 grid-cols-4 gap-2">
 								{["DA", "EVAL", "DAEVAL", "REPORT"].map((k) => (
@@ -935,11 +1171,19 @@ function PieceworkTab({
 								className="flex-1"
 								control={form.control}
 								disabled={d}
+								list="evaluator-names-list"
 								name={p as Path<FormValues>}
 								placeholder="Full Name"
 							/>
 						)}
 					/>
+					<datalist id="evaluator-names-list">
+						{evaluators
+							?.filter((ev) => !selectedFullNames.includes(ev.providerName))
+							.map((ev) => (
+								<option key={ev.npi} value={ev.providerName} />
+							))}
+					</datalist>
 				</CardContent>
 			</Card>
 		</div>

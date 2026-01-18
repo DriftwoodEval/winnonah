@@ -21,7 +21,6 @@ export const serviceWithAdminSchema = serviceSchema.extend({
 
 export const openPhoneUserSchema = z.object({
 	id: z.string(),
-	phone: z.string(),
 });
 
 export const openPhoneServiceSchema = z.object({
@@ -57,6 +56,7 @@ export const pieceworkConfigSchema = z.object({
 export const recordsContactSchema = z.object({
 	email: emailSchema,
 	fax: z.boolean().default(false),
+	aliases: z.array(z.string()).default([]),
 });
 
 export const configSchema = z.object({
