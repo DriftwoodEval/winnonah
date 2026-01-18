@@ -15,6 +15,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { signIn, signOut, useSession } from "next-auth/react";
 import { useMediaQuery } from "~/hooks/use-media-query";
+import { hasPermission } from "~/lib/utils";
 import { IssueFormLink } from "../shared/IssueFormLink";
 import { ThemeSwitcher } from "../shared/ThemeSwitcher";
 import { GlobalClientSearch } from "./GlobalClientSearch";
@@ -23,6 +24,10 @@ export function HeaderActions() {
 	const pathname = usePathname();
 	const { data: session } = useSession();
 	const isDesktop = useMediaQuery("(min-width: 768px)");
+
+	const canQSuite = session
+		? hasPermission(session.user.permissions, "pages:qsuite-config")
+		: false;
 
 	return (
 		<div className="m-2 flex items-center gap-3">
@@ -63,6 +68,11 @@ export function HeaderActions() {
 						<Link href="/settings">
 							<DropdownMenuItem>Settings</DropdownMenuItem>
 						</Link>
+						{canQSuite && (
+							<Link href="/qsuite-config">
+								<DropdownMenuItem>QSuite Config</DropdownMenuItem>
+							</Link>
+						)}
 						<DropdownMenuSeparator />
 						<button className="w-full" onClick={() => signOut()} type="button">
 							<DropdownMenuItem>Sign out</DropdownMenuItem>

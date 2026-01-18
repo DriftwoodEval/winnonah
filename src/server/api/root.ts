@@ -5,6 +5,7 @@ import { googleRouter } from "./routers/google";
 import { insuranceRouter } from "./routers/insurance";
 import { noteRouter } from "./routers/notes";
 import { officeRouter } from "./routers/office";
+import { pyConfigRouter } from "./routers/py-config";
 import { questionnaireRouter } from "./routers/questionnaires";
 import { schedulingRouter } from "./routers/scheduling";
 import { sessionRouter } from "./routers/sessions";
@@ -30,6 +31,7 @@ export const appRouter = createTRPCRouter({
 	testUnits: testUnitsRouter,
 	users: userRouter,
 	externalRecords: externalRecordRouter,
+	pyConfig: pyConfigRouter,
 });
 
 // export type definition of API

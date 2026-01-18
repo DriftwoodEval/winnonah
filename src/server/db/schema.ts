@@ -6,8 +6,10 @@ import {
 	primaryKey,
 } from "drizzle-orm/mysql-core";
 import type { AdapterAccount } from "next-auth/adapters";
+import type z from "zod";
 import { CLIENT_COLOR_KEYS } from "~/lib/colors";
 import { type PermissionsObject, QUESTIONNAIRE_STATUSES } from "~/lib/types";
+import type { pythonConfigSchema } from "~/lib/validations";
 
 /**
  * @see https://orm.drizzle.team/docs/goodies#multi-project-schema
@@ -651,3 +653,11 @@ export const schedulingClientsRelations = relations(
 		}),
 	}),
 );
+
+type ConfigData = z.infer<typeof pythonConfigSchema>;
+
+export const pythonConfig = createTable("python_config", (d) => ({
+	id: d.int().notNull().primaryKey(),
+	data: d.json("data").$type<ConfigData>().notNull(),
+	updatedAt: d.timestamp("updated_at").defaultNow().onUpdateNow(),
+}));
