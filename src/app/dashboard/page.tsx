@@ -1,13 +1,10 @@
 import { Dashboard } from "@components/dashboard/Dashboard";
-import { AuthRejection } from "@components/layout/AuthRejection";
-import { auth } from "~/server/auth";
+import { Guard } from "@components/layout/Guard";
 
 export default async function Page() {
-	const session = await auth();
-
-	if (!session) {
-		return <AuthRejection />;
-	}
-
-	return <Dashboard />;
+	return (
+		<Guard permission="pages:dashboard">
+			<Dashboard />
+		</Guard>
+	);
 }

@@ -1,5 +1,5 @@
 import { Client } from "@components/client/Client";
-import { AuthRejection } from "@components/layout/AuthRejection";
+import { Guard } from "~/app/_components/layout/Guard";
 import { logger } from "~/lib/logger";
 import { auth } from "~/server/auth";
 
@@ -14,15 +14,13 @@ export default async function Page({
 	const parameters = await params;
 	const hash = parameters.hash;
 
-	if (!session) {
-		return <AuthRejection />;
-	}
-
-	log.info({ user: session.user.email, hash }, "Viewing client");
+	log.info({ user: session?.user.email, hash }, "Viewing client");
 
 	return (
-		<div className="mx-4 my-4 flex flex-grow justify-center">
-			<Client hash={hash} />
-		</div>
+		<Guard>
+			<div className="mx-4 my-4 flex grow justify-center">
+				<Client hash={hash} />
+			</div>
+		</Guard>
 	);
 }

@@ -1,13 +1,10 @@
-import { AuthRejection } from "@components/layout/AuthRejection";
-import { auth } from "~/server/auth";
-import SchedulingDisplay from "../_components/scheduling/SchedulingDisplay";
+import SchedulingDisplay from "@components/scheduling/SchedulingDisplay";
+import { Guard } from "../_components/layout/Guard";
 
 export default async function SchedulingPage() {
-	const session = await auth();
-
-	if (!session) {
-		return <AuthRejection />;
-	}
-
-	return <SchedulingDisplay />;
+	return (
+		<Guard permission="pages:scheduling">
+			<SchedulingDisplay />
+		</Guard>
+	);
 }
