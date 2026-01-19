@@ -72,7 +72,7 @@
 		"google-auth-library": "^10.3.0",
 		"googleapis": "^159.0.0",
 		"html-react-parser": "^5.2.6",
-		"ioredis": "^5.7.0",
+		"ioredis": "^5.9.2",
 		"lodash": "^4.17.21",
 		"lucide-react": "^0.544.0",
 		"mysql2": "^3.14.5",
