@@ -126,8 +126,8 @@ importers:
         specifier: ^10.5.0
         version: 10.5.0
       googleapis:
-        specifier: ^159.0.0
-        version: 159.0.0
+        specifier: ^170.1.0
+        version: 170.1.0
       html-react-parser:
         specifier: ^5.2.11
         version: 5.2.11(@types/react@19.2.8)(react@19.2.3)
@@ -201,9 +201,6 @@ importers:
       '@commitlint/config-conventional':
         specifier: ^19.8.1
         version: 19.8.1
-      '@e965/xlsx':
-        specifier: ^0.20.3
-        version: 0.20.3
       '@tailwindcss/postcss':
         specifier: ^4.1.18
         version: 4.1.18
@@ -405,11 +402,6 @@ packages:
 
   '@drizzle-team/brocli@0.10.2':
     resolution: {integrity: sha512-z33Il7l5dKjUgGULTqBsQBQwckHh5AbIuxhdsIxDDiZAzBOrZO6q9ogcWC65kU382AfynTfgNumVcNIjuIua6w==}
-
-  '@e965/xlsx@0.20.3':
-    resolution: {integrity: sha512-703RN/3OdsRD5mtse2HBX7Um7xwaP9tlswEG6svOtjqokXoX7rJdQj7DyabD2I+xk22RgaIIU+R6BHgkpZGB/w==}
-    engines: {node: '>=0.8'}
-    hasBin: true
 
   '@emnapi/runtime@1.8.1':
     resolution: {integrity: sha512-mehfKSMWjjNol8659Z8KxEMrdSJDDot5SXMq00dM8BN4o+CLNXQ0xH2V7EchNHV4RmbZLmmPdEaXZc5H2FXmDg==}
@@ -2535,8 +2527,8 @@ packages:
     resolution: {integrity: sha512-eCzNACUXPb1PW5l0ULTzMHaL/ltPRADoPgjBlT8jWsTbxkCp6siv+qKJ/1ldaybCthGwsYFYallF7u9AkU4L+A==}
     engines: {node: '>=18.0.0'}
 
-  googleapis@159.0.0:
-    resolution: {integrity: sha512-halby2+lQwHNxUDk70aQNXP1BlBwdwr7svTJZvDi7vKwrWbVMKhVrZ86h8p3zRcWbO4qAgLQ4ODAf8TgD3DhGQ==}
+  googleapis@170.1.0:
+    resolution: {integrity: sha512-RLbc7yG6qzZqvAmGcgjvNIoZ7wpcCFxtc+HN+46etxDrlO4a8l5Cb7NxNQGhV91oRmL7mt56VoRoypAtEQEIKg==}
     engines: {node: '>=18'}
 
   gopd@1.2.0:
@@ -3662,8 +3654,6 @@ snapshots:
   '@date-fns/tz@1.4.1': {}
 
   '@drizzle-team/brocli@0.10.2': {}
-
-  '@e965/xlsx@0.20.3': {}
 
   '@emnapi/runtime@1.8.1':
     dependencies:
@@ -5481,7 +5471,7 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  googleapis@159.0.0:
+  googleapis@170.1.0:
     dependencies:
       google-auth-library: 10.5.0
       googleapis-common: 8.0.1
