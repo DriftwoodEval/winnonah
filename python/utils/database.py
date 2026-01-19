@@ -1,4 +1,5 @@
 import hashlib
+import json
 import os
 from contextlib import contextmanager
 from datetime import date, datetime
@@ -24,6 +25,7 @@ from utils.constants import (
     TABLE_EVALUATORS_TO_INSURANCES,
     TABLE_INSURANCE,
     TABLE_INSURANCE_ALIAS,
+    TABLE_PYTHON_CONFIG,
     TABLE_SCHOOL_DISTRICT,
 )
 from utils.misc import (
@@ -60,6 +62,27 @@ def db_session():
         yield connection
     finally:
         connection.close()
+
+
+def get_python_config(config_id: int = 2) -> dict:
+    """Fetches python configuration from the database."""
+    sql = f"SELECT data FROM {TABLE_PYTHON_CONFIG} WHERE id = %s"
+
+    try:
+        with db_session() as db_connection:
+            with db_connection.cursor() as cursor:
+                cursor.execute(sql, (config_id,))
+                result = cursor.fetchone()
+
+                if result and result["data"]:
+                    data = result["data"]
+                    if isinstance(data, str):
+                        return json.loads(data)
+                    return data
+    except Exception as e:
+        logger.error(f"Error fetching python config from DB: {e}")
+
+    return {}
 
 
 def filter_clients_with_changed_address(

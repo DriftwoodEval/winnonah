@@ -33,6 +33,7 @@ class SyncReporter:
     def log_time_mismatch(
         self,
         appointment_idx: int,
+        appointment_id: str,
         client_name: str,
         client_id: int,
         found_time: datetime,
@@ -42,6 +43,7 @@ class SyncReporter:
         self.time_mismatches.append(
             {
                 "appointment_idx": appointment_idx,
+                "appointment_id": appointment_id,
                 "client_name": client_name,
                 "client_id": client_id,
                 "found_time": found_time,
@@ -50,7 +52,12 @@ class SyncReporter:
         )
 
     def log_missing_in_gcal(
-        self, name: str, client_id: int, start_time: datetime, evaluator_name: str
+        self,
+        name: str,
+        client_id: int,
+        start_time: datetime,
+        evaluator_name: str,
+        appointment_id: str,
     ):
         """Log an appointment missing in Google Calendar."""
         self.missing_in_gcal.append(
@@ -59,6 +66,7 @@ class SyncReporter:
                 "client_id": client_id,
                 "start_time": start_time,
                 "evaluator_name": evaluator_name,
+                "appointment_id": appointment_id,
             }
         )
 
@@ -100,7 +108,8 @@ class SyncReporter:
             for item in self.missing_in_gcal:
                 html_content += (
                     f"<li><b>{item['name']}</b> (ID: {item['client_id']}) @ {item['start_time']} "
-                    f"<br>&nbsp;&nbsp;<i>Expected Evaluator: {item['evaluator_name']}</i></li>"
+                    f"<br>&nbsp;&nbsp;<i>Expected Evaluator: {item['evaluator_name']}</i>"
+                    f"<br>&nbsp;&nbsp;<i>Appt ID: {item.get('appointment_id', 'N/A')}</i></li>"
                 )
             html_content += "</ul>"
 
@@ -110,7 +119,8 @@ class SyncReporter:
             for item in self.time_mismatches:
                 html_content += (
                     f"<li><b>{item['client_name']}</b> (ID: {item['client_id']}): GCal is {item['found_time']}, "
-                    f"TA has {item['expected_time']}</li>"
+                    f"TA has {item['expected_time']} "
+                    f"(Appt ID: {item.get('appointment_id', 'N/A')})</li>"
                 )
             html_content += "</ul>"
 
@@ -269,6 +279,7 @@ def batch_search_calendar_events(
                         )
                         reporter.log_time_mismatch(
                             appointment_idx=idx,
+                            appointment_id=str(appointment["APPOINTMENT_ID"]),
                             client_name=re.sub(
                                 r"[\d\(\)]", "", appointment["NAME"]
                             ).strip(),
@@ -281,8 +292,13 @@ def batch_search_calendar_events(
     return results
 
 
-def prepare_appointments_from_csv(reporter: SyncReporter):
+def prepare_appointments_from_csv(
+    reporter: SyncReporter,
+    trusted_ids: set[str],
+    ignored_ids: set[str],
+):
     """Load CSV, filter invalid rows, and merge with Google Calendar data."""
+
     creds = google_authenticate()
     service = build("calendar", "v3", credentials=creds)
 
@@ -309,6 +325,13 @@ def prepare_appointments_from_csv(reporter: SyncReporter):
     last_90000_appointment_date: dict[int, datetime] = {}
 
     for idx, appointment in appointments_df.iterrows():
+        if str(appointment["APPOINTMENT_ID"]) in ignored_ids:
+            logger.info(
+                f"Skipping ignored appointment {appointment['APPOINTMENT_ID']}."
+            )
+            indices_to_drop.add(idx)
+            continue
+
         if should_skip_appointment(appointment):
             indices_to_drop.add(idx)
             continue
@@ -377,15 +400,23 @@ def prepare_appointments_from_csv(reporter: SyncReporter):
     for idx, appointment in appointments_df.iterrows():
         if not isinstance(idx, int):
             continue
+
+        appointment_id = str(appointment["APPOINTMENT_ID"])
+        is_trusted = appointment_id in trusted_ids
+
         result = search_results.get(idx)
         if result:
             appointments_df.at[idx, "gcal_event_id"] = result["event_id"]
             appointments_df.at[idx, "gcal_title"] = result["title"]
             appointments_df.at[idx, "gcal_calendar_id"] = result["calendar_id"]
         elif idx in mismatched_indices:
-            # This appointment had a time mismatch, so it's "found" but not for insertion
-            # We already logged the mismatch, so just add to drop list
-            indices_to_drop.add(idx)
+            if is_trusted:
+                logger.warning(
+                    f"Trusting import for appointment {appointment_id} despite time mismatch."
+                )
+            else:
+                # We already logged the mismatch, so just add to drop list
+                indices_to_drop.add(idx)
         else:
             name = re.sub(r"[\d\(\)]", "", appointment["NAME"]).strip()
             start_time = pd.to_datetime(appointment["STARTTIME"]).to_pydatetime()
@@ -410,8 +441,15 @@ def prepare_appointments_from_csv(reporter: SyncReporter):
                 client_id=appointment["CLIENT_ID"],
                 start_time=start_time.strftime("%m/%d %I:%M %p"),
                 evaluator_name=evaluator_name,
+                appointment_id=appointment_id,
             )
-            indices_to_drop.add(idx)
+
+            if is_trusted:
+                logger.warning(
+                    f"Trusting import for appointment {appointment_id} despite missing in GCal."
+                )
+            else:
+                indices_to_drop.add(idx)
 
     if indices_to_drop:
         appointments_df = appointments_df.drop(index=list(indices_to_drop)).reset_index(
@@ -421,14 +459,29 @@ def prepare_appointments_from_csv(reporter: SyncReporter):
     return appointments_df
 
 
-def insert_appointments_with_gcal():
+def insert_appointments_with_gcal(appointment_sync_data: dict[str, list[str]] | None):
     """Sync appointments from CSV to database using Google Calendar for evaluator matching."""
+    trusted_ids, ignored_ids = set(), set()
+
+    if appointment_sync_data is not None:
+        trusted_appointment_ids = appointment_sync_data.get("trusted_appointment_ids")
+        if trusted_appointment_ids is not None:
+            trusted_ids = set(str(aid) for aid in trusted_appointment_ids)
+
+        ignored_appointment_ids = appointment_sync_data.get("ignored_appointment_ids")
+        if ignored_appointment_ids is not None:
+            ignored_ids = set(str(aid) for aid in ignored_appointment_ids)
+
     email_for_errors = os.getenv("ERROR_EMAILS", "")
 
     reporter = SyncReporter()
 
     logger.info("Processing appointments from CSV and Google Calendar...")
-    appointments_df = prepare_appointments_from_csv(reporter)
+    appointments_df = prepare_appointments_from_csv(
+        reporter,
+        trusted_ids=trusted_ids,
+        ignored_ids=ignored_ids,
+    )
 
     if appointments_df.empty:
         logger.warning("No appointments to insert.")
@@ -438,7 +491,7 @@ def insert_appointments_with_gcal():
     npi_cache = get_all_evaluators_npi_map()
 
     for _, appointment in appointments_df.iterrows():
-        appointment_id = appointment["APPOINTMENT_ID"]
+        appointment_id = str(appointment["APPOINTMENT_ID"])
         client_id = appointment["CLIENT_ID"]
         start_time = pd.to_datetime(appointment["STARTTIME"]).to_pydatetime()
         end_time = pd.to_datetime(appointment["ENDTIME"]).to_pydatetime()
@@ -447,22 +500,46 @@ def insert_appointments_with_gcal():
         gcal_event_title = appointment.get("gcal_title")
         gcal_calendar_id = appointment.get("gcal_calendar_id")
 
-        if not gcal_calendar_id:
-            logger.error(f"No calendar ID found for event ID: {gcal_event_id}")
+        is_trusted = appointment_id in trusted_ids
+
+        evaluatorNpi = None
+        gcal_location = None
+        gcal_daeval = None
+
+        if gcal_calendar_id:
+            evaluatorNpi = npi_cache.get(gcal_calendar_id)
+            if evaluatorNpi is None:
+                logger.error(
+                    f"NPI not found for calendar ID (email): {gcal_calendar_id}"
+                )
+                reporter.log_missing_npi(gcal_calendar_id)
+                continue
+
+            # Ensure gcal_event_title is a string, default to empty if not
+            if not isinstance(gcal_event_title, str):
+                gcal_event_title = ""
+
+            gcal_location, gcal_daeval = parse_location_and_type(gcal_event_title)
+
+        elif is_trusted:
+            # Fallback to CSV NPI
+            raw_npi = appointment.get("NPI")
+            try:
+                evaluatorNpi = int(raw_npi) if pd.notna(raw_npi) else None
+            except ValueError:
+                evaluatorNpi = None
+
+            if not evaluatorNpi:
+                logger.warning(
+                    f"Skipping trusted import for {client_id}: No valid NPI in CSV."
+                )
+                continue
+        else:
+            if not gcal_calendar_id:
+                logger.error(f"No calendar ID found for event ID: {gcal_event_id}")
+            if not gcal_event_title:
+                logger.error(f"No title found for event ID: {gcal_event_id}")
             continue
-
-        if not gcal_event_title:
-            logger.error(f"No title found for event ID: {gcal_event_id}")
-            continue
-
-        evaluatorNpi = npi_cache.get(gcal_calendar_id)
-
-        if evaluatorNpi is None:
-            logger.error(f"NPI not found for calendar ID (email): {gcal_calendar_id}")
-            reporter.log_missing_npi(gcal_calendar_id)
-            continue
-
-        gcal_location, gcal_daeval = parse_location_and_type(gcal_event_title)
 
         put_appointment_in_db(
             appointment_id,

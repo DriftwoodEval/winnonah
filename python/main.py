@@ -177,7 +177,8 @@ def import_from_ta(
             all_clients_from_db, evaluators, force_clients_ids, connection=conn
         )
 
-        utils.appointments.insert_appointments_with_gcal()
+        appointment_sync_config = utils.config.load_appointment_sync_config()
+        utils.appointments.insert_appointments_with_gcal(appointment_sync_config)
 
 
 def extract_digits(string: str) -> str | None:
