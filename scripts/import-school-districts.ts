@@ -1,8 +1,8 @@
 import * as fs from "node:fs";
 import path, { dirname } from "node:path";
 import { fileURLToPath } from "node:url";
+import xlsx from "@e965/xlsx";
 import type { InferInsertModel } from "drizzle-orm";
-import xlsx from "xlsx";
 import { db } from "~/server/db";
 import { schoolDistricts } from "~/server/db/schema";
 
