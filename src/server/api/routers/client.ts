@@ -22,7 +22,7 @@ import { z } from "zod";
 import { CLIENT_COLOR_KEYS } from "~/lib/colors";
 import { syncPunchData } from "~/lib/google";
 import { logger } from "~/lib/logger";
-import type { ClientWithIssueInfo } from "~/lib/types";
+import type { ClientWithIssueInfo } from "~/lib/models";
 import { getDistanceSQL, hasPermission } from "~/lib/utils";
 import { createTRPCRouter, protectedProcedure } from "~/server/api/trpc";
 import {

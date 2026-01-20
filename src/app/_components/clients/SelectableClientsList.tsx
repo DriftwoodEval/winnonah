@@ -5,7 +5,7 @@
 import { ScrollArea } from "@ui/scroll-area";
 import { Separator } from "@ui/separator";
 import { useEffect, useRef } from "react";
-import type { SortedClient } from "~/lib/types";
+import type { SortedClient } from "~/lib/api-types";
 import { SelectableClientListItem } from "./SelectableClientListItem";
 
 interface SelectableClientsListProps {

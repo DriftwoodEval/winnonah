@@ -10,11 +10,11 @@ import { ScrollArea } from "@ui/scroll-area";
 import { Separator } from "@ui/separator";
 import { Skeleton } from "@ui/skeleton";
 import Link from "next/link";
-import type { FullClientInfo as MergedPunchClient } from "~/lib/types";
+import type { FullClientInfo } from "~/lib/models";
 import { api } from "~/trpc/react";
 
 interface PunchListAccordionProps {
-	clients: MergedPunchClient[];
+	clients: FullClientInfo[];
 	title: string;
 }
 
@@ -152,7 +152,7 @@ export function Dashboard() {
 		});
 	});
 
-	const clientsInMultipleFilters: MergedPunchClient[] = [];
+	const clientsInMultipleFilters: FullClientInfo[] = [];
 
 	clients?.forEach((client) => {
 		const clientId = client["Client ID"] ?? "";

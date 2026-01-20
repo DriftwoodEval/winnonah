@@ -21,8 +21,8 @@ import { type Dispatch, type SetStateAction, useState } from "react";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 import { z } from "zod";
-import type { Client } from "~/lib/types";
-import { ALLOWED_ASD_ADHD_VALUES } from "~/lib/types";
+import { ALLOWED_ASD_ADHD_VALUES } from "~/lib/constants";
+import type { Client } from "~/lib/models";
 import { api } from "~/trpc/react";
 
 const formSchema = z.object({

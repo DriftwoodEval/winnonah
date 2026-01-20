@@ -20,10 +20,10 @@ import {
 } from "@components/ui/select";
 import { TableCell, TableHead, TableRow } from "@components/ui/table";
 import { Textarea } from "@components/ui/textarea";
-import type { inferRouterOutputs } from "@trpc/server";
 import { Circle, Filter } from "lucide-react";
 import Link from "next/link";
 import { memo, useEffect, useMemo, useState } from "react";
+import type { ScheduledClient } from "~/lib/api-types";
 import {
 	formatColorName,
 	isSchedulingColor,
@@ -36,23 +36,19 @@ import type {
 	InsuranceWithAliases,
 	Office,
 	SchoolDistrict,
-} from "~/lib/types";
+} from "~/lib/models";
 import {
 	cn,
 	formatClientAge,
 	getLocalDayFromUTCDate,
 	mapInsuranceToShortNames,
 } from "~/lib/utils";
-import type { AppRouter } from "~/server/api/root";
 import { api } from "~/trpc/react";
 
 export const normalize = (val: string | null | undefined) => {
 	if (!val || val === "-") return "";
 	return val;
 };
-
-type SchedulingRouterOutput = inferRouterOutputs<AppRouter>["scheduling"];
-export type ScheduledClient = SchedulingRouterOutput["get"]["clients"][number];
 
 export function getScheduledClientDisplayValues(
 	client: ScheduledClient,

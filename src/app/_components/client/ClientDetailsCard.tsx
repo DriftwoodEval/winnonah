@@ -3,7 +3,7 @@ import { Alert, AlertTitle } from "@ui/alert";
 import { Popover, PopoverContent, PopoverTrigger } from "@ui/popover";
 import { AlertTriangleIcon } from "lucide-react";
 import Link from "next/link";
-import type { ClientWithOffice } from "~/lib/types";
+import type { ClientWithOffice } from "~/lib/api-types";
 import { cn, formatClientAge, formatPhoneNumber } from "~/lib/utils";
 
 interface ClientDetailsCardProps {

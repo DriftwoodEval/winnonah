@@ -12,9 +12,9 @@ import {
 	or,
 } from "drizzle-orm";
 import { z } from "zod";
+import { QUESTIONNAIRE_STATUSES } from "~/lib/constants";
 import { logger } from "~/lib/logger";
-import type { InsertingQuestionnaire } from "~/lib/types";
-import { QUESTIONNAIRE_STATUSES } from "~/lib/types";
+import type { InsertingQuestionnaire } from "~/lib/models";
 import { formatClientAge, hasPermission } from "~/lib/utils";
 import { createTRPCRouter, protectedProcedure } from "~/server/api/trpc";
 import { clients, questionnaires } from "~/server/db/schema";

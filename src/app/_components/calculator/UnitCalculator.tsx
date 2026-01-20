@@ -11,7 +11,7 @@ import {
 import { Checkbox } from "@ui/checkbox";
 import { Skeleton } from "@ui/skeleton";
 import { useEffect, useState } from "react";
-import type { TestUnit } from "~/lib/types";
+import type { TestUnit } from "~/lib/models";
 import { api } from "~/trpc/react";
 import { TestUnitManager } from "./TestUnitsForm";
 

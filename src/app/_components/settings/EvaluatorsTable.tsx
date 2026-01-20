@@ -55,7 +55,7 @@ import { z } from "zod";
 import { useCheckPermission } from "~/hooks/use-check-permission";
 import { useMediaQuery } from "~/hooks/use-media-query";
 import { logger } from "~/lib/logger";
-import type { Evaluator } from "~/lib/types";
+import type { Evaluator } from "~/lib/models";
 import { api } from "~/trpc/react";
 
 const log = logger.child({ module: "EvaluatorsTable" });

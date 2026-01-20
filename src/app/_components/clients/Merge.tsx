@@ -7,7 +7,7 @@ import { Button } from "@ui/button";
 import { Skeleton } from "@ui/skeleton";
 import { useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
-import type { SortedClient } from "~/lib/types";
+import type { SortedClient } from "~/lib/api-types";
 import { api } from "~/trpc/react";
 
 export function Merge() {

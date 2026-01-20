@@ -2,6 +2,7 @@ import { TRPCError } from "@trpc/server";
 import { and, eq, notInArray } from "drizzle-orm";
 import z from "zod";
 import { fetchWithCache, invalidateCache } from "~/lib/cache";
+import { ALLOWED_ASD_ADHD_VALUES, TEST_NAMES } from "~/lib/constants";
 import {
 	findDuplicateIdFolders,
 	getClientFromPunchData,
@@ -10,7 +11,6 @@ import {
 	updatePunchData,
 } from "~/lib/google";
 import { logger } from "~/lib/logger";
-import { ALLOWED_ASD_ADHD_VALUES, TEST_NAMES } from "~/lib/types";
 import { hasPermission } from "~/lib/utils";
 import { getPriorityInfo } from "~/server/api/routers/client";
 import { createTRPCRouter, protectedProcedure } from "~/server/api/trpc";

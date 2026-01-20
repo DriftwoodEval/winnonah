@@ -39,9 +39,10 @@ import { toast } from "sonner";
 import z from "zod";
 import { useCheckPermission } from "~/hooks/use-check-permission";
 import { useMediaQuery } from "~/hooks/use-media-query";
+import { PERMISSIONS } from "~/lib/constants";
 import { logger } from "~/lib/logger";
-import type { Invitation } from "~/lib/types";
-import { permissionPresets, permissions, permissionsSchema } from "~/lib/types";
+import type { Invitation } from "~/lib/models";
+import { permissionPresets, permissionsSchema } from "~/lib/types";
 import { api } from "~/trpc/react";
 import {
 	ResponsiveDialog,
@@ -141,7 +142,7 @@ function InvitesTableForm({
 					</Select>
 				</div>
 				<div className="space-y-8">
-					{Object.entries(permissions).map(([categoryKey, category]) => (
+					{Object.entries(PERMISSIONS).map(([categoryKey, category]) => (
 						<div className="space-y-4" key={categoryKey}>
 							<h4 className="border-b pb-2 font-bold text-lg">
 								{category.title}

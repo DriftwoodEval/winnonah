@@ -25,7 +25,7 @@ import {
 	formatColorName,
 } from "~/lib/colors";
 import { logger } from "~/lib/logger";
-import type { Client } from "~/lib/types";
+import type { Client } from "~/lib/models";
 import { api } from "~/trpc/react";
 import { ResponsiveDialog } from "../shared/ResponsiveDialog";
 import { AddDriveButton } from "./AddDrive";

@@ -29,7 +29,7 @@ import { toast } from "sonner";
 import { z } from "zod";
 import { useCheckPermission } from "~/hooks/use-check-permission";
 import { logger } from "~/lib/logger";
-import type { Client } from "~/lib/types";
+import type { Client } from "~/lib/models";
 import { cn } from "~/lib/utils";
 import { api } from "~/trpc/react";
 import {

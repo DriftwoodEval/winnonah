@@ -8,13 +8,13 @@ import { MapIcon, Pin, PinOff, RotateCw } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useRef } from "react";
 import type {
-	Client,
-	ClientWithIssueInfo,
 	DuplicateDriveGroup,
 	MergeSuggestion,
-	PunchClient,
 	SharedQuestionnaireData,
-} from "~/lib/types";
+} from "~/lib/api-types";
+import type { PUNCH_SCHEMA } from "~/lib/constants";
+import type { Client, ClientWithIssueInfo } from "~/lib/models";
+
 import { api } from "~/trpc/react";
 
 interface IssueListProps {
@@ -207,7 +207,7 @@ const PunchlistIssueList = ({
 	clients,
 }: {
 	title: string;
-	clients: PunchClient[];
+	clients: PUNCH_SCHEMA[];
 }) => {
 	const utils = api.useUtils();
 	const savedClientRef = useRef<HTMLDivElement>(null);

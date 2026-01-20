@@ -2,8 +2,8 @@
 
 import Link from "next/link";
 import { memo, useMemo } from "react";
+import type { SortedClient } from "~/lib/api-types";
 import { getHexFromColor } from "~/lib/colors";
-import type { SortedClient } from "~/lib/types";
 import { cn, formatClientAge } from "~/lib/utils";
 
 type ClientListItemProps = {

@@ -5,13 +5,11 @@ import { google, type sheets_v4 } from "googleapis";
 import type Redis from "ioredis";
 import type { Session } from "next-auth";
 import { env } from "~/env";
-import {
-	ALLOWED_ASD_ADHD_VALUES,
-	type FullClientInfo,
-	type PunchClient,
-} from "~/lib/types";
+
 import { db } from "~/server/db";
 import { clients } from "~/server/db/schema";
+import { ALLOWED_ASD_ADHD_VALUES, type PUNCH_SCHEMA } from "./constants";
+import type { FullClientInfo } from "./models";
 
 // Google Drive
 export function getDriveClient(session: Session) {
@@ -220,10 +218,10 @@ export const getPunchData = async (session: Session, redis?: Redis) => {
 	const headers = data[0] ?? [];
 	const rows = data.slice(1);
 
-	const normalizedSheetData: PunchClient[] = rows
+	const normalizedSheetData: PUNCH_SCHEMA[] = rows
 		.filter((row) => typeof row[1] === "string" && row[1].trim() !== "")
 		.map((row) => {
-			const punchClient: Partial<PunchClient> = {};
+			const punchClient: Partial<PUNCH_SCHEMA> = {};
 			const clientId = row[1];
 			punchClient["Client ID"] = clientId;
 			const rawName = row[0];
@@ -248,12 +246,12 @@ export const getPunchData = async (session: Session, redis?: Redis) => {
 			punchClient["Client Name"] = name;
 
 			headers.slice(1).forEach((header, index) => {
-				const key = header as keyof PunchClient;
+				const key = header as keyof PUNCH_SCHEMA;
 				if (key) {
-					punchClient[key] = row[index + 1] as PunchClient[keyof PunchClient];
+					punchClient[key] = row[index + 1] as PUNCH_SCHEMA[keyof PUNCH_SCHEMA];
 				}
 			});
-			return punchClient as PunchClient;
+			return punchClient as PUNCH_SCHEMA;
 		});
 
 	const clientIds = normalizedSheetData

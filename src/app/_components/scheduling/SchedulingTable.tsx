@@ -6,19 +6,17 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@components/ui/tabs";
 import { Skeleton } from "@ui/skeleton";
 import { ArchiveRestore, Loader2, X } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
+import type { ScheduledClient } from "~/lib/api-types";
 import type {
 	Evaluator,
 	InsuranceWithAliases,
 	Office,
 	SchoolDistrict,
-} from "~/lib/types";
-import {
-	cn,
-} from "~/lib/utils";
+} from "~/lib/models";
+import { cn } from "~/lib/utils";
 import { api } from "~/trpc/react";
 import {
 	getScheduledClientDisplayValues,
-	type ScheduledClient,
 	SchedulingTableHeader,
 	SchedulingTableRow,
 	type SchedulingUpdateData,

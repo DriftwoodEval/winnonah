@@ -1,7 +1,7 @@
 "use client";
 
 import { forwardRef, memo } from "react";
-import type { SortedClient } from "~/lib/types";
+import type { SortedClient } from "~/lib/api-types";
 import { cn } from "~/lib/utils";
 
 type SelectableClientListItemProps = {

@@ -3,9 +3,7 @@
  * for Docker builds.
  */
 import "./src/env.js";
-
-/** @type {import("next").NextConfig} */
-const { execSync } = await import("node:child_process");
+import { execSync } from "node:child_process";
 
 /**
  * @param {string} command
@@ -31,6 +29,7 @@ const branchName = getGitInfo(
 	"NEXT_PUBLIC_GIT_BRANCH",
 );
 
+/** @type {import("next").NextConfig} */
 const config = {
 	env: {
 		NEXT_PUBLIC_GIT_BRANCH: branchName,
@@ -39,6 +38,7 @@ const config = {
 	allowedDevOrigins: ["winnonah.xyz", "*.winnonah.xyz"],
 	output: "standalone",
 	serverExternalPackages: ["pino", "pino-pretty"],
+	experimental: { optimizePackageImports: ["lucide-react"] },
 };
 
 export default config;

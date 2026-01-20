@@ -8,7 +8,8 @@ import {
 import type { AdapterAccount } from "next-auth/adapters";
 import type z from "zod";
 import { CLIENT_COLOR_KEYS } from "~/lib/colors";
-import { type PermissionsObject, QUESTIONNAIRE_STATUSES } from "~/lib/types";
+import { QUESTIONNAIRE_STATUSES } from "~/lib/constants";
+import type { PermissionsObject } from "~/lib/types";
 import type { pythonConfigSchema } from "~/lib/validations";
 
 /**

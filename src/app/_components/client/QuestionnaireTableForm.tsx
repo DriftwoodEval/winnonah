@@ -33,7 +33,7 @@ import { CalendarIcon, Check, ChevronsUpDown } from "lucide-react";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
-import { QUESTIONNAIRE_STATUSES } from "~/lib/types";
+import { QUESTIONNAIRE_STATUSES } from "~/lib/constants";
 import { cn } from "~/lib/utils";
 import { api, type RouterOutputs } from "~/trpc/react";
 

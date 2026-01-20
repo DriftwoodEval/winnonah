@@ -1,12 +1,9 @@
 import { type ClassValue, clsx } from "clsx";
 import { type AnyColumn, type SQL, sql } from "drizzle-orm";
 import { twMerge } from "tailwind-merge";
-import type {
-	InsuranceWithAliases,
-	PermissionId,
-	PermissionsObject,
-	QUESTIONNAIRE_STATUSES,
-} from "~/lib/types";
+import type { InsuranceWithAliases } from "~/lib/models";
+import type { PermissionId, PermissionsObject } from "~/lib/types";
+import type { QUESTIONNAIRE_STATUSES } from "./constants";
 
 export function cn(...inputs: ClassValue[]) {
 	return twMerge(clsx(inputs));

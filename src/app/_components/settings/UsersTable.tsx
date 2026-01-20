@@ -53,12 +53,12 @@ import { toast } from "sonner";
 import { z } from "zod";
 import { useCheckPermission } from "~/hooks/use-check-permission";
 import { useMediaQuery } from "~/hooks/use-media-query";
+import { PERMISSIONS } from "~/lib/constants";
 import { logger } from "~/lib/logger";
-import type { User } from "~/lib/types";
+import type { User } from "~/lib/models";
 import {
 	type PermissionsObject,
 	permissionPresets,
-	permissions,
 	permissionsSchema,
 } from "~/lib/types";
 import { api } from "~/trpc/react";
@@ -162,7 +162,7 @@ function UsersTableForm({
 					</Select>
 				</div>
 				<div className="space-y-8">
-					{Object.entries(permissions).map(([categoryKey, category]) => (
+					{Object.entries(PERMISSIONS).map(([categoryKey, category]) => (
 						<div className="space-y-4" key={categoryKey}>
 							<h4 className="border-b pb-2 font-bold text-lg">
 								{category.title}
