@@ -38,7 +38,9 @@ const config = {
 	allowedDevOrigins: ["winnonah.xyz", "*.winnonah.xyz"],
 	output: "standalone",
 	serverExternalPackages: ["pino", "pino-pretty"],
-	experimental: { optimizePackageImports: ["lucide-react"] },
+	experimental: {
+		optimizePackageImports: ["lucide-react", "lodash"],
+	},
 };
 
 export default config;

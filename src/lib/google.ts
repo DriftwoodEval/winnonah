@@ -1,7 +1,8 @@
+import { drive } from "@googleapis/drive";
+import { sheets, type sheets_v4 } from "@googleapis/sheets";
 import { TRPCError } from "@trpc/server";
-import { eq, type InferSelectModel, inArray } from "drizzle-orm";
+import { eq, inArray } from "drizzle-orm";
 import { OAuth2Client } from "google-auth-library";
-import { google, type sheets_v4 } from "googleapis";
 import type Redis from "ioredis";
 import type { Session } from "next-auth";
 import { env } from "~/env";
@@ -9,7 +10,7 @@ import { env } from "~/env";
 import { db } from "~/server/db";
 import { clients } from "~/server/db/schema";
 import { ALLOWED_ASD_ADHD_VALUES, type PUNCH_SCHEMA } from "./constants";
-import type { FullClientInfo } from "./models";
+import type { Client, FullClientInfo } from "./models";
 
 // Google Drive
 export function getDriveClient(session: Session) {
@@ -27,7 +28,7 @@ export function getDriveClient(session: Session) {
 		refresh_token: session.user.refreshToken,
 	});
 
-	return google.drive({ version: "v3", auth: oauth2Client });
+	return drive({ version: "v3", auth: oauth2Client });
 }
 
 export const renameDriveFolder = async (
@@ -194,7 +195,7 @@ export function getSheetsClient(session: Session) {
 		refresh_token: session.user.refreshToken,
 	});
 
-	return google.sheets({ version: "v4", auth: oauth2Client });
+	return sheets({ version: "v4", auth: oauth2Client });
 }
 
 export const getPunchData = async (session: Session, redis?: Redis) => {
@@ -263,7 +264,7 @@ export const getPunchData = async (session: Session, redis?: Redis) => {
 		.from(clients)
 		.where(inArray(clients.id, clientIds));
 
-	const dbClientMap = new Map<number, InferSelectModel<typeof clients>>(
+	const dbClientMap = new Map<number, Client>(
 		dbClients.map((client) => [client.id, client]),
 	);
 
@@ -377,16 +378,14 @@ export const syncPunchData = async (session: Session, redis?: Redis) => {
 	const allPunchData = await getPunchData(session, redis);
 
 	for (const client of allPunchData) {
-		const updates: Partial<InferSelectModel<typeof clients>> = {};
+		const updates: Partial<Client> = {};
 
 		if (
 			client.For &&
 			(ALLOWED_ASD_ADHD_VALUES as unknown as string[]).includes(client.For) &&
 			client.For !== client.asdAdhd
 		) {
-			updates.asdAdhd = client.For as InferSelectModel<
-				typeof clients
-			>["asdAdhd"];
+			updates.asdAdhd = client.For as Client["asdAdhd"];
 		}
 
 		if (
