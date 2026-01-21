@@ -1,8 +1,11 @@
 import hashlib
+import inspect
 import json
 import os
+from collections.abc import Callable
 from contextlib import contextmanager
 from datetime import date, datetime
+from functools import wraps
 from typing import Literal
 from urllib.parse import urlparse
 
@@ -54,6 +57,30 @@ def get_db() -> "Connection[DictCursor]":
     return connection
 
 
+def provide_connection(func: Callable) -> Callable:
+    """Decorator to automatically provide a DB connection if not present."""
+
+    @wraps(func)
+    def wrapper(*args, **kwargs):
+        if kwargs.get("connection") is not None:
+            return func(*args, **kwargs)
+
+        # Check if connection is in positional args
+        sig = inspect.signature(func)
+        bound_args = sig.bind_partial(*args, **kwargs)
+        if (
+            "connection" in bound_args.arguments
+            and bound_args.arguments["connection"] is not None
+        ):
+            return func(*args, **kwargs)
+
+        with db_session() as new_conn:
+            kwargs["connection"] = new_conn
+            return func(*args, **kwargs)
+
+    return wrapper
+
+
 @contextmanager
 def db_session():
     """Context manager for database connections."""
@@ -85,8 +112,9 @@ def get_python_config(config_id: int = 2) -> dict:
     return {}
 
 
+@provide_connection
 def filter_clients_with_changed_address(
-    clients: pd.DataFrame, connection: Connection[DictCursor] | None = None
+    clients: pd.DataFrame, connection: Connection[DictCursor]
 ) -> pd.DataFrame:
     """Identifies clients with new or changed addresses by comparing them to records in the database. Also, filters out clients with no address."""
     initial_count = len(clients)
@@ -102,15 +130,9 @@ def filter_clients_with_changed_address(
         logger.debug("No clients with an address to process.")
         return clients_with_address
 
-    if connection:
-        with connection.cursor() as cursor:
-            cursor.execute(f"SELECT id, address FROM {TABLE_CLIENT}")
-            db_addresses = pd.DataFrame(cursor.fetchall())
-    else:
-        with db_session() as db_connection:
-            with db_connection.cursor() as cursor:
-                cursor.execute(f"SELECT id, address FROM {TABLE_CLIENT}")
-                db_addresses = pd.DataFrame(cursor.fetchall())
+    with connection.cursor() as cursor:
+        cursor.execute(f"SELECT id, address FROM {TABLE_CLIENT}")
+        db_addresses = pd.DataFrame(cursor.fetchall())
 
     if db_addresses.empty:
         logger.debug(
@@ -155,17 +177,12 @@ def filter_clients_with_changed_address(
     ].copy()
 
 
-def get_all_clients(connection: Connection[DictCursor] | None = None) -> pd.DataFrame:
+@provide_connection
+def get_all_clients(connection: Connection[DictCursor]) -> pd.DataFrame:
     """Fetches all clients from the database that do not have an ID of 5 characters."""
-    if connection:
-        with connection.cursor() as cursor:
-            cursor.execute(f"SELECT * FROM {TABLE_CLIENT} WHERE LENGTH(id) != 5")
-            clients_data = cursor.fetchall()
-    else:
-        with db_session() as db_connection:
-            with db_connection.cursor() as cursor:
-                cursor.execute(f"SELECT * FROM {TABLE_CLIENT} WHERE LENGTH(id) != 5")
-                clients_data = cursor.fetchall()
+    with connection.cursor() as cursor:
+        cursor.execute(f"SELECT * FROM {TABLE_CLIENT} WHERE LENGTH(id) != 5")
+        clients_data = cursor.fetchall()
 
     df = pd.DataFrame(clients_data) if clients_data else pd.DataFrame()
 
@@ -174,9 +191,8 @@ def get_all_clients(connection: Connection[DictCursor] | None = None) -> pd.Data
     return df
 
 
-def put_clients_in_db(
-    clients_df: pd.DataFrame, connection: Connection[DictCursor] | None = None
-):
+@provide_connection
+def put_clients_in_db(clients_df: pd.DataFrame, connection: Connection[DictCursor]):
     """Inserts or updates client data in the database from a DataFrame."""
     logger.debug("Inserting clients into database")
 
@@ -277,21 +293,16 @@ def put_clients_in_db(
             flag = VALUES(flag);
     """
 
-    if connection:
-        with connection.cursor() as cursor:
-            cursor.executemany(sql, values_to_insert)
-        connection.commit()
-    else:
-        with db_session() as db_connection:
-            with db_connection.cursor() as cursor:
-                cursor.executemany(sql, values_to_insert)
-            db_connection.commit()
+    with connection.cursor() as cursor:
+        cursor.executemany(sql, values_to_insert)
+    connection.commit()
 
     logger.info(f"Successfully inserted/updated {len(values_to_insert)} clients.")
 
 
+@provide_connection
 def update_client_ta_hashes(
-    hashes_to_update: dict[str, str], connection: Connection[DictCursor] | None = None
+    hashes_to_update: dict[str, str], connection: Connection[DictCursor]
 ) -> None:
     """Updates taHash for multiple clients in a single transaction."""
     if not hashes_to_update:
@@ -300,38 +311,37 @@ def update_client_ta_hashes(
     updates_for_executemany = [(v, k) for k, v in hashes_to_update.items()]
     sql = f"UPDATE {TABLE_CLIENT} SET taHash = %s WHERE id = %s"
 
-    def _execute(conn: Connection[DictCursor]):
-        with conn.cursor() as cursor:
+    try:
+        with connection.cursor() as cursor:
             try:
                 cursor.executemany(sql, updates_for_executemany)
-                conn.commit()
+                connection.commit()
                 logger.info(
                     f"Successfully updated taHash for {len(updates_for_executemany)} clients."
                 )
             except Exception as e:
                 logger.error(f"Failed to update taHashes: {e}")
-                conn.rollback()
+                connection.rollback()
 
-    if connection:
-        _execute(connection)
-    else:
-        with db_session() as db_connection:
-            _execute(db_connection)
+    except Exception as e:
+        logger.error(f"Failed to update taHashes: {e}")
+        connection.rollback()
 
 
+@provide_connection
 def put_appointment_in_db(
     appointment_id: str,
     client_id: int,
     evaluator_npi: int,
     start_time: datetime,
     end_time: datetime,
+    connection: Connection[DictCursor],
     da_eval: Literal["EVAL", "DA", "DAEVAL"] | None = None,
     asd_adhd: Literal["ASD", "ADHD", "ASD+ADHD", "ASD+LD", "ADHD+LD", "LD"]
     | None = None,
     cancelled: bool | None = False,
     location: str | None = None,
     gcal_event_id: str | None = None,
-    connection: Connection[DictCursor] | None = None,
 ):
     """Inserts an appointment into the database."""
     sql = f"""
@@ -361,25 +371,20 @@ def put_appointment_in_db(
         gcal_event_id,
     )
 
-    if connection:
-        with connection.cursor() as cursor:
-            cursor.execute(sql, params)
-            connection.commit()
-    else:
-        with db_session() as db_connection:
-            with db_connection.cursor() as cursor:
-                cursor.execute(sql, params)
-                db_connection.commit()
+    with connection.cursor() as cursor:
+        cursor.execute(sql, params)
+        connection.commit()
 
 
+@provide_connection
 def get_evaluators_with_blocked_locations(
-    connection: Connection[DictCursor] | None = None,
+    connection: Connection[DictCursor],
 ):
     """Fetches evaluators from the database, including their blocked zip codes and school districts."""
     evaluators: dict[int, dict] = {}
 
-    def _fetch(conn: Connection[DictCursor]):
-        with conn.cursor() as cursor:
+    try:
+        with connection.cursor() as cursor:
             sql_evaluators = f"SELECT * FROM {TABLE_EVALUATOR}"
             cursor.execute(sql_evaluators)
             for row in cursor.fetchall():
@@ -434,13 +439,6 @@ def get_evaluators_with_blocked_locations(
                 npi = row["evaluatorNpi"]
                 if npi in evaluators:
                     evaluators[npi][row["shortName"]] = True
-
-    try:
-        if connection:
-            _fetch(connection)
-        else:
-            with db_session() as db_connection:
-                _fetch(db_connection)
     except Exception as e:
         logger.error(f"Database error while fetching evaluators: {e}")
         return {}
@@ -448,43 +446,38 @@ def get_evaluators_with_blocked_locations(
     return evaluators
 
 
+@provide_connection
 def _get_existing_client_eval_links(
-    connection: Connection[DictCursor] | None = None,
+    connection: Connection[DictCursor],
 ) -> dict[str, set[str]]:
     """Gets all existing client-evaluator relationships from the database."""
     existing_links: dict[str, set[str]] = {}
 
-    def _fetch(conn: Connection[DictCursor]):
-        with conn.cursor() as cursor:
-            sql = f"SELECT clientId, evaluatorNpi FROM {TABLE_CLIENT_EVAL}"
-            try:
-                cursor.execute(sql)
-                results = cursor.fetchall()
-                for row in results:
-                    client_id_str = str(row["clientId"])
-                    evaluator_npi_str = str(row["evaluatorNpi"])
-                    if client_id_str not in existing_links:
-                        existing_links[client_id_str] = set()
-                    existing_links[client_id_str].add(evaluator_npi_str)
-                logger.debug(
-                    f"Found {len(results)} existing client-evaluator relationships"
-                )
-            except Exception as e:
-                logger.error(f"Failed to fetch existing relationships: {e}")
-
-    if connection:
-        _fetch(connection)
-    else:
-        with db_session() as db_connection:
-            _fetch(db_connection)
+    with connection.cursor() as cursor:
+        sql = f"SELECT clientId, evaluatorNpi FROM {TABLE_CLIENT_EVAL}"
+        try:
+            cursor.execute(sql)
+            results = cursor.fetchall()
+            for row in results:
+                client_id_str = str(row["clientId"])
+                evaluator_npi_str = str(row["evaluatorNpi"])
+                if client_id_str not in existing_links:
+                    existing_links[client_id_str] = set()
+                existing_links[client_id_str].add(evaluator_npi_str)
+            logger.debug(
+                f"Found {len(results)} existing client-evaluator relationships"
+            )
+        except Exception as e:
+            logger.error(f"Failed to fetch existing relationships: {e}")
 
     return existing_links
 
 
+@provide_connection
 def _delete_client_eval_links(
     client_id: str,
     evaluator_npis: set[str],
-    connection: Connection[DictCursor] | None = None,
+    connection: Connection[DictCursor],
 ) -> None:
     """Deletes specific client-evaluator relationships from the database."""
     if not evaluator_npis:
@@ -494,31 +487,23 @@ def _delete_client_eval_links(
     sql = f"DELETE FROM {TABLE_CLIENT_EVAL} WHERE clientId = %s AND evaluatorNpi IN ({placeholders})"
     params = [client_id] + list(evaluator_npis)
 
-    def _execute(conn: Connection[DictCursor]):
-        with conn.cursor() as cursor:
-            try:
-                cursor.execute(sql, params)
-                conn.commit()
-                logger.debug(
-                    f"Deleted {len(evaluator_npis)} relationships for client {client_id}"
-                )
-            except Exception as e:
-                logger.error(
-                    f"Failed to delete relationships for client {client_id}: {e}"
-                )
-                conn.rollback()
-
-    if connection:
-        _execute(connection)
-    else:
-        with db_session() as db_connection:
-            _execute(db_connection)
+    with connection.cursor() as cursor:
+        try:
+            cursor.execute(sql, params)
+            connection.commit()
+            logger.debug(
+                f"Deleted {len(evaluator_npis)} relationships for client {client_id}"
+            )
+        except Exception as e:
+            logger.error(f"Failed to delete relationships for client {client_id}: {e}")
+            connection.rollback()
 
 
+@provide_connection
 def _insert_client_eval_links(
     client_id: str,
     evaluator_npis: set[str],
-    connection: Connection[DictCursor] | None = None,
+    connection: Connection[DictCursor],
 ) -> None:
     """Inserts specific client-evaluator relationships."""
     if not evaluator_npis:
@@ -528,8 +513,9 @@ def _insert_client_eval_links(
         _link_client_provider(client_id, npi, connection=connection)
 
 
+@provide_connection
 def _delete_all_relationships_for_clients(
-    client_ids: set[str], connection: Connection[DictCursor] | None = None
+    client_ids: set[str], connection: Connection[DictCursor]
 ) -> None:
     """Deletes all relationships for specific clients."""
     if not client_ids:
@@ -539,28 +525,22 @@ def _delete_all_relationships_for_clients(
     sql = f"DELETE FROM {TABLE_CLIENT_EVAL} WHERE clientId IN ({placeholders})"
     params = list(client_ids)
 
-    def _execute(conn: Connection[DictCursor]):
-        with conn.cursor() as cursor:
-            try:
-                cursor.execute(sql, params)
-                deleted_count = cursor.rowcount
-                conn.commit()
-                logger.debug(
-                    f"Deleted {deleted_count} existing relationships for {len(client_ids)} clients"
-                )
-            except Exception as e:
-                logger.error(f"Failed to delete relationships for clients: {e}")
-                conn.rollback()
-
-    if connection:
-        _execute(connection)
-    else:
-        with db_session() as db_connection:
-            _execute(db_connection)
+    with connection.cursor() as cursor:
+        try:
+            cursor.execute(sql, params)
+            deleted_count = cursor.rowcount
+            connection.commit()
+            logger.debug(
+                f"Deleted {deleted_count} existing relationships for {len(client_ids)} clients"
+            )
+        except Exception as e:
+            logger.error(f"Failed to delete relationships for clients: {e}")
+            connection.rollback()
 
 
+@provide_connection
 def _link_client_provider(
-    client_id: str, npi: str, connection: Connection[DictCursor] | None = None
+    client_id: str, npi: str, connection: Connection[DictCursor]
 ) -> None:
     """Inserts a client-provider link into the database."""
     sql = f"""
@@ -572,21 +552,16 @@ def _link_client_provider(
     """
     params = (client_id, npi)
 
-    if connection:
-        with connection.cursor() as cursor:
-            cursor.execute(sql, params)
-            connection.commit()
-    else:
-        with db_session() as db_connection:
-            with db_connection.cursor() as cursor:
-                cursor.execute(sql, params)
-                db_connection.commit()
+    with connection.cursor() as cursor:
+        cursor.execute(sql, params)
+        connection.commit()
 
 
+@provide_connection
 def insert_by_matching_criteria_incremental(
     clients: pd.DataFrame,
     evaluators: dict,
-    connection: Connection[DictCursor] | None = None,
+    connection: Connection[DictCursor],
 ) -> None:
     """Inserts client-provider links based on matching criteria using incremental updates."""
     logger.debug("Starting incremental client-evaluator matching...")
@@ -642,11 +617,12 @@ def insert_by_matching_criteria_incremental(
     )
 
 
+@provide_connection
 def insert_by_matching_criteria_client_specific(
     clients: pd.DataFrame,
     evaluators: dict,
     specific_client_ids: set[str],
-    connection: Connection[DictCursor] | None = None,
+    connection: Connection[DictCursor],
 ) -> None:
     """Updates client-evaluator relationships for specific clients only."""
     logger.debug(
@@ -697,8 +673,8 @@ def insert_by_matching_criteria_client_specific(
 def insert_by_matching_criteria(
     clients: pd.DataFrame,
     evaluators: dict,
+    connection: Connection[DictCursor],
     force_client_ids: set[str] | None = None,
-    connection: Connection[DictCursor] | None = None,
 ) -> None:
     """Enhanced client-evaluator matching with options for full or partial updates."""
     if force_client_ids:
@@ -715,71 +691,53 @@ def insert_by_matching_criteria(
         )
 
 
+@provide_connection
 def get_insurance_mappings(
-    connection: Connection[DictCursor] | None = None,
+    connection: Connection[DictCursor],
 ) -> dict[str, str]:
     """Fetches insurance aliases and their canonical short names from the database."""
     mappings: dict[str, str] = {}
 
-    def _fetch(conn: Connection[DictCursor]):
-        with conn.cursor() as cursor:
-            sql = f"""
-                SELECT
-                    ia.name AS alias,
-                    i.shortName
-                FROM
-                    {TABLE_INSURANCE_ALIAS} AS ia
-                JOIN
-                    {TABLE_INSURANCE} AS i
-                ON
-                    ia.insuranceId = i.id
-            """
-            cursor.execute(sql)
-            for row in cursor.fetchall():
-                mappings[row["alias"]] = row["shortName"]
-
-    if connection:
-        _fetch(connection)
-    else:
-        with db_session() as db_connection:
-            _fetch(db_connection)
+    with connection.cursor() as cursor:
+        sql = f"""
+            SELECT
+                ia.name AS alias,
+                i.shortName
+            FROM
+                {TABLE_INSURANCE_ALIAS} AS ia
+            JOIN
+                {TABLE_INSURANCE} AS i
+            ON
+                ia.insuranceId = i.id
+        """
+        cursor.execute(sql)
+        for row in cursor.fetchall():
+            mappings[row["alias"]] = row["shortName"]
 
     return mappings
 
 
+@provide_connection
 def get_all_evaluators_npi_map(
-    connection: Connection[DictCursor] | None = None,
+    connection: Connection[DictCursor],
 ) -> dict[str, int]:
     """Gets a map of email (str) to NPI (int) for all evaluators."""
-    if connection:
-        with connection.cursor() as cursor:
-            cursor.execute(f"SELECT npi, email FROM {TABLE_EVALUATOR}")
-            results = cursor.fetchall()
-            return {row["email"]: row["npi"] for row in results}
-    else:
-        with db_session() as db_connection:
-            with db_connection.cursor() as cursor:
-                cursor.execute(f"SELECT npi, email FROM {TABLE_EVALUATOR}")
-                results = cursor.fetchall()
-                return {row["email"]: row["npi"] for row in results}
+    with connection.cursor() as cursor:
+        cursor.execute(f"SELECT npi, email FROM {TABLE_EVALUATOR}")
+        results = cursor.fetchall()
+        return {row["email"]: row["npi"] for row in results}
 
 
+@provide_connection
 def get_npi_to_name_map(
-    connection: Connection[DictCursor] | None = None,
+    connection: Connection[DictCursor],
 ) -> dict[int, str]:
     """Returns a dictionary mapping NPI (int) to Evaluator Name (str)."""
     try:
-        if connection:
-            with connection.cursor() as cursor:
-                cursor.execute(f"SELECT npi, providerName FROM {TABLE_EVALUATOR}")
-                results = cursor.fetchall()
-                return {row["npi"]: row["providerName"] for row in results}
-        else:
-            with db_session() as db_connection:
-                with db_connection.cursor() as cursor:
-                    cursor.execute(f"SELECT npi, providerName FROM {TABLE_EVALUATOR}")
-                    results = cursor.fetchall()
-                    return {row["npi"]: row["providerName"] for row in results}
+        with connection.cursor() as cursor:
+            cursor.execute(f"SELECT npi, providerName FROM {TABLE_EVALUATOR}")
+            results = cursor.fetchall()
+            return {row["npi"]: row["providerName"] for row in results}
     except Exception:
         logger.exception("Error fetching NPI to Name map")
         return {}

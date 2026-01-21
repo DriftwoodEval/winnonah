@@ -174,7 +174,10 @@ def import_from_ta(
         )
 
         utils.database.insert_by_matching_criteria(
-            all_clients_from_db, evaluators, force_clients_ids, connection=conn
+            all_clients_from_db,
+            evaluators,
+            connection=conn,
+            force_client_ids=force_clients_ids,
         )
 
         appointment_sync_config = utils.config.load_appointment_sync_config()
