@@ -17,6 +17,7 @@ import { cn } from "~/lib/utils";
 import { api } from "~/trpc/react";
 import {
 	getScheduledClientDisplayValues,
+	RowCountDisplay,
 	SchedulingTableHeader,
 	SchedulingTableRow,
 	type SchedulingUpdateData,
@@ -168,56 +169,89 @@ function InternalSchedulingTable({
 	const { filteredClients, filters, handleFilterChange, uniqueValues } =
 		useSchedulingFilters(clients, evaluators, offices, districts, insurances);
 
-	return (
-		<Table
-			className="min-w-max"
-			classNameWrapper={cn(
-				"min-h-0 flex-1",
-				isScrolledLeft && "scrolled-left",
-				isScrolledTop && "scrolled-top",
-			)}
-			ref={tableRef}
-		>
-			<TableHeader className="sticky top-0 z-20 bg-background">
-				<SchedulingTableHeader
-					filters={filters}
-					isScrolledLeft={isScrolledLeft}
-					isScrolledTop={isScrolledTop}
-					onFilterChange={handleFilterChange}
-					uniqueValues={uniqueValues}
-				/>
-			</TableHeader>
+	const evaluatorMap = useMemo(
+		() => new Map(evaluators.map((e) => [e.npi, e])),
+		[evaluators],
+	);
+	const officeMap = useMemo(
+		() => new Map(offices.map((o) => [o.key, o])),
+		[offices],
+	);
+	const districtMap = useMemo(
+		() => new Map(districts.map((d) => [d.fullName, d])),
+		[districts],
+	);
 
-			<TableBody>
-				{filteredClients.map((scheduledClient) => (
-					<SchedulingTableRow
-						actions={
-							<Button
-								disabled={isActionPending}
-								onClick={() => onAction(scheduledClient.clientId)}
-								size="sm"
-								variant={actionVariant}
-							>
-								{isActionPending ? (
-									<Loader2 className="mr-2 h-4 w-4 animate-spin" />
-								) : (
-									actionIcon
-								)}
-							</Button>
-						}
-						districts={districts}
-						evaluators={evaluators}
-						insurances={insurances}
-						isEditable={isEditable}
+	const clientDisplayValues = useMemo(() => {
+		return clients.map((client) => ({
+			client,
+			displayValues: getScheduledClientDisplayValues(
+				client,
+				evaluatorMap,
+				officeMap,
+				districtMap,
+				insurances,
+			),
+		}));
+	}, [clients, evaluatorMap, officeMap, districtMap, insurances]);
+
+	return (
+		<>
+			<RowCountDisplay
+				filteredCount={filteredClients.length}
+				totalCount={clients.length}
+			/>
+			<Table
+				className="min-w-max"
+				classNameWrapper={cn(
+					"min-h-0 flex-1",
+					isScrolledLeft && "scrolled-left",
+					isScrolledTop && "scrolled-top",
+				)}
+				ref={tableRef}
+			>
+				<TableHeader className="sticky top-0 z-20 bg-background">
+					<SchedulingTableHeader
+						clientDisplayValues={clientDisplayValues}
+						filters={filters}
 						isScrolledLeft={isScrolledLeft}
-						key={scheduledClient.clientId}
-						offices={offices}
-						onUpdate={onUpdate}
-						scheduledClient={scheduledClient}
+						isScrolledTop={isScrolledTop}
+						onFilterChange={handleFilterChange}
+						uniqueValues={uniqueValues}
 					/>
-				))}
-			</TableBody>
-		</Table>
+				</TableHeader>
+
+				<TableBody>
+					{filteredClients.map((scheduledClient) => (
+						<SchedulingTableRow
+							actions={
+								<Button
+									disabled={isActionPending}
+									onClick={() => onAction(scheduledClient.clientId)}
+									size="sm"
+									variant={actionVariant}
+								>
+									{isActionPending ? (
+										<Loader2 className="mr-2 h-4 w-4 animate-spin" />
+									) : (
+										actionIcon
+									)}
+								</Button>
+							}
+							districts={districts}
+							evaluators={evaluators}
+							insurances={insurances}
+							isEditable={isEditable}
+							isScrolledLeft={isScrolledLeft}
+							key={scheduledClient.clientId}
+							offices={offices}
+							onUpdate={onUpdate}
+							scheduledClient={scheduledClient}
+						/>
+					))}
+				</TableBody>
+			</Table>
+		</>
 	);
 }
 

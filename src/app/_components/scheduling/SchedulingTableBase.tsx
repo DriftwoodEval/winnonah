@@ -44,11 +44,40 @@ import {
 	mapInsuranceToShortNames,
 } from "~/lib/utils";
 import { api } from "~/trpc/react";
+import { Badge } from "../ui/badge";
 
 export const normalize = (val: string | null | undefined) => {
 	if (!val || val === "-") return "";
 	return val;
 };
+
+export function FilterButton({
+	count,
+	isActive,
+}: {
+	count: number;
+	isActive: boolean;
+}) {
+	return (
+		<div className="relative">
+			<Button
+				className={cn(isActive ? "text-primary" : "text-muted-foreground")}
+				size="icon-sm"
+				variant="ghost"
+			>
+				<Filter className="h-3.5 w-3.5" />
+			</Button>
+			{count > 0 && (
+				<Badge
+					className="absolute -top-1 -right-1 h-4 min-w-4 px-1 text-[10px] leading-none"
+					variant="default"
+				>
+					{count}
+				</Badge>
+			)}
+		</div>
+	);
+}
 
 export function getScheduledClientDisplayValues(
 	client: ScheduledClient,
@@ -106,11 +135,13 @@ export function ColumnFilter({
 	options,
 	selectedValues,
 	onFilterChange,
+	optionCounts,
 }: {
 	columnName: string;
 	options: string[];
 	selectedValues: string[];
 	onFilterChange: (values: string[]) => void;
+	optionCounts?: Map<string, number>;
 }) {
 	const [search, setSearch] = useState("");
 
@@ -130,15 +161,24 @@ export function ColumnFilter({
 	return (
 		<DropdownMenu>
 			<DropdownMenuTrigger asChild>
-				<Button
-					className={
-						selectedValues.length > 0 ? "text-primary" : "text-muted-foreground"
-					}
-					size="icon-sm"
-					variant="ghost"
-				>
-					<Filter className="h-3.5 w-3.5" />
-				</Button>
+				<div className="relative inline-block">
+					<Button
+						className={
+							selectedValues.length > 0
+								? "text-primary"
+								: "text-muted-foreground"
+						}
+						size="icon-sm"
+						variant="ghost"
+					>
+						<Filter className="h-3.5 w-3.5" />
+					</Button>
+					{selectedValues.length > 0 && (
+						<span className="absolute -top-1 -right-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 font-medium text-[10px] text-primary-foreground leading-none">
+							{selectedValues.length}
+						</span>
+					)}
+				</div>
 			</DropdownMenuTrigger>
 			<DropdownMenuContent align="start" className="w-56">
 				<div className="p-2">
@@ -154,24 +194,32 @@ export function ColumnFilter({
 								No results found
 							</div>
 						)}
-						{filteredOptions.map((option) => (
-							<div
-								className="flex items-center space-x-2 p-1"
-								key={option || "empty"}
-							>
-								<Checkbox
-									checked={selectedValues.includes(option)}
-									id={`${columnName}-${option}`}
-									onCheckedChange={() => toggleValue(option)}
-								/>
-								<label
-									className="flex-1 cursor-pointer font-medium text-sm leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-									htmlFor={`${columnName}-${option}`}
+						{filteredOptions.map((option) => {
+							const count = optionCounts?.get(option) ?? 0;
+							return (
+								<div
+									className="flex items-center space-x-2 p-1"
+									key={option || "empty"}
 								>
-									{option || "(Empty)"}
-								</label>
-							</div>
-						))}
+									<Checkbox
+										checked={selectedValues.includes(option)}
+										id={`${columnName}-${option}`}
+										onCheckedChange={() => toggleValue(option)}
+									/>
+									<label
+										className="flex flex-1 cursor-pointer items-center justify-between gap-2 font-medium text-sm leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+										htmlFor={`${columnName}-${option}`}
+									>
+										<span className="truncate">{option || "(Empty)"}</span>
+										{optionCounts && (
+											<span className="text-muted-foreground text-xs">
+												{count}
+											</span>
+										)}
+									</label>
+								</div>
+							);
+						})}
 					</div>
 				</div>
 				{selectedValues.length > 0 && (
@@ -187,6 +235,132 @@ export function ColumnFilter({
 				)}
 			</DropdownMenuContent>
 		</DropdownMenu>
+	);
+}
+
+export function RowCountDisplay({
+	filteredCount,
+	totalCount,
+}: {
+	filteredCount: number;
+	totalCount: number;
+}) {
+	const isFiltered = filteredCount !== totalCount;
+
+	return (
+		<div className="flex items-center gap-1 px-4 py-2 text-muted-foreground text-sm">
+			{isFiltered ? (
+				<>
+					<span className="font-medium text-foreground">{filteredCount}</span>
+					<span>of</span>
+					<span className="font-medium">{totalCount}</span>
+					<span>rows displayed</span>
+				</>
+			) : (
+				<>
+					<span className="font-medium text-foreground">{totalCount}</span>
+					<span>{totalCount === 1 ? "row" : "rows"}</span>
+				</>
+			)}
+		</div>
+	);
+}
+
+export function SchedulingTableHeader({
+	filters,
+	onFilterChange,
+	uniqueValues,
+	isScrolledLeft,
+	isScrolledTop,
+	clientDisplayValues,
+}: {
+	filters: Record<string, string[]>;
+	onFilterChange: (column: string, values: string[]) => void;
+	uniqueValues: Record<string, string[]>;
+	isScrolledLeft?: boolean;
+	isScrolledTop?: boolean;
+	clientDisplayValues: Array<{
+		client: ScheduledClient;
+		displayValues: ReturnType<typeof getScheduledClientDisplayValues>;
+	}>;
+}) {
+	const getOptionCounts = (columnKey: string): Map<string, number> => {
+		const counts = new Map<string, number>();
+
+		clientDisplayValues.forEach(({ displayValues }) => {
+			const value =
+				displayValues[columnKey as keyof typeof displayValues] || "";
+			counts.set(value, (counts.get(value) || 0) + 1);
+		});
+
+		return counts;
+	};
+
+	const columns: {
+		key: string;
+		label: string;
+		noFilter?: boolean;
+		filterKey?: string;
+		filterLabel?: string;
+	}[] = [
+		{
+			key: "fullName",
+			label: "Name",
+			filterKey: "color",
+			filterLabel: "Color",
+		},
+		{ key: "evaluator", label: "Evaluator" },
+		{ key: "notes", label: "Notes", noFilter: true },
+		{ key: "date", label: "Date" },
+		{ key: "time", label: "Time" },
+		{ key: "asdAdhd", label: "ASD/ADHD" },
+		{ key: "insurance", label: "Insurance" },
+		{ key: "code", label: "Code" },
+		{ key: "location", label: "Location" },
+		{ key: "district", label: "District" },
+		{ key: "paDate", label: "PA Date" },
+		{ key: "age", label: "Age" },
+	];
+
+	return (
+		<TableRow
+			className={cn(
+				"transition-shadow duration-200 hover:bg-inherit",
+				isScrolledTop && "shadow-lg",
+			)}
+		>
+			{columns.map((col, index) => {
+				const filterKey = col.filterKey ?? col.key;
+				const optionCounts = col.noFilter
+					? undefined
+					: getOptionCounts(filterKey);
+
+				return (
+					<TableHead
+						className={cn(
+							index === 0 &&
+								"sticky top-0 left-0 z-30 bg-background transition-shadow duration-200",
+							index === 0 && isScrolledLeft && "shadow-lg",
+						)}
+						key={col.key}
+					>
+						<div className="flex items-center gap-1">
+							{col.label}
+							{!col.noFilter && (
+								<ColumnFilter
+									columnName={col.filterLabel ?? col.label}
+									onFilterChange={(values) => onFilterChange(filterKey, values)}
+									optionCounts={optionCounts}
+									options={uniqueValues[filterKey] || []}
+									selectedValues={filters[filterKey] || []}
+								/>
+							)}
+						</div>
+					</TableHead>
+				);
+			})}
+			<TableHead>Actions</TableHead>
+		</TableRow>
 	);
 }
 
@@ -328,81 +502,6 @@ export function EvaluatorSelect({
 				)}
 			</SelectContent>
 		</Select>
-	);
-}
-
-export function SchedulingTableHeader({
-	filters,
-	onFilterChange,
-	uniqueValues,
-	isScrolledLeft,
-	isScrolledTop,
-}: {
-	filters: Record<string, string[]>;
-	onFilterChange: (column: string, values: string[]) => void;
-	uniqueValues: Record<string, string[]>;
-	isScrolledLeft?: boolean;
-	isScrolledTop?: boolean;
-}) {
-	const columns: {
-		key: string;
-		label: string;
-		noFilter?: boolean;
-		filterKey?: string;
-		filterLabel?: string;
-	}[] = [
-		{
-			key: "fullName",
-			label: "Name",
-			filterKey: "color",
-			filterLabel: "Color",
-		},
-		{ key: "evaluator", label: "Evaluator" },
-		{ key: "notes", label: "Notes", noFilter: true },
-		{ key: "date", label: "Date" },
-		{ key: "time", label: "Time" },
-		{ key: "asdAdhd", label: "ASD/ADHD" },
-		{ key: "insurance", label: "Insurance" },
-		{ key: "code", label: "Code" },
-		{ key: "location", label: "Location" },
-		{ key: "district", label: "District" },
-		{ key: "paDate", label: "PA Date" },
-		{ key: "age", label: "Age" },
-	];
-
-	return (
-		<TableRow
-			className={cn(
-				"transition-shadow duration-200 hover:bg-inherit",
-				isScrolledTop && "shadow-lg",
-			)}
-		>
-			{columns.map((col, index) => (
-				<TableHead
-					className={cn(
-						index === 0 &&
-							"sticky top-0 left-0 z-30 bg-background transition-shadow duration-200",
-						index === 0 && isScrolledLeft && "shadow-lg",
-					)}
-					key={col.key}
-				>
-					<div className="flex items-center gap-1">
-						{col.label}
-						{!col.noFilter && (
-							<ColumnFilter
-								columnName={col.filterLabel ?? col.label}
-								onFilterChange={(values) =>
-									onFilterChange(col.filterKey ?? col.key, values)
-								}
-								options={uniqueValues[col.filterKey ?? col.key] || []}
-								selectedValues={filters[col.filterKey ?? col.key] || []}
-							/>
-						)}
-					</div>
-				</TableHead>
-			))}
-			<TableHead>Actions</TableHead>
-		</TableRow>
 	);
 }
 
