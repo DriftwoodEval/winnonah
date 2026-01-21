@@ -231,6 +231,7 @@ export function RecordsNoteEditor({
 		updateNoteMutation,
 		createNoteMutation,
 		clientId,
+		canRecordNote,
 	});
 
 	useEffect(() => {
@@ -239,15 +240,21 @@ export function RecordsNoteEditor({
 			updateNoteMutation,
 			createNoteMutation,
 			clientId,
+			canRecordNote,
 		};
 	});
 
 	const debouncedSaveContent = useMemo(
 		() =>
 			debounce((editorContent: object) => {
-				const { record, updateNoteMutation, createNoteMutation, clientId } =
-					stateRef.current;
-				if (!clientId) return;
+				const {
+					record,
+					updateNoteMutation,
+					createNoteMutation,
+					clientId,
+					canRecordNote,
+				} = stateRef.current;
+				if (!clientId || !canRecordNote) return;
 
 				if (record?.clientId) {
 					updateNoteMutation.mutate({

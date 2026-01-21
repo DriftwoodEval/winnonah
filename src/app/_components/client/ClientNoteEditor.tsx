@@ -99,6 +99,7 @@ export function ClientNoteEditor({
 		updateNoteMutation,
 		createNoteMutation,
 		clientId,
+		canNote,
 	});
 
 	useEffect(() => {
@@ -107,15 +108,21 @@ export function ClientNoteEditor({
 			updateNoteMutation,
 			createNoteMutation,
 			clientId,
+			canNote,
 		};
 	});
 
 	const debouncedSaveTitle = useMemo(
 		() =>
 			debounce((newTitle: string) => {
-				const { note, updateNoteMutation, createNoteMutation, clientId } =
-					stateRef.current;
-				if (!clientId) return;
+				const {
+					note,
+					updateNoteMutation,
+					createNoteMutation,
+					clientId,
+					canNote,
+				} = stateRef.current;
+				if (!clientId || !canNote) return;
 
 				if (note?.clientId) {
 					updateNoteMutation.mutate({
@@ -135,9 +142,14 @@ export function ClientNoteEditor({
 	const debouncedSaveContent = useMemo(
 		() =>
 			debounce((editorContent: object) => {
-				const { note, updateNoteMutation, createNoteMutation, clientId } =
-					stateRef.current;
-				if (!clientId) return;
+				const {
+					note,
+					updateNoteMutation,
+					createNoteMutation,
+					clientId,
+					canNote,
+				} = stateRef.current;
+				if (!clientId || !canNote) return;
 
 				if (note?.clientId) {
 					updateNoteMutation.mutate({
