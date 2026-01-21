@@ -690,8 +690,20 @@ export const clientRouter = createTRPCRouter({
 			}),
 		)
 		.mutation(async ({ ctx, input }) => {
+			const currentClient = await ctx.db.query.clients.findFirst({
+				where: eq(clients.id, input.clientId),
+			});
+
+			if (!currentClient) {
+				throw new TRPCError({
+					code: "NOT_FOUND",
+					message: `Client with ID ${input.clientId} not found`,
+				});
+			}
+
 			if (
 				input.status !== undefined &&
+				input.status !== currentClient.status &&
 				input.clientId.toString().length !== 5
 			) {
 				throw new TRPCError({
@@ -703,38 +715,48 @@ export const clientRouter = createTRPCRouter({
 
 			const unauthorizedPermissions = [
 				...(input.color !== undefined &&
+				input.color !== currentClient.color &&
 				!hasPermission(ctx.session.user.permissions, "clients:color")
 					? ["clients:color"]
 					: []),
 				...(input.schoolDistrict !== undefined &&
+				input.schoolDistrict !== currentClient.schoolDistrict &&
 				!hasPermission(ctx.session.user.permissions, "clients:schooldistrict")
 					? ["clients:schooldistrict"]
 					: []),
 				...(input.highPriority !== undefined &&
+				input.highPriority !== currentClient.highPriority &&
 				!hasPermission(ctx.session.user.permissions, "clients:priority")
 					? ["clients:priority"]
 					: []),
 				...(input.babyNet !== undefined &&
+				input.babyNet !== currentClient.babyNet &&
 				!hasPermission(ctx.session.user.permissions, "clients:babynet")
 					? ["clients:babynet"]
 					: []),
 				...(input.eiAttends !== undefined &&
+				input.eiAttends !== currentClient.eiAttends &&
 				!hasPermission(ctx.session.user.permissions, "clients:ei")
 					? ["clients:ei"]
 					: []),
 				...(input.driveId !== undefined &&
+				input.driveId !== currentClient.driveId &&
 				!hasPermission(ctx.session.user.permissions, "clients:drive")
 					? ["clients:drive"]
 					: []),
 				...(input.status !== undefined &&
+				input.status !== currentClient.status &&
 				!hasPermission(ctx.session.user.permissions, "clients:shell")
 					? ["clients:shell"]
 					: []),
-				...((input.recordsNeeded !== undefined || input.ifsp !== undefined) &&
+				...(((input.recordsNeeded !== undefined &&
+					input.recordsNeeded !== currentClient.recordsNeeded) ||
+					(input.ifsp !== undefined && input.ifsp !== currentClient.ifsp)) &&
 				!hasPermission(ctx.session.user.permissions, "clients:records:needed")
 					? ["clients:records:needed"]
 					: []),
 				...(input.ifspDownloaded !== undefined &&
+				input.ifspDownloaded !== currentClient.ifspDownloaded &&
 				!hasPermission(ctx.session.user.permissions, "clients:records:ifsp")
 					? ["clients:records:ifsp"]
 					: []),
@@ -749,10 +771,6 @@ export const clientRouter = createTRPCRouter({
 			}
 
 			log.info({ user: ctx.session.user.id, ...input }, "Updating client");
-
-			const currentClient = await ctx.db.query.clients.findFirst({
-				where: eq(clients.id, input.clientId),
-			});
 
 			const updateData: {
 				color?: (typeof CLIENT_COLOR_KEYS)[number];
