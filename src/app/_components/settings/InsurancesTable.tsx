@@ -58,21 +58,34 @@ import { api } from "~/trpc/react";
 
 const log = logger.child({ module: "InsurancesTable" });
 
-const formSchema = z.object({
-	shortName: z.string().min(1, "Short name is required"),
-	preAuthNeeded: z.boolean().default(false),
-	preAuthLockin: z.boolean().default(false),
-	appointmentsRequired: z.number().int().min(1).default(1),
-	aliases: z.array(z.string()).default([]),
-});
+const createFormSchema = (unavailableAliases: Set<string>) =>
+	z.object({
+		shortName: z.string().min(1, "Short name is required"),
+		preAuthNeeded: z.boolean().default(false),
+		preAuthLockin: z.boolean().default(false),
+		appointmentsRequired: z.number().int().min(1).default(1),
+		aliases: z
+			.array(z.string())
+			.default([])
+			.superRefine((aliases, ctx) => {
+				const taken = aliases.find((alias) => unavailableAliases.has(alias));
+				if (taken) {
+					ctx.addIssue({
+						code: z.ZodIssueCode.custom,
+						message: `Alias "${taken}" is already in use.`,
+					});
+				}
+			}),
+	});
 
-type InsuranceFormValues = z.infer<typeof formSchema>;
-type InsuranceFormInput = z.input<typeof formSchema>;
+type InsuranceFormValues = z.infer<ReturnType<typeof createFormSchema>>;
+type InsuranceFormInput = z.input<ReturnType<typeof createFormSchema>>;
 
 type InsuranceWithAliases = Insurance & { aliases: { name: string }[] };
 
 interface InsuranceFormProps {
 	initialData?: InsuranceWithAliases;
+	existingInsurances?: InsuranceWithAliases[];
 	onSubmit: (values: InsuranceFormValues) => void;
 	isLoading: boolean;
 	onClose: () => void;
@@ -80,6 +93,7 @@ interface InsuranceFormProps {
 
 function InsuranceForm({
 	initialData,
+	existingInsurances = [],
 	onSubmit,
 	isLoading,
 	onClose,
@@ -107,10 +121,38 @@ function InsuranceForm({
 		};
 	}, [initialData]);
 
+	const unavailableAliases = useMemo(() => {
+		const all = new Set<string>();
+		for (const ins of existingInsurances) {
+			// If we are editing (initialData exists), skip its own aliases from being "unavailable"
+			// (Use ID to check identity)
+			if (initialData && ins.id === initialData.id) continue;
+			for (const a of ins.aliases) {
+				all.add(a.name);
+			}
+		}
+		return all;
+	}, [existingInsurances, initialData]);
+
+	const formSchema = useMemo(
+		() => createFormSchema(unavailableAliases),
+		[unavailableAliases],
+	);
+
 	const form = useForm<InsuranceFormInput, any, InsuranceFormValues>({
 		resolver: zodResolver(formSchema),
 		defaultValues,
 	});
+
+	const availableOptions = useMemo(() => {
+		if (!clientInsuranceNames) return [];
+		return clientInsuranceNames
+			.filter((name) => !unavailableAliases.has(name))
+			.map((name) => ({
+				label: name,
+				value: name,
+			}));
+	}, [clientInsuranceNames, unavailableAliases]);
 
 	return (
 		<Form {...form}>
@@ -149,10 +191,7 @@ function InsuranceForm({
 									onChange={(options) =>
 										field.onChange(options.map((opt) => opt.value))
 									}
-									options={clientInsuranceNames?.map((name) => ({
-										label: name,
-										value: name,
-									}))}
+									options={availableOptions}
 									placeholder="Add official names..."
 									value={(field.value ?? []).map((name) => ({
 										label: name,
@@ -232,7 +271,11 @@ function InsuranceForm({
 	);
 }
 
-function AddInsuranceButton() {
+function AddInsuranceButton({
+	existingInsurances,
+}: {
+	existingInsurances: InsuranceWithAliases[];
+}) {
 	const [isOpen, setIsOpen] = useState(false);
 	const utils = api.useUtils();
 
@@ -258,6 +301,7 @@ function AddInsuranceButton() {
 					<DialogTitle>Add Insurance</DialogTitle>
 				</DialogHeader>
 				<InsuranceForm
+					existingInsurances={existingInsurances}
 					isLoading={createInsurance.isPending}
 					onClose={() => setIsOpen(false)}
 					onSubmit={(values) => createInsurance.mutate(values)}
@@ -269,8 +313,10 @@ function AddInsuranceButton() {
 
 function InsuranceActionsMenu({
 	insurance,
+	existingInsurances,
 }: {
 	insurance: InsuranceWithAliases;
+	existingInsurances: InsuranceWithAliases[];
 }) {
 	const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
 	const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
@@ -328,6 +374,7 @@ function InsuranceActionsMenu({
 						<DialogTitle>Edit Insurance</DialogTitle>
 					</DialogHeader>
 					<InsuranceForm
+						existingInsurances={existingInsurances}
 						initialData={insurance}
 						isLoading={updateInsurance.isPending}
 						onClose={() => setIsEditDialogOpen(false)}
@@ -377,7 +424,11 @@ export default function InsurancesTable() {
 		<div className="px-4">
 			<div className="flex items-center justify-between pb-4">
 				<h3 className="font-bold text-lg">Insurances</h3>
-				{canEdit && <AddInsuranceButton />}
+				{canEdit && (
+					<AddInsuranceButton
+						existingInsurances={(insurances as InsuranceWithAliases[]) ?? []}
+					/>
+				)}
 			</div>
 			<div className="rounded-md border">
 				<Table>
@@ -397,6 +448,9 @@ export default function InsurancesTable() {
 								{canEdit && (
 									<TableCell>
 										<InsuranceActionsMenu
+											existingInsurances={
+												(insurances as InsuranceWithAliases[]) ?? []
+											}
 											insurance={insurance as InsuranceWithAliases}
 										/>
 									</TableCell>
