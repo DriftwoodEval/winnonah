@@ -67,7 +67,7 @@ export const schedulingRouter = createTRPCRouter({
 					schoolDistrict: clients.schoolDistrict,
 					precertExpires: clients.precertExpires,
 					dob: clients.dob,
-					closestOfficeKey: closestOfficeKeyCase,
+					closestOfficeKey: closestOfficeKeyCase.mapWith(String),
 				},
 			})
 			.from(schedulingClients)

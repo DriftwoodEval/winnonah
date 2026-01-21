@@ -606,7 +606,11 @@ export const SchedulingTableRow = memo(function SchedulingTableRow({
 								const updates: SchedulingUpdateData = { code: value };
 								if (value === "90791") {
 									updates.office = "Virtual";
+								} else if (value === "96136") {
+									updates.office =
+										scheduledClient.client.closestOfficeKey ?? "";
 								}
+
 								onUpdate?.(scheduledClient.clientId, updates);
 							}
 						}}
