@@ -49,6 +49,7 @@ export const pieceworkCostsSchema = z.object({
 export const pieceworkConfigSchema = z.object({
 	costs: z.record(z.string(), pieceworkCostsSchema),
 	name_map: z.record(z.string(), z.string()),
+	payroll_emails: z.record(z.string(), z.email()),
 });
 
 // --- Main Config Schemas ---

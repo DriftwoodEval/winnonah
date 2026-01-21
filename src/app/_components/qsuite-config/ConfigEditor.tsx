@@ -111,6 +111,7 @@ const formSchema = z.object({
 				),
 			),
 			name_map: z.array(keyVal(z.string())),
+			payroll_emails: z.array(keyVal(z.string())),
 		}),
 	}),
 	services: z.object({
@@ -481,6 +482,7 @@ export function ConfigEditor() {
 						},
 					})),
 					name_map: toEntries(c.piecework.name_map),
+					payroll_emails: toEntries(c.piecework.payroll_emails),
 				},
 			},
 			services: {
@@ -516,6 +518,7 @@ export function ConfigEditor() {
 						piecework: {
 							costs: fromEntries(data.config.piecework.costs),
 							name_map: fromEntries(data.config.piecework.name_map),
+							payroll_emails: fromEntries(data.config.piecework.payroll_emails),
 						},
 					},
 					services: {
@@ -545,7 +548,7 @@ export function ConfigEditor() {
 				>
 					{mutation.isPending && (
 						<Loader2 className="mr-2 h-4 w-4 animate-spin" />
-					)}{" "}
+					)}
 					Save
 				</Button>
 			</div>
@@ -1180,6 +1183,34 @@ function PieceworkTab({
 								<option key={ev.npi} value={ev.providerName} />
 							))}
 					</datalist>
+				</CardContent>
+			</Card>
+			<Card>
+				<CardHeader>
+					<CardTitle>Payroll Emails</CardTitle>
+					<CardDescription>
+						Name to email map for payroll drafts.
+					</CardDescription>
+				</CardHeader>
+				<CardContent>
+					<KeyValueList
+						control={form.control}
+						defaultValue=""
+						disabled={disabled}
+						keyClassName="flex-1"
+						keyLabel="Name"
+						label=""
+						name="config.piecework.payroll_emails"
+						renderValue={(p, d) => (
+							<FieldInput
+								className="flex-1"
+								control={form.control}
+								disabled={d}
+								name={p as Path<FormValues>}
+								placeholder="Email"
+							/>
+						)}
+					/>
 				</CardContent>
 			</Card>
 		</div>
