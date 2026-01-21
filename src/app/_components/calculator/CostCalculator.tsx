@@ -77,24 +77,51 @@ export default function CostCalculator() {
 		if (totalWeightedUnits === 0 || targetTotal === 0) return;
 
 		const baseRate = targetTotal / totalWeightedUnits;
-		let runningTotal = 0;
+		const targetCents = Math.round(targetTotal * 100);
 
-		const newItems = costItems.map((item, index) => {
-			const isLast = index === costItems.length - 1;
+		const newItems = costItems.map((item) => {
 			const weight = codes[item.name]?.weight ?? 1;
-
-			if (!isLast) {
-				const rawRate = baseRate * weight;
-				const roundedRate = Number(rawRate.toFixed(2));
-				runningTotal += item.units * roundedRate;
-				return { ...item, costPerUnit: roundedRate };
-			} else {
-				// Last item absorbs the difference to hit exactly targetTotal
-				const remaining = targetTotal - runningTotal;
-				const adjustedRate = item.units !== 0 ? remaining / item.units : 0;
-				return { ...item, costPerUnit: adjustedRate };
-			}
+			const roundedRate = Math.round(baseRate * weight * 100) / 100;
+			return { ...item, costPerUnit: roundedRate };
 		});
+
+		const getCurrentTotalCents = (items: CostItem[]) =>
+			Math.round(
+				items.reduce(
+					(sum, item) => sum + item.units * item.costPerUnit * 100,
+					0,
+				),
+			);
+
+		let diffCents = targetCents - getCurrentTotalCents(newItems);
+
+		const itemsToAdjust = [...newItems]
+			.map((_, index) => index)
+			.sort((a, b) => (newItems[a]?.units ?? 0) - (newItems[b]?.units ?? 0));
+
+		for (const idx of itemsToAdjust) {
+			if (diffCents === 0) break;
+			const item = newItems[idx];
+			if (!item || item.units === 0) continue;
+
+			// Determine how many $0.01 steps we can apply to this specific item's rate
+			// without overshooting the remaining difference.
+			const unitCents = item.units;
+			const possibleSteps =
+				diffCents > 0
+					? Math.floor(diffCents / unitCents)
+					: Math.ceil(diffCents / unitCents);
+
+			if (possibleSteps !== 0) {
+				const itemToUpdate = newItems[idx];
+				if (itemToUpdate) {
+					itemToUpdate.costPerUnit = Number(
+						(itemToUpdate.costPerUnit + possibleSteps * 0.01).toFixed(2),
+					);
+					diffCents -= possibleSteps * unitCents;
+				}
+			}
+		}
 
 		setCostItems(newItems);
 	};

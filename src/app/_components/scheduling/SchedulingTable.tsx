@@ -178,7 +178,7 @@ function InternalSchedulingTable({
 			)}
 			ref={tableRef}
 		>
-			<TableHeader>
+			<TableHeader className="sticky top-0 z-20 bg-background">
 				<SchedulingTableHeader
 					filters={filters}
 					isScrolledLeft={isScrolledLeft}
@@ -261,7 +261,7 @@ function ActiveSchedulingTable() {
 									office:
 										newUpdate.office !== undefined
 											? newUpdate.office
-											: (c.office as string | null),
+											: c.office || "",
 
 									notes:
 										newUpdate.notes !== undefined
