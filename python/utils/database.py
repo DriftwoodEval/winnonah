@@ -40,7 +40,7 @@ from utils.misc import (
 load_dotenv()
 
 
-def get_db() -> Connection[DictCursor]:
+def get_db() -> "Connection[DictCursor]":
     """Returns a connection to the database."""
     db_url = urlparse(os.getenv("DATABASE_URL", ""))
     connection = pymysql.connect(
