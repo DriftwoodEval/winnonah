@@ -6,10 +6,10 @@ import { logger } from "~/lib/logger";
 import { hasPermission } from "~/lib/utils";
 import { createTRPCRouter, protectedProcedure } from "~/server/api/trpc";
 import {
+	clients,
 	externalRecordHistory,
 	externalRecords,
 	users,
-	clients,
 } from "~/server/db/schema";
 
 const log = logger.child({ module: "ExternalRecordsApi" });
@@ -88,7 +88,10 @@ export const externalRecordRouter = createTRPCRouter({
 					code: "UNAUTHORIZED",
 				});
 			}
-			log.info({ user: ctx.session.user.email }, "Setting first request date");
+			log.info(
+				{ user: ctx.session.user.email },
+				`Setting first request date for ${input.clientId}: ${input.requested}`,
+			);
 
 			const existingRecord = await ctx.db.query.externalRecords.findFirst({
 				where: eq(externalRecords.clientId, input.clientId),
@@ -136,7 +139,7 @@ export const externalRecordRouter = createTRPCRouter({
 
 			log.info(
 				{ user: ctx.session.user.email },
-				"Setting needs second request",
+				`Setting needs second request for ${input.clientId}`,
 			);
 
 			await ctx.db
@@ -175,7 +178,10 @@ export const externalRecordRouter = createTRPCRouter({
 				});
 			}
 
-			log.info({ user: ctx.session.user.email }, "Setting second request date");
+			log.info(
+				{ user: ctx.session.user.email },
+				`Setting second request date for ${input.clientId}: ${input.secondRequestDate}`,
+			);
 
 			const updatePayload = {
 				secondRequestDate: input.secondRequestDate,
@@ -396,7 +402,7 @@ export const externalRecordRouter = createTRPCRouter({
 
 			log.info(
 				{ user: ctx.session.user.email },
-				"Creating external records note",
+				`Creating external records note for ${input.clientId}`,
 			);
 
 			const notePayload = {
