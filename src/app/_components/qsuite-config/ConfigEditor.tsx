@@ -110,8 +110,14 @@ const formSchema = z.object({
 					}),
 				),
 			),
-			name_map: z.array(keyVal(z.string())),
-			payroll_emails: z.array(keyVal(z.string())),
+			staff: z.array(
+				keyVal(
+					z.object({
+						name: z.string().min(1),
+						email: z.email().or(z.literal("")),
+					}),
+				),
+			),
 		}),
 	}),
 	services: z.object({
@@ -481,8 +487,13 @@ export function ConfigEditor() {
 							REPORT: item.value.REPORT ?? undefined,
 						},
 					})),
-					name_map: toEntries(c.piecework.name_map),
-					payroll_emails: toEntries(c.piecework.payroll_emails),
+					staff: toEntries(c.piecework.name_map).map((e) => ({
+						key: e.key,
+						value: {
+							name: e.value,
+							email: c.piecework.payroll_emails[e.value] ?? "",
+						},
+					})),
 				},
 			},
 			services: {
@@ -517,8 +528,20 @@ export function ConfigEditor() {
 						),
 						piecework: {
 							costs: fromEntries(data.config.piecework.costs),
-							name_map: fromEntries(data.config.piecework.name_map),
-							payroll_emails: fromEntries(data.config.piecework.payroll_emails),
+							name_map: fromEntries(
+								data.config.piecework.staff.map((s) => ({
+									key: s.key,
+									value: s.value.name,
+								})),
+							),
+							payroll_emails: fromEntries(
+								data.config.piecework.staff
+									.filter((s) => s.value.email)
+									.map((s) => ({
+										key: s.value.name,
+										value: s.value.email,
+									})),
+							),
 						},
 					},
 					services: {
@@ -1056,8 +1079,8 @@ function PieceworkTab({
 	const costs = form.watch("config.piecework.costs");
 	const selectedCostsEvaluators = costs.map((c) => c.key);
 
-	const nameMap = form.watch("config.piecework.name_map");
-	const selectedFullNames = nameMap.map((m) => m.value);
+	const staff = form.watch("config.piecework.staff");
+	const selectedFullNames = staff.map((m) => m.value.name);
 
 	return (
 		<div className="grid gap-6">
@@ -1151,29 +1174,36 @@ function PieceworkTab({
 			</Card>
 			<Card>
 				<CardHeader>
-					<CardTitle>Name Map</CardTitle>
+					<CardTitle>Staff</CardTitle>
 					<CardDescription>
-						Initial to name map for report writers.
+						Map initials to full names and payroll emails.
 					</CardDescription>
 				</CardHeader>
 				<CardContent>
 					<KeyValueList
 						control={form.control}
-						defaultValue=""
+						defaultValue={{ name: "", email: "" }}
 						disabled={disabled}
 						keyClassName="w-32"
 						keyLabel="Initials"
 						label=""
-						name="config.piecework.name_map"
+						name="config.piecework.staff"
 						renderValue={(p, d) => (
-							<FieldInput
-								className="flex-1"
-								control={form.control}
-								disabled={d}
-								list="evaluator-names-list"
-								name={p as Path<FormValues>}
-								placeholder="Full Name"
-							/>
+							<div className="grid flex-1 grid-cols-2 gap-2">
+								<FieldInput
+									control={form.control}
+									disabled={d}
+									list="evaluator-names-list"
+									name={`${p}.name` as Path<FormValues>}
+									placeholder="Full Name"
+								/>
+								<FieldInput
+									control={form.control}
+									disabled={d}
+									name={`${p}.email` as Path<FormValues>}
+									placeholder="Email"
+								/>
+							</div>
 						)}
 					/>
 					<datalist id="evaluator-names-list">
@@ -1183,34 +1213,6 @@ function PieceworkTab({
 								<option key={ev.npi} value={ev.providerName} />
 							))}
 					</datalist>
-				</CardContent>
-			</Card>
-			<Card>
-				<CardHeader>
-					<CardTitle>Payroll Emails</CardTitle>
-					<CardDescription>
-						Name to email map for payroll drafts.
-					</CardDescription>
-				</CardHeader>
-				<CardContent>
-					<KeyValueList
-						control={form.control}
-						defaultValue=""
-						disabled={disabled}
-						keyClassName="flex-1"
-						keyLabel="Name"
-						label=""
-						name="config.piecework.payroll_emails"
-						renderValue={(p, d) => (
-							<FieldInput
-								className="flex-1"
-								control={form.control}
-								disabled={d}
-								name={p as Path<FormValues>}
-								placeholder="Email"
-							/>
-						)}
-					/>
 				</CardContent>
 			</Card>
 		</div>
