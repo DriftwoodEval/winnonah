@@ -20,6 +20,7 @@ import {
 } from "@components/ui/select";
 import { TableCell, TableHead, TableRow } from "@components/ui/table";
 import { Textarea } from "@components/ui/textarea";
+import { Badge } from "@ui/badge";
 import { Circle, Filter } from "lucide-react";
 import Link from "next/link";
 import { memo, useEffect, useMemo, useState } from "react";
@@ -44,7 +45,6 @@ import {
 	mapInsuranceToShortNames,
 } from "~/lib/utils";
 import { api } from "~/trpc/react";
-import { Badge } from "../ui/badge";
 
 export const normalize = (val: string | null | undefined) => {
 	if (!val || val === "-") return "";

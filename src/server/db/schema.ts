@@ -603,6 +603,7 @@ export const sessions = createTable(
 			.references(() => users.id),
 		expires: d.timestamp({ mode: "date" }).notNull(),
 		clientFilters: d.text(),
+		schedulingFilters: d.text(),
 	}),
 	(t) => [index("session_user_id_idx").on(t.userId)],
 );

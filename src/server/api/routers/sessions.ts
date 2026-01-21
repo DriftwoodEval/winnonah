@@ -38,4 +38,35 @@ export const sessionRouter = createTRPCRouter({
 
 			return { success: true };
 		}),
+
+	getSchedulingFilters: protectedProcedure.query(async ({ ctx }) => {
+		const session = await ctx.db.query.sessions.findFirst({
+			where: eq(sessions.userId, ctx.session.user.id),
+			orderBy: (sessions, { desc }) => [desc(sessions.expires)],
+		});
+
+		return {
+			schedulingFilters: session?.schedulingFilters ?? null,
+		};
+	}),
+
+	saveSchedulingFilters: protectedProcedure
+		.input(z.object({ schedulingFilters: z.string() }))
+		.mutation(async ({ ctx, input }) => {
+			const currentSession = await ctx.db.query.sessions.findFirst({
+				where: eq(sessions.userId, ctx.session.user.id),
+				orderBy: (sessions, { desc }) => [desc(sessions.expires)],
+			});
+
+			if (!currentSession) {
+				throw new Error("Session not found");
+			}
+
+			await ctx.db
+				.update(sessions)
+				.set({ schedulingFilters: input.schedulingFilters })
+				.where(eq(sessions.sessionToken, currentSession.sessionToken));
+
+			return { success: true };
+		}),
 });

@@ -5,6 +5,7 @@ import { Table, TableBody, TableHeader } from "@components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@components/ui/tabs";
 import { Skeleton } from "@ui/skeleton";
 import { ArchiveRestore, Loader2, X } from "lucide-react";
+import { useSession } from "next-auth/react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { ScheduledClient } from "~/lib/api-types";
 import type {
@@ -54,6 +55,43 @@ function useSchedulingFilters(
 	insurances: InsuranceWithAliases[],
 ) {
 	const [filters, setFilters] = useState<Record<string, string[]>>({});
+	const [isInitialized, setIsInitialized] = useState(false);
+	const lastSavedFiltersRef = useRef<string>("");
+	const { data: session } = useSession();
+
+	const { data: savedFiltersData, isSuccess: isFetchSuccess } =
+		api.sessions.getSchedulingFilters.useQuery(undefined, {
+			enabled: !!session,
+		});
+
+	const saveFiltersMutation = api.sessions.saveSchedulingFilters.useMutation();
+
+	useEffect(() => {
+		if (isInitialized || !isFetchSuccess || !session) return;
+
+		if (savedFiltersData?.schedulingFilters) {
+			try {
+				const saved = JSON.parse(savedFiltersData.schedulingFilters);
+				setFilters(saved);
+				lastSavedFiltersRef.current = savedFiltersData.schedulingFilters;
+			} catch (e) {
+				console.error("Failed to parse saved scheduling filters", e);
+			}
+		} else {
+			lastSavedFiltersRef.current = "{}";
+		}
+		setIsInitialized(true);
+	}, [savedFiltersData, isInitialized, isFetchSuccess, session]);
+
+	useEffect(() => {
+		if (!isInitialized || !session) return;
+
+		const filtersString = JSON.stringify(filters);
+		if (filtersString !== lastSavedFiltersRef.current) {
+			lastSavedFiltersRef.current = filtersString;
+			saveFiltersMutation.mutate({ schedulingFilters: filtersString });
+		}
+	}, [filters, session, saveFiltersMutation, isInitialized]);
 
 	const evaluatorMap = useMemo(
 		() => new Map(evaluators.map((e) => [e.npi, e])),
@@ -129,10 +167,15 @@ function useSchedulingFilters(
 	}, [clientDisplayValues, filters]);
 
 	const handleFilterChange = (column: string, selected: string[]) => {
-		setFilters((prev) => ({
-			...prev,
-			[column]: selected,
-		}));
+		setFilters((prev) => {
+			const newFilters = { ...prev };
+			if (selected.length === 0) {
+				delete newFilters[column];
+			} else {
+				newFilters[column] = selected;
+			}
+			return newFilters;
+		});
 	};
 
 	return { filteredClients, filters, handleFilterChange, uniqueValues };
