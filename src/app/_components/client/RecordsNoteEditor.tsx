@@ -449,25 +449,28 @@ export function RecordsNoteEditor({
 
 	const editorKey = `${isEditorReadOnly}-${clientId}`;
 
-	const isTemplateUsed = useMemo(() => {
+	const detectedTemplateValue = useMemo(() => {
 		// Guard against non-objects or null
 		if (typeof localContent !== "object" || localContent === null) {
-			return false;
+			return undefined;
 		}
 
 		// Guard against object not having 'content' property.
 		if (!("content" in localContent)) {
-			return false;
+			return undefined;
 		}
 
 		const content = (localContent as { content: unknown }).content;
 
 		if (!Array.isArray(content)) {
-			return false;
+			return undefined;
 		}
 
 		const editorText = extractTextFromTiptapJson(localContent);
-		return noteTemplates.some((template) => editorText.includes(template.text));
+		const matchedTemplate = noteTemplates.find((template) =>
+			editorText.includes(template.text),
+		);
+		return matchedTemplate?.value;
 	}, [localContent]);
 
 	return (
@@ -568,8 +571,9 @@ export function RecordsNoteEditor({
 
 				<div className="flex flex-row items-center gap-3">
 					<Select
-						disabled={isEditorReadOnly || isTemplateUsed}
+						disabled={isEditorReadOnly || !!detectedTemplateValue}
 						onValueChange={handleTemplateChange}
+						value={detectedTemplateValue ?? ""}
 					>
 						<SelectTrigger className="w-[240px]" size="sm">
 							<SelectValue placeholder="Use a template..." />
