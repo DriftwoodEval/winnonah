@@ -74,6 +74,16 @@ const noteTemplates = [
 		label: "Outside - No Autism",
 		text: "Testing has been done by an outside medical provider and autism was not listed in the records.",
 	},
+	{
+		value: "no-response",
+		label: "No Response",
+		text: "We reached out twice and got no response.",
+	},
+	{
+		value: "no-records",
+		labe: "No Records",
+		text: "No records.",
+	},
 ];
 
 interface RecordsNoteEditorProps {
