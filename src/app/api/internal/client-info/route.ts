@@ -1,6 +1,7 @@
 import { eq } from "drizzle-orm";
 import { type NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
+import { NOTE_TEMPLATES } from "~/lib/constants";
 import { db } from "~/server/db";
 import { clients, externalRecords } from "~/server/db/schema";
 
@@ -98,10 +99,15 @@ export async function GET(req: NextRequest) {
 			},
 		});
 
-		const recordsNote = extractTextFromTiptapJson(
+		const fullNote = extractTextFromTiptapJson(
 			externalRecord?.content as TiptapNode,
 		).trim();
-		const recordsReviewed = recordsNote.length > 0;
+		const matchedTemplate = NOTE_TEMPLATES.find((t) =>
+			fullNote.includes(t.text),
+		);
+		console.log(matchedTemplate);
+		const recordsNote = matchedTemplate ? matchedTemplate.label : fullNote;
+		const recordsReviewed = fullNote.length > 0;
 
 		let recordsStatus: string | boolean = false;
 		if (client.recordsNeeded === "Needed") {

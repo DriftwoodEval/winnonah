@@ -91,11 +91,15 @@ export const pyConfigRouter = createTRPCRouter({
 				return data.data.map((user) => {
 					const userNumber = numbersData.data.find(
 						(n) =>
-							n.userId === user.id || n.sharedWith?.some((s) => s.userId === user.id),
+							n.userId === user.id ||
+							n.sharedWith?.some((s) => s.userId === user.id),
 					);
 					return {
 						id: user.id,
-						name: `${user.firstName ?? ""} ${user.lastName ?? ""}`.trim() || user.email || user.id,
+						name:
+							`${user.firstName ?? ""} ${user.lastName ?? ""}`.trim() ||
+							user.email ||
+							user.id,
 						phone: userNumber?.number ?? "",
 					};
 				});

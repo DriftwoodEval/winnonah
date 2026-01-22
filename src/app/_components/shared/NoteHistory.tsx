@@ -1,11 +1,11 @@
 "use client";
 
+import type { JSONContent } from "@tiptap/core";
 import { Avatar, AvatarFallback, AvatarImage } from "@ui/avatar";
 import { Badge } from "@ui/badge";
 import { Button } from "@ui/button";
 import { Card, CardContent, CardHeader } from "@ui/card";
 import { ScrollArea } from "@ui/scroll-area";
-import type { JSONContent } from "@tiptap/core";
 import { formatDistanceToNow } from "date-fns";
 import type { Change } from "diff";
 import { ChevronUp } from "lucide-react";

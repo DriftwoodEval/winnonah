@@ -14,8 +14,8 @@ export default function VersionFooter() {
 					{buildDate
 						? new Date(buildDate).toLocaleDateString("en-US", {
 								year: "2-digit",
-month: "numeric",
-day: "numeric"
+								month: "numeric",
+								day: "numeric",
 							})
 						: "n/a"}
 				</span>

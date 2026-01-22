@@ -19,6 +19,7 @@ import { History } from "lucide-react";
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { useCheckPermission } from "~/hooks/use-check-permission";
+import { NOTE_TEMPLATES } from "~/lib/constants";
 import { logger } from "~/lib/logger";
 import { getLocalDayFromUTCDate } from "~/lib/utils";
 import { api } from "~/trpc/react";
@@ -52,39 +53,6 @@ const extractTextFromTiptapJson = (tiptapJson: any): string => {
 	tiptapJson.content.forEach(traverse);
 	return fullText;
 };
-
-const noteTemplates = [
-	{
-		value: "district-autism",
-		label: "District - Autism",
-		text: "Testing has been done by the school district and autism is listed in the records.",
-	},
-	{
-		value: "district-no-autism",
-		label: "District - No Autism",
-		text: "Testing has been done by the school district and autism was not found in the records.",
-	},
-	{
-		value: "outside-autism",
-		label: "Outside - Autism",
-		text: "Testing has been done by an outside medical provider and autism is listed in the records.",
-	},
-	{
-		value: "outside-no-autism",
-		label: "Outside - No Autism",
-		text: "Testing has been done by an outside medical provider and autism was not listed in the records.",
-	},
-	{
-		value: "no-response",
-		label: "No Response",
-		text: "We reached out twice and got no response.",
-	},
-	{
-		value: "no-records",
-		labe: "No Records",
-		text: "No records.",
-	},
-];
 
 interface RecordsNoteEditorProps {
 	clientId: number;
@@ -354,7 +322,7 @@ export function RecordsNoteEditor({
 	};
 
 	const handleTemplateChange = (value: string) => {
-		const template = noteTemplates.find((t) => t.value === value);
+		const template = NOTE_TEMPLATES.find((t) => t.value === value);
 		if (!template) return;
 
 		const templateText = template.text;
@@ -477,7 +445,7 @@ export function RecordsNoteEditor({
 		}
 
 		const editorText = extractTextFromTiptapJson(localContent);
-		const matchedTemplate = noteTemplates.find((template) =>
+		const matchedTemplate = NOTE_TEMPLATES.find((template) =>
 			editorText.includes(template.text),
 		);
 		return matchedTemplate?.value;
@@ -589,7 +557,7 @@ export function RecordsNoteEditor({
 							<SelectValue placeholder="Use a template..." />
 						</SelectTrigger>
 						<SelectContent>
-							{noteTemplates.map((template) => (
+							{NOTE_TEMPLATES.map((template) => (
 								<SelectItem key={template.value} value={template.value}>
 									{template.label}
 								</SelectItem>

@@ -165,6 +165,39 @@ export type PUNCH_SCHEMA = {
 	hash: string;
 };
 
+export const NOTE_TEMPLATES = [
+	{
+		value: "district-autism",
+		label: "District - Autism",
+		text: "Testing has been done by the school district and autism is listed in the records.",
+	},
+	{
+		value: "district-no-autism",
+		label: "District - No Autism",
+		text: "Testing has been done by the school district and autism was not found in the records.",
+	},
+	{
+		value: "outside-autism",
+		label: "Outside - Autism",
+		text: "Testing has been done by an outside medical provider and autism is listed in the records.",
+	},
+	{
+		value: "outside-no-autism",
+		label: "Outside - No Autism",
+		text: "Testing has been done by an outside medical provider and autism was not listed in the records.",
+	},
+	{
+		value: "no-response",
+		label: "No Response",
+		text: "We reached out twice and got no response.",
+	},
+	{
+		value: "no-records",
+		label: "No Records",
+		text: "No records.",
+	},
+] as const;
+
 export const ALLOWED_ASD_ADHD_VALUES = [
 	"ASD",
 	"ADHD",
