@@ -12,7 +12,7 @@ import { ArrowDownUp, Check, Filter, Plus } from "lucide-react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useSession } from "next-auth/react";
 import {
-	useCallback,
+	// useCallback,
 	useEffect,
 	useId,
 	useMemo,
@@ -31,7 +31,7 @@ import { api } from "~/trpc/react";
 import { ResponsiveDialog } from "../shared/ResponsiveDialog";
 import ClientCreateForm from "./ClientCreateForm";
 import { ClientsList } from "./ClientsList";
-import ClientsSearchForm from "./ClientsSearchForm";
+// import ClientsSearchForm from "./ClientsSearchForm";
 import { NameSearchInput } from "./NameSearchInput";
 
 export function ClientsDashboard() {
@@ -239,10 +239,10 @@ export function ClientsDashboard() {
 		};
 	}, [clients, highlightedIndex, router]);
 
-	const handleReset = useCallback(() => {
-		setDebouncedSearchTerm("");
-		setHighlightedIndex(-1);
-	}, []);
+	// const handleReset = useCallback(() => {
+	// 	setDebouncedSearchTerm("");
+	// 	setHighlightedIndex(-1);
+	// }, []);
 
 	const handleUrlParamChange = (key: string, value: string | boolean) => {
 		const params = new URLSearchParams(searchParams);
@@ -525,7 +525,7 @@ export function ClientsDashboard() {
 				</div>
 			</div>
 
-			<ClientsSearchForm onResetFilters={handleReset} />
+			{/* <ClientsSearchForm onResetFilters={handleReset} /> */}
 		</div>
 	);
 }
