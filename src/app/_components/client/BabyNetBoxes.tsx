@@ -9,18 +9,21 @@ import { useCheckPermission } from "~/hooks/use-check-permission";
 import { logger } from "~/lib/logger";
 import { api } from "~/trpc/react";
 
-const log = logger.child({ module: "IFSPBoxes" });
+const log = logger.child({ module: "BabyNetBoxes" });
 
-interface IFSPBoxesProps {
+interface BabyNetBoxesProps {
 	clientId: number;
 	readOnly?: boolean;
 }
 
-export function IFSPBoxes({ clientId, readOnly = false }: IFSPBoxesProps) {
+export function BabyNetBoxes({
+	clientId,
+	readOnly = false,
+}: BabyNetBoxesProps) {
 	const utils = api.useUtils();
 	const can = useCheckPermission();
-	const canIFSPNeeded = can("clients:records:needed");
-	const canIFSPDownloaded = can("clients:records:ifsp");
+	const canBabyNetERNeeded = can("clients:records:needed");
+	const canBabyNetERDownloaded = can("clients:records:babynet");
 
 	const { data: client } = api.clients.getOne.useQuery(
 		{
@@ -30,16 +33,16 @@ export function IFSPBoxes({ clientId, readOnly = false }: IFSPBoxesProps) {
 		{ enabled: !!clientId },
 	);
 
-	const [IFSP, setIFSP] = useState(false);
-	const [IFSPDownloaded, setIFSPDownloaded] = useState(false);
+	const [BabyNetERNeeded, setBabyNetERNeeded] = useState(false);
+	const [BabyNetERDownloaded, setBabyNetERDownloaded] = useState(false);
 
 	useEffect(() => {
-		setIFSP(client?.ifsp ?? false);
-	}, [client?.ifsp]);
+		setBabyNetERNeeded(client?.babyNetERNeeded ?? false);
+	}, [client?.babyNetERNeeded]);
 
 	useEffect(() => {
-		setIFSPDownloaded(client?.ifspDownloaded ?? false);
-	}, [client?.ifspDownloaded]);
+		setBabyNetERDownloaded(client?.babyNetERDownloaded ?? false);
+	}, [client?.babyNetERDownloaded]);
 
 	const handleError = (error: unknown, action: string) => {
 		const message = error instanceof Error ? error.message : "Unknown error";
@@ -58,70 +61,71 @@ export function IFSPBoxes({ clientId, readOnly = false }: IFSPBoxesProps) {
 		onError: (error) => handleError(error, "update client 'Needed' status"),
 	});
 
-	const handleIFSPChange = (checked: CheckedState) => {
+	const handleERNeededChange = (checked: CheckedState) => {
 		const newCheckedState = checked === "indeterminate" ? false : checked;
 
-		setIFSP(newCheckedState);
+		setBabyNetERNeeded(newCheckedState);
 
 		if (!clientId) return;
 
 		updateClientMutation.mutate({
 			clientId: clientId,
-			ifsp: newCheckedState,
+			babyNetERNeeded: newCheckedState,
 		});
 	};
 
-	const handleIFSPDownloadedChange = (checked: CheckedState) => {
+	const handleERDownloadedChange = (checked: CheckedState) => {
 		const newCheckedState = checked === "indeterminate" ? false : checked;
 
 		if (!clientId) return;
 
-		if (client?.ifsp || IFSP) {
-			setIFSPDownloaded(newCheckedState);
+		if (client?.babyNetERNeeded || BabyNetERNeeded) {
+			setBabyNetERDownloaded(newCheckedState);
 			updateClientMutation.mutate({
 				clientId: clientId,
-				ifspDownloaded: newCheckedState,
+				babyNetERDownloaded: newCheckedState,
 			});
 		} else {
 			toast.error("Error", {
-				description: "IFSP must be set before flagging downloaded.",
+				description: "Needed must be set before flagging downloaded.",
 			});
 		}
 	};
 
-	const canEditIFSP = !readOnly && !IFSPDownloaded && canIFSPNeeded;
-	const canEditIFSPDownloaded = !readOnly && IFSP && canIFSPDownloaded;
+	const canEditNeeded = !readOnly && !BabyNetERDownloaded && canBabyNetERNeeded;
+	const canEditDownloaded =
+		!readOnly && BabyNetERNeeded && canBabyNetERDownloaded;
 
-	const IFSPId = useId();
-	const IFSPDownloadedId = useId();
+	const neededId = useId();
+	const downloadedId = useId();
 
-	const tooltipIFSP = IFSPDownloaded
-		? "The IFSP has already been downloaded."
-		: !canEditIFSP && "Missing permissions.";
+	const tooltipNeeded = BabyNetERDownloaded
+		? "The Evaluation Report has already been downloaded."
+		: !canEditNeeded && "Missing permissions.";
 
-	const tooltipIFSPDownloaded = !IFSP
-		? "The IFSP must be set before flagging downloaded."
-		: !canEditIFSPDownloaded && "Missing permissions.";
+	const tooltipDownloaded = !BabyNetERNeeded
+		? "Needed must be set before flagging downloaded."
+		: !canEditDownloaded && "Missing permissions.";
 
 	return (
 		<div className="w-full">
-			<h4 className="mb-2 font-bold leading-none">IFSP</h4>
+			<h4 className="mb-2 font-bold leading-none">BabyNet Evaluation Report</h4>
 			<div className="flex h-[16px] flex-row items-center gap-3">
 				<Tooltip>
 					<TooltipTrigger>
 						<div className="flex items-center gap-2">
 							<Checkbox
-								checked={IFSP}
-								disabled={!canEditIFSP}
-								id={IFSPId}
-								onCheckedChange={handleIFSPChange}
+								checked={BabyNetERNeeded}
+								disabled={!canEditNeeded}
+								id={neededId}
+								onCheckedChange={handleERNeededChange}
 							/>
-							<Label htmlFor={IFSPId}>IFSP</Label>
+							<Label htmlFor={neededId}>Needed</Label>
 						</div>
 					</TooltipTrigger>
-					{!canEditIFSP && !readOnly && (
+					{!canEditNeeded && !readOnly && (
 						<TooltipContent>
-							<p>{tooltipIFSP}</p>
+							<p>{tooltipNeeded}</p>
 						</TooltipContent>
 					)}
 				</Tooltip>
@@ -132,17 +136,17 @@ export function IFSPBoxes({ clientId, readOnly = false }: IFSPBoxesProps) {
 					<TooltipTrigger>
 						<div className="flex items-center gap-2">
 							<Checkbox
-								checked={IFSPDownloaded}
-								disabled={!canEditIFSPDownloaded}
-								id={IFSPDownloadedId}
-								onCheckedChange={handleIFSPDownloadedChange}
+								checked={BabyNetERDownloaded}
+								disabled={!canEditDownloaded}
+								id={downloadedId}
+								onCheckedChange={handleERDownloadedChange}
 							/>
-							<Label htmlFor={IFSPDownloadedId}>IFSP Downloaded</Label>
+							<Label htmlFor={downloadedId}>Downloaded</Label>
 						</div>
 					</TooltipTrigger>
-					{!canEditIFSPDownloaded && !readOnly && (
+					{!canEditDownloaded && !readOnly && (
 						<TooltipContent>
-							<p>{tooltipIFSPDownloaded}</p>
+							<p>{tooltipDownloaded}</p>
 						</TooltipContent>
 					)}
 				</Tooltip>

@@ -259,8 +259,8 @@ export const clients = createTable(
 		flag: d.varchar({ length: 255 }),
 		taHash: d.varchar({ length: 255 }),
 		recordsNeeded: d.mysqlEnum("recordsNeeded", ["Needed", "Not Needed"]),
-		ifsp: d.boolean().notNull().default(false),
-		ifspDownloaded: d.boolean().notNull().default(false),
+		babyNetERNeeded: d.boolean().notNull().default(false),
+		babyNetERDownloaded: d.boolean().notNull().default(false),
 	}),
 	(t) => [
 		index("hash_idx").on(t.hash),

@@ -414,13 +414,16 @@ export const clientRouter = createTRPCRouter({
 		});
 	}),
 
-	getNeedsIFSPDownloaded: protectedProcedure.query(async ({ ctx }) => {
-		const needsIFSPDownloaded = await ctx.db.query.clients.findMany({
-			where: and(eq(clients.ifspDownloaded, false), eq(clients.ifsp, true)),
+	getNeedsBabyNetERDownloaded: protectedProcedure.query(async ({ ctx }) => {
+		const needsBabyNetERDownloaded = await ctx.db.query.clients.findMany({
+			where: and(
+				eq(clients.babyNetERDownloaded, false),
+				eq(clients.babyNetERNeeded, true),
+			),
 			orderBy: clients.dob,
 		});
 
-		return needsIFSPDownloaded;
+		return needsBabyNetERDownloaded;
 	}),
 
 	getNoteOnlyClients: protectedProcedure.query(async ({ ctx }) => {
@@ -685,8 +688,8 @@ export const clientRouter = createTRPCRouter({
 				driveId: z.string().optional(),
 				status: z.boolean().optional(),
 				recordsNeeded: z.enum(["Needed", "Not Needed"]).optional(),
-				ifsp: z.boolean().optional(),
-				ifspDownloaded: z.boolean().optional(),
+				babyNetERNeeded: z.boolean().optional(),
+				babyNetERDownloaded: z.boolean().optional(),
 			}),
 		)
 		.mutation(async ({ ctx, input }) => {
@@ -751,14 +754,15 @@ export const clientRouter = createTRPCRouter({
 					: []),
 				...(((input.recordsNeeded !== undefined &&
 					input.recordsNeeded !== currentClient.recordsNeeded) ||
-					(input.ifsp !== undefined && input.ifsp !== currentClient.ifsp)) &&
+					(input.babyNetERNeeded !== undefined &&
+						input.babyNetERNeeded !== currentClient.babyNetERNeeded)) &&
 				!hasPermission(ctx.session.user.permissions, "clients:records:needed")
 					? ["clients:records:needed"]
 					: []),
-				...(input.ifspDownloaded !== undefined &&
-				input.ifspDownloaded !== currentClient.ifspDownloaded &&
-				!hasPermission(ctx.session.user.permissions, "clients:records:ifsp")
-					? ["clients:records:ifsp"]
+				...(input.babyNetERDownloaded !== undefined &&
+				input.babyNetERDownloaded !== currentClient.babyNetERDownloaded &&
+				!hasPermission(ctx.session.user.permissions, "clients:records:babynet")
+					? ["clients:records:babynet"]
 					: []),
 			];
 			if (unauthorizedPermissions.length > 0) {
@@ -782,8 +786,8 @@ export const clientRouter = createTRPCRouter({
 				driveId?: string | null;
 				status?: boolean;
 				recordsNeeded?: "Needed" | "Not Needed";
-				ifsp?: boolean;
-				ifspDownloaded?: boolean;
+				babyNetERNeeded?: boolean;
+				babyNetERDownloaded?: boolean;
 			} = {};
 
 			if (input.color !== undefined) {
@@ -827,11 +831,11 @@ export const clientRouter = createTRPCRouter({
 			if (input.recordsNeeded !== undefined) {
 				updateData.recordsNeeded = input.recordsNeeded;
 			}
-			if (input.ifsp !== undefined) {
-				updateData.ifsp = input.ifsp;
+			if (input.babyNetERNeeded !== undefined) {
+				updateData.babyNetERNeeded = input.babyNetERNeeded;
 			}
-			if (input.ifspDownloaded !== undefined) {
-				updateData.ifspDownloaded = input.ifspDownloaded;
+			if (input.babyNetERDownloaded !== undefined) {
+				updateData.babyNetERDownloaded = input.babyNetERDownloaded;
 			}
 
 			await ctx.db

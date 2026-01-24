@@ -61,15 +61,21 @@ export const PERMISSIONS = {
 			records: {
 				title: "Records",
 				permissions: [
-					{ id: "clients:records:needed", title: "Set Records Needed" },
+					{
+						id: "clients:records:needed",
+						title: "Set School Records/BabyNet Evaluation Report Needed",
+					},
 					{
 						id: "clients:records:requested",
-						title: "Set Records Requested",
+						title: "Set School Records Requested",
 					},
-					{ id: "clients:records:reviewed", title: "Set Records Reviewed" },
 					{
-						id: "clients:records:ifsp",
-						title: "Set IFSP Needed/IFSP Downloaded",
+						id: "clients:records:reviewed",
+						title: "Set School Records Reviewed",
+					},
+					{
+						id: "clients:records:babynet",
+						title: "Set BabyNet Evaluation Report Downloaded",
 					},
 				],
 			},

@@ -10,11 +10,11 @@ import type { ClientColor } from "~/lib/colors";
 import { logger } from "~/lib/logger";
 import { formatClientAge, getLocalDayFromUTCDate } from "~/lib/utils";
 import { api } from "~/trpc/react";
+import { BabyNetBoxes } from "./BabyNetBoxes";
 import { ClientDetailsCard } from "./ClientDetailsCard";
 import { ClientHeader } from "./ClientHeader";
 import { ClientNoteEditor } from "./ClientNoteEditor";
 import { EligibleEvaluatorsList } from "./EligibleEvaluatorsList";
-import { IFSPBoxes } from "./IFSPBoxes";
 import { PersistentStatusAlert } from "./PersistentStatusAlert";
 import { QuestionnairesTable } from "./QuestionnairesTable";
 import { RecordsNoteEditor } from "./RecordsNoteEditor";
@@ -180,7 +180,7 @@ export function Client({
 									<ClientDetailsCard client={client} truncated />
 
 									{Number(formatClientAge(client.dob, "years")) < 4 && (
-										<IFSPBoxes clientId={client.id} readOnly={readOnly} />
+										<BabyNetBoxes clientId={client.id} readOnly={readOnly} />
 									)}
 
 									<RecordsNoteEditor clientId={client.id} readOnly={readOnly} />

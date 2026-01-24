@@ -80,8 +80,8 @@ export async function GET(req: NextRequest) {
 			columns: {
 				fullName: true,
 				recordsNeeded: true,
-				ifsp: true,
-				ifspDownloaded: true,
+				babyNetERNeeded: true,
+				babyNetERDownloaded: true,
 			},
 		});
 
@@ -124,9 +124,9 @@ export async function GET(req: NextRequest) {
 			}
 		}
 
-		let ifspStatus: string | boolean = false;
-		if (client.ifsp) {
-			ifspStatus = client.ifspDownloaded
+		let babyNetERStatus: string | boolean = false;
+		if (client.babyNetERNeeded) {
+			babyNetERStatus = client.babyNetERNeeded
 				? "Downloaded"
 				: "Needed but not downloaded";
 		}
@@ -134,7 +134,7 @@ export async function GET(req: NextRequest) {
 		return NextResponse.json({
 			fullName: client.fullName,
 			records: recordsStatus,
-			ifsp: ifspStatus,
+			babyNetERStatus: babyNetERStatus,
 		});
 	} catch (error) {
 		console.error("Database query failed:", error);

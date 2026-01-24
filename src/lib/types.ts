@@ -65,7 +65,7 @@ export const permissionPresets = [
 			"settings:evaluators",
 			"settings:insurances",
 			"clients:records:needed",
-			"clients:records:ifsp",
+			"clients:records:babynet",
 		]),
 	},
 	{
