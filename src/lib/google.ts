@@ -291,7 +291,12 @@ export const getPunchData = async (session: Session, redis?: Redis) => {
 export const updatePunchData = async (
 	session: Session,
 	clientId: string,
-	updates: { daSent?: boolean; evalSent?: boolean; asdAdhd?: string },
+	updates: {
+		daSent?: boolean;
+		evalSent?: boolean;
+		asdAdhd?: string;
+		protocolsScanned?: boolean;
+	},
 ) => {
 	const { PUNCHLIST_ID, PUNCHLIST_RANGE } = env;
 	const sheetsApi = getSheetsClient(session);
@@ -314,16 +319,14 @@ export const updatePunchData = async (
 	const daSentIndex = headers.indexOf("DA Qs Sent");
 	const evalSentIndex = headers.indexOf("EVAL Qs Sent");
 	const forIndex = headers.indexOf("For");
-
-	if (daSentIndex === -1 || evalSentIndex === -1 || forIndex === -1) {
-		throw new Error(
-			"DA Qs Sent, EVAL Qs Sent, or For column not found in Punchlist",
-		);
-	}
+	const protocolsScannedIndex = headers.indexOf("Protocols scanned?");
 
 	const updateRequests: sheets_v4.Schema$ValueRange[] = [];
 
 	if (updates.daSent !== undefined) {
+		if (daSentIndex === -1) {
+			throw new Error("DA Qs Sent column not found in Punchlist");
+		}
 		const cellAddress = `${String.fromCharCode(65 + daSentIndex)}${
 			clientRowIndex + 2
 		}`; // +2 because of 0-index + header row
@@ -334,6 +337,9 @@ export const updatePunchData = async (
 	}
 
 	if (updates.evalSent !== undefined) {
+		if (evalSentIndex === -1) {
+			throw new Error("EVAL Qs Sent column not found in Punchlist");
+		}
 		const cellAddress = `${String.fromCharCode(65 + evalSentIndex)}${
 			clientRowIndex + 2
 		}`;
@@ -344,12 +350,28 @@ export const updatePunchData = async (
 	}
 
 	if (updates.asdAdhd !== undefined) {
+		if (forIndex === -1) {
+			throw new Error("For column not found in Punchlist");
+		}
 		const cellAddress = `${String.fromCharCode(65 + forIndex)}${
 			clientRowIndex + 2
 		}`;
 		updateRequests.push({
 			range: cellAddress,
 			values: [[updates.asdAdhd]],
+		});
+	}
+
+	if (updates.protocolsScanned !== undefined) {
+		if (protocolsScannedIndex === -1) {
+			throw new Error("Protocols scanned? column not found in Punchlist");
+		}
+		const cellAddress = `${String.fromCharCode(65 + protocolsScannedIndex)}${
+			clientRowIndex + 2
+		}`;
+		updateRequests.push({
+			range: cellAddress,
+			values: [[updates.protocolsScanned ? "TRUE" : "FALSE"]],
 		});
 	}
 

@@ -34,6 +34,7 @@ export const PERMISSIONS = {
 					{ id: "clients:drive", title: "Edit Drive Links" },
 					{ id: "clients:schooldistrict", title: "Edit School District" },
 					{ id: "clients:asdadhd", title: "Edit ASD/ADHD" },
+					{ id: "clients:protocolsscanned", title: "Edit Protocols Scanned" },
 					{ id: "clients:babynet", title: "Edit BabyNet Status" },
 					{ id: "clients:ei", title: "Edit EI Attends Status" },
 					{ id: "clients:autismstop:enable", title: "Enable Autism Stop" },

@@ -17,6 +17,7 @@ import {
 } from "~/lib/utils";
 import { api } from "~/trpc/react";
 import { AddQuestionnaireButton } from "./AddQuestionnaireButton";
+import { ProtocolsScannedCheckbox } from "./ProtocolsScannedCheckbox";
 import { QuestionnaireActionsMenu } from "./QuestionnaireTableActionsMenu";
 
 interface QuestionnairesTableProps {
@@ -48,7 +49,12 @@ export function QuestionnairesTable({
 	return (
 		<div className="w-full rounded-md border shadow">
 			<div className="sticky top-0 z-10 flex items-center justify-between gap-2 p-4">
-				<h4 className="font-bold leading-none">Questionnaires</h4>
+				<div className="flex items-center gap-4">
+					<h4 className="font-bold leading-none">Questionnaires</h4>
+					{clientId && (
+						<ProtocolsScannedCheckbox clientId={clientId} readOnly={readOnly} />
+					)}
+				</div>
 
 				{!readOnly && <AddQuestionnaireButton clientId={clientId} />}
 			</div>

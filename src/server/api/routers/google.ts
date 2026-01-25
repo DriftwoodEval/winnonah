@@ -156,6 +156,8 @@ export const googleRouter = createTRPCRouter({
 					evalSent: input.evalSent,
 				});
 
+				await invalidateCache(ctx, "google:sheets:punchlist");
+
 				return {
 					success: true,
 					message: "Questionnaire status updated successfully",
@@ -178,6 +180,8 @@ export const googleRouter = createTRPCRouter({
 			}),
 		)
 		.mutation(async ({ ctx, input }) => {
+			assertPermission(ctx.session.user, "clients:asdadhd");
+
 			if (!ctx.session.user.accessToken || !ctx.session.user.refreshToken) {
 				throw new Error("No access token or refresh token");
 			}
@@ -188,6 +192,8 @@ export const googleRouter = createTRPCRouter({
 				await updatePunchData(ctx.session, input.clientId.toString(), {
 					asdAdhd: input.asdAdhd,
 				});
+
+				await invalidateCache(ctx, "google:sheets:punchlist");
 			} catch (error) {
 				console.error(
 					"Error updating ASD/ADHD status in Google Sheets:",
@@ -209,6 +215,46 @@ export const googleRouter = createTRPCRouter({
 			return {
 				success: true,
 				message: "ASD/ADHD status updated successfully",
+			};
+		}),
+
+	setProtocolsScanned: protectedProcedure
+		.input(
+			z.object({
+				clientId: z.number(),
+				protocolsScanned: z.boolean(),
+			}),
+		)
+		.mutation(async ({ ctx, input }) => {
+			assertPermission(ctx.session.user, "clients:protocolsscanned");
+			if (!ctx.session.user.accessToken || !ctx.session.user.refreshToken) {
+				throw new Error("No access token or refresh token");
+			}
+
+			ctx.logger.info(input, "Updating Protocols Scanned");
+
+			try {
+				await updatePunchData(ctx.session, input.clientId.toString(), {
+					protocolsScanned: input.protocolsScanned,
+				});
+
+				await invalidateCache(ctx, "google:sheets:punchlist");
+			} catch (error) {
+				console.error(
+					"Error updating Protocols Scanned in Google Sheets:",
+					error,
+				);
+
+				throw new Error(
+					`Failed to update Protocols Scanned in Google Sheets: ${
+						error instanceof Error ? error.message : "Unknown error"
+					}`,
+				);
+			}
+
+			return {
+				success: true,
+				message: "Protocols Scanned updated successfully",
 			};
 		}),
 
