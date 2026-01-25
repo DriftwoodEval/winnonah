@@ -176,6 +176,7 @@ async function runMigration() {
 			});
 
 			if (existingExternalRecord) {
+				// biome-ignore lint/suspicious/noExplicitAny: this script got ran once and it ran fine whatever
 				const updates: any = {};
 				if (requestedDate && !existingExternalRecord.requested)
 					updates.requested = requestedDate;

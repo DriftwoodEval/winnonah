@@ -139,7 +139,7 @@ function InsuranceForm({
 		[unavailableAliases],
 	);
 
-	const form = useForm<InsuranceFormInput, any, InsuranceFormValues>({
+	const form = useForm<InsuranceFormInput, z.ZodType, InsuranceFormValues>({
 		resolver: zodResolver(formSchema),
 		defaultValues,
 	});
