@@ -19,7 +19,7 @@ import { api } from "~/trpc/react";
 export function AvailabilityList() {
 	const [availabilityDateRange, setAvailabilityDateRange] = useState({
 		startDate: new Date(),
-		endDate: add(new Date(), { weeks: 1 }),
+		endDate: add(new Date(), { weeks: 3 }),
 	});
 
 	const { data: events, isLoading } = api.google.getAvailability.useQuery({
