@@ -135,7 +135,7 @@ export function AvailabilityForm() {
 		api.offices.getAll.useQuery();
 
 	const createAvailability = api.google.createAvailability.useMutation({
-		onSuccess: (_, variables) => {
+		onSuccess: async (_, variables) => {
 			const officeText =
 				variables.officeKeys && variables.officeKeys.length > 1
 					? `${variables.officeKeys.length} offices`
@@ -145,6 +145,7 @@ export function AvailabilityForm() {
 				`Event created! Type: ${isUnavailability ? "Out of Office" : `Available at ${officeText}`}`,
 			);
 			form.reset();
+			await utils.google.getAvailability.invalidate();
 		},
 		onError: (error) => {
 			toast.error(`Error: ${error.message}`);
@@ -201,8 +202,6 @@ export function AvailabilityForm() {
 			isUnavailability: values.isUnavailability,
 			officeKeys: finalOfficeKeys,
 		});
-
-		utils.google.getAvailability.invalidate();
 	}
 
 	return (
