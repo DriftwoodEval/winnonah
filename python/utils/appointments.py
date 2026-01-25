@@ -38,6 +38,7 @@ class SyncReporter:
         client_id: int,
         found_time: datetime,
         expected_time: datetime,
+        cpt_code: str = "N/A",
     ):
         """Log a time mismatch error."""
         self.time_mismatches.append(
@@ -48,6 +49,7 @@ class SyncReporter:
                 "client_id": client_id,
                 "found_time": found_time,
                 "expected_time": expected_time,
+                "cpt_code": cpt_code,
             }
         )
 
@@ -58,6 +60,7 @@ class SyncReporter:
         start_time: datetime,
         evaluator_name: str,
         appointment_id: str,
+        cpt_code: str = "N/A",
     ):
         """Log an appointment missing in Google Calendar."""
         self.missing_in_gcal.append(
@@ -67,6 +70,7 @@ class SyncReporter:
                 "start_time": start_time,
                 "evaluator_name": evaluator_name,
                 "appointment_id": appointment_id,
+                "cpt_code": cpt_code,
             }
         )
 
@@ -109,7 +113,7 @@ class SyncReporter:
                 html_content += (
                     f"<li><b>{item['name']}</b> (ID: {item['client_id']}) @ {item['start_time']} "
                     f"<br>&nbsp;&nbsp;<i>Expected Evaluator: {item['evaluator_name']}</i>"
-                    f"<br>&nbsp;&nbsp;<i>Appt ID: {item.get('appointment_id', 'N/A')}</i></li>"
+                    f"<br>&nbsp;&nbsp;<i>Appt ID: {item.get('appointment_id', 'N/A')} | CPT: {item.get('cpt_code', 'N/A')}</i></li>"
                 )
             html_content += "</ul>"
 
@@ -120,7 +124,7 @@ class SyncReporter:
                 html_content += (
                     f"<li><b>{item['client_name']}</b> (ID: {item['client_id']}): GCal is {item['found_time']}, "
                     f"TA has {item['expected_time']} "
-                    f"(Appt ID: {item.get('appointment_id', 'N/A')})</li>"
+                    f"(Appt ID: {item.get('appointment_id', 'N/A')} | CPT: {item.get('cpt_code', 'N/A')})</li>"
                 )
             html_content += "</ul>"
 
@@ -277,6 +281,7 @@ def batch_search_calendar_events(
                             f"Found event with Client ID {client_id} but wrong time: "
                             f"Event: {event_dt}, Expected: {start_time}, Diff: {int(time_diff)}s"
                         )
+                        cpt_code = re.sub(r"\D", "", appointment["NAME"]) or "N/A"
                         reporter.log_time_mismatch(
                             appointment_idx=idx,
                             appointment_id=str(appointment["APPOINTMENT_ID"]),
@@ -286,6 +291,7 @@ def batch_search_calendar_events(
                             client_id=client_id,
                             found_time=event_dt,
                             expected_time=start_time.strftime("%m/%d %I:%M %p"),
+                            cpt_code=cpt_code,
                         )
                         break
 
@@ -325,10 +331,14 @@ def prepare_appointments_from_csv(
     last_90000_appointment_date: dict[int, datetime] = {}
 
     for idx, appointment in appointments_df.iterrows():
-        if str(appointment["APPOINTMENT_ID"]) in ignored_ids:
-            logger.info(
-                f"Skipping ignored appointment {appointment['APPOINTMENT_ID']}."
-            )
+        appointment_id = str(appointment["APPOINTMENT_ID"])
+        client_id = appointment["CLIENT_ID"]
+        start_time = pd.to_datetime(appointment["STARTTIME"]).to_pydatetime()
+        cpt_code = re.sub(r"\D", "", appointment["NAME"]) or "N/A"
+        name = re.sub(r"[\d\(\)]", "", appointment["NAME"]).strip()
+
+        if appointment_id in ignored_ids:
+            logger.info(f"Skipping ignored appointment {appointment_id}.")
             indices_to_drop.add(idx)
             continue
 
@@ -336,12 +346,8 @@ def prepare_appointments_from_csv(
             indices_to_drop.add(idx)
             continue
 
-        client_id = appointment["CLIENT_ID"]
-        start_time = pd.to_datetime(appointment["STARTTIME"]).to_pydatetime()
-        cpt_string = re.sub(r"\D", "", appointment["NAME"])
-
         # Filter out 90000 CPT codes within 6 months of each other
-        if re.search(r"90000", cpt_string):
+        if re.search(r"90000", cpt_code):
             last_date = last_90000_appointment_date.get(client_id)
             if last_date and (start_time.date() - last_date.date()) < timedelta(
                 days=182
@@ -359,7 +365,6 @@ def prepare_appointments_from_csv(
         previous_app_date = current_app_date - timedelta(days=1)
 
         if (client_id, previous_app_date) in client_date_set:
-            name = re.sub(r"[\d\(\)]", "", appointment["NAME"]).strip()
             logger.warning(
                 f"Skipping {name} ({client_id}) on {current_app_date.strftime('%Y-%m-%d')} "
                 f"as they were seen on the previous day."
@@ -436,12 +441,14 @@ def prepare_appointments_from_csv(
                 f"[Expected Evaluator: {evaluator_name}]"
             )
 
+            cpt_code = re.sub(r"\D", "", appointment["NAME"]) or "N/A"
             reporter.log_missing_in_gcal(
                 name=name,
                 client_id=appointment["CLIENT_ID"],
                 start_time=start_time.strftime("%m/%d %I:%M %p"),
                 evaluator_name=evaluator_name,
                 appointment_id=appointment_id,
+                cpt_code=cpt_code,
             )
 
             if is_trusted:
