@@ -2,8 +2,11 @@ import EventEmitter from "node:events";
 import { TRPCError } from "@trpc/server";
 import { desc, eq } from "drizzle-orm";
 import { z } from "zod";
-import { hasPermission } from "~/lib/utils";
-import { createTRPCRouter, protectedProcedure } from "~/server/api/trpc";
+import {
+	assertPermission,
+	createTRPCRouter,
+	protectedProcedure,
+} from "~/server/api/trpc";
 import {
 	clients,
 	externalRecordHistory,
@@ -75,16 +78,7 @@ export const externalRecordRouter = createTRPCRouter({
 			}),
 		)
 		.mutation(async ({ ctx, input }) => {
-			if (
-				!hasPermission(
-					ctx.session.user.permissions,
-					"clients:records:requested",
-				)
-			) {
-				throw new TRPCError({
-					code: "UNAUTHORIZED",
-				});
-			}
+			assertPermission(ctx.session.user, "clients:records:requested");
 			ctx.logger.info(input, "Setting first request date");
 
 			const existingRecord = await ctx.db.query.externalRecords.findFirst({
@@ -123,13 +117,7 @@ export const externalRecordRouter = createTRPCRouter({
 			}),
 		)
 		.mutation(async ({ ctx, input }) => {
-			if (
-				!hasPermission(ctx.session.user.permissions, "clients:records:needed")
-			) {
-				throw new TRPCError({
-					code: "UNAUTHORIZED",
-				});
-			}
+			assertPermission(ctx.session.user, "clients:records:needed");
 
 			ctx.logger.info(input, "Setting needs second request");
 
@@ -158,16 +146,7 @@ export const externalRecordRouter = createTRPCRouter({
 			}),
 		)
 		.mutation(async ({ ctx, input }) => {
-			if (
-				!hasPermission(
-					ctx.session.user.permissions,
-					"clients:records:requested",
-				)
-			) {
-				throw new TRPCError({
-					code: "UNAUTHORIZED",
-				});
-			}
+			assertPermission(ctx.session.user, "clients:records:requested");
 
 			ctx.logger.info(input, `Setting second request date`);
 
@@ -258,16 +237,7 @@ export const externalRecordRouter = createTRPCRouter({
 		)
 		.mutation(async ({ ctx, input }) => {
 			try {
-				if (
-					!hasPermission(
-						ctx.session.user.permissions,
-						"clients:records:reviewed",
-					)
-				) {
-					throw new TRPCError({
-						code: "UNAUTHORIZED",
-					});
-				}
+				assertPermission(ctx.session.user, "clients:records:reviewed");
 
 				ctx.logger.info(
 					{ clientId: input.clientId },
@@ -380,13 +350,7 @@ export const externalRecordRouter = createTRPCRouter({
 			}),
 		)
 		.mutation(async ({ ctx, input }) => {
-			if (
-				!hasPermission(ctx.session.user.permissions, "clients:records:reviewed")
-			) {
-				throw new TRPCError({
-					code: "UNAUTHORIZED",
-				});
-			}
+			assertPermission(ctx.session.user, "clients:records:reviewed");
 
 			ctx.logger.info(
 				{ clientId: input.clientId },

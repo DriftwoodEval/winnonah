@@ -2,8 +2,11 @@ import { TRPCError } from "@trpc/server";
 import { eq } from "drizzle-orm";
 import z from "zod";
 import { type PermissionsObject, permissionsSchema } from "~/lib/types";
-import { hasPermission } from "~/lib/utils";
-import { createTRPCRouter, protectedProcedure } from "~/server/api/trpc";
+import {
+	assertPermission,
+	createTRPCRouter,
+	protectedProcedure,
+} from "~/server/api/trpc";
 import { invitations, users } from "~/server/db/schema";
 
 export const userRouter = createTRPCRouter({
@@ -46,11 +49,7 @@ export const userRouter = createTRPCRouter({
 			}),
 		)
 		.mutation(async ({ ctx, input }) => {
-			if (!hasPermission(ctx.session.user.permissions, "settings:users:edit")) {
-				throw new TRPCError({
-					code: "UNAUTHORIZED",
-				});
-			}
+			assertPermission(ctx.session.user, "settings:users:edit");
 
 			ctx.logger.info(input, "Updating user");
 
@@ -80,11 +79,7 @@ export const userRouter = createTRPCRouter({
 			}),
 		)
 		.mutation(async ({ ctx, input }) => {
-			if (!hasPermission(ctx.session.user.permissions, "settings:users:edit")) {
-				throw new TRPCError({
-					code: "UNAUTHORIZED",
-				});
-			}
+			assertPermission(ctx.session.user, "settings:users:edit");
 
 			if (ctx.session.user.id === input.userId) {
 				throw new TRPCError({
@@ -104,15 +99,11 @@ export const userRouter = createTRPCRouter({
 		}),
 
 	createInvitation: protectedProcedure
-		.input(z.object({ email: z.email(), permissions: permissionsSchema }))
+		.input(
+			z.object({ email: z.string().email(), permissions: permissionsSchema }),
+		)
 		.mutation(async ({ ctx, input }) => {
-			if (
-				!hasPermission(ctx.session.user.permissions, "settings:users:invite")
-			) {
-				throw new TRPCError({
-					code: "UNAUTHORIZED",
-				});
-			}
+			assertPermission(ctx.session.user, "settings:users:invite");
 
 			ctx.logger.info(input, "Creating invitation");
 
@@ -140,13 +131,7 @@ export const userRouter = createTRPCRouter({
 			}),
 		)
 		.mutation(async ({ ctx, input }) => {
-			if (
-				!hasPermission(ctx.session.user.permissions, "settings:users:invite")
-			) {
-				throw new TRPCError({
-					code: "UNAUTHORIZED",
-				});
-			}
+			assertPermission(ctx.session.user, "settings:users:invite");
 
 			ctx.logger.info(input, "Deleting invitation");
 

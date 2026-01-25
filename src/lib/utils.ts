@@ -3,7 +3,7 @@ import { type AnyColumn, type SQL, sql } from "drizzle-orm";
 import { twMerge } from "tailwind-merge";
 import type { InsuranceWithAliases } from "~/lib/models";
 import type { PermissionId, PermissionsObject } from "~/lib/types";
-import type { QUESTIONNAIRE_STATUSES } from "./constants";
+import { PERMISSION_MAP, type QUESTIONNAIRE_STATUSES } from "./constants";
 
 export function cn(...inputs: ClassValue[]) {
 	return twMerge(clsx(inputs));
@@ -14,6 +14,25 @@ export function hasPermission(
 	permission: PermissionId,
 ): boolean {
 	return !!userPerms[permission];
+}
+
+/**
+ * Reformat an error message to be friendlier by replacing permission IDs with their titles.
+ */
+export function formatError(message: string): string {
+	if (message === "UNAUTHORIZED") {
+		return "You do not have permission to perform this action.";
+	}
+
+	let formattedMessage = message;
+
+	for (const [id, title] of Object.entries(PERMISSION_MAP)) {
+		if (formattedMessage.includes(id)) {
+			formattedMessage = formattedMessage.replaceAll(id, `"${title}"`);
+		}
+	}
+
+	return formattedMessage;
 }
 
 export const mapInsuranceToShortNames = (

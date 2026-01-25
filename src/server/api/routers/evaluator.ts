@@ -1,9 +1,11 @@
-import { TRPCError } from "@trpc/server";
 import { eq, sql } from "drizzle-orm";
 import z from "zod";
 import { fetchWithCache, invalidateCache } from "~/lib/cache";
-import { hasPermission } from "~/lib/utils";
-import { createTRPCRouter, protectedProcedure } from "~/server/api/trpc";
+import {
+	assertPermission,
+	createTRPCRouter,
+	protectedProcedure,
+} from "~/server/api/trpc";
 import {
 	blockedSchoolDistricts,
 	blockedZipCodes,
@@ -107,11 +109,7 @@ export const evaluatorRouter = createTRPCRouter({
 			}),
 		)
 		.mutation(async ({ ctx, input }) => {
-			if (!hasPermission(ctx.session.user.permissions, "settings:evaluators")) {
-				throw new TRPCError({
-					code: "UNAUTHORIZED",
-				});
-			}
+			assertPermission(ctx.session.user, "settings:evaluators");
 
 			ctx.logger.info(input, "Creating evaluator");
 
@@ -185,11 +183,7 @@ export const evaluatorRouter = createTRPCRouter({
 	update: protectedProcedure
 		.input(evaluatorInputSchema)
 		.mutation(async ({ ctx, input }) => {
-			if (!hasPermission(ctx.session.user.permissions, "settings:evaluators")) {
-				throw new TRPCError({
-					code: "UNAUTHORIZED",
-				});
-			}
+			assertPermission(ctx.session.user, "settings:evaluators");
 
 			ctx.logger.info(input, "Updating evaluator");
 
@@ -277,11 +271,7 @@ export const evaluatorRouter = createTRPCRouter({
 	delete: protectedProcedure
 		.input(z.object({ npi: z.string() }))
 		.mutation(async ({ ctx, input }) => {
-			if (!hasPermission(ctx.session.user.permissions, "settings:evaluators")) {
-				throw new TRPCError({
-					code: "UNAUTHORIZED",
-				});
-			}
+			assertPermission(ctx.session.user, "settings:evaluators");
 
 			ctx.logger.info(input, "Deleting evaluator");
 

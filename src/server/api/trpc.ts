@@ -12,6 +12,8 @@ import superjson from "superjson";
 import { ZodError } from "zod";
 import { logger } from "~/lib/logger";
 import { redis } from "~/lib/redis";
+import type { PermissionId, PermissionsObject } from "~/lib/types";
+import { formatError, hasPermission } from "~/lib/utils";
 import { auth } from "~/server/auth";
 import { db } from "~/server/db";
 
@@ -52,6 +54,7 @@ const t = initTRPC.context<typeof createTRPCContext>().create({
 	errorFormatter({ shape, error }) {
 		return {
 			...shape,
+			message: formatError(shape.message),
 			data: {
 				...shape.data,
 				zodError:
@@ -142,3 +145,24 @@ export const protectedProcedure = t.procedure
 			},
 		});
 	});
+
+/**
+ * Helper to check if a user has a specific permission or set of permissions.
+ * Throws a TRPCError with code "UNAUTHORIZED" if any permissions are missing.
+ */
+export function assertPermission(
+	user: { permissions: PermissionsObject },
+	permission: PermissionId | PermissionId[],
+) {
+	const permissions = Array.isArray(permission) ? permission : [permission];
+	const missingPermissions = permissions.filter(
+		(p) => !hasPermission(user.permissions, p),
+	);
+
+	if (missingPermissions.length > 0) {
+		throw new TRPCError({
+			code: "UNAUTHORIZED",
+			message: missingPermissions.join(", "),
+		});
+	}
+}

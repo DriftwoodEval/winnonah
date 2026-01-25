@@ -1,8 +1,11 @@
 import { TRPCError } from "@trpc/server";
 import { eq } from "drizzle-orm";
 import { z } from "zod";
-import { hasPermission } from "~/lib/utils";
-import { createTRPCRouter, protectedProcedure } from "~/server/api/trpc";
+import {
+	assertPermission,
+	createTRPCRouter,
+	protectedProcedure,
+} from "~/server/api/trpc";
 import { clients, insuranceAliases, insurances } from "~/server/db/schema";
 
 export const insuranceRouter = createTRPCRouter({
@@ -46,11 +49,7 @@ export const insuranceRouter = createTRPCRouter({
 			}),
 		)
 		.mutation(async ({ ctx, input }) => {
-			if (!hasPermission(ctx.session.user.permissions, "settings:evaluators")) {
-				throw new TRPCError({
-					code: "UNAUTHORIZED",
-				});
-			}
+			assertPermission(ctx.session.user, "settings:insurances");
 
 			ctx.logger.info(input, "Creating insurance");
 
@@ -85,11 +84,7 @@ export const insuranceRouter = createTRPCRouter({
 			}),
 		)
 		.mutation(async ({ ctx, input }) => {
-			if (!hasPermission(ctx.session.user.permissions, "settings:evaluators")) {
-				throw new TRPCError({
-					code: "UNAUTHORIZED",
-				});
-			}
+			assertPermission(ctx.session.user, "settings:insurances");
 
 			ctx.logger.info(input, "Updating insurance");
 			const { id, aliases, ...data } = input;
@@ -116,11 +111,7 @@ export const insuranceRouter = createTRPCRouter({
 	delete: protectedProcedure
 		.input(z.object({ id: z.number() }))
 		.mutation(async ({ ctx, input }) => {
-			if (!hasPermission(ctx.session.user.permissions, "settings:evaluators")) {
-				throw new TRPCError({
-					code: "UNAUTHORIZED",
-				});
-			}
+			assertPermission(ctx.session.user, "settings:insurances");
 
 			ctx.logger.info(input, "Deleting insurance");
 

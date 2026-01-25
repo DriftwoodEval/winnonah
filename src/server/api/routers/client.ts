@@ -22,8 +22,12 @@ import { z } from "zod";
 import { CLIENT_COLOR_KEYS } from "~/lib/colors";
 import { syncPunchData } from "~/lib/google";
 import type { ClientWithIssueInfo } from "~/lib/models";
-import { getDistanceSQL, hasPermission } from "~/lib/utils";
-import { createTRPCRouter, protectedProcedure } from "~/server/api/trpc";
+import { getDistanceSQL } from "~/lib/utils";
+import {
+	assertPermission,
+	createTRPCRouter,
+	protectedProcedure,
+} from "~/server/api/trpc";
 import {
 	clients,
 	clientsEvaluators,
@@ -582,12 +586,7 @@ export const clientRouter = createTRPCRouter({
 	createShell: protectedProcedure
 		.input(z.object({ firstName: z.string(), lastName: z.string() }))
 		.mutation(async ({ ctx, input }) => {
-			if (!hasPermission(ctx.session.user.permissions, "clients:shell")) {
-				throw new TRPCError({
-					code: "UNAUTHORIZED",
-					message: "You do not have permission to create a shell client.",
-				});
-			}
+			assertPermission(ctx.session.user, "clients:shell");
 
 			ctx.logger.info(input, "Creating shell client");
 
@@ -624,16 +623,8 @@ export const clientRouter = createTRPCRouter({
 			}),
 		)
 		.mutation(async ({ ctx, input }) => {
-			if (
-				!hasPermission(
-					ctx.session.user.permissions,
-					"clients:autismstop:disable",
-				) &&
-				input.autismStop === false
-			) {
-				throw new TRPCError({
-					code: "UNAUTHORIZED",
-				});
+			if (input.autismStop === false) {
+				assertPermission(ctx.session.user, "clients:autismstop:disable");
 			}
 
 			ctx.logger.info(input, "Updating autism stop for client");
@@ -699,62 +690,47 @@ export const clientRouter = createTRPCRouter({
 				});
 			}
 
-			const unauthorizedPermissions = [
-				...(input.color !== undefined &&
-				input.color !== currentClient.color &&
-				!hasPermission(ctx.session.user.permissions, "clients:color")
-					? ["clients:color"]
+			const permissionsToCheck = [
+				...(input.color !== undefined && input.color !== currentClient.color
+					? (["clients:color"] as const)
 					: []),
 				...(input.schoolDistrict !== undefined &&
-				input.schoolDistrict !== currentClient.schoolDistrict &&
-				!hasPermission(ctx.session.user.permissions, "clients:schooldistrict")
-					? ["clients:schooldistrict"]
+				input.schoolDistrict !== currentClient.schoolDistrict
+					? (["clients:schooldistrict"] as const)
 					: []),
 				...(input.highPriority !== undefined &&
-				input.highPriority !== currentClient.highPriority &&
-				!hasPermission(ctx.session.user.permissions, "clients:priority")
-					? ["clients:priority"]
+				input.highPriority !== currentClient.highPriority
+					? (["clients:priority"] as const)
 					: []),
 				...(input.babyNet !== undefined &&
-				input.babyNet !== currentClient.babyNet &&
-				!hasPermission(ctx.session.user.permissions, "clients:babynet")
-					? ["clients:babynet"]
+				input.babyNet !== currentClient.babyNet
+					? (["clients:babynet"] as const)
 					: []),
 				...(input.eiAttends !== undefined &&
-				input.eiAttends !== currentClient.eiAttends &&
-				!hasPermission(ctx.session.user.permissions, "clients:ei")
-					? ["clients:ei"]
+				input.eiAttends !== currentClient.eiAttends
+					? (["clients:ei"] as const)
 					: []),
 				...(input.driveId !== undefined &&
-				input.driveId !== currentClient.driveId &&
-				!hasPermission(ctx.session.user.permissions, "clients:drive")
-					? ["clients:drive"]
+				input.driveId !== currentClient.driveId
+					? (["clients:drive"] as const)
 					: []),
-				...(input.status !== undefined &&
-				input.status !== currentClient.status &&
-				!hasPermission(ctx.session.user.permissions, "clients:shell")
-					? ["clients:shell"]
+				...(input.status !== undefined && input.status !== currentClient.status
+					? (["clients:shell"] as const)
 					: []),
-				...(((input.recordsNeeded !== undefined &&
+				...((input.recordsNeeded !== undefined &&
 					input.recordsNeeded !== currentClient.recordsNeeded) ||
-					(input.babyNetERNeeded !== undefined &&
-						input.babyNetERNeeded !== currentClient.babyNetERNeeded)) &&
-				!hasPermission(ctx.session.user.permissions, "clients:records:needed")
-					? ["clients:records:needed"]
+				(input.babyNetERNeeded !== undefined &&
+					input.babyNetERNeeded !== currentClient.babyNetERNeeded)
+					? (["clients:records:needed"] as const)
 					: []),
 				...(input.babyNetERDownloaded !== undefined &&
-				input.babyNetERDownloaded !== currentClient.babyNetERDownloaded &&
-				!hasPermission(ctx.session.user.permissions, "clients:records:babynet")
-					? ["clients:records:babynet"]
+				input.babyNetERDownloaded !== currentClient.babyNetERDownloaded
+					? (["clients:records:babynet"] as const)
 					: []),
 			];
-			if (unauthorizedPermissions.length > 0) {
-				throw new TRPCError({
-					code: "UNAUTHORIZED",
-					message: `You do not have permission to set ${unauthorizedPermissions.join(
-						", ",
-					)}.`,
-				});
+
+			if (permissionsToCheck.length > 0) {
+				assertPermission(ctx.session.user, permissionsToCheck);
 			}
 
 			ctx.logger.info(input, "Updating client");
@@ -1078,12 +1054,7 @@ export const clientRouter = createTRPCRouter({
 			}),
 		)
 		.mutation(async ({ ctx, input }) => {
-			if (!hasPermission(ctx.session.user.permissions, "clients:merge")) {
-				throw new TRPCError({
-					code: "UNAUTHORIZED",
-					message: "You do not have permission to merge clients.",
-				});
-			}
+			assertPermission(ctx.session.user, "clients:merge");
 
 			ctx.logger.info(input, "Merging shell client");
 

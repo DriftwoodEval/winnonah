@@ -212,3 +212,15 @@ export const ALLOWED_ASD_ADHD_VALUES = [
 	"ADHD+LD",
 	"LD",
 ] as const;
+
+export const PERMISSION_MAP = Object.values(PERMISSIONS).reduce(
+	(acc, category) => {
+		for (const subgroup of Object.values(category.subgroups)) {
+			for (const permission of subgroup.permissions) {
+				acc[permission.id] = permission.title;
+			}
+		}
+		return acc;
+	},
+	{} as Record<string, string>,
+);

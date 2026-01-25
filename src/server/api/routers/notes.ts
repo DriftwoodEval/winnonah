@@ -3,8 +3,11 @@ import type { JSONContent } from "@tiptap/core";
 import { TRPCError } from "@trpc/server";
 import { desc, eq } from "drizzle-orm";
 import { z } from "zod";
-import { hasPermission } from "~/lib/utils";
-import { createTRPCRouter, protectedProcedure } from "~/server/api/trpc";
+import {
+	assertPermission,
+	createTRPCRouter,
+	protectedProcedure,
+} from "~/server/api/trpc";
 import { noteHistory, notes, users } from "~/server/db/schema";
 
 const noteEmitter = new EventEmitter();
@@ -98,11 +101,7 @@ export const noteRouter = createTRPCRouter({
 		)
 		.mutation(async ({ ctx, input }) => {
 			try {
-				if (!hasPermission(ctx.session.user.permissions, "clients:notes")) {
-					throw new TRPCError({
-						code: "UNAUTHORIZED",
-					});
-				}
+				assertPermission(ctx.session.user, "clients:notes");
 				ctx.logger.info({ clientId: input.clientId }, "Updating note");
 
 				const HISTORY_MERGE_WINDOW = 5 * 60 * 1000; // 5 minutes
@@ -218,11 +217,7 @@ export const noteRouter = createTRPCRouter({
 			}),
 		)
 		.mutation(async ({ ctx, input }) => {
-			if (!hasPermission(ctx.session.user.permissions, "clients:notes")) {
-				throw new TRPCError({
-					code: "UNAUTHORIZED",
-				});
-			}
+			assertPermission(ctx.session.user, "clients:notes");
 
 			ctx.logger.info({ clientId: input.clientId }, "Creating note");
 

@@ -1,4 +1,3 @@
-import { TRPCError } from "@trpc/server";
 import { and, eq, notInArray } from "drizzle-orm";
 import z from "zod";
 import { fetchWithCache, invalidateCache } from "~/lib/cache";
@@ -10,9 +9,12 @@ import {
 	renameDriveFolder,
 	updatePunchData,
 } from "~/lib/google";
-import { hasPermission } from "~/lib/utils";
 import { getPriorityInfo } from "~/server/api/routers/client";
-import { createTRPCRouter, protectedProcedure } from "~/server/api/trpc";
+import {
+	assertPermission,
+	createTRPCRouter,
+	protectedProcedure,
+} from "~/server/api/trpc";
 import { clients } from "~/server/db/schema";
 
 const CACHE_KEY_DUPLICATES = "google:drive:duplicate-ids";
@@ -30,11 +32,7 @@ export const googleRouter = createTRPCRouter({
 			if (!ctx.session.user.accessToken || !ctx.session.user.refreshToken) {
 				throw new Error("No access token or refresh token");
 			}
-			if (!hasPermission(ctx.session.user.permissions, "clients:drive")) {
-				throw new TRPCError({
-					code: "UNAUTHORIZED",
-				});
-			}
+			assertPermission(ctx.session.user, "clients:drive");
 
 			ctx.logger.info(input, "Adding client ID to Drive folder");
 
@@ -53,11 +51,7 @@ export const googleRouter = createTRPCRouter({
 			if (!ctx.session.user.accessToken || !ctx.session.user.refreshToken) {
 				throw new Error("No access token or refresh token");
 			}
-			if (!hasPermission(ctx.session.user.permissions, "clients:drive")) {
-				throw new TRPCError({
-					code: "UNAUTHORIZED",
-				});
-			}
+			assertPermission(ctx.session.user, "clients:drive");
 
 			ctx.logger.info(input, "Removing client ID from Drive folder");
 

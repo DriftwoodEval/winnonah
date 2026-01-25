@@ -1,8 +1,10 @@
-import { TRPCError } from "@trpc/server";
 import { eq } from "drizzle-orm";
 import z from "zod";
-import { hasPermission } from "~/lib/utils";
-import { createTRPCRouter, protectedProcedure } from "~/server/api/trpc";
+import {
+	assertPermission,
+	createTRPCRouter,
+	protectedProcedure,
+} from "~/server/api/trpc";
 import { testUnits } from "~/server/db/schema";
 
 export const testUnitsRouter = createTRPCRouter({
@@ -19,11 +21,7 @@ export const testUnitsRouter = createTRPCRouter({
 			}),
 		)
 		.mutation(async ({ ctx, input }) => {
-			if (!hasPermission(ctx.session.user.permissions, "settings:testUnits")) {
-				throw new TRPCError({
-					code: "UNAUTHORIZED",
-				});
-			}
+			assertPermission(ctx.session.user, "settings:testUnits");
 
 			ctx.logger.info(input, "Updating test unit");
 
@@ -44,11 +42,7 @@ export const testUnitsRouter = createTRPCRouter({
 			}),
 		)
 		.mutation(async ({ ctx, input }) => {
-			if (!hasPermission(ctx.session.user.permissions, "settings:testUnits")) {
-				throw new TRPCError({
-					code: "UNAUTHORIZED",
-				});
-			}
+			assertPermission(ctx.session.user, "settings:testUnits");
 
 			ctx.logger.info(input, "Creating test unit");
 
@@ -61,11 +55,7 @@ export const testUnitsRouter = createTRPCRouter({
 	delete: protectedProcedure
 		.input(z.object({ id: z.number() }))
 		.mutation(async ({ ctx, input }) => {
-			if (!hasPermission(ctx.session.user.permissions, "settings:testUnits")) {
-				throw new TRPCError({
-					code: "UNAUTHORIZED",
-				});
-			}
+			assertPermission(ctx.session.user, "settings:testUnits");
 
 			ctx.logger.info(input, "Deleting test unit");
 

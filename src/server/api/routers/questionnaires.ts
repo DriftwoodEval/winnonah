@@ -14,8 +14,12 @@ import {
 import { z } from "zod";
 import { QUESTIONNAIRE_STATUSES } from "~/lib/constants";
 import type { InsertingQuestionnaire } from "~/lib/models";
-import { formatClientAge, hasPermission } from "~/lib/utils";
-import { createTRPCRouter, protectedProcedure } from "~/server/api/trpc";
+import { formatClientAge } from "~/lib/utils";
+import {
+	assertPermission,
+	createTRPCRouter,
+	protectedProcedure,
+} from "~/server/api/trpc";
 import { clients, questionnaires } from "~/server/db/schema";
 
 interface QuestionnaireDetails {
@@ -162,27 +166,12 @@ export const questionnaireRouter = createTRPCRouter({
 		)
 		.mutation(async ({ ctx, input }) => {
 			if (input.status === "EXTERNAL") {
-				if (
-					!hasPermission(
-						ctx.session.user.permissions,
-						"clients:questionnaires:createexternal",
-					)
-				) {
-					throw new TRPCError({
-						code: "UNAUTHORIZED",
-					});
-				}
+				assertPermission(
+					ctx.session.user,
+					"clients:questionnaires:createexternal",
+				);
 			} else {
-				if (
-					!hasPermission(
-						ctx.session.user.permissions,
-						"clients:questionnaires:create",
-					)
-				) {
-					throw new TRPCError({
-						code: "UNAUTHORIZED",
-					});
-				}
+				assertPermission(ctx.session.user, "clients:questionnaires:create");
 			}
 
 			ctx.logger.info(input, "Creating questionnaire");
@@ -269,16 +258,7 @@ export const questionnaireRouter = createTRPCRouter({
 			}),
 		)
 		.mutation(async ({ ctx, input }) => {
-			if (
-				!hasPermission(
-					ctx.session.user.permissions,
-					"clients:questionnaires:createbulk",
-				)
-			) {
-				throw new TRPCError({
-					code: "UNAUTHORIZED",
-				});
-			}
+			assertPermission(ctx.session.user, "clients:questionnaires:createbulk");
 
 			ctx.logger.info(input, "Creating bulk questionnaires");
 
@@ -375,16 +355,7 @@ export const questionnaireRouter = createTRPCRouter({
 			}),
 		)
 		.mutation(async ({ ctx, input }) => {
-			if (
-				!hasPermission(
-					ctx.session.user.permissions,
-					"clients:questionnaires:create",
-				)
-			) {
-				throw new TRPCError({
-					code: "UNAUTHORIZED",
-				});
-			}
+			assertPermission(ctx.session.user, "clients:questionnaires:create");
 
 			ctx.logger.info(input, "Updating questionnaire");
 
@@ -425,16 +396,7 @@ export const questionnaireRouter = createTRPCRouter({
 	deleteQuestionnaire: protectedProcedure
 		.input(z.object({ id: z.number() }))
 		.mutation(async ({ ctx, input }) => {
-			if (
-				!hasPermission(
-					ctx.session.user.permissions,
-					"clients:questionnaires:create",
-				)
-			) {
-				throw new TRPCError({
-					code: "UNAUTHORIZED",
-				});
-			}
+			assertPermission(ctx.session.user, "clients:questionnaires:create");
 
 			ctx.logger.info(input, "Deleting questionnaire");
 
