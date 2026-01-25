@@ -588,16 +588,27 @@ export async function getAvailabilityEvents(
 	endDate: Date,
 ): Promise<CalendarEvent[]> {
 	const calendar = getCalendarClient(session);
+	const allItems: any[] = [];
+	let pageToken: string | undefined;
 
-	const response = await calendar.events.list({
-		calendarId: "primary",
-		timeMin: startDate.toISOString(),
-		timeMax: endDate.toISOString(),
-		singleEvents: true, // Expand recurring events
-		orderBy: "startTime",
-	});
+	do {
+		const response = await calendar.events.list({
+			calendarId: "primary",
+			timeMin: startDate.toISOString(),
+			timeMax: endDate.toISOString(),
+			singleEvents: true, // Expand recurring events
+			orderBy: "startTime",
+			pageToken: pageToken,
+		});
 
-	const events = response.data.items ?? [];
+		if (response.data.items) {
+			allItems.push(...response.data.items);
+		}
+
+		pageToken = response.data.nextPageToken ?? undefined;
+	} while (pageToken);
+
+	const events = allItems;
 
 	const allOffices = await db.query.offices.findMany({});
 	const nameToKeyMap = new Map(
