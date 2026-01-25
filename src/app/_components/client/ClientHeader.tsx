@@ -250,7 +250,7 @@ export function ClientHeader({
 							<span>{client.asdAdhd}</span>
 						) : (
 							<button
-								className="hover:underline"
+								className="cursor-pointer hover:underline"
 								onClick={() => setEditAsdAdhdOpen(true)}
 								type="button"
 							>
@@ -268,7 +268,7 @@ export function ClientHeader({
 						<PopoverTrigger asChild>
 							<button
 								aria-label={`Current color: ${formatColorName(selectedColor)}`}
-								className="h-5 w-5 rounded-full"
+								className="h-5 w-5 cursor-pointer rounded-full"
 								disabled={readOnly}
 								style={{ background: currentHexColor }}
 								tabIndex={0}
