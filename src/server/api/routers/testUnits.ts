@@ -1,12 +1,9 @@
 import { TRPCError } from "@trpc/server";
 import { eq } from "drizzle-orm";
 import z from "zod";
-import { logger } from "~/lib/logger";
 import { hasPermission } from "~/lib/utils";
 import { createTRPCRouter, protectedProcedure } from "~/server/api/trpc";
 import { testUnits } from "~/server/db/schema";
-
-const log = logger.child({ module: "TestUnitsApi" });
 
 export const testUnitsRouter = createTRPCRouter({
 	getAll: protectedProcedure.query(async ({ ctx }) => {
@@ -28,10 +25,7 @@ export const testUnitsRouter = createTRPCRouter({
 				});
 			}
 
-			log.info(
-				{ user: ctx.session.user.email, ...input },
-				"Updating test unit",
-			);
+			ctx.logger.info(input, "Updating test unit");
 
 			return await ctx.db
 				.update(testUnits)
@@ -56,10 +50,7 @@ export const testUnitsRouter = createTRPCRouter({
 				});
 			}
 
-			log.info(
-				{ user: ctx.session.user.email, ...input },
-				"Creating test unit",
-			);
+			ctx.logger.info(input, "Creating test unit");
 
 			return await ctx.db.insert(testUnits).values({
 				name: input.name,
@@ -76,10 +67,7 @@ export const testUnitsRouter = createTRPCRouter({
 				});
 			}
 
-			log.info(
-				{ user: ctx.session.user.email, ...input },
-				"Deleting test unit",
-			);
+			ctx.logger.info(input, "Deleting test unit");
 
 			return await ctx.db.delete(testUnits).where(eq(testUnits.id, input.id));
 		}),

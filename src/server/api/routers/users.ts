@@ -1,13 +1,11 @@
 import { TRPCError } from "@trpc/server";
 import { eq } from "drizzle-orm";
 import z from "zod";
-import { logger } from "~/lib/logger";
 import { type PermissionsObject, permissionsSchema } from "~/lib/types";
 import { hasPermission } from "~/lib/utils";
 import { createTRPCRouter, protectedProcedure } from "~/server/api/trpc";
 import { invitations, users } from "~/server/db/schema";
 
-const log = logger.child({ module: "UsersApi" });
 export const userRouter = createTRPCRouter({
 	getAll: protectedProcedure
 		.input(z.object({ archived: z.boolean().optional() }).optional())
@@ -54,7 +52,7 @@ export const userRouter = createTRPCRouter({
 				});
 			}
 
-			log.info({ user: ctx.session.user.email, ...input }, "Updating user");
+			ctx.logger.info(input, "Updating user");
 
 			const updateData: { permissions?: PermissionsObject } = {};
 
@@ -95,10 +93,7 @@ export const userRouter = createTRPCRouter({
 				});
 			}
 
-			log.info(
-				{ user: ctx.session.user.email, ...input },
-				"Updating user archive status",
-			);
+			ctx.logger.info(input, "Updating user archive status");
 
 			await ctx.db
 				.update(users)
@@ -119,10 +114,7 @@ export const userRouter = createTRPCRouter({
 				});
 			}
 
-			log.info(
-				{ user: ctx.session.user.email, ...input },
-				"Creating invitation",
-			);
+			ctx.logger.info(input, "Creating invitation");
 
 			await ctx.db
 				.insert(invitations)
@@ -156,10 +148,7 @@ export const userRouter = createTRPCRouter({
 				});
 			}
 
-			log.info(
-				{ user: ctx.session.user.email, ...input },
-				"Deleting invitation",
-			);
+			ctx.logger.info(input, "Deleting invitation");
 
 			return {
 				success: await ctx.db

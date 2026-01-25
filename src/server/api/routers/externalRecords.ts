@@ -2,7 +2,6 @@ import EventEmitter from "node:events";
 import { TRPCError } from "@trpc/server";
 import { desc, eq } from "drizzle-orm";
 import { z } from "zod";
-import { logger } from "~/lib/logger";
 import { hasPermission } from "~/lib/utils";
 import { createTRPCRouter, protectedProcedure } from "~/server/api/trpc";
 import {
@@ -11,8 +10,6 @@ import {
 	externalRecords,
 	users,
 } from "~/server/db/schema";
-
-const log = logger.child({ module: "ExternalRecordsApi" });
 
 const externalRecordsEmitter = new EventEmitter();
 externalRecordsEmitter.setMaxListeners(100);
@@ -88,10 +85,7 @@ export const externalRecordRouter = createTRPCRouter({
 					code: "UNAUTHORIZED",
 				});
 			}
-			log.info(
-				{ user: ctx.session.user.email },
-				`Setting first request date for ${input.clientId}: ${input.requested}`,
-			);
+			ctx.logger.info(input, "Setting first request date");
 
 			const existingRecord = await ctx.db.query.externalRecords.findFirst({
 				where: eq(externalRecords.clientId, input.clientId),
@@ -137,10 +131,7 @@ export const externalRecordRouter = createTRPCRouter({
 				});
 			}
 
-			log.info(
-				{ user: ctx.session.user.email },
-				`Setting needs second request for ${input.clientId}`,
-			);
+			ctx.logger.info(input, "Setting needs second request");
 
 			await ctx.db
 				.update(externalRecords)
@@ -178,10 +169,7 @@ export const externalRecordRouter = createTRPCRouter({
 				});
 			}
 
-			log.info(
-				{ user: ctx.session.user.email },
-				`Setting second request date for ${input.clientId}: ${input.secondRequestDate}`,
-			);
+			ctx.logger.info(input, `Setting second request date`);
 
 			const updatePayload = {
 				secondRequestDate: input.secondRequestDate,
@@ -281,8 +269,8 @@ export const externalRecordRouter = createTRPCRouter({
 					});
 				}
 
-				log.info(
-					{ user: ctx.session.user.email },
+				ctx.logger.info(
+					{ clientId: input.clientId },
 					"Updating external records note",
 				);
 
@@ -326,14 +314,14 @@ export const externalRecordRouter = createTRPCRouter({
 								updatedBy: currentRecordNote.updatedBy,
 							});
 						} else {
-							log.info(
-								{ user: ctx.session.user.email },
+							ctx.logger.debug(
+								{ clientId: input.clientId },
 								"Skipping history log (squash edit)",
 							);
 						}
 					} else {
-						log.info(
-							{ user: ctx.session.user.email },
+						ctx.logger.debug(
+							{ clientId: input.clientId },
 							"No changes detected in note",
 						);
 						return;
@@ -400,9 +388,9 @@ export const externalRecordRouter = createTRPCRouter({
 				});
 			}
 
-			log.info(
-				{ user: ctx.session.user.email },
-				`Creating external records note for ${input.clientId}`,
+			ctx.logger.info(
+				{ clientId: input.clientId },
+				`Creating external records note`,
 			);
 
 			const notePayload = {

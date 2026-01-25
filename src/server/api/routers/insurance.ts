@@ -52,6 +52,8 @@ export const insuranceRouter = createTRPCRouter({
 				});
 			}
 
+			ctx.logger.info(input, "Creating insurance");
+
 			const { aliases, ...insuranceData } = input;
 
 			return ctx.db.transaction(async (tx) => {
@@ -89,6 +91,7 @@ export const insuranceRouter = createTRPCRouter({
 				});
 			}
 
+			ctx.logger.info(input, "Updating insurance");
 			const { id, aliases, ...data } = input;
 
 			return ctx.db.transaction(async (tx) => {
@@ -118,6 +121,8 @@ export const insuranceRouter = createTRPCRouter({
 					code: "UNAUTHORIZED",
 				});
 			}
+
+			ctx.logger.info(input, "Deleting insurance");
 
 			return ctx.db.delete(insurances).where(eq(insurances.id, input.id));
 		}),

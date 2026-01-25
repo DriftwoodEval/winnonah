@@ -2,7 +2,6 @@ import { TRPCError } from "@trpc/server";
 import { eq, sql } from "drizzle-orm";
 import z from "zod";
 import { fetchWithCache, invalidateCache } from "~/lib/cache";
-import { logger } from "~/lib/logger";
 import { hasPermission } from "~/lib/utils";
 import { createTRPCRouter, protectedProcedure } from "~/server/api/trpc";
 import {
@@ -14,8 +13,6 @@ import {
 	evaluatorsToInsurances,
 	zipCodes,
 } from "~/server/db/schema";
-
-const log = logger.child({ module: "EvaluatorApi" });
 
 export const evaluatorInputSchema = z.object({
 	npi: z.string().regex(/^\d{10}$/),
@@ -116,10 +113,7 @@ export const evaluatorRouter = createTRPCRouter({
 				});
 			}
 
-			log.info(
-				{ user: ctx.session.user.email, ...input },
-				"Creating evaluator",
-			);
+			ctx.logger.info(input, "Creating evaluator");
 
 			const npiAsInt = parseInt(input.npi, 10);
 			const {
@@ -197,10 +191,7 @@ export const evaluatorRouter = createTRPCRouter({
 				});
 			}
 
-			log.info(
-				{ user: ctx.session.user.email, ...input },
-				"Updating evaluator",
-			);
+			ctx.logger.info(input, "Updating evaluator");
 
 			const npiAsInt = parseInt(input.npi, 10);
 			const {
@@ -292,10 +283,7 @@ export const evaluatorRouter = createTRPCRouter({
 				});
 			}
 
-			log.info(
-				{ user: ctx.session.user.email, ...input },
-				"Deleting evaluator",
-			);
+			ctx.logger.info(input, "Deleting evaluator");
 
 			const npiAsInt = parseInt(input.npi, 10);
 
@@ -303,9 +291,9 @@ export const evaluatorRouter = createTRPCRouter({
 
 			try {
 				await ctx.redis.del("evaluators:all");
-				log.debug({ cacheKey: "evaluators:all" }, "Cache invalidated");
+				ctx.logger.debug({ cacheKey: "evaluators:all" }, "Cache invalidated");
 			} catch (err) {
-				log.error(err);
+				ctx.logger.error(err);
 			}
 		}),
 

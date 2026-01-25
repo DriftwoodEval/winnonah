@@ -21,7 +21,6 @@ import { distance as levDistance } from "fastest-levenshtein";
 import { z } from "zod";
 import { CLIENT_COLOR_KEYS } from "~/lib/colors";
 import { syncPunchData } from "~/lib/google";
-import { logger } from "~/lib/logger";
 import type { ClientWithIssueInfo } from "~/lib/models";
 import { getDistanceSQL, hasPermission } from "~/lib/utils";
 import { createTRPCRouter, protectedProcedure } from "~/server/api/trpc";
@@ -34,8 +33,6 @@ import {
 	questionnaires,
 	schoolDistricts,
 } from "~/server/db/schema";
-
-const log = logger.child({ module: "ClientApi" });
 
 const isNoteOnly = eq(sql`LENGTH(${clients.id})`, 5);
 
@@ -100,14 +97,7 @@ export const clientRouter = createTRPCRouter({
 			}),
 		)
 		.query(async ({ ctx, input }) => {
-			log.info(
-				{
-					user: ctx.session.user.email,
-					column: input.column,
-					value: input.value,
-				},
-				"Getting client",
-			);
+			ctx.logger.info(input, "Getting client");
 
 			const foundClient = await ctx.db.query.clients.findFirst({
 				where: eq(clients[input.column], input.value),
@@ -599,7 +589,7 @@ export const clientRouter = createTRPCRouter({
 				});
 			}
 
-			log.info({ user: ctx.session.user.id }, "Creating shell client");
+			ctx.logger.info(input, "Creating shell client");
 
 			const id = Math.floor(10000 + Math.random() * 90000); // Random 5 digit number
 			await ctx.db.insert(clients).values({
@@ -646,14 +636,7 @@ export const clientRouter = createTRPCRouter({
 				});
 			}
 
-			log.info(
-				{
-					user: ctx.session.user.id,
-					autismStop: input.autismStop,
-					id: input.clientId,
-				},
-				"Updating autism stop for client",
-			);
+			ctx.logger.info(input, "Updating autism stop for client");
 
 			await ctx.db
 				.update(clients)
@@ -774,7 +757,7 @@ export const clientRouter = createTRPCRouter({
 				});
 			}
 
-			log.info({ user: ctx.session.user.id, ...input }, "Updating client");
+			ctx.logger.info(input, "Updating client");
 
 			const updateData: {
 				color?: (typeof CLIENT_COLOR_KEYS)[number];
@@ -1102,7 +1085,7 @@ export const clientRouter = createTRPCRouter({
 				});
 			}
 
-			log.info({ user: ctx.session.user, ...input }, "Merging shell client");
+			ctx.logger.info(input, "Merging shell client");
 
 			const { clientId, fakeClientId } = input;
 

@@ -10,13 +10,10 @@ import {
 	renameDriveFolder,
 	updatePunchData,
 } from "~/lib/google";
-import { logger } from "~/lib/logger";
 import { hasPermission } from "~/lib/utils";
 import { getPriorityInfo } from "~/server/api/routers/client";
 import { createTRPCRouter, protectedProcedure } from "~/server/api/trpc";
 import { clients } from "~/server/db/schema";
-
-const log = logger.child({ module: "GoogleApi" });
 
 const CACHE_KEY_DUPLICATES = "google:drive:duplicate-ids";
 
@@ -39,10 +36,7 @@ export const googleRouter = createTRPCRouter({
 				});
 			}
 
-			log.info(
-				{ user: ctx.session.user.email, request: input },
-				"Adding client ID to folder",
-			);
+			ctx.logger.info(input, "Adding client ID to Drive folder");
 
 			await renameDriveFolder(ctx.session, input.folderId, input.id);
 
@@ -65,10 +59,7 @@ export const googleRouter = createTRPCRouter({
 				});
 			}
 
-			log.info(
-				{ user: ctx.session.user.email, request: input },
-				"Removing client ID from folder",
-			);
+			ctx.logger.info(input, "Removing client ID from Drive folder");
 
 			await renameDriveFolder(ctx.session, input.folderId, null);
 
@@ -163,10 +154,7 @@ export const googleRouter = createTRPCRouter({
 				throw new Error("At least one field must be provided for update");
 			}
 
-			log.info(
-				{ user: ctx.session.user.email, request: input },
-				"Updating questionnaire status",
-			);
+			ctx.logger.info(input, "Updating questionnaire status");
 
 			try {
 				await updatePunchData(ctx.session, input.id, {
@@ -200,10 +188,7 @@ export const googleRouter = createTRPCRouter({
 				throw new Error("No access token or refresh token");
 			}
 
-			log.info(
-				{ user: ctx.session.user.email, request: input },
-				"Updating ASD/ADHD status",
-			);
+			ctx.logger.info(input, "Updating ASD/ADHD status");
 
 			try {
 				await updatePunchData(ctx.session, input.clientId.toString(), {

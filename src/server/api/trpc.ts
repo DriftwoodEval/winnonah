@@ -15,8 +15,6 @@ import { redis } from "~/lib/redis";
 import { auth } from "~/server/auth";
 import { db } from "~/server/db";
 
-const log = logger.child({ module: "trpc" });
-
 export type Context = Awaited<ReturnType<typeof createTRPCContext>>;
 /**
  * 1. CONTEXT
@@ -37,6 +35,7 @@ export const createTRPCContext = async (opts: { headers: Headers }) => {
 		db,
 		session,
 		redis,
+		logger: logger.child({ module: "api" }),
 		...opts,
 	};
 };
@@ -84,12 +83,10 @@ export const createCallerFactory = t.createCallerFactory;
 export const createTRPCRouter = t.router;
 
 /**
- * Middleware for timing procedure execution and adding an artificial delay in development.
- *
- * You can remove this if you don't like it, but it can help catch unwanted waterfalls by simulating
- * network latency that would occur in production but not in local development.
+ * Middleware for logging and timing procedure execution.
+ * Also adds an artificial delay in development to catch unwanted waterfalls.
  */
-const timingMiddleware = t.middleware(async ({ next, path }) => {
+const loggerMiddleware = t.middleware(async ({ next, path, ctx }) => {
 	const start = Date.now();
 
 	if (t._config.isDev) {
@@ -98,10 +95,19 @@ const timingMiddleware = t.middleware(async ({ next, path }) => {
 		await new Promise((resolve) => setTimeout(resolve, waitMs));
 	}
 
-	const result = await next();
+	const procedureLogger = ctx.logger.child({
+		path,
+		user: ctx.session?.user?.email ?? ctx.session?.user?.id ?? "anonymous",
+	});
+
+	const result = await next({
+		ctx: {
+			logger: procedureLogger,
+		},
+	});
 
 	const end = Date.now();
-	log.debug(`${path} took ${end - start}ms to execute`);
+	procedureLogger.debug(`executed in ${end - start}ms`);
 
 	return result;
 });
@@ -113,7 +119,7 @@ const timingMiddleware = t.middleware(async ({ next, path }) => {
  * guarantee that a user querying is authorized, but you can still access user session data if they
  * are logged in.
  */
-export const publicProcedure = t.procedure.use(timingMiddleware);
+export const publicProcedure = t.procedure.use(loggerMiddleware);
 
 /**
  * Protected (authenticated) procedure
@@ -124,7 +130,7 @@ export const publicProcedure = t.procedure.use(timingMiddleware);
  * @see https://trpc.io/docs/procedures
  */
 export const protectedProcedure = t.procedure
-	.use(timingMiddleware)
+	.use(loggerMiddleware)
 	.use(({ ctx, next }) => {
 		if (!ctx.session?.user) {
 			throw new TRPCError({ code: "UNAUTHORIZED" });

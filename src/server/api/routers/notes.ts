@@ -3,12 +3,9 @@ import type { JSONContent } from "@tiptap/core";
 import { TRPCError } from "@trpc/server";
 import { desc, eq } from "drizzle-orm";
 import { z } from "zod";
-import { logger } from "~/lib/logger";
 import { hasPermission } from "~/lib/utils";
 import { createTRPCRouter, protectedProcedure } from "~/server/api/trpc";
 import { noteHistory, notes, users } from "~/server/db/schema";
-
-const log = logger.child({ module: "NoteApi" });
 
 const noteEmitter = new EventEmitter();
 noteEmitter.setMaxListeners(100);
@@ -106,7 +103,7 @@ export const noteRouter = createTRPCRouter({
 						code: "UNAUTHORIZED",
 					});
 				}
-				log.info({ user: ctx.session.user.email }, "Updating note");
+				ctx.logger.info({ clientId: input.clientId }, "Updating note");
 
 				const HISTORY_MERGE_WINDOW = 5 * 60 * 1000; // 5 minutes
 
@@ -152,14 +149,14 @@ export const noteRouter = createTRPCRouter({
 								updatedBy: currentNote.updatedBy,
 							});
 						} else {
-							log.info(
-								{ user: ctx.session.user.email },
+							ctx.logger.info(
+								{ clientId: input.clientId },
 								"Skipping history log (squash edit)",
 							);
 						}
 					} else {
-						log.info(
-							{ user: ctx.session.user.email },
+						ctx.logger.info(
+							{ clientId: input.clientId },
 							"No changes detected in note",
 						);
 						return;
@@ -227,7 +224,7 @@ export const noteRouter = createTRPCRouter({
 				});
 			}
 
-			log.info({ user: ctx.session.user.email }, "Creating note");
+			ctx.logger.info({ clientId: input.clientId }, "Creating note");
 
 			const notePayload = {
 				clientId: input.clientId,
