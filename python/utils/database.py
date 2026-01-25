@@ -701,7 +701,12 @@ def get_insurance_mappings(
     mappings: dict[str, str] = {}
 
     with connection.cursor() as cursor:
-        sql = f"""
+        sql_short = f"SELECT shortName FROM {TABLE_INSURANCE}"
+        cursor.execute(sql_short)
+        for row in cursor.fetchall():
+            mappings[row["shortName"]] = row["shortName"]
+
+        sql_aliases = f"""
             SELECT
                 ia.name AS alias,
                 i.shortName
@@ -712,7 +717,7 @@ def get_insurance_mappings(
             ON
                 ia.insuranceId = i.id
         """
-        cursor.execute(sql)
+        cursor.execute(sql_aliases)
         for row in cursor.fetchall():
             mappings[row["alias"]] = row["shortName"]
 

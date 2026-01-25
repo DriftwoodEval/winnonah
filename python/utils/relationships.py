@@ -7,28 +7,16 @@ import pandas as pd
 from utils.misc import get_column
 
 
-def _normalize_insurance_name(name: str, insurance_mappings: dict) -> str:
-    """Helper function to convert insurance names to a normalized, matchable format."""
-    if not isinstance(name, str):
+def _normalize_insurance_name(name: str, standardized_mappings: dict[str, str]) -> str:
+    """Helper function to convert insurance names to a normalized, matchable format using database mappings."""
+    if not isinstance(name, str) or not name:
         return ""
 
-    if re.search(r"\(ATC\)", name, re.IGNORECASE):
-        name = "ATC"
-    elif re.search(r"\(UHC\)", name, re.IGNORECASE):
-        name = "United_Optum"
+    # Normalize for lookup: lowercase and remove all whitespace
+    normalized_for_lookup = "".join(name.lower().split())
 
-    normalized_for_lookup = name.lower()
-    normalized_for_lookup = "".join(normalized_for_lookup.split())
-
-    # Create a standardized mapping for lookup (lowercase, no spaces)
-    standardized_lookup = {
-        "".join(k.lower().split()): v for k, v in insurance_mappings.items()
-    }
-
-    if normalized_for_lookup in standardized_lookup:
-        return standardized_lookup[normalized_for_lookup]
-
-    return name
+    # Return the mapped shortName if found, otherwise return the original (cleaned) name
+    return standardized_mappings.get(normalized_for_lookup, name)
 
 
 def match_by_insurance(client: pd.Series, evaluators: dict, insurance_mappings: dict):
@@ -45,22 +33,22 @@ def match_by_insurance(client: pd.Series, evaluators: dict, insurance_mappings: 
     Returns:
         list: A list of NPIs for evaluators who are eligible for the client.
     """
-    # logger.debug(
-    #     f"Matching evaluators by insurance for {get_column(client, 'FIRSTNAME')} {get_column(client, 'LASTNAME')}"
-    # )
-
     is_private_pay = get_column(client, "POLICY_PRIVATEPAY") == 1
 
-    # Check for private pay first. If true, all evaluators are eligible.
     if is_private_pay:
-        # logger.debug("Client is private pay, all evaluators are eligible.")
         return list(evaluators.keys())
 
-    eligible_evaluator_npis: set[Any] = set()
+    standardized_mappings = {
+        "".join(k.lower().split()): v for k, v in insurance_mappings.items()
+    }
+
     primary_insurance = get_column(client, "INSURANCE_COMPANYNAME")
     secondary_insurance = get_column(client, "SECONDARY_INSURANCE_COMPANYNAME")
 
-    raw_insurances_to_check = [primary_insurance]
+    raw_insurances_to_check = []
+    if primary_insurance:
+        raw_insurances_to_check.append(primary_insurance)
+
     if isinstance(secondary_insurance, str):
         raw_insurances_to_check.extend(
             [name.strip() for name in secondary_insurance.split(",")]
@@ -70,20 +58,18 @@ def match_by_insurance(client: pd.Series, evaluators: dict, insurance_mappings: 
 
     standardized_client_insurances: set[str] = set()
     for raw_name in raw_insurances_to_check:
-        raw_name = str(raw_name)
-        normalized_name = _normalize_insurance_name(raw_name, insurance_mappings)
+        normalized_name = _normalize_insurance_name(
+            str(raw_name), standardized_mappings
+        )
         if normalized_name:
             standardized_client_insurances.add(normalized_name)
 
     eligible_evaluator_npis = set()
 
     for npi, evaluator_data in evaluators.items():
-        # evaluator_name = evaluator_data.get("providerName", "Unknown Evaluator")
         is_eligible = False
         for insurance in standardized_client_insurances:
-            val = evaluator_data.get(insurance)
-
-            if val:
+            if evaluator_data.get(insurance):
                 is_eligible = True
                 break
 
