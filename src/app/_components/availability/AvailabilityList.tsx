@@ -3,7 +3,15 @@
 import { DatePicker } from "@ui/date-picker";
 import { ScrollArea } from "@ui/scroll-area";
 import { Skeleton } from "@ui/skeleton";
-import { add, format, isSameDay, parseISO, startOfDay, sub } from "date-fns";
+import {
+	add,
+	eachDayOfInterval,
+	format,
+	isSameDay,
+	parseISO,
+	startOfDay,
+	sub,
+} from "date-fns";
 import { useState } from "react";
 import { cn } from "~/lib/utils";
 import { api } from "~/trpc/react";
@@ -21,11 +29,31 @@ export function AvailabilityList() {
 
 	const eventsByDate = events?.reduce(
 		(acc, event) => {
-			const dateKey = format(startOfDay(new Date(event.start)), "yyyy-MM-dd");
-			if (!acc[dateKey]) {
-				acc[dateKey] = [];
+			const start = new Date(event.start);
+			const end = new Date(event.end);
+
+			// For all-day events, Google Calendar end date is the day AFTER the event ends
+			// So an all-day event on Jan 24 has start=Jan 24, end=Jan 25.
+			// differenceInDays(Jan 25, Jan 24) is 1.
+			// But it's actually just 1 day.
+			// For timed events, it works normally.
+			let intervalEnd = end;
+			if (event.isAllDay) {
+				intervalEnd = sub(end, { seconds: 1 });
 			}
-			acc[dateKey].push(event);
+
+			const days = eachDayOfInterval({
+				start: startOfDay(start),
+				end: startOfDay(intervalEnd),
+			});
+
+			for (const day of days) {
+				const dateKey = format(day, "yyyy-MM-dd");
+				if (!acc[dateKey]) {
+					acc[dateKey] = [];
+				}
+				acc[dateKey].push(event);
+			}
 			return acc;
 		},
 		{} as Record<string, typeof events>,
@@ -145,7 +173,7 @@ export function AvailabilityList() {
 														? "border-l-destructive"
 														: "border-l-primary",
 												)}
-												key={event.id}
+												key={`${dateKey}-${event.id}`}
 											>
 												<p
 													className={cn(
@@ -156,8 +184,14 @@ export function AvailabilityList() {
 													{event.summary}
 												</p>
 												<p className="text-muted-foreground text-sm">
-													{format(new Date(event.start), "h:mm a")} -{" "}
-													{format(new Date(event.end), "h:mm a")}
+													{event.isAllDay ? (
+														"All Day"
+													) : (
+														<>
+															{format(new Date(event.start), "h:mm a")} -{" "}
+															{format(new Date(event.end), "h:mm a")}
+														</>
+													)}
 												</p>
 											</div>
 										))}

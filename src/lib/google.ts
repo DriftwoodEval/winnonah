@@ -1,4 +1,4 @@
-import { calendar } from "@googleapis/calendar";
+import { calendar, type calendar_v3 } from "@googleapis/calendar";
 import { drive } from "@googleapis/drive";
 import { sheets, type sheets_v4 } from "@googleapis/sheets";
 import { TRPCError } from "@trpc/server";
@@ -579,7 +579,91 @@ interface CalendarEvent {
 	start: Date;
 	end: Date;
 	isUnavailability: boolean;
+	isAllDay: boolean;
 	officeKey?: string;
+}
+
+const isMidnight = (date: Date) => {
+	const parts = new Intl.DateTimeFormat("en-US", {
+		timeZone: "America/New_York",
+		hour: "numeric",
+		minute: "numeric",
+		second: "numeric",
+		hour12: false,
+	}).formatToParts(date);
+
+	const hour = parts.find((p) => p.type === "hour")?.value;
+	const minute = parts.find((p) => p.type === "minute")?.value;
+	const second = parts.find((p) => p.type === "second")?.value;
+
+	return (hour === "00" || hour === "24") && minute === "00" && second === "00";
+};
+
+export function mergeOutOfOfficeEvents(events: CalendarEvent[]) {
+	if (events.length === 0) return [];
+
+	const sorted = [...events].sort(
+		(a, b) => a.start.getTime() - b.start.getTime(),
+	);
+
+	return sorted.reduce<CalendarEvent[]>((acc, current) => {
+		const last = acc[acc.length - 1];
+		if (!last || current.start.getTime() > last.end.getTime()) {
+			acc.push({ ...current });
+		} else if (current.end.getTime() > last.end.getTime()) {
+			last.end = current.end;
+		}
+		return acc;
+	}, []);
+}
+
+export function splitAvailabilityByOOO(
+	officeEvents: CalendarEvent[],
+	oooEvents: CalendarEvent[],
+) {
+	const mergedOOO = mergeOutOfOfficeEvents(oooEvents);
+	const finalAvailability: CalendarEvent[] = [];
+
+	for (const officeEvent of officeEvents) {
+		let currentEventParts = [officeEvent];
+
+		for (const oooEvent of mergedOOO) {
+			const newParts: CalendarEvent[] = [];
+			for (const part of currentEventParts) {
+				const overlap =
+					part.start.getTime() < oooEvent.end.getTime() &&
+					part.end.getTime() > oooEvent.start.getTime();
+
+				if (!overlap) {
+					newParts.push(part);
+					continue;
+				}
+
+				if (part.start.getTime() < oooEvent.start.getTime()) {
+					newParts.push({
+						...part,
+						id: `${part.id}-1`,
+						end: oooEvent.start,
+						isAllDay: false,
+					});
+				}
+
+				if (part.end.getTime() > oooEvent.end.getTime()) {
+					newParts.push({
+						...part,
+						id: `${part.id}-2`,
+						start: oooEvent.end,
+						isAllDay: false,
+					});
+				}
+			}
+			currentEventParts = newParts;
+		}
+
+		finalAvailability.push(...currentEventParts);
+	}
+
+	return finalAvailability;
 }
 
 export async function getAvailabilityEvents(
@@ -587,12 +671,12 @@ export async function getAvailabilityEvents(
 	startDate: Date,
 	endDate: Date,
 ): Promise<CalendarEvent[]> {
-	const calendar = getCalendarClient(session);
-	const allItems: any[] = [];
+	const calendarApi = getCalendarClient(session);
+	const allItems: calendar_v3.Schema$Event[] = [];
 	let pageToken: string | undefined;
 
 	do {
-		const response = await calendar.events.list({
+		const response = await calendarApi.events.list({
 			calendarId: "primary",
 			timeMin: startDate.toISOString(),
 			timeMax: endDate.toISOString(),
@@ -608,8 +692,6 @@ export async function getAvailabilityEvents(
 		pageToken = response.data.nextPageToken ?? undefined;
 	} while (pageToken);
 
-	const events = allItems;
-
 	const allOffices = await db.query.offices.findMany({});
 	const nameToKeyMap = new Map(
 		allOffices.map((office) => [office.prettyName, office.key]),
@@ -617,7 +699,7 @@ export async function getAvailabilityEvents(
 
 	const officeRegex = /Available\s*-\s*(.*)/i;
 
-	return events
+	return allItems
 		.filter(
 			(event) =>
 				event.summary?.toLowerCase().includes("available") ||
@@ -628,13 +710,23 @@ export async function getAvailabilityEvents(
 			const endDateTime = event.end?.dateTime || event.end?.date;
 			const isOOO = event.eventType === "outOfOffice";
 
+			const startDateObj = startDateTime ? new Date(startDateTime) : new Date();
+			const endDateObj = endDateTime ? new Date(endDateTime) : new Date();
+
+			const isAllDay =
+				!!event.start?.date ||
+				(!!event.start?.dateTime &&
+					!!event.end?.dateTime &&
+					isMidnight(startDateObj) &&
+					isMidnight(endDateObj) &&
+					startDateObj.getTime() < endDateObj.getTime());
+
 			let extractedOfficeKey: string | undefined;
 
 			if (event.summary && !isOOO) {
 				const match = event.summary.match(officeRegex);
 				if (match?.[1]) {
 					const officeName = match[1].trim();
-					// 2. Try to map the extracted name to a known key
 					extractedOfficeKey = nameToKeyMap.get(officeName);
 				}
 			}
@@ -642,9 +734,10 @@ export async function getAvailabilityEvents(
 			return {
 				id: event.id,
 				summary: event.summary,
-				start: startDateTime ? new Date(startDateTime) : new Date(),
-				end: endDateTime ? new Date(endDateTime) : new Date(),
+				start: startDateObj,
+				end: endDateObj,
 				isUnavailability: isOOO,
+				isAllDay: isAllDay,
 				officeKey: extractedOfficeKey,
 			};
 		});

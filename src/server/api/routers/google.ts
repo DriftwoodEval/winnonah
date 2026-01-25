@@ -9,7 +9,9 @@ import {
 	getAvailabilityEvents,
 	getClientFromPunchData,
 	getPunchData,
+	mergeOutOfOfficeEvents,
 	renameDriveFolder,
+	splitAvailabilityByOOO,
 	updatePunchData,
 } from "~/lib/google";
 import type { Client } from "~/lib/models";
@@ -396,79 +398,25 @@ export const googleRouter = createTRPCRouter({
 				return [];
 			}
 
-			type CalendarEvent = (typeof events)[number];
-
-			const allEvents: (CalendarEvent & { start: Date; end: Date })[] =
-				events.map((e) => ({
-					...e,
-					start: new Date(e.start as string | Date),
-					end: new Date(e.end as string | Date),
-				}));
-
-			const officeEvents = allEvents.filter((event) => !event.isUnavailability);
-			const outOfOfficeEvents = allEvents.filter(
+			const officeEvents = events.filter((event) => !event.isUnavailability);
+			const outOfOfficeEvents = events.filter(
 				(event) => event.isUnavailability,
 			);
 
 			if (outOfOfficeEvents.length === 0) {
-				allEvents.sort((a, b) => a.start.getTime() - b.start.getTime());
-				return allEvents;
+				return [...officeEvents].sort(
+					(a, b) => a.start.getTime() - b.start.getTime(),
+				);
 			}
 
-			outOfOfficeEvents.sort((a, b) => a.start.getTime() - b.start.getTime());
+			const finalAvailability = splitAvailabilityByOOO(
+				officeEvents,
+				outOfOfficeEvents,
+			);
 
-			const mergedOutOfOffice = outOfOfficeEvents.reduce<
-				typeof outOfOfficeEvents
-			>((acc, current) => {
-				const last = acc[acc.length - 1];
-				if (!last || current.start.getTime() > last.end.getTime()) {
-					acc.push(current);
-				} else if (current.end.getTime() > last.end.getTime()) {
-					last.end = current.end;
-				}
-				return acc;
-			}, []);
+			const mergedOOO = mergeOutOfOfficeEvents(outOfOfficeEvents);
 
-			const finalAvailability: typeof officeEvents = [];
-
-			for (const officeEvent of officeEvents) {
-				let currentEventParts = [officeEvent];
-
-				for (const oooEvent of mergedOutOfOffice) {
-					const newParts: typeof officeEvents = [];
-					for (const part of currentEventParts) {
-						const overlap =
-							part.start.getTime() < oooEvent.end.getTime() &&
-							part.end.getTime() > oooEvent.start.getTime();
-
-						if (!overlap) {
-							newParts.push(part);
-							continue;
-						}
-
-						if (part.start.getTime() < oooEvent.start.getTime()) {
-							newParts.push({
-								...part,
-								id: `${part.id}-1`,
-								end: oooEvent.start,
-							});
-						}
-
-						if (part.end.getTime() > oooEvent.end.getTime()) {
-							newParts.push({
-								...part,
-								id: `${part.id}-2`,
-								start: oooEvent.end,
-							});
-						}
-					}
-					currentEventParts = newParts;
-				}
-
-				finalAvailability.push(...currentEventParts);
-			}
-
-			const result = [...finalAvailability, ...mergedOutOfOffice];
+			const result = [...finalAvailability, ...mergedOOO];
 			result.sort((a, b) => a.start.getTime() - b.start.getTime());
 
 			return result;
