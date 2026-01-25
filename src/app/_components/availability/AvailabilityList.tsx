@@ -12,9 +12,11 @@ import {
 	startOfDay,
 	sub,
 } from "date-fns";
+import { Edit2 } from "lucide-react";
 import { useState } from "react";
 import { cn } from "~/lib/utils";
 import { api } from "~/trpc/react";
+import { EditAvailabilityDialog } from "./EditAvailabilityDialog";
 
 export function AvailabilityList() {
 	const [availabilityDateRange, setAvailabilityDateRange] = useState({
@@ -22,13 +24,26 @@ export function AvailabilityList() {
 		endDate: add(new Date(), { weeks: 3 }),
 	});
 
+	const [editingEvent, setEditingEvent] = useState<{
+		id: string;
+		summary: string;
+		start: Date;
+		end: Date;
+		isUnavailability: boolean;
+		isAllDay: boolean;
+		officeKeys?: string[];
+		recurrence?: string[];
+	} | null>(null);
+
 	const { data: events, isLoading } = api.google.getAvailability.useQuery({
 		startDate: availabilityDateRange.startDate,
 		endDate: availabilityDateRange.endDate,
+		raw: true,
 	});
 
 	const eventsByDate = events?.reduce(
 		(acc, event) => {
+			if (!event.id) return acc;
 			const start = new Date(event.start);
 			const end = new Date(event.end);
 
@@ -168,13 +183,33 @@ export function AvailabilityList() {
 										{dayEvents?.map((event) => (
 											<div
 												className={cn(
-													"rounded-md border-l-4 bg-muted/50 p-3",
+													"group relative rounded-md border-l-4 bg-muted/50 p-3",
 													event.isUnavailability
 														? "border-l-destructive"
 														: "border-l-primary",
 												)}
 												key={`${dateKey}-${event.id}`}
 											>
+												<button
+													className="absolute top-2 right-2 rounded-md p-1 opacity-0 transition-opacity hover:bg-muted group-hover:opacity-100"
+													onClick={() => {
+														if (event.id) {
+															setEditingEvent({
+																id: event.id,
+																summary: event.summary || "",
+																start: event.start,
+																end: event.end,
+																isUnavailability: event.isUnavailability,
+																isAllDay: event.isAllDay,
+																officeKeys: event.officeKeys,
+																recurrence: event.recurrence,
+															});
+														}
+													}}
+													type="button"
+												>
+													<Edit2 className="h-4 w-4 text-muted-foreground" />
+												</button>
 												<p
 													className={cn(
 														"font-medium",
@@ -202,6 +237,14 @@ export function AvailabilityList() {
 					</div>
 				)}
 			</ScrollArea>
+
+			{editingEvent && (
+				<EditAvailabilityDialog
+					event={editingEvent}
+					isOpen={!!editingEvent}
+					onClose={() => setEditingEvent(null)}
+				/>
+			)}
 		</div>
 	);
 }

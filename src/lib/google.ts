@@ -581,6 +581,9 @@ interface CalendarEvent {
 	isUnavailability: boolean;
 	isAllDay: boolean;
 	officeKey?: string;
+	officeKeys?: string[];
+	recurrence?: string[];
+	recurringEventId?: string | null;
 }
 
 const isMidnight = (date: Date) => {
@@ -721,13 +724,15 @@ export async function getAvailabilityEvents(
 					isMidnight(endDateObj) &&
 					startDateObj.getTime() < endDateObj.getTime());
 
-			let extractedOfficeKey: string | undefined;
+			let extractedOfficeKeys: string[] = [];
 
 			if (event.summary && !isOOO) {
 				const match = event.summary.match(officeRegex);
 				if (match?.[1]) {
-					const officeName = match[1].trim();
-					extractedOfficeKey = nameToKeyMap.get(officeName);
+					const officeNames = match[1].split(",").map((s) => s.trim());
+					extractedOfficeKeys = officeNames
+						.map((name) => nameToKeyMap.get(name))
+						.filter((key): key is string => key !== undefined);
 				}
 			}
 
@@ -738,7 +743,78 @@ export async function getAvailabilityEvents(
 				end: endDateObj,
 				isUnavailability: isOOO,
 				isAllDay: isAllDay,
-				officeKey: extractedOfficeKey,
+				officeKey: extractedOfficeKeys[0], // Keep for backward compatibility
+				officeKeys: extractedOfficeKeys,
+				recurrence: event.recurrence ?? undefined,
+				recurringEventId: event.recurringEventId,
 			};
 		});
+}
+
+export async function updateAvailabilityEvent(
+	session: Session,
+	eventId: string,
+	eventData: AvailabilityEvent,
+) {
+	const calendar = getCalendarClient(session);
+
+	const formatDateTime = (date: Date) => {
+		const year = date.getFullYear();
+		const month = String(date.getMonth() + 1).padStart(2, "0");
+		const day = String(date.getDate()).padStart(2, "0");
+		const hours = String(date.getHours()).padStart(2, "0");
+		const minutes = String(date.getMinutes()).padStart(2, "0");
+		const seconds = String(date.getSeconds()).padStart(2, "0");
+
+		return `${year}-${month}-${day}T${hours}:${minutes}:${seconds}`;
+	};
+
+	const event: calendar_v3.Schema$Event = {
+		summary: eventData.summary,
+		start: {
+			dateTime: eventData.isRecurring
+				? formatDateTime(eventData.start)
+				: eventData.start.toISOString(),
+			timeZone: "America/New_York",
+		},
+		end: {
+			dateTime: eventData.isRecurring
+				? formatDateTime(eventData.end)
+				: eventData.end.toISOString(),
+			timeZone: "America/New_York",
+		},
+	};
+
+	if (eventData.isUnavailability) {
+		event.eventType = "outOfOffice";
+		event.transparency = "opaque";
+	} else {
+		event.eventType = "default";
+	}
+
+	if (eventData.isRecurring && eventData.recurrenceRule) {
+		event.recurrence = [eventData.recurrenceRule];
+	}
+
+	const response = await calendar.events.patch({
+		calendarId: "primary",
+		eventId: eventId,
+		requestBody: event,
+	});
+
+	return response.data;
+}
+
+export async function deleteAvailabilityEvent(
+	session: Session,
+	eventId: string,
+) {
+	const calendar = getCalendarClient(session);
+
+	await calendar.events.delete({
+		calendarId: "primary",
+		eventId: eventId,
+	});
+
+	return { success: true };
 }

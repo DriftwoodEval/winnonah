@@ -5,13 +5,16 @@ import { fetchWithCache, invalidateCache } from "~/lib/cache";
 import { ALLOWED_ASD_ADHD_VALUES, TEST_NAMES } from "~/lib/constants";
 import {
 	createAvailabilityEvent,
+	deleteAvailabilityEvent,
 	findDuplicateIdFolders,
 	getAvailabilityEvents,
+	getCalendarClient,
 	getClientFromPunchData,
 	getPunchData,
 	mergeOutOfOfficeEvents,
 	renameDriveFolder,
 	splitAvailabilityByOOO,
+	updateAvailabilityEvent,
 	updatePunchData,
 } from "~/lib/google";
 import type { Client } from "~/lib/models";
@@ -379,6 +382,7 @@ export const googleRouter = createTRPCRouter({
 			z.object({
 				startDate: z.date(),
 				endDate: z.date(),
+				raw: z.boolean().optional(),
 			}),
 		)
 		.query(async ({ ctx, input }) => {
@@ -388,7 +392,7 @@ export const googleRouter = createTRPCRouter({
 				});
 			}
 
-			const events = await getAvailabilityEvents(
+			let events = await getAvailabilityEvents(
 				ctx.session,
 				input.startDate,
 				input.endDate,
@@ -396,6 +400,50 @@ export const googleRouter = createTRPCRouter({
 
 			if (!events) {
 				return [];
+			}
+
+			// If raw is requested, we might want recurrence info for recurring instances
+			if (input.raw) {
+				const calendarApi = getCalendarClient(ctx.session);
+				// Group by recurringEventId to minimize API calls
+				const recurringEventIds = [
+					...new Set(
+						events
+							.map((e) => e.recurringEventId)
+							.filter((id): id is string => !!id),
+					),
+				];
+
+				const masterRecurrenceMap = new Map<string, string[]>();
+
+				for (const masterId of recurringEventIds) {
+					try {
+						const masterEvent = await calendarApi.events.get({
+							calendarId: "primary",
+							eventId: masterId,
+						});
+						if (masterEvent.data.recurrence) {
+							masterRecurrenceMap.set(masterId, masterEvent.data.recurrence);
+						}
+					} catch (error) {
+						log.error(
+							{ error, masterId },
+							"Error fetching master event recurrence",
+						);
+					}
+				}
+
+				events = events.map((event) => {
+					if (event.recurringEventId && !event.recurrence) {
+						return {
+							...event,
+							recurrence: masterRecurrenceMap.get(event.recurringEventId),
+						};
+					}
+					return event;
+				});
+
+				return events.sort((a, b) => a.start.getTime() - b.start.getTime());
 			}
 
 			const officeEvents = events.filter((event) => !event.isUnavailability);
@@ -420,6 +468,107 @@ export const googleRouter = createTRPCRouter({
 			result.sort((a, b) => a.start.getTime() - b.start.getTime());
 
 			return result;
+		}),
+
+	updateAvailability: protectedProcedure
+		.input(
+			availabilitySchema.extend({
+				eventId: z.string(),
+			}),
+		)
+		.mutation(async ({ ctx, input }) => {
+			if (!ctx.session) {
+				throw new TRPCError({
+					code: "UNAUTHORIZED",
+				});
+			}
+
+			try {
+				let summary: string;
+
+				if (input.isUnavailability) {
+					summary = "Out of office";
+				} else {
+					const allOffices = await ctx.db.select().from(offices);
+					const officeMap = new Map(
+						allOffices.map((o) => [o.key, o.prettyName]),
+					);
+
+					if (!input.officeKeys || input.officeKeys.length === 0) {
+						throw new TRPCError({
+							code: "BAD_REQUEST",
+							message:
+								"At least one office must be selected if not unavailable.",
+						});
+					}
+
+					const selectedOfficeNames = input.officeKeys
+						.map((key) => officeMap.get(key))
+						.filter((name): name is string => name !== undefined);
+
+					if (selectedOfficeNames.length === 0) {
+						summary = "Available - Location Unknown";
+					} else if (selectedOfficeNames.length === 1) {
+						summary = `Available - ${selectedOfficeNames[0]}`;
+					} else {
+						summary = `Available - ${selectedOfficeNames.join(", ")}`;
+					}
+				}
+
+				const event = await updateAvailabilityEvent(
+					ctx.session,
+					input.eventId,
+					{
+						summary: summary,
+						start: input.startDate,
+						end: input.endDate,
+						isRecurring: input.isRecurring,
+						recurrenceRule: input.recurrenceRule,
+						isUnavailability: input.isUnavailability,
+					},
+				);
+
+				return {
+					success: true,
+					message: "Availability event updated successfully.",
+					eventId: event.id,
+				};
+			} catch (error) {
+				log.error({ error, input }, "Error in updateAvailability");
+				if (error instanceof TRPCError) throw error;
+				throw new TRPCError({
+					code: "INTERNAL_SERVER_ERROR",
+					message:
+						error instanceof Error ? error.message : "Unknown error occurred",
+				});
+			}
+		}),
+
+	deleteAvailability: protectedProcedure
+		.input(z.object({ eventId: z.string() }))
+		.mutation(async ({ ctx, input }) => {
+			if (!ctx.session) {
+				throw new TRPCError({
+					code: "UNAUTHORIZED",
+				});
+			}
+
+			try {
+				await deleteAvailabilityEvent(ctx.session, input.eventId);
+
+				return {
+					success: true,
+					message: "Availability event deleted successfully.",
+				};
+			} catch (error) {
+				log.error({ error, input }, "Error in deleteAvailability");
+				if (error instanceof TRPCError) throw error;
+				throw new TRPCError({
+					code: "INTERNAL_SERVER_ERROR",
+					message:
+						error instanceof Error ? error.message : "Unknown error occurred",
+				});
+			}
 		}),
 
 	verifyPunchClients: protectedProcedure.query(async ({ ctx }) => {
