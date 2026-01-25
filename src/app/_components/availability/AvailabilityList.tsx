@@ -33,6 +33,7 @@ export function AvailabilityList() {
 		isAllDay: boolean;
 		officeKeys?: string[];
 		recurrence?: string[];
+		recurringEventId?: string | null;
 	} | null>(null);
 
 	const { data: events, isLoading } = api.google.getAvailability.useQuery({
@@ -203,6 +204,7 @@ export function AvailabilityList() {
 																isAllDay: event.isAllDay,
 																officeKeys: event.officeKeys,
 																recurrence: event.recurrence,
+																recurringEventId: event.recurringEventId,
 															});
 														}
 													}}

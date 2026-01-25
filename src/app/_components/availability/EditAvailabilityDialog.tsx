@@ -33,7 +33,6 @@ import { useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 import { z } from "zod";
-import { cn } from "~/lib/utils";
 import { api } from "~/trpc/react";
 
 const DAYS_OF_WEEK = [
@@ -59,6 +58,7 @@ const formSchema = z
 		recurrenceCount: z.number().min(1).optional().nullable(),
 		recurrenceEndType: z.enum(["never", "on", "after"]),
 		officeKeys: z.array(z.string()).optional(),
+		scope: z.enum(["this", "all"]),
 	})
 	.refine((data) => data.startDate < data.endDate, {
 		message: "End time must be after start time.",
@@ -87,6 +87,7 @@ interface EditAvailabilityDialogProps {
 		isAllDay: boolean;
 		officeKeys?: string[];
 		recurrence?: string[];
+		recurringEventId?: string | null;
 	};
 	isOpen: boolean;
 	onClose: () => void;
@@ -113,6 +114,7 @@ export function EditAvailabilityDialog({
 			recurrenceCount: null,
 			recurrenceEndType: "never",
 			officeKeys: event.officeKeys || [],
+			scope: "this",
 		},
 	});
 
@@ -177,6 +179,7 @@ export function EditAvailabilityDialog({
 				recurrenceCount: recurrenceCount,
 				recurrenceEndType: recurrenceEndType,
 				officeKeys: event.officeKeys || [],
+				scope: "this",
 			});
 		}
 	}, [isOpen, event, form]);
@@ -186,6 +189,7 @@ export function EditAvailabilityDialog({
 	const recurrenceFreq = form.watch("recurrenceFreq");
 	const recurrenceEndType = form.watch("recurrenceEndType");
 	const officeKeys = form.watch("officeKeys");
+	const scope = form.watch("scope");
 
 	const { data: offices, isLoading: isLoadingOffices } =
 		api.offices.getAll.useQuery();
@@ -244,16 +248,34 @@ export function EditAvailabilityDialog({
 	async function onSubmit(values: FormValues) {
 		const rruleString = buildRRule(values);
 
+		let targetId = event.id;
+		let isRecurringVal = values.isRecurring;
+		let recurrenceRule: string | undefined = rruleString;
+
+		if (event.recurringEventId) {
+			// It's a recurring instance
+			if (values.scope === "all") {
+				targetId = event.recurringEventId;
+				// Keep isRecurring and recurrenceRule from form
+			} else {
+				// Updating just this instance - MUST NOT send recurrence
+				isRecurringVal = false;
+				recurrenceRule = undefined;
+			}
+		}
+
 		await updateAvailability.mutateAsync({
-			eventId: event.id,
+			eventId: targetId,
 			startDate: values.startDate,
 			endDate: values.endDate,
-			isRecurring: values.isRecurring,
-			recurrenceRule: rruleString,
+			isRecurring: isRecurringVal,
+			recurrenceRule,
 			isUnavailability: values.isUnavailability,
 			officeKeys: values.officeKeys,
 		});
 	}
+
+	const isRecurringInstance = !!event.recurringEventId;
 
 	return (
 		<Dialog onOpenChange={onClose} open={isOpen}>
@@ -269,27 +291,48 @@ export function EditAvailabilityDialog({
 
 				<Form {...form}>
 					<form className="space-y-6" onSubmit={form.handleSubmit(onSubmit)}>
-						{/* Availability Mode (Read-only as per instructions) */}
-						<div
-							className={`flex flex-row items-center justify-between rounded-lg border p-4 transition-colors ${isUnavailability ? "border-destructive bg-destructive/10" : "border-primary bg-primary/10"}`}
-						>
-							<div className="space-y-0.5">
-								<Label className="font-semibold text-base">
-									Availability Mode
-								</Label>
-								<p
-									className={cn(
-										"text-sm",
-										isUnavailability ? "text-destructive" : "text-primary",
-									)}
-								>
-									{isUnavailability
-										? "You are declaring unavailability."
-										: "You are declaring availability."}
-								</p>
-							</div>
-							<Switch checked={isUnavailability} disabled />
-						</div>
+						{/* Recurring Choice */}
+						{isRecurringInstance && (
+							<FormField
+								control={form.control}
+								name="scope"
+								render={({ field }) => (
+									<FormItem className="space-y-3 rounded-md border bg-muted/50 p-4">
+										<FormLabel className="font-semibold text-base">
+											Recurring Event Options
+										</FormLabel>
+										<FormControl>
+											<RadioGroup
+												className="flex flex-col space-y-1"
+												onValueChange={field.onChange}
+												value={field.value}
+											>
+												<FormItem className="flex items-center space-x-3 space-y-0">
+													<FormControl>
+														<RadioGroupItem value="this" />
+													</FormControl>
+													<FormLabel className="font-normal">
+														Just this instance
+													</FormLabel>
+												</FormItem>
+												<FormItem className="flex items-center space-x-3 space-y-0">
+													<FormControl>
+														<RadioGroupItem value="all" />
+													</FormControl>
+													<FormLabel className="font-normal">
+														All events in the series
+													</FormLabel>
+												</FormItem>
+											</RadioGroup>
+										</FormControl>
+										<FormDescription>
+											Choose whether to update only this specific occurrence or
+											the entire repeating series.
+										</FormDescription>
+									</FormItem>
+								)}
+							/>
+						)}
 
 						{!isUnavailability && (
 							<FormField
@@ -660,12 +703,16 @@ export function EditAvailabilityDialog({
 								className="shrink-0"
 								disabled={deleteAvailability.isPending}
 								onClick={() => {
-									if (
-										confirm(
-											"Are you sure you want to delete this availability?",
-										)
-									) {
-										deleteAvailability.mutate({ eventId: event.id });
+									const targetId =
+										scope === "all" && event.recurringEventId
+											? event.recurringEventId
+											: event.id;
+									const msg =
+										scope === "all"
+											? "Are you sure you want to delete the entire series?"
+											: "Are you sure you want to delete this specific occurrence?";
+									if (confirm(msg)) {
+										deleteAvailability.mutate({ eventId: targetId });
 									}
 								}}
 								type="button"

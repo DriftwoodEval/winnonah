@@ -794,6 +794,9 @@ export async function updateAvailabilityEvent(
 
 	if (eventData.isRecurring && eventData.recurrenceRule) {
 		event.recurrence = [eventData.recurrenceRule];
+	} else if (!eventData.isRecurring) {
+		// To remove recurrence from a master event, we must set it to null or []
+		event.recurrence = [];
 	}
 
 	const response = await calendar.events.patch({
