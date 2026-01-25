@@ -1,3 +1,4 @@
+import { TRPCError } from "@trpc/server";
 import { and, eq, notInArray } from "drizzle-orm";
 import { distance as levDistance } from "fastest-levenshtein";
 import z from "zod";
@@ -19,20 +20,12 @@ import {
 } from "~/lib/google";
 import type { Client } from "~/lib/models";
 import { getPriorityInfo } from "~/server/api/routers/client";
-<<<<<<< HEAD
 import {
 	assertPermission,
 	createTRPCRouter,
 	protectedProcedure,
 } from "~/server/api/trpc";
-import { clients } from "~/server/db/schema";
-||||||| parent of 595c371 (feat: allow selecting multiple office locations)
-import { createTRPCRouter, protectedProcedure } from "~/server/api/trpc";
-import { clients } from "~/server/db/schema";
-=======
-import { createTRPCRouter, protectedProcedure } from "~/server/api/trpc";
 import { clients, offices } from "~/server/db/schema";
->>>>>>> 595c371 (feat: allow selecting multiple office locations)
 
 const CACHE_KEY_DUPLICATES = "google:drive:duplicate-ids";
 
@@ -327,10 +320,8 @@ export const googleRouter = createTRPCRouter({
 	createAvailability: protectedProcedure
 		.input(availabilitySchema)
 		.mutation(async ({ ctx, input }) => {
-			if (!ctx.session) {
-				throw new TRPCError({
-					code: "UNAUTHORIZED",
-				});
+			if (!ctx.session.user.accessToken || !ctx.session.user.refreshToken) {
+				throw new Error("No access token or refresh token");
 			}
 
 			let summary: string;
@@ -426,7 +417,7 @@ export const googleRouter = createTRPCRouter({
 							masterRecurrenceMap.set(masterId, masterEvent.data.recurrence);
 						}
 					} catch (error) {
-						log.error(
+						ctx.logger.error(
 							{ error, masterId },
 							"Error fetching master event recurrence",
 						);
@@ -534,7 +525,7 @@ export const googleRouter = createTRPCRouter({
 					eventId: event.id,
 				};
 			} catch (error) {
-				log.error({ error, input }, "Error in updateAvailability");
+				ctx.logger.error({ error, input }, "Error in updateAvailability");
 				if (error instanceof TRPCError) throw error;
 				throw new TRPCError({
 					code: "INTERNAL_SERVER_ERROR",
@@ -561,7 +552,7 @@ export const googleRouter = createTRPCRouter({
 					message: "Availability event deleted successfully.",
 				};
 			} catch (error) {
-				log.error({ error, input }, "Error in deleteAvailability");
+				ctx.logger.error({ error, input }, "Error in deleteAvailability");
 				if (error instanceof TRPCError) throw error;
 				throw new TRPCError({
 					code: "INTERNAL_SERVER_ERROR",

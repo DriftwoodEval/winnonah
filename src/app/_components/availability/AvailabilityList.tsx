@@ -12,11 +12,67 @@ import {
 	startOfDay,
 	sub,
 } from "date-fns";
-import { Edit2 } from "lucide-react";
+import { Edit2, Repeat } from "lucide-react";
 import { useState } from "react";
 import { cn } from "~/lib/utils";
 import { api } from "~/trpc/react";
 import { EditAvailabilityDialog } from "./EditAvailabilityDialog";
+
+function getRecurrenceDescription(
+	recurrence: string[] | undefined,
+): string | null {
+	if (!recurrence?.[0]) return null;
+	const rrule = recurrence[0];
+
+	let freq = "";
+	if (rrule.includes("FREQ=DAILY")) freq = "day";
+	else if (rrule.includes("FREQ=WEEKLY")) freq = "week";
+	else if (rrule.includes("FREQ=MONTHLY")) freq = "month";
+
+	if (!freq) return null;
+
+	let interval = 1;
+	const intervalMatch = rrule.match(/INTERVAL=(\d+)/);
+	if (intervalMatch?.[1]) {
+		interval = parseInt(intervalMatch[1], 10);
+	}
+
+	let description = "";
+	if (interval === 1) {
+		description =
+			freq === "day" ? "Daily" : freq === "week" ? "Weekly" : "Monthly";
+	} else {
+		description = `Every ${interval} ${freq}s`;
+	}
+
+	let details = "";
+	if (rrule.includes("BYDAY=")) {
+		const match = rrule.match(/BYDAY=([^;]+)/);
+		if (match?.[1]) {
+			const daysMap: Record<string, string> = {
+				MO: "Mon",
+				TU: "Tue",
+				WE: "Wed",
+				TH: "Thu",
+				FR: "Fri",
+				SA: "Sat",
+				SU: "Sun",
+			};
+			const days = match[1]
+				.split(",")
+				.map((d) => daysMap[d] || d)
+				.join(", ");
+			details = ` on ${days}`;
+		}
+	} else if (rrule.includes("BYMONTHDAY=")) {
+		const match = rrule.match(/BYMONTHDAY=([^;]+)/);
+		if (match?.[1]) {
+			details = ` on day ${match[1]}`;
+		}
+	}
+
+	return `${description}${details}`;
+}
 
 export function AvailabilityList() {
 	const [availabilityDateRange, setAvailabilityDateRange] = useState({
@@ -181,57 +237,73 @@ export function AvailabilityList() {
 										</div>
 									</div>
 									<div className="ml-2 space-y-2 border-muted border-l-2 pl-4">
-										{dayEvents?.map((event) => (
-											<div
-												className={cn(
-													"group relative rounded-md border-l-4 bg-muted/50 p-3",
-													event.isUnavailability
-														? "border-l-destructive"
-														: "border-l-primary",
-												)}
-												key={`${dateKey}-${event.id}`}
-											>
-												<button
-													className="absolute top-2 right-2 rounded-md p-1 opacity-0 transition-opacity hover:bg-muted group-hover:opacity-100"
-													onClick={() => {
-														if (event.id) {
-															setEditingEvent({
-																id: event.id,
-																summary: event.summary || "",
-																start: event.start,
-																end: event.end,
-																isUnavailability: event.isUnavailability,
-																isAllDay: event.isAllDay,
-																officeKeys: event.officeKeys,
-																recurrence: event.recurrence,
-																recurringEventId: event.recurringEventId,
-															});
-														}
-													}}
-													type="button"
-												>
-													<Edit2 className="h-4 w-4 text-muted-foreground" />
-												</button>
-												<p
+										{dayEvents?.map((event) => {
+											const recurrenceDesc = getRecurrenceDescription(
+												event.recurrence,
+											);
+											return (
+												<div
 													className={cn(
-														"font-medium",
-														event.isUnavailability && "text-destructive",
+														"group relative rounded-md border-l-4 bg-muted/50 p-3",
+														event.isUnavailability
+															? "border-l-destructive"
+															: "border-l-primary",
 													)}
+													key={`${dateKey}-${event.id}`}
 												>
-													{event.summary}
-												</p>
-												<p className="text-muted-foreground text-sm">
-													{event.isAllDay ? (
-														"All Day"
-													) : (
-														<>
-															{format(new Date(event.start), "h:mm a")} -{" "}
-															{format(new Date(event.end), "h:mm a")}
-														</>
-													)}
-												</p>
-											</div>
-										))}
+													<button
+														className="absolute top-2 right-2 rounded-md p-1 opacity-0 transition-opacity hover:bg-muted group-hover:opacity-100"
+														onClick={() => {
+															if (event.id) {
+																setEditingEvent({
+																	id: event.id,
+																	summary: event.summary || "",
+																	start: event.start,
+																	end: event.end,
+																	isUnavailability: event.isUnavailability,
+																	isAllDay: event.isAllDay,
+																	officeKeys: event.officeKeys,
+																	recurrence: event.recurrence,
+																	recurringEventId: event.recurringEventId,
+																});
+															}
+														}}
+														type="button"
+													>
+														<Edit2 className="h-4 w-4 text-muted-foreground" />
+													</button>
+													<div className="flex items-center gap-2">
+														<p
+															className={cn(
+																"font-medium",
+																event.isUnavailability && "text-destructive",
+															)}
+														>
+															{event.summary}
+														</p>
+														{recurrenceDesc && (
+															<div
+																className="flex items-center gap-1 text-muted-foreground text-xs"
+																title={recurrenceDesc}
+															>
+																<Repeat className="h-3 w-3" />
+																<span>{recurrenceDesc}</span>
+															</div>
+														)}
+													</div>
+													<p className="text-muted-foreground text-sm">
+														{event.isAllDay ? (
+															"All Day"
+														) : (
+															<>
+																{format(new Date(event.start), "h:mm a")} -{" "}
+																{format(new Date(event.end), "h:mm a")}
+															</>
+														)}
+													</p>
+												</div>
+											);
+										})}
 									</div>
 								</div>
 							);
