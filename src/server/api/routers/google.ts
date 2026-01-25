@@ -468,7 +468,7 @@ export const googleRouter = createTRPCRouter({
 				finalAvailability.push(...currentEventParts);
 			}
 
-			const result = [...finalAvailability, ...outOfOfficeEvents];
+			const result = [...finalAvailability, ...mergedOutOfOffice];
 			result.sort((a, b) => a.start.getTime() - b.start.getTime());
 
 			return result;
