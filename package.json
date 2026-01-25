@@ -75,7 +75,7 @@
 		"google-auth-library": "^10.5.0",
 		"html-react-parser": "^5.2.11",
 		"ioredis": "^5.9.2",
-		"lodash": "^4.17.21",
+		"lodash": "^4.17.23",
 		"lucide-react": "^0.562.0",
 		"mysql2": "^3.16.1",
 		"next": "16.1.4",
