@@ -46,9 +46,9 @@ export function EditAsdAdhdDialog({ client, setOpen }: EditAsdAdhdDialogProps) {
 		},
 	});
 
-	const updateAsdAdhd = api.google.setAsdAdhd.useMutation({
-		onSuccess: (data) => {
-			toast.success(data.message);
+	const updateAsdAdhd = api.clients.update.useMutation({
+		onSuccess: () => {
+			toast.success("ASD/ADHD status updated successfully");
 			utils.clients.getOne.invalidate();
 			setOpen(false);
 		},

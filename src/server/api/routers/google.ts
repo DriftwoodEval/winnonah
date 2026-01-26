@@ -1,3 +1,4 @@
+import { TRPCError } from "@trpc/server";
 import { and, eq, notInArray } from "drizzle-orm";
 import z from "zod";
 import { fetchWithCache, invalidateCache } from "~/lib/cache";
@@ -6,9 +7,11 @@ import {
 	findDuplicateIdFolders,
 	getClientFromPunchData,
 	getPunchData,
+	pushToPunch,
 	renameDriveFolder,
 	updatePunchData,
 } from "~/lib/google";
+import { getInsuranceShortName } from "~/lib/utils";
 import { getPriorityInfo } from "~/server/api/routers/client";
 import {
 	assertPermission,
@@ -199,15 +202,9 @@ export const googleRouter = createTRPCRouter({
 
 				await invalidateCache(ctx, "google:sheets:punchlist");
 			} catch (error) {
-				console.error(
-					"Error updating ASD/ADHD status in Google Sheets:",
+				ctx.logger.error(
 					error,
-				);
-
-				throw new Error(
-					`Failed to update ASD/ADHD status in Google Sheets: ${
-						error instanceof Error ? error.message : "Unknown error"
-					}`,
+					`Failed to update ASD/ADHD status in Google Sheets for client ${input.clientId}. This is normal if they are not on the punchlist.`,
 				);
 			}
 
@@ -318,4 +315,55 @@ export const googleRouter = createTRPCRouter({
 
 		return missingClients;
 	}),
+
+	pushToPunch: protectedProcedure
+		.input(z.number())
+		.mutation(async ({ ctx, input }) => {
+			if (!ctx.session.user.accessToken || !ctx.session.user.refreshToken) {
+				throw new Error("No access token or refresh token");
+			}
+
+			const client = await ctx.db.query.clients.findFirst({
+				where: eq(clients.id, input),
+			});
+
+			if (!client) {
+				throw new TRPCError({
+					code: "NOT_FOUND",
+					message: "Client not found",
+				});
+			}
+
+			const allInsurances = await ctx.db.query.insurances.findMany({
+				with: {
+					aliases: true,
+				},
+			});
+
+			const primaryInsurance = getInsuranceShortName(
+				client.primaryInsurance,
+				allInsurances,
+			);
+
+			ctx.logger.info({ clientId: client.id }, "Pushing client to Punchlist");
+
+			try {
+				await pushToPunch(ctx.session, {
+					id: client.id,
+					fullName: client.fullName,
+					asdAdhd: client.asdAdhd,
+					primaryPayer: primaryInsurance,
+				});
+
+				await invalidateCache(ctx, "google:sheets:punchlist");
+
+				return { success: true, message: "Pushed to Punchlist successfully" };
+			} catch (error) {
+				ctx.logger.error(error, "Failed to push to Punchlist");
+				throw new TRPCError({
+					code: "INTERNAL_SERVER_ERROR",
+					message: `Failed to push to Punchlist: ${error instanceof Error ? error.message : "Unknown error"}`,
+				});
+			}
+		}),
 });
