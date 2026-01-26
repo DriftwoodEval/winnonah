@@ -1,29 +1,22 @@
 "use client";
 
-import { Plus, User, X } from "lucide-react";
-import Link from "next/link";
-import { useState } from "react";
-import { toast } from "sonner";
-import { useCheckPermission } from "~/hooks/use-check-permission";
-import type { SortedClient } from "~/lib/api-types";
-import { api } from "~/trpc/react";
-import { NameSearchInput } from "../clients/NameSearchInput";
-import { SelectableClientsList } from "../clients/SelectableClientsList";
-import { Button } from "../ui/button";
-import {
-	Card,
-	CardAction,
-	CardContent,
-	CardHeader,
-	CardTitle,
-} from "../ui/card";
+import { Button } from "@ui/button";
+import { Card, CardAction, CardContent, CardHeader, CardTitle } from "@ui/card";
 import {
 	Dialog,
 	DialogContent,
 	DialogHeader,
 	DialogTitle,
 	DialogTrigger,
-} from "../ui/dialog";
+} from "@ui/dialog";
+import { Plus, User, X } from "lucide-react";
+import Link from "next/link";
+import { useState } from "react";
+import { toast } from "sonner";
+import { useCheckPermission } from "~/hooks/use-check-permission";
+import { cn } from "~/lib/utils";
+import { api } from "~/trpc/react";
+import { ClientSearchAndAdd } from "../clients/ClientSearchAndAdd";
 
 interface RelatedClientsProps {
 	clientId: number;
@@ -44,34 +37,13 @@ export function RelatedClients({
 }: RelatedClientsProps) {
 	const utils = api.useUtils();
 	const [isAddOpen, setIsAddOpen] = useState(false);
-	const [searchTerm, setSearchTerm] = useState("");
-	const [selectedTarget, setSelectedTarget] = useState<SortedClient | null>(
-		null,
-	);
 
 	const canEdit = useCheckPermission()("clients:related") && !readOnly;
-
-	const { data: searchResults, isLoading: isSearching } =
-		api.clients.search.useQuery(
-			{
-				nameSearch: searchTerm.length >= 3 ? searchTerm : undefined,
-				excludeIds: [
-					clientId,
-					...(relatedConnections?.map((c) => c.relatedClientData.id) ?? []),
-				],
-			},
-			{
-				enabled: isAddOpen && searchTerm.length >= 3,
-			},
-		);
 
 	const linkMutation = api.clients.linkRelated.useMutation({
 		onSuccess: () => {
 			toast.success("Clients linked");
 			utils.clients.getOne.invalidate();
-			setIsAddOpen(false);
-			setSearchTerm("");
-			setSelectedTarget(null);
 		},
 		onError: (error) => {
 			toast.error("Failed to link clients", {
@@ -92,25 +64,23 @@ export function RelatedClients({
 		},
 	});
 
-	const handleLink = () => {
-		if (selectedTarget) {
-			linkMutation.mutate({ idA: clientId, idB: selectedTarget.id });
-		}
-	};
-
 	const handleUnlink = (targetClientId: number) => {
 		unlinkMutation.mutate({ idA: clientId, idB: targetClientId });
 	};
 
 	return (
-		<Card className="w-full max-w-sm p-2">
-			<CardHeader>
-				<CardTitle className="text-sm">Related Clients</CardTitle>
+		<Card className="w-full max-w-sm gap-2 p-1">
+			<CardHeader className="flex flex-row items-center justify-between px-4 py-2">
+				<CardTitle className="font-semibold text-sm">Related Clients</CardTitle>
 				{canEdit && (
 					<CardAction>
 						<Dialog onOpenChange={setIsAddOpen} open={isAddOpen}>
 							<DialogTrigger asChild>
-								<Button size="icon-sm" variant="link">
+								<Button
+									className="cursor-pointer"
+									size="icon-sm"
+									variant="ghost"
+								>
 									<Plus className="h-4 w-4" />
 								</Button>
 							</DialogTrigger>
@@ -119,69 +89,64 @@ export function RelatedClients({
 									<DialogTitle>Link Related Client</DialogTitle>
 								</DialogHeader>
 								<div className="flex flex-col gap-4 py-4">
-									<NameSearchInput
-										initialValue={searchTerm}
-										onDebouncedChange={setSearchTerm}
+									<ClientSearchAndAdd
+										addButtonLabel="Link"
+										excludeIds={[
+											clientId,
+											...(relatedConnections?.map(
+												(c) => c.relatedClientData.id,
+											) ?? []),
+										]}
+										isAdding={linkMutation.isPending}
+										onAdd={(client) =>
+											linkMutation.mutate({ idA: clientId, idB: client.id })
+										}
+										placeholder="Search for a client to link..."
 									/>
-									<div className="min-h-[300px]">
-										{searchTerm.length >= 3 ? (
-											<SelectableClientsList
-												clients={
-													(searchResults?.clients as SortedClient[]) ?? []
-												}
-												onSelectionChange={setSelectedTarget}
-												selectedClient={selectedTarget}
-											/>
-										) : (
-											<div className="flex h-[300px] items-center justify-center rounded-md border border-dashed text-muted-foreground text-sm">
-												Search for a client to link...
-											</div>
-										)}
-									</div>
-									<Button
-										className="w-full"
-										disabled={!selectedTarget || linkMutation.isPending}
-										onClick={handleLink}
-									>
-										{linkMutation.isPending ? "Linking..." : "Link Client"}
-									</Button>
 								</div>
 							</DialogContent>
 						</Dialog>
 					</CardAction>
 				)}
 			</CardHeader>
-			<CardContent className="flex flex-col gap-2">
+			<CardContent className="flex flex-col gap-1 px-2 pb-2">
 				{relatedConnections && relatedConnections.length > 0 ? (
 					relatedConnections.map((conn) => (
 						<div
-							className="group flex items-center justify-between rounded-md border p-2 text-sm transition-colors hover:bg-muted/50"
+							className="group relative flex items-center rounded-md border bg-muted/30 text-sm transition-colors hover:bg-muted/60"
 							key={conn.relatedClientData.id}
 						>
 							<Link
-								className="flex items-center gap-2 hover:underline"
+								className={cn(
+									"flex flex-1 items-center gap-2 overflow-hidden p-2",
+									canEdit && "pr-9",
+								)}
 								href={`/clients/${conn.relatedClientData.hash}`}
 							>
-								<User className="h-4 w-4 text-muted-foreground" />
-								<span className="font-medium">
+								<User className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+								<span className="truncate font-medium group-hover:underline">
 									{conn.relatedClientData.fullName}
 								</span>
 							</Link>
 							{canEdit && (
 								<Button
-									className="opacity-0 group-hover:opacity-100"
+									className="absolute right-1 h-7 w-7 cursor-pointer opacity-100 transition-all hover:bg-destructive! hover:text-white lg:opacity-0 lg:group-hover:opacity-100"
 									disabled={unlinkMutation.isPending}
-									onClick={() => handleUnlink(conn.relatedClientData.id)}
-									size="icon-sm"
+									onClick={(e) => {
+										e.preventDefault();
+										e.stopPropagation();
+										handleUnlink(conn.relatedClientData.id);
+									}}
+									size="icon"
 									variant="ghost"
 								>
-									<X className="h-3 w-3" />
+									<X className="h-3.5 w-3.5" />
 								</Button>
 							)}
 						</div>
 					))
 				) : (
-					<p className="py-2 text-center text-muted-foreground text-xs italic">
+					<p className="py-4 text-center text-muted-foreground text-xs italic">
 						No related clients found.
 					</p>
 				)}
