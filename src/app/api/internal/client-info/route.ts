@@ -1,9 +1,15 @@
-import { eq } from "drizzle-orm";
+import { and, desc, eq, isNotNull } from "drizzle-orm";
 import { type NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { NOTE_TEMPLATES } from "~/lib/constants";
+import { formatClientAge } from "~/lib/utils";
 import { db } from "~/server/db";
-import { clients, externalRecords } from "~/server/db/schema";
+import {
+	appointments,
+	clients,
+	evaluators,
+	externalRecords,
+} from "~/server/db/schema";
 
 const QuerySchema = z.object({ id: z.string().min(1) });
 
@@ -79,6 +85,7 @@ export async function GET(req: NextRequest) {
 			where: eq(clients.id, clientId),
 			columns: {
 				fullName: true,
+				dob: true,
 				recordsNeeded: true,
 				babyNetERNeeded: true,
 				babyNetERDownloaded: true,
@@ -89,15 +96,34 @@ export async function GET(req: NextRequest) {
 			return NextResponse.json({ error: "Client not found" }, { status: 404 });
 		}
 
-		const externalRecord = await db.query.externalRecords.findFirst({
-			where: eq(externalRecords.clientId, clientId),
-			columns: {
-				content: true,
-				requested: true,
-				needsSecondRequest: true,
-				secondRequestDate: true,
-			},
-		});
+		const [externalRecord, mostRecentAppointment] = await Promise.all([
+			db.query.externalRecords.findFirst({
+				where: eq(externalRecords.clientId, clientId),
+				columns: {
+					content: true,
+					requested: true,
+					needsSecondRequest: true,
+					secondRequestDate: true,
+				},
+			}),
+			db
+				.select({
+					startTime: appointments.startTime,
+					providerName: evaluators.providerName,
+				})
+				.from(appointments)
+				.leftJoin(evaluators, eq(appointments.evaluatorNpi, evaluators.npi))
+				.where(
+					and(
+						eq(appointments.clientId, clientId),
+						isNotNull(appointments.calendarEventId),
+						eq(appointments.cancelled, false),
+					),
+				)
+				.orderBy(desc(appointments.startTime))
+				.limit(1)
+				.then((res) => res[0]),
+		]);
 
 		const fullNote = extractTextFromTiptapJson(
 			externalRecord?.content as TiptapNode,
@@ -133,8 +159,21 @@ export async function GET(req: NextRequest) {
 
 		return NextResponse.json({
 			fullName: client.fullName,
+			dob: client.dob.toLocaleDateString(undefined, {
+				year: "2-digit",
+				month: "numeric",
+				day: "numeric",
+			}),
+			age: formatClientAge(client.dob, "short"),
 			records: recordsStatus,
 			babyNetERStatus: babyNetERStatus,
+			mostRecentAppointment:
+				mostRecentAppointment?.startTime.toLocaleDateString(undefined, {
+					year: "2-digit",
+					month: "numeric",
+					day: "numeric",
+				}),
+			mostRecentAppointmentProvider: mostRecentAppointment?.providerName,
 		});
 	} catch (error) {
 		console.error("Database query failed:", error);
