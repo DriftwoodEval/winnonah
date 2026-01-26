@@ -213,6 +213,7 @@ export function Client({
 				{client && (
 					<RelatedClients
 						clientId={client.id}
+						lastName={client.lastName}
 						readOnly={readOnly}
 						relatedConnections={client.relatedConnections}
 					/>

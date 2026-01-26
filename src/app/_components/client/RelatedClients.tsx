@@ -20,6 +20,7 @@ import { ClientSearchAndAdd } from "../clients/ClientSearchAndAdd";
 
 interface RelatedClientsProps {
 	clientId: number;
+	lastName: string;
 	relatedConnections?: {
 		relatedClientData: {
 			id: number;
@@ -32,6 +33,7 @@ interface RelatedClientsProps {
 
 export function RelatedClients({
 	clientId,
+	lastName,
 	relatedConnections,
 	readOnly,
 }: RelatedClientsProps) {
@@ -97,6 +99,7 @@ export function RelatedClients({
 												(c) => c.relatedClientData.id,
 											) ?? []),
 										]}
+										initialSearchTerm={lastName}
 										isAdding={linkMutation.isPending}
 										onAdd={(client) =>
 											linkMutation.mutate({ idA: clientId, idB: client.id })

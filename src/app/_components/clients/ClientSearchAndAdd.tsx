@@ -28,6 +28,7 @@ interface ClientSearchAndAddProps {
 	addButtonLabel?: string;
 	isAdding?: boolean;
 	resetOnAdd?: boolean;
+	initialSearchTerm?: string;
 }
 
 export function ClientSearchAndAdd({
@@ -37,8 +38,9 @@ export function ClientSearchAndAdd({
 	addButtonLabel = "Add",
 	isAdding = false,
 	resetOnAdd = false,
+	initialSearchTerm = "",
 }: ClientSearchAndAddProps) {
-	const [searchTerm, setSearchTerm] = useState("");
+	const [searchTerm, setSearchTerm] = useState(initialSearchTerm);
 	const debouncedSearchTerm = useDebounce(searchTerm, 500);
 
 	const { data: searchResults, isFetching } = api.clients.search.useQuery(
