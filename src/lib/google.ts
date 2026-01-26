@@ -432,3 +432,77 @@ export const getClientFromPunchData = async (
 	const data = await getPunchData(session, redis);
 	return data.find((client) => client["Client ID"] === id);
 };
+
+export const pushToPunch = async (
+	session: Session,
+	client: {
+		id: number;
+		fullName: string;
+		asdAdhd: string | null;
+		primaryPayer: string | null;
+	},
+) => {
+	const { PUNCHLIST_ID, PUNCHLIST_RANGE } = env;
+	const sheetsApi = getSheetsClient(session);
+
+	const response = await sheetsApi.spreadsheets.values.get({
+		spreadsheetId: PUNCHLIST_ID,
+		range: PUNCHLIST_RANGE,
+	});
+
+	const data = response.data.values ?? [];
+	const headers = data[0] ?? [];
+	const rows = data.slice(1);
+
+	// Find the first blank row (where Client ID at index 1 is empty or whitespace)
+	let targetRowIndex = rows.findIndex(
+		(row) => !row[1] || row[1].toString().trim() === "",
+	);
+
+	if (targetRowIndex === -1) {
+		// If no blank row found in the existing range, append after the last row
+		targetRowIndex = rows.length;
+	}
+
+	const nameIndex = 0;
+	const idIndex = headers.indexOf("Client ID");
+	const forIndex = headers.indexOf("For");
+	const primaryPayerIndex = headers.indexOf("Primary Payer");
+
+	if (idIndex === -1 || forIndex === -1 || primaryPayerIndex === -1) {
+		throw new Error(
+			"Required columns (Client ID, For, Primary Payer) not found in Punchlist",
+		);
+	}
+
+	const updateRequests: sheets_v4.Schema$ValueRange[] = [];
+
+	const rowNumber = targetRowIndex + 2; // +1 for 0-index, +1 for header row
+
+	updateRequests.push({
+		range: `${String.fromCharCode(65 + nameIndex)}${rowNumber}`,
+		values: [[client.fullName]],
+	});
+	updateRequests.push({
+		range: `${String.fromCharCode(65 + idIndex)}${rowNumber}`,
+		values: [[client.id.toString()]],
+	});
+	updateRequests.push({
+		range: `${String.fromCharCode(65 + forIndex)}${rowNumber}`,
+		values: [[client.asdAdhd ?? ""]],
+	});
+	updateRequests.push({
+		range: `${String.fromCharCode(65 + primaryPayerIndex)}${rowNumber}`,
+		values: [[client.primaryPayer ?? ""]],
+	});
+
+	await sheetsApi.spreadsheets.values.batchUpdate({
+		spreadsheetId: PUNCHLIST_ID,
+		requestBody: {
+			valueInputOption: "USER_ENTERED",
+			data: updateRequests,
+		},
+	});
+
+	return true;
+};
