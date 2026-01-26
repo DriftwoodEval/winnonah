@@ -21,9 +21,15 @@ import {
 import { distance as levDistance } from "fastest-levenshtein";
 import { z } from "zod";
 import { CLIENT_COLOR_KEYS } from "~/lib/colors";
-import { renameDriveFolder, syncPunchData } from "~/lib/google";
+import { ALLOWED_ASD_ADHD_VALUES } from "~/lib/constants";
+import {
+	renameDriveFolder,
+	syncPunchData,
+	updatePunchData,
+} from "~/lib/google";
 import type { ClientWithIssueInfo } from "~/lib/models";
 import { getDistanceSQL, isShellClientId } from "~/lib/utils";
+import { referralDataSchema } from "~/lib/validations";
 import {
 	assertPermission,
 	createTRPCRouter,
@@ -760,6 +766,9 @@ export const clientRouter = createTRPCRouter({
 				recordsNeeded: z.enum(["Needed", "Not Needed"]).optional(),
 				babyNetERNeeded: z.boolean().optional(),
 				babyNetERDownloaded: z.boolean().optional(),
+				asdAdhd: z.enum(ALLOWED_ASD_ADHD_VALUES).optional(),
+				referralData: referralDataSchema.optional(),
+				email: z.string().optional(),
 			}),
 		)
 		.mutation(async ({ ctx, input }) => {
@@ -826,6 +835,13 @@ export const clientRouter = createTRPCRouter({
 				input.babyNetERDownloaded !== currentClient.babyNetERDownloaded
 					? (["clients:records:babynet"] as const)
 					: []),
+				...(input.asdAdhd !== undefined &&
+				input.asdAdhd !== currentClient.asdAdhd
+					? (["clients:asdadhd"] as const)
+					: []),
+				...(input.email !== undefined && input.email !== currentClient.email
+					? (["clients:email"] as const)
+					: []),
 			];
 
 			if (permissionsToCheck.length > 0) {
@@ -847,6 +863,9 @@ export const clientRouter = createTRPCRouter({
 				recordsNeeded?: "Needed" | "Not Needed";
 				babyNetERNeeded?: boolean;
 				babyNetERDownloaded?: boolean;
+				asdAdhd?: (typeof ALLOWED_ASD_ADHD_VALUES)[number];
+				referralData?: z.infer<typeof referralDataSchema>;
+				email?: string;
 			} = {};
 
 			if (input.color !== undefined) {
@@ -898,6 +917,28 @@ export const clientRouter = createTRPCRouter({
 			}
 			if (input.babyNetERDownloaded !== undefined) {
 				updateData.babyNetERDownloaded = input.babyNetERDownloaded;
+			}
+			if (input.asdAdhd !== undefined) {
+				updateData.asdAdhd = input.asdAdhd;
+
+				if (ctx.session.user.accessToken && ctx.session.user.refreshToken) {
+					try {
+						await updatePunchData(ctx.session, input.clientId.toString(), {
+							asdAdhd: input.asdAdhd,
+						});
+					} catch (e) {
+						ctx.logger.error(
+							e,
+							`Failed to update punchlist for client ${input.clientId}. This is normal if they are not on the punchlist.`,
+						);
+					}
+				}
+			}
+			if (input.referralData !== undefined) {
+				updateData.referralData = input.referralData;
+			}
+			if (input.email !== undefined) {
+				updateData.email = input.email;
 			}
 
 			await ctx.db
