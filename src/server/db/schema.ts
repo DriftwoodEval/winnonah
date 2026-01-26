@@ -272,6 +272,21 @@ export const clients = createTable(
 	],
 );
 
+export const clientRelated = createTable(
+	"client_related",
+	(d) => ({
+		clientId: d
+			.int()
+			.notNull()
+			.references(() => clients.id, { onDelete: "cascade" }),
+		relatedClientId: d
+			.int()
+			.notNull()
+			.references(() => clients.id, { onDelete: "cascade" }),
+	}),
+	(t) => [primaryKey({ columns: [t.clientId, t.relatedClientId] })],
+);
+
 export const notes = createTable(
 	"note",
 	(d) => ({
@@ -462,9 +477,25 @@ export const failures = createTable(
 );
 
 export const clientRelations = relations(clients, ({ many }) => ({
+	relatedConnections: many(clientRelated, {
+		relationName: "client_to_related",
+	}),
 	questionnaires: many(questionnaires),
 	failures: many(failures),
 	clientsEvaluators: many(clientsEvaluators),
+}));
+
+export const clientRelatedRelations = relations(clientRelated, ({ one }) => ({
+	client: one(clients, {
+		fields: [clientRelated.clientId],
+		references: [clients.id],
+		relationName: "client_to_related",
+	}),
+	relatedClientData: one(clients, {
+		fields: [clientRelated.relatedClientId],
+		references: [clients.id],
+		relationName: "related_to_client",
+	}),
 }));
 
 export const questionnaireRelations = relations(questionnaires, ({ one }) => ({
