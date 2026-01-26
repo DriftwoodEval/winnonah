@@ -10,7 +10,7 @@ import type z from "zod";
 import { CLIENT_COLOR_KEYS } from "~/lib/colors";
 import { QUESTIONNAIRE_STATUSES } from "~/lib/constants";
 import type { PermissionsObject } from "~/lib/types";
-import type { pythonConfigSchema } from "~/lib/validations";
+import type { pythonConfigSchema, referralDataSchema } from "~/lib/validations";
 
 /**
  * @see https://orm.drizzle.team/docs/goodies#multi-project-schema
@@ -262,6 +262,9 @@ export const clients = createTable(
 		recordsNeeded: d.mysqlEnum("recordsNeeded", ["Needed", "Not Needed"]),
 		babyNetERNeeded: d.boolean().notNull().default(false),
 		babyNetERDownloaded: d.boolean().notNull().default(false),
+		referralData: d
+			.json("referralData")
+			.$type<z.infer<typeof referralDataSchema>>(),
 	}),
 	(t) => [
 		index("hash_idx").on(t.hash),
