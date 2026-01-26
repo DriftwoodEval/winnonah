@@ -35,22 +35,28 @@ export function formatError(message: string): string {
 	return formattedMessage;
 }
 
+export const getInsuranceShortName = (
+	officialName: string | null,
+	insurances: InsuranceWithAliases[],
+) => {
+	if (!officialName) return null;
+	const insurance = insurances.find(
+		(i) =>
+			i.shortName === officialName ||
+			i.aliases.some((a) => a.name === officialName),
+	);
+	return insurance?.shortName || officialName;
+};
+
 export const mapInsuranceToShortNames = (
 	primary: string | null,
 	secondary: string | null,
 	insurances: InsuranceWithAliases[],
 ) => {
-	const getShortName = (officialName: string | null) => {
-		if (!officialName) return null;
-		const insurance = insurances.find(
-			(i) =>
-				i.shortName === officialName ||
-				i.aliases.some((a) => a.name === officialName),
-		);
-		return insurance?.shortName || officialName;
-	};
-
-	return [getShortName(primary), getShortName(secondary)]
+	return [
+		getInsuranceShortName(primary, insurances),
+		getInsuranceShortName(secondary, insurances),
+	]
 		.filter(Boolean)
 		.join(" | ");
 };

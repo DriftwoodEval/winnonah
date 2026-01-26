@@ -20,6 +20,7 @@ import { EligibleEvaluatorsList } from "./EligibleEvaluatorsList";
 import { PersistentStatusAlert } from "./PersistentStatusAlert";
 import { QuestionnairesTable } from "./QuestionnairesTable";
 import { RecordsNoteEditor } from "./RecordsNoteEditor";
+import { ReferralTab } from "./ReferralTab";
 import { RelatedClients } from "./RelatedClients";
 
 const log = logger.child({ module: "Client" });
@@ -133,6 +134,7 @@ export function Client({
 								<TabsList className="w-full">
 									<TabsTrigger value="info">Info</TabsTrigger>
 									<TabsTrigger value="records">Records</TabsTrigger>
+									<TabsTrigger value="referral">Referral</TabsTrigger>
 								</TabsList>
 							)}
 
@@ -212,6 +214,13 @@ export function Client({
 											clientId={client.id}
 											readOnly={readOnly}
 										/>
+									</div>
+								</TabsContent>
+							)}
+							{client.id.toString().length !== 5 && (
+								<TabsContent value="referral">
+									<div className="mb-6 flex min-w-full flex-col items-center gap-6">
+										<ReferralTab client={client} readOnly={readOnly} />
 									</div>
 								</TabsContent>
 							)}
