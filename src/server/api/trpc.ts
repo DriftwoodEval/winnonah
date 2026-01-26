@@ -162,7 +162,7 @@ export function assertPermission(
 	if (missingPermissions.length > 0) {
 		throw new TRPCError({
 			code: "UNAUTHORIZED",
-			message: missingPermissions.join(", "),
+			message: `You don't have permission to ${missingPermissions.join(", ")}`,
 		});
 	}
 }
