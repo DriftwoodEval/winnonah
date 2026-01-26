@@ -116,7 +116,11 @@ export const googleRouter = createTRPCRouter({
 				throw new Error("No access token or refresh token");
 			}
 
-			const punchClient = await getClientFromPunchData(ctx.session, input);
+			const punchClient = await getClientFromPunchData(
+				ctx.session,
+				input,
+				ctx.redis,
+			);
 
 			if (!punchClient) {
 				return null;
