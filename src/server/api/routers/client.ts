@@ -942,27 +942,62 @@ export const clientRouter = createTRPCRouter({
 			}
 
 			if (nameSearch) {
-				const numericId = parseInt(nameSearch.trim(), 10);
-				if (!Number.isNaN(numericId)) {
-					conditions.push(like(clients.id, `${numericId}%`));
-				} else if (nameSearch.length >= 3) {
-					// Clean the user's input string by replacing non-alphanumeric characters with spaces
-					const cleanedSearchString = nameSearch.replace(/[^\w ]/g, " ");
-					3424620;
+				const trimmedSearch = nameSearch.trim();
 
-					// Split the cleaned string by spaces and filter out any empty strings
-					const searchWords = cleanedSearchString.split(" ").filter(Boolean);
+				// Try to parse as date first (MM/DD/YYYY, MM/DD/YY, MM-DD-YYYY, etc.)
+				const dateRegex =
+					/^(\d{1,2})[/\-.](\d{1,2})[/\-.](\d{2,4})$|^(\d{4})[/\-.](\d{1,2})[/\-.](\d{1,2})$/;
+				const match = trimmedSearch.match(dateRegex);
 
-					if (searchWords.length > 0) {
-						const nameConditions = searchWords.map(
-							(word) =>
-								sql`REGEXP_REPLACE(${
-									clients.fullName
-									// As bizarre as this looks, we have to escape the slash for both JS and SQL
-								}, '[^\\\\w ]', '') like ${`%${word}%`}`,
-						);
+				let dateStr: string | undefined;
 
-						conditions.push(and(...nameConditions));
+				if (match) {
+					const [_, m1, d1, y1, y2, m2, d2] = match;
+					const month = m1 ?? m2;
+					const day = d1 ?? d2;
+					let year = y1 ?? y2;
+
+					if (month && day && year) {
+						if (year.length === 2) {
+							const currentYear = new Date().getFullYear() % 100;
+							year = (parseInt(year, 10) > currentYear ? "19" : "20") + year;
+						}
+						dateStr = `${year}-${month.padStart(2, "0")}-${day.padStart(
+							2,
+							"0",
+						)}`;
+						// Basic validation to ensure it's a real date
+						const date = new Date(dateStr);
+						if (Number.isNaN(date.getTime())) {
+							dateStr = undefined;
+						}
+					}
+				}
+
+				if (dateStr) {
+					conditions.push(sql`${clients.dob} = ${dateStr}`);
+				} else {
+					const numericId = parseInt(trimmedSearch, 10);
+					if (!Number.isNaN(numericId) && /^\d+$/.test(trimmedSearch)) {
+						conditions.push(like(clients.id, `${numericId}%`));
+					} else if (trimmedSearch.length >= 3) {
+						// Clean the user's input string by replacing non-alphanumeric characters with spaces
+						const cleanedSearchString = trimmedSearch.replace(/[^\w ]/g, " ");
+
+						// Split the cleaned string by spaces and filter out any empty strings
+						const searchWords = cleanedSearchString.split(" ").filter(Boolean);
+
+						if (searchWords.length > 0) {
+							const nameConditions = searchWords.map(
+								(word) =>
+									sql`REGEXP_REPLACE(${
+										clients.fullName
+										// As bizarre as this looks, we have to escape the slash for both JS and SQL
+									}, '[^\\\\w ]', '') like ${`%${word}%`}`,
+							);
+
+							conditions.push(and(...nameConditions));
+						}
 					}
 				}
 			}

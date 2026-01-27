@@ -65,7 +65,7 @@ export function NameSearchInput({
 						onBlur={() => handleFocusBlur(false)}
 						onChange={handleChange}
 						onFocus={() => handleFocusBlur(true)}
-						placeholder="Search by name or ID..."
+						placeholder="Search by name, ID, or DOB..."
 						value={inputValue}
 					/>
 					<InputGroupAddon>
