@@ -131,7 +131,6 @@ export async function GET(req: NextRequest) {
 		const matchedTemplate = NOTE_TEMPLATES.find((t) =>
 			fullNote.includes(t.text),
 		);
-		console.log(matchedTemplate);
 		const recordsNote = matchedTemplate ? matchedTemplate.label : fullNote;
 		const recordsReviewed = fullNote.length > 0;
 

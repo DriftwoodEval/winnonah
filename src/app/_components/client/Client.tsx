@@ -3,21 +3,13 @@
 import { Alert, AlertDescription, AlertTitle } from "@ui/alert";
 import { Skeleton } from "@ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@ui/tabs";
-import { Clock, FileText, MapPinOff, Plus } from "lucide-react";
+import { Clock, FileText, MapPinOff } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import type { ClientColor } from "~/lib/colors";
 import { logger } from "~/lib/logger";
 import { formatClientAge, getLocalDayFromUTCDate } from "~/lib/utils";
 import { api } from "~/trpc/react";
-import { Button } from "../ui/button";
-import {
-	Card,
-	CardAction,
-	CardContent,
-	CardHeader,
-	CardTitle,
-} from "../ui/card";
 import { BabyNetBoxes } from "./BabyNetBoxes";
 import { ClientDetailsCard } from "./ClientDetailsCard";
 import { ClientHeader } from "./ClientHeader";
@@ -46,8 +38,6 @@ export function Client({
 		column: "hash",
 		value: hash,
 	});
-
-	console.log(client?.relatedConnections);
 
 	const [selectedColor, setSelectedColor] = useState<ClientColor | null>(null);
 
