@@ -27,6 +27,7 @@ export const env = createEnv({
 			),
 		REDIS_HOST: z.string(),
 		OPENPHONE_API_TOKEN: z.string(),
+		OPENPHONE_NUMBER_ID: z.string(),
 	},
 
 	/**
@@ -53,6 +54,7 @@ export const env = createEnv({
 		PUNCHLIST_RANGE: process.env.PUNCHLIST_RANGE,
 		REDIS_HOST: process.env.REDIS_HOST,
 		OPENPHONE_API_TOKEN: process.env.OPENPHONE_API_TOKEN,
+		OPENPHONE_NUMBER_ID: process.env.OPENPHONE_NUMBER_ID,
 	},
 	/**
 	 * Run `build` or `dev` with `SKIP_ENV_VALIDATION` to skip env validation. This is especially

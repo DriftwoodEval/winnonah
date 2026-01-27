@@ -457,8 +457,21 @@ export function ConfigEditor() {
 	const form = useForm<FormValues>({ resolver: zodResolver(formSchema) });
 
 	const apiKey = form.watch("services.openphone.key");
-	const { data: opUsers, isLoading: isLoadingOpUsers } =
-		api.pyConfig.getOpenPhoneUsers.useQuery({ apiKey }, { enabled: !!apiKey });
+	const opUsersMutation = api.quo.getQuoUsers.useMutation({
+		onSuccess: (data) => {
+			form.setValue(
+				"services.openphone.users",
+				data
+					.map((u) => ({
+						key: u.name,
+						value: { id: u.id },
+					}))
+					.sort((a, b) => a.key.localeCompare(b.key)),
+			);
+			toast.success(`Synced ${data.length} users`);
+		},
+		onError: (e) => toast.error(e.message),
+	});
 
 	useEffect(() => {
 		if (!config) return;
@@ -586,18 +599,14 @@ export function ConfigEditor() {
 					</TabsList>
 					<div className="mt-6 space-y-6">
 						<TabsContent value="general">
-							<GeneralTab
-								disabled={!canEditGeneral}
-								form={form}
-								opUsers={opUsers}
-							/>
+							<GeneralTab disabled={!canEditGeneral} form={form} />
 						</TabsContent>
 						<TabsContent value="services">
 							<ServicesTab
 								disabled={!canEditServices}
 								form={form}
-								isLoadingOpUsers={isLoadingOpUsers}
-								opUsers={opUsers}
+								onSyncOpenPhone={() => opUsersMutation.mutate({ apiKey })}
+								syncingOpenPhone={opUsersMutation.isPending}
 							/>
 						</TabsContent>
 						<TabsContent value="records">
@@ -618,13 +627,13 @@ export function ConfigEditor() {
 function GeneralTab({
 	form,
 	disabled,
-	opUsers,
 }: {
 	form: UseFormReturn<FormValues>;
 	disabled?: boolean;
-	opUsers?: { id: string; name: string; phone: string }[];
 }) {
 	const c = form.control;
+	const opUsers = form.watch("services.openphone.users");
+
 	return (
 		<div className="grid gap-6">
 			<Card>
@@ -660,7 +669,7 @@ function GeneralTab({
 									</Tooltip>
 								</div>
 								<Select
-									disabled={disabled || !opUsers}
+									disabled={disabled || !opUsers || opUsers.length === 0}
 									onValueChange={field.onChange}
 									value={field.value}
 								>
@@ -673,7 +682,7 @@ function GeneralTab({
 										{Array.from(
 											new Set(
 												opUsers
-													?.map((u) => u.name.split(" ")[0])
+													?.map((u) => u.key.split(" ")[0])
 													.filter((n): n is string => !!n) ?? [],
 											),
 										)
@@ -789,30 +798,16 @@ function GeneralTab({
 function ServicesTab({
 	form,
 	disabled,
-	opUsers,
-	isLoadingOpUsers,
+	onSyncOpenPhone,
+	syncingOpenPhone,
 }: {
 	form: UseFormReturn<FormValues>;
 	disabled?: boolean;
-	opUsers?: { id: string; name: string; phone: string }[];
-	isLoadingOpUsers?: boolean;
+	onSyncOpenPhone: () => void;
+	syncingOpenPhone: boolean;
 }) {
 	const c = form.control;
 	const commonServices = ["mhs", "qglobal", "wps"] as const;
-
-	const syncOpenPhoneUsers = () => {
-		if (!opUsers) return;
-		form.setValue(
-			"services.openphone.users",
-			opUsers
-				.map((u) => ({
-					key: u.name,
-					value: { id: u.id, phone: u.phone },
-				}))
-				.sort((a, b) => a.key.localeCompare(b.key)),
-		);
-		toast.success(`Synced ${opUsers.length} users`);
-	};
 
 	return (
 		<div className="grid gap-6">
@@ -899,13 +894,13 @@ function ServicesTab({
 						<div className="mb-0 flex items-center justify-between">
 							<Label className="font-medium text-sm">Users</Label>
 							<Button
-								disabled={disabled || isLoadingOpUsers || !opUsers}
-								onClick={syncOpenPhoneUsers}
+								disabled={disabled || syncingOpenPhone}
+								onClick={onSyncOpenPhone}
 								size="sm"
 								type="button"
 								variant="outline"
 							>
-								{isLoadingOpUsers ? (
+								{syncingOpenPhone ? (
 									<Loader2 className="mr-2 h-3 w-3 animate-spin" />
 								) : (
 									<Plus className="mr-2 h-3 w-3" />

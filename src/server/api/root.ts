@@ -7,6 +7,7 @@ import { noteRouter } from "./routers/notes";
 import { officeRouter } from "./routers/office";
 import { pyConfigRouter } from "./routers/py-config";
 import { questionnaireRouter } from "./routers/questionnaires";
+import { quoRouter } from "./routers/quo";
 import { schedulingRouter } from "./routers/scheduling";
 import { sessionRouter } from "./routers/sessions";
 import { testUnitsRouter } from "./routers/testUnits";
@@ -21,17 +22,18 @@ import { createCallerFactory, createTRPCRouter } from "./trpc";
 export const appRouter = createTRPCRouter({
 	clients: clientRouter,
 	evaluators: evaluatorRouter,
+	externalRecords: externalRecordRouter,
 	google: googleRouter,
 	insurances: insuranceRouter,
 	notes: noteRouter,
 	offices: officeRouter,
+	pyConfig: pyConfigRouter,
 	questionnaires: questionnaireRouter,
+	quo: quoRouter,
 	scheduling: schedulingRouter,
 	sessions: sessionRouter,
 	testUnits: testUnitsRouter,
 	users: userRouter,
-	externalRecords: externalRecordRouter,
-	pyConfig: pyConfigRouter,
 });
 
 // export type definition of API

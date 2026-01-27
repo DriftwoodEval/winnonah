@@ -123,6 +123,17 @@ export function formatPhoneNumber(phoneNumber: string) {
 	);
 }
 
+export function normalizePhoneNumber(phoneNumber: string) {
+	const digits = phoneNumber.replace(/\D/g, "");
+	if (digits.length === 10) {
+		return `+1${digits}`;
+	}
+	if (digits.length === 11 && digits.startsWith("1")) {
+		return `+${digits}`;
+	}
+	return `+${digits}`;
+}
+
 export const getLocalDayFromUTCDate = (
 	utcDate: Date | string | undefined | null,
 ): Date | undefined => {

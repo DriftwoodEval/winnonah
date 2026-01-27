@@ -22,6 +22,7 @@ import { BabyNetBoxes } from "./BabyNetBoxes";
 import { ClientDetailsCard } from "./ClientDetailsCard";
 import { ClientHeader } from "./ClientHeader";
 import { ClientNoteEditor } from "./ClientNoteEditor";
+import { CommunicationTimeline } from "./CommunicationTimeline";
 import { EligibleEvaluatorsList } from "./EligibleEvaluatorsList";
 import { PersistentStatusAlert } from "./PersistentStatusAlert";
 import { QuestionnairesTable } from "./QuestionnairesTable";
@@ -83,8 +84,11 @@ export function Client({
 	const isLoading = isLoadingClient;
 
 	return (
-		<div className="relative flex w-full flex-col items-center">
-			<div className="flex w-[calc(100%-32px)] flex-col items-center gap-6 lg:w-[calc(100%-500px)]">
+		<div className="relative flex w-full flex-col items-center lg:flex-row lg:items-start lg:justify-center lg:gap-8 lg:px-6">
+			{/* Spacer to balance the sticky sidebar on the right and keep main content centered */}
+			<div className="hidden shrink-0 lg:block lg:w-[230px]" />
+
+			<div className="flex w-full max-w-[calc(100%-32px)] flex-col items-center gap-6 lg:max-w-3xl">
 				<ClientHeader
 					client={client}
 					isLoading={isLoading}
@@ -209,7 +213,7 @@ export function Client({
 				)}
 			</div>
 
-			<div className="w-[calc(100%-32px)] lg:absolute lg:top-0 lg:left-[calc(100%-240px)] lg:mt-0 lg:w-[230px]">
+			<div className="flex w-[calc(100%-32px)] shrink-0 flex-col gap-6 lg:sticky lg:top-14 lg:mt-0 lg:w-[230px]">
 				{client && (
 					<RelatedClients
 						clientId={client.id}
@@ -217,6 +221,9 @@ export function Client({
 						readOnly={readOnly}
 						relatedConnections={client.relatedConnections}
 					/>
+				)}
+				{client?.phoneNumber && (
+					<CommunicationTimeline phoneNumber={client.phoneNumber} />
 				)}
 			</div>
 		</div>
