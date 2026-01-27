@@ -52,6 +52,7 @@ export function AvailabilityForm() {
 			startDate: defaultStartDate,
 			endDate: defaultEndDate,
 			isUnavailability: false,
+			isAllDay: false,
 			isRecurring: false,
 			recurrenceFreq: "never",
 			interval: 1,
@@ -103,6 +104,7 @@ export function AvailabilityForm() {
 			isRecurring: values.isRecurring,
 			recurrenceRule: rruleString,
 			isUnavailability: values.isUnavailability,
+			isAllDay: values.isAllDay,
 			officeKeys: values.officeKeys,
 		});
 	}

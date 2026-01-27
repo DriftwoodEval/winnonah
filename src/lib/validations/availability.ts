@@ -19,6 +19,7 @@ const baseAvailabilityFormSchema = z.object({
 		message: "End time is required.",
 	}),
 	isUnavailability: z.boolean(),
+	isAllDay: z.boolean(),
 	isRecurring: z.boolean(),
 	recurrenceFreq: z.enum(["never", "daily", "weekly", "monthly"]),
 	interval: z.number().min(1),

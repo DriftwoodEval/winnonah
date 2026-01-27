@@ -18,7 +18,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@ui/popover";
 import { RadioGroup, RadioGroupItem } from "@ui/radio-group";
 import { Separator } from "@ui/separator";
 import { Switch } from "@ui/switch";
-import { format } from "date-fns";
+import { add, format, sub } from "date-fns";
 import { CalendarIcon } from "lucide-react";
 import type { UseFormReturn } from "react-hook-form";
 import {
@@ -39,11 +39,11 @@ export function AvailabilityFields({
 	outOfOfficePriority = false,
 }: AvailabilityFieldsProps) {
 	const isUnavailability = form.watch("isUnavailability");
+	const isAllDay = form.watch("isAllDay");
 	const isRecurring = form.watch("isRecurring");
 	const recurrenceFreq = form.watch("recurrenceFreq");
 	const recurrenceEndType = form.watch("recurrenceEndType");
 	const officeKeys = form.watch("officeKeys");
-	const _interval = form.watch("interval");
 
 	const { data: offices, isLoading: isLoadingOffices } =
 		api.offices.getAll.useQuery();
@@ -141,24 +141,78 @@ export function AvailabilityFields({
 			)}
 
 			<Separator />
+
+			<FormField
+				control={form.control}
+				name="isAllDay"
+				render={({ field }) => (
+					<FormItem className="flex flex-row items-center justify-between rounded-md border p-4">
+						<div className="space-y-0.5">
+							<FormLabel className="font-semibold text-base">All Day</FormLabel>
+							<FormDescription>
+								Sets the event to cover the entire day.
+							</FormDescription>
+						</div>
+						<FormControl>
+							<Switch
+								checked={field.value}
+								onCheckedChange={(checked) => {
+									field.onChange(checked);
+									if (checked) {
+										const start = form.getValues("startDate");
+										const allDayStart = new Date(start);
+										allDayStart.setHours(0, 0, 0, 0);
+
+										const currentEnd = form.getValues("endDate");
+										let allDayEnd = new Date(currentEnd);
+										allDayEnd.setHours(0, 0, 0, 0);
+
+										if (allDayEnd <= allDayStart) {
+											allDayEnd = add(allDayStart, { days: 1 });
+										}
+
+										form.setValue("startDate", allDayStart);
+										form.setValue("endDate", allDayEnd);
+									}
+								}}
+							/>
+						</FormControl>
+					</FormItem>
+				)}
+			/>
+
 			<div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
 				<FormField
 					control={form.control}
 					name="startDate"
 					render={({ field }) => (
 						<FormItem>
-							<FormLabel>Start Date/Time</FormLabel>
+							<FormLabel>
+								{isAllDay ? "Start Date" : "Start Date/Time"}
+							</FormLabel>
 							<FormControl>
 								<DateTimePicker
+									hideTime={isAllDay}
 									onChange={(date) => {
 										if (date) {
-											field.onChange(date);
-											const currentEnd = form.getValues("endDate");
-											if (currentEnd && date >= currentEnd) {
-												form.setValue(
-													"endDate",
-													new Date(date.getTime() + 3600000),
-												);
+											if (isAllDay) {
+												const newStart = new Date(date);
+												newStart.setHours(0, 0, 0, 0);
+												field.onChange(newStart);
+
+												const currentEnd = form.getValues("endDate");
+												if (currentEnd && currentEnd <= newStart) {
+													form.setValue("endDate", add(newStart, { days: 1 }));
+												}
+											} else {
+												field.onChange(date);
+												const currentEnd = form.getValues("endDate");
+												if (currentEnd && date >= currentEnd) {
+													form.setValue(
+														"endDate",
+														new Date(date.getTime() + 3600000),
+													);
+												}
 											}
 										}
 									}}
@@ -174,22 +228,40 @@ export function AvailabilityFields({
 					name="endDate"
 					render={({ field }) => (
 						<FormItem>
-							<FormLabel>End Date/Time</FormLabel>
+							<FormLabel>
+								{isAllDay ? "End Date (Inclusive)" : "End Date/Time"}
+							</FormLabel>
 							<FormControl>
 								<DateTimePicker
+									hideTime={isAllDay}
 									onChange={(date) => {
 										if (date) {
-											field.onChange(date);
-											const currentStart = form.getValues("startDate");
-											if (currentStart && date <= currentStart) {
-												form.setValue(
-													"startDate",
-													new Date(date.getTime() - 3600000),
-												);
+											if (isAllDay) {
+												const newEnd = new Date(date);
+												newEnd.setHours(0, 0, 0, 0);
+												const exclusiveEnd = add(newEnd, { days: 1 });
+												field.onChange(exclusiveEnd);
+
+												const currentStart = form.getValues("startDate");
+												if (currentStart && exclusiveEnd <= currentStart) {
+													form.setValue(
+														"startDate",
+														sub(exclusiveEnd, { days: 1 }),
+													);
+												}
+											} else {
+												field.onChange(date);
+												const currentStart = form.getValues("startDate");
+												if (currentStart && date <= currentStart) {
+													form.setValue(
+														"startDate",
+														new Date(date.getTime() - 3600000),
+													);
+												}
 											}
 										}
 									}}
-									value={field.value}
+									value={isAllDay ? sub(field.value, { days: 1 }) : field.value}
 								/>
 							</FormControl>
 							<FormMessage />
