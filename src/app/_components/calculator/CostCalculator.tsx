@@ -190,7 +190,7 @@ export default function CostCalculator() {
 				<CardTitle>Cost Calculator</CardTitle>
 			</CardHeader>
 			<CardContent>
-				<div className="mb-6 flex flex-wrap items-end gap-4 rounded-lg bg-muted/50 p-4">
+				<div className="mb-6 flex flex-wrap items-end gap-4 rounded-md bg-muted/50 p-4">
 					<div className="grid gap-2">
 						<label className="font-medium text-sm" htmlFor={targetTotalId}>
 							Target Total ($)

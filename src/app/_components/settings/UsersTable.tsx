@@ -479,7 +479,7 @@ export default function UsersTable() {
 						) : activeUsers && activeUsers.length > 0 ? (
 							activeUsers.map((user) => (
 								<div
-									className="relative rounded-lg border bg-card p-4 text-card-foreground"
+									className="relative rounded-md border bg-card p-4 text-card-foreground"
 									key={user.id}
 								>
 									<div className="absolute top-2 right-2">
@@ -582,7 +582,7 @@ export default function UsersTable() {
 						) : archivedUsers && archivedUsers.length > 0 ? (
 							archivedUsers.map((user) => (
 								<div
-									className="relative rounded-lg border bg-card p-4 text-card-foreground"
+									className="relative rounded-md border bg-card p-4 text-card-foreground"
 									key={user.id}
 								>
 									<div className="absolute top-2 right-2">

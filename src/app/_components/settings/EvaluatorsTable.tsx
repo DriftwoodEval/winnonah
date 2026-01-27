@@ -683,7 +683,7 @@ export default function EvaluatorsTable() {
 				) : evaluators && evaluators.length > 0 ? (
 					evaluators.map((evaluator) => (
 						<div
-							className="space-y-3 rounded-lg border bg-card p-4 text-card-foreground shadow-sm"
+							className="space-y-3 rounded-md border bg-card p-4 text-card-foreground shadow-sm"
 							key={evaluator.npi}
 						>
 							<div className="flex items-start justify-between">

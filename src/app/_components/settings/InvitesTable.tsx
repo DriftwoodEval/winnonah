@@ -384,7 +384,7 @@ export default function InvitesTable() {
 				) : invites && invites.length > 0 ? (
 					invites.map((invite) => (
 						<div
-							className="flex items-center justify-between rounded-lg border bg-card p-4 text-card-foreground"
+							className="flex items-center justify-between rounded-md border bg-card p-4 text-card-foreground"
 							key={invite.id}
 						>
 							<div>
