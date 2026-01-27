@@ -29,6 +29,7 @@ import {
 	protectedProcedure,
 } from "~/server/api/trpc";
 import {
+	clientRelated,
 	clients,
 	clientsEvaluators,
 	externalRecords,
@@ -105,6 +106,13 @@ export const clientRouter = createTRPCRouter({
 
 			const foundClient = await ctx.db.query.clients.findFirst({
 				where: eq(clients[input.column], input.value),
+				with: {
+					relatedConnections: {
+						with: {
+							relatedClientData: true,
+						},
+					},
+				},
 			});
 
 			if (!foundClient) {
@@ -120,6 +128,13 @@ export const clientRouter = createTRPCRouter({
 
 			const syncedClient = await ctx.db.query.clients.findFirst({
 				where: eq(clients.id, foundClient.id),
+				with: {
+					relatedConnections: {
+						with: {
+							relatedClientData: true,
+						},
+					},
+				},
 			});
 
 			if (!syncedClient) {
@@ -816,6 +831,67 @@ export const clientRouter = createTRPCRouter({
 			return updatedClient;
 		}),
 
+	linkRelated: protectedProcedure
+		.input(
+			z.object({
+				idA: z.number(),
+				idB: z.number(),
+			}),
+		)
+		.mutation(async ({ ctx, input }) => {
+			assertPermission(ctx.session.user, "clients:related");
+
+			if (input.idA === input.idB)
+				throw new TRPCError({
+					code: "BAD_REQUEST",
+					message: "A client cannot be related to themselves",
+				});
+
+			return await ctx.db.transaction(async (tx) => {
+				await tx
+					.insert(clientRelated)
+					.values([
+						{ clientId: input.idA, relatedClientId: input.idB },
+						{ clientId: input.idB, relatedClientId: input.idA },
+					])
+					.onDuplicateKeyUpdate({ set: { clientId: input.idA } });
+			});
+		}),
+
+	unlinkRelated: protectedProcedure
+		.input(
+			z.object({
+				idA: z.number(),
+				idB: z.number(),
+			}),
+		)
+		.mutation(async ({ ctx, input }) => {
+			assertPermission(ctx.session.user, "clients:related");
+
+			if (input.idA === input.idB)
+				throw new TRPCError({
+					code: "BAD_REQUEST",
+					message: "A client cannot be related to themselves",
+				});
+
+			return await ctx.db.transaction(async (tx) => {
+				await tx
+					.delete(clientRelated)
+					.where(
+						or(
+							and(
+								eq(clientRelated.clientId, input.idA),
+								eq(clientRelated.relatedClientId, input.idB),
+							),
+							and(
+								eq(clientRelated.clientId, input.idB),
+								eq(clientRelated.relatedClientId, input.idA),
+							),
+						),
+					);
+			});
+		}),
+
 	search: protectedProcedure
 		.input(
 			z.object({
@@ -833,6 +909,7 @@ export const clientRouter = createTRPCRouter({
 				sort: z
 					.enum(["priority", "firstName", "lastName", "paExpiration"])
 					.optional(),
+				excludeIds: z.array(z.number()).optional(),
 			}),
 		)
 		.query(async ({ ctx, input }) => {
@@ -850,6 +927,7 @@ export const clientRouter = createTRPCRouter({
 				privatePay,
 				autismStop,
 				sort,
+				excludeIds,
 			} = input;
 
 			const effectiveStatus = status ?? "active";
@@ -858,6 +936,10 @@ export const clientRouter = createTRPCRouter({
 			const effectiveSort = sort ?? "priority";
 
 			const conditions = [];
+
+			if (excludeIds && excludeIds.length > 0) {
+				conditions.push(not(inArray(clients.id, excludeIds)));
+			}
 
 			if (nameSearch) {
 				const numericId = parseInt(nameSearch.trim(), 10);
