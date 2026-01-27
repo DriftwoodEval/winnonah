@@ -39,6 +39,7 @@ const availabilitySchema = z.object({
 	isRecurring: z.boolean(),
 	recurrenceRule: z.string().optional(),
 	isUnavailability: z.boolean(),
+	isAllDay: z.boolean().optional(),
 	officeKeys: z.array(z.string()).optional(),
 });
 const CACHE_KEY_PUNCHLIST = "google:sheets:punchlist";
@@ -489,6 +490,7 @@ export const googleRouter = createTRPCRouter({
 				isRecurring: input.isRecurring,
 				recurrenceRule: input.recurrenceRule,
 				isUnavailability: input.isUnavailability,
+				isAllDay: input.isAllDay,
 			});
 
 			return {
@@ -646,6 +648,7 @@ export const googleRouter = createTRPCRouter({
 						isRecurring: input.isRecurring,
 						recurrenceRule: input.recurrenceRule,
 						isUnavailability: input.isUnavailability,
+						isAllDay: input.isAllDay,
 					},
 				);
 

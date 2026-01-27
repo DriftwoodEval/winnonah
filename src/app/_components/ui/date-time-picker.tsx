@@ -13,12 +13,14 @@ interface DateTimePickerProps {
 	value?: Date;
 	onChange: (date: Date) => void;
 	disabled?: boolean;
+	hideTime?: boolean;
 }
 
 const DateTimePicker: React.FC<DateTimePickerProps> = ({
 	value,
 	onChange,
 	disabled,
+	hideTime,
 }) => {
 	const [open, setOpen] = React.useState(false);
 
@@ -83,14 +85,16 @@ const DateTimePicker: React.FC<DateTimePickerProps> = ({
 			</Popover>
 
 			{/* Time Input */}
-			<Input
-				type="time"
-				value={timeString.substring(0, 5)}
-				onChange={handleTimeChange}
-				step="60"
-				className="w-auto min-w-24 flex-shrink-0"
-				disabled={disabled}
-			/>
+			{!hideTime && (
+				<Input
+					type="time"
+					value={timeString.substring(0, 5)}
+					onChange={handleTimeChange}
+					step="60"
+					className="w-auto min-w-24 flex-shrink-0"
+					disabled={disabled}
+				/>
+			)}
 		</div>
 	);
 };

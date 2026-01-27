@@ -517,12 +517,13 @@ interface AvailabilityEvent {
 	isRecurring: boolean;
 	recurrenceRule?: string;
 	isUnavailability: boolean;
+	isAllDay?: boolean;
 }
 
 interface Event {
 	summary: string;
-	start: { dateTime: string; timeZone: string };
-	end: { dateTime: string; timeZone: string };
+	start: { dateTime?: string; date?: string; timeZone: string };
+	end: { dateTime?: string; date?: string; timeZone: string };
 	eventType?: string;
 	transparency?: string;
 	recurrence?: string[];
@@ -533,6 +534,13 @@ export async function createAvailabilityEvent(
 	eventData: AvailabilityEvent,
 ) {
 	const calendar = getCalendarClient(session);
+
+	const formatDate = (date: Date) => {
+		const year = date.getFullYear();
+		const month = String(date.getMonth() + 1).padStart(2, "0");
+		const day = String(date.getDate()).padStart(2, "0");
+		return `${year}-${month}-${day}`;
+	};
 
 	const formatDateTime = (date: Date) => {
 		const year = date.getFullYear();
@@ -548,18 +556,24 @@ export async function createAvailabilityEvent(
 	const event: Event = {
 		summary: eventData.summary,
 		start: {
-			dateTime: eventData.isRecurring
-				? formatDateTime(eventData.start)
-				: eventData.start.toISOString(),
 			timeZone: "America/New_York",
 		},
 		end: {
-			dateTime: eventData.isRecurring
-				? formatDateTime(eventData.end)
-				: eventData.end.toISOString(),
 			timeZone: "America/New_York",
 		},
 	};
+
+	if (eventData.isAllDay) {
+		event.start.date = formatDate(eventData.start);
+		event.end.date = formatDate(eventData.end);
+	} else {
+		event.start.dateTime = eventData.isRecurring
+			? formatDateTime(eventData.start)
+			: eventData.start.toISOString();
+		event.end.dateTime = eventData.isRecurring
+			? formatDateTime(eventData.end)
+			: eventData.end.toISOString();
+	}
 
 	if (eventData.isUnavailability) {
 		event.eventType = "outOfOffice";
@@ -763,6 +777,13 @@ export async function updateAvailabilityEvent(
 ) {
 	const calendar = getCalendarClient(session);
 
+	const formatDate = (date: Date) => {
+		const year = date.getFullYear();
+		const month = String(date.getMonth() + 1).padStart(2, "0");
+		const day = String(date.getDate()).padStart(2, "0");
+		return `${year}-${month}-${day}`;
+	};
+
 	const formatDateTime = (date: Date) => {
 		const year = date.getFullYear();
 		const month = String(date.getMonth() + 1).padStart(2, "0");
@@ -777,18 +798,24 @@ export async function updateAvailabilityEvent(
 	const event: calendar_v3.Schema$Event = {
 		summary: eventData.summary,
 		start: {
-			dateTime: eventData.isRecurring
-				? formatDateTime(eventData.start)
-				: eventData.start.toISOString(),
 			timeZone: "America/New_York",
 		},
 		end: {
-			dateTime: eventData.isRecurring
-				? formatDateTime(eventData.end)
-				: eventData.end.toISOString(),
 			timeZone: "America/New_York",
 		},
 	};
+
+	if (eventData.isAllDay) {
+		event.start!.date = formatDate(eventData.start);
+		event.end!.date = formatDate(eventData.end);
+	} else {
+		event.start!.dateTime = eventData.isRecurring
+			? formatDateTime(eventData.start)
+			: eventData.start.toISOString();
+		event.end!.dateTime = eventData.isRecurring
+			? formatDateTime(eventData.end)
+			: eventData.end.toISOString();
+	}
 
 	if (eventData.isUnavailability) {
 		event.eventType = "outOfOffice";
