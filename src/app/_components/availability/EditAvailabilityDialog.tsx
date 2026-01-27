@@ -1,6 +1,16 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
+import {
+	AlertDialog,
+	AlertDialogAction,
+	AlertDialogCancel,
+	AlertDialogContent,
+	AlertDialogDescription,
+	AlertDialogFooter,
+	AlertDialogHeader,
+	AlertDialogTitle,
+} from "@ui/alert-dialog";
 import { Button } from "@ui/button";
 import {
 	Dialog,
@@ -19,7 +29,7 @@ import {
 } from "@ui/form";
 import { RadioGroup, RadioGroupItem } from "@ui/radio-group";
 import { Trash2 } from "lucide-react";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 import {
@@ -52,6 +62,7 @@ export function EditAvailabilityDialog({
 	onClose,
 }: EditAvailabilityDialogProps) {
 	const utils = api.useUtils();
+	const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
 
 	const form = useForm<AvailabilityFormValues>({
 		resolver: zodResolver(availabilityFormSchema),
@@ -204,96 +215,117 @@ export function EditAvailabilityDialog({
 	const isRecurringInstance = !!event.recurringEventId;
 
 	return (
-		<Dialog onOpenChange={onClose} open={isOpen}>
-			<DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-[600px]">
-				<DialogHeader>
-					<DialogTitle>
-						Edit {event.isUnavailability ? "Unavailability" : "Availability"}
-					</DialogTitle>
-					<DialogDescription>
-						Update your declared time or remove this entry.
-					</DialogDescription>
-				</DialogHeader>
+		<>
+			<Dialog onOpenChange={onClose} open={isOpen}>
+				<DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-[600px]">
+					<DialogHeader>
+						<DialogTitle>
+							Edit {event.isUnavailability ? "Unavailability" : "Availability"}
+						</DialogTitle>
+						<DialogDescription>
+							Update your declared time or remove this entry.
+						</DialogDescription>
+					</DialogHeader>
 
-				<Form {...form}>
-					<form className="space-y-6" onSubmit={form.handleSubmit(onSubmit)}>
-						{isRecurringInstance && (
-							<FormField
-								control={form.control}
-								name="scope"
-								render={({ field }) => (
-									<FormItem className="space-y-3 rounded-md border bg-muted/50 p-4">
-										<FormLabel className="font-semibold text-base">
-											Recurring Event Options
-										</FormLabel>
-										<FormControl>
-											<RadioGroup
-												className="flex flex-col space-y-1"
-												onValueChange={field.onChange}
-												value={field.value}
-											>
-												<FormItem className="flex items-center space-x-3 space-y-0">
-													<FormControl>
-														<RadioGroupItem value="this" />
-													</FormControl>
-													<FormLabel className="font-normal">
-														Just this instance
-													</FormLabel>
-												</FormItem>
-												<FormItem className="flex items-center space-x-3 space-y-0">
-													<FormControl>
-														<RadioGroupItem value="all" />
-													</FormControl>
-													<FormLabel className="font-normal">
-														All events in the series
-													</FormLabel>
-												</FormItem>
-											</RadioGroup>
-										</FormControl>
-										<FormDescription>
-											Choose whether to update only this specific occurrence or
-											the entire repeating series.
-										</FormDescription>
-									</FormItem>
-								)}
-							/>
-						)}
+					<Form {...form}>
+						<form className="space-y-6" onSubmit={form.handleSubmit(onSubmit)}>
+							{isRecurringInstance && (
+								<FormField
+									control={form.control}
+									name="scope"
+									render={({ field }) => (
+										<FormItem className="space-y-3 rounded-md border bg-muted/50 p-4">
+											<FormLabel className="font-semibold text-base">
+												Recurring Event Options
+											</FormLabel>
+											<FormControl>
+												<RadioGroup
+													className="flex flex-col space-y-1"
+													onValueChange={field.onChange}
+													value={field.value}
+												>
+													<FormItem className="flex items-center space-x-3 space-y-0">
+														<FormControl>
+															<RadioGroupItem value="this" />
+														</FormControl>
+														<FormLabel className="font-normal">
+															Just this instance
+														</FormLabel>
+													</FormItem>
+													<FormItem className="flex items-center space-x-3 space-y-0">
+														<FormControl>
+															<RadioGroupItem value="all" />
+														</FormControl>
+														<FormLabel className="font-normal">
+															All events in the series
+														</FormLabel>
+													</FormItem>
+												</RadioGroup>
+											</FormControl>
+											<FormDescription>
+												Choose whether to update only this specific occurrence
+												or the entire repeating series.
+											</FormDescription>
+										</FormItem>
+									)}
+								/>
+							)}
 
-						<AvailabilityFields form={form} hideModeToggle />
+							<AvailabilityFields form={form} hideModeToggle />
 
-						<div className="flex gap-4">
-							<Button
-								className="flex-1"
-								disabled={updateAvailability.isPending}
-								type="submit"
-							>
-								{updateAvailability.isPending ? "Saving..." : "Save Changes"}
-							</Button>
-							<Button
-								className="shrink-0"
-								disabled={deleteAvailability.isPending}
-								onClick={() => {
-									const targetId =
-										scope === "all" && event.recurringEventId
-											? event.recurringEventId
-											: event.id;
-									const msg =
-										scope === "all"
-											? "Are you sure you want to delete the entire series?"
-											: "Are you sure you want to delete this specific occurrence?";
-									if (confirm(msg)) {
-										deleteAvailability.mutate({ eventId: targetId });
-									}
-								}}
-								type="button"
-								variant="destructive"
-							>
-								<Trash2 className="h-4 w-4" />
-							</Button>
-						</div>
-					</form>
-				</Form>
-			</DialogContent>
-		</Dialog>
+							<div className="flex gap-4">
+								<Button
+									className="flex-1"
+									disabled={updateAvailability.isPending}
+									type="submit"
+								>
+									{updateAvailability.isPending ? "Saving..." : "Save Changes"}
+								</Button>
+								<Button
+									className="shrink-0"
+									disabled={deleteAvailability.isPending}
+									onClick={() => setIsDeleteDialogOpen(true)}
+									type="button"
+									variant="destructive"
+								>
+									<Trash2 className="h-4 w-4" />
+								</Button>
+							</div>
+						</form>
+					</Form>
+				</DialogContent>
+			</Dialog>
+
+			<AlertDialog
+				onOpenChange={setIsDeleteDialogOpen}
+				open={isDeleteDialogOpen}
+			>
+				<AlertDialogContent>
+					<AlertDialogHeader>
+						<AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+						<AlertDialogDescription>
+							{scope === "all"
+								? "Are you sure you want to delete the entire series? This action cannot be undone."
+								: "Are you sure you want to delete this specific occurrence? This action cannot be undone."}
+						</AlertDialogDescription>
+					</AlertDialogHeader>
+					<AlertDialogFooter>
+						<AlertDialogCancel>Cancel</AlertDialogCancel>
+						<AlertDialogAction
+							className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+							onClick={() => {
+								const targetId =
+									scope === "all" && event.recurringEventId
+										? event.recurringEventId
+										: event.id;
+								deleteAvailability.mutate({ eventId: targetId });
+							}}
+						>
+							Delete
+						</AlertDialogAction>
+					</AlertDialogFooter>
+				</AlertDialogContent>
+			</AlertDialog>
+		</>
 	);
 }
