@@ -176,7 +176,7 @@ export function Client({
 						</TabsContent>
 						{client.id.toString().length !== 5 && (
 							<TabsContent value="records">
-								<div className="mb-6 flex min-w-full flex-col items-center gap-6">
+								<div className="mb-6 flex w-full flex-col items-center gap-6">
 									<ClientDetailsCard client={client} truncated />
 
 									{Number(formatClientAge(client.dob, "years")) < 4 && (

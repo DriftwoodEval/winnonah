@@ -453,8 +453,8 @@ export function RecordsNoteEditor({
 
 	return (
 		<div className="w-full">
-			<div className="mb-4 flex h-[16px] flex-row items-center justify-between gap-3">
-				<div className="flex h-[16px] flex-row items-center gap-3">
+			<div className="mb-4 flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
+				<div className="flex flex-wrap items-center gap-3 sm:h-[16px]">
 					<h4 className="font-bold leading-none">School Records</h4>
 					<Tooltip>
 						<TooltipTrigger>
@@ -478,7 +478,7 @@ export function RecordsNoteEditor({
 							</TooltipContent>
 						)}
 					</Tooltip>
-					<Separator orientation="vertical" />
+					<Separator className="hidden h-4 sm:block" orientation="vertical" />
 					<Tooltip>
 						<TooltipTrigger>
 							<DatePicker
@@ -500,7 +500,10 @@ export function RecordsNoteEditor({
 					</Tooltip>
 					{!!firstRequestedDate && (
 						<>
-							<Separator orientation="vertical" />
+							<Separator
+								className="hidden h-4 sm:block"
+								orientation="vertical"
+							/>
 							<Tooltip>
 								<TooltipTrigger>
 									<div className="flex items-center gap-2">
@@ -523,7 +526,10 @@ export function RecordsNoteEditor({
 					)}
 					{(needsSecondRequest || !!secondRequestDate) && (
 						<>
-							<Separator orientation="vertical" />
+							<Separator
+								className="hidden h-4 sm:block"
+								orientation="vertical"
+							/>
 							<Tooltip>
 								<TooltipTrigger>
 									<DatePicker
@@ -553,7 +559,7 @@ export function RecordsNoteEditor({
 						onValueChange={handleTemplateChange}
 						value={detectedTemplateValue ?? ""}
 					>
-						<SelectTrigger className="w-[240px]" size="sm">
+						<SelectTrigger className="w-full sm:w-[240px]" size="sm">
 							<SelectValue placeholder="Use a template..." />
 						</SelectTrigger>
 						<SelectContent>
