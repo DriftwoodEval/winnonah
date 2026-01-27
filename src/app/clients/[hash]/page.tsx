@@ -18,7 +18,7 @@ export default async function Page({
 
 	return (
 		<Guard>
-			<div className="mx-4 my-4 flex grow justify-center">
+			<div className="my-4 flex grow justify-center">
 				<Client hash={hash} />
 			</div>
 		</Guard>
