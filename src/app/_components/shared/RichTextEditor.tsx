@@ -59,7 +59,7 @@ export function RichTextEditor({
 			const newContent = value;
 
 			if (JSON.stringify(currentContent) !== JSON.stringify(newContent)) {
-				editor.commands.setContent(newContent);
+				editor.commands.setContent(newContent, { emitUpdate: false });
 			}
 		}
 	}, [editor, value]);

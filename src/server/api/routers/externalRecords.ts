@@ -246,7 +246,7 @@ export const externalRecordRouter = createTRPCRouter({
 
 				const HISTORY_MERGE_WINDOW = 5 * 60 * 1000; // 5 minutes
 
-				await ctx.db.transaction(async (tx) => {
+				const changed = await ctx.db.transaction(async (tx) => {
 					const currentRecordNote = await tx.query.externalRecords.findFirst({
 						where: eq(externalRecords.clientId, input.clientId),
 					});
@@ -289,40 +289,44 @@ export const externalRecordRouter = createTRPCRouter({
 								"Skipping history log (squash edit)",
 							);
 						}
-					} else {
-						ctx.logger.debug(
-							{ clientId: input.clientId },
-							"No changes detected in note",
-						);
-						return;
-					}
 
-					await tx
-						.update(externalRecords)
-						.set({
-							content: input.contentJson,
-							updatedBy: ctx.session.user.email,
-						})
-						.where(eq(externalRecords.clientId, input.clientId));
-
-					const textContent = extractTextFromTiptapJson(newContent);
-					if (textContent.includes("autism is listed in the records")) {
 						await tx
-							.update(clients)
-							.set({ autismStop: true })
-							.where(eq(clients.id, input.clientId));
+							.update(externalRecords)
+							.set({
+								content: input.contentJson,
+								updatedBy: ctx.session.user.email,
+							})
+							.where(eq(externalRecords.clientId, input.clientId));
+
+						const textContent = extractTextFromTiptapJson(newContent);
+						if (textContent.includes("autism is listed in the records")) {
+							await tx
+								.update(clients)
+								.set({ autismStop: true })
+								.where(eq(clients.id, input.clientId));
+						}
+
+						return true;
 					}
+
+					ctx.logger.debug(
+						{ clientId: input.clientId },
+						"No changes detected in note",
+					);
+					return false;
 				});
 
-				const updatedNote = await ctx.db.query.externalRecords.findFirst({
-					where: eq(externalRecords.clientId, input.clientId),
-				});
-
-				if (updatedNote) {
-					externalRecordsEmitter.emit("externalRecordsNoteUpdate", {
-						clientId: updatedNote.clientId,
-						contentJson: updatedNote.content,
+				if (changed) {
+					const updatedNote = await ctx.db.query.externalRecords.findFirst({
+						where: eq(externalRecords.clientId, input.clientId),
 					});
+
+					if (updatedNote) {
+						externalRecordsEmitter.emit("externalRecordsNoteUpdate", {
+							clientId: updatedNote.clientId,
+							contentJson: updatedNote.content,
+						});
+					}
 				}
 
 				return { success: true };

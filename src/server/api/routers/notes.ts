@@ -106,7 +106,7 @@ export const noteRouter = createTRPCRouter({
 
 				const HISTORY_MERGE_WINDOW = 5 * 60 * 1000; // 5 minutes
 
-				await ctx.db.transaction(async (tx) => {
+				const changed = await ctx.db.transaction(async (tx) => {
 					const currentNote = await tx.query.notes.findFirst({
 						where: eq(notes.clientId, input.clientId),
 					});
@@ -153,42 +153,46 @@ export const noteRouter = createTRPCRouter({
 								"Skipping history log (squash edit)",
 							);
 						}
-					} else {
-						ctx.logger.info(
-							{ clientId: input.clientId },
-							"No changes detected in note",
-						);
-						return;
+
+						const updatePayload: {
+							content?: JSONContent | null;
+							title?: string;
+							updatedBy?: string | null;
+						} = { updatedBy: ctx.session.user.email };
+						if (input.contentJson !== undefined) {
+							updatePayload.content = input.contentJson;
+						}
+						if (input.title !== undefined) {
+							updatePayload.title = input.title;
+						}
+
+						await tx
+							.update(notes)
+							.set(updatePayload)
+							.where(eq(notes.clientId, input.clientId));
+
+						return true;
 					}
 
-					const updatePayload: {
-						content?: JSONContent | null;
-						title?: string;
-						updatedBy?: string | null;
-					} = { updatedBy: ctx.session.user.email };
-					if (input.contentJson !== undefined) {
-						updatePayload.content = input.contentJson;
-					}
-					if (input.title !== undefined) {
-						updatePayload.title = input.title;
-					}
-
-					await tx
-						.update(notes)
-						.set(updatePayload)
-						.where(eq(notes.clientId, input.clientId));
+					ctx.logger.info(
+						{ clientId: input.clientId },
+						"No changes detected in note",
+					);
+					return false;
 				});
 
-				const updatedNote = await ctx.db.query.notes.findFirst({
-					where: eq(notes.clientId, input.clientId),
-				});
-
-				if (updatedNote) {
-					noteEmitter.emit("noteUpdate", {
-						clientId: updatedNote.clientId,
-						contentJson: updatedNote.content as JSONContent | null,
-						title: updatedNote.title,
+				if (changed) {
+					const updatedNote = await ctx.db.query.notes.findFirst({
+						where: eq(notes.clientId, input.clientId),
 					});
+
+					if (updatedNote) {
+						noteEmitter.emit("noteUpdate", {
+							clientId: updatedNote.clientId,
+							contentJson: updatedNote.content as JSONContent | null,
+							title: updatedNote.title,
+						});
+					}
 				}
 
 				return { success: true };
