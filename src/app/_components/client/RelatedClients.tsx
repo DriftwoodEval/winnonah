@@ -66,6 +66,10 @@ export function RelatedClients({
 		},
 	});
 
+	if (!canEdit && (!relatedConnections || relatedConnections.length === 0)) {
+		return null;
+	}
+
 	const handleUnlink = (targetClientId: number) => {
 		unlinkMutation.mutate({ idA: clientId, idB: targetClientId });
 	};
@@ -112,48 +116,46 @@ export function RelatedClients({
 					</CardAction>
 				)}
 			</CardHeader>
-			<CardContent className="flex flex-col gap-1 px-2 pb-2">
-				{relatedConnections && relatedConnections.length > 0 ? (
-					relatedConnections.map((conn) => (
-						<div
-							className="group relative flex items-center rounded-md border bg-muted/30 text-sm transition-colors hover:bg-muted/60"
-							key={conn.relatedClientData.id}
-						>
-							<Link
-								className={cn(
-									"flex flex-1 items-center gap-2 overflow-hidden p-2",
-									canEdit && "pr-9",
-								)}
-								href={`/clients/${conn.relatedClientData.hash}`}
+			{relatedConnections && relatedConnections.length > 0 && (
+				<CardContent className="flex flex-col gap-1 px-2 pb-2">
+					{relatedConnections &&
+						relatedConnections.length > 0 &&
+						relatedConnections.map((conn) => (
+							<div
+								className="group relative flex items-center rounded-md border bg-muted/30 text-sm transition-colors hover:bg-muted/60"
+								key={conn.relatedClientData.id}
 							>
-								<User className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-								<span className="truncate font-medium group-hover:underline">
-									{conn.relatedClientData.fullName}
-								</span>
-							</Link>
-							{canEdit && (
-								<Button
-									className="absolute right-1 h-7 w-7 cursor-pointer opacity-100 transition-all hover:bg-destructive! hover:text-white lg:opacity-0 lg:group-hover:opacity-100"
-									disabled={unlinkMutation.isPending}
-									onClick={(e) => {
-										e.preventDefault();
-										e.stopPropagation();
-										handleUnlink(conn.relatedClientData.id);
-									}}
-									size="icon"
-									variant="ghost"
+								<Link
+									className={cn(
+										"flex flex-1 items-center gap-2 overflow-hidden p-2",
+										canEdit && "pr-9",
+									)}
+									href={`/clients/${conn.relatedClientData.hash}`}
 								>
-									<X className="h-3.5 w-3.5" />
-								</Button>
-							)}
-						</div>
-					))
-				) : (
-					<p className="py-4 text-center text-muted-foreground text-xs italic">
-						No related clients found.
-					</p>
-				)}
-			</CardContent>
+									<User className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+									<span className="truncate font-medium group-hover:underline">
+										{conn.relatedClientData.fullName}
+									</span>
+								</Link>
+								{canEdit && (
+									<Button
+										className="absolute right-1 h-7 w-7 cursor-pointer opacity-100 transition-all hover:bg-destructive! hover:text-white lg:opacity-0 lg:group-hover:opacity-100"
+										disabled={unlinkMutation.isPending}
+										onClick={(e) => {
+											e.preventDefault();
+											e.stopPropagation();
+											handleUnlink(conn.relatedClientData.id);
+										}}
+										size="icon"
+										variant="ghost"
+									>
+										<X className="h-3.5 w-3.5" />
+									</Button>
+								)}
+							</div>
+						))}
+				</CardContent>
+			)}
 		</Card>
 	);
 }
