@@ -1,5 +1,6 @@
 "use client";
 
+import { Alert, AlertDescription, AlertTitle } from "@ui/alert";
 import { Button } from "@ui/button";
 import { Calendar } from "@ui/calendar";
 import { Checkbox } from "@ui/checkbox";
@@ -19,7 +20,7 @@ import { RadioGroup, RadioGroupItem } from "@ui/radio-group";
 import { Separator } from "@ui/separator";
 import { Switch } from "@ui/switch";
 import { add, format, sub } from "date-fns";
-import { CalendarIcon } from "lucide-react";
+import { AlertCircle, CalendarIcon } from "lucide-react";
 import type { UseFormReturn } from "react-hook-form";
 import {
 	type AvailabilityFormValues,
@@ -50,6 +51,17 @@ export function AvailabilityFields({
 
 	return (
 		<div className="space-y-6">
+			{outOfOfficePriority && (
+				<Alert variant="destructive">
+					<AlertCircle className="h-4 w-4" />
+					<AlertTitle>Out of Office Priority</AlertTitle>
+					<AlertDescription>
+						Out of Office priority is enabled for your account. You can only
+						declare unavailability at this time.
+					</AlertDescription>
+				</Alert>
+			)}
+
 			{!hideModeToggle && (
 				<FormField
 					control={form.control}
@@ -65,11 +77,9 @@ export function AvailabilityFields({
 								<FormDescription
 									className={field.value ? "text-destructive" : "text-primary"}
 								>
-									{outOfOfficePriority
-										? "Out of Office priority enabled. Only Out of Office events can be created."
-										: field.value
-											? "You are declaring unavailability."
-											: "You are declaring availability."}
+									{field.value
+										? "You are declaring unavailability."
+										: "You are declaring availability."}
 								</FormDescription>
 							</div>
 							<FormControl>
