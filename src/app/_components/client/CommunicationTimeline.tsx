@@ -24,7 +24,7 @@ export function CommunicationTimeline({
 }: {
 	phoneNumber: string;
 }) {
-	const containerRef = useRef<HTMLDivElement>(null);
+	const bottomRef = useRef<HTMLDivElement>(null);
 	const {
 		data: timeline,
 		isLoading,
@@ -37,11 +37,8 @@ export function CommunicationTimeline({
 	);
 
 	useEffect(() => {
-		if (timeline && timeline.length > 0 && containerRef.current) {
-			const viewport = containerRef.current.parentElement;
-			if (viewport) {
-				viewport.scrollTop = viewport.scrollHeight;
-			}
+		if (timeline && timeline.length > 0) {
+			bottomRef.current?.scrollIntoView({ block: "end" });
 		}
 	}, [timeline]);
 
@@ -75,7 +72,7 @@ export function CommunicationTimeline({
 					</div>
 				) : (
 					<ScrollArea className="h-[500px]">
-						<div className="flex flex-col gap-2" ref={containerRef}>
+						<div className="flex flex-col gap-2">
 							{timeline.map((event: TimelineEvent, _index: number) => (
 								<div className="flex flex-col gap-1" key={event.id}>
 									{event.type === "message" ? (
@@ -92,7 +89,7 @@ export function CommunicationTimeline({
 													"relative max-w-[95%] rounded-lg px-2 pt-1 pb-2",
 													event.direction === "incoming"
 														? "rounded-tl-none bg-muted text-foreground"
-														: "rounded-tr-none bg-primary text-primary-foreground",
+														: "rounded-tr-none bg-accent text-accent-foreground",
 												)}
 											>
 												<p className="mb-1 whitespace-pre-wrap text-[11px] leading-tight">
@@ -104,7 +101,7 @@ export function CommunicationTimeline({
 															"text-[10px]",
 															event.direction === "incoming"
 																? "text-foreground/50"
-																: "text-primary-foreground/50",
+																: "text-accent-foreground/50",
 														)}
 													>
 														{format(
@@ -166,9 +163,10 @@ export function CommunicationTimeline({
 												</span>
 											</div>
 										</div>
-									)}{" "}
+									)}
 								</div>
 							))}
+							<div ref={bottomRef} />
 						</div>
 					</ScrollArea>
 				)}
