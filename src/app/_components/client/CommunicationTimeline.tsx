@@ -37,8 +37,13 @@ export function CommunicationTimeline({
 	);
 
 	useEffect(() => {
-		if (timeline && timeline.length > 0) {
-			bottomRef.current?.scrollIntoView({ block: "end" });
+		if (timeline && timeline.length > 0 && bottomRef.current) {
+			const viewport = bottomRef.current.closest(
+				'[data-slot="scroll-area-viewport"]',
+			);
+			if (viewport) {
+				viewport.scrollTop = viewport.scrollHeight;
+			}
 		}
 	}, [timeline]);
 
@@ -71,7 +76,7 @@ export function CommunicationTimeline({
 						No history found.
 					</div>
 				) : (
-					<ScrollArea className="h-[500px]">
+					<ScrollArea className="h-[400px] lg:h-[500px]">
 						<div className="flex flex-col gap-2">
 							{timeline.map((event: TimelineEvent, _index: number) => (
 								<div className="flex flex-col gap-1" key={event.id}>
