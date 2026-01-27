@@ -11,7 +11,6 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from "@ui/select";
-import { Separator } from "@ui/separator";
 import { Skeleton } from "@ui/skeleton";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@ui/tooltip";
 import { debounce, isEqual } from "lodash";
@@ -454,7 +453,7 @@ export function RecordsNoteEditor({
 	return (
 		<div className="w-full">
 			<div className="mb-4 flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
-				<div className="flex flex-wrap items-center gap-3 sm:h-[16px]">
+				<div className="flex flex-wrap items-center gap-3">
 					<h4 className="font-bold leading-none">School Records</h4>
 					<Tooltip>
 						<TooltipTrigger>
@@ -478,7 +477,6 @@ export function RecordsNoteEditor({
 							</TooltipContent>
 						)}
 					</Tooltip>
-					<Separator className="hidden h-4 sm:block" orientation="vertical" />
 					<Tooltip>
 						<TooltipTrigger>
 							<DatePicker
@@ -499,57 +497,45 @@ export function RecordsNoteEditor({
 						)}
 					</Tooltip>
 					{!!firstRequestedDate && (
-						<>
-							<Separator
-								className="hidden h-4 sm:block"
-								orientation="vertical"
-							/>
-							<Tooltip>
-								<TooltipTrigger>
-									<div className="flex items-center gap-2">
-										<Checkbox
-											checked={needsSecondRequest}
-											disabled={!canEditSecondNeeded}
-											id={secondNeededId}
-											onCheckedChange={handleNeedsSecondRequestChange}
-										/>
-										<Label htmlFor={secondNeededId}>Request Again?</Label>
-									</div>
-								</TooltipTrigger>
-								{!canEditSecondNeeded && !readOnly && (
-									<TooltipContent>
-										<p>{tooltipSecondNeeded}</p>
-									</TooltipContent>
-								)}
-							</Tooltip>
-						</>
+						<Tooltip>
+							<TooltipTrigger>
+								<div className="flex items-center gap-2">
+									<Checkbox
+										checked={needsSecondRequest}
+										disabled={!canEditSecondNeeded}
+										id={secondNeededId}
+										onCheckedChange={handleNeedsSecondRequestChange}
+									/>
+									<Label htmlFor={secondNeededId}>Request Again?</Label>
+								</div>
+							</TooltipTrigger>
+							{!canEditSecondNeeded && !readOnly && (
+								<TooltipContent>
+									<p>{tooltipSecondNeeded}</p>
+								</TooltipContent>
+							)}
+						</Tooltip>
 					)}
 					{(needsSecondRequest || !!secondRequestDate) && (
-						<>
-							<Separator
-								className="hidden h-4 sm:block"
-								orientation="vertical"
-							/>
-							<Tooltip>
-								<TooltipTrigger>
-									<DatePicker
-										allowClear={canEditSecondDate && !!secondRequestDate}
-										date={secondRequestDate}
-										disabled={!canEditSecondDate}
-										flexDirection="flex-row"
-										id={secondRequestedId}
-										label="Requested (2nd)"
-										placeholder="Pick date"
-										setDate={handleSecondRequestedDateChange}
-									/>
-								</TooltipTrigger>
-								{!canEditSecondDate && !readOnly && (
-									<TooltipContent>
-										<p>{tooltipSecondDate}</p>
-									</TooltipContent>
-								)}
-							</Tooltip>
-						</>
+						<Tooltip>
+							<TooltipTrigger>
+								<DatePicker
+									allowClear={canEditSecondDate && !!secondRequestDate}
+									date={secondRequestDate}
+									disabled={!canEditSecondDate}
+									flexDirection="flex-row"
+									id={secondRequestedId}
+									label="Requested (2nd)"
+									placeholder="Pick date"
+									setDate={handleSecondRequestedDateChange}
+								/>
+							</TooltipTrigger>
+							{!canEditSecondDate && !readOnly && (
+								<TooltipContent>
+									<p>{tooltipSecondDate}</p>
+								</TooltipContent>
+							)}
+						</Tooltip>
 					)}
 				</div>
 

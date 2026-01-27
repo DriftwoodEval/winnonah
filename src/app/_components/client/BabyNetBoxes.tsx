@@ -1,7 +1,6 @@
 import type { CheckedState } from "@radix-ui/react-checkbox";
 import { Checkbox } from "@ui/checkbox";
 import { Label } from "@ui/label";
-import { Separator } from "@ui/separator";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@ui/tooltip";
 import { useEffect, useId, useState } from "react";
 import { toast } from "sonner";
@@ -110,7 +109,7 @@ export function BabyNetBoxes({
 	return (
 		<div className="w-full">
 			<h4 className="mb-2 font-bold leading-none">BabyNet Evaluation Report</h4>
-			<div className="flex flex-row flex-wrap items-center gap-3 sm:h-[16px]">
+			<div className="flex flex-row flex-wrap items-center gap-3">
 				<Tooltip>
 					<TooltipTrigger>
 						<div className="flex items-center gap-2">
@@ -129,8 +128,6 @@ export function BabyNetBoxes({
 						</TooltipContent>
 					)}
 				</Tooltip>
-
-				<Separator className="hidden h-4 sm:block" orientation="vertical" />
 
 				<Tooltip>
 					<TooltipTrigger>
