@@ -380,8 +380,7 @@ export function RecordsNoteEditor({
 	};
 
 	const isLoading = isLoadingRecord || isLoadingClient;
-	const canEditRecordsNeeded =
-		canRecordsNeeded && !readOnly && !firstRequestedDate;
+	const canEditRecordsNeeded = canRecordsNeeded && !readOnly;
 	const canEditFirstDate =
 		canRecordRequested && !readOnly && recordsNeeded === "Needed";
 	const canEditSecondNeeded =
@@ -400,20 +399,21 @@ export function RecordsNoteEditor({
 		recordsNeeded !== "Needed" ||
 		!firstRequestedDate;
 
-	const tooltipRecordsNeeded = firstRequestedDate
-		? "The request date is already set."
-		: !canRecordNote && "Missing permissions.";
+	const tooltipRecordsNeeded = !canRecordNote && "Missing permissions.";
 
-	const tooltipFirstDate =
-		recordsNeeded !== "Needed"
-			? "The 'Needed' flag must be set first."
+	const tooltipFirstDate = !recordsNeeded
+		? "The 'Needed' flag must be set first."
+		: recordsNeeded !== "Needed"
+			? "Records aren't needed."
 			: !canRecordNote && "Missing permissions.";
 
 	const tooltipSecondNeeded = !firstRequestedDate
 		? "The first request date must be set before requesting again."
 		: secondRequestDate
 			? "The second request date is already set."
-			: !canRecordNote && "Missing permissions .";
+			: recordsNeeded !== "Needed"
+				? "Records aren't needed."
+				: !canRecordNote && "Missing permissions .";
 
 	const tooltipSecondDate = !needsSecondRequest
 		? "The 'Second Request?' flag must be checked first."
@@ -452,7 +452,7 @@ export function RecordsNoteEditor({
 
 	return (
 		<div className="w-full">
-			<div className="mb-4 flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
+			<div className="mb-4 flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
 				<div className="flex flex-wrap items-center gap-3">
 					<h4 className="font-bold leading-none">School Records</h4>
 					<Tooltip>
