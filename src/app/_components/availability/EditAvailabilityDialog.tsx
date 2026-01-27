@@ -59,6 +59,7 @@ export function EditAvailabilityDialog({
 			startDate: event.start,
 			endDate: event.end,
 			isUnavailability: event.isUnavailability,
+			isAllDay: event.isAllDay,
 			isRecurring: !!event.recurrence && event.recurrence.length > 0,
 			recurrenceFreq: "never",
 			interval: 1,
@@ -133,6 +134,7 @@ export function EditAvailabilityDialog({
 				startDate: event.start,
 				endDate: event.end,
 				isUnavailability: event.isUnavailability,
+				isAllDay: event.isAllDay,
 				isRecurring: isRecurring,
 				recurrenceFreq: recurrenceFreq,
 				interval: interval,
@@ -194,6 +196,7 @@ export function EditAvailabilityDialog({
 			isRecurring: isRecurringVal,
 			recurrenceRule,
 			isUnavailability: values.isUnavailability,
+			isAllDay: values.isAllDay,
 			officeKeys: values.officeKeys,
 		});
 	}
