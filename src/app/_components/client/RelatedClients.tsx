@@ -94,7 +94,7 @@ export function RelatedClients({
 								<DialogHeader>
 									<DialogTitle>Link Related Client</DialogTitle>
 								</DialogHeader>
-								<div className="flex flex-col gap-4 py-4">
+								<div className="flex min-h-[440px] flex-col gap-4 py-4">
 									<ClientSearchAndAdd
 										addButtonLabel="Link"
 										excludeIds={[

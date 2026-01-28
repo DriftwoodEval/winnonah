@@ -26,9 +26,11 @@ export function AddClientToScheduling({
 			<ClientSearchAndAdd
 				addButtonLabel="Add"
 				excludeIds={scheduledClientIds}
+				floating={true}
 				isAdding={addClientMutation.isPending}
 				onAdd={(client) => addClientMutation.mutate({ clientId: client.id })}
 				placeholder="Search for a client to add..."
+				resetOnAdd={true}
 			/>
 		</div>
 	);
