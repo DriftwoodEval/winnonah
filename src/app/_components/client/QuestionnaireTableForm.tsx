@@ -88,6 +88,22 @@ interface QuestionnaireFormProps {
 	externalOnly?: boolean;
 }
 
+const noCheck = "Will not be checked on, no reminders will be sent.";
+const noRemind = "No reminders will be sent.";
+
+const QUESTIONNAIRE_STATUS_DESCRIPTIONS: Partial<
+	Record<(typeof QUESTIONNAIRE_STATUSES)[number], string>
+> = {
+	PENDING: "Reminders with 'ready to schedule' wording will be sent.",
+	POSTEVAL_PENDING:
+		"Reminders with 'additional info needed' wording will be sent.",
+	IGNORING: `${noRemind} Will remind admins to check on.`,
+	SPANISH: noRemind,
+	LANGUAGE: noCheck,
+	TEACHER: noCheck,
+	EXTERNAL: noCheck,
+};
+
 export function QuestionnaireTableForm({
 	clientId,
 	initialData,
@@ -261,7 +277,7 @@ export function QuestionnaireTableForm({
 								>
 									<FormControl>
 										<SelectTrigger>
-											<SelectValue placeholder="Select a verified email to display" />
+											<SelectValue placeholder="Select a status" />
 										</SelectTrigger>
 									</FormControl>
 									<SelectContent>
@@ -271,7 +287,13 @@ export function QuestionnaireTableForm({
 													status !== "ARCHIVED" && status !== "JUST_ADDED",
 											)
 											.map((status) => (
-												<SelectItem key={status} value={status}>
+												<SelectItem
+													description={
+														QUESTIONNAIRE_STATUS_DESCRIPTIONS[status]
+													}
+													key={status}
+													value={status}
+												>
 													{status === "POSTEVAL_PENDING"
 														? "Post-Eval, Pending"
 														: `${status.charAt(0).toUpperCase()}${status.slice(1).toLowerCase()}`}
