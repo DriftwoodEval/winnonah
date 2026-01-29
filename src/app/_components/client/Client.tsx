@@ -4,6 +4,7 @@ import { Alert, AlertDescription, AlertTitle } from "@ui/alert";
 import { Skeleton } from "@ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@ui/tabs";
 import { Clock, FileText, MapPinOff } from "lucide-react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import type { ClientColor } from "~/lib/colors";
@@ -30,6 +31,18 @@ export function Client({
 	hash: string;
 	readOnly?: boolean;
 }) {
+	const router = useRouter();
+	const pathname = usePathname();
+	const searchParams = useSearchParams();
+
+	const activeTab = searchParams.get("tab") ?? "info";
+
+	const handleTabChange = (value: string) => {
+		const params = new URLSearchParams(searchParams.toString());
+		params.set("tab", value);
+		router.push(`${pathname}?${params.toString()}`);
+	};
+
 	const {
 		data: client,
 		isLoading: isLoadingClient,
@@ -111,7 +124,11 @@ export function Client({
 							title="Dorchester District 4"
 						/>
 
-						<Tabs className="w-full" defaultValue="info">
+						<Tabs
+							className="w-full"
+							onValueChange={handleTabChange}
+							value={activeTab}
+						>
 							{client.id.toString().length !== 5 && (
 								<TabsList className="w-full">
 									<TabsTrigger value="info">Info</TabsTrigger>

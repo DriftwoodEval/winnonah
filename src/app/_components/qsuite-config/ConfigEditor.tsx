@@ -41,6 +41,7 @@ import { Separator } from "@ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@ui/tabs";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@ui/tooltip";
 import { Info, Loader2, Lock, LockOpen, Plus, Trash2 } from "lucide-react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import {
 	type Control,
@@ -436,6 +437,18 @@ function KeyValueList<T extends FieldValues, Name extends FieldArrayPath<T>>({
 // --- Main Page Component ---
 
 export function ConfigEditor() {
+	const router = useRouter();
+	const pathname = usePathname();
+	const searchParams = useSearchParams();
+
+	const activeTab = searchParams.get("tab") ?? "general";
+
+	const handleTabChange = (value: string) => {
+		const params = new URLSearchParams(searchParams.toString());
+		params.set("tab", value);
+		router.push(`${pathname}?${params.toString()}`);
+	};
+
 	const utils = api.useUtils();
 	const { data: config, isLoading } = api.pyConfig.get.useQuery();
 	const mutation = api.pyConfig.update.useMutation({
@@ -589,7 +602,11 @@ export function ConfigEditor() {
 				</Button>
 			</div>
 			<Form {...form}>
-				<Tabs className="w-full" defaultValue="general">
+				<Tabs
+					className="w-full"
+					onValueChange={handleTabChange}
+					value={activeTab}
+				>
 					<TabsList className="grid w-full grid-cols-4">
 						{["General", "Services", "Records", "Piecework"].map((t) => (
 							<TabsTrigger key={t} value={t.toLowerCase()}>

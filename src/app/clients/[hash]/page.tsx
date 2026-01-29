@@ -1,4 +1,5 @@
 import { Client } from "@components/client/Client";
+import { Suspense } from "react";
 import { Guard } from "~/app/_components/layout/Guard";
 import { logger } from "~/lib/logger";
 import { auth } from "~/server/auth";
@@ -19,7 +20,9 @@ export default async function Page({
 	return (
 		<Guard>
 			<div className="my-4 flex grow justify-center">
-				<Client hash={hash} />
+				<Suspense>
+					<Client hash={hash} />
+				</Suspense>
 			</div>
 		</Guard>
 	);

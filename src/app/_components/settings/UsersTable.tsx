@@ -46,6 +46,7 @@ import {
 } from "@ui/table";
 import { MoreHorizontal } from "lucide-react";
 import Link from "next/link";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
@@ -385,6 +386,18 @@ function UsersTableActionsMenu({ user }: { user: User }) {
 }
 
 export default function UsersTable() {
+	const router = useRouter();
+	const pathname = usePathname();
+	const searchParams = useSearchParams();
+
+	const activeTab = searchParams.get("usersTab") ?? "active";
+
+	const handleTabChange = (value: string) => {
+		const params = new URLSearchParams(searchParams.toString());
+		params.set("usersTab", value);
+		router.push(`${pathname}?${params.toString()}`);
+	};
+
 	const can = useCheckPermission();
 	const canEdit = can("settings:users:edit");
 
@@ -404,7 +417,7 @@ export default function UsersTable() {
 	return (
 		<div className="px-4">
 			<h3 className="pb-4 font-bold text-lg">Users</h3>
-			<Tabs defaultValue="active">
+			<Tabs onValueChange={handleTabChange} value={activeTab}>
 				<TabsList>
 					<TabsTrigger value="active">Active Users</TabsTrigger>
 					<TabsTrigger value="archived">Archived Users</TabsTrigger>

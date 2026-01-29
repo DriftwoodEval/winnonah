@@ -5,6 +5,7 @@ import { Table, TableBody, TableHeader } from "@components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@components/ui/tabs";
 import { Skeleton } from "@ui/skeleton";
 import { ArchiveRestore, Loader2, X } from "lucide-react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { ScheduledClient } from "~/lib/api-types";
@@ -453,8 +454,24 @@ function ArchivedSchedulingTable() {
 }
 
 export function SchedulingTable() {
+	const router = useRouter();
+	const pathname = usePathname();
+	const searchParams = useSearchParams();
+
+	const activeTab = searchParams.get("tab") ?? "active";
+
+	const handleTabChange = (value: string) => {
+		const params = new URLSearchParams(searchParams.toString());
+		params.set("tab", value);
+		router.push(`${pathname}?${params.toString()}`);
+	};
+
 	return (
-		<Tabs className="flex h-full flex-col" defaultValue="active">
+		<Tabs
+			className="flex h-full flex-col"
+			onValueChange={handleTabChange}
+			value={activeTab}
+		>
 			<TabsList className="shrink-0">
 				<TabsTrigger value="active">Active</TabsTrigger>
 				<TabsTrigger value="archived">Archived</TabsTrigger>
