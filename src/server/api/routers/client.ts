@@ -554,6 +554,19 @@ export const clientRouter = createTRPCRouter({
 		return autismStops;
 	}),
 
+	getMissingRecordsNeeded: protectedProcedure.query(async ({ ctx }) => {
+		const clientsWithoutRecordsNeeded = await ctx.db.query.clients.findMany({
+			where: and(
+				isNull(clients.recordsNeeded),
+				eq(clients.status, true),
+				not(isNoteOnly),
+			),
+			orderBy: clients.addedDate,
+		});
+
+		return clientsWithoutRecordsNeeded;
+	}),
+
 	getUnreviewedRecords: protectedProcedure.query(async ({ ctx }) => {
 		const threeDaysAgo = sql`DATE_SUB(CURRENT_TIMESTAMP(), INTERVAL 3 DAY)`;
 

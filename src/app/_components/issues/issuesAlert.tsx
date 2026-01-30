@@ -52,6 +52,9 @@ export function IssuesAlert() {
 		queryOptions,
 	);
 
+	const { data: missingRecordsNeeded } =
+		api.clients.getMissingRecordsNeeded.useQuery(undefined, queryOptions);
+
 	const { data: dd4 } = api.clients.getDD4.useQuery(undefined, queryOptions);
 
 	const { data: possiblePrivatePay } =
@@ -80,6 +83,7 @@ export function IssuesAlert() {
 		(noteOnlyClients?.length ?? 0) +
 		(duplicateFolderNames?.data.length ?? 0) +
 		(noDriveIds?.length ?? 0) +
+		(missingRecordsNeeded?.length ?? 0) +
 		(dd4?.length ?? 0) +
 		(possiblePrivatePay?.length ?? 0) +
 		(unreviewedRecords?.length ?? 0) +

@@ -724,6 +724,10 @@ export function IssuesList() {
 	const { data: noDriveIds, isLoading: isLoadingNoDriveIds } =
 		api.clients.getNoDriveIdErrors.useQuery();
 	const {
+		data: missingRecordsNeeded,
+		isLoading: isLoadingMissingRecordsNeeded,
+	} = api.clients.getMissingRecordsNeeded.useQuery();
+	const {
 		data: duplicateFolderNames,
 		isLoading: isLoadingDuplicateFolderNames,
 	} = api.google.findDuplicates.useQuery();
@@ -849,6 +853,15 @@ export function IssuesList() {
 					<IssueList
 						clients={possiblePrivatePay}
 						title="Potential Private Pay"
+					/>
+				)}
+			{isLoadingMissingRecordsNeeded && <IssueListSkeleton />}
+			{!isLoadingMissingRecordsNeeded &&
+				missingRecordsNeeded &&
+				missingRecordsNeeded.length !== 0 && (
+					<IssueList
+						clients={missingRecordsNeeded}
+						title="Records Needed Not Set"
 					/>
 				)}
 			{unreviewedRecords && unreviewedRecords.length !== 0 && (
