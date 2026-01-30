@@ -12,7 +12,10 @@ import {
 import Providers from "./providers";
 
 export const metadata: Metadata = {
-	title: "Winnonah",
+	title: {
+		default: "Winnonah",
+		template: "%s | Winnonah",
+	},
 	description: "Winnonah",
 	icons: [{ rel: "icon", url: "/favicon.png" }],
 };

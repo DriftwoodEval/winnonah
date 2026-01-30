@@ -2,6 +2,11 @@ import CostCalculator from "@components/calculator/CostCalculator";
 import TimeCalculator from "@components/calculator/TimeCalculator";
 import UnitCalculator from "@components/calculator/UnitCalculator";
 import { Guard } from "@components/layout/Guard";
+import type { Metadata } from "next";
+
+export const metadata: Metadata = {
+	title: "Calculator",
+};
 
 export default async function Page() {
 	return (

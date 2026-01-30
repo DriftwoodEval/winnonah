@@ -1,10 +1,15 @@
 import { Client } from "@components/client/Client";
+import type { Metadata } from "next";
 import { Suspense } from "react";
 import { Guard } from "~/app/_components/layout/Guard";
 import { logger } from "~/lib/logger";
 import { auth } from "~/server/auth";
 
 const log = logger.child({ module: "ClientPage" });
+
+export const metadata: Metadata = {
+	title: "Client Details",
+};
 
 export default async function Page({
 	params,

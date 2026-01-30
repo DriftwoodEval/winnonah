@@ -1,5 +1,10 @@
 import { IssuesList } from "@components/issues/issuesList";
 import { Guard } from "@components/layout/Guard";
+import type { Metadata } from "next";
+
+export const metadata: Metadata = {
+	title: "Issues",
+};
 
 export default async function Page() {
 	return (
