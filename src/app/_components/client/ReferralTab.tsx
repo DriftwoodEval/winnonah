@@ -164,10 +164,18 @@ export function ReferralTab({ client, readOnly }: ReferralTabProps) {
 							your referral and wanted to ask you some questions to get started
 							on our process.
 						</p>
+						<p>
+							I just want to confirm you and/or your pediatrician have concerns
+							about potential{" "}
+							{asdAdhdValue
+								.replace("ASD", "autism")
+								.replace("LD", "learning disability")}
+							.
+						</p>
 						{!isAdhd && (
 							<p>
-								Has the child started school yet? Do they have an IEP or 504
-								plan?
+								Has the child been evaluated at school? Do they have an IEP or
+								504 plan?
 							</p>
 						)}
 					</div>
@@ -233,9 +241,6 @@ export function ReferralTab({ client, readOnly }: ReferralTabProps) {
 
 					<div className="flex flex-col gap-2 rounded-lg bg-muted p-4 text-sm">
 						<p>
-							I just want to confirm you have concerns about {asdAdhdValue}.
-						</p>
-						<p>
 							We would like to set you up in our Patient Portal. To do that, we
 							need to send you an email. Can I please have your email address?
 						</p>
@@ -293,20 +298,10 @@ export function ReferralTab({ client, readOnly }: ReferralTabProps) {
 								</>
 							) : (
 								<>
-									{schoolIepStatus === "yes" && (
-										<p>
-											We will request records from the school district and then
-											be in touch to discuss next steps.
-										</p>
-									)}
-									{schoolIepStatus === "no" && (
-										<p>
-											We will send you a questionnaire through the portal soon.
-											Look for a new message, which is usually in the upper
-											right hand corner of the screen. You will also get an
-											email telling you that you have a new message.
-										</p>
-									)}
+									<p>
+										We will request records from the school district and then be
+										in touch to discuss next steps.
+									</p>
 									<p>
 										Generally, we will schedule an intake appointment via
 										Telehealth. From there, we will request approval from
