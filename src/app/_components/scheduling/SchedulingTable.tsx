@@ -127,25 +127,41 @@ function getScheduledClientDisplayValues(
 
 // --- Internal Hooks ---
 
-function useTableScroll() {
+function useTableScroll(storageKey?: string, isReady?: boolean) {
 	const [isScrolledLeft, setIsScrolledLeft] = useState(false);
 	const [isScrolledTop, setIsScrolledTop] = useState(false);
 	const tableRef = useRef<HTMLDivElement>(null);
 
 	useEffect(() => {
 		const table = tableRef.current;
-		if (!table) return;
+		if (!table || !isReady) return;
+
+		if (storageKey) {
+			const saved = sessionStorage.getItem(storageKey);
+			if (saved) {
+				const { left, top } = JSON.parse(saved);
+				table.scrollLeft = left;
+				table.scrollTop = top;
+			}
+		}
 
 		const handleScroll = () => {
 			setIsScrolledLeft(table.scrollLeft > 0);
 			setIsScrolledTop(table.scrollTop > 0);
+
+			if (storageKey) {
+				sessionStorage.setItem(
+					storageKey,
+					JSON.stringify({ left: table.scrollLeft, top: table.scrollTop }),
+				);
+			}
 		};
 
 		handleScroll();
 
 		table.addEventListener("scroll", handleScroll);
 		return () => table.removeEventListener("scroll", handleScroll);
-	}, []);
+	}, [storageKey, isReady]);
 
 	return { isScrolledLeft, isScrolledTop, tableRef };
 }
@@ -871,7 +887,6 @@ function InternalSchedulingTable({
 	actionVariant,
 	isActionPending,
 }: InternalSchedulingTableProps) {
-	const { isScrolledLeft, isScrolledTop, tableRef } = useTableScroll();
 	const {
 		filteredClients,
 		filters,
@@ -886,6 +901,11 @@ function InternalSchedulingTable({
 		offices,
 		districts,
 		insurances,
+	);
+
+	const { isScrolledLeft, isScrolledTop, tableRef } = useTableScroll(
+		`scheduling-scroll-${type}`,
+		isInitialized,
 	);
 
 	if (!isInitialized) {
