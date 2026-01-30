@@ -9,14 +9,15 @@ import {
 	Plus_Jakarta_Sans,
 	Source_Serif_4,
 } from "next/font/google";
+import { env } from "~/env";
 import Providers from "./providers";
 
 export const metadata: Metadata = {
 	title: {
-		default: "Winnonah",
-		template: "%s | Winnonah",
+		default: env.NEXT_PUBLIC_APP_TITLE,
+		template: `%s | ${env.NEXT_PUBLIC_APP_TITLE}`,
 	},
-	description: "Winnonah",
+	description: env.NEXT_PUBLIC_APP_TITLE,
 	icons: [{ rel: "icon", url: "/favicon.png" }],
 };
 

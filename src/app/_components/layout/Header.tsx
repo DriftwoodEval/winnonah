@@ -1,9 +1,10 @@
 import Link from "next/link";
+import { env } from "~/env";
 import { HeaderActions } from "./HeaderActions";
 import NavigationLinks from "./NavigationLinks";
 
 export async function Header() {
-	const title = "Winnonah";
+	const title = env.NEXT_PUBLIC_APP_TITLE;
 
 	return (
 		<header className="fixed top-0 z-50 flex h-10 w-full items-center justify-between bg-background">

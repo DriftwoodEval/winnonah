@@ -36,7 +36,8 @@ export const env = createEnv({
 	 * `NEXT_PUBLIC_`.
 	 */
 	client: {
-		// NEXT_PUBLIC_CLIENTVAR: z.string(),
+		NEXT_PUBLIC_APP_TITLE: z.string(),
+		NEXT_PUBLIC_APP_DOMAIN: z.string(),
 	},
 
 	/**
@@ -55,6 +56,9 @@ export const env = createEnv({
 		REDIS_HOST: process.env.REDIS_HOST,
 		OPENPHONE_API_TOKEN: process.env.OPENPHONE_API_TOKEN,
 		OPENPHONE_NUMBER_ID: process.env.OPENPHONE_NUMBER_ID,
+		NEXT_PUBLIC_APP_TITLE: process.env.NEXT_PUBLIC_APP_TITLE ?? "Winnonah",
+		NEXT_PUBLIC_APP_DOMAIN:
+			process.env.NEXT_PUBLIC_APP_DOMAIN ?? "winnonah.xyz",
 	},
 	/**
 	 * Run `build` or `dev` with `SKIP_ENV_VALIDATION` to skip env validation. This is especially

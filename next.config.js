@@ -29,13 +29,15 @@ const branchName = getGitInfo(
 	"NEXT_PUBLIC_GIT_BRANCH",
 );
 
+const appDomain = process.env.NEXT_PUBLIC_APP_DOMAIN || "winnonah.xyz";
+
 /** @type {import("next").NextConfig} */
 const config = {
 	env: {
 		NEXT_PUBLIC_GIT_BRANCH: branchName,
 		NEXT_PUBLIC_COMMIT_HASH: commitHash,
 	},
-	allowedDevOrigins: ["winnonah.xyz", "*.winnonah.xyz"],
+	allowedDevOrigins: [appDomain, `*.${appDomain}`],
 	output: "standalone",
 	serverExternalPackages: ["pino", "pino-pretty"],
 	experimental: {
