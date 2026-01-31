@@ -19,11 +19,12 @@ import { api } from "~/trpc/react";
 
 interface IssueListProps {
 	title: string;
+	description?: string;
 	clients: ClientWithIssueInfo[];
 	action?: React.ReactNode;
 }
 
-const IssueList = ({ title, clients, action }: IssueListProps) => {
+const IssueList = ({ title, description, clients, action }: IssueListProps) => {
 	const utils = api.useUtils();
 	const savedClientRef = useRef<HTMLDivElement>(null);
 	const savedPlaceKey = title
@@ -106,13 +107,13 @@ const IssueList = ({ title, clients, action }: IssueListProps) => {
 			>
 				<div className="p-4">
 					<div className="flex items-center justify-between gap-4">
-						<h1 className="mb-4 font-bold text-lg leading-none">
+						<h1 className="mb-1 font-bold text-lg leading-none">
 							{title}{" "}
 							<span className="font-medium text-muted-foreground text-sm">
 								({clients.length})
 							</span>
 						</h1>
-						<div className="mb-4 flex items-center gap-2">
+						<div className="mb-1 flex items-center gap-2">
 							{savedPlaceKey && savedPlaceHash && (
 								<Button
 									aria-label="Scroll to saved client"
@@ -129,6 +130,9 @@ const IssueList = ({ title, clients, action }: IssueListProps) => {
 							{action && <div>{action}</div>}
 						</div>
 					</div>
+					{description && (
+						<p className="mb-4 text-muted-foreground text-xs">{description}</p>
+					)}
 					{clients.map((client, index) => (
 						<div
 							className="scroll-mt-12"
@@ -204,9 +208,11 @@ const IssueList = ({ title, clients, action }: IssueListProps) => {
 
 const PunchlistIssueList = ({
 	title,
+	description,
 	clients,
 }: {
 	title: string;
+	description?: string;
 	clients: PUNCH_SCHEMA[];
 }) => {
 	const utils = api.useUtils();
@@ -291,13 +297,13 @@ const PunchlistIssueList = ({
 			>
 				<div className="p-4">
 					<div className="flex items-center justify-between gap-4">
-						<h1 className="mb-4 font-bold text-lg leading-none">
+						<h1 className="mb-1 font-bold text-lg leading-none">
 							{title}{" "}
 							<span className="font-medium text-muted-foreground text-sm">
 								({clients.length})
 							</span>
 						</h1>
-						<div className="mb-4 flex items-center gap-2">
+						<div className="mb-1 flex items-center gap-2">
 							{savedPlaceKey && savedPlaceHash && (
 								<Button
 									aria-label="Scroll to saved client"
@@ -313,6 +319,9 @@ const PunchlistIssueList = ({
 							)}
 						</div>
 					</div>
+					{description && (
+						<p className="mb-4 text-muted-foreground text-xs">{description}</p>
+					)}
 					{clients.map((client, index) => (
 						<div
 							className="scroll-mt-12"
@@ -473,8 +482,7 @@ const DuplicateDriveFoldersList = ({
 							</span>
 						</p>
 						<p className="max-w-md text-muted-foreground text-sm">
-							This list updates every 12 hours. You can force a request with the
-							button on the right, expect it to take 10+ seconds.
+							Multiple Google Drive folders found for the same client ID.
 						</p>
 					</div>
 					<div className="flex flex-col gap-4">
@@ -535,13 +543,16 @@ const ClientsSharingQuestionnaires = ({
 				type="auto"
 			>
 				<div className="p-4">
-					<h1 className="mb-4 font-bold text-lg leading-none">
+					<h1 className="mb-1 font-bold text-lg leading-none">
 						Clients Sharing Questionnaires{" "}
 						<span className="font-medium text-muted-foreground text-sm">
 							({sharedLinksData.length} shared link
 							{sharedLinksData.length > 1 ? "s" : ""})
 						</span>
 					</h1>
+					<p className="mb-4 text-muted-foreground text-xs">
+						Multiple clients with the same questionnaire link between them.
+					</p>
 					<div className="space-y-4">
 						{sharedLinksData.map(({ link, clients }) => (
 							<div className="rounded-md border p-3" key={link}>
@@ -607,13 +618,13 @@ const NoteOnlyList = ({
 			>
 				<div className="p-4">
 					<div className="flex items-center justify-between gap-4">
-						<h1 className="mb-4 font-bold text-lg leading-none">
+						<h1 className="mb-1 font-bold text-lg leading-none">
 							Notes Only{" "}
 							<span className="font-medium text-muted-foreground text-sm">
 								({noteOnlyClients.length})
 							</span>
 						</h1>
-						<div className="mb-4 flex items-center gap-2">
+						<div className="mb-1 flex items-center gap-2">
 							<Link href="/clients/merge">
 								<Button className="cursor-pointer" size="sm" variant="outline">
 									Merge Menu
@@ -621,6 +632,10 @@ const NoteOnlyList = ({
 							</Link>
 						</div>
 					</div>
+					<p className="mb-4 text-muted-foreground text-xs">
+						"Shell" clients created, should be merged with "Real" client from TA
+						when possible.
+					</p>
 					<div className="space-y-4">
 						{sortedClients.map((client, index) => {
 							const suggestion = suggestions.find(
@@ -760,7 +775,11 @@ export function IssuesList() {
 		<div className="flex flex-wrap justify-center gap-10">
 			{isLoadingDD4 && <IssueListSkeleton />}
 			{!isLoadingDD4 && dd4 && dd4.length !== 0 && (
-				<IssueList clients={dd4} title="In DD4" />
+				<IssueList
+					clients={dd4}
+					description="Clients located in Dorchester District 4."
+					title="In DD4"
+				/>
 			)}
 			{isLoadingJustAdded && <IssueListSkeleton />}
 			{!isLoadingJustAdded &&
@@ -768,6 +787,7 @@ export function IssuesList() {
 				justAddedQuestionnaires.length !== 0 && (
 					<IssueList
 						clients={justAddedQuestionnaires}
+						description="Questionnaires generated but not sent to client."
 						title="Just Added Questionnaires"
 					/>
 				)}
@@ -777,6 +797,7 @@ export function IssuesList() {
 				clientsWithoutDistrict.length !== 0 && (
 					<IssueList
 						clients={clientsWithoutDistrict}
+						description="Clients missing a school district."
 						title="Missing Districts"
 					/>
 				)}
@@ -786,6 +807,7 @@ export function IssuesList() {
 				punchlistIssues.clientsNotInDb.length > 0 && (
 					<PunchlistIssueList
 						clients={punchlistIssues.clientsNotInDb}
+						description="Clients on the punchlist but not in the database, likely incorrect IDs."
 						title="Punchlist Clients Not In DB"
 					/>
 				)}
@@ -794,6 +816,7 @@ export function IssuesList() {
 				punchlistIssues.inactiveClients.length > 0 && (
 					<IssueList
 						clients={punchlistIssues.inactiveClients}
+						description="Inactive clients currently on the punchlist."
 						title="Punchlist Clients Inactive"
 					/>
 				)}
@@ -803,6 +826,7 @@ export function IssuesList() {
 				missingFromPunchlist.length > 0 && (
 					<IssueList
 						clients={missingFromPunchlist}
+						description="Active clients missing from the punchlist."
 						title="Active Clients Not On Punchlist"
 					/>
 				)}
@@ -812,6 +836,7 @@ export function IssuesList() {
 				clientsWithDistrictFromShapefile.length !== 0 && (
 					<IssueList
 						clients={clientsWithDistrictFromShapefile}
+						description="Districts found after cutting the address in some way for search, should be manually double-checked."
 						title="District Found After Cut Address"
 					/>
 				)}
@@ -819,25 +844,42 @@ export function IssuesList() {
 			{!isLoadingBabyNetErrors &&
 				babyNetErrors &&
 				babyNetErrors.length !== 0 && (
-					<IssueList clients={babyNetErrors} title="Too Old for BabyNet" />
+					<IssueList
+						clients={babyNetErrors}
+						description="Clients who have aged out of BabyNet eligibility, but still have it listed."
+						title="Too Old for BabyNet"
+					/>
 				)}
 			{isLoadingNotInTAErrors && <IssueListSkeleton />}
 			{!isLoadingNotInTAErrors &&
 				notInTAErrors &&
 				notInTAErrors.length !== 0 && (
-					<IssueList clients={notInTAErrors} title="Not in TA" />
+					<IssueList
+						clients={notInTAErrors}
+						description='Clients who were not imported from TA and were not added using the "Shell Client"/"Notes Only" feature.'
+						title="Not in TA"
+					/>
 				)}
 			{isLoadingDropList && <IssueListSkeleton />}
 			{!isLoadingDropList && dropList && dropList.length !== 0 && (
-				<IssueList clients={dropList} title="Drop List" />
+				<IssueList
+					clients={dropList}
+					description="Clients who have been reminded more than 3 times and aren't completing tasks."
+					title="Drop List"
+				/>
 			)}
 			{isLoadingAutismStops && <IssueListSkeleton />}
 			{!isLoadingAutismStops && autismStops && autismStops.length !== 0 && (
-				<IssueList clients={autismStops} title="Autism Stops" />
+				<IssueList
+					clients={autismStops}
+					description='"Autism" found in school records, should be discharged.'
+					title="Autism Stops"
+				/>
 			)}
 			{needsBabyNetERDownloaded && needsBabyNetERDownloaded.length !== 0 && (
 				<IssueList
 					clients={needsBabyNetERDownloaded}
+					description="BabyNet Evaluation Report marked needed but not downloaded."
 					title="Needs BabyNet ER Downloaded"
 				/>
 			)}
@@ -855,7 +897,11 @@ export function IssuesList() {
 				)}
 			{isLoadingNoDriveIds && <IssueListSkeleton />}
 			{!isLoadingNoDriveIds && noDriveIds && noDriveIds.length !== 0 && (
-				<IssueList clients={noDriveIds} title="No Drive IDs" />
+				<IssueList
+					clients={noDriveIds}
+					description="Clients missing a Google Drive folder ID."
+					title="No Drive IDs"
+				/>
 			)}
 			{isLoadingPossiblePrivatePay && <IssueListSkeleton />}
 			{!isLoadingPossiblePrivatePay &&
@@ -863,6 +909,7 @@ export function IssuesList() {
 				possiblePrivatePay.length !== 0 && (
 					<IssueList
 						clients={possiblePrivatePay}
+						description="Clients with no eligible evaluators based on insurance and district/zip code."
 						title="Potential Private Pay"
 					/>
 				)}
@@ -872,12 +919,14 @@ export function IssuesList() {
 				missingRecordsNeeded.length !== 0 && (
 					<IssueList
 						clients={missingRecordsNeeded}
+						description="Clients whose records needed status is not set."
 						title="Records Needed Not Set"
 					/>
 				)}
 			{unreviewedRecords && unreviewedRecords.length !== 0 && (
 				<IssueList
 					clients={unreviewedRecords}
+					description="Records needed and requested more than 3 days ago, but not reviewed."
 					title="Unreviewed/Unreceived Records"
 				/>
 			)}
@@ -896,6 +945,7 @@ export function IssuesList() {
 				clientsWithDuplicateLinks.length > 0 && (
 					<IssueList
 						clients={clientsWithDuplicateLinks}
+						description="Clients who have the same questionnaire link multiple times."
 						title="Clients with Duplicate Questionnaire Links"
 					/>
 				)}
