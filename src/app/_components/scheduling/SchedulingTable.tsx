@@ -622,6 +622,7 @@ const SchedulingTableRow = memo(function SchedulingTableRow({
 	onUpdate,
 	actions,
 	isScrolledLeft,
+	rowIndex,
 }: {
 	scheduledClient: ScheduledClient;
 	evaluators: Evaluator[];
@@ -631,6 +632,7 @@ const SchedulingTableRow = memo(function SchedulingTableRow({
 	onUpdate?: (clientId: number, data: SchedulingUpdateData) => void;
 	actions: React.ReactNode;
 	isScrolledLeft?: boolean;
+	rowIndex: number;
 }) {
 	const [localDate, setLocalDate] = useState(scheduledClient.date ?? "");
 	const [localTime, setLocalTime] = useState(scheduledClient.time ?? "");
@@ -668,6 +670,8 @@ const SchedulingTableRow = memo(function SchedulingTableRow({
 					"sticky left-0 z-10 bg-background transition-shadow duration-200",
 					isScrolledLeft && "shadow-lg",
 				)}
+				data-col={0}
+				data-row={rowIndex}
 				style={{
 					backgroundColor: color
 						? `color-mix(in srgb, ${SCHEDULING_COLOR_MAP[color]}, var(--background) 90%)`
@@ -692,7 +696,7 @@ const SchedulingTableRow = memo(function SchedulingTableRow({
 					</Link>
 				</div>
 			</TableCell>
-			<TableCell>
+			<TableCell data-col={1} data-row={rowIndex}>
 				<EvaluatorSelect
 					allEvaluators={evaluators}
 					clientId={scheduledClient.clientId}
@@ -709,7 +713,11 @@ const SchedulingTableRow = memo(function SchedulingTableRow({
 				/>
 			</TableCell>
 
-			<TableCell className="min-w-[200px] max-w-[200px]">
+			<TableCell
+				className="min-w-[200px] max-w-[200px]"
+				data-col={2}
+				data-row={rowIndex}
+			>
 				{isEditable ? (
 					<Textarea
 						className="max-h-[2.5rem] min-h-[2.5rem] resize-none transition-all duration-200 focus:min-h-[10rem]"
@@ -730,7 +738,11 @@ const SchedulingTableRow = memo(function SchedulingTableRow({
 				)}
 			</TableCell>
 
-			<TableCell className="min-w-[100px] max-w-[120px]">
+			<TableCell
+				className="min-w-[100px] max-w-[120px]"
+				data-col={3}
+				data-row={rowIndex}
+			>
 				{isEditable ? (
 					<Input
 						onBlur={() => {
@@ -746,7 +758,11 @@ const SchedulingTableRow = memo(function SchedulingTableRow({
 				)}
 			</TableCell>
 
-			<TableCell className="min-w-[100px] max-w-[120px]">
+			<TableCell
+				className="min-w-[100px] max-w-[120px]"
+				data-col={4}
+				data-row={rowIndex}
+			>
 				{isEditable ? (
 					<Input
 						onBlur={() => {
@@ -762,9 +778,11 @@ const SchedulingTableRow = memo(function SchedulingTableRow({
 				)}
 			</TableCell>
 
-			<TableCell>{scheduledClient.client.asdAdhd || "-"}</TableCell>
+			<TableCell data-col={5} data-row={rowIndex}>
+				{scheduledClient.client.asdAdhd || "-"}
+			</TableCell>
 
-			<TableCell>
+			<TableCell data-col={6} data-row={rowIndex}>
 				{mapInsuranceToShortNames(
 					scheduledClient.client.primaryInsurance,
 					scheduledClient.client.secondaryInsurance,
@@ -772,7 +790,7 @@ const SchedulingTableRow = memo(function SchedulingTableRow({
 				) || "-"}
 			</TableCell>
 
-			<TableCell>
+			<TableCell data-col={7} data-row={rowIndex}>
 				{isEditable ? (
 					<Select
 						onValueChange={(value) => {
@@ -803,7 +821,7 @@ const SchedulingTableRow = memo(function SchedulingTableRow({
 				)}
 			</TableCell>
 
-			<TableCell className="min-w-fit">
+			<TableCell className="min-w-fit" data-col={8} data-row={rowIndex}>
 				{isEditable ? (
 					<Select
 						onValueChange={(value) => {
@@ -830,14 +848,14 @@ const SchedulingTableRow = memo(function SchedulingTableRow({
 				)}
 			</TableCell>
 
-			<TableCell>
+			<TableCell data-col={9} data-row={rowIndex}>
 				{scheduledClient.client.schoolDistrict?.replace(
 					/ (County )?School District/,
 					"",
 				) || "-"}
 			</TableCell>
 
-			<TableCell>
+			<TableCell data-col={10} data-row={rowIndex}>
 				{scheduledClient.client.precertExpires
 					? getLocalDayFromUTCDate(
 							scheduledClient.client.precertExpires,
@@ -845,13 +863,15 @@ const SchedulingTableRow = memo(function SchedulingTableRow({
 					: "-"}
 			</TableCell>
 
-			<TableCell>
+			<TableCell data-col={11} data-row={rowIndex}>
 				{scheduledClient.client.dob
 					? formatClientAge(scheduledClient.client.dob, "short")
 					: "-"}
 			</TableCell>
 
-			<TableCell>{actions}</TableCell>
+			<TableCell data-col={12} data-row={rowIndex}>
+				{actions}
+			</TableCell>
 		</TableRow>
 	);
 });
@@ -907,6 +927,101 @@ function InternalSchedulingTable({
 		`scheduling-scroll-${type}`,
 		isInitialized,
 	);
+
+	const handleKeyDown = (e: React.KeyboardEvent) => {
+		const key = e.key;
+		if (!["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].includes(key))
+			return;
+
+		const target = e.target as HTMLElement;
+		const isInput = target.tagName === "INPUT" || target.tagName === "TEXTAREA";
+
+		if (isInput) {
+			const input = target as HTMLInputElement | HTMLTextAreaElement;
+			const { selectionStart, selectionEnd, value } = input;
+
+			if (key === "ArrowLeft" && (selectionStart !== 0 || selectionEnd !== 0))
+				return;
+			if (
+				key === "ArrowRight" &&
+				(selectionStart !== value.length || selectionEnd !== value.length)
+			)
+				return;
+
+			if (target.tagName === "TEXTAREA") {
+				if (key === "ArrowUp") {
+					const lines = value.substring(0, selectionStart || 0).split("\n");
+					if (lines.length > 1) return;
+				}
+				if (key === "ArrowDown") {
+					const lines = value.substring(selectionEnd || 0).split("\n");
+					if (lines.length > 1) return;
+				}
+			}
+		} else if (target.getAttribute("aria-expanded") === "true") {
+			// Don't intercept if a dropdown/select is open and focused
+			return;
+		}
+
+		const cell = target.closest("td");
+		if (!cell) return;
+
+		const row = parseInt(cell.getAttribute("data-row") || "-1");
+		const col = parseInt(cell.getAttribute("data-col") || "-1");
+		if (row === -1 || col === -1) return;
+
+		let nextRow = row;
+		let nextCol = col;
+
+		if (key === "ArrowUp") nextRow--;
+		else if (key === "ArrowDown") nextRow++;
+		else if (key === "ArrowLeft") nextCol--;
+		else if (key === "ArrowRight") nextCol++;
+
+		// If we've reached this point, we are handling the navigation
+		const findAndFocus = (r: number, c: number, direction: string) => {
+			const table = tableRef.current;
+			if (!table) return;
+
+			const targetCell = table.querySelector(
+				`td[data-row="${r}"][data-col="${c}"]`,
+			);
+			if (!targetCell) {
+				if (direction === "ArrowLeft" && c > 0)
+					return findAndFocus(r, c - 1, direction);
+				if (direction === "ArrowRight" && c < 12)
+					return findAndFocus(r, c + 1, direction);
+				return;
+			}
+
+			const focusable = targetCell.querySelector(
+				"input, textarea, button, [tabindex='0']",
+			) as HTMLElement;
+
+			if (focusable) {
+				e.preventDefault();
+				e.stopPropagation();
+				focusable.focus();
+				if (
+					focusable instanceof HTMLInputElement ||
+					focusable instanceof HTMLTextAreaElement
+				) {
+					focusable.select();
+				}
+			} else {
+				if (direction === "ArrowLeft" && c > 0)
+					return findAndFocus(r, c - 1, direction);
+				if (direction === "ArrowRight" && c < 12)
+					return findAndFocus(r, c + 1, direction);
+				if (direction === "ArrowUp" && r > 0)
+					return findAndFocus(r - 1, c, direction);
+				if (direction === "ArrowDown" && r < filteredClients.length - 1)
+					return findAndFocus(r + 1, c, direction);
+			}
+		};
+
+		findAndFocus(nextRow, nextCol, key);
+	};
 
 	if (!isInitialized) {
 		return (
@@ -1010,8 +1125,8 @@ function InternalSchedulingTable({
 						<TableHead>Actions</TableHead>
 					</TableRow>
 				</TableHeader>
-				<TableBody>
-					{filteredClients.map((scheduledClient) => (
+				<TableBody onKeyDownCapture={handleKeyDown}>
+					{filteredClients.map((scheduledClient, rowIndex) => (
 						<SchedulingTableRow
 							actions={
 								<Button
@@ -1034,6 +1149,7 @@ function InternalSchedulingTable({
 							key={scheduledClient.clientId}
 							offices={offices}
 							onUpdate={onUpdate}
+							rowIndex={rowIndex}
 							scheduledClient={scheduledClient}
 						/>
 					))}
