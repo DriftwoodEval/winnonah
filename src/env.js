@@ -28,6 +28,7 @@ export const env = createEnv({
 		REDIS_HOST: z.string(),
 		OPENPHONE_API_TOKEN: z.string(),
 		OPENPHONE_NUMBER_ID: z.string(),
+		PYTHON_API_URL: z.url(),
 	},
 
 	/**
@@ -56,6 +57,7 @@ export const env = createEnv({
 		REDIS_HOST: process.env.REDIS_HOST,
 		OPENPHONE_API_TOKEN: process.env.OPENPHONE_API_TOKEN,
 		OPENPHONE_NUMBER_ID: process.env.OPENPHONE_NUMBER_ID,
+		PYTHON_API_URL: process.env.PYTHON_API_URL ?? "http://localhost:8000",
 		NEXT_PUBLIC_APP_TITLE: process.env.NEXT_PUBLIC_APP_TITLE ?? "Winnonah",
 		NEXT_PUBLIC_APP_DOMAIN:
 			process.env.NEXT_PUBLIC_APP_DOMAIN ?? "winnonah.xyz",

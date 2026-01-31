@@ -19,6 +19,7 @@ import {
 } from "drizzle-orm";
 import { distance as levDistance } from "fastest-levenshtein";
 import { z } from "zod";
+import { env } from "~/env";
 import { CLIENT_COLOR_KEYS } from "~/lib/colors";
 import { ALLOWED_ASD_ADHD_VALUES } from "~/lib/constants";
 import { syncPunchData, updatePunchData } from "~/lib/google";
@@ -1357,5 +1358,60 @@ export const clientRouter = createTRPCRouter({
 				success: true,
 				message: `Merged ${fakeClient.fullName}'s notes/title into ${realClient.fullName}.`,
 			};
+		}),
+
+	summarizeReferrals: protectedProcedure
+		.input(z.object({ clientId: z.number() }))
+		.mutation(async ({ ctx, input }) => {
+			assertPermission(ctx.session.user, "clients:drive");
+
+			const client = await ctx.db.query.clients.findFirst({
+				where: eq(clients.id, input.clientId),
+			});
+
+			if (!client) {
+				throw new TRPCError({
+					code: "NOT_FOUND",
+					message: "Client not found",
+				});
+			}
+
+			if (!client.driveId) {
+				throw new TRPCError({
+					code: "BAD_REQUEST",
+					message: "Client does not have a linked Drive folder",
+				});
+			}
+
+			try {
+				const response = await fetch(`${env.PYTHON_API_URL}/summarize`, {
+					method: "POST",
+					headers: { "Content-Type": "application/json" },
+					body: JSON.stringify({ drive_id: client.driveId }),
+				});
+
+				if (!response.ok) {
+					const errorText = await response.text();
+					let errorMessage = errorText;
+					try {
+						const errorJson = JSON.parse(errorText);
+						errorMessage = errorJson.detail || errorText;
+					} catch (_e) {
+						// ignore
+					}
+					throw new Error(errorMessage);
+				}
+
+				const data = (await response.json()) as { summary: string };
+				return data;
+			} catch (error) {
+				ctx.logger.error(error, "Failed to summarize referrals");
+				throw new TRPCError({
+					code: "INTERNAL_SERVER_ERROR",
+					message:
+						"Failed to generate summary: " +
+						(error instanceof Error ? error.message : "Unknown error"),
+				});
+			}
 		}),
 });

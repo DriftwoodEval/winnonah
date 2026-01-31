@@ -1,5 +1,6 @@
 "use client";
 
+import { Markdown } from "@components/shared/Markdown";
 import { Button } from "@ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@ui/card";
 import { Input } from "@ui/input";
@@ -42,6 +43,7 @@ export function ReferralTab({ client, readOnly }: ReferralTabProps) {
 		client.referralData?.locationPreference ?? "",
 	);
 	const [email, setEmail] = useState<string>(client.email ?? "");
+	const [summary, setSummary] = useState<string | null>(null);
 
 	useEffect(() => {
 		setSchoolIepStatus(client.referralData?.schoolIepStatus ?? "");
@@ -49,6 +51,7 @@ export function ReferralTab({ client, readOnly }: ReferralTabProps) {
 		setOtherNotes(client.referralData?.otherNotes ?? "");
 		setLocationPreference(client.referralData?.locationPreference ?? "");
 		setEmail(client.email ?? "");
+		setSummary(null);
 	}, [client.referralData, client.email]);
 
 	const updateClientMutation = api.clients.update.useMutation({
@@ -57,6 +60,18 @@ export function ReferralTab({ client, readOnly }: ReferralTabProps) {
 		},
 		onError: (error) => {
 			toast.error("Failed to update referral info", {
+				description: error.message,
+			});
+		},
+	});
+
+	const summarizeMutation = api.clients.summarizeReferrals.useMutation({
+		onSuccess: (data) => {
+			setSummary(data.summary);
+			toast.success("Summary generated successfully");
+		},
+		onError: (error) => {
+			toast.error("Failed to generate summary", {
 				description: error.message,
 			});
 		},
@@ -149,6 +164,32 @@ export function ReferralTab({ client, readOnly }: ReferralTabProps) {
 									: "No insurance information"}
 							</div>
 						</div>
+					</div>
+
+					<div className="flex flex-col gap-2 border-t pt-4">
+						<div className="flex items-center justify-between">
+							<Label className="font-semibold">AI Summary</Label>
+							<Button
+								disabled={summarizeMutation.isPending || !client.driveId}
+								onClick={() =>
+									summarizeMutation.mutate({ clientId: client.id })
+								}
+								size="sm"
+								variant="outline"
+							>
+								{summarizeMutation.isPending
+									? "Summarizing..."
+									: "Summarize Documents"}
+							</Button>
+						</div>
+						{summary && (
+							<Markdown className="rounded-md bg-muted p-4" content={summary} />
+						)}
+						{!client.driveId && (
+							<p className="text-muted-foreground text-xs">
+								Link a Drive folder to enable referral summarization.
+							</p>
+						)}
 					</div>
 				</CardContent>
 			</Card>

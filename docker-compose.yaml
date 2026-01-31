@@ -16,6 +16,7 @@ services:
       - OPENPHONE_API_TOKEN=${OPENPHONE_API_TOKEN}
       - OPENPHONE_NUMBER_ID=${OPENPHONE_NUMBER_ID}
       - API_KEY=${API_KEY}
+      - PYTHON_API_URL=http://winnonah-python:8000
     volumes:
       - ./logs:/app/logs
 
