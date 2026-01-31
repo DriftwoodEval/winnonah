@@ -926,7 +926,7 @@ export function IssuesList() {
 			{unreviewedRecords && unreviewedRecords.length !== 0 && (
 				<IssueList
 					clients={unreviewedRecords}
-					description="Records needed and requested more than 3 days ago, but not reviewed."
+					description="Records needed and requested more than 3 weekdays ago, but not reviewed."
 					title="Unreviewed/Unreceived Records"
 				/>
 			)}

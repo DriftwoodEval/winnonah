@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import type { JSONContent } from "@tiptap/core";
 import { TRPCError } from "@trpc/server";
-import { subMonths, subYears } from "date-fns";
+import { subBusinessDays, subMonths, subYears } from "date-fns";
 import {
 	and,
 	asc,
@@ -568,7 +568,7 @@ export const clientRouter = createTRPCRouter({
 	}),
 
 	getUnreviewedRecords: protectedProcedure.query(async ({ ctx }) => {
-		const threeDaysAgo = sql`DATE_SUB(CURRENT_TIMESTAMP(), INTERVAL 3 DAY)`;
+		const threeWeekdaysAgo = subBusinessDays(new Date(), 3);
 
 		const results = await ctx.db
 			.select({
@@ -591,13 +591,13 @@ export const clientRouter = createTRPCRouter({
 				or(
 					and(
 						eq(clients.recordsNeeded, "Needed"),
-						lt(externalRecords.requested, threeDaysAgo),
+						lt(externalRecords.requested, threeWeekdaysAgo),
 						eq(externalRecords.needsSecondRequest, false),
 						isNull(externalRecords.content),
 					),
 					and(
 						eq(externalRecords.needsSecondRequest, true),
-						lt(externalRecords.secondRequestDate, threeDaysAgo),
+						lt(externalRecords.secondRequestDate, threeWeekdaysAgo),
 						isNull(externalRecords.content),
 					),
 				),
