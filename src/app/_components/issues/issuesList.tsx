@@ -738,6 +738,8 @@ export function IssuesList() {
 		api.clients.getUnreviewedRecords.useQuery();
 	const { data: duplicateQLinks, isLoading: isLoadingDuplicateQLinks } =
 		api.questionnaires.getDuplicateLinks.useQuery();
+	const { data: justAddedQuestionnaires, isLoading: isLoadingJustAdded } =
+		api.questionnaires.getJustAdded.useQuery();
 	const { data: punchlistIssues, isLoading: isLoadingPunchlistIssues } =
 		api.google.verifyPunchClients.useQuery();
 	const {
@@ -760,6 +762,15 @@ export function IssuesList() {
 			{!isLoadingDD4 && dd4 && dd4.length !== 0 && (
 				<IssueList clients={dd4} title="In DD4" />
 			)}
+			{isLoadingJustAdded && <IssueListSkeleton />}
+			{!isLoadingJustAdded &&
+				justAddedQuestionnaires &&
+				justAddedQuestionnaires.length !== 0 && (
+					<IssueList
+						clients={justAddedQuestionnaires}
+						title="Just Added Questionnaires"
+					/>
+				)}
 			{isLoadingDistrictErrors && <IssueListSkeleton />}
 			{!isLoadingDistrictErrors &&
 				clientsWithoutDistrict &&

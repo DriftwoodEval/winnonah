@@ -494,4 +494,16 @@ export const questionnaireRouter = createTRPCRouter({
 			sharedAcrossClients: sharedLinksWithClients,
 		};
 	}),
+
+	getJustAdded: protectedProcedure.query(async ({ ctx }) => {
+		const clientsWithJustAdded = await ctx.db
+			.selectDistinct({
+				client: clients,
+			})
+			.from(questionnaires)
+			.innerJoin(clients, eq(questionnaires.clientId, clients.id))
+			.where(eq(questionnaires.status, "JUST_ADDED"));
+
+		return clientsWithJustAdded.map((row) => row.client);
+	}),
 });
