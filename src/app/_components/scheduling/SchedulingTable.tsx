@@ -966,8 +966,8 @@ function InternalSchedulingTable({
 		const cell = target.closest("td");
 		if (!cell) return;
 
-		const row = parseInt(cell.getAttribute("data-row") || "-1");
-		const col = parseInt(cell.getAttribute("data-col") || "-1");
+		const row = parseInt(cell.getAttribute("data-row") || "-1", 10);
+		const col = parseInt(cell.getAttribute("data-col") || "-1", 10);
 		if (row === -1 || col === -1) return;
 
 		let nextRow = row;

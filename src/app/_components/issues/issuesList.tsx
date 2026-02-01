@@ -9,10 +9,8 @@ import Link from "next/link";
 import { useEffect, useRef } from "react";
 import type {
 	DuplicateDriveGroup,
-	MergeSuggestion,
 	SharedQuestionnaireData,
 } from "~/lib/api-types";
-import type { PUNCH_SCHEMA } from "~/lib/constants";
 import type { Client, ClientWithIssueInfo } from "~/lib/models";
 
 import { api } from "~/trpc/react";
@@ -206,15 +204,31 @@ const IssueList = ({ title, description, clients, action }: IssueListProps) => {
 	);
 };
 
-const PunchlistIssueList = ({
-	title,
-	description,
-	clients,
-}: {
+interface SuggestionIssueListProps {
 	title: string;
 	description?: string;
-	clients: PUNCH_SCHEMA[];
-}) => {
+	items: {
+		id: string;
+		name: string;
+		hash?: string;
+		suggestions: Client[];
+		originalData?: Client; // For MergePreviewDialog if it's a NoteOnly client
+	}[];
+	onAction?: (itemId: string, suggestedId: number) => void;
+	isActioning?: boolean;
+	actionButtonText?: string;
+	action?: React.ReactNode;
+}
+
+const SuggestionIssueList = ({
+	title,
+	description,
+	items,
+	onAction: onFix,
+	isActioning: isFixing,
+	actionButtonText: fixButtonText = "Fix",
+	action,
+}: SuggestionIssueListProps) => {
 	const utils = api.useUtils();
 	const savedClientRef = useRef<HTMLDivElement>(null);
 	const savedPlaceKey = title
@@ -249,39 +263,39 @@ const PunchlistIssueList = ({
 	});
 
 	useEffect(() => {
-		if (!savedPlaceKey || !savedPlaceHash || clients.length === 0) return;
+		if (!savedPlaceKey || !savedPlaceHash || items.length === 0) return;
 
-		const savedClientIndex = clients.findIndex(
-			(client) => client["Client ID"] === savedPlaceHash,
+		const savedItemIndex = items.findIndex(
+			(item) => item.id === savedPlaceHash,
 		);
 
-		if (savedClientIndex === -1) {
+		if (savedItemIndex === -1) {
 			const fallbackIndex =
 				savedPlaceIndex !== undefined
-					? Math.min(savedPlaceIndex - 1, clients.length - 1)
+					? Math.min(savedPlaceIndex - 1, items.length - 1)
 					: 0;
 
-			if (clients[fallbackIndex]) {
+			if (items[fallbackIndex]) {
 				updateSavedPlaces({
 					key: savedPlaceKey,
-					hash: clients[fallbackIndex]?.["Client ID"] ?? "",
+					hash: items[fallbackIndex].id,
 					index: fallbackIndex,
 				});
 			}
 		}
 	}, [
-		clients,
+		items,
 		savedPlaceKey,
 		savedPlaceHash,
 		savedPlaceIndex,
 		updateSavedPlaces,
 	]);
 
-	const isSavedClient = (clientId: string) => {
-		return savedPlaceKey && savedPlaceHash === clientId;
+	const isSavedItem = (itemId: string) => {
+		return savedPlaceKey && savedPlaceHash === itemId;
 	};
 
-	const scrollToSavedClient = () => {
+	const scrollToSavedItem = () => {
 		if (savedClientRef.current) {
 			savedClientRef.current.scrollIntoView({
 				behavior: "smooth",
@@ -292,7 +306,7 @@ const PunchlistIssueList = ({
 	return (
 		<div className="flex max-h-80">
 			<ScrollArea
-				className="w-xs rounded-md border bg-card text-card-foreground shadow"
+				className="w-md rounded-md border bg-card text-card-foreground shadow"
 				type="auto"
 			>
 				<div className="p-4">
@@ -300,7 +314,7 @@ const PunchlistIssueList = ({
 						<h1 className="mb-1 font-bold text-lg leading-none">
 							{title}{" "}
 							<span className="font-medium text-muted-foreground text-sm">
-								({clients.length})
+								({items.length})
 							</span>
 						</h1>
 						<div className="mb-1 flex items-center gap-2">
@@ -308,7 +322,7 @@ const PunchlistIssueList = ({
 								<Button
 									aria-label="Scroll to saved client"
 									className="font-medium text-muted-foreground text-xs"
-									onClick={scrollToSavedClient}
+									onClick={scrollToSavedItem}
 									size="sm"
 									type="button"
 									variant="ghost"
@@ -317,75 +331,133 @@ const PunchlistIssueList = ({
 									<span className="hidden sm:block">Go to saved</span>
 								</Button>
 							)}
+							{action && <div>{action}</div>}
 						</div>
 					</div>
 					{description && (
 						<p className="mb-4 text-muted-foreground text-xs">{description}</p>
 					)}
-					{clients.map((client, index) => (
-						<div
-							className="scroll-mt-12"
-							key={client["Client ID"]}
-							ref={
-								client["Client ID"] && isSavedClient(client["Client ID"])
-									? savedClientRef
-									: null
-							}
-						>
-							<div className="text-sm">
-								{client["Client Name"]}{" "}
-								<span className="text-muted-foreground">
-									(ID: {client["Client ID"]})
-								</span>
-							</div>
-							{client["Client ID"] && isSavedClient(client["Client ID"]) && (
-								<button
-									aria-label={`Remove ${client["Client Name"]} as saved client for ${title}`}
-									className="group relative flex w-full cursor-pointer items-center py-2"
-									onClick={() => {
-										if (savedPlaceKey) {
-											deleteSavedPlace({ key: savedPlaceKey });
-										}
-									}}
-									type="button"
-								>
-									<Separator className="my-2 flex-1 rounded bg-accent data-[orientation=horizontal]:h-1" />
-									<div className="pointer-events-none absolute top-1/2 right-0 z-10 -translate-x-1/2 -translate-y-1/2 rounded-full bg-accent px-2 py-1 opacity-0 transition-opacity duration-200 group-hover:opacity-100 group-focus:opacity-100">
-										<PinOff className="h-4 w-4" />
-									</div>
-								</button>
-							)}
+					<div>
+						{items.map((item, index) => (
+							<div
+								className="scroll-mt-12"
+								key={item.id}
+								ref={isSavedItem(item.id) ? savedClientRef : null}
+							>
+								<div className="mb-1 flex items-center justify-between gap-2">
+									{item.hash ? (
+										<Link href={`/clients/${item.hash}`}>
+											<div className="font-medium text-sm hover:underline">
+												{item.name}
+											</div>
+										</Link>
+									) : (
+										<div className="font-medium text-sm">
+											{item.name}{" "}
+											<span className="font-normal text-muted-foreground text-xs">
+												(ID: {item.id})
+											</span>
+										</div>
+									)}
+								</div>
 
-							{index < clients.length - 1 &&
-								savedPlaceKey &&
-								client["Client ID"] &&
-								!isSavedClient(client["Client ID"]) && (
+								{item.suggestions.length > 0 && (
+									<div className="mt-2 rounded-md border bg-muted p-2">
+										<p className="mb-1 font-bold text-[10px] text-muted-foreground uppercase tracking-wider">
+											Suggestions:
+										</p>
+										<div className="space-y-2">
+											{item.suggestions.map((suggestion) => (
+												<div
+													className="flex items-center justify-between gap-2"
+													key={suggestion.id}
+												>
+													<Link href={`/clients/${suggestion.hash}`}>
+														<div className="text-xs hover:underline">
+															{suggestion.fullName}
+															<span className="ml-1 text-muted-foreground">
+																(ID: {suggestion.id})
+															</span>
+														</div>
+													</Link>
+													{onFix ? (
+														<Button
+															className="h-6 cursor-pointer px-2 text-[10px]"
+															disabled={isFixing}
+															onClick={() => onFix(item.id, suggestion.id)}
+															size="sm"
+															variant="outline"
+														>
+															{fixButtonText}
+														</Button>
+													) : (
+														item.originalData && (
+															<MergePreviewDialog
+																fakeClient={item.originalData}
+																realClient={suggestion}
+															>
+																<Button
+																	className="h-6 cursor-pointer px-2 text-[10px]"
+																	size="sm"
+																	variant="outline"
+																>
+																	Merge
+																</Button>
+															</MergePreviewDialog>
+														)
+													)}
+												</div>
+											))}
+										</div>
+									</div>
+								)}
+
+								{isSavedItem(item.id) && (
 									<button
-										aria-label={`Set ${client["Client Name"]} as saved client for ${title}`}
+										aria-label={`Remove ${item.name} as saved client for ${title}`}
 										className="group relative flex w-full cursor-pointer items-center py-2"
 										onClick={() => {
-											if (client["Client ID"]) {
-												updateSavedPlaces({
-													key: savedPlaceKey,
-													hash: client["Client ID"],
-													index,
-												});
+											if (savedPlaceKey) {
+												deleteSavedPlace({ key: savedPlaceKey });
 											}
 										}}
 										type="button"
 									>
-										<Separator className="flex-1" />
-										<div className="pointer-events-none absolute top-1/2 right-0 z-10 -translate-x-1/2 -translate-y-1/2 rounded-full bg-muted px-2 py-1 opacity-0 transition-opacity duration-200 group-hover:opacity-100 group-focus:opacity-100">
-											<Pin className="h-4 w-4" />
+										<Separator className="my-2 flex-1 rounded bg-accent data-[orientation=horizontal]:h-1" />
+										<div className="pointer-events-none absolute top-1/2 right-0 z-10 -translate-x-1/2 -translate-y-1/2 rounded-full bg-accent px-2 py-1 opacity-0 transition-opacity duration-200 group-hover:opacity-100 group-focus:opacity-100">
+											<PinOff className="h-4 w-4" />
 										</div>
 									</button>
 								)}
 
-							{index < clients.length - 1 && !savedPlaceKey && (
-								<Separator className="my-2" />
-							)}
-						</div>
-					))}
+								{index < items.length - 1 &&
+									savedPlaceKey &&
+									!isSavedItem(item.id) && (
+										<button
+											aria-label={`Set ${item.name} as saved client for ${title}`}
+											className="group relative flex w-full cursor-pointer items-center py-2"
+											onClick={() => {
+												updateSavedPlaces({
+													key: savedPlaceKey,
+													hash: item.id,
+													index,
+												});
+											}}
+											type="button"
+										>
+											<Separator className="flex-1" />
+											<div className="pointer-events-none absolute top-1/2 right-0 z-10 -translate-x-1/2 -translate-y-1/2 rounded-full bg-muted px-2 py-1 opacity-0 transition-opacity duration-200 group-hover:opacity-100 group-focus:opacity-100">
+												<Pin className="h-4 w-4" />
+											</div>
+										</button>
+									)}
+
+								{index < items.length - 1 && !savedPlaceKey && (
+									<Separator className="mt-4" />
+								)}
+							</div>
+						))}
+					</div>
 				</div>
 			</ScrollArea>
 		</div>
@@ -588,118 +660,6 @@ const ClientsSharingQuestionnaires = ({
 	);
 };
 
-const NoteOnlyList = ({
-	noteOnlyClients,
-	suggestions,
-}: {
-	noteOnlyClients: Client[];
-	suggestions: MergeSuggestion[];
-}) => {
-	const sortedClients = [...noteOnlyClients].sort((a, b) => {
-		const aHasSuggestion = suggestions.some(
-			(s) => s.noteOnlyClient.id === a.id,
-		);
-		const bHasSuggestion = suggestions.some(
-			(s) => s.noteOnlyClient.id === b.id,
-		);
-
-		if (aHasSuggestion && !bHasSuggestion) return -1;
-		if (!aHasSuggestion && bHasSuggestion) return 1;
-
-		// Maintain existing order (addedDate) for clients within the same group
-		return noteOnlyClients.indexOf(a) - noteOnlyClients.indexOf(b);
-	});
-
-	return (
-		<div className="flex max-h-80">
-			<ScrollArea
-				className="w-md rounded-md border bg-card text-card-foreground shadow"
-				type="auto"
-			>
-				<div className="p-4">
-					<div className="flex items-center justify-between gap-4">
-						<h1 className="mb-1 font-bold text-lg leading-none">
-							Notes Only{" "}
-							<span className="font-medium text-muted-foreground text-sm">
-								({noteOnlyClients.length})
-							</span>
-						</h1>
-						<div className="mb-1 flex items-center gap-2">
-							<Link href="/clients/merge">
-								<Button className="cursor-pointer" size="sm" variant="outline">
-									Merge Menu
-								</Button>
-							</Link>
-						</div>
-					</div>
-					<p className="mb-4 text-muted-foreground text-xs">
-						"Shell" clients created, should be merged with "Real" client from TA
-						when possible.
-					</p>
-					<div className="space-y-4">
-						{sortedClients.map((client, index) => {
-							const suggestion = suggestions.find(
-								(s) => s.noteOnlyClient.id === client.id,
-							);
-							return (
-								<div key={client.hash}>
-									<div className="mb-1">
-										<Link href={`/clients/${client.hash}`}>
-											<div className="font-medium text-sm hover:underline">
-												{client.fullName}
-											</div>
-										</Link>
-									</div>
-
-									{suggestion && (
-										<div className="mt-2 rounded-md border bg-muted p-2">
-											<p className="mb-1 font-bold text-[10px] text-muted-foreground uppercase tracking-wider">
-												Suggestions:
-											</p>
-											<div className="space-y-2">
-												{suggestion.suggestedRealClients.map((real) => (
-													<div
-														className="flex items-center justify-between gap-2"
-														key={real.id}
-													>
-														<Link href={`/clients/${real.hash}`}>
-															<div className="text-xs hover:underline">
-																{real.fullName}
-																<span className="ml-1 text-muted-foreground">
-																	(ID: {real.id})
-																</span>
-															</div>
-														</Link>
-														<MergePreviewDialog
-															fakeClient={client}
-															realClient={real}
-														>
-															<Button
-																className="h-6 cursor-pointer px-2 text-[10px]"
-																size="sm"
-																variant="outline"
-															>
-																Merge
-															</Button>
-														</MergePreviewDialog>
-													</div>
-												))}
-											</div>
-										</div>
-									)}
-									{index < sortedClients.length - 1 && (
-										<Separator className="mt-4" />
-									)}
-								</div>
-							);
-						})}
-					</div>
-				</div>
-			</ScrollArea>
-		</div>
-	);
-};
-
 export function IssuesList() {
 	const utils = api.useUtils();
 	const { data: districtErrors, isLoading: isLoadingDistrictErrors } =
@@ -762,6 +722,13 @@ export function IssuesList() {
 		isLoading: isLoadingMissingFromPunchlist,
 	} = api.google.getMissingFromPunchlist.useQuery();
 
+	const { mutate: updatePunchId, isPending: isFixingPunchId } =
+		api.google.updatePunchId.useMutation({
+			onSuccess: () => {
+				utils.google.verifyPunchClients.invalidate();
+			},
+		});
+
 	const clientsWithDuplicateLinks =
 		duplicateQLinks?.duplicatePerClient
 			.map((item) => item.client)
@@ -770,6 +737,22 @@ export function IssuesList() {
 				(client, index, self) =>
 					self.findIndex((c) => c.id === client.id) === index,
 			) ?? [];
+
+	const sortedNoteOnlyClients = [...(noteOnlyClients ?? [])].sort((a, b) => {
+		const aHasSuggestion = mergeSuggestions?.some(
+			(s) => s.noteOnlyClient.id === a.id,
+		);
+		const bHasSuggestion = mergeSuggestions?.some(
+			(s) => s.noteOnlyClient.id === b.id,
+		);
+
+		if (aHasSuggestion && !bHasSuggestion) return -1;
+		if (!aHasSuggestion && bHasSuggestion) return 1;
+
+		return (
+			(noteOnlyClients ?? []).indexOf(a) - (noteOnlyClients ?? []).indexOf(b)
+		);
+	});
 
 	return (
 		<div className="flex flex-wrap justify-center gap-10">
@@ -805,9 +788,18 @@ export function IssuesList() {
 			{!isLoadingPunchlistIssues &&
 				punchlistIssues &&
 				punchlistIssues.clientsNotInDb.length > 0 && (
-					<PunchlistIssueList
-						clients={punchlistIssues.clientsNotInDb}
+					<SuggestionIssueList
+						actionButtonText="Update Punch ID"
 						description="Clients on the punchlist but not in the database, likely incorrect IDs."
+						isActioning={isFixingPunchId}
+						items={punchlistIssues.clientsNotInDb.map((c) => ({
+							id: c["Client ID"] ?? "",
+							name: c["Client Name"] ?? "Unknown",
+							suggestions: c.suggestions,
+						}))}
+						onAction={(itemId, suggestedId) =>
+							updatePunchId({ currentId: itemId, newId: suggestedId })
+						}
 						title="Punchlist Clients Not In DB"
 					/>
 				)}
@@ -890,9 +882,25 @@ export function IssuesList() {
 				!isLoadingMergeSuggestions &&
 				noteOnlyClients &&
 				noteOnlyClients.length !== 0 && (
-					<NoteOnlyList
-						noteOnlyClients={noteOnlyClients}
-						suggestions={mergeSuggestions ?? []}
+					<SuggestionIssueList
+						action={
+							<Link href="/clients/merge">
+								<Button className="cursor-pointer" size="sm" variant="outline">
+									Merge Menu
+								</Button>
+							</Link>
+						}
+						description='"Shell" clients created, should be merged with "Real" client from TA when possible.'
+						items={sortedNoteOnlyClients.map((client) => ({
+							id: client.id.toString(),
+							name: client.fullName,
+							hash: client.hash,
+							originalData: client,
+							suggestions:
+								mergeSuggestions?.find((s) => s.noteOnlyClient.id === client.id)
+									?.suggestedRealClients ?? [],
+						}))}
+						title="Notes Only"
 					/>
 				)}
 			{isLoadingNoDriveIds && <IssueListSkeleton />}

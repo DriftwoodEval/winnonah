@@ -18,9 +18,5 @@ export type DuplicateQLinksData = NonNullable<
 export type SharedQuestionnaireData =
 	DuplicateQLinksData["sharedAcrossClients"][number];
 
-export type MergeSuggestion = NonNullable<
-	ClientRouterOutput["getMergeSuggestions"]
->[number];
-
 type SchedulingRouterOutput = inferRouterOutputs<AppRouter>["scheduling"];
 export type ScheduledClient = SchedulingRouterOutput["get"]["clients"][number];

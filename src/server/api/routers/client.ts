@@ -462,37 +462,38 @@ export const clientRouter = createTRPCRouter({
 		}[] = [];
 
 		for (const noteOnly of noteOnlyClients) {
-			let matchingRealClients = [];
 			const noteOnlyName = noteOnly.fullName.toLowerCase();
 
-			for (const real of realClients) {
-				const realName = real.fullName.toLowerCase();
-				const distance = levDistance(noteOnlyName, realName);
+			const matchingRealClients = realClients
+				.map((real) => {
+					const legalName = `${real.firstName.toLowerCase()} ${real.lastName.toLowerCase()}`;
+					const fullName = real.preferredName
+						? `${real.preferredName} ${real.lastName}`.toLowerCase()
+						: real.fullName.toLowerCase();
 
-				if (
-					distance <= 3 ||
-					(noteOnlyName.includes(realName) &&
-						noteOnlyName.length - realName.length <= 4) ||
-					(realName.includes(noteOnlyName) &&
-						realName.length - noteOnlyName.length <= 4)
-				) {
-					matchingRealClients.push({ ...real, distance });
-				}
-			}
+					const distance = Math.min(
+						levDistance(noteOnlyName, legalName),
+						levDistance(noteOnlyName, fullName),
+					);
+
+					const isMatch =
+						distance <= 3 ||
+						noteOnlyName.includes(legalName) ||
+						legalName.includes(noteOnlyName) ||
+						(real.preferredName &&
+							(noteOnlyName.includes(fullName) ||
+								fullName.includes(noteOnlyName)));
+
+					return { ...real, distance, isMatch };
+				})
+				.filter((c) => c.isMatch)
+				.sort((a, b) => a.distance - b.distance)
+				.slice(0, 5);
 
 			if (matchingRealClients.length > 0) {
-				const exactMatches = matchingRealClients.filter(
-					(c) => c.distance === 0,
-				);
-				if (exactMatches.length > 0) {
-					matchingRealClients = exactMatches;
-				}
-
 				suggestions.push({
 					noteOnlyClient: noteOnly,
-					suggestedRealClients: matchingRealClients
-						.sort((a, b) => a.distance - b.distance)
-						.slice(0, 5), // Limit to top 5 suggestions
+					suggestedRealClients: matchingRealClients,
 				});
 			}
 		}

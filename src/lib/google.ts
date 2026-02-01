@@ -296,6 +296,7 @@ export const updatePunchData = async (
 		evalSent?: boolean;
 		asdAdhd?: string;
 		protocolsScanned?: boolean;
+		newId?: number;
 	},
 ) => {
 	const { PUNCHLIST_ID, PUNCHLIST_RANGE } = env;
@@ -322,6 +323,14 @@ export const updatePunchData = async (
 	const protocolsScannedIndex = headers.indexOf("Protocols scanned?");
 
 	const updateRequests: sheets_v4.Schema$ValueRange[] = [];
+
+	if (updates.newId !== undefined) {
+		const cellAddress = `B${clientRowIndex + 2}`; // Column B is index 1 (Client ID)
+		updateRequests.push({
+			range: cellAddress,
+			values: [[updates.newId.toString()]],
+		});
+	}
 
 	if (updates.daSent !== undefined) {
 		if (daSentIndex === -1) {

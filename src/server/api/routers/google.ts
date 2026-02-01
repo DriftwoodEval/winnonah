@@ -1,4 +1,5 @@
 import { and, eq, notInArray } from "drizzle-orm";
+import { distance as levDistance } from "fastest-levenshtein";
 import z from "zod";
 import { fetchWithCache, invalidateCache } from "~/lib/cache";
 import { ALLOWED_ASD_ADHD_VALUES, TEST_NAMES } from "~/lib/constants";
@@ -9,6 +10,7 @@ import {
 	renameDriveFolder,
 	updatePunchData,
 } from "~/lib/google";
+import type { Client } from "~/lib/models";
 import { getPriorityInfo } from "~/server/api/routers/client";
 import {
 	assertPermission,
@@ -262,12 +264,48 @@ export const googleRouter = createTRPCRouter({
 			};
 		}),
 
+	updatePunchId: protectedProcedure
+		.input(
+			z.object({
+				currentId: z.string(),
+				newId: z.number(),
+			}),
+		)
+		.mutation(async ({ ctx, input }) => {
+			if (!ctx.session.user.accessToken || !ctx.session.user.refreshToken) {
+				throw new Error("No access token or refresh token");
+			}
+
+			ctx.logger.info(input, "Updating punchlist client ID");
+
+			try {
+				await updatePunchData(ctx.session, input.currentId, {
+					newId: input.newId,
+				});
+
+				await invalidateCache(ctx, "google:sheets:punchlist");
+
+				return {
+					success: true,
+					message: "Punchlist client ID updated successfully",
+				};
+			} catch (error) {
+				console.error("Error updating punchlist client ID:", error);
+				throw new Error(
+					`Failed to fix punchlist client ID: ${
+						error instanceof Error ? error.message : "Unknown error"
+					}`,
+				);
+			}
+		}),
+
 	verifyPunchClients: protectedProcedure.query(async ({ ctx }) => {
 		if (!ctx.session.user.accessToken || !ctx.session.user.refreshToken) {
 			throw new Error("No access token or refresh token");
 		}
 
 		const punchData = await getPunchData(ctx.session, ctx.redis);
+		const dbClients = await ctx.db.select().from(clients);
 
 		const clientsNotInDb = punchData.filter(
 			(client) =>
@@ -276,11 +314,44 @@ export const googleRouter = createTRPCRouter({
 					(client["Client Name"] as (typeof TEST_NAMES)[number]) ?? "",
 				),
 		);
+
+		const clientsWithSuggestions = clientsNotInDb.map((punchClient) => {
+			const punchName = punchClient["Client Name"]?.toLowerCase() ?? "";
+			if (!punchName) return { ...punchClient, suggestions: [] as Client[] };
+
+			const suggestions = dbClients
+				.map((client) => {
+					const legalName = `${client.firstName.toLowerCase()} ${client.lastName.toLowerCase()}`;
+					const fullName = client.preferredName
+						? `${client.preferredName} ${client.lastName}`.toLowerCase()
+						: client.fullName;
+
+					const distance = Math.min(
+						levDistance(punchName, legalName),
+						levDistance(punchName, fullName),
+					);
+
+					const isMatch =
+						distance <= 3 ||
+						punchName.includes(legalName) ||
+						fullName.includes(punchName) ||
+						(client.preferredName &&
+							(punchName.includes(fullName) || fullName.includes(punchName)));
+
+					return { ...client, distance, isMatch };
+				})
+				.filter((c) => c.isMatch)
+				.sort((a, b) => a.distance - b.distance)
+				.slice(0, 5);
+
+			return { ...punchClient, suggestions };
+		});
+
 		const inactiveClients = punchData.filter(
 			(client) => typeof client.id === "number" && client.status === false,
 		);
 
-		return { clientsNotInDb, inactiveClients };
+		return { clientsNotInDb: clientsWithSuggestions, inactiveClients };
 	}),
 
 	getMissingFromPunchlist: protectedProcedure.query(async ({ ctx }) => {
