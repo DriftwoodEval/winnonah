@@ -90,7 +90,8 @@ export function IssuesAlert() {
 		(duplicateQLinks?.duplicatePerClient.length ?? 0) +
 		(duplicateQLinks?.sharedAcrossClients.length ?? 0) +
 		(punchlistIssues?.clientsNotInDb.length ?? 0) +
-		(punchlistIssues?.inactiveClients.length ?? 0);
+		(punchlistIssues?.inactiveClients.length ?? 0) +
+		(punchlistIssues?.duplicateIdClients.length ?? 0);
 
 	if (errorsLength === 0) {
 		return null;

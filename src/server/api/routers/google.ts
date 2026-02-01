@@ -351,7 +351,33 @@ export const googleRouter = createTRPCRouter({
 			(client) => typeof client.id === "number" && client.status === false,
 		);
 
-		return { clientsNotInDb: clientsWithSuggestions, inactiveClients };
+		// Find duplicate client IDs
+		const idCounts = new Map<string, number>();
+		for (const client of punchData) {
+			const id = client["Client ID"];
+			if (id) {
+				idCounts.set(id, (idCounts.get(id) ?? 0) + 1);
+			}
+		}
+
+		const duplicateIds = Array.from(idCounts.entries())
+			.filter(([_, count]) => count > 1)
+			.map(([id]) => id);
+
+		const duplicateIdClients = duplicateIds.map((id) => {
+			const count = idCounts.get(id) ?? 0;
+			const client = punchData.find((c) => c["Client ID"] === id);
+			return {
+				...client,
+				duplicateCount: count,
+			};
+		});
+
+		return {
+			clientsNotInDb: clientsWithSuggestions,
+			inactiveClients,
+			duplicateIdClients,
+		};
 	}),
 
 	getMissingFromPunchlist: protectedProcedure.query(async ({ ctx }) => {

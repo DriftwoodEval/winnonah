@@ -717,10 +717,6 @@ export function IssuesList() {
 		api.questionnaires.getJustAdded.useQuery();
 	const { data: punchlistIssues, isLoading: isLoadingPunchlistIssues } =
 		api.google.verifyPunchClients.useQuery();
-	const {
-		data: missingFromPunchlist,
-		isLoading: isLoadingMissingFromPunchlist,
-	} = api.google.getMissingFromPunchlist.useQuery();
 
 	const { mutate: updatePunchId, isPending: isFixingPunchId } =
 		api.google.updatePunchId.useMutation({
@@ -728,6 +724,19 @@ export function IssuesList() {
 				utils.google.verifyPunchClients.invalidate();
 			},
 		});
+
+	const punchlistDuplicateIds =
+		punchlistIssues?.duplicateIdClients.map(
+			(c) =>
+				({
+					...c,
+					fullName: c.fullName ?? c["Client Name"] ?? "Unknown",
+					hash: c.hash ?? "",
+					additionalInfo: `(ID: ${c["Client ID"]}, found ${
+						(c as unknown as { duplicateCount: number }).duplicateCount
+					} times)`,
+				}) as ClientWithIssueInfo,
+		) ?? [];
 
 	const clientsWithDuplicateLinks =
 		duplicateQLinks?.duplicatePerClient
@@ -812,16 +821,13 @@ export function IssuesList() {
 						title="Punchlist Clients Inactive"
 					/>
 				)}
-			{isLoadingMissingFromPunchlist && <IssueListSkeleton />}
-			{!isLoadingMissingFromPunchlist &&
-				missingFromPunchlist &&
-				missingFromPunchlist.length > 0 && (
-					<IssueList
-						clients={missingFromPunchlist}
-						description="Active clients missing from the punchlist."
-						title="Active Clients Not On Punchlist"
-					/>
-				)}
+			{punchlistDuplicateIds.length > 0 && (
+				<IssueList
+					clients={punchlistDuplicateIds as ClientWithIssueInfo[]}
+					description="Duplicate client IDs found on the punchlist."
+					title="Duplicate Punchlist IDs"
+				/>
+			)}
 			{isLoadingDistrictErrors && <IssueListSkeleton />}
 			{!isLoadingDistrictErrors &&
 				clientsWithDistrictFromShapefile &&
