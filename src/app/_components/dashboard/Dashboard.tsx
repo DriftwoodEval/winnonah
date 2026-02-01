@@ -11,6 +11,7 @@ import { Separator } from "@ui/separator";
 import { Skeleton } from "@ui/skeleton";
 import { FlaskConical } from "lucide-react";
 import Link from "next/link";
+import { useEffect, useState } from "react";
 import { env } from "~/env";
 import type { Failure, FullClientInfo } from "~/lib/models";
 import { api } from "~/trpc/react";
@@ -31,7 +32,7 @@ interface PunchListAccordionProps {
 
 function PunchListAccordionItem({ clients, title }: PunchListAccordionProps) {
 	return (
-		<AccordionItem value={title.replace(" ", "-")}>
+		<AccordionItem value={title}>
 			<AccordionTrigger>
 				<span className="flex items-center gap-1">
 					{title}
@@ -101,8 +102,65 @@ export function Dashboard() {
 		refetchInterval: 30000, // 30 seconds
 	});
 
+	const [openItems, setOpenItems] = useState<string[]>([]);
+	const [isRestoring, setIsRestoring] = useState(true);
+
 	const isLoading = isLoadingPunch || isLoadingMissing;
 	const isError = isErrorPunch || isErrorMissing;
+
+	useEffect(() => {
+		const savedOpenItems = sessionStorage.getItem("dashboard-open-items");
+		if (savedOpenItems) {
+			try {
+				setOpenItems(JSON.parse(savedOpenItems));
+			} catch (e) {
+				console.error("Failed to parse saved open items", e);
+			}
+		}
+
+		const handleScroll = () => {
+			// Only save if we are not currently in the restoration phase
+			if (!isRestoring) {
+				sessionStorage.setItem("dashboard-scroll-y", window.scrollY.toString());
+			}
+		};
+
+		window.addEventListener("scroll", handleScroll);
+		return () => window.removeEventListener("scroll", handleScroll);
+	}, [isRestoring]);
+
+	useEffect(() => {
+		if (!isLoading && isRestoring) {
+			const savedScroll = sessionStorage.getItem("dashboard-scroll-y");
+			if (savedScroll) {
+				const targetScroll = parseInt(savedScroll, 10);
+
+				// Attempt to scroll multiple times as layout settles
+				const scrollAttempts = [0, 100, 300, 600, 1000];
+				const timeoutIds = scrollAttempts.map((delay, index) =>
+					setTimeout(() => {
+						window.scrollTo(0, targetScroll);
+						// On the last attempt, mark restoration as complete
+						if (index === scrollAttempts.length - 1) {
+							setIsRestoring(false);
+						}
+					}, delay),
+				);
+
+				return () => {
+					for (const id of timeoutIds) {
+						clearTimeout(id);
+					}
+				};
+			}
+			setIsRestoring(false);
+		}
+	}, [isLoading, isRestoring]);
+
+	const handleOpenItemsChange = (items: string[]) => {
+		setOpenItems(items);
+		sessionStorage.setItem("dashboard-open-items", JSON.stringify(items));
+	};
 
 	const DASHBOARD_CONFIG: {
 		title: string;
@@ -290,7 +348,12 @@ export function Dashboard() {
 
 	return (
 		<div className="mx-4 mt-8 flex grow flex-col items-center">
-			<Accordion className="w-full md:w-1/2" type="multiple">
+			<Accordion
+				className="w-full md:w-1/2"
+				onValueChange={handleOpenItemsChange}
+				type="multiple"
+				value={openItems}
+			>
 				<Alert className="mb-4">
 					<FlaskConical />
 					<AlertTitle>Beta</AlertTitle>
