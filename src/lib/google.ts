@@ -1,14 +1,19 @@
 import { drive } from "@googleapis/drive";
 import { sheets, type sheets_v4 } from "@googleapis/sheets";
 import { TRPCError } from "@trpc/server";
-import { eq, inArray } from "drizzle-orm";
+import { eq, inArray, sql } from "drizzle-orm";
 import { OAuth2Client } from "google-auth-library";
 import type Redis from "ioredis";
 import type { Session } from "next-auth";
 import { env } from "~/env";
 
 import { db } from "~/server/db";
-import { clients } from "~/server/db/schema";
+import {
+	clients,
+	externalRecords,
+	failures,
+	questionnaires,
+} from "~/server/db/schema";
 import { ALLOWED_ASD_ADHD_VALUES, type PUNCH_SCHEMA } from "./constants";
 import type { Client, FullClientInfo } from "./models";
 
@@ -259,13 +264,51 @@ export const getPunchData = async (session: Session, redis?: Redis) => {
 		.map((client) => parseInt(client["Client ID"] ?? "", 10))
 		.filter((id) => !Number.isNaN(id));
 
-	const dbClients = await db
-		.select()
-		.from(clients)
-		.where(inArray(clients.id, clientIds));
+	const [dbClients, allFailures, allQuestionnaires] = await Promise.all([
+		db
+			.select({
+				client: clients,
+				hasExternalRecordsNote: sql<boolean>`CASE WHEN ${externalRecords.content} IS NOT NULL THEN TRUE ELSE FALSE END`,
+				externalRecordsRequestedDate: externalRecords.requested,
+			})
+			.from(clients)
+			.leftJoin(externalRecords, eq(clients.id, externalRecords.clientId))
+			.where(inArray(clients.id, clientIds)),
+		db.select().from(failures).where(inArray(failures.clientId, clientIds)),
+		db
+			.select()
+			.from(questionnaires)
+			.where(inArray(questionnaires.clientId, clientIds)),
+	]);
 
-	const dbClientMap = new Map<number, Client>(
-		dbClients.map((client) => [client.id, client]),
+	const failureMap = new Map<number, (typeof failures.$inferSelect)[]>();
+	allFailures.forEach((failure) => {
+		const clientFailures = failureMap.get(failure.clientId) ?? [];
+		failureMap.set(failure.clientId, [...clientFailures, failure]);
+	});
+
+	const questionnaireMap = new Map<
+		number,
+		(typeof questionnaires.$inferSelect)[]
+	>();
+	allQuestionnaires.forEach((q) => {
+		const clientQs = questionnaireMap.get(q.clientId) ?? [];
+		questionnaireMap.set(q.clientId, [...clientQs, q]);
+	});
+
+	const dbClientMap = new Map<number, FullClientInfo>(
+		dbClients.map(
+			({ client, hasExternalRecordsNote, externalRecordsRequestedDate }) => [
+				client.id,
+				{
+					...client,
+					hasExternalRecordsNote,
+					externalRecordsRequestedDate,
+					failures: failureMap.get(client.id) ?? [],
+					questionnaires: questionnaireMap.get(client.id) ?? [],
+				} as FullClientInfo,
+			],
+		),
 	);
 
 	const finalData: FullClientInfo[] = normalizedSheetData.map((sheetClient) => {

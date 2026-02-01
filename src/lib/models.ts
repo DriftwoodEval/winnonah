@@ -1,6 +1,7 @@
 import type {
 	clients,
 	evaluators,
+	failures,
 	insurances,
 	invitations,
 	offices,
@@ -13,11 +14,19 @@ import type {
 import type { PUNCH_SCHEMA } from "./constants";
 
 export type Client = typeof clients.$inferSelect;
+export type Failure = typeof failures.$inferSelect;
+export type Questionnaire = typeof questionnaires.$inferSelect;
 export interface ClientWithIssueInfo extends Client {
 	additionalInfo?: string;
 	initialFailureDate?: Date;
 }
-export type FullClientInfo = PUNCH_SCHEMA & Client;
+export type FullClientInfo = PUNCH_SCHEMA &
+	Client & {
+		hasExternalRecordsNote?: boolean;
+		externalRecordsRequestedDate?: string | null;
+		failures?: Failure[];
+		questionnaires?: Questionnaire[];
+	};
 
 export type InsertingQuestionnaire = Pick<
 	typeof questionnaires.$inferSelect,
