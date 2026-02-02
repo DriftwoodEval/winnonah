@@ -662,6 +662,7 @@ const SchedulingTableRow = memo(function SchedulingTableRow({
 	return (
 		<TableRow
 			className="hover:bg-inherit"
+			data-client-id={scheduledClient.clientId}
 			key={scheduledClient.clientId}
 			style={{ backgroundColor }}
 		>
@@ -891,6 +892,8 @@ interface InternalSchedulingTableProps {
 	actionIcon: React.ReactNode;
 	actionVariant: "default" | "destructive";
 	isActionPending: boolean;
+	lastAddedClientId?: number | null;
+	onScrollToClient?: () => void;
 }
 
 function InternalSchedulingTable({
@@ -906,6 +909,8 @@ function InternalSchedulingTable({
 	actionIcon,
 	actionVariant,
 	isActionPending,
+	lastAddedClientId,
+	onScrollToClient,
 }: InternalSchedulingTableProps) {
 	const {
 		filteredClients,
@@ -927,6 +932,29 @@ function InternalSchedulingTable({
 		`scheduling-scroll-${type}`,
 		isInitialized,
 	);
+
+	useEffect(() => {
+		if (
+			lastAddedClientId &&
+			isInitialized &&
+			tableRef.current &&
+			filteredClients.length > 0
+		) {
+			const row = tableRef.current.querySelector(
+				`tr[data-client-id="${lastAddedClientId}"]`,
+			);
+			if (row) {
+				row.scrollIntoView({ behavior: "smooth", block: "center" });
+				onScrollToClient?.();
+			}
+		}
+	}, [
+		lastAddedClientId,
+		isInitialized,
+		filteredClients,
+		tableRef,
+		onScrollToClient,
+	]);
 
 	const handleKeyDown = (e: React.KeyboardEvent) => {
 		const key = e.key;
@@ -1159,7 +1187,15 @@ function InternalSchedulingTable({
 	);
 }
 
-function SchedulingTableView({ type }: { type: "active" | "archived" }) {
+function SchedulingTableView({
+	type,
+	lastAddedClientId,
+	onScrollToClient,
+}: {
+	type: "active" | "archived";
+	lastAddedClientId?: number | null;
+	onScrollToClient?: () => void;
+}) {
 	const utils = api.useUtils();
 
 	const activeQuery = api.scheduling.get.useQuery(undefined, {
@@ -1254,8 +1290,10 @@ function SchedulingTableView({ type }: { type: "active" | "archived" }) {
 			insurances={(data?.insurances as InsuranceWithAliases[]) || []}
 			isActionPending={actionMutation.isPending}
 			isEditable={type === "active"}
+			lastAddedClientId={lastAddedClientId}
 			offices={(data?.offices as Office[]) || []}
 			onAction={(clientId) => actionMutation.mutate({ clientId })}
+			onScrollToClient={onScrollToClient}
 			onUpdate={
 				type === "active"
 					? (clientId, updateData) =>
@@ -1267,7 +1305,13 @@ function SchedulingTableView({ type }: { type: "active" | "archived" }) {
 	);
 }
 
-export function SchedulingTable() {
+export function SchedulingTable({
+	lastAddedClientId,
+	onScrollToClient,
+}: {
+	lastAddedClientId?: number | null;
+	onScrollToClient?: () => void;
+}) {
 	const router = useRouter();
 	const pathname = usePathname();
 	const searchParams = useSearchParams();
@@ -1293,13 +1337,21 @@ export function SchedulingTable() {
 				className="flex min-h-0 flex-1 flex-col data-[state=inactive]:hidden"
 				value="active"
 			>
-				<SchedulingTableView type="active" />
+				<SchedulingTableView
+					lastAddedClientId={lastAddedClientId}
+					onScrollToClient={onScrollToClient}
+					type="active"
+				/>
 			</TabsContent>
 			<TabsContent
 				className="flex min-h-0 flex-1 flex-col data-[state=inactive]:hidden"
 				value="archived"
 			>
-				<SchedulingTableView type="archived" />
+				<SchedulingTableView
+					lastAddedClientId={lastAddedClientId}
+					onScrollToClient={onScrollToClient}
+					type="archived"
+				/>
 			</TabsContent>
 		</Tabs>
 	);

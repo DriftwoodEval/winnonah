@@ -1,13 +1,18 @@
 "use client";
 
+import { useState } from "react";
 import { api } from "~/trpc/react";
 import { AddClientToScheduling } from "./AddClientToScheduling";
 import { SchedulingTable } from "./SchedulingTable";
 
 export default function SchedulingDisplay() {
 	const utils = api.useUtils();
+	const [lastAddedClientId, setLastAddedClientId] = useState<number | null>(
+		null,
+	);
 
-	const onClientAdded = () => {
+	const onClientAdded = (clientId: number) => {
+		setLastAddedClientId(clientId);
 		utils.scheduling.get.invalidate();
 	};
 	return (
@@ -17,7 +22,10 @@ export default function SchedulingDisplay() {
 				<AddClientToScheduling onClientAdded={onClientAdded} />
 			</div>
 			<div className="min-h-0 flex-1">
-				<SchedulingTable />
+				<SchedulingTable
+					lastAddedClientId={lastAddedClientId}
+					onScrollToClient={() => setLastAddedClientId(null)}
+				/>
 			</div>
 		</div>
 	);
