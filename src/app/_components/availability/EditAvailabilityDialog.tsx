@@ -271,7 +271,7 @@ export function EditAvailabilityDialog({
 								/>
 							)}
 
-							<AvailabilityFields form={form} hideModeToggle />
+							<AvailabilityFields form={form} />
 
 							<div className="flex gap-4">
 								<Button

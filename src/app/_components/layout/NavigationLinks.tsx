@@ -47,7 +47,7 @@ export default function NavigationLinks() {
 		{
 			href: "/availability",
 			label: "Availability",
-			show: true,
+			show: can("pages:availability"),
 		},
 		{
 			href: "/dashboard",
