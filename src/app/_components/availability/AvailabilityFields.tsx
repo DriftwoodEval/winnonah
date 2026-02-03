@@ -30,13 +30,11 @@ import { api } from "~/trpc/react";
 
 interface AvailabilityFieldsProps {
 	form: UseFormReturn<AvailabilityFormValues>;
-	hideModeToggle?: boolean;
 	outOfOfficePriority?: boolean;
 }
 
 export function AvailabilityFields({
 	form,
-	hideModeToggle = false,
 	outOfOfficePriority = false,
 }: AvailabilityFieldsProps) {
 	const isUnavailability = form.watch("isUnavailability");
@@ -62,134 +60,111 @@ export function AvailabilityFields({
 				</Alert>
 			)}
 
-			{!hideModeToggle && (
-				<FormField
-					control={form.control}
-					name="isUnavailability"
-					render={({ field }) => (
-						<FormItem
-							className={`flex flex-row items-center justify-between rounded-lg border p-4 transition-colors ${field.value ? "border-destructive bg-destructive/10" : "border-primary bg-primary/10"}`}
-						>
-							<div className="space-y-0.5">
-								<FormLabel className="font-semibold text-base">
-									Availability Mode
-								</FormLabel>
-								<FormDescription
-									className={field.value ? "text-destructive" : "text-primary"}
-								>
-									{field.value
-										? "You are declaring unavailability."
-										: "You are declaring availability."}
-								</FormDescription>
-							</div>
-							<FormControl>
-								<Switch
-									checked={field.value}
-									disabled={outOfOfficePriority}
-									onCheckedChange={field.onChange}
-								/>
-							</FormControl>
-						</FormItem>
-					)}
-				/>
-			)}
-
 			{!isUnavailability && (
-				<FormField
-					control={form.control}
-					name="officeKeys"
-					render={({ field }) => (
-						<FormItem className="space-y-3 rounded-md border p-4">
-							<FormLabel className="font-semibold text-base">
-								Available Office Locations
-							</FormLabel>
+				<>
+					<FormField
+						control={form.control}
+						name="officeKeys"
+						render={({ field }) => (
+							<FormItem className="space-y-3 rounded-md border p-4">
+								<FormLabel className="font-semibold text-base">
+									Available Office Locations
+								</FormLabel>
 
-							{isLoadingOffices ? (
-								<p>Loading offices...</p>
-							) : (
-								<div className="flex flex-col gap-2">
-									<FormItem className="flex items-center space-x-2">
-										<Checkbox
-											checked={officeKeys?.length === offices?.length}
-											onCheckedChange={(checked) => {
-												const allOfficeKeys = offices?.map((o) => o.key) || [];
-												field.onChange(checked ? allOfficeKeys : []);
-											}}
-										/>
-										<FormLabel className="font-normal">Any Office</FormLabel>
-									</FormItem>
-									<div className="flex flex-row flex-wrap gap-4">
-										{offices?.map((office) => (
-											<FormItem
-												className="flex items-center space-x-2"
-												key={office.key}
-											>
-												<FormControl>
-													<Checkbox
-														checked={field.value?.includes(office.key)}
-														onCheckedChange={(checked) => {
-															const current = field.value || [];
-															const updated = checked
-																? [...current, office.key]
-																: current.filter((key) => key !== office.key);
-															field.onChange(updated);
-														}}
-													/>
-												</FormControl>
-												<FormLabel className="font-normal">
-													{office.prettyName}
-												</FormLabel>
-											</FormItem>
-										))}
+								{isLoadingOffices ? (
+									<p>Loading offices...</p>
+								) : (
+									<div className="flex flex-col gap-2">
+										<FormItem className="flex items-center space-x-2">
+											<Checkbox
+												checked={officeKeys?.length === offices?.length}
+												onCheckedChange={(checked) => {
+													const allOfficeKeys =
+														offices?.map((o) => o.key) || [];
+													field.onChange(checked ? allOfficeKeys : []);
+												}}
+											/>
+											<FormLabel className="font-normal">Any Office</FormLabel>
+										</FormItem>
+										<div className="flex flex-row flex-wrap gap-4">
+											{offices?.map((office) => (
+												<FormItem
+													className="flex items-center space-x-2"
+													key={office.key}
+												>
+													<FormControl>
+														<Checkbox
+															checked={field.value?.includes(office.key)}
+															onCheckedChange={(checked) => {
+																const current = field.value || [];
+																const updated = checked
+																	? [...current, office.key]
+																	: current.filter((key) => key !== office.key);
+																field.onChange(updated);
+															}}
+														/>
+													</FormControl>
+													<FormLabel className="font-normal">
+														{office.prettyName}
+													</FormLabel>
+												</FormItem>
+											))}
+										</div>
 									</div>
-								</div>
-							)}
-							<FormMessage />
-						</FormItem>
-					)}
-				/>
+								)}
+								<FormMessage />
+							</FormItem>
+						)}
+					/>
+					<Separator />
+				</>
 			)}
 
-			<Separator />
+			{isUnavailability && (
+				<>
+					<FormField
+						control={form.control}
+						name="isAllDay"
+						render={({ field }) => (
+							<FormItem className="flex flex-row items-center justify-between rounded-md border p-4">
+								<div className="space-y-0.5">
+									<FormLabel className="font-semibold text-base">
+										All Day
+									</FormLabel>
+									<FormDescription>
+										Sets the event to cover the entire day.
+									</FormDescription>
+								</div>
+								<FormControl>
+									<Switch
+										checked={field.value}
+										onCheckedChange={(checked) => {
+											field.onChange(checked);
+											if (checked) {
+												const start = form.getValues("startDate");
+												const allDayStart = new Date(start);
+												allDayStart.setHours(0, 0, 0, 0);
 
-			<FormField
-				control={form.control}
-				name="isAllDay"
-				render={({ field }) => (
-					<FormItem className="flex flex-row items-center justify-between rounded-md border p-4">
-						<div className="space-y-0.5">
-							<FormLabel className="font-semibold text-base">All Day</FormLabel>
-							<FormDescription>
-								Sets the event to cover the entire day.
-							</FormDescription>
-						</div>
-						<FormControl>
-							<Switch
-								checked={field.value}
-								onCheckedChange={(checked) => {
-									field.onChange(checked);
-									if (checked) {
-										const start = form.getValues("startDate");
-										const allDayStart = new Date(start);
-										allDayStart.setHours(0, 0, 0, 0);
+												const currentEnd = form.getValues("endDate");
+												let allDayEnd = new Date(currentEnd);
+												allDayEnd.setHours(0, 0, 0, 0);
 
-										const currentEnd = form.getValues("endDate");
-										let allDayEnd = new Date(currentEnd);
-										allDayEnd.setHours(0, 0, 0, 0);
+												if (allDayEnd <= allDayStart) {
+													allDayEnd = add(allDayStart, { days: 1 });
+												}
 
-										if (allDayEnd <= allDayStart) {
-											allDayEnd = add(allDayStart, { days: 1 });
-										}
-
-										form.setValue("startDate", allDayStart);
-										form.setValue("endDate", allDayEnd);
-									}
-								}}
-							/>
-						</FormControl>
-					</FormItem>
-				)}
-			/>
+												form.setValue("startDate", allDayStart);
+												form.setValue("endDate", allDayEnd);
+											}
+										}}
+									/>
+								</FormControl>
+							</FormItem>
+						)}
+					/>
+					<Separator />
+				</>
+			)}
 
 			<div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
 				<FormField
