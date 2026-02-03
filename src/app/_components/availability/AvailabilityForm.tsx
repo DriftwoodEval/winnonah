@@ -51,7 +51,7 @@ export function AvailabilityForm() {
 		defaultValues: {
 			startDate: defaultStartDate,
 			endDate: defaultEndDate,
-			isUnavailability: false,
+			isUnavailability: outOfOfficePriority ?? false,
 			isAllDay: false,
 			isRecurring: false,
 			recurrenceFreq: "never",
@@ -65,10 +65,10 @@ export function AvailabilityForm() {
 		},
 	});
 
-	// Effect to set isUnavailability and disable switch if outOfOfficePriority is true
+	// Effect to set isUnavailability when outOfOfficePriority is loaded
 	useEffect(() => {
-		if (outOfOfficePriority) {
-			form.setValue("isUnavailability", true);
+		if (outOfOfficePriority !== undefined) {
+			form.setValue("isUnavailability", outOfOfficePriority);
 		}
 	}, [outOfOfficePriority, form]);
 
@@ -111,7 +111,9 @@ export function AvailabilityForm() {
 
 	return (
 		<div className="flex flex-col">
-			<h2 className="mb-4 font-bold text-2xl">Declare Your Time</h2>
+			<h2 className="mb-4 font-bold text-2xl">
+				Declare Your {isUnavailability ? "Unavailability" : "Availability"}
+			</h2>
 			<Form {...form}>
 				<form className="space-y-6" onSubmit={form.handleSubmit(onSubmit)}>
 					<AvailabilityFields

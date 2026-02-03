@@ -93,9 +93,10 @@ export function AddClientToScheduling({
 				onAdd={(client) =>
 					addClientMutation.mutate({
 						clientId: client.id,
-
 						optimisticClient: client,
-					} as any)
+					} as Parameters<typeof addClientMutation.mutate>[0] & {
+						optimisticClient: SortedClient;
+					})
 				}
 				placeholder="Search for a client to add..."
 				resetOnAdd={true}

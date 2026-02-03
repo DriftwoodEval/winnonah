@@ -579,7 +579,7 @@ export default function EvaluatorsTable() {
 	// Helper for loading/empty states to avoid repetition
 	const renderTableMessage = (message: string) => (
 		<TableRow>
-			<TableCell className="h-24 text-center" colSpan={canEdit ? 7 : 6}>
+			<TableCell className="h-24 text-center" colSpan={canEdit ? 8 : 7}>
 				{message}
 			</TableCell>
 		</TableRow>
@@ -601,6 +601,7 @@ export default function EvaluatorsTable() {
 							<TableHead>Provider Name</TableHead>
 							<TableHead className="hidden lg:table-cell">Email</TableHead>
 							<TableHead>Insurance</TableHead>
+							<TableHead>OOO Priority</TableHead>
 							<TableHead>Blocked Areas</TableHead>
 							<TableHead>Offices</TableHead>
 						</TableRow>
@@ -655,6 +656,13 @@ export default function EvaluatorsTable() {
 														</Badge>
 													))}
 												</div>
+											</TableCell>
+											<TableCell>
+												{evaluator.outOfOfficePriority ? (
+													<Badge variant="default">Priority</Badge>
+												) : (
+													<span className="text-muted-foreground">Normal</span>
+												)}
 											</TableCell>
 											<TableCell>
 												{evaluator.blockedDistricts?.length === 0 &&
@@ -735,6 +743,14 @@ export default function EvaluatorsTable() {
 										</Badge>
 									))}
 								</div>
+							</div>
+							<div className="flex items-center justify-between">
+								<h5 className="font-medium text-sm">OOO Priority</h5>
+								{evaluator.outOfOfficePriority ? (
+									<Badge variant="default">Priority</Badge>
+								) : (
+									<span className="text-muted-foreground text-sm">Normal</span>
+								)}
 							</div>
 							<div>
 								<h5 className="mb-1 font-medium text-sm">Blocked Areas</h5>

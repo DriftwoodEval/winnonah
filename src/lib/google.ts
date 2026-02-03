@@ -792,25 +792,29 @@ export async function updateAvailabilityEvent(
 
 	const event: calendar_v3.Schema$Event = {
 		summary: eventData.summary,
-		start: {
-			timeZone: "America/New_York",
-		},
-		end: {
-			timeZone: "America/New_York",
-		},
+		start: eventData.isAllDay
+			? {
+					date: formatDate(eventData.start),
+					timeZone: "America/New_York",
+				}
+			: {
+					dateTime: eventData.isRecurring
+						? formatDateTime(eventData.start)
+						: eventData.start.toISOString(),
+					timeZone: "America/New_York",
+				},
+		end: eventData.isAllDay
+			? {
+					date: formatDate(eventData.end),
+					timeZone: "America/New_York",
+				}
+			: {
+					dateTime: eventData.isRecurring
+						? formatDateTime(eventData.end)
+						: eventData.end.toISOString(),
+					timeZone: "America/New_York",
+				},
 	};
-
-	if (eventData.isAllDay) {
-		event.start!.date = formatDate(eventData.start);
-		event.end!.date = formatDate(eventData.end);
-	} else {
-		event.start!.dateTime = eventData.isRecurring
-			? formatDateTime(eventData.start)
-			: eventData.start.toISOString();
-		event.end!.dateTime = eventData.isRecurring
-			? formatDateTime(eventData.end)
-			: eventData.end.toISOString();
-	}
 
 	if (eventData.isUnavailability) {
 		event.eventType = "outOfOffice";
