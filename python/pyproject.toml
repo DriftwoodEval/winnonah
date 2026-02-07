@@ -17,6 +17,7 @@ dependencies = [
     "pymysql>=1.1.1",
     "selenium>=4.33.0",
     "tqdm>=4.67.1",
+    "typer>=0.21.1",
 ]
 
 [dependency-groups]

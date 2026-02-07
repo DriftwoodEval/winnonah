@@ -1,10 +1,11 @@
-import argparse
 import os
 import re
 import shutil
 from collections.abc import Callable
+from typing import Annotated
 
 import pandas as pd
+import typer
 from dotenv import load_dotenv
 from loguru import logger
 
@@ -187,7 +188,7 @@ def import_from_ta(
 def extract_digits(string: str) -> str | None:
     """Extract only digits from a string."""
     digits_only = re.sub(r"\D", "", string)
-    return digits_only if digits_only else None
+    return digits_only or None
 
 
 def format_fax_number(string: str) -> str | None:
@@ -261,72 +262,68 @@ def process_referrals():
     logger.debug("Finished processing referrals")
 
 
-def main():
+def main(
+    download_only: Annotated[
+        bool, typer.Option("--download-only", help="Download TA CSVs and exit")
+    ] = False,
+    openphone: Annotated[
+        bool,
+        typer.Option("--openphone", help="Download TA CSVs and sync OpenPhone data"),
+    ] = False,
+    referrals: Annotated[
+        bool,
+        typer.Option("--referrals", help="Download TA CSVs and process referrals"),
+    ] = False,
+    drive_ids: Annotated[
+        bool, typer.Option("--drive-ids", help="Add client IDs to Google Drive")
+    ] = False,
+    save_ta_hashes: Annotated[
+        bool, typer.Option("--save-ta-hashes", help="Save TA hashes to DB")
+    ] = False,
+    client: Annotated[
+        list[str] | None,
+        typer.Option(
+            "--client",
+            help="Process specific client(s) by name or ID (comma-separated or multiple flags)",
+        ),
+    ] = None,
+    force_all: Annotated[
+        bool,
+        typer.Option("--force-all", help="Force all clients through geocoding process"),
+    ] = False,
+):
     """Main entry point for the script, parses the command line arguments and runs the appropriate functions."""
-    parser = argparse.ArgumentParser()
-    parser.add_argument(
-        "--download-only", action="store_true", help="Download TA CSVs and exit"
-    )
-    parser.add_argument(
-        "--openphone",
-        action="store_true",
-        help="Download TA CSVs and sync OpenPhone data",
-    )
-    parser.add_argument(
-        "--referrals",
-        action="store_true",
-        help="Download TA CSVs and process referrals",
-    )
-    parser.add_argument(
-        "--drive-ids", action="store_true", help="Add client IDs to Google Drive"
-    )
-    parser.add_argument(
-        "--save-ta-hashes", action="store_true", help="Save TA hashes to DB"
-    )
-    parser.add_argument(
-        "--client-name",
-        type=str,
-        help="Process specific client(s) by name (partial match on first/last/preferred name)",
-    )
-    parser.add_argument("--client-id", type=str, help="Process specific client by ID")
-    parser.add_argument(
-        "--force-all",
-        action="store_true",
-        help="Force all clients through geocoding process",
-    )
-    args = parser.parse_args()
-
     utils.config.validate_config()
 
-    trigger_args = [args.openphone, args.download_only]
+    trigger_args = [openphone, download_only]
 
     if not os.getenv("DEV_TOGGLE") or any(trigger_args):
         logger.debug("Removing temp directory")
         shutil.rmtree("temp", ignore_errors=True)
 
-    if args.download_only:
+    if download_only:
         logger.info("Running download only")
         utils.therapyappointment.download_csvs()
         return
 
-    if args.openphone:
+    if openphone:
         logger.info("Running OpenPhone sync")
         utils.therapyappointment.download_csvs()
         utils.openphone.sync_openphone()
         return
 
-    if args.referrals:
+    if referrals:
         logger.info("Running Referrals process")
         utils.therapyappointment.download_csvs()
         process_referrals()
         return
 
-    if args.drive_ids:
+    if drive_ids:
         logger.info("Running Drive IDs process")
         utils.google.add_client_ids_to_drive()
         return
 
-    if args.save_ta_hashes:
+    if save_ta_hashes:
         logger.info("Saving TA hashes")
         utils.therapyappointment.save_ta_hashes()
         return
@@ -334,24 +331,24 @@ def main():
     force_clients: pd.DataFrame | None = None
     clients: pd.DataFrame | None = None
 
-    if args.client_name or args.client_id or args.force_all:
-        clients = utils.clients.get_clients(
-            not (args.client_name or args.client_id) and not args.force_all
-        )
+    if client or force_all:
+        clients = utils.clients.get_clients(not client and not force_all)
 
-        if args.force_all:
+        if force_all:
             logger.info("Force processing ALL clients")
             force_clients = clients
-        elif args.client_name or args.client_id:
+        elif client:
             names_to_filter = []
-            if args.client_name is not None:
-                names_to_filter = [
-                    name.strip() for name in args.client_name.split(",") if name
-                ]
-
             ids_to_filter = []
-            if args.client_id is not None:
-                ids_to_filter = [id.strip() for id in args.client_id.split(",") if id]
+
+            for entry in client:
+                # Handle comma-separated values in each entry
+                parts = [p.strip() for p in entry.split(",") if p.strip()]
+                for part in parts:
+                    if part.isdigit():
+                        ids_to_filter.append(part)
+                    else:
+                        names_to_filter.append(part)
 
             force_clients = filter_clients_by_criteria(
                 clients, names=names_to_filter, client_ids=ids_to_filter
@@ -365,18 +362,18 @@ def main():
                 logger.info(
                     f"Found {len(force_clients)} client{'' if len(force_clients) == 1 else 's'} matching criteria:"
                 )
-                for _, client in force_clients.iterrows():
-                    full_name = f"{client.get('FIRSTNAME', '')} {client.get('LASTNAME', '')}".strip()
-                    preferred_name = client.get("PREFERRED_NAME", "")
+                for _, client_row in force_clients.iterrows():
+                    full_name = f"{client_row.get('FIRSTNAME', '')} {client_row.get('LASTNAME', '')}".strip()
+                    preferred_name = client_row.get("PREFERRED_NAME", "")
                     name_display = f"{full_name}"
                     if preferred_name and pd.notna(preferred_name):
                         name_display += f" (Preferred: {preferred_name})"
                     logger.info(
-                        f"  - {name_display} (ID: {client.get('CLIENT_ID', 'N/A')})"
+                        f"  - {name_display} (ID: {client_row.get('CLIENT_ID', 'N/A')})"
                     )
 
     import_from_ta(clients=clients, force_clients=force_clients)
-    if args.client_name or args.client_id or args.force_all:
+    if client or force_all:
         return
 
     try:
@@ -396,4 +393,4 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    typer.run(main)
