@@ -10,6 +10,7 @@ import {
 	getTableColumns,
 	gt,
 	inArray,
+	isNotNull,
 	isNull,
 	like,
 	lt,
@@ -559,6 +560,7 @@ export const clientRouter = createTRPCRouter({
 		const clientsWithoutRecordsNeeded = await ctx.db.query.clients.findMany({
 			where: and(
 				isNull(clients.recordsNeeded),
+				isNotNull(clients.taUser),
 				eq(clients.status, true),
 				not(isNoteOnly),
 			),
