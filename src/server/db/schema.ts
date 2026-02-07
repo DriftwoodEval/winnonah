@@ -258,6 +258,7 @@ export const clients = createTable(
 		eiAttends: d.boolean().notNull().default(false),
 		flag: d.varchar({ length: 255 }),
 		taHash: d.varchar({ length: 255 }),
+		taUser: d.varchar({ length: 255 }),
 		recordsNeeded: d.mysqlEnum("recordsNeeded", ["Needed", "Not Needed"]),
 		babyNetERNeeded: d.boolean().notNull().default(false),
 		babyNetERDownloaded: d.boolean().notNull().default(false),

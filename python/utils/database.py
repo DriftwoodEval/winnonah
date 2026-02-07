@@ -264,12 +264,13 @@ def put_clients_in_db(clients_df: pd.DataFrame, connection: Connection[DictCurso
             phone_number,
             email,
             get_column(client, "FLAG"),
+            get_column(client, "LOGIN_NAME", default=None),
         )
         values_to_insert.append(values)
 
     sql = f"""
-        INSERT INTO `{TABLE_CLIENT}` (id, hash, status, addedDate, dob, firstName, lastName, preferredName, fullName, address, schoolDistrict, latitude, longitude, primaryInsurance, secondaryInsurance, precertExpires, privatePay, asdAdhd, interpreter, gender, phoneNumber, email, flag)
-        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+        INSERT INTO `{TABLE_CLIENT}` (id, hash, status, addedDate, dob, firstName, lastName, preferredName, fullName, address, schoolDistrict, latitude, longitude, primaryInsurance, secondaryInsurance, precertExpires, privatePay, asdAdhd, interpreter, gender, phoneNumber, email, flag, taUser)
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
         ON DUPLICATE KEY UPDATE
             hash = VALUES(hash),
             status = VALUES(status),
@@ -292,7 +293,8 @@ def put_clients_in_db(clients_df: pd.DataFrame, connection: Connection[DictCurso
             gender = VALUES(gender),
             phoneNumber = VALUES(phoneNumber),
             email = VALUES(email),
-            flag = VALUES(flag);
+            flag = VALUES(flag),
+            taUser = VALUES(taUser);
     """
 
     with connection.cursor() as cursor:
