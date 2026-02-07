@@ -64,10 +64,24 @@ def get_boolean_value(row, column_name, default=False) -> bool:
 
 
 def format_phone_number(phone_number: Any) -> str | None:
-    """Formats a phone number, handling float conversion."""
-    if not phone_number:
+    """Formats a phone number to digits, stripping country codes (leading 1)."""
+    if not phone_number or pd.isna(phone_number):
         return None
-    try:
-        return f"{float(phone_number):.0f}"
-    except (ValueError, TypeError):
+
+    # Convert to string and strip non-digits
+    if isinstance(phone_number, (float, int)):
+        # Handle cases like 8035551234.0
+        phone_str = f"{phone_number:.0f}"
+    else:
+        phone_str = str(phone_number)
+
+    digits = "".join(filter(str.isdigit, phone_str))
+
+    if not digits:
         return None
+
+    # Strip leading 1 if it's 11 digits long
+    if len(digits) == 11 and digits.startswith("1"):
+        return digits[1:]
+
+    return digits

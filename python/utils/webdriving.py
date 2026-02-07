@@ -4,12 +4,14 @@ from time import sleep
 from loguru import logger
 from selenium import webdriver
 from selenium.common.exceptions import (
+    ElementClickInterceptedException,
     NoSuchElementException,
     StaleElementReferenceException,
     TimeoutException,
 )
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.action_chains import ActionChains
+from selenium.webdriver.common.by import By
 from selenium.webdriver.remote.webdriver import WebDriver
 from selenium.webdriver.remote.webelement import WebElement
 from selenium.webdriver.support import expected_conditions as EC
@@ -58,8 +60,10 @@ def click_element(
             )
             element.click()
             return
-        except StaleElementReferenceException:
-            f"Attempt {attempt + 1}/{max_attempts} failed: Stale element. Retrying..."
+        except (StaleElementReferenceException, ElementClickInterceptedException) as e:
+            logger.warning(
+                f"Attempt {attempt + 1}/{max_attempts} failed: {type(e).__name__}. Retrying..."
+            )
             if refresh:
                 logger.info("Refreshing page")
                 driver.refresh()
@@ -68,7 +72,9 @@ def click_element(
             if attempt == max_attempts - 1:
                 raise e
             else:
-                logger.warning("Click element failed: trying again after 1s.")
+                logger.warning(
+                    f"Attempt {attempt + 1}/{max_attempts} failed: {type(e).__name__}. Retrying..."
+                )
                 sleep(1)
 
 
@@ -100,5 +106,5 @@ def check_if_element_exists(
     try:
         find_element(driver, by, locator, timeout)
         return True
-    except (NoSuchElementException, TimeoutException):
+    except NoSuchElementException, TimeoutException:
         return False

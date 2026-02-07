@@ -63,7 +63,7 @@ def check_and_login_ta(
         driver.get(ta_url)
         w.find_element(driver, By.XPATH, "//*[contains(text(), 'Clients')]", timeout=2)
         logger.debug("Already logged in to TherapyAppointment")
-    except (NoSuchElementException, TimeoutException):
+    except NoSuchElementException, TimeoutException:
         logger.debug("Not logged in to TherapyAppointment, logging in now.")
         login_ta(driver, actions)
 
@@ -92,7 +92,7 @@ def _export_data(driver: WebDriver, npi: str):
                 1,
             )
             return True
-        except (NoSuchElementException, TimeoutException):
+        except NoSuchElementException, TimeoutException:
             try:
                 logger.error(
                     f"Could not find {data_title} Re-Export button, has it never been started before?"
@@ -104,7 +104,7 @@ def _export_data(driver: WebDriver, npi: str):
                     1,
                 )
                 return True
-            except (NoSuchElementException, TimeoutException):
+            except NoSuchElementException, TimeoutException:
                 logger.error(f"Could not find {data_title} Start button")
                 return False
 
@@ -148,7 +148,7 @@ def _download_data(driver: WebDriver, npi: str):
                     f"temp/downloads/clients-appointments_{npi}.csv",
                 )
             return True
-        except (NoSuchElementException, TimeoutException):
+        except NoSuchElementException, TimeoutException:
             logger.error(f"Could not find {data_title} Download button")
             return False
 
@@ -211,7 +211,7 @@ def _loop_therapists(driver: WebDriver, func: Callable):
                 "//div[contains(text(), 'Individual (Type 1) NPI Number')]/following-sibling::div",
                 1,
             ).text.split()[0]
-        except (NoSuchElementException, TimeoutException):
+        except NoSuchElementException, TimeoutException:
             logger.error("Could not find therapist NPI, skipping!")
             therapist_iterator += 1
             continue
@@ -281,7 +281,9 @@ def _download_referrals(driver: WebDriver):
     driver.get(
         "https://api.portal.therapyappointment.com/n/reporting/businessintelligence/referralsource"
     )
-    w.click_element(driver, By.XPATH, "//span[contains(text(), 'Export CSV')]")
+    w.click_element(
+        driver, By.XPATH, "//span[contains(text(), 'Export CSV')]", refresh=True
+    )
     time.sleep(2)
     shutil.move(
         os.path.join("temp", "downloads", "client-referral-report.csv"),
