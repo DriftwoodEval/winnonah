@@ -18,7 +18,7 @@ import {
 	TableHeader,
 	TableRow,
 } from "@ui/table";
-import { X } from "lucide-react";
+import { Lock, LockOpen, X } from "lucide-react";
 import { useId, useState } from "react";
 import { useMediaQuery } from "~/hooks/use-media-query";
 
@@ -27,15 +27,52 @@ interface CostItem {
 	name: string;
 	units: number;
 	costPerUnit: number;
+	isLocked: boolean;
+	weight: number;
 }
 
 export default function CostCalculator() {
 	const [costItems, setCostItems] = useState<CostItem[]>([
-		{ id: crypto.randomUUID(), name: "90791", units: 1, costPerUnit: 0 },
-		{ id: crypto.randomUUID(), name: "96136", units: 1, costPerUnit: 0 },
-		{ id: crypto.randomUUID(), name: "96137", units: 11, costPerUnit: 0 },
-		{ id: crypto.randomUUID(), name: "96130", units: 1, costPerUnit: 0 },
-		{ id: crypto.randomUUID(), name: "96131", units: 3, costPerUnit: 0 },
+		{
+			id: crypto.randomUUID(),
+			name: "90791",
+			units: 1,
+			costPerUnit: 0,
+			isLocked: false,
+			weight: 2,
+		},
+		{
+			id: crypto.randomUUID(),
+			name: "96136",
+			units: 1,
+			costPerUnit: 0,
+			isLocked: false,
+			weight: 1,
+		},
+		{
+			id: crypto.randomUUID(),
+			name: "96137",
+			units: 11,
+			costPerUnit: 0,
+			isLocked: false,
+			weight: 1,
+		},
+		{
+			id: crypto.randomUUID(),
+			name: "96130",
+			units: 1,
+			costPerUnit: 0,
+			isLocked: false,
+			weight: 2,
+		},
+		{
+			id: crypto.randomUUID(),
+			name: "96131",
+			units: 3,
+			costPerUnit: 0,
+			isLocked: false,
+			weight: 2,
+		},
 	]);
 	const [targetTotal, setTargetTotal] = useState<number>(2000);
 	const [activeField, setActiveField] = useState<{
@@ -68,20 +105,31 @@ export default function CostCalculator() {
 	};
 
 	const applyTargetTotal = () => {
-		const totalWeightedUnits = costItems.reduce((sum, item) => {
-			const weight = codes[item.name]?.weight ?? 1;
-			return sum + item.units * weight;
+		const targetCents = Math.round(targetTotal * 100);
+
+		const lockedItems = costItems.filter((item) => item.isLocked);
+		const unlockedItems = costItems.filter((item) => !item.isLocked);
+
+		const lockedTotalCents = Math.round(
+			lockedItems.reduce(
+				(sum, item) => sum + item.units * item.costPerUnit * 100,
+				0,
+			),
+		);
+
+		const remainingCents = targetCents - lockedTotalCents;
+		const totalWeightedUnits = unlockedItems.reduce((sum, item) => {
+			return sum + item.units * item.weight;
 		}, 0);
 
 		// Prevent division by zero
-		if (totalWeightedUnits === 0 || targetTotal === 0) return;
+		if (totalWeightedUnits === 0) return;
 
-		const baseRate = targetTotal / totalWeightedUnits;
-		const targetCents = Math.round(targetTotal * 100);
+		const baseRate = remainingCents / 100 / totalWeightedUnits;
 
 		const newItems = costItems.map((item) => {
-			const weight = codes[item.name]?.weight ?? 1;
-			const roundedRate = Math.round(baseRate * weight * 100) / 100;
+			if (item.isLocked) return { ...item };
+			const roundedRate = Math.round(baseRate * item.weight * 100) / 100;
 			return { ...item, costPerUnit: roundedRate };
 		});
 
@@ -95,31 +143,27 @@ export default function CostCalculator() {
 
 		let diffCents = targetCents - getCurrentTotalCents(newItems);
 
-		const itemsToAdjust = [...newItems]
-			.map((_, index) => index)
-			.sort((a, b) => (newItems[a]?.units ?? 0) - (newItems[b]?.units ?? 0));
+		// Greedily reduce diffCents using items with largest possible units that fit.
+		// This keeps the costPerUnit change as small as possible (1 cent at a time).
+		while (diffCents !== 0) {
+			const step = diffCents > 0 ? 1 : -1;
+			const absDiff = Math.abs(diffCents);
 
-		for (const idx of itemsToAdjust) {
-			if (diffCents === 0) break;
-			const item = newItems[idx];
-			if (!item || item.units === 0) continue;
+			// Find unlocked items with units > 0 that can help reduce diffCents without overshooting
+			const candidates = newItems
+				.filter(
+					(item) => !item.isLocked && item.units > 0 && item.units <= absDiff,
+				)
+				.sort((a, b) => b.units - a.units);
 
-			// Determine how many $0.01 steps we can apply to this specific item's rate
-			// without overshooting the remaining difference.
-			const unitCents = item.units;
-			const possibleSteps =
-				diffCents > 0
-					? Math.floor(diffCents / unitCents)
-					: Math.ceil(diffCents / unitCents);
+			if (candidates.length === 0) break;
 
-			if (possibleSteps !== 0) {
-				const itemToUpdate = newItems[idx];
-				if (itemToUpdate) {
-					itemToUpdate.costPerUnit = Number(
-						(itemToUpdate.costPerUnit + possibleSteps * 0.01).toFixed(2),
-					);
-					diffCents -= possibleSteps * unitCents;
-				}
+			const bestItem = candidates[0];
+			if (bestItem) {
+				bestItem.costPerUnit = Number(
+					(bestItem.costPerUnit + step * 0.01).toFixed(2),
+				);
+				diffCents -= step * bestItem.units;
 			}
 		}
 
@@ -129,10 +173,24 @@ export default function CostCalculator() {
 	const handleCostItemChange = (
 		id: string,
 		field: keyof CostItem,
-		value: string | number,
+		value: string | number | boolean,
 	) => {
 		setCostItems((prev) =>
-			prev.map((item) => (item.id === id ? { ...item, [field]: value } : item)),
+			prev.map((item) => {
+				if (item.id === id) {
+					const newItem = { ...item, [field]: value };
+					// Automatically lock the rate if it's manually edited
+					if (field === "costPerUnit") {
+						newItem.isLocked = true;
+					}
+					// Apply default weight when a billing code is selected
+					if (field === "name" && typeof value === "string") {
+						newItem.weight = codes[value]?.weight ?? 1;
+					}
+					return newItem;
+				}
+				return item;
+			}),
 		);
 	};
 
@@ -140,8 +198,9 @@ export default function CostCalculator() {
 		setCostItems((prev) =>
 			prev.map((item) => {
 				if (item.id === id) {
+					// Calculate rate from desired total and lock it
 					const updatedRate = item.units !== 0 ? newTotal / item.units : 0;
-					return { ...item, costPerUnit: updatedRate };
+					return { ...item, costPerUnit: updatedRate, isLocked: true };
 				}
 				return item;
 			}),
@@ -207,11 +266,23 @@ export default function CostCalculator() {
 					<Button onClick={applyTargetTotal} variant="secondary">
 						Calculate Rates
 					</Button>
+					<Button
+						onClick={() =>
+							setCostItems((prev) =>
+								prev.map((i) => ({ ...i, isLocked: false })),
+							)
+						}
+						variant="ghost"
+					>
+						Clear All Locks
+					</Button>
 				</div>
 				<Table>
 					<TableHeader>
 						<TableRow className="hover:bg-inherit">
+							<TableHead className="w-[50px]">Lock</TableHead>
 							<TableHead>Item</TableHead>
+							<TableHead className="w-[100px]">Weight</TableHead>
 							<TableHead className="w-[120px]">Units</TableHead>
 							<TableHead className="w-[150px]">Cost/Unit</TableHead>
 							<TableHead className="w-[150px]">Total</TableHead>
@@ -221,6 +292,22 @@ export default function CostCalculator() {
 					<TableBody>
 						{costItems.map((item) => (
 							<TableRow className="hover:bg-inherit" key={item.id}>
+								<TableCell>
+									<Button
+										className="h-8 w-8"
+										onClick={() =>
+											handleCostItemChange(item.id, "isLocked", !item.isLocked)
+										}
+										size="icon"
+										variant="ghost"
+									>
+										{item.isLocked ? (
+											<Lock className="h-4 w-4 text-primary" />
+										) : (
+											<LockOpen className="h-4 w-4 text-muted-foreground/50" />
+										)}
+									</Button>
+								</TableCell>
 								<TableCell>
 									<Select
 										onValueChange={(val) =>
@@ -248,6 +335,21 @@ export default function CostCalculator() {
 											})}
 										</SelectContent>
 									</Select>
+								</TableCell>
+								<TableCell>
+									<Input
+										min="1"
+										onChange={(e) =>
+											handleCostItemChange(
+												item.id,
+												"weight",
+												Number(e.target.value),
+											)
+										}
+										onFocus={(e) => e.target.select()}
+										type="number"
+										value={item.weight}
+									/>
 								</TableCell>
 								<TableCell>
 									<Input
@@ -307,7 +409,14 @@ export default function CostCalculator() {
 					onClick={() =>
 						setCostItems([
 							...costItems,
-							{ id: crypto.randomUUID(), name: "", units: 1, costPerUnit: 0 },
+							{
+								id: crypto.randomUUID(),
+								name: "",
+								units: 1,
+								costPerUnit: 0,
+								isLocked: false,
+								weight: 1,
+							},
 						])
 					}
 				>
