@@ -184,7 +184,7 @@ export function Dashboard() {
 			failureFilter: (f) => f.daEval === "Records",
 		},
 		{
-			title: "BabyNet ER Needed - Not Downloaded",
+			title: "BabyNet Eval Needed - Not Downloaded",
 			filter: (client: FullClientInfo) =>
 				client.babyNetERNeeded === true && client.babyNetERDownloaded === false,
 		},
@@ -323,11 +323,11 @@ export function Dashboard() {
 			})) ?? [];
 
 	const finalSections = [
-		...allSections,
 		{
 			title: "Active and Not On Punchlist",
 			clients: missingFromPunchlist ?? [],
 		},
+		...allSections,
 		{
 			title: "Clients in Multiple Filters",
 			clients: clientsInMultipleFilters,
