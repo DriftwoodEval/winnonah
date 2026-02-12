@@ -80,7 +80,7 @@ const formSchema = z.object({
 	config: z.object({
 		initials: z.string(),
 		name: z.string(),
-		email: z.email(),
+		email: z.string(),
 		automated_email: z.email(),
 		qreceive_emails: z.array(arrItem(z.email())),
 		punch_list_id: z.string(),
@@ -94,7 +94,7 @@ const formSchema = z.object({
 		records_emails: z.array(
 			keyVal(
 				z.object({
-					email: z.email(),
+					email: z.string(),
 					fax: z.boolean(),
 					aliases: z.string().optional(),
 				}),

@@ -3,6 +3,25 @@ import { z } from "zod";
 // Helper Schemas
 
 const emailSchema = z.email();
+const multiEmailSchema = z
+	.string()
+	.refine(
+		(val) => {
+			const emails = val
+				.split(",")
+				.map((s) => s.trim())
+				.filter(Boolean);
+			return emails.every((email) => z.email().safeParse(email).success);
+		},
+		{ message: "Invalid email format in list" },
+	)
+	.transform((val) =>
+		val
+			.split(",")
+			.map((s) => s.trim())
+			.filter(Boolean)
+			.join(","),
+	);
 const phoneRegex = /^\+?1\d{10}$/;
 const initialsRegex = /^[A-Z]{1,4}$/; // Matches your max_length=4, to_upper constraint
 const punchListRegex = /^.+![A-z]+\d*(:[A-z]+\d*)?$/;
@@ -55,7 +74,7 @@ export const pieceworkConfigSchema = z.object({
 // --- Main Config Schemas ---
 
 export const recordsContactSchema = z.object({
-	email: emailSchema,
+	email: multiEmailSchema,
 	fax: z.boolean().default(false),
 	aliases: z.array(z.string()).default([]),
 });
@@ -66,7 +85,7 @@ export const configSchema = z.object({
 		.regex(initialsRegex)
 		.transform((val) => val.trim().toUpperCase()),
 	name: z.string(),
-	email: emailSchema,
+	email: multiEmailSchema,
 	automated_email: emailSchema,
 	qreceive_emails: z.array(emailSchema),
 	punch_list_id: z.string(),
