@@ -42,7 +42,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@ui/tabs";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@ui/tooltip";
 import { Info, Loader2, Lock, LockOpen, Plus, Trash2 } from "lucide-react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
 	type Control,
 	type FieldArrayPath,
@@ -467,6 +467,32 @@ export function ConfigEditor() {
 	const canEditAny =
 		canEditGeneral || canEditServices || canEditRecords || canEditPiecework;
 
+	const tabPermissions: Record<string, boolean> = useMemo(
+		() => ({
+			general: canEditGeneral,
+			services: canEditServices,
+			records: canEditRecords,
+			piecework: canEditPiecework,
+		}),
+		[canEditGeneral, canEditServices, canEditRecords, canEditPiecework],
+	);
+
+	const canAccessActiveTab = tabPermissions[activeTab];
+
+	useEffect(() => {
+		if (!canAccessActiveTab) {
+			const firstAllowedTab = Object.entries(tabPermissions).find(
+				([_, hasPerm]) => hasPerm,
+			)?.[0];
+
+			if (firstAllowedTab) {
+				const params = new URLSearchParams(searchParams.toString());
+				params.set("tab", firstAllowedTab);
+				router.replace(`${pathname}?${params.toString()}`);
+			}
+		}
+	}, [canAccessActiveTab, tabPermissions, pathname, router, searchParams]);
+
 	const form = useForm<FormValues>({ resolver: zodResolver(formSchema) });
 
 	const apiKey = form.watch("services.openphone.key");
@@ -608,30 +634,48 @@ export function ConfigEditor() {
 					value={activeTab}
 				>
 					<TabsList className="grid w-full grid-cols-4">
-						{["General", "Services", "Records", "Piecework"].map((t) => (
-							<TabsTrigger key={t} value={t.toLowerCase()}>
-								{t}
+						{[
+							{ label: "General", can: canEditGeneral },
+							{ label: "Services", can: canEditServices },
+							{ label: "Records", can: canEditRecords },
+							{ label: "Piecework", can: canEditPiecework },
+						].map((t) => (
+							<TabsTrigger
+								disabled={!t.can}
+								key={t.label}
+								value={t.label.toLowerCase()}
+							>
+								{t.label}
+								{!t.can && <Lock className="ml-2 h-3 w-3" />}
 							</TabsTrigger>
 						))}
 					</TabsList>
 					<div className="mt-6 space-y-6">
-						<TabsContent value="general">
-							<GeneralTab disabled={!canEditGeneral} form={form} />
-						</TabsContent>
-						<TabsContent value="services">
-							<ServicesTab
-								disabled={!canEditServices}
-								form={form}
-								onSyncOpenPhone={() => opUsersMutation.mutate({ apiKey })}
-								syncingOpenPhone={opUsersMutation.isPending}
-							/>
-						</TabsContent>
-						<TabsContent value="records">
-							<RecordsTab disabled={!canEditRecords} form={form} />
-						</TabsContent>
-						<TabsContent value="piecework">
-							<PieceworkTab disabled={!canEditPiecework} form={form} />
-						</TabsContent>
+						{!canAccessActiveTab ? (
+							<div className="flex h-40 items-center justify-center">
+								<Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+							</div>
+						) : (
+							<>
+								<TabsContent value="general">
+									<GeneralTab disabled={!canEditGeneral} form={form} />
+								</TabsContent>
+								<TabsContent value="services">
+									<ServicesTab
+										disabled={!canEditServices}
+										form={form}
+										onSyncOpenPhone={() => opUsersMutation.mutate({ apiKey })}
+										syncingOpenPhone={opUsersMutation.isPending}
+									/>
+								</TabsContent>
+								<TabsContent value="records">
+									<RecordsTab disabled={!canEditRecords} form={form} />
+								</TabsContent>
+								<TabsContent value="piecework">
+									<PieceworkTab disabled={!canEditPiecework} form={form} />
+								</TabsContent>
+							</>
+						)}
 					</div>
 				</Tabs>
 			</Form>
@@ -962,8 +1006,9 @@ function RecordsTab({
 	const { data: allSchoolDistricts } =
 		api.evaluators.getAllSchoolDistricts.useQuery();
 	const recordsEmails = form.watch("config.records_emails");
-
-	const selectedDistricts = recordsEmails.map((e) => e.key);
+	const selectedDistricts = Array.isArray(recordsEmails)
+		? recordsEmails.map((e) => e.key)
+		: [];
 
 	return (
 		<div className="grid gap-6">
@@ -1089,10 +1134,14 @@ function PieceworkTab({
 }) {
 	const { data: evaluators } = api.evaluators.getAll.useQuery();
 	const costs = form.watch("config.piecework.costs");
-	const selectedCostsEvaluators = costs.map((c) => c.key);
+	const selectedCostsEvaluators = Array.isArray(costs)
+		? costs.map((c) => c.key)
+		: [];
 
 	const staff = form.watch("config.piecework.staff");
-	const selectedFullNames = staff.map((m) => m.value.name);
+	const selectedFullNames = Array.isArray(staff)
+		? staff.map((m) => m.value.name)
+		: [];
 
 	return (
 		<div className="grid gap-6">
