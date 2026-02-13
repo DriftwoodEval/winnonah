@@ -16,6 +16,9 @@ services:
       - OPENPHONE_API_TOKEN=${OPENPHONE_API_TOKEN}
       - OPENPHONE_NUMBER_ID=${OPENPHONE_NUMBER_ID}
       - API_KEY=${API_KEY}
+      - NEXT_PUBLIC_APP_TITLE=${NEXT_PUBLIC_APP_TITLE}
+      - NEXT_PUBLIC_APP_DOMAIN=${NEXT_PUBLIC_APP_DOMAIN}
+
     volumes:
       - ./logs:/app/logs
 
@@ -78,6 +81,15 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock
       - /etc/localtime:/etc/localtime:ro
     restart: always
+
+  redirect:
+    image: nginx:alpine
+    container_name: winnonah-redirect
+    restart: always
+    ports:
+      - 8484:80
+    volumes:
+      - ./redirect:/usr/share/nginx/html:ro
 
 volumes:
   winnonah_db-data:

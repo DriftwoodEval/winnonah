@@ -29,7 +29,7 @@ const branchName = getGitInfo(
 	"NEXT_PUBLIC_GIT_BRANCH",
 );
 
-const appDomain = process.env.NEXT_PUBLIC_APP_DOMAIN || "winnonah.xyz";
+const appDomain = process.env.NEXT_PUBLIC_APP_DOMAIN || "emr.driftwoodeval.com";
 
 /** @type {import("next").NextConfig} */
 const config = {
