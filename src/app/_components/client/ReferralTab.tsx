@@ -13,6 +13,7 @@ import {
 	SelectValue,
 } from "@ui/select";
 import { Textarea } from "@ui/textarea";
+import { differenceInMonths, differenceInYears } from "date-fns";
 import { useSession } from "next-auth/react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
@@ -113,6 +114,10 @@ export function ReferralTab({ client, readOnly }: ReferralTabProps) {
 	const asdAdhdValue = client.asdAdhd ?? "(Diagnosis)";
 	const isAdhd = client.asdAdhd === "ADHD";
 
+	const ageInMonths = differenceInMonths(new Date(), new Date(client.dob));
+	const ageInYears = differenceInYears(new Date(), new Date(client.dob));
+	const showSchoolQuestion = !isAdhd && ageInMonths >= 33 && ageInYears <= 19;
+
 	return (
 		<div className="flex flex-col gap-4">
 			<Card className="w-full">
@@ -172,7 +177,7 @@ export function ReferralTab({ client, readOnly }: ReferralTabProps) {
 								.replace("LD", "learning disability")}
 							.
 						</p>
-						{!isAdhd && (
+						{showSchoolQuestion && (
 							<p>
 								Has the child been evaluated at school? Do they have an IEP or
 								504 plan?
@@ -180,7 +185,7 @@ export function ReferralTab({ client, readOnly }: ReferralTabProps) {
 						)}
 					</div>
 
-					{!isAdhd && (
+					{showSchoolQuestion && (
 						<div className="space-y-4">
 							<div className="space-y-3">
 								<Label className="font-semibold">
