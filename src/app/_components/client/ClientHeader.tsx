@@ -29,6 +29,7 @@ import type { Client } from "~/lib/models";
 import { api } from "~/trpc/react";
 import { ResponsiveDialog } from "../shared/ResponsiveDialog";
 import { AddDriveButton } from "./AddDrive";
+import { DashboardStatus } from "./DashboardStatus";
 import { EditAsdAdhdDialog } from "./EditAsdAdhdDialog";
 import { ClientEditButton } from "./EditClientDialog";
 import { EditDriveForm } from "./EditDriveForm";
@@ -327,6 +328,7 @@ export function ClientHeader({
 					/>
 				) : null}
 			</div>
+			<DashboardStatus clientId={client.id} />
 		</div>
 	);
 }

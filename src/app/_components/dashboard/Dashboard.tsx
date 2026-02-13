@@ -6,16 +6,15 @@ import {
 	AccordionItem,
 	AccordionTrigger,
 } from "@ui/accordion";
+import { Alert, AlertDescription, AlertTitle } from "@ui/alert";
 import { ScrollArea } from "@ui/scroll-area";
 import { Separator } from "@ui/separator";
 import { Skeleton } from "@ui/skeleton";
 import { FlaskConical } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { env } from "~/env";
-import type { Failure, FullClientInfo } from "~/lib/models";
+import { getDashboardSections } from "~/lib/dashboard";
 import { api } from "~/trpc/react";
-import { Alert, AlertDescription, AlertTitle } from "../ui/alert";
 
 interface PunchListAccordionProps {
 	clients: {
@@ -162,177 +161,7 @@ export function Dashboard() {
 		sessionStorage.setItem("dashboard-open-items", JSON.stringify(items));
 	};
 
-	const DASHBOARD_CONFIG: {
-		title: string;
-		filter: (client: FullClientInfo) => boolean;
-		failureFilter?: (failure: Failure) => boolean;
-		extraInfo?: (client: FullClientInfo) => string | undefined;
-	}[] = [
-		{
-			title: "Records Needed - Not Requested",
-			filter: (client: FullClientInfo) =>
-				client.recordsNeeded === "Needed" &&
-				!client.externalRecordsRequestedDate,
-			failureFilter: (f) => f.daEval === "Records",
-		},
-		{
-			title: "Records Requested - Not Returned",
-			filter: (client: FullClientInfo) =>
-				client.recordsNeeded === "Needed" &&
-				!!client.externalRecordsRequestedDate &&
-				!client.hasExternalRecordsNote,
-			failureFilter: (f) => f.daEval === "Records",
-		},
-		{
-			title: "BabyNet Eval Needed - Not Downloaded",
-			filter: (client: FullClientInfo) =>
-				client.babyNetERNeeded === true && client.babyNetERDownloaded === false,
-		},
-		{
-			title: "Records Reviewed - Qs Not Sent",
-			filter: (client: FullClientInfo) => {
-				const isRecordsReady =
-					client.recordsNeeded === "Not Needed" ||
-					(client.recordsNeeded === "Needed" &&
-						client.hasExternalRecordsNote === true);
-				return (
-					isRecordsReady &&
-					((client["DA Qs Needed"] === "TRUE" &&
-						client["DA Qs Sent"] === "FALSE") ||
-						(client["EVAL Qs Needed"] === "TRUE" &&
-							client["EVAL Qs Sent"] === "FALSE"))
-				);
-			},
-			failureFilter: (f) => f.daEval === "DA" || f.daEval === "EVAL",
-		},
-		{
-			title: "DA Qs Pending",
-			filter: (client: FullClientInfo) => {
-				const isRecordsReady =
-					client.recordsNeeded === "Not Needed" ||
-					(client.recordsNeeded === "Needed" &&
-						client.hasExternalRecordsNote === true);
-				return (
-					isRecordsReady &&
-					client["DA Qs Needed"] === "TRUE" &&
-					client["DA Qs Sent"] === "FALSE"
-				);
-			},
-			failureFilter: (f) => f.daEval === "DA" || f.daEval === "DAEVAL",
-		},
-		{
-			title: "DA Qs Sent",
-			filter: (client: FullClientInfo) =>
-				client["DA Qs Sent"] === "TRUE" && client["DA Qs Done"] === "FALSE",
-			extraInfo: (client) => {
-				const Qs = client.questionnaires;
-				if (!Qs || Qs.length === 0)
-					return `Not in ${env.NEXT_PUBLIC_APP_TITLE[0]}`;
-				const minReminded = Math.min(...Qs.map((q) => q.reminded ?? 0));
-				return `Reminded: ${minReminded}`;
-			},
-		},
-		{
-			title: "Eval Qs Pending",
-			filter: (client: FullClientInfo) => {
-				const isRecordsReady =
-					client.recordsNeeded === "Not Needed" ||
-					(client.recordsNeeded === "Needed" &&
-						client.hasExternalRecordsNote === true);
-				return (
-					isRecordsReady &&
-					client["EVAL Qs Needed"] === "TRUE" &&
-					client["EVAL Qs Sent"] === "FALSE"
-				);
-			},
-			failureFilter: (f) => f.daEval === "EVAL" || f.daEval === "DAEVAL",
-		},
-		{
-			title: "Eval Qs Sent",
-			filter: (client: FullClientInfo) =>
-				client["EVAL Qs Sent"] === "TRUE" && client["EVAL Qs Done"] === "FALSE",
-			extraInfo: (client) => {
-				const Qs = client.questionnaires;
-				if (!Qs || Qs.length === 0)
-					return `Not in ${env.NEXT_PUBLIC_APP_TITLE[0]}`;
-				const minReminded = Math.min(...Qs.map((q) => q.reminded ?? 0));
-				return `Reminded: ${minReminded}`;
-			},
-		},
-	];
-
-	const filteredSections = DASHBOARD_CONFIG.map((config) => ({
-		title: config.title,
-		clients:
-			clients?.filter(config.filter).map((client) => ({
-				...client,
-				failures: client.failures?.filter(
-					(f) =>
-						(f.reminded ?? 0) < 100 && (config.failureFilter?.(f) ?? false),
-				),
-				extraInfo: config.extraInfo?.(client),
-			})) ?? [],
-	}));
-
-	const justAdded =
-		clients
-			?.filter((client) =>
-				DASHBOARD_CONFIG.every((config) => !config.filter(client)),
-			)
-			.map((client) => ({
-				...client,
-				failures: client.failures?.filter((f) => (f.reminded ?? 0) < 100),
-			})) ?? [];
-
-	const allSections = [
-		{ title: "Just Added", clients: justAdded },
-		...filteredSections,
-	];
-
-	const clientMatchedSections = new Map<string, string[]>();
-	allSections.forEach((section) => {
-		section.clients.forEach((client) => {
-			const clientId = client["Client ID"] ?? "";
-			const sections = clientMatchedSections.get(clientId) ?? [];
-			clientMatchedSections.set(clientId, [...sections, section.title]);
-		});
-	});
-
-	const clientsInMultipleFilters =
-		clients
-			?.filter(
-				(client) =>
-					(clientMatchedSections.get(client["Client ID"] ?? "")?.length ?? 0) >
-					1,
-			)
-			.map((client) => ({
-				...client,
-				matchedSections: clientMatchedSections.get(client["Client ID"] ?? ""),
-				// For this specific view, we show all relevant failures from the sections they are in
-				failures: client.failures?.filter(
-					(f) =>
-						(f.reminded ?? 0) < 100 &&
-						DASHBOARD_CONFIG.some(
-							(config) =>
-								config.failureFilter?.(f) &&
-								clientMatchedSections
-									.get(client["Client ID"] ?? "")
-									?.includes(config.title),
-						),
-				),
-			})) ?? [];
-
-	const finalSections = [
-		{
-			title: "Active and Not On Punchlist",
-			clients: missingFromPunchlist ?? [],
-		},
-		...allSections,
-		{
-			title: "Clients in Multiple Filters",
-			clients: clientsInMultipleFilters,
-		},
-	];
+	const finalSections = getDashboardSections(clients, missingFromPunchlist);
 
 	if (isLoading)
 		return (
