@@ -1,6 +1,5 @@
 import { drive } from "@googleapis/drive";
 import { sheets, type sheets_v4 } from "@googleapis/sheets";
-import { TRPCError } from "@trpc/server";
 import { and, eq, inArray, notInArray, sql } from "drizzle-orm";
 import { OAuth2Client } from "google-auth-library";
 import type { Session } from "next-auth";
@@ -43,6 +42,7 @@ export const renameDriveFolder = async (
 	session: Session,
 	folderId: string,
 	clientId: string | null,
+	newName?: string,
 ) => {
 	const driveApi = getDriveClient(session);
 
@@ -51,31 +51,32 @@ export const renameDriveFolder = async (
 		fields: "name",
 	});
 
-	const folderName = folder.data.name;
+	const currentFolderName = folder.data.name;
 	const regex = /\[\d+\]/g;
+
 	if (clientId === null) {
-		const newFolderName = folderName?.replace(regex, "");
-		if (newFolderName !== folderName) {
+		const updatedFolderName = currentFolderName?.replace(regex, "").trim();
+		if (updatedFolderName !== currentFolderName) {
 			await driveApi.files.update({
 				fileId: folderId,
 				requestBody: {
-					name: newFolderName,
+					name: updatedFolderName,
 				},
 			});
 		}
-	} else if (folderName && regex.test(folderName)) {
-		throw new TRPCError({
-			code: "BAD_REQUEST",
-			message: `${folderName} already has a client ID`,
-		});
 	} else {
-		const newFolderName = `${folderName?.trim()} [${clientId}]`;
-		await driveApi.files.update({
-			fileId: folderId,
-			requestBody: {
-				name: newFolderName,
-			},
-		});
+		const baseName =
+			newName ?? currentFolderName?.replace(regex, "").trim() ?? "";
+		const updatedFolderName = `${baseName} [${clientId}]`;
+
+		if (updatedFolderName !== currentFolderName) {
+			await driveApi.files.update({
+				fileId: folderId,
+				requestBody: {
+					name: updatedFolderName,
+				},
+			});
+		}
 	}
 };
 

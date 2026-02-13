@@ -21,7 +21,7 @@ import {
 import { distance as levDistance } from "fastest-levenshtein";
 import { z } from "zod";
 import { CLIENT_COLOR_KEYS } from "~/lib/colors";
-import { syncPunchData } from "~/lib/google";
+import { renameDriveFolder, syncPunchData } from "~/lib/google";
 import type { ClientWithIssueInfo } from "~/lib/models";
 import { getDistanceSQL } from "~/lib/utils";
 import {
@@ -1318,6 +1318,33 @@ export const clientRouter = createTRPCRouter({
 				.update(clients)
 				.set({ status: false })
 				.where(eq(clients.id, fakeClientId));
+
+			if (
+				fakeClient.driveId &&
+				fakeClient.driveId !== "N/A" &&
+				(!realClient.driveId || realClient.driveId === "N/A")
+			) {
+				await ctx.db
+					.update(clients)
+					.set({ driveId: fakeClient.driveId })
+					.where(eq(clients.id, clientId));
+
+				if (ctx.session.user.accessToken && ctx.session.user.refreshToken) {
+					try {
+						await renameDriveFolder(
+							ctx.session,
+							fakeClient.driveId,
+							clientId.toString(),
+							realClient.fullName,
+						);
+					} catch (error) {
+						ctx.logger.error(
+							{ error, folderId: fakeClient.driveId, clientId },
+							"Failed to rename drive folder during merge",
+						);
+					}
+				}
+			}
 
 			return {
 				success: true,
