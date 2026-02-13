@@ -1,7 +1,7 @@
 import { drive } from "@googleapis/drive";
 import { sheets, type sheets_v4 } from "@googleapis/sheets";
 import { TRPCError } from "@trpc/server";
-import { eq, inArray, sql } from "drizzle-orm";
+import { and, eq, inArray, notInArray, sql } from "drizzle-orm";
 import { OAuth2Client } from "google-auth-library";
 import type Redis from "ioredis";
 import type { Session } from "next-auth";
@@ -14,7 +14,11 @@ import {
 	failures,
 	questionnaires,
 } from "~/server/db/schema";
-import { ALLOWED_ASD_ADHD_VALUES, type PUNCH_SCHEMA } from "./constants";
+import {
+	ALLOWED_ASD_ADHD_VALUES,
+	type PUNCH_SCHEMA,
+	TEST_NAMES,
+} from "./constants";
 import type { Client, FullClientInfo } from "./models";
 
 // Google Drive
@@ -483,4 +487,27 @@ export const getClientFromPunchData = async (
 ) => {
 	const data = await getPunchData(session, redis);
 	return data.find((client) => client["Client ID"] === id);
+};
+
+export const getMissingFromPunchlistData = async (
+	session: Session,
+	redis?: Redis,
+) => {
+	const punchClients = await getPunchData(session, redis);
+	const punchClientIds = new Set(
+		punchClients
+			.map((c) => c["Client ID"])
+			.filter((id): id is string => typeof id === "string" && id.trim() !== "")
+			.map((id) => parseInt(id, 10))
+			.filter((id) => !Number.isNaN(id)),
+	);
+
+	const activeDbClients = await db.query.clients.findMany({
+		where: and(
+			eq(clients.status, true),
+			notInArray(clients.fullName, TEST_NAMES as unknown as string[]),
+		),
+	});
+
+	return activeDbClients.filter((client) => !punchClientIds.has(client.id));
 };

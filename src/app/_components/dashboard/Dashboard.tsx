@@ -13,19 +13,12 @@ import { Skeleton } from "@ui/skeleton";
 import { FlaskConical } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { getDashboardSections } from "~/lib/dashboard";
+import { type DashboardClient, getDashboardSections } from "~/lib/dashboard";
+import type { FullClientInfo } from "~/lib/models";
 import { api } from "~/trpc/react";
 
 interface PunchListAccordionProps {
-	clients: {
-		hash: string;
-		fullName?: string | null;
-		"Client ID"?: string | null;
-		"Client Name"?: string | null;
-		matchedSections?: string[];
-		extraInfo?: string;
-		failures?: { reason: string }[];
-	}[];
+	clients: DashboardClient[];
 	title: string;
 }
 
@@ -43,40 +36,48 @@ function PunchListAccordionItem({ clients, title }: PunchListAccordionProps) {
 			<AccordionContent>
 				<ScrollArea className="h-[400px] w-full rounded-md border bg-card text-card-foreground shadow">
 					<div className="p-4">
-						{clients?.map((client, index) => (
-							<div key={client.hash}>
-								<Link className="block w-full" href={`/clients/${client.hash}`}>
-									<div>
-										<div className="flex items-center justify-between">
-											<span>{client.fullName ?? client["Client Name"]}</span>
-											{client.extraInfo && (
-												<span className="text-muted-foreground text-xs">
-													{client.extraInfo}
+						{clients?.map((client, index) => {
+							const punchClient = client as FullClientInfo & DashboardClient;
+							return (
+								<div key={client.hash}>
+									<Link
+										className="block w-full"
+										href={`/clients/${client.hash}`}
+									>
+										<div>
+											<div className="flex items-center justify-between">
+												<span>
+													{client.fullName ?? punchClient["Client Name"]}
+												</span>
+												{punchClient.extraInfo && (
+													<span className="text-muted-foreground text-xs">
+														{punchClient.extraInfo}
+													</span>
+												)}
+											</div>
+											{punchClient.matchedSections && (
+												<span className="block text-muted-foreground text-xs">
+													{punchClient.matchedSections.join(", ")}
 												</span>
 											)}
+											{client.failures && client.failures.length > 0 && (
+												<div className="mt-1">
+													{client.failures.map((failure) => (
+														<span
+															className="mr-1 inline-block rounded-sm bg-destructive/10 px-1 py-0.5 text-[10px] text-destructive"
+															key={failure.reason}
+														>
+															{failure.reason}
+														</span>
+													))}
+												</div>
+											)}
 										</div>
-										{client.matchedSections && (
-											<span className="block text-muted-foreground text-xs">
-												{client.matchedSections.join(", ")}
-											</span>
-										)}
-										{client.failures && client.failures.length > 0 && (
-											<div className="mt-1">
-												{client.failures.map((failure) => (
-													<span
-														className="mr-1 inline-block rounded-sm bg-destructive/10 px-1 py-0.5 text-[10px] text-destructive"
-														key={failure.reason}
-													>
-														{failure.reason}
-													</span>
-												))}
-											</div>
-										)}
-									</div>
-								</Link>
-								{index < clients.length - 1 && <Separator className="my-2" />}
-							</div>
-						))}
+									</Link>
+									{index < clients.length - 1 && <Separator className="my-2" />}
+								</div>
+							);
+						})}
 					</div>
 				</ScrollArea>
 			</AccordionContent>
@@ -86,26 +87,15 @@ function PunchListAccordionItem({ clients, title }: PunchListAccordionProps) {
 
 export function Dashboard() {
 	const {
-		data: clients,
-		isLoading: isLoadingPunch,
-		isError: isErrorPunch,
-	} = api.google.getPunch.useQuery(undefined, {
-		refetchInterval: 30000, // 30 seconds
-	});
-
-	const {
-		data: missingFromPunchlist,
-		isLoading: isLoadingMissing,
-		isError: isErrorMissing,
-	} = api.google.getMissingFromPunchlist.useQuery(undefined, {
+		data: dashboardData,
+		isLoading,
+		isError,
+	} = api.google.getDashboardData.useQuery(undefined, {
 		refetchInterval: 30000, // 30 seconds
 	});
 
 	const [openItems, setOpenItems] = useState<string[]>([]);
 	const [isRestoring, setIsRestoring] = useState(true);
-
-	const isLoading = isLoadingPunch || isLoadingMissing;
-	const isError = isErrorPunch || isErrorMissing;
 
 	useEffect(() => {
 		const savedOpenItems = sessionStorage.getItem("dashboard-open-items");
@@ -161,7 +151,10 @@ export function Dashboard() {
 		sessionStorage.setItem("dashboard-open-items", JSON.stringify(items));
 	};
 
-	const finalSections = getDashboardSections(clients, missingFromPunchlist);
+	const finalSections = getDashboardSections(
+		dashboardData?.punchClients,
+		dashboardData?.missingClients,
+	);
 
 	if (isLoading)
 		return (
@@ -192,7 +185,7 @@ export function Dashboard() {
 				</Alert>
 
 				<p className="text-muted-foreground text-sm">
-					Punchlist: {clients?.length}
+					Punchlist: {dashboardData?.punchClients?.length ?? 0}
 				</p>
 
 				{finalSections.map((section) => (

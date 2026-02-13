@@ -25,6 +25,11 @@ This guide helps AI agents navigate and contribute to the codebase.
 
 ## Local Norms
 
+### Standards
+
+- **DRY** & **KISS**
+- Strong typing is mandatory, no `any` types.
+
 ### Tooling & Commands
 
 - **Node.js**: Use `pnpm`.

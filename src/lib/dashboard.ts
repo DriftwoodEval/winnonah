@@ -5,6 +5,12 @@ export const SECTION_ACTIVE_NOT_ON_PUNCHLIST = "Active and Not On Punchlist";
 export const SECTION_JUST_ADDED = "Just Added";
 export const SECTION_MULTIPLE_FILTERS = "Clients in Multiple Filters";
 
+export type DashboardClient = (FullClientInfo | Client) & {
+	matchedSections?: string[];
+	extraInfo?: string;
+	failures?: Failure[];
+};
+
 export const DASHBOARD_CONFIG: {
 	title: string;
 	filter: (client: FullClientInfo) => boolean;
@@ -105,7 +111,7 @@ export const DASHBOARD_CONFIG: {
 
 export interface DashboardSection {
 	title: string;
-	clients: (FullClientInfo | Client)[];
+	clients: DashboardClient[];
 }
 
 export function getDashboardSections(

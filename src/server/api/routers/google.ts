@@ -1,4 +1,4 @@
-import { and, eq, notInArray } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { distance as levDistance } from "fastest-levenshtein";
 import z from "zod";
 import { fetchWithCache, invalidateCache } from "~/lib/cache";
@@ -6,12 +6,12 @@ import { ALLOWED_ASD_ADHD_VALUES, TEST_NAMES } from "~/lib/constants";
 import {
 	findDuplicateIdFolders,
 	getClientFromPunchData,
+	getMissingFromPunchlistData,
 	getPunchData,
 	renameDriveFolder,
 	updatePunchData,
 } from "~/lib/google";
 import type { Client } from "~/lib/models";
-import { getPriorityInfo } from "~/server/api/routers/client";
 import {
 	assertPermission,
 	createTRPCRouter,
@@ -385,34 +385,22 @@ export const googleRouter = createTRPCRouter({
 			throw new Error("No access token or refresh token");
 		}
 
-		const punchClients = await getPunchData(ctx.session, ctx.redis);
-		const punchClientIds = new Set(
-			punchClients
-				.map((c) => c["Client ID"])
-				.filter(
-					(id): id is string => typeof id === "string" && id.trim() !== "",
-				)
-				.map((id) => parseInt(id, 10))
-				.filter((id) => !Number.isNaN(id)),
-		);
+		return getMissingFromPunchlistData(ctx.session, ctx.redis);
+	}),
 
-		const { orderBySQL } = getPriorityInfo();
+	getDashboardData: protectedProcedure.query(async ({ ctx }) => {
+		if (!ctx.session.user.accessToken || !ctx.session.user.refreshToken) {
+			throw new Error("No access token or refresh token");
+		}
 
-		const activeDbClients = await ctx.db
-			.select()
-			.from(clients)
-			.where(
-				and(
-					eq(clients.status, true),
-					notInArray(clients.fullName, TEST_NAMES as unknown as string[]),
-				),
-			)
-			.orderBy(...orderBySQL);
+		const [punchClients, missingClients] = await Promise.all([
+			getPunchData(ctx.session, ctx.redis),
+			getMissingFromPunchlistData(ctx.session, ctx.redis),
+		]);
 
-		const missingClients = activeDbClients.filter(
-			(client) => !punchClientIds.has(client.id),
-		);
-
-		return missingClients;
+		return {
+			punchClients,
+			missingClients,
+		};
 	}),
 });

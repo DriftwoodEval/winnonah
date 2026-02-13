@@ -12,22 +12,21 @@ import type { Client, FullClientInfo } from "~/lib/models";
 import { api } from "~/trpc/react";
 
 export function DashboardStatus({ clientId }: { clientId: number }) {
-	const { data: punchClients, isLoading: isLoadingPunch } =
-		api.google.getPunch.useQuery(undefined, {
+	const { data: dashboardData, isLoading } =
+		api.google.getDashboardData.useQuery(undefined, {
 			staleTime: 60000,
 		});
 
-	const { data: missingFromPunchlist, isLoading: isLoadingMissing } =
-		api.google.getMissingFromPunchlist.useQuery(undefined, {
-			staleTime: 60000,
-		});
-
-	if (isLoadingPunch || isLoadingMissing) {
+	if (isLoading) {
 		return <Skeleton className="h-6 w-32" />;
 	}
 
-	const clientOnPunch = punchClients?.find((p) => p.id === clientId);
-	const clientMissing = missingFromPunchlist?.find((m) => m.id === clientId);
+	const clientOnPunch = dashboardData?.punchClients?.find(
+		(p: FullClientInfo) => p.id === clientId,
+	);
+	const clientMissing = dashboardData?.missingClients?.find(
+		(m: Client) => m.id === clientId,
+	);
 
 	if (!clientOnPunch && !clientMissing) {
 		return null;
@@ -35,8 +34,8 @@ export function DashboardStatus({ clientId }: { clientId: number }) {
 
 	const matchedSections = getClientMatchedSections(
 		(clientOnPunch ?? clientMissing) as FullClientInfo | Client,
-		punchClients ?? [],
-		missingFromPunchlist ?? [],
+		dashboardData?.punchClients ?? [],
+		dashboardData?.missingClients ?? [],
 	);
 
 	if (matchedSections.length === 0) {
