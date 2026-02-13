@@ -1,5 +1,6 @@
 "use client";
 
+import { Alert, AlertDescription, AlertTitle } from "@ui/alert";
 import { Button } from "@ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@ui/card";
 import { Input } from "@ui/input";
@@ -14,6 +15,7 @@ import {
 } from "@ui/select";
 import { Textarea } from "@ui/textarea";
 import { differenceInMonths, differenceInYears } from "date-fns";
+import { AlertCircle } from "lucide-react";
 import { useSession } from "next-auth/react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
@@ -118,8 +120,23 @@ export function ReferralTab({ client, readOnly }: ReferralTabProps) {
 	const ageInYears = differenceInYears(new Date(), new Date(client.dob));
 	const showSchoolQuestion = !isAdhd && ageInMonths >= 33 && ageInYears <= 19;
 
+	const isBabyNet =
+		client.babyNet ||
+		client.primaryInsurance?.toLowerCase().includes("babynet") ||
+		client.secondaryInsurance?.toLowerCase().includes("babynet");
+
 	return (
 		<div className="flex flex-col gap-4">
+			{isBabyNet && (
+				<Alert variant="destructive">
+					<AlertCircle className="h-4 w-4" />
+					<AlertTitle>REFERRAL TAB SHOULD NOT BE USED</AlertTitle>
+					<AlertDescription>
+						REFERRAL TAB SHOULD NOT BE USED BASED ON BABYNET STATUS
+					</AlertDescription>
+				</Alert>
+			)}
+
 			<Card className="w-full">
 				<CardHeader>
 					<CardTitle>Referral Information</CardTitle>
