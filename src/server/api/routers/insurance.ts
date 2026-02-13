@@ -1,5 +1,6 @@
 import { eq } from "drizzle-orm";
 import { z } from "zod";
+import { fetchWithCache, invalidateCache } from "~/lib/cache";
 import {
 	assertPermission,
 	createTRPCRouter,
@@ -7,13 +8,17 @@ import {
 } from "~/server/api/trpc";
 import { clients, insuranceAliases, insurances } from "~/server/db/schema";
 
+const CACHE_KEY_ALL_INSURANCES = "insurances:all";
+
 export const insuranceRouter = createTRPCRouter({
 	getAll: protectedProcedure.query(async ({ ctx }) => {
-		return ctx.db.query.insurances.findMany({
-			orderBy: (insurances, { asc }) => [asc(insurances.shortName)],
-			with: {
-				aliases: true,
-			},
+		return fetchWithCache(ctx, CACHE_KEY_ALL_INSURANCES, async () => {
+			return ctx.db.query.insurances.findMany({
+				orderBy: (insurances, { asc }) => [asc(insurances.shortName)],
+				with: {
+					aliases: true,
+				},
+			});
 		});
 	}),
 
@@ -54,7 +59,7 @@ export const insuranceRouter = createTRPCRouter({
 
 			const { aliases, ...insuranceData } = input;
 
-			return ctx.db.transaction(async (tx) => {
+			const result = await ctx.db.transaction(async (tx) => {
 				const [result] = await tx.insert(insurances).values(insuranceData);
 				const insuranceId = result.insertId;
 
@@ -69,6 +74,9 @@ export const insuranceRouter = createTRPCRouter({
 
 				return result;
 			});
+
+			await invalidateCache(ctx, CACHE_KEY_ALL_INSURANCES);
+			return result;
 		}),
 
 	update: protectedProcedure
@@ -88,7 +96,7 @@ export const insuranceRouter = createTRPCRouter({
 			ctx.logger.info(input, "Updating insurance");
 			const { id, aliases, ...data } = input;
 
-			return ctx.db.transaction(async (tx) => {
+			await ctx.db.transaction(async (tx) => {
 				await tx.update(insurances).set(data).where(eq(insurances.id, id));
 
 				// Simple sync: delete all and re-insert
@@ -105,6 +113,8 @@ export const insuranceRouter = createTRPCRouter({
 					);
 				}
 			});
+
+			await invalidateCache(ctx, CACHE_KEY_ALL_INSURANCES);
 		}),
 
 	delete: protectedProcedure
@@ -114,6 +124,7 @@ export const insuranceRouter = createTRPCRouter({
 
 			ctx.logger.info(input, "Deleting insurance");
 
-			return ctx.db.delete(insurances).where(eq(insurances.id, input.id));
+			await ctx.db.delete(insurances).where(eq(insurances.id, input.id));
+			await invalidateCache(ctx, CACHE_KEY_ALL_INSURANCES);
 		}),
 });

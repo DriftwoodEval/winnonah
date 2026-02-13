@@ -124,7 +124,7 @@ export const clientRouter = createTRPCRouter({
 			}
 
 			if (ctx.session.user.accessToken && ctx.session.user.refreshToken) {
-				await syncPunchData(ctx.session, ctx.redis);
+				await syncPunchData(ctx.session);
 			}
 
 			const syncedClient = await ctx.db.query.clients.findFirst({

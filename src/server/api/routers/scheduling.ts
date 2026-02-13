@@ -1,5 +1,6 @@
 import { asc, eq, getTableColumns, sql } from "drizzle-orm";
 import { z } from "zod";
+import { fetchWithCache } from "~/lib/cache";
 import { syncPunchData } from "~/lib/google";
 import { getDistanceSQL } from "~/lib/utils";
 import { createTRPCRouter, protectedProcedure } from "~/server/api/trpc";
@@ -14,10 +15,12 @@ export const schedulingRouter = createTRPCRouter({
 
 		const clientIds = scheduledClientsRaw.map((sc) => sc.clientId);
 		if (clientIds.length > 0) {
-			await syncPunchData(ctx.session, ctx.redis);
+			await syncPunchData(ctx.session);
 		}
 
-		const allOffices = await db.query.offices.findMany();
+		const allOffices = await fetchWithCache(ctx, "offices:all", () =>
+			ctx.db.query.offices.findMany(),
+		);
 
 		const distanceExprs = allOffices.map((o) => ({
 			key: o.key,
@@ -75,13 +78,58 @@ export const schedulingRouter = createTRPCRouter({
 			.where(eq(schedulingClients.archived, false))
 			.orderBy(asc(schedulingClients.createdAt));
 
-		const allEvaluators = await db.query.evaluators.findMany();
-		const allDistricts = await db.query.schoolDistricts.findMany();
-		const allInsurances = await db.query.insurances.findMany({
-			with: {
-				aliases: true,
+		const allEvaluators = await fetchWithCache(
+			ctx,
+			"evaluators:all",
+			async () => {
+				const evaluatorsWithOffices = await ctx.db.query.evaluators.findMany({
+					orderBy: (evaluators, { asc }) => [asc(evaluators.providerName)],
+					with: {
+						offices: { with: { office: true } },
+						blockedSchoolDistricts: { with: { schoolDistrict: true } },
+						blockedZipCodes: { with: { zipCode: true } },
+						insurances: { with: { insurance: true } },
+					},
+				});
+
+				return evaluatorsWithOffices.map((evaluator) => ({
+					...evaluator,
+					offices: evaluator.offices.map((link) => link.office),
+					blockedDistricts: evaluator.blockedSchoolDistricts.map(
+						(link) => link.schoolDistrict,
+					),
+					blockedZips: evaluator.blockedZipCodes.map((link) => link.zipCode),
+					insurances: evaluator.insurances.map((link) => link.insurance),
+				}));
 			},
-		});
+		);
+
+		const allDistricts = await fetchWithCache(
+			ctx,
+			"school-districts:all",
+			async () => {
+				return ctx.db.query.schoolDistricts.findMany({
+					orderBy: (schoolDistricts, { asc, sql }) => [
+						sql`CASE WHEN ${schoolDistricts.shortName} IS NOT NULL THEN 0 ELSE 1 END`,
+						asc(schoolDistricts.shortName),
+						asc(schoolDistricts.fullName),
+					],
+				});
+			},
+		);
+
+		const allInsurances = await fetchWithCache(
+			ctx,
+			"insurances:all",
+			async () => {
+				return ctx.db.query.insurances.findMany({
+					orderBy: (insurances, { asc }) => [asc(insurances.shortName)],
+					with: {
+						aliases: true,
+					},
+				});
+			},
+		);
 
 		return {
 			clients: scheduledClients.map((item) => ({
@@ -102,10 +150,12 @@ export const schedulingRouter = createTRPCRouter({
 
 		const clientIds = scheduledClientsRaw.map((sc) => sc.clientId);
 		if (clientIds.length > 0) {
-			await syncPunchData(ctx.session, ctx.redis);
+			await syncPunchData(ctx.session);
 		}
 
-		const allOffices = await db.query.offices.findMany();
+		const allOffices = await fetchWithCache(ctx, "offices:all", () =>
+			ctx.db.query.offices.findMany(),
+		);
 
 		const distanceExprs = allOffices.map((o) => ({
 			key: o.key,
@@ -163,13 +213,58 @@ export const schedulingRouter = createTRPCRouter({
 			.where(eq(schedulingClients.archived, true))
 			.orderBy(asc(schedulingClients.createdAt));
 
-		const allEvaluators = await db.query.evaluators.findMany();
-		const allDistricts = await db.query.schoolDistricts.findMany();
-		const allInsurances = await db.query.insurances.findMany({
-			with: {
-				aliases: true,
+		const allEvaluators = await fetchWithCache(
+			ctx,
+			"evaluators:all",
+			async () => {
+				const evaluatorsWithOffices = await ctx.db.query.evaluators.findMany({
+					orderBy: (evaluators, { asc }) => [asc(evaluators.providerName)],
+					with: {
+						offices: { with: { office: true } },
+						blockedSchoolDistricts: { with: { schoolDistrict: true } },
+						blockedZipCodes: { with: { zipCode: true } },
+						insurances: { with: { insurance: true } },
+					},
+				});
+
+				return evaluatorsWithOffices.map((evaluator) => ({
+					...evaluator,
+					offices: evaluator.offices.map((link) => link.office),
+					blockedDistricts: evaluator.blockedSchoolDistricts.map(
+						(link) => link.schoolDistrict,
+					),
+					blockedZips: evaluator.blockedZipCodes.map((link) => link.zipCode),
+					insurances: evaluator.insurances.map((link) => link.insurance),
+				}));
 			},
-		});
+		);
+
+		const allDistricts = await fetchWithCache(
+			ctx,
+			"school-districts:all",
+			async () => {
+				return ctx.db.query.schoolDistricts.findMany({
+					orderBy: (schoolDistricts, { asc, sql }) => [
+						sql`CASE WHEN ${schoolDistricts.shortName} IS NOT NULL THEN 0 ELSE 1 END`,
+						asc(schoolDistricts.shortName),
+						asc(schoolDistricts.fullName),
+					],
+				});
+			},
+		);
+
+		const allInsurances = await fetchWithCache(
+			ctx,
+			"insurances:all",
+			async () => {
+				return ctx.db.query.insurances.findMany({
+					orderBy: (insurances, { asc }) => [asc(insurances.shortName)],
+					with: {
+						aliases: true,
+					},
+				});
+			},
+		);
 
 		return {
 			clients: scheduledClients.map((item) => ({

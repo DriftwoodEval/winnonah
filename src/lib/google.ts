@@ -3,7 +3,6 @@ import { sheets, type sheets_v4 } from "@googleapis/sheets";
 import { TRPCError } from "@trpc/server";
 import { and, eq, inArray, notInArray, sql } from "drizzle-orm";
 import { OAuth2Client } from "google-auth-library";
-import type Redis from "ioredis";
 import type { Session } from "next-auth";
 import { env } from "~/env";
 
@@ -207,15 +206,7 @@ export function getSheetsClient(session: Session) {
 	return sheets({ version: "v4", auth: oauth2Client });
 }
 
-export const getPunchData = async (session: Session, redis?: Redis) => {
-	const cacheKey = "google:sheets:punchlist";
-	if (redis) {
-		const cached = await redis.get(cacheKey);
-		if (cached) {
-			return JSON.parse(cached) as FullClientInfo[];
-		}
-	}
-
+export const getPunchData = async (session: Session) => {
 	const { PUNCHLIST_ID, PUNCHLIST_RANGE } = env;
 	const sheetsApi = getSheetsClient(session);
 
@@ -327,10 +318,6 @@ export const getPunchData = async (session: Session, redis?: Redis) => {
 		// If no match is found, just return the sheet info
 		return sheetClient as FullClientInfo;
 	});
-
-	if (redis) {
-		await redis.set(cacheKey, JSON.stringify(finalData), "EX", 60); // Cache for 1 minute
-	}
 
 	return finalData;
 };
@@ -444,16 +431,8 @@ export const updatePunchData = async (
 	return true;
 };
 
-export const syncPunchData = async (session: Session, redis?: Redis) => {
-	const cacheKey = "google:sheets:punchlist";
-	if (redis) {
-		const cached = await redis.get(cacheKey);
-		if (cached) {
-			return;
-		}
-	}
-
-	const allPunchData = await getPunchData(session, redis);
+export const syncPunchData = async (session: Session) => {
+	const allPunchData = await getPunchData(session);
 
 	for (const client of allPunchData) {
 		const updates: Partial<Client> = {};
@@ -480,20 +459,13 @@ export const syncPunchData = async (session: Session, redis?: Redis) => {
 	}
 };
 
-export const getClientFromPunchData = async (
-	session: Session,
-	id: string,
-	redis?: Redis,
-) => {
-	const data = await getPunchData(session, redis);
+export const getClientFromPunchData = async (session: Session, id: string) => {
+	const data = await getPunchData(session);
 	return data.find((client) => client["Client ID"] === id);
 };
 
-export const getMissingFromPunchlistData = async (
-	session: Session,
-	redis?: Redis,
-) => {
-	const punchClients = await getPunchData(session, redis);
+export const getMissingFromPunchlistData = async (session: Session) => {
+	const punchClients = await getPunchData(session);
 	const punchClientIds = new Set(
 		punchClients
 			.map((c) => c["Client ID"])

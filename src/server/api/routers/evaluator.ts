@@ -294,12 +294,14 @@ export const evaluatorRouter = createTRPCRouter({
 	}),
 
 	getAllSchoolDistricts: protectedProcedure.query(async ({ ctx }) => {
-		return ctx.db.query.schoolDistricts.findMany({
-			orderBy: (schoolDistricts, { asc, sql }) => [
-				sql`CASE WHEN ${schoolDistricts.shortName} IS NOT NULL THEN 0 ELSE 1 END`,
-				asc(schoolDistricts.shortName),
-				asc(schoolDistricts.fullName),
-			],
+		return fetchWithCache(ctx, "school-districts:all", async () => {
+			return ctx.db.query.schoolDistricts.findMany({
+				orderBy: (schoolDistricts, { asc, sql }) => [
+					sql`CASE WHEN ${schoolDistricts.shortName} IS NOT NULL THEN 0 ELSE 1 END`,
+					asc(schoolDistricts.shortName),
+					asc(schoolDistricts.fullName),
+				],
+			});
 		});
 	}),
 });

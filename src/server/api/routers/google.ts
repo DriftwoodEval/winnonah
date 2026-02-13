@@ -5,7 +5,6 @@ import { fetchWithCache, invalidateCache } from "~/lib/cache";
 import { ALLOWED_ASD_ADHD_VALUES, TEST_NAMES } from "~/lib/constants";
 import {
 	findDuplicateIdFolders,
-	getClientFromPunchData,
 	getMissingFromPunchlistData,
 	getPunchData,
 	renameDriveFolder,
@@ -20,6 +19,8 @@ import {
 import { clients } from "~/server/db/schema";
 
 const CACHE_KEY_DUPLICATES = "google:drive:duplicate-ids";
+const CACHE_KEY_PUNCHLIST = "google:sheets:punchlist";
+const CACHE_KEY_MISSING_PUNCHLIST = "google:sheets:missing-punchlist";
 
 export const googleRouter = createTRPCRouter({
 	// Google Drive
@@ -88,7 +89,12 @@ export const googleRouter = createTRPCRouter({
 		if (!ctx.session.user.accessToken || !ctx.session.user.refreshToken) {
 			throw new Error("No access token or refresh token");
 		}
-		return getPunchData(ctx.session, ctx.redis);
+		return fetchWithCache(
+			ctx,
+			CACHE_KEY_PUNCHLIST,
+			() => getPunchData(ctx.session),
+			60, // 1 minute
+		);
 	}),
 
 	getClientFromPunch: protectedProcedure
@@ -98,17 +104,14 @@ export const googleRouter = createTRPCRouter({
 				throw new Error("No access token or refresh token");
 			}
 
-			const punchClient = await getClientFromPunchData(
-				ctx.session,
-				input,
-				ctx.redis,
+			const punchData = await fetchWithCache(
+				ctx,
+				CACHE_KEY_PUNCHLIST,
+				() => getPunchData(ctx.session),
+				60,
 			);
 
-			if (!punchClient) {
-				return null;
-			}
-
-			return punchClient;
+			return punchData.find((client) => client["Client ID"] === input) ?? null;
 		}),
 
 	getQsSent: protectedProcedure
@@ -118,10 +121,15 @@ export const googleRouter = createTRPCRouter({
 				throw new Error("No access token or refresh token");
 			}
 
-			const punchClient = await getClientFromPunchData(
-				ctx.session,
-				input,
-				ctx.redis,
+			const punchData = await fetchWithCache(
+				ctx,
+				CACHE_KEY_PUNCHLIST,
+				() => getPunchData(ctx.session),
+				60,
+			);
+
+			const punchClient = punchData.find(
+				(client) => client["Client ID"] === input,
 			);
 
 			if (!punchClient) {
@@ -162,7 +170,11 @@ export const googleRouter = createTRPCRouter({
 					evalSent: input.evalSent,
 				});
 
-				await invalidateCache(ctx, "google:sheets:punchlist");
+				await invalidateCache(
+					ctx,
+					CACHE_KEY_PUNCHLIST,
+					CACHE_KEY_MISSING_PUNCHLIST,
+				);
 
 				return {
 					success: true,
@@ -199,7 +211,11 @@ export const googleRouter = createTRPCRouter({
 					asdAdhd: input.asdAdhd,
 				});
 
-				await invalidateCache(ctx, "google:sheets:punchlist");
+				await invalidateCache(
+					ctx,
+					CACHE_KEY_PUNCHLIST,
+					CACHE_KEY_MISSING_PUNCHLIST,
+				);
 			} catch (error) {
 				console.error(
 					"Error updating ASD/ADHD status in Google Sheets:",
@@ -244,7 +260,11 @@ export const googleRouter = createTRPCRouter({
 					protocolsScanned: input.protocolsScanned,
 				});
 
-				await invalidateCache(ctx, "google:sheets:punchlist");
+				await invalidateCache(
+					ctx,
+					CACHE_KEY_PUNCHLIST,
+					CACHE_KEY_MISSING_PUNCHLIST,
+				);
 			} catch (error) {
 				console.error(
 					"Error updating Protocols Scanned in Google Sheets:",
@@ -283,7 +303,11 @@ export const googleRouter = createTRPCRouter({
 					newId: input.newId,
 				});
 
-				await invalidateCache(ctx, "google:sheets:punchlist");
+				await invalidateCache(
+					ctx,
+					CACHE_KEY_PUNCHLIST,
+					CACHE_KEY_MISSING_PUNCHLIST,
+				);
 
 				return {
 					success: true,
@@ -304,7 +328,12 @@ export const googleRouter = createTRPCRouter({
 			throw new Error("No access token or refresh token");
 		}
 
-		const punchData = await getPunchData(ctx.session, ctx.redis);
+		const punchData = await fetchWithCache(
+			ctx,
+			CACHE_KEY_PUNCHLIST,
+			() => getPunchData(ctx.session),
+			60,
+		);
 		const dbClients = await ctx.db.select().from(clients);
 
 		const clientsNotInDb = punchData.filter(
@@ -385,7 +414,12 @@ export const googleRouter = createTRPCRouter({
 			throw new Error("No access token or refresh token");
 		}
 
-		return getMissingFromPunchlistData(ctx.session, ctx.redis);
+		return fetchWithCache(
+			ctx,
+			CACHE_KEY_MISSING_PUNCHLIST,
+			() => getMissingFromPunchlistData(ctx.session),
+			60,
+		);
 	}),
 
 	getDashboardData: protectedProcedure.query(async ({ ctx }) => {
@@ -394,8 +428,18 @@ export const googleRouter = createTRPCRouter({
 		}
 
 		const [punchClients, missingClients] = await Promise.all([
-			getPunchData(ctx.session, ctx.redis),
-			getMissingFromPunchlistData(ctx.session, ctx.redis),
+			fetchWithCache(
+				ctx,
+				CACHE_KEY_PUNCHLIST,
+				() => getPunchData(ctx.session),
+				60,
+			),
+			fetchWithCache(
+				ctx,
+				CACHE_KEY_MISSING_PUNCHLIST,
+				() => getMissingFromPunchlistData(ctx.session),
+				60,
+			),
 		]);
 
 		return {
