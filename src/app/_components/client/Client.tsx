@@ -4,7 +4,13 @@ import { Alert, AlertDescription, AlertTitle } from "@ui/alert";
 import { Skeleton } from "@ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@ui/tabs";
 import { format } from "date-fns";
-import { Ban, Clock, FileText, MapPinOff } from "lucide-react";
+import {
+	AlertTriangleIcon,
+	Ban,
+	Clock,
+	FileText,
+	MapPinOff,
+} from "lucide-react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
@@ -209,6 +215,20 @@ export function Client({
 											return null;
 										})
 									)}
+
+									{client.recordsNeeded === null &&
+										client.status === true &&
+										client.id.toString().length !== 5 && (
+											<Alert variant="destructive">
+												<AlertTriangleIcon className="h-4 w-4" />
+												<AlertTitle>Missing Records Needed Status</AlertTitle>
+												<AlertDescription>
+													Indicate whether school records are needed for this
+													client in the Records tab. Questionnaires cannot be
+													sent until then.
+												</AlertDescription>
+											</Alert>
+										)}
 
 									<ClientNoteEditor clientId={client.id} readOnly={readOnly} />
 
