@@ -279,16 +279,29 @@ export const schedulingRouter = createTRPCRouter({
 	}),
 
 	add: protectedProcedure
-		.input(z.object({ clientId: z.number() }))
+		.input(
+			z.object({
+				clientId: z.number(),
+				code: z.string().optional(),
+				office: z.string().optional(),
+			}),
+		)
 		.mutation(async ({ input }) => {
 			await db
 				.insert(schedulingClients)
 				.values({
 					clientId: input.clientId,
+					code: input.code,
+					office: input.office,
 					archived: false,
 				})
 				.onDuplicateKeyUpdate({
-					set: { archived: false, createdAt: new Date() },
+					set: {
+						archived: false,
+						code: input.code,
+						office: input.office,
+						createdAt: new Date(),
+					},
 				});
 		}),
 

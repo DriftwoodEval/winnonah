@@ -7,13 +7,20 @@ import {
 	AccordionTrigger,
 } from "@ui/accordion";
 import { Alert, AlertDescription, AlertTitle } from "@ui/alert";
+import { Button } from "@ui/button";
 import { ScrollArea } from "@ui/scroll-area";
 import { Separator } from "@ui/separator";
 import { Skeleton } from "@ui/skeleton";
-import { FlaskConical } from "lucide-react";
+import { CalendarPlus, FlaskConical, Loader2 } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { type DashboardClient, getDashboardSections } from "~/lib/dashboard";
+import { toast } from "sonner";
+import {
+	type DashboardClient,
+	getDashboardSections,
+	SECTION_DA_QS_DONE,
+	SECTION_EVAL_QS_DONE,
+} from "~/lib/dashboard";
 import type { FullClientInfo } from "~/lib/models";
 import { api } from "~/trpc/react";
 
@@ -23,6 +30,22 @@ interface PunchListAccordionProps {
 }
 
 function PunchListAccordionItem({ clients, title }: PunchListAccordionProps) {
+	const utils = api.useUtils();
+	const addScheduling = api.scheduling.add.useMutation({
+		onSuccess: () => {
+			toast.success("Added to scheduling");
+			utils.scheduling.get.invalidate();
+		},
+		onError: (error) => {
+			toast.error("Failed to add to scheduling", {
+				description: error.message,
+			});
+		},
+	});
+
+	const isQsBackSection =
+		title === SECTION_DA_QS_DONE || title === SECTION_EVAL_QS_DONE;
+
 	return (
 		<AccordionItem value={title}>
 			<AccordionTrigger>
@@ -40,40 +63,69 @@ function PunchListAccordionItem({ clients, title }: PunchListAccordionProps) {
 							const punchClient = client as FullClientInfo & DashboardClient;
 							return (
 								<div key={client.hash}>
-									<Link
-										className="block w-full"
-										href={`/clients/${client.hash}`}
-									>
-										<div>
-											<div className="flex items-center justify-between">
-												<span>
-													{client.fullName ?? punchClient["Client Name"]}
-												</span>
-												{punchClient.extraInfo && (
-													<span className="text-muted-foreground text-xs">
-														{punchClient.extraInfo}
+									<div className="flex items-center justify-between gap-4">
+										<Link
+											className="block grow"
+											href={`/clients/${client.hash}`}
+										>
+											<div>
+												<div className="flex items-center justify-between">
+													<span>
+														{client.fullName ?? punchClient["Client Name"]}
+													</span>
+													{punchClient.extraInfo && (
+														<span className="text-muted-foreground text-xs">
+															{punchClient.extraInfo}
+														</span>
+													)}
+												</div>
+												{punchClient.matchedSections && (
+													<span className="block text-muted-foreground text-xs">
+														{punchClient.matchedSections.join(", ")}
 													</span>
 												)}
+												{client.failures && client.failures.length > 0 && (
+													<div className="mt-1">
+														{client.failures.map((failure) => (
+															<span
+																className="mr-1 inline-block rounded-sm bg-destructive/10 px-1 py-0.5 text-[10px] text-destructive"
+																key={failure.reason}
+															>
+																{failure.reason}
+															</span>
+														))}
+													</div>
+												)}
 											</div>
-											{punchClient.matchedSections && (
-												<span className="block text-muted-foreground text-xs">
-													{punchClient.matchedSections.join(", ")}
-												</span>
-											)}
-											{client.failures && client.failures.length > 0 && (
-												<div className="mt-1">
-													{client.failures.map((failure) => (
-														<span
-															className="mr-1 inline-block rounded-sm bg-destructive/10 px-1 py-0.5 text-[10px] text-destructive"
-															key={failure.reason}
-														>
-															{failure.reason}
-														</span>
-													))}
-												</div>
-											)}
-										</div>
-									</Link>
+										</Link>
+										{isQsBackSection && (
+											<Button
+												className="shrink-0"
+												disabled={addScheduling.isPending}
+												onClick={() =>
+													addScheduling.mutate({
+														clientId: client.id,
+														code:
+															title === SECTION_DA_QS_DONE ? "90791" : "96136",
+														office:
+															title === SECTION_DA_QS_DONE
+																? "Virtual"
+																: undefined,
+													})
+												}
+												size="icon-sm"
+												title="Add to Scheduling"
+												variant="ghost"
+											>
+												{addScheduling.isPending &&
+												addScheduling.variables?.clientId === client.id ? (
+													<Loader2 className="h-4 w-4 animate-spin" />
+												) : (
+													<CalendarPlus className="h-4 w-4" />
+												)}
+											</Button>
+										)}
+									</div>
 									{index < clients.length - 1 && <Separator className="my-2" />}
 								</div>
 							);

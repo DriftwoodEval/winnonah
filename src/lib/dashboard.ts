@@ -4,11 +4,20 @@ import type { Client, Failure, FullClientInfo } from "./models";
 export const SECTION_ACTIVE_NOT_ON_PUNCHLIST = "Active and Not On Punchlist";
 export const SECTION_JUST_ADDED = "Just Added";
 export const SECTION_MULTIPLE_FILTERS = "Clients in Multiple Filters";
+export const SECTION_DA_QS_DONE = "DA Qs Done";
+export const SECTION_EVAL_QS_DONE = "Eval Qs Done";
 
 export type DashboardClient = (FullClientInfo | Client) & {
 	matchedSections?: string[];
 	extraInfo?: string;
 	failures?: Failure[];
+};
+
+const isDateString = (val: string | undefined | null) => {
+	if (!val) return false;
+	return (
+		!Number.isNaN(Date.parse(val)) || /^\d{1,2}\/\d{1,2}(\/\d{2,4})?$/.test(val)
+	);
 };
 
 export const DASHBOARD_CONFIG: {
@@ -81,6 +90,13 @@ export const DASHBOARD_CONFIG: {
 		},
 	},
 	{
+		title: SECTION_DA_QS_DONE,
+		filter: (client: FullClientInfo) =>
+			client["DA Qs Done"] === "TRUE" &&
+			!isDateString(client["DA Scheduled"]) &&
+			client["DA Scheduled"] !== "TRUE",
+	},
+	{
 		title: "Eval Qs Pending",
 		filter: (client: FullClientInfo) => {
 			const isRecordsReady =
@@ -106,6 +122,11 @@ export const DASHBOARD_CONFIG: {
 			const minReminded = Math.min(...Qs.map((q) => q.reminded ?? 0));
 			return `Reminded: ${minReminded}`;
 		},
+	},
+	{
+		title: SECTION_EVAL_QS_DONE,
+		filter: (client: FullClientInfo) =>
+			client["EVAL Qs Done"] === "TRUE" && !isDateString(client["EVAL date"]),
 	},
 ];
 
