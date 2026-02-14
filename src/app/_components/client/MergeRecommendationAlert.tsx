@@ -5,6 +5,7 @@ import { Alert, AlertDescription, AlertTitle } from "@ui/alert";
 import { Button } from "@ui/button";
 import { GitMerge } from "lucide-react";
 import type { Client } from "~/lib/models";
+import { isShellClientId } from "~/lib/utils";
 import { api } from "~/trpc/react";
 
 interface MergeRecommendationAlertProps {
@@ -21,9 +22,7 @@ export function MergeRecommendationAlert({
 
 	if (isLoading || !mergeSuggestions || readOnly) return null;
 
-	const isNoteOnly = client.id.toString().length === 5;
-
-	if (isNoteOnly) {
+	if (isShellClientId(client.id)) {
 		const suggestion = mergeSuggestions.find(
 			(s) => s.noteOnlyClient.id === client.id,
 		);

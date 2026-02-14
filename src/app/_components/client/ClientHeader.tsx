@@ -26,6 +26,7 @@ import {
 } from "~/lib/colors";
 import { logger } from "~/lib/logger";
 import type { Client } from "~/lib/models";
+import { isShellClientId } from "~/lib/utils";
 import { api } from "~/trpc/react";
 import { ResponsiveDialog } from "../shared/ResponsiveDialog";
 import { AddDriveButton } from "./AddDrive";
@@ -134,7 +135,7 @@ export function ClientHeader({
 				<div className="flex items-center gap-4">
 					<h1 className="font-bold text-xl md:text-2xl">{client.fullName}</h1>
 					<div className="flex h-[16px] items-center gap-2">
-						{!readOnly && client.id.toString().length !== 5 && (
+						{!readOnly && !isShellClientId(client.id) && (
 							<ClientEditButton client={client} />
 						)}
 						{!readOnly && !client.driveId && canDrive && (
@@ -144,7 +145,7 @@ export function ClientHeader({
 							</>
 						)}
 						{!readOnly &&
-							client.id.toString().length !== 5 &&
+							!isShellClientId(client.id) &&
 							client.driveId &&
 							client.driveId !== "N/A" && <Separator orientation="vertical" />}
 						{client.driveId && client.driveId !== "N/A" && (
@@ -176,7 +177,7 @@ export function ClientHeader({
 							</ContextMenu>
 						)}
 						{((client.driveId && client.driveId === "N/A") ||
-							(!readOnly && client.id.toString().length !== 5)) &&
+							(!readOnly && !isShellClientId(client.id))) &&
 							client.taHash && <Separator orientation="vertical" />}
 						{client.taHash && (
 							<Link
@@ -191,17 +192,17 @@ export function ClientHeader({
 			)}
 			<div className="flex h-5 items-center gap-2">
 				<div className="flex items-center gap-2">
-					{client.id.toString().length !== 5 && <span>{client.id}</span>}
+					{!isShellClientId(client.id) && <span>{client.id}</span>}
 					<Badge
 						variant={
-							client.id.toString().length === 5
+							isShellClientId(client.id)
 								? "outline"
 								: client.status
 									? "default"
 									: "destructive"
 						}
 					>
-						{client.id.toString().length === 5
+						{isShellClientId(client.id)
 							? `Note Only${client.status ? "" : ", Archived"}`
 							: client.status
 								? "Active"
@@ -213,7 +214,7 @@ export function ClientHeader({
 					{client.eiAttends && <Badge variant="secondary">EI Attends</Badge>}
 				</div>
 
-				{client.id.toString().length === 5 && !readOnly && canMerge && (
+				{isShellClientId(client.id) && !readOnly && canMerge && (
 					<>
 						<Separator orientation="vertical" />
 						<Link href={`/clients/merge?fake=${client.hash}`}>
@@ -222,7 +223,7 @@ export function ClientHeader({
 					</>
 				)}
 
-				{client.id.toString().length === 5 && !readOnly && canShell && (
+				{isShellClientId(client.id) && !readOnly && canShell && (
 					<>
 						<Separator orientation="vertical" />
 						{client.status === false ? (
@@ -261,10 +262,10 @@ export function ClientHeader({
 					</>
 				)}
 
-				{client.id.toString().length !== 5 && currentHexColor && (
+				{!isShellClientId(client.id) && currentHexColor && (
 					<Separator orientation="vertical" />
 				)}
-				{client.id.toString().length !== 5 && currentHexColor && canColor ? (
+				{!isShellClientId(client.id) && currentHexColor && canColor ? (
 					<Popover onOpenChange={setIsColorOpen} open={isColorOpen}>
 						<PopoverTrigger asChild>
 							<button
@@ -318,7 +319,7 @@ export function ClientHeader({
 							</div>
 						</PopoverContent>
 					</Popover>
-				) : client.id.toString().length !== 5 && currentHexColor ? (
+				) : !isShellClientId(client.id) && currentHexColor ? (
 					<button
 						aria-label={`Current color: ${formatColorName(selectedColor)}`}
 						className="h-5 w-5 rounded-full"

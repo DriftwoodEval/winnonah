@@ -163,3 +163,13 @@ export const getDistanceSQL = (
 		sin(radians(${lat2}))
 	))`;
 };
+
+/**
+ * Check if a client ID is a shell client ID (5 characters long).
+ */
+export function isShellClientId(
+	id: string | number | undefined | null,
+): boolean {
+	if (id === undefined || id === null) return false;
+	return id.toString().length === 5;
+}

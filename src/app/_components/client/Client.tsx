@@ -16,7 +16,11 @@ import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import type { ClientColor } from "~/lib/colors";
 import { logger } from "~/lib/logger";
-import { formatClientAge, getLocalDayFromUTCDate } from "~/lib/utils";
+import {
+	formatClientAge,
+	getLocalDayFromUTCDate,
+	isShellClientId,
+} from "~/lib/utils";
 import { api } from "~/trpc/react";
 import { BabyNetBoxes } from "./BabyNetBoxes";
 import { ClientDetailsCard } from "./ClientDetailsCard";
@@ -139,7 +143,7 @@ export function Client({
 							onValueChange={handleTabChange}
 							value={activeTab}
 						>
-							{client.id.toString().length !== 5 && (
+							{!isShellClientId(client.id) && (
 								<TabsList className="w-full">
 									<TabsTrigger value="info">Info</TabsTrigger>
 									<TabsTrigger value="records">Records</TabsTrigger>
@@ -148,7 +152,7 @@ export function Client({
 
 							<TabsContent value="info">
 								<div className="mb-6 flex w-full flex-col items-center gap-6">
-									{client.id.toString().length !== 5 && (
+									{!isShellClientId(client.id) && (
 										<ClientDetailsCard client={client} />
 									)}
 
@@ -218,7 +222,7 @@ export function Client({
 
 									{client.recordsNeeded === null &&
 										client.status === true &&
-										client.id.toString().length !== 5 && (
+										!isShellClientId(client.id) && (
 											<Alert variant="destructive">
 												<AlertTriangleIcon className="h-4 w-4" />
 												<AlertTitle>Missing Records Needed Status</AlertTitle>
@@ -232,19 +236,19 @@ export function Client({
 
 									<ClientNoteEditor clientId={client.id} readOnly={readOnly} />
 
-									{client.id.toString().length !== 5 && (
+									{!isShellClientId(client.id) && (
 										<QuestionnairesTable
 											clientId={client.id}
 											readOnly={readOnly}
 										/>
 									)}
 
-									{client.id.toString().length !== 5 && (
+									{!isShellClientId(client.id) && (
 										<EligibleEvaluatorsList client={client} />
 									)}
 								</div>
 							</TabsContent>
-							{client.id.toString().length !== 5 && (
+							{!isShellClientId(client.id) && (
 								<TabsContent value="records">
 									<div className="mb-6 flex w-full flex-col items-center gap-6">
 										<ClientDetailsCard client={client} truncated />

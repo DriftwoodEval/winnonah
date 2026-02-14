@@ -23,7 +23,7 @@ import { z } from "zod";
 import { CLIENT_COLOR_KEYS } from "~/lib/colors";
 import { renameDriveFolder, syncPunchData } from "~/lib/google";
 import type { ClientWithIssueInfo } from "~/lib/models";
-import { getDistanceSQL } from "~/lib/utils";
+import { getDistanceSQL, isShellClientId } from "~/lib/utils";
 import {
 	assertPermission,
 	createTRPCRouter,
@@ -505,10 +505,8 @@ export const clientRouter = createTRPCRouter({
 			where: eq(clients.status, true),
 		});
 
-		const noteOnlyClients = allClients.filter(
-			(c) => c.id.toString().length === 5,
-		);
-		const realClients = allClients.filter((c) => c.id.toString().length !== 5);
+		const noteOnlyClients = allClients.filter((c) => isShellClientId(c.id));
+		const realClients = allClients.filter((c) => !isShellClientId(c.id));
 
 		const suggestions: {
 			noteOnlyClient: typeof clients.$inferSelect;
@@ -767,7 +765,7 @@ export const clientRouter = createTRPCRouter({
 			if (
 				input.status !== undefined &&
 				input.status !== currentClient.status &&
-				input.clientId.toString().length !== 5
+				!isShellClientId(input.clientId)
 			) {
 				throw new TRPCError({
 					code: "NOT_IMPLEMENTED",
