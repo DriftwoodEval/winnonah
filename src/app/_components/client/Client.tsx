@@ -18,6 +18,7 @@ import { ClientHeader } from "./ClientHeader";
 import { ClientNoteEditor } from "./ClientNoteEditor";
 import { CommunicationTimeline } from "./CommunicationTimeline";
 import { EligibleEvaluatorsList } from "./EligibleEvaluatorsList";
+import { MergeRecommendationAlert } from "./MergeRecommendationAlert";
 import { PersistentStatusAlert } from "./PersistentStatusAlert";
 import { QuestionnairesTable } from "./QuestionnairesTable";
 import { RecordsNoteEditor } from "./RecordsNoteEditor";
@@ -105,6 +106,8 @@ export function Client({
 					<Skeleton className="h-96 w-full rounded-md sm:h-96" />
 				) : (
 					<>
+						<MergeRecommendationAlert client={client} readOnly={readOnly} />
+
 						<PersistentStatusAlert
 							condition={!!client.autismStop}
 							description="Records suggest this client has already been identified. If this is incorrect, please let Andrew know."

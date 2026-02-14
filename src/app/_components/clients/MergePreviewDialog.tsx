@@ -3,6 +3,7 @@
 import { Button } from "@ui/button";
 import { Dialog, DialogContent, DialogTitle, DialogTrigger } from "@ui/dialog";
 import { ArrowLeft, ArrowUp } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { toast } from "sonner";
 import { useMediaQuery } from "~/hooks/use-media-query";
@@ -13,6 +14,7 @@ interface MergePreviewDialogProps {
 	realClient: { id: number; hash: string; fullName: string } | null;
 	fakeClient: { id: number; hash: string; fullName: string } | null;
 	onSuccess?: () => void;
+	shouldRedirect?: boolean;
 	children: React.ReactNode;
 }
 
@@ -20,8 +22,10 @@ export function MergePreviewDialog({
 	realClient,
 	fakeClient,
 	onSuccess,
+	shouldRedirect = false,
 	children,
 }: MergePreviewDialogProps) {
+	const router = useRouter();
 	const utils = api.useUtils();
 	const isDesktop = useMediaQuery("(min-width: 768px)");
 	const [mergeDialogOpen, setMergeDialogOpen] = useState(false);
@@ -35,6 +39,10 @@ export function MergePreviewDialog({
 				});
 				setMergeDialogOpen(false);
 				onSuccess?.();
+
+				if (shouldRedirect && realClient?.hash) {
+					router.push(`/clients/${realClient.hash}`);
+				}
 			},
 			onError: (error) => {
 				toast.error("Failed to replace notes", {
