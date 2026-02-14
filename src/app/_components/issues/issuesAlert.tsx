@@ -68,9 +68,19 @@ export function IssuesAlert() {
 	const { data: duplicateQLinks } =
 		api.questionnaires.getDuplicateLinks.useQuery(undefined, queryOptions);
 
+	const { data: justAddedQuestionnaires } =
+		api.questionnaires.getJustAdded.useQuery(undefined, queryOptions);
+
 	const { data: punchlistIssues } = api.google.verifyPunchClients.useQuery();
 
-	// DELIBERATELY don't include "missing from punchlist" here
+	const clientsWithDuplicateLinks =
+		duplicateQLinks?.duplicatePerClient
+			.map((item) => item.client)
+			.filter((client) => client !== undefined)
+			.filter(
+				(client, index, self) =>
+					self.findIndex((c) => c.id === client.id) === index,
+			) ?? [];
 
 	const errorsLength =
 		(districtErrors?.clientsWithoutDistrict.length ?? 0) +
@@ -87,8 +97,9 @@ export function IssuesAlert() {
 		(dd4?.length ?? 0) +
 		(possiblePrivatePay?.length ?? 0) +
 		(unreviewedRecords?.length ?? 0) +
-		(duplicateQLinks?.duplicatePerClient.length ?? 0) +
+		clientsWithDuplicateLinks.length +
 		(duplicateQLinks?.sharedAcrossClients.length ?? 0) +
+		(justAddedQuestionnaires?.length ?? 0) +
 		(punchlistIssues?.clientsNotInDb.length ?? 0) +
 		(punchlistIssues?.inactiveClients.length ?? 0) +
 		(punchlistIssues?.duplicateIdClients.length ?? 0);
