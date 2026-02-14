@@ -135,6 +135,8 @@ export const clientRouter = createTRPCRouter({
 							relatedClientData: true,
 						},
 					},
+					questionnaires: true,
+					failures: true,
 				},
 			});
 
@@ -144,6 +146,56 @@ export const clientRouter = createTRPCRouter({
 					message: "Failed to retrieve synced client data",
 				});
 			}
+
+			const dropListQs = syncedClient.questionnaires.filter(
+				(q) =>
+					(q.status === "PENDING" || q.status === "SPANISH") &&
+					(q.reminded ?? 0) > 3,
+			);
+
+			const dropListFailures = syncedClient.failures.filter(
+				(f) => (f.reminded ?? 0) > 3 && (f.reminded ?? 0) < 100,
+			);
+
+			let dropListReason: string | null = null;
+			let initialFailureDate: Date | undefined;
+
+			if (dropListQs.length > 0) {
+				dropListReason = "Qs pending (3 reminders)";
+				for (const q of dropListQs) {
+					if (q.sent) {
+						const d = new Date(q.sent);
+						if (!initialFailureDate || d < initialFailureDate) {
+							initialFailureDate = d;
+						}
+					}
+				}
+			}
+
+			if (dropListFailures.length > 0) {
+				let maxReminded = 0;
+				let failureReasonText = "";
+
+				for (const f of dropListFailures) {
+					if (f.reminded && f.reminded > maxReminded) {
+						maxReminded = f.reminded;
+						failureReasonText = f.reason;
+					}
+					const d = new Date(f.failedDate);
+					if (!initialFailureDate || d < initialFailureDate) {
+						initialFailureDate = d;
+					}
+				}
+
+				const failureReason = `${failureReasonText.charAt(0).toUpperCase()}${failureReasonText.slice(1)} (3 reminders)`;
+				if (dropListReason) {
+					dropListReason += ` / ${failureReason}`;
+				} else {
+					dropListReason = failureReason;
+				}
+			}
+
+			const isOnDropList = dropListQs.length > 0 || dropListFailures.length > 0;
 
 			const district = await ctx.db.query.schoolDistricts.findFirst({
 				where: eq(schoolDistricts.fullName, syncedClient.schoolDistrict ?? ""),
@@ -178,6 +230,9 @@ export const clientRouter = createTRPCRouter({
 				...syncedClient,
 				closestOffices,
 				schoolDistrictDetails: district,
+				isOnDropList,
+				dropListReason,
+				initialFailureDate,
 			};
 		}),
 
@@ -338,7 +393,7 @@ export const clientRouter = createTRPCRouter({
 
 		for (const client of overRemindedQs) {
 			if (client.questionnaires.length > 0) {
-				const reason = "Qs Pending (3 reminders)";
+				const reason = "Qs pending (3 reminders)";
 
 				// Create a clean client object without the joined data
 				const { questionnaires: qList, ...clientData } = client;
@@ -387,7 +442,7 @@ export const clientRouter = createTRPCRouter({
 					}
 				}
 
-				const newReason = `${failureReasonText} (3 reminders)`;
+				const newReason = `${failureReasonText.charAt(0).toUpperCase()}${failureReasonText.slice(1)} (3 reminders)`;
 
 				// Create a clean client object without the joined data
 				const { failures: _, ...clientData } = client;

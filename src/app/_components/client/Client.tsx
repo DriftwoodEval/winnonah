@@ -3,7 +3,8 @@
 import { Alert, AlertDescription, AlertTitle } from "@ui/alert";
 import { Skeleton } from "@ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@ui/tabs";
-import { Clock, FileText, MapPinOff } from "lucide-react";
+import { format } from "date-fns";
+import { Ban, Clock, FileText, MapPinOff } from "lucide-react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
@@ -142,48 +143,69 @@ export function Client({
 										<ClientDetailsCard client={client} />
 									)}
 
-									{clientFailures?.map((failure) => {
-										if (
-											failure.reason === "docs not signed" ||
-											failure.reason === "portal not opened"
-										) {
-											const reasonText = `${failure.reason?.replace(
-												/^\S/g,
-												(c) => c.toUpperCase() + c.toLowerCase().slice(1),
-											)}.`;
+									{client.isOnDropList ? (
+										<Alert variant="destructive">
+											<Ban className="h-4 w-4" />
+											<AlertTitle>
+												On Drop List {(() => {
+													const date = getLocalDayFromUTCDate(
+														client.initialFailureDate,
+													);
+													return date ? (
+														<span className="font-normal text-sm opacity-90">
+															(Since {format(date, "MM/dd/yy")})
+														</span>
+													) : null;
+												})()}
+											</AlertTitle>
+											<AlertDescription>
+												{client.dropListReason}.
+											</AlertDescription>
+										</Alert>
+									) : (
+										clientFailures?.map((failure) => {
+											if (
+												failure.reason === "docs not signed" ||
+												failure.reason === "portal not opened"
+											) {
+												const reasonText = `${failure.reason?.replace(
+													/^\S/g,
+													(c) => c.toUpperCase() + c.toLowerCase().slice(1),
+												)}.`;
 
-											const formattedUpdatedDate =
-												getLocalDayFromUTCDate(
-													failure.updatedAt,
-												)?.toLocaleDateString(undefined, {
-													year: "2-digit",
-													month: "numeric",
-													day: "numeric",
-												}) ?? null;
+												const formattedUpdatedDate =
+													getLocalDayFromUTCDate(
+														failure.updatedAt,
+													)?.toLocaleDateString(undefined, {
+														year: "2-digit",
+														month: "numeric",
+														day: "numeric",
+													}) ?? null;
 
-											const formattedFailedDate =
-												getLocalDayFromUTCDate(
-													failure.failedDate,
-												)?.toLocaleDateString(undefined, {
-													year: "2-digit",
-													month: "numeric",
-													day: "numeric",
-												}) ?? "Unknown Date";
+												const formattedFailedDate =
+													getLocalDayFromUTCDate(
+														failure.failedDate,
+													)?.toLocaleDateString(undefined, {
+														year: "2-digit",
+														month: "numeric",
+														day: "numeric",
+													}) ?? "Unknown Date";
 
-											const dateString = formattedUpdatedDate
-												? `As of ${formattedUpdatedDate} (first noted ${formattedFailedDate}).`
-												: `First noted ${formattedFailedDate}.`;
+												const dateString = formattedUpdatedDate
+													? `As of ${formattedUpdatedDate} (first noted ${formattedFailedDate}).`
+													: `First noted ${formattedFailedDate}.`;
 
-											return (
-												<Alert key={failure.reason} variant="destructive">
-													<Clock />
-													<AlertTitle>{reasonText}</AlertTitle>
-													<AlertDescription>{dateString}</AlertDescription>
-												</Alert>
-											);
-										}
-										return null;
-									})}
+												return (
+													<Alert key={failure.reason} variant="destructive">
+														<Clock />
+														<AlertTitle>{reasonText}</AlertTitle>
+														<AlertDescription>{dateString}</AlertDescription>
+													</Alert>
+												);
+											}
+											return null;
+										})
+									)}
 
 									<ClientNoteEditor clientId={client.id} readOnly={readOnly} />
 
