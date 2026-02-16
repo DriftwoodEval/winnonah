@@ -13,7 +13,7 @@ import { Separator } from "@ui/separator";
 import { Skeleton } from "@ui/skeleton";
 import { CalendarPlus, FlaskConical, Loader2 } from "lucide-react";
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { Fragment, useEffect, useState } from "react";
 import { toast } from "sonner";
 import {
 	type DashboardClient,
@@ -246,11 +246,18 @@ export function Dashboard() {
 				</p>
 
 				{finalSections.map((section) => (
-					<PunchListAccordionItem
-						clients={section.clients}
-						key={section.title}
-						title={section.title}
-					/>
+					<Fragment key={section.title}>
+						{section.subheading && (
+							<h2 className="mt-6 mb-2 self-start font-bold text-lg">
+								{section.subheading}
+							</h2>
+						)}
+						<PunchListAccordionItem
+							clients={section.clients}
+							key={section.title}
+							title={section.title}
+						/>
+					</Fragment>
 				))}
 			</Accordion>
 		</div>

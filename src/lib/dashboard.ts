@@ -30,12 +30,14 @@ const sentExtraInfo = (client: FullClientInfo) => {
 
 export const DASHBOARD_CONFIG: {
 	title: string;
+	subheading?: string;
 	filter: (client: FullClientInfo) => boolean;
 	failureFilter?: (failure: Failure) => boolean;
 	extraInfo?: (client: FullClientInfo) => string | undefined;
 }[] = [
 	{
 		title: "Records Needed - Not Requested",
+		subheading: "Records",
 		filter: (client: FullClientInfo) =>
 			client.recordsNeeded === "Needed" && !client.externalRecordsRequestedDate,
 		failureFilter: (f) => f.daEval === "Records",
@@ -73,6 +75,7 @@ export const DASHBOARD_CONFIG: {
 	},
 	{
 		title: "DA Qs Pending",
+		subheading: "Questionnaires",
 		filter: (client: FullClientInfo) => {
 			const isRecordsReady =
 				client.recordsNeeded === "Not Needed" ||
@@ -185,6 +188,7 @@ export const DASHBOARD_CONFIG: {
 export interface DashboardSection {
 	title: string;
 	clients: DashboardClient[];
+	subheading?: string;
 }
 
 export function getDashboardSections(
@@ -193,6 +197,7 @@ export function getDashboardSections(
 ): DashboardSection[] {
 	const filteredSections = DASHBOARD_CONFIG.map((config) => ({
 		title: config.title,
+		subheading: config.subheading,
 		clients:
 			punchClients?.filter(config.filter).map((client) => ({
 				...client,
@@ -257,11 +262,11 @@ export function getDashboardSections(
 			title: SECTION_ACTIVE_NOT_ON_PUNCHLIST,
 			clients: missingFromPunchlist ?? [],
 		},
-		...allSections,
 		{
 			title: SECTION_MULTIPLE_FILTERS,
 			clients: clientsInMultipleFilters,
 		},
+		...allSections,
 	];
 }
 
