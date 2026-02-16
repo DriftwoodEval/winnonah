@@ -210,7 +210,7 @@ def put_clients_in_db(clients_df: pd.DataFrame, connection: Connection[DictCurso
 
         secondary_insurance = get_column(client, "SECONDARY_INSURANCE_COMPANYNAME")
         if isinstance(secondary_insurance, list):
-            secondary_insurance = ",".join(
+            secondary_insurance = "|".join(
                 str(item)
                 for item in secondary_insurance
                 if not (isinstance(item, float) and float("nan") == item)

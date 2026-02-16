@@ -4,7 +4,6 @@ import re
 import time
 from collections import deque
 from email.message import EmailMessage
-from typing import Optional
 
 import pandas as pd
 from google.auth.transport.requests import Request

@@ -1,6 +1,4 @@
-import re
 from datetime import datetime
-from typing import Any
 
 import pandas as pd
 
@@ -51,7 +49,7 @@ def match_by_insurance(client: pd.Series, evaluators: dict, insurance_mappings: 
 
     if isinstance(secondary_insurance, str):
         raw_insurances_to_check.extend(
-            [name.strip() for name in secondary_insurance.split(",")]
+            [name.strip() for name in secondary_insurance.split("|")]
         )
     elif isinstance(secondary_insurance, list):
         raw_insurances_to_check.extend(secondary_insurance)
