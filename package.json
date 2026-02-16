@@ -101,7 +101,7 @@
 		"@commitlint/config-conventional": "^19.8.1",
 		"@tailwindcss/postcss": "^4.1.18",
 		"@types/lodash": "^4.17.23",
-		"@types/node": "^25.0.10",
+		"@types/node": "^25.2.3",
 		"@types/react": "19.2.14",
 		"@types/react-dom": "19.2.3",
 		"@types/sanitize-html": "^2.16.0",
