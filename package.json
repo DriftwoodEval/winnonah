@@ -70,7 +70,7 @@
 		"cmdk": "^1.1.1",
 		"date-fns": "^4.1.0",
 		"diff": "^8.0.3",
-		"drizzle-orm": "^0.44.7",
+		"drizzle-orm": "^0.45.1",
 		"fastest-levenshtein": "^1.0.16",
 		"google-auth-library": "^10.5.0",
 		"html-react-parser": "^5.2.11",
