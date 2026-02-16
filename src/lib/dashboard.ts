@@ -6,6 +6,7 @@ export const SECTION_JUST_ADDED = "Just Added";
 export const SECTION_MULTIPLE_FILTERS = "Clients in Multiple Filters";
 export const SECTION_DA_QS_DONE = "DA Qs Done";
 export const SECTION_EVAL_QS_DONE = "Eval Qs Done";
+export const SECTION_DAEVAL_QS_DONE = "DAEVAL Qs Done";
 
 export type DashboardClient = (FullClientInfo | Client) & {
 	matchedSections?: string[];
@@ -18,6 +19,13 @@ const isDateString = (val: string | undefined | null) => {
 	return (
 		!Number.isNaN(Date.parse(val)) || /^\d{1,2}\/\d{1,2}(\/\d{2,4})?$/.test(val)
 	);
+};
+
+const sentExtraInfo = (client: FullClientInfo) => {
+	const Qs = client.questionnaires;
+	if (!Qs || Qs.length === 0) return `Not in ${env.NEXT_PUBLIC_APP_TITLE[0]}`;
+	const minReminded = Math.min(...Qs.map((q) => q.reminded ?? 0));
+	return `Reminded: ${minReminded}`;
 };
 
 export const DASHBOARD_CONFIG: {
@@ -60,7 +68,8 @@ export const DASHBOARD_CONFIG: {
 						client["EVAL Qs Sent"] === "FALSE"))
 			);
 		},
-		failureFilter: (f) => f.daEval === "DA" || f.daEval === "EVAL",
+		failureFilter: (f) =>
+			f.daEval === "DA" || f.daEval === "EVAL" || f.daEval === "DAEVAL",
 	},
 	{
 		title: "DA Qs Pending",
@@ -72,29 +81,32 @@ export const DASHBOARD_CONFIG: {
 			return (
 				isRecordsReady &&
 				client["DA Qs Needed"] === "TRUE" &&
-				client["DA Qs Sent"] === "FALSE"
+				client["DA Qs Sent"] === "FALSE" &&
+				client["EVAL Qs Needed"] === "FALSE"
 			);
 		},
-		failureFilter: (f) => f.daEval === "DA" || f.daEval === "DAEVAL",
+		failureFilter: (f) => f.daEval === "DA",
 	},
 	{
 		title: "DA Qs Sent",
 		filter: (client: FullClientInfo) =>
-			client["DA Qs Sent"] === "TRUE" && client["DA Qs Done"] === "FALSE",
-		extraInfo: (client) => {
-			const Qs = client.questionnaires;
-			if (!Qs || Qs.length === 0)
-				return `Not in ${env.NEXT_PUBLIC_APP_TITLE[0]}`;
-			const minReminded = Math.min(...Qs.map((q) => q.reminded ?? 0));
-			return `Reminded: ${minReminded}`;
-		},
+			client["DA Qs Sent"] === "TRUE" &&
+			client["DA Qs Done"] === "FALSE" &&
+			!(
+				client["EVAL Qs Sent"] === "TRUE" && client["EVAL Qs Done"] === "FALSE"
+			),
+		extraInfo: sentExtraInfo,
+		failureFilter: (f) => f.daEval === "DA",
 	},
 	{
 		title: SECTION_DA_QS_DONE,
 		filter: (client: FullClientInfo) =>
 			client["DA Qs Done"] === "TRUE" &&
 			!isDateString(client["DA Scheduled"]) &&
-			client["DA Scheduled"] !== "TRUE",
+			client["DA Scheduled"] !== "TRUE" &&
+			!(
+				client["EVAL Qs Done"] === "TRUE" && !isDateString(client["EVAL date"])
+			),
 	},
 	{
 		title: "Eval Qs Pending",
@@ -106,27 +118,67 @@ export const DASHBOARD_CONFIG: {
 			return (
 				isRecordsReady &&
 				client["EVAL Qs Needed"] === "TRUE" &&
+				client["EVAL Qs Sent"] === "FALSE" &&
+				client["DA Qs Sent"] === "TRUE"
+			);
+		},
+		failureFilter: (f) => f.daEval === "EVAL",
+	},
+	{
+		title: "DAEVAL Qs Pending",
+		filter: (client: FullClientInfo) => {
+			const isRecordsReady =
+				client.recordsNeeded === "Not Needed" ||
+				(client.recordsNeeded === "Needed" &&
+					client.hasExternalRecordsNote === true);
+			return (
+				isRecordsReady &&
+				client["DA Qs Needed"] === "TRUE" &&
+				client["DA Qs Sent"] === "FALSE" &&
+				client["EVAL Qs Needed"] === "TRUE" &&
 				client["EVAL Qs Sent"] === "FALSE"
 			);
 		},
-		failureFilter: (f) => f.daEval === "EVAL" || f.daEval === "DAEVAL",
+		failureFilter: (f) => f.daEval === "DAEVAL",
 	},
 	{
 		title: "Eval Qs Sent",
 		filter: (client: FullClientInfo) =>
-			client["EVAL Qs Sent"] === "TRUE" && client["EVAL Qs Done"] === "FALSE",
-		extraInfo: (client) => {
-			const Qs = client.questionnaires;
-			if (!Qs || Qs.length === 0)
-				return `Not in ${env.NEXT_PUBLIC_APP_TITLE[0]}`;
-			const minReminded = Math.min(...Qs.map((q) => q.reminded ?? 0));
-			return `Reminded: ${minReminded}`;
-		},
+			client["EVAL Qs Sent"] === "TRUE" &&
+			client["EVAL Qs Done"] === "FALSE" &&
+			!(client["DA Qs Sent"] === "TRUE" && client["DA Qs Done"] === "FALSE"),
+		extraInfo: sentExtraInfo,
+		failureFilter: (f) => f.daEval === "EVAL",
+	},
+	{
+		title: "DAEVAL Qs Sent",
+		filter: (client: FullClientInfo) =>
+			client["DA Qs Sent"] === "TRUE" &&
+			client["DA Qs Done"] === "FALSE" &&
+			client["EVAL Qs Sent"] === "TRUE" &&
+			client["EVAL Qs Done"] === "FALSE",
+		extraInfo: sentExtraInfo,
+		failureFilter: (f) => f.daEval === "DAEVAL",
 	},
 	{
 		title: SECTION_EVAL_QS_DONE,
 		filter: (client: FullClientInfo) =>
-			client["EVAL Qs Done"] === "TRUE" && !isDateString(client["EVAL date"]),
+			client["EVAL Qs Done"] === "TRUE" &&
+			!isDateString(client["EVAL date"]) &&
+			!(
+				client["DA Qs Done"] === "TRUE" &&
+				!isDateString(client["DA Scheduled"]) &&
+				client["DA Scheduled"] !== "TRUE"
+			),
+	},
+	{
+		title: SECTION_DAEVAL_QS_DONE,
+		filter: (client: FullClientInfo) =>
+			client["DA Qs Done"] === "TRUE" &&
+			!isDateString(client["DA Scheduled"]) &&
+			client["DA Scheduled"] !== "TRUE" &&
+			client["EVAL Qs Done"] === "TRUE" &&
+			!isDateString(client["EVAL date"]),
 	},
 ];
 

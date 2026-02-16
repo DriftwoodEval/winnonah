@@ -19,6 +19,7 @@ import {
 	type DashboardClient,
 	getDashboardSections,
 	SECTION_DA_QS_DONE,
+	SECTION_DAEVAL_QS_DONE,
 	SECTION_EVAL_QS_DONE,
 } from "~/lib/dashboard";
 import type { FullClientInfo } from "~/lib/models";
@@ -44,7 +45,9 @@ function PunchListAccordionItem({ clients, title }: PunchListAccordionProps) {
 	});
 
 	const isQsBackSection =
-		title === SECTION_DA_QS_DONE || title === SECTION_EVAL_QS_DONE;
+		title === SECTION_DA_QS_DONE ||
+		title === SECTION_EVAL_QS_DONE ||
+		title === SECTION_DAEVAL_QS_DONE;
 
 	return (
 		<AccordionItem value={title}>
@@ -106,11 +109,13 @@ function PunchListAccordionItem({ clients, title }: PunchListAccordionProps) {
 													addScheduling.mutate({
 														clientId: client.id,
 														code:
-															title === SECTION_DA_QS_DONE ? "90791" : "96136",
+															title === SECTION_EVAL_QS_DONE
+																? "96136"
+																: "90791",
 														office:
-															title === SECTION_DA_QS_DONE
-																? "Virtual"
-																: undefined,
+															title === SECTION_EVAL_QS_DONE
+																? undefined
+																: "Virtual",
 													})
 												}
 												size="icon-sm"
