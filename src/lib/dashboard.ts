@@ -6,7 +6,7 @@ export const SECTION_JUST_ADDED = "Just Added";
 export const SECTION_MULTIPLE_FILTERS = "Clients in Multiple Filters";
 export const SECTION_DA_QS_DONE = "DA Qs Done";
 export const SECTION_EVAL_QS_DONE = "Eval Qs Done";
-export const SECTION_DAEVAL_QS_DONE = "DAEVAL Qs Done";
+export const SECTION_DAEVAL_QS_DONE = "DA+Eval Qs Done";
 
 export type DashboardClient = (FullClientInfo | Client) & {
 	matchedSections?: string[];
@@ -31,6 +31,7 @@ const sentExtraInfo = (client: FullClientInfo) => {
 export const DASHBOARD_CONFIG: {
 	title: string;
 	subheading?: string;
+	description?: string;
 	filter: (client: FullClientInfo) => boolean;
 	failureFilter?: (failure: Failure) => boolean;
 	extraInfo?: (client: FullClientInfo) => string | undefined;
@@ -38,12 +39,16 @@ export const DASHBOARD_CONFIG: {
 	{
 		title: "Records Needed - Not Requested",
 		subheading: "Records",
+		description:
+			"Clients who need school records but they haven't been requested from the school district yet. To move forward, request records.",
 		filter: (client: FullClientInfo) =>
 			client.recordsNeeded === "Needed" && !client.externalRecordsRequestedDate,
 		failureFilter: (f) => f.daEval === "Records",
 	},
 	{
 		title: "Records Requested - Not Returned",
+		description:
+			"Records have been requested but we haven't received them or noted them as returned yet. To move forward, enter records notes.",
 		filter: (client: FullClientInfo) =>
 			client.recordsNeeded === "Needed" &&
 			!!client.externalRecordsRequestedDate &&
@@ -52,30 +57,36 @@ export const DASHBOARD_CONFIG: {
 	},
 	{
 		title: "BabyNet Eval Needed - Not Downloaded",
+		description:
+			"BabyNet eval is marked needed but hasn't been downloaded. To move forward, download it.",
 		filter: (client: FullClientInfo) =>
 			client.babyNetERNeeded === true && client.babyNetERDownloaded === false,
 	},
-	{
-		title: "Records Reviewed - Qs Not Sent",
-		filter: (client: FullClientInfo) => {
-			const isRecordsReady =
-				client.recordsNeeded === "Not Needed" ||
-				(client.recordsNeeded === "Needed" &&
-					client.hasExternalRecordsNote === true);
-			return (
-				isRecordsReady &&
-				((client["DA Qs Needed"] === "TRUE" &&
-					client["DA Qs Sent"] === "FALSE") ||
-					(client["EVAL Qs Needed"] === "TRUE" &&
-						client["EVAL Qs Sent"] === "FALSE"))
-			);
-		},
-		failureFilter: (f) =>
-			f.daEval === "DA" || f.daEval === "EVAL" || f.daEval === "DAEVAL",
-	},
+	// {
+	// 	title: "Records Reviewed - Qs Not Sent",
+	// 	description:
+	// 		"Records are ready, questionnaires are marked needed, but haven't been sent.",
+	// 	filter: (client: FullClientInfo) => {
+	// 		const isRecordsReady =
+	// 			client.recordsNeeded === "Not Needed" ||
+	// 			(client.recordsNeeded === "Needed" &&
+	// 				client.hasExternalRecordsNote === true);
+	// 		return (
+	// 			isRecordsReady &&
+	// 			((client["DA Qs Needed"] === "TRUE" &&
+	// 				client["DA Qs Sent"] === "FALSE") ||
+	// 				(client["EVAL Qs Needed"] === "TRUE" &&
+	// 					client["EVAL Qs Sent"] === "FALSE"))
+	// 		);
+	// 	},
+	// 	failureFilter: (f) =>
+	// 		f.daEval === "DA" || f.daEval === "EVAL" || f.daEval === "DAEVAL",
+	// },
 	{
 		title: "DA Qs Pending",
 		subheading: "Questionnaires",
+		description:
+			"DA questionnaires are marked needed, but haven't been sent. To move forward, send them.",
 		filter: (client: FullClientInfo) => {
 			const isRecordsReady =
 				client.recordsNeeded === "Not Needed" ||
@@ -92,6 +103,8 @@ export const DASHBOARD_CONFIG: {
 	},
 	{
 		title: "DA Qs Sent",
+		description:
+			"DA  questionnaires have been sent, but not finished. To move forward, the client must finish them.",
 		filter: (client: FullClientInfo) =>
 			client["DA Qs Sent"] === "TRUE" &&
 			client["DA Qs Done"] === "FALSE" &&
@@ -103,6 +116,8 @@ export const DASHBOARD_CONFIG: {
 	},
 	{
 		title: SECTION_DA_QS_DONE,
+		description:
+			"DA questionnaires are finished. To move forward, schedule the DA.",
 		filter: (client: FullClientInfo) =>
 			client["DA Qs Done"] === "TRUE" &&
 			!isDateString(client["DA Scheduled"]) &&
@@ -113,6 +128,8 @@ export const DASHBOARD_CONFIG: {
 	},
 	{
 		title: "Eval Qs Pending",
+		description:
+			"Evaluation questionnaires are marked needed, but haven't been sent. To move forward, send them.",
 		filter: (client: FullClientInfo) => {
 			const isRecordsReady =
 				client.recordsNeeded === "Not Needed" ||
@@ -128,7 +145,9 @@ export const DASHBOARD_CONFIG: {
 		failureFilter: (f) => f.daEval === "EVAL",
 	},
 	{
-		title: "DAEVAL Qs Pending",
+		title: "DA+Eval Qs Pending",
+		description:
+			"Both DA and Evaluation questionnaires are marked needed, but haven't been sent. To move forward, send them.",
 		filter: (client: FullClientInfo) => {
 			const isRecordsReady =
 				client.recordsNeeded === "Not Needed" ||
@@ -146,6 +165,8 @@ export const DASHBOARD_CONFIG: {
 	},
 	{
 		title: "Eval Qs Sent",
+		description:
+			"Evaluation questionnaires have been sent, but not finished. To move forward, the client must finish them.",
 		filter: (client: FullClientInfo) =>
 			client["EVAL Qs Sent"] === "TRUE" &&
 			client["EVAL Qs Done"] === "FALSE" &&
@@ -154,7 +175,9 @@ export const DASHBOARD_CONFIG: {
 		failureFilter: (f) => f.daEval === "EVAL",
 	},
 	{
-		title: "DAEVAL Qs Sent",
+		title: "DA+Eval Qs Sent",
+		description:
+			"Both DA and Evaluation questionnaires have been sent, but not finished. To move forward, the client must finish them.",
 		filter: (client: FullClientInfo) =>
 			client["DA Qs Sent"] === "TRUE" &&
 			client["DA Qs Done"] === "FALSE" &&
@@ -165,6 +188,8 @@ export const DASHBOARD_CONFIG: {
 	},
 	{
 		title: SECTION_EVAL_QS_DONE,
+		description:
+			"Evaluation questionnaires are finished. To move forward, schedule the eval.",
 		filter: (client: FullClientInfo) =>
 			client["EVAL Qs Done"] === "TRUE" &&
 			!isDateString(client["EVAL date"]) &&
@@ -176,6 +201,8 @@ export const DASHBOARD_CONFIG: {
 	},
 	{
 		title: SECTION_DAEVAL_QS_DONE,
+		description:
+			"Both DA and Evaluation questionnaires are finished. To move forward, schedule the appointment.",
 		filter: (client: FullClientInfo) =>
 			client["DA Qs Done"] === "TRUE" &&
 			!isDateString(client["DA Scheduled"]) &&
@@ -189,6 +216,7 @@ export interface DashboardSection {
 	title: string;
 	clients: DashboardClient[];
 	subheading?: string;
+	description?: string;
 }
 
 export function getDashboardSections(
@@ -198,6 +226,7 @@ export function getDashboardSections(
 	const filteredSections = DASHBOARD_CONFIG.map((config) => ({
 		title: config.title,
 		subheading: config.subheading,
+		description: config.description,
 		clients:
 			punchClients?.filter(config.filter).map((client) => ({
 				...client,
@@ -220,7 +249,11 @@ export function getDashboardSections(
 			})) ?? [];
 
 	const allSections = [
-		{ title: SECTION_JUST_ADDED, clients: justAdded },
+		{
+			title: SECTION_JUST_ADDED,
+			clients: justAdded,
+			description: "Clients who don't match any specific filter criteria yet.",
+		},
 		...filteredSections,
 	];
 
@@ -261,10 +294,14 @@ export function getDashboardSections(
 		{
 			title: SECTION_ACTIVE_NOT_ON_PUNCHLIST,
 			clients: missingFromPunchlist ?? [],
+			description:
+				"Active clients who are missing from the Google Sheets Prioritization list.",
 		},
 		{
 			title: SECTION_MULTIPLE_FILTERS,
 			clients: clientsInMultipleFilters,
+			description:
+				"Clients who match multiple dashboard filters simultaneously, which usually indicates data inconsistency.",
 		},
 		...allSections,
 	];

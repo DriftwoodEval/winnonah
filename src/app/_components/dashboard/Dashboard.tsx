@@ -28,9 +28,14 @@ import { api } from "~/trpc/react";
 interface PunchListAccordionProps {
 	clients: DashboardClient[];
 	title: string;
+	description?: string;
 }
 
-function PunchListAccordionItem({ clients, title }: PunchListAccordionProps) {
+function PunchListAccordionItem({
+	clients,
+	title,
+	description,
+}: PunchListAccordionProps) {
 	const utils = api.useUtils();
 	const addScheduling = api.scheduling.add.useMutation({
 		onSuccess: () => {
@@ -60,6 +65,11 @@ function PunchListAccordionItem({ clients, title }: PunchListAccordionProps) {
 				</span>
 			</AccordionTrigger>
 			<AccordionContent>
+				{description && (
+					<Alert className="mb-4">
+						<AlertDescription>{description}</AlertDescription>
+					</Alert>
+				)}
 				<ScrollArea className="h-[400px] w-full rounded-md border bg-card text-card-foreground shadow">
 					<div className="p-4">
 						{clients?.map((client, index) => {
@@ -254,6 +264,7 @@ export function Dashboard() {
 						)}
 						<PunchListAccordionItem
 							clients={section.clients}
+							description={section.description}
 							key={section.title}
 							title={section.title}
 						/>
