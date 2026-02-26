@@ -21,6 +21,7 @@ services:
 
     volumes:
       - ./logs:/app/logs
+      - ../qs/logs/screenshots:/app/q-screenshots
 
   driftwood-db:
     image: mysql

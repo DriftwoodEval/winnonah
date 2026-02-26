@@ -52,6 +52,7 @@ scripts/*.json
 python/*.txt
 *.sql
 *.sql.gz
+q-screenshots/*
 
 # local dev overrides
 docker-compose.override.*

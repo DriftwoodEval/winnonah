@@ -21,6 +21,7 @@ import { api } from "~/trpc/react";
 import { AddQuestionnaireButton } from "./AddQuestionnaireButton";
 import { ProtocolsScannedCheckbox } from "./ProtocolsScannedCheckbox";
 import { QuestionnaireActionsMenu } from "./QuestionnaireTableActionsMenu";
+import { ScreenshotButton } from "./ScreenshotButton";
 
 interface QuestionnairesTableProps {
 	clientId: number | undefined;
@@ -83,25 +84,25 @@ export function QuestionnairesTable({
 					<Table className="text-xs">
 						<TableHeader>
 							<TableRow>
-								{!readOnly && <TableHead className="w-2.5"></TableHead>}
+								{!readOnly && <TableHead className="w-10"></TableHead>}
 								<TableHead className="hidden w-20 sm:table-cell">
 									Date
 								</TableHead>
-								<TableHead className="hidden w-20 sm:table-cell">
-									Type
+								<TableHead className="w-24">Type</TableHead>
+								<TableHead className="hidden w-32 sm:table-cell">
+									Link
 								</TableHead>
-								<TableHead className="w-20">Link</TableHead>
-								<TableHead className="w-20">Reminded</TableHead>
-								<TableHead className="w-20">Status</TableHead>
-								<TableHead className="hidden w-20 sm:table-cell">
-									As Of
+								<TableHead className="hidden w-16 sm:table-cell">
+									Reminded
 								</TableHead>
+								<TableHead className="w-12 sm:w-20">Status</TableHead>
+								<TableHead className="w-20">As Of</TableHead>
 							</TableRow>
 						</TableHeader>
 						<TableBody>
 							{isLoadingQuestionnaires && (
 								<TableRow>
-									<TableCell className="text-center" colSpan={6}>
+									<TableCell className="text-center" colSpan={7}>
 										Loading...
 									</TableCell>
 								</TableRow>
@@ -126,8 +127,19 @@ export function QuestionnairesTable({
 												day: "numeric",
 											}) ?? "N/A"}
 										</TableCell>
-										<TableCell className="hidden sm:table-cell">
-											{questionnaire.questionnaireType}
+										<TableCell className="w-24 font-medium">
+											{questionnaire.link ? (
+												<Link
+													className="text-primary hover:underline"
+													href={questionnaire.link}
+													rel="noopener noreferrer"
+													target="_blank"
+												>
+													{questionnaire.questionnaireType}
+												</Link>
+											) : (
+												questionnaire.questionnaireType
+											)}
 										</TableCell>
 										<TableCell className="hidden sm:table-cell">
 											{questionnaire.link ? (
@@ -143,49 +155,50 @@ export function QuestionnairesTable({
 												"N/A"
 											)}
 										</TableCell>
-										<TableCell className="table-cell sm:hidden">
-											{questionnaire.link ? (
-												<Link
-													className="text-primary hover:underline"
-													href={questionnaire.link}
-													rel="noopener noreferrer"
-													target="_blank"
-												>
-													{questionnaire.questionnaireType}
-												</Link>
-											) : (
-												"N/A"
-											)}
-										</TableCell>
 										<TableCell
-											className={getReminderColorClass(questionnaire.reminded)}
+											className={cn(
+												"hidden sm:table-cell",
+												getReminderColorClass(questionnaire.reminded),
+											)}
 										>
 											{questionnaire.reminded}
 										</TableCell>
 										<TableCell
 											className={cn(
-												"table-cell sm:hidden",
+												"w-12 sm:w-20",
 												getStatusColorClass(questionnaire.status),
 											)}
 										>
-											{questionnaire?.status ? questionnaire.status[0] : "U"}
+											<span className="sm:hidden">
+												{questionnaire.status ? questionnaire.status[0] : "U"}
+											</span>
+											<span className="hidden sm:inline">
+												{questionnaire.status}
+											</span>
 										</TableCell>
-										<TableCell
-											className={cn(
-												"hidden sm:table-cell",
-												getStatusColorClass(questionnaire.status),
+										<TableCell className="w-20">
+											{questionnaire.link ? (
+												<ScreenshotButton
+													className="w-full cursor-pointer text-left hover:underline"
+													link={questionnaire.link}
+												>
+													{getLocalDayFromUTCDate(
+														questionnaire.updatedAt,
+													)?.toLocaleDateString(undefined, {
+														year: "2-digit",
+														month: "numeric",
+														day: "numeric",
+													}) ?? "N/A"}
+												</ScreenshotButton>
+											) : (
+												(getLocalDayFromUTCDate(
+													questionnaire.updatedAt,
+												)?.toLocaleDateString(undefined, {
+													year: "2-digit",
+													month: "numeric",
+													day: "numeric",
+												}) ?? "N/A")
 											)}
-										>
-											{questionnaire.status}
-										</TableCell>
-										<TableCell className="hidden sm:table-cell">
-											{getLocalDayFromUTCDate(
-												questionnaire.updatedAt,
-											)?.toLocaleDateString(undefined, {
-												year: "2-digit",
-												month: "numeric",
-												day: "numeric",
-											}) ?? "N/A"}
 										</TableCell>
 									</TableRow>
 								))}

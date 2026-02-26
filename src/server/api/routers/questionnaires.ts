@@ -1,3 +1,6 @@
+import fs from "node:fs";
+import path from "node:path";
+import { URL } from "node:url";
 import { TRPCError } from "@trpc/server";
 import {
 	and,
@@ -85,7 +88,7 @@ const QUESTIONNAIRES: QuestionnaireDetails[] = [
 	{ name: "CAT-Q", site: "NovoPsych", ageRanges: { min: 16, max: 99 } },
 ];
 
-function parseQuestionnairesFromText(text: string) {
+function parseQuestionnairesFromBulkImport(text: string) {
 	const lines = text.split("\n").filter((line) => line.trim() !== "");
 	const items: { link: string; questionnaireType: string }[] = [];
 
@@ -106,6 +109,52 @@ function parseQuestionnairesFromText(text: string) {
 
 	return items;
 }
+
+/** Replicates the get_id_from_path function from qreceive */
+const getIdFromPath = (urlPath: string, maxLength: number = 50): string => {
+	const cleanPath = urlPath.split("?")[0]?.replace(/^\/+|\/+$/g, "") || "";
+	const sanitized = cleanPath.replace(/[^\w-]+/g, "_");
+	return sanitized.slice(0, maxLength).replace(/_+$/, "");
+};
+
+const findLatestScreenshot = (
+	qLink: string,
+	screenshotDir: string,
+): string | null => {
+	try {
+		const parsedUrl = new URL(qLink);
+		const safeHost = parsedUrl.host.replace(/\./g, "_").replace(/:/g, "_");
+		const uniqueId = getIdFromPath(parsedUrl.pathname);
+
+		if (!uniqueId || !fs.existsSync(screenshotDir)) return null;
+
+		const files = fs.readdirSync(screenshotDir);
+
+		const matches = files
+			.filter((file) => file.includes(safeHost) && file.includes(uniqueId))
+			.sort((a, b) => {
+				// Extract timestamp from the end (before .png)
+				// Assumes format: STATUS_TYPE_HOST_ID_YYYYMMDD_HHMMSS.png
+				const extractTS = (name: string) => {
+					const parts = name.replace(".png", "").split("_");
+					// Join the last two parts: YYYYMMDD and HHMMSS
+					return parts.slice(-2).join("_");
+				};
+
+				return extractTS(b).localeCompare(extractTS(a));
+			});
+
+		const latestFile = matches[0];
+
+		if (!latestFile) {
+			return null;
+		}
+
+		return path.join(screenshotDir, latestFile);
+	} catch (_e) {
+		return null;
+	}
+};
 
 export const questionnaireRouter = createTRPCRouter({
 	getQuestionnaireList: protectedProcedure
@@ -272,7 +321,9 @@ export const questionnaireRouter = createTRPCRouter({
 				});
 			}
 
-			const parsedQuestionnaires = parseQuestionnairesFromText(input.text);
+			const parsedQuestionnaires = parseQuestionnairesFromBulkImport(
+				input.text,
+			);
 
 			if (parsedQuestionnaires.length === 0) {
 				throw new TRPCError({
@@ -506,4 +557,17 @@ export const questionnaireRouter = createTRPCRouter({
 
 		return clientsWithJustAdded.map((row) => row.client);
 	}),
+
+	getLatestScreenshot: protectedProcedure
+		.input(z.object({ link: z.url() }))
+		.query(async ({ input }) => {
+			const screenshotDir = path.join(process.cwd(), "q-screenshots");
+			const latestPath = findLatestScreenshot(input.link, screenshotDir);
+
+			if (!latestPath) return { url: null };
+
+			const filename = path.basename(latestPath);
+
+			return { url: `/api/screenshots/${filename}` };
+		}),
 });
