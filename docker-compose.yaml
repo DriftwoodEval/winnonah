@@ -1,6 +1,6 @@
 services:
   winnonah:
-    restart: always
+    restart: no
     image: ghcr.io/driftwoodeval/winnonah:latest
     container_name: winnonah
     environment:
@@ -26,7 +26,7 @@ services:
   driftwood-db:
     image: mysql
     container_name: driftwood-db
-    restart: always
+    restart: no
     environment:
       - MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD}
       - MYSQL_DATABASE=${MYSQL_DATABASE}
@@ -45,7 +45,7 @@ services:
     container_name: cloudflared-winnonah
     command: tunnel --no-autoupdate run --token
       ${CF_TOKEN}
-    restart: always
+    restart: no
 
   winnonah-python:
     image: ghcr.io/driftwoodeval/winnonah-python:latest
@@ -82,15 +82,6 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock
       - /etc/localtime:/etc/localtime:ro
     restart: always
-
-  redirect:
-    image: nginx:alpine
-    container_name: winnonah-redirect
-    restart: always
-    ports:
-      - 8484:80
-    volumes:
-      - ./redirect:/usr/share/nginx/html:ro
 
 volumes:
   winnonah_db-data:
