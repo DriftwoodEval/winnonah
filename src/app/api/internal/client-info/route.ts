@@ -2,7 +2,7 @@ import { and, desc, eq, isNotNull } from "drizzle-orm";
 import { type NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { NOTE_TEMPLATES } from "~/lib/constants";
-import { formatClientAge } from "~/lib/utils";
+import { formatClientAge, getLocalDayFromUTCDate } from "~/lib/utils";
 import { db } from "~/server/db";
 import {
 	appointments,
@@ -131,7 +131,30 @@ export async function GET(req: NextRequest) {
 		const matchedTemplate = NOTE_TEMPLATES.find((t) =>
 			fullNote.includes(t.text),
 		);
-		const recordsNote = matchedTemplate ? matchedTemplate.label : fullNote;
+		let recordsNote = matchedTemplate ? matchedTemplate.label : fullNote;
+
+		const formatDate = (date: Date | string | null | undefined) => {
+			const d = getLocalDayFromUTCDate(date);
+			if (!d) return null;
+			return d.toLocaleDateString(undefined, {
+				year: "2-digit",
+				month: "numeric",
+				day: "numeric",
+			});
+		};
+
+		if (matchedTemplate?.value === "no-response") {
+			const dates = [
+				externalRecord?.requested,
+				externalRecord?.secondRequestDate,
+			]
+				.map(formatDate)
+				.filter(Boolean);
+			if (dates.length > 0) {
+				recordsNote = `${recordsNote} (${dates.join(", ")})`;
+			}
+		}
+
 		const recordsReviewed = fullNote.length > 0;
 
 		let recordsStatus: string | boolean = false;
@@ -141,11 +164,11 @@ export async function GET(req: NextRequest) {
 			} else if (!externalRecord?.requested) {
 				recordsStatus = "Needed but not requested";
 			} else if (externalRecord.secondRequestDate) {
-				recordsStatus = `Requested again ${externalRecord.secondRequestDate} and not received/reviewed`;
+				recordsStatus = `Requested again ${formatDate(externalRecord.secondRequestDate)} and not received/reviewed`;
 			} else if (externalRecord.needsSecondRequest) {
-				recordsStatus = `Requested ${externalRecord.requested}, second request needed but not made, and not received/reviewed`;
+				recordsStatus = `Requested ${formatDate(externalRecord.requested)}, second request needed but not made, and not received/reviewed`;
 			} else {
-				recordsStatus = `Requested ${externalRecord.requested} and not received/reviewed`;
+				recordsStatus = `Requested ${formatDate(externalRecord.requested)} and not received/reviewed`;
 			}
 		}
 
