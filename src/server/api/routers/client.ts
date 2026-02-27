@@ -300,6 +300,7 @@ export const clientRouter = createTRPCRouter({
 				),
 				gt(clients.dob, subYears(new Date(), 21)),
 				not(isNoteOnly),
+				eq(clients.status, true),
 			),
 		});
 
@@ -309,6 +310,7 @@ export const clientRouter = createTRPCRouter({
 					eq(clients.flag, "district_from_shapefile"),
 					gt(clients.dob, subYears(new Date(), 21)),
 					not(isNoteOnly),
+					eq(clients.status, true),
 				),
 			});
 
