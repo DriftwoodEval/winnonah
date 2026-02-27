@@ -76,3 +76,13 @@ export const permissionPresets = [
 		) as Record<PermissionId, boolean>,
 	},
 ];
+
+export interface GoogleFolder {
+	id: string;
+	name: string;
+}
+
+export interface FolderResponse {
+	folders: GoogleFolder[];
+	message?: string;
+}

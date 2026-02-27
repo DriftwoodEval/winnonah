@@ -1,6 +1,7 @@
 import { eq } from "drizzle-orm";
 import { distance as levDistance } from "fastest-levenshtein";
 import z from "zod";
+import { env } from "~/env";
 import { fetchWithCache, invalidateCache } from "~/lib/cache";
 import { ALLOWED_ASD_ADHD_VALUES, TEST_NAMES } from "~/lib/constants";
 import {
@@ -447,4 +448,55 @@ export const googleRouter = createTRPCRouter({
 			missingClients,
 		};
 	}),
+
+	getFolders: protectedProcedure
+		.input(z.object({ parentId: z.string() }))
+		.query(async ({ input, ctx }) => {
+			const cookieHeader = ctx.headers.get("cookie") ?? "";
+
+			const response = await fetch(`${env.PY_API}/folders/${input.parentId}`, {
+				headers: {
+					Cookie: cookieHeader,
+				},
+			});
+
+			if (!response.ok) {
+				console.error(
+					`FastAPI error: ${response.status} ${response.statusText}`,
+				);
+				throw new Error("FastAPI server error");
+			}
+
+			const data = (await response.json()) as {
+				folders: { id: string; name: string }[];
+			};
+			return data.folders;
+		}),
+
+	claimTopFolder: protectedProcedure
+		.input(z.object({ sourceId: z.string(), destId: z.string() }))
+		.mutation(async ({ input, ctx }) => {
+			const cookieHeader = ctx.headers.get("cookie") ?? "";
+
+			const userName = ctx.session.user.name;
+			if (!userName) throw new Error("No user name found in session");
+
+			const response = await fetch(`${env.PY_API}/folders/claim`, {
+				method: "POST",
+				headers: { "Content-Type": "application/json", Cookie: cookieHeader },
+				body: JSON.stringify({
+					source_parent_id: input.sourceId,
+					destination_parent_id: input.destId,
+					user_name: userName,
+				}),
+			});
+
+			const data = await response.json();
+
+			if (!response.ok) {
+				throw new Error(data.detail || "Failed to claim folder");
+			}
+
+			return data as { folder_claimed: string; moved_into: string };
+		}),
 });
