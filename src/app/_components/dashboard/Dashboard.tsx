@@ -13,7 +13,7 @@ import { Separator } from "@ui/separator";
 import { Skeleton } from "@ui/skeleton";
 import { CalendarPlus, FlaskConical, Loader2 } from "lucide-react";
 import Link from "next/link";
-import { Fragment, useEffect, useState } from "react";
+import { Fragment, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import {
 	type DashboardClient,
@@ -29,12 +29,14 @@ interface PunchListAccordionProps {
 	clients: DashboardClient[];
 	title: string;
 	description?: string;
+	scheduledClientIds?: Set<number>;
 }
 
 function PunchListAccordionItem({
 	clients,
 	title,
 	description,
+	scheduledClientIds,
 }: PunchListAccordionProps) {
 	const utils = api.useUtils();
 	const addScheduling = api.scheduling.add.useMutation({
@@ -74,6 +76,8 @@ function PunchListAccordionItem({
 					<div className="p-4">
 						{clients?.map((client, index) => {
 							const punchClient = client as FullClientInfo & DashboardClient;
+							const onSchedulingTable = scheduledClientIds?.has(client.id);
+
 							return (
 								<div key={client.hash}>
 									<div className="flex items-center justify-between gap-4">
@@ -83,9 +87,11 @@ function PunchListAccordionItem({
 										>
 											<div>
 												<div className="flex items-center justify-between">
-													<span>
-														{client.fullName ?? punchClient["Client Name"]}
-													</span>
+													<div className="flex items-center gap-2">
+														<span>
+															{client.fullName ?? punchClient["Client Name"]}
+														</span>
+													</div>
 													{punchClient.extraInfo && (
 														<span className="text-muted-foreground text-xs">
 															{punchClient.extraInfo}
@@ -111,7 +117,7 @@ function PunchListAccordionItem({
 												)}
 											</div>
 										</Link>
-										{isQsBackSection && (
+										{isQsBackSection && !onSchedulingTable && (
 											<Button
 												className="shrink-0"
 												disabled={addScheduling.isPending}
@@ -160,6 +166,14 @@ export function Dashboard() {
 	} = api.google.getDashboardData.useQuery(undefined, {
 		refetchInterval: 30000, // 30 seconds
 	});
+
+	const { data: schedulingData } = api.scheduling.get.useQuery(undefined, {
+		staleTime: 60000,
+	});
+
+	const scheduledClientIds = useMemo(() => {
+		return new Set(schedulingData?.clients.map((c) => c.clientId) ?? []);
+	}, [schedulingData]);
 
 	const [openItems, setOpenItems] = useState<string[]>([]);
 	const [isRestoring, setIsRestoring] = useState(true);
@@ -266,6 +280,7 @@ export function Dashboard() {
 							clients={section.clients}
 							description={section.description}
 							key={section.title}
+							scheduledClientIds={scheduledClientIds}
 							title={section.title}
 						/>
 					</Fragment>
