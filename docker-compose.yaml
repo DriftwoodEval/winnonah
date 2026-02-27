@@ -18,6 +18,7 @@ services:
       - API_KEY=${API_KEY}
       - NEXT_PUBLIC_APP_TITLE=${NEXT_PUBLIC_APP_TITLE}
       - NEXT_PUBLIC_APP_DOMAIN=${NEXT_PUBLIC_APP_DOMAIN}
+      - PY_API=${DOCKER_PY_API}
 
     volumes:
       - ./logs:/app/logs

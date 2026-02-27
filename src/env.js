@@ -14,7 +14,7 @@ export const env = createEnv({
 		AUTH_URL: z.string(),
 		AUTH_GOOGLE_ID: z.string(),
 		AUTH_GOOGLE_SECRET: z.string(),
-		DATABASE_URL: z.string().url(),
+		DATABASE_URL: z.url(),
 		NODE_ENV: z
 			.enum(["development", "test", "production"])
 			.default("development"),
@@ -28,6 +28,7 @@ export const env = createEnv({
 		REDIS_HOST: z.string(),
 		OPENPHONE_API_TOKEN: z.string(),
 		OPENPHONE_NUMBER_ID: z.string(),
+		PY_API: z.url(),
 	},
 
 	/**
@@ -56,6 +57,7 @@ export const env = createEnv({
 		REDIS_HOST: process.env.REDIS_HOST,
 		OPENPHONE_API_TOKEN: process.env.OPENPHONE_API_TOKEN,
 		OPENPHONE_NUMBER_ID: process.env.OPENPHONE_NUMBER_ID,
+		PY_API: process.env.PY_API,
 		NEXT_PUBLIC_APP_TITLE: process.env.NEXT_PUBLIC_APP_TITLE ?? "Driftwood EMR",
 		NEXT_PUBLIC_APP_DOMAIN:
 			process.env.NEXT_PUBLIC_APP_DOMAIN ?? "emr.driftwoodeval.com",
