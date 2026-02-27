@@ -37,7 +37,7 @@ const config = {
 		NEXT_PUBLIC_GIT_BRANCH: branchName,
 		NEXT_PUBLIC_COMMIT_HASH: commitHash,
 	},
-	allowedDevOrigins: [appDomain, `*.${appDomain}`],
+	allowedDevOrigins: [appDomain, `*.${appDomain}`, "dev.driftwoodeval.com"],
 	output: "standalone",
 	serverExternalPackages: ["pino", "pino-pretty"],
 	experimental: {
