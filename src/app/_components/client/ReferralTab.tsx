@@ -18,13 +18,16 @@ import { Textarea } from "@ui/textarea";
 import { differenceInMonths, differenceInYears } from "date-fns";
 import {
 	AlertCircle,
+	Armchair,
 	ArrowUpCircle,
 	Check,
+	Copy,
 	InfoIcon,
 	Loader2,
 	LockIcon,
 	Square,
 } from "lucide-react";
+import Link from "next/link";
 import { useSession } from "next-auth/react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
@@ -37,6 +40,9 @@ interface ReferralTabProps {
 	client: Client;
 	readOnly?: boolean;
 }
+
+const TA_MESSAGE =
+	"Welcome to Driftwood! Thank you for setting up access to our patient portal. In the coming days, you should receive another message here with links to up to five questionnaires. Please complete each questionnaire completely so that we can move forward in scheduling an appointment for the client. Additionally, please review this information in preparation for your upcoming appointment: https://driftwoodeval.com/eval-process";
 
 export function ReferralTab({ client, readOnly }: ReferralTabProps) {
 	const { data: session } = useSession();
@@ -442,16 +448,31 @@ export function ReferralTab({ client, readOnly }: ReferralTabProps) {
 					</div>
 
 					<div className="flex flex-col gap-2 rounded-lg bg-muted p-4 text-sm">
-						<h3 className="font-semibold">TherapyAppointment Message</h3>
-						<p>
-							Welcome to Driftwood! Thank you for setting up access to our
-							patient portal. In the coming days, you should receive another
-							message here with links to up to five questionnaires. Please
-							complete each questionnaire completely so that we can move forward
-							in scheduling an appointment for the client. Additionally, please
-							review this information in preparation for your upcoming
-							appointment: https://driftwoodeval.com/eval-process
-						</p>
+						<div className="flex w-full items-center justify-between">
+							<h3 className="font-semibold">TherapyAppointment Message</h3>
+							<div className="flex items-center gap-2">
+								<Button
+									className="h-8 w-8"
+									onClick={() => {
+										void navigator.clipboard.writeText(TA_MESSAGE);
+										toast.success("Copied to clipboard");
+									}}
+									size="icon"
+									variant="ghost"
+								>
+									<Copy className="h-4 w-4" />
+								</Button>
+								{client.taHash && (
+									<Link
+										href={`https://api.portal.therapyappointment.com/n/client/${client.taHash}`}
+										target="_blank"
+									>
+										<Armchair height="16" width="16" />
+									</Link>
+								)}
+							</div>
+						</div>
+						<p>{TA_MESSAGE}</p>
 					</div>
 
 					{isNeedsReview && can("clients:pushtopunch") && !punchClient && (

@@ -275,7 +275,8 @@ export function Dashboard() {
 					{
 						title: "Needs Reach Out",
 						clients: filteredNeedsReachOut as DashboardClient[],
-						description: "Clients marked as needing reach out.",
+						description:
+							"Clients marked as needing reach out. They are in TherapyAppointment but not on the prioritization sheet.",
 						subheading: "Referrals",
 					},
 				]
@@ -285,7 +286,8 @@ export function Dashboard() {
 					{
 						title: "Reached Out - Needs Review",
 						clients: filteredNeedsReview as DashboardClient[],
-						description: "Clients marked for review.",
+						description:
+							"Clients marked for review before pushing to prioritization sheet.",
 						subheading:
 							filteredNeedsReachOut.length > 0 ? undefined : "Referrals",
 					},
