@@ -3,6 +3,7 @@
 import { Alert, AlertDescription, AlertTitle } from "@ui/alert";
 import { Button } from "@ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@ui/card";
+import { Checkbox } from "@ui/checkbox";
 import { Input } from "@ui/input";
 import { Label } from "@ui/label";
 import { RadioGroup, RadioGroupItem } from "@ui/radio-group";
@@ -15,10 +16,19 @@ import {
 } from "@ui/select";
 import { Textarea } from "@ui/textarea";
 import { differenceInMonths, differenceInYears } from "date-fns";
-import { AlertCircle } from "lucide-react";
+import {
+	AlertCircle,
+	ArrowUpCircle,
+	Check,
+	InfoIcon,
+	Loader2,
+	LockIcon,
+	Square,
+} from "lucide-react";
 import { useSession } from "next-auth/react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
+import { useCheckPermission } from "~/hooks/use-check-permission";
 import { ALLOWED_ASD_ADHD_VALUES } from "~/lib/constants";
 import type { Client } from "~/lib/models";
 import { api } from "~/trpc/react";
@@ -30,6 +40,7 @@ interface ReferralTabProps {
 
 export function ReferralTab({ client, readOnly }: ReferralTabProps) {
 	const { data: session } = useSession();
+	const can = useCheckPermission();
 	const utils = api.useUtils();
 
 	const [schoolIepStatus, setSchoolIepStatus] = useState<string>(
@@ -44,14 +55,16 @@ export function ReferralTab({ client, readOnly }: ReferralTabProps) {
 	const [locationPreference, setLocationPreference] = useState<string>(
 		client.referralData?.locationPreference ?? "",
 	);
-	const [email, setEmail] = useState<string>(client.email ?? "");
+	const [email, setEmail] = useState<string>(
+		client.referralData?.email ?? client.email ?? "",
+	);
 
 	useEffect(() => {
 		setSchoolIepStatus(client.referralData?.schoolIepStatus ?? "");
 		setMoreInfo(client.referralData?.schoolExplanation ?? "");
 		setOtherNotes(client.referralData?.otherNotes ?? "");
 		setLocationPreference(client.referralData?.locationPreference ?? "");
-		setEmail(client.email ?? "");
+		setEmail(client.referralData?.email ?? client.email ?? "");
 	}, [client.referralData, client.email]);
 
 	const updateClientMutation = api.clients.update.useMutation({
@@ -69,6 +82,7 @@ export function ReferralTab({ client, readOnly }: ReferralTabProps) {
 		onSuccess: () => {
 			toast.success("Pushed to punch list");
 			void utils.google.getClientFromPunch.invalidate(client.id.toString());
+			void utils.google.getDashboardData.invalidate();
 		},
 		onError: (error) => {
 			toast.error("Failed to push to punch list", {
@@ -82,6 +96,15 @@ export function ReferralTab({ client, readOnly }: ReferralTabProps) {
 			enabled: !!client.id,
 		});
 
+	const isNeedsReview = client.referralData?.needsReachOut === "review";
+
+	const { data: pushPreview, isLoading: isLoadingPreview } =
+		api.google.getPushPreview.useQuery(client.id, {
+			enabled: !!client.id && isNeedsReview && can("clients:pushtopunch"),
+		});
+
+	const isReadOnly = readOnly || !!punchClient;
+
 	const handleAsdAdhdChange = (value: string) => {
 		updateClientMutation.mutate({
 			clientId: client.id,
@@ -94,6 +117,8 @@ export function ReferralTab({ client, readOnly }: ReferralTabProps) {
 		schoolExplanation?: string;
 		otherNotes?: string;
 		locationPreference?: string;
+		needsReachOut?: "reach_out" | "review" | null;
+		email?: string;
 	}) => {
 		const newReferralData = {
 			...client.referralData,
@@ -102,13 +127,6 @@ export function ReferralTab({ client, readOnly }: ReferralTabProps) {
 		updateClientMutation.mutate({
 			clientId: client.id,
 			referralData: newReferralData,
-		});
-	};
-
-	const handleEmailChange = (newEmail: string) => {
-		updateClientMutation.mutate({
-			clientId: client.id,
-			email: newEmail,
 		});
 	};
 
@@ -125,6 +143,8 @@ export function ReferralTab({ client, readOnly }: ReferralTabProps) {
 		client.primaryInsurance?.toLowerCase().includes("babynet") ||
 		client.secondaryInsurance?.toLowerCase().includes("babynet");
 
+	const isNeedsReachOut = client.referralData?.needsReachOut === "reach_out";
+
 	return (
 		<div className="flex flex-col gap-4">
 			{isBabyNet && (
@@ -137,16 +157,47 @@ export function ReferralTab({ client, readOnly }: ReferralTabProps) {
 				</Alert>
 			)}
 
+			{punchClient && (
+				<Alert>
+					<LockIcon className="h-4 w-4" />
+					<AlertTitle>Read Only</AlertTitle>
+					<AlertDescription>
+						This client is already on the punchlist. Referral information cannot
+						be edited here.
+					</AlertDescription>
+				</Alert>
+			)}
+
 			<Card className="w-full">
-				<CardHeader>
+				<CardHeader className="flex flex-row items-center justify-between space-y-0">
 					<CardTitle>Referral Information</CardTitle>
+					<div className="flex items-center space-x-2">
+						<Checkbox
+							checked={isNeedsReachOut || isNeedsReview}
+							disabled={
+								isReadOnly ||
+								updateClientMutation.isPending ||
+								isNeedsReview ||
+								!can("clients:reachout")
+							}
+							id="needsReachOutReferral"
+							onCheckedChange={(checked) =>
+								handleReferralDataChange({
+									needsReachOut: checked === true ? "reach_out" : null,
+								})
+							}
+						/>
+						<Label className="font-medium" htmlFor="needsReachOutReferral">
+							Needs Reach Out
+						</Label>
+					</div>
 				</CardHeader>
 				<CardContent className="space-y-4">
 					<div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
 						<div className="space-y-2">
 							<Label htmlFor="asdAdhd">This is for</Label>
 							<Select
-								disabled={readOnly || updateClientMutation.isPending}
+								disabled={isReadOnly || updateClientMutation.isPending}
 								onValueChange={handleAsdAdhdChange}
 								value={client.asdAdhd ?? undefined}
 							>
@@ -210,7 +261,7 @@ export function ReferralTab({ client, readOnly }: ReferralTabProps) {
 								</Label>
 								<RadioGroup
 									className="flex flex-wrap gap-4"
-									disabled={readOnly || updateClientMutation.isPending}
+									disabled={isReadOnly || updateClientMutation.isPending}
 									onValueChange={(value) => {
 										setSchoolIepStatus(value);
 										handleReferralDataChange({ schoolIepStatus: value });
@@ -243,7 +294,7 @@ export function ReferralTab({ client, readOnly }: ReferralTabProps) {
 									Explanation
 								</Label>
 								<Textarea
-									disabled={readOnly || updateClientMutation.isPending}
+									disabled={isReadOnly || updateClientMutation.isPending}
 									id="schoolExplanation"
 									onBlur={() => {
 										if (
@@ -264,7 +315,10 @@ export function ReferralTab({ client, readOnly }: ReferralTabProps) {
 					<div className="flex flex-col gap-2 rounded-lg bg-muted p-4 text-sm">
 						<p>
 							We would like to set you up in our Patient Portal. To do that, we
-							need to send you an email. Can I please have your email address?
+							need to send you an email.{" "}
+							{client.email
+								? `I just want to confirm that your email is "${client.email}"?`
+								: "Can I please have your email address?"}
 						</p>
 					</div>
 
@@ -274,11 +328,13 @@ export function ReferralTab({ client, readOnly }: ReferralTabProps) {
 								Email Address
 							</Label>
 							<Input
-								disabled={readOnly || updateClientMutation.isPending}
+								disabled={isReadOnly || updateClientMutation.isPending}
 								id="email"
 								onBlur={() => {
-									if (email !== (client.email ?? "")) {
-										handleEmailChange(email);
+									if (
+										email !== (client.referralData?.email ?? client.email ?? "")
+									) {
+										handleReferralDataChange({ email });
 									}
 								}}
 								onChange={(e) => setEmail(e.target.value)}
@@ -344,7 +400,7 @@ export function ReferralTab({ client, readOnly }: ReferralTabProps) {
 								<Label className="font-semibold">Preference?</Label>
 								<RadioGroup
 									className="flex flex-wrap gap-4"
-									disabled={readOnly || updateClientMutation.isPending}
+									disabled={isReadOnly || updateClientMutation.isPending}
 									onValueChange={(value) => {
 										setLocationPreference(value);
 										handleReferralDataChange({ locationPreference: value });
@@ -371,7 +427,7 @@ export function ReferralTab({ client, readOnly }: ReferralTabProps) {
 								Other Notes
 							</Label>
 							<Textarea
-								disabled={readOnly || updateClientMutation.isPending}
+								disabled={isReadOnly || updateClientMutation.isPending}
 								id="otherNotes"
 								onBlur={() => {
 									if (otherNotes !== (client.referralData?.otherNotes ?? "")) {
@@ -384,11 +440,123 @@ export function ReferralTab({ client, readOnly }: ReferralTabProps) {
 							/>
 						</div>
 					</div>
-					{!punchClient && !isLoadingPunchClient && (
-						<Button onClick={() => pushToPunchMutation.mutate(client.id)}>
-							Push to Punch
-						</Button>
+
+					<div className="flex flex-col gap-2 rounded-lg bg-muted p-4 text-sm">
+						<h3 className="font-semibold">TherapyAppointment Message</h3>
+						<p>
+							Welcome to Driftwood! Thank you for setting up access to our
+							patient portal. In the coming days, you should receive another
+							message here with links to up to five questionnaires. Please
+							complete each questionnaire completely so that we can move forward
+							in scheduling an appointment for the client. Additionally, please
+							review this information in preparation for your upcoming
+							appointment: https://driftwoodeval.com/eval-process
+						</p>
+					</div>
+
+					{isNeedsReview && can("clients:pushtopunch") && !punchClient && (
+						<Alert className="bg-secondary/20">
+							<InfoIcon className="h-4 w-4" />
+							<AlertTitle>Push to Punch Preview</AlertTitle>
+							<AlertDescription>
+								{isLoadingPreview ? (
+									<Loader2 className="h-4 w-4 animate-spin" />
+								) : pushPreview ? (
+									<div className="mt-2 grid grid-cols-2 items-center gap-x-4 gap-y-1 text-xs">
+										<span className="font-semibold text-muted-foreground uppercase">
+											Primary:
+										</span>
+										<span>{pushPreview.primaryPayer}</span>
+										{pushPreview.secondaryPayer && (
+											<>
+												<span className="font-semibold text-muted-foreground uppercase">
+													Secondary:
+												</span>
+												<span>{pushPreview.secondaryPayer}</span>
+											</>
+										)}
+										<span className="font-semibold text-muted-foreground uppercase">
+											For:
+										</span>
+										<span>{pushPreview.asdAdhd}</span>
+										<span className="font-semibold text-muted-foreground uppercase">
+											Location:
+										</span>
+										<span>{pushPreview.location ?? "Unknown"}</span>
+										<span className="font-semibold text-muted-foreground uppercase">
+											DA Qs:
+										</span>
+										<span>
+											{pushPreview.daQsNeeded ? (
+												<Check className="h-3 w-3" />
+											) : (
+												<Square className="h-3 w-3 text-muted-foreground" />
+											)}
+										</span>
+										<span className="font-semibold text-muted-foreground uppercase">
+											EVAL Qs:
+										</span>
+										<span>
+											{pushPreview.evalQsNeeded ? (
+												<Check className="h-3 w-3" />
+											) : (
+												<Square className="h-3 w-3 text-muted-foreground" />
+											)}
+										</span>
+										<span className="col-span-2 my-1">
+											Additionally, pushing will update this data in the EMR:
+										</span>
+										<span className="font-semibold text-muted-foreground uppercase">
+											Records:
+										</span>
+										<span>{pushPreview.recordsNeeded ?? "Not Needed"}</span>
+									</div>
+								) : (
+									"Failed to load preview."
+								)}
+							</AlertDescription>
+						</Alert>
 					)}
+
+					<div className="flex flex-wrap gap-2">
+						<Button
+							className="w-full sm:w-auto"
+							disabled={
+								isReadOnly ||
+								updateClientMutation.isPending ||
+								!can("clients:reviewreachout")
+							}
+							onClick={() =>
+								handleReferralDataChange({
+									needsReachOut: isNeedsReview ? null : "review",
+								})
+							}
+							variant={isNeedsReview ? "secondary" : "default"}
+						>
+							{isNeedsReview ? "Marked for Review" : "Mark for Review"}
+						</Button>
+
+						{isNeedsReview && can("clients:pushtopunch") && (
+							<Button
+								className="w-full sm:w-auto"
+								disabled={
+									isReadOnly ||
+									pushToPunchMutation.isPending ||
+									!!punchClient ||
+									isLoadingPunchClient
+								}
+								onClick={() => pushToPunchMutation.mutate(client.id)}
+								variant="outline"
+							>
+								{pushToPunchMutation.isPending ? (
+									<Loader2 className="mr-2 h-4 w-4 animate-spin" />
+								) : (
+									<ArrowUpCircle className="mr-2 h-4 w-4" />
+								)}
+								{punchClient ? "Already on Punchlist" : "Push to Punchlist"}
+							</Button>
+						)}
+					</div>
 				</CardContent>
 			</Card>
 		</div>
