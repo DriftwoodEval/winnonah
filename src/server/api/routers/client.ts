@@ -631,6 +631,32 @@ export const clientRouter = createTRPCRouter({
 		return clientsWithoutRecordsNeeded;
 	}),
 
+	getNeedsReachOut: protectedProcedure.query(async ({ ctx }) => {
+		assertPermission(ctx.session.user, "clients:reachout");
+		const results = await ctx.db.query.clients.findMany({
+			where: and(
+				eq(clients.status, true),
+				sql`JSON_EXTRACT(${clients.referralData}, '$.needsReachOut') = 'reach_out'`,
+			),
+			orderBy: desc(clients.addedDate),
+		});
+
+		return results;
+	}),
+
+	getNeedsReview: protectedProcedure.query(async ({ ctx }) => {
+		assertPermission(ctx.session.user, "clients:reviewreachout");
+		const results = await ctx.db.query.clients.findMany({
+			where: and(
+				eq(clients.status, true),
+				sql`JSON_EXTRACT(${clients.referralData}, '$.needsReachOut') = 'review'`,
+			),
+			orderBy: desc(clients.addedDate),
+		});
+
+		return results;
+	}),
+
 	getUnreviewedRecords: protectedProcedure.query(async ({ ctx }) => {
 		const threeWeekdaysAgo = subBusinessDays(new Date(), 3);
 
@@ -828,6 +854,15 @@ export const clientRouter = createTRPCRouter({
 					: []),
 				...(input.email !== undefined && input.email !== currentClient.email
 					? (["clients:email"] as const)
+					: []),
+				...(input.referralData?.needsReachOut !== undefined &&
+				input.referralData.needsReachOut !==
+					currentClient.referralData?.needsReachOut
+					? input.referralData.needsReachOut === "reach_out" ||
+						(input.referralData.needsReachOut === null &&
+							currentClient.referralData?.needsReachOut === "reach_out")
+						? (["clients:reachout"] as const)
+						: (["clients:reviewreachout"] as const)
 					: []),
 			];
 

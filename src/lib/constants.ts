@@ -89,6 +89,14 @@ export const PERMISSIONS = {
 					{ id: "clients:merge", title: "Merge with Real Client Record" },
 				],
 			},
+			referrals: {
+				title: "Referrals",
+				permissions: [
+					{ id: "clients:reachout", title: "Mark for Reach Out" },
+					{ id: "clients:reviewreachout", title: "Mark for Review" },
+					{ id: "clients:pushtopunch", title: "Push to Punchlist" },
+				],
+			},
 		},
 	},
 	system: {

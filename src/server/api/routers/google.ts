@@ -1,4 +1,5 @@
 import { TRPCError } from "@trpc/server";
+import { differenceInMonths, differenceInYears } from "date-fns";
 import { eq } from "drizzle-orm";
 import { distance as levDistance } from "fastest-levenshtein";
 import z from "zod";
@@ -12,18 +13,115 @@ import {
 	renameDriveFolder,
 	updatePunchData,
 } from "~/lib/google";
-import { getInsuranceShortName } from "~/lib/utils";
 import type { Client } from "~/lib/models";
+import { getDistanceSQL, getInsuranceShortName } from "~/lib/utils";
 import {
 	assertPermission,
+	type Context,
 	createTRPCRouter,
 	protectedProcedure,
 } from "~/server/api/trpc";
-import { clients } from "~/server/db/schema";
+import { clients, offices } from "~/server/db/schema";
 
 const CACHE_KEY_DUPLICATES = "google:drive:duplicate-ids";
 const CACHE_KEY_PUNCHLIST = "google:sheets:punchlist";
 const CACHE_KEY_MISSING_PUNCHLIST = "google:sheets:missing-punchlist";
+
+const getPreviewData = async (ctx: Context, clientId: number) => {
+	const client = await ctx.db.query.clients.findFirst({
+		where: eq(clients.id, clientId),
+	});
+
+	if (!client) {
+		throw new TRPCError({
+			code: "NOT_FOUND",
+			message: "Client not found",
+		});
+	}
+
+	const allInsurances = await ctx.db.query.insurances.findMany({
+		with: {
+			aliases: true,
+		},
+	});
+
+	const primaryInsurance = getInsuranceShortName(
+		client.primaryInsurance,
+		allInsurances,
+	);
+
+	const secondaryInsurance = getInsuranceShortName(
+		client.secondaryInsurance,
+		allInsurances,
+	);
+
+	const daQsNeeded = true;
+	let evalQsNeeded = false;
+
+	if (client.primaryInsurance) {
+		const primaryInsuranceRecord = allInsurances.find(
+			(i) =>
+				i.shortName === primaryInsurance ||
+				i.aliases.some((a) => a.name === client.primaryInsurance),
+		);
+
+		if (primaryInsuranceRecord?.appointmentsRequired === 1) {
+			evalQsNeeded = true;
+		}
+	}
+
+	// Calculate records needed status
+	const ageInMonths = differenceInMonths(new Date(), new Date(client.dob));
+	const ageInYears = differenceInYears(new Date(), new Date(client.dob));
+
+	let recordsNeeded: "Needed" | "Not Needed" | null = null;
+	if (ageInMonths >= 33 && ageInYears < 19) {
+		recordsNeeded = "Needed";
+	} else if (ageInYears >= 20) {
+		recordsNeeded = "Not Needed";
+	}
+
+	let location: string | null = null;
+	if (client.latitude && client.longitude) {
+		const distanceExpr = getDistanceSQL(
+			client.latitude,
+			client.longitude,
+			offices.latitude,
+			offices.longitude,
+		);
+
+		const [closestOffice] = await ctx.db
+			.select({
+				key: offices.key,
+				distance: distanceExpr,
+			})
+			.from(offices)
+			.orderBy(distanceExpr)
+			.limit(1);
+
+		if (closestOffice) {
+			if (closestOffice.key === "CHS") {
+				location = "Charleston";
+			} else if (closestOffice.key === "COL") {
+				location = "C (Columbia)";
+			} else {
+				location = closestOffice.key;
+			}
+		}
+	}
+
+	return {
+		id: client.id,
+		fullName: client.fullName,
+		asdAdhd: client.asdAdhd,
+		primaryPayer: primaryInsurance,
+		secondaryPayer: secondaryInsurance,
+		location,
+		daQsNeeded,
+		evalQsNeeded,
+		recordsNeeded,
+	};
+};
 
 export const googleRouter = createTRPCRouter({
 	// Google Drive
@@ -445,9 +543,17 @@ export const googleRouter = createTRPCRouter({
 		};
 	}),
 
+	getPushPreview: protectedProcedure
+		.input(z.number())
+		.query(async ({ ctx, input }) => {
+			assertPermission(ctx.session.user, "clients:pushtopunch");
+			return getPreviewData(ctx, input);
+		}),
+
 	pushToPunch: protectedProcedure
 		.input(z.number())
 		.mutation(async ({ ctx, input }) => {
+			assertPermission(ctx.session.user, "clients:pushtopunch");
 			if (!ctx.session.user.accessToken || !ctx.session.user.refreshToken) {
 				throw new Error("No access token or refresh token");
 			}
@@ -463,26 +569,35 @@ export const googleRouter = createTRPCRouter({
 				});
 			}
 
-			const allInsurances = await ctx.db.query.insurances.findMany({
-				with: {
-					aliases: true,
-				},
-			});
+			const previewData = await getPreviewData(ctx, input);
 
-			const primaryInsurance = getInsuranceShortName(
-				client.primaryInsurance,
-				allInsurances,
-			);
-
-			ctx.logger.info({ clientId: client.id }, "Pushing client to Punchlist");
+			ctx.logger.info({ clientId: input }, "Pushing client to Punchlist");
 
 			try {
-				await pushToPunch(ctx.session, {
-					id: client.id,
-					fullName: client.fullName,
-					asdAdhd: client.asdAdhd,
-					primaryPayer: primaryInsurance,
-				});
+				// Update recordsNeeded field appropriately based on age
+				// if 2 years and 9 months (33 months) or older, and less than 19, set records needed
+				// if 20 and up set records not needed
+				const ageInMonths = differenceInMonths(
+					new Date(),
+					new Date(client.dob),
+				);
+				const ageInYears = differenceInYears(new Date(), new Date(client.dob));
+
+				let recordsNeeded: "Needed" | "Not Needed" | null = null;
+				if (ageInMonths >= 33 && ageInYears < 19) {
+					recordsNeeded = "Needed";
+				} else if (ageInYears >= 20) {
+					recordsNeeded = "Not Needed";
+				}
+
+				if (recordsNeeded) {
+					await ctx.db
+						.update(clients)
+						.set({ recordsNeeded })
+						.where(eq(clients.id, input));
+				}
+
+				await pushToPunch(ctx.session, previewData);
 
 				await invalidateCache(ctx, "google:sheets:punchlist");
 

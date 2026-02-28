@@ -266,7 +266,7 @@ export function Client({
 									</div>
 								</TabsContent>
 							)}
-							{client.id.toString().length !== 5 && (
+							{!isShellClientId(client.id) && (
 								<TabsContent value="referral">
 									<div className="mb-6 flex min-w-full flex-col items-center gap-6">
 										<ReferralTab client={client} readOnly={readOnly} />
