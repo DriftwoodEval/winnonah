@@ -1,6 +1,6 @@
 import { drive } from "@googleapis/drive";
 import { sheets, type sheets_v4 } from "@googleapis/sheets";
-import { and, eq, inArray, notInArray, sql } from "drizzle-orm";
+import { and, eq, inArray, not, notInArray, sql } from "drizzle-orm";
 import { OAuth2Client } from "google-auth-library";
 import type { Session } from "next-auth";
 import { env } from "~/env";
@@ -472,6 +472,10 @@ export const pushToPunch = async (
 		fullName: string;
 		asdAdhd: string | null;
 		primaryPayer: string | null;
+		secondaryPayer: string | null;
+		location: string | null;
+		daQsNeeded?: boolean;
+		evalQsNeeded?: boolean;
 	},
 ) => {
 	const { PUNCHLIST_ID, PUNCHLIST_RANGE } = env;
@@ -486,25 +490,31 @@ export const pushToPunch = async (
 	const headers = data[0] ?? [];
 	const rows = data.slice(1);
 
-	// Find the first blank row (where Client ID at index 1 is empty or whitespace)
-	let targetRowIndex = rows.findIndex(
-		(row) => !row[1] || row[1].toString().trim() === "",
-	);
-
-	if (targetRowIndex === -1) {
-		// If no blank row found in the existing range, append after the last row
-		targetRowIndex = rows.length;
-	}
-
 	const nameIndex = 0;
 	const idIndex = headers.indexOf("Client ID");
 	const forIndex = headers.indexOf("For");
 	const primaryPayerIndex = headers.indexOf("Primary Payer");
+	const secondaryPayerIndex = headers.indexOf("Secondary Payer");
+	const locationIndex = headers.indexOf("Location");
+	const daQsNeededIndex = headers.indexOf("DA Qs Needed");
+	const evalQsNeededIndex = headers.indexOf("EVAL Qs Needed");
 
 	if (idIndex === -1 || forIndex === -1 || primaryPayerIndex === -1) {
 		throw new Error(
 			"Required columns (Client ID, For, Primary Payer) not found in Punchlist",
 		);
+	}
+
+	// Find the first blank row (where Client Name at index 0 and Client ID at detected index are both empty or whitespace)
+	let targetRowIndex = rows.findIndex(
+		(row) =>
+			(!row[nameIndex] || row[nameIndex].toString().trim() === "") &&
+			(!row[idIndex] || row[idIndex].toString().trim() === ""),
+	);
+
+	if (targetRowIndex === -1) {
+		// If no blank row found in the existing range, append after the last row
+		targetRowIndex = rows.length;
 	}
 
 	const updateRequests: sheets_v4.Schema$ValueRange[] = [];
@@ -527,6 +537,34 @@ export const pushToPunch = async (
 		range: `${String.fromCharCode(65 + primaryPayerIndex)}${rowNumber}`,
 		values: [[client.primaryPayer ?? ""]],
 	});
+
+	if (secondaryPayerIndex !== -1) {
+		updateRequests.push({
+			range: `${String.fromCharCode(65 + secondaryPayerIndex)}${rowNumber}`,
+			values: [[client.secondaryPayer ?? ""]],
+		});
+	}
+
+	if (locationIndex !== -1) {
+		updateRequests.push({
+			range: `${String.fromCharCode(65 + locationIndex)}${rowNumber}`,
+			values: [[client.location ?? ""]],
+		});
+	}
+
+	if (daQsNeededIndex !== -1) {
+		updateRequests.push({
+			range: `${String.fromCharCode(65 + daQsNeededIndex)}${rowNumber}`,
+			values: [[client.daQsNeeded ? "TRUE" : "FALSE"]],
+		});
+	}
+
+	if (evalQsNeededIndex !== -1) {
+		updateRequests.push({
+			range: `${String.fromCharCode(65 + evalQsNeededIndex)}${rowNumber}`,
+			values: [[client.evalQsNeeded ? "TRUE" : "FALSE"]],
+		});
+	}
 
 	await sheetsApi.spreadsheets.values.batchUpdate({
 		spreadsheetId: PUNCHLIST_ID,
@@ -552,6 +590,7 @@ export const getMissingFromPunchlistData = async (session: Session) => {
 	const activeDbClients = await db.query.clients.findMany({
 		where: and(
 			eq(clients.status, true),
+			not(eq(sql`LENGTH(${clients.id})`, 5)),
 			notInArray(clients.fullName, TEST_NAMES as unknown as string[]),
 		),
 	});

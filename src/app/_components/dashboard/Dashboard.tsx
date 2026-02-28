@@ -161,11 +161,19 @@ function PunchListAccordionItem({
 export function Dashboard() {
 	const {
 		data: dashboardData,
-		isLoading,
+		isLoading: isLoadingDashboard,
 		isError,
 	} = api.google.getDashboardData.useQuery(undefined, {
 		refetchInterval: 30000, // 30 seconds
 	});
+
+	const { data: needsReachOut, isLoading: isLoadingNeedsReachOut } =
+		api.clients.getNeedsReachOut.useQuery();
+	const { data: needsReview, isLoading: isLoadingNeedsReview } =
+		api.clients.getNeedsReview.useQuery();
+
+	const isLoading =
+		isLoadingDashboard || isLoadingNeedsReachOut || isLoadingNeedsReview;
 
 	const { data: schedulingData } = api.scheduling.get.useQuery(undefined, {
 		staleTime: 60000,
@@ -237,6 +245,56 @@ export function Dashboard() {
 		dashboardData?.missingClients,
 	);
 
+	const punchClientIds = useMemo(() => {
+		return new Set(
+			dashboardData?.punchClients
+				?.map((c) => c["Client ID"])
+				.filter(
+					(id): id is string => typeof id === "string" && id.trim() !== "",
+				)
+				.map((id) => parseInt(id, 10))
+				.filter((id) => !Number.isNaN(id)) ?? [],
+		);
+	}, [dashboardData?.punchClients]);
+
+	const filteredNeedsReachOut = useMemo(() => {
+		return (
+			needsReachOut?.filter((client) => !punchClientIds.has(client.id)) ?? []
+		);
+	}, [needsReachOut, punchClientIds]);
+
+	const filteredNeedsReview = useMemo(() => {
+		return (
+			needsReview?.filter((client) => !punchClientIds.has(client.id)) ?? []
+		);
+	}, [needsReview, punchClientIds]);
+
+	const referralSections = [
+		...(filteredNeedsReachOut.length > 0
+			? [
+					{
+						title: "Needs Reach Out",
+						clients: filteredNeedsReachOut as DashboardClient[],
+						description: "Clients marked as needing reach out.",
+						subheading: "Referrals",
+					},
+				]
+			: []),
+		...(filteredNeedsReview.length > 0
+			? [
+					{
+						title: "Reached Out - Needs Review",
+						clients: filteredNeedsReview as DashboardClient[],
+						description: "Clients marked for review.",
+						subheading:
+							filteredNeedsReachOut.length > 0 ? undefined : "Referrals",
+					},
+				]
+			: []),
+	];
+
+	const allDashboardSections = [...referralSections, ...finalSections];
+
 	if (isLoading)
 		return (
 			<div className="mx-4 mt-8 flex grow flex-col items-center">
@@ -269,7 +327,7 @@ export function Dashboard() {
 					Punchlist: {dashboardData?.punchClients?.length ?? 0}
 				</p>
 
-				{finalSections.map((section) => (
+				{allDashboardSections.map((section) => (
 					<Fragment key={section.title}>
 						{section.subheading && (
 							<h2 className="mt-6 mb-2 self-start font-bold text-lg">
