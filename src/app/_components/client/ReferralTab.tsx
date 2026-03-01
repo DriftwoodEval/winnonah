@@ -320,8 +320,19 @@ export function ReferralTab({ client, readOnly }: ReferralTabProps) {
 
 					<div className="flex flex-col gap-2 rounded-lg bg-muted p-4 text-sm">
 						<p>
-							We would like to set you up in our Patient Portal. To do that, we
-							need to send you an email.{" "}
+							We would like to set you up in our{" "}
+							{client.taHash ? (
+								<Link
+									className="underline"
+									href={`https://api.portal.therapyappointment.com/n/client/${client.taHash}`}
+									target="_blank"
+								>
+									Patient Portal
+								</Link>
+							) : (
+								<span>Patient Portal</span>
+							)}{" "}
+							. To do that, we need to send you an email.{" "}
 							{client.email
 								? `I just want to confirm that your email is "${client.email}"?`
 								: "Can I please have your email address?"}
