@@ -309,23 +309,31 @@ def prepare_appointments_from_csv(
     service = build("calendar", "v3", credentials=creds)
 
     appointments_df = pd.read_csv("temp/input/clients-appointments.csv")
+    appointments_df["NAME"] = appointments_df["NAME"].fillna("N/A").astype(str)
+
+    appointments_df["STARTTIME_DT"] = pd.to_datetime(appointments_df["STARTTIME"])
+
+    if appointments_df["STARTTIME_DT"].isna().any():
+        missing_count = appointments_df["STARTTIME_DT"].isna().sum()
+        logger.warning(
+            f"Dropping {missing_count} rows with missing or invalid STARTTIME."
+        )
+        appointments_df = appointments_df.dropna(subset=["STARTTIME_DT"])
+
     appointments_df = appointments_df.sort_values(
-        by=["CLIENT_ID", "STARTTIME"]
+        by=["CLIENT_ID", "STARTTIME_DT"]
     ).reset_index(drop=True)
-    appointments_df["gcal_event_id"] = None
-    appointments_df["gcal_title"] = None
-    appointments_df["gcal_calendar_id"] = None
+
+    for col in ["gcal_event_id", "gcal_title", "gcal_calendar_id"]:
+        appointments_df[col] = None
 
     npi_map = get_npi_to_name_map()
-
     now = datetime.now()
 
     # Track dates to detect next-day 'appointments' for insurance
-    client_date_set = set()
-    for _, app in appointments_df.iterrows():
-        client_id = app["CLIENT_ID"]
-        start_date = pd.to_datetime(app["STARTTIME"]).date()
-        client_date_set.add((client_id, start_date))
+    client_date_set = set(
+        zip(appointments_df["CLIENT_ID"], appointments_df["STARTTIME_DT"].dt.date)
+    )
 
     indices_to_drop = set()
     last_90000_appointment_date: dict[int, datetime] = {}
@@ -333,7 +341,7 @@ def prepare_appointments_from_csv(
     for idx, appointment in appointments_df.iterrows():
         appointment_id = str(appointment["APPOINTMENT_ID"])
         client_id = appointment["CLIENT_ID"]
-        start_time = pd.to_datetime(appointment["STARTTIME"]).to_pydatetime()
+        start_time = appointment["STARTTIME_DT"]
         cpt_code = re.sub(r"\D", "", appointment["NAME"]) or "N/A"
         name = re.sub(r"[\d\(\)]", "", appointment["NAME"]).strip()
 
@@ -347,11 +355,9 @@ def prepare_appointments_from_csv(
             continue
 
         # Filter out 90000 CPT codes within 6 months of each other
-        if re.search(r"90000", cpt_code):
+        if "90000" in cpt_code:
             last_date = last_90000_appointment_date.get(client_id)
-            if last_date and (start_time.date() - last_date.date()) < timedelta(
-                days=182
-            ):
+            if last_date and (start_time - last_date).days < 182:
                 logger.info(
                     f"Skipping appointment for client {client_id} on {start_time.date()} "
                     f"with 90000 CPT code as it is within 6 months of a previous one on {last_date.date()}."
@@ -361,29 +367,25 @@ def prepare_appointments_from_csv(
             last_90000_appointment_date[client_id] = start_time
 
         # Skip if client was seen previous day (insurance 'appointment')
-        current_app_date = start_time.date()
-        previous_app_date = current_app_date - timedelta(days=1)
+        previous_app_date = start_time.date() - timedelta(days=1)
 
         if (client_id, previous_app_date) in client_date_set:
             logger.warning(
-                f"Skipping {name} ({client_id}) on {current_app_date.strftime('%Y-%m-%d')} "
+                f"Skipping {name} ({client_id}) on {start_time.date().strftime('%Y-%m-%d')} "
                 f"as they were seen on the previous day."
             )
             indices_to_drop.add(idx)
             continue
 
-    if indices_to_drop:
-        appointments_df = appointments_df.drop(index=list(indices_to_drop)).reset_index(
-            drop=True
-        )
+    appointments_df = appointments_df.drop(index=list(indices_to_drop))
 
     four_weeks_ago = now - timedelta(weeks=4)
     four_weeks_from_now = now + timedelta(weeks=4)
 
     appointments_df = appointments_df[
-        (pd.to_datetime(appointments_df["STARTTIME"]) >= four_weeks_ago)
-        & (pd.to_datetime(appointments_df["STARTTIME"]) <= four_weeks_from_now)
-    ]
+        (appointments_df["STARTTIME_DT"] >= four_weeks_ago)
+        & (appointments_df["STARTTIME_DT"] <= four_weeks_from_now)
+    ].copy()
 
     if appointments_df.empty:
         logger.info("No valid appointments found in the processing window.")
@@ -399,17 +401,16 @@ def prepare_appointments_from_csv(
     )
 
     mismatched_indices = {item["appointment_idx"] for item in reporter.time_mismatches}
+    final_drops = set()
 
-    # Apply results and log missing events
-    indices_to_drop = set()
     for idx, appointment in appointments_df.iterrows():
         if not isinstance(idx, int):
             continue
 
         appointment_id = str(appointment["APPOINTMENT_ID"])
         is_trusted = appointment_id in trusted_ids
-
         result = search_results.get(idx)
+
         if result:
             appointments_df.at[idx, "gcal_event_id"] = result["event_id"]
             appointments_df.at[idx, "gcal_title"] = result["title"]
@@ -421,18 +422,15 @@ def prepare_appointments_from_csv(
                 )
             else:
                 # We already logged the mismatch, so just add to drop list
-                indices_to_drop.add(idx)
+                final_drops.add(idx)
         else:
             name = re.sub(r"[\d\(\)]", "", appointment["NAME"]).strip()
-            start_time = pd.to_datetime(appointment["STARTTIME"]).to_pydatetime()
+            start_time = appointment["STARTTIME_DT"]
 
             raw_npi = appointment.get("NPI")
-
-            try:
-                npi_int = int(raw_npi) if pd.notna(raw_npi) else 0
-            except ValueError:
-                npi_int = 0
-
+            npi_int = (
+                int(raw_npi) if pd.notna(raw_npi) and str(raw_npi).isdigit() else 0
+            )
             evaluator_name = npi_map.get(npi_int, f"Unknown NPI ({raw_npi})")
 
             logger.error(
@@ -456,14 +454,9 @@ def prepare_appointments_from_csv(
                     f"Trusting import for appointment {appointment_id} despite missing in GCal."
                 )
             else:
-                indices_to_drop.add(idx)
+                final_drops.add(idx)
 
-    if indices_to_drop:
-        appointments_df = appointments_df.drop(index=list(indices_to_drop)).reset_index(
-            drop=True
-        )
-
-    return appointments_df
+    return appointments_df.drop(index=list(final_drops)).reset_index(drop=True)
 
 
 def insert_appointments_with_gcal(appointment_sync_data: dict[str, list[str]] | None):
