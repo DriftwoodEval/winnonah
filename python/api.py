@@ -22,12 +22,28 @@ class ClaimRequest(BaseModel):
     user_name: str
 
 
+def get_google_services():
+    """Builds and yields Google API services."""
+    creds = google_authenticate()
+    drive_service = build("drive", "v3", credentials=creds)
+    sheets_service = build("sheets", "v4", credentials=creds)
+    return {"drive": drive_service, "sheets": sheets_service}
+
+
 def get_current_user(request: Request):
-    session_token = (
-        request.cookies.get("authjs.session-token")
-        or request.cookies.get("__Secure-authjs.session-token")
-        or request.cookies.get("next-auth.session-token")
-        or request.cookies.get("__Secure-next-auth.session-token")
+    COOKIE_NAMES = [
+        "authjs.session-token",
+        "__Secure-authjs.session-token",
+        "next-auth.session-token",
+        "__Secure-next-auth.session-token",
+    ]
+    session_token = next(
+        (
+            request.cookies.get(name)
+            for name in COOKIE_NAMES
+            if request.cookies.get(name)
+        ),
+        None,
     )
 
     if not session_token:
@@ -51,10 +67,8 @@ def get_current_user(request: Request):
 
             if not row:
                 raise HTTPException(status_code=401, detail="Invalid session")
-
             if row["expires"].replace(tzinfo=UTC) < datetime.now(UTC):
                 raise HTTPException(status_code=401, detail="Session expired")
-
             if row.get("archived"):
                 raise HTTPException(status_code=403, detail="Account archived")
 
@@ -69,18 +83,64 @@ def get_current_user(request: Request):
         conn.close()
 
 
+def get_writer_id(user_name: str) -> str:
+    """Fetches config and maps user name to initials."""
+    full_config = get_python_config(config_id=1)
+    if not full_config:
+        raise HTTPException(
+            status_code=500, detail="Configuration not found in database."
+        )
+
+    name_map = full_config.get("config", {}).get("piecework", {}).get("name_map", {})
+    target_name = user_name.strip().lower()
+
+    for initials, full_name in name_map.items():
+        if full_name.strip().lower() == target_name:
+            return initials
+    return user_name
+
+
+def find_drive_folder(drive_service, query: str, error_message: str):
+    """Executes a Drive API search and returns the first result."""
+    results = (
+        drive_service.files()
+        .list(
+            q=query,
+            orderBy="name",
+            pageSize=1,
+            supportsAllDrives=True,
+            includeItemsFromAllDrives=True,
+            fields="files(id, name, parents)",
+        )
+        .execute()
+    )
+
+    folders = results.get("files", [])
+    if not folders:
+        raise HTTPException(status_code=404, detail=error_message)
+    return folders[0]
+
+
+def col_num_to_letter(col_num: int) -> str:
+    """Safely converts a 0-based column index to a Sheet column letter."""
+    string = ""
+    while col_num >= 0:
+        string = chr(col_num % 26 + 65) + string
+        col_num = col_num // 26 - 1
+    return string
+
+
 @app.get("/folders/{parent_id}")
 async def get_subfolders(
-    parent_id: str, current_user: dict = Depends(get_current_user)
+    parent_id: str,
+    current_user: dict = Depends(get_current_user),
+    services: dict = Depends(get_google_services),
 ):
     try:
-        creds = google_authenticate()
-        service = build("drive", "v3", credentials=creds)
-
         query = f"'{parent_id}' in parents and mimeType = 'application/vnd.google-apps.folder' and trashed = false"
-
         results = (
-            service.files()
+            services["drive"]
+            .files()
             .list(
                 q=query,
                 spaces="drive",
@@ -92,70 +152,34 @@ async def get_subfolders(
         )
 
         items = results.get("files", [])
-
-        if not items:
-            return {"message": "No folders found.", "folders": []}
-
         return {"folders": [{"id": item["id"], "name": item["name"]} for item in items]}
 
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(
+            status_code=500, detail=f"Failed to fetch folders: {str(e)}"
+        )
 
 
 @app.post("/folders/claim")
-async def claim_top_fodler(
-    request: ClaimRequest, current_user: dict = Depends(get_current_user)
+async def claim_top_folder(
+    request: ClaimRequest,
+    current_user: dict = Depends(get_current_user),
+    services: dict = Depends(get_google_services),
 ):
+    drive_service = services["drive"]
+    sheets_service = services["sheets"]
+
     try:
-        full_config = get_python_config(config_id=1)
-        if not full_config:
-            raise HTTPException(
-                status_code=500, detail="Configuration not found in database."
-            )
-
-        name_map = (
-            full_config.get("config", {}).get("piecework", {}).get("name_map", {})
-        )
-
-        writer_initials = None
-        target_name = request.user_name.strip().lower()
-
-        for initials, full_name in name_map.items():
-            if full_name.strip().lower() == target_name:
-                writer_initials = initials
-                break
-
-        final_entry = writer_initials or request.user_name
-
-        creds = google_authenticate()
-        drive_service = build("drive", "v3", credentials=creds)
-        sheets_service = build("sheets", "v4", credentials=creds)
+        writer_id = get_writer_id(request.user_name)
+        final_entry = f"{writer_id} {datetime.now().strftime('%-m/%-d')}"
 
         source_query = (
             f"'{request.source_parent_id}' in parents and "
             "mimeType = 'application/vnd.google-apps.folder' and trashed = false"
         )
-
-        source_results = (
-            drive_service.files()
-            .list(
-                q=source_query,
-                orderBy="name",
-                pageSize=1,
-                supportsAllDrives=True,
-                includeItemsFromAllDrives=True,
-                fields="files(id, name)",
-            )
-            .execute()
+        target_folder = find_drive_folder(
+            drive_service, source_query, "No folders available to claim."
         )
-
-        folders = source_results.get("files", [])
-        if not folders:
-            raise HTTPException(
-                status_code=404, detail="No folders available to claim."
-            )
-
-        target_folder = folders[0]
         folder_name = target_folder["name"]
 
         match = re.search(r"\[([A-Za-z0-9-]+)\]", folder_name)
@@ -164,8 +188,23 @@ async def claim_top_fodler(
                 status_code=400,
                 detail=f"No Client ID found in brackets for: {folder_name}",
             )
-
         client_id = match.group(1)
+
+        safe_name = request.user_name.replace("'", "\\'")
+        dest_query = f"name contains '{safe_name}' and '{request.destination_parent_id}' in parents and mimeType = 'application/vnd.google-apps.folder' and trashed = false"
+        user_folder = find_drive_folder(
+            drive_service,
+            dest_query,
+            f"Destination folder for '{request.user_name}' not found.",
+        )
+
+        previous_parents = ",".join(target_folder.get("parents", []))
+        drive_service.files().update(
+            fileId=target_folder["id"],
+            addParents=user_folder["id"],
+            removeParents=previous_parents,
+            supportsAllDrives=True,
+        ).execute()
 
         punchlist_range = os.getenv("PUNCHLIST_RANGE")
         sheet_data = (
@@ -195,79 +234,30 @@ async def claim_top_fodler(
                 status_code=500, detail="Required columns not found in Sheet header."
             )
 
-        row_number = None
-        for i, row in enumerate(
-            rows[1:], start=2
-        ):  # Start at 2 for 1-based Sheets indexing
-            if len(row) > id_col_index and row[id_col_index] == client_id:
-                row_number = i
-                break
-
+        row_number = next(
+            (
+                i
+                for i, row in enumerate(rows[1:], start=2)
+                if len(row) > id_col_index and row[id_col_index] == client_id
+            ),
+            None,
+        )
         if not row_number:
             raise HTTPException(
                 status_code=404,
                 detail=f"Client ID {client_id} not found in tracking sheet.",
             )
 
-        # Escape single quotes in the name to prevent query errors
-        safe_name = request.user_name.replace("'", "\\'")
-
-        dest_query = (
-            f"name contains '{safe_name}' and "
-            f"'{request.destination_parent_id}' in parents and "
-            "mimeType = 'application/vnd.google-apps.folder' and trashed = false"
-        )
-
-        dest_results = (
-            drive_service.files()
-            .list(
-                q=dest_query,
-                supportsAllDrives=True,
-                includeItemsFromAllDrives=True,
-                fields="files(id, name)",
-            )
-            .execute()
-        )
-
-        dest_folders = dest_results.get("files", [])
-
-        if not dest_folders:
-            raise HTTPException(
-                status_code=404,
-                detail=f"Destination folder for user '{request.user_name}' not found. Please contact an admin.",
-            )
-
-        user_folder_id = dest_folders[0]["id"]
-        user_folder_name = dest_folders[0]["name"]
-
-        file = (
-            drive_service.files()
-            .get(fileId=target_folder["id"], fields="parents", supportsAllDrives=True)
-            .execute()
-        )
-
-        previous_parents = ",".join(file.get("parents", []))
-
-        drive_service.files().update(
-            fileId=target_folder["id"],
-            addParents=user_folder_id,
-            removeParents=previous_parents,
-            supportsAllDrives=True,
-        ).execute()
-
-        col_letter = chr(65 + assign_col_index)
+        col_letter = col_num_to_letter(assign_col_index)
         sheet_name = (
             punchlist_range.split("!")[0]
             if punchlist_range and "!" in punchlist_range
             else "PUNCH"
         )
-        update_range = f"{sheet_name}!{col_letter}{row_number}"
-
-        # print(update_range, final_entry)
 
         sheets_service.spreadsheets().values().update(
             spreadsheetId=os.getenv("PUNCHLIST_ID"),
-            range=update_range,
+            range=f"{sheet_name}!{col_letter}{row_number}",
             valueInputOption="RAW",
             body={"values": [[final_entry]]},
         ).execute()
@@ -275,12 +265,12 @@ async def claim_top_fodler(
         return {
             "status": "success",
             "folder_claimed": folder_name,
-            "moved_into": user_folder_name,
+            "moved_into": user_folder["name"],
             "client_id": client_id,
         }
 
-    except HTTPException as he:
+    except HTTPException:
         # Re-raise our custom HTTP errors so FastAPI returns the correct status code
-        raise he
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
