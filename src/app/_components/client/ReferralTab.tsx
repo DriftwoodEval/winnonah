@@ -42,7 +42,7 @@ interface ReferralTabProps {
 }
 
 const TA_MESSAGE =
-	"Welcome to Driftwood! Thank you for setting up access to our patient portal. In the coming days, you should receive another message here with links to up to five questionnaires. Please complete each questionnaire completely so that we can move forward in scheduling an appointment for the client. Additionally, please review this information in preparation for your upcoming appointment: https://driftwoodeval.com/eval-process";
+	"Welcome to Driftwood! Thank you for setting up access to our patient portal. In the coming days, you should receive another message here with links to questionnaires. Please complete each questionnaire completely so that we can move forward in scheduling an appointment. Failure to do so will prevent you from moving forward.\n\nAdditionally, please review this information to better understand our process: https://driftwoodeval.com/eval-process";
 
 export function ReferralTab({ client, readOnly }: ReferralTabProps) {
 	const { data: session } = useSession();
@@ -334,7 +334,7 @@ export function ReferralTab({ client, readOnly }: ReferralTabProps) {
 							)}{" "}
 							. To do that, we need to send you an email.{" "}
 							{client.email
-								? `I just want to confirm that your email is "${client.email}"?`
+								? `I want to confirm that your email is "${client.email}"?`
 								: "Can I please have your email address?"}
 						</p>
 					</div>
@@ -393,13 +393,15 @@ export function ReferralTab({ client, readOnly }: ReferralTabProps) {
 								</>
 							) : (
 								<>
+									{ageInYears <= 19 && (
+										<p>
+											We will request records from the school district and then
+											be in touch to discuss next steps.
+										</p>
+									)}
 									<p>
-										We will request records from the school district and then be
-										in touch to discuss next steps.
-									</p>
-									<p>
-										Generally, we will schedule an intake appointment via
-										Telehealth. From there, we will request approval from
+										Generally, we will schedule an intake appointment via video
+										call/Telehealth. From there, we will request approval from
 										insurance before sending more questionnaires in order to get
 										the in-person comprehensive evaluation scheduled.
 									</p>
@@ -483,7 +485,7 @@ export function ReferralTab({ client, readOnly }: ReferralTabProps) {
 								)}
 							</div>
 						</div>
-						<p>{TA_MESSAGE}</p>
+						<p className="whitespace-pre-wrap">{TA_MESSAGE}</p>
 					</div>
 
 					{isNeedsReview && can("clients:pushtopunch") && !punchClient && (
