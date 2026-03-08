@@ -30,6 +30,11 @@ export default function ReportQueue({ sourceId, destId }: ReportQueueProps) {
 	const { data: claimedFolder, isLoading: claimedLoading } =
 		api.google.getClaimedFolder.useQuery();
 
+	const { data: writerFolder } = api.google.getWriterFolder.useQuery(
+		{ parentId: destId },
+		{ refetchOnWindowFocus: false },
+	);
+
 	const claimMutation = api.google.claimTopFolder.useMutation();
 
 	const handleClaim = () => {
@@ -59,16 +64,34 @@ export default function ReportQueue({ sourceId, destId }: ReportQueueProps) {
 					</div>
 				</div>
 
-				<Button
-					className="font-medium"
-					disabled={
-						claimMutation.isPending || !folders?.length || !!claimedFolder
-					}
-					onClick={handleClaim}
-					size="sm"
-				>
-					{claimMutation.isPending ? "Claiming..." : "Claim Top Folder"}
-				</Button>
+				<div className="flex items-center gap-2">
+					{writerFolder && (
+						<Button
+							className="cursor-pointer font-medium"
+							onClick={() =>
+								window.open(
+									`https://drive.google.com/drive/folders/${writerFolder.id}`,
+									"_blank",
+								)
+							}
+							size="sm"
+							variant="outline"
+						>
+							<FolderIcon className="h-4 w-4" />
+							My Folder
+						</Button>
+					)}
+					<Button
+						className="font-medium hover:cursor-pointer"
+						disabled={
+							claimMutation.isPending || !folders?.length || !!claimedFolder
+						}
+						onClick={handleClaim}
+						size="sm"
+					>
+						{claimMutation.isPending ? "Claiming..." : "Claim Top Folder"}
+					</Button>
+				</div>
 			</CardHeader>
 
 			<CardContent className="p-0">

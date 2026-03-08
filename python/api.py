@@ -19,7 +19,6 @@ app = FastAPI()
 class ClaimRequest(BaseModel):
     source_parent_id: str  # Report queue
     destination_parent_id: str  # Report writers' folders
-    user_name: str
 
 
 def get_google_services():
@@ -54,7 +53,7 @@ def get_current_user(request: Request):
         with conn.cursor() as cursor:
             sql = """
                 SELECT
-                    u.id, u.email, u.permissions, u.archived,
+                    u.id, u.email, u.name, u.permissions, u.archived,
                     s.expires,
                     a.access_token, a.refresh_token, a.expires_at, a.scope
                 FROM emr_session s
@@ -75,6 +74,7 @@ def get_current_user(request: Request):
             return {
                 "user_id": row["id"],
                 "email": row["email"],
+                "name": row["name"],
                 "permissions": json.loads(row["permissions"])
                 if row["permissions"]
                 else {},
@@ -130,6 +130,44 @@ def col_num_to_letter(col_num: int) -> str:
     return string
 
 
+def get_user_folder(drive_service, user_name: str, parent_id: str):
+    """Finds the Drive folder for a specific user within a parent directory."""
+    if not user_name:
+        raise HTTPException(
+            status_code=400, detail="User name is required for folder lookup"
+        )
+
+    safe_name = user_name.replace("'", "\\'")
+    dest_query = (
+        f"name contains '{safe_name}' and '{parent_id}' in parents and "
+        "mimeType = 'application/vnd.google-apps.folder' and trashed = false"
+    )
+
+    return find_drive_folder(
+        drive_service,
+        dest_query,
+        f"Destination folder for '{user_name}' not found.",
+    )
+
+
+@app.get("/folders/writer/{parent_id}")
+async def get_writer_folder(
+    parent_id: str,
+    current_user: dict = Depends(get_current_user),
+    services: dict = Depends(get_google_services),
+):
+    try:
+        user_folder = get_user_folder(
+            services["drive"], current_user["name"], parent_id
+        )
+        return {"id": user_folder["id"], "name": user_folder["name"]}
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @app.get("/folders/{parent_id}")
 async def get_subfolders(
     parent_id: str,
@@ -170,7 +208,13 @@ async def claim_top_folder(
     sheets_service = services["sheets"]
 
     try:
-        writer_id = get_writer_id(request.user_name)
+        user_name = current_user["name"]
+        if not user_name:
+            raise HTTPException(
+                status_code=400, detail="User name not found in session"
+            )
+
+        writer_id = get_writer_id(user_name)
         final_entry = f"{writer_id} {datetime.now().strftime('%-m/%-d')}"
 
         source_query = (
@@ -190,12 +234,8 @@ async def claim_top_folder(
             )
         client_id = match.group(1)
 
-        safe_name = request.user_name.replace("'", "\\'")
-        dest_query = f"name contains '{safe_name}' and '{request.destination_parent_id}' in parents and mimeType = 'application/vnd.google-apps.folder' and trashed = false"
-        user_folder = find_drive_folder(
-            drive_service,
-            dest_query,
-            f"Destination folder for '{request.user_name}' not found.",
+        user_folder = get_user_folder(
+            drive_service, user_name, request.destination_parent_id
         )
 
         previous_parents = ",".join(target_folder.get("parents", []))
