@@ -11,6 +11,7 @@ import {
 import { Menu } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useSession } from "next-auth/react";
 import { useCheckPermission } from "~/hooks/use-check-permission";
 
 export function NavigationLink({
@@ -31,8 +32,11 @@ export function NavigationLink({
 }
 
 export default function NavigationLinks() {
+	const { data: session } = useSession();
 	const can = useCheckPermission();
 	const pathname = usePathname();
+
+	if (!session) return null;
 
 	const navItems = [
 		{
