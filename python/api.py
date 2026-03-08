@@ -265,6 +265,7 @@ async def claim_top_folder(
         return {
             "status": "success",
             "folder_claimed": folder_name,
+            "folder_id": target_folder["id"],
             "moved_into": user_folder["name"],
             "client_id": client_id,
         }

@@ -567,6 +567,9 @@ export const users = createTable("user", (d) => ({
 	savedPlaces: d.json(),
 	permissions: d.json("permissions").$type<PermissionsObject>(),
 	archived: d.boolean("archived").notNull().default(false),
+	claimedReportFolder: d
+		.json("claimed_report_folder")
+		.$type<{ name: string; id: string }>(),
 }));
 
 export const usersRelations = relations(users, ({ many, one }) => ({

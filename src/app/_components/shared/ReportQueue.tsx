@@ -4,7 +4,12 @@ import { Button } from "@ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@ui/card";
 import { ScrollArea } from "@ui/scroll-area";
 import { Skeleton } from "@ui/skeleton";
-import { ExternalLinkIcon, FolderIcon, InboxIcon } from "lucide-react";
+import {
+	AlertCircleIcon,
+	ExternalLinkIcon,
+	FolderIcon,
+	InboxIcon,
+} from "lucide-react";
 import { toast } from "sonner";
 import { api } from "~/trpc/react";
 
@@ -16,10 +21,14 @@ interface ReportQueueProps {
 export default function ReportQueue({ sourceId, destId }: ReportQueueProps) {
 	const utils = api.useUtils();
 
-	const { data: folders, isLoading } = api.google.getFolders.useQuery(
-		{ parentId: sourceId },
-		{ refetchOnWindowFocus: false },
-	);
+	const { data: folders, isLoading: foldersLoading } =
+		api.google.getFolders.useQuery(
+			{ parentId: sourceId },
+			{ refetchOnWindowFocus: false },
+		);
+
+	const { data: claimedFolder, isLoading: claimedLoading } =
+		api.google.getClaimedFolder.useQuery();
 
 	const claimMutation = api.google.claimTopFolder.useMutation();
 
@@ -28,11 +37,15 @@ export default function ReportQueue({ sourceId, destId }: ReportQueueProps) {
 			loading: "Claiming...",
 			success: (data) => {
 				void utils.google.getFolders.invalidate();
+				void utils.google.getClaimedFolder.invalidate();
+				void utils.google.getClaimedReports.invalidate();
 				return `Claimed "${data.folder_claimed}" into "${data.moved_into}"`;
 			},
 			error: (err: Error) => err.message,
 		});
 	};
+
+	const isLoading = foldersLoading || claimedLoading;
 
 	return (
 		<Card className="mx-auto my-4 w-full max-w-2xl shadow-sm">
@@ -48,7 +61,9 @@ export default function ReportQueue({ sourceId, destId }: ReportQueueProps) {
 
 				<Button
 					className="font-medium"
-					disabled={claimMutation.isPending || !folders?.length}
+					disabled={
+						claimMutation.isPending || !folders?.length || !!claimedFolder
+					}
 					onClick={handleClaim}
 					size="sm"
 				>
@@ -64,47 +79,86 @@ export default function ReportQueue({ sourceId, destId }: ReportQueueProps) {
 							<Skeleton className="h-12 w-full" />
 							<Skeleton className="h-12 w-full" />
 						</div>
-					) : folders && folders.length > 0 ? (
-						<div className="grid gap-1 py-2">
-							{folders.map((folder) => (
-								<div
-									className="group flex items-center justify-between rounded-md p-3 transition-colors hover:bg-muted/50"
-									key={folder.id}
-								>
-									<div className="flex items-center gap-3">
-										<FolderIcon
-											className="fill-amber-500/20 text-amber-500"
-											size={18}
-										/>
-										<span className="font-medium text-sm leading-none">
-											{folder.name}
-										</span>
-									</div>
-
-									<Button
-										className="h-8 w-8 text-muted-foreground opacity-0 transition-opacity hover:cursor-pointer group-hover:opacity-100"
-										onClick={() =>
-											window.open(
-												`https://drive.google.com/drive/folders/${folder.id}`,
-												"_blank",
-											)
-										}
-										size="icon"
-										variant="ghost"
-									>
-										<ExternalLinkIcon className="h-4 w-4" />
-										<span className="sr-only">Open in Drive</span>
-									</Button>
-								</div>
-							))}
-						</div>
 					) : (
-						<div className="flex h-[200px] flex-col items-center justify-center text-center text-muted-foreground">
-							<InboxIcon className="mb-2 h-8 w-8 opacity-20" />
-							<p className="text-sm italic">
-								No folders found in this directory.
-							</p>
-						</div>
+						<>
+							{claimedFolder && (
+								<div className="my-2 border-b pb-2">
+									<div className="mb-2 flex items-center gap-2 font-medium text-amber-600 text-sm">
+										<AlertCircleIcon size={16} />
+										You already have a report folder claimed. This report must
+										be approved before you can take another.
+									</div>
+									<div className="flex items-center justify-between rounded-md bg-amber-50 p-3 dark:bg-amber-950/20">
+										<div className="flex items-center gap-3">
+											<FolderIcon
+												className="fill-amber-500 text-amber-500"
+												size={18}
+											/>
+											<span className="font-bold text-sm leading-none">
+												{claimedFolder.name}
+											</span>
+										</div>
+										<Button
+											className="h-8 w-8 text-amber-600 hover:cursor-pointer hover:bg-amber-100 hover:text-amber-700 dark:hover:bg-amber-900/30"
+											onClick={() =>
+												window.open(
+													`https://drive.google.com/drive/folders/${claimedFolder.id}`,
+													"_blank",
+												)
+											}
+											size="icon"
+											variant="ghost"
+										>
+											<ExternalLinkIcon className="h-4 w-4" />
+											<span className="sr-only">Open in Drive</span>
+										</Button>
+									</div>
+								</div>
+							)}
+
+							{folders && folders.length > 0 ? (
+								<div className="grid gap-1 py-2">
+									{folders.map((folder) => (
+										<div
+											className="group flex items-center justify-between rounded-md p-3 transition-colors hover:bg-muted/50"
+											key={folder.id}
+										>
+											<div className="flex items-center gap-3">
+												<FolderIcon
+													className="fill-amber-500/20 text-amber-500"
+													size={18}
+												/>
+												<span className="font-medium text-sm leading-none">
+													{folder.name}
+												</span>
+											</div>
+
+											<Button
+												className="h-8 w-8 text-muted-foreground opacity-0 transition-opacity hover:cursor-pointer group-hover:opacity-100"
+												onClick={() =>
+													window.open(
+														`https://drive.google.com/drive/folders/${folder.id}`,
+														"_blank",
+													)
+												}
+												size="icon"
+												variant="ghost"
+											>
+												<ExternalLinkIcon className="h-4 w-4" />
+												<span className="sr-only">Open in Drive</span>
+											</Button>
+										</div>
+									))}
+								</div>
+							) : (
+								<div className="flex h-[200px] flex-col items-center justify-center text-center text-muted-foreground">
+									<InboxIcon className="mb-2 h-8 w-8 opacity-20" />
+									<p className="text-sm italic">
+										No folders found in this directory.
+									</p>
+								</div>
+							)}
+						</>
 					)}
 				</ScrollArea>
 			</CardContent>
