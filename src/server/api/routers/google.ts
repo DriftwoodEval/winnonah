@@ -636,6 +636,37 @@ export const googleRouter = createTRPCRouter({
 			return data.folders;
 		}),
 
+	getWriterFolder: protectedProcedure
+		.input(z.object({ parentId: z.string() }))
+		.query(async ({ input, ctx }) => {
+			const cookieHeader = ctx.headers.get("cookie") ?? "";
+
+			const response = await fetch(
+				`${env.PY_API}/folders/writer/${input.parentId}`,
+				{
+					headers: {
+						Cookie: cookieHeader,
+					},
+				},
+			);
+
+			if (!response.ok) {
+				if (response.status === 404) {
+					return null;
+				}
+				console.error(
+					`FastAPI error: ${response.status} ${response.statusText}`,
+				);
+				throw new Error("FastAPI server error");
+			}
+
+			const data = (await response.json()) as {
+				id: string;
+				name: string;
+			};
+			return data;
+		}),
+
 	claimTopFolder: protectedProcedure
 		.input(z.object({ sourceId: z.string(), destId: z.string() }))
 		.mutation(async ({ input, ctx }) => {
@@ -660,7 +691,6 @@ export const googleRouter = createTRPCRouter({
 				body: JSON.stringify({
 					source_parent_id: input.sourceId,
 					destination_parent_id: input.destId,
-					user_name: userName,
 				}),
 			});
 
