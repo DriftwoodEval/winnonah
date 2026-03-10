@@ -40,7 +40,7 @@ export const DASHBOARD_CONFIG: {
 		title: "Records Needed - Not Requested",
 		subheading: "Records",
 		description:
-			"Clients who need school records but they haven't been requested from the school district yet. To move forward, request records.",
+			"Clients who need school records but they haven't been requested from the school district yet. To move forward, request records (record the records requested date).",
 		filter: (client: FullClientInfo) =>
 			client.recordsNeeded === "Needed" && !client.externalRecordsRequestedDate,
 		failureFilter: (f) => f.daEval === "Records",
@@ -58,35 +58,15 @@ export const DASHBOARD_CONFIG: {
 	{
 		title: "BabyNet Eval Needed - Not Downloaded",
 		description:
-			"BabyNet eval is marked needed but hasn't been downloaded. To move forward, download it.",
+			"BabyNet eval is marked needed but hasn't been downloaded. To move forward, download it (mark BabyNet eval downloaded).",
 		filter: (client: FullClientInfo) =>
 			client.babyNetERNeeded === true && client.babyNetERDownloaded === false,
 	},
-	// {
-	// 	title: "Records Reviewed - Qs Not Sent",
-	// 	description:
-	// 		"Records are ready, questionnaires are marked needed, but haven't been sent.",
-	// 	filter: (client: FullClientInfo) => {
-	// 		const isRecordsReady =
-	// 			client.recordsNeeded === "Not Needed" ||
-	// 			(client.recordsNeeded === "Needed" &&
-	// 				client.hasExternalRecordsNote === true);
-	// 		return (
-	// 			isRecordsReady &&
-	// 			((client["DA Qs Needed"] === "TRUE" &&
-	// 				client["DA Qs Sent"] === "FALSE") ||
-	// 				(client["EVAL Qs Needed"] === "TRUE" &&
-	// 					client["EVAL Qs Sent"] === "FALSE"))
-	// 		);
-	// 	},
-	// 	failureFilter: (f) =>
-	// 		f.daEval === "DA" || f.daEval === "EVAL" || f.daEval === "DAEVAL",
-	// },
 	{
 		title: "DA Qs Pending",
 		subheading: "Questionnaires",
 		description:
-			"DA questionnaires are marked needed, but haven't been sent. To move forward, send them.",
+			"DA questionnaires are marked needed, but haven't been sent. To move forward, send them (mark DA Qs Sent on the prioritization sheet).",
 		filter: (client: FullClientInfo) => {
 			const isRecordsReady =
 				client.recordsNeeded === "Not Needed" ||
@@ -104,7 +84,7 @@ export const DASHBOARD_CONFIG: {
 	{
 		title: "DA Qs Sent",
 		description:
-			"DA  questionnaires have been sent, but not finished. To move forward, the client must finish them.",
+			"DA  questionnaires have been sent, but not finished. To move forward, the client must finish them (DA Qs Done must be marked on the prioritization sheet).",
 		filter: (client: FullClientInfo) =>
 			client["DA Qs Sent"] === "TRUE" &&
 			client["DA Qs Done"] === "FALSE" &&
@@ -117,7 +97,7 @@ export const DASHBOARD_CONFIG: {
 	{
 		title: SECTION_DA_QS_DONE,
 		description:
-			"DA questionnaires are finished. To move forward, schedule the DA.",
+			"DA questionnaires are finished. To move forward, schedule the DA (DA Scheduled on the prioritization sheet must be a date or checked off).",
 		filter: (client: FullClientInfo) =>
 			client["DA Qs Done"] === "TRUE" &&
 			!isDateString(client["DA Scheduled"]) &&
@@ -129,7 +109,7 @@ export const DASHBOARD_CONFIG: {
 	{
 		title: "Eval Qs Pending",
 		description:
-			"Evaluation questionnaires are marked needed, but haven't been sent. To move forward, send them.",
+			"Evaluation questionnaires are marked needed, but haven't been sent. To move forward, send them (mark EVAL Qs Sent on the prioritization sheet).",
 		filter: (client: FullClientInfo) => {
 			const isRecordsReady =
 				client.recordsNeeded === "Not Needed" ||
@@ -147,7 +127,7 @@ export const DASHBOARD_CONFIG: {
 	{
 		title: "DA+Eval Qs Pending",
 		description:
-			"Both DA and Evaluation questionnaires are marked needed, but haven't been sent. To move forward, send them.",
+			"Both DA and Evaluation questionnaires are marked needed, but haven't been sent. To move forward, send them (mark DA Qs Sent and EVAL Qs Sent on the prioritization sheet).",
 		filter: (client: FullClientInfo) => {
 			const isRecordsReady =
 				client.recordsNeeded === "Not Needed" ||
@@ -166,7 +146,7 @@ export const DASHBOARD_CONFIG: {
 	{
 		title: "Eval Qs Sent",
 		description:
-			"Evaluation questionnaires have been sent, but not finished. To move forward, the client must finish them.",
+			"Evaluation questionnaires have been sent, but not finished. To move forward, the client must finish them (EVAL Qs Done must be marked on the prioritization sheet).",
 		filter: (client: FullClientInfo) =>
 			client["EVAL Qs Sent"] === "TRUE" &&
 			client["EVAL Qs Done"] === "FALSE" &&
@@ -177,7 +157,7 @@ export const DASHBOARD_CONFIG: {
 	{
 		title: "DA+Eval Qs Sent",
 		description:
-			"Both DA and Evaluation questionnaires have been sent, but not finished. To move forward, the client must finish them.",
+			"Both DA and Evaluation questionnaires have been sent, but not finished. To move forward, the client must finish them (DA Qs Done and EVAL Qs Done must be marked on the prioritization sheet).",
 		filter: (client: FullClientInfo) =>
 			client["DA Qs Sent"] === "TRUE" &&
 			client["DA Qs Done"] === "FALSE" &&
@@ -189,7 +169,7 @@ export const DASHBOARD_CONFIG: {
 	{
 		title: SECTION_EVAL_QS_DONE,
 		description:
-			"Evaluation questionnaires are finished. To move forward, schedule the eval.",
+			"Evaluation questionnaires are finished. To move forward, schedule the eval (EVAL date on the prioritization sheet must be a date or checked off).",
 		filter: (client: FullClientInfo) =>
 			client["EVAL Qs Done"] === "TRUE" &&
 			!isDateString(client["EVAL date"]) &&
@@ -202,7 +182,7 @@ export const DASHBOARD_CONFIG: {
 	{
 		title: SECTION_DAEVAL_QS_DONE,
 		description:
-			"Both DA and Evaluation questionnaires are finished. To move forward, schedule the appointment.",
+			"Both DA and Evaluation questionnaires are finished. To move forward, schedule the appointment (DA Scheduled and EVAL date on the prioritization sheet must be a date or checked off).",
 		filter: (client: FullClientInfo) =>
 			client["DA Qs Done"] === "TRUE" &&
 			!isDateString(client["DA Scheduled"]) &&
