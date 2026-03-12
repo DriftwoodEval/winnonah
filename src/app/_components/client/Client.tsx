@@ -269,6 +269,7 @@ export function Client({
 							{!isShellClientId(client.id) && (
 								<TabsContent value="referral">
 									<div className="mb-6 flex min-w-full flex-col items-center gap-6">
+										<ClientDetailsCard client={client} truncated />
 										<ReferralTab client={client} readOnly={readOnly} />
 									</div>
 								</TabsContent>
