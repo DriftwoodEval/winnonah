@@ -49,6 +49,7 @@ export function ReferralTab({ client, readOnly }: ReferralTabProps) {
 	const can = useCheckPermission();
 	const utils = api.useUtils();
 
+	const [notes, setNotes] = useState<string>(client.referralData?.notes ?? "");
 	const [schoolIepStatus, setSchoolIepStatus] = useState<string>(
 		client.referralData?.schoolIepStatus ?? "",
 	);
@@ -66,6 +67,7 @@ export function ReferralTab({ client, readOnly }: ReferralTabProps) {
 	);
 
 	useEffect(() => {
+		setNotes(client.referralData?.notes ?? "");
 		setSchoolIepStatus(client.referralData?.schoolIepStatus ?? "");
 		setMoreInfo(client.referralData?.schoolExplanation ?? "");
 		setOtherNotes(client.referralData?.otherNotes ?? "");
@@ -119,6 +121,7 @@ export function ReferralTab({ client, readOnly }: ReferralTabProps) {
 	};
 
 	const handleReferralDataChange = (updates: {
+		notes?: string;
 		schoolIepStatus?: string;
 		schoolExplanation?: string;
 		otherNotes?: string;
@@ -199,6 +202,24 @@ export function ReferralTab({ client, readOnly }: ReferralTabProps) {
 					</div>
 				</CardHeader>
 				<CardContent className="space-y-4">
+					<div className="space-y-2">
+						<Label className="font-semibold" htmlFor="referralNotes">
+							Notes
+						</Label>
+						<Textarea
+							disabled={isReadOnly || updateClientMutation.isPending}
+							id="referralNotes"
+							onBlur={() => {
+								if (notes !== (client.referralData?.notes ?? "")) {
+									handleReferralDataChange({ notes });
+								}
+							}}
+							onChange={(e) => setNotes(e.target.value)}
+							placeholder="Add referral notes here..."
+							value={notes}
+						/>
+					</div>
+
 					<div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
 						<div className="space-y-2">
 							<Label htmlFor="asdAdhd">This is for</Label>
