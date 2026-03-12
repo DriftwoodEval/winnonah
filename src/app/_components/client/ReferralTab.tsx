@@ -2,7 +2,13 @@
 
 import { Alert, AlertDescription, AlertTitle } from "@ui/alert";
 import { Button } from "@ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@ui/card";
+import {
+	Card,
+	CardContent,
+	CardDescription,
+	CardHeader,
+	CardTitle,
+} from "@ui/card";
 import { Checkbox } from "@ui/checkbox";
 import { Input } from "@ui/input";
 import { Label } from "@ui/label";
@@ -65,6 +71,9 @@ export function ReferralTab({ client, readOnly }: ReferralTabProps) {
 	const [email, setEmail] = useState<string>(
 		client.referralData?.email ?? client.email ?? "",
 	);
+	const [followedByBabyNet, setFollowedByBabyNet] = useState<
+		"yes" | "no" | null
+	>(client.referralData?.followedByBabyNet ?? null);
 
 	useEffect(() => {
 		setNotes(client.referralData?.notes ?? "");
@@ -73,6 +82,7 @@ export function ReferralTab({ client, readOnly }: ReferralTabProps) {
 		setOtherNotes(client.referralData?.otherNotes ?? "");
 		setLocationPreference(client.referralData?.locationPreference ?? "");
 		setEmail(client.referralData?.email ?? client.email ?? "");
+		setFollowedByBabyNet(client.referralData?.followedByBabyNet ?? null);
 	}, [client.referralData, client.email]);
 
 	const updateClientMutation = api.clients.update.useMutation({
@@ -128,11 +138,13 @@ export function ReferralTab({ client, readOnly }: ReferralTabProps) {
 		locationPreference?: string;
 		needsReachOut?: "reach_out" | "review" | null;
 		email?: string;
+		followedByBabyNet?: "yes" | "no" | null;
 	}) => {
 		const newReferralData = {
 			...client.referralData,
 			...updates,
 		};
+
 		updateClientMutation.mutate({
 			clientId: client.id,
 			referralData: newReferralData,
@@ -146,6 +158,7 @@ export function ReferralTab({ client, readOnly }: ReferralTabProps) {
 	const ageInMonths = differenceInMonths(new Date(), new Date(client.dob));
 	const ageInYears = differenceInYears(new Date(), new Date(client.dob));
 	const showSchoolQuestion = !isAdhd && ageInMonths >= 33 && ageInYears <= 19;
+	const isUnder3 = ageInYears < 3;
 
 	const isBabyNet =
 		client.babyNet ||
@@ -256,90 +269,151 @@ export function ReferralTab({ client, readOnly }: ReferralTabProps) {
 			<Card className="w-full">
 				<CardHeader>
 					<CardTitle>Intake Script</CardTitle>
+					<CardDescription>
+						Call the client or the client's parent/guardian and follow the
+						script below. Fill in information into the form fields.
+					</CardDescription>
 				</CardHeader>
 				<CardContent className="space-y-6">
-					<div className="flex flex-col gap-2 rounded-lg bg-muted p-4 text-sm">
-						<p>
-							This is {userName} from Driftwood Evaluation Center. We received
-							your referral and wanted to ask you some questions to get started
-							on our process.
-						</p>
-						<p>
-							I just want to confirm you and/or your pediatrician have concerns
-							about potential{" "}
-							{asdAdhdValue
-								.replace("ASD", "autism")
-								.replace("LD", "learning disability")}
-							.
-						</p>
-						{showSchoolQuestion && (
+					<div className="flex flex-col gap-4">
+						<div className="flex flex-col gap-2 rounded-lg bg-muted p-4 text-sm">
+							<p className="font-bold">Say the following:</p>
 							<p>
-								Has the child been evaluated at school? Do they have an IEP or
-								504 plan?
+								This is {userName} from Driftwood Evaluation Center. We received
+								your referral and wanted to ask you some questions to get
+								started on our process.
 							</p>
+							<p>
+								I just want to confirm you and/or your pediatrician have
+								concerns about potential{" "}
+								{asdAdhdValue
+									.replace("ASD", "autism")
+									.replace("LD", "learning disability")}
+								.
+							</p>
+						</div>
+
+						{isUnder3 && (
+							<div className="space-y-4">
+								<div className="rounded-lg bg-muted p-4 text-sm">
+									<p className="font-bold">Say the following:</p>
+									<p>Is the child being followed by BabyNet?</p>
+								</div>
+								<div className="space-y-3 px-4">
+									<Label className="font-semibold">BabyNet?</Label>
+									<RadioGroup
+										className="flex flex-wrap gap-4"
+										disabled={isReadOnly || updateClientMutation.isPending}
+										onValueChange={(value) => {
+											const val = value as "yes" | "no";
+											setFollowedByBabyNet(val);
+											handleReferralDataChange({
+												followedByBabyNet: val,
+											});
+										}}
+										value={followedByBabyNet ?? undefined}
+									>
+										<div className="flex items-center space-x-2">
+											<RadioGroupItem id="bn-yes" value="yes" />
+											<Label className="font-normal" htmlFor="bn-yes">
+												Yes
+											</Label>
+										</div>
+										<div className="flex items-center space-x-2">
+											<RadioGroupItem id="bn-no" value="no" />
+											<Label className="font-normal" htmlFor="bn-no">
+												No
+											</Label>
+										</div>
+									</RadioGroup>
+								</div>
+
+								{followedByBabyNet === "yes" && (
+									<div className="rounded-lg bg-muted p-4 text-sm">
+										<p className="font-bold">Say the following:</p>
+										<p>
+											Tell your Early Interventionalist (EI) to go to
+											driftwoodeval.com/babynet and fill in our referral form.
+										</p>
+									</div>
+								)}
+							</div>
+						)}
+
+						{showSchoolQuestion && (
+							<div className="space-y-4">
+								<div className="rounded-lg bg-muted p-4 text-sm">
+									<p className="font-bold">Say the following:</p>
+									<p>
+										Has the child been evaluated at school? Do they have an IEP
+										or 504 plan?
+									</p>
+								</div>
+								<div className="space-y-4 px-4">
+									<div className="space-y-3">
+										<Label className="font-semibold">
+											School / IEP / 504 Status
+										</Label>
+										<RadioGroup
+											className="flex flex-wrap gap-4"
+											disabled={isReadOnly || updateClientMutation.isPending}
+											onValueChange={(value) => {
+												setSchoolIepStatus(value);
+												handleReferralDataChange({ schoolIepStatus: value });
+											}}
+											value={schoolIepStatus}
+										>
+											<div className="flex items-center space-x-2">
+												<RadioGroupItem id="yes" value="yes" />
+												<Label className="font-normal" htmlFor="yes">
+													Yes
+												</Label>
+											</div>
+											<div className="flex items-center space-x-2">
+												<RadioGroupItem id="no" value="no" />
+												<Label className="font-normal" htmlFor="no">
+													No
+												</Label>
+											</div>
+											<div className="flex items-center space-x-2">
+												<RadioGroupItem id="idk" value="idk" />
+												<Label className="font-normal" htmlFor="idk">
+													I Don't Know
+												</Label>
+											</div>
+										</RadioGroup>
+									</div>
+
+									<div className="space-y-2">
+										<Label
+											className="font-semibold"
+											htmlFor="schoolExplanation"
+										>
+											Explanation
+										</Label>
+										<Textarea
+											disabled={isReadOnly || updateClientMutation.isPending}
+											id="schoolExplanation"
+											onBlur={() => {
+												if (
+													schoolExplanation !==
+													(client.referralData?.schoolExplanation ?? "")
+												) {
+													handleReferralDataChange({ schoolExplanation });
+												}
+											}}
+											onChange={(e) => setMoreInfo(e.target.value)}
+											placeholder="..."
+											value={schoolExplanation}
+										/>
+									</div>
+								</div>
+							</div>
 						)}
 					</div>
 
-					{showSchoolQuestion && (
-						<div className="space-y-4">
-							<div className="space-y-3">
-								<Label className="font-semibold">
-									School / IEP / 504 Status
-								</Label>
-								<RadioGroup
-									className="flex flex-wrap gap-4"
-									disabled={isReadOnly || updateClientMutation.isPending}
-									onValueChange={(value) => {
-										setSchoolIepStatus(value);
-										handleReferralDataChange({ schoolIepStatus: value });
-									}}
-									value={schoolIepStatus}
-								>
-									<div className="flex items-center space-x-2">
-										<RadioGroupItem id="yes" value="yes" />
-										<Label className="font-normal" htmlFor="yes">
-											Yes
-										</Label>
-									</div>
-									<div className="flex items-center space-x-2">
-										<RadioGroupItem id="no" value="no" />
-										<Label className="font-normal" htmlFor="no">
-											No
-										</Label>
-									</div>
-									<div className="flex items-center space-x-2">
-										<RadioGroupItem id="idk" value="idk" />
-										<Label className="font-normal" htmlFor="idk">
-											I Don't Know
-										</Label>
-									</div>
-								</RadioGroup>
-							</div>
-
-							<div className="space-y-2">
-								<Label className="font-semibold" htmlFor="schoolExplanation">
-									Explanation
-								</Label>
-								<Textarea
-									disabled={isReadOnly || updateClientMutation.isPending}
-									id="schoolExplanation"
-									onBlur={() => {
-										if (
-											schoolExplanation !==
-											(client.referralData?.schoolExplanation ?? "")
-										) {
-											handleReferralDataChange({ schoolExplanation });
-										}
-									}}
-									onChange={(e) => setMoreInfo(e.target.value)}
-									placeholder="..."
-									value={schoolExplanation}
-								/>
-							</div>
-						</div>
-					)}
-
 					<div className="flex flex-col gap-2 rounded-lg bg-muted p-4 text-sm">
+						<p className="font-bold">Say the following:</p>
 						<p>
 							We would like to set you up in our{" "}
 							{client.taHash ? (
@@ -383,6 +457,7 @@ export function ReferralTab({ client, readOnly }: ReferralTabProps) {
 						</div>
 
 						<div className="flex flex-col gap-2 rounded-lg bg-muted p-4 text-sm">
+							<p className="font-bold">Say the following:</p>
 							<p>
 								Once you receive that email, please sign into the Patient
 								Portal. You will use the client's date of birth. Let me know if
@@ -506,6 +581,10 @@ export function ReferralTab({ client, readOnly }: ReferralTabProps) {
 								)}
 							</div>
 						</div>
+						<p className="font-bold">
+							Go to the client's TherapyAppointment page and send them the
+							following message:
+						</p>
 						<p className="whitespace-pre-wrap">{TA_MESSAGE}</p>
 					</div>
 
