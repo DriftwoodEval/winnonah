@@ -143,8 +143,8 @@ export function ClientDetailsCard({
 							</PopoverTrigger>
 							<PopoverContent side="right">
 								<ul className="list-disc p-3">
-									{client.closestOffices.slice(1).map((office, i) => (
-										<li key={`${office.key}-${i}`}>
+									{client.closestOffices.slice(1).map((office) => (
+										<li key={office.key}>
 											{office.prettyName} ({office.distanceMiles.toFixed(0)} mi)
 										</li>
 									))}

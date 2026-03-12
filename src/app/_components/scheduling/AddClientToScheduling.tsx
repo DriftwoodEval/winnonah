@@ -95,7 +95,7 @@ export function AddClientToScheduling({
 						clientId: client.id,
 
 						optimisticClient: client,
-					} as any)
+					})
 				}
 				placeholder="Search for a client to add..."
 				resetOnAdd={true}

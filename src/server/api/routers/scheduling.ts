@@ -284,6 +284,8 @@ export const schedulingRouter = createTRPCRouter({
 				clientId: z.number(),
 				code: z.string().optional(),
 				office: z.string().optional(),
+				// Added for frontend optimistic updates, not used in the database update
+				optimisticClient: z.any().optional(),
 			}),
 		)
 		.mutation(async ({ input }) => {
