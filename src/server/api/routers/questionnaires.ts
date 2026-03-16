@@ -1,3 +1,4 @@
+import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import { URL } from "node:url";
@@ -110,11 +111,22 @@ function parseQuestionnairesFromBulkImport(text: string) {
 	return items;
 }
 
-/** Replicates the get_id_from_path function from qreceive */
-const getIdFromPath = (urlPath: string, maxLength: number = 50): string => {
-	const cleanPath = urlPath.split("?")[0]?.replace(/^\/+|\/+$/g, "") || "";
-	const sanitized = cleanPath.replace(/[^\w-]+/g, "_");
-	return sanitized.slice(0, maxLength).replace(/_+$/, "");
+/** Replicates the get_id_from_url function from qreceive */
+const getIdFromUrl = (url: string, maxLength: number = 64): string => {
+	try {
+		const parsed = new URL(url);
+		const cleanPath = parsed.pathname.replace(/^\/+|\/+$/g, "");
+		const sanitized = cleanPath.replace(/[^\w-]+/g, "_");
+		const urlHash = crypto
+			.createHash("md5")
+			.update(url)
+			.digest("hex")
+			.slice(0, 10);
+		const truncated = sanitized.slice(0, maxLength - 12).replace(/_+$/, "");
+		return `${truncated}_${urlHash}`;
+	} catch (_e) {
+		return crypto.createHash("md5").update(url).digest("hex").slice(0, 10);
+	}
 };
 
 const findLatestScreenshot = (
@@ -124,7 +136,7 @@ const findLatestScreenshot = (
 	try {
 		const parsedUrl = new URL(qLink);
 		const safeHost = parsedUrl.host.replace(/\./g, "_").replace(/:/g, "_");
-		const uniqueId = getIdFromPath(parsedUrl.pathname);
+		const uniqueId = getIdFromUrl(parsedUrl.pathname);
 
 		if (!uniqueId || !fs.existsSync(screenshotDir)) return null;
 
@@ -133,11 +145,9 @@ const findLatestScreenshot = (
 		const matches = files
 			.filter((file) => file.includes(safeHost) && file.includes(uniqueId))
 			.sort((a, b) => {
-				// Extract timestamp from the end (before .png)
-				// Assumes format: STATUS_TYPE_HOST_ID_YYYYMMDD_HHMMSS.png
 				const extractTS = (name: string) => {
 					const parts = name.replace(".png", "").split("_");
-					// Join the last two parts: YYYYMMDD and HHMMSS
+					// Timestamp is the last two segments: YYYYMMDD and HHMMSS
 					return parts.slice(-2).join("_");
 				};
 
@@ -145,12 +155,7 @@ const findLatestScreenshot = (
 			});
 
 		const latestFile = matches[0];
-
-		if (!latestFile) {
-			return null;
-		}
-
-		return path.join(screenshotDir, latestFile);
+		return latestFile ? path.join(screenshotDir, latestFile) : null;
 	} catch (_e) {
 		return null;
 	}
