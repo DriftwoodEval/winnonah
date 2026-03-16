@@ -277,7 +277,6 @@ export function ReferralTab({ client, readOnly }: ReferralTabProps) {
 				<CardContent className="space-y-6">
 					<div className="flex flex-col gap-4">
 						<div className="flex flex-col gap-2 rounded-lg bg-muted p-4 text-sm">
-							<p className="font-bold">Say the following:</p>
 							<p>
 								This is {userName} from Driftwood Evaluation Center. We received
 								your referral and wanted to ask you some questions to get
@@ -296,7 +295,6 @@ export function ReferralTab({ client, readOnly }: ReferralTabProps) {
 						{isUnder3 && (
 							<div className="space-y-4">
 								<div className="rounded-lg bg-muted p-4 text-sm">
-									<p className="font-bold">Say the following:</p>
 									<p>Is the child being followed by BabyNet?</p>
 								</div>
 								<div className="space-y-3 px-4">
@@ -330,7 +328,6 @@ export function ReferralTab({ client, readOnly }: ReferralTabProps) {
 
 								{followedByBabyNet === "yes" && (
 									<div className="rounded-lg bg-muted p-4 text-sm">
-										<p className="font-bold">Say the following:</p>
 										<p>
 											Tell your Early Interventionalist (EI) to go to
 											driftwoodeval.com/babynet and fill in our referral form.
@@ -343,7 +340,6 @@ export function ReferralTab({ client, readOnly }: ReferralTabProps) {
 						{showSchoolQuestion && (
 							<div className="space-y-4">
 								<div className="rounded-lg bg-muted p-4 text-sm">
-									<p className="font-bold">Say the following:</p>
 									<p>
 										Has the child been evaluated at school? Do they have an IEP
 										or 504 plan?
@@ -413,7 +409,6 @@ export function ReferralTab({ client, readOnly }: ReferralTabProps) {
 					</div>
 
 					<div className="flex flex-col gap-2 rounded-lg bg-muted p-4 text-sm">
-						<p className="font-bold">Say the following:</p>
 						<p>
 							We would like to set you up in our{" "}
 							{client.taHash ? (
@@ -457,7 +452,6 @@ export function ReferralTab({ client, readOnly }: ReferralTabProps) {
 						</div>
 
 						<div className="flex flex-col gap-2 rounded-lg bg-muted p-4 text-sm">
-							<p className="font-bold">Say the following:</p>
 							<p>
 								Once you receive that email, please sign into the Patient
 								Portal. You will use the client's date of birth. Let me know if
@@ -556,7 +550,7 @@ export function ReferralTab({ client, readOnly }: ReferralTabProps) {
 						</div>
 					</div>
 
-					<div className="flex flex-col gap-2 rounded-lg bg-muted p-4 text-sm">
+					<div className="flex flex-col gap-2 rounded-lg bg-accent p-4 text-accent-foreground text-sm">
 						<div className="flex w-full items-center justify-between">
 							<h3 className="font-semibold">TherapyAppointment Message</h3>
 							<div className="flex items-center gap-2">
