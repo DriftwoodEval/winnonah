@@ -280,20 +280,27 @@ def add_location_data(client: pd.Series) -> pd.Series:
     geocoded_location, attempt_count = _geocode_address(client)
     if geocoded_location is not None:
         lat, lon = float(geocoded_location.latitude), float(geocoded_location.longitude)
-        return pd.Series(
-            {
-                "SCHOOL_DISTRICT": _get_school_district_from_coords(lat, lon),
-                "LATITUDE": lat,
-                "LONGITUDE": lon,
-                "FLAG": "district_from_shapefile" if attempt_count > 1 else None,
-            }
-        )
+        district = _get_school_district_from_coords(lat, lon)
+        flag = "district_from_shapefile" if attempt_count > 1 else None
     else:
-        return pd.Series(
-            {
-                "SCHOOL_DISTRICT": "Unknown",
-                "LATITUDE": None,
-                "LONGITUDE": None,
-                "FLAG": None,
-            }
+        district = "Unknown"
+        lat, lon = None, None
+        flag = None
+
+    if (
+        district == "Unknown"
+        and str(client.USER_ADDRESS_CITY).strip().lower() == "myrtle beach"
+    ):
+        logger.info(
+            f"Manual fallback for Myrtle Beach: Setting school district to Horry County School District"
         )
+        district = "Horry County School District"
+
+    return pd.Series(
+        {
+            "SCHOOL_DISTRICT": district,
+            "LATITUDE": lat,
+            "LONGITUDE": lon,
+            "FLAG": flag,
+        }
+    )
