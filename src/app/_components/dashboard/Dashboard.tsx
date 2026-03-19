@@ -273,7 +273,7 @@ export function Dashboard() {
 		...(filteredNeedsReachOut.length > 0
 			? [
 					{
-						title: "Needs Reach Out",
+						title: "Needs Outreach",
 						clients: filteredNeedsReachOut as DashboardClient[],
 						description:
 							"Clients marked as needing reach out. They are in TherapyAppointment but not on the prioritization sheet.",

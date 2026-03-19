@@ -56,10 +56,7 @@ export function ReferralTab({ client, readOnly }: ReferralTabProps) {
 	const utils = api.useUtils();
 
 	const [notes, setNotes] = useState<string>(client.referralData?.notes ?? "");
-	const [schoolIepStatus, setSchoolIepStatus] = useState<string>(
-		client.referralData?.schoolIepStatus ?? "",
-	);
-	const [schoolExplanation, setMoreInfo] = useState<string>(
+	const [schoolExplanation, setSchoolExplanation] = useState<string>(
 		client.referralData?.schoolExplanation ?? "",
 	);
 	const [otherNotes, setOtherNotes] = useState<string>(
@@ -77,8 +74,7 @@ export function ReferralTab({ client, readOnly }: ReferralTabProps) {
 
 	useEffect(() => {
 		setNotes(client.referralData?.notes ?? "");
-		setSchoolIepStatus(client.referralData?.schoolIepStatus ?? "");
-		setMoreInfo(client.referralData?.schoolExplanation ?? "");
+		setSchoolExplanation(client.referralData?.schoolExplanation ?? "");
 		setOtherNotes(client.referralData?.otherNotes ?? "");
 		setLocationPreference(client.referralData?.locationPreference ?? "");
 		setEmail(client.referralData?.email ?? client.email ?? "");
@@ -132,7 +128,6 @@ export function ReferralTab({ client, readOnly }: ReferralTabProps) {
 
 	const handleReferralDataChange = (updates: {
 		notes?: string;
-		schoolIepStatus?: string;
 		schoolExplanation?: string;
 		otherNotes?: string;
 		locationPreference?: string;
@@ -210,7 +205,7 @@ export function ReferralTab({ client, readOnly }: ReferralTabProps) {
 							}
 						/>
 						<Label className="font-medium" htmlFor="needsReachOutReferral">
-							Needs Reach Out
+							Needs Outreach
 						</Label>
 					</div>
 				</CardHeader>
@@ -340,52 +335,15 @@ export function ReferralTab({ client, readOnly }: ReferralTabProps) {
 						{showSchoolQuestion && (
 							<div className="space-y-4">
 								<div className="rounded-lg bg-muted p-4 text-sm">
-									<p>
-										Has the child been evaluated at school? Do they have an IEP
-										or 504 plan?
-									</p>
+									<p>Does the child go to charter / private school?</p>
 								</div>
-								<div className="space-y-4 px-4">
-									<div className="space-y-3">
-										<Label className="font-semibold">
-											School / IEP / 504 Status
-										</Label>
-										<RadioGroup
-											className="flex flex-wrap gap-4"
-											disabled={isReadOnly || updateClientMutation.isPending}
-											onValueChange={(value) => {
-												setSchoolIepStatus(value);
-												handleReferralDataChange({ schoolIepStatus: value });
-											}}
-											value={schoolIepStatus}
-										>
-											<div className="flex items-center space-x-2">
-												<RadioGroupItem id="yes" value="yes" />
-												<Label className="font-normal" htmlFor="yes">
-													Yes
-												</Label>
-											</div>
-											<div className="flex items-center space-x-2">
-												<RadioGroupItem id="no" value="no" />
-												<Label className="font-normal" htmlFor="no">
-													No
-												</Label>
-											</div>
-											<div className="flex items-center space-x-2">
-												<RadioGroupItem id="idk" value="idk" />
-												<Label className="font-normal" htmlFor="idk">
-													I Don't Know
-												</Label>
-											</div>
-										</RadioGroup>
-									</div>
-
+								<div className="space-y-4">
 									<div className="space-y-2">
 										<Label
 											className="font-semibold"
 											htmlFor="schoolExplanation"
 										>
-											Explanation
+											School Notes
 										</Label>
 										<Textarea
 											disabled={isReadOnly || updateClientMutation.isPending}
@@ -398,7 +356,7 @@ export function ReferralTab({ client, readOnly }: ReferralTabProps) {
 													handleReferralDataChange({ schoolExplanation });
 												}
 											}}
-											onChange={(e) => setMoreInfo(e.target.value)}
+											onChange={(e) => setSchoolExplanation(e.target.value)}
 											placeholder="..."
 											value={schoolExplanation}
 										/>
@@ -455,7 +413,7 @@ export function ReferralTab({ client, readOnly }: ReferralTabProps) {
 							<p>
 								Once you receive that email, please sign into the Patient
 								Portal. You will use the client's date of birth. Let me know if
-								you have trouble with that process.
+								you have any questions with that process.
 							</p>
 
 							<p>
@@ -576,8 +534,9 @@ export function ReferralTab({ client, readOnly }: ReferralTabProps) {
 							</div>
 						</div>
 						<p className="font-bold">
-							Go to the client's TherapyAppointment page and send them the
-							following message:
+							Copy the message below by clicking the two boxes in the top right.
+							Go to the client's TherapyAppointment page by clicking the chair
+							icon and send them the following message:
 						</p>
 						<p className="whitespace-pre-wrap">{TA_MESSAGE}</p>
 					</div>

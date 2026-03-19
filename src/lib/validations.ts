@@ -113,7 +113,6 @@ export type pythonConfig = z.infer<typeof pythonConfigSchema>;
 
 export const referralDataSchema = z.object({
 	notes: z.string().optional(),
-	schoolIepStatus: z.string().optional(),
 	schoolExplanation: z.string().optional(),
 	otherNotes: z.string().optional(),
 	locationPreference: z.string().optional(),
