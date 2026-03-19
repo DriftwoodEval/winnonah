@@ -641,7 +641,6 @@ export const clientRouter = createTRPCRouter({
 	}),
 
 	getNeedsReachOut: protectedProcedure.query(async ({ ctx }) => {
-		assertPermission(ctx.session.user, "clients:reachout");
 		const results = await ctx.db.query.clients.findMany({
 			where: and(
 				eq(clients.status, true),
@@ -654,7 +653,6 @@ export const clientRouter = createTRPCRouter({
 	}),
 
 	getNeedsReview: protectedProcedure.query(async ({ ctx }) => {
-		assertPermission(ctx.session.user, "clients:reviewreachout");
 		const results = await ctx.db.query.clients.findMany({
 			where: and(
 				eq(clients.status, true),
