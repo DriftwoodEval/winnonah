@@ -7,6 +7,8 @@ export const SECTION_MULTIPLE_FILTERS = "Clients in Multiple Filters";
 export const SECTION_DA_QS_DONE = "DA Qs Done";
 export const SECTION_EVAL_QS_DONE = "Eval Qs Done";
 export const SECTION_DAEVAL_QS_DONE = "DA+Eval Qs Done";
+export const SECTION_NEEDS_OUTREACH = "Needs Outreach";
+export const SECTION_REACHED_OUT_NEEDS_REVIEW = "Reached Out - Needs Review";
 
 export type DashboardClient = (FullClientInfo | Client) & {
 	matchedSections?: string[];
@@ -26,6 +28,16 @@ const sentExtraInfo = (client: FullClientInfo) => {
 	if (!Qs || Qs.length === 0) return `Not in ${env.NEXT_PUBLIC_APP_TITLE[0]}`;
 	const minReminded = Math.min(...Qs.map((q) => q.reminded ?? 0));
 	return `Reminded: ${minReminded}`;
+};
+
+const getPunchClientIds = (punchClients: FullClientInfo[] | undefined) => {
+	return new Set(
+		punchClients
+			?.map((c) => c["Client ID"])
+			.filter((id): id is string => typeof id === "string" && id.trim() !== "")
+			.map((id) => parseInt(id, 10))
+			.filter((id) => !Number.isNaN(id)) ?? [],
+	);
 };
 
 export const DASHBOARD_CONFIG: {
@@ -62,26 +74,6 @@ export const DASHBOARD_CONFIG: {
 		filter: (client: FullClientInfo) =>
 			client.babyNetERNeeded === true && client.babyNetERDownloaded === false,
 	},
-	// {
-	// 	title: "Records Reviewed - Qs Not Sent",
-	// 	description:
-	// 		"Records are ready, questionnaires are marked needed, but haven't been sent.",
-	// 	filter: (client: FullClientInfo) => {
-	// 		const isRecordsReady =
-	// 			client.recordsNeeded === "Not Needed" ||
-	// 			(client.recordsNeeded === "Needed" &&
-	// 				client.hasExternalRecordsNote === true);
-	// 		return (
-	// 			isRecordsReady &&
-	// 			((client["DA Qs Needed"] === "TRUE" &&
-	// 				client["DA Qs Sent"] === "FALSE") ||
-	// 				(client["EVAL Qs Needed"] === "TRUE" &&
-	// 					client["EVAL Qs Sent"] === "FALSE"))
-	// 		);
-	// 	},
-	// 	failureFilter: (f) =>
-	// 		f.daEval === "DA" || f.daEval === "EVAL" || f.daEval === "DAEVAL",
-	// },
 	{
 		title: "DA Qs Pending",
 		subheading: "Questionnaires",
@@ -222,7 +214,44 @@ export interface DashboardSection {
 export function getDashboardSections(
 	punchClients: FullClientInfo[] | undefined,
 	missingFromPunchlist: Client[] | undefined,
+	needsReachOut: Client[] | undefined,
+	needsReview: Client[] | undefined,
 ): DashboardSection[] {
+	const punchClientIds = getPunchClientIds(punchClients);
+
+	const referralSections: DashboardSection[] = [
+		...(needsReachOut
+			?.filter((c) => !punchClientIds.has(c.id))
+			.map((c) => ({
+				title: SECTION_NEEDS_OUTREACH,
+				clients: [c] as DashboardClient[],
+				description:
+					"Clients marked as needing reach out. They are in TherapyAppointment but not on the prioritization sheet.",
+				subheading: "Referrals",
+			}))
+			.slice(0, 1)
+			.map((s) => ({
+				...s,
+				clients: needsReachOut?.filter((c) => !punchClientIds.has(c.id)) ?? [],
+			})) ?? []),
+		...(needsReview
+			?.filter((c) => !punchClientIds.has(c.id))
+			.map((c) => ({
+				title: SECTION_REACHED_OUT_NEEDS_REVIEW,
+				clients: [c] as DashboardClient[],
+				description:
+					"Clients marked for review before pushing to prioritization sheet.",
+				subheading: needsReachOut?.some((c) => !punchClientIds.has(c.id))
+					? undefined
+					: "Referrals",
+			}))
+			.slice(0, 1)
+			.map((s) => ({
+				...s,
+				clients: needsReview?.filter((c) => !punchClientIds.has(c.id)) ?? [],
+			})) ?? []),
+	];
+
 	const filteredSections = DASHBOARD_CONFIG.map((config) => ({
 		title: config.title,
 		subheading: config.subheading,
@@ -238,33 +267,28 @@ export function getDashboardSections(
 			})) ?? [],
 	}));
 
-	const justAdded =
-		punchClients
-			?.filter((client) =>
-				DASHBOARD_CONFIG.every((config) => !config.filter(client)),
-			)
-			.map((client) => ({
-				...client,
-				failures: client.failures?.filter((f) => (f.reminded ?? 0) < 100),
-			})) ?? [];
-
-	const allSections = [
-		{
-			title: SECTION_JUST_ADDED,
-			clients: justAdded,
-			description: "Clients who don't match any specific filter criteria yet.",
-		},
-		...filteredSections,
-	];
+	const justAddedSection = {
+		title: SECTION_JUST_ADDED,
+		clients:
+			punchClients
+				?.filter((client) =>
+					DASHBOARD_CONFIG.every((config) => !config.filter(client)),
+				)
+				.map((client) => ({
+					...client,
+					failures: client.failures?.filter((f) => (f.reminded ?? 0) < 100),
+				})) ?? [],
+		description: "Clients who don't match any specific filter criteria yet.",
+	};
 
 	const clientMatchedSections = new Map<string, string[]>();
-	allSections.forEach((section) => {
-		section.clients.forEach((client) => {
+	for (const section of [justAddedSection, ...filteredSections]) {
+		for (const client of section.clients) {
 			const clientId = client["Client ID"] ?? client.id.toString();
 			const sections = clientMatchedSections.get(clientId) ?? [];
 			clientMatchedSections.set(clientId, [...sections, section.title]);
-		});
-	});
+		}
+	}
 
 	const clientsInMultipleFilters =
 		punchClients
@@ -276,7 +300,6 @@ export function getDashboardSections(
 			.map((client) => ({
 				...client,
 				matchedSections: clientMatchedSections.get(client["Client ID"] ?? ""),
-				// For this specific view, we show all relevant failures from the sections they are in
 				failures: client.failures?.filter(
 					(f) =>
 						(f.reminded ?? 0) < 100 &&
@@ -303,24 +326,41 @@ export function getDashboardSections(
 			description:
 				"Clients who match multiple dashboard filters simultaneously, which usually indicates data inconsistency.",
 		},
-		...allSections,
+		justAddedSection,
+		...referralSections,
+		...filteredSections,
 	];
 }
 
 export function getClientMatchedSections(
-	client: FullClientInfo | Client,
-	allPunchClients: FullClientInfo[],
-	missingFromPunchlist: { id: number }[],
+	client: { id: number },
+	allPunchClients: FullClientInfo[] | undefined,
+	missingFromPunchlist: Client[] | undefined,
+	needsReachOut: Client[] | undefined,
+	needsReview: Client[] | undefined,
 ) {
 	const matchedSections: string[] = [];
+	const punchClientIds = getPunchClientIds(allPunchClients);
+	const clientId = client.id;
 
-	// Check if missing from punchlist
-	if (missingFromPunchlist.some((m) => m.id === client.id)) {
+	if (
+		needsReachOut?.some((m) => m.id === clientId) &&
+		!punchClientIds.has(clientId)
+	) {
+		matchedSections.push(SECTION_NEEDS_OUTREACH);
+	}
+	if (
+		needsReview?.some((m) => m.id === clientId) &&
+		!punchClientIds.has(clientId)
+	) {
+		matchedSections.push(SECTION_REACHED_OUT_NEEDS_REVIEW);
+	}
+
+	if (missingFromPunchlist?.some((m) => m.id === clientId)) {
 		matchedSections.push(SECTION_ACTIVE_NOT_ON_PUNCHLIST);
 	}
 
-	// Check if on punchlist
-	const punchClient = allPunchClients.find((p) => p.id === client.id);
+	const punchClient = allPunchClients?.find((p) => p.id === clientId);
 	if (punchClient) {
 		let matchedAnyFilter = false;
 		for (const config of DASHBOARD_CONFIG) {
@@ -329,10 +369,7 @@ export function getClientMatchedSections(
 				matchedAnyFilter = true;
 			}
 		}
-
-		if (!matchedAnyFilter) {
-			matchedSections.push(SECTION_JUST_ADDED);
-		}
+		if (!matchedAnyFilter) matchedSections.push(SECTION_JUST_ADDED);
 	}
 
 	return matchedSections;

@@ -34,6 +34,7 @@ export const PERMISSIONS = {
 					{ id: "clients:drive", title: "Edit Drive Links" },
 					{ id: "clients:schooldistrict", title: "Edit School District" },
 					{ id: "clients:asdadhd", title: "Edit ASD/ADHD" },
+					{ id: "clients:email", title: "Edit Client Email" },
 					{ id: "clients:protocolsscanned", title: "Edit Protocols Scanned" },
 					{ id: "clients:babynet", title: "Edit BabyNet Status" },
 					{ id: "clients:ei", title: "Edit EI Attends Status" },
@@ -87,6 +88,21 @@ export const PERMISSIONS = {
 				permissions: [
 					{ id: "clients:shell", title: "Create Fake/Shell Client Notes" },
 					{ id: "clients:merge", title: "Merge with Real Client Record" },
+				],
+			},
+			referrals: {
+				title: "Referrals",
+				permissions: [
+					{ id: "clients:referral:tab", title: "Access Referral Tab" },
+					{
+						id: "clients:referral:infobox",
+						title: "Fill in Referral Info (Top Box) & Mark for Reach Out",
+					},
+					{
+						id: "clients:referral:fillout",
+						title: "Fill in Referral Form & Mark for Review",
+					},
+					{ id: "clients:referral:pushtopunch", title: "Push to Punchlist" },
 				],
 			},
 		},

@@ -14,6 +14,7 @@ import {
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
+import { useCheckPermission } from "~/hooks/use-check-permission";
 import type { ClientColor } from "~/lib/colors";
 import { logger } from "~/lib/logger";
 import {
@@ -32,6 +33,7 @@ import { MergeRecommendationAlert } from "./MergeRecommendationAlert";
 import { PersistentStatusAlert } from "./PersistentStatusAlert";
 import { QuestionnairesTable } from "./QuestionnairesTable";
 import { RecordsNoteEditor } from "./RecordsNoteEditor";
+import { ReferralTab } from "./ReferralTab";
 import { RelatedClients } from "./RelatedClients";
 
 const log = logger.child({ module: "Client" });
@@ -46,6 +48,7 @@ export function Client({
 	const router = useRouter();
 	const pathname = usePathname();
 	const searchParams = useSearchParams();
+	const can = useCheckPermission();
 
 	const activeTab = searchParams.get("tab") ?? "info";
 
@@ -147,6 +150,10 @@ export function Client({
 								<TabsList className="w-full">
 									<TabsTrigger value="info">Info</TabsTrigger>
 									<TabsTrigger value="records">Records</TabsTrigger>
+									{/* It's fine that this doesn't stop people from just visiting the URL, we aren't hiding this for security, we're hiding it so that we don't get people confused about it existing */}
+									{can("clients:referral:tab") && (
+										<TabsTrigger value="referral">Referral</TabsTrigger>
+									)}
 								</TabsList>
 							)}
 
@@ -261,6 +268,14 @@ export function Client({
 											clientId={client.id}
 											readOnly={readOnly}
 										/>
+									</div>
+								</TabsContent>
+							)}
+							{!isShellClientId(client.id) && (
+								<TabsContent value="referral">
+									<div className="mb-6 flex min-w-full flex-col items-center gap-6">
+										<ClientDetailsCard client={client} truncated />
+										<ReferralTab client={client} readOnly={readOnly} />
 									</div>
 								</TabsContent>
 							)}

@@ -161,11 +161,19 @@ function PunchListAccordionItem({
 export function Dashboard() {
 	const {
 		data: dashboardData,
-		isLoading,
+		isLoading: isLoadingDashboard,
 		isError,
 	} = api.google.getDashboardData.useQuery(undefined, {
 		refetchInterval: 30000, // 30 seconds
 	});
+
+	const { data: needsReachOut, isLoading: isLoadingNeedsReachOut } =
+		api.clients.getNeedsReachOut.useQuery();
+	const { data: needsReview, isLoading: isLoadingNeedsReview } =
+		api.clients.getNeedsReview.useQuery();
+
+	const isLoading =
+		isLoadingDashboard || isLoadingNeedsReachOut || isLoadingNeedsReview;
 
 	const { data: schedulingData } = api.scheduling.get.useQuery(undefined, {
 		staleTime: 60000,
@@ -235,6 +243,8 @@ export function Dashboard() {
 	const finalSections = getDashboardSections(
 		dashboardData?.punchClients,
 		dashboardData?.missingClients,
+		needsReachOut,
+		needsReview,
 	);
 
 	if (isLoading)

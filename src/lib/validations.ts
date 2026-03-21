@@ -110,3 +110,14 @@ export const pythonConfigSchema = z.object({
 });
 
 export type pythonConfig = z.infer<typeof pythonConfigSchema>;
+
+export const referralDataSchema = z.object({
+	notes: z.string().optional(),
+	schoolExplanation: z.string().optional(),
+	otherNotes: z.string().optional(),
+	locationPreference: z.string().optional(),
+	needsReachOut: z.enum(["reach_out", "review"]).nullable().optional(),
+	reachOutCompleted: z.boolean().optional(),
+	email: z.string().optional(),
+	followedByBabyNet: z.enum(["yes", "no"]).nullable().optional(),
+});
