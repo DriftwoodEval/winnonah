@@ -2,7 +2,7 @@ import { env } from "~/env";
 import type { Client, Failure, FullClientInfo } from "./models";
 
 export const SECTION_ACTIVE_NOT_ON_PUNCHLIST = "Active and Not On Punchlist";
-export const SECTION_JUST_ADDED = "Just Added";
+export const SECTION_JUST_ADDED = "Just Added/Other";
 export const SECTION_MULTIPLE_FILTERS = "Clients in Multiple Filters";
 export const SECTION_DA_QS_DONE = "DA Qs Done";
 export const SECTION_EVAL_QS_DONE = "Eval Qs Done";
