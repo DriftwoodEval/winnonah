@@ -83,6 +83,18 @@ export interface GoogleFolder {
 	name: string;
 }
 
+export interface DuplicateFolder extends GoogleFolder {
+	url?: string;
+	isDbMatch: boolean;
+}
+
+export interface DuplicateGroup {
+	clientId: string;
+	clientHash: string;
+	clientFullName: string;
+	folders: DuplicateFolder[];
+}
+
 export interface FolderResponse {
 	folders: GoogleFolder[];
 	message?: string;

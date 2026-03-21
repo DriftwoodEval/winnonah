@@ -7,7 +7,6 @@ import { env } from "~/env";
 import { fetchWithCache, invalidateCache } from "~/lib/cache";
 import { ALLOWED_ASD_ADHD_VALUES, TEST_NAMES } from "~/lib/constants";
 import {
-	findDuplicateIdFolders,
 	getMissingFromPunchlistData,
 	getPunchData,
 	pushToPunch,
@@ -15,6 +14,7 @@ import {
 	updatePunchData,
 } from "~/lib/google";
 import type { Client } from "~/lib/models";
+import type { DuplicateGroup } from "~/lib/types";
 import { getDistanceSQL, getInsuranceShortName } from "~/lib/utils";
 import {
 	assertPermission,
@@ -166,15 +166,26 @@ export const googleRouter = createTRPCRouter({
 		}),
 
 	findDuplicates: protectedProcedure.query(async ({ ctx }) => {
-		if (!ctx.session.user.accessToken || !ctx.session.user.refreshToken) {
-			throw new Error("No access token or refresh token");
-		}
+		const cookieHeader = ctx.headers.get("cookie") ?? "";
 
 		return fetchWithCache(
 			ctx,
 			CACHE_KEY_DUPLICATES,
 			async () => {
-				return findDuplicateIdFolders(ctx.session);
+				const response = await fetch(`${env.PY_API}/folders/duplicates`, {
+					headers: {
+						Cookie: cookieHeader,
+					},
+				});
+
+				if (!response.ok) {
+					console.error(
+						`FastAPI error: ${response.status} ${response.statusText}`,
+					);
+					throw new Error("FastAPI server error");
+				}
+
+				return response.json() as Promise<DuplicateGroup[]>;
 			},
 			60 * 60 * 12, // 12 hours
 			true, // Enable timestamp

@@ -8,6 +8,7 @@ from fastapi import Depends, FastAPI, HTTPException, Request
 from googleapiclient.discovery import build
 from pydantic import BaseModel
 
+from utils.constants import TABLE_CLIENT
 from utils.database import get_db, get_python_config
 from utils.google import google_authenticate
 
@@ -148,6 +149,109 @@ def get_user_folder(drive_service, user_name: str, parent_id: str):
         dest_query,
         f"Destination folder for '{user_name}' not found.",
     )
+
+
+@app.get("/folders/duplicates")
+async def find_duplicates(
+    current_user: dict = Depends(get_current_user),
+    services: dict = Depends(get_google_services),
+):
+    drive_service = services["drive"]
+
+    try:
+        query = "mimeType = 'application/vnd.google-apps.folder' and name contains '[' and trashed = false"
+        duplicates_map = {}
+        page_token = None
+
+        while True:
+            response = (
+                drive_service.files()
+                .list(
+                    q=query,
+                    pageSize=1000,
+                    pageToken=page_token,
+                    fields="nextPageToken, files(id, name, webViewLink)",
+                    supportsAllDrives=True,
+                    includeItemsFromAllDrives=True,
+                )
+                .execute()
+            )
+
+            files = response.get("files", [])
+            id_regex = r"\[(\d+)\]"
+
+            for file in files:
+                name = file.get("name")
+                file_id = file.get("id")
+                if not name or not file_id:
+                    continue
+
+                match = re.search(id_regex, name)
+                if match:
+                    client_id = match.group(1)
+
+                    folder_data = {
+                        "id": file_id,
+                        "name": name,
+                        "url": file.get("webViewLink"),
+                    }
+
+                    if client_id in duplicates_map:
+                        duplicates_map[client_id].append(folder_data)
+                    else:
+                        duplicates_map[client_id] = [folder_data]
+
+            page_token = response.get("nextPageToken")
+            if not page_token:
+                break
+
+        # Filter for only those with more than 1 folder
+        duplicate_client_ids = [
+            cid for cid, folders in duplicates_map.items() if len(folders) > 1
+        ]
+
+        if not duplicate_client_ids:
+            return []
+
+        # Convert strings to integers for DB query
+        ids_to_query = [int(cid) for cid in duplicate_client_ids]
+
+        conn = get_db()
+        try:
+            with conn.cursor() as cursor:
+                format_strings = ",".join(["%s"] * len(ids_to_query))
+                sql = f"SELECT id, hash, fullName, driveId FROM {TABLE_CLIENT} WHERE id IN ({format_strings})"
+                cursor.execute(sql, tuple(ids_to_query))
+                db_clients = cursor.fetchall()
+
+                db_client_map = {str(client["id"]): client for client in db_clients}
+        finally:
+            conn.close()
+
+        results = []
+        for client_id in duplicate_client_ids:
+            drive_folders = duplicates_map[client_id]
+            db_info = db_client_map.get(client_id)
+
+            if db_info and db_info.get("hash") and db_info.get("fullName"):
+                folders_with_db_match = []
+                for folder in drive_folders:
+                    folder["isDbMatch"] = folder["id"] == db_info.get("driveId")
+                    folders_with_db_match.append(folder)
+
+                results.append(
+                    {
+                        "clientId": client_id,
+                        "clientHash": db_info["hash"],
+                        "clientFullName": db_info["fullName"],
+                        "folders": folders_with_db_match,
+                    }
+                )
+
+        return results
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @app.get("/folders/writer/{parent_id}")
