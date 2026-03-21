@@ -46,6 +46,7 @@ CLIENT_COLUMN_MAPPING: Final = {
     "highPriority": "HIGH_PRIORITY",
     "babyNet": "BABYNET",
     "autismStop": "AUTISM_STOP",
+    "pause": "PAUSE",
     "eiAttends": "EI_ATTENDS",
     "flag": "FLAG",
     "taHash": "TA_HASH",

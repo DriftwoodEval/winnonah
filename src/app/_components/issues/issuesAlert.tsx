@@ -34,6 +34,11 @@ export function IssuesAlert() {
 		queryOptions,
 	);
 
+	const { data: pausedClients } = api.clients.getPaused.useQuery(
+		undefined,
+		queryOptions,
+	);
+
 	const { data: needsBabyNetERDownloaded } =
 		api.clients.getNeedsBabyNetERDownloaded.useQuery(undefined, queryOptions);
 
@@ -89,6 +94,7 @@ export function IssuesAlert() {
 		(notInTAErrors?.length ?? 0) +
 		(dropList?.length ?? 0) +
 		(autismStops?.length ?? 0) +
+		(pausedClients?.length ?? 0) +
 		(needsBabyNetERDownloaded?.length ?? 0) +
 		(noteOnlyClients?.length ?? 0) +
 		(duplicateFolderNames?.data.length ?? 0) +

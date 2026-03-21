@@ -690,6 +690,8 @@ export function IssuesList() {
 		api.clients.getDropList.useQuery();
 	const { data: autismStops, isLoading: isLoadingAutismStops } =
 		api.clients.getAutismStops.useQuery();
+	const { data: pausedClients, isLoading: isLoadingPausedClients } =
+		api.clients.getPaused.useQuery();
 	const { data: needsBabyNetERDownloaded } =
 		api.clients.getNeedsBabyNetERDownloaded.useQuery();
 	const { data: noteOnlyClients, isLoading: isLoadingNoteOnlyClients } =
@@ -783,6 +785,24 @@ export function IssuesList() {
 						title="Just Added Questionnaires"
 					/>
 				)}
+			{isLoadingPausedClients && <IssueListSkeleton />}
+			{!isLoadingPausedClients &&
+				pausedClients &&
+				pausedClients.length !== 0 && (
+					<IssueList
+						clients={pausedClients}
+						description="Manually paused clients for review."
+						title="Paused Clients"
+					/>
+				)}
+			{isLoadingAutismStops && <IssueListSkeleton />}
+			{!isLoadingAutismStops && autismStops && autismStops.length !== 0 && (
+				<IssueList
+					clients={autismStops}
+					description='"Autism" found in school records, should be discharged.'
+					title="Autism Stops"
+				/>
+			)}
 			{isLoadingDistrictErrors && <IssueListSkeleton />}
 			{!isLoadingDistrictErrors &&
 				clientsWithoutDistrict &&
@@ -864,14 +884,6 @@ export function IssuesList() {
 					clients={dropList}
 					description="Clients who have been reminded more than 3 times and aren't completing tasks."
 					title="Drop List"
-				/>
-			)}
-			{isLoadingAutismStops && <IssueListSkeleton />}
-			{!isLoadingAutismStops && autismStops && autismStops.length !== 0 && (
-				<IssueList
-					clients={autismStops}
-					description='"Autism" found in school records, should be discharged.'
-					title="Autism Stops"
 				/>
 			)}
 			{needsBabyNetERDownloaded && needsBabyNetERDownloaded.length !== 0 && (

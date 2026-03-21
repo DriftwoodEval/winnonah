@@ -41,6 +41,7 @@ const formSchema = z.object({
 	schoolDistrict: z.string(),
 	highPriority: z.boolean(),
 	autismStop: z.boolean(),
+	pause: z.boolean(),
 	babyNet: z.boolean(),
 	eiAttends: z.boolean(),
 });
@@ -75,6 +76,7 @@ function ClientForm({
 	const canBabyNet = can("clients:babynet");
 	const canSetEI = can("clients:ei");
 	const canAutismStopDisable = can("clients:autismstop:disable");
+	const canPause = can("clients:pause");
 
 	const defaultValues = useMemo(() => {
 		if (initialData) {
@@ -82,6 +84,7 @@ function ClientForm({
 				schoolDistrict: initialData.schoolDistrict ?? "",
 				highPriority: initialData.highPriority ?? false,
 				autismStop: initialData.autismStop ?? false,
+				pause: initialData.pause ?? false,
 				babyNet: initialData.babyNet ?? false,
 				eiAttends: initialData.eiAttends ?? false,
 			};
@@ -194,6 +197,31 @@ function ClientForm({
 							</FormItem>
 						)}
 					/>
+
+					<FormField
+						control={form.control}
+						name="pause"
+						render={({ field }) => (
+							<FormItem className="flex flex-row">
+								<FormControl>
+									<Checkbox
+										checked={field.value}
+										disabled={!canPause}
+										onCheckedChange={field.onChange}
+									/>
+								</FormControl>
+								<div className="space-y-1 leading-none">
+									<FormLabel>Pause Client</FormLabel>
+									<FormDescription>
+										Don't send records requests, questionnaires, or automated
+										reminders to login to the portal, sign documents, or
+										complete questionnaires.
+									</FormDescription>
+								</div>
+							</FormItem>
+						)}
+					/>
+
 					<FormField
 						control={form.control}
 						name="autismStop"
@@ -326,6 +354,7 @@ export function ClientEditButton({ client }: { client: Client }) {
 		const updatedValues = {
 			clientId: client.id,
 			schoolDistrict: values.schoolDistrict,
+			pause: values.pause,
 			highPriority: values.highPriority,
 			babyNet: values.babyNet,
 			eiAttends: values.eiAttends,

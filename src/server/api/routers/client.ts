@@ -611,6 +611,15 @@ export const clientRouter = createTRPCRouter({
 		return autismStops;
 	}),
 
+	getPaused: protectedProcedure.query(async ({ ctx }) => {
+		const pausedClients = await ctx.db.query.clients.findMany({
+			where: eq(clients.pause, true),
+			orderBy: clients.addedDate,
+		});
+
+		return pausedClients;
+	}),
+
 	getMissingRecordsNeeded: protectedProcedure.query(async ({ ctx }) => {
 		const clientsWithoutRecordsNeeded = await ctx.db.query.clients.findMany({
 			where: and(
@@ -743,6 +752,7 @@ export const clientRouter = createTRPCRouter({
 				color: z.enum(CLIENT_COLOR_KEYS).optional(),
 				schoolDistrict: z.string().optional(),
 				highPriority: z.boolean().optional(),
+				pause: z.boolean().optional(),
 				babyNet: z.boolean().optional(),
 				eiAttends: z.boolean().optional(),
 				driveId: z.string().optional(),
@@ -788,6 +798,9 @@ export const clientRouter = createTRPCRouter({
 				input.highPriority !== currentClient.highPriority
 					? (["clients:priority"] as const)
 					: []),
+				...(input.pause !== undefined && input.pause !== currentClient.pause
+					? (["clients:pause"] as const)
+					: []),
 				...(input.babyNet !== undefined &&
 				input.babyNet !== currentClient.babyNet
 					? (["clients:babynet"] as const)
@@ -825,6 +838,7 @@ export const clientRouter = createTRPCRouter({
 				color?: (typeof CLIENT_COLOR_KEYS)[number];
 				schoolDistrict?: string;
 				highPriority?: boolean;
+				pause?: boolean;
 				babyNet?: boolean;
 				eiAttends?: boolean;
 				flag?: string | null;
@@ -846,6 +860,9 @@ export const clientRouter = createTRPCRouter({
 			}
 			if (input.highPriority !== undefined) {
 				updateData.highPriority = input.highPriority;
+			}
+			if (input.pause !== undefined) {
+				updateData.pause = input.pause;
 			}
 			if (input.babyNet !== undefined) {
 				updateData.babyNet = input.babyNet;
