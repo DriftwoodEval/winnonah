@@ -14,6 +14,7 @@ import {
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
+import { useCheckPermission } from "~/hooks/use-check-permission";
 import type { ClientColor } from "~/lib/colors";
 import { logger } from "~/lib/logger";
 import {
@@ -47,6 +48,7 @@ export function Client({
 	const router = useRouter();
 	const pathname = usePathname();
 	const searchParams = useSearchParams();
+	const can = useCheckPermission();
 
 	const activeTab = searchParams.get("tab") ?? "info";
 
@@ -148,7 +150,10 @@ export function Client({
 								<TabsList className="w-full">
 									<TabsTrigger value="info">Info</TabsTrigger>
 									<TabsTrigger value="records">Records</TabsTrigger>
-									<TabsTrigger value="referral">Referral</TabsTrigger>
+									{/* It's fine that this doesn't stop people from just visiting the URL, we aren't hiding this for security, we're hiding it so that we don't get people confused about it existing */}
+									{can("clients:referral:tab") && (
+										<TabsTrigger value="referral">Referral</TabsTrigger>
+									)}
 								</TabsList>
 							)}
 

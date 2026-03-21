@@ -866,14 +866,26 @@ export const clientRouter = createTRPCRouter({
 				...(input.email !== undefined && input.email !== currentClient.email
 					? (["clients:email"] as const)
 					: []),
-				...(input.referralData?.needsReachOut !== undefined &&
-				input.referralData.needsReachOut !==
-					currentClient.referralData?.needsReachOut
-					? input.referralData.needsReachOut === "reach_out" ||
-						(input.referralData.needsReachOut === null &&
-							currentClient.referralData?.needsReachOut === "reach_out")
-						? (["clients:reachout"] as const)
-						: (["clients:reviewreachout"] as const)
+				...(input.referralData !== undefined &&
+				JSON.stringify(input.referralData) !==
+					JSON.stringify(currentClient.referralData)
+					? (() => {
+							const current = currentClient.referralData ?? {};
+							const updates = input.referralData;
+
+							// Check if reach_out status is being changed
+							const reachOutChanged =
+								updates.needsReachOut !== current.needsReachOut &&
+								(updates.needsReachOut === "reach_out" ||
+									(updates.needsReachOut === null &&
+										current.needsReachOut === "reach_out"));
+
+							if (reachOutChanged) {
+								return ["clients:referral:infobox"] as const;
+							}
+
+							return ["clients:referral:fillout"] as const;
+						})()
 					: []),
 			];
 

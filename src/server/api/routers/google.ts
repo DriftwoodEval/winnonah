@@ -546,14 +546,14 @@ export const googleRouter = createTRPCRouter({
 	getPushPreview: protectedProcedure
 		.input(z.number())
 		.query(async ({ ctx, input }) => {
-			assertPermission(ctx.session.user, "clients:pushtopunch");
+			assertPermission(ctx.session.user, "clients:referral:pushtopunch");
 			return getPreviewData(ctx, input);
 		}),
 
 	pushToPunch: protectedProcedure
 		.input(z.number())
 		.mutation(async ({ ctx, input }) => {
-			assertPermission(ctx.session.user, "clients:pushtopunch");
+			assertPermission(ctx.session.user, "clients:referral:pushtopunch");
 			if (!ctx.session.user.accessToken || !ctx.session.user.refreshToken) {
 				throw new Error("No access token or refresh token");
 			}

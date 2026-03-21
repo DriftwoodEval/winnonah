@@ -93,9 +93,16 @@ export const PERMISSIONS = {
 			referrals: {
 				title: "Referrals",
 				permissions: [
-					{ id: "clients:reachout", title: "Mark for Reach Out" },
-					{ id: "clients:reviewreachout", title: "Mark for Review" },
-					{ id: "clients:pushtopunch", title: "Push to Punchlist" },
+					{ id: "clients:referral:tab", title: "Access Referral Tab" },
+					{
+						id: "clients:referral:infobox",
+						title: "Fill in Referral Info (Top Box) & Mark for Reach Out",
+					},
+					{
+						id: "clients:referral:fillout",
+						title: "Fill in Referral Form & Mark for Review",
+					},
+					{ id: "clients:referral:pushtopunch", title: "Push to Punchlist" },
 				],
 			},
 		},

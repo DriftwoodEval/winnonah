@@ -114,7 +114,8 @@ export function ReferralTab({ client, readOnly }: ReferralTabProps) {
 
 	const { data: pushPreview, isLoading: isLoadingPreview } =
 		api.google.getPushPreview.useQuery(client.id, {
-			enabled: !!client.id && isNeedsReview && can("clients:pushtopunch"),
+			enabled:
+				!!client.id && isNeedsReview && can("clients:referral:pushtopunch"),
 		});
 
 	const isReadOnly = readOnly || !!punchClient;
@@ -195,7 +196,7 @@ export function ReferralTab({ client, readOnly }: ReferralTabProps) {
 								isReadOnly ||
 								updateClientMutation.isPending ||
 								isNeedsReview ||
-								!can("clients:reachout")
+								!can("clients:referral:infobox")
 							}
 							id="needsReachOutReferral"
 							onCheckedChange={(checked) =>
@@ -215,7 +216,11 @@ export function ReferralTab({ client, readOnly }: ReferralTabProps) {
 							Notes
 						</Label>
 						<Textarea
-							disabled={isReadOnly || updateClientMutation.isPending}
+							disabled={
+								isReadOnly ||
+								updateClientMutation.isPending ||
+								!can("clients:referral:infobox")
+							}
 							id="referralNotes"
 							onBlur={() => {
 								if (notes !== (client.referralData?.notes ?? "")) {
@@ -232,7 +237,11 @@ export function ReferralTab({ client, readOnly }: ReferralTabProps) {
 						<div className="space-y-2">
 							<Label htmlFor="asdAdhd">This is for</Label>
 							<Select
-								disabled={isReadOnly || updateClientMutation.isPending}
+								disabled={
+									isReadOnly ||
+									updateClientMutation.isPending ||
+									!can("clients:asdadhd")
+								}
 								onValueChange={handleAsdAdhdChange}
 								value={client.asdAdhd ?? undefined}
 							>
@@ -296,7 +305,11 @@ export function ReferralTab({ client, readOnly }: ReferralTabProps) {
 									<Label className="font-semibold">BabyNet?</Label>
 									<RadioGroup
 										className="flex flex-wrap gap-4"
-										disabled={isReadOnly || updateClientMutation.isPending}
+										disabled={
+											isReadOnly ||
+											updateClientMutation.isPending ||
+											!can("clients:referral:fillout")
+										}
 										onValueChange={(value) => {
 											const val = value as "yes" | "no";
 											setFollowedByBabyNet(val);
@@ -346,7 +359,11 @@ export function ReferralTab({ client, readOnly }: ReferralTabProps) {
 											School Notes
 										</Label>
 										<Textarea
-											disabled={isReadOnly || updateClientMutation.isPending}
+											disabled={
+												isReadOnly ||
+												updateClientMutation.isPending ||
+												!can("clients:referral:fillout")
+											}
 											id="schoolExplanation"
 											onBlur={() => {
 												if (
@@ -393,7 +410,11 @@ export function ReferralTab({ client, readOnly }: ReferralTabProps) {
 								Email Address
 							</Label>
 							<Input
-								disabled={isReadOnly || updateClientMutation.isPending}
+								disabled={
+									isReadOnly ||
+									updateClientMutation.isPending ||
+									!can("clients:referral:fillout")
+								}
 								id="email"
 								onBlur={() => {
 									if (
@@ -467,7 +488,11 @@ export function ReferralTab({ client, readOnly }: ReferralTabProps) {
 								<Label className="font-semibold">Preference?</Label>
 								<RadioGroup
 									className="flex flex-wrap gap-4"
-									disabled={isReadOnly || updateClientMutation.isPending}
+									disabled={
+										isReadOnly ||
+										updateClientMutation.isPending ||
+										!can("clients:referral:fillout")
+									}
 									onValueChange={(value) => {
 										setLocationPreference(value);
 										handleReferralDataChange({ locationPreference: value });
@@ -494,7 +519,11 @@ export function ReferralTab({ client, readOnly }: ReferralTabProps) {
 								Other Notes
 							</Label>
 							<Textarea
-								disabled={isReadOnly || updateClientMutation.isPending}
+								disabled={
+									isReadOnly ||
+									updateClientMutation.isPending ||
+									!can("clients:referral:fillout")
+								}
 								id="otherNotes"
 								onBlur={() => {
 									if (otherNotes !== (client.referralData?.otherNotes ?? "")) {
@@ -541,69 +570,71 @@ export function ReferralTab({ client, readOnly }: ReferralTabProps) {
 						<p className="whitespace-pre-wrap">{TA_MESSAGE}</p>
 					</div>
 
-					{isNeedsReview && can("clients:pushtopunch") && !punchClient && (
-						<Alert className="bg-secondary/20">
-							<InfoIcon className="h-4 w-4" />
-							<AlertTitle>Push to Punch Preview</AlertTitle>
-							<AlertDescription>
-								{isLoadingPreview ? (
-									<Loader2 className="h-4 w-4 animate-spin" />
-								) : pushPreview ? (
-									<div className="mt-2 grid grid-cols-2 items-center gap-x-4 gap-y-1 text-xs">
-										<span className="font-semibold text-muted-foreground uppercase">
-											Primary:
-										</span>
-										<span>{pushPreview.primaryPayer}</span>
-										{pushPreview.secondaryPayer && (
-											<>
-												<span className="font-semibold text-muted-foreground uppercase">
-													Secondary:
-												</span>
-												<span>{pushPreview.secondaryPayer}</span>
-											</>
-										)}
-										<span className="font-semibold text-muted-foreground uppercase">
-											For:
-										</span>
-										<span>{pushPreview.asdAdhd}</span>
-										<span className="font-semibold text-muted-foreground uppercase">
-											Location:
-										</span>
-										<span>{pushPreview.location ?? "Unknown"}</span>
-										<span className="font-semibold text-muted-foreground uppercase">
-											DA Qs:
-										</span>
-										<span>
-											{pushPreview.daQsNeeded ? (
-												<Check className="h-3 w-3" />
-											) : (
-												<Square className="h-3 w-3 text-muted-foreground" />
+					{isNeedsReview &&
+						can("clients:referral:pushtopunch") &&
+						!punchClient && (
+							<Alert className="bg-secondary/20">
+								<InfoIcon className="h-4 w-4" />
+								<AlertTitle>Push to Punch Preview</AlertTitle>
+								<AlertDescription>
+									{isLoadingPreview ? (
+										<Loader2 className="h-4 w-4 animate-spin" />
+									) : pushPreview ? (
+										<div className="mt-2 grid grid-cols-2 items-center gap-x-4 gap-y-1 text-xs">
+											<span className="font-semibold text-muted-foreground uppercase">
+												Primary:
+											</span>
+											<span>{pushPreview.primaryPayer}</span>
+											{pushPreview.secondaryPayer && (
+												<>
+													<span className="font-semibold text-muted-foreground uppercase">
+														Secondary:
+													</span>
+													<span>{pushPreview.secondaryPayer}</span>
+												</>
 											)}
-										</span>
-										<span className="font-semibold text-muted-foreground uppercase">
-											EVAL Qs:
-										</span>
-										<span>
-											{pushPreview.evalQsNeeded ? (
-												<Check className="h-3 w-3" />
-											) : (
-												<Square className="h-3 w-3 text-muted-foreground" />
-											)}
-										</span>
-										<span className="col-span-2 my-1">
-											Additionally, pushing will update this data in the EMR:
-										</span>
-										<span className="font-semibold text-muted-foreground uppercase">
-											Records:
-										</span>
-										<span>{pushPreview.recordsNeeded ?? "Not Needed"}</span>
-									</div>
-								) : (
-									"Failed to load preview."
-								)}
-							</AlertDescription>
-						</Alert>
-					)}
+											<span className="font-semibold text-muted-foreground uppercase">
+												For:
+											</span>
+											<span>{pushPreview.asdAdhd}</span>
+											<span className="font-semibold text-muted-foreground uppercase">
+												Location:
+											</span>
+											<span>{pushPreview.location ?? "Unknown"}</span>
+											<span className="font-semibold text-muted-foreground uppercase">
+												DA Qs:
+											</span>
+											<span>
+												{pushPreview.daQsNeeded ? (
+													<Check className="h-3 w-3" />
+												) : (
+													<Square className="h-3 w-3 text-muted-foreground" />
+												)}
+											</span>
+											<span className="font-semibold text-muted-foreground uppercase">
+												EVAL Qs:
+											</span>
+											<span>
+												{pushPreview.evalQsNeeded ? (
+													<Check className="h-3 w-3" />
+												) : (
+													<Square className="h-3 w-3 text-muted-foreground" />
+												)}
+											</span>
+											<span className="col-span-2 my-1">
+												Additionally, pushing will update this data in the EMR:
+											</span>
+											<span className="font-semibold text-muted-foreground uppercase">
+												Records:
+											</span>
+											<span>{pushPreview.recordsNeeded ?? "Not Needed"}</span>
+										</div>
+									) : (
+										"Failed to load preview."
+									)}
+								</AlertDescription>
+							</Alert>
+						)}
 
 					<div className="flex flex-wrap gap-2">
 						<Button
@@ -611,7 +642,7 @@ export function ReferralTab({ client, readOnly }: ReferralTabProps) {
 							disabled={
 								isReadOnly ||
 								updateClientMutation.isPending ||
-								!can("clients:reviewreachout")
+								!can("clients:referral:fillout")
 							}
 							onClick={() =>
 								handleReferralDataChange({
@@ -623,7 +654,7 @@ export function ReferralTab({ client, readOnly }: ReferralTabProps) {
 							{isNeedsReview ? "Marked for Review" : "Mark for Review"}
 						</Button>
 
-						{isNeedsReview && can("clients:pushtopunch") && (
+						{isNeedsReview && can("clients:referral:pushtopunch") && (
 							<Button
 								className="w-full sm:w-auto"
 								disabled={
