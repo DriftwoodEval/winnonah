@@ -1,8 +1,9 @@
 import { TRPCError } from "@trpc/server";
 import { differenceInMonths, differenceInYears } from "date-fns";
-import { eq } from "drizzle-orm";
+import { eq, isNotNull } from "drizzle-orm";
 import { distance as levDistance } from "fastest-levenshtein";
 import z from "zod";
+import { env } from "~/env";
 import { fetchWithCache, invalidateCache } from "~/lib/cache";
 import { ALLOWED_ASD_ADHD_VALUES, TEST_NAMES } from "~/lib/constants";
 import {
@@ -21,7 +22,7 @@ import {
 	createTRPCRouter,
 	protectedProcedure,
 } from "~/server/api/trpc";
-import { clients, offices } from "~/server/db/schema";
+import { clients, offices, users } from "~/server/db/schema";
 
 const CACHE_KEY_DUPLICATES = "google:drive:duplicate-ids";
 const CACHE_KEY_PUNCHLIST = "google:sheets:punchlist";
@@ -610,4 +611,155 @@ export const googleRouter = createTRPCRouter({
 				});
 			}
 		}),
+
+	getFolders: protectedProcedure
+		.input(z.object({ parentId: z.string() }))
+		.query(async ({ input, ctx }) => {
+			const cookieHeader = ctx.headers.get("cookie") ?? "";
+
+			const response = await fetch(`${env.PY_API}/folders/${input.parentId}`, {
+				headers: {
+					Cookie: cookieHeader,
+				},
+			});
+
+			if (!response.ok) {
+				console.error(
+					`FastAPI error: ${response.status} ${response.statusText}`,
+				);
+				throw new Error("FastAPI server error");
+			}
+
+			const data = (await response.json()) as {
+				folders: { id: string; name: string }[];
+			};
+			return data.folders;
+		}),
+
+	getWriterFolder: protectedProcedure
+		.input(z.object({ parentId: z.string() }))
+		.query(async ({ input, ctx }) => {
+			const cookieHeader = ctx.headers.get("cookie") ?? "";
+
+			const response = await fetch(
+				`${env.PY_API}/folders/writer/${input.parentId}`,
+				{
+					headers: {
+						Cookie: cookieHeader,
+					},
+				},
+			);
+
+			if (!response.ok) {
+				if (response.status === 404) {
+					return null;
+				}
+				console.error(
+					`FastAPI error: ${response.status} ${response.statusText}`,
+				);
+				throw new Error("FastAPI server error");
+			}
+
+			const data = (await response.json()) as {
+				id: string;
+				name: string;
+			};
+			return data;
+		}),
+
+	claimTopFolder: protectedProcedure
+		.input(z.object({ sourceId: z.string(), destId: z.string() }))
+		.mutation(async ({ input, ctx }) => {
+			const cookieHeader = ctx.headers.get("cookie") ?? "";
+
+			const userName = ctx.session.user.name;
+			if (!userName) throw new Error("No user name found in session");
+
+			const user = await ctx.db.query.users.findFirst({
+				where: eq(users.id, ctx.session.user.id),
+			});
+
+			if (user?.claimedReportFolder) {
+				throw new Error(
+					`You already have a report claimed: "${user.claimedReportFolder.name}". It must be approved before claiming another.`,
+				);
+			}
+
+			const response = await fetch(`${env.PY_API}/folders/claim`, {
+				method: "POST",
+				headers: { "Content-Type": "application/json", Cookie: cookieHeader },
+				body: JSON.stringify({
+					source_parent_id: input.sourceId,
+					destination_parent_id: input.destId,
+				}),
+			});
+
+			const data = (await response.json()) as {
+				status: string;
+				folder_claimed: string;
+				folder_id: string;
+				moved_into: string;
+				client_id: string;
+				detail?: string;
+			};
+
+			if (!response.ok) {
+				throw new Error(data.detail || "Failed to claim folder");
+			}
+
+			await ctx.db
+				.update(users)
+				.set({
+					claimedReportFolder: {
+						name: data.folder_claimed,
+						id: data.folder_id,
+					},
+				})
+				.where(eq(users.id, ctx.session.user.id));
+
+			return {
+				folder_claimed: data.folder_claimed,
+				moved_into: data.moved_into,
+			};
+		}),
+
+	approveReport: protectedProcedure
+		.input(z.object({ userId: z.string() }))
+		.mutation(async ({ input, ctx }) => {
+			assertPermission(ctx.session.user, "reports:approve");
+
+			await ctx.db
+				.update(users)
+				.set({ claimedReportFolder: null })
+				.where(eq(users.id, input.userId));
+
+			return { success: true };
+		}),
+
+	getClaimedFolder: protectedProcedure.query(async ({ ctx }) => {
+		const user = await ctx.db.query.users.findFirst({
+			where: eq(users.id, ctx.session.user.id),
+			columns: {
+				claimedReportFolder: true,
+			},
+		});
+
+		return user?.claimedReportFolder ?? null;
+	}),
+
+	getClaimedReports: protectedProcedure.query(async ({ ctx }) => {
+		assertPermission(ctx.session.user, "reports:approve");
+
+		const claimedUsers = await ctx.db.query.users.findMany({
+			where: isNotNull(users.claimedReportFolder),
+			columns: {
+				id: true,
+				name: true,
+				email: true,
+				claimedReportFolder: true,
+			},
+		});
+
+		return claimedUsers;
+	}),
 });

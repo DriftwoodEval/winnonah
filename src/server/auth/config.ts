@@ -31,6 +31,7 @@ declare module "next-auth" {
 			evaluatorId?: number | null;
 			clientFilters?: string;
 			archived?: boolean | null;
+			claimedReportFolder?: { name: string; id: string } | null;
 		} & DefaultSession["user"];
 	}
 
@@ -39,6 +40,7 @@ declare module "next-auth" {
 		savedPlaces: string;
 		evaluatorId?: number | null;
 		archived?: boolean | null;
+		claimedReportFolder?: { name: string; id: string } | null;
 	}
 }
 
@@ -171,6 +173,7 @@ export const authConfig = {
 				session.user.permissions = user.permissions;
 				session.user.evaluatorId = user.evaluatorId;
 				session.user.archived = user.archived;
+				session.user.claimedReportFolder = user.claimedReportFolder;
 			}
 			return session;
 		},
