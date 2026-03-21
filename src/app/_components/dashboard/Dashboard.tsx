@@ -243,59 +243,9 @@ export function Dashboard() {
 	const finalSections = getDashboardSections(
 		dashboardData?.punchClients,
 		dashboardData?.missingClients,
+		needsReachOut,
+		needsReview,
 	);
-
-	const punchClientIds = useMemo(() => {
-		return new Set(
-			dashboardData?.punchClients
-				?.map((c) => c["Client ID"])
-				.filter(
-					(id): id is string => typeof id === "string" && id.trim() !== "",
-				)
-				.map((id) => parseInt(id, 10))
-				.filter((id) => !Number.isNaN(id)) ?? [],
-		);
-	}, [dashboardData?.punchClients]);
-
-	const filteredNeedsReachOut = useMemo(() => {
-		return (
-			needsReachOut?.filter((client) => !punchClientIds.has(client.id)) ?? []
-		);
-	}, [needsReachOut, punchClientIds]);
-
-	const filteredNeedsReview = useMemo(() => {
-		return (
-			needsReview?.filter((client) => !punchClientIds.has(client.id)) ?? []
-		);
-	}, [needsReview, punchClientIds]);
-
-	const referralSections = [
-		...(filteredNeedsReachOut.length > 0
-			? [
-					{
-						title: "Needs Outreach",
-						clients: filteredNeedsReachOut as DashboardClient[],
-						description:
-							"Clients marked as needing reach out. They are in TherapyAppointment but not on the prioritization sheet.",
-						subheading: "Referrals",
-					},
-				]
-			: []),
-		...(filteredNeedsReview.length > 0
-			? [
-					{
-						title: "Reached Out - Needs Review",
-						clients: filteredNeedsReview as DashboardClient[],
-						description:
-							"Clients marked for review before pushing to prioritization sheet.",
-						subheading:
-							filteredNeedsReachOut.length > 0 ? undefined : "Referrals",
-					},
-				]
-			: []),
-	];
-
-	const allDashboardSections = [...referralSections, ...finalSections];
 
 	if (isLoading)
 		return (
@@ -329,7 +279,7 @@ export function Dashboard() {
 					Punchlist: {dashboardData?.punchClients?.length ?? 0}
 				</p>
 
-				{allDashboardSections.map((section) => (
+				{finalSections.map((section) => (
 					<Fragment key={section.title}>
 						{section.subheading && (
 							<h2 className="mt-6 mb-2 self-start font-bold text-lg">

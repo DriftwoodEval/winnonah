@@ -17,6 +17,9 @@ export function DashboardStatus({ clientId }: { clientId: number }) {
 			staleTime: 60000,
 		});
 
+	const { data: needsReachOut } = api.clients.getNeedsReachOut.useQuery();
+	const { data: needsReview } = api.clients.getNeedsReview.useQuery();
+
 	if (isLoading) {
 		return <Skeleton className="h-6 w-32" />;
 	}
@@ -28,14 +31,21 @@ export function DashboardStatus({ clientId }: { clientId: number }) {
 		(m: Client) => m.id === clientId,
 	);
 
-	if (!clientOnPunch && !clientMissing) {
+	const isInReachOut = needsReachOut?.some((c) => c.id === clientId);
+	const isInReview = needsReview?.some((c) => c.id === clientId);
+
+	if (!clientOnPunch && !clientMissing && !isInReachOut && !isInReview) {
 		return null;
 	}
 
 	const matchedSections = getClientMatchedSections(
-		(clientOnPunch ?? clientMissing) as FullClientInfo | Client,
+		(clientOnPunch ?? clientMissing ?? { id: clientId }) as
+			| FullClientInfo
+			| Client,
 		dashboardData?.punchClients ?? [],
 		dashboardData?.missingClients ?? [],
+		needsReachOut ?? [],
+		needsReview ?? [],
 	);
 
 	if (matchedSections.length === 0) {
