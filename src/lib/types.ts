@@ -60,7 +60,6 @@ export const permissionPresets = [
 			"clients:shell",
 			"clients:merge",
 			"clients:asdadhd",
-			"clients:email",
 			"clients:questionnaires:create",
 			"clients:questionnaires:createexternal",
 			"settings:evaluators",

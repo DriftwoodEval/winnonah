@@ -792,7 +792,6 @@ export const clientRouter = createTRPCRouter({
 				babyNetERDownloaded: z.boolean().optional(),
 				asdAdhd: z.enum(ALLOWED_ASD_ADHD_VALUES).optional(),
 				referralData: referralDataSchema.optional(),
-				email: z.string().optional(),
 			}),
 		)
 		.mutation(async ({ ctx, input }) => {
@@ -863,9 +862,6 @@ export const clientRouter = createTRPCRouter({
 				input.asdAdhd !== currentClient.asdAdhd
 					? (["clients:asdadhd"] as const)
 					: []),
-				...(input.email !== undefined && input.email !== currentClient.email
-					? (["clients:email"] as const)
-					: []),
 				...(input.referralData !== undefined &&
 				JSON.stringify(input.referralData) !==
 					JSON.stringify(currentClient.referralData)
@@ -910,7 +906,6 @@ export const clientRouter = createTRPCRouter({
 				babyNetERDownloaded?: boolean;
 				asdAdhd?: (typeof ALLOWED_ASD_ADHD_VALUES)[number];
 				referralData?: z.infer<typeof referralDataSchema>;
-				email?: string;
 			} = {};
 
 			if (input.color !== undefined) {
@@ -981,9 +976,6 @@ export const clientRouter = createTRPCRouter({
 			}
 			if (input.referralData !== undefined) {
 				updateData.referralData = input.referralData;
-			}
-			if (input.email !== undefined) {
-				updateData.email = input.email;
 			}
 
 			await ctx.db
