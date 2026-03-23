@@ -381,11 +381,9 @@ def prepare_appointments_from_csv(
     appointments_df = appointments_df.drop(index=list(indices_to_drop))
 
     four_weeks_ago = now - timedelta(weeks=4)
-    four_weeks_from_now = now + timedelta(weeks=4)
 
     appointments_df = appointments_df[
         (appointments_df["STARTTIME_DT"] >= four_weeks_ago)
-        & (appointments_df["STARTTIME_DT"] <= four_weeks_from_now)
     ].copy()
 
     if appointments_df.empty:
@@ -501,6 +499,7 @@ def insert_appointments_with_gcal(appointment_sync_data: dict[str, list[str]] | 
         gcal_event_id = appointment.get("gcal_event_id")
         gcal_event_title = appointment.get("gcal_title")
         gcal_calendar_id = appointment.get("gcal_calendar_id")
+        cpt_code = re.sub(r"\D", "", appointment["NAME"]) or "N/A"
 
         is_trusted = appointment_id in trusted_ids
 
@@ -544,11 +543,12 @@ def insert_appointments_with_gcal(appointment_sync_data: dict[str, list[str]] | 
             continue
 
         put_appointment_in_db(
-            appointment_id,
-            client_id,
-            evaluatorNpi,
-            start_time,
-            end_time,
+            appointment_id=appointment_id,
+            client_id=client_id,
+            evaluator_npi=evaluatorNpi,
+            cpt=cpt_code,
+            start_time=start_time,
+            end_time=end_time,
             location=gcal_location,
             da_eval=gcal_daeval,
             asd_adhd=asd_adhd_map.get(client_id),

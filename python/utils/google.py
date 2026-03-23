@@ -1,4 +1,5 @@
 import base64
+import mimetypes
 import os
 import re
 import time
@@ -271,6 +272,7 @@ def send_gmail(
     from_addr: str,
     cc_addr: str | None = None,
     html: str | None = None,
+    attachments: list[str | tuple[bytes, str]] | None = None,
 ):
     """Send an email using the Gmail API."""
     creds = google_authenticate()
@@ -288,6 +290,32 @@ def send_gmail(
 
         if html:
             message.add_alternative(html, subtype="html")
+
+        if attachments:
+            for item in attachments:
+                if isinstance(item, tuple):
+                    file_data, filename = item
+
+                else:
+                    if not os.path.exists(item):
+                        raise Exception(f"Attachment not found: {item}")
+                    filename = os.path.basename(item)
+                    with open(item, "rb") as f:
+                        file_data = f.read()
+
+                ctype, encoding = mimetypes.guess_type(filename)
+
+                if ctype is None or encoding is not None:
+                    ctype = "application/octet-stream"
+
+                maintype, subtype = ctype.split("/", 1)
+
+                message.add_attachment(
+                    file_data,
+                    maintype=maintype,
+                    subtype=subtype,
+                    filename=filename,
+                )
 
         encoded_message = base64.urlsafe_b64encode(message.as_bytes()).decode()
 
