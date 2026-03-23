@@ -135,3 +135,5 @@ temp/*
 input/*
 auth_cache/*
 shapefiles/*
+cache/*
+PDFs/*

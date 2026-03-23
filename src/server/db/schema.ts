@@ -430,6 +430,7 @@ export const appointments = createTable("appointment", (d) => ({
 		.references(() => evaluators.npi, { onDelete: "cascade" }),
 	startTime: d.timestamp("startTime").notNull(),
 	endTime: d.timestamp("endTime").notNull(),
+	cpt: d.varchar({ length: 255 }),
 	daEval: d.mysqlEnum(["EVAL", "DA", "DAEVAL"]),
 	asdAdhd: d.mysqlEnum(["ASD", "ADHD", "ASD+ADHD", "ASD+LD", "ADHD+LD", "LD"]),
 	cancelled: d.boolean().notNull().default(false),

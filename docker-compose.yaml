@@ -73,6 +73,7 @@ services:
       - ./python/temp:/app/temp
       - ./python/logs:/app/logs
       - ./python/shapefiles:/app/shapefiles
+      - ./python/cache:/app/cache
 
   watchtower:
     image: containrrr/watchtower
