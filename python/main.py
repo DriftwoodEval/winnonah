@@ -1,10 +1,14 @@
 import os
 import re
 import shutil
+from collections import defaultdict
 from collections.abc import Callable
+from datetime import datetime
+from pathlib import Path
 from typing import Annotated
 
 import pandas as pd
+import pymupdf
 import typer
 from dotenv import load_dotenv
 from loguru import logger
@@ -15,6 +19,7 @@ import utils.config
 import utils.database
 import utils.google
 import utils.location
+import utils.misc
 import utils.openphone
 import utils.spreadsheets
 import utils.therapyappointment
@@ -253,12 +258,228 @@ def make_referral_fax_folders(referrals: pd.DataFrame):
         logger.debug(f"Created {created_count} folders for referrals")
 
 
+def create_referral_faxes(referrals: pd.DataFrame):
+    logger.debug("Creating referral faxes")
+    future_appointments = utils.database.get_appointments(start_date=datetime.now())
+    target_appointments = [
+        apt for apt in future_appointments if apt.get("code") == "96136"
+    ]
+
+    fax_targets = []
+
+    for appointment in target_appointments:
+        first_name = appointment.get("firstName")
+        last_name = appointment.get("lastName")
+        preferred_name = appointment.get("preferredName")
+
+        client_name_for_lookup = f"{first_name} {last_name}"
+
+        referral_info = referrals[
+            referrals["Client Name"].str.lower() == client_name_for_lookup.lower()
+        ]
+        if referral_info.empty and preferred_name:
+            preferred_name_lookup = f"{preferred_name} {last_name}"
+            referral_info = referrals[
+                referrals["Client Name"].str.lower() == preferred_name_lookup.lower()
+            ]
+
+        referral_source = (
+            referral_info["Referral Name"].iloc[0]
+            if not referral_info.empty
+            else "Unknown"
+        )
+        appointment_time = appointment.get("startTime").strftime("%m/%d/%Y %I:%M %p")
+
+        fax_targets.append(
+            {
+                "client_id": appointment.get("clientId"),
+                "client_name": appointment.get("clientName"),
+                "referral_source": referral_source,
+                "appointment_time": appointment_time,
+            }
+        )
+
+    logger.info(
+        f"Found {len(fax_targets)} relevant appointments to fax referrals about"
+    )
+
+    previously_faxed = utils.misc.read_cache(Path("cache/referral-faxes.txt"))
+
+    new_fax_targets = [
+        target
+        for target in fax_targets
+        if str(target["client_id"]) not in previously_faxed
+    ]
+
+    if not new_fax_targets:
+        logger.warning("No new relevant appointments to fax referrals about")
+
+    make_referral_faxes(new_fax_targets)
+    previously_faxed.update(str(target["client_id"]) for target in fax_targets)
+    # utils.misc.write_cache(Path("cache/referral-faxes.txt"), previously_faxed)
+
+
+def make_referral_faxes(targets: list[dict]):
+    def format_name(name):
+        name = re.sub(r"\(.*?\)", "", name)
+
+        name = re.sub(r"[^a-zA-Z\s]", " ", name)
+
+        # Remove double or triple spaces
+        name = re.sub(r"\s{2,}", " ", name)
+
+        # Trim leading and trailing whitespace
+        name = name.strip()
+
+        # Convert to title case with exceptions
+        exceptions = ["MUSC", "DDSN", "SC", "NC", "DSS", "MP", "LLC"]
+
+        def title_case(txt):
+            if txt.upper() in exceptions and re.search(r"\b\w+\b", txt):
+                return txt.upper()
+            else:
+                return txt.capitalize()
+
+        name = " ".join(title_case(word) for word in name.split())
+
+        return name
+
+    def extract_fax_number(string):
+        fax_number_regex = r"\d{3}.*?\d{3}.*?\d{4}"
+        match = re.search(fax_number_regex, string)
+
+        if match:
+            return re.sub(r"\D", "", match.group(0))  # Return the first match
+        else:
+            logger.info("No fax number found in %s", string)
+            return ""  # No fax number found
+
+    def format_fax_number(raw_fax_number):
+        # Remove non-numeric characters
+        raw_fax_number = re.sub(r"\D", "", raw_fax_number)
+
+        # Check if the fax number has 10 digits
+        if len(raw_fax_number) != 10:
+            return ""  # Invalid fax number length
+
+        # Format the fax number
+        return f"({raw_fax_number[:3]}) {raw_fax_number[3:6]}-{raw_fax_number[6:]}"
+
+    output_path = Path("PDFs")
+
+    if not os.path.exists(output_path):
+        os.makedirs(output_path)
+
+    referral_groups = defaultdict(list)
+    for client in targets:
+        if client["referral_source"].lower() not in [
+            "unknown",
+            "no referral source",
+            "",
+            "babynet",
+        ]:
+            referral_groups[client["referral_source"]].append(client)
+
+    for referral_source, clients in referral_groups.items():
+        doc = pymupdf.open()
+        page = doc.new_page()
+
+        width = page.rect.width
+        height = page.rect.height
+        margin = 50
+        current_y = 50
+
+        page.insert_text(
+            (width / 2, current_y),
+            "Driftwood Evaluation Center",
+            fontsize=14,
+            fontname="times-bold",
+        )
+        current_y += 40
+
+        referral_name = format_name(referral_source)
+        fax_number = extract_fax_number(referral_source)
+
+        body_text = (
+            f"Hi {referral_name},\n\n"
+            "Thank you for referring the following clients. Here is a list of their "
+            "tentative evaluation appointments:\n"
+        )
+
+        rect = pymupdf.Rect(margin, current_y, width - margin, height - 100)
+        page.insert_textbox(rect, body_text, fontsize=12, fontname="times-roman")
+        current_y += 60
+
+        client_list_str = ""
+
+        for client in clients:
+            print(client)
+            if client.get("appointment_time") != "Unknown Time":
+                try:
+                    dt = datetime.strptime(
+                        client["appointment_time"], "%m/%d/%Y %I:%M %p"
+                    )
+                    time_str = dt.strftime("%I:%M %p").lstrip("0")
+                    line = f"- {client['client_name']} on {dt.strftime('%m/%d/%Y')} at {time_str}\n"
+                except ValueError:
+                    line = (
+                        f"- {client['client_name']} - Appointment time format error\n"
+                    )
+            else:
+                line = f"- {client['client_name']} - Appointment time unknown\n"
+            client_list_str += line
+
+        rect_list = pymupdf.Rect(margin, current_y, width - margin, height - 120)
+        page.insert_textbox(
+            rect_list, client_list_str, fontsize=12, fontname="times-roman"
+        )
+
+        current_y += (len(clients) * 15) + 20
+
+        closing_text = "Thank you again!\nDriftwood Evaluation Center"
+        rect_closing = pymupdf.Rect(margin, current_y, width - margin, height - 100)
+        page.insert_textbox(
+            rect_closing, closing_text, fontsize=12, fontname="times-roman"
+        )
+
+        footer_text = (
+            "Confidentiality Statement: The documents accompanying this transmission contain confidential "
+            "health information that is legally protected. This information is intended only for the use "
+            "of the individuals or entities listed above. If you are not the intended recipient, you are "
+            "hereby notified that any disclosure, copying, distribution, or action taken in reliance on "
+            "the contents of these documents is strictly prohibited. If you have received this information "
+            "in error, please notify the sender immediately and arrange for the return or destruction of these documents."
+        )
+
+        footer_rect = pymupdf.Rect(margin, height - 100, width - margin, height - 20)
+        page.insert_textbox(
+            footer_rect,
+            footer_text,
+            fontsize=8,
+            fontname="times-italic",
+            align=pymupdf.TEXT_ALIGN_LEFT,
+        )
+
+        filename = f"{referral_name}_{fax_number}"
+        pdf_filename = os.path.join(output_path, f"{filename}.pdf")
+
+        counter = 1
+        base_name = pdf_filename.replace(".pdf", "")
+        while os.path.exists(pdf_filename):
+            pdf_filename = f"{base_name}_{counter}.pdf"
+            counter += 1
+
+        doc.save(pdf_filename)
+        doc.close()
+        logger.info(f"Created PDF: {pdf_filename}")
+
+
 def process_referrals():
     """Process referrals, creating folders for them in Google Drive."""
-    # TODO: Also generate fax pdfs for new referrals that have appointments here
     logger.debug("Processing referrals")
     ref_df = utils.spreadsheets.open_local("temp/input/client-referral-report.csv")
-    make_referral_fax_folders(ref_df)
+    create_referral_faxes(ref_df)
+    # make_referral_fax_folders(ref_df)
     logger.debug("Finished processing referrals")
 
 
@@ -314,7 +535,7 @@ def main(
 
     if referrals:
         logger.info("Running Referrals process")
-        utils.therapyappointment.download_csvs()
+        # utils.therapyappointment.download_csvs()
         process_referrals()
         return
 
