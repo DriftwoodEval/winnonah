@@ -7,7 +7,7 @@ import { env } from "~/env";
 
 export function IssueFormLink() {
 	return (
-		<Link href={`https://issue.${env.NEXT_PUBLIC_APP_DOMAIN}`} target="_blank">
+		<Link href={`https://issue.${env.NEXT_PUBLIC_APP_HOST}`} target="_blank">
 			<Button
 				className="cursor-pointer rounded-full"
 				size="icon"

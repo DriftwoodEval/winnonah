@@ -30,6 +30,10 @@ const branchName = getGitInfo(
 );
 
 const appDomain = process.env.NEXT_PUBLIC_APP_DOMAIN || "emr.driftwoodeval.com";
+const appHost = new URL(`https://${appDomain}`).hostname
+	.split(".")
+	.slice(-2)
+	.join(".");
 
 /** @type {import("next").NextConfig} */
 const config = {
@@ -37,7 +41,7 @@ const config = {
 		NEXT_PUBLIC_GIT_BRANCH: branchName,
 		NEXT_PUBLIC_COMMIT_HASH: commitHash,
 	},
-	allowedDevOrigins: [appDomain, `*.${appDomain}`, "dev.driftwoodeval.com"],
+	allowedDevOrigins: [appDomain, `*.${appHost}`],
 	output: "standalone",
 	serverExternalPackages: ["pino", "pino-pretty"],
 	experimental: {

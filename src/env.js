@@ -1,6 +1,16 @@
 import { createEnv } from "@t3-oss/env-nextjs";
 import { z } from "zod";
 
+/**
+ * @param {string} input
+ */
+function normalizeUrl(input) {
+	if (!input.startsWith("http://") && !input.startsWith("https://")) {
+		return `https://${input}`;
+	}
+	return input;
+}
+
 export const env = createEnv({
 	/**
 	 * Specify your server-side environment variables schema here. This way you can ensure the app
@@ -39,6 +49,7 @@ export const env = createEnv({
 	client: {
 		NEXT_PUBLIC_APP_TITLE: z.string(),
 		NEXT_PUBLIC_APP_DOMAIN: z.string(),
+		NEXT_PUBLIC_APP_HOST: z.string(),
 	},
 
 	/**
@@ -61,6 +72,14 @@ export const env = createEnv({
 		NEXT_PUBLIC_APP_TITLE: process.env.NEXT_PUBLIC_APP_TITLE ?? "Driftwood EMR",
 		NEXT_PUBLIC_APP_DOMAIN:
 			process.env.NEXT_PUBLIC_APP_DOMAIN ?? "emr.driftwoodeval.com",
+		NEXT_PUBLIC_APP_HOST: new URL(
+			normalizeUrl(
+				process.env.NEXT_PUBLIC_APP_DOMAIN ?? "emr.driftwoodeval.com",
+			),
+		).hostname
+			.split(".")
+			.slice(-2)
+			.join("."),
 	},
 	/**
 	 * Run `build` or `dev` with `SKIP_ENV_VALIDATION` to skip env validation. This is especially
