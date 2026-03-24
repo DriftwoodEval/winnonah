@@ -74,7 +74,7 @@
 		"fastest-levenshtein": "^1.0.16",
 		"google-auth-library": "^10.6.2",
 		"html-react-parser": "^5.2.17",
-		"ioredis": "^5.10.0",
+		"ioredis": "^5.10.1",
 		"lodash": "^4.17.23",
 		"lucide-react": "^0.577.0",
 		"mysql2": "^3.18.2",
