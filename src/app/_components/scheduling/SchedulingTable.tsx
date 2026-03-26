@@ -628,6 +628,7 @@ const SchedulingTableRow = memo(function SchedulingTableRow({
 	scheduledClient,
 	evaluators,
 	offices,
+	districts,
 	insurances,
 	isEditable,
 	onUpdate,
@@ -638,6 +639,7 @@ const SchedulingTableRow = memo(function SchedulingTableRow({
 	scheduledClient: ScheduledClient;
 	evaluators: Evaluator[];
 	offices: Office[];
+	districts: SchoolDistrict[];
 	insurances: InsuranceWithAliases[];
 	isEditable?: boolean;
 	onUpdate?: (clientId: number, data: SchedulingUpdateData) => void;
@@ -674,6 +676,19 @@ const SchedulingTableRow = memo(function SchedulingTableRow({
 			onUpdate?.(scheduledClient.clientId, { sort: newSort });
 		}
 	};
+
+	const districtMap = useMemo(
+		() => new Map(districts.map((d) => [d.fullName, d])),
+		[districts],
+	);
+
+	const districtDisplay = useMemo(() => {
+		const fullName = scheduledClient.client.schoolDistrict;
+		if (!fullName) return "-";
+		const district = districtMap.get(fullName);
+		if (district?.shortName) return district.shortName;
+		return fullName.replace(/ (County )?School District/, "");
+	}, [scheduledClient.client.schoolDistrict, districtMap]);
 
 	const color =
 		scheduledClient.color && isSchedulingColor(scheduledClient.color)
@@ -915,10 +930,7 @@ const SchedulingTableRow = memo(function SchedulingTableRow({
 			</TableCell>
 
 			<TableCell data-col={10} data-row={rowIndex}>
-				{scheduledClient.client.schoolDistrict?.replace(
-					/ (County )?School District/,
-					"",
-				) || "-"}
+				{districtDisplay}
 			</TableCell>
 
 			<TableCell data-col={11} data-row={rowIndex}>
@@ -1236,6 +1248,7 @@ function InternalSchedulingTable({
 									)}
 								</Button>
 							}
+							districts={districts}
 							evaluators={evaluators}
 							insurances={insurances}
 							isEditable={isEditable}
