@@ -61,6 +61,26 @@ export const mapInsuranceToShortNames = (
 		.join(" | ");
 };
 
+export const getInsuranceShortNamesList = (
+	primary: string | null,
+	secondary: string | null,
+	insurances: InsuranceWithAliases[],
+): string[] => {
+	const names: string[] = [];
+
+	const addInsurance = (insuranceId: string | null) => {
+		if (!insuranceId) return;
+		const shortName = getInsuranceShortName(insuranceId, insurances);
+		if (shortName && !names.includes(shortName)) {
+			names.push(shortName);
+		}
+	};
+
+	addInsurance(primary);
+	addInsurance(secondary);
+	return names;
+};
+
 /**
  * Format a client's age given their date of birth.
  * @param dob The client's date of birth.

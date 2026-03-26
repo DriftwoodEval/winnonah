@@ -60,6 +60,7 @@ import type {
 import {
 	cn,
 	formatClientAge,
+	getInsuranceShortNamesList,
 	getLocalDayFromUTCDate,
 	mapInsuranceToShortNames,
 } from "~/lib/utils";
@@ -98,7 +99,13 @@ function getScheduledClientDisplayValues(
 		? districts.get(client.client.schoolDistrict)
 		: null;
 
-	const insurance = mapInsuranceToShortNames(
+	const insuranceDisplay =
+		mapInsuranceToShortNames(
+			client.client.primaryInsurance,
+			client.client.secondaryInsurance,
+			insurances,
+		) || "-";
+	const insuranceNames = getInsuranceShortNamesList(
 		client.client.primaryInsurance,
 		client.client.secondaryInsurance,
 		insurances,
@@ -112,7 +119,8 @@ function getScheduledClientDisplayValues(
 		date: normalize(client.date),
 		time: normalize(client.time),
 		asdAdhd: normalize(client.client.asdAdhd),
-		insurance: normalize(insurance),
+		insurance: insuranceDisplay,
+		insuranceNames,
 		code: normalize(client.code),
 		location: normalize(
 			client.office === "Virtual" ? "Virtual" : office?.prettyName || "",
@@ -282,6 +290,7 @@ function useSchedulingFilters(
 			time: new Set(),
 			asdAdhd: new Set(),
 			insurance: new Set(),
+			insuranceNames: new Set(),
 			code: new Set(),
 			location: new Set(),
 			district: new Set(),
@@ -291,18 +300,23 @@ function useSchedulingFilters(
 		};
 
 		for (const { displayValues } of clientDisplayValues) {
-			for (const key in values) {
+			for (const key of Object.keys(values)) {
+				if (key === "insuranceNames") continue;
 				const val = displayValues[key as keyof typeof displayValues];
-				if (val !== undefined) {
+				if (typeof val === "string" && val) {
 					values[key]?.add(val);
 				}
+			}
+
+			for (const insName of displayValues.insuranceNames) {
+				values.insuranceNames?.add(insName);
 			}
 		}
 
 		const result: Record<string, string[]> = {};
 		for (const key in values) {
 			result[key] = Array.from(values[key] || [])
-				.filter((v) => v !== undefined)
+				.filter((v) => v !== undefined && v !== "")
 				.sort();
 		}
 		return result;
@@ -314,7 +328,12 @@ function useSchedulingFilters(
 				return Object.entries(filters).every(([key, selectedValues]) => {
 					if (!selectedValues || selectedValues.length === 0) return true;
 					const value = displayValues[key as keyof typeof displayValues];
-					return selectedValues.includes(value || "");
+					if (Array.isArray(value)) {
+						// At least one selected insurance matches one of the client's insurances
+						return selectedValues.some((v) => value.includes(v));
+					} else {
+						return selectedValues.includes(value || "");
+					}
 				});
 			})
 			.map(({ client }) => client);
@@ -1141,9 +1160,15 @@ function InternalSchedulingTable({
 	const getOptionCounts = (columnKey: string): Map<string, number> => {
 		const counts = new Map<string, number>();
 		clientDisplayValues.forEach(({ displayValues }) => {
-			const value =
-				displayValues[columnKey as keyof typeof displayValues] || "";
-			counts.set(value, (counts.get(value) || 0) + 1);
+			const value = displayValues[columnKey as keyof typeof displayValues];
+			if (Array.isArray(value)) {
+				value.forEach((v) => {
+					if (v) counts.set(v, (counts.get(v) || 0) + 1);
+				});
+			} else {
+				const v = value || "";
+				counts.set(v, (counts.get(v) || 0) + 1);
+			}
 		});
 		return counts;
 	};
@@ -1167,7 +1192,12 @@ function InternalSchedulingTable({
 		{ key: "date", label: "Date" },
 		{ key: "time", label: "Time" },
 		{ key: "asdAdhd", label: "ASD/ADHD" },
-		{ key: "insurance", label: "Insurance" },
+		{
+			key: "insurance",
+			label: "Insurance",
+			filterKey: "insuranceNames",
+			filterLabel: "Insurance",
+		},
 		{ key: "code", label: "Code" },
 		{ key: "location", label: "Location" },
 		{ key: "district", label: "District" },
