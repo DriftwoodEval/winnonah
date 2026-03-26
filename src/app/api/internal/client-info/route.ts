@@ -131,7 +131,7 @@ export async function GET(req: NextRequest) {
 		const matchedTemplate = NOTE_TEMPLATES.find((t) =>
 			fullNote.includes(t.text),
 		);
-		let recordsNote = matchedTemplate ? matchedTemplate.label : fullNote;
+		let recordsNote = matchedTemplate ? matchedTemplate.text : fullNote;
 
 		const formatDate = (date: Date | string | null | undefined) => {
 			const d = getLocalDayFromUTCDate(date);
