@@ -76,7 +76,7 @@ export const schedulingRouter = createTRPCRouter({
 			.from(schedulingClients)
 			.innerJoin(clients, eq(schedulingClients.clientId, clients.id))
 			.where(eq(schedulingClients.archived, false))
-			.orderBy(asc(schedulingClients.createdAt));
+			.orderBy(asc(schedulingClients.sort), asc(schedulingClients.createdAt));
 
 		const allEvaluators = await fetchWithCache(
 			ctx,
@@ -211,7 +211,7 @@ export const schedulingRouter = createTRPCRouter({
 			.from(schedulingClients)
 			.innerJoin(clients, eq(schedulingClients.clientId, clients.id))
 			.where(eq(schedulingClients.archived, true))
-			.orderBy(asc(schedulingClients.createdAt));
+			.orderBy(asc(schedulingClients.sort), asc(schedulingClients.createdAt));
 
 		const allEvaluators = await fetchWithCache(
 			ctx,
@@ -289,6 +289,11 @@ export const schedulingRouter = createTRPCRouter({
 			}),
 		)
 		.mutation(async ({ input }) => {
+			const maxSortResult = await db
+				.select({ maxSort: sql<number>`MAX(${schedulingClients.sort})` })
+				.from(schedulingClients);
+			const nextSort = (maxSortResult[0]?.maxSort ?? 0) + 1;
+
 			await db
 				.insert(schedulingClients)
 				.values({
@@ -296,6 +301,7 @@ export const schedulingRouter = createTRPCRouter({
 					code: input.code,
 					office: input.office,
 					archived: false,
+					sort: nextSort,
 				})
 				.onDuplicateKeyUpdate({
 					set: {
@@ -303,6 +309,7 @@ export const schedulingRouter = createTRPCRouter({
 						code: input.code,
 						office: input.office,
 						createdAt: new Date(),
+						sort: nextSort,
 					},
 				});
 		}),
@@ -318,6 +325,7 @@ export const schedulingRouter = createTRPCRouter({
 				notes: z.string().optional(),
 				code: z.string().optional(),
 				color: z.string().nullable().optional(),
+				sort: z.number().optional(),
 			}),
 		)
 		.mutation(async ({ input }) => {
@@ -329,6 +337,7 @@ export const schedulingRouter = createTRPCRouter({
 				notes?: string;
 				code?: string;
 				color?: string | null;
+				sort?: number;
 			} = {};
 
 			if (input.evaluatorNpi !== undefined) {
@@ -351,6 +360,9 @@ export const schedulingRouter = createTRPCRouter({
 			}
 			if (input.color !== undefined) {
 				updateData.color = input.color;
+			}
+			if (input.sort !== undefined) {
+				updateData.sort = input.sort;
 			}
 			await db
 				.update(schedulingClients)

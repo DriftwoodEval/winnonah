@@ -677,6 +677,7 @@ export const schedulingClients = createTable(
 		notes: d.text(),
 		code: d.text(),
 		color: d.varchar({ length: 50 }),
+		sort: d.int().notNull().default(0),
 		createdAt: d
 			.timestamp("created_at")
 			.default(sql`CURRENT_TIMESTAMP`)

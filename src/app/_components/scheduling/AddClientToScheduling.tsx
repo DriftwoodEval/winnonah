@@ -35,6 +35,7 @@ export function AddClientToScheduling({
 						return old;
 					}
 
+					const maxSort = Math.max(0, ...old.clients.map((c) => c.sort ?? 0));
 					const newScheduledClient: ScheduledClient = {
 						clientId: variables.clientId,
 						evaluator: null,
@@ -45,6 +46,7 @@ export function AddClientToScheduling({
 						notes: null,
 						code: null,
 						color: null,
+						sort: maxSort + 1,
 						createdAt: new Date(),
 						client: {
 							hash: variables.optimisticClient?.hash ?? "",

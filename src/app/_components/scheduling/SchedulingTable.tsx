@@ -67,11 +67,12 @@ export interface SchedulingUpdateData {
 	notes?: string;
 	code?: string;
 	color?: string | null;
+	sort?: number;
 }
 
-const normalize = (val: string | null | undefined) => {
-	if (!val || val === "-") return "";
-	return val;
+const normalize = (val: string | number | null | undefined) => {
+	if (val === undefined || val === null || val === "-") return "";
+	return val.toString();
 };
 
 function getScheduledClientDisplayValues(
@@ -96,6 +97,7 @@ function getScheduledClientDisplayValues(
 	);
 
 	return {
+		sort: normalize(client.sort),
 		color: normalize(client.color),
 		fullName: normalize(client.client.fullName),
 		evaluator: normalize(evaluator?.providerName.split(" ")[0]),
@@ -264,6 +266,7 @@ function useSchedulingFilters(
 
 	const uniqueValues = useMemo(() => {
 		const values: Record<string, Set<string>> = {
+			sort: new Set(),
 			color: new Set(),
 			fullName: new Set(),
 			evaluator: new Set(),
@@ -637,6 +640,9 @@ const SchedulingTableRow = memo(function SchedulingTableRow({
 	const [localDate, setLocalDate] = useState(scheduledClient.date ?? "");
 	const [localTime, setLocalTime] = useState(scheduledClient.time ?? "");
 	const [localNotes, setLocalNotes] = useState(scheduledClient.notes ?? "");
+	const [localSort, setLocalSort] = useState(
+		scheduledClient.sort?.toString() ?? "0",
+	);
 
 	useEffect(() => {
 		setLocalDate(scheduledClient.date ?? "");
@@ -649,6 +655,10 @@ const SchedulingTableRow = memo(function SchedulingTableRow({
 	useEffect(() => {
 		setLocalNotes(scheduledClient.notes ?? "");
 	}, [scheduledClient.notes]);
+
+	useEffect(() => {
+		setLocalSort(scheduledClient.sort?.toString() ?? "0");
+	}, [scheduledClient.sort]);
 
 	const color =
 		scheduledClient.color && isSchedulingColor(scheduledClient.color)
@@ -666,12 +676,29 @@ const SchedulingTableRow = memo(function SchedulingTableRow({
 			key={scheduledClient.clientId}
 			style={{ backgroundColor }}
 		>
+			<TableCell data-col={0} data-row={rowIndex}>
+				{isEditable ? (
+					<Input
+						className="w-12 px-1 text-center"
+						onBlur={() => {
+							const val = parseInt(localSort, 10);
+							if (!Number.isNaN(val) && val !== scheduledClient.sort) {
+								onUpdate?.(scheduledClient.clientId, { sort: val });
+							}
+						}}
+						onChange={(e) => setLocalSort(e.target.value)}
+						value={localSort}
+					/>
+				) : (
+					<div className="w-12 text-center">{scheduledClient.sort}</div>
+				)}
+			</TableCell>
 			<TableCell
 				className={cn(
 					"sticky left-0 z-10 bg-background transition-shadow duration-200",
 					isScrolledLeft && "shadow-lg",
 				)}
-				data-col={0}
+				data-col={1}
 				data-row={rowIndex}
 				style={{
 					backgroundColor: color
@@ -697,7 +724,7 @@ const SchedulingTableRow = memo(function SchedulingTableRow({
 					</Link>
 				</div>
 			</TableCell>
-			<TableCell data-col={1} data-row={rowIndex}>
+			<TableCell data-col={2} data-row={rowIndex}>
 				<EvaluatorSelect
 					allEvaluators={evaluators}
 					clientId={scheduledClient.clientId}
@@ -716,7 +743,7 @@ const SchedulingTableRow = memo(function SchedulingTableRow({
 
 			<TableCell
 				className="min-w-[200px] max-w-[200px]"
-				data-col={2}
+				data-col={3}
 				data-row={rowIndex}
 			>
 				{isEditable ? (
@@ -741,7 +768,7 @@ const SchedulingTableRow = memo(function SchedulingTableRow({
 
 			<TableCell
 				className="min-w-[100px] max-w-[120px]"
-				data-col={3}
+				data-col={4}
 				data-row={rowIndex}
 			>
 				{isEditable ? (
@@ -761,7 +788,7 @@ const SchedulingTableRow = memo(function SchedulingTableRow({
 
 			<TableCell
 				className="min-w-[100px] max-w-[120px]"
-				data-col={4}
+				data-col={5}
 				data-row={rowIndex}
 			>
 				{isEditable ? (
@@ -779,11 +806,11 @@ const SchedulingTableRow = memo(function SchedulingTableRow({
 				)}
 			</TableCell>
 
-			<TableCell data-col={5} data-row={rowIndex}>
+			<TableCell data-col={6} data-row={rowIndex}>
 				{scheduledClient.client.asdAdhd || "-"}
 			</TableCell>
 
-			<TableCell data-col={6} data-row={rowIndex}>
+			<TableCell data-col={7} data-row={rowIndex}>
 				{mapInsuranceToShortNames(
 					scheduledClient.client.primaryInsurance,
 					scheduledClient.client.secondaryInsurance,
@@ -791,7 +818,7 @@ const SchedulingTableRow = memo(function SchedulingTableRow({
 				) || "-"}
 			</TableCell>
 
-			<TableCell data-col={7} data-row={rowIndex}>
+			<TableCell data-col={8} data-row={rowIndex}>
 				{isEditable ? (
 					<Select
 						onValueChange={(value) => {
@@ -822,7 +849,7 @@ const SchedulingTableRow = memo(function SchedulingTableRow({
 				)}
 			</TableCell>
 
-			<TableCell className="min-w-fit" data-col={8} data-row={rowIndex}>
+			<TableCell className="min-w-fit" data-col={9} data-row={rowIndex}>
 				{isEditable ? (
 					<Select
 						onValueChange={(value) => {
@@ -849,14 +876,14 @@ const SchedulingTableRow = memo(function SchedulingTableRow({
 				)}
 			</TableCell>
 
-			<TableCell data-col={9} data-row={rowIndex}>
+			<TableCell data-col={10} data-row={rowIndex}>
 				{scheduledClient.client.schoolDistrict?.replace(
 					/ (County )?School District/,
 					"",
 				) || "-"}
 			</TableCell>
 
-			<TableCell data-col={10} data-row={rowIndex}>
+			<TableCell data-col={11} data-row={rowIndex}>
 				{scheduledClient.client.precertExpires
 					? getLocalDayFromUTCDate(
 							scheduledClient.client.precertExpires,
@@ -864,13 +891,13 @@ const SchedulingTableRow = memo(function SchedulingTableRow({
 					: "-"}
 			</TableCell>
 
-			<TableCell data-col={11} data-row={rowIndex}>
+			<TableCell data-col={12} data-row={rowIndex}>
 				{scheduledClient.client.dob
 					? formatClientAge(scheduledClient.client.dob, "short")
 					: "-"}
 			</TableCell>
 
-			<TableCell data-col={12} data-row={rowIndex}>
+			<TableCell data-col={13} data-row={rowIndex}>
 				{actions}
 			</TableCell>
 		</TableRow>
@@ -1017,7 +1044,7 @@ function InternalSchedulingTable({
 			if (!targetCell) {
 				if (direction === "ArrowLeft" && c > 0)
 					return findAndFocus(r, c - 1, direction);
-				if (direction === "ArrowRight" && c < 12)
+				if (direction === "ArrowRight" && c < 13)
 					return findAndFocus(r, c + 1, direction);
 				return;
 			}
@@ -1039,7 +1066,7 @@ function InternalSchedulingTable({
 			} else {
 				if (direction === "ArrowLeft" && c > 0)
 					return findAndFocus(r, c - 1, direction);
-				if (direction === "ArrowRight" && c < 12)
+				if (direction === "ArrowRight" && c < 13)
 					return findAndFocus(r, c + 1, direction);
 				if (direction === "ArrowUp" && r > 0)
 					return findAndFocus(r - 1, c, direction);
@@ -1078,6 +1105,7 @@ function InternalSchedulingTable({
 		filterKey?: string;
 		filterLabel?: string;
 	}[] = [
+		{ key: "sort", label: "Sort", noFilter: true },
 		{
 			key: "fullName",
 			label: "Name",
@@ -1127,9 +1155,9 @@ function InternalSchedulingTable({
 							return (
 								<TableHead
 									className={cn(
-										index === 0 &&
+										index === 1 &&
 											"sticky left-0 z-30 bg-background transition-shadow duration-200",
-										index === 0 && isScrolledLeft && "shadow-lg",
+										index === 1 && isScrolledLeft && "shadow-lg",
 									)}
 									key={col.key}
 								>
@@ -1248,6 +1276,10 @@ function SchedulingTableView({
 										newUpdate.color !== undefined
 											? newUpdate.color
 											: (c.color as string | null),
+									sort:
+										newUpdate.sort !== undefined
+											? newUpdate.sort
+											: (c.sort ?? 0),
 								}
 							: c,
 					),
