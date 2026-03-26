@@ -10,7 +10,6 @@ import {
 	CardTitle,
 } from "@ui/card";
 import { Checkbox } from "@ui/checkbox";
-import { Input } from "@ui/input";
 import { Label } from "@ui/label";
 import { RadioGroup, RadioGroupItem } from "@ui/radio-group";
 import {
@@ -48,7 +47,7 @@ interface ReferralTabProps {
 }
 
 const TA_MESSAGE =
-	"Welcome to Driftwood! Thank you for setting up access to our patient portal. In the coming days, you should receive another message here with links to questionnaires. Please complete each questionnaire completely so that we can move forward in scheduling an appointment. Failure to do so will prevent you from moving forward.\n\nAdditionally, please review this information to better understand our process: https://driftwoodeval.com/eval-process";
+	"Welcome to Driftwood! Thank you for setting up access to our patient portal. If you haven't already, make sure to complete all the documents and forms. Additionally, in the coming days you should receive another message here with links to questionnaires. Please complete each questionnaire completely so that we can move forward in scheduling an appointment. Failure to complete any of these steps will prevent you from moving forward.\n\nAdditionally, please review this information to better understand our process: https://driftwoodeval.com/eval-process";
 
 export function ReferralTab({ client, readOnly }: ReferralTabProps) {
 	const { data: session } = useSession();
@@ -65,9 +64,6 @@ export function ReferralTab({ client, readOnly }: ReferralTabProps) {
 	const [locationPreference, setLocationPreference] = useState<string>(
 		client.referralData?.locationPreference ?? "",
 	);
-	const [email, setEmail] = useState<string>(
-		client.referralData?.email ?? client.email ?? "",
-	);
 	const [followedByBabyNet, setFollowedByBabyNet] = useState<
 		"yes" | "no" | null
 	>(client.referralData?.followedByBabyNet ?? null);
@@ -77,9 +73,8 @@ export function ReferralTab({ client, readOnly }: ReferralTabProps) {
 		setSchoolExplanation(client.referralData?.schoolExplanation ?? "");
 		setOtherNotes(client.referralData?.otherNotes ?? "");
 		setLocationPreference(client.referralData?.locationPreference ?? "");
-		setEmail(client.referralData?.email ?? client.email ?? "");
 		setFollowedByBabyNet(client.referralData?.followedByBabyNet ?? null);
-	}, [client.referralData, client.email]);
+	}, [client.referralData]);
 
 	const updateClientMutation = api.clients.update.useMutation({
 		onSuccess: () => {
@@ -133,7 +128,6 @@ export function ReferralTab({ client, readOnly }: ReferralTabProps) {
 		otherNotes?: string;
 		locationPreference?: string;
 		needsReachOut?: "reach_out" | "review" | null;
-		email?: string;
 		followedByBabyNet?: "yes" | "no" | null;
 	}) => {
 		const newReferralData = {
@@ -405,36 +399,37 @@ export function ReferralTab({ client, readOnly }: ReferralTabProps) {
 					</div>
 
 					<div className="space-y-4">
-						<div className="space-y-2">
-							<Label className="font-semibold" htmlFor="email">
-								Email Address
-							</Label>
-							<Input
-								disabled={
-									isReadOnly ||
-									updateClientMutation.isPending ||
-									!can("clients:referral:fillout")
-								}
-								id="email"
-								onBlur={() => {
-									if (
-										email !== (client.referralData?.email ?? client.email ?? "")
-									) {
-										handleReferralDataChange({ email });
-									}
-								}}
-								onChange={(e) => setEmail(e.target.value)}
-								placeholder="Enter email address..."
-								type="email"
-								value={email}
-							/>
+						<div className="flex flex-col gap-2 rounded-lg bg-accent p-4 text-accent-foreground text-sm">
+							<div className="flex w-full items-center justify-between">
+								<h3 className="font-semibold">Invite to TherapyAppointment</h3>
+								<div className="flex items-center gap-2">
+									{client.taHash && (
+										<Link
+											href={`https://api.portal.therapyappointment.com/n/client/${client.taHash}`}
+											target="_blank"
+										>
+											<Armchair height="16" width="16" />
+										</Link>
+									)}
+								</div>
+							</div>
+							<p>
+								Go to the client's TherapyAppointment page by clicking the chair
+								icon. If the client's email is different, update it in
+								TherapyAppointment. Then, click{" "}
+								<span className="font-bold">Send Portal Invitation</span>.
+							</p>
+							<p className="whitespace-pre-wrap"></p>
 						</div>
 
 						<div className="flex flex-col gap-2 rounded-lg bg-muted p-4 text-sm">
 							<p>
-								Once you receive that email, please sign into the Patient
-								Portal. You will use the client's date of birth. Let me know if
-								you have any questions with that process.
+								I'd like you to create your account while we're on the phone
+								together. You should receive an email from TherapyAppointment,
+								please click on the link in that email to sign into the Patient
+								Portal. You will use the client's date of birth to set up your
+								account. Let me know if you have any questions with that
+								process.
 							</p>
 
 							<p>
@@ -456,8 +451,8 @@ export function ReferralTab({ client, readOnly }: ReferralTabProps) {
 										appointment.
 									</p>
 									<p>
-										This appointment takes 1 hour and can be done either
-										virtually or in person.
+										This appointment takes approximately 1 hour and can be done
+										either virtually or in person.
 									</p>
 								</>
 							) : (
@@ -469,15 +464,22 @@ export function ReferralTab({ client, readOnly }: ReferralTabProps) {
 										</p>
 									)}
 									<p>
-										Generally, we will schedule an intake appointment via video
-										call/Telehealth. From there, we will request approval from
-										insurance before sending more questionnaires in order to get
-										the in-person comprehensive evaluation scheduled.
+										Soon, we will send you questionnaires to complete. Look for
+										a new message, which is usually in the upper right hand
+										corner of the screen. You will also get an email telling you
+										that you have a new message. Generally, we will schedule an
+										intake appointment via video call/Telehealth. That
+										appointment will tell us if we are moving ahead with the
+										evaluation. If so, we will request approval from insurance
+										before sending more questionnaires in order to get the
+										in-person comprehensive evaluation scheduled.
 									</p>
 									<p>
-										This process takes approximately 6 months to complete, so
-										please be patient with us as we help as many people as
-										possible across the state.
+										This process takes approximately 4-6 months to complete. It
+										is very important that we have your cooperation with this
+										process; if we have to wait for you to complete something
+										that delays everything. Please be patient with us as we help
+										as many people as possible across the state.
 									</p>
 								</>
 							)}
