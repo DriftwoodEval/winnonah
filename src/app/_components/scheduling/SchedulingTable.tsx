@@ -30,7 +30,15 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@components/ui/tabs";
 import { Textarea } from "@components/ui/textarea";
 import { Skeleton } from "@ui/skeleton";
-import { ArchiveRestore, Circle, Filter, Loader2, X } from "lucide-react";
+import {
+	ArchiveRestore,
+	ChevronDown,
+	ChevronUp,
+	Circle,
+	Filter,
+	Loader2,
+	X,
+} from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useSession } from "next-auth/react";
@@ -660,6 +668,13 @@ const SchedulingTableRow = memo(function SchedulingTableRow({
 		setLocalSort(scheduledClient.sort?.toString() ?? "0");
 	}, [scheduledClient.sort]);
 
+	const handleSortChange = (newSort: number) => {
+		setLocalSort(newSort.toString());
+		if (newSort !== scheduledClient.sort) {
+			onUpdate?.(scheduledClient.clientId, { sort: newSort });
+		}
+	};
+
 	const color =
 		scheduledClient.color && isSchedulingColor(scheduledClient.color)
 			? (scheduledClient.color as SchedulingColor)
@@ -678,17 +693,40 @@ const SchedulingTableRow = memo(function SchedulingTableRow({
 		>
 			<TableCell data-col={0} data-row={rowIndex}>
 				{isEditable ? (
-					<Input
-						className="w-12 px-1 text-center"
-						onBlur={() => {
-							const val = parseInt(localSort, 10);
-							if (!Number.isNaN(val) && val !== scheduledClient.sort) {
-								onUpdate?.(scheduledClient.clientId, { sort: val });
-							}
-						}}
-						onChange={(e) => setLocalSort(e.target.value)}
-						value={localSort}
-					/>
+					<div className="group relative flex w-16 items-center">
+						<Input
+							className="w-full px-1 pr-6 text-center [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+							onBlur={() => {
+								const val = parseInt(localSort, 10);
+								if (!Number.isNaN(val) && val !== scheduledClient.sort) {
+									onUpdate?.(scheduledClient.clientId, { sort: val });
+								}
+							}}
+							onChange={(e) => setLocalSort(e.target.value)}
+							type="number"
+							value={localSort}
+						/>
+						<div className="absolute right-1 flex flex-col opacity-0 transition-opacity group-hover:opacity-100">
+							<button
+								className="hover:text-primary"
+								onClick={() =>
+									handleSortChange((parseInt(localSort, 10) || 0) + 1)
+								}
+								type="button"
+							>
+								<ChevronUp className="h-3 w-3" />
+							</button>
+							<button
+								className="hover:text-primary"
+								onClick={() =>
+									handleSortChange((parseInt(localSort, 10) || 0) - 1)
+								}
+								type="button"
+							>
+								<ChevronDown className="h-3 w-3" />
+							</button>
+						</div>
+					</div>
 				) : (
 					<div className="w-12 text-center">{scheduledClient.sort}</div>
 				)}
