@@ -87,11 +87,13 @@ def _normalize_phone_number(phone_series: pd.Series) -> pd.Series:
     - Prepends '1' to 10-digit numbers.
     """
     # Convert to string and strip all non-digit characters
-    cleaned_series = phone_series.astype(str).str.replace(r"\D", "", regex=True)
+    cleaned = phone_series.str.replace(r"\D", "", regex=True)
 
     # Prepend '1' to numbers that are 10 digits long
     # Others (e.g., already 11 digits, international, or malformed) are left as is.
-    return cleaned_series.apply(lambda x: "1" + x if len(x) == 10 else x)
+    is_ten_digits = cleaned.str.len() == 10
+    cleaned.loc[is_ten_digits] = "1" + cleaned.loc[is_ten_digits]
+    return cleaned
 
 
 def _create_openphone_contacts(contacts_df: pd.DataFrame):
