@@ -9,6 +9,7 @@ import geopy.geocoders
 import pandas as pd
 import requests
 from dotenv import load_dotenv
+from geocodio import Geocodio
 from geopy.extra.rate_limiter import RateLimiter
 from geopy.geocoders import Nominatim
 from geopy.location import Location
@@ -124,6 +125,41 @@ def _get_client_census_data(client: pd.Series) -> tuple[str, dict] | Literal["Un
     except requests.RequestException as e:
         logger.error(f"Error fetching school district data: {e}")
         return "Unknown"
+
+
+geocodio_client = Geocodio(os.getenv("GEOCODIO_API_KEY", ""))
+
+
+def _search_geocodio(full_address: str) -> tuple[str, float, float] | None:
+    """Searches Geocodio for address, coordinates, and school district."""
+    if not os.getenv("GEOCODIO_API_KEY"):
+        logger.warning("GEOCODIO_API_KEY is not set, skipping Geocodio")
+        return None
+
+    try:
+        logger.debug(f"Searching Geocodio for: {full_address}")
+        response = geocodio_client.geocode(full_address, fields=["school"])
+
+        if not response.results:
+            return None
+
+        best_match = response.results[0]
+        lat = best_match.location.lat
+        lon = best_match.location.lng
+
+        district = "Unknown"
+
+        fields = best_match.fields
+        districts_obj = fields.school_districts if fields else None
+
+        if districts_obj:
+            district = districts_obj[0].name
+
+        logger.debug(f"Found {district}, {lat}, {lon} for {full_address}")
+        return district, lat, lon
+    except Exception as e:
+        logger.error(f"Geocodio error: {e}")
+        return None
 
 
 geopy.geocoders.options.default_timeout = 7
@@ -264,33 +300,48 @@ def add_location_data(client: pd.Series) -> pd.Series:
     """Gets the school district and coordinates for a client, for use in .apply."""
     census_result = _get_client_census_data(client)
     if census_result != "Unknown":
-        district_name, coordinates = census_result
-        if isinstance(coordinates, dict):
-            lat, lon = float(coordinates["y"]), float(coordinates["x"])
+        dist, coords = census_result
+        if isinstance(coords, dict):
+            lat, lon = float(coords["y"]), float(coords["x"])
 
             return pd.Series(
                 {
-                    "SCHOOL_DISTRICT": district_name,
+                    "SCHOOL_DISTRICT": dist,
                     "LATITUDE": lat,
                     "LONGITUDE": lon,
                     "FLAG": None,
                 }
             )
 
-    geocoded_location, attempt_count = _geocode_address(client)
-    if geocoded_location is not None:
-        lat, lon = float(geocoded_location.latitude), float(geocoded_location.longitude)
-        district = _get_school_district_from_coords(lat, lon)
-        flag = "district_from_shapefile" if attempt_count > 1 else None
-    else:
-        district = "Unknown"
-        lat, lon = None, None
-        flag = None
+    addr_str = str(client.ADDRESS) if not pd.isna(client.ADDRESS) else ""
+    if addr_str:
+        geocodio_res = _search_geocodio(addr_str)
+        if geocodio_res:
+            dist, lat, lon = geocodio_res
+            return pd.Series(
+                {
+                    "SCHOOL_DISTRICT": dist,
+                    "LATITUDE": lat,
+                    "LONGITUDE": lon,
+                    "FLAG": None,
+                }
+            )
 
-    if (
-        district == "Unknown"
-        and str(client.USER_ADDRESS_CITY).strip().lower() == "myrtle beach"
-    ):
+    loc, attempts = _geocode_address(client)
+    if loc:
+        lat, lon = float(loc.latitude), float(loc.longitude)
+        dist = _get_school_district_from_coords(lat, lon)
+        return pd.Series(
+            {
+                "SCHOOL_DISTRICT": dist,
+                "LATITUDE": lat,
+                "LONGITUDE": lon,
+                "FLAG": "district_from_shapefile" if attempts > 1 else None,
+            }
+        )
+
+    district = "Unknown"
+    if str(client.USER_ADDRESS_CITY).strip().lower() == "myrtle beach":
         logger.info(
             f"Manual fallback for Myrtle Beach: Setting school district to Horry County School District"
         )
@@ -299,8 +350,8 @@ def add_location_data(client: pd.Series) -> pd.Series:
     return pd.Series(
         {
             "SCHOOL_DISTRICT": district,
-            "LATITUDE": lat,
-            "LONGITUDE": lon,
-            "FLAG": flag,
+            "LATITUDE": None,
+            "LONGITUDE": None,
+            "FLAG": None,
         }
     )
