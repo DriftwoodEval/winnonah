@@ -59,6 +59,11 @@ export default function NavigationLinks() {
 			label: "Scheduling",
 			show: can("pages:scheduling"),
 		},
+		{
+			href: "/claim-reports",
+			label: "Claim Reports",
+			show: true,
+		},
 	].filter((item) => item.show);
 
 	return (
