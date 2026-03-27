@@ -2,6 +2,7 @@ import { DrizzleAdapter } from "@auth/drizzle-adapter";
 import { and, eq } from "drizzle-orm/sql";
 import type { DefaultSession, NextAuthConfig } from "next-auth";
 import GoogleProvider from "next-auth/providers/google";
+import { env } from "~/env";
 import { type PermissionsObject, permissionPresets } from "~/lib/types";
 
 import { db } from "~/server/db";
@@ -56,6 +57,7 @@ export const authConfig = {
 			clientSecret: process.env.AUTH_GOOGLE_SECRET,
 			authorization: {
 				params: {
+					hd: env.NEXT_PUBLIC_APP_HOST,
 					access_type: "offline",
 					response_type: "code",
 					include_granted_scopes: "true",
