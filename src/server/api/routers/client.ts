@@ -310,19 +310,17 @@ export const clientRouter = createTRPCRouter({
 			),
 		});
 
-		const clientsWithDistrictFromShapefile =
-			await ctx.db.query.clients.findMany({
-				where: and(
-					eq(clients.flag, "district_from_shapefile"),
-					gt(clients.dob, subYears(new Date(), 21)),
-					not(isNoteOnly),
-					eq(clients.status, true),
-				),
-			});
+		const clientsWithPoorAddressLookup = await ctx.db.query.clients.findMany({
+			where: and(
+				eq(clients.flag, "poor_address_lookup"),
+				not(isNoteOnly),
+				eq(clients.status, true),
+			),
+		});
 
 		return {
 			clientsWithoutDistrict,
-			clientsWithDistrictFromShapefile,
+			clientsWithPoorAddressLookup,
 		};
 	}),
 
@@ -781,6 +779,9 @@ export const clientRouter = createTRPCRouter({
 				clientId: z.number(),
 				color: z.enum(CLIENT_COLOR_KEYS).optional(),
 				schoolDistrict: z.string().optional(),
+				latitude: z.string().optional(),
+				longitude: z.string().optional(),
+				flag: z.string().nullish().optional(),
 				highPriority: z.boolean().optional(),
 				pause: z.boolean().optional(),
 				babyNet: z.boolean().optional(),
@@ -824,6 +825,17 @@ export const clientRouter = createTRPCRouter({
 					: []),
 				...(input.schoolDistrict !== undefined &&
 				input.schoolDistrict !== currentClient.schoolDistrict
+					? (["clients:schooldistrict"] as const)
+					: []),
+				...(input.latitude !== undefined &&
+				input.latitude !== currentClient.latitude
+					? (["clients:schooldistrict"] as const)
+					: []),
+				...(input.longitude !== undefined &&
+				input.longitude !== currentClient.longitude
+					? (["clients:schooldistrict"] as const)
+					: []),
+				...(input.flag !== undefined && input.flag !== currentClient.flag
 					? (["clients:schooldistrict"] as const)
 					: []),
 				...(input.highPriority !== undefined &&
@@ -894,6 +906,8 @@ export const clientRouter = createTRPCRouter({
 			const updateData: {
 				color?: (typeof CLIENT_COLOR_KEYS)[number];
 				schoolDistrict?: string;
+				latitude?: string;
+				longitude?: string;
 				highPriority?: boolean;
 				pause?: boolean;
 				babyNet?: boolean;
@@ -913,9 +927,15 @@ export const clientRouter = createTRPCRouter({
 			}
 			if (input.schoolDistrict !== undefined) {
 				updateData.schoolDistrict = input.schoolDistrict;
-				if (currentClient?.flag === "district_from_shapefile") {
-					updateData.flag = null;
-				}
+			}
+			if (input.latitude !== undefined) {
+				updateData.latitude = input.latitude;
+			}
+			if (input.longitude !== undefined) {
+				updateData.longitude = input.longitude;
+			}
+			if (input.flag !== undefined) {
+				updateData.flag = input.flag;
 			}
 			if (input.highPriority !== undefined) {
 				updateData.highPriority = input.highPriority;

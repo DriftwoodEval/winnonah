@@ -38,7 +38,7 @@ export function MergeRecommendationAlert({
 				<AlertTitle className="text-accent-foreground">
 					Merge Recommendation
 				</AlertTitle>
-				<AlertDescription className="text-accent-goreground/90">
+				<AlertDescription className="text-accent-foreground/90">
 					<div className="mt-2 flex flex-wrap gap-2">
 						{suggestion.suggestedRealClients.map((real) => (
 							<MergePreviewDialog

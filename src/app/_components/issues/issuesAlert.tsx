@@ -89,7 +89,7 @@ export function IssuesAlert() {
 
 	const errorsLength =
 		(districtErrors?.clientsWithoutDistrict.length ?? 0) +
-		(districtErrors?.clientsWithDistrictFromShapefile.length ?? 0) +
+		(districtErrors?.clientsWithPoorAddressLookup.length ?? 0) +
 		(babyNetErrors?.length ?? 0) +
 		(notInTAErrors?.length ?? 0) +
 		(dropList?.length ?? 0) +

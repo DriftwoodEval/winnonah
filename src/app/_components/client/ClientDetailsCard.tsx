@@ -1,10 +1,12 @@
 "use client";
-import { Alert, AlertTitle } from "@ui/alert";
+import { Alert, AlertDescription, AlertTitle } from "@ui/alert";
+import { Button } from "@ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@ui/popover";
-import { AlertTriangleIcon } from "lucide-react";
+import { AlertTriangleIcon, MapPinIcon } from "lucide-react";
 import Link from "next/link";
 import type { ClientWithOffice } from "~/lib/api-types";
 import { cn, formatClientAge, formatPhoneNumber } from "~/lib/utils";
+import { ManualAddressDialog } from "./ManualAddressDialog";
 
 interface ClientDetailsCardProps {
 	client: ClientWithOffice;
@@ -188,13 +190,24 @@ export function ClientDetailsCard({
 				</Alert>
 			)}
 
-			{client.flag === "district_from_shapefile" && (
+			{client.flag === "poor_address_lookup" && (
 				<Alert variant="destructive">
 					<AlertTriangleIcon />
 					<AlertTitle>
-						School district was found after cutting address, confirm that it's
-						correct by editing the client and submitting.
+						Poor address lookup for this client. Double check values and
+						manually input.
 					</AlertTitle>
+					<AlertDescription>
+						<ManualAddressDialog
+							client={client}
+							trigger={
+								<Button className="cursor-pointer" size="sm" variant="outline">
+									<MapPinIcon className="mr-2 h-4 w-4" />
+									Manual Input
+								</Button>
+							}
+						/>
+					</AlertDescription>
 				</Alert>
 			)}
 		</div>

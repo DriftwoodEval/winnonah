@@ -336,7 +336,7 @@ def add_location_data(client: pd.Series) -> pd.Series:
                 "SCHOOL_DISTRICT": dist,
                 "LATITUDE": lat,
                 "LONGITUDE": lon,
-                "FLAG": "district_from_shapefile" if attempts > 1 else None,
+                "FLAG": "poor_address_lookup" if attempts > 1 else None,
             }
         )
 

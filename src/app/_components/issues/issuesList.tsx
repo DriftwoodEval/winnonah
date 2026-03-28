@@ -4,7 +4,7 @@ import { Button } from "@ui/button";
 import { ScrollArea } from "@ui/scroll-area";
 import { Separator } from "@ui/separator";
 import { format, formatDistanceToNow } from "date-fns";
-import { MapIcon, Pin, PinOff, RotateCw } from "lucide-react";
+import { MapIcon, MapPinIcon, Pin, PinOff, RotateCw } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useRef } from "react";
 import type {
@@ -14,6 +14,7 @@ import type {
 import type { Client, ClientWithIssueInfo } from "~/lib/models";
 
 import { api } from "~/trpc/react";
+import { ManualAddressDialog } from "../client/ManualAddressDialog";
 
 interface IssueListProps {
 	title: string;
@@ -137,22 +138,42 @@ const IssueList = ({ title, description, clients, action }: IssueListProps) => {
 							key={client.hash}
 							ref={isSavedClient(client.hash) ? savedClientRef : null}
 						>
-							<Link href={`/clients/${client.hash}`} key={client.hash}>
-								<div className="text-sm" key={client.hash}>
-									{client.fullName}{" "}
-									{client.additionalInfo && (
-										<span className="text-muted-foreground">
-											{client.additionalInfo}
-										</span>
-									)}
-									{client.initialFailureDate && (
-										<span className="ml-1 text-muted-foreground">
-											(first failed{" "}
-											{format(new Date(client.initialFailureDate), "MM/dd/yy")})
-										</span>
-									)}
-								</div>
-							</Link>
+							<div className="flex items-center justify-between">
+								<Link
+									className="flex-1"
+									href={`/clients/${client.hash}`}
+									key={client.hash}
+								>
+									<div className="text-sm" key={client.hash}>
+										{client.fullName}{" "}
+										{client.additionalInfo && (
+											<span className="text-muted-foreground">
+												{client.additionalInfo}
+											</span>
+										)}
+										{client.initialFailureDate && (
+											<span className="ml-1 text-muted-foreground">
+												(first failed{" "}
+												{format(
+													new Date(client.initialFailureDate),
+													"MM/dd/yy",
+												)}
+												)
+											</span>
+										)}
+									</div>
+								</Link>
+								{client.flag === "poor_address_lookup" && (
+									<ManualAddressDialog
+										client={client}
+										trigger={
+											<Button size="icon-sm" variant="ghost">
+												<MapPinIcon className="h-3 w-3" />
+											</Button>
+										}
+									/>
+								)}
+							</div>
 							{isSavedClient(client.hash) && (
 								<button
 									aria-label={`Remove ${client.fullName} as saved client for ${title}`}
@@ -664,7 +685,7 @@ export function IssuesList() {
 	const utils = api.useUtils();
 	const { data: districtErrors, isLoading: isLoadingDistrictErrors } =
 		api.clients.getDistrictErrors.useQuery();
-	const { clientsWithoutDistrict = [], clientsWithDistrictFromShapefile = [] } =
+	const { clientsWithoutDistrict = [], clientsWithPoorAddressLookup = [] } =
 		districtErrors ?? {};
 	const { data: babyNetErrors, isLoading: isLoadingBabyNetErrors } =
 		api.clients.getBabyNetErrors.useQuery();
@@ -850,12 +871,12 @@ export function IssuesList() {
 			)}
 			{isLoadingDistrictErrors && <IssueListSkeleton />}
 			{!isLoadingDistrictErrors &&
-				clientsWithDistrictFromShapefile &&
-				clientsWithDistrictFromShapefile.length !== 0 && (
+				clientsWithPoorAddressLookup &&
+				clientsWithPoorAddressLookup.length !== 0 && (
 					<IssueList
-						clients={clientsWithDistrictFromShapefile}
-						description="Districts found after cutting the address in some way for search, should be manually double-checked."
-						title="District Found After Cut Address"
+						clients={clientsWithPoorAddressLookup}
+						description="Address info was only found after cutting, should be double checked."
+						title="Poor Address Lookup"
 					/>
 				)}
 			{isLoadingBabyNetErrors && <IssueListSkeleton />}
