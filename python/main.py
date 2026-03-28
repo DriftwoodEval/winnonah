@@ -297,7 +297,7 @@ def main(
 
     trigger_args = [openphone, download_only]
 
-    if not os.getenv("DEV_TOGGLE") or any(trigger_args):
+    if not os.getenv("DEV_TOGGLE") and any(trigger_args):
         logger.debug("Removing temp directory")
         shutil.rmtree("temp", ignore_errors=True)
 
