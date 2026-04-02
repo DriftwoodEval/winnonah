@@ -288,13 +288,14 @@ export const schedulingRouter = createTRPCRouter({
 				optimisticClient: z.any().optional(),
 			}),
 		)
-		.mutation(async ({ input }) => {
-			const maxSortResult = await db
+		.mutation(async ({ ctx, input }) => {
+			const maxSortResult = await ctx.db
 				.select({ maxSort: sql<number>`MAX(${schedulingClients.sort})` })
-				.from(schedulingClients);
-			const nextSort = (maxSortResult[0]?.maxSort ?? 0) + 1;
+				.from(schedulingClients)
+				.where(eq(schedulingClients.archived, false));
+			const nextSort = (maxSortResult[0]?.maxSort ?? -1) + 1;
 
-			await db
+			await ctx.db
 				.insert(schedulingClients)
 				.values({
 					clientId: input.clientId,
@@ -314,6 +315,46 @@ export const schedulingRouter = createTRPCRouter({
 				});
 		}),
 
+	move: protectedProcedure
+		.input(
+			z.object({ clientId: z.number(), direction: z.enum(["up", "down"]) }),
+		)
+		.mutation(async ({ ctx, input }) => {
+			const allClients = await ctx.db
+				.select({ clientId: schedulingClients.clientId })
+				.from(schedulingClients)
+				.where(eq(schedulingClients.archived, false))
+				.orderBy(asc(schedulingClients.sort), asc(schedulingClients.createdAt));
+
+			const index = allClients.findIndex((c) => c.clientId === input.clientId);
+			if (index === -1) return;
+
+			let newIndex = index;
+			if (input.direction === "up" && index > 0) {
+				newIndex = index - 1;
+			} else if (input.direction === "down" && index < allClients.length - 1) {
+				newIndex = index + 1;
+			}
+
+			if (newIndex !== index) {
+				const [movedClient] = allClients.splice(index, 1);
+				if (movedClient) {
+					allClients.splice(newIndex, 0, movedClient);
+				}
+
+				await ctx.db.transaction(async (tx) => {
+					for (let i = 0; i < allClients.length; i++) {
+						const client = allClients[i];
+						if (!client) continue;
+						await tx
+							.update(schedulingClients)
+							.set({ sort: i })
+							.where(eq(schedulingClients.clientId, client.clientId));
+					}
+				});
+			}
+		}),
+
 	update: protectedProcedure
 		.input(
 			z.object({
@@ -328,7 +369,7 @@ export const schedulingRouter = createTRPCRouter({
 				sort: z.number().optional(),
 			}),
 		)
-		.mutation(async ({ input }) => {
+		.mutation(async ({ ctx, input }) => {
 			const updateData: {
 				evaluator?: number | null;
 				date?: string;
@@ -364,7 +405,7 @@ export const schedulingRouter = createTRPCRouter({
 			if (input.sort !== undefined) {
 				updateData.sort = input.sort;
 			}
-			await db
+			await ctx.db
 				.update(schedulingClients)
 				.set(updateData)
 				.where(eq(schedulingClients.clientId, input.clientId));
@@ -372,8 +413,8 @@ export const schedulingRouter = createTRPCRouter({
 
 	archive: protectedProcedure
 		.input(z.object({ clientId: z.number() }))
-		.mutation(async ({ input }) => {
-			await db
+		.mutation(async ({ ctx, input }) => {
+			await ctx.db
 				.update(schedulingClients)
 				.set({ archived: true })
 				.where(eq(schedulingClients.clientId, input.clientId));
@@ -381,10 +422,16 @@ export const schedulingRouter = createTRPCRouter({
 
 	unarchive: protectedProcedure
 		.input(z.object({ clientId: z.number() }))
-		.mutation(async ({ input }) => {
-			await db
+		.mutation(async ({ ctx, input }) => {
+			const maxSortResult = await ctx.db
+				.select({ maxSort: sql<number>`MAX(${schedulingClients.sort})` })
+				.from(schedulingClients)
+				.where(eq(schedulingClients.archived, false));
+			const nextSort = (maxSortResult[0]?.maxSort ?? -1) + 1;
+
+			await ctx.db
 				.update(schedulingClients)
-				.set({ archived: false, createdAt: new Date() })
+				.set({ archived: false, createdAt: new Date(), sort: nextSort })
 				.where(eq(schedulingClients.clientId, input.clientId));
 		}),
 });

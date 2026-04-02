@@ -651,6 +651,7 @@ const SchedulingTableRow = memo(function SchedulingTableRow({
 	insurances,
 	isEditable,
 	onUpdate,
+	onMove,
 	actions,
 	isScrolledLeft,
 	rowIndex,
@@ -662,6 +663,7 @@ const SchedulingTableRow = memo(function SchedulingTableRow({
 	insurances: InsuranceWithAliases[];
 	isEditable?: boolean;
 	onUpdate?: (clientId: number, data: SchedulingUpdateData) => void;
+	onMove?: (clientId: number, direction: "up" | "down") => void;
 	actions: React.ReactNode;
 	isScrolledLeft?: boolean;
 	rowIndex: number;
@@ -669,9 +671,6 @@ const SchedulingTableRow = memo(function SchedulingTableRow({
 	const [localDate, setLocalDate] = useState(scheduledClient.date ?? "");
 	const [localTime, setLocalTime] = useState(scheduledClient.time ?? "");
 	const [localNotes, setLocalNotes] = useState(scheduledClient.notes ?? "");
-	const [localSort, setLocalSort] = useState(
-		scheduledClient.sort?.toString() ?? "0",
-	);
 
 	useEffect(() => {
 		setLocalDate(scheduledClient.date ?? "");
@@ -684,17 +683,6 @@ const SchedulingTableRow = memo(function SchedulingTableRow({
 	useEffect(() => {
 		setLocalNotes(scheduledClient.notes ?? "");
 	}, [scheduledClient.notes]);
-
-	useEffect(() => {
-		setLocalSort(scheduledClient.sort?.toString() ?? "0");
-	}, [scheduledClient.sort]);
-
-	const handleSortChange = (newSort: number) => {
-		setLocalSort(newSort.toString());
-		if (newSort !== scheduledClient.sort) {
-			onUpdate?.(scheduledClient.clientId, { sort: newSort });
-		}
-	};
 
 	const districtMap = useMemo(
 		() => new Map(districts.map((d) => [d.fullName, d])),
@@ -726,43 +714,25 @@ const SchedulingTableRow = memo(function SchedulingTableRow({
 			style={{ backgroundColor }}
 		>
 			<TableCell data-col={0} data-row={rowIndex}>
-				{isEditable ? (
-					<div className="group relative flex w-16 items-center">
-						<Input
-							className="w-full px-1 pr-6 text-center [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
-							onBlur={() => {
-								const val = parseInt(localSort, 10);
-								if (!Number.isNaN(val) && val !== scheduledClient.sort) {
-									onUpdate?.(scheduledClient.clientId, { sort: val });
-								}
-							}}
-							onChange={(e) => setLocalSort(e.target.value)}
-							type="number"
-							value={localSort}
-						/>
-						<div className="absolute right-1 flex flex-col opacity-0 transition-opacity group-hover:opacity-100">
-							<button
-								className="hover:text-primary"
-								onClick={() =>
-									handleSortChange((parseInt(localSort, 10) || 0) + 1)
-								}
-								type="button"
-							>
-								<ChevronUp className="h-3 w-3" />
-							</button>
-							<button
-								className="hover:text-primary"
-								onClick={() =>
-									handleSortChange((parseInt(localSort, 10) || 0) - 1)
-								}
-								type="button"
-							>
-								<ChevronDown className="h-3 w-3" />
-							</button>
-						</div>
+				{isEditable && (
+					<div className="flex flex-col items-center justify-center">
+						<button
+							className="cursor-pointer text-muted-foreground transition-colors hover:text-primary disabled:opacity-30"
+							onClick={() => onMove?.(scheduledClient.clientId, "up")}
+							title="Move Up"
+							type="button"
+						>
+							<ChevronUp className="h-4 w-4" />
+						</button>
+						<button
+							className="cursor-pointer text-muted-foreground transition-colors hover:text-primary disabled:opacity-30"
+							onClick={() => onMove?.(scheduledClient.clientId, "down")}
+							title="Move Down"
+							type="button"
+						>
+							<ChevronDown className="h-4 w-4" />
+						</button>
 					</div>
-				) : (
-					<div className="w-12 text-center">{scheduledClient.sort}</div>
 				)}
 			</TableCell>
 			<TableCell
@@ -984,6 +954,7 @@ interface InternalSchedulingTableProps {
 	insurances: InsuranceWithAliases[];
 	isEditable: boolean;
 	onUpdate?: (clientId: number, data: SchedulingUpdateData) => void;
+	onMove?: (clientId: number, direction: "up" | "down") => void;
 	onAction: (clientId: number) => void;
 	actionIcon: React.ReactNode;
 	actionVariant: "default" | "destructive";
@@ -1001,6 +972,7 @@ function InternalSchedulingTable({
 	insurances,
 	isEditable,
 	onUpdate,
+	onMove,
 	onAction,
 	actionIcon,
 	actionVariant,
@@ -1285,6 +1257,7 @@ function InternalSchedulingTable({
 							isScrolledLeft={isScrolledLeft}
 							key={scheduledClient.clientId}
 							offices={offices}
+							onMove={onMove}
 							onUpdate={onUpdate}
 							rowIndex={rowIndex}
 							scheduledClient={scheduledClient}
@@ -1374,6 +1347,49 @@ function SchedulingTableView({
 		onSettled: () => utils.scheduling.get.invalidate(),
 	});
 
+	const moveMutation = api.scheduling.move.useMutation({
+		onMutate: async (moveData) => {
+			await utils.scheduling.get.cancel();
+			const previousData = utils.scheduling.get.getData();
+			utils.scheduling.get.setData(undefined, (old) => {
+				if (!old) return old;
+				const clients = [...old.clients];
+				const index = clients.findIndex(
+					(c) => c.clientId === moveData.clientId,
+				);
+				if (index === -1) return old;
+
+				let newIndex = index;
+				if (moveData.direction === "up" && index > 0) {
+					newIndex = index - 1;
+				} else if (
+					moveData.direction === "down" &&
+					index < clients.length - 1
+				) {
+					newIndex = index + 1;
+				}
+
+				if (newIndex !== index) {
+					const [movedClient] = clients.splice(index, 1);
+					if (movedClient) {
+						clients.splice(newIndex, 0, movedClient);
+					}
+					// Ensure sorts are unique and sequential in optimistic UI
+					return {
+						...old,
+						clients: clients.map((c, i) => ({ ...c, sort: i })),
+					};
+				}
+				return old;
+			});
+			return { previousData };
+		},
+		onError: (_err, _moveData, context) =>
+			context?.previousData &&
+			utils.scheduling.get.setData(undefined, context.previousData),
+		onSettled: () => utils.scheduling.get.invalidate(),
+	});
+
 	const actionMutation = (
 		type === "active" ? api.scheduling.archive : api.scheduling.unarchive
 	).useMutation({
@@ -1406,6 +1422,9 @@ function SchedulingTableView({
 			lastAddedClientId={lastAddedClientId}
 			offices={(data?.offices as Office[]) || []}
 			onAction={(clientId) => actionMutation.mutate({ clientId })}
+			onMove={(clientId, direction) =>
+				moveMutation.mutate({ clientId, direction })
+			}
 			onScrollToClient={onScrollToClient}
 			onUpdate={
 				type === "active"
