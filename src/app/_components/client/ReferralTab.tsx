@@ -92,6 +92,7 @@ export function ReferralTab({ client, readOnly }: ReferralTabProps) {
 			toast.success("Pushed to punch list");
 			void utils.google.getClientFromPunch.invalidate(client.id.toString());
 			void utils.google.getDashboardData.invalidate();
+			void utils.notes.getNoteByClientId.invalidate(client.id);
 		},
 		onError: (error) => {
 			toast.error("Failed to push to punch list", {

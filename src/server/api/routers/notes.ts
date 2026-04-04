@@ -10,7 +10,7 @@ import {
 } from "~/server/api/trpc";
 import { noteHistory, notes, users } from "~/server/db/schema";
 
-const noteEmitter = new EventEmitter();
+export const noteEmitter = new EventEmitter();
 noteEmitter.setMaxListeners(100);
 
 const areContentsEqual = (

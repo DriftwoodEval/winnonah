@@ -1,3 +1,4 @@
+import type { JSONContent } from "@tiptap/core";
 import { TRPCError } from "@trpc/server";
 import { differenceInMonths, differenceInYears } from "date-fns";
 import { eq, isNotNull } from "drizzle-orm";
@@ -29,7 +30,14 @@ import {
 	createTRPCRouter,
 	protectedProcedure,
 } from "~/server/api/trpc";
-import { clients, offices, users } from "~/server/db/schema";
+import {
+	clients,
+	noteHistory,
+	notes,
+	offices,
+	users,
+} from "~/server/db/schema";
+import { noteEmitter } from "./notes";
 
 const CACHE_KEY_DUPLICATES = "google:drive:duplicate-ids";
 
@@ -849,6 +857,148 @@ export const googleRouter = createTRPCRouter({
 			const previewData = await getPreviewData(ctx, input);
 
 			ctx.logger.info({ clientId: input }, "Pushing client to Punchlist");
+
+			// Append referral data to notes (separate logic)
+			const referralData = client.referralData;
+			if (referralData) {
+				try {
+					await ctx.db.transaction(async (tx) => {
+						const currentNote = await tx.query.notes.findFirst({
+							where: eq(notes.clientId, input),
+						});
+
+						const referralContent: JSONContent[] = [];
+						referralContent.push({ type: "paragraph" });
+						referralContent.push({
+							type: "paragraph",
+							content: [
+								{
+									type: "text",
+									text: "Referral Information",
+									marks: [{ type: "bold" }],
+								},
+							],
+						});
+
+						if (referralData.notes) {
+							referralContent.push({
+								type: "paragraph",
+								content: [
+									{ type: "text", text: "Notes: ", marks: [{ type: "bold" }] },
+									{ type: "text", text: referralData.notes },
+								],
+							});
+						}
+
+						if (referralData.schoolExplanation) {
+							referralContent.push({
+								type: "paragraph",
+								content: [
+									{
+										type: "text",
+										text: "School Notes: ",
+										marks: [{ type: "bold" }],
+									},
+									{ type: "text", text: referralData.schoolExplanation },
+								],
+							});
+						}
+
+						if (referralData.locationPreference) {
+							referralContent.push({
+								type: "paragraph",
+								content: [
+									{
+										type: "text",
+										text: "Location Preference: ",
+										marks: [{ type: "bold" }],
+									},
+									{ type: "text", text: referralData.locationPreference },
+								],
+							});
+						}
+
+						if (referralData.followedByBabyNet) {
+							referralContent.push({
+								type: "paragraph",
+								content: [
+									{
+										type: "text",
+										text: "BabyNet: ",
+										marks: [{ type: "bold" }],
+									},
+									{ type: "text", text: referralData.followedByBabyNet },
+								],
+							});
+						}
+
+						if (referralData.otherNotes) {
+							referralContent.push({
+								type: "paragraph",
+								content: [
+									{
+										type: "text",
+										text: "Other Notes: ",
+										marks: [{ type: "bold" }],
+									},
+									{ type: "text", text: referralData.otherNotes },
+								],
+							});
+						}
+
+						let finalContent: JSONContent;
+						if (currentNote) {
+							// Add to history
+							await tx.insert(noteHistory).values({
+								noteId: currentNote.clientId,
+								content: currentNote.content,
+								title: currentNote.title,
+								updatedBy: currentNote.updatedBy,
+							});
+
+							const existingContent = (currentNote.content as JSONContent) || {
+								type: "doc",
+								content: [],
+							};
+							finalContent = {
+								type: "doc",
+								content: [
+									...(existingContent.content || []),
+									...referralContent,
+								],
+							};
+
+							await tx
+								.update(notes)
+								.set({
+									content: finalContent,
+									updatedBy: ctx.session.user.email,
+								})
+								.where(eq(notes.clientId, input));
+						} else {
+							finalContent = {
+								type: "doc",
+								content: referralContent,
+							};
+
+							await tx.insert(notes).values({
+								clientId: input,
+								content: finalContent,
+								updatedBy: ctx.session.user.email,
+							});
+						}
+
+						// Emit update via noteEmitter for live subscriptions
+						noteEmitter.emit("noteUpdate", {
+							clientId: input,
+							contentJson: finalContent,
+							title: currentNote?.title ?? null,
+						});
+					});
+				} catch (e) {
+					ctx.logger.error(e, "Failed to append referral data to notes");
+				}
+			}
 
 			try {
 				// Update recordsNeeded field appropriately based on age
