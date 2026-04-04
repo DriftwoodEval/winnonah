@@ -95,7 +95,6 @@ export function AddClientToScheduling({
 				onAdd={(client) =>
 					addClientMutation.mutate({
 						clientId: client.id,
-
 						optimisticClient: client,
 					})
 				}

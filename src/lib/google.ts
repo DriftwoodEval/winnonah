@@ -1,3 +1,4 @@
+import { calendar, type calendar_v3 } from "@googleapis/calendar";
 import { drive } from "@googleapis/drive";
 import { sheets, type sheets_v4 } from "@googleapis/sheets";
 import { and, eq, inArray, not, notInArray, sql } from "drizzle-orm";
@@ -489,3 +490,370 @@ export const getMissingFromPunchlistData = async (session: Session) => {
 
 	return activeDbClients.filter((client) => !punchClientIds.has(client.id));
 };
+
+// Google Calendar
+export function getCalendarClient(session: Session) {
+	if (!session.user.accessToken || !session.user.refreshToken) {
+		throw new Error("Missing access token for Google Calendar API.");
+	}
+
+	const { AUTH_GOOGLE_ID, AUTH_GOOGLE_SECRET } = env;
+	const oauth2Client = new OAuth2Client({
+		clientId: AUTH_GOOGLE_ID,
+		clientSecret: AUTH_GOOGLE_SECRET,
+	});
+	oauth2Client.setCredentials({
+		access_token: session.user.accessToken,
+		refresh_token: session.user.refreshToken,
+	});
+
+	return calendar({ version: "v3", auth: oauth2Client });
+}
+
+interface AvailabilityEvent {
+	summary: string;
+	start: Date;
+	end: Date;
+	isRecurring: boolean;
+	recurrenceRule?: string;
+	isUnavailability: boolean;
+	isAllDay?: boolean;
+}
+
+interface Event {
+	summary: string;
+	start: { dateTime?: string; date?: string; timeZone: string };
+	end: { dateTime?: string; date?: string; timeZone: string };
+	eventType?: string;
+	transparency?: string;
+	recurrence?: string[];
+}
+
+export async function createAvailabilityEvent(
+	session: Session,
+	eventData: AvailabilityEvent,
+) {
+	const calendar = getCalendarClient(session);
+
+	const formatDate = (date: Date) => {
+		const year = date.getFullYear();
+		const month = String(date.getMonth() + 1).padStart(2, "0");
+		const day = String(date.getDate()).padStart(2, "0");
+		return `${year}-${month}-${day}`;
+	};
+
+	const formatDateTime = (date: Date) => {
+		const year = date.getFullYear();
+		const month = String(date.getMonth() + 1).padStart(2, "0");
+		const day = String(date.getDate()).padStart(2, "0");
+		const hours = String(date.getHours()).padStart(2, "0");
+		const minutes = String(date.getMinutes()).padStart(2, "0");
+		const seconds = String(date.getSeconds()).padStart(2, "0");
+
+		return `${year}-${month}-${day}T${hours}:${minutes}:${seconds}`;
+	};
+
+	const event: Event = {
+		summary: eventData.summary,
+		start: {
+			timeZone: "America/New_York",
+		},
+		end: {
+			timeZone: "America/New_York",
+		},
+	};
+
+	if (eventData.isAllDay) {
+		event.start.date = formatDate(eventData.start);
+		event.end.date = formatDate(eventData.end);
+	} else {
+		event.start.dateTime = eventData.isRecurring
+			? formatDateTime(eventData.start)
+			: eventData.start.toISOString();
+		event.end.dateTime = eventData.isRecurring
+			? formatDateTime(eventData.end)
+			: eventData.end.toISOString();
+	}
+
+	if (eventData.isUnavailability) {
+		event.eventType = "outOfOffice";
+		event.transparency = "opaque";
+	}
+
+	if (eventData.isRecurring && eventData.recurrenceRule) {
+		event.recurrence = [eventData.recurrenceRule];
+	}
+
+	const response = await calendar.events.insert({
+		calendarId: "primary",
+		requestBody: event,
+	});
+
+	return response.data;
+}
+
+interface CalendarEvent {
+	id: string | null | undefined;
+	summary: string | null | undefined;
+	start: Date;
+	end: Date;
+	isUnavailability: boolean;
+	isAllDay: boolean;
+	officeKey?: string;
+	officeKeys?: string[];
+	recurrence?: string[];
+	recurringEventId?: string | null;
+}
+
+const isMidnight = (date: Date) => {
+	const parts = new Intl.DateTimeFormat("en-US", {
+		timeZone: "America/New_York",
+		hour: "numeric",
+		minute: "numeric",
+		second: "numeric",
+		hour12: false,
+	}).formatToParts(date);
+
+	const hour = parts.find((p) => p.type === "hour")?.value;
+	const minute = parts.find((p) => p.type === "minute")?.value;
+	const second = parts.find((p) => p.type === "second")?.value;
+
+	return (hour === "00" || hour === "24") && minute === "00" && second === "00";
+};
+
+export function mergeOutOfOfficeEvents(events: CalendarEvent[]) {
+	if (events.length === 0) return [];
+
+	const sorted = [...events].sort(
+		(a, b) => a.start.getTime() - b.start.getTime(),
+	);
+
+	return sorted.reduce<CalendarEvent[]>((acc, current) => {
+		const last = acc[acc.length - 1];
+		if (!last || current.start.getTime() > last.end.getTime()) {
+			acc.push({ ...current });
+		} else if (current.end.getTime() > last.end.getTime()) {
+			last.end = current.end;
+		}
+		return acc;
+	}, []);
+}
+
+export function splitAvailabilityByOOO(
+	officeEvents: CalendarEvent[],
+	oooEvents: CalendarEvent[],
+) {
+	const mergedOOO = mergeOutOfOfficeEvents(oooEvents);
+	const finalAvailability: CalendarEvent[] = [];
+
+	for (const officeEvent of officeEvents) {
+		let currentEventParts = [officeEvent];
+
+		for (const oooEvent of mergedOOO) {
+			const newParts: CalendarEvent[] = [];
+			for (const part of currentEventParts) {
+				const overlap =
+					part.start.getTime() < oooEvent.end.getTime() &&
+					part.end.getTime() > oooEvent.start.getTime();
+
+				if (!overlap) {
+					newParts.push(part);
+					continue;
+				}
+
+				if (part.start.getTime() < oooEvent.start.getTime()) {
+					newParts.push({
+						...part,
+						id: `${part.id}-1`,
+						end: oooEvent.start,
+						isAllDay: false,
+					});
+				}
+
+				if (part.end.getTime() > oooEvent.end.getTime()) {
+					newParts.push({
+						...part,
+						id: `${part.id}-2`,
+						start: oooEvent.end,
+						isAllDay: false,
+					});
+				}
+			}
+			currentEventParts = newParts;
+		}
+
+		finalAvailability.push(...currentEventParts);
+	}
+
+	return finalAvailability;
+}
+
+export async function getAvailabilityEvents(
+	session: Session,
+	startDate: Date,
+	endDate: Date,
+): Promise<CalendarEvent[]> {
+	const calendarApi = getCalendarClient(session);
+	const allItems: calendar_v3.Schema$Event[] = [];
+	let pageToken: string | undefined;
+
+	do {
+		const response = await calendarApi.events.list({
+			calendarId: "primary",
+			timeMin: startDate.toISOString(),
+			timeMax: endDate.toISOString(),
+			singleEvents: true, // Expand recurring events
+			orderBy: "startTime",
+			pageToken: pageToken,
+		});
+
+		if (response.data.items) {
+			allItems.push(...response.data.items);
+		}
+
+		pageToken = response.data.nextPageToken ?? undefined;
+	} while (pageToken);
+
+	const allOffices = await db.query.offices.findMany({});
+	const nameToKeyMap = new Map(
+		allOffices.map((office) => [office.prettyName, office.key]),
+	);
+
+	const officeRegex = /Available\s*-\s*(.*)/i;
+
+	return allItems
+		.filter(
+			(event) =>
+				event.summary?.toLowerCase().includes("available") ||
+				event.summary?.toLowerCase().includes("out of office"),
+		)
+		.map((event) => {
+			const startDateTime = event.start?.dateTime || event.start?.date;
+			const endDateTime = event.end?.dateTime || event.end?.date;
+			const isOOO = event.eventType === "outOfOffice";
+
+			const startDateObj = startDateTime ? new Date(startDateTime) : new Date();
+			const endDateObj = endDateTime ? new Date(endDateTime) : new Date();
+
+			const isAllDay =
+				!!event.start?.date ||
+				(!!event.start?.dateTime &&
+					!!event.end?.dateTime &&
+					isMidnight(startDateObj) &&
+					isMidnight(endDateObj) &&
+					startDateObj.getTime() < endDateObj.getTime());
+
+			let extractedOfficeKeys: string[] = [];
+
+			if (event.summary && !isOOO) {
+				const match = event.summary.match(officeRegex);
+				if (match?.[1]) {
+					const officeNames = match[1].split(",").map((s) => s.trim());
+					extractedOfficeKeys = officeNames
+						.map((name) => nameToKeyMap.get(name))
+						.filter((key): key is string => key !== undefined);
+				}
+			}
+
+			return {
+				id: event.id,
+				summary: event.summary,
+				start: startDateObj,
+				end: endDateObj,
+				isUnavailability: isOOO,
+				isAllDay: isAllDay,
+				officeKey: extractedOfficeKeys[0], // Keep for backward compatibility
+				officeKeys: extractedOfficeKeys,
+				recurrence: event.recurrence ?? undefined,
+				recurringEventId: event.recurringEventId,
+			};
+		});
+}
+
+export async function updateAvailabilityEvent(
+	session: Session,
+	eventId: string,
+	eventData: AvailabilityEvent,
+) {
+	const calendar = getCalendarClient(session);
+
+	const formatDate = (date: Date) => {
+		const year = date.getFullYear();
+		const month = String(date.getMonth() + 1).padStart(2, "0");
+		const day = String(date.getDate()).padStart(2, "0");
+		return `${year}-${month}-${day}`;
+	};
+
+	const formatDateTime = (date: Date) => {
+		const year = date.getFullYear();
+		const month = String(date.getMonth() + 1).padStart(2, "0");
+		const day = String(date.getDate()).padStart(2, "0");
+		const hours = String(date.getHours()).padStart(2, "0");
+		const minutes = String(date.getMinutes()).padStart(2, "0");
+		const seconds = String(date.getSeconds()).padStart(2, "0");
+
+		return `${year}-${month}-${day}T${hours}:${minutes}:${seconds}`;
+	};
+
+	const event: calendar_v3.Schema$Event = {
+		summary: eventData.summary,
+		start: eventData.isAllDay
+			? {
+					date: formatDate(eventData.start),
+					timeZone: "America/New_York",
+				}
+			: {
+					dateTime: eventData.isRecurring
+						? formatDateTime(eventData.start)
+						: eventData.start.toISOString(),
+					timeZone: "America/New_York",
+				},
+		end: eventData.isAllDay
+			? {
+					date: formatDate(eventData.end),
+					timeZone: "America/New_York",
+				}
+			: {
+					dateTime: eventData.isRecurring
+						? formatDateTime(eventData.end)
+						: eventData.end.toISOString(),
+					timeZone: "America/New_York",
+				},
+	};
+
+	if (eventData.isUnavailability) {
+		event.eventType = "outOfOffice";
+		event.transparency = "opaque";
+	} else {
+		event.eventType = "default";
+	}
+
+	if (eventData.isRecurring && eventData.recurrenceRule) {
+		event.recurrence = [eventData.recurrenceRule];
+	} else if (!eventData.isRecurring) {
+		// To remove recurrence from a master event, we must set it to null or []
+		event.recurrence = [];
+	}
+
+	const response = await calendar.events.patch({
+		calendarId: "primary",
+		eventId: eventId,
+		requestBody: event,
+	});
+
+	return response.data;
+}
+
+export async function deleteAvailabilityEvent(
+	session: Session,
+	eventId: string,
+) {
+	const calendar = getCalendarClient(session);
+
+	await calendar.events.delete({
+		calendarId: "primary",
+		eventId: eventId,
+	});
+
+	return { success: true };
+}
