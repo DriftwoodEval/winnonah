@@ -216,7 +216,7 @@ export function AvailabilityList() {
 									<div className="mb-3 flex items-center gap-2">
 										<div
 											className={cn(
-												"flex aspect-square flex-col items-center justify-center rounded-lg px-3 py-1 font-mono",
+												"flex aspect-square flex-col items-center justify-center rounded-lg px-3 py-1",
 												isToday
 													? "bg-primary text-primary-foreground"
 													: "bg-muted",

@@ -42,8 +42,7 @@ export const availabilityFormSchema = baseAvailabilityFormSchema
 			data.isUnavailability ||
 			(data.officeKeys !== undefined && data.officeKeys.length > 0),
 		{
-			message:
-				"At least one office must be selected if not inputting availability.",
+			message: "At least one office must be selected.",
 			path: ["officeKeys"],
 		},
 	);
