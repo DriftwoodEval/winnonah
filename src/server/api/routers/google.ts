@@ -1111,10 +1111,64 @@ export const googleRouter = createTRPCRouter({
 		.mutation(async ({ input, ctx }) => {
 			assertPermission(ctx.session.user, "reports:approve");
 
+			const userToNotify = await ctx.db.query.users.findFirst({
+				where: eq(users.id, input.userId),
+				columns: {
+					email: true,
+					claimedReportFolder: true,
+				},
+			});
+
 			await ctx.db
 				.update(users)
 				.set({ claimedReportFolder: null })
 				.where(eq(users.id, input.userId));
+
+			if (userToNotify?.claimedReportFolder) {
+				const cookieHeader = ctx.headers.get("cookie") ?? "";
+
+				// Fetch current queue count
+				let queueCount = 0;
+				try {
+					const foldersResponse = await fetch(
+						`${env.PY_API}/folders/1fGZavJU8bAqROKd8iTgoEtRT8orp4a4s`,
+						{
+							headers: { Cookie: cookieHeader },
+						},
+					);
+					if (foldersResponse.ok) {
+						const data = (await foldersResponse.json()) as {
+							folders: unknown[];
+						};
+						queueCount = data.folders.length;
+					}
+				} catch (error) {
+					ctx.logger.error(
+						error,
+						"Failed to fetch queue count for notification",
+					);
+				}
+
+				try {
+					await fetch(`${env.PY_API}/notifications/report-approved`, {
+						method: "POST",
+						headers: {
+							"Content-Type": "application/json",
+							Cookie: cookieHeader,
+						},
+						body: JSON.stringify({
+							user_email: userToNotify.email,
+							report_name: userToNotify.claimedReportFolder.name,
+							queue_count: queueCount,
+						}),
+					});
+				} catch (error) {
+					ctx.logger.error(
+						{ error, userId: input.userId },
+						"Failed to send approval notification via Python API",
+					);
+				}
+			}
 
 			return { success: true };
 		}),

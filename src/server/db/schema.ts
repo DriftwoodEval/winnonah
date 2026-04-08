@@ -704,3 +704,11 @@ export const pythonConfig = createTable("python_config", (d) => ({
 	data: d.json("data").$type<ConfigData>().notNull(),
 	updatedAt: d.timestamp("updated_at").defaultNow().onUpdateNow(),
 }));
+
+export const seenReportFolders = createTable("seen_report_folders", (d) => ({
+	folderId: d.varchar({ length: 255 }).notNull().primaryKey(),
+	notifiedAt: d
+		.timestamp("notified_at")
+		.default(sql`CURRENT_TIMESTAMP`)
+		.notNull(),
+}));

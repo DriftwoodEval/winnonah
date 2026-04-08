@@ -10,7 +10,7 @@ from pydantic import BaseModel
 
 from utils.constants import TABLE_CLIENT
 from utils.database import get_db, get_python_config
-from utils.google import google_authenticate
+from utils.google import google_authenticate, send_gmail
 
 load_dotenv()
 
@@ -20,6 +20,12 @@ app = FastAPI()
 class ClaimRequest(BaseModel):
     source_parent_id: str  # Report queue
     destination_parent_id: str  # Report writers' folders
+
+
+class ApprovalNotificationRequest(BaseModel):
+    user_email: str
+    report_name: str
+    queue_count: int
 
 
 def get_google_services():
@@ -419,3 +425,39 @@ async def claim_top_folder(
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/notifications/report-approved")
+async def notify_report_approved(
+    request: ApprovalNotificationRequest,
+    current_user: dict = Depends(get_current_user),
+):
+    """Sends a notification email to a user when their report is approved."""
+    if not current_user["permissions"].get("reports:approve"):
+        raise HTTPException(
+            status_code=403, detail="Not authorized to send approval notifications"
+        )
+
+    subject = f"Report Approved: {request.report_name}"
+
+    message_text = (
+        f"Your report for '{request.report_name}' has been approved.\n\n"
+        "You can now claim a new report in the app: "
+        "https://emr.driftwoodeval.com/claim-reports "
+        f"({request.queue_count} report{'s' if request.queue_count != 1 else ''} in queue)"
+    )
+
+    html_content = f"""
+    <p>Your report for <strong>{request.report_name}</strong> has been approved.</p>
+    <p>You can now claim a new report in the app: <a href="https://emr.driftwoodeval.com/claim-reports">Claim Reports</a> f"({request.queue_count} report{"s" if request.queue_count != 1 else ""} in queue)"</p>
+    """
+
+    send_gmail(
+        message_text=message_text,
+        subject=subject,
+        to_addr=request.user_email,
+        from_addr="tech@driftwoodeval.com",
+        html=html_content,
+    )
+
+    return {"status": "success"}

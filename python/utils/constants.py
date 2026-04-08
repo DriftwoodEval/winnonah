@@ -12,8 +12,10 @@ TABLE_INSURANCE: Final = "emr_insurance"
 TABLE_INSURANCE_ALIAS: Final = "emr_insurance_alias"
 TABLE_EVALUATORS_TO_INSURANCES: Final = "emr_evaluators_to_insurances"
 TABLE_OFFICE: Final = "emr_office"
+TABLE_USER: Final = "emr_user"
 TABLE_CLIENT_EVAL: Final = "emr_client_eval"
 TABLE_PYTHON_CONFIG: Final = "emr_python_config"
+TABLE_SEEN_REPORT_FOLDERS: Final = "emr_seen_report_folders"
 
 # DB to DataFrame Column Mapping
 CLIENT_COLUMN_MAPPING: Final = {

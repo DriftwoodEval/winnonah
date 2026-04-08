@@ -32,6 +32,7 @@ from utils.constants import (
     TABLE_INSURANCE_ALIAS,
     TABLE_PYTHON_CONFIG,
     TABLE_SCHOOL_DISTRICT,
+    TABLE_USER,
 )
 from utils.misc import (
     format_date,
@@ -750,3 +751,22 @@ def get_npi_to_name_map(
     except Exception:
         logger.exception("Error fetching NPI to Name map")
         return {}
+
+
+@provide_connection
+def get_queue_notify_users(connection: Connection[DictCursor]):
+    """Returns a list of users who have the reports:notifications permission and no active claimed report."""
+    users = []
+    with connection.cursor() as cursor:
+        cursor.execute(
+            f"SELECT email, name, permissions, claimed_report_folder FROM {TABLE_USER} WHERE archived = 0"
+        )
+        rows = cursor.fetchall()
+
+        for row in rows:
+            permissions = json.loads(row["permissions"]) if row["permissions"] else {}
+            if permissions.get("reports:notifications") is True:
+                if not row["claimed_report_folder"]:
+                    users.append(row)
+
+    return users
