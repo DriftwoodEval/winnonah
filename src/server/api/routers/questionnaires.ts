@@ -1,4 +1,3 @@
-import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import { URL } from "node:url";
@@ -111,46 +110,41 @@ function parseQuestionnairesFromBulkImport(text: string) {
 	return items;
 }
 
-/** Replicates the get_id_from_url function from qreceive */
-const getIdFromUrl = (url: string, maxLength: number = 64): string => {
-	try {
-		const parsed = new URL(url);
-		const cleanPath = parsed.pathname.replace(/^\/+|\/+$/g, "");
-		const sanitized = cleanPath.replace(/[^\w-]+/g, "_");
-		const urlHash = crypto
-			.createHash("md5")
-			.update(url)
-			.digest("hex")
-			.slice(0, 10);
-		const truncated = sanitized.slice(0, maxLength - 12).replace(/_+$/, "");
-		return `${truncated}_${urlHash}`;
-	} catch (_e) {
-		return crypto.createHash("md5").update(url).digest("hex").slice(0, 10);
-	}
-};
-
 const findLatestScreenshot = (
 	qLink: string,
 	screenshotDir: string,
 ): string | null => {
 	try {
 		const parsedUrl = new URL(qLink);
-		const safeHost = parsedUrl.host.replace(/\./g, "_").replace(/:/g, "_");
-		const uniqueId = getIdFromUrl(parsedUrl.pathname);
 
-		if (!uniqueId || !fs.existsSync(screenshotDir)) return null;
+		const hostParts = parsedUrl.hostname.split(".");
+		const domain =
+			(hostParts.length > 1 ? hostParts[hostParts.length - 2] : hostParts[0]) ??
+			"";
+
+		const pathClean = parsedUrl.pathname
+			.replace(/^\/+|\/+$/g, "")
+			.replace(/[^\w-]+/g, "_");
+		const queryClean = parsedUrl.search
+			.replace(/^\?/, "")
+			.replace(/[^\w-]+/g, "_");
+
+		const urlIdentity =
+			[pathClean, queryClean].filter(Boolean).join("_") || "unknown";
+
+		if (!fs.existsSync(screenshotDir)) return null;
 
 		const files = fs.readdirSync(screenshotDir);
 
 		const matches = files
-			.filter((file) => file.includes(safeHost) && file.includes(uniqueId))
+			.filter((file) => file.includes(domain) && file.includes(urlIdentity))
 			.sort((a, b) => {
 				const extractTS = (name: string) => {
 					const parts = name.replace(".png", "").split("_");
-					// Timestamp is the last two segments: YYYYMMDD and HHMMSS
 					return parts.slice(-2).join("_");
 				};
 
+				// Sort descending (latest first)
 				return extractTS(b).localeCompare(extractTS(a));
 			});
 
