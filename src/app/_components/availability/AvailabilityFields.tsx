@@ -109,6 +109,21 @@ export function AvailabilityFields({
 													</FormLabel>
 												</FormItem>
 											))}
+											<FormItem className="flex items-center space-x-2">
+												<FormControl>
+													<Checkbox
+														checked={field.value?.includes("VIRTUAL")}
+														onCheckedChange={(checked) => {
+															const current = field.value || [];
+															const updated = checked
+																? [...current, "VIRTUAL"]
+																: current.filter((key) => key !== "VIRTUAL");
+															field.onChange(updated);
+														}}
+													/>
+												</FormControl>
+												<FormLabel className="font-normal">Virtual</FormLabel>
+											</FormItem>
 										</div>
 									</div>
 								)}

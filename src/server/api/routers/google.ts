@@ -464,6 +464,7 @@ export const googleRouter = createTRPCRouter({
 			} else {
 				const allOffices = await ctx.db.select().from(offices);
 				const officeMap = new Map(allOffices.map((o) => [o.key, o.prettyName]));
+				officeMap.set("VIRTUAL", "Virtual");
 
 				if (!input.officeKeys || input.officeKeys.length === 0) {
 					throw new TRPCError({

@@ -718,6 +718,7 @@ export async function getAvailabilityEvents(
 	const nameToKeyMap = new Map(
 		allOffices.map((office) => [office.prettyName, office.key]),
 	);
+	nameToKeyMap.set("Virtual", "VIRTUAL");
 
 	const officeRegex = /Available\s*-\s*(.*)/i;
 
