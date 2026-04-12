@@ -105,6 +105,7 @@ const formSchema = z.object({
 				keyVal(
 					z.object({
 						DA: z.number().optional(),
+						ADHDDA: z.number().optional(),
 						EVAL: z.number().optional(),
 						DAEVAL: z.number().optional(),
 						REPORT: z.number().optional(),
@@ -534,6 +535,7 @@ export function ConfigEditor() {
 						key: item.key,
 						value: {
 							DA: item.value.DA ?? undefined,
+							ADHDDA: item.value.ADHDDA ?? undefined,
 							EVAL: item.value.EVAL ?? undefined,
 							DAEVAL: item.value.DAEVAL ?? undefined,
 							REPORT: item.value.REPORT ?? undefined,
@@ -1199,8 +1201,8 @@ function PieceworkTab({
 							/>
 						)}
 						renderValue={(p, d) => (
-							<div className="grid flex-1 grid-cols-4 gap-2">
-								{["DA", "EVAL", "DAEVAL", "REPORT"].map((k) => (
+							<div className="grid flex-1 grid-cols-5 gap-2">
+								{["DA", "ADHDDA", "EVAL", "DAEVAL", "REPORT"].map((k) => (
 									<FormField
 										control={form.control}
 										key={k}
@@ -1208,7 +1210,7 @@ function PieceworkTab({
 										render={({ field }) => (
 											<FormItem>
 												<FormLabel className="text-[10px] text-muted-foreground">
-													{k}
+													{k === "ADHDDA" ? "ADHD DA" : k}
 												</FormLabel>
 												<FormControl>
 													<Input

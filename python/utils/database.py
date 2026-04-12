@@ -728,6 +728,21 @@ def get_insurance_mappings(
 
 
 @provide_connection
+def get_client_id_to_asd_adhd_map(
+    connection: Connection[DictCursor],
+) -> dict[int, str]:
+    """Returns a dictionary mapping client ID (int) to their asdAdhd value (str)."""
+    try:
+        with connection.cursor() as cursor:
+            cursor.execute(f"SELECT id, asdAdhd FROM {TABLE_CLIENT}")
+            results = cursor.fetchall()
+            return {row["id"]: row["asdAdhd"] for row in results if row["asdAdhd"]}
+    except Exception:
+        logger.exception("Error fetching client ID to asdAdhd map")
+        return {}
+
+
+@provide_connection
 def get_all_evaluators_npi_map(
     connection: Connection[DictCursor],
 ) -> dict[str, int]:

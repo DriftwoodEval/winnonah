@@ -12,6 +12,7 @@ from loguru import logger
 from utils.clients import TEST_NAMES
 from utils.database import (
     get_all_evaluators_npi_map,
+    get_client_id_to_asd_adhd_map,
     get_db,
     get_npi_to_name_map,
     put_appointment_in_db,
@@ -489,6 +490,7 @@ def insert_appointments_with_gcal(appointment_sync_data: dict[str, list[str]] | 
 
     logger.info(f"Inserting {len(appointments_df)} appointments into database...")
     npi_cache = get_all_evaluators_npi_map()
+    asd_adhd_map = get_client_id_to_asd_adhd_map()
 
     for _, appointment in appointments_df.iterrows():
         appointment_id = str(appointment["APPOINTMENT_ID"])
@@ -549,6 +551,7 @@ def insert_appointments_with_gcal(appointment_sync_data: dict[str, list[str]] | 
             end_time,
             location=gcal_location,
             da_eval=gcal_daeval,
+            asd_adhd=asd_adhd_map.get(client_id),
             cancelled=cancelled,
             gcal_event_id=gcal_event_id,
         )

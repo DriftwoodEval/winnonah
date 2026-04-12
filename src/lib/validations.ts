@@ -60,6 +60,7 @@ export const servicesSchema = z.object({
 
 export const pieceworkCostsSchema = z.object({
 	DA: z.number().nullable().optional(),
+	ADHDDA: z.number().nullable().optional(),
 	EVAL: z.number().nullable().optional(),
 	DAEVAL: z.number().nullable().optional(),
 	REPORT: z.number().nullable().optional(),
