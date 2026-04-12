@@ -148,7 +148,7 @@ export function ReferralTab({ client, readOnly }: ReferralTabProps) {
 
 	const ageInMonths = differenceInMonths(new Date(), new Date(client.dob));
 	const ageInYears = differenceInYears(new Date(), new Date(client.dob));
-	const showSchoolQuestion = !isAdhd && ageInMonths >= 33 && ageInYears <= 19;
+	const showSchoolQuestion = ageInMonths >= 33 && ageInYears <= 19;
 	const isUnder3 = ageInYears < 3;
 
 	const isBabyNet =
@@ -439,6 +439,13 @@ export function ReferralTab({ client, readOnly }: ReferralTabProps) {
 								complete them so we can move forward.
 							</p>
 
+							{showSchoolQuestion && (
+								<p>
+									We will request records from the school district and then be
+									in touch to discuss next steps.
+								</p>
+							)}
+
 							{isAdhd ? (
 								<>
 									<p>
@@ -458,12 +465,6 @@ export function ReferralTab({ client, readOnly }: ReferralTabProps) {
 								</>
 							) : (
 								<>
-									{ageInYears <= 19 && (
-										<p>
-											We will request records from the school district and then
-											be in touch to discuss next steps.
-										</p>
-									)}
 									<p>
 										Soon, we will send you questionnaires to complete. Look for
 										a new message, which is usually in the upper right hand
