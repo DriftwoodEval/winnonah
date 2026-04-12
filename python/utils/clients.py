@@ -90,7 +90,7 @@ def _consolidate_by_id(clients: pd.DataFrame) -> pd.DataFrame:
 
     current_date = pd.Timestamp.now().normalize()
 
-    # Coercing errors will turn unparseable dates into NaT (Not a Time)
+    # Coercing errors will turn unparsable dates into NaT (Not a Time)
     df["POLICY_STARTDATE"] = pd.to_datetime(df["POLICY_STARTDATE"], errors="coerce")
     df["POLICY_ENDDATE"] = pd.to_datetime(df["POLICY_ENDDATE"], errors="coerce")
 

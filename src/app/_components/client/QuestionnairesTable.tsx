@@ -108,7 +108,7 @@ export function QuestionnairesTable({
 								</TableRow>
 							)}
 							{questionnairesSent
-								?.filter((questionaire) => questionaire.status !== "ARCHIVED")
+								?.filter((questionnaire) => questionnaire.status !== "ARCHIVED")
 								.map((questionnaire) => (
 									<TableRow key={questionnaire.id}>
 										{!readOnly && (
