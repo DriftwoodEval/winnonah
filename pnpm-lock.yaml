@@ -98,8 +98,8 @@ importers:
         specifier: ^3.22.2
         version: 3.22.2(@tiptap/extensions@3.22.2(@tiptap/core@3.22.2(@tiptap/pm@3.22.2))(@tiptap/pm@3.22.2))
       '@tiptap/html':
-        specifier: ^3.22.2
-        version: 3.22.2(@tiptap/core@3.22.2(@tiptap/pm@3.22.2))(@tiptap/pm@3.22.2)(happy-dom@20.0.11)
+        specifier: ^3.22.3
+        version: 3.22.3(@tiptap/core@3.22.2(@tiptap/pm@3.22.2))(@tiptap/pm@3.22.2)(happy-dom@20.0.11)
       '@tiptap/react':
         specifier: ^3.22.2
         version: 3.22.2(@floating-ui/dom@1.7.6)(@tiptap/core@3.22.2(@tiptap/pm@3.22.2))(@tiptap/pm@3.22.2)(@types/react-dom@19.2.3(@types/react@19.2.14))(@types/react@19.2.14)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
@@ -1986,11 +1986,11 @@ packages:
       '@tiptap/core': ^3.22.2
       '@tiptap/pm': ^3.22.2
 
-  '@tiptap/html@3.22.2':
-    resolution: {integrity: sha512-7OFjN137Sm0Y22MII8C3SyyQx5xnviE75MJZkWnn/wUeJRK9hB5EpSr8T73hIda0jkAiGCHe/YItlLlQ0Xn7qA==}
+  '@tiptap/html@3.22.3':
+    resolution: {integrity: sha512-Cc1v2x5HJNDjgkT9vxhP1rJGscIPWTprCRUzRCIVwLuqdnRblntJtOpxMhFUU7yXCqlY27yUqmOBAvyhH1WO9g==}
     peerDependencies:
-      '@tiptap/core': ^3.22.2
-      '@tiptap/pm': ^3.22.2
+      '@tiptap/core': ^3.22.3
+      '@tiptap/pm': ^3.22.3
       happy-dom: ^20.8.9
 
   '@tiptap/pm@3.22.2':
@@ -4791,7 +4791,7 @@ snapshots:
       '@tiptap/core': 3.22.2(@tiptap/pm@3.22.2)
       '@tiptap/pm': 3.22.2
 
-  '@tiptap/html@3.22.2(@tiptap/core@3.22.2(@tiptap/pm@3.22.2))(@tiptap/pm@3.22.2)(happy-dom@20.0.11)':
+  '@tiptap/html@3.22.3(@tiptap/core@3.22.2(@tiptap/pm@3.22.2))(@tiptap/pm@3.22.2)(happy-dom@20.0.11)':
     dependencies:
       '@tiptap/core': 3.22.2(@tiptap/pm@3.22.2)
       '@tiptap/pm': 3.22.2
