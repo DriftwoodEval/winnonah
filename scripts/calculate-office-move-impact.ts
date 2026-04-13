@@ -24,6 +24,18 @@ function calculateDistance(
 	return R * c;
 }
 
+/**
+ * Calculates the median of an array of numbers.
+ */
+function calculateMedian(arr: number[]): number {
+	if (arr.length === 0) return 0;
+	const sorted = [...arr].sort((a, b) => a - b);
+	const mid = Math.floor(sorted.length / 2);
+	return sorted.length % 2 !== 0
+		? sorted[mid]
+		: (sorted[mid - 1] + sorted[mid]) / 2;
+}
+
 interface OfficeLocation {
 	key: string;
 	prettyName: string;
@@ -176,10 +188,22 @@ async function main() {
 		impacts.reduce((sum, i) => sum + i.newClosestDist, 0) / totalClients;
 	const avgDelta = impacts.reduce((sum, i) => sum + i.delta, 0) / totalClients;
 
+	const medianOldDistance = calculateMedian(
+		impacts.map((i) => i.oldClosestDist),
+	);
+	const medianNewDistance = calculateMedian(
+		impacts.map((i) => i.newClosestDist),
+	);
+	const medianDelta = calculateMedian(impacts.map((i) => i.delta));
+
 	console.log("\nSummary of Impact (Closest Office Distance):");
 	console.log(`- Average distance change: ${avgDelta.toFixed(2)} miles`);
+	console.log(`- Median distance change:  ${medianDelta.toFixed(2)} miles`);
 	console.log(
 		`- Average travel distance: ${avgOldDistance.toFixed(2)} -> ${avgNewDistance.toFixed(2)} miles`,
+	);
+	console.log(
+		`- Median travel distance:  ${medianOldDistance.toFixed(2)} -> ${medianNewDistance.toFixed(2)} miles`,
 	);
 	console.log(
 		`- Clients closer: ${closer.length} (${((closer.length / totalClients) * 100).toFixed(1)}%)`,
@@ -219,22 +243,27 @@ async function main() {
 
 	if (switched.length > 0) {
 		console.log("\nSummary of Office Switches:");
-		const switchData: Record<string, { count: number; totalDelta: number }> =
-			{};
+		const switchData: Record<string, { count: number; deltas: number[] }> = {};
 		for (const i of switched) {
 			const key = `${i.oldClosestOffice} -> ${i.newClosestOffice}`;
 			if (!switchData[key]) {
-				switchData[key] = { count: 0, totalDelta: 0 };
+				switchData[key] = { count: 0, deltas: [] };
 			}
 			switchData[key].count++;
-			switchData[key].totalDelta += i.delta;
+			switchData[key].deltas.push(i.delta);
 		}
 
 		for (const [switchPath, data] of Object.entries(switchData)) {
-			const avgDelta = data.totalDelta / data.count;
-			const direction = avgDelta > 0 ? "+" : "";
+			const avgDelta = data.deltas.reduce((sum, d) => sum + d, 0) / data.count;
+			const medianDelta = calculateMedian(data.deltas);
+			const avgDirection = avgDelta > 0 ? "+" : "";
+			const medianDirection = medianDelta > 0 ? "+" : "";
+			console.log(`  ${switchPath}: ${data.count} client(s)`);
 			console.log(
-				`  ${switchPath}: ${data.count} client(s) (Avg change: ${direction}${avgDelta.toFixed(2)} miles)`,
+				`    Avg change:    ${avgDirection}${avgDelta.toFixed(2)} miles`,
+			);
+			console.log(
+				`    Median change: ${medianDirection}${medianDelta.toFixed(2)} miles`,
 			);
 		}
 	}
