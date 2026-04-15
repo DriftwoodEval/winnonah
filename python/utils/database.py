@@ -289,7 +289,7 @@ def put_clients_in_db(clients_df: pd.DataFrame, connection: Connection[DictCurso
             secondaryInsurance = VALUES(secondaryInsurance),
             precertExpires = VALUES(precertExpires),
             privatePay = VALUES(privatePay),
-            asdAdhd = VALUES(asdAdhd),
+            asdAdhd = CASE WHEN VALUES(asdAdhd) IS NOT NULL THEN VALUES(asdAdhd) ELSE asdAdhd END,
             interpreter = VALUES(interpreter),
             gender = VALUES(gender),
             phoneNumber = VALUES(phoneNumber),
