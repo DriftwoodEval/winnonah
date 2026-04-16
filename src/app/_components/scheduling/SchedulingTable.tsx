@@ -526,7 +526,7 @@ function ColorPicker({
 	return (
 		<DropdownMenu>
 			<DropdownMenuTrigger asChild>
-				<Button size="icon-sm" variant="ghost">
+				<Button className="cursor-pointer" size="icon-sm" variant="ghost">
 					<Circle
 						className="h-4 w-4"
 						fill={value ? SCHEDULING_COLOR_MAP[value] : "transparent"}
@@ -538,6 +538,7 @@ function ColorPicker({
 			</DropdownMenuTrigger>
 			<DropdownMenuContent align="start">
 				<DropdownMenuItem
+					className="cursor-pointer"
 					key="no-color"
 					onClick={() => onChange(null)}
 					onSelect={() => onChange(null)}
@@ -547,6 +548,7 @@ function ColorPicker({
 				{SCHEDULING_COLOR_KEYS.sort((a, b) => a.localeCompare(b)).map(
 					(color) => (
 						<DropdownMenuItem
+							className="cursor-pointer"
 							key={color}
 							onClick={() => onChange(color)}
 							onSelect={() => onChange(color)}
@@ -713,34 +715,13 @@ const SchedulingTableRow = memo(function SchedulingTableRow({
 			key={scheduledClient.clientId}
 			style={{ backgroundColor }}
 		>
-			<TableCell data-col={0} data-row={rowIndex}>
-				{isEditable && (
-					<div className="flex flex-col items-center justify-center">
-						<button
-							className="cursor-pointer text-muted-foreground transition-colors hover:text-primary disabled:opacity-30"
-							onClick={() => onMove?.(scheduledClient.clientId, "up")}
-							title="Move Up"
-							type="button"
-						>
-							<ChevronUp className="h-4 w-4" />
-						</button>
-						<button
-							className="cursor-pointer text-muted-foreground transition-colors hover:text-primary disabled:opacity-30"
-							onClick={() => onMove?.(scheduledClient.clientId, "down")}
-							title="Move Down"
-							type="button"
-						>
-							<ChevronDown className="h-4 w-4" />
-						</button>
-					</div>
-				)}
-			</TableCell>
 			<TableCell
 				className={cn(
 					"sticky left-0 z-10 bg-background transition-shadow duration-200",
+					"max-w-[200px]",
 					isScrolledLeft && "shadow-lg",
 				)}
-				data-col={1}
+				data-col={0}
 				data-row={rowIndex}
 				style={{
 					backgroundColor: color
@@ -748,7 +729,27 @@ const SchedulingTableRow = memo(function SchedulingTableRow({
 						: "var(--background)",
 				}}
 			>
-				<div className="flex items-center gap-2">
+				<div className="flex items-center gap-2 overflow-hidden">
+					{isEditable && (
+						<div className="flex flex-col items-center justify-center">
+							<button
+								className="cursor-pointer rounded-sm p-1 text-muted-foreground transition-colors hover:bg-accent hover:text-primary disabled:opacity-30"
+								onClick={() => onMove?.(scheduledClient.clientId, "up")}
+								title="Move Up"
+								type="button"
+							>
+								<ChevronUp className="h-4 w-4" />
+							</button>
+							<button
+								className="cursor-pointer rounded-sm p-1 text-muted-foreground transition-colors hover:bg-accent hover:text-primary disabled:opacity-30"
+								onClick={() => onMove?.(scheduledClient.clientId, "down")}
+								title="Move Down"
+								type="button"
+							>
+								<ChevronDown className="h-4 w-4" />
+							</button>
+						</div>
+					)}
 					<ColorPicker
 						disabled={!isEditable}
 						onChange={(value) => {
@@ -759,14 +760,15 @@ const SchedulingTableRow = memo(function SchedulingTableRow({
 						value={color}
 					/>
 					<Link
-						className="hover:underline"
+						className="truncate hover:underline"
 						href={`/clients/${scheduledClient.client.hash}`}
+						title={scheduledClient.client.fullName}
 					>
 						{scheduledClient.client.fullName}
 					</Link>
 				</div>
 			</TableCell>
-			<TableCell data-col={2} data-row={rowIndex}>
+			<TableCell data-col={1} data-row={rowIndex}>
 				<EvaluatorSelect
 					allEvaluators={evaluators}
 					clientId={scheduledClient.clientId}
@@ -785,7 +787,7 @@ const SchedulingTableRow = memo(function SchedulingTableRow({
 
 			<TableCell
 				className="min-w-[200px] max-w-[200px]"
-				data-col={3}
+				data-col={2}
 				data-row={rowIndex}
 			>
 				{isEditable ? (
@@ -810,7 +812,7 @@ const SchedulingTableRow = memo(function SchedulingTableRow({
 
 			<TableCell
 				className="min-w-[100px] max-w-[120px]"
-				data-col={4}
+				data-col={3}
 				data-row={rowIndex}
 			>
 				{isEditable ? (
@@ -830,7 +832,7 @@ const SchedulingTableRow = memo(function SchedulingTableRow({
 
 			<TableCell
 				className="min-w-[100px] max-w-[120px]"
-				data-col={5}
+				data-col={4}
 				data-row={rowIndex}
 			>
 				{isEditable ? (
@@ -848,11 +850,11 @@ const SchedulingTableRow = memo(function SchedulingTableRow({
 				)}
 			</TableCell>
 
-			<TableCell data-col={6} data-row={rowIndex}>
+			<TableCell data-col={5} data-row={rowIndex}>
 				{scheduledClient.client.asdAdhd || "-"}
 			</TableCell>
 
-			<TableCell data-col={7} data-row={rowIndex}>
+			<TableCell data-col={6} data-row={rowIndex}>
 				{mapInsuranceToShortNames(
 					scheduledClient.client.primaryInsurance,
 					scheduledClient.client.secondaryInsurance,
@@ -860,7 +862,7 @@ const SchedulingTableRow = memo(function SchedulingTableRow({
 				) || "-"}
 			</TableCell>
 
-			<TableCell data-col={8} data-row={rowIndex}>
+			<TableCell data-col={7} data-row={rowIndex}>
 				{isEditable ? (
 					<Select
 						onValueChange={(value) => {
@@ -891,7 +893,7 @@ const SchedulingTableRow = memo(function SchedulingTableRow({
 				)}
 			</TableCell>
 
-			<TableCell className="min-w-fit" data-col={9} data-row={rowIndex}>
+			<TableCell className="min-w-fit" data-col={8} data-row={rowIndex}>
 				{isEditable ? (
 					<Select
 						onValueChange={(value) => {
@@ -918,11 +920,11 @@ const SchedulingTableRow = memo(function SchedulingTableRow({
 				)}
 			</TableCell>
 
-			<TableCell data-col={10} data-row={rowIndex}>
+			<TableCell data-col={9} data-row={rowIndex}>
 				{districtDisplay}
 			</TableCell>
 
-			<TableCell data-col={11} data-row={rowIndex}>
+			<TableCell data-col={10} data-row={rowIndex}>
 				{scheduledClient.client.precertExpires
 					? getLocalDayFromUTCDate(
 							scheduledClient.client.precertExpires,
@@ -930,13 +932,13 @@ const SchedulingTableRow = memo(function SchedulingTableRow({
 					: "-"}
 			</TableCell>
 
-			<TableCell data-col={12} data-row={rowIndex}>
+			<TableCell data-col={11} data-row={rowIndex}>
 				{scheduledClient.client.dob
 					? formatClientAge(scheduledClient.client.dob, "short")
 					: "-"}
 			</TableCell>
 
-			<TableCell data-col={13} data-row={rowIndex}>
+			<TableCell data-col={12} data-row={rowIndex}>
 				{actions}
 			</TableCell>
 		</TableRow>
@@ -1085,7 +1087,7 @@ function InternalSchedulingTable({
 			if (!targetCell) {
 				if (direction === "ArrowLeft" && c > 0)
 					return findAndFocus(r, c - 1, direction);
-				if (direction === "ArrowRight" && c < 13)
+				if (direction === "ArrowRight" && c < 12)
 					return findAndFocus(r, c + 1, direction);
 				return;
 			}
@@ -1107,7 +1109,7 @@ function InternalSchedulingTable({
 			} else {
 				if (direction === "ArrowLeft" && c > 0)
 					return findAndFocus(r, c - 1, direction);
-				if (direction === "ArrowRight" && c < 13)
+				if (direction === "ArrowRight" && c < 12)
 					return findAndFocus(r, c + 1, direction);
 				if (direction === "ArrowUp" && r > 0)
 					return findAndFocus(r - 1, c, direction);
@@ -1152,7 +1154,6 @@ function InternalSchedulingTable({
 		filterKey?: string;
 		filterLabel?: string;
 	}[] = [
-		{ key: "sort", label: "Sort", noFilter: true },
 		{
 			key: "fullName",
 			label: "Name",
@@ -1207,9 +1208,9 @@ function InternalSchedulingTable({
 							return (
 								<TableHead
 									className={cn(
-										index === 1 &&
+										index === 0 &&
 											"sticky left-0 z-30 bg-background transition-shadow duration-200",
-										index === 1 && isScrolledLeft && "shadow-lg",
+										index === 0 && isScrolledLeft && "shadow-lg",
 									)}
 									key={col.key}
 								>
