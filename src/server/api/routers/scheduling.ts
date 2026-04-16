@@ -70,6 +70,7 @@ export const schedulingRouter = createTRPCRouter({
 					schoolDistrict: clients.schoolDistrict,
 					precertExpires: clients.precertExpires,
 					dob: clients.dob,
+					referralData: clients.referralData,
 					closestOfficeKey: closestOfficeKeyCase.mapWith(String),
 				},
 			})
@@ -295,12 +296,25 @@ export const schedulingRouter = createTRPCRouter({
 				.where(eq(schedulingClients.archived, false));
 			const nextSort = (maxSortResult[0]?.maxSort ?? -1) + 1;
 
+			let targetOffice = input.office;
+
+			if (!targetOffice) {
+				const client = await ctx.db.query.clients.findFirst({
+					where: eq(clients.id, input.clientId),
+					columns: { referralData: true },
+				});
+
+				if (client?.referralData?.locationPreference === "virtual") {
+					targetOffice = "Virtual";
+				}
+			}
+
 			await ctx.db
 				.insert(schedulingClients)
 				.values({
 					clientId: input.clientId,
 					code: input.code,
-					office: input.office,
+					office: targetOffice,
 					archived: false,
 					sort: nextSort,
 				})
@@ -308,7 +322,7 @@ export const schedulingRouter = createTRPCRouter({
 					set: {
 						archived: false,
 						code: input.code,
-						office: input.office,
+						office: targetOffice,
 						createdAt: new Date(),
 						sort: nextSort,
 					},

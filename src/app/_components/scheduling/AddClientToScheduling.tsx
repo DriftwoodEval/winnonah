@@ -42,7 +42,11 @@ export function AddClientToScheduling({
 						archived: false,
 						date: null,
 						time: null,
-						office: "",
+						office:
+							variables.optimisticClient?.referralData?.locationPreference ===
+							"virtual"
+								? "Virtual"
+								: "",
 						notes: null,
 						code: null,
 						color: null,
@@ -61,6 +65,7 @@ export function AddClientToScheduling({
 							precertExpires:
 								variables.optimisticClient?.precertExpires ?? null,
 							dob: variables.optimisticClient?.dob ?? new Date(),
+							referralData: variables.optimisticClient?.referralData ?? null,
 							closestOfficeKey: "",
 						},
 					};
