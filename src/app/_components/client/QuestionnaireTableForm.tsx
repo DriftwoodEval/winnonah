@@ -95,6 +95,8 @@ const QUESTIONNAIRE_STATUS_DESCRIPTIONS: Partial<
 	Record<(typeof QUESTIONNAIRE_STATUSES)[number], string>
 > = {
 	PENDING: "Reminders with 'ready to schedule' wording will be sent.",
+	POSTDA_PENDING:
+		"Reminders with 'additional info needed' wording will be sent.",
 	POSTEVAL_PENDING:
 		"Reminders with 'additional info needed' wording will be sent.",
 	IGNORING: `${noRemind} Will remind admins to check on.`,
@@ -294,8 +296,9 @@ export function QuestionnaireTableForm({
 													key={status}
 													value={status}
 												>
-													{status === "POSTEVAL_PENDING"
-														? "Post-Eval, Pending"
+													{status === "POSTEVAL_PENDING" ||
+													status === "POSTDA_PENDING"
+														? `${status.includes("POSTEVAL") ? "Post-Eval" : "Post-DA"}, Pending`
 														: `${status.charAt(0).toUpperCase()}${status.slice(1).toLowerCase()}`}
 												</SelectItem>
 											))}
