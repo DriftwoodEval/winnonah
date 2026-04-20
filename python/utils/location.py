@@ -21,6 +21,17 @@ from utils.constants import TABLE_OFFICE
 
 load_dotenv()
 
+MIN_GEOCODIO_ACCURACY = 0.8
+MIN_NOMINATIM_IMPORTANCE = 0.4
+
+
+def _is_confident_nominatim(location: Location | None) -> bool:
+    """Checks if a Nominatim location match is confident enough based on its importance score."""
+    if location is None:
+        return False
+    importance = float(location.raw.get("importance", 0))
+    return importance >= MIN_NOMINATIM_IMPORTANCE
+
 
 def calculate_spherical_distance(
     lat1: float, lon1: float, lat2: float, lon2: float
@@ -144,6 +155,12 @@ def _search_geocodio(full_address: str) -> tuple[str, float, float] | None:
             return None
 
         best_match = response.results[0]
+        if best_match.accuracy < MIN_GEOCODIO_ACCURACY:
+            logger.warning(
+                f"Geocodio match accuracy too low: {best_match.accuracy} for {full_address}"
+            )
+            return None
+
         lat = best_match.location.lat
         lon = best_match.location.lng
 
@@ -174,6 +191,15 @@ def _geocode_address(client: pd.Series) -> tuple[Location | None, int]:
     if pd.isna(client.ADDRESS):
         return None, 0
 
+    def _get_confident_geocode(query: str) -> Location | None:
+        loc = geocode(query)
+        if loc and not _is_confident_nominatim(loc):
+            logger.warning(
+                f"Nominatim match importance too low: {loc.raw.get('importance')} for {query}"
+            )
+            return None
+        return loc
+
     logger.debug(f"Geocoding {client.ADDRESS}")
 
     street_address = (
@@ -201,7 +227,7 @@ def _geocode_address(client: pd.Series) -> tuple[Location | None, int]:
     attempt_string = client.ADDRESS
     if not any(char.isalnum() for char in attempt_string):
         return None, 0
-    geocoded_location = geocode(attempt_string)
+    geocoded_location = _get_confident_geocode(attempt_string)
 
     if geocoded_location is None and (
         not pd.isna(client.USER_ADDRESS_ADDRESS2)
@@ -215,7 +241,7 @@ def _geocode_address(client: pd.Series) -> tuple[Location | None, int]:
         logger.warning(
             f"Location data not found for {old_attempt_string}, trying again with Address 2/3 removed: {attempt_string}"
         )
-        geocoded_location = geocode(attempt_string)
+        geocoded_location = _get_confident_geocode(attempt_string)
 
     if geocoded_location is None:
         old_attempt_string = attempt_string
@@ -224,7 +250,7 @@ def _geocode_address(client: pd.Series) -> tuple[Location | None, int]:
         logger.warning(
             f"Location data not found for {old_attempt_string}, trying again without street number: {attempt_string}"
         )
-        geocoded_location = geocode(attempt_string)
+        geocoded_location = _get_confident_geocode(attempt_string)
 
         if geocoded_location is None:
             old_attempt_string = attempt_string
@@ -233,7 +259,7 @@ def _geocode_address(client: pd.Series) -> tuple[Location | None, int]:
             logger.warning(
                 f"Location data not found for {old_attempt_string}, trying again without street: {attempt_string}"
             )
-            geocoded_location = geocode(attempt_string)
+            geocoded_location = _get_confident_geocode(attempt_string)
 
             if geocoded_location is None:
                 old_attempt_string = attempt_string
@@ -242,7 +268,7 @@ def _geocode_address(client: pd.Series) -> tuple[Location | None, int]:
                 logger.warning(
                     f"Location data not found for {old_attempt_string}, trying again with just ZIP: {attempt_string}"
                 )
-                geocoded_location = geocode(attempt_string)
+                geocoded_location = _get_confident_geocode(attempt_string)
 
                 if geocoded_location is None:
                     logger.error(f"Location data not found for {attempt_string}")
