@@ -21,6 +21,7 @@ import {
 	SECTION_DA_QS_DONE,
 	SECTION_DAEVAL_QS_DONE,
 	SECTION_EVAL_QS_DONE,
+	SECTION_NEEDS_OUTREACH,
 } from "~/lib/dashboard";
 import type { FullClientInfo } from "~/lib/models";
 import { api } from "~/trpc/react";
@@ -56,6 +57,8 @@ function PunchListAccordionItem({
 		title === SECTION_EVAL_QS_DONE ||
 		title === SECTION_DAEVAL_QS_DONE;
 
+	const isOutreachSection = title === SECTION_NEEDS_OUTREACH;
+
 	return (
 		<AccordionItem value={title}>
 			<AccordionTrigger>
@@ -77,6 +80,7 @@ function PunchListAccordionItem({
 						{clients?.map((client, index) => {
 							const punchClient = client as FullClientInfo & DashboardClient;
 							const onSchedulingTable = scheduledClientIds?.has(client.id);
+							const language = client.language ?? punchClient.Language;
 
 							return (
 								<div key={client.hash}>
@@ -91,6 +95,13 @@ function PunchListAccordionItem({
 														<span>
 															{client.fullName ?? punchClient["Client Name"]}
 														</span>
+														{isOutreachSection &&
+															language &&
+															language.toLowerCase() !== "english" && (
+																<span className="font-bold text-destructive text-xs">
+																	({language})
+																</span>
+															)}
 													</div>
 													{punchClient.extraInfo && (
 														<span className="text-muted-foreground text-xs">

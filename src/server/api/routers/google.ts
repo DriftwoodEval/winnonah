@@ -6,7 +6,7 @@ import { distance as levDistance } from "fastest-levenshtein";
 import z from "zod";
 import { env } from "~/env";
 import { fetchWithCache, invalidateCache } from "~/lib/cache";
-import { ALLOWED_ASD_ADHD_VALUES, TEST_NAMES } from "~/lib/constants";
+import { TEST_NAMES } from "~/lib/constants";
 import {
 	createAvailabilityEvent,
 	deleteAvailabilityEvent,
@@ -134,6 +134,7 @@ const getPreviewData = async (ctx: Context, clientId: number) => {
 		id: client.id,
 		fullName: client.fullName,
 		asdAdhd: client.asdAdhd,
+		language: client.language,
 		primaryPayer: primaryInsurance,
 		secondaryPayer: secondaryInsurance,
 		location,
@@ -320,50 +321,6 @@ export const googleRouter = createTRPCRouter({
 					}`,
 				);
 			}
-		}),
-
-	setAsdAdhd: protectedProcedure
-		.input(
-			z.object({
-				clientId: z.number(),
-				asdAdhd: z.enum(ALLOWED_ASD_ADHD_VALUES),
-			}),
-		)
-		.mutation(async ({ ctx, input }) => {
-			assertPermission(ctx.session.user, "clients:asdadhd");
-
-			if (!ctx.session.user.accessToken || !ctx.session.user.refreshToken) {
-				throw new Error("No access token or refresh token");
-			}
-
-			ctx.logger.info(input, "Updating ASD/ADHD status");
-
-			try {
-				await updatePunchData(ctx.session, input.clientId.toString(), {
-					asdAdhd: input.asdAdhd,
-				});
-
-				await invalidateCache(
-					ctx,
-					CACHE_KEY_PUNCHLIST,
-					CACHE_KEY_MISSING_PUNCHLIST,
-				);
-			} catch (error) {
-				ctx.logger.error(
-					error,
-					`Failed to update ASD/ADHD status in Google Sheets for client ${input.clientId}. This is normal if they are not on the punchlist.`,
-				);
-			}
-
-			await ctx.db
-				.update(clients)
-				.set({ asdAdhd: input.asdAdhd })
-				.where(eq(clients.id, input.clientId));
-
-			return {
-				success: true,
-				message: "ASD/ADHD status updated successfully",
-			};
 		}),
 
 	setProtocolsScanned: protectedProcedure

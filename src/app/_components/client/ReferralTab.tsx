@@ -10,6 +10,7 @@ import {
 	CardTitle,
 } from "@ui/card";
 import { Checkbox } from "@ui/checkbox";
+import { Input } from "@ui/input";
 import { Label } from "@ui/label";
 import { RadioGroup, RadioGroupItem } from "@ui/radio-group";
 import {
@@ -49,12 +50,18 @@ interface ReferralTabProps {
 const TA_MESSAGE =
 	"Welcome to Driftwood! Thank you for setting up access to our patient portal. If you haven't already, make sure to complete all the documents and forms. Additionally, in the coming days you should receive another message here with links to questionnaires. Please complete each questionnaire completely so that we can move forward in scheduling an appointment. Failure to complete any of these steps will prevent you from moving forward.\n\nAdditionally, please review this information to better understand our process: https://driftwoodeval.com/eval-process";
 
+const COMMON_LANGUAGES = ["English", "Spanish", "Portuguese"];
+
 export function ReferralTab({ client, readOnly }: ReferralTabProps) {
 	const { data: session } = useSession();
 	const can = useCheckPermission();
 	const utils = api.useUtils();
 
 	const [notes, setNotes] = useState<string>(client.referralData?.notes ?? "");
+	const [language, setLanguage] = useState<string>(
+		client.language ?? "English",
+	);
+
 	const [schoolExplanation, setSchoolExplanation] = useState<string>(
 		client.referralData?.schoolExplanation ?? "",
 	);
@@ -70,11 +77,12 @@ export function ReferralTab({ client, readOnly }: ReferralTabProps) {
 
 	useEffect(() => {
 		setNotes(client.referralData?.notes ?? "");
+		setLanguage(client.language ?? "English");
 		setSchoolExplanation(client.referralData?.schoolExplanation ?? "");
 		setOtherNotes(client.referralData?.otherNotes ?? "");
 		setLocationPreference(client.referralData?.locationPreference ?? "");
 		setFollowedByBabyNet(client.referralData?.followedByBabyNet ?? null);
-	}, [client.referralData]);
+	}, [client.referralData, client.language]);
 
 	const updateClientMutation = api.clients.update.useMutation({
 		onSuccess: () => {
@@ -123,6 +131,13 @@ export function ReferralTab({ client, readOnly }: ReferralTabProps) {
 		});
 	};
 
+	const handleLanguageChange = (value: string) => {
+		updateClientMutation.mutate({
+			clientId: client.id,
+			language: value,
+		});
+	};
+
 	const handleReferralDataChange = (updates: {
 		notes?: string;
 		schoolExplanation?: string;
@@ -157,6 +172,8 @@ export function ReferralTab({ client, readOnly }: ReferralTabProps) {
 		client.secondaryInsurance?.toLowerCase().includes("babynet");
 
 	const isNeedsReachOut = client.referralData?.needsReachOut === "reach_out";
+
+	const isCommonLanguage = COMMON_LANGUAGES.includes(language);
 
 	return (
 		<div className="flex flex-col gap-4">
@@ -251,6 +268,47 @@ export function ReferralTab({ client, readOnly }: ReferralTabProps) {
 									))}
 								</SelectContent>
 							</Select>
+						</div>
+
+						<div className="space-y-2">
+							<Label>Language</Label>
+							<div className="flex flex-wrap items-center gap-2">
+								<Select
+									disabled={isReadOnly || !can("clients:language")}
+									onValueChange={(val) => {
+										if (val !== "Other") {
+											setLanguage(val);
+											handleLanguageChange(val);
+										} else if (isCommonLanguage) {
+											// Switching from a preset to custom, clear it for new input
+											setLanguage("");
+										}
+									}}
+									value={isCommonLanguage ? language : "Other"}
+								>
+									<SelectTrigger className="w-40">
+										<SelectValue placeholder="Select language" />
+									</SelectTrigger>
+									<SelectContent>
+										{COMMON_LANGUAGES.map((lang) => (
+											<SelectItem key={lang} value={lang}>
+												{lang}
+											</SelectItem>
+										))}
+										<SelectItem value="Other">Other</SelectItem>
+									</SelectContent>
+								</Select>
+								{!isCommonLanguage && (
+									<Input
+										className="h-9 w-40"
+										disabled={isReadOnly || !can("clients:language")}
+										onBlur={() => handleLanguageChange(language)}
+										onChange={(e) => setLanguage(e.target.value)}
+										placeholder="Specify..."
+										value={language}
+									/>
+								)}
+							</div>
 						</div>
 
 						<div className="space-y-2">
@@ -601,6 +659,14 @@ export function ReferralTab({ client, readOnly }: ReferralTabProps) {
 												For:
 											</span>
 											<span>{pushPreview.asdAdhd}</span>
+											{pushPreview.language && (
+												<>
+													<span className="font-semibold text-muted-foreground uppercase">
+														Language:
+													</span>
+													<span>{pushPreview.language}</span>
+												</>
+											)}
 											<span className="font-semibold text-muted-foreground uppercase">
 												Location:
 											</span>

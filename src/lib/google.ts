@@ -223,6 +223,7 @@ export const updatePunchData = async (
 		daSent?: boolean;
 		evalSent?: boolean;
 		asdAdhd?: string;
+		language?: string;
 		protocolsScanned?: boolean;
 		newId?: number;
 	},
@@ -248,6 +249,7 @@ export const updatePunchData = async (
 	const daSentIndex = headers.indexOf("DA Qs Sent");
 	const evalSentIndex = headers.indexOf("EVAL Qs Sent");
 	const forIndex = headers.indexOf("For");
+	const languageIndex = headers.indexOf("Language");
 	const protocolsScannedIndex = headers.indexOf("Protocols scanned?");
 
 	const updateRequests: sheets_v4.Schema$ValueRange[] = [];
@@ -296,6 +298,23 @@ export const updatePunchData = async (
 		updateRequests.push({
 			range: cellAddress,
 			values: [[updates.asdAdhd]],
+		});
+	}
+
+	if (updates.language !== undefined) {
+		if (languageIndex === -1) {
+			throw new Error("Language column not found in Punchlist");
+		}
+		const cellAddress = `${String.fromCharCode(65 + languageIndex)}${
+			clientRowIndex + 2
+		}`;
+		const languageValue =
+			updates.language === "English" || !updates.language
+				? ""
+				: updates.language;
+		updateRequests.push({
+			range: cellAddress,
+			values: [[languageValue]],
 		});
 	}
 
@@ -364,6 +383,7 @@ export const pushToPunch = async (
 		id: number;
 		fullName: string;
 		asdAdhd: string | null;
+		language?: string | null;
 		primaryPayer: string | null;
 		secondaryPayer: string | null;
 		location: string | null;
@@ -386,6 +406,7 @@ export const pushToPunch = async (
 	const nameIndex = 0;
 	const idIndex = headers.indexOf("Client ID");
 	const forIndex = headers.indexOf("For");
+	const languageIndex = headers.indexOf("Language");
 	const primaryPayerIndex = headers.indexOf("Primary Payer");
 	const secondaryPayerIndex = headers.indexOf("Secondary Payer");
 	const locationIndex = headers.indexOf("Location");
@@ -426,6 +447,16 @@ export const pushToPunch = async (
 		range: `${String.fromCharCode(65 + forIndex)}${rowNumber}`,
 		values: [[client.asdAdhd ?? ""]],
 	});
+
+	if (languageIndex !== -1) {
+		const languageValue =
+			client.language === "English" || !client.language ? "" : client.language;
+		updateRequests.push({
+			range: `${String.fromCharCode(65 + languageIndex)}${rowNumber}`,
+			values: [[languageValue]],
+		});
+	}
+
 	updateRequests.push({
 		range: `${String.fromCharCode(65 + primaryPayerIndex)}${rowNumber}`,
 		values: [[client.primaryPayer ?? ""]],

@@ -792,6 +792,7 @@ export const clientRouter = createTRPCRouter({
 				babyNetERNeeded: z.boolean().optional(),
 				babyNetERDownloaded: z.boolean().optional(),
 				asdAdhd: z.enum(ALLOWED_ASD_ADHD_VALUES).optional(),
+				language: z.string().optional(),
 				referralData: referralDataSchema.optional(),
 			}),
 		)
@@ -874,6 +875,10 @@ export const clientRouter = createTRPCRouter({
 				input.asdAdhd !== currentClient.asdAdhd
 					? (["clients:asdadhd"] as const)
 					: []),
+				...(input.language !== undefined &&
+				input.language !== currentClient.language
+					? (["clients:language"] as const)
+					: []),
 				...(input.referralData !== undefined &&
 				JSON.stringify(input.referralData) !==
 					JSON.stringify(currentClient.referralData)
@@ -919,6 +924,7 @@ export const clientRouter = createTRPCRouter({
 				babyNetERNeeded?: boolean;
 				babyNetERDownloaded?: boolean;
 				asdAdhd?: (typeof ALLOWED_ASD_ADHD_VALUES)[number];
+				language?: string | null;
 				referralData?: z.infer<typeof referralDataSchema>;
 			} = {};
 
@@ -985,6 +991,22 @@ export const clientRouter = createTRPCRouter({
 					try {
 						await updatePunchData(ctx.session, input.clientId.toString(), {
 							asdAdhd: input.asdAdhd,
+						});
+					} catch (e) {
+						ctx.logger.error(
+							e,
+							`Failed to update punchlist for client ${input.clientId}. This is normal if they are not on the punchlist.`,
+						);
+					}
+				}
+			}
+			if (input.language !== undefined) {
+				updateData.language = input.language;
+
+				if (ctx.session.user.accessToken && ctx.session.user.refreshToken) {
+					try {
+						await updatePunchData(ctx.session, input.clientId.toString(), {
+							language: input.language ?? undefined,
 						});
 					} catch (e) {
 						ctx.logger.error(
