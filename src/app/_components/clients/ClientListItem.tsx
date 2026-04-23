@@ -76,8 +76,10 @@ function ClientListItemComponent({
 							"text-destructive",
 					)}
 				>
-					{client.interpreter && (
-						<span className="font-bold text-muted-foreground">Interpreter</span>
+					{client.language !== "English" && (
+						<span className="font-bold text-muted-foreground">
+							{client.language}
+						</span>
 					)}
 
 					{sortReason}

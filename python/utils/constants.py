@@ -40,7 +40,7 @@ CLIENT_COLUMN_MAPPING: Final = {
     "precertExpires": "PRECERT_EXPIRES",
     "privatePay": "POLICY_PRIVATEPAY",
     "asdAdhd": "ASD_ADHD",
-    "interpreter": "INTERPRETER",
+    "language": "LANGUAGE",
     "phoneNumber": "PHONE1",
     "email": "EMAIL",
     "gender": "GENDER",

@@ -248,7 +248,7 @@ export const clients = createTable(
 			"ADHD+LD",
 			"LD",
 		]),
-		interpreter: d.boolean().notNull().default(false),
+		language: d.varchar({ length: 255 }).default("English"),
 		phoneNumber: d.varchar({ length: 255 }),
 		email: d.varchar({ length: 255 }),
 		gender: d.mysqlEnum(["Male", "Female", "Other"]),

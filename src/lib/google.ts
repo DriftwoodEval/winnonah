@@ -342,9 +342,9 @@ export const syncPunchData = async (session: Session) => {
 		if (
 			client.Language &&
 			client.Language.trim() !== "" &&
-			!client.interpreter
+			client.Language.trim() !== client.language
 		) {
-			updates.interpreter = true;
+			updates.language = client.Language.trim();
 		}
 
 		if (Object.keys(updates).length > 0) {

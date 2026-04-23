@@ -260,7 +260,7 @@ def put_clients_in_db(clients_df: pd.DataFrame, connection: Connection[DictCurso
             get_column(client, "PRECERT_EXPIREDATE"),
             get_boolean_value(client, "POLICY_PRIVATEPAY"),
             get_column(client, "ASD_ADHD"),
-            get_column(client, "INTERPRETER", default=False),
+            get_column(client, "LANGUAGE", default=None),
             gender,
             phone_number,
             email,
@@ -270,7 +270,7 @@ def put_clients_in_db(clients_df: pd.DataFrame, connection: Connection[DictCurso
         values_to_insert.append(values)
 
     sql = f"""
-        INSERT INTO `{TABLE_CLIENT}` (id, hash, status, addedDate, dob, firstName, lastName, preferredName, fullName, address, schoolDistrict, latitude, longitude, primaryInsurance, secondaryInsurance, precertExpires, privatePay, asdAdhd, interpreter, gender, phoneNumber, email, flag, taUser)
+        INSERT INTO `{TABLE_CLIENT}` (id, hash, status, addedDate, dob, firstName, lastName, preferredName, fullName, address, schoolDistrict, latitude, longitude, primaryInsurance, secondaryInsurance, precertExpires, privatePay, asdAdhd, language, gender, phoneNumber, email, flag, taUser)
         VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
         ON DUPLICATE KEY UPDATE
             hash = VALUES(hash),
@@ -290,7 +290,7 @@ def put_clients_in_db(clients_df: pd.DataFrame, connection: Connection[DictCurso
             precertExpires = VALUES(precertExpires),
             privatePay = VALUES(privatePay),
             asdAdhd = CASE WHEN VALUES(asdAdhd) IS NOT NULL THEN VALUES(asdAdhd) ELSE asdAdhd END,
-            interpreter = VALUES(interpreter),
+            language = CASE WHEN VALUES(language) IS NOT NULL THEN VALUES(language) ELSE language END,
             gender = VALUES(gender),
             phoneNumber = VALUES(phoneNumber),
             email = VALUES(email),

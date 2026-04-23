@@ -238,10 +238,10 @@ export function ClientHeader({
 					</>
 				)}
 
-				{client.interpreter && (
+				{client.language !== "English" && (
 					<>
 						<Separator orientation="vertical" />
-						<span className="font-bold">Interpreter Needed</span>
+						<span className="font-bold">{client.language}</span>
 					</>
 				)}
 
