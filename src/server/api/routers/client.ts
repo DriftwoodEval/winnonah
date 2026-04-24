@@ -615,6 +615,21 @@ export const clientRouter = createTRPCRouter({
 		return autismStops;
 	}),
 
+	getNoReferralSource: protectedProcedure.query(async ({ ctx }) => {
+		const noReferralSource = await ctx.db.query.clients.findMany({
+			where: and(
+				or(
+					eq(clients.referralSource, "No Referral Source"),
+					isNull(clients.referralSource),
+				),
+				eq(clients.status, true),
+			),
+			orderBy: clients.addedDate,
+		});
+
+		return noReferralSource;
+	}),
+
 	getPaused: protectedProcedure.query(async ({ ctx }) => {
 		const pausedClients = await ctx.db.query.clients.findMany({
 			where: eq(clients.pause, true),

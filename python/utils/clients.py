@@ -1,4 +1,5 @@
 import os
+import re
 import string
 
 import numpy as np
@@ -225,6 +226,47 @@ def _remove_invalid_clients(clients_df: pd.DataFrame) -> pd.DataFrame:
     return clients_df
 
 
+def _merge_referral_data(clients_df: pd.DataFrame) -> pd.DataFrame:
+    """Merges referral source data using name match."""
+    referrals = utils.spreadsheets.open_local("temp/input/client-referral-report.csv")
+
+    def normalize_name(raw_name: str) -> str:
+        if not raw_name or pd.isna(raw_name):
+            return ""
+
+        phone_match = re.findall(r"\d", raw_name)
+        phone_str = "".join(phone_match) if phone_match else ""
+
+        name_part = re.split(r"\(|\d", raw_name)[0].strip().upper()
+
+        if phone_str:
+            return f"{name_part} ({phone_str})"
+        return name_part
+
+    referrals["CLEAN_SOURCE"] = referrals["Referral Name"].apply(normalize_name)
+    referrals["_match_key"] = referrals["Client Name"].str.strip().str.lower()
+    ref_lookup = dict(zip(referrals["_match_key"], referrals["CLEAN_SOURCE"]))
+
+    def find_source(row):
+        last = str(row.get("LASTNAME", "")).strip().lower()
+        first = str(row.get("FIRSTNAME", "")).strip().lower()
+        pref = str(row.get("PREFERRED_NAME", "")).strip().lower()
+
+        legal_match = f"{first} {last}"
+        if legal_match in ref_lookup:
+            return ref_lookup[legal_match]
+
+        if pref and pref != "nan":
+            pref_match = f"{pref} {last}"
+            return ref_lookup.get(pref_match)
+
+        return None
+
+    clients_df["REFERRAL_SOURCE"] = clients_df.apply(find_source, axis=1)
+
+    return clients_df
+
+
 def get_clients(should_download_csvs: bool | None = True) -> pd.DataFrame:
     """Downloads CSVs from TherapyAppointment, cleans them, and returns a DataFrame of clients."""
     if not os.getenv("DEV_TOGGLE") and should_download_csvs:
@@ -234,6 +276,8 @@ def get_clients(should_download_csvs: bool | None = True) -> pd.DataFrame:
     demo_df = utils.spreadsheets.open_local("temp/input/clients-demographic.csv")
 
     clients_df = pd.merge(demo_df, insurance_df, "outer")
+    clients_df = _merge_referral_data(clients_df)
+
     clients_df = _normalize_names(clients_df)
     if not os.getenv("DEV_TOGGLE"):
         clients_df = _remove_test_names(clients_df, TEST_NAMES)

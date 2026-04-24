@@ -264,6 +264,7 @@ export const clients = createTable(
 		recordsNeeded: d.mysqlEnum("recordsNeeded", ["Needed", "Not Needed"]),
 		babyNetERNeeded: d.boolean().notNull().default(false),
 		babyNetERDownloaded: d.boolean().notNull().default(false),
+		referralSource: d.varchar({ length: 255 }),
 		referralData: d
 			.json("referralData")
 			.$type<z.infer<typeof referralDataSchema>>(),
@@ -430,6 +431,7 @@ export const appointments = createTable("appointment", (d) => ({
 		.references(() => evaluators.npi, { onDelete: "cascade" }),
 	startTime: d.timestamp("startTime").notNull(),
 	endTime: d.timestamp("endTime").notNull(),
+	cpt: d.varchar({ length: 255 }),
 	daEval: d.mysqlEnum(["EVAL", "DA", "DAEVAL"]),
 	asdAdhd: d.mysqlEnum(["ASD", "ADHD", "ASD+ADHD", "ASD+LD", "ADHD+LD", "LD"]),
 	cancelled: d.boolean().notNull().default(false),

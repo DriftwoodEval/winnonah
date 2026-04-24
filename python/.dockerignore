@@ -10,6 +10,7 @@ put/
 shapefiles/
 auth_cache/
 temp/
+cache/
 
 # Docker and environment files are not needed inside the image
 Dockerfile

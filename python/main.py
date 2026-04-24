@@ -1,7 +1,7 @@
 import os
-import re
 import shutil
 from collections.abc import Callable
+from datetime import datetime
 from typing import Annotated
 
 import pandas as pd
@@ -16,7 +16,7 @@ import utils.database
 import utils.google
 import utils.location
 import utils.openphone
-import utils.spreadsheets
+import utils.referrals
 import utils.therapyappointment
 
 logger.add("logs/winnonah-python.log", rotation="500 MB")
@@ -92,7 +92,9 @@ def filter_clients_by_criteria(
 
 
 def import_from_ta(
-    clients: pd.DataFrame | None = None, force_clients: pd.DataFrame | None = None
+    clients: pd.DataFrame | None = None,
+    force_clients: pd.DataFrame | None = None,
+    should_download=True,
 ):
     """Imports data from TA CSVs into the database.
 
@@ -101,7 +103,7 @@ def import_from_ta(
         force_clients: Specific clients to force through geocoding regardless of address change.
     """
     if clients is None:
-        clients = utils.clients.get_clients()
+        clients = utils.clients.get_clients(should_download)
 
     with utils.database.db_session() as conn:
         evaluators = utils.database.get_evaluators_with_blocked_locations(
@@ -185,86 +187,22 @@ def import_from_ta(
         utils.appointments.insert_appointments_with_gcal(appointment_sync_config)
 
 
-def extract_digits(string: str) -> str | None:
-    """Extract only digits from a string."""
-    digits_only = re.sub(r"\D", "", string)
-    return digits_only or None
-
-
-def format_fax_number(string: str) -> str | None:
-    """Format a fax number as (XXX) XXX-XXXX."""
-    digits_only = re.sub(r"\D", "", string)
-
-    if len(digits_only) != 10:
-        return None  # Invalid fax number length
-
-    return f"({digits_only[:3]}) {digits_only[3:6]}-{digits_only[6:]}"
-
-
-def make_referral_fax_folders(referrals: pd.DataFrame):
-    """Make folders for referrals in the TO BE FAXED folder in Google Drive."""
-    logger.debug("Making folders for referrals")
-    ref_names = utils.spreadsheets.get_unique_values(referrals, "Referral Name")
-    ref_data = []
-    for ref_name in ref_names:
-        cleaned_name = re.sub(r"\([^)]*\)|[^a-zA-Z\s/.]", "", ref_name).strip()
-        raw_fax_number = extract_digits(ref_name)
-        fax_number = format_fax_number(raw_fax_number) if raw_fax_number else None
-        if not fax_number:
-            logger.warning(f"Invalid fax number: {ref_name}")
-            continue
-        ref_data.append(
-            {
-                "cleaned_name": cleaned_name,
-                "fax_number": fax_number,
-                "raw_fax_number": extract_digits(ref_name),
-            }
-        )
-    fax_folder_id = os.getenv("FAX_FOLDER_ID")
-    if fax_folder_id is None:
-        logger.error("FAX_FOLDER_ID is not set")
-        return
-    existing_referral_folders = utils.google.get_items_in_folder(fax_folder_id)
-    if existing_referral_folders is None:
-        logger.error("Failed to get existing referral folders")
-        return
-    existing_referral_faxes = [
-        extract_digits(folder["name"]) for folder in existing_referral_folders
-    ]
-    ref_data = [
-        entry
-        for entry in ref_data
-        if entry["raw_fax_number"] not in existing_referral_faxes
-        and entry["cleaned_name"] != "No Referral Source"
-    ]
-    if not ref_data or len(ref_data) == 0:
-        logger.debug("No new referral sources to create folders for")
-        return
-
-    created_count = 0
-    for ref in ref_data:
-        parts = [ref["cleaned_name"], ref["fax_number"]]
-        folder_name = " ".join(part for part in parts if part)
-        if folder_name:
-            utils.google.create_folder_in_folder(folder_name, fax_folder_id)
-            created_count += 1
-
-    if created_count > 0:
-        logger.debug(f"Created {created_count} folders for referrals")
-
-
 def process_referrals():
     """Process referrals, creating folders for them in Google Drive."""
-    # TODO: Also generate fax pdfs for new referrals that have appointments here
     logger.debug("Processing referrals")
-    ref_df = utils.spreadsheets.open_local("temp/input/client-referral-report.csv")
-    make_referral_fax_folders(ref_df)
+    clients = utils.database.get_all_clients()
+    if datetime.now().weekday() == 4:  # Friday
+        utils.referrals.create_and_send_referral_faxes(clients)
+    utils.referrals.make_referral_fax_folders(clients)
     logger.debug("Finished processing referrals")
 
 
 def main(
     download_only: Annotated[
         bool, typer.Option("--download-only", help="Download TA CSVs and exit")
+    ] = False,
+    import_only: Annotated[
+        bool, typer.Option("--import-only", help="Import data from TA CSVs and exit")
     ] = False,
     openphone: Annotated[
         bool,
@@ -372,8 +310,10 @@ def main(
                         f"  - {name_display} (ID: {client_row.get('CLIENT_ID', 'N/A')})"
                     )
 
-    import_from_ta(clients=clients, force_clients=force_clients)
-    if client or force_all:
+    import_from_ta(
+        clients=clients, force_clients=force_clients, should_download=not import_only
+    )
+    if client or force_all or import_only:
         return
 
     try:

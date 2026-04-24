@@ -786,6 +786,9 @@ export function IssuesList() {
 		);
 	});
 
+	const { data: noReferralSource, isLoading: isLoadingNoReferralSource } =
+		api.clients.getNoReferralSource.useQuery();
+
 	return (
 		<div className="flex flex-wrap justify-center gap-10">
 			{isLoadingDD4 && <IssueListSkeleton />}
@@ -824,16 +827,6 @@ export function IssuesList() {
 					title="Autism Stops"
 				/>
 			)}
-			{isLoadingDistrictErrors && <IssueListSkeleton />}
-			{!isLoadingDistrictErrors &&
-				clientsWithoutDistrict &&
-				clientsWithoutDistrict.length !== 0 && (
-					<IssueList
-						clients={clientsWithoutDistrict}
-						description="Clients missing a school district."
-						title="Missing Districts"
-					/>
-				)}
 			{isLoadingPunchlistIssues && <IssueListSkeleton />}
 			{!isLoadingPunchlistIssues &&
 				punchlistIssues &&
@@ -869,6 +862,26 @@ export function IssuesList() {
 					title="Duplicate Punchlist IDs"
 				/>
 			)}
+			{isLoadingNoReferralSource && <IssueListSkeleton />}
+			{!isLoadingNoReferralSource &&
+				noReferralSource &&
+				noReferralSource.length !== 0 && (
+					<IssueList
+						clients={noReferralSource}
+						description="Active clients with no referral source."
+						title="No Referral Source"
+					/>
+				)}
+			{isLoadingDistrictErrors && <IssueListSkeleton />}
+			{!isLoadingDistrictErrors &&
+				clientsWithoutDistrict &&
+				clientsWithoutDistrict.length !== 0 && (
+					<IssueList
+						clients={clientsWithoutDistrict}
+						description="Clients missing a school district."
+						title="Missing Districts"
+					/>
+				)}
 			{isLoadingDistrictErrors && <IssueListSkeleton />}
 			{!isLoadingDistrictErrors &&
 				clientsWithPoorAddressLookup &&
