@@ -52,4 +52,5 @@ CLIENT_COLUMN_MAPPING: Final = {
     "eiAttends": "EI_ATTENDS",
     "flag": "FLAG",
     "taHash": "TA_HASH",
+    "referralSource": "REFERRAL_SOURCE",
 }
