@@ -92,7 +92,9 @@ def filter_clients_by_criteria(
 
 
 def import_from_ta(
-    clients: pd.DataFrame | None = None, force_clients: pd.DataFrame | None = None
+    clients: pd.DataFrame | None = None,
+    force_clients: pd.DataFrame | None = None,
+    should_download=True,
 ):
     """Imports data from TA CSVs into the database.
 
@@ -101,7 +103,7 @@ def import_from_ta(
         force_clients: Specific clients to force through geocoding regardless of address change.
     """
     if clients is None:
-        clients = utils.clients.get_clients()
+        clients = utils.clients.get_clients(should_download)
 
     with utils.database.db_session() as conn:
         evaluators = utils.database.get_evaluators_with_blocked_locations(
@@ -198,6 +200,9 @@ def process_referrals():
 def main(
     download_only: Annotated[
         bool, typer.Option("--download-only", help="Download TA CSVs and exit")
+    ] = False,
+    import_only: Annotated[
+        bool, typer.Option("--import-only", help="Import data from TA CSVs and exit")
     ] = False,
     openphone: Annotated[
         bool,
@@ -305,8 +310,10 @@ def main(
                         f"  - {name_display} (ID: {client_row.get('CLIENT_ID', 'N/A')})"
                     )
 
-    import_from_ta(clients=clients, force_clients=force_clients)
-    if client or force_all:
+    import_from_ta(
+        clients=clients, force_clients=force_clients, should_download=not import_only
+    )
+    if client or force_all or import_only:
         return
 
     try:
