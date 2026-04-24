@@ -87,6 +87,11 @@ export function IssuesAlert() {
 					self.findIndex((c) => c.id === client.id) === index,
 			) ?? [];
 
+	const { data: noReferralSource } = api.clients.getNoReferralSource.useQuery(
+		undefined,
+		queryOptions,
+	);
+
 	const errorsLength =
 		(districtErrors?.clientsWithoutDistrict.length ?? 0) +
 		(districtErrors?.clientsWithPoorAddressLookup.length ?? 0) +
@@ -108,7 +113,8 @@ export function IssuesAlert() {
 		(justAddedQuestionnaires?.length ?? 0) +
 		(punchlistIssues?.clientsNotInDb.length ?? 0) +
 		(punchlistIssues?.inactiveClients.length ?? 0) +
-		(punchlistIssues?.duplicateIdClients.length ?? 0);
+		(punchlistIssues?.duplicateIdClients.length ?? 0) +
+		(noReferralSource?.length ?? 0);
 
 	if (errorsLength === 0) {
 		return null;
