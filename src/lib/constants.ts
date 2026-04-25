@@ -123,6 +123,10 @@ export const PERMISSIONS = {
 					{ id: "settings:users:invite", title: "Invite Users" },
 					{ id: "settings:evaluators", title: "Manage Evaluators" },
 					{ id: "settings:insurances", title: "Manage Insurances" },
+					{
+						id: "settings:appointments-sync",
+						title: "Manage Appointments Sync",
+					},
 					{ id: "settings:testUnits", title: "Manage Test Units" },
 				],
 			},

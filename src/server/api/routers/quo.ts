@@ -4,6 +4,7 @@ import { z } from "zod";
 import { env } from "~/env";
 import { getContactTimeline, getOpenPhoneUsers } from "~/lib/quo";
 import { normalizePhoneNumber } from "~/lib/utils";
+import { pythonConfigSchema } from "~/lib/validations";
 import { createTRPCRouter, protectedProcedure } from "~/server/api/trpc";
 import { pythonConfig } from "~/server/db/schema";
 
@@ -17,7 +18,12 @@ export const quoRouter = createTRPCRouter({
 				const record = await ctx.db.query.pythonConfig.findFirst({
 					where: eq(pythonConfig.id, 1),
 				});
-				apiKey = record?.data.services.openphone.key;
+				if (record?.data) {
+					const result = pythonConfigSchema.safeParse(record.data);
+					if (result.success) {
+						apiKey = result.data.services.openphone.key;
+					}
+				}
 			}
 
 			if (!apiKey) {

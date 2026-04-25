@@ -110,7 +110,13 @@ export const pythonConfigSchema = z.object({
 	config: configSchema,
 });
 
+export const appointmentSyncConfigSchema = z.object({
+	trusted_appointment_ids: z.array(z.string()),
+	ignored_appointment_ids: z.array(z.string()),
+});
+
 export type pythonConfig = z.infer<typeof pythonConfigSchema>;
+export type AppointmentSyncConfig = z.infer<typeof appointmentSyncConfigSchema>;
 
 export const referralDataSchema = z.object({
 	notes: z.string().optional(),

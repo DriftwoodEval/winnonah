@@ -1,5 +1,6 @@
 "use client";
 
+import AppointmentsSyncSettings from "@components/settings/AppointmentsSyncSettings";
 import EvaluatorsTable from "@components/settings/EvaluatorsTable";
 import InsurancesTable from "@components/settings/InsurancesTable";
 import InvitesTable from "@components/settings/InvitesTable";
@@ -28,6 +29,7 @@ export function SettingsTabs() {
 					<TabsTrigger value="users">Users</TabsTrigger>
 					<TabsTrigger value="evaluators">Evaluators</TabsTrigger>
 					<TabsTrigger value="insurances">Insurances</TabsTrigger>
+					<TabsTrigger value="appointments-sync">Appointments Sync</TabsTrigger>
 				</TabsList>
 				<TabsContent value="users">
 					<div className="flex flex-col gap-8">
@@ -40,6 +42,9 @@ export function SettingsTabs() {
 				</TabsContent>
 				<TabsContent value="insurances">
 					<InsurancesTable />
+				</TabsContent>
+				<TabsContent value="appointments-sync">
+					<AppointmentsSyncSettings />
 				</TabsContent>
 			</Tabs>
 		</div>

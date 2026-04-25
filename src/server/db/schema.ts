@@ -10,7 +10,11 @@ import type z from "zod";
 import { CLIENT_COLOR_KEYS } from "~/lib/colors";
 import { QUESTIONNAIRE_STATUSES } from "~/lib/constants";
 import type { PermissionsObject } from "~/lib/types";
-import type { pythonConfigSchema, referralDataSchema } from "~/lib/validations";
+import type {
+	appointmentSyncConfigSchema,
+	pythonConfigSchema,
+	referralDataSchema,
+} from "~/lib/validations";
 
 /**
  * @see https://orm.drizzle.team/docs/goodies#multi-project-schema
@@ -699,7 +703,9 @@ export const schedulingClientsRelations = relations(
 	}),
 );
 
-type ConfigData = z.infer<typeof pythonConfigSchema>;
+type ConfigData =
+	| z.infer<typeof pythonConfigSchema>
+	| z.infer<typeof appointmentSyncConfigSchema>;
 
 export const pythonConfig = createTable("python_config", (d) => ({
 	id: d.int().notNull().primaryKey(),
