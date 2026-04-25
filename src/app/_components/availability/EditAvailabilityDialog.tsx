@@ -1,6 +1,7 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
+import { Alert, AlertDescription, AlertTitle } from "@ui/alert";
 import {
 	AlertDialog,
 	AlertDialogAction,
@@ -28,7 +29,8 @@ import {
 	FormLabel,
 } from "@ui/form";
 import { RadioGroup, RadioGroupItem } from "@ui/radio-group";
-import { Trash2 } from "lucide-react";
+import { addMonths, isBefore } from "date-fns";
+import { AlertCircle, Trash2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
@@ -63,6 +65,8 @@ export function EditAvailabilityDialog({
 }: EditAvailabilityDialogProps) {
 	const utils = api.useUtils();
 	const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+
+	const isLocked = isBefore(new Date(event.start), addMonths(new Date(), 1));
 
 	const form = useForm<AvailabilityFormValues>({
 		resolver: zodResolver(availabilityFormSchema),
@@ -227,6 +231,17 @@ export function EditAvailabilityDialog({
 						</DialogDescription>
 					</DialogHeader>
 
+					{isLocked && (
+						<Alert variant="destructive">
+							<AlertCircle className="h-4 w-4" />
+							<AlertTitle>Locked Entry</AlertTitle>
+							<AlertDescription>
+								Availability less than one month away is locked and cannot be
+								edited or deleted.
+							</AlertDescription>
+						</Alert>
+					)}
+
 					<Form {...form}>
 						<form className="space-y-6" onSubmit={form.handleSubmit(onSubmit)}>
 							{isRecurringInstance && (
@@ -241,6 +256,7 @@ export function EditAvailabilityDialog({
 											<FormControl>
 												<RadioGroup
 													className="flex flex-col space-y-1"
+													disabled={isLocked}
 													onValueChange={field.onChange}
 													value={field.value}
 												>
@@ -276,14 +292,14 @@ export function EditAvailabilityDialog({
 							<div className="flex gap-4">
 								<Button
 									className="flex-1"
-									disabled={updateAvailability.isPending}
+									disabled={updateAvailability.isPending || isLocked}
 									type="submit"
 								>
 									{updateAvailability.isPending ? "Saving..." : "Save Changes"}
 								</Button>
 								<Button
 									className="shrink-0"
-									disabled={deleteAvailability.isPending}
+									disabled={deleteAvailability.isPending || isLocked}
 									onClick={() => setIsDeleteDialogOpen(true)}
 									type="button"
 									variant="destructive"
@@ -313,6 +329,7 @@ export function EditAvailabilityDialog({
 						<AlertDialogCancel>Cancel</AlertDialogCancel>
 						<AlertDialogAction
 							className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+							disabled={isLocked}
 							onClick={() => {
 								const targetId =
 									scope === "all" && event.recurringEventId

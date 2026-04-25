@@ -5,14 +5,16 @@ import { ScrollArea } from "@ui/scroll-area";
 import { Skeleton } from "@ui/skeleton";
 import {
 	add,
+	addMonths,
 	eachDayOfInterval,
 	format,
+	isBefore,
 	isSameDay,
 	parseISO,
 	startOfDay,
 	sub,
 } from "date-fns";
-import { Edit2, Repeat } from "lucide-react";
+import { Edit2, Lock, Repeat } from "lucide-react";
 import { useState } from "react";
 import { cn } from "~/lib/utils";
 import { api } from "~/trpc/react";
@@ -241,6 +243,12 @@ export function AvailabilityList() {
 											const recurrenceDesc = getRecurrenceDescription(
 												event.recurrence,
 											);
+											const oneMonthFromNow = addMonths(new Date(), 1);
+											const isLocked = isBefore(
+												new Date(event.start),
+												oneMonthFromNow,
+											);
+
 											return (
 												<div
 													className={cn(
@@ -251,27 +259,36 @@ export function AvailabilityList() {
 													)}
 													key={`${dateKey}-${event.id}`}
 												>
-													<button
-														className="absolute top-2 right-2 rounded-md p-1 opacity-0 transition-opacity hover:bg-muted group-hover:opacity-100"
-														onClick={() => {
-															if (event.id) {
-																setEditingEvent({
-																	id: event.id,
-																	summary: event.summary || "",
-																	start: event.start,
-																	end: event.end,
-																	isUnavailability: event.isUnavailability,
-																	isAllDay: event.isAllDay,
-																	officeKeys: event.officeKeys,
-																	recurrence: event.recurrence,
-																	recurringEventId: event.recurringEventId,
-																});
-															}
-														}}
-														type="button"
-													>
-														<Edit2 className="h-4 w-4 text-muted-foreground" />
-													</button>
+													{!isLocked ? (
+														<button
+															className="absolute top-2 right-2 rounded-md p-1 opacity-0 transition-opacity hover:bg-muted group-hover:opacity-100"
+															onClick={() => {
+																if (event.id) {
+																	setEditingEvent({
+																		id: event.id,
+																		summary: event.summary || "",
+																		start: event.start,
+																		end: event.end,
+																		isUnavailability: event.isUnavailability,
+																		isAllDay: event.isAllDay,
+																		officeKeys: event.officeKeys,
+																		recurrence: event.recurrence,
+																		recurringEventId: event.recurringEventId,
+																	});
+																}
+															}}
+															type="button"
+														>
+															<Edit2 className="h-4 w-4 text-muted-foreground" />
+														</button>
+													) : (
+														<div
+															className="absolute top-2 right-2 p-1 text-muted-foreground"
+															title="Events less than one month away are locked."
+														>
+															<Lock className="h-4 w-4" />
+														</div>
+													)}
 													<div className="flex items-center gap-2">
 														<p
 															className={cn(
