@@ -19,7 +19,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@ui/popover";
 import { RadioGroup, RadioGroupItem } from "@ui/radio-group";
 import { Separator } from "@ui/separator";
 import { Switch } from "@ui/switch";
-import { add, format, sub } from "date-fns";
+import { add, addMonths, format, startOfDay, sub } from "date-fns";
 import { AlertCircle, CalendarIcon } from "lucide-react";
 import type { UseFormReturn } from "react-hook-form";
 import {
@@ -46,6 +46,8 @@ export function AvailabilityFields({
 
 	const { data: offices, isLoading: isLoadingOffices } =
 		api.offices.getAll.useQuery();
+
+	const minDate = startOfDay(addMonths(new Date(), 1));
 
 	return (
 		<div className="space-y-6">
@@ -193,6 +195,7 @@ export function AvailabilityFields({
 							<FormControl>
 								<DateTimePicker
 									hideTime={isAllDay}
+									minDate={minDate}
 									onChange={(date) => {
 										if (date) {
 											if (isAllDay) {
@@ -234,6 +237,7 @@ export function AvailabilityFields({
 							<FormControl>
 								<DateTimePicker
 									hideTime={isAllDay}
+									minDate={minDate}
 									onChange={(date) => {
 										if (date) {
 											if (isAllDay) {

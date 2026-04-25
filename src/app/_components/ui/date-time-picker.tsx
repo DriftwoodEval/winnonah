@@ -14,6 +14,7 @@ interface DateTimePickerProps {
 	onChange: (date: Date) => void;
 	disabled?: boolean;
 	hideTime?: boolean;
+	minDate?: Date;
 }
 
 const DateTimePicker: React.FC<DateTimePickerProps> = ({
@@ -21,6 +22,7 @@ const DateTimePicker: React.FC<DateTimePickerProps> = ({
 	onChange,
 	disabled,
 	hideTime,
+	minDate,
 }) => {
 	const [open, setOpen] = React.useState(false);
 
@@ -43,7 +45,7 @@ const DateTimePicker: React.FC<DateTimePickerProps> = ({
 
 	const handleTimeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
 		const newTime = e.target.value;
-		const timeParts = newTime.split(":").map(p => parseInt(p, 10));
+		const timeParts = newTime.split(":").map((p) => parseInt(p, 10));
 
 		const hours = timeParts[0] || 0;
 		const minutes = timeParts[1] || 0;
@@ -57,29 +59,31 @@ const DateTimePicker: React.FC<DateTimePickerProps> = ({
 	const displayValue = value ? format(value, "PP") : "Pick a date";
 
 	return (
-		<div className="flex flex-row gap-2 w-full">
+		<div className="flex w-full flex-row gap-2">
 			{/* Date Picker (Calendar) */}
-			<Popover open={open} onOpenChange={setOpen}>
+			<Popover onOpenChange={setOpen} open={open}>
 				<PopoverTrigger asChild>
 					<Button
-						variant="outline"
 						className={cn(
-							"w-auto min-w-32 justify-start text-left font-normal flex-grow",
+							"w-auto min-w-32 grow justify-start text-left font-normal",
 							!value && "text-muted-foreground",
 						)}
 						disabled={disabled}
+						variant="outline"
 					>
 						<CalendarIcon className="mr-2 h-4 w-4" />
 						{displayValue}
 					</Button>
 				</PopoverTrigger>
-				<PopoverContent className="w-auto p-0" align="start">
+				<PopoverContent align="start" className="w-auto p-0">
 					<Calendar
-						mode="single"
-						selected={value}
-						onSelect={handleDateSelect}
 						autoFocus
 						captionLayout="dropdown"
+						disabled={minDate ? (date) => date < minDate : undefined}
+						mode="single"
+						onSelect={handleDateSelect}
+						selected={value}
+						defaultMonth={minDate}
 					/>
 				</PopoverContent>
 			</Popover>
@@ -87,12 +91,12 @@ const DateTimePicker: React.FC<DateTimePickerProps> = ({
 			{/* Time Input */}
 			{!hideTime && (
 				<Input
-					type="time"
-					value={timeString.substring(0, 5)}
+					className="w-auto min-w-24 shrink-0"
+					disabled={disabled}
 					onChange={handleTimeChange}
 					step="60"
-					className="w-auto min-w-24 flex-shrink-0"
-					disabled={disabled}
+					type="time"
+					value={timeString.substring(0, 5)}
 				/>
 			)}
 		</div>

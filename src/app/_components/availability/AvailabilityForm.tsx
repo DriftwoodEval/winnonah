@@ -3,6 +3,7 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Button } from "@ui/button";
 import { Form } from "@ui/form";
+import { addMonths } from "date-fns";
 import { useSession } from "next-auth/react";
 import { useEffect } from "react";
 import { useForm } from "react-hook-form";
@@ -25,8 +26,7 @@ export function AvailabilityForm() {
 			enabled: !!evaluatorId,
 		});
 
-	const defaultDate = new Date();
-	defaultDate.setDate(defaultDate.getDate() + 14);
+	const defaultDate = addMonths(new Date(), 1);
 
 	const defaultStartDate = new Date(
 		defaultDate.getFullYear(),
