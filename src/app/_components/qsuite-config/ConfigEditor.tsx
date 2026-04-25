@@ -142,7 +142,11 @@ type FormValues = z.infer<typeof formSchema>;
 const toEntries = <T,>(rec: Record<string, T>): KV<T>[] =>
 	Object.entries(rec)
 		.map(([key, value]) => ({ key, value }))
-		.sort((a, b) => a.key.localeCompare(b.key));
+		.sort((a, b) => {
+			if (a.key === "default") return -1;
+			if (b.key === "default") return 1;
+			return a.key.localeCompare(b.key);
+		});
 const fromEntries = <T,>(arr: KV<T>[]): Record<string, T> =>
 	arr.reduce(
 		(acc, { key, value }) => {
