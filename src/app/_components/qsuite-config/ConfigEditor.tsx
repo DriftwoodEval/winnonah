@@ -500,9 +500,13 @@ export function ConfigEditor() {
 
 	const form = useForm<FormValues>({ resolver: zodResolver(formSchema) });
 
-	const apiKey = form.watch("services.openphone.key");
-	const opUsersMutation = api.quo.getQuoUsers.useMutation({
-		onSuccess: (data) => {
+	const opUsersQuery = api.quo.getQuoUsers.useQuery(undefined, {
+		enabled: false,
+	});
+
+	const onSyncOpenPhone = async () => {
+		const { data, error } = await opUsersQuery.refetch();
+		if (data) {
 			form.setValue(
 				"services.openphone.users",
 				data
@@ -513,9 +517,10 @@ export function ConfigEditor() {
 					.sort((a, b) => a.key.localeCompare(b.key)),
 			);
 			toast.success(`Synced ${data.length} users`);
-		},
-		onError: (e) => toast.error(e.message),
-	});
+		} else if (error) {
+			toast.error(error.message);
+		}
+	};
 
 	useEffect(() => {
 		if (!config) return;
@@ -670,8 +675,8 @@ export function ConfigEditor() {
 									<ServicesTab
 										disabled={!canEditServices}
 										form={form}
-										onSyncOpenPhone={() => opUsersMutation.mutate({ apiKey })}
-										syncingOpenPhone={opUsersMutation.isPending}
+										onSyncOpenPhone={onSyncOpenPhone}
+										syncingOpenPhone={opUsersQuery.isFetching}
 									/>
 								</TabsContent>
 								<TabsContent value="records">

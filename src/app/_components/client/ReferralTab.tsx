@@ -31,6 +31,7 @@ import {
 	InfoIcon,
 	Loader2,
 	LockIcon,
+	Send,
 	Square,
 } from "lucide-react";
 import Link from "next/link";
@@ -154,6 +155,33 @@ export function ReferralTab({ client, readOnly }: ReferralTabProps) {
 		updateClientMutation.mutate({
 			clientId: client.id,
 			referralData: newReferralData,
+		});
+	};
+
+	const sendMessageMutation = api.quo.sendMessage.useMutation({
+		onSuccess: (_data, variables) => {
+			toast.success("Text message sent");
+			void utils.quo.getContactTimeline.invalidate({
+				phoneNumber: variables.phoneNumber,
+			});
+		},
+		onError: (error) => {
+			toast.error("Failed to send text message", {
+				description: error.message,
+			});
+		},
+	});
+
+	const handleSendBabyNetText = () => {
+		if (!client.phoneNumber) {
+			toast.error("Client has no phone number");
+			return;
+		}
+
+		sendMessageMutation.mutate({
+			phoneNumber: client.phoneNumber,
+			message:
+				"Here is the link to send to your Early Interventionist. https://www.driftwoodeval.com/babynet\nThank you!",
 		});
 	};
 
@@ -312,7 +340,7 @@ export function ReferralTab({ client, readOnly }: ReferralTabProps) {
 						</div>
 
 						<div className="space-y-2">
-							<Label>They have</Label>
+							<Label>Insurance</Label>
 							<div className="py-2 font-medium text-sm">
 								{client.primaryInsurance
 									? `${client.primaryInsurance}${client.secondaryInsurance ? ` | ${client.secondaryInsurance}` : ""}`
@@ -388,11 +416,24 @@ export function ReferralTab({ client, readOnly }: ReferralTabProps) {
 								</div>
 
 								{followedByBabyNet === "yes" && (
-									<div className="rounded-lg bg-muted p-4 text-sm">
+									<div className="flex items-center justify-between rounded-lg bg-muted p-4 text-sm">
 										<p>
-											Tell your Early Interventionalist (EI) to go to
-											driftwoodeval.com/babynet and fill in our referral form.
+											I'm sending you a text, please forward it to your early
+											interventionist.
 										</p>
+										<Button
+											className="cursor-pointer"
+											disabled={isReadOnly || sendMessageMutation.isPending}
+											onClick={handleSendBabyNetText}
+											size="sm"
+										>
+											{sendMessageMutation.isPending ? (
+												<Loader2 className="mr-2 h-4 w-4 animate-spin" />
+											) : (
+												<Send className="mr-2 h-4 w-4" />
+											)}
+											Text Link
+										</Button>
 									</div>
 								)}
 							</div>

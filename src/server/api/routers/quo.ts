@@ -1,51 +1,31 @@
 import { TRPCError } from "@trpc/server";
-import { eq } from "drizzle-orm";
 import { z } from "zod";
 import { env } from "~/env";
-import { getContactTimeline, getOpenPhoneUsers } from "~/lib/quo";
+import { getContactTimeline, getOpenPhoneUsers, sendMessage } from "~/lib/quo";
 import { normalizePhoneNumber } from "~/lib/utils";
-import { pythonConfigSchema } from "~/lib/validations";
 import { createTRPCRouter, protectedProcedure } from "~/server/api/trpc";
-import { pythonConfig } from "~/server/db/schema";
 
 export const quoRouter = createTRPCRouter({
-	getQuoUsers: protectedProcedure
-		.input(z.object({ apiKey: z.string().optional() }))
-		.mutation(async ({ ctx, input }) => {
-			let apiKey = input.apiKey;
+	getQuoUsers: protectedProcedure.query(async () => {
+		const apiKey = env.OPENPHONE_API_TOKEN;
+		const phoneNumberId = env.OPENPHONE_NUMBER_ID;
 
-			if (!apiKey) {
-				const record = await ctx.db.query.pythonConfig.findFirst({
-					where: eq(pythonConfig.id, 1),
-				});
-				if (record?.data) {
-					const result = pythonConfigSchema.safeParse(record.data);
-					if (result.success) {
-						apiKey = result.data.services.openphone.key;
-					}
-				}
-			}
+		if (!apiKey || !phoneNumberId) {
+			throw new TRPCError({
+				code: "PRECONDITION_FAILED",
+				message: "OpenPhone configuration missing in environment",
+			});
+		}
 
-			if (!apiKey) {
-				apiKey = env.OPENPHONE_API_TOKEN;
-			}
-
-			if (!apiKey) {
-				throw new TRPCError({
-					code: "BAD_REQUEST",
-					message: "OpenPhone API key is required",
-				});
-			}
-
-			try {
-				return await getOpenPhoneUsers(apiKey);
-			} catch (e) {
-				throw new TRPCError({
-					code: "INTERNAL_SERVER_ERROR",
-					message: e instanceof Error ? e.message : "Unknown error",
-				});
-			}
-		}),
+		try {
+			return await getOpenPhoneUsers(apiKey);
+		} catch (e) {
+			throw new TRPCError({
+				code: "INTERNAL_SERVER_ERROR",
+				message: e instanceof Error ? e.message : "Unknown error",
+			});
+		}
+	}),
 
 	getContactTimeline: protectedProcedure
 		.input(z.object({ phoneNumber: z.string() }))
@@ -63,6 +43,44 @@ export const quoRouter = createTRPCRouter({
 			try {
 				const normalized = normalizePhoneNumber(input.phoneNumber);
 				return await getContactTimeline(apiKey, phoneNumberId, normalized);
+			} catch (e) {
+				throw new TRPCError({
+					code: "INTERNAL_SERVER_ERROR",
+					message: e instanceof Error ? e.message : "Unknown error",
+				});
+			}
+		}),
+
+	sendMessage: protectedProcedure
+		.input(z.object({ phoneNumber: z.string(), message: z.string() }))
+		.mutation(async ({ ctx, input }) => {
+			const apiKey = env.OPENPHONE_API_TOKEN;
+			const phoneNumberId = env.OPENPHONE_NUMBER_ID;
+
+			if (!apiKey || !phoneNumberId) {
+				throw new TRPCError({
+					code: "PRECONDITION_FAILED",
+					message: "OpenPhone configuration missing in environment",
+				});
+			}
+
+			try {
+				const normalized = normalizePhoneNumber(input.phoneNumber);
+
+				const openPhoneUsers = await getOpenPhoneUsers(apiKey);
+
+				const loggedInName = ctx.session.user.name?.toLowerCase().trim();
+				const matchedUser = openPhoneUsers.find(
+					(u) => u.name.toLowerCase().trim() === loggedInName,
+				);
+
+				return await sendMessage(
+					apiKey,
+					phoneNumberId,
+					normalized,
+					input.message,
+					matchedUser?.id,
+				);
 			} catch (e) {
 				throw new TRPCError({
 					code: "INTERNAL_SERVER_ERROR",

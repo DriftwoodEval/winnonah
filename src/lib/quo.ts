@@ -165,3 +165,32 @@ export async function getContactTimeline(
 		(a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(),
 	);
 }
+
+export async function sendMessage(
+	apiKey: string,
+	phoneNumberId: string,
+	to: string,
+	message: string,
+	userId?: string,
+) {
+	const response = await fetch("https://api.openphone.com/v1/messages", {
+		method: "POST",
+		headers: {
+			Authorization: apiKey,
+			"Content-Type": "application/json",
+		},
+		body: JSON.stringify({
+			content: message,
+			from: phoneNumberId,
+			to: [to],
+			userId: userId,
+		}),
+	});
+
+	if (!response.ok) {
+		const errorData = (await response.json()) as { message?: string };
+		throw new Error(errorData.message || "Failed to send message");
+	}
+
+	return response.json();
+}
