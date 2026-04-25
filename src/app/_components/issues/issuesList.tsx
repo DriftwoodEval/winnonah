@@ -7,12 +7,13 @@ import { format, formatDistanceToNow } from "date-fns";
 import { MapIcon, MapPinIcon, Pin, PinOff, RotateCw } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useRef } from "react";
+import { useCheckPermission } from "~/hooks/use-check-permission";
 import type {
 	DuplicateDriveGroup,
 	SharedQuestionnaireData,
 } from "~/lib/api-types";
 import type { Client, ClientWithIssueInfo } from "~/lib/models";
-
+import type { PermissionId } from "~/lib/types";
 import { api } from "~/trpc/react";
 import { ManualAddressDialog } from "../client/ManualAddressDialog";
 
@@ -681,8 +682,29 @@ const ClientsSharingQuestionnaires = ({
 	);
 };
 
+type GuardedIssueProps = {
+	permission: PermissionId;
+	isLoading: boolean;
+	children: React.ReactNode;
+};
+
+const GuardedIssue = ({
+	permission,
+	isLoading,
+	children,
+}: GuardedIssueProps) => {
+	const can = useCheckPermission();
+
+	if (!can(permission)) return null;
+
+	if (isLoading) return <IssueListSkeleton />;
+
+	return <>{children}</>;
+};
+
 export function IssuesList() {
 	const utils = api.useUtils();
+
 	const { data: districtErrors, isLoading: isLoadingDistrictErrors } =
 		api.clients.getDistrictErrors.useQuery();
 	const { clientsWithoutDistrict = [], clientsWithPoorAddressLookup = [] } =
@@ -713,7 +735,7 @@ export function IssuesList() {
 		api.clients.getAutismStops.useQuery();
 	const { data: pausedClients, isLoading: isLoadingPausedClients } =
 		api.clients.getPaused.useQuery();
-	const { data: needsBabyNetERDownloaded } =
+	const { data: needsBabyNetERDownloaded, isLoading: isLoadingNeedsBabyNetER } =
 		api.clients.getNeedsBabyNetERDownloaded.useQuery();
 	const { data: noteOnlyClients, isLoading: isLoadingNoteOnlyClients } =
 		api.clients.getNoteOnlyClients.useQuery();
@@ -732,7 +754,7 @@ export function IssuesList() {
 	const { data: dd4, isLoading: isLoadingDD4 } = api.clients.getDD4.useQuery();
 	const { data: possiblePrivatePay, isLoading: isLoadingPossiblePrivatePay } =
 		api.clients.getPossiblePrivatePay.useQuery();
-	const { data: unreviewedRecords } =
+	const { data: unreviewedRecords, isLoading: isLoadingUnreviewedRecords } =
 		api.clients.getUnreviewedRecords.useQuery();
 	const { data: duplicateQLinks, isLoading: isLoadingDuplicateQLinks } =
 		api.questionnaires.getDuplicateLinks.useQuery();
@@ -791,46 +813,60 @@ export function IssuesList() {
 
 	return (
 		<div className="flex flex-wrap justify-center gap-10">
-			{isLoadingDD4 && <IssueListSkeleton />}
-			{!isLoadingDD4 && dd4 && dd4.length !== 0 && (
-				<IssueList
-					clients={dd4}
-					description="Clients located in Dorchester District 4."
-					title="In DD4"
-				/>
-			)}
-			{isLoadingJustAdded && <IssueListSkeleton />}
-			{!isLoadingJustAdded &&
-				justAddedQuestionnaires &&
-				justAddedQuestionnaires.length !== 0 && (
+			<GuardedIssue isLoading={isLoadingDD4} permission="issues:dd4">
+				{dd4 && dd4.length !== 0 && (
+					<IssueList
+						clients={dd4}
+						description="Clients located in Dorchester District 4."
+						title="In DD4"
+					/>
+				)}
+			</GuardedIssue>
+
+			<GuardedIssue
+				isLoading={isLoadingJustAdded}
+				permission="issues:just-added"
+			>
+				{justAddedQuestionnaires && justAddedQuestionnaires.length !== 0 && (
 					<IssueList
 						clients={justAddedQuestionnaires}
 						description="Questionnaires generated but not sent to client."
 						title="Just Added Questionnaires"
 					/>
 				)}
-			{isLoadingPausedClients && <IssueListSkeleton />}
-			{!isLoadingPausedClients &&
-				pausedClients &&
-				pausedClients.length !== 0 && (
+			</GuardedIssue>
+
+			<GuardedIssue
+				isLoading={isLoadingPausedClients}
+				permission="issues:paused-clients"
+			>
+				{pausedClients && pausedClients.length !== 0 && (
 					<IssueList
 						clients={pausedClients}
 						description="Manually paused clients for review."
 						title="Paused Clients"
 					/>
 				)}
-			{isLoadingAutismStops && <IssueListSkeleton />}
-			{!isLoadingAutismStops && autismStops && autismStops.length !== 0 && (
-				<IssueList
-					clients={autismStops}
-					description='"Autism" found in school records, should be discharged.'
-					title="Autism Stops"
-				/>
-			)}
-			{isLoadingPunchlistIssues && <IssueListSkeleton />}
-			{!isLoadingPunchlistIssues &&
-				punchlistIssues &&
-				punchlistIssues.clientsNotInDb.length > 0 && (
+			</GuardedIssue>
+
+			<GuardedIssue
+				isLoading={isLoadingAutismStops}
+				permission="issues:autism-stops"
+			>
+				{autismStops && autismStops.length !== 0 && (
+					<IssueList
+						clients={autismStops}
+						description='"Autism" found in school records, should be discharged.'
+						title="Autism Stops"
+					/>
+				)}
+			</GuardedIssue>
+
+			<GuardedIssue
+				isLoading={isLoadingPunchlistIssues}
+				permission="issues:clients-not-in-db"
+			>
+				{punchlistIssues && punchlistIssues.clientsNotInDb.length !== 0 && (
 					<SuggestionIssueList
 						actionButtonText="Update Punch ID"
 						description="Clients on the punchlist but not in the database, likely incorrect IDs."
@@ -846,94 +882,128 @@ export function IssuesList() {
 						title="Punchlist Clients Not In DB"
 					/>
 				)}
-			{!isLoadingPunchlistIssues &&
-				punchlistIssues &&
-				punchlistIssues.inactiveClients.length > 0 && (
+			</GuardedIssue>
+
+			<GuardedIssue
+				isLoading={isLoadingPunchlistIssues}
+				permission="issues:punchlist-inactive"
+			>
+				{punchlistIssues && punchlistIssues.inactiveClients.length !== 0 && (
 					<IssueList
 						clients={punchlistIssues.inactiveClients}
 						description="Inactive clients currently on the punchlist."
 						title="Punchlist Clients Inactive"
 					/>
 				)}
-			{punchlistDuplicateIds.length > 0 && (
-				<IssueList
-					clients={punchlistDuplicateIds as ClientWithIssueInfo[]}
-					description="Duplicate client IDs found on the punchlist."
-					title="Duplicate Punchlist IDs"
-				/>
-			)}
-			{isLoadingNoReferralSource && <IssueListSkeleton />}
-			{!isLoadingNoReferralSource &&
-				noReferralSource &&
-				noReferralSource.length !== 0 && (
+			</GuardedIssue>
+
+			<GuardedIssue
+				isLoading={isLoadingPunchlistIssues}
+				permission="issues:punchlist-duplicates"
+			>
+				{punchlistDuplicateIds.length !== 0 && (
+					<IssueList
+						clients={punchlistDuplicateIds as ClientWithIssueInfo[]}
+						description="Duplicate client IDs found on the punchlist."
+						title="Duplicate Punchlist IDs"
+					/>
+				)}
+			</GuardedIssue>
+
+			<GuardedIssue
+				isLoading={isLoadingNoReferralSource}
+				permission="issues:no-referral-source"
+			>
+				{noReferralSource && noReferralSource.length !== 0 && (
 					<IssueList
 						clients={noReferralSource}
 						description="Active clients with no referral source."
 						title="No Referral Source"
 					/>
 				)}
-			{isLoadingDistrictErrors && <IssueListSkeleton />}
-			{!isLoadingDistrictErrors &&
-				clientsWithoutDistrict &&
-				clientsWithoutDistrict.length !== 0 && (
+			</GuardedIssue>
+
+			<GuardedIssue
+				isLoading={isLoadingDistrictErrors}
+				permission="issues:district-issues"
+			>
+				{clientsWithoutDistrict && clientsWithoutDistrict.length !== 0 && (
 					<IssueList
 						clients={clientsWithoutDistrict}
 						description="Clients missing a school district."
 						title="Missing Districts"
 					/>
 				)}
-			{isLoadingDistrictErrors && <IssueListSkeleton />}
-			{!isLoadingDistrictErrors &&
-				clientsWithPoorAddressLookup &&
-				clientsWithPoorAddressLookup.length !== 0 && (
-					<IssueList
-						clients={clientsWithPoorAddressLookup}
-						description="Address info was only found after cutting, should be double checked."
-						title="Poor Address Lookup"
-					/>
-				)}
-			{isLoadingBabyNetErrors && <IssueListSkeleton />}
-			{!isLoadingBabyNetErrors &&
-				babyNetErrors &&
-				babyNetErrors.length !== 0 && (
+			</GuardedIssue>
+
+			<GuardedIssue
+				isLoading={isLoadingDistrictErrors}
+				permission="issues:district-issues"
+			>
+				{clientsWithPoorAddressLookup &&
+					clientsWithPoorAddressLookup.length !== 0 && (
+						<IssueList
+							clients={clientsWithPoorAddressLookup}
+							description="Address info was only found after cutting, should be double checked."
+							title="Poor Address Lookup"
+						/>
+					)}
+			</GuardedIssue>
+
+			<GuardedIssue
+				isLoading={isLoadingBabyNetErrors}
+				permission="issues:babynet-ageout"
+			>
+				{babyNetErrors && babyNetErrors.length !== 0 && (
 					<IssueList
 						clients={babyNetErrors}
 						description="Clients who have aged out of BabyNet eligibility, but still have it listed."
 						title="Too Old for BabyNet"
 					/>
 				)}
-			{isLoadingNotInTAErrors && <IssueListSkeleton />}
-			{!isLoadingNotInTAErrors &&
-				notInTAErrors &&
-				notInTAErrors.length !== 0 && (
+			</GuardedIssue>
+
+			<GuardedIssue
+				isLoading={isLoadingNotInTAErrors}
+				permission="issues:not-in-ta"
+			>
+				{notInTAErrors && notInTAErrors.length !== 0 && (
 					<IssueList
 						clients={notInTAErrors}
 						description='Clients who were not imported from TA and were not added using the "Shell Client"/"Notes Only" feature.'
 						title="Not in TA"
 					/>
 				)}
-			{isLoadingDropList && <IssueListSkeleton />}
-			{!isLoadingDropList && dropList && dropList.length !== 0 && (
-				<IssueList
-					clients={dropList}
-					description="Clients who have been reminded more than 3 times and aren't completing tasks."
-					title="Drop List"
-				/>
-			)}
-			{needsBabyNetERDownloaded && needsBabyNetERDownloaded.length !== 0 && (
-				<IssueList
-					clients={needsBabyNetERDownloaded}
-					description="BabyNet Evaluation Report marked needed but not downloaded."
-					title="Needs BabyNet ER Downloaded"
-				/>
-			)}
-			{(isLoadingNoteOnlyClients || isLoadingMergeSuggestions) && (
-				<IssueListSkeleton />
-			)}
-			{!isLoadingNoteOnlyClients &&
-				!isLoadingMergeSuggestions &&
-				noteOnlyClients &&
-				noteOnlyClients.length !== 0 && (
+			</GuardedIssue>
+
+			<GuardedIssue isLoading={isLoadingDropList} permission="issues:droplist">
+				{dropList && dropList.length !== 0 && (
+					<IssueList
+						clients={dropList}
+						description="Clients who have been reminded more than 3 times and aren't completing tasks."
+						title="Drop List"
+					/>
+				)}
+			</GuardedIssue>
+
+			<GuardedIssue
+				isLoading={isLoadingNeedsBabyNetER}
+				permission="issues:babynet-er"
+			>
+				{needsBabyNetERDownloaded && needsBabyNetERDownloaded.length !== 0 && (
+					<IssueList
+						clients={needsBabyNetERDownloaded}
+						description="BabyNet Evaluation Report marked needed but not downloaded."
+						title="Needs BabyNet ER Downloaded"
+					/>
+				)}
+			</GuardedIssue>
+
+			<GuardedIssue
+				isLoading={isLoadingNoteOnlyClients || isLoadingMergeSuggestions}
+				permission="clients:merge"
+			>
+				{noteOnlyClients && noteOnlyClients.length !== 0 && (
 					<SuggestionIssueList
 						action={
 							<Link href="/clients/merge">
@@ -955,68 +1025,96 @@ export function IssuesList() {
 						title="Notes Only"
 					/>
 				)}
-			{isLoadingNoDriveIds && <IssueListSkeleton />}
-			{!isLoadingNoDriveIds && noDriveIds && noDriveIds.length !== 0 && (
-				<IssueList
-					clients={noDriveIds}
-					description="Clients missing a Google Drive folder ID."
-					title="No Drive IDs"
-				/>
-			)}
-			{isLoadingPossiblePrivatePay && <IssueListSkeleton />}
-			{!isLoadingPossiblePrivatePay &&
-				possiblePrivatePay &&
-				possiblePrivatePay.length !== 0 && (
+			</GuardedIssue>
+
+			<GuardedIssue
+				isLoading={isLoadingNoDriveIds}
+				permission="issues:no-drive-ids"
+			>
+				{noDriveIds && noDriveIds.length !== 0 && (
+					<IssueList
+						clients={noDriveIds}
+						description="Clients missing a Google Drive folder ID."
+						title="No Drive IDs"
+					/>
+				)}
+			</GuardedIssue>
+
+			<GuardedIssue
+				isLoading={isLoadingPossiblePrivatePay}
+				permission="issues:private-pay"
+			>
+				{possiblePrivatePay && possiblePrivatePay.length !== 0 && (
 					<IssueList
 						clients={possiblePrivatePay}
 						description="Clients with no eligible evaluators based on insurance and district/zip code."
 						title="Potential Private Pay"
 					/>
 				)}
-			{isLoadingMissingRecordsNeeded && <IssueListSkeleton />}
-			{!isLoadingMissingRecordsNeeded &&
-				missingRecordsNeeded &&
-				missingRecordsNeeded.length !== 0 && (
+			</GuardedIssue>
+
+			<GuardedIssue
+				isLoading={isLoadingMissingRecordsNeeded}
+				permission="issues:missing-records-needed"
+			>
+				{missingRecordsNeeded && missingRecordsNeeded.length !== 0 && (
 					<IssueList
 						clients={missingRecordsNeeded}
 						description="Clients whose records needed status is not set."
 						title="Records Needed Not Set"
 					/>
 				)}
-			{unreviewedRecords && unreviewedRecords.length !== 0 && (
-				<IssueList
-					clients={unreviewedRecords}
-					description="Records needed and requested more than 3 weekdays ago, but not reviewed."
-					title="Unreviewed/Unreceived Records"
-				/>
-			)}
-			{isLoadingDuplicateFolderNames && <IssueListSkeleton />}
-			{!isLoadingDuplicateFolderNames &&
-				duplicateFolderNames &&
-				duplicateFolderNames.data.length > 0 && (
+			</GuardedIssue>
+
+			<GuardedIssue
+				isLoading={isLoadingUnreviewedRecords}
+				permission="issues:unreviewed-records"
+			>
+				{unreviewedRecords && unreviewedRecords.length !== 0 && (
+					<IssueList
+						clients={unreviewedRecords}
+						description="Records needed and requested more than 3 weekdays ago, but not reviewed."
+						title="Unreviewed/Unreceived Records"
+					/>
+				)}
+			</GuardedIssue>
+
+			<GuardedIssue
+				isLoading={isLoadingDuplicateFolderNames}
+				permission="issues:duplicate-drive"
+			>
+				{duplicateFolderNames && duplicateFolderNames.data.length > 0 && (
 					<DuplicateDriveFoldersList
 						duplicates={duplicateFolderNames.data}
 						lastFetched={duplicateFolderNames.lastFetched}
 					/>
 				)}
-			{isLoadingDuplicateQLinks && <IssueListSkeleton />}
-			{!isLoadingDuplicateQLinks &&
-				duplicateQLinks &&
-				clientsWithDuplicateLinks.length > 0 && (
+			</GuardedIssue>
+
+			<GuardedIssue
+				isLoading={isLoadingDuplicateQLinks}
+				permission="issues:duplicate-questionnaires"
+			>
+				{duplicateQLinks && clientsWithDuplicateLinks.length > 0 && (
 					<IssueList
 						clients={clientsWithDuplicateLinks}
 						description="Clients who have the same questionnaire link multiple times."
 						title="Clients with Duplicate Questionnaire Links"
 					/>
 				)}
-			{isLoadingDuplicateQLinks && <IssueListSkeleton />}
-			{!isLoadingDuplicateQLinks &&
-				duplicateQLinks?.sharedAcrossClients &&
-				duplicateQLinks.sharedAcrossClients.length > 0 && (
-					<ClientsSharingQuestionnaires
-						sharedLinksData={duplicateQLinks.sharedAcrossClients}
-					/>
-				)}
+			</GuardedIssue>
+
+			<GuardedIssue
+				isLoading={isLoadingDuplicateQLinks}
+				permission="issues:duplicate-questionnaires"
+			>
+				{duplicateQLinks?.sharedAcrossClients &&
+					duplicateQLinks.sharedAcrossClients.length > 0 && (
+						<ClientsSharingQuestionnaires
+							sharedLinksData={duplicateQLinks.sharedAcrossClients}
+						/>
+					)}
+			</GuardedIssue>
 		</div>
 	);
 }

@@ -2,9 +2,12 @@
 
 import { Badge } from "@ui/badge";
 import Link from "next/link";
+import { useCheckPermission } from "~/hooks/use-check-permission";
 import { api } from "~/trpc/react";
 
 export function IssuesAlert() {
+	const can = useCheckPermission();
+
 	const queryOptions = {
 		staleTime: 1000 * 60 * 5, // 5 minutes
 	};
@@ -92,29 +95,56 @@ export function IssuesAlert() {
 		queryOptions,
 	);
 
+	const countIf = (hasPermission: boolean, count: number = 0) =>
+		hasPermission ? count : 0;
+
 	const errorsLength =
-		(districtErrors?.clientsWithoutDistrict.length ?? 0) +
-		(districtErrors?.clientsWithPoorAddressLookup.length ?? 0) +
-		(babyNetErrors?.length ?? 0) +
-		(notInTAErrors?.length ?? 0) +
-		(dropList?.length ?? 0) +
-		(autismStops?.length ?? 0) +
-		(pausedClients?.length ?? 0) +
-		(needsBabyNetERDownloaded?.length ?? 0) +
-		(noteOnlyClients?.length ?? 0) +
-		(duplicateFolderNames?.data.length ?? 0) +
-		(noDriveIds?.length ?? 0) +
-		(missingRecordsNeeded?.length ?? 0) +
-		(dd4?.length ?? 0) +
-		(possiblePrivatePay?.length ?? 0) +
-		(unreviewedRecords?.length ?? 0) +
-		clientsWithDuplicateLinks.length +
-		(duplicateQLinks?.sharedAcrossClients.length ?? 0) +
-		(justAddedQuestionnaires?.length ?? 0) +
-		(punchlistIssues?.clientsNotInDb.length ?? 0) +
-		(punchlistIssues?.inactiveClients.length ?? 0) +
-		(punchlistIssues?.duplicateIdClients.length ?? 0) +
-		(noReferralSource?.length ?? 0);
+		countIf(can("issues:dd4"), dd4?.length ?? 0) +
+		countIf(can("issues:just-added"), justAddedQuestionnaires?.length ?? 0) +
+		countIf(can("issues:paused-clients"), pausedClients?.length ?? 0) +
+		countIf(can("issues:autism-stops"), autismStops?.length ?? 0) +
+		countIf(
+			can("issues:clients-not-in-db"),
+			punchlistIssues?.clientsNotInDb.length ?? 0,
+		) +
+		countIf(
+			can("issues:punchlist-inactive"),
+			punchlistIssues?.inactiveClients.length ?? 0,
+		) +
+		countIf(
+			can("issues:punchlist-duplicates"),
+			punchlistIssues?.duplicateIdClients.length ?? 0,
+		) +
+		countIf(can("issues:no-referral-source"), noReferralSource?.length ?? 0) +
+		countIf(
+			can("issues:district-issues"),
+			districtErrors?.clientsWithoutDistrict.length ?? 0,
+		) +
+		countIf(
+			can("issues:district-issues"),
+			districtErrors?.clientsWithPoorAddressLookup.length ?? 0,
+		) +
+		countIf(can("issues:babynet-ageout"), babyNetErrors?.length ?? 0) +
+		countIf(can("issues:not-in-ta"), notInTAErrors?.length ?? 0) +
+		countIf(can("issues:droplist"), dropList?.length ?? 0) +
+		countIf(can("issues:babynet-er"), needsBabyNetERDownloaded?.length ?? 0) +
+		countIf(can("clients:merge"), noteOnlyClients?.length ?? 0) +
+		countIf(can("issues:no-drive-ids"), noDriveIds?.length ?? 0) +
+		countIf(can("issues:private-pay"), possiblePrivatePay?.length ?? 0) +
+		countIf(
+			can("issues:missing-records-needed"),
+			missingRecordsNeeded?.length ?? 0,
+		) +
+		countIf(can("issues:unreviewed-records"), unreviewedRecords?.length ?? 0) +
+		countIf(
+			can("issues:duplicate-drive"),
+			duplicateFolderNames?.data.length ?? 0,
+		) +
+		countIf(
+			can("issues:duplicate-questionnaires"),
+			clientsWithDuplicateLinks.length +
+				(duplicateQLinks?.sharedAcrossClients.length ?? 0),
+		);
 
 	if (errorsLength === 0) {
 		return null;

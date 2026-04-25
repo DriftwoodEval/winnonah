@@ -147,6 +147,48 @@ export const PERMISSIONS = {
 					},
 				],
 			},
+			issues: {
+				title: "Issues",
+				permissions: [
+					{ id: "issues:dd4", title: "Clients in DD4" },
+					{ id: "issues:just-added", title: "Just Added Questionnaires" },
+					{ id: "issues:paused-clients", title: "Paused Clients" },
+					{ id: "issues:autism-stops", title: "Autism Stops" },
+					{
+						id: "issues:clients-not-in-db",
+						title: "Punchlist Clients Not in DB",
+					},
+					{
+						id: "issues:punchlist-inactive",
+						title: "Punchlist Clients Inactive",
+					},
+					{
+						id: "issues:punchlist-duplicates",
+						title: "Punchlist Duplicate IDs",
+					},
+					{ id: "issues:no-referral-source", title: "No Referral Source" },
+					{ id: "issues:district-issues", title: "District Issues" },
+					{ id: "issues:babynet-ageout", title: "Too Old for BabyNet" },
+					{ id: "issues:not-in-ta", title: "Not in TA" },
+					{ id: "issues:droplist", title: "Drop List" },
+					{ id: "issues:babynet-er", title: "Needs BabyNet ER Downloaded" },
+					{ id: "issues:no-drive-ids", title: "No Drive IDs" },
+					{ id: "issues:private-pay", title: "Potential Private Pay" },
+					{
+						id: "issues:missing-records-needed",
+						title: "Records Needed Not Set",
+					},
+					{
+						id: "issues:unreviewed-records",
+						title: "Unreviewed/Unreceived Records",
+					},
+					{ id: "issues:duplicate-drive", title: "Duplicate Drive Folders" },
+					{
+						id: "issues:duplicate-questionnaires",
+						title: "Duplicate Questionnaires",
+					},
+				],
+			},
 		},
 	},
 	pages: {
