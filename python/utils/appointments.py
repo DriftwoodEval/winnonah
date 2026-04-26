@@ -380,12 +380,6 @@ def prepare_appointments_from_csv(
 
     appointments_df = appointments_df.drop(index=list(indices_to_drop))
 
-    four_weeks_ago = now - timedelta(weeks=4)
-
-    appointments_df = appointments_df[
-        (appointments_df["STARTTIME_DT"] >= four_weeks_ago)
-    ].copy()
-
     if appointments_df.empty:
         logger.info("No valid appointments found in the processing window.")
         return appointments_df
