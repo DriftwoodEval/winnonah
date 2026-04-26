@@ -260,7 +260,7 @@ def put_clients_in_db(clients_df: pd.DataFrame, connection: Connection[DictCurso
             get_column(client, "PRECERT_EXPIREDATE"),
             get_boolean_value(client, "POLICY_PRIVATEPAY"),
             get_column(client, "ASD_ADHD"),
-            get_column(client, "LANGUAGE", default=None),
+            get_column(client, "LANGUAGE", default="English"),
             gender,
             phone_number,
             email,
