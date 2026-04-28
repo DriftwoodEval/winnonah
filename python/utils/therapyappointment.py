@@ -308,6 +308,60 @@ def _download_referrals(driver: WebDriver):
     )
 
 
+def _download_billing(driver: WebDriver):
+    """Downloads open billing balances and submitted claims."""
+    logger.debug("Opening open billing page")
+    sleep(2)
+    driver.get(
+        "https://api.portal.therapyappointment.com/n/billing/balance/openBalances"
+    )
+    w.click_element(driver, By.XPATH, "//button[@title='More Options']", refresh=True)
+    sleep(2)
+    w.click_element(driver, By.XPATH, "//div[contains(text(), 'Download as CSV')]")
+    sleep(2)
+
+    driver.get("https://api.portal.therapyappointment.com/n/billing/claim/claimsReport")
+    w.click_element(
+        driver, By.XPATH, "//button[@aria-label='View filters']", refresh=True
+    )
+    w.click_element(
+        driver,
+        By.XPATH,
+        "//label[text()='Date of Service']/following-sibling::input",
+    )
+    from_input = w.find_element(
+        driver, By.XPATH, "//label[text()='From']/following-sibling::input"
+    )
+    from_input.send_keys(Keys.CONTROL + "a")
+    from_input.send_keys(Keys.BACKSPACE)
+    from_input.send_keys("01/01/2020")
+    w.click_element(driver, By.XPATH, "//button[normalize-space()='OK']")
+    w.click_element(driver, By.XPATH, "//button[normalize-space()='Search']")
+
+    # Wait for this to ensure the items are all loaded
+    w.find_element(driver, By.XPATH, "//button[normalize-space()='Load Next 50']")
+
+    w.click_element(driver, By.XPATH, "//button[@title='More Options']")
+    sleep(2)
+    w.click_element(driver, By.XPATH, "//div[contains(text(), 'Download as CSV')]")
+    sleep(2)
+
+    open_bal_report = next(DOWNLOAD_DIR.glob("clients-with-open-balances-report-*.csv"))
+    claims_report = next(DOWNLOAD_DIR.glob("claims-report-*.csv"))
+
+    df_open = pd.read_csv(open_bal_report)
+    df_claims = pd.read_csv(claims_report)
+
+    cols_to_use = ["Client", "Date of Service", "Submitted"]
+    merged_df = pd.merge(df_open, df_claims[cols_to_use], on="Client", how="left")
+    merged_df.to_csv(INPUT_DIR / "clients-billing.csv", index=False)
+
+    # merged_df = pd.merge(df_open, df_claims, on="Client", how="left")
+    # merged_df.to_csv(INPUT_DIR / "clients-billing.csv", index=False)
+
+    exit(1)
+
+
 def download_csvs():
     """Downloads CSVs from TherapyAppointment."""
     logger.debug("Downloading CSVs from TherapyAppointment")
@@ -318,6 +372,7 @@ def download_csvs():
     _loop_therapists(driver, _download_data)
     _combine_files()
     _download_referrals(driver)
+    _download_billing(driver)
 
 
 def go_to_client(
