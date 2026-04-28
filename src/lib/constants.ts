@@ -43,6 +43,10 @@ export const PERMISSIONS = {
 					{ id: "clients:autismstop:disable", title: "Disable Autism Stop" },
 					{ id: "clients:pause", title: "Pause Clients" },
 					{ id: "clients:related", title: "Edit Related Clients" },
+					{
+						id: "clients:additional-insurance-appointments",
+						title: "View Recommended Additional Insurance Appointments",
+					},
 				],
 			},
 
@@ -63,6 +67,7 @@ export const PERMISSIONS = {
 					},
 				],
 			},
+
 			records: {
 				title: "Records",
 				permissions: [
@@ -84,6 +89,7 @@ export const PERMISSIONS = {
 					},
 				],
 			},
+
 			admin: {
 				title: "Administration",
 				permissions: [
@@ -96,6 +102,7 @@ export const PERMISSIONS = {
 					},
 				],
 			},
+
 			referrals: {
 				title: "Referrals",
 				permissions: [
@@ -130,6 +137,7 @@ export const PERMISSIONS = {
 					{ id: "settings:testUnits", title: "Manage Test Units" },
 				],
 			},
+
 			qsuite: {
 				title: "QSuite",
 				permissions: [
@@ -151,6 +159,7 @@ export const PERMISSIONS = {
 					},
 				],
 			},
+
 			issues: {
 				title: "Issues",
 				permissions: [
@@ -195,6 +204,7 @@ export const PERMISSIONS = {
 			},
 		},
 	},
+
 	pages: {
 		title: "Pages",
 		subgroups: {

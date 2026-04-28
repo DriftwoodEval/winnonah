@@ -37,6 +37,7 @@ import {
 } from "@ui/form";
 import { Input } from "@ui/input";
 import MultipleSelector from "@ui/multiple-selector";
+import { Separator } from "@ui/separator";
 import {
 	Table,
 	TableBody,
@@ -45,15 +46,16 @@ import {
 	TableHeader,
 	TableRow,
 } from "@ui/table";
-import { Check, MoreHorizontal, X } from "lucide-react";
+import { Check, MoreHorizontal, Plus, Trash2, X } from "lucide-react";
 import { useMemo, useState } from "react";
-import { useForm } from "react-hook-form";
+import { type UseFormReturn, useFieldArray, useForm } from "react-hook-form";
 import { toast } from "sonner";
 import { z } from "zod";
 import { useCheckPermission } from "~/hooks/use-check-permission";
 import { useMediaQuery } from "~/hooks/use-media-query";
 import { logger } from "~/lib/logger";
 import type { Insurance } from "~/lib/models";
+import { additionalInsuranceAppointmentsSchema } from "~/lib/validations";
 import { api } from "~/trpc/react";
 
 const log = logger.child({ module: "InsurancesTable" });
@@ -61,27 +63,27 @@ const log = logger.child({ module: "InsurancesTable" });
 const createFormSchema = (unavailableAliases: Set<string>) =>
 	z.object({
 		shortName: z.string().min(1, "Short name is required"),
-		preAuthNeeded: z.boolean().default(false),
-		preAuthLockin: z.boolean().default(false),
-		appointmentsRequired: z.number().int().min(1).default(1),
-		aliases: z
-			.array(z.string())
-			.default([])
-			.superRefine((aliases, ctx) => {
-				const taken = aliases.find((alias) => unavailableAliases.has(alias));
-				if (taken) {
-					ctx.addIssue({
-						code: z.ZodIssueCode.custom,
-						message: `Alias "${taken}" is already in use.`,
-					});
-				}
-			}),
+		preAuthNeeded: z.boolean(),
+		preAuthLockin: z.boolean(),
+		appointmentsRequired: z.number().int().min(1),
+		additionalAppts: additionalInsuranceAppointmentsSchema,
+		aliases: z.array(z.string()).superRefine((aliases, ctx) => {
+			const taken = aliases.find((alias) => unavailableAliases.has(alias));
+			if (taken) {
+				ctx.addIssue({
+					code: "custom",
+					message: `Alias "${taken}" is already in use.`,
+				});
+			}
+		}),
 	});
 
 type InsuranceFormValues = z.infer<ReturnType<typeof createFormSchema>>;
-type InsuranceFormInput = z.input<ReturnType<typeof createFormSchema>>;
 
-type InsuranceWithAliases = Insurance & { aliases: { name: string }[] };
+type InsuranceWithAliases = Insurance & {
+	aliases: { name: string }[];
+	additionalAppts: z.infer<typeof additionalInsuranceAppointmentsSchema>;
+};
 
 interface InsuranceFormProps {
 	initialData?: InsuranceWithAliases;
@@ -89,6 +91,179 @@ interface InsuranceFormProps {
 	onSubmit: (values: InsuranceFormValues) => void;
 	isLoading: boolean;
 	onClose: () => void;
+}
+
+function CodesFieldArray({
+	form,
+	appointmentIndex,
+	isLoading,
+}: {
+	form: UseFormReturn<InsuranceFormValues>;
+	appointmentIndex: number;
+	isLoading: boolean;
+}) {
+	const { fields, append, remove } = useFieldArray({
+		control: form.control,
+		name: `additionalAppts.appointments.${appointmentIndex}.codes`,
+	});
+
+	return (
+		<div className="space-y-2">
+			<div className="flex items-center justify-between">
+				<FormLabel className="font-bold text-muted-foreground text-xs uppercase tracking-wider">
+					Billing Codes
+				</FormLabel>
+				<Button
+					disabled={isLoading}
+					onClick={() => append({ code: "", units: 1 })}
+					size="sm"
+					type="button"
+					variant="ghost"
+				>
+					<Plus className="mr-1 h-3 w-3" /> Add Code
+				</Button>
+			</div>
+
+			<div className="space-y-2">
+				{fields.map((field, codeIndex) => (
+					<div className="flex items-end gap-2" key={field.id}>
+						<div className="grid flex-1 grid-cols-2 gap-2">
+							<FormField
+								control={form.control}
+								name={`additionalAppts.appointments.${appointmentIndex}.codes.${codeIndex}.code`}
+								render={({ field }) => (
+									<FormItem>
+										<FormControl>
+											<Input
+												disabled={isLoading}
+												placeholder="Code"
+												{...field}
+											/>
+										</FormControl>
+										<FormMessage />
+									</FormItem>
+								)}
+							/>
+							<FormField
+								control={form.control}
+								name={`additionalAppts.appointments.${appointmentIndex}.codes.${codeIndex}.units`}
+								render={({ field }) => (
+									<FormItem>
+										<FormControl>
+											<Input
+												disabled={isLoading}
+												placeholder="Units"
+												type="number"
+												{...field}
+												onChange={(e) =>
+													field.onChange(parseInt(e.target.value, 10))
+												}
+											/>
+										</FormControl>
+										<FormMessage />
+									</FormItem>
+								)}
+							/>
+						</div>
+						<Button
+							className="h-10 w-10 p-0"
+							disabled={isLoading}
+							onClick={() => remove(codeIndex)}
+							type="button"
+							variant="ghost"
+						>
+							<X className="h-4 w-4" />
+						</Button>
+					</div>
+				))}
+				{fields.length === 0 && (
+					<p className="text-center text-muted-foreground text-xs italic">
+						No codes added.
+					</p>
+				)}
+			</div>
+		</div>
+	);
+}
+
+function AdditionalApptsForm({
+	form,
+	isLoading,
+}: {
+	form: UseFormReturn<InsuranceFormValues>;
+	isLoading: boolean;
+}) {
+	const { fields, append, remove } = useFieldArray({
+		control: form.control,
+		name: "additionalAppts.appointments",
+	});
+
+	return (
+		<div className="space-y-4 rounded-md border p-4">
+			<div className="flex items-center justify-between">
+				<FormLabel className="font-bold text-base">
+					Additional Appointments
+				</FormLabel>
+				<Button
+					disabled={isLoading}
+					onClick={() => append({ codes: [{ code: "", units: 1 }] })}
+					size="sm"
+					type="button"
+					variant="outline"
+				>
+					<Plus className="mr-2 h-4 w-4" /> Add Appointment
+				</Button>
+			</div>
+
+			<FormField
+				control={form.control}
+				name="additionalAppts.waitForPA"
+				render={({ field }) => (
+					<FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4">
+						<FormControl>
+							<Checkbox
+								checked={field.value}
+								onCheckedChange={field.onChange}
+							/>
+						</FormControl>
+						<div className="space-y-1 leading-none">
+							<FormLabel className="text-sm">Wait for PA</FormLabel>
+						</div>
+					</FormItem>
+				)}
+			/>
+
+			<div className="space-y-4">
+				{fields.map((field, index) => (
+					<div
+						className="space-y-4 rounded-lg border bg-muted/50 p-4"
+						key={field.id}
+					>
+						<div className="flex items-center justify-between">
+							<FormLabel className="font-semibold">
+								Appointment {index + 2}
+							</FormLabel>
+							<Button
+								disabled={isLoading}
+								onClick={() => remove(index)}
+								size="sm"
+								type="button"
+								variant="ghost"
+							>
+								<Trash2 className="h-4 w-4 text-destructive" />
+							</Button>
+						</div>
+
+						<CodesFieldArray
+							appointmentIndex={index}
+							form={form}
+							isLoading={isLoading}
+						/>
+					</div>
+				))}
+			</div>
+		</div>
+	);
 }
 
 function InsuranceForm({
@@ -110,6 +285,10 @@ function InsuranceForm({
 				preAuthLockin: initialData.preAuthLockin,
 				appointmentsRequired: initialData.appointmentsRequired,
 				aliases: initialData.aliases.map((a) => a.name),
+				additionalAppts: initialData.additionalAppts ?? {
+					appointments: [],
+					waitForPA: false,
+				},
 			};
 		}
 		return {
@@ -118,6 +297,10 @@ function InsuranceForm({
 			preAuthLockin: false,
 			appointmentsRequired: 1,
 			aliases: [],
+			additionalAppts: {
+				appointments: [],
+				waitForPA: false,
+			},
 		};
 	}, [initialData]);
 
@@ -139,7 +322,7 @@ function InsuranceForm({
 		[unavailableAliases],
 	);
 
-	const form = useForm<InsuranceFormInput, z.ZodType, InsuranceFormValues>({
+	const form = useForm<InsuranceFormValues>({
 		resolver: zodResolver(formSchema),
 		defaultValues,
 	});
@@ -157,107 +340,120 @@ function InsuranceForm({
 	return (
 		<Form {...form}>
 			<form className="space-y-4" onSubmit={form.handleSubmit(onSubmit)}>
-				<FormField
-					control={form.control}
-					name="shortName"
-					render={({ field }) => (
-						<FormItem>
-							<FormLabel>Insurance Name (Short/Canonical)</FormLabel>
-							<FormControl>
-								<Input disabled={isLoading} placeholder="e.g. SCM" {...field} />
-							</FormControl>
-							<FormMessage />
-						</FormItem>
-					)}
-				/>
-
-				<FormField
-					control={form.control}
-					name="aliases"
-					render={({ field }) => (
-						<FormItem>
-							<FormLabel>
-								Official Names (Aliases from external systems)
-							</FormLabel>
-							<FormControl>
-								<MultipleSelector
-									badgeClassName="bg-secondary text-secondary-foreground"
-									creatable={true}
-									emptyIndicator={
-										<p className="text-center text-muted-foreground text-sm">
-											No names found. Type to add an official name.
-										</p>
-									}
-									onChange={(options) =>
-										field.onChange(options.map((opt) => opt.value))
-									}
-									options={availableOptions}
-									placeholder="Add official names..."
-									value={(field.value ?? []).map((name) => ({
-										label: name,
-										value: name,
-									}))}
-								/>
-							</FormControl>
-							<FormMessage />
-						</FormItem>
-					)}
-				/>
-
-				<FormField
-					control={form.control}
-					name="appointmentsRequired"
-					render={({ field }) => (
-						<FormItem>
-							<FormLabel>Appointments Required</FormLabel>
-							<FormControl>
-								<Input
-									disabled={isLoading}
-									type="number"
-									{...field}
-									onChange={(e) => field.onChange(parseInt(e.target.value, 10))}
-								/>
-							</FormControl>
-							<FormMessage />
-						</FormItem>
-					)}
-				/>
-				<div className="grid grid-cols-2 gap-4">
+				<div className="max-h-[70vh] space-y-4 overflow-y-auto px-1">
 					<FormField
 						control={form.control}
-						name="preAuthNeeded"
+						name="shortName"
 						render={({ field }) => (
-							<FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4">
+							<FormItem>
+								<FormLabel>Insurance Name (Short/Canonical)</FormLabel>
 								<FormControl>
-									<Checkbox
-										checked={field.value}
-										onCheckedChange={field.onChange}
+									<Input
+										disabled={isLoading}
+										placeholder="e.g. SCM"
+										{...field}
 									/>
 								</FormControl>
-								<div className="space-y-1 leading-none">
-									<FormLabel className="text-sm">Pre-Auth Needed</FormLabel>
-								</div>
+								<FormMessage />
 							</FormItem>
 						)}
 					/>
+
 					<FormField
 						control={form.control}
-						name="preAuthLockin"
+						name="aliases"
 						render={({ field }) => (
-							<FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4">
+							<FormItem>
+								<FormLabel>
+									Official Names (Aliases from external systems)
+								</FormLabel>
 								<FormControl>
-									<Checkbox
-										checked={field.value}
-										onCheckedChange={field.onChange}
+									<MultipleSelector
+										badgeClassName="bg-secondary text-secondary-foreground"
+										creatable={true}
+										emptyIndicator={
+											<p className="text-center text-muted-foreground text-sm">
+												No names found. Type to add an official name.
+											</p>
+										}
+										onChange={(options) =>
+											field.onChange(options.map((opt) => opt.value))
+										}
+										options={availableOptions}
+										placeholder="Add official names..."
+										value={(field.value ?? []).map((name) => ({
+											label: name,
+											value: name,
+										}))}
 									/>
 								</FormControl>
-								<div className="space-y-1 leading-none">
-									<FormLabel className="text-sm">Provider Lock In</FormLabel>
-								</div>
+								<FormMessage />
 							</FormItem>
 						)}
 					/>
+
+					<FormField
+						control={form.control}
+						name="appointmentsRequired"
+						render={({ field }) => (
+							<FormItem>
+								<FormLabel>Appointments Required</FormLabel>
+								<FormControl>
+									<Input
+										disabled={isLoading}
+										type="number"
+										{...field}
+										onChange={(e) =>
+											field.onChange(parseInt(e.target.value, 10))
+										}
+									/>
+								</FormControl>
+								<FormMessage />
+							</FormItem>
+						)}
+					/>
+					<div className="grid grid-cols-2 gap-4">
+						<FormField
+							control={form.control}
+							name="preAuthNeeded"
+							render={({ field }) => (
+								<FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4">
+									<FormControl>
+										<Checkbox
+											checked={field.value}
+											onCheckedChange={field.onChange}
+										/>
+									</FormControl>
+									<div className="space-y-1 leading-none">
+										<FormLabel className="text-sm">Pre-Auth Needed</FormLabel>
+									</div>
+								</FormItem>
+							)}
+						/>
+						<FormField
+							control={form.control}
+							name="preAuthLockin"
+							render={({ field }) => (
+								<FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4">
+									<FormControl>
+										<Checkbox
+											checked={field.value}
+											onCheckedChange={field.onChange}
+										/>
+									</FormControl>
+									<div className="space-y-1 leading-none">
+										<FormLabel className="text-sm">Provider Lock In</FormLabel>
+									</div>
+								</FormItem>
+							)}
+						/>
+					</div>
+
+					<Separator />
+
+					<AdditionalApptsForm form={form} isLoading={isLoading} />
 				</div>
+
 				<div className="flex justify-end gap-2 pt-4">
 					<Button onClick={onClose} type="button" variant="ghost">
 						Cancel
@@ -296,7 +492,7 @@ function AddInsuranceButton({
 			<DialogTrigger asChild>
 				<Button size="sm">Add Insurance</Button>
 			</DialogTrigger>
-			<DialogContent className="sm:max-w-[600px]">
+			<DialogContent className="max-h-[95vh] sm:max-w-[700px]">
 				<DialogHeader>
 					<DialogTitle>Add Insurance</DialogTitle>
 				</DialogHeader>
@@ -369,7 +565,7 @@ function InsuranceActionsMenu({
 			</DropdownMenu>
 
 			<Dialog onOpenChange={setIsEditDialogOpen} open={isEditDialogOpen}>
-				<DialogContent className="sm:max-w-[600px]">
+				<DialogContent className="max-h-[95vh] sm:max-w-[700px]">
 					<DialogHeader>
 						<DialogTitle>Edit Insurance</DialogTitle>
 					</DialogHeader>

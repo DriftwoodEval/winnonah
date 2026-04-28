@@ -1,6 +1,7 @@
 import { eq } from "drizzle-orm";
 import { z } from "zod";
 import { fetchWithCache, invalidateCache } from "~/lib/cache";
+import { additionalInsuranceAppointmentsSchema } from "~/lib/validations";
 import {
 	assertPermission,
 	createTRPCRouter,
@@ -49,6 +50,7 @@ export const insuranceRouter = createTRPCRouter({
 				preAuthNeeded: z.boolean().default(false),
 				preAuthLockin: z.boolean().default(false),
 				appointmentsRequired: z.number().int().min(1).default(1),
+				additionalAppts: additionalInsuranceAppointmentsSchema.optional(),
 				aliases: z.array(z.string()).default([]),
 			}),
 		)
@@ -87,6 +89,7 @@ export const insuranceRouter = createTRPCRouter({
 				preAuthNeeded: z.boolean(),
 				preAuthLockin: z.boolean(),
 				appointmentsRequired: z.number().int().min(1),
+				additionalAppts: additionalInsuranceAppointmentsSchema.optional(),
 				aliases: z.array(z.string()).default([]),
 			}),
 		)

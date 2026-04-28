@@ -103,6 +103,21 @@ export const configSchema = z.object({
 	piecework: pieceworkConfigSchema,
 });
 
+// --- Client Schemas ---
+export const additionalInsuranceAppointmentsSchema = z.object({
+	appointments: z.array(
+		z.object({
+			codes: z.array(
+				z.object({
+					code: z.string(),
+					units: z.number(),
+				}),
+			),
+		}),
+	),
+	waitForPA: z.boolean(),
+});
+
 // --- Root Schema ---
 
 export const pythonConfigSchema = z.object({
@@ -117,6 +132,9 @@ export const appointmentSyncConfigSchema = z.object({
 
 export type pythonConfig = z.infer<typeof pythonConfigSchema>;
 export type AppointmentSyncConfig = z.infer<typeof appointmentSyncConfigSchema>;
+export type AdditionalInsuranceAppointments = z.infer<
+	typeof additionalInsuranceAppointmentsSchema
+>;
 
 export const referralDataSchema = z.object({
 	notes: z.string().optional(),

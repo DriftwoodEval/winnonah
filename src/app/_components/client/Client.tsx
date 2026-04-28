@@ -23,6 +23,7 @@ import {
 	isShellClientId,
 } from "~/lib/utils";
 import { api } from "~/trpc/react";
+import { AdditionalInsuranceAppointmentsDisplay } from "./AdditionalInsuranceAppointmentsDisplay";
 import { BabyNetBoxes } from "./BabyNetBoxes";
 import { ClientDetailsCard } from "./ClientDetailsCard";
 import { ClientHeader } from "./ClientHeader";
@@ -293,6 +294,9 @@ export function Client({
 							readOnly={readOnly}
 							relatedConnections={client.relatedConnections}
 						/>
+					)}
+					{client && !isShellClientId(client.id) && (
+						<AdditionalInsuranceAppointmentsDisplay client={client} />
 					)}
 					{client?.phoneNumber && (
 						<CommunicationTimeline phoneNumber={client.phoneNumber} />

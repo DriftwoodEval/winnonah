@@ -11,6 +11,7 @@ import { CLIENT_COLOR_KEYS } from "~/lib/colors";
 import { QUESTIONNAIRE_STATUSES } from "~/lib/constants";
 import type { PermissionsObject } from "~/lib/types";
 import type {
+	AdditionalInsuranceAppointments,
 	appointmentSyncConfigSchema,
 	pythonConfigSchema,
 	referralDataSchema,
@@ -34,6 +35,11 @@ export const insurances = createTable("insurance", (d) => ({
 	preAuthNeeded: d.boolean().notNull().default(false),
 	preAuthLockin: d.boolean().notNull().default(false),
 	appointmentsRequired: d.int().notNull().default(1),
+	additionalAppts: d
+		.json("additionalAppts")
+		.$type<AdditionalInsuranceAppointments>()
+		.notNull()
+		.default({ appointments: [], waitForPA: false }),
 }));
 
 export const insuranceAliases = createTable("insurance_alias", (d) => ({
