@@ -2,7 +2,7 @@ import type { inferRouterOutputs } from "@trpc/server";
 import type { AppRouter } from "~/server/api/root";
 
 export type ClientRouterOutput = inferRouterOutputs<AppRouter>["clients"];
-export type ClientWithOffice = ClientRouterOutput["getOne"];
+export type ClientGetOneOutput = ClientRouterOutput["getOne"];
 export type SortedClient = ClientRouterOutput["search"]["clients"][0];
 
 export type GoogleRouterOutput = inferRouterOutputs<AppRouter>["google"];

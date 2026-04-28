@@ -11,11 +11,11 @@ import {
 import { Separator } from "@ui/separator";
 import { Skeleton } from "@ui/skeleton";
 import { useState } from "react";
-import type { ClientWithOffice } from "~/lib/api-types";
+import type { ClientGetOneOutput } from "~/lib/api-types";
 import { api } from "~/trpc/react";
 
 interface EligibleEvaluatorsListProps {
-	client: ClientWithOffice;
+	client: ClientGetOneOutput;
 }
 
 export function EligibleEvaluatorsList({

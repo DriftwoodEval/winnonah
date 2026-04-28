@@ -494,13 +494,17 @@ export const failures = createTable(
 	(t) => [primaryKey({ columns: [t.clientId, t.reason] })],
 );
 
-export const clientRelations = relations(clients, ({ many }) => ({
+export const clientRelations = relations(clients, ({ many, one }) => ({
 	relatedConnections: many(clientRelated, {
 		relationName: "client_to_related",
 	}),
 	questionnaires: many(questionnaires),
 	failures: many(failures),
 	clientsEvaluators: many(clientsEvaluators),
+	primaryInsuranceDetails: one(insuranceAliases, {
+		fields: [clients.primaryInsurance],
+		references: [insuranceAliases.name],
+	}),
 }));
 
 export const clientRelatedRelations = relations(clientRelated, ({ one }) => ({

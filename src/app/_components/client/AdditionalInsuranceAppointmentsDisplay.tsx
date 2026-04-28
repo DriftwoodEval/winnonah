@@ -4,28 +4,25 @@ import { Badge } from "@ui/badge";
 import { Label } from "@ui/label";
 import { Separator } from "@ui/separator";
 import { useCheckPermission } from "~/hooks/use-check-permission";
-import type { Client } from "~/lib/models";
-import { api } from "~/trpc/react";
+import type { ClientGetOneOutput } from "~/lib/api-types";
 
 export function AdditionalInsuranceAppointmentsDisplay({
 	client,
 }: {
-	client: Client;
+	client: ClientGetOneOutput;
 }) {
 	const can = useCheckPermission();
 	const canSee = can("clients:additional-insurance-appointments");
-	const insurances = api.insurances.getAll.useQuery().data ?? [];
-
-	const insurance = insurances.find(
-		(i) =>
-			i.shortName === client.primaryInsurance ||
-			i.aliases.some((a) => a.name === client.primaryInsurance),
-	);
-
+	const insurance = client.primaryInsuranceDetails?.insurance;
 	const displayData = insurance?.additionalAppts;
 
-	if (!displayData || displayData.appointments.length === 0 || !canSee)
+	if (
+		!canSee ||
+		!client.primaryInsurance ||
+		!displayData?.appointments?.length
+	) {
 		return null;
+	}
 
 	return (
 		<div className="w-full rounded-md border shadow">
