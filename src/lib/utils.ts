@@ -50,34 +50,41 @@ export const getInsuranceShortName = (
 
 export const mapInsuranceToShortNames = (
 	primary: string | null,
-	secondary: string | null,
+	secondary: string[] | null,
 	insurances: InsuranceWithAliases[],
 ) => {
-	return [
-		getInsuranceShortName(primary, insurances),
-		getInsuranceShortName(secondary, insurances),
-	]
-		.filter(Boolean)
-		.join(" | ");
+	const shortNames = [getInsuranceShortName(primary, insurances)];
+
+	if (secondary) {
+		for (const s of secondary) {
+			shortNames.push(getInsuranceShortName(s, insurances));
+		}
+	}
+
+	return shortNames.filter(Boolean).join(" | ");
 };
 
 export const getInsuranceShortNamesList = (
 	primary: string | null,
-	secondary: string | null,
+	secondary: string[] | null,
 	insurances: InsuranceWithAliases[],
 ): string[] => {
 	const names: string[] = [];
 
-	const addInsurance = (insuranceId: string | null) => {
-		if (!insuranceId) return;
-		const shortName = getInsuranceShortName(insuranceId, insurances);
+	const addInsurance = (insuranceName: string | null) => {
+		if (!insuranceName) return;
+		const shortName = getInsuranceShortName(insuranceName, insurances);
 		if (shortName && !names.includes(shortName)) {
 			names.push(shortName);
 		}
 	};
 
 	addInsurance(primary);
-	addInsurance(secondary);
+	if (secondary) {
+		for (const s of secondary) {
+			addInsurance(s);
+		}
+	}
 	return names;
 };
 

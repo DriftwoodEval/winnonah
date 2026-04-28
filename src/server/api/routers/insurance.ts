@@ -37,7 +37,11 @@ export const insuranceRouter = createTRPCRouter({
 			if (row.name) allNames.add(row.name);
 		}
 		for (const row of secondaryInsurances) {
-			if (row.name) allNames.add(row.name);
+			if (row.name && Array.isArray(row.name)) {
+				for (const name of row.name) {
+					allNames.add(name);
+				}
+			}
 		}
 
 		return Array.from(allNames).sort();

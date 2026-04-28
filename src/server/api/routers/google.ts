@@ -70,10 +70,12 @@ const getPreviewData = async (ctx: Context, clientId: number) => {
 		allInsurances,
 	);
 
-	const secondaryInsurance = getInsuranceShortName(
-		client.secondaryInsurance,
-		allInsurances,
-	);
+	const secondaryInsurance = client.secondaryInsurance
+		? client.secondaryInsurance
+				.map((s) => getInsuranceShortName(s, allInsurances))
+				.filter(Boolean)
+				.join(", ")
+		: null;
 
 	const daQsNeeded = true;
 	let evalQsNeeded = false;

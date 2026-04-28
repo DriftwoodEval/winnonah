@@ -247,7 +247,7 @@ export const clients = createTable(
 		latitude: d.decimal({ precision: 10, scale: 8 }),
 		longitude: d.decimal({ precision: 11, scale: 8 }),
 		primaryInsurance: d.varchar({ length: 255 }),
-		secondaryInsurance: d.varchar({ length: 255 }),
+		secondaryInsurance: d.json("secondaryInsurance").$type<string[]>(),
 		precertExpires: d.date(),
 		privatePay: d.boolean().notNull().default(false),
 		asdAdhd: d.mysqlEnum([

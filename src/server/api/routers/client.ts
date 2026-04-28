@@ -58,7 +58,7 @@ export const getPriorityInfo = () => {
 	const isHighPriorityBN = and(
 		or(
 			like(clients.primaryInsurance, "%BabyNet%"),
-			like(clients.secondaryInsurance, "%BabyNet%"),
+			sql`JSON_SEARCH(${clients.secondaryInsurance}, 'one', '%BabyNet%') IS NOT NULL`,
 			eq(clients.babyNet, true),
 		),
 		lt(clients.dob, highPriorityBNAge),
@@ -335,7 +335,7 @@ export const clientRouter = createTRPCRouter({
 			where: and(
 				or(
 					like(clients.primaryInsurance, "%BabyNet%"),
-					like(clients.secondaryInsurance, "%BabyNet%"),
+					sql`JSON_SEARCH(${clients.secondaryInsurance}, 'one', '%BabyNet%') IS NOT NULL`,
 				),
 				lt(clients.dob, ageOutDate),
 				eq(clients.status, true),
@@ -1291,7 +1291,7 @@ export const clientRouter = createTRPCRouter({
 					and(
 						not(like(clients.primaryInsurance, "%BabyNet%")),
 						or(
-							not(like(clients.secondaryInsurance, "%BabyNet%")),
+							sql`JSON_SEARCH(${clients.secondaryInsurance}, 'one', '%BabyNet%') IS NULL`,
 							isNull(clients.secondaryInsurance),
 						),
 						not(eq(clients.babyNet, true)),
