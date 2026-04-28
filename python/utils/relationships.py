@@ -1,3 +1,4 @@
+import ast
 from datetime import datetime
 
 import pandas as pd
@@ -15,6 +16,38 @@ def _normalize_insurance_name(name: str, standardized_mappings: dict[str, str]) 
 
     # Return the mapped shortName if found, otherwise return the original (cleaned) name
     return standardized_mappings.get(normalized_for_lookup, name)
+
+
+def clean_insurance_item(item: str) -> list:
+    """
+    Handles:
+    - "[]" -> None/Empty
+    - '["Value"]' -> ["Value"]
+    - "Normal String" -> ["Normal String"]"""
+    if not item or item == "[]":
+        return []
+
+    if isinstance(item, str):
+        item = item.strip()
+        if item.startswith("[") and item.endswith("]"):
+            try:
+                evaluated = ast.literal_eval(item)
+                # If the result is a list, process its contents
+                if isinstance(evaluated, list):
+                    return [str(i) for i in evaluated if i != "[]"]
+            except (ValueError, SyntaxError):
+                pass
+
+        return [item]
+
+    if isinstance(item, list):
+        # Recursively clean items inside the list to handle nested stringified lists
+        flattened = []
+        for i in item:
+            flattened.extend(clean_insurance_item(i))
+        return flattened
+
+    return []
 
 
 def match_by_insurance(client: pd.Series, evaluators: dict, insurance_mappings: dict):
@@ -47,10 +80,8 @@ def match_by_insurance(client: pd.Series, evaluators: dict, insurance_mappings: 
     if primary_insurance:
         raw_insurances_to_check.append(primary_insurance)
 
-    if isinstance(secondary_insurance, str):
-        raw_insurances_to_check.extend(
-            [name.strip() for name in secondary_insurance.split("|")]
-        )
+    if isinstance(secondary_insurance, str) and secondary_insurance.strip() != "[]":
+        raw_insurances_to_check.extend(clean_insurance_item(secondary_insurance))
     elif isinstance(secondary_insurance, list):
         raw_insurances_to_check.extend(secondary_insurance)
 

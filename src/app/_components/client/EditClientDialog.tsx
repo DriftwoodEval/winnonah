@@ -318,7 +318,7 @@ export function ClientEditButton({ client }: { client: Client }) {
 	const showBabyNetCheckbox =
 		underBNAge &&
 		client.primaryInsurance !== "BabyNet" &&
-		client.secondaryInsurance !== "BabyNet";
+		!(client.secondaryInsurance?.includes("BabyNet") ?? false);
 
 	const updateClient = api.clients.update.useMutation({
 		onSuccess: () => {

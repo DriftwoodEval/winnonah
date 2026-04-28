@@ -70,17 +70,17 @@ export function ClientDetailsCard({
 							</p>
 						</div>
 					)}
-					{client.secondaryInsurance && (
-						<div>
-							<p className="font-bold">Secondary Insurance</p>
-							<p>
-								{client.secondaryInsurance
-									.split(",")
-									.map((s) => s.trim().replace(/_/g, " "))
-									.join(", ")}
-							</p>
-						</div>
-					)}
+					{client.secondaryInsurance &&
+						client.secondaryInsurance.length > 0 && (
+							<div>
+								<p className="font-bold">Secondary Insurance</p>
+								<p>
+									{client.secondaryInsurance
+										.map((s) => s.trim().replace(/_/g, " "))
+										.join(", ")}
+								</p>
+							</div>
+						)}
 					{client.precertExpires && !truncated && (
 						<div>
 							<p className="font-bold">PA Expires</p>

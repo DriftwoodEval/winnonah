@@ -197,7 +197,7 @@ export function ReferralTab({ client, readOnly }: ReferralTabProps) {
 	const isBabyNet =
 		client.babyNet ||
 		client.primaryInsurance?.toLowerCase().includes("babynet") ||
-		client.secondaryInsurance?.toLowerCase().includes("babynet");
+		client.secondaryInsurance?.some((s) => s.toLowerCase().includes("babynet"));
 
 	const isNeedsReachOut = client.referralData?.needsReachOut === "reach_out";
 
@@ -343,7 +343,7 @@ export function ReferralTab({ client, readOnly }: ReferralTabProps) {
 							<Label>Insurance</Label>
 							<div className="py-2 font-medium text-sm">
 								{client.primaryInsurance
-									? `${client.primaryInsurance}${client.secondaryInsurance ? ` | ${client.secondaryInsurance}` : ""}`
+									? `${client.primaryInsurance}${client.secondaryInsurance && client.secondaryInsurance.length > 0 ? ` | ${client.secondaryInsurance.join(" | ")}` : ""}`
 									: "No insurance information"}
 							</div>
 						</div>

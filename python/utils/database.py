@@ -210,12 +210,11 @@ def put_clients_in_db(clients_df: pd.DataFrame, connection: Connection[DictCurso
             continue
 
         secondary_insurance = get_column(client, "SECONDARY_INSURANCE_COMPANYNAME")
-        if isinstance(secondary_insurance, list):
-            secondary_insurance = "|".join(
-                str(item)
-                for item in secondary_insurance
-                if not (isinstance(item, float) and float("nan") == item)
-            )
+        if not isinstance(secondary_insurance, list):
+            secondary_insurance = [secondary_insurance] if secondary_insurance else []
+
+        # Convert to JSON string for MySQL JSON column
+        secondary_insurance_json = json.dumps(secondary_insurance)
 
         firstname = get_column(client, "FIRSTNAME")
         lastname = get_column(client, "LASTNAME")
@@ -256,7 +255,7 @@ def put_clients_in_db(clients_df: pd.DataFrame, connection: Connection[DictCurso
             if get_column(client, "LONGITUDE") == "Unknown"
             else get_column(client, "LONGITUDE"),
             get_column(client, "PRIMARY_INSURANCE_COMPANYNAME"),
-            secondary_insurance,
+            secondary_insurance_json,
             get_column(client, "PRECERT_EXPIREDATE"),
             get_boolean_value(client, "POLICY_PRIVATEPAY"),
             get_column(client, "ASD_ADHD"),
