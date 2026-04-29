@@ -29,7 +29,7 @@ dependencies = [
 [dependency-groups]
 dev = [
   "deptry>=0.25.1",
-  "icecream>=2.1.4",
+  "icecream>=2.2.0",
   "ruff>=0.15.10",
   "uvicorn>=0.44.0",
 ]
