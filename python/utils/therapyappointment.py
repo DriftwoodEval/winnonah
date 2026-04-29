@@ -320,44 +320,21 @@ def _download_billing(driver: WebDriver):
     w.click_element(driver, By.XPATH, "//div[contains(text(), 'Download as CSV')]")
     sleep(2)
 
-    driver.get("https://api.portal.therapyappointment.com/n/billing/claim/claimsReport")
-    w.click_element(
-        driver, By.XPATH, "//button[@aria-label='View filters']", refresh=True
-    )
-    w.click_element(
-        driver,
-        By.XPATH,
-        "//label[text()='Date of Service']/following-sibling::input",
-    )
-    from_input = w.find_element(
-        driver, By.XPATH, "//label[text()='From']/following-sibling::input"
-    )
-    from_input.send_keys(Keys.CONTROL + "a")
-    from_input.send_keys(Keys.BACKSPACE)
-    from_input.send_keys("01/01/2020")
-    w.click_element(driver, By.XPATH, "//button[normalize-space()='OK']")
-    w.click_element(driver, By.XPATH, "//button[normalize-space()='Search']")
-
-    # Wait for this to ensure the items are all loaded
-    w.find_element(driver, By.XPATH, "//button[normalize-space()='Load Next 50']")
-
+    driver.get("https://api.portal.therapyappointment.com/n/billing/claim/submitted")
     w.click_element(driver, By.XPATH, "//button[@title='More Options']")
     sleep(2)
     w.click_element(driver, By.XPATH, "//div[contains(text(), 'Download as CSV')]")
     sleep(2)
 
     open_bal_report = next(DOWNLOAD_DIR.glob("clients-with-open-balances-report-*.csv"))
-    claims_report = next(DOWNLOAD_DIR.glob("claims-report-*.csv"))
+    claims_report = next(DOWNLOAD_DIR.glob("submitted-claims-*.csv"))
 
     df_open = pd.read_csv(open_bal_report)
     df_claims = pd.read_csv(claims_report)
 
-    cols_to_use = ["Client", "Date of Service", "Submitted"]
+    cols_to_use = ["Client", "Date of Service", "Submitted", "Insurance"]
     merged_df = pd.merge(df_open, df_claims[cols_to_use], on="Client", how="left")
     merged_df.to_csv(INPUT_DIR / "clients-billing.csv", index=False)
-
-    # merged_df = pd.merge(df_open, df_claims, on="Client", how="left")
-    # merged_df.to_csv(INPUT_DIR / "clients-billing.csv", index=False)
 
     exit(1)
 
