@@ -1,8 +1,6 @@
 "use client";
 
 import { Alert, AlertDescription, AlertTitle } from "@ui/alert";
-import { Button } from "@ui/button";
-import { Calendar } from "@ui/calendar";
 import { Checkbox } from "@ui/checkbox";
 import DateTimePicker from "@ui/date-time-picker";
 import {
@@ -15,12 +13,11 @@ import {
 } from "@ui/form";
 import { Input } from "@ui/input";
 import { Label } from "@ui/label";
-import { Popover, PopoverContent, PopoverTrigger } from "@ui/popover";
 import { RadioGroup, RadioGroupItem } from "@ui/radio-group";
 import { Separator } from "@ui/separator";
 import { Switch } from "@ui/switch";
-import { add, addMonths, format, startOfDay, sub } from "date-fns";
-import { AlertCircle, CalendarIcon } from "lucide-react";
+import { add, addMonths, startOfDay, sub } from "date-fns";
+import { AlertCircle } from "lucide-react";
 import type { UseFormReturn } from "react-hook-form";
 import {
 	type AvailabilityFormValues,
@@ -475,28 +472,18 @@ export function AvailabilityFields({
 														control={form.control}
 														name="recurrenceEndDate"
 														render={({ field }) => (
-															<Popover>
-																<PopoverTrigger asChild>
-																	<Button
-																		className="w-full justify-start text-left font-normal"
-																		variant="outline"
-																	>
-																		<CalendarIcon className="mr-2 h-4 w-4" />
-																		{field.value
-																			? format(field.value, "PPP")
-																			: "Pick a date"}
-																	</Button>
-																</PopoverTrigger>
-																<PopoverContent className="w-auto p-0">
-																	<Calendar
-																		autoFocus
-																		captionLayout="label"
-																		mode="single"
-																		onSelect={field.onChange}
-																		selected={field.value || undefined}
+															<FormItem>
+																<FormControl>
+																	<DateTimePicker
+																		disabled={field.disabled}
+																		hideTime={true}
+																		minDate={minDate}
+																		onChange={field.onChange}
+																		value={field.value ?? undefined}
 																	/>
-																</PopoverContent>
-															</Popover>
+																</FormControl>
+																<FormMessage />
+															</FormItem>
 														)}
 													/>
 												)}

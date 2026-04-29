@@ -79,7 +79,7 @@ function getRecurrenceDescription(
 export function AvailabilityList() {
 	const [availabilityDateRange, setAvailabilityDateRange] = useState({
 		startDate: new Date(),
-		endDate: add(new Date(), { weeks: 3 }),
+		endDate: add(new Date(), { months: 2 }),
 	});
 
 	const [editingEvent, setEditingEvent] = useState<{
