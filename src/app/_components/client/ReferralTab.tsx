@@ -197,7 +197,9 @@ export function ReferralTab({ client, readOnly }: ReferralTabProps) {
 	const isBabyNet =
 		client.babyNet ||
 		client.primaryInsurance?.toLowerCase().includes("babynet") ||
-		client.secondaryInsurance?.some((s) => s.toLowerCase().includes("babynet"));
+		(client.secondaryInsurance ?? []).some((s) =>
+			s.toLowerCase().includes("babynet"),
+		);
 
 	const isNeedsReachOut = client.referralData?.needsReachOut === "reach_out";
 

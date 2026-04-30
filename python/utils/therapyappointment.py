@@ -301,7 +301,7 @@ def _download_referrals(driver: WebDriver):
 
 def _download_billing(driver: WebDriver):
     """Downloads open billing balances and submitted claims."""
-    logger.debug("Opening open billing page")
+    logger.debug("Opening open balances page")
     sleep(2)
     driver.get(
         "https://api.portal.therapyappointment.com/n/billing/balance/openBalances"
@@ -311,6 +311,7 @@ def _download_billing(driver: WebDriver):
     w.click_element(driver, By.XPATH, "//div[contains(text(), 'Download as CSV')]")
     sleep(2)
 
+    logger.debug("Opening submitted claims page")
     driver.get("https://api.portal.therapyappointment.com/n/billing/claim/submitted")
     w.click_element(driver, By.XPATH, "//button[@title='More Options']")
     sleep(2)
