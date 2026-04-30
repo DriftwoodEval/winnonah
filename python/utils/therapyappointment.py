@@ -171,22 +171,6 @@ def _download_data(driver: WebDriver, npi: str):
 
 def _loop_therapists(driver: WebDriver, func: Callable):
     """Loops through therapists and runs a function for each therapist."""
-
-    def _helper(driver: WebDriver, count: int) -> int:
-        therapist_element = w.find_element(
-            driver, By.CSS_SELECTOR, f"#nav-staff-menu>ul>li:nth-child({count + 1})>a"
-        )
-        therapist_name = therapist_element.text
-        if any(
-            s in therapist_name for s in os.environ.get("EXCLUDED_TA", "").split(",")
-        ):
-            logger.debug(f"Skipping therapist: {therapist_name}")
-            count += 1
-            return count
-        logger.debug(f"Looping for therapist: {therapist_name}")
-        therapist_element.click()
-        return count
-
     logger.debug("Looping therapists")
 
     driver.refresh()
@@ -194,32 +178,39 @@ def _loop_therapists(driver: WebDriver, func: Callable):
     sleep(2)
     w.click_element(driver, By.ID, "nav-staff-menu")
     sleep(2)
+
+    excluded_list = os.environ.get("EXCLUDED_TA", "").split(",")
     ul_element = w.find_element(driver, By.CSS_SELECTOR, "#nav-staff-menu>ul")
-    therapist_count = len(ul_element.find_elements(By.CSS_SELECTOR, "li"))
-    therapist_iterator = 0
-    while therapist_iterator < therapist_count:
-        driver.refresh()
-        driver.execute_script("window.scrollTo(0, 0);")
-        w.click_element(driver, By.ID, "nav-staff-menu")
-        sleep(3)
-        ul_element = w.find_element(driver, By.CSS_SELECTOR, "#nav-staff-menu>ul")
-        new_count = _helper(driver, therapist_iterator)
-        if new_count == therapist_iterator + 1:
-            therapist_iterator += 1
+    all_links = ul_element.find_elements(By.CSS_SELECTOR, "li > a")
+
+    targets = []
+    for link in all_links:
+        name = link.text
+        if any(excl in name for excl in excluded_list if excl.strip()):
+            logger.debug(f"Skipping excluded therapist: {name}")
             continue
+        targets.append({"name": name, "url": link.get_attribute("href")})
+
+    for target in targets:
+        logger.debug(f"Processing: {target['name']}")
+
+        driver.get(target["url"])
+
         try:
-            therapist_npi = w.find_element(
+            npi_element = w.find_element(
                 driver,
                 By.XPATH,
                 "//div[contains(text(), 'Individual (Type 1) NPI Number')]/following-sibling::div",
-                1,
-            ).text.split()[0]
-        except NoSuchElementException, TimeoutException:
-            logger.error("Could not find therapist NPI, skipping!")
-            therapist_iterator += 1
+                timeout=5,
+            )
+            therapist_npi = npi_element.text.split()[0]
+            func(driver, therapist_npi)
+
+        except (NoSuchElementException, TimeoutException):
+            logger.error(f"Could not find NPI for {target['name']}, skipping!")
             continue
-        func(driver, therapist_npi)
-        therapist_iterator += 1
+
+    logger.debug("Completed therapist loop")
 
 
 def _combine_files():
@@ -335,8 +326,6 @@ def _download_billing(driver: WebDriver):
     cols_to_use = ["Client", "Date of Service", "Submitted", "Insurance"]
     merged_df = pd.merge(df_open, df_claims[cols_to_use], on="Client", how="left")
     merged_df.to_csv(INPUT_DIR / "clients-billing.csv", index=False)
-
-    exit(1)
 
 
 def download_csvs():
