@@ -1,7 +1,7 @@
 "use client";
 
 import { Tooltip, TooltipContent, TooltipTrigger } from "@ui/tooltip";
-import { debounce } from "lodash";
+import { debounce } from "es-toolkit/function";
 import { Search } from "lucide-react";
 import { useCallback, useEffect, useId, useState } from "react";
 import {

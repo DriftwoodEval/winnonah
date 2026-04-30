@@ -45,7 +45,7 @@ const config = {
 	output: "standalone",
 	serverExternalPackages: ["pino", "pino-pretty"],
 	experimental: {
-		optimizePackageImports: ["lucide-react", "lodash"],
+		optimizePackageImports: ["lucide-react"],
 	},
 };
 

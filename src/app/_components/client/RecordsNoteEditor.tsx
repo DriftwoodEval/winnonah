@@ -13,7 +13,8 @@ import {
 } from "@ui/select";
 import { Skeleton } from "@ui/skeleton";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@ui/tooltip";
-import { debounce, isEqual } from "lodash";
+import { debounce } from "es-toolkit/function";
+import { isEqual } from "es-toolkit/predicate";
 import { History } from "lucide-react";
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
