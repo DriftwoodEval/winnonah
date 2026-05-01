@@ -76,10 +76,16 @@ export function AvailabilityFields({
 									<div className="flex flex-col gap-2">
 										<FormItem className="flex items-center space-x-2">
 											<Checkbox
-												checked={officeKeys?.length === offices?.length}
+												checked={
+													offices &&
+													officeKeys?.length === offices.length + 1 &&
+													officeKeys.includes("VIRTUAL")
+												}
 												onCheckedChange={(checked) => {
-													const allOfficeKeys =
-														offices?.map((o) => o.key) || [];
+													const allOfficeKeys = [
+														...(offices?.map((o) => o.key) || []),
+														"VIRTUAL",
+													];
 													field.onChange(checked ? allOfficeKeys : []);
 												}}
 											/>
