@@ -29,7 +29,7 @@ import {
 	FormLabel,
 } from "@ui/form";
 import { RadioGroup, RadioGroupItem } from "@ui/radio-group";
-import { addMonths, isBefore } from "date-fns";
+import { addMonths, isBefore, startOfDay } from "date-fns";
 import { AlertCircle, Trash2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
@@ -66,7 +66,10 @@ export function EditAvailabilityDialog({
 	const utils = api.useUtils();
 	const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
 
-	const isLocked = isBefore(new Date(event.start), addMonths(new Date(), 1));
+	const isLocked = isBefore(
+		new Date(event.start),
+		startOfDay(addMonths(new Date(), 1)),
+	);
 
 	const form = useForm<AvailabilityFormValues>({
 		resolver: zodResolver(availabilityFormSchema),

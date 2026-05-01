@@ -243,7 +243,9 @@ export function AvailabilityList() {
 											const recurrenceDesc = getRecurrenceDescription(
 												event.recurrence,
 											);
-											const oneMonthFromNow = addMonths(new Date(), 1);
+											const oneMonthFromNow = startOfDay(
+												addMonths(new Date(), 1),
+											);
 											const isLocked = isBefore(
 												new Date(event.start),
 												oneMonthFromNow,
