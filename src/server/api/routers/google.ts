@@ -43,6 +43,8 @@ const availabilitySchema = z.object({
 	isUnavailability: z.boolean(),
 	isAllDay: z.boolean().optional(),
 	officeKeys: z.array(z.string()).optional(),
+	scope: z.enum(["this", "all", "future"]).optional(),
+	recurringEventId: z.string().optional(),
 });
 const CACHE_KEY_PUNCHLIST = "google:sheets:punchlist";
 const CACHE_KEY_MISSING_PUNCHLIST = "google:sheets:missing-punchlist";
@@ -600,10 +602,41 @@ export const googleRouter = createTRPCRouter({
 					}
 				}
 
-				const event = await updateAvailabilityEvent(
-					ctx.session,
-					input.eventId,
-					{
+				if (input.scope === "future" && input.recurringEventId) {
+					const calendarApi = getCalendarClient(ctx.session);
+					// 1. Fetch master event to get its current recurrence
+					const masterEvent = await calendarApi.events.get({
+						calendarId: "primary",
+						eventId: input.recurringEventId,
+					});
+
+					// 2. Update master event to end before this instance
+					const originalRecurrence = masterEvent.data.recurrence?.[0];
+					if (originalRecurrence) {
+						// Set UNTIL to just before the current instance's start time
+						const untilDate = new Date(input.startDate);
+						untilDate.setSeconds(untilDate.getSeconds() - 1);
+						const untilStr = `${untilDate.toISOString().replace(/[:-]/g, "").split(".")[0]}Z`;
+
+						let newMasterRecurrence = originalRecurrence.replace(
+							/UNTIL=[^;]+/,
+							`UNTIL=${untilStr}`,
+						);
+						if (!newMasterRecurrence.includes("UNTIL=")) {
+							newMasterRecurrence += `;UNTIL=${untilStr}`;
+						}
+
+						await calendarApi.events.patch({
+							calendarId: "primary",
+							eventId: input.recurringEventId,
+							requestBody: {
+								recurrence: [newMasterRecurrence],
+							},
+						});
+					}
+
+					// 3. Create NEW master event starting from now
+					const newEvent = await createAvailabilityEvent(ctx.session, {
 						summary: summary,
 						start: input.startDate,
 						end: input.endDate,
@@ -611,8 +644,29 @@ export const googleRouter = createTRPCRouter({
 						recurrenceRule: input.recurrenceRule,
 						isUnavailability: input.isUnavailability,
 						isAllDay: input.isAllDay,
-					},
-				);
+					});
+
+					return {
+						success: true,
+						message: "Future events updated successfully.",
+						eventId: newEvent.id,
+					};
+				}
+
+				const targetId =
+					input.scope === "all" && input.recurringEventId
+						? input.recurringEventId
+						: input.eventId;
+
+				const event = await updateAvailabilityEvent(ctx.session, targetId, {
+					summary: summary,
+					start: input.startDate,
+					end: input.endDate,
+					isRecurring: input.isRecurring,
+					recurrenceRule: input.recurrenceRule,
+					isUnavailability: input.isUnavailability,
+					isAllDay: input.isAllDay,
+				});
 
 				return {
 					success: true,
@@ -631,7 +685,14 @@ export const googleRouter = createTRPCRouter({
 		}),
 
 	deleteAvailability: protectedProcedure
-		.input(z.object({ eventId: z.string() }))
+		.input(
+			z.object({
+				eventId: z.string(),
+				scope: z.enum(["this", "all", "future"]).optional(),
+				recurringEventId: z.string().optional(),
+				startDate: z.date().optional(),
+			}),
+		)
 		.mutation(async ({ ctx, input }) => {
 			if (!ctx.session) {
 				throw new TRPCError({
@@ -640,7 +701,52 @@ export const googleRouter = createTRPCRouter({
 			}
 
 			try {
-				await deleteAvailabilityEvent(ctx.session, input.eventId);
+				if (
+					input.scope === "future" &&
+					input.recurringEventId &&
+					input.startDate
+				) {
+					const calendarApi = getCalendarClient(ctx.session);
+					const masterEvent = await calendarApi.events.get({
+						calendarId: "primary",
+						eventId: input.recurringEventId,
+					});
+
+					const originalRecurrence = masterEvent.data.recurrence?.[0];
+					if (originalRecurrence) {
+						const untilDate = new Date(input.startDate);
+						untilDate.setSeconds(untilDate.getSeconds() - 1);
+						const untilStr = `${untilDate.toISOString().replace(/[:-]/g, "").split(".")[0]}Z`;
+
+						let newMasterRecurrence = originalRecurrence.replace(
+							/UNTIL=[^;]+/,
+							`UNTIL=${untilStr}`,
+						);
+						if (!newMasterRecurrence.includes("UNTIL=")) {
+							newMasterRecurrence += `;UNTIL=${untilStr}`;
+						}
+
+						await calendarApi.events.patch({
+							calendarId: "primary",
+							eventId: input.recurringEventId,
+							requestBody: {
+								recurrence: [newMasterRecurrence],
+							},
+						});
+
+						return {
+							success: true,
+							message: "Future events deleted successfully.",
+						};
+					}
+				}
+
+				const targetId =
+					input.scope === "all" && input.recurringEventId
+						? input.recurringEventId
+						: input.eventId;
+
+				await deleteAvailabilityEvent(ctx.session, targetId);
 
 				return {
 					success: true,

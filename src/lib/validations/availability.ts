@@ -29,7 +29,7 @@ const baseAvailabilityFormSchema = z.object({
 	recurrenceCount: z.number().min(1).optional().nullable(),
 	recurrenceEndType: z.enum(["never", "on", "after"]),
 	officeKeys: z.array(z.string()).optional(),
-	scope: z.enum(["this", "all"]).optional(),
+	scope: z.enum(["this", "all", "future"]).optional(),
 });
 
 export const availabilityFormSchema = baseAvailabilityFormSchema

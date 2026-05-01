@@ -191,28 +191,17 @@ export function EditAvailabilityDialog({
 	async function onSubmit(values: AvailabilityFormValues) {
 		const rruleString = buildRRule(values);
 
-		let targetId = event.id;
-		let isRecurringVal = values.isRecurring;
-		let recurrenceRule: string | undefined = rruleString;
-
-		if (event.recurringEventId) {
-			if (values.scope === "all") {
-				targetId = event.recurringEventId;
-			} else {
-				isRecurringVal = false;
-				recurrenceRule = undefined;
-			}
-		}
-
 		await updateAvailability.mutateAsync({
-			eventId: targetId,
+			eventId: event.id,
 			startDate: values.startDate,
 			endDate: values.endDate,
-			isRecurring: isRecurringVal,
-			recurrenceRule,
+			isRecurring: values.isRecurring,
+			recurrenceRule: rruleString,
 			isUnavailability: values.isUnavailability,
 			isAllDay: values.isAllDay,
 			officeKeys: values.officeKeys,
+			scope: values.scope,
+			recurringEventId: event.recurringEventId ?? undefined,
 		});
 	}
 
@@ -270,17 +259,25 @@ export function EditAvailabilityDialog({
 													</FormItem>
 													<FormItem className="flex items-center space-x-3 space-y-0">
 														<FormControl>
+															<RadioGroupItem value="future" />
+														</FormControl>
+														<FormLabel className="font-normal">
+															This and future events in this series
+														</FormLabel>
+													</FormItem>
+													<FormItem className="flex items-center space-x-3 space-y-0">
+														<FormControl>
 															<RadioGroupItem value="all" />
 														</FormControl>
 														<FormLabel className="font-normal">
-															All events in the series
+															All events in this series
 														</FormLabel>
 													</FormItem>
 												</RadioGroup>
 											</FormControl>
 											<FormDescription>
-												Choose whether to update only this specific occurrence
-												or the entire repeating series.
+												Choose whether to update only this specific occurrence,
+												future ones, or the entire repeating series.
 											</FormDescription>
 										</FormItem>
 									)}
@@ -322,7 +319,9 @@ export function EditAvailabilityDialog({
 						<AlertDialogDescription>
 							{scope === "all"
 								? "Are you sure you want to delete the entire series? This action cannot be undone."
-								: "Are you sure you want to delete this specific occurrence? This action cannot be undone."}
+								: scope === "future"
+									? "Are you sure you want to delete this and all future occurrences? This action cannot be undone."
+									: "Are you sure you want to delete this specific occurrence? This action cannot be undone."}
 						</AlertDialogDescription>
 					</AlertDialogHeader>
 					<AlertDialogFooter>
@@ -331,11 +330,12 @@ export function EditAvailabilityDialog({
 							className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
 							disabled={isLocked}
 							onClick={() => {
-								const targetId =
-									scope === "all" && event.recurringEventId
-										? event.recurringEventId
-										: event.id;
-								deleteAvailability.mutate({ eventId: targetId });
+								deleteAvailability.mutate({
+									eventId: event.id,
+									scope: scope,
+									recurringEventId: event.recurringEventId ?? undefined,
+									startDate: event.start,
+								});
 							}}
 						>
 							Delete
