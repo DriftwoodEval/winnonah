@@ -5,6 +5,7 @@ from datetime import UTC, datetime
 
 from dotenv import load_dotenv
 from fastapi import Depends, FastAPI, HTTPException, Request
+from fastapi.responses import FileResponse
 from googleapiclient.discovery import build
 from pydantic import BaseModel
 
@@ -461,3 +462,22 @@ async def notify_report_approved(
     )
 
     return {"status": "success"}
+
+
+@app.get("/download-billing")
+async def download_billing(current_user: dict = Depends(get_current_user)):
+    """Serves the billing CSV file for download."""
+    if not current_user["permissions"].get("clients:billing:download"):
+        raise HTTPException(
+            status_code=403, detail="Not authorized to download billing CSV"
+        )
+
+    file_path = "temp/input/clients-billing.csv"
+    if not os.path.exists(file_path):
+        raise HTTPException(status_code=404, detail="Billing CSV file not found")
+
+    return FileResponse(
+        path=file_path,
+        filename="clients-billing.csv",
+        media_type="text/csv",
+    )

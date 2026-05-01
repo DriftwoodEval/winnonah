@@ -7,11 +7,14 @@ import InvitesTable from "@components/settings/InvitesTable";
 import UsersTable from "@components/settings/UsersTable";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@ui/tabs";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import BillingDownload from "~/app/_components/settings/BillingDownload";
+import { useCheckPermission } from "~/hooks/use-check-permission";
 
 export function SettingsTabs() {
 	const router = useRouter();
 	const pathname = usePathname();
 	const searchParams = useSearchParams();
+	const can = useCheckPermission();
 
 	const activeTab = searchParams.get("tab") ?? "users";
 
@@ -20,6 +23,8 @@ export function SettingsTabs() {
 		params.set("tab", value);
 		router.push(`${pathname}?${params.toString()}`);
 	};
+
+	const canDownloadBilling = can("clients:billing:download");
 
 	return (
 		<div className="mx-10 my-10 flex w-full flex-col gap-6">
@@ -30,6 +35,9 @@ export function SettingsTabs() {
 					<TabsTrigger value="evaluators">Evaluators</TabsTrigger>
 					<TabsTrigger value="insurances">Insurances</TabsTrigger>
 					<TabsTrigger value="appointments-sync">Appointments Sync</TabsTrigger>
+					{canDownloadBilling && (
+						<TabsTrigger value="downloads">Downloads</TabsTrigger>
+					)}
 				</TabsList>
 				<TabsContent value="users">
 					<div className="flex flex-col gap-8">
@@ -46,6 +54,11 @@ export function SettingsTabs() {
 				<TabsContent value="appointments-sync">
 					<AppointmentsSyncSettings />
 				</TabsContent>
+				{canDownloadBilling && (
+					<TabsContent value="downloads">
+						<BillingDownload />
+					</TabsContent>
+				)}
 			</Tabs>
 		</div>
 	);

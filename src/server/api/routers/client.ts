@@ -20,6 +20,7 @@ import {
 } from "drizzle-orm";
 import { distance as levDistance } from "fastest-levenshtein";
 import { z } from "zod";
+import { env } from "~/env";
 import { CLIENT_COLOR_KEYS } from "~/lib/colors";
 import { ALLOWED_ASD_ADHD_VALUES } from "~/lib/constants";
 import {
@@ -1561,4 +1562,27 @@ export const clientRouter = createTRPCRouter({
 				message: `Merged ${fakeClient.fullName}'s notes/title into ${realClient.fullName}.`,
 			};
 		}),
+
+	// TODO: move this?
+	downloadBilling: protectedProcedure.mutation(async ({ ctx }) => {
+		assertPermission(ctx.session.user, "clients:billing:download");
+
+		const cookieHeader = ctx.headers.get("cookie") ?? "";
+
+		const response = await fetch(`${env.PY_API}/download-billing`, {
+			headers: {
+				Cookie: cookieHeader,
+			},
+		});
+
+		if (!response.ok) {
+			console.error(`FastAPI error: ${response.status} ${response.statusText}`);
+			throw new TRPCError({
+				code: "INTERNAL_SERVER_ERROR",
+				message: "Failed to download billing CSV from backend",
+			});
+		}
+
+		return response.text();
+	}),
 });
