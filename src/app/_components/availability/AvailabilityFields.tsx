@@ -74,7 +74,7 @@ export function AvailabilityFields({
 									<p>Loading offices...</p>
 								) : (
 									<div className="flex flex-col gap-2">
-										<FormItem className="flex items-center space-x-2">
+										<FormItem className="flex items-center">
 											<Checkbox
 												checked={
 													offices &&
@@ -94,7 +94,7 @@ export function AvailabilityFields({
 										<div className="flex flex-row flex-wrap gap-4">
 											{offices?.map((office) => (
 												<FormItem
-													className="flex items-center space-x-2"
+													className="flex items-center"
 													key={office.key}
 												>
 													<FormControl>
@@ -114,7 +114,7 @@ export function AvailabilityFields({
 													</FormLabel>
 												</FormItem>
 											))}
-											<FormItem className="flex items-center space-x-2">
+											<FormItem className="flex items-center">
 												<FormControl>
 													<Checkbox
 														checked={field.value?.includes("VIRTUAL")}

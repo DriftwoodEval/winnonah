@@ -9,6 +9,7 @@ import {
 	addMonths,
 	differenceInMinutes,
 	eachDayOfInterval,
+	endOfDay,
 	format,
 	isBefore,
 	isSameDay,
@@ -26,10 +27,13 @@ import {
 	Lock,
 	Repeat,
 } from "lucide-react";
+import { useSession } from "next-auth/react";
 import { useState } from "react";
+import { toast } from "sonner";
 import { cn } from "~/lib/utils";
 import { api } from "~/trpc/react";
 import { Button } from "../ui/button";
+import { CreateAvailabilityDialog } from "./CreateAvailabilityDialog";
 import { EditAvailabilityDialog } from "./EditAvailabilityDialog";
 
 type CalendarEvent = {
@@ -450,10 +454,47 @@ function CalendarDayHeader({
 	allDayEvents: CalendarEvent[];
 	onEdit: (e: EditingEvent) => void;
 }) {
+	const { data: session } = useSession();
+	const evaluatorId = session?.user.evaluatorId ?? 0;
+
+	const { data: outOfOfficePriority } =
+		api.evaluators.getOutOfOfficePriority.useQuery(evaluatorId, {
+			enabled: !!evaluatorId,
+		});
+
 	const today = isSameDay(day, new Date());
 
+	const isLocked = isBefore(day, startOfDay(addMonths(new Date(), 1)));
+
 	return (
-		<div className="flex min-w-0 flex-col items-center bg-muted/30 p-2">
+		<button
+			aria-label={`Add all-day event for ${format(day, "PPPP")}`}
+			className={cn(
+				"flex min-w-0 flex-col items-center bg-muted/30 p-2 outline-none transition-colors",
+				!isLocked &&
+					"cursor-pointer hover:bg-muted/60 focus-visible:bg-muted/60",
+			)}
+			onClick={(e) => {
+				if (
+					e.currentTarget === e.target ||
+					(e.target as HTMLElement).tagName === "span"
+				) {
+					onEdit({
+						id: "new",
+						start: startOfDay(day),
+						end: endOfDay(day),
+						isAllDay: true,
+						summary: "",
+						isUnavailability: outOfOfficePriority || false,
+					});
+				}
+			}}
+			onKeyDown={(e) => {
+				if (!isLocked && e.key === "Enter") e.currentTarget.click();
+			}}
+			tabIndex={isLocked ? -1 : 0}
+			type="button"
+		>
 			<span className="text-muted-foreground text-xs">
 				{format(day, "EEE")}
 			</span>
@@ -474,7 +515,7 @@ function CalendarDayHeader({
 					/>
 				))}
 			</div>
-		</div>
+		</button>
 	);
 }
 
@@ -634,6 +675,14 @@ function CalendarView({
 	eventsByDate: EventsByDate;
 	onEdit: (e: EditingEvent) => void;
 }) {
+	const { data: session } = useSession();
+	const evaluatorId = session?.user.evaluatorId ?? 0;
+
+	const { data: outOfOfficePriority } =
+		api.evaluators.getOutOfOfficePriority.useQuery(evaluatorId, {
+			enabled: !!evaluatorId,
+		});
+
 	const gridCols = `48px repeat(${displayDays.length}, calc((100% - 48px) / ${displayDays.length}))`;
 
 	return (
@@ -699,15 +748,75 @@ function CalendarView({
 									(e) => !e.isAllDay,
 								);
 
+								const isLocked = isBefore(
+									day,
+									startOfDay(addMonths(new Date(), 1)),
+								);
+
 								return (
-									<div
-										className="relative border-muted/30 border-l"
+									<button
+										aria-label={`Create event on ${format(day, "PPPP")}`}
+										className={cn(
+											"relative border-muted/30 border-l outline-none transition-colors",
+											// Hover state only if not locked
+											!isLocked &&
+												"cursor-pointer hover:bg-primary/3 focus-visible:bg-primary/3",
+										)}
 										key={dateStr}
+										onClick={(e) => {
+											// Ignore clicks that bubbled up from an actual event card
+											if (e.currentTarget !== e.target) return;
+
+											const rect = e.currentTarget.getBoundingClientRect();
+											const offsetY = e.clientY - rect.top;
+
+											const totalMinutes = Math.floor(
+												offsetY / PIXELS_PER_MINUTE,
+											);
+											const snappedMinutes = Math.round(totalMinutes / 30) * 30;
+
+											const startDate = new Date(day);
+											startDate.setHours(
+												Math.floor(snappedMinutes / 60),
+												snappedMinutes % 60,
+												0,
+												0,
+											);
+
+											const endDate = add(startDate, { hours: 1 });
+
+											const isLocked = isBefore(
+												startDate,
+												startOfDay(addMonths(new Date(), 1)),
+											);
+											if (isLocked) {
+												toast.error(
+													"Cannot create events in the locked period.",
+												);
+												return;
+											}
+
+											onEdit({
+												id: "new",
+												start: startDate,
+												end: endDate,
+												isAllDay: false,
+												summary: "",
+												isUnavailability: outOfOfficePriority || false,
+											});
+										}}
+										onKeyDown={(e) => {
+											if (!isLocked && e.key === "Enter") {
+												e.currentTarget.click();
+											}
+										}}
 										style={{
 											gridColumn: colIdx + 2,
 											gridRow: "1",
 											height: `${TOTAL_DAY_HEIGHT_PX}px`,
 										}}
+										tabIndex={isLocked ? -1 : 0}
+										type="button"
 									>
 										{HOURS_OF_DAY.map((hour) => (
 											<div
@@ -727,7 +836,7 @@ function CalendarView({
 												onEdit={onEdit}
 											/>
 										))}
-									</div>
+									</button>
 								);
 							})}
 						</div>
@@ -921,13 +1030,20 @@ export function AvailabilityList() {
 				</TabsContent>
 			</div>
 
-			{editingEvent && (
-				<EditAvailabilityDialog
-					event={editingEvent}
-					isOpen
-					onClose={() => setEditingEvent(null)}
-				/>
-			)}
+			{editingEvent &&
+				(editingEvent.id === "new" ? (
+					<CreateAvailabilityDialog
+						initialData={editingEvent}
+						isOpen={true}
+						onClose={() => setEditingEvent(null)}
+					/>
+				) : (
+					<EditAvailabilityDialog
+						event={editingEvent}
+						isOpen={true}
+						onClose={() => setEditingEvent(null)}
+					/>
+				))}
 		</Tabs>
 	);
 }

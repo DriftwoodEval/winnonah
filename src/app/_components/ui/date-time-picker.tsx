@@ -18,7 +18,7 @@ interface DateTimePickerProps {
 	minDate?: Date;
 }
 
-const DATE_FORMAT = "MM/dd/yyyy";
+const DATE_FORMAT = "MM/dd/yy";
 
 const DateTimePicker: React.FC<DateTimePickerProps> = ({
 	value,
