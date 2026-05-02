@@ -641,6 +641,7 @@ function CalendarTimedEvent({
 			<div
 				className={cn(sharedClassName, "cursor-not-allowed opacity-80")}
 				style={style}
+				title={`${start.toLocaleTimeString("en-US", { timeStyle: "short" })} - ${end.toLocaleTimeString("en-US", { timeStyle: "short" })}`}
 			>
 				<Content />
 			</div>
@@ -652,13 +653,14 @@ function CalendarTimedEvent({
 			className={cn(
 				sharedClassName,
 				"w-full transition-all hover:brightness-95 active:scale-[0.98]",
-				"focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+				"cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
 			)}
 			onClick={handleActivate}
 			onKeyDown={(e) => {
 				if (e.key === "Enter" || e.key === " ") handleActivate();
 			}}
 			style={style}
+			title={`${start.toLocaleTimeString("en-US", { timeStyle: "short" })} - ${end.toLocaleTimeString("en-US", { timeStyle: "short" })}`}
 			type="button"
 		>
 			<Content />
