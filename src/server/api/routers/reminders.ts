@@ -46,6 +46,7 @@ export const reminderRouter = createTRPCRouter({
 				sendOffsetHours: z.number().min(1),
 				isActive: z.boolean(),
 				isNoReplyFollowUp: z.boolean(),
+				isConfirmedFollowUp: z.boolean(),
 			}),
 		)
 		.mutation(async ({ ctx, input }) => {

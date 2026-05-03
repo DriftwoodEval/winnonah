@@ -482,6 +482,7 @@ export const appointments = createTable("appointment", (d) => ({
 	locationKey: d.varchar({ length: 255 }),
 	calendarEventId: d.varchar({ length: 255 }),
 	calendarEventTitle: d.varchar({ length: 255 }),
+	confirmedAt: d.timestamp(),
 }));
 
 export const assessmentTypes = createTable("assessment_type", (d) => ({
@@ -839,6 +840,7 @@ export const reminderTemplates = createTable("reminder_templates", (d) => ({
 	sendOffsetHours: d.int().notNull(),
 	isActive: d.boolean().notNull().default(false),
 	isNoReplyFollowUp: d.boolean().notNull().default(false),
+	isConfirmedFollowUp: d.boolean().notNull().default(false),
 }));
 
 export const reminderLogs = createTable(
@@ -855,7 +857,6 @@ export const reminderLogs = createTable(
 			.references(() => appointments.id, { onDelete: "cascade" }),
 		reminderTemplateId: d.int().notNull(),
 		sentAt: d.timestamp().default(sql`CURRENT_TIMESTAMP`).notNull(),
-		confirmedAt: d.timestamp(),
 	}),
 	(t) => [
 		foreignKey({

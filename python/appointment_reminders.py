@@ -103,8 +103,9 @@ def process_reminders(connection: Connection[DictCursor]) -> None:
             if template.get("isNoReplyFollowUp"):
                 # No-reply follow-up logic:
                 # 1. This template hasn't been sent yet.
-                # 2. At least one OTHER template WAS sent but NOT confirmed.
-                # 3. GLOBAL: Applies to ANY appointment regardless of type/location.
+                # 2. Appointment IS NOT confirmed.
+                # 3. At least one OTHER template WAS sent.
+                # 4. GLOBAL: Applies to ANY appointment regardless of type/location.
                 query = """
                     SELECT a.*, c.firstName, c.lastName, c.preferredName, c.phoneNumber
                     FROM emr_appointment a
@@ -112,7 +113,8 @@ def process_reminders(connection: Connection[DictCursor]) -> None:
                     LEFT JOIN emr_reminder_logs l_this ON a.id = l_this.appointmentId AND l_this.reminderTemplateId = %s
                     JOIN emr_reminder_logs l_prev ON a.id = l_prev.appointmentId AND l_prev.reminderTemplateId != %s
                     WHERE l_this.id IS NULL
-                    AND l_prev.confirmedAt IS NULL
+                    AND a.confirmedAt IS NULL
+                    AND l_prev.id IS NOT NULL
                     AND a.cancelled = 0
                     AND a.placeholder = 0
                     AND a.startTime <= %s
@@ -123,13 +125,38 @@ def process_reminders(connection: Connection[DictCursor]) -> None:
                     template["id"],
                     max_lead_time,
                 )
+            elif template.get("isConfirmedFollowUp"):
+                # Confirmed follow-up logic:
+                # 1. This template hasn't been sent yet.
+                # 2. Appointment IS confirmed.
+                # 3. GLOBAL: Applies to ANY appointment regardless of type/location.
+                query = """
+                    SELECT a.*, c.firstName, c.lastName, c.preferredName, c.phoneNumber
+                    FROM emr_appointment a
+                    JOIN emr_client c ON a.clientId = c.id
+                    LEFT JOIN emr_reminder_logs l_this ON a.id = l_this.appointmentId AND l_this.reminderTemplateId = %s
+                    WHERE l_this.id IS NULL
+                    AND a.confirmedAt IS NOT NULL
+                    AND a.cancelled = 0
+                    AND a.placeholder = 0
+                    AND a.startTime <= %s
+                    AND a.startTime >= NOW()
+                """
+                params = (
+                    template["id"],
+                    max_lead_time,
+                )
             else:
+                # Standard reminder logic:
+                # 1. This template hasn't been sent yet.
+                # 2. Appointment IS NOT confirmed.
                 query = """
                     SELECT a.*, c.firstName, c.lastName, c.preferredName, c.phoneNumber
                     FROM emr_appointment a
                     JOIN emr_client c ON a.clientId = c.id
                     LEFT JOIN emr_reminder_logs l ON a.id = l.appointmentId AND l.reminderTemplateId = %s
                     WHERE l.id IS NULL
+                    AND a.confirmedAt IS NULL
                     AND a.cancelled = 0
                     AND a.placeholder = 0
                     AND (
@@ -201,15 +228,15 @@ def handle_incoming_reply(
     clean_phone = phone_number.removeprefix("+1")
 
     with connection.cursor() as cursor:
+        # Find the most recent unconfirmed appointment for this client
         query = """
-            SELECT l.id as log_id, l.appointmentId, t.confirmationReply,
-                   a.startTime
-            FROM emr_reminder_logs l
-            JOIN emr_reminder_templates t ON l.reminderTemplateId = t.id
-            JOIN emr_appointment a ON l.appointmentId = a.id
+            SELECT a.id as appointment_id, t.confirmationReply, a.startTime
+            FROM emr_appointment a
             JOIN emr_client c ON a.clientId = c.id
+            JOIN emr_reminder_logs l ON a.id = l.appointmentId
+            JOIN emr_reminder_templates t ON l.reminderTemplateId = t.id
             WHERE c.phoneNumber = %s
-            AND l.confirmedAt IS NULL
+            AND a.confirmedAt IS NULL
             AND a.startTime > NOW()
             ORDER BY l.sentAt DESC
             LIMIT 1
@@ -218,7 +245,9 @@ def handle_incoming_reply(
         context = cursor.fetchone()
 
         if not context:
-            logger.debug(f"No active reminder context found for {phone_number}")
+            logger.debug(
+                f"No active unconfirmed appointment context found for {phone_number}"
+            )
             return
 
         if is_confirmation(incoming_text):
@@ -228,8 +257,8 @@ def handle_incoming_reply(
                 print(message)
 
             cursor.execute(
-                "UPDATE emr_reminder_logs SET confirmedAt = NOW() WHERE id = %s",
-                (context["log_id"],),
+                "UPDATE emr_appointment SET confirmedAt = NOW() WHERE id = %s",
+                (context["appointment_id"],),
             )
         else:
             logger.debug("Message does not appear to be a confirmation or denial")
