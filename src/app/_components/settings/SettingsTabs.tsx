@@ -11,6 +11,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@ui/tabs";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import BillingDownload from "~/app/_components/settings/BillingDownload";
 import { useCheckPermission } from "~/hooks/use-check-permission";
+import ReminderSettings from "./RemindersSettings";
 
 export function SettingsTabs() {
 	const router = useRouter();
@@ -46,6 +47,7 @@ export function SettingsTabs() {
 						{canDownload && (
 							<TabsTrigger value="downloads">Downloads</TabsTrigger>
 						)}
+						<TabsTrigger value="reminders">Reminders</TabsTrigger>
 					</TabsList>
 				</div>
 				<TabsContent value="users">
@@ -74,6 +76,9 @@ export function SettingsTabs() {
 						<BillingDownload />
 					</TabsContent>
 				)}
+				<TabsContent value="reminders">
+					<ReminderSettings />
+				</TabsContent>
 			</Tabs>
 		</div>
 	);
