@@ -115,7 +115,15 @@ export default function ReminderSettings() {
 							<div className="space-y-1">
 								<CardTitle>{template.name}</CardTitle>
 								<CardDescription>
-									Trigger: "{template.triggerKeyword}" •{" "}
+									{template.triggerKeyword && (
+										<span>Keyword: "{template.triggerKeyword}" • </span>
+									)}
+									{template.triggerDaEval && template.triggerLocationKey && (
+										<span>
+											Match: {template.triggerDaEval} @{" "}
+											{template.triggerLocationKey} •{" "}
+										</span>
+									)}
 									{template.sendOffsetHours}h before
 								</CardDescription>
 							</div>

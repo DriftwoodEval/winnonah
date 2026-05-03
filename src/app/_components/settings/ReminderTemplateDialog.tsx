@@ -18,6 +18,13 @@ import {
 	FormMessage,
 } from "@ui/form";
 import { Input } from "@ui/input";
+import {
+	Select,
+	SelectContent,
+	SelectItem,
+	SelectTrigger,
+	SelectValue,
+} from "@ui/select";
 import { Textarea } from "@ui/textarea";
 import { useEffect } from "react";
 import { useForm } from "react-hook-form";
@@ -43,12 +50,19 @@ export function ReminderTemplateDialog({
 	const utils = api.useUtils();
 	const isEditing = !!initialData;
 
+	const { data: offices } = api.offices.getAll.useQuery(undefined, {
+		enabled: isOpen,
+	});
+
 	const form = useForm<ReminderTemplateFormValues>({
 		resolver: zodResolver(reminderTemplateSchema),
 		defaultValues: {
 			name: "",
-			triggerKeyword: "",
+			triggerKeyword: null,
+			triggerDaEval: null,
+			triggerLocationKey: null,
 			messageTemplate: "",
+			confirmationReply: null,
 			sendOffsetHours: 24,
 			isActive: true,
 		},
@@ -61,8 +75,11 @@ export function ReminderTemplateDialog({
 			} else {
 				form.reset({
 					name: "",
-					triggerKeyword: "",
+					triggerKeyword: null,
+					triggerDaEval: null,
+					triggerLocationKey: null,
 					messageTemplate: "",
+					confirmationReply: null,
 					sendOffsetHours: 24,
 					isActive: true,
 				});
@@ -80,10 +97,18 @@ export function ReminderTemplateDialog({
 			toast.error(`Error: ${error.message}`);
 		},
 	});
-
 	function onSubmit(values: ReminderTemplateFormValues) {
 		upsertTemplate.mutate({
 			...values,
+			triggerKeyword: values.triggerKeyword || null,
+			triggerDaEval:
+				(values.triggerDaEval as string) === "NONE"
+					? null
+					: values.triggerDaEval,
+			triggerLocationKey:
+				(values.triggerLocationKey as string) === "NONE"
+					? null
+					: values.triggerLocationKey,
 			...(initialData?.id ? { id: initialData.id } : {}),
 		});
 	}
@@ -125,14 +150,94 @@ export function ReminderTemplateDialog({
 							name="triggerKeyword"
 							render={({ field }) => (
 								<FormItem>
-									<FormLabel>Trigger Keyword</FormLabel>
+									<FormLabel>Keyword (Title Match)</FormLabel>
 									<FormControl>
-										<Input placeholder="e.g., ASD" {...field} />
+										<Input
+											disabled={
+												!!form.watch("triggerDaEval") &&
+												(form.watch("triggerDaEval") as string) !== "NONE"
+											}
+											placeholder="e.g., ASD"
+											{...field}
+											value={field.value ?? ""}
+										/>
 									</FormControl>
 									<FormMessage />
 								</FormItem>
 							)}
 						/>
+
+						<div className="relative flex items-center py-2">
+							<div className="grow border-t" />
+							<span className="mx-4 shrink text-muted-foreground text-xs uppercase">
+								Or
+							</span>
+							<div className="grow border-t" />
+						</div>
+
+						<div className="grid grid-cols-2 gap-4">
+							<FormField
+								control={form.control}
+								name="triggerDaEval"
+								render={({ field }) => (
+									<FormItem>
+										<FormLabel>DA/Eval</FormLabel>
+										<Select
+											disabled={!!form.watch("triggerKeyword")}
+											onValueChange={(val) =>
+												field.onChange(val === "NONE" ? null : val)
+											}
+											value={field.value ?? "NONE"}
+										>
+											<FormControl>
+												<SelectTrigger>
+													<SelectValue placeholder="Select type" />
+												</SelectTrigger>
+											</FormControl>
+											<SelectContent>
+												<SelectItem value="NONE">None</SelectItem>
+												<SelectItem value="EVAL">EVAL</SelectItem>
+												<SelectItem value="DA">DA</SelectItem>
+												<SelectItem value="DAEVAL">DAEVAL</SelectItem>
+											</SelectContent>
+										</Select>
+										<FormMessage />
+									</FormItem>
+								)}
+							/>
+
+							<FormField
+								control={form.control}
+								name="triggerLocationKey"
+								render={({ field }) => (
+									<FormItem>
+										<FormLabel>Location</FormLabel>
+										<Select
+											disabled={!!form.watch("triggerKeyword")}
+											onValueChange={(val) =>
+												field.onChange(val === "NONE" ? null : val)
+											}
+											value={field.value ?? "NONE"}
+										>
+											<FormControl>
+												<SelectTrigger>
+													<SelectValue placeholder="Select location" />
+												</SelectTrigger>
+											</FormControl>
+											<SelectContent>
+												<SelectItem value="NONE">None</SelectItem>
+												{offices?.map((office) => (
+													<SelectItem key={office.key} value={office.key}>
+														{office.prettyName}
+													</SelectItem>
+												))}
+											</SelectContent>
+										</Select>
+										<FormMessage />
+									</FormItem>
+								)}
+							/>
+						</div>
 
 						<FormField
 							control={form.control}
@@ -143,13 +248,34 @@ export function ReminderTemplateDialog({
 									<FormControl>
 										<Textarea
 											className="min-h-[120px] font-mono"
-											placeholder="Hello {firstName}, this is a reminder..."
+											placeholder="Hello, this is a reminder..."
 											{...field}
 										/>
 									</FormControl>
 									<p className="text-[10px] text-muted-foreground uppercase tracking-wider">
-										Available:{" "}
-										{"{firstName}, {lastName}, {startTime}, {daEval}"}
+										Available: {"{startTime}, {date}"}
+									</p>
+									<FormMessage />
+								</FormItem>
+							)}
+						/>
+
+						<FormField
+							control={form.control}
+							name="confirmationReply"
+							render={({ field }) => (
+								<FormItem>
+									<FormLabel>Confirmation Reply (Optional)</FormLabel>
+									<FormControl>
+										<Textarea
+											className="min-h-[120px] font-mono"
+											placeholder="Hello, we haven't heard from you..."
+											{...field}
+											value={field.value ?? ""}
+										/>
+									</FormControl>
+									<p className="text-[10px] text-muted-foreground uppercase tracking-wider">
+										Available: {"{startTime}, {date}"}
 									</p>
 									<FormMessage />
 								</FormItem>

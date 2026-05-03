@@ -1,4 +1,3 @@
-import { isActive } from "@tiptap/core";
 import { relations, sql } from "drizzle-orm";
 import {
 	foreignKey,
@@ -832,8 +831,11 @@ export const appointmentReminderSettings = createTable(
 export const reminderTemplates = createTable("reminder_templates", (d) => ({
 	id: d.int().primaryKey().autoincrement().notNull(),
 	name: d.text().notNull(),
-	triggerKeyword: d.text().notNull(),
+	triggerKeyword: d.text(),
+	triggerDaEval: d.mysqlEnum(["EVAL", "DA", "DAEVAL"]),
+	triggerLocationKey: d.varchar({ length: 255 }),
 	messageTemplate: d.text().notNull(),
+	confirmationReply: d.text(),
 	sendOffsetHours: d.int().notNull(),
 	isActive: d.boolean().notNull().default(false),
 }));
@@ -852,6 +854,7 @@ export const reminderLogs = createTable(
 			.references(() => appointments.id, { onDelete: "cascade" }),
 		reminderTemplateId: d.int().notNull(),
 		sentAt: d.timestamp().default(sql`CURRENT_TIMESTAMP`).notNull(),
+		confirmedAt: d.timestamp(),
 	}),
 	(t) => [
 		foreignKey({
