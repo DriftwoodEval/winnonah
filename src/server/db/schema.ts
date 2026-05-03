@@ -795,6 +795,7 @@ export const reminderTemplates = createTable("reminder_templates", (d) => ({
 	confirmationReply: d.text(),
 	sendOffsetHours: d.int().notNull(),
 	isActive: d.boolean().notNull().default(false),
+	isNoReplyFollowUp: d.boolean().notNull().default(false),
 }));
 
 export const reminderLogs = createTable(
