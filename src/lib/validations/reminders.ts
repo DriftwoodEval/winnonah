@@ -9,6 +9,7 @@ export const reminderTemplateSchema = z.object({
 	confirmationReply: z.string().optional().nullable(),
 	sendOffsetHours: z.number().min(1, "Offset must be at least 1 hour"),
 	isActive: z.boolean(),
+	isNoReplyFollowUp: z.boolean(),
 });
 
 export type ReminderTemplateFormValues = z.infer<typeof reminderTemplateSchema>;

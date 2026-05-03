@@ -12,6 +12,7 @@ import {
 import {
 	Form,
 	FormControl,
+	FormDescription,
 	FormField,
 	FormItem,
 	FormLabel,
@@ -25,6 +26,7 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from "@ui/select";
+import { Switch } from "@ui/switch";
 import { Textarea } from "@ui/textarea";
 import { useEffect } from "react";
 import { useForm } from "react-hook-form";
@@ -65,6 +67,7 @@ export function ReminderTemplateDialog({
 			confirmationReply: null,
 			sendOffsetHours: 24,
 			isActive: true,
+			isNoReplyFollowUp: false,
 		},
 	});
 
@@ -82,6 +85,7 @@ export function ReminderTemplateDialog({
 					confirmationReply: null,
 					sendOffsetHours: 24,
 					isActive: true,
+					isNoReplyFollowUp: false,
 				});
 			}
 		}
@@ -98,15 +102,18 @@ export function ReminderTemplateDialog({
 		},
 	});
 	function onSubmit(values: ReminderTemplateFormValues) {
+		const isFollowUp = values.isNoReplyFollowUp;
 		upsertTemplate.mutate({
 			...values,
-			triggerKeyword: values.triggerKeyword || null,
-			triggerDaEval:
-				(values.triggerDaEval as string) === "NONE"
+			triggerKeyword: isFollowUp ? null : values.triggerKeyword || null,
+			triggerDaEval: isFollowUp
+				? null
+				: (values.triggerDaEval as string) === "NONE"
 					? null
 					: values.triggerDaEval,
-			triggerLocationKey:
-				(values.triggerLocationKey as string) === "NONE"
+			triggerLocationKey: isFollowUp
+				? null
+				: (values.triggerLocationKey as string) === "NONE"
 					? null
 					: values.triggerLocationKey,
 			...(initialData?.id ? { id: initialData.id } : {}),
@@ -154,8 +161,9 @@ export function ReminderTemplateDialog({
 									<FormControl>
 										<Input
 											disabled={
-												!!form.watch("triggerDaEval") &&
-												(form.watch("triggerDaEval") as string) !== "NONE"
+												form.watch("isNoReplyFollowUp") ||
+												(!!form.watch("triggerDaEval") &&
+													(form.watch("triggerDaEval") as string) !== "NONE")
 											}
 											placeholder="e.g., ASD"
 											{...field}
@@ -183,7 +191,10 @@ export function ReminderTemplateDialog({
 									<FormItem>
 										<FormLabel>DA/Eval</FormLabel>
 										<Select
-											disabled={!!form.watch("triggerKeyword")}
+											disabled={
+												form.watch("isNoReplyFollowUp") ||
+												!!form.watch("triggerKeyword")
+											}
 											onValueChange={(val) =>
 												field.onChange(val === "NONE" ? null : val)
 											}
@@ -213,7 +224,10 @@ export function ReminderTemplateDialog({
 									<FormItem>
 										<FormLabel>Location</FormLabel>
 										<Select
-											disabled={!!form.watch("triggerKeyword")}
+											disabled={
+												form.watch("isNoReplyFollowUp") ||
+												!!form.watch("triggerKeyword")
+											}
 											onValueChange={(val) =>
 												field.onChange(val === "NONE" ? null : val)
 											}
@@ -296,6 +310,27 @@ export function ReminderTemplateDialog({
 										/>
 									</FormControl>
 									<FormMessage />
+								</FormItem>
+							)}
+						/>
+
+						<FormField
+							control={form.control}
+							name="isNoReplyFollowUp"
+							render={({ field }) => (
+								<FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm">
+									<div className="space-y-0.5">
+										<FormLabel>No-Reply Follow-up</FormLabel>
+										<FormDescription>
+											Only send if a previous reminder has not been confirmed.
+										</FormDescription>
+									</div>
+									<FormControl>
+										<Switch
+											checked={field.value}
+											onCheckedChange={field.onChange}
+										/>
+									</FormControl>
 								</FormItem>
 							)}
 						/>

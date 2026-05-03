@@ -100,26 +100,47 @@ def process_reminders(connection: Connection[DictCursor]) -> None:
                 hours=template["sendOffsetHours"] + 2
             )
 
-            query = """
-                SELECT a.*, c.firstName, c.lastName, c.preferredName, c.phoneNumber
-                FROM emr_appointment a
-                JOIN emr_client c ON a.clientId = c.id
-                LEFT JOIN emr_reminder_logs l ON a.id = l.appointmentId AND l.reminderTemplateId = %s
-                WHERE l.id IS NULL
-                AND a.cancelled = 0
-                AND a.placeholder = 0
-                AND (
-                    (%s IS NOT NULL AND a.calendarEventTitle LIKE %s)
-                    OR
-                    (%s IS NOT NULL AND %s IS NOT NULL AND a.daEval = %s AND a.locationKey = %s)
+            if template.get("isNoReplyFollowUp"):
+                # No-reply follow-up logic:
+                # 1. This template hasn't been sent yet.
+                # 2. At least one OTHER template WAS sent but NOT confirmed.
+                # 3. GLOBAL: Applies to ANY appointment regardless of type/location.
+                query = """
+                    SELECT a.*, c.firstName, c.lastName, c.preferredName, c.phoneNumber
+                    FROM emr_appointment a
+                    JOIN emr_client c ON a.clientId = c.id
+                    LEFT JOIN emr_reminder_logs l_this ON a.id = l_this.appointmentId AND l_this.reminderTemplateId = %s
+                    JOIN emr_reminder_logs l_prev ON a.id = l_prev.appointmentId AND l_prev.reminderTemplateId != %s
+                    WHERE l_this.id IS NULL
+                    AND l_prev.confirmedAt IS NULL
+                    AND a.cancelled = 0
+                    AND a.placeholder = 0
+                    AND a.startTime <= %s
+                    AND a.startTime >= NOW()
+                """
+                params = (
+                    template["id"],
+                    template["id"],
+                    max_lead_time,
                 )
-                AND a.startTime <= %s
-                AND a.startTime >= NOW()
-            """
-
-            cursor.execute(
-                query,
-                (
+            else:
+                query = """
+                    SELECT a.*, c.firstName, c.lastName, c.preferredName, c.phoneNumber
+                    FROM emr_appointment a
+                    JOIN emr_client c ON a.clientId = c.id
+                    LEFT JOIN emr_reminder_logs l ON a.id = l.appointmentId AND l.reminderTemplateId = %s
+                    WHERE l.id IS NULL
+                    AND a.cancelled = 0
+                    AND a.placeholder = 0
+                    AND (
+                        (%s IS NOT NULL AND a.calendarEventTitle LIKE %s)
+                        OR
+                        (%s IS NOT NULL AND %s IS NOT NULL AND a.daEval = %s AND a.locationKey = %s)
+                    )
+                    AND a.startTime <= %s
+                    AND a.startTime >= NOW()
+                """
+                params = (
                     template["id"],
                     trigger_keyword,
                     trigger_keyword,
@@ -128,8 +149,9 @@ def process_reminders(connection: Connection[DictCursor]) -> None:
                     trigger_da_eval,
                     trigger_location_key,
                     max_lead_time,
-                ),
-            )
+                )
+
+            cursor.execute(query, params)
             pending_appointments = cursor.fetchall()
 
             for appt in pending_appointments:
@@ -202,6 +224,7 @@ def handle_incoming_reply(
         if is_confirmation(incoming_text):
             if context["confirmationReply"]:
                 message = format_message(context["confirmationReply"], context)
+
                 print(message)
 
             cursor.execute(
