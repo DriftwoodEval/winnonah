@@ -19,6 +19,7 @@ export const appointmentRouter = createTRPCRouter({
 					placeholder: appointments.placeholder,
 					locationKey: appointments.locationKey,
 					calendarEventTitle: appointments.calendarEventTitle,
+					confirmedAt: appointments.confirmedAt,
 					evaluatorName: evaluators.providerName,
 				})
 				.from(appointments)
