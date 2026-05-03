@@ -548,6 +548,7 @@ def insert_appointments_with_gcal(appointment_sync_data: dict[str, list[str]] | 
             asd_adhd=asd_adhd_map.get(client_id),
             cancelled=cancelled,
             gcal_event_id=gcal_event_id,
+            gcal_event_title=gcal_event_title,
         )
 
     reporter.send_report(email_for_errors)
@@ -559,7 +560,7 @@ def parse_location_and_type(title: str) -> tuple[str | None, DAEvalType | None]:
     Examples:
         "[COL-E]" -> ("COL", "EVAL")
         "[NYC-DE]" -> ("NYC", "DAEVAL")
-        "[V]" -> (None, "DA")
+        "[V]" -> ("Virtual", "DA")
     """
     match = re.search(r"\[([A-Z]+)-([A-Z]+)\]", title)
 
@@ -580,6 +581,6 @@ def parse_location_and_type(title: str) -> tuple[str | None, DAEvalType | None]:
         )
 
     elif "[V]" in title:  # Virtual can only be DA
-        return None, "DA"
+        return "Virtual", "DA"
 
     return None, None

@@ -349,11 +349,12 @@ def put_appointment_in_db(
     cancelled: bool | None = False,
     location: str | None = None,
     gcal_event_id: str | None = None,
+    gcal_event_title: str | None = None,
 ):
     """Inserts an appointment into the database."""
     sql = f"""
-        INSERT INTO `{TABLE_APPOINTMENT}` (id, clientId, evaluatorNpi, startTime, endTime, daEval, asdAdhd, cancelled, locationKey, calendarEventId, cpt)
-        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+        INSERT INTO `{TABLE_APPOINTMENT}` (id, clientId, evaluatorNpi, startTime, endTime, daEval, asdAdhd, cancelled, locationKey, calendarEventId, cpt, calendarEventTitle)
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
         ON DUPLICATE KEY UPDATE
             clientId = VALUES(clientId),
             evaluatorNpi = VALUES(evaluatorNpi),
@@ -364,7 +365,8 @@ def put_appointment_in_db(
             cancelled = VALUES(cancelled),
             locationKey = CASE WHEN VALUES(locationKey) IS NOT NULL THEN VALUES(locationKey) ELSE locationKey END,
             calendarEventId = CASE WHEN VALUES(calendarEventId) IS NOT NULL THEN VALUES(calendarEventId) ELSE calendarEventId END,
-            cpt = VALUES(cpt);
+            cpt = VALUES(cpt),
+            calendarEventTitle = CASE WHEN VALUES(calendarEventTitle) IS NOT NULL THEN VALUES(calendarEventTitle) ELSE calendarEventTitle END;
     """
     params = (
         appointment_id,
@@ -378,6 +380,7 @@ def put_appointment_in_db(
         location,
         gcal_event_id,
         cpt,
+        gcal_event_title,
     )
 
     with connection.cursor() as cursor:
