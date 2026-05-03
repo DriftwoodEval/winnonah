@@ -19,6 +19,13 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 from pymysql.connections import Connection
 from pymysql.cursors import DictCursor
 
+from utils.constants import (
+    TABLE_APPOINTMENT,
+    TABLE_APPOINTMENT_REMINDER_LOGS,
+    TABLE_APPOINTMENT_REMINDER_SETTINGS,
+    TABLE_APPOINTMENT_REMINDER_TEMPLATES,
+    TABLE_CLIENT,
+)
 from utils.database import provide_connection
 
 logger.add("logs/appointment-reminders.log", rotation="500 MB")
@@ -40,7 +47,7 @@ def is_within_quiet_window(connection) -> bool:
     """Checks if we are in the quiet window."""
     with connection.cursor() as cursor:
         cursor.execute(
-            "SELECT quietWindowStart, quietWindowEnd FROM emr_appointment_reminder_settings LIMIT 1"
+            f"SELECT quietWindowStart, quietWindowEnd FROM {TABLE_APPOINTMENT_REMINDER_SETTINGS} LIMIT 1"
         )
         settings = cursor.fetchone()
 
@@ -84,7 +91,9 @@ def process_reminders(connection: Connection[DictCursor]) -> None:
     #     return
 
     with connection.cursor() as cursor:
-        cursor.execute("SELECT * FROM emr_reminder_templates WHERE isActive = 1")
+        cursor.execute(
+            f"SELECT * FROM {TABLE_APPOINTMENT_REMINDER_TEMPLATES} WHERE isActive = 1"
+        )
         templates = cursor.fetchall()
 
         for template in templates:
@@ -106,12 +115,12 @@ def process_reminders(connection: Connection[DictCursor]) -> None:
                 # 2. Appointment IS NOT confirmed.
                 # 3. At least one OTHER template WAS sent.
                 # 4. GLOBAL: Applies to ANY appointment regardless of type/location.
-                query = """
+                query = f"""
                     SELECT a.*, c.firstName, c.lastName, c.preferredName, c.phoneNumber
-                    FROM emr_appointment a
-                    JOIN emr_client c ON a.clientId = c.id
-                    LEFT JOIN emr_reminder_logs l_this ON a.id = l_this.appointmentId AND l_this.reminderTemplateId = %s
-                    JOIN emr_reminder_logs l_prev ON a.id = l_prev.appointmentId AND l_prev.reminderTemplateId != %s
+                    FROM {TABLE_APPOINTMENT} a
+                    JOIN {TABLE_CLIENT} c ON a.clientId = c.id
+                    LEFT JOIN {TABLE_APPOINTMENT_REMINDER_LOGS} l_this ON a.id = l_this.appointmentId AND l_this.reminderTemplateId = %s
+                    JOIN {TABLE_APPOINTMENT_REMINDER_LOGS} l_prev ON a.id = l_prev.appointmentId AND l_prev.reminderTemplateId != %s
                     WHERE l_this.id IS NULL
                     AND a.confirmedAt IS NULL
                     AND l_prev.id IS NOT NULL
@@ -130,11 +139,11 @@ def process_reminders(connection: Connection[DictCursor]) -> None:
                 # 1. This template hasn't been sent yet.
                 # 2. Appointment IS confirmed.
                 # 3. GLOBAL: Applies to ANY appointment regardless of type/location.
-                query = """
+                query = f"""
                     SELECT a.*, c.firstName, c.lastName, c.preferredName, c.phoneNumber
-                    FROM emr_appointment a
-                    JOIN emr_client c ON a.clientId = c.id
-                    LEFT JOIN emr_reminder_logs l_this ON a.id = l_this.appointmentId AND l_this.reminderTemplateId = %s
+                    FROM {TABLE_APPOINTMENT} a
+                    JOIN {TABLE_CLIENT} c ON a.clientId = c.id
+                    LEFT JOIN {TABLE_APPOINTMENT_REMINDER_LOGS} l_this ON a.id = l_this.appointmentId AND l_this.reminderTemplateId = %s
                     WHERE l_this.id IS NULL
                     AND a.confirmedAt IS NOT NULL
                     AND a.cancelled = 0
@@ -150,11 +159,11 @@ def process_reminders(connection: Connection[DictCursor]) -> None:
                 # Standard reminder logic:
                 # 1. This template hasn't been sent yet.
                 # 2. Appointment IS NOT confirmed.
-                query = """
+                query = f"""
                     SELECT a.*, c.firstName, c.lastName, c.preferredName, c.phoneNumber
-                    FROM emr_appointment a
-                    JOIN emr_client c ON a.clientId = c.id
-                    LEFT JOIN emr_reminder_logs l ON a.id = l.appointmentId AND l.reminderTemplateId = %s
+                    FROM {TABLE_APPOINTMENT} a
+                    JOIN {TABLE_CLIENT} c ON a.clientId = c.id
+                    LEFT JOIN {TABLE_APPOINTMENT_REMINDER_LOGS} l ON a.id = l.appointmentId AND l.reminderTemplateId = %s
                     WHERE l.id IS NULL
                     AND a.confirmedAt IS NULL
                     AND a.cancelled = 0
@@ -192,7 +201,7 @@ def process_reminders(connection: Connection[DictCursor]) -> None:
 
                 try:
                     cursor.execute(
-                        "INSERT INTO emr_reminder_logs (appointmentId, clientId, reminderTemplateId, sentAt) VALUES (%s, %s, %s, NOW())",
+                        f"INSERT INTO {TABLE_APPOINTMENT_REMINDER_LOGS}(appointmentId, clientId, reminderTemplateId, sentAt) VALUES (%s, %s, %s, NOW())",
                         (appt["id"], appt["clientId"], template["id"]),
                     )
                 except Exception as e:
@@ -229,12 +238,12 @@ def handle_incoming_reply(
 
     with connection.cursor() as cursor:
         # Find the most recent unconfirmed appointment for this client
-        query = """
+        query = f"""
             SELECT a.id as appointment_id, t.confirmationReply, a.startTime
-            FROM emr_appointment a
-            JOIN emr_client c ON a.clientId = c.id
-            JOIN emr_reminder_logs l ON a.id = l.appointmentId
-            JOIN emr_reminder_templates t ON l.reminderTemplateId = t.id
+            FROM {TABLE_APPOINTMENT} a
+            JOIN {TABLE_CLIENT} c ON a.clientId = c.id
+            JOIN {TABLE_APPOINTMENT_REMINDER_LOGS} l ON a.id = l.appointmentId
+            JOIN {TABLE_APPOINTMENT_REMINDER_TEMPLATES} t ON l.reminderTemplateId = t.id
             WHERE c.phoneNumber = %s
             AND a.confirmedAt IS NULL
             AND a.startTime > NOW()
@@ -257,7 +266,7 @@ def handle_incoming_reply(
                 print(message)
 
             cursor.execute(
-                "UPDATE emr_appointment SET confirmedAt = NOW() WHERE id = %s",
+                f"UPDATE {TABLE_APPOINTMENT} SET confirmedAt = NOW() WHERE id = %s",
                 (context["appointment_id"],),
             )
         else:

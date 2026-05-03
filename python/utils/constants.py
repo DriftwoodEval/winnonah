@@ -13,12 +13,17 @@ TABLE_INSURANCE_ALIAS: Final = "emr_insurance_alias"
 TABLE_EVALUATORS_TO_INSURANCES: Final = "emr_evaluators_to_insurances"
 TABLE_OFFICE: Final = "emr_office"
 TABLE_USER: Final = "emr_user"
+TABLE_ACCOUNT: Final = "emr_account"
+TABLE_SESSION: Final = "emr_session"
 TABLE_CLIENT_EVAL: Final = "emr_client_eval"
 TABLE_PYTHON_CONFIG: Final = "emr_python_config"
 TABLE_SEEN_REPORT_FOLDERS: Final = "emr_seen_report_folders"
 TABLE_IN_PERSON_ASSESSMENT: Final = "emr_in_person_assessment"
 TABLE_QUESTIONNAIRE_RULE: Final = "emr_questionnaire_rule"
 TABLE_GREETER_PROXY_STATE: Final = "emr_greeter_proxy_state"
+TABLE_APPOINTMENT_REMINDER_SETTINGS: Final = "emr_appointment_reminder_settings"
+TABLE_APPOINTMENT_REMINDER_TEMPLATES = "emr_reminder_templates"
+TABLE_APPOINTMENT_REMINDER_LOGS = "emr_reminder_logs"
 
 # DB to DataFrame Column Mapping
 CLIENT_COLUMN_MAPPING: Final = {

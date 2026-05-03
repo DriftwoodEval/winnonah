@@ -16,6 +16,7 @@ from loguru import logger
 
 import utils.database
 import utils.misc
+from utils.constants import TABLE_CLIENT
 
 # If modifying these scopes, delete the file token.json.
 SCOPES = [
@@ -220,7 +221,9 @@ def _process_folders_queued(service, start_folder_id, client_lookup, db_connecti
                     try:
                         # Update DB
                         with db_connection.cursor() as cursor:
-                            sql = "UPDATE emr_client SET driveId = %s WHERE id = %s"
+                            sql = (
+                                f"UPDATE {TABLE_CLIENT} SET driveId = %s WHERE id = %s"
+                            )
                             cursor.execute(sql, (drive_id, match["id"]))
                         db_connection.commit()
 

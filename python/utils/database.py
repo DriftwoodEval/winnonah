@@ -8,7 +8,7 @@ from collections.abc import Callable
 from contextlib import contextmanager
 from datetime import date, datetime
 from functools import wraps
-from typing import Literal, TypedDict
+from typing import Literal
 from urllib.parse import urlparse
 
 import pandas as pd
@@ -805,59 +805,6 @@ def get_queue_notify_users(connection: Connection[DictCursor]):
                     users.append(row)
 
     return users
-
-
-class Appointment(TypedDict):
-    """A TypedDict containing information about an appointment from the database."""
-
-    id: str
-    evaluatorNpi: int
-    clientName: str
-    startTime: datetime
-    endTime: datetime
-    daEval: str
-    asdAdhd: str
-    cancelled: bool
-    placeholder: bool
-    locationKey: str
-    calendarEventId: str
-
-
-@provide_connection
-def get_appointments(
-    connection: Connection[DictCursor], start_date: date, end_date: date | None = None
-) -> list[Appointment] | None:
-    """Fetch appointments within the given date range and associated client names."""
-    try:
-        with connection.cursor() as cursor:
-            sql = """
-                SELECT
-                    a.*,
-                    c.fullName as clientName, c.firstName as firstName, c.lastName as lastName, c.preferredName as preferredName
-                FROM
-                    emr_appointment a
-                LEFT JOIN emr_client c ON a.clientId = c.id
-                WHERE
-                    a.startTime >= %s
-            """
-            params = [start_date]
-
-            if end_date:
-                sql += " AND a.endTime <= %s + INTERVAL 1 DAY"
-                params.append(end_date)
-
-            cursor.execute(sql, tuple(params))
-            results = cursor.fetchall()
-
-            appointments = []
-            for row in results:
-                appointment = Appointment(**row)
-                appointments.append(appointment)
-
-            return appointments
-    except Exception:
-        logger.exception("Failed to fetch appointments and associated client names.")
-        return
 
 
 @provide_connection
