@@ -46,6 +46,11 @@ export function ClientAppointments({ clientId }: { clientId: number }) {
 											<CalendarIcon className="h-3.5 w-3.5" />
 											{format(startTime, "MMM d, yyyy")}
 											<div className="flex gap-1">
+												{appt.confirmedAt && (
+													<Badge className="h-4 px-1 text-[9px] uppercase">
+														Confirmed
+													</Badge>
+												)}
 												{appt.cancelled && (
 													<Badge
 														className="h-4 px-1 text-[9px] uppercase"
