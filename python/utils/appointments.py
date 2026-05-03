@@ -520,7 +520,10 @@ def insert_appointments_with_gcal(appointment_sync_data: dict[str, list[str]] | 
             if not isinstance(gcal_event_title, str):
                 gcal_event_title = ""
 
-            gcal_location, gcal_daeval = parse_location_and_type(gcal_event_title)
+            gcal_location, gcal_daeval, is_confirmed = parse_location_and_type(
+                gcal_event_title
+            )
+            confirmed_at = datetime.now() if is_confirmed else None
 
         elif is_trusted:
             # Fallback to CSV NPI
@@ -535,6 +538,7 @@ def insert_appointments_with_gcal(appointment_sync_data: dict[str, list[str]] | 
                     f"Skipping trusted import for {client_id}: No valid NPI in CSV."
                 )
                 continue
+            confirmed_at = None
         else:
             if not gcal_calendar_id:
                 logger.error(f"No calendar ID found for event ID: {gcal_event_id}")
@@ -555,6 +559,7 @@ def insert_appointments_with_gcal(appointment_sync_data: dict[str, list[str]] | 
             cancelled=cancelled,
             gcal_event_id=gcal_event_id,
             gcal_event_title=gcal_event_title,
+            confirmed_at=confirmed_at,
         )
 
         if not cancelled and gcal_daeval and battery_rules:
@@ -582,14 +587,18 @@ def insert_appointments_with_gcal(appointment_sync_data: dict[str, list[str]] | 
     reporter.send_report(email_for_errors)
 
 
-def parse_location_and_type(title: str) -> tuple[str | None, DAEvalType | None]:
+def parse_location_and_type(
+    title: str,
+) -> tuple[str | None, DAEvalType | None, bool]:
     """Extract location code and evaluation type from calendar title format [LOC-TYPE].
+    Also checks for [CONFIRMED] tag.
 
     Examples:
-        "[COL-E]" -> ("COL", "EVAL")
-        "[NYC-DE]" -> ("NYC", "DAEVAL")
-        "[V]" -> ("Virtual", "DA")
+        "[COL-E]" -> ("COL", "EVAL", False)
+        "[NYC-DE] [CONFIRMED]" -> ("NYC", "DAEVAL", True)
+        "[V]" -> ("Virtual", "DA", False)
     """
+    is_confirmed = "[CONFIRMED]" in title.upper()
     match = re.search(r"\[([A-Z]+)-([A-Z]+)\]", title)
 
     evaluation_type_map: dict[str, DAEvalType] = {
@@ -606,9 +615,10 @@ def parse_location_and_type(title: str) -> tuple[str | None, DAEvalType | None]:
         return (
             location,
             evaluation_type_map.get(match.group(2)),
+            is_confirmed,
         )
 
     elif "[V]" in title:  # Virtual can only be DA
-        return "Virtual", "DA"
+        return "Virtual", "DA", is_confirmed
 
-    return None, None
+    return None, None, is_confirmed
