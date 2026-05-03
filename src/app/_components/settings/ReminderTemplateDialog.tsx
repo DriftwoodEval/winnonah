@@ -68,6 +68,7 @@ export function ReminderTemplateDialog({
 			sendOffsetHours: 24,
 			isActive: true,
 			isNoReplyFollowUp: false,
+			isConfirmedFollowUp: false,
 		},
 	});
 
@@ -86,6 +87,7 @@ export function ReminderTemplateDialog({
 					sendOffsetHours: 24,
 					isActive: true,
 					isNoReplyFollowUp: false,
+					isConfirmedFollowUp: false,
 				});
 			}
 		}
@@ -102,7 +104,7 @@ export function ReminderTemplateDialog({
 		},
 	});
 	function onSubmit(values: ReminderTemplateFormValues) {
-		const isFollowUp = values.isNoReplyFollowUp;
+		const isFollowUp = values.isNoReplyFollowUp || values.isConfirmedFollowUp;
 		upsertTemplate.mutate({
 			...values,
 			triggerKeyword: isFollowUp ? null : values.triggerKeyword || null,
@@ -119,7 +121,6 @@ export function ReminderTemplateDialog({
 			...(initialData?.id ? { id: initialData.id } : {}),
 		});
 	}
-
 	return (
 		<Dialog onOpenChange={onClose} open={isOpen}>
 			<DialogContent className="sm:max-w-[500px]">
@@ -162,6 +163,7 @@ export function ReminderTemplateDialog({
 										<Input
 											disabled={
 												form.watch("isNoReplyFollowUp") ||
+												form.watch("isConfirmedFollowUp") ||
 												(!!form.watch("triggerDaEval") &&
 													(form.watch("triggerDaEval") as string) !== "NONE")
 											}
@@ -193,6 +195,7 @@ export function ReminderTemplateDialog({
 										<Select
 											disabled={
 												form.watch("isNoReplyFollowUp") ||
+												form.watch("isConfirmedFollowUp") ||
 												!!form.watch("triggerKeyword")
 											}
 											onValueChange={(val) =>
@@ -226,6 +229,7 @@ export function ReminderTemplateDialog({
 										<Select
 											disabled={
 												form.watch("isNoReplyFollowUp") ||
+												form.watch("isConfirmedFollowUp") ||
 												!!form.watch("triggerKeyword")
 											}
 											onValueChange={(val) =>
@@ -328,7 +332,35 @@ export function ReminderTemplateDialog({
 									<FormControl>
 										<Switch
 											checked={field.value}
-											onCheckedChange={field.onChange}
+											onCheckedChange={(checked) => {
+												field.onChange(checked);
+												if (checked)
+													form.setValue("isConfirmedFollowUp", false);
+											}}
+										/>
+									</FormControl>
+								</FormItem>
+							)}
+						/>
+
+						<FormField
+							control={form.control}
+							name="isConfirmedFollowUp"
+							render={({ field }) => (
+								<FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm">
+									<div className="space-y-0.5">
+										<FormLabel>Confirmed Follow-up</FormLabel>
+										<FormDescription>
+											Only send if the appointment HAS been confirmed.
+										</FormDescription>
+									</div>
+									<FormControl>
+										<Switch
+											checked={field.value}
+											onCheckedChange={(checked) => {
+												field.onChange(checked);
+												if (checked) form.setValue("isNoReplyFollowUp", false);
+											}}
 										/>
 									</FormControl>
 								</FormItem>
