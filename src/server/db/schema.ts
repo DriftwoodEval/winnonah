@@ -1,3 +1,4 @@
+import { isActive } from "@tiptap/core";
 import { relations, sql } from "drizzle-orm";
 import {
 	foreignKey,
@@ -818,3 +819,45 @@ export const greeterProxyState = createTable("greeter_proxy_state", (d) => ({
 	key: d.varchar({ length: 100 }).notNull().primaryKey(),
 	value: d.varchar({ length: 255 }),
 }));
+
+export const appointmentReminderSettings = createTable(
+	"appointment_reminder_settings",
+	(d) => ({
+		id: d.int().primaryKey().autoincrement().notNull(),
+		quietWindowStart: d.time().notNull().default("18:00:00"),
+		quietWindowEnd: d.time().notNull().default("08:00:00"),
+	}),
+);
+
+export const reminderTemplates = createTable("reminder_templates", (d) => ({
+	id: d.int().primaryKey().autoincrement().notNull(),
+	name: d.text().notNull(),
+	triggerKeyword: d.text().notNull(),
+	messageTemplate: d.text().notNull(),
+	sendOffsetHours: d.int().notNull(),
+	isActive: d.boolean().notNull().default(false),
+}));
+
+export const reminderLogs = createTable(
+	"reminder_logs",
+	(d) => ({
+		id: d.int().primaryKey().autoincrement().notNull(),
+		clientId: d
+			.int()
+			.notNull()
+			.references(() => clients.id, { onDelete: "cascade" }),
+		appointmentId: d
+			.varchar({ length: 255 })
+			.notNull()
+			.references(() => appointments.id, { onDelete: "cascade" }),
+		reminderTemplateId: d.int().notNull(),
+		sentAt: d.timestamp().default(sql`CURRENT_TIMESTAMP`).notNull(),
+	}),
+	(t) => [
+		foreignKey({
+			columns: [t.reminderTemplateId],
+			foreignColumns: [reminderTemplates.id],
+			name: "rem_log_tmpl_fk",
+		}).onDelete("cascade"),
+	],
+);
