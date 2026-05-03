@@ -1,3 +1,4 @@
+import { appointmentRouter } from "./routers/appointments";
 import { clientRouter } from "./routers/client";
 import { evaluatorRouter } from "./routers/evaluator";
 import { externalRecordRouter } from "./routers/externalRecords";
@@ -20,6 +21,7 @@ import { createCallerFactory, createTRPCRouter } from "./trpc";
  * All routers added in /api/routers should be manually added here.
  */
 export const appRouter = createTRPCRouter({
+	appointments: appointmentRouter,
 	clients: clientRouter,
 	evaluators: evaluatorRouter,
 	externalRecords: externalRecordRouter,

@@ -25,6 +25,7 @@ import {
 import { api } from "~/trpc/react";
 import { AdditionalInsuranceAppointmentsDisplay } from "./AdditionalInsuranceAppointmentsDisplay";
 import { BabyNetBoxes } from "./BabyNetBoxes";
+import { ClientAppointments } from "./ClientAppointments";
 import { ClientDetailsCard } from "./ClientDetailsCard";
 import { ClientHeader } from "./ClientHeader";
 import { ClientNoteEditor } from "./ClientNoteEditor";
@@ -243,6 +244,10 @@ export function Client({
 										)}
 
 									<ClientNoteEditor clientId={client.id} readOnly={readOnly} />
+
+									{!isShellClientId(client.id) && (
+										<ClientAppointments clientId={client.id} />
+									)}
 
 									{!isShellClientId(client.id) && (
 										<QuestionnairesTable

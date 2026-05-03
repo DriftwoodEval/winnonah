@@ -182,6 +182,27 @@ export const getLocalDayFromUTCDate = (
 	return new Date(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate());
 };
 
+export const getLocalTimeFromUTCDate = (
+	utcDate: Date | string | undefined | null,
+): Date | undefined => {
+	if (!utcDate) return undefined;
+
+	const d = new Date(utcDate);
+
+	if (Number.isNaN(d.getTime())) {
+		return undefined;
+	}
+
+	return new Date(
+		d.getUTCFullYear(),
+		d.getUTCMonth(),
+		d.getUTCDate(),
+		d.getUTCHours(),
+		d.getUTCMinutes(),
+		d.getUTCSeconds(),
+	);
+};
+
 export const getDistanceSQL = (
 	lat1: SQL | AnyColumn | string | number | null | undefined,
 	lon1: SQL | AnyColumn | string | number | null | undefined,
