@@ -153,21 +153,6 @@ def should_skip_appointment(appointment: pd.Series) -> bool:
     return name in TEST_NAMES or "96130" in cpt or cancelled
 
 
-def clear_all_appointments_from_db():
-    """Deletes all appointments from the database to prepare for a fresh sync."""
-    db_connection = get_db()
-    try:
-        with db_connection:
-            with db_connection.cursor() as cursor:
-                logger.warning("Clearing all data from 'emr_appointment' table...")
-                cursor.execute("DELETE FROM emr_appointment")
-                db_connection.commit()
-        logger.info("Database cleared successfully.")
-    except Exception:
-        logger.exception("Critical Error: Failed to clear appointments from database.")
-        raise  # Stop execution to prevent inserting duplicates on top of old data
-
-
 def batch_search_calendar_events(
     service,
     calendars: list[dict],

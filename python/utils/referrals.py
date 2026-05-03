@@ -31,12 +31,6 @@ def format_name(name) -> str:
     return " ".join(words)
 
 
-def extract_fax_number(string) -> str:
-    """Extracts a 10-digit fax number from a string."""
-    match = re.search(r"\d{3}.*?\d{3}.*?\d{4}", str(string))
-    return re.sub(r"\D", "", match.group(0)) if match else ""
-
-
 def process_source_metadata(raw_source):
     """
     Standardizes a raw referral source string.

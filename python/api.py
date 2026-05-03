@@ -9,7 +9,7 @@ from fastapi.responses import FileResponse
 from googleapiclient.discovery import build
 from pydantic import BaseModel
 
-from utils.constants import TABLE_CLIENT
+from utils.constants import TABLE_ACCOUNT, TABLE_CLIENT, TABLE_SESSION, TABLE_USER
 from utils.database import get_db, get_python_config
 from utils.google import google_authenticate, send_gmail
 
@@ -59,14 +59,14 @@ def get_current_user(request: Request):
     conn = get_db()
     try:
         with conn.cursor() as cursor:
-            sql = """
+            sql = f"""
                 SELECT
                     u.id, u.email, u.name, u.permissions, u.archived,
                     s.expires,
                     a.access_token, a.refresh_token, a.expires_at, a.scope
-                FROM emr_session s
-                JOIN emr_user u ON s.userId = u.id
-                LEFT JOIN emr_account a ON u.id = a.userId AND a.provider = 'google'
+                FROM {TABLE_SESSION} s
+                JOIN {TABLE_USER} u ON s.userId = u.id
+                LEFT JOIN {TABLE_ACCOUNT} a ON u.id = a.userId AND a.provider = 'google'
                 WHERE s.sessionToken = %s
             """
             cursor.execute(sql, (session_token,))
