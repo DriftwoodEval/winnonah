@@ -76,6 +76,8 @@ interface MultipleSelectorProps {
 	>;
 	/** hide the clear all button. */
 	hideClearAllButton?: boolean;
+	/** Render the input above the badges in a scrollable layout. */
+	scrollable?: boolean;
 }
 
 export interface MultipleSelectorRef {
@@ -198,6 +200,7 @@ const MultipleSelector = React.forwardRef<
 			commandProps,
 			inputProps,
 			hideClearAllButton = false,
+			scrollable = false,
 		}: MultipleSelectorProps,
 		ref: React.Ref<MultipleSelectorRef>,
 	) => {
@@ -463,95 +466,194 @@ const MultipleSelector = React.forwardRef<
 						inputRef?.current?.focus();
 					}}
 				>
-					<div className="relative flex flex-wrap gap-1">
-						{selected.map((option) => {
-							return (
-								<Badge
+					{scrollable ? (
+						<div className="flex flex-col gap-1">
+							<div className="relative flex items-center">
+								{/* Avoid having the "Search" Icon */}
+								<CommandPrimitive.Input
+									{...inputProps}
 									className={cn(
-										"data-[disabled]:bg-muted-foreground data-[disabled]:text-muted data-[disabled]:hover:bg-muted-foreground",
-										"data-[fixed]:bg-muted-foreground data-[fixed]:text-muted data-[fixed]:hover:bg-muted-foreground",
-										badgeClassName,
+										"flex-1 bg-transparent outline-none placeholder:text-muted-foreground",
+										{
+											"w-full": hidePlaceholderWhenSelected,
+											"px-3 py-2": selected.length === 0,
+										},
+										inputProps?.className,
 									)}
-									data-disabled={disabled || undefined}
-									data-fixed={option.fixed}
-									key={option.value}
+									disabled={disabled}
+									onBlur={(event) => {
+										if (!onScrollbar) {
+											setOpen(false);
+										}
+										inputProps?.onBlur?.(event);
+									}}
+									onFocus={(event) => {
+										setOpen(true);
+										inputProps?.onFocus?.(event);
+									}}
+									onValueChange={(value) => {
+										setInputValue(value);
+										inputProps?.onValueChange?.(value);
+									}}
+									placeholder={
+										hidePlaceholderWhenSelected && selected.length !== 0
+											? ""
+											: placeholder
+									}
+									ref={inputRef}
+									value={inputValue}
+								/>
+								<button
+									className={cn(
+										"h-6 w-6 shrink-0 p-0",
+										(hideClearAllButton ||
+											disabled ||
+											selected.length < 1 ||
+											selected.filter((s) => s.fixed).length ===
+												selected.length) &&
+											"hidden",
+									)}
+									onClick={() => {
+										setSelected(selected.filter((s) => s.fixed));
+										onChange?.(selected.filter((s) => s.fixed));
+									}}
+									type="button"
 								>
-									{option.label}
-									<button
+									<X />
+								</button>
+							</div>
+							{selected.length > 0 && (
+								<div className="max-h-36 overflow-y-auto">
+									<div className="flex flex-wrap gap-1 px-1 pb-1">
+										{selected.map((option) => (
+											<Badge
+												className={cn(
+													"data-disabled:bg-muted-foreground data-disabled:text-muted data-disabled:hover:bg-muted-foreground",
+													"data-fixed:bg-muted-foreground data-fixed:text-muted data-fixed:hover:bg-muted-foreground",
+													badgeClassName,
+												)}
+												data-disabled={disabled || undefined}
+												data-fixed={option.fixed}
+												key={option.value}
+											>
+												{option.label}
+												<button
+													className={cn(
+														"ml-1 rounded-full outline-none ring-offset-background focus:ring-2 focus:ring-ring focus:ring-offset-2",
+														(disabled || option.fixed) && "hidden",
+													)}
+													onClick={() => handleUnselect(option)}
+													onKeyDown={(e) => {
+														if (e.key === "Enter") {
+															handleUnselect(option);
+														}
+													}}
+													onMouseDown={(e) => {
+														e.preventDefault();
+														e.stopPropagation();
+													}}
+													type="button"
+												>
+													<X className="h-3 w-3 text-muted-foreground hover:text-foreground" />
+												</button>
+											</Badge>
+										))}
+									</div>
+								</div>
+							)}
+						</div>
+					) : (
+						<div className="relative flex flex-wrap gap-1">
+							{selected.map((option) => {
+								return (
+									<Badge
 										className={cn(
-											"ml-1 rounded-full outline-none ring-offset-background focus:ring-2 focus:ring-ring focus:ring-offset-2",
-											(disabled || option.fixed) && "hidden",
+											"data-disabled:bg-muted-foreground data-disabled:text-muted data-disabled:hover:bg-muted-foreground",
+											"data-fixed:bg-muted-foreground data-fixed:text-muted data-fixed:hover:bg-muted-foreground",
+											badgeClassName,
 										)}
-										onClick={() => handleUnselect(option)}
-										onKeyDown={(e) => {
-											if (e.key === "Enter") {
-												handleUnselect(option);
-											}
-										}}
-										onMouseDown={(e) => {
-											e.preventDefault();
-											e.stopPropagation();
-										}}
-										type="button"
+										data-disabled={disabled || undefined}
+										data-fixed={option.fixed}
+										key={option.value}
 									>
-										<X className="h-3 w-3 text-muted-foreground hover:text-foreground" />
-									</button>
-								</Badge>
-							);
-						})}
-						{/* Avoid having the "Search" Icon */}
-						<CommandPrimitive.Input
-							{...inputProps}
-							className={cn(
-								"flex-1 bg-transparent outline-none placeholder:text-muted-foreground",
-								{
-									"w-full": hidePlaceholderWhenSelected,
-									"px-3 py-2": selected.length === 0,
-									"ml-1": selected.length !== 0,
-								},
-								inputProps?.className,
-							)}
-							disabled={disabled}
-							onBlur={(event) => {
-								if (!onScrollbar) {
-									setOpen(false);
+										{option.label}
+										<button
+											className={cn(
+												"ml-1 rounded-full outline-none ring-offset-background focus:ring-2 focus:ring-ring focus:ring-offset-2",
+												(disabled || option.fixed) && "hidden",
+											)}
+											onClick={() => handleUnselect(option)}
+											onKeyDown={(e) => {
+												if (e.key === "Enter") {
+													handleUnselect(option);
+												}
+											}}
+											onMouseDown={(e) => {
+												e.preventDefault();
+												e.stopPropagation();
+											}}
+											type="button"
+										>
+											<X className="h-3 w-3 text-muted-foreground hover:text-foreground" />
+										</button>
+									</Badge>
+								);
+							})}
+							{/* Avoid having the "Search" Icon */}
+							<CommandPrimitive.Input
+								{...inputProps}
+								className={cn(
+									"flex-1 bg-transparent outline-none placeholder:text-muted-foreground",
+									{
+										"w-full": hidePlaceholderWhenSelected,
+										"px-3 py-2": selected.length === 0,
+										"ml-1": selected.length !== 0,
+									},
+									inputProps?.className,
+								)}
+								disabled={disabled}
+								onBlur={(event) => {
+									if (!onScrollbar) {
+										setOpen(false);
+									}
+									inputProps?.onBlur?.(event);
+								}}
+								onFocus={(event) => {
+									setOpen(true);
+									inputProps?.onFocus?.(event);
+								}}
+								onValueChange={(value) => {
+									setInputValue(value);
+									inputProps?.onValueChange?.(value);
+								}}
+								placeholder={
+									hidePlaceholderWhenSelected && selected.length !== 0
+										? ""
+										: placeholder
 								}
-								inputProps?.onBlur?.(event);
-							}}
-							onFocus={(event) => {
-								setOpen(true);
-								inputProps?.onFocus?.(event);
-							}}
-							onValueChange={(value) => {
-								setInputValue(value);
-								inputProps?.onValueChange?.(value);
-							}}
-							placeholder={
-								hidePlaceholderWhenSelected && selected.length !== 0
-									? ""
-									: placeholder
-							}
-							ref={inputRef}
-							value={inputValue}
-						/>
-						<button
-							className={cn(
-								"absolute h-6 w-6 p-0 ltr:right-0 rtl:left-0",
-								(hideClearAllButton ||
-									disabled ||
-									selected.length < 1 ||
-									selected.filter((s) => s.fixed).length === selected.length) &&
-									"hidden",
-							)}
-							onClick={() => {
-								setSelected(selected.filter((s) => s.fixed));
-								onChange?.(selected.filter((s) => s.fixed));
-							}}
-							type="button"
-						>
-							<X />
-						</button>
-					</div>
+								ref={inputRef}
+								value={inputValue}
+							/>
+							<button
+								className={cn(
+									"absolute h-6 w-6 p-0 ltr:right-0 rtl:left-0",
+									(hideClearAllButton ||
+										disabled ||
+										selected.length < 1 ||
+										selected.filter((s) => s.fixed).length ===
+											selected.length) &&
+										"hidden",
+								)}
+								onClick={() => {
+									setSelected(selected.filter((s) => s.fixed));
+									onChange?.(selected.filter((s) => s.fixed));
+								}}
+								type="button"
+							>
+								<X />
+							</button>
+						</div>
+					)}
 				</div>
 				<div className="relative">
 					{open && (

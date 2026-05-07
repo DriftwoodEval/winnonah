@@ -12,6 +12,7 @@ import {
 	FormMessage,
 } from "@ui/form";
 import MultipleSelector from "@ui/multiple-selector";
+import { Skeleton } from "@ui/skeleton";
 import { useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
@@ -60,7 +61,12 @@ export default function AppointmentsSyncSettings() {
 	}
 
 	if (isLoading) {
-		return <div className="p-4">Loading sync settings...</div>;
+		return (
+			<div className="space-y-8 px-4 pt-4">
+				<Skeleton className="h-20" />
+				<Skeleton className="h-20" />
+			</div>
+		);
 	}
 
 	return (
@@ -92,6 +98,7 @@ export default function AppointmentsSyncSettings() {
 											field.onChange(options.map((opt) => opt.value))
 										}
 										placeholder="Add trusted appointment IDs..."
+										scrollable={true}
 										value={field.value.map((id) => ({
 											label: id,
 											value: id,
@@ -126,6 +133,7 @@ export default function AppointmentsSyncSettings() {
 											field.onChange(options.map((opt) => opt.value))
 										}
 										placeholder="Add ignored appointment IDs..."
+										scrollable={true}
 										value={field.value.map((id) => ({
 											label: id,
 											value: id,
