@@ -32,7 +32,7 @@ export function SettingsTabs() {
 		<div className="mx-10 my-10 flex w-full flex-col gap-6">
 			<h1 className="font-bold text-2xl">Settings</h1>
 			<Tabs onValueChange={handleTabChange} value={activeTab}>
-				<TabsList className="w-full sm:w-1/2">
+				<TabsList className="w-full lg:w-1/2">
 					<TabsTrigger value="users">Users</TabsTrigger>
 					<TabsTrigger value="evaluators">Evaluators</TabsTrigger>
 					<TabsTrigger value="insurances">Insurances</TabsTrigger>
