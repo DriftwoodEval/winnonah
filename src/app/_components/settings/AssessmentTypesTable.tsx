@@ -107,16 +107,7 @@ function TypeForm({
 	const inPerson = form.watch("inPerson");
 
 	function handleSubmit(values: FormValues) {
-		if (values.inPerson) {
-			onSubmit({
-				...values,
-				site: "Unknown",
-				minAge: 0,
-				maxAge: 150,
-			});
-		} else {
-			onSubmit(values);
-		}
+		onSubmit(values.inPerson ? { ...values, site: "Unknown" } : values);
 	}
 
 	return (
@@ -160,72 +151,69 @@ function TypeForm({
 				/>
 
 				{!inPerson && (
-					<>
-						<div className="grid grid-cols-2 gap-4">
-							<FormField
-								control={form.control}
-								name="site"
-								render={({ field }) => (
-									<FormItem>
-										<FormLabel>Site / Platform</FormLabel>
-										<FormControl>
-											<Input
-												disabled={isLoading}
-												placeholder="e.g. MHS"
-												{...field}
-											/>
-										</FormControl>
-										<FormMessage />
-									</FormItem>
-								)}
-							/>
-						</div>
-						<div className="grid grid-cols-2 gap-4">
-							<FormField
-								control={form.control}
-								name="minAge"
-								render={({ field }) => (
-									<FormItem>
-										<FormLabel>Min Age (inclusive)</FormLabel>
-										<FormControl>
-											<Input
-												disabled={isLoading}
-												min={0}
-												type="number"
-												{...field}
-												onChange={(e) =>
-													field.onChange(parseInt(e.target.value, 10))
-												}
-											/>
-										</FormControl>
-										<FormMessage />
-									</FormItem>
-								)}
-							/>
-							<FormField
-								control={form.control}
-								name="maxAge"
-								render={({ field }) => (
-									<FormItem>
-										<FormLabel>Max Age (inclusive)</FormLabel>
-										<FormControl>
-											<Input
-												disabled={isLoading}
-												min={0}
-												type="number"
-												{...field}
-												onChange={(e) =>
-													field.onChange(parseInt(e.target.value, 10))
-												}
-											/>
-										</FormControl>
-										<FormMessage />
-									</FormItem>
-								)}
-							/>
-						</div>
-					</>
+					<FormField
+						control={form.control}
+						name="site"
+						render={({ field }) => (
+							<FormItem>
+								<FormLabel>Site / Platform</FormLabel>
+								<FormControl>
+									<Input
+										disabled={isLoading}
+										placeholder="e.g. MHS"
+										{...field}
+									/>
+								</FormControl>
+								<FormMessage />
+							</FormItem>
+						)}
+					/>
 				)}
+
+				<div className="grid grid-cols-2 gap-4">
+					<FormField
+						control={form.control}
+						name="minAge"
+						render={({ field }) => (
+							<FormItem>
+								<FormLabel>Min Age (inclusive)</FormLabel>
+								<FormControl>
+									<Input
+										disabled={isLoading}
+										min={0}
+										type="number"
+										{...field}
+										onChange={(e) =>
+											field.onChange(parseInt(e.target.value, 10))
+										}
+									/>
+								</FormControl>
+								<FormMessage />
+							</FormItem>
+						)}
+					/>
+					<FormField
+						control={form.control}
+						name="maxAge"
+						render={({ field }) => (
+							<FormItem>
+								<FormLabel>Max Age (inclusive)</FormLabel>
+								<FormControl>
+									<Input
+										disabled={isLoading}
+										min={0}
+										type="number"
+										{...field}
+										onChange={(e) =>
+											field.onChange(parseInt(e.target.value, 10))
+										}
+									/>
+								</FormControl>
+								<FormMessage />
+							</FormItem>
+						)}
+					/>
+				</div>
 
 				<FormField
 					control={form.control}
@@ -494,11 +482,12 @@ export default function AssessmentTypesTable() {
 								<TableRow>
 									{canEdit && <TableHead className="w-[50px]" />}
 									<TableHead>Name</TableHead>
+									<TableHead>Age Range</TableHead>
 									<TableHead>Minutes</TableHead>
 								</TableRow>
 							</TableHeader>
 							<TableBody>
-								{isLoading && skeletonRows(2)}
+								{isLoading && skeletonRows(3)}
 								{!isLoading &&
 									inPersonTypes.map((qtype) => (
 										<TableRow key={qtype.id}>
@@ -510,6 +499,12 @@ export default function AssessmentTypesTable() {
 											<TableCell className="font-medium">
 												<Badge variant="outline">{qtype.name}</Badge>
 											</TableCell>
+											<TableCell className="whitespace-nowrap">
+												{qtype.minAge}–
+												{qtype.maxAge === 150 || qtype.maxAge >= 99
+													? "∞"
+													: qtype.maxAge}
+											</TableCell>
 											<TableCell className="text-muted-foreground text-sm">
 												{qtype.minutes != null ? `${qtype.minutes} min` : "—"}
 											</TableCell>
@@ -519,7 +514,7 @@ export default function AssessmentTypesTable() {
 									<TableRow>
 										<TableCell
 											className="h-16 text-center text-muted-foreground text-sm"
-											colSpan={canEdit ? 3 : 2}
+											colSpan={canEdit ? 4 : 3}
 										>
 											No in-person types configured.
 										</TableCell>
