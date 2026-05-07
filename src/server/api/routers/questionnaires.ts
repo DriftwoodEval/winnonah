@@ -13,7 +13,6 @@ import {
 	inArray,
 	isNotNull,
 	not,
-	or,
 } from "drizzle-orm";
 import { z } from "zod";
 import { QUESTIONNAIRE_STATUSES } from "~/lib/constants";
@@ -441,35 +440,31 @@ export const questionnaireRouter = createTRPCRouter({
 
 			const questionnairesToInsert: InsertingQuestionnaire[] = [];
 
-			const existingQuestionnaires = await ctx.db.query.questionnaires.findMany(
-				{
+			for (const newQuestionnaire of parsedQuestionnaires) {
+				const existingByLink = await ctx.db.query.questionnaires.findFirst({
 					where: and(
 						eq(questionnaires.clientId, input.clientId),
-						or(
-							eq(questionnaires.status, "JUST_ADDED"),
-							eq(questionnaires.status, "ARCHIVED"),
-						),
+						eq(questionnaires.link, newQuestionnaire.link),
 					),
-					columns: { id: true, link: true, questionnaireType: true },
-				},
-			);
+				});
 
-			for (const newQuestionnaire of parsedQuestionnaires) {
-				const existingQuestionnaire = existingQuestionnaires.find(
-					(q) => q.link === newQuestionnaire.link,
-				);
-
-				if (existingQuestionnaire) {
-					await ctx.db
-						.update(questionnaires)
-						.set({
-							questionnaireType: newQuestionnaire.questionnaireType,
-							status: "PENDING",
-							sent: new Date(),
-							reminded: 0,
-							lastReminded: null,
-						})
-						.where(eq(questionnaires.id, existingQuestionnaire.id));
+				if (existingByLink) {
+					if (
+						existingByLink.status === "ARCHIVED" ||
+						existingByLink.status === "JUST_ADDED"
+					) {
+						await ctx.db
+							.update(questionnaires)
+							.set({
+								questionnaireType: newQuestionnaire.questionnaireType,
+								status: "PENDING",
+								sent: new Date(),
+								reminded: 0,
+								lastReminded: null,
+							})
+							.where(eq(questionnaires.id, existingByLink.id));
+					}
+					// skip, link already exists in an active status
 				} else {
 					questionnairesToInsert.push({
 						clientId: input.clientId,
