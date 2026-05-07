@@ -295,6 +295,7 @@ async def get_subfolders(
                 spaces="drive",
                 supportsAllDrives=True,
                 includeItemsFromAllDrives=True,
+                orderBy="name",
                 fields="nextPageToken, files(id, name)",
             )
             .execute()
