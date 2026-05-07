@@ -24,3 +24,5 @@ docker-compose.yaml
 # Other cache/state files
 previous_clients.yml
 *.log
+
+get_token.py

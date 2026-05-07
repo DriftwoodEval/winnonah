@@ -27,6 +27,7 @@ from utils.constants import (
     TABLE_CLIENT,
 )
 from utils.database import provide_connection
+from utils.google import update_gcal_event_title
 
 logger.add("logs/appointment-reminders.log", rotation="500 MB")
 
@@ -230,6 +231,43 @@ def is_confirmation(incoming_text: str) -> bool:
     return False
 
 
+def is_rejection(incoming_text: str) -> bool:
+    """Checks for a cancellation or denial response."""
+    thumbs_down_emojis = ["👎", "👎🏻", "👎🏼", "👎🏽", "👎🏾", "👎🏿", "❌", "🚫"]
+    if any(emoji in incoming_text for emoji in thumbs_down_emojis):
+        return True
+
+    keywords = [
+        "NO",
+        "NOPE",
+        "CANCEL",
+        "CANCELLED",
+        "CANT",
+        "CAN'T",
+        "CANNOT",
+        "WONT",
+        "WON'T",
+        "DECLINE",
+        "DECLINED",
+    ]
+    pattern = rf"\b({'|'.join([re.escape(k) for k in keywords])})\b"
+    return bool(re.search(pattern, incoming_text, re.IGNORECASE))
+
+
+def is_reschedule_request(incoming_text: str) -> bool:
+    """Checks for a request to reschedule."""
+    keywords = [
+        "RESCHEDULE",
+        "RESCHEDULED",
+        "MOVE",
+        "DIFFERENT TIME",
+        "DIFFERENT DAY",
+        "CHANGE",
+    ]
+    pattern = rf"\b({'|'.join([re.escape(k) for k in keywords])})\b"
+    return bool(re.search(pattern, incoming_text, re.IGNORECASE))
+
+
 @provide_connection
 def handle_incoming_reply(
     phone_number: str, incoming_text: str, connection: Connection[DictCursor]
@@ -239,7 +277,8 @@ def handle_incoming_reply(
     with connection.cursor() as cursor:
         # Find the most recent unconfirmed appointment for this client
         query = f"""
-            SELECT a.id as appointment_id, t.confirmationReply, a.startTime
+            SELECT a.id as appointment_id, t.confirmationReply, a.startTime,
+                   a.calendarEventId, a.calendarEventTitle
             FROM {TABLE_APPOINTMENT} a
             JOIN {TABLE_CLIENT} c ON a.clientId = c.id
             JOIN {TABLE_APPOINTMENT_REMINDER_LOGS} l ON a.id = l.appointmentId
@@ -259,19 +298,41 @@ def handle_incoming_reply(
             )
             return
 
+        event_id = context.get("calendarEventId")
+        current_title = context.get("calendarEventTitle") or ""
+        gcal_tag: str | None = None
+
         if is_confirmation(incoming_text):
             if context["confirmationReply"]:
                 message = format_message(context["confirmationReply"], context)
-
                 print(message)
 
             cursor.execute(
                 f"UPDATE {TABLE_APPOINTMENT} SET confirmedAt = NOW() WHERE id = %s",
                 (context["appointment_id"],),
             )
+            gcal_tag = "[CONFIRMED]"
+        elif is_reschedule_request(incoming_text):
+            logger.info(
+                f"Reschedule request received for appointment {context['appointment_id']}"
+            )
+            gcal_tag = "[RESCHEDULE REQUESTED]"
+        elif is_rejection(incoming_text):
+            logger.info(
+                f"Rejection received for appointment {context['appointment_id']}"
+            )
+            gcal_tag = "[DECLINED]"
         else:
-            logger.debug("Message does not appear to be a confirmation or denial")
-            # TODO: Flag this?
+            logger.debug(
+                "Message does not appear to be a confirmation, rejection, or reschedule request"
+            )
+
+        if gcal_tag and event_id and gcal_tag not in current_title:
+            new_title = f"{current_title} {gcal_tag}".strip()
+            try:
+                update_gcal_event_title(event_id, new_title)
+            except Exception as e:
+                logger.error(f"Failed to update calendar event title: {e}")
 
         connection.commit()
 
@@ -334,7 +395,7 @@ async def verify_signature(request: Request, signature_header: str):
         if len(parts) != 4:
             raise ValueError("Invalid signature format")
         algo, version, timestamp, received_sig = parts
-    except (ValueError, AttributeError):
+    except ValueError, AttributeError:
         raise HTTPException(status_code=401, detail="Invalid signature format")
 
     now_ms = int(time.time() * 1000)
