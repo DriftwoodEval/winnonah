@@ -11,18 +11,19 @@ import {
 import { Checkbox } from "@ui/checkbox";
 import { Skeleton } from "@ui/skeleton";
 import { useEffect, useState } from "react";
-import type { TestUnit } from "~/lib/models";
+import type { QuestionnaireType } from "~/lib/models";
 import { api } from "~/trpc/react";
 import { TestUnitManager } from "./TestUnitsForm";
 
 const STORAGE_KEY = "calculator-selected-tests";
 
-type TestUnitWithSelected = TestUnit & {
+type TestUnitWithSelected = QuestionnaireType & {
 	selected: boolean;
 };
 
 export default function UnitCalculator() {
-	const { data: dbUnits, isLoading } = api.testUnits.getAll.useQuery();
+	const { data: dbUnits, isLoading } =
+		api.questionnaires.getAllTypes.useQuery();
 	const [tests, setTests] = useState<TestUnitWithSelected[]>([]);
 
 	useEffect(() => {
@@ -30,16 +31,16 @@ export default function UnitCalculator() {
 			const savedData = localStorage.getItem(STORAGE_KEY);
 			const savedParsed = savedData ? JSON.parse(savedData) : {};
 
-			const mergedTests = dbUnits.map((u) => {
-				const idStr = String(u.id);
-				const hasSaved = savedParsed[idStr];
-				return {
-					id: u.id,
-					name: u.name,
-					minutes: u.minutes,
-					selected: hasSaved ? hasSaved.selected : false,
-				};
-			});
+			const mergedTests = dbUnits
+				.filter((u) => u.minutes != null)
+				.map((u) => {
+					const idStr = String(u.id);
+					const hasSaved = savedParsed[idStr];
+					return {
+						...u,
+						selected: hasSaved ? hasSaved.selected : false,
+					};
+				});
 
 			setTests(mergedTests.sort((a, b) => a.name.localeCompare(b.name)));
 		}

@@ -16,7 +16,7 @@ import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 import z from "zod";
-import type { TestUnit } from "~/lib/models";
+import type { QuestionnaireType } from "~/lib/models";
 import { api } from "~/trpc/react";
 import { ResponsiveDialog } from "../shared/ResponsiveDialog";
 
@@ -28,7 +28,7 @@ const testUnitSchema = z.object({
 type TestUnitFormValues = z.infer<typeof testUnitSchema>;
 
 interface TestUnitEditorProps {
-	unit?: { id: number; name: string; minutes: number } | null;
+	unit?: QuestionnaireType | null;
 	open: boolean;
 	onOpenChange: (open: boolean) => void;
 }
@@ -49,10 +49,10 @@ export function TestUnitEditor({
 		},
 	});
 
-	const addMutation = api.testUnits.add.useMutation({
+	const addMutation = api.questionnaires.createType.useMutation({
 		onSuccess: async () => {
 			toast.success("Unit added");
-			await utils.testUnits.getAll.invalidate();
+			await utils.questionnaires.getAllTypes.invalidate();
 			onOpenChange(false);
 			form.reset();
 		},
@@ -64,10 +64,10 @@ export function TestUnitEditor({
 		},
 	});
 
-	const updateMutation = api.testUnits.update.useMutation({
+	const updateMutation = api.questionnaires.updateType.useMutation({
 		onSuccess: async () => {
 			toast.success("Unit updated");
-			await utils.testUnits.getAll.invalidate();
+			await utils.questionnaires.getAllTypes.invalidate();
 			onOpenChange(false);
 			form.reset();
 		},
@@ -83,10 +83,20 @@ export function TestUnitEditor({
 		if (isEditing && unit) {
 			updateMutation.mutate({
 				id: unit.id,
-				...values,
+				name: values.name,
+				site: unit.site,
+				minAge: unit.minAge,
+				maxAge: unit.maxAge,
+				minutes: values.minutes,
 			});
 		} else {
-			addMutation.mutate(values);
+			addMutation.mutate({
+				name: values.name,
+				site: "Unknown",
+				minAge: 0,
+				maxAge: 150,
+				minutes: values.minutes,
+			});
 		}
 	};
 
@@ -142,15 +152,16 @@ export function TestUnitEditor({
 export function TestUnitManager() {
 	const [managerOpen, setManagerOpen] = useState(false);
 	const [editorOpen, setEditorOpen] = useState(false);
-	const [selectedUnit, setSelectedUnit] = useState<TestUnit | null>(null);
+	const [selectedUnit, setSelectedUnit] = useState<QuestionnaireType | null>(
+		null,
+	);
 
-	const { data: units } = api.testUnits.getAll.useQuery();
-
-	units?.sort((a, b) => a.name.localeCompare(b.name));
+	const { data: units } = api.questionnaires.getAllTypes.useQuery();
+	const timedUnits = units?.filter((u) => u.minutes != null) ?? [];
 
 	const utils = api.useUtils();
-	const deleteMutation = api.testUnits.delete.useMutation({
-		onSuccess: () => utils.testUnits.getAll.invalidate(),
+	const deleteMutation = api.questionnaires.deleteType.useMutation({
+		onSuccess: () => utils.questionnaires.getAllTypes.invalidate(),
 	});
 
 	return (
@@ -178,7 +189,7 @@ export function TestUnitManager() {
 					</Button>
 
 					<div className="divide-y rounded-md border">
-						{units?.map((unit) => (
+						{timedUnits.map((unit) => (
 							<div
 								className="flex items-center justify-between p-3 hover:bg-muted/50"
 								key={unit.id}

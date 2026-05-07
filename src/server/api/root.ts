@@ -11,7 +11,6 @@ import { questionnaireRouter } from "./routers/questionnaires";
 import { quoRouter } from "./routers/quo";
 import { schedulingRouter } from "./routers/scheduling";
 import { sessionRouter } from "./routers/sessions";
-import { testUnitsRouter } from "./routers/testUnits";
 import { userRouter } from "./routers/users";
 import { createCallerFactory, createTRPCRouter } from "./trpc";
 
@@ -34,7 +33,6 @@ export const appRouter = createTRPCRouter({
 	quo: quoRouter,
 	scheduling: schedulingRouter,
 	sessions: sessionRouter,
-	testUnits: testUnitsRouter,
 	users: userRouter,
 });
 

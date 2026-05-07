@@ -135,7 +135,6 @@ export const PERMISSIONS = {
 						id: "settings:appointments-sync",
 						title: "Manage Appointments Sync",
 					},
-					{ id: "settings:testUnits", title: "Manage Test Units" },
 					{
 						id: "settings:questionnaireRules",
 						title: "Manage Questionnaire Rules",

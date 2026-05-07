@@ -166,6 +166,7 @@ const questionnaireTypeInputSchema = z.object({
 	site: z.string().min(1),
 	minAge: z.number().int().min(0),
 	maxAge: z.number().int().min(0),
+	minutes: z.number().int().min(1).nullable().optional(),
 });
 
 const questionnaireRuleInputSchema = z.object({

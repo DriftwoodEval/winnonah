@@ -62,6 +62,7 @@ const formSchema = z.object({
 	site: z.string().min(1, "Site is required"),
 	minAge: z.number().int().min(0),
 	maxAge: z.number().int().min(0),
+	minutes: z.number().int().min(1).nullable(),
 });
 
 type FormValues = z.infer<typeof formSchema>;
@@ -88,8 +89,9 @@ function TypeForm({
 					site: initialData.site,
 					minAge: initialData.minAge,
 					maxAge: initialData.maxAge,
+					minutes: initialData.minutes ?? null,
 				}
-			: { name: "", site: "", minAge: 0, maxAge: 17 },
+			: { name: "", site: "", minAge: 0, maxAge: 17, minutes: null },
 	});
 
 	return (
@@ -175,6 +177,29 @@ function TypeForm({
 						)}
 					/>
 				</div>
+				<FormField
+					control={form.control}
+					name="minutes"
+					render={({ field }) => (
+						<FormItem>
+							<FormLabel>Duration (minutes)</FormLabel>
+							<FormControl>
+								<Input
+									disabled={isLoading}
+									min={1}
+									onChange={(e) => {
+										const val = e.target.value;
+										field.onChange(val === "" ? null : parseInt(val, 10));
+									}}
+									placeholder="e.g. 45"
+									type="number"
+									value={field.value ?? ""}
+								/>
+							</FormControl>
+							<FormMessage />
+						</FormItem>
+					)}
+				/>
 				<div className="flex justify-end gap-2 pt-2">
 					<Button onClick={onClose} type="button" variant="ghost">
 						Cancel
@@ -339,6 +364,7 @@ export default function QuestionnaireTypesTable() {
 							<TableHead>Name</TableHead>
 							<TableHead>Site</TableHead>
 							<TableHead>Age Range</TableHead>
+							<TableHead>Minutes</TableHead>
 						</TableRow>
 					</TableHeader>
 					<TableBody>
@@ -359,6 +385,9 @@ export default function QuestionnaireTypesTable() {
 									</TableCell>
 									<TableCell>
 										<Skeleton className="h-5 w-12" />
+									</TableCell>
+									<TableCell>
+										<Skeleton className="h-5 w-10" />
 									</TableCell>
 								</TableRow>
 							))}
@@ -382,13 +411,16 @@ export default function QuestionnaireTypesTable() {
 											? "∞"
 											: qtype.maxAge}
 									</TableCell>
+									<TableCell className="text-muted-foreground text-sm">
+										{qtype.minutes != null ? `${qtype.minutes} min` : "—"}
+									</TableCell>
 								</TableRow>
 							))}
 						{!isLoading && types?.length === 0 && (
 							<TableRow>
 								<TableCell
 									className="h-24 text-center"
-									colSpan={canEdit ? 4 : 3}
+									colSpan={canEdit ? 5 : 4}
 								>
 									No questionnaire types configured.
 								</TableCell>

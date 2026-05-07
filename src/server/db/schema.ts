@@ -457,6 +457,7 @@ export const questionnaireTypes = createTable("questionnaire_type", (d) => ({
 	site: d.varchar({ length: 255 }).notNull(),
 	minAge: d.int().notNull(),
 	maxAge: d.int().notNull(),
+	minutes: d.int(),
 }));
 
 export const questionnaireRules = createTable("questionnaire_rule", (d) => ({
@@ -578,12 +579,6 @@ export const clientsEvaluatorsRelations = relations(
 		}),
 	}),
 );
-
-export const testUnits = createTable("test_unit", (d) => ({
-	id: d.int().notNull().autoincrement().primaryKey(),
-	name: d.varchar({ length: 255 }).notNull(),
-	minutes: d.int().notNull(),
-}));
 
 export const users = createTable("user", (d) => ({
 	id: d

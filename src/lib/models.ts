@@ -6,8 +6,8 @@ import type {
 	invitations,
 	offices,
 	questionnaires,
+	questionnaireTypes,
 	schoolDistricts,
-	testUnits,
 	users,
 	zipCodes,
 } from "~/server/db/schema";
@@ -52,4 +52,4 @@ export interface Evaluator extends EvaluatorSchema {
 	insurances: Insurance[];
 }
 
-export type TestUnit = typeof testUnits.$inferSelect;
+export type QuestionnaireType = typeof questionnaireTypes.$inferSelect;
