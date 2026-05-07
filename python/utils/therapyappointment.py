@@ -206,7 +206,7 @@ def _loop_therapists(driver: WebDriver, func: Callable):
             therapist_npi = npi_element.text.split()[0]
             func(driver, therapist_npi)
 
-        except (NoSuchElementException, TimeoutException):
+        except NoSuchElementException, TimeoutException:
             logger.error(f"Could not find NPI for {target['name']}, skipping!")
             continue
 
@@ -286,11 +286,34 @@ def _combine_files():
 def _download_referrals(driver: WebDriver):
     """Downloads referrals CSV from reports."""
     logger.debug("Opening reports page")
+    sleep(2)
     driver.get(
         "https://api.portal.therapyappointment.com/n/reporting/businessintelligence/referralsource"
     )
     w.click_element(
-        driver, By.XPATH, "//span[contains(text(), 'Export CSV')]", refresh=True
+        driver,
+        By.XPATH,
+        "//button[.//i[contains(@class, 'mdi-filter-outline')]]",
+    )
+    w.click_element(
+        driver,
+        By.XPATH,
+        "//label[text()='Client Added']/following-sibling::input",
+    )
+    input_field = driver.find_element(
+        By.XPATH, "//label[text()='From']/following-sibling::input"
+    )
+
+    input_field.send_keys(Keys.COMMAND + "a")
+    input_field.send_keys(Keys.BACKSPACE)
+
+    input_field.send_keys("01/01/2020")
+
+    w.click_element(driver, By.XPATH, "//button[normalize-space()='OK']")
+    w.click_element(driver, By.XPATH, "//button[@aria-label='Close dialog']")
+
+    w.click_element(
+        driver, By.XPATH, "//span[contains(text(), 'Export CSV')]", timeout=10
     )
     sleep(2)
     shutil.move(
