@@ -810,7 +810,7 @@ export const clientRouter = createTRPCRouter({
 				recordsNeeded: z.enum(["Needed", "Not Needed"]).optional(),
 				babyNetERNeeded: z.boolean().optional(),
 				babyNetERDownloaded: z.boolean().optional(),
-				asdAdhd: z.enum(ALLOWED_ASD_ADHD_VALUES).optional(),
+				asdAdhd: z.enum(ALLOWED_ASD_ADHD_VALUES).nullable().optional(),
 				language: z.string().optional(),
 				referralData: referralDataSchema.optional(),
 			}),
@@ -942,7 +942,7 @@ export const clientRouter = createTRPCRouter({
 				recordsNeeded?: "Needed" | "Not Needed";
 				babyNetERNeeded?: boolean;
 				babyNetERDownloaded?: boolean;
-				asdAdhd?: (typeof ALLOWED_ASD_ADHD_VALUES)[number];
+				asdAdhd?: (typeof ALLOWED_ASD_ADHD_VALUES)[number] | null;
 				language?: string | null;
 				referralData?: z.infer<typeof referralDataSchema>;
 			} = {};
@@ -1009,7 +1009,7 @@ export const clientRouter = createTRPCRouter({
 				if (ctx.session.user.accessToken && ctx.session.user.refreshToken) {
 					try {
 						await updatePunchData(ctx.session, input.clientId.toString(), {
-							asdAdhd: input.asdAdhd,
+							asdAdhd: input.asdAdhd ?? "",
 						});
 					} catch (e) {
 						ctx.logger.error(

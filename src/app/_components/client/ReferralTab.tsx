@@ -128,7 +128,10 @@ export function ReferralTab({ client, readOnly }: ReferralTabProps) {
 	const handleAsdAdhdChange = (value: string) => {
 		updateClientMutation.mutate({
 			clientId: client.id,
-			asdAdhd: value as (typeof ALLOWED_ASD_ADHD_VALUES)[number],
+			asdAdhd:
+				value === "none"
+					? null
+					: (value as (typeof ALLOWED_ASD_ADHD_VALUES)[number]),
 		});
 	};
 
@@ -286,12 +289,13 @@ export function ReferralTab({ client, readOnly }: ReferralTabProps) {
 									!can("clients:asdadhd")
 								}
 								onValueChange={handleAsdAdhdChange}
-								value={client.asdAdhd ?? undefined}
+								value={client.asdAdhd ?? ""}
 							>
 								<SelectTrigger id="asdAdhd">
 									<SelectValue placeholder="Select status" />
 								</SelectTrigger>
 								<SelectContent>
+									<SelectItem value="none">—</SelectItem>
 									{ALLOWED_ASD_ADHD_VALUES.map((value) => (
 										<SelectItem key={value} value={value}>
 											{value}
