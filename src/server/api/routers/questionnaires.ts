@@ -4,6 +4,7 @@ import { URL } from "node:url";
 import { TRPCError } from "@trpc/server";
 import {
 	and,
+	asc,
 	count,
 	countDistinct,
 	desc,
@@ -23,7 +24,12 @@ import {
 	createTRPCRouter,
 	protectedProcedure,
 } from "~/server/api/trpc";
-import { clients, questionnaires } from "~/server/db/schema";
+import {
+	clients,
+	questionnaireRules,
+	questionnaires,
+	questionnaireTypes,
+} from "~/server/db/schema";
 
 interface QuestionnaireDetails {
 	name: string;
@@ -155,6 +161,21 @@ const findLatestScreenshot = (
 	}
 };
 
+const questionnaireTypeInputSchema = z.object({
+	name: z.string().min(1),
+	site: z.string().min(1),
+	minAge: z.number().int().min(0),
+	maxAge: z.number().int().min(0),
+});
+
+const questionnaireRuleInputSchema = z.object({
+	daeval: z.enum(["DA", "EVAL", "DAEVAL"]),
+	diagnosis: z.enum(["ASD", "ADHD"]).nullable(),
+	minAge: z.number().int().min(0),
+	maxAge: z.number().int().min(0),
+	questionnaires: z.array(z.string().min(1)).min(1),
+});
+
 export const questionnaireRouter = createTRPCRouter({
 	getQuestionnaireList: protectedProcedure
 		.input(
@@ -176,9 +197,93 @@ export const questionnaireRouter = createTRPCRouter({
 
 			const age = Number(formatClientAge(foundClient.dob, "years"));
 
-			return QUESTIONNAIRES.filter(
-				(q) => q.ageRanges.min <= age && q.ageRanges.max >= age,
-			);
+			const types = await ctx.db.query.questionnaireTypes.findMany({
+				orderBy: [asc(questionnaireTypes.name)],
+			});
+
+			if (types.length === 0) {
+				return QUESTIONNAIRES.filter(
+					(q) => q.ageRanges.min <= age && q.ageRanges.max >= age,
+				);
+			}
+
+			return types.filter((t) => t.minAge <= age && t.maxAge >= age);
+		}),
+
+	getAllTypes: protectedProcedure.query(async ({ ctx }) => {
+		return ctx.db.query.questionnaireTypes.findMany({
+			orderBy: [asc(questionnaireTypes.name)],
+		});
+	}),
+
+	createType: protectedProcedure
+		.input(questionnaireTypeInputSchema)
+		.mutation(async ({ ctx, input }) => {
+			assertPermission(ctx.session.user, "settings:questionnaireRules");
+			ctx.logger.info(input, "Creating questionnaire type");
+			return ctx.db.insert(questionnaireTypes).values(input);
+		}),
+
+	updateType: protectedProcedure
+		.input(z.object({ id: z.number() }).merge(questionnaireTypeInputSchema))
+		.mutation(async ({ ctx, input }) => {
+			assertPermission(ctx.session.user, "settings:questionnaireRules");
+			ctx.logger.info(input, "Updating questionnaire type");
+			const { id, ...data } = input;
+			await ctx.db
+				.update(questionnaireTypes)
+				.set(data)
+				.where(eq(questionnaireTypes.id, id));
+		}),
+
+	deleteType: protectedProcedure
+		.input(z.object({ id: z.number() }))
+		.mutation(async ({ ctx, input }) => {
+			assertPermission(ctx.session.user, "settings:questionnaireRules");
+			ctx.logger.info(input, "Deleting questionnaire type");
+			await ctx.db
+				.delete(questionnaireTypes)
+				.where(eq(questionnaireTypes.id, input.id));
+		}),
+
+	getAllRules: protectedProcedure.query(async ({ ctx }) => {
+		return ctx.db.query.questionnaireRules.findMany({
+			orderBy: [
+				asc(questionnaireRules.daeval),
+				asc(questionnaireRules.diagnosis),
+				asc(questionnaireRules.minAge),
+			],
+		});
+	}),
+
+	createRule: protectedProcedure
+		.input(questionnaireRuleInputSchema)
+		.mutation(async ({ ctx, input }) => {
+			assertPermission(ctx.session.user, "settings:questionnaireRules");
+			ctx.logger.info(input, "Creating questionnaire rule");
+			return ctx.db.insert(questionnaireRules).values(input);
+		}),
+
+	updateRule: protectedProcedure
+		.input(z.object({ id: z.number() }).merge(questionnaireRuleInputSchema))
+		.mutation(async ({ ctx, input }) => {
+			assertPermission(ctx.session.user, "settings:questionnaireRules");
+			ctx.logger.info(input, "Updating questionnaire rule");
+			const { id, ...data } = input;
+			await ctx.db
+				.update(questionnaireRules)
+				.set(data)
+				.where(eq(questionnaireRules.id, id));
+		}),
+
+	deleteRule: protectedProcedure
+		.input(z.object({ id: z.number() }))
+		.mutation(async ({ ctx, input }) => {
+			assertPermission(ctx.session.user, "settings:questionnaireRules");
+			ctx.logger.info(input, "Deleting questionnaire rule");
+			await ctx.db
+				.delete(questionnaireRules)
+				.where(eq(questionnaireRules.id, input.id));
 		}),
 
 	getSentQuestionnaires: protectedProcedure

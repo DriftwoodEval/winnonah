@@ -451,6 +451,23 @@ export const appointments = createTable("appointment", (d) => ({
 	calendarEventTitle: d.varchar({ length: 255 }),
 }));
 
+export const questionnaireTypes = createTable("questionnaire_type", (d) => ({
+	id: d.int().notNull().autoincrement().primaryKey(),
+	name: d.varchar({ length: 255 }).notNull().unique(),
+	site: d.varchar({ length: 255 }).notNull(),
+	minAge: d.int().notNull(),
+	maxAge: d.int().notNull(),
+}));
+
+export const questionnaireRules = createTable("questionnaire_rule", (d) => ({
+	id: d.int().notNull().autoincrement().primaryKey(),
+	daeval: d.mysqlEnum("daeval", ["DA", "EVAL", "DAEVAL"]).notNull(),
+	diagnosis: d.mysqlEnum("diagnosis", ["ASD", "ADHD"]),
+	minAge: d.int().notNull(),
+	maxAge: d.int().notNull(),
+	questionnaires: d.json("questionnaires").$type<string[]>().notNull(),
+}));
+
 export const questionnaires = createTable(
 	"questionnaire",
 	(d) => ({
