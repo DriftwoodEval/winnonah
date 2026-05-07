@@ -1,4 +1,5 @@
 import type {
+	assessmentTypes,
 	clients,
 	evaluators,
 	failures,
@@ -6,7 +7,6 @@ import type {
 	invitations,
 	offices,
 	questionnaires,
-	questionnaireTypes,
 	schoolDistricts,
 	users,
 	zipCodes,
@@ -52,4 +52,4 @@ export interface Evaluator extends EvaluatorSchema {
 	insurances: Insurance[];
 }
 
-export type QuestionnaireType = typeof questionnaireTypes.$inferSelect;
+export type AssessmentType = typeof assessmentTypes.$inferSelect;

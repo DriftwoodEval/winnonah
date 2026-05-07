@@ -11,13 +11,13 @@ import {
 import { Checkbox } from "@ui/checkbox";
 import { Skeleton } from "@ui/skeleton";
 import { useEffect, useState } from "react";
-import type { QuestionnaireType } from "~/lib/models";
+import type { AssessmentType } from "~/lib/models";
 import { api } from "~/trpc/react";
 import { TestUnitManager } from "./TestUnitsForm";
 
 const STORAGE_KEY = "calculator-selected-tests";
 
-type TestUnitWithSelected = QuestionnaireType & {
+type TestUnitWithSelected = AssessmentType & {
 	selected: boolean;
 };
 

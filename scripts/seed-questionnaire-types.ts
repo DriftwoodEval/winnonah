@@ -1,7 +1,7 @@
 import { db } from "../src/server/db";
-import { questionnaireTypes } from "../src/server/db/schema";
+import { assessmentTypes } from "../src/server/db/schema";
 
-const types: (typeof questionnaireTypes.$inferInsert)[] = [
+const types: (typeof assessmentTypes.$inferInsert)[] = [
 	{ name: "DP-4", site: "WPS", minAge: 0, maxAge: 22 },
 	{ name: "BASC Preschool", site: "QGlobal", minAge: 0, maxAge: 5 },
 	{ name: "BASC Child", site: "QGlobal", minAge: 6, maxAge: 11 },
@@ -23,13 +23,13 @@ const types: (typeof questionnaireTypes.$inferInsert)[] = [
 async function seed() {
 	console.log("Seeding questionnaire types...");
 
-	const existing = await db.query.questionnaireTypes.findMany();
+	const existing = await db.query.assessmentTypes.findMany();
 	if (existing.length > 0) {
 		console.log(`Skipping: ${existing.length} types already exist.`);
 		return;
 	}
 
-	await db.insert(questionnaireTypes).values(types);
+	await db.insert(assessmentTypes).values(types);
 	console.log(`Inserted ${types.length} questionnaire types.`);
 }
 

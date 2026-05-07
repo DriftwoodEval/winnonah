@@ -25,10 +25,10 @@ import {
 	protectedProcedure,
 } from "~/server/api/trpc";
 import {
+	assessmentTypes,
 	clients,
 	questionnaireRules,
 	questionnaires,
-	questionnaireTypes,
 } from "~/server/db/schema";
 
 interface QuestionnaireDetails {
@@ -167,6 +167,7 @@ const questionnaireTypeInputSchema = z.object({
 	minAge: z.number().int().min(0),
 	maxAge: z.number().int().min(0),
 	minutes: z.number().int().min(1).nullable().optional(),
+	inPerson: z.boolean().optional().default(false),
 });
 
 const questionnaireRuleInputSchema = z.object({
@@ -198,8 +199,9 @@ export const questionnaireRouter = createTRPCRouter({
 
 			const age = Number(formatClientAge(foundClient.dob, "years"));
 
-			const types = await ctx.db.query.questionnaireTypes.findMany({
-				orderBy: [asc(questionnaireTypes.name)],
+			const types = await ctx.db.query.assessmentTypes.findMany({
+				orderBy: [asc(assessmentTypes.name)],
+				where: eq(assessmentTypes.inPerson, false),
 			});
 
 			if (types.length === 0) {
@@ -212,8 +214,8 @@ export const questionnaireRouter = createTRPCRouter({
 		}),
 
 	getAllTypes: protectedProcedure.query(async ({ ctx }) => {
-		return ctx.db.query.questionnaireTypes.findMany({
-			orderBy: [asc(questionnaireTypes.name)],
+		return ctx.db.query.assessmentTypes.findMany({
+			orderBy: [asc(assessmentTypes.name)],
 		});
 	}),
 
@@ -222,7 +224,7 @@ export const questionnaireRouter = createTRPCRouter({
 		.mutation(async ({ ctx, input }) => {
 			assertPermission(ctx.session.user, "settings:questionnaireRules");
 			ctx.logger.info(input, "Creating questionnaire type");
-			return ctx.db.insert(questionnaireTypes).values(input);
+			return ctx.db.insert(assessmentTypes).values(input);
 		}),
 
 	updateType: protectedProcedure
@@ -232,9 +234,9 @@ export const questionnaireRouter = createTRPCRouter({
 			ctx.logger.info(input, "Updating questionnaire type");
 			const { id, ...data } = input;
 			await ctx.db
-				.update(questionnaireTypes)
+				.update(assessmentTypes)
 				.set(data)
-				.where(eq(questionnaireTypes.id, id));
+				.where(eq(assessmentTypes.id, id));
 		}),
 
 	deleteType: protectedProcedure
@@ -243,8 +245,8 @@ export const questionnaireRouter = createTRPCRouter({
 			assertPermission(ctx.session.user, "settings:questionnaireRules");
 			ctx.logger.info(input, "Deleting questionnaire type");
 			await ctx.db
-				.delete(questionnaireTypes)
-				.where(eq(questionnaireTypes.id, input.id));
+				.delete(assessmentTypes)
+				.where(eq(assessmentTypes.id, input.id));
 		}),
 
 	getAllRules: protectedProcedure.query(async ({ ctx }) => {

@@ -16,7 +16,7 @@ import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 import z from "zod";
-import type { QuestionnaireType } from "~/lib/models";
+import type { AssessmentType } from "~/lib/models";
 import { api } from "~/trpc/react";
 import { ResponsiveDialog } from "../shared/ResponsiveDialog";
 
@@ -28,7 +28,7 @@ const testUnitSchema = z.object({
 type TestUnitFormValues = z.infer<typeof testUnitSchema>;
 
 interface TestUnitEditorProps {
-	unit?: QuestionnaireType | null;
+	unit?: AssessmentType | null;
 	open: boolean;
 	onOpenChange: (open: boolean) => void;
 }
@@ -152,9 +152,7 @@ export function TestUnitEditor({
 export function TestUnitManager() {
 	const [managerOpen, setManagerOpen] = useState(false);
 	const [editorOpen, setEditorOpen] = useState(false);
-	const [selectedUnit, setSelectedUnit] = useState<QuestionnaireType | null>(
-		null,
-	);
+	const [selectedUnit, setSelectedUnit] = useState<AssessmentType | null>(null);
 
 	const { data: units } = api.questionnaires.getAllTypes.useQuery();
 	const timedUnits = units?.filter((u) => u.minutes != null) ?? [];

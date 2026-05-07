@@ -451,13 +451,14 @@ export const appointments = createTable("appointment", (d) => ({
 	calendarEventTitle: d.varchar({ length: 255 }),
 }));
 
-export const questionnaireTypes = createTable("questionnaire_type", (d) => ({
+export const assessmentTypes = createTable("assessment_type", (d) => ({
 	id: d.int().notNull().autoincrement().primaryKey(),
 	name: d.varchar({ length: 255 }).notNull().unique(),
 	site: d.varchar({ length: 255 }).notNull(),
 	minAge: d.int().notNull(),
 	maxAge: d.int().notNull(),
 	minutes: d.int(),
+	inPerson: d.boolean("in_person").notNull().default(false),
 }));
 
 export const questionnaireRules = createTable("questionnaire_rule", (d) => ({

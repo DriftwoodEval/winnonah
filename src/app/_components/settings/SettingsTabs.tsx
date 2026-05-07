@@ -1,11 +1,11 @@
 "use client";
 
 import AppointmentsSyncSettings from "@components/settings/AppointmentsSyncSettings";
+import AssessmentTypesTable from "@components/settings/AssessmentTypesTable";
 import EvaluatorsTable from "@components/settings/EvaluatorsTable";
 import InsurancesTable from "@components/settings/InsurancesTable";
 import InvitesTable from "@components/settings/InvitesTable";
 import QuestionnaireRulesTable from "@components/settings/QuestionnaireRulesTable";
-import QuestionnaireTypesTable from "@components/settings/QuestionnaireTypesTable";
 import UsersTable from "@components/settings/UsersTable";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@ui/tabs";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
@@ -36,9 +36,7 @@ export function SettingsTabs() {
 					<TabsTrigger value="users">Users</TabsTrigger>
 					<TabsTrigger value="evaluators">Evaluators</TabsTrigger>
 					<TabsTrigger value="insurances">Insurances</TabsTrigger>
-					<TabsTrigger value="questionnaire-rules">
-						Questionnaire Rules
-					</TabsTrigger>
+					<TabsTrigger value="assessment-config">Assessment Config</TabsTrigger>
 					<TabsTrigger value="appointments-sync">Appointments Sync</TabsTrigger>
 					{canDownloadBilling && (
 						<TabsTrigger value="downloads">Downloads</TabsTrigger>
@@ -56,9 +54,9 @@ export function SettingsTabs() {
 				<TabsContent value="insurances">
 					<InsurancesTable />
 				</TabsContent>
-				<TabsContent value="questionnaire-rules">
+				<TabsContent value="assessment-config">
 					<div className="flex flex-col gap-8">
-						<QuestionnaireTypesTable />
+						<AssessmentTypesTable />
 						<QuestionnaireRulesTable />
 					</div>
 				</TabsContent>
