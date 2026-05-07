@@ -598,12 +598,8 @@ export async function createAvailabilityEvent(
 		event.start.date = formatDate(eventData.start);
 		event.end.date = formatDate(eventData.end);
 	} else {
-		event.start.dateTime = eventData.isRecurring
-			? formatDateTime(eventData.start)
-			: eventData.start.toISOString();
-		event.end.dateTime = eventData.isRecurring
-			? formatDateTime(eventData.end)
-			: eventData.end.toISOString();
+		event.start.dateTime = formatDateTime(eventData.start);
+		event.end.dateTime = formatDateTime(eventData.end);
 	}
 
 	if (eventData.isUnavailability) {
@@ -835,9 +831,7 @@ export async function updateAvailabilityEvent(
 					timeZone: "America/New_York",
 				}
 			: {
-					dateTime: eventData.isRecurring
-						? formatDateTime(eventData.start)
-						: eventData.start.toISOString(),
+					dateTime: formatDateTime(eventData.start),
 					timeZone: "America/New_York",
 				},
 		end: eventData.isAllDay
@@ -846,9 +840,7 @@ export async function updateAvailabilityEvent(
 					timeZone: "America/New_York",
 				}
 			: {
-					dateTime: eventData.isRecurring
-						? formatDateTime(eventData.end)
-						: eventData.end.toISOString(),
+					dateTime: formatDateTime(eventData.end),
 					timeZone: "America/New_York",
 				},
 	};
