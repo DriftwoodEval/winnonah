@@ -25,8 +25,8 @@ export function AdditionalInsuranceAppointmentsDisplay({
 	}
 
 	return (
-		<div className="w-full rounded-md border shadow">
-			<div className="flex w-full items-center justify-between bg-background px-4 pt-4">
+		<div className="w-full rounded-md border bg-card text-card-foreground shadow">
+			<div className="flex w-full items-center justify-between px-4 pt-4">
 				<h4 className="top-0 h-full font-bold leading-none">
 					Additional Insurance Appointments
 				</h4>
@@ -42,7 +42,7 @@ export function AdditionalInsuranceAppointmentsDisplay({
 				<div className="space-y-6">
 					{displayData.appointments.map((appt, apptIndex) => (
 						<div
-							className="space-y-4 rounded-md border bg-card p-4"
+							className="space-y-4 rounded-md border bg-background p-4 text-foreground"
 							// biome-ignore lint/suspicious/noArrayIndexKey: This component is read-only
 							key={apptIndex}
 						>
