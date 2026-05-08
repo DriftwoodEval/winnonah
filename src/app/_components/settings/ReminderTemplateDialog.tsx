@@ -103,6 +103,22 @@ export function ReminderTemplateDialog({
 			toast.error(`Error: ${error.message}`);
 		},
 	});
+	const deleteTemplate = api.reminders.deleteTemplate.useMutation({
+		onSuccess: () => {
+			toast.success("Template deleted");
+			void utils.reminders.getTemplates.invalidate();
+			onClose();
+		},
+		onError: (error) => {
+			toast.error(`Error: ${error.message}`);
+		},
+	});
+
+	const messageTemplate = form.watch("messageTemplate");
+	const messagePreview = messageTemplate
+		?.replace(/\{startTime\}/g, "9:00 AM")
+		?.replace(/\{date\}/g, "May 8, 20XX");
+
 	function onSubmit(values: ReminderTemplateFormValues) {
 		const isFollowUp = values.isNoReplyFollowUp || values.isConfirmedFollowUp;
 		upsertTemplate.mutate({
@@ -270,9 +286,14 @@ export function ReminderTemplateDialog({
 											{...field}
 										/>
 									</FormControl>
-									<p className="text-[10px] text-muted-foreground uppercase tracking-wider">
+									<p className="text-[10px] text-muted-foreground">
 										Available: {"{startTime}, {date}"}
 									</p>
+									{messagePreview && (
+										<div className="whitespace-pre-wrap rounded-md bg-muted p-3 font-mono text-muted-foreground text-sm">
+											{messagePreview}
+										</div>
+									)}
 									<FormMessage />
 								</FormItem>
 							)}
@@ -287,12 +308,12 @@ export function ReminderTemplateDialog({
 									<FormControl>
 										<Textarea
 											className="min-h-[120px] font-mono"
-											placeholder="Hello, we haven't heard from you..."
+											placeholder="Thank you for confirming..."
 											{...field}
 											value={field.value ?? ""}
 										/>
 									</FormControl>
-									<p className="text-[10px] text-muted-foreground uppercase tracking-wider">
+									<p className="text-[10px] text-muted-foreground">
 										Available: {"{startTime}, {date}"}
 									</p>
 									<FormMessage />
@@ -390,6 +411,25 @@ export function ReminderTemplateDialog({
 								Cancel
 							</Button>
 						</div>
+						{isEditing && initialData?.id && (
+							<Button
+								className="w-full"
+								disabled={deleteTemplate.isPending}
+								onClick={() => {
+									if (
+										window.confirm(
+											"Delete this template? This cannot be undone.",
+										)
+									) {
+										deleteTemplate.mutate({ id: initialData.id });
+									}
+								}}
+								type="button"
+								variant="destructive"
+							>
+								{deleteTemplate.isPending ? "Deleting..." : "Delete Template"}
+							</Button>
+						)}
 					</form>
 				</Form>
 			</DialogContent>

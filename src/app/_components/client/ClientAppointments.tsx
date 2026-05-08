@@ -1,19 +1,40 @@
 "use client";
 
 import { Badge } from "@ui/badge";
+import { Button } from "@ui/button";
+import {
+	DropdownMenu,
+	DropdownMenuContent,
+	DropdownMenuItem,
+	DropdownMenuSeparator,
+	DropdownMenuTrigger,
+} from "@ui/dropdown-menu";
 import { ScrollArea } from "@ui/scroll-area";
 import { Separator } from "@ui/separator";
 import { Skeleton } from "@ui/skeleton";
 import { format } from "date-fns";
-import { CalendarIcon, Clock, MapPin, User } from "lucide-react";
+import {
+	Bell,
+	CalendarIcon,
+	Clock,
+	MapPin,
+	MoreHorizontal,
+	User,
+} from "lucide-react";
 import { getLocalTimeFromUTCDate } from "~/lib/utils";
 import { api } from "~/trpc/react";
 
 export function ClientAppointments({ clientId }: { clientId: number }) {
+	const utils = api.useUtils();
 	const { data: appointments, isLoading } =
 		api.appointments.getByClientId.useQuery({
 			clientId,
 		});
+
+	const updateStatus = api.appointments.updateStatus.useMutation({
+		onSuccess: () =>
+			void utils.appointments.getByClientId.invalidate({ clientId }),
+	});
 
 	if (isLoading) return <Skeleton className="h-64 w-full rounded-md" />;
 	if (!appointments?.length) return null;
@@ -34,7 +55,8 @@ export function ClientAppointments({ clientId }: { clientId: number }) {
 						const endTime = getLocalTimeFromUTCDate(appt.endTime);
 						if (!startTime || !endTime) return null;
 
-						const isDimmed = appt.cancelled || appt.placeholder;
+						const isSuppressed = appt.cancelled || appt.rescheduled;
+						const isDimmed = isSuppressed || appt.placeholder;
 
 						return (
 							<div key={appt.id}>
@@ -59,19 +81,128 @@ export function ClientAppointments({ clientId }: { clientId: number }) {
 														Cancelled
 													</Badge>
 												)}
+												{appt.rescheduled && (
+													<Badge
+														className="h-4 px-1 text-[9px] uppercase"
+														variant="outline"
+													>
+														Rescheduled
+													</Badge>
+												)}
 												{appt.placeholder && (
 													<Badge
 														className="h-4 px-1 text-[9px] uppercase"
 														variant="secondary"
 													>
-														Placceholder
+														Placeholder
+													</Badge>
+												)}
+												{appt.reminderCount > 0 && (
+													<Badge
+														className="h-4 px-1 text-[9px] uppercase"
+														variant="secondary"
+													>
+														<Bell className="mr-0.5 h-2.5 w-2.5" />
+														{appt.reminderCount}
 													</Badge>
 												)}
 											</div>
 										</div>
-										<div className="flex items-center gap-1 text-muted-foreground text-sm">
-											<Clock className="h-3 w-3" />
-											{format(startTime, "p")} - {format(endTime, "p")}
+										<div className="flex items-center gap-1">
+											<div className="flex items-center gap-1 text-muted-foreground text-sm">
+												<Clock className="h-3 w-3" />
+												{format(startTime, "p")} - {format(endTime, "p")}
+											</div>
+											<DropdownMenu>
+												<DropdownMenuTrigger asChild>
+													<Button
+														className="h-6 w-6"
+														size="icon"
+														variant="ghost"
+													>
+														<MoreHorizontal className="h-3.5 w-3.5" />
+													</Button>
+												</DropdownMenuTrigger>
+												<DropdownMenuContent align="end">
+													{appt.confirmedAt ? (
+														<DropdownMenuItem
+															onClick={() =>
+																updateStatus.mutate({
+																	id: appt.id,
+																	confirmedAt: null,
+																})
+															}
+														>
+															Remove Confirmation
+														</DropdownMenuItem>
+													) : (
+														<DropdownMenuItem
+															onClick={() =>
+																updateStatus.mutate({
+																	id: appt.id,
+																	confirmedAt: new Date(),
+																	cancelled: false,
+																	rescheduled: false,
+																})
+															}
+														>
+															Mark Confirmed
+														</DropdownMenuItem>
+													)}
+													<DropdownMenuSeparator />
+													{appt.cancelled ? (
+														<DropdownMenuItem
+															onClick={() =>
+																updateStatus.mutate({
+																	id: appt.id,
+																	cancelled: false,
+																})
+															}
+														>
+															Unmark Cancelled
+														</DropdownMenuItem>
+													) : (
+														<DropdownMenuItem
+															className="text-destructive"
+															onClick={() =>
+																updateStatus.mutate({
+																	id: appt.id,
+																	confirmedAt: null,
+																	cancelled: true,
+																	rescheduled: false,
+																})
+															}
+														>
+															Mark Cancelled
+														</DropdownMenuItem>
+													)}
+													{appt.rescheduled ? (
+														<DropdownMenuItem
+															onClick={() =>
+																updateStatus.mutate({
+																	id: appt.id,
+																	rescheduled: false,
+																})
+															}
+														>
+															Unmark Rescheduled
+														</DropdownMenuItem>
+													) : (
+														<DropdownMenuItem
+															onClick={() =>
+																updateStatus.mutate({
+																	id: appt.id,
+																	confirmedAt: null,
+																	cancelled: false,
+																	rescheduled: true,
+																})
+															}
+														>
+															Mark Rescheduled
+														</DropdownMenuItem>
+													)}
+												</DropdownMenuContent>
+											</DropdownMenu>
 										</div>
 									</div>
 
@@ -95,6 +226,12 @@ export function ClientAppointments({ clientId }: { clientId: number }) {
 
 											{appt.cpt && <span>CPT: {appt.cpt}</span>}
 										</div>
+
+										{isSuppressed && (
+											<p className="text-[10px] text-muted-foreground uppercase tracking-wider">
+												No further reminders
+											</p>
+										)}
 									</div>
 								</div>
 								{index !== appointments.length - 1 && <Separator />}

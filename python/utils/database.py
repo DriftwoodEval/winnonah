@@ -365,12 +365,13 @@ def put_appointment_in_db(
             endTime = VALUES(endTime),
             daEval = CASE WHEN VALUES(daEval) IS NOT NULL THEN VALUES(daEval) ELSE daEval END,
             asdAdhd = CASE WHEN VALUES(asdAdhd) IS NOT NULL THEN VALUES(asdAdhd) ELSE asdAdhd END,
-            cancelled = VALUES(cancelled),
+            cancelled = CASE WHEN startTime != VALUES(startTime) THEN 0 ELSE VALUES(cancelled) END,
+            rescheduled = CASE WHEN startTime != VALUES(startTime) THEN 0 ELSE rescheduled END,
             locationKey = CASE WHEN VALUES(locationKey) IS NOT NULL THEN VALUES(locationKey) ELSE locationKey END,
             calendarEventId = CASE WHEN VALUES(calendarEventId) IS NOT NULL THEN VALUES(calendarEventId) ELSE calendarEventId END,
             cpt = VALUES(cpt),
             calendarEventTitle = CASE WHEN VALUES(calendarEventTitle) IS NOT NULL THEN VALUES(calendarEventTitle) ELSE calendarEventTitle END,
-            confirmedAt = CASE WHEN VALUES(confirmedAt) IS NOT NULL THEN VALUES(confirmedAt) ELSE confirmedAt END;
+            confirmedAt = CASE WHEN startTime != VALUES(startTime) THEN NULL WHEN VALUES(confirmedAt) IS NOT NULL THEN VALUES(confirmedAt) ELSE confirmedAt END;
     """
     params = (
         appointment_id,
