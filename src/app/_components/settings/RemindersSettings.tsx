@@ -11,6 +11,16 @@ import {
 import { Input } from "@ui/input";
 import { Label } from "@ui/label";
 import { Switch } from "@ui/switch";
+import {
+	Table,
+	TableBody,
+	TableCell,
+	TableHead,
+	TableHeader,
+	TableRow,
+} from "@ui/table";
+import { format, formatDistanceToNow } from "date-fns";
+import Link from "next/link";
 import { useState } from "react";
 import { toast } from "sonner";
 import { api, type RouterOutputs } from "~/trpc/react";
@@ -26,6 +36,10 @@ export default function ReminderSettings() {
 
 	const { data: settings } = api.reminders.getSettings.useQuery();
 	const { data: templates } = api.reminders.getTemplates.useQuery();
+	const { data: logs } = api.reminders.getLogs.useQuery({
+		limit: 50,
+		offset: 0,
+	});
 
 	const updateSettings = api.reminders.updateSettings.useMutation({
 		onSuccess: () => {
@@ -155,6 +169,57 @@ export default function ReminderSettings() {
 					setSelectedTemplate(null);
 				}}
 			/>
+
+			<Card>
+				<CardHeader>
+					<CardTitle>Reminder History</CardTitle>
+					<CardDescription>The 50 most recent reminders sent.</CardDescription>
+				</CardHeader>
+				<CardContent>
+					{!logs?.length ? (
+						<p className="text-muted-foreground text-sm">
+							No reminders sent yet.
+						</p>
+					) : (
+						<Table>
+							<TableHeader>
+								<TableRow>
+									<TableHead>Sent</TableHead>
+									<TableHead>Client</TableHead>
+									<TableHead>Appointment</TableHead>
+									<TableHead>Template</TableHead>
+								</TableRow>
+							</TableHeader>
+							<TableBody>
+								{logs.map((log) => (
+									<TableRow key={log.id}>
+										<TableCell
+											className="whitespace-nowrap text-muted-foreground text-xs"
+											title={format(log.sentAt, "PPpp")}
+										>
+											{formatDistanceToNow(log.sentAt, { addSuffix: true })}
+										</TableCell>
+										<TableCell>
+											<Link
+												className="hover:underline"
+												href={`/clients/${log.clientHash}`}
+											>
+												{log.clientFirstName} {log.clientLastName}
+											</Link>
+										</TableCell>
+										<TableCell className="whitespace-nowrap text-xs">
+											{format(log.appointmentStart, "MMM d, yyyy p")}
+										</TableCell>
+										<TableCell className="text-xs">
+											{log.templateName}
+										</TableCell>
+									</TableRow>
+								))}
+							</TableBody>
+						</Table>
+					)}
+				</CardContent>
+			</Card>
 		</div>
 	);
 }

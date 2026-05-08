@@ -448,6 +448,7 @@ export const appointments = createTable("appointment", (d) => ({
 	daEval: d.mysqlEnum(["EVAL", "DA", "DAEVAL"]),
 	asdAdhd: d.mysqlEnum(["ASD", "ADHD", "ASD+ADHD", "ASD+LD", "ADHD+LD", "LD"]),
 	cancelled: d.boolean().notNull().default(false),
+	rescheduled: d.boolean().notNull().default(false),
 	placeholder: d.boolean().notNull().default(false),
 	locationKey: d.varchar({ length: 255 }),
 	calendarEventId: d.varchar({ length: 255 }),

@@ -126,6 +126,7 @@ def process_reminders(connection: Connection[DictCursor]) -> None:
                     AND a.confirmedAt IS NULL
                     AND l_prev.id IS NOT NULL
                     AND a.cancelled = 0
+                    AND a.rescheduled = 0
                     AND a.placeholder = 0
                     AND a.startTime <= %s
                     AND a.startTime >= NOW()
@@ -148,6 +149,7 @@ def process_reminders(connection: Connection[DictCursor]) -> None:
                     WHERE l_this.id IS NULL
                     AND a.confirmedAt IS NOT NULL
                     AND a.cancelled = 0
+                    AND a.rescheduled = 0
                     AND a.placeholder = 0
                     AND a.startTime <= %s
                     AND a.startTime >= NOW()
@@ -168,6 +170,7 @@ def process_reminders(connection: Connection[DictCursor]) -> None:
                     WHERE l.id IS NULL
                     AND a.confirmedAt IS NULL
                     AND a.cancelled = 0
+                    AND a.rescheduled = 0
                     AND a.placeholder = 0
                     AND (
                         (%s IS NOT NULL AND a.calendarEventTitle LIKE %s)
@@ -285,6 +288,8 @@ def handle_incoming_reply(
             JOIN {TABLE_APPOINTMENT_REMINDER_TEMPLATES} t ON l.reminderTemplateId = t.id
             WHERE c.phoneNumber = %s
             AND a.confirmedAt IS NULL
+            AND a.cancelled = 0
+            AND a.rescheduled = 0
             AND a.startTime > NOW()
             ORDER BY l.sentAt DESC
             LIMIT 1
@@ -316,10 +321,18 @@ def handle_incoming_reply(
             logger.info(
                 f"Reschedule request received for appointment {context['appointment_id']}"
             )
+            cursor.execute(
+                f"UPDATE {TABLE_APPOINTMENT} SET rescheduled = 1 WHERE id = %s",
+                (context["appointment_id"],),
+            )
             gcal_tag = "[RESCHEDULE REQUESTED]"
         elif is_rejection(incoming_text):
             logger.info(
                 f"Rejection received for appointment {context['appointment_id']}"
+            )
+            cursor.execute(
+                f"UPDATE {TABLE_APPOINTMENT} SET cancelled = 1 WHERE id = %s",
+                (context["appointment_id"],),
             )
             gcal_tag = "[DECLINED]"
         else:
@@ -381,6 +394,7 @@ async def send_sms(to: str, body: str):
                 "content": body,
                 "from": settings.openphone_number_id,
                 "to": [to],
+                "setInboxStatus": "done",
             },
         )
         response.raise_for_status()
