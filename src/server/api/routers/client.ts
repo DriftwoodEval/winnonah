@@ -5,7 +5,6 @@ import { subBusinessDays, subMonths, subYears } from "date-fns";
 import {
 	and,
 	asc,
-	desc,
 	eq,
 	getTableColumns,
 	gt,
@@ -508,7 +507,7 @@ export const clientRouter = createTRPCRouter({
 	getNoteOnlyClients: protectedProcedure.query(async ({ ctx }) => {
 		const noteOnlyClients = await ctx.db.query.clients.findMany({
 			where: and(isNoteOnly, eq(clients.status, true)),
-			orderBy: desc(clients.addedDate),
+			orderBy: asc(clients.addedDate),
 		});
 
 		return noteOnlyClients;
@@ -667,7 +666,7 @@ export const clientRouter = createTRPCRouter({
 				eq(clients.status, true),
 				sql`JSON_EXTRACT(${clients.referralData}, '$.needsReachOut') = 'reach_out'`,
 			),
-			orderBy: desc(clients.addedDate),
+			orderBy: asc(clients.addedDate),
 		});
 
 		return results;
@@ -679,7 +678,7 @@ export const clientRouter = createTRPCRouter({
 				eq(clients.status, true),
 				sql`JSON_EXTRACT(${clients.referralData}, '$.needsReachOut') = 'review'`,
 			),
-			orderBy: desc(clients.addedDate),
+			orderBy: asc(clients.addedDate),
 		});
 
 		return results;
