@@ -26,6 +26,7 @@ import {
 import {
 	assessmentTypes,
 	clients,
+	inPersonAssessments,
 	questionnaireRules,
 	questionnaires,
 } from "~/server/db/schema";
@@ -690,5 +691,54 @@ export const questionnaireRouter = createTRPCRouter({
 			const filename = path.basename(latestPath);
 
 			return { url: `/api/screenshots/${filename}` };
+		}),
+
+	getInPersonAssessments: protectedProcedure
+		.input(z.number())
+		.query(async ({ ctx, input }) => {
+			return ctx.db.query.inPersonAssessments.findMany({
+				where: eq(inPersonAssessments.clientId, input),
+				orderBy: [asc(inPersonAssessments.assessmentType)],
+			});
+		}),
+
+	addInPersonAssessment: protectedProcedure
+		.input(
+			z.object({
+				clientId: z.number(),
+				assessmentType: z.string().min(1),
+			}),
+		)
+		.mutation(async ({ ctx, input }) => {
+			assertPermission(ctx.session.user, "clients:questionnaires:in-person");
+			await ctx.db.insert(inPersonAssessments).values({
+				clientId: input.clientId,
+				assessmentType: input.assessmentType,
+				addedDate: new Date(),
+			});
+		}),
+
+	updateInPersonAssessmentStatus: protectedProcedure
+		.input(
+			z.object({
+				id: z.number(),
+				status: z.enum(["EXTERNAL"]).nullable(),
+			}),
+		)
+		.mutation(async ({ ctx, input }) => {
+			assertPermission(ctx.session.user, "clients:questionnaires:in-person");
+			await ctx.db
+				.update(inPersonAssessments)
+				.set({ status: input.status })
+				.where(eq(inPersonAssessments.id, input.id));
+		}),
+
+	deleteInPersonAssessment: protectedProcedure
+		.input(z.object({ id: z.number() }))
+		.mutation(async ({ ctx, input }) => {
+			assertPermission(ctx.session.user, "clients:questionnaires:in-person");
+			await ctx.db
+				.delete(inPersonAssessments)
+				.where(eq(inPersonAssessments.id, input.id));
 		}),
 });

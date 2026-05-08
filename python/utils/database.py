@@ -28,9 +28,11 @@ from utils.constants import (
     TABLE_CLIENT_EVAL,
     TABLE_EVALUATOR,
     TABLE_EVALUATORS_TO_INSURANCES,
+    TABLE_IN_PERSON_ASSESSMENT,
     TABLE_INSURANCE,
     TABLE_INSURANCE_ALIAS,
     TABLE_PYTHON_CONFIG,
+    TABLE_QUESTIONNAIRE_RULE,
     TABLE_SCHOOL_DISTRICT,
     TABLE_USER,
 )
@@ -845,3 +847,130 @@ def get_appointments(
     except Exception:
         logger.exception("Failed to fetch appointments and associated client names.")
         return
+
+
+@provide_connection
+def get_client_id_to_dob_map(
+    connection: Connection[DictCursor],
+) -> dict[int, date]:
+    """Returns a dictionary mapping client ID (int) to their date of birth."""
+    try:
+        with connection.cursor() as cursor:
+            cursor.execute(f"SELECT id, dob FROM {TABLE_CLIENT} WHERE dob IS NOT NULL")
+            results = cursor.fetchall()
+            return {row["id"]: row["dob"] for row in results if row["dob"]}
+    except Exception:
+        logger.exception("Error fetching client ID to DOB map")
+        return {}
+
+
+@provide_connection
+def get_questionnaire_rules_with_in_person(
+    connection: Connection[DictCursor],
+) -> list[dict]:
+    """Load assessment battery rules, returning both online and in-person assessments."""
+    import json
+
+    with connection.cursor() as cursor:
+        cursor.execute(
+            f"SELECT daeval, diagnosis, minAge, maxAge, questionnaires, in_person_assessments FROM {TABLE_QUESTIONNAIRE_RULE}"
+        )
+        rows = cursor.fetchall()
+
+    rules = []
+    for row in rows:
+        qs = row["questionnaires"]
+        if isinstance(qs, str):
+            qs = json.loads(qs)
+        ip = row["in_person_assessments"]
+        if isinstance(ip, str):
+            ip = json.loads(ip)
+        rules.append(
+            {
+                "daeval": row["daeval"],
+                "diagnosis": row["diagnosis"],
+                "minAge": row["minAge"],
+                "maxAge": row["maxAge"],
+                "questionnaires": qs or [],
+                "inPersonAssessments": ip or [],
+            }
+        )
+    return rules
+
+
+def get_in_person_assessments_for_client(
+    age: int,
+    asd_adhd: str | None,
+    da_eval: str | None,
+    rules: list[dict],
+) -> list[str]:
+    """Return in-person assessment names for a client based on battery rules.
+
+    Mirrors the online questionnaire lookup but uses the inPersonAssessments field.
+    Returns an empty list if no matching rules found.
+    """
+    if da_eval is None or asd_adhd is None:
+        return []
+
+    check = asd_adhd
+    if check in ("ASD+LD", "Both"):
+        check = "ASD"
+    elif check == "ADHD+LD":
+        check = "ADHD"
+
+    def _lookup(daeval_key: str, diagnosis_key: str | None) -> list[str]:
+        matches = [
+            r
+            for r in rules
+            if r["daeval"] == daeval_key
+            and r["diagnosis"] == diagnosis_key
+            and r["minAge"] <= age <= r["maxAge"]
+        ]
+        result: list[str] = []
+        for m in matches:
+            for a in m["inPersonAssessments"]:
+                if a not in result:
+                    result.append(a)
+        return result
+
+    if check == "ASD+ADHD":
+        asd = _lookup(da_eval, "ASD")
+        adhd = _lookup(da_eval, "ADHD")
+        combined = asd[:]
+        for a in adhd:
+            if a not in combined:
+                combined.append(a)
+        return combined
+
+    diagnosis_key = check if check in ("ASD", "ADHD") else None
+    specific = _lookup(da_eval, diagnosis_key)
+    if specific:
+        return specific
+    return _lookup(da_eval, None)
+
+
+@provide_connection
+def put_in_person_assessments_in_db(
+    client_id: int,
+    assessment_types: list[str],
+    added_date: date,
+    connection: Connection[DictCursor],
+) -> None:
+    """Insert in-person assessments for a client, skipping any that already exist."""
+    if not assessment_types:
+        return
+
+    with connection.cursor() as cursor:
+        for assessment_type in assessment_types:
+            cursor.execute(
+                f"""
+                INSERT IGNORE INTO {TABLE_IN_PERSON_ASSESSMENT}
+                    (clientId, assessmentType, addedDate)
+                VALUES (%s, %s, %s)
+                """,
+                (client_id, assessment_type, added_date),
+            )
+    connection.commit()
+    logger.info(
+        f"Added {len(assessment_types)} in-person assessment(s) for client {client_id}"
+    )

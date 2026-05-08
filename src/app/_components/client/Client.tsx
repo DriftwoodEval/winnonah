@@ -31,6 +31,7 @@ import { ClientHeader } from "./ClientHeader";
 import { ClientNoteEditor } from "./ClientNoteEditor";
 import { CommunicationTimeline } from "./CommunicationTimeline";
 import { EligibleEvaluatorsList } from "./EligibleEvaluatorsList";
+import { InPersonAssessmentsTable } from "./InPersonAssessmentsTable";
 import { MergeRecommendationAlert } from "./MergeRecommendationAlert";
 import { PersistentStatusAlert } from "./PersistentStatusAlert";
 import { QuestionnairesTable } from "./QuestionnairesTable";
@@ -251,6 +252,13 @@ export function Client({
 
 									{!isShellClientId(client.id) && (
 										<QuestionnairesTable
+											clientId={client.id}
+											readOnly={readOnly}
+										/>
+									)}
+
+									{!isShellClientId(client.id) && (
+										<InPersonAssessmentsTable
 											clientId={client.id}
 											readOnly={readOnly}
 										/>

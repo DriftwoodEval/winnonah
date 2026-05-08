@@ -1,3 +1,5 @@
+export const IN_PERSON_ASSESSMENT_STATUSES = ["EXTERNAL"] as const;
+
 export const QUESTIONNAIRE_STATUSES = [
 	"PENDING",
 	"COMPLETED",
@@ -64,6 +66,10 @@ export const PERMISSIONS = {
 					{
 						id: "clients:questionnaires:createbulk",
 						title: "Create Bulk Questionnaires",
+					},
+					{
+						id: "clients:questionnaires:in-person",
+						title: "Add, Remove, and Update In-Person Assessments",
 					},
 				],
 			},

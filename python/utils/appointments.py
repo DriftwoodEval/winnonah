@@ -1,7 +1,7 @@
 import os
 import re
 from collections import defaultdict
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 from typing import Any, Literal
 
 import pandas as pd
@@ -13,9 +13,13 @@ from utils.clients import TEST_NAMES
 from utils.database import (
     get_all_evaluators_npi_map,
     get_client_id_to_asd_adhd_map,
+    get_client_id_to_dob_map,
     get_db,
+    get_in_person_assessments_for_client,
     get_npi_to_name_map,
+    get_questionnaire_rules_with_in_person,
     put_appointment_in_db,
+    put_in_person_assessments_in_db,
 )
 from utils.google import google_authenticate, send_gmail
 
@@ -483,6 +487,8 @@ def insert_appointments_with_gcal(appointment_sync_data: dict[str, list[str]] | 
     logger.info(f"Inserting {len(appointments_df)} appointments into database...")
     npi_cache = get_all_evaluators_npi_map()
     asd_adhd_map = get_client_id_to_asd_adhd_map()
+    dob_map = get_client_id_to_dob_map()
+    battery_rules = get_questionnaire_rules_with_in_person()
 
     for _, appointment in appointments_df.iterrows():
         appointment_id = str(appointment["APPOINTMENT_ID"])
@@ -550,6 +556,28 @@ def insert_appointments_with_gcal(appointment_sync_data: dict[str, list[str]] | 
             gcal_event_id=gcal_event_id,
             gcal_event_title=gcal_event_title,
         )
+
+        if not cancelled and gcal_daeval and battery_rules:
+            client_dob = dob_map.get(client_id)
+            if client_dob:
+                appt_date = (
+                    start_time.date()
+                    if isinstance(start_time, datetime)
+                    else start_time
+                )
+                age = (appt_date - client_dob).days // 365
+                in_person = get_in_person_assessments_for_client(
+                    age=age,
+                    asd_adhd=asd_adhd_map.get(client_id),
+                    da_eval=gcal_daeval,
+                    rules=battery_rules,
+                )
+                if in_person:
+                    put_in_person_assessments_in_db(
+                        client_id=client_id,
+                        assessment_types=in_person,
+                        added_date=appt_date,
+                    )
 
     reporter.send_report(email_for_errors)
 

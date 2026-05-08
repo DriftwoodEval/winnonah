@@ -8,7 +8,10 @@ import {
 import type { AdapterAccount } from "next-auth/adapters";
 import type z from "zod";
 import { CLIENT_COLOR_KEYS } from "~/lib/colors";
-import { QUESTIONNAIRE_STATUSES } from "~/lib/constants";
+import {
+	IN_PERSON_ASSESSMENT_STATUSES,
+	QUESTIONNAIRE_STATUSES,
+} from "~/lib/constants";
 import type { PermissionsObject } from "~/lib/types";
 import type {
 	AdditionalInsuranceAppointments,
@@ -493,6 +496,25 @@ export const questionnaires = createTable(
 	(t) => [index("questionnaire_client_idx").on(t.clientId)],
 );
 
+export const inPersonAssessments = createTable(
+	"in_person_assessment",
+	(d) => ({
+		id: d.int().notNull().autoincrement().primaryKey(),
+		clientId: d
+			.int()
+			.notNull()
+			.references(() => clients.id, { onDelete: "cascade" }),
+		assessmentType: d.varchar({ length: 255 }).notNull(),
+		status: d.mysqlEnum(IN_PERSON_ASSESSMENT_STATUSES),
+		addedDate: d.date(),
+		updatedAt: d
+			.timestamp("updated_at")
+			.onUpdateNow()
+			.default(sql`CURRENT_TIMESTAMP`),
+	}),
+	(t) => [index("in_person_assessment_client_idx").on(t.clientId)],
+);
+
 export const failures = createTable(
 	"failure",
 	(d) => ({
@@ -545,6 +567,16 @@ export const questionnaireRelations = relations(questionnaires, ({ one }) => ({
 		references: [clients.id],
 	}),
 }));
+
+export const inPersonAssessmentRelations = relations(
+	inPersonAssessments,
+	({ one }) => ({
+		client: one(clients, {
+			fields: [inPersonAssessments.clientId],
+			references: [clients.id],
+		}),
+	}),
+);
 
 export const failureRelations = relations(failures, ({ one }) => ({
 	client: one(clients, {
