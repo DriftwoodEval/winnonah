@@ -169,13 +169,25 @@ const questionnaireTypeInputSchema = z.object({
 	inPerson: z.boolean().optional().default(false),
 });
 
-const questionnaireRuleInputSchema = z.object({
+const questionnaireRuleBaseSchema = z.object({
 	daeval: z.enum(["DA", "EVAL", "DAEVAL"]),
 	diagnosis: z.enum(["ASD", "ADHD"]).nullable(),
 	minAge: z.number().int().min(0),
 	maxAge: z.number().int().min(0),
-	questionnaires: z.array(z.string().min(1)).min(1),
+	questionnaires: z.array(z.string().min(1)),
+	inPersonAssessments: z.array(z.string().min(1)).optional().default([]),
 });
+
+const atLeastOneAssessment = (data: {
+	questionnaires: string[];
+	inPersonAssessments?: string[];
+}) =>
+	data.questionnaires.length > 0 || (data.inPersonAssessments?.length ?? 0) > 0;
+
+const questionnaireRuleInputSchema = questionnaireRuleBaseSchema.refine(
+	atLeastOneAssessment,
+	{ message: "At least one assessment is required" },
+);
 
 export const questionnaireRouter = createTRPCRouter({
 	getQuestionnaireList: protectedProcedure
@@ -267,7 +279,14 @@ export const questionnaireRouter = createTRPCRouter({
 		}),
 
 	updateRule: protectedProcedure
-		.input(z.object({ id: z.number() }).merge(questionnaireRuleInputSchema))
+		.input(
+			z
+				.object({ id: z.number() })
+				.merge(questionnaireRuleBaseSchema)
+				.refine(atLeastOneAssessment, {
+					message: "At least one assessment is required",
+				}),
+		)
 		.mutation(async ({ ctx, input }) => {
 			assertPermission(ctx.session.user, "settings:questionnaireRules");
 			ctx.logger.info(input, "Updating questionnaire rule");

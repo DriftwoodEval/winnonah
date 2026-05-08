@@ -468,6 +468,7 @@ export const questionnaireRules = createTable("questionnaire_rule", (d) => ({
 	minAge: d.int().notNull(),
 	maxAge: d.int().notNull(),
 	questionnaires: d.json("questionnaires").$type<string[]>().notNull(),
+	inPersonAssessments: d.json("in_person_assessments").$type<string[]>(),
 }));
 
 export const questionnaires = createTable(

@@ -76,36 +76,25 @@ const DIAGNOSIS_LABELS: Record<string, string> = {
 	ADHD: "ADHD",
 };
 
-const formSchema = z.object({
-	daeval: z.enum(["DA", "EVAL", "DAEVAL"]),
-	diagnosis: z.enum(["ASD", "ADHD"]).nullable(),
-	minAge: z.number().int().min(0),
-	maxAge: z.number().int().min(0),
-	questionnaires: z
-		.array(z.string().min(1))
-		.min(1, "At least one questionnaire required"),
-});
+const formSchema = z
+	.object({
+		daeval: z.enum(["DA", "EVAL", "DAEVAL"]),
+		diagnosis: z.enum(["ASD", "ADHD"]).nullable(),
+		minAge: z.number().int().min(0),
+		maxAge: z.number().int().min(0),
+		questionnaires: z.array(z.string().min(1)),
+		inPersonAssessments: z.array(z.string().min(1)),
+	})
+	.refine(
+		(data) =>
+			data.questionnaires.length > 0 || data.inPersonAssessments.length > 0,
+		{
+			message: "At least one assessment is required",
+			path: ["questionnaires"],
+		},
+	);
 
 type FormValues = z.infer<typeof formSchema>;
-
-const ALL_QUESTIONNAIRE_NAMES = [
-	"ABAS 3",
-	"ASRS (2-5 Years)",
-	"ASRS (6-18 Years)",
-	"BASC Adolescent",
-	"BASC Child",
-	"BASC Preschool",
-	"CAARS 2",
-	"CAT-Q",
-	"Conners 4",
-	"Conners 4 Self",
-	"Conners EC",
-	"DP-4",
-	"PAI",
-	"SRS Self",
-	"SRS-2",
-	"Vineland",
-];
 
 interface RuleFormProps {
 	initialData?: Rule;
@@ -121,6 +110,24 @@ function RuleForm({
 	onClose,
 }: RuleFormProps) {
 	const isEditing = !!initialData;
+	const { data: allTypes } = api.questionnaires.getAllTypes.useQuery();
+
+	const onlineOptions = useMemo(
+		() =>
+			(allTypes ?? [])
+				.filter((t) => !t.inPerson)
+				.map((t) => ({ label: t.name, value: t.name })),
+		[allTypes],
+	);
+
+	const inPersonOptions = useMemo(
+		() =>
+			(allTypes ?? [])
+				.filter((t) => t.inPerson)
+				.map((t) => ({ label: t.name, value: t.name })),
+		[allTypes],
+	);
+
 	const form = useForm<FormValues>({
 		resolver: zodResolver(formSchema),
 		defaultValues: initialData
@@ -130,6 +137,7 @@ function RuleForm({
 					minAge: initialData.minAge,
 					maxAge: initialData.maxAge,
 					questionnaires: initialData.questionnaires,
+					inPersonAssessments: initialData.inPersonAssessments ?? [],
 				}
 			: {
 					daeval: "DAEVAL",
@@ -137,15 +145,11 @@ function RuleForm({
 					minAge: 0,
 					maxAge: 17,
 					questionnaires: [],
+					inPersonAssessments: [],
 				},
 	});
 
 	const daevalValue = form.watch("daeval");
-
-	const questionnaireOptions = useMemo(
-		() => ALL_QUESTIONNAIRE_NAMES.map((n) => ({ label: n, value: n })),
-		[],
-	);
 
 	return (
 		<Form {...form}>
@@ -268,21 +272,50 @@ function RuleForm({
 					name="questionnaires"
 					render={({ field }) => (
 						<FormItem>
-							<FormLabel>Questionnaires</FormLabel>
+							<FormLabel>Online Assessments</FormLabel>
 							<FormControl>
 								<MultipleSelector
 									badgeClassName="bg-secondary text-secondary-foreground"
-									creatable={true}
 									emptyIndicator={
 										<p className="text-center text-muted-foreground text-sm">
-											No questionnaires found. Type to add one.
+											No online assessments found.
 										</p>
 									}
 									onChange={(options) =>
 										field.onChange(options.map((o) => o.value))
 									}
-									options={questionnaireOptions}
-									placeholder="Add questionnaires..."
+									options={onlineOptions}
+									placeholder="Select online assessments..."
+									value={(field.value ?? []).map((name) => ({
+										label: name,
+										value: name,
+									}))}
+								/>
+							</FormControl>
+							<FormMessage />
+						</FormItem>
+					)}
+				/>
+
+				<FormField
+					control={form.control}
+					name="inPersonAssessments"
+					render={({ field }) => (
+						<FormItem>
+							<FormLabel>In-Person Assessments</FormLabel>
+							<FormControl>
+								<MultipleSelector
+									badgeClassName="bg-muted text-muted-foreground"
+									emptyIndicator={
+										<p className="text-center text-muted-foreground text-sm">
+											No in-person assessments found.
+										</p>
+									}
+									onChange={(options) =>
+										field.onChange(options.map((o) => o.value))
+									}
+									options={inPersonOptions}
+									placeholder="Select in-person assessments..."
 									value={(field.value ?? []).map((name) => ({
 										label: name,
 										value: name,
@@ -332,7 +365,7 @@ function AddRuleButton() {
 			</DialogTrigger>
 			<DialogContent className="sm:max-w-[500px]">
 				<DialogHeader>
-					<DialogTitle>Add Questionnaire Rule</DialogTitle>
+					<DialogTitle>Add Battery Rule</DialogTitle>
 				</DialogHeader>
 				<RuleForm
 					isLoading={createRule.isPending}
@@ -397,7 +430,7 @@ function RuleActionsMenu({ rule }: { rule: Rule }) {
 			<Dialog onOpenChange={setIsEditOpen} open={isEditOpen}>
 				<DialogContent className="sm:max-w-[500px]">
 					<DialogHeader>
-						<DialogTitle>Edit Questionnaire Rule</DialogTitle>
+						<DialogTitle>Edit Battery Rule</DialogTitle>
 					</DialogHeader>
 					<RuleForm
 						initialData={rule}
@@ -440,9 +473,9 @@ export default function QuestionnaireRulesTable() {
 		<div className="px-4">
 			<div className="flex items-center justify-between pb-4">
 				<div>
-					<h3 className="font-bold text-lg">Questionnaire Rules</h3>
+					<h3 className="font-bold text-lg">Assessment Battery</h3>
 					<p className="text-muted-foreground text-sm">
-						Which questionnaires to send based on appointment type, diagnosis,
+						Which assessments to include based on appointment type, diagnosis,
 						and age. ASD+ADHD combines ASD and ADHD rules automatically.
 					</p>
 				</div>
@@ -456,7 +489,8 @@ export default function QuestionnaireRulesTable() {
 							<TableHead>Appt Type</TableHead>
 							<TableHead>Diagnosis</TableHead>
 							<TableHead>Age Range</TableHead>
-							<TableHead>Questionnaires</TableHead>
+							<TableHead>Online</TableHead>
+							<TableHead>In-Person</TableHead>
 						</TableRow>
 					</TableHeader>
 					<TableBody>
@@ -483,6 +517,9 @@ export default function QuestionnaireRulesTable() {
 											<Skeleton className="h-5 w-20" />
 											<Skeleton className="h-5 w-20" />
 										</div>
+									</TableCell>
+									<TableCell>
+										<Skeleton className="h-5 w-20" />
 									</TableCell>
 								</TableRow>
 							))}
@@ -514,13 +551,34 @@ export default function QuestionnaireRulesTable() {
 										{rule.minAge}–{rule.maxAge === 150 ? "∞" : rule.maxAge}
 									</TableCell>
 									<TableCell>
-										<div className="flex flex-wrap gap-1">
-											{rule.questionnaires.map((q) => (
-												<Badge key={q} variant="secondary">
-													{q}
-												</Badge>
-											))}
-										</div>
+										{rule.questionnaires.length > 0 ? (
+											<div className="flex flex-wrap gap-1">
+												{rule.questionnaires.map((q) => (
+													<Badge key={q} variant="secondary">
+														{q}
+													</Badge>
+												))}
+											</div>
+										) : (
+											<span className="text-muted-foreground text-sm italic">
+												None
+											</span>
+										)}
+									</TableCell>
+									<TableCell>
+										{(rule.inPersonAssessments ?? []).length > 0 ? (
+											<div className="flex flex-wrap gap-1">
+												{(rule.inPersonAssessments ?? []).map((a) => (
+													<Badge key={a} variant="outline">
+														{a}
+													</Badge>
+												))}
+											</div>
+										) : (
+											<span className="text-muted-foreground text-sm italic">
+												None
+											</span>
+										)}
 									</TableCell>
 								</TableRow>
 							))}
@@ -528,7 +586,7 @@ export default function QuestionnaireRulesTable() {
 							<TableRow>
 								<TableCell
 									className="h-24 text-center"
-									colSpan={canEdit ? 5 : 4}
+									colSpan={canEdit ? 6 : 5}
 								>
 									No rules configured.
 								</TableCell>
