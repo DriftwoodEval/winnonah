@@ -32,16 +32,22 @@ export function SettingsTabs() {
 		<div className="mx-10 my-10 flex w-full flex-col gap-6">
 			<h1 className="font-bold text-2xl">Settings</h1>
 			<Tabs onValueChange={handleTabChange} value={activeTab}>
-				<TabsList className="w-full lg:w-1/2">
-					<TabsTrigger value="users">Users</TabsTrigger>
-					<TabsTrigger value="evaluators">Evaluators</TabsTrigger>
-					<TabsTrigger value="insurances">Insurances</TabsTrigger>
-					<TabsTrigger value="assessment-config">Assessment Config</TabsTrigger>
-					<TabsTrigger value="appointments-sync">Appointments Sync</TabsTrigger>
-					{canDownload && (
-						<TabsTrigger value="downloads">Downloads</TabsTrigger>
-					)}
-				</TabsList>
+				<div className="overflow-x-auto">
+					<TabsList>
+						<TabsTrigger value="users">Users</TabsTrigger>
+						<TabsTrigger value="evaluators">Evaluators</TabsTrigger>
+						<TabsTrigger value="insurances">Insurances</TabsTrigger>
+						<TabsTrigger value="assessment-config">
+							Assessment Config
+						</TabsTrigger>
+						<TabsTrigger value="appointments-sync">
+							Appointments Sync
+						</TabsTrigger>
+						{canDownload && (
+							<TabsTrigger value="downloads">Downloads</TabsTrigger>
+						)}
+					</TabsList>
+				</div>
 				<TabsContent value="users">
 					<div className="flex flex-col gap-8">
 						<UsersTable />
