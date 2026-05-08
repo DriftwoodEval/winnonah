@@ -13,7 +13,7 @@ import { Info } from "lucide-react";
 import Link from "next/link";
 import {
 	cn,
-	getLocalDayFromUTCDate,
+	formatShortDate,
 	getReminderColorClass,
 	getStatusColorClass,
 } from "~/lib/utils";
@@ -22,6 +22,15 @@ import { AddQuestionnaireButton } from "./AddQuestionnaireButton";
 import { ProtocolsScannedCheckbox } from "./ProtocolsScannedCheckbox";
 import { QuestionnaireActionsMenu } from "./QuestionnaireTableActionsMenu";
 import { ScreenshotButton } from "./ScreenshotButton";
+
+const truncateLink = (link: string | null, maxLength = 25) => {
+	if (!link) return "";
+	let truncated = link.replace(/^https?:\/\/(www\.)?/, "");
+	if (truncated.length > maxLength) {
+		truncated = `${truncated.slice(0, maxLength - 3)}...`;
+	}
+	return truncated;
+};
 
 interface QuestionnairesTableProps {
 	clientId: number | undefined;
@@ -40,18 +49,6 @@ export function QuestionnairesTable({
 	const hasJustAdded = questionnairesSent?.some(
 		(q) => q.status === "JUST_ADDED",
 	);
-
-	const truncateLink = (link: string | null, maxLength: number = 25) => {
-		if (!link) return "";
-
-		let truncated = link.replace(/^https?:\/\/(www\.)?/, "");
-
-		if (truncated.length > maxLength) {
-			truncated = `${truncated.slice(0, maxLength - 3)}...`;
-		}
-
-		return truncated;
-	};
 
 	return (
 		<div className="flex w-full flex-col gap-4">
@@ -119,13 +116,7 @@ export function QuestionnairesTable({
 											</TableCell>
 										)}
 										<TableCell className="hidden sm:table-cell">
-											{getLocalDayFromUTCDate(
-												questionnaire.sent,
-											)?.toLocaleDateString(undefined, {
-												year: "2-digit",
-												month: "numeric",
-												day: "numeric",
-											}) ?? "N/A"}
+											{formatShortDate(questionnaire.sent)}
 										</TableCell>
 										<TableCell className="w-24 font-medium">
 											{questionnaire.link ? (
@@ -182,22 +173,10 @@ export function QuestionnairesTable({
 													className="w-full cursor-pointer text-left hover:underline"
 													link={questionnaire.link}
 												>
-													{getLocalDayFromUTCDate(
-														questionnaire.updatedAt,
-													)?.toLocaleDateString(undefined, {
-														year: "2-digit",
-														month: "numeric",
-														day: "numeric",
-													}) ?? "N/A"}
+													{formatShortDate(questionnaire.updatedAt)}
 												</ScreenshotButton>
 											) : (
-												(getLocalDayFromUTCDate(
-													questionnaire.updatedAt,
-												)?.toLocaleDateString(undefined, {
-													year: "2-digit",
-													month: "numeric",
-													day: "numeric",
-												}) ?? "N/A")
+												formatShortDate(questionnaire.updatedAt)
 											)}
 										</TableCell>
 									</TableRow>

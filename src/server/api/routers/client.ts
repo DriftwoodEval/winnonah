@@ -302,25 +302,27 @@ export const clientRouter = createTRPCRouter({
 		}),
 
 	getDistrictErrors: protectedProcedure.query(async ({ ctx }) => {
-		const clientsWithoutDistrict = await ctx.db.query.clients.findMany({
-			where: and(
-				or(
-					eq(clients.schoolDistrict, "Unknown"),
-					isNull(clients.schoolDistrict),
-				),
-				gt(clients.dob, subYears(new Date(), 21)),
-				not(isNoteOnly),
-				eq(clients.status, true),
-			),
-		});
-
-		const clientsWithPoorAddressLookup = await ctx.db.query.clients.findMany({
-			where: and(
-				eq(clients.flag, "poor_address_lookup"),
-				not(isNoteOnly),
-				eq(clients.status, true),
-			),
-		});
+		const [clientsWithoutDistrict, clientsWithPoorAddressLookup] =
+			await Promise.all([
+				ctx.db.query.clients.findMany({
+					where: and(
+						or(
+							eq(clients.schoolDistrict, "Unknown"),
+							isNull(clients.schoolDistrict),
+						),
+						gt(clients.dob, subYears(new Date(), 21)),
+						not(isNoteOnly),
+						eq(clients.status, true),
+					),
+				}),
+				ctx.db.query.clients.findMany({
+					where: and(
+						eq(clients.flag, "poor_address_lookup"),
+						not(isNoteOnly),
+						eq(clients.status, true),
+					),
+				}),
+			]);
 
 		return {
 			clientsWithoutDistrict,
@@ -329,8 +331,7 @@ export const clientRouter = createTRPCRouter({
 	}),
 
 	getBabyNetErrors: protectedProcedure.query(async ({ ctx }) => {
-		const ageOutDate = new Date();
-		ageOutDate.setFullYear(ageOutDate.getFullYear() - 3); // 3 years old
+		const ageOutDate = subYears(new Date(), 3);
 
 		const clientsTooOldForBabyNet = await ctx.db.query.clients.findMany({
 			where: and(
@@ -348,8 +349,7 @@ export const clientRouter = createTRPCRouter({
 	}),
 
 	autoUpdateBabyNet: protectedProcedure.mutation(async ({ ctx }) => {
-		const ageOutDate = new Date();
-		ageOutDate.setFullYear(ageOutDate.getFullYear() - 3); // 3 years old
+		const ageOutDate = subYears(new Date(), 3);
 
 		// Discussed in meeting on 9/11/25: Automatically disable BabyNet bool for clients that age out
 		const clientsTooOldForBabyNetBool = await ctx.db.query.clients.findMany({
@@ -358,18 +358,22 @@ export const clientRouter = createTRPCRouter({
 				lt(clients.dob, ageOutDate),
 				eq(clients.status, true),
 			),
+			columns: { id: true },
 		});
 
 		if (clientsTooOldForBabyNetBool.length === 0) {
 			return { count: 0 };
 		}
 
-		for (const client of clientsTooOldForBabyNetBool) {
-			await ctx.db
-				.update(clients)
-				.set({ babyNet: false })
-				.where(eq(clients.id, client.id));
-		}
+		await ctx.db
+			.update(clients)
+			.set({ babyNet: false })
+			.where(
+				inArray(
+					clients.id,
+					clientsTooOldForBabyNetBool.map((c) => c.id),
+				),
+			);
 
 		return { count: clientsTooOldForBabyNetBool.length };
 	}),

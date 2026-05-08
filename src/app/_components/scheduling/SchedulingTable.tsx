@@ -539,7 +539,6 @@ function ColorPicker({
 			<DropdownMenuContent align="start">
 				<DropdownMenuItem
 					className="cursor-pointer"
-					key="no-color"
 					onClick={() => onChange(null)}
 					onSelect={() => onChange(null)}
 				>

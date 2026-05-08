@@ -523,8 +523,16 @@ def _insert_client_eval_links(
     if not evaluator_npis:
         return
 
-    for npi in evaluator_npis:
-        _link_client_provider(client_id, npi, connection=connection)
+    sql = f"""
+    INSERT INTO {TABLE_CLIENT_EVAL} (clientId, evaluatorNpi)
+    VALUES (%s, %s)
+    ON DUPLICATE KEY UPDATE
+        clientId = VALUES(clientId),
+        evaluatorNpi = VALUES(evaluatorNpi)
+    """
+    with connection.cursor() as cursor:
+        cursor.executemany(sql, [(client_id, npi) for npi in evaluator_npis])
+    connection.commit()
 
 
 @provide_connection
@@ -961,15 +969,17 @@ def put_in_person_assessments_in_db(
         return
 
     with connection.cursor() as cursor:
-        for assessment_type in assessment_types:
-            cursor.execute(
-                f"""
-                INSERT IGNORE INTO {TABLE_IN_PERSON_ASSESSMENT}
-                    (clientId, assessmentType, addedDate)
-                VALUES (%s, %s, %s)
-                """,
-                (client_id, assessment_type, added_date),
-            )
+        cursor.executemany(
+            f"""
+            INSERT IGNORE INTO {TABLE_IN_PERSON_ASSESSMENT}
+                (clientId, assessmentType, addedDate)
+            VALUES (%s, %s, %s)
+            """,
+            [
+                (client_id, assessment_type, added_date)
+                for assessment_type in assessment_types
+            ],
+        )
     connection.commit()
     logger.info(
         f"Added {len(assessment_types)} in-person assessment(s) for client {client_id}"

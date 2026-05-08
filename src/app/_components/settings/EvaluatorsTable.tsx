@@ -118,7 +118,6 @@ function EvaluatorForm({
 	}, [allSchoolDistricts]);
 
 	const defaultValues = useMemo(() => {
-		// If we are editing, populate from initialData
 		if (initialData) {
 			return {
 				npi: initialData.npi.toString(),
@@ -576,7 +575,6 @@ export default function EvaluatorsTable() {
 	const canEdit = can("settings:evaluators");
 	const { data: evaluators, isLoading } = api.evaluators.getAll.useQuery();
 
-	// Helper for loading/empty states to avoid repetition
 	const renderTableMessage = (message: string) => (
 		<TableRow>
 			<TableCell className="h-24 text-center" colSpan={canEdit ? 8 : 7}>
@@ -591,7 +589,6 @@ export default function EvaluatorsTable() {
 				<h3 className="font-bold text-lg">Evaluators</h3>
 				{canEdit && <AddEvaluatorButton />}
 			</div>
-			{/* Table for Medium Screens and Up (md:) */}
 			<div className="hidden md:block">
 				<Table>
 					<TableHeader>
@@ -709,7 +706,6 @@ export default function EvaluatorsTable() {
 					</TableBody>
 				</Table>
 			</div>
-			{/* Card Layout for Small Screens (mobile) */}
 			<div className="grid grid-cols-1 gap-4 md:hidden">
 				{isLoading ? (
 					<p className="text-center">Loading evaluators...</p>

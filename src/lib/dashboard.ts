@@ -16,6 +16,10 @@ export type DashboardClient = (FullClientInfo | Client) & {
 	failures?: Failure[];
 };
 
+const isRecordsReady = (client: FullClientInfo) =>
+	client.recordsNeeded === "Not Needed" ||
+	(client.recordsNeeded === "Needed" && client.hasExternalRecordsNote === true);
+
 const isDateString = (val: string | undefined | null) => {
 	if (!val) return false;
 	return (
@@ -79,18 +83,11 @@ export const DASHBOARD_CONFIG: {
 		subheading: "Questionnaires",
 		description:
 			"DA questionnaires are marked needed, but haven't been sent. To move forward, send them (mark DA Qs Sent on the prioritization sheet).",
-		filter: (client: FullClientInfo) => {
-			const isRecordsReady =
-				client.recordsNeeded === "Not Needed" ||
-				(client.recordsNeeded === "Needed" &&
-					client.hasExternalRecordsNote === true);
-			return (
-				isRecordsReady &&
-				client["DA Qs Needed"] === "TRUE" &&
-				client["DA Qs Sent"] === "FALSE" &&
-				client["EVAL Qs Needed"] === "FALSE"
-			);
-		},
+		filter: (client: FullClientInfo) =>
+			isRecordsReady(client) &&
+			client["DA Qs Needed"] === "TRUE" &&
+			client["DA Qs Sent"] === "FALSE" &&
+			client["EVAL Qs Needed"] === "FALSE",
 		failureFilter: (f) => f.daEval === "DA",
 	},
 	{
@@ -122,37 +119,23 @@ export const DASHBOARD_CONFIG: {
 		title: "Eval Qs Pending",
 		description:
 			"Evaluation questionnaires are marked needed, but haven't been sent. To move forward, send them (mark EVAL Qs Sent on the prioritization sheet).",
-		filter: (client: FullClientInfo) => {
-			const isRecordsReady =
-				client.recordsNeeded === "Not Needed" ||
-				(client.recordsNeeded === "Needed" &&
-					client.hasExternalRecordsNote === true);
-			return (
-				isRecordsReady &&
-				client["EVAL Qs Needed"] === "TRUE" &&
-				client["EVAL Qs Sent"] === "FALSE" &&
-				client["DA Qs Sent"] === "TRUE"
-			);
-		},
+		filter: (client: FullClientInfo) =>
+			isRecordsReady(client) &&
+			client["EVAL Qs Needed"] === "TRUE" &&
+			client["EVAL Qs Sent"] === "FALSE" &&
+			client["DA Qs Sent"] === "TRUE",
 		failureFilter: (f) => f.daEval === "EVAL",
 	},
 	{
 		title: "DA+Eval Qs Pending",
 		description:
 			"Both DA and Evaluation questionnaires are marked needed, but haven't been sent. To move forward, send them (mark DA Qs Sent and EVAL Qs Sent on the prioritization sheet).",
-		filter: (client: FullClientInfo) => {
-			const isRecordsReady =
-				client.recordsNeeded === "Not Needed" ||
-				(client.recordsNeeded === "Needed" &&
-					client.hasExternalRecordsNote === true);
-			return (
-				isRecordsReady &&
-				client["DA Qs Needed"] === "TRUE" &&
-				client["DA Qs Sent"] === "FALSE" &&
-				client["EVAL Qs Needed"] === "TRUE" &&
-				client["EVAL Qs Sent"] === "FALSE"
-			);
-		},
+		filter: (client: FullClientInfo) =>
+			isRecordsReady(client) &&
+			client["DA Qs Needed"] === "TRUE" &&
+			client["DA Qs Sent"] === "FALSE" &&
+			client["EVAL Qs Needed"] === "TRUE" &&
+			client["EVAL Qs Sent"] === "FALSE",
 		failureFilter: (f) => f.daEval === "DAEVAL",
 	},
 	{

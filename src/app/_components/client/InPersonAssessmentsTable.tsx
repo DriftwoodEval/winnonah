@@ -45,7 +45,7 @@ import { MoreHorizontal, Plus } from "lucide-react";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { useCheckPermission } from "~/hooks/use-check-permission";
-import { getLocalDayFromUTCDate } from "~/lib/utils";
+import { formatShortDate } from "~/lib/utils";
 import { api, type RouterOutputs } from "~/trpc/react";
 
 type Assessment =
@@ -273,13 +273,7 @@ export function InPersonAssessmentsTable({
 										)}
 									</TableCell>
 									<TableCell className="hidden text-muted-foreground sm:table-cell">
-										{getLocalDayFromUTCDate(
-											assessment.addedDate,
-										)?.toLocaleDateString(undefined, {
-											year: "2-digit",
-											month: "numeric",
-											day: "numeric",
-										}) ?? "—"}
+										{formatShortDate(assessment.addedDate, "—")}
 									</TableCell>
 								</TableRow>
 							))}

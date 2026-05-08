@@ -11,14 +11,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@ui/tooltip";
 import { ArrowDownUp, Check, Filter, Plus } from "lucide-react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useSession } from "next-auth/react";
-import {
-	// useCallback,
-	useEffect,
-	useId,
-	useMemo,
-	useRef,
-	useState,
-} from "react";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { useCheckPermission } from "~/hooks/use-check-permission";
 import {
 	CLIENT_COLOR_KEYS,
@@ -31,7 +24,6 @@ import { api } from "~/trpc/react";
 import { ResponsiveDialog } from "../shared/ResponsiveDialog";
 import ClientCreateForm from "./ClientCreateForm";
 import { ClientsList } from "./ClientsList";
-// import ClientsSearchForm from "./ClientsSearchForm";
 import { NameSearchInput } from "./NameSearchInput";
 
 export function ClientsDashboard() {
@@ -238,11 +230,6 @@ export function ClientsDashboard() {
 			document.removeEventListener("keydown", handleKeyDown);
 		};
 	}, [clients, highlightedIndex, router]);
-
-	// const handleReset = useCallback(() => {
-	// 	setDebouncedSearchTerm("");
-	// 	setHighlightedIndex(-1);
-	// }, []);
 
 	const handleUrlParamChange = (key: string, value: string | boolean) => {
 		const params = new URLSearchParams(searchParams);
@@ -524,8 +511,6 @@ export function ClientsDashboard() {
 					)}
 				</div>
 			</div>
-
-			{/* <ClientsSearchForm onResetFilters={handleReset} /> */}
 		</div>
 	);
 }

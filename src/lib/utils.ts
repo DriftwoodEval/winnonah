@@ -174,12 +174,24 @@ export const getLocalDayFromUTCDate = (
 
 	const d = new Date(utcDate);
 
-	// Check if d is a valid date
 	if (Number.isNaN(d.getTime())) {
 		return undefined;
 	}
 
 	return new Date(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate());
+};
+
+export const formatShortDate = (
+	date: Date | string | undefined | null,
+	fallback = "N/A",
+): string => {
+	return (
+		getLocalDayFromUTCDate(date)?.toLocaleDateString(undefined, {
+			year: "2-digit",
+			month: "numeric",
+			day: "numeric",
+		}) ?? fallback
+	);
 };
 
 export const getLocalTimeFromUTCDate = (
