@@ -1564,25 +1564,36 @@ export const clientRouter = createTRPCRouter({
 		}),
 
 	// TODO: move this?
-	downloadBilling: protectedProcedure.mutation(async ({ ctx }) => {
-		assertPermission(ctx.session.user, "clients:billing:download");
+	downloadCsv: protectedProcedure
+		.input(
+			z.enum([
+				"billing",
+				"appointments",
+				"demographic",
+				"insurance",
+				"chart",
+				"referral",
+			]),
+		)
+		.mutation(async ({ ctx, input }) => {
+			assertPermission(ctx.session.user, "clients:download");
 
-		const cookieHeader = ctx.headers.get("cookie") ?? "";
+			const cookieHeader = ctx.headers.get("cookie") ?? "";
 
-		const response = await fetch(`${env.PY_API}/download-billing`, {
-			headers: {
-				Cookie: cookieHeader,
-			},
-		});
-
-		if (!response.ok) {
-			console.error(`FastAPI error: ${response.status} ${response.statusText}`);
-			throw new TRPCError({
-				code: "INTERNAL_SERVER_ERROR",
-				message: "Failed to download billing CSV from backend",
+			const response = await fetch(`${env.PY_API}/download/${input}`, {
+				headers: { Cookie: cookieHeader },
 			});
-		}
 
-		return response.text();
-	}),
+			if (!response.ok) {
+				console.error(
+					`FastAPI error: ${response.status} ${response.statusText}`,
+				);
+				throw new TRPCError({
+					code: "INTERNAL_SERVER_ERROR",
+					message: "Failed to download CSV from backend",
+				});
+			}
+
+			return response.text();
+		}),
 });

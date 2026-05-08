@@ -465,20 +465,27 @@ async def notify_report_approved(
     return {"status": "success"}
 
 
-@app.get("/download-billing")
-async def download_billing(current_user: dict = Depends(get_current_user)):
-    """Serves the billing CSV file for download."""
-    if not current_user["permissions"].get("clients:billing:download"):
-        raise HTTPException(
-            status_code=403, detail="Not authorized to download billing CSV"
-        )
+DOWNLOADABLE_FILES = {
+    "billing": "clients-billing.csv",
+    "appointments": "clients-appointments.csv",
+    "demographic": "clients-demographic.csv",
+    "insurance": "clients-insurance.csv",
+    "chart": "clients-chart.csv",
+    "referral": "client-referral-report.csv",
+}
 
-    file_path = "temp/input/clients-billing.csv"
+
+@app.get("/download/{file_key}")
+async def download_csv(file_key: str, current_user: dict = Depends(get_current_user)):
+    if not current_user["permissions"].get("clients:download"):
+        raise HTTPException(status_code=403, detail="Not authorized")
+
+    filename = DOWNLOADABLE_FILES.get(file_key)
+    if not filename:
+        raise HTTPException(status_code=404, detail="Unknown file")
+
+    file_path = f"temp/input/{filename}"
     if not os.path.exists(file_path):
-        raise HTTPException(status_code=404, detail="Billing CSV file not found")
+        raise HTTPException(status_code=404, detail="File not found")
 
-    return FileResponse(
-        path=file_path,
-        filename="clients-billing.csv",
-        media_type="text/csv",
-    )
+    return FileResponse(path=file_path, filename=filename, media_type="text/csv")

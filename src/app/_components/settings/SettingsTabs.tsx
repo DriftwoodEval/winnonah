@@ -26,7 +26,7 @@ export function SettingsTabs() {
 		router.push(`${pathname}?${params.toString()}`);
 	};
 
-	const canDownloadBilling = can("clients:billing:download");
+	const canDownload = can("clients:download");
 
 	return (
 		<div className="mx-10 my-10 flex w-full flex-col gap-6">
@@ -38,7 +38,7 @@ export function SettingsTabs() {
 					<TabsTrigger value="insurances">Insurances</TabsTrigger>
 					<TabsTrigger value="assessment-config">Assessment Config</TabsTrigger>
 					<TabsTrigger value="appointments-sync">Appointments Sync</TabsTrigger>
-					{canDownloadBilling && (
+					{canDownload && (
 						<TabsTrigger value="downloads">Downloads</TabsTrigger>
 					)}
 				</TabsList>
@@ -63,7 +63,7 @@ export function SettingsTabs() {
 				<TabsContent value="appointments-sync">
 					<AppointmentsSyncSettings />
 				</TabsContent>
-				{canDownloadBilling && (
+				{canDownload && (
 					<TabsContent value="downloads">
 						<BillingDownload />
 					</TabsContent>

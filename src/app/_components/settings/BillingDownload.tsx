@@ -3,29 +3,63 @@
 import { Button } from "@ui/button";
 import { Card, CardContent } from "@ui/card";
 import { DownloadIcon, Loader2 } from "lucide-react";
+import { useState } from "react";
 import { toast } from "sonner";
 import { api } from "~/trpc/react";
 
-export default function BillingDownload() {
-	const downloadMutation = api.clients.downloadBilling.useMutation();
+type CsvKey =
+	| "billing"
+	| "appointments"
+	| "demographic"
+	| "insurance"
+	| "chart"
+	| "referral";
 
-	const handleDownload = async () => {
+const CSV_FILES: { key: CsvKey; label: string; filename: string }[] = [
+	{ key: "billing", label: "Billing", filename: "clients-billing.csv" },
+	{
+		key: "appointments",
+		label: "Appointments",
+		filename: "clients-appointments.csv",
+	},
+	{
+		key: "demographic",
+		label: "Demographic",
+		filename: "clients-demographic.csv",
+	},
+	{ key: "insurance", label: "Insurance", filename: "clients-insurance.csv" },
+	{ key: "chart", label: "Chart", filename: "clients-chart.csv" },
+	{
+		key: "referral",
+		label: "Referral Report",
+		filename: "client-referral-report.csv",
+	},
+];
+
+export default function BillingDownload() {
+	const [pendingKey, setPendingKey] = useState<CsvKey | null>(null);
+	const downloadMutation = api.clients.downloadCsv.useMutation();
+
+	const handleDownload = async (key: CsvKey, filename: string) => {
+		setPendingKey(key);
 		try {
-			const csvData = await downloadMutation.mutateAsync();
+			const csvData = await downloadMutation.mutateAsync(key);
 			const blob = new Blob([csvData], { type: "text/csv" });
 			const url = window.URL.createObjectURL(blob);
 			const a = document.createElement("a");
 			a.href = url;
-			a.download = "clients-billing.csv";
+			a.download = filename;
 			document.body.appendChild(a);
 			a.click();
 			window.URL.revokeObjectURL(url);
 			document.body.removeChild(a);
-			toast.success("Billing CSV downloaded successfully");
+			toast.success(`${filename} downloaded successfully`);
 		} catch (error) {
-			toast.error("Failed to download billing CSV", {
+			toast.error("Failed to download CSV", {
 				description: error instanceof Error ? error.message : "Unknown error",
 			});
+		} finally {
+			setPendingKey(null);
 		}
 	};
 
@@ -33,17 +67,22 @@ export default function BillingDownload() {
 		<div className="flex flex-col gap-6">
 			<Card>
 				<CardContent>
-					<Button
-						disabled={downloadMutation.isPending}
-						onClick={handleDownload}
-					>
-						{downloadMutation.isPending ? (
-							<Loader2 className="mr-2 h-4 w-4 animate-spin" />
-						) : (
-							<DownloadIcon className="mr-2 h-4 w-4" />
-						)}
-						Download Billing CSV
-					</Button>
+					<div className="flex flex-wrap gap-3">
+						{CSV_FILES.map(({ key, label, filename }) => (
+							<Button
+								disabled={pendingKey !== null}
+								key={key}
+								onClick={() => handleDownload(key, filename)}
+							>
+								{pendingKey === key ? (
+									<Loader2 className="mr-2 h-4 w-4 animate-spin" />
+								) : (
+									<DownloadIcon className="mr-2 h-4 w-4" />
+								)}
+								Download {label} CSV
+							</Button>
+						))}
+					</div>
 				</CardContent>
 			</Card>
 		</div>

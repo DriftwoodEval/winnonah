@@ -59,7 +59,7 @@ export const permissionPresets = [
 			"clients:schooldistrict",
 			"clients:shell",
 			"clients:merge",
-			"clients:billing:download",
+			"clients:download",
 			"clients:asdadhd",
 			"clients:questionnaires:create",
 			"clients:questionnaires:createexternal",
