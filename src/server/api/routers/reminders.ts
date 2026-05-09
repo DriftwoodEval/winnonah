@@ -15,7 +15,7 @@ export const reminderRouter = createTRPCRouter({
 			.select()
 			.from(appointmentReminderSettings)
 			.limit(1);
-		return settings[0];
+		return settings[0] ?? null;
 	}),
 
 	updateSettings: protectedProcedure
@@ -27,9 +27,9 @@ export const reminderRouter = createTRPCRouter({
 		)
 		.mutation(async ({ ctx, input }) => {
 			return await ctx.db
-				.update(appointmentReminderSettings)
-				.set(input)
-				.where(eq(appointmentReminderSettings.id, 1));
+				.insert(appointmentReminderSettings)
+				.values({ id: 1, ...input })
+				.onDuplicateKeyUpdate({ set: input });
 		}),
 
 	getTemplates: protectedProcedure.query(({ ctx }) => {

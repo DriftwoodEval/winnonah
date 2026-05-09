@@ -16,16 +16,21 @@ import { format } from "date-fns";
 import {
 	Bell,
 	CalendarIcon,
+	ChevronDown,
+	ChevronRight,
 	Clock,
 	MapPin,
 	MoreHorizontal,
 	User,
 } from "lucide-react";
+import { useState } from "react";
 import { getLocalTimeFromUTCDate } from "~/lib/utils";
 import { api } from "~/trpc/react";
+import { AppointmentReminderTimeline } from "./AppointmentReminderTimeline";
 
 export function ClientAppointments({ clientId }: { clientId: number }) {
 	const utils = api.useUtils();
+	const [expandedApptId, setExpandedApptId] = useState<string | null>(null);
 	const { data: appointments, isLoading } =
 		api.appointments.getByClientId.useQuery({
 			clientId,
@@ -233,6 +238,29 @@ export function ClientAppointments({ clientId }: { clientId: number }) {
 											</p>
 										)}
 									</div>
+
+									<button
+										className="mt-2 flex items-center gap-1 text-[10px] text-muted-foreground transition-colors hover:text-foreground"
+										onClick={() =>
+											setExpandedApptId(
+												expandedApptId === appt.id ? null : appt.id,
+											)
+										}
+										type="button"
+									>
+										{expandedApptId === appt.id ? (
+											<ChevronDown className="h-3 w-3" />
+										) : (
+											<ChevronRight className="h-3 w-3" />
+										)}
+										Reminders
+									</button>
+
+									{expandedApptId === appt.id && (
+										<div className="mt-2">
+											<AppointmentReminderTimeline appointmentId={appt.id} />
+										</div>
+									)}
 								</div>
 								{index !== appointments.length - 1 && <Separator />}
 							</div>
