@@ -28,7 +28,7 @@ import {
 } from "@ui/select";
 import { Switch } from "@ui/switch";
 import { Textarea } from "@ui/textarea";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 import {
@@ -51,6 +51,10 @@ export function ReminderTemplateDialog({
 }: ReminderTemplateDialogProps) {
 	const utils = api.useUtils();
 	const isEditing = !!initialData;
+
+	const [offsetUnit, setOffsetUnit] = useState<"hours" | "days">(() =>
+		(initialData?.sendOffsetHours ?? 24) >= 24 ? "days" : "hours",
+	);
 
 	const { data: offices } = api.offices.getAll.useQuery(undefined, {
 		enabled: isOpen,
@@ -76,6 +80,7 @@ export function ReminderTemplateDialog({
 		if (isOpen) {
 			if (initialData) {
 				form.reset(initialData);
+				setOffsetUnit(initialData.sendOffsetHours >= 24 ? "days" : "hours");
 			} else {
 				form.reset({
 					name: "",
@@ -89,6 +94,7 @@ export function ReminderTemplateDialog({
 					isNoReplyFollowUp: false,
 					isConfirmedFollowUp: false,
 				});
+				setOffsetUnit("days");
 			}
 		}
 	}, [initialData, isOpen, form]);
@@ -324,19 +330,49 @@ export function ReminderTemplateDialog({
 						<FormField
 							control={form.control}
 							name="sendOffsetHours"
-							render={({ field }) => (
-								<FormItem>
-									<FormLabel>Send Offset (Hours Before Event)</FormLabel>
-									<FormControl>
-										<Input
-											type="number"
-											{...field}
-											onChange={(e) => field.onChange(Number(e.target.value))}
-										/>
-									</FormControl>
-									<FormMessage />
-								</FormItem>
-							)}
+							render={({ field }) => {
+								const displayValue =
+									offsetUnit === "days" ? field.value / 24 : field.value;
+								return (
+									<FormItem>
+										<FormLabel>Send Before Appointment</FormLabel>
+										<div className="flex gap-2">
+											<FormControl>
+												<Input
+													className="w-24"
+													min={1}
+													onChange={(e) => {
+														const val = Number(e.target.value);
+														field.onChange(
+															offsetUnit === "days"
+																? Math.round(val * 24)
+																: val,
+														);
+													}}
+													step={offsetUnit === "days" ? 0.5 : 1}
+													type="number"
+													value={displayValue}
+												/>
+											</FormControl>
+											<Select
+												onValueChange={(v: "hours" | "days") => {
+													setOffsetUnit(v);
+												}}
+												value={offsetUnit}
+											>
+												<SelectTrigger className="w-28">
+													<SelectValue />
+												</SelectTrigger>
+												<SelectContent>
+													<SelectItem value="hours">Hours</SelectItem>
+													<SelectItem value="days">Days</SelectItem>
+												</SelectContent>
+											</Select>
+										</div>
+										<FormMessage />
+									</FormItem>
+								);
+							}}
 						/>
 
 						<FormField

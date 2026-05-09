@@ -145,6 +145,15 @@ export function getReminderColorClass(
 	return "";
 }
 
+export function formatReminderOffset(hours: number): string {
+	if (hours >= 24) {
+		const days = hours / 24;
+		const formatted = Number.isInteger(days) ? days : days.toFixed(1);
+		return `${formatted} ${days === 1 ? "day" : "days"} before`;
+	}
+	return `${hours}h before`;
+}
+
 export function formatPhoneNumber(phoneNumber: string) {
 	const digits = phoneNumber.replace(/\D/g, "");
 	return digits.replace(

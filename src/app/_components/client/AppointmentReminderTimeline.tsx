@@ -4,6 +4,27 @@ import { Skeleton } from "@ui/skeleton";
 import { format, formatDistanceToNow } from "date-fns";
 import { api } from "~/trpc/react";
 
+function formatPreview(template: string, appointmentTime: Date): string {
+	return template
+		.replace(/{startTime}/g, format(appointmentTime, "h:mm a"))
+		.replace(/{date}/g, format(appointmentTime, "EEEE, MMMM d"));
+}
+
+function MessageSnippet({
+	messageTemplate,
+	appointmentTime,
+}: {
+	messageTemplate: string;
+	appointmentTime: Date;
+}) {
+	const preview = formatPreview(messageTemplate, appointmentTime);
+	return (
+		<p className="mt-0.5 line-clamp-3 whitespace-pre-wrap font-mono text-[9px] text-muted-foreground/70 leading-tight">
+			{preview}
+		</p>
+	);
+}
+
 export function AppointmentReminderTimeline({
 	appointmentId,
 }: {
@@ -30,6 +51,8 @@ export function AppointmentReminderTimeline({
 			</p>
 		);
 
+	const appointmentTime = data.appointmentTime;
+
 	return (
 		<div className="relative ml-1 space-y-2 border-border border-l pl-3">
 			{data.sent.map((item) => (
@@ -47,6 +70,10 @@ export function AppointmentReminderTimeline({
 					>
 						Sent {formatDistanceToNow(item.sentAt, { addSuffix: true })}
 					</p>
+					<MessageSnippet
+						appointmentTime={appointmentTime}
+						messageTemplate={item.messageTemplate}
+					/>
 				</div>
 			))}
 			{data.pending.map((item) => (
@@ -67,7 +94,14 @@ export function AppointmentReminderTimeline({
 					</p>
 					<p className="text-[10px] text-muted-foreground">
 						{format(item.scheduledFor, "MMM d 'at' p")}
+						{item.quietAdjusted && (
+							<span className="ml-1 italic">(adj. for quiet hours)</span>
+						)}
 					</p>
+					<MessageSnippet
+						appointmentTime={appointmentTime}
+						messageTemplate={item.messageTemplate}
+					/>
 				</div>
 			))}
 		</div>

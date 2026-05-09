@@ -2,11 +2,53 @@ import { count, desc, eq } from "drizzle-orm";
 import { z } from "zod";
 import { createTRPCRouter, protectedProcedure } from "~/server/api/trpc";
 import {
+	appointmentReminderSettings,
 	appointments,
 	evaluators,
 	reminderLogs,
 	reminderTemplates,
 } from "~/server/db/schema";
+
+type QuietSettings =
+	| { quietWindowStart: string; quietWindowEnd: string }
+	| undefined;
+
+function adjustForQuietWindow(
+	date: Date,
+	settings: QuietSettings,
+): { scheduledFor: Date; quietAdjusted: boolean } {
+	if (!settings) return { scheduledFor: date, quietAdjusted: false };
+
+	const parseTimeOnDate = (timeStr: string, base: Date): Date => {
+		const parts = timeStr.split(":").map(Number);
+		const d = new Date(base);
+		d.setHours(parts[0] ?? 0, parts[1] ?? 0, 0, 0);
+		return d;
+	};
+
+	const windowStart = parseTimeOnDate(settings.quietWindowStart, date);
+	const windowEnd = parseTimeOnDate(settings.quietWindowEnd, date);
+	const isOvernight = windowStart > windowEnd;
+
+	const inWindow = isOvernight
+		? date >= windowStart || date <= windowEnd
+		: date >= windowStart && date <= windowEnd;
+
+	if (!inWindow) return { scheduledFor: date, quietAdjusted: false };
+
+	// Push forward to the quiet window end
+	if (isOvernight && date >= windowStart) {
+		// e.g. scheduled at 11 PM, quiet ends at 8 AM → push to 8 AM next day
+		const nextDay = new Date(date);
+		nextDay.setDate(nextDay.getDate() + 1);
+		return {
+			scheduledFor: parseTimeOnDate(settings.quietWindowEnd, nextDay),
+			quietAdjusted: true,
+		};
+	}
+	// e.g. scheduled at 3 AM, quiet ends at 8 AM → push to 8 AM same day
+	return { scheduledFor: windowEnd, quietAdjusted: true };
+}
 
 export const appointmentRouter = createTRPCRouter({
 	getByClientId: protectedProcedure
@@ -71,6 +113,11 @@ export const appointmentRouter = createTRPCRouter({
 	getReminderTimeline: protectedProcedure
 		.input(z.object({ appointmentId: z.string() }))
 		.query(async ({ ctx, input }) => {
+			const [quietSettings] = await ctx.db
+				.select()
+				.from(appointmentReminderSettings)
+				.limit(1);
+
 			const [appt] = await ctx.db
 				.select({
 					startTime: appointments.startTime,
@@ -85,13 +132,23 @@ export const appointmentRouter = createTRPCRouter({
 				.where(eq(appointments.id, input.appointmentId))
 				.limit(1);
 
-			if (!appt) return { sent: [], pending: [] };
+			if (!appt) return { sent: [], pending: [], appointmentTime: new Date() };
+
+			const localStart = new Date(
+				appt.startTime.getUTCFullYear(),
+				appt.startTime.getUTCMonth(),
+				appt.startTime.getUTCDate(),
+				appt.startTime.getUTCHours(),
+				appt.startTime.getUTCMinutes(),
+				0,
+			);
 
 			const sent = await ctx.db
 				.select({
 					sentAt: reminderLogs.sentAt,
 					templateName: reminderTemplates.name,
 					templateId: reminderLogs.reminderTemplateId,
+					messageTemplate: reminderTemplates.messageTemplate,
 				})
 				.from(reminderLogs)
 				.innerJoin(
@@ -112,17 +169,22 @@ export const appointmentRouter = createTRPCRouter({
 
 			const pending: {
 				scheduledFor: Date;
+				quietAdjusted: boolean;
 				templateName: string;
 				condition: string | null;
+				messageTemplate: string;
 			}[] = [];
 
 			if (!suppressed) {
 				for (const template of templates) {
 					if (sentTemplateIds.has(template.id)) continue;
 
-					const scheduledFor = new Date(
-						appt.startTime.getTime() -
-							template.sendOffsetHours * 60 * 60 * 1000,
+					const raw = new Date(
+						localStart.getTime() - template.sendOffsetHours * 60 * 60 * 1000,
+					);
+					const { scheduledFor, quietAdjusted } = adjustForQuietWindow(
+						raw,
+						quietSettings,
 					);
 					if (scheduledFor <= now) continue;
 
@@ -130,8 +192,10 @@ export const appointmentRouter = createTRPCRouter({
 						if (sent.length > 0 && !appt.confirmedAt) {
 							pending.push({
 								scheduledFor,
+								quietAdjusted,
 								templateName: template.name,
 								condition: "if still unconfirmed",
+								messageTemplate: template.messageTemplate,
 							});
 						}
 						continue;
@@ -140,8 +204,10 @@ export const appointmentRouter = createTRPCRouter({
 					if (template.isConfirmedFollowUp) {
 						pending.push({
 							scheduledFor,
+							quietAdjusted,
 							templateName: template.name,
 							condition: appt.confirmedAt ? null : "if confirmed",
+							messageTemplate: template.messageTemplate,
 						});
 						continue;
 					}
@@ -158,8 +224,10 @@ export const appointmentRouter = createTRPCRouter({
 					if (matchesKeyword ?? matchesDaEvalLocation) {
 						pending.push({
 							scheduledFor,
+							quietAdjusted,
 							templateName: template.name,
 							condition: null,
+							messageTemplate: template.messageTemplate,
 						});
 					}
 				}
@@ -169,6 +237,6 @@ export const appointmentRouter = createTRPCRouter({
 				(a, b) => a.scheduledFor.getTime() - b.scheduledFor.getTime(),
 			);
 
-			return { sent, pending };
+			return { sent, pending, appointmentTime: localStart };
 		}),
 });
