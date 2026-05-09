@@ -107,7 +107,7 @@ def process_reminders(connection: Connection[DictCursor]) -> None:
             trigger_location_key = template.get("triggerLocationKey")
 
             max_lead_time = datetime.now() + timedelta(
-                hours=template["sendOffsetHours"] + 2
+                hours=template["sendOffsetHours"]
             )
 
             if template.get("isNoReplyFollowUp"):

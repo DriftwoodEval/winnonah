@@ -23,6 +23,7 @@ import { format, formatDistanceToNow } from "date-fns";
 import Link from "next/link";
 import { useState } from "react";
 import { toast } from "sonner";
+import { formatReminderOffset } from "~/lib/utils";
 import { api, type RouterOutputs } from "~/trpc/react";
 import { ReminderTemplateDialog } from "./ReminderTemplateDialog";
 
@@ -130,7 +131,7 @@ export default function ReminderSettings() {
 											{template.triggerLocationKey} •{" "}
 										</span>
 									)}
-									{template.sendOffsetHours}h before
+									{formatReminderOffset(template.sendOffsetHours)}
 								</CardDescription>
 							</div>
 							<div className="flex items-center gap-4">
