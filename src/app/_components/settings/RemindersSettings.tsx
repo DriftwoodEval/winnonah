@@ -89,13 +89,9 @@ export default function ReminderSettings() {
 					<div className="space-y-2">
 						<Label>Quiet Start (Evening)</Label>
 						<Input
-							defaultValue={settings?.quietWindowStart ?? ""}
+							defaultValue={settings?.quietWindowStart?.slice(0, 5) ?? ""}
 							onBlur={(e) => {
-								if (!settings) return;
-								updateSettings.mutate({
-									...settings,
-									quietWindowStart: e.target.value,
-								});
+								updateSettings.mutate({ quietWindowStart: e.target.value });
 							}}
 							type="time"
 						/>
@@ -103,13 +99,9 @@ export default function ReminderSettings() {
 					<div className="space-y-2">
 						<Label>Quiet End (Morning)</Label>
 						<Input
-							defaultValue={settings?.quietWindowEnd ?? ""}
+							defaultValue={settings?.quietWindowEnd?.slice(0, 5) ?? ""}
 							onBlur={(e) => {
-								if (!settings) return;
-								updateSettings.mutate({
-									...settings,
-									quietWindowEnd: e.target.value,
-								});
+								updateSettings.mutate({ quietWindowEnd: e.target.value });
 							}}
 							type="time"
 						/>
