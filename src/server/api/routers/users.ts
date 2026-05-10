@@ -8,6 +8,7 @@ import {
 	protectedProcedure,
 } from "~/server/api/trpc";
 import { invitations, users } from "~/server/db/schema";
+import { systemEmitter } from "~/server/systemEmitter";
 
 export const userRouter = createTRPCRouter({
 	getAll: protectedProcedure
@@ -69,6 +70,8 @@ export const userRouter = createTRPCRouter({
 				.update(users)
 				.set(updateData)
 				.where(eq(users.id, input.userId));
+
+			systemEmitter.emit("permissionChange", input.userId);
 		}),
 
 	updateUserArchiveStatus: protectedProcedure
