@@ -630,7 +630,6 @@ export const users = createTable("user", (d) => ({
 		})
 		.default(sql`CURRENT_TIMESTAMP(3)`),
 	image: d.varchar({ length: 255 }),
-	evaluatorId: d.int().references(() => evaluators.npi),
 	savedPlaces: d.json(),
 	permissions: d.json("permissions").$type<PermissionsObject>(),
 	archived: d.boolean("archived").notNull().default(false),

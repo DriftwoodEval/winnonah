@@ -455,11 +455,10 @@ function CalendarDayHeader({
 	onEdit: (e: EditingEvent) => void;
 }) {
 	const { data: session } = useSession();
-	const evaluatorId = session?.user.evaluatorId ?? 0;
 
 	const { data: outOfOfficePriority } =
-		api.evaluators.getOutOfOfficePriority.useQuery(evaluatorId, {
-			enabled: !!evaluatorId,
+		api.evaluators.getOutOfOfficePriority.useQuery(undefined, {
+			enabled: session?.user.isEvaluator ?? false,
 		});
 
 	const today = isSameDay(day, new Date());
@@ -678,11 +677,10 @@ function CalendarView({
 	onEdit: (e: EditingEvent) => void;
 }) {
 	const { data: session } = useSession();
-	const evaluatorId = session?.user.evaluatorId ?? 0;
 
 	const { data: outOfOfficePriority } =
-		api.evaluators.getOutOfOfficePriority.useQuery(evaluatorId, {
-			enabled: !!evaluatorId,
+		api.evaluators.getOutOfOfficePriority.useQuery(undefined, {
+			enabled: session?.user.isEvaluator ?? false,
 		});
 
 	const gridCols = `48px repeat(${displayDays.length}, calc((100% - 48px) / ${displayDays.length}))`;

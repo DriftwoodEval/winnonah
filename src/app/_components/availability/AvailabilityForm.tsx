@@ -19,11 +19,10 @@ import { AvailabilityFields } from "./AvailabilityFields";
 export function AvailabilityForm() {
 	const utils = api.useUtils();
 	const { data: session } = useSession();
-	const evaluatorId = session?.user.evaluatorId ?? 0;
 
 	const { data: outOfOfficePriority } =
-		api.evaluators.getOutOfOfficePriority.useQuery(evaluatorId, {
-			enabled: !!evaluatorId,
+		api.evaluators.getOutOfOfficePriority.useQuery(undefined, {
+			enabled: session?.user.isEvaluator ?? false,
 		});
 
 	const defaultDate = addMonths(new Date(), 1);

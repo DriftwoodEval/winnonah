@@ -309,15 +309,13 @@ export const evaluatorRouter = createTRPCRouter({
 		});
 	}),
 
-	getOutOfOfficePriority: protectedProcedure
-		.input(z.number())
-		.query(async ({ ctx, input: evaluatorNpi }) => {
-			const evaluator = await ctx.db.query.evaluators.findFirst({
-				where: eq(evaluators.npi, evaluatorNpi),
-				columns: {
-					outOfOfficePriority: true,
-				},
-			});
-			return evaluator?.outOfOfficePriority ?? false;
-		}),
+	getOutOfOfficePriority: protectedProcedure.query(async ({ ctx }) => {
+		const evaluator = await ctx.db.query.evaluators.findFirst({
+			where: eq(evaluators.email, ctx.session.user.email ?? ""),
+			columns: {
+				outOfOfficePriority: true,
+			},
+		});
+		return evaluator?.outOfOfficePriority ?? false;
+	}),
 });

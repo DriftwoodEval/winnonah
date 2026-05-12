@@ -40,11 +40,10 @@ export function CreateAvailabilityDialog({
 }: CreateAvailabilityDialogProps) {
 	const utils = api.useUtils();
 	const { data: session } = useSession();
-	const evaluatorId = session?.user.evaluatorId ?? 0;
 
 	const { data: outOfOfficePriority } =
-		api.evaluators.getOutOfOfficePriority.useQuery(evaluatorId, {
-			enabled: !!evaluatorId && isOpen,
+		api.evaluators.getOutOfOfficePriority.useQuery(undefined, {
+			enabled: (session?.user.isEvaluator ?? false) && isOpen,
 		});
 
 	const form = useForm<AvailabilityFormValues>({

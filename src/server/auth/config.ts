@@ -29,7 +29,7 @@ declare module "next-auth" {
 			accessToken?: string;
 			refreshToken?: string;
 			permissions: PermissionsObject;
-			evaluatorId?: number | null;
+			isEvaluator?: boolean;
 			clientFilters?: string;
 			archived?: boolean | null;
 			claimedReportFolder?: { name: string; id: string } | null;
@@ -39,7 +39,6 @@ declare module "next-auth" {
 	interface User {
 		permissions: PermissionsObject;
 		savedPlaces: string;
-		evaluatorId?: number | null;
 		archived?: boolean | null;
 		claimedReportFolder?: { name: string; id: string } | null;
 	}
@@ -117,14 +116,6 @@ export const authConfig = {
 				return true;
 			}
 
-			const evaluatorProfile = await db.query.evaluators.findFirst({
-				where: eq(evaluators.email, user.email ?? ""),
-			});
-
-			if (evaluatorProfile) {
-				user.evaluatorId = evaluatorProfile.npi;
-			}
-
 			const invitation = await db.query.invitations.findFirst({
 				where: and(
 					eq(invitations.email, user.email ?? ""),
@@ -173,9 +164,14 @@ export const authConfig = {
 			if (user) {
 				session.user.id = user.id;
 				session.user.permissions = user.permissions;
-				session.user.evaluatorId = user.evaluatorId;
 				session.user.archived = user.archived;
 				session.user.claimedReportFolder = user.claimedReportFolder;
+
+				const evaluatorProfile = await db.query.evaluators.findFirst({
+					where: eq(evaluators.email, user.email ?? ""),
+					columns: { npi: true },
+				});
+				session.user.isEvaluator = !!evaluatorProfile;
 			}
 			return session;
 		},
