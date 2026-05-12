@@ -1,11 +1,16 @@
 import { eq } from "drizzle-orm";
-import { createTRPCRouter, protectedProcedure } from "~/server/api/trpc";
+import {
+	assertPermission,
+	createTRPCRouter,
+	protectedProcedure,
+} from "~/server/api/trpc";
 import { greeterProxyState, users } from "~/server/db/schema";
 
 const LAST_ACTIVE_EVALUATOR_KEY = "last_active_evaluator";
 
 export const greeterProxyRouter = createTRPCRouter({
 	getStatus: protectedProcedure.query(async ({ ctx }) => {
+		assertPermission(ctx.session.user, "settings:greeter-proxy");
 		const stateRows = await ctx.db
 			.select()
 			.from(greeterProxyState)
@@ -27,6 +32,7 @@ export const greeterProxyRouter = createTRPCRouter({
 	}),
 
 	resetStatus: protectedProcedure.mutation(async ({ ctx }) => {
+		assertPermission(ctx.session.user, "settings:greeter-proxy");
 		await ctx.db
 			.delete(greeterProxyState)
 			.where(eq(greeterProxyState.key, LAST_ACTIVE_EVALUATOR_KEY));

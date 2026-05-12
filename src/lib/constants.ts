@@ -145,6 +145,10 @@ export const PERMISSIONS = {
 						id: "settings:questionnaireRules",
 						title: "Manage Questionnaire Rules",
 					},
+					{
+						id: "settings:greeter-proxy",
+						title: "View & Reset Greeter Proxy",
+					},
 				],
 			},
 
