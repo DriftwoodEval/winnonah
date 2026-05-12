@@ -577,7 +577,7 @@ export default function EvaluatorsTable() {
 
 	const renderTableMessage = (message: string) => (
 		<TableRow>
-			<TableCell className="h-24 text-center" colSpan={canEdit ? 8 : 7}>
+			<TableCell className="h-24 text-center" colSpan={canEdit ? 9 : 8}>
 				{message}
 			</TableCell>
 		</TableRow>
@@ -601,6 +601,7 @@ export default function EvaluatorsTable() {
 							<TableHead>OOO Priority</TableHead>
 							<TableHead>Blocked Areas</TableHead>
 							<TableHead>Offices</TableHead>
+							<TableHead>User</TableHead>
 						</TableRow>
 					</TableHeader>
 					<TableBody>
@@ -699,6 +700,9 @@ export default function EvaluatorsTable() {
 														</Badge>
 													))}
 												</div>
+											</TableCell>
+											<TableCell className="text-muted-foreground text-sm">
+												{evaluator.users?.[0]?.name ?? "—"}
 											</TableCell>
 										</TableRow>
 									))

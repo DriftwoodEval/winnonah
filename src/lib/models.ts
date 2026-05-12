@@ -33,7 +33,10 @@ export type InsertingQuestionnaire = Pick<
 	Exclude<keyof typeof questionnaires.$inferSelect, "id" | "updatedAt">
 >;
 
-export type User = typeof users.$inferSelect;
+type UserSchema = typeof users.$inferSelect;
+export interface User extends UserSchema {
+	evaluator?: typeof evaluators.$inferSelect | null;
+}
 export type Invitation = typeof invitations.$inferSelect;
 
 export type Office = typeof offices.$inferSelect;
@@ -50,6 +53,7 @@ export interface Evaluator extends EvaluatorSchema {
 	blockedDistricts: SchoolDistrict[];
 	blockedZips: ZipCode[];
 	insurances: Insurance[];
+	users?: Pick<User, "id" | "name" | "email">[];
 }
 
 export type AssessmentType = typeof assessmentTypes.$inferSelect;

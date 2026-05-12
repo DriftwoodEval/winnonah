@@ -3,6 +3,7 @@ import { clientRouter } from "./routers/client";
 import { evaluatorRouter } from "./routers/evaluator";
 import { externalRecordRouter } from "./routers/externalRecords";
 import { googleRouter } from "./routers/google";
+import { greeterProxyRouter } from "./routers/greeterProxy";
 import { insuranceRouter } from "./routers/insurance";
 import { noteRouter } from "./routers/notes";
 import { officeRouter } from "./routers/office";
@@ -22,6 +23,7 @@ import { createCallerFactory, createTRPCRouter } from "./trpc";
  */
 export const appRouter = createTRPCRouter({
 	appointments: appointmentRouter,
+	greeterProxy: greeterProxyRouter,
 	clients: clientRouter,
 	evaluators: evaluatorRouter,
 	externalRecords: externalRecordRouter,

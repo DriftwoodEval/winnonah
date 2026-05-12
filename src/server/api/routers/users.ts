@@ -20,6 +20,7 @@ export const userRouter = createTRPCRouter({
 						? undefined
 						: eq(users.archived, input.archived),
 				orderBy: (users, { asc }) => [asc(users.name)],
+				with: { evaluator: true },
 			});
 
 			return usersData;
@@ -143,6 +144,37 @@ export const userRouter = createTRPCRouter({
 					.delete(invitations)
 					.where(eq(invitations.id, input.id)),
 			};
+		}),
+
+	setPhone: protectedProcedure
+		.input(
+			z.object({
+				userId: z.string(),
+				phoneNumber: z
+					.string()
+					.regex(
+						/^\+[1-9]\d{1,14}$/,
+						"Must be E.164 format (e.g. +12125551234)",
+					)
+					.nullable(),
+			}),
+		)
+		.mutation(async ({ ctx, input }) => {
+			assertPermission(ctx.session.user, "settings:users:edit");
+			await ctx.db
+				.update(users)
+				.set({ phoneNumber: input.phoneNumber })
+				.where(eq(users.id, input.userId));
+		}),
+
+	setIsGreeter: protectedProcedure
+		.input(z.object({ userId: z.string(), isGreeter: z.boolean() }))
+		.mutation(async ({ ctx, input }) => {
+			assertPermission(ctx.session.user, "settings:users:edit");
+			await ctx.db
+				.update(users)
+				.set({ isGreeter: input.isGreeter })
+				.where(eq(users.id, input.userId));
 		}),
 
 	getSavedPlaces: protectedProcedure.query(async ({ ctx }) => {

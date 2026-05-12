@@ -12,6 +12,7 @@ import {
 	AlertDialogTitle,
 } from "@ui/alert-dialog";
 import { Avatar, AvatarFallback, AvatarImage } from "@ui/avatar";
+import { Badge } from "@ui/badge";
 import { Button } from "@ui/button";
 import { Checkbox } from "@ui/checkbox";
 import {
@@ -29,6 +30,7 @@ import {
 	FormLabel,
 	FormMessage,
 } from "@ui/form";
+import { Input } from "@ui/input";
 import {
 	Select,
 	SelectContent,
@@ -68,8 +70,23 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "../ui/tabs";
 
 const log = logger.child({ module: "UsersTable" });
 
+const E164_REGEX = /^\+[1-9]\d{1,14}$/;
+
+const normalizePhone = (val: string): string => {
+	if (!val || val.trim() === "") return "";
+	const stripped = val.replace(/[\s\-().]/g, "");
+	return stripped.startsWith("+") ? stripped : `+1${stripped}`;
+};
+
 const formSchema = z.object({
 	permissions: permissionsSchema,
+	phoneNumber: z
+		.string()
+		.regex(E164_REGEX, "Must be a valid phone number")
+		.or(z.literal(""))
+		.nullable()
+		.optional(),
+	isGreeter: z.boolean(),
 });
 
 type UsersTableFormValues = z.infer<typeof formSchema>;
@@ -79,7 +96,6 @@ interface UsersTableFormProps {
 	onSubmit: (values: UsersTableFormValues) => void;
 	isLoading: boolean;
 	onFinished: () => void;
-	submitButtonText?: string;
 }
 
 function UsersTableForm({
@@ -89,10 +105,13 @@ function UsersTableForm({
 	onFinished,
 }: UsersTableFormProps) {
 	const { data: session } = useSession();
+
 	const form = useForm<UsersTableFormValues>({
 		resolver: zodResolver(formSchema),
 		defaultValues: {
 			permissions: {},
+			phoneNumber: "",
+			isGreeter: false,
 		},
 	});
 
@@ -109,6 +128,8 @@ function UsersTableForm({
 		if (initialData?.permissions) {
 			setValue("permissions", initialData.permissions as PermissionsObject);
 		}
+		setValue("phoneNumber", initialData?.phoneNumber ?? "");
+		setValue("isGreeter", initialData?.isGreeter ?? false);
 	}, [initialData, setValue]);
 
 	const getGroupState = (
@@ -246,6 +267,55 @@ function UsersTableForm({
 						</div>
 					))}
 				</div>
+				{/* Roles */}
+				<div className="space-y-4 border-t pt-4">
+					<h4 className="font-bold text-lg">Roles</h4>
+					<div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+						<FormField
+							control={form.control}
+							name="phoneNumber"
+							render={({ field }) => (
+								<FormItem>
+									<FormLabel>Phone Number</FormLabel>
+									<FormControl>
+										<Input
+											placeholder="+12125551234"
+											{...field}
+											onBlur={() => {
+												field.onChange(normalizePhone(field.value ?? ""));
+												field.onBlur();
+											}}
+											value={field.value ?? ""}
+										/>
+									</FormControl>
+									<FormMessage />
+								</FormItem>
+							)}
+						/>
+						<FormField
+							control={form.control}
+							name="isGreeter"
+							render={({ field }) => (
+								<FormItem>
+									<FormLabel>Greeter</FormLabel>
+									<div className="flex items-center space-x-2 pt-2">
+										<FormControl>
+											<Checkbox
+												checked={field.value ?? false}
+												disabled={!!initialData?.evaluator}
+												onCheckedChange={field.onChange}
+											/>
+										</FormControl>
+										<FormLabel className="font-normal">
+											Receives evaluator SMS broadcasts
+										</FormLabel>
+									</div>
+									<FormMessage />
+								</FormItem>
+							)}
+						/>
+					</div>
+				</div>
 				{/* Submit and Cancel Buttons */}
 				<div className="flex justify-end gap-2">
 					<Button onClick={onFinished} type="button" variant="ghost">
@@ -268,12 +338,8 @@ function UsersTableActionsMenu({ user }: { user: User }) {
 	const isDesktop = useMediaQuery("(min-width: 768px)");
 	const alignValue = isDesktop ? "start" : "end";
 
-	const { mutate: updateUser, isPending: isUpdating } =
+	const { mutateAsync: updateUser, isPending: isUpdating } =
 		api.users.updateUser.useMutation({
-			onSuccess: () => {
-				utils.users.getAll.invalidate();
-				setIsEditDialogOpen(false);
-			},
 			onError: (error) => {
 				toast.error("Failed to update user", {
 					description: String(error.message),
@@ -282,6 +348,24 @@ function UsersTableActionsMenu({ user }: { user: User }) {
 				log.error(error, "Failed to update user");
 			},
 		});
+
+	const { mutateAsync: setPhone } = api.users.setPhone.useMutation({
+		onError: (error) => {
+			toast.error("Failed to update phone", {
+				description: String(error.message),
+				duration: 10000,
+			});
+		},
+	});
+
+	const { mutateAsync: setIsGreeter } = api.users.setIsGreeter.useMutation({
+		onError: (error) => {
+			toast.error("Failed to update greeter status", {
+				description: String(error.message),
+				duration: 10000,
+			});
+		},
+	});
 
 	const { mutate: updateUserArchiveStatus, isPending: isUpdatingStatus } =
 		api.users.updateUserArchiveStatus.useMutation({
@@ -299,11 +383,18 @@ function UsersTableActionsMenu({ user }: { user: User }) {
 			},
 		});
 
-	const handleEditSubmit = (values: UsersTableFormValues) => {
-		updateUser({
-			userId: user.id,
-			...values,
-		});
+	const handleEditSubmit = async (values: UsersTableFormValues) => {
+		const normalized = values.phoneNumber
+			? normalizePhone(values.phoneNumber)
+			: "";
+		const phoneValue = normalized === "" ? null : normalized;
+		await Promise.all([
+			updateUser({ userId: user.id, permissions: values.permissions }),
+			setPhone({ userId: user.id, phoneNumber: phoneValue }),
+			setIsGreeter({ userId: user.id, isGreeter: values.isGreeter ?? false }),
+		]);
+		utils.users.getAll.invalidate();
+		setIsEditDialogOpen(false);
 	};
 
 	const handleArchiveToggle = () => {
@@ -432,6 +523,8 @@ export default function UsersTable() {
 									<TableHead className="w-[20px]"></TableHead>
 									<TableHead>Name</TableHead>
 									<TableHead>Email</TableHead>
+									<TableHead>Phone</TableHead>
+									<TableHead>Roles</TableHead>
 								</TableRow>
 							</TableHeader>
 							<TableBody>
@@ -439,7 +532,7 @@ export default function UsersTable() {
 									<TableRow>
 										<TableCell
 											className="text-center"
-											colSpan={canEdit ? 5 : 4}
+											colSpan={canEdit ? 7 : 6}
 										>
 											Loading...
 										</TableCell>
@@ -469,13 +562,26 @@ export default function UsersTable() {
 													{user.email}
 												</Link>
 											</TableCell>
+											<TableCell className="text-muted-foreground">
+												{user.phoneNumber ?? "—"}
+											</TableCell>
+											<TableCell>
+												<div className="flex flex-wrap gap-1">
+													{user.evaluator && (
+														<Badge variant="default">Evaluator</Badge>
+													)}
+													{user.isGreeter && (
+														<Badge variant="secondary">Greeter</Badge>
+													)}
+												</div>
+											</TableCell>
 										</TableRow>
 									))
 								) : (
 									<TableRow>
 										<TableCell
 											className="text-center"
-											colSpan={canEdit ? 5 : 4}
+											colSpan={canEdit ? 7 : 6}
 										>
 											No active users found.
 										</TableCell>
@@ -535,6 +641,8 @@ export default function UsersTable() {
 									<TableHead className="w-[20px]"></TableHead>
 									<TableHead>Name</TableHead>
 									<TableHead>Email</TableHead>
+									<TableHead>Phone</TableHead>
+									<TableHead>Roles</TableHead>
 								</TableRow>
 							</TableHeader>
 							<TableBody>
@@ -542,7 +650,7 @@ export default function UsersTable() {
 									<TableRow>
 										<TableCell
 											className="text-center"
-											colSpan={canEdit ? 5 : 4}
+											colSpan={canEdit ? 7 : 6}
 										>
 											Loading...
 										</TableCell>
@@ -572,13 +680,26 @@ export default function UsersTable() {
 													{user.email}
 												</Link>
 											</TableCell>
+											<TableCell className="text-muted-foreground">
+												{user.phoneNumber ?? "—"}
+											</TableCell>
+											<TableCell>
+												<div className="flex flex-wrap gap-1">
+													{user.evaluator && (
+														<Badge variant="outline">Evaluator</Badge>
+													)}
+													{user.isGreeter && (
+														<Badge variant="secondary">Greeter</Badge>
+													)}
+												</div>
+											</TableCell>
 										</TableRow>
 									))
 								) : (
 									<TableRow>
 										<TableCell
 											className="text-center"
-											colSpan={canEdit ? 5 : 4}
+											colSpan={canEdit ? 7 : 6}
 										>
 											No archived users found.
 										</TableCell>

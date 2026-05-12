@@ -120,6 +120,7 @@ export const evaluatorRelations = relations(evaluators, ({ many }) => ({
 	blockedSchoolDistricts: many(blockedSchoolDistricts),
 	blockedZipCodes: many(blockedZipCodes),
 	insurances: many(evaluatorsToInsurances),
+	users: many(users),
 }));
 
 export const insurancesRelations = relations(insurances, ({ many }) => ({
@@ -636,6 +637,8 @@ export const users = createTable("user", (d) => ({
 	claimedReportFolder: d
 		.json("claimed_report_folder")
 		.$type<{ name: string; id: string }>(),
+	phoneNumber: d.varchar("phone_number", { length: 20 }),
+	isGreeter: d.boolean("is_greeter").notNull().default(false),
 }));
 
 export const usersRelations = relations(users, ({ many, one }) => ({
@@ -643,8 +646,8 @@ export const usersRelations = relations(users, ({ many, one }) => ({
 	sessions: many(sessions),
 
 	evaluator: one(evaluators, {
-		fields: [users.evaluatorId],
-		references: [evaluators.npi],
+		fields: [users.email],
+		references: [evaluators.email],
 	}),
 }));
 
@@ -774,4 +777,9 @@ export const seenReportFolders = createTable("seen_report_folders", (d) => ({
 		.timestamp("notified_at")
 		.default(sql`CURRENT_TIMESTAMP`)
 		.notNull(),
+}));
+
+export const greeterProxyState = createTable("greeter_proxy_state", (d) => ({
+	key: d.varchar({ length: 100 }).notNull().primaryKey(),
+	value: d.varchar({ length: 255 }),
 }));

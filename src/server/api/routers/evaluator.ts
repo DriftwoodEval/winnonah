@@ -40,6 +40,9 @@ export const evaluatorRouter = createTRPCRouter({
 					blockedSchoolDistricts: { with: { schoolDistrict: true } },
 					blockedZipCodes: { with: { zipCode: true } },
 					insurances: { with: { insurance: true } },
+					users: {
+						columns: { id: true, name: true, email: true },
+					},
 				},
 			});
 

@@ -18,6 +18,7 @@ TABLE_PYTHON_CONFIG: Final = "emr_python_config"
 TABLE_SEEN_REPORT_FOLDERS: Final = "emr_seen_report_folders"
 TABLE_IN_PERSON_ASSESSMENT: Final = "emr_in_person_assessment"
 TABLE_QUESTIONNAIRE_RULE: Final = "emr_questionnaire_rule"
+TABLE_GREETER_PROXY_STATE: Final = "emr_greeter_proxy_state"
 
 # DB to DataFrame Column Mapping
 CLIENT_COLUMN_MAPPING: Final = {

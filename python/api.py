@@ -9,6 +9,7 @@ from fastapi.responses import FileResponse
 from googleapiclient.discovery import build
 from pydantic import BaseModel
 
+import greeter_proxy
 from utils.constants import TABLE_CLIENT
 from utils.database import get_db, get_python_config
 from utils.google import google_authenticate, send_gmail
@@ -16,6 +17,7 @@ from utils.google import google_authenticate, send_gmail
 load_dotenv()
 
 app = FastAPI()
+app.include_router(greeter_proxy.router)
 
 
 class ClaimRequest(BaseModel):
