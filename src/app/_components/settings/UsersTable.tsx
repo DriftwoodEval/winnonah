@@ -70,19 +70,35 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "../ui/tabs";
 
 const log = logger.child({ module: "UsersTable" });
 
-const E164_REGEX = /^\+[1-9]\d{1,14}$/;
-
 const normalizePhone = (val: string): string => {
 	if (!val || val.trim() === "") return "";
 	const stripped = val.replace(/[\s\-().]/g, "");
 	return stripped.startsWith("+") ? stripped : `+1${stripped}`;
 };
 
+const formatPhoneAsYouType = (value: string): string => {
+	let digits = value.replace(/\D/g, "");
+	if (digits.length === 11 && digits.startsWith("1")) digits = digits.slice(1);
+	digits = digits.slice(0, 10);
+	if (digits.length === 0) return "";
+	if (digits.length <= 3) return `(${digits}`;
+	if (digits.length <= 6) return `(${digits.slice(0, 3)}) ${digits.slice(3)}`;
+	return `(${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6)}`;
+};
+
 const formSchema = z.object({
 	permissions: permissionsSchema,
 	phoneNumber: z
 		.string()
-		.regex(E164_REGEX, "Must be a valid phone number")
+		.refine((val) => {
+			if (!val) return true;
+			const digits = val.replace(/\D/g, "");
+			const stripped =
+				digits.length === 11 && digits.startsWith("1")
+					? digits.slice(1)
+					: digits;
+			return stripped.length === 10;
+		}, "Must be a valid 10-digit phone number")
 		.or(z.literal(""))
 		.nullable()
 		.optional(),
@@ -128,7 +144,12 @@ function UsersTableForm({
 		if (initialData?.permissions) {
 			setValue("permissions", initialData.permissions as PermissionsObject);
 		}
-		setValue("phoneNumber", initialData?.phoneNumber ?? "");
+		setValue(
+			"phoneNumber",
+			initialData?.phoneNumber
+				? formatPhoneAsYouType(initialData.phoneNumber)
+				: "",
+		);
 		setValue("isGreeter", initialData?.isGreeter ?? false);
 	}, [initialData, setValue]);
 
@@ -279,11 +300,11 @@ function UsersTableForm({
 									<FormLabel>Phone Number</FormLabel>
 									<FormControl>
 										<Input
-											placeholder="+12125551234"
+											placeholder="(212) 555-1234"
 											{...field}
-											onBlur={() => {
-												field.onChange(normalizePhone(field.value ?? ""));
-												field.onBlur();
+											onBlur={field.onBlur}
+											onChange={(e) => {
+												field.onChange(formatPhoneAsYouType(e.target.value));
 											}}
 											value={field.value ?? ""}
 										/>
@@ -563,7 +584,9 @@ export default function UsersTable() {
 												</Link>
 											</TableCell>
 											<TableCell className="text-muted-foreground">
-												{user.phoneNumber ?? "—"}
+												{user.phoneNumber
+													? formatPhoneAsYouType(user.phoneNumber)
+													: "—"}
 											</TableCell>
 											<TableCell>
 												<div className="flex flex-wrap gap-1">
@@ -681,7 +704,9 @@ export default function UsersTable() {
 												</Link>
 											</TableCell>
 											<TableCell className="text-muted-foreground">
-												{user.phoneNumber ?? "—"}
+												{user.phoneNumber
+													? formatPhoneAsYouType(user.phoneNumber)
+													: "—"}
 											</TableCell>
 											<TableCell>
 												<div className="flex flex-wrap gap-1">
