@@ -18,7 +18,7 @@ router = APIRouter()
 OPENPHONE_API_KEY = os.getenv("OPENPHONE_API_TOKEN", "")
 OPENPHONE_NUMBER_ID = os.getenv("OPENPHONE_NUMBER_ID", "")
 OPENPHONE_GREETER_NUMBER_ID = os.getenv("OPENPHONE_GREETER_NUMBER_ID", "")
-OPENPHONE_GREETER_SIGNING_SECRET = os.getenv("OPENPHONE_SIGNING_SECRET", "")
+OPENPHONE_GREETER_SIGNING_SECRET = os.getenv("OPENPHONE_GREETER_SIGNING_SECRET", "")
 
 _http_client: httpx.AsyncClient | None = None
 
@@ -42,6 +42,8 @@ async def verify_signature(request: Request, signature_header: str) -> None:
         if len(parts) != 4:
             raise ValueError("Invalid signature format")
         _algo, _version, timestamp, received_sig = parts
+        timestamp = timestamp.strip()
+        received_sig = received_sig.strip()
     except ValueError, AttributeError:
         raise HTTPException(status_code=401, detail="Invalid signature format")
 
@@ -50,8 +52,8 @@ async def verify_signature(request: Request, signature_header: str) -> None:
         raise HTTPException(status_code=401, detail="Signature expired")
 
     raw_body = await request.body()
-    signing_payload = f"{timestamp}.{raw_body.decode('utf-8')}".encode()
-    secret_bytes = base64.b64decode(OPENPHONE_GREETER_SIGNING_SECRET)
+    signing_payload = timestamp.encode() + b"." + raw_body
+    secret_bytes = base64.b64decode(OPENPHONE_GREETER_SIGNING_SECRET.strip())
     expected_hmac = hmac.new(
         secret_bytes, msg=signing_payload, digestmod=hashlib.sha256
     ).digest()
