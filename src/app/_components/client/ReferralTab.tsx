@@ -389,7 +389,7 @@ export function ReferralTab({ client, readOnly }: ReferralTabProps) {
 									inquietudes sobre la posibilidad de{" "}
 									{asdAdhdValue
 										.replace("ASD", "Autismo")
-										.replace("LD", "discapacidad de aprendizaje")}
+										.replace("LD", "discapacidades de aprendizaje")}
 									.
 								</p>
 							) : (
@@ -407,7 +407,11 @@ export function ReferralTab({ client, readOnly }: ReferralTabProps) {
 						{isUnder3 && (
 							<div className="space-y-4">
 								<div className="rounded-lg bg-muted p-4 text-sm">
-									<p>Is the child being followed by BabyNet?</p>
+									{isSpanish ? (
+										<p>¿El Niño es seguido por BabyNet?</p>
+									) : (
+										<p>Is the child being followed by BabyNet?</p>
+									)}
 								</div>
 								<div className="space-y-3 px-4">
 									<Label className="font-semibold">BabyNet?</Label>
@@ -444,10 +448,17 @@ export function ReferralTab({ client, readOnly }: ReferralTabProps) {
 
 								{followedByBabyNet === "yes" && (
 									<div className="flex items-center justify-between rounded-lg bg-muted p-4 text-sm">
-										<p>
-											I'm sending you a text, please forward it to your early
-											interventionist.
-										</p>
+										{isSpanish ? (
+											<p>
+												Le estoy enviando un mensaje de texto, por favor envíelo
+												a su especialista en intervención temprana.
+											</p>
+										) : (
+											<p>
+												I'm sending you a text, please forward it to your early
+												interventionist.
+											</p>
+										)}
 										<Button
 											className="cursor-pointer"
 											disabled={isReadOnly || sendMessageMutation.isPending}
