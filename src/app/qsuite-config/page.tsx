@@ -9,7 +9,14 @@ export const metadata: Metadata = {
 
 export default async function QSuiteConfig() {
 	return (
-		<Guard permission="pages:qsuite-config">
+		<Guard
+			anyOf={[
+				"settings:qsuite:general",
+				"settings:qsuite:services",
+				"settings:qsuite:records",
+				"settings:qsuite:piecework",
+			]}
+		>
 			<Suspense>
 				<ConfigEditor />
 			</Suspense>

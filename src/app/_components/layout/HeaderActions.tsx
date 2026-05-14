@@ -26,7 +26,11 @@ export function HeaderActions() {
 	const can = useCheckPermission();
 	const isDesktop = useMediaQuery("(min-width: 768px)");
 
-	const canQSuite = can("pages:qsuite-config");
+	const canQSuite =
+		can("settings:qsuite:general") ||
+		can("settings:qsuite:services") ||
+		can("settings:qsuite:records") ||
+		can("settings:qsuite:piecework");
 
 	return (
 		<div className="m-2 flex items-center gap-3">

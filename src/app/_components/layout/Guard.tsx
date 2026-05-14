@@ -7,11 +7,13 @@ import { AuthRejection } from "./AuthRejection";
 
 interface GuardProps {
 	children: React.ReactNode;
-	/** If provided, requires this specific permission */
+	/** Requires this specific permission */
 	permission?: PermissionId;
+	/** Requires at least one of these permissions */
+	anyOf?: PermissionId[];
 }
 
-export function Guard({ children, permission }: GuardProps) {
+export function Guard({ children, permission, anyOf }: GuardProps) {
 	const { data: session, status } = useSession();
 	const can = useCheckPermission();
 
@@ -22,6 +24,10 @@ export function Guard({ children, permission }: GuardProps) {
 	}
 
 	if (permission && !can(permission)) {
+		return <AuthRejection reason="unauthorized" />;
+	}
+
+	if (anyOf && !anyOf.some(can)) {
 		return <AuthRejection reason="unauthorized" />;
 	}
 
