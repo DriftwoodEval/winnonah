@@ -32,7 +32,7 @@
 		]
 	},
 	"dependencies": {
-		"@auth/drizzle-adapter": "^1.11.1",
+		"@auth/drizzle-adapter": "^1.11.2",
 		"@googleapis/calendar": "^14.2.0",
 		"@googleapis/drive": "^20.1.0",
 		"@googleapis/sheets": "^13.0.1",
