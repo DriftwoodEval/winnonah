@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import type { JSONContent } from "@tiptap/core";
 import { TRPCError } from "@trpc/server";
-import { subBusinessDays, subMonths, subYears } from "date-fns";
+import { format, subBusinessDays, subMonths, subYears } from "date-fns";
 import {
 	and,
 	asc,
@@ -39,6 +39,7 @@ import {
 	clientRelated,
 	clients,
 	clientsEvaluators,
+	externalRecordRequests,
 	externalRecords,
 	failures,
 	notes,
@@ -685,45 +686,44 @@ export const clientRouter = createTRPCRouter({
 	}),
 
 	getUnreviewedRecords: protectedProcedure.query(async ({ ctx }) => {
-		const threeWeekdaysAgo = subBusinessDays(new Date(), 3);
+		const threeWeekdaysAgo = format(
+			subBusinessDays(new Date(), 3),
+			"yyyy-MM-dd",
+		);
+
+		const latestRequest = ctx.db
+			.select({
+				clientId: externalRecordRequests.clientId,
+				latestDate:
+					sql<string>`MAX(${externalRecordRequests.requestedDate})`.as(
+						"latest_date",
+					),
+			})
+			.from(externalRecordRequests)
+			.where(isNotNull(externalRecordRequests.requestedDate))
+			.groupBy(externalRecordRequests.clientId)
+			.as("latest_request");
 
 		const results = await ctx.db
 			.select({
 				...getTableColumns(clients),
 				additionalInfo: sql<string>`CONCAT(
           '(Requested: ',
-          DATE_FORMAT(
-            CASE
-              WHEN ${externalRecords.needsSecondRequest} = TRUE THEN ${externalRecords.secondRequestDate}
-              ELSE ${externalRecords.requested}
-            END,
-            '%m/%d/%y'
-          ),
+          DATE_FORMAT(${latestRequest.latestDate}, '%m/%d/%y'),
           ')'
         )`,
 			})
 			.from(clients)
 			.innerJoin(externalRecords, eq(clients.id, externalRecords.clientId))
+			.innerJoin(latestRequest, eq(clients.id, latestRequest.clientId))
 			.where(
-				or(
-					and(
-						eq(clients.recordsNeeded, "Needed"),
-						lt(externalRecords.requested, threeWeekdaysAgo),
-						eq(externalRecords.needsSecondRequest, false),
-						isNull(externalRecords.content),
-					),
-					and(
-						eq(externalRecords.needsSecondRequest, true),
-						lt(externalRecords.secondRequestDate, threeWeekdaysAgo),
-						isNull(externalRecords.content),
-					),
+				and(
+					eq(clients.recordsNeeded, "Needed"),
+					lt(latestRequest.latestDate, threeWeekdaysAgo),
+					isNull(externalRecords.content),
 				),
 			)
-			.orderBy(
-				asc(
-					sql`CASE WHEN ${externalRecords.needsSecondRequest} = TRUE THEN ${externalRecords.secondRequestDate} ELSE ${externalRecords.requested} END`,
-				),
-			);
+			.orderBy(asc(latestRequest.latestDate));
 
 		return results;
 	}),

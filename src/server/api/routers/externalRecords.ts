@@ -1,6 +1,6 @@
 import EventEmitter from "node:events";
 import { TRPCError } from "@trpc/server";
-import { desc, eq } from "drizzle-orm";
+import { and, asc, desc, eq } from "drizzle-orm";
 import { z } from "zod";
 import {
 	assertPermission,
@@ -10,6 +10,7 @@ import {
 import {
 	clients,
 	externalRecordHistory,
+	externalRecordRequests,
 	externalRecords,
 	users,
 } from "~/server/db/schema";
@@ -55,143 +56,149 @@ export const externalRecordRouter = createTRPCRouter({
 	getExternalRecordByClientId: protectedProcedure
 		.input(z.number())
 		.query(async ({ ctx, input: clientId }) => {
-			const data = await ctx.db.query.externalRecords.findFirst({
-				where: eq(externalRecords.clientId, clientId),
-			});
+			const [data, requests] = await Promise.all([
+				ctx.db.query.externalRecords.findFirst({
+					where: eq(externalRecords.clientId, clientId),
+				}),
+				ctx.db
+					.select()
+					.from(externalRecordRequests)
+					.where(eq(externalRecordRequests.clientId, clientId))
+					.orderBy(asc(externalRecordRequests.id)),
+			]);
 
-			if (!data) return null;
+			if (!data && requests.length === 0) return null;
 
 			return {
-				clientId: data.clientId,
-				contentJson: data.content,
-				requested: data.requested,
-				needsSecondRequest: data.needsSecondRequest,
-				secondRequestDate: data.secondRequestDate,
+				clientId: data?.clientId ?? clientId,
+				contentJson: data?.content ?? null,
+				requests,
 			};
 		}),
 
-	setFirstRequestDate: protectedProcedure
-		.input(
-			z.object({
-				clientId: z.number(),
-				requested: z.date().nullable(),
-			}),
-		)
+	flagRecordRequest: protectedProcedure
+		.input(z.object({ clientId: z.number() }))
 		.mutation(async ({ ctx, input }) => {
 			assertPermission(ctx.session.user, "clients:records:requested");
-			ctx.logger.info(input, "Setting first request date");
+			ctx.logger.info(input, "Flagging record request");
 
-			const existingRecord = await ctx.db.query.externalRecords.findFirst({
-				where: eq(externalRecords.clientId, input.clientId),
+			await ctx.db.insert(externalRecordRequests).values({
+				clientId: input.clientId,
+				createdBy: ctx.session.user.email,
 			});
 
-			if (!existingRecord) {
+			const existing = await ctx.db.query.externalRecords.findFirst({
+				where: eq(externalRecords.clientId, input.clientId),
+			});
+			if (!existing) {
 				await ctx.db.insert(externalRecords).values({
 					clientId: input.clientId,
-					requested: input.requested,
+					updatedBy: ctx.session.user.email,
 				});
-			} else {
-				await ctx.db
-					.update(externalRecords)
-					.set({ requested: input.requested })
-					.where(eq(externalRecords.clientId, input.clientId));
 			}
 
-			const updatedNote = await ctx.db.query.externalRecords.findFirst({
-				where: eq(externalRecords.clientId, input.clientId),
+			const requests = await ctx.db
+				.select()
+				.from(externalRecordRequests)
+				.where(eq(externalRecordRequests.clientId, input.clientId))
+				.orderBy(asc(externalRecordRequests.id));
+
+			externalRecordsEmitter.emit("externalRecordsNoteUpdate", {
+				clientId: input.clientId,
+				requests,
 			});
 
-			if (updatedNote) {
-				externalRecordsEmitter.emit("externalRecordsNoteUpdate", {
-					clientId: updatedNote.clientId,
-					requested: updatedNote.requested,
-				});
-			}
+			return requests;
 		}),
 
-	setNeedsSecondRequest: protectedProcedure
+	setRecordRequestDate: protectedProcedure
 		.input(
 			z.object({
+				requestId: z.number(),
 				clientId: z.number(),
-				needsSecondRequest: z.boolean(),
-			}),
-		)
-		.mutation(async ({ ctx, input }) => {
-			assertPermission(ctx.session.user, "clients:records:needed");
-
-			ctx.logger.info(input, "Setting needs second request");
-
-			await ctx.db
-				.update(externalRecords)
-				.set({ needsSecondRequest: input.needsSecondRequest })
-				.where(eq(externalRecords.clientId, input.clientId));
-
-			const updatedNote = await ctx.db.query.externalRecords.findFirst({
-				where: eq(externalRecords.clientId, input.clientId),
-			});
-
-			if (updatedNote) {
-				externalRecordsEmitter.emit("externalRecordsNoteUpdate", {
-					clientId: updatedNote.clientId,
-					needsSecondRequest: updatedNote.needsSecondRequest,
-				});
-			}
-		}),
-
-	setSecondRequestDate: protectedProcedure
-		.input(
-			z.object({
-				clientId: z.number(),
-				secondRequestDate: z.date().nullable(),
+				requestedDate: z.date().nullable(),
 			}),
 		)
 		.mutation(async ({ ctx, input }) => {
 			assertPermission(ctx.session.user, "clients:records:requested");
-
-			ctx.logger.info(input, `Setting second request date`);
-
-			const updatePayload = {
-				secondRequestDate: input.secondRequestDate,
-			};
+			ctx.logger.info(input, "Setting record request date");
 
 			await ctx.db
-				.update(externalRecords)
-				.set(updatePayload)
-				.where(eq(externalRecords.clientId, input.clientId));
+				.update(externalRecordRequests)
+				.set({ requestedDate: input.requestedDate })
+				.where(
+					and(
+						eq(externalRecordRequests.id, input.requestId),
+						eq(externalRecordRequests.clientId, input.clientId),
+					),
+				);
 
-			const updatedNote = await ctx.db.query.externalRecords.findFirst({
-				where: eq(externalRecords.clientId, input.clientId),
+			const requests = await ctx.db
+				.select()
+				.from(externalRecordRequests)
+				.where(eq(externalRecordRequests.clientId, input.clientId))
+				.orderBy(asc(externalRecordRequests.id));
+
+			externalRecordsEmitter.emit("externalRecordsNoteUpdate", {
+				clientId: input.clientId,
+				requests,
 			});
 
-			if (updatedNote) {
-				externalRecordsEmitter.emit("externalRecordsNoteUpdate", {
-					clientId: updatedNote.clientId,
-					secondRequestDate: updatedNote.secondRequestDate,
-				});
-			}
+			return requests;
+		}),
+
+	removeRecordRequest: protectedProcedure
+		.input(
+			z.object({
+				clientId: z.number(),
+				requestId: z.number(),
+			}),
+		)
+		.mutation(async ({ ctx, input }) => {
+			assertPermission(ctx.session.user, "clients:records:requested");
+			ctx.logger.info(input, "Removing record request");
+
+			await ctx.db
+				.delete(externalRecordRequests)
+				.where(
+					and(
+						eq(externalRecordRequests.id, input.requestId),
+						eq(externalRecordRequests.clientId, input.clientId),
+					),
+				);
+
+			const requests = await ctx.db
+				.select()
+				.from(externalRecordRequests)
+				.where(eq(externalRecordRequests.clientId, input.clientId))
+				.orderBy(asc(externalRecordRequests.id));
+
+			externalRecordsEmitter.emit("externalRecordsNoteUpdate", {
+				clientId: input.clientId,
+				requests,
+			});
+
+			return requests;
 		}),
 
 	onExternalRecordNoteUpdate: protectedProcedure
 		.input(z.number()) // clientId
 		.subscription(async function* ({ input: clientId }) {
+			type ExternalRecordRequest = typeof externalRecordRequests.$inferSelect;
 			// Create a promise-based queue for events
 			const eventQueue: Array<{
 				clientId: number;
 				// biome-ignore lint/suspicious/noExplicitAny: JSON
-				contentJson: any;
-				requested: Date | null;
-				needsSecondRequest: boolean;
-				secondRequestDate: Date | null;
+				contentJson?: any;
+				requests?: ExternalRecordRequest[];
 			}> = [];
 			let resolveNext: (() => void) | null = null;
 
 			const onUpdate = (data: {
 				clientId: number;
 				// biome-ignore lint/suspicious/noExplicitAny: JSON
-				contentJson: any;
-				requested: Date | null;
-				needsSecondRequest: boolean;
-				secondRequestDate: Date | null;
+				contentJson?: any;
+				requests?: ExternalRecordRequest[];
 			}) => {
 				// Only queue events for this specific client
 				if (data.clientId === clientId) {
@@ -388,9 +395,6 @@ export const externalRecordRouter = createTRPCRouter({
 			externalRecordsEmitter.emit("externalRecordsNoteUpdate", {
 				clientId: newRecordNote.clientId,
 				contentJson: newRecordNote.content,
-				requested: newRecordNote.requested,
-				needsSecondRequest: newRecordNote.needsSecondRequest,
-				secondRequestDate: newRecordNote.secondRequestDate,
 			});
 
 			return newRecordNote;

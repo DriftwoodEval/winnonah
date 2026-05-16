@@ -1,5 +1,4 @@
 import { RichTextEditor } from "@components/shared/RichTextEditor";
-import type { CheckedState } from "@radix-ui/react-checkbox";
 import { Button } from "@ui/button";
 import { Checkbox } from "@ui/checkbox";
 import { DatePicker } from "@ui/date-picker";
@@ -84,18 +83,7 @@ export function RecordsNoteEditor({
 				},
 				"External record note updated",
 			);
-			utils.externalRecords.getExternalRecordByClientId.setData(
-				clientId,
-				(oldData) => {
-					if (!oldData) {
-						return updatedExternalRecordsNote;
-					}
-					return {
-						...oldData,
-						...updatedExternalRecordsNote,
-					};
-				},
-			);
+			utils.externalRecords.getExternalRecordByClientId.invalidate(clientId);
 		},
 	});
 
@@ -113,13 +101,15 @@ export function RecordsNoteEditor({
 	const [recordsNeeded, setRecordsNeeded] = useState<
 		"Needed" | "Not Needed" | undefined
 	>();
-	const [firstRequestedDate, setFirstRequestedDate] = useState<
-		Date | undefined
-	>();
-	const [needsSecondRequest, setNeedsSecondRequest] = useState(false);
-	const [secondRequestDate, setSecondRequestDate] = useState<
-		Date | undefined
-	>();
+	const [requests, setRequests] = useState<
+		Array<{
+			id: number;
+			clientId: number;
+			requestedDate: Date | string | null;
+			createdAt: Date;
+			createdBy: string | null;
+		}>
+	>([]);
 	const [localContent, setLocalContent] = useState(record?.contentJson ?? "");
 
 	useEffect(() => {
@@ -127,18 +117,8 @@ export function RecordsNoteEditor({
 	}, [client?.recordsNeeded]);
 
 	useEffect(() => {
-		setFirstRequestedDate(
-			getLocalDayFromUTCDate(record?.requested) ?? undefined,
-		);
-		setNeedsSecondRequest(record?.needsSecondRequest ?? false);
-		setSecondRequestDate(
-			getLocalDayFromUTCDate(record?.secondRequestDate) ?? undefined,
-		);
-	}, [
-		record?.requested,
-		record?.needsSecondRequest,
-		record?.secondRequestDate,
-	]);
+		setRequests(record?.requests ?? []);
+	}, [record?.requests]);
 
 	// biome-ignore lint/correctness/useExhaustiveDependencies: We exclude localContent from deps to avoid loops, we only care when note updates
 	useEffect(() => {
@@ -180,28 +160,28 @@ export function RecordsNoteEditor({
 		onError: (error) => handleError(error, "create record note"),
 	});
 
-	const setFirstRequestDateMutation =
-		api.externalRecords.setFirstRequestDate.useMutation({
+	const flagRecordRequestMutation =
+		api.externalRecords.flagRecordRequest.useMutation({
 			onSuccess: () => {
 				utils.externalRecords.getExternalRecordByClientId.invalidate(clientId);
 			},
-			onError: (error) => handleError(error, "set first requested date"),
+			onError: (error) => handleError(error, "flag record request"),
 		});
 
-	const setNeedsSecondRequestMutation =
-		api.externalRecords.setNeedsSecondRequest.useMutation({
+	const setRecordRequestDateMutation =
+		api.externalRecords.setRecordRequestDate.useMutation({
 			onSuccess: () => {
 				utils.externalRecords.getExternalRecordByClientId.invalidate(clientId);
 			},
-			onError: (error) => handleError(error, "set second request flag"),
+			onError: (error) => handleError(error, "set record request date"),
 		});
 
-	const setSecondRequestDateMutation =
-		api.externalRecords.setSecondRequestDate.useMutation({
+	const removeRecordRequestMutation =
+		api.externalRecords.removeRecordRequest.useMutation({
 			onSuccess: () => {
 				utils.externalRecords.getExternalRecordByClientId.invalidate(clientId);
 			},
-			onError: (error) => handleError(error, "set second requested date"),
+			onError: (error) => handleError(error, "remove record request"),
 		});
 
 	const stateRef = useRef({
@@ -275,50 +255,23 @@ export function RecordsNoteEditor({
 		});
 	};
 
-	const handleFirstRequestedDateChange = (date: Date | undefined) => {
-		setFirstRequestedDate(date);
-
-		if (!clientId) {
-			return;
-		}
-
-		setFirstRequestDateMutation.mutate({
-			clientId: clientId,
-			requested: date ?? null,
-		});
-	};
-
-	const handleNeedsSecondRequestChange = (checked: CheckedState) => {
-		const newCheckedState = checked === "indeterminate" ? false : checked;
-
-		setNeedsSecondRequest(newCheckedState);
-
+	const handleFlagRequest = () => {
 		if (!clientId) return;
-
-		if (record?.clientId) {
-			setNeedsSecondRequestMutation.mutate({
-				clientId: clientId,
-				needsSecondRequest: newCheckedState,
-			});
-		} else {
-			toast.error("Error", {
-				description:
-					"A first request date must be set before flagging for a second request.",
-			});
-		}
+		flagRecordRequestMutation.mutate({ clientId });
 	};
 
-	const handleSecondRequestedDateChange = (date: Date | undefined) => {
-		setSecondRequestDate(date);
-
-		if (!clientId) {
-			return;
-		}
-
-		setSecondRequestDateMutation.mutate({
-			clientId: clientId,
-			secondRequestDate: date ?? null,
+	const handleSetRequestDate = (requestId: number, date: Date | undefined) => {
+		if (!clientId) return;
+		setRecordRequestDateMutation.mutate({
+			requestId,
+			clientId,
+			requestedDate: date ?? null,
 		});
+	};
+
+	const handleRemoveRequest = (requestId: number) => {
+		if (!clientId) return;
+		removeRecordRequestMutation.mutate({ clientId, requestId });
 	};
 
 	const handleTemplateChange = (value: string) => {
@@ -382,48 +335,26 @@ export function RecordsNoteEditor({
 
 	const isLoading = isLoadingRecord || isLoadingClient;
 	const canEditRecordsNeeded = canRecordsNeeded && !readOnly;
-	const canEditFirstDate =
+	const canAddRequest =
 		canRecordRequested && !readOnly && recordsNeeded === "Needed";
-	const canEditSecondNeeded =
-		canRecordsNeeded &&
-		!readOnly &&
-		recordsNeeded === "Needed" &&
-		!!firstRequestedDate &&
-		!secondRequestDate;
-	const canEditSecondDate =
-		canRecordRequested && !readOnly && needsSecondRequest;
 
 	// Text Editor is editable if records are needed, a request was made, and not read-only
 	const isEditorReadOnly =
 		!canRecordNote ||
 		readOnly ||
 		recordsNeeded !== "Needed" ||
-		!firstRequestedDate;
+		requests.length === 0;
 
 	const tooltipRecordsNeeded = !canRecordNote && "Missing permissions.";
 
-	const tooltipFirstDate = !recordsNeeded
+	const tooltipAddRequest = !recordsNeeded
 		? "The 'Needed' flag must be set first."
 		: recordsNeeded !== "Needed"
 			? "Records aren't needed."
-			: !canRecordNote && "Missing permissions.";
-
-	const tooltipSecondNeeded = !firstRequestedDate
-		? "The first request date must be set before requesting again."
-		: secondRequestDate
-			? "The second request date is already set."
-			: recordsNeeded !== "Needed"
-				? "Records aren't needed."
-				: !canRecordNote && "Missing permissions .";
-
-	const tooltipSecondDate = !needsSecondRequest
-		? "The 'Second Request?' flag must be checked first."
-		: !canRecordNote && "Missing permissions.";
+			: !canRecordRequested && "Missing permissions.";
 
 	const recordsNeededId = useId();
-	const firstRequestedId = useId();
-	const secondNeededId = useId();
-	const secondRequestedId = useId();
+	const newRequestId = useId();
 
 	const editorKey = `${isEditorReadOnly}-${clientId}`;
 
@@ -478,62 +409,58 @@ export function RecordsNoteEditor({
 							</TooltipContent>
 						)}
 					</Tooltip>
-					<Tooltip>
-						<TooltipTrigger>
-							<DatePicker
-								allowClear={canEditFirstDate && !!firstRequestedDate}
-								date={firstRequestedDate}
-								disabled={!canEditFirstDate}
-								flexDirection="flex-row"
-								id={firstRequestedId}
-								label="Requested"
-								placeholder="Pick date"
-								setDate={handleFirstRequestedDateChange}
-							/>
-						</TooltipTrigger>
-						{!canEditFirstDate && !readOnly && (
-							<TooltipContent>
-								<p>{tooltipFirstDate}</p>
-							</TooltipContent>
-						)}
-					</Tooltip>
-					{!!firstRequestedDate && (
+					{requests.map((req, i) => {
+						const hasSentDate = !!req.requestedDate;
+						const checkboxId = `flag-${req.id}`;
+						const dateId = `date-${req.id}`;
+						return (
+							<div className="flex items-center gap-2" key={req.id}>
+								<div className="flex items-center gap-2">
+									<Checkbox
+										checked={true}
+										disabled={hasSentDate || !canAddRequest}
+										id={checkboxId}
+										onCheckedChange={(checked) => {
+											if (!checked) handleRemoveRequest(req.id);
+										}}
+									/>
+									<Label htmlFor={checkboxId}>
+										{i === 0 ? "Request?" : "Request Again?"}
+									</Label>
+								</div>
+								<DatePicker
+									allowClear={canAddRequest && hasSentDate}
+									date={getLocalDayFromUTCDate(req.requestedDate) ?? undefined}
+									disabled={!canAddRequest}
+									flexDirection="flex-row"
+									id={dateId}
+									label={i === 0 ? "Requested" : `Requested (${i + 1})`}
+									placeholder="Pick date"
+									setDate={(date) => handleSetRequestDate(req.id, date)}
+								/>
+							</div>
+						);
+					})}
+					{canAddRequest && !requests.some((r) => !r.requestedDate) && (
 						<Tooltip>
 							<TooltipTrigger>
 								<div className="flex items-center gap-2">
 									<Checkbox
-										checked={needsSecondRequest}
-										disabled={!canEditSecondNeeded}
-										id={secondNeededId}
-										onCheckedChange={handleNeedsSecondRequestChange}
+										checked={false}
+										disabled={!canAddRequest}
+										id={newRequestId}
+										onCheckedChange={(checked) => {
+											if (checked) handleFlagRequest();
+										}}
 									/>
-									<Label htmlFor={secondNeededId}>Request Again?</Label>
+									<Label htmlFor={newRequestId}>
+										{requests.length === 0 ? "Request?" : "Request Again?"}
+									</Label>
 								</div>
 							</TooltipTrigger>
-							{!canEditSecondNeeded && !readOnly && (
+							{!canAddRequest && !readOnly && (
 								<TooltipContent>
-									<p>{tooltipSecondNeeded}</p>
-								</TooltipContent>
-							)}
-						</Tooltip>
-					)}
-					{(needsSecondRequest || !!secondRequestDate) && (
-						<Tooltip>
-							<TooltipTrigger>
-								<DatePicker
-									allowClear={canEditSecondDate && !!secondRequestDate}
-									date={secondRequestDate}
-									disabled={!canEditSecondDate}
-									flexDirection="flex-row"
-									id={secondRequestedId}
-									label="Requested (2nd)"
-									placeholder="Pick date"
-									setDate={handleSecondRequestedDateChange}
-								/>
-							</TooltipTrigger>
-							{!canEditSecondDate && !readOnly && (
-								<TooltipContent>
-									<p>{tooltipSecondDate}</p>
+									<p>{tooltipAddRequest}</p>
 								</TooltipContent>
 							)}
 						</Tooltip>

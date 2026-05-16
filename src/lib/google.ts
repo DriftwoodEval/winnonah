@@ -9,6 +9,7 @@ import { env } from "~/env";
 import { db } from "~/server/db";
 import {
 	clients,
+	externalRecordRequests,
 	externalRecords,
 	failures,
 	questionnaires,
@@ -158,7 +159,12 @@ export const getPunchData = async (session: Session) => {
 			.select({
 				client: clients,
 				hasExternalRecordsNote: sql<boolean>`CASE WHEN ${externalRecords.content} IS NOT NULL THEN TRUE ELSE FALSE END`,
-				externalRecordsRequestedDate: externalRecords.requested,
+				externalRecordsRequestedDate: sql<string | null>`(
+					SELECT MAX(${externalRecordRequests.requestedDate})
+					FROM ${externalRecordRequests}
+					WHERE ${externalRecordRequests.clientId} = ${clients.id}
+					AND ${externalRecordRequests.requestedDate} IS NOT NULL
+				)`,
 			})
 			.from(clients)
 			.leftJoin(externalRecords, eq(clients.id, externalRecords.clientId))

@@ -383,9 +383,6 @@ export const externalRecords = createTable(
 			.onUpdateNow()
 			.default(sql`CURRENT_TIMESTAMP`),
 		updatedBy: d.varchar("updated_by", { length: 255 }),
-		requested: d.date(),
-		needsSecondRequest: d.boolean().notNull().default(false),
-		secondRequestDate: d.date(),
 	}),
 	(t) => [index("note_client_idx").on(t.clientId)],
 );
@@ -412,6 +409,24 @@ export const externalRecordHistory = createTable(
 	],
 );
 
+export const externalRecordRequests = createTable(
+	"external_record_request",
+	(d) => ({
+		id: d.int().notNull().autoincrement().primaryKey(),
+		clientId: d
+			.int()
+			.notNull()
+			.references(() => clients.id, { onDelete: "cascade" }),
+		requestedDate: d.date(),
+		createdAt: d
+			.timestamp("created_at")
+			.default(sql`CURRENT_TIMESTAMP`)
+			.notNull(),
+		createdBy: d.varchar("created_by", { length: 255 }),
+	}),
+	(t) => [index("external_record_request_client_idx").on(t.clientId)],
+);
+
 export const externalRecordsRelations = relations(
 	externalRecords,
 	({ one, many }) => ({
@@ -420,6 +435,17 @@ export const externalRecordsRelations = relations(
 			references: [clients.id],
 		}),
 		history: many(externalRecordHistory),
+		requests: many(externalRecordRequests),
+	}),
+);
+
+export const externalRecordRequestsRelations = relations(
+	externalRecordRequests,
+	({ one }) => ({
+		externalRecord: one(externalRecords, {
+			fields: [externalRecordRequests.clientId],
+			references: [externalRecords.clientId],
+		}),
 	}),
 );
 

@@ -8,6 +8,7 @@ import {
 	appointments,
 	clients,
 	evaluators,
+	externalRecordRequests,
 	externalRecords,
 } from "~/server/db/schema";
 
@@ -96,34 +97,40 @@ export async function GET(req: NextRequest) {
 			return NextResponse.json({ error: "Client not found" }, { status: 404 });
 		}
 
-		const [externalRecord, mostRecentAppointment] = await Promise.all([
-			db.query.externalRecords.findFirst({
-				where: eq(externalRecords.clientId, clientId),
-				columns: {
-					content: true,
-					requested: true,
-					needsSecondRequest: true,
-					secondRequestDate: true,
-				},
-			}),
-			db
-				.select({
-					startTime: appointments.startTime,
-					providerName: evaluators.providerName,
-				})
-				.from(appointments)
-				.leftJoin(evaluators, eq(appointments.evaluatorNpi, evaluators.npi))
-				.where(
-					and(
-						eq(appointments.clientId, clientId),
-						isNotNull(appointments.calendarEventId),
-						eq(appointments.cancelled, false),
-					),
-				)
-				.orderBy(desc(appointments.startTime))
-				.limit(1)
-				.then((res) => res[0]),
-		]);
+		const [externalRecord, requestsList, mostRecentAppointment] =
+			await Promise.all([
+				db.query.externalRecords.findFirst({
+					where: eq(externalRecords.clientId, clientId),
+					columns: { content: true },
+				}),
+				db
+					.select({ requestedDate: externalRecordRequests.requestedDate })
+					.from(externalRecordRequests)
+					.where(
+						and(
+							eq(externalRecordRequests.clientId, clientId),
+							isNotNull(externalRecordRequests.requestedDate),
+						),
+					)
+					.orderBy(desc(externalRecordRequests.requestedDate)),
+				db
+					.select({
+						startTime: appointments.startTime,
+						providerName: evaluators.providerName,
+					})
+					.from(appointments)
+					.leftJoin(evaluators, eq(appointments.evaluatorNpi, evaluators.npi))
+					.where(
+						and(
+							eq(appointments.clientId, clientId),
+							isNotNull(appointments.calendarEventId),
+							eq(appointments.cancelled, false),
+						),
+					)
+					.orderBy(desc(appointments.startTime))
+					.limit(1)
+					.then((res) => res[0]),
+			]);
 
 		const fullNote = extractTextFromTiptapJson(
 			externalRecord?.content as TiptapNode,
@@ -144,11 +151,8 @@ export async function GET(req: NextRequest) {
 		};
 
 		if (matchedTemplate?.value === "no-response") {
-			const dates = [
-				externalRecord?.requested,
-				externalRecord?.secondRequestDate,
-			]
-				.map(formatDate)
+			const dates = requestsList
+				.map((r) => formatDate(r.requestedDate))
 				.filter(Boolean);
 			if (dates.length > 0) {
 				recordsNote = `${recordsNote} (${dates.join(", ")})`;
@@ -156,19 +160,19 @@ export async function GET(req: NextRequest) {
 		}
 
 		const recordsReviewed = fullNote.length > 0;
+		const latestRequest = requestsList[0];
+		const firstRequest = requestsList[requestsList.length - 1];
 
 		let recordsStatus: string | boolean = false;
 		if (client.recordsNeeded === "Needed") {
 			if (recordsReviewed) {
 				recordsStatus = recordsNote;
-			} else if (!externalRecord?.requested) {
+			} else if (requestsList.length === 0) {
 				recordsStatus = "Needed but not requested";
-			} else if (externalRecord.secondRequestDate) {
-				recordsStatus = `Requested again ${formatDate(externalRecord.secondRequestDate)} and not received/reviewed`;
-			} else if (externalRecord.needsSecondRequest) {
-				recordsStatus = `Requested ${formatDate(externalRecord.requested)}, second request needed but not made, and not received/reviewed`;
+			} else if (requestsList.length === 1) {
+				recordsStatus = `Requested ${formatDate(firstRequest?.requestedDate)} and not received/reviewed`;
 			} else {
-				recordsStatus = `Requested ${formatDate(externalRecord.requested)} and not received/reviewed`;
+				recordsStatus = `Requested again ${formatDate(latestRequest?.requestedDate)} and not received/reviewed`;
 			}
 		}
 
