@@ -11,6 +11,7 @@ import {
 	SelectValue,
 } from "@ui/select";
 import { Skeleton } from "@ui/skeleton";
+import { Textarea } from "@ui/textarea";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@ui/tooltip";
 import { debounce } from "es-toolkit/function";
 import { isEqual } from "es-toolkit/predicate";
@@ -106,6 +107,7 @@ export function RecordsNoteEditor({
 			id: number;
 			clientId: number;
 			requestedDate: Date | string | null;
+			customMessage: string | null;
 			createdAt: Date;
 			createdBy: string | null;
 		}>
@@ -184,6 +186,11 @@ export function RecordsNoteEditor({
 			onError: (error) => handleError(error, "remove record request"),
 		});
 
+	const setRecordRequestMessageMutation =
+		api.externalRecords.setRecordRequestMessage.useMutation({
+			onError: (error) => handleError(error, "save request message"),
+		});
+
 	const stateRef = useRef({
 		record,
 		updateNoteMutation,
@@ -254,6 +261,19 @@ export function RecordsNoteEditor({
 			recordsNeeded: newValue,
 		});
 	};
+
+	// biome-ignore lint/correctness/useExhaustiveDependencies: mutation reference is stable
+	const debouncedSaveMessage = useMemo(
+		() =>
+			debounce((requestId: number, message: string) => {
+				setRecordRequestMessageMutation.mutate({
+					requestId,
+					clientId,
+					message: message || null,
+				});
+			}, 1000),
+		[clientId],
+	);
 
 	const handleFlagRequest = () => {
 		if (!clientId) return;
@@ -441,6 +461,23 @@ export function RecordsNoteEditor({
 							</div>
 						);
 					})}
+					{requests
+						.filter((r) => !r.requestedDate)
+						.map((req) => (
+							<div className="w-full" key={`msg-${req.id}`}>
+								<Label className="mb-1 block text-muted-foreground text-xs">
+									Email request line
+								</Label>
+								<Textarea
+									className="text-sm"
+									defaultValue={req.customMessage ?? ""}
+									disabled={!canAddRequest}
+									onChange={(e) => debouncedSaveMessage(req.id, e.target.value)}
+									placeholder="Please send the most recent IEP, any Evaluation Reports, and any Reevaluation Review information."
+									rows={2}
+								/>
+							</div>
+						))}
 					{canAddRequest && !requests.some((r) => !r.requestedDate) && (
 						<Tooltip>
 							<TooltipTrigger>

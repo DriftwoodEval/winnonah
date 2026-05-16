@@ -181,6 +181,29 @@ export const externalRecordRouter = createTRPCRouter({
 			return requests;
 		}),
 
+	setRecordRequestMessage: protectedProcedure
+		.input(
+			z.object({
+				requestId: z.number(),
+				clientId: z.number(),
+				message: z.string().nullable(),
+			}),
+		)
+		.mutation(async ({ ctx, input }) => {
+			assertPermission(ctx.session.user, "clients:records:requested");
+			ctx.logger.info(input, "Setting record request message");
+
+			await ctx.db
+				.update(externalRecordRequests)
+				.set({ customMessage: input.message })
+				.where(
+					and(
+						eq(externalRecordRequests.id, input.requestId),
+						eq(externalRecordRequests.clientId, input.clientId),
+					),
+				);
+		}),
+
 	onExternalRecordNoteUpdate: protectedProcedure
 		.input(z.number()) // clientId
 		.subscription(async function* ({ input: clientId }) {
