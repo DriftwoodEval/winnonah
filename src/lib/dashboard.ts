@@ -9,6 +9,13 @@ export const SECTION_EVAL_QS_DONE = "Eval Qs Done";
 export const SECTION_DAEVAL_QS_DONE = "DA+Eval Qs Done";
 export const SECTION_NEEDS_OUTREACH = "Needs Outreach";
 export const SECTION_REACHED_OUT_NEEDS_REVIEW = "Reached Out - Needs Review";
+export const SECTION_RECORDS_REQUESTED_NOT_RETURNED =
+	"Records Requested - Not Returned";
+export const SECTION_INACTIVE_ON_PUNCHLIST = "Inactive and On Punchlist";
+export const SECTION_DA_SCHEDULED = "DA Scheduled";
+export const SECTION_EVAL_SCHEDULED = "Eval Scheduled";
+export const SECTION_POST_DA = "Post-DA";
+export const SECTION_POST_EVAL = "Post-Eval";
 
 export type DashboardClient = (FullClientInfo | Client) & {
 	matchedSections?: string[];
@@ -25,6 +32,12 @@ const isDateString = (val: string | undefined | null) => {
 	return (
 		!Number.isNaN(Date.parse(val)) || /^\d{1,2}\/\d{1,2}(\/\d{2,4})?$/.test(val)
 	);
+};
+
+const isPastDate = (val: string | undefined | null) => {
+	if (!val) return false;
+	const parsed = Date.parse(val);
+	return !Number.isNaN(parsed) && parsed < Date.now();
 };
 
 const sentExtraInfo = (client: FullClientInfo) => {
@@ -53,8 +66,18 @@ export const DASHBOARD_CONFIG: {
 	extraInfo?: (client: FullClientInfo) => string | undefined;
 }[] = [
 	{
-		title: "Records Needed - Not Requested",
+		title: "Records Status Not Set",
 		subheading: "Records",
+		description:
+			"Records status has not been set for these clients. Determine whether school records are needed to move forward.",
+		filter: (client: FullClientInfo) =>
+			!client.recordsNeeded &&
+			!(
+				client.babyNetERNeeded === true && client.babyNetERDownloaded === false
+			),
+	},
+	{
+		title: "Records Needed - Not Requested",
 		description:
 			"Clients who need school records but they haven't been requested from the school district yet. To move forward, request records (record the records requested date).",
 		filter: (client: FullClientInfo) =>
@@ -62,7 +85,7 @@ export const DASHBOARD_CONFIG: {
 		failureFilter: (f) => f.daEval === "Records",
 	},
 	{
-		title: "Records Requested - Not Returned",
+		title: SECTION_RECORDS_REQUESTED_NOT_RETURNED,
 		description:
 			"Records have been requested but we haven't received them or noted them as returned yet. To move forward, enter records notes.",
 		filter: (client: FullClientInfo) =>
@@ -79,8 +102,27 @@ export const DASHBOARD_CONFIG: {
 			client.babyNetERNeeded === true && client.babyNetERDownloaded === false,
 	},
 	{
-		title: "DA Qs Pending",
+		title: "Qs Not Determined",
 		subheading: "Questionnaires",
+		description:
+			"Records are ready and BabyNet is handled, but questionnaire needs haven't been determined. Mark DA Qs Needed and/or EVAL Qs Needed on the prioritization sheet.",
+		filter: (client: FullClientInfo) =>
+			isRecordsReady(client) &&
+			!(
+				client.babyNetERNeeded === true && client.babyNetERDownloaded === false
+			) &&
+			client["DA Qs Needed"] !== "TRUE" &&
+			client["EVAL Qs Needed"] !== "TRUE" &&
+			client["DA Qs Sent"] !== "TRUE" &&
+			client["EVAL Qs Sent"] !== "TRUE" &&
+			client["DA Qs Done"] !== "TRUE" &&
+			client["EVAL Qs Done"] !== "TRUE" &&
+			!isDateString(client["DA Scheduled"]) &&
+			client["DA Scheduled"] !== "TRUE" &&
+			!isDateString(client["EVAL date"]),
+	},
+	{
+		title: "DA Qs Pending",
 		description:
 			"DA questionnaires are marked needed, but haven't been sent. To move forward, send them (mark DA Qs Sent on the prioritization sheet).",
 		filter: (client: FullClientInfo) =>
@@ -185,6 +227,42 @@ export const DASHBOARD_CONFIG: {
 			client["EVAL Qs Done"] === "TRUE" &&
 			!isDateString(client["EVAL date"]),
 	},
+	{
+		title: SECTION_DA_SCHEDULED,
+		subheading: "Scheduled",
+		description:
+			"DA appointment has been scheduled and either hasn't happened yet or \"DA Scheduled\" isn't a date. Determine next steps, eval questionnaires may need to be sent.",
+		filter: (client: FullClientInfo) =>
+			((isDateString(client["DA Scheduled"]) &&
+				!isPastDate(client["DA Scheduled"])) ||
+				client["DA Scheduled"] === "TRUE") &&
+			client["EVAL Qs Needed"] !== "TRUE" &&
+			client["EVAL Qs Sent"] !== "TRUE" &&
+			client["EVAL Qs Done"] !== "TRUE" &&
+			!isDateString(client["EVAL date"]),
+	},
+	{
+		title: SECTION_POST_DA,
+		description:
+			"DA appointment date has passed. Update the prioritization sheet with next steps.",
+		filter: (client: FullClientInfo) =>
+			isPastDate(client["DA Scheduled"]) &&
+			client["EVAL Qs Needed"] !== "TRUE" &&
+			client["EVAL Qs Sent"] !== "TRUE" &&
+			client["EVAL Qs Done"] !== "TRUE" &&
+			!isDateString(client["EVAL date"]),
+	},
+	{
+		title: SECTION_EVAL_SCHEDULED,
+		description: "Eval appointment has been scheduled and hasn't happened yet.",
+		filter: (client: FullClientInfo) =>
+			isDateString(client["EVAL date"]) && !isPastDate(client["EVAL date"]),
+	},
+	{
+		title: SECTION_POST_EVAL,
+		description: "Eval appointment date has passed.",
+		filter: (client: FullClientInfo) => isPastDate(client["EVAL date"]),
+	},
 ];
 
 export interface DashboardSection {
@@ -201,6 +279,10 @@ export function getDashboardSections(
 	needsReview: Client[] | undefined,
 ): DashboardSection[] {
 	const punchClientIds = getPunchClientIds(punchClients);
+
+	const activePunchClients = punchClients?.filter((c) => c.status !== false);
+	const inactivePunchClients =
+		punchClients?.filter((c) => c.status === false) ?? [];
 
 	const referralSections: DashboardSection[] = [
 		...(needsReachOut
@@ -240,7 +322,7 @@ export function getDashboardSections(
 		subheading: config.subheading,
 		description: config.description,
 		clients:
-			punchClients?.filter(config.filter).map((client) => ({
+			activePunchClients?.filter(config.filter).map((client) => ({
 				...client,
 				failures: client.failures?.filter(
 					(f) =>
@@ -253,7 +335,7 @@ export function getDashboardSections(
 	const justAddedSection = {
 		title: SECTION_JUST_ADDED,
 		clients:
-			punchClients
+			activePunchClients
 				?.filter((client) =>
 					DASHBOARD_CONFIG.every((config) => !config.filter(client)),
 				)
@@ -302,6 +384,12 @@ export function getDashboardSections(
 			clients: missingFromPunchlist ?? [],
 			description:
 				"Active clients who are missing from the Google Sheets Prioritization list.",
+		},
+		{
+			title: SECTION_INACTIVE_ON_PUNCHLIST,
+			clients: inactivePunchClients,
+			description:
+				"These clients are on the prioritization sheet but are marked inactive. They should be removed from the sheet or reactivated.",
 		},
 		{
 			title: SECTION_MULTIPLE_FILTERS,

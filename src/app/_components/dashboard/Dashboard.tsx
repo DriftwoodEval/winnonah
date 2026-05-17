@@ -22,6 +22,7 @@ import {
 	SECTION_DAEVAL_QS_DONE,
 	SECTION_EVAL_QS_DONE,
 	SECTION_NEEDS_OUTREACH,
+	SECTION_RECORDS_REQUESTED_NOT_RETURNED,
 } from "~/lib/dashboard";
 import type { FullClientInfo } from "~/lib/models";
 import { api } from "~/trpc/react";
@@ -58,6 +59,8 @@ function PunchListAccordionItem({
 		title === SECTION_DAEVAL_QS_DONE;
 
 	const isOutreachSection = title === SECTION_NEEDS_OUTREACH;
+	const isRecordsNotReturnedSection =
+		title === SECTION_RECORDS_REQUESTED_NOT_RETURNED;
 
 	return (
 		<AccordionItem value={title}>
@@ -114,9 +117,12 @@ function PunchListAccordionItem({
 														{punchClient.matchedSections.join(", ")}
 													</span>
 												)}
-												{client.failures && client.failures.length > 0 && (
+												{((client.failures && client.failures.length > 0) ||
+													(isRecordsNotReturnedSection &&
+														punchClient.evaluationInProcess) ||
+													punchClient.autismStop) && (
 													<div className="mt-1">
-														{client.failures.map((failure) => (
+														{client.failures?.map((failure) => (
 															<span
 																className="mr-1 inline-block rounded-sm bg-destructive/10 px-1 py-0.5 text-[10px] text-destructive"
 																key={failure.reason}
@@ -124,6 +130,17 @@ function PunchListAccordionItem({
 																{failure.reason}
 															</span>
 														))}
+														{isRecordsNotReturnedSection &&
+															punchClient.evaluationInProcess && (
+																<span className="mr-1 inline-block rounded-sm bg-destructive/10 px-1 py-0.5 text-[10px] text-destructive">
+																	Eval In Process
+																</span>
+															)}
+														{punchClient.autismStop && (
+															<span className="mr-1 inline-block rounded-sm bg-destructive px-1 py-0.5 text-[10px] text-destructive-foreground">
+																Autism Stop
+															</span>
+														)}
 													</div>
 												)}
 											</div>
