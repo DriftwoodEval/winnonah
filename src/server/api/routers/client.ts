@@ -709,6 +709,7 @@ export const clientRouter = createTRPCRouter({
 		const results = await ctx.db.query.clients.findMany({
 			where: and(
 				eq(clients.status, true),
+				not(isNoteOnly),
 				sql`JSON_EXTRACT(${clients.referralData}, '$.needsReachOut') = 'reach_out'`,
 			),
 			orderBy: asc(clients.addedDate),
@@ -721,6 +722,7 @@ export const clientRouter = createTRPCRouter({
 		const results = await ctx.db.query.clients.findMany({
 			where: and(
 				eq(clients.status, true),
+				not(isNoteOnly),
 				sql`JSON_EXTRACT(${clients.referralData}, '$.needsReachOut') = 'review'`,
 			),
 			orderBy: asc(clients.addedDate),
