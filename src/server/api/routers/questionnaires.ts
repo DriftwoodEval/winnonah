@@ -26,6 +26,7 @@ import {
 import {
 	assessmentTypes,
 	clients,
+	failures,
 	inPersonAssessments,
 	questionnaireRules,
 	questionnaires,
@@ -393,6 +394,17 @@ export const questionnaireRouter = createTRPCRouter({
 									lastReminded: null,
 								})
 								.where(eq(questionnaires.id, linkSearch.id));
+							await ctx.db
+								.delete(failures)
+								.where(
+									and(
+										eq(failures.clientId, input.clientId),
+										eq(
+											failures.reason,
+											`Error assigning ${input.questionnaireType}`,
+										),
+									),
+								);
 							return await ctx.db.query.questionnaires.findFirst({
 								where: eq(questionnaires.id, linkSearch.id),
 							});
@@ -417,6 +429,15 @@ export const questionnaireRouter = createTRPCRouter({
 			});
 
 			const newId = result[0].insertId;
+
+			await ctx.db
+				.delete(failures)
+				.where(
+					and(
+						eq(failures.clientId, input.clientId),
+						eq(failures.reason, `Error assigning ${input.questionnaireType}`),
+					),
+				);
 
 			const newQuestionnaire = await ctx.db.query.questionnaires.findFirst({
 				where: eq(questionnaires.id, newId),
@@ -459,6 +480,7 @@ export const questionnaireRouter = createTRPCRouter({
 			}
 
 			const questionnairesToInsert: InsertingQuestionnaire[] = [];
+			const processedTypes = new Set<string>();
 
 			for (const newQuestionnaire of parsedQuestionnaires) {
 				const existingByLink = await ctx.db.query.questionnaires.findFirst({
@@ -483,6 +505,7 @@ export const questionnaireRouter = createTRPCRouter({
 								lastReminded: null,
 							})
 							.where(eq(questionnaires.id, existingByLink.id));
+						processedTypes.add(newQuestionnaire.questionnaireType);
 					}
 					// skip, link already exists in an active status
 				} else {
@@ -495,6 +518,7 @@ export const questionnaireRouter = createTRPCRouter({
 						reminded: 0,
 						lastReminded: null,
 					});
+					processedTypes.add(newQuestionnaire.questionnaireType);
 				}
 			}
 
@@ -510,6 +534,17 @@ export const questionnaireRouter = createTRPCRouter({
 						cause: error,
 					});
 				}
+			}
+
+			for (const qType of processedTypes) {
+				await ctx.db
+					.delete(failures)
+					.where(
+						and(
+							eq(failures.clientId, input.clientId),
+							eq(failures.reason, `Error assigning ${qType}`),
+						),
+					);
 			}
 
 			return {
