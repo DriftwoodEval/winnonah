@@ -735,6 +735,8 @@ export function IssuesList() {
 		api.clients.getAutismStops.useQuery();
 	const { data: pausedClients, isLoading: isLoadingPausedClients } =
 		api.clients.getPaused.useQuery();
+	const { data: evaluationInProcess, isLoading: isLoadingEvaluationInProcess } =
+		api.clients.getEvaluationInProcess.useQuery();
 	const { data: needsBabyNetERDownloaded, isLoading: isLoadingNeedsBabyNetER } =
 		api.clients.getNeedsBabyNetERDownloaded.useQuery();
 	const { data: noteOnlyClients, isLoading: isLoadingNoteOnlyClients } =
@@ -845,6 +847,19 @@ export function IssuesList() {
 						clients={pausedClients}
 						description="Manually paused clients for review."
 						title="Paused Clients"
+					/>
+				)}
+			</GuardedIssue>
+
+			<GuardedIssue
+				isLoading={isLoadingEvaluationInProcess}
+				permission="issues:evaluation-in-process"
+			>
+				{evaluationInProcess && evaluationInProcess.length !== 0 && (
+					<IssueList
+						clients={evaluationInProcess}
+						description="Clients with an evaluation currently in process."
+						title="Evaluation In Process"
 					/>
 				)}
 			</GuardedIssue>

@@ -93,6 +93,10 @@ export const PERMISSIONS = {
 						id: "clients:records:babynet",
 						title: "Set BabyNet Evaluation Report Downloaded",
 					},
+					{
+						id: "clients:records:evaluation",
+						title: "Set Evaluation In Process",
+					},
 				],
 			},
 
@@ -213,6 +217,10 @@ export const PERMISSIONS = {
 					{
 						id: "issues:duplicate-questionnaires",
 						title: "Duplicate Questionnaires",
+					},
+					{
+						id: "issues:evaluation-in-process",
+						title: "Evaluation In Process",
 					},
 				],
 			},

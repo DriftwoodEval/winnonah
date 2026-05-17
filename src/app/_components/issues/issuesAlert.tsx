@@ -42,6 +42,9 @@ export function IssuesAlert() {
 		queryOptions,
 	);
 
+	const { data: evaluationInProcess } =
+		api.clients.getEvaluationInProcess.useQuery(undefined, queryOptions);
+
 	const { data: needsBabyNetERDownloaded } =
 		api.clients.getNeedsBabyNetERDownloaded.useQuery(undefined, queryOptions);
 
@@ -102,6 +105,10 @@ export function IssuesAlert() {
 		countIf(can("issues:dd4"), dd4?.length ?? 0) +
 		countIf(can("issues:just-added"), justAddedQuestionnaires?.length ?? 0) +
 		countIf(can("issues:paused-clients"), pausedClients?.length ?? 0) +
+		countIf(
+			can("issues:evaluation-in-process"),
+			evaluationInProcess?.length ?? 0,
+		) +
 		countIf(can("issues:autism-stops"), autismStops?.length ?? 0) +
 		countIf(
 			can("issues:clients-not-in-db"),

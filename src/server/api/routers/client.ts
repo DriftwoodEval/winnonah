@@ -691,6 +691,18 @@ export const clientRouter = createTRPCRouter({
 		return pausedClients;
 	}),
 
+	getEvaluationInProcess: protectedProcedure.query(async ({ ctx }) => {
+		const evaluationClients = await ctx.db.query.clients.findMany({
+			where: and(
+				eq(clients.evaluationInProcess, true),
+				eq(clients.status, true),
+			),
+			orderBy: clients.addedDate,
+		});
+
+		return evaluationClients;
+	}),
+
 	getMissingRecordsNeeded: protectedProcedure.query(async ({ ctx }) => {
 		const clientsWithoutRecordsNeeded = await ctx.db.query.clients.findMany({
 			where: and(
@@ -859,6 +871,7 @@ export const clientRouter = createTRPCRouter({
 				recordsNeeded: z.enum(["Needed", "Not Needed"]).optional(),
 				babyNetERNeeded: z.boolean().optional(),
 				babyNetERDownloaded: z.boolean().optional(),
+				evaluationInProcess: z.boolean().optional(),
 				asdAdhd: z.enum(ALLOWED_ASD_ADHD_VALUES).nullable().optional(),
 				language: z.string().optional(),
 				referralData: referralDataSchema.optional(),
@@ -939,6 +952,10 @@ export const clientRouter = createTRPCRouter({
 				input.babyNetERDownloaded !== currentClient.babyNetERDownloaded
 					? (["clients:records:babynet"] as const)
 					: []),
+				...(input.evaluationInProcess !== undefined &&
+				input.evaluationInProcess !== currentClient.evaluationInProcess
+					? (["clients:records:evaluation"] as const)
+					: []),
 				...(input.asdAdhd !== undefined &&
 				input.asdAdhd !== currentClient.asdAdhd
 					? (["clients:asdadhd"] as const)
@@ -991,6 +1008,7 @@ export const clientRouter = createTRPCRouter({
 				recordsNeeded?: "Needed" | "Not Needed";
 				babyNetERNeeded?: boolean;
 				babyNetERDownloaded?: boolean;
+				evaluationInProcess?: boolean;
 				asdAdhd?: (typeof ALLOWED_ASD_ADHD_VALUES)[number] | null;
 				language?: string | null;
 				referralData?: z.infer<typeof referralDataSchema>;
@@ -1051,6 +1069,9 @@ export const clientRouter = createTRPCRouter({
 			}
 			if (input.babyNetERDownloaded !== undefined) {
 				updateData.babyNetERDownloaded = input.babyNetERDownloaded;
+			}
+			if (input.evaluationInProcess !== undefined) {
+				updateData.evaluationInProcess = input.evaluationInProcess;
 			}
 			if (input.asdAdhd !== undefined) {
 				updateData.asdAdhd = input.asdAdhd;

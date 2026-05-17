@@ -278,6 +278,7 @@ export const clients = createTable(
 		recordsNeeded: d.mysqlEnum("recordsNeeded", ["Needed", "Not Needed"]),
 		babyNetERNeeded: d.boolean().notNull().default(false),
 		babyNetERDownloaded: d.boolean().notNull().default(false),
+		evaluationInProcess: d.boolean().notNull().default(false),
 		referralSource: d.varchar({ length: 255 }),
 		referralData: d
 			.json("referralData")
