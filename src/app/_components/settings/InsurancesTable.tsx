@@ -46,9 +46,9 @@ import {
 	TableHeader,
 	TableRow,
 } from "@ui/table";
-import { Check, MoreHorizontal, Plus, Trash2, X } from "lucide-react";
+import { Check, MoreHorizontal, X } from "lucide-react";
 import { useMemo, useState } from "react";
-import { type UseFormReturn, useFieldArray, useForm } from "react-hook-form";
+import { type UseFormReturn, useForm } from "react-hook-form";
 import { toast } from "sonner";
 import { z } from "zod";
 import { useCheckPermission } from "~/hooks/use-check-permission";
@@ -93,99 +93,6 @@ interface InsuranceFormProps {
 	onClose: () => void;
 }
 
-function CodesFieldArray({
-	form,
-	appointmentIndex,
-	isLoading,
-}: {
-	form: UseFormReturn<InsuranceFormValues>;
-	appointmentIndex: number;
-	isLoading: boolean;
-}) {
-	const { fields, append, remove } = useFieldArray({
-		control: form.control,
-		name: `additionalAppts.appointments.${appointmentIndex}.codes`,
-	});
-
-	return (
-		<div className="space-y-2">
-			<div className="flex items-center justify-between">
-				<FormLabel className="font-bold text-muted-foreground text-xs uppercase tracking-wider">
-					Billing Codes
-				</FormLabel>
-				<Button
-					disabled={isLoading}
-					onClick={() => append({ code: "", units: 1 })}
-					size="sm"
-					type="button"
-					variant="ghost"
-				>
-					<Plus className="mr-1 h-3 w-3" /> Add Code
-				</Button>
-			</div>
-
-			<div className="space-y-2">
-				{fields.map((field, codeIndex) => (
-					<div className="flex items-end gap-2" key={field.id}>
-						<div className="grid flex-1 grid-cols-2 gap-2">
-							<FormField
-								control={form.control}
-								name={`additionalAppts.appointments.${appointmentIndex}.codes.${codeIndex}.code`}
-								render={({ field }) => (
-									<FormItem>
-										<FormControl>
-											<Input
-												disabled={isLoading}
-												placeholder="Code"
-												{...field}
-											/>
-										</FormControl>
-										<FormMessage />
-									</FormItem>
-								)}
-							/>
-							<FormField
-								control={form.control}
-								name={`additionalAppts.appointments.${appointmentIndex}.codes.${codeIndex}.units`}
-								render={({ field }) => (
-									<FormItem>
-										<FormControl>
-											<Input
-												disabled={isLoading}
-												placeholder="Units"
-												type="number"
-												{...field}
-												onChange={(e) =>
-													field.onChange(parseInt(e.target.value, 10))
-												}
-											/>
-										</FormControl>
-										<FormMessage />
-									</FormItem>
-								)}
-							/>
-						</div>
-						<Button
-							className="h-10 w-10 p-0"
-							disabled={isLoading}
-							onClick={() => remove(codeIndex)}
-							type="button"
-							variant="ghost"
-						>
-							<X className="h-4 w-4" />
-						</Button>
-					</div>
-				))}
-				{fields.length === 0 && (
-					<p className="text-center text-muted-foreground text-xs italic">
-						No codes added.
-					</p>
-				)}
-			</div>
-		</div>
-	);
-}
-
 function AdditionalApptsForm({
 	form,
 	isLoading,
@@ -193,27 +100,31 @@ function AdditionalApptsForm({
 	form: UseFormReturn<InsuranceFormValues>;
 	isLoading: boolean;
 }) {
-	const { fields, append, remove } = useFieldArray({
-		control: form.control,
-		name: "additionalAppts.appointments",
-	});
-
 	return (
 		<div className="space-y-4 rounded-md border p-4">
-			<div className="flex items-center justify-between">
-				<FormLabel className="font-bold text-base">
-					Additional Appointments
-				</FormLabel>
-				<Button
-					disabled={isLoading}
-					onClick={() => append({ codes: [{ code: "", units: 1 }] })}
-					size="sm"
-					type="button"
-					variant="outline"
-				>
-					<Plus className="mr-2 h-4 w-4" /> Add Appointment
-				</Button>
-			</div>
+			<FormLabel className="font-bold text-base">
+				Insurance Codes by Appointment
+			</FormLabel>
+
+			<FormField
+				control={form.control}
+				name="additionalAppts.maxUnitsPerDay"
+				render={({ field }) => (
+					<FormItem>
+						<FormLabel>Max Units Per Day</FormLabel>
+						<FormControl>
+							<Input
+								disabled={isLoading}
+								min={1}
+								type="number"
+								{...field}
+								onChange={(e) => field.onChange(parseInt(e.target.value, 10))}
+							/>
+						</FormControl>
+						<FormMessage />
+					</FormItem>
+				)}
+			/>
 
 			<FormField
 				control={form.control}
@@ -232,36 +143,6 @@ function AdditionalApptsForm({
 					</FormItem>
 				)}
 			/>
-
-			<div className="space-y-4">
-				{fields.map((field, index) => (
-					<div
-						className="space-y-4 rounded-lg border bg-muted/50 p-4"
-						key={field.id}
-					>
-						<div className="flex items-center justify-between">
-							<FormLabel className="font-semibold">
-								Appointment {index + 2}
-							</FormLabel>
-							<Button
-								disabled={isLoading}
-								onClick={() => remove(index)}
-								size="sm"
-								type="button"
-								variant="ghost"
-							>
-								<Trash2 className="h-4 w-4 text-destructive" />
-							</Button>
-						</div>
-
-						<CodesFieldArray
-							appointmentIndex={index}
-							form={form}
-							isLoading={isLoading}
-						/>
-					</div>
-				))}
-			</div>
 		</div>
 	);
 }
@@ -285,9 +166,11 @@ function InsuranceForm({
 				preAuthLockin: initialData.preAuthLockin,
 				appointmentsRequired: initialData.appointmentsRequired,
 				aliases: initialData.aliases.map((a) => a.name),
-				additionalAppts: initialData.additionalAppts ?? {
-					appointments: [],
-					waitForPA: false,
+				additionalAppts: {
+					maxUnitsPerDay:
+						(initialData.additionalAppts as { maxUnitsPerDay?: number })
+							?.maxUnitsPerDay ?? 6,
+					waitForPA: initialData.additionalAppts?.waitForPA ?? false,
 				},
 			};
 		}
@@ -298,7 +181,7 @@ function InsuranceForm({
 			appointmentsRequired: 1,
 			aliases: [],
 			additionalAppts: {
-				appointments: [],
+				maxUnitsPerDay: 6,
 				waitForPA: false,
 			},
 		};

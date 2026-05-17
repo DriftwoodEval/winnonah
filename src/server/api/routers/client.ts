@@ -13,6 +13,7 @@ import {
 	isNull,
 	like,
 	lt,
+	ne,
 	not,
 	or,
 	sql,
@@ -36,12 +37,14 @@ import {
 	protectedProcedure,
 } from "~/server/api/trpc";
 import {
+	assessmentTypes,
 	clientRelated,
 	clients,
 	clientsEvaluators,
 	externalRecordRequests,
 	externalRecords,
 	failures,
+	inPersonAssessments,
 	notes,
 	questionnaires,
 	schoolDistricts,
@@ -236,6 +239,46 @@ export const clientRouter = createTRPCRouter({
 				closestOffices = rows as unknown as ClosestOffice[];
 			}
 
+			const [inPersonRows, questionnaireRows] = await Promise.all([
+				ctx.db
+					.select({ minutes: assessmentTypes.minutes })
+					.from(inPersonAssessments)
+					.innerJoin(
+						assessmentTypes,
+						eq(inPersonAssessments.assessmentType, assessmentTypes.name),
+					)
+					.where(
+						and(
+							eq(inPersonAssessments.clientId, foundClient.id),
+							or(
+								isNull(inPersonAssessments.status),
+								ne(inPersonAssessments.status, "EXTERNAL"),
+							),
+						),
+					),
+				ctx.db
+					.select({ minutes: assessmentTypes.minutes })
+					.from(questionnaires)
+					.innerJoin(
+						assessmentTypes,
+						eq(questionnaires.questionnaireType, assessmentTypes.name),
+					)
+					.where(
+						and(
+							eq(questionnaires.clientId, foundClient.id),
+							or(
+								isNull(questionnaires.status),
+								ne(questionnaires.status, "EXTERNAL"),
+							),
+						),
+					),
+			]);
+
+			const totalAssessmentMinutes = [
+				...inPersonRows,
+				...questionnaireRows,
+			].reduce((sum, row) => sum + (row.minutes ?? 0), 0);
+
 			return {
 				...syncedClient,
 				closestOffices,
@@ -243,6 +286,7 @@ export const clientRouter = createTRPCRouter({
 				isOnDropList,
 				dropListReason,
 				initialFailureDate,
+				totalAssessmentMinutes,
 			};
 		}),
 

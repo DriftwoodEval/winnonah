@@ -47,7 +47,7 @@ export const PERMISSIONS = {
 					{ id: "clients:related", title: "Edit Related Clients" },
 					{
 						id: "clients:additional-insurance-appointments",
-						title: "View Recommended Additional Insurance Appointments",
+						title: "View Insurance Codes by Appointment",
 					},
 				],
 			},
