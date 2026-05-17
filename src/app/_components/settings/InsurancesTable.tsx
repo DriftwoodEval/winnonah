@@ -111,7 +111,7 @@ function AdditionalApptsForm({
 				name="additionalAppts.maxUnitsPerDay"
 				render={({ field }) => (
 					<FormItem>
-						<FormLabel>Max Units Per Day</FormLabel>
+						<FormLabel>Max 96136/37 Units Per Day</FormLabel>
 						<FormControl>
 							<Input
 								disabled={isLoading}
