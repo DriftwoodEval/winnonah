@@ -1,6 +1,13 @@
 "use client";
 
 import { Alert, AlertDescription, AlertTitle } from "@ui/alert";
+import {
+	Select,
+	SelectContent,
+	SelectItem,
+	SelectTrigger,
+	SelectValue,
+} from "@ui/select";
 import { Skeleton } from "@ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@ui/tabs";
 import { format } from "date-fns";
@@ -92,6 +99,19 @@ export function Client({
 		},
 	});
 
+	const updateRecordsNeededMutation = api.clients.update.useMutation({
+		onSuccess: () => {
+			refetchClient();
+		},
+		onError: (error) => {
+			log.error(error, "Failed to update records needed");
+			toast.error("Failed to update records needed", {
+				description: String(error.message),
+				duration: 10000,
+			});
+		},
+	});
+
 	const handleColorChange = (color: ClientColor) => {
 		if (!client) return;
 		setSelectedColor(color);
@@ -149,10 +169,12 @@ export function Client({
 							onValueChange={handleTabChange}
 							value={activeTab}
 						>
-							{!isShellClientId(client.id) && (
+							{(!isShellClientId(client.id) || can("clients:referral:tab")) && (
 								<TabsList className="w-full">
 									<TabsTrigger value="info">Info</TabsTrigger>
-									<TabsTrigger value="records">Records</TabsTrigger>
+									{!isShellClientId(client.id) && (
+										<TabsTrigger value="records">Records</TabsTrigger>
+									)}
 									{/* It's fine that this doesn't stop people from just visiting the URL, we aren't hiding this for security, we're hiding it so that we don't get people confused about it existing */}
 									{can("clients:referral:tab") && (
 										<TabsTrigger value="referral">Referral</TabsTrigger>
@@ -246,6 +268,32 @@ export function Client({
 
 									<ClientNoteEditor clientId={client.id} readOnly={readOnly} />
 
+									{isShellClientId(client.id) && (
+										<div className="flex w-full items-center justify-between rounded-md border p-3">
+											<span className="font-medium text-sm">
+												Records Needed
+											</span>
+											<Select
+												disabled={readOnly || !can("clients:records:needed")}
+												onValueChange={(value) => {
+													updateRecordsNeededMutation.mutate({
+														clientId: client.id,
+														recordsNeeded: value as "Needed" | "Not Needed",
+													});
+												}}
+												value={client.recordsNeeded ?? ""}
+											>
+												<SelectTrigger className="w-36">
+													<SelectValue placeholder="Set status..." />
+												</SelectTrigger>
+												<SelectContent>
+													<SelectItem value="Not Needed">Not Needed</SelectItem>
+													<SelectItem value="Needed">Needed</SelectItem>
+												</SelectContent>
+											</Select>
+										</div>
+									)}
+
 									{!isShellClientId(client.id) && (
 										<ClientAppointments clientId={client.id} />
 									)}
@@ -285,14 +333,14 @@ export function Client({
 									</div>
 								</TabsContent>
 							)}
-							{!isShellClientId(client.id) && (
-								<TabsContent value="referral">
-									<div className="mb-6 flex min-w-full flex-col items-center gap-6">
+							<TabsContent value="referral">
+								<div className="mb-6 flex min-w-full flex-col items-center gap-6">
+									{!isShellClientId(client.id) && (
 										<ClientDetailsCard client={client} truncated />
-										<ReferralTab client={client} readOnly={readOnly} />
-									</div>
-								</TabsContent>
-							)}
+									)}
+									<ReferralTab client={client} readOnly={readOnly} />
+								</div>
+							</TabsContent>
 						</Tabs>
 					</>
 				)}

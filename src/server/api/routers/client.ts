@@ -1577,6 +1577,41 @@ export const clientRouter = createTRPCRouter({
 				.set({ status: false })
 				.where(eq(clients.id, fakeClientId));
 
+			if (fakeClient.recordsNeeded) {
+				await ctx.db
+					.update(clients)
+					.set({ recordsNeeded: fakeClient.recordsNeeded })
+					.where(eq(clients.id, clientId));
+			}
+
+			if (fakeClient.asdAdhd) {
+				await ctx.db
+					.update(clients)
+					.set({ asdAdhd: fakeClient.asdAdhd })
+					.where(eq(clients.id, clientId));
+			}
+
+			if (fakeClient.referralData?.notes) {
+				const realNotes = (realClient.referralData?.notes ?? "").trim();
+				const fakeNotes = fakeClient.referralData.notes.trim();
+				const mergedNotes = realNotes
+					? `${realNotes} | ${fakeNotes}`
+					: fakeNotes;
+				await ctx.db
+					.update(clients)
+					.set({
+						referralData: { ...realClient.referralData, notes: mergedNotes },
+					})
+					.where(eq(clients.id, clientId));
+			}
+
+			if (fakeClient.language) {
+				await ctx.db
+					.update(clients)
+					.set({ language: fakeClient.language })
+					.where(eq(clients.id, clientId));
+			}
+
 			if (
 				fakeClient.driveId &&
 				fakeClient.driveId !== "N/A" &&
