@@ -393,66 +393,66 @@ def put_appointment_in_db(
 @provide_connection
 def get_evaluators_with_blocked_locations(
     connection: Connection[DictCursor],
+    npi: int | None = None,
 ):
-    """Fetches evaluators from the database, including their blocked zip codes and school districts."""
+    """Fetches evaluators from the database, including their blocked zip codes and school districts.
+
+    Pass npi to fetch a single evaluator; omit to fetch all.
+    """
     evaluators: dict[int, dict] = {}
+    npi_filter = "WHERE npi = %s" if npi is not None else ""
+    npi_join_filter = "WHERE bsd.evaluatorNpi = %s" if npi is not None else ""
+    npi_zip_filter = "WHERE evaluatorNpi = %s" if npi is not None else ""
+    npi_ins_filter = "WHERE eti.evaluatorNpi = %s" if npi is not None else ""
+    params = (npi,) if npi is not None else ()
 
     try:
         with connection.cursor() as cursor:
-            sql_evaluators = f"SELECT * FROM {TABLE_EVALUATOR}"
-            cursor.execute(sql_evaluators)
+            cursor.execute(f"SELECT * FROM {TABLE_EVALUATOR} {npi_filter}", params)
             for row in cursor.fetchall():
-                npi = row["npi"]
-                evaluators[npi] = {
+                evaluators[row["npi"]] = {
                     **row,
                     "blockedSchoolDistricts": [],
                     "blockedZipCodes": [],
                 }
 
-            sql_blocked_districts = f"""
-                SELECT
-                    bsd.evaluatorNpi,
-                    sd.fullName AS schoolDistrictName
-                FROM
-                    {TABLE_BLOCKED_SCHOOL_DISTRICT} AS bsd
-                JOIN
-                    {TABLE_SCHOOL_DISTRICT} AS sd
-                ON
-                    bsd.schoolDistrictId = sd.id
-            """
-            cursor.execute(sql_blocked_districts)
+            cursor.execute(
+                f"""
+                SELECT bsd.evaluatorNpi, sd.fullName AS schoolDistrictName
+                FROM {TABLE_BLOCKED_SCHOOL_DISTRICT} AS bsd
+                JOIN {TABLE_SCHOOL_DISTRICT} AS sd ON bsd.schoolDistrictId = sd.id
+                {npi_join_filter}
+                """,
+                params,
+            )
             for row in cursor.fetchall():
-                npi = row["evaluatorNpi"]
-                if npi in evaluators:
-                    evaluators[npi]["blockedSchoolDistricts"].append(
+                if row["evaluatorNpi"] in evaluators:
+                    evaluators[row["evaluatorNpi"]]["blockedSchoolDistricts"].append(
                         row["schoolDistrictName"]
                     )
 
-            sql_blocked_zips = (
-                f"SELECT evaluatorNpi, zipCode FROM {TABLE_BLOCKED_ZIP_CODE}"
+            cursor.execute(
+                f"SELECT evaluatorNpi, zipCode FROM {TABLE_BLOCKED_ZIP_CODE} {npi_zip_filter}",
+                params,
             )
-            cursor.execute(sql_blocked_zips)
             for row in cursor.fetchall():
-                npi = row["evaluatorNpi"]
-                if npi in evaluators:
-                    evaluators[npi]["blockedZipCodes"].append(row["zipCode"])
+                if row["evaluatorNpi"] in evaluators:
+                    evaluators[row["evaluatorNpi"]]["blockedZipCodes"].append(
+                        row["zipCode"]
+                    )
 
-            sql_insurances = f"""
-                SELECT
-                    eti.evaluatorNpi,
-                    i.shortName
-                FROM
-                    {TABLE_EVALUATORS_TO_INSURANCES} AS eti
-                JOIN
-                    {TABLE_INSURANCE} AS i
-                ON
-                    eti.insuranceId = i.id
-            """
-            cursor.execute(sql_insurances)
+            cursor.execute(
+                f"""
+                SELECT eti.evaluatorNpi, i.shortName
+                FROM {TABLE_EVALUATORS_TO_INSURANCES} AS eti
+                JOIN {TABLE_INSURANCE} AS i ON eti.insuranceId = i.id
+                {npi_ins_filter}
+                """,
+                params,
+            )
             for row in cursor.fetchall():
-                npi = row["evaluatorNpi"]
-                if npi in evaluators:
-                    evaluators[npi][row["shortName"]] = True
+                if row["evaluatorNpi"] in evaluators:
+                    evaluators[row["evaluatorNpi"]][row["shortName"]] = True
     except Exception as e:
         logger.error(f"Database error while fetching evaluators: {e}")
         return {}
@@ -955,6 +955,23 @@ def get_in_person_assessments_for_client(
     if specific:
         return specific
     return _lookup(da_eval, None)
+
+
+@provide_connection
+def rematch_evaluator(npi: int, connection: Connection[DictCursor]) -> None:
+    """Re-runs client matching for a single evaluator after their settings change."""
+    logger.info(f"Running rematch for evaluator NPI {npi}")
+
+    evaluators = get_evaluators_with_blocked_locations(npi=npi, connection=connection)
+    if not evaluators:
+        logger.warning(f"Evaluator {npi} not found, skipping rematch")
+        return
+
+    clients = get_all_clients(connection=connection)
+    if clients.empty:
+        return
+
+    insert_by_matching_criteria_incremental(clients, evaluators, connection=connection)
 
 
 @provide_connection

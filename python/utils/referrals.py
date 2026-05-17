@@ -113,7 +113,7 @@ def create_and_send_referral_faxes(clients: pd.DataFrame):
     try:
         last_date_str = list(last_date_cache)[0]
         last_date = datetime.strptime(last_date_str, "%Y-%m-%d").date()
-    except (IndexError, ValueError, TypeError):
+    except IndexError, ValueError, TypeError:
         last_date = date.today() - timedelta(days=30)
 
     cutoff_date = last_date + timedelta(days=1)

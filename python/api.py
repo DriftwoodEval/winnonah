@@ -11,7 +11,7 @@ from pydantic import BaseModel
 
 import greeter_proxy
 from utils.constants import TABLE_CLIENT
-from utils.database import get_db, get_python_config
+from utils.database import get_db, get_python_config, rematch_evaluator
 from utils.google import google_authenticate, send_gmail
 
 load_dotenv()
@@ -491,3 +491,13 @@ async def download_csv(file_key: str, current_user: dict = Depends(get_current_u
         raise HTTPException(status_code=404, detail="File not found")
 
     return FileResponse(path=file_path, filename=filename, media_type="text/csv")
+
+
+@app.post("/rematch/evaluator/{npi}")
+async def rematch_evaluator_endpoint(
+    npi: int, current_user: dict = Depends(get_current_user)
+):
+    if not current_user["permissions"].get("settings:evaluators"):
+        raise HTTPException(status_code=403, detail="Not authorized")
+    rematch_evaluator(npi)
+    return {"status": "ok"}

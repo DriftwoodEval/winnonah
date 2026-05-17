@@ -1,5 +1,6 @@
 import { eq, sql } from "drizzle-orm";
 import z from "zod";
+import { env } from "~/env";
 import { fetchWithCache, invalidateCache } from "~/lib/cache";
 import {
 	assertPermission,
@@ -61,6 +62,11 @@ export const evaluatorRouter = createTRPCRouter({
 	getEligibleForClient: protectedProcedure
 		.input(z.number())
 		.query(async ({ ctx, input }) => {
+			ctx.logger.info(
+				{ clientId: input },
+				"Fetching eligible evaluators for client",
+			);
+
 			const clientWithEvaluators = await ctx.db.query.clients.findFirst({
 				where: eq(clients.id, input),
 				with: {
@@ -181,6 +187,14 @@ export const evaluatorRouter = createTRPCRouter({
 
 			await invalidateCache(ctx, CACHE_KEY_ALL_EVALUATORS);
 
+			const cookieHeader = ctx.headers.get("cookie") ?? "";
+			void fetch(`${env.PY_API}/rematch/evaluator/${npiAsInt}`, {
+				method: "POST",
+				headers: { Cookie: cookieHeader },
+			}).catch((err) =>
+				ctx.logger.error(err, "Failed to trigger evaluator rematch"),
+			);
+
 			return result;
 		}),
 
@@ -268,6 +282,14 @@ export const evaluatorRouter = createTRPCRouter({
 			});
 
 			await invalidateCache(ctx, CACHE_KEY_ALL_EVALUATORS);
+
+			const cookieHeader = ctx.headers.get("cookie") ?? "";
+			void fetch(`${env.PY_API}/rematch/evaluator/${npiAsInt}`, {
+				method: "POST",
+				headers: { Cookie: cookieHeader },
+			}).catch((err) =>
+				ctx.logger.error(err, "Failed to trigger evaluator rematch"),
+			);
 
 			return result;
 		}),
