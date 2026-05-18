@@ -21,6 +21,7 @@ import {
 import { distance as levDistance } from "fastest-levenshtein";
 import { z } from "zod";
 import { env } from "~/env";
+import { fetchWithCache } from "~/lib/cache";
 import { CLIENT_COLOR_KEYS } from "~/lib/colors";
 import { ALLOWED_ASD_ADHD_VALUES } from "~/lib/constants";
 import {
@@ -51,6 +52,7 @@ import {
 } from "~/server/db/schema";
 
 const isNoteOnly = eq(sql`LENGTH(${clients.id})`, 5);
+const CACHE_KEY_DROP_LIST = "clients:drop-list";
 
 export const getPriorityInfo = () => {
 	const now = new Date();
@@ -115,26 +117,20 @@ export const clientRouter = createTRPCRouter({
 		.query(async ({ ctx, input }) => {
 			ctx.logger.info(input, "Getting client");
 
-			const foundClient = await ctx.db.query.clients.findFirst({
-				where: eq(clients[input.column], input.value),
-				with: {
-					relatedConnections: {
-						with: {
-							relatedClientData: true,
-						},
-					},
-				},
-			});
+			const [foundClient] = await Promise.all([
+				ctx.db.query.clients.findFirst({
+					where: eq(clients[input.column], input.value),
+				}),
+				ctx.session.user.accessToken && ctx.session.user.refreshToken
+					? syncPunchData(ctx.session)
+					: Promise.resolve(),
+			]);
 
 			if (!foundClient) {
 				throw new TRPCError({
 					code: "NOT_FOUND",
 					message: `Client with ${input.column} ${input.value} not found`,
 				});
-			}
-
-			if (ctx.session.user.accessToken && ctx.session.user.refreshToken) {
-				await syncPunchData(ctx.session);
 			}
 
 			const syncedClient = await ctx.db.query.clients.findFirst({
@@ -432,109 +428,118 @@ export const clientRouter = createTRPCRouter({
 	}),
 
 	getDropList: protectedProcedure.query(async ({ ctx }) => {
-		const uniqueClientsMap = new Map<number, ClientWithIssueInfo>();
+		return fetchWithCache(
+			ctx,
+			CACHE_KEY_DROP_LIST,
+			async () => {
+				const uniqueClientsMap = new Map<number, ClientWithIssueInfo>();
 
-		const overRemindedQs = await ctx.db.query.clients.findMany({
-			where: eq(clients.status, true),
-			with: {
-				questionnaires: {
-					where: and(
-						or(
-							eq(questionnaires.status, "PENDING"),
-							eq(questionnaires.status, "SPANISH"),
-						),
-						gt(questionnaires.reminded, 3),
-					),
-				},
-			},
-		});
-
-		for (const client of overRemindedQs) {
-			if (client.questionnaires.length > 0) {
-				const reason = "Qs pending (3 reminders)";
-
-				// Create a clean client object without the joined data
-				const { questionnaires: qList, ...clientData } = client;
-
-				let oldestDate: Date | undefined;
-				for (const q of qList) {
-					if (q.sent) {
-						const d = new Date(q.sent);
-						if (!oldestDate || d < oldestDate) {
-							oldestDate = d;
-						}
-					}
-				}
-
-				uniqueClientsMap.set(clientData.id, {
-					...(clientData as typeof clients.$inferSelect),
-					additionalInfo: reason,
-					initialFailureDate: oldestDate,
+				const overRemindedQs = await ctx.db.query.clients.findMany({
+					where: eq(clients.status, true),
+					with: {
+						questionnaires: {
+							where: and(
+								or(
+									eq(questionnaires.status, "PENDING"),
+									eq(questionnaires.status, "SPANISH"),
+								),
+								gt(questionnaires.reminded, 3),
+							),
+						},
+					},
 				});
-			}
-		}
 
-		const clientsWithFailures = await ctx.db.query.clients.findMany({
-			where: eq(clients.status, true),
-			with: {
-				failures: {
-					where: and(gt(failures.reminded, 3), lt(failures.reminded, 100)),
-				},
-			},
-		});
+				for (const client of overRemindedQs) {
+					if (client.questionnaires.length > 0) {
+						const reason = "Qs pending (3 reminders)";
 
-		for (const client of clientsWithFailures) {
-			if (client.failures.length > 0) {
-				let maxReminded = 0;
-				let failureReasonText = "";
-				let oldestFailureDate: Date | undefined;
+						// Create a clean client object without the joined data
+						const { questionnaires: qList, ...clientData } = client;
 
-				for (const f of client.failures) {
-					if (f.reminded && f.reminded > maxReminded) {
-						maxReminded = f.reminded;
-						failureReasonText = f.reason;
-					}
-					const d = new Date(f.failedDate);
-					if (!oldestFailureDate || d < oldestFailureDate) {
-						oldestFailureDate = d;
+						let oldestDate: Date | undefined;
+						for (const q of qList) {
+							if (q.sent) {
+								const d = new Date(q.sent);
+								if (!oldestDate || d < oldestDate) {
+									oldestDate = d;
+								}
+							}
+						}
+
+						uniqueClientsMap.set(clientData.id, {
+							...(clientData as typeof clients.$inferSelect),
+							additionalInfo: reason,
+							initialFailureDate: oldestDate,
+						});
 					}
 				}
 
-				const newReason = `${failureReasonText.charAt(0).toUpperCase()}${failureReasonText.slice(1)} (3 reminders)`;
+				const clientsWithFailures = await ctx.db.query.clients.findMany({
+					where: eq(clients.status, true),
+					with: {
+						failures: {
+							where: and(gt(failures.reminded, 3), lt(failures.reminded, 100)),
+						},
+					},
+				});
 
-				// Create a clean client object without the joined data
-				const { failures: _, ...clientData } = client;
+				for (const client of clientsWithFailures) {
+					if (client.failures.length > 0) {
+						let maxReminded = 0;
+						let failureReasonText = "";
+						let oldestFailureDate: Date | undefined;
 
-				if (uniqueClientsMap.has(clientData.id)) {
-					// Client already found (e.g., in the questionnaire query), so append the reason
-					const existingClient = uniqueClientsMap.get(clientData.id);
-					if (existingClient) {
-						existingClient.additionalInfo += ` / ${newReason}`;
-						if (
-							oldestFailureDate &&
-							(!existingClient.initialFailureDate ||
-								oldestFailureDate < existingClient.initialFailureDate)
-						) {
-							existingClient.initialFailureDate = oldestFailureDate;
+						for (const f of client.failures) {
+							if (f.reminded && f.reminded > maxReminded) {
+								maxReminded = f.reminded;
+								failureReasonText = f.reason;
+							}
+							const d = new Date(f.failedDate);
+							if (!oldestFailureDate || d < oldestFailureDate) {
+								oldestFailureDate = d;
+							}
+						}
+
+						const newReason = `${failureReasonText.charAt(0).toUpperCase()}${failureReasonText.slice(1)} (3 reminders)`;
+
+						// Create a clean client object without the joined data
+						const { failures: _, ...clientData } = client;
+
+						if (uniqueClientsMap.has(clientData.id)) {
+							// Client already found (e.g., in the questionnaire query), so append the reason
+							const existingClient = uniqueClientsMap.get(clientData.id);
+							if (existingClient) {
+								existingClient.additionalInfo += ` / ${newReason}`;
+								if (
+									oldestFailureDate &&
+									(!existingClient.initialFailureDate ||
+										oldestFailureDate < existingClient.initialFailureDate)
+								) {
+									existingClient.initialFailureDate = oldestFailureDate;
+								}
+							}
+						} else {
+							// New client, add with the failure reason
+							uniqueClientsMap.set(clientData.id, {
+								...(clientData as typeof clients.$inferSelect),
+								additionalInfo: newReason,
+								initialFailureDate: oldestFailureDate,
+							});
 						}
 					}
-				} else {
-					// New client, add with the failure reason
-					uniqueClientsMap.set(clientData.id, {
-						...(clientData as typeof clients.$inferSelect),
-						additionalInfo: newReason,
-						initialFailureDate: oldestFailureDate,
-					});
 				}
-			}
-		}
 
-		return Array.from(uniqueClientsMap.values()).sort((a, b) => {
-			if (!a.initialFailureDate && !b.initialFailureDate) return 0;
-			if (!a.initialFailureDate) return 1;
-			if (!b.initialFailureDate) return -1;
-			return a.initialFailureDate.getTime() - b.initialFailureDate.getTime();
-		});
+				return Array.from(uniqueClientsMap.values()).sort((a, b) => {
+					if (!a.initialFailureDate && !b.initialFailureDate) return 0;
+					if (!a.initialFailureDate) return 1;
+					if (!b.initialFailureDate) return -1;
+					return (
+						a.initialFailureDate.getTime() - b.initialFailureDate.getTime()
+					);
+				});
+			},
+			60,
+		);
 	}),
 
 	getNeedsBabyNetERDownloaded: protectedProcedure.query(async ({ ctx }) => {
@@ -1210,254 +1215,279 @@ export const clientRouter = createTRPCRouter({
 			}),
 		)
 		.query(async ({ ctx, input }) => {
-			const {
-				evaluatorNpi,
-				office,
-				// Future implementation
-				// appointmentType,
-				// appointmentDate,
-				nameSearch,
-				hideBabyNet,
-				status,
-				type,
-				color,
-				privatePay,
-				autismStop,
-				sort,
-				excludeIds,
-			} = input;
+			const cacheKey = `clients:search:${createHash("sha256")
+				.update(
+					JSON.stringify({
+						...input,
+						excludeIds: (input.excludeIds ?? []).slice().sort(),
+					}),
+				)
+				.digest("hex")
+				.slice(0, 16)}`;
 
-			const effectiveStatus = status ?? "active";
-			const effectiveType = type ?? "both";
+			return fetchWithCache(
+				ctx,
+				cacheKey,
+				async () => {
+					const {
+						evaluatorNpi,
+						office,
+						// Future implementation
+						// appointmentType,
+						// appointmentDate,
+						nameSearch,
+						hideBabyNet,
+						status,
+						type,
+						color,
+						privatePay,
+						autismStop,
+						sort,
+						excludeIds,
+					} = input;
 
-			const effectiveSort = sort ?? "priority";
+					const effectiveStatus = status ?? "active";
+					const effectiveType = type ?? "both";
 
-			const conditions = [];
+					const effectiveSort = sort ?? "priority";
 
-			if (excludeIds && excludeIds.length > 0) {
-				conditions.push(not(inArray(clients.id, excludeIds)));
-			}
+					const conditions = [];
 
-			if (nameSearch) {
-				const trimmedSearch = nameSearch.trim();
+					if (excludeIds && excludeIds.length > 0) {
+						conditions.push(not(inArray(clients.id, excludeIds)));
+					}
 
-				// Try to parse as date first (MM/DD/YYYY, MM/DD/YY, MM-DD-YYYY, etc.)
-				const dateRegex =
-					/^(\d{1,2})[/\-.](\d{1,2})[/\-.](\d{2,4})$|^(\d{4})[/\-.](\d{1,2})[/\-.](\d{1,2})$/;
-				const match = trimmedSearch.match(dateRegex);
+					if (nameSearch) {
+						const trimmedSearch = nameSearch.trim();
 
-				let dateStr: string | undefined;
+						// Try to parse as date first (MM/DD/YYYY, MM/DD/YY, MM-DD-YYYY, etc.)
+						const dateRegex =
+							/^(\d{1,2})[/\-.](\d{1,2})[/\-.](\d{2,4})$|^(\d{4})[/\-.](\d{1,2})[/\-.](\d{1,2})$/;
+						const match = trimmedSearch.match(dateRegex);
 
-				if (match) {
-					const [_, m1, d1, y1, y2, m2, d2] = match;
-					const month = m1 ?? m2;
-					const day = d1 ?? d2;
-					let year = y1 ?? y2;
+						let dateStr: string | undefined;
 
-					if (month && day && year) {
-						if (year.length === 2) {
-							const currentYear = new Date().getFullYear() % 100;
-							year = (parseInt(year, 10) > currentYear ? "19" : "20") + year;
+						if (match) {
+							const [_, m1, d1, y1, y2, m2, d2] = match;
+							const month = m1 ?? m2;
+							const day = d1 ?? d2;
+							let year = y1 ?? y2;
+
+							if (month && day && year) {
+								if (year.length === 2) {
+									const currentYear = new Date().getFullYear() % 100;
+									year =
+										(parseInt(year, 10) > currentYear ? "19" : "20") + year;
+								}
+								dateStr = `${year}-${month.padStart(2, "0")}-${day.padStart(
+									2,
+									"0",
+								)}`;
+								// Basic validation to ensure it's a real date
+								const date = new Date(dateStr);
+								if (Number.isNaN(date.getTime())) {
+									dateStr = undefined;
+								}
+							}
 						}
-						dateStr = `${year}-${month.padStart(2, "0")}-${day.padStart(
-							2,
-							"0",
-						)}`;
-						// Basic validation to ensure it's a real date
-						const date = new Date(dateStr);
-						if (Number.isNaN(date.getTime())) {
-							dateStr = undefined;
+
+						if (dateStr) {
+							conditions.push(sql`${clients.dob} = ${dateStr}`);
+						} else {
+							const numericId = parseInt(trimmedSearch, 10);
+							if (!Number.isNaN(numericId) && /^\d+$/.test(trimmedSearch)) {
+								conditions.push(like(clients.id, `${numericId}%`));
+							} else if (trimmedSearch.length >= 3) {
+								// Clean the user's input string by replacing non-alphanumeric characters with spaces
+								const cleanedSearchString = trimmedSearch.replace(
+									/[^\w ]/g,
+									" ",
+								);
+
+								// Split the cleaned string by spaces and filter out any empty strings
+								const searchWords = cleanedSearchString
+									.split(" ")
+									.filter(Boolean);
+
+								if (searchWords.length > 0) {
+									const nameConditions = searchWords.map(
+										(word) =>
+											sql`REGEXP_REPLACE(${
+												clients.fullName
+												// As bizarre as this looks, we have to escape the slash for both JS and SQL
+											}, '[^\\\\w ]', '') like ${`%${word}%`}`,
+									);
+
+									conditions.push(and(...nameConditions));
+								}
+							}
 						}
 					}
-				}
 
-				if (dateStr) {
-					conditions.push(sql`${clients.dob} = ${dateStr}`);
-				} else {
-					const numericId = parseInt(trimmedSearch, 10);
-					if (!Number.isNaN(numericId) && /^\d+$/.test(trimmedSearch)) {
-						conditions.push(like(clients.id, `${numericId}%`));
-					} else if (trimmedSearch.length >= 3) {
-						// Clean the user's input string by replacing non-alphanumeric characters with spaces
-						const cleanedSearchString = trimmedSearch.replace(/[^\w ]/g, " ");
+					const allOffices = await ctx.db.query.offices.findMany();
 
-						// Split the cleaned string by spaces and filter out any empty strings
-						const searchWords = cleanedSearchString.split(" ").filter(Boolean);
+					if (office && allOffices.length > 0) {
+						const distanceExprs = allOffices.map((o) => ({
+							key: o.key,
+							dist: getDistanceSQL(
+								clients.latitude,
+								clients.longitude,
+								o.latitude,
+								o.longitude,
+							),
+						}));
 
-						if (searchWords.length > 0) {
-							const nameConditions = searchWords.map(
-								(word) =>
-									sql`REGEXP_REPLACE(${
-										clients.fullName
-										// As bizarre as this looks, we have to escape the slash for both JS and SQL
-									}, '[^\\\\w ]', '') like ${`%${word}%`}`,
+						// Build a CASE statement to find the key of the office with the minimum distance
+						let closestOfficeKeyCase = sql`CASE `;
+						for (let i = 0; i < distanceExprs.length; i++) {
+							const current = distanceExprs[i];
+							if (!current) continue;
+							const others = distanceExprs.filter((_, idx) => idx !== i);
+
+							if (others.length === 0) {
+								closestOfficeKeyCase = sql`${current.key}`;
+								break;
+							}
+
+							const isClosestConditions = others.map(
+								(other) => sql`${current.dist} <= ${other.dist}`,
 							);
-
-							conditions.push(and(...nameConditions));
+							closestOfficeKeyCase = sql.join([
+								closestOfficeKeyCase,
+								sql`WHEN `,
+								sql.join(isClosestConditions, sql` AND `),
+								sql` THEN ${current.key} `,
+							]);
 						}
-					}
-				}
-			}
+						closestOfficeKeyCase = sql.join([closestOfficeKeyCase, sql`END`]);
 
-			const allOffices = await ctx.db.query.offices.findMany();
-
-			if (office && allOffices.length > 0) {
-				const distanceExprs = allOffices.map((o) => ({
-					key: o.key,
-					dist: getDistanceSQL(
-						clients.latitude,
-						clients.longitude,
-						o.latitude,
-						o.longitude,
-					),
-				}));
-
-				// Build a CASE statement to find the key of the office with the minimum distance
-				let closestOfficeKeyCase = sql`CASE `;
-				for (let i = 0; i < distanceExprs.length; i++) {
-					const current = distanceExprs[i];
-					if (!current) continue;
-					const others = distanceExprs.filter((_, idx) => idx !== i);
-
-					if (others.length === 0) {
-						closestOfficeKeyCase = sql`${current.key}`;
-						break;
+						conditions.push(
+							and(
+								not(isNull(clients.latitude)),
+								not(isNull(clients.longitude)),
+								eq(closestOfficeKeyCase, office),
+							),
+						);
 					}
 
-					const isClosestConditions = others.map(
-						(other) => sql`${current.dist} <= ${other.dist}`,
-					);
-					closestOfficeKeyCase = sql.join([
-						closestOfficeKeyCase,
-						sql`WHEN `,
-						sql.join(isClosestConditions, sql` AND `),
-						sql` THEN ${current.key} `,
-					]);
-				}
-				closestOfficeKeyCase = sql.join([closestOfficeKeyCase, sql`END`]);
+					if (effectiveStatus === "active") {
+						conditions.push(eq(clients.status, true));
+					} else if (effectiveStatus === "inactive") {
+						conditions.push(eq(clients.status, false));
+					}
 
-				conditions.push(
-					and(
-						not(isNull(clients.latitude)),
-						not(isNull(clients.longitude)),
-						eq(closestOfficeKeyCase, office),
-					),
-				);
-			}
+					if (effectiveType === "real") {
+						conditions.push(not(isNoteOnly));
+					} else if (effectiveType === "note") {
+						conditions.push(isNoteOnly);
+					}
 
-			if (effectiveStatus === "active") {
-				conditions.push(eq(clients.status, true));
-			} else if (effectiveStatus === "inactive") {
-				conditions.push(eq(clients.status, false));
-			}
+					if (hideBabyNet) {
+						conditions.push(
+							and(
+								not(like(clients.primaryInsurance, "%BabyNet%")),
+								or(
+									sql`JSON_SEARCH(${clients.secondaryInsurance}, 'one', '%BabyNet%') IS NULL`,
+									isNull(clients.secondaryInsurance),
+								),
+								not(eq(clients.babyNet, true)),
+							),
+						);
+					}
 
-			if (effectiveType === "real") {
-				conditions.push(not(isNoteOnly));
-			} else if (effectiveType === "note") {
-				conditions.push(isNoteOnly);
-			}
+					if (evaluatorNpi) {
+						const clientIdsQuery = ctx.db
+							.select({ id: clientsEvaluators.clientId })
+							.from(clientsEvaluators)
+							.where(eq(clientsEvaluators.evaluatorNpi, evaluatorNpi));
 
-			if (hideBabyNet) {
-				conditions.push(
-					and(
-						not(like(clients.primaryInsurance, "%BabyNet%")),
-						or(
-							sql`JSON_SEARCH(${clients.secondaryInsurance}, 'one', '%BabyNet%') IS NULL`,
-							isNull(clients.secondaryInsurance),
-						),
-						not(eq(clients.babyNet, true)),
-					),
-				);
-			}
+						conditions.push(inArray(clients.id, clientIdsQuery));
+					}
 
-			if (evaluatorNpi) {
-				const clientIdsQuery = ctx.db
-					.select({ id: clientsEvaluators.clientId })
-					.from(clientsEvaluators)
-					.where(eq(clientsEvaluators.evaluatorNpi, evaluatorNpi));
+					if (privatePay) {
+						conditions.push(eq(clients.privatePay, true));
+					}
 
-				conditions.push(inArray(clients.id, clientIdsQuery));
-			}
+					if (autismStop) {
+						conditions.push(eq(clients.autismStop, true));
+					}
 
-			if (privatePay) {
-				conditions.push(eq(clients.privatePay, true));
-			}
+					const countByColor = await ctx.db
+						.select({
+							color: clients.color,
+							count: sql<number>`COUNT(*)`.as("count"),
+						})
+						.from(clients)
+						.where(conditions.length > 0 ? and(...conditions) : undefined)
+						.groupBy(clients.color);
 
-			if (autismStop) {
-				conditions.push(eq(clients.autismStop, true));
-			}
+					if (color) {
+						conditions.push(eq(clients.color, color));
+					}
 
-			const countByColor = await ctx.db
-				.select({
-					color: clients.color,
-					count: sql<number>`COUNT(*)`.as("count"),
-				})
-				.from(clients)
-				.where(conditions.length > 0 ? and(...conditions) : undefined)
-				.groupBy(clients.color);
+					let { sortReasonSQL, orderBySQL } = getPriorityInfo();
 
-			if (color) {
-				conditions.push(eq(clients.color, color));
-			}
-
-			let { sortReasonSQL, orderBySQL } = getPriorityInfo();
-
-			if (effectiveSort === "priority") {
-			} else if (effectiveSort === "firstName") {
-				orderBySQL = [sql`${clients.firstName}`];
-			} else if (effectiveSort === "lastName") {
-				orderBySQL = [sql`${clients.lastName}`];
-			} else if (effectiveSort === "paExpiration") {
-				orderBySQL = [
-					sql`CASE
+					if (effectiveSort === "priority") {
+					} else if (effectiveSort === "firstName") {
+						orderBySQL = [sql`${clients.firstName}`];
+					} else if (effectiveSort === "lastName") {
+						orderBySQL = [sql`${clients.lastName}`];
+					} else if (effectiveSort === "paExpiration") {
+						orderBySQL = [
+							sql`CASE
             WHEN ${clients.precertExpires} IS NULL THEN 3
             WHEN ${clients.precertExpires} < NOW() THEN 2
             ELSE 1
         END`,
-					sql`${clients.precertExpires}`,
-				];
-				sortReasonSQL = sql<string>`CASE
+							sql`${clients.precertExpires}`,
+						];
+						sortReasonSQL = sql<string>`CASE
           WHEN ${clients.precertExpires} IS NULL THEN 'No PA'
           WHEN ${clients.precertExpires} < NOW() THEN 'Expired PA'
           ELSE 'Expiration date'
         END`.as("sortReason");
-			}
+					}
 
-			let selectedOfficeCoords: { latitude: string; longitude: string } | null =
-				null;
-			if (office) {
-				const officeData = allOffices.find((o) => o.key === office);
-				if (officeData) {
-					selectedOfficeCoords = {
-						latitude: officeData.latitude,
-						longitude: officeData.longitude,
+					let selectedOfficeCoords: {
+						latitude: string;
+						longitude: string;
+					} | null = null;
+					if (office) {
+						const officeData = allOffices.find((o) => o.key === office);
+						if (officeData) {
+							selectedOfficeCoords = {
+								latitude: officeData.latitude,
+								longitude: officeData.longitude,
+							};
+						}
+					}
+
+					const distanceToOfficeSQL = selectedOfficeCoords
+						? getDistanceSQL(
+								clients.latitude,
+								clients.longitude,
+								selectedOfficeCoords.latitude,
+								selectedOfficeCoords.longitude,
+							).as("distanceToOffice")
+						: sql<null>`NULL`.as("distanceToOffice");
+
+					const filteredAndSortedClients = await ctx.db
+						.select({
+							...getTableColumns(clients),
+							sortReason: sortReasonSQL,
+							distanceToOffice: distanceToOfficeSQL,
+						})
+						.from(clients)
+						.where(and(conditions.length > 0 ? and(...conditions) : undefined))
+						.orderBy(...orderBySQL);
+
+					return {
+						clients: filteredAndSortedClients,
+						colorCounts: countByColor,
 					};
-				}
-			}
-
-			const distanceToOfficeSQL = selectedOfficeCoords
-				? getDistanceSQL(
-						clients.latitude,
-						clients.longitude,
-						selectedOfficeCoords.latitude,
-						selectedOfficeCoords.longitude,
-					).as("distanceToOffice")
-				: sql<null>`NULL`.as("distanceToOffice");
-
-			const filteredAndSortedClients = await ctx.db
-				.select({
-					...getTableColumns(clients),
-					sortReason: sortReasonSQL,
-					distanceToOffice: distanceToOfficeSQL,
-				})
-				.from(clients)
-				.where(and(conditions.length > 0 ? and(...conditions) : undefined))
-				.orderBy(...orderBySQL);
-
-			return {
-				clients: filteredAndSortedClients,
-				colorCounts: countByColor,
-			};
+				},
+				60,
+			);
 		}),
 
 	replaceNotes: protectedProcedure
