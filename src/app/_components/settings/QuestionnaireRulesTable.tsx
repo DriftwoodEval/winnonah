@@ -52,6 +52,7 @@ import {
 	TableHeader,
 	TableRow,
 } from "@ui/table";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@ui/tooltip";
 import { MoreHorizontal, Plus } from "lucide-react";
 import { useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
@@ -190,32 +191,45 @@ function RuleForm({
 						render={({ field }) => (
 							<FormItem>
 								<FormLabel>Diagnosis</FormLabel>
-								<Select
-									disabled={daevalValue === "DAEVAL"}
-									onValueChange={(v) => field.onChange(v === "null" ? null : v)}
-									value={field.value ?? "null"}
-								>
-									<FormControl>
-										<SelectTrigger>
-											<SelectValue
-												placeholder={
-													daevalValue === "DAEVAL" ? "N/A" : "Select"
+								<Tooltip>
+									<TooltipTrigger asChild>
+										<span>
+											<Select
+												disabled={daevalValue === "DAEVAL"}
+												onValueChange={(v) =>
+													field.onChange(v === "null" ? null : v)
 												}
-											/>
-										</SelectTrigger>
-									</FormControl>
-									<SelectContent>
-										{daevalValue !== "DAEVAL" && (
-											<>
-												<SelectItem value="ASD">ASD</SelectItem>
-												<SelectItem value="ADHD">ADHD</SelectItem>
-											</>
-										)}
-										{daevalValue === "DAEVAL" && (
-											<SelectItem value="null">N/A</SelectItem>
-										)}
-									</SelectContent>
-								</Select>
+												value={field.value ?? "null"}
+											>
+												<FormControl>
+													<SelectTrigger>
+														<SelectValue
+															placeholder={
+																daevalValue === "DAEVAL" ? "N/A" : "Select"
+															}
+														/>
+													</SelectTrigger>
+												</FormControl>
+												<SelectContent>
+													{daevalValue !== "DAEVAL" && (
+														<>
+															<SelectItem value="ASD">ASD</SelectItem>
+															<SelectItem value="ADHD">ADHD</SelectItem>
+														</>
+													)}
+													{daevalValue === "DAEVAL" && (
+														<SelectItem value="null">N/A</SelectItem>
+													)}
+												</SelectContent>
+											</Select>
+										</span>
+									</TooltipTrigger>
+									{daevalValue === "DAEVAL" && (
+										<TooltipContent>
+											<p>Diagnosis is not applicable for DA+Eval batteries</p>
+										</TooltipContent>
+									)}
+								</Tooltip>
 								<FormMessage />
 							</FormItem>
 						)}
