@@ -17,24 +17,7 @@ export function calculateAdditionalAppointments(
 
 	const appointments: BillingAppointment[] = [];
 
-	// Fill 96130/96131 first
-	let remaining130_131 = total96130_131;
-	let first130Used = false;
-	while (remaining130_131 > 0) {
-		const take = Math.min(remaining130_131, maxUnitsPerDay);
-		const codes: BillingCode[] = [];
-		if (!first130Used) {
-			codes.push({ code: "96130", units: 1 });
-			if (take > 1) codes.push({ code: "96131", units: take - 1 });
-			first130Used = true;
-		} else {
-			codes.push({ code: "96131", units: take });
-		}
-		appointments.push({ codes });
-		remaining130_131 -= take;
-	}
-
-	// Then fill 96136/96137
+	// Fill 96136/96137 first (30-min codes)
 	let remaining136_137 = total96136_137;
 	let first136Used = false;
 	while (remaining136_137 > 0) {
@@ -49,6 +32,23 @@ export function calculateAdditionalAppointments(
 		}
 		appointments.push({ codes });
 		remaining136_137 -= take;
+	}
+
+	// Then fill 96130/96131 (60-min codes)
+	let remaining130_131 = total96130_131;
+	let first130Used = false;
+	while (remaining130_131 > 0) {
+		const take = Math.min(remaining130_131, maxUnitsPerDay);
+		const codes: BillingCode[] = [];
+		if (!first130Used) {
+			codes.push({ code: "96130", units: 1 });
+			if (take > 1) codes.push({ code: "96131", units: take - 1 });
+			first130Used = true;
+		} else {
+			codes.push({ code: "96131", units: take });
+		}
+		appointments.push({ codes });
+		remaining130_131 -= take;
 	}
 
 	return appointments;
