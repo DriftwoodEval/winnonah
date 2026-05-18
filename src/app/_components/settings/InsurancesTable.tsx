@@ -126,6 +126,48 @@ function AdditionalApptsForm({
 				)}
 			/>
 
+			<div>
+				<FormLabel className="text-muted-foreground text-sm">
+					Max Units Per Code (leave blank for no limit)
+				</FormLabel>
+				<div className="mt-2 grid grid-cols-2 gap-3">
+					{(
+						[
+							["additionalAppts.max96136", "Max 96136"],
+							["additionalAppts.max96137", "Max 96137"],
+							["additionalAppts.max96130", "Max 96130"],
+							["additionalAppts.max96131", "Max 96131"],
+						] as const
+					).map(([name, label]) => (
+						<FormField
+							control={form.control}
+							key={name}
+							name={name}
+							render={({ field }) => (
+								<FormItem>
+									<FormLabel className="text-xs">{label}</FormLabel>
+									<FormControl>
+										<Input
+											disabled={isLoading}
+											min={1}
+											placeholder="No limit"
+											type="number"
+											{...field}
+											onChange={(e) => {
+												const val = parseInt(e.target.value, 10);
+												field.onChange(Number.isNaN(val) ? undefined : val);
+											}}
+											value={field.value ?? ""}
+										/>
+									</FormControl>
+									<FormMessage />
+								</FormItem>
+							)}
+						/>
+					))}
+				</div>
+			</div>
+
 			<FormField
 				control={form.control}
 				name="additionalAppts.waitForPA"
@@ -160,6 +202,14 @@ function InsuranceForm({
 
 	const defaultValues = useMemo(() => {
 		if (initialData) {
+			const appts = initialData.additionalAppts as {
+				maxUnitsPerDay?: number;
+				waitForPA?: boolean;
+				max96130?: number;
+				max96131?: number;
+				max96136?: number;
+				max96137?: number;
+			};
 			return {
 				shortName: initialData.shortName,
 				preAuthNeeded: initialData.preAuthNeeded,
@@ -167,10 +217,12 @@ function InsuranceForm({
 				appointmentsRequired: initialData.appointmentsRequired,
 				aliases: initialData.aliases.map((a) => a.name),
 				additionalAppts: {
-					maxUnitsPerDay:
-						(initialData.additionalAppts as { maxUnitsPerDay?: number })
-							?.maxUnitsPerDay ?? 6,
-					waitForPA: initialData.additionalAppts?.waitForPA ?? false,
+					maxUnitsPerDay: appts?.maxUnitsPerDay ?? 6,
+					waitForPA: appts?.waitForPA ?? false,
+					max96130: appts?.max96130,
+					max96131: appts?.max96131,
+					max96136: appts?.max96136,
+					max96137: appts?.max96137,
 				},
 			};
 		}
@@ -183,6 +235,10 @@ function InsuranceForm({
 			additionalAppts: {
 				maxUnitsPerDay: 6,
 				waitForPA: false,
+				max96130: undefined,
+				max96131: undefined,
+				max96136: undefined,
+				max96137: undefined,
 			},
 		};
 	}, [initialData]);

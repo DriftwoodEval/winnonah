@@ -1,9 +1,17 @@
 type BillingCode = { code: string; units: number };
 type BillingAppointment = { codes: BillingCode[] };
 
+type MaxUnitsPerCode = {
+	max96130?: number;
+	max96131?: number;
+	max96136?: number;
+	max96137?: number;
+};
+
 export function calculateAdditionalAppointments(
 	totalMinutes: number,
 	maxUnitsPerDay: number,
+	maxUnitsPerCode?: MaxUnitsPerCode,
 ): BillingAppointment[] {
 	if (totalMinutes <= 0) return [];
 
@@ -19,36 +27,64 @@ export function calculateAdditionalAppointments(
 
 	// Fill 96136/96137 first (30-min codes)
 	let remaining136_137 = total96136_137;
-	let first136Used = false;
+	let billed96136 = 0;
+	let billed96137 = 0;
+	const cap96136 = maxUnitsPerCode?.max96136 ?? Infinity;
+	const cap96137 = maxUnitsPerCode?.max96137 ?? Infinity;
 	while (remaining136_137 > 0) {
-		const take = Math.min(remaining136_137, maxUnitsPerDay);
 		const codes: BillingCode[] = [];
-		if (!first136Used) {
+		let taken = 0;
+		if (billed96136 === 0 && billed96136 < cap96136) {
 			codes.push({ code: "96136", units: 1 });
-			if (take > 1) codes.push({ code: "96137", units: take - 1 });
-			first136Used = true;
-		} else {
-			codes.push({ code: "96137", units: take });
+			billed96136++;
+			remaining136_137--;
+			taken++;
 		}
+		if (billed96137 < cap96137 && taken < maxUnitsPerDay) {
+			const take = Math.min(
+				remaining136_137,
+				maxUnitsPerDay - taken,
+				cap96137 - billed96137,
+			);
+			if (take > 0) {
+				codes.push({ code: "96137", units: take });
+				billed96137 += take;
+				remaining136_137 -= take;
+			}
+		}
+		if (codes.length === 0) break;
 		appointments.push({ codes });
-		remaining136_137 -= take;
 	}
 
 	// Then fill 96130/96131 (60-min codes)
 	let remaining130_131 = total96130_131;
-	let first130Used = false;
+	let billed96130 = 0;
+	let billed96131 = 0;
+	const cap96130 = maxUnitsPerCode?.max96130 ?? Infinity;
+	const cap96131 = maxUnitsPerCode?.max96131 ?? Infinity;
 	while (remaining130_131 > 0) {
-		const take = Math.min(remaining130_131, maxUnitsPerDay);
 		const codes: BillingCode[] = [];
-		if (!first130Used) {
+		let taken = 0;
+		if (billed96130 === 0 && billed96130 < cap96130) {
 			codes.push({ code: "96130", units: 1 });
-			if (take > 1) codes.push({ code: "96131", units: take - 1 });
-			first130Used = true;
-		} else {
-			codes.push({ code: "96131", units: take });
+			billed96130++;
+			remaining130_131--;
+			taken++;
 		}
+		if (billed96131 < cap96131 && taken < maxUnitsPerDay) {
+			const take = Math.min(
+				remaining130_131,
+				maxUnitsPerDay - taken,
+				cap96131 - billed96131,
+			);
+			if (take > 0) {
+				codes.push({ code: "96131", units: take });
+				billed96131 += take;
+				remaining130_131 -= take;
+			}
+		}
+		if (codes.length === 0) break;
 		appointments.push({ codes });
-		remaining130_131 -= take;
 	}
 
 	return appointments;

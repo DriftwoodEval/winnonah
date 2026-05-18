@@ -24,7 +24,14 @@ export function AdditionalInsuranceAppointmentsDisplay({
 	);
 
 	const additionalAppts = insurance?.additionalAppts as
-		| { maxUnitsPerDay?: number; waitForPA?: boolean }
+		| {
+				maxUnitsPerDay?: number;
+				waitForPA?: boolean;
+				max96130?: number;
+				max96131?: number;
+				max96136?: number;
+				max96137?: number;
+		  }
 		| undefined;
 
 	const maxUnitsPerDay = additionalAppts?.maxUnitsPerDay;
@@ -35,6 +42,12 @@ export function AdditionalInsuranceAppointmentsDisplay({
 			? calculateAdditionalAppointments(
 					client.totalAssessmentMinutes,
 					maxUnitsPerDay,
+					{
+						max96130: additionalAppts?.max96130,
+						max96131: additionalAppts?.max96131,
+						max96136: additionalAppts?.max96136,
+						max96137: additionalAppts?.max96137,
+					},
 				)
 			: [];
 
