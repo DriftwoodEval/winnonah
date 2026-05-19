@@ -27,7 +27,7 @@ COPY . .
 ENV CHROME_BIN=/usr/bin/chromium \
     CHROMEDRIVER_PATH=/usr/bin/chromedriver \
     TZ=America/New_York \
-    CRON_SCHEDULE="0 22 * * *" \
+    CRON_SCHEDULE="0 */4 * * *" \
     NOTIFY_CRON_SCHEDULE="0 * * * *" \
     PYTHONUNBUFFERED=1
 
