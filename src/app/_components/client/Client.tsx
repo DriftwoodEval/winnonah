@@ -17,6 +17,7 @@ import {
 	Clock,
 	FileText,
 	MapPinOff,
+	PauseCircle,
 } from "lucide-react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -251,6 +252,16 @@ export function Client({
 											}
 											return null;
 										})
+									)}
+
+									{client.pause && (
+										<Alert variant="destructive">
+											<PauseCircle className="h-4 w-4" />
+											<AlertTitle>Client Paused</AlertTitle>
+											<AlertDescription>
+												This client has been manually paused for review.
+											</AlertDescription>
+										</Alert>
 									)}
 
 									{client.recordsNeeded === null &&
