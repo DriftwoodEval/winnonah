@@ -43,17 +43,22 @@ export async function fetchWithCache<T>(
 	try {
 		const cachedData = await ctx.redis.get(key);
 		if (cachedData) {
+			// superjson.parse returns undefined when given data stored by the old
+			// JSON.stringify path (missing the { json, meta } envelope). Treat
+			// that as a cache miss so stale entries self-heal on the next read.
 			const data = superjson.parse<T>(cachedData);
-
-			if (wantTimestamp) {
-				const remainingSeconds = await ctx.redis.ttl(key);
-				const elapsedSeconds = ttl - remainingSeconds;
-				const lastFetched = Date.now() - elapsedSeconds * 1000;
-				log.debug({ cacheKey: key }, "Cache hit with timestamp");
-				return { data, lastFetched };
+			if (data !== undefined) {
+				if (wantTimestamp) {
+					const remainingSeconds = await ctx.redis.ttl(key);
+					const elapsedSeconds = ttl - remainingSeconds;
+					const lastFetched = Date.now() - elapsedSeconds * 1000;
+					log.debug({ cacheKey: key }, "Cache hit with timestamp");
+					return { data, lastFetched };
+				}
+				log.debug({ cacheKey: key }, "Cache hit");
+				return data;
 			}
-			log.debug({ cacheKey: key }, "Cache hit");
-			return data;
+			log.debug({ cacheKey: key }, "Cache miss: legacy format, refetching");
 		}
 	} catch (err) {
 		log.error({ cacheKey: key, error: err }, "Failed to get from cache");
