@@ -1,6 +1,7 @@
 import glob
 import os
 import shutil
+import time
 from collections.abc import Callable
 from pathlib import Path
 from time import sleep
@@ -23,6 +24,28 @@ from utils.misc import get_column
 
 DOWNLOAD_DIR = Path("temp/downloads")
 INPUT_DIR = Path("temp/input")
+
+
+def _wait_for_download(before: set[Path], timeout: int = 30) -> Path:
+    """Waits for a new CSV to appear and finish downloading, returns its path."""
+    logger.debug("Waiting for download to start...")
+    deadline = time.monotonic() + timeout
+    in_progress_logged = False
+    while time.monotonic() < deadline:
+        crdownloads = list(DOWNLOAD_DIR.glob("*.crdownload"))
+        if crdownloads:
+            if not in_progress_logged:
+                logger.debug(f"Download in progress: {crdownloads[0].name}")
+                in_progress_logged = True
+            sleep(0.5)
+            continue
+        new_files = set(DOWNLOAD_DIR.glob("*.csv")) - before
+        if new_files:
+            result = max(new_files, key=lambda f: f.stat().st_ctime)
+            logger.debug(f"Download complete: {result.name}")
+            return result
+        sleep(0.5)
+    raise TimeoutError(f"Download did not complete within {timeout}s")
 
 
 def login_ta(driver: WebDriver, actions: ActionChains) -> None:
@@ -132,22 +155,20 @@ def _download_data(driver: WebDriver, npi: str):
         driver: WebDriver,
         data_title: str,
     ):
-        def get_newest_downloaded_file():
-            files = list(DOWNLOAD_DIR.glob("*.csv"))
-            return max(files, key=lambda f: f.stat().st_ctime)
 
         logger.debug(f"Downloading {data_title}")
         try:
+            before = set(DOWNLOAD_DIR.glob("*.csv"))
             w.click_element(
                 driver,
                 By.XPATH,
                 f"//h5[contains(normalize-space(text()), '{data_title}')]/following-sibling::p/a[contains(text(), 'Download')]",
                 1,
             )
-            sleep(2)
+            downloaded = _wait_for_download(before)
             if data_title == "Client Appointments":
                 os.rename(
-                    get_newest_downloaded_file(),
+                    downloaded,
                     f"temp/downloads/clients-appointments_{npi}.csv",
                 )
             return True
@@ -160,13 +181,9 @@ def _download_data(driver: WebDriver, npi: str):
     started = _helper(driver, "Client Appointments")
     if not started:
         return
-    sleep(2)
     _helper(driver, "Client Charts")
-    sleep(2)
     _helper(driver, "Clients")
-    sleep(2)
     _helper(driver, "Insurance Policies and Benefits")
-    sleep(2)
 
 
 def _loop_therapists(driver: WebDriver, func: Callable):
@@ -312,10 +329,11 @@ def _download_referrals(driver: WebDriver):
     w.click_element(driver, By.XPATH, "//button[normalize-space()='OK']")
     w.click_element(driver, By.XPATH, "//button[@aria-label='Close dialog']")
 
+    before = set(DOWNLOAD_DIR.glob("*.csv"))
     w.click_element(
         driver, By.XPATH, "//span[contains(text(), 'Export CSV')]", timeout=10
     )
-    sleep(2)
+    _wait_for_download(before)
     shutil.move(
         DOWNLOAD_DIR / "client-referral-report.csv",
         INPUT_DIR / "client-referral-report.csv",
@@ -329,17 +347,17 @@ def _download_billing(driver: WebDriver):
     driver.get(
         "https://api.portal.therapyappointment.com/n/billing/balance/openBalances"
     )
+    before = set(DOWNLOAD_DIR.glob("*.csv"))
     w.click_element(driver, By.XPATH, "//button[@title='More Options']", refresh=True)
-    sleep(2)
     w.click_element(driver, By.XPATH, "//div[contains(text(), 'Download as CSV')]")
-    sleep(2)
+    _wait_for_download(before)
 
     logger.debug("Opening submitted claims page")
     driver.get("https://api.portal.therapyappointment.com/n/billing/claim/submitted")
+    before = set(DOWNLOAD_DIR.glob("*.csv"))
     w.click_element(driver, By.XPATH, "//button[@title='More Options']")
-    sleep(2)
     w.click_element(driver, By.XPATH, "//div[contains(text(), 'Download as CSV')]")
-    sleep(2)
+    _wait_for_download(before)
 
     open_bal_report = next(DOWNLOAD_DIR.glob("clients-with-open-balances-report-*.csv"))
     claims_report = next(DOWNLOAD_DIR.glob("submitted-claims-*.csv"))
