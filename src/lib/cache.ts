@@ -1,3 +1,4 @@
+import superjson from "superjson";
 import { logger } from "~/lib/logger";
 import type { Context } from "~/server/api/trpc";
 
@@ -42,7 +43,7 @@ export async function fetchWithCache<T>(
 	try {
 		const cachedData = await ctx.redis.get(key);
 		if (cachedData) {
-			const data = JSON.parse(cachedData) as T;
+			const data = superjson.parse<T>(cachedData);
 
 			if (wantTimestamp) {
 				const remainingSeconds = await ctx.redis.ttl(key);
@@ -64,7 +65,7 @@ export async function fetchWithCache<T>(
 
 	// Set the new data in cache
 	try {
-		await ctx.redis.set(key, JSON.stringify(freshData), "EX", ttl);
+		await ctx.redis.set(key, superjson.stringify(freshData), "EX", ttl);
 	} catch (err) {
 		log.error({ cacheKey: key, error: err }, "Failed to set cache");
 	}
