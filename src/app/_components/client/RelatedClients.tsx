@@ -9,7 +9,7 @@ import {
 	DialogTitle,
 	DialogTrigger,
 } from "@ui/dialog";
-import { Plus, User, X } from "lucide-react";
+import { Link2, Plus, User, X } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -21,6 +21,7 @@ import { ClientSearchAndAdd } from "../clients/ClientSearchAndAdd";
 interface RelatedClientsProps {
 	clientId: number;
 	lastName: string;
+	phoneNumber?: string | null;
 	relatedConnections?: {
 		relatedClientData: {
 			id: number;
@@ -34,6 +35,7 @@ interface RelatedClientsProps {
 export function RelatedClients({
 	clientId,
 	lastName,
+	phoneNumber,
 	relatedConnections,
 	readOnly,
 }: RelatedClientsProps) {
@@ -41,6 +43,12 @@ export function RelatedClients({
 	const [isAddOpen, setIsAddOpen] = useState(false);
 
 	const canEdit = useCheckPermission()("clients:related") && !readOnly;
+
+	const { data: phoneSuggestions = [] } =
+		api.clients.getSuggestedRelatedByPhone.useQuery(
+			{ clientId },
+			{ enabled: canEdit && !!phoneNumber },
+		);
 
 	const linkMutation = api.clients.linkRelated.useMutation({
 		onSuccess: () => {
@@ -116,9 +124,10 @@ export function RelatedClients({
 					</CardAction>
 				)}
 			</CardHeader>
-			{relatedConnections && relatedConnections.length > 0 && (
+			{(relatedConnections && relatedConnections.length > 0) ||
+			(canEdit && phoneSuggestions.length > 0) ? (
 				<CardContent className="flex flex-col gap-1 px-2 pb-2">
-					{relatedConnections.map((conn) => (
+					{relatedConnections?.map((conn) => (
 						<div
 							className="group relative flex items-center rounded-md border bg-muted/30 text-sm transition-colors hover:bg-muted/60"
 							key={conn.relatedClientData.id}
@@ -152,8 +161,51 @@ export function RelatedClients({
 							)}
 						</div>
 					))}
+					{canEdit && phoneSuggestions.length > 0 && (
+						<>
+							{relatedConnections && relatedConnections.length > 0 && (
+								<div className="mt-1 border-t pt-1" />
+							)}
+							<p className="px-1 text-[11px] text-muted-foreground">
+								Suggestions
+							</p>
+							{phoneSuggestions.map((suggestion) => (
+								<div
+									className="group relative flex items-center rounded-md border border-dashed bg-muted/10 text-sm transition-colors hover:bg-muted/40"
+									key={suggestion.id}
+								>
+									<Link
+										className="flex flex-1 items-center gap-2 overflow-hidden p-2 pr-9"
+										href={`/clients/${suggestion.hash}`}
+									>
+										<User className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+										<span className="truncate font-medium group-hover:underline">
+											{suggestion.fullName}
+										</span>
+									</Link>
+									<Button
+										className="absolute right-1 h-7 w-7 cursor-pointer opacity-100 transition-all lg:opacity-0 lg:group-hover:opacity-100"
+										disabled={linkMutation.isPending}
+										onClick={(e) => {
+											e.preventDefault();
+											e.stopPropagation();
+											linkMutation.mutate({
+												idA: clientId,
+												idB: suggestion.id,
+											});
+										}}
+										size="icon"
+										title="Link client"
+										variant="ghost"
+									>
+										<Link2 className="h-3.5 w-3.5" />
+									</Button>
+								</div>
+							))}
+						</>
+					)}
 				</CardContent>
-			)}
+			) : null}
 		</Card>
 	);
 }

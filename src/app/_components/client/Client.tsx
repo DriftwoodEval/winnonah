@@ -369,6 +369,7 @@ export function Client({
 						<RelatedClients
 							clientId={client.id}
 							lastName={client.lastName}
+							phoneNumber={client.phoneNumber}
 							readOnly={readOnly}
 							relatedConnections={client.relatedConnections}
 						/>

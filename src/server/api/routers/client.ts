@@ -1194,6 +1194,36 @@ export const clientRouter = createTRPCRouter({
 			});
 		}),
 
+	getSuggestedRelatedByPhone: protectedProcedure
+		.input(z.object({ clientId: z.number() }))
+		.query(async ({ ctx, input }) => {
+			const target = await ctx.db.query.clients.findFirst({
+				where: eq(clients.id, input.clientId),
+				columns: { phoneNumber: true },
+			});
+
+			if (!target?.phoneNumber) return [];
+
+			const [matches, existingRelations] = await Promise.all([
+				ctx.db.query.clients.findMany({
+					where: and(
+						eq(clients.phoneNumber, target.phoneNumber),
+						ne(clients.id, input.clientId),
+					),
+					columns: { id: true, fullName: true, hash: true },
+				}),
+				ctx.db.query.clientRelated.findMany({
+					where: eq(clientRelated.clientId, input.clientId),
+					columns: { relatedClientId: true },
+				}),
+			]);
+
+			const linkedIds = new Set(
+				existingRelations.map((r) => r.relatedClientId),
+			);
+			return matches.filter((c) => !linkedIds.has(c.id));
+		}),
+
 	search: protectedProcedure
 		.input(
 			z.object({
