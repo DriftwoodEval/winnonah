@@ -2,6 +2,7 @@ import os
 import re
 from collections import defaultdict
 from datetime import date, datetime, timedelta
+from pathlib import Path
 from typing import Any, Literal
 
 import pandas as pd
@@ -22,8 +23,11 @@ from utils.database import (
     put_in_person_assessments_in_db,
 )
 from utils.google import google_authenticate, send_gmail
+import utils.misc
 
 DAEvalType = Literal["EVAL", "DA", "DAEVAL"]
+
+SYNC_REPORT_CACHE = Path("cache/sync-report-sent-date.txt")
 
 
 class SyncReporter:
@@ -93,6 +97,11 @@ class SyncReporter:
             logger.debug("No errors to report. Skipping email.")
             return
 
+        today = date.today().isoformat()
+        if today in utils.misc.read_cache(SYNC_REPORT_CACHE):
+            logger.debug("Sync report already sent today. Skipping email.")
+            return
+
         logger.info("Errors logged. Preparing email.")
 
         text_summary = "Errors were detected during the appointment sync."
@@ -135,6 +144,7 @@ class SyncReporter:
 
         html_content += f"<p>This email was generated and sent automatically.</p>"
 
+        SYNC_REPORT_CACHE.parent.mkdir(exist_ok=True)
         send_gmail(
             message_text=text_summary,
             subject=f"Appointment Sync Errors - {datetime.now().strftime('%Y-%m-%d')}",
@@ -142,6 +152,7 @@ class SyncReporter:
             from_addr="me",
             html=html_content,
         )
+        utils.misc.write_cache(SYNC_REPORT_CACHE, [today])
 
 
 def should_skip_appointment(appointment: pd.Series) -> bool:
