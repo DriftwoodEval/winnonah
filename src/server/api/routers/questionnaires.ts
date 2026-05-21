@@ -24,6 +24,7 @@ import {
 	protectedProcedure,
 } from "~/server/api/trpc";
 import {
+	appointments,
 	assessmentTypes,
 	clients,
 	failures,
@@ -731,10 +732,25 @@ export const questionnaireRouter = createTRPCRouter({
 	getInPersonAssessments: protectedProcedure
 		.input(z.number())
 		.query(async ({ ctx, input }) => {
-			return ctx.db.query.inPersonAssessments.findMany({
-				where: eq(inPersonAssessments.clientId, input),
-				orderBy: [asc(inPersonAssessments.assessmentType)],
-			});
+			return ctx.db
+				.select({
+					id: inPersonAssessments.id,
+					clientId: inPersonAssessments.clientId,
+					assessmentType: inPersonAssessments.assessmentType,
+					status: inPersonAssessments.status,
+					addedDate: inPersonAssessments.addedDate,
+					appointmentId: inPersonAssessments.appointmentId,
+					updatedAt: inPersonAssessments.updatedAt,
+					appointmentStartTime: appointments.startTime,
+					appointmentDaEval: appointments.daEval,
+				})
+				.from(inPersonAssessments)
+				.leftJoin(
+					appointments,
+					eq(inPersonAssessments.appointmentId, appointments.id),
+				)
+				.where(eq(inPersonAssessments.clientId, input))
+				.orderBy(asc(inPersonAssessments.assessmentType));
 		}),
 
 	addInPersonAssessment: protectedProcedure
@@ -742,6 +758,7 @@ export const questionnaireRouter = createTRPCRouter({
 			z.object({
 				clientId: z.number(),
 				assessmentType: z.string().min(1),
+				appointmentId: z.string().optional(),
 			}),
 		)
 		.mutation(async ({ ctx, input }) => {
@@ -750,6 +767,7 @@ export const questionnaireRouter = createTRPCRouter({
 				clientId: input.clientId,
 				assessmentType: input.assessmentType,
 				addedDate: new Date(),
+				appointmentId: input.appointmentId,
 			});
 		}),
 

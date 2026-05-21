@@ -588,6 +588,7 @@ def insert_appointments_with_gcal(appointment_sync_data: dict[str, list[str]] | 
                         client_id=client_id,
                         assessment_types=in_person,
                         added_date=appt_date,
+                        appointment_id=appointment_id,
                     )
 
     reporter.send_report(email_for_errors)

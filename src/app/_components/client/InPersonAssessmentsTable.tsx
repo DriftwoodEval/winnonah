@@ -269,9 +269,7 @@ export function InPersonAssessmentsTable({
 								{showActions && <TableHead className="w-10" />}
 								<TableHead>Assessment</TableHead>
 								<TableHead className="w-24">Status</TableHead>
-								<TableHead className="hidden w-24 sm:table-cell">
-									Added
-								</TableHead>
+								<TableHead className="hidden sm:table-cell">Source</TableHead>
 							</TableRow>
 						</TableHeader>
 						<TableBody>
@@ -292,8 +290,26 @@ export function InPersonAssessmentsTable({
 											<span className="text-muted-foreground text-xs">—</span>
 										)}
 									</TableCell>
-									<TableCell className="hidden text-muted-foreground sm:table-cell">
-										{formatShortDate(assessment.addedDate, "—")}
+									<TableCell className="hidden sm:table-cell">
+										{assessment.appointmentId ? (
+											<span className="text-muted-foreground text-xs">
+												{assessment.appointmentStartTime
+													? formatShortDate(
+															assessment.appointmentStartTime,
+															"—",
+														)
+													: "Imported"}
+												{assessment.appointmentDaEval && (
+													<Badge className="ml-1.5" variant="secondary">
+														{assessment.appointmentDaEval}
+													</Badge>
+												)}
+											</span>
+										) : (
+											<span className="text-muted-foreground text-xs">
+												Manual
+											</span>
+										)}
 									</TableCell>
 								</TableRow>
 							))}

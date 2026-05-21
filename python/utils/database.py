@@ -980,6 +980,7 @@ def put_in_person_assessments_in_db(
     assessment_types: list[str],
     added_date: date,
     connection: Connection[DictCursor],
+    appointment_id: str | None = None,
 ) -> None:
     """Insert in-person assessments for a client, skipping any that already exist."""
     if not assessment_types:
@@ -989,11 +990,11 @@ def put_in_person_assessments_in_db(
         cursor.executemany(
             f"""
             INSERT IGNORE INTO {TABLE_IN_PERSON_ASSESSMENT}
-                (clientId, assessmentType, addedDate)
-            VALUES (%s, %s, %s)
+                (clientId, assessmentType, addedDate, appointmentId)
+            VALUES (%s, %s, %s, %s)
             """,
             [
-                (client_id, assessment_type, added_date)
+                (client_id, assessment_type, added_date, appointment_id)
                 for assessment_type in assessment_types
             ],
         )

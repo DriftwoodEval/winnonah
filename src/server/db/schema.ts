@@ -537,6 +537,7 @@ export const inPersonAssessments = createTable(
 		assessmentType: d.varchar({ length: 255 }).notNull(),
 		status: d.mysqlEnum(IN_PERSON_ASSESSMENT_STATUSES),
 		addedDate: d.date(),
+		appointmentId: d.varchar({ length: 255 }),
 		updatedAt: d
 			.timestamp("updated_at")
 			.onUpdateNow()
