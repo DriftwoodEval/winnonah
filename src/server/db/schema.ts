@@ -4,6 +4,7 @@ import {
 	index,
 	mysqlTableCreator,
 	primaryKey,
+	uniqueIndex,
 } from "drizzle-orm/mysql-core";
 import type { AdapterAccount } from "next-auth/adapters";
 import type z from "zod";
@@ -541,7 +542,13 @@ export const inPersonAssessments = createTable(
 			.onUpdateNow()
 			.default(sql`CURRENT_TIMESTAMP`),
 	}),
-	(t) => [index("in_person_assessment_client_idx").on(t.clientId)],
+	(t) => [
+		index("in_person_assessment_client_idx").on(t.clientId),
+		uniqueIndex("in_person_assessment_client_type_unique").on(
+			t.clientId,
+			t.assessmentType,
+		),
+	],
 );
 
 export const failures = createTable(

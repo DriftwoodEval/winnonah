@@ -138,16 +138,16 @@ function AssessmentActionsMenu({ assessment }: { assessment: Assessment }) {
 	);
 }
 
-function AddInPersonAssessmentButton({ clientId }: { clientId: number }) {
+function AddInPersonAssessmentButton({
+	clientId,
+	availableTypes,
+}: {
+	clientId: number;
+	availableTypes: { id: number; name: string }[];
+}) {
 	const [isOpen, setIsOpen] = useState(false);
 	const [selected, setSelected] = useState<string>("");
 	const utils = api.useUtils();
-
-	const { data: allTypes } = api.questionnaires.getAllTypes.useQuery();
-	const inPersonTypes = useMemo(
-		() => (allTypes ?? []).filter((t) => t.inPerson),
-		[allTypes],
-	);
 
 	const addAssessment = api.questionnaires.addInPersonAssessment.useMutation({
 		onSuccess: () => {
@@ -176,7 +176,7 @@ function AddInPersonAssessmentButton({ clientId }: { clientId: number }) {
 							<SelectValue placeholder="Select assessment..." />
 						</SelectTrigger>
 						<SelectContent>
-							{inPersonTypes.map((t) => (
+							{availableTypes.map((t) => (
 								<SelectItem key={t.id} value={t.name}>
 									{t.name}
 								</SelectItem>
@@ -223,6 +223,23 @@ export function InPersonAssessmentsTable({
 			enabled: typeof clientId === "number" && clientId > 0,
 		});
 
+	const existingTypes = useMemo(
+		() => new Set((assessments ?? []).map((a) => a.assessmentType)),
+		[assessments],
+	);
+
+	const { data: allTypes } = api.questionnaires.getAllTypes.useQuery(
+		undefined,
+		{
+			enabled: !readOnly && canManage,
+		},
+	);
+	const availableToAdd = useMemo(
+		() =>
+			(allTypes ?? []).filter((t) => t.inPerson && !existingTypes.has(t.name)),
+		[allTypes, existingTypes],
+	);
+
 	const showActions = !readOnly && canManage;
 
 	if (
@@ -237,8 +254,11 @@ export function InPersonAssessmentsTable({
 		<div className="w-full rounded-md border shadow">
 			<div className="sticky top-0 z-10 flex items-center justify-between gap-2 p-4">
 				<h4 className="font-bold leading-none">In-Person Assessments</h4>
-				{showActions && clientId && (
-					<AddInPersonAssessmentButton clientId={clientId} />
+				{showActions && clientId && availableToAdd.length > 0 && (
+					<AddInPersonAssessmentButton
+						availableTypes={availableToAdd}
+						clientId={clientId}
+					/>
 				)}
 			</div>
 			{assessments && assessments.length > 0 && (

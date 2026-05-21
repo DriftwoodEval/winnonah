@@ -746,7 +746,7 @@ export const questionnaireRouter = createTRPCRouter({
 		)
 		.mutation(async ({ ctx, input }) => {
 			assertPermission(ctx.session.user, "clients:questionnaires:in-person");
-			await ctx.db.insert(inPersonAssessments).values({
+			await ctx.db.insert(inPersonAssessments).ignore().values({
 				clientId: input.clientId,
 				assessmentType: input.assessmentType,
 				addedDate: new Date(),
