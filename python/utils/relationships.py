@@ -123,10 +123,6 @@ def match_by_school_district(client: pd.Series, evaluators: dict):
     Returns:
         list: A list of NPIs for evaluators who are eligible for the client.
     """
-    # logger.debug(
-    #     f"Matching evaluators by school district for {get_column(client, 'FIRSTNAME')} {get_column(client, 'LASTNAME')}"
-    # )
-
     client_school_district = get_column(client, "SCHOOL_DISTRICT")
     client_address = get_column(client, "ADDRESS")
 
@@ -135,9 +131,6 @@ def match_by_school_district(client: pd.Series, evaluators: dict):
         or client_school_district.lower() in ["unknown", "n/a", "no", None]
         or not isinstance(client_address, str)
     ):
-        # logger.debug(
-        #     f"{get_column(client, 'FIRSTNAME')} {get_column(client, 'LASTNAME')} has no valid school district information or no address. No exclusions applied. All evaluators are eligible."
-        # )
         return list(evaluators.keys())
 
     client_zip = client_address.split(" ")[-1] if client_address else None
@@ -155,16 +148,12 @@ def match_by_school_district(client: pd.Series, evaluators: dict):
             )
         )
         if client_age > 20:
-            # logger.debug(
-            #     f"{get_column(client, 'FIRSTNAME')} {get_column(client, 'LASTNAME')} is over 20 years old. No exclusions applied. All evaluators are eligible."
-            # )
             return list(evaluators.keys())
 
     eligible_evaluators = []
     client_district_lower = client_school_district.lower().strip()
 
     for npi, evaluator_data in evaluators.items():
-        # evaluator_name = evaluator_data.get("providerName", "Unknown Evaluator")
         blocked_districts = evaluator_data.get("blockedSchoolDistricts", [])
         blocked_zips = evaluator_data.get("blockedZipCodes", [])
 
@@ -173,24 +162,15 @@ def match_by_school_district(client: pd.Series, evaluators: dict):
         for blocked_name in blocked_districts:
             if client_district_lower == blocked_name.lower().strip():
                 is_blocked = True
-                # logger.debug(
-                #     f"Evaluator {evaluator_name} ({npi}) CANNOT work in {client_school_district}."
-                # )
                 break
 
         if not is_blocked:
             for blocked_zip in blocked_zips:
                 if client_zip == blocked_zip:
                     is_blocked = True
-                    # logger.debug(
-                    #     f"Evaluator {evaluator_name} ({npi}) CANNOT work in {client_zip}."
-                    # )
                     break
 
         if not is_blocked:
             eligible_evaluators.append(npi)
-            # logger.debug(
-            #     f"Evaluator {evaluator_name} can work with {client_school_district}."
-            # )
 
     return eligible_evaluators

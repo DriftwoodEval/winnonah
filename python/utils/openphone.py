@@ -9,7 +9,7 @@ from tqdm import tqdm
 
 from utils.clients import TEST_NAMES, _normalize_names, _remove_test_names
 
-API_TOKEN = os.getenv("OPENPHONE_API_TOKEN")
+API_TOKEN = os.getenv("OPENPHONE_API_TOKEN", "")
 
 
 def _get_all_openphone_contacts():
@@ -208,8 +208,7 @@ def sync_openphone():
 
     if final_df is not None:
         final_df.to_csv("openphone-merged.csv", index=False)
-        # This currently doesn't show contacts in OpenPhone until a conversation has been started with them, which is pretty useless. Just import the CSV.
-        # _create_openphone_contacts(final_df)
+        # We would import the CSV into OpenPhone here, but it doesn't show contacts in OpenPhone until a conversation has been started with them, which is pretty useless.
         logger.success("OpenPhone CSV created.")
     else:
         logger.error("Failed to process OpenPhone data. Skipping OpenPhone sync.")
