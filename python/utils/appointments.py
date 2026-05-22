@@ -463,11 +463,11 @@ def insert_appointments_with_gcal(appointment_sync_data: dict[str, list[str]] | 
     if appointment_sync_data is not None:
         trusted_appointment_ids = appointment_sync_data.get("trusted_appointment_ids")
         if trusted_appointment_ids is not None:
-            trusted_ids = set(str(aid) for aid in trusted_appointment_ids)
+            trusted_ids = {str(aid) for aid in trusted_appointment_ids}
 
         ignored_appointment_ids = appointment_sync_data.get("ignored_appointment_ids")
         if ignored_appointment_ids is not None:
-            ignored_ids = set(str(aid) for aid in ignored_appointment_ids)
+            ignored_ids = {str(aid) for aid in ignored_appointment_ids}
 
     email_for_errors = os.getenv("ERROR_EMAILS", "")
 
