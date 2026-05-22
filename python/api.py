@@ -174,7 +174,6 @@ def get_user_folder(drive_service, user_name: str, parent_id: str):
 
 @app.get("/folders/duplicates")
 async def find_duplicates(
-    current_user: dict = Depends(get_current_user),
     services: dict = Depends(get_google_services),
 ):
     drive_service = services["drive"]
@@ -296,7 +295,6 @@ async def get_writer_folder(
 @app.get("/folders/{parent_id}")
 async def get_subfolders(
     parent_id: str,
-    current_user: dict = Depends(get_current_user),
     services: dict = Depends(get_google_services),
 ):
     try:

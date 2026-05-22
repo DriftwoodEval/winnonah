@@ -105,7 +105,7 @@ def _open_profile(driver: WebDriver):
     )
 
 
-def _export_data(driver: WebDriver, npi: str):
+def _export_data(driver: WebDriver):
     """Exports therapist data to CSV files."""
 
     def _helper(driver: WebDriver, data_title: str) -> bool:
