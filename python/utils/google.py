@@ -202,11 +202,11 @@ def _process_folders_queued(service, start_folder_id, client_lookup, db_connecti
                     continue
 
                 folder_tokens = _normalize_name_tokens(folder_name)
-                matches = []
-
-                for client in client_lookup:
-                    if client["tokens"].issubset(folder_tokens):
-                        matches.append(client)
+                matches = [
+                    client
+                    for client in client_lookup
+                    if client["tokens"].issubset(folder_tokens)
+                ]
 
                 # Deduplicate by ID
                 unique_matches = {m["id"]: m for m in matches}.values()

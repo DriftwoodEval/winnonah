@@ -25,9 +25,10 @@ def format_name(name) -> str:
     name = re.sub(r"[^a-zA-Z\s]", " ", name)
     name = re.sub(r"\s{2,}", " ", name).strip()
 
-    words = []
-    for word in name.split():
-        words.append(word.upper() if word.upper() in exceptions else word.capitalize())
+    words = [
+        word.upper() if word.upper() in exceptions else word.capitalize()
+        for word in name.split()
+    ]
     return " ".join(words)
 
 
