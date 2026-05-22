@@ -53,7 +53,7 @@ def get_google_services():
 
 
 def get_current_user(request: Request):
-    COOKIE_NAMES = [
+    cookie_names = [
         "authjs.session-token",
         "__Secure-authjs.session-token",
         "next-auth.session-token",
@@ -62,7 +62,7 @@ def get_current_user(request: Request):
     session_token = next(
         (
             request.cookies.get(name)
-            for name in COOKIE_NAMES
+            for name in cookie_names
             if request.cookies.get(name)
         ),
         None,

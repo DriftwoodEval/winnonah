@@ -502,13 +502,13 @@ def insert_appointments_with_gcal(appointment_sync_data: dict[str, list[str]] | 
 
         is_trusted = appointment_id in trusted_ids
 
-        evaluatorNpi = None
+        evaluator_npi = None
         gcal_location = None
         gcal_daeval = None
 
         if gcal_calendar_id:
-            evaluatorNpi = npi_cache.get(gcal_calendar_id)
-            if evaluatorNpi is None:
+            evaluator_npi = npi_cache.get(gcal_calendar_id)
+            if evaluator_npi is None:
                 logger.error(
                     f"NPI not found for calendar ID (email): {gcal_calendar_id}"
                 )
@@ -528,11 +528,11 @@ def insert_appointments_with_gcal(appointment_sync_data: dict[str, list[str]] | 
             # Fallback to CSV NPI
             raw_npi = appointment.get("NPI")
             try:
-                evaluatorNpi = int(raw_npi) if pd.notna(raw_npi) else None
+                evaluator_npi = int(raw_npi) if pd.notna(raw_npi) else None
             except ValueError:
-                evaluatorNpi = None
+                evaluator_npi = None
 
-            if not evaluatorNpi:
+            if not evaluator_npi:
                 logger.warning(
                     f"Skipping trusted import for {client_id}: No valid NPI in CSV."
                 )
@@ -548,7 +548,7 @@ def insert_appointments_with_gcal(appointment_sync_data: dict[str, list[str]] | 
         put_appointment_in_db(
             appointment_id=appointment_id,
             client_id=client_id,
-            evaluator_npi=evaluatorNpi,
+            evaluator_npi=evaluator_npi,
             cpt=cpt_code,
             start_time=start_time,
             end_time=end_time,

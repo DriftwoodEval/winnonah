@@ -19,7 +19,7 @@ IGNORE_SOURCES = {"unknown", "no referral source", "", "babynet"}
 
 def format_name(name) -> str:
     """Cleans and title-cases referral source names."""
-    EXCEPTIONS = {"MUSC", "DDSN", "SC", "NC", "DSS", "MP", "LLC"}
+    exceptions = {"MUSC", "DDSN", "SC", "NC", "DSS", "MP", "LLC"}
 
     name = re.sub(r"\(.*?\)", "", name)
     name = re.sub(r"[^a-zA-Z\s]", " ", name)
@@ -27,7 +27,7 @@ def format_name(name) -> str:
 
     words = []
     for word in name.split():
-        words.append(word.upper() if word.upper() in EXCEPTIONS else word.capitalize())
+        words.append(word.upper() if word.upper() in exceptions else word.capitalize())
     return " ".join(words)
 
 

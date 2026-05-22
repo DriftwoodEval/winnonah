@@ -12,10 +12,9 @@ from selenium.common.exceptions import (
 )
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.action_chains import ActionChains
-from selenium.webdriver.common.by import By
 from selenium.webdriver.remote.webdriver import WebDriver
 from selenium.webdriver.remote.webelement import WebElement
-from selenium.webdriver.support import expected_conditions as EC
+from selenium.webdriver.support import expected_conditions as ec
 from selenium.webdriver.support.ui import WebDriverWait
 
 
@@ -57,7 +56,7 @@ def click_element(
     for attempt in range(max_attempts):
         try:
             element = find_element(
-                driver, by, locator, timeout, condition=EC.element_to_be_clickable
+                driver, by, locator, timeout, condition=ec.element_to_be_clickable
             )
             element.click()
             return
@@ -83,7 +82,7 @@ def find_element(
     by: str,
     locator: str,
     timeout: int = 5,
-    condition=EC.presence_of_element_located,
+    condition=ec.presence_of_element_located,
 ) -> WebElement:
     """Find a web element using an explicit wait."""
     try:
