@@ -100,16 +100,15 @@ def get_python_config(config_id: int = 2) -> dict:
     sql = f"SELECT data FROM {TABLE_PYTHON_CONFIG} WHERE id = %s"
 
     try:
-        with db_session() as db_connection:
-            with db_connection.cursor() as cursor:
-                cursor.execute(sql, (config_id,))
-                result = cursor.fetchone()
+        with db_session() as db_connection, db_connection.cursor() as cursor:
+            cursor.execute(sql, (config_id,))
+            result = cursor.fetchone()
 
-                if result and result["data"]:
-                    data = result["data"]
-                    if isinstance(data, str):
-                        return json.loads(data)
-                    return data
+            if result and result["data"]:
+                data = result["data"]
+                if isinstance(data, str):
+                    return json.loads(data)
+                return data
     except Exception as e:
         logger.error(f"Error fetching python config from DB: {e}")
 
@@ -800,9 +799,11 @@ def get_queue_notify_users(connection: Connection[DictCursor]):
 
         for row in rows:
             permissions = json.loads(row["permissions"]) if row["permissions"] else {}
-            if permissions.get("reports:notifications") is True:
-                if not row["claimed_report_folder"]:
-                    users.append(row)
+            if (
+                permissions.get("reports:notifications") is True
+                and not row["claimed_report_folder"]
+            ):
+                users.append(row)
 
     return users
 

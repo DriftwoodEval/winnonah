@@ -24,19 +24,18 @@ def check_report_queue_and_notify():
         return
 
     new_folders = []
-    with get_db() as conn:
-        with conn.cursor() as cursor:
-            for item in items:
-                folder_id = item["id"]
-                folder_name = item["name"]
+    with get_db() as conn, conn.cursor() as cursor:
+        for item in items:
+            folder_id = item["id"]
+            folder_name = item["name"]
 
-                # Check if we've already notified for this folder
-                cursor.execute(
-                    f"SELECT folderId FROM {TABLE_SEEN_REPORT_FOLDERS} WHERE folderId = %s",
-                    (folder_id,),
-                )
-                if not cursor.fetchone():
-                    new_folders.append(item)
+            # Check if we've already notified for this folder
+            cursor.execute(
+                f"SELECT folderId FROM {TABLE_SEEN_REPORT_FOLDERS} WHERE folderId = %s",
+                (folder_id,),
+            )
+            if not cursor.fetchone():
+                new_folders.append(item)
 
     if not new_folders:
         logger.info("No new folders in report queue.")
@@ -72,13 +71,12 @@ def check_report_queue_and_notify():
             )
 
         # Mark as seen
-        with get_db() as conn:
-            with conn.cursor() as cursor:
-                cursor.execute(
-                    f"INSERT INTO {TABLE_SEEN_REPORT_FOLDERS} (folderId) VALUES (%s)",
-                    (folder["id"],),
-                )
-                conn.commit()
+        with get_db() as conn, conn.cursor() as cursor:
+            cursor.execute(
+                f"INSERT INTO {TABLE_SEEN_REPORT_FOLDERS} (folderId) VALUES (%s)",
+                (folder["id"],),
+            )
+            conn.commit()
 
 
 def main():

@@ -48,6 +48,7 @@ select = [
   "Q",
   "RSE",
   "RET",
+  "SIM",
   "UP",
   "FURB"
 ]

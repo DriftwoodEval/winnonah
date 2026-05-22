@@ -280,22 +280,21 @@ def get_offices() -> dict:
     db_connection = utils.database.get_db()
     addresses = {}
 
-    with db_connection:
-        with db_connection.cursor() as cursor:
-            sql = f"SELECT `key`, latitude, longitude, prettyName FROM {TABLE_OFFICE}"
-            cursor.execute(sql)
+    with db_connection, db_connection.cursor() as cursor:
+        sql = f"SELECT `key`, latitude, longitude, prettyName FROM {TABLE_OFFICE}"
+        cursor.execute(sql)
 
-            results = cursor.fetchall()
-            if not results:
-                logger.warning("No offices found in the database.")
-                return addresses
+        results = cursor.fetchall()
+        if not results:
+            logger.warning("No offices found in the database.")
+            return addresses
 
-            for row in results:
-                addresses[row["key"]] = {
-                    "latitude": float(row["latitude"]),
-                    "longitude": float(row["longitude"]),
-                    "pretty_name": row["prettyName"],
-                }
+        for row in results:
+            addresses[row["key"]] = {
+                "latitude": float(row["latitude"]),
+                "longitude": float(row["longitude"]),
+                "pretty_name": row["prettyName"],
+            }
     return addresses
 
 
