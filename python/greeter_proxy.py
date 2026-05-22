@@ -1,9 +1,5 @@
 import asyncio
-import base64
-import hashlib
-import hmac
 import os
-import time
 from typing import Annotated
 
 import httpx
@@ -12,6 +8,7 @@ from loguru import logger
 
 from utils.constants import TABLE_EVALUATOR, TABLE_GREETER_PROXY_STATE, TABLE_USER
 from utils.database import get_db
+from utils.webhook import verify_openphone_signature
 
 router = APIRouter()
 
@@ -34,33 +31,6 @@ def get_http_client() -> httpx.AsyncClient:
             },
         )
     return _http_client
-
-
-async def verify_signature(request: Request, signature_header: str) -> None:
-    try:
-        parts = signature_header.split(";")
-        if len(parts) != 4:
-            raise ValueError("Invalid signature format")
-        _algo, _version, timestamp, received_sig = parts
-        timestamp = timestamp.strip()
-        received_sig = received_sig.strip()
-    except ValueError, AttributeError:
-        raise HTTPException(status_code=401, detail="Invalid signature format")
-
-    now_ms = int(time.time() * 1000)
-    if abs(now_ms - int(timestamp)) > 5 * 60 * 1000:
-        raise HTTPException(status_code=401, detail="Signature expired")
-
-    raw_body = await request.body()
-    signing_payload = timestamp.encode() + b"." + raw_body
-    secret_bytes = base64.b64decode(OPENPHONE_GREETER_SIGNING_SECRET.strip())
-    expected_hmac = hmac.new(
-        secret_bytes, msg=signing_payload, digestmod=hashlib.sha256
-    ).digest()
-    expected_sig_b64 = base64.b64encode(expected_hmac).decode()
-
-    if not hmac.compare_digest(expected_sig_b64, received_sig):
-        raise HTTPException(status_code=401, detail="Signature mismatch")
 
 
 async def send_sms(to: str, body: str) -> None:
@@ -211,7 +181,7 @@ async def process_message(sender_phone: str, message_body: str) -> None:
             logger.error("No active evaluator found — cannot forward greeter reply")
 
 
-@router.post("/pyapi/greeter-proxy")
+@router.post("/pyapi/greeter-proxy/sms")
 async def handle_webhook(
     request: Request,
     background_tasks: BackgroundTasks,
@@ -221,7 +191,9 @@ async def handle_webhook(
         logger.warning("Webhook received with no signature header")
         raise HTTPException(status_code=401, detail="Missing signature")
 
-    await verify_signature(request, openphone_signature)
+    await verify_openphone_signature(
+        request, openphone_signature, OPENPHONE_GREETER_SIGNING_SECRET
+    )
 
     payload = await request.json()
     event_type = payload.get("type")

@@ -1,21 +1,14 @@
 from __future__ import annotations
 
 import asyncio
-import base64
-import hashlib
-import hmac
 import os
 import re
-import time
-from contextlib import asynccontextmanager
 from datetime import datetime, timedelta
 from typing import Annotated
 
-from fastapi import BackgroundTasks, FastAPI, Header, HTTPException, Request
+from fastapi import APIRouter, BackgroundTasks, Header, HTTPException, Request
 from httpx import AsyncClient
 from loguru import logger
-from pydantic import Field
-from pydantic_settings import BaseSettings, SettingsConfigDict
 from pymysql.connections import Connection
 from pymysql.cursors import DictCursor
 
@@ -29,19 +22,28 @@ from utils.constants import (
 )
 from utils.database import provide_connection
 from utils.google import update_gcal_event_title
+from utils.webhook import verify_openphone_signature
 
 logger.add("logs/appointment-reminders.log", rotation="500 MB")
 
+OPENPHONE_API_TOKEN = os.getenv("OPENPHONE_API_TOKEN", "")
+OPENPHONE_NUMBER_ID = os.getenv("OPENPHONE_NUMBER_ID", "")
+OPENPHONE_SIGNING_SECRET = os.getenv("OPENPHONE_SIGNING_SECRET", "")
 
-class Settings(BaseSettings):
-    openphone_api_token: str = Field(default=...)
-    openphone_number_id: str = Field(default=...)
-    openphone_signing_secret: str = Field(default=...)
-
-    model_config = SettingsConfigDict(env_file=".env")
+_http_client: AsyncClient | None = None
 
 
-settings = Settings()
+def get_http_client() -> AsyncClient:
+    global _http_client
+    if _http_client is None:
+        _http_client = AsyncClient(
+            base_url="https://api.openphone.com/v1",
+            headers={
+                "Authorization": OPENPHONE_API_TOKEN,
+                "Content-Type": "application/json",
+            },
+        )
+    return _http_client
 
 
 @provide_connection
@@ -369,36 +371,14 @@ async def reminder_cron():
         await asyncio.sleep(900)
 
 
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    app.state.client = AsyncClient(
-        base_url="https://api.openphone.com/v1",
-        headers={
-            "Authorization": os.getenv("OPENPHONE_API_KEY", ""),
-            "Content-Type": "application/json",
-        },
-    )
-
-    task = asyncio.create_task(reminder_cron())
-
-    yield
-
-    # Clean up on shutdown
-    task.cancel()
-    await app.state.client.aclose()
-
-
-app = FastAPI(lifespan=lifespan)
-
-
 async def send_sms(to: str, body: str):
-    client: AsyncClient = app.state.client
+    client = get_http_client()
     try:
         response = await client.post(
             "/messages",
             json={
                 "content": body,
-                "from": settings.openphone_number_id,
+                "from": OPENPHONE_NUMBER_ID,
                 "to": [to],
                 "setInboxStatus": "done",
             },
@@ -409,35 +389,10 @@ async def send_sms(to: str, body: str):
         raise
 
 
-async def verify_signature(request: Request, signature_header: str):
-    try:
-        parts = signature_header.split(";")
-        if len(parts) != 4:
-            raise ValueError("Invalid signature format")
-        algo, version, timestamp, received_sig = parts
-    except ValueError, AttributeError:
-        raise HTTPException(status_code=401, detail="Invalid signature format")
-
-    now_ms = int(time.time() * 1000)
-    if abs(now_ms - int(timestamp)) > 5 * 60 * 1000:
-        raise HTTPException(status_code=401, detail="Signature expired")
-
-    raw_body = await request.body()
-    signing_payload = f"{timestamp}.{raw_body.decode('utf-8')}".encode()
-
-    secret_bytes = base64.b64decode(settings.openphone_signing_secret)
-
-    expected_hmac = hmac.new(
-        secret_bytes, msg=signing_payload, digestmod=hashlib.sha256
-    ).digest()
-
-    expected_sig_b64 = base64.b64encode(expected_hmac).decode()
-
-    if not hmac.compare_digest(expected_sig_b64, received_sig):
-        raise HTTPException(status_code=401, detail="Signature mismatch")
+router = APIRouter()
 
 
-@app.post("/sms")
+@router.post("/pyapi/appointment-reminders/sms")
 async def handle_webhook(
     request: Request,
     background_tasks: BackgroundTasks,
@@ -446,7 +401,9 @@ async def handle_webhook(
     if not openphone_signature:
         raise HTTPException(status_code=401, detail="Missing signature")
 
-    await verify_signature(request, openphone_signature)
+    await verify_openphone_signature(
+        request, openphone_signature, OPENPHONE_SIGNING_SECRET
+    )
 
     payload = await request.json()
 
@@ -462,9 +419,3 @@ async def handle_webhook(
     background_tasks.add_task(handle_incoming_reply, sender_phone, message_body)
 
     return {"status": "ok"}
-
-
-if __name__ == "__main__":
-    import uvicorn
-
-    uvicorn.run(app, host="0.0.0.0", port=1234)

@@ -1,6 +1,8 @@
+import asyncio
 import json
 import os
 import re
+from contextlib import asynccontextmanager
 from datetime import UTC, datetime
 
 from dotenv import load_dotenv
@@ -9,6 +11,7 @@ from fastapi.responses import FileResponse
 from googleapiclient.discovery import build
 from pydantic import BaseModel
 
+import appointment_reminders
 import greeter_proxy
 from utils.constants import TABLE_ACCOUNT, TABLE_CLIENT, TABLE_SESSION, TABLE_USER
 from utils.database import get_db, get_python_config, rematch_evaluator
@@ -16,8 +19,17 @@ from utils.google import google_authenticate, send_gmail
 
 load_dotenv()
 
-app = FastAPI()
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    task = asyncio.create_task(appointment_reminders.reminder_cron())
+    yield
+    task.cancel()
+
+
+app = FastAPI(lifespan=lifespan)
 app.include_router(greeter_proxy.router)
+app.include_router(appointment_reminders.router)
 
 
 class ClaimRequest(BaseModel):
