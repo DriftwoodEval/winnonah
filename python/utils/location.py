@@ -196,7 +196,7 @@ def _geocode_address(client: pd.Series) -> tuple[Location | None, int]:
         if not pd.isna(client.USER_ADDRESS_STATE)
         else ""
     )
-    zip = (
+    zip_code = (
         str(client.USER_ADDRESS_ZIP).strip().rstrip("-")
         if not pd.isna(client.USER_ADDRESS_ZIP)
         else ""
@@ -215,7 +215,7 @@ def _geocode_address(client: pd.Series) -> tuple[Location | None, int]:
         and client.USER_ADDRESS_ADDRESS1.lower() != client.USER_ADDRESS_ADDRESS3.lower()
     ):
         old_attempt_string = attempt_string
-        attempt_string = " ".join([street_address, city, state, zip])
+        attempt_string = " ".join([street_address, city, state, zip_code])
         # Don't increase attempt count here, since apartments and suites would not change your school district
         logger.warning(
             f"Location data not found for {old_attempt_string}, trying again with Address 2/3 removed: {attempt_string}"
@@ -233,7 +233,7 @@ def _geocode_address(client: pd.Series) -> tuple[Location | None, int]:
 
         if geocoded_location is None:
             old_attempt_string = attempt_string
-            attempt_string = city + ", " + state + " " + zip
+            attempt_string = city + ", " + state + " " + zip_code
             attempt_count += 1
             logger.warning(
                 f"Location data not found for {old_attempt_string}, trying again without street: {attempt_string}"
@@ -242,7 +242,7 @@ def _geocode_address(client: pd.Series) -> tuple[Location | None, int]:
 
             if geocoded_location is None:
                 old_attempt_string = attempt_string
-                attempt_string = zip
+                attempt_string = zip_code
                 attempt_count += 1
                 logger.warning(
                     f"Location data not found for {old_attempt_string}, trying again with just ZIP: {attempt_string}"

@@ -655,7 +655,7 @@ def insert_by_matching_criteria_client_specific(
         f"Starting client-specific matching for {len(specific_client_ids)} clients..."
     )
 
-    specific_client_ids = {str(id).strip() for id in specific_client_ids}
+    specific_client_ids = {str(client_id).strip() for client_id in specific_client_ids}
     clients_to_process = clients[
         clients["CLIENT_ID"].astype(str).isin(specific_client_ids)
     ]

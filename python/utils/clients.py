@@ -197,7 +197,7 @@ def _combine_address_info(clients: pd.DataFrame) -> pd.DataFrame:
             if not pd.isna(client.USER_ADDRESS_STATE)
             else ""
         )
-        zip = (
+        zip_code = (
             str(client.USER_ADDRESS_ZIP).strip().rstrip("-")
             if not pd.isna(client.USER_ADDRESS_ZIP)
             else ""
@@ -206,7 +206,7 @@ def _combine_address_info(clients: pd.DataFrame) -> pd.DataFrame:
         if address:
             address += ", "
 
-        address += f"{city}, {state} {zip}"
+        address += f"{city}, {state} {zip_code}"
 
         if not any(char.isalnum() for char in address):
             address = pd.NA
