@@ -37,6 +37,7 @@ def _search_census(params: dict) -> tuple[str, dict] | None:
     response = requests.get(
         "https://geocoding.geo.census.gov/geocoder/geographies/address",
         params={**params, "api": os.getenv("CENSUS_API_KEY")},
+        timeout=30,
     )
     response.raise_for_status()
     data = response.json()

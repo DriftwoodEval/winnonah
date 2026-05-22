@@ -39,7 +39,7 @@ def _get_all_openphone_contacts():
 
             if page_token:
                 params["pageToken"] = page_token
-            response = requests.get(url, headers=headers, params=params)
+            response = requests.get(url, headers=headers, params=params, timeout=30)
             response.raise_for_status()
             data = response.json()
 
@@ -118,7 +118,7 @@ def _create_openphone_contacts(contacts_df: pd.DataFrame):
             "externalId": row["CLIENT_ID"],
         }
         try:
-            response = requests.post(url, headers=headers, json=payload)
+            response = requests.post(url, headers=headers, json=payload, timeout=30)
             response.raise_for_status()
             success_count += 1
         except requests.exceptions.RequestException as err:
