@@ -51,12 +51,12 @@ def _normalize_names(df: pd.DataFrame) -> pd.DataFrame:
 
         # Create a boolean mask to filter out rows where PREFERRED_NAME is NaN or a known suffix
         mask = df["PREFERRED_NAME"].notna() & ~df["PREFERRED_NAME"].str.upper().isin(
-            known_suffixes
+            known_suffixes,
         )
 
         # Apply the function only to the rows that match the mask
         df.loc[mask, "PREFERRED_NAME"] = df.loc[mask, "PREFERRED_NAME"].apply(
-            capitalize_name_with_exceptions
+            capitalize_name_with_exceptions,
         )
 
         # Nullify preferred name only if it's an exact match for the first name or first name and last name, and not a suffix
@@ -115,7 +115,7 @@ def _consolidate_by_id(clients: pd.DataFrame) -> pd.DataFrame:
     primary_ins.sort_values("POLICY_STARTDATE", ascending=False, inplace=True)
     most_recent_primary = primary_ins.drop_duplicates(subset="CLIENT_ID", keep="first")
     primary_final = most_recent_primary[["CLIENT_ID", "COMPANY_NAME"]].rename(
-        columns={"COMPANY_NAME": "PRIMARY_INSURANCE_COMPANYNAME"}
+        columns={"COMPANY_NAME": "PRIMARY_INSURANCE_COMPANYNAME"},
     )
 
     secondary_ins = active_policies[
@@ -131,7 +131,8 @@ def _consolidate_by_id(clients: pd.DataFrame) -> pd.DataFrame:
     )
 
     clients["PRECERT_EXPIREDATE"] = pd.to_datetime(
-        clients["PRECERT_EXPIREDATE"], errors="coerce"
+        clients["PRECERT_EXPIREDATE"],
+        errors="coerce",
     )
 
     # Get the latest (max) non-null date for each client
@@ -155,7 +156,8 @@ def _consolidate_by_id(clients: pd.DataFrame) -> pd.DataFrame:
     ]
 
     client_base_info = clients.drop(
-        columns=calculated_cols, errors="ignore"
+        columns=calculated_cols,
+        errors="ignore",
     ).drop_duplicates(subset="CLIENT_ID", keep="first")
 
     consolidated = pd.merge(client_base_info, primary_final, on="CLIENT_ID", how="left")
@@ -163,7 +165,7 @@ def _consolidate_by_id(clients: pd.DataFrame) -> pd.DataFrame:
     consolidated = pd.merge(consolidated, precert_dates, on="CLIENT_ID", how="left")
     consolidated = pd.merge(consolidated, private_pay, on="CLIENT_ID", how="left")
 
-    return consolidated
+    return consolidated  # noqa: RET504
 
 
 def _combine_address_info(clients: pd.DataFrame) -> pd.DataFrame:
@@ -183,7 +185,7 @@ def _combine_address_info(clients: pd.DataFrame) -> pd.DataFrame:
         ]:
             if not pd.isna(a) and a != "" and a not in address_parts:
                 address_parts.append(
-                    string.capwords(str(a).strip().replace(",", "").replace('"', ""))
+                    string.capwords(str(a).strip().replace(",", "").replace('"', "")),
                 )
         address = ", ".join(address_parts)
 
@@ -222,8 +224,7 @@ def _combine_address_info(clients: pd.DataFrame) -> pd.DataFrame:
 def _remove_invalid_clients(clients_df: pd.DataFrame) -> pd.DataFrame:
     """Removes clients with invalid IDs."""
     logger.debug("Removing clients with invalid IDs")
-    clients_df = clients_df[pd.notna(clients_df["CLIENT_ID"])]
-    return clients_df
+    return clients_df[pd.notna(clients_df["CLIENT_ID"])]
 
 
 def _merge_referral_data(clients_df: pd.DataFrame) -> pd.DataFrame:
@@ -246,7 +247,7 @@ def _merge_referral_data(clients_df: pd.DataFrame) -> pd.DataFrame:
     referrals["CLEAN_SOURCE"] = referrals["Referral Name"].apply(normalize_name)
     referrals["_match_key"] = referrals["Client Name"].str.strip().str.lower()
     ref_lookup = dict(
-        zip(referrals["_match_key"], referrals["CLEAN_SOURCE"], strict=False)
+        zip(referrals["_match_key"], referrals["CLEAN_SOURCE"], strict=False),
     )
 
     def find_source(row):
@@ -288,4 +289,4 @@ def get_clients(should_download_csvs: bool | None = True) -> pd.DataFrame:
     clients_df = _remove_invalid_clients(clients_df)
     clients_df = _combine_address_info(clients_df)
 
-    return clients_df
+    return clients_df  # noqa: RET504

@@ -448,9 +448,8 @@ def go_to_client(
                 if attempt == 2:
                     logger.error(f"Failed to search after 3 attempts: {e}")
                     raise e
-                else:
-                    logger.warning(f"Failed to search: {e}, trying again")
-                    driver.refresh()
+                logger.warning(f"Failed to search: {e}, trying again")
+                driver.refresh()
 
         sleep(1)
 
@@ -473,10 +472,9 @@ def go_to_client(
         except Exception as e:
             if attempt == 2:
                 logger.error(f"Failed to go to client after 3 attempts: {e}")
-                return
-            else:
-                logger.error(f"Failed to go to client, trying again: {e}")
-    return
+                return None
+            logger.error(f"Failed to go to client, trying again: {e}")
+    return None
 
 
 def get_ta_hash(driver: WebDriver, actions: ActionChains, client_id: str) -> str | None:

@@ -51,7 +51,7 @@ load_dotenv()
 def get_db() -> Connection[DictCursor]:
     """Returns a connection to the database."""
     db_url = urlparse(os.getenv("DATABASE_URL", ""))
-    connection = pymysql.connect(
+    return pymysql.connect(
         host=db_url.hostname,
         port=db_url.port or 3306,
         user=db_url.username,
@@ -59,7 +59,6 @@ def get_db() -> Connection[DictCursor]:
         database=db_url.path[1:],
         cursorclass=pymysql.cursors.DictCursor,
     )
-    return connection
 
 
 def provide_connection(func: Callable) -> Callable:

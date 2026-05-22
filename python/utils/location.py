@@ -48,8 +48,7 @@ def _search_census(params: dict) -> tuple[str, dict] | None:
         ][0]["NAME"]
         coordinates = data["result"]["addressMatches"][0]["coordinates"]
         return district, coordinates
-    else:
-        return None
+    return None
 
 
 def _get_client_census_data(client: pd.Series) -> tuple[str, dict] | Literal["Unknown"]:
@@ -272,8 +271,7 @@ def _get_school_district_from_coords(lat: float, lon: float) -> str:
     if not containing_district.empty:
         logger.debug(f"Found {containing_district.iloc[0]['NAME']} for {lat}, {lon}")
         return containing_district.iloc[0]["NAME"]
-    else:
-        return "Unknown"
+    return "Unknown"
 
 
 def get_offices() -> dict:

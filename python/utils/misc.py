@@ -20,7 +20,7 @@ def get_column(
         if isinstance(value, list):
             return value
 
-        elif pd.notna(value):
+        if pd.notna(value):
             return value
 
     return default

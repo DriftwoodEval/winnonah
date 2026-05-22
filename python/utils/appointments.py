@@ -276,25 +276,24 @@ def batch_search_calendar_events(
                             "calendar_id": calendar_id,
                         }
                         break
-                    else:
-                        # Log specific mismatch
-                        logger.warning(
-                            f"Found event with Client ID {client_id} but wrong time: "
-                            f"Event: {event_dt}, Expected: {start_time}, Diff: {int(time_diff)}s"
-                        )
-                        cpt_code = re.sub(r"\D", "", appointment["NAME"]) or "N/A"
-                        reporter.log_time_mismatch(
-                            appointment_idx=idx,
-                            appointment_id=str(appointment["APPOINTMENT_ID"]),
-                            client_name=re.sub(
-                                r"[\d\(\)]", "", appointment["NAME"]
-                            ).strip(),
-                            client_id=client_id,
-                            found_time=event_dt,
-                            expected_time=start_time.strftime("%m/%d %I:%M %p"),
-                            cpt_code=cpt_code,
-                        )
-                        break
+                    # Log specific mismatch
+                    logger.warning(
+                        f"Found event with Client ID {client_id} but wrong time: "
+                        f"Event: {event_dt}, Expected: {start_time}, Diff: {int(time_diff)}s"
+                    )
+                    cpt_code = re.sub(r"\D", "", appointment["NAME"]) or "N/A"
+                    reporter.log_time_mismatch(
+                        appointment_idx=idx,
+                        appointment_id=str(appointment["APPOINTMENT_ID"]),
+                        client_name=re.sub(
+                            r"[\d\(\)]", "", appointment["NAME"]
+                        ).strip(),
+                        client_id=client_id,
+                        found_time=event_dt,
+                        expected_time=start_time.strftime("%m/%d %I:%M %p"),
+                        cpt_code=cpt_code,
+                    )
+                    break
 
     return results
 
@@ -619,7 +618,7 @@ def parse_location_and_type(
             is_confirmed,
         )
 
-    elif "[V]" in title:  # Virtual can only be DA
+    if "[V]" in title:  # Virtual can only be DA
         return "Virtual", "DA", is_confirmed
 
     return None, None, is_confirmed

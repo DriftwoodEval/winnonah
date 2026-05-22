@@ -296,19 +296,19 @@ def main(
                 search_term = ", ".join(names_to_filter + ids_to_filter)
                 logger.warning(f"No clients found matching '{search_term}'")
                 return
-            else:
+
+            logger.info(
+                f"Found {len(force_clients)} client{'' if len(force_clients) == 1 else 's'} matching criteria:"
+            )
+            for _, client_row in force_clients.iterrows():
+                full_name = f"{client_row.get('FIRSTNAME', '')} {client_row.get('LASTNAME', '')}".strip()
+                preferred_name = client_row.get("PREFERRED_NAME", "")
+                name_display = f"{full_name}"
+                if preferred_name and pd.notna(preferred_name):
+                    name_display += f" (Preferred: {preferred_name})"
                 logger.info(
-                    f"Found {len(force_clients)} client{'' if len(force_clients) == 1 else 's'} matching criteria:"
+                    f"  - {name_display} (ID: {client_row.get('CLIENT_ID', 'N/A')})"
                 )
-                for _, client_row in force_clients.iterrows():
-                    full_name = f"{client_row.get('FIRSTNAME', '')} {client_row.get('LASTNAME', '')}".strip()
-                    preferred_name = client_row.get("PREFERRED_NAME", "")
-                    name_display = f"{full_name}"
-                    if preferred_name and pd.notna(preferred_name):
-                        name_display += f" (Preferred: {preferred_name})"
-                    logger.info(
-                        f"  - {name_display} (ID: {client_row.get('CLIENT_ID', 'N/A')})"
-                    )
 
     import_from_ta(
         clients=clients, force_clients=force_clients, should_download=not import_only

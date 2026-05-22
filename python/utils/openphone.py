@@ -188,9 +188,7 @@ def _process_demographic_data(
 
     logger.info(f"Final client count: {len(final_df)}")
 
-    final_df = final_df.rename(columns={"PHONE1": "PHONE_NUMBER"})
-
-    return final_df
+    return final_df.rename(columns={"PHONE1": "PHONE_NUMBER"})
 
 
 def sync_openphone():

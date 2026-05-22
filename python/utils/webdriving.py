@@ -71,11 +71,10 @@ def click_element(
         except (NoSuchElementException, TimeoutException) as e:
             if attempt == max_attempts - 1:
                 raise e
-            else:
-                logger.warning(
-                    f"Attempt {attempt + 1}/{max_attempts} failed: {type(e).__name__}. Retrying..."
-                )
-                sleep(1)
+            logger.warning(
+                f"Attempt {attempt + 1}/{max_attempts} failed: {type(e).__name__}. Retrying..."
+            )
+            sleep(1)
 
 
 def find_element(
@@ -87,8 +86,7 @@ def find_element(
 ) -> WebElement:
     """Find a web element using an explicit wait."""
     try:
-        element = WebDriverWait(driver, timeout).until(condition((by, locator)))
-        return element
+        return WebDriverWait(driver, timeout).until(condition((by, locator)))
     except TimeoutException as e:
         logger.warning(
             f"Timeout ({timeout}s) waiting for element with {by}='{locator}'."

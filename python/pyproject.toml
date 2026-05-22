@@ -36,7 +36,21 @@ dev = [
 ]
 
 [tool.ruff.lint]
-select = ["ERA", "B", "A", "C4", "UP", "FURB"]
+select = [
+  "ERA",
+  "B",
+  "A",
+  "C4",
+  "FA",
+  "ICN",
+  "PIE",
+  "T20",
+  "Q",
+  "RSE",
+  "RET",
+  "UP",
+  "FURB"
+]
 
 [tool.ruff.lint.pydocstyle]
 convention = "google"
