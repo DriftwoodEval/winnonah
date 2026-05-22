@@ -1,4 +1,4 @@
-import { desc, eq } from "drizzle-orm";
+import { asc, desc, eq } from "drizzle-orm";
 import z from "zod";
 import { createTRPCRouter, protectedProcedure } from "~/server/api/trpc";
 import {
@@ -33,7 +33,10 @@ export const reminderRouter = createTRPCRouter({
 		}),
 
 	getTemplates: protectedProcedure.query(({ ctx }) => {
-		return ctx.db.select().from(reminderTemplates);
+		return ctx.db
+			.select()
+			.from(reminderTemplates)
+			.orderBy(asc(reminderTemplates.name));
 	}),
 
 	upsertTemplate: protectedProcedure
