@@ -90,12 +90,12 @@ def format_phone_number(phone_number: Any) -> str | None:
 
 
 def read_cache(cache_file: Path):
-    if os.path.exists(cache_file):
-        with open(cache_file) as f:
+    if Path.exists(cache_file):
+        with Path.open(cache_file) as f:
             return set(f.read().split())
     return set()
 
 
 def write_cache(cache_file: Path, processed_clients: list | set):
-    with open(cache_file, "w") as f:
+    with Path.open(cache_file, "w") as f:
         f.write(" ".join(str(client_id) for client_id in processed_clients))

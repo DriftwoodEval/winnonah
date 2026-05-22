@@ -1,4 +1,5 @@
 import os
+from pathlib import Path
 from time import sleep
 
 from loguru import logger
@@ -31,7 +32,7 @@ def initialize_selenium() -> tuple[WebDriver, ActionChains]:
     chrome_options.add_experimental_option(
         "prefs",
         {
-            "download.default_directory": f"{os.getcwd()}/temp/downloads",
+            "download.default_directory": str(Path.cwd() / "temp" / "downloads"),
             "download.prompt_for_download": False,
             "download.directory_upgrade": True,
             "safebrowsing.enabled": True,

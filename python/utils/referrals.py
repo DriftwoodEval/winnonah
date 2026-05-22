@@ -13,7 +13,7 @@ import utils.google
 import utils.misc
 
 CACHE_PATH = Path("cache/last-referral-fax-date.txt")
-LETTERHEAD_PATH = "letterhead.png"
+LETTERHEAD_PATH = Path("letterhead.png")
 IGNORE_SOURCES = {"unknown", "no referral source", "", "babynet"}
 
 
@@ -60,7 +60,7 @@ def generate_pdf(referral_name, client_group):
     width, height = page.rect.width, page.rect.height
     margin, current_y = 50, 50
 
-    if os.path.exists(LETTERHEAD_PATH):
+    if Path.exists(LETTERHEAD_PATH):
         img_rect = pymupdf.Rect(margin, 20, width - margin, 120)
         page.insert_image(img_rect, filename=LETTERHEAD_PATH, keep_proportion=True)
         current_y = 140

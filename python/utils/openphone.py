@@ -1,6 +1,7 @@
 import os
 import sys
 import time
+from pathlib import Path
 
 import pandas as pd
 import requests
@@ -171,10 +172,10 @@ def _process_demographic_data(
 
     op_phones_normalized = set(openphone_df["phone_normalized"].dropna())
 
-    with open("openphone_phones.txt", "w") as f:
+    with Path.open(Path("openphone_phones.txt"), "w") as f:
         f.writelines(phone + "\n" for phone in op_phones_normalized)
 
-    with open("filtered_phones.txt", "w") as f:
+    with Path.open(Path("filtered_phones.txt"), "w") as f:
         f.writelines(phone + "\n" for phone in filtered_df["phone_normalized"].dropna())
 
     final_df = filtered_df[

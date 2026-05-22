@@ -4,6 +4,7 @@ import os
 import re
 from contextlib import asynccontextmanager
 from datetime import UTC, datetime
+from pathlib import Path
 
 from dotenv import load_dotenv
 from fastapi import Depends, FastAPI, HTTPException, Request
@@ -496,8 +497,8 @@ async def download_csv(file_key: str, current_user: dict = Depends(get_current_u
     if not filename:
         raise HTTPException(status_code=404, detail="Unknown file")
 
-    file_path = f"temp/input/{filename}"
-    if not os.path.exists(file_path):
+    file_path = Path("temp/input", filename)
+    if not Path.exists(file_path):
         raise HTTPException(status_code=404, detail="File not found")
 
     return FileResponse(path=file_path, filename=filename, media_type="text/csv")

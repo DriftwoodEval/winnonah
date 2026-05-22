@@ -167,7 +167,7 @@ def _download_data(driver: WebDriver, npi: str):
             )
             downloaded = _wait_for_download(before)
             if data_title == "Client Appointments":
-                os.rename(
+                Path.rename(
                     downloaded,
                     f"temp/downloads/clients-appointments_{npi}.csv",
                 )
@@ -276,9 +276,7 @@ def _combine_files():
             df = pd.concat(df_list)
             df.to_csv(output_file, index=False, encoding="utf-8")
 
-    output_directory = os.path.dirname("temp/input/")
-    if not os.path.exists(output_directory):
-        os.makedirs(output_directory)
+    Path.mkdir(INPUT_DIR, exist_ok=True)
 
     _add_npi_and_merge(
         "clients-appointments_*.csv",

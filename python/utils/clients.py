@@ -1,6 +1,7 @@
 import os
 import re
 import string
+from pathlib import Path
 
 import numpy as np
 import pandas as pd
@@ -229,7 +230,9 @@ def _remove_invalid_clients(clients_df: pd.DataFrame) -> pd.DataFrame:
 
 def _merge_referral_data(clients_df: pd.DataFrame) -> pd.DataFrame:
     """Merges referral source data using name match."""
-    referrals = utils.spreadsheets.open_local("temp/input/client-referral-report.csv")
+    referrals = utils.spreadsheets.open_local(
+        Path("temp/input/client-referral-report.csv")
+    )
 
     def normalize_name(raw_name: str) -> str:
         if not raw_name or pd.isna(raw_name):
@@ -275,8 +278,10 @@ def get_clients(should_download_csvs: bool | None = True) -> pd.DataFrame:
     if not os.getenv("DEV_TOGGLE") and should_download_csvs:
         download_csvs()
     logger.debug("Getting clients from spreadsheets")
-    insurance_df = utils.spreadsheets.open_local("temp/input/clients-insurance.csv")
-    demo_df = utils.spreadsheets.open_local("temp/input/clients-demographic.csv")
+    insurance_df = utils.spreadsheets.open_local(
+        Path("temp/input/clients-insurance.csv")
+    )
+    demo_df = utils.spreadsheets.open_local(Path("temp/input/clients-demographic.csv"))
 
     clients_df = pd.merge(demo_df, insurance_df, "outer")
     clients_df = _merge_referral_data(clients_df)

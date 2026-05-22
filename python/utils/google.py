@@ -5,6 +5,7 @@ import re
 import time
 from collections import deque
 from email.message import EmailMessage
+from pathlib import Path
 
 import pandas as pd
 from google.auth.transport.requests import Request
@@ -37,7 +38,7 @@ def google_authenticate():
     # The file token.json stores the user's access and refresh tokens, and is
     # created automatically when the authorization flow completes for the first
     # time.
-    if os.path.exists("./auth_cache/token.json"):
+    if Path.exists(Path("auth_cache/token.json")):
         creds = Credentials.from_authorized_user_file("./auth_cache/token.json", SCOPES)
     # If there are no valid credentials, start the authorization flow
     else:
@@ -55,7 +56,7 @@ def google_authenticate():
             creds = flow.run_local_server(port=0)
 
     # Save the credentials for the next run
-    with open("./auth_cache/token.json", "w") as token:
+    with Path.open(Path("auth_cache/token.json"), "w") as token:
         token.write(creds.to_json())
 
     return creds
@@ -300,10 +301,11 @@ def send_gmail(
                     file_data, filename = item
 
                 else:
-                    if not os.path.exists(item):
+                    item_path = Path(item)
+                    if not Path.exists(item_path):
                         raise Exception(f"Attachment not found: {item}")
-                    filename = os.path.basename(item)
-                    with open(item, "rb") as f:
+                    filename = item_path.name
+                    with Path.open(item_path, "rb") as f:
                         file_data = f.read()
 
                 ctype, encoding = mimetypes.guess_type(filename)

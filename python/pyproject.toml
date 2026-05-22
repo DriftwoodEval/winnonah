@@ -50,6 +50,7 @@ select = [
   "RET",
   "SLF",
   "ARG",
+  "PTH",
   "SIM",
   "UP",
   "FURB"
