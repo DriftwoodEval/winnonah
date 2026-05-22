@@ -31,6 +31,7 @@ export function AdditionalInsuranceAppointmentsDisplay({
 				max96131?: number;
 				max96136?: number;
 				max96137?: number;
+				maxAppt4Units?: number;
 		  }
 		| undefined;
 
@@ -47,6 +48,7 @@ export function AdditionalInsuranceAppointmentsDisplay({
 						max96131: additionalAppts?.max96131,
 						max96136: additionalAppts?.max96136,
 						max96137: additionalAppts?.max96137,
+						maxAppt4Units: additionalAppts?.maxAppt4Units,
 					},
 				)
 			: [];

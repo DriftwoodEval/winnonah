@@ -126,6 +126,33 @@ function AdditionalApptsForm({
 				)}
 			/>
 
+			<FormField
+				control={form.control}
+				name="additionalAppts.maxAppt4Units"
+				render={({ field }) => (
+					<FormItem>
+						<FormLabel>
+							Max Units on Appointment 4 (leave blank for no limit)
+						</FormLabel>
+						<FormControl>
+							<Input
+								disabled={isLoading}
+								min={1}
+								placeholder="No limit"
+								type="number"
+								{...field}
+								onChange={(e) => {
+									const val = parseInt(e.target.value, 10);
+									field.onChange(Number.isNaN(val) ? undefined : val);
+								}}
+								value={field.value ?? ""}
+							/>
+						</FormControl>
+						<FormMessage />
+					</FormItem>
+				)}
+			/>
+
 			<div>
 				<FormLabel className="text-muted-foreground text-sm">
 					Max Units Per Code (leave blank for no limit)
@@ -209,6 +236,7 @@ function InsuranceForm({
 				max96131?: number;
 				max96136?: number;
 				max96137?: number;
+				maxAppt4Units?: number;
 			};
 			return {
 				shortName: initialData.shortName,
@@ -223,6 +251,7 @@ function InsuranceForm({
 					max96131: appts?.max96131,
 					max96136: appts?.max96136,
 					max96137: appts?.max96137,
+					maxAppt4Units: appts?.maxAppt4Units,
 				},
 			};
 		}
@@ -239,6 +268,7 @@ function InsuranceForm({
 				max96131: undefined,
 				max96136: undefined,
 				max96137: undefined,
+				maxAppt4Units: undefined,
 			},
 		};
 	}, [initialData]);

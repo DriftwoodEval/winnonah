@@ -111,6 +111,7 @@ export const additionalInsuranceAppointmentsSchema = z.object({
 	max96131: z.number().int().min(1).optional(),
 	max96136: z.number().int().min(1).optional(),
 	max96137: z.number().int().min(1).optional(),
+	maxAppt4Units: z.number().int().min(1).optional(),
 });
 
 // --- Root Schema ---
