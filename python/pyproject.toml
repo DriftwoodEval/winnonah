@@ -60,12 +60,18 @@ select = [
   "E",
   "W",
   "F",
+  "PL",
   "UP",
   "FURB"
 ]
 
 ignore = [
   "E501",  # line too long
+  "PLR0911",  # too many return statements ({returns} > {max_returns})
+  "PLR0912",  # too many branches ({branches} > {max_branches})
+  "PLR0913",  # too many arguments to function call ({c_args} > {max_args})
+  "PLR0915",  # too many statements ({statements} > {max_statements})
+  "PLR2004",  # magic value used in comparison, consider replacing {value} with a constant variable
 ]
 
 [tool.ruff.lint.pydocstyle]

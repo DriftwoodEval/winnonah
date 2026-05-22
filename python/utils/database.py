@@ -600,7 +600,7 @@ def insert_by_matching_criteria_incremental(
         client_id_raw = get_column(client, "CLIENT_ID")
         client_id = str(client_id_raw)
 
-        if not client_id or client_id == "nan" or client_id == "None":
+        if not client_id or client_id in {"nan", "None"}:
             logger.warning(
                 f"Skipping client with invalid ID: {client.get('FIRSTNAME')} {client.get('LASTNAME')}"
             )
@@ -666,7 +666,7 @@ def insert_by_matching_criteria_client_specific(
         client_id_raw = get_column(client, "CLIENT_ID")
         client_id = str(client_id_raw)
 
-        if not client_id or client_id == "nan" or client_id == "None":
+        if not client_id or client_id in {"nan", "None"}:
             continue
 
         eligible_evaluators_by_district = utils.relationships.match_by_school_district(
@@ -827,8 +827,6 @@ def get_questionnaire_rules_with_in_person(
     connection: Connection[DictCursor],
 ) -> list[dict]:
     """Load assessment battery rules, returning both online and in-person assessments."""
-    import json
-
     with connection.cursor() as cursor:
         cursor.execute(
             f"SELECT daeval, diagnosis, minAge, maxAge, questionnaires, in_person_assessments FROM {TABLE_QUESTIONNAIRE_RULE}"
