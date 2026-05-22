@@ -214,7 +214,7 @@ def _geocode_address(client: pd.Series) -> tuple[Location | None, int]:
         and client.USER_ADDRESS_ADDRESS1.lower() != client.USER_ADDRESS_ADDRESS3.lower()
     ):
         old_attempt_string = attempt_string
-        attempt_string = " ".join([street_address, city, state, zip_code])
+        attempt_string = f"{street_address} {city} {state} {zip_code}"
         # Don't increase attempt count here, since apartments and suites would not change your school district
         logger.warning(
             f"Location data not found for {old_attempt_string}, trying again with Address 2/3 removed: {attempt_string}"

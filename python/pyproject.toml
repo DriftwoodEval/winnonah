@@ -51,6 +51,7 @@ select = [
   "SLF",
   "ARG",
   "PTH",
+  "FLY",
   "SIM",
   "UP",
   "FURB"
