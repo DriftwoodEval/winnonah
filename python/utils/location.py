@@ -208,10 +208,16 @@ def _geocode_address(client: pd.Series) -> tuple[Location | None, int]:
     geocoded_location = _get_confident_geocode(attempt_string)
 
     if geocoded_location is None and (
-        not pd.isna(client.USER_ADDRESS_ADDRESS2)
-        and client.USER_ADDRESS_ADDRESS1.lower() != client.USER_ADDRESS_ADDRESS2.lower()
-        or not pd.isna(client.USER_ADDRESS_ADDRESS3)
-        and client.USER_ADDRESS_ADDRESS1.lower() != client.USER_ADDRESS_ADDRESS3.lower()
+        (
+            not pd.isna(client.USER_ADDRESS_ADDRESS2)
+            and client.USER_ADDRESS_ADDRESS1.lower()
+            != client.USER_ADDRESS_ADDRESS2.lower()
+        )
+        or (
+            not pd.isna(client.USER_ADDRESS_ADDRESS3)
+            and client.USER_ADDRESS_ADDRESS1.lower()
+            != client.USER_ADDRESS_ADDRESS3.lower()
+        )
     ):
         old_attempt_string = attempt_string
         attempt_string = f"{street_address} {city} {state} {zip_code}"

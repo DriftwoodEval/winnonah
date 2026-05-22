@@ -106,7 +106,7 @@ def create_and_send_referral_faxes(clients: pd.DataFrame):
 
     last_date_cache = utils.misc.read_cache(CACHE_PATH)
     try:
-        last_date_str = list(last_date_cache)[0]
+        last_date_str = next(iter(last_date_cache))
         last_date = datetime.strptime(last_date_str, "%Y-%m-%d").date()
     except IndexError, ValueError, TypeError:
         last_date = date.today() - timedelta(days=30)

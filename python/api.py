@@ -319,7 +319,7 @@ async def get_subfolders(
 
     except Exception as e:
         raise HTTPException(
-            status_code=500, detail=f"Failed to fetch folders: {str(e)}"
+            status_code=500, detail=f"Failed to fetch folders: {e!s}"
         ) from e
 
 

@@ -212,7 +212,7 @@ def _process_folders_queued(service, start_folder_id, client_lookup, db_connecti
                 unique_matches = {m["id"]: m for m in matches}.values()
 
                 if len(unique_matches) == 1:
-                    match = list(unique_matches)[0]
+                    match = next(iter(unique_matches))
                     new_name = f"{folder_name} [{match['id']}]"
 
                     logger.debug(

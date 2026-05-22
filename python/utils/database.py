@@ -500,7 +500,7 @@ def _delete_client_eval_links(
 
     placeholders = ",".join(["%s"] * len(evaluator_npis))
     sql = f"DELETE FROM {TABLE_CLIENT_EVAL} WHERE clientId = %s AND evaluatorNpi IN ({placeholders})"
-    params = [client_id] + list(evaluator_npis)
+    params = [client_id, *list(evaluator_npis)]
 
     with connection.cursor() as cursor:
         try:
