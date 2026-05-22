@@ -34,7 +34,7 @@ export function calculateAdditionalAppointments(
 	while (remaining136_137 > 0) {
 		const codes: BillingCode[] = [];
 		let taken = 0;
-		if (billed96136 === 0 && billed96136 < cap96136) {
+		if (billed96136 < cap96136) {
 			codes.push({ code: "96136", units: 1 });
 			billed96136++;
 			remaining136_137--;
