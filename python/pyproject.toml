@@ -54,11 +54,12 @@ select = [
   "PTH",
   "FLY",
   "I",
+  "PD",
   "N",
   "PERF",
   "E",
   "W",
-  "PD",
+  "F",
   "UP",
   "FURB"
 ]

@@ -142,7 +142,7 @@ class SyncReporter:
                 )
             html_content += "</ul>"
 
-        html_content += f"<p>This email was generated and sent automatically.</p>"
+        html_content += "<p>This email was generated and sent automatically.</p>"
 
         SYNC_REPORT_CACHE.parent.mkdir(exist_ok=True)
         send_gmail(
@@ -328,7 +328,6 @@ def prepare_appointments_from_csv(
         appointments_df[col] = None
 
     npi_map = get_npi_to_name_map()
-    now = datetime.now()
 
     # Track dates to detect next-day 'appointments' for insurance
     client_date_set = set(

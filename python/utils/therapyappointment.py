@@ -1,4 +1,3 @@
-import glob
 import os
 import shutil
 import time
@@ -13,9 +12,7 @@ from selenium.common.exceptions import (
     TimeoutException,
 )
 from selenium.webdriver import ActionChains, Keys
-from selenium.webdriver.common.action_chains import ActionChains
 from selenium.webdriver.common.by import By
-from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.remote.webdriver import WebDriver
 
 import utils.database

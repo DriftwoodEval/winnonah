@@ -345,7 +345,7 @@ def add_location_data(client: pd.Series) -> pd.Series:
     district = "Unknown"
     if str(client.USER_ADDRESS_CITY).strip().lower() == "myrtle beach":
         logger.info(
-            f"Manual fallback for Myrtle Beach: Setting school district to Horry County School District"
+            "Manual fallback for Myrtle Beach: Setting school district to Horry County School District"
         )
         district = "Horry County School District"
 
