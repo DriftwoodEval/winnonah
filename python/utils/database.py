@@ -8,7 +8,7 @@ from collections.abc import Callable
 from contextlib import contextmanager
 from datetime import date, datetime
 from functools import wraps
-from typing import Literal, TypedDict
+from typing import Literal
 from urllib.parse import urlparse
 
 import pandas as pd
@@ -352,11 +352,12 @@ def put_appointment_in_db(
     location: str | None = None,
     gcal_event_id: str | None = None,
     gcal_event_title: str | None = None,
+    confirmed_at: datetime | None = None,
 ):
     """Inserts an appointment into the database."""
     sql = f"""
-        INSERT INTO `{TABLE_APPOINTMENT}` (id, clientId, evaluatorNpi, startTime, endTime, daEval, asdAdhd, cancelled, locationKey, calendarEventId, cpt, calendarEventTitle)
-        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+        INSERT INTO `{TABLE_APPOINTMENT}` (id, clientId, evaluatorNpi, startTime, endTime, daEval, asdAdhd, cancelled, locationKey, calendarEventId, cpt, calendarEventTitle, confirmedAt)
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
         ON DUPLICATE KEY UPDATE
             clientId = VALUES(clientId),
             evaluatorNpi = VALUES(evaluatorNpi),
@@ -364,11 +365,13 @@ def put_appointment_in_db(
             endTime = VALUES(endTime),
             daEval = CASE WHEN VALUES(daEval) IS NOT NULL THEN VALUES(daEval) ELSE daEval END,
             asdAdhd = CASE WHEN VALUES(asdAdhd) IS NOT NULL THEN VALUES(asdAdhd) ELSE asdAdhd END,
-            cancelled = VALUES(cancelled),
+            cancelled = CASE WHEN startTime != VALUES(startTime) THEN 0 ELSE VALUES(cancelled) END,
+            rescheduled = CASE WHEN startTime != VALUES(startTime) THEN 0 ELSE rescheduled END,
             locationKey = CASE WHEN VALUES(locationKey) IS NOT NULL THEN VALUES(locationKey) ELSE locationKey END,
             calendarEventId = CASE WHEN VALUES(calendarEventId) IS NOT NULL THEN VALUES(calendarEventId) ELSE calendarEventId END,
             cpt = VALUES(cpt),
-            calendarEventTitle = CASE WHEN VALUES(calendarEventTitle) IS NOT NULL THEN VALUES(calendarEventTitle) ELSE calendarEventTitle END;
+            calendarEventTitle = CASE WHEN VALUES(calendarEventTitle) IS NOT NULL THEN VALUES(calendarEventTitle) ELSE calendarEventTitle END,
+            confirmedAt = CASE WHEN startTime != VALUES(startTime) THEN NULL WHEN VALUES(confirmedAt) IS NOT NULL THEN VALUES(confirmedAt) ELSE confirmedAt END;
     """
     params = (
         appointment_id,
@@ -383,6 +386,7 @@ def put_appointment_in_db(
         gcal_event_id,
         cpt,
         gcal_event_title,
+        confirmed_at,
     )
 
     with connection.cursor() as cursor:
@@ -802,59 +806,6 @@ def get_queue_notify_users(connection: Connection[DictCursor]):
                     users.append(row)
 
     return users
-
-
-class Appointment(TypedDict):
-    """A TypedDict containing information about an appointment from the database."""
-
-    id: str
-    evaluatorNpi: int
-    clientName: str
-    startTime: datetime
-    endTime: datetime
-    daEval: str
-    asdAdhd: str
-    cancelled: bool
-    placeholder: bool
-    locationKey: str
-    calendarEventId: str
-
-
-@provide_connection
-def get_appointments(
-    connection: Connection[DictCursor], start_date: date, end_date: date | None = None
-) -> list[Appointment] | None:
-    """Fetch appointments within the given date range and associated client names."""
-    try:
-        with connection.cursor() as cursor:
-            sql = """
-                SELECT
-                    a.*,
-                    c.fullName as clientName, c.firstName as firstName, c.lastName as lastName, c.preferredName as preferredName
-                FROM
-                    emr_appointment a
-                LEFT JOIN emr_client c ON a.clientId = c.id
-                WHERE
-                    a.startTime >= %s
-            """
-            params = [start_date]
-
-            if end_date:
-                sql += " AND a.endTime <= %s + INTERVAL 1 DAY"
-                params.append(end_date)
-
-            cursor.execute(sql, tuple(params))
-            results = cursor.fetchall()
-
-            appointments = []
-            for row in results:
-                appointment = Appointment(**row)
-                appointments.append(appointment)
-
-            return appointments
-    except Exception:
-        logger.exception("Failed to fetch appointments and associated client names.")
-        return
 
 
 @provide_connection

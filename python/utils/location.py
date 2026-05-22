@@ -1,4 +1,3 @@
-import math
 import os
 from collections.abc import Callable
 from functools import partial
@@ -31,27 +30,6 @@ def _is_confident_nominatim(location: Location | None) -> bool:
         return False
     importance = float(location.raw.get("importance", 0))
     return importance >= MIN_NOMINATIM_IMPORTANCE
-
-
-def calculate_spherical_distance(
-    lat1: float, lon1: float, lat2: float, lon2: float
-) -> float:
-    """Calculates distance in miles using the Spherical Law of Cosines, matching the database implementation."""
-    try:
-        phi1, phi2 = math.radians(lat1), math.radians(lat2)
-        delta_lambda = math.radians(lon2 - lon1)
-
-        cos_c = math.sin(phi1) * math.sin(phi2) + math.cos(phi1) * math.cos(
-            phi2
-        ) * math.cos(delta_lambda)
-
-        # Clamp cos_c to [-1, 1] to avoid math domain error in acos
-        cos_c = max(-1.0, min(1.0, cos_c))
-
-        return math.acos(cos_c) * 3959
-    except Exception as e:
-        logger.error(f"Error calculating distance: {e}")
-        return 0.0
 
 
 def _search_census(params: dict) -> tuple[str, dict] | None:

@@ -279,8 +279,9 @@ def get_clients(should_download_csvs: bool | None = True) -> pd.DataFrame:
     clients_df = _merge_referral_data(clients_df)
 
     clients_df = _normalize_names(clients_df)
-    if not os.getenv("DEV_TOGGLE"):
-        clients_df = _remove_test_names(clients_df, TEST_NAMES)
+    # TEMPORARY disabled for appointment reminder test
+    # if not os.getenv("DEV_TOGGLE"):
+    # clients_df = _remove_test_names(clients_df, TEST_NAMES)
     clients_df = _consolidate_by_id(clients_df)
     clients_df = _remove_invalid_clients(clients_df)
     clients_df = _combine_address_info(clients_df)

@@ -16,11 +16,12 @@ from loguru import logger
 
 import utils.database
 import utils.misc
+from utils.constants import TABLE_CLIENT
 
 # If modifying these scopes, delete the file token.json.
 SCOPES = [
     "https://www.googleapis.com/auth/drive",
-    "https://www.googleapis.com/auth/calendar.readonly",
+    "https://www.googleapis.com/auth/calendar.events",
     "https://www.googleapis.com/auth/gmail.compose",
 ]
 
@@ -220,7 +221,9 @@ def _process_folders_queued(service, start_folder_id, client_lookup, db_connecti
                     try:
                         # Update DB
                         with db_connection.cursor() as cursor:
-                            sql = "UPDATE emr_client SET driveId = %s WHERE id = %s"
+                            sql = (
+                                f"UPDATE {TABLE_CLIENT} SET driveId = %s WHERE id = %s"
+                            )
                             cursor.execute(sql, (drive_id, match["id"]))
                         db_connection.commit()
 
@@ -331,3 +334,41 @@ def send_gmail(
         logger.exception(error)
         send_message = None
     return send_message
+
+
+def update_gcal_event_title(event_id: str, new_title: str) -> bool:
+    """Find a Google Calendar event by ID across all calendars and update its title.
+
+    Returns True if the event was found and updated, False otherwise.
+    """
+    creds = google_authenticate()
+    service = build("calendar", "v3", credentials=creds)
+
+    calendar_list = service.calendarList().list().execute()
+    calendars = calendar_list.get("items", [])
+
+    for calendar in calendars:
+        calendar_id = calendar["id"]
+        try:
+            event = (
+                service.events().get(calendarId=calendar_id, eventId=event_id).execute()
+            )
+        except HttpError as e:
+            if e.resp.status == 404:
+                continue
+            logger.error(
+                f"Error fetching event {event_id} from calendar {calendar_id}: {e}"
+            )
+            continue
+
+        event["summary"] = new_title
+        service.events().patch(
+            calendarId=calendar_id,
+            eventId=event_id,
+            body={"summary": new_title},
+        ).execute()
+        logger.info(f"Updated calendar event {event_id} title to: {new_title}")
+        return True
+
+    logger.warning(f"Calendar event {event_id} not found in any calendar")
+    return False

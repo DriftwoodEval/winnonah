@@ -10,6 +10,7 @@ import { officeRouter } from "./routers/office";
 import { pyConfigRouter } from "./routers/py-config";
 import { questionnaireRouter } from "./routers/questionnaires";
 import { quoRouter } from "./routers/quo";
+import { reminderRouter } from "./routers/reminders";
 import { schedulingRouter } from "./routers/scheduling";
 import { sessionRouter } from "./routers/sessions";
 import { systemRouter } from "./routers/system";
@@ -34,6 +35,7 @@ export const appRouter = createTRPCRouter({
 	pyConfig: pyConfigRouter,
 	questionnaires: questionnaireRouter,
 	quo: quoRouter,
+	reminders: reminderRouter,
 	scheduling: schedulingRouter,
 	sessions: sessionRouter,
 	system: systemRouter,

@@ -14,8 +14,3 @@ def open_local(file) -> pd.DataFrame:
             logger.debug(f"Opening {file} with latin1 encoding")
             df = pd.read_csv(f)
     return df
-
-
-def get_unique_values(df: pd.DataFrame, column: str) -> list:
-    """Returns a list of unique values in a column of a DataFrame."""
-    return df[column].unique().tolist()

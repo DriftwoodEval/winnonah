@@ -52,9 +52,9 @@ def check_report_queue_and_notify():
 
     for folder in new_folders:
         folder_name = folder["name"]
-        folder_url = folder.get(
-            "webViewLink", f"https://drive.google.com/drive/folders/{folder['id']}"
-        )
+        # folder_url = folder.get(
+        #     "webViewLink", f"https://drive.google.com/drive/folders/{folder['id']}"
+        # )
 
         subject = f"New Report Folder in Queue: {folder_name}"
         message_text = f"A new report folder has been added to the queue: {folder_name}\n\nYou can claim it on the site: https://emr.driftwoodeval.com/claim-reports"
