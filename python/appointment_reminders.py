@@ -360,6 +360,10 @@ def handle_incoming_reply(
 
 async def reminder_cron():
     """Background loop to process reminders every 15 minutes."""
+    if os.getenv("DEV_TOGGLE"):
+        logger.info("Dev mode: Reminder dispatch disabled.")
+        return
+
     while True:
         logger.info("Starting reminder dispatch cycle...")
         try:
