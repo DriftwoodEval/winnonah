@@ -49,15 +49,21 @@ select = [
   "RSE",
   "RET",
   "SLF",
+  "SIM",
   "ARG",
   "PTH",
   "FLY",
   "I",
   "N",
   "PERF",
-  "SIM",
+  "E",
+  "W",
   "UP",
   "FURB"
+]
+
+ignore = [
+  "E501",  # line too long
 ]
 
 [tool.ruff.lint.pydocstyle]

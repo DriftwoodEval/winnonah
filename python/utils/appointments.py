@@ -494,7 +494,7 @@ def insert_appointments_with_gcal(appointment_sync_data: dict[str, list[str]] | 
         client_id = appointment["CLIENT_ID"]
         start_time = pd.to_datetime(appointment["STARTTIME"]).to_pydatetime()
         end_time = pd.to_datetime(appointment["ENDTIME"]).to_pydatetime()
-        cancelled = type(appointment["CANCELBYNAME"]) == str
+        cancelled = type(appointment["CANCELBYNAME"]) is str
         gcal_event_id = appointment.get("gcal_event_id")
         gcal_event_title = appointment.get("gcal_title")
         gcal_calendar_id = appointment.get("gcal_calendar_id")
