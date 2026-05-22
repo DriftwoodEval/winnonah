@@ -34,7 +34,7 @@ _http_client: AsyncClient | None = None
 
 
 def get_http_client() -> AsyncClient:
-    global _http_client
+    global _http_client  # noqa: PLW0603
     if _http_client is None:
         _http_client = AsyncClient(
             base_url="https://api.openphone.com/v1",
@@ -72,8 +72,8 @@ def is_within_quiet_window(connection) -> bool:
 
     if start <= end:
         return start <= now <= end
-    else:  # Handles overnight window (e.g. 10PM to 8AM)
-        return now >= start or now <= end
+    # Handles overnight window (e.g. 10PM to 8AM)
+    return now >= start or now <= end
 
 
 def format_message(template: str, appointment: dict) -> str:
@@ -204,7 +204,9 @@ async def process_reminders(connection: Connection[DictCursor]) -> None:
                     continue
 
                 if not appt.get("phoneNumber"):
-                    print(f"Skipping Appt {appt['id']}: No phone number for client.")
+                    logger.warning(
+                        f"Skipping Appt {appt['id']}: No phone number for client."
+                    )
                     continue
 
                 message = format_message(template["messageTemplate"], appt)
@@ -236,10 +238,7 @@ def is_confirmation(incoming_text: str) -> bool:
     keywords = ["Y", "YES", "YEAH", "YEA", "CONFIRM", "CONFIRMED"]
     pattern = rf"\b({'|'.join([re.escape(k) for k in keywords])})\b"
 
-    if re.search(pattern, incoming_text, re.IGNORECASE):
-        return True
-
-    return False
+    return bool(re.search(pattern, incoming_text, re.IGNORECASE))
 
 
 def is_rejection(incoming_text: str) -> bool:
@@ -280,7 +279,7 @@ def is_reschedule_request(incoming_text: str) -> bool:
 
 
 @provide_connection
-def handle_incoming_reply(
+async def handle_incoming_reply(
     phone_number: str, incoming_text: str, connection: Connection[DictCursor]
 ):
     clean_phone = phone_number.removeprefix("+1")
@@ -318,7 +317,7 @@ def handle_incoming_reply(
         if is_confirmation(incoming_text):
             if context["confirmationReply"]:
                 message = format_message(context["confirmationReply"], context)
-                print(message)
+                await send_sms(phone_number, message)
 
             cursor.execute(
                 f"UPDATE {TABLE_APPOINTMENT} SET confirmedAt = NOW() WHERE id = %s",
@@ -417,8 +416,6 @@ async def handle_webhook(
     data = payload.get("data", {}).get("object", {})
     sender_phone = data.get("from")
     message_body = data.get("body")
-
-    print(sender_phone, message_body)
 
     background_tasks.add_task(handle_incoming_reply, sender_phone, message_body)
 

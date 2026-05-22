@@ -16,7 +16,6 @@ from utils.database import (
     get_all_evaluators_npi_map,
     get_client_id_to_asd_adhd_map,
     get_client_id_to_dob_map,
-    get_db,
     get_in_person_assessments_for_client,
     get_npi_to_name_map,
     get_questionnaire_rules_with_in_person,

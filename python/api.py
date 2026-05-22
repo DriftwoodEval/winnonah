@@ -22,7 +22,7 @@ load_dotenv()
 
 
 @asynccontextmanager
-async def lifespan(app: FastAPI):
+async def lifespan(app: FastAPI):  # noqa: ARG001
     task = asyncio.create_task(appointment_reminders.reminder_cron())
     yield
     task.cancel()
