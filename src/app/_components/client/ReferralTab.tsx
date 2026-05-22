@@ -97,6 +97,15 @@ export function ReferralTab({ client, readOnly }: ReferralTabProps) {
 		},
 	});
 
+	const claimOutreachMutation = api.clients.claimOutreach.useMutation({
+		onSuccess: () => {
+			utils.clients.getOne.invalidate({ column: "hash", value: client.hash });
+		},
+		onError: (error) => {
+			toast.error("Failed to update claim", { description: error.message });
+		},
+	});
+
 	const pushToPunchMutation = api.google.pushToPunch.useMutation({
 		onSuccess: () => {
 			toast.success("Pushed to punch list");
@@ -236,25 +245,58 @@ export function ReferralTab({ client, readOnly }: ReferralTabProps) {
 			<Card className="w-full">
 				<CardHeader className="flex flex-row items-center justify-between space-y-0">
 					<CardTitle>Referral Information</CardTitle>
-					<div className="flex items-center space-x-2">
-						<Checkbox
-							checked={isNeedsReachOut || isNeedsReview}
-							disabled={
-								isReadOnly ||
-								updateClientMutation.isPending ||
-								isNeedsReview ||
-								!can("clients:referral:infobox")
-							}
-							id="needsReachOutReferral"
-							onCheckedChange={(checked) =>
-								handleReferralDataChange({
-									needsReachOut: checked === true ? "reach_out" : null,
-								})
-							}
-						/>
-						<Label className="font-medium" htmlFor="needsReachOutReferral">
-							Needs Outreach
-						</Label>
+					<div className="flex items-center gap-4">
+						{(isNeedsReachOut || isNeedsReview) &&
+							client.referralData?.outreachClaimedBy && (
+								<span className="text-muted-foreground text-sm">
+									Claimed by{" "}
+									{client.referralData.outreachClaimedBy.split(" ")[0]}
+								</span>
+							)}
+						{(isNeedsReachOut || isNeedsReview) &&
+							can("clients:referral:claim") && (
+								<Button
+									disabled={claimOutreachMutation.isPending}
+									onClick={() =>
+										claimOutreachMutation.mutate({ clientId: client.id })
+									}
+									size="sm"
+									variant={
+										client.referralData?.outreachClaimedBy ===
+										session?.user?.name
+											? "secondary"
+											: "outline"
+									}
+								>
+									{claimOutreachMutation.isPending ? (
+										<Loader2 className="mr-2 h-4 w-4 animate-spin" />
+									) : null}
+									{client.referralData?.outreachClaimedBy ===
+									session?.user?.name
+										? "Unclaim"
+										: "Claim"}
+								</Button>
+							)}
+						<div className="flex items-center space-x-2">
+							<Checkbox
+								checked={isNeedsReachOut || isNeedsReview}
+								disabled={
+									isReadOnly ||
+									updateClientMutation.isPending ||
+									isNeedsReview ||
+									!can("clients:referral:infobox")
+								}
+								id="needsReachOutReferral"
+								onCheckedChange={(checked) =>
+									handleReferralDataChange({
+										needsReachOut: checked === true ? "reach_out" : null,
+									})
+								}
+							/>
+							<Label className="font-medium" htmlFor="needsReachOutReferral">
+								Needs Outreach
+							</Label>
+						</div>
 					</div>
 				</CardHeader>
 				<CardContent className="space-y-4">

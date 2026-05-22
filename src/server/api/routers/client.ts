@@ -748,6 +748,35 @@ export const clientRouter = createTRPCRouter({
 		return results;
 	}),
 
+	claimOutreach: protectedProcedure
+		.input(z.object({ clientId: z.number() }))
+		.mutation(async ({ ctx, input }) => {
+			assertPermission(ctx.session.user, ["clients:referral:claim"]);
+
+			const client = await ctx.db.query.clients.findFirst({
+				where: eq(clients.id, input.clientId),
+			});
+
+			if (!client) {
+				throw new TRPCError({ code: "NOT_FOUND", message: "Client not found" });
+			}
+
+			const currentData = client.referralData ?? {};
+			const isClaimed = currentData.outreachClaimedBy === ctx.session.user.name;
+
+			await ctx.db
+				.update(clients)
+				.set({
+					referralData: {
+						...currentData,
+						outreachClaimedBy: isClaimed
+							? undefined
+							: (ctx.session.user.name ?? undefined),
+					},
+				})
+				.where(eq(clients.id, input.clientId));
+		}),
+
 	getUnreviewedRecords: protectedProcedure.query(async ({ ctx }) => {
 		const threeWeekdaysAgo = format(
 			subBusinessDays(new Date(), 3),

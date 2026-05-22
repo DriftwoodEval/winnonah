@@ -126,6 +126,7 @@ export const PERMISSIONS = {
 						id: "clients:referral:fillout",
 						title: "Fill in Referral Form & Mark for Review",
 					},
+					{ id: "clients:referral:claim", title: "Claim Clients for Outreach" },
 					{ id: "clients:referral:pushtopunch", title: "Push to Punchlist" },
 				],
 			},

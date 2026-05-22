@@ -13,8 +13,10 @@ import { Separator } from "@ui/separator";
 import { Skeleton } from "@ui/skeleton";
 import { CalendarPlus, FlaskConical, Loader2 } from "lucide-react";
 import Link from "next/link";
+import { useSession } from "next-auth/react";
 import { Fragment, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
+import { useCheckPermission } from "~/hooks/use-check-permission";
 import {
 	type DashboardClient,
 	getDashboardSections,
@@ -22,6 +24,7 @@ import {
 	SECTION_DAEVAL_QS_DONE,
 	SECTION_EVAL_QS_DONE,
 	SECTION_NEEDS_OUTREACH,
+	SECTION_REACHED_OUT_NEEDS_REVIEW,
 	SECTION_RECORDS_REQUESTED_NOT_RETURNED,
 } from "~/lib/dashboard";
 import type { FullClientInfo } from "~/lib/models";
@@ -40,7 +43,20 @@ function PunchListAccordionItem({
 	description,
 	scheduledClientIds,
 }: PunchListAccordionProps) {
+	const { data: session } = useSession();
+	const can = useCheckPermission();
 	const utils = api.useUtils();
+
+	const claimOutreach = api.clients.claimOutreach.useMutation({
+		onSuccess: () => {
+			utils.clients.getNeedsReachOut.invalidate();
+			utils.clients.getNeedsReview.invalidate();
+		},
+		onError: (error) => {
+			toast.error("Failed to update claim", { description: error.message });
+		},
+	});
+
 	const addScheduling = api.scheduling.add.useMutation({
 		onSuccess: () => {
 			toast.success("Added to scheduling");
@@ -58,7 +74,10 @@ function PunchListAccordionItem({
 		title === SECTION_EVAL_QS_DONE ||
 		title === SECTION_DAEVAL_QS_DONE;
 
-	const isOutreachSection = title === SECTION_NEEDS_OUTREACH;
+	const isOutreachSection =
+		title === SECTION_NEEDS_OUTREACH ||
+		title === SECTION_REACHED_OUT_NEEDS_REVIEW;
+	const isClaimableSection = title === SECTION_NEEDS_OUTREACH;
 	const isRecordsNotReturnedSection =
 		title === SECTION_RECORDS_REQUESTED_NOT_RETURNED;
 
@@ -90,7 +109,7 @@ function PunchListAccordionItem({
 									<div className="flex items-center justify-between gap-4">
 										<Link
 											className="block grow"
-											href={`/clients/${client.hash}`}
+											href={`/clients/${client.hash}${isOutreachSection ? "?tab=referral" : ""}`}
 										>
 											<div>
 												<div className="flex items-center justify-between">
@@ -103,6 +122,17 @@ function PunchListAccordionItem({
 															language.toLowerCase() !== "english" && (
 																<span className="font-bold text-destructive text-xs">
 																	({language})
+																</span>
+															)}
+														{isClaimableSection &&
+															client.referralData?.outreachClaimedBy && (
+																<span className="text-muted-foreground text-xs">
+																	Claimed by{" "}
+																	{
+																		client.referralData.outreachClaimedBy.split(
+																			" ",
+																		)[0]
+																	}
 																</span>
 															)}
 													</div>
@@ -145,6 +175,33 @@ function PunchListAccordionItem({
 												)}
 											</div>
 										</Link>
+										{isClaimableSection && can("clients:referral:claim") && (
+											<Button
+												className="shrink-0"
+												disabled={claimOutreach.isPending}
+												onClick={(e) => {
+													e.preventDefault();
+													claimOutreach.mutate({ clientId: client.id });
+												}}
+												size="sm"
+												variant={
+													client.referralData?.outreachClaimedBy ===
+													session?.user?.name
+														? "secondary"
+														: "ghost"
+												}
+											>
+												{claimOutreach.isPending &&
+												claimOutreach.variables?.clientId === client.id ? (
+													<Loader2 className="h-4 w-4 animate-spin" />
+												) : client.referralData?.outreachClaimedBy ===
+													session?.user?.name ? (
+													"Unclaim"
+												) : (
+													"Claim"
+												)}
+											</Button>
+										)}
 										{isQsBackSection && !onSchedulingTable && (
 											<Button
 												className="shrink-0"

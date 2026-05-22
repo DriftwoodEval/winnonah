@@ -139,4 +139,5 @@ export const referralDataSchema = z.object({
 	needsReachOut: z.enum(["reach_out", "review"]).nullable().optional(),
 	reachOutCompleted: z.boolean().optional(),
 	followedByBabyNet: z.enum(["yes", "no"]).nullable().optional(),
+	outreachClaimedBy: z.string().optional(),
 });
