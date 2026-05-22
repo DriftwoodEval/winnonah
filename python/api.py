@@ -272,7 +272,7 @@ async def find_duplicates(
         return results
 
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @app.get("/folders/writer/{parent_id}")
@@ -290,7 +290,7 @@ async def get_writer_folder(
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @app.get("/folders/{parent_id}")
@@ -321,7 +321,7 @@ async def get_subfolders(
     except Exception as e:
         raise HTTPException(
             status_code=500, detail=f"Failed to fetch folders: {str(e)}"
-        )
+        ) from e
 
 
 @app.post("/folders/claim")
@@ -395,10 +395,10 @@ async def claim_top_folder(
             assign_col_index = header.index(
                 "Assigned to OR added to report writing folder"
             )
-        except ValueError:
+        except ValueError as e:
             raise HTTPException(
                 status_code=500, detail="Required columns not found in Sheet header."
-            )
+            ) from e
 
         row_number = next(
             (
@@ -440,7 +440,7 @@ async def claim_top_folder(
         # Re-raise our custom HTTP errors so FastAPI returns the correct status code
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @app.post("/notifications/report-approved")

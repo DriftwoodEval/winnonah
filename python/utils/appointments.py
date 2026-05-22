@@ -10,6 +10,7 @@ from dateutil import parser
 from googleapiclient.discovery import build
 from loguru import logger
 
+import utils.misc
 from utils.clients import TEST_NAMES
 from utils.database import (
     get_all_evaluators_npi_map,
@@ -23,7 +24,6 @@ from utils.database import (
     put_in_person_assessments_in_db,
 )
 from utils.google import google_authenticate, send_gmail
-import utils.misc
 
 DAEvalType = Literal["EVAL", "DA", "DAEVAL"]
 
@@ -333,7 +333,11 @@ def prepare_appointments_from_csv(
 
     # Track dates to detect next-day 'appointments' for insurance
     client_date_set = set(
-        zip(appointments_df["CLIENT_ID"], appointments_df["STARTTIME_DT"].dt.date)
+        zip(
+            appointments_df["CLIENT_ID"],
+            appointments_df["STARTTIME_DT"].dt.date,
+            strict=False,
+        )
     )
 
     indices_to_drop = set()

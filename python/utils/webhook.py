@@ -17,8 +17,8 @@ async def verify_openphone_signature(
         _algo, _version, timestamp, received_sig = parts
         timestamp = timestamp.strip()
         received_sig = received_sig.strip()
-    except ValueError, AttributeError:
-        raise HTTPException(status_code=401, detail="Invalid signature format")
+    except (ValueError, AttributeError) as e:
+        raise HTTPException(status_code=401, detail="Invalid signature format") from e
 
     now_ms = int(time.time() * 1000)
     if abs(now_ms - int(timestamp)) > 5 * 60 * 1000:

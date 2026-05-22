@@ -89,10 +89,10 @@ def format_message(template: str, appointment: dict) -> str:
 
 
 @provide_connection
-def process_reminders(connection: Connection[DictCursor]) -> None:
-    # if is_within_quiet_window():
-    #     logger.info("Within quiet window, skipping reminders.")
-    #     return
+async def process_reminders(connection: Connection[DictCursor]) -> None:
+    if is_within_quiet_window():
+        logger.info("Within quiet window, skipping reminders.")
+        return
 
     with connection.cursor() as cursor:
         cursor.execute(
@@ -209,7 +209,7 @@ def process_reminders(connection: Connection[DictCursor]) -> None:
 
                 message = format_message(template["messageTemplate"], appt)
 
-                print(message)
+                await send_sms(appt["phoneNumber"], message)
 
                 try:
                     cursor.execute(
