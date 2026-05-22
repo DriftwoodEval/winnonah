@@ -857,6 +857,7 @@ export const reminderLogs = createTable(
 			.notNull()
 			.references(() => appointments.id, { onDelete: "cascade" }),
 		reminderTemplateId: d.int().notNull(),
+		openphoneMessageId: d.varchar({ length: 255 }),
 		sentAt: d.timestamp().default(sql`CURRENT_TIMESTAMP`).notNull(),
 	}),
 	(t) => [
@@ -866,4 +867,20 @@ export const reminderLogs = createTable(
 			name: "rem_log_tmpl_fk",
 		}).onDelete("cascade"),
 	],
+);
+
+export const questionnaireMsgLogs = createTable(
+	"questionnaire_msg_logs",
+	(d) => ({
+		id: d.int().primaryKey().autoincrement().notNull(),
+		clientId: d
+			.int()
+			.notNull()
+			.references(() => clients.id, { onDelete: "cascade" }),
+		openphoneMessageId: d.varchar({ length: 255 }).notNull(),
+		isFailureReminder: d.boolean().notNull().default(false),
+		failureReason: d.varchar({ length: 255 }),
+		sentAt: d.timestamp().default(sql`CURRENT_TIMESTAMP`).notNull(),
+	}),
+	(t) => [uniqueIndex("q_msg_log_op_msg_id_idx").on(t.openphoneMessageId)],
 );

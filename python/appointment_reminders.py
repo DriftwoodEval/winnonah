@@ -211,15 +211,15 @@ async def process_reminders(connection: Connection[DictCursor]) -> None:
 
                 message = format_message(template["messageTemplate"], appt)
 
-                await send_sms(appt["phoneNumber"], message)
+                message_id = await send_sms(appt["phoneNumber"], message)
 
                 try:
                     cursor.execute(
-                        f"INSERT INTO {TABLE_APPOINTMENT_REMINDER_LOGS}(appointmentId, clientId, reminderTemplateId, sentAt) VALUES (%s, %s, %s, NOW())",
-                        (appt["id"], appt["clientId"], template["id"]),
+                        f"INSERT INTO {TABLE_APPOINTMENT_REMINDER_LOGS}(appointmentId, clientId, reminderTemplateId, openphoneMessageId, sentAt) VALUES (%s, %s, %s, %s, NOW())",
+                        (appt["id"], appt["clientId"], template["id"], message_id),
                     )
                 except Exception as e:
-                    logger.error(f"Failed to send reminder: {e}")
+                    logger.error(f"Failed to log reminder: {e}")
 
         connection.commit()
 
@@ -374,7 +374,7 @@ async def reminder_cron():
         await asyncio.sleep(900)
 
 
-async def send_sms(to: str, body: str):
+async def send_sms(to: str, body: str) -> str | None:
     client = get_http_client()
     try:
         response = await client.post(
@@ -387,6 +387,8 @@ async def send_sms(to: str, body: str):
             },
         )
         response.raise_for_status()
+        data = response.json().get("data", {})
+        return data.get("id")
     except Exception as e:
         logger.error(f"Failed to send SMS to {to}: {e}")
         raise

@@ -11,13 +11,14 @@ import {
 import { ScrollArea } from "@ui/scroll-area";
 import { Skeleton } from "@ui/skeleton";
 import { format } from "date-fns";
-import { Clock, PhoneIncoming, PhoneOutgoing } from "lucide-react";
+import { CircleHelp, Clock, PhoneIncoming, PhoneOutgoing } from "lucide-react";
 import Link from "next/link";
-import { useEffect, useRef } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import type { TimelineEvent } from "~/lib/quo";
 import { cn } from "~/lib/utils";
 import { api } from "~/trpc/react";
 import { Button } from "../ui/button";
+import { Tooltip, TooltipContent, TooltipTrigger } from "../ui/tooltip";
 
 export function CommunicationTimeline({
 	phoneNumber,
@@ -34,6 +35,26 @@ export function CommunicationTimeline({
 		{
 			enabled: !!phoneNumber,
 		},
+	);
+
+	const outgoingMessageIds = useMemo(
+		() =>
+			timeline
+				?.filter((e) => e.type === "message" && e.direction === "outgoing")
+				.map((e) => e.id) ?? [],
+		[timeline],
+	);
+
+	const { data: automatedContext } =
+		api.quo.getAutomatedMessageContext.useQuery(
+			{ messageIds: outgoingMessageIds },
+			{ enabled: outgoingMessageIds.length > 0 },
+		);
+
+	const automatedMap = useMemo(
+		() =>
+			new Map(automatedContext?.map((c) => [c.openphoneMessageId, c]) ?? []),
+		[automatedContext],
 	);
 
 	useEffect(() => {
@@ -100,7 +121,25 @@ export function CommunicationTimeline({
 												<p className="mb-1 whitespace-pre-wrap text-[11px] leading-tight">
 													{event.text}
 												</p>
-												<div className="flex items-center justify-end">
+												<div className="flex items-center justify-end gap-1">
+													{automatedMap.get(event.id) && (
+														<Tooltip>
+															<TooltipTrigger asChild>
+																<CircleHelp className="h-3 w-3 shrink-0 opacity-60" />
+															</TooltipTrigger>
+															<TooltipContent
+																className="max-w-[200px] text-center"
+																side="left"
+															>
+																<p className="font-medium">
+																	{automatedMap.get(event.id)?.clientFullName}
+																</p>
+																<p className="opacity-80">
+																	{automatedMap.get(event.id)?.reason}
+																</p>
+															</TooltipContent>
+														</Tooltip>
+													)}
 													<span
 														className={cn(
 															"text-[10px]",

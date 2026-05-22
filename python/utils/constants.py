@@ -24,6 +24,7 @@ TABLE_GREETER_PROXY_STATE: Final = "emr_greeter_proxy_state"
 TABLE_APPOINTMENT_REMINDER_SETTINGS: Final = "emr_appointment_reminder_settings"
 TABLE_APPOINTMENT_REMINDER_TEMPLATES = "emr_reminder_templates"
 TABLE_APPOINTMENT_REMINDER_LOGS = "emr_reminder_logs"
+TABLE_QUESTIONNAIRE_MSG_LOGS: Final = "emr_questionnaire_msg_logs"
 
 # DB to DataFrame Column Mapping
 CLIENT_COLUMN_MAPPING: Final = {

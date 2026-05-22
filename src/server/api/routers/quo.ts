@@ -1,9 +1,16 @@
 import { TRPCError } from "@trpc/server";
+import { eq, inArray } from "drizzle-orm";
 import { z } from "zod";
 import { env } from "~/env";
 import { getContactTimeline, getOpenPhoneUsers, sendMessage } from "~/lib/quo";
 import { normalizePhoneNumber } from "~/lib/utils";
 import { createTRPCRouter, protectedProcedure } from "~/server/api/trpc";
+import {
+	clients,
+	questionnaireMsgLogs,
+	reminderLogs,
+	reminderTemplates,
+} from "~/server/db/schema";
 
 export const quoRouter = createTRPCRouter({
 	getQuoUsers: protectedProcedure.query(async () => {
@@ -49,6 +56,74 @@ export const quoRouter = createTRPCRouter({
 					message: e instanceof Error ? e.message : "Unknown error",
 				});
 			}
+		}),
+
+	getAutomatedMessageContext: protectedProcedure
+		.input(z.object({ messageIds: z.array(z.string()) }))
+		.query(async ({ ctx, input }) => {
+			if (input.messageIds.length === 0) return [];
+
+			const [apptRows, qRows] = await Promise.all([
+				ctx.db
+					.select({
+						openphoneMessageId: reminderLogs.openphoneMessageId,
+						clientFullName: clients.fullName,
+						clientHash: clients.hash,
+						reason: reminderTemplates.name,
+					})
+					.from(reminderLogs)
+					.innerJoin(clients, eq(clients.id, reminderLogs.clientId))
+					.innerJoin(
+						reminderTemplates,
+						eq(reminderTemplates.id, reminderLogs.reminderTemplateId),
+					)
+					.where(inArray(reminderLogs.openphoneMessageId, input.messageIds)),
+				ctx.db
+					.select({
+						openphoneMessageId: questionnaireMsgLogs.openphoneMessageId,
+						clientFullName: clients.fullName,
+						clientHash: clients.hash,
+						isFailureReminder: questionnaireMsgLogs.isFailureReminder,
+						failureReason: questionnaireMsgLogs.failureReason,
+					})
+					.from(questionnaireMsgLogs)
+					.innerJoin(clients, eq(clients.id, questionnaireMsgLogs.clientId))
+					.where(
+						inArray(questionnaireMsgLogs.openphoneMessageId, input.messageIds),
+					),
+			]);
+
+			type AutomatedContext = {
+				openphoneMessageId: string;
+				clientFullName: string;
+				clientHash: string;
+				reason: string;
+			};
+
+			const results: AutomatedContext[] = [];
+
+			for (const row of apptRows) {
+				if (!row.openphoneMessageId) continue;
+				results.push({
+					openphoneMessageId: row.openphoneMessageId,
+					clientFullName: row.clientFullName,
+					clientHash: row.clientHash,
+					reason: row.reason,
+				});
+			}
+
+			for (const row of qRows) {
+				results.push({
+					openphoneMessageId: row.openphoneMessageId,
+					clientFullName: row.clientFullName,
+					clientHash: row.clientHash,
+					reason: row.isFailureReminder
+						? `Follow-up: ${row.failureReason ?? "unknown"}`
+						: "Questionnaire reminder",
+				});
+			}
+
+			return results;
 		}),
 
 	sendMessage: protectedProcedure
