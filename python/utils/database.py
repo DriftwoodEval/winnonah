@@ -143,8 +143,8 @@ def filter_clients_with_changed_address(
         )
         return clients_with_address.copy()
 
-    db_addresses.rename(
-        columns={"id": "CLIENT_ID", "address": "DB_ADDRESS"}, inplace=True
+    db_addresses = db_addresses.rename(
+        columns={"id": "CLIENT_ID", "address": "DB_ADDRESS"}
     )
     db_addresses["CLIENT_ID"] = db_addresses["CLIENT_ID"].astype(str)
 
@@ -156,8 +156,7 @@ def filter_clients_with_changed_address(
         db_addresses["DB_ADDRESS"].fillna("").str.lower().str.strip()
     )
 
-    merged_df = pd.merge(
-        clients_with_address,
+    merged_df = clients_with_address.merge(
         db_addresses,
         on="CLIENT_ID",
         how="left",
@@ -166,7 +165,7 @@ def filter_clients_with_changed_address(
 
     changed_mask = (
         merged_df["NORMALIZED_ADDRESS_new"] != merged_df["NORMALIZED_ADDRESS_db"]
-    ) | merged_df["NORMALIZED_ADDRESS_db"].isnull()
+    ) | merged_df["NORMALIZED_ADDRESS_db"].isna()
 
     changed_clients = merged_df[changed_mask]
 
@@ -190,7 +189,7 @@ def get_all_clients(connection: Connection[DictCursor]) -> pd.DataFrame:
     df = pd.DataFrame(clients_data) if clients_data else pd.DataFrame()
 
     if not df.empty:
-        df.rename(columns=CLIENT_COLUMN_MAPPING, inplace=True)
+        df = df.rename(columns=CLIENT_COLUMN_MAPPING)
     return df
 
 

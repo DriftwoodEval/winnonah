@@ -160,15 +160,15 @@ def import_from_ta(
                 subset=["CLIENT_ID"], keep="last"
             )
 
-            clients.set_index("CLIENT_ID", inplace=True)
-            clients_to_geocode.set_index("CLIENT_ID", inplace=True)
+            clients = clients.set_index("CLIENT_ID")
+            clients_to_geocode = clients_to_geocode.set_index("CLIENT_ID")
 
             clients.index = clients.index.astype(str)
             clients_to_geocode.index = clients_to_geocode.index.astype(str)
 
             clients.update(clients_to_geocode)
 
-        clients.reset_index(inplace=True)
+        clients = clients.reset_index()
         utils.database.put_clients_in_db(clients, connection=conn)
         all_clients_from_db = utils.database.get_all_clients(connection=conn)
 

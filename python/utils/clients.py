@@ -97,7 +97,7 @@ def _consolidate_by_id(clients: pd.DataFrame) -> pd.DataFrame:
     df["POLICY_ENDDATE"] = pd.to_datetime(df["POLICY_ENDDATE"], errors="coerce")
 
     # Drop rows where start date is invalid, as they are unusable
-    df.dropna(subset=["POLICY_STARTDATE"], inplace=True)
+    df = df.dropna(subset=["POLICY_STARTDATE"])
 
     # Use INSURANCE_COMPANYNAME if available, otherwise fall back to POLICY_COMPANYNAME
     df["COMPANY_NAME"] = np.where(
@@ -113,7 +113,7 @@ def _consolidate_by_id(clients: pd.DataFrame) -> pd.DataFrame:
     active_policies = df[is_active].copy()
 
     primary_ins = active_policies[active_policies["POLICY_TYPE"] == "PRIMARY"].copy()
-    primary_ins.sort_values("POLICY_STARTDATE", ascending=False, inplace=True)
+    primary_ins = primary_ins.sort_values("POLICY_STARTDATE", ascending=False)
     most_recent_primary = primary_ins.drop_duplicates(subset="CLIENT_ID", keep="first")
     primary_final = most_recent_primary[["CLIENT_ID", "COMPANY_NAME"]].rename(
         columns={"COMPANY_NAME": "PRIMARY_INSURANCE_COMPANYNAME"},
@@ -161,10 +161,10 @@ def _consolidate_by_id(clients: pd.DataFrame) -> pd.DataFrame:
         errors="ignore",
     ).drop_duplicates(subset="CLIENT_ID", keep="first")
 
-    consolidated = pd.merge(client_base_info, primary_final, on="CLIENT_ID", how="left")
-    consolidated = pd.merge(consolidated, secondary_final, on="CLIENT_ID", how="left")
-    consolidated = pd.merge(consolidated, precert_dates, on="CLIENT_ID", how="left")
-    consolidated = pd.merge(consolidated, private_pay, on="CLIENT_ID", how="left")
+    consolidated = client_base_info.merge(primary_final, on="CLIENT_ID", how="left")
+    consolidated = consolidated.merge(secondary_final, on="CLIENT_ID", how="left")
+    consolidated = consolidated.merge(precert_dates, on="CLIENT_ID", how="left")
+    consolidated = consolidated.merge(private_pay, on="CLIENT_ID", how="left")
 
     return consolidated  # noqa: RET504
 
@@ -283,7 +283,7 @@ def get_clients(should_download_csvs: bool | None = True) -> pd.DataFrame:
     )
     demo_df = utils.spreadsheets.open_local(Path("temp/input/clients-demographic.csv"))
 
-    clients_df = pd.merge(demo_df, insurance_df, "outer")
+    clients_df = demo_df.merge(insurance_df, "outer")
     clients_df = _merge_referral_data(clients_df)
 
     clients_df = _normalize_names(clients_df)

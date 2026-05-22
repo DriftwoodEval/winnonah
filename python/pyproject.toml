@@ -58,6 +58,7 @@ select = [
   "PERF",
   "E",
   "W",
+  "PD",
   "UP",
   "FURB"
 ]

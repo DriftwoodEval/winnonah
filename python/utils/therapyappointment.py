@@ -247,7 +247,7 @@ def _combine_files():
             except UnicodeDecodeError:
                 df = pd.read_csv(file, encoding="latin1", dtype=str)
 
-            df.dropna(how="all", inplace=True)
+            df = df.dropna(how="all")
             df_list.append(df)
 
         if df_list:
@@ -268,7 +268,7 @@ def _combine_files():
             except UnicodeDecodeError:
                 df = pd.read_csv(file, encoding="latin1", dtype=str)
 
-            df.dropna(how="all", inplace=True)
+            df = df.dropna(how="all")
             df["NPI"] = npi
             df_list.append(df)
 
@@ -364,7 +364,7 @@ def _download_billing(driver: WebDriver):
     df_claims = pd.read_csv(claims_report)
 
     cols_to_use = ["Client", "Date of Service", "Submitted", "Insurance"]
-    merged_df = pd.merge(df_open, df_claims[cols_to_use], on="Client", how="left")
+    merged_df = df_open.merge(df_claims[cols_to_use], on="Client", how="left")
     merged_df.to_csv(INPUT_DIR / "clients-billing.csv", index=False)
 
 

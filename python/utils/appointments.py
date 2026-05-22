@@ -399,6 +399,8 @@ def prepare_appointments_from_csv(
     mismatched_indices = {item["appointment_idx"] for item in reporter.time_mismatches}
     final_drops = set()
 
+    gcal_updates = {}
+
     for idx, appointment in appointments_df.iterrows():
         if not isinstance(idx, int):
             continue
@@ -408,9 +410,11 @@ def prepare_appointments_from_csv(
         result = search_results.get(idx)
 
         if result:
-            appointments_df.at[idx, "gcal_event_id"] = result["event_id"]
-            appointments_df.at[idx, "gcal_title"] = result["title"]
-            appointments_df.at[idx, "gcal_calendar_id"] = result["calendar_id"]
+            gcal_updates[idx] = {
+                "gcal_event_id": result["event_id"],
+                "gcal_title": result["title"],
+                "gcal_calendar_id": result["calendar_id"],
+            }
         elif idx in mismatched_indices:
             if is_trusted:
                 logger.warning(
@@ -451,6 +455,10 @@ def prepare_appointments_from_csv(
                 )
             else:
                 final_drops.add(idx)
+
+    if gcal_updates:
+        updates_df = pd.DataFrame.from_dict(gcal_updates, orient="index")
+        appointments_df.update(updates_df)
 
     return appointments_df.drop(index=list(final_drops)).reset_index(drop=True)
 
