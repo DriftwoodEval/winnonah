@@ -45,6 +45,7 @@ CLIENT_COLUMN_MAPPING: Final = {
     "latitude": "LATITUDE",
     "longitude": "LONGITUDE",
     "primaryInsurance": "INSURANCE_COMPANYNAME",
+    "insuranceNumber": "POLICY_INSURANCENUMBER",
     "secondaryInsurance": "SECONDARY_INSURANCE_COMPANYNAME",
     "precertExpires": "PRECERT_EXPIRES",
     "privatePay": "POLICY_PRIVATEPAY",

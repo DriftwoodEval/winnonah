@@ -254,6 +254,7 @@ def put_clients_in_db(clients_df: pd.DataFrame, connection: Connection[DictCurso
             if get_column(client, "LONGITUDE") == "Unknown"
             else get_column(client, "LONGITUDE"),
             get_column(client, "PRIMARY_INSURANCE_COMPANYNAME"),
+            get_column(client, "POLICY_INSURANCENUMBER"),
             secondary_insurance_json,
             get_column(client, "PRECERT_EXPIREDATE"),
             get_boolean_value(client, "POLICY_PRIVATEPAY"),
@@ -269,8 +270,8 @@ def put_clients_in_db(clients_df: pd.DataFrame, connection: Connection[DictCurso
         values_to_insert.append(values)
 
     sql = f"""
-        INSERT INTO `{TABLE_CLIENT}` (id, hash, status, addedDate, dob, firstName, lastName, preferredName, fullName, address, schoolDistrict, latitude, longitude, primaryInsurance, secondaryInsurance, precertExpires, privatePay, asdAdhd, language, gender, phoneNumber, email, flag, taUser, referralSource)
-        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+        INSERT INTO `{TABLE_CLIENT}` (id, hash, status, addedDate, dob, firstName, lastName, preferredName, fullName, address, schoolDistrict, latitude, longitude, primaryInsurance, insuranceNumber, secondaryInsurance, precertExpires, privatePay, asdAdhd, language, gender, phoneNumber, email, flag, taUser, referralSource)
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
         ON DUPLICATE KEY UPDATE
             hash = VALUES(hash),
             status = VALUES(status),
@@ -285,6 +286,7 @@ def put_clients_in_db(clients_df: pd.DataFrame, connection: Connection[DictCurso
             latitude = CASE WHEN VALUES(latitude) IS NOT NULL THEN VALUES(latitude) ELSE latitude END,
             longitude = CASE WHEN VALUES(longitude) IS NOT NULL THEN VALUES(longitude) ELSE longitude END,
             primaryInsurance = VALUES(primaryInsurance),
+            insuranceNumber = VALUES(insuranceNumber),
             secondaryInsurance = VALUES(secondaryInsurance),
             precertExpires = VALUES(precertExpires),
             privatePay = VALUES(privatePay),

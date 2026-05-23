@@ -115,7 +115,10 @@ def _consolidate_by_id(clients: pd.DataFrame) -> pd.DataFrame:
     primary_ins = active_policies[active_policies["POLICY_TYPE"] == "PRIMARY"].copy()
     primary_ins = primary_ins.sort_values("POLICY_STARTDATE", ascending=False)
     most_recent_primary = primary_ins.drop_duplicates(subset="CLIENT_ID", keep="first")
-    primary_final = most_recent_primary[["CLIENT_ID", "COMPANY_NAME"]].rename(
+    primary_cols = ["CLIENT_ID", "COMPANY_NAME"]
+    if "POLICY_INSURANCENUMBER" in most_recent_primary.columns:
+        primary_cols.append("POLICY_INSURANCENUMBER")
+    primary_final = most_recent_primary[primary_cols].rename(
         columns={"COMPANY_NAME": "PRIMARY_INSURANCE_COMPANYNAME"},
     )
 
@@ -154,6 +157,7 @@ def _consolidate_by_id(clients: pd.DataFrame) -> pd.DataFrame:
         "POLICY_COMPANYNAME",
         "PRECERT_EXPIREDATE",
         "POLICY_PRIVATEPAY",
+        "POLICY_INSURANCENUMBER",
     ]
 
     client_base_info = clients.drop(
