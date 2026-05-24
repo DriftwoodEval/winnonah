@@ -4,6 +4,7 @@ import { Button } from "@ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@ui/popover";
 import { AlertTriangleIcon, MapPinIcon } from "lucide-react";
 import Link from "next/link";
+import { useCheckPermission } from "~/hooks/use-check-permission";
 import type { ClientGetOneOutput } from "~/lib/api-types";
 import { cn, formatClientAge, formatPhoneNumber } from "~/lib/utils";
 import { ManualAddressDialog } from "./ManualAddressDialog";
@@ -18,6 +19,8 @@ export function ClientDetailsCard({
 	client,
 	truncated = false,
 }: ClientDetailsCardProps) {
+	const can = useCheckPermission();
+
 	return (
 		<div className="flex w-full flex-wrap gap-6 rounded-md border-2 bg-card p-4 shadow">
 			{!truncated && (
@@ -72,7 +75,8 @@ export function ClientDetailsCard({
 							{!truncated &&
 								client.primaryInsurance
 									.toLowerCase()
-									.includes("select health") && (
+									.includes("select health") &&
+								can("clients:pa-forms") && (
 									<div className="mt-2">
 										<SelectHealthFormButton clientId={client.id} />
 									</div>
