@@ -273,6 +273,56 @@ export const questionnaireRouter = createTRPCRouter({
 		});
 	}),
 
+	getApplicableRules: protectedProcedure
+		.input(z.object({ clientId: z.number() }))
+		.query(async ({ ctx, input }) => {
+			const client = await ctx.db.query.clients.findFirst({
+				where: eq(clients.id, input.clientId),
+			});
+
+			if (!client) return null;
+
+			const ageInYears = Math.floor(
+				(Date.now() - client.dob.getTime()) / (1000 * 60 * 60 * 24 * 365.25),
+			);
+
+			const allRules = await ctx.db.query.questionnaireRules.findMany({
+				orderBy: [
+					asc(questionnaireRules.daeval),
+					asc(questionnaireRules.diagnosis),
+					asc(questionnaireRules.minAge),
+				],
+			});
+
+			const ageFiltered = allRules.filter(
+				(r) => r.minAge <= ageInYears && r.maxAge >= ageInYears,
+			);
+
+			const asdAdhd = client.asdAdhd;
+			const wantedDiagnoses = new Set<string | null>();
+
+			if (!asdAdhd) {
+				// Diagnosis unknown — include all diagnosis-specific rules
+				wantedDiagnoses.add("ASD");
+				wantedDiagnoses.add("ADHD");
+			} else {
+				if (asdAdhd.includes("ASD")) wantedDiagnoses.add("ASD");
+				if (asdAdhd.includes("ADHD")) wantedDiagnoses.add("ADHD");
+			}
+
+			const rules = ageFiltered.filter((r) => {
+				// DAEVAL rules have no diagnosis; always include if age matches
+				if (r.daeval === "DAEVAL") return r.diagnosis === null;
+				return wantedDiagnoses.has(r.diagnosis);
+			});
+
+			return {
+				ageInYears,
+				asdAdhd: client.asdAdhd,
+				rules,
+			};
+		}),
+
 	createRule: protectedProcedure
 		.input(questionnaireRuleInputSchema)
 		.mutation(async ({ ctx, input }) => {

@@ -1,4 +1,5 @@
 "use client";
+import { Badge } from "@ui/badge";
 import { Button } from "@ui/button";
 import { ButtonGroup } from "@ui/button-group";
 import {
@@ -8,8 +9,8 @@ import {
 	DialogHeader,
 	DialogTitle,
 } from "@ui/dialog";
-import { CopyPlus, Plus } from "lucide-react";
-import { useEffect, useState } from "react";
+import { CheckCircle2, CopyPlus, Plus } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { useCheckPermission } from "~/hooks/use-check-permission";
 import { useMediaQuery } from "~/hooks/use-media-query";
@@ -54,6 +55,54 @@ export function AddQuestionnaireButton({
 			enabled: !!clientId,
 		},
 	);
+
+	const { data: applicableRules } =
+		api.questionnaires.getApplicableRules.useQuery(
+			{ clientId: clientId ?? 0 },
+			{ enabled: !!clientId },
+		);
+
+	const { data: sentQuestionnaires } =
+		api.questionnaires.getSentQuestionnaires.useQuery(clientId ?? 0, {
+			enabled: !!clientId,
+		});
+
+	/**
+	 * For each daeval group in the applicable battery, determine whether every
+	 * required online questionnaire is already present in the client's sent
+	 * questionnaire list.
+	 */
+	const batteryCompleteness = useMemo(() => {
+		if (!applicableRules?.rules.length || !sentQuestionnaires) return null;
+
+		const activeTypes = new Set(
+			sentQuestionnaires
+				.filter((q) => q.status !== "ARCHIVED")
+				.map((q) => q.questionnaireType),
+		);
+
+		// Combine all rules for a given daeval into a single deduplicated list
+		const groups = new Map<string, string[]>();
+		for (const rule of applicableRules.rules) {
+			const existing = groups.get(rule.daeval) ?? [];
+			for (const q of rule.questionnaires) {
+				if (!existing.includes(q)) existing.push(q);
+			}
+			groups.set(rule.daeval, existing);
+		}
+
+		const result: Record<
+			string,
+			{ questionnaires: string[]; complete: boolean }
+		> = {};
+		for (const [daeval, qs] of groups) {
+			result[daeval] = {
+				questionnaires: qs,
+				complete: qs.length > 0 && qs.every((q) => activeTypes.has(q)),
+			};
+		}
+		return result;
+	}, [applicableRules, sentQuestionnaires]);
 
 	const { mutate: setQsSent } = api.google.setQsSent.useMutation({
 		onSuccess: () => {
@@ -257,42 +306,126 @@ export function AddQuestionnaireButton({
 					<DialogHeader>
 						<DialogTitle>Questionnaires Sent</DialogTitle>
 						<DialogDescription>
-							You added questionnaires, do you need to mark the whole group
-							sent?
+							Do you need to mark a group as sent?
 						</DialogDescription>
 					</DialogHeader>
-					<div className="flex flex-col gap-3 pt-4">
+					<div className="flex flex-col gap-3 pt-2">
+						{/* DA */}
 						{qsSent && !qsSent?.["DA Qs Sent"] && clientId && (
-							<Button
-								className="w-full"
-								onClick={handleSetDASent}
-								variant="secondary"
-							>
-								Set DA Sent
-							</Button>
-						)}
-						{qsSent && !qsSent?.["EVAL Qs Sent"] && clientId && (
-							<Button
-								className="w-full"
-								onClick={handleSetEvalSent}
-								variant="secondary"
-							>
-								Set Eval Sent
-							</Button>
+							<div className="flex flex-col gap-1.5 rounded-md border p-3">
+								{batteryCompleteness?.DA?.complete ? (
+									<div className="flex items-start gap-2 text-sm">
+										<CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" />
+										<span>
+											Looks like the full DA battery is here, want to mark it
+											sent?
+										</span>
+									</div>
+								) : (
+									<p className="text-muted-foreground text-sm">
+										Mark DA questionnaires as sent?
+									</p>
+								)}
+								{batteryCompleteness?.DA?.questionnaires.length ? (
+									<div className="flex flex-wrap gap-1">
+										{batteryCompleteness.DA.questionnaires.map((q) => (
+											<Badge className="text-xs" key={q} variant="secondary">
+												{q}
+											</Badge>
+										))}
+									</div>
+								) : null}
+								<Button
+									className="mt-1 w-full"
+									onClick={handleSetDASent}
+									variant="secondary"
+								>
+									Set DA Sent
+								</Button>
+							</div>
 						)}
 
+						{/* Eval */}
+						{qsSent && !qsSent?.["EVAL Qs Sent"] && clientId && (
+							<div className="flex flex-col gap-1.5 rounded-md border p-3">
+								{batteryCompleteness?.EVAL?.complete ? (
+									<div className="flex items-start gap-2 text-sm">
+										<CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" />
+										<span>
+											Looks like the full Eval battery is here, want to mark it
+											sent?
+										</span>
+									</div>
+								) : (
+									<p className="text-muted-foreground text-sm">
+										Mark Eval questionnaires as sent?
+									</p>
+								)}
+								{batteryCompleteness?.EVAL?.questionnaires.length ? (
+									<div className="flex flex-wrap gap-1">
+										{batteryCompleteness.EVAL.questionnaires.map((q) => (
+											<Badge className="text-xs" key={q} variant="secondary">
+												{q}
+											</Badge>
+										))}
+									</div>
+								) : null}
+								<Button
+									className="mt-1 w-full"
+									onClick={handleSetEvalSent}
+									variant="secondary"
+								>
+									Set Eval Sent
+								</Button>
+							</div>
+						)}
+
+						{/* Combined DA+Eval battery (DAEVAL rules) */}
+						{batteryCompleteness?.DAEVAL?.questionnaires.length ? (
+							<div className="flex flex-col gap-1.5 rounded-md border p-3">
+								{batteryCompleteness.DAEVAL.complete ? (
+									<div className="flex items-start gap-2 text-sm">
+										<CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" />
+										<span>
+											Looks like the full DA+Eval battery is here, want to mark
+											both sent?
+										</span>
+									</div>
+								) : (
+									<p className="text-muted-foreground text-sm">
+										DA+Eval battery
+									</p>
+								)}
+								<div className="flex flex-wrap gap-1">
+									{batteryCompleteness.DAEVAL.questionnaires.map((q) => (
+										<Badge className="text-xs" key={q} variant="secondary">
+											{q}
+										</Badge>
+									))}
+								</div>
+							</div>
+						) : null}
+
+						{/* Set Both Sent shortcut */}
 						{qsSent &&
 							!qsSent?.["DA Qs Sent"] &&
 							!qsSent?.["EVAL Qs Sent"] &&
 							clientId && (
-								<Button
-									onClick={handleSetBothSent}
-									size="sm"
-									variant="secondary"
-								>
+								<Button onClick={handleSetBothSent} variant="secondary">
 									Set Both Sent
 								</Button>
 							)}
+
+						<Button
+							className="text-muted-foreground"
+							onClick={() => {
+								setQsSentDialog(false);
+								setShouldBlockNavigation(false);
+							}}
+							variant="ghost"
+						>
+							Dismiss
+						</Button>
 					</div>
 				</DialogContent>
 			</Dialog>
