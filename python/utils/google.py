@@ -22,7 +22,7 @@ from utils.constants import TABLE_CLIENT
 # If modifying these scopes, delete the file token.json.
 SCOPES = [
     "https://www.googleapis.com/auth/drive",
-    "https://www.googleapis.com/auth/calendar.events",
+    "https://www.googleapis.com/auth/calendar",
     "https://www.googleapis.com/auth/gmail.compose",
 ]
 
