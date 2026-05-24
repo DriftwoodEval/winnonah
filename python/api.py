@@ -8,7 +8,7 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 from fastapi import Depends, FastAPI, HTTPException, Request
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, Response
 from googleapiclient.discovery import build
 from pydantic import BaseModel
 
@@ -16,6 +16,7 @@ import appointment_reminders
 import greeter_proxy
 from utils.constants import TABLE_ACCOUNT, TABLE_CLIENT, TABLE_SESSION, TABLE_USER
 from utils.database import get_db, get_python_config, rematch_evaluator
+from utils.forms import fill_select_health_form
 from utils.google import google_authenticate, send_gmail
 
 load_dotenv()
@@ -512,3 +513,39 @@ async def rematch_evaluator_endpoint(
         raise HTTPException(status_code=403, detail="Not authorized")
     rematch_evaluator(npi)
     return {"status": "ok"}
+
+
+@app.post("/forms/select-health/{client_id}")
+async def download_select_health_form(
+    client_id: int,
+    current_user: dict = Depends(get_current_user),
+):
+    """Generates a filled Select Health behavioral health testing authorization PDF."""
+    if not current_user["permissions"].get("clients:pa-forms"):
+        raise HTTPException(status_code=403, detail="Not authorized")
+
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            sql = f"""
+                SELECT id, firstName, lastName, preferredName, fullName,
+                       dob, referralSource, insuranceNumber
+                FROM {TABLE_CLIENT} WHERE id = %s
+            """
+            cursor.execute(sql, (client_id,))
+            row = cursor.fetchone()
+    finally:
+        conn.close()
+
+    if not row:
+        raise HTTPException(status_code=404, detail="Client not found")
+
+    pdf_bytes = fill_select_health_form(row)
+
+    return Response(
+        content=pdf_bytes,
+        media_type="application/pdf",
+        headers={
+            "Content-Disposition": f'attachment; filename="select-health-{client_id}.pdf"'
+        },
+    )

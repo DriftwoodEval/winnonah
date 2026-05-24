@@ -1836,4 +1836,30 @@ export const clientRouter = createTRPCRouter({
 
 			return response.text();
 		}),
+
+	downloadSelectHealthForm: protectedProcedure
+		.input(z.object({ clientId: z.number() }))
+		.mutation(async ({ ctx, input }) => {
+			assertPermission(ctx.session.user, "clients:pa-forms");
+
+			const cookieHeader = ctx.headers.get("cookie") ?? "";
+
+			const response = await fetch(
+				`${env.PY_API}/forms/select-health/${input.clientId}`,
+				{ method: "POST", headers: { Cookie: cookieHeader } },
+			);
+
+			if (!response.ok) {
+				console.error(
+					`FastAPI error: ${response.status} ${response.statusText}`,
+				);
+				throw new TRPCError({
+					code: "INTERNAL_SERVER_ERROR",
+					message: "Failed to generate Select Health form",
+				});
+			}
+
+			const buffer = await response.arrayBuffer();
+			return Buffer.from(buffer).toString("base64");
+		}),
 });

@@ -106,6 +106,7 @@ export const PERMISSIONS = {
 					{ id: "clients:shell", title: "Create Fake/Shell Client Notes" },
 					{ id: "clients:merge", title: "Merge with Real Client Record" },
 					{ id: "clients:download", title: "Download CSVs" },
+					{ id: "clients:pa-forms", title: "Download PA Forms" },
 					{ id: "reports:approve", title: "Approve Reports" },
 					{
 						id: "reports:notifications",

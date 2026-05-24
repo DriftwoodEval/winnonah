@@ -7,6 +7,7 @@ import Link from "next/link";
 import type { ClientGetOneOutput } from "~/lib/api-types";
 import { cn, formatClientAge, formatPhoneNumber } from "~/lib/utils";
 import { ManualAddressDialog } from "./ManualAddressDialog";
+import { SelectHealthFormButton } from "./SelectHealthFormButton";
 
 interface ClientDetailsCardProps {
 	client: ClientGetOneOutput;
@@ -68,6 +69,14 @@ export function ClientDetailsCard({
 									.replace(/_/g, " ")
 									.replace("MolinaMarketplace", "Molina Marketplace")}
 							</p>
+							{!truncated &&
+								client.primaryInsurance
+									.toLowerCase()
+									.includes("select health") && (
+									<div className="mt-2">
+										<SelectHealthFormButton clientId={client.id} />
+									</div>
+								)}
 						</div>
 					)}
 					{client.secondaryInsurance &&
