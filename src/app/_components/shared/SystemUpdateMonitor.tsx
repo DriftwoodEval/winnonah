@@ -39,7 +39,12 @@ export function SystemUpdateMonitor() {
 			duration: Number.POSITIVE_INFINITY,
 			action: {
 				label: "Refresh",
-				onClick: () => window.location.reload(),
+				onClick: () => {
+					// Hard reload — bypasses cache, equivalent to Ctrl+Shift+R.
+					// reload(true) is deprecated in spec but still honoured by all
+					// major browsers as a forced/uncached reload.
+					(window.location.reload as unknown as (force: boolean) => void)(true);
+				},
 			},
 		});
 	}
