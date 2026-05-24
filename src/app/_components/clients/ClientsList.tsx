@@ -94,7 +94,7 @@ export function ClientsList({
 
 	if (clients.length === 0) {
 		return (
-			<div className="flex h-[400px] w-full items-center justify-center rounded-md border border-dashed">
+			<div className="flex h-[calc(100dvh-8rem)] w-full items-center justify-center rounded-md border border-dashed">
 				<div className="text-center">
 					<h3 className="font-semibold text-lg">No Clients Found</h3>
 					<p className="text-muted-foreground text-sm">
@@ -106,7 +106,7 @@ export function ClientsList({
 	}
 
 	return (
-		<ScrollArea className="h-[400px] w-full rounded-md border bg-card text-card-foreground shadow">
+		<ScrollArea className="h-[calc(100dvh-8rem)] w-full rounded-md border bg-card text-card-foreground shadow">
 			<div className="p-4">
 				<div className="mb-2 flex min-h-8 items-center justify-between">
 					<h4 className="font-medium text-muted-foreground text-sm leading-none">

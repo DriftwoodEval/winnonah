@@ -12,7 +12,7 @@ export default async function Home() {
 	return (
 		<Guard>
 			<HydrateClient>
-				<div className="mx-4 flex grow items-center justify-center">
+				<div className="mx-4 flex grow flex-col pt-4">
 					<ClientsDashboard />
 				</div>
 			</HydrateClient>

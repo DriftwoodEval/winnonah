@@ -14,12 +14,14 @@ interface NameSearchInputProps {
 	initialValue: string;
 	onDebouncedChange: (value: string) => void;
 	debounceMs?: number;
+	placeholder?: string;
 }
 
 export function NameSearchInput({
 	initialValue,
 	onDebouncedChange,
 	debounceMs = 500,
+	placeholder = "Search by name, ID, DOB, or phone...",
 }: NameSearchInputProps) {
 	const [inputValue, setInputValue] = useState(initialValue);
 	const [isFocused, setIsFocused] = useState(true);
@@ -65,7 +67,7 @@ export function NameSearchInput({
 						onBlur={() => handleFocusBlur(false)}
 						onChange={handleChange}
 						onFocus={() => handleFocusBlur(true)}
-						placeholder="Search by name, ID, or DOB..."
+						placeholder={placeholder}
 						value={inputValue}
 					/>
 					<InputGroupAddon>

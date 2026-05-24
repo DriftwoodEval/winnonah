@@ -46,6 +46,8 @@ import {
 	externalRecords,
 	failures,
 	inPersonAssessments,
+	insuranceAliases,
+	insurances,
 	notes,
 	questionnaires,
 	schoolDistricts,
@@ -1261,6 +1263,7 @@ export const clientRouter = createTRPCRouter({
 				appointmentType: z.enum(["EVAL", "DA", "DAEVAL"]).optional(),
 				appointmentDate: z.date().optional(),
 				nameSearch: z.string().optional(),
+				insuranceFilter: z.array(z.string()).optional(),
 				hideBabyNet: z.boolean().optional(),
 				status: z.enum(["active", "inactive", "all"]).optional(),
 				type: z.enum(["both", "real", "note"]).optional(),
@@ -1295,6 +1298,7 @@ export const clientRouter = createTRPCRouter({
 						// appointmentType,
 						// appointmentDate,
 						nameSearch,
+						insuranceFilter,
 						hideBabyNet,
 						status,
 						type,
@@ -1355,29 +1359,45 @@ export const clientRouter = createTRPCRouter({
 						} else {
 							const numericId = parseInt(trimmedSearch, 10);
 							if (!Number.isNaN(numericId) && /^\d+$/.test(trimmedSearch)) {
-								conditions.push(like(clients.id, `${numericId}%`));
-							} else if (trimmedSearch.length >= 3) {
-								// Clean the user's input string by replacing non-alphanumeric characters with spaces
-								const cleanedSearchString = trimmedSearch.replace(
-									/[^\w ]/g,
-									" ",
+								// Pure digits: match as ID prefix OR phone fragment
+								conditions.push(
+									or(
+										like(clients.id, `${numericId}%`),
+										sql`REGEXP_REPLACE(${clients.phoneNumber}, '[^0-9]', '') LIKE ${`%${trimmedSearch}%`}`,
+									),
 								);
+							} else if (trimmedSearch.length >= 3) {
+								const hasLetters = /[a-zA-Z]/.test(trimmedSearch);
+								const digitsOnly = trimmedSearch.replace(/\D/g, "");
 
-								// Split the cleaned string by spaces and filter out any empty strings
-								const searchWords = cleanedSearchString
-									.split(" ")
-									.filter(Boolean);
-
-								if (searchWords.length > 0) {
-									const nameConditions = searchWords.map(
-										(word) =>
-											sql`REGEXP_REPLACE(${
-												clients.fullName
-												// As bizarre as this looks, we have to escape the slash for both JS and SQL
-											}, '[^\\\\w ]', '') like ${`%${word}%`}`,
+								if (!hasLetters && digitsOnly.length >= 3) {
+									// Digits with separators (e.g. "555-1234"): phone search
+									conditions.push(
+										sql`REGEXP_REPLACE(${clients.phoneNumber}, '[^0-9]', '') LIKE ${`%${digitsOnly}%`}`,
+									);
+								} else {
+									// Clean the user's input string by replacing non-alphanumeric characters with spaces
+									const cleanedSearchString = trimmedSearch.replace(
+										/[^\w ]/g,
+										" ",
 									);
 
-									conditions.push(and(...nameConditions));
+									// Split the cleaned string by spaces and filter out any empty strings
+									const searchWords = cleanedSearchString
+										.split(" ")
+										.filter(Boolean);
+
+									if (searchWords.length > 0) {
+										const nameConditions = searchWords.map(
+											(word) =>
+												sql`REGEXP_REPLACE(${
+													clients.fullName
+													// As bizarre as this looks, we have to escape the slash for both JS and SQL
+												}, '[^\\\\w ]', '') like ${`%${word}%`}`,
+										);
+
+										conditions.push(and(...nameConditions));
+									}
 								}
 							}
 						}
@@ -1469,6 +1489,32 @@ export const clientRouter = createTRPCRouter({
 
 					if (autismStop) {
 						conditions.push(eq(clients.autismStop, true));
+					}
+
+					if (insuranceFilter && insuranceFilter.length > 0) {
+						const aliases = await ctx.db
+							.select({ name: insuranceAliases.name })
+							.from(insuranceAliases)
+							.innerJoin(
+								insurances,
+								eq(insuranceAliases.insuranceId, insurances.id),
+							)
+							.where(inArray(insurances.shortName, insuranceFilter));
+
+						const aliasNames = aliases.map((a) => a.name);
+						if (aliasNames.length > 0) {
+							conditions.push(
+								or(
+									inArray(clients.primaryInsurance, aliasNames),
+									or(
+										...aliasNames.map(
+											(name) =>
+												sql`JSON_SEARCH(${clients.secondaryInsurance}, 'one', ${name}) IS NOT NULL`,
+										),
+									),
+								),
+							);
+						}
 					}
 
 					const countByColor = await ctx.db

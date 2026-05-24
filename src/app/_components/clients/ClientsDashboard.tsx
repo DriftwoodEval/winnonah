@@ -63,6 +63,8 @@ export function ClientsDashboard() {
 	// Mutation to save filters to the session
 	const saveFiltersMutation = api.sessions.saveClientFilters.useMutation();
 
+	const { data: allInsurances } = api.insurances.getAll.useQuery();
+
 	const savedFilters = useMemo(() => {
 		try {
 			return savedFiltersData?.clientFilters
@@ -122,12 +124,17 @@ export function ClientsDashboard() {
 		const privatePay = searchParams.get("privatePay") === "true";
 		const autismStop = searchParams.get("autismStop") === "true";
 		const sort = searchParams.get("sort") ?? undefined;
+		const insuranceParam = searchParams.get("insurance");
+		const insuranceFilter = insuranceParam
+			? insuranceParam.split(",").filter(Boolean)
+			: undefined;
 
 		const finalSearchTerm =
 			debouncedSearchTerm.length >= 3 ? debouncedSearchTerm : undefined;
 
 		return {
 			nameSearch: finalSearchTerm,
+			insuranceFilter: insuranceFilter?.length ? insuranceFilter : undefined,
 			office,
 			evaluatorNpi: evaluator ? parseInt(evaluator, 10) : undefined,
 			hideBabyNet,
@@ -246,6 +253,20 @@ export function ClientsDashboard() {
 		router.push(`${pathname}?${params.toString()}`);
 	};
 
+	const handleInsuranceToggle = (shortName: string) => {
+		const params = new URLSearchParams(searchParams);
+		const current = params.get("insurance")?.split(",").filter(Boolean) ?? [];
+		const next = current.includes(shortName)
+			? current.filter((n) => n !== shortName)
+			: [...current, shortName];
+		if (next.length === 0) {
+			params.delete("insurance");
+		} else {
+			params.set("insurance", next.join(","));
+		}
+		router.push(`${pathname}?${params.toString()}`);
+	};
+
 	const clientFormTrigger = (
 		<Button size="icon" variant="outline">
 			<Plus />
@@ -253,263 +274,286 @@ export function ClientsDashboard() {
 	);
 
 	return (
-		<div className="flex w-full flex-col items-start justify-center gap-4 lg:flex-row lg:gap-8">
-			<div className="flex w-full flex-col gap-3 lg:w-1/3">
-				<div className="flex flex-row gap-3">
-					<NameSearchInput
-						debounceMs={300}
-						initialValue={""}
-						onDebouncedChange={(name) => {
-							setDebouncedSearchTerm(name);
-							setHighlightedIndex(-1);
-						}}
-					/>
+		<div className="flex w-full flex-col gap-3">
+			<div className="flex flex-row gap-3">
+				<NameSearchInput
+					debounceMs={300}
+					initialValue={""}
+					onDebouncedChange={(name) => {
+						setDebouncedSearchTerm(name);
+						setHighlightedIndex(-1);
+					}}
+				/>
 
-					{canShell && (
-						<ResponsiveDialog
-							title="Create Note/Shell Client"
-							trigger={clientFormTrigger}
+				{canShell && (
+					<ResponsiveDialog
+						title="Create Note/Shell Client"
+						trigger={clientFormTrigger}
+					>
+						<ClientCreateForm />
+					</ResponsiveDialog>
+				)}
+
+				<Popover>
+					<PopoverTrigger asChild>
+						<Button
+							className={cn(
+								"text-foreground",
+								["sort"].some(
+									(key) =>
+										queryParams[key as keyof typeof queryParams] !== undefined,
+								)
+									? "bg-secondary hover:bg-secondary/80"
+									: "border bg-background shadow-xs hover:bg-accent hover:text-accent-foreground dark:border-input dark:bg-input/30 dark:hover:bg-input/50",
+							)}
+							size="icon"
 						>
-							<ClientCreateForm />
-						</ResponsiveDialog>
-					)}
-
-					<Popover>
-						<PopoverTrigger asChild>
-							<Button
-								className={cn(
-									"text-foreground",
-									["sort"].some(
-										(key) =>
-											queryParams[key as keyof typeof queryParams] !==
-											undefined,
-									)
-										? "bg-secondary hover:bg-secondary/80"
-										: "border bg-background shadow-xs hover:bg-accent hover:text-accent-foreground dark:border-input dark:bg-input/30 dark:hover:bg-input/50",
-								)}
-								size="icon"
-							>
-								<ArrowDownUp />
-							</Button>
-						</PopoverTrigger>
-						<PopoverContent align="end">
-							<div className="space-y-4">
-								<div className="space-y-2">
-									<p className="font-medium text-sm">Sort By</p>
-									<RadioGroup
-										onValueChange={(value) =>
-											handleUrlParamChange("sort", value)
-										}
-										value={queryParams.sort ?? "priority"}
-									>
-										<div className="flex items-center space-x-2">
-											<RadioGroupItem id={sortPriorityId} value="priority" />
-											<Label htmlFor={sortPriorityId}>Priority</Label>
-										</div>
-										<div className="flex items-center space-x-2">
-											<RadioGroupItem id={sortLastNameId} value="lastName" />
-											<Label htmlFor={sortLastNameId}>Last Name</Label>
-										</div>
-										<div className="flex items-center space-x-2">
-											<RadioGroupItem id={sortFirstNameId} value="firstName" />
-											<Label htmlFor={sortFirstNameId}>First Name</Label>
-										</div>
-										<div className="flex items-center space-x-2">
-											<RadioGroupItem
-												id={sortPaExpirationId}
-												value="paExpiration"
-											/>
-											<Label htmlFor={sortPaExpirationId}>PA Expiration</Label>
-										</div>
-									</RadioGroup>
-								</div>
-							</div>
-						</PopoverContent>
-					</Popover>
-
-					<Popover>
-						<PopoverTrigger asChild>
-							<Button
-								className={cn(
-									"text-foreground",
-									["hideBabynet", "status", "type", "privatepay", "color"].some(
-										(key) =>
-											queryParams[key as keyof typeof queryParams] !== false &&
-											queryParams[key as keyof typeof queryParams] !==
-												undefined &&
-											queryParams[key as keyof typeof queryParams] !==
-												"active" &&
-											queryParams[key as keyof typeof queryParams] !== "both",
-									)
-										? "bg-secondary hover:bg-secondary/80"
-										: "border bg-background shadow-xs hover:bg-accent hover:text-accent-foreground dark:border-input dark:bg-input/30 dark:hover:bg-input/50",
-								)}
-								size="icon"
-							>
-								<Filter />
-							</Button>
-						</PopoverTrigger>
-						<PopoverContent align="end">
-							<div className="space-y-4">
-								<div className="space-y-2">
-									<p className="font-medium text-sm">Client Status</p>
-									<RadioGroup
-										onValueChange={(value) =>
-											handleUrlParamChange("status", value)
-										}
-										value={queryParams.status ?? "active"}
-									>
-										<div className="flex items-center space-x-2">
-											<RadioGroupItem id={activeId} value="active" />
-											<Label htmlFor={activeId}>Active</Label>
-										</div>
-										<div className="flex items-center space-x-2">
-											<RadioGroupItem id={inactiveId} value="inactive" />
-											<Label htmlFor={inactiveId}>Inactive</Label>
-										</div>
-										<div className="flex items-center space-x-2">
-											<RadioGroupItem id={allId} value="all" />
-											<Label htmlFor={allId}>All</Label>
-										</div>
-									</RadioGroup>
-								</div>
-								<Separator />
-								<div className="space-y-2">
-									<p className="font-medium text-sm">Client Type</p>
-									<RadioGroup
-										onValueChange={(value) =>
-											handleUrlParamChange("type", value)
-										}
-										value={queryParams.type ?? "both"}
-									>
-										<div className="flex items-center space-x-2">
-											<RadioGroupItem id={allTypesId} value="both" />
-											<Label htmlFor={allTypesId}>Both</Label>
-										</div>
-										<div className="flex items-center space-x-2">
-											<RadioGroupItem id={realTypeId} value="real" />
-											<Label htmlFor={realTypeId}>Real</Label>
-										</div>
-										<div className="flex items-center space-x-2">
-											<RadioGroupItem id={noteTypeId} value="note" />
-											<Label htmlFor={noteTypeId}>Notes Only</Label>
-										</div>
-									</RadioGroup>
-								</div>
-								<Separator />
-								<div className="space-y-2">
-									<p className="font-medium text-sm">Color</p>
-									<div className="grid grid-cols-6 gap-2 pt-1">
-										{CLIENT_COLOR_KEYS.map((colorKey) => (
-											<Tooltip key={colorKey}>
-												<TooltipTrigger asChild>
-													<button
-														aria-label={`Filter by color: ${formatColorName(
-															colorKey,
-														)}`}
-														className="relative flex h-8 w-8 items-center justify-center rounded-full text-sm"
-														key={colorKey}
-														onClick={() => {
-															const currentValue = queryParams.color;
-															const newValue =
-																currentValue === colorKey ? false : colorKey;
-															handleUrlParamChange("color", newValue);
-														}}
-														style={{
-															color:
-																Number.parseInt(
-																	CLIENT_COLOR_MAP[colorKey].replace("#", ""),
-																	16,
-																) >
-																0xffffff / 2
-																	? "#333"
-																	: "#FFF",
-															backgroundColor: CLIENT_COLOR_MAP[colorKey],
-														}}
-														type="button"
-													>
-														{queryParams.color === colorKey ? (
-															<Check className="h-5 w-5" />
-														) : (
-															(
-																colorCounts?.find((c) => c.color === colorKey)
-																	?.count ?? 0
-															).toString()
-														)}
-													</button>
-												</TooltipTrigger>
-												<TooltipContent
-													arrowClassName="bg-background fill-background"
-													className="bg-background text-foreground"
-												>
-													<p>{formatColorName(colorKey)}</p>
-												</TooltipContent>
-											</Tooltip>
-										))}
+							<ArrowDownUp />
+						</Button>
+					</PopoverTrigger>
+					<PopoverContent align="end">
+						<div className="space-y-4">
+							<div className="space-y-2">
+								<p className="font-medium text-sm">Sort By</p>
+								<RadioGroup
+									onValueChange={(value) => handleUrlParamChange("sort", value)}
+									value={queryParams.sort ?? "priority"}
+								>
+									<div className="flex items-center space-x-2">
+										<RadioGroupItem id={sortPriorityId} value="priority" />
+										<Label htmlFor={sortPriorityId}>Priority</Label>
 									</div>
-								</div>
-								<Separator />
-								<div className="flex items-center space-x-2">
-									<Checkbox
-										checked={queryParams.hideBabyNet}
-										id={hideBabyNetId}
-										onCheckedChange={(checked) =>
-											handleUrlParamChange("hideBabyNet", !!checked)
-										}
-									/>
-									<Label
-										className="font-medium text-sm"
-										htmlFor={hideBabyNetId}
-									>
-										Hide BabyNet Clients
-									</Label>
-								</div>
-								<div className="flex items-center space-x-2">
-									<Checkbox
-										checked={queryParams.privatePay}
-										id={privatePayId}
-										onCheckedChange={(checked) =>
-											handleUrlParamChange("privatePay", !!checked)
-										}
-									/>
-									<Label className="font-medium text-sm" htmlFor={privatePayId}>
-										Private Pay Only
-									</Label>
-								</div>
-								<div className="flex items-center space-x-2">
-									<Checkbox
-										checked={queryParams.autismStop}
-										id={autismStopId}
-										onCheckedChange={(checked) =>
-											handleUrlParamChange("autismStop", !!checked)
-										}
-									/>
-									<Label className="font-medium text-sm" htmlFor={autismStopId}>
-										"Autism" in Records
-									</Label>
+									<div className="flex items-center space-x-2">
+										<RadioGroupItem id={sortLastNameId} value="lastName" />
+										<Label htmlFor={sortLastNameId}>Last Name</Label>
+									</div>
+									<div className="flex items-center space-x-2">
+										<RadioGroupItem id={sortFirstNameId} value="firstName" />
+										<Label htmlFor={sortFirstNameId}>First Name</Label>
+									</div>
+									<div className="flex items-center space-x-2">
+										<RadioGroupItem
+											id={sortPaExpirationId}
+											value="paExpiration"
+										/>
+										<Label htmlFor={sortPaExpirationId}>PA Expiration</Label>
+									</div>
+								</RadioGroup>
+							</div>
+						</div>
+					</PopoverContent>
+				</Popover>
+
+				<Popover>
+					<PopoverTrigger asChild>
+						<Button
+							className={cn(
+								"text-foreground",
+								["hideBabynet", "status", "type", "privatepay", "color"].some(
+									(key) =>
+										queryParams[key as keyof typeof queryParams] !== false &&
+										queryParams[key as keyof typeof queryParams] !==
+											undefined &&
+										queryParams[key as keyof typeof queryParams] !== "active" &&
+										queryParams[key as keyof typeof queryParams] !== "both",
+								) || (queryParams.insuranceFilter?.length ?? 0) > 0
+									? "bg-secondary hover:bg-secondary/80"
+									: "border bg-background shadow-xs hover:bg-accent hover:text-accent-foreground dark:border-input dark:bg-input/30 dark:hover:bg-input/50",
+							)}
+							size="icon"
+						>
+							<Filter />
+						</Button>
+					</PopoverTrigger>
+					<PopoverContent align="end">
+						<div className="space-y-4">
+							<div className="space-y-2">
+								<p className="font-medium text-sm">Client Status</p>
+								<RadioGroup
+									onValueChange={(value) =>
+										handleUrlParamChange("status", value)
+									}
+									value={queryParams.status ?? "active"}
+								>
+									<div className="flex items-center space-x-2">
+										<RadioGroupItem id={activeId} value="active" />
+										<Label htmlFor={activeId}>Active</Label>
+									</div>
+									<div className="flex items-center space-x-2">
+										<RadioGroupItem id={inactiveId} value="inactive" />
+										<Label htmlFor={inactiveId}>Inactive</Label>
+									</div>
+									<div className="flex items-center space-x-2">
+										<RadioGroupItem id={allId} value="all" />
+										<Label htmlFor={allId}>All</Label>
+									</div>
+								</RadioGroup>
+							</div>
+							<Separator />
+							<div className="space-y-2">
+								<p className="font-medium text-sm">Client Type</p>
+								<RadioGroup
+									onValueChange={(value) => handleUrlParamChange("type", value)}
+									value={queryParams.type ?? "both"}
+								>
+									<div className="flex items-center space-x-2">
+										<RadioGroupItem id={allTypesId} value="both" />
+										<Label htmlFor={allTypesId}>Both</Label>
+									</div>
+									<div className="flex items-center space-x-2">
+										<RadioGroupItem id={realTypeId} value="real" />
+										<Label htmlFor={realTypeId}>Real</Label>
+									</div>
+									<div className="flex items-center space-x-2">
+										<RadioGroupItem id={noteTypeId} value="note" />
+										<Label htmlFor={noteTypeId}>Notes Only</Label>
+									</div>
+								</RadioGroup>
+							</div>
+							<Separator />
+							<div className="space-y-2">
+								<p className="font-medium text-sm">Color</p>
+								<div className="grid grid-cols-6 gap-2 pt-1">
+									{CLIENT_COLOR_KEYS.map((colorKey) => (
+										<Tooltip key={colorKey}>
+											<TooltipTrigger asChild>
+												<button
+													aria-label={`Filter by color: ${formatColorName(
+														colorKey,
+													)}`}
+													className="relative flex h-8 w-8 items-center justify-center rounded-full text-sm"
+													key={colorKey}
+													onClick={() => {
+														const currentValue = queryParams.color;
+														const newValue =
+															currentValue === colorKey ? false : colorKey;
+														handleUrlParamChange("color", newValue);
+													}}
+													style={{
+														color:
+															Number.parseInt(
+																CLIENT_COLOR_MAP[colorKey].replace("#", ""),
+																16,
+															) >
+															0xffffff / 2
+																? "#333"
+																: "#FFF",
+														backgroundColor: CLIENT_COLOR_MAP[colorKey],
+													}}
+													type="button"
+												>
+													{queryParams.color === colorKey ? (
+														<Check className="h-5 w-5" />
+													) : (
+														(
+															colorCounts?.find((c) => c.color === colorKey)
+																?.count ?? 0
+														).toString()
+													)}
+												</button>
+											</TooltipTrigger>
+											<TooltipContent
+												arrowClassName="bg-background fill-background"
+												className="bg-background text-foreground"
+											>
+												<p>{formatColorName(colorKey)}</p>
+											</TooltipContent>
+										</Tooltip>
+									))}
 								</div>
 							</div>
-						</PopoverContent>
-					</Popover>
-				</div>
+							<Separator />
+							<div className="flex items-center space-x-2">
+								<Checkbox
+									checked={queryParams.hideBabyNet}
+									id={hideBabyNetId}
+									onCheckedChange={(checked) =>
+										handleUrlParamChange("hideBabyNet", !!checked)
+									}
+								/>
+								<Label className="font-medium text-sm" htmlFor={hideBabyNetId}>
+									Hide BabyNet Clients
+								</Label>
+							</div>
+							<div className="flex items-center space-x-2">
+								<Checkbox
+									checked={queryParams.privatePay}
+									id={privatePayId}
+									onCheckedChange={(checked) =>
+										handleUrlParamChange("privatePay", !!checked)
+									}
+								/>
+								<Label className="font-medium text-sm" htmlFor={privatePayId}>
+									Private Pay Only
+								</Label>
+							</div>
+							<div className="flex items-center space-x-2">
+								<Checkbox
+									checked={queryParams.autismStop}
+									id={autismStopId}
+									onCheckedChange={(checked) =>
+										handleUrlParamChange("autismStop", !!checked)
+									}
+								/>
+								<Label className="font-medium text-sm" htmlFor={autismStopId}>
+									"Autism" in Records
+								</Label>
+							</div>
+							{allInsurances && allInsurances.length > 0 && (
+								<>
+									<Separator />
+									<div className="space-y-2">
+										<p className="font-medium text-sm">Insurance</p>
+										<div className="max-h-48 space-y-2 overflow-y-auto">
+											{allInsurances.map((ins) => (
+												<div
+													className="flex items-center space-x-2"
+													key={ins.id}
+												>
+													<Checkbox
+														checked={
+															queryParams.insuranceFilter?.includes(
+																ins.shortName,
+															) ?? false
+														}
+														id={`insurance-${ins.id}`}
+														onCheckedChange={() =>
+															handleInsuranceToggle(ins.shortName)
+														}
+													/>
+													<Label
+														className="font-medium text-sm"
+														htmlFor={`insurance-${ins.id}`}
+													>
+														{ins.shortName}
+													</Label>
+												</div>
+											))}
+										</div>
+									</div>
+								</>
+							)}
+						</div>
+					</PopoverContent>
+				</Popover>
+			</div>
 
-				<div
-					className={
-						isPlaceholderData
-							? "opacity-60 transition-opacity duration-200"
-							: "opacity-100 transition-opacity duration-200"
-					}
-				>
-					{isLoading ? (
-						<Skeleton className="h-[400px] w-full" />
-					) : (
-						<ClientsList
-							clients={clients ?? []}
-							highlightedIndex={highlightedIndex}
-							savedPlace={queryParams.color}
-						/>
-					)}
-				</div>
+			<div
+				className={
+					isPlaceholderData
+						? "opacity-60 transition-opacity duration-200"
+						: "opacity-100 transition-opacity duration-200"
+				}
+			>
+				{isLoading ? (
+					<Skeleton className="h-[calc(100dvh-8rem)] w-full" />
+				) : (
+					<ClientsList
+						clients={clients ?? []}
+						highlightedIndex={highlightedIndex}
+						savedPlace={queryParams.color}
+					/>
+				)}
 			</div>
 		</div>
 	);
