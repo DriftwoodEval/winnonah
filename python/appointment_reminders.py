@@ -366,7 +366,7 @@ async def reminder_cron():
     while True:
         logger.info("Starting reminder dispatch cycle...")
         try:
-            process_reminders()
+            await process_reminders()
         except Exception as e:
             logger.error(f"Failed to process reminders: {e}")
 

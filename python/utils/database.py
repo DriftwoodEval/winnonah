@@ -64,6 +64,28 @@ def get_db() -> Connection[DictCursor]:
 def provide_connection(func: Callable) -> Callable:
     """Decorator to automatically provide a DB connection if not present."""
 
+    if inspect.iscoroutinefunction(func):
+
+        @wraps(func)
+        async def async_wrapper(*args, **kwargs):
+            if kwargs.get("connection") is not None:
+                return await func(*args, **kwargs)
+
+            # Check if connection is in positional args
+            sig = inspect.signature(func)
+            bound_args = sig.bind_partial(*args, **kwargs)
+            if (
+                "connection" in bound_args.arguments
+                and bound_args.arguments["connection"] is not None
+            ):
+                return await func(*args, **kwargs)
+
+            with db_session() as new_conn:
+                kwargs["connection"] = new_conn
+                return await func(*args, **kwargs)
+
+        return async_wrapper
+
     @wraps(func)
     def wrapper(*args, **kwargs):
         if kwargs.get("connection") is not None:
