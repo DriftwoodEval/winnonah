@@ -102,7 +102,7 @@ def _open_profile(driver: WebDriver):
     )
 
 
-def _export_data(driver: WebDriver):
+def _export_data(driver: WebDriver, npi: str | None = None):  # noqa: ARG001 Needs to match function signature of _download_data
     """Exports therapist data to CSV files."""
 
     def _helper(driver: WebDriver, data_title: str) -> bool:
