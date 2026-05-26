@@ -14,6 +14,7 @@ interface ClientsListProps {
 	highlightedIndex: number;
 	savedPlace?: string;
 	highlightedItemRef?: React.RefObject<HTMLDivElement | null>;
+	heightClass?: string;
 }
 
 export function ClientsList({
@@ -21,6 +22,7 @@ export function ClientsList({
 	highlightedIndex,
 	savedPlace,
 	highlightedItemRef,
+	heightClass = "h-[calc(100dvh-8rem)]",
 }: ClientsListProps) {
 	const utils = api.useUtils();
 	const savedClientRef = useRef<HTMLDivElement>(null);
@@ -94,7 +96,9 @@ export function ClientsList({
 
 	if (clients.length === 0) {
 		return (
-			<div className="flex h-[calc(100dvh-8rem)] w-full items-center justify-center rounded-md border border-dashed">
+			<div
+				className={`flex ${heightClass} w-full items-center justify-center rounded-md border border-dashed`}
+			>
 				<div className="text-center">
 					<h3 className="font-semibold text-lg">No Clients Found</h3>
 					<p className="text-muted-foreground text-sm">
@@ -106,7 +110,9 @@ export function ClientsList({
 	}
 
 	return (
-		<ScrollArea className="h-[calc(100dvh-8rem)] w-full rounded-md border bg-card text-card-foreground shadow">
+		<ScrollArea
+			className={`${heightClass} w-full rounded-md border bg-card text-card-foreground shadow`}
+		>
 			<div className="p-4">
 				<div className="mb-2 flex min-h-8 items-center justify-between">
 					<h4 className="font-medium text-muted-foreground text-sm leading-none">

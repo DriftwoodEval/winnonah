@@ -207,6 +207,7 @@ export function GlobalClientSearch() {
 						) : (
 							<ClientsList
 								clients={clients ?? []}
+								heightClass="h-[400px]"
 								highlightedIndex={highlightedIndex}
 								highlightedItemRef={highlightedItemRef}
 							/>
