@@ -82,26 +82,28 @@ export const externalRecordRouter = createTRPCRouter({
 			assertPermission(ctx.session.user, "clients:records:requested");
 			ctx.logger.info(input, "Flagging record request");
 
-			await ctx.db.insert(externalRecordRequests).values({
-				clientId: input.clientId,
-				createdBy: ctx.session.user.email,
-			});
-
-			const existing = await ctx.db.query.externalRecords.findFirst({
-				where: eq(externalRecords.clientId, input.clientId),
-			});
-			if (!existing) {
-				await ctx.db.insert(externalRecords).values({
+			const requests = await ctx.db.transaction(async (tx) => {
+				await tx.insert(externalRecordRequests).values({
 					clientId: input.clientId,
-					updatedBy: ctx.session.user.email,
+					createdBy: ctx.session.user.email,
 				});
-			}
 
-			const requests = await ctx.db
-				.select()
-				.from(externalRecordRequests)
-				.where(eq(externalRecordRequests.clientId, input.clientId))
-				.orderBy(asc(externalRecordRequests.id));
+				const existing = await tx.query.externalRecords.findFirst({
+					where: eq(externalRecords.clientId, input.clientId),
+				});
+				if (!existing) {
+					await tx.insert(externalRecords).values({
+						clientId: input.clientId,
+						updatedBy: ctx.session.user.email,
+					});
+				}
+
+				return tx
+					.select()
+					.from(externalRecordRequests)
+					.where(eq(externalRecordRequests.clientId, input.clientId))
+					.orderBy(asc(externalRecordRequests.id));
+			});
 
 			externalRecordsEmitter.emit("externalRecordsNoteUpdate", {
 				clientId: input.clientId,
@@ -282,10 +284,13 @@ export const externalRecordRouter = createTRPCRouter({
 					});
 
 					if (!currentRecordNote) {
-						throw new TRPCError({
-							code: "NOT_FOUND",
-							message: "Note not found",
+						// No row yet (e.g. requests exist but record was never created) — insert it
+						await tx.insert(externalRecords).values({
+							clientId: input.clientId,
+							content: input.contentJson,
+							updatedBy: ctx.session.user.email,
 						});
+						return true;
 					}
 
 					const newContent =
