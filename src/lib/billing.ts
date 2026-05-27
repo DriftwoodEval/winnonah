@@ -6,7 +6,6 @@ type MaxUnitsPerCode = {
 	max96131?: number;
 	max96136?: number;
 	max96137?: number;
-	// Max units allowed on the 4th appointment (output index 2, displayed as "Appointment 4")
 	maxAppt4Units?: number;
 };
 
@@ -32,9 +31,11 @@ export function calculateAdditionalAppointments(
 	const cap96130 = maxUnitsPerCode?.max96130 ?? Infinity;
 	const cap96131 = maxUnitsPerCode?.max96131 ?? Infinity;
 
-	// The 4th appointment (displayed as "Appointment 4") is at output index 2
+	// Appointment 1 is calculated and then discarded (slice(1) below).
+	// So internally: index 0 = Appt 1 (discarded), index 1 = Appt 2, index 2 = Appt 3, index 3 = Appt 4.
+	// The 4th appointment is at internal index 3.
 	const getApptUnitCap = (index: number): number =>
-		index === 2 && maxUnitsPerCode?.maxAppt4Units !== undefined
+		index === 3 && maxUnitsPerCode?.maxAppt4Units !== undefined
 			? maxUnitsPerCode.maxAppt4Units
 			: maxUnitsPerDay;
 
@@ -109,5 +110,6 @@ export function calculateAdditionalAppointments(
 		fill136_137(remaining130_131 * 2);
 	}
 
-	return appointments;
+	// Discard appointment 1, it was used in the calculation but is not displayed.
+	return appointments.slice(1);
 }
