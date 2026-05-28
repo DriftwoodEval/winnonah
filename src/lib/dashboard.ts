@@ -1,4 +1,3 @@
-import { env } from "~/env";
 import type { Client, Failure, FullClientInfo } from "./models";
 
 export const SECTION_ACTIVE_NOT_ON_PUNCHLIST = "Active and Not On Punchlist";
@@ -42,7 +41,7 @@ const isPastDate = (val: string | undefined | null) => {
 
 const sentExtraInfo = (client: FullClientInfo) => {
 	const Qs = client.questionnaires;
-	if (!Qs || Qs.length === 0) return `Not in ${env.NEXT_PUBLIC_APP_TITLE[0]}`;
+	if (!Qs || Qs.length === 0) return "Sent on punch, no Qs in EMR";
 	const minReminded = Math.min(...Qs.map((q) => q.reminded ?? 0));
 	return `Reminded: ${minReminded}`;
 };
