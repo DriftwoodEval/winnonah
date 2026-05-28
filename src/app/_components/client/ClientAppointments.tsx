@@ -45,7 +45,7 @@ export function ClientAppointments({ clientId }: { clientId: number }) {
 	if (!appointments?.length) return null;
 
 	return (
-		<div className="flex max-h-80 w-full flex-col rounded-md border bg-background shadow-sm">
+		<div className="flex max-h-80 w-full flex-col overflow-hidden rounded-md border bg-background shadow-sm">
 			<div className="sticky top-0 z-10 flex items-center justify-between px-4 pt-4">
 				<h4 className="font-bold">Appointments</h4>
 				<Badge className="h-5 px-1.5 font-mono text-[10px]" variant="outline">
