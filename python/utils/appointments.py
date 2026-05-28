@@ -11,7 +11,6 @@ from googleapiclient.discovery import build
 from loguru import logger
 
 import utils.misc
-from utils.clients import TEST_NAMES
 from utils.database import (
     get_all_evaluators_npi_map,
     get_client_id_to_asd_adhd_map,
@@ -155,12 +154,12 @@ class SyncReporter:
 
 
 def should_skip_appointment(appointment: pd.Series) -> bool:
-    """Skip test clients, 'Reports' CPT code, or cancelled appointments."""
-    name = re.sub(r"[\d\(\)]", "", appointment["NAME"]).strip()
+    """Skip test clients or 'Reports' CPT code."""
+    # name = re.sub(r"[\d\(\)]", "", appointment["NAME"]).strip()  # noqa: ERA001 temporary for appointment testing
     cpt = re.sub(r"\D", "", appointment["NAME"])
-    cancelled = isinstance(appointment["CANCELBYNAME"], str)
 
-    return name in TEST_NAMES or "96130" in cpt or cancelled
+    # return name in TEST_NAMES or "96130" in cpt  # noqa: ERA001 temporary for appointment testing
+    return "96130" in cpt
 
 
 def batch_search_calendar_events(
@@ -385,6 +384,11 @@ def prepare_appointments_from_csv(
         logger.info("No valid appointments found in the processing window.")
         return appointments_df
 
+    # Separate cancelled appointments — they won't appear in GCal and don't need matching
+    cancelled_mask = appointments_df["CANCELBYNAME"].apply(lambda x: isinstance(x, str))
+    cancelled_df = appointments_df[cancelled_mask].copy()
+    appointments_df = appointments_df[~cancelled_mask].copy().reset_index(drop=True)
+
     logger.info(f"Searching Google Calendar for {len(appointments_df)} appointments...")
 
     calendar_list = service.calendarList().list().execute()
@@ -458,7 +462,8 @@ def prepare_appointments_from_csv(
         updates_df = pd.DataFrame.from_dict(gcal_updates, orient="index")
         appointments_df.update(updates_df)
 
-    return appointments_df.drop(index=list(final_drops)).reset_index(drop=True)
+    result_df = appointments_df.drop(index=list(final_drops)).reset_index(drop=True)
+    return pd.concat([result_df, cancelled_df], ignore_index=True)
 
 
 def insert_appointments_with_gcal(appointment_sync_data: dict[str, list[str]] | None):
@@ -530,17 +535,17 @@ def insert_appointments_with_gcal(appointment_sync_data: dict[str, list[str]] | 
             )
             confirmed_at = datetime.now() if is_confirmed else None
 
-        elif is_trusted:
-            # Fallback to CSV NPI
+        elif is_trusted or cancelled:
+            # Fallback to CSV NPI (trusted imports and cancelled appointments)
             raw_npi = appointment.get("NPI")
             try:
                 evaluator_npi = int(raw_npi) if pd.notna(raw_npi) else None
-            except ValueError:
+            except ValueError, TypeError:
                 evaluator_npi = None
 
             if not evaluator_npi:
                 logger.warning(
-                    f"Skipping trusted import for {client_id}: No valid NPI in CSV."
+                    f"Skipping {'cancelled' if cancelled else 'trusted'} appointment {appointment_id} for {client_id}: No valid NPI in CSV."
                 )
                 continue
             confirmed_at = None
