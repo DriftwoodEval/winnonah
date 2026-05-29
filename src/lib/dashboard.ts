@@ -39,11 +39,24 @@ const isPastDate = (val: string | undefined | null) => {
 	return !Number.isNaN(parsed) && parsed < Date.now();
 };
 
+const getMinReminded = (client: FullClientInfo): number => {
+	if (!client.questionnaires?.length) return 0;
+	return Math.min(...client.questionnaires.map((q) => q.reminded ?? 0));
+};
+
 const sentExtraInfo = (client: FullClientInfo) => {
 	const Qs = client.questionnaires;
 	if (!Qs || Qs.length === 0) return "Sent on punch, no Qs in EMR";
-	const minReminded = Math.min(...Qs.map((q) => q.reminded ?? 0));
-	return `Reminded: ${minReminded}`;
+	return `Reminded: ${getMinReminded(client)}`;
+};
+
+const sortByRemindersDesc = (a: FullClientInfo, b: FullClientInfo) => {
+	const aHasQs = !!a.questionnaires?.length;
+	const bHasQs = !!b.questionnaires?.length;
+	if (!aHasQs && !bHasQs) return 0;
+	if (!aHasQs) return -1;
+	if (!bHasQs) return 1;
+	return getMinReminded(b) - getMinReminded(a);
 };
 
 const getPunchClientIds = (punchClients: FullClientInfo[] | undefined) => {
@@ -63,6 +76,7 @@ export const DASHBOARD_CONFIG: {
 	filter: (client: FullClientInfo) => boolean;
 	failureFilter?: (failure: Failure) => boolean;
 	extraInfo?: (client: FullClientInfo) => string | undefined;
+	sort?: (a: FullClientInfo, b: FullClientInfo) => number;
 }[] = [
 	{
 		title: "Records Status Not Set",
@@ -143,6 +157,7 @@ export const DASHBOARD_CONFIG: {
 			),
 		extraInfo: sentExtraInfo,
 		failureFilter: (f) => f.daEval === "DA",
+		sort: sortByRemindersDesc,
 	},
 	{
 		title: SECTION_DA_QS_DONE,
@@ -189,6 +204,7 @@ export const DASHBOARD_CONFIG: {
 			!(client["DA Qs Sent"] === "TRUE" && client["DA Qs Done"] === "FALSE"),
 		extraInfo: sentExtraInfo,
 		failureFilter: (f) => f.daEval === "EVAL",
+		sort: sortByRemindersDesc,
 	},
 	{
 		title: "DA+Eval Qs Sent",
@@ -201,6 +217,7 @@ export const DASHBOARD_CONFIG: {
 			client["EVAL Qs Done"] === "FALSE",
 		extraInfo: sentExtraInfo,
 		failureFilter: (f) => f.daEval === "DAEVAL",
+		sort: sortByRemindersDesc,
 	},
 	{
 		title: SECTION_EVAL_QS_DONE,
@@ -316,20 +333,23 @@ export function getDashboardSections(
 			})) ?? []),
 	];
 
-	const filteredSections = DASHBOARD_CONFIG.map((config) => ({
-		title: config.title,
-		subheading: config.subheading,
-		description: config.description,
-		clients:
-			activePunchClients?.filter(config.filter).map((client) => ({
+	const filteredSections = DASHBOARD_CONFIG.map((config) => {
+		const filtered = activePunchClients?.filter(config.filter) ?? [];
+		if (config.sort) filtered.sort(config.sort);
+		return {
+			title: config.title,
+			subheading: config.subheading,
+			description: config.description,
+			clients: filtered.map((client) => ({
 				...client,
 				failures: client.failures?.filter(
 					(f) =>
 						(f.reminded ?? 0) < 100 && (config.failureFilter?.(f) ?? false),
 				),
 				extraInfo: config.extraInfo?.(client),
-			})) ?? [],
-	}));
+			})),
+		};
+	});
 
 	const justAddedSection = {
 		title: SECTION_JUST_ADDED,
