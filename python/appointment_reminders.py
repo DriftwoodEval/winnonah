@@ -297,9 +297,11 @@ async def handle_incoming_reply(
         # Find the most recent unconfirmed appointment for this client
         query = f"""
             SELECT a.id as appointment_id, t.confirmationReply, a.startTime,
-                   a.calendarEventId, a.calendarEventTitle
+                   a.calendarEventId, a.calendarEventTitle,
+                   o.prettyName AS officeLabel, o.locationPhrase AS officeLocationPhrase
             FROM {TABLE_APPOINTMENT} a
             JOIN {TABLE_CLIENT} c ON a.clientId = c.id
+            LEFT JOIN {TABLE_OFFICE} o ON a.locationKey = o.`key`
             JOIN {TABLE_APPOINTMENT_REMINDER_LOGS} l ON a.id = l.appointmentId
             JOIN {TABLE_APPOINTMENT_REMINDER_TEMPLATES} t ON l.reminderTemplateId = t.id
             WHERE c.phoneNumber = %s
