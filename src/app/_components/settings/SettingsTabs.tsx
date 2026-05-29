@@ -10,6 +10,7 @@ import QuestionnaireRulesTable from "@components/settings/QuestionnaireRulesTabl
 import UsersTable from "@components/settings/UsersTable";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@ui/tabs";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { useEffect, useState } from "react";
 import BillingDownload from "~/app/_components/settings/BillingDownload";
 import { useCheckPermission } from "~/hooks/use-check-permission";
 import ReminderSettings from "./RemindersSettings";
@@ -20,9 +21,15 @@ export function SettingsTabs() {
 	const searchParams = useSearchParams();
 	const can = useCheckPermission();
 
-	const activeTab = searchParams.get("tab") ?? "users";
+	const urlTab = searchParams.get("tab") ?? "users";
+	const [activeTab, setActiveTab] = useState(urlTab);
+
+	useEffect(() => {
+		setActiveTab(urlTab);
+	}, [urlTab]);
 
 	const handleTabChange = (value: string) => {
+		setActiveTab(value);
 		const params = new URLSearchParams(searchParams.toString());
 		params.set("tab", value);
 		router.push(`${pathname}?${params.toString()}`);
