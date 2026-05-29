@@ -187,7 +187,11 @@ async def process_reminders(connection: Connection[DictCursor]) -> None:
                     AND (
                         (%s IS NOT NULL AND a.calendarEventTitle LIKE %s)
                         OR
-                        (%s IS NOT NULL AND %s IS NOT NULL AND a.daEval = %s AND a.locationKey = %s)
+                        (
+                            (%s IS NOT NULL OR %s IS NOT NULL)
+                            AND (%s IS NULL OR a.daEval = %s)
+                            AND (%s IS NULL OR a.locationKey = %s)
+                        )
                     )
                     AND a.startTime <= %s
                     AND a.startTime >= NOW()
@@ -199,6 +203,8 @@ async def process_reminders(connection: Connection[DictCursor]) -> None:
                     trigger_da_eval,
                     trigger_location_key,
                     trigger_da_eval,
+                    trigger_da_eval,
+                    trigger_location_key,
                     trigger_location_key,
                     max_lead_time,
                 )

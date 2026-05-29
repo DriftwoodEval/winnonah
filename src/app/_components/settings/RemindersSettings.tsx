@@ -176,10 +176,13 @@ export default function ReminderSettings() {
 									{template.triggerKeyword && (
 										<span>Keyword: "{template.triggerKeyword}" • </span>
 									)}
-									{template.triggerDaEval && template.triggerLocationKey && (
+									{(template.triggerDaEval ?? template.triggerLocationKey) && (
 										<span>
-											Match: {template.triggerDaEval} @{" "}
-											{template.triggerLocationKey} •{" "}
+											{template.triggerDaEval ?? "Any appointment type"} @{" "}
+											{offices?.find(
+												(o) => o.key === template.triggerLocationKey,
+											)?.prettyName ?? "Any location"}{" "}
+											•{" "}
 										</span>
 									)}
 									{formatReminderOffset(template.sendOffsetHours)}
