@@ -82,7 +82,7 @@ export function AdditionalInsuranceAppointmentsDisplay({
 							<div className="flex items-center justify-between">
 								<div className="flex items-center gap-4">
 									<Label className="font-semibold">
-										Appointment {apptIndex + 2}
+										Appointment {apptIndex + 1}
 									</Label>
 								</div>
 							</div>
