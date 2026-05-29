@@ -28,6 +28,7 @@ import {
 } from "@ui/select";
 import { Switch } from "@ui/switch";
 import { Textarea } from "@ui/textarea";
+import { format } from "date-fns";
 import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
@@ -120,12 +121,21 @@ export function ReminderTemplateDialog({
 		},
 	});
 
+	const triggerLocationKey = form.watch("triggerLocationKey");
+	const previewOffice =
+		offices?.find((o) => o.key === triggerLocationKey) ?? offices?.[0];
+
+	const sendOffsetHours = form.watch("sendOffsetHours");
+	const previewApptTime = new Date(
+		Date.now() + sendOffsetHours * 60 * 60 * 1000,
+	);
+
 	const applyPreviewVars = (t: string) =>
 		t
-			.replace(/\$START_TIME/g, "9:00 AM")
-			.replace(/\$DATE/g, "May 8, 20XX")
-			.replace(/\$OFFICE_NAME/g, "Main Office")
-			.replace(/\$LOCATION/g, "at 123 Main St, Suite 100");
+			.replace(/\$START_TIME/g, format(previewApptTime, "h:mm a"))
+			.replace(/\$DATE/g, format(previewApptTime, "EEEE, MMMM d"))
+			.replace(/\$OFFICE_NAME/g, previewOffice?.prettyName ?? "")
+			.replace(/\$LOCATION/g, previewOffice?.locationPhrase ?? "");
 
 	const messageTemplate = form.watch("messageTemplate");
 	const messagePreview = messageTemplate
