@@ -5,6 +5,7 @@ import {
 	appointmentReminderSettings,
 	appointments,
 	evaluators,
+	offices,
 	reminderLogs,
 	reminderTemplates,
 } from "~/server/db/schema";
@@ -127,8 +128,11 @@ export const appointmentRouter = createTRPCRouter({
 					cancelled: appointments.cancelled,
 					rescheduled: appointments.rescheduled,
 					confirmedAt: appointments.confirmedAt,
+					officeName: offices.prettyName,
+					officeLocationPhrase: offices.locationPhrase,
 				})
 				.from(appointments)
+				.leftJoin(offices, eq(appointments.locationKey, offices.key))
 				.where(eq(appointments.id, input.appointmentId))
 				.limit(1);
 
@@ -243,6 +247,12 @@ export const appointmentRouter = createTRPCRouter({
 				(a, b) => a.scheduledFor.getTime() - b.scheduledFor.getTime(),
 			);
 
-			return { sent, pending, appointmentTime: localStart };
+			return {
+				sent,
+				pending,
+				appointmentTime: localStart,
+				officeName: appt.officeName ?? null,
+				officeLocationPhrase: appt.officeLocationPhrase ?? null,
+			};
 		}),
 });

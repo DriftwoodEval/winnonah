@@ -4,20 +4,36 @@ import { Skeleton } from "@ui/skeleton";
 import { format, formatDistanceToNow } from "date-fns";
 import { api } from "~/trpc/react";
 
-function formatPreview(template: string, appointmentTime: Date): string {
+function formatPreview(
+	template: string,
+	appointmentTime: Date,
+	officeName: string | null,
+	officeLocationPhrase: string | null,
+): string {
 	return template
-		.replace(/{startTime}/g, format(appointmentTime, "h:mm a"))
-		.replace(/{date}/g, format(appointmentTime, "EEEE, MMMM d"));
+		.replace(/\$START_TIME/g, format(appointmentTime, "h:mm a"))
+		.replace(/\$DATE/g, format(appointmentTime, "EEEE, MMMM d"))
+		.replace(/\$OFFICE_NAME/g, officeName ?? "")
+		.replace(/\$LOCATION/g, officeLocationPhrase ?? "");
 }
 
 function MessageSnippet({
 	messageTemplate,
 	appointmentTime,
+	officeName,
+	officeLocationPhrase,
 }: {
 	messageTemplate: string;
 	appointmentTime: Date;
+	officeName: string | null;
+	officeLocationPhrase: string | null;
 }) {
-	const preview = formatPreview(messageTemplate, appointmentTime);
+	const preview = formatPreview(
+		messageTemplate,
+		appointmentTime,
+		officeName,
+		officeLocationPhrase,
+	);
 	return (
 		<p className="mt-0.5 line-clamp-3 whitespace-pre-wrap font-mono text-[9px] text-muted-foreground/70 leading-tight">
 			{preview}
@@ -52,6 +68,8 @@ export function AppointmentReminderTimeline({
 		);
 
 	const appointmentTime = data.appointmentTime;
+	const officeName = data.officeName ?? null;
+	const officeLocationPhrase = data.officeLocationPhrase ?? null;
 
 	return (
 		<div className="relative ml-1 space-y-2 border-border border-l pl-3">
@@ -73,6 +91,8 @@ export function AppointmentReminderTimeline({
 					<MessageSnippet
 						appointmentTime={appointmentTime}
 						messageTemplate={item.messageTemplate}
+						officeLocationPhrase={officeLocationPhrase}
+						officeName={officeName}
 					/>
 				</div>
 			))}
@@ -92,6 +112,9 @@ export function AppointmentReminderTimeline({
 						) : (
 							<>
 								{format(item.scheduledFor, "MMM d 'at' p")}
+								{item.condition && (
+									<span className="ml-1 font-normal">({item.condition})</span>
+								)}
 								{item.quietAdjusted && (
 									<span className="ml-1 font-normal italic">
 										(adj. for quiet hours)
@@ -102,11 +125,12 @@ export function AppointmentReminderTimeline({
 					</p>
 					<p className={`text-[10px] text-muted-foreground leading-tight`}>
 						{item.templateName}
-						{item.condition && <span className="ml-1">({item.condition})</span>}
 					</p>
 					<MessageSnippet
 						appointmentTime={appointmentTime}
 						messageTemplate={item.messageTemplate}
+						officeLocationPhrase={officeLocationPhrase}
+						officeName={officeName}
 					/>
 				</div>
 			))}

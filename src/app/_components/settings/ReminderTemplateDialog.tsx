@@ -122,8 +122,10 @@ export function ReminderTemplateDialog({
 
 	const messageTemplate = form.watch("messageTemplate");
 	const messagePreview = messageTemplate
-		?.replace(/\{startTime\}/g, "9:00 AM")
-		?.replace(/\{date\}/g, "May 8, 20XX");
+		?.replace(/\$START_TIME/g, "9:00 AM")
+		?.replace(/\$DATE/g, "May 8, 20XX")
+		?.replace(/\$OFFICE_NAME/g, "Main Office")
+		?.replace(/\$LOCATION/g, "at 123 Main St, Suite 100");
 
 	function onSubmit(values: ReminderTemplateFormValues) {
 		const isFollowUp = values.isNoReplyFollowUp || values.isConfirmedFollowUp;
@@ -231,7 +233,7 @@ export function ReminderTemplateDialog({
 												</SelectTrigger>
 											</FormControl>
 											<SelectContent>
-												<SelectItem value="NONE">None</SelectItem>
+												<SelectItem value="NONE">Any</SelectItem>
 												<SelectItem value="EVAL">EVAL</SelectItem>
 												<SelectItem value="DA">DA</SelectItem>
 												<SelectItem value="DAEVAL">DAEVAL</SelectItem>
@@ -265,7 +267,7 @@ export function ReminderTemplateDialog({
 												</SelectTrigger>
 											</FormControl>
 											<SelectContent>
-												<SelectItem value="NONE">None</SelectItem>
+												<SelectItem value="NONE">Any</SelectItem>
 												{offices?.map((office) => (
 													<SelectItem key={office.key} value={office.key}>
 														{office.prettyName}
@@ -293,7 +295,7 @@ export function ReminderTemplateDialog({
 										/>
 									</FormControl>
 									<p className="text-[10px] text-muted-foreground">
-										Available: {"{startTime}, {date}"}
+										Available: {"$START_TIME, $DATE, $OFFICE_NAME, $LOCATION"}
 									</p>
 									{messagePreview && (
 										<div className="whitespace-pre-wrap rounded-md bg-muted p-3 font-mono text-muted-foreground text-sm">
@@ -320,7 +322,7 @@ export function ReminderTemplateDialog({
 										/>
 									</FormControl>
 									<p className="text-[10px] text-muted-foreground">
-										Available: {"{startTime}, {date}"}
+										Available: {"$START_TIME, $DATE, $OFFICE_NAME, $LOCATION"}
 									</p>
 									<FormMessage />
 								</FormItem>

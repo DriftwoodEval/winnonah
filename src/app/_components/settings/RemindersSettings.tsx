@@ -37,6 +37,7 @@ export default function ReminderSettings() {
 
 	const { data: settings } = api.reminders.getSettings.useQuery();
 	const { data: templates } = api.reminders.getTemplates.useQuery();
+	const { data: offices } = api.offices.getAll.useQuery();
 	const { data: logs } = api.reminders.getLogs.useQuery({
 		limit: 50,
 		offset: 0,
@@ -46,6 +47,13 @@ export default function ReminderSettings() {
 		onSuccess: () => {
 			void utils.reminders.getSettings.invalidate();
 			toast.success("Global settings updated");
+		},
+	});
+
+	const updateLocationPhrase = api.offices.updateLocationPhrase.useMutation({
+		onSuccess: () => {
+			void utils.offices.getAll.invalidate();
+			toast.success("Office location phrase updated");
 		},
 	});
 
@@ -107,6 +115,49 @@ export default function ReminderSettings() {
 							type="time"
 						/>
 					</div>
+				</CardContent>
+			</Card>
+
+			<Card>
+				<CardHeader>
+					<CardTitle>Office Location Phrases</CardTitle>
+					<CardDescription>
+						Used in message templates via{" "}
+						<code className="rounded bg-muted px-1 font-mono text-xs">
+							$LOCATION
+						</code>{" "}
+						and{" "}
+						<code className="rounded bg-muted px-1 font-mono text-xs">
+							$OFFICE_NAME
+						</code>
+						. Include the preposition — e.g.{" "}
+						<span className="italic">at 123 Main St</span> or{" "}
+						<span className="italic">
+							inside Business Center at 123 Main St
+						</span>
+						.
+					</CardDescription>
+				</CardHeader>
+				<CardContent className="space-y-3">
+					{offices?.map((office) => (
+						<div
+							className="grid grid-cols-[180px_1fr] items-center gap-4"
+							key={office.key}
+						>
+							<Label>{office.prettyName}</Label>
+							<Input
+								defaultValue={office.locationPhrase ?? ""}
+								onBlur={(e) => {
+									const val = e.target.value.trim();
+									updateLocationPhrase.mutate({
+										key: office.key,
+										locationPhrase: val || null,
+									});
+								}}
+								placeholder="at 123 Main St, Suite 100"
+							/>
+						</div>
+					))}
 				</CardContent>
 			</Card>
 

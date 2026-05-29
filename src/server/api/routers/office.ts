@@ -1,6 +1,8 @@
+import { eq } from "drizzle-orm";
 import { z } from "zod";
-import { fetchWithCache } from "~/lib/cache";
+import { fetchWithCache, invalidateCache } from "~/lib/cache";
 import { createTRPCRouter, protectedProcedure } from "~/server/api/trpc";
+import { offices } from "~/server/db/schema";
 
 export const officeRouter = createTRPCRouter({
 	getAll: protectedProcedure.query(async ({ ctx }) => {
@@ -10,6 +12,16 @@ export const officeRouter = createTRPCRouter({
 			return ctx.db.query.offices.findMany({});
 		});
 	}),
+
+	updateLocationPhrase: protectedProcedure
+		.input(z.object({ key: z.string(), locationPhrase: z.string().nullable() }))
+		.mutation(async ({ ctx, input }) => {
+			await ctx.db
+				.update(offices)
+				.set({ locationPhrase: input.locationPhrase })
+				.where(eq(offices.key, input.key));
+			await invalidateCache(ctx, "offices:all");
+		}),
 
 	getOne: protectedProcedure
 		.input(

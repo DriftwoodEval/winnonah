@@ -19,6 +19,7 @@ from utils.constants import (
     TABLE_APPOINTMENT_REMINDER_SETTINGS,
     TABLE_APPOINTMENT_REMINDER_TEMPLATES,
     TABLE_CLIENT,
+    TABLE_OFFICE,
 )
 from utils.database import provide_connection
 from utils.google import update_gcal_event_title
@@ -79,8 +80,10 @@ def is_within_quiet_window(connection) -> bool:
 def format_message(template: str, appointment: dict) -> str:
     """Replaces placeholders with actual data."""
     variables = {
-        "{startTime}": appointment["startTime"].strftime("%I:%M %p"),
-        "{date}": appointment["startTime"].strftime("%A, %B %d"),
+        "$START_TIME": appointment["startTime"].strftime("%I:%M %p"),
+        "$DATE": appointment["startTime"].strftime("%A, %B %d"),
+        "$OFFICE_NAME": appointment.get("officeLabel") or "",
+        "$LOCATION": appointment.get("officeLocationPhrase") or "",
     }
 
     for placeholder, value in variables.items():
@@ -120,9 +123,11 @@ async def process_reminders(connection: Connection[DictCursor]) -> None:
                 # 3. At least one OTHER template WAS sent.
                 # 4. GLOBAL: Applies to ANY appointment regardless of type/location.
                 query = f"""
-                    SELECT a.*, c.firstName, c.lastName, c.preferredName, c.phoneNumber
+                    SELECT a.*, c.firstName, c.lastName, c.preferredName, c.phoneNumber,
+                           o.prettyName AS officeLabel, o.locationPhrase AS officeLocationPhrase
                     FROM {TABLE_APPOINTMENT} a
                     JOIN {TABLE_CLIENT} c ON a.clientId = c.id
+                    LEFT JOIN {TABLE_OFFICE} o ON a.locationKey = o.`key`
                     LEFT JOIN {TABLE_APPOINTMENT_REMINDER_LOGS} l_this ON a.id = l_this.appointmentId AND l_this.reminderTemplateId = %s
                     JOIN {TABLE_APPOINTMENT_REMINDER_LOGS} l_prev ON a.id = l_prev.appointmentId AND l_prev.reminderTemplateId != %s
                     WHERE l_this.id IS NULL
@@ -145,9 +150,11 @@ async def process_reminders(connection: Connection[DictCursor]) -> None:
                 # 2. Appointment IS confirmed.
                 # 3. GLOBAL: Applies to ANY appointment regardless of type/location.
                 query = f"""
-                    SELECT a.*, c.firstName, c.lastName, c.preferredName, c.phoneNumber
+                    SELECT a.*, c.firstName, c.lastName, c.preferredName, c.phoneNumber,
+                           o.prettyName AS officeLabel, o.locationPhrase AS officeLocationPhrase
                     FROM {TABLE_APPOINTMENT} a
                     JOIN {TABLE_CLIENT} c ON a.clientId = c.id
+                    LEFT JOIN {TABLE_OFFICE} o ON a.locationKey = o.`key`
                     LEFT JOIN {TABLE_APPOINTMENT_REMINDER_LOGS} l_this ON a.id = l_this.appointmentId AND l_this.reminderTemplateId = %s
                     WHERE l_this.id IS NULL
                     AND a.confirmedAt IS NOT NULL
@@ -166,9 +173,11 @@ async def process_reminders(connection: Connection[DictCursor]) -> None:
                 # 1. This template hasn't been sent yet.
                 # 2. Appointment IS NOT confirmed.
                 query = f"""
-                    SELECT a.*, c.firstName, c.lastName, c.preferredName, c.phoneNumber
+                    SELECT a.*, c.firstName, c.lastName, c.preferredName, c.phoneNumber,
+                           o.prettyName AS officeLabel, o.locationPhrase AS officeLocationPhrase
                     FROM {TABLE_APPOINTMENT} a
                     JOIN {TABLE_CLIENT} c ON a.clientId = c.id
+                    LEFT JOIN {TABLE_OFFICE} o ON a.locationKey = o.`key`
                     LEFT JOIN {TABLE_APPOINTMENT_REMINDER_LOGS} l ON a.id = l.appointmentId AND l.reminderTemplateId = %s
                     WHERE l.id IS NULL
                     AND a.confirmedAt IS NULL
