@@ -33,10 +33,16 @@ const baseAvailabilityFormSchema = z.object({
 });
 
 export const availabilityFormSchema = baseAvailabilityFormSchema
-	.refine((data) => data.startDate < data.endDate, {
-		message: "End time must be after start time.",
-		path: ["endDate"],
-	})
+	.refine(
+		(data) =>
+			data.isAllDay
+				? data.startDate <= data.endDate
+				: data.startDate < data.endDate,
+		{
+			message: "End must be on or after start.",
+			path: ["endDate"],
+		},
+	)
 	.refine(
 		(data) =>
 			data.isUnavailability ||

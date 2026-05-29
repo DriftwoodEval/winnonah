@@ -29,7 +29,7 @@ import {
 	FormLabel,
 } from "@ui/form";
 import { RadioGroup, RadioGroupItem } from "@ui/radio-group";
-import { addMonths, isBefore, startOfDay } from "date-fns";
+import { addMonths, isBefore, startOfDay, sub } from "date-fns";
 import { AlertCircle, Trash2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
@@ -73,9 +73,10 @@ export function EditAvailabilityDialog({
 
 	const form = useForm<AvailabilityFormValues>({
 		resolver: zodResolver(availabilityFormSchema),
+		mode: "onTouched",
 		defaultValues: {
 			startDate: event.start,
-			endDate: event.end,
+			endDate: event.isAllDay ? sub(event.end, { days: 1 }) : event.end,
 			isUnavailability: event.isUnavailability,
 			isAllDay: event.isAllDay,
 			isRecurring: !!event.recurrence && event.recurrence.length > 0,
@@ -150,7 +151,7 @@ export function EditAvailabilityDialog({
 
 			form.reset({
 				startDate: event.start,
-				endDate: event.end,
+				endDate: event.isAllDay ? sub(event.end, { days: 1 }) : event.end,
 				isUnavailability: event.isUnavailability,
 				isAllDay: event.isAllDay,
 				isRecurring: isRecurring,

@@ -74,6 +74,13 @@ const DateTimePicker: React.FC<DateTimePickerProps> = ({
     }
   };
 
+  const handleDateBlur = () => {
+    const parsed = parse(inputValue, DATE_FORMAT, new Date());
+    if (!isValid(parsed) || (minDate && parsed < minDate)) {
+      setInputValue(value ? format(value, DATE_FORMAT) : "");
+    }
+  };
+
   const handleTimeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
   const timeValue = e.target.value; // Expected "HH:mm"
   if (!timeValue) return;
@@ -95,6 +102,7 @@ const DateTimePicker: React.FC<DateTimePickerProps> = ({
           placeholder="MM/DD/YYYY"
           value={inputValue}
           onChange={handleDateTyping}
+          onBlur={handleDateBlur}
           disabled={disabled}
           onKeyDown={(e) => {
             if (e.key === "ArrowDown") {

@@ -3,6 +3,7 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Button } from "@ui/button";
 import { Form } from "@ui/form";
+import { Skeleton } from "@ui/skeleton";
 import { addMonths } from "date-fns";
 import { useSession } from "next-auth/react";
 import { useEffect } from "react";
@@ -20,7 +21,7 @@ export function AvailabilityForm() {
 	const utils = api.useUtils();
 	const { data: session } = useSession();
 
-	const { data: outOfOfficePriority } =
+	const { data: outOfOfficePriority, isLoading: isLoadingOoO } =
 		api.evaluators.getOutOfOfficePriority.useQuery(undefined, {
 			enabled: session?.user.isEvaluator ?? false,
 		});
@@ -47,6 +48,7 @@ export function AvailabilityForm() {
 
 	const form = useForm<AvailabilityFormValues>({
 		resolver: zodResolver(availabilityFormSchema),
+		mode: "onTouched",
 		defaultValues: {
 			startDate: defaultStartDate,
 			endDate: defaultEndDate,
@@ -135,6 +137,20 @@ export function AvailabilityForm() {
 			isAllDay: values.isAllDay,
 			officeKeys: values.officeKeys,
 		});
+	}
+
+	if (isLoadingOoO && session?.user.isEvaluator) {
+		return (
+			<div className="flex flex-col space-y-4">
+				<Skeleton className="h-8 w-48" />
+				<Skeleton className="h-24 w-full rounded-md" />
+				<div className="grid grid-cols-2 gap-4">
+					<Skeleton className="h-10 w-full" />
+					<Skeleton className="h-10 w-full" />
+				</div>
+				<Skeleton className="h-10 w-full" />
+			</div>
+		);
 	}
 
 	return (

@@ -593,7 +593,8 @@ export async function createAvailabilityEvent(
 
 	if (eventData.isAllDay) {
 		event.start.date = formatDate(eventData.start);
-		event.end.date = formatDate(eventData.end);
+		// endDate is stored inclusive in the form; Google Calendar expects exclusive
+		event.end.date = formatDate(new Date(eventData.end.getTime() + 86400000));
 	} else {
 		event.start.dateTime = formatDateTime(eventData.start);
 		event.end.dateTime = formatDateTime(eventData.end);
@@ -824,7 +825,8 @@ export async function updateAvailabilityEvent(
 				},
 		end: eventData.isAllDay
 			? {
-					date: formatDate(eventData.end),
+					// endDate is stored inclusive in the form; Google Calendar expects exclusive
+					date: formatDate(new Date(eventData.end.getTime() + 86400000)),
 					timeZone: "America/New_York",
 				}
 			: {

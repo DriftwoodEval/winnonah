@@ -9,7 +9,6 @@ import {
 	addMonths,
 	differenceInMinutes,
 	eachDayOfInterval,
-	endOfDay,
 	format,
 	isBefore,
 	isSameDay,
@@ -481,7 +480,7 @@ function CalendarDayHeader({
 					onEdit({
 						id: "new",
 						start: startOfDay(day),
-						end: endOfDay(day),
+						end: startOfDay(day),
 						isAllDay: true,
 						summary: "",
 						isUnavailability: outOfOfficePriority || false,

@@ -12,12 +12,12 @@ import {
 	FormMessage,
 } from "@ui/form";
 import { Input } from "@ui/input";
-import { Label } from "@ui/label";
 import { RadioGroup, RadioGroupItem } from "@ui/radio-group";
 import { Separator } from "@ui/separator";
 import { Switch } from "@ui/switch";
-import { add, addMonths, startOfDay, sub } from "date-fns";
+import { add, addMonths, format, startOfDay } from "date-fns";
 import { AlertCircle } from "lucide-react";
+import { useEffect, useState } from "react";
 import type { UseFormReturn } from "react-hook-form";
 import {
 	type AvailabilityFormValues,
@@ -30,6 +30,47 @@ interface AvailabilityFieldsProps {
 	outOfOfficePriority?: boolean;
 }
 
+function NumberInput({
+	value,
+	onChange,
+	min = 1,
+	max,
+	className,
+}: {
+	value: number;
+	onChange: (val: number) => void;
+	min?: number;
+	max?: number;
+	className?: string;
+}) {
+	const [local, setLocal] = useState(String(value));
+
+	useEffect(() => {
+		setLocal(String(value));
+	}, [value]);
+
+	return (
+		<Input
+			className={className}
+			max={max}
+			min={min}
+			onBlur={() => {
+				const parsed = parseInt(local, 10);
+				const clamped = Number.isNaN(parsed)
+					? min
+					: max !== undefined
+						? Math.min(max, Math.max(min, parsed))
+						: Math.max(min, parsed);
+				onChange(clamped);
+				setLocal(String(clamped));
+			}}
+			onChange={(e) => setLocal(e.target.value)}
+			type="number"
+			value={local}
+		/>
+	);
+}
+
 export function AvailabilityFields({
 	form,
 	outOfOfficePriority = false,
@@ -40,6 +81,7 @@ export function AvailabilityFields({
 	const recurrenceFreq = form.watch("recurrenceFreq");
 	const recurrenceEndType = form.watch("recurrenceEndType");
 	const officeKeys = form.watch("officeKeys");
+	const startDate = form.watch("startDate");
 
 	const { data: offices, isLoading: isLoadingOffices } =
 		api.offices.getAll.useQuery();
@@ -75,20 +117,28 @@ export function AvailabilityFields({
 								) : (
 									<div className="flex flex-col gap-2">
 										<FormItem className="flex items-center">
-											<Checkbox
-												checked={
-													offices &&
-													officeKeys?.length === offices.length + 1 &&
-													officeKeys.includes("VIRTUAL")
-												}
-												onCheckedChange={(checked) => {
-													const allOfficeKeys = [
-														...(offices?.map((o) => o.key) || []),
+											<FormControl>
+												{(() => {
+													const allKeys = [
+														...(offices?.map((o) => o.key) ?? []),
 														"VIRTUAL",
 													];
-													field.onChange(checked ? allOfficeKeys : []);
-												}}
-											/>
+													const selectedCount = allKeys.filter((k) =>
+														officeKeys?.includes(k),
+													).length;
+													const allSelected =
+														allKeys.length > 0 &&
+														selectedCount === allKeys.length;
+													return (
+														<Checkbox
+															checked={allSelected}
+															onCheckedChange={(checked) => {
+																field.onChange(checked ? allKeys : []);
+															}}
+														/>
+													);
+												})()}
+											</FormControl>
 											<FormLabel className="font-normal">Any Office</FormLabel>
 										</FormItem>
 										<div className="flex flex-row flex-wrap gap-4">
@@ -169,8 +219,8 @@ export function AvailabilityFields({
 												let allDayEnd = new Date(currentEnd);
 												allDayEnd.setHours(0, 0, 0, 0);
 
-												if (allDayEnd <= allDayStart) {
-													allDayEnd = add(allDayStart, { days: 1 });
+												if (allDayEnd < allDayStart) {
+													allDayEnd = allDayStart;
 												}
 
 												form.setValue("startDate", allDayStart);
@@ -195,6 +245,9 @@ export function AvailabilityFields({
 							<FormLabel>
 								{isAllDay ? "Start Date" : "Start Date/Time"}
 							</FormLabel>
+							<FormDescription>
+								Earliest: {format(minDate, "MMM d, yyyy")}
+							</FormDescription>
 							<FormControl>
 								<DateTimePicker
 									hideTime={isAllDay}
@@ -217,10 +270,10 @@ export function AvailabilityFields({
 													);
 													form.setValue(
 														"endDate",
-														add(newStart, { days: Math.max(days, 1) }),
+														add(newStart, { days: Math.max(days, 0) }),
 													);
 												} else {
-													form.setValue("endDate", add(newStart, { days: 1 }));
+													form.setValue("endDate", newStart);
 												}
 											} else {
 												const oldStart = field.value;
@@ -263,21 +316,17 @@ export function AvailabilityFields({
 							<FormControl>
 								<DateTimePicker
 									hideTime={isAllDay}
-									minDate={minDate}
+									minDate={startDate ?? minDate}
 									onChange={(date) => {
 										if (date) {
 											if (isAllDay) {
 												const newEnd = new Date(date);
 												newEnd.setHours(0, 0, 0, 0);
-												const exclusiveEnd = add(newEnd, { days: 1 });
-												field.onChange(exclusiveEnd);
+												field.onChange(newEnd);
 
 												const currentStart = form.getValues("startDate");
-												if (currentStart && exclusiveEnd <= currentStart) {
-													form.setValue(
-														"startDate",
-														sub(exclusiveEnd, { days: 1 }),
-													);
+												if (currentStart && newEnd < currentStart) {
+													form.setValue("startDate", newEnd);
 												}
 											} else {
 												field.onChange(date);
@@ -291,7 +340,7 @@ export function AvailabilityFields({
 											}
 										}
 									}}
-									value={isAllDay ? sub(field.value, { days: 1 }) : field.value}
+									value={field.value}
 								/>
 							</FormControl>
 							<FormMessage />
@@ -301,21 +350,32 @@ export function AvailabilityFields({
 			</div>
 
 			<Separator />
-			{/* Recurrence Toggle */}
-			<div className="flex flex-row items-center justify-between">
-				<Label className="font-semibold text-base">Repeating Event</Label>
-				<Switch
-					checked={isRecurring}
-					onCheckedChange={(checked: boolean) => {
-						form.setValue("isRecurring", checked);
-						if (!checked) {
-							form.setValue("recurrenceFreq", "never");
-						} else if (form.getValues("recurrenceFreq") === "never") {
-							form.setValue("recurrenceFreq", "weekly");
-						}
-					}}
-				/>
-			</div>
+
+			<FormField
+				control={form.control}
+				name="isRecurring"
+				render={({ field }) => (
+					<FormItem className="flex flex-row items-center justify-between">
+						<FormLabel className="font-semibold text-base">
+							Repeating Event
+						</FormLabel>
+						<FormControl>
+							<Switch
+								checked={field.value}
+								onCheckedChange={(checked: boolean) => {
+									field.onChange(checked);
+									if (!checked) {
+										form.setValue("recurrenceFreq", "never");
+									} else if (form.getValues("recurrenceFreq") === "never") {
+										form.setValue("recurrenceFreq", "weekly");
+									}
+								}}
+							/>
+						</FormControl>
+					</FormItem>
+				)}
+			/>
+
 			{isRecurring && (
 				<div className="space-y-4 rounded-md border bg-background p-4">
 					<FormField
@@ -367,13 +427,10 @@ export function AvailabilityFields({
 								</FormLabel>
 								<div className="flex items-center gap-2">
 									<FormControl>
-										<Input
+										<NumberInput
 											className="w-20"
 											min={1}
-											onChange={(e) =>
-												field.onChange(parseInt(e.target.value, 10) || 1)
-											}
-											type="number"
+											onChange={field.onChange}
 											value={field.value}
 										/>
 									</FormControl>
@@ -449,15 +506,12 @@ export function AvailabilityFields({
 										Day of Month
 									</FormLabel>
 									<FormControl>
-										<Input
+										<NumberInput
 											className="w-24"
 											max={31}
 											min={1}
-											onChange={(e) =>
-												field.onChange(parseInt(e.target.value, 10) || 1)
-											}
-											type="number"
-											value={field.value || 1}
+											onChange={field.onChange}
+											value={field.value ?? 1}
 										/>
 									</FormControl>
 									<FormDescription>
@@ -480,7 +534,18 @@ export function AvailabilityFields({
 								<FormControl>
 									<RadioGroup
 										className="flex flex-col space-y-3"
-										onValueChange={field.onChange}
+										onValueChange={(value) => {
+											field.onChange(value);
+											if (
+												value === "on" &&
+												!form.getValues("recurrenceEndDate")
+											) {
+												form.setValue(
+													"recurrenceEndDate",
+													addMonths(form.getValues("startDate"), 3),
+												);
+											}
+										}}
 										value={field.value}
 									>
 										<FormItem className="flex items-center space-x-3 space-y-0">
@@ -506,7 +571,7 @@ export function AvailabilityFields({
 																	<DateTimePicker
 																		disabled={field.disabled}
 																		hideTime={true}
-																		minDate={minDate}
+																		minDate={startDate ?? minDate}
 																		onChange={field.onChange}
 																		value={field.value ?? undefined}
 																	/>
