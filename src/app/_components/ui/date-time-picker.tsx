@@ -3,8 +3,6 @@
 import * as React from "react";
 import { CalendarIcon } from "lucide-react";
 import { format, parse, isValid } from "date-fns";
-import { cn } from "~/lib/utils";
-import { Button } from "@ui/button";
 import { Calendar } from "@ui/calendar";
 import { Input } from "@ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@ui/popover";
@@ -94,7 +92,6 @@ const DateTimePicker: React.FC<DateTimePickerProps> = ({
     <div className="flex w-full flex-row gap-2">
       <InputGroup className="grow">
         <InputGroupInput
-          id="date-input"
           placeholder="MM/DD/YYYY"
           value={inputValue}
           onChange={handleDateTyping}

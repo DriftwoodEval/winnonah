@@ -579,16 +579,7 @@ export async function createAvailabilityEvent(
 		return `${year}-${month}-${day}`;
 	};
 
-	const formatDateTime = (date: Date) => {
-		const year = date.getFullYear();
-		const month = String(date.getMonth() + 1).padStart(2, "0");
-		const day = String(date.getDate()).padStart(2, "0");
-		const hours = String(date.getHours()).padStart(2, "0");
-		const minutes = String(date.getMinutes()).padStart(2, "0");
-		const seconds = String(date.getSeconds()).padStart(2, "0");
-
-		return `${year}-${month}-${day}T${hours}:${minutes}:${seconds}`;
-	};
+	const formatDateTime = (date: Date) => date.toISOString();
 
 	const event: Event = {
 		summary: eventData.summary,
@@ -818,16 +809,7 @@ export async function updateAvailabilityEvent(
 		return `${year}-${month}-${day}`;
 	};
 
-	const formatDateTime = (date: Date) => {
-		const year = date.getFullYear();
-		const month = String(date.getMonth() + 1).padStart(2, "0");
-		const day = String(date.getDate()).padStart(2, "0");
-		const hours = String(date.getHours()).padStart(2, "0");
-		const minutes = String(date.getMinutes()).padStart(2, "0");
-		const seconds = String(date.getSeconds()).padStart(2, "0");
-
-		return `${year}-${month}-${day}T${hours}:${minutes}:${seconds}`;
-	};
+	const formatDateTime = (date: Date) => date.toISOString();
 
 	const event: calendar_v3.Schema$Event = {
 		summary: eventData.summary,

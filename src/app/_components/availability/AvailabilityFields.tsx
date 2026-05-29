@@ -59,7 +59,7 @@ export function AvailabilityFields({
 				</Alert>
 			)}
 
-			{!isUnavailability && (
+			{!isUnavailability && !outOfOfficePriority && (
 				<>
 					<FormField
 						control={form.control}
@@ -204,16 +204,39 @@ export function AvailabilityFields({
 											if (isAllDay) {
 												const newStart = new Date(date);
 												newStart.setHours(0, 0, 0, 0);
-												field.onChange(newStart);
-
+												const oldStart = field.value
+													? new Date(field.value)
+													: null;
+												if (oldStart) oldStart.setHours(0, 0, 0, 0);
 												const currentEnd = form.getValues("endDate");
-												if (currentEnd && currentEnd <= newStart) {
+												field.onChange(newStart);
+												if (oldStart && currentEnd) {
+													const days = Math.round(
+														(currentEnd.getTime() - oldStart.getTime()) /
+															86400000,
+													);
+													form.setValue(
+														"endDate",
+														add(newStart, { days: Math.max(days, 1) }),
+													);
+												} else {
 													form.setValue("endDate", add(newStart, { days: 1 }));
 												}
 											} else {
-												field.onChange(date);
+												const oldStart = field.value;
 												const currentEnd = form.getValues("endDate");
-												if (currentEnd && date >= currentEnd) {
+												field.onChange(date);
+												if (oldStart && currentEnd) {
+													const duration =
+														currentEnd.getTime() - oldStart.getTime();
+													form.setValue(
+														"endDate",
+														new Date(
+															date.getTime() +
+																(duration > 0 ? duration : 3600000),
+														),
+													);
+												} else if (!currentEnd || date >= currentEnd) {
 													form.setValue(
 														"endDate",
 														new Date(date.getTime() + 3600000),

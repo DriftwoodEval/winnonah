@@ -85,7 +85,36 @@ export function AvailabilityForm() {
 			toast.success(
 				`Event created! Type: ${isUnavailability ? "Out of Office" : `Available at ${officeText}`}`,
 			);
-			form.reset();
+			const nextDate = addMonths(new Date(), 1);
+			form.reset({
+				startDate: new Date(
+					nextDate.getFullYear(),
+					nextDate.getMonth(),
+					nextDate.getDate(),
+					9,
+					0,
+					0,
+				),
+				endDate: new Date(
+					nextDate.getFullYear(),
+					nextDate.getMonth(),
+					nextDate.getDate(),
+					17,
+					0,
+					0,
+				),
+				isUnavailability: outOfOfficePriority ?? false,
+				isAllDay: false,
+				isRecurring: false,
+				recurrenceFreq: "never",
+				interval: 1,
+				weeklyDays: [],
+				monthlyDay: 1,
+				recurrenceEndDate: null,
+				recurrenceCount: null,
+				recurrenceEndType: "never",
+				officeKeys: [],
+			});
 			await utils.google.getAvailability.invalidate();
 		},
 		onError: (error) => {
