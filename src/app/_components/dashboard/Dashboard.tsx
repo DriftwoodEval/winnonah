@@ -135,6 +135,25 @@ function PunchListAccordionItem({
 																	}
 																</span>
 															)}
+														{client.failures?.map((failure) => (
+															<span
+																className="hidden rounded-sm bg-destructive/10 px-1 py-0.5 text-[10px] text-destructive md:inline-block"
+																key={failure.reason}
+															>
+																{failure.reason}
+															</span>
+														))}
+														{isRecordsNotReturnedSection &&
+															punchClient.evaluationInProcess && (
+																<span className="hidden rounded-sm bg-destructive/10 px-1 py-0.5 text-[10px] text-destructive md:inline-block">
+																	Eval In Process
+																</span>
+															)}
+														{punchClient.autismStop && (
+															<span className="hidden rounded-sm bg-destructive px-1 py-0.5 text-[10px] text-destructive-foreground md:inline-block">
+																Autism Stop
+															</span>
+														)}
 													</div>
 													{punchClient.extraInfo && (
 														<span className="text-muted-foreground text-xs">
@@ -151,7 +170,7 @@ function PunchListAccordionItem({
 													(isRecordsNotReturnedSection &&
 														punchClient.evaluationInProcess) ||
 													punchClient.autismStop) && (
-													<div className="mt-1">
+													<div className="mt-1 md:hidden">
 														{client.failures?.map((failure) => (
 															<span
 																className="mr-1 inline-block rounded-sm bg-destructive/10 px-1 py-0.5 text-[10px] text-destructive"
