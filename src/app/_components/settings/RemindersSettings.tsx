@@ -130,7 +130,7 @@ export default function ReminderSettings() {
 						<code className="rounded bg-muted px-1 font-mono text-xs">
 							$OFFICE_NAME
 						</code>
-						. Include the preposition — e.g.{" "}
+						. Include the preposition, e.g.{" "}
 						<span className="italic">at 123 Main St</span> or{" "}
 						<span className="italic">
 							inside Business Center at 123 Main St

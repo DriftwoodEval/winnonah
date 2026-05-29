@@ -167,7 +167,7 @@ export function ReminderTemplateDialog({
 	}
 	return (
 		<Dialog onOpenChange={onClose} open={isOpen}>
-			<DialogContent className="sm:max-w-[500px]">
+			<DialogContent className="flex max-h-[90vh] flex-col overflow-hidden sm:max-w-[500px]">
 				<DialogHeader>
 					<DialogTitle>
 						{isEditing ? "Edit Reminder Template" : "Create Reminder Template"}
@@ -179,86 +179,23 @@ export function ReminderTemplateDialog({
 				</DialogHeader>
 
 				<Form {...form}>
-					<form className="space-y-4" onSubmit={form.handleSubmit(onSubmit)}>
-						<FormField
-							control={form.control}
-							name="name"
-							render={({ field }) => (
-								<FormItem>
-									<FormLabel>Template Name</FormLabel>
-									<FormControl>
-										<Input
-											placeholder="e.g., ASD Evaluation Reminder"
-											{...field}
-										/>
-									</FormControl>
-									<FormMessage />
-								</FormItem>
-							)}
-						/>
-
-						<FormField
-							control={form.control}
-							name="triggerKeyword"
-							render={({ field }) => (
-								<FormItem>
-									<FormLabel>Keyword (Title Match)</FormLabel>
-									<FormControl>
-										<Input
-											disabled={
-												form.watch("isNoReplyFollowUp") ||
-												form.watch("isConfirmedFollowUp") ||
-												(!!form.watch("triggerDaEval") &&
-													(form.watch("triggerDaEval") as string) !== "NONE")
-											}
-											placeholder="e.g., ASD"
-											{...field}
-											value={field.value ?? ""}
-										/>
-									</FormControl>
-									<FormMessage />
-								</FormItem>
-							)}
-						/>
-
-						<div className="relative flex items-center py-2">
-							<div className="grow border-t" />
-							<span className="mx-4 shrink text-muted-foreground text-xs uppercase">
-								Or
-							</span>
-							<div className="grow border-t" />
-						</div>
-
-						<div className="grid grid-cols-2 gap-4">
+					<form
+						className="flex min-h-0 flex-col"
+						onSubmit={form.handleSubmit(onSubmit)}
+					>
+						<div className="flex-1 space-y-4 overflow-y-auto pr-1">
 							<FormField
 								control={form.control}
-								name="triggerDaEval"
+								name="name"
 								render={({ field }) => (
 									<FormItem>
-										<FormLabel>DA/Eval</FormLabel>
-										<Select
-											disabled={
-												form.watch("isNoReplyFollowUp") ||
-												form.watch("isConfirmedFollowUp") ||
-												!!form.watch("triggerKeyword")
-											}
-											onValueChange={(val) =>
-												field.onChange(val === "NONE" ? null : val)
-											}
-											value={field.value ?? "NONE"}
-										>
-											<FormControl>
-												<SelectTrigger>
-													<SelectValue placeholder="Select type" />
-												</SelectTrigger>
-											</FormControl>
-											<SelectContent>
-												<SelectItem value="NONE">Any</SelectItem>
-												<SelectItem value="EVAL">EVAL</SelectItem>
-												<SelectItem value="DA">DA</SelectItem>
-												<SelectItem value="DAEVAL">DAEVAL</SelectItem>
-											</SelectContent>
-										</Select>
+										<FormLabel>Template Name</FormLabel>
+										<FormControl>
+											<Input
+												placeholder="e.g., ASD Evaluation Reminder"
+												{...field}
+											/>
+										</FormControl>
 										<FormMessage />
 									</FormItem>
 								)}
@@ -266,233 +203,303 @@ export function ReminderTemplateDialog({
 
 							<FormField
 								control={form.control}
-								name="triggerLocationKey"
+								name="triggerKeyword"
 								render={({ field }) => (
 									<FormItem>
-										<FormLabel>Location</FormLabel>
-										<Select
-											disabled={
-												form.watch("isNoReplyFollowUp") ||
-												form.watch("isConfirmedFollowUp") ||
-												!!form.watch("triggerKeyword")
-											}
-											onValueChange={(val) =>
-												field.onChange(val === "NONE" ? null : val)
-											}
-											value={field.value ?? "NONE"}
-										>
-											<FormControl>
-												<SelectTrigger>
-													<SelectValue placeholder="Select location" />
-												</SelectTrigger>
-											</FormControl>
-											<SelectContent>
-												<SelectItem value="NONE">Any</SelectItem>
-												{offices?.map((office) => (
-													<SelectItem key={office.key} value={office.key}>
-														{office.prettyName}
-													</SelectItem>
-												))}
-											</SelectContent>
-										</Select>
+										<FormLabel>Keyword (Title Match)</FormLabel>
+										<FormControl>
+											<Input
+												disabled={
+													form.watch("isNoReplyFollowUp") ||
+													form.watch("isConfirmedFollowUp") ||
+													(!!form.watch("triggerDaEval") &&
+														(form.watch("triggerDaEval") as string) !== "NONE")
+												}
+												placeholder="e.g., ASD"
+												{...field}
+												value={field.value ?? ""}
+											/>
+										</FormControl>
 										<FormMessage />
 									</FormItem>
 								)}
 							/>
-						</div>
 
-						<FormField
-							control={form.control}
-							name="messageTemplate"
-							render={({ field }) => (
-								<FormItem>
-									<FormLabel>Message Template</FormLabel>
-									<FormControl>
-										<Textarea
-											className="min-h-[120px] font-mono"
-											placeholder="Hello, this is a reminder..."
-											{...field}
-										/>
-									</FormControl>
-									<p className="text-[10px] text-muted-foreground">
-										Available: {"$START_TIME, $DATE, $OFFICE_NAME, $LOCATION"}
-									</p>
-									{messagePreview && (
-										<div className="whitespace-pre-wrap rounded-md bg-muted p-3 font-mono text-muted-foreground text-sm">
-											{messagePreview}
-										</div>
-									)}
-									<FormMessage />
-								</FormItem>
-							)}
-						/>
+							<div className="relative flex items-center py-2">
+								<div className="grow border-t" />
+								<span className="mx-4 shrink text-muted-foreground text-xs uppercase">
+									Or
+								</span>
+								<div className="grow border-t" />
+							</div>
 
-						<FormField
-							control={form.control}
-							name="confirmationReply"
-							render={({ field }) => (
-								<FormItem>
-									<FormLabel>Confirmation Reply (Optional)</FormLabel>
-									<FormControl>
-										<Textarea
-											className="min-h-[120px] font-mono"
-											placeholder="Thank you for confirming..."
-											{...field}
-											value={field.value ?? ""}
-										/>
-									</FormControl>
-									<p className="text-[10px] text-muted-foreground">
-										Available: {"$START_TIME, $DATE, $OFFICE_NAME, $LOCATION"}
-									</p>
-									{confirmationPreview && (
-										<div className="whitespace-pre-wrap rounded-md bg-muted p-3 font-mono text-muted-foreground text-sm">
-											{confirmationPreview}
-										</div>
-									)}
-									<FormMessage />
-								</FormItem>
-							)}
-						/>
-
-						<FormField
-							control={form.control}
-							name="sendOffsetHours"
-							render={({ field }) => {
-								const displayValue =
-									offsetUnit === "days" ? field.value / 24 : field.value;
-								return (
-									<FormItem>
-										<FormLabel>Send Before Appointment</FormLabel>
-										<div className="flex gap-2">
-											<FormControl>
-												<Input
-													className="w-24"
-													min={1}
-													onChange={(e) => {
-														const val = Number(e.target.value);
-														field.onChange(
-															offsetUnit === "days"
-																? Math.round(val * 24)
-																: val,
-														);
-													}}
-													step={offsetUnit === "days" ? 0.5 : 1}
-													type="number"
-													value={displayValue}
-												/>
-											</FormControl>
+							<div className="grid grid-cols-2 gap-4">
+								<FormField
+									control={form.control}
+									name="triggerDaEval"
+									render={({ field }) => (
+										<FormItem>
+											<FormLabel>DA/Eval</FormLabel>
 											<Select
-												onValueChange={(v: "hours" | "days") => {
-													setOffsetUnit(v);
-												}}
-												value={offsetUnit}
+												disabled={
+													form.watch("isNoReplyFollowUp") ||
+													form.watch("isConfirmedFollowUp") ||
+													!!form.watch("triggerKeyword")
+												}
+												onValueChange={(val) =>
+													field.onChange(val === "NONE" ? null : val)
+												}
+												value={field.value ?? "NONE"}
 											>
-												<SelectTrigger className="w-28">
-													<SelectValue />
-												</SelectTrigger>
+												<FormControl>
+													<SelectTrigger>
+														<SelectValue placeholder="Select type" />
+													</SelectTrigger>
+												</FormControl>
 												<SelectContent>
-													<SelectItem value="hours">Hours</SelectItem>
-													<SelectItem value="days">Days</SelectItem>
+													<SelectItem value="NONE">Any</SelectItem>
+													<SelectItem value="EVAL">EVAL</SelectItem>
+													<SelectItem value="DA">DA</SelectItem>
+													<SelectItem value="DAEVAL">DAEVAL</SelectItem>
 												</SelectContent>
 											</Select>
-										</div>
+											<FormMessage />
+										</FormItem>
+									)}
+								/>
+
+								<FormField
+									control={form.control}
+									name="triggerLocationKey"
+									render={({ field }) => (
+										<FormItem>
+											<FormLabel>Location</FormLabel>
+											<Select
+												disabled={
+													form.watch("isNoReplyFollowUp") ||
+													form.watch("isConfirmedFollowUp") ||
+													!!form.watch("triggerKeyword")
+												}
+												onValueChange={(val) =>
+													field.onChange(val === "NONE" ? null : val)
+												}
+												value={field.value ?? "NONE"}
+											>
+												<FormControl>
+													<SelectTrigger>
+														<SelectValue placeholder="Select location" />
+													</SelectTrigger>
+												</FormControl>
+												<SelectContent>
+													<SelectItem value="NONE">Any</SelectItem>
+													{offices?.map((office) => (
+														<SelectItem key={office.key} value={office.key}>
+															{office.prettyName}
+														</SelectItem>
+													))}
+												</SelectContent>
+											</Select>
+											<FormMessage />
+										</FormItem>
+									)}
+								/>
+							</div>
+
+							<FormField
+								control={form.control}
+								name="messageTemplate"
+								render={({ field }) => (
+									<FormItem>
+										<FormLabel>Message Template</FormLabel>
+										<FormControl>
+											<Textarea
+												className="min-h-[120px] font-mono"
+												placeholder="Hello, this is a reminder..."
+												{...field}
+											/>
+										</FormControl>
+										<p className="text-[10px] text-muted-foreground">
+											Available: {"$START_TIME, $DATE, $OFFICE_NAME, $LOCATION"}
+										</p>
+										{messagePreview && (
+											<div className="whitespace-pre-wrap rounded-md bg-muted p-3 font-mono text-muted-foreground text-sm">
+												{messagePreview}
+											</div>
+										)}
 										<FormMessage />
 									</FormItem>
-								);
-							}}
-						/>
+								)}
+							/>
 
-						<FormField
-							control={form.control}
-							name="isNoReplyFollowUp"
-							render={({ field }) => (
-								<FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm">
-									<div className="space-y-0.5">
-										<FormLabel>No-Reply Follow-up</FormLabel>
-										<FormDescription>
-											Only send if a previous reminder has not been confirmed.
-										</FormDescription>
-									</div>
-									<FormControl>
-										<Switch
-											checked={field.value}
-											onCheckedChange={(checked) => {
-												field.onChange(checked);
-												if (checked)
-													form.setValue("isConfirmedFollowUp", false);
-											}}
-										/>
-									</FormControl>
-								</FormItem>
-							)}
-						/>
+							<FormField
+								control={form.control}
+								name="confirmationReply"
+								render={({ field }) => (
+									<FormItem>
+										<FormLabel>Confirmation Reply (Optional)</FormLabel>
+										<FormControl>
+											<Textarea
+												className="min-h-[120px] font-mono"
+												placeholder="Thank you for confirming..."
+												{...field}
+												value={field.value ?? ""}
+											/>
+										</FormControl>
+										<p className="text-[10px] text-muted-foreground">
+											Available: {"$START_TIME, $DATE, $OFFICE_NAME, $LOCATION"}
+										</p>
+										{confirmationPreview && (
+											<div className="whitespace-pre-wrap rounded-md bg-muted p-3 font-mono text-muted-foreground text-sm">
+												{confirmationPreview}
+											</div>
+										)}
+										<FormMessage />
+									</FormItem>
+								)}
+							/>
 
-						<FormField
-							control={form.control}
-							name="isConfirmedFollowUp"
-							render={({ field }) => (
-								<FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm">
-									<div className="space-y-0.5">
-										<FormLabel>Confirmed Follow-up</FormLabel>
-										<FormDescription>
-											Only send if the appointment HAS been confirmed.
-										</FormDescription>
-									</div>
-									<FormControl>
-										<Switch
-											checked={field.value}
-											onCheckedChange={(checked) => {
-												field.onChange(checked);
-												if (checked) form.setValue("isNoReplyFollowUp", false);
-											}}
-										/>
-									</FormControl>
-								</FormItem>
-							)}
-						/>
-
-						<div className="flex gap-3 pt-4">
-							<Button
-								className="flex-1"
-								disabled={upsertTemplate.isPending}
-								type="submit"
-							>
-								{upsertTemplate.isPending
-									? isEditing
-										? "Saving..."
-										: "Creating..."
-									: isEditing
-										? "Save Changes"
-										: "Create Template"}
-							</Button>
-							<Button
-								disabled={upsertTemplate.isPending}
-								onClick={onClose}
-								type="button"
-								variant="outline"
-							>
-								Cancel
-							</Button>
-						</div>
-						{isEditing && initialData?.id && (
-							<Button
-								className="w-full"
-								disabled={deleteTemplate.isPending}
-								onClick={() => {
-									if (
-										window.confirm(
-											"Delete this template? This cannot be undone.",
-										)
-									) {
-										deleteTemplate.mutate({ id: initialData.id });
-									}
+							<FormField
+								control={form.control}
+								name="sendOffsetHours"
+								render={({ field }) => {
+									const displayValue =
+										offsetUnit === "days" ? field.value / 24 : field.value;
+									return (
+										<FormItem>
+											<FormLabel>Send Before Appointment</FormLabel>
+											<div className="flex gap-2">
+												<FormControl>
+													<Input
+														className="w-24"
+														min={1}
+														onChange={(e) => {
+															const val = Number(e.target.value);
+															field.onChange(
+																offsetUnit === "days"
+																	? Math.round(val * 24)
+																	: val,
+															);
+														}}
+														step={offsetUnit === "days" ? 0.5 : 1}
+														type="number"
+														value={displayValue}
+													/>
+												</FormControl>
+												<Select
+													onValueChange={(v: "hours" | "days") => {
+														setOffsetUnit(v);
+													}}
+													value={offsetUnit}
+												>
+													<SelectTrigger className="w-28">
+														<SelectValue />
+													</SelectTrigger>
+													<SelectContent>
+														<SelectItem value="hours">Hours</SelectItem>
+														<SelectItem value="days">Days</SelectItem>
+													</SelectContent>
+												</Select>
+											</div>
+											<FormMessage />
+										</FormItem>
+									);
 								}}
-								type="button"
-								variant="destructive"
-							>
-								{deleteTemplate.isPending ? "Deleting..." : "Delete Template"}
-							</Button>
-						)}
+							/>
+
+							<FormField
+								control={form.control}
+								name="isNoReplyFollowUp"
+								render={({ field }) => (
+									<FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm">
+										<div className="space-y-0.5">
+											<FormLabel>No-Reply Follow-up</FormLabel>
+											<FormDescription>
+												Only send if a previous reminder has not been confirmed.
+											</FormDescription>
+										</div>
+										<FormControl>
+											<Switch
+												checked={field.value}
+												onCheckedChange={(checked) => {
+													field.onChange(checked);
+													if (checked)
+														form.setValue("isConfirmedFollowUp", false);
+												}}
+											/>
+										</FormControl>
+									</FormItem>
+								)}
+							/>
+
+							<FormField
+								control={form.control}
+								name="isConfirmedFollowUp"
+								render={({ field }) => (
+									<FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm">
+										<div className="space-y-0.5">
+											<FormLabel>Confirmed Follow-up</FormLabel>
+											<FormDescription>
+												Only send if the appointment HAS been confirmed.
+											</FormDescription>
+										</div>
+										<FormControl>
+											<Switch
+												checked={field.value}
+												onCheckedChange={(checked) => {
+													field.onChange(checked);
+													if (checked)
+														form.setValue("isNoReplyFollowUp", false);
+												}}
+											/>
+										</FormControl>
+									</FormItem>
+								)}
+							/>
+						</div>
+						<div className="flex flex-col gap-3 border-t pt-4">
+							<div className="flex gap-3">
+								<Button
+									className="flex-1"
+									disabled={upsertTemplate.isPending}
+									type="submit"
+								>
+									{upsertTemplate.isPending
+										? isEditing
+											? "Saving..."
+											: "Creating..."
+										: isEditing
+											? "Save Changes"
+											: "Create Template"}
+								</Button>
+								<Button
+									disabled={upsertTemplate.isPending}
+									onClick={onClose}
+									type="button"
+									variant="outline"
+								>
+									Cancel
+								</Button>
+							</div>
+							{isEditing && initialData?.id && (
+								<Button
+									className="w-full"
+									disabled={deleteTemplate.isPending}
+									onClick={() => {
+										if (
+											window.confirm(
+												"Delete this template? This cannot be undone.",
+											)
+										) {
+											deleteTemplate.mutate({ id: initialData.id });
+										}
+									}}
+									type="button"
+									variant="destructive"
+								>
+									{deleteTemplate.isPending ? "Deleting..." : "Delete Template"}
+								</Button>
+							)}
+						</div>
 					</form>
 				</Form>
 			</DialogContent>
