@@ -772,11 +772,12 @@ export const questionnaireRouter = createTRPCRouter({
 			const screenshotDir = path.join(process.cwd(), "q-screenshots");
 			const latestPath = findLatestScreenshot(input.link, screenshotDir);
 
-			if (!latestPath) return { url: null };
+			if (!latestPath) return { url: null, viaMhsPortal: false };
 
 			const filename = path.basename(latestPath);
+			const viaMhsPortal = filename.startsWith("COMPLETED_MHS_PORTAL_");
 
-			return { url: `/api/screenshots/${filename}` };
+			return { url: `/api/screenshots/${filename}`, viaMhsPortal };
 		}),
 
 	getInPersonAssessments: protectedProcedure

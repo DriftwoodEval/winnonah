@@ -65,7 +65,9 @@ export function ScreenshotButton({
 					<div className="space-y-2">
 						<h4 className="font-medium leading-none">Latest Screenshot</h4>
 						<p className="text-muted-foreground text-sm">
-							What we saw on our last automatic check of this link.
+							{data?.viaMhsPortal
+								? "Completed - found on MHS Completed Assessments (not from the link itself)."
+								: "What we saw on our last automatic check of this link."}
 						</p>
 					</div>
 					<div className="flex min-h-[300px] flex-col items-center justify-center rounded-md border bg-accent/5 p-2">
