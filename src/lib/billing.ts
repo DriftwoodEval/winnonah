@@ -31,12 +31,22 @@ export function calculateAdditionalAppointments(
 	const cap96130 = maxUnitsPerCode?.max96130 ?? Infinity;
 	const cap96131 = maxUnitsPerCode?.max96131 ?? Infinity;
 
+	// Pre-calculate overflow: 96130/131 units that exceed code caps convert to 96136/137 at 2:1,
+	// combined with the existing 96136/137 units so they share appointments.
+	const actual96130 = total96130_131 > 0 && cap96130 > 0 ? 1 : 0;
+	const actual96131 =
+		cap96131 === Infinity
+			? total96130_131 - actual96130
+			: Math.min(total96130_131 - actual96130, cap96131);
+	const overflow130_131 = total96130_131 - actual96130 - actual96131;
+	const total96136_137_adjusted = total96136_137 + overflow130_131 * 2;
+
 	const getApptUnitCap = (index: number): number =>
 		index === 3 && maxUnitsPerCode?.maxAppt4Units !== undefined
 			? maxUnitsPerCode.maxAppt4Units
 			: maxUnitsPerDay;
 
-	// Fill 96136/96137 (30-min codes)
+	// Fill 96136/96137 (30-min codes), including converted overflow from 96130/131
 	let billed96136 = 0;
 	let billed96137 = 0;
 
@@ -70,7 +80,7 @@ export function calculateAdditionalAppointments(
 		return remaining;
 	}
 
-	fill136_137(total96136_137);
+	fill136_137(total96136_137_adjusted);
 
 	// Fill 96130/96131 (60-min codes)
 	let remaining130_131 = total96130_131;
@@ -100,11 +110,6 @@ export function calculateAdditionalAppointments(
 		}
 		if (codes.length === 0) break;
 		appointments.push({ codes });
-	}
-
-	// Overflow 96131 units (capped by appointment 4 limit) convert to 96137 at 2:1
-	if (remaining130_131 > 0) {
-		fill136_137(remaining130_131 * 2);
 	}
 
 	return appointments;
