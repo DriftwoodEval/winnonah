@@ -61,14 +61,14 @@ export function AppointmentReminderTimeline({
 					key={`sent-${item.templateId}-${item.sentAt.getTime()}`}
 				>
 					<span className="absolute top-1 -left-[17px] h-2 w-2 rounded-full bg-primary" />
-					<p className="font-medium text-[10px] leading-tight">
-						{item.templateName}
-					</p>
 					<p
-						className="text-[10px] text-muted-foreground"
+						className="font-medium text-[10px] leading-tight"
 						title={format(item.sentAt, "PPpp")}
 					>
 						Sent {formatDistanceToNow(item.sentAt, { addSuffix: true })}
+					</p>
+					<p className="text-[10px] text-muted-foreground leading-tight">
+						{item.templateName}
 					</p>
 					<MessageSnippet
 						appointmentTime={appointmentTime}
@@ -84,15 +84,7 @@ export function AppointmentReminderTimeline({
 					<span
 						className={`absolute top-1 -left-[17px] h-2 w-2 rounded-full border-2 bg-background ${item.isOverdue ? "border-destructive" : item.condition ? "border-muted-foreground" : "border-primary"}`}
 					/>
-					<p
-						className={`font-medium text-[10px] leading-tight ${item.condition && !item.isOverdue ? "text-muted-foreground" : ""}`}
-					>
-						{item.templateName}
-						{item.condition && (
-							<span className="ml-1 font-normal">({item.condition})</span>
-						)}
-					</p>
-					<p className="text-[10px] text-muted-foreground">
+					<p className="font-medium text-[10px] leading-tight">
 						{item.isOverdue ? (
 							<span className="text-destructive italic">
 								sending on next cycle
@@ -101,10 +93,16 @@ export function AppointmentReminderTimeline({
 							<>
 								{format(item.scheduledFor, "MMM d 'at' p")}
 								{item.quietAdjusted && (
-									<span className="ml-1 italic">(adj. for quiet hours)</span>
+									<span className="ml-1 font-normal italic">
+										(adj. for quiet hours)
+									</span>
 								)}
 							</>
 						)}
+					</p>
+					<p className={`text-[10px] text-muted-foreground leading-tight`}>
+						{item.templateName}
+						{item.condition && <span className="ml-1">({item.condition})</span>}
 					</p>
 					<MessageSnippet
 						appointmentTime={appointmentTime}
