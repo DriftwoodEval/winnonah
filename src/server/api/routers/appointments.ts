@@ -127,6 +127,7 @@ export const appointmentRouter = createTRPCRouter({
 					calendarEventTitle: appointments.calendarEventTitle,
 					cancelled: appointments.cancelled,
 					rescheduled: appointments.rescheduled,
+					placeholder: appointments.placeholder,
 					confirmedAt: appointments.confirmedAt,
 					officeName: offices.prettyName,
 					officeLocationPhrase: offices.locationPhrase,
@@ -169,7 +170,7 @@ export const appointmentRouter = createTRPCRouter({
 
 			const sentTemplateIds = new Set(sent.map((s) => s.templateId));
 			const now = new Date();
-			const suppressed = appt.cancelled || appt.rescheduled;
+			const suppressed = appt.cancelled || appt.rescheduled || appt.placeholder;
 
 			const pending: {
 				scheduledFor: Date;
@@ -222,15 +223,17 @@ export const appointmentRouter = createTRPCRouter({
 					}
 
 					const matchesKeyword =
-						template.triggerKeyword &&
-						appt.calendarEventTitle?.includes(template.triggerKeyword);
+						!!template.triggerKeyword &&
+						!!appt.calendarEventTitle?.includes(template.triggerKeyword);
 					const matchesDaEvalLocation =
-						template.triggerDaEval &&
-						template.triggerLocationKey &&
-						appt.daEval === template.triggerDaEval &&
-						appt.locationKey === template.triggerLocationKey;
+						(template.triggerDaEval !== null ||
+							template.triggerLocationKey !== null) &&
+						(template.triggerDaEval === null ||
+							appt.daEval === template.triggerDaEval) &&
+						(template.triggerLocationKey === null ||
+							appt.locationKey === template.triggerLocationKey);
 
-					if (matchesKeyword ?? matchesDaEvalLocation) {
+					if (matchesKeyword || matchesDaEvalLocation) {
 						pending.push({
 							scheduledFor,
 							quietAdjusted,
