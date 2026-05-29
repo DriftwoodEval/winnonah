@@ -173,6 +173,7 @@ export const appointmentRouter = createTRPCRouter({
 				templateName: string;
 				condition: string | null;
 				messageTemplate: string;
+				isOverdue: boolean;
 			}[] = [];
 
 			if (!suppressed) {
@@ -186,7 +187,9 @@ export const appointmentRouter = createTRPCRouter({
 						raw,
 						quietSettings,
 					);
-					if (scheduledFor <= now) continue;
+					const isOverdue = scheduledFor <= now;
+					// Skip only if both the scheduled send time AND the appointment itself are in the past
+					if (isOverdue && localStart <= now) continue;
 
 					if (template.isNoReplyFollowUp) {
 						if (sent.length > 0 && !appt.confirmedAt) {
@@ -196,6 +199,7 @@ export const appointmentRouter = createTRPCRouter({
 								templateName: template.name,
 								condition: "if still unconfirmed",
 								messageTemplate: template.messageTemplate,
+								isOverdue,
 							});
 						}
 						continue;
@@ -208,6 +212,7 @@ export const appointmentRouter = createTRPCRouter({
 							templateName: template.name,
 							condition: appt.confirmedAt ? null : "if confirmed",
 							messageTemplate: template.messageTemplate,
+							isOverdue,
 						});
 						continue;
 					}
@@ -228,6 +233,7 @@ export const appointmentRouter = createTRPCRouter({
 							templateName: template.name,
 							condition: null,
 							messageTemplate: template.messageTemplate,
+							isOverdue,
 						});
 					}
 				}

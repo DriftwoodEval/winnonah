@@ -82,10 +82,10 @@ export function AppointmentReminderTimeline({
 					key={`pending-${item.templateName}-${item.scheduledFor.getTime()}`}
 				>
 					<span
-						className={`absolute top-1 -left-[17px] h-2 w-2 rounded-full border-2 bg-background ${item.condition ? "border-muted-foreground" : "border-primary"}`}
+						className={`absolute top-1 -left-[17px] h-2 w-2 rounded-full border-2 bg-background ${item.isOverdue ? "border-destructive" : item.condition ? "border-muted-foreground" : "border-primary"}`}
 					/>
 					<p
-						className={`font-medium text-[10px] leading-tight ${item.condition ? "text-muted-foreground" : ""}`}
+						className={`font-medium text-[10px] leading-tight ${item.condition && !item.isOverdue ? "text-muted-foreground" : ""}`}
 					>
 						{item.templateName}
 						{item.condition && (
@@ -93,9 +93,17 @@ export function AppointmentReminderTimeline({
 						)}
 					</p>
 					<p className="text-[10px] text-muted-foreground">
-						{format(item.scheduledFor, "MMM d 'at' p")}
-						{item.quietAdjusted && (
-							<span className="ml-1 italic">(adj. for quiet hours)</span>
+						{item.isOverdue ? (
+							<span className="text-destructive italic">
+								sending on next cycle
+							</span>
+						) : (
+							<>
+								{format(item.scheduledFor, "MMM d 'at' p")}
+								{item.quietAdjusted && (
+									<span className="ml-1 italic">(adj. for quiet hours)</span>
+								)}
+							</>
 						)}
 					</p>
 					<MessageSnippet
