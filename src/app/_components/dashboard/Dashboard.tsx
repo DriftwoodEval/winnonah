@@ -268,7 +268,7 @@ export function Dashboard() {
 		isLoading: isLoadingDashboard,
 		isError,
 	} = api.google.getDashboardData.useQuery(undefined, {
-		refetchInterval: 30000, // 30 seconds
+		refetchInterval: 180000, // 3 minutes
 	});
 
 	const { data: needsReachOut, isLoading: isLoadingNeedsReachOut } =

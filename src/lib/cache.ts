@@ -5,6 +5,10 @@ import type { Context } from "~/server/api/trpc";
 const log = logger.child({ module: "cache" });
 const DEFAULT_CACHE_TTL = 3600; // 1 hour in seconds
 
+// Deduplicates concurrent fetches for the same key so a cache stampede only
+// triggers one upstream call instead of N.
+const inFlight = new Map<string, Promise<unknown>>();
+
 export async function fetchWithCache<T>(
 	ctx: Context,
 	key: string,
@@ -64,16 +68,34 @@ export async function fetchWithCache<T>(
 		log.error({ cacheKey: key, error: err }, "Failed to get from cache");
 	}
 
-	// On a cache miss, run the fetcher
+	// On a cache miss, deduplicate concurrent fetches for the same key.
 	log.debug({ cacheKey: key }, "Cache miss");
-	const freshData = await fetcher();
 
-	// Set the new data in cache
-	try {
-		await ctx.redis.set(key, superjson.stringify(freshData), "EX", ttl);
-	} catch (err) {
-		log.error({ cacheKey: key, error: err }, "Failed to set cache");
+	const existing = inFlight.get(key) as Promise<T> | undefined;
+	if (existing) {
+		log.debug({ cacheKey: key }, "Joining in-flight fetch");
+		const freshData = await existing;
+		if (wantTimestamp) {
+			return { data: freshData, lastFetched: Date.now() };
+		}
+		return freshData;
 	}
+
+	const fetchPromise = fetcher()
+		.then(async (freshData) => {
+			try {
+				await ctx.redis.set(key, superjson.stringify(freshData), "EX", ttl);
+			} catch (err) {
+				log.error({ cacheKey: key, error: err }, "Failed to set cache");
+			}
+			return freshData;
+		})
+		.finally(() => {
+			inFlight.delete(key);
+		});
+
+	inFlight.set(key, fetchPromise);
+	const freshData = await fetchPromise;
 
 	if (wantTimestamp) {
 		return { data: freshData, lastFetched: Date.now() };

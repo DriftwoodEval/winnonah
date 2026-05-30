@@ -178,8 +178,12 @@ export const getPunchData = async (session: Session) => {
 
 	const failureMap = new Map<number, (typeof failures.$inferSelect)[]>();
 	allFailures.forEach((failure) => {
-		const clientFailures = failureMap.get(failure.clientId) ?? [];
-		failureMap.set(failure.clientId, [...clientFailures, failure]);
+		let clientFailures = failureMap.get(failure.clientId);
+		if (!clientFailures) {
+			clientFailures = [];
+			failureMap.set(failure.clientId, clientFailures);
+		}
+		clientFailures.push(failure);
 	});
 
 	const questionnaireMap = new Map<
@@ -187,8 +191,12 @@ export const getPunchData = async (session: Session) => {
 		(typeof questionnaires.$inferSelect)[]
 	>();
 	allQuestionnaires.forEach((q) => {
-		const clientQs = questionnaireMap.get(q.clientId) ?? [];
-		questionnaireMap.set(q.clientId, [...clientQs, q]);
+		let clientQs = questionnaireMap.get(q.clientId);
+		if (!clientQs) {
+			clientQs = [];
+			questionnaireMap.set(q.clientId, clientQs);
+		}
+		clientQs.push(q);
 	});
 
 	const dbClientMap = new Map<number, FullClientInfo>(
