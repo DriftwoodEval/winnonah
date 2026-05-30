@@ -1,6 +1,5 @@
 "use client";
 
-import type { CheckedState } from "@radix-ui/react-checkbox";
 import { Checkbox } from "@ui/checkbox";
 import { Label } from "@ui/label";
 import { useEffect, useId, useState } from "react";
@@ -50,7 +49,7 @@ export function EvaluationCheckbox({
 		},
 	});
 
-	const handleChange = (value: CheckedState) => {
+	const handleChange = (value: boolean | "indeterminate") => {
 		const newChecked = value === "indeterminate" ? false : value;
 		setChecked(newChecked);
 		updateClientMutation.mutate({

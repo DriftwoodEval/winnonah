@@ -1,4 +1,3 @@
-import type { CheckedState } from "@radix-ui/react-checkbox";
 import { Checkbox } from "@ui/checkbox";
 import { Label } from "@ui/label";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@ui/tooltip";
@@ -60,7 +59,7 @@ export function BabyNetBoxes({
 		onError: (error) => handleError(error, "update client 'Needed' status"),
 	});
 
-	const handleERNeededChange = (checked: CheckedState) => {
+	const handleERNeededChange = (checked: boolean | "indeterminate") => {
 		const newCheckedState = checked === "indeterminate" ? false : checked;
 
 		setBabyNetERNeeded(newCheckedState);
@@ -73,7 +72,7 @@ export function BabyNetBoxes({
 		});
 	};
 
-	const handleERDownloadedChange = (checked: CheckedState) => {
+	const handleERDownloadedChange = (checked: boolean | "indeterminate") => {
 		const newCheckedState = checked === "indeterminate" ? false : checked;
 
 		if (!clientId) return;
