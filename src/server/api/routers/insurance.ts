@@ -2,6 +2,7 @@ import { eq } from "drizzle-orm";
 import { z } from "zod";
 import { fetchWithCache, invalidateCache } from "~/lib/cache";
 import { additionalInsuranceAppointmentsSchema } from "~/lib/validations";
+import { CACHE_KEY_MISSING_APPOINTMENTS } from "~/server/api/routers/client";
 import {
 	assertPermission,
 	createTRPCRouter,
@@ -81,7 +82,11 @@ export const insuranceRouter = createTRPCRouter({
 				return result;
 			});
 
-			await invalidateCache(ctx, CACHE_KEY_ALL_INSURANCES);
+			await invalidateCache(
+				ctx,
+				CACHE_KEY_ALL_INSURANCES,
+				CACHE_KEY_MISSING_APPOINTMENTS,
+			);
 			return result;
 		}),
 
@@ -121,7 +126,11 @@ export const insuranceRouter = createTRPCRouter({
 				}
 			});
 
-			await invalidateCache(ctx, CACHE_KEY_ALL_INSURANCES);
+			await invalidateCache(
+				ctx,
+				CACHE_KEY_ALL_INSURANCES,
+				CACHE_KEY_MISSING_APPOINTMENTS,
+			);
 		}),
 
 	delete: protectedProcedure
@@ -132,6 +141,10 @@ export const insuranceRouter = createTRPCRouter({
 			ctx.logger.info(input, "Deleting insurance");
 
 			await ctx.db.delete(insurances).where(eq(insurances.id, input.id));
-			await invalidateCache(ctx, CACHE_KEY_ALL_INSURANCES);
+			await invalidateCache(
+				ctx,
+				CACHE_KEY_ALL_INSURANCES,
+				CACHE_KEY_MISSING_APPOINTMENTS,
+			);
 		}),
 });

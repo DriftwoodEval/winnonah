@@ -15,9 +15,11 @@ import {
 	not,
 } from "drizzle-orm";
 import { z } from "zod";
+import { invalidateCache } from "~/lib/cache";
 import { QUESTIONNAIRE_STATUSES } from "~/lib/constants";
 import type { InsertingQuestionnaire } from "~/lib/models";
 import { formatClientAge } from "~/lib/utils";
+import { CACHE_KEY_MISSING_APPOINTMENTS } from "~/server/api/routers/client";
 import {
 	assertPermission,
 	createTRPCRouter,
@@ -494,6 +496,7 @@ export const questionnaireRouter = createTRPCRouter({
 				where: eq(questionnaires.id, newId),
 			});
 
+			await invalidateCache(ctx, CACHE_KEY_MISSING_APPOINTMENTS);
 			return newQuestionnaire;
 		}),
 
@@ -598,6 +601,7 @@ export const questionnaireRouter = createTRPCRouter({
 					);
 			}
 
+			await invalidateCache(ctx, CACHE_KEY_MISSING_APPOINTMENTS);
 			return {
 				success: true,
 			};
@@ -820,6 +824,7 @@ export const questionnaireRouter = createTRPCRouter({
 				addedDate: new Date(),
 				appointmentId: input.appointmentId,
 			});
+			await invalidateCache(ctx, CACHE_KEY_MISSING_APPOINTMENTS);
 		}),
 
 	updateInPersonAssessmentStatus: protectedProcedure

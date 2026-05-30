@@ -58,6 +58,7 @@ import {
 
 const isNoteOnly = eq(sql`LENGTH(${clients.id})`, 5);
 const CACHE_KEY_DROP_LIST = "clients:drop-list";
+export const CACHE_KEY_MISSING_APPOINTMENTS = "clients:missing-appointments";
 
 export const getPriorityInfo = () => {
 	const now = new Date();
@@ -714,152 +715,154 @@ export const clientRouter = createTRPCRouter({
 	}),
 
 	getMissingAppointments: protectedProcedure.query(async ({ ctx }) => {
-		const activeClients = await ctx.db.query.clients.findMany({
-			where: and(
-				eq(clients.status, true),
-				isNotNull(clients.primaryInsurance),
-				not(isNoteOnly),
-			),
-		});
+		return fetchWithCache(ctx, CACHE_KEY_MISSING_APPOINTMENTS, async () => {
+			const activeClients = await ctx.db.query.clients.findMany({
+				where: and(
+					eq(clients.status, true),
+					isNotNull(clients.primaryInsurance),
+					not(isNoteOnly),
+				),
+			});
 
-		if (activeClients.length === 0) return [];
+			if (activeClients.length === 0) return [];
 
-		const allInsurances = await ctx.db.query.insurances.findMany({
-			with: { aliases: true },
-		});
+			const allInsurances = await ctx.db.query.insurances.findMany({
+				with: { aliases: true },
+			});
 
-		type InsuranceWithAliases = (typeof allInsurances)[0];
-		const insuranceByName = new Map<string, InsuranceWithAliases>();
-		for (const ins of allInsurances) {
-			insuranceByName.set(ins.shortName, ins);
-			for (const alias of ins.aliases) {
-				insuranceByName.set(alias.name, ins);
+			type InsuranceWithAliases = (typeof allInsurances)[0];
+			const insuranceByName = new Map<string, InsuranceWithAliases>();
+			for (const ins of allInsurances) {
+				insuranceByName.set(ins.shortName, ins);
+				for (const alias of ins.aliases) {
+					insuranceByName.set(alias.name, ins);
+				}
 			}
-		}
 
-		const relevantClients = activeClients.filter((c) => {
-			if (!c.primaryInsurance) return false;
-			const ins = insuranceByName.get(c.primaryInsurance);
-			return (
-				((ins?.additionalAppts as { maxUnitsPerDay?: number } | undefined)
-					?.maxUnitsPerDay ?? 0) > 0
-			);
-		});
+			const relevantClients = activeClients.filter((c) => {
+				if (!c.primaryInsurance) return false;
+				const ins = insuranceByName.get(c.primaryInsurance);
+				return (
+					((ins?.additionalAppts as { maxUnitsPerDay?: number } | undefined)
+						?.maxUnitsPerDay ?? 0) > 0
+				);
+			});
 
-		if (relevantClients.length === 0) return [];
+			if (relevantClients.length === 0) return [];
 
-		const clientIds = relevantClients.map((c) => c.id);
+			const clientIds = relevantClients.map((c) => c.id);
 
-		const [inPersonRows, qRows, apptCountRows] = await Promise.all([
-			ctx.db
-				.select({
-					clientId: inPersonAssessments.clientId,
-					minutes: assessmentTypes.minutes,
-				})
-				.from(inPersonAssessments)
-				.innerJoin(
-					assessmentTypes,
-					eq(inPersonAssessments.assessmentType, assessmentTypes.name),
-				)
-				.where(
-					and(
-						inArray(inPersonAssessments.clientId, clientIds),
-						or(
-							isNull(inPersonAssessments.status),
-							ne(inPersonAssessments.status, "EXTERNAL"),
+			const [inPersonRows, qRows, apptCountRows] = await Promise.all([
+				ctx.db
+					.select({
+						clientId: inPersonAssessments.clientId,
+						minutes: assessmentTypes.minutes,
+					})
+					.from(inPersonAssessments)
+					.innerJoin(
+						assessmentTypes,
+						eq(inPersonAssessments.assessmentType, assessmentTypes.name),
+					)
+					.where(
+						and(
+							inArray(inPersonAssessments.clientId, clientIds),
+							or(
+								isNull(inPersonAssessments.status),
+								ne(inPersonAssessments.status, "EXTERNAL"),
+							),
 						),
 					),
-				),
-			ctx.db
-				.select({
-					clientId: questionnaires.clientId,
-					minutes: assessmentTypes.minutes,
-				})
-				.from(questionnaires)
-				.innerJoin(
-					assessmentTypes,
-					eq(questionnaires.questionnaireType, assessmentTypes.name),
-				)
-				.where(
-					and(
-						inArray(questionnaires.clientId, clientIds),
-						or(
-							isNull(questionnaires.status),
-							ne(questionnaires.status, "EXTERNAL"),
+				ctx.db
+					.select({
+						clientId: questionnaires.clientId,
+						minutes: assessmentTypes.minutes,
+					})
+					.from(questionnaires)
+					.innerJoin(
+						assessmentTypes,
+						eq(questionnaires.questionnaireType, assessmentTypes.name),
+					)
+					.where(
+						and(
+							inArray(questionnaires.clientId, clientIds),
+							or(
+								isNull(questionnaires.status),
+								ne(questionnaires.status, "EXTERNAL"),
+							),
 						),
 					),
-				),
-			ctx.db
-				.select({
-					clientId: appointments.clientId,
-					activeCount: count(),
-				})
-				.from(appointments)
-				.where(
-					and(
-						inArray(appointments.clientId, clientIds),
-						eq(appointments.billingOnly, true),
-						eq(appointments.cancelled, false),
-					),
-				)
-				.groupBy(appointments.clientId),
-		]);
+				ctx.db
+					.select({
+						clientId: appointments.clientId,
+						activeCount: count(),
+					})
+					.from(appointments)
+					.where(
+						and(
+							inArray(appointments.clientId, clientIds),
+							eq(appointments.billingOnly, true),
+							eq(appointments.cancelled, false),
+						),
+					)
+					.groupBy(appointments.clientId),
+			]);
 
-		const minutesMap = new Map<number, number>();
-		for (const row of [...inPersonRows, ...qRows]) {
-			minutesMap.set(
-				row.clientId,
-				(minutesMap.get(row.clientId) ?? 0) + (row.minutes ?? 0),
-			);
-		}
-		const apptCountMap = new Map(
-			apptCountRows.map((r) => [r.clientId, r.activeCount]),
-		);
-
-		const result: ClientWithIssueInfo[] = [];
-		for (const client of relevantClients) {
-			if (!client.primaryInsurance) continue;
-			const ins = insuranceByName.get(client.primaryInsurance);
-			const apptConfig = ins?.additionalAppts as
-				| {
-						maxUnitsPerDay?: number;
-						max96130?: number;
-						max96131?: number;
-						max96136?: number;
-						max96137?: number;
-						maxAppt4Units?: number;
-				  }
-				| undefined;
-			const maxUnitsPerDay = apptConfig?.maxUnitsPerDay;
-			if (!maxUnitsPerDay) continue;
-
-			const totalMinutes = minutesMap.get(client.id) ?? 0;
-			if (totalMinutes === 0) continue;
-
-			const expectedCount = calculateAdditionalAppointments(
-				totalMinutes,
-				maxUnitsPerDay,
-				{
-					max96130: apptConfig?.max96130,
-					max96131: apptConfig?.max96131,
-					max96136: apptConfig?.max96136,
-					max96137: apptConfig?.max96137,
-					maxAppt4Units: apptConfig?.maxAppt4Units,
-				},
-			).length;
-
-			if (expectedCount === 0) continue;
-
-			const actualCount = apptCountMap.get(client.id) ?? 0;
-			if (actualCount < expectedCount) {
-				result.push({
-					...client,
-					additionalInfo: `(${actualCount} of ${expectedCount} appts)`,
-				});
+			const minutesMap = new Map<number, number>();
+			for (const row of [...inPersonRows, ...qRows]) {
+				minutesMap.set(
+					row.clientId,
+					(minutesMap.get(row.clientId) ?? 0) + (row.minutes ?? 0),
+				);
 			}
-		}
+			const apptCountMap = new Map(
+				apptCountRows.map((r) => [r.clientId, r.activeCount]),
+			);
 
-		return result;
+			const result: ClientWithIssueInfo[] = [];
+			for (const client of relevantClients) {
+				if (!client.primaryInsurance) continue;
+				const ins = insuranceByName.get(client.primaryInsurance);
+				const apptConfig = ins?.additionalAppts as
+					| {
+							maxUnitsPerDay?: number;
+							max96130?: number;
+							max96131?: number;
+							max96136?: number;
+							max96137?: number;
+							maxAppt4Units?: number;
+					  }
+					| undefined;
+				const maxUnitsPerDay = apptConfig?.maxUnitsPerDay;
+				if (!maxUnitsPerDay) continue;
+
+				const totalMinutes = minutesMap.get(client.id) ?? 0;
+				if (totalMinutes === 0) continue;
+
+				const expectedCount = calculateAdditionalAppointments(
+					totalMinutes,
+					maxUnitsPerDay,
+					{
+						max96130: apptConfig?.max96130,
+						max96131: apptConfig?.max96131,
+						max96136: apptConfig?.max96136,
+						max96137: apptConfig?.max96137,
+						maxAppt4Units: apptConfig?.maxAppt4Units,
+					},
+				).length;
+
+				if (expectedCount === 0) continue;
+
+				const actualCount = apptCountMap.get(client.id) ?? 0;
+				if (actualCount < expectedCount) {
+					result.push({
+						...client,
+						additionalInfo: `(${actualCount} of ${expectedCount} appts)`,
+					});
+				}
+			}
+
+			return result;
+		});
 	}),
 
 	getMissingRecordsNeeded: protectedProcedure.query(async ({ ctx }) => {
