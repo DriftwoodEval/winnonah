@@ -3,6 +3,11 @@
 import { Badge } from "@ui/badge";
 import { Button } from "@ui/button";
 import {
+	Collapsible,
+	CollapsibleContent,
+	CollapsibleTrigger,
+} from "@ui/collapsible";
+import {
 	DropdownMenu,
 	DropdownMenuContent,
 	DropdownMenuItem,
@@ -31,7 +36,7 @@ import { AppointmentReminderTimeline } from "./AppointmentReminderTimeline";
 export function ClientAppointments({ clientId }: { clientId: number }) {
 	const utils = api.useUtils();
 	const [expandedApptId, setExpandedApptId] = useState<string | null>(null);
-	const [billingExpanded, setBillingExpanded] = useState(false);
+	const [billingOpen, setBillingOpen] = useState(false);
 	const { data: appointments, isLoading } =
 		api.appointments.getByClientId.useQuery({
 			clientId,
@@ -43,15 +48,18 @@ export function ClientAppointments({ clientId }: { clientId: number }) {
 	});
 
 	if (isLoading) return <Skeleton className="h-64 w-full rounded-md" />;
-	if (!appointments?.length) return null;
 
-	const regular = appointments.filter((a) => !a.billingOnly);
-	const billing = appointments.filter((a) => a.billingOnly);
+	const regular = (appointments ?? []).filter((a) => !a.billingOnly);
+	const billing = (appointments ?? []).filter((a) => a.billingOnly);
+
+	if (regular.length === 0 && billing.length === 0) return null;
+
+	type Appt = (typeof regular)[0];
 
 	const renderAppointment = (
-		appt: (typeof appointments)[0],
+		appt: Appt,
 		index: number,
-		list: typeof appointments,
+		list: Appt[],
 		isBilling = false,
 	) => {
 		const startTime = getLocalTimeFromUTCDate(appt.startTime);
@@ -236,26 +244,22 @@ export function ClientAppointments({ clientId }: { clientId: number }) {
 					</div>
 
 					{!isBilling && (
-						<button
-							className="mt-2 flex items-center gap-1 text-[10px] text-muted-foreground transition-colors hover:text-foreground"
-							onClick={() =>
-								setExpandedApptId(expandedApptId === appt.id ? null : appt.id)
-							}
-							type="button"
+						<Collapsible
+							onOpenChange={(open) => setExpandedApptId(open ? appt.id : null)}
+							open={expandedApptId === appt.id}
 						>
-							{expandedApptId === appt.id ? (
-								<ChevronDown className="h-3 w-3" />
-							) : (
-								<ChevronRight className="h-3 w-3" />
-							)}
-							Reminders
-						</button>
-					)}
-
-					{!isBilling && expandedApptId === appt.id && (
-						<div className="mt-2">
-							<AppointmentReminderTimeline appointmentId={appt.id} />
-						</div>
+							<CollapsibleTrigger className="mt-2 flex items-center gap-1 text-[10px] text-muted-foreground transition-colors hover:text-foreground">
+								{expandedApptId === appt.id ? (
+									<ChevronDown className="h-3 w-3" />
+								) : (
+									<ChevronRight className="h-3 w-3" />
+								)}
+								Reminders
+							</CollapsibleTrigger>
+							<CollapsibleContent className="mt-2">
+								<AppointmentReminderTimeline appointmentId={appt.id} />
+							</CollapsibleContent>
+						</Collapsible>
 					)}
 				</div>
 				{index !== list.length - 1 && <Separator />}
@@ -281,34 +285,31 @@ export function ClientAppointments({ clientId }: { clientId: number }) {
 					{billing.length > 0 && (
 						<>
 							{regular.length > 0 && <Separator />}
-							<button
-								className="flex items-center gap-2 px-3 py-2 text-muted-foreground text-xs transition-colors hover:text-foreground"
-								onClick={() => setBillingExpanded((v) => !v)}
-								type="button"
-							>
-								{billingExpanded ? (
-									<ChevronDown className="h-3 w-3 shrink-0" />
-								) : (
-									<ChevronRight className="h-3 w-3 shrink-0" />
-								)}
-								<span className="font-medium uppercase tracking-wider">
-									Billing Only
-								</span>
-								<Badge
-									className="h-4 px-1 font-mono text-[9px]"
-									variant="secondary"
-								>
-									{billing.length}
-								</Badge>
-							</button>
-
-							{billingExpanded && (
-								<div className="ml-3 border-muted border-l-2">
-									{billing.map((appt, index) =>
-										renderAppointment(appt, index, billing, true),
+							<Collapsible onOpenChange={setBillingOpen} open={billingOpen}>
+								<CollapsibleTrigger className="flex w-full items-center gap-2 px-3 py-2 text-muted-foreground text-xs transition-colors hover:text-foreground">
+									{billingOpen ? (
+										<ChevronDown className="h-3 w-3 shrink-0" />
+									) : (
+										<ChevronRight className="h-3 w-3 shrink-0" />
 									)}
-								</div>
-							)}
+									<span className="font-medium uppercase tracking-wider">
+										Billing Only
+									</span>
+									<Badge
+										className="h-4 px-1 font-mono text-[9px]"
+										variant="secondary"
+									>
+										{billing.length}
+									</Badge>
+								</CollapsibleTrigger>
+								<CollapsibleContent>
+									<div className="ml-3 border-muted border-l-2">
+										{billing.map((appt, index) =>
+											renderAppointment(appt, index, billing, true),
+										)}
+									</div>
+								</CollapsibleContent>
+							</Collapsible>
 						</>
 					)}
 				</div>
