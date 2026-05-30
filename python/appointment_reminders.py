@@ -140,6 +140,7 @@ async def process_reminders(connection: Connection[DictCursor]) -> None:
                     AND a.cancelled = 0
                     AND a.rescheduled = 0
                     AND a.placeholder = 0
+                    AND a.billingOnly = 0
                     AND a.startTime <= %s
                     AND a.startTime >= NOW()
                 """
@@ -165,6 +166,7 @@ async def process_reminders(connection: Connection[DictCursor]) -> None:
                     AND a.cancelled = 0
                     AND a.rescheduled = 0
                     AND a.placeholder = 0
+                    AND a.billingOnly = 0
                     AND a.startTime <= %s
                     AND a.startTime >= NOW()
                 """
@@ -188,6 +190,7 @@ async def process_reminders(connection: Connection[DictCursor]) -> None:
                     AND a.cancelled = 0
                     AND a.rescheduled = 0
                     AND a.placeholder = 0
+                    AND a.billingOnly = 0
                     AND (
                         (%s IS NOT NULL AND a.calendarEventTitle LIKE %s)
                         OR

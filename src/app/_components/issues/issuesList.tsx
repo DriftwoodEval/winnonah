@@ -812,6 +812,8 @@ export function IssuesList() {
 
 	const { data: noReferralSource, isLoading: isLoadingNoReferralSource } =
 		api.clients.getNoReferralSource.useQuery();
+	const { data: missingAppointments, isLoading: isLoadingMissingAppointments } =
+		api.clients.getMissingAppointments.useQuery();
 
 	return (
 		<div className="flex flex-wrap justify-center gap-10">
@@ -860,6 +862,19 @@ export function IssuesList() {
 						clients={evaluationInProcess}
 						description="Clients with an evaluation currently in process."
 						title="Evaluation In Process"
+					/>
+				)}
+			</GuardedIssue>
+
+			<GuardedIssue
+				isLoading={isLoadingMissingAppointments}
+				permission="issues:missing-appointments"
+			>
+				{missingAppointments && missingAppointments.length !== 0 && (
+					<IssueList
+						clients={missingAppointments}
+						description="Clients with fewer scheduled appointments than the insurance calculation requires."
+						title="Appointments to be Created"
 					/>
 				)}
 			</GuardedIssue>

@@ -224,6 +224,10 @@ export const PERMISSIONS = {
 						id: "issues:evaluation-in-process",
 						title: "Evaluation In Process",
 					},
+					{
+						id: "issues:missing-appointments",
+						title: "Appointments to be Created",
+					},
 				],
 			},
 		},

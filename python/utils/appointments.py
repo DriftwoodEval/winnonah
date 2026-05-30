@@ -337,6 +337,7 @@ def prepare_appointments_from_csv(
     )
 
     indices_to_drop = set()
+    billing_indices = set()
     last_90000_appointment_date: dict[int, datetime] = {}
 
     for idx, appointment in appointments_df.iterrows():
@@ -352,37 +353,44 @@ def prepare_appointments_from_csv(
             continue
 
         if should_skip_appointment(appointment):
-            indices_to_drop.add(idx)
+            logger.info(
+                f"Flagging {name} ({client_id}) on {start_time.date().strftime('%Y-%m-%d')} "
+                f"as billing-only (CPT {cpt_code} skipped from regular import)."
+            )
+            billing_indices.add(idx)
             continue
 
-        # Filter out 90000 CPT codes within 6 months of each other
+        # Flag 90000 CPT duplicates within 6 months as billing-only
         if "90000" in cpt_code:
             last_date = last_90000_appointment_date.get(client_id)
             if last_date and (start_time - last_date).days < 182:
                 logger.info(
-                    f"Skipping appointment for client {client_id} on {start_time.date()} "
-                    f"with 90000 CPT code as it is within 6 months of a previous one on {last_date.date()}."
+                    f"Flagging appointment for client {client_id} on {start_time.date()} "
+                    f"as billing-only (90000 CPT within 6 months of {last_date.date()})."
                 )
-                indices_to_drop.add(idx)
+                billing_indices.add(idx)
                 continue
             last_90000_appointment_date[client_id] = start_time
 
-        # Skip if client was seen previous day (insurance 'appointment')
+        # Detect next-day billing-only appointments (insurance billing entries in TA)
         previous_app_date = start_time.date() - timedelta(days=1)
 
         if (client_id, previous_app_date) in client_date_set:
-            logger.warning(
-                f"Skipping {name} ({client_id}) on {start_time.date().strftime('%Y-%m-%d')} "
-                f"as they were seen on the previous day."
+            logger.info(
+                f"Flagging {name} ({client_id}) on {start_time.date().strftime('%Y-%m-%d')} "
+                f"as a billing-only appointment (seen previous day)."
             )
-            indices_to_drop.add(idx)
+            billing_indices.add(idx)
             continue
 
-    appointments_df = appointments_df.drop(index=list(indices_to_drop))
+    billing_df = appointments_df.loc[list(billing_indices)].copy()
+    appointments_df = appointments_df.drop(
+        index=list(indices_to_drop | billing_indices)
+    )
 
     if appointments_df.empty:
         logger.info("No valid appointments found in the processing window.")
-        return appointments_df
+        return appointments_df, billing_df
 
     # Separate cancelled appointments — they won't appear in GCal and don't need matching
     cancelled_mask = appointments_df["CANCELBYNAME"].apply(lambda x: isinstance(x, str))
@@ -463,7 +471,7 @@ def prepare_appointments_from_csv(
         appointments_df.update(updates_df)
 
     result_df = appointments_df.drop(index=list(final_drops)).reset_index(drop=True)
-    return pd.concat([result_df, cancelled_df], ignore_index=True)
+    return pd.concat([result_df, cancelled_df], ignore_index=True), billing_df
 
 
 def insert_appointments_with_gcal(appointment_sync_data: dict[str, list[str]] | None):
@@ -484,18 +492,19 @@ def insert_appointments_with_gcal(appointment_sync_data: dict[str, list[str]] | 
     reporter = SyncReporter()
 
     logger.info("Processing appointments from CSV and Google Calendar...")
-    appointments_df = prepare_appointments_from_csv(
+    appointments_df, billing_df = prepare_appointments_from_csv(
         reporter,
         trusted_ids=trusted_ids,
         ignored_ids=ignored_ids,
     )
 
-    if appointments_df.empty:
+    if appointments_df.empty and billing_df.empty:
         logger.warning("No appointments to insert.")
         return
 
     logger.info(f"Inserting {len(appointments_df)} appointments into database...")
     npi_cache = get_all_evaluators_npi_map()
+    valid_npis = set(npi_cache.values())
     asd_adhd_map = get_client_id_to_asd_adhd_map()
     dob_map = get_client_id_to_dob_map()
     battery_rules = get_questionnaire_rules_with_in_person()
@@ -548,6 +557,18 @@ def insert_appointments_with_gcal(appointment_sync_data: dict[str, list[str]] | 
                     f"Skipping {'cancelled' if cancelled else 'trusted'} appointment {appointment_id} for {client_id}: No valid NPI in CSV."
                 )
                 continue
+
+            if evaluator_npi not in valid_npis:
+                label = "cancelled" if cancelled else "trusted"
+                appt_name = re.sub(r"[\d\(\)]", "", appointment["NAME"]).strip()
+                logger.warning(
+                    f"Skipping {label} appointment {appointment_id} ({appt_name}) for client {client_id} "
+                    f"on {start_time.strftime('%m/%d %I:%M %p')}: "
+                    f"NPI {evaluator_npi} not found in evaluator table. "
+                    f"Known NPIs: {sorted(valid_npis)}"
+                )
+                continue
+
             confirmed_at = None
         else:
             if not gcal_calendar_id:
@@ -594,6 +615,52 @@ def insert_appointments_with_gcal(appointment_sync_data: dict[str, list[str]] | 
                         added_date=appt_date,
                         appointment_id=appointment_id,
                     )
+
+    if not billing_df.empty:
+        logger.info(
+            f"Inserting {len(billing_df)} billing-only appointments into database..."
+        )
+        for _, appointment in billing_df.iterrows():
+            appointment_id = str(appointment["APPOINTMENT_ID"])
+            client_id = appointment["CLIENT_ID"]
+            start_time = pd.to_datetime(appointment["STARTTIME"]).to_pydatetime()
+            end_time = pd.to_datetime(appointment["ENDTIME"]).to_pydatetime()
+            cancelled = type(appointment["CANCELBYNAME"]) is str
+            cpt_code = re.sub(r"\D", "", appointment["NAME"]) or "N/A"
+
+            raw_npi = appointment.get("NPI")
+            try:
+                evaluator_npi = int(raw_npi) if pd.notna(raw_npi) else None
+            except ValueError, TypeError:
+                evaluator_npi = None
+
+            if not evaluator_npi:
+                logger.warning(
+                    f"Skipping billing appointment {appointment_id} for {client_id}: No valid NPI in CSV."
+                )
+                continue
+
+            if evaluator_npi not in valid_npis:
+                name = re.sub(r"[\d\(\)]", "", appointment["NAME"]).strip()
+                logger.warning(
+                    f"Skipping billing appointment {appointment_id} ({name}) for client {client_id} "
+                    f"on {start_time.strftime('%m/%d %I:%M %p')}: "
+                    f"NPI {evaluator_npi} not found in evaluator table. "
+                    f"Known NPIs: {sorted(valid_npis)}"
+                )
+                continue
+
+            put_appointment_in_db(
+                appointment_id=appointment_id,
+                client_id=client_id,
+                evaluator_npi=evaluator_npi,
+                cpt=cpt_code,
+                start_time=start_time,
+                end_time=end_time,
+                cancelled=cancelled,
+                asd_adhd=asd_adhd_map.get(client_id),
+                billing_only=True,
+            )
 
     reporter.send_report(email_for_errors)
 

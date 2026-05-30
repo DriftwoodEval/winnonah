@@ -98,6 +98,9 @@ export function IssuesAlert() {
 		queryOptions,
 	);
 
+	const { data: missingAppointments } =
+		api.clients.getMissingAppointments.useQuery(undefined, queryOptions);
+
 	const countIf = (hasPermission: boolean, count: number = 0) =>
 		hasPermission ? count : 0;
 
@@ -151,6 +154,10 @@ export function IssuesAlert() {
 			can("issues:duplicate-questionnaires"),
 			clientsWithDuplicateLinks.length +
 				(duplicateQLinks?.sharedAcrossClients.length ?? 0),
+		) +
+		countIf(
+			can("issues:missing-appointments"),
+			missingAppointments?.length ?? 0,
 		);
 
 	if (errorsLength === 0) {

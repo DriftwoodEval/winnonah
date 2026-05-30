@@ -374,11 +374,12 @@ def put_appointment_in_db(
     gcal_event_id: str | None = None,
     gcal_event_title: str | None = None,
     confirmed_at: datetime | None = None,
+    billing_only: bool = False,
 ):
     """Inserts an appointment into the database."""
     sql = f"""
-        INSERT INTO `{TABLE_APPOINTMENT}` (id, clientId, evaluatorNpi, startTime, endTime, daEval, asdAdhd, cancelled, locationKey, calendarEventId, cpt, calendarEventTitle, confirmedAt)
-        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+        INSERT INTO `{TABLE_APPOINTMENT}` (id, clientId, evaluatorNpi, startTime, endTime, daEval, asdAdhd, cancelled, locationKey, calendarEventId, cpt, calendarEventTitle, confirmedAt, billingOnly)
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
         ON DUPLICATE KEY UPDATE
             clientId = VALUES(clientId),
             evaluatorNpi = VALUES(evaluatorNpi),
@@ -392,7 +393,8 @@ def put_appointment_in_db(
             calendarEventId = CASE WHEN VALUES(calendarEventId) IS NOT NULL THEN VALUES(calendarEventId) ELSE calendarEventId END,
             cpt = VALUES(cpt),
             calendarEventTitle = CASE WHEN VALUES(calendarEventTitle) IS NOT NULL THEN VALUES(calendarEventTitle) ELSE calendarEventTitle END,
-            confirmedAt = CASE WHEN startTime != VALUES(startTime) THEN NULL WHEN VALUES(confirmedAt) IS NOT NULL THEN VALUES(confirmedAt) ELSE confirmedAt END;
+            confirmedAt = CASE WHEN startTime != VALUES(startTime) THEN NULL WHEN VALUES(confirmedAt) IS NOT NULL THEN VALUES(confirmedAt) ELSE confirmedAt END,
+            billingOnly = VALUES(billingOnly);
     """
     params = (
         appointment_id,
@@ -408,6 +410,7 @@ def put_appointment_in_db(
         cpt,
         gcal_event_title,
         confirmed_at,
+        billing_only,
     )
 
     with connection.cursor() as cursor:

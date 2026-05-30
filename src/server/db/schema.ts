@@ -482,6 +482,7 @@ export const appointments = createTable("appointment", (d) => ({
 	cancelled: d.boolean().notNull().default(false),
 	rescheduled: d.boolean().notNull().default(false),
 	placeholder: d.boolean().notNull().default(false),
+	billingOnly: d.boolean().notNull().default(false),
 	locationKey: d.varchar({ length: 255 }),
 	calendarEventId: d.varchar({ length: 255 }),
 	calendarEventTitle: d.varchar({ length: 255 }),
