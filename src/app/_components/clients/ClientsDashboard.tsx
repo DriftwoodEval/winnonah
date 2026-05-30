@@ -275,7 +275,7 @@ export function ClientsDashboard() {
 	);
 
 	return (
-		<div className="flex w-full flex-col gap-3">
+		<div className="flex min-h-0 w-full flex-1 flex-col gap-3">
 			<RecentClients />
 			<div className="flex flex-row gap-3">
 				<NameSearchInput
@@ -541,17 +541,14 @@ export function ClientsDashboard() {
 			</div>
 
 			<div
-				className={
-					isPlaceholderData
-						? "opacity-60 transition-opacity duration-200"
-						: "opacity-100 transition-opacity duration-200"
-				}
+				className={`min-h-0 flex-1 ${isPlaceholderData ? "opacity-60 transition-opacity duration-200" : "opacity-100 transition-opacity duration-200"}`}
 			>
 				{isLoading ? (
-					<Skeleton className="h-[calc(100dvh-8rem)] w-full" />
+					<Skeleton className="h-full w-full" />
 				) : (
 					<ClientsList
 						clients={clients ?? []}
+						heightClass="h-full"
 						highlightedIndex={highlightedIndex}
 						savedPlace={queryParams.color}
 					/>
