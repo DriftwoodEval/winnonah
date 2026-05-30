@@ -7,7 +7,7 @@ from datetime import datetime, timedelta
 from typing import Annotated
 
 from fastapi import APIRouter, BackgroundTasks, Header, HTTPException, Request
-from httpx import AsyncClient
+from httpx import AsyncClient, HTTPStatusError
 from loguru import logger
 from pymysql.connections import Connection
 from pymysql.cursors import DictCursor
@@ -406,6 +406,11 @@ async def send_sms(to: str, body: str) -> str | None:
         response.raise_for_status()
         data = response.json().get("data", {})
         return data.get("id")
+    except HTTPStatusError as e:
+        logger.error(
+            f"Failed to send SMS to {to}: HTTP {e.response.status_code} - {e.response.text}"
+        )
+        raise
     except Exception as e:
         logger.error(f"Failed to send SMS to {to}: {e}")
         raise
@@ -421,6 +426,7 @@ async def handle_webhook(
     openphone_signature: Annotated[str | None, Header()] = None,
 ):
     if not openphone_signature:
+        logger.warning("Webhook rejected: missing openphone-signature header")
         raise HTTPException(status_code=401, detail="Missing signature")
 
     await verify_openphone_signature(

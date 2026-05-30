@@ -4,6 +4,7 @@ import hmac
 import time
 
 from fastapi import HTTPException, Request
+from loguru import logger
 
 
 async def verify_openphone_signature(
@@ -18,10 +19,13 @@ async def verify_openphone_signature(
         timestamp = timestamp.strip()
         received_sig = received_sig.strip()
     except (ValueError, AttributeError) as e:
+        logger.warning(f"Webhook rejected: invalid signature format - {e}")
         raise HTTPException(status_code=401, detail="Invalid signature format") from e
 
     now_ms = int(time.time() * 1000)
-    if abs(now_ms - int(timestamp)) > 5 * 60 * 1000:
+    age_ms = abs(now_ms - int(timestamp))
+    if age_ms > 5 * 60 * 1000:
+        logger.warning(f"Webhook rejected: signature expired (age={age_ms}ms)")
         raise HTTPException(status_code=401, detail="Signature expired")
 
     raw_body = await request.body()
@@ -33,4 +37,7 @@ async def verify_openphone_signature(
     expected_sig_b64 = base64.b64encode(expected_hmac).decode()
 
     if not hmac.compare_digest(expected_sig_b64, received_sig):
+        logger.warning(
+            f"Webhook rejected: signature mismatch (expected={expected_sig_b64}, received={received_sig})"
+        )
         raise HTTPException(status_code=401, detail="Signature mismatch")
