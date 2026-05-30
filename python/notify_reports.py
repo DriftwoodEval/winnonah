@@ -6,7 +6,11 @@ from utils.constants import TABLE_SEEN_REPORT_FOLDERS
 from utils.database import get_db, get_queue_notify_users
 from utils.google import get_items_in_folder, send_gmail
 
-logger.add("logs/report-notifications.log", rotation="50 MB")
+logger.add(
+    "logs/report-notifications.log",
+    rotation="50 MB",
+    filter=lambda r: r["name"] == "notify_reports",
+)
 load_dotenv()
 
 

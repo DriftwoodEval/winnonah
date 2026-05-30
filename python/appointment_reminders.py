@@ -25,7 +25,11 @@ from utils.database import provide_connection
 from utils.google import update_gcal_event_title
 from utils.webhook import verify_openphone_signature
 
-logger.add("logs/appointment-reminders.log", rotation="500 MB")
+logger.add(
+    "logs/appointment-reminders.log",
+    rotation="500 MB",
+    filter=lambda r: r["name"] in {"appointment_reminders", "utils.webhook"},
+)
 
 OPENPHONE_API_TOKEN = os.getenv("OPENPHONE_API_TOKEN", "")
 OPENPHONE_NUMBER_ID = os.getenv("OPENPHONE_NUMBER_ID", "")
