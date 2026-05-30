@@ -33,6 +33,7 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from "@ui/select";
+import { Skeleton } from "@ui/skeleton";
 import {
 	Table,
 	TableBody,
@@ -261,7 +262,7 @@ export function InPersonAssessmentsTable({
 					/>
 				)}
 			</div>
-			{assessments && assessments.length > 0 && (
+			{(isLoading || (assessments && assessments.length > 0)) && (
 				<div className="px-4 pb-4">
 					<Table className="text-xs">
 						<TableHeader>
@@ -273,7 +274,15 @@ export function InPersonAssessmentsTable({
 							</TableRow>
 						</TableHeader>
 						<TableBody>
-							{assessments.map((assessment) => (
+							{isLoading &&
+								["sk-a1", "sk-a2"].map((k) => (
+									<TableRow key={k}>
+										<TableCell colSpan={4}>
+											<Skeleton className="h-4 w-full" />
+										</TableCell>
+									</TableRow>
+								))}
+							{assessments?.map((assessment) => (
 								<TableRow key={assessment.id}>
 									{showActions && (
 										<TableCell>

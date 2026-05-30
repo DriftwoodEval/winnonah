@@ -153,7 +153,24 @@ export function Client({
 				/>
 
 				{isLoading || !client ? (
-					<Skeleton className="h-96 w-full rounded-md sm:h-96" />
+					<div className="flex w-full flex-col gap-6">
+						<Skeleton className="h-9 w-full rounded-md" />
+						<div className="flex w-full flex-wrap gap-6 rounded-md border-2 p-4 shadow">
+							{["dob", "age", "entry", "insurance", "district"].map((field) => (
+								<div className="flex flex-col gap-1.5" key={field}>
+									<Skeleton className="h-3.5 w-16" />
+									<Skeleton className="h-4 w-24" />
+								</div>
+							))}
+						</div>
+						<div className="flex w-full flex-col gap-2">
+							<Skeleton className="h-3.5 w-12" />
+							<Skeleton className="h-9 w-full" />
+							<Skeleton className="h-9 w-1/3" />
+							<Skeleton className="h-32 w-full" />
+						</div>
+						<Skeleton className="h-48 w-full rounded-md" />
+					</div>
 				) : (
 					<>
 						<MergeRecommendationAlert client={client} readOnly={readOnly} />
@@ -377,20 +394,26 @@ export function Client({
 
 			{!readOnly && (
 				<div className="flex w-[calc(100%-32px)] shrink-0 flex-col gap-6 lg:sticky lg:top-14 lg:mt-0 lg:w-[230px]">
-					{client && (
-						<RelatedClients
-							clientId={client.id}
-							lastName={client.lastName}
-							phoneNumber={client.phoneNumber}
-							readOnly={readOnly}
-							relatedConnections={client.relatedConnections}
-						/>
-					)}
-					{client && !isShellClientId(client.id) && (
-						<AdditionalInsuranceAppointmentsDisplay client={client} />
-					)}
-					{client?.phoneNumber && (
-						<CommunicationTimeline phoneNumber={client.phoneNumber} />
+					{isLoading ? (
+						<Skeleton className="h-48 w-full rounded-md" />
+					) : (
+						<>
+							{client && (
+								<RelatedClients
+									clientId={client.id}
+									lastName={client.lastName}
+									phoneNumber={client.phoneNumber}
+									readOnly={readOnly}
+									relatedConnections={client.relatedConnections}
+								/>
+							)}
+							{client && !isShellClientId(client.id) && (
+								<AdditionalInsuranceAppointmentsDisplay client={client} />
+							)}
+							{client?.phoneNumber && (
+								<CommunicationTimeline phoneNumber={client.phoneNumber} />
+							)}
+						</>
 					)}
 				</div>
 			)}

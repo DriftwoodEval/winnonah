@@ -1,6 +1,7 @@
 "use client";
 
 import { Alert, AlertDescription, AlertTitle } from "@ui/alert";
+import { Skeleton } from "@ui/skeleton";
 import {
 	Table,
 	TableBody,
@@ -97,13 +98,14 @@ export function QuestionnairesTable({
 							</TableRow>
 						</TableHeader>
 						<TableBody>
-							{isLoadingQuestionnaires && (
-								<TableRow>
-									<TableCell className="text-center" colSpan={7}>
-										Loading...
-									</TableCell>
-								</TableRow>
-							)}
+							{isLoadingQuestionnaires &&
+								["sk-q1", "sk-q2", "sk-q3"].map((k) => (
+									<TableRow key={k}>
+										<TableCell colSpan={7}>
+											<Skeleton className="h-4 w-full" />
+										</TableCell>
+									</TableRow>
+								))}
 							{questionnairesSent
 								?.filter((questionnaire) => questionnaire.status !== "ARCHIVED")
 								.map((questionnaire) => (
