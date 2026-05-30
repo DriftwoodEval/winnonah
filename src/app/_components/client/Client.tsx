@@ -81,11 +81,23 @@ export function Client({
 
 	const [selectedColor, setSelectedColor] = useState<ClientColor | null>(null);
 
+	const trackClientViewMutation = api.users.trackClientView.useMutation();
+
 	useEffect(() => {
 		if (client?.color) {
 			setSelectedColor(client.color);
 		}
 	}, [client?.color]);
+
+	// biome-ignore lint/correctness/useExhaustiveDependencies: intentionally fires only when the client identity (hash) changes
+	useEffect(() => {
+		if (client?.hash && client?.fullName) {
+			trackClientViewMutation.mutate({
+				hash: client.hash,
+				name: client.fullName,
+			});
+		}
+	}, [client?.hash]);
 
 	const updateClientColorMutation = api.clients.update.useMutation({
 		onSuccess: () => {

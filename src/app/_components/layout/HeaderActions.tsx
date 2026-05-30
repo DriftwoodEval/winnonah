@@ -10,12 +10,14 @@ import {
 	DropdownMenuSeparator,
 	DropdownMenuTrigger,
 } from "@ui/dropdown-menu";
-import { LogIn } from "lucide-react";
+import { Popover, PopoverContent, PopoverTrigger } from "@ui/popover";
+import { Clock, LogIn } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { signIn, signOut, useSession } from "next-auth/react";
 import { useCheckPermission } from "~/hooks/use-check-permission";
 import { useMediaQuery } from "~/hooks/use-media-query";
+import { api } from "~/trpc/react";
 import { IssueFormLink } from "../shared/IssueFormLink";
 import { ThemeSwitcher } from "../shared/ThemeSwitcher";
 import { GlobalClientSearch } from "./GlobalClientSearch";
@@ -25,6 +27,10 @@ export function HeaderActions() {
 	const { data: session } = useSession();
 	const can = useCheckPermission();
 	const isDesktop = useMediaQuery("(min-width: 768px)");
+	const { data: recentClients } = api.users.getRecentClients.useQuery(
+		undefined,
+		{ enabled: !!session },
+	);
 
 	const canQSuite =
 		can("settings:qsuite:general") ||
@@ -35,6 +41,33 @@ export function HeaderActions() {
 	return (
 		<div className="m-2 flex items-center gap-3">
 			{session && pathname !== "/" && <GlobalClientSearch />}
+
+			{session && !!recentClients?.length && (
+				<Popover>
+					<PopoverTrigger asChild>
+						<Button size="icon" variant="ghost">
+							<Clock className="h-4 w-4" />
+							<span className="sr-only">Recent clients</span>
+						</Button>
+					</PopoverTrigger>
+					<PopoverContent align="end" className="w-64 p-2">
+						<p className="mb-2 px-1 font-medium text-muted-foreground text-xs uppercase tracking-wide">
+							Recent Clients
+						</p>
+						<div className="flex flex-col">
+							{recentClients.map((client) => (
+								<Link
+									className="rounded-md px-2 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground"
+									href={`/clients/${client.hash}`}
+									key={client.hash}
+								>
+									{client.name}
+								</Link>
+							))}
+						</div>
+					</PopoverContent>
+				</Popover>
+			)}
 
 			{session && <IssuesAlert />}
 

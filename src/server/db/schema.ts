@@ -678,6 +678,7 @@ export const users = createTable("user", (d) => ({
 		.$type<{ name: string; id: string }>(),
 	phoneNumber: d.varchar("phone_number", { length: 20 }),
 	isGreeter: d.boolean("is_greeter").notNull().default(false),
+	recentClients: d.text("recent_clients"),
 }));
 
 export const usersRelations = relations(users, ({ many, one }) => ({

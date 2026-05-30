@@ -25,6 +25,7 @@ import { ResponsiveDialog } from "../shared/ResponsiveDialog";
 import ClientCreateForm from "./ClientCreateForm";
 import { ClientsList } from "./ClientsList";
 import { NameSearchInput } from "./NameSearchInput";
+import { RecentClients } from "./RecentClients";
 
 export function ClientsDashboard() {
 	const router = useRouter();
@@ -275,6 +276,7 @@ export function ClientsDashboard() {
 
 	return (
 		<div className="flex w-full flex-col gap-3">
+			<RecentClients />
 			<div className="flex flex-row gap-3">
 				<NameSearchInput
 					debounceMs={300}

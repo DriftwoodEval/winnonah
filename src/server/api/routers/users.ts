@@ -291,4 +291,51 @@ export const userRouter = createTRPCRouter({
 
 			return updatedSavedPlaces;
 		}),
+
+	getRecentClients: protectedProcedure.query(async ({ ctx }) => {
+		const userFromDb = await ctx.db.query.users.findFirst({
+			where: eq(users.id, ctx.session.user.id),
+		});
+
+		if (!userFromDb) return [];
+
+		try {
+			return (
+				JSON.parse(userFromDb.recentClients ?? "[]") as Array<{
+					hash: string;
+					name: string;
+				}>
+			).slice(0, 10);
+		} catch {
+			return [];
+		}
+	}),
+
+	trackClientView: protectedProcedure
+		.input(z.object({ hash: z.string(), name: z.string() }))
+		.mutation(async ({ ctx, input }) => {
+			const userFromDb = await ctx.db.query.users.findFirst({
+				where: eq(users.id, ctx.session.user.id),
+			});
+
+			if (!userFromDb) return;
+
+			let recent: Array<{ hash: string; name: string }> = [];
+			try {
+				recent = JSON.parse(userFromDb.recentClients ?? "[]");
+			} catch {
+				recent = [];
+			}
+
+			const deduped = recent.filter((c) => c.hash !== input.hash);
+			const updated = [
+				{ hash: input.hash, name: input.name },
+				...deduped,
+			].slice(0, 10);
+
+			await ctx.db
+				.update(users)
+				.set({ recentClients: JSON.stringify(updated) })
+				.where(eq(users.id, ctx.session.user.id));
+		}),
 });
