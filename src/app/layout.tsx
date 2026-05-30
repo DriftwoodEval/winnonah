@@ -1,7 +1,6 @@
 import "~/styles/globals.css";
 
 import { Header } from "@components/layout/Header";
-import VersionFooter from "@components/shared/VersionFooter";
 import { Toaster } from "@ui/sonner";
 import type { Metadata } from "next";
 import {
@@ -48,10 +47,7 @@ export default function RootLayout({
 			<body className="flex min-h-screen flex-col bg-background">
 				<Providers>
 					<Header />
-					<main className="flex grow pt-10">
-						{children}
-						<VersionFooter />
-					</main>
+					<main className="flex grow pt-10">{children}</main>
 					<Toaster position="top-center" richColors />
 				</Providers>
 			</body>

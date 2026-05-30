@@ -7,6 +7,7 @@ import {
 	DropdownMenu,
 	DropdownMenuContent,
 	DropdownMenuItem,
+	DropdownMenuLabel,
 	DropdownMenuSeparator,
 	DropdownMenuTrigger,
 } from "@ui/dropdown-menu";
@@ -113,6 +114,25 @@ export function HeaderActions() {
 						<button className="w-full" onClick={() => signOut()} type="button">
 							<DropdownMenuItem>Sign out</DropdownMenuItem>
 						</button>
+						<DropdownMenuSeparator />
+						<DropdownMenuLabel className="font-mono font-normal text-[10px] text-muted-foreground">
+							{process.env.NODE_ENV === "development" ? (
+								<span>Branch: {process.env.NEXT_PUBLIC_GIT_BRANCH}</span>
+							) : (
+								<span>
+									{process.env.NEXT_PUBLIC_COMMIT_HASH} •{" "}
+									{process.env.NEXT_PUBLIC_BUILD_DATE
+										? new Date(
+												process.env.NEXT_PUBLIC_BUILD_DATE,
+											).toLocaleDateString("en-US", {
+												year: "2-digit",
+												month: "numeric",
+												day: "numeric",
+											})
+										: "n/a"}
+								</span>
+							)}
+						</DropdownMenuLabel>
 					</DropdownMenuContent>
 				</DropdownMenu>
 			)}
