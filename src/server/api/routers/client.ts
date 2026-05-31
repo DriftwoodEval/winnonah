@@ -806,8 +806,8 @@ export const clientRouter = createTRPCRouter({
 						.where(
 							and(
 								inArray(appointments.clientId, clientIds),
-								eq(appointments.billingOnly, true),
 								eq(appointments.cancelled, false),
+								eq(appointments.placeholder, false),
 							),
 						)
 						.groupBy(appointments.clientId),
