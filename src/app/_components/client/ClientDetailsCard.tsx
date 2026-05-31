@@ -22,7 +22,7 @@ export function ClientDetailsCard({
 	const can = useCheckPermission();
 
 	return (
-		<div className="flex w-full flex-wrap gap-6 rounded-md border-2 bg-card p-4 shadow">
+		<div className="flex w-full flex-wrap gap-6 rounded-md border-2 bg-card p-4 shadow-sm">
 			{!truncated && (
 				<div>
 					<p className="font-bold">Date of Birth</p>

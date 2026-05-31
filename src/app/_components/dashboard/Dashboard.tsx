@@ -97,7 +97,7 @@ function PunchListAccordionItem({
 						<AlertDescription>{description}</AlertDescription>
 					</Alert>
 				)}
-				<ScrollArea className="h-[400px] w-full rounded-md border bg-card text-card-foreground shadow">
+				<ScrollArea className="h-[400px] w-full rounded-md border bg-card text-card-foreground shadow-sm">
 					<div className="p-4">
 						{clients?.map((client, index) => {
 							const punchClient = client as FullClientInfo & DashboardClient;

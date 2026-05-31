@@ -102,7 +102,7 @@ const IssueList = ({ title, description, clients, action }: IssueListProps) => {
 	return (
 		<div className="flex max-h-80">
 			<ScrollArea
-				className="w-xs rounded-md border bg-card text-card-foreground shadow"
+				className="w-xs rounded-md border bg-card text-card-foreground shadow-sm"
 				type="auto"
 			>
 				<div className="p-4">
@@ -328,7 +328,7 @@ const SuggestionIssueList = ({
 	return (
 		<div className="flex max-h-80">
 			<ScrollArea
-				className="w-md rounded-md border bg-card text-card-foreground shadow"
+				className="w-md rounded-md border bg-card text-card-foreground shadow-sm"
 				type="auto"
 			>
 				<div className="p-4">
@@ -488,7 +488,7 @@ const SuggestionIssueList = ({
 
 const IssueListSkeleton = () => (
 	<div className="flex max-h-80 w-80 animate-pulse">
-		<div className="w-full rounded-md border bg-card p-4 shadow">
+		<div className="w-full rounded-md border bg-card p-4 shadow-sm">
 			<div className="flex items-center justify-between gap-4">
 				<div className="mb-4 h-6 w-3/4 rounded bg-muted-foreground/20" />
 				<div className="mb-4 h-8 w-12 rounded bg-muted-foreground/20" />
@@ -527,7 +527,7 @@ const DuplicateDriveFoldersList = ({
 	return (
 		<div className="flex max-h-80">
 			<ScrollArea
-				className="w-md rounded-md border bg-card text-card-foreground shadow"
+				className="w-md rounded-md border bg-card text-card-foreground shadow-sm"
 				type="auto"
 			>
 				<div className="flex flex-col p-4">
@@ -633,7 +633,7 @@ const ClientsSharingQuestionnaires = ({
 	return (
 		<div className="flex max-h-80">
 			<ScrollArea
-				className="w-md rounded-md border bg-card text-card-foreground shadow"
+				className="w-md rounded-md border bg-card text-card-foreground shadow-sm"
 				type="auto"
 			>
 				<div className="p-4">

@@ -410,7 +410,7 @@ export function ReminderTemplateDialog({
 								control={form.control}
 								name="isNoReplyFollowUp"
 								render={({ field }) => (
-									<FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm">
+									<FormItem className="flex flex-row items-center justify-between rounded-md border p-3 shadow-sm">
 										<div className="space-y-0.5">
 											<FormLabel>No-Reply Follow-up</FormLabel>
 											<FormDescription>
@@ -435,7 +435,7 @@ export function ReminderTemplateDialog({
 								control={form.control}
 								name="isConfirmedFollowUp"
 								render={({ field }) => (
-									<FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm">
+									<FormItem className="flex flex-row items-center justify-between rounded-md border p-3 shadow-sm">
 										<div className="space-y-0.5">
 											<FormLabel>Confirmed Follow-up</FormLabel>
 											<FormDescription>

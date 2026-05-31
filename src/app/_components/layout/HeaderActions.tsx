@@ -89,7 +89,7 @@ export function HeaderActions() {
 			{session && (
 				<DropdownMenu>
 					<DropdownMenuTrigger asChild>
-						<Avatar className="cursor-pointer shadow">
+						<Avatar className="cursor-pointer shadow-xs">
 							<AvatarImage src={session.user?.image ?? ""} />
 							<AvatarFallback>
 								{session?.user?.name

@@ -58,7 +58,7 @@ export function AdditionalInsuranceAppointmentsDisplay({
 	}
 
 	return (
-		<div className="w-full rounded-md border bg-card text-card-foreground shadow">
+		<div className="w-full rounded-md border bg-card text-card-foreground shadow-sm">
 			<div className="flex w-full items-center justify-between px-4 pt-4">
 				<h4 className="top-0 h-full font-bold leading-none">
 					Insurance Codes by Appointment

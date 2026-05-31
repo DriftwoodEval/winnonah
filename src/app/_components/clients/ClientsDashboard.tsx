@@ -19,7 +19,6 @@ import {
 	type ClientColor,
 	formatColorName,
 } from "~/lib/colors";
-import { cn } from "~/lib/utils";
 import { api } from "~/trpc/react";
 import { ResponsiveDialog } from "../shared/ResponsiveDialog";
 import ClientCreateForm from "./ClientCreateForm";
@@ -299,16 +298,15 @@ export function ClientsDashboard() {
 				<Popover>
 					<PopoverTrigger asChild>
 						<Button
-							className={cn(
-								"text-foreground",
+							size="icon"
+							variant={
 								["sort"].some(
 									(key) =>
 										queryParams[key as keyof typeof queryParams] !== undefined,
 								)
-									? "bg-secondary hover:bg-secondary/80"
-									: "border bg-background shadow-xs hover:bg-accent hover:text-accent-foreground dark:border-input dark:bg-input/30 dark:hover:bg-input/50",
-							)}
-							size="icon"
+									? "default"
+									: "outline"
+							}
 						>
 							<ArrowDownUp />
 						</Button>
@@ -349,8 +347,8 @@ export function ClientsDashboard() {
 				<Popover>
 					<PopoverTrigger asChild>
 						<Button
-							className={cn(
-								"text-foreground",
+							size="icon"
+							variant={
 								["hideBabynet", "status", "type", "privatepay", "color"].some(
 									(key) =>
 										queryParams[key as keyof typeof queryParams] !== false &&
@@ -359,10 +357,9 @@ export function ClientsDashboard() {
 										queryParams[key as keyof typeof queryParams] !== "active" &&
 										queryParams[key as keyof typeof queryParams] !== "both",
 								) || (queryParams.insuranceFilter?.length ?? 0) > 0
-									? "bg-secondary hover:bg-secondary/80"
-									: "border bg-background shadow-xs hover:bg-accent hover:text-accent-foreground dark:border-input dark:bg-input/30 dark:hover:bg-input/50",
-							)}
-							size="icon"
+									? "default"
+									: "outline"
+							}
 						>
 							<Filter />
 						</Button>

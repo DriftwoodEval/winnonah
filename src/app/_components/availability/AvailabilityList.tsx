@@ -298,7 +298,7 @@ function ListView({
 	onEdit: (e: EditingEvent) => void;
 }) {
 	return (
-		<div className="h-[600px] overflow-hidden rounded-lg border bg-card">
+		<div className="h-[600px] overflow-hidden rounded-md border bg-card">
 			<ScrollArea className="h-full" type="auto">
 				{isLoading ? (
 					<ListViewLoading />
@@ -360,7 +360,7 @@ function CalendarViewLoading({ daysCount }: { daysCount: number }) {
 	const gridCols = `48px repeat(${daysCount}, calc((100% - 48px) / ${daysCount}))`;
 
 	return (
-		<div className="overflow-hidden rounded-lg border bg-card">
+		<div className="overflow-hidden rounded-md border bg-card">
 			<div className="min-w-[640px]">
 				<div
 					className="grid border-b"
@@ -685,7 +685,7 @@ function CalendarView({
 	const gridCols = `48px repeat(${displayDays.length}, calc((100% - 48px) / ${displayDays.length}))`;
 
 	return (
-		<div className="overflow-hidden rounded-lg border bg-card">
+		<div className="overflow-hidden rounded-md border bg-card">
 			<ScrollArea className="w-full" type="auto">
 				<div className="min-w-[640px]">
 					<div

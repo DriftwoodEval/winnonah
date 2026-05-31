@@ -252,7 +252,7 @@ export function InPersonAssessmentsTable({
 	}
 
 	return (
-		<div className="w-full rounded-md border shadow">
+		<div className="w-full rounded-md border shadow-sm">
 			<div className="sticky top-0 z-10 flex items-center justify-between gap-2 p-4">
 				<h4 className="font-bold leading-none">In-Person Assessments</h4>
 				{showActions && clientId && availableToAdd.length > 0 && (

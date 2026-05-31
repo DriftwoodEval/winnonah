@@ -37,7 +37,7 @@ export function EligibleEvaluatorsList({
 	});
 
 	return (
-		<div className="max-h-64 w-full overflow-auto rounded-md border shadow">
+		<div className="max-h-64 w-full overflow-auto rounded-md border shadow-sm">
 			<div className="flex w-full items-center justify-between bg-background p-4">
 				<h4 className="sticky top-0 z-10 h-full font-bold leading-none">
 					Eligible Evaluators

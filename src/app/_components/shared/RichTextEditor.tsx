@@ -194,7 +194,7 @@ export function RichTextEditor({
 
 			<EditorContent
 				className={cn(
-					"rounded-md shadow",
+					"rounded-md shadow-sm",
 					readonly ? "opacity-50" : "opacity-100",
 				)}
 				editor={editor}

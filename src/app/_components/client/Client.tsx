@@ -155,7 +155,7 @@ export function Client({
 				{isLoading || !client ? (
 					<div className="flex w-full flex-col gap-6">
 						<Skeleton className="h-9 w-full rounded-md" />
-						<div className="flex w-full flex-wrap gap-6 rounded-md border-2 p-4 shadow">
+						<div className="flex w-full flex-wrap gap-6 rounded-md border-2 p-4 shadow-sm">
 							{["dob", "age", "entry", "insurance", "district"].map((field) => (
 								<div className="flex flex-col gap-1.5" key={field}>
 									<Skeleton className="h-3.5 w-16" />

@@ -64,7 +64,7 @@ export function QuestionnairesTable({
 					</AlertDescription>
 				</Alert>
 			)}
-			<div className="w-full rounded-md border shadow">
+			<div className="w-full rounded-md border shadow-sm">
 				<div className="sticky top-0 z-10 flex items-center justify-between gap-2 p-4">
 					<div className="flex items-center gap-4">
 						<h4 className="font-bold leading-none">Questionnaires</h4>

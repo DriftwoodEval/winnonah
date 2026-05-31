@@ -52,7 +52,7 @@ export function SelectableClientsList({
 	};
 
 	return (
-		<ScrollArea className="h-[400px] w-full rounded-md border bg-card text-card-foreground shadow">
+		<ScrollArea className="h-[400px] w-full rounded-md border bg-card text-card-foreground shadow-sm">
 			<div className="p-4">
 				<h4 className="mb-4 font-medium text-muted-foreground text-sm leading-none">
 					Showing {clients.length} Client{clients.length === 1 ? "" : "s"}
