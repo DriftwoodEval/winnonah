@@ -1,11 +1,16 @@
 "use client";
 
 import { Badge } from "@ui/badge";
+import { Button } from "@ui/button";
 import { Label } from "@ui/label";
 import { Separator } from "@ui/separator";
+import { useState } from "react";
 import { useCheckPermission } from "~/hooks/use-check-permission";
 import type { ClientGetOneOutput } from "~/lib/api-types";
-import { calculateAdditionalAppointments } from "~/lib/billing";
+import {
+	aggregateBillingCodes,
+	calculateAdditionalAppointments,
+} from "~/lib/billing";
 import { api } from "~/trpc/react";
 
 export function AdditionalInsuranceAppointmentsDisplay({
@@ -16,6 +21,7 @@ export function AdditionalInsuranceAppointmentsDisplay({
 	const can = useCheckPermission();
 	const canSee = can("clients:additional-insurance-appointments");
 	const { data: insurances = [] } = api.insurances.getAll.useQuery();
+	const [combined, setCombined] = useState(false);
 
 	const insurance = insurances.find(
 		(i) =>
@@ -57,12 +63,28 @@ export function AdditionalInsuranceAppointmentsDisplay({
 		return null;
 	}
 
+	const aggregatedCodes = aggregateBillingCodes(appointments);
+
 	return (
 		<div className="w-full rounded-md border bg-card text-card-foreground shadow-sm">
-			<div className="flex w-full items-center justify-between px-4 pt-4">
-				<h4 className="top-0 h-full font-bold leading-none">
-					Insurance Codes by Appointment
-				</h4>
+			<div className="flex w-full flex-col gap-3 px-4 pt-4">
+				<h4 className="font-bold leading-none">Insurance Codes</h4>
+				<div className="flex gap-1">
+					<Button
+						onClick={() => setCombined(false)}
+						size="sm"
+						variant={combined ? "ghost" : "secondary"}
+					>
+						By Appt
+					</Button>
+					<Button
+						onClick={() => setCombined(true)}
+						size="sm"
+						variant={combined ? "secondary" : "ghost"}
+					>
+						Combined
+					</Button>
+				</div>
 			</div>
 
 			<div className="space-y-6 p-4">
@@ -72,44 +94,66 @@ export function AdditionalInsuranceAppointmentsDisplay({
 					</Badge>
 				)}
 
-				<div className="space-y-6">
-					{appointments.map((appt, apptIndex) => (
-						<div
-							className="space-y-4 rounded-md border bg-background p-4 text-foreground"
-							// biome-ignore lint/suspicious/noArrayIndexKey: This component is read-only
-							key={apptIndex}
-						>
-							<div className="flex items-center justify-between">
-								<div className="flex items-center gap-4">
-									<Label className="font-semibold">
-										Appointment {apptIndex + 1}
-									</Label>
-								</div>
+				{combined ? (
+					<div className="rounded-md border bg-background p-4 text-foreground">
+						<div className="space-y-2">
+							<div className="grid grid-cols-2 gap-2 font-medium text-muted-foreground text-xs uppercase">
+								<div>CPT</div>
+								<div className="text-right">Units</div>
 							</div>
-
-							<Separator />
-
-							<div className="space-y-2">
-								<div className="grid grid-cols-2 gap-2 font-medium text-muted-foreground text-xs uppercase">
-									<div>CPT</div>
-									<div className="text-right">Units</div>
-								</div>
-
-								{appt.codes.map((codeObj) => (
-									<div
-										className="grid grid-cols-2 items-center gap-2"
-										key={codeObj.code}
-									>
-										<div className="font-mono text-sm">{codeObj.code}</div>
-										<div className="text-right text-sm">
-											{codeObj.units} {codeObj.units === 1 ? "Unit" : "Units"}
-										</div>
+							{aggregatedCodes.map((codeObj) => (
+								<div
+									className="grid grid-cols-2 items-center gap-2"
+									key={codeObj.code}
+								>
+									<div className="font-mono text-sm">{codeObj.code}</div>
+									<div className="text-right text-sm">
+										{codeObj.units} {codeObj.units === 1 ? "Unit" : "Units"}
 									</div>
-								))}
-							</div>
+								</div>
+							))}
 						</div>
-					))}
-				</div>
+					</div>
+				) : (
+					<div className="space-y-6">
+						{appointments.map((appt, apptIndex) => (
+							<div
+								className="space-y-4 rounded-md border bg-background p-4 text-foreground"
+								// biome-ignore lint/suspicious/noArrayIndexKey: This component is read-only
+								key={apptIndex}
+							>
+								<div className="flex items-center justify-between">
+									<div className="flex items-center gap-4">
+										<Label className="font-semibold">
+											Appointment {apptIndex + 1}
+										</Label>
+									</div>
+								</div>
+
+								<Separator />
+
+								<div className="space-y-2">
+									<div className="grid grid-cols-2 gap-2 font-medium text-muted-foreground text-xs uppercase">
+										<div>CPT</div>
+										<div className="text-right">Units</div>
+									</div>
+
+									{appt.codes.map((codeObj) => (
+										<div
+											className="grid grid-cols-2 items-center gap-2"
+											key={codeObj.code}
+										>
+											<div className="font-mono text-sm">{codeObj.code}</div>
+											<div className="text-right text-sm">
+												{codeObj.units} {codeObj.units === 1 ? "Unit" : "Units"}
+											</div>
+										</div>
+									))}
+								</div>
+							</div>
+						))}
+					</div>
+				)}
 			</div>
 		</div>
 	);
