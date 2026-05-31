@@ -6,22 +6,31 @@ from dateutil.relativedelta import relativedelta
 
 FORM_PATH = Path(__file__).parent.parent / "forms" / "shsc-bh-testing-form.pdf"
 
-# Page 2 CPT service row, first row only for now
-# The first row uses "Start date 4.5" / "Stop date"
-CPT_START_FIELDS = ["Start date 4.5"]
-CPT_STOP_FIELDS = ["Stop date"]
+# Page 2 CPT service rows: (start_date_field, stop_date_field, cpt_code_field, units_field)
+CPT_ROWS = [
+    ("Start date 4.5", "Stop date", "CPT code", "Units requested"),
+    ("Start date 5", "Stop date 1", "CPT code 1", "Units requested 1"),
+    ("Start date 6", "Stop date 2", "CPT code 2", "Units requested 2"),
+    ("Start date 7", "Stop date 3", "CPT code 3", "Units requested 3"),
+    ("Start date 8", "Stop date 4", "CPT code 4", "Units requested 4"),
+]
 
 
-def fill_select_health_form(client_data: dict) -> bytes:
+def fill_select_health_form(
+    client_data: dict,
+    cpt_codes: list[dict] | None = None,
+) -> bytes:
     """Fills the SHSC Select Health behavioral health testing authorization form.
 
     Autofills: patient name, DOB, age, referral source, Medicaid/insurance ID,
     substance abuse assessment checkbox (Yes if age >= 12, No if younger), and
-    CPT service date range (today → today + 12 months).
+    CPT service rows (code, units, date range today → today + 12 months).
 
     Args:
         client_data: Dict with keys: fullName, dob (date/datetime), referralSource,
                      insuranceNumber.
+        cpt_codes: List of {"code": str, "units": int} dicts, one per CPT row.
+                   Up to 5 entries; extras are ignored. If omitted, rows are left blank.
 
     Returns:
         Filled PDF as bytes.
@@ -56,9 +65,15 @@ def fill_select_health_form(client_data: dict) -> bytes:
         "Medicaid ID/SS #/Patient ID: ": client_data.get("insuranceNumber") or "",
         "Check Box 142": substance_abuse_yes,
         "Check Box 143": substance_abuse_no,
-        **dict.fromkeys(CPT_START_FIELDS, today_str),
-        **dict.fromkeys(CPT_STOP_FIELDS, stop_str),
     }
+
+    for i, (start_field, stop_field, code_field, units_field) in enumerate(CPT_ROWS):
+        if cpt_codes and i < len(cpt_codes):
+            entry = cpt_codes[i]
+            field_map[start_field] = today_str
+            field_map[stop_field] = stop_str
+            field_map[code_field] = str(entry.get("code", ""))
+            field_map[units_field] = str(entry.get("units", ""))
 
     for page in doc:
         for widget in page.widgets():

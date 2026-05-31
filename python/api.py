@@ -10,7 +10,7 @@ from dotenv import load_dotenv
 from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.responses import FileResponse, Response
 from googleapiclient.discovery import build
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict, Field
 
 import appointment_reminders
 import greeter_proxy
@@ -43,6 +43,16 @@ class ApprovalNotificationRequest(BaseModel):
     user_email: str
     report_name: str
     queue_count: int
+
+
+class CptCodeEntry(BaseModel):
+    code: str
+    units: int
+
+
+class SelectHealthFormRequest(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+    cpt_codes: list[CptCodeEntry] = Field(default=[], alias="cptCodes")
 
 
 def get_google_services():
@@ -518,6 +528,7 @@ async def rematch_evaluator_endpoint(
 @app.post("/forms/select-health/{client_id}")
 async def download_select_health_form(
     client_id: int,
+    body: SelectHealthFormRequest,
     current_user: dict = Depends(get_current_user),
 ):
     """Generates a filled Select Health behavioral health testing authorization PDF."""
@@ -540,7 +551,8 @@ async def download_select_health_form(
     if not row:
         raise HTTPException(status_code=404, detail="Client not found")
 
-    pdf_bytes = fill_select_health_form(row)
+    cpt_codes = [e.model_dump() for e in body.cpt_codes] if body.cpt_codes else None
+    pdf_bytes = fill_select_health_form(row, cpt_codes=cpt_codes)
 
     return Response(
         content=pdf_bytes,

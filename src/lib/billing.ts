@@ -1,6 +1,18 @@
 type BillingCode = { code: string; units: number };
 type BillingAppointment = { codes: BillingCode[] };
 
+export function aggregateBillingCodes(
+	appointments: BillingAppointment[],
+): BillingCode[] {
+	const codeMap = new Map<string, number>();
+	for (const appt of appointments) {
+		for (const c of appt.codes) {
+			codeMap.set(c.code, (codeMap.get(c.code) ?? 0) + c.units);
+		}
+	}
+	return Array.from(codeMap, ([code, units]) => ({ code, units }));
+}
+
 type MaxUnitsPerCode = {
 	max96130?: number;
 	max96131?: number;

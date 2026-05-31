@@ -22,7 +22,10 @@ import {
 import { distance as levDistance } from "fastest-levenshtein";
 import { z } from "zod";
 import { env } from "~/env";
-import { calculateAdditionalAppointments } from "~/lib/billing";
+import {
+	aggregateBillingCodes,
+	calculateAdditionalAppointments,
+} from "~/lib/billing";
 import { fetchWithCache } from "~/lib/cache";
 import { CLIENT_COLOR_KEYS } from "~/lib/colors";
 import { ALLOWED_ASD_ADHD_VALUES } from "~/lib/constants";
@@ -2004,9 +2007,95 @@ export const clientRouter = createTRPCRouter({
 
 			const cookieHeader = ctx.headers.get("cookie") ?? "";
 
+			// Compute aggregated CPT codes across all billing appointments
+			const client = await ctx.db.query.clients.findFirst({
+				where: eq(clients.id, input.clientId),
+				columns: { primaryInsurance: true },
+			});
+
+			let cptCodes: { code: string; units: number }[] = [];
+
+			if (client?.primaryInsurance) {
+				const [inPersonRows, questionnaireRows, matchedInsurance] =
+					await Promise.all([
+						ctx.db
+							.select({ minutes: assessmentTypes.minutes })
+							.from(inPersonAssessments)
+							.innerJoin(
+								assessmentTypes,
+								eq(inPersonAssessments.assessmentType, assessmentTypes.name),
+							)
+							.where(
+								and(
+									eq(inPersonAssessments.clientId, input.clientId),
+									or(
+										isNull(inPersonAssessments.status),
+										ne(inPersonAssessments.status, "EXTERNAL"),
+									),
+								),
+							),
+						ctx.db
+							.select({ minutes: assessmentTypes.minutes })
+							.from(questionnaires)
+							.innerJoin(
+								assessmentTypes,
+								eq(questionnaires.questionnaireType, assessmentTypes.name),
+							)
+							.where(
+								and(
+									eq(questionnaires.clientId, input.clientId),
+									or(
+										isNull(questionnaires.status),
+										ne(questionnaires.status, "EXTERNAL"),
+									),
+								),
+							),
+						ctx.db
+							.select({ additionalAppts: insurances.additionalAppts })
+							.from(insurances)
+							.leftJoin(
+								insuranceAliases,
+								eq(insuranceAliases.insuranceId, insurances.id),
+							)
+							.where(
+								or(
+									eq(insurances.shortName, client.primaryInsurance),
+									eq(insuranceAliases.name, client.primaryInsurance),
+								),
+							)
+							.limit(1),
+					]);
+
+				const totalMinutes = [...inPersonRows, ...questionnaireRows].reduce(
+					(sum, r) => sum + (r.minutes ?? 0),
+					0,
+				);
+
+				const apptConfig = matchedInsurance[0]?.additionalAppts;
+
+				if (apptConfig?.maxUnitsPerDay && totalMinutes > 0) {
+					const appts = calculateAdditionalAppointments(
+						totalMinutes,
+						apptConfig.maxUnitsPerDay,
+						{
+							max96130: apptConfig.max96130,
+							max96131: apptConfig.max96131,
+							max96136: apptConfig.max96136,
+							max96137: apptConfig.max96137,
+							maxAppt4Units: apptConfig.maxAppt4Units,
+						},
+					);
+					cptCodes = aggregateBillingCodes(appts);
+				}
+			}
+
 			const response = await fetch(
 				`${env.PY_API}/forms/select-health/${input.clientId}`,
-				{ method: "POST", headers: { Cookie: cookieHeader } },
+				{
+					method: "POST",
+					headers: { Cookie: cookieHeader, "Content-Type": "application/json" },
+					body: JSON.stringify({ cptCodes }),
+				},
 			);
 
 			if (!response.ok) {
