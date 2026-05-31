@@ -3,6 +3,7 @@
 import { SessionExpiryMonitor } from "@components/shared/SessionExpiryMonitor";
 import { SystemUpdateMonitor } from "@components/shared/SystemUpdateMonitor";
 import { ThemeProvider } from "@components/shared/ThemeProvider";
+import { TooltipProvider } from "@ui/tooltip";
 import { SessionProvider } from "next-auth/react";
 import { TRPCReactProvider } from "~/trpc/react";
 
@@ -18,7 +19,7 @@ export default function Providers({ children }: { children: React.ReactNode }) {
 					disableTransitionOnChange
 					enableSystem
 				>
-					{children}
+					<TooltipProvider>{children}</TooltipProvider>
 				</ThemeProvider>
 			</TRPCReactProvider>
 		</SessionProvider>

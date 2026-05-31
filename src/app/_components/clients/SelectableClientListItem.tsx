@@ -19,7 +19,9 @@ const SelectableClientListItemComponent = forwardRef<
 		<button
 			className={cn(
 				"flex w-full cursor-pointer items-center justify-between rounded-sm p-1 text-sm transition-colors",
-				isSelected ? "bg-accent text-accent-foreground" : "hover:bg-muted/50",
+				isSelected
+					? "bg-secondary text-secondary-foreground"
+					: "hover:bg-muted/50",
 			)}
 			onClick={() => onSelect(client)}
 			ref={ref}
@@ -30,7 +32,7 @@ const SelectableClientListItemComponent = forwardRef<
 				<span
 					className={cn(
 						"text-muted-foreground text-xs",
-						isSelected ? "bg-accent text-accent-foreground" : "",
+						isSelected ? "bg-secondary text-secondary-foreground" : "",
 					)}
 				>
 					{client.id}

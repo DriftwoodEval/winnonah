@@ -25,7 +25,7 @@ export function NavigationLink({
 }) {
 	const isActive = pathname === href;
 	return (
-		<Link className={isActive ? "text-accent" : ""} href={href}>
+		<Link className={isActive ? "text-secondary" : ""} href={href}>
 			{children}
 		</Link>
 	);
@@ -97,7 +97,7 @@ export default function NavigationLinks() {
 							{navItems.map((item) => (
 								<DrawerClose asChild key={item.href}>
 									<Link
-										className={pathname === item.href ? "text-accent" : ""}
+										className={pathname === item.href ? "text-secondary" : ""}
 										href={item.href}
 									>
 										{item.label}

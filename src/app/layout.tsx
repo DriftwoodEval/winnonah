@@ -3,12 +3,9 @@ import "~/styles/globals.css";
 import { Header } from "@components/layout/Header";
 import { Toaster } from "@ui/sonner";
 import type { Metadata } from "next";
-import {
-	JetBrains_Mono,
-	Plus_Jakarta_Sans,
-	Source_Serif_4,
-} from "next/font/google";
+import { Inter, JetBrains_Mono } from "next/font/google";
 import { env } from "~/env";
+import { cn } from "~/lib/utils";
 import Providers from "./providers";
 
 export const metadata: Metadata = {
@@ -20,15 +17,7 @@ export const metadata: Metadata = {
 	icons: [{ rel: "icon", url: "/favicon.png" }],
 };
 
-const plusJakartaSans = Plus_Jakarta_Sans({
-	subsets: ["latin"],
-	variable: "--font-plus-jakarta-sans",
-});
-
-const sourceSerif4 = Source_Serif_4({
-	subsets: ["latin"],
-	variable: "--font-source-serif-4",
-});
+const inter = Inter({ subsets: ["latin"], variable: "--font-sans" });
 
 const jetBrainsMono = JetBrains_Mono({
 	subsets: ["latin"],
@@ -40,7 +29,7 @@ export default function RootLayout({
 }: Readonly<{ children: React.ReactNode }>) {
 	return (
 		<html
-			className={`${plusJakartaSans.variable} ${sourceSerif4.variable} ${jetBrainsMono.variable} h-full`}
+			className={cn("h-full", jetBrainsMono.variable, inter.variable)}
 			lang="en"
 			suppressHydrationWarning
 		>

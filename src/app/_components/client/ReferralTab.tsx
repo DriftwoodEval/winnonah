@@ -589,7 +589,7 @@ export function ReferralTab({ client, readOnly }: ReferralTabProps) {
 								</div>
 
 								<div className="space-y-4">
-									<div className="flex flex-col gap-2 rounded-lg bg-accent p-4 text-accent-foreground text-sm">
+									<div className="flex flex-col gap-2 rounded-lg bg-secondary p-4 text-secondary-foreground text-sm">
 										<div className="flex w-full items-center justify-between">
 											<h3 className="font-semibold">
 												Invite to TherapyAppointment
@@ -738,7 +738,7 @@ export function ReferralTab({ client, readOnly }: ReferralTabProps) {
 									</div>
 								</div>
 
-								<div className="flex flex-col gap-2 rounded-lg bg-accent p-4 text-accent-foreground text-sm">
+								<div className="flex flex-col gap-2 rounded-lg bg-secondary p-4 text-secondary-foreground text-sm">
 									<div className="flex w-full items-center justify-between">
 										<h3 className="font-semibold">
 											TherapyAppointment Message

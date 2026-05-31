@@ -308,10 +308,7 @@ export function ClientHeader({
 												{selectedColor === colorKey && <CheckIcon />}
 											</button>
 										</TooltipTrigger>
-										<TooltipContent
-											arrowClassName="bg-background fill-background"
-											className="bg-background text-foreground"
-										>
+										<TooltipContent>
 											<p>{formatColorName(colorKey)}</p>
 										</TooltipContent>
 									</Tooltip>

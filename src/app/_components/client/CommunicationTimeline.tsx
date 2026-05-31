@@ -11,7 +11,7 @@ import {
 import { ScrollArea } from "@ui/scroll-area";
 import { Skeleton } from "@ui/skeleton";
 import { format } from "date-fns";
-import { CircleHelp, Clock, PhoneIncoming, PhoneOutgoing } from "lucide-react";
+import { Bot, Clock, PhoneIncoming, PhoneOutgoing } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useMemo, useRef } from "react";
 import type { TimelineEvent } from "~/lib/quo";
@@ -115,7 +115,7 @@ export function CommunicationTimeline({
 													"relative max-w-[95%] rounded-lg px-2 pt-1 pb-2",
 													event.direction === "incoming"
 														? "rounded-tl-none bg-muted text-foreground"
-														: "rounded-tr-none bg-accent text-accent-foreground",
+														: "rounded-tr-none bg-secondary text-secondary-foreground",
 												)}
 											>
 												<p className="mb-1 whitespace-pre-wrap text-[11px] leading-tight">
@@ -125,7 +125,7 @@ export function CommunicationTimeline({
 													{automatedMap.get(event.id) && (
 														<Tooltip>
 															<TooltipTrigger asChild>
-																<CircleHelp className="h-3 w-3 shrink-0 opacity-60" />
+																<Bot className="h-3 w-3 shrink-0 opacity-60" />
 															</TooltipTrigger>
 															<TooltipContent
 																className="max-w-[200px] text-center"
@@ -145,7 +145,7 @@ export function CommunicationTimeline({
 															"text-[10px]",
 															event.direction === "incoming"
 																? "text-foreground/50"
-																: "text-accent-foreground/50",
+																: "text-secondary-foreground/50",
 														)}
 													>
 														{format(
@@ -167,7 +167,7 @@ export function CommunicationTimeline({
 														"shrink-0 rounded-full p-1",
 														event.direction === "incoming"
 															? "bg-primary/10 text-primary"
-															: "bg-accent/10 text-accent",
+															: "bg-secondary/10 text-secondary",
 													)}
 												>
 													{event.direction === "incoming" ? (

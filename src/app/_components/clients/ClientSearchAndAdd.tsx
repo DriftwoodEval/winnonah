@@ -105,12 +105,7 @@ export function ClientSearchAndAdd({
 							/>
 						</div>
 					</TooltipTrigger>
-					<TooltipContent
-						arrowClassName="bg-destructive fill-destructive"
-						className="bg-destructive text-destructive-foreground"
-					>
-						Enter at least 3 characters
-					</TooltipContent>
+					<TooltipContent>Enter at least 3 characters</TooltipContent>
 				</Tooltip>
 			</div>
 

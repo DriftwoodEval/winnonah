@@ -31,14 +31,14 @@ export function MergeRecommendationAlert({
 
 		return (
 			<Alert
-				className="border-accent/20 bg-accent/5 text-accent-foreground"
+				className="border-secondary/20 bg-secondary/5 text-foreground"
 				variant="default"
 			>
 				<GitMerge className="h-4 w-4" />
-				<AlertTitle className="text-accent-foreground">
+				<AlertTitle className="text-foreground">
 					Merge Recommendation
 				</AlertTitle>
-				<AlertDescription className="text-accent-foreground/90">
+				<AlertDescription className="text-foreground/90">
 					<div className="mt-2 flex flex-wrap gap-2">
 						{suggestion.suggestedRealClients.map((real) => (
 							<MergePreviewDialog
@@ -67,14 +67,12 @@ export function MergeRecommendationAlert({
 
 	return (
 		<Alert
-			className="border-accent/20 bg-accent/5 text-accent-forgeound"
+			className="border-secondary/20 bg-secondary/5 text-foreground"
 			variant="default"
 		>
 			<GitMerge className="h-4 w-4" />
-			<AlertTitle className="text-accent-foreground">
-				Merge Recommendation
-			</AlertTitle>
-			<AlertDescription className="text-accent-foreground/90">
+			<AlertTitle className="text-foreground">Merge Recommendation</AlertTitle>
+			<AlertDescription className="text-foreground/90">
 				A "Shell" client seems very similar to this one:
 				<div className="mt-2 flex flex-wrap gap-2">
 					{noteOnlySuggestions.map((s) => (
