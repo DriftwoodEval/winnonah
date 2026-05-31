@@ -118,17 +118,17 @@ async def process_message(sender_phone: str) -> None:
         return
     schedule = get_todays_schedule()
 
-    today_display = datetime.now().strftime("%-m/%-d/%Y")
-    lines = [f"Today {today_display}"]
+    lines = []
 
     if not schedule:
         lines.append("No schedule found for today.")
     else:
+        lines.append("Today's greeters are")
         for entry in schedule:
             phone = lookup_phone_by_first_name(entry["name"])
             phone_str = phone or "No number on file"
             lines.append(f"{entry['location']} - {entry['name']} - {phone_str}")
-
+        lines.append("Please click the number after the appropriate office to get in touch with your greeter.")
     await send_sms(sender_phone, "\n".join(lines))
 
 
