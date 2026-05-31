@@ -1,21 +1,23 @@
-import asyncio
 import os
+from datetime import datetime
 from typing import Annotated
 
 import httpx
 from fastapi import APIRouter, BackgroundTasks, Header, HTTPException, Request
+from googleapiclient.discovery import build
 from loguru import logger
 
-from utils.constants import TABLE_EVALUATOR, TABLE_GREETER_PROXY_STATE, TABLE_USER
+from utils.constants import TABLE_USER
 from utils.database import get_db
+from utils.google import google_authenticate
 from utils.webhook import verify_openphone_signature
 
 router = APIRouter()
 
 OPENPHONE_API_KEY = os.getenv("OPENPHONE_API_TOKEN", "")
-OPENPHONE_NUMBER_ID = os.getenv("OPENPHONE_NUMBER_ID", "")
 OPENPHONE_GREETER_NUMBER_ID = os.getenv("OPENPHONE_GREETER_NUMBER_ID", "")
 OPENPHONE_GREETER_SIGNING_SECRET = os.getenv("OPENPHONE_GREETER_SIGNING_SECRET", "")
+GREETER_SCHEDULE_SHEET_ID = os.getenv("GREETER_SCHEDULE_SHEET_ID", "")
 
 _http_client: httpx.AsyncClient | None = None
 
@@ -48,137 +50,86 @@ async def send_sms(to: str, body: str) -> None:
         raise
 
 
-def get_participant(phone: str) -> tuple[str, str] | None:
-    """Returns (role, name) for the given phone number, or None if unknown."""
-    logger.debug(f"Looking up participant for phone {phone}")
+def get_todays_schedule() -> list[dict]:
+    """Returns today's entries from the Google Sheet: [{location, name}]."""
+    today_str = datetime.now().strftime("%m-%d-%y")
+    logger.debug(f"Fetching schedule for {today_str}")
+
+    creds = google_authenticate()
+    service = build("sheets", "v4", credentials=creds)
+    result = (
+        service.spreadsheets()
+        .values()
+        .get(spreadsheetId=GREETER_SCHEDULE_SHEET_ID, range="A:F")
+        .execute()
+    )
+    rows = result.get("values", [])
+
+    schedule = []
+    for row in rows:
+        if len(row) < 6:
+            continue
+        date_val = (row[0] or "").strip()
+        if date_val != today_str:
+            continue
+        location = (row[3] or "").strip()
+        name = (row[5] or "").strip()
+        if name:
+            schedule.append({"location": location, "name": name})
+
+    logger.info(f"Found {len(schedule)} schedule entries for today")
+    return schedule
+
+
+def is_known_user(phone: str) -> bool:
+    """Returns True if the phone number belongs to a user in emr_user."""
     conn = get_db()
     try:
         with conn.cursor() as cur:
-            # evaluator: emr_user has a phone AND has a linked emr_evaluator record
             cur.execute(
-                f"""
-                SELECT u.name, ev.npi
-                FROM {TABLE_USER} u
-                LEFT JOIN {TABLE_EVALUATOR} ev ON u.email = ev.email
-                WHERE u.phone_number = %s
-                LIMIT 1
-                """,
+                f"SELECT id FROM {TABLE_USER} WHERE phone_number = %s LIMIT 1",
                 (phone,),
             )
-            row = cur.fetchone()
-            if not row:
-                logger.debug(f"No user found for phone {phone}")
-                return None
-            name = row["name"] or phone
-            if row["npi"] is not None:
-                logger.debug(f"Phone {phone} identified as evaluator: {name!r}")
-                return ("evaluator", name)
-            # greeter: emr_user has phone AND is_greeter = 1
-            cur.execute(
-                f"SELECT is_greeter FROM {TABLE_USER} WHERE phone_number = %s LIMIT 1",
-                (phone,),
-            )
-            greeter_row = cur.fetchone()
-            if greeter_row and greeter_row["is_greeter"]:
-                logger.debug(f"Phone {phone} identified as greeter: {name!r}")
-                return ("greeter", name)
-            logger.debug(
-                f"Phone {phone} matched user {name!r} but has no evaluator or greeter role"
-            )
-            return None
+            return cur.fetchone() is not None
     finally:
         conn.close()
 
 
-def get_all_greeter_phones() -> list[str]:
-    logger.debug("Fetching all greeter phone numbers")
+def lookup_phone_by_first_name(first_name: str) -> str | None:
+    """Returns the phone number for a user whose name starts with first_name."""
     conn = get_db()
     try:
         with conn.cursor() as cur:
             cur.execute(
-                f"SELECT phone_number FROM {TABLE_USER} WHERE is_greeter = 1 AND phone_number IS NOT NULL"
-            )
-            phones = [row["phone_number"] for row in cur.fetchall()]
-            logger.debug(f"Found {len(phones)} greeter(s)")
-            return phones
-    finally:
-        conn.close()
-
-
-def get_last_active_evaluator() -> str | None:
-    logger.debug("Fetching last active evaluator from state")
-    conn = get_db()
-    try:
-        with conn.cursor() as cur:
-            cur.execute(
-                f"SELECT value FROM {TABLE_GREETER_PROXY_STATE} WHERE `key` = 'last_active_evaluator' LIMIT 1"
+                f"SELECT phone_number FROM {TABLE_USER} WHERE name = %s OR name LIKE %s LIMIT 1",
+                (first_name, f"{first_name} %"),
             )
             row = cur.fetchone()
-            phone = row["value"] if row else None
-            logger.debug(f"Last active evaluator: {phone}")
-            return phone
+            return row["phone_number"] if row else None
     finally:
         conn.close()
 
 
-def set_last_active_evaluator(phone: str) -> None:
-    logger.debug(f"Setting last active evaluator to {phone}")
-    conn = get_db()
-    try:
-        with conn.cursor() as cur:
-            cur.execute(
-                f"""
-                INSERT INTO {TABLE_GREETER_PROXY_STATE} (`key`, value)
-                VALUES ('last_active_evaluator', %s)
-                ON DUPLICATE KEY UPDATE value = %s
-                """,
-                (phone, phone),
-            )
-        conn.commit()
-        logger.debug(f"Last active evaluator updated to {phone}")
-    finally:
-        conn.close()
-
-
-async def process_message(sender_phone: str, message_body: str) -> None:
-    logger.info(f"Processing message from {sender_phone}: {message_body!r}")
-    participant = get_participant(sender_phone)
-    if not participant:
-        logger.error(
-            f"Unknown number {sender_phone} — no matching evaluator or greeter role"
-        )
+async def process_message(sender_phone: str) -> None:
+    """Reply to sender with today's schedule."""
+    logger.info(f"Processing message from {sender_phone}")
+    if not is_known_user(sender_phone):
+        logger.warning(f"Ignoring message from unknown number {sender_phone}")
         return
+    schedule = get_todays_schedule()
 
-    role, name = participant
-    logger.info(f"Routing message from {role} {name!r} ({sender_phone})")
+    today_display = datetime.now().strftime("%-m/%-d/%Y")
+    lines = [f"Today {today_display}"]
 
-    if role == "evaluator":
-        set_last_active_evaluator(sender_phone)
-        greeter_phones = get_all_greeter_phones()
-        if not greeter_phones:
-            logger.warning(
-                "No greeters found - message from evaluator will not be forwarded"
-            )
-            return
-        logger.info(f"Forwarding evaluator message to {len(greeter_phones)} greeter(s)")
-        tasks = [
-            send_sms(phone, f"[{name}] {message_body}") for phone in greeter_phones
-        ]
-        results = await asyncio.gather(*tasks, return_exceptions=True)
-        failures = [r for r in results if isinstance(r, Exception)]
-        if failures:
-            logger.error(
-                f"{len(failures)}/{len(greeter_phones)} SMS(es) failed to send"
-            )
-        else:
-            logger.info(f"All {len(greeter_phones)} greeter SMS(es) sent successfully")
-    elif role == "greeter":
-        target = get_last_active_evaluator()
-        if target:
-            logger.info(f"Forwarding greeter message to evaluator {target}")
-            await send_sms(target, f"[{name}] {message_body}")
-        else:
-            logger.error("No active evaluator found — cannot forward greeter reply")
+    if not schedule:
+        lines.append("No schedule found for today.")
+    else:
+        for entry in schedule:
+            phone = lookup_phone_by_first_name(entry["name"])
+            phone_str = phone or "No number on file"
+            lines.append(f"{entry['location']} - {entry['name']} - {phone_str}")
+
+    await send_sms(sender_phone, "\n".join(lines))
 
 
 @router.post("/pyapi/greeter-proxy/sms")
@@ -205,15 +156,12 @@ async def handle_webhook(
 
     data = payload.get("data", {}).get("object", {})
     sender_phone = data.get("from")
-    message_body = data.get("body")
 
-    if not sender_phone or not message_body:
-        logger.warning(
-            f"Webhook payload missing from/body: from={sender_phone!r}, body={message_body!r}"
-        )
+    if not sender_phone:
+        logger.warning("Webhook payload missing from field")
         return {"status": "ignored"}
 
-    logger.info(f"Queuing message from {sender_phone}")
-    background_tasks.add_task(process_message, sender_phone, message_body)
+    logger.info(f"Queuing schedule reply to {sender_phone}")
+    background_tasks.add_task(process_message, sender_phone)
 
     return {"status": "accepted"}

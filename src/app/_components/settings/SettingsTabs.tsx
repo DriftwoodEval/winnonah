@@ -3,7 +3,6 @@
 import AppointmentsSyncSettings from "@components/settings/AppointmentsSyncSettings";
 import AssessmentTypesTable from "@components/settings/AssessmentTypesTable";
 import EvaluatorsTable from "@components/settings/EvaluatorsTable";
-import GreeterProxyTab from "@components/settings/GreeterProxyTab";
 import InsurancesTable from "@components/settings/InsurancesTable";
 import InvitesTable from "@components/settings/InvitesTable";
 import QuestionnaireRulesTable from "@components/settings/QuestionnaireRulesTable";
@@ -36,7 +35,6 @@ export function SettingsTabs() {
 	};
 
 	const canDownload = can("clients:download");
-	const canGreeterProxy = can("settings:greeter-proxy");
 
 	return (
 		<div className="mx-10 my-10 flex w-full flex-col gap-6">
@@ -53,9 +51,6 @@ export function SettingsTabs() {
 						<TabsTrigger value="appointments-sync">
 							Appointments Sync
 						</TabsTrigger>
-						{canGreeterProxy && (
-							<TabsTrigger value="greeter-proxy">Greeter Proxy</TabsTrigger>
-						)}
 						{canDownload && (
 							<TabsTrigger value="downloads">Downloads</TabsTrigger>
 						)}
@@ -83,11 +78,6 @@ export function SettingsTabs() {
 				<TabsContent value="appointments-sync">
 					<AppointmentsSyncSettings />
 				</TabsContent>
-				{canGreeterProxy && (
-					<TabsContent value="greeter-proxy">
-						<GreeterProxyTab />
-					</TabsContent>
-				)}
 				{canDownload && (
 					<TabsContent value="downloads">
 						<BillingDownload />
