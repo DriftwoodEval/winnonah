@@ -1,4 +1,4 @@
-FROM node:20-alpine AS base
+FROM node:20-alpine@sha256:fb4cd12c85ee03686f6af5362a0b0d56d50c58a04632e6c0fb8363f609372293 AS base
 
 FROM base AS deps
 RUN apk add --no-cache libc6-compat openssl
@@ -25,7 +25,7 @@ COPY . .
 ENV NEXT_TELEMETRY_DISABLED=1
 RUN corepack enable pnpm && SKIP_ENV_VALIDATION=1 pnpm run build
 
-FROM gcr.io/distroless/nodejs20-debian12 AS runner
+FROM gcr.io/distroless/nodejs20-debian12@sha256:6fe218dbad37e979c7542e670d28d6e23d3f53d2929693bc9cdded8b622f339f AS runner
 WORKDIR /app
 
 ENV NODE_ENV=production

@@ -1,7 +1,7 @@
 services:
   winnonah:
     restart: no
-    image: ghcr.io/driftwoodeval/winnonah:latest
+    image: ghcr.io/driftwoodeval/winnonah:latest@sha256:b002c35f47dc8521fa194236f99a65fa1571e2a5f42c3f3f2270955ce4665fd8
     container_name: winnonah
     environment:
       - DATABASE_URL=${DOCKER_DATABASE_URL}
@@ -25,7 +25,7 @@ services:
       - ../qs/logs/screenshots:/app/q-screenshots
 
   driftwood-db:
-    image: mysql
+    image: mysql@sha256:c11782aa2a96624c1efc121768641d96954faa136d6aa82751b032d8c426ffbc
     container_name: driftwood-db
     restart: no
     environment:
@@ -37,19 +37,19 @@ services:
       - winnonah_db-data:/var/lib/mysql
 
   redis:
-    image: redis:alpine
+    image: redis:alpine@sha256:09160599abd229764c0fb44cb6be640294e1d360a54b19985ab4843dcf2d90f1
     container_name: redis-winnonah
     restart: always
 
   cloudflared:
-    image: cloudflare/cloudflared:latest
+    image: cloudflare/cloudflared:latest@sha256:12ff5c6992a9863db4da270746af7c244bcaee49353039af8104268a18d6c4f0
     container_name: cloudflared-winnonah
     command: tunnel --no-autoupdate run --token
       ${CF_TOKEN}
     restart: no
 
   winnonah-python:
-    image: ghcr.io/driftwoodeval/winnonah-python:latest
+    image: ghcr.io/driftwoodeval/winnonah-python:latest@sha256:686e3e33ff513fb2ba5f748a9072f94de5a0d340e8c6b9e573af623cb5d1aa95
     container_name: winnonah-python
     restart: always
     environment:
@@ -81,7 +81,7 @@ services:
       - ./python/cache:/app/cache
 
   watchtower:
-    image: containrrr/watchtower
+    image: containrrr/watchtower@sha256:6dd50763bbd632a83cb154d5451700530d1e44200b268a4e9488fefdfcf2b038
     container_name: watchtower
     environment:
       - WATCHTOWER_POLL_INTERVAL=3600
