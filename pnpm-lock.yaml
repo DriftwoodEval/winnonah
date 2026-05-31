@@ -18,7 +18,7 @@ importers:
         version: 1.11.2
       '@googleapis/calendar':
         specifier: ^14.2.0
-        version: 14.2.0
+        version: 14.3.0
       '@googleapis/drive':
         specifier: ^20.1.0
         version: 20.1.0
@@ -987,8 +987,8 @@ packages:
   '@floating-ui/utils@0.2.11':
     resolution: {integrity: sha512-RiB/yIh78pcIxl6lLMG0CgBXAZ2Y0eVHqMPYugu+9U0AeT6YBeiJpf7lbdJNIugFP5SIjwNRgo4DhR1Qxi26Gg==}
 
-  '@googleapis/calendar@14.2.0':
-    resolution: {integrity: sha512-oo6bikN3dl7n43vvknpPzJlCD8FZbs82h4bZLfDAx1wWRUkIusg6++RFQvOKF46rNXsUePqyVwnFx+8oOOyK1A==}
+  '@googleapis/calendar@14.3.0':
+    resolution: {integrity: sha512-sPPwuIBKNN0ifmvbYTOPXdrjjRRBNTC7gz81kanjXLffnuIqRNt2vzAO8Q6KXzgYXyTApuJZrryUVL4ZncQDiQ==}
     engines: {node: '>=12.0.0'}
 
   '@googleapis/drive@20.1.0':
@@ -5103,7 +5103,7 @@ snapshots:
   '@floating-ui/utils@0.2.11':
     optional: true
 
-  '@googleapis/calendar@14.2.0':
+  '@googleapis/calendar@14.3.0':
     dependencies:
       googleapis-common: 8.0.1
     transitivePeerDependencies:
