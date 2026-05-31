@@ -18,7 +18,7 @@
 	},
 	"pnpm": {
 		"overrides": {
-			"@auth/core": "0.40.0",
+			"@auth/core": "0.41.2",
 			"@types/react": "19.2.14",
 			"@types/react-dom": "19.2.3"
 		},
