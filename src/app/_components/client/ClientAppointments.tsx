@@ -14,7 +14,6 @@ import {
 	DropdownMenuSeparator,
 	DropdownMenuTrigger,
 } from "@ui/dropdown-menu";
-import { ScrollArea } from "@ui/scroll-area";
 import { Separator } from "@ui/separator";
 import { Skeleton } from "@ui/skeleton";
 import { format } from "date-fns";
@@ -268,52 +267,48 @@ export function ClientAppointments({ clientId }: { clientId: number }) {
 	};
 
 	return (
-		<div className="flex max-h-80 w-full flex-col overflow-hidden rounded-md border bg-background shadow-sm">
-			<div className="sticky top-0 z-10 flex items-center justify-between px-4 pt-4">
+		<div className="w-full rounded-md border bg-background shadow-sm">
+			<div className="flex items-center justify-between px-4 pt-4">
 				<h4 className="font-bold">Appointments</h4>
 				<Badge className="h-5 px-1.5 font-mono text-[10px]" variant="outline">
 					{regular.length}
 				</Badge>
 			</div>
 
-			<ScrollArea className="flex-1">
-				<div className="flex flex-col">
-					{regular.map((appt, index) =>
-						renderAppointment(appt, index, regular),
-					)}
+			<div className="flex flex-col">
+				{regular.map((appt, index) => renderAppointment(appt, index, regular))}
 
-					{billing.length > 0 && (
-						<>
-							{regular.length > 0 && <Separator />}
-							<Collapsible onOpenChange={setBillingOpen} open={billingOpen}>
-								<CollapsibleTrigger className="flex w-full items-center gap-2 px-3 py-2 text-muted-foreground text-xs transition-colors hover:text-foreground">
-									{billingOpen ? (
-										<ChevronDown className="h-3 w-3 shrink-0" />
-									) : (
-										<ChevronRight className="h-3 w-3 shrink-0" />
+				{billing.length > 0 && (
+					<>
+						{regular.length > 0 && <Separator />}
+						<Collapsible onOpenChange={setBillingOpen} open={billingOpen}>
+							<CollapsibleTrigger className="flex w-full items-center gap-2 px-3 py-2 text-muted-foreground text-xs transition-colors hover:text-foreground">
+								{billingOpen ? (
+									<ChevronDown className="h-3 w-3 shrink-0" />
+								) : (
+									<ChevronRight className="h-3 w-3 shrink-0" />
+								)}
+								<span className="font-medium uppercase tracking-wider">
+									Billing Only
+								</span>
+								<Badge
+									className="h-4 px-1 font-mono text-[9px]"
+									variant="secondary"
+								>
+									{billing.length}
+								</Badge>
+							</CollapsibleTrigger>
+							<CollapsibleContent>
+								<div className="ml-3 border-muted border-l-2">
+									{billing.map((appt, index) =>
+										renderAppointment(appt, index, billing, true),
 									)}
-									<span className="font-medium uppercase tracking-wider">
-										Billing Only
-									</span>
-									<Badge
-										className="h-4 px-1 font-mono text-[9px]"
-										variant="secondary"
-									>
-										{billing.length}
-									</Badge>
-								</CollapsibleTrigger>
-								<CollapsibleContent>
-									<div className="ml-3 border-muted border-l-2">
-										{billing.map((appt, index) =>
-											renderAppointment(appt, index, billing, true),
-										)}
-									</div>
-								</CollapsibleContent>
-							</Collapsible>
-						</>
-					)}
-				</div>
-			</ScrollArea>
+								</div>
+							</CollapsibleContent>
+						</Collapsible>
+					</>
+				)}
+			</div>
 		</div>
 	);
 }
