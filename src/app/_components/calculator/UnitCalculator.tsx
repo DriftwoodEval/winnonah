@@ -9,8 +9,15 @@ import {
 	CardTitle,
 } from "@ui/card";
 import { Checkbox } from "@ui/checkbox";
+import { Label } from "@ui/label";
+import { Separator } from "@ui/separator";
 import { Skeleton } from "@ui/skeleton";
+import { Switch } from "@ui/switch";
 import { useEffect, useState } from "react";
+import {
+	aggregateBillingCodes,
+	calculateAdditionalAppointments,
+} from "~/lib/billing";
 import type { AssessmentType } from "~/lib/models";
 import { api } from "~/trpc/react";
 import { TestUnitManager } from "./TestUnitsForm";
@@ -25,6 +32,7 @@ export default function UnitCalculator() {
 	const { data: dbUnits, isLoading } =
 		api.questionnaires.getAllTypes.useQuery();
 	const [tests, setTests] = useState<TestUnitWithSelected[]>([]);
+	const [showUnits, setShowUnits] = useState(false);
 
 	useEffect(() => {
 		if (dbUnits) {
@@ -74,6 +82,13 @@ export default function UnitCalculator() {
 
 	const totalHours = (totalMinutes / 60).toFixed(2);
 
+	const aggregatedCodes =
+		showUnits && totalMinutes > 0
+			? aggregateBillingCodes(
+					calculateAdditionalAppointments(totalMinutes, Infinity),
+				)
+			: [];
+
 	if (isLoading) return <Skeleton className="h-96" />;
 
 	return (
@@ -116,13 +131,54 @@ export default function UnitCalculator() {
 					))}
 				</div>
 			</CardContent>
-			<CardFooter>
-				<div className="w-full text-right font-bold text-xl">
-					Total Time: {totalHours} hours{" "}
-					<span className="font-normal text-muted-foreground">
-						({totalMinutes} minutes)
-					</span>
+			<CardFooter className="flex flex-col gap-4">
+				<div className="flex w-full items-center justify-between">
+					<div className="flex items-center gap-3">
+						<Switch
+							checked={showUnits}
+							id="show-units"
+							onCheckedChange={setShowUnits}
+						/>
+						<Label htmlFor="show-units">Show Units</Label>
+					</div>
+					<div className="font-bold text-xl">
+						Total Time: {totalHours} hours{" "}
+						<span className="font-normal text-muted-foreground">
+							({totalMinutes} minutes)
+						</span>
+					</div>
 				</div>
+
+				{showUnits && (
+					<>
+						<Separator />
+						<div className="flex w-full flex-col gap-3">
+							{aggregatedCodes.length > 0 ? (
+								<div className="rounded-md border bg-muted/40 p-4">
+									<div className="grid grid-cols-2 gap-2 font-medium text-muted-foreground text-xs uppercase">
+										<div>CPT</div>
+										<div className="text-right">Units</div>
+									</div>
+									{aggregatedCodes.map((codeObj) => (
+										<div
+											className="grid grid-cols-2 items-center gap-2 pt-2"
+											key={codeObj.code}
+										>
+											<div className="font-mono text-sm">{codeObj.code}</div>
+											<div className="text-right text-sm">
+												{codeObj.units} {codeObj.units === 1 ? "Unit" : "Units"}
+											</div>
+										</div>
+									))}
+								</div>
+							) : (
+								<p className="text-muted-foreground text-sm">
+									Select tests above to see units.
+								</p>
+							)}
+						</div>
+					</>
+				)}
 			</CardFooter>
 		</Card>
 	);
