@@ -54,6 +54,7 @@ export const servicesSchema = z.object({
 	mhs: serviceSchema,
 	qglobal: serviceSchema,
 	wps: serviceSchema,
+	novopsych: serviceSchema,
 });
 
 // Piecework Schemas

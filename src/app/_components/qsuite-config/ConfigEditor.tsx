@@ -132,6 +132,7 @@ const formSchema = z.object({
 		mhs: serviceSchema,
 		qglobal: serviceSchema,
 		wps: serviceSchema,
+		novopsych: serviceSchema,
 	}),
 });
 
@@ -879,7 +880,13 @@ function ServicesTab({
 	syncingOpenPhone: boolean;
 }) {
 	const c = form.control;
-	const commonServices = ["mhs", "qglobal", "wps"] as const;
+	const commonServices = ["mhs", "qglobal", "wps", "novopsych"] as const;
+	const serviceLabels: Record<string, string> = {
+		mhs: "MHS",
+		qglobal: "QGlobal",
+		wps: "WPS",
+		novopsych: "NovoPsych",
+	};
 
 	return (
 		<div className="grid gap-6">
@@ -917,11 +924,11 @@ function ServicesTab({
 					/>
 				</CardContent>
 			</Card>
-			<div className="grid grid-cols-3 gap-4">
+			<div className="grid grid-cols-4 gap-4">
 				{commonServices.map((svc) => (
 					<Card key={svc}>
 						<CardHeader>
-							<CardTitle className="uppercase">{svc}</CardTitle>
+							<CardTitle>{serviceLabels[svc]}</CardTitle>
 						</CardHeader>
 						<CardContent className="space-y-2">
 							<FieldInput
