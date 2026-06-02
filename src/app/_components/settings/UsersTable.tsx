@@ -2,6 +2,12 @@
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
+	Accordion,
+	AccordionContent,
+	AccordionItem,
+	AccordionTrigger,
+} from "@ui/accordion";
+import {
 	AlertDialog,
 	AlertDialogAction,
 	AlertDialogCancel,
@@ -12,7 +18,6 @@ import {
 	AlertDialogTitle,
 } from "@ui/alert-dialog";
 import { Avatar, AvatarFallback, AvatarImage } from "@ui/avatar";
-import { Badge } from "@ui/badge";
 import { Button } from "@ui/button";
 import { Checkbox } from "@ui/checkbox";
 import {
@@ -38,6 +43,7 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from "@ui/select";
+import { Skeleton } from "@ui/skeleton";
 import {
 	Table,
 	TableBody,
@@ -46,7 +52,13 @@ import {
 	TableHeader,
 	TableRow,
 } from "@ui/table";
-import { MoreHorizontal } from "lucide-react";
+import {
+	Tooltip,
+	TooltipContent,
+	TooltipProvider,
+	TooltipTrigger,
+} from "@ui/tooltip";
+import { Loader2, MoreHorizontal, Users } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useSession } from "next-auth/react";
@@ -86,6 +98,14 @@ const formatPhoneAsYouType = (value: string): string => {
 	return `(${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6)}`;
 };
 
+const getInitials = (name: string | null | undefined) => {
+	if (!name) return "";
+	return name
+		.split(" ")
+		.map((n) => (n ?? "")[0]?.toUpperCase())
+		.join("");
+};
+
 const formSchema = z.object({
 	permissions: permissionsSchema,
 	phoneNumber: z
@@ -102,7 +122,6 @@ const formSchema = z.object({
 		.or(z.literal(""))
 		.nullable()
 		.optional(),
-	isGreeter: z.boolean(),
 });
 
 type UsersTableFormValues = z.infer<typeof formSchema>;
@@ -127,7 +146,6 @@ function UsersTableForm({
 		defaultValues: {
 			permissions: {},
 			phoneNumber: "",
-			isGreeter: false,
 		},
 	});
 
@@ -150,7 +168,6 @@ function UsersTableForm({
 				? formatPhoneAsYouType(initialData.phoneNumber)
 				: "",
 		);
-		setValue("isGreeter", initialData?.isGreeter ?? false);
 	}, [initialData, setValue]);
 
 	const getGroupState = (
@@ -160,7 +177,6 @@ function UsersTableForm({
 			(p) => watchedPermissions?.[p.id],
 		);
 		const anyChecked = groupPermissions.some((p) => watchedPermissions?.[p.id]);
-
 		if (allChecked) return true;
 		if (anyChecked) return "indeterminate";
 		return false;
@@ -172,11 +188,9 @@ function UsersTableForm({
 		);
 		if (selectedPreset) {
 			const newPermissions = { ...selectedPreset.permissions };
-
 			if (isPermissionDisabled("settings:users:edit")) {
 				newPermissions["settings:users:edit"] = true;
 			}
-
 			form.setValue("permissions", newPermissions, {
 				shouldDirty: true,
 				shouldValidate: true,
@@ -186,164 +200,165 @@ function UsersTableForm({
 
 	return (
 		<Form {...form}>
-			<form
-				className="relative space-y-6"
-				onSubmit={form.handleSubmit(onSubmit)}
-			>
-				<div className="relative w-full sm:absolute sm:flex sm:justify-end">
-					<Select onValueChange={handlePresetChange}>
-						<SelectTrigger className="w-full sm:w-fit" size="sm">
-							<SelectValue placeholder="Select a preset..." />
-						</SelectTrigger>
-						<SelectContent>
-							{permissionPresets.map((preset) => (
-								<SelectItem key={preset.value} value={preset.value}>
-									{preset.label}
-								</SelectItem>
-							))}
-						</SelectContent>
-					</Select>
-				</div>
-				<div className="space-y-8">
-					{Object.entries(PERMISSIONS).map(([categoryKey, category]) => (
-						<div className="space-y-4" key={categoryKey}>
-							<h4 className="border-b pb-2 font-bold text-lg">
-								{category.title}
-							</h4>
-							<div className="ml-4 grid grid-cols-1 gap-x-12 gap-y-8 md:grid-cols-2">
-								{Object.entries(category.subgroups).map(
-									([subgroupKey, subgroup]) => (
-										<div key={subgroupKey}>
-											{/* Subgroup Checkbox */}
-											<div className="mb-3 flex items-center space-x-2">
-												<Checkbox
-													checked={getGroupState(subgroup.permissions)}
-													id={`${categoryKey}-${subgroupKey}`}
-													onCheckedChange={() => {
-														const currentState = getGroupState(
-															subgroup.permissions,
-														);
-
-														// If false, become true, if checked OR indeterminate, become false
-														const newCheckedState = currentState === false;
-
-														const currentPermissions = {
-															...form.getValues("permissions"),
-														};
-														subgroup.permissions.forEach(
-															(p: { id: string }) => {
-																if (!isPermissionDisabled(p.id)) {
-																	currentPermissions[p.id] = newCheckedState;
-																}
-															},
-														);
-														form.setValue("permissions", currentPermissions, {
-															shouldDirty: true,
-															shouldValidate: true,
-														});
-													}}
-												/>
-												<FormLabel
-													className="font-semibold text-md"
-													htmlFor={`${categoryKey}-${subgroupKey}`}
-												>
-													{subgroup.title}
-												</FormLabel>
-											</div>
-
-											{/* Individual Checkboxes */}
-											<div className="ml-8 space-y-2">
-												{subgroup.permissions.map(
-													(p: { id: string; title: string }) => (
-														<FormField
-															control={form.control}
-															key={p.id}
-															name={`permissions.${p.id}`}
-															render={({ field }) => (
-																<FormItem>
-																	<div className="flex items-center space-x-2">
-																		<FormControl>
-																			<Checkbox
-																				checked={field.value}
-																				disabled={isPermissionDisabled(p.id)}
-																				id={p.id}
-																				onCheckedChange={field.onChange}
-																			/>
-																		</FormControl>
-																		<FormLabel htmlFor={p.id}>
-																			{p.title}
-																		</FormLabel>
-																	</div>
-																	<FormMessage />
-																</FormItem>
-															)}
-														/>
-													),
-												)}
-											</div>
-										</div>
-									),
-								)}
-							</div>
-						</div>
-					))}
-				</div>
-				{/* Roles */}
-				<div className="space-y-4 border-t pt-4">
-					<h4 className="font-bold text-lg">Roles</h4>
-					<div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-						<FormField
-							control={form.control}
-							name="phoneNumber"
-							render={({ field }) => (
-								<FormItem>
-									<FormLabel>Phone Number</FormLabel>
-									<FormControl>
-										<Input
-											placeholder="(212) 555-1234"
-											{...field}
-											onBlur={field.onBlur}
-											onChange={(e) => {
-												field.onChange(formatPhoneAsYouType(e.target.value));
-											}}
-											value={field.value ?? ""}
-										/>
-									</FormControl>
-									<FormMessage />
-								</FormItem>
-							)}
-						/>
-						<FormField
-							control={form.control}
-							name="isGreeter"
-							render={({ field }) => (
-								<FormItem>
-									<FormLabel>Greeter</FormLabel>
-									<div className="flex items-center space-x-2 pt-2">
-										<FormControl>
-											<Checkbox
-												checked={field.value ?? false}
-												disabled={!!initialData?.evaluator}
-												onCheckedChange={field.onChange}
-											/>
-										</FormControl>
-										<FormLabel className="font-normal">
-											Receives evaluator SMS broadcasts
-										</FormLabel>
-									</div>
-									<FormMessage />
-								</FormItem>
-							)}
-						/>
+			<form className="space-y-6" onSubmit={form.handleSubmit(onSubmit)}>
+				{/* Permissions */}
+				<div className="space-y-3">
+					<div className="flex items-center justify-between border-b pb-2">
+						<h4 className="font-bold text-lg">Permissions</h4>
+						<Select onValueChange={handlePresetChange}>
+							<SelectTrigger className="w-auto" size="sm">
+								<SelectValue placeholder="Select a preset..." />
+							</SelectTrigger>
+							<SelectContent>
+								{permissionPresets.map((preset) => (
+									<SelectItem key={preset.value} value={preset.value}>
+										{preset.label}
+									</SelectItem>
+								))}
+							</SelectContent>
+						</Select>
 					</div>
+					<Accordion className="rounded-md border" type="multiple">
+						{Object.entries(PERMISSIONS).map(([categoryKey, category]) => (
+							<AccordionItem key={categoryKey} value={categoryKey}>
+								<AccordionTrigger className="px-4 font-semibold text-base hover:no-underline">
+									{category.title}
+								</AccordionTrigger>
+								<AccordionContent className="px-4 pt-2 pb-4">
+									<div className="grid grid-cols-1 gap-x-12 gap-y-6 md:grid-cols-2">
+										{Object.entries(category.subgroups).map(
+											([subgroupKey, subgroup]) => (
+												<div key={subgroupKey}>
+													<div className="mb-3 flex items-center space-x-2">
+														<Checkbox
+															checked={getGroupState(subgroup.permissions)}
+															id={`${categoryKey}-${subgroupKey}`}
+															onCheckedChange={() => {
+																const currentState = getGroupState(
+																	subgroup.permissions,
+																);
+																const newCheckedState = currentState === false;
+																const currentPermissions = {
+																	...form.getValues("permissions"),
+																};
+																subgroup.permissions.forEach(
+																	(p: { id: string }) => {
+																		if (!isPermissionDisabled(p.id)) {
+																			currentPermissions[p.id] =
+																				newCheckedState;
+																		}
+																	},
+																);
+																form.setValue(
+																	"permissions",
+																	currentPermissions,
+																	{ shouldDirty: true, shouldValidate: true },
+																);
+															}}
+														/>
+														<FormLabel
+															className="font-semibold text-md"
+															htmlFor={`${categoryKey}-${subgroupKey}`}
+														>
+															{subgroup.title}
+														</FormLabel>
+													</div>
+													<div className="ml-8 space-y-2">
+														{subgroup.permissions.map(
+															(p: { id: string; title: string }) => (
+																<FormField
+																	control={form.control}
+																	key={p.id}
+																	name={`permissions.${p.id}`}
+																	render={({ field }) => (
+																		<FormItem>
+																			<div className="flex items-center space-x-2">
+																				<FormControl>
+																					{isPermissionDisabled(p.id) ? (
+																						<TooltipProvider>
+																							<Tooltip>
+																								<TooltipTrigger asChild>
+																									<span className="cursor-not-allowed">
+																										<Checkbox
+																											checked={field.value}
+																											disabled
+																											id={p.id}
+																										/>
+																									</span>
+																								</TooltipTrigger>
+																								<TooltipContent>
+																									You can't remove your own
+																									user-management permission
+																								</TooltipContent>
+																							</Tooltip>
+																						</TooltipProvider>
+																					) : (
+																						<Checkbox
+																							checked={field.value}
+																							id={p.id}
+																							onCheckedChange={field.onChange}
+																						/>
+																					)}
+																				</FormControl>
+																				<FormLabel htmlFor={p.id}>
+																					{p.title}
+																				</FormLabel>
+																			</div>
+																			<FormMessage />
+																		</FormItem>
+																	)}
+																/>
+															),
+														)}
+													</div>
+												</div>
+											),
+										)}
+									</div>
+								</AccordionContent>
+							</AccordionItem>
+						))}
+					</Accordion>
 				</div>
-				{/* Submit and Cancel Buttons */}
+
+				{/* Phone number */}
+				<div className="border-t pt-4">
+					<FormField
+						control={form.control}
+						name="phoneNumber"
+						render={({ field }) => (
+							<FormItem className="max-w-xs">
+								<FormLabel>Phone Number</FormLabel>
+								<FormControl>
+									<Input
+										placeholder="(212) 555-1234"
+										{...field}
+										onBlur={field.onBlur}
+										onChange={(e) => {
+											field.onChange(formatPhoneAsYouType(e.target.value));
+										}}
+										value={field.value ?? ""}
+									/>
+								</FormControl>
+								<FormMessage />
+							</FormItem>
+						)}
+					/>
+				</div>
+
 				<div className="flex justify-end gap-2">
 					<Button onClick={onFinished} type="button" variant="ghost">
 						Cancel
 					</Button>
 					<Button disabled={isLoading} type="submit">
-						{isLoading ? "Saving..." : "Submit"}
+						{isLoading ? (
+							<>
+								<Loader2 className="mr-2 h-4 w-4 animate-spin" />
+								Saving...
+							</>
+						) : (
+							"Save changes"
+						)}
 					</Button>
 				</div>
 			</form>
@@ -379,15 +394,6 @@ function UsersTableActionsMenu({ user }: { user: User }) {
 		},
 	});
 
-	const { mutateAsync: setIsGreeter } = api.users.setIsGreeter.useMutation({
-		onError: (error) => {
-			toast.error("Failed to update greeter status", {
-				description: String(error.message),
-				duration: 10000,
-			});
-		},
-	});
-
 	const { mutate: updateUserArchiveStatus, isPending: isUpdatingStatus } =
 		api.users.updateUserArchiveStatus.useMutation({
 			onSuccess: () => {
@@ -412,10 +418,10 @@ function UsersTableActionsMenu({ user }: { user: User }) {
 		await Promise.all([
 			updateUser({ userId: user.id, permissions: values.permissions }),
 			setPhone({ userId: user.id, phoneNumber: phoneValue }),
-			setIsGreeter({ userId: user.id, isGreeter: values.isGreeter ?? false }),
 		]);
 		utils.users.getAll.invalidate();
 		setIsEditDialogOpen(false);
+		toast.success("User updated");
 	};
 
 	const handleArchiveToggle = () => {
@@ -497,6 +503,159 @@ function UsersTableActionsMenu({ user }: { user: User }) {
 	);
 }
 
+interface UsersTabContentProps {
+	users: User[] | undefined;
+	isLoading: boolean;
+	canEdit: boolean;
+	emptyMessage: string;
+}
+
+function UsersTabContent({
+	users,
+	isLoading,
+	canEdit,
+	emptyMessage,
+}: UsersTabContentProps) {
+	const colSpan = canEdit ? 5 : 4;
+
+	return (
+		<>
+			{/* Table for Medium Screens and Up */}
+			<div className="hidden sm:block">
+				<Table>
+					<TableHeader>
+						<TableRow>
+							{canEdit && <TableHead className="w-[20px]" />}
+							<TableHead className="w-[20px]" />
+							<TableHead>Name</TableHead>
+							<TableHead>Email</TableHead>
+							<TableHead>Phone</TableHead>
+						</TableRow>
+					</TableHeader>
+					<TableBody>
+						{isLoading ? (
+							Array.from({ length: 3 }).map((_, i) => (
+								// biome-ignore lint/suspicious/noArrayIndexKey: static skeleton placeholders
+								<TableRow key={i}>
+									{canEdit && (
+										<TableCell>
+											<Skeleton className="h-8 w-8" />
+										</TableCell>
+									)}
+									<TableCell>
+										<Skeleton className="h-8 w-8 rounded-full" />
+									</TableCell>
+									<TableCell>
+										<Skeleton className="h-4 w-32" />
+									</TableCell>
+									<TableCell>
+										<Skeleton className="h-4 w-48" />
+									</TableCell>
+									<TableCell>
+										<Skeleton className="h-4 w-28" />
+									</TableCell>
+								</TableRow>
+							))
+						) : users && users.length > 0 ? (
+							users.map((user) => (
+								<TableRow className="group" key={user.id}>
+									{canEdit && (
+										<TableCell className="opacity-0 transition-opacity group-hover:opacity-100 has-[[data-state=open]]:opacity-100">
+											<UsersTableActionsMenu user={user} />
+										</TableCell>
+									)}
+									<TableCell>
+										<Avatar>
+											<AvatarImage src={user.image ?? ""} />
+											<AvatarFallback>{getInitials(user.name)}</AvatarFallback>
+										</Avatar>
+									</TableCell>
+									<TableCell className="font-medium">{user.name}</TableCell>
+									<TableCell>
+										<Link
+											className="hover:underline"
+											href={`mailto:${user.email}`}
+										>
+											{user.email}
+										</Link>
+									</TableCell>
+									<TableCell className="text-muted-foreground">
+										{user.phoneNumber
+											? formatPhoneAsYouType(user.phoneNumber)
+											: "—"}
+									</TableCell>
+								</TableRow>
+							))
+						) : (
+							<TableRow>
+								<TableCell className="py-12 text-center" colSpan={colSpan}>
+									<div className="flex flex-col items-center gap-2 text-muted-foreground">
+										<Users className="h-8 w-8" />
+										<p className="text-sm">{emptyMessage}</p>
+									</div>
+								</TableCell>
+							</TableRow>
+						)}
+					</TableBody>
+				</Table>
+			</div>
+
+			{/* Card Layout for Small Screens */}
+			<div className="grid grid-cols-1 gap-4 sm:hidden">
+				{isLoading ? (
+					Array.from({ length: 3 }).map((_, i) => (
+						// biome-ignore lint/suspicious/noArrayIndexKey: static skeleton placeholders
+						<div className="rounded-md border bg-card p-4" key={i}>
+							<div className="flex items-center gap-4">
+								<Skeleton className="h-10 w-10 rounded-full" />
+								<div className="space-y-2">
+									<Skeleton className="h-4 w-32" />
+									<Skeleton className="h-3 w-48" />
+								</div>
+							</div>
+						</div>
+					))
+				) : users && users.length > 0 ? (
+					users.map((user) => (
+						<div
+							className="relative rounded-md border bg-card p-4 text-card-foreground"
+							key={user.id}
+						>
+							{canEdit && (
+								<div className="absolute top-2 right-2">
+									<UsersTableActionsMenu user={user} />
+								</div>
+							)}
+							<div className="flex items-center gap-4">
+								<Avatar>
+									<AvatarImage src={user.image ?? ""} />
+									<AvatarFallback>{getInitials(user.name)}</AvatarFallback>
+								</Avatar>
+								<div className="min-w-0 space-y-1">
+									<p className="font-medium">{user.name}</p>
+									<p className="truncate text-muted-foreground text-sm">
+										{user.email}
+									</p>
+									{user.phoneNumber && (
+										<p className="text-muted-foreground text-sm">
+											{formatPhoneAsYouType(user.phoneNumber)}
+										</p>
+									)}
+								</div>
+							</div>
+						</div>
+					))
+				) : (
+					<div className="flex flex-col items-center gap-2 py-10 text-muted-foreground">
+						<Users className="h-8 w-8" />
+						<p className="text-sm">{emptyMessage}</p>
+					</div>
+				)}
+			</div>
+		</>
+	);
+}
+
 export default function UsersTable() {
 	const router = useRouter();
 	const pathname = usePathname();
@@ -518,261 +677,43 @@ export default function UsersTable() {
 	const { data: archivedUsers, isLoading: isLoadingArchivedUsers } =
 		api.users.getAll.useQuery({ archived: true });
 
-	const getInitials = (name: string | null | undefined) => {
-		if (!name) return "";
-		return name
-			.split(" ")
-			.map((n) => (n ?? "")[0]?.toUpperCase())
-			.join("");
-	};
-
 	return (
 		<div className="px-4">
 			<h3 className="pb-4 font-bold text-lg">Users</h3>
 			<Tabs onValueChange={handleTabChange} value={activeTab}>
 				<TabsList>
-					<TabsTrigger value="active">Active Users</TabsTrigger>
-					<TabsTrigger value="archived">Archived Users</TabsTrigger>
+					<TabsTrigger value="active">
+						Active Users
+						{activeUsers !== undefined && (
+							<span className="ml-1.5 text-muted-foreground">
+								({activeUsers.length})
+							</span>
+						)}
+					</TabsTrigger>
+					<TabsTrigger value="archived">
+						Archived Users
+						{archivedUsers !== undefined && (
+							<span className="ml-1.5 text-muted-foreground">
+								({archivedUsers.length})
+							</span>
+						)}
+					</TabsTrigger>
 				</TabsList>
 				<TabsContent value="active">
-					{/* Table for Medium Screens and Up (sm:) */}
-					<div className="hidden sm:block">
-						<Table>
-							<TableHeader>
-								<TableRow>
-									{canEdit && <TableHead className="w-[20px]"></TableHead>}
-									<TableHead className="w-[20px]"></TableHead>
-									<TableHead>Name</TableHead>
-									<TableHead>Email</TableHead>
-									<TableHead>Phone</TableHead>
-									<TableHead>Roles</TableHead>
-								</TableRow>
-							</TableHeader>
-							<TableBody>
-								{isLoadingActiveUsers ? (
-									<TableRow>
-										<TableCell
-											className="text-center"
-											colSpan={canEdit ? 7 : 6}
-										>
-											Loading...
-										</TableCell>
-									</TableRow>
-								) : activeUsers && activeUsers.length > 0 ? (
-									activeUsers.map((user) => (
-										<TableRow key={user.id}>
-											{canEdit && (
-												<TableCell>
-													<UsersTableActionsMenu user={user} />
-												</TableCell>
-											)}
-											<TableCell>
-												<Avatar>
-													<AvatarImage src={user.image ?? ""} />
-													<AvatarFallback>
-														{getInitials(user.name)}
-													</AvatarFallback>
-												</Avatar>
-											</TableCell>
-											<TableCell className="font-medium">{user.name}</TableCell>
-											<TableCell>
-												<Link
-													className="hover:underline"
-													href={`mailto:${user.email}`}
-												>
-													{user.email}
-												</Link>
-											</TableCell>
-											<TableCell className="text-muted-foreground">
-												{user.phoneNumber
-													? formatPhoneAsYouType(user.phoneNumber)
-													: "—"}
-											</TableCell>
-											<TableCell>
-												<div className="flex flex-wrap gap-1">
-													{user.evaluator && (
-														<Badge variant="default">Evaluator</Badge>
-													)}
-													{user.isGreeter && (
-														<Badge variant="secondary">Greeter</Badge>
-													)}
-												</div>
-											</TableCell>
-										</TableRow>
-									))
-								) : (
-									<TableRow>
-										<TableCell
-											className="text-center"
-											colSpan={canEdit ? 7 : 6}
-										>
-											No active users found.
-										</TableCell>
-									</TableRow>
-								)}
-							</TableBody>
-						</Table>
-					</div>
-
-					{/* Card Layout for Small Screens (mobile) */}
-					<div className="grid grid-cols-1 gap-4 sm:hidden">
-						{isLoadingActiveUsers ? (
-							<p className="text-center text-muted-foreground">Loading...</p>
-						) : activeUsers && activeUsers.length > 0 ? (
-							activeUsers.map((user) => (
-								<div
-									className="relative rounded-md border bg-card p-4 text-card-foreground"
-									key={user.id}
-								>
-									<div className="absolute top-2 right-2">
-										{canEdit && <UsersTableActionsMenu user={user} />}
-									</div>
-									<div className="flex items-start justify-between">
-										<div className="flex items-center gap-4">
-											<Avatar>
-												<AvatarImage src={user.image ?? ""} />
-												<AvatarFallback>
-													{getInitials(user.name)}
-												</AvatarFallback>
-											</Avatar>
-											<div className="space-y-1">
-												<p className="font-medium">{user.name}</p>
-												<p className="text-muted-foreground text-sm">
-													{user.email.length > 25
-														? `${user.email.slice(0, 22)}...`
-														: user.email}
-												</p>
-											</div>
-										</div>
-									</div>
-								</div>
-							))
-						) : (
-							<p className="text-center text-muted-foreground">
-								No active users found.
-							</p>
-						)}
-					</div>
+					<UsersTabContent
+						canEdit={canEdit}
+						emptyMessage="No active users found."
+						isLoading={isLoadingActiveUsers}
+						users={activeUsers}
+					/>
 				</TabsContent>
 				<TabsContent value="archived">
-					{/* Table for Medium Screens and Up (sm:) */}
-					<div className="hidden sm:block">
-						<Table>
-							<TableHeader>
-								<TableRow>
-									{canEdit && <TableHead className="w-[20px]"></TableHead>}
-									<TableHead className="w-[20px]"></TableHead>
-									<TableHead>Name</TableHead>
-									<TableHead>Email</TableHead>
-									<TableHead>Phone</TableHead>
-									<TableHead>Roles</TableHead>
-								</TableRow>
-							</TableHeader>
-							<TableBody>
-								{isLoadingArchivedUsers ? (
-									<TableRow>
-										<TableCell
-											className="text-center"
-											colSpan={canEdit ? 7 : 6}
-										>
-											Loading...
-										</TableCell>
-									</TableRow>
-								) : archivedUsers && archivedUsers.length > 0 ? (
-									archivedUsers.map((user) => (
-										<TableRow key={user.id}>
-											{canEdit && (
-												<TableCell>
-													<UsersTableActionsMenu user={user} />
-												</TableCell>
-											)}
-											<TableCell>
-												<Avatar>
-													<AvatarImage src={user.image ?? ""} />
-													<AvatarFallback>
-														{getInitials(user.name)}
-													</AvatarFallback>
-												</Avatar>
-											</TableCell>
-											<TableCell className="font-medium">{user.name}</TableCell>
-											<TableCell>
-												<Link
-													className="hover:underline"
-													href={`mailto:${user.email}`}
-												>
-													{user.email}
-												</Link>
-											</TableCell>
-											<TableCell className="text-muted-foreground">
-												{user.phoneNumber
-													? formatPhoneAsYouType(user.phoneNumber)
-													: "—"}
-											</TableCell>
-											<TableCell>
-												<div className="flex flex-wrap gap-1">
-													{user.evaluator && (
-														<Badge variant="outline">Evaluator</Badge>
-													)}
-													{user.isGreeter && (
-														<Badge variant="secondary">Greeter</Badge>
-													)}
-												</div>
-											</TableCell>
-										</TableRow>
-									))
-								) : (
-									<TableRow>
-										<TableCell
-											className="text-center"
-											colSpan={canEdit ? 7 : 6}
-										>
-											No archived users found.
-										</TableCell>
-									</TableRow>
-								)}
-							</TableBody>
-						</Table>
-					</div>
-
-					{/* Card Layout for Small Screens (mobile) */}
-					<div className="grid grid-cols-1 gap-4 sm:hidden">
-						{isLoadingArchivedUsers ? (
-							<p className="text-center text-muted-foreground">Loading...</p>
-						) : archivedUsers && archivedUsers.length > 0 ? (
-							archivedUsers.map((user) => (
-								<div
-									className="relative rounded-md border bg-card p-4 text-card-foreground"
-									key={user.id}
-								>
-									<div className="absolute top-2 right-2">
-										{canEdit && <UsersTableActionsMenu user={user} />}
-									</div>
-									<div className="flex items-start justify-between">
-										<div className="flex items-center gap-4">
-											<Avatar>
-												<AvatarImage src={user.image ?? ""} />
-												<AvatarFallback>
-													{getInitials(user.name)}
-												</AvatarFallback>
-											</Avatar>
-											<div className="space-y-1">
-												<p className="font-medium">{user.name}</p>
-												<p className="text-muted-foreground text-sm">
-													{user.email.length > 25
-														? `${user.email.slice(0, 22)}...`
-														: user.email}
-												</p>
-											</div>
-										</div>
-									</div>
-								</div>
-							))
-						) : (
-							<p className="text-center text-muted-foreground">
-								No archived users found.
-							</p>
-						)}
-					</div>
+					<UsersTabContent
+						canEdit={canEdit}
+						emptyMessage="No archived users found."
+						isLoading={isLoadingArchivedUsers}
+						users={archivedUsers}
+					/>
 				</TabsContent>
 			</Tabs>
 		</div>
