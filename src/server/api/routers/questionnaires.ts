@@ -643,6 +643,10 @@ export const questionnaireRouter = createTRPCRouter({
 
 			const sentDate = input.sent ? new Date(input.sent.toUTCString()) : null;
 
+			const existing = await ctx.db.query.questionnaires.findFirst({
+				where: eq(questionnaires.id, input.id),
+			});
+
 			await ctx.db
 				.update(questionnaires)
 				.set({
@@ -652,6 +656,17 @@ export const questionnaireRouter = createTRPCRouter({
 					status: input.status,
 				})
 				.where(eq(questionnaires.id, input.id));
+
+			if (existing && input.status !== "ARCHIVED") {
+				await ctx.db
+					.delete(failures)
+					.where(
+						and(
+							eq(failures.clientId, existing.clientId),
+							eq(failures.reason, `Error assigning ${input.questionnaireType}`),
+						),
+					);
+			}
 
 			return { success: true };
 		}),
