@@ -108,19 +108,43 @@ export const getPunchData = async (session: Session) => {
 	const response = await sheetsApi.spreadsheets.values.get({
 		spreadsheetId: PUNCHLIST_ID,
 		range: PUNCHLIST_RANGE,
+		valueRenderOption: "UNFORMATTED_VALUE",
 	});
 
 	const data = response.data.values ?? [];
 	const headers = data[0] ?? [];
 	const rows = data.slice(1);
 
+	// Columns that store dates as Google Sheets serial numbers.
+	// With UNFORMATTED_VALUE, date cells return a number (days since Dec 30 1899).
+	const DATE_COLUMNS = new Set(["DA Scheduled", "EVAL date", "PA Expiration"]);
+
+	const sheetValueToString = (
+		key: string,
+		val: unknown,
+	): string | undefined => {
+		if (val === null || val === undefined || val === "") return undefined;
+		if (typeof val === "boolean") return val ? "TRUE" : "FALSE";
+		if (typeof val === "number") {
+			if (DATE_COLUMNS.has(key)) {
+				// Google Sheets serial → UTC date. 25569 = days from Dec 30 1899 to Unix epoch.
+				const d = new Date((val - 25569) * 86400 * 1000);
+				return d.toISOString().slice(0, 10);
+			}
+			return String(val);
+		}
+		return String(val);
+	};
+
 	const normalizedSheetData: PUNCH_SCHEMA[] = rows
-		.filter((row) => typeof row[1] === "string" && row[1].trim() !== "")
+		.filter((row) => {
+			const id = row[1];
+			return id !== undefined && id !== null && String(id).trim() !== "";
+		})
 		.map((row) => {
 			const punchClient: Partial<PUNCH_SCHEMA> = {};
-			const clientId = row[1];
-			punchClient["Client ID"] = clientId;
-			const rawName = row[0];
+			punchClient["Client ID"] = String(row[1]);
+			const rawName = String(row[0] ?? "");
 			let name = rawName
 				.toLowerCase()
 				.split(" ")
@@ -144,7 +168,10 @@ export const getPunchData = async (session: Session) => {
 			headers.slice(1).forEach((header, index) => {
 				const key = header as keyof PUNCH_SCHEMA;
 				if (key) {
-					punchClient[key] = row[index + 1] as PUNCH_SCHEMA[keyof PUNCH_SCHEMA];
+					punchClient[key] = sheetValueToString(
+						key,
+						row[index + 1],
+					) as PUNCH_SCHEMA[keyof PUNCH_SCHEMA];
 				}
 			});
 			return punchClient as PUNCH_SCHEMA;

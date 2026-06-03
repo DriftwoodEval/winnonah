@@ -11,7 +11,12 @@ import { Button } from "@ui/button";
 import { ScrollArea } from "@ui/scroll-area";
 import { Separator } from "@ui/separator";
 import { Skeleton } from "@ui/skeleton";
-import { CalendarPlus, FlaskConical, Loader2 } from "lucide-react";
+import {
+	AlertTriangle,
+	CalendarPlus,
+	FlaskConical,
+	Loader2,
+} from "lucide-react";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
 import { Fragment, useEffect, useMemo, useState } from "react";
@@ -19,7 +24,6 @@ import { toast } from "sonner";
 import { useCheckPermission } from "~/hooks/use-check-permission";
 import {
 	type DashboardClient,
-	getDashboardSections,
 	SECTION_DA_QS_DONE,
 	SECTION_DAEVAL_QS_DONE,
 	SECTION_EVAL_QS_DONE,
@@ -49,8 +53,7 @@ function PunchListAccordionItem({
 
 	const claimOutreach = api.clients.claimOutreach.useMutation({
 		onSuccess: () => {
-			utils.clients.getNeedsReachOut.invalidate();
-			utils.clients.getNeedsReview.invalidate();
+			utils.google.getDashboardData.invalidate();
 		},
 		onError: (error) => {
 			toast.error("Failed to update claim", { description: error.message });
@@ -265,19 +268,11 @@ function PunchListAccordionItem({
 export function Dashboard() {
 	const {
 		data: dashboardData,
-		isLoading: isLoadingDashboard,
+		isLoading,
 		isError,
 	} = api.google.getDashboardData.useQuery(undefined, {
 		refetchInterval: 180000, // 3 minutes
 	});
-
-	const { data: needsReachOut, isLoading: isLoadingNeedsReachOut } =
-		api.clients.getNeedsReachOut.useQuery();
-	const { data: needsReview, isLoading: isLoadingNeedsReview } =
-		api.clients.getNeedsReview.useQuery();
-
-	const isLoading =
-		isLoadingDashboard || isLoadingNeedsReachOut || isLoadingNeedsReview;
 
 	const { data: schedulingData } = api.scheduling.get.useQuery(undefined, {
 		staleTime: 60000,
@@ -344,12 +339,7 @@ export function Dashboard() {
 		sessionStorage.setItem("dashboard-open-items", JSON.stringify(items));
 	};
 
-	const finalSections = getDashboardSections(
-		dashboardData?.punchClients,
-		dashboardData?.missingClients,
-		needsReachOut,
-		needsReview,
-	);
+	const finalSections = dashboardData?.sections ?? [];
 
 	if (isLoading)
 		return (
@@ -371,6 +361,30 @@ export function Dashboard() {
 				type="multiple"
 				value={openItems}
 			>
+				{(dashboardData?.duplicatePunchClients?.length ?? 0) > 0 && (
+					<Alert
+						className="mb-4 border-destructive bg-destructive/10"
+						variant="destructive"
+					>
+						<AlertTriangle className="h-4 w-4" />
+						<AlertTitle>Duplicate Punchlist Entries</AlertTitle>
+						<AlertDescription>
+							The following clients appear more than once on the prioritization
+							sheet and must be fixed:
+							<ul className="mt-1 list-disc pl-4">
+								{dashboardData?.duplicatePunchClients.map((c) => (
+									<li key={c.hash}>
+										<Link className="underline" href={`/clients/${c.hash}`}>
+											{c.name}
+										</Link>{" "}
+										<span className="font-semibold">({c.count}×)</span>
+									</li>
+								))}
+							</ul>
+						</AlertDescription>
+					</Alert>
+				)}
+
 				<Alert className="mb-4">
 					<FlaskConical />
 					<AlertTitle>Beta</AlertTitle>
@@ -380,7 +394,7 @@ export function Dashboard() {
 				</Alert>
 
 				<p className="text-muted-foreground text-sm">
-					Punchlist: {dashboardData?.punchClients?.length ?? 0}
+					Punchlist: {dashboardData?.punchlistCount ?? 0}
 				</p>
 
 				{finalSections.map((section) => (

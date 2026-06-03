@@ -1,12 +1,13 @@
 import type { JSONContent } from "@tiptap/core";
 import { TRPCError } from "@trpc/server";
 import { differenceInMonths, differenceInYears } from "date-fns";
-import { eq, isNotNull } from "drizzle-orm";
+import { and, asc, eq, isNotNull, not, sql } from "drizzle-orm";
 import { distance as levDistance } from "fastest-levenshtein";
 import z from "zod";
 import { env } from "~/env";
 import { fetchWithCache, invalidateCache } from "~/lib/cache";
 import { TEST_NAMES } from "~/lib/constants";
+import { getDashboardSections } from "~/lib/dashboard";
 import {
 	createAvailabilityEvent,
 	deleteAvailabilityEvent,
@@ -867,24 +868,66 @@ export const googleRouter = createTRPCRouter({
 			throw new Error("No access token or refresh token");
 		}
 
-		const [punchClients, missingClients] = await Promise.all([
-			fetchWithCache(
-				ctx,
-				CACHE_KEY_PUNCHLIST,
-				() => getPunchData(ctx.session),
-				60,
-			),
-			fetchWithCache(
-				ctx,
-				CACHE_KEY_MISSING_PUNCHLIST,
-				() => getMissingFromPunchlistData(ctx.session),
-				60,
-			),
-		]);
+		const isNoteOnly = eq(sql`LENGTH(${clients.id})`, 5);
+
+		const [punchClients, missingClients, needsReachOut, needsReview] =
+			await Promise.all([
+				fetchWithCache(
+					ctx,
+					CACHE_KEY_PUNCHLIST,
+					() => getPunchData(ctx.session),
+					60,
+				),
+				fetchWithCache(
+					ctx,
+					CACHE_KEY_MISSING_PUNCHLIST,
+					() => getMissingFromPunchlistData(ctx.session),
+					60,
+				),
+				ctx.db.query.clients.findMany({
+					where: and(
+						eq(clients.status, true),
+						not(isNoteOnly),
+						sql`JSON_EXTRACT(${clients.referralData}, '$.needsReachOut') = 'reach_out'`,
+					),
+					orderBy: asc(clients.addedDate),
+				}),
+				ctx.db.query.clients.findMany({
+					where: and(
+						eq(clients.status, true),
+						not(isNoteOnly),
+						sql`JSON_EXTRACT(${clients.referralData}, '$.needsReachOut') = 'review'`,
+					),
+					orderBy: asc(clients.addedDate),
+				}),
+			]);
+
+		const idCounts = new Map<string, number>();
+		for (const c of punchClients ?? []) {
+			const id = c["Client ID"];
+			if (id) idCounts.set(id, (idCounts.get(id) ?? 0) + 1);
+		}
+		const duplicatePunchClients = (punchClients ?? [])
+			.filter((c) => (idCounts.get(c["Client ID"] ?? "") ?? 0) > 1)
+			.filter(
+				(c, i, arr) =>
+					arr.findIndex((x) => x["Client ID"] === c["Client ID"]) === i,
+			)
+			.map((c) => ({
+				hash: c.hash,
+				name: c.fullName ?? c["Client Name"] ?? String(c.id),
+				count: idCounts.get(c["Client ID"] ?? "") ?? 2,
+			}));
 
 		return {
-			punchClients,
-			missingClients,
+			sections: getDashboardSections(
+				punchClients,
+				missingClients,
+				needsReachOut,
+				needsReview,
+			),
+			punchlistCount: punchClients?.length ?? 0,
+			duplicatePunchClients,
 		};
 	}),
 

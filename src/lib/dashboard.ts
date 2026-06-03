@@ -1,3 +1,4 @@
+import { format } from "date-fns";
 import type { Client, Failure, FullClientInfo } from "./models";
 
 export const SECTION_ACTIVE_NOT_ON_PUNCHLIST = "Active and Not On Punchlist";
@@ -26,11 +27,12 @@ const isRecordsReady = (client: FullClientInfo) =>
 	client.recordsNeeded === "Not Needed" ||
 	(client.recordsNeeded === "Needed" && !!client.hasExternalRecordsNote);
 
-const isDateString = (val: string | undefined | null) => {
-	if (!val) return false;
-	return (
-		!Number.isNaN(Date.parse(val)) || /^\d{1,2}\/\d{1,2}(\/\d{2,4})?$/.test(val)
-	);
+const isDateString = (val: string | undefined | null) =>
+	!!val && !Number.isNaN(Date.parse(val));
+
+const formatScheduledDate = (val: string | undefined | null) => {
+	if (!val || !isDateString(val)) return val ?? undefined;
+	return format(new Date(val), "MM/dd/yy");
 };
 
 const isPastDate = (val: string | undefined | null) => {
@@ -257,6 +259,7 @@ export const DASHBOARD_CONFIG: {
 			client["EVAL Qs Sent"] !== "TRUE" &&
 			client["EVAL Qs Done"] !== "TRUE" &&
 			!isDateString(client["EVAL date"]),
+		extraInfo: (client) => formatScheduledDate(client["DA Scheduled"]),
 	},
 	{
 		title: SECTION_POST_DA,
@@ -268,17 +271,20 @@ export const DASHBOARD_CONFIG: {
 			client["EVAL Qs Sent"] !== "TRUE" &&
 			client["EVAL Qs Done"] !== "TRUE" &&
 			!isDateString(client["EVAL date"]),
+		extraInfo: (client) => formatScheduledDate(client["DA Scheduled"]),
 	},
 	{
 		title: SECTION_EVAL_SCHEDULED,
 		description: "Eval appointment has been scheduled and hasn't happened yet.",
 		filter: (client: FullClientInfo) =>
 			isDateString(client["EVAL date"]) && !isPastDate(client["EVAL date"]),
+		extraInfo: (client) => formatScheduledDate(client["EVAL date"]),
 	},
 	{
 		title: SECTION_POST_EVAL,
 		description: "Eval appointment date has passed.",
 		filter: (client: FullClientInfo) => isPastDate(client["EVAL date"]),
+		extraInfo: (client) => formatScheduledDate(client["EVAL date"]),
 	},
 ];
 
