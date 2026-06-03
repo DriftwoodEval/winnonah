@@ -260,6 +260,14 @@ export const DASHBOARD_CONFIG: {
 			client["EVAL Qs Done"] !== "TRUE" &&
 			!isDateString(client["EVAL date"]),
 		extraInfo: (client) => formatScheduledDate(client["DA Scheduled"]),
+		sort: (a, b) => {
+			const aDate = Date.parse(a["DA Scheduled"] ?? "");
+			const bDate = Date.parse(b["DA Scheduled"] ?? "");
+			if (Number.isNaN(aDate) && Number.isNaN(bDate)) return 0;
+			if (Number.isNaN(aDate)) return -1;
+			if (Number.isNaN(bDate)) return 1;
+			return aDate - bDate;
+		},
 	},
 	{
 		title: SECTION_POST_DA,
@@ -272,6 +280,8 @@ export const DASHBOARD_CONFIG: {
 			client["EVAL Qs Done"] !== "TRUE" &&
 			!isDateString(client["EVAL date"]),
 		extraInfo: (client) => formatScheduledDate(client["DA Scheduled"]),
+		sort: (a, b) =>
+			Date.parse(a["DA Scheduled"] ?? "") - Date.parse(b["DA Scheduled"] ?? ""),
 	},
 	{
 		title: SECTION_EVAL_SCHEDULED,
@@ -279,12 +289,16 @@ export const DASHBOARD_CONFIG: {
 		filter: (client: FullClientInfo) =>
 			isDateString(client["EVAL date"]) && !isPastDate(client["EVAL date"]),
 		extraInfo: (client) => formatScheduledDate(client["EVAL date"]),
+		sort: (a, b) =>
+			Date.parse(a["EVAL date"] ?? "") - Date.parse(b["EVAL date"] ?? ""),
 	},
 	{
 		title: SECTION_POST_EVAL,
 		description: "Eval appointment date has passed.",
 		filter: (client: FullClientInfo) => isPastDate(client["EVAL date"]),
 		extraInfo: (client) => formatScheduledDate(client["EVAL date"]),
+		sort: (a, b) =>
+			Date.parse(a["EVAL date"] ?? "") - Date.parse(b["EVAL date"] ?? ""),
 	},
 ];
 
