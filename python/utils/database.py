@@ -28,6 +28,7 @@ from utils.constants import (
     TABLE_CLIENT_EVAL,
     TABLE_EVALUATOR,
     TABLE_EVALUATORS_TO_INSURANCES,
+    TABLE_FAILURE,
     TABLE_IN_PERSON_ASSESSMENT,
     TABLE_INSURANCE,
     TABLE_INSURANCE_ALIAS,
@@ -355,6 +356,16 @@ def update_client_ta_hashes(
     except Exception as e:
         logger.error(f"Failed to update taHashes: {e}")
         connection.rollback()
+
+
+def resolve_failure_in_db(
+    client_id: int | str, reason: str, connection: Connection[DictCursor]
+) -> None:
+    """Marks a failure as resolved by bumping reminded past the display threshold."""
+    sql = f"UPDATE {TABLE_FAILURE} SET reminded = reminded + 100 WHERE clientId = %s AND reason = %s"
+    with connection.cursor() as cursor:
+        cursor.execute(sql, (int(client_id), reason))
+    connection.commit()
 
 
 @provide_connection

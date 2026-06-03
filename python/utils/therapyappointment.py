@@ -503,6 +503,9 @@ def save_ta_hashes():
             ta_hash = get_ta_hash(driver, actions, client_id)
             if ta_hash:
                 hashes_to_update[client_id] = ta_hash
+                utils.database.resolve_failure_in_db(
+                    client_id, "unable to find client", connection=conn
+                )
 
             if (i + 1) % 10 == 0 and hashes_to_update:
                 logger.info(f"Saving a batch of {len(hashes_to_update)} TA hashes...")
