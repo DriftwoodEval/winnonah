@@ -108,7 +108,7 @@ function PunchListAccordionItem({
 								<div key={client.hash}>
 									<div className="flex items-center justify-between gap-4">
 										<Link
-											className="block grow"
+											className="no-underline! hover:no-underline! block grow"
 											href={`/clients/${client.hash}${isOutreachSection ? "?tab=referral" : ""}`}
 										>
 											<div>
