@@ -24,7 +24,7 @@ export type DashboardClient = (FullClientInfo | Client) & {
 
 const isRecordsReady = (client: FullClientInfo) =>
 	client.recordsNeeded === "Not Needed" ||
-	(client.recordsNeeded === "Needed" && client.hasExternalRecordsNote === true);
+	(client.recordsNeeded === "Needed" && !!client.hasExternalRecordsNote);
 
 const isDateString = (val: string | undefined | null) => {
 	if (!val) return false;
