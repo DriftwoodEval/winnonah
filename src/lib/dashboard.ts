@@ -167,9 +167,10 @@ export const DASHBOARD_CONFIG: {
 			client["DA Qs Done"] === "TRUE" &&
 			!isDateString(client["DA Scheduled"]) &&
 			client["DA Scheduled"] !== "TRUE" &&
-			!(
-				client["EVAL Qs Done"] === "TRUE" && !isDateString(client["EVAL date"])
-			),
+			client["EVAL Qs Needed"] !== "TRUE" &&
+			client["EVAL Qs Sent"] !== "TRUE" &&
+			client["EVAL Qs Done"] !== "TRUE" &&
+			!isDateString(client["EVAL date"]),
 	},
 	{
 		title: "Eval Qs Pending",
