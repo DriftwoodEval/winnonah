@@ -17,11 +17,13 @@ import {
 import { z } from "zod";
 import { invalidateCache } from "~/lib/cache";
 import { QUESTIONNAIRE_STATUSES } from "~/lib/constants";
+import { updatePunchData } from "~/lib/google";
 import type { InsertingQuestionnaire } from "~/lib/models";
 import { formatClientAge } from "~/lib/utils";
 import { CACHE_KEY_MISSING_APPOINTMENTS } from "~/server/api/routers/client";
 import {
 	assertPermission,
+	type Context,
 	createTRPCRouter,
 	protectedProcedure,
 } from "~/server/api/trpc";
@@ -193,6 +195,108 @@ const questionnaireRuleInputSchema = questionnaireRuleBaseSchema.refine(
 	atLeastOneAssessment,
 	{ message: "At least one assessment is required" },
 );
+
+async function checkAndUpdateQsBatteryStatus(ctx: Context, clientId: number) {
+	const session = ctx.session;
+	if (!session) return;
+	if (!session.user?.accessToken || !session.user?.refreshToken) return;
+
+	const client = await ctx.db.query.clients.findFirst({
+		where: eq(clients.id, clientId),
+	});
+	if (!client) return;
+
+	const ageInYears = Math.floor(
+		(Date.now() - client.dob.getTime()) / (1000 * 60 * 60 * 24 * 365.25),
+	);
+
+	const allRules = await ctx.db.query.questionnaireRules.findMany({
+		orderBy: [
+			asc(questionnaireRules.daeval),
+			asc(questionnaireRules.diagnosis),
+			asc(questionnaireRules.minAge),
+		],
+	});
+
+	const ageFiltered = allRules.filter(
+		(r) => r.minAge <= ageInYears && r.maxAge >= ageInYears,
+	);
+
+	const asdAdhd = client.asdAdhd;
+	const wantedDiagnoses = new Set<string | null>();
+	if (!asdAdhd) {
+		wantedDiagnoses.add("ASD");
+		wantedDiagnoses.add("ADHD");
+	} else {
+		if (asdAdhd.includes("ASD")) wantedDiagnoses.add("ASD");
+		if (asdAdhd.includes("ADHD")) wantedDiagnoses.add("ADHD");
+	}
+
+	const applicableRules = ageFiltered.filter((r) => {
+		if (r.daeval === "DAEVAL") return r.diagnosis === null;
+		return wantedDiagnoses.has(r.diagnosis);
+	});
+
+	const daQTypes = new Set<string>();
+	const evalQTypes = new Set<string>();
+	for (const rule of applicableRules) {
+		const qs = rule.questionnaires ?? [];
+		if (rule.daeval === "DA" || rule.daeval === "DAEVAL") {
+			for (const q of qs) daQTypes.add(q);
+		}
+		if (rule.daeval === "EVAL" || rule.daeval === "DAEVAL") {
+			for (const q of qs) evalQTypes.add(q);
+		}
+	}
+
+	if (daQTypes.size === 0 && evalQTypes.size === 0) return;
+
+	const clientQs = await ctx.db.query.questionnaires.findMany({
+		where: eq(questionnaires.clientId, clientId),
+	});
+
+	const doneStatuses = new Set(["COMPLETED", "EXTERNAL"]);
+
+	const isDaBatteryComplete =
+		daQTypes.size > 0 &&
+		[...daQTypes].every((type) =>
+			clientQs.some(
+				(q) =>
+					q.questionnaireType === type &&
+					q.status !== "ARCHIVED" &&
+					doneStatuses.has(q.status ?? ""),
+			),
+		);
+
+	const isEvalBatteryComplete =
+		evalQTypes.size > 0 &&
+		[...evalQTypes].every((type) =>
+			clientQs.some(
+				(q) =>
+					q.questionnaireType === type &&
+					q.status !== "ARCHIVED" &&
+					doneStatuses.has(q.status ?? ""),
+			),
+		);
+
+	const updates: { daDone?: boolean; evalDone?: boolean } = {};
+	if (daQTypes.size > 0) updates.daDone = isDaBatteryComplete;
+	if (evalQTypes.size > 0) updates.evalDone = isEvalBatteryComplete;
+
+	try {
+		await updatePunchData(session, clientId.toString(), updates);
+		await invalidateCache(
+			ctx,
+			"google:sheets:punchlist",
+			"google:sheets:missing-punchlist",
+		);
+	} catch (e) {
+		ctx.logger.error(
+			e,
+			"Failed to update punchlist Qs Done columns after questionnaire status change",
+		);
+	}
+}
 
 export const questionnaireRouter = createTRPCRouter({
 	getQuestionnaireList: protectedProcedure
@@ -497,6 +601,11 @@ export const questionnaireRouter = createTRPCRouter({
 			});
 
 			await invalidateCache(ctx, CACHE_KEY_MISSING_APPOINTMENTS);
+
+			if (input.status === "COMPLETED" || input.status === "EXTERNAL") {
+				await checkAndUpdateQsBatteryStatus(ctx, input.clientId);
+			}
+
 			return newQuestionnaire;
 		}),
 
@@ -666,6 +775,10 @@ export const questionnaireRouter = createTRPCRouter({
 							eq(failures.reason, `Error assigning ${input.questionnaireType}`),
 						),
 					);
+			}
+
+			if (existing?.clientId !== undefined) {
+				await checkAndUpdateQsBatteryStatus(ctx, existing.clientId);
 			}
 
 			return { success: true };

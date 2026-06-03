@@ -236,6 +236,8 @@ export const updatePunchData = async (
 	updates: {
 		daSent?: boolean;
 		evalSent?: boolean;
+		daDone?: boolean;
+		evalDone?: boolean;
 		asdAdhd?: string;
 		language?: string;
 		protocolsScanned?: boolean;
@@ -262,6 +264,8 @@ export const updatePunchData = async (
 
 	const daSentIndex = headers.indexOf("DA Qs Sent");
 	const evalSentIndex = headers.indexOf("EVAL Qs Sent");
+	const daDoneIndex = headers.indexOf("DA Qs Done");
+	const evalDoneIndex = headers.indexOf("EVAL Qs Done");
 	const forIndex = headers.indexOf("For");
 	const languageIndex = headers.indexOf("Language");
 	const protocolsScannedIndex = headers.indexOf("Protocols scanned?");
@@ -299,6 +303,32 @@ export const updatePunchData = async (
 		updateRequests.push({
 			range: cellAddress,
 			values: [[updates.evalSent ? "TRUE" : "FALSE"]],
+		});
+	}
+
+	if (updates.daDone !== undefined) {
+		if (daDoneIndex === -1) {
+			throw new Error("DA Qs Done column not found in Punchlist");
+		}
+		const cellAddress = `${String.fromCharCode(65 + daDoneIndex)}${
+			clientRowIndex + 2
+		}`;
+		updateRequests.push({
+			range: cellAddress,
+			values: [[updates.daDone ? "TRUE" : "FALSE"]],
+		});
+	}
+
+	if (updates.evalDone !== undefined) {
+		if (evalDoneIndex === -1) {
+			throw new Error("EVAL Qs Done column not found in Punchlist");
+		}
+		const cellAddress = `${String.fromCharCode(65 + evalDoneIndex)}${
+			clientRowIndex + 2
+		}`;
+		updateRequests.push({
+			range: cellAddress,
+			values: [[updates.evalDone ? "TRUE" : "FALSE"]],
 		});
 	}
 
