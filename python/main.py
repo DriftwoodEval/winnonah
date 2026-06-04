@@ -323,6 +323,11 @@ def main(
         return
 
     try:
+        utils.database.mark_posteval_pending_questionnaires()
+    except Exception as e:
+        logger.error(f"Failed to mark post-eval pending questionnaires: {e}")
+
+    try:
         process_referrals()
     except Exception as e:
         logger.error(f"Failed to process referrals: {e}")

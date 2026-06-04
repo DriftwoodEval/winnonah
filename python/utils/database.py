@@ -33,6 +33,7 @@ from utils.constants import (
     TABLE_INSURANCE,
     TABLE_INSURANCE_ALIAS,
     TABLE_PYTHON_CONFIG,
+    TABLE_QUESTIONNAIRE,
     TABLE_QUESTIONNAIRE_RULE,
     TABLE_SCHOOL_DISTRICT,
     TABLE_USER,
@@ -988,3 +989,30 @@ def put_in_person_assessments_in_db(
     logger.info(
         f"Added {len(assessment_types)} in-person assessment(s) for client {client_id}"
     )
+
+
+@provide_connection
+def mark_posteval_pending_questionnaires(connection: Connection[DictCursor]) -> None:
+    """Set PENDING questionnaires to POSTEVAL_PENDING for clients whose eval appointment has passed.
+
+    A client is considered post-eval when they have at least one non-cancelled EVAL
+    appointment whose startTime is in the past.
+    """
+    sql = f"""
+        UPDATE {TABLE_QUESTIONNAIRE} q
+        JOIN (
+            SELECT DISTINCT clientId
+            FROM {TABLE_APPOINTMENT}
+            WHERE daEval IN ('EVAL', 'DAEVAL')
+              AND cancelled = 0
+              AND startTime < NOW()
+        ) past_eval ON past_eval.clientId = q.clientId
+        SET q.status = 'POSTEVAL_PENDING'
+        WHERE q.status = 'PENDING'
+    """
+    with connection.cursor() as cursor:
+        cursor.execute(sql)
+        updated = cursor.rowcount
+    connection.commit()
+    if updated:
+        logger.info(f"Marked {updated} questionnaire(s) as POSTEVAL_PENDING")
