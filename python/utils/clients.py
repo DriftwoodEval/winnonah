@@ -19,7 +19,9 @@ TEST_NAMES = [
     "Johnny Smonathan",
     "Test Mctest",
     "Test Test",
+    "Johnny Test",
     "Barbara Steele",
+    "Karen Aston",
 ]
 
 

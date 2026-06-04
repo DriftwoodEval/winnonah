@@ -6,11 +6,9 @@ import { Skeleton } from "@ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@ui/tabs";
 import {
 	add,
-	addMonths,
 	differenceInMinutes,
 	eachDayOfInterval,
 	format,
-	isBefore,
 	isSameDay,
 	parseISO,
 	startOfDay,
@@ -28,7 +26,6 @@ import {
 } from "lucide-react";
 import { useSession } from "next-auth/react";
 import { useState } from "react";
-import { toast } from "sonner";
 import { cn } from "~/lib/utils";
 import { api } from "~/trpc/react";
 import { Button } from "../ui/button";
@@ -129,8 +126,9 @@ function toDate(value: string | Date): Date {
 	return value instanceof Date ? value : new Date(value);
 }
 
-function isEventLocked(event: CalendarEvent): boolean {
-	return isBefore(toDate(event.start), startOfDay(addMonths(new Date(), 1)));
+function isEventLocked(_event: CalendarEvent): boolean {
+	// return isBefore(toDate(_event.start), startOfDay(addMonths(new Date(), 1)));
+	return false;
 }
 
 function buildEventsByDate(events: CalendarEvent[]): EventsByDate {
@@ -462,7 +460,8 @@ function CalendarDayHeader({
 
 	const today = isSameDay(day, new Date());
 
-	const isLocked = isBefore(day, startOfDay(addMonths(new Date(), 1)));
+	// const isLocked = isBefore(day, startOfDay(addMonths(new Date(), 1)));
+	const isLocked = false;
 
 	return (
 		<button
@@ -747,10 +746,11 @@ function CalendarView({
 									(e) => !e.isAllDay,
 								);
 
-								const isLocked = isBefore(
-									day,
-									startOfDay(addMonths(new Date(), 1)),
-								);
+								// const isLocked = isBefore(
+								// 	day,
+								// 	startOfDay(addMonths(new Date(), 1)),
+								// );
+								const isLocked = false;
 
 								return (
 									<button
@@ -784,16 +784,16 @@ function CalendarView({
 
 											const endDate = add(startDate, { hours: 1 });
 
-											const isLocked = isBefore(
-												startDate,
-												startOfDay(addMonths(new Date(), 1)),
-											);
-											if (isLocked) {
-												toast.error(
-													"Cannot create events in the locked period.",
-												);
-												return;
-											}
+											// const isLocked = isBefore(
+											// 	startDate,
+											// 	startOfDay(addMonths(new Date(), 1)),
+											// );
+											// if (isLocked) {
+											// 	toast.error(
+											// 		"Cannot create events in the locked period.",
+											// 	);
+											// 	return;
+											// }
 
 											onEdit({
 												id: "new",

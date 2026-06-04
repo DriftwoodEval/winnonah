@@ -19,9 +19,11 @@ export const TEST_NAMES = [
 	"Testman Testson Jr.",
 	"Johnny Smonny",
 	"Johnny Smonathan",
-	"Test McTest",
+	"Test Mctest",
 	"Test Test",
+	"Johnny Test",
 	"Barbara Steele",
+	"Karen Aston",
 ] as const;
 
 export const PERMISSIONS = {

@@ -15,7 +15,7 @@ import { Input } from "@ui/input";
 import { RadioGroup, RadioGroupItem } from "@ui/radio-group";
 import { Separator } from "@ui/separator";
 import { Switch } from "@ui/switch";
-import { add, addMonths, format, startOfDay } from "date-fns";
+import { add, addMonths } from "date-fns";
 import { AlertCircle } from "lucide-react";
 import { useEffect, useState } from "react";
 import type { UseFormReturn } from "react-hook-form";
@@ -86,7 +86,8 @@ export function AvailabilityFields({
 	const { data: offices, isLoading: isLoadingOffices } =
 		api.offices.getAll.useQuery();
 
-	const minDate = startOfDay(addMonths(new Date(), 1));
+	// const minDate = startOfDay(addMonths(new Date(), 1));
+	const minDate = undefined;
 
 	return (
 		<div className="space-y-6">
@@ -245,9 +246,9 @@ export function AvailabilityFields({
 							<FormLabel>
 								{isAllDay ? "Start Date" : "Start Date/Time"}
 							</FormLabel>
-							<FormDescription>
+							{/* <FormDescription>
 								Earliest: {format(minDate, "MMM d, yyyy")}
-							</FormDescription>
+							</FormDescription> */}
 							<FormControl>
 								<DateTimePicker
 									hideTime={isAllDay}
