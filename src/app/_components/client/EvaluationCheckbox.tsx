@@ -2,6 +2,12 @@
 
 import { Checkbox } from "@ui/checkbox";
 import { Label } from "@ui/label";
+import {
+	Tooltip,
+	TooltipContent,
+	TooltipProvider,
+	TooltipTrigger,
+} from "@ui/tooltip";
 import { useEffect, useId, useState } from "react";
 import { toast } from "sonner";
 import { useCheckPermission } from "~/hooks/use-check-permission";
@@ -71,7 +77,17 @@ export function EvaluationCheckbox({
 					id={checkboxId}
 					onCheckedChange={handleChange}
 				/>
-				<Label htmlFor={checkboxId}>Evaluation In Process</Label>
+				<TooltipProvider>
+					<Tooltip>
+						<TooltipTrigger asChild>
+							<Label htmlFor={checkboxId}>Evaluation In Process</Label>
+						</TooltipTrigger>
+						<TooltipContent>
+							When requesting records, we were told an evaluation was in
+							progress, check back later. Adds this client to the issues list.
+						</TooltipContent>
+					</Tooltip>
+				</TooltipProvider>
 			</div>
 		</div>
 	);
