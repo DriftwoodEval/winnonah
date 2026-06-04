@@ -23,7 +23,7 @@ import { format, formatDistanceToNow } from "date-fns";
 import Link from "next/link";
 import { useState } from "react";
 import { toast } from "sonner";
-import { formatReminderOffset } from "~/lib/utils";
+import { formatReminderOffset, getLocalTimeFromUTCDate } from "~/lib/utils";
 import { api, type RouterOutputs } from "~/trpc/react";
 import { ReminderTemplateDialog } from "./ReminderTemplateDialog";
 
@@ -265,7 +265,11 @@ export default function ReminderSettings() {
 											</Link>
 										</TableCell>
 										<TableCell className="whitespace-nowrap text-xs">
-											{format(log.appointmentStart, "MMM d, yyyy p")}
+											{format(
+												getLocalTimeFromUTCDate(log.appointmentStart) ??
+													log.appointmentStart,
+												"MMM d, yyyy p",
+											)}
 										</TableCell>
 										<TableCell className="text-xs">
 											{log.templateName}
