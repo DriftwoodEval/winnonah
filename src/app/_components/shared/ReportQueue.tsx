@@ -143,7 +143,7 @@ export default function ReportQueue({ sourceId, destId }: ReportQueueProps) {
 								<div className="grid gap-1 py-2">
 									{folders.map((folder) => (
 										<div
-											className="group flex items-center justify-between rounded-md p-3 transition-colors hover:bg-muted/50"
+											className="group flex items-center justify-between rounded-md p-3"
 											key={folder.id}
 										>
 											<div className="flex items-center gap-3">
@@ -155,21 +155,6 @@ export default function ReportQueue({ sourceId, destId }: ReportQueueProps) {
 													{folder.name}
 												</span>
 											</div>
-
-											<Button
-												className="h-8 w-8 text-muted-foreground opacity-0 transition-opacity hover:cursor-pointer group-hover:opacity-100"
-												onClick={() =>
-													window.open(
-														`https://drive.google.com/drive/folders/${folder.id}`,
-														"_blank",
-													)
-												}
-												size="icon"
-												variant="ghost"
-											>
-												<ExternalLinkIcon className="h-4 w-4" />
-												<span className="sr-only">Open in Drive</span>
-											</Button>
 										</div>
 									))}
 								</div>
