@@ -19,7 +19,7 @@ export const TEST_NAMES = [
 	"Testman Testson Jr.",
 	"Johnny Smonny",
 	"Johnny Smonathan",
-	"Test Mctest",
+	"Test McTest",
 	"Test Test",
 	"Barbara Steele",
 ] as const;

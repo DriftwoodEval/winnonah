@@ -689,6 +689,7 @@ export const clientRouter = createTRPCRouter({
 					isNull(clients.referralSource),
 				),
 				eq(clients.status, true),
+				not(isNoteOnly),
 			),
 			orderBy: clients.addedDate,
 		});
