@@ -27,6 +27,7 @@ TABLE_APPOINTMENT_REMINDER_TEMPLATES = "emr_reminder_templates"
 TABLE_APPOINTMENT_REMINDER_LOGS = "emr_reminder_logs"
 TABLE_QUESTIONNAIRE_MSG_LOGS: Final = "emr_questionnaire_msg_logs"
 TABLE_FAILURE: Final = "emr_failure"
+TABLE_ASSESSMENT_TYPE: Final = "emr_assessment_type"
 
 # DB to DataFrame Column Mapping
 CLIENT_COLUMN_MAPPING: Final = {

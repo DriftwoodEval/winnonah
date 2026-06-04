@@ -13,6 +13,7 @@ from loguru import logger
 import utils.misc
 from utils.clients import TEST_NAMES
 from utils.database import (
+    compute_and_store_assessment_snapshot,
     get_all_evaluators_npi_map,
     get_client_id_to_asd_adhd_map,
     get_client_id_to_dob_map,
@@ -616,6 +617,9 @@ def insert_appointments_with_gcal(appointment_sync_data: dict[str, list[str]] | 
                         appointment_id=appointment_id,
                     )
 
+        if not cancelled and cpt_code == "90791" and gcal_daeval != "DAEVAL":
+            compute_and_store_assessment_snapshot(client_id=client_id)
+
     if not billing_df.empty:
         logger.info(
             f"Inserting {len(billing_df)} billing-only appointments into database..."
@@ -661,6 +665,9 @@ def insert_appointments_with_gcal(appointment_sync_data: dict[str, list[str]] | 
                 asd_adhd=asd_adhd_map.get(client_id),
                 billing_only=True,
             )
+
+            if not cancelled and cpt_code == "90791":
+                compute_and_store_assessment_snapshot(client_id=client_id)
 
     reporter.send_report(email_for_errors)
 

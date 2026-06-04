@@ -22,6 +22,7 @@ import utils.relationships
 from utils.constants import (
     CLIENT_COLUMN_MAPPING,
     TABLE_APPOINTMENT,
+    TABLE_ASSESSMENT_TYPE,
     TABLE_BLOCKED_SCHOOL_DISTRICT,
     TABLE_BLOCKED_ZIP_CODE,
     TABLE_CLIENT,
@@ -1016,3 +1017,137 @@ def mark_posteval_pending_questionnaires(connection: Connection[DictCursor]) -> 
     connection.commit()
     if updated:
         logger.info(f"Marked {updated} questionnaire(s) as POSTEVAL_PENDING")
+
+
+@provide_connection
+def compute_and_store_assessment_snapshot(
+    client_id: int,
+    connection: Connection[DictCursor],
+) -> None:
+    """Compute and store the assessment snapshot for a client.
+
+    Mirrors TypeScript computeAndStoreAssessmentSnapshot. Run when a 90791
+    non-DAEVAL appointment is added so the insurance appointment data is locked in.
+    """
+    with connection.cursor() as cursor:
+        cursor.execute(
+            f"SELECT dob, asdAdhd, assessment_data FROM {TABLE_CLIENT} WHERE id = %s",
+            (client_id,),
+        )
+        client = cursor.fetchone()
+
+    if not client or not client.get("dob"):
+        logger.warning(f"Cannot compute snapshot for client {client_id}: missing dob")
+        return
+
+    if client.get("assessment_data") is not None:
+        logger.debug(f"Skipping snapshot for client {client_id}: already locked in")
+        return
+
+    dob = client["dob"]
+    asd_adhd: str | None = client.get("asdAdhd")
+
+    today = date.today()
+    age_in_years = (today - dob).days // 365
+
+    # Load and filter rules by age
+    rules = get_questionnaire_rules_with_in_person(connection=connection)
+    age_filtered = [r for r in rules if r["minAge"] <= age_in_years <= r["maxAge"]]
+
+    # Determine wanted diagnoses (mirrors TypeScript wantedDiagnoses logic)
+    if not asd_adhd:
+        wanted_diagnoses: set[str | None] = {"ASD", "ADHD"}
+    else:
+        wanted_diagnoses = set()
+        if "ASD" in asd_adhd:
+            wanted_diagnoses.add("ASD")
+        if "ADHD" in asd_adhd:
+            wanted_diagnoses.add("ADHD")
+
+    applicable_rules = [
+        r
+        for r in age_filtered
+        if (r["daeval"] == "DAEVAL" and r["diagnosis"] is None)
+        or (r["daeval"] != "DAEVAL" and r["diagnosis"] in wanted_diagnoses)
+    ]
+
+    needed_types: set[str] = set()
+    for rule in applicable_rules:
+        for q in rule.get("questionnaires") or []:
+            needed_types.add(q)
+        for ipa in rule.get("inPersonAssessments") or []:
+            needed_types.add(ipa)
+
+    if not needed_types:
+        snapshot = {
+            "minutes": 0,
+            "computedAt": datetime.utcnow().isoformat() + "Z",
+            "ageInYears": age_in_years,
+            "asdAdhd": asd_adhd,
+            "includedTypes": [],
+            "excludedExternal": [],
+        }
+        _store_snapshot(client_id, snapshot, connection=connection)
+        return
+
+    with connection.cursor() as cursor:
+        cursor.execute(
+            f"SELECT questionnaireType AS type FROM {TABLE_QUESTIONNAIRE} "
+            f"WHERE clientId = %s AND status = 'EXTERNAL'",
+            (client_id,),
+        )
+        external_qs = {row["type"] for row in cursor.fetchall()}
+
+        cursor.execute(
+            f"SELECT assessmentType AS type FROM {TABLE_IN_PERSON_ASSESSMENT} "
+            f"WHERE clientId = %s AND status = 'EXTERNAL'",
+            (client_id,),
+        )
+        external_ipas = {row["type"] for row in cursor.fetchall()}
+
+    external_types = external_qs | external_ipas
+    excluded_external = [t for t in needed_types if t in external_types]
+    billable_types = [t for t in needed_types if t not in external_types]
+
+    minutes = 0
+    included_types: list[str] = []
+    if billable_types:
+        with connection.cursor() as cursor:
+            placeholders = ",".join(["%s"] * len(billable_types))
+            cursor.execute(
+                f"SELECT name, minutes FROM {TABLE_ASSESSMENT_TYPE} "
+                f"WHERE name IN ({placeholders})",
+                billable_types,
+            )
+            rows = cursor.fetchall()
+        for row in rows:
+            included_types.append(row["name"])
+            minutes += row["minutes"] or 0
+
+    snapshot = {
+        "minutes": minutes,
+        "computedAt": datetime.utcnow().isoformat() + "Z",
+        "ageInYears": age_in_years,
+        "asdAdhd": asd_adhd,
+        "includedTypes": included_types,
+        "excludedExternal": excluded_external,
+    }
+    _store_snapshot(client_id, snapshot, connection=connection)
+    logger.info(
+        f"Stored assessment snapshot for client {client_id}: {minutes} minutes, "
+        f"{len(included_types)} types"
+    )
+
+
+@provide_connection
+def _store_snapshot(
+    client_id: int,
+    snapshot: dict,
+    connection: Connection[DictCursor],
+) -> None:
+    with connection.cursor() as cursor:
+        cursor.execute(
+            f"UPDATE {TABLE_CLIENT} SET assessment_data = %s WHERE id = %s",
+            (json.dumps(snapshot), client_id),
+        )
+    connection.commit()
