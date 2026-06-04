@@ -18,6 +18,12 @@ import utils.location
 import utils.openphone
 import utils.referrals
 import utils.therapyappointment
+from utils.fax_close import (
+    generate_close_faxes,
+    replace_misformatted_doctors,
+    send_close_faxes,
+)
+from utils.fax_reports import generate_report_cover_pages, send_report_faxes
 
 logger.add("logs/winnonah-python.log", rotation="500 MB")
 load_dotenv()
@@ -330,6 +336,31 @@ def main(
         utils.google.add_client_ids_to_drive()
     except Exception as e:
         logger.error(f"Failed to add client IDs to drive: {e}")
+
+    try:
+        replace_misformatted_doctors()
+    except Exception as e:
+        logger.error(f"Failed to replace misformatted doctors: {e}")
+
+    try:
+        generate_close_faxes()
+    except Exception as e:
+        logger.error(f"Failed to generate close faxes: {e}")
+
+    try:
+        generate_report_cover_pages()
+    except Exception as e:
+        logger.error(f"Failed to generate report cover pages: {e}")
+
+    try:
+        send_close_faxes()
+    except Exception as e:
+        logger.error(f"Failed to send close faxes: {e}")
+
+    try:
+        send_report_faxes()
+    except Exception as e:
+        logger.error(f"Failed to send report faxes: {e}")
 
 
 if __name__ == "__main__":
