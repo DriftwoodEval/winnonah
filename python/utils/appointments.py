@@ -11,6 +11,7 @@ from googleapiclient.discovery import build
 from loguru import logger
 
 import utils.misc
+from utils.clients import TEST_NAMES
 from utils.database import (
     get_all_evaluators_npi_map,
     get_client_id_to_asd_adhd_map,
@@ -155,11 +156,10 @@ class SyncReporter:
 
 def should_skip_appointment(appointment: pd.Series) -> bool:
     """Skip test clients or 'Reports' CPT code."""
-    # name = re.sub(r"[\d\(\)]", "", appointment["NAME"]).strip()  # noqa: ERA001 temporary for appointment testing
+    name = re.sub(r"[\d\(\)]", "", appointment["NAME"]).strip()
     cpt = re.sub(r"\D", "", appointment["NAME"])
 
-    # return name in TEST_NAMES or "96130" in cpt  # noqa: ERA001 temporary for appointment testing
-    return "96130" in cpt
+    return name in TEST_NAMES or "96130" in cpt
 
 
 def batch_search_calendar_events(

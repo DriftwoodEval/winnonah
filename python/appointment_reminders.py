@@ -12,7 +12,6 @@ from loguru import logger
 from pymysql.connections import Connection
 from pymysql.cursors import DictCursor
 
-from utils.clients import TEST_NAMES
 from utils.constants import (
     TABLE_APPOINTMENT,
     TABLE_APPOINTMENT_REMINDER_LOGS,
@@ -223,11 +222,6 @@ async def process_reminders(connection: Connection[DictCursor]) -> None:
             pending_appointments = cursor.fetchall()
 
             for appt in pending_appointments:
-                # TEMPORARY: only process test clients
-                full_name = f"{appt['firstName']} {appt['lastName']}"
-                if full_name not in TEST_NAMES:
-                    continue
-
                 if not appt.get("phoneNumber"):
                     logger.warning(
                         f"Skipping Appt {appt['id']}: No phone number for client."
