@@ -176,12 +176,22 @@ export default function ReminderSettings() {
 									{template.triggerKeyword && (
 										<span>Keyword: "{template.triggerKeyword}" • </span>
 									)}
-									{(template.triggerDaEval ?? template.triggerLocationKey) && (
+									{(template.triggerDaEval ??
+										(template.triggerLocationKey?.length
+											? template.triggerLocationKey
+											: null)) && (
 										<span>
 											{template.triggerDaEval ?? "Any appointment type"} @{" "}
-											{offices?.find(
-												(o) => o.key === template.triggerLocationKey,
-											)?.prettyName ?? "Any location"}{" "}
+											{template.triggerLocationKey?.length
+												? template.triggerLocationKey
+														.map((k) =>
+															k === "VIRTUAL"
+																? "Virtual"
+																: (offices?.find((o) => o.key === k)
+																		?.prettyName ?? k),
+														)
+														.join(", ")
+												: "Any location"}{" "}
 											•{" "}
 										</span>
 									)}
