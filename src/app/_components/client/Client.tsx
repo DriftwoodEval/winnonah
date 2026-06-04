@@ -81,7 +81,10 @@ export function Client({
 
 	const [selectedColor, setSelectedColor] = useState<ClientColor | null>(null);
 
-	const trackClientViewMutation = api.users.trackClientView.useMutation();
+	const utils = api.useUtils();
+	const trackClientViewMutation = api.users.trackClientView.useMutation({
+		onSuccess: () => utils.users.getRecentClients.invalidate(),
+	});
 
 	useEffect(() => {
 		if (client?.color) {
