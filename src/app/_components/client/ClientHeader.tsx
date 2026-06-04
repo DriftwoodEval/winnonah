@@ -214,14 +214,17 @@ export function ClientHeader({
 					{client.eiAttends && <Badge variant="secondary">EI Attends</Badge>}
 				</div>
 
-				{isShellClientId(client.id) && !readOnly && canMerge && (
-					<>
-						<Separator orientation="vertical" />
-						<Link href={`/clients/merge?fake=${client.hash}`}>
-							<Button>Merge with Real Client</Button>
-						</Link>
-					</>
-				)}
+				{isShellClientId(client.id) &&
+					!readOnly &&
+					canMerge &&
+					client.status && (
+						<>
+							<Separator orientation="vertical" />
+							<Link href={`/clients/merge?fake=${client.hash}`}>
+								<Button>Merge with Real Client</Button>
+							</Link>
+						</>
+					)}
 
 				{isShellClientId(client.id) && !readOnly && canShell && (
 					<>
