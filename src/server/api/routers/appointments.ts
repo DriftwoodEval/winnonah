@@ -244,11 +244,12 @@ export const appointmentRouter = createTRPCRouter({
 						!!appt.calendarEventTitle?.includes(template.triggerKeyword);
 					const matchesDaEvalLocation =
 						(template.triggerDaEval !== null ||
-							template.triggerLocationKey !== null) &&
+							(template.triggerLocationKey?.length ?? 0) > 0) &&
 						(template.triggerDaEval === null ||
 							appt.daEval === template.triggerDaEval) &&
-						(template.triggerLocationKey === null ||
-							appt.locationKey === template.triggerLocationKey);
+						(!template.triggerLocationKey?.length ||
+							(!!appt.locationKey &&
+								template.triggerLocationKey.includes(appt.locationKey)));
 
 					if (matchesKeyword || matchesDaEvalLocation) {
 						pending.push({

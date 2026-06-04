@@ -2,6 +2,7 @@
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Button } from "@ui/button";
+import { Checkbox } from "@ui/checkbox";
 import {
 	Dialog,
 	DialogContent,
@@ -32,6 +33,7 @@ import { format } from "date-fns";
 import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
+import { cn } from "~/lib/utils";
 import {
 	type ReminderTemplateFormValues,
 	reminderTemplateSchema,
@@ -121,9 +123,9 @@ export function ReminderTemplateDialog({
 		},
 	});
 
-	const triggerLocationKey = form.watch("triggerLocationKey");
+	const triggerLocationKeys = form.watch("triggerLocationKey");
 	const previewOffice =
-		offices?.find((o) => o.key === triggerLocationKey) ?? offices?.[0];
+		offices?.find((o) => triggerLocationKeys?.includes(o.key)) ?? offices?.[0];
 
 	const sendOffsetHours = form.watch("sendOffsetHours");
 	const previewApptTime = new Date(
@@ -159,9 +161,9 @@ export function ReminderTemplateDialog({
 					: values.triggerDaEval,
 			triggerLocationKey: isFollowUp
 				? null
-				: (values.triggerLocationKey as string) === "NONE"
-					? null
-					: values.triggerLocationKey,
+				: values.triggerLocationKey?.length
+					? values.triggerLocationKey
+					: null,
 			...(initialData?.id ? { id: initialData.id } : {}),
 		});
 	}
@@ -271,37 +273,49 @@ export function ReminderTemplateDialog({
 								<FormField
 									control={form.control}
 									name="triggerLocationKey"
-									render={({ field }) => (
-										<FormItem>
-											<FormLabel>Location</FormLabel>
-											<Select
-												disabled={
-													form.watch("isNoReplyFollowUp") ||
-													form.watch("isConfirmedFollowUp") ||
-													!!form.watch("triggerKeyword")
-												}
-												onValueChange={(val) =>
-													field.onChange(val === "NONE" ? null : val)
-												}
-												value={field.value ?? "NONE"}
-											>
-												<FormControl>
-													<SelectTrigger>
-														<SelectValue placeholder="Select location" />
-													</SelectTrigger>
-												</FormControl>
-												<SelectContent>
-													<SelectItem value="NONE">Any</SelectItem>
-													{offices?.map((office) => (
-														<SelectItem key={office.key} value={office.key}>
-															{office.prettyName}
-														</SelectItem>
+									render={({ field }) => {
+										const isDisabled =
+											form.watch("isNoReplyFollowUp") ||
+											form.watch("isConfirmedFollowUp") ||
+											!!form.watch("triggerKeyword");
+										const selected = field.value ?? [];
+										const allLocations = [
+											{ key: "VIRTUAL", prettyName: "Virtual" },
+											...(offices ?? []),
+										];
+										const toggle = (key: string) => {
+											const next = selected.includes(key)
+												? selected.filter((k) => k !== key)
+												: [...selected, key];
+											field.onChange(next);
+										};
+										return (
+											<FormItem>
+												<FormLabel>Locations</FormLabel>
+												<div className="flex flex-wrap gap-x-4 gap-y-2">
+													{allLocations.map((loc) => (
+														<label
+															className={cn(
+																"flex cursor-pointer items-center gap-1.5 text-sm",
+																isDisabled && "cursor-not-allowed opacity-50",
+															)}
+															htmlFor={`loc-${loc.key}`}
+															key={loc.key}
+														>
+															<Checkbox
+																checked={selected.includes(loc.key)}
+																disabled={isDisabled}
+																id={`loc-${loc.key}`}
+																onCheckedChange={() => toggle(loc.key)}
+															/>
+															{loc.prettyName}
+														</label>
 													))}
-												</SelectContent>
-											</Select>
-											<FormMessage />
-										</FormItem>
-									)}
+												</div>
+												<FormMessage />
+											</FormItem>
+										);
+									}}
 								/>
 							</div>
 

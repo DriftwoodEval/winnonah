@@ -46,7 +46,7 @@ export const reminderRouter = createTRPCRouter({
 				name: z.string(),
 				triggerKeyword: z.string().optional().nullable(),
 				triggerDaEval: z.enum(["EVAL", "DA", "DAEVAL"]).optional().nullable(),
-				triggerLocationKey: z.string().optional().nullable(),
+				triggerLocationKey: z.array(z.string()).optional().nullable(),
 				messageTemplate: z.string(),
 				confirmationReply: z.string().optional().nullable(),
 				sendOffsetHours: z.number().min(1),

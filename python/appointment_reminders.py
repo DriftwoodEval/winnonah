@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import os
 import re
 from datetime import datetime, timedelta
@@ -113,7 +114,11 @@ async def process_reminders(connection: Connection[DictCursor]) -> None:
                 else None
             )
             trigger_da_eval = template.get("triggerDaEval")
-            trigger_location_key = template.get("triggerLocationKey")
+
+            raw_location = template.get("triggerLocationKey")
+            if isinstance(raw_location, str):
+                raw_location = json.loads(raw_location)
+            trigger_location_keys = raw_location or None
 
             max_lead_time = datetime.now() + timedelta(
                 hours=template["sendOffsetHours"]
@@ -179,6 +184,13 @@ async def process_reminders(connection: Connection[DictCursor]) -> None:
                 # Standard reminder logic:
                 # 1. This template hasn't been sent yet.
                 # 2. Appointment IS NOT confirmed.
+                if trigger_location_keys:
+                    location_clause = f"a.locationKey IN ({', '.join(['%s'] * len(trigger_location_keys))})"
+                    location_params = tuple(trigger_location_keys)
+                else:
+                    location_clause = "1=1"
+                    location_params = ()
+
                 query = f"""
                     SELECT a.*, c.firstName, c.lastName, c.preferredName, c.phoneNumber,
                            o.prettyName AS officeLabel, o.locationPhrase AS officeLocationPhrase
@@ -197,9 +209,9 @@ async def process_reminders(connection: Connection[DictCursor]) -> None:
                         (%s IS NOT NULL AND a.calendarEventTitle LIKE %s)
                         OR
                         (
-                            (%s IS NOT NULL OR %s IS NOT NULL)
+                            (%s IS NOT NULL OR %s)
                             AND (%s IS NULL OR a.daEval = %s)
-                            AND (%s IS NULL OR a.locationKey = %s)
+                            AND {location_clause}
                         )
                     )
                     AND a.startTime <= %s
@@ -210,11 +222,10 @@ async def process_reminders(connection: Connection[DictCursor]) -> None:
                     trigger_keyword,
                     trigger_keyword,
                     trigger_da_eval,
-                    trigger_location_key,
+                    bool(trigger_location_keys),
                     trigger_da_eval,
                     trigger_da_eval,
-                    trigger_location_key,
-                    trigger_location_key,
+                    *location_params,
                     max_lead_time,
                 )
 
