@@ -23,6 +23,7 @@ import { distance as levDistance } from "fastest-levenshtein";
 import { z } from "zod";
 import { env } from "~/env";
 import {
+	type AssessmentSnapshot,
 	aggregateBillingCodes,
 	calculateAdditionalAppointments,
 } from "~/lib/billing";
@@ -39,6 +40,7 @@ import { getDistanceSQL, isShellClientId } from "~/lib/utils";
 import { referralDataSchema } from "~/lib/validations";
 import {
 	assertPermission,
+	type Context,
 	createTRPCRouter,
 	protectedProcedure,
 } from "~/server/api/trpc";
@@ -62,6 +64,139 @@ import {
 const isNoteOnly = eq(sql`LENGTH(${clients.id})`, 5);
 const CACHE_KEY_DROP_LIST = "clients:drop-list";
 export const CACHE_KEY_MISSING_APPOINTMENTS = "clients:missing-appointments";
+
+async function computeRuleBasedSnapshot(
+	db: Context["db"],
+	clientId: number,
+	ageInYears: number,
+	asdAdhd: string | null | undefined,
+): Promise<AssessmentSnapshot> {
+	const allRules = await db.query.questionnaireRules.findMany();
+
+	const ageFiltered = allRules.filter(
+		(r) => r.minAge <= ageInYears && r.maxAge >= ageInYears,
+	);
+
+	const wantedDiagnoses = new Set<string | null>();
+	if (!asdAdhd) {
+		wantedDiagnoses.add("ASD");
+		wantedDiagnoses.add("ADHD");
+	} else {
+		if (asdAdhd.includes("ASD")) wantedDiagnoses.add("ASD");
+		if (asdAdhd.includes("ADHD")) wantedDiagnoses.add("ADHD");
+	}
+
+	const applicableRules = ageFiltered.filter((r) => {
+		if (r.daeval === "DAEVAL") return r.diagnosis === null;
+		return wantedDiagnoses.has(r.diagnosis);
+	});
+
+	const neededTypes = new Set<string>();
+	for (const rule of applicableRules) {
+		for (const q of rule.questionnaires ?? []) neededTypes.add(q);
+		for (const ipa of rule.inPersonAssessments ?? []) neededTypes.add(ipa);
+	}
+
+	if (neededTypes.size === 0) {
+		return {
+			minutes: 0,
+			computedAt: new Date().toISOString(),
+			ageInYears,
+			asdAdhd: asdAdhd ?? null,
+			includedTypes: [],
+			excludedExternal: [],
+		};
+	}
+
+	const [externalQs, externalIPAs] = await Promise.all([
+		db
+			.select({ type: questionnaires.questionnaireType })
+			.from(questionnaires)
+			.where(
+				and(
+					eq(questionnaires.clientId, clientId),
+					eq(questionnaires.status, "EXTERNAL"),
+				),
+			),
+		db
+			.select({ type: inPersonAssessments.assessmentType })
+			.from(inPersonAssessments)
+			.where(
+				and(
+					eq(inPersonAssessments.clientId, clientId),
+					eq(inPersonAssessments.status, "EXTERNAL"),
+				),
+			),
+	]);
+
+	const externalTypes = new Set([
+		...externalQs.map((q) => q.type),
+		...externalIPAs.map((ipa) => ipa.type),
+	]);
+
+	const excludedExternal = [...neededTypes].filter((t) => externalTypes.has(t));
+	const billableTypes = [...neededTypes].filter((t) => !externalTypes.has(t));
+
+	const typeRows =
+		billableTypes.length > 0
+			? await db
+					.select({
+						name: assessmentTypes.name,
+						minutes: assessmentTypes.minutes,
+					})
+					.from(assessmentTypes)
+					.where(inArray(assessmentTypes.name, billableTypes))
+			: [];
+
+	const minutes = typeRows.reduce((sum, row) => sum + (row.minutes ?? 0), 0);
+
+	return {
+		minutes,
+		computedAt: new Date().toISOString(),
+		ageInYears,
+		asdAdhd: asdAdhd ?? null,
+		includedTypes: typeRows.map((r) => r.name),
+		excludedExternal,
+	};
+}
+
+export async function computeAndStoreAssessmentSnapshot(
+	db: Context["db"],
+	clientId: number,
+): Promise<AssessmentSnapshot> {
+	const client = await db.query.clients.findFirst({
+		where: eq(clients.id, clientId),
+		columns: { dob: true, asdAdhd: true },
+	});
+	if (!client) {
+		return {
+			minutes: 0,
+			computedAt: new Date().toISOString(),
+			ageInYears: 0,
+			asdAdhd: null,
+			includedTypes: [],
+			excludedExternal: [],
+		};
+	}
+
+	const ageInYears = Math.floor(
+		(Date.now() - client.dob.getTime()) / (1000 * 60 * 60 * 24 * 365.25),
+	);
+
+	const snapshot = await computeRuleBasedSnapshot(
+		db,
+		clientId,
+		ageInYears,
+		client.asdAdhd,
+	);
+
+	await db
+		.update(clients)
+		.set({ assessmentData: snapshot })
+		.where(eq(clients.id, clientId));
+
+	return snapshot;
+}
 
 export const getPriorityInfo = () => {
 	const now = new Date();
@@ -244,46 +379,6 @@ export const clientRouter = createTRPCRouter({
 				closestOffices = rows as unknown as ClosestOffice[];
 			}
 
-			const [inPersonRows, questionnaireRows] = await Promise.all([
-				ctx.db
-					.select({ minutes: assessmentTypes.minutes })
-					.from(inPersonAssessments)
-					.innerJoin(
-						assessmentTypes,
-						eq(inPersonAssessments.assessmentType, assessmentTypes.name),
-					)
-					.where(
-						and(
-							eq(inPersonAssessments.clientId, foundClient.id),
-							or(
-								isNull(inPersonAssessments.status),
-								ne(inPersonAssessments.status, "EXTERNAL"),
-							),
-						),
-					),
-				ctx.db
-					.select({ minutes: assessmentTypes.minutes })
-					.from(questionnaires)
-					.innerJoin(
-						assessmentTypes,
-						eq(questionnaires.questionnaireType, assessmentTypes.name),
-					)
-					.where(
-						and(
-							eq(questionnaires.clientId, foundClient.id),
-							or(
-								isNull(questionnaires.status),
-								ne(questionnaires.status, "EXTERNAL"),
-							),
-						),
-					),
-			]);
-
-			const totalAssessmentMinutes = [
-				...inPersonRows,
-				...questionnaireRows,
-			].reduce((sum, row) => sum + (row.minutes ?? 0), 0);
-
 			return {
 				...syncedClient,
 				closestOffices,
@@ -291,7 +386,6 @@ export const clientRouter = createTRPCRouter({
 				isOnDropList,
 				dropListReason,
 				initialFailureDate,
-				totalAssessmentMinutes,
 			};
 		}),
 
@@ -718,6 +812,16 @@ export const clientRouter = createTRPCRouter({
 		return evaluationClients;
 	}),
 
+	computeAssessmentMinutes: protectedProcedure
+		.input(z.object({ clientId: z.number() }))
+		.mutation(async ({ ctx, input }) => {
+			assertPermission(
+				ctx.session.user,
+				"clients:additional-insurance-appointments",
+			);
+			return computeAndStoreAssessmentSnapshot(ctx.db, input.clientId);
+		}),
+
 	getMissingAppointments: protectedProcedure.query(async ({ ctx }) => {
 		return fetchWithCache(
 			ctx,
@@ -759,68 +863,21 @@ export const clientRouter = createTRPCRouter({
 
 				const clientIds = relevantClients.map((c) => c.id);
 
-				const [inPersonRows, qRows, apptCountRows] = await Promise.all([
-					ctx.db
-						.select({
-							clientId: inPersonAssessments.clientId,
-							minutes: assessmentTypes.minutes,
-						})
-						.from(inPersonAssessments)
-						.innerJoin(
-							assessmentTypes,
-							eq(inPersonAssessments.assessmentType, assessmentTypes.name),
-						)
-						.where(
-							and(
-								inArray(inPersonAssessments.clientId, clientIds),
-								or(
-									isNull(inPersonAssessments.status),
-									ne(inPersonAssessments.status, "EXTERNAL"),
-								),
-							),
+				const apptCountRows = await ctx.db
+					.select({
+						clientId: appointments.clientId,
+						activeCount: count(),
+					})
+					.from(appointments)
+					.where(
+						and(
+							inArray(appointments.clientId, clientIds),
+							eq(appointments.cancelled, false),
+							eq(appointments.placeholder, false),
 						),
-					ctx.db
-						.select({
-							clientId: questionnaires.clientId,
-							minutes: assessmentTypes.minutes,
-						})
-						.from(questionnaires)
-						.innerJoin(
-							assessmentTypes,
-							eq(questionnaires.questionnaireType, assessmentTypes.name),
-						)
-						.where(
-							and(
-								inArray(questionnaires.clientId, clientIds),
-								or(
-									isNull(questionnaires.status),
-									ne(questionnaires.status, "EXTERNAL"),
-								),
-							),
-						),
-					ctx.db
-						.select({
-							clientId: appointments.clientId,
-							activeCount: count(),
-						})
-						.from(appointments)
-						.where(
-							and(
-								inArray(appointments.clientId, clientIds),
-								eq(appointments.cancelled, false),
-								eq(appointments.placeholder, false),
-							),
-						)
-						.groupBy(appointments.clientId),
-				]);
+					)
+					.groupBy(appointments.clientId);
 
-				const minutesMap = new Map<number, number>();
-				for (const row of [...inPersonRows, ...qRows]) {
-					minutesMap.set(
-						row.clientId,
-						(minutesMap.get(row.clientId) ?? 0) + (row.minutes ?? 0),
-					);
-				}
 				const apptCountMap = new Map(
 					apptCountRows.map((r) => [r.clientId, r.activeCount]),
 				);
@@ -842,7 +899,7 @@ export const clientRouter = createTRPCRouter({
 					const maxUnitsPerDay = apptConfig?.maxUnitsPerDay;
 					if (!maxUnitsPerDay) continue;
 
-					const totalMinutes = minutesMap.get(client.id) ?? 0;
+					const totalMinutes = client.assessmentData?.minutes ?? 0;
 					if (totalMinutes === 0) continue;
 
 					const expectedCount = calculateAdditionalAppointments(
@@ -2008,69 +2065,30 @@ export const clientRouter = createTRPCRouter({
 
 			const cookieHeader = ctx.headers.get("cookie") ?? "";
 
-			// Compute aggregated CPT codes across all billing appointments
 			const client = await ctx.db.query.clients.findFirst({
 				where: eq(clients.id, input.clientId),
-				columns: { primaryInsurance: true },
+				columns: { primaryInsurance: true, assessmentData: true },
 			});
 
 			let cptCodes: { code: string; units: number }[] = [];
 
 			if (client?.primaryInsurance) {
-				const [inPersonRows, questionnaireRows, matchedInsurance] =
-					await Promise.all([
-						ctx.db
-							.select({ minutes: assessmentTypes.minutes })
-							.from(inPersonAssessments)
-							.innerJoin(
-								assessmentTypes,
-								eq(inPersonAssessments.assessmentType, assessmentTypes.name),
-							)
-							.where(
-								and(
-									eq(inPersonAssessments.clientId, input.clientId),
-									or(
-										isNull(inPersonAssessments.status),
-										ne(inPersonAssessments.status, "EXTERNAL"),
-									),
-								),
-							),
-						ctx.db
-							.select({ minutes: assessmentTypes.minutes })
-							.from(questionnaires)
-							.innerJoin(
-								assessmentTypes,
-								eq(questionnaires.questionnaireType, assessmentTypes.name),
-							)
-							.where(
-								and(
-									eq(questionnaires.clientId, input.clientId),
-									or(
-										isNull(questionnaires.status),
-										ne(questionnaires.status, "EXTERNAL"),
-									),
-								),
-							),
-						ctx.db
-							.select({ additionalAppts: insurances.additionalAppts })
-							.from(insurances)
-							.leftJoin(
-								insuranceAliases,
-								eq(insuranceAliases.insuranceId, insurances.id),
-							)
-							.where(
-								or(
-									eq(insurances.shortName, client.primaryInsurance),
-									eq(insuranceAliases.name, client.primaryInsurance),
-								),
-							)
-							.limit(1),
-					]);
+				const matchedInsurance = await ctx.db
+					.select({ additionalAppts: insurances.additionalAppts })
+					.from(insurances)
+					.leftJoin(
+						insuranceAliases,
+						eq(insuranceAliases.insuranceId, insurances.id),
+					)
+					.where(
+						or(
+							eq(insurances.shortName, client.primaryInsurance),
+							eq(insuranceAliases.name, client.primaryInsurance),
+						),
+					)
+					.limit(1);
 
-				const totalMinutes = [...inPersonRows, ...questionnaireRows].reduce(
-					(sum, r) => sum + (r.minutes ?? 0),
-					0,
-				);
+				const totalMinutes = client.assessmentData?.minutes ?? 0;
 
 				const apptConfig = matchedInsurance[0]?.additionalAppts;
 

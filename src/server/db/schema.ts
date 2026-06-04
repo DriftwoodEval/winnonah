@@ -286,6 +286,9 @@ export const clients = createTable(
 		referralData: d
 			.json("referralData")
 			.$type<z.infer<typeof referralDataSchema>>(),
+		assessmentData: d
+			.json("assessment_data")
+			.$type<import("~/lib/billing").AssessmentSnapshot>(),
 	}),
 	(t) => [
 		index("hash_idx").on(t.hash),

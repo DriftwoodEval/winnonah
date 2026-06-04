@@ -1,6 +1,15 @@
 type BillingCode = { code: string; units: number };
 type BillingAppointment = { codes: BillingCode[] };
 
+export type AssessmentSnapshot = {
+	minutes: number;
+	computedAt: string;
+	ageInYears: number;
+	asdAdhd: string | null;
+	includedTypes: string[];
+	excludedExternal: string[];
+};
+
 export function aggregateBillingCodes(
 	appointments: BillingAppointment[],
 ): BillingCode[] {
