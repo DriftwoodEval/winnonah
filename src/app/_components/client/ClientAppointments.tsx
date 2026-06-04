@@ -65,7 +65,7 @@ export function ClientAppointments({ clientId }: { clientId: number }) {
 		const endTime = getLocalTimeFromUTCDate(appt.endTime);
 		if (!startTime || !endTime) return null;
 
-		const isSuppressed = appt.cancelled || appt.rescheduled;
+		const isSuppressed = appt.cancelled || appt.rescheduled || appt.doNotRemind;
 		const isDimmed = isSuppressed || appt.placeholder;
 
 		return (
@@ -148,8 +148,6 @@ export function ClientAppointments({ clientId }: { clientId: number }) {
 													updateStatus.mutate({
 														id: appt.id,
 														confirmedAt: new Date(),
-														cancelled: false,
-														rescheduled: false,
 													})
 												}
 											>
@@ -157,16 +155,16 @@ export function ClientAppointments({ clientId }: { clientId: number }) {
 											</DropdownMenuItem>
 										)}
 										<DropdownMenuSeparator />
-										{appt.cancelled ? (
+										{appt.doNotRemind ? (
 											<DropdownMenuItem
 												onClick={() =>
 													updateStatus.mutate({
 														id: appt.id,
-														cancelled: false,
+														doNotRemind: false,
 													})
 												}
 											>
-												Unmark Cancelled
+												Resume Reminders
 											</DropdownMenuItem>
 										) : (
 											<DropdownMenuItem
@@ -174,38 +172,11 @@ export function ClientAppointments({ clientId }: { clientId: number }) {
 												onClick={() =>
 													updateStatus.mutate({
 														id: appt.id,
-														confirmedAt: null,
-														cancelled: true,
-														rescheduled: false,
+														doNotRemind: true,
 													})
 												}
 											>
-												Mark Cancelled
-											</DropdownMenuItem>
-										)}
-										{appt.rescheduled ? (
-											<DropdownMenuItem
-												onClick={() =>
-													updateStatus.mutate({
-														id: appt.id,
-														rescheduled: false,
-													})
-												}
-											>
-												Unmark Rescheduled
-											</DropdownMenuItem>
-										) : (
-											<DropdownMenuItem
-												onClick={() =>
-													updateStatus.mutate({
-														id: appt.id,
-														confirmedAt: null,
-														cancelled: false,
-														rescheduled: true,
-													})
-												}
-											>
-												Mark Rescheduled
+												Stop Reminders
 											</DropdownMenuItem>
 										)}
 									</DropdownMenuContent>

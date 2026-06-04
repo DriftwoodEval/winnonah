@@ -139,6 +139,7 @@ async def process_reminders(connection: Connection[DictCursor]) -> None:
                     AND l_prev.id IS NOT NULL
                     AND a.cancelled = 0
                     AND a.rescheduled = 0
+                    AND a.doNotRemind = 0
                     AND a.placeholder = 0
                     AND a.billingOnly = 0
                     AND a.startTime <= %s
@@ -165,6 +166,7 @@ async def process_reminders(connection: Connection[DictCursor]) -> None:
                     AND a.confirmedAt IS NOT NULL
                     AND a.cancelled = 0
                     AND a.rescheduled = 0
+                    AND a.doNotRemind = 0
                     AND a.placeholder = 0
                     AND a.billingOnly = 0
                     AND a.startTime <= %s
@@ -189,6 +191,7 @@ async def process_reminders(connection: Connection[DictCursor]) -> None:
                     AND a.confirmedAt IS NULL
                     AND a.cancelled = 0
                     AND a.rescheduled = 0
+                    AND a.doNotRemind = 0
                     AND a.placeholder = 0
                     AND a.billingOnly = 0
                     AND (
@@ -263,43 +266,6 @@ def is_confirmation(incoming_text: str) -> bool:
     return bool(re.search(pattern, incoming_text, re.IGNORECASE))
 
 
-def is_rejection(incoming_text: str) -> bool:
-    """Checks for a cancellation or denial response."""
-    thumbs_down_emojis = ["👎", "👎🏻", "👎🏼", "👎🏽", "👎🏾", "👎🏿", "❌", "🚫"]
-    if any(emoji in incoming_text for emoji in thumbs_down_emojis):
-        return True
-
-    keywords = [
-        "NO",
-        "NOPE",
-        "CANCEL",
-        "CANCELLED",
-        "CANT",
-        "CAN'T",
-        "CANNOT",
-        "WONT",
-        "WON'T",
-        "DECLINE",
-        "DECLINED",
-    ]
-    pattern = rf"\b({'|'.join([re.escape(k) for k in keywords])})\b"
-    return bool(re.search(pattern, incoming_text, re.IGNORECASE))
-
-
-def is_reschedule_request(incoming_text: str) -> bool:
-    """Checks for a request to reschedule."""
-    keywords = [
-        "RESCHEDULE",
-        "RESCHEDULED",
-        "MOVE",
-        "DIFFERENT TIME",
-        "DIFFERENT DAY",
-        "CHANGE",
-    ]
-    pattern = rf"\b({'|'.join([re.escape(k) for k in keywords])})\b"
-    return bool(re.search(pattern, incoming_text, re.IGNORECASE))
-
-
 @provide_connection
 async def handle_incoming_reply(
     phone_number: str, incoming_text: str, connection: Connection[DictCursor]
@@ -321,6 +287,7 @@ async def handle_incoming_reply(
             AND a.confirmedAt IS NULL
             AND a.cancelled = 0
             AND a.rescheduled = 0
+            AND a.doNotRemind = 0
             AND a.startTime > NOW()
             ORDER BY l.sentAt DESC
             LIMIT 1
@@ -334,10 +301,6 @@ async def handle_incoming_reply(
             )
             return
 
-        event_id = context.get("calendarEventId")
-        current_title = context.get("calendarEventTitle") or ""
-        gcal_tag: str | None = None
-
         if is_confirmation(incoming_text):
             if context["confirmationReply"]:
                 message = format_message(context["confirmationReply"], context)
@@ -347,36 +310,17 @@ async def handle_incoming_reply(
                 f"UPDATE {TABLE_APPOINTMENT} SET confirmedAt = NOW() WHERE id = %s",
                 (context["appointment_id"],),
             )
-            gcal_tag = "[CONFIRMED]"
-        elif is_reschedule_request(incoming_text):
-            logger.info(
-                f"Reschedule request received for appointment {context['appointment_id']}"
-            )
-            cursor.execute(
-                f"UPDATE {TABLE_APPOINTMENT} SET rescheduled = 1 WHERE id = %s",
-                (context["appointment_id"],),
-            )
-            gcal_tag = "[RESCHEDULE REQUESTED]"
-        elif is_rejection(incoming_text):
-            logger.info(
-                f"Rejection received for appointment {context['appointment_id']}"
-            )
-            cursor.execute(
-                f"UPDATE {TABLE_APPOINTMENT} SET cancelled = 1 WHERE id = %s",
-                (context["appointment_id"],),
-            )
-            gcal_tag = "[DECLINED]"
-        else:
-            logger.debug(
-                "Message does not appear to be a confirmation, rejection, or reschedule request"
-            )
 
-        if gcal_tag and event_id and gcal_tag not in current_title:
-            new_title = f"{current_title} {gcal_tag}".strip()
-            try:
-                update_gcal_event_title(event_id, new_title)
-            except Exception as e:
-                logger.error(f"Failed to update calendar event title: {e}")
+            event_id = context.get("calendarEventId")
+            current_title = context.get("calendarEventTitle") or ""
+            if event_id and "[CONFIRMED]" not in current_title:
+                new_title = f"{current_title} [CONFIRMED]".strip()
+                try:
+                    update_gcal_event_title(event_id, new_title)
+                except Exception as e:
+                    logger.error(f"Failed to update calendar event title: {e}")
+        else:
+            logger.debug("Non-confirmation reply ignored")
 
         connection.commit()
 

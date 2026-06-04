@@ -14,10 +14,16 @@ from pydantic import BaseModel, ConfigDict, Field
 
 import appointment_reminders
 import greeter_proxy
-from utils.constants import TABLE_ACCOUNT, TABLE_CLIENT, TABLE_SESSION, TABLE_USER
+from utils.constants import (
+    TABLE_ACCOUNT,
+    TABLE_APPOINTMENT,
+    TABLE_CLIENT,
+    TABLE_SESSION,
+    TABLE_USER,
+)
 from utils.database import get_db, get_python_config, rematch_evaluator
 from utils.forms import fill_select_health_form
-from utils.google import google_authenticate, send_gmail
+from utils.google import google_authenticate, send_gmail, update_gcal_event_title
 
 load_dotenv()
 
@@ -522,6 +528,39 @@ async def rematch_evaluator_endpoint(
     if not current_user["permissions"].get("settings:evaluators"):
         raise HTTPException(status_code=403, detail="Not authorized")
     rematch_evaluator(npi)
+    return {"status": "ok"}
+
+
+@app.post("/appointments/{appointment_id}/confirm-calendar")
+async def confirm_appointment_calendar(
+    appointment_id: str,
+    current_user: dict = Depends(get_current_user),  # noqa: ARG001
+):
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                f"SELECT calendarEventId, calendarEventTitle FROM {TABLE_APPOINTMENT} WHERE id = %s",
+                (appointment_id,),
+            )
+            row = cursor.fetchone()
+    finally:
+        conn.close()
+
+    if not row:
+        raise HTTPException(status_code=404, detail="Appointment not found")
+
+    event_id = row.get("calendarEventId")
+    current_title = row.get("calendarEventTitle") or ""
+    if event_id and "[CONFIRMED]" not in current_title:
+        new_title = f"{current_title} [CONFIRMED]".strip()
+        try:
+            update_gcal_event_title(event_id, new_title)
+        except Exception as e:
+            raise HTTPException(
+                status_code=500, detail=f"Calendar update failed: {e}"
+            ) from e
+
     return {"status": "ok"}
 
 

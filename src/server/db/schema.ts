@@ -487,6 +487,7 @@ export const appointments = createTable("appointment", (d) => ({
 	calendarEventId: d.varchar({ length: 255 }),
 	calendarEventTitle: d.varchar({ length: 255 }),
 	confirmedAt: d.timestamp(),
+	doNotRemind: d.boolean().notNull().default(false),
 }));
 
 export const assessmentTypes = createTable("assessment_type", (d) => ({

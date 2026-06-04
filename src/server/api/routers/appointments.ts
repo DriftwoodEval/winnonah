@@ -1,5 +1,6 @@
 import { count, desc, eq } from "drizzle-orm";
 import { z } from "zod";
+import { env } from "~/env";
 import { createTRPCRouter, protectedProcedure } from "~/server/api/trpc";
 import {
 	appointmentReminderSettings,
@@ -70,6 +71,7 @@ export const appointmentRouter = createTRPCRouter({
 					locationKey: appointments.locationKey,
 					calendarEventTitle: appointments.calendarEventTitle,
 					confirmedAt: appointments.confirmedAt,
+					doNotRemind: appointments.doNotRemind,
 					evaluatorName: evaluators.providerName,
 					reminderCount: count(reminderLogs.id),
 				})
@@ -91,6 +93,7 @@ export const appointmentRouter = createTRPCRouter({
 					appointments.locationKey,
 					appointments.calendarEventTitle,
 					appointments.confirmedAt,
+					appointments.doNotRemind,
 					evaluators.providerName,
 				)
 				.orderBy(desc(appointments.startTime));
@@ -101,16 +104,28 @@ export const appointmentRouter = createTRPCRouter({
 			z.object({
 				id: z.string(),
 				confirmedAt: z.date().nullable().optional(),
-				cancelled: z.boolean().optional(),
-				rescheduled: z.boolean().optional(),
+				doNotRemind: z.boolean().optional(),
 			}),
 		)
 		.mutation(async ({ ctx, input }) => {
-			const { id, ...data } = input;
-			return ctx.db
+			const { id, confirmedAt, ...rest } = input;
+			await ctx.db
 				.update(appointments)
-				.set(data)
+				.set({ confirmedAt, ...rest })
 				.where(eq(appointments.id, id));
+
+			if (confirmedAt !== undefined && confirmedAt !== null) {
+				const cookieHeader = ctx.headers.get("cookie") ?? "";
+				void fetch(`${env.PY_API}/appointments/${id}/confirm-calendar`, {
+					method: "POST",
+					headers: { Cookie: cookieHeader },
+				}).catch((err) =>
+					ctx.logger.error(
+						err,
+						"Failed to update calendar on appointment confirm",
+					),
+				);
+			}
 		}),
 
 	getReminderTimeline: protectedProcedure
