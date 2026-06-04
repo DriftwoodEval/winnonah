@@ -608,7 +608,7 @@ const DuplicateDriveFoldersList = ({
 													<span>{folder.name}</span>
 													{folder.isDbMatch && (
 														<span className="font-semibold text-primary text-xs">
-															(W Folder)
+															(Canonical Folder)
 														</span>
 													)}
 												</div>
