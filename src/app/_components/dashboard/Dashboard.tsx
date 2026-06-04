@@ -12,7 +12,14 @@ import { ScrollArea } from "@ui/scroll-area";
 import { Separator } from "@ui/separator";
 import { Skeleton } from "@ui/skeleton";
 import {
+	Tooltip,
+	TooltipContent,
+	TooltipProvider,
+	TooltipTrigger,
+} from "@ui/tooltip";
+import {
 	AlertTriangle,
+	CalendarCheck,
 	CalendarPlus,
 	FlaskConical,
 	Loader2,
@@ -224,35 +231,49 @@ function PunchListAccordionItem({
 												)}
 											</Button>
 										)}
-										{isQsBackSection && !onSchedulingTable && (
-											<Button
-												className="shrink-0"
-												disabled={addScheduling.isPending}
-												onClick={() =>
-													addScheduling.mutate({
-														clientId: client.id,
-														code:
-															title === SECTION_EVAL_QS_DONE
-																? "96136"
-																: "90791",
-														office:
-															title === SECTION_EVAL_QS_DONE
-																? undefined
-																: "Virtual",
-													})
-												}
-												size="icon-sm"
-												title="Add to Scheduling"
-												variant="ghost"
-											>
-												{addScheduling.isPending &&
-												addScheduling.variables?.clientId === client.id ? (
-													<Loader2 className="h-4 w-4 animate-spin" />
-												) : (
-													<CalendarPlus className="h-4 w-4" />
-												)}
-											</Button>
-										)}
+										{isQsBackSection &&
+											(onSchedulingTable ? (
+												<TooltipProvider>
+													<Tooltip>
+														<TooltipTrigger asChild>
+															<span className="inline-flex h-7 w-7 shrink-0 items-center justify-center">
+																<CalendarCheck className="h-4 w-4 text-muted-foreground opacity-50" />
+															</span>
+														</TooltipTrigger>
+														<TooltipContent>
+															Already on scheduling page
+														</TooltipContent>
+													</Tooltip>
+												</TooltipProvider>
+											) : (
+												<Button
+													className="shrink-0"
+													disabled={addScheduling.isPending}
+													onClick={() =>
+														addScheduling.mutate({
+															clientId: client.id,
+															code:
+																title === SECTION_EVAL_QS_DONE
+																	? "96136"
+																	: "90791",
+															office:
+																title === SECTION_EVAL_QS_DONE
+																	? undefined
+																	: "Virtual",
+														})
+													}
+													size="icon-sm"
+													title="Add to Scheduling"
+													variant="ghost"
+												>
+													{addScheduling.isPending &&
+													addScheduling.variables?.clientId === client.id ? (
+														<Loader2 className="h-4 w-4 animate-spin" />
+													) : (
+														<CalendarPlus className="h-4 w-4" />
+													)}
+												</Button>
+											))}
 									</div>
 									{index < clients.length - 1 && <Separator className="my-2" />}
 								</div>
