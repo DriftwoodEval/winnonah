@@ -307,6 +307,10 @@ export function Client({
 											</Alert>
 										)}
 
+									{!isShellClientId(client.id) && (
+										<ClientAppointments clientId={client.id} />
+									)}
+
 									<ClientNoteEditor clientId={client.id} readOnly={readOnly} />
 
 									{isShellClientId(client.id) && (
@@ -333,10 +337,6 @@ export function Client({
 												</SelectContent>
 											</Select>
 										</div>
-									)}
-
-									{!isShellClientId(client.id) && (
-										<ClientAppointments clientId={client.id} />
 									)}
 
 									{!isShellClientId(client.id) && (
