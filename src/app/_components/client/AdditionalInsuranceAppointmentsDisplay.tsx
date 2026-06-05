@@ -39,6 +39,7 @@ export function AdditionalInsuranceAppointmentsDisplay({
 	const additionalAppts = insurance?.additionalAppts as
 		| {
 				maxUnitsPerDay?: number;
+				using90000BillingCode?: boolean;
 				max96130?: number;
 				max96131?: number;
 				max96136?: number;
@@ -49,6 +50,7 @@ export function AdditionalInsuranceAppointmentsDisplay({
 
 	const maxUnitsPerDay = additionalAppts?.maxUnitsPerDay;
 	const waitForPA = insurance?.preAuthNeeded ?? false;
+	const using90000BillingCode = additionalAppts?.using90000BillingCode ?? false;
 	const snapshot = client.assessmentData;
 
 	if (!canSee || !client.primaryInsurance || !maxUnitsPerDay) {
@@ -146,6 +148,11 @@ export function AdditionalInsuranceAppointmentsDisplay({
 					{waitForPA && (
 						<Badge className="w-full justify-center py-1" variant="destructive">
 							PRIOR AUTHORIZATION REQUIRED
+						</Badge>
+					)}
+					{using90000BillingCode && (
+						<Badge className="w-full justify-center py-1" variant="destructive">
+							USING 90000 BILLING CODE
 						</Badge>
 					)}
 

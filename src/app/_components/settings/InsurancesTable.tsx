@@ -194,6 +194,26 @@ function AdditionalApptsForm({
 					))}
 				</div>
 			</div>
+
+			<FormField
+				control={form.control}
+				name="additionalAppts.using90000BillingCode"
+				render={({ field }) => (
+					<FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4">
+						<FormControl>
+							<Checkbox
+								checked={field.value ?? false}
+								onCheckedChange={field.onChange}
+							/>
+						</FormControl>
+						<div className="space-y-1 leading-none">
+							<FormLabel className="text-sm">
+								Using 90000 billing code
+							</FormLabel>
+						</div>
+					</FormItem>
+				)}
+			/>
 		</div>
 	);
 }
@@ -213,6 +233,7 @@ function InsuranceForm({
 		if (initialData) {
 			const appts = initialData.additionalAppts as {
 				maxUnitsPerDay?: number;
+				using90000BillingCode?: boolean;
 				max96130?: number;
 				max96131?: number;
 				max96136?: number;
@@ -227,6 +248,7 @@ function InsuranceForm({
 				aliases: initialData.aliases.map((a) => a.name),
 				additionalAppts: {
 					maxUnitsPerDay: appts?.maxUnitsPerDay ?? 6,
+					using90000BillingCode: appts?.using90000BillingCode,
 					max96130: appts?.max96130,
 					max96131: appts?.max96131,
 					max96136: appts?.max96136,
