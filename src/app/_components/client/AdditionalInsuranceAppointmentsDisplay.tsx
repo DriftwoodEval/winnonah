@@ -39,7 +39,6 @@ export function AdditionalInsuranceAppointmentsDisplay({
 	const additionalAppts = insurance?.additionalAppts as
 		| {
 				maxUnitsPerDay?: number;
-				waitForPA?: boolean;
 				max96130?: number;
 				max96131?: number;
 				max96136?: number;
@@ -49,7 +48,7 @@ export function AdditionalInsuranceAppointmentsDisplay({
 		| undefined;
 
 	const maxUnitsPerDay = additionalAppts?.maxUnitsPerDay;
-	const waitForPA = additionalAppts?.waitForPA ?? false;
+	const waitForPA = insurance?.preAuthNeeded ?? false;
 	const snapshot = client.assessmentData;
 
 	if (!canSee || !client.primaryInsurance || !maxUnitsPerDay) {

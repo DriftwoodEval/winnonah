@@ -43,7 +43,7 @@ export const insurances = createTable("insurance", (d) => ({
 		.json("additionalAppts")
 		.$type<AdditionalInsuranceAppointments>()
 		.notNull()
-		.default({ maxUnitsPerDay: 6, waitForPA: false }),
+		.default({ maxUnitsPerDay: 6 }),
 }));
 
 export const insuranceAliases = createTable("insurance_alias", (d) => ({

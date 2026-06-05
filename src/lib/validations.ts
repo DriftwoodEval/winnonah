@@ -107,7 +107,6 @@ export const configSchema = z.object({
 // --- Client Schemas ---
 export const additionalInsuranceAppointmentsSchema = z.object({
 	maxUnitsPerDay: z.number().int().min(1),
-	waitForPA: z.boolean(),
 	max96130: z.number().int().min(1).optional(),
 	max96131: z.number().int().min(1).optional(),
 	max96136: z.number().int().min(1).optional(),
