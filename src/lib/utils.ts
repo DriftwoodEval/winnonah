@@ -16,9 +16,6 @@ export function toTitleCase(str: string): string {
 	);
 }
 
-const example = "john smith";
-console.log(`"${example}" becomes "${toTitleCase(example)}"`);
-
 export function hasPermission(
 	userPerms: PermissionsObject,
 	permission: PermissionId,
