@@ -484,15 +484,16 @@ function EvaluatorActionsMenu({ evaluator }: { evaluator: Evaluator }) {
 		},
 	});
 
-	const deleteEvaluator = api.evaluators.delete.useMutation({
+	const archiveEvaluator = api.evaluators.archive.useMutation({
 		onSuccess: () => {
-			toast.success("Evaluator deleted.");
+			toast.success("Evaluator archived.");
 			utils.evaluators.getAll.invalidate();
+			utils.evaluators.getArchived.invalidate();
 			setIsDeleteDialogOpen(false);
 		},
 		onError: (error) => {
-			log.error(error, "Failed to delete evaluator");
-			toast.error("Failed to delete evaluator", {
+			log.error(error, "Failed to archive evaluator");
+			toast.error("Failed to archive evaluator", {
 				description: error.message,
 				duration: 10000,
 			});
@@ -517,12 +518,11 @@ function EvaluatorActionsMenu({ evaluator }: { evaluator: Evaluator }) {
 					<DropdownMenuItem onClick={() => setIsEditDialogOpen(true)}>
 						Edit
 					</DropdownMenuItem>
-					{/*  TODO: Should we allow deleting evaluators? Probably archive them */}
 					<DropdownMenuItem
 						className="text-destructive"
 						onClick={() => setIsDeleteDialogOpen(true)}
 					>
-						Delete
+						Archive
 					</DropdownMenuItem>
 				</DropdownMenuContent>
 			</DropdownMenu>
@@ -547,10 +547,11 @@ function EvaluatorActionsMenu({ evaluator }: { evaluator: Evaluator }) {
 			>
 				<AlertDialogContent>
 					<AlertDialogHeader>
-						<AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+						<AlertDialogTitle>Archive evaluator?</AlertDialogTitle>
 						<AlertDialogDescription>
-							This action cannot be undone. This will permanently delete the
-							evaluator.
+							{evaluator.providerName} will be hidden from all lists and won't
+							be matched to new clients. Their historical appointments are
+							preserved. You can unarchive them later.
 						</AlertDialogDescription>
 					</AlertDialogHeader>
 					<AlertDialogFooter>
@@ -558,15 +559,91 @@ function EvaluatorActionsMenu({ evaluator }: { evaluator: Evaluator }) {
 						<AlertDialogAction
 							className="bg-destructive text-destructive-foreground hover:bg-destructive/80"
 							onClick={() =>
-								deleteEvaluator.mutate({ npi: String(evaluator.npi) })
+								archiveEvaluator.mutate({ npi: String(evaluator.npi) })
 							}
 						>
-							Delete
+							Archive
 						</AlertDialogAction>
 					</AlertDialogFooter>
 				</AlertDialogContent>
 			</AlertDialog>
 		</>
+	);
+}
+
+function ArchivedEvaluatorsSection({ canEdit }: { canEdit: boolean }) {
+	const utils = api.useUtils();
+	const { data: archived, isLoading } = api.evaluators.getArchived.useQuery();
+
+	const unarchive = api.evaluators.unarchive.useMutation({
+		onSuccess: () => {
+			toast.success("Evaluator unarchived.");
+			utils.evaluators.getAll.invalidate();
+			utils.evaluators.getArchived.invalidate();
+		},
+		onError: (error) => {
+			toast.error("Failed to unarchive evaluator", {
+				description: error.message,
+			});
+		},
+	});
+
+	if (isLoading || !archived?.length) return null;
+
+	return (
+		<div className="mt-8 px-4">
+			<h3 className="mb-3 font-bold text-lg text-muted-foreground">
+				Archived Evaluators
+			</h3>
+			<Table>
+				<TableHeader>
+					<TableRow className="hover:bg-transparent">
+						{canEdit && <TableHead className="w-[50px]" />}
+						<TableHead>NPI</TableHead>
+						<TableHead>Provider Name</TableHead>
+						<TableHead>Email</TableHead>
+						<TableHead>Insurance</TableHead>
+					</TableRow>
+				</TableHeader>
+				<TableBody>
+					{archived.map((evaluator) => (
+						<TableRow
+							className="opacity-60 hover:opacity-100"
+							key={evaluator.npi}
+						>
+							{canEdit && (
+								<TableCell>
+									<Button
+										className="h-8 text-xs"
+										onClick={() =>
+											unarchive.mutate({ npi: String(evaluator.npi) })
+										}
+										size="sm"
+										variant="outline"
+									>
+										Unarchive
+									</Button>
+								</TableCell>
+							)}
+							<TableCell className="font-medium">{evaluator.npi}</TableCell>
+							<TableCell>{evaluator.providerName}</TableCell>
+							<TableCell className="text-muted-foreground">
+								{evaluator.email}
+							</TableCell>
+							<TableCell>
+								<div className="flex flex-wrap gap-1">
+									{evaluator.insurances.map((insurance) => (
+										<Badge key={insurance.id} variant="secondary">
+											{insurance.shortName}
+										</Badge>
+									))}
+								</div>
+							</TableCell>
+						</TableRow>
+					))}
+				</TableBody>
+			</Table>
+		</div>
 	);
 }
 
@@ -799,6 +876,7 @@ export default function EvaluatorsTable() {
 					</p>
 				)}
 			</div>
+			<ArchivedEvaluatorsSection canEdit={canEdit} />
 		</div>
 	);
 }

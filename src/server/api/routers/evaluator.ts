@@ -1,4 +1,4 @@
-import { eq, sql } from "drizzle-orm";
+import { eq, ne, sql } from "drizzle-orm";
 import z from "zod";
 import { env } from "~/env";
 import { fetchWithCache, invalidateCache } from "~/lib/cache";
@@ -35,6 +35,7 @@ export const evaluatorRouter = createTRPCRouter({
 	getAll: protectedProcedure.query(async ({ ctx }) => {
 		return fetchWithCache(ctx, CACHE_KEY_ALL_EVALUATORS, async () => {
 			const evaluatorsWithOffices = await ctx.db.query.evaluators.findMany({
+				where: ne(evaluators.archived, true),
 				orderBy: (evaluators, { asc }) => [asc(evaluators.providerName)],
 				with: {
 					offices: { with: { office: true } },
@@ -57,6 +58,23 @@ export const evaluatorRouter = createTRPCRouter({
 				insurances: evaluator.insurances.map((link) => link.insurance),
 			}));
 		});
+	}),
+
+	getArchived: protectedProcedure.query(async ({ ctx }) => {
+		const rows = await ctx.db.query.evaluators.findMany({
+			where: eq(evaluators.archived, true),
+			orderBy: (evaluators, { asc }) => [asc(evaluators.providerName)],
+			with: {
+				offices: { with: { office: true } },
+				insurances: { with: { insurance: true } },
+				users: { columns: { id: true, name: true, email: true } },
+			},
+		});
+		return rows.map((evaluator) => ({
+			...evaluator,
+			offices: evaluator.offices.map((link) => link.office),
+			insurances: evaluator.insurances.map((link) => link.insurance),
+		}));
 	}),
 
 	getEligibleForClient: protectedProcedure
@@ -93,6 +111,7 @@ export const evaluatorRouter = createTRPCRouter({
 
 			// Map and format the data in a flattened structure
 			const correctedEvaluatorsByClient = clientWithEvaluators.clientsEvaluators
+				.filter((link) => !link.evaluator.archived)
 				.map((link) => {
 					const evaluator = link.evaluator;
 					return {
@@ -292,6 +311,30 @@ export const evaluatorRouter = createTRPCRouter({
 			);
 
 			return result;
+		}),
+
+	archive: protectedProcedure
+		.input(z.object({ npi: z.string() }))
+		.mutation(async ({ ctx, input }) => {
+			assertPermission(ctx.session.user, "settings:evaluators");
+			const npiAsInt = parseInt(input.npi, 10);
+			await ctx.db
+				.update(evaluators)
+				.set({ archived: true })
+				.where(eq(evaluators.npi, npiAsInt));
+			await invalidateCache(ctx, CACHE_KEY_ALL_EVALUATORS);
+		}),
+
+	unarchive: protectedProcedure
+		.input(z.object({ npi: z.string() }))
+		.mutation(async ({ ctx, input }) => {
+			assertPermission(ctx.session.user, "settings:evaluators");
+			const npiAsInt = parseInt(input.npi, 10);
+			await ctx.db
+				.update(evaluators)
+				.set({ archived: false })
+				.where(eq(evaluators.npi, npiAsInt));
+			await invalidateCache(ctx, CACHE_KEY_ALL_EVALUATORS);
 		}),
 
 	delete: protectedProcedure
