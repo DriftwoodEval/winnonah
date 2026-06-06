@@ -20,11 +20,6 @@ pre-commit:
       root: "python/"
       run: uv run deptry .
 
-commit-msg:
-  commands:
-    commitlint:
-      run: pnpm commitlint --edit {1}
-
 pre-push:
   commands:
     build:
