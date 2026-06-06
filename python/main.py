@@ -2,7 +2,7 @@ import os
 import shutil
 from collections.abc import Callable
 from datetime import datetime
-from typing import Annotated
+from typing import Annotated, cast
 
 import pandas as pd
 import typer
@@ -81,12 +81,13 @@ def filter_clients_by_criteria(
 
     if names or client_ids:
         combined_match = name_match | id_match
-        filtered_clients = filtered_clients[combined_match]
+        filtered_clients = cast(pd.DataFrame, filtered_clients[combined_match])
 
     if criteria_func:
-        filtered_clients = filtered_clients[
-            filtered_clients.apply(criteria_func, axis=1)
-        ]
+        filtered_clients = cast(
+            pd.DataFrame,
+            filtered_clients[filtered_clients.apply(criteria_func, axis=1)],
+        )
 
     if filtered_clients.empty:
         return None
@@ -176,6 +177,12 @@ def import_from_ta(
 
         clients = clients.reset_index()
         utils.database.put_clients_in_db(clients, connection=conn)
+
+        raw_insurance = utils.clients.get_raw_insurance_data(should_download_csvs=False)
+        utils.database.put_client_insurance_policies_in_db(
+            raw_insurance, connection=conn
+        )
+
         all_clients_from_db = utils.database.get_all_clients(connection=conn)
 
         force_clients_ids = (
@@ -239,9 +246,11 @@ def main(
     """Main entry point for the script, parses the command line arguments and runs the appropriate functions."""
     utils.config.validate_config()
 
+    dev_mode = os.getenv("DEV_TOGGLE")
+
     trigger_args = [openphone, download_only]
 
-    if (any(trigger_args) or not os.getenv("DEV_TOGGLE")) and not import_only:
+    if (any(trigger_args) or not dev_mode) and not import_only:
         logger.debug("Removing temp directory")
         shutil.rmtree("temp", ignore_errors=True)
 
@@ -327,45 +336,46 @@ def main(
     except Exception as e:
         logger.error(f"Failed to mark post-eval pending questionnaires: {e}")
 
-    try:
-        process_referrals()
-    except Exception as e:
-        logger.error(f"Failed to process referrals: {e}")
+    if not dev_mode:
+        try:
+            process_referrals()
+        except Exception as e:
+            logger.error(f"Failed to process referrals: {e}")
 
-    try:
-        utils.therapyappointment.save_ta_hashes()
-    except Exception as e:
-        logger.error(f"Failed to save TA hashes: {e}")
+        try:
+            utils.therapyappointment.save_ta_hashes()
+        except Exception as e:
+            logger.error(f"Failed to save TA hashes: {e}")
 
-    try:
-        utils.google.add_client_ids_to_drive()
-    except Exception as e:
-        logger.error(f"Failed to add client IDs to drive: {e}")
+        try:
+            utils.google.add_client_ids_to_drive()
+        except Exception as e:
+            logger.error(f"Failed to add client IDs to drive: {e}")
 
-    try:
-        replace_misformatted_doctors()
-    except Exception as e:
-        logger.error(f"Failed to replace misformatted doctors: {e}")
+        try:
+            replace_misformatted_doctors()
+        except Exception as e:
+            logger.error(f"Failed to replace misformatted doctors: {e}")
 
-    try:
-        generate_close_faxes()
-    except Exception as e:
-        logger.error(f"Failed to generate close faxes: {e}")
+        try:
+            generate_close_faxes()
+        except Exception as e:
+            logger.error(f"Failed to generate close faxes: {e}")
 
-    try:
-        generate_report_cover_pages()
-    except Exception as e:
-        logger.error(f"Failed to generate report cover pages: {e}")
+        try:
+            generate_report_cover_pages()
+        except Exception as e:
+            logger.error(f"Failed to generate report cover pages: {e}")
 
-    try:
-        send_close_faxes()
-    except Exception as e:
-        logger.error(f"Failed to send close faxes: {e}")
+        try:
+            send_close_faxes()
+        except Exception as e:
+            logger.error(f"Failed to send close faxes: {e}")
 
-    try:
-        send_report_faxes()
-    except Exception as e:
-        logger.error(f"Failed to send report faxes: {e}")
+        try:
+            send_report_faxes()
+        except Exception as e:
+            logger.error(f"Failed to send report faxes: {e}")
 
 
 if __name__ == "__main__":

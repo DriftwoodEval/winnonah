@@ -83,9 +83,9 @@ def fill_select_health_form(
                 continue
             val = field_map[widget.field_name]
             if widget.field_type_string == "CheckBox":
-                widget.field_value = widget.on_state() if val else "Off"  # type: ignore[assignment]
+                widget.field_value = (widget.on_state() or "Off") if val else "Off"
             else:
-                widget.field_value = val  # type: ignore[assignment]
+                widget.field_value = str(val)
             widget.update()
 
     pdf_bytes = doc.tobytes(deflate=True)

@@ -9,6 +9,16 @@ export function cn(...inputs: ClassValue[]) {
 	return twMerge(clsx(inputs));
 }
 
+export function toTitleCase(str: string): string {
+	return str.replace(
+		/\w\S*/g,
+		(text) => text.charAt(0).toUpperCase() + text.substring(1).toLowerCase(),
+	);
+}
+
+const example = "john smith";
+console.log(`"${example}" becomes "${toTitleCase(example)}"`);
+
 export function hasPermission(
 	userPerms: PermissionsObject,
 	permission: PermissionId,

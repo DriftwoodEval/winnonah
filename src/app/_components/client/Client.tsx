@@ -41,6 +41,7 @@ import { CommunicationTimeline } from "./CommunicationTimeline";
 import { EligibleEvaluatorsList } from "./EligibleEvaluatorsList";
 import { EvaluationCheckbox } from "./EvaluationCheckbox";
 import { InPersonAssessmentsTable } from "./InPersonAssessmentsTable";
+import { InsuranceTab } from "./InsuranceTab";
 import { MergeRecommendationAlert } from "./MergeRecommendationAlert";
 import { PersistentStatusAlert } from "./PersistentStatusAlert";
 import { QuestionnairesTable } from "./QuestionnairesTable";
@@ -210,6 +211,10 @@ export function Client({
 										<TabsTrigger value="records">Records</TabsTrigger>
 									)}
 									{/* It's fine that this doesn't stop people from just visiting the URL, we aren't hiding this for security, we're hiding it so that we don't get people confused about it existing */}
+									{!isShellClientId(client.id) &&
+										(client.primaryInsurance ?? !client.privatePay) && (
+											<TabsTrigger value="insurance">Insurance</TabsTrigger>
+										)}
 									{can("clients:referral:tab") && (
 										<TabsTrigger value="referral">Referral</TabsTrigger>
 									)}
@@ -382,6 +387,15 @@ export function Client({
 									</div>
 								</TabsContent>
 							)}
+							{!isShellClientId(client.id) &&
+								(client.primaryInsurance ?? !client.privatePay) && (
+									<TabsContent value="insurance">
+										<div className="mb-6 flex w-full flex-col gap-4">
+											<ClientDetailsCard client={client} truncated />
+											<InsuranceTab clientId={client.id} />
+										</div>
+									</TabsContent>
+								)}
 							<TabsContent value="referral">
 								<div className="mb-6 flex min-w-full flex-col items-center gap-6">
 									{!isShellClientId(client.id) && (

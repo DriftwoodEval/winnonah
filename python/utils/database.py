@@ -8,7 +8,7 @@ from collections.abc import Callable
 from contextlib import contextmanager
 from datetime import date, datetime
 from functools import wraps
-from typing import Literal
+from typing import Literal, cast
 from urllib.parse import urlparse
 
 import pandas as pd
@@ -27,6 +27,7 @@ from utils.constants import (
     TABLE_BLOCKED_ZIP_CODE,
     TABLE_CLIENT,
     TABLE_CLIENT_EVAL,
+    TABLE_CLIENT_INSURANCE_POLICY,
     TABLE_EVALUATOR,
     TABLE_EVALUATORS_TO_INSURANCES,
     TABLE_FAILURE,
@@ -147,9 +148,10 @@ def filter_clients_with_changed_address(
     """Identifies clients with new or changed addresses by comparing them to records in the database. Also, filters out clients with no address."""
     initial_count = len(clients)
     clients_with_address = clients.dropna(subset=["ADDRESS"])
-    clients_with_address = clients_with_address[
-        clients_with_address["ADDRESS"].str.strip() != ""
-    ]
+    clients_with_address = cast(
+        pd.DataFrame,
+        clients_with_address[clients_with_address["ADDRESS"].str.strip() != ""],
+    )
     no_address_count = initial_count - len(clients_with_address)
     if no_address_count > 0:
         logger.debug(f"Skipping {no_address_count} clients with no address.")
@@ -192,7 +194,7 @@ def filter_clients_with_changed_address(
         merged_df["NORMALIZED_ADDRESS_new"] != merged_df["NORMALIZED_ADDRESS_db"]
     ) | merged_df["NORMALIZED_ADDRESS_db"].isna()
 
-    changed_clients = merged_df[changed_mask]
+    changed_clients = cast(pd.DataFrame, merged_df[changed_mask])
 
     logger.debug(
         f"Skipping {len(clients_with_address) - len(changed_clients)} clients with same address "
@@ -330,6 +332,164 @@ def put_clients_in_db(clients_df: pd.DataFrame, connection: Connection[DictCurso
     connection.commit()
 
     logger.info(f"Successfully inserted/updated {len(values_to_insert)} clients.")
+
+
+@provide_connection
+def put_client_insurance_policies_in_db(
+    insurance_df: pd.DataFrame, connection: Connection[DictCursor]
+):
+    """Inserts or updates all client insurance policies from the raw insurance CSV."""
+    logger.debug("Inserting client insurance policies into database")
+
+    def _parse_date(val) -> str | None:
+        if pd.isna(val) or val == "":
+            return None
+        try:
+            return format_date(val)
+        except Exception:
+            return None
+
+    def _parse_bool(val) -> bool | None:
+        if pd.isna(val) or val == "":
+            return None
+        if isinstance(val, bool):
+            return val
+        return str(val).strip().upper() in ("TRUE", "YES", "1", "Y")
+
+    values_to_insert = []
+
+    for _, row in insurance_df.iterrows():
+        policy_id = get_column(row, "POLICY_ID")
+        client_id = get_column(row, "CLIENT_ID")
+        if policy_id is None or client_id is None:
+            continue
+        if isinstance(policy_id, list) or isinstance(client_id, list):
+            continue
+
+        try:
+            client_id = int(client_id)
+        except ValueError, TypeError:
+            continue
+
+        values = (
+            policy_id,
+            client_id,
+            get_column(row, "POLICY_TYPE"),
+            _parse_date(get_column(row, "POLICY_STARTDATE")),
+            _parse_date(get_column(row, "POLICY_ENDDATE")),
+            _parse_date(get_column(row, "POLICY_ADDEDDATE")),
+            get_column(row, "POLICY_ADDEDBYNAME"),
+            _parse_date(get_column(row, "POLICY_MODIFIEDDATE")),
+            get_column(row, "POLICY_MODIFIEDBYNAME"),
+            _parse_bool(get_column(row, "POLICY_PRIVATEPAY")),
+            get_column(row, "POLICY_PLANNAME"),
+            get_column(row, "POLICY_INSURANCENUMBER"),
+            get_column(row, "POLICY_GROUPNUMBER"),
+            get_column(row, "POLICY_EMPLOYER"),
+            get_column(row, "POLICY_COMPANYNAME"),
+            format_phone_number(get_column(row, "POLICY_COMPANYPHONE")),
+            get_column(row, "POLICY_MEMO"),
+            get_column(row, "POLICY_CLIENTMEMO"),
+            get_column(row, "INSURANCE_INSURANCETYPE"),
+            get_column(row, "INSURANCE_COMPANYNAME"),
+            get_column(row, "INSURANCE_PAYERID"),
+            format_phone_number(get_column(row, "INSURANCE_PHONE")),
+            format_phone_number(get_column(row, "INSURANCE_PRECERTPHONE")),
+            get_column(row, "INSURANCE_WEBSITE"),
+            get_column(row, "INSURANCE_ADDRESS1"),
+            get_column(row, "INSURANCE_ADDRESS2"),
+            get_column(row, "INSURANCE_ADDRESS3"),
+            get_column(row, "INSURANCE_CITY"),
+            get_column(row, "INSURANCE_STATE"),
+            get_column(row, "INSURANCE_ZIP"),
+            get_column(row, "INSURANCE_COUNTRY"),
+            get_column(row, "POLICY_INSUREDFNAME"),
+            get_column(row, "POLICY_INSUREDMNAME"),
+            get_column(row, "POLICY_INSUREDLNAME"),
+            format_phone_number(get_column(row, "POLICY_INSUREDPHONE")),
+            _parse_date(get_column(row, "POLICY_INSUREDDOB")),
+            format_gender(get_column(row, "POLICY_INSUREDGENDER")),
+            get_column(row, "POLICY_INSUREDADDRESS1"),
+            get_column(row, "POLICY_INSUREDADDRESS2"),
+            get_column(row, "POLICY_INSUREDADDRESS3"),
+            get_column(row, "POLICY_INSUREDCITY"),
+            get_column(row, "POLICY_INSUREDSTATE"),
+            get_column(row, "POLICY_INSUREDZIP"),
+            get_column(row, "POLICY_INSUREDCOUNTRY"),
+            get_column(row, "POLICY_INSUREDRELATION"),
+            get_column(row, "POLICY_INSUREDRELATIONOTHER"),
+            get_column(row, "POLICY_REFERROLE"),
+            get_column(row, "POLICY_REFERNAME"),
+            get_column(row, "POLICY_REFERNPI"),
+            get_column(row, "BENEFITS_CPT"),
+            get_column(row, "BENEFITS_DEDUCTABLE"),
+            get_column(row, "BENEFITS_DEDUCTABLEMET"),
+            get_column(row, "BENEFITS_PAYSAT"),
+            _parse_bool(get_column(row, "BENEFITS_ISCOPAY")),
+            _parse_bool(get_column(row, "BENEFITS_PRECERTREQUIRED")),
+            get_column(row, "BENEFITS_TREATFREQUENCY"),
+            get_column(row, "BENEFITS_COPAYAMOUNT"),
+            get_column(row, "BENEFITS_COPAYPERCENT"),
+            _parse_date(get_column(row, "BENEFITS_AUTHDATE")),
+            get_column(row, "BENEFITS_AUTHNUMBER"),
+            get_column(row, "BENEFITS_SPOKETO"),
+            get_column(row, "PRECERT_CPT"),
+            _parse_date(get_column(row, "PRECERT_STARTDATE")),
+            _parse_date(get_column(row, "PRECERT_EXPIREDATE")),
+            get_column(row, "PRECERT_VISITALLOWED"),
+            get_column(row, "PRECERT_VISITUSED"),
+            _parse_date(get_column(row, "PRECERT_AUTHDATE")),
+            get_column(row, "PRECERT_AUTHNUMBER"),
+            get_column(row, "PRECERT_SPOKETO"),
+            get_column(row, "PRECERT_MEMO"),
+        )
+        values_to_insert.append(values)
+
+    if not values_to_insert:
+        logger.info("No insurance policies to insert.")
+        return
+
+    cols = (
+        "policyId, clientId, policyType, policyStartDate, policyEndDate, "
+        "policyAddedDate, policyAddedByName, policyModifiedDate, policyModifiedByName, "
+        "privatePay, planName, insuranceNumber, groupNumber, employer, "
+        "policyCompanyName, policyCompanyPhone, memo, clientMemo, "
+        "insuranceType, insuranceCompanyName, insurancePayerId, insurancePhone, "
+        "insurancePrecertPhone, insuranceWebsite, "
+        "insuranceAddress1, insuranceAddress2, insuranceAddress3, "
+        "insuranceCity, insuranceState, insuranceZip, insuranceCountry, "
+        "insuredFirstName, insuredMiddleName, insuredLastName, insuredPhone, "
+        "insuredDob, insuredGender, "
+        "insuredAddress1, insuredAddress2, insuredAddress3, "
+        "insuredCity, insuredState, insuredZip, insuredCountry, "
+        "insuredRelation, insuredRelationOther, "
+        "referRole, referName, referNpi, "
+        "benefitsCpt, deductible, deductibleMet, paysAt, isCopay, precertRequired, "
+        "treatFrequency, copayAmount, copayPercent, "
+        "benefitsAuthDate, benefitsAuthNumber, benefitsSpokeTO, "
+        "precertCpt, precertStartDate, precertExpireDate, "
+        "precertVisitAllowed, precertVisitUsed, "
+        "precertAuthDate, precertAuthNumber, precertSpokeTO, precertMemo"
+    )
+
+    placeholders = ", ".join(["%s"] * len(values_to_insert[0]))
+
+    update_cols = [c.strip() for c in cols.split(",") if c.strip() != "policyId"]
+    on_duplicate = ", ".join(f"{c} = VALUES({c})" for c in update_cols)
+
+    sql_stmt = f"""
+        INSERT INTO `{TABLE_CLIENT_INSURANCE_POLICY}` ({cols})
+        VALUES ({placeholders})
+        ON DUPLICATE KEY UPDATE {on_duplicate};
+    """
+
+    with connection.cursor() as cursor:
+        cursor.executemany(sql_stmt, values_to_insert)
+    connection.commit()
+
+    logger.info(
+        f"Successfully inserted/updated {len(values_to_insert)} insurance policies."
+    )
 
 
 @provide_connection
@@ -694,7 +854,7 @@ def insert_by_matching_criteria_client_specific(
 
     specific_client_ids = {str(client_id).strip() for client_id in specific_client_ids}
     clients_to_process = clients[
-        clients["CLIENT_ID"].astype(str).isin(specific_client_ids)
+        clients["CLIENT_ID"].astype(str).isin(list(specific_client_ids))
     ]
 
     _delete_all_relationships_for_clients(specific_client_ids, connection=connection)

@@ -19,7 +19,7 @@ def get_column(
         if isinstance(value, list):
             return value
 
-        if pd.notna(value):
+        if bool(pd.notna(value)):
             return value
 
     return default
@@ -42,11 +42,20 @@ def format_date(date_str: str | date) -> str | None:
     """Attempts to format a date string or date to 'YYYY-MM-DD'."""
     if isinstance(date_str, date):
         return date_str.strftime("%Y-%m-%d")
-    try:
-        return datetime.strptime(date_str, "%m/%d/%Y").strftime("%Y-%m-%d")
-    except ValueError:
-        logger.warning(f"Could not parse date: {date_str}")
-        return None
+
+    # Strip JDBC/ODBC timestamp literal: {ts '2025-02-09 01:45:53'}
+    s = date_str.strip()
+    if s.startswith("{ts '") and s.endswith("'}"):
+        s = s[5:-2]
+
+    for fmt in ("%m/%d/%Y", "%Y-%m-%d %H:%M:%S", "%Y-%m-%d"):
+        try:
+            return datetime.strptime(s, fmt).strftime("%Y-%m-%d")
+        except ValueError:
+            continue
+
+    logger.warning(f"Could not parse date: {date_str}")
+    return None
 
 
 def format_gender(gender_data: Any) -> str | None:

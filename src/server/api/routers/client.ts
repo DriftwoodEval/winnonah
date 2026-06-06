@@ -47,6 +47,7 @@ import {
 import {
 	appointments,
 	assessmentTypes,
+	clientInsurancePolicies,
 	clientRelated,
 	clients,
 	clientsEvaluators,
@@ -2129,5 +2130,17 @@ export const clientRouter = createTRPCRouter({
 
 			const buffer = await response.arrayBuffer();
 			return Buffer.from(buffer).toString("base64");
+		}),
+
+	getInsurancePolicies: protectedProcedure
+		.input(z.number())
+		.query(async ({ ctx, input }) => {
+			return ctx.db.query.clientInsurancePolicies.findMany({
+				where: eq(clientInsurancePolicies.clientId, input),
+				orderBy: (t, { asc, desc }) => [
+					asc(t.policyType),
+					desc(t.policyStartDate),
+				],
+			});
 		}),
 });

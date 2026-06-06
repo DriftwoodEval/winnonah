@@ -2,6 +2,7 @@ import os
 import re
 import string
 from pathlib import Path
+from typing import cast
 
 import numpy as np
 import pandas as pd
@@ -82,9 +83,14 @@ def _normalize_names(df: pd.DataFrame) -> pd.DataFrame:
 def _remove_test_names(df: pd.DataFrame, test_names: list) -> pd.DataFrame:
     """Removes test names from a DataFrame."""
     logger.debug("Removing test names")
-    return df[
-        ~df.apply(lambda row: f"{row.FIRSTNAME} {row.LASTNAME}" in test_names, axis=1)
-    ]
+    return cast(
+        pd.DataFrame,
+        df[
+            ~df.apply(
+                lambda row: f"{row.FIRSTNAME} {row.LASTNAME}" in test_names, axis=1
+            )
+        ],
+    )
 
 
 def _consolidate_by_id(clients: pd.DataFrame) -> pd.DataFrame:
@@ -114,19 +120,21 @@ def _consolidate_by_id(clients: pd.DataFrame) -> pd.DataFrame:
     )
     active_policies = df[is_active].copy()
 
-    primary_ins = active_policies[active_policies["POLICY_TYPE"] == "PRIMARY"].copy()
+    primary_ins = cast(
+        pd.DataFrame, active_policies[active_policies["POLICY_TYPE"] == "PRIMARY"]
+    ).copy()
     primary_ins = primary_ins.sort_values("POLICY_STARTDATE", ascending=False)
     most_recent_primary = primary_ins.drop_duplicates(subset="CLIENT_ID", keep="first")
     primary_cols = ["CLIENT_ID", "COMPANY_NAME"]
     if "POLICY_INSURANCENUMBER" in most_recent_primary.columns:
         primary_cols.append("POLICY_INSURANCENUMBER")
-    primary_final = most_recent_primary[primary_cols].rename(
+    primary_final = cast(pd.DataFrame, most_recent_primary[primary_cols]).rename(
         columns={"COMPANY_NAME": "PRIMARY_INSURANCE_COMPANYNAME"},
     )
 
-    secondary_ins = active_policies[
-        active_policies["POLICY_TYPE"] == "SECONDARY"
-    ].copy()
+    secondary_ins = cast(
+        pd.DataFrame, active_policies[active_policies["POLICY_TYPE"] == "SECONDARY"]
+    ).copy()
 
     # Group by client and aggregate the unique company names into a list
     secondary_final = (
@@ -142,11 +150,12 @@ def _consolidate_by_id(clients: pd.DataFrame) -> pd.DataFrame:
     )
 
     # Get the latest (max) non-null date for each client
-    precert_dates = (
+    precert_dates = cast(
+        pd.DataFrame,
         clients.dropna(subset=["PRECERT_EXPIREDATE"])
         .groupby("CLIENT_ID")["PRECERT_EXPIREDATE"]
         .max()
-        .reset_index()
+        .reset_index(),
     )
 
     private_pay = clients.groupby("CLIENT_ID")["POLICY_PRIVATEPAY"].any().reset_index()
@@ -231,7 +240,7 @@ def _combine_address_info(clients: pd.DataFrame) -> pd.DataFrame:
 def _remove_invalid_clients(clients_df: pd.DataFrame) -> pd.DataFrame:
     """Removes clients with invalid IDs."""
     logger.debug("Removing clients with invalid IDs")
-    return clients_df[pd.notna(clients_df["CLIENT_ID"])]
+    return cast(pd.DataFrame, clients_df[pd.notna(clients_df["CLIENT_ID"])])
 
 
 def _merge_referral_data(clients_df: pd.DataFrame) -> pd.DataFrame:
@@ -277,6 +286,13 @@ def _merge_referral_data(clients_df: pd.DataFrame) -> pd.DataFrame:
     clients_df["REFERRAL_SOURCE"] = clients_df.apply(find_source, axis=1)
 
     return clients_df
+
+
+def get_raw_insurance_data(should_download_csvs: bool | None = True) -> pd.DataFrame:
+    """Returns the raw insurance CSV as a DataFrame without any consolidation."""
+    if not os.getenv("DEV_TOGGLE") and should_download_csvs:
+        download_csvs()
+    return utils.spreadsheets.open_local(Path("temp/input/clients-insurance.csv"))
 
 
 def get_clients(should_download_csvs: bool | None = True) -> pd.DataFrame:
