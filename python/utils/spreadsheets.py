@@ -9,10 +9,10 @@ def open_local(file: Path) -> pd.DataFrame:
     try:
         with Path.open(file, encoding="utf-8") as f:
             logger.debug(f"Opening {file}")
-            df = pd.read_csv(f)
+            df = pd.read_csv(f, low_memory=False)
     except UnicodeDecodeError:
         logger.warning(f"UnicodeDecodeError for {file}")
         with Path.open(file, encoding="latin1") as f:
             logger.debug(f"Opening {file} with latin1 encoding")
-            df = pd.read_csv(f)
+            df = pd.read_csv(f, low_memory=False)
     return df

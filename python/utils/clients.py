@@ -94,73 +94,9 @@ def _remove_test_names(df: pd.DataFrame, test_names: list) -> pd.DataFrame:
 
 
 def _consolidate_by_id(clients: pd.DataFrame) -> pd.DataFrame:
-    """Consolidates a DataFrame of clients by their IDs. It will group by client ID and merge the insurance company names into separate columns for primary and secondary insurance. For primary insurance, it gets the most recent policy that is currently active (in date). For secondary insurance, it gets all policies that are currently active."""
+    """Deduplicates client rows, the insurance CSV has one row per policy per client."""
     logger.debug("Consolidating clients by ID")
-    df = clients.copy()
-
-    current_date = pd.Timestamp.now().normalize()
-
-    # Coercing errors will turn unparsable dates into NaT (Not a Time)
-    df["POLICY_STARTDATE"] = pd.to_datetime(df["POLICY_STARTDATE"], errors="coerce")
-    df["POLICY_ENDDATE"] = pd.to_datetime(df["POLICY_ENDDATE"], errors="coerce")
-
-    # Drop rows where start date is invalid, as they are unusable
-    df = df.dropna(subset=["POLICY_STARTDATE"])
-
-    # Use INSURANCE_COMPANYNAME if available, otherwise fall back to POLICY_COMPANYNAME
-    df["COMPANY_NAME"] = np.where(
-        df["INSURANCE_COMPANYNAME"].notna(),
-        df["INSURANCE_COMPANYNAME"],
-        df["POLICY_COMPANYNAME"],
-    )
-
-    # Determine all active policies
-    is_active = (df["POLICY_STARTDATE"] <= current_date) & (
-        df["POLICY_ENDDATE"].isna() | (df["POLICY_ENDDATE"] >= current_date)
-    )
-    active_policies = df[is_active].copy()
-
-    primary_ins = cast(
-        pd.DataFrame, active_policies[active_policies["POLICY_TYPE"] == "PRIMARY"]
-    ).copy()
-    primary_ins = primary_ins.sort_values("POLICY_STARTDATE", ascending=False)
-    most_recent_primary = primary_ins.drop_duplicates(subset="CLIENT_ID", keep="first")
-    primary_cols = ["CLIENT_ID", "COMPANY_NAME"]
-    if "POLICY_INSURANCENUMBER" in most_recent_primary.columns:
-        primary_cols.append("POLICY_INSURANCENUMBER")
-    primary_final = cast(pd.DataFrame, most_recent_primary[primary_cols]).rename(
-        columns={"COMPANY_NAME": "PRIMARY_INSURANCE_COMPANYNAME"},
-    )
-
-    secondary_ins = cast(
-        pd.DataFrame, active_policies[active_policies["POLICY_TYPE"] == "SECONDARY"]
-    ).copy()
-
-    # Group by client and aggregate the unique company names into a list
-    secondary_final = (
-        secondary_ins.groupby("CLIENT_ID")["COMPANY_NAME"]
-        .agg(lambda x: list(x.unique()))
-        .reset_index()
-        .rename(columns={"COMPANY_NAME": "SECONDARY_INSURANCE_COMPANYNAME"})
-    )
-
-    clients["PRECERT_EXPIREDATE"] = pd.to_datetime(
-        clients["PRECERT_EXPIREDATE"],
-        errors="coerce",
-    )
-
-    # Get the latest (max) non-null date for each client
-    precert_dates = cast(
-        pd.DataFrame,
-        clients.dropna(subset=["PRECERT_EXPIREDATE"])
-        .groupby("CLIENT_ID")["PRECERT_EXPIREDATE"]
-        .max()
-        .reset_index(),
-    )
-
-    private_pay = clients.groupby("CLIENT_ID")["POLICY_PRIVATEPAY"].any().reset_index()
-
-    calculated_cols = [
+    insurance_cols = [
         "POLICY_TYPE",
         "POLICY_STARTDATE",
         "POLICY_ENDDATE",
@@ -170,18 +106,9 @@ def _consolidate_by_id(clients: pd.DataFrame) -> pd.DataFrame:
         "POLICY_PRIVATEPAY",
         "POLICY_INSURANCENUMBER",
     ]
-
-    client_base_info = clients.drop(
-        columns=calculated_cols,
-        errors="ignore",
-    ).drop_duplicates(subset="CLIENT_ID", keep="first")
-
-    consolidated = client_base_info.merge(primary_final, on="CLIENT_ID", how="left")
-    consolidated = consolidated.merge(secondary_final, on="CLIENT_ID", how="left")
-    consolidated = consolidated.merge(precert_dates, on="CLIENT_ID", how="left")
-    consolidated = consolidated.merge(private_pay, on="CLIENT_ID", how="left")
-
-    return consolidated  # noqa: RET504
+    return clients.drop(columns=insurance_cols, errors="ignore").drop_duplicates(
+        subset="CLIENT_ID", keep="first"
+    )
 
 
 def _combine_address_info(clients: pd.DataFrame) -> pd.DataFrame:

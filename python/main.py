@@ -182,6 +182,7 @@ def import_from_ta(
         utils.database.put_client_insurance_policies_in_db(
             raw_insurance, connection=conn
         )
+        utils.database.sync_client_insurance_from_policies(connection=conn)
 
         all_clients_from_db = utils.database.get_all_clients(connection=conn)
 

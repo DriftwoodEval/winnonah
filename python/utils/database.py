@@ -44,7 +44,6 @@ from utils.misc import (
     format_date,
     format_gender,
     format_phone_number,
-    get_boolean_value,
     get_column,
     get_full_name,
 )
@@ -235,13 +234,6 @@ def put_clients_in_db(clients_df: pd.DataFrame, connection: Connection[DictCurso
             )
             continue
 
-        secondary_insurance = get_column(client, "SECONDARY_INSURANCE_COMPANYNAME")
-        if not isinstance(secondary_insurance, list):
-            secondary_insurance = [secondary_insurance] if secondary_insurance else []
-
-        # Convert to JSON string for MySQL JSON column
-        secondary_insurance_json = json.dumps(secondary_insurance)
-
         firstname = get_column(client, "FIRSTNAME")
         lastname = get_column(client, "LASTNAME")
         preferred_name = get_column(client, "PREFERRED_NAME")
@@ -280,11 +272,6 @@ def put_clients_in_db(clients_df: pd.DataFrame, connection: Connection[DictCurso
             None
             if get_column(client, "LONGITUDE") == "Unknown"
             else get_column(client, "LONGITUDE"),
-            get_column(client, "PRIMARY_INSURANCE_COMPANYNAME"),
-            get_column(client, "POLICY_INSURANCENUMBER"),
-            secondary_insurance_json,
-            get_column(client, "PRECERT_EXPIREDATE"),
-            get_boolean_value(client, "POLICY_PRIVATEPAY"),
             get_column(client, "ASD_ADHD"),
             get_column(client, "LANGUAGE", default="English"),
             gender,
@@ -297,8 +284,8 @@ def put_clients_in_db(clients_df: pd.DataFrame, connection: Connection[DictCurso
         values_to_insert.append(values)
 
     sql = f"""
-        INSERT INTO `{TABLE_CLIENT}` (id, hash, status, addedDate, dob, firstName, lastName, preferredName, fullName, address, schoolDistrict, latitude, longitude, primaryInsurance, insuranceNumber, secondaryInsurance, precertExpires, privatePay, asdAdhd, language, gender, phoneNumber, email, flag, taUser, referralSource)
-        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+        INSERT INTO `{TABLE_CLIENT}` (id, hash, status, addedDate, dob, firstName, lastName, preferredName, fullName, address, schoolDistrict, latitude, longitude, asdAdhd, language, gender, phoneNumber, email, flag, taUser, referralSource)
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
         ON DUPLICATE KEY UPDATE
             hash = VALUES(hash),
             status = VALUES(status),
@@ -312,11 +299,6 @@ def put_clients_in_db(clients_df: pd.DataFrame, connection: Connection[DictCurso
             schoolDistrict = CASE WHEN VALUES(schoolDistrict) IS NOT NULL AND VALUES(schoolDistrict) != 'Unknown' THEN VALUES(schoolDistrict) ELSE schoolDistrict END,
             latitude = CASE WHEN VALUES(latitude) IS NOT NULL THEN VALUES(latitude) ELSE latitude END,
             longitude = CASE WHEN VALUES(longitude) IS NOT NULL THEN VALUES(longitude) ELSE longitude END,
-            primaryInsurance = VALUES(primaryInsurance),
-            insuranceNumber = VALUES(insuranceNumber),
-            secondaryInsurance = VALUES(secondaryInsurance),
-            precertExpires = VALUES(precertExpires),
-            privatePay = VALUES(privatePay),
             asdAdhd = CASE WHEN VALUES(asdAdhd) IS NOT NULL THEN VALUES(asdAdhd) ELSE asdAdhd END,
             language = CASE WHEN VALUES(language) IS NOT NULL THEN VALUES(language) ELSE language END,
             gender = VALUES(gender),
@@ -332,6 +314,48 @@ def put_clients_in_db(clients_df: pd.DataFrame, connection: Connection[DictCurso
     connection.commit()
 
     logger.info(f"Successfully inserted/updated {len(values_to_insert)} clients.")
+
+
+@provide_connection
+def sync_client_insurance_from_policies(connection: Connection[DictCursor]):
+    """Derives client-level insurance summary fields from the clientInsurancePolicies table."""
+    logger.debug("Syncing client insurance summary from policies")
+    sql = f"""
+        UPDATE `{TABLE_CLIENT}` c SET
+            primaryInsurance = (
+                SELECT COALESCE(insuranceCompanyName, policyCompanyName)
+                FROM `{TABLE_CLIENT_INSURANCE_POLICY}` p
+                WHERE p.clientId = c.id
+                  AND p.policyType = 'PRIMARY'
+                  AND (p.policyEndDate IS NULL OR p.policyEndDate >= CURDATE())
+                ORDER BY p.policyStartDate DESC
+                LIMIT 1
+            ),
+            secondaryInsurance = (
+                SELECT JSON_ARRAYAGG(name)
+                FROM (
+                    SELECT DISTINCT COALESCE(insuranceCompanyName, policyCompanyName) AS name
+                    FROM `{TABLE_CLIENT_INSURANCE_POLICY}` p
+                    WHERE p.clientId = c.id
+                      AND p.policyType = 'SECONDARY'
+                      AND (p.policyEndDate IS NULL OR p.policyEndDate >= CURDATE())
+                ) AS secondary_names
+            ),
+            precertExpires = (
+                SELECT MAX(p.precertExpireDate)
+                FROM `{TABLE_CLIENT_INSURANCE_POLICY}` p
+                WHERE p.clientId = c.id
+            ),
+            privatePay = COALESCE((
+                SELECT MAX(COALESCE(p.privatePay, 0))
+                FROM `{TABLE_CLIENT_INSURANCE_POLICY}` p
+                WHERE p.clientId = c.id
+            ), 0)
+    """
+    with connection.cursor() as cursor:
+        cursor.execute(sql)
+    connection.commit()
+    logger.info("Client insurance summary synced from policies.")
 
 
 @provide_connection

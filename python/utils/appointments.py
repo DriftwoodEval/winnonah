@@ -349,7 +349,6 @@ def prepare_appointments_from_csv(
         name = re.sub(r"[\d\(\)]", "", appointment["NAME"]).strip()
 
         if appointment_id in ignored_ids:
-            logger.info(f"Skipping ignored appointment {appointment_id}.")
             indices_to_drop.add(idx)
             continue
 
@@ -384,6 +383,8 @@ def prepare_appointments_from_csv(
             billing_indices.add(idx)
             continue
 
+    if indices_to_drop:
+        logger.debug(f"Skipped {len(indices_to_drop)} ignored appointment(s).")
     billing_df = appointments_df.loc[list(billing_indices)].copy()
     appointments_df = appointments_df.drop(
         index=list(indices_to_drop | billing_indices)
