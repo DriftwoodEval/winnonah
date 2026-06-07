@@ -10,4 +10,4 @@ RUN pnpm build
 
 FROM prod AS serve
 EXPOSE 3001
-CMD ["pnpm", "serve", "--", "--host", "0.0.0.0", "--no-open"]
+CMD ["pnpm", "serve", "--host", "0.0.0.0", "--no-open"]
