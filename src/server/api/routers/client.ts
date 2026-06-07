@@ -845,6 +845,8 @@ export const clientRouter = createTRPCRouter({
 					eq(c1.status, true),
 					eq(c2.status, true),
 					isNull(duplicateNameIgnore.id),
+					sql`LENGTH(${c1.id}) != 5`,
+					sql`LENGTH(${c2.id}) != 5`,
 				),
 			)
 			.orderBy(sql`LOWER(${c1.lastName})`, sql`LOWER(${c1.firstName})`, c1.id);
