@@ -528,47 +528,49 @@ const DuplicateNamesList = ({
 					</p>
 					<div className="space-y-4">
 						{groups.map((group) => (
-							<div className="rounded-md border p-3" key={group.name}>
+							<div className="rounded-md border bg-muted p-3" key={group.name}>
 								<div className="mb-2 font-medium text-sm">{group.name}</div>
 								<div className="space-y-2">
-									{group.pairs.map(({ clientA, clientB }) => (
-										<div
-											className="rounded-md bg-muted p-2"
-											key={`${clientA.id}-${clientB.id}`}
-										>
-											<div className="space-y-1">
-												<Link href={`/clients/${clientA.hash}`}>
-													<div className="text-xs hover:underline">
-														{clientA.fullName}
-														<span className="ml-1 text-muted-foreground">
-															(DOB: {format(new Date(clientA.dob), "MM/dd/yy")})
-														</span>
-													</div>
-												</Link>
-												<Link href={`/clients/${clientB.hash}`}>
-													<div className="text-xs hover:underline">
-														{clientB.fullName}
-														<span className="ml-1 text-muted-foreground">
-															(DOB: {format(new Date(clientB.dob), "MM/dd/yy")})
-														</span>
-													</div>
-												</Link>
+									{group.pairs.map(({ clientA, clientB }, pairIndex) => (
+										<div key={`${clientA.id}-${clientB.id}`}>
+											{pairIndex > 0 && <Separator className="my-2" />}
+											<div className="flex items-start justify-between gap-2">
+												<div className="space-y-1">
+													<Link href={`/clients/${clientA.hash}`}>
+														<div className="text-xs hover:underline">
+															{clientA.fullName}
+															<span className="ml-1 text-muted-foreground">
+																(DOB:{" "}
+																{format(new Date(clientA.dob), "MM/dd/yy")})
+															</span>
+														</div>
+													</Link>
+													<Link href={`/clients/${clientB.hash}`}>
+														<div className="text-xs hover:underline">
+															{clientB.fullName}
+															<span className="ml-1 text-muted-foreground">
+																(DOB:{" "}
+																{format(new Date(clientB.dob), "MM/dd/yy")})
+															</span>
+														</div>
+													</Link>
+												</div>
+												<Button
+													className="h-6 cursor-pointer px-2 text-[10px]"
+													disabled={isPending}
+													onClick={() =>
+														ignorePair({
+															clientIdA: clientA.id,
+															clientIdB: clientB.id,
+														})
+													}
+													size="sm"
+													variant="outline"
+												>
+													<UserX className="mr-1 h-3 w-3" />
+													Not Duplicates
+												</Button>
 											</div>
-											<Button
-												className="mt-2 h-6 cursor-pointer px-2 text-[10px]"
-												disabled={isPending}
-												onClick={() =>
-													ignorePair({
-														clientIdA: clientA.id,
-														clientIdB: clientB.id,
-													})
-												}
-												size="sm"
-												variant="outline"
-											>
-												<UserX className="mr-1 h-3 w-3" />
-												Not Duplicates
-											</Button>
 										</div>
 									))}
 								</div>
