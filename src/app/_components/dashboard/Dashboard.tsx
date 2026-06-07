@@ -164,6 +164,11 @@ function PunchListAccordionItem({
 																Autism Stop
 															</span>
 														)}
+														{punchClient.pause && (
+															<span className="hidden rounded-sm bg-destructive px-1 py-0.5 text-[10px] text-destructive-foreground md:inline-block">
+																Paused
+															</span>
+														)}
 													</div>
 													{punchClient.extraInfo && (
 														<span className="text-muted-foreground text-xs">
@@ -179,7 +184,8 @@ function PunchListAccordionItem({
 												{((client.failures && client.failures.length > 0) ||
 													(isRecordsNotReturnedSection &&
 														punchClient.evaluationInProcess) ||
-													punchClient.autismStop) && (
+													punchClient.autismStop ||
+													punchClient.pause) && (
 													<div className="mt-1 md:hidden">
 														{client.failures?.map((failure) => (
 															<span
@@ -198,6 +204,11 @@ function PunchListAccordionItem({
 														{punchClient.autismStop && (
 															<span className="mr-1 inline-block rounded-sm bg-destructive px-1 py-0.5 text-[10px] text-destructive-foreground">
 																Autism Stop
+															</span>
+														)}
+														{punchClient.pause && (
+															<span className="mr-1 inline-block rounded-sm bg-destructive px-1 py-0.5 text-[10px] text-destructive-foreground">
+																Paused
 															</span>
 														)}
 													</div>
