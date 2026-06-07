@@ -9,6 +9,8 @@ export const SECTION_EVAL_QS_DONE = "Eval Qs Done";
 export const SECTION_DAEVAL_QS_DONE = "DA+Eval Qs Done";
 export const SECTION_NEEDS_OUTREACH = "Needs Outreach";
 export const SECTION_REACHED_OUT_NEEDS_REVIEW = "Reached Out - Needs Review";
+export const SECTION_RECORDS_NEEDED_NOT_REQUESTED =
+	"Records Needed - Not Requested";
 export const SECTION_RECORDS_REQUESTED_NOT_RETURNED =
 	"Records Requested - Not Returned";
 export const SECTION_INACTIVE_ON_PUNCHLIST = "Inactive and On Punchlist";
@@ -92,12 +94,15 @@ export const DASHBOARD_CONFIG: {
 			),
 	},
 	{
-		title: "Records Needed - Not Requested",
+		title: SECTION_RECORDS_NEEDED_NOT_REQUESTED,
 		description:
 			"Clients who need school records but they haven't been requested from the school district yet. To move forward, request records (record the records requested date).",
 		filter: (client: FullClientInfo) =>
 			client.recordsNeeded === "Needed" && !client.externalRecordsRequestedDate,
-		failureFilter: (f) => f.daEval === "Records",
+		failureFilter: (f) =>
+			f.daEval === "Records" ||
+			f.reason === "docs not signed" ||
+			f.reason === "portal not opened",
 	},
 	{
 		title: SECTION_RECORDS_REQUESTED_NOT_RETURNED,
