@@ -19,6 +19,7 @@ import {
 	or,
 	sql,
 } from "drizzle-orm";
+import { alias } from "drizzle-orm/mysql-core";
 import { distance as levDistance } from "fastest-levenshtein";
 import { z } from "zod";
 import { env } from "~/env";
@@ -51,6 +52,7 @@ import {
 	clientRelated,
 	clients,
 	clientsEvaluators,
+	duplicateNameIgnore,
 	externalRecordRequests,
 	externalRecords,
 	failures,
@@ -812,6 +814,80 @@ export const clientRouter = createTRPCRouter({
 
 		return evaluationClients;
 	}),
+
+	getDuplicateNames: protectedProcedure.query(async ({ ctx }) => {
+		assertPermission(ctx.session.user, "issues:duplicate-names");
+
+		const c1 = alias(clients, "c1");
+		const c2 = alias(clients, "c2");
+
+		const pairs = await ctx.db
+			.select({
+				clientA: getTableColumns(c1),
+				clientB: getTableColumns(c2),
+			})
+			.from(c1)
+			.innerJoin(
+				c2,
+				and(
+					sql`LOWER(${c1.firstName}) = LOWER(${c2.firstName})`,
+					sql`LOWER(${c1.lastName}) = LOWER(${c2.lastName})`,
+					lt(c1.id, c2.id),
+				),
+			)
+			.leftJoin(
+				duplicateNameIgnore,
+				and(
+					eq(duplicateNameIgnore.clientIdA, c1.id),
+					eq(duplicateNameIgnore.clientIdB, c2.id),
+				),
+			)
+			.where(
+				and(
+					eq(c1.status, true),
+					eq(c2.status, true),
+					isNull(duplicateNameIgnore.id),
+				),
+			)
+			.orderBy(sql`LOWER(${c1.lastName})`, sql`LOWER(${c1.firstName})`, c1.id);
+
+		const grouped = new Map<
+			string,
+			{
+				name: string;
+				pairs: {
+					clientA: (typeof pairs)[0]["clientA"];
+					clientB: (typeof pairs)[0]["clientB"];
+				}[];
+			}
+		>();
+
+		for (const pair of pairs) {
+			const nameKey = `${pair.clientA.firstName.toLowerCase()} ${pair.clientA.lastName.toLowerCase()}`;
+			const group = grouped.get(nameKey) ?? {
+				name: pair.clientA.fullName,
+				pairs: [],
+			};
+			group.pairs.push({ clientA: pair.clientA, clientB: pair.clientB });
+			grouped.set(nameKey, group);
+		}
+
+		return Array.from(grouped.values());
+	}),
+
+	ignoreDuplicateNamePair: protectedProcedure
+		.input(z.object({ clientIdA: z.number(), clientIdB: z.number() }))
+		.mutation(async ({ ctx, input }) => {
+			assertPermission(ctx.session.user, "issues:duplicate-names");
+
+			const idA = Math.min(input.clientIdA, input.clientIdB);
+			const idB = Math.max(input.clientIdA, input.clientIdB);
+
+			await ctx.db
+				.insert(duplicateNameIgnore)
+				.values({ clientIdA: idA, clientIdB: idB })
+				.onDuplicateKeyUpdate({ set: { clientIdA: idA } });
+		}),
 
 	computeAssessmentMinutes: protectedProcedure
 		.input(z.object({ clientId: z.number() }))

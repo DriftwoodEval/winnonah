@@ -101,6 +101,11 @@ export function IssuesAlert() {
 	const { data: missingAppointments } =
 		api.clients.getMissingAppointments.useQuery(undefined, queryOptions);
 
+	const { data: duplicateNames } = api.clients.getDuplicateNames.useQuery(
+		undefined,
+		queryOptions,
+	);
+
 	const countIf = (hasPermission: boolean, count: number = 0) =>
 		hasPermission ? count : 0;
 
@@ -158,6 +163,10 @@ export function IssuesAlert() {
 		countIf(
 			can("issues:missing-appointments"),
 			missingAppointments?.length ?? 0,
+		) +
+		countIf(
+			can("issues:duplicate-names"),
+			duplicateNames?.reduce((sum, g) => sum + g.pairs.length, 0) ?? 0,
 		);
 
 	if (errorsLength === 0) {

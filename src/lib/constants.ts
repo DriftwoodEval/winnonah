@@ -230,6 +230,10 @@ export const PERMISSIONS = {
 						id: "issues:missing-appointments",
 						title: "Appointments to be Created",
 					},
+					{
+						id: "issues:duplicate-names",
+						title: "Duplicate Client Names",
+					},
 				],
 			},
 		},

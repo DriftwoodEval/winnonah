@@ -4,7 +4,14 @@ import { Button } from "@ui/button";
 import { ScrollArea } from "@ui/scroll-area";
 import { Separator } from "@ui/separator";
 import { format, formatDistanceToNow } from "date-fns";
-import { MapIcon, MapPinIcon, Pin, PinOff, RotateCw } from "lucide-react";
+import {
+	MapIcon,
+	MapPinIcon,
+	Pin,
+	PinOff,
+	RotateCw,
+	UserX,
+} from "lucide-react";
 import Link from "next/link";
 import { useEffect, useRef } from "react";
 import { useCheckPermission } from "~/hooks/use-check-permission";
@@ -14,7 +21,7 @@ import type {
 } from "~/lib/api-types";
 import type { Client, ClientWithIssueInfo } from "~/lib/models";
 import type { PermissionId } from "~/lib/types";
-import { api } from "~/trpc/react";
+import { api, type RouterOutputs } from "~/trpc/react";
 import { ManualAddressDialog } from "../client/ManualAddressDialog";
 
 interface IssueListProps {
@@ -486,6 +493,94 @@ const SuggestionIssueList = ({
 	);
 };
 
+const DuplicateNamesList = ({
+	groups,
+}: {
+	groups: RouterOutputs["clients"]["getDuplicateNames"];
+}) => {
+	const utils = api.useUtils();
+
+	const { mutate: ignorePair, isPending } =
+		api.clients.ignoreDuplicateNamePair.useMutation({
+			onSuccess: () => {
+				utils.clients.getDuplicateNames.invalidate();
+			},
+		});
+
+	const totalPairs = groups.reduce((sum, g) => sum + g.pairs.length, 0);
+
+	return (
+		<div className="flex max-h-80">
+			<ScrollArea
+				className="w-md rounded-md border bg-card text-card-foreground shadow-sm"
+				type="auto"
+			>
+				<div className="p-4">
+					<h1 className="mb-1 font-bold text-lg leading-none">
+						Duplicate Client Names{" "}
+						<span className="font-medium text-muted-foreground text-sm">
+							({totalPairs} pair{totalPairs !== 1 ? "s" : ""})
+						</span>
+					</h1>
+					<p className="mb-4 text-muted-foreground text-xs">
+						Active clients sharing the same first and last name
+						(case-insensitive).
+					</p>
+					<div className="space-y-4">
+						{groups.map((group) => (
+							<div className="rounded-md border p-3" key={group.name}>
+								<div className="mb-2 font-medium text-sm">{group.name}</div>
+								<div className="space-y-2">
+									{group.pairs.map(({ clientA, clientB }) => (
+										<div
+											className="rounded-md bg-muted p-2"
+											key={`${clientA.id}-${clientB.id}`}
+										>
+											<div className="space-y-1">
+												<Link href={`/clients/${clientA.hash}`}>
+													<div className="text-xs hover:underline">
+														{clientA.fullName}
+														<span className="ml-1 text-muted-foreground">
+															(DOB: {format(new Date(clientA.dob), "MM/dd/yy")})
+														</span>
+													</div>
+												</Link>
+												<Link href={`/clients/${clientB.hash}`}>
+													<div className="text-xs hover:underline">
+														{clientB.fullName}
+														<span className="ml-1 text-muted-foreground">
+															(DOB: {format(new Date(clientB.dob), "MM/dd/yy")})
+														</span>
+													</div>
+												</Link>
+											</div>
+											<Button
+												className="mt-2 h-6 cursor-pointer px-2 text-[10px]"
+												disabled={isPending}
+												onClick={() =>
+													ignorePair({
+														clientIdA: clientA.id,
+														clientIdB: clientB.id,
+													})
+												}
+												size="sm"
+												variant="outline"
+											>
+												<UserX className="mr-1 h-3 w-3" />
+												Not Duplicates
+											</Button>
+										</div>
+									))}
+								</div>
+							</div>
+						))}
+					</div>
+				</div>
+			</ScrollArea>
+		</div>
+	);
+};
+
 const IssueListSkeleton = () => (
 	<div className="flex max-h-80 w-80 animate-pulse">
 		<div className="w-full rounded-md border bg-card p-4 shadow-sm">
@@ -814,6 +909,8 @@ export function IssuesList() {
 		api.clients.getNoReferralSource.useQuery();
 	const { data: missingAppointments, isLoading: isLoadingMissingAppointments } =
 		api.clients.getMissingAppointments.useQuery();
+	const { data: duplicateNames, isLoading: isLoadingDuplicateNames } =
+		api.clients.getDuplicateNames.useQuery();
 
 	return (
 		<div className="flex flex-wrap justify-center gap-10">
@@ -1144,6 +1241,15 @@ export function IssuesList() {
 							sharedLinksData={duplicateQLinks.sharedAcrossClients}
 						/>
 					)}
+			</GuardedIssue>
+
+			<GuardedIssue
+				isLoading={isLoadingDuplicateNames}
+				permission="issues:duplicate-names"
+			>
+				{duplicateNames && duplicateNames.length > 0 && (
+					<DuplicateNamesList groups={duplicateNames} />
+				)}
 			</GuardedIssue>
 		</div>
 	);

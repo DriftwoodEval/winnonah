@@ -982,3 +982,19 @@ export const questionnaireMsgLogs = createTable(
 	}),
 	(t) => [uniqueIndex("q_msg_log_op_msg_id_idx").on(t.openphoneMessageId)],
 );
+
+export const duplicateNameIgnore = createTable(
+	"duplicate_name_ignore",
+	(d) => ({
+		id: d.int().primaryKey().autoincrement().notNull(),
+		clientIdA: d
+			.int()
+			.notNull()
+			.references(() => clients.id, { onDelete: "cascade" }),
+		clientIdB: d
+			.int()
+			.notNull()
+			.references(() => clients.id, { onDelete: "cascade" }),
+	}),
+	(t) => [uniqueIndex("dup_name_pair_idx").on(t.clientIdA, t.clientIdB)],
+);
