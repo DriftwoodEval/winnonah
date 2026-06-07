@@ -4,12 +4,15 @@ import { Badge } from "@ui/badge";
 import { Button } from "@ui/button";
 import { Label } from "@ui/label";
 import { Separator } from "@ui/separator";
+import { isAfter, isBefore, parseISO } from "date-fns";
 import { useState } from "react";
 import { useCheckPermission } from "~/hooks/use-check-permission";
 import type { ClientGetOneOutput } from "~/lib/api-types";
 import {
 	aggregateBillingCodes,
 	calculateAdditionalAppointments,
+	packCodesIntoAppointments,
+	parsePrecertMemo,
 } from "~/lib/billing";
 import { api } from "~/trpc/react";
 
@@ -21,6 +24,9 @@ export function AdditionalInsuranceAppointmentsDisplay({
 	const can = useCheckPermission();
 	const canSee = can("clients:additional-insurance-appointments");
 	const { data: insurances = [] } = api.insurances.getAll.useQuery();
+	const { data: policies = [] } = api.clients.getInsurancePolicies.useQuery(
+		client.id,
+	);
 	const [combined, setCombined] = useState(false);
 	const utils = api.useUtils();
 
@@ -53,12 +59,53 @@ export function AdditionalInsuranceAppointmentsDisplay({
 	const using90000BillingCode = additionalAppts?.using90000BillingCode ?? false;
 	const snapshot = client.assessmentData;
 
+	const activePrecertPolicy = policies
+		.filter((p) => {
+			if (!p.precertMemo) return false;
+			if (!p.policyStartDate) return true;
+			const now = new Date();
+			const start =
+				typeof p.policyStartDate === "string"
+					? parseISO(p.policyStartDate)
+					: p.policyStartDate;
+			if (isBefore(now, start)) return false;
+			if (!p.policyEndDate) return true;
+			const end =
+				typeof p.policyEndDate === "string"
+					? parseISO(p.policyEndDate)
+					: p.policyEndDate;
+			return !isAfter(now, end);
+		})
+		.sort((a, b) => {
+			const aDate = a.policyStartDate
+				? typeof a.policyStartDate === "string"
+					? parseISO(a.policyStartDate)
+					: a.policyStartDate
+				: new Date(0);
+			const bDate = b.policyStartDate
+				? typeof b.policyStartDate === "string"
+					? parseISO(b.policyStartDate)
+					: b.policyStartDate
+				: new Date(0);
+			return bDate.getTime() - aDate.getTime();
+		})[0];
+
+	const precertMemo = activePrecertPolicy?.precertMemo ?? null;
+	const precertCodes = precertMemo ? parsePrecertMemo(precertMemo) : null;
+
 	if (!canSee || !client.primaryInsurance || !maxUnitsPerDay) {
 		return null;
 	}
 
-	const appointments =
-		snapshot && snapshot.minutes > 0
+	const fromPrecert = precertCodes !== null;
+
+	const displayAppointments = fromPrecert
+		? packCodesIntoAppointments(
+				precertCodes,
+				maxUnitsPerDay,
+				additionalAppts?.maxAppt4Units,
+			)
+		: snapshot && snapshot.minutes > 0
 			? calculateAdditionalAppointments(snapshot.minutes, maxUnitsPerDay, {
 					max96130: additionalAppts?.max96130,
 					max96131: additionalAppts?.max96131,
@@ -68,7 +115,7 @@ export function AdditionalInsuranceAppointmentsDisplay({
 				})
 			: [];
 
-	const aggregatedCodes = aggregateBillingCodes(appointments);
+	const aggregatedCodes = aggregateBillingCodes(displayAppointments);
 
 	const computedAt = snapshot
 		? new Date(snapshot.computedAt).toLocaleDateString("en-US", {
@@ -83,21 +130,23 @@ export function AdditionalInsuranceAppointmentsDisplay({
 			<div className="flex w-full flex-col gap-3 px-4 pt-4">
 				<div className="flex items-center justify-between">
 					<h4 className="font-bold leading-none">Insurance Codes</h4>
-					<Button
-						disabled={computeMutation.isPending}
-						onClick={() => computeMutation.mutate({ clientId: client.id })}
-						size="sm"
-						variant="outline"
-					>
-						{computeMutation.isPending
-							? "Computing…"
-							: snapshot
-								? "Recompute"
-								: "Compute"}
-					</Button>
+					{!fromPrecert && (
+						<Button
+							disabled={computeMutation.isPending}
+							onClick={() => computeMutation.mutate({ clientId: client.id })}
+							size="sm"
+							variant="outline"
+						>
+							{computeMutation.isPending
+								? "Computing…"
+								: snapshot
+									? "Recompute"
+									: "Compute"}
+						</Button>
+					)}
 				</div>
 
-				{snapshot && (
+				{snapshot && !fromPrecert && (
 					<p className="text-muted-foreground text-xs">
 						Computed {computedAt} · Age {snapshot.ageInYears} ·{" "}
 						{snapshot.asdAdhd ?? "No diagnosis"} ·{" "}
@@ -109,7 +158,7 @@ export function AdditionalInsuranceAppointmentsDisplay({
 					</p>
 				)}
 
-				{appointments.length > 0 && (
+				{displayAppointments.length > 0 && (
 					<div className="flex gap-1">
 						<Button
 							onClick={() => setCombined(false)}
@@ -129,21 +178,21 @@ export function AdditionalInsuranceAppointmentsDisplay({
 				)}
 			</div>
 
-			{appointments.length === 0 && !snapshot && (
+			{displayAppointments.length === 0 && !snapshot && (
 				<div className="px-4 pt-2 pb-4 text-muted-foreground text-sm">
 					Click Compute to calculate appointments based on this client's age and
 					diagnosis.
 				</div>
 			)}
 
-			{appointments.length === 0 && snapshot && (
+			{displayAppointments.length === 0 && snapshot && (
 				<div className="px-4 pt-2 pb-4 text-muted-foreground text-sm">
 					No billing appointments calculated (0 minutes from applicable
 					assessments).
 				</div>
 			)}
 
-			{appointments.length > 0 && (
+			{displayAppointments.length > 0 && (
 				<div className="space-y-6 p-4">
 					{waitForPA && (
 						<Badge className="w-full justify-center py-1" variant="destructive">
@@ -153,6 +202,11 @@ export function AdditionalInsuranceAppointmentsDisplay({
 					{using90000BillingCode && (
 						<Badge className="w-full justify-center py-1" variant="destructive">
 							USING 90000 BILLING CODE
+						</Badge>
+					)}
+					{fromPrecert && (
+						<Badge className="w-full justify-center py-1" variant="secondary">
+							FROM PRE-CERTIFICATION
 						</Badge>
 					)}
 
@@ -178,7 +232,7 @@ export function AdditionalInsuranceAppointmentsDisplay({
 						</div>
 					) : (
 						<div className="space-y-6">
-							{appointments.map((appt, apptIndex) => (
+							{displayAppointments.map((appt, apptIndex) => (
 								<div
 									className="space-y-4 rounded-md border bg-background p-4 text-foreground"
 									// biome-ignore lint/suspicious/noArrayIndexKey: This component is read-only

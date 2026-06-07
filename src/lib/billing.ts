@@ -1,6 +1,117 @@
 type BillingCode = { code: string; units: number };
 type BillingAppointment = { codes: BillingCode[] };
 
+export function parsePrecertMemo(memo: string): BillingCode[] | null {
+	const text = memo.trim();
+	const codeMap = new Map<string, number>();
+
+	function addCode(code: string, units: number): void {
+		codeMap.set(code, (codeMap.get(code) ?? 0) + units);
+	}
+
+	function runPattern(pattern: RegExp, codeIdx: 1 | 2, unitsIdx: 1 | 2): void {
+		let m = pattern.exec(text);
+		while (m !== null) {
+			addCode(m[codeIdx]!, Number(m[unitsIdx]!));
+			m = pattern.exec(text);
+		}
+	}
+
+	// "CPT-N": "96136-1"
+	runPattern(/(9613[0-1267])\s*-\s*(\d+)/g, 1, 2);
+	// "CPT x N": "96136 x 1" or "96137 x  6"
+	runPattern(/(9613[0-1267])\s+x\s+(\d+)/gi, 1, 2);
+	// "CPT (N)": "96136 (1)"
+	runPattern(/(9613[0-1267])\s*\((\d+)\)/g, 1, 2);
+	// "N Unit(s) CPT": "1 Unit 96130" or "2 Units 96131"
+	runPattern(/(\d+)\s+[Uu]nits?\s+(9613[0-1267])/g, 2, 1);
+
+	if (codeMap.size === 0) return null;
+	return Array.from(codeMap, ([code, units]) => ({ code, units })).sort(
+		(a, b) => a.code.localeCompare(b.code),
+	);
+}
+
+export function packCodesIntoAppointments(
+	codes: BillingCode[],
+	maxUnitsPerDay: number,
+	maxAppt4Units?: number,
+): BillingAppointment[] {
+	const get = (code: string) => codes.find((c) => c.code === code)?.units ?? 0;
+
+	const total96136 = get("96136");
+	const total96137 = get("96137");
+	const total96130 = get("96130");
+	const total96131 = get("96131");
+
+	const appointments: BillingAppointment[] = [];
+
+	const getUnitCap = (idx: number): number =>
+		idx === 3 && maxAppt4Units !== undefined ? maxAppt4Units : maxUnitsPerDay;
+
+	// Pack 96136/96137 (30-min codes): one 96136 per appointment, fill rest with 96137
+	let billed96136 = 0;
+	let billed96137 = 0;
+	let remaining = total96136 + total96137;
+	while (remaining > 0) {
+		const unitCap = getUnitCap(appointments.length);
+		const apptCodes: BillingCode[] = [];
+		let taken = 0;
+		if (billed96136 < total96136) {
+			apptCodes.push({ code: "96136", units: 1 });
+			billed96136++;
+			remaining--;
+			taken++;
+		}
+		if (apptCodes.length > 0 && billed96137 < total96137 && taken < unitCap) {
+			const take = Math.min(
+				remaining,
+				unitCap - taken,
+				total96137 - billed96137,
+			);
+			if (take > 0) {
+				apptCodes.push({ code: "96137", units: take });
+				billed96137 += take;
+				remaining -= take;
+			}
+		}
+		if (apptCodes.length === 0) break;
+		appointments.push({ codes: apptCodes });
+	}
+
+	// Pack 96130/96131 (60-min codes): 96130 once, fill rest with 96131
+	let billed96130 = 0;
+	let billed96131 = 0;
+	remaining = total96130 + total96131;
+	while (remaining > 0) {
+		const unitCap = getUnitCap(appointments.length);
+		const apptCodes: BillingCode[] = [];
+		let taken = 0;
+		if (billed96130 === 0 && total96130 > 0) {
+			apptCodes.push({ code: "96130", units: 1 });
+			billed96130++;
+			remaining--;
+			taken++;
+		}
+		if (billed96131 < total96131 && taken < unitCap) {
+			const take = Math.min(
+				remaining,
+				unitCap - taken,
+				total96131 - billed96131,
+			);
+			if (take > 0) {
+				apptCodes.push({ code: "96131", units: take });
+				billed96131 += take;
+				remaining -= take;
+			}
+		}
+		if (apptCodes.length === 0) break;
+		appointments.push({ codes: apptCodes });
+	}
+
+	return appointments;
+}
+
 export type AssessmentSnapshot = {
 	minutes: number;
 	computedAt: string;
