@@ -88,6 +88,13 @@ services:
       - ./python/shapefiles:/app/shapefiles
       - ./python/cache:/app/cache
 
+  winnonah-docs:
+    image: ghcr.io/driftwoodeval/winnonah-docs:latest
+    container_name: winnonah-docs
+    restart: no
+    environment:
+      - NODE_ENV=production
+
   watchtower:
     image: containrrr/watchtower
     container_name: watchtower
