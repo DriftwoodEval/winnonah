@@ -20,12 +20,6 @@ from dotenv import load_dotenv
 from loguru import logger
 
 from utils.fax import (
-    COL_CONSENT,
-    COL_DOB,
-    COL_DOCTOR,
-    COL_NAME,
-    COL_REASON,
-    COL_SENT,
     ENV_CLOSE_FAX_FROM_EMAIL,
     ENV_CLOSE_FAX_OUTBOX_FOLDER_ID,
     ENV_CLOSE_FAX_SENT_FOLDER_ID,
@@ -34,6 +28,12 @@ from utils.fax import (
     ENV_FAX_COMPLETED_FOLDER_ID,
     ENV_FAX_FOLDER_ID,
     FAX_CLOSE_ENV_VARS,
+    HEADER_DOB,
+    HEADER_DOCTOR,
+    HEADER_FAX_TO_DR,
+    HEADER_NAME,
+    HEADER_REASON,
+    HEADER_SENT,
     copy_file,
     extract_fax_number,
     format_date,
@@ -48,7 +48,7 @@ from utils.fax import (
     move_file,
     pretty_name,
     replace_text_in_doc,
-    set_column_e_validation,
+    set_column_validation,
     set_sheet_range_values,
     set_sheet_value,
     validate_fax_config,
@@ -68,11 +68,14 @@ app = typer.Typer()
 
 
 def _ss_id() -> str:
-    return os.getenv(ENV_CLOSE_FAX_SPREADSHEET_ID)
+    return os.environ[ENV_CLOSE_FAX_SPREADSHEET_ID]
 
 
-def _row_val(row: list, index: int) -> str:
-    return row[index] if len(row) > index else ""
+def _get_headers() -> dict[str, int]:
+    values = get_sheet_values(_ss_id(), "1:1")
+    if not values:
+        raise ValueError("Could not read headers from spreadsheet")
+    return {name: i for i, name in enumerate(values[0])}
 
 
 # ── Dropdown / reason helpers ─────────────────────────────────────────────
@@ -109,34 +112,50 @@ def code_to_reason(code: str) -> str | None:
 
 
 def update_validation_range() -> None:
-    """Rebuild the doctor dropdown in column E from current subfolder names."""
-    completed_id = os.getenv(ENV_FAX_COMPLETED_FOLDER_ID)
-    subfolders = list_subfolders(os.getenv(ENV_FAX_FOLDER_ID))
+    """Rebuild the doctor dropdown from current subfolder names."""
+    ss_id = _ss_id()
+    completed_id = os.environ[ENV_FAX_COMPLETED_FOLDER_ID]
+    subfolders = list_subfolders(os.environ[ENV_FAX_FOLDER_ID])
     names = sorted(
         filter(
             None,
             [pretty_name(sf["name"]) for sf in subfolders if sf["id"] != completed_id],
         )
     )
-    last_row = get_last_row(_ss_id())
+    last_row = get_last_row(ss_id)
+    headers = _get_headers()
+    doctor_col = headers.get(HEADER_DOCTOR)
+    if doctor_col is None:
+        logger.error(f"Could not find '{HEADER_DOCTOR}' column in spreadsheet")
+        return
     logger.info(f"Updating validation range with {len(names)} entries.")
-    set_column_e_validation(_ss_id(), last_row, names)
+    set_column_validation(ss_id, last_row, doctor_col, names)
 
 
 def replace_misformatted_doctors() -> None:
-    """Reformat any misformatted doctor names in column E, then refresh the dropdown."""
+    """Reformat any misformatted doctor names in the Doctor column, then refresh the dropdown."""
     ss_id = _ss_id()
     last_row = get_last_row(ss_id)
-    values = get_sheet_values(ss_id, f"E2:E{last_row}")
+    all_values = get_sheet_values(ss_id, f"A1:Z{last_row}")
+    if not all_values:
+        return
+    headers = {name: i for i, name in enumerate(all_values[0])}
+    doctor_col = headers.get(HEADER_DOCTOR)
+    if doctor_col is None:
+        logger.error(f"Could not find '{HEADER_DOCTOR}' column in spreadsheet")
+        return
+    doctor_col_letter = chr(ord("A") + doctor_col)
     updated = []
-    for row in values:
-        current = row[0] if row else ""
+    for row in all_values[1:]:
+        current = row[doctor_col] if len(row) > doctor_col else ""
         if current:
             raw_fax = extract_fax_number(current)
             if raw_fax:
                 current = f"{format_name(current)} {format_fax_number(raw_fax)}"
         updated.append([current])
-    set_sheet_range_values(ss_id, f"E2:E{last_row}", updated)
+    set_sheet_range_values(
+        ss_id, f"{doctor_col_letter}2:{doctor_col_letter}{last_row}", updated
+    )
     time.sleep(10)
     update_validation_range()
 
@@ -144,17 +163,25 @@ def replace_misformatted_doctors() -> None:
 # ── Row filtering ─────────────────────────────────────────────────────────
 
 
-def get_filtered_rows() -> list[list]:
+def get_filtered_rows() -> list[dict]:
     ss_id = _ss_id()
     last_row = get_last_row(ss_id)
-    values = get_sheet_values(ss_id, f"A1:F{last_row}")
+    all_values = get_sheet_values(ss_id, f"A1:Z{last_row}")
+    if not all_values:
+        return []
+    headers = {name: i for i, name in enumerate(all_values[0])}
+
+    def row_val(row: list, header: str) -> str:
+        i = headers.get(header, -1)
+        return row[i] if 0 <= i < len(row) else ""
+
     return [
-        row
-        for row in values
-        if _row_val(row, COL_CONSENT) == "Yes"
-        and not _row_val(row, COL_SENT)
-        and _row_val(row, COL_REASON)
-        and _row_val(row, COL_DOCTOR)
+        {h: row_val(row, h) for h in headers}
+        for row in all_values[1:]
+        if row_val(row, HEADER_FAX_TO_DR) == "Yes"
+        and not row_val(row, HEADER_SENT)
+        and row_val(row, HEADER_REASON)
+        and row_val(row, HEADER_DOCTOR)
     ]
 
 
@@ -176,9 +203,9 @@ def generate_fax_sheet(
     pretty_fax = format_fax_number(fax_number)
 
     new_file = copy_file(
-        os.getenv(ENV_CLOSE_FAX_SHEET_TEMPLATE_ID),
+        os.environ[ENV_CLOSE_FAX_SHEET_TEMPLATE_ID],
         f"{pretty_client}_{fax_number}",
-        os.getenv(ENV_CLOSE_FAX_OUTBOX_FOLDER_ID),
+        os.environ[ENV_CLOSE_FAX_OUTBOX_FOLDER_ID],
     )
 
     replacements = {
@@ -201,7 +228,7 @@ def generate_fax_sheet(
 def send_close_fax(client_name: str, fax_number: str) -> None:
     logger.info(f"Sending fax for {client_name} to {fax_number}")
     files = get_files_by_name(
-        os.getenv(ENV_CLOSE_FAX_OUTBOX_FOLDER_ID), f"{client_name}_{fax_number}"
+        os.environ[ENV_CLOSE_FAX_OUTBOX_FOLDER_ID], f"{client_name}_{fax_number}"
     )
     if not files:
         logger.warning(f"Missing fax file for {client_name}_{fax_number}")
@@ -212,24 +239,33 @@ def send_close_fax(client_name: str, fax_number: str) -> None:
         message_text="Fax",
         subject="Fax",
         to_addr=f"{fax_number}@redfax.com",
-        from_addr=os.getenv(ENV_CLOSE_FAX_FROM_EMAIL),
+        from_addr=os.environ[ENV_CLOSE_FAX_FROM_EMAIL],
         attachments=[(get_file_as_bytes(fax_file), f"{client_name}_{fax_number}.pdf")],
     )
     if result is None:
         logger.error(f"Failed to send fax for {client_name}_{fax_number}")
         return
 
-    move_file(fax_file["id"], os.getenv(ENV_CLOSE_FAX_SENT_FOLDER_ID))
+    move_file(fax_file["id"], os.environ[ENV_CLOSE_FAX_SENT_FOLDER_ID])
     _mark_sent(client_name)
 
 
 def _mark_sent(client_name: str) -> None:
     ss_id = _ss_id()
     last_row = get_last_row(ss_id)
-    values = get_sheet_values(ss_id, f"A1:A{last_row}")
-    for i, row in enumerate(values):
-        if row and format_name(row[0]) == client_name:
-            set_sheet_value(ss_id, f"F{i + 1}", "TRUE")
+    all_values = get_sheet_values(ss_id, f"A1:Z{last_row}")
+    if not all_values:
+        return
+    headers = {name: i for i, name in enumerate(all_values[0])}
+    name_col = headers.get(HEADER_NAME, 0)
+    sent_col = headers.get(HEADER_SENT)
+    if sent_col is None:
+        logger.error(f"Could not find '{HEADER_SENT}' column in spreadsheet")
+        return
+    sent_col_letter = chr(ord("A") + sent_col)
+    for i, row in enumerate(all_values[1:], start=2):
+        if len(row) > name_col and format_name(row[name_col]) == client_name:
+            set_sheet_value(ss_id, f"{sent_col_letter}{i}", "TRUE")
             return
 
 
@@ -238,10 +274,10 @@ def _mark_sent(client_name: str) -> None:
 
 def generate_close_faxes() -> None:
     for row in get_filtered_rows():
-        client_name = _row_val(row, COL_NAME)
-        client_dob = _row_val(row, COL_DOB)
-        client_doctor = _row_val(row, COL_DOCTOR)
-        client_reason = _row_val(row, COL_REASON)
+        client_name = row.get(HEADER_NAME, "")
+        client_dob = row.get(HEADER_DOB, "")
+        client_doctor = row.get(HEADER_DOCTOR, "")
+        client_reason = row.get(HEADER_REASON, "")
 
         if not client_dob or not client_reason or not client_doctor:
             logger.warning(f"Insufficient info for {client_name}")
@@ -258,7 +294,7 @@ def generate_close_faxes() -> None:
 
 
 def send_close_faxes() -> None:
-    for file in list_files_in_folder(os.getenv(ENV_CLOSE_FAX_OUTBOX_FOLDER_ID)):
+    for file in list_files_in_folder(os.environ[ENV_CLOSE_FAX_OUTBOX_FOLDER_ID]):
         match = re.match(r"^(.+?)_(\d+)", file["name"])
         if match:
             send_close_fax(match.group(1), match.group(2))

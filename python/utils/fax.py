@@ -36,13 +36,13 @@ FAX_CLOSE_ENV_VARS = [
     ENV_CLOSE_FAX_FROM_EMAIL,
 ]
 
-# Spreadsheet column indices (0-based)
-COL_NAME = 0
-COL_DOB = 1
-COL_CONSENT = 2
-COL_REASON = 3
-COL_DOCTOR = 4
-COL_SENT = 5
+# Spreadsheet column header names
+HEADER_NAME = "Client Name"
+HEADER_DOB = "DOB"
+HEADER_FAX_TO_DR = "Fax to Dr."
+HEADER_REASON = "Fax Reason"
+HEADER_DOCTOR = "Dr. to Send to"
+HEADER_SENT = "Fax Sent"
 
 _GOOGLE_DOC_MIME = "application/vnd.google-apps.document"
 _GOOGLE_FOLDER_MIME = "application/vnd.google-apps.folder"
@@ -253,10 +253,10 @@ def get_last_row(spreadsheet_id: str) -> int:
     return len(get_sheet_values(spreadsheet_id, "A:A"))
 
 
-def set_column_e_validation(
-    spreadsheet_id: str, last_row: int, validation_list: list[str]
+def set_column_validation(
+    spreadsheet_id: str, last_row: int, col_index: int, validation_list: list[str]
 ) -> None:
-    """Replace the dropdown validation on column E rows 2 through last_row."""
+    """Replace the dropdown validation on a column rows 2 through last_row."""
     spreadsheet = (
         _sheets()
         .spreadsheets()
@@ -278,8 +278,8 @@ def set_column_e_validation(
                             "sheetId": sheet_id,
                             "startRowIndex": 1,
                             "endRowIndex": last_row,
-                            "startColumnIndex": 4,
-                            "endColumnIndex": 5,
+                            "startColumnIndex": col_index,
+                            "endColumnIndex": col_index + 1,
                         },
                         "rule": {
                             "condition": {
