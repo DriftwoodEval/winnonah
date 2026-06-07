@@ -107,6 +107,15 @@ async def process_reminders(connection: Connection[DictCursor]) -> None:
         )
         templates = cursor.fetchall()
 
+    if not templates:
+        logger.info("No active reminder templates found.")
+        return
+
+    logger.info(f"Processing {len(templates)} active reminder template(s).")
+    total_sent = 0
+    total_skipped = 0
+
+    with connection.cursor() as cursor:
         for template in templates:
             trigger_keyword = (
                 f"%{template['triggerKeyword']}%"
@@ -122,6 +131,26 @@ async def process_reminders(connection: Connection[DictCursor]) -> None:
 
             max_lead_time = datetime.now() + timedelta(
                 hours=template["sendOffsetHours"]
+            )
+
+            template_name = template.get("name") or f"id={template['id']}"
+            if template.get("isNoReplyFollowUp"):
+                template_type = "no-reply follow-up"
+            elif template.get("isConfirmedFollowUp"):
+                template_type = "confirmed follow-up"
+            else:
+                criteria_parts = []
+                if template.get("triggerKeyword"):
+                    criteria_parts.append(f"keyword={template['triggerKeyword']!r}")
+                if trigger_da_eval:
+                    criteria_parts.append(f"daEval={trigger_da_eval}")
+                if trigger_location_keys:
+                    criteria_parts.append(f"locations={trigger_location_keys}")
+                template_type = f"standard ({', '.join(criteria_parts) or 'global'})"
+            logger.info(
+                f"Template [{template_name}] ({template_type}): "
+                f"window={template['sendOffsetHours']}h, "
+                f"cutoff={max_lead_time.strftime('%Y-%m-%d %H:%M')}"
             )
 
             if template.get("isNoReplyFollowUp"):
@@ -232,16 +261,33 @@ async def process_reminders(connection: Connection[DictCursor]) -> None:
             cursor.execute(query, params)
             pending_appointments = cursor.fetchall()
 
+            logger.info(
+                f"Template [{template_name}]: {len(pending_appointments)} appointment(s) matched."
+            )
+
             for appt in pending_appointments:
+                client_label = f"{appt.get('firstName', '')} {appt.get('lastName', '')} (client {appt['clientId']}, appt {appt['id']})"
+                appt_date = (
+                    appt["startTime"].strftime("%Y-%m-%d %H:%M")
+                    if appt.get("startTime")
+                    else "unknown date"
+                )
+
                 if not appt.get("phoneNumber"):
                     logger.warning(
-                        f"Skipping Appt {appt['id']}: No phone number for client."
+                        f"Skipping [{template_name}] for {client_label} on {appt_date}: no phone number."
                     )
+                    total_skipped += 1
                     continue
 
                 message = format_message(template["messageTemplate"], appt)
 
                 message_id = await send_sms(appt["phoneNumber"], message)
+                logger.info(
+                    f"Sent [{template_name}] to {client_label} on {appt_date} "
+                    f"(msg_id={message_id})."
+                )
+                total_sent += 1
 
                 try:
                     cursor.execute(
@@ -249,11 +295,13 @@ async def process_reminders(connection: Connection[DictCursor]) -> None:
                         (appt["id"], appt["clientId"], template["id"], message_id),
                     )
                 except Exception as e:
-                    logger.error(f"Failed to log reminder: {e}")
+                    logger.error(f"Failed to log reminder for {client_label}: {e}")
 
         connection.commit()
 
-        logger.info("Reminders processed successfully.")
+        logger.info(
+            f"Reminder cycle complete: {total_sent} sent, {total_skipped} skipped (no phone)."
+        )
 
 
 def is_confirmation(incoming_text: str) -> bool:
@@ -301,15 +349,23 @@ async def handle_incoming_reply(
         context = cursor.fetchone()
 
         if not context:
-            logger.debug(
-                f"No active unconfirmed appointment context found for {phone_number}"
-            )
             return
 
+        appt_date = (
+            context["startTime"].strftime("%Y-%m-%d %H:%M")
+            if context.get("startTime")
+            else "unknown date"
+        )
+
         if is_confirmation(incoming_text):
+            logger.info(
+                f"Confirmation received from {phone_number} for appt {context['appointment_id']} on {appt_date}."
+            )
+
             if context["confirmationReply"]:
                 message = format_message(context["confirmationReply"], context)
                 await send_sms(phone_number, message)
+                logger.info(f"Sent confirmation reply to {phone_number}.")
 
             cursor.execute(
                 f"UPDATE {TABLE_APPOINTMENT} SET confirmedAt = NOW() WHERE id = %s",
@@ -322,10 +378,15 @@ async def handle_incoming_reply(
                 new_title = f"{current_title} [CONFIRMED]".strip()
                 try:
                     update_gcal_event_title(event_id, new_title)
+                    logger.info(
+                        f"Updated calendar event {event_id} title to {new_title!r}."
+                    )
                 except Exception as e:
                     logger.error(f"Failed to update calendar event title: {e}")
         else:
-            logger.debug("Non-confirmation reply ignored")
+            logger.debug(
+                f"Non-confirmation reply from {phone_number} ignored: {incoming_text!r}"
+            )
 
         connection.commit()
 
