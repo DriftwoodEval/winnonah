@@ -780,8 +780,9 @@ export const googleRouter = createTRPCRouter({
 		const clientsNotInDb = punchData.filter(
 			(client) =>
 				typeof client.id !== "number" &&
-				!TEST_NAMES.includes(
-					(client["Client Name"] as (typeof TEST_NAMES)[number]) ?? "",
+				!TEST_NAMES.some(
+					(t) =>
+						t.toLowerCase() === (client["Client Name"] ?? "").toLowerCase(),
 				),
 		);
 

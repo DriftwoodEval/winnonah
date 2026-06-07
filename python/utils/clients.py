@@ -11,7 +11,7 @@ from nameparser import HumanName
 from pandas._libs.missing import NAType
 
 import utils.spreadsheets
-from utils.constants import TEST_NAMES
+from utils.constants import TEST_NAMES_LOWER
 from utils.therapyappointment import download_csvs
 
 
@@ -69,14 +69,17 @@ def _normalize_names(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
-def _remove_test_names(df: pd.DataFrame, test_names: list) -> pd.DataFrame:
+def _remove_test_names(df: pd.DataFrame) -> pd.DataFrame:
     """Removes test names from a DataFrame."""
     logger.debug("Removing test names")
     return cast(
         pd.DataFrame,
         df[
             ~df.apply(
-                lambda row: f"{row.FIRSTNAME} {row.LASTNAME}" in test_names, axis=1
+                lambda row: (
+                    f"{row.FIRSTNAME} {row.LASTNAME}".lower() in TEST_NAMES_LOWER
+                ),
+                axis=1,
             )
         ],
     )
@@ -226,7 +229,7 @@ def get_clients(should_download_csvs: bool | None = True) -> pd.DataFrame:
 
     clients_df = _normalize_names(clients_df)
     if not os.getenv("DEV_TOGGLE"):
-        clients_df = _remove_test_names(clients_df, TEST_NAMES)
+        clients_df = _remove_test_names(clients_df)
     clients_df = _consolidate_by_id(clients_df)
     clients_df = _remove_invalid_clients(clients_df)
     clients_df = _combine_address_info(clients_df)

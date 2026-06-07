@@ -39,7 +39,7 @@ from utils.constants import (
     TABLE_QUESTIONNAIRE_RULE,
     TABLE_SCHOOL_DISTRICT,
     TABLE_USER,
-    TEST_NAMES,
+    TEST_NAMES_LOWER,
 )
 from utils.misc import (
     format_date,
@@ -426,7 +426,7 @@ def put_client_insurance_policies_in_db(
         if not os.getenv("DEV_TOGGLE"):
             firstname = get_column(row, "FIRSTNAME")
             lastname = get_column(row, "LASTNAME")
-            if f"{firstname} {lastname}" in TEST_NAMES:
+            if f"{firstname} {lastname}".lower() in TEST_NAMES_LOWER:
                 continue
 
         values = (

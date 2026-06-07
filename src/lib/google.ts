@@ -586,7 +586,10 @@ export const getMissingFromPunchlistData = async (session: Session) => {
 		where: and(
 			eq(clients.status, true),
 			not(eq(sql`LENGTH(${clients.id})`, 5)),
-			notInArray(clients.fullName, TEST_NAMES as unknown as string[]),
+			notInArray(
+				sql`LOWER(${clients.fullName})`,
+				TEST_NAMES.map((n) => n.toLowerCase()),
+			),
 		),
 	});
 

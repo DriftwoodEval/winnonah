@@ -9,7 +9,6 @@ from loguru import logger
 from tqdm import tqdm
 
 from utils.clients import _normalize_names, _remove_test_names
-from utils.constants import TEST_NAMES
 
 API_TOKEN = os.getenv("OPENPHONE_API_TOKEN", "")
 
@@ -150,7 +149,7 @@ def _process_demographic_data(
     active_df = demo_df[demo_df["STATUS"] != "Inactive"].copy()
     logger.debug(f"Removed {len(demo_df) - len(active_df)} inactive clients.")
 
-    filtered_df = _remove_test_names(active_df, TEST_NAMES)
+    filtered_df = _remove_test_names(active_df)
 
     filtered_df = _normalize_names(filtered_df)
 

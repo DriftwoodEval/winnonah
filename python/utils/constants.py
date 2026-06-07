@@ -11,6 +11,7 @@ TEST_NAMES: Final = [
     "Barbara Steele",
     "Karen Aston",
 ]
+TEST_NAMES_LOWER: Final = {n.lower() for n in TEST_NAMES}
 
 # Table Names
 TABLE_CLIENT: Final = "emr_client"
