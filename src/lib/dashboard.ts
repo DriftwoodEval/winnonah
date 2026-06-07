@@ -153,10 +153,8 @@ export const DASHBOARD_CONFIG: {
 			"DA  questionnaires have been sent, but not finished. To move forward, the client must finish them (DA Qs Done must be marked on the prioritization sheet).",
 		filter: (client: FullClientInfo) =>
 			client["DA Qs Sent"] === "TRUE" &&
-			client["DA Qs Done"] === "FALSE" &&
-			!(
-				client["EVAL Qs Sent"] === "TRUE" && client["EVAL Qs Done"] === "FALSE"
-			),
+			client["DA Qs Done"] !== "TRUE" &&
+			!(client["EVAL Qs Sent"] === "TRUE" && client["EVAL Qs Done"] !== "TRUE"),
 		extraInfo: sentExtraInfo,
 		failureFilter: (f) => f.daEval === "DA",
 		sort: sortByRemindersDesc,
@@ -203,8 +201,8 @@ export const DASHBOARD_CONFIG: {
 			"Evaluation questionnaires have been sent, but not finished. To move forward, the client must finish them (EVAL Qs Done must be marked on the prioritization sheet).",
 		filter: (client: FullClientInfo) =>
 			client["EVAL Qs Sent"] === "TRUE" &&
-			client["EVAL Qs Done"] === "FALSE" &&
-			!(client["DA Qs Sent"] === "TRUE" && client["DA Qs Done"] === "FALSE"),
+			client["EVAL Qs Done"] !== "TRUE" &&
+			!(client["DA Qs Sent"] === "TRUE" && client["DA Qs Done"] !== "TRUE"),
 		extraInfo: sentExtraInfo,
 		failureFilter: (f) => f.daEval === "EVAL",
 		sort: sortByRemindersDesc,
@@ -215,9 +213,9 @@ export const DASHBOARD_CONFIG: {
 			"Both DA and Evaluation questionnaires have been sent, but not finished. To move forward, the client must finish them (DA Qs Done and EVAL Qs Done must be marked on the prioritization sheet).",
 		filter: (client: FullClientInfo) =>
 			client["DA Qs Sent"] === "TRUE" &&
-			client["DA Qs Done"] === "FALSE" &&
+			client["DA Qs Done"] !== "TRUE" &&
 			client["EVAL Qs Sent"] === "TRUE" &&
-			client["EVAL Qs Done"] === "FALSE",
+			client["EVAL Qs Done"] !== "TRUE",
 		extraInfo: sentExtraInfo,
 		failureFilter: (f) => f.daEval === "DAEVAL",
 		sort: sortByRemindersDesc,
