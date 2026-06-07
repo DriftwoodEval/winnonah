@@ -111,9 +111,19 @@ async def process_reminders(connection: Connection[DictCursor]) -> None:
         logger.info("No active reminder templates found.")
         return
 
+    # Process standard templates most-immediate-first so late-scheduled appointments
+    # only get the closest applicable reminder, not every template that covers them.
+    templates.sort(
+        key=lambda t: (
+            bool(t.get("isNoReplyFollowUp") or t.get("isConfirmedFollowUp")),
+            t["sendOffsetHours"],
+        )
+    )
+
     logger.info(f"Processing {len(templates)} active reminder template(s).")
     total_sent = 0
     total_skipped = 0
+    already_sent_this_cycle: set[int] = set()
 
     with connection.cursor() as cursor:
         for template in templates:
@@ -261,6 +271,25 @@ async def process_reminders(connection: Connection[DictCursor]) -> None:
             cursor.execute(query, params)
             pending_appointments = cursor.fetchall()
 
+            is_standard = not template.get("isNoReplyFollowUp") and not template.get(
+                "isConfirmedFollowUp"
+            )
+            if is_standard and already_sent_this_cycle:
+                deferred = [
+                    a
+                    for a in pending_appointments
+                    if a["id"] in already_sent_this_cycle
+                ]
+                pending_appointments = [
+                    a
+                    for a in pending_appointments
+                    if a["id"] not in already_sent_this_cycle
+                ]
+                if deferred:
+                    logger.info(
+                        f"Template [{template_name}]: deferred {len(deferred)} appointment(s) already handled by a more immediate template this cycle."
+                    )
+
             logger.info(
                 f"Template [{template_name}]: {len(pending_appointments)} appointment(s) matched."
             )
@@ -288,6 +317,8 @@ async def process_reminders(connection: Connection[DictCursor]) -> None:
                     f"(msg_id={message_id})."
                 )
                 total_sent += 1
+                if is_standard:
+                    already_sent_this_cycle.add(appt["id"])
 
                 try:
                     cursor.execute(
