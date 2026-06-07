@@ -4,7 +4,7 @@ import asyncio
 import json
 import os
 import re
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from typing import Annotated
 
 from fastapi import APIRouter, BackgroundTasks, Header, HTTPException, Request
@@ -350,9 +350,52 @@ def is_confirmation(incoming_text: str) -> bool:
     return bool(re.search(pattern, incoming_text, re.IGNORECASE))
 
 
+async def is_first_reply_since_reminder(
+    message_id: str | None,
+    sent_at: datetime,
+    client_phone: str,
+) -> bool:
+    """Returns True if no other incoming reply exists in this conversation since sent_at."""
+    http = get_http_client()
+
+    normalized = client_phone if client_phone.startswith("+") else f"+1{client_phone}"
+    sent_at_utc = (
+        sent_at.replace(tzinfo=UTC)
+        if sent_at.tzinfo is None
+        else sent_at.astimezone(UTC)
+    )
+
+    params = [
+        ("phoneNumberId", OPENPHONE_NUMBER_ID),
+        ("participants[]", normalized),
+        ("maxResults", 25),
+        ("createdAfter", sent_at_utc.isoformat()),
+    ]
+
+    try:
+        response = await http.get("/messages", params=params)
+        response.raise_for_status()
+        messages = response.json().get("data", [])
+
+        for msg in messages:
+            if msg.get("direction") != "incoming":
+                continue
+            if msg.get("id") == message_id:
+                continue
+            return False
+
+        return True
+    except Exception as e:
+        logger.error(f"Failed to check prior replies from OpenPhone: {e}")
+        return True
+
+
 @provide_connection
 async def handle_incoming_reply(
-    phone_number: str, incoming_text: str, connection: Connection[DictCursor]
+    phone_number: str,
+    incoming_text: str,
+    message_id: str | None,
+    connection: Connection[DictCursor],
 ):
     clean_phone = phone_number.removeprefix("+1")
 
@@ -361,7 +404,8 @@ async def handle_incoming_reply(
         query = f"""
             SELECT a.id as appointment_id, t.confirmationReply, a.startTime,
                    a.calendarEventId, a.calendarEventTitle,
-                   o.prettyName AS officeLabel, o.locationPhrase AS officeLocationPhrase
+                   o.prettyName AS officeLabel, o.locationPhrase AS officeLocationPhrase,
+                   l.sentAt AS lastReminderSentAt
             FROM {TABLE_APPOINTMENT} a
             JOIN {TABLE_CLIENT} c ON a.clientId = c.id
             LEFT JOIN {TABLE_OFFICE} o ON a.locationKey = o.`key`
@@ -387,6 +431,15 @@ async def handle_incoming_reply(
             if context.get("startTime")
             else "unknown date"
         )
+
+        first_reply = await is_first_reply_since_reminder(
+            message_id, context["lastReminderSentAt"], clean_phone
+        )
+        if not first_reply:
+            logger.debug(
+                f"Reply from {phone_number} ignored: not the first reply since last reminder for appt {context['appointment_id']}."
+            )
+            return
 
         if is_confirmation(incoming_text):
             logger.info(
@@ -489,7 +542,10 @@ async def handle_webhook(
     data = payload.get("data", {}).get("object", {})
     sender_phone = data.get("from")
     message_body = data.get("body")
+    message_id = data.get("id")
 
-    background_tasks.add_task(handle_incoming_reply, sender_phone, message_body)
+    background_tasks.add_task(
+        handle_incoming_reply, sender_phone, message_body, message_id
+    )
 
     return {"status": "ok"}
