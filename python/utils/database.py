@@ -19,6 +19,7 @@ from pymysql.connections import Connection
 from pymysql.cursors import DictCursor
 
 import utils.relationships
+from utils.clients import TEST_NAMES
 from utils.constants import (
     CLIENT_COLUMN_MAPPING,
     TABLE_APPOINTMENT,
@@ -421,6 +422,12 @@ def put_client_insurance_policies_in_db(
 
         if client_id in missing_client_ids:
             continue
+
+        if not os.getenv("DEV_TOGGLE"):
+            firstname = get_column(row, "FIRSTNAME")
+            lastname = get_column(row, "LASTNAME")
+            if f"{firstname} {lastname}" in TEST_NAMES:
+                continue
 
         values = (
             policy_id,
