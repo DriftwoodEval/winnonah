@@ -44,6 +44,7 @@ const formSchema = z.object({
 	pause: z.boolean(),
 	babyNet: z.boolean(),
 	eiAttends: z.boolean(),
+	insuranceReviewEnabled: z.boolean(),
 });
 
 type ClientFormValues = z.infer<typeof formSchema>;
@@ -55,6 +56,7 @@ interface ClientFormProps {
 	onClose: () => void;
 	showBabyNetCheckbox?: boolean;
 	showEICheckbox?: boolean;
+	initialInsuranceReviewEnabled?: boolean;
 }
 
 const log = logger.child({ module: "EditClientDialog" });
@@ -66,6 +68,7 @@ function ClientForm({
 	onClose,
 	showBabyNetCheckbox = false,
 	showEICheckbox = false,
+	initialInsuranceReviewEnabled = false,
 }: ClientFormProps) {
 	const { data: allSchoolDistricts } =
 		api.evaluators.getAllSchoolDistricts.useQuery();
@@ -77,6 +80,7 @@ function ClientForm({
 	const canSetEI = can("clients:ei");
 	const canAutismStopDisable = can("clients:autismstop:disable");
 	const canPause = can("clients:pause");
+	const canInsuranceReview = can("clients:insurance:review");
 
 	const defaultValues = useMemo(() => {
 		if (initialData) {
@@ -87,9 +91,10 @@ function ClientForm({
 				pause: initialData.pause ?? false,
 				babyNet: initialData.babyNet ?? false,
 				eiAttends: initialData.eiAttends ?? false,
+				insuranceReviewEnabled: initialInsuranceReviewEnabled,
 			};
 		}
-	}, [initialData]);
+	}, [initialData, initialInsuranceReviewEnabled]);
 
 	const form = useForm<ClientFormValues>({
 		resolver: zodResolver(formSchema),
@@ -292,6 +297,29 @@ function ClientForm({
 							)}
 						/>
 					)}
+
+					{canInsuranceReview && (
+						<FormField
+							control={form.control}
+							name="insuranceReviewEnabled"
+							render={({ field }) => (
+								<FormItem className="flex flex-row">
+									<FormControl>
+										<Checkbox
+											checked={field.value}
+											onCheckedChange={field.onChange}
+										/>
+									</FormControl>
+									<div className="space-y-1 leading-none">
+										<FormLabel>Insurance Review</FormLabel>
+										<FormDescription>
+											Show the insurance review section on the insurance tab.
+										</FormDescription>
+									</div>
+								</FormItem>
+							)}
+						/>
+					)}
 				</div>
 
 				<div className="flex justify-end gap-2 pt-4">
@@ -310,6 +338,13 @@ function ClientForm({
 export function ClientEditButton({ client }: { client: Client }) {
 	const dialog = useResponsiveDialog();
 	const utils = api.useUtils();
+	const can = useCheckPermission();
+	const canInsuranceReview = can("clients:insurance:review");
+
+	const { data: reviewData } = api.insuranceReview.getByClientId.useQuery(
+		client.id,
+		{ enabled: canInsuranceReview },
+	);
 
 	const BNAgeOutDate = subYears(new Date(), 3);
 
@@ -350,6 +385,17 @@ export function ClientEditButton({ client }: { client: Client }) {
 		},
 	});
 
+	const setInsuranceReviewEnabled = api.insuranceReview.setEnabled.useMutation({
+		onSuccess: () => {
+			utils.insuranceReview.getByClientId.invalidate(client.id);
+		},
+		onError: (error) => {
+			toast.error("Failed to update insurance review", {
+				description: error.message,
+			});
+		},
+	});
+
 	function onEditSubmit(values: ClientFormValues) {
 		const autismStopChanged = values.autismStop !== client.autismStop;
 
@@ -370,6 +416,16 @@ export function ClientEditButton({ client }: { client: Client }) {
 				autismStop: values.autismStop,
 			});
 		}
+
+		if (
+			canInsuranceReview &&
+			values.insuranceReviewEnabled !== (reviewData?.enabled ?? false)
+		) {
+			setInsuranceReviewEnabled.mutate({
+				clientId: client.id,
+				enabled: values.insuranceReviewEnabled,
+			});
+		}
 	}
 
 	const trigger = <Pencil className="cursor-pointer" size={16} />;
@@ -383,7 +439,12 @@ export function ClientEditButton({ client }: { client: Client }) {
 		>
 			<ClientForm
 				initialData={client}
-				isLoading={updateClient.isPending || updateAutismStop.isPending}
+				initialInsuranceReviewEnabled={reviewData?.enabled ?? false}
+				isLoading={
+					updateClient.isPending ||
+					updateAutismStop.isPending ||
+					setInsuranceReviewEnabled.isPending
+				}
 				onClose={dialog.closeDialog}
 				onSubmit={onEditSubmit}
 				showBabyNetCheckbox={showBabyNetCheckbox}

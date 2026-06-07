@@ -23,6 +23,7 @@ import { api } from "~/trpc/react";
 import { ResponsiveDialog } from "../shared/ResponsiveDialog";
 import ClientCreateForm from "./ClientCreateForm";
 import { ClientsList } from "./ClientsList";
+import { InsuranceReviewBanner } from "./InsuranceReviewBanner";
 import { NameSearchInput } from "./NameSearchInput";
 import { RecentClients } from "./RecentClients";
 
@@ -276,6 +277,7 @@ export function ClientsDashboard() {
 	return (
 		<div className="flex min-h-0 w-full flex-1 flex-col gap-3">
 			<RecentClients />
+			<InsuranceReviewBanner />
 			<div className="flex flex-row gap-3">
 				<NameSearchInput
 					debounceMs={300}

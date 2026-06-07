@@ -4,6 +4,7 @@ import { evaluatorRouter } from "./routers/evaluator";
 import { externalRecordRouter } from "./routers/externalRecords";
 import { googleRouter } from "./routers/google";
 import { insuranceRouter } from "./routers/insurance";
+import { insuranceReviewRouter } from "./routers/insuranceReview";
 import { noteRouter } from "./routers/notes";
 import { officeRouter } from "./routers/office";
 import { pyConfigRouter } from "./routers/py-config";
@@ -28,6 +29,7 @@ export const appRouter = createTRPCRouter({
 	externalRecords: externalRecordRouter,
 	google: googleRouter,
 	insurances: insuranceRouter,
+	insuranceReview: insuranceReviewRouter,
 	notes: noteRouter,
 	offices: officeRouter,
 	pyConfig: pyConfigRouter,

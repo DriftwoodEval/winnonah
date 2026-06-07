@@ -47,10 +47,6 @@ export const PERMISSIONS = {
 					{ id: "clients:autismstop:disable", title: "Disable Autism Stop" },
 					{ id: "clients:pause", title: "Pause Clients" },
 					{ id: "clients:related", title: "Edit Related Clients" },
-					{
-						id: "clients:additional-insurance-appointments",
-						title: "View Insurance Codes by Appointment",
-					},
 				],
 			},
 
@@ -108,12 +104,26 @@ export const PERMISSIONS = {
 					{ id: "clients:shell", title: "Create Fake/Shell Client Notes" },
 					{ id: "clients:merge", title: "Merge with Real Client Record" },
 					{ id: "clients:download", title: "Download CSVs" },
-					{ id: "clients:pa-forms", title: "Download PA Forms" },
 					{ id: "reports:approve", title: "Approve Reports" },
 					{
 						id: "reports:notifications",
 						title: "Receive Report Queue Notifications",
 					},
+				],
+			},
+
+			insurance: {
+				title: "Insurance",
+				permissions: [
+					{
+						id: "clients:additional-insurance-appointments",
+						title: "View Insurance Codes by Appointment",
+					},
+					{
+						id: "clients:insurance:review",
+						title: "Edit Insurance Review Notes & Claim",
+					},
+					{ id: "clients:pa-forms", title: "Download PA Forms" },
 				],
 			},
 

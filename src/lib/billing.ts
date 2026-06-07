@@ -12,7 +12,7 @@ export function parsePrecertMemo(memo: string): BillingCode[] | null {
 	function runPattern(pattern: RegExp, codeIdx: 1 | 2, unitsIdx: 1 | 2): void {
 		let m = pattern.exec(text);
 		while (m !== null) {
-			addCode(m[codeIdx]!, Number(m[unitsIdx]!));
+			addCode(m[codeIdx] ?? "", Number(m[unitsIdx] ?? "0"));
 			m = pattern.exec(text);
 		}
 	}

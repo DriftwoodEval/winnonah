@@ -148,7 +148,7 @@ export function NoteHistory({
 	type,
 }: {
 	id: number;
-	type: "note" | "record";
+	type: "note" | "record" | "insurance-review";
 }) {
 	const { data: noteHistory, isLoading: isNoteHistoryLoading } =
 		api.notes.getHistory.useQuery(
@@ -166,11 +166,30 @@ export function NoteHistory({
 			{ enabled: type === "record" },
 		);
 
-	const history = (type === "note" ? noteHistory : recordHistory) as
+	const {
+		data: insuranceReviewHistory,
+		isLoading: isInsuranceReviewHistoryLoading,
+	} = api.insuranceReview.getHistory.useQuery(
+		{ reviewId: id },
+		{ enabled: type === "insurance-review" },
+	);
+
+	const history = (
+		type === "note"
+			? noteHistory
+			: type === "record"
+				? recordHistory
+				: insuranceReviewHistory
+	) as
 		| typeof noteHistory
-		| typeof recordHistory;
+		| typeof recordHistory
+		| typeof insuranceReviewHistory;
 	const isLoading =
-		type === "note" ? isNoteHistoryLoading : isRecordHistoryLoading;
+		type === "note"
+			? isNoteHistoryLoading
+			: type === "record"
+				? isRecordHistoryLoading
+				: isInsuranceReviewHistoryLoading;
 
 	if (isLoading)
 		return (

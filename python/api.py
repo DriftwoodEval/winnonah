@@ -51,6 +51,13 @@ class ApprovalNotificationRequest(BaseModel):
     queue_count: int
 
 
+class InsuranceReviewClaimRequest(BaseModel):
+    user_email: str
+    client_name: str
+    claimer_name: str
+    client_url: str | None = None
+
+
 class CptCodeEntry(BaseModel):
     code: str
     units: int
@@ -482,6 +489,48 @@ async def notify_report_approved(
     html_content = f"""
     <p>Your report for <strong>{request.report_name}</strong> has been approved.</p>
     <p>You can now claim a new report in the app: <a href="https://emr.driftwoodeval.com/claim-reports">Claim Reports</a> f"({request.queue_count} report{"s" if request.queue_count != 1 else ""} in queue)"</p>
+    """
+
+    send_gmail(
+        message_text=message_text,
+        subject=subject,
+        to_addr=request.user_email,
+        from_addr="tech@driftwoodeval.com",
+        html=html_content,
+    )
+
+    return {"status": "success"}
+
+
+@app.post("/notifications/insurance-review-claimed")
+async def notify_insurance_review_claimed(
+    request: InsuranceReviewClaimRequest,
+    current_user: dict = Depends(get_current_user),
+):
+    """Sends a notification email when a user is assigned as the insurance reviewer for a client."""
+    if not current_user["permissions"].get("clients:insurance:review"):
+        raise HTTPException(
+            status_code=403,
+            detail="Not authorized to send insurance review notifications",
+        )
+
+    subject = f"Insurance Review Assigned: {request.client_name}"
+
+    link_text = f"\n\nView client: {request.client_url}" if request.client_url else ""
+    message_text = (
+        f"{request.claimer_name} has assigned you as the reviewer for "
+        f"{request.client_name}'s insurance review.{link_text}"
+    )
+
+    link_html = (
+        f'<p><a href="{request.client_url}">View {request.client_name}\'s insurance tab</a></p>'
+        if request.client_url
+        else ""
+    )
+    html_content = f"""
+    <p><strong>{request.claimer_name}</strong> has assigned you as the reviewer for
+    <strong>{request.client_name}</strong>'s insurance review.</p>
+    {link_html}
     """
 
     send_gmail(

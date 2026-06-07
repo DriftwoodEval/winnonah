@@ -10,12 +10,14 @@ import {
 	CardTitle,
 } from "@ui/card";
 import { format, isAfter, isBefore, parseISO } from "date-fns";
+import type { Client } from "~/lib/models";
 import { formatPhoneNumber, toTitleCase } from "~/lib/utils";
 import type { AppRouter } from "~/server/api/root";
 import { api } from "~/trpc/react";
+import { InsuranceReviewSection } from "./InsuranceReviewSection";
 
 interface InsuranceTabProps {
-	clientId: number;
+	client: Client;
 }
 
 function formatDate(dateVal: Date | string | null | undefined): string {
@@ -257,53 +259,49 @@ function PolicyCard({ policy }: { policy: Policy }) {
 	);
 }
 
-export function InsuranceTab({ clientId }: InsuranceTabProps) {
+export function InsuranceTab({ client }: InsuranceTabProps) {
+	const clientId = client.id;
 	const { data: policies, isLoading } =
 		api.clients.getInsurancePolicies.useQuery(clientId);
 
-	if (isLoading) {
-		return (
-			<div className="flex w-full flex-col gap-4">
-				{[1, 2].map((i) => (
-					<div
-						className="h-40 w-full animate-pulse rounded-lg bg-muted"
-						key={i}
-					/>
-				))}
-			</div>
-		);
-	}
-
-	if (!policies?.length) {
-		return (
-			<p className="text-center text-muted-foreground text-sm">
-				No insurance policies found.
-			</p>
-		);
-	}
-
-	const active = policies.filter((p) =>
+	const active = (policies ?? []).filter((p) =>
 		isActive(p.policyStartDate, p.policyEndDate),
 	);
-	const inactive = policies.filter(
+	const inactive = (policies ?? []).filter(
 		(p) => !isActive(p.policyStartDate, p.policyEndDate),
 	);
 
 	return (
 		<div className="flex w-full flex-col gap-4">
-			{active.map((policy) => (
-				<PolicyCard key={policy.policyId} policy={policy} />
-			))}
-			{inactive.length > 0 && (
+			<InsuranceReviewSection client={client} />
+			{isLoading ? (
+				[1, 2].map((i) => (
+					<div
+						className="h-40 w-full animate-pulse rounded-lg bg-muted"
+						key={i}
+					/>
+				))
+			) : !policies?.length ? (
+				<p className="text-center text-muted-foreground text-sm">
+					No insurance policies found.
+				</p>
+			) : (
 				<>
-					{active.length > 0 && (
-						<p className="font-medium text-muted-foreground text-sm">
-							Inactive Policies
-						</p>
-					)}
-					{inactive.map((policy) => (
+					{active.map((policy) => (
 						<PolicyCard key={policy.policyId} policy={policy} />
 					))}
+					{inactive.length > 0 && (
+						<>
+							{active.length > 0 && (
+								<p className="font-medium text-muted-foreground text-sm">
+									Inactive Policies
+								</p>
+							)}
+							{inactive.map((policy) => (
+								<PolicyCard key={policy.policyId} policy={policy} />
+							))}
+						</>
+					)}
 				</>
 			)}
 		</div>

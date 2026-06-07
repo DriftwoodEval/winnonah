@@ -392,7 +392,7 @@ export function Client({
 									<TabsContent value="insurance">
 										<div className="mb-6 flex w-full flex-col gap-4">
 											<ClientDetailsCard client={client} truncated />
-											<InsuranceTab clientId={client.id} />
+											<InsuranceTab client={client} />
 										</div>
 									</TabsContent>
 								)}

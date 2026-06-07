@@ -467,6 +467,69 @@ export const externalRecordsHistoryRelations = relations(
 	}),
 );
 
+export const insuranceReview = createTable("insurance_review", (d) => ({
+	clientId: d
+		.int()
+		.notNull()
+		.primaryKey()
+		.references(() => clients.id, { onDelete: "cascade" }),
+	content: d.json("content"),
+	enabled: d.boolean().notNull().default(false),
+	claimedUserEmail: d.varchar("claimed_user_email", { length: 255 }),
+	createdAt: d
+		.timestamp("created_at")
+		.default(sql`CURRENT_TIMESTAMP`)
+		.notNull(),
+	updatedAt: d
+		.timestamp("updated_at")
+		.onUpdateNow()
+		.default(sql`CURRENT_TIMESTAMP`),
+	updatedBy: d.varchar("updated_by", { length: 255 }),
+}));
+
+export const insuranceReviewHistory = createTable(
+	"insurance_review_history",
+	(d) => ({
+		id: d.int().notNull().autoincrement().primaryKey(),
+		reviewId: d.int().notNull(),
+		content: d.json("content").notNull(),
+		updatedBy: d.varchar("updated_by", { length: 255 }),
+		createdAt: d
+			.timestamp("created_at")
+			.default(sql`CURRENT_TIMESTAMP`)
+			.notNull(),
+	}),
+	(t) => [
+		index("insurance_review_history_idx").on(t.reviewId),
+		foreignKey({
+			columns: [t.reviewId],
+			foreignColumns: [insuranceReview.clientId],
+			name: "insurance_review_id_fk",
+		}).onDelete("cascade"),
+	],
+);
+
+export const insuranceReviewRelations = relations(
+	insuranceReview,
+	({ one, many }) => ({
+		client: one(clients, {
+			fields: [insuranceReview.clientId],
+			references: [clients.id],
+		}),
+		history: many(insuranceReviewHistory),
+	}),
+);
+
+export const insuranceReviewHistoryRelations = relations(
+	insuranceReviewHistory,
+	({ one }) => ({
+		review: one(insuranceReview, {
+			fields: [insuranceReviewHistory.reviewId],
+			references: [insuranceReview.clientId],
+		}),
+	}),
+);
+
 export const appointments = createTable("appointment", (d) => ({
 	id: d.varchar({ length: 255 }).notNull().primaryKey(),
 	clientId: d
