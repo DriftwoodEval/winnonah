@@ -382,6 +382,30 @@ def put_client_insurance_policies_in_db(
 
     values_to_insert = []
 
+    # Collect all candidate integer client IDs so we can pre-check FK existence.
+    candidate_ids: set[int] = set()
+    for _, row in insurance_df.iterrows():
+        cid = get_column(row, "CLIENT_ID")
+        if cid is None or isinstance(cid, list):
+            continue
+        try:
+            candidate_ids.add(int(cid))
+        except ValueError, TypeError:
+            continue
+
+    missing_client_ids: set[int] = set()
+    if candidate_ids:
+        id_csv = ", ".join(str(i) for i in candidate_ids)
+        with connection.cursor() as cursor:
+            cursor.execute(f"SELECT id FROM `{TABLE_CLIENT}` WHERE id IN ({id_csv})")
+            existing_ids = {r["id"] for r in cursor.fetchall()}
+        missing_client_ids = candidate_ids - existing_ids
+        if missing_client_ids:
+            logger.warning(
+                f"{len(missing_client_ids)} client ID(s) appear in insurance data but have no "
+                f"matching emr_client row — these policies will be skipped: {sorted(missing_client_ids)}"
+            )
+
     for _, row in insurance_df.iterrows():
         policy_id = get_column(row, "POLICY_ID")
         client_id = get_column(row, "CLIENT_ID")
@@ -393,6 +417,9 @@ def put_client_insurance_policies_in_db(
         try:
             client_id = int(client_id)
         except ValueError, TypeError:
+            continue
+
+        if client_id in missing_client_ids:
             continue
 
         values = (
