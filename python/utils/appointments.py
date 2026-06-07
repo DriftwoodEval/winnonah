@@ -329,10 +329,14 @@ def prepare_appointments_from_csv(
     npi_map = get_npi_to_name_map()
 
     # Track dates to detect next-day 'appointments' for insurance
+    # Exclude cancelled appointments — they shouldn't count as a "real" prior appointment.
+    non_cancelled_df = appointments_df[
+        ~appointments_df["CANCELBYNAME"].apply(lambda x: isinstance(x, str))
+    ]
     client_date_set = set(
         zip(
-            appointments_df["CLIENT_ID"],
-            appointments_df["STARTTIME_DT"].dt.date,
+            non_cancelled_df["CLIENT_ID"],
+            non_cancelled_df["STARTTIME_DT"].dt.date,
             strict=False,
         )
     )
@@ -360,7 +364,9 @@ def prepare_appointments_from_csv(
             billing_indices.add(idx)
             continue
 
-        # Flag 90000 CPT duplicates within 6 months as billing-only
+        # Flag 90000 CPT duplicates within 6 months as billing-only.
+        # Only non-cancelled appointments count as the reference "real" appointment.
+        cancelled = isinstance(appointment["CANCELBYNAME"], str)
         if "90000" in cpt_code:
             last_date = last_90000_appointment_date.get(client_id)
             if last_date and (start_time - last_date).days < 182:
@@ -370,7 +376,8 @@ def prepare_appointments_from_csv(
                 )
                 billing_indices.add(idx)
                 continue
-            last_90000_appointment_date[client_id] = start_time
+            if not cancelled:
+                last_90000_appointment_date[client_id] = start_time
 
         # Detect next-day billing-only appointments (insurance billing entries in TA)
         previous_app_date = start_time.date() - timedelta(days=1)
