@@ -816,8 +816,6 @@ export const clientRouter = createTRPCRouter({
 	}),
 
 	getDuplicateNames: protectedProcedure.query(async ({ ctx }) => {
-		assertPermission(ctx.session.user, "issues:duplicate-names");
-
 		const c1 = alias(clients, "c1");
 		const c2 = alias(clients, "c2");
 
