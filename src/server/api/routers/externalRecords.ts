@@ -1,6 +1,6 @@
 import EventEmitter from "node:events";
 import { TRPCError } from "@trpc/server";
-import { and, asc, desc, eq } from "drizzle-orm";
+import { and, asc, desc, eq, sql } from "drizzle-orm";
 import { z } from "zod";
 import {
 	assertPermission,
@@ -12,6 +12,7 @@ import {
 	externalRecordHistory,
 	externalRecordRequests,
 	externalRecords,
+	failures,
 	users,
 } from "~/server/db/schema";
 
@@ -134,6 +135,18 @@ export const externalRecordRouter = createTRPCRouter({
 						eq(externalRecordRequests.clientId, input.clientId),
 					),
 				);
+
+			if (input.requestedDate !== null) {
+				await ctx.db
+					.update(failures)
+					.set({ reminded: sql`reminded + 100` })
+					.where(
+						and(
+							eq(failures.clientId, input.clientId),
+							eq(failures.daEval, "Records"),
+						),
+					);
+			}
 
 			const requests = await ctx.db
 				.select()
