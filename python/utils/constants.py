@@ -1,5 +1,17 @@
 from typing import Final
 
+TEST_NAMES: Final = [
+    "Testman Testson",
+    "Testman Testson Jr.",
+    "Johnny Smonny",
+    "Johnny Smonathan",
+    "Test Mctest",
+    "Test Test",
+    "Johnny Test",
+    "Barbara Steele",
+    "Karen Aston",
+]
+
 # Table Names
 TABLE_CLIENT: Final = "emr_client"
 TABLE_APPOINTMENT: Final = "emr_appointment"

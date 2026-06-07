@@ -11,7 +11,7 @@ from googleapiclient.discovery import build
 from loguru import logger
 
 import utils.misc
-from utils.clients import TEST_NAMES
+from utils.constants import TEST_NAMES
 from utils.database import (
     compute_and_store_assessment_snapshot,
     get_all_evaluators_npi_map,

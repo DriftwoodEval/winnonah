@@ -11,19 +11,8 @@ from nameparser import HumanName
 from pandas._libs.missing import NAType
 
 import utils.spreadsheets
+from utils.constants import TEST_NAMES
 from utils.therapyappointment import download_csvs
-
-TEST_NAMES = [
-    "Testman Testson",
-    "Testman Testson Jr.",
-    "Johnny Smonny",
-    "Johnny Smonathan",
-    "Test Mctest",
-    "Test Test",
-    "Johnny Test",
-    "Barbara Steele",
-    "Karen Aston",
-]
 
 
 def _normalize_names(df: pd.DataFrame) -> pd.DataFrame:

@@ -19,7 +19,6 @@ from pymysql.connections import Connection
 from pymysql.cursors import DictCursor
 
 import utils.relationships
-from utils.clients import TEST_NAMES
 from utils.constants import (
     CLIENT_COLUMN_MAPPING,
     TABLE_APPOINTMENT,
@@ -40,6 +39,7 @@ from utils.constants import (
     TABLE_QUESTIONNAIRE_RULE,
     TABLE_SCHOOL_DISTRICT,
     TABLE_USER,
+    TEST_NAMES,
 )
 from utils.misc import (
     format_date,

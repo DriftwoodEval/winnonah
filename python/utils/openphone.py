@@ -8,7 +8,8 @@ import requests
 from loguru import logger
 from tqdm import tqdm
 
-from utils.clients import TEST_NAMES, _normalize_names, _remove_test_names
+from utils.clients import _normalize_names, _remove_test_names
+from utils.constants import TEST_NAMES
 
 API_TOKEN = os.getenv("OPENPHONE_API_TOKEN", "")
 
