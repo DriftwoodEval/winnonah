@@ -21,6 +21,7 @@ export const TEST_NAMES = [
 	"Johnny Smonathan",
 	"Test Mctest",
 	"Test Test",
+	"Testing Test",
 	"Johnny Test",
 	"Barbara Steele",
 	"Karen Aston",

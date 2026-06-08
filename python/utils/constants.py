@@ -7,6 +7,7 @@ TEST_NAMES: Final = [
     "Johnny Smonathan",
     "Test Mctest",
     "Test Test",
+    "Testing Test",
     "Johnny Test",
     "Barbara Steele",
     "Karen Aston",
