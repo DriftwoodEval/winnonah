@@ -105,7 +105,7 @@ async def process_reminders(connection: Connection[DictCursor]) -> None:
         cursor.execute(
             f"SELECT * FROM {TABLE_APPOINTMENT_REMINDER_TEMPLATES} WHERE isActive = 1"
         )
-        templates = cursor.fetchall()
+        templates = list(cursor.fetchall())
 
     if not templates:
         logger.info("No active reminder templates found.")
@@ -405,7 +405,7 @@ async def handle_incoming_reply(
             SELECT a.id as appointment_id, t.confirmationReply, a.startTime,
                    a.calendarEventId, a.calendarEventTitle,
                    o.prettyName AS officeLabel, o.locationPhrase AS officeLocationPhrase,
-                   l.sentAt AS lastReminderSentAt
+                   l.sentAt AS lastReminderSentAt, c.fullName
             FROM {TABLE_APPOINTMENT} a
             JOIN {TABLE_CLIENT} c ON a.clientId = c.id
             LEFT JOIN {TABLE_OFFICE} o ON a.locationKey = o.`key`
@@ -443,7 +443,7 @@ async def handle_incoming_reply(
 
         if is_confirmation(incoming_text):
             logger.info(
-                f"Confirmation received from {phone_number} for appt {context['appointment_id']} on {appt_date}."
+                f"Confirmation received from {phone_number} ({context['fullName']}) for appt {context['appointment_id']} on {appt_date}: {incoming_text!r}."
             )
 
             if context["confirmationReply"]:
