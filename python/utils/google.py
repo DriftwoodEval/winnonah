@@ -9,6 +9,7 @@ from email.message import EmailMessage
 from pathlib import Path
 
 import pandas as pd
+from dateutil import parser as dtparser
 from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import InstalledAppFlow
@@ -339,37 +340,46 @@ def send_gmail(
     return send_message
 
 
-def update_gcal_event_title(event_id: str, new_title: str) -> bool:
-    """Find a Google Calendar event by ID across all calendars and update its title.
+def update_gcal_event_title(
+    event_id: str, new_title: str, calendar_id: str | None = None
+) -> bool:
+    """Find a Google Calendar event by ID and update its title.
 
-    Returns True if the event was found and updated, False otherwise.
+    If calendar_id is provided, patches that calendar directly.
+    Otherwise scans all calendars to find the event.
+    Returns True if updated, False otherwise.
     """
     creds = google_authenticate()
     service = build("calendar", "v3", credentials=creds)
 
-    calendar_list = service.calendarList().list().execute()
-    calendars = calendar_list.get("items", [])
+    if calendar_id:
+        calendars = [{"id": calendar_id}]
+    else:
+        calendars = service.calendarList().list().execute().get("items", [])
 
     for calendar in calendars:
-        calendar_id = calendar["id"]
+        cal_id = calendar["id"]
         try:
-            event = (
-                service.events().get(calendarId=calendar_id, eventId=event_id).execute()
-            )
+            service.events().get(calendarId=cal_id, eventId=event_id).execute()
         except HttpError as e:
-            if e.resp.status == 404:
-                continue
-            logger.error(
-                f"Error fetching event {event_id} from calendar {calendar_id}: {e}"
-            )
+            if e.resp.status not in (403, 404):
+                logger.error(
+                    f"Error fetching event {event_id} from calendar {cal_id}: {e}"
+                )
             continue
 
-        event["summary"] = new_title
-        service.events().patch(
-            calendarId=calendar_id,
-            eventId=event_id,
-            body={"summary": new_title},
-        ).execute()
+        try:
+            service.events().patch(
+                calendarId=cal_id,
+                eventId=event_id,
+                body={"summary": new_title},
+            ).execute()
+        except HttpError as e:
+            logger.warning(
+                f"Could not patch event {event_id} on calendar {cal_id}: {e}"
+            )
+            return False
+
         logger.info(f"Updated calendar event {event_id} title to: {new_title}")
         return True
 
@@ -385,35 +395,88 @@ def find_gcal_event_by_client_and_time(
     Returns {"event_id", "calendar_id", "title"} or None if not found.
     Used as a fallback when the stored event ID is stale (e.g. event moved calendars).
     """
+    # Strip tzinfo for comparison — mirrors batch_search_calendar_events behaviour
+    naive_start = start_time.replace(tzinfo=None) if start_time.tzinfo else start_time
+
+    logger.info(
+        f"Searching all calendars for client {client_id} near "
+        f"{naive_start.strftime('%Y-%m-%d %H:%M')} (±1 hr match, ±1 day fetch window)"
+    )
+
     creds = google_authenticate()
     service = build("calendar", "v3", credentials=creds)
 
-    window_start = (start_time - timedelta(hours=1)).isoformat() + "Z"
-    window_end = (start_time + timedelta(hours=1)).isoformat() + "Z"
+    # Wide fetch window (±1 day) to absorb timezone offsets in the stored startTime
+    window_start = (naive_start - timedelta(days=1)).isoformat() + "Z"
+    window_end = (naive_start + timedelta(days=1)).isoformat() + "Z"
 
     for calendar in service.calendarList().list().execute().get("items", []):
         calendar_id = calendar["id"]
+        all_events: list = []
+        page_token = None
+
         try:
-            events = (
-                service.events()
-                .list(
-                    calendarId=calendar_id,
-                    timeMin=window_start,
-                    timeMax=window_end,
-                    singleEvents=True,
+            while True:
+                page = (
+                    service.events()
+                    .list(
+                        calendarId=calendar_id,
+                        timeMin=window_start,
+                        timeMax=window_end,
+                        singleEvents=True,
+                        orderBy="startTime",
+                        pageToken=page_token,
+                    )
+                    .execute()
                 )
-                .execute()
-                .get("items", [])
-            )
+                all_events.extend(page.get("items", []))
+                page_token = page.get("nextPageToken")
+                if not page_token:
+                    break
         except HttpError:
             continue
 
-        for event in events:
-            if str(client_id) in event.get("description", ""):
-                return {
-                    "event_id": event["id"],
-                    "calendar_id": calendar_id,
-                    "title": event.get("summary", ""),
-                }
+        logger.debug(f"  {calendar_id}: {len(all_events)} event(s) in window")
 
+        for event in all_events:
+            description = event.get("description", "")
+            if str(client_id) not in description:
+                continue
+
+            event_start_raw = event["start"].get("dateTime", event["start"].get("date"))
+            if not event_start_raw:
+                continue
+
+            event_dt = dtparser.parse(event_start_raw)
+            if event_dt.tzinfo is not None:
+                event_dt = event_dt.replace(tzinfo=None)
+
+            time_diff = abs((event_dt - naive_start).total_seconds())
+            logger.debug(
+                f"    Client {client_id} in description of '{event.get('summary', '')}' "
+                f"on {calendar_id} — event {event_dt.strftime('%Y-%m-%d %H:%M')}, "
+                f"diff {int(time_diff)}s"
+            )
+
+            if time_diff > 3600:
+                logger.warning(
+                    f"    Skipping: time diff {int(time_diff)}s exceeds 1 hr tolerance"
+                )
+                continue
+
+            found = {
+                "event_id": event["id"],
+                "calendar_id": calendar_id,
+                "title": event.get("summary", ""),
+            }
+            logger.info(
+                f"Found event for client {client_id}: {found['event_id']!r} "
+                f"on {calendar_id} ({found['title']!r})"
+            )
+            return found
+
+    logger.warning(
+        f"No calendar event found for client {client_id} near "
+        f"{naive_start.strftime('%Y-%m-%d %H:%M')}"
+    )
     return None

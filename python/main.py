@@ -18,12 +18,14 @@ import utils.location
 import utils.openphone
 import utils.referrals
 import utils.therapyappointment
+from utils.constants import TABLE_APPOINTMENT, TABLE_EVALUATOR
 from utils.fax_close import (
     generate_close_faxes,
     replace_misformatted_doctors,
     send_close_faxes,
 )
 from utils.fax_reports import generate_report_cover_pages, send_report_faxes
+from utils.google import find_gcal_event_by_client_and_time, update_gcal_event_title
 
 logger.add("logs/winnonah-python.log", rotation="500 MB")
 load_dotenv()
@@ -201,6 +203,85 @@ def import_from_ta(
         utils.appointments.insert_appointments_with_gcal(appointment_sync_config)
 
 
+def process_resync_confirmed():
+    """Update Google Calendar event titles for confirmed appointments missing the [CONFIRMED] tag."""
+    query = f"""
+        SELECT a.id, a.clientId, a.startTime, a.calendarEventId, a.calendarEventTitle,
+               e.email AS evaluatorCalendarId
+        FROM {TABLE_APPOINTMENT} a
+        LEFT JOIN {TABLE_EVALUATOR} e ON a.evaluatorNpi = e.npi
+        WHERE a.confirmedAt IS NOT NULL
+          AND a.cancelled = 0
+          AND a.calendarEventId IS NOT NULL
+          AND (a.calendarEventTitle NOT LIKE '%[CONFIRMED]%' OR a.calendarEventTitle IS NULL)
+    """
+    with utils.database.db_session() as conn:
+        with conn.cursor() as cursor:
+            cursor.execute(query)
+            rows = cursor.fetchall()
+
+        logger.info(
+            f"Found {len(rows)} confirmed appointment(s) missing [CONFIRMED] tag."
+        )
+        updated = 0
+        failed = 0
+
+        for row in rows:
+            appt_id = row["id"]
+            event_id = row["calendarEventId"]
+            current_title = row["calendarEventTitle"] or ""
+            new_title = f"{current_title} [CONFIRMED]".strip()
+
+            evaluator_calendar_id = row.get("evaluatorCalendarId")
+            success = update_gcal_event_title(
+                event_id, new_title, calendar_id=evaluator_calendar_id
+            )
+
+            if not success:
+                logger.warning(
+                    f"Event {event_id} not found by ID for appt {appt_id}; searching by client/time..."
+                )
+                found = find_gcal_event_by_client_and_time(
+                    row["clientId"], row["startTime"]
+                )
+                if found:
+                    event_id = found["event_id"]
+                    found_title = found["title"]
+                    if "[confirmed]" in found_title.lower():
+                        logger.info(
+                            f"Calendar event for appt {appt_id} already has [CONFIRMED]; updating DB only."
+                        )
+                        new_title = found_title
+                    else:
+                        new_title = f"{found_title} [CONFIRMED]".strip()
+                        update_gcal_event_title(
+                            event_id,
+                            new_title,
+                            calendar_id=found["calendar_id"],
+                        )
+                    logger.info(
+                        f"Corrected stale event ID for appt {appt_id}: "
+                        f"{row['calendarEventId']!r} → {event_id!r}"
+                    )
+                    success = True
+
+            if success:
+                with conn.cursor() as cursor:
+                    cursor.execute(
+                        f"UPDATE {TABLE_APPOINTMENT} SET calendarEventId = %s, calendarEventTitle = %s WHERE id = %s",
+                        (event_id, new_title, appt_id),
+                    )
+                conn.commit()
+
+            if success:
+                updated += 1
+            else:
+                logger.error(f"Could not find calendar event for appt {appt_id}.")
+                failed += 1
+
+        logger.info(f"Resync complete: {updated} updated, {failed} failed.")
+
+
 def process_referrals():
     """Process referrals, creating folders for them in Google Drive."""
     logger.debug("Processing referrals")
@@ -231,6 +312,13 @@ def main(
     ] = False,
     save_ta_hashes: Annotated[
         bool, typer.Option("--save-ta-hashes", help="Save TA hashes to DB")
+    ] = False,
+    resync_confirmed: Annotated[
+        bool,
+        typer.Option(
+            "--resync-confirmed",
+            help="Resync [CONFIRMED] tags on calendar events for all confirmed appointments",
+        ),
     ] = False,
     client: Annotated[
         list[str] | None,
@@ -280,6 +368,11 @@ def main(
     if save_ta_hashes:
         logger.info("Saving TA hashes")
         utils.therapyappointment.save_ta_hashes()
+        return
+
+    if resync_confirmed:
+        logger.info("Resyncing [CONFIRMED] tags on calendar events")
+        process_resync_confirmed()
         return
 
     force_clients: pd.DataFrame | None = None

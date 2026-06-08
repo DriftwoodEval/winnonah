@@ -458,7 +458,7 @@ async def handle_incoming_reply(
 
             event_id = context.get("calendarEventId")
             current_title = context.get("calendarEventTitle") or ""
-            if event_id and "[CONFIRMED]" not in current_title:
+            if event_id and "[confirmed]" not in current_title.lower():
                 new_title = f"{current_title} [CONFIRMED]".strip()
                 try:
                     updated = update_gcal_event_title(event_id, new_title)
@@ -474,12 +474,24 @@ async def handle_incoming_reply(
                             context["clientId"], context["startTime"]
                         )
                         if found:
-                            update_gcal_event_title(found["event_id"], new_title)
+                            found_title = found["title"]
+                            if "[confirmed]" in found_title.lower():
+                                logger.info(
+                                    f"Calendar event for appt {context['appointment_id']} already has [CONFIRMED]; updating DB only."
+                                )
+                                new_title = found_title
+                            else:
+                                new_title = f"{found_title} [CONFIRMED]".strip()
+                                update_gcal_event_title(
+                                    found["event_id"],
+                                    new_title,
+                                    calendar_id=found["calendar_id"],
+                                )
                             cursor.execute(
                                 f"UPDATE {TABLE_APPOINTMENT} SET calendarEventId = %s, calendarEventTitle = %s WHERE id = %s",
                                 (
                                     found["event_id"],
-                                    found["title"],
+                                    new_title,
                                     context["appointment_id"],
                                 ),
                             )
