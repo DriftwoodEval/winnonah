@@ -149,7 +149,7 @@ class SyncReporter:
             message_text=text_summary,
             subject=f"Appointment Sync Errors - {datetime.now().strftime('%Y-%m-%d')}",
             to_addr=recipient_email,
-            from_addr="me",
+            from_addr="tech@driftwoodeval.com",
             html=html_content,
         )
         utils.misc.write_cache(SYNC_REPORT_CACHE, [today])
