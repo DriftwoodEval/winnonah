@@ -146,7 +146,7 @@ export function InsuranceReviewSection({
 						variant="outline"
 					>
 						<Send className="mr-1 h-4 w-4" />
-						{submitMutation.isPending ? "Submitting..." : "Submit"}
+						{submitMutation.isPending ? "Copying..." : "Copy to Main Notes"}
 					</Button>
 				</div>
 			</div>
