@@ -22,7 +22,7 @@ from utils.constants import (
     TABLE_OFFICE,
 )
 from utils.database import provide_connection
-from utils.google import update_gcal_event_title
+from utils.google import find_gcal_event_by_client_and_time, update_gcal_event_title
 from utils.webhook import verify_openphone_signature
 
 logger.add(
@@ -402,7 +402,7 @@ async def handle_incoming_reply(
     with connection.cursor() as cursor:
         # Find the most recent unconfirmed appointment for this client
         query = f"""
-            SELECT a.id as appointment_id, t.confirmationReply, a.startTime,
+            SELECT a.id as appointment_id, a.clientId, t.confirmationReply, a.startTime,
                    a.calendarEventId, a.calendarEventTitle,
                    o.prettyName AS officeLabel, o.locationPhrase AS officeLocationPhrase,
                    l.sentAt AS lastReminderSentAt, c.fullName
@@ -461,10 +461,36 @@ async def handle_incoming_reply(
             if event_id and "[CONFIRMED]" not in current_title:
                 new_title = f"{current_title} [CONFIRMED]".strip()
                 try:
-                    update_gcal_event_title(event_id, new_title)
-                    logger.info(
-                        f"Updated calendar event {event_id} title to {new_title!r}."
-                    )
+                    updated = update_gcal_event_title(event_id, new_title)
+                    if updated:
+                        logger.info(
+                            f"Updated calendar event {event_id} title to {new_title!r}."
+                        )
+                    else:
+                        logger.warning(
+                            f"Event {event_id} not found by ID for appt {context['appointment_id']}; searching by client/time..."
+                        )
+                        found = find_gcal_event_by_client_and_time(
+                            context["clientId"], context["startTime"]
+                        )
+                        if found:
+                            update_gcal_event_title(found["event_id"], new_title)
+                            cursor.execute(
+                                f"UPDATE {TABLE_APPOINTMENT} SET calendarEventId = %s, calendarEventTitle = %s WHERE id = %s",
+                                (
+                                    found["event_id"],
+                                    found["title"],
+                                    context["appointment_id"],
+                                ),
+                            )
+                            logger.info(
+                                f"Corrected stale event ID for appt {context['appointment_id']}: "
+                                f"{event_id!r} → {found['event_id']!r}, updated title to {new_title!r}."
+                            )
+                        else:
+                            logger.error(
+                                f"Could not find calendar event for appt {context['appointment_id']} by client/time fallback."
+                            )
                 except Exception as e:
                     logger.error(f"Failed to update calendar event title: {e}")
         else:

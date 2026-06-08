@@ -4,6 +4,7 @@ import os
 import re
 import time
 from collections import deque
+from datetime import datetime, timedelta
 from email.message import EmailMessage
 from pathlib import Path
 
@@ -374,3 +375,45 @@ def update_gcal_event_title(event_id: str, new_title: str) -> bool:
 
     logger.warning(f"Calendar event {event_id} not found in any calendar")
     return False
+
+
+def find_gcal_event_by_client_and_time(
+    client_id: int, start_time: datetime
+) -> dict | None:
+    """Search all calendars for an event matching client_id + start_time (±1 hr).
+
+    Returns {"event_id", "calendar_id", "title"} or None if not found.
+    Used as a fallback when the stored event ID is stale (e.g. event moved calendars).
+    """
+    creds = google_authenticate()
+    service = build("calendar", "v3", credentials=creds)
+
+    window_start = (start_time - timedelta(hours=1)).isoformat() + "Z"
+    window_end = (start_time + timedelta(hours=1)).isoformat() + "Z"
+
+    for calendar in service.calendarList().list().execute().get("items", []):
+        calendar_id = calendar["id"]
+        try:
+            events = (
+                service.events()
+                .list(
+                    calendarId=calendar_id,
+                    timeMin=window_start,
+                    timeMax=window_end,
+                    singleEvents=True,
+                )
+                .execute()
+                .get("items", [])
+            )
+        except HttpError:
+            continue
+
+        for event in events:
+            if str(client_id) in event.get("description", ""):
+                return {
+                    "event_id": event["id"],
+                    "calendar_id": calendar_id,
+                    "title": event.get("summary", ""),
+                }
+
+    return None
