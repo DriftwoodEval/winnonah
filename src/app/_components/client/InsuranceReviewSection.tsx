@@ -166,7 +166,7 @@ export function InsuranceReviewSection({
 
 				{canEdit && (
 					<div className="flex items-center gap-2">
-						<span className="text-muted-foreground text-sm">Claimed by:</span>
+						<span className="text-muted-foreground text-sm">Whose turn:</span>
 						<Select
 							disabled={
 								setClaimMutation.isPending || reviewableUsers.length === 0
@@ -195,7 +195,7 @@ export function InsuranceReviewSection({
 
 				{!canEdit && review?.claimedUserEmail && (
 					<p className="text-muted-foreground text-sm">
-						Claimed by:{" "}
+						Whose turn:{" "}
 						{reviewableUsers.find((u) => u.email === review.claimedUserEmail)
 							?.name ?? review.claimedUserEmail}
 					</p>
