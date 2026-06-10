@@ -45,7 +45,13 @@ const config = {
 	output: "standalone",
 	serverExternalPackages: ["pino", "pino-pretty"],
 	experimental: {
-		optimizePackageImports: ["lucide-react"],
+		optimizePackageImports: [
+			"lucide-react",
+			"radix-ui",
+			"date-fns",
+			"@tiptap/core",
+			"@tiptap/starter-kit",
+		],
 	},
 };
 
