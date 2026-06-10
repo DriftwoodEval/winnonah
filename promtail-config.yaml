@@ -14,6 +14,7 @@ scrape_configs:
       - targets: [localhost]
         labels:
           service: winnonah
+          app: winnonah
           __path__: /app/logs/debug.log
     pipeline_stages:
       - json:
@@ -33,6 +34,11 @@ scrape_configs:
           service: winnonah-python
           __path__: /app/python-logs/*.log
     pipeline_stages:
+      - regex:
+          source: filename
+          expression: '/app/python-logs/(?P<app>[^.]+)\.log'
+      - labels:
+          app:
       - json:
           expressions:
             level: level
