@@ -95,6 +95,47 @@ services:
     environment:
       - NODE_ENV=production
 
+  loki:
+    image: grafana/loki:3.5.0
+    container_name: loki
+    restart: always
+    ports:
+      - "3100:3100"
+    volumes:
+      - ./loki-config.yaml:/etc/loki/local-config.yaml
+      - loki-data:/loki
+    command: -config.file=/etc/loki/local-config.yaml
+
+  promtail:
+    image: grafana/promtail:3.5.0
+    container_name: promtail
+    restart: always
+    volumes:
+      - ./promtail-config.yaml:/etc/promtail/config.yaml
+      - ./logs:/app/logs
+      - ./python/logs:/app/python-logs
+      - ../qs/logs:/app/questionnaires-logs
+    command: -config.file=/etc/promtail/config.yaml
+    depends_on:
+      - loki
+
+  grafana:
+    image: grafana/grafana:11.6.1
+    container_name: grafana
+    restart: always
+    ports:
+      - "3001:3000"
+    environment:
+      - GF_AUTH_ANONYMOUS_ENABLED=false
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD}
+      - GF_ANALYTICS_REPORTING_ENABLED=false
+      - GF_ANALYTICS_CHECK_FOR_UPDATES=false
+    volumes:
+      - ./grafana/datasources:/etc/grafana/provisioning/datasources
+      - grafana-data:/var/lib/grafana
+    depends_on:
+      - loki
+
   watchtower:
     image: containrrr/watchtower
     container_name: watchtower
@@ -108,3 +149,5 @@ services:
 
 volumes:
   winnonah_db-data:
+  loki-data:
+  grafana-data:
