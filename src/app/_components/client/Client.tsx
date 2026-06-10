@@ -215,11 +215,10 @@ export function Client({
 									{!isShellClientId(client.id) && (
 										<TabsTrigger value="records">Records</TabsTrigger>
 									)}
+									{!isShellClientId(client.id) && (
+										<TabsTrigger value="insurance">Insurance</TabsTrigger>
+									)}
 									{/* It's fine that this doesn't stop people from just visiting the URL, we aren't hiding this for security, we're hiding it so that we don't get people confused about it existing */}
-									{!isShellClientId(client.id) &&
-										(client.primaryInsurance ?? !client.privatePay) && (
-											<TabsTrigger value="insurance">Insurance</TabsTrigger>
-										)}
 									{can("clients:referral:tab") && (
 										<TabsTrigger value="referral">Referral</TabsTrigger>
 									)}
