@@ -5,9 +5,11 @@ from utils.config import validate_config
 from utils.constants import TABLE_SEEN_REPORT_FOLDERS
 from utils.database import get_db, get_queue_notify_users
 from utils.google import get_items_in_folder, send_gmail
+from utils.misc import json_log_format
 
 logger.add(
     "logs/report-notifications.log",
+    format=json_log_format,
     rotation="50 MB",
     filter=lambda r: r["name"] == "notify_reports",
 )

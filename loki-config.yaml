@@ -28,6 +28,9 @@ schema_config:
 
 limits_config:
   retention_period: 4380h  # 6 months
+  ingestion_rate_mb: 32
+  ingestion_burst_size_mb: 64
+  allow_structured_metadata: false
 
 compactor:
   working_directory: /loki/compactor

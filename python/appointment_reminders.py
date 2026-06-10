@@ -23,10 +23,12 @@ from utils.constants import (
 )
 from utils.database import provide_connection
 from utils.google import find_gcal_event_by_client_and_time, update_gcal_event_title
+from utils.misc import json_log_format
 from utils.webhook import verify_openphone_signature
 
 logger.add(
     "logs/appointment-reminders.log",
+    format=json_log_format,
     rotation="500 MB",
     filter=lambda r: r["name"] in {"appointment_reminders", "utils.webhook"},
 )

@@ -112,6 +112,7 @@ services:
     restart: always
     volumes:
       - ./promtail-config.yaml:/etc/promtail/config.yaml
+      - promtail-positions:/positions
       - ./logs:/app/logs
       - ./python/logs:/app/python-logs
       - ../qs/logs:/app/questionnaires-logs
@@ -151,3 +152,4 @@ volumes:
   winnonah_db-data:
   loki-data:
   grafana-data:
+  promtail-positions:

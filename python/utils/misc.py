@@ -1,9 +1,26 @@
+import json as _json
 from datetime import date, datetime
 from pathlib import Path
 from typing import Any
 
 import pandas as pd
 from loguru import logger
+
+
+def json_log_format(record: dict) -> str:
+    return (
+        _json.dumps(
+            {
+                "time": record["time"].isoformat(),
+                "level": record["level"].name,
+                "module": record["name"],
+                "function": record["function"],
+                "line": record["line"],
+                "message": record["message"],
+            }
+        )
+        + "\n"
+    )
 
 
 def get_column(

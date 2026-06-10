@@ -54,9 +54,13 @@ from utils.fax import (
     validate_fax_config,
 )
 from utils.google import send_gmail
+from utils.misc import json_log_format
 
 logger.add(
-    "logs/fax-close.log", rotation="50 MB", filter=lambda r: r["name"] == "fax_close"
+    "logs/fax-close.log",
+    format=json_log_format,
+    rotation="50 MB",
+    filter=lambda r: r["name"] == "fax_close",
 )
 
 load_dotenv()
