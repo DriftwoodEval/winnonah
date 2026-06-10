@@ -1,0 +1,299 @@
+{
+	"annotations": { "list": [] },
+	"description": "Log viewer for all Driftwood services",
+	"editable": true,
+	"fiscalYearStartMonth": 0,
+	"graphTooltip": 0,
+	"links": [],
+	"panels": [
+		{
+			"datasource": { "type": "loki", "uid": "${datasource}" },
+			"fieldConfig": {
+				"defaults": {
+					"color": { "mode": "thresholds" },
+					"noValue": "0",
+					"thresholds": {
+						"mode": "absolute",
+						"steps": [
+							{ "color": "green", "value": null },
+							{ "color": "red", "value": 1 }
+						]
+					}
+				}
+			},
+			"gridPos": { "h": 4, "w": 8, "x": 0, "y": 0 },
+			"id": 1,
+			"options": {
+				"colorMode": "background",
+				"graphMode": "none",
+				"justifyMode": "center",
+				"orientation": "auto",
+				"reduceOptions": { "calcs": ["sum"], "fields": "", "values": false },
+				"textMode": "auto"
+			},
+			"title": "Errors",
+			"type": "stat",
+			"targets": [
+				{
+					"datasource": { "type": "loki", "uid": "${datasource}" },
+					"expr": "sum(count_over_time({service=~\"$service\", app=~\"$app\"} | json | level=\"ERROR\" [$__range]))",
+					"instant": true,
+					"refId": "A"
+				}
+			]
+		},
+		{
+			"datasource": { "type": "loki", "uid": "${datasource}" },
+			"fieldConfig": {
+				"defaults": {
+					"color": { "mode": "thresholds" },
+					"noValue": "0",
+					"thresholds": {
+						"mode": "absolute",
+						"steps": [
+							{ "color": "green", "value": null },
+							{ "color": "orange", "value": 1 }
+						]
+					}
+				}
+			},
+			"gridPos": { "h": 4, "w": 8, "x": 8, "y": 0 },
+			"id": 2,
+			"options": {
+				"colorMode": "background",
+				"graphMode": "none",
+				"justifyMode": "center",
+				"orientation": "auto",
+				"reduceOptions": { "calcs": ["sum"], "fields": "", "values": false },
+				"textMode": "auto"
+			},
+			"title": "Warnings",
+			"type": "stat",
+			"targets": [
+				{
+					"datasource": { "type": "loki", "uid": "${datasource}" },
+					"expr": "sum(count_over_time({service=~\"$service\", app=~\"$app\"} | json | level=\"WARNING\" [$__range]))",
+					"instant": true,
+					"refId": "A"
+				}
+			]
+		},
+		{
+			"datasource": { "type": "loki", "uid": "${datasource}" },
+			"fieldConfig": {
+				"defaults": {
+					"color": { "fixedColor": "blue", "mode": "fixed" },
+					"noValue": "0",
+					"thresholds": {
+						"mode": "absolute",
+						"steps": [{ "color": "green", "value": null }]
+					}
+				}
+			},
+			"gridPos": { "h": 4, "w": 8, "x": 16, "y": 0 },
+			"id": 3,
+			"options": {
+				"colorMode": "value",
+				"graphMode": "none",
+				"justifyMode": "center",
+				"orientation": "auto",
+				"reduceOptions": { "calcs": ["sum"], "fields": "", "values": false },
+				"textMode": "auto"
+			},
+			"title": "Total Log Lines",
+			"type": "stat",
+			"targets": [
+				{
+					"datasource": { "type": "loki", "uid": "${datasource}" },
+					"expr": "sum(count_over_time({service=~\"$service\", app=~\"$app\"} [$__range]))",
+					"instant": true,
+					"refId": "A"
+				}
+			]
+		},
+		{
+			"datasource": { "type": "loki", "uid": "${datasource}" },
+			"fieldConfig": {
+				"defaults": {
+					"custom": {
+						"drawStyle": "line",
+						"fillOpacity": 20,
+						"lineWidth": 1,
+						"showPoints": "never",
+						"stacking": { "group": "A", "mode": "normal" }
+					},
+					"unit": "short"
+				},
+				"overrides": [
+					{
+						"matcher": { "id": "byName", "options": "ERROR" },
+						"properties": [
+							{
+								"id": "color",
+								"value": { "fixedColor": "red", "mode": "fixed" }
+							}
+						]
+					},
+					{
+						"matcher": { "id": "byName", "options": "WARNING" },
+						"properties": [
+							{
+								"id": "color",
+								"value": { "fixedColor": "orange", "mode": "fixed" }
+							}
+						]
+					},
+					{
+						"matcher": { "id": "byName", "options": "INFO" },
+						"properties": [
+							{
+								"id": "color",
+								"value": { "fixedColor": "#5794F2", "mode": "fixed" }
+							}
+						]
+					},
+					{
+						"matcher": { "id": "byName", "options": "DEBUG" },
+						"properties": [
+							{
+								"id": "color",
+								"value": { "fixedColor": "gray", "mode": "fixed" }
+							}
+						]
+					},
+					{
+						"matcher": { "id": "byName", "options": "SUCCESS" },
+						"properties": [
+							{
+								"id": "color",
+								"value": { "fixedColor": "green", "mode": "fixed" }
+							}
+						]
+					}
+				]
+			},
+			"gridPos": { "h": 8, "w": 24, "x": 0, "y": 4 },
+			"id": 4,
+			"options": {
+				"legend": {
+					"displayMode": "list",
+					"placement": "bottom",
+					"showLegend": true
+				},
+				"tooltip": { "mode": "multi", "sort": "desc" }
+			},
+			"title": "Log Rate by Level",
+			"type": "timeseries",
+			"targets": [
+				{
+					"datasource": { "type": "loki", "uid": "${datasource}" },
+					"expr": "sum by (level) (rate({service=~\"$service\", app=~\"$app\", level=~\".+\"} [$__rate_interval]))",
+					"legendFormat": "{{level}}",
+					"refId": "A"
+				}
+			]
+		},
+		{
+			"datasource": { "type": "loki", "uid": "${datasource}" },
+			"gridPos": { "h": 22, "w": 24, "x": 0, "y": 12 },
+			"id": 5,
+			"options": {
+				"dedupStrategy": "none",
+				"enableLogDetails": true,
+				"prettifyLogMessage": false,
+				"showCommonLabels": false,
+				"showLabels": false,
+				"showTime": true,
+				"sortOrder": "Descending",
+				"wrapLogMessage": true
+			},
+			"title": "Logs",
+			"type": "logs",
+			"targets": [
+				{
+					"datasource": { "type": "loki", "uid": "${datasource}" },
+					"expr": "{service=~\"$service\", app=~\"$app\"} | json | level=~\"$level\" | line_format `{{.level}} [{{.app}}/{{.module}}] {{.message}}`",
+					"maxLines": 500,
+					"refId": "A"
+				}
+			]
+		}
+	],
+	"refresh": "1m",
+	"schemaVersion": 39,
+	"tags": ["logs", "driftwood"],
+	"templating": {
+		"list": [
+			{
+				"current": {},
+				"hide": 0,
+				"includeAll": false,
+				"label": "Data source",
+				"multi": false,
+				"name": "datasource",
+				"options": [],
+				"query": "loki",
+				"refresh": 1,
+				"type": "datasource"
+			},
+			{
+				"allValue": ".+",
+				"current": {},
+				"datasource": { "type": "loki", "uid": "${datasource}" },
+				"hide": 0,
+				"includeAll": true,
+				"label": "Service",
+				"multi": true,
+				"name": "service",
+				"options": [],
+				"query": { "label": "service", "stream": "", "type": 1 },
+				"refresh": 2,
+				"sort": 1,
+				"type": "query"
+			},
+			{
+				"allValue": ".+",
+				"current": {},
+				"datasource": { "type": "loki", "uid": "${datasource}" },
+				"hide": 0,
+				"includeAll": true,
+				"label": "App",
+				"multi": true,
+				"name": "app",
+				"options": [],
+				"query": {
+					"label": "app",
+					"stream": "{service=~\"$service\"}",
+					"type": 1
+				},
+				"refresh": 2,
+				"sort": 1,
+				"type": "query"
+			},
+			{
+				"allValue": ".*",
+				"current": { "selected": true, "text": "All", "value": "$__all" },
+				"hide": 0,
+				"includeAll": true,
+				"label": "Level",
+				"multi": true,
+				"name": "level",
+				"options": [
+					{ "selected": false, "text": "ERROR", "value": "ERROR" },
+					{ "selected": false, "text": "WARNING", "value": "WARNING" },
+					{ "selected": false, "text": "INFO", "value": "INFO" },
+					{ "selected": false, "text": "DEBUG", "value": "DEBUG" },
+					{ "selected": false, "text": "SUCCESS", "value": "SUCCESS" }
+				],
+				"query": "ERROR,WARNING,INFO,DEBUG,SUCCESS",
+				"type": "custom"
+			}
+		]
+	},
+	"time": { "from": "now-6h", "to": "now" },
+	"timepicker": {},
+	"timezone": "browser",
+	"title": "Driftwood Logs",
+	"uid": "driftwood-logs",
+	"version": 1
+}

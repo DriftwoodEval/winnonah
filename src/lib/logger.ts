@@ -6,7 +6,18 @@ const isServer = typeof window === "undefined";
 export const logger: Logger =
 	process.env.NODE_ENV === "production"
 		? pino(
-				{ base: null, level: "debug" },
+				{
+					base: null,
+					level: "debug",
+					messageKey: "message",
+					formatters: {
+						level(label) {
+							return {
+								level: label === "warn" ? "WARNING" : label.toUpperCase(),
+							};
+						},
+					},
+				},
 				// Only use multistream and file destinations on the server.
 				// In the browser, passing 'undefined' makes Pino default to console.log
 				isServer
