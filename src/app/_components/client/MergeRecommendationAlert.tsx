@@ -17,17 +17,14 @@ export function MergeRecommendationAlert({
 	client,
 	readOnly,
 }: MergeRecommendationAlertProps) {
-	const { data: mergeSuggestions, isLoading } =
-		api.clients.getMergeSuggestions.useQuery();
+	const { data, isLoading } = api.clients.getMergeSuggestionsForClient.useQuery(
+		{ clientId: client.id },
+	);
 
-	if (isLoading || !mergeSuggestions || readOnly) return null;
+	if (isLoading || !data || readOnly) return null;
 
 	if (isShellClientId(client.id)) {
-		const suggestion = mergeSuggestions.find(
-			(s) => s.noteOnlyClient.id === client.id,
-		);
-		if (!suggestion || suggestion.suggestedRealClients.length === 0)
-			return null;
+		if (data.suggestedRealClients.length === 0) return null;
 
 		return (
 			<Alert
@@ -40,7 +37,7 @@ export function MergeRecommendationAlert({
 				</AlertTitle>
 				<AlertDescription className="text-foreground/90">
 					<div className="mt-2 flex flex-wrap gap-2">
-						{suggestion.suggestedRealClients.map((real) => (
+						{data.suggestedRealClients.map((real) => (
 							<MergePreviewDialog
 								fakeClient={client}
 								key={real.id}
@@ -58,12 +55,7 @@ export function MergeRecommendationAlert({
 		);
 	}
 
-	// Real client, look for noteOnly clients that suggest this one
-	const noteOnlySuggestions = mergeSuggestions.filter((s) =>
-		s.suggestedRealClients.some((real) => real.id === client.id),
-	);
-
-	if (noteOnlySuggestions.length === 0) return null;
+	if (data.suggestedNoteOnlyClients.length === 0) return null;
 
 	return (
 		<Alert
@@ -75,15 +67,15 @@ export function MergeRecommendationAlert({
 			<AlertDescription className="text-foreground/90">
 				A "Shell" client seems very similar to this one:
 				<div className="mt-2 flex flex-wrap gap-2">
-					{noteOnlySuggestions.map((s) => (
+					{data.suggestedNoteOnlyClients.map((noteOnly) => (
 						<MergePreviewDialog
-							fakeClient={s.noteOnlyClient}
-							key={s.noteOnlyClient.id}
+							fakeClient={noteOnly}
+							key={noteOnly.id}
 							realClient={client}
 							shouldRedirect
 						>
 							<Button className="h-7 text-xs" size="sm" variant="outline">
-								Merge {s.noteOnlyClient.fullName} into this client
+								Merge {noteOnly.fullName} into this client
 							</Button>
 						</MergePreviewDialog>
 					))}

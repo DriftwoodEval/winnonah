@@ -66,6 +66,26 @@ import {
 
 const isNoteOnly = eq(sql`LENGTH(${clients.id})`, 5);
 const CACHE_KEY_DROP_LIST = "clients:drop-list";
+
+type ClientRow = typeof clients.$inferSelect;
+
+function matchShellToReal(noteOnlyName: string, real: ClientRow) {
+	const legalName = `${real.firstName.toLowerCase()} ${real.lastName.toLowerCase()}`;
+	const fullName = real.preferredName
+		? `${real.preferredName} ${real.lastName}`.toLowerCase()
+		: real.fullName.toLowerCase();
+	const distance = Math.min(
+		levDistance(noteOnlyName, legalName),
+		levDistance(noteOnlyName, fullName),
+	);
+	const isMatch =
+		distance <= 3 ||
+		noteOnlyName.includes(legalName) ||
+		legalName.includes(noteOnlyName) ||
+		(real.preferredName &&
+			(noteOnlyName.includes(fullName) || fullName.includes(noteOnlyName)));
+	return { distance, isMatch: !!isMatch };
+}
 export const CACHE_KEY_MISSING_APPOINTMENTS = "clients:missing-appointments";
 
 async function computeRuleBasedSnapshot(
@@ -264,24 +284,8 @@ export const clientRouter = createTRPCRouter({
 		.query(async ({ ctx, input }) => {
 			ctx.logger.info(input, "Getting client");
 
-			const [foundClient] = await Promise.all([
-				ctx.db.query.clients.findFirst({
-					where: eq(clients[input.column], input.value),
-				}),
-				ctx.session.user.accessToken && ctx.session.user.refreshToken
-					? syncPunchData(ctx.session)
-					: Promise.resolve(),
-			]);
-
-			if (!foundClient) {
-				throw new TRPCError({
-					code: "NOT_FOUND",
-					message: `Client with ${input.column} ${input.value} not found`,
-				});
-			}
-
 			const syncedClient = await ctx.db.query.clients.findFirst({
-				where: eq(clients.id, foundClient.id),
+				where: eq(clients[input.column], input.value),
 				with: {
 					relatedConnections: {
 						with: {
@@ -298,8 +302,8 @@ export const clientRouter = createTRPCRouter({
 
 			if (!syncedClient) {
 				throw new TRPCError({
-					code: "INTERNAL_SERVER_ERROR",
-					message: "Failed to retrieve synced client data",
+					code: "NOT_FOUND",
+					message: `Client with ${input.column} ${input.value} not found`,
 				});
 			}
 
@@ -669,6 +673,44 @@ export const clientRouter = createTRPCRouter({
 		return noteOnlyClients;
 	}),
 
+	getMergeSuggestionsForClient: protectedProcedure
+		.input(z.object({ clientId: z.number() }))
+		.query(async ({ ctx, input }) => {
+			const isShell = isShellClientId(input.clientId);
+
+			const [targetClient, candidates] = await Promise.all([
+				ctx.db.query.clients.findFirst({
+					where: eq(clients.id, input.clientId),
+				}),
+				ctx.db.query.clients.findMany({
+					where: and(
+						eq(clients.status, true),
+						isShell ? not(isNoteOnly) : isNoteOnly,
+					),
+				}),
+			]);
+
+			if (!targetClient) {
+				return { suggestedRealClients: [], suggestedNoteOnlyClients: [] };
+			}
+
+			if (isShell) {
+				const noteOnlyName = targetClient.fullName.toLowerCase();
+				const suggestedRealClients = candidates
+					.map((real) => ({ ...real, ...matchShellToReal(noteOnlyName, real) }))
+					.filter((c) => c.isMatch)
+					.sort((a, b) => a.distance - b.distance)
+					.slice(0, 5);
+				return { suggestedRealClients, suggestedNoteOnlyClients: [] };
+			}
+
+			const suggestedNoteOnlyClients = candidates.filter(
+				(shell) =>
+					matchShellToReal(shell.fullName.toLowerCase(), targetClient).isMatch,
+			);
+			return { suggestedRealClients: [], suggestedNoteOnlyClients };
+		}),
+
 	getMergeSuggestions: protectedProcedure.query(async ({ ctx }) => {
 		const allClients = await ctx.db.query.clients.findMany({
 			where: eq(clients.status, true),
@@ -688,27 +730,7 @@ export const clientRouter = createTRPCRouter({
 			const noteOnlyName = noteOnly.fullName.toLowerCase();
 
 			const matchingRealClients = realClients
-				.map((real) => {
-					const legalName = `${real.firstName.toLowerCase()} ${real.lastName.toLowerCase()}`;
-					const fullName = real.preferredName
-						? `${real.preferredName} ${real.lastName}`.toLowerCase()
-						: real.fullName.toLowerCase();
-
-					const distance = Math.min(
-						levDistance(noteOnlyName, legalName),
-						levDistance(noteOnlyName, fullName),
-					);
-
-					const isMatch =
-						distance <= 3 ||
-						noteOnlyName.includes(legalName) ||
-						legalName.includes(noteOnlyName) ||
-						(real.preferredName &&
-							(noteOnlyName.includes(fullName) ||
-								fullName.includes(noteOnlyName)));
-
-					return { ...real, distance, isMatch };
-				})
+				.map((real) => ({ ...real, ...matchShellToReal(noteOnlyName, real) }))
 				.filter((c) => c.isMatch)
 				.sort((a, b) => a.distance - b.distance)
 				.slice(0, 5);
@@ -2219,4 +2241,10 @@ export const clientRouter = createTRPCRouter({
 				],
 			});
 		}),
+
+	syncPunchData: protectedProcedure.mutation(async ({ ctx }) => {
+		if (ctx.session.user.accessToken && ctx.session.user.refreshToken) {
+			await syncPunchData(ctx.session);
+		}
+	}),
 });

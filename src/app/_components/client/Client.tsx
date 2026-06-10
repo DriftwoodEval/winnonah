@@ -87,6 +87,10 @@ export function Client({
 		onSuccess: () => utils.users.getRecentClients.invalidate(),
 	});
 
+	const syncPunchDataMutation = api.clients.syncPunchData.useMutation({
+		onSuccess: () => refetchClient(),
+	});
+
 	useEffect(() => {
 		if (client?.color) {
 			setSelectedColor(client.color);
@@ -100,6 +104,7 @@ export function Client({
 				hash: client.hash,
 				name: client.fullName,
 			});
+			syncPunchDataMutation.mutate();
 		}
 	}, [client?.hash]);
 
