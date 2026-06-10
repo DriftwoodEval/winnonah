@@ -187,7 +187,7 @@
 			"targets": [
 				{
 					"datasource": { "type": "loki", "uid": "${datasource}" },
-					"expr": "sum by (level) (rate({service=~\"$service\", app=~\"$app\", level=~\".+\"} [$__rate_interval]))",
+					"expr": "sum by (level) (rate({service=~\"$service\", app=~\"$app\", level=~\".+\"} [$__interval]))",
 					"legendFormat": "{{level}}",
 					"refId": "A"
 				}
@@ -212,7 +212,7 @@
 			"targets": [
 				{
 					"datasource": { "type": "loki", "uid": "${datasource}" },
-					"expr": "{service=~\"$service\", app=~\"$app\"} | json | level=~\"$level\" | line_format `{{.level}} [{{.app}}/{{.module}}] {{.message}}`",
+					"expr": "{service=~\"$service\", app=~\"$app\"} | json | level=~\"$level\" | line_format `{{.level}} [{{.app}}/{{.module}}]{{if .user}} ({{.user | splitList \"@\" | first}}){{end}} {{.message}}`",
 					"maxLines": 500,
 					"refId": "A"
 				}
