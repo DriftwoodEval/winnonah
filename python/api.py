@@ -18,6 +18,7 @@ from utils.constants import (
     TABLE_ACCOUNT,
     TABLE_APPOINTMENT,
     TABLE_CLIENT,
+    TABLE_CLIENT_INSURANCE_POLICY,
     TABLE_SESSION,
     TABLE_USER,
 )
@@ -627,9 +628,15 @@ async def download_select_health_form(
     try:
         with conn.cursor() as cursor:
             sql = f"""
-                SELECT id, firstName, lastName, preferredName, fullName,
-                       dob, referralSource, insuranceNumber
-                FROM {TABLE_CLIENT} WHERE id = %s
+                SELECT c.id, c.firstName, c.lastName, c.preferredName, c.fullName,
+                       c.dob, c.referralSource,
+                       p.insuranceNumber
+                FROM {TABLE_CLIENT} c
+                LEFT JOIN {TABLE_CLIENT_INSURANCE_POLICY} p
+                    ON p.clientId = c.id
+                WHERE c.id = %s
+                ORDER BY p.policyType ASC, p.policyStartDate DESC
+                LIMIT 1
             """
             cursor.execute(sql, (client_id,))
             row = cursor.fetchone()
