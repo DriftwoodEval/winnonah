@@ -96,7 +96,7 @@ services:
       - NODE_ENV=production
 
   loki:
-    image: grafana/loki:3.5.0
+    image: grafana/loki
     container_name: loki
     restart: always
     ports:
@@ -107,7 +107,7 @@ services:
     command: -config.file=/etc/loki/local-config.yaml
 
   promtail:
-    image: grafana/promtail:3.5.0
+    image: grafana/promtail
     container_name: promtail
     restart: always
     volumes:
@@ -121,7 +121,7 @@ services:
       - loki
 
   grafana:
-    image: grafana/grafana:11.6.1
+    image: grafana/grafana
     container_name: grafana
     restart: always
     ports:
