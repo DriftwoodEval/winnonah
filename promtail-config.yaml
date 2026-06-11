@@ -54,14 +54,18 @@ scrape_configs:
       - labels:
           level:
 
-  - job_name: questionnaires-qreceive
+  - job_name: questionnaires
     static_configs:
       - targets: [localhost]
         labels:
           service: questionnaires
-          app: qreceive
-          __path__: /app/questionnaires-logs/qreceive.log
+          __path__: /app/questionnaires-logs/*.log
     pipeline_stages:
+      - regex:
+          source: filename
+          expression: '/app/questionnaires-logs/(?P<app>[^.]+)\.log'
+      - labels:
+          app:
       - json:
           expressions:
             level: level
