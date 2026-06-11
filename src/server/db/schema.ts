@@ -425,6 +425,7 @@ export const externalRecordRequests = createTable(
 			.notNull()
 			.references(() => clients.id, { onDelete: "cascade" }),
 		requestedDate: d.date(),
+		holdUntil: d.date("hold_until"),
 		customMessage: d.text("custom_message"),
 		createdAt: d
 			.timestamp("created_at")

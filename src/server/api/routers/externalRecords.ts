@@ -196,6 +196,29 @@ export const externalRecordRouter = createTRPCRouter({
 			return requests;
 		}),
 
+	setRecordRequestHoldUntil: protectedProcedure
+		.input(
+			z.object({
+				requestId: z.number(),
+				clientId: z.number(),
+				holdUntil: z.date().nullable(),
+			}),
+		)
+		.mutation(async ({ ctx, input }) => {
+			assertPermission(ctx.session.user, "clients:records:requested");
+			ctx.logger.info(input, "Setting record request hold until");
+
+			await ctx.db
+				.update(externalRecordRequests)
+				.set({ holdUntil: input.holdUntil })
+				.where(
+					and(
+						eq(externalRecordRequests.id, input.requestId),
+						eq(externalRecordRequests.clientId, input.clientId),
+					),
+				);
+		}),
+
 	setRecordRequestMessage: protectedProcedure
 		.input(
 			z.object({

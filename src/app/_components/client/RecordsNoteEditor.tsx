@@ -107,6 +107,7 @@ export function RecordsNoteEditor({
 			id: number;
 			clientId: number;
 			requestedDate: Date | string | null;
+			holdUntil: Date | string | null;
 			customMessage: string | null;
 			createdAt: Date;
 			createdBy: string | null;
@@ -190,6 +191,11 @@ export function RecordsNoteEditor({
 	const setRecordRequestMessageMutation =
 		api.externalRecords.setRecordRequestMessage.useMutation({
 			onError: (error) => handleError(error, "save request message"),
+		});
+
+	const setRecordRequestHoldUntilMutation =
+		api.externalRecords.setRecordRequestHoldUntil.useMutation({
+			onError: (error) => handleError(error, "save hold until date"),
 		});
 
 	const stateRef = useRef({
@@ -293,6 +299,15 @@ export function RecordsNoteEditor({
 	const handleRemoveRequest = (requestId: number) => {
 		if (!clientId) return;
 		removeRecordRequestMutation.mutate({ clientId, requestId });
+	};
+
+	const handleSetHoldUntil = (requestId: number, date: Date | undefined) => {
+		if (!clientId) return;
+		setRecordRequestHoldUntilMutation.mutate({
+			requestId,
+			clientId,
+			holdUntil: date ?? null,
+		});
 	};
 
 	const handleTemplateChange = (value: string) => {
@@ -461,18 +476,32 @@ export function RecordsNoteEditor({
 					{requests
 						.filter((r) => !r.requestedDate)
 						.map((req) => (
-							<div className="w-full" key={`msg-${req.id}`}>
-								<Label className="mb-1 block text-muted-foreground text-xs">
-									Email request line
-								</Label>
-								<Textarea
-									className="text-sm"
-									defaultValue={req.customMessage ?? ""}
+							<div className="w-full space-y-2" key={`msg-${req.id}`}>
+								<DatePicker
+									allowClear={canAddRequest && !!req.holdUntil}
+									date={getLocalDayFromUTCDate(req.holdUntil) ?? undefined}
 									disabled={!canAddRequest}
-									onChange={(e) => debouncedSaveMessage(req.id, e.target.value)}
-									placeholder="Please send the most recent IEP, any Evaluation Reports, and any Reevaluation Review information."
-									rows={2}
+									flexDirection="flex-row"
+									id={`hold-${req.id}`}
+									label="Hold until"
+									placeholder="No hold"
+									setDate={(date) => handleSetHoldUntil(req.id, date)}
 								/>
+								<div>
+									<Label className="mb-1 block text-muted-foreground text-xs">
+										Email request line
+									</Label>
+									<Textarea
+										className="text-sm"
+										defaultValue={req.customMessage ?? ""}
+										disabled={!canAddRequest}
+										onChange={(e) =>
+											debouncedSaveMessage(req.id, e.target.value)
+										}
+										placeholder="Please send the most recent IEP, any Evaluation Reports, and any Reevaluation Review information."
+										rows={2}
+									/>
+								</div>
 							</div>
 						))}
 					{canAddRequest &&
