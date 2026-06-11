@@ -803,7 +803,7 @@ const SchedulingTableRow = memo(function SchedulingTableRow({
 						value={localNotes}
 					/>
 				) : (
-					<div className="max-h-[2.5rem] overflow-hidden overscroll-auto text-sm">
+					<div className="wrap-break-word max-h-[2.5rem] overflow-hidden overscroll-auto text-sm">
 						{scheduledClient.notes || "-"}
 					</div>
 				)}

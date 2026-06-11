@@ -208,7 +208,7 @@
 }
 
 .tiptap {
-	@apply break-all;
+	@apply wrap-break-word;
 }
 
 .tiptap .is-editor-empty:first-child::before {
