@@ -12,6 +12,7 @@ import {
 } from "@ui/select";
 import { Skeleton } from "@ui/skeleton";
 import { Search } from "lucide-react";
+import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -87,6 +88,11 @@ export function GlobalClientSearch() {
 			status: status as "active" | "inactive" | "all",
 		};
 	}, [debouncedSearchTerm, statusFilter]);
+
+	const { data: recentClients } = api.users.getRecentClients.useQuery(
+		undefined,
+		{ enabled: open && !!session },
+	);
 
 	const {
 		data: searchQuery,
@@ -195,6 +201,23 @@ export function GlobalClientSearch() {
 							</SelectContent>
 						</Select>
 					</div>
+					{!debouncedSearchTerm && !!recentClients?.length && (
+						<div className="flex flex-wrap items-center gap-2">
+							<span className="text-muted-foreground text-xs uppercase tracking-wide">
+								Recent
+							</span>
+							{recentClients.map((client) => (
+								<Link
+									className="rounded-md border bg-background px-2.5 py-1 text-sm shadow-xs hover:bg-accent hover:text-accent-foreground dark:border-input dark:bg-input/30 dark:hover:bg-input/50"
+									href={`/clients/${client.hash}`}
+									key={client.hash}
+									onClick={() => setOpen(false)}
+								>
+									{client.name}
+								</Link>
+							))}
+						</div>
+					)}
 					<div
 						className={
 							isPlaceholderData
