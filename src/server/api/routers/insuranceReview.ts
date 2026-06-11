@@ -142,7 +142,10 @@ export const insuranceReviewRouter = createTRPCRouter({
 				.set({ claimedUserEmail: input.userEmail })
 				.where(eq(insuranceReview.clientId, input.clientId));
 
-			if (input.userEmail !== ctx.session.user.email) {
+			if (
+				input.userEmail !== ctx.session.user.email &&
+				env.NODE_ENV === "production"
+			) {
 				try {
 					const client = await ctx.db.query.clients.findFirst({
 						where: eq(clients.id, input.clientId),
