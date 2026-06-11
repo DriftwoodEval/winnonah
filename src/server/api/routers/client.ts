@@ -1432,7 +1432,11 @@ export const clientRouter = createTRPCRouter({
 			if (input.asdAdhd !== undefined) {
 				updateData.asdAdhd = input.asdAdhd;
 
-				if (ctx.session.user.accessToken && ctx.session.user.refreshToken) {
+				if (
+					ctx.session.user.accessToken &&
+					ctx.session.user.refreshToken &&
+					!isShellClientId(input.clientId)
+				) {
 					try {
 						await updatePunchData(ctx.session, input.clientId.toString(), {
 							asdAdhd: input.asdAdhd ?? "",
@@ -1448,7 +1452,11 @@ export const clientRouter = createTRPCRouter({
 			if (input.language !== undefined) {
 				updateData.language = input.language;
 
-				if (ctx.session.user.accessToken && ctx.session.user.refreshToken) {
+				if (
+					ctx.session.user.accessToken &&
+					ctx.session.user.refreshToken &&
+					!isShellClientId(input.clientId)
+				) {
 					try {
 						await updatePunchData(ctx.session, input.clientId.toString(), {
 							language: input.language ?? undefined,
