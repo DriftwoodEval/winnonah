@@ -23,6 +23,7 @@ from utils.fax import (
     ENV_FAX_FOLDER_ID,
     ENV_REPORT_FAX_FROM_EMAIL,
     FAX_REPORT_ENV_VARS,
+    batch_move_files,
     check_for_subfolders,
     copy_file,
     extract_fax_number,
@@ -103,8 +104,12 @@ def _send_fax(to_addr: str, attachments: list[tuple[bytes, str]]) -> bool:
     return result is not None
 
 
-def send_fax_with_gen_cover(folder_id: str, folder_name: str) -> bool:
-    """Send all files in the folder with the generated 'Fax Cover' attachment first."""
+def send_fax_with_gen_cover(folder_id: str, folder_name: str) -> list[dict] | None:
+    """Send all files in the folder with the generated 'Fax Cover' attachment first.
+
+    Returns the non-cover files on success (caller uses them to move to completed),
+    or None on failure.
+    """
     fax_number = extract_fax_number(folder_name)
     address = f"{fax_number}@redfax.com"
     logger.info(f"Attempting to send to {address}")
@@ -115,15 +120,15 @@ def send_fax_with_gen_cover(folder_id: str, folder_name: str) -> bool:
 
     if not cover_files:
         logger.error(f"Missing Fax Cover in {folder_name}")
-        return False
+        return None
 
     try:
         attachments = [(get_file_as_bytes(cover_files[0]), "Fax Cover.pdf")]
         attachments += [(get_file_as_bytes(f), f["name"]) for f in other_files]
-        return _send_fax(address, attachments)
+        return other_files if _send_fax(address, attachments) else None
     except Exception as e:
         logger.error(f"Error building attachments for {folder_name}: {e}")
-        return False
+        return None
 
 
 def send_fax_with_signed_cover(
@@ -153,11 +158,9 @@ def send_fax_with_signed_cover(
 # ── Post-send cleanup ─────────────────────────────────────────────────────
 
 
-def move_reports_to_completed(folder_id: str) -> None:
+def move_reports_to_completed(files: list[dict], folder_id: str) -> None:
     completed_id = os.getenv(ENV_FAX_COMPLETED_FOLDER_ID)
-    for f in list_files_in_folder(folder_id):
-        if f["name"] != "Fax Cover":
-            move_file(f["id"], completed_id)
+    batch_move_files([f["id"] for f in files], completed_id, folder_id)
 
 
 # ── Orchestrators ─────────────────────────────────────────────────────────
@@ -205,8 +208,9 @@ def send_report_faxes() -> None:
         ):
             logger.info(f"Sending fax for {folder_name}")
             try:
-                if send_fax_with_gen_cover(folder_id, folder_name):
-                    move_reports_to_completed(folder_id)
+                sent_files = send_fax_with_gen_cover(folder_id, folder_name)
+                if sent_files is not None:
+                    move_reports_to_completed(sent_files, folder_id)
                 else:
                     logger.warning(f"Skipping move for {folder_name} — send failed.")
             except Exception as e:

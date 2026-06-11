@@ -183,6 +183,24 @@ def move_file(file_id: str, dest_folder_id: str) -> None:
     ).execute()
 
 
+def batch_move_files(
+    file_ids: list[str], dest_folder_id: str, src_folder_id: str
+) -> None:
+    """Move multiple files to dest_folder_id in a single HTTP batch request."""
+    service = _drive()
+    batch = service.new_batch_http_request()
+    for file_id in file_ids:
+        batch.add(
+            service.files().update(
+                fileId=file_id,
+                addParents=dest_folder_id,
+                removeParents=src_folder_id,
+                fields="id",
+            )
+        )
+    batch.execute()
+
+
 def get_file_as_bytes(file: dict) -> bytes:
     """Export Google Docs as PDF; download all other file types as-is."""
     service = _drive()
