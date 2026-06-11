@@ -3,23 +3,30 @@ from datetime import date, datetime
 from pathlib import Path
 from typing import Any
 
+import loguru
 import pandas as pd
 from loguru import logger
 
 
-def json_log_format(record: dict) -> str:
+def json_log_format(record: loguru.Record) -> str:
+    # Escape braces so loguru's format_map treats this as a literal string, not a template.
+    # format_map then unescapes {{ → { and }} → }, restoring valid JSON.
     return (
-        _json.dumps(
-            {
-                "time": record["time"].isoformat(),
-                "level": record["level"].name,
-                "module": record["name"],
-                "function": record["function"],
-                "line": record["line"],
-                "message": record["message"],
-            }
+        (
+            _json.dumps(
+                {
+                    "time": record["time"].isoformat(),
+                    "level": record["level"].name,
+                    "module": record["name"],
+                    "function": record["function"],
+                    "line": record["line"],
+                    "message": record["message"],
+                }
+            )
+            + "\n"
         )
-        + "\n"
+        .replace("{", "{{")
+        .replace("}", "}}")
     )
 
 
