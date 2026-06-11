@@ -1,11 +1,11 @@
-import { asc, eq, getTableColumns, sql } from "drizzle-orm";
+import { asc, eq, getTableColumns, ne, sql } from "drizzle-orm";
 import { z } from "zod";
 import { fetchWithCache } from "~/lib/cache";
 import { syncPunchData } from "~/lib/google";
 import { getDistanceSQL } from "~/lib/utils";
 import { createTRPCRouter, protectedProcedure } from "~/server/api/trpc";
 import { db } from "~/server/db";
-import { clients, schedulingClients } from "~/server/db/schema";
+import { clients, evaluators, schedulingClients } from "~/server/db/schema";
 
 export const schedulingRouter = createTRPCRouter({
 	get: protectedProcedure.query(async ({ ctx }) => {
@@ -84,6 +84,7 @@ export const schedulingRouter = createTRPCRouter({
 			"evaluators:all",
 			async () => {
 				const evaluatorsWithOffices = await ctx.db.query.evaluators.findMany({
+					where: ne(evaluators.archived, true),
 					orderBy: (evaluators, { asc }) => [asc(evaluators.providerName)],
 					with: {
 						offices: { with: { office: true } },
@@ -219,6 +220,7 @@ export const schedulingRouter = createTRPCRouter({
 			"evaluators:all",
 			async () => {
 				const evaluatorsWithOffices = await ctx.db.query.evaluators.findMany({
+					where: ne(evaluators.archived, true),
 					orderBy: (evaluators, { asc }) => [asc(evaluators.providerName)],
 					with: {
 						offices: { with: { office: true } },
