@@ -2,6 +2,7 @@ import asyncio
 import json
 import os
 import re
+import time
 from contextlib import asynccontextmanager
 from datetime import UTC, datetime
 from pathlib import Path
@@ -10,6 +11,7 @@ from dotenv import load_dotenv
 from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.responses import FileResponse, Response
 from googleapiclient.discovery import build
+from loguru import logger
 from pydantic import BaseModel, ConfigDict, Field
 
 import appointment_reminders
@@ -25,8 +27,11 @@ from utils.constants import (
 from utils.database import get_db, get_python_config, rematch_evaluator
 from utils.forms import fill_select_health_form
 from utils.google import google_authenticate, send_gmail, update_gcal_event_title
+from utils.misc import json_log_format
 
 load_dotenv()
+
+logger.add("logs/api.log", format=json_log_format, rotation="500 MB")
 
 
 @asynccontextmanager
@@ -39,6 +44,17 @@ async def lifespan(app: FastAPI):  # noqa: ARG001
 app = FastAPI(lifespan=lifespan)
 app.include_router(greeter_proxy.router)
 app.include_router(appointment_reminders.router)
+
+
+@app.middleware("http")
+async def log_requests(request: Request, call_next):
+    start = time.perf_counter()
+    response = await call_next(request)
+    duration_ms = (time.perf_counter() - start) * 1000
+    logger.info(
+        f"{request.method} {request.url.path} {response.status_code} {duration_ms:.0f}ms"
+    )
+    return response
 
 
 class ClaimRequest(BaseModel):
