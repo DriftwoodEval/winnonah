@@ -196,7 +196,7 @@ export function AdditionalInsuranceAppointmentsDisplay({
 				<div className="space-y-6 p-4">
 					{waitForPA && (
 						<Badge className="w-full justify-center py-1" variant="destructive">
-							PRIOR AUTHORIZATION REQUIRED
+							PRIOR AUTH REQUIRED
 						</Badge>
 					)}
 					{using90000BillingCode && (
