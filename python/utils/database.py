@@ -34,6 +34,7 @@ from utils.constants import (
     TABLE_IN_PERSON_ASSESSMENT,
     TABLE_INSURANCE,
     TABLE_INSURANCE_ALIAS,
+    TABLE_INSURANCE_REVIEW,
     TABLE_PYTHON_CONFIG,
     TABLE_QUESTIONNAIRE,
     TABLE_QUESTIONNAIRE_RULE,
@@ -357,6 +358,86 @@ def sync_client_insurance_from_policies(connection: Connection[DictCursor]):
         cursor.execute(sql)
     connection.commit()
     logger.info("Client insurance summary synced from policies.")
+
+
+SCM_ALIAS = "SCM"
+ANDREW_EMAIL = "andrew@driftwoodeval.com"
+
+
+@provide_connection
+def sync_scm_insurance_reviews(connection: Connection[DictCursor]):
+    """Creates insurance_review rows for SCM clients that don't have one yet."""
+    logger.debug("Syncing SCM insurance review records")
+
+    # Collect all insurance names (shortName + aliases) that map to SCM
+    with connection.cursor() as cursor:
+        cursor.execute(
+            f"""
+            SELECT i.id, i.shortName
+            FROM `{TABLE_INSURANCE}` i
+            LEFT JOIN `{TABLE_INSURANCE_ALIAS}` a ON a.insuranceId = i.id
+            WHERE i.shortName = %s OR a.name = %s
+            """,
+            (SCM_ALIAS, SCM_ALIAS),
+        )
+        scm_insurance_rows = cursor.fetchall()
+
+    if not scm_insurance_rows:
+        logger.info("No SCM insurance found; skipping review sync.")
+        return
+
+    scm_ids = list({row["id"] for row in scm_insurance_rows})
+    id_placeholders = ", ".join(["%s"] * len(scm_ids))
+
+    with connection.cursor() as cursor:
+        cursor.execute(
+            f"""
+            SELECT i.shortName AS name FROM `{TABLE_INSURANCE}` i WHERE i.id IN ({id_placeholders})
+            UNION
+            SELECT a.name FROM `{TABLE_INSURANCE_ALIAS}` a WHERE a.insuranceId IN ({id_placeholders})
+            """,
+            scm_ids + scm_ids,
+        )
+        name_rows = cursor.fetchall()
+
+    scm_names = [row["name"] for row in name_rows]
+    if not scm_names:
+        return
+
+    name_placeholders = ", ".join(["%s"] * len(scm_names))
+
+    with connection.cursor() as cursor:
+        cursor.execute(
+            f"""
+            SELECT c.id
+            FROM `{TABLE_CLIENT}` c
+            LEFT JOIN `{TABLE_INSURANCE_REVIEW}` ir ON ir.clientId = c.id
+            WHERE c.primaryInsurance IN ({name_placeholders})
+              AND ir.clientId IS NULL
+            """,
+            scm_names,
+        )
+        clients_to_backfill = cursor.fetchall()
+
+    if not clients_to_backfill:
+        logger.info("All SCM clients already have insurance review records.")
+        return
+
+    rows = [
+        (client["id"], True, ANDREW_EMAIL, ANDREW_EMAIL)
+        for client in clients_to_backfill
+    ]
+
+    with connection.cursor() as cursor:
+        cursor.executemany(
+            f"""
+            INSERT INTO `{TABLE_INSURANCE_REVIEW}` (clientId, enabled, claimedUserEmail, updatedBy)
+            VALUES (%s, %s, %s, %s)
+            """,
+            rows,
+        )
+    connection.commit()
+    logger.info(f"Created {len(rows)} SCM insurance review record(s).")
 
 
 @provide_connection

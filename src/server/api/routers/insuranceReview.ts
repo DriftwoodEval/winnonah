@@ -1,5 +1,5 @@
 import type { JSONContent } from "@tiptap/core";
-import { and, desc, eq, or } from "drizzle-orm";
+import { and, desc, eq } from "drizzle-orm";
 import { z } from "zod";
 import { env } from "~/env";
 import {
@@ -9,17 +9,13 @@ import {
 } from "~/server/api/trpc";
 import {
 	clients,
-	insuranceAliases,
 	insuranceReview,
 	insuranceReviewHistory,
-	insurances,
 	notes,
 	users,
 } from "~/server/db/schema";
 import { saveNoteInternal } from "./notes";
 
-const SCM_ALIAS = "SCM";
-const ANDREW_EMAIL = "andrew@driftwoodeval.com";
 const HISTORY_MERGE_WINDOW = 5 * 60 * 1000;
 
 function areContentsEqual(
@@ -36,64 +32,10 @@ function extractTextFromContent(content: JSONContent): string {
 	return content.content.map(extractTextFromContent).join("");
 }
 
-async function isClientSCM(
-	db: Parameters<
-		Parameters<typeof protectedProcedure.query>[0]
-	>[0]["ctx"]["db"],
-	primaryInsurance: string | null | undefined,
-): Promise<boolean> {
-	if (!primaryInsurance) return false;
-
-	const match = await db
-		.select({ id: insurances.id, shortName: insurances.shortName })
-		.from(insurances)
-		.leftJoin(insuranceAliases, eq(insuranceAliases.insuranceId, insurances.id))
-		.where(
-			or(
-				eq(insurances.shortName, primaryInsurance),
-				eq(insuranceAliases.name, primaryInsurance),
-			),
-		)
-		.limit(1);
-
-	const matched = match[0];
-	if (!matched) return false;
-
-	if (matched.shortName === SCM_ALIAS) return true;
-
-	const scmAlias = await db.query.insuranceAliases.findFirst({
-		where: (t, { and }) =>
-			and(eq(t.insuranceId, matched.id), eq(t.name, SCM_ALIAS)),
-	});
-
-	return !!scmAlias;
-}
-
 export const insuranceReviewRouter = createTRPCRouter({
 	getByClientId: protectedProcedure
 		.input(z.number())
 		.query(async ({ ctx, input: clientId }) => {
-			const existing = await ctx.db.query.insuranceReview.findFirst({
-				where: eq(insuranceReview.clientId, clientId),
-			});
-
-			if (existing) return existing;
-
-			const client = await ctx.db.query.clients.findFirst({
-				where: eq(clients.id, clientId),
-				columns: { primaryInsurance: true },
-			});
-
-			const isSCM = await isClientSCM(ctx.db, client?.primaryInsurance);
-
-			await ctx.db.insert(insuranceReview).values({
-				clientId,
-				content: null,
-				enabled: isSCM,
-				claimedUserEmail: isSCM ? ANDREW_EMAIL : null,
-				updatedBy: ctx.session.user.email,
-			});
-
 			return ctx.db.query.insuranceReview.findFirst({
 				where: eq(insuranceReview.clientId, clientId),
 			});

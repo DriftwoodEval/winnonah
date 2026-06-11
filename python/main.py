@@ -186,6 +186,7 @@ def import_from_ta(
             raw_insurance, connection=conn
         )
         utils.database.sync_client_insurance_from_policies(connection=conn)
+        utils.database.sync_scm_insurance_reviews(connection=conn)
 
         all_clients_from_db = utils.database.get_all_clients(connection=conn)
 
