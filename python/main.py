@@ -322,6 +322,13 @@ def main(
             help="Resync [CONFIRMED] tags on calendar events for all confirmed appointments",
         ),
     ] = False,
+    fax: Annotated[
+        bool,
+        typer.Option(
+            "--fax",
+            help="Run all fax operations (generate and send close faxes and report faxes)",
+        ),
+    ] = False,
     client: Annotated[
         list[str] | None,
         typer.Option(
@@ -375,6 +382,15 @@ def main(
     if resync_confirmed:
         logger.info("Resyncing [CONFIRMED] tags on calendar events")
         process_resync_confirmed()
+        return
+
+    if fax:
+        logger.info("Running fax operations")
+        replace_misformatted_doctors()
+        generate_close_faxes()
+        generate_report_cover_pages()
+        send_close_faxes()
+        send_report_faxes()
         return
 
     force_clients: pd.DataFrame | None = None
