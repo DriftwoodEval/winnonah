@@ -1478,6 +1478,22 @@ export const clientRouter = createTRPCRouter({
 				.set(updateData)
 				.where(eq(clients.id, input.clientId));
 
+			if (input.recordsNeeded === "Needed") {
+				const pendingRequest =
+					await ctx.db.query.externalRecordRequests.findFirst({
+						where: and(
+							eq(externalRecordRequests.clientId, input.clientId),
+							isNull(externalRecordRequests.requestedDate),
+						),
+					});
+				if (!pendingRequest) {
+					await ctx.db.insert(externalRecordRequests).values({
+						clientId: input.clientId,
+						createdBy: ctx.session.user.email,
+					});
+				}
+			}
+
 			const updatedClient = await ctx.db.query.clients.findFirst({
 				where: eq(clients.id, input.clientId),
 			});

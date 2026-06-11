@@ -146,6 +146,7 @@ export function RecordsNoteEditor({
 	const updateClientMutation = api.clients.update.useMutation({
 		onSuccess: () => {
 			utils.clients.getOne.invalidate({ value: clientId.toString() });
+			utils.externalRecords.getExternalRecordByClientId.invalidate(clientId);
 		},
 		onError: (error) => handleError(error, "update client 'Needed' status"),
 	});
@@ -367,11 +368,7 @@ export function RecordsNoteEditor({
 
 	const tooltipRecordsNeeded = !canRecordNote && "Missing permissions.";
 
-	const tooltipAddRequest = !recordsNeeded
-		? "The 'Needed' flag must be set first."
-		: recordsNeeded !== "Needed"
-			? "Records aren't needed."
-			: !canRecordRequested && "Missing permissions.";
+	const tooltipAddRequest = !canRecordRequested && "Missing permissions.";
 
 	const recordsNeededId = useId();
 	const newRequestId = useId();
@@ -478,30 +475,30 @@ export function RecordsNoteEditor({
 								/>
 							</div>
 						))}
-					{canAddRequest && !requests.some((r) => !r.requestedDate) && (
-						<Tooltip>
-							<TooltipTrigger>
-								<div className="flex items-center gap-2">
-									<Checkbox
-										checked={false}
-										disabled={!canAddRequest}
-										id={newRequestId}
-										onCheckedChange={(checked) => {
-											if (checked) handleFlagRequest();
-										}}
-									/>
-									<Label htmlFor={newRequestId}>
-										{requests.length === 0 ? "Request?" : "Request Again?"}
-									</Label>
-								</div>
-							</TooltipTrigger>
-							{!canAddRequest && !readOnly && (
-								<TooltipContent>
-									<p>{tooltipAddRequest}</p>
-								</TooltipContent>
-							)}
-						</Tooltip>
-					)}
+					{canAddRequest &&
+						requests.length > 0 &&
+						!requests.some((r) => !r.requestedDate) && (
+							<Tooltip>
+								<TooltipTrigger>
+									<div className="flex items-center gap-2">
+										<Checkbox
+											checked={false}
+											disabled={!canAddRequest}
+											id={newRequestId}
+											onCheckedChange={(checked) => {
+												if (checked) handleFlagRequest();
+											}}
+										/>
+										<Label htmlFor={newRequestId}>Request Again?</Label>
+									</div>
+								</TooltipTrigger>
+								{!canAddRequest && !readOnly && (
+									<TooltipContent>
+										<p>{tooltipAddRequest}</p>
+									</TooltipContent>
+								)}
+							</Tooltip>
+						)}
 				</div>
 
 				<div className="flex flex-row items-center gap-3">
