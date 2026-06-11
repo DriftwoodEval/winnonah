@@ -21,11 +21,16 @@ scrape_configs:
           expressions:
             level: level
             ts: time
+            user: user
+      - regex:
+          source: user
+          expression: '^(?P<username>[^@]+)(?:@.*)?$'
       - timestamp:
           source: ts
           format: UnixMs
       - labels:
           level:
+          username:
 
   - job_name: winnonah-python
     static_configs:

@@ -212,7 +212,7 @@
 			"targets": [
 				{
 					"datasource": { "type": "loki", "uid": "${datasource}" },
-					"expr": "{service=~\"$service\", app=~\"$app\"} | json | level=~\"$level\" | line_format `{{.level}} [{{.app}}/{{.module}}]{{if .user}} ({{.user | splitList \"@\" | first}}){{end}} {{.message}}`",
+					"expr": "{service=~\"$service\", app=~\"$app\"} | json | level=~\"$level\" | line_format `{{.level}} [{{.app}}/{{.module}}] {{with .username}}({{.}}) {{end}}{{.message}}`",
 					"maxLines": 500,
 					"refId": "A"
 				}
