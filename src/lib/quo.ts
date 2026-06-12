@@ -1,5 +1,23 @@
+import { logger } from "~/lib/logger";
+
+async function timedFetch(
+	url: string,
+	options?: RequestInit,
+): Promise<Response> {
+	const start = Date.now();
+	const endpoint = new URL(url).pathname;
+	try {
+		return await fetch(url, options);
+	} finally {
+		logger.debug(
+			{ duration_ms: Date.now() - start, external_api: "openphone", endpoint },
+			"external api call",
+		);
+	}
+}
+
 export async function getOpenPhoneUsers(apiKey: string) {
-	const response = await fetch("https://api.openphone.com/v1/users", {
+	const response = await timedFetch("https://api.openphone.com/v1/users", {
 		headers: {
 			Authorization: apiKey,
 		},
@@ -19,7 +37,7 @@ export async function getOpenPhoneUsers(apiKey: string) {
 		}[];
 	};
 
-	const numbersResponse = await fetch(
+	const numbersResponse = await timedFetch(
 		"https://api.openphone.com/v1/phone-numbers",
 		{
 			headers: {
@@ -77,7 +95,7 @@ export async function getMessages(
 	params.append("phoneNumberId", phoneNumberId);
 	params.append("participants", participantPhone);
 
-	const response = await fetch(
+	const response = await timedFetch(
 		`https://api.openphone.com/v1/messages?${params}`,
 		{
 			headers: { Authorization: apiKey },
@@ -120,9 +138,12 @@ export async function getCalls(
 	params.append("phoneNumberId", phoneNumberId);
 	params.append("participants", participantPhone);
 
-	const response = await fetch(`https://api.openphone.com/v1/calls?${params}`, {
-		headers: { Authorization: apiKey },
-	});
+	const response = await timedFetch(
+		`https://api.openphone.com/v1/calls?${params}`,
+		{
+			headers: { Authorization: apiKey },
+		},
+	);
 
 	if (!response.ok) {
 		const errorData = (await response.json()) as { message?: string };
@@ -173,7 +194,7 @@ export async function sendMessage(
 	message: string,
 	userId?: string,
 ) {
-	const response = await fetch("https://api.openphone.com/v1/messages", {
+	const response = await timedFetch("https://api.openphone.com/v1/messages", {
 		method: "POST",
 		headers: {
 			Authorization: apiKey,

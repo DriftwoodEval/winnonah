@@ -5,6 +5,7 @@ import { and, eq, inArray, not, notInArray, sql } from "drizzle-orm";
 import { OAuth2Client } from "google-auth-library";
 import type { Session } from "next-auth";
 import { env } from "~/env";
+import { logger } from "~/lib/logger";
 
 import { db } from "~/server/db";
 import {
@@ -20,6 +21,22 @@ import {
 	TEST_NAMES,
 } from "./constants";
 import type { Client, FullClientInfo } from "./models";
+
+async function googleApiCall<T>(
+	api: string,
+	endpoint: string,
+	fn: () => Promise<T>,
+): Promise<T> {
+	const start = Date.now();
+	try {
+		return await fn();
+	} finally {
+		logger.debug(
+			{ duration_ms: Date.now() - start, external_api: api, endpoint },
+			"external api call",
+		);
+	}
+}
 
 // Google Drive
 export function getDriveClient(session: Session) {
@@ -48,10 +65,9 @@ export const renameDriveFolder = async (
 ) => {
 	const driveApi = getDriveClient(session);
 
-	const folder = await driveApi.files.get({
-		fileId: folderId,
-		fields: "name",
-	});
+	const folder = await googleApiCall("google-drive", "files.get", () =>
+		driveApi.files.get({ fileId: folderId, fields: "name" }),
+	);
 
 	const currentFolderName = folder.data.name;
 	const regex = /\[\d+\]/g;
@@ -59,12 +75,12 @@ export const renameDriveFolder = async (
 	if (clientId === null) {
 		const updatedFolderName = currentFolderName?.replace(regex, "").trim();
 		if (updatedFolderName !== currentFolderName) {
-			await driveApi.files.update({
-				fileId: folderId,
-				requestBody: {
-					name: updatedFolderName,
-				},
-			});
+			await googleApiCall("google-drive", "files.update", () =>
+				driveApi.files.update({
+					fileId: folderId,
+					requestBody: { name: updatedFolderName },
+				}),
+			);
 		}
 	} else {
 		const baseName =
@@ -72,12 +88,12 @@ export const renameDriveFolder = async (
 		const updatedFolderName = `${baseName} [${clientId}]`;
 
 		if (updatedFolderName !== currentFolderName) {
-			await driveApi.files.update({
-				fileId: folderId,
-				requestBody: {
-					name: updatedFolderName,
-				},
-			});
+			await googleApiCall("google-drive", "files.update", () =>
+				driveApi.files.update({
+					fileId: folderId,
+					requestBody: { name: updatedFolderName },
+				}),
+			);
 		}
 	}
 };
@@ -105,11 +121,16 @@ export const getPunchData = async (session: Session) => {
 	const { PUNCHLIST_ID, PUNCHLIST_RANGE } = env;
 	const sheetsApi = getSheetsClient(session);
 
-	const response = await sheetsApi.spreadsheets.values.get({
-		spreadsheetId: PUNCHLIST_ID,
-		range: PUNCHLIST_RANGE,
-		valueRenderOption: "UNFORMATTED_VALUE",
-	});
+	const response = await googleApiCall(
+		"google-sheets",
+		"spreadsheets.values.get",
+		() =>
+			sheetsApi.spreadsheets.values.get({
+				spreadsheetId: PUNCHLIST_ID,
+				range: PUNCHLIST_RANGE,
+				valueRenderOption: "UNFORMATTED_VALUE",
+			}),
+	);
 
 	const data = response.data.values ?? [];
 	const headers = data[0] ?? [];
@@ -274,10 +295,15 @@ export const updatePunchData = async (
 	const { PUNCHLIST_ID, PUNCHLIST_RANGE } = env;
 	const sheetsApi = getSheetsClient(session);
 
-	const response = await sheetsApi.spreadsheets.values.get({
-		spreadsheetId: PUNCHLIST_ID,
-		range: PUNCHLIST_RANGE,
-	});
+	const response = await googleApiCall(
+		"google-sheets",
+		"spreadsheets.values.get",
+		() =>
+			sheetsApi.spreadsheets.values.get({
+				spreadsheetId: PUNCHLIST_ID,
+				range: PUNCHLIST_RANGE,
+			}),
+	);
 
 	const data = response.data.values ?? [];
 	const headers = data[0] ?? [];
@@ -403,13 +429,18 @@ export const updatePunchData = async (
 	}
 
 	if (updateRequests.length > 0) {
-		await sheetsApi.spreadsheets.values.batchUpdate({
-			spreadsheetId: PUNCHLIST_ID,
-			requestBody: {
-				valueInputOption: "USER_ENTERED",
-				data: updateRequests,
-			},
-		});
+		await googleApiCall(
+			"google-sheets",
+			"spreadsheets.values.batchUpdate",
+			() =>
+				sheetsApi.spreadsheets.values.batchUpdate({
+					spreadsheetId: PUNCHLIST_ID,
+					requestBody: {
+						valueInputOption: "USER_ENTERED",
+						data: updateRequests,
+					},
+				}),
+		);
 	}
 
 	return true;
@@ -465,10 +496,15 @@ export const pushToPunch = async (
 	const { PUNCHLIST_ID, PUNCHLIST_RANGE } = env;
 	const sheetsApi = getSheetsClient(session);
 
-	const response = await sheetsApi.spreadsheets.values.get({
-		spreadsheetId: PUNCHLIST_ID,
-		range: PUNCHLIST_RANGE,
-	});
+	const response = await googleApiCall(
+		"google-sheets",
+		"spreadsheets.values.get",
+		() =>
+			sheetsApi.spreadsheets.values.get({
+				spreadsheetId: PUNCHLIST_ID,
+				range: PUNCHLIST_RANGE,
+			}),
+	);
 
 	const data = response.data.values ?? [];
 	const headers = data[0] ?? [];
@@ -677,10 +713,9 @@ export async function createAvailabilityEvent(
 		event.recurrence = [eventData.recurrenceRule];
 	}
 
-	const response = await calendar.events.insert({
-		calendarId: "primary",
-		requestBody: event,
-	});
+	const response = await googleApiCall("google-calendar", "events.insert", () =>
+		calendar.events.insert({ calendarId: "primary", requestBody: event }),
+	);
 
 	return response.data;
 }
@@ -791,14 +826,16 @@ export async function getAvailabilityEvents(
 	let pageToken: string | undefined;
 
 	do {
-		const response = await calendarApi.events.list({
-			calendarId: "primary",
-			timeMin: startDate.toISOString(),
-			timeMax: endDate.toISOString(),
-			singleEvents: true, // Expand recurring events
-			orderBy: "startTime",
-			pageToken: pageToken,
-		});
+		const response = await googleApiCall("google-calendar", "events.list", () =>
+			calendarApi.events.list({
+				calendarId: "primary",
+				timeMin: startDate.toISOString(),
+				timeMax: endDate.toISOString(),
+				singleEvents: true,
+				orderBy: "startTime",
+				pageToken: pageToken,
+			}),
+		);
 
 		if (response.data.items) {
 			allItems.push(...response.data.items);
@@ -917,11 +954,13 @@ export async function updateAvailabilityEvent(
 		event.recurrence = [];
 	}
 
-	const response = await calendar.events.patch({
-		calendarId: "primary",
-		eventId: eventId,
-		requestBody: event,
-	});
+	const response = await googleApiCall("google-calendar", "events.patch", () =>
+		calendar.events.patch({
+			calendarId: "primary",
+			eventId: eventId,
+			requestBody: event,
+		}),
+	);
 
 	return response.data;
 }
@@ -932,10 +971,9 @@ export async function deleteAvailabilityEvent(
 ) {
 	const calendar = getCalendarClient(session);
 
-	await calendar.events.delete({
-		calendarId: "primary",
-		eventId: eventId,
-	});
+	await googleApiCall("google-calendar", "events.delete", () =>
+		calendar.events.delete({ calendarId: "primary", eventId: eventId }),
+	);
 
 	return { success: true };
 }

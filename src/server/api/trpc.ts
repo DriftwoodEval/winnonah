@@ -110,7 +110,11 @@ const loggerMiddleware = t.middleware(async ({ next, path, ctx }) => {
 	});
 
 	const end = Date.now();
-	procedureLogger.debug({ duration_ms: end - start }, "query executed");
+	if (result.ok) {
+		procedureLogger.debug({ duration_ms: end - start }, "query executed");
+	} else {
+		procedureLogger.error({ duration_ms: end - start }, "query failed");
+	}
 
 	return result;
 });

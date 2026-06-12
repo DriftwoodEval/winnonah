@@ -229,7 +229,184 @@
 		},
 		{
 			"datasource": { "type": "loki", "uid": "${datasource}" },
-			"gridPos": { "h": 22, "w": 24, "x": 0, "y": 20 },
+			"fieldConfig": {
+				"defaults": {
+					"custom": {
+						"drawStyle": "line",
+						"fillOpacity": 10,
+						"lineWidth": 1,
+						"showPoints": "never"
+					},
+					"unit": "reqps"
+				}
+			},
+			"gridPos": { "h": 8, "w": 24, "x": 0, "y": 20 },
+			"id": 7,
+			"options": {
+				"legend": {
+					"displayMode": "list",
+					"placement": "bottom",
+					"showLegend": true
+				},
+				"tooltip": { "mode": "multi", "sort": "desc" }
+			},
+			"title": "tRPC Request Volume by Path",
+			"type": "timeseries",
+			"targets": [
+				{
+					"datasource": { "type": "loki", "uid": "${datasource}" },
+					"expr": "sum by (path) (rate({service=\"winnonah\"} | json | duration_ms != \"\" [$__interval]))",
+					"legendFormat": "{{path}}",
+					"refId": "A"
+				}
+			]
+		},
+		{
+			"datasource": { "type": "loki", "uid": "${datasource}" },
+			"fieldConfig": {
+				"defaults": {
+					"custom": {
+						"drawStyle": "line",
+						"fillOpacity": 10,
+						"lineWidth": 1,
+						"showPoints": "never"
+					},
+					"color": { "fixedColor": "red", "mode": "fixed" },
+					"unit": "reqps"
+				}
+			},
+			"gridPos": { "h": 8, "w": 24, "x": 0, "y": 28 },
+			"id": 8,
+			"options": {
+				"legend": {
+					"displayMode": "list",
+					"placement": "bottom",
+					"showLegend": true
+				},
+				"tooltip": { "mode": "multi", "sort": "desc" }
+			},
+			"title": "tRPC Error Rate by Path",
+			"type": "timeseries",
+			"targets": [
+				{
+					"datasource": { "type": "loki", "uid": "${datasource}" },
+					"expr": "sum by (path) (rate({service=\"winnonah\"} | json | message=\"query failed\" [$__interval]))",
+					"legendFormat": "{{path}}",
+					"refId": "A"
+				}
+			]
+		},
+		{
+			"datasource": { "type": "loki", "uid": "${datasource}" },
+			"fieldConfig": {
+				"defaults": {
+					"custom": {
+						"drawStyle": "line",
+						"fillOpacity": 10,
+						"lineWidth": 1,
+						"showPoints": "never"
+					},
+					"unit": "ms"
+				}
+			},
+			"gridPos": { "h": 8, "w": 24, "x": 0, "y": 36 },
+			"id": 9,
+			"options": {
+				"legend": {
+					"displayMode": "list",
+					"placement": "bottom",
+					"showLegend": true
+				},
+				"tooltip": { "mode": "multi", "sort": "desc" }
+			},
+			"title": "Avg External API Duration",
+			"type": "timeseries",
+			"targets": [
+				{
+					"datasource": { "type": "loki", "uid": "${datasource}" },
+					"expr": "avg_over_time({service=\"winnonah\"} | json | external_api != \"\" | unwrap duration_ms [$__interval]) by (external_api, endpoint)",
+					"legendFormat": "{{external_api}} / {{endpoint}}",
+					"refId": "A"
+				}
+			]
+		},
+		{
+			"datasource": { "type": "loki", "uid": "${datasource}" },
+			"fieldConfig": {
+				"defaults": {
+					"color": { "fixedColor": "blue", "mode": "fixed" },
+					"noValue": "0",
+					"thresholds": {
+						"mode": "absolute",
+						"steps": [{ "color": "green", "value": null }]
+					}
+				}
+			},
+			"gridPos": { "h": 4, "w": 12, "x": 0, "y": 44 },
+			"id": 10,
+			"options": {
+				"colorMode": "value",
+				"graphMode": "none",
+				"justifyMode": "center",
+				"orientation": "auto",
+				"reduceOptions": {
+					"calcs": ["lastNotNull"],
+					"fields": "",
+					"values": false
+				},
+				"textMode": "auto"
+			},
+			"title": "Active Users",
+			"type": "stat",
+			"targets": [
+				{
+					"datasource": { "type": "loki", "uid": "${datasource}" },
+					"expr": "count(sum by (username) (count_over_time({service=\"winnonah\"} | json | username != \"\" | username != \"anonymous\" [$__range])))",
+					"instant": true,
+					"refId": "A"
+				}
+			]
+		},
+		{
+			"datasource": { "type": "loki", "uid": "${datasource}" },
+			"fieldConfig": {
+				"defaults": {
+					"color": { "mode": "thresholds" },
+					"noValue": "0",
+					"thresholds": {
+						"mode": "absolute",
+						"steps": [
+							{ "color": "green", "value": null },
+							{ "color": "orange", "value": 1 },
+							{ "color": "red", "value": 10 }
+						]
+					}
+				}
+			},
+			"gridPos": { "h": 4, "w": 12, "x": 12, "y": 44 },
+			"id": 11,
+			"options": {
+				"colorMode": "background",
+				"graphMode": "none",
+				"justifyMode": "center",
+				"orientation": "auto",
+				"reduceOptions": { "calcs": ["sum"], "fields": "", "values": false },
+				"textMode": "auto"
+			},
+			"title": "Slow Queries (>500ms)",
+			"type": "stat",
+			"targets": [
+				{
+					"datasource": { "type": "loki", "uid": "${datasource}" },
+					"expr": "sum(count_over_time({service=\"winnonah\"} | json | duration_ms > 500 [$__range]))",
+					"instant": true,
+					"refId": "A"
+				}
+			]
+		},
+		{
+			"datasource": { "type": "loki", "uid": "${datasource}" },
+			"gridPos": { "h": 22, "w": 24, "x": 0, "y": 48 },
 			"id": 5,
 			"options": {
 				"dedupStrategy": "none",
