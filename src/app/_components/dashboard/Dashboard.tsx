@@ -280,13 +280,9 @@ function PunchListAccordionItem({
 														addScheduling.mutate({
 															clientId: client.id,
 															code:
-																title === SECTION_EVAL_QS_DONE
-																	? "96136"
-																	: "90791",
-															office:
-																title === SECTION_EVAL_QS_DONE
-																	? undefined
-																	: "Virtual",
+																title === SECTION_DA_QS_DONE
+																	? "90791"
+																	: "96136",
 														})
 													}
 													size="icon-sm"

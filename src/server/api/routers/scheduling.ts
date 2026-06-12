@@ -2,7 +2,7 @@ import { asc, eq, getTableColumns, ne, sql } from "drizzle-orm";
 import { z } from "zod";
 import { fetchWithCache } from "~/lib/cache";
 import { syncPunchData } from "~/lib/google";
-import { getDistanceSQL } from "~/lib/utils";
+import { getClosestOfficeKey, getDistanceSQL } from "~/lib/utils";
 import { createTRPCRouter, protectedProcedure } from "~/server/api/trpc";
 import { db } from "~/server/db";
 import { clients, evaluators, schedulingClients } from "~/server/db/schema";
@@ -301,13 +301,33 @@ export const schedulingRouter = createTRPCRouter({
 			let targetOffice = input.office;
 
 			if (!targetOffice) {
-				const client = await ctx.db.query.clients.findFirst({
-					where: eq(clients.id, input.clientId),
-					columns: { referralData: true },
-				});
-
-				if (client?.referralData?.locationPreference === "virtual") {
+				if (input.code === "96136") {
+					const [client, allOffices] = await Promise.all([
+						ctx.db.query.clients.findFirst({
+							where: eq(clients.id, input.clientId),
+							columns: { latitude: true, longitude: true },
+						}),
+						fetchWithCache(ctx, "offices:all", () =>
+							ctx.db.query.offices.findMany(),
+						),
+					]);
+					if (client?.latitude && client?.longitude) {
+						targetOffice = getClosestOfficeKey(
+							parseFloat(client.latitude),
+							parseFloat(client.longitude),
+							allOffices,
+						);
+					}
+				} else if (input.code === "90791") {
 					targetOffice = "Virtual";
+				} else {
+					const client = await ctx.db.query.clients.findFirst({
+						where: eq(clients.id, input.clientId),
+						columns: { referralData: true },
+					});
+					if (client?.referralData?.locationPreference === "virtual") {
+						targetOffice = "Virtual";
+					}
 				}
 			}
 
@@ -445,9 +465,48 @@ export const schedulingRouter = createTRPCRouter({
 				.where(eq(schedulingClients.archived, false));
 			const nextSort = (maxSortResult[0]?.maxSort ?? -1) + 1;
 
-			await ctx.db
-				.update(schedulingClients)
-				.set({ archived: false, createdAt: new Date(), sort: nextSort })
-				.where(eq(schedulingClients.clientId, input.clientId));
+			const existing = await ctx.db.query.schedulingClients.findFirst({
+				where: eq(schedulingClients.clientId, input.clientId),
+				columns: { code: true },
+			});
+
+			let newOffice: string | undefined;
+			if (existing?.code === "96136") {
+				const [client, allOffices] = await Promise.all([
+					ctx.db.query.clients.findFirst({
+						where: eq(clients.id, input.clientId),
+						columns: { latitude: true, longitude: true },
+					}),
+					fetchWithCache(ctx, "offices:all", () =>
+						ctx.db.query.offices.findMany(),
+					),
+				]);
+				if (client?.latitude && client?.longitude) {
+					newOffice = getClosestOfficeKey(
+						parseFloat(client.latitude),
+						parseFloat(client.longitude),
+						allOffices,
+					);
+				}
+			} else if (existing?.code === "90791") {
+				newOffice = "Virtual";
+			}
+
+			if (newOffice !== undefined) {
+				await ctx.db
+					.update(schedulingClients)
+					.set({
+						archived: false,
+						createdAt: new Date(),
+						sort: nextSort,
+						office: newOffice,
+					})
+					.where(eq(schedulingClients.clientId, input.clientId));
+			} else {
+				await ctx.db
+					.update(schedulingClients)
+					.set({ archived: false, createdAt: new Date(), sort: nextSort })
+					.where(eq(schedulingClients.clientId, input.clientId));
+			}
 		}),
 });

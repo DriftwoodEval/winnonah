@@ -231,6 +231,34 @@ export const getLocalTimeFromUTCDate = (
 	);
 };
 
+export function getClosestOfficeKey(
+	clientLat: number,
+	clientLon: number,
+	allOffices: Array<{ key: string; latitude: string; longitude: string }>,
+): string | undefined {
+	if (!allOffices.length) return undefined;
+	const toRad = (v: number) => (v * Math.PI) / 180;
+	let closestKey: string | undefined;
+	let minDist = Infinity;
+	for (const office of allOffices) {
+		const lat2 = parseFloat(office.latitude);
+		const lon2 = parseFloat(office.longitude);
+		const cosAngle = Math.min(
+			1,
+			Math.cos(toRad(clientLat)) *
+				Math.cos(toRad(lat2)) *
+				Math.cos(toRad(lon2) - toRad(clientLon)) +
+				Math.sin(toRad(clientLat)) * Math.sin(toRad(lat2)),
+		);
+		const dist = 3959 * Math.acos(cosAngle);
+		if (dist < minDist) {
+			minDist = dist;
+			closestKey = office.key;
+		}
+	}
+	return closestKey;
+}
+
 export const getDistanceSQL = (
 	lat1: SQL | AnyColumn | string | number | null | undefined,
 	lon1: SQL | AnyColumn | string | number | null | undefined,
