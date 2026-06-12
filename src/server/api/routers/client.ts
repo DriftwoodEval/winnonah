@@ -19,7 +19,6 @@ import {
 	or,
 	sql,
 } from "drizzle-orm";
-import { alias } from "drizzle-orm/mysql-core";
 import { distance as levDistance } from "fastest-levenshtein";
 import { z } from "zod";
 import { env } from "~/env";
@@ -838,61 +837,51 @@ export const clientRouter = createTRPCRouter({
 	}),
 
 	getDuplicateNames: protectedProcedure.query(async ({ ctx }) => {
-		const c1 = alias(clients, "c1");
-		const c2 = alias(clients, "c2");
+		const [allClients, ignoredPairs] = await Promise.all([
+			ctx.db.select().from(clients).where(sql`LENGTH(${clients.id}) != 5`),
+			ctx.db.select().from(duplicateNameIgnore),
+		]);
 
-		const pairs = await ctx.db
-			.select({
-				clientA: getTableColumns(c1),
-				clientB: getTableColumns(c2),
-			})
-			.from(c1)
-			.innerJoin(
-				c2,
-				and(
-					sql`LOWER(${c1.firstName}) = LOWER(${c2.firstName})`,
-					sql`LOWER(${c1.lastName}) = LOWER(${c2.lastName})`,
-					lt(c1.id, c2.id),
-				),
-			)
-			.leftJoin(
-				duplicateNameIgnore,
-				and(
-					eq(duplicateNameIgnore.clientIdA, c1.id),
-					eq(duplicateNameIgnore.clientIdB, c2.id),
-				),
-			)
-			.where(
-				and(
-					isNull(duplicateNameIgnore.id),
-					sql`LENGTH(${c1.id}) != 5`,
-					sql`LENGTH(${c2.id}) != 5`,
-				),
-			)
-			.orderBy(sql`LOWER(${c1.lastName})`, sql`LOWER(${c1.firstName})`, c1.id);
+		const ignoredSet = new Set(
+			ignoredPairs.map((p) => `${p.clientIdA}:${p.clientIdB}`),
+		);
 
-		const grouped = new Map<
-			string,
-			{
-				name: string;
-				pairs: {
-					clientA: (typeof pairs)[0]["clientA"];
-					clientB: (typeof pairs)[0]["clientB"];
-				}[];
-			}
-		>();
-
-		for (const pair of pairs) {
-			const nameKey = `${pair.clientA.firstName.toLowerCase()} ${pair.clientA.lastName.toLowerCase()}`;
-			const group = grouped.get(nameKey) ?? {
-				name: pair.clientA.fullName,
-				pairs: [],
-			};
-			group.pairs.push({ clientA: pair.clientA, clientB: pair.clientB });
-			grouped.set(nameKey, group);
+		const byName = new Map<string, typeof allClients>();
+		for (const c of allClients) {
+			const key = `${c.firstName.toLowerCase()} ${c.lastName.toLowerCase()}`;
+			const group = byName.get(key) ?? [];
+			group.push(c);
+			byName.set(key, group);
 		}
 
-		return Array.from(grouped.values());
+		const grouped: {
+			name: string;
+			pairs: {
+				clientA: (typeof allClients)[0];
+				clientB: (typeof allClients)[0];
+			}[];
+		}[] = [];
+
+		for (const group of byName.values()) {
+			if (group.length < 2) continue;
+			const pairs = [];
+			for (let i = 0; i < group.length; i++) {
+				for (let j = i + 1; j < group.length; j++) {
+					const ca = group[i];
+					const cb = group[j];
+					if (!ca || !cb) continue;
+					const idA = Math.min(ca.id, cb.id);
+					const idB = Math.max(ca.id, cb.id);
+					if (!ignoredSet.has(`${idA}:${idB}`)) {
+						pairs.push({ clientA: ca, clientB: cb });
+					}
+				}
+			}
+			const first = pairs[0];
+			if (first) grouped.push({ name: first.clientA.fullName, pairs });
+		}
+
+		return grouped.sort((a, b) => a.name.localeCompare(b.name));
 	}),
 
 	ignoreDuplicateNamePair: protectedProcedure

@@ -449,6 +449,8 @@ export const updatePunchData = async (
 export const syncPunchData = async (session: Session) => {
 	const allPunchData = await getPunchData(session);
 
+	const updatePromises: Promise<unknown>[] = [];
+
 	for (const client of allPunchData) {
 		const updates: Partial<Client> = {};
 
@@ -469,9 +471,13 @@ export const syncPunchData = async (session: Session) => {
 		}
 
 		if (Object.keys(updates).length > 0) {
-			await db.update(clients).set(updates).where(eq(clients.id, client.id));
+			updatePromises.push(
+				db.update(clients).set(updates).where(eq(clients.id, client.id)),
+			);
 		}
 	}
+
+	await Promise.all(updatePromises);
 };
 
 export const getClientFromPunchData = async (session: Session, id: string) => {
