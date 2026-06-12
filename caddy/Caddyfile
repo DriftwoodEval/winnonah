@@ -1,0 +1,14 @@
+:80 {
+	reverse_proxy winnonah:3000 {
+		health_uri /api/health
+		health_interval 5s
+		health_timeout 3s
+	}
+
+	handle_errors 502 503 {
+		rewrite * /maintenance.html
+		file_server {
+			root /srv
+		}
+	}
+}

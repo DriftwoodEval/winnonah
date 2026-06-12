@@ -41,6 +41,16 @@ services:
     container_name: redis-winnonah
     restart: always
 
+  caddy:
+    image: caddy:alpine
+    container_name: caddy-winnonah
+    restart: always
+    volumes:
+      - ./caddy/Caddyfile:/etc/caddy/Caddyfile
+      - ./caddy/maintenance.html:/srv/maintenance.html
+    depends_on:
+      - winnonah
+
   cloudflared:
     image: cloudflare/cloudflared:latest
     container_name: cloudflared-winnonah
