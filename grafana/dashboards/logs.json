@@ -195,7 +195,41 @@
 		},
 		{
 			"datasource": { "type": "loki", "uid": "${datasource}" },
-			"gridPos": { "h": 22, "w": 24, "x": 0, "y": 12 },
+			"fieldConfig": {
+				"defaults": {
+					"custom": {
+						"drawStyle": "line",
+						"fillOpacity": 10,
+						"lineWidth": 1,
+						"showPoints": "never"
+					},
+					"unit": "ms"
+				}
+			},
+			"gridPos": { "h": 8, "w": 24, "x": 0, "y": 12 },
+			"id": 6,
+			"options": {
+				"legend": {
+					"displayMode": "list",
+					"placement": "bottom",
+					"showLegend": true
+				},
+				"tooltip": { "mode": "multi", "sort": "desc" }
+			},
+			"title": "Avg tRPC Query Duration by Path",
+			"type": "timeseries",
+			"targets": [
+				{
+					"datasource": { "type": "loki", "uid": "${datasource}" },
+					"expr": "avg_over_time({service=\"winnonah\"} | json | duration_ms != \"\" | unwrap duration_ms [$__interval]) by (path)",
+					"legendFormat": "{{path}}",
+					"refId": "A"
+				}
+			]
+		},
+		{
+			"datasource": { "type": "loki", "uid": "${datasource}" },
+			"gridPos": { "h": 22, "w": 24, "x": 0, "y": 20 },
 			"id": 5,
 			"options": {
 				"dedupStrategy": "none",

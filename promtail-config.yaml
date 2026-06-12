@@ -22,6 +22,8 @@ scrape_configs:
             level: level
             ts: time
             user: user
+            duration_ms: duration_ms
+            path: path
       - regex:
           source: user
           expression: '^(?P<username>[^@]+)(?:@.*)?$'
