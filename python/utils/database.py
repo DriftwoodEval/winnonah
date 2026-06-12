@@ -361,7 +361,7 @@ def sync_client_insurance_from_policies(connection: Connection[DictCursor]):
 
 
 SCM_ALIAS = "SCM"
-ANDREW_EMAIL = "andrew@driftwoodeval.com"
+DEFAULT_EMAIL = "barbara@driftwoodeval.com"
 
 
 @provide_connection
@@ -424,7 +424,7 @@ def sync_scm_insurance_reviews(connection: Connection[DictCursor]):
         return
 
     rows = [
-        (client["id"], True, ANDREW_EMAIL, ANDREW_EMAIL)
+        (client["id"], True, DEFAULT_EMAIL, DEFAULT_EMAIL)
         for client in clients_to_backfill
     ]
 
