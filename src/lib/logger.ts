@@ -22,8 +22,11 @@ export const logger: Logger =
 				// In the browser, passing 'undefined' makes Pino default to console.log
 				isServer
 					? pino.multistream([
-							{ stream: process.stdout },
-							{ stream: pino.destination("/app/logs/debug.log") },
+							{ level: "debug", stream: process.stdout },
+							{
+								level: "debug",
+								stream: pino.destination("/app/logs/debug.log"),
+							},
 						])
 					: undefined,
 			)

@@ -221,7 +221,7 @@
 			"targets": [
 				{
 					"datasource": { "type": "loki", "uid": "${datasource}" },
-					"expr": "avg_over_time({service=\"winnonah\"} | json | duration_ms != \"\" | unwrap duration_ms [$__interval]) by (path)",
+					"expr": "avg_over_time({service=\"winnonah\"} | json | duration_ms >= 0 | unwrap duration_ms [$__interval]) by (path)",
 					"legendFormat": "{{path}}",
 					"refId": "A"
 				}
@@ -255,7 +255,7 @@
 			"targets": [
 				{
 					"datasource": { "type": "loki", "uid": "${datasource}" },
-					"expr": "sum by (path) (rate({service=\"winnonah\"} | json | duration_ms != \"\" [$__interval]))",
+					"expr": "sum by (path) (rate({service=\"winnonah\"} | json | duration_ms >= 0 [$__interval]))",
 					"legendFormat": "{{path}}",
 					"refId": "A"
 				}
