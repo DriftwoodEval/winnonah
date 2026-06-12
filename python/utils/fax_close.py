@@ -60,7 +60,7 @@ logger.add(
     "logs/fax-close.log",
     format=json_log_format,
     rotation="50 MB",
-    filter=lambda r: r["name"] == "fax_close",
+    filter=lambda r: r["name"] == "utils.fax_close",
 )
 
 load_dotenv()

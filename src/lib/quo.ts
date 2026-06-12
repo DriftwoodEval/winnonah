@@ -2,6 +2,7 @@ import { logger } from "~/lib/logger";
 
 async function timedFetch(
 	url: string,
+	message: string,
 	options?: RequestInit,
 ): Promise<Response> {
 	const start = Date.now();
@@ -11,17 +12,21 @@ async function timedFetch(
 	} finally {
 		logger.debug(
 			{ duration_ms: Date.now() - start, external_api: "openphone", endpoint },
-			"external api call",
+			message,
 		);
 	}
 }
 
 export async function getOpenPhoneUsers(apiKey: string) {
-	const response = await timedFetch("https://api.openphone.com/v1/users", {
-		headers: {
-			Authorization: apiKey,
+	const response = await timedFetch(
+		"https://api.openphone.com/v1/users",
+		"Fetch OpenPhone users",
+		{
+			headers: {
+				Authorization: apiKey,
+			},
 		},
-	});
+	);
 
 	if (!response.ok) {
 		const errorData = (await response.json()) as { message?: string };
@@ -39,6 +44,7 @@ export async function getOpenPhoneUsers(apiKey: string) {
 
 	const numbersResponse = await timedFetch(
 		"https://api.openphone.com/v1/phone-numbers",
+		"Fetch OpenPhone numbers",
 		{
 			headers: {
 				Authorization: apiKey,
@@ -97,6 +103,7 @@ export async function getMessages(
 
 	const response = await timedFetch(
 		`https://api.openphone.com/v1/messages?${params}`,
+		"Fetch OpenPhone messages",
 		{
 			headers: { Authorization: apiKey },
 		},
@@ -140,6 +147,7 @@ export async function getCalls(
 
 	const response = await timedFetch(
 		`https://api.openphone.com/v1/calls?${params}`,
+		"Fetch OpenPhone calls",
 		{
 			headers: { Authorization: apiKey },
 		},
@@ -194,19 +202,23 @@ export async function sendMessage(
 	message: string,
 	userId?: string,
 ) {
-	const response = await timedFetch("https://api.openphone.com/v1/messages", {
-		method: "POST",
-		headers: {
-			Authorization: apiKey,
-			"Content-Type": "application/json",
+	const response = await timedFetch(
+		"https://api.openphone.com/v1/messages",
+		"Send OpenPhone message",
+		{
+			method: "POST",
+			headers: {
+				Authorization: apiKey,
+				"Content-Type": "application/json",
+			},
+			body: JSON.stringify({
+				content: message,
+				from: phoneNumberId,
+				to: [to],
+				userId: userId,
+			}),
 		},
-		body: JSON.stringify({
-			content: message,
-			from: phoneNumberId,
-			to: [to],
-			userId: userId,
-		}),
-	});
+	);
 
 	if (!response.ok) {
 		const errorData = (await response.json()) as { message?: string };

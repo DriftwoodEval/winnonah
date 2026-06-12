@@ -31,7 +31,13 @@ from utils.misc import json_log_format
 
 load_dotenv()
 
-logger.add("logs/api.log", format=json_log_format, rotation="500 MB")
+_api_excluded_modules = {"appointment_reminders", "utils.webhook"}
+logger.add(
+    "logs/api.log",
+    format=json_log_format,
+    rotation="500 MB",
+    filter=lambda r: r["name"] not in _api_excluded_modules,
+)
 
 
 @asynccontextmanager

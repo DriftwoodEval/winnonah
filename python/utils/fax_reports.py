@@ -43,7 +43,7 @@ logger.add(
     "logs/fax-reports.log",
     format=json_log_format,
     rotation="50 MB",
-    filter=lambda r: r["name"] == "fax_reports",
+    filter=lambda r: r["name"] == "utils.fax_reports",
 )
 
 load_dotenv()

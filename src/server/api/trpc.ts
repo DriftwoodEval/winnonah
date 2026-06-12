@@ -106,14 +106,12 @@ const loggerMiddleware = t.middleware(async ({ next, path, ctx }) => {
 	const result = await next({
 		ctx: {
 			logger: procedureLogger,
+			elapsed: () => Date.now() - start,
 		},
 	});
 
-	const end = Date.now();
-	if (result.ok) {
-		procedureLogger.debug({ duration_ms: end - start }, "query executed");
-	} else {
-		procedureLogger.error({ duration_ms: end - start }, "query failed");
+	if (!result.ok) {
+		procedureLogger.error({ duration_ms: Date.now() - start }, "query failed");
 	}
 
 	return result;

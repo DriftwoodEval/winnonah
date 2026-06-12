@@ -25,6 +25,7 @@ import type { Client, FullClientInfo } from "./models";
 async function googleApiCall<T>(
 	api: string,
 	endpoint: string,
+	message: string,
 	fn: () => Promise<T>,
 ): Promise<T> {
 	const start = Date.now();
@@ -33,7 +34,7 @@ async function googleApiCall<T>(
 	} finally {
 		logger.debug(
 			{ duration_ms: Date.now() - start, external_api: api, endpoint },
-			"external api call",
+			message,
 		);
 	}
 }
@@ -65,8 +66,11 @@ export const renameDriveFolder = async (
 ) => {
 	const driveApi = getDriveClient(session);
 
-	const folder = await googleApiCall("google-drive", "files.get", () =>
-		driveApi.files.get({ fileId: folderId, fields: "name" }),
+	const folder = await googleApiCall(
+		"google-drive",
+		"files.get",
+		"Get Drive folder",
+		() => driveApi.files.get({ fileId: folderId, fields: "name" }),
 	);
 
 	const currentFolderName = folder.data.name;
@@ -75,11 +79,15 @@ export const renameDriveFolder = async (
 	if (clientId === null) {
 		const updatedFolderName = currentFolderName?.replace(regex, "").trim();
 		if (updatedFolderName !== currentFolderName) {
-			await googleApiCall("google-drive", "files.update", () =>
-				driveApi.files.update({
-					fileId: folderId,
-					requestBody: { name: updatedFolderName },
-				}),
+			await googleApiCall(
+				"google-drive",
+				"files.update",
+				"Rename Drive folder",
+				() =>
+					driveApi.files.update({
+						fileId: folderId,
+						requestBody: { name: updatedFolderName },
+					}),
 			);
 		}
 	} else {
@@ -88,11 +96,15 @@ export const renameDriveFolder = async (
 		const updatedFolderName = `${baseName} [${clientId}]`;
 
 		if (updatedFolderName !== currentFolderName) {
-			await googleApiCall("google-drive", "files.update", () =>
-				driveApi.files.update({
-					fileId: folderId,
-					requestBody: { name: updatedFolderName },
-				}),
+			await googleApiCall(
+				"google-drive",
+				"files.update",
+				"Rename Drive folder",
+				() =>
+					driveApi.files.update({
+						fileId: folderId,
+						requestBody: { name: updatedFolderName },
+					}),
 			);
 		}
 	}
@@ -124,6 +136,7 @@ export const getPunchData = async (session: Session) => {
 	const response = await googleApiCall(
 		"google-sheets",
 		"spreadsheets.values.get",
+		"Get punchlist",
 		() =>
 			sheetsApi.spreadsheets.values.get({
 				spreadsheetId: PUNCHLIST_ID,
@@ -298,6 +311,7 @@ export const updatePunchData = async (
 	const response = await googleApiCall(
 		"google-sheets",
 		"spreadsheets.values.get",
+		"Get punchlist",
 		() =>
 			sheetsApi.spreadsheets.values.get({
 				spreadsheetId: PUNCHLIST_ID,
@@ -432,6 +446,7 @@ export const updatePunchData = async (
 		await googleApiCall(
 			"google-sheets",
 			"spreadsheets.values.batchUpdate",
+			"Update punchlist",
 			() =>
 				sheetsApi.spreadsheets.values.batchUpdate({
 					spreadsheetId: PUNCHLIST_ID,
@@ -505,6 +520,7 @@ export const pushToPunch = async (
 	const response = await googleApiCall(
 		"google-sheets",
 		"spreadsheets.values.get",
+		"Get punchlist",
 		() =>
 			sheetsApi.spreadsheets.values.get({
 				spreadsheetId: PUNCHLIST_ID,
@@ -719,8 +735,11 @@ export async function createAvailabilityEvent(
 		event.recurrence = [eventData.recurrenceRule];
 	}
 
-	const response = await googleApiCall("google-calendar", "events.insert", () =>
-		calendar.events.insert({ calendarId: "primary", requestBody: event }),
+	const response = await googleApiCall(
+		"google-calendar",
+		"events.insert",
+		"Create calendar event",
+		() => calendar.events.insert({ calendarId: "primary", requestBody: event }),
 	);
 
 	return response.data;
@@ -832,15 +851,19 @@ export async function getAvailabilityEvents(
 	let pageToken: string | undefined;
 
 	do {
-		const response = await googleApiCall("google-calendar", "events.list", () =>
-			calendarApi.events.list({
-				calendarId: "primary",
-				timeMin: startDate.toISOString(),
-				timeMax: endDate.toISOString(),
-				singleEvents: true,
-				orderBy: "startTime",
-				pageToken: pageToken,
-			}),
+		const response = await googleApiCall(
+			"google-calendar",
+			"events.list",
+			"List calendar events",
+			() =>
+				calendarApi.events.list({
+					calendarId: "primary",
+					timeMin: startDate.toISOString(),
+					timeMax: endDate.toISOString(),
+					singleEvents: true,
+					orderBy: "startTime",
+					pageToken: pageToken,
+				}),
 		);
 
 		if (response.data.items) {
@@ -960,12 +983,16 @@ export async function updateAvailabilityEvent(
 		event.recurrence = [];
 	}
 
-	const response = await googleApiCall("google-calendar", "events.patch", () =>
-		calendar.events.patch({
-			calendarId: "primary",
-			eventId: eventId,
-			requestBody: event,
-		}),
+	const response = await googleApiCall(
+		"google-calendar",
+		"events.patch",
+		"Update calendar event",
+		() =>
+			calendar.events.patch({
+				calendarId: "primary",
+				eventId: eventId,
+				requestBody: event,
+			}),
 	);
 
 	return response.data;
@@ -977,8 +1004,11 @@ export async function deleteAvailabilityEvent(
 ) {
 	const calendar = getCalendarClient(session);
 
-	await googleApiCall("google-calendar", "events.delete", () =>
-		calendar.events.delete({ calendarId: "primary", eventId: eventId }),
+	await googleApiCall(
+		"google-calendar",
+		"events.delete",
+		"Delete calendar event",
+		() => calendar.events.delete({ calendarId: "primary", eventId: eventId }),
 	);
 
 	return { success: true };
