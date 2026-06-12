@@ -864,8 +864,6 @@ export const clientRouter = createTRPCRouter({
 			)
 			.where(
 				and(
-					eq(c1.status, true),
-					eq(c2.status, true),
 					isNull(duplicateNameIgnore.id),
 					sql`LENGTH(${c1.id}) != 5`,
 					sql`LENGTH(${c2.id}) != 5`,
