@@ -391,15 +391,14 @@ export function Client({
 									</div>
 								</TabsContent>
 							)}
-							{!isShellClientId(client.id) &&
-								(client.primaryInsurance ?? !client.privatePay) && (
-									<TabsContent value="insurance">
-										<div className="mb-6 flex w-full flex-col gap-4">
-											<ClientDetailsCard client={client} truncated />
-											<InsuranceTab client={client} />
-										</div>
-									</TabsContent>
-								)}
+							{!isShellClientId(client.id) && (
+								<TabsContent value="insurance">
+									<div className="mb-6 flex w-full flex-col gap-4">
+										<ClientDetailsCard client={client} truncated />
+										<InsuranceTab client={client} />
+									</div>
+								</TabsContent>
+							)}
 							<TabsContent value="referral">
 								<div className="mb-6 flex min-w-full flex-col items-center gap-6">
 									{!isShellClientId(client.id) && (
