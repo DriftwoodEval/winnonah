@@ -340,14 +340,10 @@ def send_gmail(
     return send_message
 
 
-def update_gcal_event_title(
-    event_id: str, new_title: str, calendar_id: str | None = None
-) -> bool:
-    """Find a Google Calendar event by ID and update its title.
+def _patch_gcal_event(event_id: str, calendar_id: str | None, patch_fn) -> bool:
+    """Find a calendar event by ID and apply a patch built by patch_fn(event) -> body dict.
 
-    If calendar_id is provided, patches that calendar directly.
-    Otherwise scans all calendars to find the event.
-    Returns True if updated, False otherwise.
+    Scans all calendars unless calendar_id is provided. Returns True if patched.
     """
     creds = google_authenticate()
     service = build("calendar", "v3", credentials=creds)
@@ -360,7 +356,7 @@ def update_gcal_event_title(
     for calendar in calendars:
         cal_id = calendar["id"]
         try:
-            service.events().get(calendarId=cal_id, eventId=event_id).execute()
+            event = service.events().get(calendarId=cal_id, eventId=event_id).execute()
         except HttpError as e:
             if e.resp.status not in (403, 404):
                 logger.error(
@@ -372,7 +368,7 @@ def update_gcal_event_title(
             service.events().patch(
                 calendarId=cal_id,
                 eventId=event_id,
-                body={"summary": new_title},
+                body=patch_fn(event),
             ).execute()
         except HttpError as e:
             logger.warning(
@@ -380,11 +376,38 @@ def update_gcal_event_title(
             )
             return False
 
-        logger.info(f"Updated calendar event {event_id} title to: {new_title}")
         return True
 
-    logger.warning(f"Calendar event {event_id} not found in any calendar")
     return False
+
+
+def update_gcal_event_title(
+    event_id: str, new_title: str, calendar_id: str | None = None
+) -> bool:
+    """Find a Google Calendar event by ID and update its title. Returns True if updated."""
+    patched = _patch_gcal_event(event_id, calendar_id, lambda _: {"summary": new_title})
+    if patched:
+        logger.info(f"Updated calendar event {event_id} title to: {new_title}")
+    else:
+        logger.warning(f"Calendar event {event_id} not found in any calendar")
+    return patched
+
+
+def append_gcal_event_description(
+    event_id: str, text: str, calendar_id: str | None = None
+) -> bool:
+    """Append text to a Google Calendar event's description. Returns True if updated."""
+
+    def patch_fn(event):
+        current = event.get("description") or ""
+        return {"description": current + "\n\n" + text}
+
+    patched = _patch_gcal_event(event_id, calendar_id, patch_fn)
+    if patched:
+        logger.info(f"Appended to calendar event {event_id} description.")
+    else:
+        logger.warning(f"Calendar event {event_id} not found in any calendar")
+    return patched
 
 
 def find_gcal_event_by_client_and_time(

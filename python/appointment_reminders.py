@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import json
 import os
 import re
@@ -22,7 +23,11 @@ from utils.constants import (
     TABLE_OFFICE,
 )
 from utils.database import provide_connection
-from utils.google import find_gcal_event_by_client_and_time, update_gcal_event_title
+from utils.google import (
+    append_gcal_event_description,
+    find_gcal_event_by_client_and_time,
+    update_gcal_event_title,
+)
 from utils.misc import json_log_format
 from utils.webhook import verify_openphone_signature
 
@@ -337,6 +342,21 @@ async def process_reminders(connection: Connection[DictCursor]) -> None:
         )
 
 
+def _fix_stale_event_id(context: dict, old_event_id: str) -> dict | None:
+    """Fallback when stored event ID is stale: find by client+time, log result, return found dict or None."""
+    logger.warning(
+        f"Event {old_event_id} not found by ID for appt {context['appointment_id']}; searching by client/time..."
+    )
+    found = find_gcal_event_by_client_and_time(
+        context["clientId"], context["startTime"]
+    )
+    if not found:
+        logger.error(
+            f"Could not find calendar event for appt {context['appointment_id']} by client/time fallback."
+        )
+    return found
+
+
 def is_confirmation(incoming_text: str) -> bool:
     """
     Checks for a confirmed response with word boundary protection
@@ -397,6 +417,7 @@ async def handle_incoming_reply(
     phone_number: str,
     incoming_text: str,
     message_id: str | None,
+    received_at: datetime | None,
     connection: Connection[DictCursor],
 ):
     clean_phone = phone_number.removeprefix("+1")
@@ -443,6 +464,11 @@ async def handle_incoming_reply(
             )
             return
 
+        ts = received_at or datetime.now()
+        if ts.tzinfo is not None:
+            ts = ts.astimezone().replace(tzinfo=None)
+        description_note = f"From: {phone_number} - {ts.strftime('%m/%d/%Y %-I:%M %p')} - {incoming_text}"
+
         if is_confirmation(incoming_text):
             logger.info(
                 f"Confirmation received from {phone_number} ({context['fullName']}) for appt {context['appointment_id']} on {appt_date}: {incoming_text!r}."
@@ -459,6 +485,7 @@ async def handle_incoming_reply(
             )
 
             event_id = context.get("calendarEventId")
+            effective_event_id = event_id
             current_title = context.get("calendarEventTitle") or ""
             if event_id and "[confirmed]" not in current_title.lower():
                 new_title = f"{current_title} [CONFIRMED]".strip()
@@ -469,13 +496,9 @@ async def handle_incoming_reply(
                             f"Updated calendar event {event_id} title to {new_title!r}."
                         )
                     else:
-                        logger.warning(
-                            f"Event {event_id} not found by ID for appt {context['appointment_id']}; searching by client/time..."
-                        )
-                        found = find_gcal_event_by_client_and_time(
-                            context["clientId"], context["startTime"]
-                        )
+                        found = _fix_stale_event_id(context, event_id)
                         if found:
+                            effective_event_id = found["event_id"]
                             found_title = found["title"]
                             if "[confirmed]" in found_title.lower():
                                 logger.info(
@@ -502,15 +525,45 @@ async def handle_incoming_reply(
                                 f"{event_id!r} → {found['event_id']!r}, updated title to {new_title!r}."
                             )
                         else:
-                            logger.error(
-                                f"Could not find calendar event for appt {context['appointment_id']} by client/time fallback."
-                            )
+                            effective_event_id = None
                 except Exception as e:
                     logger.error(f"Failed to update calendar event title: {e}")
+
+            if effective_event_id:
+                try:
+                    append_gcal_event_description(effective_event_id, description_note)
+                except Exception as e:
+                    logger.error(f"Failed to append to calendar event description: {e}")
         else:
-            logger.debug(
-                f"Non-confirmation reply from {phone_number} ignored: {incoming_text!r}"
+            logger.info(
+                f"Non-confirmation reply from {phone_number} ({context['fullName']}) for appt {context['appointment_id']} on {appt_date}: {incoming_text!r}."
             )
+            event_id = context.get("calendarEventId")
+            if event_id:
+                try:
+                    appended = append_gcal_event_description(event_id, description_note)
+                    if not appended:
+                        found = _fix_stale_event_id(context, event_id)
+                        if found:
+                            append_gcal_event_description(
+                                found["event_id"],
+                                description_note,
+                                calendar_id=found["calendar_id"],
+                            )
+                            cursor.execute(
+                                f"UPDATE {TABLE_APPOINTMENT} SET calendarEventId = %s, calendarEventTitle = %s WHERE id = %s",
+                                (
+                                    found["event_id"],
+                                    found["title"],
+                                    context["appointment_id"],
+                                ),
+                            )
+                            logger.info(
+                                f"Corrected stale event ID for appt {context['appointment_id']}: "
+                                f"{event_id!r} → {found['event_id']!r}."
+                            )
+                except Exception as e:
+                    logger.error(f"Failed to append to calendar event description: {e}")
 
         connection.commit()
 
@@ -584,8 +637,14 @@ async def handle_webhook(
     message_body = data.get("body")
     message_id = data.get("id")
 
+    received_at = None
+    created_at_str = data.get("createdAt")
+    if created_at_str:
+        with contextlib.suppress(Exception):
+            received_at = datetime.fromisoformat(created_at_str)
+
     background_tasks.add_task(
-        handle_incoming_reply, sender_phone, message_body, message_id
+        handle_incoming_reply, sender_phone, message_body, message_id, received_at
     )
 
     return {"status": "ok"}
