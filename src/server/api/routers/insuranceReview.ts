@@ -1,5 +1,5 @@
 import type { JSONContent } from "@tiptap/core";
-import { and, desc, eq } from "drizzle-orm";
+import { and, desc, eq, isNull } from "drizzle-orm";
 import { z } from "zod";
 import { env } from "~/env";
 import {
@@ -115,6 +115,9 @@ export const insuranceReviewRouter = createTRPCRouter({
 				};
 				if (input.enabled && !current.claimedUserEmail) {
 					updates.claimedUserEmail = ctx.session.user.email;
+				}
+				if (input.enabled) {
+					updates.submittedToNotesAt = null;
 				}
 				await ctx.db
 					.update(insuranceReview)
@@ -232,6 +235,13 @@ export const insuranceReviewRouter = createTRPCRouter({
 				where: eq(insuranceReview.clientId, clientId),
 			});
 
+			if (review?.submittedToNotesAt) {
+				return {
+					success: false,
+					reason: "Review has already been submitted to notes",
+				};
+			}
+
 			if (!review?.content) {
 				return { success: false, reason: "No review content to submit" };
 			}
@@ -277,6 +287,12 @@ export const insuranceReviewRouter = createTRPCRouter({
 			};
 
 			await saveNoteInternal(ctx, { clientId, contentJson: finalContent });
+
+			await ctx.db
+				.update(insuranceReview)
+				.set({ submittedToNotesAt: new Date(), enabled: false })
+				.where(eq(insuranceReview.clientId, clientId));
+
 			return { success: true };
 		}),
 
@@ -295,6 +311,7 @@ export const insuranceReviewRouter = createTRPCRouter({
 				and(
 					eq(insuranceReview.claimedUserEmail, ctx.session.user.email),
 					eq(insuranceReview.enabled, true),
+					isNull(insuranceReview.submittedToNotesAt),
 				),
 			)
 			.orderBy(clients.fullName);

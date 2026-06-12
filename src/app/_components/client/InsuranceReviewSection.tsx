@@ -84,6 +84,8 @@ export function InsuranceReviewSection({
 			if (result.success) {
 				toast.success("Review notes submitted to client notes");
 				utils.notes.getNoteByClientId.invalidate(client.id);
+				utils.insuranceReview.getByClientId.invalidate(client.id);
+				utils.insuranceReview.getMyClaimedClients.invalidate();
 			} else {
 				toast.error("Nothing to submit", { description: result.reason });
 			}

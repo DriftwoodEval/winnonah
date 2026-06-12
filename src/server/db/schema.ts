@@ -486,6 +486,7 @@ export const insuranceReview = createTable("insurance_review", (d) => ({
 		.onUpdateNow()
 		.default(sql`CURRENT_TIMESTAMP`),
 	updatedBy: d.varchar("updated_by", { length: 255 }),
+	submittedToNotesAt: d.timestamp("submitted_to_notes_at"),
 }));
 
 export const insuranceReviewHistory = createTable(
