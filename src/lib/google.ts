@@ -509,6 +509,7 @@ export const pushToPunch = async (
 		language?: string | null;
 		primaryPayer: string | null;
 		secondaryPayer: string | null;
+		privatePay?: boolean;
 		location: string | null;
 		daQsNeeded?: boolean;
 		evalQsNeeded?: boolean;
@@ -538,6 +539,7 @@ export const pushToPunch = async (
 	const languageIndex = headers.indexOf("Language");
 	const primaryPayerIndex = headers.indexOf("Primary Payer");
 	const secondaryPayerIndex = headers.indexOf("Secondary Payer");
+	const paExpirationIndex = headers.indexOf("PA Expiration");
 	const locationIndex = headers.indexOf("Location");
 	const daQsNeededIndex = headers.indexOf("DA Qs Needed");
 	const evalQsNeededIndex = headers.indexOf("EVAL Qs Needed");
@@ -595,6 +597,13 @@ export const pushToPunch = async (
 		updateRequests.push({
 			range: `${String.fromCharCode(65 + secondaryPayerIndex)}${rowNumber}`,
 			values: [[client.secondaryPayer ?? ""]],
+		});
+	}
+
+	if (paExpirationIndex !== -1 && client.privatePay) {
+		updateRequests.push({
+			range: `${String.fromCharCode(65 + paExpirationIndex)}${rowNumber}`,
+			values: [["PP"]],
 		});
 	}
 
