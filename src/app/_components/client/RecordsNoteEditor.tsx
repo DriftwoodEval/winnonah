@@ -441,69 +441,73 @@ export function RecordsNoteEditor({
 							</TooltipContent>
 						)}
 					</Tooltip>
-					{requests.map((req, i) => {
-						const hasSentDate = !!req.requestedDate;
-						const checkboxId = `flag-${req.id}`;
-						const dateId = `date-${req.id}`;
-						return (
-							<div className="flex items-center gap-2" key={req.id}>
-								<div className="flex items-center gap-2">
-									<Checkbox
-										checked={true}
-										disabled={hasSentDate || !canAddRequest}
-										id={checkboxId}
-										onCheckedChange={(checked) => {
-											if (!checked) handleRemoveRequest(req.id);
-										}}
-									/>
-									<Label htmlFor={checkboxId}>
-										{i === 0 ? "Request?" : "Request Again?"}
-									</Label>
-								</div>
-								<DatePicker
-									allowClear={canAddRequest && hasSentDate}
-									date={getLocalDayFromUTCDate(req.requestedDate) ?? undefined}
-									disabled={!canAddRequest}
-									flexDirection="flex-row"
-									id={dateId}
-									label={i === 0 ? "Requested" : `Requested (${i + 1})`}
-									placeholder="Pick date"
-									setDate={(date) => handleSetRequestDate(req.id, date)}
-								/>
-							</div>
-						);
-					})}
-					{requests
-						.filter((r) => !r.requestedDate)
-						.map((req) => (
-							<div className="w-full space-y-2" key={`msg-${req.id}`}>
-								<DatePicker
-									allowClear={canAddRequest && !!req.holdUntil}
-									date={getLocalDayFromUTCDate(req.holdUntil) ?? undefined}
-									disabled={!canAddRequest}
-									flexDirection="flex-row"
-									id={`hold-${req.id}`}
-									label="Hold until"
-									placeholder="No hold"
-									setDate={(date) => handleSetHoldUntil(req.id, date)}
-								/>
-								<div>
-									<Label className="mb-1 block text-muted-foreground text-xs">
-										Email request line
-									</Label>
-									<Textarea
-										className="text-sm"
-										defaultValue={req.customMessage ?? ""}
-										disabled={!canAddRequest}
-										onChange={(e) =>
-											debouncedSaveMessage(req.id, e.target.value)
+					{recordsNeeded === "Needed" &&
+						requests.map((req, i) => {
+							const hasSentDate = !!req.requestedDate;
+							const checkboxId = `flag-${req.id}`;
+							const dateId = `date-${req.id}`;
+							return (
+								<div className="flex items-center gap-2" key={req.id}>
+									<div className="flex items-center gap-2">
+										<Checkbox
+											checked={true}
+											disabled={hasSentDate || !canAddRequest}
+											id={checkboxId}
+											onCheckedChange={(checked) => {
+												if (!checked) handleRemoveRequest(req.id);
+											}}
+										/>
+										<Label htmlFor={checkboxId}>
+											{i === 0 ? "Request?" : "Request Again?"}
+										</Label>
+									</div>
+									<DatePicker
+										allowClear={canAddRequest && hasSentDate}
+										date={
+											getLocalDayFromUTCDate(req.requestedDate) ?? undefined
 										}
-										placeholder="Please send the most recent IEP, any Evaluation Reports, and any Reevaluation Review information."
-										rows={2}
+										disabled={!canAddRequest}
+										flexDirection="flex-row"
+										id={dateId}
+										label={i === 0 ? "Requested" : `Requested (${i + 1})`}
+										placeholder="Pick date"
+										setDate={(date) => handleSetRequestDate(req.id, date)}
 									/>
 								</div>
-							</div>
-						))}
+							);
+						})}
+					{recordsNeeded === "Needed" &&
+						requests
+							.filter((r) => !r.requestedDate)
+							.map((req) => (
+								<div className="w-full space-y-2" key={`msg-${req.id}`}>
+									<DatePicker
+										allowClear={canAddRequest && !!req.holdUntil}
+										date={getLocalDayFromUTCDate(req.holdUntil) ?? undefined}
+										disabled={!canAddRequest}
+										flexDirection="flex-row"
+										id={`hold-${req.id}`}
+										label="Hold until"
+										placeholder="No hold"
+										setDate={(date) => handleSetHoldUntil(req.id, date)}
+									/>
+									<div>
+										<Label className="mb-1 block text-muted-foreground text-xs">
+											Email request line
+										</Label>
+										<Textarea
+											className="text-sm"
+											defaultValue={req.customMessage ?? ""}
+											disabled={!canAddRequest}
+											onChange={(e) =>
+												debouncedSaveMessage(req.id, e.target.value)
+											}
+											placeholder="Please send the most recent IEP, any Evaluation Reports, and any Reevaluation Review information."
+											rows={2}
+										/>
+									</div>
+								</div>
+							))}
 					{canAddRequest &&
 						requests.length > 0 &&
 						!requests.some((r) => !r.requestedDate) && (
