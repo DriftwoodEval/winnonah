@@ -431,7 +431,7 @@ def sync_scm_insurance_reviews(connection: Connection[DictCursor]):
     with connection.cursor() as cursor:
         cursor.executemany(
             f"""
-            INSERT INTO `{TABLE_INSURANCE_REVIEW}` (clientId, enabled, claimedUserEmail, updatedBy)
+            INSERT INTO `{TABLE_INSURANCE_REVIEW}` (clientId, enabled, claimed_user_email, updated_by)
             VALUES (%s, %s, %s, %s)
             """,
             rows,
