@@ -14,7 +14,7 @@ export function InsuranceReviewBanner() {
 	if (!claimed?.length) return null;
 
 	return (
-		<div className="flex flex-wrap items-center gap-2">
+		<div className="flex flex-wrap items-center gap-2 rounded-lg border border-destructive/20 bg-destructive/5 px-3 py-2">
 			<span className="text-muted-foreground text-xs uppercase tracking-wide">
 				My Insurance Review Clients
 			</span>

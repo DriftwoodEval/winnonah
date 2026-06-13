@@ -1,3 +1,6 @@
+# Run `dev` when running `just` with no args
+default: dev
+
 # Spin up needed Docker containers for development
 deps:
     docker compose up -d driftwood-db redis cloudflared

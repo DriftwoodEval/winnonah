@@ -12,13 +12,13 @@ import {
 } from "@ui/select";
 import { Skeleton } from "@ui/skeleton";
 import { Search } from "lucide-react";
-import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { api } from "~/trpc/react";
 import { ClientsList } from "../clients/ClientsList";
 import { NameSearchInput } from "../clients/NameSearchInput";
+import { RecentClients } from "../clients/RecentClients";
 
 export function GlobalClientSearch() {
 	const router = useRouter();
@@ -88,11 +88,6 @@ export function GlobalClientSearch() {
 			status: status as "active" | "inactive" | "all",
 		};
 	}, [debouncedSearchTerm, statusFilter]);
-
-	const { data: recentClients } = api.users.getRecentClients.useQuery(
-		undefined,
-		{ enabled: open && !!session },
-	);
 
 	const {
 		data: searchQuery,
@@ -171,13 +166,13 @@ export function GlobalClientSearch() {
 				onClick={() => setOpen(true)}
 			>
 				<Search className="h-4 w-4 text-muted-foreground" />
-				<KbdGroup>
+				<KbdGroup className="hidden sm:flex">
 					<Kbd>{osKey} + K</Kbd>
 				</KbdGroup>
 			</Button>
 
 			<Dialog onOpenChange={setOpen} open={open}>
-				<DialogContent>
+				<DialogContent className="sm:max-w-2xl">
 					<DialogHeader>
 						<DialogTitle className="sr-only">Search Clients</DialogTitle>
 					</DialogHeader>
@@ -201,23 +196,7 @@ export function GlobalClientSearch() {
 							</SelectContent>
 						</Select>
 					</div>
-					{!debouncedSearchTerm && !!recentClients?.length && (
-						<div className="flex flex-wrap items-center gap-2">
-							<span className="text-muted-foreground text-xs uppercase tracking-wide">
-								Recent
-							</span>
-							{recentClients.map((client) => (
-								<Link
-									className="rounded-md border bg-background px-2.5 py-1 text-sm shadow-xs hover:bg-accent hover:text-accent-foreground dark:border-input dark:bg-input/30 dark:hover:bg-input/50"
-									href={`/clients/${client.hash}`}
-									key={client.hash}
-									onClick={() => setOpen(false)}
-								>
-									{client.name}
-								</Link>
-							))}
-						</div>
-					)}
+					<RecentClients onNavigate={() => setOpen(false)} />
 					<div
 						className={
 							isPlaceholderData
@@ -226,11 +205,11 @@ export function GlobalClientSearch() {
 						}
 					>
 						{isLoading ? (
-							<Skeleton className="h-[400px] w-full bg-muted" />
+							<Skeleton className="h-[500px] w-full bg-muted" />
 						) : (
 							<ClientsList
 								clients={clients ?? []}
-								heightClass="h-[400px]"
+								heightClass="h-[500px]"
 								highlightedIndex={highlightedIndex}
 								highlightedItemRef={highlightedItemRef}
 							/>
