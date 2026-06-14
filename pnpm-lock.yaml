@@ -75,7 +75,7 @@ importers:
         version: 8.0.4
       drizzle-orm:
         specifier: ^0.45.2
-        version: 0.45.2(mysql2@3.20.0(@types/node@25.9.2))
+        version: 0.45.2(mysql2@3.22.5(@types/node@25.9.2))
       es-toolkit:
         specifier: ^1.46.1
         version: 1.46.1
@@ -96,7 +96,7 @@ importers:
         version: 1.8.0(react@19.2.7)
       mysql2:
         specifier: ^3.20.0
-        version: 3.20.0(@types/node@25.9.2)
+        version: 3.22.5(@types/node@25.9.2)
       next:
         specifier: 16.2.7
         version: 16.2.7(@babel/core@7.29.7)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
@@ -3462,8 +3462,8 @@ packages:
     resolution: {integrity: sha512-dkEJPVvun4FryqBmZ5KhDo0K9iDXAwn08tMLDinNdRBNPcYEDiWYysLcc6k3mjTMlbP9KyylvRpd4wFtwrT9rw==}
     engines: {node: ^20.17.0 || >=22.9.0}
 
-  mysql2@3.20.0:
-    resolution: {integrity: sha512-eCLUs7BNbgA6nf/MZXsaBO1SfGs0LtLVrJD3WeWq+jPLDWkSufTD+aGMwykfUVPdZnblaUK1a8G/P63cl9FkKg==}
+  mysql2@3.22.5:
+    resolution: {integrity: sha512-95uZ2TrPWAZdwpB3vvvDbmEMcNG8yIeNCyu6GUcr/QnWEE/wXm7+mhOCsdQfWQDTV7qYT/PDUZ4U4UPP4AsXqQ==}
     engines: {node: '>= 8.0'}
     peerDependencies:
       '@types/node': '>= 8'
@@ -6444,9 +6444,9 @@ snapshots:
       esbuild: 0.25.12
       tsx: 4.21.0
 
-  drizzle-orm@0.45.2(mysql2@3.20.0(@types/node@25.9.2)):
+  drizzle-orm@0.45.2(mysql2@3.22.5(@types/node@25.9.2)):
     optionalDependencies:
-      mysql2: 3.20.0(@types/node@25.9.2)
+      mysql2: 3.22.5(@types/node@25.9.2)
 
   dunder-proto@1.0.1:
     dependencies:
@@ -7237,7 +7237,7 @@ snapshots:
 
   mute-stream@3.0.0: {}
 
-  mysql2@3.20.0(@types/node@25.9.2):
+  mysql2@3.22.5(@types/node@25.9.2):
     dependencies:
       '@types/node': 25.9.2
       aws-ssl-profiles: 1.1.2
