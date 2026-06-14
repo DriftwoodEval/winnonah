@@ -283,3 +283,15 @@ export function isShellClientId(
 	if (id === undefined || id === null) return false;
 	return id.toString().length === 5;
 }
+
+/**
+ * Create a deterministic color for a user based on their name
+ */
+export function userBadgeStyle(name: string): React.CSSProperties {
+	let hash = 0;
+	for (let i = 0; i < name.length; i++) {
+		hash = (hash * 31 + name.charCodeAt(i)) | 0;
+	}
+	const hue = Math.abs(hash) % 360;
+	return { backgroundColor: `hsl(${hue} 55% 40%)`, color: "white" };
+}

@@ -414,6 +414,7 @@ def sync_scm_insurance_reviews(connection: Connection[DictCursor]):
             LEFT JOIN `{TABLE_INSURANCE_REVIEW}` ir ON ir.clientId = c.id
             WHERE c.primaryInsurance IN ({name_placeholders})
               AND ir.clientId IS NULL
+              AND c.status = 1
             """,
             scm_names,
         )

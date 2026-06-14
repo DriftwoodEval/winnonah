@@ -11,6 +11,7 @@ import { Button } from "@ui/button";
 import { ScrollArea } from "@ui/scroll-area";
 import { Separator } from "@ui/separator";
 import { Skeleton } from "@ui/skeleton";
+import { ToggleGroup, ToggleGroupItem } from "@ui/toggle-group";
 import {
 	Tooltip,
 	TooltipContent,
@@ -21,7 +22,6 @@ import {
 	AlertTriangle,
 	CalendarCheck,
 	CalendarPlus,
-	FlaskConical,
 	Loader2,
 } from "lucide-react";
 import Link from "next/link";
@@ -41,6 +41,7 @@ import {
 	SECTION_RECORDS_REQUESTED_NOT_RETURNED,
 } from "~/lib/dashboard";
 import type { FullClientInfo } from "~/lib/models";
+import { userBadgeStyle } from "~/lib/utils";
 import { api } from "~/trpc/react";
 
 interface PunchListAccordionProps {
@@ -310,6 +311,10 @@ function PunchListAccordionItem({
 }
 
 export function Dashboard() {
+	const can = useCheckPermission();
+	const canInsuranceReview = can("clients:insurance:review");
+	const { data: session } = useSession();
+
 	const {
 		data: dashboardData,
 		isLoading,
@@ -317,6 +322,18 @@ export function Dashboard() {
 	} = api.google.getDashboardData.useQuery(undefined, {
 		refetchInterval: 180000, // 3 minutes
 	});
+
+	const { data: insuranceReviewClients } =
+		api.insuranceReview.getAllEnabled.useQuery(undefined, {
+			enabled: canInsuranceReview,
+		});
+
+	const [showMineOnly, setShowMineOnly] = useState(false);
+	const visibleInsuranceClients = showMineOnly
+		? (insuranceReviewClients ?? []).filter(
+				(c) => c.claimedUserEmail === session?.user?.email,
+			)
+		: (insuranceReviewClients ?? []);
 
 	const { data: schedulingData } = api.scheduling.get.useQuery(undefined, {
 		staleTime: 60000,
@@ -429,20 +446,74 @@ export function Dashboard() {
 					</Alert>
 				)}
 
-				<Alert className="mb-4">
-					<FlaskConical />
-					<AlertTitle>Beta</AlertTitle>
-					<AlertDescription>
-						Double-check that data is accurate, we're still working on this.
-					</AlertDescription>
-				</Alert>
-
 				<p className="text-muted-foreground text-sm">
 					Punchlist: {dashboardData?.punchlistCount ?? 0}
 				</p>
 
 				{finalSections.map((section) => (
 					<Fragment key={section.title}>
+						{section.subheading === "Records" &&
+							canInsuranceReview &&
+							(insuranceReviewClients?.length ?? 0) > 0 && (
+								<>
+									<h2 className="mt-6 mb-2 self-start font-bold text-lg">
+										Insurance
+									</h2>
+									<AccordionItem value="insurance-review">
+										<AccordionTrigger>
+											<span className="flex items-center gap-1">
+												Insurance Review
+												<span className="text-muted-foreground text-sm">
+													({visibleInsuranceClients.length})
+												</span>
+											</span>
+										</AccordionTrigger>
+										<AccordionContent>
+											<div className="mb-2">
+												<ToggleGroup
+													onValueChange={(v) => setShowMineOnly(v === "mine")}
+													size="sm"
+													spacing={0}
+													type="single"
+													value={showMineOnly ? "mine" : "all"}
+													variant="outline"
+												>
+													<ToggleGroupItem value="all">All</ToggleGroupItem>
+													<ToggleGroupItem value="mine">Mine</ToggleGroupItem>
+												</ToggleGroup>
+											</div>
+											<ScrollArea className="h-[400px] w-full rounded-md border bg-card text-card-foreground shadow-sm">
+												<div className="p-4">
+													{visibleInsuranceClients.map((c, index) => (
+														<div key={c.clientHash}>
+															<Link
+																className="no-underline! hover:no-underline! flex items-center gap-2"
+																href={`/clients/${c.clientHash}?tab=insurance`}
+															>
+																<span>{c.clientName}</span>
+																{c.claimedUserName && (
+																	<span
+																		className="rounded-sm px-1 py-0.5 text-[10px]"
+																		style={userBadgeStyle(
+																			c.claimedUserName.split(" ")[0] ??
+																				c.claimedUserName,
+																		)}
+																	>
+																		{c.claimedUserName.split(" ")[0]}
+																	</span>
+																)}
+															</Link>
+															{index < visibleInsuranceClients.length - 1 && (
+																<Separator className="my-2" />
+															)}
+														</div>
+													))}
+												</div>
+											</ScrollArea>
+										</AccordionContent>
+									</AccordionItem>
+								</>
+							)}
 						{section.subheading && (
 							<h2 className="mt-6 mb-2 self-start font-bold text-lg">
 								{section.subheading}

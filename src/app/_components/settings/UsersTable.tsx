@@ -171,12 +171,11 @@ function UsersTableForm({
 	}, [initialData, setValue]);
 
 	const getGroupState = (
-		groupPermissions: readonly { id: string; title: string }[],
+		groupPermissions: readonly { id: string; title: string; parent?: string }[],
 	) => {
-		const allChecked = groupPermissions.every(
-			(p) => watchedPermissions?.[p.id],
-		);
-		const anyChecked = groupPermissions.some((p) => watchedPermissions?.[p.id]);
+		const topLevel = groupPermissions.filter((p) => !p.parent);
+		const allChecked = topLevel.every((p) => watchedPermissions?.[p.id]);
+		const anyChecked = topLevel.some((p) => watchedPermissions?.[p.id]);
 		if (allChecked) return true;
 		if (anyChecked) return "indeterminate";
 		return false;
@@ -264,52 +263,133 @@ function UsersTableForm({
 														</FormLabel>
 													</div>
 													<div className="ml-8 space-y-2">
-														{subgroup.permissions.map(
-															(p: { id: string; title: string }) => (
-																<FormField
-																	control={form.control}
-																	key={p.id}
-																	name={`permissions.${p.id}`}
-																	render={({ field }) => (
-																		<FormItem>
-																			<div className="flex items-center space-x-2">
-																				<FormControl>
-																					{isPermissionDisabled(p.id) ? (
-																						<TooltipProvider>
-																							<Tooltip>
-																								<TooltipTrigger asChild>
-																									<span className="cursor-not-allowed">
-																										<Checkbox
-																											checked={field.value}
-																											disabled
-																											id={p.id}
-																										/>
-																									</span>
-																								</TooltipTrigger>
-																								<TooltipContent>
-																									You can't remove your own
-																									user-management permission
-																								</TooltipContent>
-																							</Tooltip>
-																						</TooltipProvider>
-																					) : (
-																						<Checkbox
-																							checked={field.value}
-																							id={p.id}
-																							onCheckedChange={field.onChange}
-																						/>
+														{subgroup.permissions
+															.filter(
+																(p: {
+																	id: string;
+																	title: string;
+																	parent?: string;
+																}) => !p.parent,
+															)
+															.map(
+																(p: {
+																	id: string;
+																	title: string;
+																	parent?: string;
+																}) => {
+																	const subPermissions =
+																		subgroup.permissions.filter(
+																			(s: {
+																				id: string;
+																				title: string;
+																				parent?: string;
+																			}) => s.parent === p.id,
+																		);
+																	return (
+																		<div key={p.id}>
+																			<FormField
+																				control={form.control}
+																				name={`permissions.${p.id}`}
+																				render={({ field }) => (
+																					<FormItem>
+																						<div className="flex items-center space-x-2">
+																							<FormControl>
+																								{isPermissionDisabled(p.id) ? (
+																									<TooltipProvider>
+																										<Tooltip>
+																											<TooltipTrigger asChild>
+																												<span className="cursor-not-allowed">
+																													<Checkbox
+																														checked={
+																															field.value
+																														}
+																														disabled
+																														id={p.id}
+																													/>
+																												</span>
+																											</TooltipTrigger>
+																											<TooltipContent>
+																												You can't remove your
+																												own user-management
+																												permission
+																											</TooltipContent>
+																										</Tooltip>
+																									</TooltipProvider>
+																								) : (
+																									<Checkbox
+																										checked={field.value}
+																										id={p.id}
+																										onCheckedChange={(
+																											checked,
+																										) => {
+																											field.onChange(checked);
+																											if (!checked) {
+																												for (const sub of subPermissions) {
+																													form.setValue(
+																														`permissions.${sub.id}`,
+																														false,
+																													);
+																												}
+																											}
+																										}}
+																									/>
+																								)}
+																							</FormControl>
+																							<FormLabel htmlFor={p.id}>
+																								{p.title}
+																							</FormLabel>
+																						</div>
+																						<FormMessage />
+																					</FormItem>
+																				)}
+																			/>
+																			{subPermissions.length > 0 && (
+																				<div className="mt-1 ml-6 space-y-1">
+																					{subPermissions.map(
+																						(sub: {
+																							id: string;
+																							title: string;
+																							parent?: string;
+																						}) => (
+																							<FormField
+																								control={form.control}
+																								key={sub.id}
+																								name={`permissions.${sub.id}`}
+																								render={({ field }) => (
+																									<FormItem>
+																										<div className="flex items-center space-x-2">
+																											<FormControl>
+																												<Checkbox
+																													checked={field.value}
+																													disabled={
+																														!watchedPermissions?.[
+																															p.id
+																														]
+																													}
+																													id={sub.id}
+																													onCheckedChange={
+																														field.onChange
+																													}
+																												/>
+																											</FormControl>
+																											<FormLabel
+																												className="font-normal"
+																												htmlFor={sub.id}
+																											>
+																												{sub.title}
+																											</FormLabel>
+																										</div>
+																									</FormItem>
+																								)}
+																							/>
+																						),
 																					)}
-																				</FormControl>
-																				<FormLabel htmlFor={p.id}>
-																					{p.title}
-																				</FormLabel>
-																			</div>
-																			<FormMessage />
-																		</FormItem>
-																	)}
-																/>
-															),
-														)}
+																				</div>
+																			)}
+																		</div>
+																	);
+																},
+															)}
 													</div>
 												</div>
 											),
@@ -560,7 +640,7 @@ function UsersTabContent({
 							users.map((user) => (
 								<TableRow className="group" key={user.id}>
 									{canEdit && (
-										<TableCell className="opacity-0 transition-opacity group-hover:opacity-100 has-[[data-state=open]]:opacity-100">
+										<TableCell className="opacity-0 transition-opacity group-hover:opacity-100 has-data-[state=open]:opacity-100">
 											<UsersTableActionsMenu user={user} />
 										</TableCell>
 									)}

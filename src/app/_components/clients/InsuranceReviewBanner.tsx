@@ -2,16 +2,20 @@
 
 import Link from "next/link";
 import { useSession } from "next-auth/react";
+import { useCheckPermission } from "~/hooks/use-check-permission";
 import { api } from "~/trpc/react";
 
 export function InsuranceReviewBanner() {
 	const { data: session } = useSession();
+	const can = useCheckPermission();
+	const showHomepageBanner = can("clients:insurance:review:homepage");
+
 	const { data: claimed } = api.insuranceReview.getMyClaimedClients.useQuery(
 		undefined,
-		{ enabled: !!session },
+		{ enabled: !!session && showHomepageBanner },
 	);
 
-	if (!claimed?.length) return null;
+	if (!showHomepageBanner || !claimed?.length) return null;
 
 	return (
 		<div className="flex flex-wrap items-center gap-2 rounded-lg border border-destructive/20 bg-destructive/5 px-3 py-2">

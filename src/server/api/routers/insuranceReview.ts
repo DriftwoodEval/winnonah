@@ -1,5 +1,5 @@
 import type { JSONContent } from "@tiptap/core";
-import { and, desc, eq, isNull } from "drizzle-orm";
+import { and, asc, desc, eq, isNull } from "drizzle-orm";
 import { z } from "zod";
 import { env } from "~/env";
 import {
@@ -296,6 +296,29 @@ export const insuranceReviewRouter = createTRPCRouter({
 			return { success: true };
 		}),
 
+	getAllEnabled: protectedProcedure.query(async ({ ctx }) => {
+		assertPermission(ctx.session.user, "clients:insurance:review");
+
+		return ctx.db
+			.select({
+				clientId: clients.id,
+				clientName: clients.fullName,
+				clientHash: clients.hash,
+				claimedUserEmail: insuranceReview.claimedUserEmail,
+				claimedUserName: users.name,
+			})
+			.from(insuranceReview)
+			.innerJoin(clients, eq(insuranceReview.clientId, clients.id))
+			.leftJoin(users, eq(insuranceReview.claimedUserEmail, users.email))
+			.where(
+				and(
+					eq(insuranceReview.enabled, true),
+					isNull(insuranceReview.submittedToNotesAt),
+				),
+			)
+			.orderBy(desc(insuranceReview.updatedAt), asc(clients.fullName));
+	}),
+
 	getMyClaimedClients: protectedProcedure.query(async ({ ctx }) => {
 		if (!ctx.session.user.email) return [];
 
@@ -314,6 +337,6 @@ export const insuranceReviewRouter = createTRPCRouter({
 					isNull(insuranceReview.submittedToNotesAt),
 				),
 			)
-			.orderBy(clients.fullName);
+			.orderBy(desc(insuranceReview.updatedAt), asc(clients.fullName));
 	}),
 });
