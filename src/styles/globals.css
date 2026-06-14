@@ -214,6 +214,7 @@
 .tiptap .is-editor-empty:first-child::before {
 	height: 0;
 	color: var(--muted-foreground);
+	white-space: pre-line;
 	content: attr(data-placeholder);
 	@apply pointer-events-none float-left;
 }

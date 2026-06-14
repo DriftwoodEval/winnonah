@@ -161,7 +161,7 @@ export function InsuranceReviewSection({
 						setLocalContent(content as JSONContent);
 						debouncedSave(content);
 					}}
-					placeholder="Insurance review notes..."
+					placeholder={"STOP or GO\n\nInsurance review notes..."}
 					readonly={!canEdit}
 					value={localContent}
 				/>
