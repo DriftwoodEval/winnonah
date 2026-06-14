@@ -135,6 +135,19 @@ export const insuranceReviewRouter = createTRPCRouter({
 			return { success: true };
 		}),
 
+	setPaused: protectedProcedure
+		.input(z.object({ clientId: z.number(), paused: z.boolean() }))
+		.mutation(async ({ ctx, input }) => {
+			assertPermission(ctx.session.user, "clients:insurance:review");
+
+			await ctx.db
+				.update(insuranceReview)
+				.set({ paused: input.paused })
+				.where(eq(insuranceReview.clientId, input.clientId));
+
+			return { success: true };
+		}),
+
 	setClaim: protectedProcedure
 		.input(z.object({ clientId: z.number(), userEmail: z.string().email() }))
 		.mutation(async ({ ctx, input }) => {
@@ -313,6 +326,7 @@ export const insuranceReviewRouter = createTRPCRouter({
 			.where(
 				and(
 					eq(insuranceReview.enabled, true),
+					eq(insuranceReview.paused, false),
 					isNull(insuranceReview.submittedToNotesAt),
 				),
 			)
@@ -334,6 +348,7 @@ export const insuranceReviewRouter = createTRPCRouter({
 				and(
 					eq(insuranceReview.claimedUserEmail, ctx.session.user.email),
 					eq(insuranceReview.enabled, true),
+					eq(insuranceReview.paused, false),
 					isNull(insuranceReview.submittedToNotesAt),
 				),
 			)

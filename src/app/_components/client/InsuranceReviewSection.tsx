@@ -12,7 +12,7 @@ import {
 } from "@ui/select";
 import { debounce } from "es-toolkit/function";
 import { isEqual } from "es-toolkit/predicate";
-import { History, Send } from "lucide-react";
+import { Eye, EyeOff, History, Send } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { useCheckPermission } from "~/hooks/use-check-permission";
@@ -79,6 +79,19 @@ export function InsuranceReviewSection({
 		},
 	});
 
+	const setPausedMutation = api.insuranceReview.setPaused.useMutation({
+		onSuccess: () => {
+			utils.insuranceReview.getByClientId.invalidate(client.id);
+			utils.insuranceReview.getAllEnabled.invalidate();
+			utils.insuranceReview.getMyClaimedClients.invalidate();
+		},
+		onError: (error) => {
+			toast.error("Failed to update pause state", {
+				description: error.message,
+			});
+		},
+	});
+
 	const submitMutation = api.insuranceReview.submitToNotes.useMutation({
 		onSuccess: (result) => {
 			if (result.success) {
@@ -139,6 +152,33 @@ export function InsuranceReviewSection({
 					>
 						<NoteHistory id={client.id} type="insurance-review" />
 					</ResponsiveDialog>
+
+					{canEdit && (
+						<Button
+							className="cursor-pointer"
+							disabled={setPausedMutation.isPending}
+							onClick={() =>
+								setPausedMutation.mutate({
+									clientId: client.id,
+									paused: !review.paused,
+								})
+							}
+							size="sm"
+							variant={review.paused ? "secondary" : "outline"}
+						>
+							{review.paused ? (
+								<>
+									<Eye className="mr-1 h-4 w-4" />
+									Show in Review Lists / Resume
+								</>
+							) : (
+								<>
+									<EyeOff className="mr-1 h-4 w-4" />
+									Hide from Review Lists / Pause
+								</>
+							)}
+						</Button>
+					)}
 
 					<Button
 						className="cursor-pointer"
