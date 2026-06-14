@@ -46,7 +46,7 @@ export function MergePreviewDialog({
 }: MergePreviewDialogProps) {
 	const router = useRouter();
 	const utils = api.useUtils();
-	const isDesktop = useMediaQuery("(min-width: 768px)");
+	const isDesktop = useMediaQuery("(min-width: 1024px)");
 	const [mergeDialogOpen, setMergeDialogOpen] = useState(false);
 	const [confirmOverwriteOpen, setConfirmOverwriteOpen] = useState(false);
 
@@ -126,9 +126,9 @@ export function MergePreviewDialog({
 				<DialogTrigger asChild disabled={!realClient || !fakeClient}>
 					{children}
 				</DialogTrigger>
-				<DialogContent className="max-h-[calc(100vh-4rem)] max-w-fit overflow-x-hidden overflow-y-scroll sm:max-w-fit">
+				<DialogContent className="max-h-[calc(100vh-4rem)] max-w-[calc(100vw-2rem)] overflow-x-auto overflow-y-auto sm:max-w-[calc(100vw-2rem)]">
 					<DialogTitle>Preview Merge</DialogTitle>
-					<div className="flex w-full min-w-[calc(100vw-5rem)] flex-col justify-between gap-10 md:flex-row lg:min-w-5xl">
+					<div className="flex w-full flex-col justify-between gap-10 lg:min-w-5xl lg:flex-row">
 						<Client hash={realClient?.hash ?? ""} readOnly />
 						<div className="flex flex-col items-center gap-4">
 							<Button
