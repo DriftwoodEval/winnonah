@@ -773,6 +773,14 @@ def put_appointment_in_db(
     billing_only: bool = False,
 ):
     """Inserts an appointment into the database."""
+    with connection.cursor() as cursor:
+        cursor.execute(f"SELECT 1 FROM `{TABLE_CLIENT}` WHERE id = %s", (client_id,))
+        if not cursor.fetchone():
+            logger.warning(
+                f"Skipping appointment {appointment_id}: no client row found for client_id={client_id}"
+            )
+            return
+
     sql = f"""
         INSERT INTO `{TABLE_APPOINTMENT}` (id, clientId, evaluatorNpi, startTime, endTime, daEval, asdAdhd, cancelled, locationKey, calendarEventId, cpt, calendarEventTitle, confirmedAt, billingOnly)
         VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
