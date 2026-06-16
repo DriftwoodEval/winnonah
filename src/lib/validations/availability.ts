@@ -1,4 +1,4 @@
-import { addMonths, format, isBefore, startOfDay } from "date-fns";
+import { format } from "date-fns";
 import { z } from "zod";
 
 export const DAYS_OF_WEEK = [
@@ -51,17 +51,17 @@ export const availabilityFormSchema = baseAvailabilityFormSchema
 			message: "At least one office must be selected.",
 			path: ["officeKeys"],
 		},
-	)
-	.refine(
-		(data) => {
-			const oneMonthFromNow = startOfDay(addMonths(new Date(), 1));
-			return !isBefore(data.startDate, oneMonthFromNow);
-		},
-		{
-			message: "Availability must be scheduled at least one month in advance.",
-			path: ["startDate"],
-		},
 	);
+// .refine(
+// 	(data) => {
+// 		const oneMonthFromNow = startOfDay(addMonths(new Date(), 1));
+// 		return !isBefore(data.startDate, oneMonthFromNow);
+// 	},
+// 	{
+// 		message: "Availability must be scheduled at least one month in advance.",
+// 		path: ["startDate"],
+// 	},
+// )
 
 export type AvailabilityFormValues = z.infer<typeof baseAvailabilityFormSchema>;
 
