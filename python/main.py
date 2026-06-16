@@ -15,6 +15,7 @@ import utils.config
 import utils.database
 import utils.google
 import utils.location
+import utils.medicaid
 import utils.openphone
 import utils.referrals
 import utils.therapyappointment
@@ -210,6 +211,8 @@ def import_from_ta(
         appointment_sync_config = utils.config.load_appointment_sync_config()
         utils.appointments.insert_appointments_with_gcal(appointment_sync_config)
 
+    utils.medicaid.lookup_new_scm_eligibility()
+
 
 def process_resync_confirmed():
     """Update Google Calendar event titles for confirmed appointments missing the [CONFIRMED] tag."""
@@ -346,6 +349,13 @@ def main(
         bool,
         typer.Option("--force-all", help="Force all clients through geocoding process"),
     ] = False,
+    medicaid: Annotated[
+        bool,
+        typer.Option(
+            "--medicaid",
+            help="Check if logged in to SC Medicaid Portal and log in if not",
+        ),
+    ] = False,
 ):
     """Main entry point for the script, parses the command line arguments and runs the appropriate functions."""
     utils.config.validate_config()
@@ -397,6 +407,21 @@ def main(
         generate_report_cover_pages()
         send_close_faxes()
         send_report_faxes()
+        return
+
+    if medicaid:
+        names_filter = []
+        ids_filter = []
+        for entry in client or []:
+            for part in [p.strip() for p in entry.split(",") if p.strip()]:
+                if part.isdigit():
+                    ids_filter.append(part)
+                else:
+                    names_filter.append(part)
+        utils.medicaid.lookup_scm_eligibility(
+            names=names_filter or None,
+            client_ids=ids_filter or None,
+        )
         return
 
     force_clients: pd.DataFrame | None = None
@@ -459,6 +484,11 @@ def main(
             process_referrals()
         except Exception as e:
             logger.error(f"Failed to process referrals: {e}")
+
+        try:
+            utils.medicaid.lookup_scm_eligibility()
+        except Exception as e:
+            logger.error(f"Failed to lookup SCM eligibility: {e}")
 
         try:
             utils.therapyappointment.save_ta_hashes()

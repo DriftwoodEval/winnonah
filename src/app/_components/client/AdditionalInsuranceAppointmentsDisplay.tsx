@@ -24,9 +24,10 @@ export function AdditionalInsuranceAppointmentsDisplay({
 	const can = useCheckPermission();
 	const canSee = can("clients:additional-insurance-appointments");
 	const { data: insurances = [] } = api.insurances.getAll.useQuery();
-	const { data: policies = [] } = api.clients.getInsurancePolicies.useQuery(
+	const { data: policiesData } = api.clients.getInsurancePolicies.useQuery(
 		client.id,
 	);
+	const policies = policiesData?.policies ?? [];
 	const [combined, setCombined] = useState(false);
 	const utils = api.useUtils();
 

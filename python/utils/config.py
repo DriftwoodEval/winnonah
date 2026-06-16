@@ -14,9 +14,6 @@ REQUIRED_VARS: Final = {
     "PUNCHLIST_RANGE": lambda x: bool(
         re.match(r"^[\w\s]+![A-Z]+[1-9][0-9]*:[A-Z]+[1-9][0-9]*$", x)
     ),
-    "TA_USERNAME": None,
-    "TA_PASSWORD": None,
-    "EXCLUDED_TA": lambda x: bool(re.match(r"^([^,]+(?:,[^,]+)*)$", x)),
     "ASANA_TOKEN": None,
     "ASANA_WORKSPACE": None,
     "CENSUS_API_KEY": None,
@@ -38,7 +35,6 @@ def validate_config() -> None:
             error_msgs = {
                 "DATABASE_URL": f"Invalid DATABASE_URL format. Got: {value}",
                 "PUNCHLIST_RANGE": f"Invalid Google Sheets range format. Must be, e.g. 'Sheet1!A1:B2'. Got: {value}",
-                "EXCLUDED_TA": f"Invalid EXCLUDED_TA format. Must be comma-separated values. Got: {value}",
             }
             raise ValueError(error_msgs.get(var, f"Invalid value for {var}: {value}"))
 

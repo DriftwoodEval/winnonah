@@ -1,4 +1,3 @@
-import os
 import shutil
 import time
 from collections.abc import Callable
@@ -49,19 +48,19 @@ def login_ta(driver: WebDriver, actions: ActionChains) -> None:
     """Log in to TherapyAppointment."""
     logger.info("Logging in to TherapyAppointment")
 
+    services = utils.database.get_services_config()
+    ta = services.get("therapyappointment", {})
+    ta_username = ta.get("username")
+    ta_password = ta.get("password")
+    if not ta_username or not ta_password:
+        raise ValueError("TherapyAppointment credentials not found in database config")
+
     logger.debug("Entering username")
     username_field = w.find_element(driver, By.NAME, "user_username")
-    ta_username = os.getenv("TA_USERNAME")
-    if ta_username is None:
-        raise ValueError("TA_USERNAME environment variable is not set")
-
     username_field.send_keys(ta_username)
 
     logger.debug("Entering password")
     password_field = w.find_element(driver, By.NAME, "user_password")
-    ta_password = os.getenv("TA_PASSWORD")
-    if ta_password is None:
-        raise ValueError("TA_PASSWORD environment variable is not set")
     password_field.send_keys(ta_password)
 
     logger.debug("Submitting login form")
@@ -193,7 +192,8 @@ def _loop_therapists(driver: WebDriver, func: Callable):
     w.click_element(driver, By.ID, "nav-staff-menu")
     sleep(2)
 
-    excluded_list = os.environ.get("EXCLUDED_TA", "").split(",")
+    full_config = utils.database.get_python_config(config_id=1)
+    excluded_list = full_config.get("config", {}).get("excluded_ta", [])
     ul_element = w.find_element(driver, By.CSS_SELECTOR, "#nav-staff-menu>ul")
     all_links = ul_element.find_elements(By.CSS_SELECTOR, "li > a")
 

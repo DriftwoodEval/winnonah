@@ -2244,13 +2244,25 @@ export const clientRouter = createTRPCRouter({
 	getInsurancePolicies: protectedProcedure
 		.input(z.number())
 		.query(async ({ ctx, input }) => {
-			return ctx.db.query.clientInsurancePolicies.findMany({
-				where: eq(clientInsurancePolicies.clientId, input),
-				orderBy: (t, { asc, desc }) => [
-					asc(t.policyType),
-					desc(t.policyStartDate),
-				],
-			});
+			const [policies, scmInsurance] = await Promise.all([
+				ctx.db.query.clientInsurancePolicies.findMany({
+					where: eq(clientInsurancePolicies.clientId, input),
+					orderBy: (t, { asc, desc }) => [
+						asc(t.policyType),
+						desc(t.policyStartDate),
+					],
+				}),
+				ctx.db.query.insurances.findFirst({
+					where: eq(insurances.shortName, "SCM"),
+					with: { aliases: true },
+				}),
+			]);
+
+			const scmAliasNames = scmInsurance
+				? [scmInsurance.shortName, ...scmInsurance.aliases.map((a) => a.name)]
+				: [];
+
+			return { policies, scmAliasNames };
 		}),
 
 	syncPunchData: protectedProcedure.mutation(async ({ ctx }) => {

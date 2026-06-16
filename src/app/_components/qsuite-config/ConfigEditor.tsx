@@ -129,6 +129,7 @@ const formSchema = z.object({
 			users: z.array(keyVal(z.object({ id: z.string() }))),
 		}),
 		therapyappointment: serviceWithAdminSchema,
+		medicaid: serviceSchema,
 		mhs: serviceSchema,
 		qglobal: serviceSchema,
 		wps: serviceSchema,
@@ -920,6 +921,26 @@ function ServicesTab({
 						disabled={disabled}
 						label="Admin Password"
 						name="services.therapyappointment.admin_password"
+						type="password"
+					/>
+				</CardContent>
+			</Card>
+			<Card>
+				<CardHeader>
+					<CardTitle>SC Medicaid</CardTitle>
+				</CardHeader>
+				<CardContent className="grid grid-cols-2 gap-4">
+					<FieldInput
+						control={c}
+						disabled={disabled}
+						label="User"
+						name="services.medicaid.username"
+					/>
+					<FieldInput
+						control={c}
+						disabled={disabled}
+						label="Password"
+						name="services.medicaid.password"
 						type="password"
 					/>
 				</CardContent>

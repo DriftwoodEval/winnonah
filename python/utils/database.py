@@ -142,6 +142,12 @@ def get_python_config(config_id: int = 2) -> dict:
     return {}
 
 
+def get_services_config() -> dict:
+    """Fetches the services credentials config (config_id=1) from the database."""
+    full_config = get_python_config(config_id=1)
+    return full_config.get("services", {})
+
+
 @provide_connection
 def filter_clients_with_changed_address(
     clients: pd.DataFrame, connection: Connection[DictCursor]
@@ -439,6 +445,83 @@ def sync_scm_insurance_reviews(connection: Connection[DictCursor]):
         )
     connection.commit()
     logger.info(f"Created {len(rows)} SCM insurance review record(s).")
+
+
+@provide_connection
+def update_client_medicaid_eligibility(
+    client_id: int,
+    qual_category: str,
+    payment_category: str,
+    connection: Connection[DictCursor],
+) -> None:
+    """Updates qual_category and payment_category on the client record."""
+    with connection.cursor() as cursor:
+        cursor.execute(
+            f"UPDATE `{TABLE_CLIENT}` SET qual_category = %s, payment_category = %s WHERE id = %s",
+            (qual_category, payment_category, client_id),
+        )
+    connection.commit()
+
+
+@provide_connection
+def get_scm_clients_with_medicaid_ids(
+    only_new: bool = True,
+    connection: Connection[DictCursor] | None = None,
+) -> list[dict]:
+    """Returns active clients with SCM insurance and their medicaid (insurance) numbers."""
+    with connection.cursor() as cursor:
+        cursor.execute(
+            f"""
+            SELECT i.id, i.shortName
+            FROM `{TABLE_INSURANCE}` i
+            LEFT JOIN `{TABLE_INSURANCE_ALIAS}` a ON a.insuranceId = i.id
+            WHERE i.shortName = %s OR a.name = %s
+            """,
+            (SCM_ALIAS, SCM_ALIAS),
+        )
+        scm_insurance_rows = cursor.fetchall()
+
+    if not scm_insurance_rows:
+        return []
+
+    scm_ids = list({row["id"] for row in scm_insurance_rows})
+    id_placeholders = ", ".join(["%s"] * len(scm_ids))
+
+    with connection.cursor() as cursor:
+        cursor.execute(
+            f"""
+            SELECT i.shortName AS name FROM `{TABLE_INSURANCE}` i WHERE i.id IN ({id_placeholders})
+            UNION
+            SELECT a.name FROM `{TABLE_INSURANCE_ALIAS}` a WHERE a.insuranceId IN ({id_placeholders})
+            """,
+            scm_ids + scm_ids,
+        )
+        name_rows = cursor.fetchall()
+
+    scm_names = [row["name"] for row in name_rows]
+    if not scm_names:
+        return []
+
+    name_placeholders = ", ".join(["%s"] * len(scm_names))
+
+    with connection.cursor() as cursor:
+        cursor.execute(
+            f"""
+            SELECT c.id, c.firstName, c.lastName, p.insuranceNumber
+            FROM `{TABLE_CLIENT}` c
+            JOIN `{TABLE_CLIENT_INSURANCE_POLICY}` p ON p.clientId = c.id
+            WHERE c.primaryInsurance IN ({name_placeholders})
+              AND c.status = 1
+              AND p.policyType = 'PRIMARY'
+              AND (p.policyEndDate IS NULL OR p.policyEndDate >= CURDATE())
+              AND p.insuranceNumber IS NOT NULL
+              AND p.insuranceNumber != ''
+              {" AND c.qual_category IS NULL" if only_new else ""}
+            ORDER BY c.lastName, c.firstName
+            """,
+            scm_names,
+        )
+        return cursor.fetchall()
 
 
 @provide_connection

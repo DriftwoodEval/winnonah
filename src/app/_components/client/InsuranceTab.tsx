@@ -68,9 +68,18 @@ function SectionHeader({ children }: { children: React.ReactNode }) {
 }
 
 type Policy =
-	inferRouterOutputs<AppRouter>["clients"]["getInsurancePolicies"][number];
+	inferRouterOutputs<AppRouter>["clients"]["getInsurancePolicies"]["policies"][number];
 
-function PolicyCard({ policy }: { policy: Policy }) {
+function PolicyCard({
+	policy,
+	medicaidEligibility,
+}: {
+	policy: Policy;
+	medicaidEligibility?: {
+		qualCategory: string | null;
+		paymentCategory: string | null;
+	};
+}) {
 	const active = isActive(policy.policyStartDate, policy.policyEndDate);
 	const companyName =
 		policy.insuranceCompanyName ?? policy.policyCompanyName ?? null;
@@ -254,6 +263,23 @@ function PolicyCard({ policy }: { policy: Policy }) {
 						)}
 					</>
 				)}
+
+				{(medicaidEligibility?.qualCategory ??
+					medicaidEligibility?.paymentCategory) && (
+					<>
+						<SectionHeader>Medicaid Eligibility</SectionHeader>
+						<div className="grid grid-cols-2 gap-x-6 gap-y-2 sm:grid-cols-3">
+							<InfoRow
+								label="Qual. Category"
+								value={medicaidEligibility?.qualCategory}
+							/>
+							<InfoRow
+								label="Payment Category"
+								value={medicaidEligibility?.paymentCategory}
+							/>
+						</div>
+					</>
+				)}
 			</CardContent>
 		</Card>
 	);
@@ -261,13 +287,23 @@ function PolicyCard({ policy }: { policy: Policy }) {
 
 export function InsuranceTab({ client }: InsuranceTabProps) {
 	const clientId = client.id;
-	const { data: policies, isLoading } =
+	const { data, isLoading } =
 		api.clients.getInsurancePolicies.useQuery(clientId);
 
-	const active = (policies ?? []).filter((p) =>
+	const policies = data?.policies ?? [];
+	const scmAliasNames = data?.scmAliasNames ?? [];
+	const isScmClient =
+		!!client.primaryInsurance &&
+		scmAliasNames.includes(client.primaryInsurance);
+
+	const scmPolicyId = isScmClient
+		? policies.find((p) => p.policyType?.toUpperCase() === "PRIMARY")?.policyId
+		: undefined;
+
+	const active = policies.filter((p) =>
 		isActive(p.policyStartDate, p.policyEndDate),
 	);
-	const inactive = (policies ?? []).filter(
+	const inactive = policies.filter(
 		(p) => !isActive(p.policyStartDate, p.policyEndDate),
 	);
 
@@ -281,14 +317,25 @@ export function InsuranceTab({ client }: InsuranceTabProps) {
 						key={i}
 					/>
 				))
-			) : !policies?.length ? (
+			) : !policies.length ? (
 				<p className="text-center text-muted-foreground text-sm">
 					No insurance policies found.
 				</p>
 			) : (
 				<>
 					{active.map((policy) => (
-						<PolicyCard key={policy.policyId} policy={policy} />
+						<PolicyCard
+							key={policy.policyId}
+							medicaidEligibility={
+								policy.policyId === scmPolicyId
+									? {
+											qualCategory: client.qualCategory ?? null,
+											paymentCategory: client.paymentCategory ?? null,
+										}
+									: undefined
+							}
+							policy={policy}
+						/>
 					))}
 					{inactive.length > 0 && (
 						<>
@@ -298,7 +345,18 @@ export function InsuranceTab({ client }: InsuranceTabProps) {
 								</p>
 							)}
 							{inactive.map((policy) => (
-								<PolicyCard key={policy.policyId} policy={policy} />
+								<PolicyCard
+									key={policy.policyId}
+									medicaidEligibility={
+										policy.policyId === scmPolicyId
+											? {
+													qualCategory: client.qualCategory ?? null,
+													paymentCategory: client.paymentCategory ?? null,
+												}
+											: undefined
+									}
+									policy={policy}
+								/>
 							))}
 						</>
 					)}

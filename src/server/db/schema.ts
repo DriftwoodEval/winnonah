@@ -255,6 +255,8 @@ export const clients = createTable(
 		longitude: d.decimal({ precision: 11, scale: 8 }),
 		primaryInsurance: d.varchar({ length: 255 }),
 		secondaryInsurance: d.json("secondaryInsurance").$type<string[]>(),
+		qualCategory: d.varchar("qual_category", { length: 255 }),
+		paymentCategory: d.varchar("payment_category", { length: 255 }),
 		precertExpires: d.date(),
 		privatePay: d.boolean().notNull().default(false),
 		asdAdhd: d.mysqlEnum([

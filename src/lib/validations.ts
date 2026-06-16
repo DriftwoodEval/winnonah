@@ -51,6 +51,7 @@ export const openPhoneServiceSchema = z.object({
 export const servicesSchema = z.object({
 	openphone: openPhoneServiceSchema,
 	therapyappointment: serviceWithAdminSchema,
+	medicaid: serviceSchema,
 	mhs: serviceSchema,
 	qglobal: serviceSchema,
 	wps: serviceSchema,
