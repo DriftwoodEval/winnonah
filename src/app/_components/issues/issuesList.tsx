@@ -3,7 +3,7 @@ import { MergePreviewDialog } from "@components/clients/MergePreviewDialog";
 import { Button } from "@ui/button";
 import { ScrollArea } from "@ui/scroll-area";
 import { Separator } from "@ui/separator";
-import { format, formatDistanceToNow } from "date-fns";
+import { addMinutes, format, formatDistanceToNow } from "date-fns";
 import {
 	MapIcon,
 	MapPinIcon,
@@ -541,7 +541,14 @@ const DuplicateNamesList = ({
 															{clientA.fullName}
 															<span className="ml-1 text-muted-foreground">
 																(DOB:{" "}
-																{format(new Date(clientA.dob), "MM/dd/yy")})
+																{format(
+																	addMinutes(
+																		clientA.dob,
+																		clientA.dob.getTimezoneOffset(),
+																	),
+																	"MM/dd/yy",
+																)}
+																)
 															</span>
 														</div>
 													</Link>
@@ -550,7 +557,14 @@ const DuplicateNamesList = ({
 															{clientB.fullName}
 															<span className="ml-1 text-muted-foreground">
 																(DOB:{" "}
-																{format(new Date(clientB.dob), "MM/dd/yy")})
+																{format(
+																	addMinutes(
+																		clientB.dob,
+																		clientB.dob.getTimezoneOffset(),
+																	),
+																	"MM/dd/yy",
+																)}
+																)
 															</span>
 														</div>
 													</Link>
