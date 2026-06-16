@@ -211,8 +211,6 @@ def import_from_ta(
         appointment_sync_config = utils.config.load_appointment_sync_config()
         utils.appointments.insert_appointments_with_gcal(appointment_sync_config)
 
-    utils.medicaid.lookup_new_scm_eligibility()
-
 
 def process_resync_confirmed():
     """Update Google Calendar event titles for confirmed appointments missing the [CONFIRMED] tag."""
@@ -410,18 +408,21 @@ def main(
         return
 
     if medicaid:
-        names_filter = []
-        ids_filter = []
-        for entry in client or []:
-            for part in [p.strip() for p in entry.split(",") if p.strip()]:
-                if part.isdigit():
-                    ids_filter.append(part)
-                else:
-                    names_filter.append(part)
-        utils.medicaid.lookup_scm_eligibility(
-            names=names_filter or None,
-            client_ids=ids_filter or None,
-        )
+        if client:
+            names_filter = []
+            ids_filter = []
+            for entry in client:
+                for part in [p.strip() for p in entry.split(",") if p.strip()]:
+                    if part.isdigit():
+                        ids_filter.append(part)
+                    else:
+                        names_filter.append(part)
+            utils.medicaid.lookup_scm_eligibility(
+                names=names_filter or None,
+                client_ids=ids_filter or None,
+            )
+        else:
+            utils.medicaid.lookup_new_scm_eligibility()
         return
 
     force_clients: pd.DataFrame | None = None
@@ -486,7 +487,7 @@ def main(
             logger.error(f"Failed to process referrals: {e}")
 
         try:
-            utils.medicaid.lookup_scm_eligibility()
+            utils.medicaid.lookup_new_scm_eligibility()
         except Exception as e:
             logger.error(f"Failed to lookup SCM eligibility: {e}")
 

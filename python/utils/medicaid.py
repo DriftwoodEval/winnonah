@@ -36,6 +36,15 @@ def login_medicaid(driver: WebDriver, actions: ActionChains) -> None:
     actions.send_keys(Keys.ENTER)
     actions.perform()
 
+    try:
+        w.find_element(
+            driver, By.XPATH, "//*[contains(text(), 'Eligibility')]", timeout=15
+        )
+    except (NoSuchElementException, TimeoutException) as e:
+        raise RuntimeError(
+            "SC Medicaid login failed, authenticated page did not load"
+        ) from e
+
 
 def check_and_login_medicaid(first_time: bool = False) -> WebDriver:
     """Ensure logged in to SC Medicaid Portal and return the driver."""
@@ -67,11 +76,25 @@ def lookup_new_scm_eligibility() -> None:
 
 
 def lookup_scm_eligibility(
+    only_new: bool = False,
     names: list[str] | None = None,
     client_ids: list[str] | None = None,
 ) -> None:
     """Force eligibility lookup for all SCM clients, or filter by name/ID strings."""
-    _run_scm_eligibility_lookup(only_new=False, names=names, client_ids=client_ids)
+    _run_scm_eligibility_lookup(only_new=only_new, names=names, client_ids=client_ids)
+
+
+def _ensure_logged_in(driver: WebDriver) -> None:
+    """Re-login if the current SC Medicaid session has expired."""
+    try:
+        driver.get(f"{BASE_PORTAL_URL}/provider/home")
+        w.find_element(
+            driver, By.XPATH, "//*[contains(text(), 'Eligibility')]", timeout=5
+        )
+    except NoSuchElementException, TimeoutException:
+        logger.info("SC Medicaid session expired, re-logging in")
+        login_medicaid(driver, ActionChains(driver))
+        select_provider(driver, "1669135125")
 
 
 def _run_scm_eligibility_lookup(
@@ -98,11 +121,34 @@ def _run_scm_eligibility_lookup(
         return
 
     logger.info(f"Looking up eligibility for {len(clients)} SCM client(s)")
-    driver = check_and_login_medicaid(first_time=True)
+    try:
+        driver = check_and_login_medicaid(first_time=True)
+    except Exception:
+        logger.warning("Initial SC Medicaid login failed, retrying in 60s")
+        sleep(60)
+        driver = check_and_login_medicaid(first_time=True)
+
     try:
         for client in clients:
             medicaid_id = client["insuranceNumber"]
-            qual_category, payment_category = search_single_client(driver, medicaid_id)
+            try:
+                qual_category, payment_category = search_single_client(
+                    driver, medicaid_id
+                )
+            except NoSuchElementException, TimeoutException:
+                logger.warning(
+                    f"Error searching client {medicaid_id}, verifying login and retrying"
+                )
+                _ensure_logged_in(driver)
+                try:
+                    qual_category, payment_category = search_single_client(
+                        driver, medicaid_id
+                    )
+                except Exception:
+                    logger.error(
+                        f"Failed to look up eligibility for client {medicaid_id} after re-login, skipping"
+                    )
+                    continue
             utils.database.update_client_medicaid_eligibility(
                 client["id"], qual_category, payment_category
             )
