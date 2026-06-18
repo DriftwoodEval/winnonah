@@ -1,16 +1,3 @@
-"""
-Generates and sends close-fax sheets for clients whose records are ready to close.
-
-Reads from the close-fax Google Sheet, creates a fax sheet doc per eligible client,
-then sends each as a PDF to the doctor's fax via redfax.com.
-
-Usage:
-  python fax_close.py              # generate + send
-  python fax_close.py generate     # generate sheets only
-  python fax_close.py send         # send existing sheets only
-  python fax_close.py validation   # refresh doctor dropdown in the spreadsheet
-"""
-
 import os
 import re
 import time
@@ -68,9 +55,6 @@ load_dotenv()
 app = typer.Typer()
 
 
-# ── Helpers ───────────────────────────────────────────────────────────────
-
-
 def _ss_id() -> str:
     return os.environ[ENV_CLOSE_FAX_SPREADSHEET_ID]
 
@@ -80,9 +64,6 @@ def _get_headers() -> dict[str, int]:
     if not values:
         raise ValueError("Could not read headers from spreadsheet")
     return {name: i for i, name in enumerate(values[0])}
-
-
-# ── Dropdown / reason helpers ─────────────────────────────────────────────
 
 
 def get_nine_reasons() -> list[str]:
@@ -111,9 +92,6 @@ def code_to_reason(code: str) -> str | None:
             return row[0]
     logger.warning(f"No reason text found for code '{code}'")
     return None
-
-
-# ── Validation range management ───────────────────────────────────────────
 
 
 def update_validation_range() -> None:
@@ -165,9 +143,6 @@ def replace_misformatted_doctors() -> None:
     update_validation_range()
 
 
-# ── Row filtering ─────────────────────────────────────────────────────────
-
-
 def get_filtered_rows() -> list[dict]:
     ss_id = _ss_id()
     last_row = get_last_row(ss_id)
@@ -184,13 +159,10 @@ def get_filtered_rows() -> list[dict]:
         {h: row_val(row, h) for h in headers}
         for row in all_values[1:]
         if row_val(row, HEADER_FAX_TO_DR) == "Yes"
-        and not row_val(row, HEADER_SENT)
+        and row_val(row, HEADER_SENT).upper() != "TRUE"
         and row_val(row, HEADER_REASON)
         and row_val(row, HEADER_DOCTOR)
     ]
-
-
-# ── Fax sheet generation ──────────────────────────────────────────────────
 
 
 def generate_fax_sheet(
@@ -228,9 +200,6 @@ def generate_fax_sheet(
 
     replace_text_in_doc(new_file["id"], replacements)
     logger.info(f"Created {pretty_client}_{fax_number}")
-
-
-# ── Sending ───────────────────────────────────────────────────────────────
 
 
 def send_close_fax(client_name: str, fax_number: str) -> None:
@@ -280,9 +249,6 @@ def _mark_sent(client_name: str) -> None:
     logger.warning(f"Could not find spreadsheet row for '{client_name}' to mark sent")
 
 
-# ── Orchestrators ─────────────────────────────────────────────────────────
-
-
 def generate_close_faxes() -> None:
     rows = get_filtered_rows()
     logger.info(f"Found {len(rows)} rows to generate close fax sheets for")
@@ -315,9 +281,6 @@ def send_close_faxes() -> None:
             send_close_fax(match.group(1), match.group(2))
         else:
             logger.warning(f"Skipping unrecognized outbox filename: {file['name']}")
-
-
-# ── CLI ───────────────────────────────────────────────────────────────────
 
 
 @app.command()
