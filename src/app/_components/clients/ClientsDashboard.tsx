@@ -366,7 +366,7 @@ export function ClientsDashboard() {
 							<Filter />
 						</Button>
 					</PopoverTrigger>
-					<PopoverContent align="end">
+					<PopoverContent align="end" className="max-h-[80dvh] overflow-y-auto">
 						<div className="space-y-4">
 							<div className="space-y-2">
 								<p className="font-medium text-sm">Client Status</p>

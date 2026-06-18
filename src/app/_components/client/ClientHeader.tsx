@@ -190,7 +190,7 @@ export function ClientHeader({
 					</div>
 				</div>
 			)}
-			<div className="flex h-5 items-center gap-2">
+			<div className="flex flex-wrap items-center gap-x-2 gap-y-1">
 				<div className="flex items-center gap-2">
 					{!isShellClientId(client.id) && <span>{client.id}</span>}
 					<Badge

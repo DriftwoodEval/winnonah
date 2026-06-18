@@ -172,21 +172,24 @@ export function GlobalClientSearch() {
 			</Button>
 
 			<Dialog onOpenChange={setOpen} open={open}>
-				<DialogContent className="sm:max-w-2xl">
+				<DialogContent className="flex max-h-[90dvh] flex-col sm:max-w-2xl">
 					<DialogHeader>
 						<DialogTitle className="sr-only">Search Clients</DialogTitle>
 					</DialogHeader>
 					<div className="flex gap-2">
-						<NameSearchInput
-							debounceMs={300}
-							initialValue={""}
-							onDebouncedChange={(name) => {
-								setDebouncedSearchTerm(name);
-								setHighlightedIndex(-1);
-							}}
-						/>
+						<div className="min-w-0 flex-1">
+							<NameSearchInput
+								debounceMs={300}
+								initialValue={""}
+								onDebouncedChange={(name) => {
+									setDebouncedSearchTerm(name);
+									setHighlightedIndex(-1);
+								}}
+								placeholder="Search by name, ID, DOB..."
+							/>
+						</div>
 						<Select onValueChange={handleStatusChange} value={statusFilter}>
-							<SelectTrigger>
+							<SelectTrigger className="w-28 flex-shrink-0">
 								<SelectValue placeholder="Status" />
 							</SelectTrigger>
 							<SelectContent>
@@ -200,16 +203,16 @@ export function GlobalClientSearch() {
 					<div
 						className={
 							isPlaceholderData
-								? "opacity-60 transition-opacity duration-200"
-								: "opacity-100 transition-opacity duration-200"
+								? "min-h-0 flex-1 opacity-60 transition-opacity duration-200"
+								: "min-h-0 flex-1 opacity-100 transition-opacity duration-200"
 						}
 					>
 						{isLoading ? (
-							<Skeleton className="h-[500px] w-full bg-muted" />
+							<Skeleton className="h-full w-full bg-muted" />
 						) : (
 							<ClientsList
 								clients={clients ?? []}
-								heightClass="h-[500px]"
+								heightClass="h-full"
 								highlightedIndex={highlightedIndex}
 								highlightedItemRef={highlightedItemRef}
 							/>
