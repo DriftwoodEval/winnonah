@@ -15,6 +15,7 @@ import { schedulingRouter } from "./routers/scheduling";
 import { sessionRouter } from "./routers/sessions";
 import { systemRouter } from "./routers/system";
 import { userRouter } from "./routers/users";
+import { workSummaryRouter } from "./routers/workSummary";
 import { createCallerFactory, createTRPCRouter } from "./trpc";
 
 /**
@@ -32,6 +33,7 @@ export const appRouter = createTRPCRouter({
 	insuranceReview: insuranceReviewRouter,
 	notes: noteRouter,
 	offices: officeRouter,
+	workSummary: workSummaryRouter,
 	pyConfig: pyConfigRouter,
 	questionnaires: questionnaireRouter,
 	quo: quoRouter,

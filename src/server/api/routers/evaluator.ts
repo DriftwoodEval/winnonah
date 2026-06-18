@@ -27,6 +27,9 @@ export const evaluatorInputSchema = z.object({
 	offices: z.array(z.string()).default([]),
 	blockedDistricts: z.array(z.number()).default([]),
 	blockedZips: z.array(z.string().regex(/^\d{5}$/)).default([]),
+	appointmentDurations: z
+		.record(z.string(), z.number().nonnegative().int())
+		.default({}),
 });
 
 const CACHE_KEY_ALL_EVALUATORS = "evaluators:all";

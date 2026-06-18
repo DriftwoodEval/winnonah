@@ -32,6 +32,11 @@ export const evaluators = createTable("evaluator", (d) => ({
 	email: d.varchar({ length: 255 }).notNull().unique(),
 	outOfOfficePriority: d.boolean().notNull().default(false),
 	archived: d.boolean().notNull().default(false),
+	appointmentDurations: d
+		.json("appointmentDurations")
+		.$type<Record<string, number>>()
+		.notNull()
+		.default({}),
 }));
 
 export const insurances = createTable("insurance", (d) => ({
@@ -1079,3 +1084,12 @@ export const pieceworkReportTracking = createTable(
 		trackedDate: d.date("tracked_date").notNull(),
 	}),
 );
+
+export const workSummaryConfig = createTable("work_summary_config", (d) => ({
+	id: d.int().notNull().primaryKey().default(1),
+	appointmentDurationDefaults: d
+		.json("appointmentDurationDefaults")
+		.$type<Record<string, number>>()
+		.notNull()
+		.default({}),
+}));

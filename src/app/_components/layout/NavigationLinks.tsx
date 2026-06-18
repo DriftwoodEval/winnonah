@@ -69,6 +69,11 @@ export default function NavigationLinks() {
 			label: "Claim Reports",
 			show: true,
 		},
+		{
+			href: "/work-summary",
+			label: "Work Summary",
+			show: can("pages:work-summary"),
+		},
 	].filter((item) => item.show);
 
 	return (

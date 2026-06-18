@@ -270,6 +270,7 @@ export const PERMISSIONS = {
 					{ id: "pages:dashboard", title: "Dashboard" },
 					{ id: "pages:calculator", title: "Calculator" },
 					{ id: "pages:scheduling", title: "Scheduling" },
+					{ id: "pages:work-summary", title: "Work Summary" },
 				],
 			},
 		},

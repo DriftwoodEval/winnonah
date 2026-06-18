@@ -7,6 +7,7 @@ import InsurancesTable from "@components/settings/InsurancesTable";
 import InvitesTable from "@components/settings/InvitesTable";
 import QuestionnaireRulesTable from "@components/settings/QuestionnaireRulesTable";
 import UsersTable from "@components/settings/UsersTable";
+import WorkSummaryDefaultsSection from "@components/settings/WorkSummaryDefaultsSection";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@ui/tabs";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -65,6 +66,7 @@ export function SettingsTabs() {
 				</TabsContent>
 				<TabsContent value="evaluators">
 					<EvaluatorsTable />
+					<WorkSummaryDefaultsSection />
 				</TabsContent>
 				<TabsContent value="insurances">
 					<InsurancesTable />

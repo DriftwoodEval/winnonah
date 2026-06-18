@@ -75,6 +75,7 @@ const formSchema = z.object({
 	blockedZips: z.array(
 		z.string().regex(/^\d{5}$/, "Must be a 5-digit zip code"),
 	),
+	appointmentDurations: z.record(z.string(), z.number().nonnegative().int()),
 });
 
 type EvaluatorFormValues = z.infer<typeof formSchema>;
@@ -128,6 +129,8 @@ function EvaluatorForm({
 				offices: initialData.offices.map((office) => office.key),
 				blockedDistricts: initialData?.blockedDistricts?.map((d) => d.id) ?? [],
 				blockedZips: initialData?.blockedZips?.map((z) => z.zip) ?? [],
+				appointmentDurations:
+					(initialData.appointmentDurations as Record<string, number>) ?? {},
 			};
 		}
 		// If creating a new one, provide a complete, empty state
@@ -140,6 +143,7 @@ function EvaluatorForm({
 			offices: [],
 			blockedDistricts: [],
 			blockedZips: [],
+			appointmentDurations: {},
 		};
 	}, [initialData]);
 
@@ -147,6 +151,35 @@ function EvaluatorForm({
 		resolver: zodResolver(formSchema),
 		defaultValues,
 	});
+
+	const durations = form.watch("appointmentDurations") ?? {};
+
+	function getDuration(key: string): string {
+		const val = durations[key];
+		return val !== undefined ? String(val) : "";
+	}
+
+	function setDuration(key: string, raw: string) {
+		const current = { ...(form.getValues("appointmentDurations") ?? {}) };
+		const num = parseInt(raw, 10);
+		if (!raw || Number.isNaN(num) || num < 0) {
+			delete current[key];
+		} else {
+			current[key] = num;
+		}
+		form.setValue("appointmentDurations", current, { shouldDirty: true });
+	}
+
+	const dInput = (key: string) => (
+		<Input
+			className="h-8 text-center text-sm"
+			min="0"
+			onChange={(e) => setDuration(key, e.target.value)}
+			placeholder="—"
+			type="number"
+			value={getDuration(key)}
+		/>
+	);
 
 	return (
 		<Form {...form}>
@@ -397,6 +430,54 @@ function EvaluatorForm({
 						</FormItem>
 					)}
 				/>
+
+				<div className="space-y-2">
+					<FormLabel>Appointment Durations (minutes)</FormLabel>
+					<div className="overflow-x-auto rounded-md border p-3">
+						<div className="grid min-w-[380px] grid-cols-5 items-center gap-x-2 gap-y-2 text-sm">
+							<div />
+							<div className="text-center font-medium text-muted-foreground text-xs">
+								(any)
+							</div>
+							<div className="text-center font-medium text-muted-foreground text-xs">
+								ASD
+							</div>
+							<div className="text-center font-medium text-muted-foreground text-xs">
+								ADHD
+							</div>
+							<div className="text-center font-medium text-muted-foreground text-xs">
+								ASD+ADHD
+							</div>
+
+							<div className="font-medium">Default</div>
+							{dInput("default")}
+							<div />
+							<div />
+							<div />
+
+							<div className="font-medium">DA</div>
+							{dInput("DA")}
+							{dInput("DA/ASD")}
+							{dInput("DA/ADHD")}
+							{dInput("DA/ASD+ADHD")}
+
+							<div className="font-medium">EVAL</div>
+							{dInput("EVAL")}
+							{dInput("EVAL/ASD")}
+							{dInput("EVAL/ADHD")}
+							{dInput("EVAL/ASD+ADHD")}
+
+							<div className="font-medium">DAEVAL</div>
+							{dInput("DAEVAL")}
+							{dInput("DAEVAL/ASD")}
+							{dInput("DAEVAL/ADHD")}
+							{dInput("DAEVAL/ASD+ADHD")}
+						</div>
+					</div>
+					<p className="text-muted-foreground text-xs">
+						Specific subtypes override DA/EVAL/DAEVAL, which override Default.
+					</p>
+				</div>
 
 				<div className="flex justify-end gap-2 pt-4">
 					<Button onClick={onClose} type="button" variant="ghost">
