@@ -537,6 +537,27 @@ async def notify_insurance_review_claimed(
             detail="Not authorized to send insurance review notifications",
         )
 
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                f"SELECT permissions FROM {TABLE_USER} WHERE email = %s AND archived = 0",
+                (request.user_email,),
+            )
+            row = cursor.fetchone()
+    finally:
+        conn.close()
+
+    if not row:
+        return {"status": "skipped", "reason": "recipient not found"}
+
+    recipient_permissions = json.loads(row["permissions"]) if row["permissions"] else {}
+    if not recipient_permissions.get("clients:insurance:review:email-notifications"):
+        return {
+            "status": "skipped",
+            "reason": "recipient has not opted in to email notifications",
+        }
+
     subject = f"Insurance Review Assigned: {request.client_name}"
 
     link_text = f"\n\nView client: {request.client_url}" if request.client_url else ""

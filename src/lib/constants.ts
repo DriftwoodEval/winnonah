@@ -129,6 +129,11 @@ export const PERMISSIONS = {
 						title: "Show Insurance Review Banner on Homepage",
 						parent: "clients:insurance:review" as const,
 					},
+					{
+						id: "clients:insurance:review:email-notifications",
+						title: "Receive Insurance Review Claim Email Notifications",
+						parent: "clients:insurance:review" as const,
+					},
 					{ id: "clients:pa-forms", title: "Download PA Forms" },
 				],
 			},
