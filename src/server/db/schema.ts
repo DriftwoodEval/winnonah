@@ -1066,3 +1066,16 @@ export const duplicateNameIgnore = createTable(
 	}),
 	(t) => [uniqueIndex("dup_name_pair_idx").on(t.clientIdA, t.clientIdB)],
 );
+
+export const pieceworkReportTracking = createTable(
+	"piecework_report_tracking",
+	(d) => ({
+		clientId: d
+			.int()
+			.notNull()
+			.primaryKey()
+			.references(() => clients.id, { onDelete: "cascade" }),
+		writerEmail: d.varchar("writer_email", { length: 255 }),
+		trackedDate: d.date("tracked_date").notNull(),
+	}),
+);
