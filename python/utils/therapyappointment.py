@@ -50,10 +50,12 @@ def login_ta(driver: WebDriver, actions: ActionChains) -> None:
 
     services = utils.database.get_services_config()
     ta = services.get("therapyappointment", {})
-    ta_username = ta.get("username")
-    ta_password = ta.get("password")
+    ta_username = ta.get("admin_username")
+    ta_password = ta.get("admin_password")
     if not ta_username or not ta_password:
-        raise ValueError("TherapyAppointment credentials not found in database config")
+        raise ValueError(
+            "TherapyAppointment admin credentials not found in database config"
+        )
 
     logger.debug("Entering username")
     username_field = w.find_element(driver, By.NAME, "user_username")
