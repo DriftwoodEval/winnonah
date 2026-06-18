@@ -87,6 +87,11 @@ function PunchListAccordionItem({
 		title === SECTION_EVAL_QS_DONE ||
 		title === SECTION_DAEVAL_QS_DONE;
 
+	const schedulingAddedCount =
+		isQsBackSection && scheduledClientIds
+			? clients.filter((c) => scheduledClientIds.has(c.id)).length
+			: 0;
+
 	const isOutreachSection =
 		title === SECTION_NEEDS_OUTREACH ||
 		title === SECTION_REACHED_OUT_NEEDS_REVIEW;
@@ -104,6 +109,12 @@ function PunchListAccordionItem({
 					<span className="text-muted-foreground text-sm">
 						({clients?.length})
 					</span>
+					{isQsBackSection && (
+						<span className="text-muted-foreground text-sm">
+							&middot; {schedulingAddedCount}/{clients?.length} on scheduling
+							page
+						</span>
+					)}
 				</span>
 			</AccordionTrigger>
 			<AccordionContent>
