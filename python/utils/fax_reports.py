@@ -72,7 +72,7 @@ def generate_cover_page(folder_id: str, folder_name: str) -> None:
         },
     )
     logger.info(
-        f"Created fax cover in {folder_name} — referrer: {referrer_name}, fax: {fax_number}"
+        f"Created fax cover in {folder_name}: referrer={referrer_name}, fax={fax_number}"
     )
 
 
@@ -169,9 +169,11 @@ def move_reports_to_completed(files: list[dict], folder_id: str) -> None:
 def generate_report_cover_pages() -> None:
     to_be_faxed_id = os.getenv(ENV_FAX_FOLDER_ID)
     completed_id = os.getenv(ENV_FAX_COMPLETED_FOLDER_ID)
-    for sf in list_subfolders(to_be_faxed_id):
-        if sf["id"] == completed_id:
-            continue
+    subfolders = [
+        sf for sf in list_subfolders(to_be_faxed_id) if sf["id"] != completed_id
+    ]
+    logger.info(f"Checking {len(subfolders)} folders for cover pages")
+    for sf in subfolders:
         if check_for_subfolders(sf["id"]) != "subfolders":
             check_and_gen_cover_page(sf["id"], sf["name"])
 
@@ -194,9 +196,10 @@ def send_report_faxes() -> None:
                 try:
                     if send_fax_with_signed_cover(ssf["id"], ssf["name"], fax_number):
                         move_file(ssf["id"], completed_id)
+                        logger.info(f"Moved {ssf['name']} to completed")
                     else:
                         logger.warning(
-                            f"Skipping move for {ssf['name']} — send failed."
+                            f"Skipping move for {ssf['name']} - send failed."
                         )
                 except Exception as e:
                     logger.error(f"Error sending fax for {folder_name}: {e}")
@@ -211,10 +214,16 @@ def send_report_faxes() -> None:
                 sent_files = send_fax_with_gen_cover(folder_id, folder_name)
                 if sent_files is not None:
                     move_reports_to_completed(sent_files, folder_id)
+                    logger.info(
+                        f"Moved {len(sent_files)} files from {folder_name} to completed"
+                    )
                 else:
-                    logger.warning(f"Skipping move for {folder_name} — send failed.")
+                    logger.warning(f"Skipping move for {folder_name} - send failed.")
             except Exception as e:
                 logger.error(f"Error sending fax for {folder_name}: {e}")
+
+        else:
+            logger.info(f"Skipping {folder_name}: status={status!r}, no ready content")
 
 
 # ── CLI ───────────────────────────────────────────────────────────────────

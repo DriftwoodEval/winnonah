@@ -109,6 +109,7 @@ def code_to_reason(code: str) -> str | None:
     for row in values:
         if len(row) >= 2 and row[1] == code:
             return row[0]
+    logger.warning(f"No reason text found for code '{code}'")
     return None
 
 
@@ -200,6 +201,9 @@ def generate_fax_sheet(
 ) -> None:
     fax_number = extract_fax_number(client_doctor)
     if not fax_number:
+        logger.warning(
+            f"No fax number in doctor '{client_doctor}' for {format_name(client_name)}"
+        )
         return
 
     pretty_client = format_name(client_name)
@@ -252,6 +256,7 @@ def send_close_fax(client_name: str, fax_number: str) -> None:
 
     move_file(fax_file["id"], os.environ[ENV_CLOSE_FAX_SENT_FOLDER_ID])
     _mark_sent(client_name)
+    logger.info(f"Successfully sent close fax for {client_name}")
 
 
 def _mark_sent(client_name: str) -> None:
@@ -270,14 +275,18 @@ def _mark_sent(client_name: str) -> None:
     for i, row in enumerate(all_values[1:], start=2):
         if len(row) > name_col and format_name(row[name_col]) == client_name:
             set_sheet_value(ss_id, f"{sent_col_letter}{i}", "TRUE")
+            logger.info(f"Marked '{client_name}' as sent in row {i}")
             return
+    logger.warning(f"Could not find spreadsheet row for '{client_name}' to mark sent")
 
 
 # ── Orchestrators ─────────────────────────────────────────────────────────
 
 
 def generate_close_faxes() -> None:
-    for row in get_filtered_rows():
+    rows = get_filtered_rows()
+    logger.info(f"Found {len(rows)} rows to generate close fax sheets for")
+    for row in rows:
         client_name = row.get(HEADER_NAME, "")
         client_dob = row.get(HEADER_DOB, "")
         client_doctor = row.get(HEADER_DOCTOR, "")
@@ -298,10 +307,14 @@ def generate_close_faxes() -> None:
 
 
 def send_close_faxes() -> None:
-    for file in list_files_in_folder(os.environ[ENV_CLOSE_FAX_OUTBOX_FOLDER_ID]):
+    files = list_files_in_folder(os.environ[ENV_CLOSE_FAX_OUTBOX_FOLDER_ID])
+    logger.info(f"Found {len(files)} files in outbox to send")
+    for file in files:
         match = re.match(r"^(.+?)_(\d+)", file["name"])
         if match:
             send_close_fax(match.group(1), match.group(2))
+        else:
+            logger.warning(f"Skipping unrecognized outbox filename: {file['name']}")
 
 
 # ── CLI ───────────────────────────────────────────────────────────────────
