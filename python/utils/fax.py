@@ -250,7 +250,7 @@ def set_sheet_value(spreadsheet_id: str, range_: str, value: Any) -> None:
     _sheets().spreadsheets().values().update(
         spreadsheetId=spreadsheet_id,
         range=range_,
-        valueInputOption="RAW",
+        valueInputOption="USER_ENTERED",
         body={"values": [[value]]},
     ).execute()
 
