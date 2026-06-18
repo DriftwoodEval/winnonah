@@ -162,6 +162,13 @@ def _remove_invalid_clients(clients_df: pd.DataFrame) -> pd.DataFrame:
     return cast(pd.DataFrame, clients_df[pd.notna(clients_df["CLIENT_ID"])])
 
 
+def _normalize_for_match(s: str) -> str:
+    if not s or pd.isna(s):
+        return ""
+    s = re.sub(r"[^a-zA-Z\s]", "", str(s))
+    return re.sub(r"\s+", " ", s.strip().lower())
+
+
 def _merge_referral_data(clients_df: pd.DataFrame) -> pd.DataFrame:
     """Merges referral source data using name match."""
     referrals = utils.spreadsheets.open_local(
@@ -182,15 +189,15 @@ def _merge_referral_data(clients_df: pd.DataFrame) -> pd.DataFrame:
         return name_part
 
     referrals["CLEAN_SOURCE"] = referrals["Referral Name"].apply(normalize_name)
-    referrals["_match_key"] = referrals["Client Name"].str.strip().str.lower()
+    referrals["_match_key"] = referrals["Client Name"].apply(_normalize_for_match)
     ref_lookup = dict(
         zip(referrals["_match_key"], referrals["CLEAN_SOURCE"], strict=False),
     )
 
     def find_source(row):
-        last = str(row.get("LASTNAME", "")).strip().lower()
-        first = str(row.get("FIRSTNAME", "")).strip().lower()
-        pref = str(row.get("PREFERRED_NAME", "")).strip().lower()
+        last = _normalize_for_match(str(row.get("LASTNAME", "")))
+        first = _normalize_for_match(str(row.get("FIRSTNAME", "")))
+        pref = _normalize_for_match(str(row.get("PREFERRED_NAME", "")))
 
         legal_match = f"{first} {last}"
         if legal_match in ref_lookup:
