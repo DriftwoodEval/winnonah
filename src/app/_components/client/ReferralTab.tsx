@@ -527,9 +527,15 @@ export function ReferralTab({ client, readOnly }: ReferralTabProps) {
 								<div className="space-y-4">
 									<div className="rounded-lg bg-muted p-4 text-sm">
 										{isSpanish ? (
-											<p>¿Asiste el niño a una escuela chárter o privada?</p>
+											<p>
+												¿Asiste el niño a una escuela chárter o privada? En caso
+												afirmativo, ¿a qué escuela?
+											</p>
 										) : (
-											<p>Does the child go to charter / private school?</p>
+											<p>
+												Does the child go to charter / private school? If so,
+												which school?
+											</p>
 										)}
 									</div>
 									<div className="space-y-4">
