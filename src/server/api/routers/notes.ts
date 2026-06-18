@@ -153,7 +153,7 @@ export const noteRouter = createTRPCRouter({
 
 	onNoteUpdate: protectedProcedure
 		.input(z.number()) // clientId
-		.subscription(async function* ({ input: clientId }) {
+		.subscription(async function* ({ input: clientId, signal }) {
 			// Create a promise-based queue for events
 			const eventQueue: Array<{
 				clientId: number;
@@ -180,11 +180,14 @@ export const noteRouter = createTRPCRouter({
 			noteEmitter.on("noteUpdate", onUpdate);
 
 			try {
-				while (true) {
+				while (!signal?.aborted) {
 					// Wait for an event if queue is empty
 					if (eventQueue.length === 0) {
 						await new Promise<void>((resolve) => {
 							resolveNext = resolve;
+							signal?.addEventListener("abort", () => resolve(), {
+								once: true,
+							});
 						});
 					}
 

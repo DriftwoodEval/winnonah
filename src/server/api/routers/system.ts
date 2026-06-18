@@ -2,7 +2,10 @@ import { createTRPCRouter, protectedProcedure } from "~/server/api/trpc";
 import { SERVER_START_TIME, systemEmitter } from "~/server/systemEmitter";
 
 export const systemRouter = createTRPCRouter({
-	onSystemUpdate: protectedProcedure.subscription(async function* ({ ctx }) {
+	onSystemUpdate: protectedProcedure.subscription(async function* ({
+		ctx,
+		signal,
+	}) {
 		const userId = ctx.session.user.id;
 
 		yield { type: "restart" as const, serverStartTime: SERVER_START_TIME };
@@ -23,10 +26,11 @@ export const systemRouter = createTRPCRouter({
 		systemEmitter.on("permissionChange", onPermissionChange);
 
 		try {
-			while (true) {
+			while (!signal?.aborted) {
 				if (eventQueue.length === 0) {
 					await new Promise<void>((resolve) => {
 						resolveNext = resolve;
+						signal?.addEventListener("abort", () => resolve(), { once: true });
 					});
 				}
 

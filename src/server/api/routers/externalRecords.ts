@@ -244,7 +244,7 @@ export const externalRecordRouter = createTRPCRouter({
 
 	onExternalRecordNoteUpdate: protectedProcedure
 		.input(z.number()) // clientId
-		.subscription(async function* ({ input: clientId }) {
+		.subscription(async function* ({ input: clientId, signal }) {
 			type ExternalRecordRequest = typeof externalRecordRequests.$inferSelect;
 			// Create a promise-based queue for events
 			const eventQueue: Array<{
@@ -274,11 +274,14 @@ export const externalRecordRouter = createTRPCRouter({
 			externalRecordsEmitter.on("externalRecordsNoteUpdate", onUpdate);
 
 			try {
-				while (true) {
+				while (!signal?.aborted) {
 					// Wait for an event if queue is empty
 					if (eventQueue.length === 0) {
 						await new Promise<void>((resolve) => {
 							resolveNext = resolve;
+							signal?.addEventListener("abort", () => resolve(), {
+								once: true,
+							});
 						});
 					}
 
