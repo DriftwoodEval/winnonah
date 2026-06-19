@@ -916,7 +916,9 @@ export async function getAvailabilityEvents(
 		.map((event) => {
 			const startDateTime = event.start?.dateTime || event.start?.date;
 			const endDateTime = event.end?.dateTime || event.end?.date;
-			const isOOO = event.eventType === "outOfOffice";
+			const isOOO =
+				event.eventType === "outOfOffice" ||
+				event.summary?.toLowerCase().trim() === "out of office";
 
 			const startDateObj = startDateTime ? new Date(startDateTime) : new Date();
 			const endDateObj = endDateTime ? new Date(endDateTime) : new Date();
