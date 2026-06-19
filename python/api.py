@@ -598,6 +598,18 @@ DOWNLOADABLE_FILES = {
 }
 
 
+@app.get("/download-info")
+async def download_file_info(current_user: dict = Depends(get_current_user)):
+    if not current_user["permissions"].get("clients:download"):
+        raise HTTPException(status_code=403, detail="Not authorized")
+
+    result: dict[str, float | None] = {}
+    for key, filename in DOWNLOADABLE_FILES.items():
+        file_path = Path("temp/input", filename)
+        result[key] = file_path.stat().st_mtime if file_path.exists() else None
+    return result
+
+
 @app.get("/download/{file_key}")
 async def download_csv(file_key: str, current_user: dict = Depends(get_current_user)):
     if not current_user["permissions"].get("clients:download"):
