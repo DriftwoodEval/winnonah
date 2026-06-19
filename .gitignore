@@ -54,5 +54,6 @@ python/*.txt
 *.sql.gz
 q-screenshots/*
 
-# local dev overrides
+# local overrides
 docker-compose.override.*
+mysql-replication.cnf
