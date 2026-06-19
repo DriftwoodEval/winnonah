@@ -171,9 +171,12 @@ def _normalize_for_match(s: str) -> str:
 
 def _merge_referral_data(clients_df: pd.DataFrame) -> pd.DataFrame:
     """Merges referral source data using name match."""
-    referrals = utils.spreadsheets.open_local(
-        Path("temp/input/client-referral-report.csv")
-    )
+    referral_path = Path("temp/input/client-referral-report.csv")
+    if not referral_path.exists():
+        logger.warning("Referral report not found, skipping referral data merge")
+        clients_df["REFERRAL_SOURCE"] = None
+        return clients_df
+    referrals = utils.spreadsheets.open_local(referral_path)
 
     def normalize_name(raw_name: str) -> str:
         if not raw_name or pd.isna(raw_name):

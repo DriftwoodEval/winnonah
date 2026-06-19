@@ -376,8 +376,33 @@ def download_csvs():
     _loop_therapists(driver, _export_data)
     _loop_therapists(driver, _download_data)
     _combine_files()
-    _download_referrals(driver)
-    _download_billing(driver)
+    for attempt in range(3):
+        try:
+            _download_referrals(driver)
+            break
+        except Exception as e:
+            if attempt == 2:
+                logger.error(
+                    f"Failed to download referrals after 3 attempts, moving on: {e}"
+                )
+            else:
+                logger.warning(
+                    f"Failed to download referrals (attempt {attempt + 1}), retrying: {e}"
+                )
+
+    for attempt in range(3):
+        try:
+            _download_billing(driver)
+            break
+        except Exception as e:
+            if attempt == 2:
+                logger.error(
+                    f"Failed to download billing after 3 attempts, moving on: {e}"
+                )
+            else:
+                logger.warning(
+                    f"Failed to download billing (attempt {attempt + 1}), retrying: {e}"
+                )
 
 
 def go_to_client(
