@@ -5,7 +5,7 @@ import { Button } from "@ui/button";
 import { Form } from "@ui/form";
 import { Skeleton } from "@ui/skeleton";
 import { addMonths } from "date-fns";
-import { useSession } from "next-auth/react";
+import { signIn, useSession } from "next-auth/react";
 import { useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
@@ -120,7 +120,22 @@ export function AvailabilityForm() {
 			await utils.google.getAvailability.invalidate();
 		},
 		onError: (error) => {
-			toast.error(`Error: ${error.message}`);
+			if (error.data?.code === "UNAUTHORIZED") {
+				toast.error("Google Calendar access not authorized.", {
+					description: "Click Re-authorize to restore access.",
+					action: {
+						label: "Re-authorize",
+						onClick: () =>
+							signIn(
+								"google",
+								{ callbackUrl: window.location.href },
+								{ prompt: "consent" },
+							),
+					},
+				});
+			} else {
+				toast.error(`Error: ${error.message}`);
+			}
 			console.error(error);
 		},
 	});

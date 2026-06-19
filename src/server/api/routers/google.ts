@@ -417,7 +417,11 @@ export const googleRouter = createTRPCRouter({
 		.input(availabilitySchema)
 		.mutation(async ({ ctx, input }) => {
 			if (!ctx.session.user.accessToken || !ctx.session.user.refreshToken) {
-				throw new Error("No access token or refresh token");
+				throw new TRPCError({
+					code: "UNAUTHORIZED",
+					message:
+						"Google Calendar access not authorized. Please sign out and sign back in.",
+				});
 			}
 
 			let summary: string;
@@ -572,6 +576,14 @@ export const googleRouter = createTRPCRouter({
 				});
 			}
 
+			if (!ctx.session.user.accessToken || !ctx.session.user.refreshToken) {
+				throw new TRPCError({
+					code: "UNAUTHORIZED",
+					message:
+						"Google Calendar access not authorized. Please sign out and sign back in.",
+				});
+			}
+
 			try {
 				let summary: string;
 
@@ -699,6 +711,14 @@ export const googleRouter = createTRPCRouter({
 			if (!ctx.session) {
 				throw new TRPCError({
 					code: "UNAUTHORIZED",
+				});
+			}
+
+			if (!ctx.session.user.accessToken || !ctx.session.user.refreshToken) {
+				throw new TRPCError({
+					code: "UNAUTHORIZED",
+					message:
+						"Google Calendar access not authorized. Please sign out and sign back in.",
 				});
 			}
 

@@ -31,6 +31,7 @@ import {
 import { RadioGroup, RadioGroupItem } from "@ui/radio-group";
 import { sub } from "date-fns";
 import { AlertCircle, Trash2 } from "lucide-react";
+import { signIn } from "next-auth/react";
 import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
@@ -178,7 +179,22 @@ export function EditAvailabilityDialog({
 			onClose();
 		},
 		onError: (error) => {
-			toast.error(`Error: ${error.message}`);
+			if (error.data?.code === "UNAUTHORIZED") {
+				toast.error("Google Calendar access not authorized.", {
+					description: "Click Re-authorize to restore access.",
+					action: {
+						label: "Re-authorize",
+						onClick: () =>
+							signIn(
+								"google",
+								{ callbackUrl: window.location.href },
+								{ prompt: "consent" },
+							),
+					},
+				});
+			} else {
+				toast.error(`Error: ${error.message}`);
+			}
 		},
 	});
 
@@ -189,7 +205,22 @@ export function EditAvailabilityDialog({
 			onClose();
 		},
 		onError: (error) => {
-			toast.error(`Error: ${error.message}`);
+			if (error.data?.code === "UNAUTHORIZED") {
+				toast.error("Google Calendar access not authorized.", {
+					description: "Click Re-authorize to restore access.",
+					action: {
+						label: "Re-authorize",
+						onClick: () =>
+							signIn(
+								"google",
+								{ callbackUrl: window.location.href },
+								{ prompt: "consent" },
+							),
+					},
+				});
+			} else {
+				toast.error(`Error: ${error.message}`);
+			}
 		},
 	});
 
