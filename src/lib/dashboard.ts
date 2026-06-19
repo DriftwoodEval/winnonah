@@ -18,6 +18,7 @@ export const SECTION_DA_SCHEDULED = "DA Scheduled";
 export const SECTION_EVAL_SCHEDULED = "Eval Scheduled";
 export const SECTION_POST_DA = "Post-DA";
 export const SECTION_POST_EVAL = "Post-Eval";
+export const SECTION_NEEDS_PROTOCOLS_SCANNED = "Needs protocols scanned";
 
 export type DashboardClient = (FullClientInfo | Client) & {
 	matchedSections?: string[];
@@ -302,6 +303,14 @@ export const DASHBOARD_CONFIG: {
 		extraInfo: (client) => formatScheduledDate(client["EVAL date"]),
 		sort: (a, b) =>
 			Date.parse(a["EVAL date"] ?? "") - Date.parse(b["EVAL date"] ?? ""),
+	},
+	{
+		title: SECTION_NEEDS_PROTOCOLS_SCANNED,
+		description:
+			"These clients have a past 96130 appointment but protocols have not been marked as scanned.",
+		filter: (client: FullClientInfo) =>
+			client.hasPast96130Appt === true &&
+			client["Protocols scanned?"] !== "TRUE",
 	},
 ];
 

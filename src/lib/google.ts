@@ -1,7 +1,7 @@
 import { calendar, type calendar_v3 } from "@googleapis/calendar";
 import { drive } from "@googleapis/drive";
 import { sheets, type sheets_v4 } from "@googleapis/sheets";
-import { and, eq, inArray, not, notInArray, sql } from "drizzle-orm";
+import { and, eq, inArray, lt, not, notInArray, sql } from "drizzle-orm";
 import { OAuth2Client } from "google-auth-library";
 import type { Session } from "next-auth";
 import { env } from "~/env";
@@ -9,6 +9,7 @@ import { logger } from "~/lib/logger";
 
 import { db } from "~/server/db";
 import {
+	appointments,
 	clients,
 	externalRecordRequests,
 	externalRecords,
@@ -215,27 +216,42 @@ export const getPunchData = async (session: Session) => {
 		.map((client) => parseInt(client["Client ID"] ?? "", 10))
 		.filter((id) => !Number.isNaN(id));
 
-	const [dbClients, allFailures, allQuestionnaires] = await Promise.all([
-		db
-			.select({
-				client: clients,
-				hasExternalRecordsNote: sql<boolean>`CASE WHEN ${externalRecords.content} IS NOT NULL THEN TRUE ELSE FALSE END`,
-				externalRecordsRequestedDate: sql<string | null>`(
+	const [dbClients, allFailures, allQuestionnaires, past96130Appts] =
+		await Promise.all([
+			db
+				.select({
+					client: clients,
+					hasExternalRecordsNote: sql<boolean>`CASE WHEN ${externalRecords.content} IS NOT NULL THEN TRUE ELSE FALSE END`,
+					externalRecordsRequestedDate: sql<string | null>`(
 					SELECT MAX(${externalRecordRequests.requestedDate})
 					FROM ${externalRecordRequests}
 					WHERE ${externalRecordRequests.clientId} = ${clients.id}
 					AND ${externalRecordRequests.requestedDate} IS NOT NULL
 				)`,
-			})
-			.from(clients)
-			.leftJoin(externalRecords, eq(clients.id, externalRecords.clientId))
-			.where(inArray(clients.id, clientIds)),
-		db.select().from(failures).where(inArray(failures.clientId, clientIds)),
-		db
-			.select()
-			.from(questionnaires)
-			.where(inArray(questionnaires.clientId, clientIds)),
-	]);
+				})
+				.from(clients)
+				.leftJoin(externalRecords, eq(clients.id, externalRecords.clientId))
+				.where(inArray(clients.id, clientIds)),
+			db.select().from(failures).where(inArray(failures.clientId, clientIds)),
+			db
+				.select()
+				.from(questionnaires)
+				.where(inArray(questionnaires.clientId, clientIds)),
+			db
+				.selectDistinct({ clientId: appointments.clientId })
+				.from(appointments)
+				.where(
+					and(
+						inArray(appointments.clientId, clientIds),
+						eq(appointments.cpt, "96130"),
+						eq(appointments.cancelled, false),
+						eq(appointments.placeholder, false),
+						lt(appointments.startTime, new Date()),
+					),
+				),
+		]);
+
+	const past96130ClientIds = new Set(past96130Appts.map((a) => a.clientId));
 
 	const failureMap = new Map<number, (typeof failures.$inferSelect)[]>();
 	allFailures.forEach((failure) => {
@@ -270,6 +286,7 @@ export const getPunchData = async (session: Session) => {
 					externalRecordsRequestedDate,
 					failures: failureMap.get(client.id) ?? [],
 					questionnaires: questionnaireMap.get(client.id) ?? [],
+					hasPast96130Appt: past96130ClientIds.has(client.id),
 				} as FullClientInfo,
 			],
 		),

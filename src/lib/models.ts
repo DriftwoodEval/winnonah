@@ -26,6 +26,7 @@ export type FullClientInfo = PUNCH_SCHEMA &
 		externalRecordsRequestedDate?: string | null;
 		failures?: Failure[];
 		questionnaires?: Questionnaire[];
+		hasPast96130Appt?: boolean;
 	};
 
 export type InsertingQuestionnaire = Pick<
