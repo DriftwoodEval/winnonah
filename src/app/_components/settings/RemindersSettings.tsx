@@ -84,8 +84,8 @@ export default function ReminderSettings() {
 	};
 
 	return (
-		<div className="mx-auto space-y-8 p-8">
-			<h1 className="font-bold text-3xl">Reminder Configuration</h1>
+		<div className="space-y-8 px-4">
+			<h3 className="font-bold text-lg">Reminder Configuration</h3>
 
 			<Card>
 				<CardHeader>

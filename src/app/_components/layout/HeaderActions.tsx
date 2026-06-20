@@ -16,7 +16,6 @@ import { Clock, LogIn } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { signIn, signOut, useSession } from "next-auth/react";
-import { useCheckPermission } from "~/hooks/use-check-permission";
 import { useMediaQuery } from "~/hooks/use-media-query";
 import { api } from "~/trpc/react";
 import { IssueFormLink } from "../shared/IssueFormLink";
@@ -26,18 +25,11 @@ import { GlobalClientSearch } from "./GlobalClientSearch";
 export function HeaderActions() {
 	const pathname = usePathname();
 	const { data: session } = useSession();
-	const can = useCheckPermission();
 	const isDesktop = useMediaQuery("(min-width: 768px)");
 	const { data: recentClients } = api.users.getRecentClients.useQuery(
 		undefined,
 		{ enabled: !!session },
 	);
-
-	const canQSuite =
-		can("settings:qsuite:general") ||
-		can("settings:qsuite:services") ||
-		can("settings:qsuite:records") ||
-		can("settings:qsuite:piecework");
 
 	return (
 		<div className="m-2 flex items-center gap-3">
@@ -105,11 +97,6 @@ export function HeaderActions() {
 						<Link href="/settings">
 							<DropdownMenuItem>Settings</DropdownMenuItem>
 						</Link>
-						{canQSuite && (
-							<Link href="/qsuite-config">
-								<DropdownMenuItem>QSuite Config</DropdownMenuItem>
-							</Link>
-						)}
 						<DropdownMenuSeparator />
 						<button className="w-full" onClick={() => signOut()} type="button">
 							<DropdownMenuItem>Sign out</DropdownMenuItem>

@@ -70,6 +70,8 @@ export const evaluatorRouter = createTRPCRouter({
 			with: {
 				offices: { with: { office: true } },
 				insurances: { with: { insurance: true } },
+				blockedSchoolDistricts: { with: { schoolDistrict: true } },
+				blockedZipCodes: { with: { zipCode: true } },
 				users: { columns: { id: true, name: true, email: true } },
 			},
 		});
@@ -77,6 +79,10 @@ export const evaluatorRouter = createTRPCRouter({
 			...evaluator,
 			offices: evaluator.offices.map((link) => link.office),
 			insurances: evaluator.insurances.map((link) => link.insurance),
+			blockedDistricts: evaluator.blockedSchoolDistricts.map(
+				(link) => link.schoolDistrict,
+			),
+			blockedZips: evaluator.blockedZipCodes.map((link) => link.zipCode),
 		}));
 	}),
 
