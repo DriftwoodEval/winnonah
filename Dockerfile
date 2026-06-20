@@ -23,7 +23,8 @@ COPY next.config.js* tsconfig.json* ./
 COPY . .
 
 ENV NEXT_TELEMETRY_DISABLED=1
-RUN corepack enable pnpm && SKIP_ENV_VALIDATION=1 pnpm run build
+RUN --mount=type=cache,id=nextjs,target=/app/.next/cache \
+    corepack enable pnpm && SKIP_ENV_VALIDATION=1 pnpm run build
 
 FROM gcr.io/distroless/nodejs20-debian12 AS runner
 WORKDIR /app
