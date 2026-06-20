@@ -105,6 +105,7 @@ const accountFormSchema = z.object({
 		.or(z.literal(""))
 		.nullable()
 		.optional(),
+	maxClaimedReports: z.number().int().min(1).max(10).nullable().optional(),
 });
 type AccountFormValues = z.infer<typeof accountFormSchema>;
 
@@ -160,6 +161,15 @@ function AccountSection({
 			});
 		},
 	});
+
+	const { mutateAsync: setMaxClaimedReports } =
+		api.users.setMaxClaimedReports.useMutation({
+			onError: (error) => {
+				toast.error("Failed to update report limit", {
+					description: String(error.message),
+				});
+			},
+		});
 
 	const { mutateAsync: updateArchiveStatus } =
 		api.users.updateUserArchiveStatus.useMutation({
@@ -227,6 +237,7 @@ function AccountSection({
 			phoneNumber: user.phoneNumber
 				? formatPhoneAsYouType(user.phoneNumber)
 				: "",
+			maxClaimedReports: user.maxClaimedReports ?? null,
 		},
 	});
 
@@ -268,6 +279,10 @@ function AccountSection({
 		await Promise.all([
 			updateUser({ userId: user.id, permissions: values.permissions }),
 			setPhone({ userId: user.id, phoneNumber: phoneValue }),
+			setMaxClaimedReports({
+				userId: user.id,
+				maxClaimedReports: values.maxClaimedReports ?? null,
+			}),
 		]);
 		utils.users.getAll.invalidate();
 		toast.success("Account updated");
@@ -501,6 +516,37 @@ function AccountSection({
 											value={field.value ?? ""}
 										/>
 									</FormControl>
+									<FormMessage />
+								</FormItem>
+							)}
+						/>
+						<FormField
+							control={form.control}
+							name="maxClaimedReports"
+							render={({ field }) => (
+								<FormItem className="max-w-xs">
+									<FormLabel>Max Claimed Reports</FormLabel>
+									<FormControl>
+										<Input
+											disabled={!canEdit}
+											max={10}
+											min={1}
+											placeholder="Default"
+											type="number"
+											{...field}
+											onChange={(e) => {
+												const val = e.target.value;
+												field.onChange(
+													val === "" ? null : Number.parseInt(val, 10),
+												);
+											}}
+											value={field.value ?? ""}
+										/>
+									</FormControl>
+									<FormDescription>
+										Leave blank to use the default. Overrides how many reports
+										this user can have claimed at once.
+									</FormDescription>
 									<FormMessage />
 								</FormItem>
 							)}

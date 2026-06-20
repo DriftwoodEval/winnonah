@@ -29,12 +29,16 @@ export default function ClaimedReports() {
 
 	const approveMutation = api.google.approveReport.useMutation();
 
-	const handleApprove = (userId: string, folderName: string) => {
-		toast.promise(approveMutation.mutateAsync({ userId }), {
+	const handleApprove = (
+		userId: string,
+		folderId: string,
+		folderName: string,
+	) => {
+		toast.promise(approveMutation.mutateAsync({ userId, folderId }), {
 			loading: `Approving "${folderName}"...`,
 			success: () => {
 				void utils.google.getClaimedReports.invalidate();
-				void utils.google.getClaimedFolder.invalidate();
+				void utils.google.getClaimedFolders.invalidate();
 				return `Approved "${folderName}"`;
 			},
 			error: (err: Error) => err.message,
@@ -42,6 +46,17 @@ export default function ClaimedReports() {
 	};
 
 	if (!can("reports:approve")) return null;
+
+	// Flatten to (user, folder) pairs
+	const items =
+		reports?.flatMap((report) =>
+			(report.claimedReportFolder ?? []).map((folder) => ({
+				userId: report.id,
+				userName: report.name,
+				userEmail: report.email,
+				folder,
+			})),
+		) ?? [];
 
 	return (
 		<Card className="mx-auto my-4 w-full max-w-2xl shadow-sm">
@@ -63,12 +78,12 @@ export default function ClaimedReports() {
 							<Skeleton className="h-12 w-full" />
 							<Skeleton className="h-12 w-full" />
 						</div>
-					) : reports && reports.length > 0 ? (
+					) : items.length > 0 ? (
 						<div className="grid gap-2 py-2">
-							{reports.map((report) => (
+							{items.map(({ userId, userName, userEmail, folder }) => (
 								<div
 									className="flex flex-col gap-2 rounded-md border p-3 transition-colors hover:bg-muted/50"
-									key={report.id}
+									key={`${userId}-${folder.id}`}
 								>
 									<div className="flex items-center justify-between">
 										<div className="flex items-center gap-3">
@@ -77,7 +92,7 @@ export default function ClaimedReports() {
 												size={18}
 											/>
 											<span className="font-bold text-sm leading-none">
-												{report.claimedReportFolder?.name}
+												{folder.name}
 											</span>
 										</div>
 										<div className="flex items-center gap-1">
@@ -85,7 +100,7 @@ export default function ClaimedReports() {
 												className="h-8 w-8 text-muted-foreground hover:cursor-pointer"
 												onClick={() =>
 													window.open(
-														`https://drive.google.com/drive/folders/${report.claimedReportFolder?.id}`,
+														`https://drive.google.com/drive/folders/${folder.id}`,
 														"_blank",
 													)
 												}
@@ -99,10 +114,7 @@ export default function ClaimedReports() {
 												className="h-8 w-8 text-success hover:cursor-pointer hover:bg-success/10 hover:text-success"
 												disabled={approveMutation.isPending}
 												onClick={() =>
-													handleApprove(
-														report.id,
-														report.claimedReportFolder?.name ?? "Report",
-													)
+													handleApprove(userId, folder.id, folder.name)
 												}
 												size="icon"
 												variant="ghost"
@@ -114,7 +126,7 @@ export default function ClaimedReports() {
 									</div>
 									<div className="flex items-center gap-2 text-muted-foreground text-xs">
 										<UserIcon size={12} />
-										<span>{report.name || report.email}</span>
+										<span>{userName || userEmail}</span>
 									</div>
 								</div>
 							))}

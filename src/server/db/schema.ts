@@ -753,7 +753,8 @@ export const users = createTable("user", (d) => ({
 	archived: d.boolean("archived").notNull().default(false),
 	claimedReportFolder: d
 		.json("claimed_report_folder")
-		.$type<{ name: string; id: string }>(),
+		.$type<{ name: string; id: string }[]>(),
+	maxClaimedReports: d.tinyint("max_claimed_reports"),
 	phoneNumber: d.varchar("phone_number", { length: 20 }),
 	isGreeter: d.boolean("is_greeter").notNull().default(false),
 	recentClients: d.text("recent_clients"),
@@ -1092,4 +1093,12 @@ export const workSummaryConfig = createTable("work_summary_config", (d) => ({
 		.$type<Record<string, number>>()
 		.notNull()
 		.default({}),
+}));
+
+export const reportQueueConfig = createTable("report_queue_config", (d) => ({
+	id: d.int().notNull().primaryKey().default(1),
+	defaultMaxClaimedReports: d
+		.int("default_max_claimed_reports")
+		.notNull()
+		.default(1),
 }));

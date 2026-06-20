@@ -12,6 +12,7 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import BillingDownload from "~/app/_components/settings/BillingDownload";
 import { QSuiteTab } from "~/app/_components/settings/QSuiteTab";
+import ReportQueueSettings from "~/app/_components/settings/ReportQueueSettings";
 import { useCheckPermission } from "~/hooks/use-check-permission";
 import ReminderSettings from "./RemindersSettings";
 
@@ -62,6 +63,7 @@ export function SettingsTabs() {
 						<PeopleTable />
 						<InvitesTable />
 						<WorkSummaryDefaultsSection />
+						<ReportQueueSettings />
 					</div>
 				</TabsContent>
 				<TabsContent value="clinical">

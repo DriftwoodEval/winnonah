@@ -177,6 +177,21 @@ export const userRouter = createTRPCRouter({
 				.where(eq(users.id, input.userId));
 		}),
 
+	setMaxClaimedReports: protectedProcedure
+		.input(
+			z.object({
+				userId: z.string(),
+				maxClaimedReports: z.number().int().min(1).max(10).nullable(),
+			}),
+		)
+		.mutation(async ({ ctx, input }) => {
+			assertPermission(ctx.session.user, "settings:users:edit");
+			await ctx.db
+				.update(users)
+				.set({ maxClaimedReports: input.maxClaimedReports })
+				.where(eq(users.id, input.userId));
+		}),
+
 	getSavedPlaces: protectedProcedure.query(async ({ ctx }) => {
 		const userFromDb = await ctx.db.query.users.findFirst({
 			where: eq(users.id, ctx.session.user.id),

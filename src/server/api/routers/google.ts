@@ -31,7 +31,13 @@ import {
 	createTRPCRouter,
 	protectedProcedure,
 } from "~/server/api/trpc";
-import { clients, notes, offices, users } from "~/server/db/schema";
+import {
+	clients,
+	notes,
+	offices,
+	reportQueueConfig,
+	users,
+} from "~/server/db/schema";
 import { saveNoteInternal } from "./notes";
 
 const CACHE_KEY_DUPLICATES = "google:drive:duplicate-ids";
@@ -1189,13 +1195,28 @@ export const googleRouter = createTRPCRouter({
 			const userName = ctx.session.user.name;
 			if (!userName) throw new Error("No user name found in session");
 
-			const user = await ctx.db.query.users.findFirst({
-				where: eq(users.id, ctx.session.user.id),
-			});
+			const [user, config] = await Promise.all([
+				ctx.db.query.users.findFirst({
+					where: eq(users.id, ctx.session.user.id),
+					columns: { claimedReportFolder: true, maxClaimedReports: true },
+				}),
+				ctx.db.query.reportQueueConfig.findFirst({
+					where: eq(reportQueueConfig.id, 1),
+				}),
+			]);
 
-			if (user?.claimedReportFolder) {
+			const effectiveMax =
+				user?.maxClaimedReports ?? config?.defaultMaxClaimedReports ?? 1;
+			const currentFolders = user?.claimedReportFolder ?? [];
+
+			if (currentFolders.length >= effectiveMax) {
+				if (effectiveMax === 1) {
+					throw new Error(
+						`You already have a report claimed: "${currentFolders[0]?.name}". It must be approved before claiming another.`,
+					);
+				}
 				throw new Error(
-					`You already have a report claimed: "${user.claimedReportFolder.name}". It must be approved before claiming another.`,
+					`You already have ${currentFolders.length} report${currentFolders.length !== 1 ? "s" : ""} claimed (max: ${effectiveMax}). They must be approved before claiming more.`,
 				);
 			}
 
@@ -1221,14 +1242,14 @@ export const googleRouter = createTRPCRouter({
 				throw new Error(data.detail || "Failed to claim folder");
 			}
 
+			const newFolders = [
+				...currentFolders,
+				{ name: data.folder_claimed, id: data.folder_id },
+			];
+
 			await ctx.db
 				.update(users)
-				.set({
-					claimedReportFolder: {
-						name: data.folder_claimed,
-						id: data.folder_id,
-					},
-				})
+				.set({ claimedReportFolder: newFolders })
 				.where(eq(users.id, ctx.session.user.id));
 
 			return {
@@ -1238,7 +1259,7 @@ export const googleRouter = createTRPCRouter({
 		}),
 
 	approveReport: protectedProcedure
-		.input(z.object({ userId: z.string() }))
+		.input(z.object({ userId: z.string(), folderId: z.string() }))
 		.mutation(async ({ input, ctx }) => {
 			assertPermission(ctx.session.user, "reports:approve");
 
@@ -1250,12 +1271,23 @@ export const googleRouter = createTRPCRouter({
 				},
 			});
 
+			const currentFolders = userToNotify?.claimedReportFolder ?? [];
+			const approvedFolder = currentFolders.find(
+				(f) => f.id === input.folderId,
+			);
+			const remainingFolders = currentFolders.filter(
+				(f) => f.id !== input.folderId,
+			);
+
 			await ctx.db
 				.update(users)
-				.set({ claimedReportFolder: null })
+				.set({
+					claimedReportFolder:
+						remainingFolders.length > 0 ? remainingFolders : null,
+				})
 				.where(eq(users.id, input.userId));
 
-			if (userToNotify?.claimedReportFolder) {
+			if (approvedFolder) {
 				const cookieHeader = ctx.headers.get("cookie") ?? "";
 
 				// Fetch current queue count
@@ -1288,8 +1320,8 @@ export const googleRouter = createTRPCRouter({
 							Cookie: cookieHeader,
 						},
 						body: JSON.stringify({
-							user_email: userToNotify.email,
-							report_name: userToNotify.claimedReportFolder.name,
+							user_email: userToNotify?.email,
+							report_name: approvedFolder.name,
 							queue_count: queueCount,
 						}),
 					});
@@ -1304,15 +1336,24 @@ export const googleRouter = createTRPCRouter({
 			return { success: true };
 		}),
 
-	getClaimedFolder: protectedProcedure.query(async ({ ctx }) => {
-		const user = await ctx.db.query.users.findFirst({
-			where: eq(users.id, ctx.session.user.id),
-			columns: {
-				claimedReportFolder: true,
-			},
-		});
+	getClaimedFolders: protectedProcedure.query(async ({ ctx }) => {
+		const [user, config] = await Promise.all([
+			ctx.db.query.users.findFirst({
+				where: eq(users.id, ctx.session.user.id),
+				columns: { claimedReportFolder: true, maxClaimedReports: true },
+			}),
+			ctx.db.query.reportQueueConfig.findFirst({
+				where: eq(reportQueueConfig.id, 1),
+			}),
+		]);
 
-		return user?.claimedReportFolder ?? null;
+		const effectiveMax =
+			user?.maxClaimedReports ?? config?.defaultMaxClaimedReports ?? 1;
+
+		return {
+			folders: user?.claimedReportFolder ?? [],
+			effectiveMax,
+		};
 	}),
 
 	getClaimedReports: protectedProcedure.query(async ({ ctx }) => {
@@ -1328,6 +1369,8 @@ export const googleRouter = createTRPCRouter({
 			},
 		});
 
-		return claimedUsers;
+		return claimedUsers.filter(
+			(u) => u.claimedReportFolder && u.claimedReportFolder.length > 0,
+		);
 	}),
 });

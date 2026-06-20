@@ -32,7 +32,7 @@ declare module "next-auth" {
 			isEvaluator?: boolean;
 			clientFilters?: string;
 			archived?: boolean | null;
-			claimedReportFolder?: { name: string; id: string } | null;
+			claimedReportFolder?: { name: string; id: string }[] | null;
 		} & DefaultSession["user"];
 	}
 
@@ -40,7 +40,7 @@ declare module "next-auth" {
 		permissions: PermissionsObject;
 		savedPlaces: string;
 		archived?: boolean | null;
-		claimedReportFolder?: { name: string; id: string } | null;
+		claimedReportFolder?: { name: string; id: string }[] | null;
 	}
 }
 

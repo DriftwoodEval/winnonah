@@ -27,8 +27,8 @@ export default function ReportQueue({ sourceId, destId }: ReportQueueProps) {
 			{ refetchOnWindowFocus: false },
 		);
 
-	const { data: claimedFolder, isLoading: claimedLoading } =
-		api.google.getClaimedFolder.useQuery();
+	const { data: claimedData, isLoading: claimedLoading } =
+		api.google.getClaimedFolders.useQuery();
 
 	const { data: writerFolder } = api.google.getWriterFolder.useQuery(
 		{ parentId: destId },
@@ -42,7 +42,7 @@ export default function ReportQueue({ sourceId, destId }: ReportQueueProps) {
 			loading: "Claiming...",
 			success: (data) => {
 				void utils.google.getFolders.invalidate();
-				void utils.google.getClaimedFolder.invalidate();
+				void utils.google.getClaimedFolders.invalidate();
 				void utils.google.getClaimedReports.invalidate();
 				return `Claimed "${data.folder_claimed}" into "${data.moved_into}"`;
 			},
@@ -51,6 +51,10 @@ export default function ReportQueue({ sourceId, destId }: ReportQueueProps) {
 	};
 
 	const isLoading = foldersLoading || claimedLoading;
+
+	const claimedFolders = claimedData?.folders ?? [];
+	const effectiveMax = claimedData?.effectiveMax ?? 1;
+	const atLimit = claimedFolders.length >= effectiveMax;
 
 	return (
 		<Card className="mx-auto my-4 w-full max-w-2xl shadow-sm">
@@ -83,9 +87,7 @@ export default function ReportQueue({ sourceId, destId }: ReportQueueProps) {
 					)}
 					<Button
 						className="font-medium hover:cursor-pointer"
-						disabled={
-							claimMutation.isPending || !folders?.length || !!claimedFolder
-						}
+						disabled={claimMutation.isPending || !folders?.length || atLimit}
 						onClick={handleClaim}
 						size="sm"
 					>
@@ -104,37 +106,45 @@ export default function ReportQueue({ sourceId, destId }: ReportQueueProps) {
 						</div>
 					) : (
 						<>
-							{claimedFolder && (
+							{claimedFolders.length > 0 && (
 								<div className="my-2 border-b pb-2">
 									<div className="mb-2 flex items-center gap-2 font-medium text-amber-600 text-sm">
 										<AlertCircleIcon size={16} />
-										You already have a report folder claimed. This report must
-										be approved before you can take another.
+										{atLimit
+											? `You have reached your limit of ${effectiveMax} claimed report${effectiveMax !== 1 ? "s" : ""}. Reports must be approved before claiming more.`
+											: `You have ${claimedFolders.length} of ${effectiveMax} report${effectiveMax !== 1 ? "s" : ""} claimed.`}
 									</div>
-									<div className="flex items-center justify-between rounded-md bg-amber-50 p-3 dark:bg-amber-950/20">
-										<div className="flex items-center gap-3">
-											<FolderIcon
-												className="fill-amber-500 text-amber-500"
-												size={18}
-											/>
-											<span className="font-bold text-sm leading-none">
-												{claimedFolder.name}
-											</span>
-										</div>
-										<Button
-											className="h-8 w-8 text-amber-600 hover:cursor-pointer hover:bg-amber-100 hover:text-amber-700 dark:hover:bg-amber-900/30"
-											onClick={() =>
-												window.open(
-													`https://drive.google.com/drive/folders/${claimedFolder.id}`,
-													"_blank",
-												)
-											}
-											size="icon"
-											variant="ghost"
-										>
-											<ExternalLinkIcon className="h-4 w-4" />
-											<span className="sr-only">Open in Drive</span>
-										</Button>
+									<div className="flex flex-col gap-2">
+										{claimedFolders.map((folder) => (
+											<div
+												className="flex items-center justify-between rounded-md bg-amber-50 p-3 dark:bg-amber-950/20"
+												key={folder.id}
+											>
+												<div className="flex items-center gap-3">
+													<FolderIcon
+														className="fill-amber-500 text-amber-500"
+														size={18}
+													/>
+													<span className="font-bold text-sm leading-none">
+														{folder.name}
+													</span>
+												</div>
+												<Button
+													className="h-8 w-8 text-amber-600 hover:cursor-pointer hover:bg-amber-100 hover:text-amber-700 dark:hover:bg-amber-900/30"
+													onClick={() =>
+														window.open(
+															`https://drive.google.com/drive/folders/${folder.id}`,
+															"_blank",
+														)
+													}
+													size="icon"
+													variant="ghost"
+												>
+													<ExternalLinkIcon className="h-4 w-4" />
+													<span className="sr-only">Open in Drive</span>
+												</Button>
+											</div>
+										))}
 									</div>
 								</div>
 							)}
