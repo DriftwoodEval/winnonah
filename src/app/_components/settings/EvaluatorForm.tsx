@@ -35,6 +35,7 @@ export const evaluatorFormSchema = z.object({
 		z.string().regex(/^\d{5}$/, "Must be a 5-digit zip code"),
 	),
 	appointmentDurations: z.record(z.string(), z.number().nonnegative().int()),
+	allowedAppointmentTypes: z.array(z.enum(["DA", "EVAL", "DAEVAL"])),
 });
 
 export type EvaluatorFormValues = z.infer<typeof evaluatorFormSchema>;
@@ -92,6 +93,11 @@ export function EvaluatorForm({
 				blockedZips: initialData?.blockedZips?.map((z) => z.zip) ?? [],
 				appointmentDurations:
 					(initialData.appointmentDurations as Record<string, number>) ?? {},
+				allowedAppointmentTypes: (initialData.allowedAppointmentTypes ?? [
+					"DA",
+					"EVAL",
+					"DAEVAL",
+				]) as ("DA" | "EVAL" | "DAEVAL")[],
 			};
 		}
 		return {
@@ -104,6 +110,11 @@ export function EvaluatorForm({
 			blockedDistricts: [],
 			blockedZips: [],
 			appointmentDurations: {},
+			allowedAppointmentTypes: ["DA", "EVAL", "DAEVAL"] as (
+				| "DA"
+				| "EVAL"
+				| "DAEVAL"
+			)[],
 		};
 	}, [initialData, initialEmail]);
 
@@ -113,33 +124,63 @@ export function EvaluatorForm({
 	});
 
 	const durations = form.watch("appointmentDurations") ?? {};
+	const allowedTypes = form.watch("allowedAppointmentTypes") ?? [
+		"DA",
+		"EVAL",
+		"DAEVAL",
+	];
+
+	const DIAG_COLS = [
+		{ key: "ASD" },
+		{ key: "ADHD" },
+		{ key: "ASD+ADHD" },
+		{ key: "ASD+LD" },
+		{ key: "ADHD+LD" },
+		{ key: "LD" },
+	] as const;
+
+	const AGE_VARIANTS = [
+		{ suffix: "", label: "" },
+		{ suffix: "/young", label: " (≤6)" },
+		{ suffix: "/older", label: " (7+)" },
+	] as const;
+
+	const APPT_TYPES = ["DA", "EVAL", "DAEVAL"] as const;
 
 	function getDuration(key: string): string {
 		const val = durations[key];
-		return val !== undefined ? String(val) : "";
+		return val !== undefined ? String(val / 60) : "";
 	}
 
 	function setDuration(key: string, raw: string) {
 		const current = { ...(form.getValues("appointmentDurations") ?? {}) };
-		const num = parseInt(raw, 10);
-		if (!raw || Number.isNaN(num) || num < 0) {
+		const hrs = parseFloat(raw);
+		if (!raw || Number.isNaN(hrs) || hrs < 0) {
 			delete current[key];
 		} else {
-			current[key] = num;
+			current[key] = Math.round(hrs * 60);
 		}
 		form.setValue("appointmentDurations", current, { shouldDirty: true });
 	}
 
-	const dInput = (key: string) => (
-		<Input
-			className="h-8 text-center text-sm"
-			min="0"
-			onChange={(e) => setDuration(key, e.target.value)}
-			placeholder="—"
-			type="number"
-			value={getDuration(key)}
-		/>
-	);
+	const dInput = (key: string) => {
+		const baseType = key.split("/")[0] ?? key;
+		const isDisabled =
+			baseType !== "default" &&
+			!allowedTypes.includes(baseType as "DA" | "EVAL" | "DAEVAL");
+		return (
+			<Input
+				className="h-8 text-center text-sm"
+				disabled={isDisabled}
+				min="0"
+				onChange={(e) => setDuration(key, e.target.value)}
+				placeholder="—"
+				step="0.5"
+				type="number"
+				value={getDuration(key)}
+			/>
+		);
+	};
 
 	return (
 		<Form {...form}>
@@ -391,51 +432,95 @@ export function EvaluatorForm({
 					)}
 				/>
 
+				<FormField
+					control={form.control}
+					name="allowedAppointmentTypes"
+					render={({ field }) => (
+						<FormItem>
+							<FormLabel>Allowed Appointment Types</FormLabel>
+							<div className="flex gap-4">
+								{(["DA", "EVAL", "DAEVAL"] as const).map((type) => (
+									<FormItem
+										className="flex items-center gap-2 space-y-0"
+										key={type}
+									>
+										<FormControl>
+											<Checkbox
+												checked={field.value.includes(type)}
+												onCheckedChange={(checked) => {
+													if (checked) {
+														field.onChange([...field.value, type]);
+													} else {
+														field.onChange(
+															field.value.filter((t) => t !== type),
+														);
+													}
+												}}
+											/>
+										</FormControl>
+										<FormLabel className="font-normal">{type}</FormLabel>
+									</FormItem>
+								))}
+							</div>
+						</FormItem>
+					)}
+				/>
+
 				<div className="space-y-2">
-					<FormLabel>Appointment Durations (minutes)</FormLabel>
+					<FormLabel>Appointment Durations (hours)</FormLabel>
 					<div className="overflow-x-auto rounded-md border p-3">
-						<div className="grid min-w-[380px] grid-cols-5 items-center gap-x-2 gap-y-2 text-sm">
+						<div className="grid min-w-[600px] grid-cols-8 items-center gap-x-2 gap-y-2 text-sm">
+							{/* Column headers */}
 							<div />
 							<div className="text-center font-medium text-muted-foreground text-xs">
 								(any)
 							</div>
-							<div className="text-center font-medium text-muted-foreground text-xs">
-								ASD
-							</div>
-							<div className="text-center font-medium text-muted-foreground text-xs">
-								ADHD
-							</div>
-							<div className="text-center font-medium text-muted-foreground text-xs">
-								ASD+ADHD
-							</div>
+							{DIAG_COLS.map((d) => (
+								<div
+									className="text-center font-medium text-muted-foreground text-xs"
+									key={d.key}
+								>
+									{d.key}
+								</div>
+							))}
 
-							<div className="font-medium">Default</div>
-							{dInput("default")}
-							<div />
-							<div />
-							<div />
+							{/* Default rows */}
+							{AGE_VARIANTS.map(({ suffix, label }) => (
+								<>
+									<div className="font-medium" key={`default-label${suffix}`}>
+										Default{label}
+									</div>
+									{dInput(`default${suffix}`)}
+									{DIAG_COLS.map((d) => (
+										<div key={`default${suffix}-${d.key}`} />
+									))}
+								</>
+							))}
 
-							<div className="font-medium">DA</div>
-							{dInput("DA")}
-							{dInput("DA/ASD")}
-							{dInput("DA/ADHD")}
-							{dInput("DA/ASD+ADHD")}
-
-							<div className="font-medium">EVAL</div>
-							{dInput("EVAL")}
-							{dInput("EVAL/ASD")}
-							{dInput("EVAL/ADHD")}
-							{dInput("EVAL/ASD+ADHD")}
-
-							<div className="font-medium">DAEVAL</div>
-							{dInput("DAEVAL")}
-							{dInput("DAEVAL/ASD")}
-							{dInput("DAEVAL/ADHD")}
-							{dInput("DAEVAL/ASD+ADHD")}
+							{/* Appointment type rows */}
+							{APPT_TYPES.map((type) =>
+								AGE_VARIANTS.map(({ suffix, label }) => (
+									<>
+										<div className="font-medium" key={`${type}-label${suffix}`}>
+											{type}
+											{label}
+										</div>
+										{dInput(`${type}${suffix}`)}
+										{DIAG_COLS.map((d) => (
+											<span key={`${type}/${d.key}${suffix}`}>
+												{dInput(`${type}/${d.key}${suffix}`)}
+											</span>
+										))}
+									</>
+								)),
+							)}
 						</div>
 					</div>
 					<p className="text-muted-foreground text-xs">
 						Specific subtypes override DA/EVAL/DAEVAL, which override Default.
+						Age-specific rows override the age-agnostic rows. Disabled rows
+						reflect types this evaluator cannot perform. Values are in hours
+						(e.g. 1.5 = 90 min).
 					</p>
 				</div>
 

@@ -43,8 +43,26 @@ function getPresetDates(preset: Exclude<Preset, "custom">): {
 	return { startDate: map[preset], endDate: today };
 }
 
-type ColDef = { key: string; daEval: string; asdAdhd: string | null };
+const AGE_GROUP_ORDER = ["young", "older"] as const;
+
+type ColDef = {
+	key: string;
+	daEval: string;
+	asdAdhd: string | null;
+	ageGroup: string | null;
+};
 type ColGroup = { daEval: string; cols: ColDef[] };
+
+function parseColKey(key: string): ColDef {
+	const parts = key.split("/");
+	const lastPart = parts[parts.length - 1];
+	const ageGroup =
+		lastPart === "young" || lastPart === "older" ? lastPart : null;
+	const coreParts = ageGroup ? parts.slice(0, -1) : parts;
+	const daEval = coreParts[0] ?? key;
+	const asdAdhd = coreParts.length > 1 ? coreParts.slice(1).join("/") : null;
+	return { key, daEval, asdAdhd, ageGroup };
+}
 
 function buildColGroups(
 	appointments: { weeklyData: Record<string, number[]> }[],
@@ -53,11 +71,7 @@ function buildColGroups(
 	for (const row of appointments) {
 		for (const key of Object.keys(row.weeklyData)) seen.add(key);
 	}
-	const cols: ColDef[] = [...seen].map((key) => {
-		const slash = key.indexOf("/");
-		if (slash === -1) return { key, daEval: key, asdAdhd: null };
-		return { key, daEval: key.slice(0, slash), asdAdhd: key.slice(slash + 1) };
-	});
+	const cols: ColDef[] = [...seen].map(parseColKey);
 	cols.sort((a, b) => {
 		const da =
 			DA_EVAL_ORDER.indexOf(a.daEval as (typeof DA_EVAL_ORDER)[number]) -
@@ -65,7 +79,14 @@ function buildColGroups(
 		if (da !== 0) return da;
 		const ai = a.asdAdhd ? ASD_ADHD_ORDER.indexOf(a.asdAdhd) : -1;
 		const bi = b.asdAdhd ? ASD_ADHD_ORDER.indexOf(b.asdAdhd) : -1;
-		return ai - bi;
+		if (ai !== bi) return ai - bi;
+		const ag = a.ageGroup
+			? AGE_GROUP_ORDER.indexOf(a.ageGroup as (typeof AGE_GROUP_ORDER)[number])
+			: -1;
+		const bg = b.ageGroup
+			? AGE_GROUP_ORDER.indexOf(b.ageGroup as (typeof AGE_GROUP_ORDER)[number])
+			: -1;
+		return ag - bg;
 	});
 	const groups: ColGroup[] = [];
 	for (const col of cols) {
@@ -115,17 +136,20 @@ function calcEstimatedMinutes(
 		Object.keys(durations).length > 0 || Object.keys(globalDefaults).length > 0;
 	if (!hasDurations) return 0;
 	let minutes = 0;
-	for (const [key, count] of Object.entries(keyValues)) {
-		const baseKey = key.split("/")[0] ?? key;
-		const duration =
-			durations[key] ??
-			durations[baseKey] ??
-			durations.default ??
-			globalDefaults[key] ??
-			globalDefaults[baseKey] ??
-			globalDefaults.default ??
-			0;
-		minutes += count * duration;
+	for (const [key, apptCount] of Object.entries(keyValues)) {
+		const { daEval, asdAdhd, ageGroup } = parseColKey(key);
+		const baseKey = asdAdhd ? `${daEval}/${asdAdhd}` : daEval;
+		const ageSuffix = ageGroup ? `/${ageGroup}` : "";
+		// Fallback chain: exact age+diag -> age+type -> any-age+diag -> any-age+type -> age-default -> global-default
+		const lookup = (d: Record<string, number>): number | undefined =>
+			(ageSuffix ? d[`${baseKey}${ageSuffix}`] : undefined) ??
+			(ageSuffix ? d[`${daEval}${ageSuffix}`] : undefined) ??
+			d[baseKey] ??
+			d[daEval] ??
+			(ageSuffix ? d[`default${ageSuffix}`] : undefined) ??
+			d.default;
+		const duration = lookup(durations) ?? lookup(globalDefaults) ?? 0;
+		minutes += apptCount * duration;
 	}
 	return minutes;
 }
@@ -474,17 +498,25 @@ export default function PieceworkSummary() {
 										<TableRow className="hover:bg-transparent">
 											{displayData.colGroups.map((g) => (
 												<Fragment key={g.daEval}>
-													{g.cols.map((col, i) => (
-														<TableHead
-															className={cn(
-																"text-center",
-																i === 0 && "border-l",
-															)}
-															key={col.key}
-														>
-															{col.asdAdhd ?? "-"}
-														</TableHead>
-													))}
+													{g.cols.map((col, i) => {
+														const ageLabel =
+															col.ageGroup === "young"
+																? " ≤6"
+																: col.ageGroup === "older"
+																	? " 7+"
+																	: "";
+														return (
+															<TableHead
+																className={cn(
+																	"text-center",
+																	i === 0 && "border-l",
+																)}
+																key={col.key}
+															>
+																{(col.asdAdhd ?? "-") + ageLabel}
+															</TableHead>
+														);
+													})}
 													<TableHead className="text-center font-semibold">
 														Total
 													</TableHead>

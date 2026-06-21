@@ -37,6 +37,11 @@ export const evaluators = createTable("evaluator", (d) => ({
 		.$type<Record<string, number>>()
 		.notNull()
 		.default({}),
+	allowedAppointmentTypes: d
+		.json("allowedAppointmentTypes")
+		.$type<string[]>()
+		.notNull()
+		.default(["DA", "EVAL", "DAEVAL"]),
 }));
 
 export const insurances = createTable("insurance", (d) => ({

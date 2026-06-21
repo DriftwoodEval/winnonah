@@ -31,10 +31,12 @@ export const workSummaryRouter = createTRPCRouter({
 					daEval: appointments.daEval,
 					asdAdhd: appointments.asdAdhd,
 					week: sql<number>`YEARWEEK(${appointments.startTime}, 1)`,
+					ageGroup: sql<string>`CASE WHEN TIMESTAMPDIFF(YEAR, ${clients.dob}, ${appointments.startTime}) < 7 THEN 'young' ELSE 'older' END`,
 					count: count(),
 				})
 				.from(appointments)
 				.innerJoin(evaluators, eq(appointments.evaluatorNpi, evaluators.npi))
+				.innerJoin(clients, eq(appointments.clientId, clients.id))
 				.where(
 					and(
 						gte(appointments.startTime, input.startDate),
@@ -52,6 +54,7 @@ export const workSummaryRouter = createTRPCRouter({
 					appointments.daEval,
 					appointments.asdAdhd,
 					sql`YEARWEEK(${appointments.startTime}, 1)`,
+					sql`CASE WHEN TIMESTAMPDIFF(YEAR, ${clients.dob}, ${appointments.startTime}) < 7 THEN 'young' ELSE 'older' END`,
 				);
 
 			const evalDurationRows = await ctx.db
@@ -77,9 +80,10 @@ export const workSummaryRouter = createTRPCRouter({
 				byNpi[row.npi] ??= { name: row.providerName, weekData: {} };
 				const entry = byNpi[row.npi];
 				if (!entry) continue;
-				const key = row.asdAdhd
+				const baseKey = row.asdAdhd
 					? `${row.daEval}/${row.asdAdhd}`
 					: (row.daEval ?? "Unknown");
+				const key = `${baseKey}/${row.ageGroup}`;
 				entry.weekData[key] ??= {};
 				const weekMap = entry.weekData[key];
 				if (weekMap) weekMap[row.week] = (weekMap[row.week] ?? 0) + row.count;

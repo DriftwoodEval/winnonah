@@ -62,7 +62,11 @@ import {
 } from "~/lib/types";
 import { api } from "~/trpc/react";
 import { ResponsiveDialog } from "../shared/ResponsiveDialog";
-import { EvaluatorForm } from "./EvaluatorForm";
+import {
+	EvaluatorForm,
+	type EvaluatorFormValues,
+	evaluatorFormSchema,
+} from "./EvaluatorForm";
 
 const log = logger.child({ module: "PersonDetailDialog" });
 
@@ -109,20 +113,22 @@ const accountFormSchema = z.object({
 });
 type AccountFormValues = z.infer<typeof accountFormSchema>;
 
-const evaluatorFormSchema = z.object({
-	npi: z.string().length(10, { message: "NPI must be exactly 10 digits." }),
-	providerName: z.string().min(1, { message: "Provider name is required." }),
-	email: z.email(),
-	outOfOfficePriority: z.boolean(),
-	insurances: z.array(z.number()),
-	offices: z.array(z.string()),
-	blockedDistricts: z.array(z.number()),
-	blockedZips: z.array(
-		z.string().regex(/^\d{5}$/, "Must be a 5-digit zip code"),
-	),
-	appointmentDurations: z.record(z.string(), z.number().nonnegative().int()),
-});
-type EvaluatorFormValues = z.infer<typeof evaluatorFormSchema>;
+const DIAG_COLS = [
+	{ key: "ASD" },
+	{ key: "ADHD" },
+	{ key: "ASD+ADHD" },
+	{ key: "ASD+LD" },
+	{ key: "ADHD+LD" },
+	{ key: "LD" },
+] as const;
+
+const AGE_VARIANTS = [
+	{ suffix: "", label: "" },
+	{ suffix: "/young", label: " (≤6)" },
+	{ suffix: "/older", label: " (7+)" },
+] as const;
+
+const APPT_TYPES = ["DA", "EVAL", "DAEVAL"] as const;
 
 function AccountSection({
 	user,
@@ -497,7 +503,7 @@ function AccountSection({
 						</Accordion>
 					</div>
 
-					<div className="border-t pt-4">
+					<div className="space-y-4 border-t pt-4">
 						<FormField
 							control={form.control}
 							name="phoneNumber"
@@ -729,38 +735,55 @@ function EvaluatorSection({
 			blockedZips: evaluator.blockedZips?.map((z) => z.zip) ?? [],
 			appointmentDurations:
 				(evaluator.appointmentDurations as Record<string, number>) ?? {},
+			allowedAppointmentTypes: (evaluator.allowedAppointmentTypes ?? [
+				"DA",
+				"EVAL",
+				"DAEVAL",
+			]) as ("DA" | "EVAL" | "DAEVAL")[],
 		},
 	});
 
 	const durations = form.watch("appointmentDurations") ?? {};
+	const allowedTypes = form.watch("allowedAppointmentTypes") ?? [
+		"DA",
+		"EVAL",
+		"DAEVAL",
+	];
 
 	const getDuration = (key: string) => {
 		const val = durations[key];
-		return val !== undefined ? String(val) : "";
+		return val !== undefined ? String(val / 60) : "";
 	};
 
 	const setDuration = (key: string, raw: string) => {
 		const current = { ...(form.getValues("appointmentDurations") ?? {}) };
-		const num = parseInt(raw, 10);
-		if (!raw || Number.isNaN(num) || num < 0) {
+		const hrs = parseFloat(raw);
+		if (!raw || Number.isNaN(hrs) || hrs < 0) {
 			delete current[key];
 		} else {
-			current[key] = num;
+			current[key] = Math.round(hrs * 60);
 		}
 		form.setValue("appointmentDurations", current, { shouldDirty: true });
 	};
 
-	const dInput = (key: string) => (
-		<Input
-			className="h-8 text-center text-sm"
-			disabled={!canEdit}
-			min="0"
-			onChange={(e) => setDuration(key, e.target.value)}
-			placeholder="—"
-			type="number"
-			value={getDuration(key)}
-		/>
-	);
+	const dInput = (key: string) => {
+		const baseType = key.split("/")[0] ?? key;
+		const isTypeDisabled =
+			baseType !== "default" &&
+			!allowedTypes.includes(baseType as "DA" | "EVAL" | "DAEVAL");
+		return (
+			<Input
+				className="h-8 text-center text-sm"
+				disabled={!canEdit || isTypeDisabled}
+				min="0"
+				onChange={(e) => setDuration(key, e.target.value)}
+				placeholder="—"
+				step="0.5"
+				type="number"
+				value={getDuration(key)}
+			/>
+		);
+	};
 
 	const onSubmit = (values: EvaluatorFormValues) => {
 		updateEvaluator.mutate({ ...values, npi: String(evaluator.npi) });
@@ -1022,51 +1045,95 @@ function EvaluatorSection({
 						)}
 					/>
 
+					<FormField
+						control={form.control}
+						name="allowedAppointmentTypes"
+						render={({ field }) => (
+							<FormItem>
+								<FormLabel>Allowed Appointment Types</FormLabel>
+								<div className="flex gap-4">
+									{(["DA", "EVAL", "DAEVAL"] as const).map((type) => (
+										<FormItem
+											className="flex items-center gap-2 space-y-0"
+											key={type}
+										>
+											<FormControl>
+												<Checkbox
+													checked={field.value.includes(type)}
+													disabled={!canEdit}
+													onCheckedChange={(checked) => {
+														if (checked) {
+															field.onChange([...field.value, type]);
+														} else {
+															field.onChange(
+																field.value.filter((t) => t !== type),
+															);
+														}
+													}}
+												/>
+											</FormControl>
+											<FormLabel className="font-normal">{type}</FormLabel>
+										</FormItem>
+									))}
+								</div>
+							</FormItem>
+						)}
+					/>
+
 					<div className="space-y-2">
-						<FormLabel>Appointment Durations (minutes)</FormLabel>
+						<FormLabel>Appointment Durations (hours)</FormLabel>
 						<div className="overflow-x-auto rounded-md border p-3">
-							<div className="grid min-w-[380px] grid-cols-5 items-center gap-x-2 gap-y-2 text-sm">
+							<div className="grid min-w-[600px] grid-cols-8 items-center gap-x-2 gap-y-2 text-sm">
 								<div />
 								<div className="text-center font-medium text-muted-foreground text-xs">
 									(any)
 								</div>
-								<div className="text-center font-medium text-muted-foreground text-xs">
-									ASD
-								</div>
-								<div className="text-center font-medium text-muted-foreground text-xs">
-									ADHD
-								</div>
-								<div className="text-center font-medium text-muted-foreground text-xs">
-									ASD+ADHD
-								</div>
+								{DIAG_COLS.map((d) => (
+									<div
+										className="text-center font-medium text-muted-foreground text-xs"
+										key={d.key}
+									>
+										{d.key}
+									</div>
+								))}
 
-								<div className="font-medium">Default</div>
-								{dInput("default")}
-								<div />
-								<div />
-								<div />
+								{AGE_VARIANTS.map(({ suffix, label }) => (
+									<>
+										<div className="font-medium" key={`default-label${suffix}`}>
+											Default{label}
+										</div>
+										{dInput(`default${suffix}`)}
+										{DIAG_COLS.map((d) => (
+											<div key={`default${suffix}-${d.key}`} />
+										))}
+									</>
+								))}
 
-								<div className="font-medium">DA</div>
-								{dInput("DA")}
-								{dInput("DA/ASD")}
-								{dInput("DA/ADHD")}
-								{dInput("DA/ASD+ADHD")}
-
-								<div className="font-medium">EVAL</div>
-								{dInput("EVAL")}
-								{dInput("EVAL/ASD")}
-								{dInput("EVAL/ADHD")}
-								{dInput("EVAL/ASD+ADHD")}
-
-								<div className="font-medium">DAEVAL</div>
-								{dInput("DAEVAL")}
-								{dInput("DAEVAL/ASD")}
-								{dInput("DAEVAL/ADHD")}
-								{dInput("DAEVAL/ASD+ADHD")}
+								{APPT_TYPES.map((type) =>
+									AGE_VARIANTS.map(({ suffix, label }) => (
+										<>
+											<div
+												className="font-medium"
+												key={`${type}-label${suffix}`}
+											>
+												{type}
+												{label}
+											</div>
+											{dInput(`${type}${suffix}`)}
+											{DIAG_COLS.map((d) => (
+												<span key={`${type}/${d.key}${suffix}`}>
+													{dInput(`${type}/${d.key}${suffix}`)}
+												</span>
+											))}
+										</>
+									)),
+								)}
 							</div>
 						</div>
 						<p className="text-muted-foreground text-xs">
 							Specific subtypes override DA/EVAL/DAEVAL, which override Default.
+							Age-specific rows override the age-agnostic rows. Values are in
+							hours (e.g. 1.5 = 90 min).
 						</p>
 					</div>
 

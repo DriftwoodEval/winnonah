@@ -30,6 +30,9 @@ export const evaluatorInputSchema = z.object({
 	appointmentDurations: z
 		.record(z.string(), z.number().nonnegative().int())
 		.default({}),
+	allowedAppointmentTypes: z
+		.array(z.enum(["DA", "EVAL", "DAEVAL"]))
+		.default(["DA", "EVAL", "DAEVAL"]),
 });
 
 const CACHE_KEY_ALL_EVALUATORS = "evaluators:all";
