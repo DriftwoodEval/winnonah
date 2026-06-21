@@ -18,13 +18,6 @@ import {
 } from "@ui/form";
 import { Input } from "@ui/input";
 import {
-	Select,
-	SelectContent,
-	SelectItem,
-	SelectTrigger,
-	SelectValue,
-} from "@ui/select";
-import {
 	Table,
 	TableBody,
 	TableCell,
@@ -39,16 +32,15 @@ import { toast } from "sonner";
 import z from "zod";
 import { useCheckPermission } from "~/hooks/use-check-permission";
 import { useMediaQuery } from "~/hooks/use-media-query";
-import { PERMISSIONS } from "~/lib/constants";
 import { logger } from "~/lib/logger";
 import type { Invitation } from "~/lib/models";
-import { permissionPresets, permissionsSchema } from "~/lib/types";
+import { permissionsSchema } from "~/lib/types";
 import { api } from "~/trpc/react";
 import {
 	ResponsiveDialog,
 	useResponsiveDialog,
 } from "../shared/ResponsiveDialog";
-import { Checkbox } from "../ui/checkbox";
+import { PermissionsField } from "./PermissionsField";
 
 const log = logger.child({ module: "InvitesTable" });
 
@@ -77,144 +69,39 @@ function InvitesTableForm({
 		},
 	});
 
-	const watchedPermissions = form.watch("permissions");
-
-	const getGroupState = (
-		groupPermissions: readonly { id: string; title: string }[],
-	) => {
-		const allChecked = groupPermissions.every(
-			(p) => watchedPermissions?.[p.id],
-		);
-		const anyChecked = groupPermissions.some((p) => watchedPermissions?.[p.id]);
-
-		if (allChecked) return true;
-		if (anyChecked) return "indeterminate";
-		return false;
-	};
-
-	const handlePresetChange = (presetValue: string) => {
-		const selectedPreset = permissionPresets.find(
-			(p) => p.value === presetValue,
-		);
-		if (selectedPreset) {
-			form.setValue("permissions", selectedPreset.permissions, {
-				shouldDirty: true,
-				shouldValidate: true,
-			});
-		}
-	};
+	const permissions = form.watch("permissions");
 
 	return (
 		<Form {...form}>
-			<form
-				className="relative space-y-6"
-				onSubmit={form.handleSubmit(onSubmit)}
-			>
+			<form className="space-y-6" onSubmit={form.handleSubmit(onSubmit)}>
 				<FormField
 					control={form.control}
 					name="email"
 					render={({ field }) => (
 						<FormItem>
 							<FormLabel>Email</FormLabel>
-							<Input
-								disabled={isLoading}
-								{...field}
-								autoComplete="off"
-								type="email"
-							/>
-
+							<FormControl>
+								<Input
+									autoComplete="off"
+									disabled={isLoading}
+									type="email"
+									{...field}
+								/>
+							</FormControl>
 							<FormMessage />
 						</FormItem>
 					)}
 				/>
-				<div className="relative w-full sm:absolute sm:flex sm:justify-end">
-					<Select onValueChange={handlePresetChange}>
-						<SelectTrigger className="w-full sm:w-fit" size="sm">
-							<SelectValue placeholder="Select a preset..." />
-						</SelectTrigger>
-						<SelectContent>
-							{permissionPresets.map((preset) => (
-								<SelectItem key={preset.value} value={preset.value}>
-									{preset.label}
-								</SelectItem>
-							))}
-						</SelectContent>
-					</Select>
-				</div>
-				<div className="space-y-8">
-					{Object.entries(PERMISSIONS).map(([categoryKey, category]) => (
-						<div className="space-y-4" key={categoryKey}>
-							<h4 className="border-b pb-2 font-bold text-lg">
-								{category.title}
-							</h4>
-							<div className="ml-4 grid grid-cols-1 gap-x-12 gap-y-8 md:grid-cols-2">
-								{Object.entries(category.subgroups).map(
-									([subgroupKey, subgroup]) => (
-										<div key={subgroupKey}>
-											{/* Subgroup Checkbox */}
-											<div className="mb-3 flex items-center space-x-2">
-												<Checkbox
-													checked={getGroupState(subgroup.permissions)}
-													id={`${categoryKey}-${subgroupKey}`}
-													onCheckedChange={(checked) => {
-														const currentPermissions = {
-															...form.getValues("permissions"),
-														};
-														subgroup.permissions.forEach(
-															(p: { id: string; title: string }) => {
-																currentPermissions[p.id] = !!checked;
-															},
-														);
-														form.setValue("permissions", currentPermissions, {
-															shouldDirty: true,
-															shouldValidate: true,
-														});
-													}}
-												/>
-												<FormLabel
-													className="font-semibold text-md"
-													htmlFor={`${categoryKey}-${subgroupKey}`}
-												>
-													{subgroup.title}
-												</FormLabel>
-											</div>
 
-											{/* Individual Checkboxes */}
-											<div className="ml-8 space-y-2">
-												{subgroup.permissions.map(
-													(p: { id: string; title: string }) => (
-														<FormField
-															control={form.control}
-															key={p.id}
-															name={`permissions.${p.id}`}
-															render={({ field }) => (
-																<FormItem>
-																	<div className="flex items-center space-x-2">
-																		<FormControl>
-																			<Checkbox
-																				checked={field.value}
-																				id={p.id}
-																				onCheckedChange={field.onChange}
-																			/>
-																		</FormControl>
-																		<FormLabel htmlFor={p.id}>
-																			{p.title}
-																		</FormLabel>
-																	</div>
-																	<FormMessage />
-																</FormItem>
-															)}
-														/>
-													),
-												)}
-											</div>
-										</div>
-									),
-								)}
-							</div>
-						</div>
-					))}
-				</div>
+				<PermissionsField
+					onChange={(p) =>
+						form.setValue("permissions", p, {
+							shouldDirty: true,
+							shouldValidate: true,
+						})
+					}
+					value={permissions ?? {}}
+				/>
 
 				<div className="flex justify-end gap-2">
 					<Button onClick={onFinished} type="button" variant="ghost">

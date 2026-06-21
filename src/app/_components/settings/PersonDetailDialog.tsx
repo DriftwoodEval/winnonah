@@ -2,12 +2,6 @@
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
-	Accordion,
-	AccordionContent,
-	AccordionItem,
-	AccordionTrigger,
-} from "@ui/accordion";
-import {
 	AlertDialog,
 	AlertDialogAction,
 	AlertDialogCancel,
@@ -30,21 +24,8 @@ import {
 } from "@ui/form";
 import { Input } from "@ui/input";
 import MultipleSelector from "@ui/multiple-selector";
-import {
-	Select,
-	SelectContent,
-	SelectItem,
-	SelectTrigger,
-	SelectValue,
-} from "@ui/select";
 import { Separator } from "@ui/separator";
 import { Switch } from "@ui/switch";
-import {
-	Tooltip,
-	TooltipContent,
-	TooltipProvider,
-	TooltipTrigger,
-} from "@ui/tooltip";
 import { Loader2 } from "lucide-react";
 import { useSession } from "next-auth/react";
 import { useMemo, useState } from "react";
@@ -52,14 +33,9 @@ import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 import { z } from "zod";
 import { useCheckPermission } from "~/hooks/use-check-permission";
-import { PERMISSIONS } from "~/lib/constants";
 import { logger } from "~/lib/logger";
 import type { Evaluator, User } from "~/lib/models";
-import {
-	type PermissionsObject,
-	permissionPresets,
-	permissionsSchema,
-} from "~/lib/types";
+import { type PermissionsObject, permissionsSchema } from "~/lib/types";
 import { api } from "~/trpc/react";
 import { ResponsiveDialog } from "../shared/ResponsiveDialog";
 import {
@@ -67,6 +43,7 @@ import {
 	type EvaluatorFormValues,
 	evaluatorFormSchema,
 } from "./EvaluatorForm";
+import { PermissionsField } from "./PermissionsField";
 
 const log = logger.child({ module: "PersonDetailDialog" });
 
@@ -247,35 +224,10 @@ function AccountSection({
 		},
 	});
 
-	const watchedPermissions = form.watch("permissions");
+	const permissions = form.watch("permissions");
 
 	const isPermissionDisabled = (permissionId: string) =>
 		session?.user?.id === user.id && permissionId === "settings:users:edit";
-
-	const getGroupState = (
-		groupPermissions: readonly { id: string; title: string; parent?: string }[],
-	) => {
-		const topLevel = groupPermissions.filter((p) => !p.parent);
-		const allChecked = topLevel.every((p) => watchedPermissions?.[p.id]);
-		const anyChecked = topLevel.some((p) => watchedPermissions?.[p.id]);
-		if (allChecked) return true;
-		if (anyChecked) return "indeterminate";
-		return false;
-	};
-
-	const handlePresetChange = (presetValue: string) => {
-		const preset = permissionPresets.find((p) => p.value === presetValue);
-		if (preset) {
-			const newPermissions = { ...preset.permissions };
-			if (isPermissionDisabled("settings:users:edit")) {
-				newPermissions["settings:users:edit"] = true;
-			}
-			form.setValue("permissions", newPermissions, {
-				shouldDirty: true,
-				shouldValidate: true,
-			});
-		}
-	};
 
 	const onSubmit = async (values: AccountFormValues) => {
 		const normalized = values.phoneNumber
@@ -299,209 +251,17 @@ function AccountSection({
 			{showHeading && <h4 className="font-semibold text-base">Account</h4>}
 			<Form {...form}>
 				<form className="space-y-6" onSubmit={form.handleSubmit(onSubmit)}>
-					<div className="space-y-3">
-						<div className="flex items-center justify-between border-b pb-2">
-							<span className="font-bold text-lg">Permissions</span>
-							<Select disabled={!canEdit} onValueChange={handlePresetChange}>
-								<SelectTrigger className="w-auto" size="sm">
-									<SelectValue placeholder="Select a preset..." />
-								</SelectTrigger>
-								<SelectContent>
-									{permissionPresets.map((preset) => (
-										<SelectItem key={preset.value} value={preset.value}>
-											{preset.label}
-										</SelectItem>
-									))}
-								</SelectContent>
-							</Select>
-						</div>
-						<Accordion className="rounded-md border" type="multiple">
-							{Object.entries(PERMISSIONS).map(([categoryKey, category]) => (
-								<AccordionItem key={categoryKey} value={categoryKey}>
-									<AccordionTrigger className="px-4 font-semibold text-base hover:no-underline">
-										{category.title}
-									</AccordionTrigger>
-									<AccordionContent className="px-4 pt-2 pb-4">
-										<div className="grid grid-cols-1 gap-x-12 gap-y-6 md:grid-cols-2">
-											{Object.entries(category.subgroups).map(
-												([subgroupKey, subgroup]) => (
-													<div key={subgroupKey}>
-														<div className="mb-3 flex items-center space-x-2">
-															<Checkbox
-																checked={getGroupState(subgroup.permissions)}
-																disabled={!canEdit}
-																id={`${categoryKey}-${subgroupKey}`}
-																onCheckedChange={() => {
-																	const currentState = getGroupState(
-																		subgroup.permissions,
-																	);
-																	const newChecked = currentState === false;
-																	const current = {
-																		...form.getValues("permissions"),
-																	};
-																	subgroup.permissions.forEach(
-																		(p: { id: string }) => {
-																			if (!isPermissionDisabled(p.id)) {
-																				current[p.id] = newChecked;
-																			}
-																		},
-																	);
-																	form.setValue("permissions", current, {
-																		shouldDirty: true,
-																		shouldValidate: true,
-																	});
-																}}
-															/>
-															<FormLabel
-																className="font-semibold text-md"
-																htmlFor={`${categoryKey}-${subgroupKey}`}
-															>
-																{subgroup.title}
-															</FormLabel>
-														</div>
-														<div className="ml-8 space-y-2">
-															{subgroup.permissions
-																.filter(
-																	(p: {
-																		id: string;
-																		title: string;
-																		parent?: string;
-																	}) => !p.parent,
-																)
-																.map(
-																	(p: {
-																		id: string;
-																		title: string;
-																		parent?: string;
-																	}) => {
-																		const subs = subgroup.permissions.filter(
-																			(s: {
-																				id: string;
-																				title: string;
-																				parent?: string;
-																			}) => s.parent === p.id,
-																		);
-																		return (
-																			<div key={p.id}>
-																				<FormField
-																					control={form.control}
-																					name={`permissions.${p.id}`}
-																					render={({ field }) => (
-																						<FormItem>
-																							<div className="flex items-center space-x-2">
-																								<FormControl>
-																									{isPermissionDisabled(
-																										p.id,
-																									) ? (
-																										<TooltipProvider>
-																											<Tooltip>
-																												<TooltipTrigger asChild>
-																													<span className="cursor-not-allowed">
-																														<Checkbox
-																															checked={
-																																field.value
-																															}
-																															disabled
-																															id={p.id}
-																														/>
-																													</span>
-																												</TooltipTrigger>
-																												<TooltipContent>
-																													You can't remove your
-																													own user-management
-																													permission
-																												</TooltipContent>
-																											</Tooltip>
-																										</TooltipProvider>
-																									) : (
-																										<Checkbox
-																											checked={field.value}
-																											disabled={!canEdit}
-																											id={p.id}
-																											onCheckedChange={(
-																												checked,
-																											) => {
-																												field.onChange(checked);
-																												if (!checked) {
-																													for (const sub of subs) {
-																														form.setValue(
-																															`permissions.${sub.id}`,
-																															false,
-																														);
-																													}
-																												}
-																											}}
-																										/>
-																									)}
-																								</FormControl>
-																								<FormLabel htmlFor={p.id}>
-																									{p.title}
-																								</FormLabel>
-																							</div>
-																							<FormMessage />
-																						</FormItem>
-																					)}
-																				/>
-																				{subs.length > 0 && (
-																					<div className="mt-1 ml-6 space-y-1">
-																						{subs.map(
-																							(sub: {
-																								id: string;
-																								title: string;
-																								parent?: string;
-																							}) => (
-																								<FormField
-																									control={form.control}
-																									key={sub.id}
-																									name={`permissions.${sub.id}`}
-																									render={({ field }) => (
-																										<FormItem>
-																											<div className="flex items-center space-x-2">
-																												<FormControl>
-																													<Checkbox
-																														checked={
-																															field.value
-																														}
-																														disabled={
-																															!canEdit ||
-																															!watchedPermissions?.[
-																																p.id
-																															]
-																														}
-																														id={sub.id}
-																														onCheckedChange={
-																															field.onChange
-																														}
-																													/>
-																												</FormControl>
-																												<FormLabel
-																													className="font-normal"
-																													htmlFor={sub.id}
-																												>
-																													{sub.title}
-																												</FormLabel>
-																											</div>
-																										</FormItem>
-																									)}
-																								/>
-																							),
-																						)}
-																					</div>
-																				)}
-																			</div>
-																		);
-																	},
-																)}
-														</div>
-													</div>
-												),
-											)}
-										</div>
-									</AccordionContent>
-								</AccordionItem>
-							))}
-						</Accordion>
-					</div>
+					<PermissionsField
+						disabled={!canEdit}
+						isPermissionDisabled={isPermissionDisabled}
+						onChange={(p) =>
+							form.setValue("permissions", p, {
+								shouldDirty: true,
+								shouldValidate: true,
+							})
+						}
+						value={permissions ?? {}}
+					/>
 
 					<div className="space-y-4 border-t pt-4">
 						<FormField
