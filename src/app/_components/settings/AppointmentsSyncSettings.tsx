@@ -51,6 +51,7 @@ export default function AppointmentsSyncSettings() {
 		},
 		onError: (error) => {
 			toast.error("Failed to update sync configuration", {
+				id: "sync-config-update-error",
 				description: error.message,
 			});
 		},

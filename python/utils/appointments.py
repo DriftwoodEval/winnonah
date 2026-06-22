@@ -356,6 +356,12 @@ def prepare_appointments_from_csv(
             indices_to_drop.add(idx)
             continue
 
+        # Appointments before this date predate Google Calendar usage and will never
+        # have a matching GCal event. Silently skip rather than require manual ignore list entries.
+        if start_time.date() < date(2025, 7, 1):
+            indices_to_drop.add(idx)
+            continue
+
         if should_skip_appointment(appointment):
             logger.info(
                 f"Flagging {name} ({client_id}) on {start_time.date().strftime('%Y-%m-%d')} "
