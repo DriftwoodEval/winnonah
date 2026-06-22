@@ -1,6 +1,7 @@
 import { TRPCError } from "@trpc/server";
 import { eq } from "drizzle-orm";
 import z from "zod";
+import { env } from "~/env";
 import { type PermissionsObject, permissionsSchema } from "~/lib/types";
 import {
 	assertPermission,
@@ -114,6 +115,23 @@ export const userRouter = createTRPCRouter({
 			await ctx.db
 				.insert(invitations)
 				.values({ email: input.email, permissions: input.permissions });
+
+			try {
+				const cookieHeader = ctx.headers.get("cookie") ?? "";
+				await fetch(`${env.PY_API}/notifications/invite`, {
+					method: "POST",
+					headers: {
+						"Content-Type": "application/json",
+						Cookie: cookieHeader,
+					},
+					body: JSON.stringify({
+						invitee_email: input.email,
+						inviter_name: ctx.session.user.name ?? ctx.session.user.email,
+					}),
+				});
+			} catch (error) {
+				ctx.logger.error(error, "Failed to send invite email");
+			}
 
 			return {
 				success: true,

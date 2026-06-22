@@ -81,6 +81,11 @@ class InsuranceReviewClaimRequest(BaseModel):
     client_url: str | None = None
 
 
+class InviteNotificationRequest(BaseModel):
+    invitee_email: str
+    inviter_name: str
+
+
 class CptCodeEntry(BaseModel):
     code: str
     units: int
@@ -581,6 +586,35 @@ async def notify_insurance_review_claimed(
         message_text=message_text,
         subject=subject,
         to_addr=request.user_email,
+        from_addr="tech@driftwoodeval.com",
+        html=html_content,
+    )
+
+    return {"status": "success"}
+
+
+@app.post("/notifications/invite")
+async def notify_invite(
+    request: InviteNotificationRequest,
+    current_user: dict = Depends(get_current_user),  # noqa: ARG001
+):
+    """Sends an invitation email to a new user."""
+    subject = "You've been invited to Driftwood EMR"
+
+    message_text = (
+        f"{request.inviter_name} has invited you to join Driftwood EMR.\n\n"
+        "Sign in with your Google account at https://emr.driftwoodeval.com to get started."
+    )
+
+    html_content = f"""
+    <p><strong>{request.inviter_name}</strong> has invited you to join Driftwood EMR.</p>
+    <p><a href="https://emr.driftwoodeval.com">Sign in with your Google account</a> to get started.</p>
+    """
+
+    send_gmail(
+        message_text=message_text,
+        subject=subject,
+        to_addr=request.invitee_email,
         from_addr="tech@driftwoodeval.com",
         html=html_content,
     )
