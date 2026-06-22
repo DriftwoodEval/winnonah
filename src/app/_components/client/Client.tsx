@@ -80,6 +80,8 @@ export function Client({
 		value: hash,
 	});
 
+	const isActive = isLoadingClient ? false : (client?.status ?? false);
+
 	const [selectedColor, setSelectedColor] = useState<ClientColor | null>(null);
 
 	const utils = api.useUtils();
@@ -231,7 +233,7 @@ export function Client({
 										<ClientDetailsCard client={client} />
 									)}
 
-									{client.isOnDropList ? (
+									{client.isOnDropList && isActive ? (
 										<Alert variant="destructive">
 											<Ban className="h-4 w-4" />
 											<AlertTitle>
@@ -253,8 +255,9 @@ export function Client({
 									) : (
 										clientFailures?.map((failure) => {
 											if (
-												failure.reason === "docs not signed" ||
-												failure.reason === "portal not opened"
+												(failure.reason === "docs not signed" ||
+													failure.reason === "portal not opened") &&
+												isActive
 											) {
 												const reasonText = `${failure.reason?.replace(
 													/^\S/g,
@@ -295,7 +298,7 @@ export function Client({
 										})
 									)}
 
-									{client.pause && (
+									{client.pause && isActive && (
 										<Alert variant="destructive">
 											<PauseCircle className="h-4 w-4" />
 											<AlertTitle>Client Paused</AlertTitle>
@@ -306,7 +309,7 @@ export function Client({
 									)}
 
 									{client.recordsNeeded === null &&
-										client.status === true &&
+										isActive &&
 										!isShellClientId(client.id) && (
 											<Alert variant="destructive">
 												<AlertTriangleIcon className="h-4 w-4" />
