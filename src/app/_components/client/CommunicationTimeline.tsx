@@ -79,7 +79,9 @@ export function CommunicationTimeline({
 				</CardDescription>
 				<CardAction>
 					<Button asChild className="h-auto p-0 text-xs" variant="link">
-						<Link href="https://my.quo.com">Quo</Link>
+						<Link href="https://my.quo.com" target="_blank">
+							Quo
+						</Link>
 					</Button>
 				</CardAction>
 			</CardHeader>
