@@ -42,6 +42,7 @@ export const evaluators = createTable("evaluator", (d) => ({
 		.$type<string[]>()
 		.notNull()
 		.default(["DA", "EVAL", "DAEVAL"]),
+	writesOwnReports: d.boolean().notNull().default(false),
 }));
 
 export const insurances = createTable("insurance", (d) => ({

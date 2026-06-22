@@ -36,6 +36,7 @@ export const evaluatorFormSchema = z.object({
 	),
 	appointmentDurations: z.record(z.string(), z.number().nonnegative().int()),
 	allowedAppointmentTypes: z.array(z.enum(["DA", "EVAL", "DAEVAL"])),
+	writesOwnReports: z.boolean(),
 });
 
 export type EvaluatorFormValues = z.infer<typeof evaluatorFormSchema>;
@@ -98,6 +99,7 @@ export function EvaluatorForm({
 					"EVAL",
 					"DAEVAL",
 				]) as ("DA" | "EVAL" | "DAEVAL")[],
+				writesOwnReports: initialData.writesOwnReports ?? false,
 			};
 		}
 		return {
@@ -115,6 +117,7 @@ export function EvaluatorForm({
 				| "EVAL"
 				| "DAEVAL"
 			)[],
+			writesOwnReports: false,
 		};
 	}, [initialData, initialEmail]);
 
@@ -250,6 +253,26 @@ export function EvaluatorForm({
 								<FormDescription>
 									This evaluator tells us their out of office times, not their
 									in office times.
+								</FormDescription>
+								<FormControl>
+									<Switch
+										checked={field.value}
+										onCheckedChange={field.onChange}
+									/>
+								</FormControl>
+								<FormMessage />
+							</FormItem>
+						)}
+					/>
+					<FormField
+						control={form.control}
+						name="writesOwnReports"
+						render={({ field }) => (
+							<FormItem className="flex flex-col gap-2">
+								<FormLabel>Writes Own Reports</FormLabel>
+								<FormDescription>
+									If the punchlist writer is blank, credit this evaluator for
+									report piecework based on their most recent 96136 appointment.
 								</FormDescription>
 								<FormControl>
 									<Switch
