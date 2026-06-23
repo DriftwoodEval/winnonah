@@ -903,15 +903,16 @@ export async function getAvailabilityEvents(
 	const nameToKeyMap = new Map(
 		allOffices.map((office) => [office.prettyName, office.key]),
 	);
-	nameToKeyMap.set("Virtual", "VIRTUAL");
+	nameToKeyMap.set("Virtual", "Virtual");
 
 	const officeRegex = /Available\s*-\s*(.*)/i;
 
 	return allItems
 		.filter(
 			(event) =>
-				event.summary?.toLowerCase().includes("available") ||
-				event.summary?.toLowerCase().includes("out of office"),
+				event.summary?.match(/^Available\s*-\s*/i) ||
+				event.eventType === "outOfOffice" ||
+				event.summary?.toLowerCase().trim() === "out of office",
 		)
 		.map((event) => {
 			const startDateTime = event.start?.dateTime || event.start?.date;

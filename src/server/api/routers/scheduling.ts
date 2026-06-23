@@ -1,11 +1,23 @@
-import { asc, eq, getTableColumns, ne, sql } from "drizzle-orm";
+import { and, asc, eq, getTableColumns, inArray, ne, sql } from "drizzle-orm";
 import { z } from "zod";
 import { fetchWithCache } from "~/lib/cache";
-import { syncPunchData } from "~/lib/google";
+import { getAvailabilityEvents, syncPunchData } from "~/lib/google";
 import { getClosestOfficeKey, getDistanceSQL } from "~/lib/utils";
-import { createTRPCRouter, protectedProcedure } from "~/server/api/trpc";
+import {
+	assertPermission,
+	createTRPCRouter,
+	protectedProcedure,
+} from "~/server/api/trpc";
 import { db } from "~/server/db";
-import { clients, evaluators, schedulingClients } from "~/server/db/schema";
+import {
+	accounts,
+	appointments,
+	clients,
+	clientsEvaluators,
+	evaluators,
+	schedulingClients,
+	users,
+} from "~/server/db/schema";
 
 export const schedulingRouter = createTRPCRouter({
 	get: protectedProcedure.query(async ({ ctx }) => {
@@ -454,6 +466,295 @@ export const schedulingRouter = createTRPCRouter({
 				.update(schedulingClients)
 				.set({ archived: true })
 				.where(eq(schedulingClients.clientId, input.clientId));
+		}),
+
+	getDashboard: protectedProcedure
+		.input(z.object({ startDate: z.date(), endDate: z.date() }))
+		.query(async ({ ctx, input }) => {
+			assertPermission(ctx.session.user, "pages:scheduling");
+
+			const allOffices = await fetchWithCache(ctx, "offices:all", () =>
+				ctx.db.query.offices.findMany(),
+			);
+
+			const scheduledClients = await ctx.db
+				.select({
+					clientId: schedulingClients.clientId,
+					office: schedulingClients.office,
+					evaluator: schedulingClients.evaluator,
+					notes: schedulingClients.notes,
+					date: schedulingClients.date,
+					time: schedulingClients.time,
+					code: schedulingClients.code,
+					color: schedulingClients.color,
+					fullName: clients.fullName,
+					asdAdhd: clients.asdAdhd,
+					primaryInsurance: clients.primaryInsurance,
+				})
+				.from(schedulingClients)
+				.innerJoin(clients, eq(schedulingClients.clientId, clients.id))
+				.where(eq(schedulingClients.archived, false))
+				.orderBy(asc(schedulingClients.sort), asc(schedulingClients.createdAt));
+
+			if (scheduledClients.length === 0) {
+				return { clients: [], offices: allOffices };
+			}
+
+			const clientIds = scheduledClients.map((c) => c.clientId);
+
+			const [eligibilityRows, existingAppointments] = await Promise.all([
+				ctx.db
+					.select({
+						clientId: clientsEvaluators.clientId,
+						evaluatorNpi: clientsEvaluators.evaluatorNpi,
+					})
+					.from(clientsEvaluators)
+					.where(inArray(clientsEvaluators.clientId, clientIds)),
+				ctx.db
+					.select({
+						clientId: appointments.clientId,
+						daEval: appointments.daEval,
+					})
+					.from(appointments)
+					.where(
+						and(
+							inArray(appointments.clientId, clientIds),
+							eq(appointments.cancelled, false),
+							eq(appointments.rescheduled, false),
+							eq(appointments.placeholder, false),
+							eq(appointments.billingOnly, false),
+						),
+					),
+			]);
+
+			const apptsByClientId = new Map<number, { daEval: string | null }[]>();
+			for (const appt of existingAppointments) {
+				const existing = apptsByClientId.get(appt.clientId) ?? [];
+				existing.push({ daEval: appt.daEval ?? null });
+				apptsByClientId.set(appt.clientId, existing);
+			}
+
+			function hasMatchingAppt(clientId: number, code: string | null): boolean {
+				return (apptsByClientId.get(clientId) ?? []).some((a) => {
+					if (!a.daEval) return false;
+					if (code === "90791")
+						return a.daEval === "DA" || a.daEval === "DAEVAL";
+					if (code === "96136")
+						return a.daEval === "EVAL" || a.daEval === "DAEVAL";
+					return false;
+				});
+			}
+
+			const uniqueNpis = [
+				...new Set(eligibilityRows.map((r) => r.evaluatorNpi)),
+			];
+
+			if (uniqueNpis.length === 0) {
+				return {
+					clients: scheduledClients.map((sc) => ({
+						clientId: sc.clientId,
+						fullName: sc.fullName,
+						office: sc.office,
+						asdAdhd: sc.asdAdhd,
+						primaryInsurance: sc.primaryInsurance,
+						evaluatorNpi: sc.evaluator,
+						notes: sc.notes,
+						date: sc.date,
+						time: sc.time,
+						hasMatchingAppointment: hasMatchingAppt(
+							sc.clientId,
+							sc.code ?? null,
+						),
+						eligibleEvaluators: [],
+					})),
+					offices: allOffices,
+				};
+			}
+
+			const allEvaluators = await fetchWithCache(
+				ctx,
+				"evaluators:all",
+				async () => {
+					const rows = await ctx.db.query.evaluators.findMany({
+						where: ne(evaluators.archived, true),
+						orderBy: (ev, { asc }) => [asc(ev.providerName)],
+						with: {
+							offices: { with: { office: true } },
+							blockedSchoolDistricts: { with: { schoolDistrict: true } },
+							blockedZipCodes: { with: { zipCode: true } },
+							insurances: { with: { insurance: true } },
+						},
+					});
+					return rows.map((e) => ({
+						...e,
+						offices: e.offices.map((link) => link.office),
+						blockedDistricts: e.blockedSchoolDistricts.map(
+							(link) => link.schoolDistrict,
+						),
+						blockedZips: e.blockedZipCodes.map((link) => link.zipCode),
+						insurances: e.insurances.map((link) => link.insurance),
+					}));
+				},
+			);
+
+			const uniqueNpisSet = new Set(uniqueNpis);
+			const evaluatorMap = new Map(
+				allEvaluators
+					.filter((e) => uniqueNpisSet.has(e.npi))
+					.map((e) => [e.npi, e]),
+			);
+
+			// Fetch OAuth tokens for eligible evaluators' users
+			const eligibleEmails = [...evaluatorMap.values()].map((e) => e.email);
+			const userRows = await ctx.db
+				.select({ id: users.id, email: users.email })
+				.from(users)
+				.where(inArray(users.email, eligibleEmails));
+
+			const userIds = userRows.map((u) => u.id);
+			const accountRows =
+				userIds.length > 0
+					? await ctx.db
+							.select({
+								userId: accounts.userId,
+								access_token: accounts.access_token,
+								refresh_token: accounts.refresh_token,
+							})
+							.from(accounts)
+							.where(
+								and(
+									inArray(accounts.userId, userIds),
+									eq(accounts.provider, "google"),
+								),
+							)
+					: [];
+
+			const userIdToEmail = new Map(userRows.map((u) => [u.id, u.email]));
+			const emailToTokens = new Map(
+				accountRows.flatMap((a) =>
+					a.access_token && a.refresh_token
+						? [
+								[
+									userIdToEmail.get(a.userId) ?? "",
+									{
+										access_token: a.access_token,
+										refresh_token: a.refresh_token,
+									},
+								] as const,
+							]
+						: [],
+				),
+			);
+
+			// Fetch availability for all eligible evaluators in parallel
+			const availabilityByNpi = new Map<
+				number,
+				Awaited<ReturnType<typeof getAvailabilityEvents>>
+			>();
+			await Promise.all(
+				[...evaluatorMap.values()].map(async (evaluator) => {
+					const tokens = emailToTokens.get(evaluator.email);
+					if (!tokens) {
+						availabilityByNpi.set(evaluator.npi, []);
+						return;
+					}
+					const mockSession = {
+						user: {
+							accessToken: tokens.access_token,
+							refreshToken: tokens.refresh_token,
+						},
+					} as Parameters<typeof getAvailabilityEvents>[0];
+					try {
+						const events = await getAvailabilityEvents(
+							mockSession,
+							input.startDate,
+							input.endDate,
+						);
+						availabilityByNpi.set(evaluator.npi, events);
+					} catch {
+						availabilityByNpi.set(evaluator.npi, []);
+					}
+				}),
+			);
+
+			// Group eligibility rows by client
+			const eligibilityByClientId = new Map<number, number[]>();
+			for (const row of eligibilityRows) {
+				const existing = eligibilityByClientId.get(row.clientId) ?? [];
+				existing.push(row.evaluatorNpi);
+				eligibilityByClientId.set(row.clientId, existing);
+			}
+
+			return {
+				clients: scheduledClients.map((sc) => {
+					const preferredOffice = sc.office;
+					const eligibleNpis = eligibilityByClientId.get(sc.clientId) ?? [];
+
+					const eligibleEvaluators = eligibleNpis
+						.map((npi) => {
+							const evaluator = evaluatorMap.get(npi);
+							if (!evaluator) return null;
+
+							const events = availabilityByNpi.get(npi) ?? [];
+							const availableEvents = events.filter((e) => !e.isUnavailability);
+
+							const matchingEvents = preferredOffice
+								? availableEvents.filter((e) =>
+										e.officeKeys?.includes(preferredOffice),
+									)
+								: [];
+
+							const otherEvents = preferredOffice
+								? availableEvents.filter(
+										(e) => !(e.officeKeys?.includes(preferredOffice) ?? false),
+									)
+								: availableEvents;
+
+							return {
+								npi: evaluator.npi,
+								providerName: evaluator.providerName,
+								hasCalendarAccess: emailToTokens.has(evaluator.email),
+								matchingEvents,
+								otherEvents,
+							};
+						})
+						.filter((e): e is NonNullable<typeof e> => e !== null)
+						.sort((a, b) => {
+							const aScore =
+								a.matchingEvents.length > 0
+									? 2
+									: a.otherEvents.length > 0
+										? 1
+										: 0;
+							const bScore =
+								b.matchingEvents.length > 0
+									? 2
+									: b.otherEvents.length > 0
+										? 1
+										: 0;
+							if (aScore !== bScore) return bScore - aScore;
+							return a.providerName.localeCompare(b.providerName);
+						});
+
+					return {
+						clientId: sc.clientId,
+						fullName: sc.fullName,
+						office: preferredOffice,
+						asdAdhd: sc.asdAdhd,
+						primaryInsurance: sc.primaryInsurance,
+						evaluatorNpi: sc.evaluator,
+						notes: sc.notes,
+						date: sc.date,
+						time: sc.time,
+						hasMatchingAppointment: hasMatchingAppt(
+							sc.clientId,
+							sc.code ?? null,
+						),
+						eligibleEvaluators,
+					};
+				}),
+				offices: allOffices,
+			};
 		}),
 
 	unarchive: protectedProcedure

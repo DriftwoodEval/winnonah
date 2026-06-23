@@ -267,6 +267,10 @@ export const PERMISSIONS = {
 				title: "Access",
 				permissions: [
 					{ id: "pages:availability", title: "Availability" },
+					{
+						id: "pages:evaluator-availability",
+						title: "Evaluator Availability",
+					},
 					{ id: "pages:dashboard", title: "Dashboard" },
 					{ id: "pages:calculator", title: "Calculator" },
 					{ id: "pages:scheduling", title: "Scheduling" },

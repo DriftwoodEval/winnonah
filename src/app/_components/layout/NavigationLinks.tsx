@@ -50,6 +50,11 @@ export default function NavigationLinks() {
 			show: can("pages:availability"),
 		},
 		{
+			href: "/evaluator-availability",
+			label: "Evaluator Availability",
+			show: can("pages:evaluator-availability"),
+		},
+		{
 			href: "/dashboard",
 			label: "Dashboard",
 			show: can("pages:dashboard"),
@@ -62,6 +67,11 @@ export default function NavigationLinks() {
 		{
 			href: "/scheduling",
 			label: "Scheduling",
+			show: can("pages:scheduling"),
+		},
+		{
+			href: "/scheduling-helper",
+			label: "Sched. Helper",
 			show: can("pages:scheduling"),
 		},
 		{

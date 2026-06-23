@@ -791,6 +791,93 @@ export const googleRouter = createTRPCRouter({
 			}
 		}),
 
+	getAllEvaluatorsAvailability: protectedProcedure
+		.input(
+			z.object({
+				startDate: z.date(),
+				endDate: z.date(),
+			}),
+		)
+		.query(async ({ ctx, input }) => {
+			assertPermission(ctx.session.user, "pages:evaluator-availability");
+
+			const allEvaluators = await ctx.db.query.evaluators.findMany({
+				where: (ev, { eq }) => eq(ev.archived, false),
+				orderBy: (ev, { asc }) => [asc(ev.providerName)],
+				with: {
+					users: {
+						columns: { id: true, name: true, email: true },
+					},
+				},
+			});
+
+			const results = await Promise.all(
+				allEvaluators.map(async (evaluator) => {
+					const user = evaluator.users[0];
+					if (!user) {
+						return {
+							npi: evaluator.npi,
+							providerName: evaluator.providerName,
+							email: evaluator.email,
+							events: [] as Awaited<ReturnType<typeof getAvailabilityEvents>>,
+							hasCalendarAccess: false,
+						};
+					}
+
+					const account = await ctx.db.query.accounts.findFirst({
+						where: (a, { and, eq }) =>
+							and(eq(a.userId, user.id), eq(a.provider, "google")),
+					});
+
+					if (!account?.access_token || !account?.refresh_token) {
+						return {
+							npi: evaluator.npi,
+							providerName: evaluator.providerName,
+							email: evaluator.email,
+							events: [] as Awaited<ReturnType<typeof getAvailabilityEvents>>,
+							hasCalendarAccess: false,
+						};
+					}
+
+					const mockSession = {
+						user: {
+							accessToken: account.access_token,
+							refreshToken: account.refresh_token,
+						},
+					} as Parameters<typeof getAvailabilityEvents>[0];
+
+					try {
+						const events = await getAvailabilityEvents(
+							mockSession,
+							input.startDate,
+							input.endDate,
+						);
+						return {
+							npi: evaluator.npi,
+							providerName: evaluator.providerName,
+							email: evaluator.email,
+							events,
+							hasCalendarAccess: true,
+						};
+					} catch (error) {
+						ctx.logger.error(
+							{ error, npi: evaluator.npi },
+							"Failed to fetch availability for evaluator",
+						);
+						return {
+							npi: evaluator.npi,
+							providerName: evaluator.providerName,
+							email: evaluator.email,
+							events: [] as Awaited<ReturnType<typeof getAvailabilityEvents>>,
+							hasCalendarAccess: false,
+						};
+					}
+				}),
+			);
+
+			return results;
+		}),
+
 	verifyPunchClients: protectedProcedure.query(async ({ ctx }) => {
 		if (!ctx.session.user.accessToken || !ctx.session.user.refreshToken) {
 			throw new Error("No access token or refresh token");
