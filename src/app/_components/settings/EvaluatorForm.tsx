@@ -15,7 +15,7 @@ import {
 import { Input } from "@ui/input";
 import MultipleSelector from "@ui/multiple-selector";
 import { Switch } from "@ui/switch";
-import { useMemo } from "react";
+import { type ReactNode, useMemo } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import type { Evaluator } from "~/lib/models";
@@ -46,7 +46,9 @@ interface EvaluatorFormProps {
 	initialEmail?: string;
 	onSubmit: (values: EvaluatorFormValues) => void;
 	isLoading: boolean;
-	onClose: () => void;
+	onClose?: () => void;
+	disabled?: boolean;
+	archiveButton?: ReactNode;
 }
 
 export function EvaluatorForm({
@@ -55,6 +57,8 @@ export function EvaluatorForm({
 	onSubmit,
 	isLoading,
 	onClose,
+	disabled = false,
+	archiveButton,
 }: EvaluatorFormProps) {
 	const isEditing = !!initialData;
 
@@ -169,8 +173,10 @@ export function EvaluatorForm({
 	const dInput = (key: string) => {
 		const baseType = key.split("/")[0] ?? key;
 		const isDisabled =
-			baseType !== "default" &&
-			!allowedTypes.includes(baseType as "DA" | "EVAL" | "DAEVAL");
+			disabled ||
+			isLoading ||
+			(baseType !== "default" &&
+				!allowedTypes.includes(baseType as "DA" | "EVAL" | "DAEVAL"));
 		return (
 			<Input
 				className="h-8 text-center text-sm"
@@ -197,7 +203,7 @@ export function EvaluatorForm({
 								<FormLabel>NPI</FormLabel>
 								<FormControl>
 									<Input
-										disabled={isLoading || isEditing}
+										disabled={isLoading || isEditing || disabled}
 										placeholder="1234567890"
 										{...field}
 									/>
@@ -214,7 +220,7 @@ export function EvaluatorForm({
 								<FormLabel>Provider Name</FormLabel>
 								<FormControl>
 									<Input
-										disabled={isLoading}
+										disabled={isLoading || disabled}
 										placeholder="Jane Doe"
 										{...field}
 									/>
@@ -234,12 +240,17 @@ export function EvaluatorForm({
 								<FormLabel>Email</FormLabel>
 								<FormControl>
 									<Input
-										disabled={isLoading}
+										disabled={isLoading || isEditing || disabled}
 										placeholder="evaluator@domain.com"
 										type="email"
 										{...field}
 									/>
 								</FormControl>
+								{isEditing && (
+									<FormDescription>
+										Email is set at creation and cannot be changed.
+									</FormDescription>
+								)}
 								<FormMessage />
 							</FormItem>
 						)}
@@ -257,6 +268,7 @@ export function EvaluatorForm({
 								<FormControl>
 									<Switch
 										checked={field.value}
+										disabled={isLoading || disabled}
 										onCheckedChange={field.onChange}
 									/>
 								</FormControl>
@@ -277,6 +289,7 @@ export function EvaluatorForm({
 								<FormControl>
 									<Switch
 										checked={field.value}
+										disabled={isLoading || disabled}
 										onCheckedChange={field.onChange}
 									/>
 								</FormControl>
@@ -302,6 +315,7 @@ export function EvaluatorForm({
 											<FormControl>
 												<Checkbox
 													checked={field.value?.includes(insurance.id)}
+													disabled={isLoading || disabled}
 													onCheckedChange={(checked) => {
 														return checked
 															? field.onChange([...field.value, insurance.id])
@@ -348,6 +362,7 @@ export function EvaluatorForm({
 														<FormControl>
 															<Checkbox
 																checked={field.value?.includes(office.key)}
+																disabled={isLoading || disabled}
 																onCheckedChange={(checked) => {
 																	return checked
 																		? field.onChange([
@@ -389,6 +404,7 @@ export function EvaluatorForm({
 							<FormControl>
 								<MultipleSelector
 									badgeClassName="bg-secondary text-secondary-foreground"
+									disabled={isLoading || disabled}
 									emptyIndicator={
 										<p className="text-center text-muted-foreground text-sm">
 											No districts found.
@@ -428,6 +444,7 @@ export function EvaluatorForm({
 									badgeClassName="bg-secondary text-secondary-foreground"
 									creatable={true}
 									defaultOptions={zipCodeOptions}
+									disabled={isLoading || disabled}
 									emptyIndicator={
 										<p className="text-center text-muted-foreground text-sm">
 											No zip codes found. Type to create a new one.
@@ -470,6 +487,7 @@ export function EvaluatorForm({
 										<FormControl>
 											<Checkbox
 												checked={field.value.includes(type)}
+												disabled={isLoading || disabled}
 												onCheckedChange={(checked) => {
 													if (checked) {
 														field.onChange([...field.value, type]);
@@ -547,17 +565,22 @@ export function EvaluatorForm({
 					</p>
 				</div>
 
-				<div className="flex justify-end gap-2 pt-4">
-					<Button onClick={onClose} type="button" variant="ghost">
-						Cancel
-					</Button>
-					<Button disabled={isLoading} type="submit">
-						{isLoading
-							? "Saving..."
-							: isEditing
-								? "Save Changes"
-								: "Create Evaluator"}
-					</Button>
+				<div className="flex items-center justify-between pt-4">
+					{archiveButton ?? <div />}
+					<div className="flex gap-2">
+						{onClose && (
+							<Button onClick={onClose} type="button" variant="ghost">
+								Cancel
+							</Button>
+						)}
+						<Button disabled={isLoading || disabled} type="submit">
+							{isLoading
+								? "Saving..."
+								: isEditing
+									? "Save Changes"
+									: "Create Evaluator"}
+						</Button>
+					</div>
 				</div>
 			</form>
 		</Form>

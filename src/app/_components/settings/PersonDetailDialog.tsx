@@ -12,7 +12,6 @@ import {
 	AlertDialogTitle,
 } from "@ui/alert-dialog";
 import { Button } from "@ui/button";
-import { Checkbox } from "@ui/checkbox";
 import {
 	Form,
 	FormControl,
@@ -23,12 +22,10 @@ import {
 	FormMessage,
 } from "@ui/form";
 import { Input } from "@ui/input";
-import MultipleSelector from "@ui/multiple-selector";
 import { Separator } from "@ui/separator";
-import { Switch } from "@ui/switch";
 import { Loader2 } from "lucide-react";
 import { useSession } from "next-auth/react";
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 import { z } from "zod";
@@ -38,11 +35,7 @@ import type { Evaluator, User } from "~/lib/models";
 import { type PermissionsObject, permissionsSchema } from "~/lib/types";
 import { api } from "~/trpc/react";
 import { ResponsiveDialog } from "../shared/ResponsiveDialog";
-import {
-	EvaluatorForm,
-	type EvaluatorFormValues,
-	evaluatorFormSchema,
-} from "./EvaluatorForm";
+import { EvaluatorForm } from "./EvaluatorForm";
 import { PermissionsField } from "./PermissionsField";
 
 const log = logger.child({ module: "PersonDetailDialog" });
@@ -89,23 +82,6 @@ const accountFormSchema = z.object({
 	maxClaimedReports: z.number().int().min(1).max(10).nullable().optional(),
 });
 type AccountFormValues = z.infer<typeof accountFormSchema>;
-
-const DIAG_COLS = [
-	{ key: "ASD" },
-	{ key: "ADHD" },
-	{ key: "ASD+ADHD" },
-	{ key: "ASD+LD" },
-	{ key: "ADHD+LD" },
-	{ key: "LD" },
-] as const;
-
-const AGE_VARIANTS = [
-	{ suffix: "", label: "" },
-	{ suffix: "/young", label: " (≤6)" },
-	{ suffix: "/older", label: " (7+)" },
-] as const;
-
-const APPT_TYPES = ["DA", "EVAL", "DAEVAL"] as const;
 
 function AccountSection({
 	user,
@@ -414,29 +390,6 @@ function EvaluatorSection({
 	const utils = api.useUtils();
 	const [isArchiveDialogOpen, setIsArchiveDialogOpen] = useState(false);
 
-	const { data: allOffices, isLoading: isLoadingOffices } =
-		api.offices.getAll.useQuery();
-	const { data: allZipCodes, isLoading: isLoadingZipCodes } =
-		api.evaluators.getAllZipCodes.useQuery();
-	const { data: allSchoolDistricts, isLoading: isLoadingSchoolDistricts } =
-		api.evaluators.getAllSchoolDistricts.useQuery();
-	const { data: allInsurances, isLoading: isLoadingInsurances } =
-		api.insurances.getAll.useQuery();
-
-	const zipCodeOptions = useMemo(() => {
-		if (!allZipCodes) return [];
-		return allZipCodes.map((zip) => ({ label: zip.zip, value: zip.zip }));
-	}, [allZipCodes]);
-
-	const districtOptions = useMemo(() => {
-		return (
-			allSchoolDistricts?.map((district) => ({
-				value: district.id.toString(),
-				label: district.shortName || district.fullName,
-			})) ?? []
-		);
-	}, [allSchoolDistricts]);
-
 	const updateEvaluator = api.evaluators.update.useMutation({
 		onSuccess: () => {
 			toast.success("Evaluator profile updated");
@@ -482,451 +435,32 @@ function EvaluatorSection({
 		},
 	});
 
-	const form = useForm<EvaluatorFormValues>({
-		resolver: zodResolver(evaluatorFormSchema),
-		defaultValues: {
-			npi: evaluator.npi.toString(),
-			providerName: evaluator.providerName,
-			email: evaluator.email,
-			outOfOfficePriority: evaluator.outOfOfficePriority,
-			insurances: evaluator.insurances.map((i) => i.id),
-			offices: evaluator.offices.map((o) => o.key),
-			blockedDistricts: evaluator.blockedDistricts?.map((d) => d.id) ?? [],
-			blockedZips: evaluator.blockedZips?.map((z) => z.zip) ?? [],
-			appointmentDurations:
-				(evaluator.appointmentDurations as Record<string, number>) ?? {},
-			allowedAppointmentTypes: (evaluator.allowedAppointmentTypes ?? [
-				"DA",
-				"EVAL",
-				"DAEVAL",
-			]) as ("DA" | "EVAL" | "DAEVAL")[],
-		},
-	});
-
-	const durations = form.watch("appointmentDurations") ?? {};
-	const allowedTypes = form.watch("allowedAppointmentTypes") ?? [
-		"DA",
-		"EVAL",
-		"DAEVAL",
-	];
-
-	const getDuration = (key: string) => {
-		const val = durations[key];
-		return val !== undefined ? String(val / 60) : "";
-	};
-
-	const setDuration = (key: string, raw: string) => {
-		const current = { ...(form.getValues("appointmentDurations") ?? {}) };
-		const hrs = parseFloat(raw);
-		if (!raw || Number.isNaN(hrs) || hrs < 0) {
-			delete current[key];
-		} else {
-			current[key] = Math.round(hrs * 60);
-		}
-		form.setValue("appointmentDurations", current, { shouldDirty: true });
-	};
-
-	const dInput = (key: string) => {
-		const baseType = key.split("/")[0] ?? key;
-		const isTypeDisabled =
-			baseType !== "default" &&
-			!allowedTypes.includes(baseType as "DA" | "EVAL" | "DAEVAL");
-		return (
-			<Input
-				className="h-8 text-center text-sm"
-				disabled={!canEdit || isTypeDisabled}
-				min="0"
-				onChange={(e) => setDuration(key, e.target.value)}
-				placeholder="—"
-				step="0.5"
-				type="number"
-				value={getDuration(key)}
-			/>
-		);
-	};
-
-	const onSubmit = (values: EvaluatorFormValues) => {
-		updateEvaluator.mutate({ ...values, npi: String(evaluator.npi) });
-	};
+	const archiveButton = showArchiveButton ? (
+		<Button
+			disabled={!canEdit}
+			onClick={() => setIsArchiveDialogOpen(true)}
+			size="sm"
+			type="button"
+			variant={evaluator.archived ? "outline" : "destructive"}
+		>
+			{evaluator.archived ? "Unarchive Profile" : "Archive Profile"}
+		</Button>
+	) : undefined;
 
 	return (
 		<div className="space-y-4">
 			{showHeading && (
 				<h4 className="font-semibold text-base">Evaluator Profile</h4>
 			)}
-			<Form {...form}>
-				<form className="space-y-6" onSubmit={form.handleSubmit(onSubmit)}>
-					<div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-						<FormField
-							control={form.control}
-							name="npi"
-							render={({ field }) => (
-								<FormItem>
-									<FormLabel>NPI</FormLabel>
-									<FormControl>
-										<Input disabled placeholder="1234567890" {...field} />
-									</FormControl>
-									<FormMessage />
-								</FormItem>
-							)}
-						/>
-						<FormField
-							control={form.control}
-							name="providerName"
-							render={({ field }) => (
-								<FormItem>
-									<FormLabel>Provider Name</FormLabel>
-									<FormControl>
-										<Input
-											disabled={!canEdit}
-											placeholder="Jane Doe"
-											{...field}
-										/>
-									</FormControl>
-									<FormMessage />
-								</FormItem>
-							)}
-						/>
-					</div>
-
-					<div className="flex items-center gap-4">
-						<FormField
-							control={form.control}
-							name="email"
-							render={({ field }) => (
-								<FormItem className="w-full">
-									<FormLabel>Email</FormLabel>
-									<FormControl>
-										<Input
-											disabled
-											placeholder="evaluator@domain.com"
-											type="email"
-											{...field}
-										/>
-									</FormControl>
-									<FormDescription>
-										Email is set at creation and cannot be changed.
-									</FormDescription>
-									<FormMessage />
-								</FormItem>
-							)}
-						/>
-						<FormField
-							control={form.control}
-							name="outOfOfficePriority"
-							render={({ field }) => (
-								<FormItem className="flex flex-col gap-2">
-									<FormLabel>Out of Office Priority</FormLabel>
-									<FormDescription>
-										This evaluator tells us their out of office times, not their
-										in office times.
-									</FormDescription>
-									<FormControl>
-										<Switch
-											checked={field.value}
-											disabled={!canEdit}
-											onCheckedChange={field.onChange}
-										/>
-									</FormControl>
-									<FormMessage />
-								</FormItem>
-							)}
-						/>
-					</div>
-
-					<div className="space-y-2">
-						<FormLabel>Insurance</FormLabel>
-						<div className="grid grid-cols-2 gap-4 rounded-md border p-4 sm:grid-cols-3">
-							{isLoadingInsurances ? (
-								<p>Loading insurances...</p>
-							) : (
-								allInsurances?.map((insurance) => (
-									<FormField
-										control={form.control}
-										key={insurance.id}
-										name="insurances"
-										render={({ field }) => (
-											<FormItem className="flex items-center space-x-2 space-y-0">
-												<FormControl>
-													<Checkbox
-														checked={field.value?.includes(insurance.id)}
-														disabled={!canEdit}
-														onCheckedChange={(checked) => {
-															return checked
-																? field.onChange([...field.value, insurance.id])
-																: field.onChange(
-																		field.value?.filter(
-																			(v: number) => v !== insurance.id,
-																		),
-																	);
-														}}
-													/>
-												</FormControl>
-												<FormLabel className="font-normal">
-													{insurance.shortName}
-												</FormLabel>
-											</FormItem>
-										)}
-									/>
-								))
-							)}
-						</div>
-					</div>
-
-					<FormField
-						control={form.control}
-						name="offices"
-						render={({ field: _ }) => (
-							<FormItem>
-								<FormLabel>Offices</FormLabel>
-								<div className="flex justify-between gap-4 rounded-md border p-4 sm:justify-center">
-									{isLoadingOffices ? (
-										<p>Loading offices...</p>
-									) : (
-										allOffices?.map((office) => (
-											<FormField
-												control={form.control}
-												key={office.key}
-												name="offices"
-												render={({ field }) => (
-													<FormItem
-														className="flex items-center"
-														key={office.key}
-													>
-														<FormControl>
-															<Checkbox
-																checked={field.value?.includes(office.key)}
-																disabled={!canEdit}
-																onCheckedChange={(checked) => {
-																	return checked
-																		? field.onChange([
-																				...field.value,
-																				office.key,
-																			])
-																		: field.onChange(
-																				field.value?.filter(
-																					(v) => v !== office.key,
-																				),
-																			);
-																}}
-															/>
-														</FormControl>
-														<FormLabel className="hidden font-normal sm:block">
-															{office.prettyName}
-														</FormLabel>
-														<FormLabel className="font-normal sm:hidden">
-															{office.key}
-														</FormLabel>
-													</FormItem>
-												)}
-											/>
-										))
-									)}
-								</div>
-								<FormMessage />
-							</FormItem>
-						)}
-					/>
-
-					<FormField
-						control={form.control}
-						name="blockedDistricts"
-						render={({ field }) => (
-							<FormItem>
-								<FormLabel>Blocked School Districts</FormLabel>
-								<FormControl>
-									<MultipleSelector
-										badgeClassName="bg-secondary text-secondary-foreground"
-										disabled={!canEdit}
-										emptyIndicator={
-											<p className="text-center text-muted-foreground text-sm">
-												No districts found.
-											</p>
-										}
-										loadingIndicator={
-											isLoadingSchoolDistricts ? (
-												<p className="text-center text-muted-foreground text-sm">
-													Loading districts...
-												</p>
-											) : undefined
-										}
-										onChange={(options) =>
-											field.onChange(options.map((opt) => Number(opt.value)))
-										}
-										options={districtOptions}
-										placeholder="Select districts..."
-										value={districtOptions.filter((opt) =>
-											field.value.includes(Number(opt.value)),
-										)}
-									/>
-								</FormControl>
-								<FormMessage />
-							</FormItem>
-						)}
-					/>
-
-					<FormField
-						control={form.control}
-						name="blockedZips"
-						render={({ field }) => (
-							<FormItem>
-								<FormLabel>Blocked Zip Codes</FormLabel>
-								<FormControl>
-									{/* BUG: This doesn't take keyboard tab focus properly */}
-									<MultipleSelector
-										badgeClassName="bg-secondary text-secondary-foreground"
-										creatable={true}
-										defaultOptions={zipCodeOptions}
-										disabled={!canEdit}
-										emptyIndicator={
-											<p className="text-center text-muted-foreground text-sm">
-												No zip codes found. Type to create a new one.
-											</p>
-										}
-										loadingIndicator={
-											isLoadingZipCodes ? (
-												<p className="text-center text-muted-foreground text-sm">
-													Loading zips...
-												</p>
-											) : undefined
-										}
-										onChange={(options) =>
-											field.onChange(options.map((opt) => opt.value))
-										}
-										placeholder="Select zip codes..."
-										value={field.value.map((zip) => ({
-											label: zip,
-											value: zip,
-										}))}
-									/>
-								</FormControl>
-								<FormMessage />
-							</FormItem>
-						)}
-					/>
-
-					<FormField
-						control={form.control}
-						name="allowedAppointmentTypes"
-						render={({ field }) => (
-							<FormItem>
-								<FormLabel>Allowed Appointment Types</FormLabel>
-								<div className="flex gap-4">
-									{(["DA", "EVAL", "DAEVAL"] as const).map((type) => (
-										<FormItem
-											className="flex items-center gap-2 space-y-0"
-											key={type}
-										>
-											<FormControl>
-												<Checkbox
-													checked={field.value.includes(type)}
-													disabled={!canEdit}
-													onCheckedChange={(checked) => {
-														if (checked) {
-															field.onChange([...field.value, type]);
-														} else {
-															field.onChange(
-																field.value.filter((t) => t !== type),
-															);
-														}
-													}}
-												/>
-											</FormControl>
-											<FormLabel className="font-normal">{type}</FormLabel>
-										</FormItem>
-									))}
-								</div>
-							</FormItem>
-						)}
-					/>
-
-					<div className="space-y-2">
-						<FormLabel>Appointment Durations (hours)</FormLabel>
-						<div className="overflow-x-auto rounded-md border p-3">
-							<div className="grid min-w-[600px] grid-cols-8 items-center gap-x-2 gap-y-2 text-sm">
-								<div />
-								<div className="text-center font-medium text-muted-foreground text-xs">
-									(any)
-								</div>
-								{DIAG_COLS.map((d) => (
-									<div
-										className="text-center font-medium text-muted-foreground text-xs"
-										key={d.key}
-									>
-										{d.key}
-									</div>
-								))}
-
-								{AGE_VARIANTS.map(({ suffix, label }) => (
-									<>
-										<div className="font-medium" key={`default-label${suffix}`}>
-											Default{label}
-										</div>
-										{dInput(`default${suffix}`)}
-										{DIAG_COLS.map((d) => (
-											<div key={`default${suffix}-${d.key}`} />
-										))}
-									</>
-								))}
-
-								{APPT_TYPES.map((type) =>
-									AGE_VARIANTS.map(({ suffix, label }) => (
-										<>
-											<div
-												className="font-medium"
-												key={`${type}-label${suffix}`}
-											>
-												{type}
-												{label}
-											</div>
-											{dInput(`${type}${suffix}`)}
-											{DIAG_COLS.map((d) => (
-												<span key={`${type}/${d.key}${suffix}`}>
-													{dInput(`${type}/${d.key}${suffix}`)}
-												</span>
-											))}
-										</>
-									)),
-								)}
-							</div>
-						</div>
-						<p className="text-muted-foreground text-xs">
-							Specific subtypes override DA/EVAL/DAEVAL, which override Default.
-							Age-specific rows override the age-agnostic rows. Values are in
-							hours (e.g. 1.5 = 90 min).
-						</p>
-					</div>
-
-					<div className="flex items-center justify-between pt-4">
-						{showArchiveButton ? (
-							<Button
-								disabled={!canEdit}
-								onClick={() => setIsArchiveDialogOpen(true)}
-								size="sm"
-								type="button"
-								variant={evaluator.archived ? "outline" : "destructive"}
-							>
-								{evaluator.archived ? "Unarchive Profile" : "Archive Profile"}
-							</Button>
-						) : (
-							<div />
-						)}
-						<Button
-							disabled={updateEvaluator.isPending || !canEdit}
-							type="submit"
-						>
-							{updateEvaluator.isPending ? (
-								<>
-									<Loader2 className="mr-2 h-4 w-4 animate-spin" />
-									Saving...
-								</>
-							) : (
-								"Save Profile"
-							)}
-						</Button>
-					</div>
-				</form>
-			</Form>
+			<EvaluatorForm
+				archiveButton={archiveButton}
+				disabled={!canEdit}
+				initialData={evaluator}
+				isLoading={updateEvaluator.isPending}
+				onSubmit={(values) =>
+					updateEvaluator.mutate({ ...values, npi: String(evaluator.npi) })
+				}
+			/>
 
 			{showArchiveButton && (
 				<AlertDialog
