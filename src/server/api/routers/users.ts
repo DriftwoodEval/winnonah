@@ -199,7 +199,7 @@ export const userRouter = createTRPCRouter({
 		.input(
 			z.object({
 				userId: z.string(),
-				maxClaimedReports: z.number().int().min(1).max(10).nullable(),
+				maxClaimedReports: z.number().int().min(0).max(10).nullable(),
 			}),
 		)
 		.mutation(async ({ ctx, input }) => {

@@ -67,7 +67,7 @@ export default function NavigationLinks() {
 		{
 			href: "/claim-reports",
 			label: "Claim Reports",
-			show: true,
+			show: session.user.maxClaimedReports !== 0 || can("reports:approve"),
 		},
 		{
 			href: "/work-summary",

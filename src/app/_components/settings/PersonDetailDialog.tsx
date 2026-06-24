@@ -79,7 +79,7 @@ const accountFormSchema = z.object({
 		.or(z.literal(""))
 		.nullable()
 		.optional(),
-	maxClaimedReports: z.number().int().min(1).max(10).nullable().optional(),
+	maxClaimedReports: z.number().int().min(0).max(10).nullable().optional(),
 });
 type AccountFormValues = z.infer<typeof accountFormSchema>;
 
@@ -272,7 +272,7 @@ function AccountSection({
 										<Input
 											disabled={!canEdit}
 											max={10}
-											min={1}
+											min={0}
 											placeholder="Default"
 											type="number"
 											{...field}

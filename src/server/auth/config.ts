@@ -33,6 +33,7 @@ declare module "next-auth" {
 			clientFilters?: string;
 			archived?: boolean | null;
 			claimedReportFolder?: { name: string; id: string }[] | null;
+			maxClaimedReports?: number | null;
 		} & DefaultSession["user"];
 	}
 
@@ -41,6 +42,7 @@ declare module "next-auth" {
 		savedPlaces: string;
 		archived?: boolean | null;
 		claimedReportFolder?: { name: string; id: string }[] | null;
+		maxClaimedReports?: number | null;
 	}
 }
 
@@ -166,6 +168,7 @@ export const authConfig = {
 				session.user.permissions = user.permissions;
 				session.user.archived = user.archived;
 				session.user.claimedReportFolder = user.claimedReportFolder;
+				session.user.maxClaimedReports = user.maxClaimedReports;
 
 				const evaluatorProfile = await db.query.evaluators.findFirst({
 					where: eq(evaluators.email, user.email ?? ""),
