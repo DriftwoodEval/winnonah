@@ -21,7 +21,7 @@ import { cn } from "~/lib/utils";
 import { api } from "~/trpc/react";
 
 const DA_EVAL_ORDER = ["DA", "EVAL", "DAEVAL"] as const;
-const ASD_ADHD_ORDER = ["ASD", "ADHD", "ASD+ADHD", "ASD+LD", "ADHD+LD", "LD"];
+const ASD_ADHD_ORDER = ["ASD", "ADHD", "ASD+LD", "ADHD+LD", "LD"];
 
 type Preset = "4w" | "3m" | "6m" | "custom";
 type ViewMode = "total" | "average" | "median";
@@ -51,7 +51,7 @@ type ColDef = {
 	asdAdhd: string | null;
 	ageGroup: string | null;
 };
-type ColGroup = { daEval: string; cols: ColDef[] };
+type ColGroup = { daEval: string; cols: ColDef[]; simple: boolean };
 
 function parseColKey(key: string): ColDef {
 	const parts = key.split("/");
@@ -92,7 +92,11 @@ function buildColGroups(
 	for (const col of cols) {
 		const last = groups[groups.length - 1];
 		if (last?.daEval === col.daEval) last.cols.push(col);
-		else groups.push({ daEval: col.daEval, cols: [col] });
+		else groups.push({ daEval: col.daEval, cols: [col], simple: false });
+	}
+	for (const g of groups) {
+		g.simple =
+			g.cols.length === 1 && !g.cols[0]?.asdAdhd && !g.cols[0]?.ageGroup;
 	}
 	return groups;
 }
@@ -148,8 +152,8 @@ function calcEstimatedMinutes(
 			d[daEval] ??
 			(ageSuffix ? d[`default${ageSuffix}`] : undefined) ??
 			d.default;
-		const duration = lookup(durations) ?? lookup(globalDefaults) ?? 0;
-		minutes += apptCount * duration;
+		const duration = lookup(durations) ?? lookup(globalDefaults);
+		if (duration !== undefined) minutes += apptCount * duration;
 	}
 	return minutes;
 }
@@ -473,9 +477,10 @@ export default function PieceworkSummary() {
 											</TableHead>
 											{displayData.colGroups.map((g) => (
 												<TableHead
-													className="border-l text-center"
-													colSpan={g.cols.length + 1}
+													className="border-l text-center align-middle"
+													colSpan={g.simple ? 1 : g.cols.length + 1}
 													key={g.daEval}
+													rowSpan={g.simple ? 2 : undefined}
 												>
 													{g.daEval}
 												</TableHead>
@@ -498,28 +503,32 @@ export default function PieceworkSummary() {
 										<TableRow className="hover:bg-transparent">
 											{displayData.colGroups.map((g) => (
 												<Fragment key={g.daEval}>
-													{g.cols.map((col, i) => {
-														const ageLabel =
-															col.ageGroup === "young"
-																? " ≤6"
-																: col.ageGroup === "older"
-																	? " 7+"
-																	: "";
-														return (
-															<TableHead
-																className={cn(
-																	"text-center",
-																	i === 0 && "border-l",
-																)}
-																key={col.key}
-															>
-																{(col.asdAdhd ?? "-") + ageLabel}
+													{g.simple ? null : (
+														<>
+															{g.cols.map((col, i) => {
+																const ageLabel =
+																	col.ageGroup === "young"
+																		? " ≤6"
+																		: col.ageGroup === "older"
+																			? " 7+"
+																			: "";
+																return (
+																	<TableHead
+																		className={cn(
+																			"text-center",
+																			i === 0 && "border-l",
+																		)}
+																		key={col.key}
+																	>
+																		{(col.asdAdhd ?? "-") + ageLabel}
+																	</TableHead>
+																);
+															})}
+															<TableHead className="text-center font-semibold">
+																Total
 															</TableHead>
-														);
-													})}
-													<TableHead className="text-center font-semibold">
-														Total
-													</TableHead>
+														</>
+													)}
 												</Fragment>
 											))}
 										</TableRow>
@@ -541,20 +550,28 @@ export default function PieceworkSummary() {
 												</TableCell>
 												{displayData.colGroups.map((g) => (
 													<Fragment key={g.daEval}>
-														{g.cols.map((col, i) => (
-															<TableCell
-																className={cn(
-																	"text-center",
-																	i === 0 && "border-l",
-																)}
-																key={col.key}
-															>
-																{fmtCell(row.keyValues[col.key])}
+														{g.simple ? (
+															<TableCell className="border-l text-center">
+																{fmtCell(row.keyValues[g.cols[0]?.key ?? ""])}
 															</TableCell>
-														))}
-														<TableCell className="text-center font-semibold">
-															{fmt(row.groupValues[g.daEval] ?? 0)}
-														</TableCell>
+														) : (
+															<>
+																{g.cols.map((col, i) => (
+																	<TableCell
+																		className={cn(
+																			"text-center",
+																			i === 0 && "border-l",
+																		)}
+																		key={col.key}
+																	>
+																		{fmtCell(row.keyValues[col.key])}
+																	</TableCell>
+																))}
+																<TableCell className="text-center font-semibold">
+																	{fmt(row.groupValues[g.daEval] ?? 0)}
+																</TableCell>
+															</>
+														)}
 													</Fragment>
 												))}
 												<TableCell className="border-l text-center font-bold">
@@ -575,20 +592,31 @@ export default function PieceworkSummary() {
 											</TableCell>
 											{displayData.colGroups.map((g) => (
 												<Fragment key={g.daEval}>
-													{g.cols.map((col, i) => (
-														<TableCell
-															className={cn(
-																"text-center",
-																i === 0 && "border-l",
+													{g.simple ? (
+														<TableCell className="border-l text-center font-bold">
+															{fmt(
+																displayData.footerKeys[g.cols[0]?.key ?? ""] ??
+																	0,
 															)}
-															key={col.key}
-														>
-															{fmt(displayData.footerKeys[col.key] ?? 0)}
 														</TableCell>
-													))}
-													<TableCell className="text-center font-bold">
-														{fmt(displayData.footerGroups[g.daEval] ?? 0)}
-													</TableCell>
+													) : (
+														<>
+															{g.cols.map((col, i) => (
+																<TableCell
+																	className={cn(
+																		"text-center",
+																		i === 0 && "border-l",
+																	)}
+																	key={col.key}
+																>
+																	{fmt(displayData.footerKeys[col.key] ?? 0)}
+																</TableCell>
+															))}
+															<TableCell className="text-center font-bold">
+																{fmt(displayData.footerGroups[g.daEval] ?? 0)}
+															</TableCell>
+														</>
+													)}
 												</Fragment>
 											))}
 											<TableCell className="border-l text-center font-bold">

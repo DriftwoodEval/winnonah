@@ -12,19 +12,15 @@ type Durations = Record<string, number>;
 const DIAG_COLS = [
 	{ key: "ASD", label: "ASD" },
 	{ key: "ADHD", label: "ADHD" },
-	{ key: "ASD+ADHD", label: "ASD+ADHD" },
 	{ key: "ASD+LD", label: "ASD+LD" },
 	{ key: "ADHD+LD", label: "ADHD+LD" },
 	{ key: "LD", label: "LD" },
 ] as const;
 
-const AGE_VARIANTS = [
-	{ suffix: "", label: "" },
+const EVAL_AGE_VARIANTS = [
 	{ suffix: "/young", label: " (≤6)" },
 	{ suffix: "/older", label: " (7+)" },
 ] as const;
-
-const APPT_TYPES = ["DA", "EVAL", "DAEVAL"] as const;
 
 export default function WorkSummaryDefaultsSection() {
 	const can = useCheckPermission();
@@ -78,11 +74,10 @@ export default function WorkSummaryDefaultsSection() {
 		<Input
 			className="h-8 text-center text-sm"
 			disabled={!canEdit}
-			min="0"
+			inputMode="decimal"
 			onChange={(e) => setDuration(key, e.target.value)}
 			placeholder="—"
-			step="0.5"
-			type="number"
+			type="text"
 			value={getDuration(key)}
 		/>
 	);
@@ -93,19 +88,28 @@ export default function WorkSummaryDefaultsSection() {
 		<div className="mt-8 px-4">
 			<div className="mb-3 flex items-center justify-between">
 				<div>
-					<h3 className="font-bold text-lg">
-						Work Summary - Default Durations
-					</h3>
+					<h3 className="font-bold text-lg">Default Appointment Durations</h3>
 					<p className="text-muted-foreground text-sm">
 						Hours per appointment type used when an evaluator has no duration
-						configured. Specific subtypes override DA/EVAL/DAEVAL, which
-						override Default. Age-specific rows override the age-agnostic rows.
+						configured.
 					</p>
 				</div>
 				{canEdit && (
 					<Button
 						disabled={!dirty || setDefaults.isPending}
-						onClick={() => setDefaults.mutate(durations)}
+						onClick={() => {
+							const cleaned = Object.fromEntries(
+								Object.entries(durations).filter(
+									([k]) =>
+										!k.startsWith("DA/") &&
+										!k.startsWith("default") &&
+										!k.includes("ASD+ADHD") &&
+										k !== "EVAL" &&
+										k !== "DAEVAL",
+								),
+							);
+							setDefaults.mutate(cleaned);
+						}}
 						size="sm"
 					>
 						{setDefaults.isPending ? "Saving..." : "Save"}
@@ -114,7 +118,7 @@ export default function WorkSummaryDefaultsSection() {
 			</div>
 
 			<div className="overflow-x-auto rounded-md border p-3">
-				<div className="grid min-w-[600px] grid-cols-8 items-center gap-x-2 gap-y-2 text-sm">
+				<div className="grid min-w-[600px] grid-cols-7 items-center gap-x-2 gap-y-2 text-sm">
 					{/* Column headers */}
 					<div />
 					<div className="text-center font-medium text-muted-foreground text-xs">
@@ -129,23 +133,14 @@ export default function WorkSummaryDefaultsSection() {
 						</div>
 					))}
 
-					{/* Default rows */}
-					{AGE_VARIANTS.map(({ suffix, label }) => (
-						<>
-							<div className="font-medium" key={`default-label${suffix}`}>
-								Default{label}
-							</div>
-							{dInput(`default${suffix}`)}
-							{/* no diagnosis subtypes for default */}
-							{DIAG_COLS.map((d) => (
-								<div key={`default${suffix}-${d.key}`} />
-							))}
-						</>
+					<div className="font-medium">DA</div>
+					{dInput("DA")}
+					{DIAG_COLS.map((d) => (
+						<div key={`da-empty-${d.key}`} />
 					))}
 
-					{/* Appointment type rows */}
-					{APPT_TYPES.map((type) =>
-						AGE_VARIANTS.map(({ suffix, label }) => (
+					{(["EVAL", "DAEVAL"] as const).map((type) =>
+						EVAL_AGE_VARIANTS.map(({ suffix, label }) => (
 							<>
 								<div className="font-medium" key={`${type}-label${suffix}`}>
 									{type}

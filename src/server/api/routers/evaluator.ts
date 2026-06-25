@@ -31,7 +31,7 @@ export const evaluatorInputSchema = z.object({
 		.record(z.string(), z.number().nonnegative().int())
 		.default({}),
 	allowedAppointmentTypes: z
-		.array(z.enum(["DA", "EVAL", "DAEVAL"]))
+		.array(z.string())
 		.default(["DA", "EVAL", "DAEVAL"]),
 	writesOwnReports: z.boolean().default(false),
 });

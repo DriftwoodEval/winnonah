@@ -80,10 +80,13 @@ export const workSummaryRouter = createTRPCRouter({
 				byNpi[row.npi] ??= { name: row.providerName, weekData: {} };
 				const entry = byNpi[row.npi];
 				if (!entry) continue;
-				const baseKey = row.asdAdhd
-					? `${row.daEval}/${row.asdAdhd}`
-					: (row.daEval ?? "Unknown");
-				const key = `${baseKey}/${row.ageGroup}`;
+				const isDA = row.daEval === "DA";
+				const diagKey = row.asdAdhd === "ASD+ADHD" ? "ASD" : row.asdAdhd;
+				const baseKey =
+					!isDA && diagKey
+						? `${row.daEval}/${diagKey}`
+						: (row.daEval ?? "Unknown");
+				const key = isDA ? baseKey : `${baseKey}/${row.ageGroup}`;
 				entry.weekData[key] ??= {};
 				const weekMap = entry.weekData[key];
 				if (weekMap) weekMap[row.week] = (weekMap[row.week] ?? 0) + row.count;
