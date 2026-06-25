@@ -55,7 +55,7 @@ export function AdditionalInsuranceAppointmentsDisplay({
 		  }
 		| undefined;
 
-	const maxUnitsPerDay = additionalAppts?.maxUnitsPerDay;
+	const maxUnitsPerDay = additionalAppts?.maxUnitsPerDay ?? 6;
 	const waitForPA = insurance?.preAuthNeeded ?? false;
 	const using90000BillingCode = additionalAppts?.using90000BillingCode ?? false;
 	const snapshot = client.assessmentData;
@@ -94,8 +94,21 @@ export function AdditionalInsuranceAppointmentsDisplay({
 	const precertMemo = activePrecertPolicy?.precertMemo ?? null;
 	const precertCodes = precertMemo ? parsePrecertMemo(precertMemo) : null;
 
-	if (!canSee || !client.primaryInsurance || !maxUnitsPerDay) {
+	if (!canSee || !client.primaryInsurance) {
 		return null;
+	}
+
+	if (!insurance) {
+		return (
+			<div className="w-full rounded-md border bg-card text-card-foreground shadow-sm">
+				<div className="flex w-full flex-col gap-3 px-4 pt-4">
+					<h4 className="font-bold leading-none">Insurance Codes</h4>
+				</div>
+				<div className="px-4 pt-2 pb-4 text-muted-foreground text-sm">
+					Insurance not configured for billing code calculation.
+				</div>
+			</div>
+		);
 	}
 
 	const fromPrecert = precertCodes !== null;
