@@ -65,6 +65,18 @@ export default function ReportQueue({ sourceId, destId }: ReportQueueProps) {
 					</div>
 					<div className="space-y-1">
 						<CardTitle className="text-xl">Report Queue</CardTitle>
+						{!claimedLoading && (
+							<p
+								className={
+									atLimit
+										? "font-medium text-sm text-warning"
+										: "text-muted-foreground text-sm"
+								}
+							>
+								{claimedFolders.length} of {effectiveMax} report
+								{effectiveMax !== 1 ? "s" : ""} claimed
+							</p>
+						)}
 					</div>
 				</div>
 
@@ -90,8 +102,15 @@ export default function ReportQueue({ sourceId, destId }: ReportQueueProps) {
 						disabled={claimMutation.isPending || !folders?.length || atLimit}
 						onClick={handleClaim}
 						size="sm"
+						title={
+							atLimit
+								? effectiveMax === 1
+									? "Your current report must be approved before claiming another"
+									: `You've reached your limit of ${effectiveMax} claimed reports`
+								: undefined
+						}
 					>
-						{claimMutation.isPending ? "Claiming..." : "Claim Top Folder"}
+						{claimMutation.isPending ? "Claiming..." : "Claim Next Report"}
 					</Button>
 				</div>
 			</CardHeader>
@@ -108,12 +127,14 @@ export default function ReportQueue({ sourceId, destId }: ReportQueueProps) {
 						<>
 							{claimedFolders.length > 0 && (
 								<div className="my-2 border-b pb-2">
-									<div className="mb-2 flex items-center gap-2 font-medium text-amber-600 text-sm">
-										<AlertCircleIcon size={16} />
-										{atLimit
-											? `You have reached your limit of ${effectiveMax} claimed report${effectiveMax !== 1 ? "s" : ""}. Reports must be approved before claiming more.`
-											: `You have ${claimedFolders.length} of ${effectiveMax} report${effectiveMax !== 1 ? "s" : ""} claimed.`}
-									</div>
+									{atLimit && (
+										<div className="mb-2 flex items-center gap-2 font-medium text-sm text-warning">
+											<AlertCircleIcon size={16} />
+											{effectiveMax === 1
+												? "Must be approved before claiming another."
+												: "Reports must be approved before claiming another."}
+										</div>
+									)}
 									<div className="flex flex-col gap-2">
 										{claimedFolders.map((folder) => (
 											<div
