@@ -1,5 +1,5 @@
-const FAILURE_THRESHOLD = 3;
 const CHECK_TIMEOUT_MS = 6000;
+const FAILURE_CONFIRM_MS = 120000; // 2 minutes of sustained failure before failover
 
 export default {
 	async scheduled(_event, env, ctx) {
@@ -13,19 +13,12 @@ export default {
 			return new Response("Forbidden", { status: 403 });
 		}
 
-		// Standby polls this to decide whether to failover
 		if (request.method === "GET" && url.pathname === "/state") {
 			const state = (await env.FAILOVER_KV.get("state")) || "normal";
-			const failures = (await env.FAILOVER_KV.get("failure_count")) || "0";
 			const updatedAt = (await env.FAILOVER_KV.get("state_updated_at")) || "";
-			return Response.json({
-				state,
-				failures: parseInt(failures, 10),
-				updatedAt,
-			});
+			return Response.json({ state, updatedAt });
 		}
 
-		// failover.sh and failback.sh post here to update state
 		if (request.method === "POST" && url.pathname === "/ack") {
 			const body = await request.json().catch(() => ({}));
 
@@ -34,17 +27,12 @@ export default {
 				await env.FAILOVER_KV.put("state_updated_at", new Date().toISOString());
 				await slack(
 					env,
-					"✅ *Failover complete*, standby confirmed active at emr.driftwoodeval.com.",
+					"Failover complete. Standby is active at emr.driftwoodeval.com.",
 				);
 			} else if (body.event === "failback_complete") {
 				await env.FAILOVER_KV.put("state", "normal");
-				await env.FAILOVER_KV.put("failure_count", "0");
-				await env.FAILOVER_KV.put("primary_back_notified", "");
 				await env.FAILOVER_KV.put("state_updated_at", new Date().toISOString());
-				await slack(
-					env,
-					"✅ *Failback complete*, primary is live, system normal.",
-				);
+				await slack(env, "Failback complete. Primary is live, system normal.");
 			}
 			return new Response("ok");
 		}
@@ -57,54 +45,78 @@ async function runCheck(env) {
 	const state = (await env.FAILOVER_KV.get("state")) || "normal";
 
 	if (state === "failover_active") {
-		// Watch for primary coming back, but don't auto-failback
-		const ok = await checkPrimary(env);
+		// Watch for primary coming back. No writes unless it does.
+		const ok = await checkPrimary();
 		if (ok) {
-			const alreadyNotified = await env.FAILOVER_KV.get(
-				"primary_back_notified",
-			);
-			if (!alreadyNotified) {
+			const notified =
+				(await env.FAILOVER_KV.get("primary_back_notified")) || "";
+			if (!notified) {
 				await env.FAILOVER_KV.put("primary_back_notified", "1");
 				await slack(
 					env,
-					"🟡 Primary (emr.driftwoodeval.com) appears healthy again. Run `failback.sh` when ready.",
+					"Primary appears healthy again. Run failback.sh when ready.",
 				);
 			}
 		}
 		return;
 	}
 
-	const ok = await checkPrimary(env);
-	if (ok) {
-		await env.FAILOVER_KV.put("failure_count", "0");
+	if (state === "failover") {
+		// Triggered but standby hasn't acked yet. Nothing to do.
 		return;
 	}
 
-	const prev = parseInt(
-		(await env.FAILOVER_KV.get("failure_count")) || "0",
-		10,
-	);
-	const next = prev + 1;
-	await env.FAILOVER_KV.put("failure_count", String(next));
-	console.log(`Health check failed (${next}/${FAILURE_THRESHOLD})`);
+	// Normal state. Run health check.
+	const ok = await checkPrimary();
 
-	if (next === 1) {
+	if (ok) {
+		// Primary is healthy. If we had a pending failure recorded, clear it.
+		const pending = await env.FAILOVER_KV.get("pending_failure");
+		if (pending) {
+			await env.FAILOVER_KV.delete("pending_failure");
+			await slack(env, "Primary recovered. Pending failure cleared.");
+		}
+		return;
+	}
+
+	// Primary is not healthy. Check if we already have a pending failure recorded.
+	const pending = await env.FAILOVER_KV.get("pending_failure");
+
+	if (!pending) {
+		// First failure. Record the time and wait for next invocation to confirm.
+		await env.FAILOVER_KV.put("pending_failure", new Date().toISOString());
 		await slack(
 			env,
-			`⚠️ emr.driftwoodeval.com health check failing (${next}/${FAILURE_THRESHOLD})...`,
+			"Primary health check failed. Watching to confirm before failover.",
 		);
+		return;
 	}
-	if (next >= FAILURE_THRESHOLD) {
-		await env.FAILOVER_KV.put("state", "failover");
-		await env.FAILOVER_KV.put("state_updated_at", new Date().toISOString());
-		await slack(
-			env,
-			`🔴 *Primary is DOWN* (${next} consecutive failures). Failover triggered, standby activating within 30s.`,
+
+	// Failure was already recorded. Check how long it has been failing.
+	const failingSince = new Date(pending).getTime();
+	const elapsed = Date.now() - failingSince;
+
+	if (elapsed < FAILURE_CONFIRM_MS) {
+		// Still within the confirmation window. Wait longer.
+		const seconds = Math.round(elapsed / 1000);
+		console.log(
+			`Primary still down. Failing for ${seconds}s, waiting for ${FAILURE_CONFIRM_MS / 1000}s before failover.`,
 		);
+		return;
 	}
+
+	// Primary has been down for long enough. Trigger failover.
+	await env.FAILOVER_KV.put("state", "failover");
+	await env.FAILOVER_KV.put("state_updated_at", new Date().toISOString());
+	await env.FAILOVER_KV.delete("pending_failure");
+	const minutes = Math.round(elapsed / 60000);
+	await slack(
+		env,
+		`Primary has been down for ~${minutes} minute(s). Failover triggered. Standby activating within a minute.`,
+	);
 }
 
-async function checkPrimary(_env) {
+async function checkPrimary() {
 	try {
 		const res = await fetch("https://emr.driftwoodeval.com/api/health", {
 			signal: AbortSignal.timeout(CHECK_TIMEOUT_MS),
