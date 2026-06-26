@@ -47,7 +47,7 @@ docker exec driftwood-db mysql -uroot -p"${MYSQL_ROOT_PASSWORD}" \
 
 # Reset GTID state so the dump can be loaded cleanly
 docker exec driftwood-db mysql -uroot -p"${MYSQL_ROOT_PASSWORD}" \
-  -e "RESET MASTER;"
+  -e "RESET BINARY LOGS AND GTIDS;"
 
 # Load the dump
 docker exec -i driftwood-db mysql -uroot -p"${MYSQL_ROOT_PASSWORD}" \
