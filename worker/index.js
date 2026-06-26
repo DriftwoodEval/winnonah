@@ -1,5 +1,5 @@
 const CHECK_TIMEOUT_MS = 6000;
-const FAILURE_CONFIRM_MS = 120000; // 2 minutes of sustained failure before failover
+const FAILURE_CONFIRM_MS = 300000; // 5 minutes of sustained failure before failover
 
 export default {
 	async scheduled(_event, env, ctx) {
@@ -74,6 +74,7 @@ async function runCheck(env) {
 		const pending = await env.FAILOVER_KV.get("pending_failure");
 		if (pending) {
 			await env.FAILOVER_KV.delete("pending_failure");
+			await env.FAILOVER_KV.delete("pending_failure_warned");
 			await slack(env, "Primary recovered. Pending failure cleared.");
 		}
 		return;
@@ -84,11 +85,8 @@ async function runCheck(env) {
 
 	if (!pending) {
 		// First failure. Record the time and wait for next invocation to confirm.
+		// No Slack yet -- single failed checks are too common to be worth notifying.
 		await env.FAILOVER_KV.put("pending_failure", new Date().toISOString());
-		await slack(
-			env,
-			"Primary health check failed. Watching to confirm before failover.",
-		);
 		return;
 	}
 
@@ -102,8 +100,23 @@ async function runCheck(env) {
 		console.log(
 			`Primary still down. Failing for ${seconds}s, waiting for ${FAILURE_CONFIRM_MS / 1000}s before failover.`,
 		);
+
+		// Warn once when we're past halfway to the failover threshold
+		const halfwayMs = FAILURE_CONFIRM_MS / 2;
+		const warned = await env.FAILOVER_KV.get("pending_failure_warned");
+		if (elapsed >= halfwayMs && !warned) {
+			await env.FAILOVER_KV.put("pending_failure_warned", "1");
+			const remaining = Math.round((FAILURE_CONFIRM_MS - elapsed) / 1000);
+			await slack(
+				env,
+				`Primary has been unhealthy for ${seconds}s. Failover will trigger in ~${remaining}s if it does not recover.`,
+			);
+		}
 		return;
 	}
+
+	// Clear the warning flag before triggering
+	await env.FAILOVER_KV.delete("pending_failure_warned");
 
 	// Primary has been down for long enough. Trigger failover.
 	await env.FAILOVER_KV.put("state", "failover");
@@ -112,7 +125,7 @@ async function runCheck(env) {
 	const minutes = Math.round(elapsed / 60000);
 	await slack(
 		env,
-		`Primary has been down for ~${minutes} minute(s). Failover triggered. Standby activating within a minute.`,
+		`Primary has been down for ~${minutes} minute(s). Failover triggered. Standby activating within 30s.`,
 	);
 }
 
