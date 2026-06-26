@@ -49,8 +49,6 @@ services:
     volumes:
       - ./caddy/Caddyfile:/etc/caddy/Caddyfile
       - ./caddy/maintenance.html:/srv/maintenance.html
-    depends_on:
-      - winnonah
 
   cloudflared:
     image: cloudflare/cloudflared:latest
