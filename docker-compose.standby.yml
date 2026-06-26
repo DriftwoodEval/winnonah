@@ -9,6 +9,9 @@ services:
       timeout: 5s
       retries: 5
 
+  caddy:
+    depends_on: []
+
   cloudflared:
     restart: no
     profiles:
