@@ -27,6 +27,7 @@ commitlint.config.js
 lefthook.yml
 scripts/
 
-# Separate image
+# Separate image/project
 python/
 docs/
+worker/

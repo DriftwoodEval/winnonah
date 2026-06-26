@@ -1,0 +1,15 @@
+[mysqld]
+server-id                       = 1
+log_bin                         = /var/lib/mysql/mysql-bin
+binlog_format                   = ROW
+binlog_row_image                = FULL
+expire_logs_days                = 7
+sync_binlog                     = 1
+innodb_flush_log_at_trx_commit  = 1
+
+# GTID — clean promotion and re-sync
+gtid_mode                       = ON
+enforce_gtid_consistency        = ON
+
+bind-address                    = 0.0.0.0
+skip_name_resolve               = ON

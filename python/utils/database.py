@@ -148,6 +148,50 @@ def get_services_config() -> dict:
     return full_config.get("services", {})
 
 
+_REFERRAL_FAX_DATE_ID = 3
+_SYNC_REPORT_DATE_ID = 4
+
+
+def _get_date_cache(config_id: int) -> date | None:
+    data = get_python_config(config_id)
+    date_str = data.get("date")
+    if date_str:
+        try:
+            return datetime.strptime(date_str, "%Y-%m-%d").date()
+        except ValueError:
+            return None
+    return None
+
+
+def _set_date_cache(config_id: int, value: date) -> None:
+    sql = f"INSERT INTO {TABLE_PYTHON_CONFIG} (id, data) VALUES (%s, %s) ON DUPLICATE KEY UPDATE data = VALUES(data)"
+    try:
+        with db_session() as conn:
+            with conn.cursor() as cursor:
+                cursor.execute(
+                    sql, (config_id, json.dumps({"date": value.isoformat()}))
+                )
+            conn.commit()
+    except Exception as e:
+        logger.error(f"Error writing date cache to DB: {e}")
+
+
+def get_referral_fax_date() -> date | None:
+    return _get_date_cache(_REFERRAL_FAX_DATE_ID)
+
+
+def set_referral_fax_date(value: date) -> None:
+    _set_date_cache(_REFERRAL_FAX_DATE_ID, value)
+
+
+def get_sync_report_date() -> date | None:
+    return _get_date_cache(_SYNC_REPORT_DATE_ID)
+
+
+def set_sync_report_date(value: date) -> None:
+    _set_date_cache(_SYNC_REPORT_DATE_ID, value)
+
+
 @provide_connection
 def filter_clients_with_changed_address(
     clients: pd.DataFrame, connection: Connection[DictCursor]

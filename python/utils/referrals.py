@@ -1,7 +1,7 @@
 import os
 import re
 from collections import defaultdict
-from datetime import date, datetime, timedelta
+from datetime import date, timedelta
 from pathlib import Path
 
 import pandas as pd
@@ -10,9 +10,7 @@ from loguru import logger
 
 import utils.database
 import utils.google
-import utils.misc
 
-CACHE_PATH = Path("cache/last-referral-fax-date.txt")
 LETTERHEAD_PATH = Path("letterhead.png")
 IGNORE_SOURCES = {"unknown", "no referral source", "", "babynet"}
 
@@ -104,12 +102,9 @@ def generate_pdf(referral_name, client_group):
 def create_and_send_referral_faxes(clients: pd.DataFrame):
     logger.debug("Starting referral fax process")
 
-    last_date_cache = utils.misc.read_cache(CACHE_PATH)
-    try:
-        last_date_str = next(iter(last_date_cache))
-        last_date = datetime.strptime(last_date_str, "%Y-%m-%d").date()
-    except IndexError, ValueError, TypeError:
-        last_date = date.today() - timedelta(days=30)
+    last_date = utils.database.get_referral_fax_date() or (
+        date.today() - timedelta(days=30)
+    )
 
     cutoff_date = last_date + timedelta(days=1)
 
@@ -145,8 +140,7 @@ def create_and_send_referral_faxes(clients: pd.DataFrame):
         )
         logger.info(f"Sent fax to {meta['name']}")
 
-    max_date = new_clients["ADDED_DATE_DT"].max().strftime("%Y-%m-%d")
-    utils.misc.write_cache(CACHE_PATH, [max_date])
+    utils.database.set_referral_fax_date(new_clients["ADDED_DATE_DT"].max())
 
 
 def make_referral_fax_folders(clients: pd.DataFrame):

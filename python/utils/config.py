@@ -14,8 +14,6 @@ REQUIRED_VARS: Final = {
     "PUNCHLIST_RANGE": lambda x: bool(
         re.match(r"^[\w\s]+![A-Z]+[1-9][0-9]*:[A-Z]+[1-9][0-9]*$", x)
     ),
-    "ASANA_TOKEN": None,
-    "ASANA_WORKSPACE": None,
     "CENSUS_API_KEY": None,
     "OPENPHONE_API_TOKEN": None,
     "FAX_FOLDER_ID": None,

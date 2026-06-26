@@ -1,6 +1,5 @@
 import json as _json
 from datetime import date, datetime
-from pathlib import Path
 from typing import Any
 
 import loguru
@@ -119,15 +118,3 @@ def format_phone_number(phone_number: Any) -> str | None:
         return digits[1:]
 
     return digits
-
-
-def read_cache(cache_file: Path):
-    if Path.exists(cache_file):
-        with Path.open(cache_file) as f:
-            return set(f.read().split())
-    return set()
-
-
-def write_cache(cache_file: Path, processed_clients: list | set):
-    with Path.open(cache_file, "w") as f:
-        f.write(" ".join(str(client_id) for client_id in processed_clients))

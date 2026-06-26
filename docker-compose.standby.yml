@@ -1,0 +1,28 @@
+services:
+  driftwood-db:
+    volumes:
+      - winnonah_db-data:/var/lib/mysql
+      - ./mysql/standby.cnf:/etc/mysql/conf.d/replication.cnf:ro
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uroot", "-p${MYSQL_ROOT_PASSWORD}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  cloudflared:
+    restart: no
+    profiles:
+      - active_only
+
+  winnonah:
+    restart: unless-stopped
+    profiles:
+      - active_only
+
+  winnonah-python:
+    restart: unless-stopped
+    profiles:
+      - active_only
+
+  watchtower:
+    restart: always

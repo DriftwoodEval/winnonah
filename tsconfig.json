@@ -40,5 +40,12 @@
 		".next/types/**/*.ts",
 		".next/dev/types/**/*.ts"
 	],
-	"exclude": ["node_modules", "scripts", "drizzle", "docs-site", "python"]
+	"exclude": [
+		"node_modules",
+		"scripts",
+		"drizzle",
+		"docs-site",
+		"python",
+		"worker"
+	]
 }

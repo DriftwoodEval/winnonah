@@ -1,0 +1,23 @@
+[mysqld]
+server-id                       = 2
+log_bin                         = /var/lib/mysql/mysql-bin
+binlog_format                   = ROW
+expire_logs_days                = 7
+
+gtid_mode                       = ON
+enforce_gtid_consistency        = ON
+
+relay_log                       = /var/lib/mysql/relay-bin
+relay_log_info_repository       = TABLE
+master_info_repository          = TABLE
+relay_log_recovery              = ON
+
+# Read-only while replica - failover.sh removes this
+read_only                       = ON
+super_read_only                 = ON
+
+bind-address                    = 0.0.0.0
+skip_name_resolve               = ON
+
+slave_parallel_workers          = 4
+slave_parallel_type             = LOGICAL_CLOCK

@@ -2,7 +2,6 @@ import os
 import re
 from collections import defaultdict
 from datetime import date, datetime, timedelta
-from pathlib import Path
 from typing import Any, Literal
 
 import pandas as pd
@@ -10,7 +9,6 @@ from dateutil import parser
 from googleapiclient.discovery import build
 from loguru import logger
 
-import utils.misc
 from utils.constants import TEST_NAMES_LOWER
 from utils.database import (
     compute_and_store_assessment_snapshot,
@@ -20,14 +18,14 @@ from utils.database import (
     get_in_person_assessments_for_client,
     get_npi_to_name_map,
     get_questionnaire_rules_with_in_person,
+    get_sync_report_date,
     put_appointment_in_db,
     put_in_person_assessments_in_db,
+    set_sync_report_date,
 )
 from utils.google import google_authenticate, send_gmail
 
 DAEvalType = Literal["EVAL", "DA", "DAEVAL"]
-
-SYNC_REPORT_CACHE = Path("cache/sync-report-sent-date.txt")
 
 
 class SyncReporter:
@@ -97,8 +95,7 @@ class SyncReporter:
             logger.debug("No errors to report. Skipping email.")
             return
 
-        today = date.today().isoformat()
-        if today in utils.misc.read_cache(SYNC_REPORT_CACHE):
+        if get_sync_report_date() == date.today():
             logger.debug("Sync report already sent today. Skipping email.")
             return
 
@@ -144,7 +141,6 @@ class SyncReporter:
 
         html_content += "<p>This email was generated and sent automatically.</p>"
 
-        SYNC_REPORT_CACHE.parent.mkdir(exist_ok=True)
         send_gmail(
             message_text=text_summary,
             subject=f"Appointment Sync Errors - {datetime.now().strftime('%Y-%m-%d')}",
@@ -152,7 +148,7 @@ class SyncReporter:
             from_addr="tech@driftwoodeval.com",
             html=html_content,
         )
-        utils.misc.write_cache(SYNC_REPORT_CACHE, [today])
+        set_sync_report_date(date.today())
 
 
 def should_skip_appointment(appointment: pd.Series) -> bool:

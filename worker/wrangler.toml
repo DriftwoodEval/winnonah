@@ -1,0 +1,18 @@
+name = "failover-monitor"
+main = "index.js"
+compatibility_date = "2024-01-01"
+
+[triggers]
+crons = ["* * * * *"]
+
+[[kv_namespaces]]
+binding = "FAILOVER_KV"
+id = "97fb52ab889f4f74bbea3b7302b452ae"
+
+[observability.logs]
+enabled = false
+invocation_logs = true
+
+# Secrets - set with `npx wrangler secret put <NAME>`:
+#   MONITOR_SECRET - shared secret with standby-poll.sh
+#   SLACK_WEBHOOK_URL -Slack incoming webhook
