@@ -1,9 +1,11 @@
 #!/usr/bin/env bash
-# Run this once from the PRIMARY server after both MySQL containers are up.
-# It snapshots the primary and points the standby at it.
+# mysql-replication-init.sh
 #
-# Usage:  bash mysql-replication-init.sh
-# Requires: .env in same directory, mysql client, ssh access to standby
+# Run ONCE from the PRIMARY server after both MySQL containers are up.
+# Snapshots primary and configures standby as a replica.
+#
+# Usage:  bash failover/mysql-replication-init.sh
+# Requires: .env in parent directory, ssh access to standby
 
 set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
@@ -13,14 +15,13 @@ log() { echo "[$(date '+%H:%M:%S')] $*"; }
 
 log "=== MySQL Replication Init ==="
 
-# 1. Take a consistent dump from primary
+# 1. Dump primary
 log "Dumping primary database..."
 docker exec driftwood-db mysqldump \
-  -u root -p"${MYSQL_ROOT_PASSWORD}" \
+  -uroot -p"${MYSQL_ROOT_PASSWORD}" \
   --all-databases \
   --single-transaction \
-  --master-data=2 \
-  --gtid \
+  --source-data=2 \
   --flush-logs \
   --routines \
   --triggers \
@@ -28,31 +29,25 @@ docker exec driftwood-db mysqldump \
 
 log "Dump complete: $(du -sh /tmp/primary_dump.sql | cut -f1)"
 
-# 2. Copy dump to standby over Tailscale
+# 2. Copy to standby
 log "Copying dump to standby (${STANDBY_TAILSCALE_IP})..."
 scp -i "${STANDBY_SSH_KEY_PATH}" \
   /tmp/primary_dump.sql \
   "${STANDBY_SSH_USER}@${STANDBY_TAILSCALE_IP}:/tmp/primary_dump.sql"
 
-# 3. On standby: stop replica (if running), load dump, configure replication
+# 3. Configure standby
 log "Configuring standby MySQL..."
 ssh -i "${STANDBY_SSH_KEY_PATH}" \
   "${STANDBY_SSH_USER}@${STANDBY_TAILSCALE_IP}" bash << REMOTE
 set -euo pipefail
 
-# Temporarily disable read-only to allow import
-docker exec driftwood-db mysql \
-  -u root -p"${MYSQL_ROOT_PASSWORD}" \
+docker exec driftwood-db mysql -uroot -p"${MYSQL_ROOT_PASSWORD}" \
   -e "STOP REPLICA; SET GLOBAL read_only=OFF; SET GLOBAL super_read_only=OFF;"
 
-# Load the dump
-docker exec -i driftwood-db mysql \
-  -u root -p"${MYSQL_ROOT_PASSWORD}" \
+docker exec -i driftwood-db mysql -uroot -p"${MYSQL_ROOT_PASSWORD}" \
   < /tmp/primary_dump.sql
 
-# Point replica at primary using GTID auto-positioning
-docker exec driftwood-db mysql \
-  -u root -p"${MYSQL_ROOT_PASSWORD}" << SQL
+docker exec driftwood-db mysql -uroot -p"${MYSQL_ROOT_PASSWORD}" << SQL
 STOP REPLICA;
 RESET REPLICA ALL;
 CHANGE REPLICATION SOURCE TO
@@ -67,22 +62,19 @@ CHANGE REPLICATION SOURCE TO
 START REPLICA;
 SQL
 
-# Re-enable read-only
-docker exec driftwood-db mysql \
-  -u root -p"${MYSQL_ROOT_PASSWORD}" \
+docker exec driftwood-db mysql -uroot -p"${MYSQL_ROOT_PASSWORD}" \
   -e "SET GLOBAL read_only=ON; SET GLOBAL super_read_only=ON;"
 
 echo "Replica configured."
 REMOTE
 
-# 4. Verify replication status
-log "Checking replication lag..."
+# 4. Verify
+log "Checking replication status..."
 sleep 3
-ssh -i "${STANDBY_SSH_KEY_PATH}" "${STANDBY_SSH_USER}@${STANDBY_TAILSCALE_IP}" \
-  "docker exec driftwood-db mysql -u root -p${MYSQL_ROOT_PASSWORD} \
-  -e 'SHOW REPLICA STATUS\G' 2>/dev/null" \
-  | grep -E "Replica_IO_Running|Replica_SQL_Running|Seconds_Behind_Source|Last_Error" || true
+ssh -i "${STANDBY_SSH_KEY_PATH}" \
+  "${STANDBY_SSH_USER}@${STANDBY_TAILSCALE_IP}" \
+  "docker exec driftwood-db mysql -uroot -p'${MYSQL_ROOT_PASSWORD}' \
+   -e 'SHOW REPLICA STATUS\G' 2>/dev/null" \
+  | grep -E "Replica_IO_Running|Replica_SQL_Running|Seconds_Behind_Source|Last_Error"
 
 log "=== Replication init complete! ==="
-log "Monitor replication lag with:"
-log "  docker exec driftwood-db mysql -u root -p\$MYSQL_ROOT_PASSWORD -e 'SHOW REPLICA STATUS\\G' | grep Seconds_Behind"
