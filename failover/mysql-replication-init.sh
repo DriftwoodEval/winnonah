@@ -7,7 +7,7 @@
 
 set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-source "${SCRIPT_DIR}/.env"
+source "${SCRIPT_DIR}/../.env"
 
 log() { echo "[$(date '+%H:%M:%S')] $*"; }
 

@@ -4,7 +4,7 @@
 
 set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-source "${SCRIPT_DIR}/.env"
+source "${SCRIPT_DIR}/../.env"
 cd "${SCRIPT_DIR}/.."
 
 FAILOVER_FLAG="/tmp/failover_active"

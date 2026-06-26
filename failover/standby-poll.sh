@@ -7,7 +7,7 @@
 
 set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-source "${SCRIPT_DIR}/.env"
+source "${SCRIPT_DIR}/../.env"
 
 FAILOVER_FLAG="/tmp/failover_active"
 WORKER_URL="https://failover-monitor.${CF_WORKER_SUBDOMAIN}.workers.dev/state"
