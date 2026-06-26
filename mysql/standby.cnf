@@ -17,4 +17,3 @@ bind-address                    = 0.0.0.0
 skip_name_resolve               = ON
 
 replica_parallel_workers        = 4
-replica_parallel_type           = LOGICAL_CLOCK
