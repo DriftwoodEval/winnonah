@@ -1,11 +1,12 @@
-FROM node:20-alpine AS base
+FROM node:22-alpine AS base
+RUN corepack enable
 
 FROM base AS deps
 RUN apk add --no-cache libc6-compat openssl
 WORKDIR /app
 
-COPY package.json pnpm-lock.yaml* ./
-RUN --mount=type=cache,id=pnpm,target=/pnpm/store corepack enable pnpm && pnpm i --frozen-lockfile
+COPY package.json pnpm-lock.yaml* pnpm-workspace.yaml ./
+RUN --mount=type=cache,id=pnpm,target=/pnpm/store pnpm i --frozen-lockfile
 
 FROM base AS builder
 WORKDIR /app
@@ -19,14 +20,13 @@ ENV NEXT_PUBLIC_COMMIT_HASH=$NEXT_PUBLIC_COMMIT_HASH
 ENV NEXT_PUBLIC_GIT_BRANCH=$NEXT_PUBLIC_GIT_BRANCH
 ENV NEXT_PUBLIC_BUILD_DATE=$NEXT_PUBLIC_BUILD_DATE
 
-COPY next.config.js* tsconfig.json* ./
 COPY . .
 
 ENV NEXT_TELEMETRY_DISABLED=1
 RUN --mount=type=cache,id=nextjs,target=/app/.next/cache \
-    corepack enable pnpm && SKIP_ENV_VALIDATION=1 pnpm run build
+    SKIP_ENV_VALIDATION=1 pnpm run build
 
-FROM gcr.io/distroless/nodejs20-debian12 AS runner
+FROM gcr.io/distroless/nodejs22-debian12 AS runner
 WORKDIR /app
 
 ENV NODE_ENV=production
