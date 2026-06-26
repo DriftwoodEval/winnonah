@@ -31,14 +31,14 @@ log "Dump complete: $(du -sh /tmp/primary_dump.sql | cut -f1)"
 
 # 2. Copy to standby
 log "Copying dump to standby (${STANDBY_TAILSCALE_IP})..."
-scp -i "${STANDBY_SSH_KEY_PATH}" \
+scp -q -i "${STANDBY_SSH_KEY_PATH}" \
   /tmp/primary_dump.sql \
   "${STANDBY_SSH_USER}@${STANDBY_TAILSCALE_IP}:/tmp/primary_dump.sql"
 
 # 3. Configure standby
 log "Configuring standby MySQL..."
-ssh -i "${STANDBY_SSH_KEY_PATH}" \
-  "${STANDBY_SSH_USER}@${STANDBY_TAILSCALE_IP}" bash << REMOTE
+ssh -o LogLevel=quiet -i "${STANDBY_SSH_KEY_PATH}" \
+  "${STANDBY_SSH_USER}@${STANDBY_TAILSCALE_IP}" bash <<EOF
 set -euo pipefail
 
 # Stop replica and disable read-only
@@ -54,8 +54,7 @@ docker exec -i driftwood-db mysql -uroot -p"${MYSQL_ROOT_PASSWORD}" \
   < /tmp/primary_dump.sql
 
 # Point replica at primary
-docker exec driftwood-db mysql -uroot -p"${MYSQL_ROOT_PASSWORD}" << SQL
-STOP REPLICA;
+echo "STOP REPLICA;
 RESET REPLICA ALL;
 CHANGE REPLICATION SOURCE TO
   SOURCE_HOST='${PRIMARY_TAILSCALE_IP}',
@@ -66,23 +65,19 @@ CHANGE REPLICATION SOURCE TO
   SOURCE_CONNECT_RETRY=10,
   SOURCE_RETRY_COUNT=3600,
   GET_SOURCE_PUBLIC_KEY=1;
-START REPLICA;
-SQL
+START REPLICA;" | docker exec -i driftwood-db mysql -uroot -p"${MYSQL_ROOT_PASSWORD}"
 
 # Re-enable read-only
 docker exec driftwood-db mysql -uroot -p"${MYSQL_ROOT_PASSWORD}" \
   -e "SET GLOBAL read_only=ON; SET GLOBAL super_read_only=ON;"
 
 echo "Replica configured."
-REMOTE
+EOF
 
 # 4. Verify
 log "Checking replication status..."
 sleep 3
-ssh -i "${STANDBY_SSH_KEY_PATH}"   "${STANDBY_SSH_USER}@${STANDBY_TAILSCALE_IP}" << VERIFY
-docker exec driftwood-db mysql --vertical -uroot -p"${MYSQL_ROOT_PASSWORD}" \
-  -e "SHOW REPLICA STATUS" 2>/dev/null \
-  | grep -E "Replica_IO_Running|Replica_SQL_Running|Seconds_Behind_Source|Last_Error"
-VERIFY
+ssh -o LogLevel=quiet -i "${STANDBY_SSH_KEY_PATH}" "${STANDBY_SSH_USER}@${STANDBY_TAILSCALE_IP}" \
+  "docker exec driftwood-db mysql --vertical -uroot -p\"${MYSQL_ROOT_PASSWORD}\" -e 'SHOW REPLICA STATUS' 2>/dev/null | grep -E 'Replica_IO_Running|Replica_SQL_Running|Seconds_Behind_Source|Last_Error'"
 
 log "=== Replication init complete! ==="
