@@ -24,5 +24,17 @@ services:
     profiles:
       - active_only
 
+  loki:
+    profiles:
+      - primary_only
+
+  promtail:
+    profiles:
+      - primary_only
+
+  grafana:
+    profiles:
+      - primary_only
+
   watchtower:
     restart: always
