@@ -34,7 +34,15 @@ jobs:
         run: |
           echo "build_triggered=false" >> $GITHUB_OUTPUT
           for file in ${{ steps.changed-files.outputs.all_changed_files }}; do
-            if [[ ! "$file" == python/* && ! "$file" == docs-site/* ]]; then
+            if [[ ! "$file" == python/* \
+               && ! "$file" == docs-site/* \
+               && ! "$file" == worker/* \
+               && ! "$file" == caddy/* \
+               && ! "$file" == grafana/* \
+               && ! "$file" == failover/* \
+               && ! "$file" == mysql/* \
+               && ! "$file" == drizzle/* \
+               && ! "$file" == .github/* ]]; then
               echo "Detected change in '$file', triggering Node.js build."
               echo "build_triggered=true" >> $GITHUB_OUTPUT
               break
