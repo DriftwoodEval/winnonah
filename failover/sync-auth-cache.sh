@@ -5,7 +5,7 @@
 
 set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-source "${SCRIPT_DIR}/.env"
+source "${SCRIPT_DIR}/../.env"
 
 rsync -az -e "ssh -i ${STANDBY_SSH_KEY_PATH} -o StrictHostKeyChecking=no" \
   "${SCRIPT_DIR}/../python/auth_cache/token.json" \
