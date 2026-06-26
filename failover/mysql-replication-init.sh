@@ -41,12 +41,19 @@ ssh -i "${STANDBY_SSH_KEY_PATH}" \
   "${STANDBY_SSH_USER}@${STANDBY_TAILSCALE_IP}" bash << REMOTE
 set -euo pipefail
 
+# Stop replica and disable read-only
 docker exec driftwood-db mysql -uroot -p"${MYSQL_ROOT_PASSWORD}" \
   -e "STOP REPLICA; SET GLOBAL read_only=OFF; SET GLOBAL super_read_only=OFF;"
 
+# Reset GTID state so the dump can be loaded cleanly
+docker exec driftwood-db mysql -uroot -p"${MYSQL_ROOT_PASSWORD}" \
+  -e "RESET MASTER;"
+
+# Load the dump
 docker exec -i driftwood-db mysql -uroot -p"${MYSQL_ROOT_PASSWORD}" \
   < /tmp/primary_dump.sql
 
+# Point replica at primary
 docker exec driftwood-db mysql -uroot -p"${MYSQL_ROOT_PASSWORD}" << SQL
 STOP REPLICA;
 RESET REPLICA ALL;
@@ -62,6 +69,7 @@ CHANGE REPLICATION SOURCE TO
 START REPLICA;
 SQL
 
+# Re-enable read-only
 docker exec driftwood-db mysql -uroot -p"${MYSQL_ROOT_PASSWORD}" \
   -e "SET GLOBAL read_only=ON; SET GLOBAL super_read_only=ON;"
 
