@@ -79,10 +79,10 @@ REMOTE
 # 4. Verify
 log "Checking replication status..."
 sleep 3
-ssh -i "${STANDBY_SSH_KEY_PATH}" \
-  "${STANDBY_SSH_USER}@${STANDBY_TAILSCALE_IP}" \
-  "docker exec driftwood-db mysql -uroot -p'${MYSQL_ROOT_PASSWORD}' \
-   -e 'SHOW REPLICA STATUS\G' 2>/dev/null" \
+ssh -i "${STANDBY_SSH_KEY_PATH}"   "${STANDBY_SSH_USER}@${STANDBY_TAILSCALE_IP}" << VERIFY
+docker exec driftwood-db mysql --vertical -uroot -p"${MYSQL_ROOT_PASSWORD}" \
+  -e "SHOW REPLICA STATUS" 2>/dev/null \
   | grep -E "Replica_IO_Running|Replica_SQL_Running|Seconds_Behind_Source|Last_Error"
+VERIFY
 
 log "=== Replication init complete! ==="
