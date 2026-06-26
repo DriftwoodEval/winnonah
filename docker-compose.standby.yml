@@ -36,5 +36,9 @@ services:
     profiles:
       - primary_only
 
+  winnonah-docs:
+    profiles:
+      - active_only
+
   watchtower:
     restart: always
