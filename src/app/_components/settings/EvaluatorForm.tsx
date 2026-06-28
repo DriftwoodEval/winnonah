@@ -15,7 +15,7 @@ import {
 import { Input } from "@ui/input";
 import MultipleSelector from "@ui/multiple-selector";
 import { Switch } from "@ui/switch";
-import { type ReactNode, useMemo } from "react";
+import { type ReactNode, useEffect, useMemo, useRef } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import type { Evaluator } from "~/lib/models";
@@ -65,6 +65,62 @@ function expandAllowedTypes(types: string[]): string[] {
 		}
 	}
 	return [...expanded];
+}
+
+function DurationInput({
+	value,
+	onChange,
+	disabled,
+	placeholder,
+}: {
+	value: string;
+	onChange: (raw: string) => void;
+	disabled?: boolean;
+	placeholder?: string;
+}) {
+	const ref = useRef<HTMLInputElement>(null);
+
+	useEffect(() => {
+		const el = ref.current;
+		if (el && document.activeElement !== el) {
+			el.value = value;
+		}
+	}, [value]);
+
+	return (
+		<Input
+			className="h-8 text-center text-sm"
+			defaultValue={value}
+			disabled={disabled}
+			min={0}
+			onBlur={(e) => {
+				const hrs = parseFloat(e.target.value);
+				if (!e.target.value || Number.isNaN(hrs) || hrs < 0) {
+					if (ref.current) ref.current.value = "";
+					onChange("");
+				} else {
+					const rounded = Math.round(hrs * 2) / 2;
+					if (ref.current) ref.current.value = String(rounded);
+					onChange(String(rounded));
+				}
+			}}
+			onChange={(e) => onChange(e.target.value)}
+			onKeyDown={(e) => {
+				if (
+					e.key.length === 1 &&
+					!/[\d.]/.test(e.key) &&
+					!e.ctrlKey &&
+					!e.metaKey
+				) {
+					e.preventDefault();
+				}
+			}}
+			placeholder={placeholder}
+			ref={ref}
+			step={0.5}
+			type="number"
+		/>
+	);
 }
 
 interface EvaluatorFormProps {
@@ -198,13 +254,10 @@ export function EvaluatorForm({
 				!allowedTypes.includes(typeKey) &&
 				!allowedTypes.includes(baseType));
 		return (
-			<Input
-				className="h-8 text-center text-sm"
+			<DurationInput
 				disabled={isDisabled}
-				inputMode="decimal"
-				onChange={(e) => setDuration(key, e.target.value)}
+				onChange={(raw) => setDuration(key, raw)}
 				placeholder={getDefaultPlaceholder(key)}
-				type="text"
 				value={getDuration(key)}
 			/>
 		);

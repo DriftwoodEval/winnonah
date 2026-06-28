@@ -2,7 +2,7 @@
 
 import { Button } from "@ui/button";
 import { Input } from "@ui/input";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { useCheckPermission } from "~/hooks/use-check-permission";
 import { api } from "~/trpc/react";
@@ -21,6 +21,62 @@ const EVAL_AGE_VARIANTS = [
 	{ suffix: "/young", label: " (≤6)" },
 	{ suffix: "/older", label: " (7+)" },
 ] as const;
+
+function DurationInput({
+	value,
+	onChange,
+	disabled,
+	placeholder,
+}: {
+	value: string;
+	onChange: (raw: string) => void;
+	disabled?: boolean;
+	placeholder?: string;
+}) {
+	const ref = useRef<HTMLInputElement>(null);
+
+	useEffect(() => {
+		const el = ref.current;
+		if (el && document.activeElement !== el) {
+			el.value = value;
+		}
+	}, [value]);
+
+	return (
+		<Input
+			className="h-8 text-center text-sm"
+			defaultValue={value}
+			disabled={disabled}
+			min={0}
+			onBlur={(e) => {
+				const hrs = parseFloat(e.target.value);
+				if (!e.target.value || Number.isNaN(hrs) || hrs < 0) {
+					if (ref.current) ref.current.value = "";
+					onChange("");
+				} else {
+					const rounded = Math.round(hrs * 2) / 2;
+					if (ref.current) ref.current.value = String(rounded);
+					onChange(String(rounded));
+				}
+			}}
+			onChange={(e) => onChange(e.target.value)}
+			onKeyDown={(e) => {
+				if (
+					e.key.length === 1 &&
+					!/[\d.]/.test(e.key) &&
+					!e.ctrlKey &&
+					!e.metaKey
+				) {
+					e.preventDefault();
+				}
+			}}
+			placeholder={placeholder}
+			ref={ref}
+			step={0.5}
+			type="number"
+		/>
+	);
+}
 
 export default function WorkSummaryDefaultsSection() {
 	const can = useCheckPermission();
@@ -71,13 +127,10 @@ export default function WorkSummaryDefaultsSection() {
 	}, []);
 
 	const dInput = (key: string) => (
-		<Input
-			className="h-8 text-center text-sm"
+		<DurationInput
 			disabled={!canEdit}
-			inputMode="decimal"
-			onChange={(e) => setDuration(key, e.target.value)}
+			onChange={(raw) => setDuration(key, raw)}
 			placeholder="—"
-			type="text"
 			value={getDuration(key)}
 		/>
 	);
