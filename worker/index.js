@@ -73,9 +73,12 @@ async function runCheck(env) {
 		// Primary is healthy. If we had a pending failure recorded, clear it.
 		const pending = await env.FAILOVER_KV.get("pending_failure");
 		if (pending) {
+			const warned = await env.FAILOVER_KV.get("pending_failure_warned");
 			await env.FAILOVER_KV.delete("pending_failure");
 			await env.FAILOVER_KV.delete("pending_failure_warned");
-			await slack(env, "Primary recovered. Pending failure cleared.");
+			if (warned) {
+				await slack(env, "Primary recovered.");
+			}
 		}
 		return;
 	}
