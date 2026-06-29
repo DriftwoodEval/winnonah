@@ -1,14 +1,16 @@
-import { count, desc, eq } from "drizzle-orm";
+import { and, asc, count, desc, eq, gte, lte } from "drizzle-orm";
 import { z } from "zod";
 import { env } from "~/env";
 import { createTRPCRouter, protectedProcedure } from "~/server/api/trpc";
 import {
 	appointmentReminderSettings,
 	appointments,
+	clients,
 	evaluators,
 	offices,
 	reminderLogs,
 	reminderTemplates,
+	users,
 } from "~/server/db/schema";
 
 type QuietSettings =
@@ -53,6 +55,167 @@ function adjustForQuietWindow(
 }
 
 export const appointmentRouter = createTRPCRouter({
+	getDayAhead: protectedProcedure
+		.input(
+			z
+				.object({
+					asUserId: z.string().optional(),
+					asDate: z.string().optional(),
+				})
+				.optional(),
+		)
+		.query(async ({ ctx, input }) => {
+			let ref = new Date();
+			if (process.env.NODE_ENV === "development" && input?.asDate) {
+				const parsed = new Date(input.asDate + "T00:00:00");
+				if (!Number.isNaN(parsed.getTime())) ref = parsed;
+			}
+			const startOfDay = new Date(
+				Date.UTC(ref.getFullYear(), ref.getMonth(), ref.getDate(), 0, 0, 0),
+			);
+			const endOfDay = new Date(
+				Date.UTC(ref.getFullYear(), ref.getMonth(), ref.getDate(), 23, 59, 59),
+			);
+
+			const viewAsId =
+				process.env.NODE_ENV === "development" && input?.asUserId
+					? input.asUserId
+					: ctx.session.user.id;
+
+			const userWithEvaluator = await ctx.db.query.users.findFirst({
+				where: eq(users.id, viewAsId),
+				with: { evaluator: true },
+			});
+
+			const myAppointments = userWithEvaluator?.evaluator
+				? await ctx.db
+						.select({
+							id: appointments.id,
+							startTime: appointments.startTime,
+							endTime: appointments.endTime,
+							locationKey: appointments.locationKey,
+							daEval: appointments.daEval,
+							asdAdhd: appointments.asdAdhd,
+							calendarEventTitle: appointments.calendarEventTitle,
+							confirmedAt: appointments.confirmedAt,
+							clientName: clients.fullName,
+							clientHash: clients.hash,
+							officeName: offices.prettyName,
+						})
+						.from(appointments)
+						.innerJoin(clients, eq(appointments.clientId, clients.id))
+						.leftJoin(offices, eq(appointments.locationKey, offices.key))
+						.where(
+							and(
+								eq(appointments.evaluatorNpi, userWithEvaluator.evaluator.npi),
+								gte(appointments.startTime, startOfDay),
+								lte(appointments.startTime, endOfDay),
+								eq(appointments.cancelled, false),
+								eq(appointments.rescheduled, false),
+								eq(appointments.placeholder, false),
+							),
+						)
+						.orderBy(asc(appointments.startTime))
+				: [];
+
+			const allRows = await ctx.db
+				.select({
+					evaluatorNpi: appointments.evaluatorNpi,
+					evaluatorName: evaluators.providerName,
+					locationKey: appointments.locationKey,
+					officeName: offices.prettyName,
+					appointmentId: appointments.id,
+					startTime: appointments.startTime,
+					endTime: appointments.endTime,
+					daEval: appointments.daEval,
+					asdAdhd: appointments.asdAdhd,
+					confirmedAt: appointments.confirmedAt,
+					clientName: clients.fullName,
+					clientHash: clients.hash,
+				})
+				.from(appointments)
+				.innerJoin(evaluators, eq(appointments.evaluatorNpi, evaluators.npi))
+				.innerJoin(clients, eq(appointments.clientId, clients.id))
+				.leftJoin(offices, eq(appointments.locationKey, offices.key))
+				.where(
+					and(
+						gte(appointments.startTime, startOfDay),
+						lte(appointments.startTime, endOfDay),
+						eq(appointments.cancelled, false),
+						eq(appointments.rescheduled, false),
+						eq(appointments.placeholder, false),
+					),
+				)
+				.orderBy(asc(appointments.startTime));
+
+			type EvaluatorEntry = {
+				name: string;
+				npi: number;
+				isCurrentUser: boolean;
+				appointments: {
+					id: string;
+					startTime: Date;
+					endTime: Date;
+					daEval: string | null;
+					asdAdhd: string | null;
+					confirmedAt: Date | null;
+					clientName: string;
+					clientHash: string;
+				}[];
+			};
+			type OfficeEntry = {
+				officeName: string;
+				locationKey: string;
+				evaluators: Record<number, EvaluatorEntry>;
+			};
+
+			const byOffice: Record<string, OfficeEntry> = {};
+			const currentNpi = userWithEvaluator?.evaluator?.npi;
+
+			for (const row of allRows) {
+				const key = row.locationKey ?? "unknown";
+				const label = row.officeName ?? row.locationKey ?? "Unknown Office";
+				if (!byOffice[key]) {
+					byOffice[key] = {
+						officeName: label,
+						locationKey: key,
+						evaluators: {},
+					};
+				}
+				const officeEntry = byOffice[key]!;
+				if (!officeEntry.evaluators[row.evaluatorNpi]) {
+					officeEntry.evaluators[row.evaluatorNpi] = {
+						name: row.evaluatorName,
+						npi: row.evaluatorNpi,
+						isCurrentUser: row.evaluatorNpi === currentNpi,
+						appointments: [],
+					};
+				}
+				const evalEntry = officeEntry.evaluators[row.evaluatorNpi]!;
+				evalEntry.appointments.push({
+					id: row.appointmentId,
+					startTime: row.startTime,
+					endTime: row.endTime,
+					daEval: row.daEval ?? null,
+					asdAdhd: row.asdAdhd ?? null,
+					confirmedAt: row.confirmedAt ?? null,
+					clientName: row.clientName,
+					clientHash: row.clientHash,
+				});
+			}
+
+			const officeList = Object.values(byOffice).map((o) => ({
+				...o,
+				evaluators: Object.values(o.evaluators),
+			}));
+
+			return {
+				myAppointments,
+				hasEvaluatorAccount: !!userWithEvaluator?.evaluator,
+				offices: officeList,
+			};
+		}),
+
 	getByClientId: protectedProcedure
 		.input(z.object({ clientId: z.number() }))
 		.query(async ({ ctx, input }) => {

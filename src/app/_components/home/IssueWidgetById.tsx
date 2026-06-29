@@ -13,21 +13,20 @@ import {
 	IssueListSkeleton,
 	SuggestionIssueList,
 } from "../issues/issuesList";
+import { MyDayWidget, WhosInWidget } from "./DayAheadWidgets";
 
 function Shell({ children }: { children: React.ReactNode }) {
-	return <div className="flex h-full w-full flex-col">{children}</div>;
+	return <div className="flex w-full flex-col">{children}</div>;
 }
 
-export function IssueWidgetById({
-	id,
-}: {
-	id: string;
-	cols?: number;
-	rows?: number;
-}) {
+export function IssueWidgetById({ id }: { id: string }) {
 	const can = useCheckPermission();
 
 	switch (id) {
+		case "day-ahead-mine":
+			return <MyDayWidget />;
+		case "day-ahead-offices":
+			return <WhosInWidget />;
 		case "dd4":
 			return <DD4Widget />;
 		case "just-added":

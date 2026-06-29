@@ -8,6 +8,8 @@ import { useCheckPermission } from "~/hooks/use-check-permission";
 import {
 	getWidgetDefaults,
 	HOME_WIDGET_DEFS,
+	WIDGET_CATEGORY_LABELS,
+	type WidgetCategory,
 	type WidgetConfig,
 } from "~/lib/home-widgets";
 
@@ -63,7 +65,7 @@ export function HomeCustomizer({ widgets, onChange }: HomeCustomizerProps) {
 				</Button>
 			</PopoverTrigger>
 			<PopoverContent align="end" className="w-80">
-				<div className="space-y-3">
+				<div className="max-h-[70vh] space-y-3 overflow-y-auto">
 					<p className="font-medium text-sm">Home Page Widgets</p>
 
 					<div className="space-y-2">
@@ -157,19 +159,30 @@ export function HomeCustomizer({ widgets, onChange }: HomeCustomizerProps) {
 						<>
 							<Separator />
 							<p className="text-muted-foreground text-xs">Add widgets</p>
-							<div className="space-y-1">
-								{availableToAdd.map((def) => (
-									<button
-										className="flex w-full cursor-pointer items-center gap-2 rounded-md px-2 py-1 text-left text-sm hover:bg-muted"
-										key={def.id}
-										onClick={() => addWidget(def.id)}
-										type="button"
-									>
-										<span className="text-muted-foreground">+</span>
-										{def.label}
-									</button>
-								))}
-							</div>
+							{(Object.keys(WIDGET_CATEGORY_LABELS) as WidgetCategory[]).map(
+								(cat) => {
+									const defs = availableToAdd.filter((d) => d.category === cat);
+									if (defs.length === 0) return null;
+									return (
+										<div className="space-y-1" key={cat}>
+											<p className="px-2 font-medium text-muted-foreground text-xs">
+												{WIDGET_CATEGORY_LABELS[cat]}
+											</p>
+											{defs.map((def) => (
+												<button
+													className="flex w-full cursor-pointer items-center gap-2 rounded-md px-2 py-1 text-left text-sm hover:bg-muted"
+													key={def.id}
+													onClick={() => addWidget(def.id)}
+													type="button"
+												>
+													<span className="text-muted-foreground">+</span>
+													{def.label}
+												</button>
+											))}
+										</div>
+									);
+								},
+							)}
 						</>
 					)}
 				</div>

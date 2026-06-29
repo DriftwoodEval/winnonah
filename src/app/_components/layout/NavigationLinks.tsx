@@ -45,6 +45,11 @@ export default function NavigationLinks() {
 			show: true,
 		},
 		{
+			href: "/day-ahead",
+			label: "Day Ahead",
+			show: true,
+		},
+		{
 			href: "/availability",
 			label: "Availability",
 			show: can("pages:availability"),

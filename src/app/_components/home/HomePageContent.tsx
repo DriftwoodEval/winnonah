@@ -1,7 +1,11 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { DEFAULT_HOME_WIDGETS, type WidgetConfig } from "~/lib/home-widgets";
+import {
+	DEFAULT_HOME_WIDGETS,
+	getWidgetSizing,
+	type WidgetConfig,
+} from "~/lib/home-widgets";
 import { api } from "~/trpc/react";
 import { ClientWidget } from "./ClientWidget";
 import { GridWidgetCell } from "./GridWidgetCell";
@@ -33,25 +37,36 @@ export function HomePageContent() {
 		[saveWidgets],
 	);
 
+	// Don't render until we know what the user's config is — avoids a flash of the default layout
+	if (isLoading && widgets === null) return null;
+
 	const activeWidgets = widgets ?? DEFAULT_HOME_WIDGETS;
 
 	return (
-		<div className="flex h-full w-full flex-col overflow-hidden">
-			<div className="flex shrink-0 justify-end px-4 pt-4 pb-2">
+		<div className="relative h-full w-full overflow-hidden">
+			<div className="absolute top-3 right-3 z-10">
 				<HomeCustomizer onChange={handleChange} widgets={activeWidgets} />
 			</div>
-			<div className="grid min-h-0 flex-1 auto-rows-[200px] grid-cols-4 gap-4 overflow-auto px-4 pb-6">
-				{activeWidgets.map((w) =>
-					w.id === "clients" ? (
-						<GridWidgetCell cols={w.cols} key={w.id} rows={w.rows}>
-							<ClientWidget />
-						</GridWidgetCell>
-					) : (
-						<GridWidgetCell cols={w.cols} key={w.id} rows={w.rows}>
-							<IssueWidgetById cols={w.cols} id={w.id} rows={w.rows} />
-						</GridWidgetCell>
-					),
-				)}
+			<div className="h-full overflow-auto">
+				<div className="grid grid-cols-1 gap-4 p-4 sm:grid-flow-dense sm:grid-cols-4">
+					{activeWidgets.map((w) => {
+						const sizing = getWidgetSizing(w.id);
+						return (
+							<GridWidgetCell
+								cols={w.cols}
+								key={w.id}
+								rows={w.rows}
+								sizing={sizing}
+							>
+								{w.id === "clients" ? (
+									<ClientWidget />
+								) : (
+									<IssueWidgetById id={w.id} />
+								)}
+							</GridWidgetCell>
+						);
+					})}
+				</div>
 			</div>
 		</div>
 	);
