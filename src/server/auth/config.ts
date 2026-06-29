@@ -68,6 +68,9 @@ export const authConfig = {
 			},
 		}),
 	],
+	pages: {
+		error: "/auth/error",
+	},
 	session: {
 		maxAge: 60 * 60 * 5, // 5 hours
 		updateAge: 60 * 10, // 10 minutes
