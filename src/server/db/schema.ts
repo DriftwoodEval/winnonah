@@ -1064,6 +1064,16 @@ export const questionnaireMsgLogs = createTable(
 	(t) => [uniqueIndex("q_msg_log_op_msg_id_idx").on(t.openphoneMessageId)],
 );
 
+export const referralMsgLog = createTable("referral_msg_log", (d) => ({
+	clientId: d
+		.int()
+		.notNull()
+		.primaryKey()
+		.references(() => clients.id, { onDelete: "cascade" }),
+	openphoneMessageId: d.varchar({ length: 255 }),
+	sentAt: d.timestamp().default(sql`CURRENT_TIMESTAMP`).notNull(),
+}));
+
 export const duplicateNameIgnore = createTable(
 	"duplicate_name_ignore",
 	(d) => ({

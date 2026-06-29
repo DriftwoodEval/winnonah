@@ -9,6 +9,7 @@ import { createTRPCRouter, protectedProcedure } from "~/server/api/trpc";
 import {
 	clients,
 	questionnaireMsgLogs,
+	referralMsgLog,
 	reminderLogs,
 	reminderTemplates,
 } from "~/server/db/schema";
@@ -69,7 +70,7 @@ export const quoRouter = createTRPCRouter({
 		.query(async ({ ctx, input }) => {
 			if (input.messageIds.length === 0) return [];
 
-			const [apptRows, qRows] = await Promise.all([
+			const [apptRows, qRows, referralRows] = await Promise.all([
 				ctx.db
 					.select({
 						openphoneMessageId: reminderLogs.openphoneMessageId,
@@ -97,6 +98,15 @@ export const quoRouter = createTRPCRouter({
 					.where(
 						inArray(questionnaireMsgLogs.openphoneMessageId, input.messageIds),
 					),
+				ctx.db
+					.select({
+						openphoneMessageId: referralMsgLog.openphoneMessageId,
+						clientFullName: clients.fullName,
+						clientHash: clients.hash,
+					})
+					.from(referralMsgLog)
+					.innerJoin(clients, eq(clients.id, referralMsgLog.clientId))
+					.where(inArray(referralMsgLog.openphoneMessageId, input.messageIds)),
 			]);
 
 			type AutomatedContext = {
@@ -126,6 +136,16 @@ export const quoRouter = createTRPCRouter({
 					reason: row.isFailureReminder
 						? `Follow-up: ${row.failureReason ?? "unknown"}`
 						: "Questionnaire reminder",
+				});
+			}
+
+			for (const row of referralRows) {
+				if (!row.openphoneMessageId) continue;
+				results.push({
+					openphoneMessageId: row.openphoneMessageId,
+					clientFullName: row.clientFullName,
+					clientHash: row.clientHash,
+					reason: "New referral received",
 				});
 			}
 
