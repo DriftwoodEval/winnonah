@@ -1,4 +1,4 @@
-import { ClientsDashboard } from "@components/clients/ClientsDashboard";
+import { HomePageContent } from "@components/home/HomePageContent";
 import type { Metadata } from "next";
 import { env } from "~/env";
 import { HydrateClient } from "~/trpc/server";
@@ -12,8 +12,8 @@ export default async function Home() {
 	return (
 		<Guard>
 			<HydrateClient>
-				<div className="mx-4 flex h-[calc(100dvh-2.5rem)] grow flex-col overflow-hidden pt-4">
-					<ClientsDashboard />
+				<div className="flex h-[calc(100dvh-2.5rem)] w-full flex-col overflow-hidden">
+					<HomePageContent />
 				</div>
 			</HydrateClient>
 		</Guard>

@@ -29,9 +29,16 @@ interface IssueListProps {
 	description?: string;
 	clients: ClientWithIssueInfo[];
 	action?: React.ReactNode;
+	fill?: boolean;
 }
 
-const IssueList = ({ title, description, clients, action }: IssueListProps) => {
+export const IssueList = ({
+	title,
+	description,
+	clients,
+	action,
+	fill,
+}: IssueListProps) => {
 	const utils = api.useUtils();
 	const savedClientRef = useRef<HTMLDivElement>(null);
 	const savedPlaceKey = title
@@ -107,9 +114,9 @@ const IssueList = ({ title, description, clients, action }: IssueListProps) => {
 	};
 
 	return (
-		<div className="flex max-h-80">
+		<div className={fill ? "flex h-full w-full" : "flex max-h-80"}>
 			<ScrollArea
-				className="w-xs rounded-md border bg-card text-card-foreground shadow-sm"
+				className={`${fill ? "h-full w-full" : "w-xs"} rounded-md border bg-card text-card-foreground shadow-sm`}
 				type="auto"
 			>
 				<div className="p-4">
@@ -247,9 +254,10 @@ interface SuggestionIssueListProps {
 	isActioning?: boolean;
 	actionButtonText?: string;
 	action?: React.ReactNode;
+	fill?: boolean;
 }
 
-const SuggestionIssueList = ({
+export const SuggestionIssueList = ({
 	title,
 	description,
 	items,
@@ -257,6 +265,7 @@ const SuggestionIssueList = ({
 	isActioning: isFixing,
 	actionButtonText: fixButtonText = "Fix",
 	action,
+	fill,
 }: SuggestionIssueListProps) => {
 	const utils = api.useUtils();
 	const savedClientRef = useRef<HTMLDivElement>(null);
@@ -333,9 +342,9 @@ const SuggestionIssueList = ({
 	};
 
 	return (
-		<div className="flex max-h-80">
+		<div className={fill ? "flex h-full w-full" : "flex max-h-80"}>
 			<ScrollArea
-				className="w-md rounded-md border bg-card text-card-foreground shadow-sm"
+				className={`${fill ? "h-full w-full" : "w-md"} rounded-md border bg-card text-card-foreground shadow-sm`}
 				type="auto"
 			>
 				<div className="p-4">
@@ -493,10 +502,12 @@ const SuggestionIssueList = ({
 	);
 };
 
-const DuplicateNamesList = ({
+export const DuplicateNamesList = ({
 	groups,
+	fill,
 }: {
 	groups: RouterOutputs["clients"]["getDuplicateNames"];
+	fill?: boolean;
 }) => {
 	const utils = api.useUtils();
 
@@ -510,9 +521,9 @@ const DuplicateNamesList = ({
 	const totalPairs = groups.reduce((sum, g) => sum + g.pairs.length, 0);
 
 	return (
-		<div className="flex max-h-80">
+		<div className={fill ? "flex h-full w-full" : "flex max-h-80"}>
 			<ScrollArea
-				className="w-md rounded-md border bg-card text-card-foreground shadow-sm"
+				className={`${fill ? "h-full w-full" : "w-md"} rounded-md border bg-card text-card-foreground shadow-sm`}
 				type="auto"
 			>
 				<div className="p-4">
@@ -597,7 +608,7 @@ const DuplicateNamesList = ({
 	);
 };
 
-const IssueListSkeleton = () => (
+export const IssueListSkeleton = () => (
 	<div className="flex max-h-80 w-80 animate-pulse">
 		<div className="w-full rounded-md border bg-card p-4 shadow-sm">
 			<div className="flex items-center justify-between gap-4">
@@ -614,12 +625,14 @@ const IssueListSkeleton = () => (
 	</div>
 );
 
-const DuplicateDriveFoldersList = ({
+export const DuplicateDriveFoldersList = ({
 	duplicates,
 	lastFetched,
+	fill,
 }: {
 	duplicates: DuplicateDriveGroup[];
 	lastFetched: number;
+	fill?: boolean;
 }) => {
 	const utils = api.useUtils();
 
@@ -636,9 +649,9 @@ const DuplicateDriveFoldersList = ({
 	};
 
 	return (
-		<div className="flex max-h-80">
+		<div className={fill ? "flex h-full w-full" : "flex max-h-80"}>
 			<ScrollArea
-				className="w-md rounded-md border bg-card text-card-foreground shadow-sm"
+				className={`${fill ? "h-full w-full" : "w-md"} rounded-md border bg-card text-card-foreground shadow-sm`}
 				type="auto"
 			>
 				<div className="flex flex-col p-4">
@@ -736,15 +749,17 @@ const DuplicateDriveFoldersList = ({
 	);
 };
 
-const ClientsSharingQuestionnaires = ({
+export const ClientsSharingQuestionnaires = ({
 	sharedLinksData,
+	fill,
 }: {
 	sharedLinksData: SharedQuestionnaireData[];
+	fill?: boolean;
 }) => {
 	return (
-		<div className="flex max-h-80">
+		<div className={fill ? "flex h-full w-full" : "flex max-h-80"}>
 			<ScrollArea
-				className="w-md rounded-md border bg-card text-card-foreground shadow-sm"
+				className={`${fill ? "h-full w-full" : "w-md"} rounded-md border bg-card text-card-foreground shadow-sm`}
 				type="auto"
 			>
 				<div className="p-4">

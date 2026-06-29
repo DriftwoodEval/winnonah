@@ -371,4 +371,39 @@ export const userRouter = createTRPCRouter({
 				.set({ recentClients: JSON.stringify(updated) })
 				.where(eq(users.id, ctx.session.user.id));
 		}),
+
+	getHomeWidgets: protectedProcedure.query(async ({ ctx }) => {
+		const userFromDb = await ctx.db.query.users.findFirst({
+			where: eq(users.id, ctx.session.user.id),
+		});
+
+		if (!userFromDb) return null;
+
+		try {
+			return JSON.parse(userFromDb.homeWidgets ?? "null") as
+				| { id: string; cols: number; rows: number }[]
+				| null;
+		} catch {
+			return null;
+		}
+	}),
+
+	updateHomeWidgets: protectedProcedure
+		.input(
+			z.object({
+				widgets: z.array(
+					z.object({
+						id: z.string(),
+						cols: z.number().int().min(1).max(4),
+						rows: z.number().int().min(1).max(4),
+					}),
+				),
+			}),
+		)
+		.mutation(async ({ ctx, input }) => {
+			await ctx.db
+				.update(users)
+				.set({ homeWidgets: JSON.stringify(input.widgets) })
+				.where(eq(users.id, ctx.session.user.id));
+		}),
 });

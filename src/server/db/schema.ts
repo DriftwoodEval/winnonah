@@ -764,6 +764,7 @@ export const users = createTable("user", (d) => ({
 	phoneNumber: d.varchar("phone_number", { length: 20 }),
 	isGreeter: d.boolean("is_greeter").notNull().default(false),
 	recentClients: d.text("recent_clients"),
+	homeWidgets: d.text("home_widgets"),
 }));
 
 export const usersRelations = relations(users, ({ many, one }) => ({
