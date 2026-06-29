@@ -11,7 +11,6 @@ import {
 	AlertDialogTitle,
 	AlertDialogTrigger,
 } from "@ui/alert-dialog";
-import { Badge } from "@ui/badge";
 import { Button } from "@ui/button";
 import { format } from "date-fns";
 import { toast } from "sonner";
@@ -20,14 +19,14 @@ import { api } from "~/trpc/react";
 interface ReportCompleteButtonProps {
 	appointmentId: string;
 	completedAt: Date | string | null;
-	completedByEmail: string | null;
+	completedByName: string | null;
 	isAdmin: boolean;
 }
 
 export function ReportCompleteButton({
 	appointmentId,
 	completedAt,
-	completedByEmail,
+	completedByName,
 	isAdmin,
 }: ReportCompleteButtonProps) {
 	const utils = api.useUtils();
@@ -55,12 +54,9 @@ export function ReportCompleteButton({
 		const completedDate = new Date(completedAt);
 		return (
 			<div className="flex flex-col gap-1">
-				<Badge className="whitespace-nowrap text-xs" variant="secondary">
-					Complete
-				</Badge>
 				<span className="whitespace-nowrap text-muted-foreground text-xs">
 					{format(completedDate, "MMM d")}
-					{completedByEmail && ` · ${completedByEmail}`}
+					{completedByName && ` · ${completedByName}`}
 				</span>
 				{isAdmin && (
 					<Button

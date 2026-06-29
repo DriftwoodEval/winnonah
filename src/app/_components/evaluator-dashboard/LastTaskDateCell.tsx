@@ -40,7 +40,12 @@ export function LastTaskDateCell({
 			date={date ?? undefined}
 			id={`last-task-${appointmentId}`}
 			placeholder="Set date"
-			setDate={(d) => setDate.mutate({ appointmentId, date: d ?? null })}
+			setDate={(d) => {
+				const dateStr = d
+					? `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`
+					: null;
+				setDate.mutate({ appointmentId, date: dateStr });
+			}}
 		/>
 	);
 }

@@ -19,7 +19,7 @@ import {
 import { format } from "date-fns";
 import Link from "next/link";
 import { toast } from "sonner";
-import { cn } from "~/lib/utils";
+import { cn, getLocalDayFromUTCDate } from "~/lib/utils";
 import type { RouterOutputs } from "~/trpc/react";
 import { api } from "~/trpc/react";
 import { AppointmentNoteCell } from "./AppointmentNoteCell";
@@ -112,7 +112,9 @@ export function EvaluatorDashboardTable({
 				{count}
 				<div className="flex flex-col gap-3">
 					{appointments.map((appt) => {
-						const isOverdue = appt.effectiveDueDate <= new Date();
+						const isOverdue =
+							(getLocalDayFromUTCDate(appt.effectiveDueDate) ??
+								appt.effectiveDueDate) <= new Date();
 						const isCompleted = !!appt.reportCompletedAt;
 						const redCard = isAdmin && (isCompleted || isOverdue);
 
@@ -121,18 +123,27 @@ export function EvaluatorDashboardTable({
 								className={cn(
 									"rounded-lg border bg-card p-4 shadow-xs",
 									redCard && "border-destructive/40 bg-destructive/10",
+									isCompleted && "opacity-60",
 								)}
 								key={appt.id}
 							>
 								<div className="mb-3 flex items-start justify-between gap-2">
 									<div>
 										<Link
-											className="font-medium text-sm hover:underline"
+											className={cn(
+												"font-medium text-sm hover:underline",
+												isCompleted && "line-through",
+											)}
 											href={`/clients/${appt.clientHash}`}
 										>
 											{appt.clientFullName}
 										</Link>
-										<p className="text-muted-foreground text-xs">
+										<p
+											className={cn(
+												"text-muted-foreground text-xs",
+												isCompleted && "line-through",
+											)}
+										>
 											{format(new Date(appt.startTime), "MMM d, yyyy")}
 										</p>
 									</div>
@@ -160,7 +171,9 @@ export function EvaluatorDashboardTable({
 											appointmentId={appt.id}
 											date={
 												appt.lastTaskCompletedDate
-													? new Date(appt.lastTaskCompletedDate)
+													? (getLocalDayFromUTCDate(
+															appt.lastTaskCompletedDate,
+														) ?? null)
 													: null
 											}
 											isAdmin={isAdmin}
@@ -174,7 +187,8 @@ export function EvaluatorDashboardTable({
 											appointmentId={appt.id}
 											dueDateOverride={
 												appt.dueDateOverride
-													? new Date(appt.dueDateOverride)
+													? (getLocalDayFromUTCDate(appt.dueDateOverride) ??
+														null)
 													: null
 											}
 											effectiveDueDate={appt.effectiveDueDate}
@@ -187,7 +201,7 @@ export function EvaluatorDashboardTable({
 									<ReportCompleteButton
 										appointmentId={appt.id}
 										completedAt={appt.reportCompletedAt}
-										completedByEmail={appt.reportCompletedByEmail}
+										completedByName={appt.reportCompletedByName}
 										isAdmin={isAdmin}
 									/>
 									{isAdmin && (
@@ -233,7 +247,9 @@ export function EvaluatorDashboardTable({
 					</TableHeader>
 					<TableBody>
 						{appointments.map((appt) => {
-							const isOverdue = appt.effectiveDueDate <= new Date();
+							const isOverdue =
+								(getLocalDayFromUTCDate(appt.effectiveDueDate) ??
+									appt.effectiveDueDate) <= new Date();
 							const isCompleted = !!appt.reportCompletedAt;
 							const redRow = isAdmin && (isCompleted || isOverdue);
 
@@ -241,6 +257,7 @@ export function EvaluatorDashboardTable({
 								<TableRow
 									className={cn(
 										redRow && "bg-destructive/10 hover:bg-destructive/15",
+										isCompleted && "line-through opacity-60",
 									)}
 									key={appt.id}
 								>
@@ -272,7 +289,9 @@ export function EvaluatorDashboardTable({
 											appointmentId={appt.id}
 											date={
 												appt.lastTaskCompletedDate
-													? new Date(appt.lastTaskCompletedDate)
+													? (getLocalDayFromUTCDate(
+															appt.lastTaskCompletedDate,
+														) ?? null)
 													: null
 											}
 											isAdmin={isAdmin}
@@ -283,7 +302,8 @@ export function EvaluatorDashboardTable({
 											appointmentId={appt.id}
 											dueDateOverride={
 												appt.dueDateOverride
-													? new Date(appt.dueDateOverride)
+													? (getLocalDayFromUTCDate(appt.dueDateOverride) ??
+														null)
 													: null
 											}
 											effectiveDueDate={appt.effectiveDueDate}
@@ -294,7 +314,7 @@ export function EvaluatorDashboardTable({
 										<ReportCompleteButton
 											appointmentId={appt.id}
 											completedAt={appt.reportCompletedAt}
-											completedByEmail={appt.reportCompletedByEmail}
+											completedByName={appt.reportCompletedByName}
 											isAdmin={isAdmin}
 										/>
 									</TableCell>

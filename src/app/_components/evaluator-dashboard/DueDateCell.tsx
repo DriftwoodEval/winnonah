@@ -3,7 +3,7 @@
 import { DatePicker } from "@ui/date-picker";
 import { format } from "date-fns";
 import { toast } from "sonner";
-import { cn } from "~/lib/utils";
+import { cn, getLocalDayFromUTCDate } from "~/lib/utils";
 import { api } from "~/trpc/react";
 
 interface DueDateCellProps {
@@ -20,7 +20,9 @@ export function DueDateCell({
 	isAdmin,
 }: DueDateCellProps) {
 	const utils = api.useUtils();
-	const isOverdue = effectiveDueDate <= new Date();
+	const localDueDate =
+		getLocalDayFromUTCDate(effectiveDueDate) ?? effectiveDueDate;
+	const isOverdue = localDueDate <= new Date();
 
 	const setOverride = api.evaluatorDashboard.setDueDateOverride.useMutation({
 		onSuccess: () => {
@@ -35,7 +37,7 @@ export function DueDateCell({
 			<span
 				className={cn("text-sm", isOverdue && "font-medium text-destructive")}
 			>
-				{format(effectiveDueDate, "MMM d, yyyy")}
+				{format(localDueDate, "MMM d, yyyy")}
 				{dueDateOverride && (
 					<span className="ml-1 text-muted-foreground text-xs">(override)</span>
 				)}
@@ -47,10 +49,15 @@ export function DueDateCell({
 		<div className="flex flex-col gap-1">
 			<DatePicker
 				allowClear={!!dueDateOverride}
-				date={effectiveDueDate}
+				date={localDueDate}
 				id={`due-date-${appointmentId}`}
 				placeholder="Set due date"
-				setDate={(d) => setOverride.mutate({ appointmentId, date: d ?? null })}
+				setDate={(d) => {
+					const dateStr = d
+						? `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`
+						: null;
+					setOverride.mutate({ appointmentId, date: dateStr });
+				}}
 			/>
 			{dueDateOverride && (
 				<span className="text-muted-foreground text-xs">overridden</span>

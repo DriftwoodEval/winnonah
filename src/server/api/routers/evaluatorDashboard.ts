@@ -16,6 +16,7 @@ function extractPlainText(content: JSONContent): string {
 
 import { addWeeks } from "date-fns";
 import { and, desc, eq, isNotNull, isNull, lte } from "drizzle-orm";
+import { alias } from "drizzle-orm/mysql-core";
 import { z } from "zod";
 import { hasPermission } from "~/lib/utils";
 import {
@@ -229,6 +230,8 @@ export const evaluatorDashboardRouter = createTRPCRouter({
 				);
 			}
 
+			const completedByEvaluator = alias(evaluators, "completed_by_evaluator");
+
 			const rows = await ctx.db
 				.select({
 					id: appointments.id,
@@ -240,7 +243,7 @@ export const evaluatorDashboardRouter = createTRPCRouter({
 					lastTaskCompletedDate: appointments.lastTaskCompletedDate,
 					dueDateOverride: appointments.dueDateOverride,
 					reportCompletedAt: appointments.reportCompletedAt,
-					reportCompletedByEmail: appointments.reportCompletedByEmail,
+					reportCompletedByName: completedByEvaluator.providerName,
 					evaluatorDashboardArchivedAt:
 						appointments.evaluatorDashboardArchivedAt,
 					noteContent: appointmentNotes.content,
@@ -250,6 +253,10 @@ export const evaluatorDashboardRouter = createTRPCRouter({
 				.leftJoin(
 					appointmentNotes,
 					eq(appointmentNotes.appointmentId, appointments.id),
+				)
+				.leftJoin(
+					completedByEvaluator,
+					eq(completedByEvaluator.email, appointments.reportCompletedByEmail),
 				)
 				.where(and(...baseConditions))
 				.orderBy(appointments.startTime);
@@ -383,14 +390,14 @@ export const evaluatorDashboardRouter = createTRPCRouter({
 		.input(
 			z.object({
 				appointmentId: z.string(),
-				date: z.coerce.date().nullable(),
+				date: z.string().date().nullable(),
 			}),
 		)
 		.mutation(async ({ ctx, input }) => {
 			assertPermission(ctx.session.user, "evaluator-dashboard:admin");
 			await ctx.db
 				.update(appointments)
-				.set({ lastTaskCompletedDate: input.date })
+				.set({ lastTaskCompletedDate: input.date as unknown as Date })
 				.where(eq(appointments.id, input.appointmentId));
 		}),
 
@@ -398,14 +405,14 @@ export const evaluatorDashboardRouter = createTRPCRouter({
 		.input(
 			z.object({
 				appointmentId: z.string(),
-				date: z.coerce.date().nullable(),
+				date: z.string().date().nullable(),
 			}),
 		)
 		.mutation(async ({ ctx, input }) => {
 			assertPermission(ctx.session.user, "evaluator-dashboard:admin");
 			await ctx.db
 				.update(appointments)
-				.set({ dueDateOverride: input.date })
+				.set({ dueDateOverride: input.date as unknown as Date })
 				.where(eq(appointments.id, input.appointmentId));
 		}),
 
