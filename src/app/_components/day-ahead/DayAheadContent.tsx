@@ -6,6 +6,7 @@ import {
 	CollapsibleContent,
 	CollapsibleTrigger,
 } from "@ui/collapsible";
+import { DatePicker } from "@ui/date-picker";
 import {
 	Select,
 	SelectContent,
@@ -166,13 +167,19 @@ function DevControls({
 	onDateChange: (date: string) => void;
 }) {
 	const { data: users } = api.users.getAll.useQuery();
+	const dateValue = asDate ? new Date(asDate + "T12:00:00") : undefined;
 	return (
 		<div className="flex items-center gap-2">
-			<input
-				className="h-7 rounded-md border border-input px-2 text-xs"
-				onChange={(e) => onDateChange(e.target.value)}
-				type="date"
-				value={asDate}
+			<DatePicker
+				date={dateValue}
+				id="dev-date"
+				setDate={(d) =>
+					onDateChange(
+						d
+							? d.toISOString().slice(0, 10)
+							: new Date().toISOString().slice(0, 10),
+					)
+				}
 			/>
 			<Select
 				onValueChange={(v) => onUserChange(v === "__self" ? undefined : v)}

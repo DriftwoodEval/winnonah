@@ -8,6 +8,7 @@ import {
 } from "~/lib/home-widgets";
 import { api } from "~/trpc/react";
 import { ClientWidget } from "./ClientWidget";
+import { MyDayWidget, WhosInWidget } from "./DayAheadWidgets";
 import { GridWidgetCell } from "./GridWidgetCell";
 import { HomeCustomizer } from "./HomeCustomizer";
 import { IssueWidgetById } from "./IssueWidgetById";
@@ -60,6 +61,10 @@ export function HomePageContent() {
 							>
 								{w.id === "clients" ? (
 									<ClientWidget />
+								) : w.id === "day-ahead-mine" ? (
+									<MyDayWidget />
+								) : w.id === "day-ahead-offices" ? (
+									<WhosInWidget />
 								) : (
 									<IssueWidgetById id={w.id} />
 								)}
