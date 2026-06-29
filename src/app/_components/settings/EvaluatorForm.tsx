@@ -13,10 +13,12 @@ import {
 	FormMessage,
 } from "@ui/form";
 import { Input } from "@ui/input";
+import { Label } from "@ui/label";
 import MultipleSelector from "@ui/multiple-selector";
 import { Switch } from "@ui/switch";
-import { type ReactNode, useEffect, useMemo, useRef } from "react";
+import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import { useForm } from "react-hook-form";
+import { toast } from "sonner";
 import { z } from "zod";
 import type { Evaluator } from "~/lib/models";
 import { api } from "~/trpc/react";
@@ -131,6 +133,7 @@ interface EvaluatorFormProps {
 	onClose?: () => void;
 	disabled?: boolean;
 	archiveButton?: ReactNode;
+	canManageDashboard?: boolean;
 }
 
 export function EvaluatorForm({
@@ -141,6 +144,7 @@ export function EvaluatorForm({
 	onClose,
 	disabled = false,
 	archiveButton,
+	canManageDashboard = false,
 }: EvaluatorFormProps) {
 	const isEditing = !!initialData;
 
@@ -153,6 +157,39 @@ export function EvaluatorForm({
 	const { data: allInsurances, isLoading: isLoadingInsurances } =
 		api.insurances.getAll.useQuery();
 	const { data: globalDefaults } = api.workSummary.getDefaults.useQuery();
+	const utils = api.useUtils();
+	const isDashboardEvaluator =
+		isEditing && (initialData?.evaluatorDashboard ?? false);
+	const setDashboardEvaluator =
+		api.evaluators.setEvaluatorDashboard.useMutation({
+			onSuccess: () => {
+				toast.success("Dashboard evaluator updated.");
+				void utils.evaluators.getAll.invalidate();
+			},
+			onError: (err) =>
+				toast.error("Failed to update evaluator", { description: err.message }),
+		});
+	const { data: dashboardConfig } = api.evaluatorDashboard.getConfig.useQuery(
+		undefined,
+		{ enabled: canManageDashboard && isDashboardEvaluator },
+	);
+	const [dueDateWeeks, setDueDateWeeks] = useState(4);
+	const [dueDateDirty, setDueDateDirty] = useState(false);
+	useEffect(() => {
+		if (dashboardConfig) {
+			setDueDateWeeks(dashboardConfig.dueDateWeeks);
+			setDueDateDirty(false);
+		}
+	}, [dashboardConfig]);
+	const setConfig = api.evaluatorDashboard.setConfig.useMutation({
+		onSuccess: () => {
+			toast.success("Dashboard settings saved.");
+			void utils.evaluatorDashboard.getConfig.invalidate();
+			setDueDateDirty(false);
+		},
+		onError: (err) =>
+			toast.error("Failed to save settings", { description: err.message }),
+	});
 
 	const zipCodeOptions = useMemo(() => {
 		if (!allZipCodes) return [];
@@ -707,6 +744,74 @@ export function EvaluatorForm({
 						perform. Values are in hours (e.g. 1.5 = 90 min).
 					</p>
 				</div>
+
+				{isEditing && initialData && canManageDashboard && (
+					<div className="flex flex-col gap-3 rounded-md border p-3">
+						<div className="flex items-center gap-3">
+							<Switch
+								checked={initialData.evaluatorDashboard ?? false}
+								disabled={setDashboardEvaluator.isPending}
+								id={`ev-dashboard-${initialData.npi}`}
+								onCheckedChange={(checked) =>
+									setDashboardEvaluator.mutate({
+										npi: initialData.npi,
+										enabled: checked,
+									})
+								}
+							/>
+							<div className="flex flex-col gap-0.5">
+								<Label
+									className="font-medium"
+									htmlFor={`ev-dashboard-${initialData.npi}`}
+								>
+									Report Dashboard Evaluator
+								</Label>
+								<p className="text-muted-foreground text-xs">
+									Only one evaluator can have the report tracking dashboard.
+									Enabling this will disable it for any other.
+								</p>
+							</div>
+						</div>
+
+						{isDashboardEvaluator && (
+							<div className="flex items-center gap-3 border-t pt-3">
+								<Label
+									className="whitespace-nowrap text-sm"
+									htmlFor={`due-weeks-${initialData.npi}`}
+								>
+									Due date weeks
+								</Label>
+								<Input
+									className="w-20"
+									id={`due-weeks-${initialData.npi}`}
+									max={52}
+									min={1}
+									onChange={(e) => {
+										const n = Number.parseInt(e.target.value, 10);
+										if (!Number.isNaN(n) && n >= 1 && n <= 52) {
+											setDueDateWeeks(n);
+											setDueDateDirty(true);
+										}
+									}}
+									type="number"
+									value={dueDateWeeks}
+								/>
+								<span className="text-muted-foreground text-xs">
+									weeks after appointment (or last task date)
+								</span>
+								<Button
+									className="ml-auto"
+									disabled={!dueDateDirty || setConfig.isPending}
+									onClick={() => setConfig.mutate({ dueDateWeeks })}
+									size="sm"
+									type="button"
+								>
+									{setConfig.isPending ? "Saving..." : "Save"}
+								</Button>
+							</div>
+						)}
+					</div>
+				)}
 
 				<div className="flex items-center justify-between pt-4">
 					{archiveButton ?? <div />}

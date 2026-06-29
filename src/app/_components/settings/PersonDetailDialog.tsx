@@ -377,12 +377,14 @@ function AccountSection({
 function EvaluatorSection({
 	evaluator,
 	canEdit,
+	canManageDashboard = false,
 	showHeading,
 	showArchiveButton,
 	onClose,
 }: {
 	evaluator: Evaluator;
 	canEdit: boolean;
+	canManageDashboard?: boolean;
 	showHeading: boolean;
 	showArchiveButton: boolean;
 	onClose: () => void;
@@ -454,6 +456,7 @@ function EvaluatorSection({
 			)}
 			<EvaluatorForm
 				archiveButton={archiveButton}
+				canManageDashboard={canManageDashboard}
 				disabled={!canEdit}
 				initialData={evaluator}
 				isLoading={updateEvaluator.isPending}
@@ -614,12 +617,14 @@ export function PersonDetailDialog({
 	setOpen,
 	canEditUsers,
 	canEditEvaluators,
+	canManageDashboard = false,
 }: {
 	person: MergedPerson;
 	open: boolean;
 	setOpen: (open: boolean) => void;
 	canEditUsers: boolean;
 	canEditEvaluators: boolean;
+	canManageDashboard?: boolean;
 }) {
 	const hasBoth = person.user !== null && person.evaluator !== null;
 
@@ -647,6 +652,7 @@ export function PersonDetailDialog({
 				{person.evaluator && (
 					<EvaluatorSection
 						canEdit={canEditEvaluators}
+						canManageDashboard={canManageDashboard}
 						evaluator={person.evaluator}
 						onClose={() => setOpen(false)}
 						showArchiveButton={!hasBoth}

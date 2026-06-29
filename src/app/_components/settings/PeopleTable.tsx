@@ -123,6 +123,7 @@ interface PeopleListProps {
 	isLoading: boolean;
 	canEditUsers: boolean;
 	canEditEvaluators: boolean;
+	canManageDashboard: boolean;
 	emptyMessage: string;
 }
 
@@ -131,6 +132,7 @@ function PeopleList({
 	isLoading,
 	canEditUsers,
 	canEditEvaluators,
+	canManageDashboard,
 	emptyMessage,
 }: PeopleListProps) {
 	const [selectedPerson, setSelectedPerson] = useState<MergedPerson | null>(
@@ -330,6 +332,7 @@ function PeopleList({
 				<PersonDetailDialog
 					canEditEvaluators={canEditEvaluators}
 					canEditUsers={canEditUsers}
+					canManageDashboard={canManageDashboard}
 					open={selectedPerson !== null}
 					person={selectedPerson}
 					setOpen={(open) => {
@@ -357,6 +360,7 @@ export default function PeopleTable() {
 	const can = useCheckPermission();
 	const canEditUsers = can("settings:users:edit");
 	const canEditEvaluators = can("settings:evaluators");
+	const canManageDashboard = can("evaluator-dashboard:admin");
 
 	const { data: activeUsers, isLoading: isLoadingActiveUsers } =
 		api.users.getAll.useQuery({ archived: false });
@@ -410,6 +414,7 @@ export default function PeopleTable() {
 					<PeopleList
 						canEditEvaluators={canEditEvaluators}
 						canEditUsers={canEditUsers}
+						canManageDashboard={canManageDashboard}
 						emptyMessage="No active people found."
 						isLoading={isLoadingActive}
 						people={activePeople}
@@ -419,6 +424,7 @@ export default function PeopleTable() {
 					<PeopleList
 						canEditEvaluators={canEditEvaluators}
 						canEditUsers={canEditUsers}
+						canManageDashboard={canManageDashboard}
 						emptyMessage="No archived people found."
 						isLoading={isLoadingArchived}
 						people={archivedPeople}

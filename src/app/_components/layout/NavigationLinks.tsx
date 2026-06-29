@@ -13,6 +13,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { useCheckPermission } from "~/hooks/use-check-permission";
+import { api } from "~/trpc/react";
 
 export function NavigationLink({
 	href,
@@ -35,6 +36,15 @@ export default function NavigationLinks() {
 	const { data: session } = useSession();
 	const can = useCheckPermission();
 	const pathname = usePathname();
+	const canSeeDashboard =
+		(session?.user.isEvaluator ?? false) || can("evaluator-dashboard:admin");
+	const { data: dashboardConfig } = api.evaluatorDashboard.getConfig.useQuery(
+		undefined,
+		{ enabled: canSeeDashboard },
+	);
+	const dashboardLabel = dashboardConfig?.evaluatorFirstName
+		? `${dashboardConfig.evaluatorFirstName}'s Reports`
+		: "Report Dashboard";
 
 	if (!session) return null;
 
@@ -78,6 +88,11 @@ export default function NavigationLinks() {
 			href: "/work-summary",
 			label: "Work Summary",
 			show: can("pages:work-summary"),
+		},
+		{
+			href: "/evaluator-dashboard",
+			label: dashboardLabel,
+			show: canSeeDashboard,
 		},
 	].filter((item) => item.show);
 

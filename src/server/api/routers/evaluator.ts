@@ -396,4 +396,24 @@ export const evaluatorRouter = createTRPCRouter({
 		});
 		return evaluator?.outOfOfficePriority ?? false;
 	}),
+
+	setEvaluatorDashboard: protectedProcedure
+		.input(z.object({ npi: z.number().int(), enabled: z.boolean() }))
+		.mutation(async ({ ctx, input }) => {
+			assertPermission(ctx.session.user, "settings:evaluators");
+			await ctx.db.transaction(async (tx) => {
+				if (input.enabled) {
+					// Clear any existing dashboard evaluator first
+					await tx
+						.update(evaluators)
+						.set({ evaluatorDashboard: false })
+						.where(eq(evaluators.evaluatorDashboard, true));
+				}
+				await tx
+					.update(evaluators)
+					.set({ evaluatorDashboard: input.enabled })
+					.where(eq(evaluators.npi, input.npi));
+			});
+			await invalidateCache(ctx, CACHE_KEY_ALL_EVALUATORS);
+		}),
 });

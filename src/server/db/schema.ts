@@ -43,6 +43,7 @@ export const evaluators = createTable("evaluator", (d) => ({
 		.notNull()
 		.default(["DA", "EVAL", "DAEVAL"]),
 	writesOwnReports: d.boolean().notNull().default(false),
+	evaluatorDashboard: d.boolean("evaluator_dashboard").notNull().default(false),
 }));
 
 export const insurances = createTable("insurance", (d) => ({
@@ -570,6 +571,13 @@ export const appointments = createTable("appointment", (d) => ({
 	calendarEventTitle: d.varchar({ length: 255 }),
 	confirmedAt: d.timestamp(),
 	doNotRemind: d.boolean().notNull().default(false),
+	lastTaskCompletedDate: d.date("last_task_completed_date"),
+	dueDateOverride: d.date("due_date_override"),
+	reportCompletedAt: d.timestamp("report_completed_at"),
+	reportCompletedByEmail: d.varchar("report_completed_by_email", {
+		length: 255,
+	}),
+	evaluatorDashboardArchivedAt: d.timestamp("evaluator_dashboard_archived_at"),
 }));
 
 export const assessmentTypes = createTable("assessment_type", (d) => ({
@@ -1110,6 +1118,9 @@ export const workSummaryConfig = createTable("work_summary_config", (d) => ({
 		.$type<Record<string, number>>()
 		.notNull()
 		.default({}),
+	evaluatorDashboardDueDateWeeks: d
+		.int("evaluator_dashboard_due_date_weeks")
+		.default(4),
 }));
 
 export const reportQueueConfig = createTable("report_queue_config", (d) => ({
@@ -1119,3 +1130,64 @@ export const reportQueueConfig = createTable("report_queue_config", (d) => ({
 		.notNull()
 		.default(1),
 }));
+
+export const appointmentNotes = createTable("appointment_note", (d) => ({
+	appointmentId: d
+		.varchar({ length: 255 })
+		.notNull()
+		.primaryKey()
+		.references(() => appointments.id, { onDelete: "cascade" }),
+	content: d.json("content"),
+	createdAt: d
+		.timestamp("created_at")
+		.default(sql`CURRENT_TIMESTAMP`)
+		.notNull(),
+	updatedAt: d
+		.timestamp("updated_at")
+		.onUpdateNow()
+		.default(sql`CURRENT_TIMESTAMP`),
+	updatedBy: d.varchar("updated_by", { length: 255 }),
+}));
+
+export const appointmentNoteHistory = createTable(
+	"appointment_note_history",
+	(d) => ({
+		id: d.int().notNull().autoincrement().primaryKey(),
+		noteId: d.varchar({ length: 255 }).notNull(),
+		content: d.json("content").notNull(),
+		updatedBy: d.varchar("updated_by", { length: 255 }),
+		createdAt: d
+			.timestamp("created_at")
+			.default(sql`CURRENT_TIMESTAMP`)
+			.notNull(),
+	}),
+	(t) => [
+		index("appt_note_history_note_idx").on(t.noteId),
+		foreignKey({
+			columns: [t.noteId],
+			foreignColumns: [appointmentNotes.appointmentId],
+			name: "appt_note_history_note_fk",
+		}).onDelete("cascade"),
+	],
+);
+
+export const appointmentNotesRelations = relations(
+	appointmentNotes,
+	({ one, many }) => ({
+		appointment: one(appointments, {
+			fields: [appointmentNotes.appointmentId],
+			references: [appointments.id],
+		}),
+		history: many(appointmentNoteHistory),
+	}),
+);
+
+export const appointmentNoteHistoryRelations = relations(
+	appointmentNoteHistory,
+	({ one }) => ({
+		note: one(appointmentNotes, {
+			fields: [appointmentNoteHistory.noteId],
+			references: [appointmentNotes.appointmentId],
+		}),
+	}),
+);
