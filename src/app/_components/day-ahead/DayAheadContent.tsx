@@ -167,7 +167,7 @@ function DevControls({
 	onDateChange: (date: string) => void;
 }) {
 	const { data: users } = api.users.getAll.useQuery();
-	const dateValue = asDate ? new Date(asDate + "T12:00:00") : undefined;
+	const dateValue = asDate ? new Date(`${asDate}T12:00:00`) : undefined;
 	return (
 		<div className="flex items-center gap-2">
 			<DatePicker
@@ -222,7 +222,7 @@ export function DayAheadContent() {
 
 	const displayDate =
 		IS_DEV && asDate
-			? new Date(asDate + "T12:00:00").toLocaleDateString([], {
+			? new Date(`${asDate}T12:00:00`).toLocaleDateString([], {
 					weekday: "long",
 					month: "long",
 					day: "numeric",

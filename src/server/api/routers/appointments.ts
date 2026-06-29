@@ -67,7 +67,7 @@ export const appointmentRouter = createTRPCRouter({
 		.query(async ({ ctx, input }) => {
 			let ref = new Date();
 			if (process.env.NODE_ENV === "development" && input?.asDate) {
-				const parsed = new Date(input.asDate + "T00:00:00");
+				const parsed = new Date(`${input.asDate}T00:00:00`);
 				if (!Number.isNaN(parsed.getTime())) ref = parsed;
 			}
 			const startOfDay = new Date(
@@ -175,23 +175,21 @@ export const appointmentRouter = createTRPCRouter({
 			for (const row of allRows) {
 				const key = row.locationKey ?? "unknown";
 				const label = row.officeName ?? row.locationKey ?? "Unknown Office";
-				if (!byOffice[key]) {
-					byOffice[key] = {
-						officeName: label,
-						locationKey: key,
-						evaluators: {},
-					};
-				}
-				const officeEntry = byOffice[key]!;
-				if (!officeEntry.evaluators[row.evaluatorNpi]) {
-					officeEntry.evaluators[row.evaluatorNpi] = {
-						name: row.evaluatorName,
-						npi: row.evaluatorNpi,
-						isCurrentUser: row.evaluatorNpi === currentNpi,
-						appointments: [],
-					};
-				}
-				const evalEntry = officeEntry.evaluators[row.evaluatorNpi]!;
+				const officeEntry: OfficeEntry = byOffice[key] ?? {
+					officeName: label,
+					locationKey: key,
+					evaluators: {},
+				};
+				byOffice[key] = officeEntry;
+				const evalEntry: EvaluatorEntry = officeEntry.evaluators[
+					row.evaluatorNpi
+				] ?? {
+					name: row.evaluatorName,
+					npi: row.evaluatorNpi,
+					isCurrentUser: row.evaluatorNpi === currentNpi,
+					appointments: [],
+				};
+				officeEntry.evaluators[row.evaluatorNpi] = evalEntry;
 				evalEntry.appointments.push({
 					id: row.appointmentId,
 					startTime: row.startTime,
