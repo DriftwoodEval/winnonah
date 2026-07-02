@@ -100,6 +100,8 @@ export const appointmentRouter = createTRPCRouter({
 							confirmedAt: appointments.confirmedAt,
 							clientName: clients.fullName,
 							clientHash: clients.hash,
+							clientDriveId: clients.driveId,
+							clientTaHash: clients.taHash,
 							officeName: offices.prettyName,
 						})
 						.from(appointments)
@@ -132,6 +134,8 @@ export const appointmentRouter = createTRPCRouter({
 					confirmedAt: appointments.confirmedAt,
 					clientName: clients.fullName,
 					clientHash: clients.hash,
+					clientDriveId: clients.driveId,
+					clientTaHash: clients.taHash,
 				})
 				.from(appointments)
 				.innerJoin(evaluators, eq(appointments.evaluatorNpi, evaluators.npi))
@@ -161,6 +165,8 @@ export const appointmentRouter = createTRPCRouter({
 					confirmedAt: Date | null;
 					clientName: string;
 					clientHash: string;
+					clientDriveId: string | null;
+					clientTaHash: string | null;
 				}[];
 			};
 			type OfficeEntry = {
@@ -199,6 +205,8 @@ export const appointmentRouter = createTRPCRouter({
 					confirmedAt: row.confirmedAt ?? null,
 					clientName: row.clientName,
 					clientHash: row.clientHash,
+					clientDriveId: row.clientDriveId ?? null,
+					clientTaHash: row.clientTaHash ?? null,
 				});
 			}
 

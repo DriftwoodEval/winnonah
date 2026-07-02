@@ -15,7 +15,8 @@ import {
 	SelectValue,
 } from "@ui/select";
 import { Separator } from "@ui/separator";
-import { ChevronDown, ChevronRight } from "lucide-react";
+import { Armchair, ChevronDown, ChevronRight } from "lucide-react";
+import Image from "next/image";
 import Link from "next/link";
 import { useState } from "react";
 import { api } from "~/trpc/react";
@@ -38,6 +39,8 @@ type Appointment = {
 	asdAdhd: string | null;
 	clientName: string;
 	clientHash: string;
+	clientDriveId?: string | null;
+	clientTaHash?: string | null;
 	officeName?: string | null;
 	confirmedAt?: Date | null;
 	calendarEventTitle?: string | null;
@@ -55,6 +58,30 @@ function AppointmentRow({ appt }: { appt: Appointment }) {
 			>
 				{appt.clientName}
 			</Link>
+			{appt.clientDriveId && appt.clientDriveId !== "N/A" && (
+				<Link
+					className="shrink-0"
+					href={`https://drive.google.com/open?id=${appt.clientDriveId}`}
+					target="_blank"
+				>
+					<Image
+						alt="Google Drive"
+						className="dark:invert"
+						height={14}
+						src="/icons/google-drive.svg"
+						width={14}
+					/>
+				</Link>
+			)}
+			{appt.clientTaHash && (
+				<Link
+					className="shrink-0 text-muted-foreground hover:text-foreground"
+					href={`https://api.portal.therapyappointment.com/n/client/${appt.clientTaHash}`}
+					target="_blank"
+				>
+					<Armchair height="14" width="14" />
+				</Link>
+			)}
 			{appt.asdAdhd && (
 				<Badge className="shrink-0" variant="outline">
 					{appt.asdAdhd}
@@ -82,6 +109,8 @@ type EvaluatorAppt = {
 	asdAdhd: string | null;
 	clientName: string;
 	clientHash: string;
+	clientDriveId: string | null;
+	clientTaHash: string | null;
 };
 
 function EvaluatorRow({
@@ -137,6 +166,30 @@ function EvaluatorRow({
 							>
 								{appt.clientName}
 							</Link>
+							{appt.clientDriveId && appt.clientDriveId !== "N/A" && (
+								<Link
+									className="shrink-0"
+									href={`https://drive.google.com/open?id=${appt.clientDriveId}`}
+									target="_blank"
+								>
+									<Image
+										alt="Google Drive"
+										className="dark:invert"
+										height={12}
+										src="/icons/google-drive.svg"
+										width={12}
+									/>
+								</Link>
+							)}
+							{appt.clientTaHash && (
+								<Link
+									className="shrink-0 text-muted-foreground hover:text-foreground"
+									href={`https://api.portal.therapyappointment.com/n/client/${appt.clientTaHash}`}
+									target="_blank"
+								>
+									<Armchair height="12" width="12" />
+								</Link>
+							)}
 							{appt.asdAdhd && (
 								<Badge className="shrink-0 text-xs" variant="outline">
 									{appt.asdAdhd}
