@@ -195,6 +195,7 @@ export function InsuranceReviewSection({
 
 			<div className="space-y-3">
 				<RichTextEditor
+					allowImages
 					formatBar={false}
 					key={`insurance-review-${client.id}`}
 					onChange={(content) => {

@@ -216,6 +216,7 @@ export function ClientNoteEditor({
 						value={localTitle}
 					/>
 					<RichTextEditor
+						allowImages
 						onChange={(content) => {
 							isTyping.current = true;
 							setLocalContent(content);

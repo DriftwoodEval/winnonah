@@ -1,11 +1,14 @@
 "use client";
 
+import Image from "@tiptap/extension-image";
 import Placeholder from "@tiptap/extension-placeholder";
+import type { Editor } from "@tiptap/react";
 import { EditorContent, type JSONContent, useEditor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import { ToggleGroup, ToggleGroupItem } from "@ui/toggle-group";
 import {
 	Bold,
+	ImageIcon,
 	Italic,
 	Link as LinkIcon,
 	Redo,
@@ -15,7 +18,7 @@ import {
 	Undo,
 	Unlink,
 } from "lucide-react";
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { cn } from "~/lib/utils";
 
 interface RichTextEditorProps {
@@ -25,6 +28,7 @@ interface RichTextEditorProps {
 	className?: string;
 	readonly?: boolean;
 	formatBar?: boolean;
+	allowImages?: boolean;
 }
 
 export function RichTextEditor({
@@ -34,11 +38,19 @@ export function RichTextEditor({
 	className,
 	readonly,
 	formatBar = true,
+	allowImages = false,
 }: RichTextEditorProps) {
+	const editorRef = useRef<Editor | null>(null);
+	const imageInputRef = useRef<HTMLInputElement | null>(null);
+
 	const editor = useEditor({
 		editable: !readonly,
 		immediatelyRender: false,
-		extensions: [StarterKit, Placeholder.configure({ placeholder })],
+		extensions: [
+			StarterKit,
+			Placeholder.configure({ placeholder }),
+			...(allowImages ? [Image.configure({ allowBase64: true })] : []),
+		],
 		content: value,
 		onUpdate: ({ editor }) => {
 			onChange?.(editor.getJSON());
@@ -50,8 +62,49 @@ export function RichTextEditor({
 					"prose prose-sm sm:prose-base max-w-full",
 				),
 			},
+			handlePaste: (_view, event) => {
+				if (!allowImages) return false;
+				const item = Array.from(event.clipboardData?.items ?? []).find((i) =>
+					i.type.startsWith("image/"),
+				);
+				if (!item) return false;
+				const file = item.getAsFile();
+				if (!file) return false;
+				const reader = new FileReader();
+				reader.onload = (e) => {
+					editorRef.current
+						?.chain()
+						.focus()
+						.setImage({ src: e.target?.result as string })
+						.run();
+				};
+				reader.readAsDataURL(file);
+				return true;
+			},
+			handleDrop: (_view, event) => {
+				if (!allowImages) return false;
+				const file = Array.from(
+					(event as DragEvent).dataTransfer?.files ?? [],
+				).find((f) => f.type.startsWith("image/"));
+				if (!file) return false;
+				event.preventDefault();
+				const reader = new FileReader();
+				reader.onload = (e) => {
+					editorRef.current
+						?.chain()
+						.focus()
+						.setImage({ src: e.target?.result as string })
+						.run();
+				};
+				reader.readAsDataURL(file);
+				return true;
+			},
 		},
 	});
+
+	useEffect(() => {
+		editorRef.current = editor;
+	}, [editor]);
 
 	useEffect(() => {
 		if (editor && value !== undefined) {
@@ -70,9 +123,32 @@ export function RichTextEditor({
 
 	return (
 		<div className={className}>
+			{allowImages && !readonly && (
+				<input
+					accept="image/*"
+					className="hidden"
+					onChange={(e) => {
+						const file = e.target.files?.[0];
+						if (file) {
+							const reader = new FileReader();
+							reader.onload = (ev) => {
+								editorRef.current
+									?.chain()
+									.focus()
+									.setImage({ src: ev.target?.result as string })
+									.run();
+							};
+							reader.readAsDataURL(file);
+							e.target.value = "";
+						}
+					}}
+					ref={imageInputRef}
+					type="file"
+				/>
+			)}
 			{!readonly && formatBar && (
 				<div className="mb-3 flex flex-wrap items-center gap-2">
-					<ToggleGroup size="sm" type="multiple" variant="outline">
+					<ToggleGroup size="sm" spacing={0} type="multiple" variant="outline">
 						<ToggleGroupItem
 							aria-label="Toggle bold"
 							data-state={editor.isActive("bold") ? "on" : "off"}
@@ -125,7 +201,7 @@ export function RichTextEditor({
 						</ToggleGroupItem>
 					</ToggleGroup>
 
-					<ToggleGroup size="sm" type="single" variant="outline">
+					<ToggleGroup size="sm" spacing={0} type="single" variant="outline">
 						<ToggleGroupItem
 							aria-label="Add link"
 							data-state={editor.isActive("link") ? "on" : "off"}
@@ -171,7 +247,20 @@ export function RichTextEditor({
 						</ToggleGroupItem>
 					</ToggleGroup>
 
-					<ToggleGroup size="sm" type="single" variant="outline">
+					{allowImages && (
+						<ToggleGroup size="sm" spacing={0} type="single" variant="outline">
+							<ToggleGroupItem
+								aria-label="Insert image"
+								data-state="off"
+								onClick={() => imageInputRef.current?.click()}
+								value="image"
+							>
+								<ImageIcon className="size-4" />
+							</ToggleGroupItem>
+						</ToggleGroup>
+					)}
+
+					<ToggleGroup size="sm" spacing={0} type="single" variant="outline">
 						<ToggleGroupItem
 							aria-label="Undo"
 							disabled={!editor.can().chain().focus().undo().run()}
