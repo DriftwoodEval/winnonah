@@ -825,6 +825,20 @@ def put_appointment_in_db(
             )
             return
 
+        cursor.execute(
+            f"SELECT startTime, confirmedAt FROM `{TABLE_APPOINTMENT}` WHERE id = %s",
+            (appointment_id,),
+        )
+        existing = cursor.fetchone()
+        if (
+            existing
+            and existing["confirmedAt"] is not None
+            and existing["startTime"] != start_time
+        ):
+            logger.warning(
+                f"Appointment {appointment_id}: startTime changed from {existing['startTime']} to {start_time} - confirmedAt will be cleared (was {existing['confirmedAt']})"
+            )
+
     sql = f"""
         INSERT INTO `{TABLE_APPOINTMENT}` (id, clientId, evaluatorNpi, startTime, endTime, daEval, asdAdhd, cancelled, locationKey, calendarEventId, cpt, calendarEventTitle, confirmedAt, billingOnly)
         VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
@@ -841,7 +855,7 @@ def put_appointment_in_db(
             calendarEventId = CASE WHEN VALUES(calendarEventId) IS NOT NULL THEN VALUES(calendarEventId) ELSE calendarEventId END,
             cpt = VALUES(cpt),
             calendarEventTitle = CASE WHEN VALUES(calendarEventTitle) IS NOT NULL THEN VALUES(calendarEventTitle) ELSE calendarEventTitle END,
-            confirmedAt = CASE WHEN startTime != VALUES(startTime) THEN NULL WHEN VALUES(confirmedAt) IS NOT NULL THEN VALUES(confirmedAt) ELSE confirmedAt END,
+            confirmedAt = CASE WHEN startTime != VALUES(startTime) THEN NULL WHEN confirmedAt IS NOT NULL THEN confirmedAt WHEN VALUES(confirmedAt) IS NOT NULL THEN VALUES(confirmedAt) ELSE NULL END,
             billingOnly = VALUES(billingOnly);
     """
     params = (

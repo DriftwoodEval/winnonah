@@ -105,7 +105,7 @@ export function AppointmentReminderTimeline({
 						className={`absolute top-1 -left-[17px] h-2 w-2 rounded-full border-2 bg-background ${item.isOverdue ? "border-destructive" : item.condition ? "border-muted-foreground" : "border-primary"}`}
 					/>
 					<p className="font-medium text-[10px] leading-tight">
-						{item.isOverdue ? (
+						{item.isOverdue && appointmentTime > new Date() ? (
 							<span className="text-destructive italic">
 								sending on next cycle
 							</span>

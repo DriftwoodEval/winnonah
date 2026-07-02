@@ -102,6 +102,234 @@ def format_message(template: str, appointment: dict) -> str:
     return template
 
 
+def adjust_for_quiet_window(
+    dt: datetime,
+    quiet_settings: dict | None,
+) -> tuple[datetime, bool]:
+    if not quiet_settings:
+        return dt, False
+
+    start_val = quiet_settings.get("quietWindowStart")
+    end_val = quiet_settings.get("quietWindowEnd")
+    if start_val is None or end_val is None:
+        return dt, False
+
+    def to_time(val):
+        if isinstance(val, timedelta):
+            return (datetime.min + val).time()
+        return val
+
+    window_start = to_time(start_val)
+    window_end = to_time(end_val)
+    dt_time = dt.time()
+    is_overnight = window_start > window_end
+
+    if is_overnight:
+        in_window = dt_time >= window_start or dt_time <= window_end
+    else:
+        in_window = window_start <= dt_time <= window_end
+
+    if not in_window:
+        return dt, False
+
+    if is_overnight and dt_time >= window_start:
+        next_day = dt + timedelta(days=1)
+        result = next_day.replace(
+            hour=window_end.hour, minute=window_end.minute, second=0, microsecond=0
+        )
+    else:
+        result = dt.replace(
+            hour=window_end.hour, minute=window_end.minute, second=0, microsecond=0
+        )
+
+    return result, True
+
+
+def _matches_template(
+    appt: dict,
+    template: dict,
+    *,
+    has_prior_sent: bool = False,
+) -> bool:
+    """Returns whether an appointment should receive a given reminder template.
+
+    Used as a post-fetch filter in process_reminders and directly in get_reminder_preview
+    so both always share the same criteria. Update this function when matching logic changes.
+
+    Confirmed follow-up templates are filtered by SQL in process_reminders (confirmedAt IS NOT NULL);
+    this function returns True for them so get_reminder_preview can show them as conditionally pending.
+    """
+    if template.get("isNoReplyFollowUp"):
+        return has_prior_sent and not appt.get("confirmedAt")
+
+    if template.get("isConfirmedFollowUp"):
+        return True
+
+    # Standard: only for unconfirmed appointments
+    if appt.get("confirmedAt"):
+        return False
+
+    raw_location = template.get("triggerLocationKey")
+    if isinstance(raw_location, str):
+        raw_location = json.loads(raw_location)
+    trigger_location_keys = raw_location or None
+    trigger_keyword = template.get("triggerKeyword")
+    trigger_da_eval = template.get("triggerDaEval")
+
+    matches_keyword = bool(
+        trigger_keyword
+        and appt.get("calendarEventTitle")
+        and trigger_keyword in appt["calendarEventTitle"]
+    )
+    matches_da_eval_location = bool(
+        (trigger_da_eval is not None or bool(trigger_location_keys))
+        and (trigger_da_eval is None or appt.get("daEval") == trigger_da_eval)
+        and (
+            not trigger_location_keys
+            or appt.get("locationKey") in trigger_location_keys
+        )
+    )
+
+    return matches_keyword or matches_da_eval_location
+
+
+@provide_connection
+def get_reminder_preview(
+    appointment_id: str,
+    connection: Connection[DictCursor],
+) -> dict | None:
+    with connection.cursor() as cursor:
+        cursor.execute(
+            f"SELECT quietWindowStart, quietWindowEnd FROM {TABLE_APPOINTMENT_REMINDER_SETTINGS} LIMIT 1"
+        )
+        quiet_settings = cursor.fetchone()
+
+        cursor.execute(
+            f"""
+            SELECT a.id, a.startTime, a.daEval, a.locationKey, a.calendarEventTitle,
+                   a.cancelled, a.rescheduled, a.placeholder, a.doNotRemind, a.billingOnly,
+                   a.confirmedAt, c.language, c.phoneNumber,
+                   o.prettyName AS officeLabel, o.locationPhrase AS officeLocationPhrase
+            FROM {TABLE_APPOINTMENT} a
+            JOIN {TABLE_CLIENT} c ON a.clientId = c.id
+            LEFT JOIN {TABLE_OFFICE} o ON a.locationKey = o.`key`
+            WHERE a.id = %s
+            """,
+            (appointment_id,),
+        )
+        appt = cursor.fetchone()
+
+        if not appt:
+            return None
+
+        cursor.execute(
+            f"SELECT * FROM {TABLE_APPOINTMENT_REMINDER_TEMPLATES} WHERE isActive = 1"
+        )
+        templates = list(cursor.fetchall())
+
+        cursor.execute(
+            f"""
+            SELECT l.sentAt, l.reminderTemplateId, t.name AS templateName, t.messageTemplate
+            FROM {TABLE_APPOINTMENT_REMINDER_LOGS} l
+            JOIN {TABLE_APPOINTMENT_REMINDER_TEMPLATES} t ON l.reminderTemplateId = t.id
+            WHERE l.appointmentId = %s
+            ORDER BY l.sentAt
+            """,
+            (appointment_id,),
+        )
+        sent_logs = list(cursor.fetchall())
+
+    now = datetime.now()
+    start_time = appt["startTime"]
+
+    suppressed_reason = None
+    if appt.get("cancelled"):
+        suppressed_reason = "cancelled"
+    elif appt.get("rescheduled"):
+        suppressed_reason = "rescheduled"
+    elif appt.get("placeholder"):
+        suppressed_reason = "placeholder"
+    elif appt.get("doNotRemind"):
+        suppressed_reason = "doNotRemind"
+    elif appt.get("billingOnly"):
+        suppressed_reason = "billingOnly"
+
+    sent = [
+        {
+            "sentAt": log["sentAt"].isoformat(),
+            "templateName": log["templateName"],
+            "templateId": log["reminderTemplateId"],
+            "messageTemplate": log["messageTemplate"],
+        }
+        for log in sent_logs
+    ]
+
+    sent_template_ids = {log["reminderTemplateId"] for log in sent_logs}
+    pending = []
+
+    if not suppressed_reason:
+        templates.sort(
+            key=lambda t: (
+                bool(t.get("isNoReplyFollowUp") or t.get("isConfirmedFollowUp")),
+                t["sendOffsetHours"],
+            )
+        )
+
+        for template in templates:
+            if template["id"] in sent_template_ids:
+                continue
+
+            raw_scheduled = start_time - timedelta(hours=template["sendOffsetHours"])
+            scheduled_for, quiet_adjusted = adjust_for_quiet_window(
+                raw_scheduled, quiet_settings
+            )
+            is_overdue = scheduled_for <= now
+
+            appointment_is_past = start_time <= now
+            if (
+                is_overdue
+                and appointment_is_past
+                and not template.get("isConfirmedFollowUp")
+            ):
+                continue
+
+            has_prior = bool(sent_logs)
+            if not _matches_template(appt, template, has_prior_sent=has_prior):
+                continue
+
+            if template.get("isNoReplyFollowUp"):
+                condition = "if still unconfirmed"
+            elif template.get("isConfirmedFollowUp"):
+                condition = None if appt.get("confirmedAt") else "if confirmed"
+            else:
+                condition = None
+
+            pending.append(
+                {
+                    "scheduledFor": scheduled_for.isoformat(),
+                    "quietAdjusted": quiet_adjusted,
+                    "templateName": template["name"],
+                    "condition": condition,
+                    "messageTemplate": template["messageTemplate"],
+                    "isOverdue": is_overdue,
+                }
+            )
+
+    pending.sort(key=lambda p: p["scheduledFor"])
+
+    return {
+        "appointmentTime": start_time.isoformat(),
+        "officeName": appt.get("officeLabel"),
+        "officeLocationPhrase": appt.get("officeLocationPhrase"),
+        "suppressed": bool(suppressed_reason),
+        "suppressedReason": suppressed_reason,
+        "clientLanguage": appt.get("language"),
+        "hasPhone": bool(appt.get("phoneNumber")),
+        "sent": sent,
+        "pending": pending,
+    }
+
+
 @provide_connection
 async def process_reminders(connection: Connection[DictCursor]) -> None:
     if is_within_quiet_window():
@@ -134,18 +362,6 @@ async def process_reminders(connection: Connection[DictCursor]) -> None:
 
     with connection.cursor() as cursor:
         for template in templates:
-            trigger_keyword = (
-                f"%{template['triggerKeyword']}%"
-                if template["triggerKeyword"]
-                else None
-            )
-            trigger_da_eval = template.get("triggerDaEval")
-
-            raw_location = template.get("triggerLocationKey")
-            if isinstance(raw_location, str):
-                raw_location = json.loads(raw_location)
-            trigger_location_keys = raw_location or None
-
             max_lead_time = datetime.now() + timedelta(
                 hours=template["sendOffsetHours"]
             )
@@ -156,13 +372,16 @@ async def process_reminders(connection: Connection[DictCursor]) -> None:
             elif template.get("isConfirmedFollowUp"):
                 template_type = "confirmed follow-up"
             else:
+                raw_location = template.get("triggerLocationKey")
+                if isinstance(raw_location, str):
+                    raw_location = json.loads(raw_location)
                 criteria_parts = []
                 if template.get("triggerKeyword"):
                     criteria_parts.append(f"keyword={template['triggerKeyword']!r}")
-                if trigger_da_eval:
-                    criteria_parts.append(f"daEval={trigger_da_eval}")
-                if trigger_location_keys:
-                    criteria_parts.append(f"locations={trigger_location_keys}")
+                if template.get("triggerDaEval"):
+                    criteria_parts.append(f"daEval={template['triggerDaEval']}")
+                if raw_location:
+                    criteria_parts.append(f"locations={raw_location}")
                 template_type = f"standard ({', '.join(criteria_parts) or 'global'})"
             logger.info(
                 f"Template [{template_name}] ({template_type}): "
@@ -171,11 +390,8 @@ async def process_reminders(connection: Connection[DictCursor]) -> None:
             )
 
             if template.get("isNoReplyFollowUp"):
-                # No-reply follow-up logic:
-                # 1. This template hasn't been sent yet.
-                # 2. Appointment IS NOT confirmed.
-                # 3. At least one OTHER template WAS sent.
-                # 4. GLOBAL: Applies to ANY appointment regardless of type/location.
+                # Candidates: not yet sent this template, at least one other template was sent,
+                # not suppressed. _matches_template post-filter enforces confirmedAt IS NULL.
                 query = f"""
                     SELECT a.*, c.firstName, c.lastName, c.preferredName, c.phoneNumber,
                            o.prettyName AS officeLabel, o.locationPhrase AS officeLocationPhrase
@@ -185,7 +401,6 @@ async def process_reminders(connection: Connection[DictCursor]) -> None:
                     LEFT JOIN {TABLE_APPOINTMENT_REMINDER_LOGS} l_this ON a.id = l_this.appointmentId AND l_this.reminderTemplateId = %s
                     JOIN {TABLE_APPOINTMENT_REMINDER_LOGS} l_prev ON a.id = l_prev.appointmentId AND l_prev.reminderTemplateId != %s
                     WHERE l_this.id IS NULL
-                    AND a.confirmedAt IS NULL
                     AND l_prev.id IS NOT NULL
                     AND a.cancelled = 0
                     AND a.rescheduled = 0
@@ -202,10 +417,9 @@ async def process_reminders(connection: Connection[DictCursor]) -> None:
                     max_lead_time,
                 )
             elif template.get("isConfirmedFollowUp"):
-                # Confirmed follow-up logic:
-                # 1. This template hasn't been sent yet.
-                # 2. Appointment IS confirmed.
-                # 3. GLOBAL: Applies to ANY appointment regardless of type/location.
+                # Candidates: not yet sent, appointment is confirmed, not suppressed.
+                # confirmedAt IS NOT NULL stays in SQL (not mirrored in _matches_template)
+                # because preview and sending have different semantics for confirmed follow-ups.
                 query = f"""
                     SELECT a.*, c.firstName, c.lastName, c.preferredName, c.phoneNumber,
                            o.prettyName AS officeLabel, o.locationPhrase AS officeLocationPhrase
@@ -229,16 +443,8 @@ async def process_reminders(connection: Connection[DictCursor]) -> None:
                     max_lead_time,
                 )
             else:
-                # Standard reminder logic:
-                # 1. This template hasn't been sent yet.
-                # 2. Appointment IS NOT confirmed.
-                if trigger_location_keys:
-                    location_clause = f"a.locationKey IN ({', '.join(['%s'] * len(trigger_location_keys))})"
-                    location_params = tuple(trigger_location_keys)
-                else:
-                    location_clause = "1=1"
-                    location_params = ()
-
+                # Candidates: not yet sent, not suppressed, within time window.
+                # _matches_template post-filter enforces confirmedAt IS NULL and keyword/daEval/location.
                 query = f"""
                     SELECT a.*, c.firstName, c.lastName, c.preferredName, c.phoneNumber,
                            o.prettyName AS officeLabel, o.locationPhrase AS officeLocationPhrase
@@ -247,39 +453,35 @@ async def process_reminders(connection: Connection[DictCursor]) -> None:
                     LEFT JOIN {TABLE_OFFICE} o ON a.locationKey = o.`key`
                     LEFT JOIN {TABLE_APPOINTMENT_REMINDER_LOGS} l ON a.id = l.appointmentId AND l.reminderTemplateId = %s
                     WHERE l.id IS NULL
-                    AND a.confirmedAt IS NULL
                     AND a.cancelled = 0
                     AND a.rescheduled = 0
                     AND a.doNotRemind = 0
                     AND a.placeholder = 0
                     AND a.billingOnly = 0
                     AND c.language = 'English'
-                    AND (
-                        (%s IS NOT NULL AND a.calendarEventTitle LIKE %s)
-                        OR
-                        (
-                            (%s IS NOT NULL OR %s)
-                            AND (%s IS NULL OR a.daEval = %s)
-                            AND {location_clause}
-                        )
-                    )
                     AND a.startTime <= %s
                     AND a.startTime >= NOW()
                 """
                 params = (
                     template["id"],
-                    trigger_keyword,
-                    trigger_keyword,
-                    trigger_da_eval,
-                    bool(trigger_location_keys),
-                    trigger_da_eval,
-                    trigger_da_eval,
-                    *location_params,
                     max_lead_time,
                 )
 
             cursor.execute(query, params)
-            pending_appointments = cursor.fetchall()
+            raw_appointments = cursor.fetchall()
+            pending_appointments = (
+                [
+                    a
+                    for a in raw_appointments
+                    if _matches_template(a, template, has_prior_sent=True)
+                ]
+                if template.get("isNoReplyFollowUp")
+                else (
+                    raw_appointments
+                    if template.get("isConfirmedFollowUp")
+                    else [a for a in raw_appointments if _matches_template(a, template)]
+                )
+            )
 
             is_standard = not template.get("isNoReplyFollowUp") and not template.get(
                 "isConfirmedFollowUp"
@@ -672,3 +874,11 @@ async def handle_webhook(
     )
 
     return {"status": "ok"}
+
+
+@router.get("/pyapi/appointment-reminders/preview/{appointment_id}")
+async def preview_appointment_reminders(appointment_id: str):
+    data = get_reminder_preview(appointment_id)
+    if data is None:
+        raise HTTPException(status_code=404, detail="Appointment not found")
+    return data
