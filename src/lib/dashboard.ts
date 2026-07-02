@@ -104,6 +104,18 @@ export const DASHBOARD_CONFIG: {
 			f.daEval === "Records" ||
 			f.reason === "docs not signed" ||
 			f.reason === "portal not opened",
+		sort: (a, b) => {
+			const hasVisibleFailure = (c: FullClientInfo) =>
+				c.failures?.some(
+					(f) =>
+						(f.reminded ?? 0) < 100 &&
+						(f.reason === "docs not signed" ||
+							f.reason === "portal not opened"),
+				)
+					? 1
+					: 0;
+			return hasVisibleFailure(a) - hasVisibleFailure(b);
+		},
 	},
 	{
 		title: SECTION_RECORDS_REQUESTED_NOT_RETURNED,
