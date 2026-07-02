@@ -57,6 +57,12 @@ export function AdditionalInsuranceAppointmentsDisplay({
 
 	const maxUnitsPerDay = additionalAppts?.maxUnitsPerDay ?? 6;
 	const waitForPA = insurance?.preAuthNeeded ?? false;
+	const isBabyNet =
+		client.babyNet ||
+		(client.primaryInsurance?.toLowerCase().includes("babynet") ?? false) ||
+		(client.secondaryInsurance ?? []).some((s) =>
+			s.toLowerCase().includes("babynet"),
+		);
 	const using90000BillingCode = additionalAppts?.using90000BillingCode ?? false;
 	const snapshot = client.assessmentData;
 
@@ -208,6 +214,11 @@ export function AdditionalInsuranceAppointmentsDisplay({
 
 			{displayAppointments.length > 0 && (
 				<div className="space-y-6 p-4">
+					{isBabyNet && (
+						<Badge className="w-full justify-center py-1" variant="destructive">
+							BABYNET
+						</Badge>
+					)}
 					{waitForPA && (
 						<Badge className="w-full justify-center py-1" variant="destructive">
 							PRIOR AUTH REQUIRED
