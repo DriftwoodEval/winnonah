@@ -911,7 +911,8 @@ export async function getAvailabilityEvents(
 		.filter(
 			(event) =>
 				event.summary?.toLowerCase().includes("available") ||
-				event.summary?.toLowerCase().includes("out of office"),
+				event.summary?.toLowerCase().includes("out of office") ||
+				event.eventType === "outOfOffice",
 		)
 		.map((event) => {
 			const startDateTime = event.start?.dateTime || event.start?.date;
