@@ -651,18 +651,6 @@ export const clientRouter = createTRPCRouter({
 		);
 	}),
 
-	getNeedsBabyNetERDownloaded: protectedProcedure.query(async ({ ctx }) => {
-		const needsBabyNetERDownloaded = await ctx.db.query.clients.findMany({
-			where: and(
-				eq(clients.babyNetERDownloaded, false),
-				eq(clients.babyNetERNeeded, true),
-			),
-			orderBy: clients.dob,
-		});
-
-		return needsBabyNetERDownloaded;
-	}),
-
 	getNoteOnlyClients: protectedProcedure.query(async ({ ctx }) => {
 		const noteOnlyClients = await ctx.db.query.clients.findMany({
 			where: and(isNoteOnly, eq(clients.status, true)),

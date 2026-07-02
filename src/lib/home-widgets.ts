@@ -146,13 +146,6 @@ export const HOME_WIDGET_DEFS: HomeWidgetDef[] = [
 		sizing: "content",
 	},
 	{
-		id: "babynet-er",
-		label: "Needs BabyNet ER Downloaded",
-		permission: "issues:babynet-er",
-		category: "issues",
-		sizing: "content",
-	},
-	{
 		id: "notes-only",
 		label: "Notes Only",
 		permission: "clients:merge",

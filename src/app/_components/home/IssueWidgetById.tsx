@@ -91,8 +91,6 @@ export function IssueWidgetById({ id }: { id: string }) {
 			return <NotInTAWidget />;
 		case "droplist":
 			return <DropListWidget />;
-		case "babynet-er":
-			return <BabyNetERWidget />;
 		case "notes-only":
 			return can("clients:merge") ? <NotesOnlyWidget /> : null;
 		case "no-drive-ids":
@@ -397,23 +395,6 @@ function DropListWidget() {
 			isLoading={isLoading}
 			permission="issues:droplist"
 			title="Drop List"
-		/>
-	);
-}
-
-function BabyNetERWidget() {
-	const can = useCheckPermission();
-	const { data, isLoading } = api.clients.getNeedsBabyNetERDownloaded.useQuery(
-		undefined,
-		{ enabled: can("issues:babynet-er") },
-	);
-	return (
-		<SimpleIssueWidget
-			clients={data}
-			description="BabyNet Evaluation Report marked needed but not downloaded."
-			isLoading={isLoading}
-			permission="issues:babynet-er"
-			title="Needs BabyNet ER Downloaded"
 		/>
 	);
 }

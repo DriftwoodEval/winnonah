@@ -863,8 +863,6 @@ export function IssuesList() {
 		api.clients.getPaused.useQuery();
 	const { data: evaluationInProcess, isLoading: isLoadingEvaluationInProcess } =
 		api.clients.getEvaluationInProcess.useQuery();
-	const { data: needsBabyNetERDownloaded, isLoading: isLoadingNeedsBabyNetER } =
-		api.clients.getNeedsBabyNetERDownloaded.useQuery();
 	const { data: noteOnlyClients, isLoading: isLoadingNoteOnlyClients } =
 		api.clients.getNoteOnlyClients.useQuery();
 	const { data: mergeSuggestions, isLoading: isLoadingMergeSuggestions } =
@@ -1140,19 +1138,6 @@ export function IssuesList() {
 						clients={dropList}
 						description="Clients who have been reminded more than 3 times and aren't completing tasks."
 						title="Drop List"
-					/>
-				)}
-			</GuardedIssue>
-
-			<GuardedIssue
-				isLoading={isLoadingNeedsBabyNetER}
-				permission="issues:babynet-er"
-			>
-				{needsBabyNetERDownloaded && needsBabyNetERDownloaded.length !== 0 && (
-					<IssueList
-						clients={needsBabyNetERDownloaded}
-						description="BabyNet Evaluation Report marked needed but not downloaded."
-						title="Needs BabyNet ER Downloaded"
 					/>
 				)}
 			</GuardedIssue>

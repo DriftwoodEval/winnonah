@@ -231,7 +231,6 @@ export const PERMISSIONS = {
 					{ id: "issues:babynet-ageout", title: "Too Old for BabyNet" },
 					{ id: "issues:not-in-ta", title: "Not in TA" },
 					{ id: "issues:droplist", title: "Drop List" },
-					{ id: "issues:babynet-er", title: "Needs BabyNet ER Downloaded" },
 					{ id: "issues:no-drive-ids", title: "No Drive IDs" },
 					{ id: "issues:private-pay", title: "Potential Private Pay" },
 					{

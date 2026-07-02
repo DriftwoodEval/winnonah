@@ -45,9 +45,6 @@ export function IssuesAlert() {
 	const { data: evaluationInProcess } =
 		api.clients.getEvaluationInProcess.useQuery(undefined, queryOptions);
 
-	const { data: needsBabyNetERDownloaded } =
-		api.clients.getNeedsBabyNetERDownloaded.useQuery(undefined, queryOptions);
-
 	const { data: noteOnlyClients } = api.clients.getNoteOnlyClients.useQuery(
 		undefined,
 		queryOptions,
@@ -142,7 +139,6 @@ export function IssuesAlert() {
 		countIf(can("issues:babynet-ageout"), babyNetErrors?.length ?? 0) +
 		countIf(can("issues:not-in-ta"), notInTAErrors?.length ?? 0) +
 		countIf(can("issues:droplist"), dropList?.length ?? 0) +
-		countIf(can("issues:babynet-er"), needsBabyNetERDownloaded?.length ?? 0) +
 		countIf(can("clients:merge"), noteOnlyClients?.length ?? 0) +
 		countIf(can("issues:no-drive-ids"), noDriveIds?.length ?? 0) +
 		countIf(can("issues:private-pay"), possiblePrivatePay?.length ?? 0) +
