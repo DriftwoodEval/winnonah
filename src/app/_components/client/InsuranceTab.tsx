@@ -73,12 +73,14 @@ type Policy =
 function PolicyCard({
 	policy,
 	medicaidEligibility,
+	paAssignedTo,
 }: {
 	policy: Policy;
 	medicaidEligibility?: {
 		qualCategory: string | null;
 		paymentCategory: string | null;
 	};
+	paAssignedTo?: string;
 }) {
 	const active = isActive(policy.policyStartDate, policy.policyEndDate);
 	const companyName =
@@ -243,6 +245,7 @@ function PolicyCard({
 							/>
 							<InfoRow label="Spoke To" value={policy.precertSpokeTO} />
 							<InfoRow label="CPT" value={policy.precertCpt} />
+							<InfoRow label="PA Assigned to" value={paAssignedTo} />
 						</div>
 						{policy.precertMemo && (
 							<p className="mt-2 text-muted-foreground text-sm">
@@ -290,6 +293,13 @@ export function InsuranceTab({ client }: InsuranceTabProps) {
 	const { data, isLoading } =
 		api.clients.getInsurancePolicies.useQuery(clientId);
 
+	const { data: punchClient } = api.google.getClientFromPunch.useQuery(
+		clientId.toString(),
+		{ enabled: !!clientId },
+	);
+
+	const paAssignedTo = punchClient?.["PA Assigned to"];
+
 	const policies = data?.policies ?? [];
 	const scmAliasNames = data?.scmAliasNames ?? [];
 	const isScmClient =
@@ -334,6 +344,7 @@ export function InsuranceTab({ client }: InsuranceTabProps) {
 										}
 									: undefined
 							}
+							paAssignedTo={paAssignedTo}
 							policy={policy}
 						/>
 					))}
@@ -355,6 +366,7 @@ export function InsuranceTab({ client }: InsuranceTabProps) {
 												}
 											: undefined
 									}
+									paAssignedTo={paAssignedTo}
 									policy={policy}
 								/>
 							))}
