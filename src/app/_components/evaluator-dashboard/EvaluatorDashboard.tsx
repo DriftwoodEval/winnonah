@@ -74,7 +74,7 @@ export function EvaluatorDashboard() {
 
 	if (!isAdmin) {
 		return (
-			<div className="w-full max-w-6xl">
+			<div className="w-full">
 				<h1 className="mb-3 font-bold text-2xl">{title}</h1>
 				<TabContent isAdmin={false} tab="active" />
 			</div>
@@ -83,7 +83,7 @@ export function EvaluatorDashboard() {
 
 	if (previewing) {
 		return (
-			<div className="w-full max-w-6xl">
+			<div className="w-full">
 				<div className="mb-3 flex items-center gap-3">
 					<h1 className="font-bold text-2xl">{title}</h1>
 					<Badge variant="secondary">Evaluator Preview</Badge>
@@ -103,7 +103,7 @@ export function EvaluatorDashboard() {
 	}
 
 	return (
-		<div className="w-full max-w-6xl">
+		<div className="w-full">
 			<div className="mb-3 flex items-center gap-3">
 				<h1 className="font-bold text-2xl">{title}</h1>
 				{process.env.NODE_ENV === "development" && (

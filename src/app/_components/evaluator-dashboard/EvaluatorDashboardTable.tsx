@@ -86,6 +86,9 @@ export function EvaluatorDashboardTable({
 	tab,
 }: EvaluatorDashboardTableProps) {
 	const utils = api.useUtils();
+	const config = api.evaluatorDashboard.getConfig.useQuery(undefined, {
+		enabled: isAdmin,
+	});
 
 	const archiveRow = api.evaluatorDashboard.archiveRow.useMutation({
 		onSuccess: () => {
@@ -254,7 +257,17 @@ export function EvaluatorDashboardTable({
 							<TableHead>Type</TableHead>
 							<TableHead className="min-w-[220px]">Note</TableHead>
 							<TableHead>Last Task</TableHead>
-							<TableHead>Due Date</TableHead>
+							<TooltipProvider>
+								<Tooltip>
+									<TooltipTrigger asChild>
+										<TableHead>Due Date</TableHead>
+									</TooltipTrigger>
+									<TooltipContent>
+										{config.data?.dueDateWeeks} weeks from appointment date or
+										last task date if it exists, overrideable
+									</TooltipContent>
+								</Tooltip>
+							</TooltipProvider>
 							<TableHead>Complete</TableHead>
 							{isAdmin && <TableHead />}
 						</TableRow>
