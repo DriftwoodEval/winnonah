@@ -773,6 +773,7 @@ export const users = createTable("user", (d) => ({
 	isGreeter: d.boolean("is_greeter").notNull().default(false),
 	recentClients: d.text("recent_clients"),
 	homeWidgets: d.text("home_widgets"),
+	blockedEvaluatorNpis: d.json("blocked_evaluator_npis").$type<number[]>(),
 }));
 
 export const usersRelations = relations(users, ({ many, one }) => ({

@@ -1,7 +1,7 @@
 import type { JSONContent } from "@tiptap/core";
 import { TRPCError } from "@trpc/server";
 import { differenceInMonths, differenceInYears } from "date-fns";
-import { and, asc, eq, isNotNull, not, sql } from "drizzle-orm";
+import { and, asc, desc, eq, isNotNull, not, sql } from "drizzle-orm";
 import { distance as levDistance } from "fastest-levenshtein";
 import z from "zod";
 import { env } from "~/env";
@@ -32,6 +32,7 @@ import {
 	protectedProcedure,
 } from "~/server/api/trpc";
 import {
+	appointments,
 	clients,
 	notes,
 	offices,
@@ -1135,6 +1136,8 @@ export const googleRouter = createTRPCRouter({
 	getFolders: protectedProcedure
 		.input(z.object({ parentId: z.string() }))
 		.query(async ({ input, ctx }) => {
+			assertPermission(ctx.session.user, "reports:approve");
+
 			const cookieHeader = ctx.headers.get("cookie") ?? "";
 
 			const response = await fetch(`${env.PY_API}/folders/${input.parentId}`, {
@@ -1154,6 +1157,65 @@ export const googleRouter = createTRPCRouter({
 				folders: { id: string; name: string }[];
 			};
 			return data.folders;
+		}),
+
+	getQueueCount: protectedProcedure
+		.input(z.object({ sourceId: z.string() }))
+		.query(async ({ input, ctx }) => {
+			const cookieHeader = ctx.headers.get("cookie") ?? "";
+
+			const [folderResponse, user] = await Promise.all([
+				fetch(`${env.PY_API}/folders/${input.sourceId}`, {
+					headers: { Cookie: cookieHeader },
+				}),
+				ctx.db.query.users.findFirst({
+					where: eq(users.id, ctx.session.user.id),
+					columns: { blockedEvaluatorNpis: true },
+				}),
+			]);
+
+			if (!folderResponse.ok)
+				throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+
+			const { folders } = (await folderResponse.json()) as {
+				folders: { id: string; name: string }[];
+			};
+
+			const blocked = user?.blockedEvaluatorNpis ?? [];
+			if (blocked.length === 0) return folders.length;
+
+			const clientIdPattern = /\[([A-Za-z0-9-]+)\]/;
+			let count = 0;
+
+			for (const folder of folders) {
+				const match = clientIdPattern.exec(folder.name);
+				if (!match?.[1]) {
+					count++;
+					continue;
+				}
+				const clientId = Number(match[1]);
+				if (Number.isNaN(clientId)) {
+					count++;
+					continue;
+				}
+
+				const recentAppt = await ctx.db.query.appointments.findFirst({
+					where: and(
+						eq(appointments.clientId, clientId),
+						eq(appointments.billingOnly, false),
+						eq(appointments.cancelled, false),
+						eq(appointments.placeholder, false),
+					),
+					columns: { evaluatorNpi: true },
+					orderBy: desc(appointments.startTime),
+				});
+
+				if (!recentAppt || !blocked.includes(recentAppt.evaluatorNpi)) {
+					count++;
+				}
+			}
+
+			return count;
 		}),
 
 	getWriterFolder: protectedProcedure
@@ -1198,7 +1260,11 @@ export const googleRouter = createTRPCRouter({
 			const [user, config] = await Promise.all([
 				ctx.db.query.users.findFirst({
 					where: eq(users.id, ctx.session.user.id),
-					columns: { claimedReportFolder: true, maxClaimedReports: true },
+					columns: {
+						claimedReportFolder: true,
+						maxClaimedReports: true,
+						blockedEvaluatorNpis: true,
+					},
 				}),
 				ctx.db.query.reportQueueConfig.findFirst({
 					where: eq(reportQueueConfig.id, 1),
@@ -1218,6 +1284,45 @@ export const googleRouter = createTRPCRouter({
 				throw new Error(
 					`You already have ${currentFolders.length} report${currentFolders.length !== 1 ? "s" : ""} claimed (max: ${effectiveMax}). They must be approved before claiming more.`,
 				);
+			}
+
+			const blocked = user?.blockedEvaluatorNpis ?? [];
+			if (blocked.length > 0) {
+				const peekResponse = await fetch(
+					`${env.PY_API}/folders/${input.sourceId}`,
+					{ headers: { Cookie: cookieHeader } },
+				);
+				if (peekResponse.ok) {
+					const peekData = (await peekResponse.json()) as {
+						folders: { id: string; name: string }[];
+					};
+					const topFolder = peekData.folders[0];
+					if (topFolder) {
+						const clientIdMatch = /\[([A-Za-z0-9-]+)\]/.exec(topFolder.name);
+						const clientId = clientIdMatch?.[1]
+							? Number(clientIdMatch[1])
+							: null;
+						if (clientId && !Number.isNaN(clientId)) {
+							const recentAppt = await ctx.db.query.appointments.findFirst({
+								where: and(
+									eq(appointments.clientId, clientId),
+									eq(appointments.billingOnly, false),
+									eq(appointments.cancelled, false),
+									eq(appointments.placeholder, false),
+								),
+								columns: { evaluatorNpi: true },
+								orderBy: desc(appointments.startTime),
+							});
+							if (recentAppt && blocked.includes(recentAppt.evaluatorNpi)) {
+								throw new TRPCError({
+									code: "FORBIDDEN",
+									message:
+										"You are not authorized to write reports for this client's evaluator.",
+								});
+							}
+						}
+					}
+				}
 			}
 
 			const response = await fetch(`${env.PY_API}/folders/claim`, {

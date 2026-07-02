@@ -210,6 +210,21 @@ export const userRouter = createTRPCRouter({
 				.where(eq(users.id, input.userId));
 		}),
 
+	setBlockedEvaluatorNpis: protectedProcedure
+		.input(
+			z.object({
+				userId: z.string(),
+				npis: z.array(z.number()).nullable(),
+			}),
+		)
+		.mutation(async ({ ctx, input }) => {
+			assertPermission(ctx.session.user, "settings:users:edit");
+			await ctx.db
+				.update(users)
+				.set({ blockedEvaluatorNpis: input.npis })
+				.where(eq(users.id, input.userId));
+		}),
+
 	getSavedPlaces: protectedProcedure.query(async ({ ctx }) => {
 		const userFromDb = await ctx.db.query.users.findFirst({
 			where: eq(users.id, ctx.session.user.id),

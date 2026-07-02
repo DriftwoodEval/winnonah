@@ -513,6 +513,7 @@ def get_scm_clients_with_medicaid_ids(
     connection: Connection[DictCursor] | None = None,
 ) -> list[dict]:
     """Returns active clients with SCM insurance and their medicaid (insurance) numbers."""
+    assert connection is not None
     with connection.cursor() as cursor:
         cursor.execute(
             f"""
@@ -565,7 +566,7 @@ def get_scm_clients_with_medicaid_ids(
             """,
             scm_names,
         )
-        return cursor.fetchall()
+        return list(cursor.fetchall())
 
 
 @provide_connection
@@ -1281,7 +1282,7 @@ def get_queue_notify_users(connection: Connection[DictCursor]):
     users = []
     with connection.cursor() as cursor:
         cursor.execute(
-            f"SELECT email, name, permissions, claimed_report_folder FROM {TABLE_USER} WHERE archived = 0"
+            f"SELECT email, name, permissions, claimed_report_folder, blocked_evaluator_npis FROM {TABLE_USER} WHERE archived = 0"
         )
         rows = cursor.fetchall()
 
@@ -1294,6 +1295,26 @@ def get_queue_notify_users(connection: Connection[DictCursor]):
                 users.append(row)
 
     return users
+
+
+@provide_connection
+def get_most_recent_non_billing_evaluator_npi(
+    connection: Connection[DictCursor], client_id: str
+) -> int | None:
+    """Returns the evaluator NPI from the most recent non-billing-only appointment for the client."""
+    try:
+        with connection.cursor() as cursor:
+            cursor.execute(
+                f"SELECT evaluatorNpi FROM `{TABLE_APPOINTMENT}` "
+                "WHERE clientId = %s AND billingOnly = 0 AND cancelled = 0 AND placeholder = 0 "
+                "ORDER BY startTime DESC LIMIT 1",
+                (client_id,),
+            )
+            row = cursor.fetchone()
+            return row["evaluatorNpi"] if row else None
+    except Exception:
+        logger.exception(f"Error fetching evaluator NPI for client {client_id}")
+        return None
 
 
 @provide_connection

@@ -1,9 +1,16 @@
+import json
+import re
+
 from dotenv import load_dotenv
 from loguru import logger
 
 from utils.config import validate_config
 from utils.constants import TABLE_SEEN_REPORT_FOLDERS
-from utils.database import get_db, get_queue_notify_users
+from utils.database import (
+    get_db,
+    get_most_recent_non_billing_evaluator_npi,
+    get_queue_notify_users,
+)
 from utils.google import get_items_in_folder, send_gmail
 from utils.misc import json_log_format
 
@@ -56,6 +63,12 @@ def check_report_queue_and_notify():
     for folder in new_folders:
         folder_name = folder["name"]
 
+        match = re.search(r"\[([A-Za-z0-9-]+)\]", folder_name)
+        client_id = match.group(1) if match else None
+        evaluator_npi = (
+            get_most_recent_non_billing_evaluator_npi(client_id) if client_id else None
+        )
+
         subject = f"New Report Folder in Queue: {folder_name}"
         message_text = f"A new report folder has been added to the queue: {folder_name}\n\nYou can claim it on the site: https://emr.driftwoodeval.com/claim-reports"
 
@@ -65,6 +78,15 @@ def check_report_queue_and_notify():
         """
 
         for user in eligible_users:
+            if evaluator_npi is not None:
+                blocked_raw = user.get("blocked_evaluator_npis")
+                blocked = json.loads(blocked_raw) if blocked_raw else []
+                if evaluator_npi in blocked:
+                    logger.info(
+                        f"Skipping {user['email']} for folder {folder_name} - evaluator {evaluator_npi} is blocked"
+                    )
+                    continue
+
             logger.info(f"Notifying {user['email']} about folder {folder_name}")
             send_gmail(
                 message_text=message_text,

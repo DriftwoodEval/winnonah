@@ -12,6 +12,7 @@ import {
 	AlertDialogTitle,
 } from "@ui/alert-dialog";
 import { Button } from "@ui/button";
+import { Checkbox } from "@ui/checkbox";
 import {
 	Form,
 	FormControl,
@@ -80,6 +81,7 @@ const accountFormSchema = z.object({
 		.nullable()
 		.optional(),
 	maxClaimedReports: z.number().int().min(0).max(10).nullable().optional(),
+	blockedEvaluatorNpis: z.array(z.number()).nullable().optional(),
 });
 type AccountFormValues = z.infer<typeof accountFormSchema>;
 
@@ -129,6 +131,19 @@ function AccountSection({
 				});
 			},
 		});
+
+	const { mutateAsync: setBlockedEvaluatorNpis } =
+		api.users.setBlockedEvaluatorNpis.useMutation({
+			onError: (error) => {
+				toast.error("Failed to update blocked evaluators", {
+					description: String(error.message),
+				});
+			},
+		});
+
+	const { data: allEvaluators } = api.evaluators.getAll.useQuery(undefined, {
+		enabled: canEdit,
+	});
 
 	const { mutateAsync: updateArchiveStatus } =
 		api.users.updateUserArchiveStatus.useMutation({
@@ -197,6 +212,7 @@ function AccountSection({
 				? formatPhoneAsYouType(user.phoneNumber)
 				: "",
 			maxClaimedReports: user.maxClaimedReports ?? null,
+			blockedEvaluatorNpis: (user.blockedEvaluatorNpis as number[]) ?? null,
 		},
 	});
 
@@ -210,6 +226,10 @@ function AccountSection({
 			? normalizePhone(values.phoneNumber)
 			: "";
 		const phoneValue = normalized === "" ? null : normalized;
+		const blockedNpis =
+			values.blockedEvaluatorNpis && values.blockedEvaluatorNpis.length > 0
+				? values.blockedEvaluatorNpis
+				: null;
 		await Promise.all([
 			updateUser({ userId: user.id, permissions: values.permissions }),
 			setPhone({ userId: user.id, phoneNumber: phoneValue }),
@@ -217,6 +237,7 @@ function AccountSection({
 				userId: user.id,
 				maxClaimedReports: values.maxClaimedReports ?? null,
 			}),
+			setBlockedEvaluatorNpis({ userId: user.id, npis: blockedNpis }),
 		]);
 		utils.users.getAll.invalidate();
 		toast.success("Account updated");
@@ -293,6 +314,48 @@ function AccountSection({
 								</FormItem>
 							)}
 						/>
+						{allEvaluators && allEvaluators.length > 0 && (
+							<FormField
+								control={form.control}
+								name="blockedEvaluatorNpis"
+								render={({ field }) => (
+									<FormItem>
+										<FormLabel>Blocked Evaluators</FormLabel>
+										<FormDescription>
+											This user cannot claim or receive notifications for
+											reports belonging to these evaluators.
+										</FormDescription>
+										<div className="flex flex-col gap-2 pt-1">
+											{allEvaluators.map((ev) => (
+												<FormItem
+													className="flex items-center gap-2"
+													key={ev.npi}
+												>
+													<FormControl>
+														<Checkbox
+															checked={field.value?.includes(ev.npi) ?? false}
+															disabled={!canEdit}
+															onCheckedChange={(checked) => {
+																const current = field.value ?? [];
+																field.onChange(
+																	checked
+																		? [...current, ev.npi]
+																		: current.filter((n) => n !== ev.npi),
+																);
+															}}
+														/>
+													</FormControl>
+													<FormLabel className="font-normal">
+														{ev.providerName}
+													</FormLabel>
+												</FormItem>
+											))}
+										</div>
+										<FormMessage />
+									</FormItem>
+								)}
+							/>
+						)}
 					</div>
 
 					<div className="flex items-center justify-between">

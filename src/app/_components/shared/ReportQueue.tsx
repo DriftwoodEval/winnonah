@@ -11,6 +11,7 @@ import {
 	InboxIcon,
 } from "lucide-react";
 import { toast } from "sonner";
+import { useCheckPermission } from "~/hooks/use-check-permission";
 import { api } from "~/trpc/react";
 
 interface ReportQueueProps {
@@ -20,11 +21,19 @@ interface ReportQueueProps {
 
 export default function ReportQueue({ sourceId, destId }: ReportQueueProps) {
 	const utils = api.useUtils();
+	const can = useCheckPermission();
+	const canApprove = can("reports:approve");
 
 	const { data: folders, isLoading: foldersLoading } =
 		api.google.getFolders.useQuery(
 			{ parentId: sourceId },
-			{ refetchOnWindowFocus: false },
+			{ refetchOnWindowFocus: false, enabled: canApprove },
+		);
+
+	const { data: queueCount, isLoading: queueCountLoading } =
+		api.google.getQueueCount.useQuery(
+			{ sourceId },
+			{ refetchOnWindowFocus: false, enabled: !canApprove },
 		);
 
 	const { data: claimedData, isLoading: claimedLoading } =
@@ -41,7 +50,8 @@ export default function ReportQueue({ sourceId, destId }: ReportQueueProps) {
 		toast.promise(claimMutation.mutateAsync({ sourceId, destId }), {
 			loading: "Claiming...",
 			success: (data) => {
-				void utils.google.getFolders.invalidate();
+				if (canApprove) void utils.google.getFolders.invalidate();
+				else void utils.google.getQueueCount.invalidate();
 				void utils.google.getClaimedFolders.invalidate();
 				void utils.google.getClaimedReports.invalidate();
 				return `Claimed "${data.folder_claimed}" into "${data.moved_into}"`;
@@ -50,11 +60,15 @@ export default function ReportQueue({ sourceId, destId }: ReportQueueProps) {
 		});
 	};
 
-	const isLoading = foldersLoading || claimedLoading;
+	const isLoading =
+		(canApprove ? foldersLoading : queueCountLoading) || claimedLoading;
 
 	const claimedFolders = claimedData?.folders ?? [];
 	const effectiveMax = claimedData?.effectiveMax ?? 1;
 	const atLimit = claimedFolders.length >= effectiveMax;
+	const availableCount = canApprove
+		? (folders?.length ?? 0)
+		: (queueCount ?? 0);
 
 	return (
 		<Card className="mx-auto my-4 w-full max-w-2xl shadow-sm">
@@ -99,7 +113,9 @@ export default function ReportQueue({ sourceId, destId }: ReportQueueProps) {
 					)}
 					<Button
 						className="font-medium hover:cursor-pointer"
-						disabled={claimMutation.isPending || !folders?.length || atLimit}
+						disabled={
+							claimMutation.isPending || availableCount === 0 || atLimit
+						}
 						onClick={handleClaim}
 						size="sm"
 						title={
@@ -170,30 +186,44 @@ export default function ReportQueue({ sourceId, destId }: ReportQueueProps) {
 								</div>
 							)}
 
-							{folders && folders.length > 0 ? (
-								<div className="grid gap-1 py-2">
-									{folders.map((folder) => (
-										<div
-											className="group flex items-center justify-between rounded-md p-3"
-											key={folder.id}
-										>
-											<div className="flex items-center gap-3">
-												<FolderIcon
-													className="fill-amber-500/20 text-amber-500"
-													size={18}
-												/>
-												<span className="font-medium text-sm leading-none">
-													{folder.name}
-												</span>
+							{canApprove ? (
+								folders && folders.length > 0 ? (
+									<div className="grid gap-1 py-2">
+										{folders.map((folder) => (
+											<div
+												className="group flex items-center justify-between rounded-md p-3"
+												key={folder.id}
+											>
+												<div className="flex items-center gap-3">
+													<FolderIcon
+														className="fill-amber-500/20 text-amber-500"
+														size={18}
+													/>
+													<span className="font-medium text-sm leading-none">
+														{folder.name}
+													</span>
+												</div>
 											</div>
-										</div>
-									))}
-								</div>
+										))}
+									</div>
+								) : (
+									<div className="flex h-[200px] flex-col items-center justify-center text-center text-muted-foreground">
+										<InboxIcon className="mb-2 h-8 w-8 opacity-20" />
+										<p className="text-sm italic">
+											No folders found in this directory.
+										</p>
+									</div>
+								)
 							) : (
 								<div className="flex h-[200px] flex-col items-center justify-center text-center text-muted-foreground">
 									<InboxIcon className="mb-2 h-8 w-8 opacity-20" />
+									<p className="font-semibold text-foreground text-lg">
+										{queueCountLoading ? "..." : (queueCount ?? 0)}
+									</p>
 									<p className="text-sm italic">
-										No folders found in this directory.
+										{(queueCount ?? 0) === 1
+											? "report available to claim"
+											: "reports available to claim"}
 									</p>
 								</div>
 							)}
