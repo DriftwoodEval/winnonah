@@ -18,6 +18,7 @@ import {
 } from "@ui/tooltip";
 import { format } from "date-fns";
 import Link from "next/link";
+import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { cn, getLocalDayFromUTCDate } from "~/lib/utils";
 import type { RouterOutputs } from "~/trpc/react";
@@ -49,17 +50,30 @@ function TypeBadge({
 }
 
 function ClientNameCell({ name, hash }: { name: string; hash: string }) {
+	const linkRef = useRef<HTMLAnchorElement>(null);
+	const [isTruncated, setIsTruncated] = useState(false);
+
+	useEffect(() => {
+		const el = linkRef.current;
+		if (el) setIsTruncated(el.scrollWidth > el.clientWidth);
+	}, []);
+
+	const link = (
+		<Link
+			className="block max-w-[160px] truncate text-sm hover:underline"
+			href={`/clients/${hash}`}
+			ref={linkRef}
+		>
+			{name}
+		</Link>
+	);
+
+	if (!isTruncated) return link;
+
 	return (
 		<TooltipProvider>
 			<Tooltip>
-				<TooltipTrigger asChild>
-					<Link
-						className="block max-w-[160px] truncate text-sm hover:underline"
-						href={`/clients/${hash}`}
-					>
-						{name}
-					</Link>
-				</TooltipTrigger>
+				<TooltipTrigger asChild>{link}</TooltipTrigger>
 				<TooltipContent>{name}</TooltipContent>
 			</Tooltip>
 		</TooltipProvider>
