@@ -85,12 +85,14 @@ services:
       - CLOSE_FAX_FROM_EMAIL=${CLOSE_FAX_FROM_EMAIL}
       - BASE_FOLDER_ID=${BASE_FOLDER_ID}
       - ERROR_EMAILS=${ERROR_EMAILS}
+      - QS_LOGS_PATH=/app/qs-logs
     volumes:
       - ./python/auth_cache:/app/auth_cache
       - ./python/temp:/app/temp
       - ./python/logs:/app/logs
       - ./python/shapefiles:/app/shapefiles
       - ./python/cache:/app/cache
+      - ../qs/logs:/app/qs-logs
 
   winnonah-docs:
     image: ghcr.io/driftwoodeval/winnonah-docs:latest

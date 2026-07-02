@@ -16,6 +16,21 @@ type CsvKey =
 	| "chart"
 	| "referral";
 
+type ScriptKey =
+	| "appointment_reminders"
+	| "qsend"
+	| "records_request"
+	| "piecework"
+	| "qreceive";
+
+const SCRIPT_ENTRIES: { key: ScriptKey; label: string }[] = [
+	{ key: "appointment_reminders", label: "Appointment Reminders" },
+	{ key: "qsend", label: "Questionnaire Send" },
+	{ key: "records_request", label: "Records Request (Fax)" },
+	{ key: "piecework", label: "Piecework" },
+	{ key: "qreceive", label: "Questionnaire Receive" },
+];
+
 const CSV_FILES: { key: CsvKey; label: string; filename: string }[] = [
 	{ key: "billing", label: "Billing", filename: "clients-billing.csv" },
 	{
@@ -42,6 +57,8 @@ export default function BillingDownload() {
 	const downloadMutation = api.clients.downloadCsv.useMutation();
 	const { data: fileInfo, isLoading: fileInfoLoading } =
 		api.clients.getCsvFileInfo.useQuery();
+	const { data: scriptInfo, isLoading: scriptInfoLoading } =
+		api.clients.getScriptRunInfo.useQuery();
 
 	const handleDownload = async (key: CsvKey, filename: string) => {
 		setPendingKey(key);
@@ -88,6 +105,29 @@ export default function BillingDownload() {
 									</Button>
 									<span className="text-center text-muted-foreground text-xs">
 										{fileInfoLoading
+											? null
+											: mtime
+												? format(new Date(mtime * 1000), "MM/dd/yy h:mm a")
+												: "Missing"}
+									</span>
+								</div>
+							);
+						})}
+					</div>
+				</CardContent>
+			</Card>
+
+			<Card>
+				<CardContent>
+					<h3 className="mb-3 font-semibold text-sm">Last Script Run Times</h3>
+					<div className="grid grid-cols-2 gap-x-6 gap-y-2 text-sm sm:grid-cols-3">
+						{SCRIPT_ENTRIES.map(({ key, label }) => {
+							const mtime = scriptInfo?.[key];
+							return (
+								<div className="flex flex-col" key={key}>
+									<span className="font-medium">{label}</span>
+									<span className="text-muted-foreground text-xs">
+										{scriptInfoLoading
 											? null
 											: mtime
 												? format(new Date(mtime * 1000), "MM/dd/yy h:mm a")

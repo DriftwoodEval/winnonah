@@ -632,6 +632,17 @@ DOWNLOADABLE_FILES = {
 }
 
 
+_QS_LOGS_PATH = os.getenv("QS_LOGS_PATH", "../questionnaires/logs")
+
+SCRIPT_LOGS: dict[str, str] = {
+    "appointment_reminders": "logs/appointment-reminders.log",
+    "qsend": f"{_QS_LOGS_PATH}/qsend.log",
+    "records_request": f"{_QS_LOGS_PATH}/records-request.log",
+    "piecework": f"{_QS_LOGS_PATH}/piecework.log",
+    "qreceive": f"{_QS_LOGS_PATH}/qreceive.log",
+}
+
+
 @app.get("/download-info")
 async def download_file_info(current_user: dict = Depends(get_current_user)):
     if not current_user["permissions"].get("clients:download"):
@@ -641,6 +652,18 @@ async def download_file_info(current_user: dict = Depends(get_current_user)):
     for key, filename in DOWNLOADABLE_FILES.items():
         file_path = Path("temp/input", filename)
         result[key] = file_path.stat().st_mtime if file_path.exists() else None
+    return result
+
+
+@app.get("/script-run-info")
+async def script_run_info(current_user: dict = Depends(get_current_user)):
+    if not current_user["permissions"].get("clients:download"):
+        raise HTTPException(status_code=403, detail="Not authorized")
+
+    result: dict[str, float | None] = {}
+    for key, path in SCRIPT_LOGS.items():
+        p = Path(path)
+        result[key] = p.stat().st_mtime if p.exists() else None
     return result
 
 

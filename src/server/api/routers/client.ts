@@ -2154,6 +2154,25 @@ export const clientRouter = createTRPCRouter({
 		return response.json() as Promise<Record<string, number | null>>;
 	}),
 
+	getScriptRunInfo: protectedProcedure.query(async ({ ctx }) => {
+		assertPermission(ctx.session.user, "clients:download");
+
+		const cookieHeader = ctx.headers.get("cookie") ?? "";
+
+		const response = await fetch(`${env.PY_API}/script-run-info`, {
+			headers: { Cookie: cookieHeader },
+		});
+
+		if (!response.ok) {
+			throw new TRPCError({
+				code: "INTERNAL_SERVER_ERROR",
+				message: "Failed to fetch script run info",
+			});
+		}
+
+		return response.json() as Promise<Record<string, number | null>>;
+	}),
+
 	downloadCsv: protectedProcedure
 		.input(
 			z.enum([
