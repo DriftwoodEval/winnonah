@@ -375,12 +375,17 @@ def is_confirmation(incoming_text: str) -> bool:
     return bool(re.search(pattern, incoming_text, re.IGNORECASE))
 
 
-async def is_first_reply_since_reminder(
+async def should_handle_reply(
     message_id: str | None,
     sent_at: datetime,
     client_phone: str,
+    connection: Connection[DictCursor],
 ) -> bool:
-    """Returns True if no other incoming reply exists in this conversation since sent_at."""
+    """Returns True only if both conditions hold since the last reminder was sent:
+    1. No other incoming reply from the patient exists.
+    2. No manual outgoing messages from us exist (automated reminder messages are excluded
+       by checking the reminder logs table).
+    """
     http = get_http_client()
 
     normalized = client_phone if client_phone.startswith("+") else f"+1{client_phone}"
@@ -402,16 +407,32 @@ async def is_first_reply_since_reminder(
         response.raise_for_status()
         messages = response.json().get("data", [])
 
+        outgoing_ids = []
         for msg in messages:
-            if msg.get("direction") != "incoming":
-                continue
             if msg.get("id") == message_id:
                 continue
-            return False
+            direction = msg.get("direction")
+            if direction == "incoming":
+                return False
+            if direction == "outgoing" and msg.get("id"):
+                outgoing_ids.append(msg["id"])
+
+        if outgoing_ids:
+            placeholders = ", ".join(["%s"] * len(outgoing_ids))
+            with connection.cursor() as cursor:
+                cursor.execute(
+                    f"SELECT openphoneMessageId FROM {TABLE_APPOINTMENT_REMINDER_LOGS} WHERE openphoneMessageId IN ({placeholders})",
+                    tuple(outgoing_ids),
+                )
+                logged_ids = {row["openphoneMessageId"] for row in cursor.fetchall()}
+
+            for oid in outgoing_ids:
+                if oid not in logged_ids:
+                    return False
 
         return True
     except Exception as e:
-        logger.error(f"Failed to check prior replies from OpenPhone: {e}")
+        logger.error(f"Failed to check prior messages from OpenPhone: {e}")
         return True
 
 
@@ -458,12 +479,12 @@ async def handle_incoming_reply(
             else "unknown date"
         )
 
-        first_reply = await is_first_reply_since_reminder(
-            message_id, context["lastReminderSentAt"], clean_phone
+        should_handle = await should_handle_reply(
+            message_id, context["lastReminderSentAt"], clean_phone, connection
         )
-        if not first_reply:
+        if not should_handle:
             logger.debug(
-                f"Reply from {phone_number} ignored: not the first reply since last reminder for appt {context['appointment_id']}."
+                f"Reply from {phone_number} ignored: not first reply or manual messages exist since last reminder for appt {context['appointment_id']}."
             )
             return
 
