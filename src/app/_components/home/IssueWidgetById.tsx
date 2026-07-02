@@ -4,6 +4,7 @@ import { Button } from "@ui/button";
 import Link from "next/link";
 import { useCheckPermission } from "~/hooks/use-check-permission";
 import type { ClientWithIssueInfo } from "~/lib/models";
+import type { PermissionId } from "~/lib/types";
 import { api } from "~/trpc/react";
 import {
 	ClientsSharingQuestionnaires,
@@ -17,6 +18,39 @@ import { MyDayWidget, WhosInWidget } from "./DayAheadWidgets";
 
 function Shell({ children }: { children: React.ReactNode }) {
 	return <div className="flex w-full flex-col">{children}</div>;
+}
+
+function SimpleIssueWidget({
+	permission,
+	isLoading,
+	clients,
+	title,
+	description,
+}: {
+	permission: PermissionId;
+	isLoading: boolean;
+	clients: ClientWithIssueInfo[] | undefined;
+	title: string;
+	description: string;
+}) {
+	const can = useCheckPermission();
+	if (!can(permission)) return null;
+	if (isLoading)
+		return (
+			<Shell>
+				<IssueListSkeleton />
+			</Shell>
+		);
+	return (
+		<Shell>
+			<IssueList
+				clients={clients ?? []}
+				description={description}
+				fill
+				title={title}
+			/>
+		</Shell>
+	);
 }
 
 export function IssueWidgetById({ id }: { id: string }) {
@@ -87,23 +121,14 @@ function DD4Widget() {
 	const { data, isLoading } = api.clients.getDD4.useQuery(undefined, {
 		enabled: can("issues:dd4"),
 	});
-	if (!can("issues:dd4")) return null;
-	if (isLoading)
-		return (
-			<Shell>
-				<IssueListSkeleton />
-			</Shell>
-		);
-	if (!data?.length) return null;
 	return (
-		<Shell>
-			<IssueList
-				clients={data}
-				description="Clients located in Dorchester District 4."
-				fill
-				title="In DD4"
-			/>
-		</Shell>
+		<SimpleIssueWidget
+			clients={data}
+			description="Clients located in Dorchester District 4."
+			isLoading={isLoading}
+			permission="issues:dd4"
+			title="In DD4"
+		/>
 	);
 }
 
@@ -113,23 +138,14 @@ function JustAddedWidget() {
 		undefined,
 		{ enabled: can("issues:just-added") },
 	);
-	if (!can("issues:just-added")) return null;
-	if (isLoading)
-		return (
-			<Shell>
-				<IssueListSkeleton />
-			</Shell>
-		);
-	if (!data?.length) return null;
 	return (
-		<Shell>
-			<IssueList
-				clients={data}
-				description="Questionnaires generated but not sent to client."
-				fill
-				title="Just Added Questionnaires"
-			/>
-		</Shell>
+		<SimpleIssueWidget
+			clients={data}
+			description="Questionnaires generated but not sent to client."
+			isLoading={isLoading}
+			permission="issues:just-added"
+			title="Just Added Questionnaires"
+		/>
 	);
 }
 
@@ -138,23 +154,14 @@ function PausedClientsWidget() {
 	const { data, isLoading } = api.clients.getPaused.useQuery(undefined, {
 		enabled: can("issues:paused-clients"),
 	});
-	if (!can("issues:paused-clients")) return null;
-	if (isLoading)
-		return (
-			<Shell>
-				<IssueListSkeleton />
-			</Shell>
-		);
-	if (!data?.length) return null;
 	return (
-		<Shell>
-			<IssueList
-				clients={data}
-				description="Manually paused clients for review."
-				fill
-				title="Paused Clients"
-			/>
-		</Shell>
+		<SimpleIssueWidget
+			clients={data}
+			description="Manually paused clients for review."
+			isLoading={isLoading}
+			permission="issues:paused-clients"
+			title="Paused Clients"
+		/>
 	);
 }
 
@@ -164,23 +171,14 @@ function EvaluationInProcessWidget() {
 		undefined,
 		{ enabled: can("issues:evaluation-in-process") },
 	);
-	if (!can("issues:evaluation-in-process")) return null;
-	if (isLoading)
-		return (
-			<Shell>
-				<IssueListSkeleton />
-			</Shell>
-		);
-	if (!data?.length) return null;
 	return (
-		<Shell>
-			<IssueList
-				clients={data}
-				description="Clients with an evaluation currently in process."
-				fill
-				title="Evaluation In Process"
-			/>
-		</Shell>
+		<SimpleIssueWidget
+			clients={data}
+			description="Clients with an evaluation currently in process."
+			isLoading={isLoading}
+			permission="issues:evaluation-in-process"
+			title="Evaluation In Process"
+		/>
 	);
 }
 
@@ -190,23 +188,14 @@ function MissingAppointmentsWidget() {
 		undefined,
 		{ enabled: can("issues:missing-appointments") },
 	);
-	if (!can("issues:missing-appointments")) return null;
-	if (isLoading)
-		return (
-			<Shell>
-				<IssueListSkeleton />
-			</Shell>
-		);
-	if (!data?.length) return null;
 	return (
-		<Shell>
-			<IssueList
-				clients={data}
-				description="Clients with fewer scheduled appointments than the insurance calculation requires."
-				fill
-				title="Appointments to be Created"
-			/>
-		</Shell>
+		<SimpleIssueWidget
+			clients={data}
+			description="Clients with fewer scheduled appointments than the insurance calculation requires."
+			isLoading={isLoading}
+			permission="issues:missing-appointments"
+			title="Appointments to be Created"
+		/>
 	);
 }
 
@@ -215,23 +204,14 @@ function AutismStopsWidget() {
 	const { data, isLoading } = api.clients.getAutismStops.useQuery(undefined, {
 		enabled: can("issues:autism-stops"),
 	});
-	if (!can("issues:autism-stops")) return null;
-	if (isLoading)
-		return (
-			<Shell>
-				<IssueListSkeleton />
-			</Shell>
-		);
-	if (!data?.length) return null;
 	return (
-		<Shell>
-			<IssueList
-				clients={data}
-				description='"Autism" found in school records, should be discharged.'
-				fill
-				title="Autism Stops"
-			/>
-		</Shell>
+		<SimpleIssueWidget
+			clients={data}
+			description='"Autism" found in school records, should be discharged.'
+			isLoading={isLoading}
+			permission="issues:autism-stops"
+			title="Autism Stops"
+		/>
 	);
 }
 
@@ -255,7 +235,6 @@ function ClientsNotInDbWidget() {
 				<IssueListSkeleton />
 			</Shell>
 		);
-	if (!data?.clientsNotInDb.length) return null;
 	return (
 		<Shell>
 			<SuggestionIssueList
@@ -263,7 +242,7 @@ function ClientsNotInDbWidget() {
 				description="Clients on the punchlist but not in the database, likely incorrect IDs."
 				fill
 				isActioning={isPending}
-				items={data.clientsNotInDb.map((c) => ({
+				items={(data?.clientsNotInDb ?? []).map((c) => ({
 					id: c["Client ID"] ?? "",
 					name: c["Client Name"] ?? "Unknown",
 					suggestions: c.suggestions,
@@ -283,23 +262,14 @@ function PunchlistInactiveWidget() {
 		undefined,
 		{ enabled: can("issues:punchlist-inactive") },
 	);
-	if (!can("issues:punchlist-inactive")) return null;
-	if (isLoading)
-		return (
-			<Shell>
-				<IssueListSkeleton />
-			</Shell>
-		);
-	if (!data?.inactiveClients.length) return null;
 	return (
-		<Shell>
-			<IssueList
-				clients={data.inactiveClients}
-				description="Inactive clients currently on the punchlist."
-				fill
-				title="Punchlist Clients Inactive"
-			/>
-		</Shell>
+		<SimpleIssueWidget
+			clients={data?.inactiveClients}
+			description="Inactive clients currently on the punchlist."
+			isLoading={isLoading}
+			permission="issues:punchlist-inactive"
+			title="Punchlist Clients Inactive"
+		/>
 	);
 }
 
@@ -309,13 +279,6 @@ function PunchlistDuplicatesWidget() {
 		undefined,
 		{ enabled: can("issues:punchlist-duplicates") },
 	);
-	if (!can("issues:punchlist-duplicates")) return null;
-	if (isLoading)
-		return (
-			<Shell>
-				<IssueListSkeleton />
-			</Shell>
-		);
 	const dupes =
 		data?.duplicateIdClients.map(
 			(c) =>
@@ -328,16 +291,14 @@ function PunchlistDuplicatesWidget() {
 					} times)`,
 				}) as ClientWithIssueInfo,
 		) ?? [];
-	if (!dupes.length) return null;
 	return (
-		<Shell>
-			<IssueList
-				clients={dupes}
-				description="Duplicate client IDs found on the punchlist."
-				fill
-				title="Duplicate Punchlist IDs"
-			/>
-		</Shell>
+		<SimpleIssueWidget
+			clients={dupes}
+			description="Duplicate client IDs found on the punchlist."
+			isLoading={isLoading}
+			permission="issues:punchlist-duplicates"
+			title="Duplicate Punchlist IDs"
+		/>
 	);
 }
 
@@ -347,23 +308,14 @@ function NoReferralSourceWidget() {
 		undefined,
 		{ enabled: can("issues:no-referral-source") },
 	);
-	if (!can("issues:no-referral-source")) return null;
-	if (isLoading)
-		return (
-			<Shell>
-				<IssueListSkeleton />
-			</Shell>
-		);
-	if (!data?.length) return null;
 	return (
-		<Shell>
-			<IssueList
-				clients={data}
-				description="Active clients with no referral source."
-				fill
-				title="No Referral Source"
-			/>
-		</Shell>
+		<SimpleIssueWidget
+			clients={data}
+			description="Active clients with no referral source."
+			isLoading={isLoading}
+			permission="issues:no-referral-source"
+			title="No Referral Source"
+		/>
 	);
 }
 
@@ -373,23 +325,14 @@ function MissingDistrictsWidget() {
 		undefined,
 		{ enabled: can("issues:district-issues") },
 	);
-	if (!can("issues:district-issues")) return null;
-	if (isLoading)
-		return (
-			<Shell>
-				<IssueListSkeleton />
-			</Shell>
-		);
-	if (!data?.clientsWithoutDistrict.length) return null;
 	return (
-		<Shell>
-			<IssueList
-				clients={data.clientsWithoutDistrict}
-				description="Clients missing a school district."
-				fill
-				title="Missing Districts"
-			/>
-		</Shell>
+		<SimpleIssueWidget
+			clients={data?.clientsWithoutDistrict}
+			description="Clients missing a school district."
+			isLoading={isLoading}
+			permission="issues:district-issues"
+			title="Missing Districts"
+		/>
 	);
 }
 
@@ -399,23 +342,14 @@ function PoorAddressLookupWidget() {
 		undefined,
 		{ enabled: can("issues:district-issues") },
 	);
-	if (!can("issues:district-issues")) return null;
-	if (isLoading)
-		return (
-			<Shell>
-				<IssueListSkeleton />
-			</Shell>
-		);
-	if (!data?.clientsWithPoorAddressLookup.length) return null;
 	return (
-		<Shell>
-			<IssueList
-				clients={data.clientsWithPoorAddressLookup}
-				description="Address info was only found after cutting, should be double checked."
-				fill
-				title="Poor Address Lookup"
-			/>
-		</Shell>
+		<SimpleIssueWidget
+			clients={data?.clientsWithPoorAddressLookup}
+			description="Address info was only found after cutting, should be double checked."
+			isLoading={isLoading}
+			permission="issues:district-issues"
+			title="Poor Address Lookup"
+		/>
 	);
 }
 
@@ -424,23 +358,14 @@ function BabyNetAgeoutWidget() {
 	const { data, isLoading } = api.clients.getBabyNetErrors.useQuery(undefined, {
 		enabled: can("issues:babynet-ageout"),
 	});
-	if (!can("issues:babynet-ageout")) return null;
-	if (isLoading)
-		return (
-			<Shell>
-				<IssueListSkeleton />
-			</Shell>
-		);
-	if (!data?.length) return null;
 	return (
-		<Shell>
-			<IssueList
-				clients={data}
-				description="Clients who have aged out of BabyNet eligibility, but still have it listed."
-				fill
-				title="Too Old for BabyNet"
-			/>
-		</Shell>
+		<SimpleIssueWidget
+			clients={data}
+			description="Clients who have aged out of BabyNet eligibility, but still have it listed."
+			isLoading={isLoading}
+			permission="issues:babynet-ageout"
+			title="Too Old for BabyNet"
+		/>
 	);
 }
 
@@ -449,23 +374,14 @@ function NotInTAWidget() {
 	const { data, isLoading } = api.clients.getNotInTAErrors.useQuery(undefined, {
 		enabled: can("issues:not-in-ta"),
 	});
-	if (!can("issues:not-in-ta")) return null;
-	if (isLoading)
-		return (
-			<Shell>
-				<IssueListSkeleton />
-			</Shell>
-		);
-	if (!data?.length) return null;
 	return (
-		<Shell>
-			<IssueList
-				clients={data}
-				description='Clients who were not imported from TA and were not added using the "Shell Client"/"Notes Only" feature.'
-				fill
-				title="Not in TA"
-			/>
-		</Shell>
+		<SimpleIssueWidget
+			clients={data}
+			description='Clients who were not imported from TA and were not added using the "Shell Client"/"Notes Only" feature.'
+			isLoading={isLoading}
+			permission="issues:not-in-ta"
+			title="Not in TA"
+		/>
 	);
 }
 
@@ -474,23 +390,14 @@ function DropListWidget() {
 	const { data, isLoading } = api.clients.getDropList.useQuery(undefined, {
 		enabled: can("issues:droplist"),
 	});
-	if (!can("issues:droplist")) return null;
-	if (isLoading)
-		return (
-			<Shell>
-				<IssueListSkeleton />
-			</Shell>
-		);
-	if (!data?.length) return null;
 	return (
-		<Shell>
-			<IssueList
-				clients={data}
-				description="Clients who have been reminded more than 3 times and aren't completing tasks."
-				fill
-				title="Drop List"
-			/>
-		</Shell>
+		<SimpleIssueWidget
+			clients={data}
+			description="Clients who have been reminded more than 3 times and aren't completing tasks."
+			isLoading={isLoading}
+			permission="issues:droplist"
+			title="Drop List"
+		/>
 	);
 }
 
@@ -498,27 +405,16 @@ function BabyNetERWidget() {
 	const can = useCheckPermission();
 	const { data, isLoading } = api.clients.getNeedsBabyNetERDownloaded.useQuery(
 		undefined,
-		{
-			enabled: can("issues:babynet-er"),
-		},
+		{ enabled: can("issues:babynet-er") },
 	);
-	if (!can("issues:babynet-er")) return null;
-	if (isLoading)
-		return (
-			<Shell>
-				<IssueListSkeleton />
-			</Shell>
-		);
-	if (!data?.length) return null;
 	return (
-		<Shell>
-			<IssueList
-				clients={data}
-				description="BabyNet Evaluation Report marked needed but not downloaded."
-				fill
-				title="Needs BabyNet ER Downloaded"
-			/>
-		</Shell>
+		<SimpleIssueWidget
+			clients={data}
+			description="BabyNet Evaluation Report marked needed but not downloaded."
+			isLoading={isLoading}
+			permission="issues:babynet-er"
+			title="Needs BabyNet ER Downloaded"
+		/>
 	);
 }
 
@@ -534,14 +430,13 @@ function NotesOnlyWidget() {
 				<IssueListSkeleton />
 			</Shell>
 		);
-	if (!noteOnlyClients?.length) return null;
-
-	const sorted = [...noteOnlyClients].sort((a, b) => {
+	const clients = noteOnlyClients ?? [];
+	const sorted = [...clients].sort((a, b) => {
 		const aHas = mergeSuggestions?.some((s) => s.noteOnlyClient.id === a.id);
 		const bHas = mergeSuggestions?.some((s) => s.noteOnlyClient.id === b.id);
 		if (aHas && !bHas) return -1;
 		if (!aHas && bHas) return 1;
-		return noteOnlyClients.indexOf(a) - noteOnlyClients.indexOf(b);
+		return clients.indexOf(a) - clients.indexOf(b);
 	});
 
 	return (
@@ -577,23 +472,14 @@ function NoDriveIdsWidget() {
 		undefined,
 		{ enabled: can("issues:no-drive-ids") },
 	);
-	if (!can("issues:no-drive-ids")) return null;
-	if (isLoading)
-		return (
-			<Shell>
-				<IssueListSkeleton />
-			</Shell>
-		);
-	if (!data?.length) return null;
 	return (
-		<Shell>
-			<IssueList
-				clients={data}
-				description="Clients missing a Google Drive folder ID."
-				fill
-				title="No Drive IDs"
-			/>
-		</Shell>
+		<SimpleIssueWidget
+			clients={data}
+			description="Clients missing a Google Drive folder ID."
+			isLoading={isLoading}
+			permission="issues:no-drive-ids"
+			title="No Drive IDs"
+		/>
 	);
 }
 
@@ -603,23 +489,14 @@ function PrivatePayWidget() {
 		undefined,
 		{ enabled: can("issues:private-pay") },
 	);
-	if (!can("issues:private-pay")) return null;
-	if (isLoading)
-		return (
-			<Shell>
-				<IssueListSkeleton />
-			</Shell>
-		);
-	if (!data?.length) return null;
 	return (
-		<Shell>
-			<IssueList
-				clients={data}
-				description="Clients with no eligible evaluators based on insurance and district/zip code."
-				fill
-				title="Potential Private Pay"
-			/>
-		</Shell>
+		<SimpleIssueWidget
+			clients={data}
+			description="Clients with no eligible evaluators based on insurance and district/zip code."
+			isLoading={isLoading}
+			permission="issues:private-pay"
+			title="Potential Private Pay"
+		/>
 	);
 }
 
@@ -629,23 +506,14 @@ function MissingRecordsNeededWidget() {
 		undefined,
 		{ enabled: can("issues:missing-records-needed") },
 	);
-	if (!can("issues:missing-records-needed")) return null;
-	if (isLoading)
-		return (
-			<Shell>
-				<IssueListSkeleton />
-			</Shell>
-		);
-	if (!data?.length) return null;
 	return (
-		<Shell>
-			<IssueList
-				clients={data}
-				description="Clients whose records needed status is not set."
-				fill
-				title="Records Needed Not Set"
-			/>
-		</Shell>
+		<SimpleIssueWidget
+			clients={data}
+			description="Clients whose records needed status is not set."
+			isLoading={isLoading}
+			permission="issues:missing-records-needed"
+			title="Records Needed Not Set"
+		/>
 	);
 }
 
@@ -655,23 +523,14 @@ function UnreviewedRecordsWidget() {
 		undefined,
 		{ enabled: can("issues:unreviewed-records") },
 	);
-	if (!can("issues:unreviewed-records")) return null;
-	if (isLoading)
-		return (
-			<Shell>
-				<IssueListSkeleton />
-			</Shell>
-		);
-	if (!data?.length) return null;
 	return (
-		<Shell>
-			<IssueList
-				clients={data}
-				description="Records needed and requested more than 3 weekdays ago, but not reviewed."
-				fill
-				title="Unreviewed/Unreceived Records"
-			/>
-		</Shell>
+		<SimpleIssueWidget
+			clients={data}
+			description="Records needed and requested more than 3 weekdays ago, but not reviewed."
+			isLoading={isLoading}
+			permission="issues:unreviewed-records"
+			title="Unreviewed/Unreceived Records"
+		/>
 	);
 }
 
@@ -687,7 +546,7 @@ function DuplicateDriveWidget() {
 				<IssueListSkeleton />
 			</Shell>
 		);
-	if (!data?.data.length) return null;
+	if (!data) return null;
 	return (
 		<Shell>
 			<DuplicateDriveFoldersList
@@ -705,28 +564,19 @@ function DuplicateQLinkWidget() {
 		undefined,
 		{ enabled: can("issues:duplicate-questionnaires") },
 	);
-	if (!can("issues:duplicate-questionnaires")) return null;
-	if (isLoading)
-		return (
-			<Shell>
-				<IssueListSkeleton />
-			</Shell>
-		);
 	const clients =
 		data?.duplicatePerClient
 			.map((item) => item.client)
 			.filter((c): c is NonNullable<typeof c> => c !== undefined)
 			.filter((c, i, arr) => arr.findIndex((x) => x.id === c.id) === i) ?? [];
-	if (!clients.length) return null;
 	return (
-		<Shell>
-			<IssueList
-				clients={clients}
-				description="Clients who have the same questionnaire link multiple times."
-				fill
-				title="Clients with Duplicate Questionnaire Links"
-			/>
-		</Shell>
+		<SimpleIssueWidget
+			clients={clients}
+			description="Clients who have the same questionnaire link multiple times."
+			isLoading={isLoading}
+			permission="issues:duplicate-questionnaires"
+			title="Clients with Duplicate Questionnaire Links"
+		/>
 	);
 }
 
@@ -743,12 +593,11 @@ function ClientsSharingQWidget() {
 				<IssueListSkeleton />
 			</Shell>
 		);
-	if (!data?.sharedAcrossClients.length) return null;
 	return (
 		<Shell>
 			<ClientsSharingQuestionnaires
 				fill
-				sharedLinksData={data.sharedAcrossClients}
+				sharedLinksData={data?.sharedAcrossClients ?? []}
 			/>
 		</Shell>
 	);
@@ -767,10 +616,9 @@ function DuplicateNamesWidget() {
 				<IssueListSkeleton />
 			</Shell>
 		);
-	if (!data?.length) return null;
 	return (
 		<Shell>
-			<DuplicateNamesList fill groups={data} />
+			<DuplicateNamesList fill groups={data ?? []} />
 		</Shell>
 	);
 }
