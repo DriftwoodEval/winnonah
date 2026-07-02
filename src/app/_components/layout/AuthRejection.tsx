@@ -17,7 +17,7 @@ export function AuthRejection({
 			<h1 className="text-center font-bold text-2xl">
 				{isUnauthorized
 					? "You don't have permission to view this page."
-					: "Your session has expired. Please sign in to continue."}
+					: "Please sign in to continue."}
 			</h1>
 
 			{!isUnauthorized && (
