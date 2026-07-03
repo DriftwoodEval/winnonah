@@ -799,6 +799,35 @@ export const questionnaireRouter = createTRPCRouter({
 			return { success: true };
 		}),
 
+	bulkUpdateStatus: protectedProcedure
+		.input(
+			z.object({
+				ids: z.array(z.number()).min(1),
+				status: z.enum(QUESTIONNAIRE_STATUSES),
+			}),
+		)
+		.mutation(async ({ ctx, input }) => {
+			assertPermission(ctx.session.user, "clients:questionnaires:create");
+
+			ctx.logger.info(input, "Bulk updating questionnaire status");
+
+			await ctx.db
+				.update(questionnaires)
+				.set({ status: input.status })
+				.where(inArray(questionnaires.id, input.ids));
+
+			const affectedQs = await ctx.db.query.questionnaires.findMany({
+				where: inArray(questionnaires.id, input.ids),
+				columns: { clientId: true },
+			});
+			const uniqueClientIds = [...new Set(affectedQs.map((q) => q.clientId))];
+			for (const clientId of uniqueClientIds) {
+				await checkAndUpdateQsBatteryStatus(ctx, clientId);
+			}
+
+			return { success: true };
+		}),
+
 	getDuplicateLinks: protectedProcedure.query(async ({ ctx }) => {
 		// 1. Clients with the same link multiple times (grouped by link + clientId)
 		const duplicatePerClient = await ctx.db
