@@ -285,7 +285,7 @@ def batch_search_calendar_events(
                         ).strip(),
                         client_id=client_id,
                         found_time=event_dt,
-                        expected_time=start_time.strftime("%m/%d %I:%M %p"),
+                        expected_time=start_time.strftime("%m/%d/%Y %I:%M %p"),
                         cpt_code=cpt_code,
                     )
                     break
