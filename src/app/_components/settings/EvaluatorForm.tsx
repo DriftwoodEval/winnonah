@@ -43,7 +43,7 @@ export const evaluatorFormSchema = z.object({
 
 export type EvaluatorFormValues = z.infer<typeof evaluatorFormSchema>;
 
-const DIAG_KEYS = ["ASD", "ADHD", "ASD+LD", "ADHD+LD", "LD"] as const;
+const DIAG_KEYS = ["ASD", "ASD+LD", "ADHD+LD", "LD"] as const;
 
 const EVAL_AGE_VARIANTS = [
 	{ suffix: "/young", label: " (≤6)" },
@@ -53,9 +53,9 @@ const EVAL_AGE_VARIANTS = [
 function expandAllowedTypes(types: string[]): string[] {
 	const expanded = new Set<string>();
 	for (const t of types) {
-		if (t === "DA") {
+		if (t === "DA" || t.startsWith("DA/")) {
+			// DA has no diagnosis subtypes - any DA/ entries in old data collapse to DA
 			expanded.add("DA");
-			for (const d of DIAG_KEYS) expanded.add(`DA/${d}`);
 		} else if (t === "EVAL") {
 			expanded.add("EVAL");
 			for (const d of DIAG_KEYS) expanded.add(`EVAL/${d}`);
@@ -604,12 +604,20 @@ export function EvaluatorForm({
 							const isRowKey = !key.includes("/");
 							if (checked) {
 								if (isRowKey) {
-									// Checking "Any" enables all subtypes
-									const toAdd = [key, ...DIAG_KEYS.map((d) => `${key}/${d}`)];
-									field.onChange([
-										...field.value.filter((t) => !toAdd.includes(t)),
-										...toAdd,
-									]);
+									if (key === "DA") {
+										// DA is a single toggle with no subtypes
+										field.onChange([
+											...field.value.filter((t) => t !== "DA"),
+											"DA",
+										]);
+									} else {
+										// Checking "Any" enables all subtypes for EVAL/DAEVAL
+										const toAdd = [key, ...DIAG_KEYS.map((d) => `${key}/${d}`)];
+										field.onChange([
+											...field.value.filter((t) => !toAdd.includes(t)),
+											...toAdd,
+										]);
+									}
 								} else {
 									// Checking a subtype — also check "Any" if all subtypes now checked
 									const baseType = key.split("/")[0] ?? key;
@@ -623,12 +631,16 @@ export function EvaluatorForm({
 								}
 							} else {
 								if (isRowKey) {
-									// Unchecking "Any" removes all subtypes
-									const toRemove = new Set([
-										key,
-										...DIAG_KEYS.map((d) => `${key}/${d}`),
-									]);
-									field.onChange(field.value.filter((t) => !toRemove.has(t)));
+									if (key === "DA") {
+										field.onChange(field.value.filter((t) => t !== "DA"));
+									} else {
+										// Unchecking "Any" removes all subtypes for EVAL/DAEVAL
+										const toRemove = new Set([
+											key,
+											...DIAG_KEYS.map((d) => `${key}/${d}`),
+										]);
+										field.onChange(field.value.filter((t) => !toRemove.has(t)));
+									}
 								} else {
 									// Unchecking a subtype also removes "Any"
 									const baseType = key.split("/")[0] ?? key;
@@ -654,7 +666,7 @@ export function EvaluatorForm({
 							<FormItem>
 								<FormLabel>Allowed Appointment Types</FormLabel>
 								<div className="overflow-x-auto rounded-md border p-3">
-									<div className="grid min-w-[600px] grid-cols-7 items-center gap-x-2 gap-y-2 text-sm">
+									<div className="grid min-w-[500px] grid-cols-6 items-center gap-x-2 gap-y-2 text-sm">
 										{/* Column headers */}
 										<div />
 										<div className="text-center font-medium text-muted-foreground text-xs">
@@ -668,8 +680,14 @@ export function EvaluatorForm({
 												{d}
 											</div>
 										))}
-										{/* DA, EVAL, DAEVAL rows */}
-										{(["DA", "EVAL", "DAEVAL"] as const).map((type) => (
+										{/* DA: single checkbox, no diagnosis subtypes */}
+										<div className="font-medium">DA</div>
+										<div className="flex justify-center">{cb("DA")}</div>
+										{DIAG_KEYS.map((d) => (
+											<div key={`da-empty-allowed-${d}`} />
+										))}
+										{/* EVAL and DAEVAL: full subtype matrix */}
+										{(["EVAL", "DAEVAL"] as const).map((type) => (
 											<>
 												<div className="font-medium" key={`${type}-label`}>
 													{type}
@@ -695,7 +713,7 @@ export function EvaluatorForm({
 				<div className="space-y-2">
 					<FormLabel>Appointment Durations (hours)</FormLabel>
 					<div className="overflow-x-auto rounded-md border p-3">
-						<div className="grid min-w-[600px] grid-cols-7 items-center gap-x-2 gap-y-2 text-sm">
+						<div className="grid min-w-[500px] grid-cols-6 items-center gap-x-2 gap-y-2 text-sm">
 							{/* Column headers */}
 							<div />
 							<div className="text-center font-medium text-muted-foreground text-xs">
