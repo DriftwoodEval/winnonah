@@ -92,6 +92,11 @@ function AppointmentRow({ appt }: { appt: Appointment }) {
 					{appt.daEval}
 				</Badge>
 			)}
+			{appt.confirmedAt && (
+				<Badge className="h-4 shrink-0 px-1 text-[9px] uppercase">
+					Confirmed
+				</Badge>
+			)}
 			{appt.officeName && (
 				<span className="ml-auto shrink-0 text-muted-foreground text-xs">
 					{appt.officeName}
@@ -111,6 +116,7 @@ type EvaluatorAppt = {
 	clientHash: string;
 	clientDriveId: string | null;
 	clientTaHash: string | null;
+	confirmedAt: Date | null;
 };
 
 function EvaluatorRow({
@@ -198,6 +204,11 @@ function EvaluatorRow({
 							{appt.daEval && (
 								<Badge className="shrink-0 text-xs" variant="outline">
 									{appt.daEval}
+								</Badge>
+							)}
+							{appt.confirmedAt && (
+								<Badge className="h-4 shrink-0 px-1 text-[9px] uppercase">
+									Confirmed
 								</Badge>
 							)}
 						</div>
