@@ -9,6 +9,7 @@ import { Separator } from "@ui/separator";
 import { Skeleton } from "@ui/skeleton";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@ui/tooltip";
 import { ArrowDownUp, Check, Filter, Plus } from "lucide-react";
+import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { useEffect, useId, useMemo, useRef, useState } from "react";
@@ -23,9 +24,7 @@ import { api } from "~/trpc/react";
 import { ResponsiveDialog } from "../shared/ResponsiveDialog";
 import ClientCreateForm from "./ClientCreateForm";
 import { ClientsList } from "./ClientsList";
-import { InsuranceReviewBanner } from "./InsuranceReviewBanner";
 import { NameSearchInput } from "./NameSearchInput";
-import { RecentClients } from "./RecentClients";
 
 export function ClientsDashboard() {
 	const router = useRouter();
@@ -51,7 +50,14 @@ export function ClientsDashboard() {
 	const [debouncedSearchTerm, setDebouncedSearchTerm] = useState("");
 	const [highlightedIndex, setHighlightedIndex] = useState(-1);
 	const [isInitialized, setIsInitialized] = useState(false);
+	const [searchFocused, setSearchFocused] = useState(false);
 	const lastSavedFiltersRef = useRef<string>("");
+
+	const { data: recentClients } = api.users.getRecentClients.useQuery(
+		undefined,
+		{ enabled: !!session },
+	);
+	const showRecentDropdown = searchFocused && !!recentClients?.length;
 
 	// Fetch saved filters from the session
 	const { data: savedFiltersData } = api.sessions.getClientFilters.useQuery(
@@ -276,8 +282,6 @@ export function ClientsDashboard() {
 
 	return (
 		<div className="flex min-h-0 w-full flex-1 flex-col gap-3">
-			<RecentClients />
-			<InsuranceReviewBanner />
 			<div className="flex flex-row gap-3">
 				<NameSearchInput
 					debounceMs={300}
@@ -286,6 +290,7 @@ export function ClientsDashboard() {
 						setDebouncedSearchTerm(name);
 						setHighlightedIndex(-1);
 					}}
+					onFocusChange={setSearchFocused}
 				/>
 
 				{canShell && (
@@ -535,6 +540,23 @@ export function ClientsDashboard() {
 					</PopoverContent>
 				</Popover>
 			</div>
+
+			{showRecentDropdown && (
+				<div className="flex flex-wrap items-center gap-2 rounded-lg border border-primary/20 bg-background px-3 py-2 shadow-sm">
+					<span className="text-muted-foreground text-xs uppercase tracking-wide">
+						Recent
+					</span>
+					{recentClients?.map((client) => (
+						<Link
+							className="shrink-0 whitespace-nowrap rounded-md border bg-muted px-2.5 py-1 text-sm shadow-xs hover:bg-accent hover:text-accent-foreground"
+							href={`/clients/${client.hash}`}
+							key={client.hash}
+						>
+							{client.name}
+						</Link>
+					))}
+				</div>
+			)}
 
 			<div
 				className={`min-h-0 flex-1 ${isPlaceholderData ? "opacity-60 transition-opacity duration-200" : "opacity-100 transition-opacity duration-200"}`}

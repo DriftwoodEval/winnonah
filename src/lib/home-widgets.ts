@@ -11,6 +11,7 @@ export type HomeWidgetDef = {
 	category: WidgetCategory;
 	sizing: WidgetSizing;
 	dashboardSection?: string;
+	fixedRows?: true;
 };
 
 export const WIDGET_CATEGORY_LABELS: Record<WidgetCategory, string> = {
@@ -27,6 +28,21 @@ export const HOME_WIDGET_DEFS: HomeWidgetDef[] = [
 		permission: null,
 		category: "clients",
 		sizing: "fill",
+	},
+	{
+		id: "recent-clients",
+		label: "Recent Clients",
+		permission: null,
+		category: "clients",
+		sizing: "content",
+		fixedRows: true,
+	},
+	{
+		id: "my-insurance-clients",
+		label: "My Insurance Clients",
+		permission: "clients:insurance:review",
+		category: "clients",
+		sizing: "content",
 	},
 	{
 		id: "day-ahead-mine",

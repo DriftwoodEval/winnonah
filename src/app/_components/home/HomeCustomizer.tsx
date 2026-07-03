@@ -57,6 +57,8 @@ export function HomeCustomizer({ widgets, onChange }: HomeCustomizerProps) {
 	const labelFor = (id: string) =>
 		HOME_WIDGET_DEFS.find((d) => d.id === id)?.label ?? id;
 
+	const defFor = (id: string) => HOME_WIDGET_DEFS.find((d) => d.id === id);
+
 	return (
 		<Popover>
 			<PopoverTrigger asChild>
@@ -126,30 +128,32 @@ export function HomeCustomizer({ widgets, onChange }: HomeCustomizerProps) {
 											+
 										</Button>
 									</div>
-									<div className="flex items-center gap-1">
-										<span>H:</span>
-										<Button
-											className="h-5 w-5"
-											disabled={w.rows <= 1}
-											onClick={() => updateWidget(w.id, { rows: w.rows - 1 })}
-											size="icon-sm"
-											variant="outline"
-										>
-											−
-										</Button>
-										<span className="w-3 text-center text-foreground">
-											{w.rows}
-										</span>
-										<Button
-											className="h-5 w-5"
-											disabled={w.rows >= 4}
-											onClick={() => updateWidget(w.id, { rows: w.rows + 1 })}
-											size="icon-sm"
-											variant="outline"
-										>
-											+
-										</Button>
-									</div>
+									{!defFor(w.id)?.fixedRows && (
+										<div className="flex items-center gap-1">
+											<span>H:</span>
+											<Button
+												className="h-5 w-5"
+												disabled={w.rows <= 1}
+												onClick={() => updateWidget(w.id, { rows: w.rows - 1 })}
+												size="icon-sm"
+												variant="outline"
+											>
+												−
+											</Button>
+											<span className="w-3 text-center text-foreground">
+												{w.rows}
+											</span>
+											<Button
+												className="h-5 w-5"
+												disabled={w.rows >= 4}
+												onClick={() => updateWidget(w.id, { rows: w.rows + 1 })}
+												size="icon-sm"
+												variant="outline"
+											>
+												+
+											</Button>
+										</div>
+									)}
 								</div>
 							</div>
 						))}

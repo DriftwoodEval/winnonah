@@ -7,6 +7,10 @@ import {
 	type WidgetConfig,
 } from "~/lib/home-widgets";
 import { api } from "~/trpc/react";
+import {
+	MyInsuranceClientsWidget,
+	RecentClientsWidget,
+} from "./ClientListWidgets";
 import { ClientWidget } from "./ClientWidget";
 import { DashboardSectionWidget } from "./DashboardSectionWidget";
 import { MyDayWidget, WhosInWidget } from "./DayAheadWidgets";
@@ -64,6 +68,9 @@ export function HomePageContent() {
 										);
 									}
 									if (w.id === "clients") return <ClientWidget />;
+									if (w.id === "recent-clients") return <RecentClientsWidget />;
+									if (w.id === "my-insurance-clients")
+										return <MyInsuranceClientsWidget />;
 									if (w.id === "day-ahead-mine") return <MyDayWidget />;
 									if (w.id === "day-ahead-offices") return <WhosInWidget />;
 									return <IssueWidgetById id={w.id} />;

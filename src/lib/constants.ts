@@ -125,11 +125,6 @@ export const PERMISSIONS = {
 						title: "Edit Insurance Review Notes & Claim",
 					},
 					{
-						id: "clients:insurance:review:homepage",
-						title: "Show Insurance Review Banner on Homepage",
-						parent: "clients:insurance:review" as const,
-					},
-					{
 						id: "clients:insurance:review:email-notifications",
 						title: "Receive Insurance Review Claim Email Notifications",
 						parent: "clients:insurance:review" as const,

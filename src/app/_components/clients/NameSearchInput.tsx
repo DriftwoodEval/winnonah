@@ -15,6 +15,7 @@ interface NameSearchInputProps {
 	onDebouncedChange: (value: string) => void;
 	debounceMs?: number;
 	placeholder?: string;
+	onFocusChange?: (focused: boolean) => void;
 }
 
 export function NameSearchInput({
@@ -22,6 +23,7 @@ export function NameSearchInput({
 	onDebouncedChange,
 	debounceMs = 500,
 	placeholder = "Search by name, ID, DOB, or phone...",
+	onFocusChange,
 }: NameSearchInputProps) {
 	const [inputValue, setInputValue] = useState(initialValue);
 	const [isFocused, setIsFocused] = useState(true);
@@ -43,6 +45,7 @@ export function NameSearchInput({
 
 	const handleFocusBlur = (isFocused: boolean) => {
 		setIsFocused(isFocused);
+		onFocusChange?.(isFocused);
 	};
 
 	useEffect(() => {
