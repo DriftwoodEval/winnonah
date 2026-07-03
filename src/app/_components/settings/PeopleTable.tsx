@@ -104,7 +104,7 @@ function AddEvaluatorButton() {
 					<span className="sm:hidden">Add</span>
 				</Button>
 			</DialogTrigger>
-			<DialogContent className="sm:max-w-2xl">
+			<DialogContent className="max-h-[calc(100vh-4rem)] overflow-y-auto sm:max-w-2xl">
 				<DialogHeader>
 					<DialogTitle>Add New Evaluator</DialogTitle>
 				</DialogHeader>
