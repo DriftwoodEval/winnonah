@@ -4,6 +4,8 @@ import type { Metadata } from "next";
 import { db } from "~/server/db";
 import { evaluators } from "~/server/db/schema";
 
+export const dynamic = "force-dynamic";
+
 export async function generateMetadata(): Promise<Metadata> {
 	const evaluator = await db.query.evaluators.findFirst({
 		where: eq(evaluators.evaluatorDashboard, true),
