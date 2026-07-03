@@ -1,6 +1,6 @@
 import type { PermissionId } from "./types";
 
-export type WidgetCategory = "clients" | "schedule" | "issues";
+export type WidgetCategory = "clients" | "schedule" | "issues" | "dashboard";
 
 export type WidgetSizing = "fill" | "content";
 
@@ -10,12 +10,14 @@ export type HomeWidgetDef = {
 	permission: PermissionId | null;
 	category: WidgetCategory;
 	sizing: WidgetSizing;
+	dashboardSection?: string;
 };
 
 export const WIDGET_CATEGORY_LABELS: Record<WidgetCategory, string> = {
 	clients: "Client Search",
 	schedule: "Schedule",
 	issues: "Issues",
+	dashboard: "Dashboard Sections",
 };
 
 export const HOME_WIDGET_DEFS: HomeWidgetDef[] = [
@@ -207,6 +209,207 @@ export const HOME_WIDGET_DEFS: HomeWidgetDef[] = [
 		permission: "issues:duplicate-names",
 		category: "issues",
 		sizing: "content",
+	},
+	// Dashboard sections
+	{
+		id: "ds-active-not-on-punchlist",
+		label: "Active and Not On Punchlist",
+		permission: "pages:dashboard",
+		category: "dashboard",
+		sizing: "content",
+		dashboardSection: "Active and Not On Punchlist",
+	},
+	{
+		id: "ds-inactive-on-punchlist",
+		label: "Inactive and On Punchlist",
+		permission: "pages:dashboard",
+		category: "dashboard",
+		sizing: "content",
+		dashboardSection: "Inactive and On Punchlist",
+	},
+	{
+		id: "ds-multiple-filters",
+		label: "Clients in Multiple Filters",
+		permission: "pages:dashboard",
+		category: "dashboard",
+		sizing: "content",
+		dashboardSection: "Clients in Multiple Filters",
+	},
+	{
+		id: "ds-just-added",
+		label: "Just Added/Other",
+		permission: "pages:dashboard",
+		category: "dashboard",
+		sizing: "content",
+		dashboardSection: "Just Added/Other",
+	},
+	{
+		id: "ds-needs-outreach",
+		label: "Needs Outreach",
+		permission: "pages:dashboard",
+		category: "dashboard",
+		sizing: "content",
+		dashboardSection: "Needs Outreach",
+	},
+	{
+		id: "ds-reached-out-needs-review",
+		label: "Reached Out - Needs Review",
+		permission: "pages:dashboard",
+		category: "dashboard",
+		sizing: "content",
+		dashboardSection: "Reached Out - Needs Review",
+	},
+	{
+		id: "ds-records-status-not-set",
+		label: "Records Status Not Set",
+		permission: "pages:dashboard",
+		category: "dashboard",
+		sizing: "content",
+		dashboardSection: "Records Status Not Set",
+	},
+	{
+		id: "ds-records-needed-not-requested",
+		label: "Records Needed - Not Requested",
+		permission: "pages:dashboard",
+		category: "dashboard",
+		sizing: "content",
+		dashboardSection: "Records Needed - Not Requested",
+	},
+	{
+		id: "ds-records-requested-not-returned",
+		label: "Records Requested - Not Returned",
+		permission: "pages:dashboard",
+		category: "dashboard",
+		sizing: "content",
+		dashboardSection: "Records Requested - Not Returned",
+	},
+	{
+		id: "ds-babynet-eval-needed",
+		label: "BabyNet Eval Needed - Not Downloaded",
+		permission: "pages:dashboard",
+		category: "dashboard",
+		sizing: "content",
+		dashboardSection: "BabyNet Eval Needed - Not Downloaded",
+	},
+	{
+		id: "ds-qs-not-determined",
+		label: "Qs Not Determined",
+		permission: "pages:dashboard",
+		category: "dashboard",
+		sizing: "content",
+		dashboardSection: "Qs Not Determined",
+	},
+	{
+		id: "ds-da-qs-pending",
+		label: "DA Qs Pending",
+		permission: "pages:dashboard",
+		category: "dashboard",
+		sizing: "content",
+		dashboardSection: "DA Qs Pending",
+	},
+	{
+		id: "ds-da-qs-sent",
+		label: "DA Qs Sent",
+		permission: "pages:dashboard",
+		category: "dashboard",
+		sizing: "content",
+		dashboardSection: "DA Qs Sent",
+	},
+	{
+		id: "ds-da-qs-done",
+		label: "DA Qs Done",
+		permission: "pages:dashboard",
+		category: "dashboard",
+		sizing: "content",
+		dashboardSection: "DA Qs Done",
+	},
+	{
+		id: "ds-daeval-qs-pending",
+		label: "DA+Eval Qs Pending",
+		permission: "pages:dashboard",
+		category: "dashboard",
+		sizing: "content",
+		dashboardSection: "DA+Eval Qs Pending",
+	},
+	{
+		id: "ds-eval-qs-pending",
+		label: "Eval Qs Pending",
+		permission: "pages:dashboard",
+		category: "dashboard",
+		sizing: "content",
+		dashboardSection: "Eval Qs Pending",
+	},
+	{
+		id: "ds-eval-qs-sent",
+		label: "Eval Qs Sent",
+		permission: "pages:dashboard",
+		category: "dashboard",
+		sizing: "content",
+		dashboardSection: "Eval Qs Sent",
+	},
+	{
+		id: "ds-daeval-qs-sent",
+		label: "DA+Eval Qs Sent",
+		permission: "pages:dashboard",
+		category: "dashboard",
+		sizing: "content",
+		dashboardSection: "DA+Eval Qs Sent",
+	},
+	{
+		id: "ds-eval-qs-done",
+		label: "Eval Qs Done",
+		permission: "pages:dashboard",
+		category: "dashboard",
+		sizing: "content",
+		dashboardSection: "Eval Qs Done",
+	},
+	{
+		id: "ds-daeval-qs-done",
+		label: "DA+Eval Qs Done",
+		permission: "pages:dashboard",
+		category: "dashboard",
+		sizing: "content",
+		dashboardSection: "DA+Eval Qs Done",
+	},
+	{
+		id: "ds-da-scheduled",
+		label: "DA Scheduled",
+		permission: "pages:dashboard",
+		category: "dashboard",
+		sizing: "content",
+		dashboardSection: "DA Scheduled",
+	},
+	{
+		id: "ds-post-da",
+		label: "Post-DA",
+		permission: "pages:dashboard",
+		category: "dashboard",
+		sizing: "content",
+		dashboardSection: "Post-DA",
+	},
+	{
+		id: "ds-eval-scheduled",
+		label: "Eval Scheduled",
+		permission: "pages:dashboard",
+		category: "dashboard",
+		sizing: "content",
+		dashboardSection: "Eval Scheduled",
+	},
+	{
+		id: "ds-post-eval",
+		label: "Post-Eval",
+		permission: "pages:dashboard",
+		category: "dashboard",
+		sizing: "content",
+		dashboardSection: "Post-Eval",
+	},
+	{
+		id: "ds-needs-protocols-scanned",
+		label: "Needs Protocols Scanned",
+		permission: "pages:dashboard",
+		category: "dashboard",
+		sizing: "content",
+		dashboardSection: "Needs protocols scanned",
 	},
 ];
 

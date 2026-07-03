@@ -3,11 +3,12 @@
 import { useCallback, useEffect, useState } from "react";
 import {
 	DEFAULT_HOME_WIDGETS,
-	getWidgetSizing,
+	HOME_WIDGET_DEFS,
 	type WidgetConfig,
 } from "~/lib/home-widgets";
 import { api } from "~/trpc/react";
 import { ClientWidget } from "./ClientWidget";
+import { DashboardSectionWidget } from "./DashboardSectionWidget";
 import { MyDayWidget, WhosInWidget } from "./DayAheadWidgets";
 import { GridWidgetCell } from "./GridWidgetCell";
 import { HomeCustomizer } from "./HomeCustomizer";
@@ -51,23 +52,22 @@ export function HomePageContent() {
 			<div className="h-full overflow-auto">
 				<div className="grid grid-cols-1 gap-4 p-4 sm:grid-flow-dense sm:grid-cols-4">
 					{activeWidgets.map((w) => {
-						const sizing = getWidgetSizing(w.id);
 						return (
-							<GridWidgetCell
-								cols={w.cols}
-								key={w.id}
-								rows={w.rows}
-								sizing={sizing}
-							>
-								{w.id === "clients" ? (
-									<ClientWidget />
-								) : w.id === "day-ahead-mine" ? (
-									<MyDayWidget />
-								) : w.id === "day-ahead-offices" ? (
-									<WhosInWidget />
-								) : (
-									<IssueWidgetById id={w.id} />
-								)}
+							<GridWidgetCell cols={w.cols} key={w.id} rows={w.rows}>
+								{(() => {
+									const def = HOME_WIDGET_DEFS.find((d) => d.id === w.id);
+									if (def?.dashboardSection) {
+										return (
+											<DashboardSectionWidget
+												sectionTitle={def.dashboardSection}
+											/>
+										);
+									}
+									if (w.id === "clients") return <ClientWidget />;
+									if (w.id === "day-ahead-mine") return <MyDayWidget />;
+									if (w.id === "day-ahead-offices") return <WhosInWidget />;
+									return <IssueWidgetById id={w.id} />;
+								})()}
 							</GridWidgetCell>
 						);
 					})}

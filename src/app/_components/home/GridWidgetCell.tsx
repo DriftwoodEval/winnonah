@@ -1,11 +1,8 @@
 "use client";
 
-import type { WidgetSizing } from "~/lib/home-widgets";
-
 interface GridWidgetCellProps {
 	cols: number;
 	rows: number;
-	sizing: WidgetSizing;
 	children: React.ReactNode;
 }
 
@@ -24,28 +21,19 @@ const rowClass: Record<number, string> = {
 };
 
 const heightVh: Record<number, string> = {
-	1: "25vh",
-	2: "50vh",
-	3: "75vh",
+	1: "calc(25svh - 2rem)",
+	2: "calc(50svh - 3rem)",
+	3: "calc(75svh - 4rem)",
 	4: "calc(100svh - 5rem)",
 };
 
-export function GridWidgetCell({
-	cols,
-	rows,
-	sizing,
-	children,
-}: GridWidgetCellProps) {
+export function GridWidgetCell({ cols, rows, children }: GridWidgetCellProps) {
 	const vh = heightVh[rows] ?? "35vh";
-	// fill widgets get an explicit height so they always show their panel
-	// content widgets get a max-height so long lists scroll rather than expand forever
-	const heightStyle = sizing === "fill" ? { height: vh } : { maxHeight: vh };
-	const overflowClass = sizing === "fill" ? "overflow-hidden" : "overflow-auto";
 
 	return (
 		<div
-			className={`min-h-0 ${overflowClass} ${colClass[cols] ?? "col-span-full"} ${rowClass[rows] ?? "row-[span_1]"}`}
-			style={heightStyle}
+			className={`min-h-0 overflow-hidden ${colClass[cols] ?? "col-span-full"} ${rowClass[rows] ?? "row-[span_1]"}`}
+			style={{ height: vh }}
 		>
 			{children}
 		</div>
