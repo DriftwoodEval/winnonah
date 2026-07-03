@@ -23,7 +23,7 @@ export const appointmentRouter = createTRPCRouter({
 		)
 		.query(async ({ ctx, input }) => {
 			let ref = new Date();
-			if (process.env.NODE_ENV === "development" && input?.asDate) {
+			if (input?.asDate) {
 				const parsed = new Date(`${input.asDate}T00:00:00`);
 				if (!Number.isNaN(parsed.getTime())) ref = parsed;
 			}
@@ -72,6 +72,7 @@ export const appointmentRouter = createTRPCRouter({
 								eq(appointments.cancelled, false),
 								eq(appointments.rescheduled, false),
 								eq(appointments.placeholder, false),
+								eq(appointments.billingOnly, false),
 							),
 						)
 						.orderBy(asc(appointments.startTime))
@@ -105,6 +106,7 @@ export const appointmentRouter = createTRPCRouter({
 						eq(appointments.cancelled, false),
 						eq(appointments.rescheduled, false),
 						eq(appointments.placeholder, false),
+						eq(appointments.billingOnly, false),
 					),
 				)
 				.orderBy(asc(appointments.startTime));
@@ -177,6 +179,77 @@ export const appointmentRouter = createTRPCRouter({
 				hasEvaluatorAccount: !!userWithEvaluator?.evaluator,
 				offices: officeList,
 			};
+		}),
+
+	getCalendarRange: protectedProcedure
+		.input(
+			z.object({
+				startDate: z.string(), // YYYY-MM-DD
+				endDate: z.string(), // YYYY-MM-DD
+				asUserId: z.string().optional(),
+			}),
+		)
+		.query(async ({ ctx, input }) => {
+			const startUTC = new Date(`${input.startDate}T00:00:00.000Z`);
+			const endUTC = new Date(`${input.endDate}T23:59:59.999Z`);
+
+			const viewAsId =
+				process.env.NODE_ENV === "development" && input.asUserId
+					? input.asUserId
+					: ctx.session.user.id;
+
+			const userWithEvaluator = await ctx.db.query.users.findFirst({
+				where: eq(users.id, viewAsId),
+				with: { evaluator: true },
+			});
+			const currentNpi = userWithEvaluator?.evaluator?.npi ?? null;
+
+			const rows = await ctx.db
+				.select({
+					id: appointments.id,
+					startTime: appointments.startTime,
+					endTime: appointments.endTime,
+					daEval: appointments.daEval,
+					asdAdhd: appointments.asdAdhd,
+					confirmedAt: appointments.confirmedAt,
+					clientName: clients.fullName,
+					clientHash: clients.hash,
+					locationKey: appointments.locationKey,
+					officeName: offices.prettyName,
+					evaluatorNpi: appointments.evaluatorNpi,
+					evaluatorName: evaluators.providerName,
+				})
+				.from(appointments)
+				.innerJoin(evaluators, eq(appointments.evaluatorNpi, evaluators.npi))
+				.innerJoin(clients, eq(appointments.clientId, clients.id))
+				.leftJoin(offices, eq(appointments.locationKey, offices.key))
+				.where(
+					and(
+						gte(appointments.startTime, startUTC),
+						lte(appointments.startTime, endUTC),
+						eq(appointments.cancelled, false),
+						eq(appointments.rescheduled, false),
+						eq(appointments.placeholder, false),
+						eq(appointments.billingOnly, false),
+					),
+				)
+				.orderBy(asc(appointments.startTime));
+
+			return rows.map((r) => ({
+				id: r.id,
+				startTime: r.startTime,
+				endTime: r.endTime,
+				daEval: r.daEval ?? null,
+				asdAdhd: r.asdAdhd ?? null,
+				confirmedAt: r.confirmedAt ?? null,
+				clientName: r.clientName,
+				clientHash: r.clientHash,
+				locationKey: r.locationKey ?? null,
+				officeName: r.officeName ?? null,
+				evaluatorNpi: r.evaluatorNpi,
+				evaluatorName: r.evaluatorName,
+				isCurrentUser: r.evaluatorNpi === currentNpi,
+			}));
 		}),
 
 	getByClientId: protectedProcedure

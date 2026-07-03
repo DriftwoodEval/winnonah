@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { Suspense } from "react";
 import { env } from "~/env";
 import { HydrateClient } from "~/trpc/server";
 import { DayAheadContent } from "../_components/day-ahead/DayAheadContent";
@@ -13,7 +14,9 @@ export default async function DayAheadPage() {
 		<Guard>
 			<HydrateClient>
 				<div className="flex h-[calc(100dvh-2.5rem)] w-full flex-col overflow-hidden">
-					<DayAheadContent />
+					<Suspense>
+						<DayAheadContent />
+					</Suspense>
 				</div>
 			</HydrateClient>
 		</Guard>
