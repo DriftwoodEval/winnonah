@@ -21,7 +21,6 @@ export function AppointmentNoteCell({
 	isAdmin,
 }: AppointmentNoteCellProps) {
 	const [value, setValue] = useState(initialContent ?? "");
-	const [expanded, setExpanded] = useState(false);
 	const savedRef = useRef(initialContent ?? "");
 
 	useEffect(() => {
@@ -38,7 +37,6 @@ export function AppointmentNoteCell({
 	});
 
 	function handleBlur() {
-		setExpanded(false);
 		if (value !== savedRef.current) {
 			savedRef.current = value;
 			saveNote.mutate({ appointmentId, contentJson: value as never });
@@ -56,30 +54,18 @@ export function AppointmentNoteCell({
 	);
 
 	return (
-		<div className="flex min-w-[200px] items-start gap-1">
-			<div className="flex-1">
-				{expanded ? (
-					<Textarea
-						autoFocus
-						className="max-h-[2.5rem] min-h-[2.5rem] resize-none transition-all duration-200 focus:min-h-[8rem]"
-						onBlur={handleBlur}
-						onChange={(e) => setValue(e.target.value)}
-						value={value}
-					/>
-				) : (
-					<button
-						className="w-full cursor-text rounded-md border border-input bg-background px-3 py-2 text-left text-sm shadow-xs hover:border-ring/50 hover:bg-accent/30"
-						onClick={() => setExpanded(true)}
-						type="button"
-					>
-						{value ? (
-							<span className="line-clamp-2 text-foreground">{value}</span>
-						) : (
-							<span className="text-muted-foreground/60">Add a note…</span>
-						)}
-					</button>
-				)}
-			</div>
+		<div className="flex items-start gap-1">
+			<Textarea
+				className={
+					value.trim()
+						? "min-h-[6rem] resize-none"
+						: "min-h-[2.5rem] resize-none"
+				}
+				onBlur={handleBlur}
+				onChange={(e) => setValue(e.target.value)}
+				placeholder="Add a note…"
+				value={value}
+			/>
 			{isAdmin && (
 				<ResponsiveDialog title="Note History" trigger={historyTrigger}>
 					<AppointmentNoteHistory appointmentId={appointmentId} />

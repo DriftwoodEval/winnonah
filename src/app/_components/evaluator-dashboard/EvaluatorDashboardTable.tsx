@@ -116,9 +116,32 @@ export function EvaluatorDashboardTable({
 		);
 	}
 
+	const now = new Date();
+	const pastDue = appointments.filter(
+		(a) =>
+			!a.reportCompletedAt &&
+			new Date(a.startTime) <= now &&
+			(getLocalDayFromUTCDate(a.effectiveDueDate) ?? a.effectiveDueDate) <= now,
+	).length;
+	const current = appointments.filter(
+		(a) =>
+			!a.reportCompletedAt &&
+			new Date(a.startTime) <= now &&
+			(getLocalDayFromUTCDate(a.effectiveDueDate) ?? a.effectiveDueDate) > now,
+	).length;
+	const future = appointments.filter((a) => new Date(a.startTime) > now).length;
+
+	const countParts = [
+		pastDue > 0 ? `${pastDue} past due` : null,
+		current > 0 ? `${current} current` : null,
+		future > 0 ? `${future} future` : null,
+	].filter(Boolean);
+
 	const count = (
 		<p className="mb-2 text-muted-foreground text-sm">
-			{appointments.length} appointment{appointments.length !== 1 ? "s" : ""}
+			{countParts.length > 0
+				? countParts.join(" / ")
+				: `${appointments.length} appointment${appointments.length !== 1 ? "s" : ""}`}
 		</p>
 	);
 
@@ -255,7 +278,7 @@ export function EvaluatorDashboardTable({
 							<TableHead>Appointment Date</TableHead>
 							<TableHead>Client</TableHead>
 							<TableHead>Type</TableHead>
-							<TableHead className="min-w-[220px]">Note</TableHead>
+							<TableHead className="w-[240px]">Note</TableHead>
 							<TableHead>Last Task</TableHead>
 							<TooltipProvider>
 								<Tooltip>
@@ -300,7 +323,7 @@ export function EvaluatorDashboardTable({
 									<TableCell className="whitespace-nowrap">
 										<TypeBadge asdAdhd={appt.asdAdhd} daEval={appt.daEval} />
 									</TableCell>
-									<TableCell className="min-w-[220px]">
+									<TableCell className="w-[240px]">
 										<AppointmentNoteCell
 											appointmentId={appt.id}
 											initialContent={

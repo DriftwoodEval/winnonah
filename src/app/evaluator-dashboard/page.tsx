@@ -1,9 +1,19 @@
 import { EvaluatorDashboard } from "@components/evaluator-dashboard/EvaluatorDashboard";
+import { eq } from "drizzle-orm";
 import type { Metadata } from "next";
+import { db } from "~/server/db";
+import { evaluators } from "~/server/db/schema";
 
-export const metadata: Metadata = {
-	title: "Evaluator Dashboard",
-};
+export async function generateMetadata(): Promise<Metadata> {
+	const evaluator = await db.query.evaluators.findFirst({
+		where: eq(evaluators.evaluatorDashboard, true),
+		columns: { providerName: true },
+	});
+	const firstName = evaluator?.providerName?.split(" ")[0];
+	return {
+		title: firstName ? `${firstName}'s Report Dashboard` : "Report Dashboard",
+	};
+}
 
 export default async function Page() {
 	return (

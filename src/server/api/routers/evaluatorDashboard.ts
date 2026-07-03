@@ -15,7 +15,7 @@ function extractPlainText(content: JSONContent): string {
 }
 
 import { addWeeks } from "date-fns";
-import { and, desc, eq, isNotNull, isNull, lte } from "drizzle-orm";
+import { and, desc, eq, isNotNull, isNull } from "drizzle-orm";
 import { alias } from "drizzle-orm/mysql-core";
 import { z } from "zod";
 import { hasPermission } from "~/lib/utils";
@@ -215,7 +215,6 @@ export const evaluatorDashboardRouter = createTRPCRouter({
 				eq(appointments.rescheduled, false),
 				eq(appointments.placeholder, false),
 				eq(appointments.billingOnly, false),
-				lte(appointments.startTime, new Date()),
 			];
 
 			if (viewMode === "evaluator") {
