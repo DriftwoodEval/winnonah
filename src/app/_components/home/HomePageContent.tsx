@@ -7,6 +7,7 @@ import {
 	type WidgetConfig,
 } from "~/lib/home-widgets";
 import { api } from "~/trpc/react";
+import { CalendarViewWidget } from "./CalendarViewWidget";
 import {
 	MyInsuranceClientsWidget,
 	RecentClientsWidget,
@@ -73,6 +74,12 @@ export function HomePageContent() {
 										return <MyInsuranceClientsWidget />;
 									if (w.id === "day-ahead-mine") return <MyDayWidget />;
 									if (w.id === "day-ahead-offices") return <WhosInWidget />;
+									if (w.id === "cal-day")
+										return <CalendarViewWidget mode="day" />;
+									if (w.id === "cal-3day")
+										return <CalendarViewWidget mode="3day" />;
+									if (w.id === "cal-week")
+										return <CalendarViewWidget mode="week" />;
 									return <IssueWidgetById id={w.id} />;
 								})()}
 							</GridWidgetCell>

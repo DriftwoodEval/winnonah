@@ -59,6 +59,27 @@ export const HOME_WIDGET_DEFS: HomeWidgetDef[] = [
 		sizing: "content",
 	},
 	{
+		id: "cal-day",
+		label: "Day Calendar",
+		permission: null,
+		category: "schedule",
+		sizing: "fill",
+	},
+	{
+		id: "cal-3day",
+		label: "3-Day Calendar",
+		permission: null,
+		category: "schedule",
+		sizing: "fill",
+	},
+	{
+		id: "cal-week",
+		label: "Week Calendar",
+		permission: null,
+		category: "schedule",
+		sizing: "fill",
+	},
+	{
 		id: "dd4",
 		label: "In DD4",
 		permission: "issues:dd4",
@@ -442,6 +463,9 @@ export const DEFAULT_WIDGET_CONFIG: Record<
 	clients: { cols: 4, rows: 3 },
 	"day-ahead-mine": { cols: 2, rows: 2 },
 	"day-ahead-offices": { cols: 2, rows: 2 },
+	"cal-day": { cols: 2, rows: 3 },
+	"cal-3day": { cols: 4, rows: 3 },
+	"cal-week": { cols: 4, rows: 4 },
 	default: { cols: 1, rows: 2 },
 };
 
