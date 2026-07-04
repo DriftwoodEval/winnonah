@@ -542,7 +542,11 @@ export function ClientsDashboard() {
 			</div>
 
 			{showRecentDropdown && (
-				<div className="flex flex-wrap items-center gap-2 rounded-lg border border-primary/20 bg-background px-3 py-2 shadow-sm">
+				// biome-ignore lint/a11y/noStaticElementInteractions: preventDefault on mousedown stops the search input from blurring (and this dropdown from unmounting) before a click on a link inside it registers
+				<div
+					className="flex flex-wrap items-center gap-2 rounded-lg border border-primary/20 bg-background px-3 py-2 shadow-sm"
+					onMouseDown={(e) => e.preventDefault()}
+				>
 					<span className="text-muted-foreground text-xs uppercase tracking-wide">
 						Recent
 					</span>
@@ -558,8 +562,10 @@ export function ClientsDashboard() {
 				</div>
 			)}
 
+			{/* biome-ignore lint/a11y/noStaticElementInteractions: preventDefault on mousedown stops the search input from blurring (and the recent-clients dropdown above from unmounting mid-click) before a click on a result registers */}
 			<div
 				className={`min-h-0 flex-1 ${isPlaceholderData ? "opacity-60 transition-opacity duration-200" : "opacity-100 transition-opacity duration-200"}`}
+				onMouseDown={(e) => e.preventDefault()}
 			>
 				{isLoading ? (
 					<Skeleton className="h-full w-full" />
