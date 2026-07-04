@@ -21,6 +21,7 @@ import { hasPermission } from "~/lib/utils";
 import { api } from "~/trpc/react";
 import { NoteHistory } from "../shared/NoteHistory";
 import { ResponsiveDialog } from "../shared/ResponsiveDialog";
+import { InsuranceReviewSubmitDialog } from "./InsuranceReviewSubmitDialog";
 
 interface InsuranceReviewSectionProps {
 	client: Client;
@@ -180,16 +181,30 @@ export function InsuranceReviewSection({
 						</Button>
 					)}
 
-					<Button
-						className="cursor-pointer"
-						disabled={submitMutation.isPending || !canEdit}
-						onClick={() => submitMutation.mutate(client.id)}
-						size="sm"
-						variant="outline"
-					>
-						<Send className="mr-1 h-4 w-4" />
-						{submitMutation.isPending ? "Copying..." : "Copy to Main Notes"}
-					</Button>
+					<InsuranceReviewSubmitDialog
+						client={client}
+						onConfirm={async (insertAt) => {
+							debouncedSave.cancel();
+							await updateMutation.mutateAsync({
+								clientId: client.id,
+								contentJson: localContent,
+							});
+							submitMutation.mutate({ clientId: client.id, insertAt });
+						}}
+						pending={submitMutation.isPending || updateMutation.isPending}
+						review={{ content: localContent }}
+						trigger={
+							<Button
+								className="cursor-pointer"
+								disabled={submitMutation.isPending || !canEdit}
+								size="sm"
+								variant="outline"
+							>
+								<Send className="mr-1 h-4 w-4" />
+								{submitMutation.isPending ? "Copying..." : "Copy to Main Notes"}
+							</Button>
+						}
+					/>
 				</div>
 			</div>
 

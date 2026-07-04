@@ -11,6 +11,7 @@ import {
 	ImageIcon,
 	Italic,
 	Link as LinkIcon,
+	Minus,
 	Redo,
 	RemoveFormattingIcon,
 	Strikethrough,
@@ -29,6 +30,20 @@ interface RichTextEditorProps {
 	readonly?: boolean;
 	formatBar?: boolean;
 	allowImages?: boolean;
+}
+
+function stripEmptyTextNodes(node: JSONContent): JSONContent {
+	if (!node.content) return node;
+	return {
+		...node,
+		content: node.content
+			.filter((child) => !(child.type === "text" && !child.text))
+			.map(stripEmptyTextNodes),
+	};
+}
+
+function sanitizeValue(value: JSONContent | string): JSONContent | string {
+	return typeof value === "string" ? value : stripEmptyTextNodes(value);
 }
 
 export function RichTextEditor({
@@ -51,7 +66,7 @@ export function RichTextEditor({
 			Placeholder.configure({ placeholder }),
 			...(allowImages ? [Image.configure({ allowBase64: true })] : []),
 		],
-		content: value,
+		content: sanitizeValue(value),
 		onUpdate: ({ editor }) => {
 			onChange?.(editor.getJSON());
 		},
@@ -109,7 +124,7 @@ export function RichTextEditor({
 	useEffect(() => {
 		if (editor && value !== undefined) {
 			const currentContent = editor.getJSON();
-			const newContent = value;
+			const newContent = sanitizeValue(value);
 
 			if (JSON.stringify(currentContent) !== JSON.stringify(newContent)) {
 				editor.commands.setContent(newContent, { emitUpdate: false });
@@ -244,6 +259,18 @@ export function RichTextEditor({
 							value="link"
 						>
 							<Unlink className="size-4" />
+						</ToggleGroupItem>
+					</ToggleGroup>
+
+					<ToggleGroup size="sm" spacing={0} type="single" variant="outline">
+						<ToggleGroupItem
+							aria-label="Insert separator"
+							data-state="off"
+							disabled={!editor.can().chain().focus().setHorizontalRule().run()}
+							onClick={() => editor.chain().focus().setHorizontalRule().run()}
+							value="horizontalRule"
+						>
+							<Minus className="size-4" />
 						</ToggleGroupItem>
 					</ToggleGroup>
 

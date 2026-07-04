@@ -3,6 +3,12 @@ import { and, asc, desc, eq, isNull } from "drizzle-orm";
 import { z } from "zod";
 import { env } from "~/env";
 import {
+	buildReviewBlock,
+	extractTextFromContent,
+	findDefaultInsertAt,
+	mergeNotesContent,
+} from "~/lib/insurance-notes-merge";
+import {
 	assertPermission,
 	createTRPCRouter,
 	protectedProcedure,
@@ -23,13 +29,6 @@ function areContentsEqual(
 	b: JSONContent | null | undefined,
 ): boolean {
 	return JSON.stringify(a) === JSON.stringify(b);
-}
-
-function extractTextFromContent(content: JSONContent): string {
-	if (!content) return "";
-	if (content.type === "text") return content.text ?? "";
-	if (!content.content) return "";
-	return content.content.map(extractTextFromContent).join("");
 }
 
 export const insuranceReviewRouter = createTRPCRouter({
@@ -240,8 +239,13 @@ export const insuranceReviewRouter = createTRPCRouter({
 		}),
 
 	submitToNotes: protectedProcedure
-		.input(z.number())
-		.mutation(async ({ ctx, input: clientId }) => {
+		.input(
+			z.object({
+				clientId: z.number(),
+				insertAt: z.number().int().min(0).optional(),
+			}),
+		)
+		.mutation(async ({ ctx, input: { clientId, insertAt } }) => {
 			assertPermission(ctx.session.user, "clients:insurance:review");
 
 			const review = await ctx.db.query.insuranceReview.findFirst({
@@ -265,25 +269,7 @@ export const insuranceReviewRouter = createTRPCRouter({
 				return { success: false, reason: "Review content is empty" };
 			}
 
-			const reviewBlock: JSONContent[] = [
-				{ type: "paragraph" },
-				{
-					type: "paragraph",
-					content: [
-						{
-							type: "text",
-							text: "Insurance Review",
-							marks: [{ type: "bold" }],
-						},
-					],
-				},
-				...(reviewContent.content ?? [
-					{
-						type: "paragraph",
-						content: [{ type: "text", text: reviewText }],
-					},
-				]),
-			];
+			const reviewBlock = buildReviewBlock(reviewContent, reviewText);
 
 			const existingNote = await ctx.db.query.notes.findFirst({
 				where: eq(notes.clientId, clientId),
@@ -294,10 +280,14 @@ export const insuranceReviewRouter = createTRPCRouter({
 				content: [],
 			};
 
-			const finalContent: JSONContent = {
-				type: "doc",
-				content: [...(existingContent.content ?? []), ...reviewBlock],
-			};
+			const resolvedInsertAt =
+				insertAt ?? findDefaultInsertAt(existingContent.content ?? []);
+
+			const finalContent = mergeNotesContent(
+				existingContent,
+				reviewBlock,
+				resolvedInsertAt,
+			);
 
 			await saveNoteInternal(ctx, { clientId, contentJson: finalContent });
 
