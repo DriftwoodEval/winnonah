@@ -319,6 +319,13 @@ def main(
     drive_ids: Annotated[
         bool, typer.Option("--drive-ids", help="Add client IDs to Google Drive")
     ] = False,
+    client_info_files: Annotated[
+        bool,
+        typer.Option(
+            "--client-info-files",
+            help="Sync '0 - {name} info.txt' files for clients with an appointment tomorrow",
+        ),
+    ] = False,
     save_ta_hashes: Annotated[
         bool, typer.Option("--save-ta-hashes", help="Save TA hashes to DB")
     ] = False,
@@ -386,6 +393,11 @@ def main(
     if drive_ids:
         logger.info("Running Drive IDs process")
         utils.google.add_client_ids_to_drive()
+        return
+
+    if client_info_files:
+        logger.info("Syncing client info files")
+        utils.google.sync_client_info_files()
         return
 
     if save_ta_hashes:
@@ -500,6 +512,11 @@ def main(
             utils.google.add_client_ids_to_drive()
         except Exception as e:
             logger.error(f"Failed to add client IDs to drive: {e}")
+
+        try:
+            utils.google.sync_client_info_files()
+        except Exception as e:
+            logger.error(f"Failed to sync client info files: {e}")
 
         try:
             replace_misformatted_doctors()

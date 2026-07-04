@@ -15,11 +15,12 @@ from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import InstalledAppFlow
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
+from googleapiclient.http import MediaInMemoryUpload
 from loguru import logger
 
 import utils.database
 import utils.misc
-from utils.constants import TABLE_CLIENT
+from utils.constants import TABLE_APPOINTMENT, TABLE_CLIENT, TABLE_EVALUATOR
 
 # If modifying these scopes, delete the file token.json.
 SCOPES = [
@@ -269,6 +270,152 @@ def add_client_ids_to_drive():
     _process_folders_queued(service, base_folder_id, client_lookup, db_connection)
 
     logger.debug("Finished.")
+
+
+def _compute_age(dob: datetime) -> int:
+    """Compute age in years as of today from a date of birth."""
+    today = datetime.now().date()
+    dob_date = dob.date() if isinstance(dob, datetime) else dob
+    return (
+        today.year
+        - dob_date.year
+        - ((today.month, today.day) < (dob_date.month, dob_date.day))
+    )
+
+
+def _find_client_info_file(service, folder_id: str) -> dict | None:
+    """Find an existing '0 - ... .txt' info file in the given folder, if any."""
+    page_token = None
+    while True:
+        response = (
+            service.files()
+            .list(
+                q=f"'{folder_id}' in parents and name contains '0 - ' and trashed = false",
+                spaces="drive",
+                fields="nextPageToken, files(id, name)",
+                pageToken=page_token,
+            )
+            .execute()
+        )
+        for file in response.get("files", []):
+            if file["name"].lower().endswith(".txt"):
+                return file
+        page_token = response.get("nextPageToken")
+        if not page_token:
+            return None
+
+
+def _patch_info_lines(content: str, updates: dict[str, str]) -> str:
+    """Overwrite lines matching known '<Prefix> ...' patterns, appending any that are missing.
+
+    Preserves any other lines in the file (e.g. manually added staff notes) untouched.
+    """
+    lines = content.splitlines()
+    remaining = dict(updates)
+
+    for i, line in enumerate(lines):
+        for prefix, value in list(remaining.items()):
+            if line.startswith(f"{prefix} "):
+                lines[i] = f"{prefix} {value}"
+                del remaining[prefix]
+                break
+
+    for prefix, value in remaining.items():
+        lines.append(f"{prefix} {value}")
+
+    return "\n".join(lines)
+
+
+def sync_client_info_files():
+    """For each client with an appointment tomorrow, create or update their '0 - {name} info.txt'
+    file in their Drive folder with Name, DOB, Age, Date, and Evaluator.
+
+    If the file already exists, only the known field lines are overwritten in place; any
+    other content in the file (e.g. manually added notes) is left untouched.
+    """
+    logger.debug("Syncing client info files...")
+
+    service = get_drive_service()
+
+    with utils.database.db_session() as connection, connection.cursor() as cursor:
+        cursor.execute(
+            f"""
+            SELECT c.driveId, c.fullName, c.dob, a.startTime, e.providerName
+            FROM {TABLE_APPOINTMENT} a
+            JOIN {TABLE_CLIENT} c ON a.clientId = c.id
+            JOIN {TABLE_EVALUATOR} e ON a.evaluatorNpi = e.npi
+            WHERE DATE(a.startTime) = DATE(NOW() + INTERVAL 1 DAY)
+              AND a.cancelled = 0
+              AND a.rescheduled = 0
+              AND a.placeholder = 0
+              AND c.driveId IS NOT NULL
+            ORDER BY a.startTime
+            """
+        )
+        rows = cursor.fetchall()
+
+    # Multiple appointments tomorrow for the same client: use the earliest.
+    seen_drive_ids = set()
+    appointments = []
+    for row in rows:
+        if row["driveId"] in seen_drive_ids:
+            continue
+        seen_drive_ids.add(row["driveId"])
+        appointments.append(row)
+
+    logger.info(f"Found {len(appointments)} client(s) with an appointment tomorrow.")
+
+    for row in appointments:
+        try:
+            _sync_client_info_file(service, row)
+        except HttpError as err:
+            logger.error(f"Failed to sync info file for {row['fullName']}: {err}")
+
+    logger.debug("Finished syncing client info files.")
+
+
+def _sync_client_info_file(service, row: dict):
+    folder_id = row["driveId"]
+    name = row["fullName"]
+
+    field_values = {
+        "DOB": row["dob"].strftime("%m/%d/%Y"),
+        "Age": str(_compute_age(row["dob"])),
+        "Date": row["startTime"].strftime("%m/%d/%Y"),
+        "Evaluator": row["providerName"],
+    }
+
+    existing_file = _find_client_info_file(service, folder_id)
+
+    if existing_file is None:
+        content = (
+            name
+            + "\n"
+            + "\n".join(f"{prefix} {value}" for prefix, value in field_values.items())
+        )
+        media = MediaInMemoryUpload(content.encode(), mimetype="text/plain")
+        service.files().create(
+            body={"name": f"0 - {name} info.txt", "parents": [folder_id]},
+            media_body=media,
+        ).execute()
+        logger.info(f"Created info file for {name}")
+        return
+
+    current_content = service.files().get_media(fileId=existing_file["id"]).execute()
+    if isinstance(current_content, bytes):
+        current_content = current_content.decode("utf-8", errors="replace")
+
+    # First line is always the client's name.
+    lines = current_content.splitlines()
+    if lines:
+        lines[0] = name
+    else:
+        lines = [name]
+    updated_content = _patch_info_lines("\n".join(lines), field_values)
+
+    media = MediaInMemoryUpload(updated_content.encode(), mimetype="text/plain")
+    service.files().update(fileId=existing_file["id"], media_body=media).execute()
+    logger.info(f"Updated info file for {name}")
 
 
 def send_gmail(
