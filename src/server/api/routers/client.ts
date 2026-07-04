@@ -1454,18 +1454,30 @@ export const clientRouter = createTRPCRouter({
 				.where(eq(clients.id, input.clientId));
 
 			if (input.recordsNeeded === "Needed") {
-				const pendingRequest =
-					await ctx.db.query.externalRecordRequests.findFirst({
-						where: and(
-							eq(externalRecordRequests.clientId, input.clientId),
-							isNull(externalRecordRequests.requestedDate),
-						),
-					});
-				if (!pendingRequest) {
-					await ctx.db.insert(externalRecordRequests).values({
-						clientId: input.clientId,
-						createdBy: ctx.session.user.email,
-					});
+				const referralData =
+					input.referralData ??
+					(
+						await ctx.db.query.clients.findFirst({
+							where: eq(clients.id, input.clientId),
+							columns: { referralData: true },
+						})
+					)?.referralData;
+				const isPrivateSchool = referralData?.privateSchool === "yes";
+
+				if (!isPrivateSchool) {
+					const pendingRequest =
+						await ctx.db.query.externalRecordRequests.findFirst({
+							where: and(
+								eq(externalRecordRequests.clientId, input.clientId),
+								isNull(externalRecordRequests.requestedDate),
+							),
+						});
+					if (!pendingRequest) {
+						await ctx.db.insert(externalRecordRequests).values({
+							clientId: input.clientId,
+							createdBy: ctx.session.user.email,
+						});
+					}
 				}
 			}
 

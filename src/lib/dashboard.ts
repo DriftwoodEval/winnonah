@@ -100,6 +100,10 @@ export const DASHBOARD_CONFIG: {
 			"Clients who need school records but they haven't been requested from the school district yet. To move forward, request records (record the records requested date).",
 		filter: (client: FullClientInfo) =>
 			client.recordsNeeded === "Needed" && !client.externalRecordsRequestedDate,
+		extraInfo: (client: FullClientInfo) =>
+			client.referralData?.privateSchool === "yes"
+				? "Charter / Private School on intake"
+				: undefined,
 		failureFilter: (f) =>
 			f.daEval === "Records" ||
 			f.reason === "docs not signed" ||

@@ -137,6 +137,7 @@ export type AdditionalInsuranceAppointments = z.infer<
 export const referralDataSchema = z.object({
 	notes: z.string().optional(),
 	schoolExplanation: z.string().optional(),
+	privateSchool: z.enum(["yes", "no"]).nullable().optional(),
 	otherNotes: z.string().optional(),
 	locationPreference: z.string().optional(),
 	needsReachOut: z.enum(["reach_out", "review"]).nullable().optional(),

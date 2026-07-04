@@ -154,6 +154,7 @@ const getPreviewData = async (ctx: Context, clientId: number) => {
 		daQsNeeded,
 		evalQsNeeded,
 		recordsNeeded,
+		isPrivateSchool: client.referralData?.privateSchool === "yes",
 	};
 };
 
