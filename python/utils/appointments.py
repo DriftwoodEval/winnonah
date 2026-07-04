@@ -13,6 +13,7 @@ from utils.constants import TEST_NAMES_LOWER
 from utils.database import (
     compute_and_store_assessment_snapshot,
     get_all_evaluators_npi_map,
+    get_appointments_needing_folder_move,
     get_client_id_to_asd_adhd_map,
     get_client_id_to_dob_map,
     get_in_person_assessments_for_client,
@@ -23,7 +24,7 @@ from utils.database import (
     put_in_person_assessments_in_db,
     set_sync_report_date,
 )
-from utils.google import google_authenticate, send_gmail
+from utils.google import google_authenticate, move_drive_folder, send_gmail
 
 DAEvalType = Literal["EVAL", "DA", "DAEVAL"]
 
@@ -680,6 +681,73 @@ def insert_appointments_with_gcal(appointment_sync_data: dict[str, list[str]] | 
                 compute_and_store_assessment_snapshot(client_id=client_id)
 
     reporter.send_report(email_for_errors)
+
+
+def move_client_folders_for_upcoming_appointments(days_ahead: int = 7) -> None:
+    """Move each client's Drive folder into their upcoming evaluator's folder, about
+    a week before the appointment.
+
+    Only acts on clients with exactly one non-cancelled, non-rescheduled,
+    non-billing-only appointment in the window, to avoid guessing which evaluator's
+    folder to move to when there's a conflict.
+    """
+    candidates = get_appointments_needing_folder_move(days_ahead=days_ahead)
+    if not candidates:
+        logger.debug("No client Drive folders need moving.")
+        return
+
+    errors: list[str] = []
+
+    for row in candidates:
+        client_id = row["client_id"]
+        client_name = row["client_name"]
+        client_drive_id = row["client_drive_id"]
+        evaluator_npi = row["evaluator_npi"]
+        evaluator_name = row["evaluator_name"]
+        evaluator_drive_folder_id = row["evaluator_drive_folder_id"]
+
+        if not client_drive_id:
+            continue
+
+        if not evaluator_drive_folder_id:
+            msg = (
+                f"{client_name} (ID: {client_id}): evaluator {evaluator_name} "
+                f"(NPI {evaluator_npi}) has no Drive folder configured."
+            )
+            logger.warning(msg)
+            errors.append(msg)
+            continue
+
+        try:
+            moved = move_drive_folder(client_drive_id, evaluator_drive_folder_id)
+            if moved:
+                logger.info(
+                    f"Moved Drive folder for {client_name} (ID: {client_id}) to {evaluator_name}."
+                )
+            else:
+                logger.debug(
+                    f"Drive folder for {client_name} (ID: {client_id}) already in {evaluator_name}'s folder."
+                )
+        except Exception as e:
+            msg = f"{client_name} (ID: {client_id}): failed to move Drive folder: {e}"
+            logger.exception(msg)
+            errors.append(msg)
+
+    if errors:
+        email_for_errors = os.getenv("ERROR_EMAILS", "")
+        if email_for_errors:
+            html = (
+                "<h3>Client Drive Folder Move Errors</h3><ul>"
+                + "".join(f"<li>{e}</li>" for e in errors)
+                + "</ul>"
+            )
+            send_gmail(
+                message_text="Errors were detected while moving client Drive folders.",
+                subject=f"Client Folder Move Errors - {datetime.now().strftime('%Y-%m-%d')}",
+                to_addr=email_for_errors,
+                from_addr="tech@driftwoodeval.com",
+                html=html,
+            )
 
 
 def parse_location_and_type(

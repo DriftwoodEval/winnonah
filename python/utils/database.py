@@ -1478,6 +1478,45 @@ def get_most_recent_non_billing_evaluator_npi(
 
 
 @provide_connection
+def get_appointments_needing_folder_move(
+    connection: Connection[DictCursor], days_ahead: int = 7
+) -> list[dict]:
+    """Find clients with exactly one qualifying appointment in the next `days_ahead` days.
+
+    A client is skipped (not returned) if they have more than one non-cancelled,
+    non-rescheduled, non-billing-only appointment in the window, since it's then
+    ambiguous which evaluator's folder the client's folder should move to. Whether
+    the folder actually needs moving is decided against Drive's live state, not
+    anything cached in the database, since folders can be moved by staff or other
+    jobs outside our control.
+    """
+    sql = f"""
+        SELECT * FROM (
+            SELECT
+                a.clientId AS client_id,
+                a.evaluatorNpi AS evaluator_npi,
+                c.fullName AS client_name,
+                c.driveId AS client_drive_id,
+                e.providerName AS evaluator_name,
+                e.driveFolderId AS evaluator_drive_folder_id,
+                COUNT(*) OVER (PARTITION BY a.clientId) AS appt_count
+            FROM `{TABLE_APPOINTMENT}` a
+            JOIN `{TABLE_CLIENT}` c ON c.id = a.clientId
+            JOIN `{TABLE_EVALUATOR}` e ON e.npi = a.evaluatorNpi
+            WHERE a.startTime BETWEEN NOW() AND (NOW() + INTERVAL %s DAY)
+              AND a.cancelled = 0
+              AND a.rescheduled = 0
+              AND a.billingOnly = 0
+              AND a.placeholder = 0
+        ) t
+        WHERE appt_count = 1
+    """
+    with connection.cursor() as cursor:
+        cursor.execute(sql, (days_ahead,))
+        return list(cursor.fetchall())
+
+
+@provide_connection
 def get_client_id_to_dob_map(
     connection: Connection[DictCursor],
 ) -> dict[int, date]:

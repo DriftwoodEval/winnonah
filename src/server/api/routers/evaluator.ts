@@ -35,6 +35,10 @@ export const evaluatorInputSchema = z.object({
 		.array(z.string())
 		.default(["DA", "EVAL", "DAEVAL"]),
 	writesOwnReports: z.boolean().default(false),
+	driveFolderId: z
+		.string()
+		.optional()
+		.transform((v) => v?.trim() || null),
 });
 
 const CACHE_KEY_ALL_EVALUATORS = "evaluators:all";

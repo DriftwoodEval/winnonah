@@ -39,6 +39,7 @@ export const evaluatorFormSchema = z.object({
 	appointmentDurations: z.record(z.string(), z.number().nonnegative().int()),
 	allowedAppointmentTypes: z.array(z.string()),
 	writesOwnReports: z.boolean(),
+	driveFolderId: z.string(),
 });
 
 export type EvaluatorFormValues = z.infer<typeof evaluatorFormSchema>;
@@ -67,6 +68,21 @@ function expandAllowedTypes(types: string[]): string[] {
 		}
 	}
 	return [...expanded];
+}
+
+function extractDriveFolderId(input: string): string {
+	const trimmed = input.trim();
+	if (!trimmed) return "";
+	try {
+		const url = new URL(trimmed);
+		const match = (url.search + url.pathname).match(
+			/(?:\/folders\/|\?id=)([a-zA-Z0-9_-]+)/,
+		);
+		if (match?.[1]) return match[1];
+	} catch {
+		// Not a URL — treat the input as a raw folder ID.
+	}
+	return trimmed;
 }
 
 function DurationInput({
@@ -226,6 +242,7 @@ export function EvaluatorForm({
 					],
 				),
 				writesOwnReports: initialData.writesOwnReports ?? false,
+				driveFolderId: initialData.driveFolderId ?? "",
 			};
 		}
 		return {
@@ -240,6 +257,7 @@ export function EvaluatorForm({
 			appointmentDurations: {},
 			allowedAppointmentTypes: expandAllowedTypes(["DA", "EVAL", "DAEVAL"]),
 			writesOwnReports: false,
+			driveFolderId: "",
 		};
 	}, [initialData, initialEmail]);
 
@@ -315,7 +333,11 @@ export function EvaluatorForm({
 								k !== "DAEVAL",
 						),
 					);
-					onSubmit({ ...values, appointmentDurations: cleaned });
+					onSubmit({
+						...values,
+						appointmentDurations: cleaned,
+						driveFolderId: extractDriveFolderId(values.driveFolderId),
+					});
 				})}
 			>
 				<div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -422,6 +444,28 @@ export function EvaluatorForm({
 						)}
 					/>
 				</div>
+
+				<FormField
+					control={form.control}
+					name="driveFolderId"
+					render={({ field }) => (
+						<FormItem>
+							<FormLabel>Drive Folder</FormLabel>
+							<FormControl>
+								<Input
+									disabled={isLoading || disabled}
+									placeholder="Paste a Google Drive folder link or ID"
+									{...field}
+								/>
+							</FormControl>
+							<FormDescription>
+								Client folders are automatically moved here the week before
+								their appointment.
+							</FormDescription>
+							<FormMessage />
+						</FormItem>
+					)}
+				/>
 
 				<div className="space-y-2">
 					<FormLabel>Insurance</FormLabel>

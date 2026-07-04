@@ -265,6 +265,27 @@ def get_file_as_bytes(file: dict) -> bytes:
     return service.files().get_media(fileId=file["id"]).execute()
 
 
+def move_drive_folder(folder_id: str, dest_folder_id: str) -> bool:
+    """Move a Drive folder (e.g. a client folder) to a new parent folder.
+
+    Checks the folder's current parents on Drive (not any cached state) before
+    moving, since folders can be moved by staff or other jobs outside our control.
+    Returns True if a move was performed, False if it was already in dest_folder_id.
+    """
+    service = get_drive_service()
+    meta = service.files().get(fileId=folder_id, fields="parents").execute()
+    current_parents = meta.get("parents", [])
+    if dest_folder_id in current_parents:
+        return False
+    service.files().update(
+        fileId=folder_id,
+        addParents=dest_folder_id,
+        removeParents=",".join(current_parents),
+        fields="id, parents",
+    ).execute()
+    return True
+
+
 def _normalize_name_tokens(name: str):
     """Converts 'John Smith-Doe' to a set: {'john', 'smith', 'doe'}. Removes punctuation, double spaces, and lowercases."""
     if not name:

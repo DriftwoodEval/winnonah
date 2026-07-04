@@ -44,6 +44,7 @@ export const evaluators = createTable("evaluator", (d) => ({
 		.default(["DA", "EVAL", "DAEVAL"]),
 	writesOwnReports: d.boolean().notNull().default(false),
 	evaluatorDashboard: d.boolean("evaluator_dashboard").notNull().default(false),
+	driveFolderId: d.varchar({ length: 255 }),
 }));
 
 export const insurances = createTable("insurance", (d) => ({
