@@ -39,7 +39,6 @@ import { ClientHeader } from "./ClientHeader";
 import { ClientNoteEditor } from "./ClientNoteEditor";
 import { CommunicationTimeline } from "./CommunicationTimeline";
 import { EligibleEvaluatorsList } from "./EligibleEvaluatorsList";
-import { EvaluationCheckbox } from "./EvaluationCheckbox";
 import { InPersonAssessmentsTable } from "./InPersonAssessmentsTable";
 import { InsuranceTab } from "./InsuranceTab";
 import { MergeRecommendationAlert } from "./MergeRecommendationAlert";
@@ -381,11 +380,6 @@ export function Client({
 										{Number(formatClientAge(client.dob, "years")) < 4 && (
 											<BabyNetBoxes clientId={client.id} readOnly={readOnly} />
 										)}
-
-										<EvaluationCheckbox
-											clientId={client.id}
-											readOnly={readOnly}
-										/>
 
 										<RecordsNoteEditor
 											clientId={client.id}

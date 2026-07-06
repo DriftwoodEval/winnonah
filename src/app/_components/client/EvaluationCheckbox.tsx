@@ -19,11 +19,13 @@ const log = logger.child({ module: "EvaluationCheckbox" });
 interface EvaluationCheckboxProps {
 	clientId: number;
 	readOnly?: boolean;
+	compact?: boolean;
 }
 
 export function EvaluationCheckbox({
 	clientId,
 	readOnly = false,
+	compact = false,
 }: EvaluationCheckboxProps) {
 	const utils = api.useUtils();
 	const can = useCheckPermission();
@@ -67,28 +69,34 @@ export function EvaluationCheckbox({
 	const checkboxId = useId();
 	const disabled = readOnly || !canEdit;
 
+	const checkboxRow = (
+		<div className="flex items-center gap-2">
+			<Checkbox
+				checked={checked}
+				disabled={disabled}
+				id={checkboxId}
+				onCheckedChange={handleChange}
+			/>
+			<TooltipProvider>
+				<Tooltip>
+					<TooltipTrigger asChild>
+						<Label htmlFor={checkboxId}>Evaluation In Process</Label>
+					</TooltipTrigger>
+					<TooltipContent>
+						When requesting records, we were told an evaluation was in progress,
+						check back later. Adds this client to the issues list.
+					</TooltipContent>
+				</Tooltip>
+			</TooltipProvider>
+		</div>
+	);
+
+	if (compact) return checkboxRow;
+
 	return (
 		<div className="w-full">
 			<h4 className="mb-2 font-bold leading-none">Evaluation</h4>
-			<div className="flex items-center gap-2">
-				<Checkbox
-					checked={checked}
-					disabled={disabled}
-					id={checkboxId}
-					onCheckedChange={handleChange}
-				/>
-				<TooltipProvider>
-					<Tooltip>
-						<TooltipTrigger asChild>
-							<Label htmlFor={checkboxId}>Evaluation In Process</Label>
-						</TooltipTrigger>
-						<TooltipContent>
-							When requesting records, we were told an evaluation was in
-							progress, check back later. Adds this client to the issues list.
-						</TooltipContent>
-					</Tooltip>
-				</TooltipProvider>
-			</div>
+			{checkboxRow}
 		</div>
 	);
 }

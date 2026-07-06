@@ -70,6 +70,10 @@ export const PERMISSIONS = {
 						id: "clients:questionnaires:in-person",
 						title: "Add, Remove, and Update In-Person Assessments",
 					},
+					{
+						id: "clients:questionnaires:resolvefailure",
+						title: "Resolve Questionnaire Failures",
+					},
 				],
 			},
 

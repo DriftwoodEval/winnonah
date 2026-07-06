@@ -1,4 +1,5 @@
 import { RichTextEditor } from "@components/shared/RichTextEditor";
+import { Alert, AlertDescription, AlertTitle } from "@ui/alert";
 import { Button } from "@ui/button";
 import { Checkbox } from "@ui/checkbox";
 import { DatePicker } from "@ui/date-picker";
@@ -15,16 +16,17 @@ import { Textarea } from "@ui/textarea";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@ui/tooltip";
 import { debounce } from "es-toolkit/function";
 import { isEqual } from "es-toolkit/predicate";
-import { History } from "lucide-react";
+import { History, Info } from "lucide-react";
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { useCheckPermission } from "~/hooks/use-check-permission";
 import { NOTE_TEMPLATES } from "~/lib/constants";
 import { logger } from "~/lib/logger";
-import { getLocalDayFromUTCDate } from "~/lib/utils";
+import { formatShortDate, getLocalDayFromUTCDate } from "~/lib/utils";
 import { api } from "~/trpc/react";
 import { NoteHistory } from "../shared/NoteHistory";
 import { ResponsiveDialog } from "../shared/ResponsiveDialog";
+import { EvaluationCheckbox } from "./EvaluationCheckbox";
 
 const log = logger.child({ module: "RecordsNoteEditor" });
 
@@ -74,6 +76,16 @@ export function RecordsNoteEditor({
 		api.externalRecords.getExternalRecordByClientId.useQuery(clientId, {
 			enabled: !!clientId,
 		});
+
+	const { data: allFailures } = api.clients.getFailures.useQuery(clientId, {
+		enabled: !!clientId,
+	});
+	const recordFailures = allFailures?.filter(
+		(f) =>
+			f.daEval === "Records" ||
+			f.reason === "docs not signed" ||
+			f.reason === "portal not opened",
+	);
 	api.externalRecords.onExternalRecordNoteUpdate.useSubscription(clientId, {
 		enabled: !!clientId,
 		onData: (updatedExternalRecordsNote) => {
@@ -416,6 +428,23 @@ export function RecordsNoteEditor({
 
 	return (
 		<div className="w-full">
+			{recordFailures && recordFailures.length > 0 && (
+				<div className="mb-4 flex flex-col gap-2">
+					{recordFailures.map((failure) => (
+						<Alert key={failure.reason} variant="destructive">
+							<Info className="h-4 w-4" />
+							<AlertTitle>
+								{failure.reason.charAt(0).toUpperCase() +
+									failure.reason.slice(1)}
+							</AlertTitle>
+							<AlertDescription>
+								First noted {formatShortDate(failure.failedDate)}, last updated{" "}
+								{formatShortDate(failure.updatedAt)}.
+							</AlertDescription>
+						</Alert>
+					))}
+				</div>
+			)}
 			<div className="mb-4 flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
 				<div className="flex flex-wrap items-center gap-3">
 					<h4 className="font-bold leading-none">School Records</h4>
@@ -441,13 +470,14 @@ export function RecordsNoteEditor({
 							</TooltipContent>
 						)}
 					</Tooltip>
+					<EvaluationCheckbox clientId={clientId} compact readOnly={readOnly} />
 					{recordsNeeded === "Needed" &&
 						requests.map((req, i) => {
 							const hasSentDate = !!req.requestedDate;
 							const checkboxId = `flag-${req.id}`;
 							const dateId = `date-${req.id}`;
 							return (
-								<div className="flex items-center gap-2" key={req.id}>
+								<div className="flex flex-wrap items-center gap-2" key={req.id}>
 									<div className="flex items-center gap-2">
 										<Checkbox
 											checked={true}
@@ -473,6 +503,18 @@ export function RecordsNoteEditor({
 										placeholder="Pick date"
 										setDate={(date) => handleSetRequestDate(req.id, date)}
 									/>
+									{!req.requestedDate && (
+										<DatePicker
+											allowClear={canAddRequest && !!req.holdUntil}
+											date={getLocalDayFromUTCDate(req.holdUntil) ?? undefined}
+											disabled={!canAddRequest}
+											flexDirection="flex-row"
+											id={`hold-${req.id}`}
+											label="Hold until"
+											placeholder="No hold"
+											setDate={(date) => handleSetHoldUntil(req.id, date)}
+										/>
+									)}
 								</div>
 							);
 						})}
@@ -481,16 +523,6 @@ export function RecordsNoteEditor({
 							.filter((r) => !r.requestedDate)
 							.map((req) => (
 								<div className="w-full space-y-2" key={`msg-${req.id}`}>
-									<DatePicker
-										allowClear={canAddRequest && !!req.holdUntil}
-										date={getLocalDayFromUTCDate(req.holdUntil) ?? undefined}
-										disabled={!canAddRequest}
-										flexDirection="flex-row"
-										id={`hold-${req.id}`}
-										label="Hold until"
-										placeholder="No hold"
-										setDate={(date) => handleSetHoldUntil(req.id, date)}
-									/>
 									<div>
 										<Label className="mb-1 block text-muted-foreground text-xs">
 											Email request line

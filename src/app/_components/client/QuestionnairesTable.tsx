@@ -1,6 +1,6 @@
 "use client";
 
-import { Alert, AlertDescription, AlertTitle } from "@ui/alert";
+import { Alert, AlertAction, AlertDescription, AlertTitle } from "@ui/alert";
 import { Button } from "@ui/button";
 import { Checkbox } from "@ui/checkbox";
 import {
@@ -23,6 +23,7 @@ import { Info } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
 import { toast } from "sonner";
+import { useCheckPermission } from "~/hooks/use-check-permission";
 import { QUESTIONNAIRE_STATUSES } from "~/lib/constants";
 import {
 	cn,
@@ -76,7 +77,26 @@ export function QuestionnairesTable({
 			enabled: typeof clientId === "number" && clientId > 0,
 		});
 
+	const can = useCheckPermission();
+	const canResolveFailure = can("clients:questionnaires:resolvefailure");
+
+	const { data: allFailures } = api.clients.getFailures.useQuery(clientId);
+	const failures = allFailures?.filter(
+		(f) =>
+			f.daEval !== "Records" ||
+			f.reason === "docs not signed" ||
+			f.reason === "portal not opened",
+	);
+
 	const utils = api.useUtils();
+
+	const resolveFailure = api.clients.resolveFailure.useMutation({
+		onSuccess: () => {
+			void utils.clients.getFailures.invalidate(clientId);
+		},
+		onError: (err) =>
+			toast.error("Failed to resolve failure", { description: err.message }),
+	});
 
 	const bulkUpdate = api.questionnaires.bulkUpdateStatus.useMutation({
 		onSuccess: () => {
@@ -154,6 +174,42 @@ export function QuestionnairesTable({
 
 					{!readOnly && <AddQuestionnaireButton clientId={clientId} />}
 				</div>
+
+				{failures && failures.length > 0 && (
+					<div className="flex flex-col gap-2 border-t px-4 py-3">
+						{failures.map((failure) => (
+							<Alert key={failure.reason} variant="destructive">
+								<Info className="h-4 w-4" />
+								<AlertTitle>
+									{failure.reason.charAt(0).toUpperCase() +
+										failure.reason.slice(1)}
+								</AlertTitle>
+								<AlertDescription>
+									First noted {formatShortDate(failure.failedDate)}, last
+									updated {formatShortDate(failure.updatedAt)}.
+								</AlertDescription>
+								{canResolveFailure && (
+									<AlertAction>
+										<Button
+											disabled={resolveFailure.isPending}
+											onClick={() =>
+												clientId &&
+												resolveFailure.mutate({
+													clientId,
+													reason: failure.reason,
+												})
+											}
+											size="sm"
+											variant="outline"
+										>
+											Resolved
+										</Button>
+									</AlertAction>
+								)}
+							</Alert>
+						))}
+					</div>
+				)}
 
 				{!readOnly && someSelected && (
 					<div className="flex items-center gap-2 border-t bg-muted/40 px-4 py-2">
