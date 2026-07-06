@@ -17,9 +17,22 @@ python-dev:
 
 # Sync the production database down to the local container
 sync-db:
-    @echo "Synching production database..."
-    ssh opti "cat backup.sql.gz" | (pigz -dc 2>/dev/null || gunzip) | sed '/GTID_PURGED/d' | docker exec -i driftwood-db mysql -u root -p"${MYSQL_ROOT_PASSWORD}" driftwood
-    @echo "Databse sync complete!"
+    @WAS_RUNNING="$(docker ps -q -f name=driftwood-db -f status=running)"; \
+    if [ -z "$WAS_RUNNING" ]; then \
+        echo "Database container is not running. Starting driftwood-db..."; \
+        docker compose up -d driftwood-db; \
+        echo "Waiting for database to become healthy..."; \
+        while ! docker compose ps driftwood-db --format json | grep -q '"Health":"healthy"'; do \
+            sleep 0.5; \
+        done; \
+    fi; \
+    echo "Synching production database..."; \
+    ssh opti "cat backup.sql.gz" | (pigz -dc 2>/dev/null || gunzip) | sed '/GTID_PURGED/d' | docker exec -i driftwood-db mysql -u root -p"${MYSQL_ROOT_PASSWORD}" driftwood; \
+    echo "Database sync complete!"; \
+    if [ -z "$WAS_RUNNING" ]; then \
+        echo "Shutting down automatically started database container..."; \
+        docker compose stop driftwood-db; \
+    fi
 
 # Start development server, bringing up and installing dependencies first
 dev: deps
