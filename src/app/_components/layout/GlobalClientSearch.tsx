@@ -42,7 +42,14 @@ export function GlobalClientSearch() {
 	);
 
 	// Mutation to save filters to the session
-	const saveFiltersMutation = api.sessions.saveClientFilters.useMutation();
+	const utils = api.useUtils();
+	const saveFiltersMutation = api.sessions.saveClientFilters.useMutation({
+		onSuccess: (_data, variables) => {
+			utils.sessions.getClientFilters.setData(undefined, {
+				clientFilters: variables.clientFilters,
+			});
+		},
+	});
 
 	const savedFilters = useMemo(() => {
 		try {
@@ -55,11 +62,12 @@ export function GlobalClientSearch() {
 	}, [savedFiltersData?.clientFilters]);
 
 	// Initialize and sync status filter from saved filters
+	const userId = session?.user?.id;
 	useEffect(() => {
-		if (session) {
+		if (userId) {
 			setStatusFilter(savedFilters.status ?? "active");
 		}
-	}, [savedFilters.status, session]);
+	}, [savedFilters.status, userId]);
 
 	const handleStatusChange = (newStatus: string) => {
 		setStatusFilter(newStatus);
@@ -189,7 +197,7 @@ export function GlobalClientSearch() {
 							/>
 						</div>
 						<Select onValueChange={handleStatusChange} value={statusFilter}>
-							<SelectTrigger className="w-28 flex-shrink-0">
+							<SelectTrigger className="w-28 shrink-0">
 								<SelectValue placeholder="Status" />
 							</SelectTrigger>
 							<SelectContent>
