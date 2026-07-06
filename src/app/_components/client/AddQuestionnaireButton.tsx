@@ -236,28 +236,6 @@ export function AddQuestionnaireButton({
 
 	return (
 		<div className="flex flex-wrap items-center justify-end gap-2">
-			{isDesktop && qsSent && !qsSent?.["DA Qs Sent"] && clientId && (
-				<Button onClick={handleSetDASent} size="sm" variant="secondary">
-					Set DA Sent
-				</Button>
-			)}
-
-			{isDesktop && qsSent && !qsSent?.["EVAL Qs Sent"] && clientId && (
-				<Button onClick={handleSetEvalSent} size="sm" variant="secondary">
-					Set Eval Sent
-				</Button>
-			)}
-
-			{isDesktop &&
-				qsSent &&
-				!qsSent?.["DA Qs Sent"] &&
-				!qsSent?.["EVAL Qs Sent"] &&
-				clientId && (
-					<Button onClick={handleSetBothSent} size="sm" variant="secondary">
-						Set Both Sent
-					</Button>
-				)}
-
 			<ButtonGroup>
 				{(canAddSingle || canAddExternal) && (
 					<ResponsiveDialog

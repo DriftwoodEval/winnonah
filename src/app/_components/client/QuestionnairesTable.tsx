@@ -1,8 +1,16 @@
 "use client";
 
 import { Alert, AlertAction, AlertDescription, AlertTitle } from "@ui/alert";
+import { Badge } from "@ui/badge";
 import { Button } from "@ui/button";
 import { Checkbox } from "@ui/checkbox";
+import {
+	DropdownMenu,
+	DropdownMenuContent,
+	DropdownMenuLabel,
+	DropdownMenuSeparator,
+	DropdownMenuTrigger,
+} from "@ui/dropdown-menu";
 import {
 	Select,
 	SelectContent,
@@ -19,9 +27,9 @@ import {
 	TableHeader,
 	TableRow,
 } from "@ui/table";
-import { Info } from "lucide-react";
+import { CheckCircle2, ClipboardList, Info } from "lucide-react";
 import Link from "next/link";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { useCheckPermission } from "~/hooks/use-check-permission";
 import { QUESTIONNAIRE_STATUSES } from "~/lib/constants";
@@ -76,6 +84,42 @@ export function QuestionnairesTable({
 		api.questionnaires.getSentQuestionnaires.useQuery(clientId ?? 0, {
 			enabled: typeof clientId === "number" && clientId > 0,
 		});
+
+	const { data: applicableRules } =
+		api.questionnaires.getApplicableRules.useQuery(
+			{ clientId: clientId ?? 0 },
+			{ enabled: typeof clientId === "number" && clientId > 0 },
+		);
+
+	const questionnaireBattery = useMemo(() => {
+		if (!applicableRules?.rules.length) return [];
+
+		const activeTypes = new Set(
+			(questionnairesSent ?? [])
+				.filter((q) => q.status !== "ARCHIVED")
+				.map((q) => q.questionnaireType),
+		);
+
+		const groups = new Map<string, string[]>();
+		for (const rule of applicableRules.rules) {
+			const existing = groups.get(rule.daeval) ?? [];
+			for (const q of rule.questionnaires) {
+				if (!existing.includes(q)) existing.push(q);
+			}
+			groups.set(rule.daeval, existing);
+		}
+
+		return Array.from(groups.entries())
+			.filter(([, qs]) => qs.length > 0)
+			.map(([daeval, questionnaires]) => ({
+				daeval,
+				questionnaires: questionnaires.map((q) => ({
+					name: q,
+					sent: activeTypes.has(q),
+				})),
+				complete: questionnaires.every((q) => activeTypes.has(q)),
+			}));
+	}, [applicableRules, questionnairesSent]);
 
 	const can = useCheckPermission();
 	const canResolveFailure = can("clients:questionnaires:resolvefailure");
@@ -164,6 +208,44 @@ export function QuestionnairesTable({
 				<div className="sticky top-0 z-10 flex items-center justify-between gap-2 p-4">
 					<div className="flex items-center gap-4">
 						<h4 className="font-bold leading-none">Questionnaires</h4>
+						<DropdownMenu>
+							<DropdownMenuTrigger asChild>
+								<Button
+									className="px-2"
+									disabled={questionnaireBattery.length === 0}
+									size="sm"
+									variant="outline"
+								>
+									<ClipboardList className="h-4 w-4" />
+								</Button>
+							</DropdownMenuTrigger>
+							<DropdownMenuContent align="start" className="w-64">
+								{questionnaireBattery.map(
+									({ daeval, questionnaires, complete }, index) => (
+										<div key={daeval}>
+											{index > 0 && <DropdownMenuSeparator />}
+											<DropdownMenuLabel className="flex items-center gap-1.5">
+												{daeval} Battery
+												{complete && (
+													<CheckCircle2 className="h-3.5 w-3.5 text-primary" />
+												)}
+											</DropdownMenuLabel>
+											<div className="flex flex-wrap gap-1 px-2 pb-2">
+												{questionnaires.map((q) => (
+													<Badge
+														className="text-xs"
+														key={q.name}
+														variant={q.sent ? "secondary" : "outline"}
+													>
+														{q.name}
+													</Badge>
+												))}
+											</div>
+										</div>
+									),
+								)}
+							</DropdownMenuContent>
+						</DropdownMenu>
 						{clientId && (
 							<ProtocolsScannedCheckbox
 								clientId={clientId}
@@ -202,7 +284,7 @@ export function QuestionnairesTable({
 											size="sm"
 											variant="outline"
 										>
-											Resolved
+											Mark Resolved
 										</Button>
 									</AlertAction>
 								)}
