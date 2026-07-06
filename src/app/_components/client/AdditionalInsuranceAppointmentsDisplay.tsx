@@ -2,10 +2,18 @@
 
 import { Badge } from "@ui/badge";
 import { Button } from "@ui/button";
+import {
+	DropdownMenu,
+	DropdownMenuContent,
+	DropdownMenuLabel,
+	DropdownMenuSeparator,
+	DropdownMenuTrigger,
+} from "@ui/dropdown-menu";
 import { Label } from "@ui/label";
 import { Separator } from "@ui/separator";
 import { isAfter, isBefore, parseISO } from "date-fns";
-import { useState } from "react";
+import { CheckCircle2, ClipboardList } from "lucide-react";
+import { useMemo, useState } from "react";
 import { useCheckPermission } from "~/hooks/use-check-permission";
 import type { ClientGetOneOutput } from "~/lib/api-types";
 import {
@@ -30,6 +38,42 @@ export function AdditionalInsuranceAppointmentsDisplay({
 	const policies = policiesData?.policies ?? [];
 	const [combined, setCombined] = useState(false);
 	const utils = api.useUtils();
+
+	const { data: applicableRules } =
+		api.questionnaires.getApplicableRules.useQuery({ clientId: client.id });
+
+	const { data: sentQuestionnaires } =
+		api.questionnaires.getSentQuestionnaires.useQuery(client.id);
+
+	const questionnaireBattery = useMemo(() => {
+		if (!applicableRules?.rules.length) return [];
+
+		const activeTypes = new Set(
+			(sentQuestionnaires ?? [])
+				.filter((q) => q.status !== "ARCHIVED")
+				.map((q) => q.questionnaireType),
+		);
+
+		const groups = new Map<string, string[]>();
+		for (const rule of applicableRules.rules) {
+			const existing = groups.get(rule.daeval) ?? [];
+			for (const q of rule.questionnaires) {
+				if (!existing.includes(q)) existing.push(q);
+			}
+			groups.set(rule.daeval, existing);
+		}
+
+		return Array.from(groups.entries())
+			.filter(([, qs]) => qs.length > 0)
+			.map(([daeval, questionnaires]) => ({
+				daeval,
+				questionnaires: questionnaires.map((q) => ({
+					name: q,
+					sent: activeTypes.has(q),
+				})),
+				complete: questionnaires.every((q) => activeTypes.has(q)),
+			}));
+	}, [applicableRules, sentQuestionnaires]);
 
 	const computeMutation = api.clients.computeAssessmentMinutes.useMutation({
 		onSuccess: () => {
@@ -148,22 +192,63 @@ export function AdditionalInsuranceAppointmentsDisplay({
 	return (
 		<div className="w-full rounded-md border bg-card text-card-foreground shadow-sm">
 			<div className="flex w-full flex-col gap-3 px-4 pt-4">
-				<div className="flex items-center justify-between">
+				<div className="flex flex-wrap items-center justify-between gap-2">
 					<h4 className="font-bold leading-none">Insurance Codes</h4>
-					{!fromPrecert && (
-						<Button
-							disabled={computeMutation.isPending}
-							onClick={() => computeMutation.mutate({ clientId: client.id })}
-							size="sm"
-							variant="outline"
-						>
-							{computeMutation.isPending
-								? "Computing…"
-								: snapshot
-									? "Recompute"
-									: "Compute"}
-						</Button>
-					)}
+					<div className="flex min-w-0 items-center gap-1.5">
+						<DropdownMenu>
+							<DropdownMenuTrigger asChild>
+								<Button
+									className="px-2"
+									disabled={questionnaireBattery.length === 0}
+									size="sm"
+									variant="outline"
+								>
+									<ClipboardList className="h-4 w-4" />
+								</Button>
+							</DropdownMenuTrigger>
+							<DropdownMenuContent align="end" className="w-64">
+								{questionnaireBattery.map(
+									({ daeval, questionnaires, complete }, index) => (
+										<div key={daeval}>
+											{index > 0 && <DropdownMenuSeparator />}
+											<DropdownMenuLabel className="flex items-center gap-1.5">
+												{daeval} Battery
+												{complete && (
+													<CheckCircle2 className="h-3.5 w-3.5 text-primary" />
+												)}
+											</DropdownMenuLabel>
+											<div className="flex flex-wrap gap-1 px-2 pb-2">
+												{questionnaires.map((q) => (
+													<Badge
+														className="text-xs"
+														key={q.name}
+														variant={q.sent ? "secondary" : "outline"}
+													>
+														{q.name}
+													</Badge>
+												))}
+											</div>
+										</div>
+									),
+								)}
+							</DropdownMenuContent>
+						</DropdownMenu>
+						{!fromPrecert && (
+							<Button
+								className="px-2"
+								disabled={computeMutation.isPending}
+								onClick={() => computeMutation.mutate({ clientId: client.id })}
+								size="sm"
+								variant="outline"
+							>
+								{computeMutation.isPending
+									? "Computing…"
+									: snapshot
+										? "Recompute"
+										: "Compute"}
+							</Button>
+						)}
+					</div>
 				</div>
 
 				{snapshot && !fromPrecert && (
