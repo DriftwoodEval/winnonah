@@ -755,10 +755,7 @@ export const clientRouter = createTRPCRouter({
 
 	getNoDriveIdErrors: protectedProcedure.query(async ({ ctx }) => {
 		const noDriveId = await ctx.db.query.clients.findMany({
-			where: and(
-				or(eq(clients.status, true), not(isNoteOnly)),
-				isNull(clients.driveId),
-			),
+			where: and(not(isNoteOnly), isNull(clients.driveId)),
 			orderBy: clients.addedDate,
 		});
 
