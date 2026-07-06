@@ -315,7 +315,12 @@ export const DASHBOARD_CONFIG: {
 	{
 		title: SECTION_POST_EVAL,
 		description: "Eval appointment date has passed.",
-		filter: (client: FullClientInfo) => isPastDate(client["EVAL date"]),
+		filter: (client: FullClientInfo) =>
+			isPastDate(client["EVAL date"]) &&
+			!(
+				client.hasPast96130Appt === true &&
+				client["Protocols scanned?"] !== "TRUE"
+			),
 		extraInfo: (client) => formatScheduledDate(client["EVAL date"]),
 		sort: (a, b) =>
 			Date.parse(a["EVAL date"] ?? "") - Date.parse(b["EVAL date"] ?? ""),
