@@ -184,11 +184,10 @@ export default function ReminderSettings() {
 											{template.triggerDaEval ?? "Any appointment type"} @{" "}
 											{template.triggerLocationKey?.length
 												? template.triggerLocationKey
-														.map((k) =>
-															k === "VIRTUAL"
-																? "Virtual"
-																: (offices?.find((o) => o.key === k)
-																		?.prettyName ?? k),
+														.map(
+															(k) =>
+																offices?.find((o) => o.key === k)?.prettyName ??
+																k,
 														)
 														.join(", ")
 												: "Any location"}{" "}

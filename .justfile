@@ -26,7 +26,7 @@ sync-db:
             sleep 0.5; \
         done; \
     fi; \
-    echo "Synching production database..."; \
+    echo "Syncing production database..."; \
     ssh opti "cat backup.sql.gz" | (pigz -dc 2>/dev/null || gunzip) | sed '/GTID_PURGED/d' | docker exec -i driftwood-db mysql -u root -p"${MYSQL_ROOT_PASSWORD}" driftwood; \
     echo "Database sync complete!"; \
     if [ -z "$WAS_RUNNING" ]; then \

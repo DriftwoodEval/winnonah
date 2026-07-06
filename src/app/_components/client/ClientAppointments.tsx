@@ -32,6 +32,8 @@ import { getLocalTimeFromUTCDate } from "~/lib/utils";
 import { api } from "~/trpc/react";
 import { AppointmentReminderTimeline } from "./AppointmentReminderTimeline";
 
+const IS_DEV = process.env.NODE_ENV === "development";
+
 export function ClientAppointments({ clientId }: { clientId: number }) {
 	const utils = api.useUtils();
 	const [expandedApptId, setExpandedApptId] = useState<string | null>(null);
@@ -77,6 +79,21 @@ export function ClientAppointments({ clientId }: { clientId: number }) {
 						<div className="flex items-center gap-2 font-semibold text-sm">
 							<CalendarIcon className="h-3.5 w-3.5" />
 							{format(startTime, "MMM d, yyyy")}
+							{IS_DEV && (
+								<a
+									href={`http://localhost:8000/pyapi/appointment-reminders/preview/${appt.id}`}
+									onClick={(e) => e.stopPropagation()}
+									rel="noopener noreferrer"
+									target="_blank"
+								>
+									<Badge
+										className="h-4 cursor-pointer px-1 font-mono text-[9px] hover:bg-accent"
+										variant="outline"
+									>
+										{appt.id}
+									</Badge>
+								</a>
+							)}
 							<div className="flex gap-1">
 								{appt.confirmedAt && (
 									<Badge className="h-4 px-1 text-[9px] uppercase">

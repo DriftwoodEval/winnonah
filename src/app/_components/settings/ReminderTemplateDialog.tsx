@@ -280,7 +280,7 @@ export function ReminderTemplateDialog({
 											!!form.watch("triggerKeyword");
 										const selected = field.value ?? [];
 										const allLocations = [
-											{ key: "VIRTUAL", prettyName: "Virtual" },
+											{ key: "Virtual", prettyName: "Virtual" },
 											...(offices ?? []),
 										];
 										const toggle = (key: string) => {

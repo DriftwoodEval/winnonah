@@ -42,6 +42,20 @@ OPENPHONE_API_TOKEN = os.getenv("OPENPHONE_API_TOKEN", "")
 OPENPHONE_NUMBER_ID = os.getenv("OPENPHONE_NUMBER_ID", "")
 OPENPHONE_SIGNING_SECRET = os.getenv("OPENPHONE_SIGNING_SECRET", "")
 
+VIRTUAL_LOCATION_KEY = "Virtual"
+
+
+def _office_fields(appt: dict) -> tuple[str | None, str | None]:
+    """Returns (officeLabel, officeLocationPhrase) for an appointment.
+
+    Virtual appointments have no row in the office table (they aren't a physical
+    location with a lat/long), so they're special-cased here instead.
+    """
+    if appt.get("locationKey") == VIRTUAL_LOCATION_KEY:
+        return VIRTUAL_LOCATION_KEY, "virtually"
+    return appt.get("officeLabel"), appt.get("officeLocationPhrase")
+
+
 _http_client: AsyncClient | None = None
 
 
@@ -90,11 +104,12 @@ def is_within_quiet_window(connection) -> bool:
 
 def format_message(template: str, appointment: dict) -> str:
     """Replaces placeholders with actual data."""
+    office_label, office_location_phrase = _office_fields(appointment)
     variables = {
         "$START_TIME": appointment["startTime"].strftime("%I:%M %p"),
         "$DATE": appointment["startTime"].strftime("%A, %B %d"),
-        "$OFFICE_NAME": appointment.get("officeLabel") or "",
-        "$LOCATION": appointment.get("officeLocationPhrase") or "",
+        "$OFFICE_NAME": office_label or "",
+        "$LOCATION": office_location_phrase or "",
     }
 
     for placeholder, value in variables.items():
@@ -317,10 +332,11 @@ def get_reminder_preview(
 
     pending.sort(key=lambda p: p["scheduledFor"])
 
+    office_label, office_location_phrase = _office_fields(appt)
     return {
         "appointmentTime": start_time.isoformat(),
-        "officeName": appt.get("officeLabel"),
-        "officeLocationPhrase": appt.get("officeLocationPhrase"),
+        "officeName": office_label,
+        "officeLocationPhrase": office_location_phrase,
         "suppressed": bool(suppressed_reason),
         "suppressedReason": suppressed_reason,
         "clientLanguage": appt.get("language"),
