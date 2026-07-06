@@ -636,9 +636,9 @@ _QS_LOGS_PATH = os.getenv("QS_LOGS_PATH", "../questionnaires/logs")
 
 SCRIPT_LOGS: dict[str, str] = {
     "appointment_reminders": "logs/appointment-reminders.log",
-    "qsend": f"{_QS_LOGS_PATH}/qsend.log",
-    "records_request": f"{_QS_LOGS_PATH}/records-request.log",
-    "piecework": f"{_QS_LOGS_PATH}/piecework.log",
+    "qsend": f"{_QS_LOGS_PATH}/remote_qsend.log",
+    "records_request": f"{_QS_LOGS_PATH}/remote_records-request.log",
+    "piecework": f"{_QS_LOGS_PATH}/remote_piecework.log",
     "qreceive": f"{_QS_LOGS_PATH}/qreceive.log",
 }
 
