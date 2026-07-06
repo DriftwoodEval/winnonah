@@ -381,7 +381,10 @@ export function AddQuestionnaireButton({
 						)}
 
 						{/* Combined DA+Eval battery (DAEVAL rules) */}
-						{batteryCompleteness?.DAEVAL?.questionnaires.length ? (
+						{qsSent &&
+						!qsSent?.["DA Qs Sent"] &&
+						!qsSent?.["EVAL Qs Sent"] &&
+						batteryCompleteness?.DAEVAL?.questionnaires.length ? (
 							<div className="flex flex-col gap-1.5 rounded-md border p-3">
 								{batteryCompleteness.DAEVAL.complete ? (
 									<div className="flex items-start gap-2 text-sm">
