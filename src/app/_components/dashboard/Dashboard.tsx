@@ -23,10 +23,13 @@ import {
 	CalendarCheck,
 	CalendarPlus,
 	Loader2,
+	MapIcon,
+	Pin,
+	PinOff,
 } from "lucide-react";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
-import { Fragment, useEffect, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { useCheckPermission } from "~/hooks/use-check-permission";
 import { getHexFromColor, isClientColor } from "~/lib/colors";
@@ -60,6 +63,78 @@ function PunchListAccordionItem({
 	const { data: session } = useSession();
 	const can = useCheckPermission();
 	const utils = api.useUtils();
+	const savedClientRef = useRef<HTMLDivElement>(null);
+	const savedPlaceKey = title
+		.split(" ")
+		.map((word, index) =>
+			index === 0
+				? word.toLowerCase()
+				: word.replace(/^[a-z]/, (letter) => letter.toUpperCase()),
+		)
+		.join("");
+
+	const { data: savedPlaces } = api.users.getSavedPlaces.useQuery();
+	const savedPlaceData = savedPlaces?.[savedPlaceKey || ""];
+	const savedPlaceHash = savedPlaceData?.hash;
+	const savedPlaceIndex =
+		typeof savedPlaceData === "object" && savedPlaceData !== null
+			? savedPlaceData?.index
+			: undefined;
+
+	const { mutate: updateSavedPlaces } = api.users.updateSavedPlaces.useMutation(
+		{
+			onSuccess: () => {
+				utils.users.getSavedPlaces.invalidate();
+			},
+		},
+	);
+
+	const { mutate: deleteSavedPlace } = api.users.deleteSavedPlace.useMutation({
+		onSuccess: () => {
+			utils.users.getSavedPlaces.invalidate();
+		},
+	});
+
+	useEffect(() => {
+		if (!savedPlaceKey || !savedPlaceHash || clients.length === 0) return;
+
+		const savedClientIndex = clients.findIndex(
+			(client) => client.hash === savedPlaceHash,
+		);
+
+		if (savedClientIndex === -1) {
+			const fallbackIndex =
+				savedPlaceIndex !== undefined
+					? Math.min(savedPlaceIndex - 1, clients.length - 1)
+					: 0;
+
+			if (clients[fallbackIndex]) {
+				updateSavedPlaces({
+					key: savedPlaceKey,
+					hash: clients[fallbackIndex].hash,
+					index: fallbackIndex,
+				});
+			}
+		}
+	}, [
+		clients,
+		savedPlaceKey,
+		savedPlaceHash,
+		savedPlaceIndex,
+		updateSavedPlaces,
+	]);
+
+	const isSavedClient = (clientHash: string) => {
+		return savedPlaceKey && savedPlaceHash === clientHash;
+	};
+
+	const scrollToSavedClient = () => {
+		if (savedClientRef.current) {
+			savedClientRef.current.scrollIntoView({
+				behavior: "smooth",
+			});
+		}
+	};
 
 	const claimOutreach = api.clients.claimOutreach.useMutation({
 		onSuccess: () => {
@@ -123,6 +198,21 @@ function PunchListAccordionItem({
 						<AlertDescription>{description}</AlertDescription>
 					</Alert>
 				)}
+				{savedPlaceKey && savedPlaceHash && (
+					<div className="mb-2 flex justify-end">
+						<Button
+							aria-label="Scroll to saved client"
+							className="font-medium text-muted-foreground text-xs"
+							onClick={scrollToSavedClient}
+							size="sm"
+							type="button"
+							variant="ghost"
+						>
+							<MapIcon className="h-3 w-3" />
+							<span>Go to saved</span>
+						</Button>
+					</div>
+				)}
 				<ScrollArea className="h-[400px] w-full rounded-md border bg-card text-card-foreground shadow-sm">
 					<div className="p-4">
 						{clients?.map((client, index) => {
@@ -131,7 +221,11 @@ function PunchListAccordionItem({
 							const language = client.language ?? punchClient.Language;
 
 							return (
-								<div key={client.hash}>
+								<div
+									className="scroll-mt-12"
+									key={client.hash}
+									ref={isSavedClient(client.hash) ? savedClientRef : null}
+								>
 									<div className="flex items-center justify-between gap-4">
 										<Link
 											className="no-underline! hover:no-underline! block grow"
@@ -310,7 +404,49 @@ function PunchListAccordionItem({
 												</Button>
 											))}
 									</div>
-									{index < clients.length - 1 && <Separator className="my-2" />}
+									{isSavedClient(client.hash) && (
+										<button
+											aria-label={`Remove ${client.fullName ?? punchClient["Client Name"]} as saved client for ${title}`}
+											className="group relative flex w-full cursor-pointer items-center py-2"
+											onClick={() => {
+												if (savedPlaceKey) {
+													deleteSavedPlace({ key: savedPlaceKey });
+												}
+											}}
+											type="button"
+										>
+											<Separator className="my-2 flex-1 rounded bg-secondary data-[orientation=horizontal]:h-1" />
+											<div className="pointer-events-none absolute top-1/2 right-0 z-10 -translate-x-1/2 -translate-y-1/2 rounded-full bg-secondary px-2 py-1 opacity-0 transition-opacity duration-200 group-hover:opacity-100 group-focus:opacity-100">
+												<PinOff className="h-4 w-4" />
+											</div>
+										</button>
+									)}
+
+									{index < clients.length - 1 &&
+										savedPlaceKey &&
+										!isSavedClient(client.hash) && (
+											<button
+												aria-label={`Set ${client.fullName ?? punchClient["Client Name"]} as saved client for ${title}`}
+												className="group relative flex w-full cursor-pointer items-center py-2"
+												onClick={() => {
+													updateSavedPlaces({
+														key: savedPlaceKey,
+														hash: client.hash,
+														index,
+													});
+												}}
+												type="button"
+											>
+												<Separator className="flex-1" />
+												<div className="pointer-events-none absolute top-1/2 right-0 z-10 -translate-x-1/2 -translate-y-1/2 rounded-full bg-muted px-2 py-1 opacity-0 transition-opacity duration-200 group-hover:opacity-100 group-focus:opacity-100">
+													<Pin className="h-4 w-4" />
+												</div>
+											</button>
+										)}
+
+									{index < clients.length - 1 && !savedPlaceKey && (
+										<Separator className="my-2" />
+									)}
 								</div>
 							);
 						})}
