@@ -271,6 +271,7 @@ export const clients = createTable(
 		paymentCategory: d.varchar("payment_category", { length: 255 }),
 		precertExpires: d.date(),
 		privatePay: d.boolean().notNull().default(false),
+		sessionStartedAt: d.timestamp("session_started_at"),
 		asdAdhd: d.mysqlEnum([
 			"ASD",
 			"ADHD",
@@ -646,6 +647,48 @@ export const inPersonAssessments = createTable(
 			t.assessmentType,
 		),
 	],
+);
+
+export const inPersonAssessmentHistory = createTable(
+	"in_person_assessment_history",
+	(d) => ({
+		id: d.int().notNull().autoincrement().primaryKey(),
+		assessmentId: d.int().notNull(),
+		content: d.json("content").notNull(),
+		createdAt: d
+			.timestamp("created_at")
+			.default(sql`CURRENT_TIMESTAMP`)
+			.notNull(),
+	}),
+	(t) => [
+		index("in_person_assessment_history_idx").on(t.assessmentId),
+		foreignKey({
+			columns: [t.assessmentId],
+			foreignColumns: [inPersonAssessments.id],
+			name: "in_person_assessment_history_id_fk",
+		}).onDelete("cascade"),
+	],
+);
+
+export const inPersonAssessmentsRelations = relations(
+	inPersonAssessments,
+	({ one, many }) => ({
+		client: one(clients, {
+			fields: [inPersonAssessments.clientId],
+			references: [clients.id],
+		}),
+		history: many(inPersonAssessmentHistory),
+	}),
+);
+
+export const inPersonAssessmentHistoryRelations = relations(
+	inPersonAssessmentHistory,
+	({ one }) => ({
+		assessment: one(inPersonAssessments, {
+			fields: [inPersonAssessmentHistory.assessmentId],
+			references: [inPersonAssessments.id],
+		}),
+	}),
 );
 
 export const failures = createTable(

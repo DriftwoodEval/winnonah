@@ -44,6 +44,10 @@ TABLE_FAILURE: Final = "emr_failure"
 TABLE_ASSESSMENT_TYPE: Final = "emr_assessment_type"
 TABLE_CLIENT_INSURANCE_POLICY: Final = "emr_client_insurance_policy"
 TABLE_INSURANCE_REVIEW: Final = "emr_insurance_review"
+TABLE_INSURANCE_REVIEW_HISTORY: Final = "emr_insurance_review_history"
+TABLE_IN_PERSON_ASSESSMENT_HISTORY: Final = "emr_in_person_assessment_history"
+TABLE_NOTE: Final = "emr_note"
+TABLE_NOTE_HISTORY: Final = "emr_note_history"
 
 # DB to DataFrame Column Mapping
 CLIENT_COLUMN_MAPPING: Final = {

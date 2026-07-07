@@ -209,11 +209,13 @@ function AddInPersonAssessmentButton({
 
 interface InPersonAssessmentsTableProps {
 	clientId: number | undefined;
+	sessionStartedAt?: Date | string | null;
 	readOnly?: boolean;
 }
 
 export function InPersonAssessmentsTable({
 	clientId,
+	sessionStartedAt,
 	readOnly,
 }: InPersonAssessmentsTableProps) {
 	const can = useCheckPermission();
@@ -222,6 +224,12 @@ export function InPersonAssessmentsTable({
 	const { data: assessments, isLoading } =
 		api.questionnaires.getInPersonAssessments.useQuery(clientId ?? 0, {
 			enabled: typeof clientId === "number" && clientId > 0,
+		});
+
+	const { data: history } =
+		api.questionnaires.getInPersonAssessmentHistory.useQuery(clientId ?? 0, {
+			enabled:
+				!!sessionStartedAt && typeof clientId === "number" && clientId > 0,
 		});
 
 	const existingTypes = useMemo(
@@ -246,6 +254,7 @@ export function InPersonAssessmentsTable({
 	if (
 		!isLoading &&
 		(!assessments || assessments.length === 0) &&
+		!(history && history.length > 0) &&
 		!showActions
 	) {
 		return null;
@@ -262,7 +271,9 @@ export function InPersonAssessmentsTable({
 					/>
 				)}
 			</div>
-			{(isLoading || (assessments && assessments.length > 0)) && (
+			{(isLoading ||
+				(assessments && assessments.length > 0) ||
+				(history && history.length > 0)) && (
 				<div className="px-4 pb-4">
 					<Table className="text-xs">
 						<TableHeader>
@@ -322,6 +333,35 @@ export function InPersonAssessmentsTable({
 									</TableCell>
 								</TableRow>
 							))}
+							{history?.map((entry) => {
+								const content = entry.content as {
+									status: string | null;
+									appointmentId: string | null;
+								} | null;
+								return (
+									<TableRow className="opacity-50" key={`history-${entry.id}`}>
+										{showActions && <TableCell />}
+										<TableCell className="font-medium">
+											{entry.assessmentType}
+										</TableCell>
+										<TableCell>
+											<Badge className="text-[10px]" variant="outline">
+												Previous session
+											</Badge>
+											{content?.status === "EXTERNAL" && (
+												<Badge className="ml-1.5" variant="outline">
+													External
+												</Badge>
+											)}
+										</TableCell>
+										<TableCell className="hidden sm:table-cell">
+											<span className="text-muted-foreground text-xs">
+												Archived {formatShortDate(entry.createdAt)}
+											</span>
+										</TableCell>
+									</TableRow>
+								);
+							})}
 						</TableBody>
 					</Table>
 				</div>

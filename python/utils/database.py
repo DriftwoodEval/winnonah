@@ -32,9 +32,13 @@ from utils.constants import (
     TABLE_EVALUATORS_TO_INSURANCES,
     TABLE_FAILURE,
     TABLE_IN_PERSON_ASSESSMENT,
+    TABLE_IN_PERSON_ASSESSMENT_HISTORY,
     TABLE_INSURANCE,
     TABLE_INSURANCE_ALIAS,
     TABLE_INSURANCE_REVIEW,
+    TABLE_INSURANCE_REVIEW_HISTORY,
+    TABLE_NOTE,
+    TABLE_NOTE_HISTORY,
     TABLE_PYTHON_CONFIG,
     TABLE_QUESTIONNAIRE,
     TABLE_QUESTIONNAIRE_RULE,
@@ -277,6 +281,7 @@ def put_clients_in_db(clients_df: pd.DataFrame, connection: Connection[DictCurso
     logger.debug("Inserting clients into database")
 
     values_to_insert = []
+    new_status_by_id: dict[str, bool] = {}
 
     for _, client in clients_df.iterrows():
         client_id = get_column(client, "CLIENT_ID")
@@ -306,10 +311,13 @@ def put_clients_in_db(clients_df: pd.DataFrame, connection: Connection[DictCurso
         phone_number = format_phone_number(get_column(client, "PHONE1"))
         email = get_column(client, "EMAIL")
 
+        new_status = get_column(client, "STATUS") != "Inactive"
+        new_status_by_id[str(client_id)] = new_status
+
         values = (
             client_id,
             hashlib.md5(str(client_id).encode("utf-8")).hexdigest(),
-            get_column(client, "STATUS") != "Inactive",
+            new_status,
             added_date_formatted,
             dob_formatted,
             firstname,
@@ -361,11 +369,157 @@ def put_clients_in_db(clients_df: pd.DataFrame, connection: Connection[DictCurso
             referralSource = CASE WHEN VALUES(referralSource) IS NOT NULL THEN VALUES(referralSource) ELSE referralSource END;
     """
 
+    client_ids = [str(v[0]) for v in values_to_insert]
+    old_status_by_id: dict[str, bool] = {}
+    if client_ids:
+        placeholders = ", ".join(["%s"] * len(client_ids))
+        with connection.cursor() as cursor:
+            cursor.execute(
+                f"SELECT id, status FROM `{TABLE_CLIENT}` WHERE id IN ({placeholders})",
+                client_ids,
+            )
+            for row in cursor.fetchall():
+                old_status_by_id[str(row["id"])] = bool(row["status"])
+
     with connection.cursor() as cursor:
         cursor.executemany(sql, values_to_insert)
     connection.commit()
 
     logger.info(f"Successfully inserted/updated {len(values_to_insert)} clients.")
+
+    reactivated_ids = [
+        client_id
+        for client_id in client_ids
+        if old_status_by_id.get(client_id) is False
+        and new_status_by_id.get(client_id) is True
+    ]
+    for client_id in reactivated_ids:
+        logger.info(f"Client {client_id} reactivated - starting a new session")
+        reset_client_session(int(client_id), connection=connection)
+
+
+def _build_reactivation_note_block(reactivated_on: str) -> list[dict]:
+    """ProseMirror/TipTap nodes marking where a new session's notes begin."""
+    return [
+        {
+            "type": "heading",
+            "attrs": {"level": 3},
+            "content": [
+                {
+                    "type": "text",
+                    "text": (
+                        f"Client reactivated on {reactivated_on} - data above is "
+                        "new, data below is from before and excluded from "
+                        "calculations"
+                    ),
+                }
+            ],
+        },
+        {"type": "horizontalRule"},
+        {"type": "paragraph"},
+    ]
+
+
+@provide_connection
+def reset_client_session(client_id: int, connection: Connection[DictCursor]) -> None:
+    """Archives a reactivated client's prior-session data and starts a fresh one.
+
+    Runs when a client's status flips from Inactive back to Active in the TA
+    import. Mutable "current state" rows (in-person assessments, insurance
+    review) are archived into their history tables and reset in place;
+    failures are cleared outright; a separator is prepended to the client's
+    notes; and `sessionStartedAt` is stamped so calculations can exclude
+    everything before it.
+    """
+    now = datetime.utcnow()
+
+    with connection.cursor() as cursor:
+        cursor.execute(
+            f"SELECT id, status, addedDate, appointmentId FROM `{TABLE_IN_PERSON_ASSESSMENT}` "
+            "WHERE clientId = %s",
+            (client_id,),
+        )
+        assessments = cursor.fetchall()
+
+        for assessment in assessments:
+            content = {
+                "status": assessment["status"],
+                "addedDate": assessment["addedDate"].isoformat()
+                if assessment["addedDate"]
+                else None,
+                "appointmentId": assessment["appointmentId"],
+            }
+            cursor.execute(
+                f"INSERT INTO `{TABLE_IN_PERSON_ASSESSMENT_HISTORY}` (assessmentId, content) "
+                "VALUES (%s, %s)",
+                (assessment["id"], json.dumps(content)),
+            )
+            cursor.execute(
+                f"UPDATE `{TABLE_IN_PERSON_ASSESSMENT}` SET status = NULL, addedDate = NULL, "
+                "appointmentId = NULL WHERE id = %s",
+                (assessment["id"],),
+            )
+
+        cursor.execute(
+            f"SELECT content, updatedBy FROM `{TABLE_INSURANCE_REVIEW}` WHERE clientId = %s",
+            (client_id,),
+        )
+        review = cursor.fetchone()
+        if review and review["content"] is not None:
+            cursor.execute(
+                f"INSERT INTO `{TABLE_INSURANCE_REVIEW_HISTORY}` (reviewId, content, updatedBy) "
+                "VALUES (%s, %s, %s)",
+                (client_id, review["content"], review["updatedBy"]),
+            )
+            cursor.execute(
+                f"UPDATE `{TABLE_INSURANCE_REVIEW}` SET content = NULL, "
+                "submittedToNotesAt = NULL WHERE clientId = %s",
+                (client_id,),
+            )
+
+        cursor.execute(
+            f"DELETE FROM `{TABLE_FAILURE}` WHERE clientId = %s", (client_id,)
+        )
+
+        cursor.execute(
+            f"SELECT content, title, updatedBy FROM `{TABLE_NOTE}` WHERE clientId = %s",
+            (client_id,),
+        )
+        note = cursor.fetchone()
+        separator = _build_reactivation_note_block(now.date().isoformat())
+
+        if note is None:
+            cursor.execute(
+                f"INSERT INTO `{TABLE_NOTE}` (clientId, content) VALUES (%s, %s)",
+                (client_id, json.dumps({"type": "doc", "content": separator})),
+            )
+        else:
+            if note["content"] is not None:
+                cursor.execute(
+                    f"INSERT INTO `{TABLE_NOTE_HISTORY}` (noteId, content, title, updatedBy) "
+                    "VALUES (%s, %s, %s, %s)",
+                    (client_id, note["content"], note["title"], note["updatedBy"]),
+                )
+            existing_content = (
+                json.loads(note["content"])
+                if note["content"]
+                else {"type": "doc", "content": []}
+            )
+            new_content = {
+                "type": "doc",
+                "content": [*separator, *(existing_content.get("content") or [])],
+            }
+            cursor.execute(
+                f"UPDATE `{TABLE_NOTE}` SET content = %s WHERE clientId = %s",
+                (json.dumps(new_content), client_id),
+            )
+
+        cursor.execute(
+            f"UPDATE `{TABLE_CLIENT}` SET sessionStartedAt = %s WHERE id = %s",
+            (now, client_id),
+        )
+
+    connection.commit()
 
 
 @provide_connection

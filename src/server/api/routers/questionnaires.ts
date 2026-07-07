@@ -32,6 +32,7 @@ import {
 	assessmentTypes,
 	clients,
 	failures,
+	inPersonAssessmentHistory,
 	inPersonAssessments,
 	questionnaireRules,
 	questionnaires,
@@ -963,6 +964,25 @@ export const questionnaireRouter = createTRPCRouter({
 				)
 				.where(eq(inPersonAssessments.clientId, input))
 				.orderBy(asc(inPersonAssessments.assessmentType));
+		}),
+
+	getInPersonAssessmentHistory: protectedProcedure
+		.input(z.number())
+		.query(async ({ ctx, input }) => {
+			return ctx.db
+				.select({
+					id: inPersonAssessmentHistory.id,
+					assessmentType: inPersonAssessments.assessmentType,
+					content: inPersonAssessmentHistory.content,
+					createdAt: inPersonAssessmentHistory.createdAt,
+				})
+				.from(inPersonAssessmentHistory)
+				.innerJoin(
+					inPersonAssessments,
+					eq(inPersonAssessmentHistory.assessmentId, inPersonAssessments.id),
+				)
+				.where(eq(inPersonAssessments.clientId, input))
+				.orderBy(desc(inPersonAssessmentHistory.createdAt));
 		}),
 
 	addInPersonAssessment: protectedProcedure

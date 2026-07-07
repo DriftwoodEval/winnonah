@@ -1,7 +1,16 @@
 import { calendar, type calendar_v3 } from "@googleapis/calendar";
 import { drive } from "@googleapis/drive";
 import { sheets, type sheets_v4 } from "@googleapis/sheets";
-import { and, eq, inArray, lt, not, notInArray, sql } from "drizzle-orm";
+import {
+	and,
+	eq,
+	getTableColumns,
+	inArray,
+	lt,
+	not,
+	notInArray,
+	sql,
+} from "drizzle-orm";
 import { OAuth2Client } from "google-auth-library";
 import type { Session } from "next-auth";
 import { env } from "~/env";
@@ -234,9 +243,15 @@ export const getPunchData = async (session: Session) => {
 				.where(inArray(clients.id, clientIds)),
 			db.select().from(failures).where(inArray(failures.clientId, clientIds)),
 			db
-				.select()
+				.select({ ...getTableColumns(questionnaires) })
 				.from(questionnaires)
-				.where(inArray(questionnaires.clientId, clientIds)),
+				.innerJoin(clients, eq(questionnaires.clientId, clients.id))
+				.where(
+					and(
+						inArray(questionnaires.clientId, clientIds),
+						sql`(${clients.sessionStartedAt} IS NULL OR COALESCE(${questionnaires.sent}, ${questionnaires.updatedAt}) >= ${clients.sessionStartedAt})`,
+					),
+				),
 			db
 				.selectDistinct({ clientId: appointments.clientId })
 				.from(appointments)

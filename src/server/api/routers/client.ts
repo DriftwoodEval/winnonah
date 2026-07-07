@@ -92,6 +92,7 @@ async function computeRuleBasedSnapshot(
 	clientId: number,
 	ageInYears: number,
 	asdAdhd: string | null | undefined,
+	sessionStartedAt: Date | null,
 ): Promise<AssessmentSnapshot> {
 	const allRules = await db.query.questionnaireRules.findMany();
 
@@ -138,6 +139,9 @@ async function computeRuleBasedSnapshot(
 				and(
 					eq(questionnaires.clientId, clientId),
 					eq(questionnaires.status, "EXTERNAL"),
+					sessionStartedAt
+						? sql`COALESCE(${questionnaires.sent}, ${questionnaires.updatedAt}) >= ${sessionStartedAt}`
+						: undefined,
 				),
 			),
 		db
@@ -188,7 +192,7 @@ export async function computeAndStoreAssessmentSnapshot(
 ): Promise<AssessmentSnapshot> {
 	const client = await db.query.clients.findFirst({
 		where: eq(clients.id, clientId),
-		columns: { dob: true, asdAdhd: true },
+		columns: { dob: true, asdAdhd: true, sessionStartedAt: true },
 	});
 	if (!client) {
 		return {
@@ -210,6 +214,7 @@ export async function computeAndStoreAssessmentSnapshot(
 		clientId,
 		ageInYears,
 		client.asdAdhd,
+		client.sessionStartedAt,
 	);
 
 	await db
@@ -573,6 +578,10 @@ export const clientRouter = createTRPCRouter({
 									eq(questionnaires.status, "SPANISH"),
 								),
 								gt(questionnaires.reminded, 3),
+								sql`(
+									(SELECT sessionStartedAt FROM ${clients} WHERE id = ${questionnaires.clientId}) IS NULL
+									OR COALESCE(${questionnaires.sent}, ${questionnaires.updatedAt}) >= (SELECT sessionStartedAt FROM ${clients} WHERE id = ${questionnaires.clientId})
+								)`,
 							),
 						},
 					},

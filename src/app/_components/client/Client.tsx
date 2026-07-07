@@ -357,6 +357,7 @@ export function Client({
 										<QuestionnairesTable
 											clientId={client.id}
 											readOnly={readOnly}
+											sessionStartedAt={client.sessionStartedAt}
 										/>
 									)}
 
@@ -364,6 +365,7 @@ export function Client({
 										<InPersonAssessmentsTable
 											clientId={client.id}
 											readOnly={readOnly}
+											sessionStartedAt={client.sessionStartedAt}
 										/>
 									)}
 

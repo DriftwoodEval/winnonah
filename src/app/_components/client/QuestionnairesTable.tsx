@@ -70,13 +70,21 @@ function statusLabel(s: string) {
 
 interface QuestionnairesTableProps {
 	clientId: number | undefined;
+	sessionStartedAt?: Date | string | null;
 	readOnly?: boolean;
 }
 
 export function QuestionnairesTable({
 	clientId,
+	sessionStartedAt,
 	readOnly,
 }: QuestionnairesTableProps) {
+	const sessionStart = sessionStartedAt ? new Date(sessionStartedAt) : null;
+	const isPreSession = (q: { sent: Date | null; updatedAt: Date | null }) => {
+		if (!sessionStart) return false;
+		const date = q.sent ? new Date(q.sent) : q.updatedAt;
+		return date ? date < sessionStart : false;
+	};
 	const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
 	const [bulkStatus, setBulkStatus] = useState<string>("");
 
@@ -374,7 +382,10 @@ export function QuestionnairesTable({
 									</TableRow>
 								))}
 							{visibleQs.map((questionnaire) => (
-								<TableRow key={questionnaire.id}>
+								<TableRow
+									className={cn(isPreSession(questionnaire) && "opacity-50")}
+									key={questionnaire.id}
+								>
 									{!readOnly && (
 										<TableCell>
 											<Checkbox
@@ -394,6 +405,11 @@ export function QuestionnairesTable({
 										{formatShortDate(questionnaire.sent)}
 									</TableCell>
 									<TableCell className="w-24 font-medium">
+										{isPreSession(questionnaire) && (
+											<Badge className="mr-1 text-[10px]" variant="outline">
+												Previous session
+											</Badge>
+										)}
 										{questionnaire.link ? (
 											<Link
 												className="text-primary hover:underline"
