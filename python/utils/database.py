@@ -1453,7 +1453,7 @@ def get_queue_notify_users(connection: Connection[DictCursor]):
 
 @provide_connection
 def get_most_recent_non_billing_evaluator_npi(
-    connection: Connection[DictCursor], client_id: str
+    client_id: str, connection: Connection[DictCursor]
 ) -> int | None:
     """Returns the evaluator NPI from the most recent non-billing-only appointment for the client."""
     try:
