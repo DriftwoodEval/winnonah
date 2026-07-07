@@ -90,3 +90,11 @@ extend-immutable-calls = ["fastapi.Depends", "fastapi.Query"]
 # Not imported directly - llama_cpp.Llama.from_pretrained() imports it
 # internally at runtime to download models from the HF hub.
 DEP002 = ["huggingface-hub"]
+
+[[tool.uv.index]]
+name = "llama-cpp-python-cpu"
+url = "https://abetlen.github.io/llama-cpp-python/whl/cpu"
+explicit = true
+
+[tool.uv.sources]
+llama-cpp-python = { index = "llama-cpp-python-cpu" }
