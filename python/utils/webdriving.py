@@ -11,6 +11,7 @@ from selenium.common.exceptions import (
     TimeoutException,
 )
 from selenium.webdriver.chrome.options import Options
+from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.common.action_chains import ActionChains
 from selenium.webdriver.remote.webdriver import WebDriver
 from selenium.webdriver.remote.webelement import WebElement
@@ -37,7 +38,10 @@ def initialize_selenium() -> tuple[WebDriver, ActionChains]:
             "safebrowsing.enabled": True,
         },
     )
-    driver = webdriver.Chrome(options=chrome_options)
+    if chrome_bin := os.getenv("CHROME_BIN"):
+        chrome_options.binary_location = chrome_bin
+    service = Service(executable_path=os.getenv("CHROMEDRIVER_PATH"))
+    driver = webdriver.Chrome(options=chrome_options, service=service)
     actions = ActionChains(driver)
     driver.implicitly_wait(5)
     driver.set_window_size(1920, 1080)
