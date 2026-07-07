@@ -397,7 +397,11 @@ def put_clients_in_db(clients_df: pd.DataFrame, connection: Connection[DictCurso
     ]
     for client_id in reactivated_ids:
         logger.info(f"Client {client_id} reactivated - starting a new session")
-        reset_client_session(int(client_id), connection=connection)
+        try:
+            reset_client_session(int(client_id), connection=connection)
+        except Exception as e:
+            logger.error(f"Failed to reset session for client {client_id}: {e}")
+            connection.rollback()
 
 
 def _build_reactivation_note_block(reactivated_on: str) -> list[dict]:
