@@ -26,7 +26,7 @@ type ScriptKey =
 const SCRIPT_ENTRIES: { key: ScriptKey; label: string }[] = [
 	{ key: "appointment_reminders", label: "Appointment Reminders" },
 	{ key: "qsend", label: "Questionnaire Send" },
-	{ key: "records_request", label: "Records Request (Fax)" },
+	{ key: "records_request", label: "Records Request" },
 	{ key: "piecework", label: "Piecework" },
 	{ key: "qreceive", label: "Questionnaire Receive" },
 ];
