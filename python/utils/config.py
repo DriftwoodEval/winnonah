@@ -3,8 +3,6 @@ import re
 from typing import Final
 from urllib.parse import urlparse
 
-from loguru import logger
-
 import utils.database
 
 # Required environment variables and their validation patterns/logic
@@ -37,14 +35,6 @@ def validate_config() -> None:
             raise ValueError(error_msgs.get(var, f"Invalid value for {var}: {value}"))
 
 
-def load_appointment_sync_config() -> dict[str, list[str]] | None:
+def load_appointment_sync_config() -> dict[str, list[str]]:
     """Loads sync configuration from the database."""
-    try:
-        config_data = utils.database.get_python_config(config_id=2)
-        if not config_data:
-            return None
-
-        return config_data
-    except Exception as e:
-        logger.error(f"Error loading sync config from DB: {e}. Using defaults.")
-        return None
+    return utils.database.get_python_config(config_id=2)

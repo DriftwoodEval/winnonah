@@ -141,9 +141,11 @@ def get_python_config(config_id: int = 2) -> dict:
                     return json.loads(data)
                 return data
     except Exception as e:
-        logger.error(f"Error fetching python config from DB: {e}")
+        raise RuntimeError(
+            f"Error fetching python config (id={config_id}) from DB: {e}"
+        ) from e
 
-    return {}
+    raise RuntimeError(f"No python config found in DB for id={config_id}")
 
 
 def get_services_config() -> dict:
