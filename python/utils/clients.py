@@ -7,31 +7,17 @@ from typing import cast
 import numpy as np
 import pandas as pd
 from loguru import logger
-from nameparser import HumanName
 from pandas._libs.missing import NAType
 
 import utils.spreadsheets
 from utils.constants import TEST_NAMES_LOWER
+from utils.misc import capitalize_name_with_exceptions
 from utils.therapyappointment import download_csvs
 
 
 def _normalize_names(df: pd.DataFrame) -> pd.DataFrame:
     """Normalizes client names intelligently, handling capitalization and suffixes."""
     logger.debug("Normalizing client names")
-
-    def capitalize_name_with_exceptions(name: str) -> str:
-        if pd.isna(name) or not isinstance(name, str):
-            return ""
-        parsed_name = HumanName(name)
-        parsed_name.capitalize(force=True)
-
-        # Handle suffixes like Jr, Sr, etc. and Roman numerals
-        words = str(parsed_name).split()
-        if words:
-            last_word = words[-1].upper()
-            if last_word in {"JR", "SR", "II", "III", "IV", "V"}:
-                words[-1] = last_word
-        return " ".join(words)
 
     for col in ["LASTNAME", "FIRSTNAME"]:
         if col in df.columns:

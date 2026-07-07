@@ -5,6 +5,24 @@ from typing import Any
 import loguru
 import pandas as pd
 from loguru import logger
+from nameparser import HumanName
+
+_NAME_SUFFIXES = {"JR", "SR", "II", "III", "IV", "V"}
+
+
+def capitalize_name_with_exceptions(name: str) -> str:
+    """Capitalizes a name (McDonald, O'Brien, suffixes, titles, etc.) rather
+    than a naive str.title(), keeping suffixes like Jr/Sr/Roman numerals
+    uppercase."""
+    if pd.isna(name) or not isinstance(name, str):
+        return ""
+    parsed_name = HumanName(name)
+    parsed_name.capitalize(force=True)
+
+    words = str(parsed_name).split()
+    if words and words[-1].upper() in _NAME_SUFFIXES:
+        words[-1] = words[-1].upper()
+    return " ".join(words)
 
 
 def json_log_format(record: loguru.Record) -> str:

@@ -53,6 +53,8 @@ python/*.txt
 *.sql
 *.sql.gz
 q-screenshots/*
+TestPDFs/
+python/*.jsonl
 
 # local overrides
 docker-compose.override.*
