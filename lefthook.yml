@@ -5,6 +5,8 @@ post-checkout:
 
 pre-commit:
   commands:
+    betterleaks:
+      run: mise x betterleaks -- betterleaks git --pre-commit --redact --staged --verbose --no-banner
     biome-check:
       run: pnpm biome check --write {staged_files} --no-errors-on-unmatched --files-ignore-unknown=true --colors=off
       stage_fixed: true
