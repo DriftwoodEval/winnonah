@@ -17,8 +17,11 @@ export function SessionExpiryMonitor() {
 			const currentSession = await response.json();
 
 			if (!currentSession?.user) {
-				// Session expired, force logout
-				await signOut({ callbackUrl: "/login?timeout=true" });
+				// Session expired, force logout, and remember where to return to
+				const returnTo = `${window.location.pathname}${window.location.search}`;
+				await signOut({
+					callbackUrl: `/login?timeout=true&callbackUrl=${encodeURIComponent(returnTo)}`,
+				});
 			}
 		}, 30000); // Check every 30 seconds
 

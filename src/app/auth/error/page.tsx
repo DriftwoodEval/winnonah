@@ -1,9 +1,9 @@
 "use client";
 
 import { Button } from "@ui/button";
-import { useSearchParams } from "next/navigation";
-import { signIn } from "next-auth/react";
-import { Suspense } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { signIn, useSession } from "next-auth/react";
+import { Suspense, useEffect } from "react";
 
 const ERROR_MESSAGES: Record<string, string> = {
 	AccessDenied: "Your account does not have access to this application.",
@@ -13,10 +13,19 @@ const ERROR_MESSAGES: Record<string, string> = {
 
 function AuthError() {
 	const params = useSearchParams();
+	const router = useRouter();
+	const { status } = useSession();
 	const error = params.get("error") ?? "";
 	const message =
 		ERROR_MESSAGES[error] ?? "Something went wrong during sign in.";
 	const canRetry = error !== "AccessDenied";
+
+	// If we already have a session, leave this page instead of sitting on it.
+	useEffect(() => {
+		if (status === "authenticated") {
+			router.replace("/");
+		}
+	}, [status, router]);
 
 	return (
 		<main className="flex min-h-screen min-w-screen flex-col items-center justify-center gap-6">
