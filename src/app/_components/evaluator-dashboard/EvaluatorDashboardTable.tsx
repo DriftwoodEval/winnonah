@@ -27,6 +27,7 @@ import { AppointmentNoteCell } from "./AppointmentNoteCell";
 import { DueDateCell } from "./DueDateCell";
 import { LastTaskDateCell } from "./LastTaskDateCell";
 import { ReportCompleteButton } from "./ReportCompleteButton";
+import { ShowAnywayCheckbox } from "./ShowAnywayCheckbox";
 
 type Appointment =
 	RouterOutputs["evaluatorDashboard"]["getAppointments"][number];
@@ -234,6 +235,17 @@ export function EvaluatorDashboardTable({
 											effectiveDueDate={appt.effectiveDueDate}
 											isAdmin={isAdmin}
 										/>
+										{isAdmin && isOverdue && (
+											<div className="mt-1 flex items-center gap-1">
+												<ShowAnywayCheckbox
+													appointmentId={appt.id}
+													showAnyway={appt.showAnyway}
+												/>
+												<span className="text-muted-foreground text-xs">
+													Show anyway
+												</span>
+											</div>
+										)}
 									</div>
 								</div>
 
@@ -348,17 +360,30 @@ export function EvaluatorDashboardTable({
 										/>
 									</TableCell>
 									<TableCell>
-										<DueDateCell
-											appointmentId={appt.id}
-											dueDateOverride={
-												appt.dueDateOverride
-													? (getLocalDayFromUTCDate(appt.dueDateOverride) ??
-														null)
-													: null
-											}
-											effectiveDueDate={appt.effectiveDueDate}
-											isAdmin={isAdmin}
-										/>
+										<div className="flex items-center gap-2">
+											<DueDateCell
+												appointmentId={appt.id}
+												dueDateOverride={
+													appt.dueDateOverride
+														? (getLocalDayFromUTCDate(appt.dueDateOverride) ??
+															null)
+														: null
+												}
+												effectiveDueDate={appt.effectiveDueDate}
+												isAdmin={isAdmin}
+											/>
+											{isAdmin && isOverdue && (
+												<div className="flex items-center gap-1">
+													<ShowAnywayCheckbox
+														appointmentId={appt.id}
+														showAnyway={appt.showAnyway}
+													/>
+													<span className="text-muted-foreground text-xs">
+														Show anyway
+													</span>
+												</div>
+											)}
+										</div>
 									</TableCell>
 									<TableCell>
 										<ReportCompleteButton

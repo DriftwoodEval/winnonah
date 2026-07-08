@@ -22,11 +22,19 @@ export function AppointmentNoteCell({
 }: AppointmentNoteCellProps) {
 	const [value, setValue] = useState(initialContent ?? "");
 	const savedRef = useRef(initialContent ?? "");
+	const textareaRef = useRef<HTMLTextAreaElement>(null);
 
 	useEffect(() => {
 		setValue(initialContent ?? "");
 		savedRef.current = initialContent ?? "";
 	}, [initialContent]);
+
+	useEffect(() => {
+		const el = textareaRef.current;
+		if (!el) return;
+		el.style.height = "0px";
+		el.style.height = `${el.scrollHeight}px`;
+	});
 
 	const saveNote = api.evaluatorDashboard.saveNote.useMutation({
 		onError: (error) => {
@@ -56,14 +64,12 @@ export function AppointmentNoteCell({
 	return (
 		<div className="flex items-start gap-1">
 			<Textarea
-				className={
-					value.trim()
-						? "min-h-[6rem] resize-none"
-						: "min-h-[2.5rem] resize-none"
-				}
+				className="min-h-0 resize-none overflow-hidden"
 				onBlur={handleBlur}
 				onChange={(e) => setValue(e.target.value)}
 				placeholder="Add a note…"
+				ref={textareaRef}
+				rows={1}
 				value={value}
 			/>
 			{isAdmin && (

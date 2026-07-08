@@ -241,6 +241,7 @@ export const evaluatorDashboardRouter = createTRPCRouter({
 					clientHash: clients.hash,
 					lastTaskCompletedDate: appointments.lastTaskCompletedDate,
 					dueDateOverride: appointments.dueDateOverride,
+					showAnyway: appointments.evaluatorDashboardShowAnyway,
 					reportCompletedAt: appointments.reportCompletedAt,
 					reportCompletedByName: completedByEvaluator.providerName,
 					evaluatorDashboardArchivedAt:
@@ -286,7 +287,12 @@ export const evaluatorDashboardRouter = createTRPCRouter({
 						isAdmin: viewMode === "admin",
 					};
 				})
-				.filter((row) => viewMode === "admin" || row.effectiveDueDate > now);
+				.filter(
+					(row) =>
+						viewMode === "admin" ||
+						row.showAnyway ||
+						row.effectiveDueDate > now,
+				);
 		}),
 
 	saveNote: protectedProcedure
@@ -436,6 +442,16 @@ export const evaluatorDashboardRouter = createTRPCRouter({
 			await ctx.db
 				.update(appointments)
 				.set({ reportCompletedAt: null, reportCompletedByEmail: null })
+				.where(eq(appointments.id, input.appointmentId));
+		}),
+
+	setShowAnyway: protectedProcedure
+		.input(z.object({ appointmentId: z.string(), showAnyway: z.boolean() }))
+		.mutation(async ({ ctx, input }) => {
+			assertPermission(ctx.session.user, "evaluator-dashboard:admin");
+			await ctx.db
+				.update(appointments)
+				.set({ evaluatorDashboardShowAnyway: input.showAnyway })
 				.where(eq(appointments.id, input.appointmentId));
 		}),
 

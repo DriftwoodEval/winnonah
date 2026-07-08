@@ -579,6 +579,10 @@ export const appointments = createTable("appointment", (d) => ({
 		length: 255,
 	}),
 	evaluatorDashboardArchivedAt: d.timestamp("evaluator_dashboard_archived_at"),
+	evaluatorDashboardShowAnyway: d
+		.boolean("evaluator_dashboard_show_anyway")
+		.notNull()
+		.default(false),
 }));
 
 export const assessmentTypes = createTable("assessment_type", (d) => ({
