@@ -7,8 +7,8 @@ This is a T3 stack app (Next.js, tRPC, Drizzle ORM, NextAuth), as well as a Pyth
 - Keep things simple and DRY: no premature abstractions, but don't repeat logic that already exists elsewhere.
 
 ## Commands
-- Use `pnpm check` to type-check and lint (not `pnpm tsc --noEmit`)
-- Use `uvx ruff check . --fix && uvx ruff format .` for Python.
+- Use `mise run check` to type-check and lint everything (TS + Python) — not `pnpm tsc --noEmit` or raw `ruff` calls
+- `mise run check` depends on `mise run check:pnpm` and `mise run check:ruff`, which can be run individually if you only need one
 - Trust ruff's output over your own assumptions about Python syntax validity; if ruff accepts code silently, don't flag it as a syntax error.
 - Never run `pnpm db:*` commands yourself, leave to the user.
 

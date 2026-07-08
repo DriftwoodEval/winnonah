@@ -1,0 +1,74 @@
+---
+sidebar_position: 1
+---
+
+# Getting Started
+
+This guide walks through setting up the EMR repo for local development.
+
+## What's in the repo
+
+- A Next.js app (T3 stack: tRPC, Drizzle ORM, NextAuth)
+- A Python API sidecar (`python/`)
+- Python scripts that run nightly
+- This docs site (`docs-site/`)
+
+## Prerequisites
+
+- [mise](https://mise.jdx.dev/) for managing tool versions and running tasks
+- [Docker](https://www.docker.com/) and Docker Compose, for the database, Redis, and other local services
+
+You don't need to install Node, pnpm, Python, or uv yourself, mise manages all of them per-project.
+
+## 1. Clone the repo and trust the config
+
+```bash
+git clone https://github.com/driftwoodeval/winnonah
+cd winnonah
+mise trust
+```
+
+`mise trust` lets mise read `mise.toml` in this repo. It's a one-time step per project.
+
+## 2. Install tools and dependencies
+
+```bash
+mise install
+```
+
+`mise install` pulls the pinned versions of Node, pnpm, Python, and uv.
+
+## 3. Set up environment variables
+
+Copy the example env file and fill in real values:
+
+```bash
+cp .env.example .env
+```
+
+## 4. Start developing
+
+```bash
+mise run dev
+```
+
+This brings up the required Docker containers (database, Redis, cloudflared), installs dependencies, and starts both the Python API and the Next.js dev server.
+
+The EMR will be available at https://dev.driftwoodeval.com.
+
+## Other useful tasks
+
+Run `mise tasks` to see everything available. A few worth knowing:
+
+| Task | What it does |
+| --- | --- |
+| `mise run dev` | Start full local development (Docker + Python API + Next.js) |
+| `mise run check` | Type-check and lint everything (TS + Python) |
+| `mise run down` | Stop the Docker containers |
+| `mise run sync-db` | Sync the production database down to your local container |
+
+The `docs-site/` and `python/` folders each have their own `mise.toml` with tasks scoped to that directory, run `mise tasks` from inside them to see the full list.
+
+## Code style and commits
+
+Before committing, lefthook runs linting, formatting, and a secret scan automatically. Commits will be rejected if it finds issues.

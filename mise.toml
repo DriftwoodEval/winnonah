@@ -1,0 +1,65 @@
+[tools]
+node = "22"
+pnpm = "latest"
+
+[env]
+_.file = ".env"
+
+[tasks.deps]
+description = "Spin up needed Docker containers for development"
+run = "docker compose up -d driftwood-db redis cloudflared"
+
+[tasks.down]
+description = "Turn off Docker containers"
+run = "docker compose down"
+
+[tasks."python-dev"]
+description = "Start the Python API with hot-reloading"
+dir = "python"
+run = "uv run uvicorn api:app --reload --port 8000"
+
+[tasks."sync-db"]
+description = "Sync the production database down to the local container"
+run = """
+WAS_RUNNING="$(docker ps -q -f name=driftwood-db -f status=running)"
+if [ -z "$WAS_RUNNING" ]; then
+    echo "Database container is not running. Starting driftwood-db..."
+    docker compose up -d driftwood-db
+    echo "Waiting for database to become healthy..."
+    while ! docker compose ps driftwood-db --format json | grep -q '"Health":"healthy"'; do
+        sleep 0.5
+    done
+fi
+echo "Syncing production database..."
+ssh opti "cat backup.sql.gz" | (pigz -dc 2>/dev/null || gunzip) | sed '/GTID_PURGED/d' | docker exec -i driftwood-db mysql -u root -p"${MYSQL_ROOT_PASSWORD}" driftwood
+echo "Database sync complete!"
+if [ -z "$WAS_RUNNING" ]; then
+    echo "Shutting down automatically started database container..."
+    docker compose stop driftwood-db
+fi
+"""
+
+[tasks."check:pnpm"]
+description = "Type-check and lint TS"
+run = "pnpm check"
+
+[tasks."check:ruff"]
+description = "Lint and format Python"
+run = """
+uvx ruff check python --fix
+uvx ruff format python
+"""
+
+[tasks.check]
+description = "Type-check and lint everything (TS + Python)"
+depends = ["check:pnpm", "check:ruff"]
+
+[tasks.dev]
+description = "Start development server, bringing up and installing dependencies first"
+depends = ["deps"]
+run = """
+pnpm install
+trap "docker compose down" EXIT INT TERM
+mise run python-dev &
+pnpm dev
+"""

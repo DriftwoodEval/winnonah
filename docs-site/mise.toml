@@ -1,0 +1,15 @@
+[tools]
+node = "22"
+pnpm = "latest"
+
+[tasks.dev]
+description = "Start the docs dev server"
+run = "pnpm start"
+
+[tasks.build]
+description = "Build the docs site"
+run = "pnpm build"
+
+[tasks.check]
+description = "Type-check the docs site"
+run = "pnpm typecheck"
