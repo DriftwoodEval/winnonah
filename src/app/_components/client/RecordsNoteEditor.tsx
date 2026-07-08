@@ -1,5 +1,5 @@
 import { RichTextEditor } from "@components/shared/RichTextEditor";
-import { Alert, AlertDescription, AlertTitle } from "@ui/alert";
+import { Alert, AlertAction, AlertDescription, AlertTitle } from "@ui/alert";
 import { Button } from "@ui/button";
 import { Checkbox } from "@ui/checkbox";
 import { DatePicker } from "@ui/date-picker";
@@ -71,6 +71,7 @@ export function RecordsNoteEditor({
 	const canRecordsNeeded = can("clients:records:needed");
 	const canRecordRequested = can("clients:records:requested");
 	const canRecordNote = can("clients:records:reviewed");
+	const canResolveFailure = can("clients:resolvefailure");
 
 	const { data: record, isLoading: isLoadingRecord } =
 		api.externalRecords.getExternalRecordByClientId.useQuery(clientId, {
@@ -86,6 +87,15 @@ export function RecordsNoteEditor({
 			f.reason === "docs not signed" ||
 			f.reason === "portal not opened",
 	);
+	const resolveFailure = api.clients.resolveFailure.useMutation({
+		onSuccess: () => {
+			void utils.clients.getFailures.invalidate(clientId);
+		},
+		onError: (error) =>
+			toast.error("Failed to mark failure resolved", {
+				description: error.message,
+			}),
+	});
 	api.externalRecords.onExternalRecordNoteUpdate.useSubscription(clientId, {
 		enabled: !!clientId,
 		onData: (updatedExternalRecordsNote) => {
@@ -441,6 +451,23 @@ export function RecordsNoteEditor({
 								First noted {formatShortDate(failure.failedDate)}, last updated{" "}
 								{formatShortDate(failure.updatedAt)}.
 							</AlertDescription>
+							{canResolveFailure && (
+								<AlertAction>
+									<Button
+										disabled={resolveFailure.isPending}
+										onClick={() =>
+											resolveFailure.mutate({
+												clientId,
+												reason: failure.reason,
+											})
+										}
+										size="sm"
+										variant="outline"
+									>
+										Mark Resolved
+									</Button>
+								</AlertAction>
+							)}
 						</Alert>
 					))}
 				</div>

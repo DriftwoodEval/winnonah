@@ -48,6 +48,7 @@ export const PERMISSIONS = {
 					{ id: "clients:autismstop:disable", title: "Disable Autism Stop" },
 					{ id: "clients:pause", title: "Pause Clients" },
 					{ id: "clients:related", title: "Edit Related Clients" },
+					{ id: "clients:resolvefailure", title: "Mark Failures Resolved" },
 				],
 			},
 
@@ -69,10 +70,6 @@ export const PERMISSIONS = {
 					{
 						id: "clients:questionnaires:in-person",
 						title: "Add, Remove, and Update In-Person Assessments",
-					},
-					{
-						id: "clients:questionnaires:resolvefailure",
-						title: "Resolve Questionnaire Failures",
 					},
 				],
 			},

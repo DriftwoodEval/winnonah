@@ -417,10 +417,7 @@ export const clientRouter = createTRPCRouter({
 	resolveFailure: protectedProcedure
 		.input(z.object({ clientId: z.number(), reason: z.string() }))
 		.mutation(async ({ ctx, input }) => {
-			assertPermission(
-				ctx.session.user,
-				"clients:questionnaires:resolvefailure",
-			);
+			assertPermission(ctx.session.user, "clients:resolvefailure");
 			ctx.logger.info(input, "Resolving failure");
 
 			await ctx.db

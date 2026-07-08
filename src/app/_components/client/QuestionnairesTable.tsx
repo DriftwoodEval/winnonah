@@ -130,7 +130,7 @@ export function QuestionnairesTable({
 	}, [applicableRules, questionnairesSent]);
 
 	const can = useCheckPermission();
-	const canResolveFailure = can("clients:questionnaires:resolvefailure");
+	const canResolveFailure = can("clients:resolvefailure");
 
 	const { data: allFailures } = api.clients.getFailures.useQuery(clientId);
 	const failures = allFailures?.filter(
@@ -147,7 +147,9 @@ export function QuestionnairesTable({
 			void utils.clients.getFailures.invalidate(clientId);
 		},
 		onError: (err) =>
-			toast.error("Failed to resolve failure", { description: err.message }),
+			toast.error("Failed to mark failure resolved", {
+				description: err.message,
+			}),
 	});
 
 	const bulkUpdate = api.questionnaires.bulkUpdateStatus.useMutation({
