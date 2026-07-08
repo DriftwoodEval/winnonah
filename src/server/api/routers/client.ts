@@ -6,6 +6,7 @@ import {
 	and,
 	asc,
 	count,
+	desc,
 	eq,
 	getTableColumns,
 	gt,
@@ -28,7 +29,7 @@ import {
 	calculateAdditionalAppointments,
 } from "~/lib/billing";
 import { fetchWithCache } from "~/lib/cache";
-import { CLIENT_COLOR_KEYS } from "~/lib/colors";
+import { CLIENT_COLOR_KEYS, type ClientColor } from "~/lib/colors";
 import { ALLOWED_ASD_ADHD_VALUES } from "~/lib/constants";
 import {
 	renameDriveFolder,
@@ -36,7 +37,11 @@ import {
 	updatePunchData,
 } from "~/lib/google";
 import type { ClientWithIssueInfo } from "~/lib/models";
-import { getDistanceSQL, isShellClientId } from "~/lib/utils";
+import {
+	getDistanceSQL,
+	getInsuranceShortName,
+	isShellClientId,
+} from "~/lib/utils";
 import { referralDataSchema } from "~/lib/validations";
 import {
 	assertPermission,
@@ -85,6 +90,200 @@ function matchShellToReal(noteOnlyName: string, real: ClientRow) {
 			(noteOnlyName.includes(fullName) || fullName.includes(noteOnlyName)));
 	return { distance, isMatch: !!isMatch };
 }
+function buildClientIdPrefixCondition(trimmedSearch: string) {
+	const numericId = parseInt(trimmedSearch, 10);
+	if (Number.isNaN(numericId) || !/^\d+$/.test(trimmedSearch)) return undefined;
+
+	return like(clients.id, `${numericId}%`);
+}
+
+function buildClientNameWordsCondition(trimmedSearch: string) {
+	if (trimmedSearch.length < 3 || !/[a-zA-Z]/.test(trimmedSearch)) {
+		return undefined;
+	}
+
+	// Clean the user's input string by replacing non-alphanumeric characters with spaces
+	const cleanedSearchString = trimmedSearch.replace(/[^\w ]/g, " ");
+
+	// Split the cleaned string by spaces and filter out any empty strings
+	const searchWords = cleanedSearchString.split(" ").filter(Boolean);
+	if (searchWords.length === 0) return undefined;
+
+	const nameConditions = searchWords.map(
+		(word) =>
+			sql`REGEXP_REPLACE(${
+				clients.fullName
+				// As bizarre as this looks, we have to escape the slash for both JS and SQL
+			}, '[^\\\\w ]', '') like ${`%${word}%`}`,
+	);
+
+	return and(...nameConditions);
+}
+
+// Sentinel value meaning "the underlying field is null/unset", used across all
+// multi-select filters so a user can filter for e.g. "no language on file."
+export const NONE_FILTER_VALUE = "__none__";
+
+const directoryFilterSchema = z.object({
+	nameSearch: z.string().optional(),
+	asdAdhd: z.array(z.string()).optional(),
+	primaryInsurance: z.array(z.string()).optional(),
+	secondaryInsurance: z.array(z.string()).optional(),
+	language: z.array(z.string()).optional(),
+	status: z.enum(["active", "inactive", "all"]).optional(),
+	color: z.array(z.string()).optional(),
+	priority: z.array(z.enum(["highPriority", "babyNet", "both"])).optional(),
+	sort: z.enum(["name", "addedDate", "priority"]).optional(),
+	sortDir: z.enum(["asc", "desc"]).optional(),
+});
+
+type DirectoryFilterInput = z.infer<typeof directoryFilterSchema>;
+type DirectoryFilterField = Exclude<
+	keyof DirectoryFilterInput,
+	"nameSearch" | "sort" | "sortDir"
+>;
+
+// Resolves the raw primaryInsurance values (shortName + all its aliases) that should
+// match a given insurance shortName, mirroring the alias-resolution used in `search`.
+async function resolveInsuranceAliasNames(
+	db: Context["db"],
+	shortName: string,
+) {
+	const aliasRows = await db
+		.select({ name: insuranceAliases.name })
+		.from(insuranceAliases)
+		.innerJoin(insurances, eq(insuranceAliases.insuranceId, insurances.id))
+		.where(eq(insurances.shortName, shortName));
+
+	return [shortName, ...aliasRows.map((row) => row.name)];
+}
+
+// Splits a multi-select filter value list into the concrete values to match
+// and whether the "None" sentinel was selected too.
+function splitNoneValue(values: string[]) {
+	return {
+		values: values.filter((v) => v !== NONE_FILTER_VALUE),
+		includeNone: values.includes(NONE_FILTER_VALUE),
+	};
+}
+
+async function buildDirectoryConditions(
+	db: Context["db"],
+	input: DirectoryFilterInput,
+	exclude?: DirectoryFilterField,
+) {
+	const conditions = [not(isNoteOnly)];
+	const effectiveStatus = input.status ?? "active";
+
+	if (exclude !== "status") {
+		if (effectiveStatus === "active") {
+			conditions.push(eq(clients.status, true));
+		} else if (effectiveStatus === "inactive") {
+			conditions.push(eq(clients.status, false));
+		}
+	}
+
+	if (input.nameSearch) {
+		const trimmedSearch = input.nameSearch.trim();
+		const searchCondition =
+			buildClientIdPrefixCondition(trimmedSearch) ??
+			buildClientNameWordsCondition(trimmedSearch);
+		if (searchCondition) conditions.push(searchCondition);
+	}
+
+	if (exclude !== "asdAdhd" && input.asdAdhd?.length) {
+		const { values, includeNone } = splitNoneValue(input.asdAdhd);
+		const subConditions = [];
+		if (values.length) {
+			subConditions.push(
+				inArray(
+					clients.asdAdhd,
+					values as (typeof ALLOWED_ASD_ADHD_VALUES)[number][],
+				),
+			);
+		}
+		if (includeNone) subConditions.push(isNull(clients.asdAdhd));
+		const combined = or(...subConditions);
+		if (combined) conditions.push(combined);
+	}
+
+	if (exclude !== "primaryInsurance" && input.primaryInsurance?.length) {
+		const { values, includeNone } = splitNoneValue(input.primaryInsurance);
+		const matchNames = (
+			await Promise.all(values.map((v) => resolveInsuranceAliasNames(db, v)))
+		).flat();
+		const subConditions = [];
+		if (matchNames.length) {
+			subConditions.push(inArray(clients.primaryInsurance, matchNames));
+		}
+		if (includeNone) subConditions.push(isNull(clients.primaryInsurance));
+		const combined = or(...subConditions);
+		if (combined) conditions.push(combined);
+	}
+
+	if (exclude !== "secondaryInsurance" && input.secondaryInsurance?.length) {
+		const { values, includeNone } = splitNoneValue(input.secondaryInsurance);
+		const matchNamesByValue = await Promise.all(
+			values.map((v) => resolveInsuranceAliasNames(db, v)),
+		);
+		const subConditions = [];
+		for (const matchNames of matchNamesByValue) {
+			const jsonCondition = or(
+				...matchNames.map(
+					(name) =>
+						sql`JSON_SEARCH(${clients.secondaryInsurance}, 'one', ${name}) IS NOT NULL`,
+				),
+			);
+			if (jsonCondition) subConditions.push(jsonCondition);
+		}
+		if (includeNone) {
+			subConditions.push(
+				or(
+					isNull(clients.secondaryInsurance),
+					sql`JSON_LENGTH(${clients.secondaryInsurance}) = 0`,
+				),
+			);
+		}
+		const combined = or(...subConditions);
+		if (combined) conditions.push(combined);
+	}
+
+	if (exclude !== "language" && input.language?.length) {
+		const { values, includeNone } = splitNoneValue(input.language);
+		const subConditions = [];
+		if (values.length) subConditions.push(inArray(clients.language, values));
+		if (includeNone) subConditions.push(isNull(clients.language));
+		const combined = or(...subConditions);
+		if (combined) conditions.push(combined);
+	}
+
+	if (exclude !== "priority" && input.priority?.length) {
+		const { isHighPriorityClient, isHighPriorityBN: babyNetCondition } =
+			getPriorityInfo();
+		if (!babyNetCondition)
+			throw new Error("Unable to compute BabyNet condition");
+
+		const subConditions = [];
+		if (input.priority.includes("highPriority")) {
+			subConditions.push(and(isHighPriorityClient, not(babyNetCondition)));
+		}
+		if (input.priority.includes("babyNet")) {
+			subConditions.push(and(babyNetCondition, not(isHighPriorityClient)));
+		}
+		if (input.priority.includes("both")) {
+			subConditions.push(and(isHighPriorityClient, babyNetCondition));
+		}
+		const combined = or(...subConditions);
+		if (combined) conditions.push(combined);
+	}
+
+	if (exclude !== "color" && input.color?.length) {
+		conditions.push(inArray(clients.color, input.color as ClientColor[]));
+	}
+
+	return conditions;
+}
+
 export const CACHE_KEY_MISSING_APPOINTMENTS = "clients:missing-appointments";
 
 async function computeRuleBasedSnapshot(
@@ -268,7 +467,13 @@ export const getPriorityInfo = () => {
 	// A combined flag for any type of priority status
 	const isPriority = or(isHighPriorityClient, isHighPriorityBN);
 
-	return { isPriority, sortReasonSQL, orderBySQL };
+	return {
+		isPriority,
+		isHighPriorityClient,
+		isHighPriorityBN,
+		sortReasonSQL,
+		orderBySQL,
+	};
 };
 
 export const clientRouter = createTRPCRouter({
@@ -276,6 +481,251 @@ export const clientRouter = createTRPCRouter({
 		const clients = await ctx.db.query.clients.findMany({});
 
 		return clients;
+	}),
+
+	directory: protectedProcedure
+		.input(directoryFilterSchema)
+		.query(async ({ ctx, input }) => {
+			const conditions = await buildDirectoryConditions(ctx.db, input);
+			const { sortReasonSQL, orderBySQL } = getPriorityInfo();
+			const sortDir =
+				input.sortDir ?? (input.sort === "addedDate" ? "desc" : "asc");
+
+			const orderBy =
+				input.sort === "priority"
+					? orderBySQL
+					: (() => {
+							const sortColumn =
+								input.sort === "addedDate"
+									? clients.addedDate
+									: clients.fullName;
+							return sortDir === "desc" ? desc(sortColumn) : asc(sortColumn);
+						})();
+
+			const [rows, allInsurances, unresolvedFailures] = await Promise.all([
+				ctx.db.query.clients.findMany({
+					columns: {
+						id: true,
+						hash: true,
+						fullName: true,
+						asdAdhd: true,
+						primaryInsurance: true,
+						secondaryInsurance: true,
+						language: true,
+						status: true,
+						color: true,
+						dob: true,
+					},
+					extras: { sortReason: sortReasonSQL },
+					where: and(...conditions),
+					orderBy,
+				}),
+				ctx.db.query.insurances.findMany({ with: { aliases: true } }),
+				ctx.db
+					.select({ clientId: failures.clientId, reason: failures.reason })
+					.from(failures)
+					.where(lt(failures.reminded, 100)),
+			]);
+
+			const failuresByClientId = new Map<number, string[]>();
+			for (const row of unresolvedFailures) {
+				const existing = failuresByClientId.get(row.clientId);
+				if (existing) existing.push(row.reason);
+				else failuresByClientId.set(row.clientId, [row.reason]);
+			}
+
+			return rows.map((row) => ({
+				...row,
+				primaryInsurance: getInsuranceShortName(
+					row.primaryInsurance,
+					allInsurances,
+				),
+				secondaryInsurance: (row.secondaryInsurance ?? [])
+					.map((name) => getInsuranceShortName(name, allInsurances))
+					.filter((name): name is string => Boolean(name)),
+				unresolvedFailures: failuresByClientId.get(row.id) ?? [],
+			}));
+		}),
+
+	directoryFacetCounts: protectedProcedure
+		.input(directoryFilterSchema)
+		.query(async ({ ctx, input }) => {
+			const { isHighPriorityClient, isHighPriorityBN } = getPriorityInfo();
+
+			const [
+				asdAdhdRows,
+				insuranceRows,
+				secondaryInsuranceRows,
+				languageRows,
+				colorRows,
+				statusRows,
+				priorityRows,
+				allInsurances,
+			] = await Promise.all([
+				ctx.db
+					.select({ value: clients.asdAdhd, count: count() })
+					.from(clients)
+					.where(
+						and(...(await buildDirectoryConditions(ctx.db, input, "asdAdhd"))),
+					)
+					.groupBy(clients.asdAdhd),
+				ctx.db
+					.select({ value: clients.primaryInsurance, count: count() })
+					.from(clients)
+					.where(
+						and(
+							...(await buildDirectoryConditions(
+								ctx.db,
+								input,
+								"primaryInsurance",
+							)),
+						),
+					)
+					.groupBy(clients.primaryInsurance),
+				ctx.db
+					.select({ secondaryInsurance: clients.secondaryInsurance })
+					.from(clients)
+					.where(
+						and(
+							...(await buildDirectoryConditions(
+								ctx.db,
+								input,
+								"secondaryInsurance",
+							)),
+						),
+					),
+				ctx.db
+					.select({ value: clients.language, count: count() })
+					.from(clients)
+					.where(
+						and(...(await buildDirectoryConditions(ctx.db, input, "language"))),
+					)
+					.groupBy(clients.language),
+				ctx.db
+					.select({ value: clients.color, count: count() })
+					.from(clients)
+					.where(
+						and(...(await buildDirectoryConditions(ctx.db, input, "color"))),
+					)
+					.groupBy(clients.color),
+				ctx.db
+					.select({ value: clients.status, count: count() })
+					.from(clients)
+					.where(
+						and(...(await buildDirectoryConditions(ctx.db, input, "status"))),
+					)
+					.groupBy(clients.status),
+				ctx.db
+					.select({
+						highPriority:
+							sql<number>`SUM(CASE WHEN ${isHighPriorityClient} AND NOT ${isHighPriorityBN} THEN 1 ELSE 0 END)`.mapWith(
+								Number,
+							),
+						babyNet:
+							sql<number>`SUM(CASE WHEN ${isHighPriorityBN} AND NOT ${isHighPriorityClient} THEN 1 ELSE 0 END)`.mapWith(
+								Number,
+							),
+						both: sql<number>`SUM(CASE WHEN ${isHighPriorityClient} AND ${isHighPriorityBN} THEN 1 ELSE 0 END)`.mapWith(
+							Number,
+						),
+					})
+					.from(clients)
+					.where(
+						and(...(await buildDirectoryConditions(ctx.db, input, "priority"))),
+					),
+				ctx.db.query.insurances.findMany({ with: { aliases: true } }),
+			]);
+
+			const toCountMap = (rows: { value: string | null; count: number }[]) => {
+				const counts: Record<string, number> = {};
+				let total = 0;
+				for (const row of rows) {
+					total += row.count;
+					const key = row.value ?? NONE_FILTER_VALUE;
+					counts[key] = (counts[key] ?? 0) + row.count;
+				}
+				return { counts, total };
+			};
+
+			const insuranceCounts: Record<string, number> = {};
+			let insuranceTotal = 0;
+			for (const row of insuranceRows) {
+				insuranceTotal += row.count;
+				if (row.value === null) {
+					insuranceCounts[NONE_FILTER_VALUE] =
+						(insuranceCounts[NONE_FILTER_VALUE] ?? 0) + row.count;
+					continue;
+				}
+				const shortName = getInsuranceShortName(row.value, allInsurances);
+				if (!shortName) continue;
+				insuranceCounts[shortName] =
+					(insuranceCounts[shortName] ?? 0) + row.count;
+			}
+
+			// secondaryInsurance is a JSON array, so counts are computed in JS:
+			// each client is counted once per distinct short name it carries.
+			const secondaryInsuranceCounts: Record<string, number> = {};
+			for (const row of secondaryInsuranceRows) {
+				const shortNames = new Set(
+					(row.secondaryInsurance ?? [])
+						.map((name) => getInsuranceShortName(name, allInsurances))
+						.filter((name): name is string => Boolean(name)),
+				);
+				if (shortNames.size === 0) {
+					secondaryInsuranceCounts[NONE_FILTER_VALUE] =
+						(secondaryInsuranceCounts[NONE_FILTER_VALUE] ?? 0) + 1;
+					continue;
+				}
+				for (const shortName of shortNames) {
+					secondaryInsuranceCounts[shortName] =
+						(secondaryInsuranceCounts[shortName] ?? 0) + 1;
+				}
+			}
+
+			const statusCounts = toCountMap(
+				statusRows.map((row) => ({
+					value: row.value ? "active" : "inactive",
+					count: row.count,
+				})),
+			);
+
+			const priorityRow = priorityRows[0];
+			const priorityCounts = {
+				highPriority: priorityRow?.highPriority ?? 0,
+				babyNet: priorityRow?.babyNet ?? 0,
+				both: priorityRow?.both ?? 0,
+			};
+
+			return {
+				asdAdhd: toCountMap(asdAdhdRows),
+				primaryInsurance: { counts: insuranceCounts, total: insuranceTotal },
+				secondaryInsurance: {
+					counts: secondaryInsuranceCounts,
+					total: secondaryInsuranceRows.length,
+				},
+				language: toCountMap(languageRows),
+				color: toCountMap(colorRows),
+				status: statusCounts,
+				priority: {
+					counts: priorityCounts,
+					total:
+						priorityCounts.highPriority +
+						priorityCounts.babyNet +
+						priorityCounts.both,
+				},
+			};
+		}),
+
+	getUniqueLanguages: protectedProcedure.query(async ({ ctx }) => {
+		const rows = await ctx.db
+			.selectDistinct({ language: clients.language })
+			.from(clients)
+			.where(isNotNull(clients.language));
+
+		return rows
+			.map((row) => row.language)
+			.filter((language): language is string => Boolean(language))
+			.sort();
 	}),
 
 	getOne: protectedProcedure
@@ -1714,12 +2164,12 @@ export const clientRouter = createTRPCRouter({
 						if (dateStr) {
 							conditions.push(sql`${clients.dob} = ${dateStr}`);
 						} else {
-							const numericId = parseInt(trimmedSearch, 10);
-							if (!Number.isNaN(numericId) && /^\d+$/.test(trimmedSearch)) {
+							const idCondition = buildClientIdPrefixCondition(trimmedSearch);
+							if (idCondition) {
 								// Pure digits: match as ID prefix OR phone fragment
 								conditions.push(
 									or(
-										like(clients.id, `${numericId}%`),
+										idCondition,
 										sql`REGEXP_REPLACE(${clients.phoneNumber}, '[^0-9]', '') LIKE ${`%${trimmedSearch}%`}`,
 									),
 								);
@@ -1733,28 +2183,9 @@ export const clientRouter = createTRPCRouter({
 										sql`REGEXP_REPLACE(${clients.phoneNumber}, '[^0-9]', '') LIKE ${`%${digitsOnly}%`}`,
 									);
 								} else {
-									// Clean the user's input string by replacing non-alphanumeric characters with spaces
-									const cleanedSearchString = trimmedSearch.replace(
-										/[^\w ]/g,
-										" ",
-									);
-
-									// Split the cleaned string by spaces and filter out any empty strings
-									const searchWords = cleanedSearchString
-										.split(" ")
-										.filter(Boolean);
-
-									if (searchWords.length > 0) {
-										const nameConditions = searchWords.map(
-											(word) =>
-												sql`REGEXP_REPLACE(${
-													clients.fullName
-													// As bizarre as this looks, we have to escape the slash for both JS and SQL
-												}, '[^\\\\w ]', '') like ${`%${word}%`}`,
-										);
-
-										conditions.push(and(...nameConditions));
-									}
+									const nameCondition =
+										buildClientNameWordsCondition(trimmedSearch);
+									if (nameCondition) conditions.push(nameCondition);
 								}
 							}
 						}

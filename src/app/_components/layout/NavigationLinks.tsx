@@ -51,12 +51,17 @@ export default function NavigationLinks() {
 	const navItems = [
 		{
 			href: "/",
-			label: "Clients",
+			label: "Home",
 			show: true,
 		},
 		{
 			href: "/day-ahead",
 			label: "Day Ahead",
+			show: true,
+		},
+		{
+			href: "/clients/directory",
+			label: "Directory",
 			show: true,
 		},
 		{
