@@ -839,13 +839,15 @@ export function EvaluatorForm({
 								Cancel
 							</Button>
 						)}
-						<Button disabled={isLoading || disabled} type="submit">
-							{isLoading
-								? "Saving..."
-								: isEditing
-									? "Save Evaluator"
-									: "Create Evaluator"}
-						</Button>
+						{!disabled && (
+							<Button disabled={isLoading} type="submit">
+								{isLoading
+									? "Saving..."
+									: isEditing
+										? "Save Evaluator"
+										: "Create Evaluator"}
+							</Button>
+						)}
 					</div>
 				</div>
 			</form>

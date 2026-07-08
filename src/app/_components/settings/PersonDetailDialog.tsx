@@ -374,16 +374,18 @@ function AccountSection({
 									? "Archive Person"
 									: "Archive Account"}
 						</Button>
-						<Button disabled={isUpdating || !canEdit} type="submit">
-							{isUpdating ? (
-								<>
-									<Loader2 className="mr-2 h-4 w-4 animate-spin" />
-									Saving...
-								</>
-							) : (
-								"Save Account"
-							)}
-						</Button>
+						{canEdit && (
+							<Button disabled={isUpdating} type="submit">
+								{isUpdating ? (
+									<>
+										<Loader2 className="mr-2 h-4 w-4 animate-spin" />
+										Saving...
+									</>
+								) : (
+									"Save Account"
+								)}
+							</Button>
+						)}
 					</div>
 				</form>
 			</Form>
