@@ -560,7 +560,7 @@ def insert_appointments_with_gcal(appointment_sync_data: dict[str, list[str]] | 
             raw_npi = appointment.get("NPI")
             try:
                 evaluator_npi = int(raw_npi) if pd.notna(raw_npi) else None
-            except ValueError, TypeError:
+            except (ValueError, TypeError):
                 evaluator_npi = None
 
             if not evaluator_npi:
@@ -645,7 +645,7 @@ def insert_appointments_with_gcal(appointment_sync_data: dict[str, list[str]] | 
             raw_npi = appointment.get("NPI")
             try:
                 evaluator_npi = int(raw_npi) if pd.notna(raw_npi) else None
-            except ValueError, TypeError:
+            except (ValueError, TypeError):
                 evaluator_npi = None
 
             if not evaluator_npi:

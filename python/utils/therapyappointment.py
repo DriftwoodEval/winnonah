@@ -87,7 +87,7 @@ def check_and_login_ta(
         driver.get(ta_url)
         w.find_element(driver, By.XPATH, "//*[contains(text(), 'Clients')]", timeout=2)
         logger.debug("Already logged in to TherapyAppointment")
-    except NoSuchElementException, TimeoutException:
+    except (NoSuchElementException, TimeoutException):
         logger.debug("Not logged in to TherapyAppointment, logging in now.")
         login_ta(driver, actions)
 
@@ -116,7 +116,7 @@ def _export_data(driver: WebDriver, npi: str | None = None):  # noqa: ARG001 Nee
                 1,
             )
             return True
-        except NoSuchElementException, TimeoutException:
+        except (NoSuchElementException, TimeoutException):
             try:
                 logger.error(
                     f"Could not find {data_title} Re-Export button, has it never been started before?"
@@ -128,7 +128,7 @@ def _export_data(driver: WebDriver, npi: str | None = None):  # noqa: ARG001 Nee
                     1,
                 )
                 return True
-            except NoSuchElementException, TimeoutException:
+            except (NoSuchElementException, TimeoutException):
                 logger.error(f"Could not find {data_title} Start button")
                 return False
 
@@ -170,7 +170,7 @@ def _download_data(driver: WebDriver, npi: str):
                     f"temp/downloads/clients-appointments_{npi}.csv",
                 )
             return True
-        except NoSuchElementException, TimeoutException:
+        except (NoSuchElementException, TimeoutException):
             logger.error(f"Could not find {data_title} Download button")
             return False
 
@@ -222,7 +222,7 @@ def _loop_therapists(driver: WebDriver, func: Callable):
             therapist_npi = npi_element.text.split()[0]
             func(driver, therapist_npi)
 
-        except NoSuchElementException, TimeoutException:
+        except (NoSuchElementException, TimeoutException):
             logger.error(f"Could not find NPI for {target['name']}, skipping!")
             continue
 

@@ -761,7 +761,7 @@ def put_client_insurance_policies_in_db(
             continue
         try:
             candidate_ids.add(int(cid))
-        except ValueError, TypeError:
+        except (ValueError, TypeError):
             continue
 
     missing_client_ids: set[int] = set()
@@ -787,7 +787,7 @@ def put_client_insurance_policies_in_db(
 
         try:
             client_id = int(client_id)
-        except ValueError, TypeError:
+        except (ValueError, TypeError):
             continue
 
         if client_id in missing_client_ids:

@@ -35,7 +35,7 @@ def clean_insurance_item(item: str) -> list:
                 # If the result is a list, process its contents
                 if isinstance(evaluated, list):
                     return [str(i) for i in evaluated if i != "[]"]
-            except ValueError, SyntaxError:
+            except (ValueError, SyntaxError):
                 pass
 
         return [item]

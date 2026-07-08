@@ -62,7 +62,7 @@ def check_and_login_medicaid(first_time: bool = False) -> WebDriver:
                 driver, By.XPATH, "//*[contains(text(), 'Eligibility')]", timeout=2
             )
             logger.debug("Already logged in to SC Medicaid Portal")
-        except NoSuchElementException, TimeoutException:
+        except (NoSuchElementException, TimeoutException):
             logger.debug("Not logged in to SC Medicaid Portal, logging in now.")
             login_medicaid(driver, actions)
 
@@ -91,7 +91,7 @@ def _ensure_logged_in(driver: WebDriver) -> None:
         w.find_element(
             driver, By.XPATH, "//*[contains(text(), 'Eligibility')]", timeout=5
         )
-    except NoSuchElementException, TimeoutException:
+    except (NoSuchElementException, TimeoutException):
         logger.info("SC Medicaid session expired, re-logging in")
         login_medicaid(driver, ActionChains(driver))
         select_provider(driver, "1669135125")
@@ -135,7 +135,7 @@ def _run_scm_eligibility_lookup(
                 qual_category, payment_category = search_single_client(
                     driver, medicaid_id
                 )
-            except NoSuchElementException, TimeoutException:
+            except (NoSuchElementException, TimeoutException):
                 logger.warning(
                     f"Error searching client {medicaid_id}, verifying login and retrying"
                 )

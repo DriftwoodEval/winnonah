@@ -108,5 +108,5 @@ def check_if_element_exists(
     try:
         find_element(driver, by, locator, timeout)
         return True
-    except NoSuchElementException, TimeoutException:
+    except (NoSuchElementException, TimeoutException):
         return False

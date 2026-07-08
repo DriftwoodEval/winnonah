@@ -1,5 +1,11 @@
 This is a T3 stack app (Next.js, tRPC, Drizzle ORM, NextAuth), as well as a Python API sidecar, and some Python scripts that run each night.
 
+## Code Style
+- No AI-isms: avoid filler phrases, excessive hedging, or generic "as an AI" language in code comments, commit messages, and docs.
+- No em dashes, use a comma, colon, or period instead.
+- Avoid overly complex code or one-liners done just to be clever/terse. Prefer straightforward code that's easy to read over compact code that's hard to parse.
+- Keep things simple and DRY: no premature abstractions, but don't repeat logic that already exists elsewhere.
+
 ## Commands
 - Use `pnpm check` to type-check and lint (not `pnpm tsc --noEmit`)
 - Use `uvx ruff check . --fix && uvx ruff format .` for Python.
