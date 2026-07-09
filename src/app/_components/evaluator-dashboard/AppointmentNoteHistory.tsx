@@ -54,11 +54,11 @@ export function AppointmentNoteHistory({
 			const previousVersion = history[index + 1];
 
 			const currentText = extractTextFromTipTap(
-				version.content as JSONContent | null | undefined,
+				version.content as JSONContent | string | null | undefined,
 			);
 			const previousText = previousVersion
 				? extractTextFromTipTap(
-						previousVersion.content as JSONContent | null | undefined,
+						previousVersion.content as JSONContent | string | null | undefined,
 					)
 				: "";
 

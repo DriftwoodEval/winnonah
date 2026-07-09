@@ -2,9 +2,10 @@ import type { JSONContent } from "@tiptap/core";
 import { type Change, diffWords } from "diff";
 
 export const extractTextFromTipTap = (
-	node: JSONContent | null | undefined,
+	node: JSONContent | string | null | undefined,
 ): string => {
 	if (!node) return "";
+	if (typeof node === "string") return node;
 	if (node.type === "text") return node.text || "";
 
 	const separator =
