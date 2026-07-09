@@ -3,6 +3,7 @@
 interface GridWidgetCellProps {
 	cols: number;
 	rows: number;
+	autoHeight?: boolean;
 	children: React.ReactNode;
 }
 
@@ -27,13 +28,18 @@ const heightVh: Record<number, string> = {
 	4: "calc(100svh - 5rem)",
 };
 
-export function GridWidgetCell({ cols, rows, children }: GridWidgetCellProps) {
+export function GridWidgetCell({
+	cols,
+	rows,
+	autoHeight,
+	children,
+}: GridWidgetCellProps) {
 	const vh = heightVh[rows] ?? "35vh";
 
 	return (
 		<div
 			className={`min-h-0 overflow-hidden ${colClass[cols] ?? "col-span-full"} ${rowClass[rows] ?? "row-[span_1]"}`}
-			style={{ height: vh }}
+			style={autoHeight ? undefined : { height: vh }}
 		>
 			{children}
 		</div>

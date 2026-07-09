@@ -57,10 +57,15 @@ export function HomePageContent() {
 			<div className="h-full overflow-auto">
 				<div className="grid grid-cols-1 gap-4 p-4 sm:grid-flow-dense sm:grid-cols-4">
 					{activeWidgets.map((w) => {
+						const def = HOME_WIDGET_DEFS.find((d) => d.id === w.id);
 						return (
-							<GridWidgetCell cols={w.cols} key={w.id} rows={w.rows}>
+							<GridWidgetCell
+								autoHeight={def?.fixedRows}
+								cols={w.cols}
+								key={w.id}
+								rows={w.rows}
+							>
 								{(() => {
-									const def = HOME_WIDGET_DEFS.find((d) => d.id === w.id);
 									if (def?.dashboardSection) {
 										return (
 											<DashboardSectionWidget

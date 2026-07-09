@@ -1,7 +1,5 @@
 "use client";
 
-import { ScrollArea } from "@ui/scroll-area";
-import { Separator } from "@ui/separator";
 import { Skeleton } from "@ui/skeleton";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
@@ -77,22 +75,19 @@ export function MyInsuranceClientsWidget() {
 	}
 
 	return (
-		<div className="flex h-full w-full">
-			<ScrollArea className="h-full w-full rounded-md border bg-card text-card-foreground shadow-sm">
-				<div className="p-4">
-					{clients.map((c, index) => (
-						<div key={c.clientHash}>
-							<Link
-								className="no-underline! hover:no-underline! flex items-center gap-2"
-								href={`/clients/${c.clientHash}?tab=insurance`}
-							>
-								<span>{c.clientName}</span>
-							</Link>
-							{index < clients.length - 1 && <Separator className="my-2" />}
-						</div>
-					))}
-				</div>
-			</ScrollArea>
+		<div className="flex flex-wrap items-center gap-2 overflow-auto rounded-lg border border-destructive/20 bg-destructive/5 p-3">
+			<span className="text-muted-foreground text-xs uppercase tracking-wide">
+				My Insurance Clients
+			</span>
+			{clients.map((c) => (
+				<Link
+					className="shrink-0 whitespace-nowrap rounded-md border bg-background px-2.5 py-1 text-sm shadow-xs hover:bg-accent hover:text-accent-foreground dark:border-input dark:bg-input/30 dark:hover:bg-input/50"
+					href={`/clients/${c.clientHash}?tab=insurance`}
+					key={c.clientHash}
+				>
+					{c.clientName}
+				</Link>
+			))}
 		</div>
 	);
 }

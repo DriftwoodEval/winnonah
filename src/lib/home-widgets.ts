@@ -43,6 +43,7 @@ export const HOME_WIDGET_DEFS: HomeWidgetDef[] = [
 		permission: "clients:insurance:review",
 		category: "clients",
 		sizing: "content",
+		fixedRows: true,
 	},
 	{
 		id: "day-ahead-mine",
