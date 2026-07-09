@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import json as _json
 from datetime import date, datetime
 from typing import Any
