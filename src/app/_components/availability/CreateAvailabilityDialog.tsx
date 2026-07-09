@@ -10,7 +10,7 @@ import {
 	DialogTitle,
 } from "@ui/dialog";
 import { Form } from "@ui/form";
-import { signIn, useSession } from "next-auth/react";
+import { signIn } from "next-auth/react";
 import { useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
@@ -21,6 +21,7 @@ import {
 } from "~/lib/validations/availability";
 import { api } from "~/trpc/react";
 import { AvailabilityFields } from "./AvailabilityFields";
+import { useOutOfOfficePriority } from "./useOutOfOfficePriority";
 
 interface CreateAvailabilityDialogProps {
 	initialData: {
@@ -39,12 +40,8 @@ export function CreateAvailabilityDialog({
 	onClose,
 }: CreateAvailabilityDialogProps) {
 	const utils = api.useUtils();
-	const { data: session } = useSession();
 
-	const { data: outOfOfficePriority } =
-		api.evaluators.getOutOfOfficePriority.useQuery(undefined, {
-			enabled: (session?.user.isEvaluator ?? false) && isOpen,
-		});
+	const { data: outOfOfficePriority } = useOutOfOfficePriority(isOpen);
 
 	const form = useForm<AvailabilityFormValues>({
 		resolver: zodResolver(availabilityFormSchema),

@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { CalendarIcon } from "lucide-react";
-import { format, parse, isValid } from "date-fns";
+import { addYears, format, parse, isValid, startOfDay } from "date-fns";
 import { Calendar } from "@ui/calendar";
 import { Input } from "@ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@ui/popover";
@@ -14,9 +14,24 @@ interface DateTimePickerProps {
 	disabled?: boolean;
 	hideTime?: boolean;
 	minDate?: Date;
+	startMonth?: Date;
+	endMonth?: Date;
 }
 
 const DATE_FORMAT = "MM/dd/yy";
+
+// The calendar's month/year caption uses native <select> dropdowns. On some
+// browsers/platforms, interacting with the OS-native option list is reported
+// to Radix as an "outside" interaction, closing the whole popover before a
+// selection can be made. Ignore those so only real outside clicks dismiss it.
+function ignoreNativeSelectInteraction(event: {
+  target: EventTarget | null;
+  preventDefault: () => void;
+}) {
+  if (event.target instanceof HTMLSelectElement) {
+    event.preventDefault();
+  }
+}
 
 const DateTimePicker: React.FC<DateTimePickerProps> = ({
 	value,
@@ -24,6 +39,8 @@ const DateTimePicker: React.FC<DateTimePickerProps> = ({
 	disabled,
 	hideTime,
 	minDate,
+	startMonth,
+	endMonth,
 }) => {
 	const [open, setOpen] = React.useState(false);
 
@@ -51,8 +68,9 @@ const DateTimePicker: React.FC<DateTimePickerProps> = ({
     const parsedDate = parse(text, DATE_FORMAT, new Date());
 
     if (isValid(parsedDate)) {
-      // Don't update if it's before minDate
-      if (minDate && parsedDate < minDate) return;
+      // Don't update if it's before minDate. Compare by day only, since
+      // minDate carries a time-of-day and same-day selections are valid.
+      if (minDate && startOfDay(parsedDate) < startOfDay(minDate)) return;
 
       // Preserve the existing time when typing a new date
       const { h, m } = getTimeParts();
@@ -76,7 +94,10 @@ const DateTimePicker: React.FC<DateTimePickerProps> = ({
 
   const handleDateBlur = () => {
     const parsed = parse(inputValue, DATE_FORMAT, new Date());
-    if (!isValid(parsed) || (minDate && parsed < minDate)) {
+    if (
+      !isValid(parsed) ||
+      (minDate && startOfDay(parsed) < startOfDay(minDate))
+    ) {
       setInputValue(value ? format(value, DATE_FORMAT) : "");
     }
   };
@@ -123,15 +144,28 @@ const DateTimePicker: React.FC<DateTimePickerProps> = ({
                 <CalendarIcon className="h-4 w-4" />
               </InputGroupButton>
             </PopoverTrigger>
-            <PopoverContent align="end" side="bottom" sideOffset={4} className="w-auto p-0">
+            <PopoverContent
+              align="end"
+              side="bottom"
+              sideOffset={4}
+              className="w-auto p-0"
+              onFocusOutside={ignoreNativeSelectInteraction}
+              onPointerDownOutside={ignoreNativeSelectInteraction}
+            >
               <Calendar
                 mode="single"
-                disabled={minDate ? (date) => date < minDate : undefined}
+                disabled={
+                  minDate
+                    ? (date) => startOfDay(date) < startOfDay(minDate)
+                    : undefined
+                }
                 onSelect={handleCalendarSelect}
                 selected={value}
                 defaultMonth={value || minDate || new Date()}
                 autoFocus
 								captionLayout="dropdown"
+								startMonth={startMonth}
+								endMonth={endMonth ?? addYears(new Date(), 10)}
               />
             </PopoverContent>
           </Popover>

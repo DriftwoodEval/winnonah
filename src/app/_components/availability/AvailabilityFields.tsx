@@ -88,6 +88,8 @@ export function AvailabilityFields({
 
 	// const minDate = startOfDay(addMonths(new Date(), 1));
 	const minDate = undefined;
+	const calendarStartMonth = new Date(2020, 0, 1);
+	const calendarEndMonth = add(new Date(), { years: 5 });
 
 	return (
 		<div className="space-y-6">
@@ -251,6 +253,7 @@ export function AvailabilityFields({
 							</FormDescription> */}
 							<FormControl>
 								<DateTimePicker
+									endMonth={calendarEndMonth}
 									hideTime={isAllDay}
 									minDate={minDate}
 									onChange={(date) => {
@@ -299,6 +302,7 @@ export function AvailabilityFields({
 											}
 										}
 									}}
+									startMonth={calendarStartMonth}
 									value={field.value}
 								/>
 							</FormControl>
@@ -316,6 +320,7 @@ export function AvailabilityFields({
 							</FormLabel>
 							<FormControl>
 								<DateTimePicker
+									endMonth={calendarEndMonth}
 									hideTime={isAllDay}
 									minDate={startDate ?? minDate}
 									onChange={(date) => {
@@ -341,6 +346,7 @@ export function AvailabilityFields({
 											}
 										}
 									}}
+									startMonth={calendarStartMonth}
 									value={field.value}
 								/>
 							</FormControl>
@@ -571,9 +577,11 @@ export function AvailabilityFields({
 																<FormControl>
 																	<DateTimePicker
 																		disabled={field.disabled}
+																		endMonth={calendarEndMonth}
 																		hideTime={true}
 																		minDate={startDate ?? minDate}
 																		onChange={field.onChange}
+																		startMonth={calendarStartMonth}
 																		value={field.value ?? undefined}
 																	/>
 																</FormControl>

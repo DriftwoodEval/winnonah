@@ -3,8 +3,11 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Button } from "@ui/button";
 import { Form } from "@ui/form";
+import { Label } from "@ui/label";
 import { Skeleton } from "@ui/skeleton";
+import { Switch } from "@ui/switch";
 import { addMonths } from "date-fns";
+import { useRouter, useSearchParams } from "next/navigation";
 import { signIn, useSession } from "next-auth/react";
 import { useEffect } from "react";
 import { useForm } from "react-hook-form";
@@ -16,15 +19,44 @@ import {
 } from "~/lib/validations/availability";
 import { api } from "~/trpc/react";
 import { AvailabilityFields } from "./AvailabilityFields";
+import {
+	DEV_OOO_PARAM,
+	useOutOfOfficePriority,
+} from "./useOutOfOfficePriority";
+
+const IS_DEV = process.env.NODE_ENV === "development";
+
+function OutOfOfficePriorityDevToggle({
+	outOfOfficePriority,
+}: {
+	outOfOfficePriority: boolean;
+}) {
+	const router = useRouter();
+	const searchParams = useSearchParams();
+
+	const setOverride = (checked: boolean) => {
+		const params = new URLSearchParams(searchParams.toString());
+		params.set(DEV_OOO_PARAM, String(checked));
+		router.replace(`?${params.toString()}`, { scroll: false });
+	};
+
+	return (
+		<div className="mb-4 flex items-center gap-2 rounded-md border border-dashed p-2 text-xs">
+			<Switch checked={outOfOfficePriority} onCheckedChange={setOverride} />
+			<Label className="text-xs">
+				Dev: acting as {outOfOfficePriority ? "out of office" : "in office"}{" "}
+				evaluator
+			</Label>
+		</div>
+	);
+}
 
 export function AvailabilityForm() {
 	const utils = api.useUtils();
 	const { data: session } = useSession();
 
 	const { data: outOfOfficePriority, isLoading: isLoadingOoO } =
-		api.evaluators.getOutOfOfficePriority.useQuery(undefined, {
-			enabled: session?.user.isEvaluator ?? false,
-		});
+		useOutOfOfficePriority();
 
 	const defaultDate = addMonths(new Date(), 1);
 
@@ -173,6 +205,11 @@ export function AvailabilityForm() {
 			<h2 className="mb-4 font-bold text-2xl">
 				Declare Your {isUnavailability ? "Unavailability" : "Availability"}
 			</h2>
+			{IS_DEV && (
+				<OutOfOfficePriorityDevToggle
+					outOfOfficePriority={outOfOfficePriority ?? false}
+				/>
+			)}
 			<Form {...form}>
 				<form className="space-y-6" onSubmit={form.handleSubmit(onSubmit)}>
 					<AvailabilityFields

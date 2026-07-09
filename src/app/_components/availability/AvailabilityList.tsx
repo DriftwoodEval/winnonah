@@ -24,13 +24,13 @@ import {
 	Lock,
 	Repeat,
 } from "lucide-react";
-import { useSession } from "next-auth/react";
 import { useState } from "react";
 import { cn } from "~/lib/utils";
 import { api } from "~/trpc/react";
 import { Button } from "../ui/button";
 import { CreateAvailabilityDialog } from "./CreateAvailabilityDialog";
 import { EditAvailabilityDialog } from "./EditAvailabilityDialog";
+import { useOutOfOfficePriority } from "./useOutOfOfficePriority";
 
 type CalendarEvent = {
 	id?: string;
@@ -451,12 +451,7 @@ function CalendarDayHeader({
 	allDayEvents: CalendarEvent[];
 	onEdit: (e: EditingEvent) => void;
 }) {
-	const { data: session } = useSession();
-
-	const { data: outOfOfficePriority } =
-		api.evaluators.getOutOfOfficePriority.useQuery(undefined, {
-			enabled: session?.user.isEvaluator ?? false,
-		});
+	const { data: outOfOfficePriority } = useOutOfOfficePriority();
 
 	const today = isSameDay(day, new Date());
 
@@ -674,12 +669,7 @@ function CalendarView({
 	eventsByDate: EventsByDate;
 	onEdit: (e: EditingEvent) => void;
 }) {
-	const { data: session } = useSession();
-
-	const { data: outOfOfficePriority } =
-		api.evaluators.getOutOfOfficePriority.useQuery(undefined, {
-			enabled: session?.user.isEvaluator ?? false,
-		});
+	const { data: outOfOfficePriority } = useOutOfOfficePriority();
 
 	const gridCols = `48px repeat(${displayDays.length}, calc((100% - 48px) / ${displayDays.length}))`;
 
