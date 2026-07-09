@@ -653,6 +653,8 @@ const SchedulingTableRow = memo(function SchedulingTableRow({
 	isEditable,
 	onUpdate,
 	onMove,
+	upNeighborId,
+	downNeighborId,
 	actions,
 	isScrolledLeft,
 	rowIndex,
@@ -664,7 +666,9 @@ const SchedulingTableRow = memo(function SchedulingTableRow({
 	insurances: InsuranceWithAliases[];
 	isEditable?: boolean;
 	onUpdate?: (clientId: number, data: SchedulingUpdateData) => void;
-	onMove?: (clientId: number, direction: "up" | "down") => void;
+	onMove?: (clientId: number, neighborClientId: number) => void;
+	upNeighborId?: number;
+	downNeighborId?: number;
 	actions: React.ReactNode;
 	isScrolledLeft?: boolean;
 	rowIndex: number;
@@ -733,7 +737,11 @@ const SchedulingTableRow = memo(function SchedulingTableRow({
 						<div className="flex flex-col items-center justify-center">
 							<button
 								className="cursor-pointer rounded-sm p-1 text-muted-foreground transition-colors hover:bg-accent hover:text-primary disabled:opacity-30"
-								onClick={() => onMove?.(scheduledClient.clientId, "up")}
+								disabled={upNeighborId === undefined}
+								onClick={() =>
+									upNeighborId !== undefined &&
+									onMove?.(scheduledClient.clientId, upNeighborId)
+								}
 								title="Move Up"
 								type="button"
 							>
@@ -741,7 +749,11 @@ const SchedulingTableRow = memo(function SchedulingTableRow({
 							</button>
 							<button
 								className="cursor-pointer rounded-sm p-1 text-muted-foreground transition-colors hover:bg-accent hover:text-primary disabled:opacity-30"
-								onClick={() => onMove?.(scheduledClient.clientId, "down")}
+								disabled={downNeighborId === undefined}
+								onClick={() =>
+									downNeighborId !== undefined &&
+									onMove?.(scheduledClient.clientId, downNeighborId)
+								}
 								title="Move Down"
 								type="button"
 							>
@@ -955,7 +967,7 @@ interface InternalSchedulingTableProps {
 	insurances: InsuranceWithAliases[];
 	isEditable: boolean;
 	onUpdate?: (clientId: number, data: SchedulingUpdateData) => void;
-	onMove?: (clientId: number, direction: "up" | "down") => void;
+	onMove?: (clientId: number, neighborClientId: number) => void;
 	onAction: (clientId: number) => void;
 	actionIcon: React.ReactNode;
 	actionVariant: "default" | "destructive";
@@ -1251,6 +1263,7 @@ function InternalSchedulingTable({
 								</Button>
 							}
 							districts={districts}
+							downNeighborId={filteredClients[rowIndex + 1]?.clientId}
 							evaluators={evaluators}
 							insurances={insurances}
 							isEditable={isEditable}
@@ -1261,6 +1274,7 @@ function InternalSchedulingTable({
 							onUpdate={onUpdate}
 							rowIndex={rowIndex}
 							scheduledClient={scheduledClient}
+							upNeighborId={filteredClients[rowIndex - 1]?.clientId}
 						/>
 					))}
 				</TableBody>
@@ -1357,30 +1371,27 @@ function SchedulingTableView({
 				const index = clients.findIndex(
 					(c) => c.clientId === moveData.clientId,
 				);
-				if (index === -1) return old;
+				const neighborIndex = clients.findIndex(
+					(c) => c.clientId === moveData.neighborClientId,
+				);
+				if (index === -1 || neighborIndex === -1) return old;
 
-				let newIndex = index;
-				if (moveData.direction === "up" && index > 0) {
-					newIndex = index - 1;
-				} else if (
-					moveData.direction === "down" &&
-					index < clients.length - 1
-				) {
-					newIndex = index + 1;
-				}
+				const client = clients[index];
+				const neighbor = clients[neighborIndex];
+				if (!client || !neighbor) return old;
 
-				if (newIndex !== index) {
-					const [movedClient] = clients.splice(index, 1);
-					if (movedClient) {
-						clients.splice(newIndex, 0, movedClient);
-					}
-					// Ensure sorts are unique and sequential in optimistic UI
-					return {
-						...old,
-						clients: clients.map((c, i) => ({ ...c, sort: i })),
-					};
-				}
-				return old;
+				// Swap sorts of just the two affected clients, then re-sort
+				// so clients hidden by the active filters (not adjacent in
+				// this unfiltered list) don't get shuffled.
+				clients[index] = { ...client, sort: neighbor.sort };
+				clients[neighborIndex] = { ...neighbor, sort: client.sort };
+				clients.sort(
+					(a, b) =>
+						(a.sort ?? 0) - (b.sort ?? 0) ||
+						new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(),
+				);
+
+				return { ...old, clients };
 			});
 			return { previousData };
 		},
@@ -1422,8 +1433,8 @@ function SchedulingTableView({
 			lastAddedClientId={lastAddedClientId}
 			offices={(data?.offices as Office[]) || []}
 			onAction={(clientId) => actionMutation.mutate({ clientId })}
-			onMove={(clientId, direction) =>
-				moveMutation.mutate({ clientId, direction })
+			onMove={(clientId, neighborClientId) =>
+				moveMutation.mutate({ clientId, neighborClientId })
 			}
 			onScrollToClient={onScrollToClient}
 			onUpdate={

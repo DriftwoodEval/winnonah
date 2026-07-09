@@ -352,43 +352,30 @@ export const schedulingRouter = createTRPCRouter({
 		}),
 
 	move: protectedProcedure
-		.input(
-			z.object({ clientId: z.number(), direction: z.enum(["up", "down"]) }),
-		)
+		.input(z.object({ clientId: z.number(), neighborClientId: z.number() }))
 		.mutation(async ({ ctx, input }) => {
-			const allClients = await ctx.db
-				.select({ clientId: schedulingClients.clientId })
-				.from(schedulingClients)
-				.where(eq(schedulingClients.archived, false))
-				.orderBy(asc(schedulingClients.sort), asc(schedulingClients.createdAt));
+			const [client, neighbor] = await Promise.all([
+				ctx.db.query.schedulingClients.findFirst({
+					where: eq(schedulingClients.clientId, input.clientId),
+					columns: { sort: true },
+				}),
+				ctx.db.query.schedulingClients.findFirst({
+					where: eq(schedulingClients.clientId, input.neighborClientId),
+					columns: { sort: true },
+				}),
+			]);
+			if (!client || !neighbor) return;
 
-			const index = allClients.findIndex((c) => c.clientId === input.clientId);
-			if (index === -1) return;
-
-			let newIndex = index;
-			if (input.direction === "up" && index > 0) {
-				newIndex = index - 1;
-			} else if (input.direction === "down" && index < allClients.length - 1) {
-				newIndex = index + 1;
-			}
-
-			if (newIndex !== index) {
-				const [movedClient] = allClients.splice(index, 1);
-				if (movedClient) {
-					allClients.splice(newIndex, 0, movedClient);
-				}
-
-				await ctx.db.transaction(async (tx) => {
-					for (let i = 0; i < allClients.length; i++) {
-						const client = allClients[i];
-						if (!client) continue;
-						await tx
-							.update(schedulingClients)
-							.set({ sort: i })
-							.where(eq(schedulingClients.clientId, client.clientId));
-					}
-				});
-			}
+			await ctx.db.transaction(async (tx) => {
+				await tx
+					.update(schedulingClients)
+					.set({ sort: neighbor.sort })
+					.where(eq(schedulingClients.clientId, input.clientId));
+				await tx
+					.update(schedulingClients)
+					.set({ sort: client.sort })
+					.where(eq(schedulingClients.clientId, input.neighborClientId));
+			});
 		}),
 
 	update: protectedProcedure
