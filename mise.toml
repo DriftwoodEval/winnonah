@@ -5,6 +5,9 @@ pnpm = "latest"
 [env]
 _.file = ".env"
 
+[settings.task]
+output = "interleave"
+
 [tasks.deps]
 description = "Spin up needed Docker containers for development"
 run = "docker compose up -d driftwood-db redis cloudflared"
