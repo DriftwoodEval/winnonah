@@ -86,7 +86,9 @@ export function EvaluatorDashboard() {
 			<div className="w-full">
 				<div className="mb-3 flex items-center gap-3">
 					<h1 className="font-bold text-2xl">{title}</h1>
-					<Badge variant="secondary">Evaluator Preview</Badge>
+					<Badge variant="secondary">
+						Viewing as {config?.evaluatorFirstName ?? "evaluator"}
+					</Badge>
 					<Button
 						className="ml-auto"
 						onClick={() => setPreviewing(false)}
@@ -106,17 +108,15 @@ export function EvaluatorDashboard() {
 		<div className="w-full">
 			<div className="mb-3 flex items-center gap-3">
 				<h1 className="font-bold text-2xl">{title}</h1>
-				{process.env.NODE_ENV === "development" && (
-					<Button
-						className="ml-auto"
-						onClick={() => setPreviewing(true)}
-						size="sm"
-						variant="outline"
-					>
-						<Eye className="mr-1.5 h-4 w-4" />
-						Preview as Evaluator
-					</Button>
-				)}
+				<Button
+					className="ml-auto"
+					onClick={() => setPreviewing(true)}
+					size="sm"
+					variant="outline"
+				>
+					<Eye className="mr-1.5 h-4 w-4" />
+					See {config?.evaluatorFirstName ?? "evaluator"}'s view
+				</Button>
 			</div>
 			<Tabs
 				onValueChange={(v) => setTab(v as "active" | "archived")}
