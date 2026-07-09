@@ -19,7 +19,6 @@ import { invalidateCache } from "~/lib/cache";
 import { QUESTIONNAIRE_STATUSES } from "~/lib/constants";
 import { updatePunchData } from "~/lib/google";
 import type { InsertingQuestionnaire } from "~/lib/models";
-import { formatClientAge } from "~/lib/utils";
 import { CACHE_KEY_MISSING_APPOINTMENTS } from "~/server/api/routers/client";
 import {
 	assertPermission,
@@ -37,6 +36,7 @@ import {
 	questionnaireRules,
 	questionnaires,
 } from "~/server/db/schema";
+import { getQuestionnaireEligibilityAge } from "~/server/questionnaire-age";
 
 interface QuestionnaireDetails {
 	name: string;
@@ -207,8 +207,10 @@ async function checkAndUpdateQsBatteryStatus(ctx: Context, clientId: number) {
 	});
 	if (!client) return;
 
-	const ageInYears = Math.floor(
-		(Date.now() - client.dob.getTime()) / (1000 * 60 * 60 * 24 * 365.25),
+	const ageInYears = await getQuestionnaireEligibilityAge(
+		ctx.db,
+		clientId,
+		client.dob,
 	);
 
 	const allRules = await ctx.db.query.questionnaireRules.findMany({
@@ -318,7 +320,11 @@ export const questionnaireRouter = createTRPCRouter({
 				});
 			}
 
-			const age = Number(formatClientAge(foundClient.dob, "years"));
+			const age = await getQuestionnaireEligibilityAge(
+				ctx.db,
+				input.clientId,
+				foundClient.dob,
+			);
 
 			const types = await ctx.db.query.assessmentTypes.findMany({
 				orderBy: [asc(assessmentTypes.name)],
@@ -389,8 +395,10 @@ export const questionnaireRouter = createTRPCRouter({
 
 			if (!client) return null;
 
-			const ageInYears = Math.floor(
-				(Date.now() - client.dob.getTime()) / (1000 * 60 * 60 * 24 * 365.25),
+			const ageInYears = await getQuestionnaireEligibilityAge(
+				ctx.db,
+				input.clientId,
+				client.dob,
 			);
 
 			const allRules = await ctx.db.query.questionnaireRules.findMany({

@@ -67,6 +67,7 @@ import {
 	questionnaires,
 	schoolDistricts,
 } from "~/server/db/schema";
+import { getQuestionnaireEligibilityAge } from "~/server/questionnaire-age";
 
 const isNoteOnly = eq(sql`LENGTH(${clients.id})`, 5);
 const CACHE_KEY_DROP_LIST = "clients:drop-list";
@@ -404,8 +405,10 @@ export async function computeAndStoreAssessmentSnapshot(
 		};
 	}
 
-	const ageInYears = Math.floor(
-		(Date.now() - client.dob.getTime()) / (1000 * 60 * 60 * 24 * 365.25),
+	const ageInYears = await getQuestionnaireEligibilityAge(
+		db,
+		clientId,
+		client.dob,
 	);
 
 	const snapshot = await computeRuleBasedSnapshot(
