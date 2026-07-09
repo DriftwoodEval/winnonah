@@ -131,68 +131,75 @@ export default function ReportQueue({ sourceId, destId }: ReportQueueProps) {
 				</div>
 			</CardHeader>
 
-			<CardContent className="p-0">
-				<ScrollArea className="h-[400px] w-full px-4">
-					{isLoading ? (
-						<div className="space-y-3 py-4">
-							<Skeleton className="h-12 w-full" />
-							<Skeleton className="h-12 w-full" />
-							<Skeleton className="h-12 w-full" />
-						</div>
-					) : (
-						<>
-							{claimedFolders.length > 0 && (
-								<div className="my-2 border-b pb-2">
-									{atLimit && (
-										<div className="mb-2 flex items-center gap-2 font-medium text-sm text-warning">
-											<AlertCircleIcon size={16} />
-											{effectiveMax === 1
-												? "Must be approved before claiming another."
-												: "Reports must be approved before claiming another."}
-										</div>
-									)}
-									<div className="flex flex-col gap-2">
-										{claimedFolders.map((folder) => (
-											<div
-												className="flex items-center justify-between rounded-md bg-amber-50 p-3 dark:bg-amber-950/20"
-												key={folder.id}
-											>
-												<div className="flex items-center gap-3">
-													<FolderIcon
-														className="fill-amber-500 text-amber-500"
-														size={18}
-													/>
-													<span className="font-bold text-sm leading-none">
-														{folder.name}
-													</span>
-												</div>
-												<Button
-													className="h-8 w-8 text-amber-600 hover:cursor-pointer hover:bg-amber-100 hover:text-amber-700 dark:hover:bg-amber-900/30"
-													onClick={() =>
-														window.open(
-															`https://drive.google.com/drive/folders/${folder.id}`,
-															"_blank",
-														)
-													}
-													size="icon"
-													variant="ghost"
-												>
-													<ExternalLinkIcon className="h-4 w-4" />
-													<span className="sr-only">Open in Drive</span>
-												</Button>
+			{canApprove ? (
+				<CardContent className="p-0">
+					<ScrollArea className="h-[400px] w-full px-4">
+						{isLoading ? (
+							<div className="space-y-3 py-4">
+								<Skeleton className="h-12 w-full" />
+								<Skeleton className="h-12 w-full" />
+								<Skeleton className="h-12 w-full" />
+							</div>
+						) : (
+							<>
+								{claimedFolders.length > 0 && (
+									<div className="my-2 border-b pb-2">
+										{atLimit && (
+											<div className="mb-2 flex items-center gap-2 font-medium text-sm text-warning">
+												<AlertCircleIcon size={16} />
+												{effectiveMax === 1
+													? "Must be approved before claiming another."
+													: "Reports must be approved before claiming another."}
 											</div>
-										))}
+										)}
+										<div className="flex flex-col gap-2">
+											{claimedFolders.map((folder) => (
+												<div
+													className="flex items-center justify-between rounded-md bg-amber-50 p-3 dark:bg-amber-950/20"
+													key={folder.id}
+												>
+													<div className="flex items-center gap-3">
+														<FolderIcon
+															className="fill-amber-500 text-amber-500"
+															size={18}
+														/>
+														<span className="font-bold text-sm leading-none">
+															{folder.name}
+														</span>
+													</div>
+													<Button
+														className="h-8 w-8 text-amber-600 hover:cursor-pointer hover:bg-amber-100 hover:text-amber-700 dark:hover:bg-amber-900/30"
+														onClick={() =>
+															window.open(
+																`https://drive.google.com/drive/folders/${folder.id}`,
+																"_blank",
+															)
+														}
+														size="icon"
+														variant="ghost"
+													>
+														<ExternalLinkIcon className="h-4 w-4" />
+														<span className="sr-only">Open in Drive</span>
+													</Button>
+												</div>
+											))}
+										</div>
 									</div>
-								</div>
-							)}
+								)}
 
-							{canApprove ? (
-								folders && folders.length > 0 ? (
+								{folders && folders.length > 0 ? (
 									<div className="grid gap-1 py-2">
 										{folders.map((folder) => (
-											<div
-												className="group flex items-center justify-between rounded-md p-3"
+											<button
+												className="group flex cursor-pointer items-center justify-between rounded-md p-3 text-left hover:bg-muted"
 												key={folder.id}
+												onClick={() =>
+													window.open(
+														`https://drive.google.com/drive/folders/${folder.id}`,
+														"_blank",
+													)
+												}
+												type="button"
 											>
 												<div className="flex items-center gap-3">
 													<FolderIcon
@@ -203,7 +210,8 @@ export default function ReportQueue({ sourceId, destId }: ReportQueueProps) {
 														{folder.name}
 													</span>
 												</div>
-											</div>
+												<ExternalLinkIcon className="h-4 w-4 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100" />
+											</button>
 										))}
 									</div>
 								) : (
@@ -213,24 +221,30 @@ export default function ReportQueue({ sourceId, destId }: ReportQueueProps) {
 											No folders found in this directory.
 										</p>
 									</div>
-								)
-							) : (
-								<div className="flex h-[200px] flex-col items-center justify-center text-center text-muted-foreground">
-									<InboxIcon className="mb-2 h-8 w-8 opacity-20" />
-									<p className="font-semibold text-foreground text-lg">
-										{queueCountLoading ? "..." : (queueCount ?? 0)}
-									</p>
-									<p className="text-sm italic">
-										{(queueCount ?? 0) === 1
-											? "report available to claim"
-											: "reports available to claim"}
-									</p>
-								</div>
-							)}
-						</>
+								)}
+							</>
+						)}
+					</ScrollArea>
+				</CardContent>
+			) : (
+				<CardContent className="flex h-[200px] items-center justify-center p-0">
+					{isLoading ? (
+						<Skeleton className="h-12 w-full max-w-xs" />
+					) : (
+						<div className="flex flex-col items-center text-center text-muted-foreground">
+							<InboxIcon className="mb-2 h-8 w-8 opacity-20" />
+							<p className="font-semibold text-foreground text-lg">
+								{queueCountLoading ? "..." : (queueCount ?? 0)}
+							</p>
+							<p className="text-sm italic">
+								{(queueCount ?? 0) === 1
+									? "report available to claim"
+									: "reports available to claim"}
+							</p>
+						</div>
 					)}
-				</ScrollArea>
-			</CardContent>
+				</CardContent>
+			)}
 		</Card>
 	);
 }
