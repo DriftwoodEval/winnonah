@@ -179,6 +179,10 @@ export const userRouter = createTRPCRouter({
 		)
 		.mutation(async ({ ctx, input }) => {
 			assertPermission(ctx.session.user, "settings:users:edit");
+			ctx.logger.info(
+				{ ...input, updatedBy: ctx.session.user.email },
+				"Setting user phone number",
+			);
 			await ctx.db
 				.update(users)
 				.set({ phoneNumber: input.phoneNumber })
@@ -189,6 +193,10 @@ export const userRouter = createTRPCRouter({
 		.input(z.object({ userId: z.string(), isGreeter: z.boolean() }))
 		.mutation(async ({ ctx, input }) => {
 			assertPermission(ctx.session.user, "settings:users:edit");
+			ctx.logger.info(
+				{ ...input, updatedBy: ctx.session.user.email },
+				"Setting user greeter status",
+			);
 			await ctx.db
 				.update(users)
 				.set({ isGreeter: input.isGreeter })
@@ -204,6 +212,10 @@ export const userRouter = createTRPCRouter({
 		)
 		.mutation(async ({ ctx, input }) => {
 			assertPermission(ctx.session.user, "settings:users:edit");
+			ctx.logger.info(
+				{ ...input, updatedBy: ctx.session.user.email },
+				"Setting max claimed reports",
+			);
 			await ctx.db
 				.update(users)
 				.set({ maxClaimedReports: input.maxClaimedReports })
@@ -219,6 +231,10 @@ export const userRouter = createTRPCRouter({
 		)
 		.mutation(async ({ ctx, input }) => {
 			assertPermission(ctx.session.user, "settings:users:edit");
+			ctx.logger.info(
+				{ ...input, updatedBy: ctx.session.user.email },
+				"Setting blocked evaluator NPIs",
+			);
 			await ctx.db
 				.update(users)
 				.set({ blockedEvaluatorNpis: input.npis })

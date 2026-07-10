@@ -966,6 +966,14 @@ export const clientRouter = createTRPCRouter({
 			return { count: 0 };
 		}
 
+		ctx.logger.info(
+			{
+				clientIds: clientsTooOldForBabyNetBool.map((c) => c.id),
+				triggeredBy: ctx.session.user.email,
+			},
+			"Auto-disabling BabyNet for aged-out clients",
+		);
+
 		await ctx.db
 			.update(clients)
 			.set({ babyNet: false })
@@ -1582,6 +1590,15 @@ export const clientRouter = createTRPCRouter({
 			const currentData = client.referralData ?? {};
 			const isClaimed = currentData.outreachClaimedBy === ctx.session.user.name;
 
+			ctx.logger.info(
+				{
+					clientId: input.clientId,
+					claiming: !isClaimed,
+					by: ctx.session.user.email,
+				},
+				"Setting outreach claim",
+			);
+
 			await ctx.db
 				.update(clients)
 				.set({
@@ -2032,6 +2049,11 @@ export const clientRouter = createTRPCRouter({
 					message: "A client cannot be related to themselves",
 				});
 
+			ctx.logger.info(
+				{ ...input, linkedBy: ctx.session.user.email },
+				"Linking related clients",
+			);
+
 			return await ctx.db.transaction(async (tx) => {
 				await tx
 					.insert(clientRelated)
@@ -2058,6 +2080,11 @@ export const clientRouter = createTRPCRouter({
 					code: "BAD_REQUEST",
 					message: "A client cannot be related to themselves",
 				});
+
+			ctx.logger.info(
+				{ ...input, unlinkedBy: ctx.session.user.email },
+				"Unlinking related clients",
+			);
 
 			return await ctx.db.transaction(async (tx) => {
 				await tx

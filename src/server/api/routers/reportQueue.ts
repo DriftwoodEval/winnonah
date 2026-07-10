@@ -25,6 +25,10 @@ export const reportQueueRouter = createTRPCRouter({
 		)
 		.mutation(async ({ ctx, input }) => {
 			assertPermission(ctx.session.user, "reports:approve");
+			ctx.logger.info(
+				{ ...input, updatedBy: ctx.session.user.email },
+				"Updating report queue config",
+			);
 			await ctx.db
 				.insert(reportQueueConfig)
 				.values({

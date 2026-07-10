@@ -371,6 +371,10 @@ export const evaluatorRouter = createTRPCRouter({
 		.input(z.object({ npi: z.string() }))
 		.mutation(async ({ ctx, input }) => {
 			assertPermission(ctx.session.user, "settings:evaluators");
+			ctx.logger.info(
+				{ ...input, archivedBy: ctx.session.user.email },
+				"Archiving evaluator",
+			);
 			const npiAsInt = parseInt(input.npi, 10);
 			await ctx.db
 				.update(evaluators)
@@ -383,6 +387,10 @@ export const evaluatorRouter = createTRPCRouter({
 		.input(z.object({ npi: z.string() }))
 		.mutation(async ({ ctx, input }) => {
 			assertPermission(ctx.session.user, "settings:evaluators");
+			ctx.logger.info(
+				{ ...input, unarchivedBy: ctx.session.user.email },
+				"Unarchiving evaluator",
+			);
 			const npiAsInt = parseInt(input.npi, 10);
 			await ctx.db
 				.update(evaluators)
@@ -442,6 +450,10 @@ export const evaluatorRouter = createTRPCRouter({
 		.input(z.object({ npi: z.number().int(), enabled: z.boolean() }))
 		.mutation(async ({ ctx, input }) => {
 			assertPermission(ctx.session.user, "settings:evaluators");
+			ctx.logger.info(
+				{ ...input, updatedBy: ctx.session.user.email },
+				"Setting evaluator dashboard evaluator",
+			);
 			await ctx.db.transaction(async (tx) => {
 				if (input.enabled) {
 					// Clear any existing dashboard evaluator first

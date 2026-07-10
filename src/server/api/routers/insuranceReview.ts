@@ -51,6 +51,11 @@ export const insuranceReviewRouter = createTRPCRouter({
 		.mutation(async ({ ctx, input }) => {
 			assertPermission(ctx.session.user, "clients:insurance:review");
 
+			ctx.logger.info(
+				{ clientId: input.clientId, updatedBy: ctx.session.user.email },
+				"Updating insurance review",
+			);
+
 			await ctx.db.transaction(async (tx) => {
 				const current = await tx.query.insuranceReview.findFirst({
 					where: eq(insuranceReview.clientId, input.clientId),
@@ -105,6 +110,11 @@ export const insuranceReviewRouter = createTRPCRouter({
 		.mutation(async ({ ctx, input }) => {
 			assertPermission(ctx.session.user, "clients:insurance:review");
 
+			ctx.logger.info(
+				{ ...input, updatedBy: ctx.session.user.email },
+				"Setting insurance review enabled",
+			);
+
 			const current = await ctx.db.query.insuranceReview.findFirst({
 				where: eq(insuranceReview.clientId, input.clientId),
 			});
@@ -140,6 +150,11 @@ export const insuranceReviewRouter = createTRPCRouter({
 		.mutation(async ({ ctx, input }) => {
 			assertPermission(ctx.session.user, "clients:insurance:review");
 
+			ctx.logger.info(
+				{ ...input, updatedBy: ctx.session.user.email },
+				"Setting insurance review paused",
+			);
+
 			await ctx.db
 				.update(insuranceReview)
 				.set({ paused: input.paused })
@@ -152,6 +167,11 @@ export const insuranceReviewRouter = createTRPCRouter({
 		.input(z.object({ clientId: z.number(), userEmail: z.string().email() }))
 		.mutation(async ({ ctx, input }) => {
 			assertPermission(ctx.session.user, "clients:insurance:review");
+
+			ctx.logger.info(
+				{ ...input, claimedBy: ctx.session.user.email },
+				"Setting insurance review claim",
+			);
 
 			await ctx.db
 				.update(insuranceReview)
@@ -248,6 +268,11 @@ export const insuranceReviewRouter = createTRPCRouter({
 		)
 		.mutation(async ({ ctx, input: { clientId, insertAt } }) => {
 			assertPermission(ctx.session.user, "clients:insurance:review");
+
+			ctx.logger.info(
+				{ clientId, insertAt, submittedBy: ctx.session.user.email },
+				"Submitting insurance review to notes",
+			);
 
 			const review = await ctx.db.query.insuranceReview.findFirst({
 				where: eq(insuranceReview.clientId, clientId),

@@ -667,6 +667,16 @@ export const schedulingRouter = createTRPCRouter({
 			if (input.sort !== undefined) {
 				updateData.sort = input.sort;
 			}
+
+			ctx.logger.info(
+				{
+					clientId: input.clientId,
+					fields: Object.keys(updateData),
+					updatedBy: ctx.session.user.email,
+				},
+				"Updating scheduling client",
+			);
+
 			await ctx.db
 				.update(schedulingClients)
 				.set(updateData)
@@ -676,6 +686,10 @@ export const schedulingRouter = createTRPCRouter({
 	archive: protectedProcedure
 		.input(z.object({ clientId: z.number() }))
 		.mutation(async ({ ctx, input }) => {
+			ctx.logger.info(
+				{ ...input, archivedBy: ctx.session.user.email },
+				"Archiving scheduling client",
+			);
 			await ctx.db
 				.update(schedulingClients)
 				.set({ archived: true })

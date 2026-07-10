@@ -6,6 +6,7 @@ import {
 	appointments,
 	clients,
 	reminderLogs,
+	reminderReplies,
 	reminderTemplates,
 } from "~/server/db/schema";
 
@@ -26,6 +27,10 @@ export const reminderRouter = createTRPCRouter({
 			}),
 		)
 		.mutation(async ({ ctx, input }) => {
+			ctx.logger.info(
+				{ ...input, updatedBy: ctx.session.user.email },
+				"Updating reminder settings",
+			);
 			return await ctx.db
 				.insert(appointmentReminderSettings)
 				.values({ id: 1, ...input })
@@ -56,6 +61,10 @@ export const reminderRouter = createTRPCRouter({
 			}),
 		)
 		.mutation(async ({ ctx, input }) => {
+			ctx.logger.info(
+				{ ...input, updatedBy: ctx.session.user.email },
+				"Upserting reminder template",
+			);
 			const { id, ...data } = input;
 			if (id) {
 				return await ctx.db
@@ -69,6 +78,10 @@ export const reminderRouter = createTRPCRouter({
 	deleteTemplate: protectedProcedure
 		.input(z.object({ id: z.number() }))
 		.mutation(async ({ ctx, input }) => {
+			ctx.logger.info(
+				{ ...input, deletedBy: ctx.session.user.email },
+				"Deleting reminder template",
+			);
 			return ctx.db
 				.delete(reminderTemplates)
 				.where(eq(reminderTemplates.id, input.id));

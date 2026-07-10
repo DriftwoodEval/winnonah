@@ -1031,6 +1031,10 @@ export const questionnaireRouter = createTRPCRouter({
 		.input(z.object({ id: z.number() }))
 		.mutation(async ({ ctx, input }) => {
 			assertPermission(ctx.session.user, "clients:questionnaires:in-person");
+			ctx.logger.info(
+				{ ...input, deletedBy: ctx.session.user.email },
+				"Deleting in-person assessment",
+			);
 			await ctx.db
 				.delete(inPersonAssessments)
 				.where(eq(inPersonAssessments.id, input.id));

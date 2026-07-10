@@ -168,6 +168,11 @@ export const quoRouter = createTRPCRouter({
 			try {
 				const normalized = normalizePhoneNumber(input.phoneNumber);
 
+				ctx.logger.info(
+					{ phoneNumber: normalized, sentBy: ctx.session.user.email },
+					"Sending OpenPhone message",
+				);
+
 				const openPhoneUsers = await getOpenPhoneUsers(apiKey);
 
 				const loggedInName = ctx.session.user.name?.toLowerCase().trim();

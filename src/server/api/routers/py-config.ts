@@ -20,6 +20,10 @@ export const pyConfigRouter = createTRPCRouter({
 	update: protectedProcedure
 		.input(pythonConfigSchema)
 		.mutation(async ({ ctx, input }) => {
+			ctx.logger.info(
+				{ ...input, updatedBy: ctx.session.user.email },
+				"Updating Python config",
+			);
 			await ctx.db
 				.insert(pythonConfig)
 				.values({ id: 1, data: input })
@@ -47,6 +51,10 @@ export const pyConfigRouter = createTRPCRouter({
 	updateSync: protectedProcedure
 		.input(appointmentSyncConfigSchema)
 		.mutation(async ({ ctx, input }) => {
+			ctx.logger.info(
+				{ ...input, updatedBy: ctx.session.user.email },
+				"Updating Python appointment sync config",
+			);
 			await ctx.db
 				.insert(pythonConfig)
 				.values({ id: 2, data: input })

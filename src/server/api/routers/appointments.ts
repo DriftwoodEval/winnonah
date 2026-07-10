@@ -314,6 +314,11 @@ export const appointmentRouter = createTRPCRouter({
 				.where(eq(appointments.id, id));
 
 			if (confirmedAt !== undefined && confirmedAt !== null) {
+				ctx.logger.info(
+					{ appointmentId: id, confirmedBy: ctx.session.user.email },
+					"Appointment manually confirmed",
+				);
+
 				const cookieHeader = ctx.headers.get("cookie") ?? "";
 				void fetch(`${env.PY_API}/appointments/${id}/confirm-calendar`, {
 					method: "POST",

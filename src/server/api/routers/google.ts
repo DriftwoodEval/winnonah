@@ -471,6 +471,11 @@ export const googleRouter = createTRPCRouter({
 				isAllDay: input.isAllDay,
 			});
 
+			ctx.logger.info(
+				{ ...input, createdBy: ctx.session.user.email, eventId: event.id },
+				"Created availability event",
+			);
+
 			return {
 				success: true,
 				message: "Availability event created successfully.",
@@ -1353,6 +1358,15 @@ export const googleRouter = createTRPCRouter({
 				{ name: data.folder_claimed, id: data.folder_id },
 			];
 
+			ctx.logger.info(
+				{
+					folderClaimed: data.folder_claimed,
+					folderId: data.folder_id,
+					claimedBy: ctx.session.user.email,
+				},
+				"Claimed report folder",
+			);
+
 			await ctx.db
 				.update(users)
 				.set({ claimedReportFolder: newFolders })
@@ -1368,6 +1382,11 @@ export const googleRouter = createTRPCRouter({
 		.input(z.object({ userId: z.string(), folderId: z.string() }))
 		.mutation(async ({ input, ctx }) => {
 			assertPermission(ctx.session.user, "reports:approve");
+
+			ctx.logger.info(
+				{ ...input, approvedBy: ctx.session.user.email },
+				"Approving report",
+			);
 
 			const userToNotify = await ctx.db.query.users.findFirst({
 				where: eq(users.id, input.userId),

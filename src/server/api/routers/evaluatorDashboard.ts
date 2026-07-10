@@ -179,6 +179,10 @@ export const evaluatorDashboardRouter = createTRPCRouter({
 		)
 		.mutation(async ({ ctx, input }) => {
 			assertPermission(ctx.session.user, "settings:evaluators");
+			ctx.logger.info(
+				{ ...input, updatedBy: ctx.session.user.email },
+				"Updating evaluator dashboard config",
+			);
 			await ctx.db
 				.insert(workSummaryConfig)
 				.values({
@@ -406,6 +410,10 @@ export const evaluatorDashboardRouter = createTRPCRouter({
 		)
 		.mutation(async ({ ctx, input }) => {
 			assertPermission(ctx.session.user, "evaluator-dashboard:admin");
+			ctx.logger.info(
+				{ ...input, updatedBy: ctx.session.user.email },
+				"Setting last task completed date",
+			);
 			await ctx.db
 				.update(appointments)
 				.set({ lastTaskCompletedDate: input.date as unknown as Date })
@@ -421,6 +429,10 @@ export const evaluatorDashboardRouter = createTRPCRouter({
 		)
 		.mutation(async ({ ctx, input }) => {
 			assertPermission(ctx.session.user, "evaluator-dashboard:admin");
+			ctx.logger.info(
+				{ ...input, updatedBy: ctx.session.user.email },
+				"Setting due date override",
+			);
 			await ctx.db
 				.update(appointments)
 				.set({ dueDateOverride: input.date as unknown as Date })
@@ -432,6 +444,10 @@ export const evaluatorDashboardRouter = createTRPCRouter({
 		.mutation(async ({ ctx, input }) => {
 			await resolveViewMode(ctx);
 			const evaluatorEmail = await getDashboardEvaluatorEmail(ctx);
+			ctx.logger.info(
+				{ ...input, completedBy: evaluatorEmail },
+				"Marking report complete",
+			);
 			await ctx.db
 				.update(appointments)
 				.set({
@@ -445,6 +461,10 @@ export const evaluatorDashboardRouter = createTRPCRouter({
 		.input(z.object({ appointmentId: z.string() }))
 		.mutation(async ({ ctx, input }) => {
 			assertPermission(ctx.session.user, "evaluator-dashboard:admin");
+			ctx.logger.info(
+				{ ...input, updatedBy: ctx.session.user.email },
+				"Unmarking report complete",
+			);
 			await ctx.db
 				.update(appointments)
 				.set({ reportCompletedAt: null, reportCompletedByEmail: null })
@@ -455,6 +475,10 @@ export const evaluatorDashboardRouter = createTRPCRouter({
 		.input(z.object({ appointmentId: z.string(), showAnyway: z.boolean() }))
 		.mutation(async ({ ctx, input }) => {
 			assertPermission(ctx.session.user, "evaluator-dashboard:admin");
+			ctx.logger.info(
+				{ ...input, updatedBy: ctx.session.user.email },
+				"Setting show anyway",
+			);
 			await ctx.db
 				.update(appointments)
 				.set({ evaluatorDashboardShowAnyway: input.showAnyway })
@@ -465,6 +489,10 @@ export const evaluatorDashboardRouter = createTRPCRouter({
 		.input(z.object({ appointmentId: z.string() }))
 		.mutation(async ({ ctx, input }) => {
 			assertPermission(ctx.session.user, "evaluator-dashboard:admin");
+			ctx.logger.info(
+				{ ...input, archivedBy: ctx.session.user.email },
+				"Archiving evaluator dashboard row",
+			);
 			await ctx.db
 				.update(appointments)
 				.set({ evaluatorDashboardArchivedAt: new Date() })
@@ -475,6 +503,10 @@ export const evaluatorDashboardRouter = createTRPCRouter({
 		.input(z.object({ appointmentId: z.string() }))
 		.mutation(async ({ ctx, input }) => {
 			assertPermission(ctx.session.user, "evaluator-dashboard:admin");
+			ctx.logger.info(
+				{ ...input, unarchivedBy: ctx.session.user.email },
+				"Unarchiving evaluator dashboard row",
+			);
 			await ctx.db
 				.update(appointments)
 				.set({ evaluatorDashboardArchivedAt: null })
