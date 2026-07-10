@@ -51,7 +51,7 @@ export function HomePageContent() {
 
 	return (
 		<div className="relative h-full w-full overflow-hidden">
-			<div className="absolute top-3 right-3 z-10">
+			<div className="fixed right-4 bottom-4 z-40 shadow-md">
 				<HomeCustomizer onChange={handleChange} widgets={activeWidgets} />
 			</div>
 			<div className="h-full overflow-auto">
