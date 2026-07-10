@@ -263,6 +263,7 @@ async function buildDirectoryConditions(
 }
 
 export const CACHE_KEY_MISSING_APPOINTMENTS = "clients:missing-appointments";
+export const CACHE_KEY_POSSIBLE_PRIVATE_PAY = "clients:possible-private-pay";
 
 async function computeRuleBasedSnapshot(
 	db: Context["db"],
@@ -1218,57 +1219,65 @@ export const clientRouter = createTRPCRouter({
 	}),
 
 	getPossiblePrivatePay: protectedProcedure.query(async ({ ctx }) => {
-		const noPaymentMethodOrNoEligors = await ctx.db
-			.select(getTableColumns(clients))
-			.from(clients)
-			.leftJoin(clientsEvaluators, eq(clients.id, clientsEvaluators.clientId))
-			.where(
-				and(
-					or(
-						and(
-							isNull(clients.primaryInsurance),
-							isNull(clients.secondaryInsurance),
-							eq(clients.privatePay, false),
-							not(eq(clients.schoolDistrict, "Dorchester School District 4")), // We can't work with anyone in DD4
+		return fetchWithCache(ctx, CACHE_KEY_POSSIBLE_PRIVATE_PAY, async () => {
+			const noPaymentMethodOrNoEligors = await ctx.db
+				.select(getTableColumns(clients))
+				.from(clients)
+				.leftJoin(clientsEvaluators, eq(clients.id, clientsEvaluators.clientId))
+				.where(
+					and(
+						or(
+							and(
+								isNull(clients.primaryInsurance),
+								isNull(clients.secondaryInsurance),
+								eq(clients.privatePay, false),
+								not(eq(clients.schoolDistrict, "Dorchester School District 4")), // We can't work with anyone in DD4
+							),
+							isNull(clientsEvaluators.clientId),
 						),
-						isNull(clientsEvaluators.clientId),
+						eq(clients.status, true),
+						not(isNoteOnly),
 					),
-					eq(clients.status, true),
-					not(isNoteOnly),
-				),
-			)
-			.orderBy(clients.addedDate);
+				)
+				.orderBy(clients.addedDate);
 
-		if (noPaymentMethodOrNoEligors.length === 0) return [];
+			if (noPaymentMethodOrNoEligors.length === 0) return [];
 
-		const cookieHeader = ctx.headers.get("cookie") ?? "";
-		const response = await fetch(
-			`${env.PY_API}/clients/possible-private-pay-reasons`,
-			{
-				method: "POST",
-				headers: { "Content-Type": "application/json", Cookie: cookieHeader },
-				body: JSON.stringify({
-					client_ids: noPaymentMethodOrNoEligors.map((c) => c.id),
-				}),
-			},
-		);
-
-		if (!response.ok) {
-			throw new Error(
-				`Failed to fetch private-pay reasons: ${response.status}`,
+			const cookieHeader = ctx.headers.get("cookie") ?? "";
+			const response = await fetch(
+				`${env.PY_API}/clients/possible-private-pay-reasons`,
+				{
+					method: "POST",
+					headers: {
+						"Content-Type": "application/json",
+						Cookie: cookieHeader,
+					},
+					body: JSON.stringify({
+						client_ids: noPaymentMethodOrNoEligors.map((c) => c.id),
+					}),
+				},
 			);
-		}
 
-		const reasonsByClientId = (await response.json()) as Record<string, string>;
+			if (!response.ok) {
+				throw new Error(
+					`Failed to fetch private-pay reasons: ${response.status}`,
+				);
+			}
 
-		const result: ClientWithIssueInfo[] = noPaymentMethodOrNoEligors.map(
-			(client) => {
-				const reason = reasonsByClientId[String(client.id)];
-				return reason ? { ...client, additionalInfo: reason } : client;
-			},
-		);
+			const reasonsByClientId = (await response.json()) as Record<
+				string,
+				string
+			>;
 
-		return result;
+			const result: ClientWithIssueInfo[] = noPaymentMethodOrNoEligors.map(
+				(client) => {
+					const reason = reasonsByClientId[String(client.id)];
+					return reason ? { ...client, additionalInfo: reason } : client;
+				},
+			);
+
+			return result;
+		});
 	}),
 
 	getAutismStops: protectedProcedure.query(async ({ ctx }) => {

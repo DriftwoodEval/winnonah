@@ -2,6 +2,7 @@ import { eq, ne, sql } from "drizzle-orm";
 import z from "zod";
 import { env } from "~/env";
 import { fetchWithCache, invalidateCache } from "~/lib/cache";
+import { CACHE_KEY_POSSIBLE_PRIVATE_PAY } from "~/server/api/routers/client";
 import {
 	assertPermission,
 	createTRPCRouter,
@@ -258,7 +259,11 @@ export const evaluatorRouter = createTRPCRouter({
 				}
 			});
 
-			await invalidateCache(ctx, CACHE_KEY_ALL_EVALUATORS);
+			await invalidateCache(
+				ctx,
+				CACHE_KEY_ALL_EVALUATORS,
+				CACHE_KEY_POSSIBLE_PRIVATE_PAY,
+			);
 
 			const cookieHeader = ctx.headers.get("cookie") ?? "";
 			void fetch(`${env.PY_API}/rematch/evaluator/${npiAsInt}`, {
@@ -354,7 +359,11 @@ export const evaluatorRouter = createTRPCRouter({
 				}
 			});
 
-			await invalidateCache(ctx, CACHE_KEY_ALL_EVALUATORS);
+			await invalidateCache(
+				ctx,
+				CACHE_KEY_ALL_EVALUATORS,
+				CACHE_KEY_POSSIBLE_PRIVATE_PAY,
+			);
 
 			const cookieHeader = ctx.headers.get("cookie") ?? "";
 			void fetch(`${env.PY_API}/rematch/evaluator/${npiAsInt}`, {

@@ -461,6 +461,7 @@ function EvaluatorSection({
 		onSuccess: () => {
 			toast.success("Evaluator profile updated");
 			utils.evaluators.getAll.invalidate();
+			utils.clients.getPossiblePrivatePay.invalidate();
 		},
 		onError: (error) => {
 			log.error(error, "Failed to update evaluator");
@@ -591,6 +592,7 @@ function AddEvaluatorSection({
 			toast.success("Evaluator profile created");
 			utils.evaluators.getAll.invalidate();
 			utils.users.getAll.invalidate();
+			utils.clients.getPossiblePrivatePay.invalidate();
 			onSuccess();
 		},
 		onError: (error) => {
