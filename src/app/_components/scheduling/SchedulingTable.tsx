@@ -1,13 +1,11 @@
 "use client";
 
-import { Badge } from "@components/ui/badge";
+import { ColumnFilter, toFilterOptions } from "@components/shared/ColumnFilter";
 import { Button } from "@components/ui/button";
-import { Checkbox } from "@components/ui/checkbox";
 import {
 	DropdownMenu,
 	DropdownMenuContent,
 	DropdownMenuItem,
-	DropdownMenuSeparator,
 	DropdownMenuTrigger,
 } from "@components/ui/dropdown-menu";
 import { Input } from "@components/ui/input";
@@ -29,20 +27,28 @@ import {
 } from "@components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@components/ui/tabs";
 import { Textarea } from "@components/ui/textarea";
+import { keepPreviousData } from "@tanstack/react-query";
+import { useVirtualizer } from "@tanstack/react-virtual";
 import { Skeleton } from "@ui/skeleton";
 import {
 	ArchiveRestore,
 	ChevronDown,
 	ChevronUp,
 	Circle,
-	Filter,
 	Loader2,
 	X,
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useSession } from "next-auth/react";
-import { memo, useEffect, useMemo, useRef, useState } from "react";
+import {
+	memo,
+	useDeferredValue,
+	useEffect,
+	useMemo,
+	useRef,
+	useState,
+} from "react";
 import type { ScheduledClient } from "~/lib/api-types";
 import {
 	formatColorName,
@@ -60,7 +66,6 @@ import type {
 import {
 	cn,
 	formatClientAge,
-	getInsuranceShortNamesList,
 	getLocalDayFromUTCDate,
 	mapInsuranceToShortNames,
 } from "~/lib/utils";
@@ -77,70 +82,6 @@ export interface SchedulingUpdateData {
 	code?: string;
 	color?: string | null;
 	sort?: number;
-}
-
-const normalize = (val: string | number | null | undefined) => {
-	if (val === undefined || val === null || val === "-") return "";
-	return val.toString();
-};
-
-function getScheduledClientDisplayValues(
-	client: ScheduledClient,
-	evaluators: Map<number, Evaluator>,
-	offices: Map<string, Office>,
-	districts: Map<string, SchoolDistrict>,
-	insurances: InsuranceWithAliases[],
-) {
-	const evaluator = client.evaluator
-		? evaluators.get(client.evaluator as number)
-		: null;
-	const office = client.office ? offices.get(client.office as string) : null;
-	const district = client.client.schoolDistrict
-		? districts.get(client.client.schoolDistrict)
-		: null;
-
-	const insuranceDisplay =
-		mapInsuranceToShortNames(
-			client.client.primaryInsurance,
-			client.client.secondaryInsurance,
-			insurances,
-		) || "-";
-	const insuranceNames = getInsuranceShortNamesList(
-		client.client.primaryInsurance,
-		client.client.secondaryInsurance,
-		insurances,
-	);
-
-	return {
-		sort: normalize(client.sort),
-		color: normalize(client.color),
-		fullName: normalize(client.client.fullName),
-		evaluator: normalize(evaluator?.providerName.split(" ")[0]),
-		date: normalize(client.date),
-		time: normalize(client.time),
-		asdAdhd: normalize(client.client.asdAdhd),
-		insurance: insuranceDisplay,
-		insuranceNames,
-		code: normalize(client.code),
-		location: normalize(
-			client.office === "Virtual" ? "Virtual" : office?.prettyName || "",
-		),
-		district: normalize(
-			district?.shortName ||
-				client.client.schoolDistrict?.replace(/ (County )?School District/, ""),
-		),
-		paDate: normalize(
-			client.client.precertExpires
-				? getLocalDayFromUTCDate(
-						client.client.precertExpires,
-					)?.toLocaleDateString() || ""
-				: "",
-		),
-		age: normalize(
-			client.client.dob ? formatClientAge(client.client.dob, "short") : "",
-		),
-		notes: normalize(client.notes),
-	};
 }
 
 // --- Internal Hooks ---
@@ -184,14 +125,11 @@ function useTableScroll(storageKey?: string, isReady?: boolean) {
 	return { isScrolledLeft, isScrolledTop, tableRef };
 }
 
-function useSchedulingFilters(
-	type: "active" | "archived",
-	clients: ScheduledClient[],
-	evaluators: Evaluator[],
-	offices: Office[],
-	districts: SchoolDistrict[],
-	insurances: InsuranceWithAliases[],
-) {
+// Manages filter state + its session-backed persistence. The filter values
+// themselves are sent to the server as query input (see SchedulingTableView),
+// except "age" which stays client-side since it's computed from dob, not a
+// column the server can group/filter on cleanly.
+function useSchedulingFilterState(type: "active" | "archived") {
 	const utils = api.useUtils();
 	const [filters, setFilters] = useState<Record<string, string[]>>({});
 	const [isInitialized, setIsInitialized] = useState(false);
@@ -254,91 +192,6 @@ function useSchedulingFilters(
 		}
 	}, [filters, session, saveFiltersMutation, isInitialized, type]);
 
-	const evaluatorMap = useMemo(
-		() => new Map(evaluators.map((e) => [e.npi, e])),
-		[evaluators],
-	);
-	const officeMap = useMemo(
-		() => new Map(offices.map((o) => [o.key, o])),
-		[offices],
-	);
-	const districtMap = useMemo(
-		() => new Map(districts.map((d) => [d.fullName, d])),
-		[districts],
-	);
-
-	const clientDisplayValues = useMemo(() => {
-		return clients.map((client) => ({
-			client,
-			displayValues: getScheduledClientDisplayValues(
-				client,
-				evaluatorMap,
-				officeMap,
-				districtMap,
-				insurances,
-			),
-		}));
-	}, [clients, evaluatorMap, officeMap, districtMap, insurances]);
-
-	const uniqueValues = useMemo(() => {
-		const values: Record<string, Set<string>> = {
-			sort: new Set(),
-			color: new Set(),
-			fullName: new Set(),
-			evaluator: new Set(),
-			date: new Set(),
-			time: new Set(),
-			asdAdhd: new Set(),
-			insurance: new Set(),
-			insuranceNames: new Set(),
-			code: new Set(),
-			location: new Set(),
-			district: new Set(),
-			paDate: new Set(),
-			age: new Set(),
-			notes: new Set(),
-		};
-
-		for (const { displayValues } of clientDisplayValues) {
-			for (const key of Object.keys(values)) {
-				if (key === "insuranceNames") continue;
-				const val = displayValues[key as keyof typeof displayValues];
-				if (typeof val === "string" && val) {
-					values[key]?.add(val);
-				}
-			}
-
-			for (const insName of displayValues.insuranceNames) {
-				values.insuranceNames?.add(insName);
-			}
-		}
-
-		const result: Record<string, string[]> = {};
-		for (const key in values) {
-			result[key] = Array.from(values[key] || [])
-				.filter((v) => v !== undefined && v !== "")
-				.sort();
-		}
-		return result;
-	}, [clientDisplayValues]);
-
-	const filteredClients = useMemo(() => {
-		return clientDisplayValues
-			.filter(({ displayValues }) => {
-				return Object.entries(filters).every(([key, selectedValues]) => {
-					if (!selectedValues || selectedValues.length === 0) return true;
-					const value = displayValues[key as keyof typeof displayValues];
-					if (Array.isArray(value)) {
-						// At least one selected insurance matches one of the client's insurances
-						return selectedValues.some((v) => value.includes(v));
-					} else {
-						return selectedValues.includes(value || "");
-					}
-				});
-			})
-			.map(({ client }) => client);
-	}, [clientDisplayValues, filters]);
-
 	const handleFilterChange = (column: string, selected: string[]) => {
 		setFilters((prev) => {
 			const newFilters = { ...prev };
@@ -351,126 +204,85 @@ function useSchedulingFilters(
 		});
 	};
 
-	return {
-		filteredClients,
-		filters,
-		handleFilterChange,
-		uniqueValues,
-		clientDisplayValues,
-		isInitialized,
-	};
+	return { filters, handleFilterChange, isInitialized };
 }
 
 // --- UI Components ---
 
-function ColumnFilter({
-	columnName,
-	options,
-	selectedValues,
-	onFilterChange,
-	optionCounts,
-}: {
-	columnName: string;
-	options: string[];
-	selectedValues: string[];
-	onFilterChange: (values: string[]) => void;
-	optionCounts?: Map<string, number>;
-}) {
-	const [search, setSearch] = useState("");
+// Mirrors each real column's cell width constraints (see SchedulingTableRow)
+// and approximates its content: h-9 for a Select/Input-shaped column, h-10
+// for the Notes textarea, h-4 for plain text, so row height and column widths
+// read as the real table rather than a generic mockup.
+const SKELETON_COLUMNS: {
+	cellClassName?: string;
+	skeletonClassName: string;
+}[] = [
+	{ cellClassName: "max-w-[200px]", skeletonClassName: "h-9 w-40" }, // Name
+	{ skeletonClassName: "h-9 w-32" }, // Evaluator
+	{
+		cellClassName: "min-w-[200px] max-w-[200px]",
+		skeletonClassName: "h-10 w-full",
+	}, // Notes
+	{
+		cellClassName: "min-w-[100px] max-w-[120px]",
+		skeletonClassName: "h-9 w-full",
+	}, // Date
+	{
+		cellClassName: "min-w-[100px] max-w-[120px]",
+		skeletonClassName: "h-9 w-full",
+	}, // Time
+	{ skeletonClassName: "h-4 w-16" }, // ASD/ADHD
+	{ skeletonClassName: "h-4 w-28" }, // Insurance
+	{ skeletonClassName: "h-9 w-24" }, // Code
+	{ cellClassName: "min-w-fit", skeletonClassName: "h-9 w-32" }, // Location
+	{ skeletonClassName: "h-4 w-28" }, // District
+	{ skeletonClassName: "h-4 w-20" }, // PA Date
+	{ skeletonClassName: "h-4 w-10" }, // Age
+	{ skeletonClassName: "h-9 w-20" }, // Actions
+];
 
-	const filteredOptions = useMemo(() => {
-		return options
-			.filter((option) => option.toLowerCase().includes(search.toLowerCase()))
-			.sort((a, b) => a.localeCompare(b));
-	}, [options, search]);
-
-	const toggleValue = (value: string) => {
-		const newValues = selectedValues.includes(value)
-			? selectedValues.filter((v) => v !== value)
-			: [...selectedValues, value];
-		onFilterChange(newValues);
-	};
+function SchedulingTableSkeleton() {
+	// The scheduling sheet routinely has hundreds of rows, so the loading
+	// state should read as a dense, scrollable sheet, not a few centered bars.
+	const rowCount = 30;
 
 	return (
-		<DropdownMenu>
-			<DropdownMenuTrigger asChild>
-				<div className="relative inline-block">
-					<Button
-						className={
-							selectedValues.length > 0
-								? "text-primary"
-								: "text-muted-foreground"
-						}
-						size="icon-sm"
-						variant="ghost"
-					>
-						<Filter className="h-3.5 w-3.5" />
-					</Button>
-					{selectedValues.length > 0 && (
-						<Badge
-							className="absolute -top-1 -right-1 h-4 min-w-4 px-1 text-[10px] leading-none"
-							variant="default"
-						>
-							{selectedValues.length}
-						</Badge>
-					)}
-				</div>
-			</DropdownMenuTrigger>
-			<DropdownMenuContent align="start" className="w-56">
-				<div className="p-2">
-					<Input
-						className="mb-2 h-8"
-						onChange={(e) => setSearch(e.target.value)}
-						placeholder={`Search ${columnName}...`}
-						value={search}
-					/>
-					<div className="max-h-60 overflow-y-auto">
-						{filteredOptions.length === 0 && (
-							<div className="p-2 text-muted-foreground text-sm">
-								No results found
-							</div>
-						)}
-						{filteredOptions.map((option) => {
-							const count = optionCounts?.get(option) ?? 0;
-							return (
-								<div
-									className="flex items-center space-x-2 p-1"
-									key={option || "empty"}
+		<>
+			<div className="flex items-center gap-1 px-4 py-2">
+				<Skeleton className="h-4 w-24" />
+			</div>
+			<Table className="min-w-max" classNameWrapper="min-h-0 flex-1">
+				<TableHeader>
+					<TableRow>
+						{SKELETON_COLUMNS.map((col, i) => (
+							<TableHead
+								className={col.cellClassName}
+								// biome-ignore lint/suspicious/noArrayIndexKey: static skeleton
+								key={i}
+							>
+								<Skeleton className="h-4 w-16" />
+							</TableHead>
+						))}
+					</TableRow>
+				</TableHeader>
+				<TableBody>
+					{Array.from({ length: rowCount }).map((_, rowIdx) => (
+						// biome-ignore lint/suspicious/noArrayIndexKey: static skeleton
+						<TableRow key={rowIdx}>
+							{SKELETON_COLUMNS.map((col, colIdx) => (
+								<TableCell
+									className={col.cellClassName}
+									// biome-ignore lint/suspicious/noArrayIndexKey: static skeleton
+									key={colIdx}
 								>
-									<Checkbox
-										checked={selectedValues.includes(option)}
-										id={`${columnName}-${option}`}
-										onCheckedChange={() => toggleValue(option)}
-									/>
-									<label
-										className="flex flex-1 cursor-pointer items-center justify-between gap-2 font-medium text-sm leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-										htmlFor={`${columnName}-${option}`}
-									>
-										<span className="truncate">{option || "(Empty)"}</span>
-										{optionCounts && (
-											<span className="text-muted-foreground text-xs">
-												{count}
-											</span>
-										)}
-									</label>
-								</div>
-							);
-						})}
-					</div>
-				</div>
-				{selectedValues.length > 0 && (
-					<>
-						<DropdownMenuSeparator />
-						<DropdownMenuItem
-							className="justify-center text-destructive"
-							onClick={() => onFilterChange([])}
-						>
-							Clear Filter
-						</DropdownMenuItem>
-					</>
-				)}
-			</DropdownMenuContent>
-		</DropdownMenu>
+									<Skeleton className={col.skeletonClassName} />
+								</TableCell>
+							))}
+						</TableRow>
+					))}
+				</TableBody>
+			</Table>
+		</>
 	);
 }
 
@@ -587,16 +399,13 @@ function EvaluatorSelect({
 		});
 
 	const { eligible, other } = useMemo(() => {
+		// allEvaluators is pre-sorted by providerName, so filtering preserves order.
 		if (!eligibleEvaluators || eligibleEvaluators.length === 0) {
 			return { eligible: [], other: allEvaluators };
 		}
 		const eligibleNpis = new Set(eligibleEvaluators.map((e) => e.npi));
-		const eligible = allEvaluators
-			.filter((e) => eligibleNpis.has(e.npi))
-			.sort((a, b) => a.providerName.localeCompare(b.providerName));
-		const other = allEvaluators
-			.filter((e) => !eligibleNpis.has(e.npi))
-			.sort((a, b) => a.providerName.localeCompare(b.providerName));
+		const eligible = allEvaluators.filter((e) => eligibleNpis.has(e.npi));
+		const other = allEvaluators.filter((e) => !eligibleNpis.has(e.npi));
 		return { eligible, other };
 	}, [allEvaluators, eligibleEvaluators]);
 
@@ -655,9 +464,13 @@ const SchedulingTableRow = memo(function SchedulingTableRow({
 	onMove,
 	upNeighborId,
 	downNeighborId,
-	actions,
+	onAction,
+	actionIcon,
+	actionVariant,
+	isActionPending,
 	isScrolledLeft,
 	rowIndex,
+	measureElement,
 }: {
 	scheduledClient: ScheduledClient;
 	evaluators: Evaluator[];
@@ -669,9 +482,13 @@ const SchedulingTableRow = memo(function SchedulingTableRow({
 	onMove?: (clientId: number, neighborClientId: number) => void;
 	upNeighborId?: number;
 	downNeighborId?: number;
-	actions: React.ReactNode;
+	onAction: (clientId: number) => void;
+	actionIcon: React.ReactNode;
+	actionVariant: "default" | "destructive";
+	isActionPending: boolean;
 	isScrolledLeft?: boolean;
 	rowIndex: number;
+	measureElement: (el: Element | null) => void;
 }) {
 	const [localDate, setLocalDate] = useState(scheduledClient.date ?? "");
 	const [localTime, setLocalTime] = useState(scheduledClient.time ?? "");
@@ -715,7 +532,9 @@ const SchedulingTableRow = memo(function SchedulingTableRow({
 		<TableRow
 			className="hover:bg-inherit"
 			data-client-id={scheduledClient.clientId}
+			data-index={rowIndex}
 			key={scheduledClient.clientId}
+			ref={measureElement}
 			style={{ backgroundColor }}
 		>
 			<TableCell
@@ -915,7 +734,11 @@ const SchedulingTableRow = memo(function SchedulingTableRow({
 						value={(scheduledClient.office as string | null) ?? ""}
 					>
 						<SelectTrigger>
-							<SelectValue placeholder="Select Office" />
+							<SelectValue placeholder="Select Office">
+								{scheduledClient.office === "Virtual"
+									? "V"
+									: (scheduledClient.office as string | null) || undefined}
+							</SelectValue>
 						</SelectTrigger>
 						<SelectContent>
 							<SelectItem value="Virtual">Virtual</SelectItem>
@@ -926,6 +749,8 @@ const SchedulingTableRow = memo(function SchedulingTableRow({
 							))}
 						</SelectContent>
 					</Select>
+				) : scheduledClient.office === "Virtual" ? (
+					"V"
 				) : (
 					scheduledClient.office || "-"
 				)}
@@ -950,7 +775,18 @@ const SchedulingTableRow = memo(function SchedulingTableRow({
 			</TableCell>
 
 			<TableCell data-col={12} data-row={rowIndex}>
-				{actions}
+				<Button
+					disabled={isActionPending}
+					onClick={() => onAction(scheduledClient.clientId)}
+					size="sm"
+					variant={actionVariant}
+				>
+					{isActionPending ? (
+						<Loader2 className="mr-2 h-4 w-4 animate-spin" />
+					) : (
+						actionIcon
+					)}
+				</Button>
 			</TableCell>
 		</TableRow>
 	);
@@ -974,6 +810,15 @@ interface InternalSchedulingTableProps {
 	isActionPending: boolean;
 	lastAddedClientId?: number | null;
 	onScrollToClient?: () => void;
+	isInitialized: boolean;
+	filters: Record<string, string[]>;
+	handleFilterChange: (column: string, selected: string[]) => void;
+	// Options + counts for every server-filterable column, keyed by filterKey.
+	// "age" isn't included here - it's computed client-side below, since it's
+	// derived from dob rather than a column the server groups/filters on.
+	columnOptions: Record<string, string[]>;
+	columnCounts: Record<string, Record<string, number>>;
+	isFetching: boolean;
 }
 
 function InternalSchedulingTable({
@@ -992,50 +837,129 @@ function InternalSchedulingTable({
 	isActionPending,
 	lastAddedClientId,
 	onScrollToClient,
+	isInitialized,
+	filters,
+	handleFilterChange,
+	columnOptions,
+	columnCounts,
+	isFetching,
 }: InternalSchedulingTableProps) {
-	const {
-		filteredClients,
-		filters,
-		handleFilterChange,
-		uniqueValues,
-		clientDisplayValues,
-		isInitialized,
-	} = useSchedulingFilters(
-		type,
-		clients,
-		evaluators,
-		offices,
-		districts,
-		insurances,
-	);
-
 	const { isScrolledLeft, isScrolledTop, tableRef } = useTableScroll(
 		`scheduling-scroll-${type}`,
 		isInitialized,
 	);
 
-	useEffect(() => {
-		if (
-			lastAddedClientId &&
-			isInitialized &&
-			tableRef.current &&
-			filteredClients.length > 0
-		) {
-			const row = tableRef.current.querySelector(
-				`tr[data-client-id="${lastAddedClientId}"]`,
-			);
-			if (row) {
-				row.scrollIntoView({ behavior: "smooth", block: "center" });
-				onScrollToClient?.();
-			}
+	// Removing/loosening a filter can mean hundreds of new rows mount at once,
+	// each with several form controls - real, unavoidable work. Deferring the
+	// list keeps that mount off the blocking render path so the page stays
+	// responsive (filter checkboxes, scrolling) while it catches up, instead of
+	// freezing for the duration of the commit.
+	const deferredClients = useDeferredValue(clients);
+	// Stale covers both windows: the network round-trip after a filter change
+	// (isFetching, while placeholderData keeps the old rows visible) and the
+	// deferred commit once new rows actually arrive (deferredClients lagging).
+	const isStale = isFetching || deferredClients !== clients;
+
+	// Age is filtered client-side over the already server-filtered `clients`,
+	// mirroring how the client directory keeps its Google-Sheets-derived
+	// DA/EVAL Qs filters client-side instead of pushing them into SQL.
+	const ageOptions = useMemo(() => {
+		const set = new Set<string>();
+		for (const c of deferredClients) {
+			if (c.client.dob) set.add(formatClientAge(c.client.dob, "short"));
 		}
-	}, [
-		lastAddedClientId,
-		isInitialized,
-		filteredClients,
-		tableRef,
-		onScrollToClient,
-	]);
+		return Array.from(set).sort();
+	}, [deferredClients]);
+
+	const filteredClients = useMemo(() => {
+		const ageFilter = filters.age;
+		if (!ageFilter?.length) return deferredClients;
+		return deferredClients.filter((c) => {
+			const age = c.client.dob ? formatClientAge(c.client.dob, "short") : "";
+			return ageFilter.includes(age);
+		});
+	}, [deferredClients, filters.age]);
+
+	// Sorted once here instead of per-row: EvaluatorSelect used to re-sort the
+	// full evaluator list on every row's first render, even for rows whose
+	// dropdown was never opened.
+	const sortedEvaluators = useMemo(
+		() =>
+			[...evaluators].sort((a, b) =>
+				a.providerName.localeCompare(b.providerName),
+			),
+		[evaluators],
+	);
+
+	// Only mounts the rows actually in (or near) the viewport, instead of every
+	// row in the filtered set - hundreds of rows each with several form
+	// controls is real, otherwise-unavoidable mount cost every time the
+	// filtered set changes.
+	const rowVirtualizer = useVirtualizer({
+		count: filteredClients.length,
+		getScrollElement: () => tableRef.current,
+		estimateSize: () => 45,
+		overscan: 10,
+	});
+	const virtualRows = rowVirtualizer.getVirtualItems();
+	const virtualTotalSize = rowVirtualizer.getTotalSize();
+	const paddingTop = virtualRows.length > 0 ? (virtualRows[0]?.start ?? 0) : 0;
+	const paddingBottom =
+		virtualRows.length > 0
+			? virtualTotalSize - (virtualRows[virtualRows.length - 1]?.end ?? 0)
+			: 0;
+
+	// Scrolls to a newly added client by index rather than querying the DOM
+	// for its row, since a just-added client's row may not be mounted yet.
+	// biome-ignore lint/correctness/useExhaustiveDependencies: rowVirtualizer is not a stable reference across renders and would refire this every render
+	useEffect(() => {
+		if (!lastAddedClientId || !isInitialized || filteredClients.length === 0) {
+			return;
+		}
+		const index = filteredClients.findIndex(
+			(c) => c.clientId === lastAddedClientId,
+		);
+		if (index === -1) return;
+		rowVirtualizer.scrollToIndex(index, {
+			align: "center",
+			behavior: "smooth",
+		});
+		onScrollToClient?.();
+	}, [lastAddedClientId, isInitialized, filteredClients, onScrollToClient]);
+
+	// Row/col cell the user tried to navigate to via arrow keys while its row
+	// wasn't mounted (virtualized out). Resolved once the row mounts, see the
+	// effect below.
+	const pendingFocusRef = useRef<{
+		row: number;
+		col: number;
+		direction: string;
+	} | null>(null);
+
+	// biome-ignore lint/correctness/useExhaustiveDependencies: tableRef.current is a ref, not reactive state; this should only rerun when the virtualizer's mounted range changes
+	useEffect(() => {
+		const pending = pendingFocusRef.current;
+		if (!pending || !tableRef.current) return;
+
+		const targetCell = tableRef.current.querySelector(
+			`td[data-row="${pending.row}"][data-col="${pending.col}"]`,
+		);
+		if (!targetCell) return;
+
+		const focusable = targetCell.querySelector(
+			"input, textarea, button, [tabindex='0']",
+		) as HTMLElement | null;
+		if (!focusable) return;
+
+		focusable.focus();
+		if (
+			focusable instanceof HTMLInputElement ||
+			focusable instanceof HTMLTextAreaElement
+		) {
+			focusable.select();
+		}
+		pendingFocusRef.current = null;
+	}, [rowVirtualizer.range?.startIndex, rowVirtualizer.range?.endIndex]);
 
 	const handleKeyDown = (e: React.KeyboardEvent) => {
 		const key = e.key;
@@ -1091,6 +1015,7 @@ function InternalSchedulingTable({
 		const findAndFocus = (r: number, c: number, direction: string) => {
 			const table = tableRef.current;
 			if (!table) return;
+			if (r < 0 || r > filteredClients.length - 1) return;
 
 			const targetCell = table.querySelector(
 				`td[data-row="${r}"][data-col="${c}"]`,
@@ -1100,6 +1025,12 @@ function InternalSchedulingTable({
 					return findAndFocus(r, c - 1, direction);
 				if (direction === "ArrowRight" && c < 12)
 					return findAndFocus(r, c + 1, direction);
+				if (direction === "ArrowUp" || direction === "ArrowDown") {
+					// The row isn't mounted (virtualized out) - scroll it into
+					// view and focus it once it mounts, see the effect above.
+					pendingFocusRef.current = { row: r, col: c, direction };
+					rowVirtualizer.scrollToIndex(r, { align: "auto" });
+				}
 				return;
 			}
 
@@ -1117,6 +1048,7 @@ function InternalSchedulingTable({
 				) {
 					focusable.select();
 				}
+				pendingFocusRef.current = null;
 			} else {
 				if (direction === "ArrowLeft" && c > 0)
 					return findAndFocus(r, c - 1, direction);
@@ -1133,30 +1065,8 @@ function InternalSchedulingTable({
 	};
 
 	if (!isInitialized) {
-		return (
-			<div className="flex h-full w-full flex-col items-center justify-center gap-2">
-				{[1, 2, 3, 4, 5].map((id) => (
-					<Skeleton className="h-10 w-full" key={id} />
-				))}
-			</div>
-		);
+		return <SchedulingTableSkeleton />;
 	}
-
-	const getOptionCounts = (columnKey: string): Map<string, number> => {
-		const counts = new Map<string, number>();
-		clientDisplayValues.forEach(({ displayValues }) => {
-			const value = displayValues[columnKey as keyof typeof displayValues];
-			if (Array.isArray(value)) {
-				value.forEach((v) => {
-					if (v) counts.set(v, (counts.get(v) || 0) + 1);
-				});
-			} else {
-				const v = value || "";
-				counts.set(v, (counts.get(v) || 0) + 1);
-			}
-		});
-		return counts;
-	};
 
 	const columns: {
 		key: string;
@@ -1193,10 +1103,10 @@ function InternalSchedulingTable({
 		<>
 			<RowCountDisplay
 				filteredCount={filteredClients.length}
-				totalCount={clients.length}
+				totalCount={deferredClients.length}
 			/>
 			<Table
-				className="min-w-max"
+				className={cn("min-w-max", isStale && "opacity-60 transition-opacity")}
 				classNameWrapper={cn(
 					"min-h-0 flex-1",
 					isScrolledLeft && "scrolled-left",
@@ -1213,9 +1123,11 @@ function InternalSchedulingTable({
 					>
 						{columns.map((col, index) => {
 							const filterKey = col.filterKey ?? col.key;
-							const optionCounts = col.noFilter
-								? undefined
-								: getOptionCounts(filterKey);
+							const isAge = filterKey === "age";
+							const options = isAge
+								? ageOptions
+								: (columnOptions[filterKey] ?? []);
+							const counts = isAge ? undefined : columnCounts[filterKey];
 							return (
 								<TableHead
 									className={cn(
@@ -1230,11 +1142,11 @@ function InternalSchedulingTable({
 										{!col.noFilter && (
 											<ColumnFilter
 												columnName={col.filterLabel ?? col.label}
+												counts={counts}
 												onFilterChange={(values) =>
 													handleFilterChange(filterKey, values)
 												}
-												optionCounts={optionCounts}
-												options={uniqueValues[filterKey] || []}
+												options={toFilterOptions(options)}
 												selectedValues={filters[filterKey] || []}
 											/>
 										)}
@@ -1246,42 +1158,66 @@ function InternalSchedulingTable({
 					</TableRow>
 				</TableHeader>
 				<TableBody onKeyDownCapture={handleKeyDown}>
-					{filteredClients.map((scheduledClient, rowIndex) => (
-						<SchedulingTableRow
-							actions={
-								<Button
-									disabled={isActionPending}
-									onClick={() => onAction(scheduledClient.clientId)}
-									size="sm"
-									variant={actionVariant}
-								>
-									{isActionPending ? (
-										<Loader2 className="mr-2 h-4 w-4 animate-spin" />
-									) : (
-										actionIcon
-									)}
-								</Button>
-							}
-							districts={districts}
-							downNeighborId={filteredClients[rowIndex + 1]?.clientId}
-							evaluators={evaluators}
-							insurances={insurances}
-							isEditable={isEditable}
-							isScrolledLeft={isScrolledLeft}
-							key={scheduledClient.clientId}
-							offices={offices}
-							onMove={onMove}
-							onUpdate={onUpdate}
-							rowIndex={rowIndex}
-							scheduledClient={scheduledClient}
-							upNeighborId={filteredClients[rowIndex - 1]?.clientId}
-						/>
-					))}
+					{paddingTop > 0 && (
+						<tr>
+							<td colSpan={columns.length + 1} style={{ height: paddingTop }} />
+						</tr>
+					)}
+					{virtualRows.map((virtualRow) => {
+						const scheduledClient = filteredClients[virtualRow.index];
+						if (!scheduledClient) return null;
+						const rowIndex = virtualRow.index;
+						return (
+							<SchedulingTableRow
+								actionIcon={actionIcon}
+								actionVariant={actionVariant}
+								districts={districts}
+								downNeighborId={filteredClients[rowIndex + 1]?.clientId}
+								evaluators={sortedEvaluators}
+								insurances={insurances}
+								isActionPending={isActionPending}
+								isEditable={isEditable}
+								isScrolledLeft={isScrolledLeft}
+								key={scheduledClient.clientId}
+								measureElement={rowVirtualizer.measureElement}
+								offices={offices}
+								onAction={onAction}
+								onMove={onMove}
+								onUpdate={onUpdate}
+								rowIndex={rowIndex}
+								scheduledClient={scheduledClient}
+								upNeighborId={filteredClients[rowIndex - 1]?.clientId}
+							/>
+						);
+					})}
+					{paddingBottom > 0 && (
+						<tr>
+							<td
+								colSpan={columns.length + 1}
+								style={{ height: paddingBottom }}
+							/>
+						</tr>
+					)}
 				</TableBody>
 			</Table>
 		</>
 	);
 }
+
+// Filter keys the server can filter/group on directly. "age" is intentionally
+// excluded - see the comment on ageOptions in InternalSchedulingTable.
+const SERVER_FILTER_KEYS = [
+	"color",
+	"evaluator",
+	"date",
+	"time",
+	"asdAdhd",
+	"insuranceNames",
+	"code",
+	"location",
+	"district",
+	"paDate",
+] as const;
 
 function SchedulingTableView({
 	type,
@@ -1293,22 +1229,52 @@ function SchedulingTableView({
 	onScrollToClient?: () => void;
 }) {
 	const utils = api.useUtils();
+	const { filters, handleFilterChange, isInitialized } =
+		useSchedulingFilterState(type);
 
-	const activeQuery = api.scheduling.get.useQuery(undefined, {
+	const queryFilters = useMemo(() => {
+		const result: Partial<
+			Record<(typeof SERVER_FILTER_KEYS)[number], string[]>
+		> = {};
+		for (const key of SERVER_FILTER_KEYS) {
+			if (filters[key]?.length) result[key] = filters[key];
+		}
+		return result;
+	}, [filters]);
+
+	const activeQuery = api.scheduling.get.useQuery(queryFilters, {
 		enabled: type === "active",
+		placeholderData: keepPreviousData,
 	});
-	const archivedQuery = api.scheduling.getArchived.useQuery(undefined, {
+	const archivedQuery = api.scheduling.getArchived.useQuery(queryFilters, {
 		enabled: type === "archived",
+		placeholderData: keepPreviousData,
 	});
 
 	const { data, isLoading, error } =
 		type === "active" ? activeQuery : archivedQuery;
 
+	const facetCountsQuery = api.scheduling.facetCounts.useQuery(
+		{
+			...queryFilters,
+			archived: type === "archived",
+		},
+		{ placeholderData: keepPreviousData },
+	);
+
+	const columnOptions = useMemo(() => {
+		const result: Record<string, string[]> = {};
+		for (const key of SERVER_FILTER_KEYS) {
+			result[key] = Object.keys(facetCountsQuery.data?.[key] ?? {}).sort();
+		}
+		return result;
+	}, [facetCountsQuery.data]);
+
 	const updateMutation = api.scheduling.update.useMutation({
 		onMutate: async (newUpdate) => {
-			await utils.scheduling.get.cancel();
-			const previousData = utils.scheduling.get.getData();
-			utils.scheduling.get.setData(undefined, (old) => {
+			await utils.scheduling.get.cancel(queryFilters);
+			const previousData = utils.scheduling.get.getData(queryFilters);
+			utils.scheduling.get.setData(queryFilters, (old) => {
 				if (!old) return old;
 				return {
 					...old,
@@ -1357,15 +1323,15 @@ function SchedulingTableView({
 		},
 		onError: (_err, _newUpdate, context) =>
 			context?.previousData &&
-			utils.scheduling.get.setData(undefined, context.previousData),
+			utils.scheduling.get.setData(queryFilters, context.previousData),
 		onSettled: () => utils.scheduling.get.invalidate(),
 	});
 
 	const moveMutation = api.scheduling.move.useMutation({
 		onMutate: async (moveData) => {
-			await utils.scheduling.get.cancel();
-			const previousData = utils.scheduling.get.getData();
-			utils.scheduling.get.setData(undefined, (old) => {
+			await utils.scheduling.get.cancel(queryFilters);
+			const previousData = utils.scheduling.get.getData(queryFilters);
+			utils.scheduling.get.setData(queryFilters, (old) => {
 				if (!old) return old;
 				const clients = [...old.clients];
 				const index = clients.findIndex(
@@ -1397,7 +1363,7 @@ function SchedulingTableView({
 		},
 		onError: (_err, _moveData, context) =>
 			context?.previousData &&
-			utils.scheduling.get.setData(undefined, context.previousData),
+			utils.scheduling.get.setData(queryFilters, context.previousData),
 		onSettled: () => utils.scheduling.get.invalidate(),
 	});
 
@@ -1410,14 +1376,7 @@ function SchedulingTableView({
 		},
 	});
 
-	if (isLoading)
-		return (
-			<div className="flex h-full w-full flex-col items-center justify-center gap-2">
-				{[1, 2, 3, 4, 5].map((id) => (
-					<Skeleton className="h-10 w-full" key={id} />
-				))}
-			</div>
-		);
+	if (isLoading) return <SchedulingTableSkeleton />;
 	if (error) return <div>Error: {error.message}</div>;
 
 	return (
@@ -1425,11 +1384,21 @@ function SchedulingTableView({
 			actionIcon={type === "active" ? <X /> : <ArchiveRestore />}
 			actionVariant={type === "active" ? "destructive" : "default"}
 			clients={(data?.clients || []) as ScheduledClient[]}
+			columnCounts={facetCountsQuery.data ?? {}}
+			columnOptions={columnOptions}
 			districts={(data?.schoolDistricts as SchoolDistrict[]) || []}
 			evaluators={(data?.evaluators as Evaluator[]) || []}
+			filters={filters}
+			handleFilterChange={handleFilterChange}
 			insurances={(data?.insurances as InsuranceWithAliases[]) || []}
 			isActionPending={actionMutation.isPending}
 			isEditable={type === "active"}
+			isFetching={
+				(type === "active"
+					? activeQuery.isFetching
+					: archivedQuery.isFetching) || facetCountsQuery.isFetching
+			}
+			isInitialized={isInitialized}
 			lastAddedClientId={lastAddedClientId}
 			offices={(data?.offices as Office[]) || []}
 			onAction={(clientId) => actionMutation.mutate({ clientId })}

@@ -14,7 +14,7 @@ import { Skeleton } from "@ui/skeleton";
 import { Search } from "lucide-react";
 import { usePathname, useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { api } from "~/trpc/react";
 import { ClientsList } from "../clients/ClientsList";
 import { NameSearchInput } from "../clients/NameSearchInput";
@@ -30,8 +30,6 @@ export function GlobalClientSearch() {
 	const [statusFilter, setStatusFilter] = useState("active");
 	const [highlightedIndex, setHighlightedIndex] = useState(-1);
 	const [osKey, setOsKey] = useState("Ctrl");
-
-	const highlightedItemRef = useRef<HTMLDivElement>(null);
 
 	// Fetch saved filters from the session
 	const { data: savedFiltersData } = api.sessions.getClientFilters.useQuery(
@@ -107,15 +105,6 @@ export function GlobalClientSearch() {
 	});
 
 	const clients = searchQuery?.clients;
-
-	useEffect(() => {
-		if (highlightedIndex !== -1 && highlightedItemRef.current) {
-			highlightedItemRef.current.scrollIntoView({
-				behavior: "smooth",
-				block: "center",
-			});
-		}
-	}, [highlightedIndex]);
 
 	useEffect(() => {
 		const handleKeyDown = (event: KeyboardEvent) => {
@@ -222,7 +211,6 @@ export function GlobalClientSearch() {
 								clients={clients ?? []}
 								heightClass="h-full"
 								highlightedIndex={highlightedIndex}
-								highlightedItemRef={highlightedItemRef}
 							/>
 						)}
 					</div>

@@ -9,6 +9,7 @@ import { fetchWithCache, invalidateCache } from "~/lib/cache";
 import { TEST_NAMES } from "~/lib/constants";
 import { getDashboardSections } from "~/lib/dashboard";
 import {
+	CACHE_KEY_PUNCHLIST,
 	createAvailabilityEvent,
 	deleteAvailabilityEvent,
 	getAvailabilityEvents,
@@ -54,7 +55,6 @@ const availabilitySchema = z.object({
 	scope: z.enum(["this", "all", "future"]).optional(),
 	recurringEventId: z.string().optional(),
 });
-const CACHE_KEY_PUNCHLIST = "google:sheets:punchlist";
 const CACHE_KEY_MISSING_PUNCHLIST = "google:sheets:missing-punchlist";
 
 const getPreviewData = async (ctx: Context, clientId: number) => {

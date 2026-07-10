@@ -14,8 +14,9 @@ import {
 import { OAuth2Client } from "google-auth-library";
 import type { Session } from "next-auth";
 import { env } from "~/env";
+import { fetchWithCache } from "~/lib/cache";
 import { logger } from "~/lib/logger";
-
+import type { Context } from "~/server/api/trpc";
 import { db } from "~/server/db";
 import {
 	appointments,
@@ -138,6 +139,8 @@ export function getSheetsClient(session: Session) {
 
 	return sheets({ version: "v4", auth: oauth2Client });
 }
+
+export const CACHE_KEY_PUNCHLIST = "google:sheets:punchlist";
 
 export const getPunchData = async (session: Session) => {
 	const { PUNCHLIST_ID, PUNCHLIST_RANGE } = env;
@@ -493,8 +496,13 @@ export const updatePunchData = async (
 	return true;
 };
 
-export const syncPunchData = async (session: Session) => {
-	const allPunchData = await getPunchData(session);
+export const syncPunchData = async (ctx: Context & { session: Session }) => {
+	const allPunchData = await fetchWithCache(
+		ctx,
+		CACHE_KEY_PUNCHLIST,
+		() => getPunchData(ctx.session),
+		60,
+	);
 
 	const updatePromises: Promise<unknown>[] = [];
 

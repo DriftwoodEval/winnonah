@@ -10,7 +10,7 @@ export function AddClientToScheduling({
 }: {
 	onClientAdded: (clientId: number) => void;
 }) {
-	const { data: scheduledData } = api.scheduling.get.useQuery();
+	const { data: scheduledData } = api.scheduling.get.useQuery({});
 
 	const scheduledClientIds = useMemo(() => {
 		return scheduledData?.clients.map((c) => c.clientId) ?? [];
@@ -22,12 +22,12 @@ export function AddClientToScheduling({
 			clientId: number;
 			optimisticClient?: SortedClient;
 		}) => {
-			await utils.scheduling.get.cancel();
-			const previousData = utils.scheduling.get.getData();
+			await utils.scheduling.get.cancel({});
+			const previousData = utils.scheduling.get.getData({});
 
 			// Optimistically update the cache if we have the client data
 			if (variables.optimisticClient) {
-				utils.scheduling.get.setData(undefined, (old) => {
+				utils.scheduling.get.setData({}, (old) => {
 					if (!old) return old;
 
 					// Check if client is already in the list
@@ -82,7 +82,7 @@ export function AddClientToScheduling({
 		},
 
 		onError: (_err, _variables, context) => {
-			utils.scheduling.get.setData(undefined, context?.previousData);
+			utils.scheduling.get.setData({}, context?.previousData);
 		},
 
 		onSettled: () => {

@@ -482,9 +482,12 @@ export function Dashboard() {
 			)
 		: (insuranceReviewClients ?? []);
 
-	const { data: schedulingData } = api.scheduling.get.useQuery(undefined, {
-		staleTime: 60000,
-	});
+	const { data: schedulingData } = api.scheduling.get.useQuery(
+		{},
+		{
+			staleTime: 60000,
+		},
+	);
 
 	const scheduledClientIds = useMemo(() => {
 		return new Set(schedulingData?.clients.map((c) => c.clientId) ?? []);

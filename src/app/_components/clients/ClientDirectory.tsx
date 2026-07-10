@@ -1,12 +1,16 @@
 "use client";
 
+import {
+	ColumnFilter,
+	type FilterOption,
+	toFilterOptions,
+} from "@components/shared/ColumnFilter";
 import { Badge } from "@ui/badge";
 import { Button } from "@ui/button";
 import {
 	DropdownMenu,
 	DropdownMenuCheckboxItem,
 	DropdownMenuContent,
-	DropdownMenuSeparator,
 	DropdownMenuTrigger,
 } from "@ui/dropdown-menu";
 import {
@@ -25,7 +29,7 @@ import {
 	TableHeader,
 	TableRow,
 } from "@ui/table";
-import { ArrowDown, ArrowUp, Columns3, Filter } from "lucide-react";
+import { ArrowDown, ArrowUp, Columns3 } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -177,27 +181,11 @@ interface FacetCounts {
 	total: number;
 }
 
-interface FilterOption {
-	value: string;
-	label: string;
-	swatch?: string;
-}
-
-function withCounts(options: FilterOption[], facet?: FacetCounts) {
-	if (!facet) return options;
-	return options.map((option) => {
-		const n = facet.counts[option.value];
-		return n === undefined
-			? option
-			: { ...option, label: `${option.label} (${n})` };
-	});
-}
-
 function withNone(options: FilterOption[]): FilterOption[] {
 	return [...options, { value: NONE_FILTER_VALUE, label: "None" }];
 }
 
-interface ColumnFilterProps {
+interface DirectoryColumnFilterProps {
 	label: string;
 	values: string[];
 	onToggle: (value: string) => void;
@@ -206,70 +194,39 @@ interface ColumnFilterProps {
 	facet?: FacetCounts;
 }
 
-function ColumnFilter({
+// Thin adapter over the shared ColumnFilter: keeps this file's toggle/clear
+// call sites while delegating the actual dropdown UI to the shared component.
+function DirectoryColumnFilter({
 	label,
 	values,
 	onToggle,
 	onClear,
 	options,
 	facet,
-}: ColumnFilterProps) {
-	const isActive = values.length > 0;
-
+}: DirectoryColumnFilterProps) {
 	return (
 		<div className="flex items-center gap-1">
 			{label}
-			<DropdownMenu>
-				<DropdownMenuTrigger asChild>
-					<Button
-						aria-label={`Filter by ${label}`}
-						className="h-5 w-5"
-						size="icon"
-						variant="ghost"
-					>
-						<Filter
-							className={cn(
-								"h-3 w-3",
-								isActive
-									? "fill-current text-secondary"
-									: "text-muted-foreground",
-							)}
-						/>
-					</Button>
-				</DropdownMenuTrigger>
-				<DropdownMenuContent align="start">
-					<DropdownMenuCheckboxItem
-						checked={values.length === 0}
-						onCheckedChange={onClear}
-						onSelect={(e) => e.preventDefault()}
-					>
-						All{facet && ` (${facet.total})`}
-					</DropdownMenuCheckboxItem>
-					<DropdownMenuSeparator />
-					{withCounts(options, facet).map((option) => (
-						<DropdownMenuCheckboxItem
-							checked={values.includes(option.value)}
-							key={option.value}
-							onCheckedChange={() => onToggle(option.value)}
-							onSelect={(e) => e.preventDefault()}
-						>
-							{option.swatch && (
-								<span
-									className="mr-1 h-2 w-2 rounded-full"
-									style={{ backgroundColor: option.swatch }}
-								/>
-							)}
-							{option.label}
-						</DropdownMenuCheckboxItem>
-					))}
-				</DropdownMenuContent>
-			</DropdownMenu>
+			<ColumnFilter
+				columnName={label}
+				counts={facet?.counts}
+				onFilterChange={(newValues) => {
+					if (newValues.length === 0) {
+						onClear();
+						return;
+					}
+					for (const value of newValues.filter((v) => !values.includes(v))) {
+						onToggle(value);
+					}
+					for (const value of values.filter((v) => !newValues.includes(v))) {
+						onToggle(value);
+					}
+				}}
+				options={options}
+				selectedValues={values}
+			/>
 		</div>
 	);
-}
-
-function toFilterOptions(values: readonly string[]): FilterOption[] {
-	return values.map((v) => ({ value: v, label: v }));
 }
 
 const BASE_COLOR_OPTIONS: FilterOption[] = CLIENT_COLOR_KEYS.map((key) => ({
@@ -641,7 +598,7 @@ export function ClientDirectory() {
 				<TableHeader>
 					<TableRow>
 						<TableHead>
-							<ColumnFilter
+							<DirectoryColumnFilter
 								label="Name"
 								onClear={() => clearArrayParam("color")}
 								onToggle={(value) => toggleArrayParam("color", value)}
@@ -658,7 +615,7 @@ export function ClientDirectory() {
 							className={collapsibleCellClass(visibleColumns.priority)}
 						>
 							<AnimatedCellContent visible={visibleColumns.priority}>
-								<ColumnFilter
+								<DirectoryColumnFilter
 									facet={facetCounts?.priority}
 									label="Priority"
 									onClear={() => clearArrayParam("priority")}
@@ -670,7 +627,7 @@ export function ClientDirectory() {
 						</TableHead>
 						<TableHead className={collapsibleCellClass(visibleColumns.for)}>
 							<AnimatedCellContent visible={visibleColumns.for}>
-								<ColumnFilter
+								<DirectoryColumnFilter
 									facet={facetCounts?.asdAdhd}
 									label="For"
 									onClear={() => clearArrayParam("for")}
@@ -684,7 +641,7 @@ export function ClientDirectory() {
 							className={collapsibleCellClass(visibleColumns.language)}
 						>
 							<AnimatedCellContent visible={visibleColumns.language}>
-								<ColumnFilter
+								<DirectoryColumnFilter
 									facet={facetCounts?.language}
 									label="Language"
 									onClear={() => clearArrayParam("language")}
@@ -696,7 +653,7 @@ export function ClientDirectory() {
 						</TableHead>
 						<TableHead className={collapsibleCellClass(visibleColumns.daQs)}>
 							<AnimatedCellContent visible={visibleColumns.daQs}>
-								<ColumnFilter
+								<DirectoryColumnFilter
 									label="DA Qs"
 									onClear={() => clearArrayParam("daQs")}
 									onToggle={(value) => toggleArrayParam("daQs", value)}
@@ -707,7 +664,7 @@ export function ClientDirectory() {
 						</TableHead>
 						<TableHead className={collapsibleCellClass(visibleColumns.evalQs)}>
 							<AnimatedCellContent visible={visibleColumns.evalQs}>
-								<ColumnFilter
+								<DirectoryColumnFilter
 									label="EVAL Qs"
 									onClear={() => clearArrayParam("evalQs")}
 									onToggle={(value) => toggleArrayParam("evalQs", value)}
@@ -720,7 +677,7 @@ export function ClientDirectory() {
 							className={collapsibleCellClass(visibleColumns.insurance)}
 						>
 							<AnimatedCellContent visible={visibleColumns.insurance}>
-								<ColumnFilter
+								<DirectoryColumnFilter
 									facet={facetCounts?.primaryInsurance}
 									label="Primary Insurance"
 									onClear={() => clearArrayParam("insurance")}
@@ -736,7 +693,7 @@ export function ClientDirectory() {
 							)}
 						>
 							<AnimatedCellContent visible={visibleColumns.secondaryInsurance}>
-								<ColumnFilter
+								<DirectoryColumnFilter
 									facet={facetCounts?.secondaryInsurance}
 									label="Secondary Insurance"
 									onClear={() => clearArrayParam("secondaryInsurance")}
@@ -782,7 +739,13 @@ export function ClientDirectory() {
 							const isPriority = PRIORITY_REASONS.has(client.sortReason);
 
 							return (
-								<TableRow key={client.id}>
+								<TableRow
+									key={client.id}
+									style={{
+										contentVisibility: "auto",
+										containIntrinsicSize: "auto 41px",
+									}}
+								>
 									<TableCell className="font-medium">
 										<Link
 											className="flex flex-wrap items-center gap-2 hover:underline"

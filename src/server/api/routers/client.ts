@@ -44,6 +44,11 @@ import {
 } from "~/lib/utils";
 import { referralDataSchema } from "~/lib/validations/config";
 import {
+	NONE_FILTER_VALUE,
+	resolveInsuranceAliasNames,
+	splitNoneValue,
+} from "~/server/api/filters";
+import {
 	assertPermission,
 	type Context,
 	createTRPCRouter,
@@ -121,10 +126,6 @@ function buildClientNameWordsCondition(trimmedSearch: string) {
 	return and(...nameConditions);
 }
 
-// Sentinel value meaning "the underlying field is null/unset", used across all
-// multi-select filters so a user can filter for e.g. "no language on file."
-export const NONE_FILTER_VALUE = "__none__";
-
 const directoryFilterSchema = z.object({
 	nameSearch: z.string().optional(),
 	asdAdhd: z.array(z.string()).optional(),
@@ -143,30 +144,6 @@ type DirectoryFilterField = Exclude<
 	keyof DirectoryFilterInput,
 	"nameSearch" | "sort" | "sortDir"
 >;
-
-// Resolves the raw primaryInsurance values (shortName + all its aliases) that should
-// match a given insurance shortName, mirroring the alias-resolution used in `search`.
-async function resolveInsuranceAliasNames(
-	db: Context["db"],
-	shortName: string,
-) {
-	const aliasRows = await db
-		.select({ name: insuranceAliases.name })
-		.from(insuranceAliases)
-		.innerJoin(insurances, eq(insuranceAliases.insuranceId, insurances.id))
-		.where(eq(insurances.shortName, shortName));
-
-	return [shortName, ...aliasRows.map((row) => row.name)];
-}
-
-// Splits a multi-select filter value list into the concrete values to match
-// and whether the "None" sentinel was selected too.
-function splitNoneValue(values: string[]) {
-	return {
-		values: values.filter((v) => v !== NONE_FILTER_VALUE),
-		includeNone: values.includes(NONE_FILTER_VALUE),
-	};
-}
 
 async function buildDirectoryConditions(
 	db: Context["db"],
@@ -2794,7 +2771,7 @@ export const clientRouter = createTRPCRouter({
 
 	syncPunchData: protectedProcedure.mutation(async ({ ctx }) => {
 		if (ctx.session.user.accessToken && ctx.session.user.refreshToken) {
-			await syncPunchData(ctx.session);
+			await syncPunchData(ctx);
 		}
 	}),
 });

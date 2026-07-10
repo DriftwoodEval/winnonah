@@ -55,7 +55,7 @@ function ClientListItemComponent({
 			<div
 				className={cn(
 					"flex items-center justify-between text-sm",
-					isHighlighted && "bg-muted/50",
+					isHighlighted && "bg-accent text-accent-foreground",
 				)}
 			>
 				<div className="flex items-center gap-2">
