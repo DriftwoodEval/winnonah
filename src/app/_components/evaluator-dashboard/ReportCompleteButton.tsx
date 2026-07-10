@@ -21,6 +21,7 @@ interface ReportCompleteButtonProps {
 	completedAt: Date | string | null;
 	completedByName: string | null;
 	isAdmin: boolean;
+	showMarkComplete: boolean;
 }
 
 export function ReportCompleteButton({
@@ -28,6 +29,7 @@ export function ReportCompleteButton({
 	completedAt,
 	completedByName,
 	isAdmin,
+	showMarkComplete,
 }: ReportCompleteButtonProps) {
 	const utils = api.useUtils();
 
@@ -72,6 +74,8 @@ export function ReportCompleteButton({
 			</div>
 		);
 	}
+
+	if (!showMarkComplete) return null;
 
 	return (
 		<AlertDialog>

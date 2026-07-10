@@ -803,10 +803,10 @@ export function EvaluatorForm({
 									className="w-20"
 									id={`due-weeks-${initialData.npi}`}
 									max={52}
-									min={1}
+									min={0}
 									onChange={(e) => {
 										const n = Number.parseInt(e.target.value, 10);
-										if (!Number.isNaN(n) && n >= 1 && n <= 52) {
+										if (!Number.isNaN(n) && n >= 0 && n <= 52) {
 											setDueDateWeeks(n);
 											setDueDateDirty(true);
 										}
@@ -820,7 +820,13 @@ export function EvaluatorForm({
 								<Button
 									className="ml-auto"
 									disabled={!dueDateDirty || setConfig.isPending}
-									onClick={() => setConfig.mutate({ dueDateWeeks })}
+									onClick={() =>
+										setConfig.mutate({
+											dueDateWeeks,
+											showMarkComplete:
+												dashboardConfig?.showMarkComplete ?? true,
+										})
+									}
 									size="sm"
 									type="button"
 								>

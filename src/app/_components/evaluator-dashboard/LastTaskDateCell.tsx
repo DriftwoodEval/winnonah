@@ -8,12 +8,14 @@ import { api } from "~/trpc/react";
 interface LastTaskDateCellProps {
 	appointmentId: string;
 	date: Date | null;
+	fallbackDate: Date | null;
 	isAdmin: boolean;
 }
 
 export function LastTaskDateCell({
 	appointmentId,
 	date,
+	fallbackDate,
 	isAdmin,
 }: LastTaskDateCellProps) {
 	const utils = api.useUtils();
@@ -27,9 +29,10 @@ export function LastTaskDateCell({
 	});
 
 	if (!isAdmin) {
+		const displayDate = date ?? fallbackDate;
 		return (
 			<span className="text-muted-foreground text-sm">
-				{date ? format(date, "MMM d, yyyy") : "-"}
+				{displayDate ? format(displayDate, "MMM d, yyyy") : "-"}
 			</span>
 		);
 	}
@@ -39,7 +42,9 @@ export function LastTaskDateCell({
 			allowClear
 			date={date ?? undefined}
 			id={`last-task-${appointmentId}`}
-			placeholder="Set date"
+			placeholder={
+				fallbackDate ? format(fallbackDate, "MMM d, yyyy") : "Set date"
+			}
 			setDate={(d) => {
 				const dateStr = d
 					? `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`

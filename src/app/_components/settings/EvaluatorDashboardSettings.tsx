@@ -39,11 +39,13 @@ export default function EvaluatorDashboardSettings() {
 		});
 
 	const [dueDateWeeks, setDueDateWeeks] = useState(4);
+	const [showMarkComplete, setShowMarkComplete] = useState(true);
 	const [dirty, setDirty] = useState(false);
 
 	useEffect(() => {
 		if (config) {
 			setDueDateWeeks(config.dueDateWeeks);
+			setShowMarkComplete(config.showMarkComplete);
 			setDirty(false);
 		}
 	}, [config]);
@@ -62,7 +64,7 @@ export default function EvaluatorDashboardSettings() {
 				</div>
 				<Button
 					disabled={!dirty || setConfig.isPending}
-					onClick={() => setConfig.mutate({ dueDateWeeks })}
+					onClick={() => setConfig.mutate({ dueDateWeeks, showMarkComplete })}
 					size="sm"
 				>
 					{setConfig.isPending ? "Saving..." : "Save"}
@@ -78,10 +80,10 @@ export default function EvaluatorDashboardSettings() {
 						className="w-20"
 						id="due-date-weeks"
 						max={52}
-						min={1}
+						min={0}
 						onChange={(e) => {
 							const n = Number.parseInt(e.target.value, 10);
-							if (!Number.isNaN(n) && n >= 1 && n <= 52) {
+							if (!Number.isNaN(n) && n >= 0 && n <= 52) {
 								setDueDateWeeks(n);
 								setDirty(true);
 							}
@@ -92,6 +94,20 @@ export default function EvaluatorDashboardSettings() {
 					<span className="text-muted-foreground text-sm">
 						weeks after appointment (or last task date)
 					</span>
+				</div>
+
+				<div className="flex items-center gap-3">
+					<Switch
+						checked={showMarkComplete}
+						id="show-mark-complete"
+						onCheckedChange={(checked) => {
+							setShowMarkComplete(checked);
+							setDirty(true);
+						}}
+					/>
+					<Label className="font-normal" htmlFor="show-mark-complete">
+						Show "Mark Complete" button
+					</Label>
 				</div>
 
 				<div className="flex flex-col gap-2">

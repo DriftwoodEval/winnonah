@@ -1170,6 +1170,10 @@ export const workSummaryConfig = createTable("work_summary_config", (d) => ({
 	evaluatorDashboardDueDateWeeks: d
 		.int("evaluator_dashboard_due_date_weeks")
 		.default(4),
+	evaluatorDashboardShowMarkComplete: d
+		.boolean("evaluator_dashboard_show_mark_complete")
+		.notNull()
+		.default(true),
 }));
 
 export const reportQueueConfig = createTable("report_queue_config", (d) => ({

@@ -87,9 +87,7 @@ export function EvaluatorDashboardTable({
 	tab,
 }: EvaluatorDashboardTableProps) {
 	const utils = api.useUtils();
-	const config = api.evaluatorDashboard.getConfig.useQuery(undefined, {
-		enabled: isAdmin,
-	});
+	const config = api.evaluatorDashboard.getConfig.useQuery();
 
 	const archiveRow = api.evaluatorDashboard.archiveRow.useMutation({
 		onSuccess: () => {
@@ -217,6 +215,9 @@ export function EvaluatorDashboardTable({
 														) ?? null)
 													: null
 											}
+											fallbackDate={
+												getLocalDayFromUTCDate(appt.startTime) ?? null
+											}
 											isAdmin={isAdmin}
 										/>
 									</div>
@@ -255,6 +256,7 @@ export function EvaluatorDashboardTable({
 										completedAt={appt.reportCompletedAt}
 										completedByName={appt.reportCompletedByName}
 										isAdmin={isAdmin}
+										showMarkComplete={config.data?.showMarkComplete ?? true}
 									/>
 									{isAdmin && (
 										<Button
@@ -356,6 +358,9 @@ export function EvaluatorDashboardTable({
 														) ?? null)
 													: null
 											}
+											fallbackDate={
+												getLocalDayFromUTCDate(appt.startTime) ?? null
+											}
 											isAdmin={isAdmin}
 										/>
 									</TableCell>
@@ -391,6 +396,7 @@ export function EvaluatorDashboardTable({
 											completedAt={appt.reportCompletedAt}
 											completedByName={appt.reportCompletedByName}
 											isAdmin={isAdmin}
+											showMarkComplete={config.data?.showMarkComplete ?? true}
 										/>
 									</TableCell>
 									{isAdmin && (

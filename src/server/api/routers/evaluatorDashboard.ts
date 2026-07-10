@@ -67,6 +67,7 @@ async function getDashboardConfig(ctx: { db: Context["db"] }) {
 	const firstName = evaluator?.providerName?.split(" ")[0] ?? null;
 	return {
 		dueDateWeeks: config?.evaluatorDashboardDueDateWeeks ?? 4,
+		showMarkComplete: config?.evaluatorDashboardShowMarkComplete ?? true,
 		evaluatorFirstName: firstName,
 	};
 }
@@ -172,7 +173,8 @@ export const evaluatorDashboardRouter = createTRPCRouter({
 	setConfig: protectedProcedure
 		.input(
 			z.object({
-				dueDateWeeks: z.number().int().min(1).max(52),
+				dueDateWeeks: z.number().int().min(0).max(52),
+				showMarkComplete: z.boolean(),
 			}),
 		)
 		.mutation(async ({ ctx, input }) => {
@@ -182,10 +184,14 @@ export const evaluatorDashboardRouter = createTRPCRouter({
 				.values({
 					id: 1,
 					evaluatorDashboardDueDateWeeks: input.dueDateWeeks,
+					evaluatorDashboardShowMarkComplete: input.showMarkComplete,
 					appointmentDurationDefaults: {},
 				})
 				.onDuplicateKeyUpdate({
-					set: { evaluatorDashboardDueDateWeeks: input.dueDateWeeks },
+					set: {
+						evaluatorDashboardDueDateWeeks: input.dueDateWeeks,
+						evaluatorDashboardShowMarkComplete: input.showMarkComplete,
+					},
 				});
 		}),
 
