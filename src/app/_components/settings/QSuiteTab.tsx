@@ -61,7 +61,7 @@ import {
 	pythonConfigSchema,
 	serviceSchema,
 	serviceWithAdminSchema,
-} from "~/lib/validations";
+} from "~/lib/validations/config";
 import { api } from "~/trpc/react";
 
 const stripSuffix = (name: string) =>

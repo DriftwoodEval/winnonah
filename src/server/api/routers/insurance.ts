@@ -1,7 +1,7 @@
 import { eq } from "drizzle-orm";
 import { z } from "zod";
 import { fetchWithCache, invalidateCache } from "~/lib/cache";
-import { additionalInsuranceAppointmentsSchema } from "~/lib/validations";
+import { additionalInsuranceAppointmentsSchema } from "~/lib/validations/config";
 import { CACHE_KEY_MISSING_APPOINTMENTS } from "~/server/api/routers/client";
 import {
 	assertPermission,

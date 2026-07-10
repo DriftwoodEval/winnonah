@@ -2,7 +2,7 @@ import { eq } from "drizzle-orm";
 import {
 	appointmentSyncConfigSchema,
 	pythonConfigSchema,
-} from "~/lib/validations";
+} from "~/lib/validations/config";
 import { createTRPCRouter, protectedProcedure } from "~/server/api/trpc";
 import { pythonConfig } from "~/server/db/schema";
 

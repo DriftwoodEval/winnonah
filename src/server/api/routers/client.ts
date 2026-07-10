@@ -42,7 +42,7 @@ import {
 	getInsuranceShortName,
 	isShellClientId,
 } from "~/lib/utils";
-import { referralDataSchema } from "~/lib/validations";
+import { referralDataSchema } from "~/lib/validations/config";
 import {
 	assertPermission,
 	type Context,

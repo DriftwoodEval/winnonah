@@ -19,7 +19,7 @@ import type {
 	appointmentSyncConfigSchema,
 	pythonConfigSchema,
 	referralDataSchema,
-} from "~/lib/validations";
+} from "~/lib/validations/config";
 
 /**
  * @see https://orm.drizzle.team/docs/goodies#multi-project-schema
