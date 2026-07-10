@@ -122,13 +122,19 @@ export function RichTextEditor({
 	}, [editor]);
 
 	useEffect(() => {
-		if (editor && value !== undefined) {
-			const currentContent = editor.getJSON();
-			const newContent = sanitizeValue(value);
+		if (!editor || value === undefined || editor.isFocused) return;
 
-			if (JSON.stringify(currentContent) !== JSON.stringify(newContent)) {
-				editor.commands.setContent(newContent, { emitUpdate: false });
-			}
+		const currentContent = editor.getJSON();
+		const newContent = sanitizeValue(value);
+
+		if (JSON.stringify(currentContent) !== JSON.stringify(newContent)) {
+			const { from, to } = editor.state.selection;
+			editor.commands.setContent(newContent, { emitUpdate: false });
+			const docSize = editor.state.doc.content.size;
+			editor.commands.setTextSelection({
+				from: Math.min(from, docSize),
+				to: Math.min(to, docSize),
+			});
 		}
 	}, [editor, value]);
 
