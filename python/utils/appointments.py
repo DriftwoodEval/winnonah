@@ -627,7 +627,7 @@ def insert_appointments_with_gcal(appointment_sync_data: dict[str, list[str]] | 
                         appointment_id=appointment_id,
                     )
 
-        if not cancelled and cpt_code == "90791" and gcal_daeval != "DAEVAL":
+        if not cancelled and (cpt_code == "90791" or gcal_daeval == "DAEVAL"):
             compute_and_store_assessment_snapshot(client_id=client_id)
 
     if not billing_df.empty:
