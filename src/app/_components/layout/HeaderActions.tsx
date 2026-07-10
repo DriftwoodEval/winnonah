@@ -107,7 +107,15 @@ export function HeaderActions() {
 								<span>Branch: {process.env.NEXT_PUBLIC_GIT_BRANCH}</span>
 							) : (
 								<span>
-									{process.env.NEXT_PUBLIC_COMMIT_HASH} •{" "}
+									<a
+										className="hover:underline"
+										href={`https://github.com/DriftwoodEval/winnonah/commit/${process.env.NEXT_PUBLIC_COMMIT_HASH}`}
+										rel="noopener noreferrer"
+										target="_blank"
+									>
+										{process.env.NEXT_PUBLIC_COMMIT_HASH}
+									</a>{" "}
+									•{" "}
 									{process.env.NEXT_PUBLIC_BUILD_DATE
 										? new Date(
 												process.env.NEXT_PUBLIC_BUILD_DATE,
