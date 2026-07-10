@@ -52,8 +52,12 @@ def clean_insurance_item(item: str) -> list:
 
 def _get_standardized_client_insurances(
     client: pd.Series, insurance_mappings: dict
-) -> set[str]:
-    """Normalizes a client's primary and secondary insurance names using database mappings."""
+) -> tuple[str | None, set[str]]:
+    """Normalizes a client's primary and secondary insurance names using database mappings.
+
+    Returns a tuple of (standardized primary insurance name or None, set of all
+    standardized insurance names including primary and secondary).
+    """
     standardized_mappings = {
         "".join(k.lower().split()): v for k, v in insurance_mappings.items()
     }
@@ -61,24 +65,30 @@ def _get_standardized_client_insurances(
     primary_insurance = get_column(client, "INSURANCE_COMPANYNAME")
     secondary_insurance = get_column(client, "SECONDARY_INSURANCE_COMPANYNAME")
 
-    raw_insurances_to_check = []
+    standardized_primary = None
     if primary_insurance:
-        raw_insurances_to_check.append(primary_insurance)
+        standardized_primary = (
+            _normalize_insurance_name(str(primary_insurance), standardized_mappings)
+            or None
+        )
 
+    raw_secondary_insurances = []
     if isinstance(secondary_insurance, str) and secondary_insurance.strip() != "[]":
-        raw_insurances_to_check.extend(clean_insurance_item(secondary_insurance))
+        raw_secondary_insurances.extend(clean_insurance_item(secondary_insurance))
     elif isinstance(secondary_insurance, list):
-        raw_insurances_to_check.extend(secondary_insurance)
+        raw_secondary_insurances.extend(secondary_insurance)
 
     standardized_client_insurances: set[str] = set()
-    for raw_name in raw_insurances_to_check:
+    if standardized_primary:
+        standardized_client_insurances.add(standardized_primary)
+    for raw_name in raw_secondary_insurances:
         normalized_name = _normalize_insurance_name(
             str(raw_name), standardized_mappings
         )
         if normalized_name:
             standardized_client_insurances.add(normalized_name)
 
-    return standardized_client_insurances
+    return standardized_primary, standardized_client_insurances
 
 
 def _get_client_age(client: pd.Series) -> int | None:
@@ -119,11 +129,74 @@ def _district_check_applies(client: pd.Series) -> tuple[bool, str | None]:
     return True, None
 
 
+def _check_insurance_eligibility(
+    evaluator_data: dict,
+    is_private_pay: bool,
+    standardized_primary: str | None,
+    standardized_client_insurances: set[str],
+) -> tuple[bool, str]:
+    """Determines whether a single evaluator accepts a client's insurance, with a reason.
+
+    An evaluator is eligible if the client is private pay, or if the evaluator
+    accepts any one of the client's standardized insurances. If the client has
+    BabyNet (as primary or secondary insurance), the evaluator must accept
+    BabyNet AND the client's primary insurance (if the primary insurance is not
+    BabyNet itself), since BabyNet does not cover services on its own.
+    """
+    if is_private_pay:
+        return True, "Client is private pay"
+
+    has_babynet = "BabyNet" in standardized_client_insurances
+    if has_babynet:
+        accepts_babynet = bool(evaluator_data.get("BabyNet"))
+        needs_primary = (
+            standardized_primary is not None and standardized_primary != "BabyNet"
+        )
+        accepts_primary = not needs_primary or bool(
+            evaluator_data.get(standardized_primary)
+        )
+        eligible = accepts_babynet and accepts_primary
+        if eligible:
+            reason = (
+                f"Evaluator accepts BabyNet and {standardized_primary}"
+                if needs_primary
+                else "Evaluator accepts BabyNet"
+            )
+        elif not accepts_babynet and needs_primary and not accepts_primary:
+            reason = (
+                f"Evaluator does not accept BabyNet and {standardized_primary}, "
+                "both are required"
+            )
+        elif not accepts_babynet:
+            reason = "Evaluator does not accept BabyNet"
+        else:
+            reason = f"Evaluator does not accept {standardized_primary}"
+        return eligible, reason
+
+    matched_insurance = next(
+        (
+            insurance
+            for insurance in standardized_client_insurances
+            if evaluator_data.get(insurance)
+        ),
+        None,
+    )
+    if matched_insurance is not None:
+        return True, f"Evaluator accepts {matched_insurance}"
+    if not standardized_client_insurances:
+        return False, "Client has no recognized insurance on file"
+    return (
+        False,
+        f"Evaluator does not accept {', '.join(sorted(standardized_client_insurances))}",
+    )
+
+
 def match_by_insurance(client: pd.Series, evaluators: dict, insurance_mappings: dict):
     """Matches evaluators to a client based on insurance information.
 
     An evaluator is considered eligible if they accept the client's
     primary insurance, secondary insurance, or if the client is private pay.
+    See `_check_insurance_eligibility` for the BabyNet-specific rule.
 
     Args:
         client (pd.Series): A pandas Series representing a single client.
@@ -138,19 +211,19 @@ def match_by_insurance(client: pd.Series, evaluators: dict, insurance_mappings: 
     if is_private_pay:
         return list(evaluators.keys())
 
-    standardized_client_insurances = _get_standardized_client_insurances(
-        client, insurance_mappings
+    standardized_primary, standardized_client_insurances = (
+        _get_standardized_client_insurances(client, insurance_mappings)
     )
 
     eligible_evaluator_npis = set()
 
     for npi, evaluator_data in evaluators.items():
-        is_eligible = False
-        for insurance in standardized_client_insurances:
-            if evaluator_data.get(insurance):
-                is_eligible = True
-                break
-
+        is_eligible, _ = _check_insurance_eligibility(
+            evaluator_data,
+            is_private_pay,
+            standardized_primary,
+            standardized_client_insurances,
+        )
         if is_eligible:
             eligible_evaluator_npis.add(npi)
 
@@ -162,9 +235,10 @@ def explain_eligibility(
 ) -> dict:
     """Computes eligibility for every evaluator against a client, with a reason per criterion.
 
-    Mirrors the logic in match_by_insurance and match_by_school_district, but returns
-    a human-readable breakdown instead of just the eligible NPIs, for debugging why a
-    client has few or no eligible evaluators. Keep this in sync with those functions.
+    Uses the same `_check_insurance_eligibility` helper as `match_by_insurance`, and
+    the same `_district_check_applies` helper as `match_by_school_district`, but
+    returns a human-readable breakdown instead of just the eligible NPIs, for
+    debugging why a client has few or no eligible evaluators.
 
     Args:
         client (pd.Series): A pandas Series representing a single client.
@@ -177,8 +251,8 @@ def explain_eligibility(
               "districtReason", "eligible"}, ...]}
     """
     is_private_pay = get_column(client, "POLICY_PRIVATEPAY") == 1
-    standardized_client_insurances = _get_standardized_client_insurances(
-        client, insurance_mappings
+    standardized_primary, standardized_client_insurances = (
+        _get_standardized_client_insurances(client, insurance_mappings)
     )
 
     client_school_district = get_column(client, "SCHOOL_DISTRICT")
@@ -213,25 +287,12 @@ def explain_eligibility(
         if evaluator_data.get("archived"):
             continue
 
-        if is_private_pay:
-            insurance_eligible = True
-            insurance_reason = "Client is private pay"
-        else:
-            matched_insurance = next(
-                (
-                    insurance
-                    for insurance in standardized_client_insurances
-                    if evaluator_data.get(insurance)
-                ),
-                None,
-            )
-            insurance_eligible = matched_insurance is not None
-            if insurance_eligible:
-                insurance_reason = f"Evaluator accepts {matched_insurance}"
-            elif not standardized_client_insurances:
-                insurance_reason = "Client has no recognized insurance on file"
-            else:
-                insurance_reason = f"Evaluator does not accept {', '.join(sorted(standardized_client_insurances))}"
+        insurance_eligible, insurance_reason = _check_insurance_eligibility(
+            evaluator_data,
+            is_private_pay,
+            standardized_primary,
+            standardized_client_insurances,
+        )
 
         if district_check_skipped:
             district_eligible = True
