@@ -5,7 +5,13 @@ import { RichTextEditor } from "@components/shared/RichTextEditor";
 import type { JSONContent } from "@tiptap/core";
 import { Button } from "@ui/button";
 import { ChevronDown, ChevronUp } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import {
+	cloneElement,
+	isValidElement,
+	useEffect,
+	useMemo,
+	useState,
+} from "react";
 import {
 	buildReviewBlock,
 	extractTextFromContent,
@@ -33,14 +39,15 @@ export function InsuranceReviewSubmitDialog({
 }: InsuranceReviewSubmitDialogProps) {
 	const [open, setOpen] = useState(false);
 	const [selectedInsertAt, setSelectedInsertAt] = useState<number | null>(null);
+	const [noteContentJson, setNoteContentJson] = useState<JSONContent | null>(
+		null,
+	);
 
-	const { data: note } = api.notes.getNoteByClientId.useQuery(client.id, {
-		enabled: open,
-	});
+	const utils = api.useUtils();
 
 	const existingContent = useMemo<JSONContent>(
-		() => note?.contentJson ?? { type: "doc", content: [] },
-		[note?.contentJson],
+		() => noteContentJson ?? { type: "doc", content: [] },
+		[noteContentJson],
 	);
 	const existingNodes = existingContent.content ?? [];
 
@@ -72,6 +79,31 @@ export function InsuranceReviewSubmitDialog({
 	const canMoveUp = currentIndex > 0;
 	const canMoveDown =
 		currentIndex !== -1 && currentIndex < candidates.length - 1;
+
+	const handleTriggerClick = (event: React.MouseEvent) => {
+		event.preventDefault();
+		void utils.notes.getNoteByClientId.fetch(client.id).then((fetchedNote) => {
+			const content = (fetchedNote?.contentJson as JSONContent | null) ?? {
+				type: "doc",
+				content: [],
+			};
+			setNoteContentJson(content);
+
+			const hasMainNoteContent =
+				extractTextFromContent(content).trim().length > 0;
+			if (hasMainNoteContent) {
+				setOpen(true);
+			} else {
+				onConfirm(0);
+			}
+		});
+	};
+
+	const clonedTrigger = isValidElement<{
+		onClick?: (event: React.MouseEvent) => void;
+	}>(trigger)
+		? cloneElement(trigger, { onClick: handleTriggerClick })
+		: trigger;
 
 	return (
 		<ResponsiveDialog
@@ -128,7 +160,7 @@ export function InsuranceReviewSubmitDialog({
 			open={open}
 			setOpen={setOpen}
 			title="Preview: Copy to Main Notes"
-			trigger={trigger}
+			trigger={clonedTrigger}
 		>
 			<RichTextEditor formatBar={false} readonly value={preview} />
 		</ResponsiveDialog>
