@@ -51,6 +51,12 @@ export const createTRPCContext = async (opts: { headers: Headers }) => {
  */
 const t = initTRPC.context<typeof createTRPCContext>().create({
 	transformer: superjson,
+	sse: {
+		ping: {
+			enabled: true,
+			intervalMs: 20_000,
+		},
+	},
 	errorFormatter({ shape, error }) {
 		return {
 			...shape,
