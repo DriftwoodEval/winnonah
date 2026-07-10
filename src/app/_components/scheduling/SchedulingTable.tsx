@@ -27,15 +27,22 @@ import {
 } from "@components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@components/ui/tabs";
 import { Textarea } from "@components/ui/textarea";
+import {
+	Tooltip,
+	TooltipContent,
+	TooltipTrigger,
+} from "@components/ui/tooltip";
 import { keepPreviousData } from "@tanstack/react-query";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { Skeleton } from "@ui/skeleton";
+import { debounce } from "es-toolkit/function";
 import {
 	ArchiveRestore,
 	ChevronDown,
 	ChevronUp,
 	Circle,
 	Loader2,
+	Search,
 	X,
 } from "lucide-react";
 import Link from "next/link";
@@ -43,6 +50,7 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useSession } from "next-auth/react";
 import {
 	memo,
+	useCallback,
 	useDeferredValue,
 	useEffect,
 	useMemo,
@@ -314,6 +322,97 @@ function RowCountDisplay({
 	);
 }
 
+function SchedulingSearchBox({
+	value,
+	onChange,
+	matchCount,
+	matchIndex,
+	minLength,
+	isPending,
+	onNext,
+	onPrev,
+	inputRef,
+}: {
+	value: string;
+	onChange: (value: string) => void;
+	matchCount: number;
+	matchIndex: number;
+	minLength: number;
+	isPending: boolean;
+	onNext: () => void;
+	onPrev: () => void;
+	inputRef: React.RefObject<HTMLInputElement | null>;
+}) {
+	const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+		if (e.key === "Escape") {
+			e.currentTarget.blur();
+			return;
+		}
+		if (e.key !== "Enter") return;
+		e.preventDefault();
+		if (e.shiftKey) {
+			onPrev();
+		} else {
+			onNext();
+		}
+	};
+
+	const isTooShort = value.trim().length > 0 && value.trim().length < minLength;
+
+	return (
+		<div className="flex items-center gap-1 px-4 py-2">
+			<Search className="size-4 text-muted-foreground" />
+			<Tooltip>
+				<TooltipTrigger asChild>
+					<Input
+						className="h-7 w-48"
+						onChange={(e) => onChange(e.target.value)}
+						onKeyDown={handleKeyDown}
+						placeholder="Find client... (ctrl+f)"
+						ref={inputRef}
+						value={value}
+					/>
+				</TooltipTrigger>
+				<TooltipContent>
+					Enter for next match, Shift+Enter for previous
+				</TooltipContent>
+			</Tooltip>
+			{value && (
+				<>
+					<span className="whitespace-nowrap text-muted-foreground text-sm">
+						{isTooShort
+							? `${minLength}+ chars`
+							: isPending
+								? "Searching…"
+								: matchCount > 0
+									? `${matchIndex + 1} of ${matchCount}`
+									: "No matches"}
+					</span>
+					<Button
+						disabled={matchCount === 0 || isPending}
+						onClick={onPrev}
+						size="icon-sm"
+						variant="ghost"
+					>
+						<ChevronUp className="size-4" />
+					</Button>
+					<Button
+						disabled={matchCount === 0 || isPending}
+						onClick={onNext}
+						size="icon-sm"
+						variant="ghost"
+					>
+						<ChevronDown className="size-4" />
+					</Button>
+					<Button onClick={() => onChange("")} size="icon-sm" variant="ghost">
+						<X className="size-4" />
+					</Button>
+				</>
+			)}
+		</div>
+	);
+}
+
 function ColorPicker({
 	value,
 	onChange,
@@ -468,6 +567,7 @@ const SchedulingTableRow = memo(function SchedulingTableRow({
 	actionIcon,
 	actionVariant,
 	isActionPending,
+	isHighlighted,
 	isScrolledLeft,
 	rowIndex,
 	measureElement,
@@ -486,6 +586,7 @@ const SchedulingTableRow = memo(function SchedulingTableRow({
 	actionIcon: React.ReactNode;
 	actionVariant: "default" | "destructive";
 	isActionPending: boolean;
+	isHighlighted?: boolean;
 	isScrolledLeft?: boolean;
 	rowIndex: number;
 	measureElement: (el: Element | null) => void;
@@ -542,14 +643,11 @@ const SchedulingTableRow = memo(function SchedulingTableRow({
 					"sticky left-0 z-10 bg-background transition-shadow duration-200",
 					"max-w-[200px]",
 					isScrolledLeft && "shadow-lg",
+					isHighlighted && "ring-2 ring-primary ring-inset",
 				)}
 				data-col={0}
 				data-row={rowIndex}
-				style={{
-					backgroundColor: color
-						? `color-mix(in srgb, ${SCHEDULING_COLOR_MAP[color]}, var(--background) 90%)`
-						: "var(--background)",
-				}}
+				style={{ backgroundColor }}
 			>
 				<div className="flex items-center gap-2 overflow-hidden">
 					{isEditable && (
@@ -909,6 +1007,96 @@ function InternalSchedulingTable({
 			? virtualTotalSize - (virtualRows[virtualRows.length - 1]?.end ?? 0)
 			: 0;
 
+	// Rows stay virtualized (unmounted offscreen) instead of being filtered,
+	// so browser ctrl-f can't find someone who isn't in the DOM. This search
+	// box scrolls matches into view instead, letting the virtualizer mount
+	// them.
+	const MIN_SEARCH_LENGTH = 3;
+
+	const [searchTerm, setSearchTerm] = useState("");
+	const [debouncedSearchTerm, setDebouncedSearchTerm] = useState("");
+	const [matchIndex, setMatchIndex] = useState(0);
+	const searchInputRef = useRef<HTMLInputElement>(null);
+
+	// Debounced so a match isn't jumped to (and the row highlighted) after
+	// every keystroke - only once the user pauses, which also keeps
+	// intermediate substrings like "sm" from scrolling somewhere unrelated to
+	// where "smith" ends up.
+	const debouncedSetSearchTerm = useCallback(
+		debounce((term: string) => setDebouncedSearchTerm(term), 300),
+		[],
+	);
+
+	const handleSearchChange = (value: string) => {
+		setSearchTerm(value);
+		if (value.trim().length < MIN_SEARCH_LENGTH) {
+			debouncedSetSearchTerm.cancel();
+			setDebouncedSearchTerm("");
+		} else {
+			debouncedSetSearchTerm(value);
+		}
+	};
+
+	const isSearchPending =
+		searchTerm.trim().length >= MIN_SEARCH_LENGTH &&
+		searchTerm.trim().toLowerCase() !==
+			debouncedSearchTerm.trim().toLowerCase();
+
+	const searchMatches = useMemo(() => {
+		const term = debouncedSearchTerm.trim().toLowerCase();
+		if (term.length < MIN_SEARCH_LENGTH) return [];
+		const indices: number[] = [];
+		filteredClients.forEach((c, index) => {
+			if (c.client.fullName.toLowerCase().includes(term)) indices.push(index);
+		});
+		return indices;
+	}, [filteredClients, debouncedSearchTerm]);
+
+	// biome-ignore lint/correctness/useExhaustiveDependencies: resetting to the first match whenever the search term (or result set) changes, not on every render
+	useEffect(() => {
+		setMatchIndex(0);
+	}, [debouncedSearchTerm, searchMatches]);
+
+	const currentMatchClientIndex = searchMatches[matchIndex];
+
+	// biome-ignore lint/correctness/useExhaustiveDependencies: rowVirtualizer is not a stable reference across renders and would refire this every render
+	useEffect(() => {
+		if (currentMatchClientIndex === undefined) return;
+		rowVirtualizer.scrollToIndex(currentMatchClientIndex, {
+			align: "center",
+			behavior: "smooth",
+		});
+	}, [currentMatchClientIndex]);
+
+	const highlightedClientId =
+		filteredClients[currentMatchClientIndex ?? -1]?.clientId;
+
+	const handleSearchNext = () => {
+		if (searchMatches.length === 0) return;
+		setMatchIndex((i) => (i + 1) % searchMatches.length);
+	};
+
+	const handleSearchPrev = () => {
+		if (searchMatches.length === 0) return;
+		setMatchIndex((i) => (i - 1 + searchMatches.length) % searchMatches.length);
+	};
+
+	// Browser ctrl-f can't find offscreen, virtualized-out rows, so this
+	// search box stands in for it: ctrl/cmd-f focuses it instead of opening
+	// the native find bar. Guarded by tableRef's visibility since both the
+	// active and archived tab tables stay mounted (just hidden) at once.
+	useEffect(() => {
+		const handleKeyDown = (e: KeyboardEvent) => {
+			if (e.key.toLowerCase() !== "f" || !(e.ctrlKey || e.metaKey)) return;
+			if (!tableRef.current || tableRef.current.offsetParent === null) return;
+			e.preventDefault();
+			searchInputRef.current?.focus();
+			searchInputRef.current?.select();
+		};
+		document.addEventListener("keydown", handleKeyDown);
+		return () => document.removeEventListener("keydown", handleKeyDown);
+	}, [tableRef]);
+
 	// Scrolls to a newly added client by index rather than querying the DOM
 	// for its row, since a just-added client's row may not be mounted yet.
 	// biome-ignore lint/correctness/useExhaustiveDependencies: rowVirtualizer is not a stable reference across renders and would refire this every render
@@ -1101,10 +1289,23 @@ function InternalSchedulingTable({
 
 	return (
 		<>
-			<RowCountDisplay
-				filteredCount={filteredClients.length}
-				totalCount={deferredClients.length}
-			/>
+			<div className="flex items-center justify-between">
+				<RowCountDisplay
+					filteredCount={filteredClients.length}
+					totalCount={deferredClients.length}
+				/>
+				<SchedulingSearchBox
+					inputRef={searchInputRef}
+					isPending={isSearchPending}
+					matchCount={searchMatches.length}
+					matchIndex={matchIndex}
+					minLength={MIN_SEARCH_LENGTH}
+					onChange={handleSearchChange}
+					onNext={handleSearchNext}
+					onPrev={handleSearchPrev}
+					value={searchTerm}
+				/>
+			</div>
 			<Table
 				className={cn("min-w-max", isStale && "opacity-60 transition-opacity")}
 				classNameWrapper={cn(
@@ -1177,6 +1378,7 @@ function InternalSchedulingTable({
 								insurances={insurances}
 								isActionPending={isActionPending}
 								isEditable={isEditable}
+								isHighlighted={scheduledClient.clientId === highlightedClientId}
 								isScrolledLeft={isScrolledLeft}
 								key={scheduledClient.clientId}
 								measureElement={rowVirtualizer.measureElement}
