@@ -13,6 +13,7 @@ import {
 	inArray,
 	isNotNull,
 	not,
+	or,
 } from "drizzle-orm";
 import { z } from "zod";
 import { invalidateCache } from "~/lib/cache";
@@ -565,9 +566,15 @@ export const questionnaireRouter = createTRPCRouter({
 								.where(
 									and(
 										eq(failures.clientId, input.clientId),
-										eq(
-											failures.reason,
-											`Error assigning ${input.questionnaireType}`,
+										or(
+											eq(
+												failures.reason,
+												`Error assigning ${input.questionnaireType}`,
+											),
+											eq(
+												failures.reason,
+												`No link grabbed for ${input.questionnaireType}`,
+											),
 										),
 									),
 								);
@@ -601,7 +608,13 @@ export const questionnaireRouter = createTRPCRouter({
 				.where(
 					and(
 						eq(failures.clientId, input.clientId),
-						eq(failures.reason, `Error assigning ${input.questionnaireType}`),
+						or(
+							eq(failures.reason, `Error assigning ${input.questionnaireType}`),
+							eq(
+								failures.reason,
+								`No link grabbed for ${input.questionnaireType}`,
+							),
+						),
 					),
 				);
 
@@ -714,7 +727,10 @@ export const questionnaireRouter = createTRPCRouter({
 					.where(
 						and(
 							eq(failures.clientId, input.clientId),
-							eq(failures.reason, `Error assigning ${qType}`),
+							or(
+								eq(failures.reason, `Error assigning ${qType}`),
+								eq(failures.reason, `No link grabbed for ${qType}`),
+							),
 						),
 					);
 			}
@@ -781,7 +797,16 @@ export const questionnaireRouter = createTRPCRouter({
 					.where(
 						and(
 							eq(failures.clientId, existing.clientId),
-							eq(failures.reason, `Error assigning ${input.questionnaireType}`),
+							or(
+								eq(
+									failures.reason,
+									`Error assigning ${input.questionnaireType}`,
+								),
+								eq(
+									failures.reason,
+									`No link grabbed for ${input.questionnaireType}`,
+								),
+							),
 						),
 					);
 			}
