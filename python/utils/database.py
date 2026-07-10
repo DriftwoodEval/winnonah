@@ -1593,6 +1593,61 @@ def rematch_evaluator(npi: int, connection: Connection[DictCursor]) -> None:
 
 
 @provide_connection
+def get_client_eligibility_debug(
+    client_id: str, connection: Connection[DictCursor]
+) -> dict | None:
+    """Returns a per-evaluator eligibility breakdown for a single client, for debugging."""
+    with connection.cursor() as cursor:
+        cursor.execute(f"SELECT * FROM {TABLE_CLIENT} WHERE id = %s", (client_id,))
+        row = cursor.fetchone()
+
+    if not row:
+        return None
+
+    client = pd.Series(row).rename(index=CLIENT_COLUMN_MAPPING)
+    evaluators = get_evaluators_with_blocked_locations(connection=connection)
+    insurance_mappings = get_insurance_mappings(connection=connection)
+
+    return utils.relationships.explain_eligibility(
+        client, evaluators, insurance_mappings
+    )
+
+
+@provide_connection
+def get_possible_private_pay_reasons(
+    client_ids: list[str], connection: Connection[DictCursor]
+) -> dict[str, str]:
+    """Returns a short reason per client explaining why they have no eligible evaluators.
+
+    Clients with at least one eligible evaluator, or no evaluators in the system at all,
+    are omitted from the result.
+    """
+    if not client_ids:
+        return {}
+
+    placeholders = ", ".join(["%s"] * len(client_ids))
+    with connection.cursor() as cursor:
+        cursor.execute(
+            f"SELECT * FROM {TABLE_CLIENT} WHERE id IN ({placeholders})", client_ids
+        )
+        rows = cursor.fetchall()
+
+    evaluators = get_evaluators_with_blocked_locations(connection=connection)
+    insurance_mappings = get_insurance_mappings(connection=connection)
+
+    reasons: dict[str, str] = {}
+    for row in rows:
+        client = pd.Series(row).rename(index=CLIENT_COLUMN_MAPPING)
+        reason = utils.relationships.summarize_no_match_reason(
+            client, evaluators, insurance_mappings
+        )
+        if reason:
+            reasons[str(row["id"])] = reason
+
+    return reasons
+
+
+@provide_connection
 def put_in_person_assessments_in_db(
     client_id: int,
     assessment_types: list[str],

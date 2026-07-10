@@ -144,6 +144,47 @@ export const evaluatorRouter = createTRPCRouter({
 			return correctedEvaluatorsByClient;
 		}),
 
+	getEligibilityDebug: protectedProcedure
+		.input(z.number())
+		.query(async ({ ctx, input }) => {
+			assertPermission(ctx.session.user, "settings:evaluators");
+
+			const cookieHeader = ctx.headers.get("cookie") ?? "";
+			const response = await fetch(
+				`${env.PY_API}/clients/${input}/eligibility-debug`,
+				{ headers: { Cookie: cookieHeader } },
+			);
+
+			if (!response.ok) {
+				if (response.status === 404) return null;
+				throw new Error(
+					`Failed to fetch eligibility debug: ${response.status}`,
+				);
+			}
+
+			return (await response.json()) as {
+				clientContext: {
+					isPrivatePay: boolean;
+					standardizedInsurances: string[];
+					schoolDistrict: string | null;
+					zip: string | null;
+					age: number | null;
+					districtCheckSkipped: boolean;
+					districtSkipReason: string | null;
+				};
+				evaluators: {
+					npi: number;
+					name: string | null;
+					archived: boolean | null;
+					insuranceEligible: boolean;
+					insuranceReason: string;
+					districtEligible: boolean;
+					districtReason: string;
+					eligible: boolean;
+				}[];
+			};
+		}),
+
 	create: protectedProcedure
 		.input(
 			z.object({

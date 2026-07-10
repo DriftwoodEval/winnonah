@@ -1254,7 +1254,36 @@ export const clientRouter = createTRPCRouter({
 			)
 			.orderBy(clients.addedDate);
 
-		return noPaymentMethodOrNoEligors;
+		if (noPaymentMethodOrNoEligors.length === 0) return [];
+
+		const cookieHeader = ctx.headers.get("cookie") ?? "";
+		const response = await fetch(
+			`${env.PY_API}/clients/possible-private-pay-reasons`,
+			{
+				method: "POST",
+				headers: { "Content-Type": "application/json", Cookie: cookieHeader },
+				body: JSON.stringify({
+					client_ids: noPaymentMethodOrNoEligors.map((c) => c.id),
+				}),
+			},
+		);
+
+		if (!response.ok) {
+			throw new Error(
+				`Failed to fetch private-pay reasons: ${response.status}`,
+			);
+		}
+
+		const reasonsByClientId = (await response.json()) as Record<string, string>;
+
+		const result: ClientWithIssueInfo[] = noPaymentMethodOrNoEligors.map(
+			(client) => {
+				const reason = reasonsByClientId[String(client.id)];
+				return reason ? { ...client, additionalInfo: reason } : client;
+			},
+		);
+
+		return result;
 	}),
 
 	getAutismStops: protectedProcedure.query(async ({ ctx }) => {

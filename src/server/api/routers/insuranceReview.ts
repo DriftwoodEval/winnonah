@@ -35,9 +35,10 @@ export const insuranceReviewRouter = createTRPCRouter({
 	getByClientId: protectedProcedure
 		.input(z.number())
 		.query(async ({ ctx, input: clientId }) => {
-			return ctx.db.query.insuranceReview.findFirst({
+			const review = await ctx.db.query.insuranceReview.findFirst({
 				where: eq(insuranceReview.clientId, clientId),
 			});
+			return review ?? null;
 		}),
 
 	update: protectedProcedure

@@ -24,7 +24,13 @@ from utils.constants import (
     TABLE_SESSION,
     TABLE_USER,
 )
-from utils.database import get_db, get_python_config, rematch_evaluator
+from utils.database import (
+    get_client_eligibility_debug,
+    get_db,
+    get_possible_private_pay_reasons,
+    get_python_config,
+    rematch_evaluator,
+)
 from utils.forms import fill_select_health_form
 from utils.google import google_authenticate, send_gmail, update_gcal_event_title
 from utils.misc import json_log_format
@@ -84,6 +90,10 @@ class InsuranceReviewClaimRequest(BaseModel):
 class InviteNotificationRequest(BaseModel):
     invitee_email: str
     inviter_name: str
+
+
+class PossiblePrivatePayReasonsRequest(BaseModel):
+    client_ids: list[int]
 
 
 class CptCodeEntry(BaseModel):
@@ -691,6 +701,28 @@ async def rematch_evaluator_endpoint(
         raise HTTPException(status_code=403, detail="Not authorized")
     rematch_evaluator(npi)
     return {"status": "ok"}
+
+
+@app.get("/clients/{client_id}/eligibility-debug")
+async def client_eligibility_debug(
+    client_id: str, current_user: dict = Depends(get_current_user)
+):
+    if not current_user["permissions"].get("settings:evaluators"):
+        raise HTTPException(status_code=403, detail="Not authorized")
+
+    result = get_client_eligibility_debug(client_id)
+    if result is None:
+        raise HTTPException(status_code=404, detail="Client not found")
+    return result
+
+
+@app.post("/clients/possible-private-pay-reasons")
+async def possible_private_pay_reasons(
+    request: PossiblePrivatePayReasonsRequest,
+    current_user: dict = Depends(get_current_user),  # noqa: ARG001
+):
+    client_ids = [str(client_id) for client_id in request.client_ids]
+    return get_possible_private_pay_reasons(client_ids)
 
 
 @app.post("/appointments/{appointment_id}/confirm-calendar")
