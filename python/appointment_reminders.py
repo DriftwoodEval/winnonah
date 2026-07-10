@@ -17,6 +17,7 @@ from pymysql.cursors import DictCursor
 from utils.constants import (
     TABLE_APPOINTMENT,
     TABLE_APPOINTMENT_REMINDER_LOGS,
+    TABLE_APPOINTMENT_REMINDER_REPLIES,
     TABLE_APPOINTMENT_REMINDER_SETTINGS,
     TABLE_APPOINTMENT_REMINDER_TEMPLATES,
     TABLE_CLIENT,
@@ -716,10 +717,28 @@ async def handle_incoming_reply(
                 f"Confirmation received from {phone_number} ({context['fullName']}) for appt {context['appointment_id']} on {appt_date}: {incoming_text!r}."
             )
 
+            confirmation_reply_text = None
             if context["confirmationReply"]:
-                message = format_message(context["confirmationReply"], context)
-                await send_sms(phone_number, message)
+                confirmation_reply_text = format_message(
+                    context["confirmationReply"], context
+                )
+                await send_sms(phone_number, confirmation_reply_text)
                 logger.info(f"Sent confirmation reply to {phone_number}.")
+
+            cursor.execute(
+                f"INSERT INTO {TABLE_APPOINTMENT_REMINDER_REPLIES}"
+                "(appointmentId, clientId, incomingText, isConfirmation, confirmationReplyText, openphoneMessageId, receivedAt) "
+                "VALUES (%s, %s, %s, %s, %s, %s, %s)",
+                (
+                    context["appointment_id"],
+                    context["clientId"],
+                    incoming_text,
+                    True,
+                    confirmation_reply_text,
+                    message_id,
+                    ts,
+                ),
+            )
 
             cursor.execute(
                 f"UPDATE {TABLE_APPOINTMENT} SET confirmedAt = NOW() WHERE id = %s",
@@ -780,6 +799,22 @@ async def handle_incoming_reply(
             logger.info(
                 f"Non-confirmation reply from {phone_number} ({context['fullName']}) for appt {context['appointment_id']} on {appt_date}: {incoming_text!r}."
             )
+
+            cursor.execute(
+                f"INSERT INTO {TABLE_APPOINTMENT_REMINDER_REPLIES}"
+                "(appointmentId, clientId, incomingText, isConfirmation, confirmationReplyText, openphoneMessageId, receivedAt) "
+                "VALUES (%s, %s, %s, %s, %s, %s, %s)",
+                (
+                    context["appointment_id"],
+                    context["clientId"],
+                    incoming_text,
+                    False,
+                    None,
+                    message_id,
+                    ts,
+                ),
+            )
+
             event_id = context.get("calendarEventId")
             if event_id:
                 try:

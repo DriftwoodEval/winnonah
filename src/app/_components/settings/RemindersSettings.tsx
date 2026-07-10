@@ -42,6 +42,13 @@ export default function ReminderSettings() {
 		limit: 50,
 		offset: 0,
 	});
+	const { data: replyLogs } = api.reminders.getReplyLogs.useQuery({
+		limit: 50,
+		offset: 0,
+	});
+
+	const confirmationReplies = replyLogs?.filter((r) => r.isConfirmation);
+	const nonConfirmationReplies = replyLogs?.filter((r) => !r.isConfirmation);
 
 	const updateSettings = api.reminders.updateSettings.useMutation({
 		onSuccess: () => {
@@ -272,6 +279,130 @@ export default function ReminderSettings() {
 										</TableCell>
 										<TableCell className="text-xs">
 											{log.templateName}
+										</TableCell>
+									</TableRow>
+								))}
+							</TableBody>
+						</Table>
+					)}
+				</CardContent>
+			</Card>
+
+			<Card>
+				<CardHeader>
+					<CardTitle>Confirmation Replies</CardTitle>
+					<CardDescription>
+						The 50 most recent replies recognized as confirmations, and the
+						message sent back.
+					</CardDescription>
+				</CardHeader>
+				<CardContent>
+					{!confirmationReplies?.length ? (
+						<p className="text-muted-foreground text-sm">
+							No confirmation replies yet.
+						</p>
+					) : (
+						<Table>
+							<TableHeader>
+								<TableRow>
+									<TableHead>Received</TableHead>
+									<TableHead>Client</TableHead>
+									<TableHead>Appointment</TableHead>
+									<TableHead>Reply</TableHead>
+									<TableHead>Sent Back</TableHead>
+								</TableRow>
+							</TableHeader>
+							<TableBody>
+								{confirmationReplies.map((reply) => (
+									<TableRow key={reply.id}>
+										<TableCell
+											className="whitespace-nowrap text-muted-foreground text-xs"
+											title={format(reply.receivedAt, "PPpp")}
+										>
+											{formatDistanceToNow(reply.receivedAt, {
+												addSuffix: true,
+											})}
+										</TableCell>
+										<TableCell>
+											<Link
+												className="hover:underline"
+												href={`/clients/${reply.clientHash}`}
+											>
+												{reply.clientFirstName} {reply.clientLastName}
+											</Link>
+										</TableCell>
+										<TableCell className="whitespace-nowrap text-xs">
+											{format(
+												getLocalTimeFromUTCDate(reply.appointmentStart) ??
+													reply.appointmentStart,
+												"MMM d, yyyy p",
+											)}
+										</TableCell>
+										<TableCell className="text-xs">
+											{reply.incomingText}
+										</TableCell>
+										<TableCell className="text-muted-foreground text-xs">
+											{reply.confirmationReplyText ?? "—"}
+										</TableCell>
+									</TableRow>
+								))}
+							</TableBody>
+						</Table>
+					)}
+				</CardContent>
+			</Card>
+
+			<Card>
+				<CardHeader>
+					<CardTitle>Non-Confirmation Replies</CardTitle>
+					<CardDescription>
+						The 50 most recent replies that were not recognized as
+						confirmations.
+					</CardDescription>
+				</CardHeader>
+				<CardContent>
+					{!nonConfirmationReplies?.length ? (
+						<p className="text-muted-foreground text-sm">
+							No non-confirmation replies yet.
+						</p>
+					) : (
+						<Table>
+							<TableHeader>
+								<TableRow>
+									<TableHead>Received</TableHead>
+									<TableHead>Client</TableHead>
+									<TableHead>Appointment</TableHead>
+									<TableHead>Reply</TableHead>
+								</TableRow>
+							</TableHeader>
+							<TableBody>
+								{nonConfirmationReplies.map((reply) => (
+									<TableRow key={reply.id}>
+										<TableCell
+											className="whitespace-nowrap text-muted-foreground text-xs"
+											title={format(reply.receivedAt, "PPpp")}
+										>
+											{formatDistanceToNow(reply.receivedAt, {
+												addSuffix: true,
+											})}
+										</TableCell>
+										<TableCell>
+											<Link
+												className="hover:underline"
+												href={`/clients/${reply.clientHash}`}
+											>
+												{reply.clientFirstName} {reply.clientLastName}
+											</Link>
+										</TableCell>
+										<TableCell className="whitespace-nowrap text-xs">
+											{format(
+												getLocalTimeFromUTCDate(reply.appointmentStart) ??
+													reply.appointmentStart,
+												"MMM d, yyyy p",
+											)}
+										</TableCell>
+										<TableCell className="text-xs">
+											{reply.incomingText}
 										</TableCell>
 									</TableRow>
 								))}

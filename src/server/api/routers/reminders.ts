@@ -107,4 +107,36 @@ export const reminderRouter = createTRPCRouter({
 				.limit(input.limit)
 				.offset(input.offset);
 		}),
+
+	getReplyLogs: protectedProcedure
+		.input(
+			z.object({
+				limit: z.number().default(50),
+				offset: z.number().default(0),
+			}),
+		)
+		.query(async ({ ctx, input }) => {
+			return ctx.db
+				.select({
+					id: reminderReplies.id,
+					receivedAt: reminderReplies.receivedAt,
+					clientFirstName: clients.firstName,
+					clientLastName: clients.lastName,
+					clientHash: clients.hash,
+					clientId: reminderReplies.clientId,
+					appointmentStart: appointments.startTime,
+					incomingText: reminderReplies.incomingText,
+					isConfirmation: reminderReplies.isConfirmation,
+					confirmationReplyText: reminderReplies.confirmationReplyText,
+				})
+				.from(reminderReplies)
+				.innerJoin(clients, eq(reminderReplies.clientId, clients.id))
+				.innerJoin(
+					appointments,
+					eq(reminderReplies.appointmentId, appointments.id),
+				)
+				.orderBy(desc(reminderReplies.receivedAt))
+				.limit(input.limit)
+				.offset(input.offset);
+		}),
 });

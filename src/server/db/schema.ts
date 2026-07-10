@@ -1015,6 +1015,23 @@ export const reminderLogs = createTable(
 	],
 );
 
+export const reminderReplies = createTable("reminder_replies", (d) => ({
+	id: d.int().primaryKey().autoincrement().notNull(),
+	clientId: d
+		.int()
+		.notNull()
+		.references(() => clients.id, { onDelete: "cascade" }),
+	appointmentId: d
+		.varchar({ length: 255 })
+		.notNull()
+		.references(() => appointments.id, { onDelete: "cascade" }),
+	incomingText: d.text().notNull(),
+	isConfirmation: d.boolean().notNull(),
+	confirmationReplyText: d.text(),
+	openphoneMessageId: d.varchar({ length: 255 }),
+	receivedAt: d.timestamp().default(sql`CURRENT_TIMESTAMP`).notNull(),
+}));
+
 export const clientInsurancePolicies = createTable(
 	"client_insurance_policy",
 	(d) => ({
