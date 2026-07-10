@@ -1441,6 +1441,36 @@ export const clientRouter = createTRPCRouter({
 					apptCountRows.map((r) => [r.clientId, r.activeCount]),
 				);
 
+				const apptCptRows = await ctx.db
+					.select({
+						clientId: appointments.clientId,
+						cpt: appointments.cpt,
+						cptCount: count(),
+					})
+					.from(appointments)
+					.where(
+						and(
+							inArray(appointments.clientId, clientIds),
+							eq(appointments.cancelled, false),
+							eq(appointments.placeholder, false),
+						),
+					)
+					.groupBy(appointments.clientId, appointments.cpt);
+
+				const count96136ByClient = new Map<number, number>();
+				const has9613637ByClient = new Set<number>();
+				const count96130ByClient = new Map<number, number>();
+				for (const row of apptCptRows) {
+					if (row.cpt === "96136") {
+						count96136ByClient.set(row.clientId, row.cptCount);
+						has9613637ByClient.add(row.clientId);
+					} else if (row.cpt === "96137") {
+						has9613637ByClient.add(row.clientId);
+					} else if (row.cpt === "96130") {
+						count96130ByClient.set(row.clientId, row.cptCount);
+					}
+				}
+
 				const result: ClientWithIssueInfo[] = [];
 				for (const client of relevantClients) {
 					if (!client.primaryInsurance) continue;
@@ -1476,12 +1506,18 @@ export const clientRouter = createTRPCRouter({
 					if (expectedCount === 0) continue;
 
 					const actualCount = apptCountMap.get(client.id) ?? 0;
-					if (actualCount < expectedCount) {
-						result.push({
-							...client,
-							additionalInfo: `(${actualCount} of ${expectedCount} appts)`,
-						});
-					}
+					if (actualCount >= expectedCount) continue;
+
+					const has96130 = (count96130ByClient.get(client.id) ?? 0) > 0;
+					const hasExactlyOne96136 = count96136ByClient.get(client.id) === 1;
+					const has9613637WithoutReview =
+						has9613637ByClient.has(client.id) && !has96130;
+					if (!hasExactlyOne96136 && !has9613637WithoutReview) continue;
+
+					result.push({
+						...client,
+						additionalInfo: `(${actualCount} of ${expectedCount} appts)`,
+					});
 				}
 
 				return result;
