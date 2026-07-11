@@ -1,5 +1,6 @@
 "use client";
 import { MergePreviewDialog } from "@components/clients/MergePreviewDialog";
+import { Badge } from "@ui/badge";
 import { Button } from "@ui/button";
 import { ScrollArea } from "@ui/scroll-area";
 import { Separator } from "@ui/separator";
@@ -808,6 +809,119 @@ export const ClientsSharingQuestionnaires = ({
 	);
 };
 
+export const PartialBatteryList = ({
+	issues,
+	fill,
+}: {
+	issues: RouterOutputs["questionnaires"]["getPartialBatteries"];
+	fill?: boolean;
+}) => {
+	const grouped = issues.reduce<
+		Map<
+			number,
+			{
+				client: (typeof issues)[number];
+				batteries: { daeval: "DA" | "EVAL"; missingTypes: string[] }[];
+			}
+		>
+	>((acc, issue) => {
+		const existing = acc.get(issue.id);
+		if (existing) {
+			existing.batteries.push({
+				daeval: issue.daeval,
+				missingTypes: issue.missingTypes,
+			});
+		} else {
+			acc.set(issue.id, {
+				client: issue,
+				batteries: [{ daeval: issue.daeval, missingTypes: issue.missingTypes }],
+			});
+		}
+		return acc;
+	}, new Map());
+
+	const clients = [...grouped.values()].map(({ client, batteries }) => {
+		const da = batteries.find((b) => b.daeval === "DA");
+		const evaluation = batteries.find((b) => b.daeval === "EVAL");
+
+		const lines =
+			da && evaluation
+				? [
+						{
+							label: "DA+EVAL",
+							missingTypes: [
+								...new Set([...da.missingTypes, ...evaluation.missingTypes]),
+							],
+						},
+					]
+				: batteries.map((b) => ({
+						label: b.daeval,
+						missingTypes: b.missingTypes,
+					}));
+
+		return { client, lines };
+	});
+
+	return (
+		<div className={fill ? "flex h-full w-full" : "flex max-h-80"}>
+			<ScrollArea
+				className={`${fill ? "h-full w-full" : "w-md"} rounded-md border bg-card text-card-foreground shadow-sm`}
+				type="auto"
+			>
+				<div className="flex flex-col p-4">
+					<h1 className="font-bold text-lg leading-none">
+						Partial Questionnaire Batteries{" "}
+						<span className="font-medium text-muted-foreground text-sm">
+							({clients.length} client{clients.length !== 1 ? "s" : ""})
+						</span>
+					</h1>
+					<p className="mb-4 text-muted-foreground text-xs">
+						Clients with some but not all needed questionnaires sent.
+					</p>
+					<div className="flex flex-col gap-4">
+						{clients.map(({ client, lines }) => (
+							<div className="rounded-md border bg-muted p-3" key={client.id}>
+								<div className="flex flex-wrap items-baseline gap-2">
+									<Link href={`/clients/${client.hash}`}>
+										<span className="font-bold hover:underline">
+											{client.fullName}
+										</span>
+									</Link>
+									{client.language && client.language !== "English" && (
+										<span className="text-muted-foreground text-xs">
+											({client.language})
+										</span>
+									)}
+								</div>
+								{(client.hasDocsNotSigned || client.hasPortalNotOpened) && (
+									<div className="mt-1 flex flex-wrap gap-1">
+										{client.hasDocsNotSigned && (
+											<Badge variant="destructive">Docs not signed</Badge>
+										)}
+										{client.hasPortalNotOpened && (
+											<Badge variant="destructive">Portal not opened</Badge>
+										)}
+									</div>
+								)}
+								<div className="mt-1 space-y-1">
+									{lines.map((line) => (
+										<div className="text-sm" key={line.label}>
+											<span className="font-medium">{line.label}:</span>{" "}
+											<span className="text-muted-foreground">
+												missing {line.missingTypes.join(", ")}
+											</span>
+										</div>
+									))}
+								</div>
+							</div>
+						))}
+					</div>
+				</div>
+			</ScrollArea>
+		</div>
+	);
+};
+
 type GuardedIssueProps = {
 	permission: PermissionId;
 	isLoading: boolean;
@@ -886,6 +1000,8 @@ export function IssuesList() {
 		api.questionnaires.getDuplicateLinks.useQuery();
 	const { data: justAddedQuestionnaires, isLoading: isLoadingJustAdded } =
 		api.questionnaires.getJustAdded.useQuery();
+	const { data: partialBatteries, isLoading: isLoadingPartialBatteries } =
+		api.questionnaires.getPartialBatteries.useQuery();
 	const { data: punchlistIssues, isLoading: isLoadingPunchlistIssues } =
 		api.google.verifyPunchClients.useQuery();
 
@@ -1265,6 +1381,15 @@ export function IssuesList() {
 			>
 				{duplicateNames && duplicateNames.length > 0 && (
 					<DuplicateNamesList groups={duplicateNames} />
+				)}
+			</GuardedIssue>
+
+			<GuardedIssue
+				isLoading={isLoadingPartialBatteries}
+				permission="issues:partial-battery"
+			>
+				{partialBatteries && partialBatteries.length > 0 && (
+					<PartialBatteryList issues={partialBatteries} />
 				)}
 			</GuardedIssue>
 		</div>

@@ -254,6 +254,10 @@ export const PERMISSIONS = {
 						id: "issues:duplicate-names",
 						title: "Duplicate Client Names",
 					},
+					{
+						id: "issues:partial-battery",
+						title: "Partial Questionnaire Battery",
+					},
 				],
 			},
 		},

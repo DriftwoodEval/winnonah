@@ -79,6 +79,9 @@ export function IssuesAlert() {
 	const { data: justAddedQuestionnaires } =
 		api.questionnaires.getJustAdded.useQuery(undefined, queryOptions);
 
+	const { data: partialBatteries } =
+		api.questionnaires.getPartialBatteries.useQuery(undefined, queryOptions);
+
 	const { data: punchlistIssues } = api.google.verifyPunchClients.useQuery();
 
 	const clientsWithDuplicateLinks =
@@ -163,6 +166,10 @@ export function IssuesAlert() {
 		countIf(
 			can("issues:duplicate-names"),
 			duplicateNames?.reduce((sum, g) => sum + g.pairs.length, 0) ?? 0,
+		) +
+		countIf(
+			can("issues:partial-battery"),
+			new Set(partialBatteries?.map((b) => b.id)).size,
 		);
 
 	if (errorsLength === 0) {

@@ -12,13 +12,19 @@ import {
 	gt,
 	inArray,
 	isNotNull,
+	lt,
 	not,
 	or,
+	sql,
 } from "drizzle-orm";
 import { z } from "zod";
-import { invalidateCache } from "~/lib/cache";
+import { fetchWithCache, invalidateCache } from "~/lib/cache";
 import { QUESTIONNAIRE_STATUSES } from "~/lib/constants";
-import { updatePunchData } from "~/lib/google";
+import {
+	CACHE_KEY_PUNCHLIST,
+	getPunchData,
+	updatePunchData,
+} from "~/lib/google";
 import type { InsertingQuestionnaire } from "~/lib/models";
 import { CACHE_KEY_MISSING_APPOINTMENTS } from "~/server/api/routers/client";
 import {
@@ -959,6 +965,152 @@ export const questionnaireRouter = createTRPCRouter({
 			.where(eq(questionnaires.status, "JUST_ADDED"));
 
 		return clientsWithJustAdded.map((row) => row.client);
+	}),
+
+	getPartialBatteries: protectedProcedure.query(async ({ ctx }) => {
+		if (!ctx.session.user.accessToken || !ctx.session.user.refreshToken) {
+			throw new Error("No access token or refresh token");
+		}
+
+		const isNoteOnly = eq(sql`LENGTH(${clients.id})`, 5);
+
+		const activeClients = await ctx.db.query.clients.findMany({
+			where: and(
+				eq(clients.status, true),
+				eq(clients.pause, false),
+				eq(clients.autismStop, false),
+				not(isNoteOnly),
+			),
+		});
+
+		const punchData = await fetchWithCache(
+			ctx,
+			CACHE_KEY_PUNCHLIST,
+			() => getPunchData(ctx.session),
+			60,
+		);
+
+		const punchByClientId = new Map(
+			punchData.map((row) => [parseInt(row["Client ID"] ?? "", 10), row]),
+		);
+
+		const allRules = await ctx.db.query.questionnaireRules.findMany();
+
+		const results: (typeof clients.$inferSelect & {
+			daeval: "DA" | "EVAL";
+			missingTypes: string[];
+			sentTypes: string[];
+			hasDocsNotSigned: boolean;
+			hasPortalNotOpened: boolean;
+		})[] = [];
+
+		for (const client of activeClients) {
+			const punchInfo = punchByClientId.get(client.id);
+			const daNeeded = punchInfo?.["DA Qs Needed"] === "TRUE";
+			const evalNeeded = punchInfo?.["EVAL Qs Needed"] === "TRUE";
+
+			if (!daNeeded && !evalNeeded) continue;
+
+			const ageInYears = await getQuestionnaireEligibilityAge(
+				ctx.db,
+				client.id,
+				client.dob,
+			);
+
+			const ageFiltered = allRules.filter(
+				(r) => r.minAge <= ageInYears && r.maxAge >= ageInYears,
+			);
+
+			const asdAdhd = client.asdAdhd;
+			const wantedDiagnoses = new Set<string | null>();
+			if (!asdAdhd) {
+				wantedDiagnoses.add("ASD");
+				wantedDiagnoses.add("ADHD");
+			} else {
+				if (asdAdhd.includes("ASD")) wantedDiagnoses.add("ASD");
+				if (asdAdhd.includes("ADHD")) wantedDiagnoses.add("ADHD");
+			}
+
+			const applicableRules = ageFiltered.filter((r) => {
+				if (r.daeval === "DAEVAL") return r.diagnosis === null;
+				return wantedDiagnoses.has(r.diagnosis);
+			});
+
+			const daQTypes = new Set<string>();
+			const evalQTypes = new Set<string>();
+			for (const rule of applicableRules) {
+				const qs = rule.questionnaires ?? [];
+				if (rule.daeval === "DA") {
+					for (const q of qs) daQTypes.add(q);
+				}
+				if (rule.daeval === "EVAL") {
+					for (const q of qs) evalQTypes.add(q);
+				}
+				// DAEVAL rules only apply to clients getting a combined DA+EVAL
+				// battery; don't pull them into a single DA-only or EVAL-only need.
+				if (rule.daeval === "DAEVAL" && daNeeded && evalNeeded) {
+					for (const q of qs) {
+						daQTypes.add(q);
+						evalQTypes.add(q);
+					}
+				}
+			}
+
+			if (daQTypes.size === 0 && evalQTypes.size === 0) continue;
+
+			const clientQs = await ctx.db.query.questionnaires.findMany({
+				where: eq(questionnaires.clientId, client.id),
+			});
+
+			const activeSentTypes = new Set(
+				clientQs
+					.filter((q) => q.status !== "ARCHIVED")
+					.map((q) => q.questionnaireType),
+			);
+
+			const batteriesToCheck = [
+				["DA", daQTypes, daNeeded],
+				["EVAL", evalQTypes, evalNeeded],
+			] as const;
+
+			for (const [daeval, requiredTypes, needed] of batteriesToCheck) {
+				if (!needed || requiredTypes.size === 0) continue;
+
+				const sentTypes = [...requiredTypes].filter((t) =>
+					activeSentTypes.has(t),
+				);
+				const missingTypes = [...requiredTypes].filter(
+					(t) => !activeSentTypes.has(t),
+				);
+
+				if (sentTypes.length > 0 && missingTypes.length > 0) {
+					const clientFailures = await ctx.db.query.failures.findMany({
+						where: and(
+							eq(failures.clientId, client.id),
+							lt(failures.reminded, 100),
+						),
+					});
+
+					const hasDocsNotSigned = clientFailures.some(
+						(f) => f.reason === "docs not signed",
+					);
+					const hasPortalNotOpened = clientFailures.some(
+						(f) => f.reason === "portal not opened",
+					);
+
+					results.push({
+						...client,
+						daeval,
+						missingTypes,
+						sentTypes,
+						hasDocsNotSigned,
+						hasPortalNotOpened,
+					});
+				}
+			}
+		}
+
+		return results;
 	}),
 
 	getLatestScreenshot: protectedProcedure
