@@ -7,6 +7,7 @@ import type {
 	invitations,
 	offices,
 	questionnaires,
+	roles,
 	schoolDistricts,
 	users,
 	zipCodes,
@@ -39,6 +40,7 @@ export interface User extends UserSchema {
 	evaluator?: typeof evaluators.$inferSelect | null;
 }
 export type Invitation = typeof invitations.$inferSelect;
+export type Role = typeof roles.$inferSelect;
 
 export type Office = typeof offices.$inferSelect;
 export type SchoolDistrict = typeof schoolDistricts.$inferSelect;

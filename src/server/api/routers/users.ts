@@ -49,6 +49,7 @@ export const userRouter = createTRPCRouter({
 			z.object({
 				userId: z.string(),
 				permissions: permissionsSchema.optional(),
+				roleId: z.number().nullable().optional(),
 			}),
 		)
 		.mutation(async ({ ctx, input }) => {
@@ -56,10 +57,14 @@ export const userRouter = createTRPCRouter({
 
 			ctx.logger.info(input, "Updating user");
 
-			const updateData: { permissions?: PermissionsObject } = {};
+			const updateData: {
+				permissions?: PermissionsObject;
+				roleId?: number | null;
+			} = {};
 
 			if (input.permissions !== undefined)
 				updateData.permissions = input.permissions;
+			if (input.roleId !== undefined) updateData.roleId = input.roleId;
 
 			if (Object.keys(updateData).length === 0) {
 				throw new TRPCError({
@@ -105,16 +110,22 @@ export const userRouter = createTRPCRouter({
 
 	createInvitation: protectedProcedure
 		.input(
-			z.object({ email: z.string().email(), permissions: permissionsSchema }),
+			z.object({
+				email: z.string().email(),
+				permissions: permissionsSchema,
+				roleId: z.number().optional(),
+			}),
 		)
 		.mutation(async ({ ctx, input }) => {
 			assertPermission(ctx.session.user, "settings:users:invite");
 
 			ctx.logger.info(input, "Creating invitation");
 
-			await ctx.db
-				.insert(invitations)
-				.values({ email: input.email, permissions: input.permissions });
+			await ctx.db.insert(invitations).values({
+				email: input.email,
+				permissions: input.permissions,
+				roleId: input.roleId,
+			});
 
 			try {
 				const cookieHeader = ctx.headers.get("cookie") ?? "";

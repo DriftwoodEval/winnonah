@@ -6,6 +6,7 @@ import InsurancesTable from "@components/settings/InsurancesTable";
 import InvitesTable from "@components/settings/InvitesTable";
 import PeopleTable from "@components/settings/PeopleTable";
 import QuestionnaireRulesTable from "@components/settings/QuestionnaireRulesTable";
+import RolesTable from "@components/settings/RolesTable";
 import WorkSummaryDefaultsSection from "@components/settings/WorkSummaryDefaultsSection";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@ui/tabs";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
@@ -47,7 +48,7 @@ export function SettingsTabs() {
 		<div className="mx-10 my-10 flex w-full flex-col gap-6">
 			<h1 className="font-bold text-2xl">Settings</h1>
 			<Tabs onValueChange={handleTabChange} value={activeTab}>
-				<div className="overflow-x-auto">
+				<div className="w-fit max-w-full overflow-x-auto overflow-y-visible overscroll-x-contain">
 					<TabsList>
 						<TabsTrigger value="people">People</TabsTrigger>
 						<TabsTrigger value="clinical">Clinical</TabsTrigger>
@@ -62,6 +63,7 @@ export function SettingsTabs() {
 					<div className="flex flex-col gap-8">
 						<PeopleTable />
 						<InvitesTable />
+						<RolesTable />
 						<WorkSummaryDefaultsSection />
 						<ReportQueueSettings />
 					</div>

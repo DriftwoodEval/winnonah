@@ -160,6 +160,7 @@ export const PERMISSIONS = {
 				permissions: [
 					{ id: "settings:users:edit", title: "Edit Users" },
 					{ id: "settings:users:invite", title: "Invite Users" },
+					{ id: "settings:roles:edit", title: "Manage Roles" },
 					{ id: "settings:evaluators", title: "Manage Evaluators" },
 					{ id: "settings:insurances", title: "Manage Insurances" },
 					{

@@ -794,6 +794,23 @@ export const clientsEvaluatorsRelations = relations(
 	}),
 );
 
+export const roles = createTable("role", (d) => ({
+	id: d.int().notNull().autoincrement().primaryKey(),
+	name: d.varchar({ length: 255 }).notNull().unique(),
+	permissions: d.json("permissions").$type<PermissionsObject>().notNull(),
+	isDefault: d.boolean("is_default").notNull().default(false),
+	createdAt: d
+		.timestamp("created_at")
+		.default(sql`CURRENT_TIMESTAMP`)
+		.notNull(),
+	updatedAt: d.timestamp("updated_at").defaultNow().onUpdateNow(),
+}));
+
+export const rolesRelations = relations(roles, ({ many }) => ({
+	users: many(users),
+	invitations: many(invitations),
+}));
+
 export const users = createTable("user", (d) => ({
 	id: d
 		.varchar({ length: 255 })
@@ -811,6 +828,7 @@ export const users = createTable("user", (d) => ({
 	image: d.varchar({ length: 255 }),
 	savedPlaces: d.json(),
 	permissions: d.json("permissions").$type<PermissionsObject>(),
+	roleId: d.int("role_id").references(() => roles.id),
 	archived: d.boolean("archived").notNull().default(false),
 	claimedReportFolder: d
 		.json("claimed_report_folder")
@@ -830,6 +848,10 @@ export const usersRelations = relations(users, ({ many, one }) => ({
 	evaluator: one(evaluators, {
 		fields: [users.email],
 		references: [evaluators.email],
+	}),
+	role: one(roles, {
+		fields: [users.roleId],
+		references: [roles.id],
 	}),
 }));
 
@@ -868,6 +890,7 @@ export const invitations = createTable("invitation", (d) => ({
 	email: d.varchar({ length: 255 }).notNull().unique(),
 	savedPlaces: d.json(),
 	permissions: d.json("permissions").$type<PermissionsObject>(),
+	roleId: d.int("role_id").references(() => roles.id),
 	status: d
 		.mysqlEnum("status", ["pending", "accepted"])
 		.notNull()
@@ -877,6 +900,13 @@ export const invitations = createTable("invitation", (d) => ({
 		.timestamp("created_at")
 		.default(sql`CURRENT_TIMESTAMP`)
 		.notNull(),
+}));
+
+export const invitationsRelations = relations(invitations, ({ one }) => ({
+	role: one(roles, {
+		fields: [invitations.roleId],
+		references: [roles.id],
+	}),
 }));
 
 export const sessions = createTable(

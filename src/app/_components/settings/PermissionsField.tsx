@@ -6,33 +6,26 @@ import {
 	AccordionItem,
 	AccordionTrigger,
 } from "@ui/accordion";
+import { Button } from "@ui/button";
 import { Checkbox } from "@ui/checkbox";
 import { FormLabel } from "@ui/form";
-import {
-	Select,
-	SelectContent,
-	SelectItem,
-	SelectTrigger,
-	SelectValue,
-} from "@ui/select";
 import {
 	Tooltip,
 	TooltipContent,
 	TooltipProvider,
 	TooltipTrigger,
 } from "@ui/tooltip";
+import { X } from "lucide-react";
 import { PERMISSIONS } from "~/lib/constants";
-import {
-	type PermissionId,
-	type PermissionsObject,
-	permissionPresets,
-} from "~/lib/types";
+import type { PermissionId, PermissionsObject } from "~/lib/types";
 
 interface PermissionsFieldProps {
 	value: PermissionsObject;
 	onChange: (permissions: PermissionsObject) => void;
 	disabled?: boolean;
 	isPermissionDisabled?: (id: string) => boolean;
+	/** The permissions inherited from an assigned role, if any. `value` acts as overrides on top of these. */
+	basePermissions?: PermissionsObject;
 }
 
 export function PermissionsField({
@@ -40,7 +33,50 @@ export function PermissionsField({
 	onChange,
 	disabled = false,
 	isPermissionDisabled = () => false,
+	basePermissions = {},
 }: PermissionsFieldProps) {
+	const effective: PermissionsObject = { ...basePermissions, ...value };
+	const showOverrides = Object.keys(basePermissions).length > 0;
+
+	const isOverridden = (id: PermissionId) =>
+		value?.[id] !== undefined && !!value[id] !== !!basePermissions?.[id];
+
+	/** Writes permissions, dropping any explicit value that just repeats the role default so `value` only ever holds real overrides. */
+	const commit = (next: PermissionsObject) => {
+		const cleaned = { ...next };
+		for (const key of Object.keys(cleaned) as PermissionId[]) {
+			if (!!cleaned[key] === !!basePermissions?.[key]) {
+				delete cleaned[key];
+			}
+		}
+		onChange(cleaned);
+	};
+
+	const resetOverride = (id: PermissionId) => {
+		const next = { ...value };
+		delete next[id];
+		onChange(next);
+	};
+
+	const subgroupPermissionIds = (
+		subgroupPermissions: readonly { id: string }[],
+	): PermissionId[] => subgroupPermissions.map((p) => p.id as PermissionId);
+
+	const subgroupHasOverride = (
+		subgroupPermissions: readonly { id: string }[],
+	) =>
+		subgroupPermissionIds(subgroupPermissions).some((id) => isOverridden(id));
+
+	const resetSubgroupOverrides = (
+		subgroupPermissions: readonly { id: string }[],
+	) => {
+		const next = { ...value };
+		for (const id of subgroupPermissionIds(subgroupPermissions)) {
+			delete next[id];
+		}
+		onChange(next);
+	};
+
 	const getGroupState = (
 		groupPermissions: readonly {
 			id: string;
@@ -49,39 +85,17 @@ export function PermissionsField({
 		}[],
 	) => {
 		const topLevel = groupPermissions.filter((p) => !p.parent);
-		const allChecked = topLevel.every((p) => value?.[p.id as PermissionId]);
-		const anyChecked = topLevel.some((p) => value?.[p.id as PermissionId]);
+		const allChecked = topLevel.every((p) => effective?.[p.id as PermissionId]);
+		const anyChecked = topLevel.some((p) => effective?.[p.id as PermissionId]);
 		if (allChecked) return true;
 		if (anyChecked) return "indeterminate";
 		return false;
-	};
-
-	const handlePresetChange = (presetValue: string) => {
-		const preset = permissionPresets.find((p) => p.value === presetValue);
-		if (!preset) return;
-		const next = { ...preset.permissions };
-		for (const id of Object.keys(value) as PermissionId[]) {
-			if (isPermissionDisabled(id)) next[id] = value[id] ?? false;
-		}
-		onChange(next);
 	};
 
 	return (
 		<div className="space-y-3">
 			<div className="flex items-center justify-between border-b pb-2">
 				<span className="font-bold text-lg">Permissions</span>
-				<Select disabled={disabled} onValueChange={handlePresetChange}>
-					<SelectTrigger className="w-auto" size="sm">
-						<SelectValue placeholder="Select a preset..." />
-					</SelectTrigger>
-					<SelectContent>
-						{permissionPresets.map((preset) => (
-							<SelectItem key={preset.value} value={preset.value}>
-								{preset.label}
-							</SelectItem>
-						))}
-					</SelectContent>
-				</Select>
 			</div>
 
 			<Accordion className="rounded-md border" type="multiple">
@@ -114,7 +128,7 @@ export function PermissionsField({
 																	next[p.id as PermissionId] = newChecked;
 																}
 															}
-															onChange(next);
+															commit(next);
 														}}
 													/>
 													<FormLabel
@@ -123,6 +137,21 @@ export function PermissionsField({
 													>
 														{subgroup.title}
 													</FormLabel>
+													{showOverrides &&
+														subgroupHasOverride(subgroup.permissions) && (
+															<Button
+																className="h-6 px-2 font-normal text-xs"
+																disabled={disabled}
+																onClick={() =>
+																	resetSubgroupOverrides(subgroup.permissions)
+																}
+																size="sm"
+																type="button"
+																variant="outline"
+															>
+																Reset to role default
+															</Button>
+														)}
 												</div>
 
 												<div className="ml-8 space-y-2">
@@ -158,7 +187,7 @@ export function PermissionsField({
 																						<TooltipTrigger asChild>
 																							<span className="cursor-not-allowed">
 																								<Checkbox
-																									checked={!!value?.[pid]}
+																									checked={!!effective?.[pid]}
 																									disabled
 																									id={p.id}
 																								/>
@@ -172,7 +201,7 @@ export function PermissionsField({
 																				</TooltipProvider>
 																			) : (
 																				<Checkbox
-																					checked={!!value?.[pid]}
+																					checked={!!effective?.[pid]}
 																					disabled={disabled}
 																					id={p.id}
 																					onCheckedChange={(checked) => {
@@ -186,13 +215,33 @@ export function PermissionsField({
 																									false;
 																							}
 																						}
-																						onChange(next);
+																						commit(next);
 																					}}
 																				/>
 																			)}
 																			<FormLabel htmlFor={p.id}>
 																				{p.title}
 																			</FormLabel>
+																			{showOverrides &&
+																				!locked &&
+																				isOverridden(pid) && (
+																					<Button
+																						className="h-5 gap-1 px-1.5 font-normal text-muted-foreground text-xs"
+																						disabled={disabled}
+																						onClick={() => resetOverride(pid)}
+																						size="sm"
+																						title="Reset to role default"
+																						type="button"
+																						variant="ghost"
+																					>
+																						(role default:{" "}
+																						{basePermissions?.[pid]
+																							? "on"
+																							: "off"}
+																						)
+																						<X className="h-3 w-3" />
+																					</Button>
+																				)}
 																		</div>
 
 																		{subs.length > 0 && (
@@ -209,16 +258,16 @@ export function PermissionsField({
 																						>
 																							<Checkbox
 																								checked={
-																									!!value?.[
+																									!!effective?.[
 																										sub.id as PermissionId
 																									]
 																								}
 																								disabled={
-																									disabled || !value?.[pid]
+																									disabled || !effective?.[pid]
 																								}
 																								id={sub.id}
 																								onCheckedChange={(checked) =>
-																									onChange({
+																									commit({
 																										...value,
 																										[sub.id as PermissionId]:
 																											!!checked,
@@ -231,6 +280,34 @@ export function PermissionsField({
 																							>
 																								{sub.title}
 																							</FormLabel>
+																							{showOverrides &&
+																								!locked &&
+																								isOverridden(
+																									sub.id as PermissionId,
+																								) && (
+																									<Button
+																										className="h-5 gap-1 px-1.5 font-normal text-muted-foreground text-xs"
+																										disabled={disabled}
+																										onClick={() =>
+																											resetOverride(
+																												sub.id as PermissionId,
+																											)
+																										}
+																										size="sm"
+																										title="Reset to role default"
+																										type="button"
+																										variant="ghost"
+																									>
+																										(role default:{" "}
+																										{basePermissions?.[
+																											sub.id as PermissionId
+																										]
+																											? "on"
+																											: "off"}
+																										)
+																										<X className="h-3 w-3" />
+																									</Button>
+																								)}
 																						</div>
 																					),
 																				)}

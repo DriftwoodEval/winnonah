@@ -3,13 +3,14 @@ import { and, eq } from "drizzle-orm/sql";
 import type { DefaultSession, NextAuthConfig } from "next-auth";
 import GoogleProvider from "next-auth/providers/google";
 import { env } from "~/env";
-import { type PermissionsObject, permissionPresets } from "~/lib/types";
+import type { PermissionsObject } from "~/lib/types";
 
 import { db } from "~/server/db";
 import {
 	accounts,
 	evaluators,
 	invitations,
+	roles,
 	sessions,
 	users,
 	verificationTokens,
@@ -29,6 +30,7 @@ declare module "next-auth" {
 			accessToken?: string;
 			refreshToken?: string;
 			permissions: PermissionsObject;
+			roleId?: number | null;
 			isEvaluator?: boolean;
 			clientFilters?: string;
 			archived?: boolean | null;
@@ -39,6 +41,7 @@ declare module "next-auth" {
 
 	interface User {
 		permissions: PermissionsObject;
+		roleId?: number | null;
 		savedPlaces: string;
 		archived?: boolean | null;
 		claimedReportFolder?: { name: string; id: string }[] | null;
@@ -130,9 +133,14 @@ export const authConfig = {
 				),
 			});
 
+			const defaultRole = await db.query.roles.findFirst({
+				where: eq(roles.isDefault, true),
+			});
+
 			if (invitation) {
 				user.permissions = invitation.permissions as PermissionsObject;
 				user.savedPlaces = invitation.savedPlaces as string;
+				user.roleId = invitation.roleId ?? defaultRole?.id ?? null;
 
 				await db
 					.update(invitations)
@@ -142,12 +150,8 @@ export const authConfig = {
 					})
 					.where(eq(invitations.id, invitation.id));
 			} else {
-				const preset = permissionPresets.find((p) => p.value === "user");
-				if (preset) {
-					user.permissions = preset.permissions as PermissionsObject;
-				} else {
-					user.permissions = {};
-				}
+				user.permissions = {};
+				user.roleId = defaultRole?.id ?? null;
 			}
 
 			return true;
@@ -170,7 +174,20 @@ export const authConfig = {
 
 			if (user) {
 				session.user.id = user.id;
-				session.user.permissions = user.permissions;
+
+				let effectivePermissions =
+					(user.permissions as PermissionsObject) ?? {};
+				if (user.roleId) {
+					const role = await db.query.roles.findFirst({
+						where: eq(roles.id, user.roleId),
+					});
+					if (role) {
+						effectivePermissions = { ...role.permissions, ...user.permissions };
+					}
+				}
+				session.user.permissions = effectivePermissions;
+				session.user.roleId = user.roleId;
+
 				session.user.archived = user.archived;
 				session.user.claimedReportFolder = user.claimedReportFolder;
 				session.user.maxClaimedReports = user.maxClaimedReports;

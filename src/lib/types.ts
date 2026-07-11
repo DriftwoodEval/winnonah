@@ -19,64 +19,11 @@ export type PermissionId = {
 export type PermissionsObject = Partial<Record<PermissionId, boolean>>;
 export const permissionsSchema = z.record(z.string(), z.boolean().optional());
 
-const allPermissionIds = Object.values(PERMISSIONS).flatMap((category) =>
+export const allPermissionIds = Object.values(PERMISSIONS).flatMap((category) =>
 	Object.values(category.subgroups).flatMap((subgroup) =>
 		subgroup.permissions.map((p: { id: string }) => p.id),
 	),
 ) as PermissionId[];
-
-const basePermissions = Object.fromEntries(
-	allPermissionIds.map((id) => [id, false]),
-) as Record<PermissionId, boolean>;
-
-const getPermissionsForPreset = (
-	ids: PermissionId[],
-): Record<PermissionId, boolean> => {
-	const perms = { ...basePermissions };
-	for (const id of ids) {
-		perms[id] = true;
-	}
-	return perms;
-};
-
-export const permissionPresets = [
-	{
-		value: "user",
-		label: "User",
-		permissions: getPermissionsForPreset(["clients:autismstop:enable"]),
-	},
-	{
-		value: "admin",
-		label: "Admin",
-		permissions: getPermissionsForPreset([
-			"clients:autismstop:enable",
-			"clients:notes",
-			"clients:priority",
-			"clients:color",
-			"clients:babynet",
-			"clients:ei",
-			"clients:drive",
-			"clients:schooldistrict",
-			"clients:shell",
-			"clients:merge",
-			"clients:download",
-			"clients:asdadhd",
-			"clients:questionnaires:create",
-			"clients:questionnaires:createexternal",
-			"settings:evaluators",
-			"settings:insurances",
-			"clients:records:needed",
-			"clients:records:babynet",
-		]),
-	},
-	{
-		value: "superadmin",
-		label: "Super Admin",
-		permissions: Object.fromEntries(
-			allPermissionIds.map((id) => [id, true]),
-		) as Record<PermissionId, boolean>,
-	},
-];
 
 export interface GoogleFolder {
 	id: string;

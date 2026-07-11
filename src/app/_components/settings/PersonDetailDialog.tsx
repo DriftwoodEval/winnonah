@@ -23,6 +23,13 @@ import {
 	FormMessage,
 } from "@ui/form";
 import { Input } from "@ui/input";
+import {
+	Select,
+	SelectContent,
+	SelectItem,
+	SelectTrigger,
+	SelectValue,
+} from "@ui/select";
 import { Separator } from "@ui/separator";
 import { Loader2 } from "lucide-react";
 import { useSession } from "next-auth/react";
@@ -66,6 +73,7 @@ export const formatPhoneAsYouType = (value: string): string => {
 
 const accountFormSchema = z.object({
 	permissions: permissionsSchema,
+	roleId: z.number().nullable().optional(),
 	phoneNumber: z
 		.string()
 		.refine((val) => {
@@ -145,6 +153,8 @@ function AccountSection({
 		enabled: canEdit,
 	});
 
+	const { data: allRoles } = api.roles.getAll.useQuery();
+
 	const { mutateAsync: updateArchiveStatus } =
 		api.users.updateUserArchiveStatus.useMutation({
 			onError: (error) => {
@@ -208,6 +218,7 @@ function AccountSection({
 		resolver: zodResolver(accountFormSchema),
 		defaultValues: {
 			permissions: (user.permissions as PermissionsObject) ?? {},
+			roleId: user.roleId ?? null,
 			phoneNumber: user.phoneNumber
 				? formatPhoneAsYouType(user.phoneNumber)
 				: "",
@@ -217,6 +228,8 @@ function AccountSection({
 	});
 
 	const permissions = form.watch("permissions");
+	const roleId = form.watch("roleId");
+	const selectedRole = allRoles?.find((r) => r.id === roleId);
 
 	const isPermissionDisabled = (permissionId: string) =>
 		session?.user?.id === user.id && permissionId === "settings:users:edit";
@@ -231,7 +244,11 @@ function AccountSection({
 				? values.blockedEvaluatorNpis
 				: null;
 		await Promise.all([
-			updateUser({ userId: user.id, permissions: values.permissions }),
+			updateUser({
+				userId: user.id,
+				permissions: values.permissions,
+				roleId: values.roleId ?? null,
+			}),
 			setPhone({ userId: user.id, phoneNumber: phoneValue }),
 			setMaxClaimedReports({
 				userId: user.id,
@@ -248,7 +265,45 @@ function AccountSection({
 			{showHeading && <h4 className="font-semibold text-base">Account</h4>}
 			<Form {...form}>
 				<form className="space-y-6" onSubmit={form.handleSubmit(onSubmit)}>
+					<FormField
+						control={form.control}
+						name="roleId"
+						render={({ field }) => (
+							<FormItem className="max-w-xs">
+								<FormLabel>Role</FormLabel>
+								<Select
+									disabled={!canEdit}
+									onValueChange={(value) =>
+										field.onChange(value === "none" ? null : Number(value))
+									}
+									value={field.value ? String(field.value) : "none"}
+								>
+									<FormControl>
+										<SelectTrigger>
+											<SelectValue placeholder="No role" />
+										</SelectTrigger>
+									</FormControl>
+									<SelectContent>
+										<SelectItem value="none">No role</SelectItem>
+										{allRoles?.map((role) => (
+											<SelectItem key={role.id} value={String(role.id)}>
+												{role.name}
+											</SelectItem>
+										))}
+									</SelectContent>
+								</Select>
+								<FormDescription>
+									Permissions below apply on top of the role's defaults as
+									overrides.
+								</FormDescription>
+							</FormItem>
+						)}
+					/>
+
 					<PermissionsField
+						basePermissions={
+							(selectedRole?.permissions as PermissionsObject) ?? {}
+						}
 						disabled={!canEdit}
 						isPermissionDisabled={isPermissionDisabled}
 						onChange={(p) =>
@@ -697,7 +752,7 @@ export function PersonDetailDialog({
 
 	return (
 		<ResponsiveDialog
-			className="sm:max-w-3xl"
+			className="sm:max-w-4xl"
 			description={person.email}
 			open={open}
 			setOpen={setOpen}

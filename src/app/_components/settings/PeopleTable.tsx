@@ -25,7 +25,7 @@ import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { useCheckPermission } from "~/hooks/use-check-permission";
 import { logger } from "~/lib/logger";
-import type { Evaluator, User } from "~/lib/models";
+import type { Evaluator, Role, User } from "~/lib/models";
 import { api } from "~/trpc/react";
 import { EvaluatorForm } from "./EvaluatorForm";
 import {
@@ -120,6 +120,7 @@ function AddEvaluatorButton() {
 
 interface PeopleListProps {
 	people: MergedPerson[];
+	roles: Role[] | undefined;
 	isLoading: boolean;
 	canEditUsers: boolean;
 	canEditEvaluators: boolean;
@@ -129,12 +130,16 @@ interface PeopleListProps {
 
 function PeopleList({
 	people,
+	roles,
 	isLoading,
 	canEditUsers,
 	canEditEvaluators,
 	canManageDashboard,
 	emptyMessage,
 }: PeopleListProps) {
+	const getRoleName = (roleId: number | null | undefined) =>
+		roleId ? roles?.find((r) => r.id === roleId)?.name : undefined;
+
 	const [selectedPerson, setSelectedPerson] = useState<MergedPerson | null>(
 		null,
 	);
@@ -196,7 +201,7 @@ function PeopleList({
 									<TableCell className="font-medium">
 										<div className="flex flex-col gap-1">
 											{person.name}
-											<div className="flex gap-1">
+											<div className="flex flex-wrap gap-1">
 												{person.user && (
 													<Badge className="w-fit text-xs" variant="outline">
 														User
@@ -205,6 +210,11 @@ function PeopleList({
 												{person.evaluator && (
 													<Badge className="w-fit text-xs" variant="outline">
 														Evaluator
+													</Badge>
+												)}
+												{getRoleName(person.user?.roleId) && (
+													<Badge className="w-fit text-xs" variant="secondary">
+														{getRoleName(person.user?.roleId)}
 													</Badge>
 												)}
 											</div>
@@ -299,6 +309,11 @@ function PeopleList({
 												Evaluator
 											</Badge>
 										)}
+										{getRoleName(person.user?.roleId) && (
+											<Badge className="text-xs" variant="secondary">
+												{getRoleName(person.user?.roleId)}
+											</Badge>
+										)}
 									</div>
 									<p className="truncate text-muted-foreground text-sm">
 										{person.email}
@@ -370,6 +385,7 @@ export default function PeopleTable() {
 		api.evaluators.getAll.useQuery();
 	const { data: archivedEvaluators, isLoading: isLoadingArchivedEvaluators } =
 		api.evaluators.getArchived.useQuery();
+	const { data: roles } = api.roles.getAll.useQuery();
 
 	const activePeople = useMemo(
 		() => mergePeople(activeUsers, activeEvaluators),
@@ -418,6 +434,7 @@ export default function PeopleTable() {
 						emptyMessage="No active people found."
 						isLoading={isLoadingActive}
 						people={activePeople}
+						roles={roles}
 					/>
 				</TabsContent>
 				<TabsContent value="archived">
@@ -428,6 +445,7 @@ export default function PeopleTable() {
 						emptyMessage="No archived people found."
 						isLoading={isLoadingArchived}
 						people={archivedPeople}
+						roles={roles}
 					/>
 				</TabsContent>
 			</Tabs>

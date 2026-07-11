@@ -18,6 +18,13 @@ import {
 } from "@ui/form";
 import { Input } from "@ui/input";
 import {
+	Select,
+	SelectContent,
+	SelectItem,
+	SelectTrigger,
+	SelectValue,
+} from "@ui/select";
+import {
 	Table,
 	TableBody,
 	TableCell,
@@ -27,6 +34,7 @@ import {
 } from "@ui/table";
 import { MoreHorizontal } from "lucide-react";
 import Link from "next/link";
+import { useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 import z from "zod";
@@ -34,6 +42,7 @@ import { useCheckPermission } from "~/hooks/use-check-permission";
 import { useMediaQuery } from "~/hooks/use-media-query";
 import { logger } from "~/lib/logger";
 import type { Invitation } from "~/lib/models";
+import type { PermissionsObject } from "~/lib/types";
 import { permissionsSchema } from "~/lib/types";
 import { api } from "~/trpc/react";
 import {
@@ -47,6 +56,7 @@ const log = logger.child({ module: "InvitesTable" });
 const formSchema = z.object({
 	email: z.email(),
 	permissions: permissionsSchema,
+	roleId: z.number().optional(),
 });
 
 type InvitesTableFormValues = z.infer<typeof formSchema>;
@@ -62,6 +72,9 @@ function InvitesTableForm({
 	isLoading,
 	onFinished,
 }: InvitesTableFormProps) {
+	const { data: allRoles } = api.roles.getAll.useQuery();
+	const defaultRole = allRoles?.find((r) => r.isDefault);
+
 	const form = useForm<InvitesTableFormValues>({
 		resolver: zodResolver(formSchema),
 		defaultValues: {
@@ -69,7 +82,15 @@ function InvitesTableForm({
 		},
 	});
 
+	useEffect(() => {
+		if (defaultRole && form.getValues("roleId") === undefined) {
+			form.setValue("roleId", defaultRole.id);
+		}
+	}, [defaultRole, form]);
+
 	const permissions = form.watch("permissions");
+	const roleId = form.watch("roleId");
+	const selectedRole = allRoles?.find((r) => r.id === roleId);
 
 	return (
 		<Form {...form}>
@@ -93,7 +114,40 @@ function InvitesTableForm({
 					)}
 				/>
 
+				<FormField
+					control={form.control}
+					name="roleId"
+					render={({ field }) => (
+						<FormItem className="max-w-xs">
+							<FormLabel>Role</FormLabel>
+							<Select
+								onValueChange={(value) =>
+									field.onChange(value === "none" ? undefined : Number(value))
+								}
+								value={field.value ? String(field.value) : "none"}
+							>
+								<FormControl>
+									<SelectTrigger>
+										<SelectValue placeholder="No role" />
+									</SelectTrigger>
+								</FormControl>
+								<SelectContent>
+									<SelectItem value="none">No role</SelectItem>
+									{allRoles?.map((role) => (
+										<SelectItem key={role.id} value={String(role.id)}>
+											{role.name}
+										</SelectItem>
+									))}
+								</SelectContent>
+							</Select>
+						</FormItem>
+					)}
+				/>
+
 				<PermissionsField
+					basePermissions={
+						(selectedRole?.permissions as PermissionsObject) ?? {}
+					}
 					onChange={(p) =>
 						form.setValue("permissions", p, {
 							shouldDirty: true,
@@ -149,7 +203,7 @@ function AddInviteButton() {
 
 	return (
 		<ResponsiveDialog
-			className="sm:max-w-3xl"
+			className="sm:max-w-4xl"
 			open={dialog.open}
 			setOpen={dialog.setOpen}
 			title="Create Invite"
