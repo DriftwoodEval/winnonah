@@ -1,0 +1,43 @@
+---
+title: Writing Docs
+position: 3
+---
+
+Docs are plain Markdown/MDX files in `src/content/docs/`, organized into category folders.
+
+## Frontmatter
+
+```md
+---
+title: My Page Title
+position: 1
+---
+```
+
+- `title` — shown in the sidebar, browser tab, and rendered as the page's heading
+- `position` — sort order within its category (lower first, ties broken alphabetically)
+
+## Categories
+
+Each top-level folder under `src/content/docs/` is a sidebar category. Add a `_category.json` next to the docs in that folder to control its label and order:
+
+```json
+{
+	"title": "Development",
+	"position": 99
+}
+```
+
+Without one, the folder name is title-cased automatically.
+
+## Screenshots and other images
+
+Put image files right next to the `.mdx` file that uses them, then reference them with a path rooted at `/docs/images/`, mirroring their location under `src/content/docs/`:
+
+```md
+![Description of the screenshot](/docs/images/development/cheddar.jpg)
+```
+For this file, that means the image lives at
+`src/content/docs/development/cheddar.jpg`.
+
+![](/docs/images/development/cheddar.jpg)

@@ -1,5 +1,6 @@
 "use client";
 
+import { ImageLightboxProvider } from "@components/shared/ImageLightbox";
 import { SessionExpiryMonitor } from "@components/shared/SessionExpiryMonitor";
 import { SystemUpdateMonitor } from "@components/shared/SystemUpdateMonitor";
 import { ThemeProvider } from "@components/shared/ThemeProvider";
@@ -19,7 +20,9 @@ export default function Providers({ children }: { children: React.ReactNode }) {
 					disableTransitionOnChange
 					enableSystem
 				>
-					<TooltipProvider>{children}</TooltipProvider>
+					<TooltipProvider>
+						<ImageLightboxProvider>{children}</ImageLightboxProvider>
+					</TooltipProvider>
 				</ThemeProvider>
 			</TRPCReactProvider>
 		</SessionProvider>

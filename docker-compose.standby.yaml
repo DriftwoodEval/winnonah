@@ -24,10 +24,6 @@ services:
     profiles:
       - active_only
 
-  winnonah-docs:
-    profiles:
-      - active_only
-
   loki:
     profiles:
       - primary_only

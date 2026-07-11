@@ -99,13 +99,6 @@ services:
       - ./python/cache:/app/cache
       - ../qs/logs:/app/qs-logs
 
-  winnonah-docs:
-    image: ghcr.io/driftwoodeval/winnonah-docs:latest
-    container_name: winnonah-docs
-    restart: no
-    environment:
-      - NODE_ENV=production
-
   loki:
     image: grafana/loki
     container_name: loki

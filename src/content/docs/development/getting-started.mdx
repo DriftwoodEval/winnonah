@@ -1,0 +1,137 @@
+---
+title: Getting Started
+position: 1
+---
+
+This guide walks through setting up the EMR and questionnaires repos for local development.
+
+## EMR
+
+### What's in the repo
+
+- A Next.js app (tRPC, Drizzle ORM, NextAuth, shadcn components)
+- A Python API sidecar (`python/api.py`)
+- A suite of Python scripts that run on a schedule (starts from `python/main.py`)
+
+### Prerequisites
+
+- [mise](https://mise.jdx.dev/) for managing tool versions and running tasks
+- [Docker and Docker compose](https://docs.docker.com/compose/install), for the database, Redis, and other local services
+
+You don't need to install Node, pnpm, Python, or uv yourself, mise manages all of them per-project.
+
+### 1. Clone the repo and trust the config
+
+```bash
+git clone https://github.com/driftwoodeval/winnonah
+cd winnonah
+mise trust
+```
+
+`mise trust` lets mise read `mise.toml` in this repo. It's a one-time step per project.
+
+### 2. Install tools and dependencies
+
+```bash
+mise install
+```
+
+`mise install` pulls the pinned versions of Node, pnpm, Python, and uv.
+
+### 3. Set up environment variables
+
+Copy the example env file and fill in real values:
+
+```bash
+cp .env.example .env
+```
+
+### 4. Start developing
+
+```bash
+mise run dev
+```
+
+This brings up the required Docker containers (database, Redis, cloudflared), installs dependencies, and starts both the Python API and the Next.js dev server.
+
+The EMR will be available at https://dev.driftwoodeval.com.
+
+### Other useful tasks
+
+Run `mise tasks` to see everything available. A few worth knowing:
+
+| Task | What it does |
+| --- | --- |
+| `mise run dev` | Start full local development (Docker + Python API + Next.js) |
+| `mise run check` | Type-check and lint everything (TS + Python) |
+| `mise run down` | Stop the Docker containers |
+| `mise run sync-db` | Sync the production database down to your local container |
+
+The `python/` folder has its own `mise.toml` with tasks scoped to that directory, run `mise tasks` from inside it to see the full list.
+
+### Code style and commits
+
+Before committing, lefthook runs linting, formatting, and a secret scan automatically. Commits will be rejected if it finds issues.
+
+## Questionnaires
+
+### What's in the repo
+
+A Python project that automates multiple things, some run manually, some run on timers:
+
+- `qsend.py` (manual) - sends questionnaires to clients ahead of their appointments
+- `qreceive.py` (timer) - checks on sent questionnaires, sends reminders, and syncs completion status
+- `piecework.py` (manual) - piecework/billing related processing
+- `records-request.py` (manual) - automates downloading records request forms and requesting records through email and fax
+- `log-server.py` (always on) - a small TCP listener that collects logs from the other scripts into per-app log files
+
+### Prerequisites
+
+- [mise](https://mise.jdx.dev/) for managing the Python version and running tasks
+- [Tailscale](https://tailscale.com/download) to securely connect to our servers.
+
+You don't need to install Python or uv yourself, mise manages both.
+
+### 1. Clone the repo and trust the config
+
+```bash
+git clone https://github.com/driftwoodeval/questionnaires
+cd questionnaires
+mise trust
+```
+
+### 2. Install dependencies and git hooks
+
+```bash
+mise run install
+```
+### 3. Set up config
+
+The scripts read two kinds of local config that you need to create:
+
+- `config/local_config.yml` points the scripts at the EMR's internal config API:
+
+  ```yaml
+  api_url: https://dev.driftwoodeval.com
+  log_host: opti
+  api_secret: <matches the EMR's API_KEY env var>
+  ```
+
+  This calls the EMR's `/api/internal/py-config` route (see `src/app/api/internal/py-config/route.ts` in the EMR repo), authenticated with a bearer token that has to match the EMR's own `API_KEY` env var.
+
+- `config/credentials.json` contains Google OAuth credentials for Sheets/Gmail access. Download an OAuth client secret from Google Cloud Console and save it as `credentials.json`.
+
+### 4. Run a script
+
+Each script has a matching mise task:
+
+```bash
+mise run qsend
+mise run qreceive --dry-run
+```
+
+Run `mise tasks` to see all of them.
+
+### Code style and commits
+
+Before committing, lefthook runs linting, formatting, and a secret scan automatically. Commits will be rejected if it finds issues.

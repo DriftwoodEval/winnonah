@@ -2,6 +2,7 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
+@plugin "@tailwindcss/typography";
 
 @custom-variant dark (&:is(.dark *));
 
@@ -205,6 +206,62 @@
 	html {
 		@apply font-sans;
 	}
+}
+
+.prose :where(h1, h2, h3, h4, h5, h6) {
+	scroll-margin-top: 4rem;
+}
+
+/* rehype-autolink-headings appends an <a><span class="icon-link"></span></a>
+   after each heading's text; show it as a "#" that only appears on hover. */
+.prose :where(h1, h2, h3, h4, h5, h6) a {
+	margin-left: 0.4em;
+	text-decoration: none;
+	opacity: 0;
+	transition: opacity 0.15s ease;
+}
+
+.prose :where(h1, h2, h3, h4, h5, h6):hover a {
+	opacity: 1;
+}
+
+.prose :where(h1, h2, h3, h4, h5, h6) a .icon-link {
+	color: var(--muted-foreground);
+}
+
+.prose :where(h1, h2, h3, h4, h5, h6) a .icon-link::before {
+	content: "#";
+}
+
+.prose :where(img) {
+	@apply rounded-lg border border-border;
+}
+
+.prose :where(code):not(:where(pre code))::before,
+.prose :where(code):not(:where(pre code))::after {
+	content: none;
+}
+
+.prose :where(code):not(:where(pre code)) {
+	@apply rounded-md border border-border bg-muted px-1.5 py-0.5 font-normal text-[0.875em];
+}
+
+.prose :where(pre) {
+	@apply rounded-lg border border-border p-4 text-[0.875em];
+}
+
+/* rehype-pretty-code emits both light and dark colors as CSS variables per token;
+   pick the right one based on our next-themes `.dark` class. */
+.prose pre[data-theme],
+.prose pre[data-theme] span {
+	color: var(--shiki-light);
+	background-color: var(--shiki-light-bg);
+}
+
+.dark .prose pre[data-theme],
+.dark .prose pre[data-theme] span {
+	color: var(--shiki-dark);
+	background-color: var(--shiki-dark-bg);
 }
 
 .tiptap {

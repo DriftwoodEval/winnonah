@@ -74,7 +74,9 @@ export function RichTextEditor({
 			attributes: {
 				class: cn(
 					"field-sizing-content block min-h-28 w-full rounded-md border border-input bg-transparent px-3 py-2 text-base shadow-xs outline-none transition-[color,box-shadow] focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-destructive/20 md:text-sm dark:aria-invalid:ring-destructive/40",
-					"prose prose-sm sm:prose-base max-w-full",
+					"prose prose-sm sm:prose-base dark:prose-invert max-w-full",
+					"prose-blockquote:my-2 prose-headings:my-2 prose-li:my-0 prose-ol:my-1 prose-p:my-1 prose-ul:my-1 prose-p:leading-normal",
+					"[--tw-prose-body:var(--foreground)] [--tw-prose-bold:var(--foreground)] [--tw-prose-headings:var(--foreground)] [--tw-prose-invert-body:var(--foreground)] [--tw-prose-invert-bold:var(--foreground)] [--tw-prose-invert-headings:var(--foreground)]",
 				),
 			},
 			handlePaste: (_view, event) => {

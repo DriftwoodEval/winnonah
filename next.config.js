@@ -4,6 +4,7 @@
  */
 import "./src/env.js";
 import { execSync } from "node:child_process";
+import createMDX from "@next/mdx";
 
 /**
  * @param {string} command
@@ -55,4 +56,28 @@ const config = {
 	},
 };
 
-export default config;
+const withMDX = createMDX({
+	options: {
+		remarkPlugins: [
+			"remark-frontmatter",
+			"remark-mdx-frontmatter",
+			"remark-gfm",
+		],
+		rehypePlugins: [
+			"rehype-slug",
+			["rehype-autolink-headings", { behavior: "append" }],
+			[
+				"rehype-pretty-code",
+				{
+					theme: {
+						dark: "gruvbox-dark-medium",
+						light: "gruvbox-light-medium",
+					},
+					keepBackground: true,
+				},
+			],
+		],
+	},
+});
+
+export default withMDX(config);

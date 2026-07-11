@@ -15,6 +15,7 @@ import {
 	DropdownMenuTrigger,
 } from "@ui/dropdown-menu";
 import {
+	BookOpen,
 	Calculator,
 	Calendar1,
 	CalendarDays,
@@ -183,6 +184,13 @@ export default function NavigationLinks() {
 		show: true,
 	};
 
+	const docs: NavItem = {
+		href: "/docs",
+		label: "Docs",
+		icon: BookOpen,
+		show: false,
+	};
+
 	const categories: { label: string; icon: LucideIcon; items: NavItem[] }[] = [
 		{
 			label: "Clients",
@@ -267,6 +275,7 @@ export default function NavigationLinks() {
 	const allItems = [
 		home,
 		...categories.flatMap((category) => category.items),
+		docs,
 	].filter((item) => item.show);
 
 	return (
@@ -285,6 +294,9 @@ export default function NavigationLinks() {
 						pathname={pathname}
 					/>
 				))}
+				<NavigationLink href={docs.href} icon={docs.icon} pathname={pathname}>
+					{docs.label}
+				</NavigationLink>
 			</div>
 
 			{/* Mobile Navigation */}
