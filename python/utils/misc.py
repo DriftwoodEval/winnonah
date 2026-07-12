@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json as _json
+import re
 from datetime import date, datetime
 from typing import Any
 
@@ -9,21 +10,21 @@ import pandas as pd
 from loguru import logger
 from nameparser import HumanName
 
-_NAME_SUFFIXES = {"JR", "SR", "II", "III", "IV", "V"}
-
 
 def capitalize_name_with_exceptions(name: str) -> str:
     """Capitalizes a name (McDonald, O'Brien, suffixes, titles, etc.) rather
-    than a naive str.title(), keeping suffixes like Jr/Sr/Roman numerals
-    uppercase."""
+    than a naive str.title(). Suffixes like Jr/Sr/Roman numerals are handled
+    by nameparser; this also uppercases letters following a period, so
+    initials like "j.d." come out as "J.D." instead of "J.d."."""
     if pd.isna(name) or not isinstance(name, str):
         return ""
     parsed_name = HumanName(name)
     parsed_name.capitalize(force=True)
 
-    words = str(parsed_name).split()
-    if words and words[-1].upper() in _NAME_SUFFIXES:
-        words[-1] = words[-1].upper()
+    words = [
+        re.sub(r"\.([a-z])", lambda m: "." + m.group(1).upper(), word)
+        for word in str(parsed_name).split()
+    ]
     return " ".join(words)
 
 

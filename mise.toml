@@ -57,6 +57,11 @@ uvx ruff format python
 description = "Type-check and lint everything (TS + Python)"
 depends = ["check:pnpm", "check:ruff"]
 
+[tasks."test:python"]
+description = "Run Python unit tests"
+dir = "python"
+run = "uv run pytest"
+
 [tasks.dev]
 description = "Start development server, bringing up and installing dependencies first"
 depends = ["deps"]

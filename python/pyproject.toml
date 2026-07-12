@@ -35,9 +35,18 @@ dependencies = [
 dev = [
   "deptry>=0.25.1",
   "icecream>=2.2.0",
+  "pytest>=8.4.0",
+  "pytest-cov>=7.0.0",
   "ruff>=0.15.10",
   "uvicorn>=0.44.0",
 ]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.coverage.run]
+source = ["."]
+omit = ["tests/*", ".venv/*"]
 
 [tool.ruff.lint]
 select = [
