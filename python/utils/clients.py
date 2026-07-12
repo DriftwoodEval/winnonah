@@ -25,20 +25,21 @@ def _normalize_names(df: pd.DataFrame) -> pd.DataFrame:
 
     # Handle PREFERRED_NAME separately
     if "PREFERRED_NAME" in df.columns and "FIRSTNAME" in df.columns:
-        # Only capitalize PREFERRED_NAME if it's not a known suffix
-        known_suffixes = {"JR", "SR", "II", "III", "IV", "V"}
+        # Cast to pandas' nullable string dtype: if every value in the column
+        # is NaN, pandas infers a float dtype for it, and .str accessors
+        # raise AttributeError on that. Casting up front keeps NaNs as NA
+        # while making .str.upper() safe regardless of column contents.
+        df["PREFERRED_NAME"] = df["PREFERRED_NAME"].astype("string")
 
-        # Create a boolean mask to filter out rows where PREFERRED_NAME is NaN or a known suffix
-        mask = df["PREFERRED_NAME"].notna() & ~df["PREFERRED_NAME"].str.upper().isin(
-            known_suffixes,
-        )
+        # Create a boolean mask to filter out rows where PREFERRED_NAME is NaN
+        mask = df["PREFERRED_NAME"].notna()
 
         # Apply the function only to the rows that match the mask
         df.loc[mask, "PREFERRED_NAME"] = df.loc[mask, "PREFERRED_NAME"].apply(
             capitalize_name_with_exceptions,
         )
 
-        # Nullify preferred name only if it's an exact match for the first name or first name and last name, and not a suffix
+        # Nullify preferred name only if it's an exact match for the first name or first name and last name
         df.loc[
             (
                 (df["PREFERRED_NAME"] == df["FIRSTNAME"])
@@ -47,8 +48,7 @@ def _normalize_names(df: pd.DataFrame) -> pd.DataFrame:
                     == df["FIRSTNAME"].astype(str) + " " + df["LASTNAME"].astype(str)
                 )
             )
-            & (df["PREFERRED_NAME"].notna())
-            & (~df["PREFERRED_NAME"].str.upper().isin(known_suffixes)),
+            & (df["PREFERRED_NAME"].notna()),
             "PREFERRED_NAME",
         ] = np.nan
 
@@ -148,7 +148,7 @@ def _remove_invalid_clients(clients_df: pd.DataFrame) -> pd.DataFrame:
     return cast(pd.DataFrame, clients_df[pd.notna(clients_df["CLIENT_ID"])])
 
 
-def _normalize_for_match(s: str) -> str:
+def _normalize_for_match(s: str | float | None) -> str:
     if not s or pd.isna(s):
         return ""
     s = re.sub(r"[^a-zA-Z\s]", "", str(s))

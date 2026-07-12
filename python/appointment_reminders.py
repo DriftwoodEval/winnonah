@@ -82,25 +82,8 @@ def is_within_quiet_window(connection) -> bool:
         )
         settings = cursor.fetchone()
 
-    if not settings:
-        return False
-
-    now = datetime.now().time()
-    start = (
-        (datetime.min + settings["quietWindowStart"]).time()
-        if isinstance(settings["quietWindowStart"], timedelta)
-        else settings["quietWindowStart"]
-    )
-    end = (
-        (datetime.min + settings["quietWindowEnd"]).time()
-        if isinstance(settings["quietWindowEnd"], timedelta)
-        else settings["quietWindowEnd"]
-    )
-
-    if start <= end:
-        return start <= now <= end
-    # Handles overnight window (e.g. 10PM to 8AM)
-    return now >= start or now <= end
+    _, in_window = adjust_for_quiet_window(datetime.now(), settings)
+    return in_window
 
 
 def format_message(template: str, appointment: dict) -> str:

@@ -62,6 +62,11 @@ description = "Run Python unit tests"
 dir = "python"
 run = "uv run pytest"
 
+[tasks."test:python:integration"]
+description = "Run Python integration tests against real external services (test data only, manual only)"
+dir = "python"
+run = "uv run pytest --run-integration -m integration -v"
+
 [tasks.dev]
 description = "Start development server, bringing up and installing dependencies first"
 depends = ["deps"]

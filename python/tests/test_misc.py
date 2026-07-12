@@ -7,11 +7,32 @@ from utils.misc import (
     capitalize_name_with_exceptions,
     format_date,
     format_gender,
+    format_name,
     format_phone_number,
     get_boolean_value,
     get_column,
     get_full_name,
 )
+
+
+class TestFormatName:
+    def test_title_cases_simple_name(self):
+        assert format_name("dr john smith") == "Dr John Smith"
+
+    def test_preserves_known_acronyms(self):
+        assert format_name("musc childrens hospital") == "MUSC Childrens Hospital"
+
+    def test_strips_diagnostic_labels(self):
+        assert format_name("John Smith ASD ADHD") == "John Smith"
+
+    def test_strips_parenthetical_notes(self):
+        assert format_name("Dr Smith (referring physician)") == "Dr Smith"
+
+    def test_strips_digits_and_punctuation(self):
+        assert format_name("Dr. Smith (843) 555-1234") == "Dr Smith"
+
+    def test_collapses_extra_whitespace(self):
+        assert format_name("John   Smith") == "John Smith"
 
 
 class TestCapitalizeNameWithExceptions:
@@ -145,3 +166,6 @@ class TestFormatPhoneNumber:
 
     def test_does_not_strip_ten_digit_leading_one(self):
         assert format_phone_number("1035551234") == "1035551234"
+
+    def test_returns_none_when_no_digits_present(self):
+        assert format_phone_number("no phone on file") is None

@@ -10,6 +10,21 @@ import pandas as pd
 from loguru import logger
 from nameparser import HumanName
 
+NAME_FORMATTING_EXCEPTIONS = {"MUSC", "DDSN", "SC", "NC", "DSS", "MP", "LLC"}
+
+
+def format_name(name: str) -> str:
+    """Title-case a doctor/organization name, preserving known acronyms and
+    stripping parenthetical asides, fax digits, and diagnostic labels."""
+    name = re.sub(r"\(.*?\)", "", name)
+    name = re.sub(r"[^a-zA-Z\s]", " ", name)
+    name = re.sub(r"\b(ASD|ADHD)\b", "", name)
+    name = re.sub(r"\s{2,}", " ", name).strip()
+    return " ".join(
+        w.upper() if w.upper() in NAME_FORMATTING_EXCEPTIONS else w.capitalize()
+        for w in name.split()
+    )
+
 
 def capitalize_name_with_exceptions(name: str) -> str:
     """Capitalizes a name (McDonald, O'Brien, suffixes, titles, etc.) rather

@@ -91,6 +91,19 @@ class TestMatchByInsurance:
         evaluators = {"111": {"BabyNet": True}}
         assert match_by_insurance(client, evaluators, {}) == ["111"]
 
+    def test_secondary_insurance_as_list_is_used(self):
+        client = make_client(SECONDARY_INSURANCE_COMPANYNAME=["Aetna"])
+        evaluators = {"111": {"Aetna": True}}
+        assert match_by_insurance(client, evaluators, {}) == ["111"]
+
+    def test_babynet_rejects_evaluator_accepting_neither(self):
+        client = make_client(
+            INSURANCE_COMPANYNAME="Aetna",
+            SECONDARY_INSURANCE_COMPANYNAME="BabyNet",
+        )
+        evaluators = {"accepts_neither": {}}
+        assert match_by_insurance(client, evaluators, {}) == []
+
 
 class TestMatchBySchoolDistrict:
     def test_no_known_district_matches_all(self):
@@ -150,6 +163,41 @@ class TestExplainEligibility:
         result = explain_eligibility(client, {}, {})
         assert bool(result["clientContext"]["isPrivatePay"]) is True
 
+    def test_reports_blocked_district(self):
+        client = make_client(
+            POLICY_PRIVATEPAY=1,
+            SCHOOL_DISTRICT="Richland One",
+            ADDRESS="123 Main St 29201",
+        )
+        evaluators = {"111": {"blockedSchoolDistricts": ["Richland One"]}}
+        [evaluator] = explain_eligibility(client, evaluators, {})["evaluators"]
+        assert evaluator["districtEligible"] is False
+        assert (
+            evaluator["districtReason"] == "Evaluator has blocked district Richland One"
+        )
+
+    def test_reports_blocked_zip(self):
+        client = make_client(
+            POLICY_PRIVATEPAY=1,
+            SCHOOL_DISTRICT="Richland One",
+            ADDRESS="123 Main St 29201",
+        )
+        evaluators = {"111": {"blockedZipCodes": ["29201"]}}
+        [evaluator] = explain_eligibility(client, evaluators, {})["evaluators"]
+        assert evaluator["districtEligible"] is False
+        assert evaluator["districtReason"] == "Evaluator has blocked zip code 29201"
+
+    def test_reports_no_district_restriction(self):
+        client = make_client(
+            POLICY_PRIVATEPAY=1,
+            SCHOOL_DISTRICT="Richland One",
+            ADDRESS="123 Main St 29201",
+        )
+        evaluators = {"111": {}}
+        [evaluator] = explain_eligibility(client, evaluators, {})["evaluators"]
+        assert evaluator["districtEligible"] is True
+        assert evaluator["districtReason"] == "No matching blocked district or zip code"
+
 
 class TestSummarizeNoMatchReason:
     def test_returns_none_when_no_evaluators_at_all(self):
@@ -174,4 +222,16 @@ class TestSummarizeNoMatchReason:
         assert (
             summarize_no_match_reason(client, evaluators, {})
             == "No evaluators accept: Unknown Co"
+        )
+
+    def test_reports_all_evaluators_block_district(self):
+        client = make_client(
+            POLICY_PRIVATEPAY=1,
+            SCHOOL_DISTRICT="Richland One",
+            ADDRESS="123 Main St 29201",
+        )
+        evaluators = {"111": {"blockedSchoolDistricts": ["Richland One"]}}
+        assert (
+            summarize_no_match_reason(client, evaluators, {})
+            == "All evaluators block district: Richland One"
         )

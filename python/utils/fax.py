@@ -7,6 +7,7 @@ from googleapiclient.discovery import build
 from loguru import logger
 
 from utils.google import google_authenticate
+from utils.misc import format_name
 
 # Report fax
 ENV_FAX_FOLDER_ID = "FAX_FOLDER_ID"  # to-be-faxed-folder
@@ -44,9 +45,6 @@ HEADER_REASON = "Fax Reason"
 HEADER_DOCTOR = "Dr. to Send to"
 HEADER_SENT = "Fax Sent"
 
-_GOOGLE_DOC_MIME = "application/vnd.google-apps.document"
-_GOOGLE_FOLDER_MIME = "application/vnd.google-apps.folder"
-
 
 def validate_fax_config(env_vars: list[str]) -> None:
     for var in env_vars:
@@ -57,160 +55,12 @@ def validate_fax_config(env_vars: list[str]) -> None:
 # ── Google service builders ───────────────────────────────────────────────
 
 
-def _drive():
-    return build("drive", "v3", credentials=google_authenticate())
-
-
 def _docs():
     return build("docs", "v1", credentials=google_authenticate())
 
 
 def _sheets():
     return build("sheets", "v4", credentials=google_authenticate())
-
-
-# ── Drive helpers ─────────────────────────────────────────────────────────
-
-
-def list_files_in_folder(folder_id: str) -> list[dict]:
-    """Return all non-trashed, non-folder items in a Drive folder."""
-    results = []
-    page_token = None
-    q = f"'{folder_id}' in parents and mimeType != '{_GOOGLE_FOLDER_MIME}' and trashed = false"
-    service = _drive()
-    while True:
-        resp = (
-            service.files()
-            .list(
-                q=q,
-                fields="nextPageToken, files(id, name, mimeType)",
-                pageToken=page_token,
-            )
-            .execute()
-        )
-        results.extend(resp.get("files", []))
-        page_token = resp.get("nextPageToken")
-        if not page_token:
-            break
-    return results
-
-
-def list_subfolders(folder_id: str) -> list[dict]:
-    """Return all non-trashed subfolders in a Drive folder."""
-    results = []
-    page_token = None
-    q = f"'{folder_id}' in parents and mimeType = '{_GOOGLE_FOLDER_MIME}' and trashed = false"
-    service = _drive()
-    while True:
-        resp = (
-            service.files()
-            .list(
-                q=q,
-                fields="nextPageToken, files(id, name)",
-                pageToken=page_token,
-            )
-            .execute()
-        )
-        results.extend(resp.get("files", []))
-        page_token = resp.get("nextPageToken")
-        if not page_token:
-            break
-    return results
-
-
-def check_for_subfolders(folder_id: str) -> str:
-    """Return 'subfolders', 'only files', or 'empty'. Uses pageSize=1 to minimise API data."""
-    service = _drive()
-    sf = (
-        service.files()
-        .list(
-            q=f"'{folder_id}' in parents and mimeType = '{_GOOGLE_FOLDER_MIME}' and trashed = false",
-            pageSize=1,
-            fields="files(id)",
-        )
-        .execute()
-    )
-    if sf.get("files"):
-        return "subfolders"
-
-    f = (
-        service.files()
-        .list(
-            q=f"'{folder_id}' in parents and mimeType != '{_GOOGLE_FOLDER_MIME}' and trashed = false",
-            pageSize=1,
-            fields="files(id)",
-        )
-        .execute()
-    )
-    return "only files" if f.get("files") else "empty"
-
-
-def get_files_by_name(folder_id: str, name: str) -> list[dict]:
-    resp = (
-        _drive()
-        .files()
-        .list(
-            q=f"'{folder_id}' in parents and name = '{name}' and trashed = false",
-            fields="files(id, name, mimeType)",
-        )
-        .execute()
-    )
-    return resp.get("files", [])
-
-
-def copy_file(file_id: str, new_name: str, dest_folder_id: str) -> dict:
-    return (
-        _drive()
-        .files()
-        .copy(
-            fileId=file_id,
-            body={"name": new_name, "parents": [dest_folder_id]},
-            fields="id, name",
-        )
-        .execute()
-    )
-
-
-def move_file(file_id: str, dest_folder_id: str) -> None:
-    service = _drive()
-    meta = service.files().get(fileId=file_id, fields="parents").execute()
-    prev_parents = ",".join(meta.get("parents", []))
-    service.files().update(
-        fileId=file_id,
-        addParents=dest_folder_id,
-        removeParents=prev_parents,
-        fields="id, parents",
-    ).execute()
-
-
-def batch_move_files(
-    file_ids: list[str], dest_folder_id: str, src_folder_id: str
-) -> None:
-    """Move multiple files to dest_folder_id in a single HTTP batch request."""
-    service = _drive()
-    batch = service.new_batch_http_request()
-    for file_id in file_ids:
-        batch.add(
-            service.files().update(
-                fileId=file_id,
-                addParents=dest_folder_id,
-                removeParents=src_folder_id,
-                fields="id",
-            )
-        )
-    batch.execute()
-
-
-def get_file_as_bytes(file: dict) -> bytes:
-    """Export Google Docs as PDF; download all other file types as-is."""
-    service = _drive()
-    if file["mimeType"] == _GOOGLE_DOC_MIME:
-        return (
-            service.files()
-            .export(fileId=file["id"], mimeType="application/pdf")
-            .execute()
-        )
-    return service.files().get_media(fileId=file["id"]).execute()
 
 
 # ── Docs helpers ──────────────────────────────────────────────────────────
@@ -317,20 +167,6 @@ def set_column_validation(
 
 
 # Formatting
-
-_NAME_EXCEPTIONS = {"MUSC", "DDSN", "SC", "NC", "DSS", "MP", "LLC"}
-
-
-def format_name(name: str) -> str:
-    """Title-case a name string, preserving known acronyms and stripping fax digits / diagnostic labels."""
-    name = re.sub(r"[^a-zA-Z\s]", " ", name)
-    name = re.sub(r"\s{2,}", " ", name)
-    name = re.sub(r"\b(ASD|ADHD)\b", "", name)
-    name = name.strip()
-    return " ".join(
-        w.upper() if w.upper() in _NAME_EXCEPTIONS else w.capitalize()
-        for w in name.split()
-    )
 
 
 def extract_fax_number(name: str) -> str | None:

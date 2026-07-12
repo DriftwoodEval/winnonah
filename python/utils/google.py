@@ -29,6 +29,9 @@ SCOPES = [
     "https://www.googleapis.com/auth/gmail.compose",
 ]
 
+_GOOGLE_DOC_MIME = "application/vnd.google-apps.document"
+_GOOGLE_FOLDER_MIME = "application/vnd.google-apps.folder"
+
 
 def google_authenticate():
     """Authenticate with Google using the credentials in ./auth_cache/credentials.json (obtained from Google Cloud Console) and ./auth_cache/token.json (user-specific).
@@ -107,7 +110,7 @@ def create_folder_in_folder(new_folder_name: str, parent_folder_id: str):
         service = build("drive", "v3", credentials=creds)
         file_metadata = {
             "name": new_folder_name,
-            "mimeType": "application/vnd.google-apps.folder",
+            "mimeType": _GOOGLE_FOLDER_MIME,
             "parents": [parent_folder_id],
         }
         service.files().create(body=file_metadata, fields="id").execute()
@@ -119,6 +122,147 @@ def get_drive_service():
     """Get the Google Drive service."""
     creds = google_authenticate()
     return build("drive", "v3", credentials=creds)
+
+
+def list_files_in_folder(folder_id: str) -> list[dict]:
+    """Return all non-trashed, non-folder items in a Drive folder."""
+    results = []
+    page_token = None
+    q = f"'{folder_id}' in parents and mimeType != '{_GOOGLE_FOLDER_MIME}' and trashed = false"
+    service = get_drive_service()
+    while True:
+        resp = (
+            service.files()
+            .list(
+                q=q,
+                fields="nextPageToken, files(id, name, mimeType)",
+                pageToken=page_token,
+            )
+            .execute()
+        )
+        results.extend(resp.get("files", []))
+        page_token = resp.get("nextPageToken")
+        if not page_token:
+            break
+    return results
+
+
+def list_subfolders(folder_id: str) -> list[dict]:
+    """Return all non-trashed subfolders in a Drive folder."""
+    results = []
+    page_token = None
+    q = f"'{folder_id}' in parents and mimeType = '{_GOOGLE_FOLDER_MIME}' and trashed = false"
+    service = get_drive_service()
+    while True:
+        resp = (
+            service.files()
+            .list(
+                q=q,
+                fields="nextPageToken, files(id, name)",
+                pageToken=page_token,
+            )
+            .execute()
+        )
+        results.extend(resp.get("files", []))
+        page_token = resp.get("nextPageToken")
+        if not page_token:
+            break
+    return results
+
+
+def check_for_subfolders(folder_id: str) -> str:
+    """Return 'subfolders', 'only files', or 'empty'. Uses pageSize=1 to minimise API data."""
+    service = get_drive_service()
+    sf = (
+        service.files()
+        .list(
+            q=f"'{folder_id}' in parents and mimeType = '{_GOOGLE_FOLDER_MIME}' and trashed = false",
+            pageSize=1,
+            fields="files(id)",
+        )
+        .execute()
+    )
+    if sf.get("files"):
+        return "subfolders"
+
+    f = (
+        service.files()
+        .list(
+            q=f"'{folder_id}' in parents and mimeType != '{_GOOGLE_FOLDER_MIME}' and trashed = false",
+            pageSize=1,
+            fields="files(id)",
+        )
+        .execute()
+    )
+    return "only files" if f.get("files") else "empty"
+
+
+def get_files_by_name(folder_id: str, name: str) -> list[dict]:
+    resp = (
+        get_drive_service()
+        .files()
+        .list(
+            q=f"'{folder_id}' in parents and name = '{name}' and trashed = false",
+            fields="files(id, name, mimeType)",
+        )
+        .execute()
+    )
+    return resp.get("files", [])
+
+
+def copy_file(file_id: str, new_name: str, dest_folder_id: str) -> dict:
+    return (
+        get_drive_service()
+        .files()
+        .copy(
+            fileId=file_id,
+            body={"name": new_name, "parents": [dest_folder_id]},
+            fields="id, name",
+        )
+        .execute()
+    )
+
+
+def move_file(file_id: str, dest_folder_id: str) -> None:
+    service = get_drive_service()
+    meta = service.files().get(fileId=file_id, fields="parents").execute()
+    prev_parents = ",".join(meta.get("parents", []))
+    service.files().update(
+        fileId=file_id,
+        addParents=dest_folder_id,
+        removeParents=prev_parents,
+        fields="id, parents",
+    ).execute()
+
+
+def batch_move_files(
+    file_ids: list[str], dest_folder_id: str, src_folder_id: str
+) -> None:
+    """Move multiple files to dest_folder_id in a single HTTP batch request."""
+    service = get_drive_service()
+    batch = service.new_batch_http_request()
+    for file_id in file_ids:
+        batch.add(
+            service.files().update(
+                fileId=file_id,
+                addParents=dest_folder_id,
+                removeParents=src_folder_id,
+                fields="id",
+            )
+        )
+    batch.execute()
+
+
+def get_file_as_bytes(file: dict) -> bytes:
+    """Export Google Docs as PDF; download all other file types as-is."""
+    service = get_drive_service()
+    if file["mimeType"] == _GOOGLE_DOC_MIME:
+        return (
+            service.files()
+            .export(fileId=file["id"], mimeType="application/pdf")
+            .execute()
+        )
+    return service.files().get_media(fileId=file["id"]).execute()
 
 
 def _normalize_name_tokens(name: str):

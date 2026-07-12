@@ -4,26 +4,8 @@ from utils.fax import (
     extract_fax_number,
     format_date,
     format_fax_number,
-    format_name,
     pretty_name,
 )
-
-
-class TestFormatName:
-    def test_title_cases_simple_name(self):
-        assert format_name("dr john smith") == "Dr John Smith"
-
-    def test_preserves_known_acronyms(self):
-        assert format_name("musc childrens hospital") == "MUSC Childrens Hospital"
-
-    def test_strips_diagnostic_labels(self):
-        assert format_name("John Smith ASD ADHD") == "John Smith"
-
-    def test_strips_digits_and_punctuation(self):
-        assert format_name("Dr. Smith (843) 555-1234") == "Dr Smith"
-
-    def test_collapses_extra_whitespace(self):
-        assert format_name("John   Smith") == "John Smith"
 
 
 class TestExtractFaxNumber:

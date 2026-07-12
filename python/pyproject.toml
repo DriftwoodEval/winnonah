@@ -46,7 +46,10 @@ testpaths = ["tests"]
 
 [tool.coverage.run]
 source = ["."]
-omit = ["tests/*", ".venv/*"]
+omit = ["tests/*", ".venv/*", "conftest.py"]
+
+[tool.coverage.html]
+show_contexts = true
 
 [tool.ruff.lint]
 select = [
@@ -94,6 +97,9 @@ convention = "google"
 [tool.ruff.lint.flake8-bugbear]
 # Allow default arguments like, e.g., `data: List[str] = fastapi.Query(None)`.
 extend-immutable-calls = ["fastapi.Depends", "fastapi.Query"]
+
+[tool.deptry]
+extend_exclude = ["^conftest\\.py$"]
 
 [tool.deptry.per_rule_ignores]
 # Not imported directly - llama_cpp.Llama.from_pretrained() imports it

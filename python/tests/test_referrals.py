@@ -1,24 +1,8 @@
 import pandas as pd
+import pymupdf
 import pytest
 
-from utils.referrals import format_name, process_source_metadata
-
-
-class TestFormatName:
-    def test_title_cases_simple_name(self):
-        assert format_name("dr john smith") == "Dr John Smith"
-
-    def test_preserves_known_acronyms(self):
-        assert format_name("musc childrens hospital") == "MUSC Childrens Hospital"
-
-    def test_strips_parenthetical_notes(self):
-        assert format_name("Dr Smith (referring physician)") == "Dr Smith"
-
-    def test_strips_digits_and_punctuation(self):
-        assert format_name("Dr. Smith 843-555-1234") == "Dr Smith"
-
-    def test_collapses_extra_whitespace(self):
-        assert format_name("John    Smith") == "John Smith"
+from utils.referrals import generate_pdf, process_source_metadata
 
 
 class TestProcessSourceMetadata:
@@ -44,3 +28,25 @@ class TestProcessSourceMetadata:
 
     def test_uses_pandas_isna_for_missing_value_check(self):
         assert process_source_metadata(pd.NA) is None
+
+
+class TestGeneratePdf:
+    def test_produces_a_single_page_pdf(self):
+        data = generate_pdf("Dr Smith", [{"FULL_NAME": "Jane Doe"}])
+        doc = pymupdf.open(stream=data, filetype="pdf")
+        assert doc.page_count == 1
+
+    def test_includes_referral_name_and_clients(self):
+        data = generate_pdf(
+            "Dr Smith", [{"FULL_NAME": "Jane Doe"}, {"FULL_NAME": "John Roe"}]
+        )
+        doc = pymupdf.open(stream=data, filetype="pdf")
+        text = doc[0].get_text()
+        assert "Hi Dr Smith," in text
+        assert "Jane Doe" in text
+        assert "John Roe" in text
+
+    def test_handles_empty_client_group(self):
+        data = generate_pdf("Dr Smith", [])
+        doc = pymupdf.open(stream=data, filetype="pdf")
+        assert doc.page_count == 1

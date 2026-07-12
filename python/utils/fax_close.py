@@ -21,18 +21,12 @@ from utils.fax import (
     HEADER_NAME,
     HEADER_REASON,
     HEADER_SENT,
-    copy_file,
     extract_fax_number,
     format_date,
     format_fax_number,
     format_name,
-    get_file_as_bytes,
-    get_files_by_name,
     get_last_row,
     get_sheet_values,
-    list_files_in_folder,
-    list_subfolders,
-    move_file,
     pretty_name,
     replace_text_in_doc,
     set_column_validation,
@@ -40,7 +34,15 @@ from utils.fax import (
     set_sheet_value,
     validate_fax_config,
 )
-from utils.google import send_gmail
+from utils.google import (
+    copy_file,
+    get_file_as_bytes,
+    get_files_by_name,
+    list_files_in_folder,
+    list_subfolders,
+    move_file,
+    send_gmail,
+)
 from utils.misc import json_log_format
 
 logger.add(

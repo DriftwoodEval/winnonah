@@ -17,13 +17,14 @@ async def verify_openphone_signature(
             raise ValueError("Invalid signature format")
         _algo, _version, timestamp, received_sig = parts
         timestamp = timestamp.strip()
+        timestamp_ms = int(timestamp)
         received_sig = received_sig.strip()
     except (ValueError, AttributeError) as e:
         logger.warning(f"Webhook rejected: invalid signature format - {e}")
         raise HTTPException(status_code=401, detail="Invalid signature format") from e
 
     now_ms = int(time.time() * 1000)
-    age_ms = abs(now_ms - int(timestamp))
+    age_ms = abs(now_ms - timestamp_ms)
     if age_ms > 5 * 60 * 1000:
         logger.warning(f"Webhook rejected: signature expired (age={age_ms}ms)")
         raise HTTPException(status_code=401, detail="Signature expired")

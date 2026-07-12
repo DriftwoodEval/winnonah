@@ -10,24 +10,10 @@ from loguru import logger
 
 import utils.database
 import utils.google
+from utils.misc import format_name
 
 LETTERHEAD_PATH = Path("letterhead.png")
 IGNORE_SOURCES = {"unknown", "no referral source", "", "babynet"}
-
-
-def format_name(name) -> str:
-    """Cleans and title-cases referral source names."""
-    exceptions = {"MUSC", "DDSN", "SC", "NC", "DSS", "MP", "LLC"}
-
-    name = re.sub(r"\(.*?\)", "", name)
-    name = re.sub(r"[^a-zA-Z\s]", " ", name)
-    name = re.sub(r"\s{2,}", " ", name).strip()
-
-    words = [
-        word.upper() if word.upper() in exceptions else word.capitalize()
-        for word in name.split()
-    ]
-    return " ".join(words)
 
 
 def process_source_metadata(raw_source):

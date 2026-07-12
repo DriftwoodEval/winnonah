@@ -23,20 +23,22 @@ from utils.fax import (
     ENV_FAX_FOLDER_ID,
     ENV_REPORT_FAX_FROM_EMAIL,
     FAX_REPORT_ENV_VARS,
-    batch_move_files,
-    check_for_subfolders,
-    copy_file,
     extract_fax_number,
     format_fax_number,
     format_name,
+    replace_text_in_doc,
+    validate_fax_config,
+)
+from utils.google import (
+    batch_move_files,
+    check_for_subfolders,
+    copy_file,
     get_file_as_bytes,
     list_files_in_folder,
     list_subfolders,
     move_file,
-    replace_text_in_doc,
-    validate_fax_config,
+    send_gmail,
 )
-from utils.google import send_gmail
 from utils.misc import json_log_format
 
 logger.add(
