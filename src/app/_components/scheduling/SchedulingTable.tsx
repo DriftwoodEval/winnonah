@@ -33,7 +33,7 @@ import {
 	TooltipTrigger,
 } from "@components/ui/tooltip";
 import { keepPreviousData } from "@tanstack/react-query";
-import { useVirtualizer } from "@tanstack/react-virtual";
+import { useVirtualizer, type Virtualizer } from "@tanstack/react-virtual";
 import { Skeleton } from "@ui/skeleton";
 import { debounce } from "es-toolkit/function";
 import {
@@ -50,6 +50,7 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useSession } from "next-auth/react";
 import {
 	memo,
+	type RefObject,
 	useCallback,
 	useDeferredValue,
 	useEffect,
@@ -94,21 +95,56 @@ export interface SchedulingUpdateData {
 
 // --- Internal Hooks ---
 
-function useTableScroll(storageKey?: string, isReady?: boolean) {
+// Rows are virtualized, so their pixel height is only an estimate until they
+// actually mount and get measured, and most rows above a restored position
+// never mount at all (they're outside the jump target's overscan window).
+// Saving/restoring a raw scrollTop pixel value drifts by the accumulated
+// estimate error across every one of those unmeasured rows, so instead we
+// save the index of the topmost visible row (plus its pixel offset within
+// the viewport) and restore via the virtualizer's own scrollToIndex, paired
+// with a running average of real row heights (see avgRowHeightRef in the
+// component below) so the estimate for unmeasured rows stays close to true.
+function useTableScroll(
+	tableRef: RefObject<HTMLDivElement | null>,
+	storageKey: string | undefined,
+	isReady: boolean | undefined,
+	rowVirtualizer: Virtualizer<HTMLDivElement, Element>,
+) {
 	const [isScrolledLeft, setIsScrolledLeft] = useState(false);
 	const [isScrolledTop, setIsScrolledTop] = useState(false);
-	const tableRef = useRef<HTMLDivElement>(null);
+	const hasRestoredRef = useRef(false);
 
 	useEffect(() => {
 		const table = tableRef.current;
 		if (!table || !isReady) return;
 
-		if (storageKey) {
+		if (storageKey && !hasRestoredRef.current) {
+			hasRestoredRef.current = true;
 			const saved = sessionStorage.getItem(storageKey);
 			if (saved) {
-				const { left, top } = JSON.parse(saved);
+				const { left, index, offset } = JSON.parse(saved) as {
+					left: number;
+					index?: number;
+					offset?: number;
+				};
 				table.scrollLeft = left;
-				table.scrollTop = top;
+				if (typeof index === "number") {
+					rowVirtualizer.scrollToIndex(index, { align: "start" });
+					// The first jump only has the running-average estimate to go
+					// on. Once it renders, the target row and its overscan
+					// neighbors get measured with real heights, so re-issuing
+					// scrollToIndex on the next frame corrects for whatever the
+					// estimate got wrong right around the target.
+					requestAnimationFrame(() => {
+						rowVirtualizer.scrollToIndex(index, { align: "start" });
+						// scrollToIndex lands the row's top at the viewport top;
+						// nudge back by however far into the viewport it actually
+						// was so the restore isn't always pinned to "start".
+						requestAnimationFrame(() => {
+							table.scrollTop += offset ?? 0;
+						});
+					});
+				}
 			}
 		}
 
@@ -117,9 +153,16 @@ function useTableScroll(storageKey?: string, isReady?: boolean) {
 			setIsScrolledTop(table.scrollTop > 0);
 
 			if (storageKey) {
+				const firstVirtualRow = rowVirtualizer.getVirtualItems()[0];
 				sessionStorage.setItem(
 					storageKey,
-					JSON.stringify({ left: table.scrollLeft, top: table.scrollTop }),
+					JSON.stringify({
+						left: table.scrollLeft,
+						index: firstVirtualRow?.index ?? 0,
+						offset: firstVirtualRow
+							? table.scrollTop - firstVirtualRow.start
+							: 0,
+					}),
 				);
 			}
 		};
@@ -128,9 +171,9 @@ function useTableScroll(storageKey?: string, isReady?: boolean) {
 
 		table.addEventListener("scroll", handleScroll);
 		return () => table.removeEventListener("scroll", handleScroll);
-	}, [storageKey, isReady]);
+	}, [tableRef, storageKey, isReady, rowVirtualizer]);
 
-	return { isScrolledLeft, isScrolledTop, tableRef };
+	return { isScrolledLeft, isScrolledTop };
 }
 
 // Manages filter state + its session-backed persistence. The filter values
@@ -942,10 +985,7 @@ function InternalSchedulingTable({
 	columnCounts,
 	isFetching,
 }: InternalSchedulingTableProps) {
-	const { isScrolledLeft, isScrolledTop, tableRef } = useTableScroll(
-		`scheduling-scroll-${type}`,
-		isInitialized,
-	);
+	const tableRef = useRef<HTMLDivElement>(null);
 
 	// Removing/loosening a filter can mean hundreds of new rows mount at once,
 	// each with several form controls - real, unavoidable work. Deferring the
@@ -989,6 +1029,24 @@ function InternalSchedulingTable({
 		[evaluators],
 	);
 
+	// scrollToIndex (see useTableScroll) computes a target row's offset from
+	// the estimated size of every unmeasured row before it, most of which
+	// never mount (they're outside the jump target's overscan window) and so
+	// never get a real measurement. A flat 45px guess drifts further off the
+	// more rows sit between the top of the list and the restored position, so
+	// we track a running average of real row heights across the session and
+	// use that as the estimate instead, which keeps restores close regardless
+	// of how far down the list they land.
+	const avgRowHeightKey = `scheduling-row-height-${type}`;
+	const avgRowHeightRef = useRef<number | null>(null);
+	if (avgRowHeightRef.current === null) {
+		const saved =
+			typeof window !== "undefined"
+				? sessionStorage.getItem(avgRowHeightKey)
+				: null;
+		avgRowHeightRef.current = saved ? Number(saved) : 45;
+	}
+
 	// Only mounts the rows actually in (or near) the viewport, instead of every
 	// row in the filtered set - hundreds of rows each with several form
 	// controls is real, otherwise-unavoidable mount cost every time the
@@ -996,9 +1054,28 @@ function InternalSchedulingTable({
 	const rowVirtualizer = useVirtualizer({
 		count: filteredClients.length,
 		getScrollElement: () => tableRef.current,
-		estimateSize: () => 45,
+		estimateSize: () => avgRowHeightRef.current ?? 45,
 		overscan: 10,
 	});
+	const handleMeasureElement = useCallback(
+		(el: Element | null) => {
+			rowVirtualizer.measureElement(el);
+			if (!el) return;
+			const height = el.getBoundingClientRect().height;
+			if (height <= 0) return;
+			const prevAvg = avgRowHeightRef.current ?? height;
+			const nextAvg = prevAvg * 0.9 + height * 0.1;
+			avgRowHeightRef.current = nextAvg;
+			sessionStorage.setItem(avgRowHeightKey, String(nextAvg));
+		},
+		[rowVirtualizer, avgRowHeightKey],
+	);
+	const { isScrolledLeft, isScrolledTop } = useTableScroll(
+		tableRef,
+		`scheduling-scroll-${type}`,
+		isInitialized,
+		rowVirtualizer,
+	);
 	const virtualRows = rowVirtualizer.getVirtualItems();
 	const virtualTotalSize = rowVirtualizer.getTotalSize();
 	const paddingTop = virtualRows.length > 0 ? (virtualRows[0]?.start ?? 0) : 0;
@@ -1095,7 +1172,7 @@ function InternalSchedulingTable({
 		};
 		document.addEventListener("keydown", handleKeyDown);
 		return () => document.removeEventListener("keydown", handleKeyDown);
-	}, [tableRef]);
+	}, []);
 
 	// Scrolls to a newly added client by index rather than querying the DOM
 	// for its row, since a just-added client's row may not be mounted yet.
@@ -1381,7 +1458,7 @@ function InternalSchedulingTable({
 								isHighlighted={scheduledClient.clientId === highlightedClientId}
 								isScrolledLeft={isScrolledLeft}
 								key={scheduledClient.clientId}
-								measureElement={rowVirtualizer.measureElement}
+								measureElement={handleMeasureElement}
 								offices={offices}
 								onAction={onAction}
 								onMove={onMove}
