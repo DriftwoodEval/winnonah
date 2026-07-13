@@ -44,7 +44,14 @@ const config = {
 	},
 	allowedDevOrigins: [appDomain, `*.${appHost}`],
 	output: "standalone",
-	serverExternalPackages: ["pino", "pino-pretty"],
+	serverExternalPackages: ["pino", "pino-pretty", "sharp"],
+	// Next's file tracing doesn't follow sharp's dlopen'd libvips .so, so the
+	// standalone build silently drops it. Force it to be included explicitly.
+	outputFileTracingIncludes: {
+		"/docs/images/**": [
+			"./node_modules/.pnpm/@img+sharp-libvips-*/node_modules/@img/sharp-libvips-*/lib/**",
+		],
+	},
 	experimental: {
 		optimizePackageImports: [
 			"lucide-react",

@@ -25,7 +25,10 @@ export const logger: Logger =
 							{ level: "debug", stream: process.stdout },
 							{
 								level: "debug",
-								stream: pino.destination("/app/logs/debug.log"),
+								stream: pino.destination({
+									dest: "/app/logs/debug.log",
+									mkdir: true,
+								}),
 							},
 						])
 					: undefined,
