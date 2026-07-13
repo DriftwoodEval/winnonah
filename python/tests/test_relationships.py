@@ -104,6 +104,28 @@ class TestMatchByInsurance:
         evaluators = {"accepts_neither": {}}
         assert match_by_insurance(client, evaluators, {}) == []
 
+    def test_babynet_alone_suffices_when_no_one_accepts_primary(self):
+        client = make_client(
+            INSURANCE_COMPANYNAME="Aetna",
+            SECONDARY_INSURANCE_COMPANYNAME="BabyNet",
+        )
+        evaluators = {
+            "accepts_babynet_only": {"BabyNet": True},
+            "accepts_neither": {},
+        }
+        assert match_by_insurance(client, evaluators, {}) == ["accepts_babynet_only"]
+
+    def test_babynet_still_requires_primary_when_someone_accepts_it(self):
+        client = make_client(
+            INSURANCE_COMPANYNAME="Aetna",
+            SECONDARY_INSURANCE_COMPANYNAME="BabyNet",
+        )
+        evaluators = {
+            "accepts_babynet_only": {"BabyNet": True},
+            "accepts_primary_only": {"Aetna": True},
+        }
+        assert match_by_insurance(client, evaluators, {}) == []
+
 
 class TestMatchBySchoolDistrict:
     def test_no_known_district_matches_all(self):

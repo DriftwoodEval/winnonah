@@ -134,6 +134,7 @@ def _check_insurance_eligibility(
     is_private_pay: bool,
     standardized_primary: str | None,
     standardized_client_insurances: set[str],
+    primary_accepted_by_anyone: bool = True,
 ) -> tuple[bool, str]:
     """Determines whether a single evaluator accepts a client's insurance, with a reason.
 
@@ -141,7 +142,11 @@ def _check_insurance_eligibility(
     accepts any one of the client's standardized insurances. If the client has
     BabyNet (as primary or secondary insurance), the evaluator must accept
     BabyNet AND the client's primary insurance (if the primary insurance is not
-    BabyNet itself), since BabyNet does not cover services on its own.
+    BabyNet itself), since BabyNet does not cover services on its own. The
+    exception is when no evaluator accepts that primary insurance at all
+    (`primary_accepted_by_anyone` is False): in that case accepting BabyNet
+    alone is enough, since requiring the primary would make every BabyNet
+    client ineligible everywhere.
     """
     if is_private_pay:
         return True, "Client is private pay"
@@ -149,19 +154,25 @@ def _check_insurance_eligibility(
     has_babynet = "BabyNet" in standardized_client_insurances
     if has_babynet:
         accepts_babynet = bool(evaluator_data.get("BabyNet"))
-        needs_primary = (
-            standardized_primary is not None and standardized_primary != "BabyNet"
+        primary_is_babynet = (
+            standardized_primary is None or standardized_primary == "BabyNet"
         )
+        primary_waived = not primary_is_babynet and not primary_accepted_by_anyone
+        needs_primary = not primary_is_babynet and not primary_waived
         accepts_primary = not needs_primary or bool(
             evaluator_data.get(standardized_primary)
         )
         eligible = accepts_babynet and accepts_primary
         if eligible:
-            reason = (
-                f"Evaluator accepts BabyNet and {standardized_primary}"
-                if needs_primary
-                else "Evaluator accepts BabyNet"
-            )
+            if needs_primary:
+                reason = f"Evaluator accepts BabyNet and {standardized_primary}"
+            elif primary_waived:
+                reason = (
+                    f"Evaluator accepts BabyNet (no evaluator accepts "
+                    f"{standardized_primary}, so BabyNet alone is sufficient)"
+                )
+            else:
+                reason = "Evaluator accepts BabyNet"
         elif not accepts_babynet and needs_primary and not accepts_primary:
             reason = (
                 f"Evaluator does not accept BabyNet and {standardized_primary}, "
@@ -215,6 +226,11 @@ def match_by_insurance(client: pd.Series, evaluators: dict, insurance_mappings: 
         _get_standardized_client_insurances(client, insurance_mappings)
     )
 
+    primary_accepted_by_anyone = standardized_primary is None or any(
+        evaluator_data.get(standardized_primary)
+        for evaluator_data in evaluators.values()
+    )
+
     eligible_evaluator_npis = set()
 
     for npi, evaluator_data in evaluators.items():
@@ -223,6 +239,7 @@ def match_by_insurance(client: pd.Series, evaluators: dict, insurance_mappings: 
             is_private_pay,
             standardized_primary,
             standardized_client_insurances,
+            primary_accepted_by_anyone,
         )
         if is_eligible:
             eligible_evaluator_npis.add(npi)
@@ -253,6 +270,11 @@ def explain_eligibility(
     is_private_pay = get_column(client, "POLICY_PRIVATEPAY") == 1
     standardized_primary, standardized_client_insurances = (
         _get_standardized_client_insurances(client, insurance_mappings)
+    )
+
+    primary_accepted_by_anyone = standardized_primary is None or any(
+        evaluator_data.get(standardized_primary)
+        for evaluator_data in evaluators.values()
     )
 
     client_school_district = get_column(client, "SCHOOL_DISTRICT")
@@ -292,6 +314,7 @@ def explain_eligibility(
             is_private_pay,
             standardized_primary,
             standardized_client_insurances,
+            primary_accepted_by_anyone,
         )
 
         if district_check_skipped:
