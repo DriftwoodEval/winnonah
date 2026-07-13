@@ -1,25 +1,20 @@
-This is a T3 stack app (Next.js, tRPC, Drizzle ORM, NextAuth), as well as a Python API sidecar, and some Python scripts that run each night.
+T3 stack app (Next.js, tRPC, Drizzle ORM, NextAuth) + a Python API sidecar + cron Python scripts.
 
 ## Code Style
-- No AI-isms: avoid filler phrases, excessive hedging, or generic "as an AI" language in code comments, commit messages, and docs.
-- No em dashes, use a comma, colon, or period instead.
-- Avoid overly complex code or one-liners done just to be clever/terse. Prefer straightforward code that's easy to read over compact code that's hard to parse.
-- Keep things simple and DRY: no premature abstractions, but don't repeat logic that already exists elsewhere.
+- No AI-isms (filler, hedging, "as an AI") and no em dashes (use comma/colon/period) in code, comments, commits, docs.
+- Prefer simple, readable code over clever/terse one-liners. DRY.
 
 ## Commands
-- Use `mise run check` to type-check and lint everything (TS + Python) — not `pnpm tsc --noEmit` or raw `ruff` calls
-- `mise run check` depends on `mise run check:pnpm` and `mise run check:ruff`, which can be run individually if you only need one
-- Trust ruff's output over your own assumptions about Python syntax validity; if ruff accepts code silently, don't flag it as a syntax error.
-- Never run `pnpm db:*` commands yourself, leave to the user.
+- `mise run check` type-checks and lints everything (TS + Python); use `check:pnpm`/`check:ruff` to run just one side. Don't call `tsc`/`ruff` directly.
+- Trust ruff over your own syntax assumptions.
+- Never run `pnpm db:*` or DB migrations, leave to the user.
 
 ## Path Aliases
-- `~/` → `src/`
-- `@components/` → `src/app/_components/`
-- `@ui/` → `src/app/_components/ui/`
+`~/` → `src/`, `@components/` → `src/app/_components/`, `@ui/` → `src/app/_components/ui/`
 
 ## Restrictions
-- Never read the contents of gitignored files, including via `grep`/`rg`/`cat` or any other tool. Treat them as off-limits.
-- Never query or output sensitive data (e.g. PII, credentials, patient records) from the database, even for debugging.
+- Never read gitignored files (grep/cat/etc. included).
+- Never query or output sensitive data (PII, credentials, patient records), even for debugging.
 
 ## Data Layer
-**Database**: MySQL (Docker), all tables use the `emr_` prefix (set in `src/server/db/schema.ts` via `mysqlTableCreator`). Schema types are inferred from Drizzle: `typeof tableName.$inferSelect`.
+MySQL (Docker). Tables use `emr_` prefix (`mysqlTableCreator` in `src/server/db/schema.ts`). Types inferred via Drizzle: `typeof tableName.$inferSelect`.
