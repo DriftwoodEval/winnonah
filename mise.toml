@@ -1,6 +1,7 @@
 [tools]
 node = "22"
 pnpm = "latest"
+uv = "latest"
 
 [env]
 _.file = ".env"
