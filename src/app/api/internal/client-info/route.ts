@@ -161,7 +161,7 @@ export async function GET(req: NextRequest) {
 
 		const recordsReviewed = fullNote.length > 0;
 		const latestRequest = requestsList[0];
-		const firstRequest = requestsList[requestsList.length - 1];
+		const firstRequest = requestsList.at(-1);
 
 		let recordsStatus: string | boolean = false;
 		if (client.recordsNeeded === "Needed") {

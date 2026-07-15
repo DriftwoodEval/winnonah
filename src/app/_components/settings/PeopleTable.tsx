@@ -73,7 +73,7 @@ function mergePeople(
 		}
 	}
 
-	return [...map.values()].sort((a, b) => a.name.localeCompare(b.name));
+	return [...map.values()].toSorted((a, b) => a.name.localeCompare(b.name));
 }
 
 function AddEvaluatorButton() {

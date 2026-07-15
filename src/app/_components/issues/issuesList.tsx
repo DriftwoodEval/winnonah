@@ -1034,7 +1034,7 @@ export function IssuesList() {
 					self.findIndex((c) => c.id === client.id) === index,
 			) ?? [];
 
-	const sortedNoteOnlyClients = [...(noteOnlyClients ?? [])].sort((a, b) => {
+	const sortedNoteOnlyClients = (noteOnlyClients ?? []).toSorted((a, b) => {
 		const aHasSuggestion = mergeSuggestions?.some(
 			(s) => s.noteOnlyClient.id === a.id,
 		);

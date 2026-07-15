@@ -2169,7 +2169,7 @@ export const clientRouter = createTRPCRouter({
 				.update(
 					JSON.stringify({
 						...input,
-						excludeIds: (input.excludeIds ?? []).slice().sort(),
+						excludeIds: (input.excludeIds ?? []).toSorted(),
 					}),
 				)
 				.digest("hex")

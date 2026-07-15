@@ -558,7 +558,7 @@ export const googleRouter = createTRPCRouter({
 			);
 
 			if (outOfOfficeEvents.length === 0) {
-				return [...officeEvents].sort(
+				return officeEvents.toSorted(
 					(a, b) => a.start.getTime() - b.start.getTime(),
 				);
 			}

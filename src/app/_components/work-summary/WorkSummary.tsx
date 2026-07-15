@@ -55,7 +55,7 @@ type ColGroup = { daEval: string; cols: ColDef[]; simple: boolean };
 
 function parseColKey(key: string): ColDef {
 	const parts = key.split("/");
-	const lastPart = parts[parts.length - 1];
+	const lastPart = parts.at(-1);
 	const ageGroup =
 		lastPart === "young" || lastPart === "older" ? lastPart : null;
 	const coreParts = ageGroup ? parts.slice(0, -1) : parts;
@@ -90,7 +90,7 @@ function buildColGroups(
 	});
 	const groups: ColGroup[] = [];
 	for (const col of cols) {
-		const last = groups[groups.length - 1];
+		const last = groups.at(-1);
 		if (last?.daEval === col.daEval) last.cols.push(col);
 		else groups.push({ daEval: col.daEval, cols: [col], simple: false });
 	}

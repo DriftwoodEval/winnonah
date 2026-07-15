@@ -139,7 +139,7 @@ function EvaluatorRow({
 	const [open, setOpen] = useState(false);
 
 	const first = evaluator.appointments[0];
-	const last = evaluator.appointments[evaluator.appointments.length - 1];
+	const last = evaluator.appointments.at(-1);
 	const timeRange =
 		first && last
 			? `${formatTime(first.startTime)} – ${formatTime(last.endTime)}`
@@ -440,7 +440,7 @@ function ListContent({
 	data: NonNullable<RouterOutputs["appointments"]["getDayAhead"]>;
 }) {
 	const myFirst = data.myAppointments[0];
-	const myLast = data.myAppointments[data.myAppointments.length - 1];
+	const myLast = data.myAppointments.at(-1);
 	const myTimeRange =
 		myFirst && myLast
 			? `${formatTime(myFirst.startTime)} – ${formatTime(myLast.endTime)}`

@@ -41,7 +41,7 @@ export function DashboardSectionWidget({
 	const rawClients = section?.clients ?? [];
 	const clients =
 		sectionTitle === SECTION_RECORDS_REQUESTED_NOT_RETURNED
-			? [...rawClients].sort((a, b) => {
+			? rawClients.toSorted((a, b) => {
 					const aDate =
 						(a as FullClientInfo).externalRecordsRequestedDate ?? "";
 					const bDate =

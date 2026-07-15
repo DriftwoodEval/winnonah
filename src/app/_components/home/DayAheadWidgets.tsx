@@ -41,7 +41,7 @@ export function MyDayWidget() {
 
 	const appts = data?.myAppointments ?? [];
 	const myFirst = appts[0];
-	const myLast = appts[appts.length - 1];
+	const myLast = appts.at(-1);
 	const myTimeRange =
 		myFirst && myLast
 			? `${formatTime(myFirst.startTime)} – ${formatTime(myLast.endTime)}`
@@ -172,7 +172,7 @@ function ExpandableEvaluator({
 }) {
 	const [open, setOpen] = useState(false);
 	const first = evaluator.appointments[0];
-	const last = evaluator.appointments[evaluator.appointments.length - 1];
+	const last = evaluator.appointments.at(-1);
 	const timeRange =
 		first && last
 			? `${formatTime(first.startTime)} – ${formatTime(last.endTime)}`

@@ -1023,7 +1023,7 @@ function InternalSchedulingTable({
 	// dropdown was never opened.
 	const sortedEvaluators = useMemo(
 		() =>
-			[...evaluators].sort((a, b) =>
+			evaluators.toSorted((a, b) =>
 				a.providerName.localeCompare(b.providerName),
 			),
 		[evaluators],
@@ -1081,7 +1081,7 @@ function InternalSchedulingTable({
 	const paddingTop = virtualRows.length > 0 ? (virtualRows[0]?.start ?? 0) : 0;
 	const paddingBottom =
 		virtualRows.length > 0
-			? virtualTotalSize - (virtualRows[virtualRows.length - 1]?.end ?? 0)
+			? virtualTotalSize - (virtualRows.at(-1)?.end ?? 0)
 			: 0;
 
 	// Rows stay virtualized (unmounted offscreen) instead of being filtered,

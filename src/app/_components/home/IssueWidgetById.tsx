@@ -412,7 +412,7 @@ function NotesOnlyWidget() {
 			</Shell>
 		);
 	const clients = noteOnlyClients ?? [];
-	const sorted = [...clients].sort((a, b) => {
+	const sorted = clients.toSorted((a, b) => {
 		const aHas = mergeSuggestions?.some((s) => s.noteOnlyClient.id === a.id);
 		const bHas = mergeSuggestions?.some((s) => s.noteOnlyClient.id === b.id);
 		if (aHas && !bHas) return -1;

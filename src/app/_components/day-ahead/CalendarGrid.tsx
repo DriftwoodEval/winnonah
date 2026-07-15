@@ -87,11 +87,13 @@ export function buildColorMap(data: CalAppt[]): Map<number, string> {
 	for (const a of data) {
 		if (!byNpi.has(a.evaluatorNpi)) byNpi.set(a.evaluatorNpi, a.isCurrentUser);
 	}
-	const sorted = [...byNpi.entries()].sort(([npiA, currA], [npiB, currB]) => {
-		if (currA && !currB) return -1;
-		if (!currA && currB) return 1;
-		return npiA - npiB;
-	});
+	const sorted = [...byNpi.entries()].toSorted(
+		([npiA, currA], [npiB, currB]) => {
+			if (currA && !currB) return -1;
+			if (!currA && currB) return 1;
+			return npiA - npiB;
+		},
+	);
 	sorted.forEach(([npi], i) => {
 		map.set(npi, EVAL_COLORS[i % EVAL_COLORS.length] ?? FALLBACK_COLOR);
 	});
@@ -103,7 +105,7 @@ export function buildColorMap(data: CalAppt[]): Map<number, string> {
 export function assignLanes<T extends { startTime: Date; endTime: Date }>(
 	appts: T[],
 ): { appt: T; lane: number; totalLanes: number }[] {
-	const sorted = [...appts].sort(
+	const sorted = appts.toSorted(
 		(a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime(),
 	);
 	const laneEndMs: number[] = [];
@@ -268,7 +270,7 @@ export function CalendarDayView({
 			existing.appts.push(appt);
 			map.set(appt.evaluatorNpi, existing);
 		}
-		return [...map.values()].sort((a, b) => {
+		return [...map.values()].toSorted((a, b) => {
 			if (a.isCurrentUser) return -1;
 			if (b.isCurrentUser) return 1;
 			return a.name.localeCompare(b.name);
