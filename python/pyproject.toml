@@ -3,7 +3,6 @@ name = "winnonah-python"
 version = "0.1.0"
 requires-python = ">=3.13"
 dependencies = [
-  "dotenv>=0.9.9",
   "fastapi>=0.135.3",
   "geocodio-library-python>=0.7.0",
   "geopandas>=1.1.1",
@@ -24,6 +23,7 @@ dependencies = [
   "pymysql[rsa]>=1.1.2",
   "pytesseract>=0.3.13",
   "python-dateutil>=2.9.0.post0",
+  "python-dotenv>=1.2.2",
   "requests>=2.33.1",
   "selenium>=4.33.0",
   "shapely>=2.1.2",
