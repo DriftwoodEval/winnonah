@@ -67,6 +67,11 @@ description = "Run Python integration tests against real external services (test
 dir = "python"
 run = "uv run pytest --run-integration -m integration -v"
 
+[tasks."test:python:docker"]
+description = "Build the Python Docker image's test stage from scratch (no cache, matching CI) and run pytest inside it"
+dir = "python"
+run = "docker build --pull --no-cache --target test -t winnonah-python-test . && docker run --rm -e HEADLESS=true winnonah-python-test"
+
 [tasks.dev]
 description = "Start development server, bringing up and installing dependencies first"
 depends = ["deps"]

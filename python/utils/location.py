@@ -116,18 +116,16 @@ def _get_client_census_data(client: pd.Series) -> tuple[str, dict] | Literal["Un
         return "Unknown"
 
 
-geocodio_client = Geocodio(os.getenv("GEOCODIO_API_KEY", ""))
-
-
 def _search_geocodio(full_address: str) -> tuple[str, float, float] | None:
     """Searches Geocodio for address, coordinates, and school district."""
-    if not os.getenv("GEOCODIO_API_KEY"):
+    geocodio_api_key = os.getenv("GEOCODIO_API_KEY")
+    if not geocodio_api_key:
         logger.warning("GEOCODIO_API_KEY is not set, skipping Geocodio")
         return None
 
     try:
         logger.debug(f"Searching Geocodio for: {full_address}")
-        response = geocodio_client.geocode(full_address, fields=["school"])
+        response = Geocodio(geocodio_api_key).geocode(full_address, fields=["school"])
 
         if not response.results:
             return None
