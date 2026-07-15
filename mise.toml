@@ -23,6 +23,7 @@ run = "uv run uvicorn api:app --reload --port 8000"
 
 [tasks."sync-db"]
 description = "Sync the production database down to the local container"
+shell = "bash -c"
 run = """
 WAS_RUNNING="$(docker ps -q -f name=driftwood-db -f status=running)"
 if [ -z "$WAS_RUNNING" ]; then
@@ -62,6 +63,11 @@ description = "Run Python unit tests"
 dir = "python"
 run = "uv run pytest"
 
+[tasks."test:python:html"]
+description = "Run Python unit tests and generate an HTML coverage report in python/htmlcov"
+dir = "python"
+run = "uv run pytest --cov-report=html"
+
 [tasks."test:python:integration"]
 description = "Run Python integration tests against real external services (test data only, manual only)"
 dir = "python"
@@ -75,6 +81,7 @@ run = "docker build --pull --no-cache --target test -t winnonah-python-test . &&
 [tasks.dev]
 description = "Start development server, bringing up and installing dependencies first"
 depends = ["deps"]
+shell = "bash -c"
 run = """
 pnpm install
 trap "docker compose down" EXIT INT TERM

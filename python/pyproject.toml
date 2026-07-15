@@ -43,7 +43,7 @@ dev = [
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-addopts = "--cov --cov-context=test --cov-report=html"
+addopts = "--cov --cov-context=test --cov-report=term-missing"
 
 [tool.coverage.run]
 source = ["."]
