@@ -79,6 +79,10 @@ description = "Build the Python Docker image's test stage from scratch (no cache
 dir = "python"
 run = "docker build --pull --no-cache --target test -t winnonah-python-test . && docker run --rm -e HEADLESS=true winnonah-python-test"
 
+[tasks."next-dev"]
+description = "Start the Next.js dev server"
+run = "pnpm dev"
+
 [tasks.dev]
 description = "Start development server, bringing up and installing dependencies first"
 depends = ["deps"]
@@ -87,5 +91,5 @@ run = """
 pnpm install
 trap "docker compose down" EXIT INT TERM
 mise run python-dev &
-pnpm dev
+mise run next-dev
 """
