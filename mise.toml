@@ -35,7 +35,7 @@ if [ -z "$WAS_RUNNING" ]; then
     done
 fi
 echo "Syncing production database..."
-ssh opti "cat backup.sql.gz" | (pigz -dc 2>/dev/null || gunzip) | sed '/GTID_PURGED/d' | docker exec -i driftwood-db mysql -u root -p"${MYSQL_ROOT_PASSWORD}" driftwood
+ssh driftwood@opti "cat backup.sql.gz" | (pigz -dc 2>/dev/null || gunzip) | sed '/GTID_PURGED/d' | docker exec -i driftwood-db mysql -u root -p"${MYSQL_ROOT_PASSWORD}" driftwood
 echo "Database sync complete!"
 if [ -z "$WAS_RUNNING" ]; then
     echo "Shutting down automatically started database container..."
