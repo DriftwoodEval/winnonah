@@ -46,6 +46,7 @@
 		"diff": "^8.0.4",
 		"drizzle-orm": "^0.45.2",
 		"es-toolkit": "^1.46.1",
+		"exceljs": "^4.4.0",
 		"fastest-levenshtein": "^1.0.16",
 		"google-auth-library": "^10.6.2",
 		"ioredis": "^5.10.1",

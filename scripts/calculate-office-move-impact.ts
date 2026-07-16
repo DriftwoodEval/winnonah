@@ -1,6 +1,77 @@
-import { and, eq, isNotNull } from "drizzle-orm";
+import { and, eq, inArray, isNotNull } from "drizzle-orm";
+import ExcelJS from "exceljs";
+import { env } from "../src/env";
 import { db } from "../src/server/db";
-import { clients, offices } from "../src/server/db/schema";
+import {
+	clients,
+	offices,
+	questionnaireRules,
+	questionnaires,
+} from "../src/server/db/schema";
+import { getQuestionnaireEligibilityAge } from "../src/server/questionnaire-age";
+
+const DONE_STATUSES = new Set(["COMPLETED", "EXTERNAL"]);
+
+interface QsProgress {
+	daDone: boolean;
+	evalDone: boolean;
+}
+
+async function getQsProgress(
+	allRules: (typeof questionnaireRules.$inferSelect)[],
+	client: typeof clients.$inferSelect,
+	clientQs: (typeof questionnaires.$inferSelect)[],
+): Promise<QsProgress> {
+	const ageInYears = await getQuestionnaireEligibilityAge(
+		db,
+		client.id,
+		client.dob,
+	);
+
+	const ageFiltered = allRules.filter(
+		(r) => r.minAge <= ageInYears && r.maxAge >= ageInYears,
+	);
+
+	const asdAdhd = client.asdAdhd;
+	const wantedDiagnoses = new Set<string | null>();
+	if (!asdAdhd) {
+		wantedDiagnoses.add("ASD");
+		wantedDiagnoses.add("ADHD");
+	} else {
+		if (asdAdhd.includes("ASD")) wantedDiagnoses.add("ASD");
+		if (asdAdhd.includes("ADHD")) wantedDiagnoses.add("ADHD");
+	}
+
+	const applicableRules = ageFiltered.filter((r) => {
+		if (r.daeval === "DAEVAL") return r.diagnosis === null;
+		return wantedDiagnoses.has(r.diagnosis);
+	});
+
+	const daQTypes = new Set<string>();
+	const evalQTypes = new Set<string>();
+	for (const rule of applicableRules) {
+		const qs = rule.questionnaires ?? [];
+		if (rule.daeval === "DA" || rule.daeval === "DAEVAL") {
+			for (const q of qs) daQTypes.add(q);
+		}
+		if (rule.daeval === "EVAL" || rule.daeval === "DAEVAL") {
+			for (const q of qs) evalQTypes.add(q);
+		}
+	}
+
+	const isTypeDone = (type: string) =>
+		clientQs.some(
+			(q) =>
+				q.questionnaireType === type &&
+				q.status !== "ARCHIVED" &&
+				DONE_STATUSES.has(q.status ?? ""),
+		);
+
+	return {
+		daDone: daQTypes.size > 0 && [...daQTypes].every(isTypeDone),
+		evalDone: evalQTypes.size > 0 && [...evalQTypes].every(isTypeDone),
+	};
+}
 
 /**
  * Haversine formula to calculate the distance between two points on Earth in miles.
@@ -121,59 +192,75 @@ async function main() {
 
 	console.log(`Found ${activeClients.length} active clients with coordinates.`);
 
-	const impacts = activeClients
-		.map((client) => {
-			if (client.latitude === null || client.longitude === null) return null;
+	const allRules = await db.select().from(questionnaireRules);
+	const clientIds = activeClients.map((c) => c.id);
+	const allClientQs =
+		clientIds.length > 0
+			? await db
+					.select()
+					.from(questionnaires)
+					.where(inArray(questionnaires.clientId, clientIds))
+			: [];
+	const qsByClientId = new Map<number, (typeof allClientQs)[number][]>();
+	for (const q of allClientQs) {
+		const existing = qsByClientId.get(q.clientId);
+		if (existing) {
+			existing.push(q);
+		} else {
+			qsByClientId.set(q.clientId, [q]);
+		}
+	}
 
-			const clientLat = parseFloat(client.latitude);
-			const clientLon = parseFloat(client.longitude);
+	const impacts = [];
+	for (const client of activeClients) {
+		if (client.latitude === null || client.longitude === null) continue;
 
-			// Calculate distance to closest office before the move
-			let oldClosestDist = Infinity;
-			let oldClosestOffice = "";
-			for (const office of currentOffices) {
-				const d = calculateDistance(
-					clientLat,
-					clientLon,
-					office.lat,
-					office.lon,
-				);
-				if (d < oldClosestDist) {
-					oldClosestDist = d;
-					oldClosestOffice = office.key;
-				}
+		const clientLat = parseFloat(client.latitude);
+		const clientLon = parseFloat(client.longitude);
+
+		// Calculate distance to closest office before the move
+		let oldClosestDist = Infinity;
+		let oldClosestOffice = "";
+		for (const office of currentOffices) {
+			const d = calculateDistance(clientLat, clientLon, office.lat, office.lon);
+			if (d < oldClosestDist) {
+				oldClosestDist = d;
+				oldClosestOffice = office.key;
 			}
+		}
 
-			// Calculate distance to closest office after the move
-			let newClosestDist = Infinity;
-			let newClosestOffice = "";
-			for (const office of afterOffices) {
-				const d = calculateDistance(
-					clientLat,
-					clientLon,
-					office.lat,
-					office.lon,
-				);
-				if (d < newClosestDist) {
-					newClosestDist = d;
-					newClosestOffice = office.key;
-				}
+		// Calculate distance to closest office after the move
+		let newClosestDist = Infinity;
+		let newClosestOffice = "";
+		for (const office of afterOffices) {
+			const d = calculateDistance(clientLat, clientLon, office.lat, office.lon);
+			if (d < newClosestDist) {
+				newClosestDist = d;
+				newClosestOffice = office.key;
 			}
+		}
 
-			const delta = newClosestDist - oldClosestDist;
+		const delta = newClosestDist - oldClosestDist;
 
-			return {
-				name: client.fullName,
-				address: client.address ?? "No address",
-				oldClosestOffice,
-				oldClosestDist,
-				newClosestOffice,
-				newClosestDist,
-				delta,
-				officeSwitched: oldClosestOffice !== newClosestOffice,
-			};
-		})
-		.filter((i): i is NonNullable<typeof i> => i !== null);
+		const qsProgress = await getQsProgress(
+			allRules,
+			client,
+			qsByClientId.get(client.id) ?? [],
+		);
+
+		impacts.push({
+			name: client.fullName,
+			emrUrl: `${new URL(env.AUTH_URL).origin}/clients/${client.hash}`,
+			address: client.address ?? "No address",
+			oldClosestOffice,
+			oldClosestDist,
+			newClosestOffice,
+			newClosestDist,
+			delta,
+			officeSwitched: oldClosestOffice !== newClosestOffice,
+			...qsProgress,
+		});
+	}
 
 	// 3. Calculate summary statistics
 	const totalClients = impacts.length;
@@ -267,6 +354,50 @@ async function main() {
 			);
 		}
 	}
+
+	// 5. Export the most affected clients to an Excel file
+	const mostAffected = impacts
+		.filter((i) => Math.abs(i.delta) > 0.01)
+		.sort((a, b) => Math.abs(b.delta) - Math.abs(a.delta));
+
+	const workbook = new ExcelJS.Workbook();
+	const sheet = workbook.addWorksheet("Most Affected Clients");
+	sheet.columns = [
+		{ header: "Name", key: "name", width: 28 },
+		{ header: "EMR Link", key: "emrUrl", width: 40 },
+		{ header: "Address", key: "address", width: 40 },
+		{ header: "Old Office", key: "oldClosestOffice", width: 12 },
+		{ header: "Old Distance (mi)", key: "oldClosestDist", width: 16 },
+		{ header: "New Office", key: "newClosestOffice", width: 12 },
+		{ header: "New Distance (mi)", key: "newClosestDist", width: 16 },
+		{ header: "Change (mi)", key: "delta", width: 12 },
+		{ header: "Switched Office", key: "officeSwitched", width: 14 },
+		{ header: "DA Qs Done", key: "daQsDone", width: 12 },
+		{ header: "Eval Qs Done", key: "evalQsDone", width: 12 },
+	];
+	sheet.getRow(1).font = { bold: true };
+
+	for (const i of mostAffected) {
+		const row = sheet.addRow({
+			name: i.name,
+			address: i.address,
+			oldClosestOffice: i.oldClosestOffice,
+			oldClosestDist: Number(i.oldClosestDist.toFixed(2)),
+			newClosestOffice: i.newClosestOffice,
+			newClosestDist: Number(i.newClosestDist.toFixed(2)),
+			delta: Number(i.delta.toFixed(2)),
+			officeSwitched: i.officeSwitched ? "Yes" : "No",
+			daQsDone: i.daDone ? "Yes" : "No",
+			evalQsDone: i.evalDone ? "Yes" : "No",
+		});
+		row.getCell("emrUrl").value = { text: "Open in EMR", hyperlink: i.emrUrl };
+	}
+
+	const outputPath = `office-move-impact-${officeKeyArg}-${Date.now()}.xlsx`;
+	await workbook.xlsx.writeFile(outputPath);
+	console.log(
+		`\nWrote ${mostAffected.length} most affected clients to ${outputPath}`,
+	);
 }
 
 main()
