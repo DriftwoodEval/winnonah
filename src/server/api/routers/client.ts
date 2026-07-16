@@ -1256,12 +1256,12 @@ export const clientRouter = createTRPCRouter({
 				string
 			>;
 
-			const result: ClientWithIssueInfo[] = noPaymentMethodOrNoEligors.map(
-				(client) => {
-					const reason = reasonsByClientId[String(client.id)];
-					return reason ? { ...client, additionalInfo: reason } : client;
-				},
-			);
+			const result: ClientWithIssueInfo[] = noPaymentMethodOrNoEligors
+				.filter((client) => reasonsByClientId[String(client.id)])
+				.map((client) => ({
+					...client,
+					additionalInfo: reasonsByClientId[String(client.id)],
+				}));
 
 			return result;
 		});
