@@ -387,13 +387,15 @@ def prepare_appointments_from_csv(
     indices_to_drop = set()
     billing_indices = set()
     last_90000_appointment_date: dict[int, datetime] = {}
+    flagged_skip_appointment = 0
+    flagged_90000_duplicate = 0
+    flagged_next_day_billing = 0
 
     for idx, appointment in appointments_df.iterrows():
         appointment_id = str(appointment["APPOINTMENT_ID"])
         client_id = appointment["CLIENT_ID"]
         start_time = appointment["STARTTIME_DT"]
         cpt_code = re.sub(r"\D", "", appointment["NAME"]) or "N/A"
-        name = re.sub(r"[\d\(\)]", "", appointment["NAME"]).strip()
 
         if appointment_id in ignored_ids:
             indices_to_drop.add(idx)
@@ -406,10 +408,7 @@ def prepare_appointments_from_csv(
             continue
 
         if should_skip_appointment(appointment):
-            logger.info(
-                f"Flagging {name} ({client_id}) on {start_time.date().strftime('%Y-%m-%d')} "
-                f"as billing-only (CPT {cpt_code} skipped from regular import)."
-            )
+            flagged_skip_appointment += 1
             billing_indices.add(idx)
             continue
 
@@ -419,10 +418,7 @@ def prepare_appointments_from_csv(
         if "90000" in cpt_code:
             last_date = last_90000_appointment_date.get(client_id)
             if last_date and (start_time - last_date).days < 182:
-                logger.info(
-                    f"Flagging appointment for client {client_id} on {start_time.date()} "
-                    f"as billing-only (90000 CPT within 6 months of {last_date.date()})."
-                )
+                flagged_90000_duplicate += 1
                 billing_indices.add(idx)
                 continue
             if not cancelled:
@@ -432,15 +428,27 @@ def prepare_appointments_from_csv(
         previous_app_date = start_time.date() - timedelta(days=1)
 
         if (client_id, previous_app_date) in client_date_set:
-            logger.info(
-                f"Flagging {name} ({client_id}) on {start_time.date().strftime('%Y-%m-%d')} "
-                f"as a billing-only appointment (seen previous day)."
-            )
+            flagged_next_day_billing += 1
             billing_indices.add(idx)
             continue
 
     if indices_to_drop:
         logger.debug(f"Skipped {len(indices_to_drop)} ignored appointment(s).")
+    if flagged_skip_appointment:
+        logger.debug(
+            f"Flagged {flagged_skip_appointment} appointment(s) as billing-only "
+            "(skipped CPT)."
+        )
+    if flagged_90000_duplicate:
+        logger.debug(
+            f"Flagged {flagged_90000_duplicate} appointment(s) as billing-only "
+            "(90000 CPT within 6 months of a prior one)."
+        )
+    if flagged_next_day_billing:
+        logger.debug(
+            f"Flagged {flagged_next_day_billing} appointment(s) as billing-only "
+            "(seen on previous day)."
+        )
     billing_df = appointments_df.loc[list(billing_indices)].copy()
     appointments_df = appointments_df.drop(
         index=list(indices_to_drop | billing_indices)
