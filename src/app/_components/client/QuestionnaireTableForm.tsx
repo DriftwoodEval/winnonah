@@ -173,10 +173,10 @@ export function QuestionnaireTableForm({
 											</Button>
 										</FormControl>
 									</PopoverTrigger>
-									<PopoverContent className="w-[--radix-popover-trigger-width] p-0">
+									<PopoverContent className="max-h-[var(--radix-popover-content-available-height)] w-[--radix-popover-trigger-width] overflow-hidden p-0">
 										<Command>
 											<CommandInput placeholder="Search..." />
-											<CommandList>
+											<CommandList className="max-h-[calc(var(--radix-popover-content-available-height)-3rem)]">
 												<CommandEmpty>No questionnaire found.</CommandEmpty>
 												<CommandGroup>
 													{questionnaireList?.map((q) => (
