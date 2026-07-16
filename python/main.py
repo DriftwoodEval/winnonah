@@ -519,11 +519,6 @@ def main(
             logger.error(f"Failed to sync client info files: {e}")
 
         try:
-            utils.appointments.move_client_folders_for_upcoming_appointments()
-        except Exception as e:
-            logger.error(f"Failed to move client Drive folders: {e}")
-
-        try:
             replace_misformatted_doctors()
         except Exception as e:
             logger.error(f"Failed to replace misformatted doctors: {e}")
