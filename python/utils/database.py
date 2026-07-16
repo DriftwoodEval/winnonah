@@ -1771,11 +1771,13 @@ def mark_posteval_pending_questionnaires(connection: Connection[DictCursor]) -> 
 def compute_and_store_assessment_snapshot(
     client_id: int,
     connection: Connection[DictCursor],
-) -> None:
+) -> bool:
     """Compute and store the assessment snapshot for a client.
 
     Mirrors TypeScript computeAndStoreAssessmentSnapshot. Run when a 90791
     non-DAEVAL appointment is added so the insurance appointment data is locked in.
+
+    Returns True if a snapshot was skipped because it was already locked in.
     """
     with connection.cursor() as cursor:
         cursor.execute(
@@ -1786,11 +1788,10 @@ def compute_and_store_assessment_snapshot(
 
     if not client or not client.get("dob"):
         logger.warning(f"Cannot compute snapshot for client {client_id}: missing dob")
-        return
+        return False
 
     if client.get("assessment_data") is not None:
-        logger.debug(f"Skipping snapshot for client {client_id}: already locked in")
-        return
+        return True
 
     dob = client["dob"]
     asd_adhd: str | None = client.get("asdAdhd")
@@ -1836,7 +1837,7 @@ def compute_and_store_assessment_snapshot(
             "excludedExternal": [],
         }
         _store_snapshot(client_id, snapshot, connection=connection)
-        return
+        return False
 
     with connection.cursor() as cursor:
         cursor.execute(
@@ -1885,6 +1886,7 @@ def compute_and_store_assessment_snapshot(
         f"Stored assessment snapshot for client {client_id}: {minutes} minutes, "
         f"{len(included_types)} types"
     )
+    return False
 
 
 @provide_connection

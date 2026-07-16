@@ -566,6 +566,7 @@ def insert_appointments_with_gcal(appointment_sync_data: dict[str, list[str]] | 
     asd_adhd_map = get_client_id_to_asd_adhd_map()
     dob_map = get_client_id_to_dob_map()
     battery_rules = get_questionnaire_rules_with_in_person()
+    skipped_locked_in_snapshots = 0
 
     for _, appointment in appointments_df.iterrows():
         appointment_id = str(appointment["APPOINTMENT_ID"])
@@ -674,8 +675,12 @@ def insert_appointments_with_gcal(appointment_sync_data: dict[str, list[str]] | 
                         appointment_id=appointment_id,
                     )
 
-        if not cancelled and (cpt_code == "90791" or gcal_daeval == "DAEVAL"):
-            compute_and_store_assessment_snapshot(client_id=client_id)
+        if (
+            not cancelled
+            and (cpt_code == "90791" or gcal_daeval == "DAEVAL")
+            and compute_and_store_assessment_snapshot(client_id=client_id)
+        ):
+            skipped_locked_in_snapshots += 1
 
     if not billing_df.empty:
         logger.info(
@@ -723,8 +728,17 @@ def insert_appointments_with_gcal(appointment_sync_data: dict[str, list[str]] | 
                 billing_only=True,
             )
 
-            if not cancelled and cpt_code == "90791":
-                compute_and_store_assessment_snapshot(client_id=client_id)
+            if (
+                not cancelled
+                and cpt_code == "90791"
+                and compute_and_store_assessment_snapshot(client_id=client_id)
+            ):
+                skipped_locked_in_snapshots += 1
+
+    if skipped_locked_in_snapshots:
+        logger.debug(
+            f"Skipped {skipped_locked_in_snapshots} assessment snapshot(s): already locked in"
+        )
 
     reporter.send_report(email_for_errors)
 
