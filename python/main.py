@@ -123,10 +123,6 @@ def import_from_ta(
         clients = utils.clients.get_clients(should_download)
 
     with utils.database.db_session() as conn:
-        evaluators = utils.database.get_evaluators_with_blocked_locations(
-            connection=conn
-        )
-
         # Pre-emptively add empty columns
         new_cols = [
             "SCHOOL_DISTRICT",
@@ -201,12 +197,21 @@ def import_from_ta(
             set(force_clients["CLIENT_ID"]) if force_clients is not None else None
         )
 
-        utils.database.insert_by_matching_criteria(
-            all_clients_from_db,
-            evaluators,
-            connection=conn,
-            force_client_ids=force_clients_ids,
-        )
+        try:
+            evaluators = utils.database.get_evaluators_with_blocked_locations(
+                connection=conn
+            )
+        except Exception as e:
+            logger.error(
+                f"Failed to fetch evaluators, skipping client-evaluator matching this run: {e}"
+            )
+        else:
+            utils.database.insert_by_matching_criteria(
+                all_clients_from_db,
+                evaluators,
+                connection=conn,
+                force_client_ids=force_clients_ids,
+            )
 
         appointment_sync_config = utils.config.load_appointment_sync_config()
         utils.appointments.insert_appointments_with_gcal(appointment_sync_config)
