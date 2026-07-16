@@ -22,6 +22,7 @@ from utils.database import (
     get_sync_report_date,
     put_appointment_in_db,
     put_in_person_assessments_in_db,
+    set_client_drive_folder_evaluator,
     set_sync_report_date,
 )
 from utils.google import google_authenticate, move_drive_folder, send_gmail
@@ -683,15 +684,17 @@ def insert_appointments_with_gcal(appointment_sync_data: dict[str, list[str]] | 
     reporter.send_report(email_for_errors)
 
 
-def move_client_folders_for_upcoming_appointments(days_ahead: int = 7) -> None:
-    """Move each client's Drive folder into their upcoming evaluator's folder, about
-    a week before the appointment.
+def move_client_folders_for_upcoming_appointments() -> None:
+    """Move each client's Drive folder into their evaluator's folder as soon as we
+    learn of a qualifying future appointment.
 
-    Only acts on clients with exactly one non-cancelled, non-rescheduled,
-    non-billing-only appointment in the window, to avoid guessing which evaluator's
-    folder to move to when there's a conflict.
+    Only acts on clients with exactly one future non-cancelled, non-rescheduled,
+    non-billing-only, non-placeholder appointment, to avoid guessing which
+    evaluator's folder to move to when there's a conflict. A client's folder is
+    moved once per evaluator: it's skipped once already moved for that evaluator,
+    and moved again if the evaluator changes.
     """
-    candidates = get_appointments_needing_folder_move(days_ahead=days_ahead)
+    candidates = get_appointments_needing_folder_move()
     if not candidates:
         logger.debug("No client Drive folders need moving.")
         return
@@ -728,6 +731,7 @@ def move_client_folders_for_upcoming_appointments(days_ahead: int = 7) -> None:
                 logger.debug(
                     f"Drive folder for {client_name} (ID: {client_id}) already in {evaluator_name}'s folder."
                 )
+            set_client_drive_folder_evaluator(client_id, evaluator_npi)
         except Exception as e:
             msg = f"{client_name} (ID: {client_id}): failed to move Drive folder: {e}"
             logger.exception(msg)

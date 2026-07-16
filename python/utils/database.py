@@ -1479,16 +1479,18 @@ def get_most_recent_non_billing_evaluator_npi(
 
 @provide_connection
 def get_appointments_needing_folder_move(
-    connection: Connection[DictCursor], days_ahead: int = 7
+    connection: Connection[DictCursor],
 ) -> list[dict]:
-    """Find clients with exactly one qualifying appointment in the next `days_ahead` days.
+    """Find clients whose Drive folder needs to move to a (new) evaluator's folder.
 
-    A client is skipped (not returned) if they have more than one non-cancelled,
-    non-rescheduled, non-billing-only appointment in the window, since it's then
-    ambiguous which evaluator's folder the client's folder should move to. Whether
-    the folder actually needs moving is decided against Drive's live state, not
-    anything cached in the database, since folders can be moved by staff or other
-    jobs outside our control.
+    A client is skipped (not returned) if they have more than one future
+    non-cancelled, non-rescheduled, non-billing-only, non-placeholder appointment,
+    since it's then ambiguous which evaluator's folder the client's folder should
+    move to. A client is otherwise only returned if that appointment's evaluator
+    differs from `client.driveFolderEvaluatorNpi`, i.e. the folder hasn't already
+    been moved for that evaluator. There's no lead-time window: the folder moves as
+    soon as we learn of the qualifying future appointment, not some fixed interval
+    before it happens. Past appointments never trigger a move.
     """
     sql = f"""
         SELECT * FROM (
@@ -1497,23 +1499,41 @@ def get_appointments_needing_folder_move(
                 a.evaluatorNpi AS evaluator_npi,
                 c.fullName AS client_name,
                 c.driveId AS client_drive_id,
+                c.driveFolderEvaluatorNpi AS drive_folder_evaluator_npi,
                 e.providerName AS evaluator_name,
                 e.driveFolderId AS evaluator_drive_folder_id,
                 COUNT(*) OVER (PARTITION BY a.clientId) AS appt_count
             FROM `{TABLE_APPOINTMENT}` a
             JOIN `{TABLE_CLIENT}` c ON c.id = a.clientId
             JOIN `{TABLE_EVALUATOR}` e ON e.npi = a.evaluatorNpi
-            WHERE a.startTime BETWEEN NOW() AND (NOW() + INTERVAL %s DAY)
+            WHERE a.startTime > NOW()
               AND a.cancelled = 0
               AND a.rescheduled = 0
               AND a.billingOnly = 0
               AND a.placeholder = 0
         ) t
         WHERE appt_count = 1
+          AND (
+              drive_folder_evaluator_npi IS NULL
+              OR drive_folder_evaluator_npi != evaluator_npi
+          )
     """
     with connection.cursor() as cursor:
-        cursor.execute(sql, (days_ahead,))
+        cursor.execute(sql)
         return list(cursor.fetchall())
+
+
+@provide_connection
+def set_client_drive_folder_evaluator(
+    client_id: str, evaluator_npi: int, connection: Connection[DictCursor]
+) -> None:
+    """Record which evaluator's folder a client's Drive folder was last moved to."""
+    with connection.cursor() as cursor:
+        cursor.execute(
+            f"UPDATE `{TABLE_CLIENT}` SET driveFolderEvaluatorNpi = %s WHERE id = %s",
+            (evaluator_npi, client_id),
+        )
+    connection.commit()
 
 
 @provide_connection

@@ -256,6 +256,9 @@ export const clients = createTable(
 		asanaId: d.varchar({ length: 255 }),
 		archivedInAsana: d.boolean().notNull().default(false),
 		driveId: d.varchar({ length: 255 }),
+		driveFolderEvaluatorNpi: d
+			.int()
+			.references(() => evaluators.npi, { onDelete: "set null" }),
 		addedDate: d.date(),
 		dob: d.date().notNull(),
 		firstName: d.varchar({ length: 255 }).notNull(),
