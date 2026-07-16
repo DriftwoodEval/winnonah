@@ -4,6 +4,7 @@ import type { DefaultSession, NextAuthConfig } from "next-auth";
 import GoogleProvider from "next-auth/providers/google";
 import { env } from "~/env";
 import type { PermissionsObject } from "~/lib/types";
+import { getImpersonationTargetId } from "~/server/auth/impersonation";
 
 import { db } from "~/server/db";
 import {
@@ -36,6 +37,8 @@ declare module "next-auth" {
 			archived?: boolean | null;
 			claimedReportFolder?: { name: string; id: string }[] | null;
 			maxClaimedReports?: number | null;
+			/** True when a dev is viewing the app as this user via the impersonation cookie. */
+			isImpersonating?: boolean;
 		} & DefaultSession["user"];
 	}
 
@@ -158,8 +161,17 @@ export const authConfig = {
 		},
 
 		async session({ session, user }) {
+			const impersonationId = await getImpersonationTargetId();
+			const isImpersonating = !!impersonationId && impersonationId !== user.id;
+
+			const targetUser = isImpersonating
+				? ((await db.query.users.findFirst({
+						where: eq(users.id, impersonationId),
+					})) ?? user)
+				: user;
+
 			const accountInDb = await db.query.accounts.findFirst({
-				where: eq(accounts.userId, user.id),
+				where: eq(accounts.userId, targetUser.id),
 			});
 
 			let accessToken: string | null = null;
@@ -172,31 +184,40 @@ export const authConfig = {
 			session.user.accessToken = accessToken ?? undefined;
 			session.user.refreshToken = refreshToken ?? undefined;
 
-			if (user) {
-				session.user.id = user.id;
+			if (targetUser) {
+				session.user.id = targetUser.id;
+				session.user.name = targetUser.name;
+				session.user.email = targetUser.email;
+				session.user.image = targetUser.image;
 
 				let effectivePermissions =
-					(user.permissions as PermissionsObject) ?? {};
-				if (user.roleId) {
+					(targetUser.permissions as PermissionsObject) ?? {};
+				if (targetUser.roleId) {
 					const role = await db.query.roles.findFirst({
-						where: eq(roles.id, user.roleId),
+						where: eq(roles.id, targetUser.roleId),
 					});
 					if (role) {
-						effectivePermissions = { ...role.permissions, ...user.permissions };
+						effectivePermissions = {
+							...role.permissions,
+							...targetUser.permissions,
+						};
 					}
 				}
 				session.user.permissions = effectivePermissions;
-				session.user.roleId = user.roleId;
+				session.user.roleId = targetUser.roleId;
 
-				session.user.archived = user.archived;
-				session.user.claimedReportFolder = user.claimedReportFolder;
-				session.user.maxClaimedReports = user.maxClaimedReports;
+				session.user.archived = targetUser.archived;
+				session.user.claimedReportFolder = targetUser.claimedReportFolder;
+				session.user.maxClaimedReports = targetUser.maxClaimedReports;
 
 				const evaluatorProfile = await db.query.evaluators.findFirst({
-					where: eq(evaluators.email, user.email ?? ""),
+					where: eq(evaluators.email, targetUser.email ?? ""),
 					columns: { npi: true },
 				});
 				session.user.isEvaluator = !!evaluatorProfile;
+
+				session.user.isImpersonating =
+					isImpersonating && targetUser.id === impersonationId;
 			}
 			return session;
 		},
