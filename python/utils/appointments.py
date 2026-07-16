@@ -25,9 +25,54 @@ from utils.database import (
     set_client_drive_folder_evaluator,
     set_sync_report_date,
 )
-from utils.google import google_authenticate, move_drive_folder, send_gmail
+from utils.google import (
+    google_authenticate,
+    move_drive_folder,
+    rename_drive_folder,
+    send_gmail,
+)
 
 DAEvalType = Literal["EVAL", "DA", "DAEVAL"]
+
+_FOLDER_DATE_PREFIX_RE = re.compile(r"^\d{2}/\d{2}/\d{4}\s+")
+_FOLDER_TAG_RE = re.compile(r"\s+(?:MOVE TO 00[01]|ADD DA&BIOPSYCH)$")
+
+
+def build_client_folder_name(
+    current_name: str,
+    appointment_start_time: datetime,
+    da_eval: DAEvalType | None,
+    asd_adhd: str | None,
+    evaluator_name: str,
+    writes_own_reports: bool,
+) -> str:
+    """Compute a client's Drive folder name for a qualifying upcoming appointment.
+
+    Prepends the appointment date and appends tags: MOVE TO 000 for a DA-only,
+    non-ADHD appointment, or MOVE TO 001 for DAEVAL, EVAL, or an ADHD DA, but only
+    when the evaluator doesn't write their own reports. Andrew's clients always
+    get ADD DA&BIOPSYCH appended regardless of appointment type or that flag.
+
+    Strips any date prefix and tags this function previously applied, so calling
+    it again on an already-tagged name is idempotent.
+    """
+    base_name = _FOLDER_DATE_PREFIX_RE.sub("", current_name)
+    while match := _FOLDER_TAG_RE.search(base_name):
+        base_name = base_name[: match.start()]
+
+    tags: list[str] = []
+    if not writes_own_reports:
+        is_adhd = asd_adhd is not None and "ADHD" in asd_adhd
+        if da_eval == "DA" and not is_adhd:
+            tags.append("MOVE TO 000")
+        elif da_eval in ("DAEVAL", "EVAL") or (da_eval == "DA" and is_adhd):
+            tags.append("MOVE TO 001")
+
+    if "andrew" in evaluator_name.lower():
+        tags.append("ADD DA&BIOPSYCH")
+
+    date_str = appointment_start_time.strftime("%m/%d/%Y")
+    return " ".join([date_str, base_name, *tags])
 
 
 class SyncReporter:
@@ -710,6 +755,9 @@ def move_client_folders_for_upcoming_appointments() -> None:
         evaluator_drive_folder_id = row["evaluator_drive_folder_id"]
 
         if not client_drive_id:
+            msg = f"{client_name} (ID: {client_id}): has no Drive folder configured."
+            logger.warning(msg)
+            errors.append(msg)
             continue
 
         if not evaluator_drive_folder_id:
@@ -722,7 +770,9 @@ def move_client_folders_for_upcoming_appointments() -> None:
             continue
 
         try:
-            moved = move_drive_folder(client_drive_id, evaluator_drive_folder_id)
+            moved, current_name = move_drive_folder(
+                client_drive_id, evaluator_drive_folder_id
+            )
             if moved:
                 logger.info(
                     f"Moved Drive folder for {client_name} (ID: {client_id}) to {evaluator_name}."
@@ -731,6 +781,18 @@ def move_client_folders_for_upcoming_appointments() -> None:
                 logger.debug(
                     f"Drive folder for {client_name} (ID: {client_id}) already in {evaluator_name}'s folder."
                 )
+
+            new_name = build_client_folder_name(
+                current_name,
+                row["appointment_start_time"],
+                row["da_eval"],
+                row["asd_adhd"],
+                evaluator_name,
+                row["writes_own_reports"],
+            )
+            if new_name != current_name:
+                rename_drive_folder(client_drive_id, new_name)
+
             set_client_drive_folder_evaluator(client_id, evaluator_npi)
         except Exception as e:
             msg = f"{client_name} (ID: {client_id}): failed to move Drive folder: {e}"

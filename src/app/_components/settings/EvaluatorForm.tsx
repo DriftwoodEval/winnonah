@@ -459,8 +459,8 @@ export function EvaluatorForm({
 								/>
 							</FormControl>
 							<FormDescription>
-								Client folders are automatically moved here the week before
-								their appointment.
+								Client folders are automatically moved here as soon as an
+								upcoming appointment is scheduled.
 							</FormDescription>
 							<FormMessage />
 						</FormItem>

@@ -265,25 +265,33 @@ def get_file_as_bytes(file: dict) -> bytes:
     return service.files().get_media(fileId=file["id"]).execute()
 
 
-def move_drive_folder(folder_id: str, dest_folder_id: str) -> bool:
+def move_drive_folder(folder_id: str, dest_folder_id: str) -> tuple[bool, str]:
     """Move a Drive folder (e.g. a client folder) to a new parent folder.
 
     Checks the folder's current parents on Drive (not any cached state) before
     moving, since folders can be moved by staff or other jobs outside our control.
-    Returns True if a move was performed, False if it was already in dest_folder_id.
+    Returns (moved, current_name), where moved is False if it was already in
+    dest_folder_id.
     """
     service = get_drive_service()
-    meta = service.files().get(fileId=folder_id, fields="parents").execute()
+    meta = service.files().get(fileId=folder_id, fields="parents, name").execute()
     current_parents = meta.get("parents", [])
+    current_name = meta["name"]
     if dest_folder_id in current_parents:
-        return False
+        return False, current_name
     service.files().update(
         fileId=folder_id,
         addParents=dest_folder_id,
         removeParents=",".join(current_parents),
         fields="id, parents",
     ).execute()
-    return True
+    return True, current_name
+
+
+def rename_drive_folder(folder_id: str, new_name: str) -> None:
+    """Rename a Drive folder (e.g. a client folder)."""
+    service = get_drive_service()
+    service.files().update(fileId=folder_id, body={"name": new_name}).execute()
 
 
 def _normalize_name_tokens(name: str):

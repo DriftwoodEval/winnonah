@@ -1497,11 +1497,15 @@ def get_appointments_needing_folder_move(
             SELECT
                 a.clientId AS client_id,
                 a.evaluatorNpi AS evaluator_npi,
+                a.startTime AS appointment_start_time,
+                a.daEval AS da_eval,
+                a.asdAdhd AS asd_adhd,
                 c.fullName AS client_name,
                 c.driveId AS client_drive_id,
                 c.driveFolderEvaluatorNpi AS drive_folder_evaluator_npi,
                 e.providerName AS evaluator_name,
                 e.driveFolderId AS evaluator_drive_folder_id,
+                e.writesOwnReports AS writes_own_reports,
                 COUNT(*) OVER (PARTITION BY a.clientId) AS appt_count
             FROM `{TABLE_APPOINTMENT}` a
             JOIN `{TABLE_CLIENT}` c ON c.id = a.clientId
