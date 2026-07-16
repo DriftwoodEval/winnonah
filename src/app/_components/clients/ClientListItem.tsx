@@ -5,6 +5,7 @@ import { memo, useMemo } from "react";
 import type { SortedClient } from "~/lib/api-types";
 import { getHexFromColor } from "~/lib/colors";
 import { cn, formatClientAge } from "~/lib/utils";
+import { DevRedact } from "../dev/DevRedact";
 
 type ClientListItemProps = {
 	client: SortedClient;
@@ -65,7 +66,9 @@ function ClientListItemComponent({
 							style={{ backgroundColor: clientHexColor }}
 						/>
 					)}
-					<span>{client.fullName}</span>
+					<span>
+						<DevRedact>{client.fullName}</DevRedact>
+					</span>
 				</div>
 				<span
 					className={cn(

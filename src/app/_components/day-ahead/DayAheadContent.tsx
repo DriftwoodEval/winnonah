@@ -22,8 +22,10 @@ import { Armchair, ChevronDown, ChevronLeft, ChevronRight } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
+import { useSession } from "next-auth/react";
 import { useEffect, useMemo, useState } from "react";
 import { api, type RouterOutputs } from "~/trpc/react";
+import { DevRedact } from "../dev/DevRedact";
 import {
 	buildColorMap,
 	CalendarDayView,
@@ -78,7 +80,7 @@ function AppointmentRow({ appt }: { appt: ListAppt }) {
 				className="truncate font-medium hover:text-secondary"
 				href={`/clients/${appt.clientHash}`}
 			>
-				{appt.clientName}
+				<DevRedact>{appt.clientName}</DevRedact>
 			</Link>
 			{appt.clientDriveId && appt.clientDriveId !== "N/A" && (
 				<Link
@@ -177,7 +179,7 @@ function EvaluatorRow({
 								className="truncate text-sm hover:text-secondary"
 								href={`/clients/${appt.clientHash}`}
 							>
-								{appt.clientName}
+								<DevRedact>{appt.clientName}</DevRedact>
 							</Link>
 							{appt.clientDriveId && appt.clientDriveId !== "N/A" && (
 								<Link
@@ -304,6 +306,8 @@ export function DayAheadContent() {
 			: format(new Date(), "yyyy-MM-dd");
 	});
 	const [asUserId, setAsUserId] = useState<string | undefined>(undefined);
+	const { data: session } = useSession();
+	const canUseDevControls = IS_DEV && !session?.user.isImpersonating;
 
 	const todayStr = format(new Date(), "yyyy-MM-dd");
 
@@ -326,7 +330,7 @@ export function DayAheadContent() {
 		api.appointments.getDayAhead.useQuery(
 			{
 				asDate: selectedDate,
-				asUserId: IS_DEV ? asUserId : undefined,
+				asUserId: canUseDevControls ? asUserId : undefined,
 			},
 			{ enabled: viewMode === "list" },
 		);
@@ -336,7 +340,7 @@ export function DayAheadContent() {
 			{
 				startDate: dateRange.at(0) ?? format(new Date(), "yyyy-MM-dd"),
 				endDate: dateRange.at(-1) ?? format(new Date(), "yyyy-MM-dd"),
-				asUserId: IS_DEV ? asUserId : undefined,
+				asUserId: canUseDevControls ? asUserId : undefined,
 			},
 			{ enabled: viewMode !== "list" },
 		);
@@ -392,7 +396,7 @@ export function DayAheadContent() {
 					)}
 
 					<div className="ml-auto flex items-center gap-2">
-						{IS_DEV && (
+						{canUseDevControls && (
 							<DevControls asUserId={asUserId} onUserChange={setAsUserId} />
 						)}
 						<ToggleGroup

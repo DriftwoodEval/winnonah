@@ -205,7 +205,7 @@ export function AvailabilityForm() {
 			<h2 className="mb-4 font-bold text-2xl">
 				Declare Your {isUnavailability ? "Unavailability" : "Availability"}
 			</h2>
-			{IS_DEV && (
+			{IS_DEV && !session?.user.isImpersonating && (
 				<OutOfOfficePriorityDevToggle
 					outOfOfficePriority={outOfOfficePriority ?? false}
 				/>

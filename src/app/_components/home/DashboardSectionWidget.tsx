@@ -14,6 +14,7 @@ import {
 } from "~/lib/dashboard";
 import type { Client, FullClientInfo } from "~/lib/models";
 import { api } from "~/trpc/react";
+import { DevRedact } from "../dev/DevRedact";
 
 interface DashboardSectionWidgetProps {
 	sectionTitle: string;
@@ -127,7 +128,9 @@ function DashboardClientRow({
 								style={{ backgroundColor: getHexFromColor(color) }}
 							/>
 						)}
-						<span className="truncate">{name}</span>
+						<span className="truncate">
+							<DevRedact>{name}</DevRedact>
+						</span>
 						{showLanguage && (
 							<span className="shrink-0 font-bold text-destructive text-xs">
 								({language})

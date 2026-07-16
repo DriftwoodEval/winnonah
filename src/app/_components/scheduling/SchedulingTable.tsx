@@ -79,6 +79,8 @@ import {
 	mapInsuranceToShortNames,
 } from "~/lib/utils";
 import { api } from "~/trpc/react";
+import { DevRedact } from "../dev/DevRedact";
+import { useDevRedaction } from "../dev/dev-redaction";
 
 // --- Types & Utilities ---
 
@@ -637,6 +639,7 @@ const SchedulingTableRow = memo(function SchedulingTableRow({
 	const [localDate, setLocalDate] = useState(scheduledClient.date ?? "");
 	const [localTime, setLocalTime] = useState(scheduledClient.time ?? "");
 	const [localNotes, setLocalNotes] = useState(scheduledClient.notes ?? "");
+	const { enabled: devRedactionEnabled } = useDevRedaction();
 
 	useEffect(() => {
 		setLocalDate(scheduledClient.date ?? "");
@@ -733,9 +736,11 @@ const SchedulingTableRow = memo(function SchedulingTableRow({
 					<Link
 						className="truncate hover:underline"
 						href={`/clients/${scheduledClient.client.hash}`}
-						title={scheduledClient.client.fullName}
+						title={
+							devRedactionEnabled ? undefined : scheduledClient.client.fullName
+						}
 					>
-						{scheduledClient.client.fullName}
+						<DevRedact>{scheduledClient.client.fullName}</DevRedact>
 					</Link>
 				</div>
 			</TableCell>

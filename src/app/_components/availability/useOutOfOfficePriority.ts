@@ -20,7 +20,10 @@ export function useOutOfOfficePriority(enabled = true) {
 		enabled: (session?.user.isEvaluator ?? false) && enabled,
 	});
 
-	const devOverride = IS_DEV ? searchParams.get(DEV_OOO_PARAM) : null;
+	const devOverride =
+		IS_DEV && !session?.user.isImpersonating
+			? searchParams.get(DEV_OOO_PARAM)
+			: null;
 	const data =
 		devOverride === "true"
 			? true

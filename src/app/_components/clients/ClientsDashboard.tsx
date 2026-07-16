@@ -21,6 +21,7 @@ import {
 	formatColorName,
 } from "~/lib/colors";
 import { api } from "~/trpc/react";
+import { DevRedact } from "../dev/DevRedact";
 import { ResponsiveDialog } from "../shared/ResponsiveDialog";
 import ClientCreateForm from "./ClientCreateForm";
 import { ClientsList } from "./ClientsList";
@@ -556,7 +557,7 @@ export function ClientsDashboard() {
 							href={`/clients/${client.hash}`}
 							key={client.hash}
 						>
-							{client.name}
+							<DevRedact>{client.name}</DevRedact>
 						</Link>
 					))}
 				</div>

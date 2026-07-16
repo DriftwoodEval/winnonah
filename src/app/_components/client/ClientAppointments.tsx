@@ -27,6 +27,7 @@ import {
 	MoreHorizontal,
 	User,
 } from "lucide-react";
+import { useSession } from "next-auth/react";
 import { useState } from "react";
 import { getLocalTimeFromUTCDate } from "~/lib/utils";
 import { api } from "~/trpc/react";
@@ -36,6 +37,7 @@ const IS_DEV = process.env.NODE_ENV === "development";
 
 export function ClientAppointments({ clientId }: { clientId: number }) {
 	const utils = api.useUtils();
+	const { data: session } = useSession();
 	const [expandedApptId, setExpandedApptId] = useState<string | null>(null);
 	const [billingOpen, setBillingOpen] = useState(false);
 	const { data: appointments, isLoading } =
@@ -79,7 +81,7 @@ export function ClientAppointments({ clientId }: { clientId: number }) {
 						<div className="flex items-center gap-2 font-semibold text-sm">
 							<CalendarIcon className="h-3.5 w-3.5" />
 							{format(startTime, "MMM d, yyyy")}
-							{IS_DEV && (
+							{IS_DEV && !session?.user.isImpersonating && (
 								<a
 									href={`http://localhost:8000/pyapi/appointment-reminders/preview/${appt.id}`}
 									onClick={(e) => e.stopPropagation()}

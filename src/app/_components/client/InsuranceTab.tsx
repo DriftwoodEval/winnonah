@@ -14,6 +14,7 @@ import type { Client } from "~/lib/models";
 import { formatPhoneNumber, toTitleCase } from "~/lib/utils";
 import type { AppRouter } from "~/server/api/root";
 import { api } from "~/trpc/react";
+import { DevRedact } from "../dev/DevRedact";
 import { InsuranceReviewSection } from "./InsuranceReviewSection";
 
 interface InsuranceTabProps {
@@ -46,15 +47,19 @@ function isActive(
 function InfoRow({
 	label,
 	value,
+	sensitive,
 }: {
 	label: string;
 	value: string | null | undefined;
+	sensitive?: boolean;
 }) {
 	if (!value) return null;
 	return (
 		<div className="flex flex-col gap-0.5">
 			<span className="text-muted-foreground text-xs">{label}</span>
-			<span className="text-sm">{value}</span>
+			<span className="text-sm">
+				{sensitive ? <DevRedact>{value}</DevRedact> : value}
+			</span>
 		</div>
 	);
 }
@@ -114,15 +119,15 @@ function PolicyCard({
 
 			<CardContent className="pt-0">
 				<div className="grid grid-cols-2 gap-x-6 gap-y-2 sm:grid-cols-3">
-					<InfoRow label="Policy #" value={policy.insuranceNumber} />
-					<InfoRow label="Group #" value={policy.groupNumber} />
+					<InfoRow label="Policy #" sensitive value={policy.insuranceNumber} />
+					<InfoRow label="Group #" sensitive value={policy.groupNumber} />
 					<InfoRow label="Payer ID" value={policy.insurancePayerId} />
 					<InfoRow
 						label="Start Date"
 						value={formatDate(policy.policyStartDate)}
 					/>
 					<InfoRow label="End Date" value={formatDate(policy.policyEndDate)} />
-					<InfoRow label="Employer" value={policy.employer} />
+					<InfoRow label="Employer" sensitive value={policy.employer} />
 					<InfoRow
 						label="Phone"
 						value={
@@ -154,6 +159,7 @@ function PolicyCard({
 						<div className="grid grid-cols-2 gap-x-6 gap-y-2 sm:grid-cols-3">
 							<InfoRow
 								label="Name"
+								sensitive
 								value={
 									[
 										policy.insuredFirstName,
@@ -165,10 +171,15 @@ function PolicyCard({
 								}
 							/>
 							<InfoRow label="Relationship" value={policy.insuredRelation} />
-							<InfoRow label="DOB" value={formatDate(policy.insuredDob)} />
-							<InfoRow label="Gender" value={policy.insuredGender} />
+							<InfoRow
+								label="DOB"
+								sensitive
+								value={formatDate(policy.insuredDob)}
+							/>
+							<InfoRow label="Gender" sensitive value={policy.insuredGender} />
 							<InfoRow
 								label="Phone"
+								sensitive
 								value={
 									policy.insuredPhone
 										? formatPhoneNumber(policy.insuredPhone)
@@ -258,10 +269,14 @@ function PolicyCard({
 				{(policy.memo ?? policy.clientMemo) && (
 					<>
 						<SectionHeader>Notes</SectionHeader>
-						{policy.memo && <p className="text-sm">{policy.memo}</p>}
+						{policy.memo && (
+							<p className="text-sm">
+								<DevRedact>{policy.memo}</DevRedact>
+							</p>
+						)}
 						{policy.clientMemo && policy.clientMemo !== policy.memo && (
 							<p className="text-muted-foreground text-sm">
-								{policy.clientMemo}
+								<DevRedact>{policy.clientMemo}</DevRedact>
 							</p>
 						)}
 					</>

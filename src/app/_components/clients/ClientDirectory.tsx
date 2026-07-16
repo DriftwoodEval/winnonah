@@ -42,6 +42,7 @@ import {
 import { ALLOWED_ASD_ADHD_VALUES, type PUNCH_SCHEMA } from "~/lib/constants";
 import { cn, formatClientAge } from "~/lib/utils";
 import { api } from "~/trpc/react";
+import { DevRedact } from "../dev/DevRedact";
 import { NameSearchInput } from "./NameSearchInput";
 
 const FILTER_TIMEOUT_MS = 24 * 60 * 60 * 1000;
@@ -937,7 +938,7 @@ export function ClientDirectory() {
 														backgroundColor: getHexFromColor(client.color),
 													}}
 												/>
-												{client.fullName}
+												<DevRedact>{client.fullName}</DevRedact>
 											</span>
 											{visibleColumns[FAILURES_TOGGLE_KEY] &&
 												client.unresolvedFailures.map((reason) => (

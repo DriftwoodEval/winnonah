@@ -28,6 +28,7 @@ import { logger } from "~/lib/logger";
 import type { Client } from "~/lib/models";
 import { isShellClientId } from "~/lib/utils";
 import { api } from "~/trpc/react";
+import { DevRedact } from "../dev/DevRedact";
 import { ResponsiveDialog } from "../shared/ResponsiveDialog";
 import { AddDriveButton } from "./AddDrive";
 import { DashboardStatus } from "./DashboardStatus";
@@ -133,7 +134,9 @@ export function ClientHeader({
 			</ResponsiveDialog>
 			{client && (
 				<div className="flex items-center gap-4">
-					<h1 className="font-bold text-xl md:text-2xl">{client.fullName}</h1>
+					<h1 className="font-bold text-xl md:text-2xl">
+						<DevRedact>{client.fullName}</DevRedact>
+					</h1>
 					<div className="flex h-[16px] items-center gap-2">
 						{!readOnly && !isShellClientId(client.id) && (
 							<ClientEditButton client={client} />
@@ -192,7 +195,11 @@ export function ClientHeader({
 			)}
 			<div className="flex flex-wrap items-center gap-x-2 gap-y-1">
 				<div className="flex items-center gap-2">
-					{!isShellClientId(client.id) && <span>{client.id}</span>}
+					{!isShellClientId(client.id) && (
+						<span>
+							<DevRedact>{String(client.id)}</DevRedact>
+						</span>
+					)}
 					<Badge
 						variant={
 							isShellClientId(client.id)

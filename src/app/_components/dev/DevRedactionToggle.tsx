@@ -1,0 +1,26 @@
+"use client";
+
+import { Button } from "@ui/button";
+import { Eye, EyeOff } from "lucide-react";
+import { useDevRedaction } from "./dev-redaction";
+
+/** Dev-only toggle to redact PII on the current page for screenshots. */
+export function DevRedactionToggle() {
+	const { enabled, toggle } = useDevRedaction();
+
+	return (
+		<Button
+			className="rounded-full"
+			onClick={toggle}
+			size="icon"
+			variant={enabled ? "default" : "ghost"}
+		>
+			{enabled ? (
+				<EyeOff className="h-[1.2rem] w-[1.2rem]" />
+			) : (
+				<Eye className="h-[1.2rem] w-[1.2rem]" />
+			)}
+			<span className="sr-only">Toggle PII redaction</span>
+		</Button>
+	);
+}

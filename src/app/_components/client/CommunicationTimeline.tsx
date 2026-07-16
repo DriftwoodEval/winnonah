@@ -17,6 +17,7 @@ import { useEffect, useMemo, useRef } from "react";
 import type { TimelineEvent } from "~/lib/quo";
 import { cn } from "~/lib/utils";
 import { api } from "~/trpc/react";
+import { DevRedact } from "../dev/DevRedact";
 import { Button } from "../ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "../ui/tooltip";
 
@@ -121,7 +122,11 @@ export function CommunicationTimeline({
 												)}
 											>
 												<p className="mb-1 whitespace-pre-wrap text-[11px] leading-tight">
-													{event.text}
+													{automatedMap.get(event.id) ? (
+														event.text
+													) : (
+														<DevRedact>{event.text}</DevRedact>
+													)}
 												</p>
 												<div className="flex items-center justify-end gap-1">
 													{automatedMap.get(event.id) && (
@@ -134,7 +139,9 @@ export function CommunicationTimeline({
 																side="left"
 															>
 																<p className="font-medium">
-																	{automatedMap.get(event.id)?.clientFullName}
+																	<DevRedact>
+																		{automatedMap.get(event.id)?.clientFullName}
+																	</DevRedact>
 																</p>
 																<p className="opacity-80">
 																	{automatedMap.get(event.id)?.reason}

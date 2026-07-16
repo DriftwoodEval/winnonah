@@ -18,6 +18,8 @@ import { usePathname } from "next/navigation";
 import { signIn, signOut, useSession } from "next-auth/react";
 import { useMediaQuery } from "~/hooks/use-media-query";
 import { api } from "~/trpc/react";
+import { DevRedactionModeSelect } from "../dev/DevRedactionModeSelect";
+import { DevRedactionToggle } from "../dev/DevRedactionToggle";
 import { IssueFormLink } from "../shared/IssueFormLink";
 import { ThemeSwitcher } from "../shared/ThemeSwitcher";
 import { DevImpersonation } from "./DevImpersonation";
@@ -68,6 +70,12 @@ export function HeaderActions() {
 			{session && <IssuesAlert />}
 
 			{IS_DEV && <DevImpersonation />}
+			{IS_DEV && (
+				<>
+					<DevRedactionModeSelect />
+					<DevRedactionToggle />
+				</>
+			)}
 
 			<IssueFormLink />
 

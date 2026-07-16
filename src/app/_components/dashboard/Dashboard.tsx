@@ -46,6 +46,7 @@ import {
 import type { FullClientInfo } from "~/lib/models";
 import { userBadgeStyle } from "~/lib/utils";
 import { api } from "~/trpc/react";
+import { DevRedact } from "../dev/DevRedact";
 
 interface PunchListAccordionProps {
 	clients: DashboardClient[];
@@ -246,7 +247,9 @@ function PunchListAccordionItem({
 																/>
 															)}
 														<span>
-															{client.fullName ?? punchClient["Client Name"]}
+															<DevRedact>
+																{client.fullName ?? punchClient["Client Name"]}
+															</DevRedact>
 														</span>
 														{(isOutreachSection ||
 															isRecordsNeededNotRequestedSection) &&
@@ -640,7 +643,9 @@ export function Dashboard() {
 																className="no-underline! hover:no-underline! flex items-center gap-2"
 																href={`/clients/${c.clientHash}?tab=insurance`}
 															>
-																<span>{c.clientName}</span>
+																<span>
+																	<DevRedact>{c.clientName}</DevRedact>
+																</span>
 																{c.claimedUserName && (
 																	<span
 																		className="rounded-sm px-1 py-0.5 text-[10px]"

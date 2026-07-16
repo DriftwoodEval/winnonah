@@ -17,6 +17,7 @@ import { useCheckPermission } from "~/hooks/use-check-permission";
 import { cn } from "~/lib/utils";
 import { api } from "~/trpc/react";
 import { ClientSearchAndAdd } from "../clients/ClientSearchAndAdd";
+import { DevRedact } from "../dev/DevRedact";
 
 interface RelatedClientsProps {
 	clientId: number;
@@ -141,7 +142,7 @@ export function RelatedClients({
 							>
 								<User className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
 								<span className="truncate font-medium group-hover:underline">
-									{conn.relatedClientData.fullName}
+									<DevRedact>{conn.relatedClientData.fullName}</DevRedact>
 								</span>
 							</Link>
 							{canEdit && (
@@ -180,7 +181,7 @@ export function RelatedClients({
 									>
 										<User className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
 										<span className="truncate font-medium group-hover:underline">
-											{suggestion.fullName}
+											<DevRedact>{suggestion.fullName}</DevRedact>
 										</span>
 									</Link>
 									<Button
