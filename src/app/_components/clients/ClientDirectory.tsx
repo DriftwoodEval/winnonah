@@ -29,10 +29,10 @@ import {
 	TableHeader,
 	TableRow,
 } from "@ui/table";
-import { ArrowDown, ArrowUp, Columns3 } from "lucide-react";
+import { ArrowDown, ArrowUp, ArrowUpDown, Columns3 } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import {
 	CLIENT_COLOR_KEYS,
 	type ClientColor,
@@ -117,6 +117,31 @@ const DEFAULT_VISIBLE_COLUMNS: Record<ToggleKey, boolean> = {
 	[FAILURES_TOGGLE_KEY]: true,
 };
 
+// "daQs"/"evalQs" are sorted client-side (see the `clients` useMemo below)
+// since their data comes from the Google Sheets punchlist, not the DB.
+const SORT_KEYS = [
+	"name",
+	"priority",
+	"status",
+	"for",
+	"language",
+	"daQs",
+	"evalQs",
+	"insurance",
+	"secondaryInsurance",
+] as const;
+type SortKey = (typeof SORT_KEYS)[number];
+
+function isSortKey(value: string | null): value is SortKey {
+	return !!value && (SORT_KEYS as readonly string[]).includes(value);
+}
+
+const QS_STAGE_ORDER: Record<string, number> = {
+	Needed: 0,
+	Sent: 1,
+	Done: 2,
+};
+
 const PRIORITY_FILTER_OPTIONS: FilterOption[] = [
 	{ value: "highPriority", label: "High Priority" },
 	{ value: "babyNet", label: "BabyNet" },
@@ -148,6 +173,85 @@ function getQsStage(prefix: QsPrefix, punchRow: QsPunchRow | undefined) {
 	if (punchRow[`${prefix} Qs Sent`] === "TRUE") return "Sent";
 	if (punchRow[`${prefix} Qs Needed`] === "TRUE") return "Needed";
 	return null;
+}
+
+interface SortableClient {
+	id: number;
+	fullName: string;
+	status: boolean;
+	asdAdhd: string | null;
+	language: string | null;
+	primaryInsurance: string | null;
+	secondaryInsurance: string[];
+	sortReason: string;
+	dob: string | Date;
+	addedDate: string | Date | null;
+}
+
+// Mirrors getPriorityInfo()'s SQL buckets/tie-break (server/api/routers/client.ts)
+// so the default "priority" sort matches the homepage client search exactly.
+const PRIORITY_REASON_BUCKET: Record<string, number> = {
+	"BabyNet and High Priority": 0,
+	"BabyNet above 2:6": 1,
+	"High Priority": 2,
+};
+
+function comparePriority(a: SortableClient, b: SortableClient) {
+	const bucketA = PRIORITY_REASON_BUCKET[a.sortReason] ?? 3;
+	const bucketB = PRIORITY_REASON_BUCKET[b.sortReason] ?? 3;
+	if (bucketA !== bucketB) return bucketA - bucketB;
+
+	const useDob = bucketA <= 1;
+	const tieA = (useDob ? a.dob : a.addedDate) ?? 0;
+	const tieB = (useDob ? b.dob : b.addedDate) ?? 0;
+	return new Date(tieA).getTime() - new Date(tieB).getTime();
+}
+
+function compareStrings(
+	a: string | null | undefined,
+	b: string | null | undefined,
+) {
+	return (a ?? "").localeCompare(b ?? "");
+}
+
+// Sorts the already-fetched, already-filtered client list in the browser.
+// The full result set lives on the client with no pagination, so every
+// column sorts instantly instead of round-tripping to the server.
+function compareClients(
+	a: SortableClient,
+	b: SortableClient,
+	sort: SortKey,
+	sortDir: "asc" | "desc",
+	getQsRank: (prefix: QsPrefix, clientId: number) => number,
+): number {
+	if (sort === "priority") return comparePriority(a, b);
+
+	const dir = sortDir === "desc" ? -1 : 1;
+	switch (sort) {
+		case "status":
+			return (
+				compareStrings(
+					a.status ? "Active" : "Inactive",
+					b.status ? "Active" : "Inactive",
+				) * dir
+			);
+		case "for":
+			return compareStrings(a.asdAdhd, b.asdAdhd) * dir;
+		case "language":
+			return compareStrings(a.language, b.language) * dir;
+		case "insurance":
+			return compareStrings(a.primaryInsurance, b.primaryInsurance) * dir;
+		case "secondaryInsurance":
+			return (
+				compareStrings(a.secondaryInsurance[0], b.secondaryInsurance[0]) * dir
+			);
+		case "daQs":
+			return (getQsRank("DA", a.id) - getQsRank("DA", b.id)) * dir;
+		case "evalQs":
+			return (getQsRank("EVAL", a.id) - getQsRank("EVAL", b.id)) * dir;
+		default:
+			return compareStrings(a.fullName, b.fullName) * dir;
+	}
 }
 
 function collapsibleCellClass(visible: boolean) {
@@ -185,6 +289,38 @@ function withNone(options: FilterOption[]): FilterOption[] {
 	return [...options, { value: NONE_FILTER_VALUE, label: "None" }];
 }
 
+interface ColumnSortProps {
+	active: boolean;
+	// Omitted for columns whose sort has no user-facing direction (e.g. priority).
+	direction?: "asc" | "desc";
+	onClick: () => void;
+}
+
+function SortButton({
+	label,
+	active,
+	direction,
+	onClick,
+}: { label: string } & ColumnSortProps) {
+	const SortIcon = direction
+		? direction === "asc"
+			? ArrowUp
+			: ArrowDown
+		: ArrowUpDown;
+
+	return (
+		<button className="flex items-center gap-1" onClick={onClick} type="button">
+			{label}
+			<SortIcon
+				className={cn(
+					"h-3.5 w-3.5",
+					active ? "text-primary" : "text-muted-foreground",
+				)}
+			/>
+		</button>
+	);
+}
+
 interface DirectoryColumnFilterProps {
 	label: string;
 	values: string[];
@@ -192,6 +328,7 @@ interface DirectoryColumnFilterProps {
 	onClear: () => void;
 	options: FilterOption[];
 	facet?: FacetCounts;
+	sort?: ColumnSortProps;
 }
 
 // Thin adapter over the shared ColumnFilter: keeps this file's toggle/clear
@@ -203,10 +340,11 @@ function DirectoryColumnFilter({
 	onClear,
 	options,
 	facet,
+	sort,
 }: DirectoryColumnFilterProps) {
 	return (
 		<div className="flex items-center gap-1">
-			{label}
+			{sort ? <SortButton label={label} {...sort} /> : label}
 			<ColumnFilter
 				columnName={label}
 				counts={facet?.counts}
@@ -250,14 +388,11 @@ interface DirectoryFilters {
 	columns?: Partial<Record<ToggleKey, boolean>>;
 }
 
-function defaultSortDir(sort: string) {
-	return sort === "addedDate" ? "desc" : "asc";
-}
-
 export function ClientDirectory() {
 	const router = useRouter();
 	const pathname = usePathname();
 	const searchParams = useSearchParams();
+	const [isSortPending, startSortTransition] = useTransition();
 
 	const getArrayParam = (key: string) => {
 		const raw = searchParams.get(key);
@@ -274,8 +409,11 @@ export function ClientDirectory() {
 	const priority = getArrayParam("priority");
 	const daQs = getArrayParam("daQs");
 	const evalQs = getArrayParam("evalQs");
-	const sort = searchParams.get("sort") ?? "name";
-	const sortDir = searchParams.get("sortDir") ?? defaultSortDir(sort);
+	// "priority" is the default, matching the homepage client search sort.
+	const rawSort = searchParams.get("sort");
+	const sort: SortKey = isSortKey(rawSort) ? rawSort : "priority";
+	// sortDir doesn't apply to "priority", which has a fixed internal order.
+	const sortDir = (searchParams.get("sortDir") ?? "asc") as "asc" | "desc";
 
 	const [isInitialized, setIsInitialized] = useState(false);
 	const lastSavedFiltersRef = useRef("");
@@ -299,6 +437,48 @@ export function ClientDirectory() {
 
 	// The Status column only earns its keep when we're not already filtered to one status
 	const statusColumnVisible = status === "all";
+
+	// Hiding a column falls back to the name sort, same as filters do.
+	const sortColumnVisible: Record<SortKey, boolean> = {
+		name: true,
+		status: statusColumnVisible,
+		priority: visibleColumns.priority,
+		for: visibleColumns.for,
+		language: visibleColumns.language,
+		daQs: visibleColumns.daQs,
+		evalQs: visibleColumns.evalQs,
+		insurance: visibleColumns.insurance,
+		secondaryInsurance: visibleColumns.secondaryInsurance,
+	};
+	const effectiveSort: SortKey = sortColumnVisible[sort] ? sort : "name";
+
+	const setSort = (newSort: SortKey, newDir: "asc" | "desc" = "asc") => {
+		const params = new URLSearchParams(searchParams.toString());
+		if (newSort === "priority") params.delete("sort");
+		else params.set("sort", newSort);
+		if (newSort === "priority" || newDir === "asc") params.delete("sortDir");
+		else params.set("sortDir", newDir);
+		// Sorting doesn't hit the network, but re-rendering every row still takes
+		// a moment. Wrapping the navigation in a transition gives us isSortPending
+		// so the table can visibly acknowledge the click while that work happens.
+		startSortTransition(() => {
+			router.push(`${pathname}?${params.toString()}`);
+		});
+	};
+
+	const handleSortClick = (key: SortKey) => {
+		if (key === "priority") {
+			if (sort !== "priority") setSort("priority");
+			return;
+		}
+		setSort(key, sort === key && sortDir === "asc" ? "desc" : "asc");
+	};
+
+	const columnSort = (key: SortKey): ColumnSortProps => ({
+		active: effectiveSort === key,
+		direction: key === "priority" ? undefined : sort === key ? sortDir : "asc",
+		onClick: () => handleSortClick(key),
+	});
 
 	const updateParam = (key: string, value: string, defaultValue = "") => {
 		const params = new URLSearchParams(searchParams.toString());
@@ -415,8 +595,9 @@ export function ClientDirectory() {
 		if (priority.length) filtersToSave.priority = priority;
 		if (daQs.length) filtersToSave.daQs = daQs;
 		if (evalQs.length) filtersToSave.evalQs = evalQs;
-		if (sort !== "name") filtersToSave.sort = sort;
-		if (sortDir !== defaultSortDir(sort)) filtersToSave.sortDir = sortDir;
+		if (sort !== "priority") filtersToSave.sort = sort;
+		if (sort !== "priority" && sortDir !== "asc")
+			filtersToSave.sortDir = sortDir;
 		if (
 			JSON.stringify(visibleColumns) !== JSON.stringify(DEFAULT_VISIBLE_COLUMNS)
 		) {
@@ -435,6 +616,9 @@ export function ClientDirectory() {
 		});
 	}, [isInitialized, searchParams, visibleColumns]);
 
+	// Sorting never touches the query: the full filtered result set is already
+	// on the client (there's no pagination), so every column sorts instantly
+	// against data already in memory instead of round-tripping to the server.
 	const queryFilters = {
 		nameSearch: nameSearch || undefined,
 		asdAdhd: effectiveAsdAdhd.length ? effectiveAsdAdhd : undefined,
@@ -450,21 +634,29 @@ export function ClientDirectory() {
 		priority: effectivePriority.length
 			? (effectivePriority as ("highPriority" | "babyNet" | "both")[])
 			: undefined,
-		sort: sort as "name" | "addedDate" | "priority",
-		sortDir: sortDir as "asc" | "desc",
 	};
 
-	const { data: rawClients, isLoading } =
-		api.clients.directory.useQuery(queryFilters);
-	const { data: facetCounts } =
-		api.clients.directoryFacetCounts.useQuery(queryFilters);
+	// Keeps the previous rows on screen while a new filter loads instead of
+	// flashing the loading skeleton and shifting column widths. isFetching
+	// still dims the table so it's clear a new result is on the way.
+	const {
+		data: rawClients,
+		isLoading,
+		isFetching,
+	} = api.clients.directory.useQuery(queryFilters, {
+		placeholderData: (previousData) => previousData,
+	});
+	const { data: facetCounts } = api.clients.directoryFacetCounts.useQuery(
+		queryFilters,
+		{ placeholderData: (previousData) => previousData },
+	);
 
 	// DA Qs / EVAL Qs stage lives in the Google Sheets punchlist, not the DB,
 	// so it can't be part of the SQL query and gets filtered here instead.
 	const clients = useMemo(() => {
 		if (!rawClients) return rawClients;
 
-		return rawClients.filter((client) => {
+		const filtered = rawClients.filter((client) => {
 			const punchRow = punchByClientId.get(String(client.id));
 
 			if (effectiveDaQs.length > 0) {
@@ -479,7 +671,23 @@ export function ClientDirectory() {
 
 			return true;
 		});
-	}, [rawClients, punchByClientId, effectiveDaQs, effectiveEvalQs]);
+
+		const getQsRank = (prefix: QsPrefix, clientId: number) => {
+			const stage = getQsStage(prefix, punchByClientId.get(String(clientId)));
+			return stage ? (QS_STAGE_ORDER[stage] ?? -1) : -1;
+		};
+
+		return [...filtered].sort((a, b) =>
+			compareClients(a, b, effectiveSort, sortDir, getQsRank),
+		);
+	}, [
+		rawClients,
+		punchByClientId,
+		effectiveDaQs,
+		effectiveEvalQs,
+		effectiveSort,
+		sortDir,
+	]);
 
 	const insuranceOptions: FilterOption[] = useMemo(
 		() =>
@@ -530,48 +738,6 @@ export function ClientDirectory() {
 						</SelectItem>
 					</SelectContent>
 				</Select>
-				<div className="flex gap-1">
-					<Select
-						onValueChange={(value) => {
-							const params = new URLSearchParams(searchParams.toString());
-							if (value !== "name") params.set("sort", value);
-							else params.delete("sort");
-							params.delete("sortDir");
-							router.push(`${pathname}?${params.toString()}`);
-						}}
-						value={sort}
-					>
-						<SelectTrigger className="w-full sm:w-40">
-							<SelectValue />
-						</SelectTrigger>
-						<SelectContent>
-							<SelectItem value="name">Sort: Name</SelectItem>
-							<SelectItem value="addedDate">Sort: Added Date</SelectItem>
-							<SelectItem value="priority">Sort: Priority</SelectItem>
-						</SelectContent>
-					</Select>
-					<Button
-						aria-label={
-							sortDir === "asc" ? "Sort ascending" : "Sort descending"
-						}
-						disabled={sort === "priority"}
-						onClick={() =>
-							updateParam(
-								"sortDir",
-								sortDir === "asc" ? "desc" : "asc",
-								defaultSortDir(sort),
-							)
-						}
-						size="icon"
-						variant="outline"
-					>
-						{sortDir === "asc" ? (
-							<ArrowDown className="h-4 w-4" />
-						) : (
-							<ArrowUp className="h-4 w-4" />
-						)}
-					</Button>
-				</div>
 				<DropdownMenu>
 					<DropdownMenuTrigger asChild>
 						<Button className="w-full sm:w-auto" size="sm" variant="outline">
@@ -594,7 +760,12 @@ export function ClientDirectory() {
 				</DropdownMenu>
 			</div>
 
-			<Table>
+			<Table
+				className={cn(
+					"transition-opacity duration-150",
+					((isFetching && !isLoading) || isSortPending) && "opacity-50",
+				)}
+			>
 				<TableHeader>
 					<TableRow>
 						<TableHead>
@@ -603,12 +774,13 @@ export function ClientDirectory() {
 								onClear={() => clearArrayParam("color")}
 								onToggle={(value) => toggleArrayParam("color", value)}
 								options={BASE_COLOR_OPTIONS}
+								sort={columnSort("name")}
 								values={color}
 							/>
 						</TableHead>
 						<TableHead className={collapsibleCellClass(statusColumnVisible)}>
 							<AnimatedCellContent visible={statusColumnVisible}>
-								Status
+								<SortButton label="Status" {...columnSort("status")} />
 							</AnimatedCellContent>
 						</TableHead>
 						<TableHead
@@ -621,6 +793,7 @@ export function ClientDirectory() {
 									onClear={() => clearArrayParam("priority")}
 									onToggle={(value) => toggleArrayParam("priority", value)}
 									options={PRIORITY_FILTER_OPTIONS}
+									sort={columnSort("priority")}
 									values={priority}
 								/>
 							</AnimatedCellContent>
@@ -633,6 +806,7 @@ export function ClientDirectory() {
 									onClear={() => clearArrayParam("for")}
 									onToggle={(value) => toggleArrayParam("for", value)}
 									options={withNone(toFilterOptions(ALLOWED_ASD_ADHD_VALUES))}
+									sort={columnSort("for")}
 									values={asdAdhd}
 								/>
 							</AnimatedCellContent>
@@ -647,6 +821,7 @@ export function ClientDirectory() {
 									onClear={() => clearArrayParam("language")}
 									onToggle={(value) => toggleArrayParam("language", value)}
 									options={withNone(toFilterOptions(languageOptions ?? []))}
+									sort={columnSort("language")}
 									values={language}
 								/>
 							</AnimatedCellContent>
@@ -658,6 +833,7 @@ export function ClientDirectory() {
 									onClear={() => clearArrayParam("daQs")}
 									onToggle={(value) => toggleArrayParam("daQs", value)}
 									options={QS_FILTER_OPTIONS}
+									sort={columnSort("daQs")}
 									values={daQs}
 								/>
 							</AnimatedCellContent>
@@ -669,6 +845,7 @@ export function ClientDirectory() {
 									onClear={() => clearArrayParam("evalQs")}
 									onToggle={(value) => toggleArrayParam("evalQs", value)}
 									options={QS_FILTER_OPTIONS}
+									sort={columnSort("evalQs")}
 									values={evalQs}
 								/>
 							</AnimatedCellContent>
@@ -683,6 +860,7 @@ export function ClientDirectory() {
 									onClear={() => clearArrayParam("insurance")}
 									onToggle={(value) => toggleArrayParam("insurance", value)}
 									options={withNone(insuranceOptions)}
+									sort={columnSort("insurance")}
 									values={primaryInsurance}
 								/>
 							</AnimatedCellContent>
@@ -701,6 +879,7 @@ export function ClientDirectory() {
 										toggleArrayParam("secondaryInsurance", value)
 									}
 									options={withNone(insuranceOptions)}
+									sort={columnSort("secondaryInsurance")}
 									values={secondaryInsurance}
 								/>
 							</AnimatedCellContent>

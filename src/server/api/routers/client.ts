@@ -6,7 +6,6 @@ import {
 	and,
 	asc,
 	count,
-	desc,
 	eq,
 	getTableColumns,
 	gt,
@@ -135,8 +134,6 @@ const directoryFilterSchema = z.object({
 	status: z.enum(["active", "inactive", "all"]).optional(),
 	color: z.array(z.string()).optional(),
 	priority: z.array(z.enum(["highPriority", "babyNet", "both"])).optional(),
-	sort: z.enum(["name", "addedDate", "priority"]).optional(),
-	sortDir: z.enum(["asc", "desc"]).optional(),
 });
 
 type DirectoryFilterInput = z.infer<typeof directoryFilterSchema>;
@@ -469,20 +466,9 @@ export const clientRouter = createTRPCRouter({
 		.query(async ({ ctx, input }) => {
 			const conditions = await buildDirectoryConditions(ctx.db, input);
 			const { sortReasonSQL, orderBySQL } = getPriorityInfo();
-			const sortDir =
-				input.sortDir ?? (input.sort === "addedDate" ? "desc" : "asc");
 
-			const orderBy =
-				input.sort === "priority"
-					? orderBySQL
-					: (() => {
-							const sortColumn =
-								input.sort === "addedDate"
-									? clients.addedDate
-									: clients.fullName;
-							return sortDir === "desc" ? desc(sortColumn) : asc(sortColumn);
-						})();
-
+			// The client sorts and re-sorts this full result set itself (it's
+			// unpaginated), so the exact DB order doesn't matter beyond being stable.
 			const [rows, allInsurances, unresolvedFailures] = await Promise.all([
 				ctx.db.query.clients.findMany({
 					columns: {
@@ -496,10 +482,11 @@ export const clientRouter = createTRPCRouter({
 						status: true,
 						color: true,
 						dob: true,
+						addedDate: true,
 					},
 					extras: { sortReason: sortReasonSQL },
 					where: and(...conditions),
-					orderBy,
+					orderBy: orderBySQL,
 				}),
 				ctx.db.query.insurances.findMany({ with: { aliases: true } }),
 				ctx.db
