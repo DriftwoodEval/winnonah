@@ -89,6 +89,10 @@ depends = ["deps"]
 shell = "bash -c"
 run = """
 pnpm install
+read -p "Sync database from production first? [y/N] " sync_answer
+if [[ "$sync_answer" =~ ^[Yy]$ ]]; then
+    mise run sync-db
+fi
 trap "docker compose down" EXIT INT TERM
 mise run python-dev &
 mise run next-dev
