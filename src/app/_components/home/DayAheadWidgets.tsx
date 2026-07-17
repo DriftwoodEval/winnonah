@@ -6,10 +6,15 @@ import {
 	CollapsibleContent,
 	CollapsibleTrigger,
 } from "@ui/collapsible";
+import { format } from "date-fns";
 import { ChevronDown, ChevronRight } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
 import { api } from "~/trpc/react";
+
+function useTodayStr() {
+	return format(new Date(), "yyyy-MM-dd");
+}
 
 function formatTime(date: Date) {
 	return new Date(date).toLocaleTimeString([], {
@@ -37,7 +42,8 @@ function WidgetShell({
 }
 
 export function MyDayWidget() {
-	const { data, isLoading } = api.appointments.getDayAhead.useQuery(undefined);
+	const asDate = useTodayStr();
+	const { data, isLoading } = api.appointments.getDayAhead.useQuery({ asDate });
 
 	const appts = data?.myAppointments ?? [];
 	const myFirst = appts[0];
@@ -115,7 +121,8 @@ export function MyDayWidget() {
 }
 
 export function WhosInWidget() {
-	const { data, isLoading } = api.appointments.getDayAhead.useQuery(undefined);
+	const asDate = useTodayStr();
+	const { data, isLoading } = api.appointments.getDayAhead.useQuery({ asDate });
 
 	const otherOffices = (data?.offices ?? [])
 		.map((office) => ({
