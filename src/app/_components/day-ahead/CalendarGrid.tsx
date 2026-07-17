@@ -6,7 +6,7 @@ import { format } from "date-fns";
 import Link from "next/link";
 import { useMemo } from "react";
 import { getLocalTimeFromUTCDate } from "~/lib/utils";
-import { DevRedact } from "../dev/DevRedact";
+import { Redact } from "../redaction/Redact";
 
 // ─── Grid constants ───────────────────────────────────────────────────────────
 
@@ -196,7 +196,7 @@ export function ApptBlock({
 						className="block truncate font-medium text-xs leading-tight hover:underline"
 						href={`/clients/${appt.clientHash}`}
 					>
-						<DevRedact>{appt.clientName}</DevRedact>
+						<Redact>{appt.clientName}</Redact>
 					</Link>
 					{showEvaluator && (
 						<div className="truncate text-[10px] text-muted-foreground leading-tight">
@@ -231,7 +231,7 @@ export function ApptBlock({
 				sideOffset={6}
 			>
 				<p className="font-semibold">
-					<DevRedact>{appt.clientName}</DevRedact>
+					<Redact>{appt.clientName}</Redact>
 				</p>
 				<p className="opacity-80">
 					{formatTime(appt.startTime)} – {formatTime(appt.endTime)}

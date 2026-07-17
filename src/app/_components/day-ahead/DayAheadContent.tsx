@@ -25,7 +25,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { useEffect, useMemo, useState } from "react";
 import { api, type RouterOutputs } from "~/trpc/react";
-import { DevRedact } from "../dev/DevRedact";
+import { Redact } from "../redaction/Redact";
 import {
 	buildColorMap,
 	CalendarDayView,
@@ -80,7 +80,7 @@ function AppointmentRow({ appt }: { appt: ListAppt }) {
 				className="truncate font-medium hover:text-secondary"
 				href={`/clients/${appt.clientHash}`}
 			>
-				<DevRedact>{appt.clientName}</DevRedact>
+				<Redact>{appt.clientName}</Redact>
 			</Link>
 			{appt.clientDriveId && appt.clientDriveId !== "N/A" && (
 				<Link
@@ -179,7 +179,7 @@ function EvaluatorRow({
 								className="truncate text-sm hover:text-secondary"
 								href={`/clients/${appt.clientHash}`}
 							>
-								<DevRedact>{appt.clientName}</DevRedact>
+								<Redact>{appt.clientName}</Redact>
 							</Link>
 							{appt.clientDriveId && appt.clientDriveId !== "N/A" && (
 								<Link

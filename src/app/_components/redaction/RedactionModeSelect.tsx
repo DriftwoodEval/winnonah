@@ -7,14 +7,14 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from "@ui/select";
-import { type DevRedactionMode, useDevRedaction } from "./dev-redaction";
+import { type RedactionMode, useRedaction } from "./redaction";
 
-/** Dev-only control for how <DevRedact> redacts text: scrambled or blurred. */
-export function DevRedactionModeSelect() {
-	const { mode, setMode } = useDevRedaction();
+/** Control for how <Redact> redacts text: scrambled or blurred. */
+export function RedactionModeSelect() {
+	const { mode, setMode } = useRedaction();
 
 	return (
-		<Select onValueChange={(v) => setMode(v as DevRedactionMode)} value={mode}>
+		<Select onValueChange={(v) => setMode(v as RedactionMode)} value={mode}>
 			<SelectTrigger className="h-7 w-24 border-dashed text-xs">
 				<SelectValue />
 			</SelectTrigger>

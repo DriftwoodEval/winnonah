@@ -2,11 +2,11 @@
 
 import { Button } from "@ui/button";
 import { Eye, EyeOff } from "lucide-react";
-import { useDevRedaction } from "./dev-redaction";
+import { useRedaction } from "./redaction";
 
-/** Dev-only toggle to redact PII on the current page for screenshots. */
-export function DevRedactionToggle() {
-	const { enabled, toggle } = useDevRedaction();
+/** Toggle to redact PII on the current page for screenshots. */
+export function RedactionToggle() {
+	const { enabled, toggle } = useRedaction();
 
 	return (
 		<Button

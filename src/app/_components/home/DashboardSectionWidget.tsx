@@ -14,7 +14,7 @@ import {
 } from "~/lib/dashboard";
 import type { Client, FullClientInfo } from "~/lib/models";
 import { api } from "~/trpc/react";
-import { DevRedact } from "../dev/DevRedact";
+import { Redact } from "../redaction/Redact";
 
 interface DashboardSectionWidgetProps {
 	sectionTitle: string;
@@ -129,7 +129,7 @@ function DashboardClientRow({
 							/>
 						)}
 						<span className="truncate">
-							<DevRedact>{name}</DevRedact>
+							<Redact>{name}</Redact>
 						</span>
 						{showLanguage && (
 							<span className="shrink-0 font-bold text-destructive text-xs">

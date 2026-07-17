@@ -16,10 +16,11 @@ import { Clock, LogIn } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { signIn, signOut, useSession } from "next-auth/react";
+import { useCheckPermission } from "~/hooks/use-check-permission";
 import { useMediaQuery } from "~/hooks/use-media-query";
 import { api } from "~/trpc/react";
-import { DevRedactionModeSelect } from "../dev/DevRedactionModeSelect";
-import { DevRedactionToggle } from "../dev/DevRedactionToggle";
+import { RedactionModeSelect } from "../redaction/RedactionModeSelect";
+import { RedactionToggle } from "../redaction/RedactionToggle";
 import { IssueFormLink } from "../shared/IssueFormLink";
 import { ThemeSwitcher } from "../shared/ThemeSwitcher";
 import { DevImpersonation } from "./DevImpersonation";
@@ -30,6 +31,7 @@ const IS_DEV = process.env.NODE_ENV === "development";
 export function HeaderActions() {
 	const pathname = usePathname();
 	const { data: session } = useSession();
+	const checkPermission = useCheckPermission();
 	const isDesktop = useMediaQuery("(min-width: 768px)");
 	const { data: recentClients } = api.users.getRecentClients.useQuery(
 		undefined,
@@ -70,10 +72,10 @@ export function HeaderActions() {
 			{session && <IssuesAlert />}
 
 			{IS_DEV && <DevImpersonation />}
-			{IS_DEV && (
+			{checkPermission("settings:pii-redaction") && (
 				<>
-					<DevRedactionModeSelect />
-					<DevRedactionToggle />
+					<RedactionModeSelect />
+					<RedactionToggle />
 				</>
 			)}
 

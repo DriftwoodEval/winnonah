@@ -3,16 +3,16 @@
 import { usePathname } from "next/navigation";
 import { createContext, useContext, useEffect, useState } from "react";
 
-export type DevRedactionMode = "scramble" | "blur";
+export type RedactionMode = "scramble" | "blur";
 
-interface DevRedactionContextValue {
+interface RedactionContextValue {
 	enabled: boolean;
 	toggle: () => void;
-	mode: DevRedactionMode;
-	setMode: (mode: DevRedactionMode) => void;
+	mode: RedactionMode;
+	setMode: (mode: RedactionMode) => void;
 }
 
-const DevRedactionContext = createContext<DevRedactionContextValue>({
+const RedactionContext = createContext<RedactionContextValue>({
 	enabled: false,
 	toggle: () => {},
 	mode: "blur",
@@ -20,16 +20,12 @@ const DevRedactionContext = createContext<DevRedactionContextValue>({
 });
 
 /**
- * Dev-only. Not mounted in production, so useDevRedaction() there always
- * falls back to the disabled default above and <DevRedact> is a no-op.
+ * Mounted for all users. Whether the toggle to enable redaction is shown
+ * is gated by the "settings:pii-redaction" permission, see HeaderActions.
  */
-export function DevRedactionProvider({
-	children,
-}: {
-	children: React.ReactNode;
-}) {
+export function RedactionProvider({ children }: { children: React.ReactNode }) {
 	const [enabled, setEnabled] = useState(false);
-	const [mode, setMode] = useState<DevRedactionMode>("blur");
+	const [mode, setMode] = useState<RedactionMode>("blur");
 	const pathname = usePathname();
 
 	// Redaction is per-page only, never carries over on navigation.
@@ -39,14 +35,14 @@ export function DevRedactionProvider({
 	}, [pathname]);
 
 	return (
-		<DevRedactionContext.Provider
+		<RedactionContext.Provider
 			value={{ enabled, toggle: () => setEnabled((e) => !e), mode, setMode }}
 		>
 			{children}
-		</DevRedactionContext.Provider>
+		</RedactionContext.Provider>
 	);
 }
 
-export function useDevRedaction() {
-	return useContext(DevRedactionContext);
+export function useRedaction() {
+	return useContext(RedactionContext);
 }

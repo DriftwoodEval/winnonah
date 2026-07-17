@@ -7,7 +7,7 @@ import Link from "next/link";
 import { useCheckPermission } from "~/hooks/use-check-permission";
 import type { ClientGetOneOutput } from "~/lib/api-types";
 import { cn, formatClientAge, formatPhoneNumber } from "~/lib/utils";
-import { DevRedact } from "../dev/DevRedact";
+import { Redact } from "../redaction/Redact";
 import { ManualAddressDialog } from "./ManualAddressDialog";
 import { SelectHealthFormButton } from "./SelectHealthFormButton";
 
@@ -28,14 +28,14 @@ export function ClientDetailsCard({
 				<div>
 					<p className="font-bold">Date of Birth</p>
 					<p>
-						<DevRedact>
+						<Redact>
 							{client.dob?.toLocaleDateString("en-US", {
 								year: "numeric",
 								month: "numeric",
 								day: "numeric",
 								timeZone: "UTC",
 							})}
-						</DevRedact>
+						</Redact>
 					</p>
 				</div>
 			)}
@@ -134,7 +134,7 @@ export function ClientDetailsCard({
 							href={`https://maps.google.com/?q=${encodeURIComponent(client.address)}`}
 							target="_blank"
 						>
-							<DevRedact>{client.address}</DevRedact>
+							<Redact>{client.address}</Redact>
 						</Link>
 					)) || <p>Unknown</p>}
 				</div>
@@ -183,7 +183,7 @@ export function ClientDetailsCard({
 				<div>
 					<p className="font-bold">Phone Number</p>
 					<Link className="hover:underline" href={`tel:${client.phoneNumber}`}>
-						<DevRedact>{formatPhoneNumber(client.phoneNumber)}</DevRedact>
+						<Redact>{formatPhoneNumber(client.phoneNumber)}</Redact>
 					</Link>
 				</div>
 			)}
@@ -192,7 +192,7 @@ export function ClientDetailsCard({
 				<div>
 					<p className="font-bold">Email</p>
 					<Link className="hover:underline" href={`mailto:${client.email}`}>
-						<DevRedact>{client.email}</DevRedact>
+						<Redact>{client.email}</Redact>
 					</Link>
 				</div>
 			)}

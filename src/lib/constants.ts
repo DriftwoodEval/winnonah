@@ -179,6 +179,10 @@ export const PERMISSIONS = {
 						id: "evaluator-dashboard:admin",
 						title: "Evaluator Dashboard Admin",
 					},
+					{
+						id: "settings:pii-redaction",
+						title: "Toggle PII Redaction",
+					},
 				],
 			},
 

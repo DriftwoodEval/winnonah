@@ -1,15 +1,11 @@
 "use client";
 
 import { scrambleText } from "~/lib/scramble-text";
-import { useDevRedaction } from "./dev-redaction";
+import { useRedaction } from "./redaction";
 
-/** Wraps a piece of PII text so it can be redacted for dev-mode screenshots. */
-export function DevRedact({
-	children,
-}: {
-	children: string | null | undefined;
-}) {
-	const { enabled, mode } = useDevRedaction();
+/** Wraps a piece of PII text so it can be redacted for screenshots. */
+export function Redact({ children }: { children: string | null | undefined }) {
+	const { enabled, mode } = useRedaction();
 
 	if (!enabled || !children) return <>{children}</>;
 

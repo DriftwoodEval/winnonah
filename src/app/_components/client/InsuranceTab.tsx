@@ -14,7 +14,7 @@ import type { Client } from "~/lib/models";
 import { formatPhoneNumber, toTitleCase } from "~/lib/utils";
 import type { AppRouter } from "~/server/api/root";
 import { api } from "~/trpc/react";
-import { DevRedact } from "../dev/DevRedact";
+import { Redact } from "../redaction/Redact";
 import { InsuranceReviewSection } from "./InsuranceReviewSection";
 
 interface InsuranceTabProps {
@@ -58,7 +58,7 @@ function InfoRow({
 		<div className="flex flex-col gap-0.5">
 			<span className="text-muted-foreground text-xs">{label}</span>
 			<span className="text-sm">
-				{sensitive ? <DevRedact>{value}</DevRedact> : value}
+				{sensitive ? <Redact>{value}</Redact> : value}
 			</span>
 		</div>
 	);
@@ -271,12 +271,12 @@ function PolicyCard({
 						<SectionHeader>Notes</SectionHeader>
 						{policy.memo && (
 							<p className="text-sm">
-								<DevRedact>{policy.memo}</DevRedact>
+								<Redact>{policy.memo}</Redact>
 							</p>
 						)}
 						{policy.clientMemo && policy.clientMemo !== policy.memo && (
 							<p className="text-muted-foreground text-sm">
-								<DevRedact>{policy.clientMemo}</DevRedact>
+								<Redact>{policy.clientMemo}</Redact>
 							</p>
 						)}
 					</>
