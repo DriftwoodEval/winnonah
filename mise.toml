@@ -88,6 +88,10 @@ description = "Start development server, bringing up and installing dependencies
 depends = ["deps"]
 shell = "bash -c"
 run = """
+read -p "Pull latest changes from git first? [Y/n] " pull_answer
+if [[ ! "$pull_answer" =~ ^[Nn]$ ]]; then
+    git pull
+fi
 pnpm install
 read -p "Sync database from production first? [y/N] " sync_answer
 if [[ "$sync_answer" =~ ^[Yy]$ ]]; then
