@@ -4,6 +4,7 @@ import os
 import re
 import time
 from collections import deque
+from collections.abc import Sequence
 from datetime import datetime, timedelta
 from email.message import EmailMessage
 from pathlib import Path
@@ -598,7 +599,7 @@ def send_gmail(
     from_addr: str,
     cc_addr: str | None = None,
     html: str | None = None,
-    attachments: list[str | tuple[bytes, str]] | None = None,
+    attachments: Sequence[str | tuple[bytes, str]] | None = None,
 ):
     """Send an email using the Gmail API."""
     creds = google_authenticate()

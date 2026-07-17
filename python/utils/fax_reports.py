@@ -61,11 +61,14 @@ def check_for_cover_page(folder_id: str) -> bool:
 
 
 def generate_cover_page(folder_id: str, folder_name: str) -> None:
-    fax_number = format_fax_number(extract_fax_number(folder_name))
+    raw_fax_number = extract_fax_number(folder_name)
+    if not raw_fax_number:
+        return
+    fax_number = format_fax_number(raw_fax_number)
     if not fax_number:
         return
     referrer_name = format_name(folder_name)
-    new_file = copy_file(os.getenv(ENV_FAX_COVER_TEMPLATE_ID), "Fax Cover", folder_id)
+    new_file = copy_file(os.environ[ENV_FAX_COVER_TEMPLATE_ID], "Fax Cover", folder_id)
     replace_text_in_doc(
         new_file["id"],
         {
@@ -100,7 +103,7 @@ def _send_fax(to_addr: str, attachments: list[tuple[bytes, str]]) -> bool:
         message_text="Fax",
         subject="Fax",
         to_addr=to_addr,
-        from_addr=os.getenv(ENV_REPORT_FAX_FROM_EMAIL),
+        from_addr=os.environ[ENV_REPORT_FAX_FROM_EMAIL],
         attachments=attachments,
     )
     return result is not None
@@ -161,7 +164,7 @@ def send_fax_with_signed_cover(
 
 
 def move_reports_to_completed(files: list[dict], folder_id: str) -> None:
-    completed_id = os.getenv(ENV_FAX_COMPLETED_FOLDER_ID)
+    completed_id = os.environ[ENV_FAX_COMPLETED_FOLDER_ID]
     batch_move_files([f["id"] for f in files], completed_id, folder_id)
 
 
@@ -169,8 +172,8 @@ def move_reports_to_completed(files: list[dict], folder_id: str) -> None:
 
 
 def generate_report_cover_pages() -> None:
-    to_be_faxed_id = os.getenv(ENV_FAX_FOLDER_ID)
-    completed_id = os.getenv(ENV_FAX_COMPLETED_FOLDER_ID)
+    to_be_faxed_id = os.environ[ENV_FAX_FOLDER_ID]
+    completed_id = os.environ[ENV_FAX_COMPLETED_FOLDER_ID]
     subfolders = [
         sf for sf in list_subfolders(to_be_faxed_id) if sf["id"] != completed_id
     ]
@@ -181,8 +184,8 @@ def generate_report_cover_pages() -> None:
 
 
 def send_report_faxes() -> None:
-    to_be_faxed_id = os.getenv(ENV_FAX_FOLDER_ID)
-    completed_id = os.getenv(ENV_FAX_COMPLETED_FOLDER_ID)
+    to_be_faxed_id = os.environ[ENV_FAX_FOLDER_ID]
+    completed_id = os.environ[ENV_FAX_COMPLETED_FOLDER_ID]
 
     for sf in list_subfolders(to_be_faxed_id):
         if sf["id"] == completed_id:
@@ -193,6 +196,9 @@ def send_report_faxes() -> None:
 
         if status == "subfolders":
             fax_number = extract_fax_number(folder_name)
+            if not fax_number:
+                logger.warning(f"Skipping {folder_name}: no fax number found")
+                continue
             for ssf in list_subfolders(folder_id):
                 logger.info(f"Sending fax for {folder_name}")
                 try:
