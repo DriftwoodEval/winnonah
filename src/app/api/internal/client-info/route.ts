@@ -10,6 +10,7 @@ import {
 	evaluators,
 	externalRecordRequests,
 	externalRecords,
+	notes,
 } from "~/server/db/schema";
 
 const QuerySchema = z.object({ id: z.string().min(1) });
@@ -97,10 +98,14 @@ export async function GET(req: NextRequest) {
 			return NextResponse.json({ error: "Client not found" }, { status: 404 });
 		}
 
-		const [externalRecord, requestsList, mostRecentAppointment] =
+		const [externalRecord, clientNote, requestsList, mostRecentAppointment] =
 			await Promise.all([
 				db.query.externalRecords.findFirst({
 					where: eq(externalRecords.clientId, clientId),
+					columns: { content: true },
+				}),
+				db.query.notes.findFirst({
+					where: eq(notes.clientId, clientId),
 					columns: { content: true },
 				}),
 				db
@@ -134,6 +139,9 @@ export async function GET(req: NextRequest) {
 
 		const fullNote = extractTextFromTiptapJson(
 			externalRecord?.content as TiptapNode,
+		).trim();
+		const fullClientNote = extractTextFromTiptapJson(
+			clientNote?.content as TiptapNode,
 		).trim();
 		const matchedTemplate = NOTE_TEMPLATES.find((t) =>
 			fullNote.includes(t.text),
@@ -191,6 +199,7 @@ export async function GET(req: NextRequest) {
 				day: "numeric",
 			}),
 			age: formatClientAge(client.dob, "short"),
+			clientNote: fullClientNote,
 			records: recordsStatus,
 			babyNetERStatus: babyNetERStatus,
 			mostRecentAppointment:
