@@ -419,10 +419,16 @@ def match_by_school_district(client: pd.Series, evaluators: dict):
 
     client_school_district = get_column(client, "SCHOOL_DISTRICT")
     client_address = get_column(client, "ADDRESS")
-    client_zip = client_address.split(" ")[-1] if client_address else None
+    client_zip = (
+        client_address.split(" ")[-1] if isinstance(client_address, str) else None
+    )
 
     eligible_evaluators = []
-    client_district_lower = client_school_district.lower().strip()
+    client_district_lower = (
+        client_school_district.lower().strip()
+        if isinstance(client_school_district, str)
+        else ""
+    )
 
     for npi, evaluator_data in evaluators.items():
         blocked_districts = evaluator_data.get("blockedSchoolDistricts", [])
