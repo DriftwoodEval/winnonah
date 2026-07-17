@@ -43,12 +43,19 @@ const extractTextFromTiptapJson = (tiptapJson: TiptapNode | null): string => {
 			node.content.forEach(traverse);
 		}
 
-		// Add spaces after block-level elements for readability
+		// End block-level elements with a period so lines read sensibly once joined
 		if (
 			node.type === "paragraph" ||
 			node.type === "heading" ||
 			node.type === "listItem"
 		) {
+			const trimmed = fullText.trimEnd();
+			if (trimmed.length > 0 && !/[.!?]$/.test(trimmed)) {
+				fullText = `${trimmed}.`;
+			} else {
+				fullText = trimmed;
+			}
+
 			if (!fullText.endsWith(" ")) {
 				fullText += " ";
 			}
