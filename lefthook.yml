@@ -23,8 +23,3 @@ pre-commit:
     deptry:
       root: "python/"
       run: mise x -- uv run deptry .
-
-pre-push:
-  commands:
-    build:
-      run: SKIP_ENV_VALIDATION=1 mise x -- pnpm next build
