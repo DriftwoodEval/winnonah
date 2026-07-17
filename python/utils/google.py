@@ -20,7 +20,6 @@ from googleapiclient.http import MediaInMemoryUpload
 from loguru import logger
 
 import utils.database
-import utils.misc
 from utils.constants import TABLE_APPOINTMENT, TABLE_CLIENT, TABLE_EVALUATOR
 
 # If modifying these scopes, delete the file token.json.
@@ -519,10 +518,10 @@ def sync_client_info_files():
             JOIN {TABLE_CLIENT} c ON a.clientId = c.id
             JOIN {TABLE_EVALUATOR} e ON a.evaluatorNpi = e.npi
             WHERE DATE(a.startTime) = DATE(NOW() + INTERVAL 1 DAY)
-              AND a.cancelled = 0
-              AND a.rescheduled = 0
-              AND a.placeholder = 0
-              AND c.driveId IS NOT NULL
+                AND a.cancelled = 0
+                AND a.rescheduled = 0
+                AND a.placeholder = 0
+                AND c.driveId IS NOT NULL
             ORDER BY a.startTime
             """
         )
@@ -558,6 +557,9 @@ def _sync_client_info_file(service, row: dict):
         "Date": row["startTime"].strftime("%m/%d/%Y"),
         "Evaluator": row["providerName"],
     }
+
+    if "Beth" in row["providerName"]:
+        field_values["*"] = "Include Beth's notes on the ADOS and ADI"
 
     existing_file = _find_client_info_file(service, folder_id)
 
