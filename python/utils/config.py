@@ -16,6 +16,7 @@ REQUIRED_VARS: Final = {
     "OPENPHONE_API_TOKEN": None,
     "FAX_FOLDER_ID": None,
     "BASE_FOLDER_ID": None,
+    "REFERRAL_FAX_INTAKE_FOLDER_ID": None,
     "ERROR_EMAILS": None,
 }
 

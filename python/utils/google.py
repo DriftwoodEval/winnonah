@@ -294,7 +294,7 @@ def rename_drive_folder(folder_id: str, new_name: str) -> None:
     service.files().update(fileId=folder_id, body={"name": new_name}).execute()
 
 
-def _normalize_name_tokens(name: str):
+def normalize_name_tokens(name: str):
     """Converts 'John Smith-Doe' to a set: {'john', 'smith', 'doe'}. Removes punctuation, double spaces, and lowercases."""
     if not name:
         return set()
@@ -302,11 +302,11 @@ def _normalize_name_tokens(name: str):
     return set(clean_name.split())
 
 
-def _build_client_lookup(df_clients: pd.DataFrame):
+def build_client_lookup(df_clients: pd.DataFrame):
     """Pre-processes clients into a list of dicts for faster matching. Structure: [{'id': 1, 'tokens': {'john', 'smith'}}, ...]."""
     client_lookup = []
     for _, row in df_clients.iterrows():
-        tokens = _normalize_name_tokens(f"{row['FIRSTNAME']} {row['LASTNAME']}")
+        tokens = normalize_name_tokens(f"{row['FIRSTNAME']} {row['LASTNAME']}")
         client_data = {
             "id": row["CLIENT_ID"],
             "tokens": tokens,
@@ -316,7 +316,7 @@ def _build_client_lookup(df_clients: pd.DataFrame):
         client_lookup.append(client_data)
 
         if row["PREFERRED_NAME"]:
-            pref_tokens = _normalize_name_tokens(
+            pref_tokens = normalize_name_tokens(
                 f"{row['PREFERRED_NAME']} {row['LASTNAME']}"
             )
             if pref_tokens != tokens:
@@ -377,7 +377,7 @@ def _process_folders_queued(service, start_folder_id, client_lookup, db_connecti
                 if "[" in folder_name and "]" in folder_name:
                     continue
 
-                folder_tokens = _normalize_name_tokens(folder_name)
+                folder_tokens = normalize_name_tokens(folder_name)
                 matches = [
                     client
                     for client in client_lookup
@@ -437,7 +437,7 @@ def add_client_ids_to_drive():
 
     df_clients = df_clients[pd.isna(df_clients["DRIVE_ID"])]
 
-    client_lookup = _build_client_lookup(df_clients)
+    client_lookup = build_client_lookup(df_clients)
 
     logger.debug("Scanning folders...")
     _process_folders_queued(service, base_folder_id, client_lookup, db_connection)

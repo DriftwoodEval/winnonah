@@ -76,6 +76,17 @@ DOCUMENT_SCHEMA = {
     "required": ["category", "clients"],
 }
 
+# For callers that already know a document's category from context (e.g.
+# everything in a given intake folder is the same kind of document), so
+# there's no reason to also ask the model to classify it.
+CLIENT_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "clients": {"type": "array", "items": {"type": "string"}},
+    },
+    "required": ["clients"],
+}
+
 # Temperature used when sampling multiple votes. 0 would just repeat the same
 # greedy answer every time, so voting needs some randomness to actually
 # explore alternative readings of an ambiguous document.
@@ -186,6 +197,16 @@ def build_prompt(document_text: str) -> str:
     )
 
 
+def build_client_prompt(document_text: str) -> str:
+    return (
+        "Respond with a single JSON object only.\n"
+        '- "clients": every client/patient full name this document is '
+        "about, as a list (empty list if none is identifiable)\n\n"
+        "Document:\n"
+        f"{document_text}"
+    )
+
+
 def fit_to_context(
     llm: Llama,
     document_text: str,
@@ -212,14 +233,9 @@ def fit_to_context(
     return llm.detokenize(doc_tokens[:budget]).decode("utf-8", errors="ignore")
 
 
-def analyze_document(
-    llm: Llama, document_text: str, temperature: float = 0.0
-) -> tuple[str, list[str]]:
-    """Single grammar-constrained call that gets both the category and the
-    client name(s) together, instead of two separate prompts that would each
-    re-prefill the whole (possibly large) document text."""
-    prompt = build_prompt(document_text)
-
+def _complete_json(llm: Llama, prompt: str, schema: dict, temperature: float) -> dict:
+    """Runs a single grammar-constrained chat completion and returns the
+    parsed JSON object (empty dict if the model's reply isn't valid JSON)."""
     messages: list[ChatCompletionRequestMessage] = [{"role": "user", "content": prompt}]
 
     response = llm.create_chat_completion(
@@ -227,24 +243,46 @@ def analyze_document(
         stream=False,
         max_tokens=RESPONSE_TOKEN_RESERVE,
         temperature=temperature,
-        response_format={"type": "json_object", "schema": DOCUMENT_SCHEMA},
+        response_format={"type": "json_object", "schema": schema},
     )
     response = cast(dict, response)
     content = response["choices"][0]["message"]["content"] or "{}"
 
     try:
-        data = json.loads(content)
+        return json.loads(content)
     except json.JSONDecodeError:
-        data = {}
+        return {}
 
-    category = str(data.get("category", ""))
-    raw_clients = data.get("clients") or []
-    clients = [
+
+def _clean_client_names(raw_clients: object) -> list[str]:
+    return [
         capitalize_name_with_exceptions(str(name))
-        for name in raw_clients
+        for name in (raw_clients or [])
         if name and str(name).lower() != "none"
     ]
+
+
+def analyze_document(
+    llm: Llama, document_text: str, temperature: float = 0.0
+) -> tuple[str, list[str]]:
+    """Single grammar-constrained call that gets both the category and the
+    client name(s) together, instead of two separate prompts that would each
+    re-prefill the whole (possibly large) document text."""
+    data = _complete_json(
+        llm, build_prompt(document_text), DOCUMENT_SCHEMA, temperature
+    )
+    category = str(data.get("category", ""))
+    clients = _clean_client_names(data.get("clients"))
     return category, clients
+
+
+def extract_clients(llm: Llama, document_text: str) -> list[str]:
+    """Pulls just the client/patient name(s) out of a document, skipping the
+    category classification analyze_document also does. Use this when the
+    document's category is already known from context (e.g. an intake
+    folder that only ever contains one kind of document)."""
+    data = _complete_json(llm, build_client_prompt(document_text), CLIENT_SCHEMA, 0.0)
+    return _clean_client_names(data.get("clients"))
 
 
 def analyze_with_votes(

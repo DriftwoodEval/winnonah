@@ -25,6 +25,7 @@ import {
 	Clock,
 	FileText,
 	Home,
+	Inbox,
 	LayoutDashboard,
 	LineChart,
 	type LucideIcon,
@@ -188,7 +189,7 @@ export default function NavigationLinks() {
 		href: "/docs",
 		label: "Docs",
 		icon: BookOpen,
-		show: false,
+		show: true,
 	};
 
 	const categories: { label: string; icon: LucideIcon; items: NavItem[] }[] = [
@@ -249,6 +250,12 @@ export default function NavigationLinks() {
 					label: evalReportDashboardLabel,
 					icon: LineChart,
 					show: canSeeEvalReportDashboard,
+				},
+				{
+					href: "/referral-faxes",
+					label: "Referral Faxes",
+					icon: Inbox,
+					show: can("referrals:fax:review"),
 				},
 			],
 		},
