@@ -487,6 +487,39 @@ export const externalRecordsHistoryRelations = relations(
 	}),
 );
 
+export const tasks = createTable(
+	"task",
+	(d) => ({
+		id: d.int().notNull().autoincrement().primaryKey(),
+		type: d
+			.mysqlEnum("type", [
+				"evaluator_rematch",
+				"appointment_reminders",
+				"questionnaire_reminders",
+				"referral_fax_intake",
+			])
+			.notNull(),
+		status: d
+			.mysqlEnum("status", ["running", "completed", "failed"])
+			.notNull()
+			.default("running"),
+		label: d.varchar("label", { length: 255 }).notNull(),
+		detail: d.varchar("detail", { length: 255 }),
+		progressCurrent: d.int("progress_current"),
+		progressTotal: d.int("progress_total"),
+		error: d.text("error"),
+		startedAt: d
+			.timestamp("started_at")
+			.default(sql`CURRENT_TIMESTAMP`)
+			.notNull(),
+		completedAt: d.timestamp("completed_at"),
+	}),
+	(t) => [
+		index("task_status_idx").on(t.status),
+		index("task_started_idx").on(t.startedAt),
+	],
+);
+
 export const insuranceReview = createTable("insurance_review", (d) => ({
 	clientId: d
 		.int()

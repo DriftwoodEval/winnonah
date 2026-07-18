@@ -17,6 +17,7 @@ import { rolesRouter } from "./routers/roles";
 import { schedulingRouter } from "./routers/scheduling";
 import { sessionRouter } from "./routers/sessions";
 import { systemRouter } from "./routers/system";
+import { taskRouter } from "./routers/tasks";
 import { userRouter } from "./routers/users";
 import { workSummaryRouter } from "./routers/workSummary";
 import { createCallerFactory, createTRPCRouter } from "./trpc";
@@ -47,6 +48,7 @@ export const appRouter = createTRPCRouter({
 	scheduling: schedulingRouter,
 	sessions: sessionRouter,
 	system: systemRouter,
+	tasks: taskRouter,
 	users: userRouter,
 });
 

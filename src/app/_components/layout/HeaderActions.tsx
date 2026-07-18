@@ -1,6 +1,7 @@
 "use client";
 
 import { IssuesAlert } from "@components/issues/issuesAlert";
+import { TaskQueueBubble } from "@components/tasks/TaskQueueBubble";
 import { Avatar, AvatarFallback, AvatarImage } from "@ui/avatar";
 import { Button } from "@ui/button";
 import {
@@ -70,6 +71,7 @@ export function HeaderActions() {
 			)}
 
 			{session && <IssuesAlert />}
+			{session && <TaskQueueBubble />}
 
 			{IS_DEV && <DevImpersonation />}
 			{checkPermission("settings:pii-redaction") && (

@@ -30,6 +30,7 @@ from utils.google import (
     update_gcal_event_title,
 )
 from utils.misc import json_log_format
+from utils.task_tracker import track_task
 from utils.webhook import verify_openphone_signature
 
 logger.add(
@@ -360,188 +361,207 @@ async def process_reminders(connection: Connection[DictCursor]) -> None:
     total_skipped = 0
     already_sent_this_cycle: set[int] = set()
 
-    with connection.cursor() as cursor:
-        for template in templates:
-            max_lead_time = datetime.now() + timedelta(
-                hours=template["sendOffsetHours"]
-            )
+    with track_task("appointment_reminders", "Appointment reminders") as task:
+        if task is None:
+            # A previous cycle is still sending; skip rather than double-send.
+            return
+        task.progress(0, len(templates))
 
-            template_name = template.get("name") or f"id={template['id']}"
-            if template.get("isNoReplyFollowUp"):
-                template_type = "no-reply follow-up"
-            elif template.get("isConfirmedFollowUp"):
-                template_type = "confirmed follow-up"
-            else:
-                raw_location = template.get("triggerLocationKey")
-                if isinstance(raw_location, str):
-                    raw_location = json.loads(raw_location)
-                criteria_parts = []
-                if template.get("triggerKeyword"):
-                    criteria_parts.append(f"keyword={template['triggerKeyword']!r}")
-                if template.get("triggerDaEval"):
-                    criteria_parts.append(f"daEval={template['triggerDaEval']}")
-                if raw_location:
-                    criteria_parts.append(f"locations={raw_location}")
-                template_type = f"standard ({', '.join(criteria_parts) or 'global'})"
-            logger.info(
-                f"Template [{template_name}] ({template_type}): "
-                f"window={template['sendOffsetHours']}h, "
-                f"cutoff={max_lead_time.strftime('%Y-%m-%d %H:%M')}"
-            )
-
-            if template.get("isNoReplyFollowUp"):
-                # Candidates: not yet sent this template, at least one other template was sent,
-                # not suppressed. _matches_template post-filter enforces confirmedAt IS NULL.
-                query = f"""
-                    SELECT a.*, c.firstName, c.lastName, c.preferredName, c.phoneNumber,
-                           o.prettyName AS officeLabel, o.locationPhrase AS officeLocationPhrase
-                    FROM {TABLE_APPOINTMENT} a
-                    JOIN {TABLE_CLIENT} c ON a.clientId = c.id
-                    LEFT JOIN {TABLE_OFFICE} o ON a.locationKey = o.`key`
-                    LEFT JOIN {TABLE_APPOINTMENT_REMINDER_LOGS} l_this ON a.id = l_this.appointmentId AND l_this.reminderTemplateId = %s
-                    JOIN {TABLE_APPOINTMENT_REMINDER_LOGS} l_prev ON a.id = l_prev.appointmentId AND l_prev.reminderTemplateId != %s
-                    WHERE l_this.id IS NULL
-                    AND l_prev.id IS NOT NULL
-                    AND a.cancelled = 0
-                    AND a.rescheduled = 0
-                    AND a.doNotRemind = 0
-                    AND a.placeholder = 0
-                    AND a.billingOnly = 0
-                    AND c.language = 'English'
-                    AND a.startTime <= %s
-                    AND a.startTime >= NOW()
-                """
-                params = (
-                    template["id"],
-                    template["id"],
-                    max_lead_time,
-                )
-            elif template.get("isConfirmedFollowUp"):
-                # Candidates: not yet sent, appointment is confirmed, not suppressed.
-                # confirmedAt IS NOT NULL stays in SQL (not mirrored in _matches_template)
-                # because preview and sending have different semantics for confirmed follow-ups.
-                query = f"""
-                    SELECT a.*, c.firstName, c.lastName, c.preferredName, c.phoneNumber,
-                           o.prettyName AS officeLabel, o.locationPhrase AS officeLocationPhrase
-                    FROM {TABLE_APPOINTMENT} a
-                    JOIN {TABLE_CLIENT} c ON a.clientId = c.id
-                    LEFT JOIN {TABLE_OFFICE} o ON a.locationKey = o.`key`
-                    LEFT JOIN {TABLE_APPOINTMENT_REMINDER_LOGS} l_this ON a.id = l_this.appointmentId AND l_this.reminderTemplateId = %s
-                    WHERE l_this.id IS NULL
-                    AND a.confirmedAt IS NOT NULL
-                    AND a.cancelled = 0
-                    AND a.rescheduled = 0
-                    AND a.doNotRemind = 0
-                    AND a.placeholder = 0
-                    AND a.billingOnly = 0
-                    AND c.language = 'English'
-                    AND a.startTime <= %s
-                    AND a.startTime >= NOW()
-                """
-                params = (
-                    template["id"],
-                    max_lead_time,
-                )
-            else:
-                # Candidates: not yet sent, not suppressed, within time window.
-                # _matches_template post-filter enforces confirmedAt IS NULL and keyword/daEval/location.
-                query = f"""
-                    SELECT a.*, c.firstName, c.lastName, c.preferredName, c.phoneNumber,
-                           o.prettyName AS officeLabel, o.locationPhrase AS officeLocationPhrase
-                    FROM {TABLE_APPOINTMENT} a
-                    JOIN {TABLE_CLIENT} c ON a.clientId = c.id
-                    LEFT JOIN {TABLE_OFFICE} o ON a.locationKey = o.`key`
-                    LEFT JOIN {TABLE_APPOINTMENT_REMINDER_LOGS} l ON a.id = l.appointmentId AND l.reminderTemplateId = %s
-                    WHERE l.id IS NULL
-                    AND a.cancelled = 0
-                    AND a.rescheduled = 0
-                    AND a.doNotRemind = 0
-                    AND a.placeholder = 0
-                    AND a.billingOnly = 0
-                    AND c.language = 'English'
-                    AND a.startTime <= %s
-                    AND a.startTime >= NOW()
-                """
-                params = (
-                    template["id"],
-                    max_lead_time,
+        with connection.cursor() as cursor:
+            for template_index, template in enumerate(templates, start=1):
+                max_lead_time = datetime.now() + timedelta(
+                    hours=template["sendOffsetHours"]
                 )
 
-            cursor.execute(query, params)
-            raw_appointments = cursor.fetchall()
-            pending_appointments = (
-                [
-                    a
-                    for a in raw_appointments
-                    if _matches_template(a, template, has_prior_sent=True)
-                ]
-                if template.get("isNoReplyFollowUp")
-                else (
-                    raw_appointments
-                    if template.get("isConfirmedFollowUp")
-                    else [a for a in raw_appointments if _matches_template(a, template)]
-                )
-            )
-
-            is_standard = not template.get("isNoReplyFollowUp") and not template.get(
-                "isConfirmedFollowUp"
-            )
-            if is_standard and already_sent_this_cycle:
-                deferred = [
-                    a
-                    for a in pending_appointments
-                    if a["id"] in already_sent_this_cycle
-                ]
-                pending_appointments = [
-                    a
-                    for a in pending_appointments
-                    if a["id"] not in already_sent_this_cycle
-                ]
-                if deferred:
-                    logger.info(
-                        f"Template [{template_name}]: deferred {len(deferred)} appointment(s) already handled by a more immediate template this cycle."
+                template_name = template.get("name") or f"id={template['id']}"
+                if template.get("isNoReplyFollowUp"):
+                    template_type = "no-reply follow-up"
+                elif template.get("isConfirmedFollowUp"):
+                    template_type = "confirmed follow-up"
+                else:
+                    raw_location = template.get("triggerLocationKey")
+                    if isinstance(raw_location, str):
+                        raw_location = json.loads(raw_location)
+                    criteria_parts = []
+                    if template.get("triggerKeyword"):
+                        criteria_parts.append(f"keyword={template['triggerKeyword']!r}")
+                    if template.get("triggerDaEval"):
+                        criteria_parts.append(f"daEval={template['triggerDaEval']}")
+                    if raw_location:
+                        criteria_parts.append(f"locations={raw_location}")
+                    template_type = (
+                        f"standard ({', '.join(criteria_parts) or 'global'})"
                     )
-
-            logger.info(
-                f"Template [{template_name}]: {len(pending_appointments)} appointment(s) matched."
-            )
-
-            for appt in pending_appointments:
-                client_label = f"{appt.get('firstName', '')} {appt.get('lastName', '')} (client {appt['clientId']}, appt {appt['id']})"
-                appt_date = (
-                    appt["startTime"].strftime("%Y-%m-%d %H:%M")
-                    if appt.get("startTime")
-                    else "unknown date"
-                )
-
-                if not appt.get("phoneNumber"):
-                    logger.warning(
-                        f"Skipping [{template_name}] for {client_label} on {appt_date}: no phone number."
-                    )
-                    total_skipped += 1
-                    continue
-
-                message = format_message(template["messageTemplate"], appt)
-
-                message_id = await send_sms(appt["phoneNumber"], message)
                 logger.info(
-                    f"Sent [{template_name}] to {client_label} on {appt_date} "
-                    f"(msg_id={message_id})."
+                    f"Template [{template_name}] ({template_type}): "
+                    f"window={template['sendOffsetHours']}h, "
+                    f"cutoff={max_lead_time.strftime('%Y-%m-%d %H:%M')}"
                 )
-                total_sent += 1
-                if is_standard:
-                    already_sent_this_cycle.add(appt["id"])
 
-                try:
-                    cursor.execute(
-                        f"INSERT INTO {TABLE_APPOINTMENT_REMINDER_LOGS}(appointmentId, clientId, reminderTemplateId, openphoneMessageId, sentAt) VALUES (%s, %s, %s, %s, NOW())",
-                        (appt["id"], appt["clientId"], template["id"], message_id),
+                if template.get("isNoReplyFollowUp"):
+                    # Candidates: not yet sent this template, at least one other template was sent,
+                    # not suppressed. _matches_template post-filter enforces confirmedAt IS NULL.
+                    query = f"""
+                        SELECT a.*, c.firstName, c.lastName, c.preferredName, c.phoneNumber,
+                               o.prettyName AS officeLabel, o.locationPhrase AS officeLocationPhrase
+                        FROM {TABLE_APPOINTMENT} a
+                        JOIN {TABLE_CLIENT} c ON a.clientId = c.id
+                        LEFT JOIN {TABLE_OFFICE} o ON a.locationKey = o.`key`
+                        LEFT JOIN {TABLE_APPOINTMENT_REMINDER_LOGS} l_this ON a.id = l_this.appointmentId AND l_this.reminderTemplateId = %s
+                        JOIN {TABLE_APPOINTMENT_REMINDER_LOGS} l_prev ON a.id = l_prev.appointmentId AND l_prev.reminderTemplateId != %s
+                        WHERE l_this.id IS NULL
+                        AND l_prev.id IS NOT NULL
+                        AND a.cancelled = 0
+                        AND a.rescheduled = 0
+                        AND a.doNotRemind = 0
+                        AND a.placeholder = 0
+                        AND a.billingOnly = 0
+                        AND c.language = 'English'
+                        AND a.startTime <= %s
+                        AND a.startTime >= NOW()
+                    """
+                    params = (
+                        template["id"],
+                        template["id"],
+                        max_lead_time,
                     )
-                except Exception as e:
-                    logger.error(f"Failed to log reminder for {client_label}: {e}")
+                elif template.get("isConfirmedFollowUp"):
+                    # Candidates: not yet sent, appointment is confirmed, not suppressed.
+                    # confirmedAt IS NOT NULL stays in SQL (not mirrored in _matches_template)
+                    # because preview and sending have different semantics for confirmed follow-ups.
+                    query = f"""
+                        SELECT a.*, c.firstName, c.lastName, c.preferredName, c.phoneNumber,
+                               o.prettyName AS officeLabel, o.locationPhrase AS officeLocationPhrase
+                        FROM {TABLE_APPOINTMENT} a
+                        JOIN {TABLE_CLIENT} c ON a.clientId = c.id
+                        LEFT JOIN {TABLE_OFFICE} o ON a.locationKey = o.`key`
+                        LEFT JOIN {TABLE_APPOINTMENT_REMINDER_LOGS} l_this ON a.id = l_this.appointmentId AND l_this.reminderTemplateId = %s
+                        WHERE l_this.id IS NULL
+                        AND a.confirmedAt IS NOT NULL
+                        AND a.cancelled = 0
+                        AND a.rescheduled = 0
+                        AND a.doNotRemind = 0
+                        AND a.placeholder = 0
+                        AND a.billingOnly = 0
+                        AND c.language = 'English'
+                        AND a.startTime <= %s
+                        AND a.startTime >= NOW()
+                    """
+                    params = (
+                        template["id"],
+                        max_lead_time,
+                    )
+                else:
+                    # Candidates: not yet sent, not suppressed, within time window.
+                    # _matches_template post-filter enforces confirmedAt IS NULL and keyword/daEval/location.
+                    query = f"""
+                        SELECT a.*, c.firstName, c.lastName, c.preferredName, c.phoneNumber,
+                               o.prettyName AS officeLabel, o.locationPhrase AS officeLocationPhrase
+                        FROM {TABLE_APPOINTMENT} a
+                        JOIN {TABLE_CLIENT} c ON a.clientId = c.id
+                        LEFT JOIN {TABLE_OFFICE} o ON a.locationKey = o.`key`
+                        LEFT JOIN {TABLE_APPOINTMENT_REMINDER_LOGS} l ON a.id = l.appointmentId AND l.reminderTemplateId = %s
+                        WHERE l.id IS NULL
+                        AND a.cancelled = 0
+                        AND a.rescheduled = 0
+                        AND a.doNotRemind = 0
+                        AND a.placeholder = 0
+                        AND a.billingOnly = 0
+                        AND c.language = 'English'
+                        AND a.startTime <= %s
+                        AND a.startTime >= NOW()
+                    """
+                    params = (
+                        template["id"],
+                        max_lead_time,
+                    )
+
+                cursor.execute(query, params)
+                raw_appointments = cursor.fetchall()
+                pending_appointments = (
+                    [
+                        a
+                        for a in raw_appointments
+                        if _matches_template(a, template, has_prior_sent=True)
+                    ]
+                    if template.get("isNoReplyFollowUp")
+                    else (
+                        raw_appointments
+                        if template.get("isConfirmedFollowUp")
+                        else [
+                            a
+                            for a in raw_appointments
+                            if _matches_template(a, template)
+                        ]
+                    )
+                )
+
+                is_standard = not template.get(
+                    "isNoReplyFollowUp"
+                ) and not template.get("isConfirmedFollowUp")
+                if is_standard and already_sent_this_cycle:
+                    deferred = [
+                        a
+                        for a in pending_appointments
+                        if a["id"] in already_sent_this_cycle
+                    ]
+                    pending_appointments = [
+                        a
+                        for a in pending_appointments
+                        if a["id"] not in already_sent_this_cycle
+                    ]
+                    if deferred:
+                        logger.info(
+                            f"Template [{template_name}]: deferred {len(deferred)} appointment(s) already handled by a more immediate template this cycle."
+                        )
+
+                logger.info(
+                    f"Template [{template_name}]: {len(pending_appointments)} appointment(s) matched."
+                )
+
+                for appt in pending_appointments:
+                    client_label = f"{appt.get('firstName', '')} {appt.get('lastName', '')} (client {appt['clientId']}, appt {appt['id']})"
+                    appt_date = (
+                        appt["startTime"].strftime("%Y-%m-%d %H:%M")
+                        if appt.get("startTime")
+                        else "unknown date"
+                    )
+
+                    if not appt.get("phoneNumber"):
+                        logger.warning(
+                            f"Skipping [{template_name}] for {client_label} on {appt_date}: no phone number."
+                        )
+                        total_skipped += 1
+                        continue
+
+                    message = format_message(template["messageTemplate"], appt)
+
+                    message_id = await send_sms(appt["phoneNumber"], message)
+                    logger.info(
+                        f"Sent [{template_name}] to {client_label} on {appt_date} "
+                        f"(msg_id={message_id})."
+                    )
+                    total_sent += 1
+                    if is_standard:
+                        already_sent_this_cycle.add(appt["id"])
+
+                    try:
+                        cursor.execute(
+                            f"INSERT INTO {TABLE_APPOINTMENT_REMINDER_LOGS}(appointmentId, clientId, reminderTemplateId, openphoneMessageId, sentAt) VALUES (%s, %s, %s, %s, NOW())",
+                            (appt["id"], appt["clientId"], template["id"], message_id),
+                        )
+                    except Exception as e:
+                        logger.error(f"Failed to log reminder for {client_label}: {e}")
+
+                task.progress(template_index, len(templates))
 
         connection.commit()
 
+        task.progress(
+            len(templates),
+            len(templates),
+            detail=f"{total_sent} sent, {total_skipped} skipped",
+        )
         logger.info(
             f"Reminder cycle complete: {total_sent} sent, {total_skipped} skipped (no phone)."
         )

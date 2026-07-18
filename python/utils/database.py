@@ -1231,6 +1231,7 @@ def insert_by_matching_criteria_incremental(
     clients: pd.DataFrame,
     evaluators: dict,
     connection: Connection[DictCursor],
+    progress_callback: Callable[[int, int], None] | None = None,
 ) -> None:
     """Inserts client-provider links based on matching criteria using incremental updates."""
     logger.debug("Starting incremental client-evaluator matching...")
@@ -1238,6 +1239,7 @@ def insert_by_matching_criteria_incremental(
     existing_links = _get_existing_client_eval_links(connection=connection)
     insurance_mappings = get_insurance_mappings(connection=connection)
 
+    total = len(clients)
     processed_count = 0
     updated_count = 0
     report_interval = 500
@@ -1257,6 +1259,8 @@ def insert_by_matching_criteria_incremental(
             logger.info(
                 f"Processed {processed_count} clients, updated {updated_count}..."
             )
+            if progress_callback:
+                progress_callback(processed_count, total)
 
         eligible_evaluators_by_district = utils.relationships.match_by_school_district(
             client, evaluators
@@ -1280,6 +1284,9 @@ def insert_by_matching_criteria_incremental(
             if to_add:
                 _insert_client_eval_links(client_id, to_add, connection=connection)
             existing_links[client_id] = current_should_be
+
+    if progress_callback:
+        progress_callback(processed_count, total)
 
     logger.info(
         f"Completed incremental matching: {processed_count} clients processed, {updated_count} clients updated"
@@ -1344,6 +1351,7 @@ def insert_by_matching_criteria(
     evaluators: dict,
     connection: Connection[DictCursor],
     force_client_ids: set[str] | None = None,
+    progress_callback: Callable[[int, int], None] | None = None,
 ) -> None:
     """Enhanced client-evaluator matching with options for full or partial updates."""
     if force_client_ids:
@@ -1356,7 +1364,10 @@ def insert_by_matching_criteria(
     else:
         logger.info("Running incremental update for all clients")
         insert_by_matching_criteria_incremental(
-            clients, evaluators, connection=connection
+            clients,
+            evaluators,
+            connection=connection,
+            progress_callback=progress_callback,
         )
 
 

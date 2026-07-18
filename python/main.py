@@ -28,6 +28,7 @@ from utils.fax_close import (
 from utils.fax_reports import generate_report_cover_pages, send_report_faxes
 from utils.google import find_gcal_event_by_client_and_time, update_gcal_event_title
 from utils.misc import json_log_format
+from utils.task_tracker import track_task
 
 _main_excluded_modules = {"utils.fax_close", "utils.fax_reports"}
 logger.add(
@@ -206,12 +207,17 @@ def import_from_ta(
                 f"Failed to fetch evaluators, skipping client-evaluator matching this run: {e}"
             )
         else:
-            utils.database.insert_by_matching_criteria(
-                all_clients_from_db,
-                evaluators,
-                connection=conn,
-                force_client_ids=force_clients_ids,
-            )
+            with track_task(
+                "evaluator_rematch", "Evaluator-insurance rematching"
+            ) as task:
+                if task is not None:
+                    utils.database.insert_by_matching_criteria(
+                        all_clients_from_db,
+                        evaluators,
+                        connection=conn,
+                        force_client_ids=force_clients_ids,
+                        progress_callback=task.progress,
+                    )
 
         appointment_sync_config = utils.config.load_appointment_sync_config()
         utils.appointments.insert_appointments_with_gcal(appointment_sync_config)
