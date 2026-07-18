@@ -37,6 +37,7 @@ from utils.google import (
     normalize_name_tokens,
 )
 from utils.misc import json_log_format
+from utils.task_tracker import track_task
 
 logger.add(
     "logs/referral-fax-intake.log",
@@ -125,33 +126,41 @@ def process_referral_faxes() -> None:
         logger.error("REFERRAL_FAX_INTAKE_FOLDER_ID is not set")
         return
 
-    files = list_files_in_folder(folder_id)
-    if not files:
-        logger.info("No files found in referral fax intake folder.")
-        return
+    with track_task("referral_fax_intake", "AI referral fax lookup") as task:
+        if task is None:
+            # A previous run is still processing faxes (e.g. the LLM lookup
+            # is taking longer than the cron interval); skip this run rather
+            # than starting a second LLM load in parallel.
+            return
 
-    seen = _already_seen_drive_file_ids()
-    new_files = [f for f in files if f["id"] not in seen]
-    if not new_files:
-        logger.info("No new referral faxes to process.")
-        return
+        files = list_files_in_folder(folder_id)
+        if not files:
+            logger.info("No files found in referral fax intake folder.")
+            return
 
-    logger.info(f"Found {len(new_files)} new referral fax(es).")
+        seen = _already_seen_drive_file_ids()
+        new_files = [f for f in files if f["id"] not in seen]
+        if not new_files:
+            logger.info("No new referral faxes to process.")
+            return
 
-    client_lookup = build_client_lookup(get_all_clients())
+        logger.info(f"Found {len(new_files)} new referral fax(es).")
+        task.progress(0, len(new_files))
 
-    threads = max(1, (os.cpu_count() or 4) - 2)
-    limit_cpu_usage(threads)
-    llm = load_model(threads)
-    if llm is None:
-        logger.error("Could not load LLM; aborting.")
-        return
+        client_lookup = build_client_lookup(get_all_clients())
 
-    for file in new_files:
-        try:
-            _process_fax(file, llm, client_lookup)
-        except Exception:
-            logger.exception(f"Failed to process referral fax {file['name']}")
+        threads = max(1, (os.cpu_count() or 4) - 2)
+        limit_cpu_usage(threads)
+        llm = load_model(threads)
+        if llm is None:
+            raise RuntimeError("Could not load LLM")
+
+        for i, file in enumerate(new_files, start=1):
+            try:
+                _process_fax(file, llm, client_lookup)
+            except Exception:
+                logger.exception(f"Failed to process referral fax {file['name']}")
+            task.progress(i, len(new_files), detail=file["name"])
 
 
 def main() -> None:
