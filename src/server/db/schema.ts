@@ -497,6 +497,7 @@ export const tasks = createTable(
 				"appointment_reminders",
 				"questionnaire_reminders",
 				"referral_fax_intake",
+				"fax_categorization",
 			])
 			.notNull(),
 		status: d
@@ -587,6 +588,96 @@ export const referralFaxClientLinksRelations = relations(
 		}),
 		client: one(clients, {
 			fields: [referralFaxClientLinks.clientId],
+			references: [clients.id],
+		}),
+	}),
+);
+
+export const faxCategorizations = createTable(
+	"fax_categorization",
+	(d) => ({
+		id: d.int().notNull().autoincrement().primaryKey(),
+		driveFileId: d.varchar("drive_file_id", { length: 255 }).notNull().unique(),
+		fileName: d.varchar("file_name", { length: 255 }).notNull(),
+		discoveredAt: d
+			.timestamp("discovered_at")
+			.default(sql`CURRENT_TIMESTAMP`)
+			.notNull(),
+		category: d.mysqlEnum("category", [
+			"Referral",
+			"Records Request",
+			"Insurance",
+			"Patient Documents",
+			"Unsure",
+		]),
+		confidence: d.decimal("confidence", { precision: 5, scale: 4 }),
+		status: d
+			.mysqlEnum("status", ["pending", "reviewed"])
+			.notNull()
+			.default("pending"),
+		extractedText: d.text("extracted_text"),
+		llmRawOutput: d.json("llm_raw_output"),
+		reviewedAt: d.timestamp("reviewed_at"),
+		reviewedBy: d.varchar("reviewed_by", { length: 255 }),
+	}),
+	(t) => [
+		index("fax_categorization_status_idx").on(t.status),
+		index("fax_categorization_discovered_idx").on(t.discoveredAt),
+	],
+);
+
+export const faxCategorizationClientLinks = createTable(
+	"fax_categorization_client_link",
+	(d) => ({
+		id: d.int().notNull().autoincrement().primaryKey(),
+		faxCategorizationId: d.int().notNull(),
+		clientId: d.int().notNull(),
+		source: d.mysqlEnum("source", ["llm", "manual"]).notNull(),
+		matchedName: d.varchar("matched_name", { length: 255 }),
+		confidence: d.decimal("confidence", { precision: 5, scale: 4 }),
+		confirmed: d.boolean().notNull().default(false),
+		createdAt: d
+			.timestamp("created_at")
+			.default(sql`CURRENT_TIMESTAMP`)
+			.notNull(),
+		reviewedBy: d.varchar("reviewed_by", { length: 255 }),
+	}),
+	(t) => [
+		uniqueIndex("fax_categorization_client_link_unique").on(
+			t.faxCategorizationId,
+			t.clientId,
+		),
+		index("fax_categorization_client_link_fax_idx").on(t.faxCategorizationId),
+		index("fax_categorization_client_link_client_idx").on(t.clientId),
+		foreignKey({
+			columns: [t.faxCategorizationId],
+			foreignColumns: [faxCategorizations.id],
+			name: "fax_categorization_client_link_fax_fk",
+		}).onDelete("cascade"),
+		foreignKey({
+			columns: [t.clientId],
+			foreignColumns: [clients.id],
+			name: "fax_categorization_client_link_client_fk",
+		}).onDelete("cascade"),
+	],
+);
+
+export const faxCategorizationsRelations = relations(
+	faxCategorizations,
+	({ many }) => ({
+		links: many(faxCategorizationClientLinks),
+	}),
+);
+
+export const faxCategorizationClientLinksRelations = relations(
+	faxCategorizationClientLinks,
+	({ one }) => ({
+		fax: one(faxCategorizations, {
+			fields: [faxCategorizationClientLinks.faxCategorizationId],
+			references: [faxCategorizations.id],
+		}),
+		client: one(clients, {
+			fields: [faxCategorizationClientLinks.clientId],
 			references: [clients.id],
 		}),
 	}),

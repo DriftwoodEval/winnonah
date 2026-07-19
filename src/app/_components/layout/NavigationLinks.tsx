@@ -27,6 +27,7 @@ import {
 	Home,
 	Inbox,
 	LayoutDashboard,
+	LayoutGrid,
 	LineChart,
 	type LucideIcon,
 	Menu,
@@ -251,18 +252,24 @@ export default function NavigationLinks() {
 					icon: LineChart,
 					show: canSeeEvalReportDashboard,
 				},
-				{
-					href: "/referral-faxes",
-					label: "Referral Faxes",
-					icon: Inbox,
-					show: can("referrals:fax:review"),
-				},
 			],
 		},
 		{
 			label: "Tools",
 			icon: Wrench,
 			items: [
+				{
+					href: "/referral-faxes",
+					label: "Referral Faxes",
+					icon: Inbox,
+					show: can("referrals:fax:review"),
+				},
+				{
+					href: "/fax-categorization",
+					label: "Fax Categorization",
+					icon: LayoutGrid,
+					show: can("fax:categorization:review"),
+				},
 				{
 					href: "/work-summary",
 					label: "Work Summary",

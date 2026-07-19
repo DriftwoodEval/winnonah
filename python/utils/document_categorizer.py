@@ -2,7 +2,6 @@ import contextlib
 import json
 import os
 import re
-from collections import Counter
 from collections.abc import Callable
 from typing import cast
 
@@ -72,8 +71,9 @@ DOCUMENT_SCHEMA = {
     "properties": {
         "category": {"type": "string", "enum": CATEGORIES},
         "clients": {"type": "array", "items": {"type": "string"}},
+        "confidence": {"type": "number"},
     },
-    "required": ["category", "clients"],
+    "required": ["category", "clients", "confidence"],
 }
 
 # For callers that already know a document's category from context (e.g.
@@ -86,11 +86,6 @@ CLIENT_SCHEMA = {
     },
     "required": ["clients"],
 }
-
-# Temperature used when sampling multiple votes. 0 would just repeat the same
-# greedy answer every time, so voting needs some randomness to actually
-# explore alternative readings of an ambiguous document.
-VOTE_TEMPERATURE = 0.7
 
 # Emulates driftwood@opti (Dell OptiPlex 5060): Intel i5-8500, 6 cores/no
 # SMT, 14.92 GiB RAM with ~3.06 GiB already used by the rest of the system.
@@ -191,7 +186,14 @@ def build_prompt(document_text: str) -> str:
         "guessing:\n"
         f"{category_lines}\n"
         '- "clients": every client/patient full name the document is '
-        "about, as a list (empty list if none is identifiable)\n\n"
+        "about, as a list (empty list if none is identifiable)\n"
+        '- "confidence": a number from 0.0 to 1.0 for how certain you are '
+        "of the category. Be extremely conservative: only give a high "
+        "score (above 0.8) when the document unambiguously and "
+        "explicitly matches one category's definition. Default to a low "
+        "score (below 0.5) whenever the wording is generic, the document "
+        "could plausibly fit more than one category, or you are inferring "
+        "intent rather than reading it directly off the page.\n\n"
         "Document:\n"
         f"{document_text}"
     )
@@ -255,25 +257,33 @@ def _complete_json(llm: Llama, prompt: str, schema: dict, temperature: float) ->
 
 
 def _clean_client_names(raw_clients: object) -> list[str]:
+    if not isinstance(raw_clients, list):
+        return []
     return [
         capitalize_name_with_exceptions(str(name))
-        for name in (raw_clients or [])
+        for name in raw_clients
         if name and str(name).lower() != "none"
     ]
 
 
-def analyze_document(
-    llm: Llama, document_text: str, temperature: float = 0.0
-) -> tuple[str, list[str]]:
-    """Single grammar-constrained call that gets both the category and the
-    client name(s) together, instead of two separate prompts that would each
-    re-prefill the whole (possibly large) document text."""
-    data = _complete_json(
-        llm, build_prompt(document_text), DOCUMENT_SCHEMA, temperature
-    )
+def _clean_confidence(raw_confidence: object) -> float:
+    try:
+        confidence = float(cast(str, raw_confidence))
+    except (TypeError, ValueError):
+        return 0.0
+    return max(0.0, min(1.0, confidence))
+
+
+def analyze_document(llm: Llama, document_text: str) -> tuple[str, list[str], float]:
+    """Single grammar-constrained call that gets the category, client
+    name(s), and the model's own confidence in the category together,
+    instead of separate prompts that would each re-prefill the whole
+    (possibly large) document text."""
+    data = _complete_json(llm, build_prompt(document_text), DOCUMENT_SCHEMA, 0.0)
     category = str(data.get("category", ""))
     clients = _clean_client_names(data.get("clients"))
-    return category, clients
+    confidence = _clean_confidence(data.get("confidence"))
+    return category, clients, confidence
 
 
 def extract_clients(llm: Llama, document_text: str) -> list[str]:
@@ -285,40 +295,26 @@ def extract_clients(llm: Llama, document_text: str) -> list[str]:
     return _clean_client_names(data.get("clients"))
 
 
-def analyze_with_votes(
-    llm: Llama, document_text: str, votes: int, want_clients: bool = True
-) -> tuple[str, list[str], Counter]:
-    """Sample `votes` independent analyses and majority-vote the category
-    (self-consistency), instead of trusting a single greedy answer. The
-    client list returned is from whichever sample matched the winning
-    category (first match), since clients aren't voted on independently."""
+def categorize_document(
+    llm: Llama, document_text: str, want_clients: bool = True
+) -> tuple[str, list[str], float]:
+    """Categorizes a document, honoring a header override (letterhead alone
+    decides the category, treated as fully certain) before falling back to
+    the model. Only spends a call on clients if they were actually asked
+    for."""
     override = header_override_category(document_text)
+    if override and not want_clients:
+        return override, [], 1.0
 
     document_text = fit_to_context(
         llm, document_text, build_prompt, RESPONSE_TOKEN_RESERVE
     )
 
     if override:
-        # The letterhead alone decides the category - skip sampling/voting
-        # on a question already answered. Only spend a call on clients if
-        # they were actually asked for.
-        if not want_clients:
-            return override, [], Counter([override])
-        _, clients = analyze_document(llm, document_text)
-        return override, clients, Counter([override])
+        clients = extract_clients(llm, document_text)
+        return override, clients, 1.0
 
-    if votes <= 1:
-        category, clients = analyze_document(llm, document_text)
-        return category, clients, Counter([category])
-
-    samples = [
-        analyze_document(llm, document_text, temperature=VOTE_TEMPERATURE)
-        for _ in range(votes)
-    ]
-    counts = Counter(category for category, _ in samples)
-    winner, _ = counts.most_common(1)[0]
-    clients = next(clients for category, clients in samples if category == winner)
-    return winner, clients, counts
+    return analyze_document(llm, document_text)
 
 
 def limit_memory_usage(max_gib: float) -> None:

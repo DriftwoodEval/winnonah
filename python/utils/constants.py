@@ -52,6 +52,8 @@ TABLE_NOTE_HISTORY: Final = "emr_note_history"
 TABLE_TASK: Final = "emr_task"
 TABLE_REFERRAL_FAX: Final = "emr_referral_fax"
 TABLE_REFERRAL_FAX_CLIENT_LINK: Final = "emr_referral_fax_client_link"
+TABLE_FAX_CATEGORIZATION: Final = "emr_fax_categorization"
+TABLE_FAX_CATEGORIZATION_CLIENT_LINK: Final = "emr_fax_categorization_client_link"
 
 # DB to DataFrame Column Mapping
 CLIENT_COLUMN_MAPPING: Final = {

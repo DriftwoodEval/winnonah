@@ -2,6 +2,7 @@
 
 import { Badge } from "@ui/badge";
 import { Popover, PopoverContent, PopoverTrigger } from "@ui/popover";
+import { Progress } from "@ui/progress";
 import { ScrollArea } from "@ui/scroll-area";
 import { Loader2 } from "lucide-react";
 import { useSession } from "next-auth/react";
@@ -13,6 +14,7 @@ const TASK_TYPE_LABELS: Record<string, string> = {
 	appointment_reminders: "Appointment reminders",
 	questionnaire_reminders: "Questionnaire reminders",
 	referral_fax_intake: "AI referral fax lookup",
+	fax_categorization: "AI fax categorization",
 };
 
 function taskLabel(type: string) {
@@ -94,9 +96,19 @@ export function TaskQueueBubble() {
 									</p>
 								)}
 								{task.progressTotal != null && task.progressCurrent != null && (
-									<p className="text-muted-foreground text-xs">
-										{task.progressCurrent} / {task.progressTotal}
-									</p>
+									<div className="flex items-center gap-2">
+										<Progress
+											className="h-1.5"
+											value={
+												task.progressTotal > 0
+													? (task.progressCurrent / task.progressTotal) * 100
+													: 0
+											}
+										/>
+										<span className="shrink-0 text-muted-foreground text-xs">
+											{task.progressCurrent} / {task.progressTotal}
+										</span>
+									</div>
 								)}
 								<p className="text-muted-foreground text-xs">
 									{relativeTime(new Date(task.startedAt))}

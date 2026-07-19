@@ -38,6 +38,8 @@ RUN curl -fsSLO "$SUPERCRONIC_URL" \
 COPY --chmod=555 ./docker/scripts/*.sh .
 
 ENV CRON_SCHEDULE="0 */4 * * *" \
-    NOTIFY_CRON_SCHEDULE="0 * * * *"
+    NOTIFY_CRON_SCHEDULE="0 * * * *" \
+    FAX_CRON_SCHEDULE="*/5 * * * *" \
+    CATEGORIZATION_CRON_SCHEDULE="*/5 * * * *"
 
 ENTRYPOINT ["/app/entrypoint-winnonah-python.sh"]

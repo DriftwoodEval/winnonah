@@ -7,7 +7,7 @@ client(s)/patient(s) the document is about.
 
 Usage:
     python categorize_documents.py path/to/file.pdf [more.pdf ...]
-    python categorize_documents.py --clients --votes 5 path/to/file.pdf
+    python categorize_documents.py --clients path/to/file.pdf
 
     # Check accuracy against a folder of pre-tagged PDFs, named like
     # "case123_Referral.pdf" (the segment after the last underscore is the
@@ -29,7 +29,7 @@ from loguru import logger
 from utils.document_categorizer import (
     CATEGORIES,
     SIMULATED_SPECS,
-    analyze_with_votes,
+    categorize_document,
     extract_text,
     limit_cpu_usage,
     limit_memory_usage,
@@ -37,7 +37,7 @@ from utils.document_categorizer import (
 )
 
 
-def _categorize_one(llm: Llama, pdf_path: str, want_clients: bool, votes: int) -> None:
+def _categorize_one(llm: Llama, pdf_path: str, want_clients: bool) -> None:
     logger.info(f"Extracting text from {pdf_path}...")
     document_text, sources = extract_text(pdf_path, llm)
     for i, source in enumerate(sources):
@@ -47,13 +47,11 @@ def _categorize_one(llm: Llama, pdf_path: str, want_clients: bool, votes: int) -
         logger.warning("No text could be extracted from the PDF (even with OCR).")
         return
 
-    category, clients, counts = analyze_with_votes(
-        llm, document_text, votes, want_clients
+    category, clients, confidence = categorize_document(
+        llm, document_text, want_clients
     )
-    if votes > 1:
-        breakdown = ", ".join(f"{c}: {n}/{votes}" for c, n in counts.most_common())
-        logger.info(f"votes -> {breakdown}")
     logger.info(f"Category: {category}")
+    logger.info(f"Confidence: {confidence:.2f}")
 
     if want_clients:
         if clients:
@@ -74,7 +72,6 @@ def _run_eval(
     llm: Llama,
     folder: str,
     repeat: int,
-    votes: int,
     want_clients: bool,
     threads: int,
     simulate: str | None,
@@ -118,22 +115,21 @@ def _run_eval(
 
         doc_start = time.monotonic()
         actuals = []
+        confidences: list[float] = []
         clients: list[str] = []
         for run in range(repeat):
             document_text, _ = extract_text(str(pdf_path), llm)
-            actual, clients, vote_counts = analyze_with_votes(
-                llm, document_text, votes, want_clients
+            actual, clients, confidence = categorize_document(
+                llm, document_text, want_clients
             )
             actuals.append(actual)
+            confidences.append(confidence)
             correct = actual == expected
-            if votes > 1:
-                vote_summary = ", ".join(
-                    f"{c}: {n}/{votes}" for c, n in vote_counts.most_common()
-                )
-                logger.info(f"  votes -> {vote_summary}")
             if repeat > 1:
                 logger.info(
-                    f"  run {run + 1}/{repeat} -> got: {actual} ({'OK' if correct else 'MISMATCH'})"
+                    f"  run {run + 1}/{repeat} -> got: {actual} "
+                    f"(confidence: {confidence:.2f}) "
+                    f"({'OK' if correct else 'MISMATCH'})"
                 )
             results.append(correct)
             if not correct:
@@ -142,7 +138,10 @@ def _run_eval(
         document_consistent = len(set(actuals)) == 1
         if repeat == 1:
             correct = actuals[0] == expected
-            logger.info(f"  -> got: {actuals[0]} ({'OK' if correct else 'MISMATCH'})")
+            logger.info(
+                f"  -> got: {actuals[0]} (confidence: {confidences[0]:.2f}) "
+                f"({'OK' if correct else 'MISMATCH'})"
+            )
         elif not document_consistent:
             counts = Counter(actuals)
             summary = ", ".join(f"{c}: {n}/{repeat}" for c, n in counts.most_common())
@@ -165,6 +164,7 @@ def _run_eval(
                 "name": pdf_path.name,
                 "expected": expected,
                 "actuals": actuals,
+                "confidences": confidences,
                 "consistent": document_consistent,
                 "clients": clients if want_clients else None,
                 "time_seconds": doc_elapsed,
@@ -205,7 +205,6 @@ def _run_eval(
             "timestamp": datetime.now(UTC).isoformat(),
             "folder": str(folder_path),
             "repeat": repeat,
-            "votes": votes,
             "threads": threads,
             "simulate": simulate,
             "accuracy": correct_count / total,
@@ -259,13 +258,6 @@ def main() -> None:
         help="Also identify the client(s)/patient(s) the document is about",
     )
     parser.add_argument(
-        "--votes",
-        type=int,
-        default=1,
-        help="Sample the category this many times and majority-vote the "
-        "result, instead of trusting a single greedy answer (default: 1)",
-    )
-    parser.add_argument(
         "--threads",
         type=int,
         default=None,
@@ -310,7 +302,6 @@ def main() -> None:
             llm,
             args.eval,
             args.repeat,
-            args.votes,
             args.clients,
             threads,
             args.simulate,
@@ -322,7 +313,7 @@ def main() -> None:
     for pdf_path in args.pdf_paths:
         logger.info(f"=== {pdf_path} ===")
         start = time.monotonic()
-        _categorize_one(llm, pdf_path, args.clients, args.votes)
+        _categorize_one(llm, pdf_path, args.clients)
         elapsed = time.monotonic() - start
         durations.append((pdf_path, elapsed))
         logger.info(f"Time: {elapsed:.1f}s")
