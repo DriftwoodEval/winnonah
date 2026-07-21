@@ -50,8 +50,8 @@ def build_client_folder_name(
 
     Prepends the appointment date and appends tags: MOVE TO 000 for a DA-only,
     non-ADHD appointment, or MOVE TO 001 for DAEVAL, EVAL, or an ADHD DA, but only
-    when the evaluator doesn't write their own reports. Andrew's clients always
-    get ADD DA&BIOPSYCH appended regardless of appointment type or that flag.
+    when the evaluator doesn't write their own reports. Andrew's clients also get
+    ADD DA&BIOPSYCH appended, regardless of that flag, except for EVAL appointments.
 
     Strips any date prefix and tags this function previously applied, so calling
     it again on an already-tagged name is idempotent.
@@ -68,7 +68,7 @@ def build_client_folder_name(
         elif da_eval in ("DAEVAL", "EVAL") or (da_eval == "DA" and is_adhd):
             tags.append("MOVE TO 001")
 
-    if "andrew" in evaluator_name.lower():
+    if "andrew" in evaluator_name.lower() and da_eval != "EVAL":
         tags.append("ADD DA&BIOPSYCH")
 
     date_str = appointment_start_time.strftime("%m/%d/%Y")
