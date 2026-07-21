@@ -757,9 +757,12 @@ def move_client_folders_for_upcoming_appointments() -> None:
 
     Only acts on clients with exactly one future non-cancelled, non-rescheduled,
     non-billing-only, non-placeholder appointment, to avoid guessing which
-    evaluator's folder to move to when there's a conflict. A client's folder is
-    moved once per evaluator: it's skipped once already moved for that evaluator,
-    and moved again if the evaluator changes.
+    evaluator's folder to move to when there's a conflict. If the evaluator has a
+    separate eval Drive folder configured, EVAL appointments move there instead of
+    the evaluator's regular folder. A client's folder is moved once per
+    evaluator/folder pair: it's skipped once already moved there, and moved again
+    if the evaluator changes or the appointment type crosses the eval/non-eval
+    boundary.
     """
     candidates = get_appointments_needing_folder_move()
     if not candidates:
@@ -774,7 +777,12 @@ def move_client_folders_for_upcoming_appointments() -> None:
         client_drive_id = row["client_drive_id"]
         evaluator_npi = row["evaluator_npi"]
         evaluator_name = row["evaluator_name"]
-        evaluator_drive_folder_id = row["evaluator_drive_folder_id"]
+        is_eval_target = bool(row["target_is_eval"])
+        destination_drive_folder_id = (
+            row["evaluator_eval_drive_folder_id"]
+            if is_eval_target
+            else row["evaluator_drive_folder_id"]
+        )
 
         if not client_drive_id:
             msg = f"{client_name} (ID: {client_id}): has no Drive folder configured."
@@ -782,10 +790,11 @@ def move_client_folders_for_upcoming_appointments() -> None:
             errors.append(msg)
             continue
 
-        if not evaluator_drive_folder_id:
+        if not destination_drive_folder_id:
             msg = (
                 f"{client_name} (ID: {client_id}): evaluator {evaluator_name} "
-                f"(NPI {evaluator_npi}) has no Drive folder configured."
+                f"(NPI {evaluator_npi}) has no{' eval' if is_eval_target else ''} "
+                "Drive folder configured."
             )
             logger.warning(msg)
             errors.append(msg)
@@ -793,7 +802,7 @@ def move_client_folders_for_upcoming_appointments() -> None:
 
         try:
             moved, current_name = move_drive_folder(
-                client_drive_id, evaluator_drive_folder_id
+                client_drive_id, destination_drive_folder_id
             )
             if moved:
                 logger.info(
@@ -815,7 +824,7 @@ def move_client_folders_for_upcoming_appointments() -> None:
             if new_name != current_name:
                 rename_drive_folder(client_drive_id, new_name)
 
-            set_client_drive_folder_evaluator(client_id, evaluator_npi)
+            set_client_drive_folder_evaluator(client_id, evaluator_npi, is_eval_target)
         except Exception as e:
             msg = f"{client_name} (ID: {client_id}): failed to move Drive folder: {e}"
             logger.exception(msg)

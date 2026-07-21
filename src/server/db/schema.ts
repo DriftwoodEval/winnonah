@@ -45,6 +45,7 @@ export const evaluators = createTable("evaluator", (d) => ({
 	writesOwnReports: d.boolean().notNull().default(false),
 	evaluatorDashboard: d.boolean("evaluator_dashboard").notNull().default(false),
 	driveFolderId: d.varchar({ length: 255 }),
+	evalDriveFolderId: d.varchar({ length: 255 }),
 }));
 
 export const insurances = createTable("insurance", (d) => ({
@@ -259,6 +260,7 @@ export const clients = createTable(
 		driveFolderEvaluatorNpi: d
 			.int()
 			.references(() => evaluators.npi, { onDelete: "set null" }),
+		driveFolderIsEval: d.boolean().notNull().default(false),
 		addedDate: d.date(),
 		dob: d.date().notNull(),
 		firstName: d.varchar({ length: 255 }).notNull(),

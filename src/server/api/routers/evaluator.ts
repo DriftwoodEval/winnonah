@@ -39,6 +39,10 @@ export const evaluatorInputSchema = z.object({
 		.string()
 		.optional()
 		.transform((v) => v?.trim() || null),
+	evalDriveFolderId: z
+		.string()
+		.optional()
+		.transform((v) => v?.trim() || null),
 });
 
 const CACHE_KEY_ALL_EVALUATORS = "evaluators:all";

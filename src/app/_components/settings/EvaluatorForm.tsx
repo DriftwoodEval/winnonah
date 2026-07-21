@@ -40,6 +40,7 @@ export const evaluatorFormSchema = z.object({
 	allowedAppointmentTypes: z.array(z.string()),
 	writesOwnReports: z.boolean(),
 	driveFolderId: z.string(),
+	evalDriveFolderId: z.string(),
 });
 
 export type EvaluatorFormValues = z.infer<typeof evaluatorFormSchema>;
@@ -243,6 +244,7 @@ export function EvaluatorForm({
 				),
 				writesOwnReports: initialData.writesOwnReports ?? false,
 				driveFolderId: initialData.driveFolderId ?? "",
+				evalDriveFolderId: initialData.evalDriveFolderId ?? "",
 			};
 		}
 		return {
@@ -258,6 +260,7 @@ export function EvaluatorForm({
 			allowedAppointmentTypes: expandAllowedTypes(["DA", "EVAL", "DAEVAL"]),
 			writesOwnReports: false,
 			driveFolderId: "",
+			evalDriveFolderId: "",
 		};
 	}, [initialData, initialEmail]);
 
@@ -337,6 +340,7 @@ export function EvaluatorForm({
 						...values,
 						appointmentDurations: cleaned,
 						driveFolderId: extractDriveFolderId(values.driveFolderId),
+						evalDriveFolderId: extractDriveFolderId(values.evalDriveFolderId),
 					});
 				})}
 			>
@@ -461,6 +465,28 @@ export function EvaluatorForm({
 							<FormDescription>
 								Client folders are automatically moved here as soon as an
 								upcoming appointment is scheduled.
+							</FormDescription>
+							<FormMessage />
+						</FormItem>
+					)}
+				/>
+
+				<FormField
+					control={form.control}
+					name="evalDriveFolderId"
+					render={({ field }) => (
+						<FormItem>
+							<FormLabel>Eval Drive Folder</FormLabel>
+							<FormControl>
+								<Input
+									disabled={isLoading || disabled}
+									placeholder="Paste a Google Drive folder link or ID"
+									{...field}
+								/>
+							</FormControl>
+							<FormDescription>
+								Optional. If set, clients with an upcoming EVAL appointment are
+								moved here instead of the regular Drive Folder above.
 							</FormDescription>
 							<FormMessage />
 						</FormItem>

@@ -1510,9 +1510,15 @@ def get_appointments_needing_folder_move(
                 c.fullName AS client_name,
                 c.driveId AS client_drive_id,
                 c.driveFolderEvaluatorNpi AS drive_folder_evaluator_npi,
+                c.driveFolderIsEval AS drive_folder_is_eval,
                 e.providerName AS evaluator_name,
                 e.driveFolderId AS evaluator_drive_folder_id,
+                e.evalDriveFolderId AS evaluator_eval_drive_folder_id,
                 e.writesOwnReports AS writes_own_reports,
+                CASE
+                    WHEN a.daEval = 'EVAL' AND e.evalDriveFolderId IS NOT NULL THEN 1
+                    ELSE 0
+                END AS target_is_eval,
                 COUNT(*) OVER (PARTITION BY a.clientId) AS appt_count
             FROM `{TABLE_APPOINTMENT}` a
             JOIN `{TABLE_CLIENT}` c ON c.id = a.clientId
@@ -1527,6 +1533,7 @@ def get_appointments_needing_folder_move(
           AND (
               drive_folder_evaluator_npi IS NULL
               OR drive_folder_evaluator_npi != evaluator_npi
+              OR drive_folder_is_eval != target_is_eval
           )
     """
     with connection.cursor() as cursor:
@@ -1536,13 +1543,17 @@ def get_appointments_needing_folder_move(
 
 @provide_connection
 def set_client_drive_folder_evaluator(
-    client_id: str, evaluator_npi: int, connection: Connection[DictCursor]
+    client_id: str,
+    evaluator_npi: int,
+    is_eval: bool,
+    connection: Connection[DictCursor],
 ) -> None:
-    """Record which evaluator's folder a client's Drive folder was last moved to."""
+    """Record which of an evaluator's folders a client's Drive folder was last moved to."""
     with connection.cursor() as cursor:
         cursor.execute(
-            f"UPDATE `{TABLE_CLIENT}` SET driveFolderEvaluatorNpi = %s WHERE id = %s",
-            (evaluator_npi, client_id),
+            f"UPDATE `{TABLE_CLIENT}` SET driveFolderEvaluatorNpi = %s, "
+            "driveFolderIsEval = %s WHERE id = %s",
+            (evaluator_npi, is_eval, client_id),
         )
     connection.commit()
 
