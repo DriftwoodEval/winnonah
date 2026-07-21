@@ -276,9 +276,16 @@ export function ClientsDashboard() {
 	};
 
 	const clientFormTrigger = (
-		<Button size="icon" variant="outline">
-			<Plus />
-		</Button>
+		<Tooltip>
+			<TooltipTrigger asChild>
+				<Button size="icon" variant="outline">
+					<Plus />
+				</Button>
+			</TooltipTrigger>
+			<TooltipContent>
+				<p>Create Note/Shell Client</p>
+			</TooltipContent>
+		</Tooltip>
 	);
 
 	return (
@@ -304,21 +311,29 @@ export function ClientsDashboard() {
 				)}
 
 				<Popover>
-					<PopoverTrigger asChild>
-						<Button
-							size="icon"
-							variant={
-								["sort"].some(
-									(key) =>
-										queryParams[key as keyof typeof queryParams] !== undefined,
-								)
-									? "default"
-									: "outline"
-							}
-						>
-							<ArrowDownUp />
-						</Button>
-					</PopoverTrigger>
+					<Tooltip>
+						<TooltipTrigger asChild>
+							<PopoverTrigger asChild>
+								<Button
+									size="icon"
+									variant={
+										["sort"].some(
+											(key) =>
+												queryParams[key as keyof typeof queryParams] !==
+												undefined,
+										)
+											? "default"
+											: "outline"
+									}
+								>
+									<ArrowDownUp />
+								</Button>
+							</PopoverTrigger>
+						</TooltipTrigger>
+						<TooltipContent>
+							<p>Sort</p>
+						</TooltipContent>
+					</Tooltip>
 					<PopoverContent align="end">
 						<div className="space-y-4">
 							<div className="space-y-2">
@@ -353,25 +368,40 @@ export function ClientsDashboard() {
 				</Popover>
 
 				<Popover>
-					<PopoverTrigger asChild>
-						<Button
-							size="icon"
-							variant={
-								["hideBabynet", "status", "type", "privatepay", "color"].some(
-									(key) =>
-										queryParams[key as keyof typeof queryParams] !== false &&
-										queryParams[key as keyof typeof queryParams] !==
-											undefined &&
-										queryParams[key as keyof typeof queryParams] !== "active" &&
-										queryParams[key as keyof typeof queryParams] !== "both",
-								) || (queryParams.insuranceFilter?.length ?? 0) > 0
-									? "default"
-									: "outline"
-							}
-						>
-							<Filter />
-						</Button>
-					</PopoverTrigger>
+					<Tooltip>
+						<TooltipTrigger asChild>
+							<PopoverTrigger asChild>
+								<Button
+									size="icon"
+									variant={
+										[
+											"hideBabynet",
+											"status",
+											"type",
+											"privatepay",
+											"color",
+										].some(
+											(key) =>
+												queryParams[key as keyof typeof queryParams] !==
+													false &&
+												queryParams[key as keyof typeof queryParams] !==
+													undefined &&
+												queryParams[key as keyof typeof queryParams] !==
+													"active" &&
+												queryParams[key as keyof typeof queryParams] !== "both",
+										) || (queryParams.insuranceFilter?.length ?? 0) > 0
+											? "default"
+											: "outline"
+									}
+								>
+									<Filter />
+								</Button>
+							</PopoverTrigger>
+						</TooltipTrigger>
+						<TooltipContent>
+							<p>Filter</p>
+						</TooltipContent>
+					</Tooltip>
 					<PopoverContent align="end" className="max-h-[80dvh] overflow-y-auto">
 						<div className="space-y-4">
 							<div className="space-y-2">

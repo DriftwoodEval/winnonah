@@ -3,6 +3,7 @@
 import { Button } from "@ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@ui/popover";
 import { Separator } from "@ui/separator";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@ui/tooltip";
 import { ArrowDown, ArrowUp, Settings, X } from "lucide-react";
 import { useCheckPermission } from "~/hooks/use-check-permission";
 import {
@@ -61,11 +62,18 @@ export function HomeCustomizer({ widgets, onChange }: HomeCustomizerProps) {
 
 	return (
 		<Popover>
-			<PopoverTrigger asChild>
-				<Button size="icon" title="Customize home page" variant="outline">
-					<Settings className="h-4 w-4" />
-				</Button>
-			</PopoverTrigger>
+			<Tooltip>
+				<TooltipTrigger asChild>
+					<PopoverTrigger asChild>
+						<Button size="icon" variant="outline">
+							<Settings className="h-4 w-4" />
+						</Button>
+					</PopoverTrigger>
+				</TooltipTrigger>
+				<TooltipContent>
+					<p>Customize Home Page</p>
+				</TooltipContent>
+			</Tooltip>
 			<PopoverContent align="end" className="w-80">
 				<div className="max-h-[70vh] space-y-3 overflow-y-auto">
 					<p className="font-medium text-sm">Home Page Widgets</p>
