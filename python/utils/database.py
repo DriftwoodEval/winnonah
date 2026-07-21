@@ -335,7 +335,7 @@ def put_clients_in_db(clients_df: pd.DataFrame, connection: Connection[DictCurso
             if get_column(client, "LONGITUDE") == "Unknown"
             else get_column(client, "LONGITUDE"),
             get_column(client, "ASD_ADHD"),
-            get_column(client, "LANGUAGE", default="English"),
+            get_column(client, "LANGUAGE"),
             gender,
             phone_number,
             email,
