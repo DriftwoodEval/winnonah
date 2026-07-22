@@ -20,6 +20,7 @@ import { format } from "date-fns";
 import {
 	Bell,
 	CalendarIcon,
+	CalendarPlus,
 	ChevronDown,
 	ChevronRight,
 	Clock,
@@ -27,6 +28,7 @@ import {
 	MoreHorizontal,
 	User,
 } from "lucide-react";
+import Link from "next/link";
 import { useSession } from "next-auth/react";
 import { useState } from "react";
 import { useCheckPermission } from "~/hooks/use-check-permission";
@@ -36,7 +38,13 @@ import { CheckInOutControl } from "../appointments/CheckInOutControl";
 import { todayStr } from "../home/DayAheadWidgets";
 import { AppointmentReminderTimeline } from "./AppointmentReminderTimeline";
 
-export function ClientAppointments({ clientId }: { clientId: number }) {
+export function ClientAppointments({
+	clientId,
+	clientHash,
+}: {
+	clientId: number;
+	clientHash: string;
+}) {
 	const utils = api.useUtils();
 	const can = useCheckPermission();
 	const canCheckin = can("clients:appointments:checkin");
@@ -52,6 +60,11 @@ export function ClientAppointments({ clientId }: { clientId: number }) {
 		);
 
 	const updateStatus = api.appointments.updateStatus.useMutation({
+		onSuccess: () =>
+			void utils.appointments.getByClientId.invalidate({ clientId }),
+	});
+
+	const deletePlaceholder = api.schedulingHelper.deletePlaceholder.useMutation({
 		onSuccess: () =>
 			void utils.appointments.getByClientId.invalidate({ clientId }),
 	});
@@ -204,6 +217,20 @@ export function ClientAppointments({ clientId }: { clientId: number }) {
 												Stop Reminders
 											</DropdownMenuItem>
 										)}
+										{appt.placeholder && (
+											<>
+												<DropdownMenuSeparator />
+												<DropdownMenuItem
+													className="text-destructive"
+													disabled={deletePlaceholder.isPending}
+													onClick={() =>
+														deletePlaceholder.mutate({ appointmentId: appt.id })
+													}
+												>
+													Delete Placeholder
+												</DropdownMenuItem>
+											</>
+										)}
 									</DropdownMenuContent>
 								</DropdownMenu>
 							)}
@@ -290,10 +317,20 @@ export function ClientAppointments({ clientId }: { clientId: number }) {
 	return (
 		<div className="w-full rounded-md border bg-background shadow-sm">
 			<div className="flex items-center justify-between px-4 pt-4">
-				<h4 className="font-bold">Appointments</h4>
-				<Badge className="h-5 px-1.5 font-mono text-[10px]" variant="outline">
-					{regular.length}
-				</Badge>
+				<div className="flex items-center gap-2">
+					<h4 className="font-bold">Appointments</h4>
+					<Badge className="h-5 px-1.5 font-mono text-[10px]" variant="outline">
+						{regular.length}
+					</Badge>
+				</div>
+				{can("pages:scheduling") && (
+					<Button asChild size="sm" variant="outline">
+						<Link href={`/scheduling/helper?clientHash=${clientHash}`}>
+							<CalendarPlus className="h-3.5 w-3.5" />
+							Create Placeholder
+						</Link>
+					</Button>
+				)}
 			</div>
 
 			<div className="flex flex-col">

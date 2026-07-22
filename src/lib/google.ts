@@ -11,6 +11,7 @@ import {
 	notInArray,
 	sql,
 } from "drizzle-orm";
+import { chunk } from "es-toolkit/array";
 import { OAuth2Client } from "google-auth-library";
 import type { Session } from "next-auth";
 import { env } from "~/env";
@@ -143,6 +144,11 @@ export function getSheetsClient(session: Session) {
 
 export const CACHE_KEY_PUNCHLIST = "google:sheets:punchlist";
 
+// clientIds below comes from every row of the punchlist spreadsheet, unscoped -
+// it can run into the hundreds/thousands. Chunking keeps each IN (...) clause
+// small regardless of how large the sheet grows.
+const MAX_IN_CLAUSE_SIZE = 500;
+
 export const getPunchData = async (session: Session) => {
 	const { PUNCHLIST_ID, PUNCHLIST_RANGE } = env;
 	const sheetsApi = getSheetsClient(session);
@@ -229,49 +235,76 @@ export const getPunchData = async (session: Session) => {
 		.map((client) => parseInt(client["Client ID"] ?? "", 10))
 		.filter((id) => !Number.isNaN(id));
 
-	const [dbClients, allFailures, allQuestionnaires, past96130Appts] =
-		await Promise.all([
-			db
-				.select({
-					client: clients,
-					hasExternalRecordsNote: sql<boolean>`CASE WHEN ${externalRecords.content} IS NOT NULL THEN TRUE ELSE FALSE END`,
-					externalRecordsRequestedDate: sql<string | null>`(
-					SELECT MAX(${externalRecordRequests.requestedDate})
-					FROM ${externalRecordRequests}
-					WHERE ${externalRecordRequests.clientId} = ${clients.id}
-					AND ${externalRecordRequests.requestedDate} IS NOT NULL
+	const clientIdChunks = chunk(clientIds, MAX_IN_CLAUSE_SIZE);
+
+	const [
+		dbClientsChunks,
+		allFailuresChunks,
+		allQuestionnairesChunks,
+		past96130ApptsChunks,
+	] = await Promise.all([
+		Promise.all(
+			clientIdChunks.map((ids) =>
+				db
+					.select({
+						client: clients,
+						hasExternalRecordsNote: sql<boolean>`CASE WHEN ${externalRecords.content} IS NOT NULL THEN TRUE ELSE FALSE END`,
+						externalRecordsRequestedDate: sql<string | null>`(
+							SELECT MAX(${externalRecordRequests.requestedDate})
+							FROM ${externalRecordRequests}
+							WHERE ${externalRecordRequests.clientId} = ${clients.id}
+							AND ${externalRecordRequests.requestedDate} IS NOT NULL
 					AND (${clients.sessionStartedAt} IS NULL OR ${externalRecordRequests.createdAt} >= ${clients.sessionStartedAt})
-				)`,
-				})
-				.from(clients)
-				.leftJoin(externalRecords, eq(clients.id, externalRecords.clientId))
-				.where(inArray(clients.id, clientIds)),
-			db.select().from(failures).where(inArray(failures.clientId, clientIds)),
-			db
-				.select({ ...getTableColumns(questionnaires) })
-				.from(questionnaires)
-				.innerJoin(clients, eq(questionnaires.clientId, clients.id))
-				.where(
-					and(
-						inArray(questionnaires.clientId, clientIds),
-						sql`(${clients.sessionStartedAt} IS NULL OR COALESCE(${questionnaires.sent}, ${questionnaires.updatedAt}) >= ${clients.sessionStartedAt})`,
+						)`,
+					})
+					.from(clients)
+					.leftJoin(externalRecords, eq(clients.id, externalRecords.clientId))
+					.where(inArray(clients.id, ids)),
+			),
+		),
+		Promise.all(
+			clientIdChunks.map((ids) =>
+				db.select().from(failures).where(inArray(failures.clientId, ids)),
+			),
+		),
+		Promise.all(
+			clientIdChunks.map((ids) =>
+				db
+					.select({ ...getTableColumns(questionnaires) })
+					.from(questionnaires)
+					.innerJoin(clients, eq(questionnaires.clientId, clients.id))
+					.where(
+						and(
+							inArray(questionnaires.clientId, ids),
+							sql`(${clients.sessionStartedAt} IS NULL OR COALESCE(${questionnaires.sent}, ${questionnaires.updatedAt}) >= ${clients.sessionStartedAt})`,
+						),
 					),
-				),
-			db
-				.selectDistinct({ clientId: appointments.clientId })
-				.from(appointments)
-				.innerJoin(clients, eq(appointments.clientId, clients.id))
-				.where(
-					and(
-						inArray(appointments.clientId, clientIds),
-						eq(appointments.cpt, "96130"),
-						eq(appointments.cancelled, false),
-						eq(appointments.placeholder, false),
-						lt(appointments.startTime, new Date()),
-						sql`(${clients.sessionStartedAt} IS NULL OR ${appointments.startTime} >= ${clients.sessionStartedAt})`,
+			),
+		),
+		Promise.all(
+			clientIdChunks.map((ids) =>
+				db
+					.selectDistinct({ clientId: appointments.clientId })
+					.from(appointments)
+					.innerJoin(clients, eq(appointments.clientId, clients.id))
+					.where(
+						and(
+							inArray(appointments.clientId, ids),
+							eq(appointments.cpt, "96130"),
+							eq(appointments.cancelled, false),
+							eq(appointments.placeholder, false),
+							lt(appointments.startTime, new Date()),
+							sql`(${clients.sessionStartedAt} IS NULL OR ${appointments.startTime} >= ${clients.sessionStartedAt})`,
+						),
 					),
-				),
-		]);
+			),
+		),
+	]);
+
+	const dbClients = dbClientsChunks.flat();
+	const allFailures = allFailuresChunks.flat();
+	const allQuestionnaires = allQuestionnairesChunks.flat();
+	const past96130Appts = past96130ApptsChunks.flat();
 
 	const past96130ClientIds = new Set(past96130Appts.map((a) => a.clientId));
 
@@ -848,7 +881,7 @@ export async function createAvailabilityEvent(
 	return response.data;
 }
 
-interface CalendarEvent {
+export interface CalendarEvent {
 	id: string | null | undefined;
 	summary: string | null | undefined;
 	start: Date;
@@ -944,40 +977,10 @@ export function splitAvailabilityByOOO(
 	return finalAvailability;
 }
 
-export async function getAvailabilityEvents(
-	session: Session,
-	startDate: Date,
-	endDate: Date,
-	calendarId = "primary",
-): Promise<CalendarEvent[]> {
-	const calendarApi = getCalendarClient(session);
-	const allItems: calendar_v3.Schema$Event[] = [];
-	let pageToken: string | undefined;
-
-	do {
-		const response = await googleApiCall(
-			"google-calendar",
-			"events.list",
-			"List calendar events",
-			() =>
-				calendarApi.events.list({
-					calendarId,
-					timeMin: startDate.toISOString(),
-					timeMax: endDate.toISOString(),
-					singleEvents: true,
-					orderBy: "startTime",
-					pageToken: pageToken,
-				}),
-		);
-
-		if (response.data.items) {
-			allItems.push(...response.data.items);
-		}
-
-		pageToken = response.data.nextPageToken ?? undefined;
-	} while (pageToken);
-
-	const allOffices = await db.query.offices.findMany({});
+export function classifyAvailabilityEvents(
+	rawEvents: calendar_v3.Schema$Event[],
+	allOffices: { prettyName: string; key: string }[],
+): CalendarEvent[] {
 	const nameToKeyMap = new Map(
 		allOffices.map((office) => [office.prettyName, office.key]),
 	);
@@ -985,7 +988,7 @@ export async function getAvailabilityEvents(
 
 	const officeRegex = /Available\s*-\s*(.*)/i;
 
-	return allItems
+	return rawEvents
 		.filter(
 			(event) =>
 				event.summary?.toLowerCase().includes("available") ||
@@ -1035,6 +1038,43 @@ export async function getAvailabilityEvents(
 				recurringEventId: event.recurringEventId,
 			};
 		});
+}
+
+export async function getAvailabilityEvents(
+	session: Session,
+	startDate: Date,
+	endDate: Date,
+	calendarId = "primary",
+): Promise<CalendarEvent[]> {
+	const calendarApi = getCalendarClient(session);
+	const allItems: calendar_v3.Schema$Event[] = [];
+	let pageToken: string | undefined;
+
+	do {
+		const response = await googleApiCall(
+			"google-calendar",
+			"events.list",
+			"List calendar events",
+			() =>
+				calendarApi.events.list({
+					calendarId,
+					timeMin: startDate.toISOString(),
+					timeMax: endDate.toISOString(),
+					singleEvents: true,
+					orderBy: "startTime",
+					pageToken: pageToken,
+				}),
+		);
+
+		if (response.data.items) {
+			allItems.push(...response.data.items);
+		}
+
+		pageToken = response.data.nextPageToken ?? undefined;
+	} while (pageToken);
+
+	const allOffices = await db.query.offices.findMany({});
+	return classifyAvailabilityEvents(allItems, allOffices);
 }
 
 export async function updateAvailabilityEvent(

@@ -65,6 +65,8 @@ export type CalAppt = {
 	leftAt: Date | null;
 	leftBy: string | null;
 	leftNote: string | null;
+	/** Not a real appointment yet - render as a pending/ghost block instead. */
+	isPreview?: boolean;
 };
 
 // ─── Messages popover open state ───────────────────────────────────────────────
@@ -327,6 +329,8 @@ export function ApptBlock({
 	const { open: messagesOpen, setOpen: setMessagesOpen } = useContext(
 		MessagesPopoverOpenContext,
 	);
+	const previewClass =
+		"border-2 border-dashed border-primary bg-primary/10 dark:bg-primary/20 animate-pulse";
 
 	return (
 		<Tooltip
@@ -340,15 +344,21 @@ export function ApptBlock({
 		>
 			<TooltipTrigger asChild>
 				<div
-					className={`absolute overflow-hidden rounded-sm border border-l-2 py-0.5 pr-4 pl-1.5 shadow-sm ${colorClass}`}
+					className={`absolute overflow-hidden rounded-sm border border-l-2 py-0.5 pr-4 pl-1.5 shadow-sm ${appt.isPreview ? previewClass : colorClass}`}
 					style={style}
 				>
-					<Link
-						className="block truncate font-medium text-xs leading-tight hover:underline"
-						href={`/clients/${appt.clientHash}`}
-					>
-						<Redact>{appt.clientName}</Redact>
-					</Link>
+					{appt.isPreview ? (
+						<div className="block truncate font-medium text-xs leading-tight">
+							<Redact>{appt.clientName}</Redact>
+						</div>
+					) : (
+						<Link
+							className="block truncate font-medium text-xs leading-tight hover:underline"
+							href={`/clients/${appt.clientHash}`}
+						>
+							<Redact>{appt.clientName}</Redact>
+						</Link>
+					)}
 					{showEvaluatorLine && (
 						<div className="truncate text-[10px] text-muted-foreground leading-tight">
 							<Redact>{appt.evaluatorName}</Redact>
@@ -370,6 +380,14 @@ export function ApptBlock({
 							>
 								{badgeLocation}
 							</Badge>
+							{appt.isPreview && (
+								<Badge
+									className="h-3.5 px-1 text-[9px] uppercase"
+									variant="outline"
+								>
+									Pending
+								</Badge>
+							)}
 							{appt.asdAdhd && (
 								<Badge
 									className="h-3.5 shrink-0 px-1 text-[9px]"
@@ -423,6 +441,7 @@ export function ApptBlock({
 					</p>
 				)}
 				{appt.confirmedAt && <p className="opacity-80">Confirmed</p>}
+				{appt.isPreview && <p className="opacity-80">Not yet created</p>}
 			</TooltipContent>
 		</Tooltip>
 	);
