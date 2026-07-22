@@ -52,6 +52,7 @@ export function QuestionnaireBulkForm({
 }: QuestionnaireBulkFormProps) {
 	const form = useForm<QuestionnaireBulkFormValues>({
 		resolver: zodResolver(formSchema),
+		mode: "onTouched",
 	});
 
 	return (
@@ -74,7 +75,9 @@ export function QuestionnaireBulkForm({
 				/>
 
 				<div className="flex justify-end gap-2">
-					<Button type="submit">Save</Button>
+					<Button disabled={!form.formState.isValid} type="submit">
+						Save
+					</Button>
 				</div>
 			</form>
 		</Form>

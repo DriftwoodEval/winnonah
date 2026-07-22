@@ -267,6 +267,7 @@ export function EvaluatorForm({
 
 	const form = useForm<EvaluatorFormValues>({
 		resolver: zodResolver(evaluatorFormSchema),
+		mode: "onTouched",
 		defaultValues,
 	});
 
@@ -973,7 +974,15 @@ export function EvaluatorForm({
 							</Button>
 						)}
 						{!disabled && (
-							<Button disabled={isLoading} type="submit">
+							<Button
+								disabled={
+									isLoading ||
+									(isEditing
+										? !form.formState.isDirty
+										: !form.formState.isValid)
+								}
+								type="submit"
+							>
 								{isLoading
 									? "Saving..."
 									: isEditing

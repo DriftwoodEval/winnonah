@@ -45,6 +45,7 @@ export function CreateAvailabilityDialog({
 
 	const form = useForm<AvailabilityFormValues>({
 		resolver: zodResolver(availabilityFormSchema),
+		mode: "onTouched",
 		defaultValues: {
 			startDate: initialData.start,
 			endDate: initialData.end,
@@ -159,7 +160,9 @@ export function CreateAvailabilityDialog({
 						<div className="flex gap-3">
 							<Button
 								className="flex-1"
-								disabled={createAvailability.isPending}
+								disabled={
+									createAvailability.isPending || !form.formState.isValid
+								}
 								type="submit"
 							>
 								{createAvailability.isPending ? "Creating..." : "Save Event"}

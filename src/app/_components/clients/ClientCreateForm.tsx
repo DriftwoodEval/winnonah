@@ -22,6 +22,7 @@ export default function ClientCreateForm() {
 	const router = useRouter();
 	const form = useForm<ClientCreateFormValues>({
 		resolver: zodResolver(formSchema),
+		mode: "onTouched",
 	});
 
 	const createClientMutation = api.clients.createNotesOnly.useMutation({
@@ -71,7 +72,9 @@ export default function ClientCreateForm() {
 					/>
 				</div>
 				<div className="flex justify-end">
-					<Button type="submit">Save</Button>
+					<Button disabled={!form.formState.isValid} type="submit">
+						Save
+					</Button>
 				</div>
 			</form>
 		</Form>

@@ -325,7 +325,11 @@ export function EditAvailabilityDialog({
 							<div className="flex gap-4">
 								<Button
 									className="flex-1"
-									disabled={updateAvailability.isPending || isLocked}
+									disabled={
+										updateAvailability.isPending ||
+										isLocked ||
+										!form.formState.isDirty
+									}
 									type="submit"
 								>
 									{updateAvailability.isPending ? "Saving..." : "Save Changes"}

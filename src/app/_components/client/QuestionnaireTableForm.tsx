@@ -124,6 +124,7 @@ export function QuestionnaireTableForm({
 
 	const form = useForm<QuestionnaireTableFormValues>({
 		resolver: zodResolver(formSchema),
+		mode: "onTouched",
 		defaultValues: {
 			questionnaireType: initialData?.questionnaireType ?? "",
 			link: initialData?.link ?? undefined,
@@ -310,7 +311,14 @@ export function QuestionnaireTableForm({
 					/>
 				)}
 				<div className="flex justify-end gap-2">
-					<Button disabled={isLoading || isLoadingList} type="submit">
+					<Button
+						disabled={
+							isLoading ||
+							isLoadingList ||
+							(initialData ? !form.formState.isDirty : !form.formState.isValid)
+						}
+						type="submit"
+					>
 						{newQ
 							? "Add Questionnaire"
 							: isLoading

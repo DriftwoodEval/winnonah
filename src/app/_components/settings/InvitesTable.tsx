@@ -77,6 +77,7 @@ function InvitesTableForm({
 
 	const form = useForm<InvitesTableFormValues>({
 		resolver: zodResolver(formSchema),
+		mode: "onTouched",
 		defaultValues: {
 			permissions: {},
 		},
@@ -161,7 +162,7 @@ function InvitesTableForm({
 					<Button onClick={onFinished} type="button" variant="ghost">
 						Cancel
 					</Button>
-					<Button disabled={isLoading} type="submit">
+					<Button disabled={isLoading || !form.formState.isValid} type="submit">
 						{isLoading ? "Saving..." : "Submit"}
 					</Button>
 				</div>

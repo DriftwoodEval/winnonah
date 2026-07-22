@@ -445,7 +445,10 @@ function AccountSection({
 									: "Archive Account"}
 						</Button>
 						{canEdit && (
-							<Button disabled={isUpdating} type="submit">
+							<Button
+								disabled={isUpdating || !form.formState.isDirty}
+								type="submit"
+							>
 								{isUpdating ? (
 									<>
 										<Loader2 className="mr-2 h-4 w-4 animate-spin" />

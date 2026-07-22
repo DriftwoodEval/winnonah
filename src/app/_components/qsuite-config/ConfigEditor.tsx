@@ -631,7 +631,9 @@ export function ConfigEditor() {
 			<div className="flex items-center justify-between">
 				<h1 className="font-bold text-3xl">QSuite Config</h1>
 				<Button
-					disabled={mutation.isPending || !canEditAny}
+					disabled={
+						mutation.isPending || !canEditAny || !form.formState.isDirty
+					}
 					onClick={form.handleSubmit(onSubmit)}
 				>
 					{mutation.isPending && (

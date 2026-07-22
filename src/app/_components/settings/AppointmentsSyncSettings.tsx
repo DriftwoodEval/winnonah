@@ -148,7 +148,10 @@ export default function AppointmentsSyncSettings() {
 
 					{canEdit && (
 						<div className="flex justify-end">
-							<Button disabled={updateSyncConfig.isPending} type="submit">
+							<Button
+								disabled={updateSyncConfig.isPending || !form.formState.isDirty}
+								type="submit"
+							>
 								{updateSyncConfig.isPending
 									? "Saving..."
 									: "Save Sync Settings"}

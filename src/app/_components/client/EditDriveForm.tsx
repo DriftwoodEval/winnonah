@@ -177,7 +177,8 @@ export function EditDriveForm({
 						disabled={
 							updateClient.isPending ||
 							removeIdFromFolder.isPending ||
-							addIdToFolder.isPending
+							addIdToFolder.isPending ||
+							!form.formState.isDirty
 						}
 						type="submit"
 					>

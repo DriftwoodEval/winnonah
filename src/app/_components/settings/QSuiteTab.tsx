@@ -618,7 +618,9 @@ export function QSuiteTab() {
 							)}
 						</TabsList>
 						<Button
-							disabled={mutation.isPending || !canEditAny}
+							disabled={
+								mutation.isPending || !canEditAny || !form.formState.isDirty
+							}
 							onClick={form.handleSubmit(onSubmit)}
 						>
 							{mutation.isPending && (

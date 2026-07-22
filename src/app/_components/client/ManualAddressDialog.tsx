@@ -204,7 +204,7 @@ function ManualAddressForm({
 					<Button onClick={onClose} type="button" variant="ghost">
 						Cancel
 					</Button>
-					<Button disabled={isLoading} type="submit">
+					<Button disabled={isLoading || !form.formState.isDirty} type="submit">
 						{isLoading ? "Saving..." : "Save Changes"}
 					</Button>
 				</div>

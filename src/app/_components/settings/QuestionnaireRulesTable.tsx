@@ -131,6 +131,7 @@ function RuleForm({
 
 	const form = useForm<FormValues>({
 		resolver: zodResolver(formSchema),
+		mode: "onTouched",
 		defaultValues: initialData
 			? {
 					daeval: initialData.daeval,
@@ -345,7 +346,13 @@ function RuleForm({
 					<Button onClick={onClose} type="button" variant="ghost">
 						Cancel
 					</Button>
-					<Button disabled={isLoading} type="submit">
+					<Button
+						disabled={
+							isLoading ||
+							(isEditing ? !form.formState.isDirty : !form.formState.isValid)
+						}
+						type="submit"
+					>
 						{isLoading ? "Saving..." : isEditing ? "Save Changes" : "Create"}
 					</Button>
 				</div>

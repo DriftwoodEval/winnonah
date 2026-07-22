@@ -90,6 +90,7 @@ export function AddDriveButton({ client }: { client: Client }) {
 
 	const form = useForm<driveIdValues>({
 		resolver: zodResolver(formSchema),
+		mode: "onTouched",
 	});
 
 	function onSubmit(values: driveIdValues) {
@@ -157,7 +158,9 @@ export function AddDriveButton({ client }: { client: Client }) {
 						)}
 					/>
 					<div className="flex justify-end gap-2">
-						<Button type="submit">Save</Button>
+						<Button disabled={!form.formState.isValid} type="submit">
+							Save
+						</Button>
 					</div>
 				</form>
 			</Form>

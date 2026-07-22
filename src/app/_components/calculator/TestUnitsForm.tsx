@@ -43,6 +43,7 @@ export function TestUnitEditor({
 
 	const form = useForm<TestUnitFormValues>({
 		resolver: zodResolver(testUnitSchema),
+		mode: "onTouched",
 		values: {
 			name: unit?.name ?? "",
 			minutes: unit?.minutes ?? 0,
@@ -140,7 +141,14 @@ export function TestUnitEditor({
 							</FormItem>
 						)}
 					/>
-					<Button className="w-full" disabled={isPending} type="submit">
+					<Button
+						className="w-full"
+						disabled={
+							isPending ||
+							(isEditing ? !form.formState.isDirty : !form.formState.isValid)
+						}
+						type="submit"
+					>
 						{isPending ? "Saving..." : "Save Unit"}
 					</Button>
 				</form>

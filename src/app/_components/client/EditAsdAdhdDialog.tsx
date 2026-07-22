@@ -106,7 +106,10 @@ export function EditAsdAdhdDialog({ client, setOpen }: EditAsdAdhdDialogProps) {
 					>
 						Cancel
 					</Button>
-					<Button disabled={isSubmitting} type="submit">
+					<Button
+						disabled={isSubmitting || !form.formState.isDirty}
+						type="submit"
+					>
 						Save
 					</Button>
 				</div>

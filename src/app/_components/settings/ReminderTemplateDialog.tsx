@@ -65,6 +65,7 @@ export function ReminderTemplateDialog({
 
 	const form = useForm<ReminderTemplateFormValues>({
 		resolver: zodResolver(reminderTemplateSchema),
+		mode: "onTouched",
 		defaultValues: {
 			name: "",
 			triggerKeyword: null,
@@ -474,7 +475,12 @@ export function ReminderTemplateDialog({
 							<div className="flex gap-3">
 								<Button
 									className="flex-1"
-									disabled={upsertTemplate.isPending}
+									disabled={
+										upsertTemplate.isPending ||
+										(isEditing
+											? !form.formState.isDirty
+											: !form.formState.isValid)
+									}
 									type="submit"
 								>
 									{upsertTemplate.isPending

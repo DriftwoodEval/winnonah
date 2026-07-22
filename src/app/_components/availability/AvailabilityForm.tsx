@@ -218,7 +218,7 @@ export function AvailabilityForm() {
 					/>
 					<Button
 						className="w-full"
-						disabled={createAvailability.isPending}
+						disabled={createAvailability.isPending || !form.formState.isValid}
 						type="submit"
 					>
 						{createAvailability.isPending
