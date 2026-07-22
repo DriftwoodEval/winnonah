@@ -12,6 +12,7 @@ import {
 	AlertDialogTitle,
 } from "@ui/alert-dialog";
 import { Button } from "@ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@ui/card";
 import { Checkbox } from "@ui/checkbox";
 import {
 	Form,
@@ -265,153 +266,167 @@ function AccountSection({
 			{showHeading && <h4 className="font-semibold text-base">Account</h4>}
 			<Form {...form}>
 				<form className="space-y-6" onSubmit={form.handleSubmit(onSubmit)}>
-					<FormField
-						control={form.control}
-						name="roleId"
-						render={({ field }) => (
-							<FormItem className="max-w-xs">
-								<FormLabel>Role</FormLabel>
-								<Select
-									disabled={!canEdit}
-									onValueChange={(value) =>
-										field.onChange(value === "none" ? null : Number(value))
-									}
-									value={field.value ? String(field.value) : "none"}
-								>
-									<FormControl>
-										<SelectTrigger>
-											<SelectValue placeholder="No role" />
-										</SelectTrigger>
-									</FormControl>
-									<SelectContent>
-										<SelectItem value="none">No role</SelectItem>
-										{allRoles?.map((role) => (
-											<SelectItem key={role.id} value={String(role.id)}>
-												{role.name}
-											</SelectItem>
-										))}
-									</SelectContent>
-								</Select>
-								<FormDescription>
-									Permissions below apply on top of the role's defaults as
-									overrides.
-								</FormDescription>
-							</FormItem>
-						)}
-					/>
-
-					<PermissionsField
-						basePermissions={
-							(selectedRole?.permissions as PermissionsObject) ?? {}
-						}
-						disabled={!canEdit}
-						isPermissionDisabled={isPermissionDisabled}
-						onChange={(p) =>
-							form.setValue("permissions", p, {
-								shouldDirty: true,
-								shouldValidate: true,
-							})
-						}
-						value={permissions ?? {}}
-					/>
-
-					<div className="space-y-4 border-t pt-4">
-						<FormField
-							control={form.control}
-							name="phoneNumber"
-							render={({ field }) => (
-								<FormItem className="max-w-xs">
-									<FormLabel>Phone Number</FormLabel>
-									<FormControl>
-										<Input
-											disabled={!canEdit}
-											placeholder="(212) 555-1234"
-											{...field}
-											onBlur={field.onBlur}
-											onChange={(e) =>
-												field.onChange(formatPhoneAsYouType(e.target.value))
-											}
-											value={field.value ?? ""}
-										/>
-									</FormControl>
-									<FormMessage />
-								</FormItem>
-							)}
-						/>
-						<FormField
-							control={form.control}
-							name="maxClaimedReports"
-							render={({ field }) => (
-								<FormItem className="max-w-xs">
-									<FormLabel>Max Claimed Reports</FormLabel>
-									<FormControl>
-										<Input
-											disabled={!canEdit}
-											max={10}
-											min={0}
-											placeholder="Default"
-											type="number"
-											{...field}
-											onChange={(e) => {
-												const val = e.target.value;
-												field.onChange(
-													val === "" ? null : Number.parseInt(val, 10),
-												);
-											}}
-											value={field.value ?? ""}
-										/>
-									</FormControl>
-									<FormDescription>
-										Leave blank to use the default. Overrides how many reports
-										this user can have claimed at once.
-									</FormDescription>
-									<FormMessage />
-								</FormItem>
-							)}
-						/>
-						{allEvaluators && allEvaluators.length > 0 && (
+					<Card>
+						<CardHeader>
+							<CardTitle>Role & Permissions</CardTitle>
+						</CardHeader>
+						<CardContent className="space-y-4">
 							<FormField
 								control={form.control}
-								name="blockedEvaluatorNpis"
+								name="roleId"
 								render={({ field }) => (
-									<FormItem>
-										<FormLabel>Blocked Evaluators</FormLabel>
+									<FormItem className="max-w-xs">
+										<FormLabel>Role</FormLabel>
+										<Select
+											disabled={!canEdit}
+											onValueChange={(value) =>
+												field.onChange(value === "none" ? null : Number(value))
+											}
+											value={field.value ? String(field.value) : "none"}
+										>
+											<FormControl>
+												<SelectTrigger>
+													<SelectValue placeholder="No role" />
+												</SelectTrigger>
+											</FormControl>
+											<SelectContent>
+												<SelectItem value="none">No role</SelectItem>
+												{allRoles?.map((role) => (
+													<SelectItem key={role.id} value={String(role.id)}>
+														{role.name}
+													</SelectItem>
+												))}
+											</SelectContent>
+										</Select>
 										<FormDescription>
-											This user cannot claim or receive notifications for
-											reports belonging to these evaluators.
+											Permissions below apply on top of the role's defaults as
+											overrides.
 										</FormDescription>
-										<div className="flex flex-col gap-2 pt-1">
-											{allEvaluators.map((ev) => (
-												<FormItem
-													className="flex items-center gap-2"
-													key={ev.npi}
-												>
-													<FormControl>
-														<Checkbox
-															checked={field.value?.includes(ev.npi) ?? false}
-															disabled={!canEdit}
-															onCheckedChange={(checked) => {
-																const current = field.value ?? [];
-																field.onChange(
-																	checked
-																		? [...current, ev.npi]
-																		: current.filter((n) => n !== ev.npi),
-																);
-															}}
-														/>
-													</FormControl>
-													<FormLabel className="font-normal">
-														{ev.providerName}
-													</FormLabel>
-												</FormItem>
-											))}
-										</div>
-										<FormMessage />
 									</FormItem>
 								)}
 							/>
-						)}
-					</div>
+
+							<PermissionsField
+								basePermissions={
+									(selectedRole?.permissions as PermissionsObject) ?? {}
+								}
+								disabled={!canEdit}
+								isPermissionDisabled={isPermissionDisabled}
+								onChange={(p) =>
+									form.setValue("permissions", p, {
+										shouldDirty: true,
+										shouldValidate: true,
+									})
+								}
+								value={permissions ?? {}}
+							/>
+						</CardContent>
+					</Card>
+
+					<Card>
+						<CardHeader>
+							<CardTitle>Contact & Limits</CardTitle>
+						</CardHeader>
+						<CardContent className="space-y-4">
+							<div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+								<FormField
+									control={form.control}
+									name="phoneNumber"
+									render={({ field }) => (
+										<FormItem>
+											<FormLabel>Phone Number</FormLabel>
+											<FormControl>
+												<Input
+													disabled={!canEdit}
+													placeholder="(212) 555-1234"
+													{...field}
+													onBlur={field.onBlur}
+													onChange={(e) =>
+														field.onChange(formatPhoneAsYouType(e.target.value))
+													}
+													value={field.value ?? ""}
+												/>
+											</FormControl>
+											<FormMessage />
+										</FormItem>
+									)}
+								/>
+								<FormField
+									control={form.control}
+									name="maxClaimedReports"
+									render={({ field }) => (
+										<FormItem>
+											<FormLabel>Max Claimed Reports</FormLabel>
+											<FormControl>
+												<Input
+													disabled={!canEdit}
+													max={10}
+													min={0}
+													placeholder="Default"
+													type="number"
+													{...field}
+													onChange={(e) => {
+														const val = e.target.value;
+														field.onChange(
+															val === "" ? null : Number.parseInt(val, 10),
+														);
+													}}
+													value={field.value ?? ""}
+												/>
+											</FormControl>
+											<FormDescription>
+												Leave blank to use the default. Overrides how many
+												reports this user can have claimed at once.
+											</FormDescription>
+											<FormMessage />
+										</FormItem>
+									)}
+								/>
+							</div>
+							{allEvaluators && allEvaluators.length > 0 && (
+								<FormField
+									control={form.control}
+									name="blockedEvaluatorNpis"
+									render={({ field }) => (
+										<FormItem>
+											<FormLabel>Blocked Evaluators</FormLabel>
+											<FormDescription>
+												This user cannot claim or receive notifications for
+												reports belonging to these evaluators.
+											</FormDescription>
+											<div className="grid grid-cols-2 gap-2 pt-1 sm:grid-cols-3">
+												{allEvaluators.map((ev) => (
+													<FormItem
+														className="flex items-center gap-2"
+														key={ev.npi}
+													>
+														<FormControl>
+															<Checkbox
+																checked={field.value?.includes(ev.npi) ?? false}
+																disabled={!canEdit}
+																onCheckedChange={(checked) => {
+																	const current = field.value ?? [];
+																	field.onChange(
+																		checked
+																			? [...current, ev.npi]
+																			: current.filter((n) => n !== ev.npi),
+																	);
+																}}
+															/>
+														</FormControl>
+														<FormLabel className="font-normal">
+															{ev.providerName}
+														</FormLabel>
+													</FormItem>
+												))}
+											</div>
+											<FormMessage />
+										</FormItem>
+									)}
+								/>
+							)}
+						</CardContent>
+					</Card>
 
 					<div className="flex items-center justify-between">
 						<Button
