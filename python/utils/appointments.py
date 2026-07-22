@@ -34,7 +34,7 @@ from utils.google import (
 
 DAEvalType = Literal["EVAL", "DA", "DAEVAL"]
 
-_FOLDER_DATE_PREFIX_RE = re.compile(r"^\d{2}/\d{2}/\d{4}\s+")
+_FOLDER_DATE_PREFIX_RE = re.compile(r"^\d{4}\s+")
 _FOLDER_TAG_RE = re.compile(r"\s+(?:MOVE TO 00[01]|ADD DA&BIOPSYCH)$")
 
 
@@ -71,7 +71,7 @@ def build_client_folder_name(
     if "andrew" in evaluator_name.lower() and da_eval != "EVAL":
         tags.append("ADD DA&BIOPSYCH")
 
-    date_str = appointment_start_time.strftime("%m/%d/%Y")
+    date_str = appointment_start_time.strftime("%m%d")
     return " ".join([date_str, base_name, *tags])
 
 
