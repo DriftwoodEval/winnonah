@@ -214,7 +214,7 @@ export function ClientsDashboard() {
 	});
 
 	const can = useCheckPermission();
-	const canShell = can("clients:shell");
+	const canNotesOnly = can("clients:notes-only");
 
 	const clients = searchQuery?.clients;
 	const colorCounts = searchQuery?.colorCounts;
@@ -283,7 +283,7 @@ export function ClientsDashboard() {
 				</Button>
 			</TooltipTrigger>
 			<TooltipContent>
-				<p>Create Note/Shell Client</p>
+				<p>Create Notes Only Client</p>
 			</TooltipContent>
 		</Tooltip>
 	);
@@ -301,9 +301,9 @@ export function ClientsDashboard() {
 					onFocusChange={setSearchFocused}
 				/>
 
-				{canShell && (
+				{canNotesOnly && (
 					<ResponsiveDialog
-						title="Create Note/Shell Client"
+						title="Create Notes Only Client"
 						trigger={clientFormTrigger}
 					>
 						<ClientCreateForm />

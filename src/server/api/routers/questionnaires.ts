@@ -972,14 +972,14 @@ export const questionnaireRouter = createTRPCRouter({
 			throw new Error("No access token or refresh token");
 		}
 
-		const isNoteOnly = eq(sql`LENGTH(${clients.id})`, 5);
+		const isNotesOnly = eq(sql`LENGTH(${clients.id})`, 5);
 
 		const activeClients = await ctx.db.query.clients.findMany({
 			where: and(
 				eq(clients.status, true),
 				eq(clients.pause, false),
 				eq(clients.autismStop, false),
-				not(isNoteOnly),
+				not(isNotesOnly),
 			),
 		});
 

@@ -375,7 +375,7 @@ function NotInTAWidget() {
 	return (
 		<SimpleIssueWidget
 			clients={data}
-			description='Clients who were not imported from TA and were not added using the "Shell Client"/"Notes Only" feature.'
+			description="Clients who were not imported from TA and were not added using the Notes Only feature."
 			isLoading={isLoading}
 			permission="issues:not-in-ta"
 			title="Not in TA"
@@ -400,21 +400,21 @@ function DropListWidget() {
 }
 
 function NotesOnlyWidget() {
-	const { data: noteOnlyClients, isLoading: isLoadingNoteOnly } =
-		api.clients.getNoteOnlyClients.useQuery();
+	const { data: notesOnlyClients, isLoading: isLoadingNotesOnly } =
+		api.clients.getNotesOnlyClients.useQuery();
 	const { data: mergeSuggestions, isLoading: isLoadingMerge } =
 		api.clients.getMergeSuggestions.useQuery();
 
-	if (isLoadingNoteOnly || isLoadingMerge)
+	if (isLoadingNotesOnly || isLoadingMerge)
 		return (
 			<Shell>
 				<IssueListSkeleton />
 			</Shell>
 		);
-	const clients = noteOnlyClients ?? [];
+	const clients = notesOnlyClients ?? [];
 	const sorted = clients.toSorted((a, b) => {
-		const aHas = mergeSuggestions?.some((s) => s.noteOnlyClient.id === a.id);
-		const bHas = mergeSuggestions?.some((s) => s.noteOnlyClient.id === b.id);
+		const aHas = mergeSuggestions?.some((s) => s.notesOnlyClient.id === a.id);
+		const bHas = mergeSuggestions?.some((s) => s.notesOnlyClient.id === b.id);
 		if (aHas && !bHas) return -1;
 		if (!aHas && bHas) return 1;
 		return clients.indexOf(a) - clients.indexOf(b);
@@ -430,7 +430,7 @@ function NotesOnlyWidget() {
 						</Button>
 					</Link>
 				}
-				description='"Shell" clients created, should be merged with "Real" client from TA when possible.'
+				description='Notes Only clients created, should be merged with "Real" client from TA when possible.'
 				fill
 				items={sorted.map((client) => ({
 					id: client.id.toString(),
@@ -438,7 +438,7 @@ function NotesOnlyWidget() {
 					hash: client.hash,
 					originalData: client,
 					suggestions:
-						mergeSuggestions?.find((s) => s.noteOnlyClient.id === client.id)
+						mergeSuggestions?.find((s) => s.notesOnlyClient.id === client.id)
 							?.suggestedRealClients ?? [],
 				}))}
 				title="Notes Only"

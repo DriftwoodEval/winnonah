@@ -39,7 +39,7 @@ import type { ClientWithIssueInfo } from "~/lib/models";
 import {
 	getDistanceSQL,
 	getInsuranceShortName,
-	isShellClientId,
+	isNotesOnlyClientId,
 } from "~/lib/utils";
 import { referralDataSchema } from "~/lib/validations/config";
 import {
@@ -73,26 +73,26 @@ import {
 } from "~/server/db/schema";
 import { getQuestionnaireEligibilityAge } from "~/server/questionnaire-age";
 
-const isNoteOnly = eq(sql`LENGTH(${clients.id})`, 5);
+const isNotesOnly = eq(sql`LENGTH(${clients.id})`, 5);
 const CACHE_KEY_DROP_LIST = "clients:drop-list";
 
 type ClientRow = typeof clients.$inferSelect;
 
-function matchShellToReal(noteOnlyName: string, real: ClientRow) {
+function matchNotesOnlyToReal(notesOnlyName: string, real: ClientRow) {
 	const legalName = `${real.firstName.toLowerCase()} ${real.lastName.toLowerCase()}`;
 	const fullName = real.preferredName
 		? `${real.preferredName} ${real.lastName}`.toLowerCase()
 		: real.fullName.toLowerCase();
 	const distance = Math.min(
-		levDistance(noteOnlyName, legalName),
-		levDistance(noteOnlyName, fullName),
+		levDistance(notesOnlyName, legalName),
+		levDistance(notesOnlyName, fullName),
 	);
 	const isMatch =
 		distance <= 3 ||
-		noteOnlyName.includes(legalName) ||
-		legalName.includes(noteOnlyName) ||
+		notesOnlyName.includes(legalName) ||
+		legalName.includes(notesOnlyName) ||
 		(real.preferredName &&
-			(noteOnlyName.includes(fullName) || fullName.includes(noteOnlyName)));
+			(notesOnlyName.includes(fullName) || fullName.includes(notesOnlyName)));
 	return { distance, isMatch: !!isMatch };
 }
 function buildClientIdPrefixCondition(trimmedSearch: string) {
@@ -147,7 +147,7 @@ async function buildDirectoryConditions(
 	input: DirectoryFilterInput,
 	exclude?: DirectoryFilterField,
 ) {
-	const conditions = [not(isNoteOnly)];
+	const conditions = [not(isNotesOnly)];
 	const effectiveStatus = input.status ?? "active";
 
 	if (exclude !== "status") {
@@ -421,10 +421,10 @@ export const getPriorityInfo = () => {
 
 	const sortReasonSQL = sql<string>`CASE
       WHEN ${isHighPriorityBN} AND ${isHighPriorityClient} THEN 'BabyNet and High Priority'
-      WHEN ${isHighPriorityBN} THEN 'BabyNet above 2:6'
+      WHEN ${isHighPriorityBN} THEN 'BabyNet Above 2:6'
       WHEN ${isHighPriorityClient} THEN 'High Priority'
-      WHEN ${isNoteOnly} THEN 'Note only'
-      ELSE 'Added date'
+      WHEN ${isNotesOnly} THEN 'Notes Only'
+      ELSE 'Added Date'
     END`.as("sortReason");
 
 	const orderBySQL = [
@@ -900,14 +900,14 @@ export const clientRouter = createTRPCRouter({
 							isNull(clients.schoolDistrict),
 						),
 						gt(clients.dob, subYears(new Date(), 21)),
-						not(isNoteOnly),
+						not(isNotesOnly),
 						eq(clients.status, true),
 					),
 				}),
 				ctx.db.query.clients.findMany({
 					where: and(
 						eq(clients.flag, "poor_address_lookup"),
-						not(isNoteOnly),
+						not(isNotesOnly),
 						eq(clients.status, true),
 					),
 				}),
@@ -1103,19 +1103,19 @@ export const clientRouter = createTRPCRouter({
 		);
 	}),
 
-	getNoteOnlyClients: protectedProcedure.query(async ({ ctx }) => {
-		const noteOnlyClients = await ctx.db.query.clients.findMany({
-			where: and(isNoteOnly, eq(clients.status, true)),
+	getNotesOnlyClients: protectedProcedure.query(async ({ ctx }) => {
+		const notesOnlyClients = await ctx.db.query.clients.findMany({
+			where: and(isNotesOnly, eq(clients.status, true)),
 			orderBy: asc(clients.addedDate),
 		});
 
-		return noteOnlyClients;
+		return notesOnlyClients;
 	}),
 
 	getMergeSuggestionsForClient: protectedProcedure
 		.input(z.object({ clientId: z.number() }))
 		.query(async ({ ctx, input }) => {
-			const isShell = isShellClientId(input.clientId);
+			const targetIsNotesOnly = isNotesOnlyClientId(input.clientId);
 
 			const [targetClient, candidates] = await Promise.all([
 				ctx.db.query.clients.findFirst({
@@ -1124,30 +1124,37 @@ export const clientRouter = createTRPCRouter({
 				ctx.db.query.clients.findMany({
 					where: and(
 						eq(clients.status, true),
-						isShell ? not(isNoteOnly) : isNoteOnly,
+						targetIsNotesOnly ? isNotesOnly : not(isNotesOnly),
 					),
 				}),
 			]);
 
 			if (!targetClient) {
-				return { suggestedRealClients: [], suggestedNoteOnlyClients: [] };
+				return { suggestedRealClients: [], suggestedNotesOnlyClients: [] };
 			}
 
-			if (isShell) {
-				const noteOnlyName = targetClient.fullName.toLowerCase();
+			if (targetIsNotesOnly) {
+				const notesOnlyName = targetClient.fullName.toLowerCase();
 				const suggestedRealClients = candidates
-					.map((real) => ({ ...real, ...matchShellToReal(noteOnlyName, real) }))
+					.map((real) => ({
+						...real,
+						...matchNotesOnlyToReal(notesOnlyName, real),
+					}))
 					.filter((c) => c.isMatch)
 					.sort((a, b) => a.distance - b.distance)
 					.slice(0, 5);
-				return { suggestedRealClients, suggestedNoteOnlyClients: [] };
+				return { suggestedRealClients, suggestedNotesOnlyClients: [] };
 			}
 
-			const suggestedNoteOnlyClients = candidates.filter(
-				(shell) =>
-					matchShellToReal(shell.fullName.toLowerCase(), targetClient).isMatch,
+			const suggestedNotesOnlyClients = candidates.filter(
+				(notesOnly) =>
+					matchNotesOnlyToReal(notesOnly.fullName.toLowerCase(), targetClient)
+						.isMatch,
 			);
-			return { suggestedRealClients: [], suggestedNoteOnlyClients };
+			return {
+				suggestedRealClients: [],
+				suggestedNotesOnlyClients: suggestedNotesOnlyClients,
+			};
 		}),
 
 	getMergeSuggestions: protectedProcedure.query(async ({ ctx }) => {
@@ -1155,28 +1162,33 @@ export const clientRouter = createTRPCRouter({
 			where: eq(clients.status, true),
 		});
 
-		const noteOnlyClients = allClients.filter((c) => isShellClientId(c.id));
-		const realClients = allClients.filter((c) => !isShellClientId(c.id));
+		const notesOnlyClients = allClients.filter((c) =>
+			isNotesOnlyClientId(c.id),
+		);
+		const realClients = allClients.filter((c) => !isNotesOnlyClientId(c.id));
 
 		const suggestions: {
-			noteOnlyClient: typeof clients.$inferSelect;
+			notesOnlyClient: typeof clients.$inferSelect;
 			suggestedRealClients: (typeof clients.$inferSelect & {
 				distance: number;
 			})[];
 		}[] = [];
 
-		for (const noteOnly of noteOnlyClients) {
-			const noteOnlyName = noteOnly.fullName.toLowerCase();
+		for (const notesOnly of notesOnlyClients) {
+			const notesOnlyName = notesOnly.fullName.toLowerCase();
 
 			const matchingRealClients = realClients
-				.map((real) => ({ ...real, ...matchShellToReal(noteOnlyName, real) }))
+				.map((real) => ({
+					...real,
+					...matchNotesOnlyToReal(notesOnlyName, real),
+				}))
 				.filter((c) => c.isMatch)
 				.sort((a, b) => a.distance - b.distance)
 				.slice(0, 5);
 
 			if (matchingRealClients.length > 0) {
 				suggestions.push({
-					noteOnlyClient: noteOnly,
+					notesOnlyClient: notesOnly,
 					suggestedRealClients: matchingRealClients,
 				});
 			}
@@ -1187,7 +1199,7 @@ export const clientRouter = createTRPCRouter({
 
 	getNoDriveIdErrors: protectedProcedure.query(async ({ ctx }) => {
 		const noDriveId = await ctx.db.query.clients.findMany({
-			where: and(not(isNoteOnly), isNull(clients.driveId)),
+			where: and(not(isNotesOnly), isNull(clients.driveId)),
 			orderBy: clients.addedDate,
 		});
 
@@ -1223,7 +1235,7 @@ export const clientRouter = createTRPCRouter({
 							isNull(clientsEvaluators.clientId),
 						),
 						eq(clients.status, true),
-						not(isNoteOnly),
+						not(isNotesOnly),
 					),
 				)
 				.orderBy(clients.addedDate);
@@ -1284,7 +1296,7 @@ export const clientRouter = createTRPCRouter({
 					isNull(clients.referralSource),
 				),
 				eq(clients.status, true),
-				not(isNoteOnly),
+				not(isNotesOnly),
 			),
 			orderBy: clients.addedDate,
 		});
@@ -1394,7 +1406,7 @@ export const clientRouter = createTRPCRouter({
 					where: and(
 						eq(clients.status, true),
 						isNotNull(clients.primaryInsurance),
-						not(isNoteOnly),
+						not(isNotesOnly),
 					),
 				});
 
@@ -1536,7 +1548,7 @@ export const clientRouter = createTRPCRouter({
 				isNull(clients.recordsNeeded),
 				isNotNull(clients.taUser),
 				eq(clients.status, true),
-				not(isNoteOnly),
+				not(isNotesOnly),
 			),
 			orderBy: clients.addedDate,
 		});
@@ -1548,7 +1560,7 @@ export const clientRouter = createTRPCRouter({
 		const results = await ctx.db.query.clients.findMany({
 			where: and(
 				eq(clients.status, true),
-				not(isNoteOnly),
+				not(isNotesOnly),
 				sql`JSON_EXTRACT(${clients.referralData}, '$.needsReachOut') = 'reach_out'`,
 			),
 			orderBy: asc(clients.addedDate),
@@ -1561,7 +1573,7 @@ export const clientRouter = createTRPCRouter({
 		const results = await ctx.db.query.clients.findMany({
 			where: and(
 				eq(clients.status, true),
-				not(isNoteOnly),
+				not(isNotesOnly),
 				sql`JSON_EXTRACT(${clients.referralData}, '$.needsReachOut') = 'review'`,
 			),
 			orderBy: asc(clients.addedDate),
@@ -1651,12 +1663,12 @@ export const clientRouter = createTRPCRouter({
 		return results;
 	}),
 
-	createShell: protectedProcedure
+	createNotesOnly: protectedProcedure
 		.input(z.object({ firstName: z.string(), lastName: z.string() }))
 		.mutation(async ({ ctx, input }) => {
-			assertPermission(ctx.session.user, "clients:shell");
+			assertPermission(ctx.session.user, "clients:notes-only");
 
-			ctx.logger.info(input, "Creating shell client");
+			ctx.logger.info(input, "Creating notes only client");
 
 			const id = Math.floor(10000 + Math.random() * 90000); // Random 5 digit number
 			await ctx.db.insert(clients).values({
@@ -1757,7 +1769,7 @@ export const clientRouter = createTRPCRouter({
 			if (
 				input.status !== undefined &&
 				input.status !== currentClient.status &&
-				!isShellClientId(input.clientId)
+				!isNotesOnlyClientId(input.clientId)
 			) {
 				throw new TRPCError({
 					code: "NOT_IMPLEMENTED",
@@ -1805,7 +1817,7 @@ export const clientRouter = createTRPCRouter({
 					? (["clients:drive"] as const)
 					: []),
 				...(input.status !== undefined && input.status !== currentClient.status
-					? (["clients:shell"] as const)
+					? (["clients:notes-only"] as const)
 					: []),
 				...((input.recordsNeeded !== undefined &&
 					input.recordsNeeded !== currentClient.recordsNeeded) ||
@@ -1944,7 +1956,7 @@ export const clientRouter = createTRPCRouter({
 				if (
 					ctx.session.user.accessToken &&
 					ctx.session.user.refreshToken &&
-					!isShellClientId(input.clientId)
+					!isNotesOnlyClientId(input.clientId)
 				) {
 					try {
 						await updatePunchData(ctx.session, input.clientId.toString(), {
@@ -1964,7 +1976,7 @@ export const clientRouter = createTRPCRouter({
 				if (
 					ctx.session.user.accessToken &&
 					ctx.session.user.refreshToken &&
-					!isShellClientId(input.clientId)
+					!isNotesOnlyClientId(input.clientId)
 				) {
 					try {
 						await updatePunchData(ctx.session, input.clientId.toString(), {
@@ -2312,9 +2324,9 @@ export const clientRouter = createTRPCRouter({
 					}
 
 					if (effectiveType === "real") {
-						conditions.push(not(isNoteOnly));
+						conditions.push(not(isNotesOnly));
 					} else if (effectiveType === "note") {
-						conditions.push(isNoteOnly);
+						conditions.push(isNotesOnly);
 					}
 
 					if (hideBabyNet) {
@@ -2461,7 +2473,7 @@ export const clientRouter = createTRPCRouter({
 		.mutation(async ({ ctx, input }) => {
 			assertPermission(ctx.session.user, "clients:merge");
 
-			ctx.logger.info(input, "Merging shell client");
+			ctx.logger.info(input, "Merging notes only client");
 
 			const { clientId, fakeClientId } = input;
 

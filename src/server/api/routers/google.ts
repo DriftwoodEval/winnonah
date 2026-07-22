@@ -903,7 +903,7 @@ export const googleRouter = createTRPCRouter({
 			throw new Error("No access token or refresh token");
 		}
 
-		const isNoteOnly = eq(sql`LENGTH(${clients.id})`, 5);
+		const isNotesOnly = eq(sql`LENGTH(${clients.id})`, 5);
 
 		const [punchClients, missingClients, needsReachOut, needsReview] =
 			await Promise.all([
@@ -922,7 +922,7 @@ export const googleRouter = createTRPCRouter({
 				ctx.db.query.clients.findMany({
 					where: and(
 						eq(clients.status, true),
-						not(isNoteOnly),
+						not(isNotesOnly),
 						sql`JSON_EXTRACT(${clients.referralData}, '$.needsReachOut') = 'reach_out'`,
 					),
 					orderBy: asc(clients.addedDate),
@@ -930,7 +930,7 @@ export const googleRouter = createTRPCRouter({
 				ctx.db.query.clients.findMany({
 					where: and(
 						eq(clients.status, true),
-						not(isNoteOnly),
+						not(isNotesOnly),
 						sql`JSON_EXTRACT(${clients.referralData}, '$.needsReachOut') = 'review'`,
 					),
 					orderBy: asc(clients.addedDate),

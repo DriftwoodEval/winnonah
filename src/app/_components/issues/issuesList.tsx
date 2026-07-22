@@ -249,7 +249,7 @@ interface SuggestionIssueListProps {
 		name: string;
 		hash?: string;
 		suggestions: Client[];
-		originalData?: Client; // For MergePreviewDialog if it's a NoteOnly client
+		originalData?: Client; // For MergePreviewDialog if it's a NotesOnly client
 	}[];
 	onAction?: (itemId: string, suggestedId: number) => void;
 	isActioning?: boolean;
@@ -977,8 +977,8 @@ export function IssuesList() {
 		api.clients.getPaused.useQuery();
 	const { data: evaluationInProcess, isLoading: isLoadingEvaluationInProcess } =
 		api.clients.getEvaluationInProcess.useQuery();
-	const { data: noteOnlyClients, isLoading: isLoadingNoteOnlyClients } =
-		api.clients.getNoteOnlyClients.useQuery();
+	const { data: notesOnlyClients, isLoading: isLoadingNotesOnlyClients } =
+		api.clients.getNotesOnlyClients.useQuery();
 	const { data: mergeSuggestions, isLoading: isLoadingMergeSuggestions } =
 		api.clients.getMergeSuggestions.useQuery();
 	const { data: noDriveIds, isLoading: isLoadingNoDriveIds } =
@@ -1034,19 +1034,19 @@ export function IssuesList() {
 					self.findIndex((c) => c.id === client.id) === index,
 			) ?? [];
 
-	const sortedNoteOnlyClients = (noteOnlyClients ?? []).toSorted((a, b) => {
+	const sortedNotesOnlyClients = (notesOnlyClients ?? []).toSorted((a, b) => {
 		const aHasSuggestion = mergeSuggestions?.some(
-			(s) => s.noteOnlyClient.id === a.id,
+			(s) => s.notesOnlyClient.id === a.id,
 		);
 		const bHasSuggestion = mergeSuggestions?.some(
-			(s) => s.noteOnlyClient.id === b.id,
+			(s) => s.notesOnlyClient.id === b.id,
 		);
 
 		if (aHasSuggestion && !bHasSuggestion) return -1;
 		if (!aHasSuggestion && bHasSuggestion) return 1;
 
 		return (
-			(noteOnlyClients ?? []).indexOf(a) - (noteOnlyClients ?? []).indexOf(b)
+			(notesOnlyClients ?? []).indexOf(a) - (notesOnlyClients ?? []).indexOf(b)
 		);
 	});
 
@@ -1242,7 +1242,7 @@ export function IssuesList() {
 				{notInTAErrors && notInTAErrors.length !== 0 && (
 					<IssueList
 						clients={notInTAErrors}
-						description='Clients who were not imported from TA and were not added using the "Shell Client"/"Notes Only" feature.'
+						description="Clients who were not imported from TA and were not added using the Notes Only feature."
 						title="Not in TA"
 					/>
 				)}
@@ -1259,10 +1259,10 @@ export function IssuesList() {
 			</GuardedIssue>
 
 			<GuardedIssue
-				isLoading={isLoadingNoteOnlyClients || isLoadingMergeSuggestions}
+				isLoading={isLoadingNotesOnlyClients || isLoadingMergeSuggestions}
 				permission="clients:merge"
 			>
-				{noteOnlyClients && noteOnlyClients.length !== 0 && (
+				{notesOnlyClients && notesOnlyClients.length !== 0 && (
 					<SuggestionIssueList
 						action={
 							<Link href="/clients/merge">
@@ -1271,15 +1271,16 @@ export function IssuesList() {
 								</Button>
 							</Link>
 						}
-						description='"Shell" clients created, should be merged with "Real" client from TA when possible.'
-						items={sortedNoteOnlyClients.map((client) => ({
+						description='Notes Only clients created, should be merged with "Real" client from TA when possible.'
+						items={sortedNotesOnlyClients.map((client) => ({
 							id: client.id.toString(),
 							name: client.fullName,
 							hash: client.hash,
 							originalData: client,
 							suggestions:
-								mergeSuggestions?.find((s) => s.noteOnlyClient.id === client.id)
-									?.suggestedRealClients ?? [],
+								mergeSuggestions?.find(
+									(s) => s.notesOnlyClient.id === client.id,
+								)?.suggestedRealClients ?? [],
 						}))}
 						title="Notes Only"
 					/>

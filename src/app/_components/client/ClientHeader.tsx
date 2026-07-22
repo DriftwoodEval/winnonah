@@ -26,7 +26,7 @@ import {
 } from "~/lib/colors";
 import { logger } from "~/lib/logger";
 import type { Client } from "~/lib/models";
-import { isShellClientId } from "~/lib/utils";
+import { isNotesOnlyClientId } from "~/lib/utils";
 import { api } from "~/trpc/react";
 import { Redact } from "../redaction/Redact";
 import { ResponsiveDialog } from "../shared/ResponsiveDialog";
@@ -59,7 +59,7 @@ export function ClientHeader({
 	const canMerge = can("clients:merge");
 	const canColor = can("clients:color");
 	const canDrive = can("clients:drive");
-	const canShell = can("clients:shell");
+	const canNotesOnly = can("clients:notes-only");
 	const canAsdAdhd = can("clients:asdadhd");
 
 	const updateClient = api.clients.update.useMutation({
@@ -138,7 +138,7 @@ export function ClientHeader({
 						<Redact>{client.fullName}</Redact>
 					</h1>
 					<div className="flex h-[16px] items-center gap-2">
-						{!readOnly && !isShellClientId(client.id) && (
+						{!readOnly && !isNotesOnlyClientId(client.id) && (
 							<ClientEditButton client={client} />
 						)}
 						{!readOnly && !client.driveId && canDrive && (
@@ -148,7 +148,7 @@ export function ClientHeader({
 							</>
 						)}
 						{!readOnly &&
-							!isShellClientId(client.id) &&
+							!isNotesOnlyClientId(client.id) &&
 							client.driveId &&
 							client.driveId !== "N/A" && <Separator orientation="vertical" />}
 						{client.driveId && client.driveId !== "N/A" && (
@@ -180,7 +180,7 @@ export function ClientHeader({
 							</ContextMenu>
 						)}
 						{((client.driveId && client.driveId === "N/A") ||
-							(!readOnly && !isShellClientId(client.id))) &&
+							(!readOnly && !isNotesOnlyClientId(client.id))) &&
 							client.taHash && <Separator orientation="vertical" />}
 						{client.taHash && (
 							<Link
@@ -195,22 +195,22 @@ export function ClientHeader({
 			)}
 			<div className="flex flex-wrap items-center gap-x-2 gap-y-1">
 				<div className="flex items-center gap-2">
-					{!isShellClientId(client.id) && (
+					{!isNotesOnlyClientId(client.id) && (
 						<span>
 							<Redact>{String(client.id)}</Redact>
 						</span>
 					)}
 					<Badge
 						variant={
-							isShellClientId(client.id)
+							isNotesOnlyClientId(client.id)
 								? "outline"
 								: client.status
 									? "default"
 									: "destructive"
 						}
 					>
-						{isShellClientId(client.id)
-							? `Note Only${client.status ? "" : ", Archived"}`
+						{isNotesOnlyClientId(client.id)
+							? `Notes Only${client.status ? "" : ", Archived"}`
 							: client.status
 								? "Active"
 								: "Inactive"}
@@ -221,7 +221,7 @@ export function ClientHeader({
 					{client.eiAttends && <Badge variant="secondary">EI Attends</Badge>}
 				</div>
 
-				{isShellClientId(client.id) &&
+				{isNotesOnlyClientId(client.id) &&
 					!readOnly &&
 					canMerge &&
 					client.status && (
@@ -233,7 +233,7 @@ export function ClientHeader({
 						</>
 					)}
 
-				{isShellClientId(client.id) && !readOnly && canShell && (
+				{isNotesOnlyClientId(client.id) && !readOnly && canNotesOnly && (
 					<>
 						<Separator orientation="vertical" />
 						{client.status === false ? (
@@ -272,10 +272,10 @@ export function ClientHeader({
 					</>
 				)}
 
-				{!isShellClientId(client.id) && currentHexColor && (
+				{!isNotesOnlyClientId(client.id) && currentHexColor && (
 					<Separator orientation="vertical" />
 				)}
-				{!isShellClientId(client.id) && currentHexColor && canColor ? (
+				{!isNotesOnlyClientId(client.id) && currentHexColor && canColor ? (
 					<Popover onOpenChange={setIsColorOpen} open={isColorOpen}>
 						<PopoverTrigger asChild>
 							<button
@@ -326,7 +326,7 @@ export function ClientHeader({
 							</div>
 						</PopoverContent>
 					</Popover>
-				) : !isShellClientId(client.id) && currentHexColor ? (
+				) : !isNotesOnlyClientId(client.id) && currentHexColor ? (
 					<button
 						aria-label={`Current color: ${formatColorName(selectedColor)}`}
 						className="h-5 w-5 rounded-full"

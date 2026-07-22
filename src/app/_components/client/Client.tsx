@@ -28,7 +28,7 @@ import { logger } from "~/lib/logger";
 import {
 	formatClientAge,
 	getLocalDayFromUTCDate,
-	isShellClientId,
+	isNotesOnlyClientId,
 } from "~/lib/utils";
 import { api } from "~/trpc/react";
 import { AdditionalInsuranceAppointmentsDisplay } from "./AdditionalInsuranceAppointmentsDisplay";
@@ -210,13 +210,14 @@ export function Client({
 							onValueChange={handleTabChange}
 							value={activeTab}
 						>
-							{(!isShellClientId(client.id) || can("clients:referral:tab")) && (
+							{(!isNotesOnlyClientId(client.id) ||
+								can("clients:referral:tab")) && (
 								<TabsList className="w-full">
 									<TabsTrigger value="info">Info</TabsTrigger>
-									{!isShellClientId(client.id) && (
+									{!isNotesOnlyClientId(client.id) && (
 										<TabsTrigger value="records">Records</TabsTrigger>
 									)}
-									{!isShellClientId(client.id) && (
+									{!isNotesOnlyClientId(client.id) && (
 										<TabsTrigger value="insurance">Insurance</TabsTrigger>
 									)}
 									{/* It's fine that this doesn't stop people from just visiting the URL, we aren't hiding this for security, we're hiding it so that we don't get people confused about it existing */}
@@ -228,7 +229,7 @@ export function Client({
 
 							<TabsContent value="info">
 								<div className="mb-6 flex w-full flex-col items-center gap-6">
-									{!isShellClientId(client.id) && (
+									{!isNotesOnlyClientId(client.id) && (
 										<ClientDetailsCard client={client} />
 									)}
 
@@ -309,7 +310,7 @@ export function Client({
 
 									{client.recordsNeeded === null &&
 										isActive &&
-										!isShellClientId(client.id) && (
+										!isNotesOnlyClientId(client.id) && (
 											<Alert variant="destructive">
 												<AlertTriangleIcon className="h-4 w-4" />
 												<AlertTitle>Missing Records Needed Status</AlertTitle>
@@ -321,13 +322,13 @@ export function Client({
 											</Alert>
 										)}
 
-									{!isShellClientId(client.id) && (
+									{!isNotesOnlyClientId(client.id) && (
 										<ClientAppointments clientId={client.id} />
 									)}
 
 									<ClientNoteEditor clientId={client.id} readOnly={readOnly} />
 
-									{isShellClientId(client.id) && (
+									{isNotesOnlyClientId(client.id) && (
 										<div className="flex w-full items-center justify-between rounded-md border p-3">
 											<span className="font-medium text-sm">
 												Records Needed
@@ -353,7 +354,7 @@ export function Client({
 										</div>
 									)}
 
-									{!isShellClientId(client.id) && (
+									{!isNotesOnlyClientId(client.id) && (
 										<QuestionnairesTable
 											clientId={client.id}
 											readOnly={readOnly}
@@ -361,7 +362,7 @@ export function Client({
 										/>
 									)}
 
-									{!isShellClientId(client.id) && (
+									{!isNotesOnlyClientId(client.id) && (
 										<InPersonAssessmentsTable
 											clientId={client.id}
 											readOnly={readOnly}
@@ -369,12 +370,12 @@ export function Client({
 										/>
 									)}
 
-									{!isShellClientId(client.id) && (
+									{!isNotesOnlyClientId(client.id) && (
 										<EligibleEvaluatorsList client={client} />
 									)}
 								</div>
 							</TabsContent>
-							{!isShellClientId(client.id) && (
+							{!isNotesOnlyClientId(client.id) && (
 								<TabsContent value="records">
 									<div className="mb-6 flex w-full flex-col items-center gap-6">
 										<ClientDetailsCard client={client} truncated />
@@ -390,7 +391,7 @@ export function Client({
 									</div>
 								</TabsContent>
 							)}
-							{!isShellClientId(client.id) && (
+							{!isNotesOnlyClientId(client.id) && (
 								<TabsContent value="insurance">
 									<div className="mb-6 flex w-full flex-col gap-4">
 										<ClientDetailsCard client={client} truncated />
@@ -400,7 +401,7 @@ export function Client({
 							)}
 							<TabsContent value="referral">
 								<div className="mb-6 flex min-w-full flex-col items-center gap-6">
-									{!isShellClientId(client.id) && (
+									{!isNotesOnlyClientId(client.id) && (
 										<ClientDetailsCard client={client} truncated />
 									)}
 									<ReferralTab client={client} readOnly={readOnly} />
@@ -426,7 +427,7 @@ export function Client({
 									relatedConnections={client.relatedConnections}
 								/>
 							)}
-							{client && !isShellClientId(client.id) && (
+							{client && !isNotesOnlyClientId(client.id) && (
 								<AdditionalInsuranceAppointmentsDisplay client={client} />
 							)}
 							{client?.phoneNumber && (

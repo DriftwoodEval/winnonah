@@ -5,7 +5,7 @@ import { Alert, AlertDescription, AlertTitle } from "@ui/alert";
 import { Button } from "@ui/button";
 import { GitMerge } from "lucide-react";
 import type { Client } from "~/lib/models";
-import { isShellClientId } from "~/lib/utils";
+import { isNotesOnlyClientId } from "~/lib/utils";
 import { api } from "~/trpc/react";
 
 interface MergeRecommendationAlertProps {
@@ -23,7 +23,7 @@ export function MergeRecommendationAlert({
 
 	if (isLoading || !data || readOnly) return null;
 
-	if (isShellClientId(client.id)) {
+	if (isNotesOnlyClientId(client.id)) {
 		if (data.suggestedRealClients.length === 0) return null;
 
 		return (
@@ -55,7 +55,7 @@ export function MergeRecommendationAlert({
 		);
 	}
 
-	if (data.suggestedNoteOnlyClients.length === 0) return null;
+	if (data.suggestedNotesOnlyClients.length === 0) return null;
 
 	return (
 		<Alert
@@ -65,17 +65,17 @@ export function MergeRecommendationAlert({
 			<GitMerge className="h-4 w-4" />
 			<AlertTitle className="text-foreground">Merge Recommendation</AlertTitle>
 			<AlertDescription className="text-foreground/90">
-				A "Shell" client seems very similar to this one:
+				A Notes Only client seems very similar to this one:
 				<div className="mt-2 flex flex-wrap gap-2">
-					{data.suggestedNoteOnlyClients.map((noteOnly) => (
+					{data.suggestedNotesOnlyClients.map((notesOnly) => (
 						<MergePreviewDialog
-							fakeClient={noteOnly}
-							key={noteOnly.id}
+							fakeClient={notesOnly}
+							key={notesOnly.id}
 							realClient={client}
 							shouldRedirect
 						>
 							<Button className="h-7 text-xs" size="sm" variant="outline">
-								Merge {noteOnly.fullName} into this client
+								Merge {notesOnly.fullName} into this client
 							</Button>
 						</MergePreviewDialog>
 					))}

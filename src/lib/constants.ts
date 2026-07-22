@@ -103,7 +103,7 @@ export const PERMISSIONS = {
 			admin: {
 				title: "Administration",
 				permissions: [
-					{ id: "clients:shell", title: "Create Fake/Shell Client Notes" },
+					{ id: "clients:notes-only", title: "Create Notes Only Clients" },
 					{ id: "clients:merge", title: "Merge with Real Client Record" },
 					{ id: "clients:download", title: "Download CSVs" },
 					{ id: "reports:approve", title: "Approve Reports" },

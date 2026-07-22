@@ -275,9 +275,9 @@ export const getDistanceSQL = (
 };
 
 /**
- * Check if a client ID is a shell client ID (5 characters long).
+ * Check if a client ID is a notes only client ID (5 characters long).
  */
-export function isShellClientId(
+export function isNotesOnlyClientId(
 	id: string | number | undefined | null,
 ): boolean {
 	if (id === undefined || id === null) return false;

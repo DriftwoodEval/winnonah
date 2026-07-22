@@ -41,7 +41,7 @@ import { toast } from "sonner";
 import { useCheckPermission } from "~/hooks/use-check-permission";
 import { ALLOWED_ASD_ADHD_VALUES } from "~/lib/constants";
 import type { Client } from "~/lib/models";
-import { isShellClientId } from "~/lib/utils";
+import { isNotesOnlyClientId } from "~/lib/utils";
 import { api } from "~/trpc/react";
 
 interface ReferralTabProps {
@@ -394,7 +394,7 @@ export function ReferralTab({ client, readOnly }: ReferralTabProps) {
 							</div>
 						</div>
 
-						{!isShellClientId(client.id) && (
+						{!isNotesOnlyClientId(client.id) && (
 							<div className="space-y-2">
 								<Label>Insurance</Label>
 								<div className="py-2 font-medium text-sm">
@@ -408,7 +408,7 @@ export function ReferralTab({ client, readOnly }: ReferralTabProps) {
 				</CardContent>
 			</Card>
 
-			{!isShellClientId(client.id) && (
+			{!isNotesOnlyClientId(client.id) && (
 				<Card className="w-full">
 					<CardHeader>
 						<CardTitle>Intake Script</CardTitle>

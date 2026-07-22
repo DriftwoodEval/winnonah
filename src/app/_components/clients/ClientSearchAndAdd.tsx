@@ -6,7 +6,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@ui/tooltip";
 import { Loader2, Search } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import type { SortedClient } from "~/lib/api-types";
-import { cn, isShellClientId } from "~/lib/utils";
+import { cn, isNotesOnlyClientId } from "~/lib/utils";
 import { api } from "~/trpc/react";
 
 function useDebounce<T>(value: T, delay: number): T {
@@ -140,7 +140,7 @@ export function ClientSearchAndAdd({
 										<span className="font-medium text-sm">
 											{client.fullName}
 										</span>
-										{!isShellClientId(client.id) && (
+										{!isNotesOnlyClientId(client.id) && (
 											<span className="text-muted-foreground text-xs">
 												ID: {client.id}
 											</span>

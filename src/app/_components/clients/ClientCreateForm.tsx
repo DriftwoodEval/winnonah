@@ -24,7 +24,7 @@ export default function ClientCreateForm() {
 		resolver: zodResolver(formSchema),
 	});
 
-	const createClientMutation = api.clients.createShell.useMutation({
+	const createClientMutation = api.clients.createNotesOnly.useMutation({
 		onSuccess: (data) => {
 			router.push(`/clients/${data}`);
 		},
