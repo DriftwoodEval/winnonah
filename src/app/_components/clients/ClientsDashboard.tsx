@@ -22,7 +22,10 @@ import {
 } from "~/lib/colors";
 import { api } from "~/trpc/react";
 import { Redact } from "../redaction/Redact";
-import { ResponsiveDialog } from "../shared/ResponsiveDialog";
+import {
+	ResponsiveDialog,
+	useResponsiveDialog,
+} from "../shared/ResponsiveDialog";
 import ClientCreateForm from "./ClientCreateForm";
 import { ClientsList } from "./ClientsList";
 import { NameSearchInput } from "./NameSearchInput";
@@ -215,6 +218,7 @@ export function ClientsDashboard() {
 
 	const can = useCheckPermission();
 	const canNotesOnly = can("clients:notes-only");
+	const clientFormDialog = useResponsiveDialog();
 
 	const clients = searchQuery?.clients;
 	const colorCounts = searchQuery?.colorCounts;
@@ -278,7 +282,11 @@ export function ClientsDashboard() {
 	const clientFormTrigger = (
 		<Tooltip>
 			<TooltipTrigger asChild>
-				<Button size="icon" variant="outline">
+				<Button
+					onClick={clientFormDialog.openDialog}
+					size="icon"
+					variant="outline"
+				>
 					<Plus />
 				</Button>
 			</TooltipTrigger>
@@ -302,12 +310,16 @@ export function ClientsDashboard() {
 				/>
 
 				{canNotesOnly && (
-					<ResponsiveDialog
-						title="Create Notes Only Client"
-						trigger={clientFormTrigger}
-					>
-						<ClientCreateForm />
-					</ResponsiveDialog>
+					<>
+						{clientFormTrigger}
+						<ResponsiveDialog
+							open={clientFormDialog.open}
+							setOpen={clientFormDialog.setOpen}
+							title="Create Notes Only Client"
+						>
+							<ClientCreateForm />
+						</ResponsiveDialog>
+					</>
 				)}
 
 				<Popover>
