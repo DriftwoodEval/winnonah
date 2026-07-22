@@ -38,6 +38,7 @@ import { Skeleton } from "@ui/skeleton";
 import { debounce } from "es-toolkit/function";
 import {
 	ArchiveRestore,
+	CalendarPlus,
 	ChevronDown,
 	ChevronUp,
 	Circle,
@@ -921,18 +922,34 @@ const SchedulingTableRow = memo(function SchedulingTableRow({
 			</TableCell>
 
 			<TableCell data-col={12} data-row={rowIndex}>
-				<Button
-					disabled={isActionPending}
-					onClick={() => onAction(scheduledClient.clientId)}
-					size="sm"
-					variant={actionVariant}
-				>
-					{isActionPending ? (
-						<Loader2 className="mr-2 h-4 w-4 animate-spin" />
-					) : (
-						actionIcon
+				<div className="flex items-center gap-1">
+					{isEditable && (
+						<Tooltip>
+							<TooltipTrigger asChild>
+								<Button asChild size="sm" variant="outline">
+									<Link
+										href={`/scheduling/helper?clientHash=${scheduledClient.client.hash}`}
+									>
+										<CalendarPlus className="h-4 w-4" />
+									</Link>
+								</Button>
+							</TooltipTrigger>
+							<TooltipContent>Create Placeholder</TooltipContent>
+						</Tooltip>
 					)}
-				</Button>
+					<Button
+						disabled={isActionPending}
+						onClick={() => onAction(scheduledClient.clientId)}
+						size="sm"
+						variant={actionVariant}
+					>
+						{isActionPending ? (
+							<Loader2 className="mr-2 h-4 w-4 animate-spin" />
+						) : (
+							actionIcon
+						)}
+					</Button>
+				</div>
 			</TableCell>
 		</TableRow>
 	);

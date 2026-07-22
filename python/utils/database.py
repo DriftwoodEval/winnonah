@@ -976,6 +976,7 @@ def put_appointment_in_db(
     gcal_event_title: str | None = None,
     confirmed_at: datetime | None = None,
     billing_only: bool = False,
+    placeholder: bool = False,
 ):
     """Inserts an appointment into the database."""
     with connection.cursor() as cursor:
@@ -1001,8 +1002,8 @@ def put_appointment_in_db(
             )
 
     sql = f"""
-        INSERT INTO `{TABLE_APPOINTMENT}` (id, clientId, evaluatorNpi, startTime, endTime, daEval, asdAdhd, cancelled, locationKey, calendarEventId, cpt, calendarEventTitle, confirmedAt, billingOnly)
-        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+        INSERT INTO `{TABLE_APPOINTMENT}` (id, clientId, evaluatorNpi, startTime, endTime, daEval, asdAdhd, cancelled, locationKey, calendarEventId, cpt, calendarEventTitle, confirmedAt, billingOnly, placeholder)
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
         ON DUPLICATE KEY UPDATE
             clientId = VALUES(clientId),
             evaluatorNpi = VALUES(evaluatorNpi),
@@ -1017,7 +1018,8 @@ def put_appointment_in_db(
             cpt = VALUES(cpt),
             calendarEventTitle = CASE WHEN VALUES(calendarEventTitle) IS NOT NULL THEN VALUES(calendarEventTitle) ELSE calendarEventTitle END,
             confirmedAt = CASE WHEN startTime != VALUES(startTime) THEN NULL WHEN confirmedAt IS NOT NULL THEN confirmedAt WHEN VALUES(confirmedAt) IS NOT NULL THEN VALUES(confirmedAt) ELSE NULL END,
-            billingOnly = VALUES(billingOnly);
+            billingOnly = VALUES(billingOnly),
+            placeholder = VALUES(placeholder);
     """
     params = (
         appointment_id,
@@ -1034,10 +1036,79 @@ def put_appointment_in_db(
         gcal_event_title,
         confirmed_at,
         billing_only,
+        placeholder,
     )
 
     with connection.cursor() as cursor:
         cursor.execute(sql, params)
+        connection.commit()
+
+
+@provide_connection
+def get_evaluator_email(npi: int, connection: Connection[DictCursor]) -> str | None:
+    """Returns the evaluator's email (used as their Google Calendar id), or None."""
+    with connection.cursor() as cursor:
+        cursor.execute(f"SELECT email FROM {TABLE_EVALUATOR} WHERE npi = %s", (npi,))
+        row = cursor.fetchone()
+        return row["email"] if row else None
+
+
+@provide_connection
+def get_evaluator_emails(
+    npis: list[int], connection: Connection[DictCursor]
+) -> dict[int, str]:
+    """Returns a map of npi -> email for the given evaluator NPIs."""
+    if not npis:
+        return {}
+    placeholders = ", ".join(["%s"] * len(npis))
+    with connection.cursor() as cursor:
+        cursor.execute(
+            f"SELECT npi, email FROM {TABLE_EVALUATOR} WHERE npi IN ({placeholders})",
+            tuple(npis),
+        )
+        return {row["npi"]: row["email"] for row in cursor.fetchall()}
+
+
+@provide_connection
+def get_client_name(client_id: int, connection: Connection[DictCursor]) -> str | None:
+    """Returns the client's full name, or None if not found."""
+    with connection.cursor() as cursor:
+        cursor.execute(
+            f"SELECT fullName FROM {TABLE_CLIENT} WHERE id = %s", (client_id,)
+        )
+        row = cursor.fetchone()
+        return row["fullName"] if row else None
+
+
+@provide_connection
+def get_placeholder_appointment(
+    appointment_id: str, connection: Connection[DictCursor]
+) -> dict | None:
+    """Returns a placeholder appointment's id, evaluatorNpi, calendarEventId and the
+    evaluator's email (their calendar id), or None if not found or not a placeholder.
+    """
+    with connection.cursor() as cursor:
+        cursor.execute(
+            f"""
+            SELECT a.id, a.evaluatorNpi, a.calendarEventId, e.email AS evaluatorEmail
+            FROM `{TABLE_APPOINTMENT}` a
+            JOIN {TABLE_EVALUATOR} e ON e.npi = a.evaluatorNpi
+            WHERE a.id = %s AND a.placeholder = 1
+            """,
+            (appointment_id,),
+        )
+        return cursor.fetchone()
+
+
+@provide_connection
+def delete_appointment(appointment_id: str, connection: Connection[DictCursor]) -> None:
+    """Deletes an appointment row. Only ever called for placeholder appointments,
+    gated by get_placeholder_appointment's placeholder=1 check beforehand."""
+    with connection.cursor() as cursor:
+        cursor.execute(
+            f"DELETE FROM `{TABLE_APPOINTMENT}` WHERE id = %s AND placeholder = 1",
+            (appointment_id,),
+        )
         connection.commit()
 
 

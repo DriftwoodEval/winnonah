@@ -826,3 +826,98 @@ def find_gcal_event_by_client_and_time(
         f"{naive_start.strftime('%Y-%m-%d %H:%M')}"
     )
     return None
+
+
+def list_calendar_events_batch(
+    calendar_ids: list[str], time_min: datetime, time_max: datetime
+) -> dict[str, list[dict]]:
+    """Fetch events (expanded recurrences) for each given calendar id in a time range.
+
+    Returns {calendar_id: [event, ...]}. Calendars that error out (e.g. no access) are
+    returned with an empty list rather than raising.
+    """
+    creds = google_authenticate()
+    service = build("calendar", "v3", credentials=creds)
+
+    time_min_str = time_min.isoformat() + ("Z" if time_min.tzinfo is None else "")
+    time_max_str = time_max.isoformat() + ("Z" if time_max.tzinfo is None else "")
+
+    results: dict[str, list[dict]] = {}
+    for calendar_id in calendar_ids:
+        events: list[dict] = []
+        page_token = None
+        try:
+            while True:
+                page = (
+                    service.events()
+                    .list(
+                        calendarId=calendar_id,
+                        timeMin=time_min_str,
+                        timeMax=time_max_str,
+                        singleEvents=True,
+                        orderBy="startTime",
+                        pageToken=page_token,
+                    )
+                    .execute()
+                )
+                events.extend(page.get("items", []))
+                page_token = page.get("nextPageToken")
+                if not page_token:
+                    break
+        except HttpError as e:
+            logger.warning(f"Could not list events for calendar {calendar_id}: {e}")
+            events = []
+
+        results[calendar_id] = events
+
+    return results
+
+
+def create_placeholder_event(
+    calendar_id: str, title: str, start: datetime, end: datetime
+) -> str:
+    """Insert a placeholder hold event on an evaluator's calendar. Returns the event id.
+
+    start/end are treated as naive America/New_York wall-clock times, matching how
+    appointment times are stored in the database (see put_appointment_in_db).
+    """
+    creds = google_authenticate()
+    service = build("calendar", "v3", credentials=creds)
+
+    naive_start = start.replace(tzinfo=None) if start.tzinfo else start
+    naive_end = end.replace(tzinfo=None) if end.tzinfo else end
+
+    event = (
+        service.events()
+        .insert(
+            calendarId=calendar_id,
+            body={
+                "summary": title,
+                "start": {
+                    "dateTime": naive_start.isoformat(),
+                    "timeZone": "America/New_York",
+                },
+                "end": {
+                    "dateTime": naive_end.isoformat(),
+                    "timeZone": "America/New_York",
+                },
+            },
+        )
+        .execute()
+    )
+    logger.info(f"Created placeholder event {event['id']} on calendar {calendar_id}")
+    return event["id"]
+
+
+def delete_calendar_event(calendar_id: str, event_id: str) -> None:
+    """Delete a calendar event. Used to clean up placeholder holds."""
+    creds = google_authenticate()
+    service = build("calendar", "v3", credentials=creds)
+    try:
+        service.events().delete(calendarId=calendar_id, eventId=event_id).execute()
+        logger.info(f"Deleted calendar event {event_id} on calendar {calendar_id}")
+    except HttpError as e:
+        if e.resp.status == 410:
+            logger.info(f"Calendar event {event_id} already deleted")
+        else:
+            raise
