@@ -26,12 +26,12 @@ def format_name(name: str) -> str:
     )
 
 
-def capitalize_name_with_exceptions(name: str) -> str:
+def capitalize_name_with_exceptions(name: object) -> str:
     """Capitalizes a name (McDonald, O'Brien, suffixes, titles, etc.) rather
     than a naive str.title(). Suffixes like Jr/Sr/Roman numerals are handled
     by nameparser; this also uppercases letters following a period, so
     initials like "j.d." come out as "J.D." instead of "J.d."."""
-    if pd.isna(name) or not isinstance(name, str):
+    if not isinstance(name, str):
         return ""
     parsed_name = HumanName(name)
     parsed_name.capitalize(force=True)

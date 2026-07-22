@@ -12,6 +12,8 @@ def get_field_values(pdf_bytes: bytes) -> dict[str, str | bool]:
     values = {}
     for page in doc:
         for widget in page.widgets():
+            if not isinstance(widget, fitz.Widget):
+                continue
             if widget.field_type_string == "CheckBox":
                 values[widget.field_name] = widget.field_value == widget.on_state()
             else:

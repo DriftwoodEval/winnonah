@@ -138,5 +138,6 @@ class TestClientDatabaseRoundTrip:
         put_clients_in_db(pd.DataFrame([updated_row]))
 
         row = _fetch_test_client()
+        assert row is not None
         assert row["phoneNumber"] == "8039998888"
         assert bool(row["status"]) is False

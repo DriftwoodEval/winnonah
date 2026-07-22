@@ -18,7 +18,7 @@ def _normalize_insurance_name(name: str, standardized_mappings: dict[str, str]) 
     return standardized_mappings.get(normalized_for_lookup, name)
 
 
-def clean_insurance_item(item: str) -> list:
+def clean_insurance_item(item: object) -> list:
     """
     Handles:
     - "[]" -> None/Empty

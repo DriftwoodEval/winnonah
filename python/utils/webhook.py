@@ -2,13 +2,18 @@ import base64
 import hashlib
 import hmac
 import time
+from typing import Protocol
 
-from fastapi import HTTPException, Request
+from fastapi import HTTPException
 from loguru import logger
 
 
+class SupportsBody(Protocol):
+    async def body(self) -> bytes: ...
+
+
 async def verify_openphone_signature(
-    request: Request, signature_header: str, secret: str
+    request: SupportsBody, signature_header: str, secret: str
 ) -> None:
     """Verifies an OpenPhone webhook signature."""
     try:

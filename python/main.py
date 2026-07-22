@@ -42,8 +42,8 @@ load_dotenv()
 
 def filter_clients_by_criteria(
     clients: pd.DataFrame,
-    names: list[str] | None = None,
-    client_ids: list[str | int] | None = None,
+    names: list[str | None] | None = None,
+    client_ids: list[str | int | None] | None = None,
     criteria_func: Callable[[pd.Series], bool] | None = None,
 ) -> pd.DataFrame | None:
     """Filter clients based on various criteria.
