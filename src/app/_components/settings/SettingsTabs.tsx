@@ -48,7 +48,7 @@ export function SettingsTabs() {
 		<div className="mx-10 my-10 flex w-full flex-col gap-6">
 			<h1 className="font-bold text-2xl">Settings</h1>
 			<Tabs onValueChange={handleTabChange} value={activeTab}>
-				<div className="w-fit max-w-full overflow-x-auto overflow-y-visible overscroll-x-contain">
+				<div className="w-fit max-w-full overflow-x-auto overflow-y-hidden overscroll-x-contain">
 					<TabsList>
 						<TabsTrigger value="people">People</TabsTrigger>
 						<TabsTrigger value="clinical">Clinical</TabsTrigger>
