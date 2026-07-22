@@ -1508,6 +1508,7 @@ def get_appointments_needing_folder_move(
                 a.daEval AS da_eval,
                 a.asdAdhd AS asd_adhd,
                 c.fullName AS client_name,
+                c.firstName AS client_first_name,
                 c.driveId AS client_drive_id,
                 c.driveFolderEvaluatorNpi AS drive_folder_evaluator_npi,
                 c.driveFolderIsEval AS drive_folder_is_eval,

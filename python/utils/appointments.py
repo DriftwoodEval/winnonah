@@ -27,6 +27,7 @@ from utils.database import (
 )
 from utils.google import (
     google_authenticate,
+    list_subfolders,
     move_drive_folder,
     rename_drive_folder,
     send_gmail,
@@ -751,6 +752,27 @@ def insert_appointments_with_gcal(appointment_sync_data: dict[str, list[str]] | 
     reporter.send_report(email_for_errors)
 
 
+_LETTER_RANGE_SUBFOLDER_RE = re.compile(r"^([A-Za-z])\s*-\s*([A-Za-z])$")
+
+
+def _find_letter_range_subfolder(
+    subfolders: dict[str, str], first_letter: str
+) -> str | None:
+    """Find the subfolder (e.g. "A - H") whose letter range contains first_letter.
+
+    Reads the range from whatever subfolders actually exist rather than assuming
+    a fixed set, since different evaluators may split the alphabet differently.
+    """
+    for name, folder_id in subfolders.items():
+        match = _LETTER_RANGE_SUBFOLDER_RE.match(name.strip())
+        if not match:
+            continue
+        start, end = match.group(1).upper(), match.group(2).upper()
+        if start <= first_letter <= end:
+            return folder_id
+    return None
+
+
 def move_client_folders_for_upcoming_appointments() -> None:
     """Move each client's Drive folder into their evaluator's folder as soon as we
     learn of a qualifying future appointment.
@@ -759,10 +781,11 @@ def move_client_folders_for_upcoming_appointments() -> None:
     non-billing-only, non-placeholder appointment, to avoid guessing which
     evaluator's folder to move to when there's a conflict. If the evaluator has a
     separate eval Drive folder configured, EVAL appointments move there instead of
-    the evaluator's regular folder. A client's folder is moved once per
-    evaluator/folder pair: it's skipped once already moved there, and moved again
-    if the evaluator changes or the appointment type crosses the eval/non-eval
-    boundary.
+    the evaluator's regular folder, into whichever of the eval folder's
+    letter-range subfolders (e.g. "A - H") covers the client's first name. A
+    client's folder is moved once per evaluator/folder pair: it's skipped once
+    already moved there, and moved again if the evaluator changes or the
+    appointment type crosses the eval/non-eval boundary.
     """
     candidates = get_appointments_needing_folder_move()
     if not candidates:
@@ -770,6 +793,7 @@ def move_client_folders_for_upcoming_appointments() -> None:
         return
 
     errors: list[str] = []
+    eval_subfolders_cache: dict[str, dict[str, str]] = {}
 
     for row in candidates:
         client_id = row["client_id"]
@@ -783,6 +807,33 @@ def move_client_folders_for_upcoming_appointments() -> None:
             if is_eval_target
             else row["evaluator_drive_folder_id"]
         )
+
+        if is_eval_target and destination_drive_folder_id:
+            client_first_name = row["client_first_name"]
+            first_letter = (
+                client_first_name.strip()[:1].upper() if client_first_name else ""
+            )
+            if first_letter.isalpha():
+                subfolders = eval_subfolders_cache.get(destination_drive_folder_id)
+                if subfolders is None:
+                    subfolders = {
+                        f["name"]: f["id"]
+                        for f in list_subfolders(destination_drive_folder_id)
+                    }
+                    eval_subfolders_cache[destination_drive_folder_id] = subfolders
+                bucket_folder_id = _find_letter_range_subfolder(
+                    subfolders, first_letter
+                )
+                if bucket_folder_id:
+                    destination_drive_folder_id = bucket_folder_id
+                else:
+                    msg = (
+                        f"{client_name} (ID: {client_id}): evaluator {evaluator_name}'s "
+                        f"eval Drive folder has no subfolder covering '{first_letter}'."
+                    )
+                    logger.warning(msg)
+                    errors.append(msg)
+                    continue
 
         if not client_drive_id:
             msg = f"{client_name} (ID: {client_id}): has no Drive folder configured."
