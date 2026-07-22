@@ -54,6 +54,8 @@ export type CalAppt = {
 	evaluatorNpi: number;
 	evaluatorName: string;
 	isCurrentUser: boolean;
+	/** Not a real appointment yet - render as a pending/ghost block instead. */
+	isPreview?: boolean;
 };
 
 // ─── Time helpers ─────────────────────────────────────────────────────────────
@@ -218,20 +220,28 @@ export function ApptBlock({
 	const showBadges = heightPx === undefined || heightPx >= 40;
 	const showEvaluatorLine =
 		showEvaluator && (heightPx === undefined || heightPx >= 56);
+	const previewClass =
+		"border-2 border-dashed border-primary bg-primary/10 dark:bg-primary/20 animate-pulse";
 
 	return (
 		<Tooltip>
 			<TooltipTrigger asChild>
 				<div
-					className={`absolute overflow-hidden rounded-sm border border-l-2 px-1.5 py-0.5 shadow-sm ${colorClass}`}
+					className={`absolute overflow-hidden rounded-sm border border-l-2 px-1.5 py-0.5 shadow-sm ${appt.isPreview ? previewClass : colorClass}`}
 					style={style}
 				>
-					<Link
-						className="block truncate font-medium text-xs leading-tight hover:underline"
-						href={`/clients/${appt.clientHash}`}
-					>
-						<Redact>{appt.clientName}</Redact>
-					</Link>
+					{appt.isPreview ? (
+						<div className="block truncate font-medium text-xs leading-tight">
+							<Redact>{appt.clientName}</Redact>
+						</div>
+					) : (
+						<Link
+							className="block truncate font-medium text-xs leading-tight hover:underline"
+							href={`/clients/${appt.clientHash}`}
+						>
+							<Redact>{appt.clientName}</Redact>
+						</Link>
+					)}
 					{showEvaluatorLine && (
 						<div className="truncate text-[10px] text-muted-foreground leading-tight">
 							{appt.evaluatorName}
@@ -253,6 +263,14 @@ export function ApptBlock({
 							>
 								{badgeLocation}
 							</Badge>
+							{appt.isPreview && (
+								<Badge
+									className="h-3.5 px-1 text-[9px] uppercase"
+									variant="outline"
+								>
+									Pending
+								</Badge>
+							)}
 							{appt.asdAdhd && (
 								<Badge
 									className="h-3.5 shrink-0 px-1 text-[9px]"
@@ -303,6 +321,7 @@ export function ApptBlock({
 					</p>
 				)}
 				{appt.confirmedAt && <p className="opacity-80">Confirmed</p>}
+				{appt.isPreview && <p className="opacity-80">Not yet created</p>}
 			</TooltipContent>
 		</Tooltip>
 	);

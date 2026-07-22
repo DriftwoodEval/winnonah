@@ -323,7 +323,10 @@ export function Client({
 										)}
 
 									{!isNotesOnlyClientId(client.id) && (
-										<ClientAppointments clientId={client.id} />
+										<ClientAppointments
+											clientHash={client.hash}
+											clientId={client.id}
+										/>
 									)}
 
 									<ClientNoteEditor clientId={client.id} readOnly={readOnly} />

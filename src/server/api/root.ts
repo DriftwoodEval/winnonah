@@ -15,6 +15,7 @@ import { reminderRouter } from "./routers/reminders";
 import { reportQueueRouter } from "./routers/reportQueue";
 import { rolesRouter } from "./routers/roles";
 import { schedulingRouter } from "./routers/scheduling";
+import { schedulingHelperRouter } from "./routers/schedulingHelper";
 import { sessionRouter } from "./routers/sessions";
 import { systemRouter } from "./routers/system";
 import { taskRouter } from "./routers/tasks";
@@ -46,6 +47,7 @@ export const appRouter = createTRPCRouter({
 	reminders: reminderRouter,
 	roles: rolesRouter,
 	scheduling: schedulingRouter,
+	schedulingHelper: schedulingHelperRouter,
 	sessions: sessionRouter,
 	system: systemRouter,
 	tasks: taskRouter,
