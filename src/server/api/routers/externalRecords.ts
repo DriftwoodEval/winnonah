@@ -162,40 +162,6 @@ export const externalRecordRouter = createTRPCRouter({
 			return requests;
 		}),
 
-	removeRecordRequest: protectedProcedure
-		.input(
-			z.object({
-				clientId: z.number(),
-				requestId: z.number(),
-			}),
-		)
-		.mutation(async ({ ctx, input }) => {
-			assertPermission(ctx.session.user, "clients:records:requested");
-			ctx.logger.info(input, "Removing record request");
-
-			await ctx.db
-				.delete(externalRecordRequests)
-				.where(
-					and(
-						eq(externalRecordRequests.id, input.requestId),
-						eq(externalRecordRequests.clientId, input.clientId),
-					),
-				);
-
-			const requests = await ctx.db
-				.select()
-				.from(externalRecordRequests)
-				.where(eq(externalRecordRequests.clientId, input.clientId))
-				.orderBy(asc(externalRecordRequests.id));
-
-			externalRecordsEmitter.emit("externalRecordsNoteUpdate", {
-				clientId: input.clientId,
-				requests,
-			});
-
-			return requests;
-		}),
-
 	setRecordRequestHoldUntil: protectedProcedure
 		.input(
 			z.object({

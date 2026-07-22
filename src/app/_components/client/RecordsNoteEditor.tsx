@@ -202,14 +202,6 @@ export function RecordsNoteEditor({
 			onError: (error) => handleError(error, "set record request date"),
 		});
 
-	const removeRecordRequestMutation =
-		api.externalRecords.removeRecordRequest.useMutation({
-			onSuccess: () => {
-				utils.externalRecords.getExternalRecordByClientId.invalidate(clientId);
-			},
-			onError: (error) => handleError(error, "remove record request"),
-		});
-
 	const setRecordRequestMessageMutation =
 		api.externalRecords.setRecordRequestMessage.useMutation({
 			onError: (error) => handleError(error, "save request message"),
@@ -316,11 +308,6 @@ export function RecordsNoteEditor({
 			clientId,
 			requestedDate: date ?? null,
 		});
-	};
-
-	const handleRemoveRequest = (requestId: number) => {
-		if (!clientId) return;
-		removeRecordRequestMutation.mutate({ clientId, requestId });
 	};
 
 	const handleSetHoldUntil = (requestId: number, date: Date | undefined) => {
@@ -501,23 +488,10 @@ export function RecordsNoteEditor({
 					{recordsNeeded === "Needed" &&
 						requests.map((req, i) => {
 							const hasSentDate = !!req.requestedDate;
-							const checkboxId = `flag-${req.id}`;
 							const dateId = `date-${req.id}`;
 							return (
 								<div className="flex flex-wrap items-center gap-2" key={req.id}>
-									<div className="flex items-center gap-2">
-										<Checkbox
-											checked={true}
-											disabled={hasSentDate || !canAddRequest}
-											id={checkboxId}
-											onCheckedChange={(checked) => {
-												if (!checked) handleRemoveRequest(req.id);
-											}}
-										/>
-										<Label htmlFor={checkboxId}>
-											{i === 0 ? "Request?" : "Request Again?"}
-										</Label>
-									</div>
+									<Label>{i === 0 ? "Request" : `Request (${i + 1})`}</Label>
 									<DatePicker
 										allowClear={canAddRequest && hasSentDate}
 										date={
