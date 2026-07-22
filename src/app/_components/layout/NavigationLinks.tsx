@@ -66,7 +66,7 @@ export function NavigationLink({
 	return (
 		<Link
 			aria-label={children}
-			className={`flex items-center gap-1.5 whitespace-nowrap rounded-md px-2 py-1 hover:bg-muted ${isActive ? "text-secondary" : ""}`}
+			className={`flex items-center gap-1.5 whitespace-nowrap rounded-md px-2 py-1 text-sm hover:bg-muted ${isActive ? "text-secondary" : ""}`}
 			href={href}
 		>
 			<Icon className="h-4 w-4 shrink-0" />
