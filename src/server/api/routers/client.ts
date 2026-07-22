@@ -1124,7 +1124,7 @@ export const clientRouter = createTRPCRouter({
 				ctx.db.query.clients.findMany({
 					where: and(
 						eq(clients.status, true),
-						targetIsNotesOnly ? isNotesOnly : not(isNotesOnly),
+						targetIsNotesOnly ? not(isNotesOnly) : isNotesOnly,
 					),
 				}),
 			]);
