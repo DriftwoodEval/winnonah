@@ -12,6 +12,7 @@ export type HomeWidgetDef = {
 	sizing: WidgetSizing;
 	dashboardSection?: string;
 	fixedRows?: true;
+	removable?: false;
 };
 
 export const WIDGET_CATEGORY_LABELS: Record<WidgetCategory, string> = {
@@ -28,6 +29,7 @@ export const HOME_WIDGET_DEFS: HomeWidgetDef[] = [
 		permission: null,
 		category: "clients",
 		sizing: "fill",
+		removable: false,
 	},
 	{
 		id: "recent-clients",

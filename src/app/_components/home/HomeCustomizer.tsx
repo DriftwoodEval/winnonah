@@ -33,6 +33,7 @@ export function HomeCustomizer({ widgets, onChange }: HomeCustomizerProps) {
 	};
 
 	const removeWidget = (id: string) => {
+		if (defFor(id)?.removable === false) return;
 		onChange(widgets.filter((w) => w.id !== id));
 	};
 
@@ -102,13 +103,15 @@ export function HomeCustomizer({ widgets, onChange }: HomeCustomizerProps) {
 										>
 											<ArrowDown className="h-3 w-3" />
 										</Button>
-										<Button
-											onClick={() => removeWidget(w.id)}
-											size="icon-sm"
-											variant="ghost"
-										>
-											<X className="h-3 w-3" />
-										</Button>
+										{defFor(w.id)?.removable !== false && (
+											<Button
+												onClick={() => removeWidget(w.id)}
+												size="icon-sm"
+												variant="ghost"
+											>
+												<X className="h-3 w-3" />
+											</Button>
+										)}
 									</div>
 								</div>
 								<div className="flex items-center gap-4 text-muted-foreground text-xs">
