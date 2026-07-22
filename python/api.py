@@ -21,6 +21,7 @@ from utils.constants import (
     TABLE_APPOINTMENT,
     TABLE_CLIENT,
     TABLE_CLIENT_INSURANCE_POLICY,
+    TABLE_ROLE,
     TABLE_SESSION,
     TABLE_USER,
 )
@@ -138,11 +139,13 @@ def get_current_user(request: Request):
         with conn.cursor() as cursor:
             sql = f"""
                 SELECT
-                    u.id, u.email, u.name, u.permissions, u.archived,
+                    u.id, u.email, u.name, u.permissions, u.archived, u.role_id,
+                    r.permissions AS role_permissions,
                     s.expires,
                     a.access_token, a.refresh_token, a.expires_at, a.scope
                 FROM {TABLE_SESSION} s
                 JOIN {TABLE_USER} u ON s.userId = u.id
+                LEFT JOIN {TABLE_ROLE} r ON u.role_id = r.id
                 LEFT JOIN {TABLE_ACCOUNT} a ON u.id = a.userId AND a.provider = 'google'
                 WHERE s.sessionToken = %s
             """
@@ -156,13 +159,22 @@ def get_current_user(request: Request):
             if row.get("archived"):
                 raise HTTPException(status_code=403, detail="Account archived")
 
+            # Mirrors the session callback in src/server/auth/config.ts: effective
+            # permissions are the user's role permissions with per-user overrides
+            # layered on top.
+            user_permissions = (
+                json.loads(row["permissions"]) if row["permissions"] else {}
+            )
+            permissions = user_permissions
+            if row.get("role_id") and row.get("role_permissions"):
+                role_permissions = json.loads(row["role_permissions"])
+                permissions = {**role_permissions, **user_permissions}
+
             return {
                 "user_id": row["id"],
                 "email": row["email"],
                 "name": row["name"],
-                "permissions": json.loads(row["permissions"])
-                if row["permissions"]
-                else {},
+                "permissions": permissions,
             }
     finally:
         conn.close()

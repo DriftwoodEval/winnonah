@@ -50,6 +50,7 @@ TABLE_IN_PERSON_ASSESSMENT_HISTORY: Final = "emr_in_person_assessment_history"
 TABLE_NOTE: Final = "emr_note"
 TABLE_NOTE_HISTORY: Final = "emr_note_history"
 TABLE_TASK: Final = "emr_task"
+TABLE_ROLE: Final = "emr_role"
 
 # DB to DataFrame Column Mapping
 CLIENT_COLUMN_MAPPING: Final = {
