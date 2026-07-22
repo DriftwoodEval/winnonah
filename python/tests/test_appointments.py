@@ -1,6 +1,10 @@
 import pandas as pd
 
-from utils.appointments import parse_location_and_type, should_skip_appointment
+from utils.appointments import (
+    build_placeholder_title,
+    parse_location_and_type,
+    should_skip_appointment,
+)
 
 
 class TestParseLocationAndType:
@@ -38,6 +42,36 @@ class TestParseLocationAndType:
 
     def test_unknown_type_code_maps_to_none(self):
         assert parse_location_and_type("[COL-X]") == ("COL", None, False)
+
+
+class TestBuildPlaceholderTitle:
+    def test_builds_eval_title(self):
+        assert (
+            build_placeholder_title("Jane Doe", "EVAL", "COL")
+            == "plchldr Jane Doe EVAL [COL-E]"
+        )
+
+    def test_builds_da_title(self):
+        assert (
+            build_placeholder_title("Jane Doe", "DA", "NYC")
+            == "plchldr Jane Doe DA [NYC-D]"
+        )
+
+    def test_builds_daeval_title(self):
+        assert (
+            build_placeholder_title("Jane Doe", "DAEVAL", "COL")
+            == "plchldr Jane Doe DAEVAL [COL-DE]"
+        )
+
+    def test_virtual_location_uses_v_tag(self):
+        assert (
+            build_placeholder_title("Jane Doe", "DA", "Virtual")
+            == "plchldr Jane Doe DA [V]"
+        )
+
+    def test_round_trips_through_parse_location_and_type(self):
+        title = build_placeholder_title("Jane Doe", "DAEVAL", "COL")
+        assert parse_location_and_type(title) == ("COL", "DAEVAL", False)
 
 
 def make_appointment(name: str) -> pd.Series:
