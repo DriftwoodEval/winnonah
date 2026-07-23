@@ -204,22 +204,24 @@ const questionnaireRuleInputSchema = questionnaireRuleBaseSchema.refine(
 	{ message: "At least one assessment is required" },
 );
 
-async function checkAndUpdateQsBatteryStatus(ctx: Context, clientId: number) {
-	const session = ctx.session;
-	if (!session) return;
-	if (!session.user?.accessToken || !session.user?.refreshToken) return;
-
-	const client = await ctx.db.query.clients.findFirst({
-		where: eq(clients.id, clientId),
-	});
-	if (!client) return;
-
-	const ageInYears = await getQuestionnaireEligibilityAge(
-		ctx.db,
-		clientId,
-		client.dob,
-	);
-
+/**
+ * Picks the questionnaire rules that apply to a client, grouped by
+ * (daeval, diagnosis). Within each group, a rule is considered applicable
+ * if every questionnaire type it requires has already been sent to the
+ * client; when several rules in a group fully match (because their
+ * questionnaire types overlap, e.g. shared across age bands), the rule
+ * requiring the most types is preferred as the closest match to what was
+ * actually sent. Only questionnaires sent since the client's current
+ * session started (`sessionStartedAt`) count, so a prior cycle's sends
+ * don't satisfy the current one. If no rule in a group fully matches yet,
+ * that group falls back to filtering by the client's age at their most
+ * recent eval appointment.
+ */
+async function resolveApplicableRules(
+	ctx: Context,
+	clientId: number,
+	client: typeof clients.$inferSelect,
+) {
 	const allRules = await ctx.db.query.questionnaireRules.findMany({
 		orderBy: [
 			asc(questionnaireRules.daeval),
@@ -227,10 +229,6 @@ async function checkAndUpdateQsBatteryStatus(ctx: Context, clientId: number) {
 			asc(questionnaireRules.minAge),
 		],
 	});
-
-	const ageFiltered = allRules.filter(
-		(r) => r.minAge <= ageInYears && r.maxAge >= ageInYears,
-	);
 
 	const asdAdhd = client.asdAdhd;
 	const wantedDiagnoses = new Set<string | null>();
@@ -242,10 +240,86 @@ async function checkAndUpdateQsBatteryStatus(ctx: Context, clientId: number) {
 		if (asdAdhd.includes("ADHD")) wantedDiagnoses.add("ADHD");
 	}
 
-	const applicableRules = ageFiltered.filter((r) => {
+	const diagnosisFiltered = allRules.filter((r) => {
 		if (r.daeval === "DAEVAL") return r.diagnosis === null;
 		return wantedDiagnoses.has(r.diagnosis);
 	});
+
+	const clientQs = await ctx.db.query.questionnaires.findMany({
+		where: eq(questionnaires.clientId, clientId),
+	});
+	const sessionStartedAt = client.sessionStartedAt;
+	const sentTypes = new Set(
+		clientQs
+			.filter(
+				(q) =>
+					q.sent !== null &&
+					q.status !== "ARCHIVED" &&
+					(!sessionStartedAt || q.sent >= sessionStartedAt),
+			)
+			.map((q) => q.questionnaireType),
+	);
+
+	const groups = new Map<string, typeof diagnosisFiltered>();
+	for (const rule of diagnosisFiltered) {
+		const key = `${rule.daeval}|${rule.diagnosis ?? "null"}`;
+		const group = groups.get(key);
+		if (group) {
+			group.push(rule);
+		} else {
+			groups.set(key, [rule]);
+		}
+	}
+
+	let ageInYears: number | null = null;
+	const resultRules: (typeof diagnosisFiltered)[number][] = [];
+
+	for (const groupRules of groups.values()) {
+		const fullyMatched = groupRules.filter((r) => {
+			const qs = r.questionnaires ?? [];
+			return qs.length > 0 && qs.every((q) => sentTypes.has(q));
+		});
+
+		if (fullyMatched.length > 0) {
+			const best = fullyMatched.reduce((a, b) =>
+				(b.questionnaires?.length ?? 0) > (a.questionnaires?.length ?? 0)
+					? b
+					: a,
+			);
+			resultRules.push(best);
+			continue;
+		}
+
+		ageInYears ??= await getQuestionnaireEligibilityAge(
+			ctx.db,
+			clientId,
+			client.dob,
+		);
+		for (const r of groupRules) {
+			if (r.minAge <= ageInYears && r.maxAge >= ageInYears) {
+				resultRules.push(r);
+			}
+		}
+	}
+
+	return { rules: resultRules, ageInYears };
+}
+
+async function checkAndUpdateQsBatteryStatus(ctx: Context, clientId: number) {
+	const session = ctx.session;
+	if (!session) return;
+	if (!session.user?.accessToken || !session.user?.refreshToken) return;
+
+	const client = await ctx.db.query.clients.findFirst({
+		where: eq(clients.id, clientId),
+	});
+	if (!client) return;
+
+	const { rules: applicableRules } = await resolveApplicableRules(
+		ctx,
+		clientId,
+		client,
+	);
 
 	const daQTypes = new Set<string>();
 	const evalQTypes = new Set<string>();
@@ -402,41 +476,11 @@ export const questionnaireRouter = createTRPCRouter({
 
 			if (!client) return null;
 
-			const ageInYears = await getQuestionnaireEligibilityAge(
-				ctx.db,
+			const { rules, ageInYears } = await resolveApplicableRules(
+				ctx,
 				input.clientId,
-				client.dob,
+				client,
 			);
-
-			const allRules = await ctx.db.query.questionnaireRules.findMany({
-				orderBy: [
-					asc(questionnaireRules.daeval),
-					asc(questionnaireRules.diagnosis),
-					asc(questionnaireRules.minAge),
-				],
-			});
-
-			const ageFiltered = allRules.filter(
-				(r) => r.minAge <= ageInYears && r.maxAge >= ageInYears,
-			);
-
-			const asdAdhd = client.asdAdhd;
-			const wantedDiagnoses = new Set<string | null>();
-
-			if (!asdAdhd) {
-				// Diagnosis unknown — include all diagnosis-specific rules
-				wantedDiagnoses.add("ASD");
-				wantedDiagnoses.add("ADHD");
-			} else {
-				if (asdAdhd.includes("ASD")) wantedDiagnoses.add("ASD");
-				if (asdAdhd.includes("ADHD")) wantedDiagnoses.add("ADHD");
-			}
-
-			const rules = ageFiltered.filter((r) => {
-				// DAEVAL rules have no diagnosis; always include if age matches
-				if (r.daeval === "DAEVAL") return r.diagnosis === null;
-				return wantedDiagnoses.has(r.diagnosis);
-			});
 
 			return {
 				ageInYears,
@@ -994,8 +1038,6 @@ export const questionnaireRouter = createTRPCRouter({
 			punchData.map((row) => [parseInt(row["Client ID"] ?? "", 10), row]),
 		);
 
-		const allRules = await ctx.db.query.questionnaireRules.findMany();
-
 		const results: (typeof clients.$inferSelect & {
 			daeval: "DA" | "EVAL";
 			missingTypes: string[];
@@ -1011,30 +1053,11 @@ export const questionnaireRouter = createTRPCRouter({
 
 			if (!daNeeded && !evalNeeded) continue;
 
-			const ageInYears = await getQuestionnaireEligibilityAge(
-				ctx.db,
+			const { rules: applicableRules } = await resolveApplicableRules(
+				ctx,
 				client.id,
-				client.dob,
+				client,
 			);
-
-			const ageFiltered = allRules.filter(
-				(r) => r.minAge <= ageInYears && r.maxAge >= ageInYears,
-			);
-
-			const asdAdhd = client.asdAdhd;
-			const wantedDiagnoses = new Set<string | null>();
-			if (!asdAdhd) {
-				wantedDiagnoses.add("ASD");
-				wantedDiagnoses.add("ADHD");
-			} else {
-				if (asdAdhd.includes("ASD")) wantedDiagnoses.add("ASD");
-				if (asdAdhd.includes("ADHD")) wantedDiagnoses.add("ADHD");
-			}
-
-			const applicableRules = ageFiltered.filter((r) => {
-				if (r.daeval === "DAEVAL") return r.diagnosis === null;
-				return wantedDiagnoses.has(r.diagnosis);
-			});
 
 			const daQTypes = new Set<string>();
 			const evalQTypes = new Set<string>();
