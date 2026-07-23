@@ -463,7 +463,7 @@ export const DEFAULT_WIDGET_CONFIG: Record<
 	string,
 	{ cols: number; rows: number }
 > = {
-	clients: { cols: 4, rows: 3 },
+	clients: { cols: 4, rows: 4 },
 	"day-ahead-mine": { cols: 2, rows: 2 },
 	"day-ahead-offices": { cols: 2, rows: 2 },
 	"cal-day": { cols: 2, rows: 3 },
@@ -481,5 +481,5 @@ export function getWidgetSizing(id: string): WidgetSizing {
 }
 
 export const DEFAULT_HOME_WIDGETS: WidgetConfig[] = [
-	{ id: "clients", cols: 4, rows: 3 },
+	{ id: "clients", cols: 4, rows: 4 },
 ];
