@@ -108,7 +108,8 @@ const loggerMiddleware = t.middleware(async ({ next, path, ctx }) => {
 		path,
 		user: ctx.session?.user?.email ?? ctx.session?.user?.id ?? "anonymous",
 		...(ctx.session?.user?.isImpersonating && {
-			impersonatedBy: ctx.session.user.impersonatorId,
+			impersonatedBy:
+				ctx.session.user.impersonatorEmail ?? ctx.session.user.impersonatorId,
 		}),
 	});
 

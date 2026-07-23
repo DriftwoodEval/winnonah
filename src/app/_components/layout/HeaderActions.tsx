@@ -70,7 +70,8 @@ export function HeaderActions() {
 			{session && <IssuesAlert />}
 			{session && <TaskQueueBubble />}
 
-			{checkPermission("settings:impersonate") && <ImpersonateUserSelect />}
+			{(checkPermission("settings:impersonate") ||
+				session?.user.isImpersonating) && <ImpersonateUserSelect />}
 			{checkPermission("settings:pii-redaction") && <RedactionToggle />}
 
 			<IssueFormLink />

@@ -42,6 +42,8 @@ declare module "next-auth" {
 			isImpersonating?: boolean;
 			/** The real signed-in user's id, set only while `isImpersonating` is true. */
 			impersonatorId?: string | null;
+			/** The real signed-in user's email, set only while `isImpersonating` is true. */
+			impersonatorEmail?: string | null;
 		} & DefaultSession["user"];
 	}
 
@@ -242,6 +244,9 @@ export const authConfig = {
 					isImpersonating && targetUser.id === approvedImpersonationTargetId;
 				session.user.impersonatorId = session.user.isImpersonating
 					? user.id
+					: null;
+				session.user.impersonatorEmail = session.user.isImpersonating
+					? user.email
 					: null;
 			}
 			return session;
