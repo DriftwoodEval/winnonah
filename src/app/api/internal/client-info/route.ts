@@ -95,6 +95,7 @@ export async function GET(req: NextRequest) {
 			columns: {
 				fullName: true,
 				dob: true,
+				phoneNumber: true,
 				recordsNeeded: true,
 				babyNetERNeeded: true,
 				babyNetERDownloaded: true,
@@ -206,6 +207,7 @@ export async function GET(req: NextRequest) {
 				day: "numeric",
 			}),
 			age: formatClientAge(client.dob, "short"),
+			phoneNumber: client.phoneNumber,
 			clientNote: fullClientNote,
 			records: recordsStatus,
 			babyNetERStatus: babyNetERStatus,
