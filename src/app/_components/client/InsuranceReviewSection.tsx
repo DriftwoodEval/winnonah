@@ -12,7 +12,7 @@ import {
 } from "@ui/select";
 import { debounce } from "es-toolkit/function";
 import { isEqual } from "es-toolkit/predicate";
-import { Eye, EyeOff, History, Send } from "lucide-react";
+import { Clock, Eye, EyeOff, History, Send } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { useCheckPermission } from "~/hooks/use-check-permission";
@@ -93,6 +93,19 @@ export function InsuranceReviewSection({
 		},
 	});
 
+	const setWaitingMutation = api.insuranceReview.setWaiting.useMutation({
+		onSuccess: () => {
+			utils.insuranceReview.getByClientId.invalidate(client.id);
+			utils.insuranceReview.getAllEnabled.invalidate();
+			utils.insuranceReview.getMyClaimedClients.invalidate();
+		},
+		onError: (error) => {
+			toast.error("Failed to update waiting state", {
+				description: error.message,
+			});
+		},
+	});
+
 	const submitMutation = api.insuranceReview.submitToNotes.useMutation({
 		onSuccess: (result) => {
 			if (result.success) {
@@ -157,6 +170,24 @@ export function InsuranceReviewSection({
 					{canEdit && (
 						<Button
 							className="cursor-pointer"
+							disabled={setWaitingMutation.isPending}
+							onClick={() =>
+								setWaitingMutation.mutate({
+									clientId: client.id,
+									waiting: !review.waiting,
+								})
+							}
+							size="sm"
+							variant={review.waiting ? "secondary" : "outline"}
+						>
+							<Clock className="mr-1 h-4 w-4" />
+							{review.waiting ? "Waiting" : "Mark as Waiting"}
+						</Button>
+					)}
+
+					{canEdit && (
+						<Button
+							className="cursor-pointer"
 							disabled={setPausedMutation.isPending}
 							onClick={() =>
 								setPausedMutation.mutate({
@@ -170,12 +201,12 @@ export function InsuranceReviewSection({
 							{review.paused ? (
 								<>
 									<Eye className="mr-1 h-4 w-4" />
-									Show in Review Lists / Resume
+									Show in Review Lists
 								</>
 							) : (
 								<>
 									<EyeOff className="mr-1 h-4 w-4" />
-									Hide from Review Lists / Pause
+									Hide from Review Lists
 								</>
 							)}
 						</Button>

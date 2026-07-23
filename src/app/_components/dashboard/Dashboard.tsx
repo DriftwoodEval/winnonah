@@ -8,6 +8,8 @@ import {
 } from "@ui/accordion";
 import { Alert, AlertDescription, AlertTitle } from "@ui/alert";
 import { Button } from "@ui/button";
+import { Checkbox } from "@ui/checkbox";
+import { Label } from "@ui/label";
 import { ScrollArea } from "@ui/scroll-area";
 import { Separator } from "@ui/separator";
 import { Skeleton } from "@ui/skeleton";
@@ -479,11 +481,16 @@ export function Dashboard() {
 		});
 
 	const [showMineOnly, setShowMineOnly] = useState(false);
-	const visibleInsuranceClients = showMineOnly
-		? (insuranceReviewClients ?? []).filter(
-				(c) => c.claimedUserEmail === session?.user?.email,
-			)
-		: (insuranceReviewClients ?? []);
+	const [insuranceFilters, setInsuranceFilters] = useState<string[]>([]);
+	const showWaitingOnly = insuranceFilters.includes("waiting");
+	const showHidden = insuranceFilters.includes("hidden");
+	const visibleInsuranceClients = (insuranceReviewClients ?? []).filter((c) => {
+		if (showMineOnly && c.claimedUserEmail !== session?.user?.email)
+			return false;
+		if (showWaitingOnly && !c.waiting) return false;
+		if (showHidden !== c.paused) return false;
+		return true;
+	});
 
 	const { data: schedulingData } = api.scheduling.get.useQuery(
 		{},
@@ -622,7 +629,7 @@ export function Dashboard() {
 											</span>
 										</AccordionTrigger>
 										<AccordionContent>
-											<div className="mb-2">
+											<div className="mb-2 flex flex-wrap items-center gap-2">
 												<ToggleGroup
 													onValueChange={(v) => setShowMineOnly(v === "mine")}
 													size="sm"
@@ -634,6 +641,44 @@ export function Dashboard() {
 													<ToggleGroupItem value="all">All</ToggleGroupItem>
 													<ToggleGroupItem value="mine">Mine</ToggleGroupItem>
 												</ToggleGroup>
+												<div className="flex items-center gap-2">
+													<Checkbox
+														checked={showWaitingOnly}
+														id="insurance-filter-waiting"
+														onCheckedChange={(checked) =>
+															setInsuranceFilters((prev) =>
+																checked
+																	? [...prev, "waiting"]
+																	: prev.filter((v) => v !== "waiting"),
+															)
+														}
+													/>
+													<Label
+														className="font-normal"
+														htmlFor="insurance-filter-waiting"
+													>
+														Waiting
+													</Label>
+												</div>
+												<div className="flex items-center gap-2">
+													<Checkbox
+														checked={showHidden}
+														id="insurance-filter-hidden"
+														onCheckedChange={(checked) =>
+															setInsuranceFilters((prev) =>
+																checked
+																	? [...prev, "hidden"]
+																	: prev.filter((v) => v !== "hidden"),
+															)
+														}
+													/>
+													<Label
+														className="font-normal"
+														htmlFor="insurance-filter-hidden"
+													>
+														Hidden from Review Lists
+													</Label>
+												</div>
 											</div>
 											<ScrollArea className="h-[400px] w-full rounded-md border bg-card text-card-foreground shadow-sm">
 												<div className="p-4">
@@ -646,6 +691,11 @@ export function Dashboard() {
 																<span>
 																	<Redact>{c.clientName}</Redact>
 																</span>
+																{c.waiting && (
+																	<span className="rounded-sm bg-warning px-1 py-0.5 text-[10px] text-warning-foreground">
+																		Waiting
+																	</span>
+																)}
 																{c.claimedUserName && (
 																	<span
 																		className="rounded-sm px-1 py-0.5 text-[10px]"

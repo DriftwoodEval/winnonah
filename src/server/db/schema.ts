@@ -524,6 +524,7 @@ export const insuranceReview = createTable("insurance_review", (d) => ({
 	content: d.json("content"),
 	enabled: d.boolean().notNull().default(false),
 	paused: d.boolean().notNull().default(false),
+	waiting: d.boolean().notNull().default(false),
 	claimedUserEmail: d.varchar("claimed_user_email", { length: 255 }),
 	createdAt: d
 		.timestamp("created_at")
