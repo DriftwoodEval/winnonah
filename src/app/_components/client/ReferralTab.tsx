@@ -76,6 +76,9 @@ export function ReferralTab({ client, readOnly }: ReferralTabProps) {
 	const [followedByBabyNet, setFollowedByBabyNet] = useState<
 		"yes" | "no" | null
 	>(client.referralData?.followedByBabyNet ?? null);
+	const [walking, setWalking] = useState<"yes" | "no" | null>(
+		client.referralData?.walking ?? null,
+	);
 	const [privateSchool, setPrivateSchool] = useState<"yes" | "no" | null>(
 		client.referralData?.privateSchool ?? null,
 	);
@@ -87,6 +90,7 @@ export function ReferralTab({ client, readOnly }: ReferralTabProps) {
 		setOtherNotes(client.referralData?.otherNotes ?? "");
 		setLocationPreference(client.referralData?.locationPreference ?? "");
 		setFollowedByBabyNet(client.referralData?.followedByBabyNet ?? null);
+		setWalking(client.referralData?.walking ?? null);
 		setPrivateSchool(client.referralData?.privateSchool ?? null);
 	}, [client.referralData, client.language]);
 
@@ -164,6 +168,7 @@ export function ReferralTab({ client, readOnly }: ReferralTabProps) {
 		locationPreference?: string;
 		needsReachOut?: "reach_out" | "review" | null;
 		followedByBabyNet?: "yes" | "no" | null;
+		walking?: "yes" | "no" | null;
 	}) => {
 		const newReferralData = {
 			...client.referralData,
@@ -212,6 +217,8 @@ export function ReferralTab({ client, readOnly }: ReferralTabProps) {
 	const ageInYears = differenceInYears(new Date(), new Date(client.dob));
 	const showSchoolQuestion = ageInMonths >= 33 && ageInYears <= 19;
 	const isUnder3 = ageInYears < 3;
+	const isBetween2And3 = ageInYears >= 2 && ageInYears < 3;
+	const displayName = client.preferredName ?? client.firstName;
 
 	const isBabyNet =
 		client.babyNet ||
@@ -525,6 +532,54 @@ export function ReferralTab({ client, readOnly }: ReferralTabProps) {
 											</Button>
 										</div>
 									)}
+								</div>
+							)}
+
+							{isBetween2And3 && (
+								<div className="space-y-4">
+									<div className="rounded-lg bg-muted p-4 text-sm">
+										{isSpanish ? (
+											<p>
+												Los niños alcanzan los hitos del desarrollo en
+												diferentes momentos. ¿{displayName} está caminando?
+											</p>
+										) : (
+											<p>
+												Children hit developmental milestones at different
+												times. Is {displayName} walking?
+											</p>
+										)}
+									</div>
+									<div className="space-y-3 px-4">
+										<Label className="font-semibold">Walking?</Label>
+										<RadioGroup
+											className="flex flex-wrap gap-4"
+											disabled={
+												isReadOnly ||
+												updateClientMutation.isPending ||
+												!can("clients:referral:fillout")
+											}
+											onValueChange={(value) => {
+												const val = value as "yes" | "no";
+												setWalking(val);
+												handleReferralDataChange({ walking: val });
+											}}
+											value={walking ?? undefined}
+										>
+											<div className="flex items-center space-x-2">
+												<RadioGroupItem id="walking-yes" value="yes" />
+												<Label className="font-normal" htmlFor="walking-yes">
+													Yes
+												</Label>
+											</div>
+											<div className="flex items-center space-x-2">
+												<RadioGroupItem id="walking-no" value="no" />
+												<Label className="font-normal" htmlFor="walking-no">
+													No
+												</Label>
+											</div>
+										</RadioGroup>
+									</div>
 								</div>
 							)}
 
