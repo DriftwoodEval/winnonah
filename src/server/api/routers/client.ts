@@ -731,7 +731,9 @@ export const clientRouter = createTRPCRouter({
 
 			const dropListQs = syncedClient.questionnaires.filter(
 				(q) =>
-					(q.status === "PENDING" || q.status === "SPANISH") &&
+					(q.status === "PENDING" ||
+						q.status === "SPANISH" ||
+						q.status === "POSTEVAL_PENDING") &&
 					(q.reminded ?? 0) > 3,
 			);
 
@@ -743,7 +745,12 @@ export const clientRouter = createTRPCRouter({
 			let initialFailureDate: Date | undefined;
 
 			if (dropListQs.length > 0) {
-				dropListReason = "Qs pending (3 reminders)";
+				const hasPostEvalPending = dropListQs.some(
+					(q) => q.status === "POSTEVAL_PENDING",
+				);
+				dropListReason = hasPostEvalPending
+					? "Qs pending (3 reminders, post-eval)"
+					: "Qs pending (3 reminders)";
 				for (const q of dropListQs) {
 					if (q.sent) {
 						const d = new Date(q.sent);
@@ -999,6 +1006,7 @@ export const clientRouter = createTRPCRouter({
 								or(
 									eq(questionnaires.status, "PENDING"),
 									eq(questionnaires.status, "SPANISH"),
+									eq(questionnaires.status, "POSTEVAL_PENDING"),
 								),
 								gt(questionnaires.reminded, 3),
 								sql`(
@@ -1012,7 +1020,12 @@ export const clientRouter = createTRPCRouter({
 
 				for (const client of overRemindedQs) {
 					if (client.questionnaires.length > 0) {
-						const reason = "Qs pending (3 reminders)";
+						const hasPostEvalPending = client.questionnaires.some(
+							(q) => q.status === "POSTEVAL_PENDING",
+						);
+						const reason = hasPostEvalPending
+							? "Qs pending (3 reminders, post-eval)"
+							: "Qs pending (3 reminders)";
 
 						// Create a clean client object without the joined data
 						const { questionnaires: qList, ...clientData } = client;
