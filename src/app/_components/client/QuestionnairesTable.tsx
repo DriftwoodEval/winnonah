@@ -27,7 +27,7 @@ import {
 	TableHeader,
 	TableRow,
 } from "@ui/table";
-import { CheckCircle2, ClipboardList, Info } from "lucide-react";
+import { CheckCircle2, ClipboardList, Copy, Info } from "lucide-react";
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
@@ -36,6 +36,7 @@ import { QUESTIONNAIRE_STATUSES } from "~/lib/constants";
 import {
 	cn,
 	formatShortDate,
+	formatTaMessage,
 	getReminderColorClass,
 	getStatusColorClass,
 } from "~/lib/utils";
@@ -201,6 +202,17 @@ export function QuestionnairesTable({
 		});
 	}
 
+	async function copyTaMessage() {
+		const selected = visibleQs.filter((q) => selectedIds.has(q.id) && q.link);
+		if (selected.length === 0) {
+			toast.error("No selected questionnaires have a link.");
+			return;
+		}
+		const message = formatTaMessage(selected);
+		await navigator.clipboard.writeText(message);
+		toast.success("TA message copied to clipboard.");
+	}
+
 	return (
 		<div className="flex w-full flex-col gap-4">
 			{hasJustAdded && (
@@ -329,6 +341,15 @@ export function QuestionnairesTable({
 							variant="secondary"
 						>
 							{bulkUpdate.isPending ? "Saving..." : "Apply"}
+						</Button>
+						<Button
+							className="gap-1.5"
+							onClick={copyTaMessage}
+							size="sm"
+							variant="outline"
+						>
+							<Copy className="h-3.5 w-3.5" />
+							Copy TA Message
 						</Button>
 						<Button
 							className="ml-auto"

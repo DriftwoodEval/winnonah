@@ -199,6 +199,19 @@ export const getLocalDayFromUTCDate = (
 	return new Date(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate());
 };
 
+export function formatTaMessage(
+	questionnaires: { questionnaireType: string; link: string | null }[],
+): string {
+	return questionnaires
+		.map(({ questionnaireType, link }, index) => {
+			const notes = questionnaireType.includes("Self")
+				? " - For client being tested"
+				: "";
+			return `${index + 1}) ${link}${notes}`;
+		})
+		.join("\n");
+}
+
 export const formatShortDate = (
 	date: Date | string | undefined | null,
 	fallback = "N/A",
