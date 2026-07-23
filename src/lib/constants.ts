@@ -183,6 +183,10 @@ export const PERMISSIONS = {
 						id: "settings:pii-redaction",
 						title: "Toggle PII Redaction",
 					},
+					{
+						id: "settings:impersonate",
+						title: "Impersonate Users",
+					},
 				],
 			},
 

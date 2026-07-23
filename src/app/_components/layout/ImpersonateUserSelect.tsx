@@ -12,11 +12,12 @@ import { useState } from "react";
 import { api } from "~/trpc/react";
 
 /**
- * Dev-only "view as another user" control. Sets a cookie the NextAuth session callback
- * reads (see src/server/auth/impersonation.ts) so the homepage, permissions, and every
- * other user-scoped call behave as the selected user, not whoever is actually signed in.
+ * "View as another user" control, gated behind the `settings:impersonate` permission.
+ * Sets a cookie the NextAuth session callback reads (see src/server/auth/impersonation.ts)
+ * so the homepage, permissions, and every other user-scoped call behave as the selected
+ * user, not whoever is actually signed in.
  */
-export function DevImpersonation() {
+export function ImpersonateUserSelect() {
 	const { data: session } = useSession();
 	const { data: users } = api.users.getAll.useQuery(undefined, {
 		enabled: !!session,
@@ -27,7 +28,7 @@ export function DevImpersonation() {
 
 	async function viewAs(userId: string | undefined) {
 		setPending(true);
-		await fetch("/api/dev/impersonate", {
+		await fetch("/api/impersonate", {
 			method: "POST",
 			headers: { "Content-Type": "application/json" },
 			body: JSON.stringify({ userId: userId ?? null }),

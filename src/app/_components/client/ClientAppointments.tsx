@@ -29,11 +29,9 @@ import {
 } from "lucide-react";
 import { useSession } from "next-auth/react";
 import { useState } from "react";
-import { getLocalTimeFromUTCDate } from "~/lib/utils";
+import { getLocalTimeFromUTCDate, IS_DEV } from "~/lib/utils";
 import { api } from "~/trpc/react";
 import { AppointmentReminderTimeline } from "./AppointmentReminderTimeline";
-
-const IS_DEV = process.env.NODE_ENV === "development";
 
 export function ClientAppointments({ clientId }: { clientId: number }) {
 	const utils = api.useUtils();

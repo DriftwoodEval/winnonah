@@ -23,10 +23,8 @@ import { api } from "~/trpc/react";
 import { RedactionToggle } from "../redaction/RedactionToggle";
 import { IssueFormLink } from "../shared/IssueFormLink";
 import { ThemeSwitcher } from "../shared/ThemeSwitcher";
-import { DevImpersonation } from "./DevImpersonation";
 import { GlobalClientSearch } from "./GlobalClientSearch";
-
-const IS_DEV = process.env.NODE_ENV === "development";
+import { ImpersonateUserSelect } from "./ImpersonateUserSelect";
 
 export function HeaderActions() {
 	const pathname = usePathname();
@@ -72,7 +70,7 @@ export function HeaderActions() {
 			{session && <IssuesAlert />}
 			{session && <TaskQueueBubble />}
 
-			{IS_DEV && <DevImpersonation />}
+			{checkPermission("settings:impersonate") && <ImpersonateUserSelect />}
 			{checkPermission("settings:pii-redaction") && <RedactionToggle />}
 
 			<IssueFormLink />

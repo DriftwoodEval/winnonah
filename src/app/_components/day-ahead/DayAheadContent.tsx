@@ -24,6 +24,7 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { useEffect, useMemo, useState } from "react";
+import { IS_DEV } from "~/lib/utils";
 import { api, type RouterOutputs } from "~/trpc/react";
 import { Redact } from "../redaction/Redact";
 import {
@@ -32,8 +33,6 @@ import {
 	CalendarMultiDayView,
 	formatTime,
 } from "./CalendarGrid";
-
-const IS_DEV = process.env.NODE_ENV === "development";
 
 type ViewMode = "list" | "day" | "3day" | "week";
 

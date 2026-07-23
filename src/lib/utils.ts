@@ -5,6 +5,8 @@ import type { InsuranceWithAliases } from "~/lib/models";
 import type { PermissionId, PermissionsObject } from "~/lib/types";
 import { PERMISSION_MAP, type QUESTIONNAIRE_STATUSES } from "./constants";
 
+export const IS_DEV = process.env.NODE_ENV === "development";
+
 export function cn(...inputs: ClassValue[]) {
 	return twMerge(clsx(inputs));
 }

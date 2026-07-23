@@ -2,9 +2,9 @@
 
 import { useSearchParams } from "next/navigation";
 import { useSession } from "next-auth/react";
+import { IS_DEV } from "~/lib/utils";
 import { api } from "~/trpc/react";
 
-const IS_DEV = process.env.NODE_ENV === "development";
 export const DEV_OOO_PARAM = "devOoo";
 
 /**

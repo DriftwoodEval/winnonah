@@ -107,6 +107,9 @@ const loggerMiddleware = t.middleware(async ({ next, path, ctx }) => {
 	const procedureLogger = ctx.logger.child({
 		path,
 		user: ctx.session?.user?.email ?? ctx.session?.user?.id ?? "anonymous",
+		...(ctx.session?.user?.isImpersonating && {
+			impersonatedBy: ctx.session.user.impersonatorId,
+		}),
 	});
 
 	const result = await next({

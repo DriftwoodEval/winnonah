@@ -4,7 +4,8 @@ import type { DefaultSession, NextAuthConfig } from "next-auth";
 import GoogleProvider from "next-auth/providers/google";
 import { env } from "~/env";
 import type { PermissionsObject } from "~/lib/types";
-import { getImpersonationTargetId } from "~/server/auth/impersonation";
+import { hasPermission } from "~/lib/utils";
+import { getImpersonationCookieId } from "~/server/auth/impersonation";
 
 import { db } from "~/server/db";
 import {
@@ -37,8 +38,10 @@ declare module "next-auth" {
 			archived?: boolean | null;
 			claimedReportFolder?: { name: string; id: string }[] | null;
 			maxClaimedReports?: number | null;
-			/** True when a dev is viewing the app as this user via the impersonation cookie. */
+			/** True when a permitted user is viewing the app as this user via the impersonation cookie. */
 			isImpersonating?: boolean;
+			/** The real signed-in user's id, set only while `isImpersonating` is true. */
+			impersonatorId?: string | null;
 		} & DefaultSession["user"];
 	}
 
@@ -161,12 +164,31 @@ export const authConfig = {
 		},
 
 		async session({ session, user }) {
-			const impersonationId = await getImpersonationTargetId();
-			const isImpersonating = !!impersonationId && impersonationId !== user.id;
+			const impersonationCookieId = await getImpersonationCookieId();
 
-			const targetUser = isImpersonating
+			let approvedImpersonationTargetId: string | null = null;
+			if (impersonationCookieId && impersonationCookieId !== user.id) {
+				let realUserPermissions = (user.permissions as PermissionsObject) ?? {};
+				if (user.roleId) {
+					const role = await db.query.roles.findFirst({
+						where: eq(roles.id, user.roleId),
+					});
+					if (role) {
+						realUserPermissions = {
+							...role.permissions,
+							...user.permissions,
+						};
+					}
+				}
+				if (hasPermission(realUserPermissions, "settings:impersonate")) {
+					approvedImpersonationTargetId = impersonationCookieId;
+				}
+			}
+
+			const isImpersonating = !!approvedImpersonationTargetId;
+			const targetUser = approvedImpersonationTargetId
 				? ((await db.query.users.findFirst({
-						where: eq(users.id, impersonationId),
+						where: eq(users.id, approvedImpersonationTargetId),
 					})) ?? user)
 				: user;
 
@@ -217,7 +239,10 @@ export const authConfig = {
 				session.user.isEvaluator = !!evaluatorProfile;
 
 				session.user.isImpersonating =
-					isImpersonating && targetUser.id === impersonationId;
+					isImpersonating && targetUser.id === approvedImpersonationTargetId;
+				session.user.impersonatorId = session.user.isImpersonating
+					? user.id
+					: null;
 			}
 			return session;
 		},

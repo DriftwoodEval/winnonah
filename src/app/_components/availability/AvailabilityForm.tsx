@@ -12,6 +12,7 @@ import { signIn, useSession } from "next-auth/react";
 import { useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
+import { IS_DEV } from "~/lib/utils";
 import {
 	type AvailabilityFormValues,
 	availabilityFormSchema,
@@ -23,8 +24,6 @@ import {
 	DEV_OOO_PARAM,
 	useOutOfOfficePriority,
 } from "./useOutOfOfficePriority";
-
-const IS_DEV = process.env.NODE_ENV === "development";
 
 function OutOfOfficePriorityDevToggle({
 	outOfOfficePriority,
