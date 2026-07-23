@@ -20,7 +20,6 @@ import { signIn, signOut, useSession } from "next-auth/react";
 import { useCheckPermission } from "~/hooks/use-check-permission";
 import { useMediaQuery } from "~/hooks/use-media-query";
 import { api } from "~/trpc/react";
-import { RedactionModeSelect } from "../redaction/RedactionModeSelect";
 import { RedactionToggle } from "../redaction/RedactionToggle";
 import { IssueFormLink } from "../shared/IssueFormLink";
 import { ThemeSwitcher } from "../shared/ThemeSwitcher";
@@ -74,12 +73,7 @@ export function HeaderActions() {
 			{session && <TaskQueueBubble />}
 
 			{IS_DEV && <DevImpersonation />}
-			{checkPermission("settings:pii-redaction") && (
-				<>
-					<RedactionModeSelect />
-					<RedactionToggle />
-				</>
-			)}
+			{checkPermission("settings:pii-redaction") && <RedactionToggle />}
 
 			<IssueFormLink />
 

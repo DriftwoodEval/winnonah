@@ -3,20 +3,14 @@
 import { usePathname } from "next/navigation";
 import { createContext, useContext, useEffect, useState } from "react";
 
-export type RedactionMode = "scramble" | "blur";
-
 interface RedactionContextValue {
 	enabled: boolean;
 	toggle: () => void;
-	mode: RedactionMode;
-	setMode: (mode: RedactionMode) => void;
 }
 
 const RedactionContext = createContext<RedactionContextValue>({
 	enabled: false,
 	toggle: () => {},
-	mode: "blur",
-	setMode: () => {},
 });
 
 /**
@@ -25,7 +19,6 @@ const RedactionContext = createContext<RedactionContextValue>({
  */
 export function RedactionProvider({ children }: { children: React.ReactNode }) {
 	const [enabled, setEnabled] = useState(false);
-	const [mode, setMode] = useState<RedactionMode>("blur");
 	const pathname = usePathname();
 
 	// Redaction is per-page only, never carries over on navigation.
@@ -36,7 +29,7 @@ export function RedactionProvider({ children }: { children: React.ReactNode }) {
 
 	return (
 		<RedactionContext.Provider
-			value={{ enabled, toggle: () => setEnabled((e) => !e), mode, setMode }}
+			value={{ enabled, toggle: () => setEnabled((e) => !e) }}
 		>
 			{children}
 		</RedactionContext.Provider>
