@@ -208,7 +208,8 @@ def import_from_ta(
             )
         else:
             with track_task(
-                "evaluator_rematch", "Evaluator-insurance rematching"
+                "evaluator_rematch",
+                "Matching clients to evaluators by insurance and location",
             ) as task:
                 if task is not None:
                     utils.database.insert_by_matching_criteria(

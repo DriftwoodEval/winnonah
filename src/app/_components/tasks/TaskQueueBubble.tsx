@@ -8,17 +8,6 @@ import { useSession } from "next-auth/react";
 import { useState } from "react";
 import { api } from "~/trpc/react";
 
-const TASK_TYPE_LABELS: Record<string, string> = {
-	evaluator_rematch: "Evaluator rematch",
-	appointment_reminders: "Appointment reminders",
-	questionnaire_reminders: "Questionnaire reminders",
-	referral_fax_intake: "AI referral fax lookup",
-};
-
-function taskLabel(type: string) {
-	return TASK_TYPE_LABELS[type] ?? type;
-}
-
 function relativeTime(date: Date) {
 	const seconds = Math.round((Date.now() - date.getTime()) / 1000);
 	if (seconds < 60) return "just now";
@@ -74,7 +63,7 @@ export function TaskQueueBubble() {
 								key={task.id}
 							>
 								<div className="flex items-center justify-between gap-2">
-									<span className="font-medium">{taskLabel(task.type)}</span>
+									<span className="font-medium">{task.label}</span>
 									<Badge
 										className="shrink-0"
 										variant={

@@ -493,14 +493,7 @@ export const tasks = createTable(
 	"task",
 	(d) => ({
 		id: d.int().notNull().autoincrement().primaryKey(),
-		type: d
-			.mysqlEnum("type", [
-				"evaluator_rematch",
-				"appointment_reminders",
-				"questionnaire_reminders",
-				"referral_fax_intake",
-			])
-			.notNull(),
+		type: d.varchar("type", { length: 64 }).notNull(),
 		status: d
 			.mysqlEnum("status", ["running", "completed", "failed"])
 			.notNull()
