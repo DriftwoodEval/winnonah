@@ -1,5 +1,5 @@
 const CHECK_TIMEOUT_MS = 6000;
-const FAILURE_CONFIRM_MS = 300000; // 5 minutes of sustained failure before failover
+const FAILURE_CONFIRM_MS = 180000; // 3 minutes of sustained failure before failover
 
 export default {
 	async scheduled(_event, env, ctx) {
