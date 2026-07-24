@@ -31,6 +31,7 @@ import {
 	InfoIcon,
 	Loader2,
 	LockIcon,
+	PhoneCall,
 	Send,
 	Square,
 } from "lucide-react";
@@ -43,6 +44,7 @@ import { ALLOWED_ASD_ADHD_VALUES } from "~/lib/constants";
 import type { Client } from "~/lib/models";
 import { isNotesOnlyClientId } from "~/lib/utils";
 import { api } from "~/trpc/react";
+import { ResponsiveDialog } from "../shared/ResponsiveDialog";
 
 interface ReferralTabProps {
 	client: Client;
@@ -82,6 +84,8 @@ export function ReferralTab({ client, readOnly }: ReferralTabProps) {
 	const [privateSchool, setPrivateSchool] = useState<"yes" | "no" | null>(
 		client.referralData?.privateSchool ?? null,
 	);
+	const [logAttemptOpen, setLogAttemptOpen] = useState(false);
+	const [attemptNotes, setAttemptNotes] = useState("");
 
 	useEffect(() => {
 		setNotes(client.referralData?.notes ?? "");
@@ -113,6 +117,22 @@ export function ReferralTab({ client, readOnly }: ReferralTabProps) {
 			toast.error("Failed to update claim", { description: error.message });
 		},
 	});
+
+	const logOutreachAttemptMutation = api.clients.logOutreachAttempt.useMutation(
+		{
+			onSuccess: () => {
+				utils.clients.getOne.invalidate({ column: "hash", value: client.hash });
+				toast.success("Outreach attempt logged");
+				setAttemptNotes("");
+				setLogAttemptOpen(false);
+			},
+			onError: (error) => {
+				toast.error("Failed to log outreach attempt", {
+					description: error.message,
+				});
+			},
+		},
+	);
 
 	const pushToPunchMutation = api.google.pushToPunch.useMutation({
 		onSuccess: () => {
@@ -231,6 +251,15 @@ export function ReferralTab({ client, readOnly }: ReferralTabProps) {
 
 	const isCommonLanguage = COMMON_LANGUAGES.includes(language);
 
+	const outreachAttempts = client.referralData?.outreachAttempts ?? [];
+	const attemptCount = outreachAttempts.length;
+	const isOutreachExhausted = attemptCount >= 3;
+	const canLogAttempt =
+		isNeedsReachOut &&
+		!isNeedsReview &&
+		!isOutreachExhausted &&
+		can("clients:referral:infobox");
+
 	return (
 		<div className="flex w-full flex-col gap-4">
 			{isBabyNet && (
@@ -265,30 +294,38 @@ export function ReferralTab({ client, readOnly }: ReferralTabProps) {
 									{client.referralData.outreachClaimedBy.split(" ")[0]}
 								</span>
 							)}
-						{(isNeedsReachOut || isNeedsReview) &&
-							can("clients:referral:claim") && (
-								<Button
-									disabled={claimOutreachMutation.isPending}
-									onClick={() =>
-										claimOutreachMutation.mutate({ clientId: client.id })
-									}
-									size="sm"
-									variant={
-										client.referralData?.outreachClaimedBy ===
-										session?.user?.name
-											? "secondary"
-											: "outline"
-									}
-								>
-									{claimOutreachMutation.isPending ? (
-										<Loader2 className="mr-2 h-4 w-4 animate-spin" />
-									) : null}
-									{client.referralData?.outreachClaimedBy ===
-									session?.user?.name
-										? "Unclaim"
-										: "Claim"}
-								</Button>
-							)}
+						{isNeedsReachOut && can("clients:referral:claim") && (
+							<Button
+								disabled={claimOutreachMutation.isPending}
+								onClick={() =>
+									claimOutreachMutation.mutate({ clientId: client.id })
+								}
+								size="sm"
+								variant={
+									client.referralData?.outreachClaimedBy === session?.user?.name
+										? "secondary"
+										: "outline"
+								}
+							>
+								{claimOutreachMutation.isPending ? (
+									<Loader2 className="mr-2 h-4 w-4 animate-spin" />
+								) : null}
+								{client.referralData?.outreachClaimedBy === session?.user?.name
+									? "Unclaim"
+									: "Claim"}
+							</Button>
+						)}
+						{(isNeedsReachOut || isNeedsReview) && (
+							<Button
+								disabled={isReadOnly || !canLogAttempt}
+								onClick={() => setLogAttemptOpen(true)}
+								size="sm"
+								variant="outline"
+							>
+								<PhoneCall className="mr-2 h-4 w-4" />
+								Log Attempt ({attemptCount}/3)
+							</Button>
+						)}
 						<div className="flex items-center space-x-2">
 							<Checkbox
 								checked={isNeedsReachOut || isNeedsReview}
@@ -312,6 +349,29 @@ export function ReferralTab({ client, readOnly }: ReferralTabProps) {
 					</div>
 				</CardHeader>
 				<CardContent className="space-y-4">
+					{(isNeedsReachOut || isNeedsReview) &&
+						outreachAttempts.length > 0 && (
+							<div className="space-y-2 rounded-lg bg-muted p-4 text-sm">
+								{isOutreachExhausted && (
+									<p className="font-semibold text-destructive">
+										Outreach exhausted &mdash; added to the Drop List for review
+									</p>
+								)}
+								<Label className="font-semibold">Outreach Attempts</Label>
+								<ul className="space-y-1">
+									{outreachAttempts.map((attempt) => (
+										<li
+											className="text-muted-foreground"
+											key={attempt.attemptedAt}
+										>
+											{new Date(attempt.attemptedAt).toLocaleString()}
+											{attempt.attemptedBy ? ` – ${attempt.attemptedBy}` : ""}
+											{attempt.notes ? `: ${attempt.notes}` : ""}
+										</li>
+									))}
+								</ul>
+							</div>
+						)}
 					<div className="space-y-2">
 						<Label className="font-semibold" htmlFor="referralNotes">
 							Notes
@@ -1055,6 +1115,41 @@ export function ReferralTab({ client, readOnly }: ReferralTabProps) {
 					</CardContent>
 				</Card>
 			)}
+
+			<ResponsiveDialog
+				description="Add notes about this contact attempt, then confirm to log it."
+				footer={
+					<Button
+						disabled={logOutreachAttemptMutation.isPending}
+						onClick={() =>
+							logOutreachAttemptMutation.mutate({
+								clientId: client.id,
+								notes: attemptNotes || undefined,
+							})
+						}
+					>
+						{logOutreachAttemptMutation.isPending ? (
+							<Loader2 className="mr-2 h-4 w-4 animate-spin" />
+						) : null}
+						Log Attempt
+					</Button>
+				}
+				open={logAttemptOpen}
+				setOpen={setLogAttemptOpen}
+				title="Log Outreach Attempt"
+			>
+				<div className="space-y-2 px-4 sm:px-0">
+					<Label className="font-semibold" htmlFor="attemptNotes">
+						Notes
+					</Label>
+					<Textarea
+						id="attemptNotes"
+						onChange={(e) => setAttemptNotes(e.target.value)}
+						placeholder="What happened on this attempt..."
+						value={attemptNotes}
+					/>
+				</div>
+			</ResponsiveDialog>
 		</div>
 	);
 }

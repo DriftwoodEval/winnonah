@@ -7,6 +7,7 @@ import {
 	AccordionTrigger,
 } from "@ui/accordion";
 import { Alert, AlertDescription, AlertTitle } from "@ui/alert";
+import { Badge } from "@ui/badge";
 import { Button } from "@ui/button";
 import { Checkbox } from "@ui/checkbox";
 import { Label } from "@ui/label";
@@ -271,6 +272,20 @@ function PunchListAccordionItem({
 																		)[0]
 																	}
 																</span>
+															)}
+														{title === SECTION_NEEDS_OUTREACH &&
+															(client.referralData?.outreachAttempts?.length ??
+																0) > 0 && (
+																<Badge
+																	className="text-[10px]"
+																	variant="destructive"
+																>
+																	{
+																		client.referralData?.outreachAttempts
+																			?.length
+																	}
+																	/3 attempts
+																</Badge>
 															)}
 														{client.failures?.map((failure) => (
 															<span

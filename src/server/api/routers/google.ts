@@ -7,7 +7,7 @@ import z from "zod";
 import { env } from "~/env";
 import { fetchWithCache, invalidateCache } from "~/lib/cache";
 import { TEST_NAMES } from "~/lib/constants";
-import { getDashboardSections } from "~/lib/dashboard";
+import { getDashboardSections, sortNeedsReachOut } from "~/lib/dashboard";
 import {
 	CACHE_KEY_PUNCHLIST,
 	createAvailabilityEvent,
@@ -958,7 +958,7 @@ export const googleRouter = createTRPCRouter({
 			sections: getDashboardSections(
 				punchClients,
 				missingClients,
-				needsReachOut,
+				sortNeedsReachOut(needsReachOut),
 				needsReview,
 			),
 			punchlistCount: punchClients?.length ?? 0,

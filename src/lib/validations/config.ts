@@ -145,4 +145,13 @@ export const referralDataSchema = z.object({
 	followedByBabyNet: z.enum(["yes", "no"]).nullable().optional(),
 	walking: z.enum(["yes", "no"]).nullable().optional(),
 	outreachClaimedBy: z.string().optional(),
+	outreachAttempts: z
+		.array(
+			z.object({
+				attemptedAt: z.string(),
+				attemptedBy: z.string().optional(),
+				notes: z.string().optional(),
+			}),
+		)
+		.optional(),
 });

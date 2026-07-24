@@ -26,6 +26,43 @@ export type DashboardClient = (FullClientInfo | Client) & {
 	failures?: Failure[];
 };
 
+const OUTREACH_ATTEMPT_COOLDOWN_MS = 21 * 24 * 60 * 60 * 1000;
+
+/**
+ * Drops clients whose outreach attempts are exhausted (they've moved to the
+ * Drop List) and pushes clients attempted within the last 3 weeks to the
+ * bottom, preserving the incoming order otherwise.
+ */
+export function sortNeedsReachOut<T extends Client>(
+	needsReachOut: T[] | undefined,
+): T[] {
+	if (!needsReachOut) return [];
+
+	const now = Date.now();
+	const eligible = needsReachOut.filter(
+		(c) => (c.referralData?.outreachAttempts?.length ?? 0) < 3,
+	);
+
+	const natural: T[] = [];
+	const recentlyAttempted: T[] = [];
+
+	for (const client of eligible) {
+		const attempts = client.referralData?.outreachAttempts;
+		const lastAttempt = attempts?.[attempts.length - 1];
+		if (
+			!lastAttempt ||
+			now - new Date(lastAttempt.attemptedAt).getTime() >=
+				OUTREACH_ATTEMPT_COOLDOWN_MS
+		) {
+			natural.push(client);
+		} else {
+			recentlyAttempted.push(client);
+		}
+	}
+
+	return [...natural, ...recentlyAttempted];
+}
+
 const isRecordsReady = (client: FullClientInfo) =>
 	client.recordsNeeded === "Not Needed" ||
 	(client.recordsNeeded === "Needed" && !!client.hasExternalRecordsNote);

@@ -27,9 +27,10 @@ import {
 	aggregateBillingCodes,
 	calculateAdditionalAppointments,
 } from "~/lib/billing";
-import { fetchWithCache } from "~/lib/cache";
+import { fetchWithCache, invalidateCache } from "~/lib/cache";
 import { CLIENT_COLOR_KEYS, type ClientColor } from "~/lib/colors";
 import { ALLOWED_ASD_ADHD_VALUES } from "~/lib/constants";
+import { sortNeedsReachOut } from "~/lib/dashboard";
 import {
 	renameDriveFolder,
 	syncPunchData,
@@ -1103,6 +1104,44 @@ export const clientRouter = createTRPCRouter({
 					}
 				}
 
+				const outreachExhausted = await ctx.db.query.clients.findMany({
+					where: and(
+						eq(clients.status, true),
+						not(isNotesOnly),
+						sql`JSON_EXTRACT(${clients.referralData}, '$.needsReachOut') = 'reach_out'`,
+						sql`JSON_LENGTH(JSON_EXTRACT(${clients.referralData}, '$.outreachAttempts')) >= 3`,
+					),
+				});
+
+				for (const client of outreachExhausted) {
+					const attempts = client.referralData?.outreachAttempts ?? [];
+					const firstAttemptDate = attempts[0]
+						? new Date(attempts[0].attemptedAt)
+						: undefined;
+					const newReason =
+						"Outreach attempts exhausted (3 failed contact attempts)";
+
+					if (uniqueClientsMap.has(client.id)) {
+						const existingClient = uniqueClientsMap.get(client.id);
+						if (existingClient) {
+							existingClient.additionalInfo += ` / ${newReason}`;
+							if (
+								firstAttemptDate &&
+								(!existingClient.initialFailureDate ||
+									firstAttemptDate < existingClient.initialFailureDate)
+							) {
+								existingClient.initialFailureDate = firstAttemptDate;
+							}
+						}
+					} else {
+						uniqueClientsMap.set(client.id, {
+							...client,
+							additionalInfo: newReason,
+							initialFailureDate: firstAttemptDate,
+						});
+					}
+				}
+
 				return Array.from(uniqueClientsMap.values()).sort((a, b) => {
 					if (!a.initialFailureDate && !b.initialFailureDate) return 0;
 					if (!a.initialFailureDate) return 1;
@@ -1579,7 +1618,7 @@ export const clientRouter = createTRPCRouter({
 			orderBy: asc(clients.addedDate),
 		});
 
-		return results;
+		return sortNeedsReachOut(results);
 	}),
 
 	getNeedsReview: protectedProcedure.query(async ({ ctx }) => {
@@ -1611,6 +1650,13 @@ export const clientRouter = createTRPCRouter({
 			const currentData = client.referralData ?? {};
 			const isClaimed = currentData.outreachClaimedBy === ctx.session.user.name;
 
+			if (!isClaimed && currentData.needsReachOut === "review") {
+				throw new TRPCError({
+					code: "BAD_REQUEST",
+					message: "Client is marked for review and can no longer be claimed",
+				});
+			}
+
 			ctx.logger.info(
 				{
 					clientId: input.clientId,
@@ -1631,6 +1677,69 @@ export const clientRouter = createTRPCRouter({
 					},
 				})
 				.where(eq(clients.id, input.clientId));
+		}),
+
+	logOutreachAttempt: protectedProcedure
+		.input(z.object({ clientId: z.number(), notes: z.string().optional() }))
+		.mutation(async ({ ctx, input }) => {
+			assertPermission(ctx.session.user, ["clients:referral:infobox"]);
+
+			const client = await ctx.db.query.clients.findFirst({
+				where: eq(clients.id, input.clientId),
+			});
+
+			if (!client) {
+				throw new TRPCError({ code: "NOT_FOUND", message: "Client not found" });
+			}
+
+			const currentData = client.referralData ?? {};
+			const attempts = currentData.outreachAttempts ?? [];
+
+			if (currentData.needsReachOut !== "reach_out") {
+				throw new TRPCError({
+					code: "BAD_REQUEST",
+					message: "Client is not currently marked as needing outreach",
+				});
+			}
+
+			if (attempts.length >= 3) {
+				throw new TRPCError({
+					code: "BAD_REQUEST",
+					message: "Outreach attempts are already exhausted for this client",
+				});
+			}
+
+			const newAttempts = [
+				...attempts,
+				{
+					attemptedAt: new Date().toISOString(),
+					attemptedBy: ctx.session.user.name ?? undefined,
+					notes: input.notes,
+				},
+			];
+
+			ctx.logger.info(
+				{
+					clientId: input.clientId,
+					attemptNumber: newAttempts.length,
+					by: ctx.session.user.email,
+				},
+				"Logged outreach attempt",
+			);
+
+			await ctx.db
+				.update(clients)
+				.set({
+					referralData: {
+						...currentData,
+						outreachAttempts: newAttempts,
+					},
+				})
+				.where(eq(clients.id, input.clientId));
+
+			if (newAttempts.length >= 3) {
+				await invalidateCache(ctx, CACHE_KEY_DROP_LIST);
+			}
 		}),
 
 	getUnreviewedRecords: protectedProcedure.query(async ({ ctx }) => {
