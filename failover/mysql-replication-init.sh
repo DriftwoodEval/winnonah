@@ -37,8 +37,7 @@ scp -o LogLevel=quiet -i "${STANDBY_SSH_KEY_PATH}" \
   /tmp/primary_dump.sql \
   "${STANDBY_SSH_USER}@${STANDBY_TAILSCALE_IP}:/tmp/primary_dump.sql"
 
-# 3. Write the replication config SQL to a temp file and copy it over.
-#    This avoids nested heredocs over SSH, which are unreliable.
+# 3. Write replication config SQL locally where variables expand cleanly
 cat > /tmp/configure_replica.sql << SQL
 STOP REPLICA;
 RESET REPLICA ALL;
@@ -58,24 +57,22 @@ scp -o LogLevel=quiet -i "${STANDBY_SSH_KEY_PATH}" \
   "${STANDBY_SSH_USER}@${STANDBY_TAILSCALE_IP}:/tmp/configure_replica.sql"
 
 # 4. On standby: reset, load dump, configure replication
+# Pass MYSQL_ROOT_PASSWORD explicitly since the remote shell won't have it
 log "Configuring standby..."
 ssh -o LogLevel=quiet -i "${STANDBY_SSH_KEY_PATH}" \
-  "${STANDBY_SSH_USER}@${STANDBY_TAILSCALE_IP}" bash << 'REMOTE'
+  "${STANDBY_SSH_USER}@${STANDBY_TAILSCALE_IP}" \
+  "MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD} bash -s" << 'REMOTE'
 set -euo pipefail
 
-# Disable read-only so we can load the dump
 docker exec driftwood-db mysql -uroot -p"${MYSQL_ROOT_PASSWORD}" \
   -e "STOP REPLICA; SET GLOBAL read_only=OFF; SET GLOBAL super_read_only=OFF;" 2>/dev/null
 
-# Load dump
 docker exec -i driftwood-db mysql -uroot -p"${MYSQL_ROOT_PASSWORD}" \
   2>/dev/null < /tmp/primary_dump.sql
 
-# Configure and start replication
 docker exec -i driftwood-db mysql -uroot -p"${MYSQL_ROOT_PASSWORD}" \
   2>/dev/null < /tmp/configure_replica.sql
 
-# Re-enable read-only
 docker exec driftwood-db mysql -uroot -p"${MYSQL_ROOT_PASSWORD}" \
   -e "SET GLOBAL read_only=ON; SET GLOBAL super_read_only=ON;" 2>/dev/null
 
