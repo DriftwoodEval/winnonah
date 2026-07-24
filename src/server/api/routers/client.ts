@@ -2340,6 +2340,10 @@ export const clientRouter = createTRPCRouter({
 						conditions.push(not(isNotesOnly));
 					} else if (effectiveType === "note") {
 						conditions.push(isNotesOnly);
+					} else {
+						// Archived (inactive) notes-only clients stay hidden unless the
+						// user explicitly filters for Notes Only, regardless of status filter.
+						conditions.push(or(not(isNotesOnly), eq(clients.status, true)));
 					}
 
 					if (hideBabyNet) {
