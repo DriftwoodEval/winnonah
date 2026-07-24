@@ -18,6 +18,8 @@ log() { echo "[$(date '+%H:%M:%S')] $*"; }
 log "=== MySQL Replication Init ==="
 
 # 1. Dump primary
+# --set-gtid-purged=OFF lets SOURCE_AUTO_POSITION handle GTID sync instead,
+# avoiding the "partial dump" warning and GTID_PURGED conflict errors.
 log "Dumping primary database..."
 docker exec driftwood-db mysqldump \
   -uroot -p"${MYSQL_ROOT_PASSWORD}" \
@@ -27,6 +29,7 @@ docker exec driftwood-db mysqldump \
   --flush-logs \
   --routines \
   --triggers \
+  --set-gtid-purged=OFF \
   > /tmp/primary_dump.sql
 
 log "Dump complete: $(du -sh /tmp/primary_dump.sql | cut -f1)"
@@ -41,7 +44,6 @@ scp -o LogLevel=quiet -i "${STANDBY_SSH_KEY_PATH}" \
 cat > /tmp/configure_replica.sql << SQL
 STOP REPLICA;
 RESET REPLICA ALL;
-RESET BINARY LOGS AND GTIDS;
 CHANGE REPLICATION SOURCE TO
   SOURCE_HOST='${PRIMARY_TAILSCALE_IP}',
   SOURCE_PORT=3306,
@@ -56,8 +58,8 @@ scp -o LogLevel=quiet -i "${STANDBY_SSH_KEY_PATH}" \
   /tmp/configure_replica.sql \
   "${STANDBY_SSH_USER}@${STANDBY_TAILSCALE_IP}:/tmp/configure_replica.sql"
 
-# 4. On standby: reset, load dump, configure replication
-# Pass MYSQL_ROOT_PASSWORD explicitly since the remote shell won't have it
+# 4. On standby: load dump and configure replication
+# MYSQL_ROOT_PASSWORD is passed explicitly since the remote shell won't have it
 log "Configuring standby..."
 ssh -o LogLevel=quiet -i "${STANDBY_SSH_KEY_PATH}" \
   "${STANDBY_SSH_USER}@${STANDBY_TAILSCALE_IP}" \
