@@ -1786,7 +1786,16 @@ export const clientRouter = createTRPCRouter({
 	}),
 
 	createNotesOnly: protectedProcedure
-		.input(z.object({ firstName: z.string(), lastName: z.string() }))
+		.input(
+			z.object({
+				firstName: z
+					.string({ error: "First name is required" })
+					.min(1, "First name is required"),
+				lastName: z
+					.string({ error: "Last name is required" })
+					.min(1, "Last name is required"),
+			}),
+		)
 		.mutation(async ({ ctx, input }) => {
 			assertPermission(ctx.session.user, "clients:notes-only");
 
