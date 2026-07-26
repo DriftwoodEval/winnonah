@@ -44,6 +44,10 @@ if [ -z "$WAS_RUNNING" ]; then
 fi
 """
 
+[tasks."db:studio:remote"]
+description = "Open Drizzle Studio against the production database over SSH"
+run = "ssh -L 8282:localhost:8282 opti \"bash -ic 'cd winnonah && pnpm db:studio --port 8282'\""
+
 [tasks."check:pnpm"]
 description = "Type-check and lint TS"
 run = "pnpm check"
