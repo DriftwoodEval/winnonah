@@ -597,7 +597,8 @@ export const pushToPunch = async (
 			(!row[idIndex] || row[idIndex].toString().trim() === ""),
 	);
 
-	if (targetRowIndex === -1) {
+	const needsNewRow = targetRowIndex === -1;
+	if (needsNewRow) {
 		// If no blank row found in the existing range, append after the last row
 		targetRowIndex = rows.length;
 	}
@@ -605,6 +606,53 @@ export const pushToPunch = async (
 	const updateRequests: sheets_v4.Schema$ValueRange[] = [];
 
 	const rowNumber = targetRowIndex + 2; // +1 for 0-index, +1 for header row
+
+	if (needsNewRow) {
+		const sheetName = PUNCHLIST_RANGE.split("!")[0];
+		const spreadsheet = await googleApiCall(
+			"google-sheets",
+			"spreadsheets.get",
+			"Get punchlist sheet metadata",
+			() =>
+				sheetsApi.spreadsheets.get({
+					spreadsheetId: PUNCHLIST_ID,
+					fields: "sheets.properties",
+				}),
+		);
+		const sheetId = spreadsheet.data.sheets?.find(
+			(sheet) => sheet.properties?.title === sheetName,
+		)?.properties?.sheetId;
+
+		if (sheetId === undefined || sheetId === null) {
+			throw new Error(`Sheet "${sheetName}" not found in Punchlist`);
+		}
+
+		// Insert a new row at the end, inheriting formatting/validation from the row above it
+		await googleApiCall(
+			"google-sheets",
+			"spreadsheets.batchUpdate",
+			"Insert new punchlist row",
+			() =>
+				sheetsApi.spreadsheets.batchUpdate({
+					spreadsheetId: PUNCHLIST_ID,
+					requestBody: {
+						requests: [
+							{
+								insertDimension: {
+									range: {
+										sheetId,
+										dimension: "ROWS",
+										startIndex: rowNumber - 1,
+										endIndex: rowNumber,
+									},
+									inheritFromBefore: true,
+								},
+							},
+						],
+					},
+				}),
+		);
+	}
 
 	updateRequests.push({
 		range: `${String.fromCharCode(65 + nameIndex)}${rowNumber}`,
