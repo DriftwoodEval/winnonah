@@ -149,6 +149,9 @@ importers:
       rehype-pretty-code:
         specifier: ^0.14.4
         version: 0.14.4(shiki@4.3.1)
+      rehype-react:
+        specifier: ^8.0.0
+        version: 8.0.0
       rehype-slug:
         specifier: ^6.0.0
         version: 6.0.0
@@ -167,6 +170,9 @@ importers:
       remark-parse:
         specifier: ^11.0.0
         version: 11.0.0
+      remark-rehype:
+        specifier: ^11.1.2
+        version: 11.1.2
       server-only:
         specifier: ^0.0.1
         version: 0.0.1
@@ -4726,6 +4732,9 @@ packages:
     engines: {node: '>=18'}
     peerDependencies:
       shiki: ^1.0.0 || ^2.0.0 || ^3.0.0 || ^4.0.0
+
+  rehype-react@8.0.0:
+    resolution: {integrity: sha512-vzo0YxYbB2HE+36+9HWXVdxNoNDubx63r5LBzpxBGVWM8s9mdnMdbmuJBAX6TTyuGdZjZix6qU3GcSuKCIWivw==}
 
   rehype-recma@1.0.0:
     resolution: {integrity: sha512-lqA4rGUf1JmacCNWWZx0Wv1dHqMwxzsDWYMTowuplHF3xH0N/MmrZ/G3BDZnzAkRmxDadujCjaKM2hqYdCBOGw==}
@@ -9943,6 +9952,14 @@ snapshots:
       shiki: 4.3.1
       unified: 11.0.5
       unist-util-visit: 5.1.0
+
+  rehype-react@8.0.0:
+    dependencies:
+      '@types/hast': 3.0.5
+      hast-util-to-jsx-runtime: 2.3.6
+      unified: 11.0.5
+    transitivePeerDependencies:
+      - supports-color
 
   rehype-recma@1.0.0:
     dependencies:

@@ -871,6 +871,7 @@ export const users = createTable("user", (d) => ({
 	isGreeter: d.boolean("is_greeter").notNull().default(false),
 	recentClients: d.text("recent_clients"),
 	homeWidgets: d.text("home_widgets"),
+	lastSeenChangelogDate: d.varchar("last_seen_changelog_date", { length: 32 }),
 	blockedEvaluatorNpis: d.json("blocked_evaluator_npis").$type<number[]>(),
 }));
 

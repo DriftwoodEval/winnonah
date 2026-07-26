@@ -448,4 +448,21 @@ export const userRouter = createTRPCRouter({
 				.set({ homeWidgets: JSON.stringify(input.widgets) })
 				.where(eq(users.id, ctx.session.user.id));
 		}),
+
+	getLastSeenChangelogDate: protectedProcedure.query(async ({ ctx }) => {
+		const userFromDb = await ctx.db.query.users.findFirst({
+			where: eq(users.id, ctx.session.user.id),
+		});
+
+		return userFromDb?.lastSeenChangelogDate ?? null;
+	}),
+
+	markChangelogSeen: protectedProcedure
+		.input(z.object({ date: z.string() }))
+		.mutation(async ({ ctx, input }) => {
+			await ctx.db
+				.update(users)
+				.set({ lastSeenChangelogDate: input.date })
+				.where(eq(users.id, ctx.session.user.id));
+		}),
 });

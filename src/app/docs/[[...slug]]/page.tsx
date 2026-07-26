@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import { notFound, redirect } from "next/navigation";
+import { ChangelogList } from "~/app/docs/_components/ChangelogList";
 import { TableOfContents } from "~/app/docs/_components/TableOfContents";
+import { CHANGELOG_SLUG, getChangelogHeadings } from "~/lib/changelog";
 import {
 	getAllDocSlugs,
 	getDocBySlug,
@@ -38,6 +40,22 @@ export default async function DocsPage({ params }: PageProps) {
 	const relativePath = getDocRelativePath(slug);
 
 	if (!doc || !relativePath) notFound();
+
+	const isChangelog = slug.join("/") === CHANGELOG_SLUG.join("/");
+
+	if (isChangelog) {
+		return (
+			<div className="flex gap-8">
+				<article className="flex min-w-0 max-w-none flex-1 flex-col gap-6">
+					<h1 className="font-heading font-semibold text-2xl">
+						{doc.frontmatter.title}
+					</h1>
+					<ChangelogList />
+				</article>
+				<TableOfContents headings={getChangelogHeadings()} />
+			</div>
+		);
+	}
 
 	const { default: Content } = await import(`~/content/docs/${relativePath}`);
 

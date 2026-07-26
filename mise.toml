@@ -59,9 +59,13 @@ uvx ruff check python --fix
 uvx ruff format python
 """
 
+[tasks."check:changelog"]
+description = "Validate changelog entry formatting and group ordering"
+run = "pnpm exec tsx scripts/validate-changelog.ts"
+
 [tasks.check]
 description = "Type-check and lint everything (TS + Python)"
-depends = ["check:pnpm", "check:ruff"]
+depends = ["check:pnpm", "check:ruff", "check:changelog"]
 
 [tasks."test:python"]
 description = "Run Python unit tests"

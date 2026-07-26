@@ -1,5 +1,6 @@
 import "~/styles/globals.css";
 
+import { ChangelogPopup } from "@components/layout/ChangelogPopup";
 import { Header } from "@components/layout/Header";
 import { Toaster } from "@ui/sonner";
 import type { Metadata } from "next";
@@ -38,6 +39,7 @@ export default function RootLayout({
 					<Header />
 					<main className="flex grow pt-10">{children}</main>
 					<Toaster position="top-center" richColors />
+					<ChangelogPopup />
 				</Providers>
 			</body>
 		</html>

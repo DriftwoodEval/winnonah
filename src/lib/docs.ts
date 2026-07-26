@@ -70,6 +70,14 @@ function slugToFilePath(slug: string[]): string | null {
 		const filePath = path.join(DOCS_DIR, relative + ext);
 		if (fs.existsSync(filePath)) return filePath;
 	}
+
+	if (slug.length > 0) {
+		for (const ext of [".mdx", ".md"]) {
+			const filePath = path.join(DOCS_DIR, relative, `index${ext}`);
+			if (fs.existsSync(filePath)) return filePath;
+		}
+	}
+
 	return null;
 }
 
