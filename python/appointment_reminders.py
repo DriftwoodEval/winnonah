@@ -87,6 +87,11 @@ def is_within_quiet_window(connection) -> bool:
     return in_window
 
 
+def _to_utc_iso(dt: datetime) -> str:
+    """Marks a naive wall-clock datetime as UTC so JS `Date` parsing is deterministic."""
+    return dt.replace(tzinfo=UTC).isoformat()
+
+
 def format_message(template: str, appointment: dict) -> str:
     """Replaces placeholders with actual data."""
     office_label, office_location_phrase = _office_fields(appointment)
@@ -256,7 +261,7 @@ def get_reminder_preview(
 
     sent = [
         {
-            "sentAt": log["sentAt"].isoformat(),
+            "sentAt": _to_utc_iso(log["sentAt"]),
             "templateName": log["templateName"],
             "templateId": log["reminderTemplateId"],
             "messageTemplate": log["messageTemplate"],
@@ -306,7 +311,7 @@ def get_reminder_preview(
 
             pending.append(
                 {
-                    "scheduledFor": scheduled_for.isoformat(),
+                    "scheduledFor": _to_utc_iso(scheduled_for),
                     "quietAdjusted": quiet_adjusted,
                     "templateName": template["name"],
                     "condition": condition,
@@ -319,7 +324,7 @@ def get_reminder_preview(
 
     office_label, office_location_phrase = _office_fields(appt)
     return {
-        "appointmentTime": start_time.isoformat(),
+        "appointmentTime": _to_utc_iso(start_time),
         "officeName": office_label,
         "officeLocationPhrase": office_location_phrase,
         "suppressed": bool(suppressed_reason),

@@ -2,6 +2,7 @@
 
 import { Skeleton } from "@ui/skeleton";
 import { format, formatDistanceToNow } from "date-fns";
+import { getLocalTimeFromUTCDate } from "~/lib/utils";
 import { api } from "~/trpc/react";
 
 function formatPreview(
@@ -67,7 +68,8 @@ export function AppointmentReminderTimeline({
 			</p>
 		);
 
-	const appointmentTime = data.appointmentTime;
+	const appointmentTime =
+		getLocalTimeFromUTCDate(data.appointmentTime) ?? data.appointmentTime;
 	const officeName = data.officeName ?? null;
 	const officeLocationPhrase = data.officeLocationPhrase ?? null;
 
@@ -96,44 +98,48 @@ export function AppointmentReminderTimeline({
 					/>
 				</div>
 			))}
-			{data.pending.map((item) => (
-				<div
-					className="relative"
-					key={`pending-${item.templateName}-${item.scheduledFor.getTime()}`}
-				>
-					<span
-						className={`absolute top-1 -left-[17px] h-2 w-2 rounded-full border-2 bg-background ${item.isOverdue ? "border-destructive" : item.condition ? "border-muted-foreground" : "border-primary"}`}
-					/>
-					<p className="font-medium text-[10px] leading-tight">
-						{item.isOverdue && appointmentTime > new Date() ? (
-							<span className="text-destructive italic">
-								sending on next cycle
-							</span>
-						) : (
-							<>
-								{format(item.scheduledFor, "MMM d 'at' p")}
-								{item.condition && (
-									<span className="ml-1 font-normal">({item.condition})</span>
-								)}
-								{item.quietAdjusted && (
-									<span className="ml-1 font-normal italic">
-										(adj. for quiet hours)
-									</span>
-								)}
-							</>
-						)}
-					</p>
-					<p className={`text-[10px] text-muted-foreground leading-tight`}>
-						{item.templateName}
-					</p>
-					<MessageSnippet
-						appointmentTime={appointmentTime}
-						messageTemplate={item.messageTemplate}
-						officeLocationPhrase={officeLocationPhrase}
-						officeName={officeName}
-					/>
-				</div>
-			))}
+			{data.pending.map((item) => {
+				const scheduledFor =
+					getLocalTimeFromUTCDate(item.scheduledFor) ?? item.scheduledFor;
+				return (
+					<div
+						className="relative"
+						key={`pending-${item.templateName}-${item.scheduledFor.getTime()}`}
+					>
+						<span
+							className={`absolute top-1 -left-[17px] h-2 w-2 rounded-full border-2 bg-background ${item.isOverdue ? "border-destructive" : item.condition ? "border-muted-foreground" : "border-primary"}`}
+						/>
+						<p className="font-medium text-[10px] leading-tight">
+							{item.isOverdue && appointmentTime > new Date() ? (
+								<span className="text-destructive italic">
+									sending on next cycle
+								</span>
+							) : (
+								<>
+									{format(scheduledFor, "MMM d 'at' p")}
+									{item.condition && (
+										<span className="ml-1 font-normal">({item.condition})</span>
+									)}
+									{item.quietAdjusted && (
+										<span className="ml-1 font-normal italic">
+											(adj. for quiet hours)
+										</span>
+									)}
+								</>
+							)}
+						</p>
+						<p className={`text-[10px] text-muted-foreground leading-tight`}>
+							{item.templateName}
+						</p>
+						<MessageSnippet
+							appointmentTime={appointmentTime}
+							messageTemplate={item.messageTemplate}
+							officeLocationPhrase={officeLocationPhrase}
+							officeName={officeName}
+						/>
+					</div>
+				);
+			})}
 		</div>
 	);
 }
