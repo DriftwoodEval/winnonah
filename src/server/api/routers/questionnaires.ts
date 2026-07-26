@@ -130,6 +130,28 @@ function parseQuestionnairesFromBulkImport(text: string) {
 	return items;
 }
 
+const QUESTIONNAIRE_TYPE_ALIASES: Record<string, string> = {
+	DP4: "DP-4",
+};
+
+function normalizeQuestionnaireType(type: string): string {
+	return QUESTIONNAIRE_TYPE_ALIASES[type] ?? type;
+}
+
+async function getCanonicalQuestionnaireNames(
+	ctx: Context,
+): Promise<Set<string>> {
+	const types = await ctx.db.query.assessmentTypes.findMany({
+		columns: { name: true },
+	});
+
+	if (types.length === 0) {
+		return new Set(QUESTIONNAIRES.map((q) => q.name));
+	}
+
+	return new Set(types.map((t) => t.name));
+}
+
 const findLatestScreenshot = (
 	qLink: string,
 	screenshotDir: string,
@@ -705,12 +727,31 @@ export const questionnaireRouter = createTRPCRouter({
 
 			const parsedQuestionnaires = parseQuestionnairesFromBulkImport(
 				input.text,
-			);
+			).map((q) => ({
+				...q,
+				questionnaireType: normalizeQuestionnaireType(q.questionnaireType),
+			}));
 
 			if (parsedQuestionnaires.length === 0) {
 				throw new TRPCError({
 					code: "BAD_REQUEST",
 					message: "No valid questionnaires found in the provided text",
+				});
+			}
+
+			const canonicalNames = await getCanonicalQuestionnaireNames(ctx);
+			const unrecognizedTypes = [
+				...new Set(
+					parsedQuestionnaires
+						.map((q) => q.questionnaireType)
+						.filter((type) => !canonicalNames.has(type)),
+				),
+			];
+
+			if (unrecognizedTypes.length > 0) {
+				throw new TRPCError({
+					code: "BAD_REQUEST",
+					message: `Unrecognized questionnaire type(s): ${unrecognizedTypes.join(", ")}`,
 				});
 			}
 
