@@ -28,11 +28,15 @@ export function ImpersonateUserSelect() {
 
 	async function viewAs(userId: string | undefined) {
 		setPending(true);
-		await fetch("/api/impersonate", {
+		const response = await fetch("/api/impersonate", {
 			method: "POST",
 			headers: { "Content-Type": "application/json" },
 			body: JSON.stringify({ userId: userId ?? null }),
 		});
+		if (!response.ok) {
+			setPending(false);
+			return;
+		}
 		window.location.reload();
 	}
 

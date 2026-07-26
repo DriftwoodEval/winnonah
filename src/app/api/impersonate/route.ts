@@ -18,7 +18,7 @@ export async function POST(request: Request) {
 		return NextResponse.json({ ok: true });
 	}
 
-	if (!hasPermission(session.user.permissions, "settings:impersonate")) {
+	if (!hasPermission(session.user.realPermissions, "settings:impersonate")) {
 		return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 	}
 

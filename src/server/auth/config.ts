@@ -44,6 +44,8 @@ declare module "next-auth" {
 			impersonatorId?: string | null;
 			/** The real signed-in user's email, set only while `isImpersonating` is true. */
 			impersonatorEmail?: string | null;
+			/** The real signed-in user's own permissions, regardless of any active impersonation. */
+			realPermissions: PermissionsObject;
 		} & DefaultSession["user"];
 	}
 
@@ -168,23 +170,26 @@ export const authConfig = {
 		async session({ session, user }) {
 			const impersonationCookieId = await getImpersonationCookieId();
 
+			let realUserPermissions = (user.permissions as PermissionsObject) ?? {};
+			if (user.roleId) {
+				const role = await db.query.roles.findFirst({
+					where: eq(roles.id, user.roleId),
+				});
+				if (role) {
+					realUserPermissions = {
+						...role.permissions,
+						...user.permissions,
+					};
+				}
+			}
+
 			let approvedImpersonationTargetId: string | null = null;
-			if (impersonationCookieId && impersonationCookieId !== user.id) {
-				let realUserPermissions = (user.permissions as PermissionsObject) ?? {};
-				if (user.roleId) {
-					const role = await db.query.roles.findFirst({
-						where: eq(roles.id, user.roleId),
-					});
-					if (role) {
-						realUserPermissions = {
-							...role.permissions,
-							...user.permissions,
-						};
-					}
-				}
-				if (hasPermission(realUserPermissions, "settings:impersonate")) {
-					approvedImpersonationTargetId = impersonationCookieId;
-				}
+			if (
+				impersonationCookieId &&
+				impersonationCookieId !== user.id &&
+				hasPermission(realUserPermissions, "settings:impersonate")
+			) {
+				approvedImpersonationTargetId = impersonationCookieId;
 			}
 
 			const isImpersonating = !!approvedImpersonationTargetId;
@@ -207,6 +212,7 @@ export const authConfig = {
 			}
 			session.user.accessToken = accessToken ?? undefined;
 			session.user.refreshToken = refreshToken ?? undefined;
+			session.user.realPermissions = realUserPermissions;
 
 			if (targetUser) {
 				session.user.id = targetUser.id;
