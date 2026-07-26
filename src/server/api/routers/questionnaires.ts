@@ -230,7 +230,10 @@ const questionnaireRuleInputSchema = questionnaireRuleBaseSchema.refine(
  * Picks the questionnaire rules that apply to a client, grouped by
  * (daeval, diagnosis). Within each group, a rule is considered applicable
  * if every questionnaire type it requires has already been sent to the
- * client; when several rules in a group fully match (because their
+ * client and the rule's band is not older than the client's current age
+ * (younger or accurate bands only, since an older band's questionnaires
+ * shouldn't be treated as satisfied before the client has grown into
+ * them); when several such rules in a group fully match (because their
  * questionnaire types overlap, e.g. shared across age bands), the rule
  * requiring the most types is preferred as the closest match to what was
  * actually sent. Only questionnaires sent since the client's current
@@ -293,13 +296,21 @@ async function resolveApplicableRules(
 		}
 	}
 
-	let ageInYears: number | null = null;
+	const ageInYears = await getQuestionnaireEligibilityAge(
+		ctx.db,
+		clientId,
+		client.dob,
+	);
 	const resultRules: (typeof diagnosisFiltered)[number][] = [];
 
 	for (const groupRules of groups.values()) {
 		const fullyMatched = groupRules.filter((r) => {
 			const qs = r.questionnaires ?? [];
-			return qs.length > 0 && qs.every((q) => sentTypes.has(q));
+			return (
+				qs.length > 0 &&
+				qs.every((q) => sentTypes.has(q)) &&
+				r.minAge <= ageInYears
+			);
 		});
 
 		if (fullyMatched.length > 0) {
@@ -312,11 +323,6 @@ async function resolveApplicableRules(
 			continue;
 		}
 
-		ageInYears ??= await getQuestionnaireEligibilityAge(
-			ctx.db,
-			clientId,
-			client.dob,
-		);
 		for (const r of groupRules) {
 			if (r.minAge <= ageInYears && r.maxAge >= ageInYears) {
 				resultRules.push(r);
