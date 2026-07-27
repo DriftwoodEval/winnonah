@@ -12,7 +12,7 @@ import { Redact } from "../redaction/Redact";
 
 export const HOUR_HEIGHT = 64;
 export const DAY_START = 7;
-export const DAY_END = 20;
+export const DAY_END = 21;
 export const GRID_PADDING = 12;
 export const TOTAL_HEIGHT =
 	(DAY_END - DAY_START) * HOUR_HEIGHT + GRID_PADDING * 2;
@@ -103,27 +103,37 @@ export function buildColorMap(data: CalAppt[]): Map<number, string> {
 
 // ─── Lane assignment ──────────────────────────────────────────────────────────
 
-export function assignLanes<T extends { startTime: Date; endTime: Date }>(
-	appts: T[],
-): { appt: T; lane: number; totalLanes: number }[] {
-	const sorted = appts.toSorted(
-		(a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime(),
-	);
-	const laneEndMs: number[] = [];
-	const result: { appt: T; lane: number; totalLanes: number }[] = [];
-	for (const appt of sorted) {
-		const startMs = new Date(appt.startTime).getTime();
-		let lane = laneEndMs.findIndex((end) => end <= startMs);
-		if (lane === -1) {
-			lane = laneEndMs.length;
-			laneEndMs.push(0);
-		}
-		laneEndMs[lane] = new Date(appt.endTime).getTime();
-		result.push({ appt, lane, totalLanes: 0 });
+export function assignLanes<
+	T extends {
+		evaluatorNpi: number;
+		evaluatorName: string;
+		isCurrentUser: boolean;
+	},
+>(appts: T[]): { appt: T; lane: number; totalLanes: number }[] {
+	const firstByNpi = new Map<number, T>();
+	for (const appt of appts) {
+		if (!firstByNpi.has(appt.evaluatorNpi))
+			firstByNpi.set(appt.evaluatorNpi, appt);
 	}
-	const total = laneEndMs.length;
-	for (const r of result) r.totalLanes = total;
-	return result;
+	const sortedNpis = [...firstByNpi.keys()].toSorted((a, b) => {
+		const evalA = firstByNpi.get(a);
+		const evalB = firstByNpi.get(b);
+		if (evalA?.isCurrentUser && !evalB?.isCurrentUser) return -1;
+		if (!evalA?.isCurrentUser && evalB?.isCurrentUser) return 1;
+		return (evalA?.evaluatorName ?? "").localeCompare(
+			evalB?.evaluatorName ?? "",
+		);
+	});
+	const laneByNpi = new Map<number, number>();
+	sortedNpis.forEach((npi, i) => {
+		laneByNpi.set(npi, i);
+	});
+	const totalLanes = sortedNpis.length;
+	return appts.map((appt) => ({
+		appt,
+		lane: laneByNpi.get(appt.evaluatorNpi) ?? 0,
+		totalLanes,
+	}));
 }
 
 // ─── Time gutter ──────────────────────────────────────────────────────────────
@@ -183,7 +193,22 @@ export function ApptBlock({
 	showEvaluator?: boolean;
 	style?: React.CSSProperties;
 }) {
-	const location = appt.officeName ?? appt.locationKey ?? "Virtual";
+	const durationMin =
+		(new Date(appt.endTime).getTime() - new Date(appt.startTime).getTime()) /
+		60000;
+	const isShort = durationMin <= 60;
+	const fullLocation = appt.officeName ?? appt.locationKey ?? "Virtual";
+	const isVirtual =
+		appt.locationKey === "VIRTUAL" || fullLocation === "Virtual";
+	const badgeLocation = isShort
+		? isVirtual
+			? "V"
+			: (appt.locationKey ?? appt.officeName ?? "V")
+		: fullLocation;
+	const heightPx = typeof style?.height === "number" ? style.height : undefined;
+	const showBadges = heightPx === undefined || heightPx >= 40;
+	const showEvaluatorLine =
+		showEvaluator && (heightPx === undefined || heightPx >= 56);
 
 	return (
 		<Tooltip>
@@ -198,31 +223,45 @@ export function ApptBlock({
 					>
 						<Redact>{appt.clientName}</Redact>
 					</Link>
-					{showEvaluator && (
+					{showEvaluatorLine && (
 						<div className="truncate text-[10px] text-muted-foreground leading-tight">
 							{appt.evaluatorName}
 						</div>
 					)}
 					<div className="truncate text-[10px] text-muted-foreground tabular-nums leading-tight">
-						{formatTime(appt.startTime)}–{formatTime(appt.endTime)} · {location}
+						{formatTime(appt.startTime)}–{formatTime(appt.endTime)}
 					</div>
-					<div className="mt-0.5 flex flex-wrap items-center gap-0.5">
-						{appt.asdAdhd && (
-							<Badge className="h-3.5 px-1 text-[9px]" variant="outline">
-								{appt.asdAdhd}
+					{showBadges && (
+						<div className="mt-0.5 flex flex-wrap items-center gap-0.5 overflow-hidden">
+							{appt.confirmedAt && (
+								<Badge className="h-3.5 shrink-0 px-1 text-[9px] uppercase">
+									{isShort ? "C" : "Confirmed"}
+								</Badge>
+							)}
+							<Badge
+								className="h-3.5 shrink-0 px-1 text-[9px]"
+								variant="outline"
+							>
+								{badgeLocation}
 							</Badge>
-						)}
-						{appt.daEval && (
-							<Badge className="h-3.5 px-1 text-[9px]" variant="outline">
-								{appt.daEval}
-							</Badge>
-						)}
-						{appt.confirmedAt && (
-							<Badge className="h-3.5 px-1 text-[9px] uppercase">
-								Confirmed
-							</Badge>
-						)}
-					</div>
+							{appt.asdAdhd && (
+								<Badge
+									className="h-3.5 shrink-0 px-1 text-[9px]"
+									variant="outline"
+								>
+									{appt.asdAdhd}
+								</Badge>
+							)}
+							{appt.daEval && (
+								<Badge
+									className="h-3.5 shrink-0 px-1 text-[9px]"
+									variant="outline"
+								>
+									{appt.daEval}
+								</Badge>
+							)}
+						</div>
+					)}
 				</div>
 			</TooltipTrigger>
 			<TooltipContent
@@ -236,7 +275,7 @@ export function ApptBlock({
 				<p className="opacity-80">
 					{formatTime(appt.startTime)} – {formatTime(appt.endTime)}
 				</p>
-				<p className="opacity-80">{location}</p>
+				<p className="opacity-80">{fullLocation}</p>
 				<p className="opacity-80">{appt.evaluatorName}</p>
 				{(appt.asdAdhd ?? appt.daEval) && (
 					<p className="opacity-80">
