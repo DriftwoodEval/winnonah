@@ -2,6 +2,19 @@
 title: Changelog
 ---
 
+## 2026-07-27 - Calendar lane and layout fixes
+**Improved**
+- Evaluators no longer jump between lanes on the day-ahead calendar and short appointments show less clutter, such as using the short names for offices.
+- Empty days on the multi-day calendar view are now narrower.
+
+**Fixed**
+- Stale private-pay/insurance entries are now cleaned up when no longer included on the TA import.
+
+## 2026-07-26 - Fix impersonation and appointment reminder timezone bug
+**Fixed**
+- Fixed impersonating a second person in a row not working after impersonating someone else.
+- Fixed a timezone bug in the appointment reminder timeline.
+
 ## 2026-07-26 - Changelog page and "what's new" popup
 - Added this Changelog page.
 - Added a popup that shows unseen changelog entries the first time you visit after they're published.
@@ -14,7 +27,9 @@ title: Changelog
 
 ## 2026-07-24 - Track outreach attempts
 **New**
-- Added tracking for outreach attempts made to clients.
+- Clients needing outreach now have a "Log Attempt" button on the Referral tab, up to 3 attempts, each recording who logged it, when, and optional notes.
+- After the 3rd failed attempt, the client automatically moves from the Needs Outreach list to the Drop List.
+- Clients attempted within the last 21 days sort to the bottom of the Needs Outreach list so staff see less-recently-tried clients first.
 
 ## 2026-07-23 - Admin impersonation and referral tab updates
 **New**
