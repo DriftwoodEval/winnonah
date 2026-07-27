@@ -132,6 +132,8 @@ function parseQuestionnairesFromBulkImport(text: string) {
 
 const QUESTIONNAIRE_TYPE_ALIASES: Record<string, string> = {
 	DP4: "DP-4",
+	SRS2: "SRS-2",
+	"SRS 2": "SRS-2",
 };
 
 function normalizeQuestionnaireType(type: string): string {
