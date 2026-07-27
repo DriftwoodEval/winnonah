@@ -26,6 +26,16 @@ export function ImpersonateUserSelect() {
 
 	if (!session) return null;
 
+	const realUserId = session.user.isImpersonating
+		? session.user.impersonatorId
+		: session.user.id;
+
+	const currentName = session.user.isImpersonating
+		? (users?.find((u) => u.id === session.user.id)?.name ??
+			session.user.name ??
+			session.user.email)
+		: "Myself";
+
 	async function viewAs(userId: string | undefined) {
 		setPending(true);
 		const response = await fetch("/api/impersonate", {
@@ -47,15 +57,19 @@ export function ImpersonateUserSelect() {
 			value={session.user.isImpersonating ? session.user.id : "__self"}
 		>
 			<SelectTrigger className="h-7 w-44 border-dashed text-xs">
-				<SelectValue placeholder="View as..." />
+				<SelectValue placeholder="View as...">
+					Acting as: {currentName}
+				</SelectValue>
 			</SelectTrigger>
 			<SelectContent>
 				<SelectItem value="__self">Myself</SelectItem>
-				{users?.map((u) => (
-					<SelectItem key={u.id} value={u.id}>
-						{u.name ?? u.email}
-					</SelectItem>
-				))}
+				{users
+					?.filter((u) => u.id !== realUserId)
+					.map((u) => (
+						<SelectItem key={u.id} value={u.id}>
+							{u.name ?? u.email}
+						</SelectItem>
+					))}
 			</SelectContent>
 		</Select>
 	);
