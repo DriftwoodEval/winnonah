@@ -405,9 +405,10 @@ export function CalendarMultiDayView({
 				{dates.map((d) => {
 					const date = new Date(`${d}T12:00:00`);
 					const isToday = d === todayStr;
+					const isEmpty = (byDate.get(d) ?? []).length === 0;
 					return (
 						<div
-							className="min-w-0 flex-1 border-l px-3 py-2 text-center first:border-l-0"
+							className={`min-w-0 border-l px-3 py-2 text-center first:border-l-0 ${isEmpty ? "flex-[0.35]" : "flex-1"}`}
 							key={d}
 						>
 							<div
@@ -429,9 +430,10 @@ export function CalendarMultiDayView({
 				{dates.map((d) => {
 					const dayAppts = byDate.get(d) ?? [];
 					const lanes = assignLanes(dayAppts);
+					const isEmpty = dayAppts.length === 0;
 					return (
 						<div
-							className="relative min-w-0 flex-1 border-l first:border-l-0"
+							className={`relative min-w-0 border-l first:border-l-0 ${isEmpty ? "flex-[0.35]" : "flex-1"}`}
 							key={d}
 							style={{ height: TOTAL_HEIGHT }}
 						>
