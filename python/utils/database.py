@@ -562,6 +562,7 @@ def sync_client_insurance_from_policies(connection: Connection[DictCursor]):
                 SELECT MAX(COALESCE(p.privatePay, 0))
                 FROM `{TABLE_CLIENT_INSURANCE_POLICY}` p
                 WHERE p.clientId = c.id
+                  AND (p.policyEndDate IS NULL OR p.policyEndDate >= CURDATE())
             ), 0)
     """
     with connection.cursor() as cursor:
@@ -918,6 +919,27 @@ def put_client_insurance_policies_in_db(
     logger.info(
         f"Successfully inserted/updated {len(values_to_insert)} insurance policies."
     )
+
+    # Remove stale policies for clients in this export that are no longer present,
+    # e.g. a private-pay policy that TherapyAppointment dropped once real insurance was added.
+    imported_client_ids = {values[1] for values in values_to_insert}
+    imported_policy_ids = {values[0] for values in values_to_insert}
+    client_id_placeholders = ", ".join(["%s"] * len(imported_client_ids))
+    policy_id_placeholders = ", ".join(["%s"] * len(imported_policy_ids))
+    with connection.cursor() as cursor:
+        cursor.execute(
+            f"""
+            DELETE FROM `{TABLE_CLIENT_INSURANCE_POLICY}`
+            WHERE clientId IN ({client_id_placeholders})
+              AND policyId NOT IN ({policy_id_placeholders})
+            """,
+            [*imported_client_ids, *imported_policy_ids],
+        )
+        deleted = cursor.rowcount
+    connection.commit()
+
+    if deleted:
+        logger.info(f"Removed {deleted} stale insurance policies no longer in export.")
 
 
 @provide_connection
