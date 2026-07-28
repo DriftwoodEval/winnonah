@@ -141,3 +141,109 @@ class TestClientDatabaseRoundTrip:
         assert row is not None
         assert row["phoneNumber"] == "8039998888"
         assert bool(row["status"]) is False
+
+    def test_put_clients_in_db_defaults_language_to_english_for_new_client(self):
+        base_row = {
+            "CLIENT_ID": TEST_CLIENT_ID,
+            "FIRSTNAME": "Testman",
+            "LASTNAME": "Testson",
+            "PREFERRED_NAME": None,
+            "ADDED_DATE": "2026-01-15",
+            "DOB": "01/02/2015",
+            "GENDER": "male",
+            "PHONE1": "8035551234",
+            "EMAIL": "testman@example.com",
+            "STATUS": "Active",
+            "ADDRESS": None,
+            "SCHOOL_DISTRICT": None,
+            "LATITUDE": None,
+            "LONGITUDE": None,
+            "ASD_ADHD": None,
+            "LANGUAGE": None,
+            "FLAG": None,
+            "LOGIN_NAME": None,
+            "REFERRAL_SOURCE": None,
+        }
+
+        put_clients_in_db(pd.DataFrame([base_row]))
+
+        row = _fetch_test_client()
+        assert row is not None
+        assert row["language"] == "English"
+
+    def test_put_clients_in_db_does_not_clobber_existing_language_when_missing_from_import(
+        self,
+    ):
+        base_row = {
+            "CLIENT_ID": TEST_CLIENT_ID,
+            "FIRSTNAME": "Testman",
+            "LASTNAME": "Testson",
+            "PREFERRED_NAME": None,
+            "ADDED_DATE": "2026-01-15",
+            "DOB": "01/02/2015",
+            "GENDER": "male",
+            "PHONE1": "8035551234",
+            "EMAIL": "testman@example.com",
+            "STATUS": "Active",
+            "ADDRESS": None,
+            "SCHOOL_DISTRICT": None,
+            "LATITUDE": None,
+            "LONGITUDE": None,
+            "ASD_ADHD": None,
+            "LANGUAGE": "Spanish",
+            "FLAG": None,
+            "LOGIN_NAME": None,
+            "REFERRAL_SOURCE": None,
+        }
+        put_clients_in_db(pd.DataFrame([base_row]))
+
+        reimported_row = {**base_row, "LANGUAGE": None}
+        put_clients_in_db(pd.DataFrame([reimported_row]))
+
+        row = _fetch_test_client()
+        assert row is not None
+        assert row["language"] == "Spanish"
+
+    def test_put_clients_in_db_backfills_null_language_when_not_on_punchlist(self):
+        base_row = {
+            "CLIENT_ID": TEST_CLIENT_ID,
+            "FIRSTNAME": "Testman",
+            "LASTNAME": "Testson",
+            "PREFERRED_NAME": None,
+            "ADDED_DATE": "2026-01-15",
+            "DOB": "01/02/2015",
+            "GENDER": "male",
+            "PHONE1": "8035551234",
+            "EMAIL": "testman@example.com",
+            "STATUS": "Active",
+            "ADDRESS": None,
+            "SCHOOL_DISTRICT": None,
+            "LATITUDE": None,
+            "LONGITUDE": None,
+            "ASD_ADHD": None,
+            "LANGUAGE": "Spanish",
+            "FLAG": None,
+            "LOGIN_NAME": None,
+            "REFERRAL_SOURCE": None,
+        }
+        put_clients_in_db(pd.DataFrame([base_row]))
+
+        # Simulate a client whose DB language is already NULL, e.g. from
+        # before this backfill logic existed.
+        connection = get_db()
+        try:
+            with connection.cursor() as cursor:
+                cursor.execute(
+                    f"UPDATE {TABLE_CLIENT} SET language = NULL WHERE id = %s",
+                    (TEST_CLIENT_ID,),
+                )
+            connection.commit()
+        finally:
+            connection.close()
+
+        reimported_row = {**base_row, "LANGUAGE": None}
+        put_clients_in_db(pd.DataFrame([reimported_row]))
+
+        row = _fetch_test_client()
+        assert row is not None
+        assert row["language"] == "English"

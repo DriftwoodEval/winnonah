@@ -124,6 +124,48 @@ def get_drive_service():
     return build("drive", "v3", credentials=creds)
 
 
+def get_sheets_service():
+    """Get the Google Sheets service."""
+    creds = google_authenticate()
+    return build("sheets", "v4", credentials=creds)
+
+
+def get_punchlist_language_map() -> dict[str, str]:
+    """Fetch a mapping of Client ID to Language from the Punchlist sheet."""
+    service = get_sheets_service()
+    result = (
+        service.spreadsheets()
+        .values()
+        .get(
+            spreadsheetId=os.getenv("PUNCHLIST_ID"),
+            range=os.getenv("PUNCHLIST_RANGE"),
+        )
+        .execute()
+    )
+
+    rows = result.get("values", [])
+    if not rows:
+        return {}
+
+    header = rows[0]
+    try:
+        id_index = header.index("Client ID")
+        language_index = header.index("Language")
+    except ValueError:
+        logger.warning("Client ID or Language column not found in Punchlist sheet")
+        return {}
+
+    language_map: dict[str, str] = {}
+    for row in rows[1:]:
+        if len(row) <= id_index:
+            continue
+        client_id = row[id_index]
+        language = row[language_index].strip() if len(row) > language_index else ""
+        language_map[client_id] = language or "English"
+
+    return language_map
+
+
 def list_files_in_folder(folder_id: str) -> list[dict]:
     """Return all non-trashed, non-folder items in a Drive folder."""
     results = []

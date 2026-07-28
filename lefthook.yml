@@ -23,3 +23,6 @@ pre-commit:
     deptry:
       root: "python/"
       run: mise x -- uv run deptry .
+    changelog:
+      glob: "src/content/docs/changelog/index.mdx"
+      run: mise x -- pnpm exec tsx scripts/validate-changelog.ts

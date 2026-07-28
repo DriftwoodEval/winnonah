@@ -285,6 +285,19 @@ def put_clients_in_db(clients_df: pd.DataFrame, connection: Connection[DictCurso
     values_to_insert = []
     new_status_by_id: dict[str, bool] = {}
 
+    incoming_ids = [str(cid) for cid in clients_df["CLIENT_ID"] if pd.notna(cid)]
+    existing_language_by_id: dict[str, str | None] = {}
+    if incoming_ids:
+        placeholders = ", ".join(["%s"] * len(incoming_ids))
+        with connection.cursor() as cursor:
+            cursor.execute(
+                f"SELECT id, language FROM `{TABLE_CLIENT}` WHERE id IN ({placeholders})",
+                incoming_ids,
+            )
+            existing_language_by_id = {
+                str(row["id"]): row["language"] for row in cursor.fetchall()
+            }
+
     for _, client in clients_df.iterrows():
         client_id = get_column(client, "CLIENT_ID")
         if client_id is None:
@@ -316,6 +329,10 @@ def put_clients_in_db(clients_df: pd.DataFrame, connection: Connection[DictCurso
         new_status = get_column(client, "STATUS") != "Inactive"
         new_status_by_id[str(client_id)] = new_status
 
+        language = get_column(client, "LANGUAGE")
+        if language is None and existing_language_by_id.get(str(client_id)) is None:
+            language = "English"
+
         values = (
             client_id,
             hashlib.md5(str(client_id).encode("utf-8")).hexdigest(),
@@ -335,7 +352,7 @@ def put_clients_in_db(clients_df: pd.DataFrame, connection: Connection[DictCurso
             if get_column(client, "LONGITUDE") == "Unknown"
             else get_column(client, "LONGITUDE"),
             get_column(client, "ASD_ADHD"),
-            get_column(client, "LANGUAGE"),
+            language,
             gender,
             phone_number,
             email,

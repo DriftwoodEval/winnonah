@@ -130,10 +130,19 @@ def import_from_ta(
             "LATITUDE",
             "LONGITUDE",
             "FLAG",
+            "LANGUAGE",
         ]
         for col in new_cols:
             if col not in clients.columns:
                 clients[col] = pd.NA
+
+        try:
+            punchlist_languages = utils.google.get_punchlist_language_map()
+        except Exception as e:
+            logger.error(f"Failed to fetch languages from Punchlist sheet: {e}")
+            punchlist_languages = {}
+
+        clients["LANGUAGE"] = clients["CLIENT_ID"].astype(str).map(punchlist_languages)
 
         clients_to_geocode = utils.database.filter_clients_with_changed_address(
             clients, connection=conn
