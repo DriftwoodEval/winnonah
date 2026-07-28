@@ -962,6 +962,8 @@ export const questionnaireRouter = createTRPCRouter({
 		}),
 
 	getDuplicateLinks: protectedProcedure.query(async ({ ctx }) => {
+		assertPermission(ctx.session.user, "issues:duplicate-questionnaires");
+
 		// 1. Clients with the same link multiple times (grouped by link + clientId)
 		const duplicatePerClient = await ctx.db
 			.select({
@@ -1049,6 +1051,8 @@ export const questionnaireRouter = createTRPCRouter({
 	}),
 
 	getJustAdded: protectedProcedure.query(async ({ ctx }) => {
+		assertPermission(ctx.session.user, "issues:just-added");
+
 		const clientsWithJustAdded = await ctx.db
 			.selectDistinct({
 				client: clients,
@@ -1061,6 +1065,8 @@ export const questionnaireRouter = createTRPCRouter({
 	}),
 
 	getPartialBatteries: protectedProcedure.query(async ({ ctx }) => {
+		assertPermission(ctx.session.user, "issues:partial-battery");
+
 		if (!ctx.session.user.accessToken || !ctx.session.user.refreshToken) {
 			throw new Error("No access token or refresh token");
 		}

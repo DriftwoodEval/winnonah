@@ -25,7 +25,11 @@ import {
 } from "~/lib/google";
 import type { Client } from "~/lib/models";
 import type { DuplicateGroup } from "~/lib/types";
-import { getDistanceSQL, getInsuranceShortName } from "~/lib/utils";
+import {
+	getDistanceSQL,
+	getInsuranceShortName,
+	hasPermission,
+} from "~/lib/utils";
 import {
 	assertPermission,
 	type Context,
@@ -200,6 +204,8 @@ export const googleRouter = createTRPCRouter({
 		}),
 
 	findDuplicates: protectedProcedure.query(async ({ ctx }) => {
+		assertPermission(ctx.session.user, "issues:duplicate-drive");
+
 		const cookieHeader = ctx.headers.get("cookie") ?? "";
 
 		return fetchWithCache(
@@ -799,6 +805,15 @@ export const googleRouter = createTRPCRouter({
 		}),
 
 	verifyPunchClients: protectedProcedure.query(async ({ ctx }) => {
+		const permissions = ctx.session.user.permissions;
+		if (
+			!hasPermission(permissions, "issues:clients-not-in-db") &&
+			!hasPermission(permissions, "issues:punchlist-inactive") &&
+			!hasPermission(permissions, "issues:punchlist-duplicates")
+		) {
+			throw new TRPCError({ code: "UNAUTHORIZED" });
+		}
+
 		if (!ctx.session.user.accessToken || !ctx.session.user.refreshToken) {
 			throw new Error("No access token or refresh token");
 		}

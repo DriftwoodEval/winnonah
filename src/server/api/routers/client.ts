@@ -899,6 +899,8 @@ export const clientRouter = createTRPCRouter({
 		}),
 
 	getDistrictErrors: protectedProcedure.query(async ({ ctx }) => {
+		assertPermission(ctx.session.user, "issues:district-issues");
+
 		const [clientsWithoutDistrict, clientsWithPoorAddressLookup] =
 			await Promise.all([
 				ctx.db.query.clients.findMany({
@@ -928,6 +930,8 @@ export const clientRouter = createTRPCRouter({
 	}),
 
 	getBabyNetErrors: protectedProcedure.query(async ({ ctx }) => {
+		assertPermission(ctx.session.user, "issues:babynet-ageout");
+
 		const ageOutDate = subYears(new Date(), 3);
 
 		const clientsTooOldForBabyNet = await ctx.db.query.clients.findMany({
@@ -984,6 +988,8 @@ export const clientRouter = createTRPCRouter({
 	}),
 
 	getNotInTAErrors: protectedProcedure.query(async ({ ctx }) => {
+		assertPermission(ctx.session.user, "issues:not-in-ta");
+
 		const clientsNotInTA = await ctx.db.query.clients.findMany({
 			where: isNull(clients.addedDate),
 			orderBy: clients.addedDate,
@@ -993,6 +999,8 @@ export const clientRouter = createTRPCRouter({
 	}),
 
 	getDropList: protectedProcedure.query(async ({ ctx }) => {
+		assertPermission(ctx.session.user, "issues:droplist");
+
 		return fetchWithCache(
 			ctx,
 			CACHE_KEY_DROP_LIST,
@@ -1156,6 +1164,8 @@ export const clientRouter = createTRPCRouter({
 	}),
 
 	getNotesOnlyClients: protectedProcedure.query(async ({ ctx }) => {
+		assertPermission(ctx.session.user, "clients:merge");
+
 		const notesOnlyClients = await ctx.db.query.clients.findMany({
 			where: and(isNotesOnly, eq(clients.status, true)),
 			orderBy: asc(clients.addedDate),
@@ -1210,6 +1220,8 @@ export const clientRouter = createTRPCRouter({
 		}),
 
 	getMergeSuggestions: protectedProcedure.query(async ({ ctx }) => {
+		assertPermission(ctx.session.user, "clients:merge");
+
 		const allClients = await ctx.db.query.clients.findMany({
 			where: eq(clients.status, true),
 		});
@@ -1250,6 +1262,8 @@ export const clientRouter = createTRPCRouter({
 	}),
 
 	getNoDriveIdErrors: protectedProcedure.query(async ({ ctx }) => {
+		assertPermission(ctx.session.user, "issues:no-drive-ids");
+
 		const noDriveId = await ctx.db.query.clients.findMany({
 			where: and(not(isNotesOnly), isNull(clients.driveId)),
 			orderBy: clients.addedDate,
@@ -1259,6 +1273,8 @@ export const clientRouter = createTRPCRouter({
 	}),
 
 	getDD4: protectedProcedure.query(async ({ ctx }) => {
+		assertPermission(ctx.session.user, "issues:dd4");
+
 		const dd4 = await ctx.db.query.clients.findMany({
 			where: and(
 				eq(clients.schoolDistrict, "Dorchester School District 4"),
@@ -1270,6 +1286,8 @@ export const clientRouter = createTRPCRouter({
 	}),
 
 	getPossiblePrivatePay: protectedProcedure.query(async ({ ctx }) => {
+		assertPermission(ctx.session.user, "issues:private-pay");
+
 		return fetchWithCache(ctx, CACHE_KEY_POSSIBLE_PRIVATE_PAY, async () => {
 			const noPaymentMethodOrNoEligors = await ctx.db
 				.select(getTableColumns(clients))
@@ -1332,6 +1350,8 @@ export const clientRouter = createTRPCRouter({
 	}),
 
 	getAutismStops: protectedProcedure.query(async ({ ctx }) => {
+		assertPermission(ctx.session.user, "issues:autism-stops");
+
 		const autismStops = await ctx.db.query.clients.findMany({
 			where: and(eq(clients.autismStop, true), eq(clients.status, true)),
 			orderBy: clients.addedDate,
@@ -1341,6 +1361,8 @@ export const clientRouter = createTRPCRouter({
 	}),
 
 	getNoReferralSource: protectedProcedure.query(async ({ ctx }) => {
+		assertPermission(ctx.session.user, "issues:no-referral-source");
+
 		const noReferralSource = await ctx.db.query.clients.findMany({
 			where: and(
 				or(
@@ -1357,6 +1379,8 @@ export const clientRouter = createTRPCRouter({
 	}),
 
 	getPaused: protectedProcedure.query(async ({ ctx }) => {
+		assertPermission(ctx.session.user, "issues:paused-clients");
+
 		const pausedClients = await ctx.db.query.clients.findMany({
 			where: eq(clients.pause, true),
 			orderBy: clients.addedDate,
@@ -1366,6 +1390,8 @@ export const clientRouter = createTRPCRouter({
 	}),
 
 	getEvaluationInProcess: protectedProcedure.query(async ({ ctx }) => {
+		assertPermission(ctx.session.user, "issues:evaluation-in-process");
+
 		const evaluationClients = await ctx.db.query.clients.findMany({
 			where: and(
 				eq(clients.evaluationInProcess, true),
@@ -1378,6 +1404,8 @@ export const clientRouter = createTRPCRouter({
 	}),
 
 	getDuplicateNames: protectedProcedure.query(async ({ ctx }) => {
+		assertPermission(ctx.session.user, "issues:duplicate-names");
+
 		const [allClients, ignoredPairs] = await Promise.all([
 			ctx.db.select().from(clients).where(sql`LENGTH(${clients.id}) != 5`),
 			ctx.db.select().from(duplicateNameIgnore),
@@ -1450,6 +1478,8 @@ export const clientRouter = createTRPCRouter({
 		}),
 
 	getMissingAppointments: protectedProcedure.query(async ({ ctx }) => {
+		assertPermission(ctx.session.user, "issues:missing-appointments");
+
 		return fetchWithCache(
 			ctx,
 			CACHE_KEY_MISSING_APPOINTMENTS,
@@ -1595,6 +1625,8 @@ export const clientRouter = createTRPCRouter({
 	}),
 
 	getMissingRecordsNeeded: protectedProcedure.query(async ({ ctx }) => {
+		assertPermission(ctx.session.user, "issues:missing-records-needed");
+
 		const clientsWithoutRecordsNeeded = await ctx.db.query.clients.findMany({
 			where: and(
 				isNull(clients.recordsNeeded),
@@ -1743,6 +1775,8 @@ export const clientRouter = createTRPCRouter({
 		}),
 
 	getUnreviewedRecords: protectedProcedure.query(async ({ ctx }) => {
+		assertPermission(ctx.session.user, "issues:unreviewed-records");
+
 		const threeWeekdaysAgo = format(
 			subBusinessDays(new Date(), 3),
 			"yyyy-MM-dd",

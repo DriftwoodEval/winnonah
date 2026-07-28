@@ -14,75 +14,104 @@ export function IssuesAlert() {
 
 	const { data: districtErrors } = api.clients.getDistrictErrors.useQuery(
 		undefined,
-		queryOptions,
+		{ ...queryOptions, enabled: can("issues:district-issues") },
 	);
 
 	const { data: babyNetErrors } = api.clients.getBabyNetErrors.useQuery(
 		undefined,
-		queryOptions,
+		{ ...queryOptions, enabled: can("issues:babynet-ageout") },
 	);
 
 	const { data: notInTAErrors } = api.clients.getNotInTAErrors.useQuery(
 		undefined,
-		queryOptions,
+		{ ...queryOptions, enabled: can("issues:not-in-ta") },
 	);
 
-	const { data: dropList } = api.clients.getDropList.useQuery(
-		undefined,
-		queryOptions,
-	);
+	const { data: dropList } = api.clients.getDropList.useQuery(undefined, {
+		...queryOptions,
+		enabled: can("issues:droplist"),
+	});
 
-	const { data: autismStops } = api.clients.getAutismStops.useQuery(
-		undefined,
-		queryOptions,
-	);
+	const { data: autismStops } = api.clients.getAutismStops.useQuery(undefined, {
+		...queryOptions,
+		enabled: can("issues:autism-stops"),
+	});
 
-	const { data: pausedClients } = api.clients.getPaused.useQuery(
-		undefined,
-		queryOptions,
-	);
+	const { data: pausedClients } = api.clients.getPaused.useQuery(undefined, {
+		...queryOptions,
+		enabled: can("issues:paused-clients"),
+	});
 
 	const { data: evaluationInProcess } =
-		api.clients.getEvaluationInProcess.useQuery(undefined, queryOptions);
+		api.clients.getEvaluationInProcess.useQuery(undefined, {
+			...queryOptions,
+			enabled: can("issues:evaluation-in-process"),
+		});
 
 	const { data: notesOnlyClients } = api.clients.getNotesOnlyClients.useQuery(
 		undefined,
-		queryOptions,
+		{ ...queryOptions, enabled: can("clients:merge") },
 	);
 
 	const { data: duplicateFolderNames } = api.google.findDuplicates.useQuery(
 		undefined,
-		queryOptions,
+		{ ...queryOptions, enabled: can("issues:duplicate-drive") },
 	);
 
 	const { data: noDriveIds } = api.clients.getNoDriveIdErrors.useQuery(
 		undefined,
-		queryOptions,
+		{ ...queryOptions, enabled: can("issues:no-drive-ids") },
 	);
 
 	const { data: missingRecordsNeeded } =
-		api.clients.getMissingRecordsNeeded.useQuery(undefined, queryOptions);
+		api.clients.getMissingRecordsNeeded.useQuery(undefined, {
+			...queryOptions,
+			enabled: can("issues:missing-records-needed"),
+		});
 
-	const { data: dd4 } = api.clients.getDD4.useQuery(undefined, queryOptions);
+	const { data: dd4 } = api.clients.getDD4.useQuery(undefined, {
+		...queryOptions,
+		enabled: can("issues:dd4"),
+	});
 
 	const { data: possiblePrivatePay } =
-		api.clients.getPossiblePrivatePay.useQuery(undefined, queryOptions);
+		api.clients.getPossiblePrivatePay.useQuery(undefined, {
+			...queryOptions,
+			enabled: can("issues:private-pay"),
+		});
 
 	const { data: unreviewedRecords } = api.clients.getUnreviewedRecords.useQuery(
 		undefined,
-		queryOptions,
+		{ ...queryOptions, enabled: can("issues:unreviewed-records") },
 	);
 
 	const { data: duplicateQLinks } =
-		api.questionnaires.getDuplicateLinks.useQuery(undefined, queryOptions);
+		api.questionnaires.getDuplicateLinks.useQuery(undefined, {
+			...queryOptions,
+			enabled: can("issues:duplicate-questionnaires"),
+		});
 
 	const { data: justAddedQuestionnaires } =
-		api.questionnaires.getJustAdded.useQuery(undefined, queryOptions);
+		api.questionnaires.getJustAdded.useQuery(undefined, {
+			...queryOptions,
+			enabled: can("issues:just-added"),
+		});
 
 	const { data: partialBatteries } =
-		api.questionnaires.getPartialBatteries.useQuery(undefined, queryOptions);
+		api.questionnaires.getPartialBatteries.useQuery(undefined, {
+			...queryOptions,
+			enabled: can("issues:partial-battery"),
+		});
 
-	const { data: punchlistIssues } = api.google.verifyPunchClients.useQuery();
+	const { data: punchlistIssues } = api.google.verifyPunchClients.useQuery(
+		undefined,
+		{
+			enabled:
+				can("issues:clients-not-in-db") ||
+				can("issues:punchlist-inactive") ||
+				can("issues:punchlist-duplicates"),
+		},
+	);
 
 	const clientsWithDuplicateLinks =
 		duplicateQLinks?.duplicatePerClient
@@ -95,15 +124,18 @@ export function IssuesAlert() {
 
 	const { data: noReferralSource } = api.clients.getNoReferralSource.useQuery(
 		undefined,
-		queryOptions,
+		{ ...queryOptions, enabled: can("issues:no-referral-source") },
 	);
 
 	const { data: missingAppointments } =
-		api.clients.getMissingAppointments.useQuery(undefined, queryOptions);
+		api.clients.getMissingAppointments.useQuery(undefined, {
+			...queryOptions,
+			enabled: can("issues:missing-appointments"),
+		});
 
 	const { data: duplicateNames } = api.clients.getDuplicateNames.useQuery(
 		undefined,
-		queryOptions,
+		{ ...queryOptions, enabled: can("issues:duplicate-names") },
 	);
 
 	const countIf = (hasPermission: boolean, count: number = 0) =>
