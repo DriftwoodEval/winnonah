@@ -248,15 +248,9 @@ async function resolveApplicableRules(
 	ctx: Context,
 	clientId: number,
 	client: typeof clients.$inferSelect,
+	allRules: (typeof questionnaireRules.$inferSelect)[],
+	clientQs: (typeof questionnaires.$inferSelect)[],
 ) {
-	const allRules = await ctx.db.query.questionnaireRules.findMany({
-		orderBy: [
-			asc(questionnaireRules.daeval),
-			asc(questionnaireRules.diagnosis),
-			asc(questionnaireRules.minAge),
-		],
-	});
-
 	const asdAdhd = client.asdAdhd;
 	const wantedDiagnoses = new Set<string | null>();
 	if (!asdAdhd) {
@@ -272,9 +266,6 @@ async function resolveApplicableRules(
 		return wantedDiagnoses.has(r.diagnosis);
 	});
 
-	const clientQs = await ctx.db.query.questionnaires.findMany({
-		where: eq(questionnaires.clientId, clientId),
-	});
 	const sessionStartedAt = client.sessionStartedAt;
 	const sentTypes = new Set(
 		clientQs
@@ -345,10 +336,23 @@ async function checkAndUpdateQsBatteryStatus(ctx: Context, clientId: number) {
 	});
 	if (!client) return;
 
+	const allRules = await ctx.db.query.questionnaireRules.findMany({
+		orderBy: [
+			asc(questionnaireRules.daeval),
+			asc(questionnaireRules.diagnosis),
+			asc(questionnaireRules.minAge),
+		],
+	});
+	const clientQs = await ctx.db.query.questionnaires.findMany({
+		where: eq(questionnaires.clientId, clientId),
+	});
+
 	const { rules: applicableRules } = await resolveApplicableRules(
 		ctx,
 		clientId,
 		client,
+		allRules,
+		clientQs,
 	);
 
 	const daQTypes = new Set<string>();
@@ -364,10 +368,6 @@ async function checkAndUpdateQsBatteryStatus(ctx: Context, clientId: number) {
 	}
 
 	if (daQTypes.size === 0 && evalQTypes.size === 0) return;
-
-	const clientQs = await ctx.db.query.questionnaires.findMany({
-		where: eq(questionnaires.clientId, clientId),
-	});
 
 	const doneStatuses = new Set(["COMPLETED", "EXTERNAL"]);
 
@@ -506,10 +506,23 @@ export const questionnaireRouter = createTRPCRouter({
 
 			if (!client) return null;
 
+			const allRules = await ctx.db.query.questionnaireRules.findMany({
+				orderBy: [
+					asc(questionnaireRules.daeval),
+					asc(questionnaireRules.diagnosis),
+					asc(questionnaireRules.minAge),
+				],
+			});
+			const clientQs = await ctx.db.query.questionnaires.findMany({
+				where: eq(questionnaires.clientId, input.clientId),
+			});
+
 			const { rules, ageInYears } = await resolveApplicableRules(
 				ctx,
 				input.clientId,
 				client,
+				allRules,
+				clientQs,
 			);
 
 			return {
@@ -1093,6 +1106,14 @@ export const questionnaireRouter = createTRPCRouter({
 			punchData.map((row) => [parseInt(row["Client ID"] ?? "", 10), row]),
 		);
 
+		const allRules = await ctx.db.query.questionnaireRules.findMany({
+			orderBy: [
+				asc(questionnaireRules.daeval),
+				asc(questionnaireRules.diagnosis),
+				asc(questionnaireRules.minAge),
+			],
+		});
+
 		const results: (typeof clients.$inferSelect & {
 			daeval: "DA" | "EVAL";
 			missingTypes: string[];
@@ -1108,10 +1129,16 @@ export const questionnaireRouter = createTRPCRouter({
 
 			if (!daNeeded && !evalNeeded) continue;
 
+			const clientQs = await ctx.db.query.questionnaires.findMany({
+				where: eq(questionnaires.clientId, client.id),
+			});
+
 			const { rules: applicableRules } = await resolveApplicableRules(
 				ctx,
 				client.id,
 				client,
+				allRules,
+				clientQs,
 			);
 
 			const daQTypes = new Set<string>();
@@ -1135,10 +1162,6 @@ export const questionnaireRouter = createTRPCRouter({
 			}
 
 			if (daQTypes.size === 0 && evalQTypes.size === 0) continue;
-
-			const clientQs = await ctx.db.query.questionnaires.findMany({
-				where: eq(questionnaires.clientId, client.id),
-			});
 
 			const activeSentTypes = new Set(
 				clientQs
