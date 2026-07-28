@@ -248,109 +248,112 @@ def get_user_folder(drive_service, user_name: str, parent_id: str):
 
 
 @app.get("/folders/duplicates")
-async def find_duplicates(
+def find_duplicates(
     services: dict = Depends(get_google_services),
 ):
     drive_service = services["drive"]
 
     try:
-        query = "mimeType = 'application/vnd.google-apps.folder' and name contains '[' and trashed = false"
-        duplicates_map = {}
-        page_token = None
-
-        while True:
-            response = (
-                drive_service.files()
-                .list(
-                    q=query,
-                    pageSize=1000,
-                    pageToken=page_token,
-                    fields="nextPageToken, files(id, name, webViewLink)",
-                    supportsAllDrives=True,
-                    includeItemsFromAllDrives=True,
-                )
-                .execute()
-            )
-
-            files = response.get("files", [])
-            id_regex = r"\[(\d+)\]"
-
-            for file in files:
-                name = file.get("name")
-                file_id = file.get("id")
-                if not name or not file_id:
-                    continue
-
-                match = re.search(id_regex, name)
-                if match:
-                    client_id = match.group(1)
-
-                    folder_data = {
-                        "id": file_id,
-                        "name": name,
-                        "url": file.get("webViewLink"),
-                    }
-
-                    if client_id in duplicates_map:
-                        duplicates_map[client_id].append(folder_data)
-                    else:
-                        duplicates_map[client_id] = [folder_data]
-
-            page_token = response.get("nextPageToken")
-            if not page_token:
-                break
-
-        # Filter for only those with more than 1 folder
-        duplicate_client_ids = [
-            cid for cid, folders in duplicates_map.items() if len(folders) > 1
-        ]
-
-        if not duplicate_client_ids:
-            return []
-
-        # Convert strings to integers for DB query
-        ids_to_query = [int(cid) for cid in duplicate_client_ids]
-
-        conn = get_db()
-        try:
-            with conn.cursor() as cursor:
-                format_strings = ",".join(["%s"] * len(ids_to_query))
-                sql = f"SELECT id, hash, fullName, driveId FROM {TABLE_CLIENT} WHERE id IN ({format_strings})"
-                cursor.execute(sql, tuple(ids_to_query))
-                db_clients = cursor.fetchall()
-
-                db_client_map = {str(client["id"]): client for client in db_clients}
-        finally:
-            conn.close()
-
-        results = []
-        for client_id in duplicate_client_ids:
-            drive_folders = duplicates_map[client_id]
-            db_info = db_client_map.get(client_id)
-
-            if db_info and db_info.get("hash") and db_info.get("fullName"):
-                folders_with_db_match = []
-                for folder in drive_folders:
-                    folder["isDbMatch"] = folder["id"] == db_info.get("driveId")
-                    folders_with_db_match.append(folder)
-
-                results.append(
-                    {
-                        "clientId": client_id,
-                        "clientHash": db_info["hash"],
-                        "clientFullName": db_info["fullName"],
-                        "folders": folders_with_db_match,
-                    }
-                )
-
-        return results
-
+        return _find_duplicates(drive_service)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e)) from e
 
 
+def _find_duplicates(drive_service):
+    query = "mimeType = 'application/vnd.google-apps.folder' and name contains '[' and trashed = false"
+    duplicates_map = {}
+    page_token = None
+
+    while True:
+        response = (
+            drive_service.files()
+            .list(
+                q=query,
+                pageSize=1000,
+                pageToken=page_token,
+                fields="nextPageToken, files(id, name, webViewLink)",
+                supportsAllDrives=True,
+                includeItemsFromAllDrives=True,
+            )
+            .execute()
+        )
+
+        files = response.get("files", [])
+        id_regex = r"\[(\d+)\]"
+
+        for file in files:
+            name = file.get("name")
+            file_id = file.get("id")
+            if not name or not file_id:
+                continue
+
+            match = re.search(id_regex, name)
+            if match:
+                client_id = match.group(1)
+
+                folder_data = {
+                    "id": file_id,
+                    "name": name,
+                    "url": file.get("webViewLink"),
+                }
+
+                if client_id in duplicates_map:
+                    duplicates_map[client_id].append(folder_data)
+                else:
+                    duplicates_map[client_id] = [folder_data]
+
+        page_token = response.get("nextPageToken")
+        if not page_token:
+            break
+
+    # Filter for only those with more than 1 folder
+    duplicate_client_ids = [
+        cid for cid, folders in duplicates_map.items() if len(folders) > 1
+    ]
+
+    if not duplicate_client_ids:
+        return []
+
+    # Convert strings to integers for DB query
+    ids_to_query = [int(cid) for cid in duplicate_client_ids]
+
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            format_strings = ",".join(["%s"] * len(ids_to_query))
+            sql = f"SELECT id, hash, fullName, driveId FROM {TABLE_CLIENT} WHERE id IN ({format_strings})"
+            cursor.execute(sql, tuple(ids_to_query))
+            db_clients = cursor.fetchall()
+
+            db_client_map = {str(client["id"]): client for client in db_clients}
+    finally:
+        conn.close()
+
+    results = []
+    for client_id in duplicate_client_ids:
+        drive_folders = duplicates_map[client_id]
+        db_info = db_client_map.get(client_id)
+
+        if db_info and db_info.get("hash") and db_info.get("fullName"):
+            folders_with_db_match = []
+            for folder in drive_folders:
+                folder["isDbMatch"] = folder["id"] == db_info.get("driveId")
+                folders_with_db_match.append(folder)
+
+            results.append(
+                {
+                    "clientId": client_id,
+                    "clientHash": db_info["hash"],
+                    "clientFullName": db_info["fullName"],
+                    "folders": folders_with_db_match,
+                }
+            )
+
+    return results
+
+
 @app.get("/folders/writer/{parent_id}")
-async def get_writer_folder(
+def get_writer_folder(
     parent_id: str,
     current_user: dict = Depends(get_current_user),
     services: dict = Depends(get_google_services),
@@ -368,7 +371,7 @@ async def get_writer_folder(
 
 
 @app.get("/folders/{parent_id}")
-async def get_subfolders(
+def get_subfolders(
     parent_id: str,
     services: dict = Depends(get_google_services),
 ):
@@ -398,7 +401,7 @@ async def get_subfolders(
 
 
 @app.post("/folders/claim")
-async def claim_top_folder(
+def claim_top_folder(
     request: ClaimRequest,
     current_user: dict = Depends(get_current_user),
     services: dict = Depends(get_google_services),
@@ -517,7 +520,7 @@ async def claim_top_folder(
 
 
 @app.post("/notifications/report-approved")
-async def notify_report_approved(
+def notify_report_approved(
     request: ApprovalNotificationRequest,
     current_user: dict = Depends(get_current_user),
 ):
@@ -553,7 +556,7 @@ async def notify_report_approved(
 
 
 @app.post("/notifications/insurance-review-claimed")
-async def notify_insurance_review_claimed(
+def notify_insurance_review_claimed(
     request: InsuranceReviewClaimRequest,
     current_user: dict = Depends(get_current_user),
 ):
@@ -616,7 +619,7 @@ async def notify_insurance_review_claimed(
 
 
 @app.post("/notifications/invite")
-async def notify_invite(
+def notify_invite(
     request: InviteNotificationRequest,
     current_user: dict = Depends(get_current_user),  # noqa: ARG001
 ):
@@ -666,7 +669,7 @@ SCRIPT_LOGS: dict[str, str] = {
 
 
 @app.get("/download-info")
-async def download_file_info(current_user: dict = Depends(get_current_user)):
+def download_file_info(current_user: dict = Depends(get_current_user)):
     if not current_user["permissions"].get("clients:download"):
         raise HTTPException(status_code=403, detail="Not authorized")
 
@@ -678,7 +681,7 @@ async def download_file_info(current_user: dict = Depends(get_current_user)):
 
 
 @app.get("/script-run-info")
-async def script_run_info(current_user: dict = Depends(get_current_user)):
+def script_run_info(current_user: dict = Depends(get_current_user)):
     if not current_user["permissions"].get("clients:download"):
         raise HTTPException(status_code=403, detail="Not authorized")
 
@@ -690,7 +693,7 @@ async def script_run_info(current_user: dict = Depends(get_current_user)):
 
 
 @app.get("/download/{file_key}")
-async def download_csv(file_key: str, current_user: dict = Depends(get_current_user)):
+def download_csv(file_key: str, current_user: dict = Depends(get_current_user)):
     if not current_user["permissions"].get("clients:download"):
         raise HTTPException(status_code=403, detail="Not authorized")
 
@@ -706,7 +709,7 @@ async def download_csv(file_key: str, current_user: dict = Depends(get_current_u
 
 
 @app.post("/rematch/evaluator/{npi}")
-async def rematch_evaluator_endpoint(
+def rematch_evaluator_endpoint(
     npi: int, current_user: dict = Depends(get_current_user)
 ):
     if not current_user["permissions"].get("settings:evaluators"):
@@ -716,7 +719,7 @@ async def rematch_evaluator_endpoint(
 
 
 @app.get("/clients/{client_id}/eligibility-debug")
-async def client_eligibility_debug(
+def client_eligibility_debug(
     client_id: str, current_user: dict = Depends(get_current_user)
 ):
     if not current_user["permissions"].get("settings:evaluators"):
@@ -729,7 +732,7 @@ async def client_eligibility_debug(
 
 
 @app.post("/clients/possible-private-pay-reasons")
-async def possible_private_pay_reasons(
+def possible_private_pay_reasons(
     request: PossiblePrivatePayReasonsRequest,
     current_user: dict = Depends(get_current_user),  # noqa: ARG001
 ):
@@ -738,7 +741,7 @@ async def possible_private_pay_reasons(
 
 
 @app.post("/appointments/{appointment_id}/confirm-calendar")
-async def confirm_appointment_calendar(
+def confirm_appointment_calendar(
     appointment_id: str,
     current_user: dict = Depends(get_current_user),  # noqa: ARG001
 ):
@@ -771,7 +774,7 @@ async def confirm_appointment_calendar(
 
 
 @app.post("/forms/select-health/{client_id}")
-async def download_select_health_form(
+def download_select_health_form(
     client_id: int,
     body: SelectHealthFormRequest,
     current_user: dict = Depends(get_current_user),
