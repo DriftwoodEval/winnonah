@@ -4,8 +4,38 @@ import { ChevronDown } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
-import type { DocNavCategory } from "~/lib/docs";
+import type { DocNavCategory, DocNavItem } from "~/lib/docs";
 import { cn } from "~/lib/utils";
+
+function DocsSidebarLink({
+	item,
+	pathname,
+	onNavigate,
+}: {
+	item: DocNavItem;
+	pathname: string;
+	onNavigate: () => void;
+}) {
+	const href = `/docs/${item.slug.join("/")}`;
+	const isActive = pathname === href;
+
+	return (
+		<li>
+			<Link
+				className={cn(
+					"block rounded-md px-3 py-1.5 text-sm",
+					isActive
+						? "bg-accent font-medium text-accent-foreground"
+						: "text-muted-foreground hover:bg-accent hover:text-accent-foreground",
+				)}
+				href={href}
+				onClick={onNavigate}
+			>
+				{item.title}
+			</Link>
+		</li>
+	);
+}
 
 export function DocsSidebar({ nav }: { nav: DocNavCategory[] }) {
 	const pathname = usePathname();
@@ -24,36 +54,36 @@ export function DocsSidebar({ nav }: { nav: DocNavCategory[] }) {
 				/>
 			</button>
 			<div className={cn("flex-col gap-6 md:flex", open ? "flex" : "hidden")}>
-				{nav.map((category) => (
-					<div key={category.slug}>
-						<h2 className="px-3 font-semibold text-muted-foreground text-xs uppercase tracking-wide">
-							{category.title}
-						</h2>
-						<ul className="mt-1 flex flex-col gap-0.5">
-							{category.items.map((item) => {
-								const href = `/docs/${item.slug.join("/")}`;
-								const isActive = pathname === href;
-
-								return (
-									<li key={href}>
-										<Link
-											className={cn(
-												"block rounded-md px-3 py-1.5 text-sm",
-												isActive
-													? "bg-accent font-medium text-accent-foreground"
-													: "text-muted-foreground hover:bg-accent hover:text-accent-foreground",
-											)}
-											href={href}
-											onClick={() => setOpen(false)}
-										>
-											{item.title}
-										</Link>
-									</li>
-								);
-							})}
+				{nav.map((category) =>
+					category.standalone ? (
+						<ul className="flex flex-col gap-0.5" key={category.slug}>
+							{category.items.map((item) => (
+								<DocsSidebarLink
+									item={item}
+									key={item.slug.join("/")}
+									onNavigate={() => setOpen(false)}
+									pathname={pathname}
+								/>
+							))}
 						</ul>
-					</div>
-				))}
+					) : (
+						<div key={category.slug}>
+							<h2 className="px-3 font-semibold text-muted-foreground text-xs uppercase tracking-wide">
+								{category.title}
+							</h2>
+							<ul className="mt-1 flex flex-col gap-0.5">
+								{category.items.map((item) => (
+									<DocsSidebarLink
+										item={item}
+										key={item.slug.join("/")}
+										onNavigate={() => setOpen(false)}
+										pathname={pathname}
+									/>
+								))}
+							</ul>
+						</div>
+					),
+				)}
 			</div>
 		</nav>
 	);

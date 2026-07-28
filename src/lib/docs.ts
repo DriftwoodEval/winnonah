@@ -36,12 +36,14 @@ export interface DocNavCategory {
 	slug: string;
 	title: string;
 	position: number;
+	standalone?: boolean;
 	items: DocNavItem[];
 }
 
 interface CategoryMeta {
 	title?: string;
 	position?: number;
+	standalone?: boolean;
 }
 
 function walkDocsDir(dir: string, baseSlug: string[] = []): string[][] {
@@ -193,6 +195,7 @@ export function getDocsNavTree(): DocNavCategory[] {
 			slug: entry.name,
 			title: meta.title ?? titleCase(entry.name),
 			position: meta.position ?? Number.MAX_SAFE_INTEGER,
+			standalone: meta.standalone,
 			items,
 		});
 	}
