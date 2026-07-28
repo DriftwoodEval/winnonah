@@ -1,10 +1,15 @@
+import { TRPCError } from "@trpc/server";
 import {
 	and,
 	asc,
 	count,
 	eq,
 	getTableColumns,
+	gt,
+	gte,
 	inArray,
+	lt,
+	lte,
 	ne,
 	or,
 	sql,
@@ -614,6 +619,80 @@ export const schedulingRouter = createTRPCRouter({
 					.update(schedulingClients)
 					.set({ sort: client.sort })
 					.where(eq(schedulingClients.clientId, input.neighborClientId));
+			});
+		}),
+
+	// Drag-and-drop reorder to an arbitrary position, unlike `move` above
+	// which only swaps two adjacent rows. Resolves the target by clientId
+	// (not a client-cached sort number) and locks both rows before shifting,
+	// since this is a shared sheet other users can be reordering concurrently.
+	reorder: protectedProcedure
+		.input(z.object({ clientId: z.number(), overClientId: z.number() }))
+		.mutation(async ({ ctx, input }) => {
+			ctx.logger.info(
+				{
+					clientId: input.clientId,
+					overClientId: input.overClientId,
+					updatedBy: ctx.session.user.email,
+				},
+				"Reordering scheduling client",
+			);
+
+			await ctx.db.transaction(async (tx) => {
+				const rows = await tx
+					.select({
+						clientId: schedulingClients.clientId,
+						sort: schedulingClients.sort,
+					})
+					.from(schedulingClients)
+					.where(
+						and(
+							inArray(schedulingClients.clientId, [
+								input.clientId,
+								input.overClientId,
+							]),
+							eq(schedulingClients.archived, false),
+						),
+					)
+					.for("update");
+
+				const client = rows.find((r) => r.clientId === input.clientId);
+				const over = rows.find((r) => r.clientId === input.overClientId);
+				if (!client || !over) {
+					throw new TRPCError({ code: "NOT_FOUND" });
+				}
+				if (client.clientId === over.clientId || client.sort === over.sort) {
+					return;
+				}
+
+				if (over.sort > client.sort) {
+					await tx
+						.update(schedulingClients)
+						.set({ sort: sql`${schedulingClients.sort} - 1` })
+						.where(
+							and(
+								eq(schedulingClients.archived, false),
+								gt(schedulingClients.sort, client.sort),
+								lte(schedulingClients.sort, over.sort),
+							),
+						);
+				} else {
+					await tx
+						.update(schedulingClients)
+						.set({ sort: sql`${schedulingClients.sort} + 1` })
+						.where(
+							and(
+								eq(schedulingClients.archived, false),
+								gte(schedulingClients.sort, over.sort),
+								lt(schedulingClients.sort, client.sort),
+							),
+						);
+				}
+
+				await tx
+					.update(schedulingClients)
+					.set({ sort: over.sort })
+					.where(eq(schedulingClients.clientId, input.clientId));
 			});
 		}),
 

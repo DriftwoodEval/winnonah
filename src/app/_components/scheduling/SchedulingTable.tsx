@@ -32,6 +32,23 @@ import {
 	TooltipContent,
 	TooltipTrigger,
 } from "@components/ui/tooltip";
+import {
+	closestCenter,
+	DndContext,
+	type DragEndEvent,
+	type DraggableAttributes,
+	type DraggableSyntheticListeners,
+	PointerSensor,
+	useSensor,
+	useSensors,
+} from "@dnd-kit/core";
+import {
+	arrayMove,
+	SortableContext,
+	useSortable,
+	verticalListSortingStrategy,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 import { keepPreviousData } from "@tanstack/react-query";
 import { useVirtualizer, type Virtualizer } from "@tanstack/react-virtual";
 import { Skeleton } from "@ui/skeleton";
@@ -41,6 +58,7 @@ import {
 	ChevronDown,
 	ChevronUp,
 	Circle,
+	GripVertical,
 	Loader2,
 	Search,
 	X,
@@ -52,7 +70,6 @@ import {
 	memo,
 	type RefObject,
 	useCallback,
-	useDeferredValue,
 	useEffect,
 	useMemo,
 	useRef,
@@ -94,6 +111,18 @@ export interface SchedulingUpdateData {
 	color?: string | null;
 	sort?: number;
 }
+
+// dnd-kit's useSensor/useSensors memoize on this object's *reference*, not
+// its contents - passed as a fresh literal on every render, they'd produce a
+// new sensors array every render, which cascades into dnd-kit's internal
+// sensor/listener context recomputing on every render too. Every mounted
+// row's drag-handle listeners come from that context, so an unstable
+// reference here was silently defeating SchedulingRowCells' memoization on
+// every render of InternalSchedulingTable (e.g. every scroll event) -
+// forcing every row's Select/Radix component trees to fully re-render
+// continuously while scrolling, which is what actually drove the page to a
+// crawl (and crash) during autoscroll.
+const POINTER_SENSOR_OPTIONS = { activationConstraint: { distance: 4 } };
 
 // --- Internal Hooks ---
 
@@ -150,29 +179,38 @@ function useTableScroll(
 			}
 		}
 
+		// Persisting scroll position only needs to reflect where scrolling
+		// settles, not every intermediate pixel - writing to sessionStorage on
+		// every single scroll event (dnd-kit's autoscroll alone can fire this
+		// well over 60 times a second) competes with the same main thread
+		// driving the scroll itself, which showed up as jittery, throttled
+		// autoscrolling.
+		const debouncedSaveScroll = debounce(() => {
+			if (!storageKey) return;
+			const firstVirtualRow = rowVirtualizer.getVirtualItems()[0];
+			sessionStorage.setItem(
+				storageKey,
+				JSON.stringify({
+					left: table.scrollLeft,
+					index: firstVirtualRow?.index ?? 0,
+					offset: firstVirtualRow ? table.scrollTop - firstVirtualRow.start : 0,
+				}),
+			);
+		}, 200);
+
 		const handleScroll = () => {
 			setIsScrolledLeft(table.scrollLeft > 0);
 			setIsScrolledTop(table.scrollTop > 0);
-
-			if (storageKey) {
-				const firstVirtualRow = rowVirtualizer.getVirtualItems()[0];
-				sessionStorage.setItem(
-					storageKey,
-					JSON.stringify({
-						left: table.scrollLeft,
-						index: firstVirtualRow?.index ?? 0,
-						offset: firstVirtualRow
-							? table.scrollTop - firstVirtualRow.start
-							: 0,
-					}),
-				);
-			}
+			debouncedSaveScroll();
 		};
 
 		handleScroll();
 
 		table.addEventListener("scroll", handleScroll);
-		return () => table.removeEventListener("scroll", handleScroll);
+		return () => {
+			table.removeEventListener("scroll", handleScroll);
+			debouncedSaveScroll.cancel();
+		};
 	}, [tableRef, storageKey, isReady, rowVirtualizer]);
 
 	return { isScrolledLeft, isScrolledTop };
@@ -597,7 +635,15 @@ function EvaluatorSelect({
 	);
 }
 
-const SchedulingTableRow = memo(function SchedulingTableRow({
+// The dnd-kit sortable machinery re-renders every mounted row's useSortable()
+// whenever ANY row mounts or unmounts (each registration dispatches through
+// DndContext's reducer, producing a new context value for all consumers) -
+// which happens continuously in this virtualized table as rows scroll in and
+// out. Splitting the actual cell content into its own memoized component
+// means that churn only re-executes the thin wrapper below, not the heavy
+// Select/Textarea/EvaluatorSelect content, as long as this component's own
+// props haven't changed.
+const SchedulingRowCells = memo(function SchedulingRowCells({
 	scheduledClient,
 	evaluators,
 	offices,
@@ -615,7 +661,9 @@ const SchedulingTableRow = memo(function SchedulingTableRow({
 	isHighlighted,
 	isScrolledLeft,
 	rowIndex,
-	measureElement,
+	backgroundColor,
+	dragHandleAttributes,
+	dragHandleListeners,
 }: {
 	scheduledClient: ScheduledClient;
 	evaluators: Evaluator[];
@@ -634,7 +682,9 @@ const SchedulingTableRow = memo(function SchedulingTableRow({
 	isHighlighted?: boolean;
 	isScrolledLeft?: boolean;
 	rowIndex: number;
-	measureElement: (el: Element | null) => void;
+	backgroundColor: string;
+	dragHandleAttributes: DraggableAttributes;
+	dragHandleListeners: DraggableSyntheticListeners;
 }) {
 	const [localDate, setLocalDate] = useState(scheduledClient.date ?? "");
 	const [localTime, setLocalTime] = useState(scheduledClient.time ?? "");
@@ -671,19 +721,8 @@ const SchedulingTableRow = memo(function SchedulingTableRow({
 			? (scheduledClient.color as SchedulingColor)
 			: undefined;
 
-	const backgroundColor = color
-		? `color-mix(in srgb, ${SCHEDULING_COLOR_MAP[color]}, var(--background) 90%)`
-		: "var(--background)";
-
 	return (
-		<TableRow
-			className="hover:bg-inherit"
-			data-client-id={scheduledClient.clientId}
-			data-index={rowIndex}
-			key={scheduledClient.clientId}
-			ref={measureElement}
-			style={{ backgroundColor }}
-		>
+		<>
 			<TableCell
 				className={cn(
 					"sticky left-0 z-10 bg-background transition-shadow duration-200",
@@ -696,6 +735,17 @@ const SchedulingTableRow = memo(function SchedulingTableRow({
 				style={{ backgroundColor }}
 			>
 				<div className="flex items-center gap-2 overflow-hidden">
+					{isEditable && (
+						<button
+							aria-label="Drag to reorder"
+							className="cursor-grab touch-none rounded-sm p-1 text-muted-foreground transition-colors hover:bg-accent hover:text-primary active:cursor-grabbing"
+							type="button"
+							{...dragHandleAttributes}
+							{...dragHandleListeners}
+						>
+							<GripVertical className="h-4 w-4" />
+						</button>
+					)}
 					{isEditable && (
 						<div className="flex flex-col items-center justify-center">
 							<button
@@ -934,6 +984,83 @@ const SchedulingTableRow = memo(function SchedulingTableRow({
 					)}
 				</Button>
 			</TableCell>
+		</>
+	);
+});
+
+// Thin wrapper that owns the sortable subscription. Keeping this separate
+// from SchedulingRowCells means dnd-kit's per-row re-render churn (see
+// comment above SchedulingRowCells) only re-executes this small component,
+// not the actual form controls.
+type SchedulingRowCellsProps = Parameters<typeof SchedulingRowCells>[0];
+
+const SchedulingTableRow = memo(function SchedulingTableRow(
+	props: Omit<
+		SchedulingRowCellsProps,
+		"backgroundColor" | "dragHandleAttributes" | "dragHandleListeners"
+	> & {
+		measureElement: (el: Element | null) => void;
+	},
+) {
+	const { scheduledClient, rowIndex, measureElement } = props;
+
+	// The live transform tracking during an active drag already shows rows
+	// sliding to make room in real time, so once the drop lands the row
+	// should just settle at its new slot, not replay a second "layout
+	// change" animation - dnd-kit's default for that animates the
+	// just-dropped item FROM its pre-drag rect (since a CSS transform,
+	// unlike a real layout move, doesn't update the tracked rect), which is
+	// exactly what looked like sliding back to where it started.
+	const {
+		attributes,
+		listeners,
+		setNodeRef,
+		transform,
+		transition,
+		isDragging,
+	} = useSortable({
+		animateLayoutChanges: () => false,
+		id: scheduledClient.clientId,
+	});
+	const setRowRef = useCallback(
+		(el: HTMLTableRowElement | null) => {
+			measureElement(el);
+			setNodeRef(el);
+		},
+		[measureElement, setNodeRef],
+	);
+
+	const color =
+		scheduledClient.color && isSchedulingColor(scheduledClient.color)
+			? (scheduledClient.color as SchedulingColor)
+			: undefined;
+	const backgroundColor = color
+		? `color-mix(in srgb, ${SCHEDULING_COLOR_MAP[color]}, var(--background) 90%)`
+		: "var(--background)";
+
+	return (
+		<TableRow
+			className={cn("hover:bg-inherit", isDragging && "z-10 shadow-lg")}
+			data-client-id={scheduledClient.clientId}
+			data-index={rowIndex}
+			key={scheduledClient.clientId}
+			ref={setRowRef}
+			style={{
+				backgroundColor,
+				transform: CSS.Transform.toString(transform),
+				// The dragged row itself must track the cursor 1:1, not ease
+				// toward it - applying the transition here is what causes a
+				// drag to visibly "stick" for a moment before catching up.
+				transition: isDragging ? undefined : transition,
+				opacity: isDragging ? 0.6 : undefined,
+			}}
+		>
+			<SchedulingRowCells
+				{...props}
+				backgroundColor={backgroundColor}
+				dragHandleAttributes={attributes}
+				dragHandleListeners={listeners}
+			/>
 		</TableRow>
 	);
 });
@@ -950,6 +1077,7 @@ interface InternalSchedulingTableProps {
 	isEditable: boolean;
 	onUpdate?: (clientId: number, data: SchedulingUpdateData) => void;
 	onMove?: (clientId: number, neighborClientId: number) => void;
+	onReorder?: (clientId: number, overClientId: number) => void;
 	onAction: (clientId: number) => void;
 	actionIcon: React.ReactNode;
 	actionVariant: "default" | "destructive";
@@ -977,6 +1105,7 @@ function InternalSchedulingTable({
 	isEditable,
 	onUpdate,
 	onMove,
+	onReorder,
 	onAction,
 	actionIcon,
 	actionVariant,
@@ -992,36 +1121,55 @@ function InternalSchedulingTable({
 }: InternalSchedulingTableProps) {
 	const tableRef = useRef<HTMLDivElement>(null);
 
-	// Removing/loosening a filter can mean hundreds of new rows mount at once,
-	// each with several form controls - real, unavoidable work. Deferring the
-	// list keeps that mount off the blocking render path so the page stays
-	// responsive (filter checkboxes, scrolling) while it catches up, instead of
-	// freezing for the duration of the commit.
-	const deferredClients = useDeferredValue(clients);
-	// Stale covers both windows: the network round-trip after a filter change
-	// (isFetching, while placeholderData keeps the old rows visible) and the
-	// deferred commit once new rows actually arrive (deferredClients lagging).
-	const isStale = isFetching || deferredClients !== clients;
+	const dndSensors = useSensors(
+		useSensor(PointerSensor, POINTER_SENSOR_OPTIONS),
+	);
+	const handleDragEnd = useCallback(
+		({ active, over }: DragEndEvent) => {
+			if (!over || active.id === over.id) return;
+			onReorder?.(active.id as number, over.id as number);
+		},
+		[onReorder],
+	);
+
+	// isFetching alone covers the network round-trip after a filter change
+	// (placeholderData keeps the old rows visible while it's in flight).
+	// clients isn't deferred here - a deferred commit lagged one render
+	// behind a drag reorder's synchronous cache update, showing the
+	// pre-drop order for a moment before catching up. Virtualization already
+	// bounds the actual DOM mount cost to the visible window regardless of
+	// how many total rows a filter change adds, so deferring this array
+	// bought little and cost that extra lag.
+	const isStale = isFetching;
 
 	// Age is filtered client-side over the already server-filtered `clients`,
 	// mirroring how the client directory keeps its Google-Sheets-derived
 	// DA/EVAL Qs filters client-side instead of pushing them into SQL.
 	const ageOptions = useMemo(() => {
 		const set = new Set<string>();
-		for (const c of deferredClients) {
+		for (const c of clients) {
 			if (c.client.dob) set.add(formatClientAge(c.client.dob, "short"));
 		}
 		return Array.from(set).sort();
-	}, [deferredClients]);
+	}, [clients]);
 
 	const filteredClients = useMemo(() => {
 		const ageFilter = filters.age;
-		if (!ageFilter?.length) return deferredClients;
-		return deferredClients.filter((c) => {
+		if (!ageFilter?.length) return clients;
+		return clients.filter((c) => {
 			const age = c.client.dob ? formatClientAge(c.client.dob, "short") : "";
 			return ageFilter.includes(age);
 		});
-	}, [deferredClients, filters.age]);
+	}, [clients, filters.age]);
+
+	// SortableContext rebuilds its context value (and re-renders every mounted
+	// row) whenever this array's reference changes, so it must stay stable
+	// across renders that don't actually reorder/filter clients (typing,
+	// scrolling, search) rather than being a fresh `.map()` inline in JSX.
+	const sortableIds = useMemo(
+		() => filteredClients.map((c) => c.clientId),
+		[filteredClients],
+	);
 
 	// Sorted once here instead of per-row: EvaluatorSelect used to re-sort the
 	// full evaluator list on every row's first render, even for rows whose
@@ -1060,7 +1208,14 @@ function InternalSchedulingTable({
 		count: filteredClients.length,
 		getScrollElement: () => tableRef.current,
 		estimateSize: () => avgRowHeightRef.current ?? 45,
-		overscan: 10,
+		// Higher than the plain-scrolling case needs, specifically for
+		// dragging: dnd-kit continuously re-measures every mounted row while
+		// a drag is active (it has to, since virtualization means most drop
+		// targets aren't mounted until scrolled to), so every row that mounts
+		// or unmounts mid-drag re-triggers that pass across the whole mounted
+		// set. A bigger buffer means a drag can travel further via ordinary
+		// mouse movement before the row set needs to change at all.
+		overscan: 30,
 	});
 	const handleMeasureElement = useCallback(
 		(el: Element | null) => {
@@ -1374,7 +1529,7 @@ function InternalSchedulingTable({
 			<div className="flex items-center justify-between">
 				<RowCountDisplay
 					filteredCount={filteredClients.length}
-					totalCount={deferredClients.length}
+					totalCount={clients.length}
 				/>
 				<SchedulingSearchBox
 					inputRef={searchInputRef}
@@ -1388,102 +1543,133 @@ function InternalSchedulingTable({
 					value={searchTerm}
 				/>
 			</div>
-			<Table
-				className={cn("min-w-max", isStale && "opacity-60 transition-opacity")}
-				classNameWrapper={cn(
-					"min-h-0 flex-1",
-					isScrolledLeft && "scrolled-left",
-					isScrolledTop && "scrolled-top",
-				)}
-				ref={tableRef}
+			<DndContext
+				// A Chrome performance trace during the autoscroll crash
+				// showed the real cause: POINTER_SENSOR_OPTIONS above was an
+				// inline object literal, so dndSensors (and dnd-kit's
+				// internal listener context derived from it) got a new
+				// reference on every render of this component - which
+				// silently defeated SchedulingRowCells' memoization on every
+				// scroll event, forcing every mounted row's Select/Radix
+				// component trees to fully re-render continuously. Autoscroll
+				// just made that bug easy to trigger by firing scroll events
+				// fastest; it wasn't the actual defect, so re-enabling it now
+				// that the reference is stable.
+				autoScroll={{ acceleration: 40, threshold: { x: 0.2, y: 0.3 } }}
+				collisionDetection={closestCenter}
+				onDragEnd={handleDragEnd}
+				sensors={dndSensors}
 			>
-				<TableHeader className="sticky top-0 z-20 bg-background">
-					<TableRow
-						className={cn(
-							"transition-shadow duration-200 hover:bg-inherit",
-							isScrolledTop && "shadow-lg",
-						)}
-					>
-						{columns.map((col, index) => {
-							const filterKey = col.filterKey ?? col.key;
-							const isAge = filterKey === "age";
-							const options = isAge
-								? ageOptions
-								: (columnOptions[filterKey] ?? []);
-							const counts = isAge ? undefined : columnCounts[filterKey];
-							return (
-								<TableHead
-									className={cn(
-										index === 0 &&
-											"sticky left-0 z-30 bg-background transition-shadow duration-200",
-										index === 0 && isScrolledLeft && "shadow-lg",
-									)}
-									key={col.key}
-								>
-									<div className="flex items-center gap-1">
-										{col.label}
-										{!col.noFilter && (
-											<ColumnFilter
-												columnName={col.filterLabel ?? col.label}
-												counts={counts}
-												onFilterChange={(values) =>
-													handleFilterChange(filterKey, values)
-												}
-												options={toFilterOptions(options)}
-												selectedValues={filters[filterKey] || []}
-											/>
+				<Table
+					className={cn(
+						"min-w-max",
+						isStale && "opacity-60 transition-opacity",
+					)}
+					classNameWrapper={cn(
+						"min-h-0 flex-1",
+						isScrolledLeft && "scrolled-left",
+						isScrolledTop && "scrolled-top",
+					)}
+					ref={tableRef}
+				>
+					<TableHeader className="sticky top-0 z-20 bg-background">
+						<TableRow
+							className={cn(
+								"transition-shadow duration-200 hover:bg-inherit",
+								isScrolledTop && "shadow-lg",
+							)}
+						>
+							{columns.map((col, index) => {
+								const filterKey = col.filterKey ?? col.key;
+								const isAge = filterKey === "age";
+								const options = isAge
+									? ageOptions
+									: (columnOptions[filterKey] ?? []);
+								const counts = isAge ? undefined : columnCounts[filterKey];
+								return (
+									<TableHead
+										className={cn(
+											index === 0 &&
+												"sticky left-0 z-30 bg-background transition-shadow duration-200",
+											index === 0 && isScrolledLeft && "shadow-lg",
 										)}
-									</div>
-								</TableHead>
-							);
-						})}
-						<TableHead>Actions</TableHead>
-					</TableRow>
-				</TableHeader>
-				<TableBody onKeyDownCapture={handleKeyDown}>
-					{paddingTop > 0 && (
-						<tr>
-							<td colSpan={columns.length + 1} style={{ height: paddingTop }} />
-						</tr>
-					)}
-					{virtualRows.map((virtualRow) => {
-						const scheduledClient = filteredClients[virtualRow.index];
-						if (!scheduledClient) return null;
-						const rowIndex = virtualRow.index;
-						return (
-							<SchedulingTableRow
-								actionIcon={actionIcon}
-								actionVariant={actionVariant}
-								districts={districts}
-								downNeighborId={filteredClients[rowIndex + 1]?.clientId}
-								evaluators={sortedEvaluators}
-								insurances={insurances}
-								isActionPending={isActionPending}
-								isEditable={isEditable}
-								isHighlighted={scheduledClient.clientId === highlightedClientId}
-								isScrolledLeft={isScrolledLeft}
-								key={scheduledClient.clientId}
-								measureElement={handleMeasureElement}
-								offices={offices}
-								onAction={onAction}
-								onMove={onMove}
-								onUpdate={onUpdate}
-								rowIndex={rowIndex}
-								scheduledClient={scheduledClient}
-								upNeighborId={filteredClients[rowIndex - 1]?.clientId}
-							/>
-						);
-					})}
-					{paddingBottom > 0 && (
-						<tr>
-							<td
-								colSpan={columns.length + 1}
-								style={{ height: paddingBottom }}
-							/>
-						</tr>
-					)}
-				</TableBody>
-			</Table>
+										key={col.key}
+									>
+										<div className="flex items-center gap-1">
+											{col.label}
+											{!col.noFilter && (
+												<ColumnFilter
+													columnName={col.filterLabel ?? col.label}
+													counts={counts}
+													onFilterChange={(values) =>
+														handleFilterChange(filterKey, values)
+													}
+													options={toFilterOptions(options)}
+													selectedValues={filters[filterKey] || []}
+												/>
+											)}
+										</div>
+									</TableHead>
+								);
+							})}
+							<TableHead>Actions</TableHead>
+						</TableRow>
+					</TableHeader>
+					<TableBody onKeyDownCapture={handleKeyDown}>
+						{paddingTop > 0 && (
+							<tr>
+								<td
+									colSpan={columns.length + 1}
+									style={{ height: paddingTop }}
+								/>
+							</tr>
+						)}
+						<SortableContext
+							items={sortableIds}
+							strategy={verticalListSortingStrategy}
+						>
+							{virtualRows.map((virtualRow) => {
+								const scheduledClient = filteredClients[virtualRow.index];
+								if (!scheduledClient) return null;
+								const rowIndex = virtualRow.index;
+								return (
+									<SchedulingTableRow
+										actionIcon={actionIcon}
+										actionVariant={actionVariant}
+										districts={districts}
+										downNeighborId={filteredClients[rowIndex + 1]?.clientId}
+										evaluators={sortedEvaluators}
+										insurances={insurances}
+										isActionPending={isActionPending}
+										isEditable={isEditable}
+										isHighlighted={
+											scheduledClient.clientId === highlightedClientId
+										}
+										isScrolledLeft={isScrolledLeft}
+										key={scheduledClient.clientId}
+										measureElement={handleMeasureElement}
+										offices={offices}
+										onAction={onAction}
+										onMove={onMove}
+										onUpdate={onUpdate}
+										rowIndex={rowIndex}
+										scheduledClient={scheduledClient}
+										upNeighborId={filteredClients[rowIndex - 1]?.clientId}
+									/>
+								);
+							})}
+						</SortableContext>
+						{paddingBottom > 0 && (
+							<tr>
+								<td
+									colSpan={columns.length + 1}
+									style={{ height: paddingBottom }}
+								/>
+							</tr>
+						)}
+					</TableBody>
+				</Table>
+			</DndContext>
 		</>
 	);
 }
@@ -1651,6 +1837,93 @@ function SchedulingTableView({
 		onSettled: () => utils.scheduling.get.invalidate(),
 	});
 
+	const reorderMutation = api.scheduling.reorder.useMutation({
+		// On success, the optimistic reorder already matches what the server
+		// computed, so mark the cache stale without forcing an immediate
+		// active refetch (refetchType: "none") - an active refetch flips
+		// isFetching, which dims the whole table (see isStale) for a moment
+		// even though nothing actually needs to change on screen. The next
+		// natural refetch (refocus, remount, filter change) reconciles it
+		// silently. A failed reorder rolls back via the per-call onError
+		// below and does force a real refetch, to fully resync in case
+		// something else changed concurrently.
+		onSuccess: () =>
+			utils.scheduling.get.invalidate(queryFilters, { refetchType: "none" }),
+	});
+
+	// dnd-kit's drop animation plays in the very next frame after the drag
+	// ends, reading whatever order is currently rendered. react-query's
+	// notifyManager schedules cache-subscriber notifications via
+	// setTimeout(fn, 0) by default - a real macrotask - so even a synchronous
+	// utils.scheduling.get.setData() call doesn't make useQuery's data
+	// re-render until a later browser task. dnd-kit's own "drag cleared"
+	// state update, by contrast, is a plain synchronous React state update
+	// that paints immediately. The result was one frame with the drag
+	// cleared but the OLD order still showing (a visible snap back), then a
+	// frame later the reordered data finally landing. pendingReorderIds is
+	// plain component state instead, updated synchronously in the same event
+	// handler as dnd-kit's own update, so React batches them into a single
+	// paint - no gap for the stale order to flash in.
+	const [pendingReorderIds, setPendingReorderIds] = useState<number[] | null>(
+		null,
+	);
+
+	// Once the query cache's real order actually matches what we rendered
+	// optimistically, the override has served its purpose and can drop -
+	// letting the query data (now caught up) drive rendering again.
+	useEffect(() => {
+		if (!pendingReorderIds || !data) return;
+		const currentIds = data.clients.map((c) => c.clientId);
+		const matches =
+			currentIds.length === pendingReorderIds.length &&
+			currentIds.every((id, i) => id === pendingReorderIds[i]);
+		if (matches) setPendingReorderIds(null);
+	}, [data, pendingReorderIds]);
+
+	const orderedClients = useMemo(() => {
+		const base = (data?.clients || []) as ScheduledClient[];
+		if (!pendingReorderIds) return base;
+		const byId = new Map(base.map((c) => [c.clientId, c]));
+		const reordered = pendingReorderIds
+			.map((id) => byId.get(id))
+			.filter((c): c is ScheduledClient => c !== undefined);
+		return reordered.length === base.length ? reordered : base;
+	}, [data, pendingReorderIds]);
+
+	const handleReorder = useCallback(
+		(clientId: number, overClientId: number) => {
+			const previousData = utils.scheduling.get.getData(queryFilters);
+			const baseClients = previousData?.clients ?? [];
+			const oldIndex = baseClients.findIndex((c) => c.clientId === clientId);
+			const newIndex = baseClients.findIndex(
+				(c) => c.clientId === overClientId,
+			);
+			if (oldIndex === -1 || newIndex === -1) return;
+			const reordered = arrayMove(baseClients, oldIndex, newIndex);
+			setPendingReorderIds(reordered.map((c) => c.clientId));
+
+			// Not awaited: cancel() and setData() run back-to-back in the same
+			// tick either way, and awaiting would defer setData past this task.
+			utils.scheduling.get.cancel(queryFilters);
+			utils.scheduling.get.setData(queryFilters, (old) =>
+				old ? { ...old, clients: reordered } : old,
+			);
+			reorderMutation.mutate(
+				{ clientId, overClientId },
+				{
+					onError: () => {
+						setPendingReorderIds(null);
+						if (previousData) {
+							utils.scheduling.get.setData(queryFilters, previousData);
+						}
+						utils.scheduling.get.invalidate(queryFilters);
+					},
+				},
+			);
+		},
+		[utils, queryFilters, reorderMutation],
+	);
+
 	const actionMutation = (
 		type === "active" ? api.scheduling.archive : api.scheduling.unarchive
 	).useMutation({
@@ -1660,6 +1933,27 @@ function SchedulingTableView({
 		},
 	});
 
+	// Inline arrow functions here would be a fresh reference every render of
+	// this component (which happens often - query refetches, isFetching
+	// toggling, every reorder step) and, passed straight through
+	// InternalSchedulingTable to every row, would defeat SchedulingRowCells'
+	// memoization exactly like the dnd-kit sensors reference did (see
+	// POINTER_SENSOR_OPTIONS above).
+	const handleAction = useCallback(
+		(clientId: number) => actionMutation.mutate({ clientId }),
+		[actionMutation.mutate],
+	);
+	const handleMove = useCallback(
+		(clientId: number, neighborClientId: number) =>
+			moveMutation.mutate({ clientId, neighborClientId }),
+		[moveMutation.mutate],
+	);
+	const handleUpdate = useCallback(
+		(clientId: number, updateData: SchedulingUpdateData) =>
+			updateMutation.mutate({ clientId, ...updateData }),
+		[updateMutation.mutate],
+	);
+
 	if (isLoading) return <SchedulingTableSkeleton />;
 	if (error) return <div>Error: {error.message}</div>;
 
@@ -1667,7 +1961,7 @@ function SchedulingTableView({
 		<InternalSchedulingTable
 			actionIcon={type === "active" ? <X /> : <ArchiveRestore />}
 			actionVariant={type === "active" ? "destructive" : "default"}
-			clients={(data?.clients || []) as ScheduledClient[]}
+			clients={orderedClients}
 			columnCounts={facetCountsQuery.data ?? {}}
 			columnOptions={columnOptions}
 			districts={(data?.schoolDistricts as SchoolDistrict[]) || []}
@@ -1685,17 +1979,11 @@ function SchedulingTableView({
 			isInitialized={isInitialized}
 			lastAddedClientId={lastAddedClientId}
 			offices={(data?.offices as Office[]) || []}
-			onAction={(clientId) => actionMutation.mutate({ clientId })}
-			onMove={(clientId, neighborClientId) =>
-				moveMutation.mutate({ clientId, neighborClientId })
-			}
+			onAction={handleAction}
+			onMove={handleMove}
+			onReorder={handleReorder}
 			onScrollToClient={onScrollToClient}
-			onUpdate={
-				type === "active"
-					? (clientId, updateData) =>
-							updateMutation.mutate({ clientId, ...updateData })
-					: undefined
-			}
+			onUpdate={type === "active" ? handleUpdate : undefined}
 			type={type}
 		/>
 	);
