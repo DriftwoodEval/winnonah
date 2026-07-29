@@ -2888,6 +2888,7 @@ export const clientRouter = createTRPCRouter({
 				"insurance",
 				"chart",
 				"referral",
+				"openphone",
 			]),
 		)
 		.mutation(async ({ ctx, input }) => {
