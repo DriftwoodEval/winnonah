@@ -654,6 +654,7 @@ DOWNLOADABLE_FILES = {
     "insurance": "clients-insurance.csv",
     "chart": "clients-chart.csv",
     "referral": "client-referral-report.csv",
+    "openphone": "openphone-merged.csv",
 }
 
 

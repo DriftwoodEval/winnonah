@@ -199,7 +199,7 @@ def sync_openphone():
     final_df = _process_demographic_data(demo_df, openphone_df)
 
     if final_df is not None:
-        final_df.to_csv("openphone-merged.csv", index=False)
+        final_df.to_csv("temp/input/openphone-merged.csv", index=False)
         # We would import the CSV into OpenPhone here, but it doesn't show contacts in OpenPhone until a conversation has been started with them, which is pretty useless.
         logger.success("OpenPhone CSV created.")
     else:

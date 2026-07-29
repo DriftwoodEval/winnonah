@@ -14,7 +14,8 @@ type CsvKey =
 	| "demographic"
 	| "insurance"
 	| "chart"
-	| "referral";
+	| "referral"
+	| "openphone";
 
 type ScriptKey =
 	| "appointment_reminders"
@@ -49,6 +50,11 @@ const CSV_FILES: { key: CsvKey; label: string; filename: string }[] = [
 		key: "referral",
 		label: "Referral Report",
 		filename: "client-referral-report.csv",
+	},
+	{
+		key: "openphone",
+		label: "OpenPhone",
+		filename: "openphone-merged.csv",
 	},
 ];
 
