@@ -191,3 +191,29 @@ jobs:
           package-name: "winnonah-python"
           package-type: "container"
           min-versions-to-keep: 5
+
+  deploy:
+    runs-on: ubuntu-latest
+    needs: [build-node, build-python]
+    if: always() && (needs.build-node.result == 'success' || needs.build-python.result == 'success')
+    steps:
+      # Requires a Tailscale OAuth client with access to the primary host's
+      # tailnet (secrets: TS_OAUTH_CLIENT_ID, TS_OAUTH_CLIENT_SECRET).
+      - name: Connect to Tailscale
+        uses: tailscale/github-action@v3
+        with:
+          oauth-client-id: ${{ secrets.TS_OAUTH_CLIENT_ID }}
+          oauth-client-secret: ${{ secrets.TS_OAUTH_CLIENT_SECRET }}
+          tags: tag:ci
+
+      # Runs the same one-shot watchtower update used for manual deploys,
+      # so newly pushed images get pulled and their containers recreated
+      # immediately instead of waiting for the hourly poll.
+      - name: Trigger watchtower on primary
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.DEPLOY_SSH_HOST }}
+          username: ${{ secrets.DEPLOY_SSH_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          script: |
+            docker run --rm -v /var/run/docker.sock:/var/run/docker.sock containrrr/watchtower --run-once
