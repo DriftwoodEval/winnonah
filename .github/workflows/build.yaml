@@ -216,4 +216,9 @@ jobs:
           username: ${{ secrets.DEPLOY_SSH_USER }}
           key: ${{ secrets.DEPLOY_SSH_KEY }}
           script: |
-            docker run --rm -v /var/run/docker.sock:/var/run/docker.sock containrrr/watchtower --run-once
+            docker run --rm \
+              -e WATCHTOWER_POLL_INTERVAL=3600 \
+              -e DOCKER_API_VERSION=1.45 \
+              -v /var/run/docker.sock:/var/run/docker.sock \
+              -v /etc/localtime:/etc/localtime:ro \
+              containrrr/watchtower --run-once
