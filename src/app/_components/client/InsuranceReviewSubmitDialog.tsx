@@ -107,7 +107,7 @@ export function InsuranceReviewSubmitDialog({
 
 	return (
 		<ResponsiveDialog
-			className="max-w-2xl"
+			className="max-w-2xl sm:max-w-2xl"
 			footer={
 				<div className="flex w-full items-center justify-between gap-2">
 					<div className="flex items-center gap-1">
