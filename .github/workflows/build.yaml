@@ -215,6 +215,9 @@ jobs:
           host: ${{ secrets.DEPLOY_SSH_HOST }}
           username: ${{ secrets.DEPLOY_SSH_USER }}
           key: ${{ secrets.DEPLOY_SSH_KEY }}
+          # DOCKER_API_VERSION is pinned to the primary host's current
+          # Docker Engine API version. Update this if that host's Docker
+          # Engine is upgraded.
           script: |
             docker run --rm \
               -e WATCHTOWER_POLL_INTERVAL=3600 \
