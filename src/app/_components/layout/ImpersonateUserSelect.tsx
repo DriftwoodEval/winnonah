@@ -7,8 +7,11 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from "@ui/select";
+import { VenetianMask } from "lucide-react";
 import { useSession } from "next-auth/react";
 import { useState } from "react";
+import { useMediaQuery } from "~/hooks/use-media-query";
+import { cn } from "~/lib/utils";
 import { api } from "~/trpc/react";
 
 /**
@@ -23,6 +26,7 @@ export function ImpersonateUserSelect() {
 		enabled: !!session,
 	});
 	const [pending, setPending] = useState(false);
+	const isDesktop = useMediaQuery("(min-width: 768px)");
 
 	if (!session) return null;
 
@@ -56,9 +60,18 @@ export function ImpersonateUserSelect() {
 			onValueChange={(v) => viewAs(v === "__self" ? undefined : v)}
 			value={session.user.isImpersonating ? session.user.id : "__self"}
 		>
-			<SelectTrigger className="h-7 w-44 border-dashed text-xs">
+			<SelectTrigger
+				className={cn("h-7 min-w-0 border-dashed text-xs", isDesktop && "w-44")}
+			>
 				<SelectValue placeholder="View as...">
-					Acting as: {currentName}
+					{isDesktop ? (
+						`Acting as: ${currentName}`
+					) : (
+						<>
+							<VenetianMask className="h-3.5 w-3.5" />
+							<span className="sr-only">Acting as: {currentName}</span>
+						</>
+					)}
 				</SelectValue>
 			</SelectTrigger>
 			<SelectContent>
