@@ -498,12 +498,10 @@ export function Dashboard() {
 	const [showMineOnly, setShowMineOnly] = useState(false);
 	const [insuranceFilters, setInsuranceFilters] = useState<string[]>([]);
 	const showWaitingOnly = insuranceFilters.includes("waiting");
-	const showHidden = insuranceFilters.includes("hidden");
 	const visibleInsuranceClients = (insuranceReviewClients ?? []).filter((c) => {
 		if (showMineOnly && c.claimedUserEmail !== session?.user?.email)
 			return false;
 		if (showWaitingOnly && !c.waiting) return false;
-		if (showHidden !== c.paused) return false;
 		return true;
 	});
 
@@ -673,25 +671,6 @@ export function Dashboard() {
 														htmlFor="insurance-filter-waiting"
 													>
 														Waiting
-													</Label>
-												</div>
-												<div className="flex items-center gap-2">
-													<Checkbox
-														checked={showHidden}
-														id="insurance-filter-hidden"
-														onCheckedChange={(checked) =>
-															setInsuranceFilters((prev) =>
-																checked
-																	? [...prev, "hidden"]
-																	: prev.filter((v) => v !== "hidden"),
-															)
-														}
-													/>
-													<Label
-														className="font-normal"
-														htmlFor="insurance-filter-hidden"
-													>
-														Hidden from Review Lists
 													</Label>
 												</div>
 											</div>
