@@ -206,22 +206,15 @@ jobs:
           oauth-client-secret: ${{ secrets.TS_OAUTH_CLIENT_SECRET }}
           tags: tag:ci
 
-      # Runs the same one-shot watchtower update used for manual deploys,
-      # so newly pushed images get pulled and their containers recreated
-      # immediately instead of waiting for the hourly poll.
+      # Execs into the already-running watchtower container (from
+      # docker-compose.yaml) instead of docker run-ing a fresh one, so it
+      # reuses that container's already-working Docker API negotiation
+      # instead of needing a separate DOCKER_API_VERSION pin.
       - name: Trigger watchtower on primary
         uses: appleboy/ssh-action@v1
         with:
           host: ${{ secrets.DEPLOY_SSH_HOST }}
           username: ${{ secrets.DEPLOY_SSH_USER }}
           key: ${{ secrets.DEPLOY_SSH_KEY }}
-          # DOCKER_API_VERSION is pinned to the primary host's current
-          # Docker Engine API version. Update this if that host's Docker
-          # Engine is upgraded.
           script: |
-            docker run --rm \
-              -e WATCHTOWER_POLL_INTERVAL=3600 \
-              -e DOCKER_API_VERSION=1.45 \
-              -v /var/run/docker.sock:/var/run/docker.sock \
-              -v /etc/localtime:/etc/localtime:ro \
-              containrrr/watchtower --run-once
+            docker exec watchtower /watchtower --run-once
