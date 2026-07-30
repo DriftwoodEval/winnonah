@@ -318,17 +318,24 @@ def _download_referrals(driver: WebDriver):
         By.XPATH, "//label[text()='From']/following-sibling::input"
     )
 
-    input_field.send_keys(Keys.COMMAND + "a")
+    input_field.send_keys(Keys.CONTROL + "a")
     input_field.send_keys(Keys.BACKSPACE)
 
     input_field.send_keys("01/01/2020")
 
     w.click_element(driver, By.XPATH, "//button[normalize-space()='OK']")
-    w.click_element(driver, By.XPATH, "//button[@aria-label='Close dialog']")
+    w.click_element(
+        driver,
+        By.XPATH,
+        "//span[contains(@class, 'v-btn__content') and @data-no-activator='' and normalize-space()='Search']",
+    )
 
     before = set(DOWNLOAD_DIR.glob("*.csv"))
     w.click_element(
-        driver, By.XPATH, "//span[contains(text(), 'Export CSV')]", timeout=10
+        driver,
+        By.XPATH,
+        "//span[contains(@class, 'v-btn__content') and normalize-space()='Export CSV']",
+        timeout=30,
     )
     _wait_for_download(before)
     shutil.move(
@@ -367,15 +374,7 @@ def _download_billing(driver: WebDriver):
     merged_df.to_csv(INPUT_DIR / "clients-billing.csv", index=False)
 
 
-def download_csvs():
-    """Downloads CSVs from TherapyAppointment."""
-    logger.debug("Downloading CSVs from TherapyAppointment")
-    driver, actions = w.initialize_selenium()
-    check_and_login_ta(driver, actions, first_time=True)
-    _open_profile(driver)
-    _loop_therapists(driver, _export_data)
-    _loop_therapists(driver, _download_data)
-    _combine_files()
+def _download_referrals_with_retries(driver: WebDriver):
     for attempt in range(3):
         try:
             _download_referrals(driver)
@@ -389,6 +388,26 @@ def download_csvs():
                 logger.warning(
                     f"Failed to download referrals (attempt {attempt + 1}), retrying: {e}"
                 )
+
+
+def download_referral_csv():
+    """Downloads just the referrals CSV from TherapyAppointment, without the full per-therapist export."""
+    logger.debug("Downloading referral CSV from TherapyAppointment")
+    driver, actions = w.initialize_selenium()
+    check_and_login_ta(driver, actions, first_time=True)
+    _download_referrals_with_retries(driver)
+
+
+def download_csvs():
+    """Downloads CSVs from TherapyAppointment."""
+    logger.debug("Downloading CSVs from TherapyAppointment")
+    driver, actions = w.initialize_selenium()
+    check_and_login_ta(driver, actions, first_time=True)
+    _open_profile(driver)
+    _loop_therapists(driver, _export_data)
+    _loop_therapists(driver, _download_data)
+    _combine_files()
+    _download_referrals_with_retries(driver)
 
     for attempt in range(3):
         try:

@@ -335,7 +335,7 @@ def main(
     ] = False,
     referrals: Annotated[
         bool,
-        typer.Option("--referrals", help="Download TA CSVs and process referrals"),
+        typer.Option("--referrals", help="Download referral CSV and process referrals"),
     ] = False,
     drive_ids: Annotated[
         bool, typer.Option("--drive-ids", help="Add client IDs to Google Drive")
@@ -407,7 +407,7 @@ def main(
 
     if referrals:
         logger.info("Running Referrals process")
-        utils.therapyappointment.download_csvs()
+        utils.therapyappointment.download_referral_csv()
         process_referrals()
         return
 

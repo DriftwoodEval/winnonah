@@ -66,7 +66,8 @@ def click_element(
             return
         except (StaleElementReferenceException, ElementClickInterceptedException) as e:
             logger.warning(
-                f"Attempt {attempt + 1}/{max_attempts} failed: {type(e).__name__}. Retrying..."
+                f"Attempt {attempt + 1}/{max_attempts} failed to click {by}='{locator}': "
+                f"{type(e).__name__}. Retrying..."
             )
             if refresh:
                 logger.info("Refreshing page")
@@ -76,7 +77,8 @@ def click_element(
             if attempt == max_attempts - 1:
                 raise e
             logger.warning(
-                f"Attempt {attempt + 1}/{max_attempts} failed: {type(e).__name__}. Retrying..."
+                f"Attempt {attempt + 1}/{max_attempts} failed to click {by}='{locator}': "
+                f"{type(e).__name__}. Retrying..."
             )
             sleep(1)
 

@@ -94,7 +94,6 @@ def create_and_send_referral_faxes(clients: pd.DataFrame):
 
     cutoff_date = last_date + timedelta(days=1)
 
-    clients = utils.database.get_all_clients()
     clients["ADDED_DATE_DT"] = pd.to_datetime(clients["ADDED_DATE"]).dt.date
     new_clients = clients[clients["ADDED_DATE_DT"] >= cutoff_date]
 
