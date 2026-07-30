@@ -254,6 +254,12 @@ function PunchListAccordionItem({
 																{client.fullName ?? punchClient["Client Name"]}
 															</Redact>
 														</span>
+														{isRecordsNotReturnedSection &&
+															punchClient.asdAdhd && (
+																<span className="text-muted-foreground text-xs">
+																	{punchClient.asdAdhd}
+																</span>
+															)}
 														{(isOutreachSection ||
 															isRecordsNeededNotRequestedSection) &&
 															language &&

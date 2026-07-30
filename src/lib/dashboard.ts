@@ -166,7 +166,14 @@ export const DASHBOARD_CONFIG: {
 			client.recordsNeeded === "Needed" &&
 			!!client.externalRecordsRequestedDate &&
 			!client.hasExternalRecordsNote,
+		extraInfo: (client: FullClientInfo) => {
+			const date = formatScheduledDate(client.externalRecordsRequestedDate);
+			return date ? `Requested on: ${date}` : undefined;
+		},
 		failureFilter: (f) => f.daEval === "Records",
+		sort: (a, b) =>
+			Date.parse(a.externalRecordsRequestedDate ?? "") -
+			Date.parse(b.externalRecordsRequestedDate ?? ""),
 	},
 	{
 		title: "BabyNet Eval Needed - Not Downloaded",

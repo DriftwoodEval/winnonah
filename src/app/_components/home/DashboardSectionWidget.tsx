@@ -1,7 +1,6 @@
 "use client";
 
 import { Skeleton } from "@ui/skeleton";
-import { format } from "date-fns";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
 import { getHexFromColor, isClientColor } from "~/lib/colors";
@@ -131,6 +130,11 @@ function DashboardClientRow({
 						<span className="truncate">
 							<Redact>{name}</Redact>
 						</span>
+						{isRecordsNotReturnedSection && full.asdAdhd && (
+							<span className="shrink-0 text-muted-foreground text-xs">
+								{full.asdAdhd}
+							</span>
+						)}
 						{showLanguage && (
 							<span className="shrink-0 font-bold text-destructive text-xs">
 								({language})
@@ -176,11 +180,6 @@ function DashboardClientRow({
 				{extraInfo && (
 					<span className="mt-0.5 shrink-0 text-muted-foreground text-xs">
 						{extraInfo}
-					</span>
-				)}
-				{isRecordsNotReturnedSection && full.externalRecordsRequestedDate && (
-					<span className="mt-0.5 shrink-0 text-muted-foreground text-xs">
-						{format(new Date(full.externalRecordsRequestedDate), "MM/dd/yy")}
 					</span>
 				)}
 			</Link>
