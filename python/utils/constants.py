@@ -51,6 +51,8 @@ TABLE_NOTE: Final = "emr_note"
 TABLE_NOTE_HISTORY: Final = "emr_note_history"
 TABLE_TASK: Final = "emr_task"
 TABLE_ROLE: Final = "emr_role"
+TABLE_EXTERNAL_RECORD: Final = "emr_external_record"
+TABLE_EXTERNAL_RECORD_HISTORY: Final = "emr_external_record_history"
 
 # DB to DataFrame Column Mapping
 CLIENT_COLUMN_MAPPING: Final = {

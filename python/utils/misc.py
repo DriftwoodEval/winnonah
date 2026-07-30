@@ -46,6 +46,8 @@ def capitalize_name_with_exceptions(name: object) -> str:
 def json_log_format(record: loguru.Record) -> str:
     # Escape braces so loguru's format_map treats this as a literal string, not a template.
     # format_map then unescapes {{ → { and }} → }, restoring valid JSON.
+    # Escape < so loguru's colorizer doesn't try to parse literal angle brackets in the
+    # message (e.g. Selenium stacktraces contain "<unknown>") as color tags.
     return (
         (
             _json.dumps(
@@ -62,6 +64,7 @@ def json_log_format(record: loguru.Record) -> str:
         )
         .replace("{", "{{")
         .replace("}", "}}")
+        .replace("<", r"\<")
     )
 
 

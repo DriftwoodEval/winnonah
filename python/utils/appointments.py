@@ -576,6 +576,8 @@ def insert_appointments_with_gcal(appointment_sync_data: dict[str, list[str]] | 
     dob_map = get_client_id_to_dob_map()
     battery_rules = get_questionnaire_rules_with_in_person()
     skipped_locked_in_snapshots = 0
+    in_person_assessments_added = 0
+    clients_with_in_person_assessments: set[int] = set()
 
     for _, appointment in appointments_df.iterrows():
         appointment_id = str(appointment["APPOINTMENT_ID"])
@@ -677,12 +679,15 @@ def insert_appointments_with_gcal(appointment_sync_data: dict[str, list[str]] | 
                     rules=battery_rules,
                 )
                 if in_person:
-                    put_in_person_assessments_in_db(
+                    added = put_in_person_assessments_in_db(
                         client_id=client_id,
                         assessment_types=in_person,
                         added_date=appt_date,
                         appointment_id=appointment_id,
                     )
+                    if added:
+                        in_person_assessments_added += added
+                        clients_with_in_person_assessments.add(client_id)
 
         if (
             not cancelled
@@ -743,6 +748,12 @@ def insert_appointments_with_gcal(appointment_sync_data: dict[str, list[str]] | 
                 and compute_and_store_assessment_snapshot(client_id=client_id)
             ):
                 skipped_locked_in_snapshots += 1
+
+    if in_person_assessments_added:
+        logger.info(
+            f"Added {in_person_assessments_added} in-person assessment(s) for "
+            f"{len(clients_with_in_person_assessments)} client(s)"
+        )
 
     if skipped_locked_in_snapshots:
         logger.debug(

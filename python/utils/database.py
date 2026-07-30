@@ -30,6 +30,8 @@ from utils.constants import (
     TABLE_CLIENT_INSURANCE_POLICY,
     TABLE_EVALUATOR,
     TABLE_EVALUATORS_TO_INSURANCES,
+    TABLE_EXTERNAL_RECORD,
+    TABLE_EXTERNAL_RECORD_HISTORY,
     TABLE_FAILURE,
     TABLE_IN_PERSON_ASSESSMENT,
     TABLE_IN_PERSON_ASSESSMENT_HISTORY,
@@ -449,10 +451,12 @@ def reset_client_session(client_id: int, connection: Connection[DictCursor]) -> 
 
     Runs when a client's status flips from Inactive back to Active in the TA
     import. Mutable "current state" rows (in-person assessments, insurance
-    review) are archived into their history tables and reset in place;
-    failures are cleared outright; a separator is prepended to the client's
-    notes; and `sessionStartedAt` is stamped so calculations can exclude
-    everything before it.
+    review, external records note) are archived into their history tables and
+    reset in place; `recordsNeeded` is cleared so staff re-triage it; failures
+    are cleared outright; a separator is prepended to the client's notes; and
+    `sessionStartedAt` is stamped so calculations can exclude everything
+    before it. Records request history (`emr_external_record_request`) is
+    left in place, since queries scope it by `sessionStartedAt` instead.
     """
     now = datetime.utcnow()
 
@@ -499,6 +503,27 @@ def reset_client_session(client_id: int, connection: Connection[DictCursor]) -> 
                 "submittedToNotesAt = NULL WHERE clientId = %s",
                 (client_id,),
             )
+
+        cursor.execute(
+            f"SELECT content, updatedBy FROM `{TABLE_EXTERNAL_RECORD}` WHERE clientId = %s",
+            (client_id,),
+        )
+        external_record = cursor.fetchone()
+        if external_record and external_record["content"] is not None:
+            cursor.execute(
+                f"INSERT INTO `{TABLE_EXTERNAL_RECORD_HISTORY}` (externalRecordId, content, updatedBy) "
+                "VALUES (%s, %s, %s)",
+                (client_id, external_record["content"], external_record["updatedBy"]),
+            )
+            cursor.execute(
+                f"UPDATE `{TABLE_EXTERNAL_RECORD}` SET content = NULL WHERE clientId = %s",
+                (client_id,),
+            )
+
+        cursor.execute(
+            f"UPDATE `{TABLE_CLIENT}` SET recordsNeeded = NULL WHERE id = %s",
+            (client_id,),
+        )
 
         cursor.execute(
             f"DELETE FROM `{TABLE_FAILURE}` WHERE clientId = %s", (client_id,)
@@ -1775,10 +1800,13 @@ def put_in_person_assessments_in_db(
     added_date: date,
     connection: Connection[DictCursor],
     appointment_id: str | None = None,
-) -> None:
-    """Insert in-person assessments for a client, skipping any that already exist."""
+) -> int:
+    """Insert in-person assessments for a client, skipping any that already exist.
+
+    Returns the number of assessments actually inserted.
+    """
     if not assessment_types:
-        return
+        return 0
 
     with connection.cursor() as cursor:
         cursor.executemany(
@@ -1792,10 +1820,9 @@ def put_in_person_assessments_in_db(
                 for assessment_type in assessment_types
             ],
         )
+        added = cursor.rowcount
     connection.commit()
-    logger.info(
-        f"Added {len(assessment_types)} in-person assessment(s) for client {client_id}"
-    )
+    return added
 
 
 @provide_connection

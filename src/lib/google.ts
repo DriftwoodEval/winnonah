@@ -239,6 +239,7 @@ export const getPunchData = async (session: Session) => {
 					FROM ${externalRecordRequests}
 					WHERE ${externalRecordRequests.clientId} = ${clients.id}
 					AND ${externalRecordRequests.requestedDate} IS NOT NULL
+					AND (${clients.sessionStartedAt} IS NULL OR ${externalRecordRequests.createdAt} >= ${clients.sessionStartedAt})
 				)`,
 				})
 				.from(clients)
@@ -258,6 +259,7 @@ export const getPunchData = async (session: Session) => {
 			db
 				.selectDistinct({ clientId: appointments.clientId })
 				.from(appointments)
+				.innerJoin(clients, eq(appointments.clientId, clients.id))
 				.where(
 					and(
 						inArray(appointments.clientId, clientIds),
@@ -265,6 +267,7 @@ export const getPunchData = async (session: Session) => {
 						eq(appointments.cancelled, false),
 						eq(appointments.placeholder, false),
 						lt(appointments.startTime, new Date()),
+						sql`(${clients.sessionStartedAt} IS NULL OR ${appointments.startTime} >= ${clients.sessionStartedAt})`,
 					),
 				),
 		]);
