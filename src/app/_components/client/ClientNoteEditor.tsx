@@ -188,7 +188,7 @@ export function ClientNoteEditor({
 			<div className="mb-2 flex items-center justify-between">
 				<h4 className="font-bold leading-none">Notes</h4>
 				<ResponsiveDialog
-					className="max-h-[calc(100vh-4rem)] max-w-fit overflow-x-hidden overflow-y-scroll sm:max-w-fit"
+					className="max-h-[calc(100vh-4rem)] max-w-2xl overflow-x-hidden overflow-y-scroll sm:max-w-2xl"
 					title="Note History"
 					trigger={historyTrigger}
 				>
