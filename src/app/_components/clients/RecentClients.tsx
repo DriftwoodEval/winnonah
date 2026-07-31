@@ -14,7 +14,7 @@ export function RecentClients({ onNavigate }: { onNavigate?: () => void }) {
 	if (!recentClients?.length) return null;
 
 	return (
-		<div className="flex items-center gap-2 overflow-x-auto rounded-lg border border-primary/20 bg-primary/5 px-3 py-2">
+		<div className="flex shrink-0 items-center gap-2 overflow-x-auto rounded-lg border border-primary/20 bg-primary/5 px-3 py-2">
 			<span className="text-muted-foreground text-xs uppercase tracking-wide">
 				Recent
 			</span>
