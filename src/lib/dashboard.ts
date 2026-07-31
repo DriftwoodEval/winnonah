@@ -111,6 +111,40 @@ const getPunchClientIds = (punchClients: FullClientInfo[] | undefined) => {
 	);
 };
 
+export function getInactivePunchClients<T extends { status?: boolean | null }>(
+	punchClients: T[] | undefined,
+): T[] {
+	return punchClients?.filter((c) => c.status === false) ?? [];
+}
+
+/**
+ * Groups punch rows by "Client ID" and returns one entry per id that appears
+ * more than once, alongside a representative row and the total count.
+ */
+export function getDuplicatePunchClients<T extends { "Client ID"?: string }>(
+	punchClients: T[] | undefined,
+): { client: T; count: number }[] {
+	const idCounts = new Map<string, number>();
+	for (const client of punchClients ?? []) {
+		const id = client["Client ID"];
+		if (id) idCounts.set(id, (idCounts.get(id) ?? 0) + 1);
+	}
+
+	const seenIds = new Set<string>();
+	const duplicates: { client: T; count: number }[] = [];
+	for (const client of punchClients ?? []) {
+		const id = client["Client ID"];
+		if (!id || seenIds.has(id)) continue;
+		const count = idCounts.get(id) ?? 0;
+		if (count > 1) {
+			seenIds.add(id);
+			duplicates.push({ client, count });
+		}
+	}
+
+	return duplicates;
+}
+
 export const DASHBOARD_CONFIG: {
 	title: string;
 	subheading?: string;
@@ -395,8 +429,7 @@ export function getDashboardSections(
 	const punchClientIds = getPunchClientIds(punchClients);
 
 	const activePunchClients = punchClients?.filter((c) => c.status !== false);
-	const inactivePunchClients =
-		punchClients?.filter((c) => c.status === false) ?? [];
+	const inactivePunchClients = getInactivePunchClients(punchClients);
 
 	const referralSections: DashboardSection[] = [
 		...(needsReachOut

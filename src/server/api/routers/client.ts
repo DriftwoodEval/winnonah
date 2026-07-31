@@ -30,7 +30,6 @@ import {
 import { fetchWithCache, invalidateCache } from "~/lib/cache";
 import { CLIENT_COLOR_KEYS, type ClientColor } from "~/lib/colors";
 import { ALLOWED_ASD_ADHD_VALUES } from "~/lib/constants";
-import { sortNeedsReachOut } from "~/lib/dashboard";
 import {
 	renameDriveFolder,
 	syncPunchData,
@@ -1638,32 +1637,6 @@ export const clientRouter = createTRPCRouter({
 		});
 
 		return clientsWithoutRecordsNeeded;
-	}),
-
-	getNeedsReachOut: protectedProcedure.query(async ({ ctx }) => {
-		const results = await ctx.db.query.clients.findMany({
-			where: and(
-				eq(clients.status, true),
-				not(isNotesOnly),
-				sql`JSON_EXTRACT(${clients.referralData}, '$.needsReachOut') = 'reach_out'`,
-			),
-			orderBy: asc(clients.addedDate),
-		});
-
-		return sortNeedsReachOut(results);
-	}),
-
-	getNeedsReview: protectedProcedure.query(async ({ ctx }) => {
-		const results = await ctx.db.query.clients.findMany({
-			where: and(
-				eq(clients.status, true),
-				not(isNotesOnly),
-				sql`JSON_EXTRACT(${clients.referralData}, '$.needsReachOut') = 'review'`,
-			),
-			orderBy: asc(clients.addedDate),
-		});
-
-		return results;
 	}),
 
 	claimOutreach: protectedProcedure

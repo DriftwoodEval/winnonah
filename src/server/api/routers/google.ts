@@ -7,7 +7,12 @@ import z from "zod";
 import { env } from "~/env";
 import { fetchWithCache, invalidateCache } from "~/lib/cache";
 import { TEST_NAMES } from "~/lib/constants";
-import { getDashboardSections, sortNeedsReachOut } from "~/lib/dashboard";
+import {
+	getDashboardSections,
+	getDuplicatePunchClients,
+	getInactivePunchClients,
+	sortNeedsReachOut,
+} from "~/lib/dashboard";
 import {
 	CACHE_KEY_PUNCHLIST,
 	createAvailabilityEvent,
@@ -867,31 +872,14 @@ export const googleRouter = createTRPCRouter({
 			return { ...punchClient, suggestions };
 		});
 
-		const inactiveClients = punchData.filter(
-			(client) => typeof client.id === "number" && client.status === false,
-		);
+		const inactiveClients = getInactivePunchClients(punchData);
 
-		// Find duplicate client IDs
-		const idCounts = new Map<string, number>();
-		for (const client of punchData) {
-			const id = client["Client ID"];
-			if (id) {
-				idCounts.set(id, (idCounts.get(id) ?? 0) + 1);
-			}
-		}
-
-		const duplicateIds = Array.from(idCounts.entries())
-			.filter(([_, count]) => count > 1)
-			.map(([id]) => id);
-
-		const duplicateIdClients = duplicateIds.map((id) => {
-			const count = idCounts.get(id) ?? 0;
-			const client = punchData.find((c) => c["Client ID"] === id);
-			return {
+		const duplicateIdClients = getDuplicatePunchClients(punchData).map(
+			({ client, count }) => ({
 				...client,
 				duplicateCount: count,
-			};
-		});
+			}),
+		);
 
 		return {
 			clientsNotInDb: clientsWithSuggestions,
@@ -952,22 +940,13 @@ export const googleRouter = createTRPCRouter({
 				}),
 			]);
 
-		const idCounts = new Map<string, number>();
-		for (const c of punchClients ?? []) {
-			const id = c["Client ID"];
-			if (id) idCounts.set(id, (idCounts.get(id) ?? 0) + 1);
-		}
-		const duplicatePunchClients = (punchClients ?? [])
-			.filter((c) => (idCounts.get(c["Client ID"] ?? "") ?? 0) > 1)
-			.filter(
-				(c, i, arr) =>
-					arr.findIndex((x) => x["Client ID"] === c["Client ID"]) === i,
-			)
-			.map((c) => ({
-				hash: c.hash,
-				name: c.fullName ?? c["Client Name"] ?? String(c.id),
-				count: idCounts.get(c["Client ID"] ?? "") ?? 2,
-			}));
+		const duplicatePunchClients = getDuplicatePunchClients(punchClients).map(
+			({ client, count }) => ({
+				hash: client.hash,
+				name: client.fullName ?? client["Client Name"] ?? String(client.id),
+				count,
+			}),
+		);
 
 		return {
 			sections: getDashboardSections(
