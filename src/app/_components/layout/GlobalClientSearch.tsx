@@ -200,8 +200,8 @@ export function GlobalClientSearch() {
 					<div
 						className={
 							isPlaceholderData
-								? "min-h-0 flex-1 opacity-60 transition-opacity duration-200"
-								: "min-h-0 flex-1 opacity-100 transition-opacity duration-200"
+								? "grid min-h-0 flex-1 grid-rows-[minmax(0,1fr)] opacity-60 transition-opacity duration-200"
+								: "grid min-h-0 flex-1 grid-rows-[minmax(0,1fr)] opacity-100 transition-opacity duration-200"
 						}
 					>
 						{isLoading ? (
