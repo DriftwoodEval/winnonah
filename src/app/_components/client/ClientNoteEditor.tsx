@@ -204,6 +204,7 @@ export function ClientNoteEditor({
 			) : (
 				<div>
 					<Input
+						autoComplete="off"
 						className="mb-3 text-xl placeholder:text-sm disabled:opacity-100 md:text-xl"
 						disabled={!canNote || readOnly}
 						name="title"

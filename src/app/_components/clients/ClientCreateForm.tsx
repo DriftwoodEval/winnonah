@@ -54,7 +54,7 @@ export default function ClientCreateForm() {
 						render={({ field }) => (
 							<FormItem>
 								<FormLabel>First Name</FormLabel>
-								<Input placeholder="Jay" {...field} />
+								<Input autoComplete="off" placeholder="Jay" {...field} />
 								<FormMessage />
 							</FormItem>
 						)}
@@ -65,7 +65,7 @@ export default function ClientCreateForm() {
 						render={({ field }) => (
 							<FormItem>
 								<FormLabel>Last Name</FormLabel>
-								<Input placeholder="Doe" {...field} />
+								<Input autoComplete="off" placeholder="Doe" {...field} />
 								<FormMessage />
 							</FormItem>
 						)}
