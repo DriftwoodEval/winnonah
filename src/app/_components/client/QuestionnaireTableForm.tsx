@@ -276,7 +276,10 @@ export function QuestionnaireTableForm({
 								<FormLabel>Status</FormLabel>
 								<Select
 									defaultValue={field.value}
-									onValueChange={field.onChange}
+									onValueChange={(value) => {
+										field.onChange(value);
+										void form.trigger();
+									}}
 								>
 									<FormControl>
 										<SelectTrigger>
