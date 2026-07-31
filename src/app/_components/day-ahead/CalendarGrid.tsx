@@ -290,6 +290,7 @@ export function ApptBlock({
 	appt,
 	colorClass,
 	showEvaluator = false,
+	showMessages = true,
 	style,
 	messages,
 	messagesLoading,
@@ -299,6 +300,8 @@ export function ApptBlock({
 	appt: CalAppt;
 	colorClass: string;
 	showEvaluator?: boolean;
+	/** Whether to show the recent-messages popover on each block. */
+	showMessages?: boolean;
 	style?: React.CSSProperties;
 	messages: RecentMessagesMap;
 	messagesLoading: boolean;
@@ -403,13 +406,15 @@ export function ApptBlock({
 							)}
 						</div>
 					)}
-					<ApptMessagesPopover
-						appt={appt}
-						className="absolute top-0.5 right-0.5"
-						messages={messages}
-						messagesLoading={messagesLoading}
-						onOpenChange={setMessagesOpen}
-					/>
+					{showMessages && (
+						<ApptMessagesPopover
+							appt={appt}
+							className="absolute top-0.5 right-0.5"
+							messages={messages}
+							messagesLoading={messagesLoading}
+							onOpenChange={setMessagesOpen}
+						/>
+					)}
 					{canCheckin &&
 						!isVirtualAppointment(appt.locationKey) &&
 						checkinDateGate(apptDateKey(appt.startTime)) && (
@@ -446,6 +451,15 @@ export function ApptBlock({
 
 // ─── Calendar day view (evaluator columns) ────────────────────────────────────
 
+export type AvailabilityWindow = {
+	evaluatorNpi: number;
+	// Same "fake UTC" convention as CalAppt.startTime/endTime (see
+	// toFakeUtcDate in SchedulingHelper.tsx) - callers must relabel real
+	// Google Calendar instants before passing them in here.
+	start: Date;
+	end: Date;
+};
+
 export function CalendarDayView({
 	appointments,
 	colorMap,
@@ -454,6 +468,9 @@ export function CalendarDayView({
 	canCheckin = false,
 	evaluatorCheckins,
 	evaluatorCheckinDate,
+	availability,
+	extraEvaluators,
+	showMessages = true,
 }: {
 	appointments: CalAppt[];
 	colorMap: Map<number, string>;
@@ -465,6 +482,16 @@ export function CalendarDayView({
 		RouterOutputs["appointments"]["getEvaluatorCheckins"][number]
 	>;
 	evaluatorCheckinDate?: string;
+	/** Rendered as a low-opacity layer behind appointment blocks. */
+	availability?: AvailabilityWindow[];
+	/**
+	 * Evaluators to always show a column for, even with zero appointments this
+	 * day - otherwise an evaluator with only an availability backdrop and no
+	 * bookings yet would have nothing to render it behind.
+	 */
+	extraEvaluators?: { npi: number; name: string; isCurrentUser?: boolean }[];
+	/** Whether to show the recent-messages popover on each appointment block. */
+	showMessages?: boolean;
 }) {
 	const byEval = useMemo(() => {
 		const map = new Map<
@@ -481,12 +508,21 @@ export function CalendarDayView({
 			existing.appts.push(appt);
 			map.set(appt.evaluatorNpi, existing);
 		}
+		for (const evaluator of extraEvaluators ?? []) {
+			if (map.has(evaluator.npi)) continue;
+			map.set(evaluator.npi, {
+				name: evaluator.name,
+				npi: evaluator.npi,
+				isCurrentUser: evaluator.isCurrentUser ?? false,
+				appts: [],
+			});
+		}
 		return [...map.values()].toSorted((a, b) => {
 			if (a.isCurrentUser) return -1;
 			if (b.isCurrentUser) return 1;
 			return a.name.localeCompare(b.name);
 		});
-	}, [appointments]);
+	}, [appointments, extraEvaluators]);
 
 	const [messagesOpen, setMessagesOpen] = useState(false);
 
@@ -547,6 +583,20 @@ export function CalendarDayView({
 							style={{ height: TOTAL_HEIGHT }}
 						>
 							<GridLines />
+							{availability
+								?.filter((a) => a.evaluatorNpi === ev.npi)
+								.map((a) => (
+									<div
+										className="absolute rounded-sm bg-success/15"
+										key={`avail-${ev.npi}-${a.start.getTime()}-${a.end.getTime()}`}
+										style={{
+											top: blockTop(a.start),
+											height: blockHeight(a.start, a.end),
+											left: 4,
+											right: 4,
+										}}
+									/>
+								))}
 							{ev.appts.map((appt) => (
 								<ApptBlock
 									appt={appt}
@@ -555,6 +605,7 @@ export function CalendarDayView({
 									key={appt.id}
 									messages={messages}
 									messagesLoading={messagesLoading}
+									showMessages={showMessages}
 									style={{
 										top: blockTop(appt.startTime),
 										height: blockHeight(appt.startTime, appt.endTime),

@@ -1,4 +1,4 @@
-import { and, asc, eq, gte, lte, ne } from "drizzle-orm";
+import { and, asc, eq, gte, inArray, lte, ne } from "drizzle-orm";
 import { z } from "zod";
 import { env } from "~/env";
 import {
@@ -86,13 +86,16 @@ export const schedulingHelperRouter = createTRPCRouter({
 				const npi = Number(npiStr);
 				const events = classifyAvailabilityEvents(rawEvents, allOffices);
 
-				const officeEvents = events.filter((event) => !event.isUnavailability);
+				const plannedEvents = events.filter((event) => event.isPlanned);
+				const officeEvents = events.filter(
+					(event) => !event.isUnavailability && !event.isPlanned,
+				);
 				const outOfOfficeEvents = events.filter(
 					(event) => event.isUnavailability,
 				);
 
 				if (outOfOfficeEvents.length === 0) {
-					result[npi] = officeEvents.toSorted(
+					result[npi] = [...officeEvents, ...plannedEvents].toSorted(
 						(a, b) => a.start.getTime() - b.start.getTime(),
 					);
 					continue;
@@ -103,7 +106,7 @@ export const schedulingHelperRouter = createTRPCRouter({
 					outOfOfficeEvents,
 				);
 				const mergedOOO = mergeOutOfOfficeEvents(outOfOfficeEvents);
-				const merged = [...finalAvailability, ...mergedOOO];
+				const merged = [...finalAvailability, ...mergedOOO, ...plannedEvents];
 				merged.sort((a, b) => a.start.getTime() - b.start.getTime());
 				result[npi] = merged;
 			}
@@ -178,6 +181,7 @@ export const schedulingHelperRouter = createTRPCRouter({
 					confirmedAt: appointments.confirmedAt,
 					clientName: clients.fullName,
 					clientHash: clients.hash,
+					clientPhone: clients.phoneNumber,
 					locationKey: appointments.locationKey,
 					officeName: offices.prettyName,
 					evaluatorNpi: appointments.evaluatorNpi,
@@ -269,6 +273,132 @@ export const schedulingHelperRouter = createTRPCRouter({
 				throw new Error(
 					`Failed to delete placeholder appointment: ${response.status}`,
 				);
+			}
+
+			return { status: "ok" as const };
+		}),
+
+	// Batched per-evaluator existing appointments across a date range, so the
+	// evaluator x day grid can show which office someone is already booked into
+	// on a given day without one query per cell.
+	getEvaluatorAppointmentsInRange: protectedProcedure
+		.input(
+			z.object({
+				evaluatorNpis: z.array(z.number()),
+				start: z.date(),
+				end: z.date(),
+			}),
+		)
+		.query(async ({ ctx, input }) => {
+			assertPermission(ctx.session.user, SCHEDULING_PERMISSION);
+
+			if (input.evaluatorNpis.length === 0) return {};
+
+			const rows = await ctx.db
+				.select({
+					evaluatorNpi: appointments.evaluatorNpi,
+					startTime: appointments.startTime,
+					locationKey: appointments.locationKey,
+					officeName: offices.prettyName,
+					placeholder: appointments.placeholder,
+				})
+				.from(appointments)
+				.leftJoin(offices, eq(appointments.locationKey, offices.key))
+				.where(
+					and(
+						inArray(appointments.evaluatorNpi, input.evaluatorNpis),
+						gte(appointments.startTime, input.start),
+						lte(appointments.startTime, input.end),
+						eq(appointments.cancelled, false),
+						ne(appointments.rescheduled, true),
+						eq(appointments.billingOnly, false),
+					),
+				);
+
+			const result: Record<
+				number,
+				{
+					date: string;
+					locationKey: string | null;
+					officeName: string | null;
+					placeholder: boolean;
+				}[]
+			> = {};
+			for (const row of rows) {
+				result[row.evaluatorNpi] ??= [];
+				const list = result[row.evaluatorNpi];
+				list?.push({
+					date: row.startTime.toISOString().slice(0, 10),
+					locationKey: row.locationKey,
+					officeName: row.officeName,
+					placeholder: row.placeholder,
+				});
+			}
+			return result;
+		}),
+
+	planOffice: protectedProcedure
+		.input(
+			z.object({
+				evaluatorNpi: z.number(),
+				date: z.string(),
+				officeKey: z.string(),
+			}),
+		)
+		.mutation(async ({ ctx, input }) => {
+			assertPermission(ctx.session.user, SCHEDULING_PERMISSION);
+
+			const officePrettyName =
+				input.officeKey === "Virtual"
+					? "Virtual"
+					: await ctx.db.query.offices
+							.findFirst({
+								where: eq(offices.key, input.officeKey),
+								columns: { prettyName: true },
+							})
+							.then((o) => o?.prettyName ?? input.officeKey);
+
+			const cookieHeader = ctx.headers.get("cookie") ?? "";
+			const response = await fetch(`${env.PY_API}/evaluators/planned-office`, {
+				method: "POST",
+				headers: {
+					Cookie: cookieHeader,
+					"Content-Type": "application/json",
+				},
+				body: JSON.stringify({
+					evaluator_npi: input.evaluatorNpi,
+					date: input.date,
+					title: `Planned: ${officePrettyName}`,
+				}),
+			});
+
+			if (!response.ok) {
+				throw new Error(`Failed to plan office: ${response.status}`);
+			}
+
+			return response.json() as Promise<{ calendarEventId: string }>;
+		}),
+
+	unplanOffice: protectedProcedure
+		.input(z.object({ evaluatorNpi: z.number(), date: z.string() }))
+		.mutation(async ({ ctx, input }) => {
+			assertPermission(ctx.session.user, SCHEDULING_PERMISSION);
+
+			const cookieHeader = ctx.headers.get("cookie") ?? "";
+			const response = await fetch(`${env.PY_API}/evaluators/planned-office`, {
+				method: "DELETE",
+				headers: {
+					Cookie: cookieHeader,
+					"Content-Type": "application/json",
+				},
+				body: JSON.stringify({
+					evaluator_npi: input.evaluatorNpi,
+					date: input.date,
+				}),
+			});
+
+			if (!response.ok) {
+				throw new Error(`Failed to unplan office: ${response.status}`);
 			}
 
 			return { status: "ok" as const };

@@ -31,6 +31,7 @@ from utils.database import (
     sync_punchlist_to_db,
 )
 from utils.google import (
+    clear_planned_office_events,
     google_authenticate,
     list_subfolders,
     move_drive_folder,
@@ -742,6 +743,19 @@ def insert_appointments_with_gcal(appointment_sync_data: dict[str, list[str]] | 
                 cancelled_synced += 1
             if rescheduled:
                 moved_synced += 1
+
+            if not cancelled and gcal_calendar_id:
+                appt_day = (
+                    start_time.date()
+                    if isinstance(start_time, datetime)
+                    else start_time
+                )
+                try:
+                    clear_planned_office_events(gcal_calendar_id, appt_day)
+                except Exception as e:
+                    logger.warning(
+                        f"Could not clear planned-office events for {gcal_calendar_id} on {appt_day}: {e}"
+                    )
 
             if not cancelled and gcal_daeval and battery_rules:
                 client_dob = dob_map.get(client_id)
