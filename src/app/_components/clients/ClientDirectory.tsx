@@ -272,7 +272,7 @@ function AnimatedCellContent({
 	return (
 		<div
 			className={cn(
-				"overflow-hidden whitespace-nowrap transition-[max-width,opacity] duration-200 ease-in-out",
+				"overflow-x-hidden whitespace-nowrap transition-[max-width,opacity] duration-200 ease-in-out",
 				visible ? "max-w-[240px] opacity-100" : "max-w-0 opacity-0",
 			)}
 		>
@@ -310,14 +310,30 @@ function SortButton({
 		: ArrowUpDown;
 
 	return (
-		<button className="flex items-center gap-1" onClick={onClick} type="button">
+		<button
+			className={cn(
+				"flex items-center gap-1 transition-colors",
+				active
+					? "font-semibold text-primary"
+					: "text-foreground hover:text-primary",
+			)}
+			onClick={onClick}
+			type="button"
+		>
 			{label}
-			<SortIcon
+			<span
 				className={cn(
-					"h-3.5 w-3.5",
-					active ? "text-primary" : "text-muted-foreground",
+					"flex items-center justify-center rounded p-0.5",
+					active && "bg-primary/10",
 				)}
-			/>
+			>
+				<SortIcon
+					className={cn(
+						"h-3.5 w-3.5",
+						active ? "text-primary" : "text-muted-foreground/60",
+					)}
+				/>
+			</span>
 		</button>
 	);
 }
@@ -477,7 +493,7 @@ export function ClientDirectory() {
 
 	const columnSort = (key: SortKey): ColumnSortProps => ({
 		active: effectiveSort === key,
-		direction: key === "priority" ? undefined : sort === key ? sortDir : "asc",
+		direction: key === "priority" || sort !== key ? undefined : sortDir,
 		onClick: () => handleSortClick(key),
 	});
 

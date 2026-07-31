@@ -58,7 +58,7 @@ export function ColumnFilter({
 	return (
 		<DropdownMenu>
 			<DropdownMenuTrigger asChild>
-				<div className="relative inline-block">
+				<div className="relative inline-block pt-1 pr-1">
 					<Button
 						aria-label={`Filter by ${columnName}`}
 						className={
@@ -72,7 +72,7 @@ export function ColumnFilter({
 						<Filter className="h-3.5 w-3.5" />
 					</Button>
 					{selectedValues.length > 0 && (
-						<span className="absolute -top-1 -right-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] text-primary-foreground leading-none">
+						<span className="absolute top-0 right-0 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] text-primary-foreground leading-none">
 							{selectedValues.length}
 						</span>
 					)}
@@ -86,47 +86,45 @@ export function ColumnFilter({
 						placeholder={`Search ${columnName}...`}
 						value={search}
 					/>
-					<div className="max-h-60 overflow-y-auto">
-						{filteredOptions.length === 0 && (
-							<div className="p-2 text-muted-foreground text-sm">
-								No results found
-							</div>
-						)}
-						{filteredOptions.map((option) => {
-							const count = counts?.[option.value];
-							return (
-								<div
-									className="flex items-center space-x-2 p-1"
-									key={option.value}
+					{filteredOptions.length === 0 && (
+						<div className="p-2 text-muted-foreground text-sm">
+							No results found
+						</div>
+					)}
+					{filteredOptions.map((option) => {
+						const count = counts?.[option.value];
+						return (
+							<div
+								className="flex items-center space-x-2 p-1"
+								key={option.value}
+							>
+								<Checkbox
+									checked={selectedValues.includes(option.value)}
+									id={`${columnName}-${option.value}`}
+									onCheckedChange={() => toggleValue(option.value)}
+								/>
+								<label
+									className="flex flex-1 cursor-pointer items-center justify-between gap-2 font-medium text-sm leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+									htmlFor={`${columnName}-${option.value}`}
 								>
-									<Checkbox
-										checked={selectedValues.includes(option.value)}
-										id={`${columnName}-${option.value}`}
-										onCheckedChange={() => toggleValue(option.value)}
-									/>
-									<label
-										className="flex flex-1 cursor-pointer items-center justify-between gap-2 font-medium text-sm leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-										htmlFor={`${columnName}-${option.value}`}
-									>
-										<span className="flex min-w-0 items-center gap-1 truncate">
-											{option.swatch && (
-												<span
-													className="h-2 w-2 shrink-0 rounded-full"
-													style={{ backgroundColor: option.swatch }}
-												/>
-											)}
-											<span className="truncate">{option.label}</span>
-										</span>
-										{counts && (
-											<span className="text-muted-foreground text-xs">
-												{count ?? 0}
-											</span>
+									<span className="flex min-w-0 items-center gap-1 truncate">
+										{option.swatch && (
+											<span
+												className="h-2 w-2 shrink-0 rounded-full"
+												style={{ backgroundColor: option.swatch }}
+											/>
 										)}
-									</label>
-								</div>
-							);
-						})}
-					</div>
+										<span className="truncate">{option.label}</span>
+									</span>
+									{counts && (
+										<span className="text-muted-foreground text-xs">
+											{count ?? 0}
+										</span>
+									)}
+								</label>
+							</div>
+						);
+					})}
 				</div>
 				{selectedValues.length > 0 && (
 					<>

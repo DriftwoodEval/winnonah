@@ -422,7 +422,7 @@ export const getPriorityInfo = () => {
 
 	const sortReasonSQL = sql<string>`CASE
       WHEN ${isHighPriorityBN} AND ${isHighPriorityClient} THEN 'BabyNet and High Priority'
-      WHEN ${isHighPriorityBN} THEN 'BabyNet Above 2:6'
+      WHEN ${isHighPriorityBN} THEN 'BabyNet above 2:6'
       WHEN ${isHighPriorityClient} THEN 'High Priority'
       WHEN ${isNotesOnly} THEN 'Notes Only'
       ELSE 'Added Date'
