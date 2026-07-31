@@ -191,3 +191,26 @@ jobs:
           package-name: "winnonah-python"
           package-type: "container"
           min-versions-to-keep: 5
+
+  deploy:
+    runs-on: ubuntu-latest
+    needs: [build-node, build-python]
+    if: always() && (needs.build-node.result == 'success' || needs.build-python.result == 'success')
+    steps:
+      # Requires a Tailscale OAuth client with access to the primary host's
+      # tailnet (secrets: TS_OAUTH_CLIENT_ID, TS_OAUTH_CLIENT_SECRET).
+      - name: Connect to Tailscale
+        uses: tailscale/github-action@v3
+        with:
+          oauth-client-id: ${{ secrets.TS_OAUTH_CLIENT_ID }}
+          oauth-secret: ${{ secrets.TS_OAUTH_CLIENT_SECRET }}
+          tags: tag:ci
+
+      # Watchtower's HTTP API is bound to primary's Tailscale IP only
+      # (docker-compose.primary.yaml), so this is reachable over the
+      # tailnet CI just joined, and nowhere else.
+      - name: Trigger watchtower update
+        run: |
+          curl -sf -X POST \
+            -H "Authorization: Bearer ${{ secrets.WATCHTOWER_HTTP_API_TOKEN }}" \
+            "http://${{ secrets.WATCHTOWER_HOST }}:8080/v1/update"
