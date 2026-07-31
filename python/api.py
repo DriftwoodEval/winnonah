@@ -4,7 +4,7 @@ import os
 import re
 import time
 from contextlib import asynccontextmanager
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 from pathlib import Path
 from uuid import uuid4
 
@@ -42,6 +42,8 @@ from utils.database import (
 )
 from utils.forms import fill_select_health_form
 from utils.google import (
+    clear_planned_office_events,
+    create_all_day_event,
     create_placeholder_event,
     delete_calendar_event,
     get_gmail_message,
@@ -132,6 +134,17 @@ class CreatePlaceholderAppointmentRequest(BaseModel):
     end_time: datetime
     da_eval: DAEvalType
     location_key: str
+
+
+class PlanOfficeRequest(BaseModel):
+    evaluator_npi: int
+    date: date
+    title: str
+
+
+class UnplanOfficeRequest(BaseModel):
+    evaluator_npi: int
+    date: date
 
 
 def get_google_services():
@@ -838,6 +851,7 @@ async def create_placeholder_appointment(
         gcal_event_title=title,
         placeholder=True,
     )
+    clear_planned_office_events(evaluator_email, start_time.date())
 
     return {
         "id": appointment_id,
@@ -869,6 +883,38 @@ async def delete_placeholder_appointment(
         )
 
     delete_appointment(appointment_id)
+    return {"status": "ok"}
+
+
+@app.post("/evaluators/planned-office")
+async def plan_evaluator_office(
+    request: PlanOfficeRequest, current_user: dict = Depends(get_current_user)
+):
+    if not current_user["permissions"].get("pages:scheduling"):
+        raise HTTPException(status_code=403, detail="Not authorized")
+
+    evaluator_email = get_evaluator_email(request.evaluator_npi)
+    if evaluator_email is None:
+        raise HTTPException(status_code=404, detail="Evaluator not found")
+
+    calendar_event_id = create_all_day_event(
+        evaluator_email, request.title, request.date
+    )
+    return {"calendarEventId": calendar_event_id}
+
+
+@app.delete("/evaluators/planned-office")
+async def unplan_evaluator_office(
+    request: UnplanOfficeRequest, current_user: dict = Depends(get_current_user)
+):
+    if not current_user["permissions"].get("pages:scheduling"):
+        raise HTTPException(status_code=403, detail="Not authorized")
+
+    evaluator_email = get_evaluator_email(request.evaluator_npi)
+    if evaluator_email is None:
+        raise HTTPException(status_code=404, detail="Evaluator not found")
+
+    clear_planned_office_events(evaluator_email, request.date)
     return {"status": "ok"}
 
 

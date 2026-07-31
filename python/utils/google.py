@@ -5,7 +5,7 @@ import re
 import time
 from collections import deque
 from collections.abc import Sequence
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, date, datetime, timedelta
 from email.message import EmailMessage
 from pathlib import Path
 
@@ -1151,3 +1151,71 @@ def delete_calendar_event(calendar_id: str, event_id: str) -> None:
             logger.info(f"Calendar event {event_id} already deleted")
         else:
             raise
+
+
+PLANNED_OFFICE_TITLE_PREFIX = "Planned: "
+
+
+def create_all_day_event(calendar_id: str, title: str, date: date) -> str:
+    """Insert an all-day event on an evaluator's calendar. Returns the event id.
+
+    Used to mark a "planned" office for a day the evaluator hasn't booked
+    anything on yet - see clear_planned_office_events, which removes it once a
+    real booking lands.
+    """
+    creds = google_authenticate()
+    service = build("calendar", "v3", credentials=creds)
+
+    end_date = date + timedelta(days=1)
+    event = (
+        service.events()
+        .insert(
+            calendarId=calendar_id,
+            body={
+                "summary": title,
+                "start": {"date": date.isoformat()},
+                "end": {"date": end_date.isoformat()},
+            },
+        )
+        .execute()
+    )
+    logger.info(f"Created all-day event {event['id']} on calendar {calendar_id}")
+    return event["id"]
+
+
+def clear_planned_office_events(calendar_id: str, date: date) -> None:
+    """Delete any "Planned: <office>" all-day events on the given calendar/date.
+
+    Called once a placeholder or real appointment lands on that evaluator's
+    day, so a stale "planned" marker doesn't linger once the day is actually
+    booked.
+    """
+    creds = google_authenticate()
+    service = build("calendar", "v3", credentials=creds)
+
+    time_min = datetime.combine(date, datetime.min.time()).isoformat() + "Z"
+    time_max = (
+        datetime.combine(date + timedelta(days=1), datetime.min.time()).isoformat()
+        + "Z"
+    )
+
+    try:
+        events = (
+            service.events()
+            .list(
+                calendarId=calendar_id,
+                timeMin=time_min,
+                timeMax=time_max,
+                singleEvents=True,
+            )
+            .execute()
+            .get("items", [])
+        )
+    except HttpError as e:
+        logger.warning(f"Could not list events for calendar {calendar_id}: {e}")
+        return
+
+    for event in events:
+        summary = event.get("summary") or ""
+        if summary.startswith(PLANNED_OFFICE_TITLE_PREFIX):
+            delete_calendar_event(calendar_id, event["id"])
