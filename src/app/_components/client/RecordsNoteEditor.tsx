@@ -491,7 +491,7 @@ export function RecordsNoteEditor({
 							const dateId = `date-${req.id}`;
 							return (
 								<div className="flex flex-wrap items-center gap-2" key={req.id}>
-									<Label>{i === 0 ? "Request" : `Request (${i + 1})`}</Label>
+									<Label>{`Request (${i + 1})`}</Label>
 									<DatePicker
 										allowClear={canAddRequest && hasSentDate}
 										date={
