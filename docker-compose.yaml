@@ -144,7 +144,7 @@ services:
       - loki
 
   watchtower:
-    image: containrrr/watchtower
+    image: ghcr.io/nicholas-fedor/watchtower
     container_name: watchtower
     environment:
       - WATCHTOWER_POLL_INTERVAL=3600

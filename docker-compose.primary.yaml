@@ -29,3 +29,7 @@ services:
   watchtower:
     ports:
       - "${PRIMARY_TAILSCALE_IP}:8080:8080"
+
+volumes:
+  winnonah_db-data:
+    external: true
