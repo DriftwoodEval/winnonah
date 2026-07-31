@@ -147,7 +147,7 @@ export function MergePreviewDialog({
 									{isDesktop ? " left" : " top"}.
 								</p>
 								<p className="max-w-[20ch] text-muted-foreground text-sm">
-									The title of the notes on the
+									All other information from the client on the
 									{isDesktop ? " right " : " bottom "}
 									will replace the title of the notes on the
 									{isDesktop ? " left" : " top"}.
