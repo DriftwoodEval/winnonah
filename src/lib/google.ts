@@ -885,11 +885,19 @@ export interface CalendarEvent {
 	end: Date;
 	isUnavailability: boolean;
 	isAllDay: boolean;
+	// A staff-created "planned office" marker (see planOffice/unplanOffice in
+	// the schedulingHelper router), not a real availability window - callers
+	// computing bookable slots must exclude these.
+	isPlanned: boolean;
 	officeKey?: string;
 	officeKeys?: string[];
 	recurrence?: string[];
 	recurringEventId?: string | null;
 }
+
+// Matches the title format planOffice/create_all_day_event writes (see
+// PLANNED_OFFICE_TITLE_PREFIX in python/utils/google.py).
+export const PLANNED_OFFICE_TITLE_PREFIX = "Planned: ";
 
 const isMidnight = (date: Date) => {
 	const parts = new Intl.DateTimeFormat("en-US", {
@@ -984,12 +992,16 @@ export function classifyAvailabilityEvents(
 	nameToKeyMap.set("Virtual", "VIRTUAL");
 
 	const officeRegex = /Available\s*-\s*(.*)/i;
+	const plannedRegex = new RegExp(`^${PLANNED_OFFICE_TITLE_PREFIX}(.*)`, "i");
 
 	return rawEvents
 		.filter(
 			(event) =>
 				event.summary?.toLowerCase().includes("available") ||
 				event.summary?.toLowerCase().includes("out of office") ||
+				event.summary
+					?.toLowerCase()
+					.startsWith(PLANNED_OFFICE_TITLE_PREFIX.toLowerCase()) ||
 				event.eventType === "outOfOffice",
 		)
 		.map((event) => {
@@ -998,6 +1010,7 @@ export function classifyAvailabilityEvents(
 			const isOOO =
 				event.eventType === "outOfOffice" ||
 				event.summary?.toLowerCase().trim() === "out of office";
+			const isPlanned = !isOOO && !!event.summary?.match(plannedRegex);
 
 			const startDateObj = startDateTime ? new Date(startDateTime) : new Date();
 			const endDateObj = endDateTime ? new Date(endDateTime) : new Date();
@@ -1013,7 +1026,9 @@ export function classifyAvailabilityEvents(
 			let extractedOfficeKeys: string[] = [];
 
 			if (event.summary && !isOOO) {
-				const match = event.summary.match(officeRegex);
+				const match = event.summary.match(
+					isPlanned ? plannedRegex : officeRegex,
+				);
 				if (match?.[1]) {
 					const officeNames = match[1].split(",").map((s) => s.trim());
 					extractedOfficeKeys = officeNames
@@ -1029,6 +1044,7 @@ export function classifyAvailabilityEvents(
 				end: endDateObj,
 				isUnavailability: isOOO,
 				isAllDay: isAllDay,
+				isPlanned,
 				officeKey: extractedOfficeKeys[0], // Keep for backward compatibility
 				officeKeys: extractedOfficeKeys,
 				recurrence: event.recurrence ?? undefined,
