@@ -5,8 +5,12 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@ui/tooltip";
 import { format } from "date-fns";
 import Link from "next/link";
 import { useMemo } from "react";
-import { getLocalTimeFromUTCDate } from "~/lib/utils";
+import { getLocalTimeFromUTCDate, normalizePhoneNumber } from "~/lib/utils";
+import type { RouterOutputs } from "~/trpc/react";
 import { Redact } from "../redaction/Redact";
+import { RecentMessagesPopover } from "./RecentMessagesPopover";
+
+type RecentMessagesMap = RouterOutputs["quo"]["getRecentMessages"];
 
 // ─── Grid constants ───────────────────────────────────────────────────────────
 
@@ -44,6 +48,7 @@ export type CalAppt = {
 	confirmedAt: Date | null;
 	clientName: string;
 	clientHash: string;
+	clientPhone: string | null;
 	locationKey: string | null;
 	officeName: string | null;
 	evaluatorNpi: number;
@@ -187,11 +192,15 @@ export function ApptBlock({
 	colorClass,
 	showEvaluator = false,
 	style,
+	messages,
+	messagesLoading,
 }: {
 	appt: CalAppt;
 	colorClass: string;
 	showEvaluator?: boolean;
 	style?: React.CSSProperties;
+	messages: RecentMessagesMap;
+	messagesLoading: boolean;
 }) {
 	const durationMin =
 		(new Date(appt.endTime).getTime() - new Date(appt.startTime).getTime()) /
@@ -260,6 +269,17 @@ export function ApptBlock({
 									{appt.daEval}
 								</Badge>
 							)}
+							<RecentMessagesPopover
+								appointmentStart={appt.startTime}
+								className="p-0.5"
+								isLoading={messagesLoading}
+								messages={
+									appt.clientPhone
+										? messages[normalizePhoneNumber(appt.clientPhone)]
+										: undefined
+								}
+								phoneNumber={appt.clientPhone}
+							/>
 						</div>
 					)}
 				</div>
@@ -293,9 +313,13 @@ export function ApptBlock({
 export function CalendarDayView({
 	appointments,
 	colorMap,
+	messages,
+	messagesLoading,
 }: {
 	appointments: CalAppt[];
 	colorMap: Map<number, string>;
+	messages: RecentMessagesMap;
+	messagesLoading: boolean;
 }) {
 	const byEval = useMemo(() => {
 		const map = new Map<
@@ -359,6 +383,8 @@ export function CalendarDayView({
 								appt={appt}
 								colorClass={colorMap.get(appt.evaluatorNpi) ?? FALLBACK_COLOR}
 								key={appt.id}
+								messages={messages}
+								messagesLoading={messagesLoading}
 								style={{
 									top: blockTop(appt.startTime),
 									height: blockHeight(appt.startTime, appt.endTime),
@@ -380,10 +406,14 @@ export function CalendarMultiDayView({
 	appointments,
 	dates,
 	colorMap,
+	messages,
+	messagesLoading,
 }: {
 	appointments: CalAppt[];
 	dates: string[];
 	colorMap: Map<number, string>;
+	messages: RecentMessagesMap;
+	messagesLoading: boolean;
 }) {
 	const byDate = useMemo(() => {
 		const map = new Map<string, CalAppt[]>();
@@ -443,6 +473,8 @@ export function CalendarMultiDayView({
 									appt={appt}
 									colorClass={colorMap.get(appt.evaluatorNpi) ?? FALLBACK_COLOR}
 									key={appt.id}
+									messages={messages}
+									messagesLoading={messagesLoading}
 									showEvaluator
 									style={{
 										top: blockTop(appt.startTime),

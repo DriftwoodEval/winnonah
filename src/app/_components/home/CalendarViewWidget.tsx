@@ -91,6 +91,20 @@ export function CalendarViewWidget({ mode }: { mode: CalWidgetMode }) {
 
 	const colorMap = useMemo(() => buildColorMap(data ?? []), [data]);
 
+	const phoneNumbers = useMemo(
+		() => [
+			...new Set(
+				(data ?? []).map((a) => a.clientPhone).filter((p): p is string => !!p),
+			),
+		],
+		[data],
+	);
+	const { data: recentMessages, isLoading: messagesLoading } =
+		api.quo.getRecentMessages.useQuery(
+			{ phoneNumbers },
+			{ enabled: phoneNumbers.length > 0 },
+		);
+
 	function navigate(dir: -1 | 1) {
 		const anchor = new Date(`${selectedDate}T12:00:00`);
 		setSelectedDate(
@@ -151,12 +165,19 @@ export function CalendarViewWidget({ mode }: { mode: CalWidgetMode }) {
 				{isLoading ? (
 					<p className="text-muted-foreground text-sm">Loading...</p>
 				) : !data ? null : mode === "day" ? (
-					<CalendarDayView appointments={data} colorMap={colorMap} />
+					<CalendarDayView
+						appointments={data}
+						colorMap={colorMap}
+						messages={recentMessages ?? {}}
+						messagesLoading={messagesLoading}
+					/>
 				) : (
 					<CalendarMultiDayView
 						appointments={data}
 						colorMap={colorMap}
 						dates={dateRange}
+						messages={recentMessages ?? {}}
+						messagesLoading={messagesLoading}
 					/>
 				)}
 			</WidgetShell>

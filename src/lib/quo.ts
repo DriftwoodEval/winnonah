@@ -136,6 +136,55 @@ export async function getMessages(
 	}));
 }
 
+export async function getRecentMessages(
+	apiKey: string,
+	phoneNumberId: string,
+	participantPhone: string,
+	limit = 3,
+): Promise<TimelineEvent[]> {
+	const params = new URLSearchParams();
+	params.append("phoneNumberId", phoneNumberId);
+	params.append("participants", participantPhone);
+	params.append("maxResults", String(limit));
+
+	const response = await timedFetch(
+		`https://api.openphone.com/v1/messages?${params}`,
+		"Fetch recent OpenPhone messages",
+		{
+			headers: { Authorization: apiKey },
+		},
+	);
+
+	if (!response.ok) {
+		const errorData = (await response.json()) as { message?: string };
+		throw new Error(errorData.message || "Failed to fetch recent messages");
+	}
+
+	const data = (await response.json()) as {
+		data: {
+			id: string;
+			text?: string;
+			direction: "incoming" | "outgoing";
+			status: string;
+			createdAt: string;
+			userId?: string;
+		}[];
+	};
+
+	// OpenPhone returns messages newest-first; reverse to chronological order.
+	return data.data
+		.map((m) => ({
+			id: m.id,
+			type: "message" as const,
+			direction: m.direction,
+			text: m.text,
+			status: m.status,
+			createdAt: m.createdAt,
+			userId: m.userId,
+		}))
+		.toReversed();
+}
+
 export async function getCalls(
 	apiKey: string,
 	phoneNumberId: string,

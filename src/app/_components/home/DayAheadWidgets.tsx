@@ -9,8 +9,12 @@ import {
 import { format } from "date-fns";
 import { ChevronDown, ChevronRight } from "lucide-react";
 import Link from "next/link";
-import { useState } from "react";
-import { api } from "~/trpc/react";
+import { useMemo, useState } from "react";
+import { normalizePhoneNumber } from "~/lib/utils";
+import { api, type RouterOutputs } from "~/trpc/react";
+import { RecentMessagesPopover } from "../day-ahead/RecentMessagesPopover";
+
+type RecentMessagesMap = RouterOutputs["quo"]["getRecentMessages"];
 
 function useTodayStr() {
 	return format(new Date(), "yyyy-MM-dd");
@@ -46,6 +50,21 @@ export function MyDayWidget() {
 	const { data, isLoading } = api.appointments.getDayAhead.useQuery({ asDate });
 
 	const appts = data?.myAppointments ?? [];
+
+	const phoneNumbers = useMemo(
+		() => [
+			...new Set(
+				appts.map((a) => a.clientPhone).filter((p): p is string => !!p),
+			),
+		],
+		[appts],
+	);
+	const { data: recentMessages, isLoading: messagesLoading } =
+		api.quo.getRecentMessages.useQuery(
+			{ phoneNumbers },
+			{ enabled: phoneNumbers.length > 0 },
+		);
+
 	const myFirst = appts[0];
 	const myLast = appts.at(-1);
 	const myTimeRange =
@@ -107,6 +126,16 @@ export function MyDayWidget() {
 									Unconfirmed
 								</Badge>
 							)}
+							<RecentMessagesPopover
+								appointmentStart={appt.startTime}
+								isLoading={messagesLoading}
+								messages={
+									appt.clientPhone
+										? recentMessages?.[normalizePhoneNumber(appt.clientPhone)]
+										: undefined
+								}
+								phoneNumber={appt.clientPhone}
+							/>
 							{!allSameLocation && appt.officeName && (
 								<span className="ml-auto shrink-0 text-muted-foreground text-xs">
 									{appt.officeName}
@@ -132,6 +161,23 @@ export function WhosInWidget() {
 		.filter((office) => office.evaluators.length > 0)
 		.sort((a, b) => (a.officeName ?? "").localeCompare(b.officeName ?? ""));
 
+	const phoneNumbers = useMemo(() => {
+		const phones = new Set<string>();
+		for (const office of otherOffices) {
+			for (const ev of office.evaluators) {
+				for (const appt of ev.appointments) {
+					if (appt.clientPhone) phones.add(appt.clientPhone);
+				}
+			}
+		}
+		return [...phones];
+	}, [otherOffices]);
+	const { data: recentMessages, isLoading: messagesLoading } =
+		api.quo.getRecentMessages.useQuery(
+			{ phoneNumbers },
+			{ enabled: phoneNumbers.length > 0 },
+		);
+
 	return (
 		<WidgetShell title="Who's In">
 			{isLoading ? (
@@ -148,7 +194,12 @@ export function WhosInWidget() {
 								{office.officeName}
 							</p>
 							{office.evaluators.map((ev) => (
-								<ExpandableEvaluator evaluator={ev} key={ev.npi} />
+								<ExpandableEvaluator
+									evaluator={ev}
+									key={ev.npi}
+									messages={recentMessages ?? {}}
+									messagesLoading={messagesLoading}
+								/>
 							))}
 						</div>
 					))}
@@ -160,6 +211,8 @@ export function WhosInWidget() {
 
 function ExpandableEvaluator({
 	evaluator,
+	messages,
+	messagesLoading,
 }: {
 	evaluator: {
 		name: string;
@@ -174,8 +227,11 @@ function ExpandableEvaluator({
 			confirmedAt: Date | null;
 			clientName: string;
 			clientHash: string;
+			clientPhone: string | null;
 		}[];
 	};
+	messages: RecentMessagesMap;
+	messagesLoading: boolean;
 }) {
 	const [open, setOpen] = useState(false);
 	const first = evaluator.appointments[0];
@@ -242,6 +298,16 @@ function ExpandableEvaluator({
 									Unconfirmed
 								</Badge>
 							)}
+							<RecentMessagesPopover
+								appointmentStart={appt.startTime}
+								isLoading={messagesLoading}
+								messages={
+									appt.clientPhone
+										? messages[normalizePhoneNumber(appt.clientPhone)]
+										: undefined
+								}
+								phoneNumber={appt.clientPhone}
+							/>
 						</div>
 					))}
 				</div>

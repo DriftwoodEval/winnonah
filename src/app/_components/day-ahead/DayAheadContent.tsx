@@ -24,7 +24,7 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { useEffect, useMemo, useState } from "react";
-import { IS_DEV } from "~/lib/utils";
+import { IS_DEV, normalizePhoneNumber } from "~/lib/utils";
 import { api, type RouterOutputs } from "~/trpc/react";
 import { Redact } from "../redaction/Redact";
 import {
@@ -33,8 +33,11 @@ import {
 	CalendarMultiDayView,
 	formatTime,
 } from "./CalendarGrid";
+import { RecentMessagesPopover } from "./RecentMessagesPopover";
 
 type ViewMode = "list" | "day" | "3day" | "week";
+
+type RecentMessagesMap = RouterOutputs["quo"]["getRecentMessages"];
 
 // ─── List view types ──────────────────────────────────────────────────────────
 
@@ -48,6 +51,7 @@ type ListAppt = {
 	clientHash: string;
 	clientDriveId?: string | null;
 	clientTaHash?: string | null;
+	clientPhone?: string | null;
 	locationKey?: string | null;
 	officeName?: string | null;
 	confirmedAt?: Date | null;
@@ -64,12 +68,21 @@ type ListEvaluatorAppt = {
 	clientHash: string;
 	clientDriveId: string | null;
 	clientTaHash: string | null;
+	clientPhone: string | null;
 	confirmedAt: Date | null;
 };
 
 // ─── List view components ─────────────────────────────────────────────────────
 
-function AppointmentRow({ appt }: { appt: ListAppt }) {
+function AppointmentRow({
+	appt,
+	messages,
+	messagesLoading,
+}: {
+	appt: ListAppt;
+	messages: RecentMessagesMap;
+	messagesLoading: boolean;
+}) {
 	return (
 		<div className="flex items-center gap-3 py-2">
 			<span className="w-36 shrink-0 text-muted-foreground text-sm tabular-nums">
@@ -120,6 +133,16 @@ function AppointmentRow({ appt }: { appt: ListAppt }) {
 					Confirmed
 				</Badge>
 			)}
+			<RecentMessagesPopover
+				appointmentStart={appt.startTime}
+				isLoading={messagesLoading}
+				messages={
+					appt.clientPhone
+						? messages[normalizePhoneNumber(appt.clientPhone)]
+						: undefined
+				}
+				phoneNumber={appt.clientPhone}
+			/>
 			<span className="ml-auto shrink-0 text-muted-foreground text-xs">
 				{appt.officeName ?? appt.locationKey ?? "Virtual"}
 			</span>
@@ -129,6 +152,8 @@ function AppointmentRow({ appt }: { appt: ListAppt }) {
 
 function EvaluatorRow({
 	evaluator,
+	messages,
+	messagesLoading,
 }: {
 	evaluator: {
 		name: string;
@@ -136,6 +161,8 @@ function EvaluatorRow({
 		isCurrentUser: boolean;
 		appointments: ListEvaluatorAppt[];
 	};
+	messages: RecentMessagesMap;
+	messagesLoading: boolean;
 }) {
 	const [open, setOpen] = useState(false);
 
@@ -219,6 +246,16 @@ function EvaluatorRow({
 									Confirmed
 								</Badge>
 							)}
+							<RecentMessagesPopover
+								appointmentStart={appt.startTime}
+								isLoading={messagesLoading}
+								messages={
+									appt.clientPhone
+										? messages[normalizePhoneNumber(appt.clientPhone)]
+										: undefined
+								}
+								phoneNumber={appt.clientPhone}
+							/>
 						</div>
 					))}
 				</div>
@@ -346,6 +383,33 @@ export function DayAheadContent() {
 
 	const colorMap = useMemo(() => buildColorMap(calData ?? []), [calData]);
 
+	const phoneNumbers = useMemo(() => {
+		const phones = new Set<string>();
+		if (viewMode === "list") {
+			for (const appt of listData?.myAppointments ?? []) {
+				if (appt.clientPhone) phones.add(appt.clientPhone);
+			}
+			for (const office of listData?.offices ?? []) {
+				for (const ev of office.evaluators) {
+					for (const appt of ev.appointments) {
+						if (appt.clientPhone) phones.add(appt.clientPhone);
+					}
+				}
+			}
+		} else {
+			for (const appt of calData ?? []) {
+				if (appt.clientPhone) phones.add(appt.clientPhone);
+			}
+		}
+		return [...phones];
+	}, [viewMode, listData, calData]);
+
+	const { data: recentMessages, isLoading: messagesLoading } =
+		api.quo.getRecentMessages.useQuery(
+			{ phoneNumbers },
+			{ enabled: phoneNumbers.length > 0 },
+		);
+
 	function navigate(dir: -1 | 1) {
 		const anchor = new Date(`${selectedDate}T12:00:00`);
 		setSelectedDate(
@@ -418,15 +482,28 @@ export function DayAheadContent() {
 				{isLoading ? (
 					<div className="text-muted-foreground text-sm">Loading...</div>
 				) : viewMode === "list" ? (
-					listData && <ListContent data={listData} />
+					listData && (
+						<ListContent
+							data={listData}
+							messages={recentMessages ?? {}}
+							messagesLoading={messagesLoading}
+						/>
+					)
 				) : calData ? (
 					viewMode === "day" ? (
-						<CalendarDayView appointments={calData} colorMap={colorMap} />
+						<CalendarDayView
+							appointments={calData}
+							colorMap={colorMap}
+							messages={recentMessages ?? {}}
+							messagesLoading={messagesLoading}
+						/>
 					) : (
 						<CalendarMultiDayView
 							appointments={calData}
 							colorMap={colorMap}
 							dates={dateRange}
+							messages={recentMessages ?? {}}
+							messagesLoading={messagesLoading}
 						/>
 					)
 				) : null}
@@ -439,8 +516,12 @@ export function DayAheadContent() {
 
 function ListContent({
 	data,
+	messages,
+	messagesLoading,
 }: {
 	data: NonNullable<RouterOutputs["appointments"]["getDayAhead"]>;
+	messages: RecentMessagesMap;
+	messagesLoading: boolean;
 }) {
 	const myFirst = data.myAppointments[0];
 	const myLast = data.myAppointments.at(-1);
@@ -481,7 +562,12 @@ function ListContent({
 				) : (
 					<div className="divide-y divide-border">
 						{data.myAppointments.map((appt) => (
-							<AppointmentRow appt={appt} key={appt.id} />
+							<AppointmentRow
+								appt={appt}
+								key={appt.id}
+								messages={messages}
+								messagesLoading={messagesLoading}
+							/>
 						))}
 					</div>
 				)}
@@ -508,7 +594,12 @@ function ListContent({
 								</h3>
 								<div className="flex flex-col">
 									{office.evaluators.map((ev) => (
-										<EvaluatorRow evaluator={ev} key={ev.npi} />
+										<EvaluatorRow
+											evaluator={ev}
+											key={ev.npi}
+											messages={messages}
+											messagesLoading={messagesLoading}
+										/>
 									))}
 								</div>
 							</div>
