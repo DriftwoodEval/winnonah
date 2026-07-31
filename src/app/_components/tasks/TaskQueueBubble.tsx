@@ -2,6 +2,7 @@
 
 import { Badge } from "@ui/badge";
 import { Popover, PopoverContent, PopoverTrigger } from "@ui/popover";
+import { Progress } from "@ui/progress";
 import { ScrollArea } from "@ui/scroll-area";
 import { Loader2 } from "lucide-react";
 import { useSession } from "next-auth/react";
@@ -83,9 +84,19 @@ export function TaskQueueBubble() {
 									</p>
 								)}
 								{task.progressTotal != null && task.progressCurrent != null && (
-									<p className="text-muted-foreground text-xs">
-										{task.progressCurrent} / {task.progressTotal}
-									</p>
+									<div className="flex items-center gap-2">
+										<Progress
+											className="h-1.5"
+											value={
+												task.progressTotal > 0
+													? (task.progressCurrent / task.progressTotal) * 100
+													: 0
+											}
+										/>
+										<p className="shrink-0 text-muted-foreground text-xs">
+											{task.progressCurrent} / {task.progressTotal}
+										</p>
+									</div>
 								)}
 								<p className="text-muted-foreground text-xs">
 									{relativeTime(new Date(task.startedAt))}

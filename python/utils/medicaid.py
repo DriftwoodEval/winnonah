@@ -12,6 +12,7 @@ from selenium.webdriver.support.ui import Select
 
 import utils.database
 import utils.webdriving as w
+from utils.task_tracker import track_task
 
 BASE_PORTAL_URL = "https://portal.scmedicaid.com"
 
@@ -129,29 +130,40 @@ def _run_scm_eligibility_lookup(
         driver = check_and_login_medicaid(first_time=True)
 
     try:
-        for client in clients:
-            medicaid_id = client["insuranceNumber"]
-            try:
-                qual_category, payment_category = search_single_client(
-                    driver, medicaid_id
+        with track_task(
+            "scm_eligibility_lookup", "Looking up SC Medicaid eligibility"
+        ) as task:
+            if task is None:
+                logger.info(
+                    "Skipping run: a previous SC Medicaid eligibility lookup is still in progress."
                 )
-            except (NoSuchElementException, TimeoutException):
-                logger.warning(
-                    f"Error searching client {medicaid_id}, verifying login and retrying"
-                )
-                _ensure_logged_in(driver)
+                return
+
+            total = len(clients)
+            for i, client in enumerate(clients, start=1):
+                task.progress(i, total)
+                medicaid_id = client["insuranceNumber"]
                 try:
                     qual_category, payment_category = search_single_client(
                         driver, medicaid_id
                     )
-                except Exception:
-                    logger.error(
-                        f"Failed to look up eligibility for client {medicaid_id} after re-login, skipping"
+                except (NoSuchElementException, TimeoutException):
+                    logger.warning(
+                        f"Error searching client {medicaid_id}, verifying login and retrying"
                     )
-                    continue
-            utils.database.update_client_medicaid_eligibility(
-                client["id"], qual_category, payment_category
-            )
+                    _ensure_logged_in(driver)
+                    try:
+                        qual_category, payment_category = search_single_client(
+                            driver, medicaid_id
+                        )
+                    except Exception:
+                        logger.error(
+                            f"Failed to look up eligibility for client {medicaid_id} after re-login, skipping"
+                        )
+                        continue
+                utils.database.update_client_medicaid_eligibility(
+                    client["id"], qual_category, payment_category
+                )
     finally:
         logout_medicaid(driver)
 

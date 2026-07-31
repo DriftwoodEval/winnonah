@@ -32,6 +32,7 @@ from utils.google import (
     rename_drive_folder,
     send_gmail,
 )
+from utils.task_tracker import track_task
 
 DAEvalType = Literal["EVAL", "DA", "DAEVAL"]
 
@@ -569,165 +570,91 @@ def insert_appointments_with_gcal(appointment_sync_data: dict[str, list[str]] | 
         logger.warning("No appointments to insert.")
         return
 
-    logger.info(f"Inserting {len(appointments_df)} appointments into database...")
-    npi_cache = get_all_evaluators_npi_map()
-    valid_npis = set(npi_cache.values())
-    asd_adhd_map = get_client_id_to_asd_adhd_map()
-    dob_map = get_client_id_to_dob_map()
-    battery_rules = get_questionnaire_rules_with_in_person()
-    skipped_locked_in_snapshots = 0
-    in_person_assessments_added = 0
-    clients_with_in_person_assessments: set[int] = set()
-
-    for _, appointment in appointments_df.iterrows():
-        appointment_id = str(appointment["APPOINTMENT_ID"])
-        client_id = appointment["CLIENT_ID"]
-        start_time = pd.to_datetime(appointment["STARTTIME"]).to_pydatetime()
-        end_time = pd.to_datetime(appointment["ENDTIME"]).to_pydatetime()
-        cancelled = type(appointment["CANCELBYNAME"]) is str
-        gcal_event_id = appointment.get("gcal_event_id")
-        gcal_event_title = appointment.get("gcal_title")
-        gcal_calendar_id = appointment.get("gcal_calendar_id")
-        cpt_code = re.sub(r"\D", "", appointment["NAME"]) or "N/A"
-
-        is_trusted = appointment_id in trusted_ids
-
-        evaluator_npi = None
-        gcal_location = None
-        gcal_daeval = None
-
-        if gcal_calendar_id:
-            evaluator_npi = npi_cache.get(gcal_calendar_id)
-            if evaluator_npi is None:
-                logger.error(
-                    f"NPI not found for calendar ID (email): {gcal_calendar_id}"
-                )
-                reporter.log_missing_npi(gcal_calendar_id)
-                continue
-
-            # Ensure gcal_event_title is a string, default to empty if not
-            if not isinstance(gcal_event_title, str):
-                gcal_event_title = ""
-
-            gcal_location, gcal_daeval, is_confirmed = parse_location_and_type(
-                gcal_event_title
+    with track_task("appointment_sync", "Syncing appointments") as task:
+        if task is None:
+            logger.info(
+                "Skipping run: a previous appointment sync run is still in progress."
             )
-            confirmed_at = datetime.now() if is_confirmed else None
+            return
 
-        elif is_trusted or cancelled:
-            # Fallback to CSV NPI (trusted imports and cancelled appointments)
-            raw_npi = appointment.get("NPI")
-            try:
-                evaluator_npi = int(raw_npi) if pd.notna(raw_npi) else None
-            except (ValueError, TypeError):
-                evaluator_npi = None
+        logger.info(f"Inserting {len(appointments_df)} appointments into database...")
+        npi_cache = get_all_evaluators_npi_map()
+        valid_npis = set(npi_cache.values())
+        asd_adhd_map = get_client_id_to_asd_adhd_map()
+        dob_map = get_client_id_to_dob_map()
+        battery_rules = get_questionnaire_rules_with_in_person()
+        skipped_locked_in_snapshots = 0
+        in_person_assessments_added = 0
+        clients_with_in_person_assessments: set[int] = set()
 
-            if not evaluator_npi:
-                logger.warning(
-                    f"Skipping {'cancelled' if cancelled else 'trusted'} appointment {appointment_id} for {client_id}: No valid NPI in CSV."
-                )
-                continue
-
-            if evaluator_npi not in valid_npis:
-                label = "cancelled" if cancelled else "trusted"
-                appt_name = re.sub(r"[\d\(\)]", "", appointment["NAME"]).strip()
-                logger.warning(
-                    f"Skipping {label} appointment {appointment_id} ({appt_name}) for client {client_id} "
-                    f"on {start_time.strftime('%m/%d %I:%M %p')}: "
-                    f"NPI {evaluator_npi} not found in evaluator table. "
-                    f"Known NPIs: {sorted(valid_npis)}"
-                )
-                continue
-
-            confirmed_at = None
-        else:
-            if not gcal_calendar_id:
-                logger.error(f"No calendar ID found for event ID: {gcal_event_id}")
-            if not gcal_event_title:
-                logger.error(f"No title found for event ID: {gcal_event_id}")
-            continue
-
-        put_appointment_in_db(
-            appointment_id=appointment_id,
-            client_id=client_id,
-            evaluator_npi=evaluator_npi,
-            cpt=cpt_code,
-            start_time=start_time,
-            end_time=end_time,
-            location=gcal_location,
-            da_eval=gcal_daeval,
-            asd_adhd=asd_adhd_map.get(client_id),
-            cancelled=cancelled,
-            gcal_event_id=gcal_event_id,
-            gcal_event_title=gcal_event_title,
-            confirmed_at=confirmed_at,
-        )
-
-        if not cancelled and gcal_daeval and battery_rules:
-            client_dob = dob_map.get(client_id)
-            if client_dob:
-                appt_date = (
-                    start_time.date()
-                    if isinstance(start_time, datetime)
-                    else start_time
-                )
-                age = (appt_date - client_dob).days // 365
-                in_person = get_in_person_assessments_for_client(
-                    age=age,
-                    asd_adhd=asd_adhd_map.get(client_id),
-                    da_eval=gcal_daeval,
-                    rules=battery_rules,
-                )
-                if in_person:
-                    added = put_in_person_assessments_in_db(
-                        client_id=client_id,
-                        assessment_types=in_person,
-                        added_date=appt_date,
-                        appointment_id=appointment_id,
-                    )
-                    if added:
-                        in_person_assessments_added += added
-                        clients_with_in_person_assessments.add(client_id)
-
-        if (
-            not cancelled
-            and (cpt_code == "90791" or gcal_daeval == "DAEVAL")
-            and compute_and_store_assessment_snapshot(client_id=client_id)
-        ):
-            skipped_locked_in_snapshots += 1
-
-    if not billing_df.empty:
-        logger.info(
-            f"Inserting {len(billing_df)} billing-only appointments into database..."
-        )
-        for _, appointment in billing_df.iterrows():
+        total_appointments = len(appointments_df)
+        for i, (_, appointment) in enumerate(appointments_df.iterrows(), start=1):
+            task.progress(i, total_appointments)
             appointment_id = str(appointment["APPOINTMENT_ID"])
             client_id = appointment["CLIENT_ID"]
             start_time = pd.to_datetime(appointment["STARTTIME"]).to_pydatetime()
             end_time = pd.to_datetime(appointment["ENDTIME"]).to_pydatetime()
             cancelled = type(appointment["CANCELBYNAME"]) is str
+            gcal_event_id = appointment.get("gcal_event_id")
+            gcal_event_title = appointment.get("gcal_title")
+            gcal_calendar_id = appointment.get("gcal_calendar_id")
             cpt_code = re.sub(r"\D", "", appointment["NAME"]) or "N/A"
 
-            raw_npi = appointment.get("NPI")
-            try:
-                evaluator_npi = int(raw_npi) if pd.notna(raw_npi) else None
-            except (ValueError, TypeError):
-                evaluator_npi = None
+            is_trusted = appointment_id in trusted_ids
 
-            if not evaluator_npi:
-                logger.warning(
-                    f"Skipping billing appointment {appointment_id} for {client_id}: No valid NPI in CSV."
-                )
-                continue
+            evaluator_npi = None
+            gcal_location = None
+            gcal_daeval = None
 
-            if evaluator_npi not in valid_npis:
-                name = re.sub(r"[\d\(\)]", "", appointment["NAME"]).strip()
-                logger.warning(
-                    f"Skipping billing appointment {appointment_id} ({name}) for client {client_id} "
-                    f"on {start_time.strftime('%m/%d %I:%M %p')}: "
-                    f"NPI {evaluator_npi} not found in evaluator table. "
-                    f"Known NPIs: {sorted(valid_npis)}"
+            if gcal_calendar_id:
+                evaluator_npi = npi_cache.get(gcal_calendar_id)
+                if evaluator_npi is None:
+                    logger.error(
+                        f"NPI not found for calendar ID (email): {gcal_calendar_id}"
+                    )
+                    reporter.log_missing_npi(gcal_calendar_id)
+                    continue
+
+                # Ensure gcal_event_title is a string, default to empty if not
+                if not isinstance(gcal_event_title, str):
+                    gcal_event_title = ""
+
+                gcal_location, gcal_daeval, is_confirmed = parse_location_and_type(
+                    gcal_event_title
                 )
+                confirmed_at = datetime.now() if is_confirmed else None
+
+            elif is_trusted or cancelled:
+                # Fallback to CSV NPI (trusted imports and cancelled appointments)
+                raw_npi = appointment.get("NPI")
+                try:
+                    evaluator_npi = int(raw_npi) if pd.notna(raw_npi) else None
+                except (ValueError, TypeError):
+                    evaluator_npi = None
+
+                if not evaluator_npi:
+                    logger.warning(
+                        f"Skipping {'cancelled' if cancelled else 'trusted'} appointment {appointment_id} for {client_id}: No valid NPI in CSV."
+                    )
+                    continue
+
+                if evaluator_npi not in valid_npis:
+                    label = "cancelled" if cancelled else "trusted"
+                    appt_name = re.sub(r"[\d\(\)]", "", appointment["NAME"]).strip()
+                    logger.warning(
+                        f"Skipping {label} appointment {appointment_id} ({appt_name}) for client {client_id} "
+                        f"on {start_time.strftime('%m/%d %I:%M %p')}: "
+                        f"NPI {evaluator_npi} not found in evaluator table. "
+                        f"Known NPIs: {sorted(valid_npis)}"
+                    )
+                    continue
+
+                confirmed_at = None
+            else:
+                if not gcal_calendar_id:
+                    logger.error(f"No calendar ID found for event ID: {gcal_event_id}")
+                if not gcal_event_title:
+                    logger.error(f"No title found for event ID: {gcal_event_id}")
                 continue
 
             put_appointment_in_db(
@@ -737,30 +664,115 @@ def insert_appointments_with_gcal(appointment_sync_data: dict[str, list[str]] | 
                 cpt=cpt_code,
                 start_time=start_time,
                 end_time=end_time,
-                cancelled=cancelled,
+                location=gcal_location,
+                da_eval=gcal_daeval,
                 asd_adhd=asd_adhd_map.get(client_id),
-                billing_only=True,
+                cancelled=cancelled,
+                gcal_event_id=gcal_event_id,
+                gcal_event_title=gcal_event_title,
+                confirmed_at=confirmed_at,
             )
+
+            if not cancelled and gcal_daeval and battery_rules:
+                client_dob = dob_map.get(client_id)
+                if client_dob:
+                    appt_date = (
+                        start_time.date()
+                        if isinstance(start_time, datetime)
+                        else start_time
+                    )
+                    age = (appt_date - client_dob).days // 365
+                    in_person = get_in_person_assessments_for_client(
+                        age=age,
+                        asd_adhd=asd_adhd_map.get(client_id),
+                        da_eval=gcal_daeval,
+                        rules=battery_rules,
+                    )
+                    if in_person:
+                        added = put_in_person_assessments_in_db(
+                            client_id=client_id,
+                            assessment_types=in_person,
+                            added_date=appt_date,
+                            appointment_id=appointment_id,
+                        )
+                        if added:
+                            in_person_assessments_added += added
+                            clients_with_in_person_assessments.add(client_id)
 
             if (
                 not cancelled
-                and cpt_code == "90791"
+                and (cpt_code == "90791" or gcal_daeval == "DAEVAL")
                 and compute_and_store_assessment_snapshot(client_id=client_id)
             ):
                 skipped_locked_in_snapshots += 1
 
-    if in_person_assessments_added:
-        logger.info(
-            f"Added {in_person_assessments_added} in-person assessment(s) for "
-            f"{len(clients_with_in_person_assessments)} client(s)"
-        )
+        if not billing_df.empty:
+            logger.info(
+                f"Inserting {len(billing_df)} billing-only appointments into database..."
+            )
+            total_billing = len(billing_df)
+            for i, (_, appointment) in enumerate(billing_df.iterrows(), start=1):
+                task.progress(i, total_billing)
+                appointment_id = str(appointment["APPOINTMENT_ID"])
+                client_id = appointment["CLIENT_ID"]
+                start_time = pd.to_datetime(appointment["STARTTIME"]).to_pydatetime()
+                end_time = pd.to_datetime(appointment["ENDTIME"]).to_pydatetime()
+                cancelled = type(appointment["CANCELBYNAME"]) is str
+                cpt_code = re.sub(r"\D", "", appointment["NAME"]) or "N/A"
 
-    if skipped_locked_in_snapshots:
-        logger.debug(
-            f"Skipped {skipped_locked_in_snapshots} assessment snapshot(s): already locked in"
-        )
+                raw_npi = appointment.get("NPI")
+                try:
+                    evaluator_npi = int(raw_npi) if pd.notna(raw_npi) else None
+                except (ValueError, TypeError):
+                    evaluator_npi = None
 
-    reporter.send_report(email_for_errors)
+                if not evaluator_npi:
+                    logger.warning(
+                        f"Skipping billing appointment {appointment_id} for {client_id}: No valid NPI in CSV."
+                    )
+                    continue
+
+                if evaluator_npi not in valid_npis:
+                    name = re.sub(r"[\d\(\)]", "", appointment["NAME"]).strip()
+                    logger.warning(
+                        f"Skipping billing appointment {appointment_id} ({name}) for client {client_id} "
+                        f"on {start_time.strftime('%m/%d %I:%M %p')}: "
+                        f"NPI {evaluator_npi} not found in evaluator table. "
+                        f"Known NPIs: {sorted(valid_npis)}"
+                    )
+                    continue
+
+                put_appointment_in_db(
+                    appointment_id=appointment_id,
+                    client_id=client_id,
+                    evaluator_npi=evaluator_npi,
+                    cpt=cpt_code,
+                    start_time=start_time,
+                    end_time=end_time,
+                    cancelled=cancelled,
+                    asd_adhd=asd_adhd_map.get(client_id),
+                    billing_only=True,
+                )
+
+                if (
+                    not cancelled
+                    and cpt_code == "90791"
+                    and compute_and_store_assessment_snapshot(client_id=client_id)
+                ):
+                    skipped_locked_in_snapshots += 1
+
+        if in_person_assessments_added:
+            logger.info(
+                f"Added {in_person_assessments_added} in-person assessment(s) for "
+                f"{len(clients_with_in_person_assessments)} client(s)"
+            )
+
+        if skipped_locked_in_snapshots:
+            logger.debug(
+                f"Skipped {skipped_locked_in_snapshots} assessment snapshot(s): already locked in"
+            )
+
+        reporter.send_report(email_for_errors)
 
 
 _LETTER_RANGE_SUBFOLDER_RE = re.compile(r"^([A-Za-z])\s*-\s*([A-Za-z])$")
@@ -803,110 +815,125 @@ def move_client_folders_for_upcoming_appointments() -> None:
         logger.debug("No client Drive folders need moving.")
         return
 
-    errors: list[str] = []
-    eval_subfolders_cache: dict[str, dict[str, str]] = {}
-
-    for row in candidates:
-        client_id = row["client_id"]
-        client_name = row["client_name"]
-        client_drive_id = row["client_drive_id"]
-        evaluator_npi = row["evaluator_npi"]
-        evaluator_name = row["evaluator_name"]
-        is_eval_target = bool(row["target_is_eval"])
-        destination_drive_folder_id = (
-            row["evaluator_eval_drive_folder_id"]
-            if is_eval_target
-            else row["evaluator_drive_folder_id"]
-        )
-
-        if is_eval_target and destination_drive_folder_id:
-            client_first_name = row["client_first_name"]
-            first_letter = (
-                client_first_name.strip()[:1].upper() if client_first_name else ""
+    with track_task("move_client_folders", "Moving client Drive folders") as task:
+        if task is None:
+            logger.info(
+                "Skipping run: a previous move client folders run is still in progress."
             )
-            if first_letter.isalpha():
-                subfolders = eval_subfolders_cache.get(destination_drive_folder_id)
-                if subfolders is None:
-                    subfolders = {
-                        f["name"]: f["id"]
-                        for f in list_subfolders(destination_drive_folder_id)
-                    }
-                    eval_subfolders_cache[destination_drive_folder_id] = subfolders
-                bucket_folder_id = _find_letter_range_subfolder(
-                    subfolders, first_letter
+            return
+
+        errors: list[str] = []
+        eval_subfolders_cache: dict[str, dict[str, str]] = {}
+        total_candidates = len(candidates)
+
+        for i, row in enumerate(candidates, start=1):
+            task.progress(i, total_candidates)
+            client_id = row["client_id"]
+            client_name = row["client_name"]
+            client_drive_id = row["client_drive_id"]
+            evaluator_npi = row["evaluator_npi"]
+            evaluator_name = row["evaluator_name"]
+            is_eval_target = bool(row["target_is_eval"])
+            destination_drive_folder_id = (
+                row["evaluator_eval_drive_folder_id"]
+                if is_eval_target
+                else row["evaluator_drive_folder_id"]
+            )
+
+            if is_eval_target and destination_drive_folder_id:
+                client_first_name = row["client_first_name"]
+                first_letter = (
+                    client_first_name.strip()[:1].upper() if client_first_name else ""
                 )
-                if bucket_folder_id:
-                    destination_drive_folder_id = bucket_folder_id
-                else:
-                    msg = (
-                        f"{client_name} (ID: {client_id}): evaluator {evaluator_name}'s "
-                        f"eval Drive folder has no subfolder covering '{first_letter}'."
+                if first_letter.isalpha():
+                    subfolders = eval_subfolders_cache.get(destination_drive_folder_id)
+                    if subfolders is None:
+                        subfolders = {
+                            f["name"]: f["id"]
+                            for f in list_subfolders(destination_drive_folder_id)
+                        }
+                        eval_subfolders_cache[destination_drive_folder_id] = subfolders
+                    bucket_folder_id = _find_letter_range_subfolder(
+                        subfolders, first_letter
                     )
-                    logger.warning(msg)
-                    errors.append(msg)
-                    continue
+                    if bucket_folder_id:
+                        destination_drive_folder_id = bucket_folder_id
+                    else:
+                        msg = (
+                            f"{client_name} (ID: {client_id}): evaluator {evaluator_name}'s "
+                            f"eval Drive folder has no subfolder covering '{first_letter}'."
+                        )
+                        logger.warning(msg)
+                        errors.append(msg)
+                        continue
 
-        if not client_drive_id:
-            msg = f"{client_name} (ID: {client_id}): has no Drive folder configured."
-            logger.warning(msg)
-            errors.append(msg)
-            continue
-
-        if not destination_drive_folder_id:
-            msg = (
-                f"{client_name} (ID: {client_id}): evaluator {evaluator_name} "
-                f"(NPI {evaluator_npi}) has no{' eval' if is_eval_target else ''} "
-                "Drive folder configured."
-            )
-            logger.warning(msg)
-            errors.append(msg)
-            continue
-
-        try:
-            moved, current_name = move_drive_folder(
-                client_drive_id, destination_drive_folder_id
-            )
-            if moved:
-                logger.info(
-                    f"Moved Drive folder for {client_name} (ID: {client_id}) to {evaluator_name}."
+            if not client_drive_id:
+                msg = (
+                    f"{client_name} (ID: {client_id}): has no Drive folder configured."
                 )
-            else:
-                logger.debug(
-                    f"Drive folder for {client_name} (ID: {client_id}) already in {evaluator_name}'s folder."
+                logger.warning(msg)
+                errors.append(msg)
+                continue
+
+            if not destination_drive_folder_id:
+                msg = (
+                    f"{client_name} (ID: {client_id}): evaluator {evaluator_name} "
+                    f"(NPI {evaluator_npi}) has no{' eval' if is_eval_target else ''} "
+                    "Drive folder configured."
                 )
+                logger.warning(msg)
+                errors.append(msg)
+                continue
 
-            new_name = build_client_folder_name(
-                current_name,
-                row["appointment_start_time"],
-                row["da_eval"],
-                row["asd_adhd"],
-                evaluator_name,
-                row["writes_own_reports"],
-            )
-            if new_name != current_name:
-                rename_drive_folder(client_drive_id, new_name)
+            try:
+                moved, current_name = move_drive_folder(
+                    client_drive_id, destination_drive_folder_id
+                )
+                if moved:
+                    logger.info(
+                        f"Moved Drive folder for {client_name} (ID: {client_id}) to {evaluator_name}."
+                    )
+                else:
+                    logger.debug(
+                        f"Drive folder for {client_name} (ID: {client_id}) already in {evaluator_name}'s folder."
+                    )
 
-            set_client_drive_folder_evaluator(client_id, evaluator_npi, is_eval_target)
-        except Exception as e:
-            msg = f"{client_name} (ID: {client_id}): failed to move Drive folder: {e}"
-            logger.exception(msg)
-            errors.append(msg)
+                new_name = build_client_folder_name(
+                    current_name,
+                    row["appointment_start_time"],
+                    row["da_eval"],
+                    row["asd_adhd"],
+                    evaluator_name,
+                    row["writes_own_reports"],
+                )
+                if new_name != current_name:
+                    rename_drive_folder(client_drive_id, new_name)
 
-    if errors:
-        email_for_errors = os.getenv("ERROR_EMAILS", "")
-        if email_for_errors:
-            html = (
-                "<h3>Client Drive Folder Move Errors</h3><ul>"
-                + "".join(f"<li>{e}</li>" for e in errors)
-                + "</ul>"
-            )
-            send_gmail(
-                message_text="Errors were detected while moving client Drive folders.",
-                subject=f"Client Folder Move Errors - {datetime.now().strftime('%Y-%m-%d')}",
-                to_addr=email_for_errors,
-                from_addr="tech@driftwoodeval.com",
-                html=html,
-            )
+                set_client_drive_folder_evaluator(
+                    client_id, evaluator_npi, is_eval_target
+                )
+            except Exception as e:
+                msg = (
+                    f"{client_name} (ID: {client_id}): failed to move Drive folder: {e}"
+                )
+                logger.exception(msg)
+                errors.append(msg)
+
+        if errors:
+            email_for_errors = os.getenv("ERROR_EMAILS", "")
+            if email_for_errors:
+                html = (
+                    "<h3>Client Drive Folder Move Errors</h3><ul>"
+                    + "".join(f"<li>{e}</li>" for e in errors)
+                    + "</ul>"
+                )
+                send_gmail(
+                    message_text="Errors were detected while moving client Drive folders.",
+                    subject=f"Client Folder Move Errors - {datetime.now().strftime('%Y-%m-%d')}",
+                    to_addr=email_for_errors,
+                    from_addr="tech@driftwoodeval.com",
+                    html=html,
+                )
 
 
 def parse_location_and_type(

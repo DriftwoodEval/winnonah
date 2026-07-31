@@ -17,6 +17,7 @@ from selenium.webdriver.remote.webdriver import WebDriver
 import utils.database
 import utils.webdriving as w
 from utils.misc import get_column
+from utils.task_tracker import track_task
 
 DOWNLOAD_DIR = Path("temp/downloads")
 INPUT_DIR = Path("temp/input")
@@ -539,29 +540,42 @@ def save_ta_hashes():
 
         logger.info(f"{len(clients_to_update)} clients to search for TA hashes")
 
-        hashes_to_update: dict[str, str] = {}
-
-        for i, (_, client) in enumerate(clients_to_update.iterrows()):
-            client_id = get_column(client, "CLIENT_ID")
-            if not isinstance(client_id, (int, str)):
-                continue
-            client_id = str(client_id).strip()
-            ta_hash = get_ta_hash(driver, actions, client_id)
-            if ta_hash:
-                hashes_to_update[client_id] = ta_hash
-                utils.database.resolve_failure_in_db(
-                    client_id, "unable to find client", connection=conn
+        with track_task("save_ta_hashes", "Saving TherapyAppointment hashes") as task:
+            if task is None:
+                logger.info(
+                    "Skipping run: a previous save TA hashes run is still in progress."
                 )
+                return
 
-            if (i + 1) % 10 == 0 and hashes_to_update:
-                logger.info(f"Saving a batch of {len(hashes_to_update)} TA hashes...")
+            total = len(clients_to_update)
+            hashes_to_update: dict[str, str] = {}
+
+            for i, (_, client) in enumerate(clients_to_update.iterrows()):
+                task.progress(i + 1, total)
+                client_id = get_column(client, "CLIENT_ID")
+                if not isinstance(client_id, (int, str)):
+                    continue
+                client_id = str(client_id).strip()
+                ta_hash = get_ta_hash(driver, actions, client_id)
+                if ta_hash:
+                    hashes_to_update[client_id] = ta_hash
+                    utils.database.resolve_failure_in_db(
+                        client_id, "unable to find client", connection=conn
+                    )
+
+                if (i + 1) % 10 == 0 and hashes_to_update:
+                    logger.info(
+                        f"Saving a batch of {len(hashes_to_update)} TA hashes..."
+                    )
+                    utils.database.update_client_ta_hashes(
+                        hashes_to_update, connection=conn
+                    )
+                    hashes_to_update = {}
+
+            if hashes_to_update:
+                logger.info(
+                    f"Saving the final batch of {len(hashes_to_update)} TA hashes..."
+                )
                 utils.database.update_client_ta_hashes(
                     hashes_to_update, connection=conn
                 )
-                hashes_to_update = {}
-
-        if hashes_to_update:
-            logger.info(
-                f"Saving the final batch of {len(hashes_to_update)} TA hashes..."
-            )
-            utils.database.update_client_ta_hashes(hashes_to_update, connection=conn)

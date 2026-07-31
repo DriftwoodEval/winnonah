@@ -1,6 +1,7 @@
 import os
 import re
 from collections import defaultdict
+from collections.abc import Callable
 from datetime import date, timedelta
 from pathlib import Path
 
@@ -85,7 +86,10 @@ def generate_pdf(referral_name, client_group):
     return pdf_data
 
 
-def create_and_send_referral_faxes(clients: pd.DataFrame):
+def create_and_send_referral_faxes(
+    clients: pd.DataFrame,
+    progress_callback: Callable[[int, int], None] | None = None,
+):
     logger.debug("Starting referral fax process")
 
     last_date = utils.database.get_referral_fax_date() or (
@@ -107,11 +111,14 @@ def create_and_send_referral_faxes(clients: pd.DataFrame):
         if source.lower() not in IGNORE_SOURCES:
             referral_groups[source].append(client)
 
-    for raw_source, client_group in referral_groups.items():
+    total = len(referral_groups)
+    for i, (raw_source, client_group) in enumerate(referral_groups.items(), start=1):
         meta = process_source_metadata(raw_source)
 
         if not meta:
             logger.warning(f"Skipping invalid source: {raw_source}")
+            if progress_callback:
+                progress_callback(i, total)
             continue
 
         pdf_content = generate_pdf(meta["name"], client_group)
@@ -124,11 +131,16 @@ def create_and_send_referral_faxes(clients: pd.DataFrame):
             attachments=[(pdf_content, f"{meta['name']}_{meta['fax']}.pdf")],
         )
         logger.info(f"Sent fax to {meta['name']}")
+        if progress_callback:
+            progress_callback(i, total)
 
     utils.database.set_referral_fax_date(new_clients["ADDED_DATE_DT"].max())
 
 
-def make_referral_fax_folders(clients: pd.DataFrame):
+def make_referral_fax_folders(
+    clients: pd.DataFrame,
+    progress_callback: Callable[[int, int], None] | None = None,
+):
     """Make folders for referrals in the TO BE FAXED folder in Google Drive."""
     logger.debug("Making folders for referrals")
     fax_folder_id = os.getenv("FAX_FOLDER_ID")
@@ -142,14 +154,18 @@ def make_referral_fax_folders(clients: pd.DataFrame):
     raw_names = clients["REFERRAL_SOURCE"].dropna().unique()
 
     created_count = 0
+    total = len(raw_names)
 
-    for raw_name in raw_names:
+    for i, raw_name in enumerate(raw_names, start=1):
         meta = process_source_metadata(raw_name)
 
         if meta and meta["fax"] not in existing_faxes:
             folder_name = f"{meta['name']} {meta['fax']}"
             utils.google.create_folder_in_folder(folder_name, fax_folder_id)
             created_count += 1
+
+        if progress_callback:
+            progress_callback(i, total)
 
     if created_count > 0:
         logger.info(f"Created {created_count} folders for referrals")

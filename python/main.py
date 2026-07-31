@@ -253,72 +253,92 @@ def process_resync_confirmed():
         logger.info(
             f"Found {len(rows)} confirmed appointment(s) missing [CONFIRMED] tag."
         )
-        updated = 0
-        failed = 0
 
-        for row in rows:
-            appt_id = row["id"]
-            event_id = row["calendarEventId"]
-            current_title = row["calendarEventTitle"] or ""
-            new_title = f"{current_title} [CONFIRMED]".strip()
-
-            evaluator_calendar_id = row.get("evaluatorCalendarId")
-            success = update_gcal_event_title(
-                event_id, new_title, calendar_id=evaluator_calendar_id
-            )
-
-            if not success:
-                logger.warning(
-                    f"Event {event_id} not found by ID for appt {appt_id}; searching by client/time..."
+        with track_task(
+            "resync_confirmed", "Resyncing confirmed calendar events"
+        ) as task:
+            if task is None:
+                logger.info(
+                    "Skipping run: a previous resync confirmed run is still in progress."
                 )
-                found = find_gcal_event_by_client_and_time(
-                    row["clientId"], row["startTime"]
+                return
+
+            updated = 0
+            failed = 0
+            total = len(rows)
+
+            for i, row in enumerate(rows, start=1):
+                task.progress(i, total)
+                appt_id = row["id"]
+                event_id = row["calendarEventId"]
+                current_title = row["calendarEventTitle"] or ""
+                new_title = f"{current_title} [CONFIRMED]".strip()
+
+                evaluator_calendar_id = row.get("evaluatorCalendarId")
+                success = update_gcal_event_title(
+                    event_id, new_title, calendar_id=evaluator_calendar_id
                 )
-                if found:
-                    event_id = found["event_id"]
-                    found_title = found["title"]
-                    if "[confirmed]" in found_title.lower():
+
+                if not success:
+                    logger.warning(
+                        f"Event {event_id} not found by ID for appt {appt_id}; searching by client/time..."
+                    )
+                    found = find_gcal_event_by_client_and_time(
+                        row["clientId"], row["startTime"]
+                    )
+                    if found:
+                        event_id = found["event_id"]
+                        found_title = found["title"]
+                        if "[confirmed]" in found_title.lower():
+                            logger.info(
+                                f"Calendar event for appt {appt_id} already has [CONFIRMED]; updating DB only."
+                            )
+                            new_title = found_title
+                        else:
+                            new_title = f"{found_title} [CONFIRMED]".strip()
+                            update_gcal_event_title(
+                                event_id,
+                                new_title,
+                                calendar_id=found["calendar_id"],
+                            )
                         logger.info(
-                            f"Calendar event for appt {appt_id} already has [CONFIRMED]; updating DB only."
+                            f"Corrected stale event ID for appt {appt_id}: "
+                            f"{row['calendarEventId']!r} → {event_id!r}"
                         )
-                        new_title = found_title
-                    else:
-                        new_title = f"{found_title} [CONFIRMED]".strip()
-                        update_gcal_event_title(
-                            event_id,
-                            new_title,
-                            calendar_id=found["calendar_id"],
+                        success = True
+
+                if success:
+                    with conn.cursor() as cursor:
+                        cursor.execute(
+                            f"UPDATE {TABLE_APPOINTMENT} SET calendarEventId = %s, calendarEventTitle = %s WHERE id = %s",
+                            (event_id, new_title, appt_id),
                         )
-                    logger.info(
-                        f"Corrected stale event ID for appt {appt_id}: "
-                        f"{row['calendarEventId']!r} → {event_id!r}"
-                    )
-                    success = True
+                    conn.commit()
 
-            if success:
-                with conn.cursor() as cursor:
-                    cursor.execute(
-                        f"UPDATE {TABLE_APPOINTMENT} SET calendarEventId = %s, calendarEventTitle = %s WHERE id = %s",
-                        (event_id, new_title, appt_id),
-                    )
-                conn.commit()
+                if success:
+                    updated += 1
+                else:
+                    logger.error(f"Could not find calendar event for appt {appt_id}.")
+                    failed += 1
 
-            if success:
-                updated += 1
-            else:
-                logger.error(f"Could not find calendar event for appt {appt_id}.")
-                failed += 1
-
-        logger.info(f"Resync complete: {updated} updated, {failed} failed.")
+            logger.info(f"Resync complete: {updated} updated, {failed} failed.")
 
 
 def process_referrals():
     """Process referrals, creating folders for them in Google Drive."""
     logger.debug("Processing referrals")
     clients = utils.database.get_all_clients()
-    if datetime.now().weekday() == 4:  # Friday
-        utils.referrals.create_and_send_referral_faxes(clients)
-    utils.referrals.make_referral_fax_folders(clients)
+    with track_task("referrals", "Processing referrals") as task:
+        if task is None:
+            logger.info("Skipping run: a previous referrals run is still in progress.")
+            return
+        if datetime.now().weekday() == 4:  # Friday
+            utils.referrals.create_and_send_referral_faxes(
+                clients, progress_callback=task.progress
+            )
+        utils.referrals.make_referral_fax_folders(
+            clients, progress_callback=task.progress
+        )
     logger.debug("Finished processing referrals")
 
 
