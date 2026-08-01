@@ -19,7 +19,9 @@ import {
 	Undo,
 	Unlink,
 } from "lucide-react";
+import type { RefObject } from "react";
 import { useEffect, useRef } from "react";
+import { toast } from "sonner";
 import { cn } from "~/lib/utils";
 
 interface RichTextEditorProps {
@@ -44,6 +46,51 @@ function stripEmptyTextNodes(node: JSONContent): JSONContent {
 
 function sanitizeValue(value: JSONContent | string): JSONContent | string {
 	return typeof value === "string" ? value : stripEmptyTextNodes(value);
+}
+
+const MAX_IMAGE_DIMENSION = 1600;
+const IMAGE_QUALITY = 0.8;
+const MAX_IMAGE_DATA_URL_BYTES = 4 * 1024 * 1024;
+
+async function readAndCompressImage(file: File): Promise<string> {
+	const bitmap = await createImageBitmap(file);
+	const scale = Math.min(
+		1,
+		MAX_IMAGE_DIMENSION / Math.max(bitmap.width, bitmap.height),
+	);
+	const width = Math.round(bitmap.width * scale);
+	const height = Math.round(bitmap.height * scale);
+
+	const canvas = document.createElement("canvas");
+	canvas.width = width;
+	canvas.height = height;
+	const ctx = canvas.getContext("2d");
+	if (!ctx) {
+		bitmap.close();
+		throw new Error("Canvas 2D context unavailable");
+	}
+	ctx.drawImage(bitmap, 0, 0, width, height);
+	bitmap.close();
+
+	const dataUrl = canvas.toDataURL("image/jpeg", IMAGE_QUALITY);
+	if (dataUrl.length > MAX_IMAGE_DATA_URL_BYTES) {
+		throw new Error("Image too large");
+	}
+	return dataUrl;
+}
+
+async function insertCompressedImage(
+	editorRef: RefObject<Editor | null>,
+	file: File,
+) {
+	try {
+		const src = await readAndCompressImage(file);
+		editorRef.current?.chain().focus().setImage({ src }).run();
+	} catch {
+		toast.error("Image too large", {
+			description: "Try a smaller image or a lower resolution screenshot.",
+		});
+	}
 }
 
 export function RichTextEditor({
@@ -87,15 +134,7 @@ export function RichTextEditor({
 				if (!item) return false;
 				const file = item.getAsFile();
 				if (!file) return false;
-				const reader = new FileReader();
-				reader.onload = (e) => {
-					editorRef.current
-						?.chain()
-						.focus()
-						.setImage({ src: e.target?.result as string })
-						.run();
-				};
-				reader.readAsDataURL(file);
+				void insertCompressedImage(editorRef, file);
 				return true;
 			},
 			handleDrop: (_view, event) => {
@@ -105,15 +144,7 @@ export function RichTextEditor({
 				).find((f) => f.type.startsWith("image/"));
 				if (!file) return false;
 				event.preventDefault();
-				const reader = new FileReader();
-				reader.onload = (e) => {
-					editorRef.current
-						?.chain()
-						.focus()
-						.setImage({ src: e.target?.result as string })
-						.run();
-				};
-				reader.readAsDataURL(file);
+				void insertCompressedImage(editorRef, file);
 				return true;
 			},
 		},
@@ -153,15 +184,7 @@ export function RichTextEditor({
 					onChange={(e) => {
 						const file = e.target.files?.[0];
 						if (file) {
-							const reader = new FileReader();
-							reader.onload = (ev) => {
-								editorRef.current
-									?.chain()
-									.focus()
-									.setImage({ src: ev.target?.result as string })
-									.run();
-							};
-							reader.readAsDataURL(file);
+							void insertCompressedImage(editorRef, file);
 							e.target.value = "";
 						}
 					}}
