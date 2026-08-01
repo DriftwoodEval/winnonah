@@ -12,7 +12,10 @@ export const DOCS_DIR = path.join(process.cwd(), "src/content/docs");
 export interface DocFrontmatter {
 	title: string;
 	position?: number;
+	devOnly?: boolean;
 }
+
+const isDev = process.env.NODE_ENV === "development";
 
 export interface DocHeading {
 	id: string;
@@ -128,7 +131,7 @@ function sortByPositionThenTitle<T extends { position: number; title: string }>(
 
 export function getAllDocSlugs(): string[][] {
 	if (!fs.existsSync(DOCS_DIR)) return [];
-	return walkDocsDir(DOCS_DIR);
+	return walkDocsDir(DOCS_DIR).filter((slug) => getDocBySlug(slug) !== null);
 }
 
 export function getDocBySlug(slug: string[]): DocFile | null {
@@ -138,11 +141,14 @@ export function getDocBySlug(slug: string[]): DocFile | null {
 	const raw = fs.readFileSync(filePath, "utf-8");
 	const { data, content } = matter(raw);
 
+	if (data.devOnly && !isDev) return null;
+
 	return {
 		slug,
 		frontmatter: {
 			title: data.title ?? slug.at(-1) ?? "Untitled",
 			position: data.position,
+			devOnly: data.devOnly,
 		},
 		content,
 	};
@@ -165,12 +171,14 @@ export function getDocRelativePath(slug: string[]): string | null {
 	return path.relative(DOCS_DIR, filePath).split(path.sep).join("/");
 }
 
-function toDocNavItem(slug: string[]): DocNavItem {
+function toDocNavItem(slug: string[]): DocNavItem | null {
 	const doc = getDocBySlug(slug);
+	if (!doc) return null;
+
 	return {
 		slug,
-		title: doc?.frontmatter.title ?? slug.at(-1) ?? "Untitled",
-		position: doc?.frontmatter.position ?? Number.MAX_SAFE_INTEGER,
+		title: doc.frontmatter.title,
+		position: doc.frontmatter.position ?? Number.MAX_SAFE_INTEGER,
 	};
 }
 
@@ -186,7 +194,9 @@ export function getDocsNavTree(): DocNavCategory[] {
 		const folderPath = path.join(DOCS_DIR, entry.name);
 		const meta = getCategoryMeta(folderPath);
 		const items = sortByPositionThenTitle(
-			walkDocsDir(folderPath, [entry.name]).map(toDocNavItem),
+			walkDocsDir(folderPath, [entry.name])
+				.map(toDocNavItem)
+				.filter((item): item is DocNavItem => item !== null),
 		);
 
 		if (items.length === 0) continue;

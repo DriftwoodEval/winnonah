@@ -65,7 +65,10 @@ export default async function DocsPage({ params }: PageProps) {
 				<h1>{doc.frontmatter.title}</h1>
 				<Content />
 			</article>
-			<TableOfContents headings={getDocHeadings(slug)} />
+			<TableOfContents
+				editPath={relativePath}
+				headings={getDocHeadings(slug)}
+			/>
 		</div>
 	);
 }

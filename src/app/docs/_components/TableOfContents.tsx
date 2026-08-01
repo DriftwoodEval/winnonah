@@ -1,9 +1,13 @@
 "use client";
 
+import { SquarePen } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import type { DocHeading } from "~/lib/docs";
 import { cn } from "~/lib/utils";
+
+const EDIT_BASE_URL =
+	"https://github.com/DriftwoodEval/winnonah/edit/main/src/content/docs";
 
 const INDENT_BY_DEPTH: Record<number, string> = {
 	2: "pl-3",
@@ -25,7 +29,13 @@ function headingClass(depth: number): string {
 	);
 }
 
-export function TableOfContents({ headings }: { headings: DocHeading[] }) {
+export function TableOfContents({
+	headings,
+	editPath,
+}: {
+	headings: DocHeading[];
+	editPath?: string;
+}) {
 	const [activeId, setActiveId] = useState<string | null>(null);
 
 	useEffect(() => {
@@ -59,30 +69,45 @@ export function TableOfContents({ headings }: { headings: DocHeading[] }) {
 		return () => observer.disconnect();
 	}, [headings]);
 
-	if (headings.length === 0) return null;
+	if (headings.length === 0 && !editPath) return null;
 
 	return (
 		<nav className="sticky top-14 hidden max-h-[calc(100vh-3.5rem)] shrink-0 overflow-y-auto xl:block xl:w-56">
-			<h2 className="px-3 font-semibold text-muted-foreground text-xs uppercase tracking-wide">
-				On this page
-			</h2>
-			<ul className="mt-2 flex flex-col gap-0.5">
-				{headings.map((heading) => (
-					<li key={heading.id}>
-						<Link
-							className={cn(
-								"block rounded-md py-1 pr-3 text-muted-foreground hover:bg-accent hover:text-accent-foreground",
-								headingClass(heading.depth),
-								heading.id === activeId &&
-									"bg-accent font-medium text-accent-foreground",
-							)}
-							href={`#${heading.id}`}
-						>
-							{heading.text}
-						</Link>
-					</li>
-				))}
-			</ul>
+			{headings.length > 0 && (
+				<>
+					<h2 className="px-3 font-semibold text-muted-foreground text-xs uppercase tracking-wide">
+						On this page
+					</h2>
+					<ul className="mt-2 flex flex-col gap-0.5">
+						{headings.map((heading) => (
+							<li key={heading.id}>
+								<Link
+									className={cn(
+										"block rounded-md py-1 pr-3 text-muted-foreground hover:bg-accent hover:text-accent-foreground",
+										headingClass(heading.depth),
+										heading.id === activeId &&
+											"bg-accent font-medium text-accent-foreground",
+									)}
+									href={`#${heading.id}`}
+								>
+									{heading.text}
+								</Link>
+							</li>
+						))}
+					</ul>
+				</>
+			)}
+			{editPath && (
+				<a
+					className="mt-4 flex items-center gap-1.5 rounded-md px-3 py-1 text-muted-foreground text-sm hover:bg-accent hover:text-accent-foreground"
+					href={`${EDIT_BASE_URL}/${editPath}`}
+					rel="noreferrer"
+					target="_blank"
+				>
+					<SquarePen className="size-3.5" />
+					Edit this page
+				</a>
+			)}
 		</nav>
 	);
 }

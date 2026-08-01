@@ -1,0 +1,51 @@
+---
+title: Records Request Process
+position: 3
+devOnly: true
+---
+
+Getting a client's school records is a mix of manual review in the EMR and an automated script that sends the actual request.
+
+## 1. Determine if records are needed
+
+On intake, staff set the client's `Records Needed` status to `Needed` or `Not Needed`. Both "Notes Only" and real clients can have this status set, although Notes Only clients will not have requests sent, it's just to save that information for later. Until this is set, the client shows up under **Records Status Not Set** on the dashboard.
+
+## 2. Automated requesting
+
+Someone runs the records request script by hand (it is not on a schedule). When run, it picks up all pending requests and does the actual sending:
+
+1. Finds clients that need records, have no requested date yet, and aren't paused or already flagged as an autism stop case.
+2. Logs into the client portal and confirms the consent forms have been signed.
+3. Downloads the "Receiving" and "Sending" Consent to Release of Information forms as PDFs.
+4. Reads the school district name off the consent PDF and checks it against the district on file for the client. If it doesn't match, it falls out for manual review.
+5. Looks up the district's contact info (email, and whether to fax instead of email) from the QSuite Records Config. If there's no contact on file, it falls out for manual review.
+6. Builds the outgoing message (student name, date of birth, standard request language plus any custom message) and sends it, attaching a fax cover sheet if needed.
+7. Marks the request as sent, which just means filling in the **Requested** date field on the client's Records section.
+
+If any step fails (portal not opened, docs not signed, district mismatch, no contact on file, etc.), it logs a failure that shows up as an alert on the client's page in the EMR.
+
+## 3. Manual review
+
+In the event a records request falls out for manual review, the forms will be put in a Google Drive folder. Then, someone can run the Google App Script to generate drafts for manual sending. After manually sending a request this way, remember to also fill in the **Requested** date field on the client's Records section, since nothing does this automatically for manual sends.
+
+## 4. Queuing more requests
+
+From the client's Records section, staff with the **Set School Records Requested** permission can:
+
+- Check **Request Again?** to queue follow-up requests. This can be done infinitely.
+- Fill in the **Email request line** field, the second line of the outgoing email/fax, for any non-standard requests.
+- Set the **Hold until** date to delay when the automation should send it.
+
+Clients that need records but don't have a request sent yet show up under **Records Needed - Not Requested** on the dashboard.
+
+## 5. Review and log the response
+
+Once the district responds, staff add a note in the client's Records section, using one of the note templates (District/Outside - Autism, No Autism, No Response, No Records). Using one of the two **Autism** templates automatically flags the client as an autism stop case.
+
+Adding a note marks the records process as done, which allows questionnaires to be sent to the family.
+
+Clients with a request sent but no note yet show up under **Records Requested - Not Returned** on the dashboard.
+
+## BabyNet evaluation reports
+
+BabyNet evaluation reports are tracked separately with their own Needed/Downloaded status. There is no automation associated, they just show up on various lists.
