@@ -51,7 +51,7 @@ log "Waiting for primary to catch up..."
 for i in $(seq 1 60); do
   lag=$(docker exec driftwood-db mysql --vertical -uroot -p"${MYSQL_ROOT_PASSWORD}" \
     -e "SHOW REPLICA STATUS" 2>/dev/null \
-    | grep "Seconds_Behind_Source" | awk '{print $2}')
+    | grep "Seconds_Behind_Source" | awk '{print $2}' || true)
   log "  Lag: ${lag:-unknown}s"
   [ "${lag}" = "0" ] && break
   sleep 5
