@@ -21,10 +21,13 @@ slack() {
 log "=== FAILBACK STARTING ==="
 slack "Failback initiated. Syncing primary from standby before swapping traffic."
 
-# 1. Check primary MySQL
-if ! docker exec driftwood-db mysqladmin ping -uroot -p"${MYSQL_ROOT_PASSWORD}" -h localhost \
-    > /dev/null 2>&1; then
-  log "Primary MySQL not healthy. Fix it first."
+# 1. Start primary driftwood-db and redis, wait for MySQL to be healthy
+# Like caddy, these have no profile and are normally always-on, but
+# STONITH's blanket `docker compose down` on primary (failover.sh) removes
+# them along with everything else, so bring them back up here.
+log "Starting primary driftwood-db and redis..."
+if ! ${PRIMARY_COMPOSE} up -d --wait driftwood-db redis; then
+  log "Primary MySQL did not become healthy. Fix it first."
   slack "Failback aborted. Primary MySQL not healthy."
   exit 1
 fi
