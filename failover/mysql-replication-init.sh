@@ -32,6 +32,7 @@ docker exec driftwood-db mysqldump \
   --flush-logs \
   --routines \
   --triggers \
+  --events \
   --set-gtid-purged=ON \
   > /tmp/primary_dump.sql
 
@@ -70,16 +71,16 @@ ssh -o LogLevel=quiet -i "${STANDBY_SSH_KEY_PATH}" \
 set -euo pipefail
 
 docker exec driftwood-db mysql -uroot -p"${MYSQL_ROOT_PASSWORD}" \
-  -e "STOP REPLICA; RESET REPLICA ALL; RESET BINARY LOGS AND GTIDS; SET GLOBAL read_only=OFF; SET GLOBAL super_read_only=OFF;" 2>/dev/null
+  -e "STOP REPLICA; RESET REPLICA ALL; RESET BINARY LOGS AND GTIDS; SET GLOBAL read_only=OFF; SET GLOBAL super_read_only=OFF;"
 
 docker exec -i driftwood-db mysql -uroot -p"${MYSQL_ROOT_PASSWORD}" \
-  2>/dev/null < /tmp/primary_dump.sql
+  < /tmp/primary_dump.sql
 
 docker exec -i driftwood-db mysql -uroot -p"${MYSQL_ROOT_PASSWORD}" \
-  2>/dev/null < /tmp/configure_replica.sql
+  < /tmp/configure_replica.sql
 
 docker exec driftwood-db mysql -uroot -p"${MYSQL_ROOT_PASSWORD}" \
-  -e "SET GLOBAL read_only=ON; SET GLOBAL super_read_only=ON;" 2>/dev/null
+  -e "SET GLOBAL read_only=ON; SET GLOBAL super_read_only=ON;"
 
 echo "Standby configured."
 REMOTE
