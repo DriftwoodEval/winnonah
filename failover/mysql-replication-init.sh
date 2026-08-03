@@ -18,8 +18,10 @@ log() { echo "[$(date '+%H:%M:%S')] $*"; }
 log "=== MySQL Replication Init ==="
 
 # 1. Dump primary
-# --set-gtid-purged=OFF lets SOURCE_AUTO_POSITION handle GTID sync instead,
-# avoiding the "partial dump" warning and GTID_PURGED conflict errors.
+# --set-gtid-purged=ON embeds SET @@GLOBAL.GTID_PURGED at the primary's
+# exact snapshot position, so SOURCE_AUTO_POSITION resumes from the dump
+# itself rather than whatever stale gtid_executed the standby had before
+# (standby's GTID history is wiped with RESET MASTER before the dump loads).
 log "Dumping primary database..."
 docker exec driftwood-db mysqldump \
   -uroot -p"${MYSQL_ROOT_PASSWORD}" \
@@ -29,7 +31,7 @@ docker exec driftwood-db mysqldump \
   --flush-logs \
   --routines \
   --triggers \
-  --set-gtid-purged=OFF \
+  --set-gtid-purged=ON \
   > /tmp/primary_dump.sql
 
 log "Dump complete: $(du -sh /tmp/primary_dump.sql | cut -f1)"
@@ -67,7 +69,7 @@ ssh -o LogLevel=quiet -i "${STANDBY_SSH_KEY_PATH}" \
 set -euo pipefail
 
 docker exec driftwood-db mysql -uroot -p"${MYSQL_ROOT_PASSWORD}" \
-  -e "STOP REPLICA; SET GLOBAL read_only=OFF; SET GLOBAL super_read_only=OFF;" 2>/dev/null
+  -e "STOP REPLICA; RESET REPLICA ALL; RESET MASTER; SET GLOBAL read_only=OFF; SET GLOBAL super_read_only=OFF;" 2>/dev/null
 
 docker exec -i driftwood-db mysql -uroot -p"${MYSQL_ROOT_PASSWORD}" \
   2>/dev/null < /tmp/primary_dump.sql
