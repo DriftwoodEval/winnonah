@@ -21,7 +21,8 @@ log "=== MySQL Replication Init ==="
 # --set-gtid-purged=ON embeds SET @@GLOBAL.GTID_PURGED at the primary's
 # exact snapshot position, so SOURCE_AUTO_POSITION resumes from the dump
 # itself rather than whatever stale gtid_executed the standby had before
-# (standby's GTID history is wiped with RESET MASTER before the dump loads).
+# (standby's GTID history is wiped with RESET BINARY LOGS AND GTIDS before
+# the dump loads).
 log "Dumping primary database..."
 docker exec driftwood-db mysqldump \
   -uroot -p"${MYSQL_ROOT_PASSWORD}" \
@@ -69,7 +70,7 @@ ssh -o LogLevel=quiet -i "${STANDBY_SSH_KEY_PATH}" \
 set -euo pipefail
 
 docker exec driftwood-db mysql -uroot -p"${MYSQL_ROOT_PASSWORD}" \
-  -e "STOP REPLICA; RESET REPLICA ALL; RESET MASTER; SET GLOBAL read_only=OFF; SET GLOBAL super_read_only=OFF;" 2>/dev/null
+  -e "STOP REPLICA; RESET REPLICA ALL; RESET BINARY LOGS AND GTIDS; SET GLOBAL read_only=OFF; SET GLOBAL super_read_only=OFF;" 2>/dev/null
 
 docker exec -i driftwood-db mysql -uroot -p"${MYSQL_ROOT_PASSWORD}" \
   2>/dev/null < /tmp/primary_dump.sql
