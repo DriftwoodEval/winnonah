@@ -32,7 +32,7 @@ log "Primary MySQL OK."
 
 # 2. Point primary at standby to catch up
 log "Syncing primary from standby (${STANDBY_TAILSCALE_IP})..."
-docker exec driftwood-db mysql -uroot -p"${MYSQL_ROOT_PASSWORD}" << SQL
+docker exec -i driftwood-db mysql -uroot -p"${MYSQL_ROOT_PASSWORD}" << SQL
 STOP REPLICA;
 RESET REPLICA ALL;
 CHANGE REPLICATION SOURCE TO

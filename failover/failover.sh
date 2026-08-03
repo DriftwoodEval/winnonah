@@ -72,7 +72,7 @@ docker exec driftwood-db mysql -uroot -p"${MYSQL_ROOT_PASSWORD}" \
       SET GLOBAL read_only=OFF; SET GLOBAL super_read_only=OFF;"
 
 # Ensure replication user exists for when primary recovers and re-syncs from us
-docker exec driftwood-db mysql -uroot -p"${MYSQL_ROOT_PASSWORD}" << SQL
+docker exec -i driftwood-db mysql -uroot -p"${MYSQL_ROOT_PASSWORD}" << SQL
 CREATE USER IF NOT EXISTS '${MYSQL_REPLICATION_USER}'@'%'
   IDENTIFIED WITH caching_sha2_password BY '${MYSQL_REPLICATION_PASSWORD}';
 GRANT REPLICATION SLAVE ON *.* TO '${MYSQL_REPLICATION_USER}'@'%';
