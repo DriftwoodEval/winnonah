@@ -64,9 +64,12 @@ ssh -o LogLevel=quiet -i "${STANDBY_SSH_KEY_PATH}" "${STANDBY_SSH_USER}@${STANDB
   "${STANDBY_COMPOSE} --profile active_only stop cloudflared winnonah winnonah-python"
 slack "Standby tunnel stopped. Starting primary tunnel..."
 
-# 5. Start primary cloudflared and winnonah
-log "Starting primary cloudflared and winnonah..."
-${PRIMARY_COMPOSE} up -d cloudflared winnonah
+# 5. Start primary caddy, cloudflared, and winnonah
+# caddy has no profile so it's normally always-on, but STONITH's blanket
+# `docker compose down` on primary (failover.sh) removes it along with
+# everything else, so it needs to be started back up explicitly here.
+log "Starting primary caddy, cloudflared, and winnonah..."
+${PRIMARY_COMPOSE} up -d caddy cloudflared winnonah
 sleep 10
 
 # 6. Start primary python jobs
