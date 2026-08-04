@@ -1,3 +1,4 @@
+import re
 import shutil
 import time
 from collections.abc import Callable
@@ -429,6 +430,10 @@ def go_to_client(
     driver: WebDriver, actions: ActionChains, client_id: str
 ) -> str | None:
     """Navigates to the given client in TA and returns the client's URL."""
+    # Callers pass the bare numeric client ID. Normalize to TA's own display
+    # format ("C" + zero-padded 9 digits) so it can be matched exactly against
+    # the Account Number cell text below.
+    client_id = f"C{re.sub(r'\D', '', client_id).zfill(9)}"
 
     def _search_clients(
         driver: WebDriver, actions: ActionChains, client_id: str
