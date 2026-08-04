@@ -11,7 +11,6 @@ export const DOCS_DIR = path.join(process.cwd(), "src/content/docs");
 
 export interface DocFrontmatter {
 	title: string;
-	position?: number;
 	needsCleanup?: boolean;
 }
 
@@ -30,7 +29,6 @@ export interface DocFile {
 export interface DocNavItem {
 	slug: string[];
 	title: string;
-	position: number;
 }
 
 export interface DocNavCategory {
@@ -118,7 +116,7 @@ function titleCase(slug: string): string {
 		.join(" ");
 }
 
-function sortByPositionThenTitle<T extends { position: number; title: string }>(
+function sortByPosition<T extends { position: number; title: string }>(
 	items: T[],
 ): T[] {
 	return [...items].sort((a, b) => {
@@ -143,7 +141,6 @@ export function getDocBySlug(slug: string[]): DocFile | null {
 		slug,
 		frontmatter: {
 			title: data.title ?? slug.at(-1) ?? "Untitled",
-			position: data.position,
 			needsCleanup: data.needsCleanup,
 		},
 		content,
@@ -174,7 +171,6 @@ function toDocNavItem(slug: string[]): DocNavItem | null {
 	return {
 		slug,
 		title: doc.frontmatter.title,
-		position: doc.frontmatter.position ?? Number.MAX_SAFE_INTEGER,
 	};
 }
 
@@ -189,11 +185,10 @@ export function getDocsNavTree(): DocNavCategory[] {
 
 		const folderPath = path.join(DOCS_DIR, entry.name);
 		const meta = getCategoryMeta(folderPath);
-		const items = sortByPositionThenTitle(
-			walkDocsDir(folderPath, [entry.name])
-				.map(toDocNavItem)
-				.filter((item): item is DocNavItem => item !== null),
-		);
+		const items = walkDocsDir(folderPath, [entry.name])
+			.map(toDocNavItem)
+			.filter((item): item is DocNavItem => item !== null)
+			.sort((a, b) => a.title.localeCompare(b.title));
 
 		if (items.length === 0) continue;
 
@@ -206,10 +201,7 @@ export function getDocsNavTree(): DocNavCategory[] {
 		});
 	}
 
-	return categories.sort((a, b) => {
-		if (a.position !== b.position) return a.position - b.position;
-		return a.title.localeCompare(b.title);
-	});
+	return sortByPosition(categories);
 }
 
 export function getDocsNav(): DocNavItem[] {
