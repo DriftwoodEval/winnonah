@@ -16,6 +16,28 @@ from utils.constants import TABLE_TASK
 from utils.database import get_db
 
 
+def _clear_orphaned_rows(connection, task_type: str) -> None:
+    """Mark leftover 'running' rows for this task type as failed.
+
+    Runs right after acquiring the named lock, which guarantees no other
+    process is genuinely running this task type (MySQL releases the lock
+    when its owning connection dies), so any 'running' row left over is
+    provably orphaned (e.g. the previous process was kill -9'd or the host
+    crashed before it could close its row).
+    """
+    with connection.cursor() as cursor:
+        cursor.execute(
+            f"""
+            UPDATE {TABLE_TASK}
+            SET status = 'failed', completed_at = NOW(),
+                error = 'Orphaned: previous process died without closing this task'
+            WHERE type = %s AND status = 'running'
+            """,
+            (task_type,),
+        )
+    connection.commit()
+
+
 class TaskHandle:
     def __init__(self, connection, task_id: int) -> None:
         self._connection = connection
@@ -60,6 +82,8 @@ def track_task(task_type: str, label: str) -> Iterator[TaskHandle | None]:
         connection.close()
         yield None
         return
+
+    _clear_orphaned_rows(connection, task_type)
 
     try:
         with connection.cursor() as cursor:

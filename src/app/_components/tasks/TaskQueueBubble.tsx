@@ -48,7 +48,11 @@ export function TaskQueueBubble() {
 					{runningCount > 0 && <Loader2 className="h-3 w-3 animate-spin" />}
 					{runningCount > 0 ? runningCount : tasks.length}{" "}
 					<span className="hidden sm:inline">
-						{runningCount > 0 ? "running" : "recent tasks"}
+						{runningCount > 0
+							? "running"
+							: tasks.length === 1
+								? "recent task"
+								: "recent tasks"}
 					</span>
 				</Badge>
 			</PopoverTrigger>
@@ -56,7 +60,7 @@ export function TaskQueueBubble() {
 				<p className="mb-2 px-1 font-medium text-muted-foreground text-xs uppercase tracking-wide">
 					Background Tasks
 				</p>
-				<ScrollArea className="max-h-80">
+				<ScrollArea className="max-h-80 overflow-hidden">
 					<div className="flex flex-col gap-2">
 						{tasks.map((task) => (
 							<div
