@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { notFound, redirect } from "next/navigation";
 import { ChangelogList } from "~/app/docs/_components/ChangelogList";
+import { NeedsCleanupNotice } from "~/app/docs/_components/NeedsCleanupNotice";
 import { TableOfContents } from "~/app/docs/_components/TableOfContents";
 import { CHANGELOG_SLUG, getChangelogHeadings } from "~/lib/changelog";
 import {
@@ -63,6 +64,7 @@ export default async function DocsPage({ params }: PageProps) {
 		<div className="flex gap-8">
 			<article className="prose dark:prose-invert min-w-0 max-w-none flex-1">
 				<h1>{doc.frontmatter.title}</h1>
+				{doc.frontmatter.needsCleanup && <NeedsCleanupNotice />}
 				<Content />
 			</article>
 			<TableOfContents

@@ -12,10 +12,8 @@ export const DOCS_DIR = path.join(process.cwd(), "src/content/docs");
 export interface DocFrontmatter {
 	title: string;
 	position?: number;
-	devOnly?: boolean;
+	needsCleanup?: boolean;
 }
-
-const isDev = process.env.NODE_ENV === "development";
 
 export interface DocHeading {
 	id: string;
@@ -141,14 +139,12 @@ export function getDocBySlug(slug: string[]): DocFile | null {
 	const raw = fs.readFileSync(filePath, "utf-8");
 	const { data, content } = matter(raw);
 
-	if (data.devOnly && !isDev) return null;
-
 	return {
 		slug,
 		frontmatter: {
 			title: data.title ?? slug.at(-1) ?? "Untitled",
 			position: data.position,
-			devOnly: data.devOnly,
+			needsCleanup: data.needsCleanup,
 		},
 		content,
 	};
