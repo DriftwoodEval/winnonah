@@ -1,6 +1,7 @@
 "use client";
 
-import { Dialog, DialogContent } from "@ui/dialog";
+import { Dialog, DialogContent, DialogTitle } from "@ui/dialog";
+import { VisuallyHidden } from "radix-ui";
 import { createContext, useCallback, useContext, useState } from "react";
 
 interface LightboxImage {
@@ -30,6 +31,9 @@ export function ImageLightboxProvider({
 			{children}
 			<Dialog onOpenChange={(open) => !open && setImage(null)} open={!!image}>
 				<DialogContent className="w-fit max-w-[calc(100%-2rem)] border-none bg-transparent p-0 shadow-none sm:max-w-[calc(100%-2rem)]">
+					<VisuallyHidden.Root asChild>
+						<DialogTitle>{image?.alt || "Image preview"}</DialogTitle>
+					</VisuallyHidden.Root>
 					{image && (
 						// biome-ignore lint/performance/noImgElement: full-size preview of an arbitrary local image, not eligible for next/image optimization
 						<img

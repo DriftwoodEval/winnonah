@@ -10,7 +10,7 @@ export function DocsImage(props: React.ComponentProps<"img">) {
 
 	return (
 		<button
-			className="block w-full cursor-pointer"
+			className="block w-full cursor-zoom-in"
 			onClick={() => openLightbox({ src: src as string, alt })}
 			type="button"
 		>
