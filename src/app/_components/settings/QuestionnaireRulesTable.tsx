@@ -52,7 +52,6 @@ import {
 	TableHeader,
 	TableRow,
 } from "@ui/table";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@ui/tooltip";
 import { MoreHorizontal, Plus } from "lucide-react";
 import { useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
@@ -75,12 +74,13 @@ const DAEVAL_LABELS: Record<string, string> = {
 const DIAGNOSIS_LABELS: Record<string, string> = {
 	ASD: "ASD",
 	ADHD: "ADHD",
+	LD: "LD",
 };
 
 const formSchema = z
 	.object({
 		daeval: z.enum(["DA", "EVAL", "DAEVAL"]),
-		diagnosis: z.enum(["ASD", "ADHD"]).nullable(),
+		diagnosis: z.enum(["ASD", "ADHD", "LD"]).nullable(),
 		minAge: z.number().int().min(0),
 		maxAge: z.number().int().min(0),
 		questionnaires: z.array(z.string().min(1)),
@@ -92,6 +92,16 @@ const formSchema = z
 		{
 			message: "At least one assessment is required",
 			path: ["questionnaires"],
+		},
+	)
+	.refine(
+		(data) =>
+			data.daeval === "DAEVAL"
+				? data.diagnosis === "ASD" || data.diagnosis === "LD"
+				: data.diagnosis === "ASD" || data.diagnosis === "ADHD",
+		{
+			message: "Select a diagnosis",
+			path: ["diagnosis"],
 		},
 	);
 
@@ -143,7 +153,7 @@ function RuleForm({
 				}
 			: {
 					daeval: "DAEVAL",
-					diagnosis: null,
+					diagnosis: "ASD",
 					minAge: 0,
 					maxAge: 17,
 					questionnaires: [],
@@ -166,7 +176,12 @@ function RuleForm({
 								<Select
 									onValueChange={(v) => {
 										field.onChange(v);
-										if (v === "DAEVAL") form.setValue("diagnosis", null);
+										const diagnosis = form.getValues("diagnosis");
+										const validDiagnoses =
+											v === "DAEVAL" ? ["ASD", "LD"] : ["ASD", "ADHD"];
+										if (!diagnosis || !validDiagnoses.includes(diagnosis)) {
+											form.setValue("diagnosis", "ASD");
+										}
 									}}
 									value={field.value}
 								>
@@ -192,45 +207,29 @@ function RuleForm({
 						render={({ field }) => (
 							<FormItem>
 								<FormLabel>Diagnosis</FormLabel>
-								<Tooltip>
-									<TooltipTrigger asChild>
-										<span>
-											<Select
-												disabled={daevalValue === "DAEVAL"}
-												onValueChange={(v) =>
-													field.onChange(v === "null" ? null : v)
-												}
-												value={field.value ?? "null"}
-											>
-												<FormControl>
-													<SelectTrigger>
-														<SelectValue
-															placeholder={
-																daevalValue === "DAEVAL" ? "N/A" : "Select"
-															}
-														/>
-													</SelectTrigger>
-												</FormControl>
-												<SelectContent>
-													{daevalValue !== "DAEVAL" && (
-														<>
-															<SelectItem value="ASD">ASD</SelectItem>
-															<SelectItem value="ADHD">ADHD</SelectItem>
-														</>
-													)}
-													{daevalValue === "DAEVAL" && (
-														<SelectItem value="null">N/A</SelectItem>
-													)}
-												</SelectContent>
-											</Select>
-										</span>
-									</TooltipTrigger>
-									{daevalValue === "DAEVAL" && (
-										<TooltipContent>
-											<p>Diagnosis is not applicable for DA+Eval batteries</p>
-										</TooltipContent>
-									)}
-								</Tooltip>
+								<Select
+									onValueChange={field.onChange}
+									value={field.value ?? undefined}
+								>
+									<FormControl>
+										<SelectTrigger>
+											<SelectValue placeholder="Select" />
+										</SelectTrigger>
+									</FormControl>
+									<SelectContent>
+										{daevalValue === "DAEVAL" ? (
+											<>
+												<SelectItem value="ASD">ASD</SelectItem>
+												<SelectItem value="LD">LD</SelectItem>
+											</>
+										) : (
+											<>
+												<SelectItem value="ASD">ASD</SelectItem>
+												<SelectItem value="ADHD">ADHD</SelectItem>
+											</>
+										)}
+									</SelectContent>
+								</Select>
 								<FormMessage />
 							</FormItem>
 						)}

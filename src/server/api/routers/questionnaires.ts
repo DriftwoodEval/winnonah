@@ -210,7 +210,7 @@ const questionnaireTypeInputSchema = z.object({
 
 const questionnaireRuleBaseSchema = z.object({
 	daeval: z.enum(["DA", "EVAL", "DAEVAL"]),
-	diagnosis: z.enum(["ASD", "ADHD"]).nullable(),
+	diagnosis: z.enum(["ASD", "ADHD", "LD"]).nullable(),
 	minAge: z.number().int().min(0),
 	maxAge: z.number().int().min(0),
 	questionnaires: z.array(z.string().min(1)),
@@ -223,10 +223,23 @@ const atLeastOneAssessment = (data: {
 }) =>
 	data.questionnaires.length > 0 || (data.inPersonAssessments?.length ?? 0) > 0;
 
-const questionnaireRuleInputSchema = questionnaireRuleBaseSchema.refine(
-	atLeastOneAssessment,
-	{ message: "At least one assessment is required" },
-);
+const validDiagnosisForDaeval = (data: {
+	daeval: "DA" | "EVAL" | "DAEVAL";
+	diagnosis: "ASD" | "ADHD" | "LD" | null;
+}) =>
+	data.daeval === "DAEVAL"
+		? data.diagnosis === "ASD" || data.diagnosis === "LD"
+		: data.diagnosis === "ASD" || data.diagnosis === "ADHD";
+
+const questionnaireRuleInputSchema = questionnaireRuleBaseSchema
+	.refine(atLeastOneAssessment, {
+		message: "At least one assessment is required",
+	})
+	.refine(validDiagnosisForDaeval, {
+		message:
+			"DA+Eval rules require ASD or LD; DA/Eval rules require ASD or ADHD",
+		path: ["diagnosis"],
+	});
 
 /**
  * Picks the questionnaire rules that apply to a client, grouped by
@@ -256,15 +269,16 @@ async function resolveApplicableRules(
 	if (!asdAdhd) {
 		wantedDiagnoses.add("ASD");
 		wantedDiagnoses.add("ADHD");
+		wantedDiagnoses.add("LD");
 	} else {
 		if (asdAdhd.includes("ASD")) wantedDiagnoses.add("ASD");
 		if (asdAdhd.includes("ADHD")) wantedDiagnoses.add("ADHD");
+		if (asdAdhd.includes("LD")) wantedDiagnoses.add("LD");
 	}
 
-	const diagnosisFiltered = allRules.filter((r) => {
-		if (r.daeval === "DAEVAL") return r.diagnosis === null;
-		return wantedDiagnoses.has(r.diagnosis);
-	});
+	const diagnosisFiltered = allRules.filter((r) =>
+		wantedDiagnoses.has(r.diagnosis),
+	);
 
 	const sessionStartedAt = client.sessionStartedAt;
 	const sentTypes = new Set(
@@ -547,6 +561,11 @@ export const questionnaireRouter = createTRPCRouter({
 				.merge(questionnaireRuleBaseSchema)
 				.refine(atLeastOneAssessment, {
 					message: "At least one assessment is required",
+				})
+				.refine(validDiagnosisForDaeval, {
+					message:
+						"DA+Eval rules require ASD or LD; DA/Eval rules require ASD or ADHD",
+					path: ["diagnosis"],
 				}),
 		)
 		.mutation(async ({ ctx, input }) => {

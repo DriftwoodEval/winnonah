@@ -630,7 +630,7 @@ export const assessmentTypes = createTable("assessment_type", (d) => ({
 export const questionnaireRules = createTable("questionnaire_rule", (d) => ({
 	id: d.int().notNull().autoincrement().primaryKey(),
 	daeval: d.mysqlEnum("daeval", ["DA", "EVAL", "DAEVAL"]).notNull(),
-	diagnosis: d.mysqlEnum("diagnosis", ["ASD", "ADHD"]),
+	diagnosis: d.mysqlEnum("diagnosis", ["ASD", "ADHD", "LD"]),
 	minAge: d.int().notNull(),
 	maxAge: d.int().notNull(),
 	questionnaires: d.json("questionnaires").$type<string[]>().notNull(),
