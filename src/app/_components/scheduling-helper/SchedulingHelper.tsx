@@ -18,7 +18,6 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from "@ui/select";
-import { Separator } from "@ui/separator";
 import { Skeleton } from "@ui/skeleton";
 import {
 	Tooltip,
@@ -31,11 +30,12 @@ import {
 	ChevronDown,
 	ChevronLeft,
 	ChevronRight,
+	Info,
 	X,
 } from "lucide-react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { ClientHeader } from "~/app/_components/client/ClientHeader";
 import { ClientSearchAndAdd } from "~/app/_components/clients/ClientSearchAndAdd";
@@ -44,10 +44,13 @@ import {
 	buildColorMap,
 	type CalAppt,
 	CalendarDayView,
+	DAY_END,
+	DAY_START,
+	toFakeUtcDate,
 } from "~/app/_components/day-ahead/CalendarGrid";
 import type { SortedClient } from "~/lib/api-types";
 import type { CalendarEvent } from "~/lib/google";
-import { getLocalTimeFromUTCDate } from "~/lib/utils";
+import { getLocalTimeFromUTCDate, IS_DEV } from "~/lib/utils";
 import { api, type RouterOutputs } from "~/trpc/react";
 
 const APPOINTMENT_TYPES = ["DA", "EVAL", "DAEVAL"] as const;
@@ -59,6 +62,8 @@ const DEFAULT_DURATION_MINUTES = 60;
 const AVAILABILITY_WINDOW_DAYS = 21;
 const SLOT_STEP_MINUTES = 30;
 const VISIBLE_DAYS = 7;
+// Snap step when manually picking a time on a day with no marked availability.
+const MANUAL_TIME_SNAP_MINUTES = 30;
 
 type Evaluator = NonNullable<RouterOutputs["evaluators"]["getAll"]>[number];
 
@@ -74,25 +79,6 @@ function toNaiveWallClockString(date: Date) {
 	return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(
 		date.getHours(),
 	)}:${pad(date.getMinutes())}:00`;
-}
-
-// The calendar grid (CalendarGrid.tsx) renders startTime/endTime the same way
-// real appointments are stored: naive America/New_York wall-clock values
-// labeled "UTC" (it unpacks them via getLocalTimeFromUTCDate). Real-time Date
-// objects (from Google Calendar or the manual time picker) have to be
-// re-labeled the same way before handing them to the calendar preview, or
-// they render shifted by the Eastern UTC offset.
-function toFakeUtcDate(date: Date): Date {
-	return new Date(
-		Date.UTC(
-			date.getFullYear(),
-			date.getMonth(),
-			date.getDate(),
-			date.getHours(),
-			date.getMinutes(),
-			date.getSeconds(),
-		),
-	);
 }
 
 function dateToDayString(date: Date) {
@@ -119,19 +105,39 @@ function startOfToday(): Date {
 	return today;
 }
 
-function durationForType(
+type DurationSource =
+	| { kind: "app-default" }
+	| { kind: "evaluator-setting"; key: string };
+
+// Looks up an evaluator's configured duration for an appointment type (exact
+// type key, then the first diagnosis-scoped key like "EVAL/ASD/young"), and
+// reports which setting (if any) supplied the value, for display in the UI.
+function durationForTypeWithSource(
 	durations: Record<string, number> | null | undefined,
 	type: AppointmentType,
-): number {
-	if (!durations) return DEFAULT_DURATION_MINUTES;
-	if (typeof durations[type] === "number") return durations[type];
+): { minutes: number; source: DurationSource } {
+	if (!durations) {
+		return {
+			minutes: DEFAULT_DURATION_MINUTES,
+			source: { kind: "app-default" },
+		};
+	}
+	if (typeof durations[type] === "number") {
+		return {
+			minutes: durations[type],
+			source: { kind: "evaluator-setting", key: type },
+		};
+	}
 	const diagnosisKey = Object.keys(durations).find((key) =>
 		key.startsWith(`${type}/`),
 	);
 	if (diagnosisKey && typeof durations[diagnosisKey] === "number") {
-		return durations[diagnosisKey];
+		return {
+			minutes: durations[diagnosisKey],
+			source: { kind: "evaluator-setting", key: diagnosisKey },
+		};
 	}
-	return DEFAULT_DURATION_MINUTES;
+	return { minutes: DEFAULT_DURATION_MINUTES, source: { kind: "app-default" } };
 }
 
 function isTypeAllowed(
@@ -173,6 +179,32 @@ function appointmentTypeForQueueCode(
 	return null;
 }
 
+// Lets another page (e.g. the day-ahead calendars) deep-link into a
+// particular evaluator/day/time instead of landing on a blank grid.
+export type SchedulingHelperPrefill = {
+	npi: number | null;
+	date: string | null;
+	time: string | null;
+	office: string | null;
+	type: AppointmentType | null;
+};
+
+function readPrefill(searchParams: URLSearchParams): SchedulingHelperPrefill {
+	const npiParam = searchParams.get("npi");
+	const npi = npiParam ? Number(npiParam) : null;
+	const date = searchParams.get("date");
+	const typeParam = searchParams.get("type");
+	return {
+		npi: npi && Number.isFinite(npi) ? npi : null,
+		date: date && /^\d{4}-\d{2}-\d{2}$/.test(date) ? date : null,
+		time: searchParams.get("time"),
+		office: searchParams.get("office"),
+		type: APPOINTMENT_TYPES.includes(typeParam as AppointmentType)
+			? (typeParam as AppointmentType)
+			: null,
+	};
+}
+
 export function SchedulingHelper() {
 	const searchParams = useSearchParams();
 	// Client IDs are privileged (sequential, identify a real person's record) -
@@ -197,6 +229,7 @@ export function SchedulingHelper() {
 	return (
 		<SchedulingHelperGrid
 			lockedClient={clientHash ? (lockedClient ?? null) : null}
+			prefill={readPrefill(searchParams)}
 		/>
 	);
 }
@@ -210,10 +243,22 @@ type CellStatus =
 	| { kind: "ooo" }
 	| { kind: "empty" };
 
+// How many VISIBLE_DAYS-wide pages forward (or back) of today a given date
+// falls on, so a deep-linked date scrolls the grid to the right week.
+function weekOffsetForDate(dateStr: string): number {
+	const diffDays = Math.round(
+		(dayStringToLocalDate(dateStr).getTime() - startOfToday().getTime()) /
+			86400000,
+	);
+	return Math.floor(diffDays / VISIBLE_DAYS);
+}
+
 function SchedulingHelperGrid({
 	lockedClient,
+	prefill,
 }: {
 	lockedClient: ClientLike | null;
+	prefill?: SchedulingHelperPrefill;
 }) {
 	const { data: offices } = api.offices.getAll.useQuery();
 	const { data: evaluators, isLoading: isLoadingEvaluators } =
@@ -224,14 +269,23 @@ function SchedulingHelperGrid({
 			{ enabled: !!lockedClient },
 		);
 
-	const [officeFilter, setOfficeFilter] = useState<string | null>(null);
-	const [appointmentType, setAppointmentType] =
-		useState<AppointmentType>("EVAL");
-	const [weekOffset, setWeekOffset] = useState(0);
+	const [officeFilter, setOfficeFilter] = useState<string | null>(
+		prefill?.office ?? null,
+	);
+	const [appointmentType, setAppointmentType] = useState<AppointmentType>(
+		prefill?.type ?? "EVAL",
+	);
+	const [weekOffset, setWeekOffset] = useState(() =>
+		prefill?.date ? weekOffsetForDate(prefill.date) : 0,
+	);
 	const [selectedCell, setSelectedCell] = useState<{
 		npi: number;
 		date: string;
-	} | null>(null);
+	} | null>(() =>
+		prefill?.npi && prefill.date
+			? { npi: prefill.npi, date: prefill.date }
+			: null,
+	);
 	const [selectedSlot, setSelectedSlot] = useState<{
 		start: Date;
 		durationMinutes: number;
@@ -313,22 +367,25 @@ function SchedulingHelperGrid({
 		return map;
 	}, [offices]);
 
+	// An evaluator counts as "available" here if they have marked calendar
+	// availability, or already have an appointment booked in the window (they
+	// clearly work, even if they haven't marked availability) - this only
+	// affects whether their name is grayed out, not the per-day cell colors.
 	const hasAvailabilityInWindow = useMemo(() => {
 		const result = new Map<number, boolean>();
 		for (const npi of evaluatorNpis) {
 			const events = availabilityByNpi?.[npi] ?? [];
-			result.set(
-				npi,
-				events.some(
-					(e) =>
-						!e.isUnavailability &&
-						!e.isPlanned &&
-						(!office || eventMatchesOffice(e.officeKeys, office)),
-				),
+			const hasMarkedAvailability = events.some(
+				(e) =>
+					!e.isUnavailability &&
+					!e.isPlanned &&
+					(!office || eventMatchesOffice(e.officeKeys, office)),
 			);
+			const hasBookedAppointment = (appointmentsByNpi?.[npi]?.length ?? 0) > 0;
+			result.set(npi, hasMarkedAvailability || hasBookedAppointment);
 		}
 		return result;
-	}, [evaluatorNpis, availabilityByNpi, office]);
+	}, [evaluatorNpis, availabilityByNpi, appointmentsByNpi, office]);
 
 	const cellStatus = useMemo(() => {
 		return (npi: number, day: string): CellStatus => {
@@ -391,15 +448,16 @@ function SchedulingHelperGrid({
 	);
 
 	// There's a single "Office" selector, shared between browsing the grid and
-	// booking - clicking a cell points it at whatever's actually true for that
-	// cell (in priority order: an existing booking's real office, a planned
-	// office, marked calendar availability), so it doesn't drift from what you
-	// just clicked. Falls back to leaving the current filter alone if the day
-	// has none of the above (e.g. planning a day with no calendar data yet).
+	// booking - clicking a cell points it at whatever's marked for that cell
+	// (in priority order: a planned office, marked calendar availability), so
+	// it doesn't drift from what you just clicked. Falls back to leaving the
+	// current filter alone if the day has none of the above (e.g. planning a
+	// day with no calendar data yet). Deliberately ignores an existing booking's
+	// own location - you might be scheduling a different office/type entirely
+	// for this evaluator that day, and shouldn't have your filter silently
+	// switched to match an unrelated appointment (e.g. their existing Virtual
+	// visit shouldn't flip your in-person office filter to Virtual).
 	function resolveOfficeForCell(npi: number, day: string): string | null {
-		const booked = appointmentsByNpi?.[npi]?.find((a) => a.date === day);
-		if (booked?.locationKey) return booked.locationKey;
-
 		const dayEvents = (availabilityByNpi?.[npi] ?? []).filter((e) =>
 			eventCoversDay(e, day),
 		);
@@ -418,31 +476,36 @@ function SchedulingHelperGrid({
 		return null;
 	}
 
-	const durationMinutes = selectedEvaluator
-		? durationForType(
-				selectedEvaluator.appointmentDurations as Record<string, number>,
+	const defaultDuration = useMemo(
+		() =>
+			durationForTypeWithSource(
+				(selectedEvaluator?.appointmentDurations as Record<string, number>) ??
+					null,
 				appointmentType,
-			)
-		: DEFAULT_DURATION_MINUTES;
+			),
+		[selectedEvaluator, appointmentType],
+	);
+
+	const [durationOverride, setDurationOverride] = useState<number | null>(null);
+	// The override only makes sense for the evaluator/type it was set for -
+	// drop it when either changes so a stale custom duration doesn't silently
+	// carry over to a different evaluator or appointment type. Reset during
+	// render (rather than an effect) so it clears before the stale value can
+	// ever be used to compute a slot.
+	const durationResetKey = `${selectedCell?.npi ?? "none"}:${appointmentType}`;
+	const durationResetKeyRef = useRef(durationResetKey);
+	if (durationResetKeyRef.current !== durationResetKey) {
+		durationResetKeyRef.current = durationResetKey;
+		if (durationOverride !== null) setDurationOverride(null);
+	}
+
+	const durationMinutes = durationOverride ?? defaultDuration.minutes;
 
 	const { data: dayAppointments, isLoading: isLoadingDayAppointments } =
 		api.schedulingHelper.getEvaluatorDayAppointments.useQuery(
 			{ evaluatorNpi: selectedCell?.npi ?? 0, date: selectedCell?.date ?? "" },
 			{ enabled: !!selectedCell },
 		);
-
-	// Virtual appointments don't tie up a physical office, so being scheduled
-	// in-office elsewhere that day (or virtually) isn't a real conflict.
-	const conflictingAppointment =
-		office === "Virtual"
-			? undefined
-			: dayAppointments?.find(
-					(appt) =>
-						appt.locationKey &&
-						appt.locationKey !== "Virtual" &&
-						office &&
-						appt.locationKey !== office,
-				);
 
 	const { data: officeCalendarData, isLoading: isLoadingOfficeCalendar } =
 		api.schedulingHelper.getOfficeCalendar.useQuery(
@@ -462,14 +525,26 @@ function SchedulingHelperGrid({
 		!selectedCell ||
 		eligibleEvaluators.some((e) => e.npi === selectedCell.npi);
 
+	const [showIneligible, setShowIneligible] = useState(false);
+
+	// Only split once a client is picked and eligibility has actually loaded -
+	// otherwise (no client, or still loading) everyone stays in the eligible
+	// list so the grid doesn't flash people into "ineligible" prematurely.
+	const { eligibleList, ineligibleList } = useMemo(() => {
+		if (!effectiveClient || !eligibleEvaluators) {
+			return { eligibleList: typeAllowedEvaluators, ineligibleList: [] };
+		}
+		const eligibleNpis = new Set(eligibleEvaluators.map((e) => e.npi));
+		const eligible: Evaluator[] = [];
+		const ineligible: Evaluator[] = [];
+		for (const evaluator of typeAllowedEvaluators) {
+			(eligibleNpis.has(evaluator.npi) ? eligible : ineligible).push(evaluator);
+		}
+		return { eligibleList: eligible, ineligibleList: ineligible };
+	}, [typeAllowedEvaluators, effectiveClient, eligibleEvaluators]);
+
 	const previewAppointment: CalAppt | null = useMemo(() => {
-		if (
-			!selectedSlot ||
-			!selectedCell ||
-			!office ||
-			!selectedEvaluator ||
-			!effectiveClient
-		) {
+		if (!selectedSlot || !selectedCell || !office || !selectedEvaluator) {
 			return null;
 		}
 		const realEnd = new Date(
@@ -482,8 +557,8 @@ function SchedulingHelperGrid({
 			daEval: appointmentType,
 			asdAdhd: null,
 			confirmedAt: null,
-			clientName: effectiveClient.fullName,
-			clientHash: effectiveClient.hash,
+			clientName: effectiveClient?.fullName ?? "New appointment",
+			clientHash: effectiveClient?.hash ?? "",
 			clientPhone: null,
 			locationKey: office,
 			officeName: officeKeyToLabel.get(office) ?? office,
@@ -522,19 +597,36 @@ function SchedulingHelperGrid({
 	const evaluatorDayAvailability: AvailabilityWindow[] = useMemo(() => {
 		if (!selectedCell || !availabilityByNpi) return [];
 		const events = availabilityByNpi[selectedCell.npi] ?? [];
+		const day = dayStringToLocalDate(selectedCell.date);
 		return events
 			.filter(
 				(event) =>
 					!event.isUnavailability &&
 					!event.isPlanned &&
-					!event.isAllDay &&
 					eventCoversDay(event, selectedCell.date),
 			)
-			.map((event) => ({
-				evaluatorNpi: selectedCell.npi,
-				start: toFakeUtcDate(event.start),
-				end: toFakeUtcDate(event.end),
-			}));
+			.map((event) => {
+				// All-day availability events carry midnight-anchored real
+				// timestamps that don't map onto the grid's visible hour range -
+				// draw those as spanning the whole visible day instead of using
+				// their raw start/end.
+				if (event.isAllDay) {
+					const start = new Date(day);
+					start.setHours(DAY_START, 0, 0, 0);
+					const end = new Date(day);
+					end.setHours(DAY_END, 0, 0, 0);
+					return {
+						evaluatorNpi: selectedCell.npi,
+						start: toFakeUtcDate(start),
+						end: toFakeUtcDate(end),
+					};
+				}
+				return {
+					evaluatorNpi: selectedCell.npi,
+					start: toFakeUtcDate(event.start),
+					end: toFakeUtcDate(event.end),
+				};
+			});
 	}, [selectedCell, availabilityByNpi]);
 
 	const busyRanges = useMemo(
@@ -614,7 +706,50 @@ function SchedulingHelperGrid({
 		);
 	}, [selectedCell, availabilityByNpi]);
 
-	const [manualTime, setManualTime] = useState("09:00");
+	const [manualTime, setManualTime] = useState(prefill?.time ?? "09:00");
+
+	const manualSlot = useMemo(() => {
+		if (!selectedCell) return null;
+		const [hours, minutes] = manualTime.split(":").map(Number);
+		const start = dayStringToLocalDate(selectedCell.date);
+		start.setHours(hours ?? 9, minutes ?? 0, 0, 0);
+		const end = new Date(start.getTime() + durationMinutes * 60000);
+		return { start, end };
+	}, [selectedCell, manualTime, durationMinutes]);
+
+	// Manually-picked times (no marked availability to constrain them) just
+	// can't overlap an existing appointment.
+	function manualSlotErrorFor(start: Date, end: Date): string | null {
+		const overlapsExisting = busyRanges.some(
+			(busy) => start.getTime() < busy.end && end.getTime() > busy.start,
+		);
+		if (overlapsExisting) return "Overlaps an existing appointment";
+		return null;
+	}
+
+	const manualSlotError = manualSlot
+		? manualSlotErrorFor(manualSlot.start, manualSlot.end)
+		: null;
+
+	// Clicking directly on the evaluator's calendar preview picks that time,
+	// snapped to the nearest half hour, as long as it doesn't overlap an
+	// existing appointment - same rule as the manual time input.
+	function handleCalendarSlotClick(minutesFromMidnight: number) {
+		if (!selectedCell) return;
+		const snapped =
+			Math.round(minutesFromMidnight / MANUAL_TIME_SNAP_MINUTES) *
+			MANUAL_TIME_SNAP_MINUTES;
+		const start = dayStringToLocalDate(selectedCell.date);
+		start.setHours(0, snapped, 0, 0);
+		const end = new Date(start.getTime() + durationMinutes * 60000);
+		const error = manualSlotErrorFor(start, end);
+		if (error) {
+			toast.error(error);
+			return;
+		}
+		setManualTime(`${pad(start.getHours())}:${pad(start.getMinutes())}`);
+		setSelectedSlot({ start, durationMinutes });
+	}
 
 	const utils = api.useUtils();
 
@@ -695,14 +830,7 @@ function SchedulingHelperGrid({
 					{lockedClient ? (
 						<ClientHeaderSection clientId={lockedClient.id} />
 					) : (
-						<>
-							<h2 className="font-bold text-2xl">Schedule Appointment</h2>
-							<p className="text-muted-foreground text-sm">
-								{pendingClient
-									? `Scheduling for ${pendingClient.fullName}`
-									: "Pick an evaluator, day, and time below, then choose a client to confirm."}
-							</p>
-						</>
+						<h2 className="font-bold text-2xl">Schedule Appointment</h2>
 					)}
 				</div>
 				<Button asChild variant="outline">
@@ -712,8 +840,40 @@ function SchedulingHelperGrid({
 
 			<div className="grid grid-cols-1 gap-4 lg:grid-cols-[1fr_380px] lg:items-start">
 				<div className="flex flex-col gap-4">
-					<Card className="flex flex-col gap-3 p-4">
-						<div className="flex flex-row flex-wrap items-center gap-x-6 gap-y-2">
+					<Card className="flex flex-col gap-3 overflow-visible p-4">
+						<div className="flex flex-row flex-wrap items-center gap-x-6 gap-y-3">
+							{!lockedClient && (
+								<div className="flex min-w-[200px] items-center gap-2">
+									<Label className="text-muted-foreground text-xs">
+										Client
+									</Label>
+									{pendingClient ? (
+										<div className="flex items-center gap-2 text-sm">
+											<span className="font-medium">
+												{pendingClient.fullName}
+											</span>
+											<button
+												className="text-muted-foreground text-xs underline"
+												onClick={() => setPendingClient(null)}
+												type="button"
+											>
+												change
+											</button>
+										</div>
+									) : (
+										<div className="w-64">
+											<ClientSearchAndAdd
+												addButtonLabel="Select"
+												floating
+												onAdd={(client) => setPendingClient(client)}
+												placeholder="Search for a client..."
+												type="real"
+											/>
+										</div>
+									)}
+								</div>
+							)}
+
 							<div className="flex items-center gap-2">
 								<Label
 									className="text-muted-foreground text-xs"
@@ -805,6 +965,18 @@ function SchedulingHelperGrid({
 							</div>
 						</div>
 					</Card>
+					<div className="flex flex-wrap items-center gap-x-4 gap-y-1 px-1 text-xs">
+						<Badge variant="default">Booked</Badge>
+						<Badge variant="secondary">Placeholder</Badge>
+						<Badge variant="outline">Planned</Badge>
+						<Badge
+							className="border-success/40 bg-success/10 text-success"
+							variant="outline"
+						>
+							Available
+						</Badge>
+						<span className="text-muted-foreground/50">OOO</span>
+					</div>
 					<TooltipProvider>
 						<Card className="overflow-x-auto p-0">
 							{isLoadingEvaluators ? (
@@ -844,7 +1016,7 @@ function SchedulingHelperGrid({
 										);
 									})}
 
-									{typeAllowedEvaluators.map((evaluator) => {
+									{eligibleList.map((evaluator) => {
 										const hasAvailability =
 											isLoadingAvailability ||
 											(hasAvailabilityInWindow.get(evaluator.npi) ?? true);
@@ -870,6 +1042,52 @@ function SchedulingHelperGrid({
 											/>
 										);
 									})}
+
+									{ineligibleList.length > 0 && (
+										<button
+											className="col-span-full flex items-center gap-1 border-t bg-muted/30 p-2 text-left text-muted-foreground text-xs hover:bg-muted/50"
+											onClick={() => setShowIneligible((v) => !v)}
+											type="button"
+										>
+											{showIneligible ? (
+												<ChevronDown className="h-3 w-3" />
+											) : (
+												<ChevronRight className="h-3 w-3" />
+											)}
+											{ineligibleList.length} evaluator
+											{ineligibleList.length === 1 ? "" : "s"} not eligible for{" "}
+											{effectiveClient?.fullName}
+											{showIneligible ? "" : " (click to show)"}
+										</button>
+									)}
+
+									{showIneligible &&
+										ineligibleList.map((evaluator) => {
+											const hasAvailability =
+												isLoadingAvailability ||
+												(hasAvailabilityInWindow.get(evaluator.npi) ?? true);
+											return (
+												<EvaluatorRow
+													appointmentsLoading={isLoadingAppointments}
+													availabilityLoading={isLoadingAvailability}
+													cellStatus={cellStatus}
+													evaluator={evaluator}
+													hasAvailability={hasAvailability}
+													key={evaluator.npi}
+													onSelectCell={(date) => {
+														setSelectedCell({ npi: evaluator.npi, date });
+														setSelectedSlot(null);
+														const resolved = resolveOfficeForCell(
+															evaluator.npi,
+															date,
+														);
+														if (resolved) setOfficeFilter(resolved);
+													}}
+													selectedCell={selectedCell}
+													visibleDays={visibleDays}
+												/>
+											);
+										})}
 								</div>
 							)}
 						</Card>
@@ -910,7 +1128,7 @@ function SchedulingHelperGrid({
 							{alreadyBooked &&
 								office !== "Virtual" &&
 								alreadyBooked.locationKey !== office && (
-									<Alert>
+									<Alert variant="destructive">
 										<AlertTriangle />
 										<AlertTitle>Already has an appointment this day</AlertTitle>
 										<AlertDescription>
@@ -923,25 +1141,10 @@ function SchedulingHelperGrid({
 											{dayStringToLocalDate(
 												selectedCell.date,
 											).toLocaleDateString()}
-											.
+											. Scheduling at a different office may not be possible.
 										</AlertDescription>
 									</Alert>
 								)}
-
-							{conflictingAppointment && (
-								<Alert variant="destructive">
-									<AlertTriangle />
-									<AlertTitle>Location conflict</AlertTitle>
-									<AlertDescription>
-										{selectedEvaluator?.providerName} already has an appointment
-										at{" "}
-										{conflictingAppointment.officeName ??
-											conflictingAppointment.locationKey}{" "}
-										this day. Scheduling at a different office may not be
-										possible.
-									</AlertDescription>
-								</Alert>
-							)}
 
 							<div className="flex items-center gap-2">
 								{plannedEvent ? (
@@ -976,8 +1179,60 @@ function SchedulingHelperGrid({
 									)
 								)}
 							</div>
+						</Card>
 
-							<Separator />
+						<Card className="flex flex-col gap-3 p-4">
+							<div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
+								<h4 className="font-semibold text-muted-foreground text-xs uppercase tracking-wider">
+									Pick a time
+								</h4>
+								<div className="flex items-center gap-1.5 text-sm">
+									<Label
+										className="text-muted-foreground"
+										htmlFor="duration-input"
+									>
+										Duration
+									</Label>
+									<Input
+										className="h-7 w-16"
+										id="duration-input"
+										min={5}
+										onChange={(e) => {
+											const value = Number(e.target.value);
+											if (Number.isFinite(value) && value > 0) {
+												setDurationOverride(value);
+											}
+										}}
+										step={5}
+										type="number"
+										value={durationMinutes}
+									/>
+									<span className="text-muted-foreground">min</span>
+									<TooltipProvider>
+										<Tooltip>
+											<TooltipTrigger asChild>
+												<Info className="h-3.5 w-3.5 text-muted-foreground" />
+											</TooltipTrigger>
+											<TooltipContent>
+												{durationOverride !== null
+													? "Manually overridden for this booking."
+													: defaultDuration.source.kind === "evaluator-setting"
+														? `From ${selectedEvaluator?.providerName ?? "this evaluator"}'s "${defaultDuration.source.key}" appointment duration setting.`
+														: `App default - ${selectedEvaluator?.providerName ?? "this evaluator"} has no duration setting for ${appointmentType}.`}
+											</TooltipContent>
+										</Tooltip>
+									</TooltipProvider>
+									{durationOverride !== null && (
+										<button
+											className="text-muted-foreground text-xs underline"
+											onClick={() => setDurationOverride(null)}
+											type="button"
+										>
+											reset
+										</button>
+									)}
+								</div>
+							</div>
 
 							{isLoadingAvailability || isLoadingDayAppointments ? (
 								<Skeleton className="h-24 w-full rounded-md" />
@@ -1003,134 +1258,85 @@ function SchedulingHelperGrid({
 										);
 									})}
 								</div>
-							) : hasAllDayAvailability ? (
-								<div className="flex items-center gap-2">
-									<p className="text-muted-foreground text-sm">
-										Marked available all day - pick a time:
-									</p>
-									<Input
-										className="w-28"
-										onChange={(e) => setManualTime(e.target.value)}
-										type="time"
-										value={manualTime}
-									/>
-									<Button
-										onClick={() => {
-											const [hours, minutes] = manualTime
-												.split(":")
-												.map(Number);
-											const start = dayStringToLocalDate(selectedCell.date);
-											start.setHours(hours ?? 9, minutes ?? 0, 0, 0);
-											setSelectedSlot({ start, durationMinutes });
-										}}
-										size="sm"
-									>
-										Use this time
-									</Button>
-								</div>
 							) : (
-								<p className="text-muted-foreground text-sm">
-									No marked availability for this day/office.
-								</p>
+								<div className="flex flex-col gap-1.5">
+									<p className="text-muted-foreground text-sm">
+										{hasAllDayAvailability
+											? "Marked available all day - pick a time:"
+											: "No marked availability for this day/office - pick a time, or click the calendar below:"}
+									</p>
+									<div className="flex items-center gap-2">
+										<Input
+											className="w-28"
+											onChange={(e) => setManualTime(e.target.value)}
+											type="time"
+											value={manualTime}
+										/>
+										<Button
+											disabled={!manualSlot || !!manualSlotError}
+											onClick={() =>
+												manualSlot &&
+												setSelectedSlot({
+													start: manualSlot.start,
+													durationMinutes,
+												})
+											}
+											size="sm"
+										>
+											Use this time
+										</Button>
+									</div>
+									{manualSlotError && (
+										<p className="text-destructive text-xs">
+											{manualSlotError}
+										</p>
+									)}
+								</div>
 							)}
 
 							{selectedSlot && (
-								<>
-									<Separator />
-									<div className="flex flex-col gap-2">
-										<div className="flex flex-wrap items-center gap-2 text-sm">
-											<span>Confirm placeholder for</span>
-											<Badge variant="secondary">
-												{selectedSlot.start.toLocaleTimeString([], {
-													hour: "numeric",
-													minute: "2-digit",
-												})}{" "}
-												-{" "}
-												{new Date(
-													selectedSlot.start.getTime() +
-														selectedSlot.durationMinutes * 60000,
-												).toLocaleTimeString([], {
-													hour: "numeric",
-													minute: "2-digit",
-												})}
-											</Badge>
-											<Badge variant="outline">{appointmentType}</Badge>
-											<Badge variant="outline">{office}</Badge>
-										</div>
-
-										{lockedClient ? (
-											<div className="flex items-center justify-between">
-												<span className="text-sm">
-													Client: <strong>{lockedClient.fullName}</strong>
-												</span>
-												<Button
-													disabled={createPlaceholder.isPending}
-													onClick={handleConfirm}
-												>
-													{createPlaceholder.isPending
-														? "Creating..."
-														: "Create Placeholder"}
-												</Button>
-											</div>
-										) : pendingClient ? (
-											<div className="flex items-center justify-between">
-												<span className="text-sm">
-													Client: <strong>{pendingClient.fullName}</strong>{" "}
-													<button
-														className="text-muted-foreground text-xs underline"
-														onClick={() => setPendingClient(null)}
-														type="button"
-													>
-														change
-													</button>
-												</span>
-												<Button
-													disabled={createPlaceholder.isPending}
-													onClick={handleConfirm}
-												>
-													{createPlaceholder.isPending
-														? "Creating..."
-														: "Create Placeholder"}
-												</Button>
-											</div>
-										) : (
-											<ClientSearchAndAdd
-												addButtonLabel="Select"
-												onAdd={(client) => setPendingClient(client)}
-												placeholder="Search for a client to schedule..."
-											/>
-										)}
+								<div className="flex flex-col gap-2 rounded-md border bg-muted/30 p-3">
+									<div className="flex flex-wrap items-center gap-2 text-sm">
+										<span>Confirm placeholder for</span>
+										<Badge variant="secondary">
+											{selectedSlot.start.toLocaleTimeString([], {
+												hour: "numeric",
+												minute: "2-digit",
+											})}{" "}
+											-{" "}
+											{new Date(
+												selectedSlot.start.getTime() +
+													selectedSlot.durationMinutes * 60000,
+											).toLocaleTimeString([], {
+												hour: "numeric",
+												minute: "2-digit",
+											})}
+										</Badge>
+										<Badge variant="outline">{appointmentType}</Badge>
+										<Badge variant="outline">{office}</Badge>
 									</div>
-								</>
-							)}
 
-							<Separator />
-							<Collapsible onOpenChange={setShowDebug} open={showDebug}>
-								<CollapsibleTrigger className="flex items-center gap-1 text-muted-foreground text-xs transition-colors hover:text-foreground">
-									{showDebug ? (
-										<ChevronDown className="h-3 w-3" />
-									) : (
-										<ChevronRight className="h-3 w-3" />
-									)}
-									Debug: raw calendar data
-								</CollapsibleTrigger>
-								<CollapsibleContent className="mt-2">
-									{!dayAppointments ? (
-										<Skeleton className="h-8 w-full rounded-md" />
-									) : (
-										<div className="flex flex-col gap-1 overflow-x-auto rounded-md border p-2 font-mono text-[10px]">
-											{dayAppointments.map((appt) => (
-												<div className="whitespace-nowrap" key={appt.id}>
-													{new Date(appt.startTime).toLocaleString()}-
-													{new Date(appt.endTime).toLocaleString()} | office=
-													{appt.locationKey ?? appt.officeName ?? "none"} |
-													placeholder={String(appt.placeholder)}
-												</div>
-											))}
+									{effectiveClient ? (
+										<div className="flex items-center justify-between">
+											<span className="text-sm">
+												Client: <strong>{effectiveClient.fullName}</strong>
+											</span>
+											<Button
+												disabled={createPlaceholder.isPending}
+												onClick={handleConfirm}
+											>
+												{createPlaceholder.isPending
+													? "Creating..."
+													: "Create Placeholder"}
+											</Button>
 										</div>
+									) : (
+										<p className="text-muted-foreground text-sm">
+											Select a client above to confirm this booking.
+										</p>
 									)}
-								</CollapsibleContent>
-							</Collapsible>
+								</div>
+							)}
 						</Card>
 
 						<Card className="flex flex-col gap-3 p-4">
@@ -1163,10 +1369,44 @@ function SchedulingHelperGrid({
 									}
 									messages={{}}
 									messagesLoading={false}
+									onSlotClick={(npi, minutes) => {
+										if (npi === selectedCell.npi) {
+											handleCalendarSlotClick(minutes);
+										}
+									}}
 									showMessages={false}
 								/>
 							)}
 						</Card>
+
+						{IS_DEV && (
+							<Collapsible onOpenChange={setShowDebug} open={showDebug}>
+								<CollapsibleTrigger className="flex items-center gap-1 text-muted-foreground text-xs transition-colors hover:text-foreground">
+									{showDebug ? (
+										<ChevronDown className="h-3 w-3" />
+									) : (
+										<ChevronRight className="h-3 w-3" />
+									)}
+									Debug: raw calendar data
+								</CollapsibleTrigger>
+								<CollapsibleContent className="mt-2">
+									{!dayAppointments ? (
+										<Skeleton className="h-8 w-full rounded-md" />
+									) : (
+										<div className="flex flex-col gap-1 overflow-x-auto rounded-md border p-2 font-mono text-[10px]">
+											{dayAppointments.map((appt) => (
+												<div className="whitespace-nowrap" key={appt.id}>
+													{new Date(appt.startTime).toLocaleString()}-
+													{new Date(appt.endTime).toLocaleString()} | office=
+													{appt.locationKey ?? appt.officeName ?? "none"} |
+													placeholder={String(appt.placeholder)}
+												</div>
+											))}
+										</div>
+									)}
+								</CollapsibleContent>
+							</Collapsible>
+						)}
 					</div>
 				)}
 			</div>
@@ -1271,12 +1511,12 @@ function EvaluatorRow({
 									: "Available"}
 							</Badge>
 						) : status.kind === "ooo" ? (
-							<span className="block text-center text-muted-foreground">
+							<span className="block text-center text-muted-foreground/50">
 								OOO
 							</span>
 						) : (
 							<span className="block text-center text-muted-foreground/50">
-								+
+								Unavailable
 							</span>
 						)}
 					</button>

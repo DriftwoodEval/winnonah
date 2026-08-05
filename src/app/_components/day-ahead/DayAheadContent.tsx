@@ -29,10 +29,15 @@ import { CheckInOutControl } from "../appointments/CheckInOutControl";
 import { EvaluatorCheckInOutControl } from "../appointments/EvaluatorCheckInOutControl";
 import { Redact } from "../redaction/Redact";
 import {
+	type AvailabilityWindow,
 	buildColorMap,
 	CalendarDayView,
 	CalendarMultiDayView,
+	DAY_END,
+	DAY_START,
+	type DateAvailabilityWindow,
 	formatTime,
+	toFakeUtcDate,
 } from "./CalendarGrid";
 import {
 	ApptMessagesPopover,
@@ -46,6 +51,45 @@ import {
 	type GreeterSchedule,
 	type RecentMessagesMap,
 } from "./DayAheadShared";
+
+// ─── Availability backdrop + click-to-schedule helpers ────────────────────────
+
+type RawAvailabilityEvent = {
+	start: Date;
+	end: Date;
+	isUnavailability: boolean;
+	isPlanned: boolean;
+	isAllDay: boolean;
+};
+
+function eventCoversDate(
+	event: RawAvailabilityEvent,
+	dateStr: string,
+): boolean {
+	const dayStart = new Date(`${dateStr}T00:00:00`).getTime();
+	const dayEnd = dayStart + 24 * 60 * 60 * 1000;
+	return (
+		new Date(event.start).getTime() < dayEnd &&
+		new Date(event.end).getTime() > dayStart
+	);
+}
+
+function allDayWindowFor(dateStr: string): { start: Date; end: Date } {
+	const day = new Date(`${dateStr}T00:00:00`);
+	const start = new Date(day);
+	start.setHours(DAY_START, 0, 0, 0);
+	const end = new Date(day);
+	end.setHours(DAY_END, 0, 0, 0);
+	return { start, end };
+}
+
+function minutesToTimeString(minutesFromMidnight: number): string {
+	const snapped = Math.round(minutesFromMidnight / 30) * 30;
+	const total = ((snapped % (24 * 60)) + 24 * 60) % (24 * 60);
+	const hours = Math.floor(total / 60);
+	const minutes = total % 60;
+	return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}`;
+}
 
 type ViewMode = "list" | "day" | "3day" | "week";
 
@@ -430,6 +474,103 @@ export function DayAheadContent() {
 
 	const colorMap = useMemo(() => buildColorMap(calData ?? []), [calData]);
 
+	const can = useCheckPermission();
+	const canSchedule = can("pages:scheduling");
+
+	const evaluatorNpis = useMemo(
+		() => [...new Set((calData ?? []).map((a) => a.evaluatorNpi))],
+		[calData],
+	);
+
+	const { data: availabilityByNpi } =
+		api.schedulingHelper.getAvailability.useQuery(
+			{
+				evaluatorNpis,
+				start: new Date(`${dateRange[0] ?? todayStr}T00:00:00`),
+				end: new Date(`${dateRange.at(-1) ?? todayStr}T23:59:59`),
+			},
+			{
+				enabled: canSchedule && viewMode !== "list" && evaluatorNpis.length > 0,
+			},
+		);
+
+	// Per-evaluator windows for the single-day view (one column per evaluator).
+	const dayAvailability: AvailabilityWindow[] = useMemo(() => {
+		if (viewMode !== "day" || !availabilityByNpi) return [];
+		const windows: AvailabilityWindow[] = [];
+		for (const [npiStr, events] of Object.entries(availabilityByNpi)) {
+			const npi = Number(npiStr);
+			for (const event of events) {
+				if (event.isUnavailability || event.isPlanned) continue;
+				if (!eventCoversDate(event, selectedDate)) continue;
+				const { start, end } = event.isAllDay
+					? allDayWindowFor(selectedDate)
+					: { start: new Date(event.start), end: new Date(event.end) };
+				windows.push({
+					evaluatorNpi: npi,
+					start: toFakeUtcDate(start),
+					end: toFakeUtcDate(end),
+				});
+			}
+		}
+		return windows;
+	}, [viewMode, availabilityByNpi, selectedDate]);
+
+	// Evaluator-merged, per-date windows for the 3-day/week views, which mix
+	// evaluators into shared lanes and can't place one person's slot precisely.
+	const multiDayAvailability: DateAvailabilityWindow[] = useMemo(() => {
+		if (viewMode !== "3day" && viewMode !== "week") return [];
+		if (!availabilityByNpi) return [];
+		const rangesByDate = new Map<string, { start: number; end: number }[]>();
+		for (const events of Object.values(availabilityByNpi)) {
+			for (const event of events) {
+				if (event.isUnavailability || event.isPlanned) continue;
+				for (const d of dateRange) {
+					if (!eventCoversDate(event, d)) continue;
+					const { start, end } = event.isAllDay
+						? allDayWindowFor(d)
+						: { start: new Date(event.start), end: new Date(event.end) };
+					const list = rangesByDate.get(d) ?? [];
+					list.push({ start: start.getTime(), end: end.getTime() });
+					rangesByDate.set(d, list);
+				}
+			}
+		}
+		const result: DateAvailabilityWindow[] = [];
+		for (const [d, ranges] of rangesByDate) {
+			ranges.sort((a, b) => a.start - b.start);
+			const merged: { start: number; end: number }[] = [];
+			for (const range of ranges) {
+				const last = merged.at(-1);
+				if (last && range.start <= last.end) {
+					last.end = Math.max(last.end, range.end);
+				} else {
+					merged.push({ ...range });
+				}
+			}
+			for (const m of merged) {
+				result.push({
+					date: d,
+					start: toFakeUtcDate(new Date(m.start)),
+					end: toFakeUtcDate(new Date(m.end)),
+				});
+			}
+		}
+		return result;
+	}, [viewMode, availabilityByNpi, dateRange]);
+
+	function handleDaySlotClick(npi: number, minutesFromMidnight: number) {
+		const time = minutesToTimeString(minutesFromMidnight);
+		router.push(
+			`/scheduling/helper?npi=${npi}&date=${selectedDate}&time=${time}`,
+		);
+	}
+
+	function handleMultiDaySlotClick(date: string, minutesFromMidnight: number) {
+		const time = minutesToTimeString(minutesFromMidnight);
+		router.push(`/scheduling/helper?date=${date}&time=${time}`);
+	}
+
 	const phoneNumbers = useMemo(() => {
 		if (viewMode === "list") {
 			return collectPhoneNumbers([
@@ -536,6 +677,8 @@ export function DayAheadContent() {
 						<CalendarDayView
 							appointments={calData}
 							canCheckin={canCheckin}
+							availability={canSchedule ? dayAvailability : undefined}
+							availabilityIntensity="light"
 							colorMap={colorMap}
 							evaluatorCheckinDate={selectedDate}
 							evaluatorCheckins={
@@ -545,15 +688,18 @@ export function DayAheadContent() {
 							}
 							messages={recentMessages ?? {}}
 							messagesLoading={messagesLoading}
+							onSlotClick={canSchedule ? handleDaySlotClick : undefined}
 						/>
 					) : (
 						<CalendarMultiDayView
 							appointments={calData}
 							canCheckin={canCheckin}
+							availability={canSchedule ? multiDayAvailability : undefined}
 							colorMap={colorMap}
 							dates={dateRange}
 							messages={recentMessages ?? {}}
 							messagesLoading={messagesLoading}
+							onSlotClick={canSchedule ? handleMultiDaySlotClick : undefined}
 						/>
 					)
 				) : null}

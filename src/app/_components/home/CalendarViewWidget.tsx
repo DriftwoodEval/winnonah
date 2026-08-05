@@ -5,15 +5,61 @@ import { TooltipProvider } from "@ui/tooltip";
 import { addDays, format, startOfWeek } from "date-fns";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
+import { useCheckPermission } from "~/hooks/use-check-permission";
 import { api } from "~/trpc/react";
 import {
+	type AvailabilityWindow,
 	buildColorMap,
 	CalendarDayView,
 	CalendarMultiDayView,
+	DAY_END,
+	DAY_START,
+	type DateAvailabilityWindow,
+	toFakeUtcDate,
 } from "../day-ahead/CalendarGrid";
 
 export type CalWidgetMode = "day" | "3day" | "week";
+
+// ─── Availability backdrop + click-to-schedule helpers ────────────────────────
+
+type RawAvailabilityEvent = {
+	start: Date;
+	end: Date;
+	isUnavailability: boolean;
+	isPlanned: boolean;
+	isAllDay: boolean;
+};
+
+function eventCoversDate(
+	event: RawAvailabilityEvent,
+	dateStr: string,
+): boolean {
+	const dayStart = new Date(`${dateStr}T00:00:00`).getTime();
+	const dayEnd = dayStart + 24 * 60 * 60 * 1000;
+	return (
+		new Date(event.start).getTime() < dayEnd &&
+		new Date(event.end).getTime() > dayStart
+	);
+}
+
+function allDayWindowFor(dateStr: string): { start: Date; end: Date } {
+	const day = new Date(`${dateStr}T00:00:00`);
+	const start = new Date(day);
+	start.setHours(DAY_START, 0, 0, 0);
+	const end = new Date(day);
+	end.setHours(DAY_END, 0, 0, 0);
+	return { start, end };
+}
+
+function minutesToTimeString(minutesFromMidnight: number): string {
+	const snapped = Math.round(minutesFromMidnight / 30) * 30;
+	const total = ((snapped % (24 * 60)) + 24 * 60) % (24 * 60);
+	const hours = Math.floor(total / 60);
+	const minutes = total % 60;
+	return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}`;
+}
 
 // ─── Date range helpers ───────────────────────────────────────────────────────
 
@@ -75,6 +121,7 @@ function WidgetShell({
 // ─── Main export ──────────────────────────────────────────────────────────────
 
 export function CalendarViewWidget({ mode }: { mode: CalWidgetMode }) {
+	const router = useRouter();
 	const todayStr = format(new Date(), "yyyy-MM-dd");
 	const [selectedDate, setSelectedDate] = useState(todayStr);
 
@@ -90,6 +137,98 @@ export function CalendarViewWidget({ mode }: { mode: CalWidgetMode }) {
 	});
 
 	const colorMap = useMemo(() => buildColorMap(data ?? []), [data]);
+
+	const can = useCheckPermission();
+	const canSchedule = can("pages:scheduling");
+
+	const evaluatorNpis = useMemo(
+		() => [...new Set((data ?? []).map((a) => a.evaluatorNpi))],
+		[data],
+	);
+
+	const { data: availabilityByNpi } =
+		api.schedulingHelper.getAvailability.useQuery(
+			{
+				evaluatorNpis,
+				start: new Date(`${dateRange[0] ?? todayStr}T00:00:00`),
+				end: new Date(`${dateRange.at(-1) ?? todayStr}T23:59:59`),
+			},
+			{ enabled: canSchedule && evaluatorNpis.length > 0 },
+		);
+
+	const dayAvailability: AvailabilityWindow[] = useMemo(() => {
+		if (mode !== "day" || !availabilityByNpi) return [];
+		const windows: AvailabilityWindow[] = [];
+		for (const [npiStr, events] of Object.entries(availabilityByNpi)) {
+			const npi = Number(npiStr);
+			for (const event of events) {
+				if (event.isUnavailability || event.isPlanned) continue;
+				if (!eventCoversDate(event, selectedDate)) continue;
+				const { start, end } = event.isAllDay
+					? allDayWindowFor(selectedDate)
+					: { start: new Date(event.start), end: new Date(event.end) };
+				windows.push({
+					evaluatorNpi: npi,
+					start: toFakeUtcDate(start),
+					end: toFakeUtcDate(end),
+				});
+			}
+		}
+		return windows;
+	}, [mode, availabilityByNpi, selectedDate]);
+
+	const multiDayAvailability: DateAvailabilityWindow[] = useMemo(() => {
+		if (mode !== "3day" && mode !== "week") return [];
+		if (!availabilityByNpi) return [];
+		const rangesByDate = new Map<string, { start: number; end: number }[]>();
+		for (const events of Object.values(availabilityByNpi)) {
+			for (const event of events) {
+				if (event.isUnavailability || event.isPlanned) continue;
+				for (const d of dateRange) {
+					if (!eventCoversDate(event, d)) continue;
+					const { start, end } = event.isAllDay
+						? allDayWindowFor(d)
+						: { start: new Date(event.start), end: new Date(event.end) };
+					const list = rangesByDate.get(d) ?? [];
+					list.push({ start: start.getTime(), end: end.getTime() });
+					rangesByDate.set(d, list);
+				}
+			}
+		}
+		const result: DateAvailabilityWindow[] = [];
+		for (const [d, ranges] of rangesByDate) {
+			ranges.sort((a, b) => a.start - b.start);
+			const merged: { start: number; end: number }[] = [];
+			for (const range of ranges) {
+				const last = merged.at(-1);
+				if (last && range.start <= last.end) {
+					last.end = Math.max(last.end, range.end);
+				} else {
+					merged.push({ ...range });
+				}
+			}
+			for (const m of merged) {
+				result.push({
+					date: d,
+					start: toFakeUtcDate(new Date(m.start)),
+					end: toFakeUtcDate(new Date(m.end)),
+				});
+			}
+		}
+		return result;
+	}, [mode, availabilityByNpi, dateRange]);
+
+	function handleDaySlotClick(npi: number, minutesFromMidnight: number) {
+		const time = minutesToTimeString(minutesFromMidnight);
+		router.push(
+			`/scheduling/helper?npi=${npi}&date=${selectedDate}&time=${time}`,
+		);
+	}
+
+	function handleMultiDaySlotClick(date: string, minutesFromMidnight: number) {
+		const time = minutesToTimeString(minutesFromMidnight);
+		router.push(`/scheduling/helper?date=${date}&time=${time}`);
+	}
 
 	const phoneNumbers = useMemo(
 		() => [
@@ -167,17 +306,22 @@ export function CalendarViewWidget({ mode }: { mode: CalWidgetMode }) {
 				) : !data ? null : mode === "day" ? (
 					<CalendarDayView
 						appointments={data}
+						availability={canSchedule ? dayAvailability : undefined}
+						availabilityIntensity="light"
 						colorMap={colorMap}
 						messages={recentMessages ?? {}}
 						messagesLoading={messagesLoading}
+						onSlotClick={canSchedule ? handleDaySlotClick : undefined}
 					/>
 				) : (
 					<CalendarMultiDayView
 						appointments={data}
+						availability={canSchedule ? multiDayAvailability : undefined}
 						colorMap={colorMap}
 						dates={dateRange}
 						messages={recentMessages ?? {}}
 						messagesLoading={messagesLoading}
+						onSlotClick={canSchedule ? handleMultiDaySlotClick : undefined}
 					/>
 				)}
 			</WidgetShell>

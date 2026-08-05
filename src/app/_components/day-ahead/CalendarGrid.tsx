@@ -87,6 +87,25 @@ export function localDate(utcDate: Date): Date {
 	return toBusinessZonedTime(utcDate) ?? new Date(utcDate);
 }
 
+// Real-time Date objects (e.g. from Google Calendar, or a native date/time
+// picker) need to be relabeled the same way real appointments are stored -
+// naive America/New_York wall-clock values labeled UTC (see
+// getLocalTimeFromUTCDate) - or they render shifted by the Eastern UTC
+// offset. This assumes the browser's local timezone is America/New_York,
+// matching that existing convention.
+export function toFakeUtcDate(date: Date): Date {
+	return new Date(
+		Date.UTC(
+			date.getFullYear(),
+			date.getMonth(),
+			date.getDate(),
+			date.getHours(),
+			date.getMinutes(),
+			date.getSeconds(),
+		),
+	);
+}
+
 export function formatTime(utcDate: Date): string {
 	return formatInBusinessTime(utcDate, "h:mm a");
 }
@@ -472,8 +491,10 @@ export function CalendarDayView({
 	evaluatorCheckins,
 	evaluatorCheckinDate,
 	availability,
+	availabilityIntensity = "normal",
 	extraEvaluators,
 	showMessages = true,
+	onSlotClick,
 }: {
 	appointments: CalAppt[];
 	colorMap: Map<number, string>;
@@ -487,6 +508,8 @@ export function CalendarDayView({
 	evaluatorCheckinDate?: string;
 	/** Rendered as a low-opacity layer behind appointment blocks. */
 	availability?: AvailabilityWindow[];
+	/** "light" drops the border for a more subtle backdrop (e.g. read-only calendars). */
+	availabilityIntensity?: "normal" | "light";
 	/**
 	 * Evaluators to always show a column for, even with zero appointments this
 	 * day - otherwise an evaluator with only an availability backdrop and no
@@ -495,6 +518,12 @@ export function CalendarDayView({
 	extraEvaluators?: { npi: number; name: string; isCurrentUser?: boolean }[];
 	/** Whether to show the recent-messages popover on each appointment block. */
 	showMessages?: boolean;
+	/**
+	 * Called with (evaluatorNpi, minutesFromMidnight) when a caller clicks the
+	 * empty grid area for that evaluator's column - lets the caller turn a
+	 * click position into a picked time. Omit to make the grid non-clickable.
+	 */
+	onSlotClick?: (npi: number, minutesFromMidnight: number) => void;
 }) {
 	const byEval = useMemo(() => {
 		const map = new Map<
@@ -581,9 +610,23 @@ export function CalendarDayView({
 				<div className="flex">
 					<TimeGutter />
 					{byEval.map((ev) => (
+						// biome-ignore lint/a11y/noStaticElementInteractions: click position picks a time, there's no spatial keyboard equivalent - the manual time input next to this calendar covers keyboard access.
+						// biome-ignore lint/a11y/useKeyWithClickEvents: see above.
 						<div
-							className="relative min-w-[110px] flex-1 border-l first:border-l-0"
+							className={`relative min-w-[110px] flex-1 border-l first:border-l-0 ${onSlotClick ? "cursor-pointer" : ""}`}
 							key={ev.npi}
+							onClick={
+								onSlotClick
+									? (e) => {
+											const rect = e.currentTarget.getBoundingClientRect();
+											const offsetY = e.clientY - rect.top;
+											const minutesFromMidnight =
+												DAY_START * 60 +
+												((offsetY - GRID_PADDING) / HOUR_HEIGHT) * 60;
+											onSlotClick(ev.npi, minutesFromMidnight);
+										}
+									: undefined
+							}
 							style={{ height: TOTAL_HEIGHT }}
 						>
 							<GridLines />
@@ -591,7 +634,11 @@ export function CalendarDayView({
 								?.filter((a) => a.evaluatorNpi === ev.npi)
 								.map((a) => (
 									<div
-										className="absolute rounded-sm bg-success/15"
+										className={
+											availabilityIntensity === "light"
+												? "absolute rounded-sm bg-success/10"
+												: "absolute rounded-sm border border-success/40 bg-success/20"
+										}
 										key={`avail-${ev.npi}-${a.start.getTime()}-${a.end.getTime()}`}
 										style={{
 											top: blockTop(a.start),
@@ -629,6 +676,15 @@ export function CalendarDayView({
 
 // ─── Calendar multi-day view (date columns) ───────────────────────────────────
 
+// A per-date, evaluator-merged availability window - the multi-day view mixes
+// evaluators into shared lanes, so a single evaluator's precise slot can't be
+// placed reliably here. This just says "someone was available" over a range.
+export type DateAvailabilityWindow = {
+	date: string;
+	start: Date;
+	end: Date;
+};
+
 export function CalendarMultiDayView({
 	appointments,
 	dates,
@@ -636,6 +692,8 @@ export function CalendarMultiDayView({
 	messages,
 	messagesLoading,
 	canCheckin = false,
+	availability,
+	onSlotClick,
 }: {
 	appointments: CalAppt[];
 	dates: string[];
@@ -643,6 +701,13 @@ export function CalendarMultiDayView({
 	messages: RecentMessagesMap;
 	messagesLoading: boolean;
 	canCheckin?: boolean;
+	/** Rendered as a light background band per date. */
+	availability?: DateAvailabilityWindow[];
+	/**
+	 * Called with (date, minutesFromMidnight) when the empty grid area for
+	 * that date is clicked - lets the caller turn a click into a picked time.
+	 */
+	onSlotClick?: (date: string, minutesFromMidnight: number) => void;
 }) {
 	const byDate = useMemo(() => {
 		const map = new Map<string, CalAppt[]>();
@@ -654,6 +719,16 @@ export function CalendarMultiDayView({
 		}
 		return map;
 	}, [appointments, dates]);
+
+	const byDateAvailability = useMemo(() => {
+		const map = new Map<string, DateAvailabilityWindow[]>();
+		for (const a of availability ?? []) {
+			const list = map.get(a.date) ?? [];
+			list.push(a);
+			map.set(a.date, list);
+		}
+		return map;
+	}, [availability]);
 
 	const todayStr = formatInBusinessTime(new Date(), "yyyy-MM-dd");
 	const [messagesOpen, setMessagesOpen] = useState(false);
@@ -668,7 +743,9 @@ export function CalendarMultiDayView({
 					{dates.map((d) => {
 						const date = new Date(`${d}T12:00:00`);
 						const isToday = d === todayStr;
-						const isEmpty = (byDate.get(d) ?? []).length === 0;
+						const isEmpty =
+							(byDate.get(d) ?? []).length === 0 &&
+							(byDateAvailability.get(d) ?? []).length === 0;
 						return (
 							<div
 								className={`min-w-[70px] border-l px-3 py-2 text-center first:border-l-0 ${isEmpty ? "flex-[0.35]" : "flex-1"}`}
@@ -693,14 +770,41 @@ export function CalendarMultiDayView({
 					{dates.map((d) => {
 						const dayAppts = byDate.get(d) ?? [];
 						const lanes = assignLanes(dayAppts);
-						const isEmpty = dayAppts.length === 0;
+						const dayAvailability = byDateAvailability.get(d) ?? [];
+						const isEmpty = dayAppts.length === 0 && dayAvailability.length === 0;
 						return (
+							// biome-ignore lint/a11y/noStaticElementInteractions: click position picks a time, there's no spatial keyboard equivalent - the scheduling helper page this links to has a fully keyboard-accessible manual time input.
+							// biome-ignore lint/a11y/useKeyWithClickEvents: see above.
 							<div
-								className={`relative min-w-[70px] border-l first:border-l-0 ${isEmpty ? "flex-[0.35]" : "flex-1"}`}
+								className={`relative min-w-[70px] border-l first:border-l-0 ${isEmpty ? "flex-[0.35]" : "flex-1"} ${onSlotClick ? "cursor-pointer" : ""}`}
 								key={d}
+								onClick={
+									onSlotClick
+										? (e) => {
+												const rect = e.currentTarget.getBoundingClientRect();
+												const offsetY = e.clientY - rect.top;
+												const minutesFromMidnight =
+													DAY_START * 60 +
+													((offsetY - GRID_PADDING) / HOUR_HEIGHT) * 60;
+												onSlotClick(d, minutesFromMidnight);
+											}
+										: undefined
+								}
 								style={{ height: TOTAL_HEIGHT }}
 							>
 								<GridLines />
+								{dayAvailability.map((a) => (
+									<div
+										className="absolute rounded-sm bg-success/10"
+										key={`avail-${d}-${a.start.getTime()}-${a.end.getTime()}`}
+										style={{
+											top: blockTop(a.start),
+											height: blockHeight(a.start, a.end),
+											left: 2,
+											right: 2,
+										}}
+									/>
+								))}
 								{lanes.map(({ appt, lane, totalLanes }) => (
 									<ApptBlock
 										appt={appt}
