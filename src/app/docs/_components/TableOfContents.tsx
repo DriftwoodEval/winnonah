@@ -72,7 +72,7 @@ export function TableOfContents({
 	if (headings.length === 0 && !editPath) return null;
 
 	return (
-		<nav className="sticky top-14 hidden max-h-[calc(100vh-3.5rem)] shrink-0 overflow-y-auto xl:block xl:w-56">
+		<nav className="sticky top-14 hidden max-h-[calc(100vh-3.5rem)] shrink-0 overflow-y-auto md:block md:w-56">
 			{headings.length > 0 && (
 				<>
 					<h2 className="px-3 font-semibold text-muted-foreground text-xs uppercase tracking-wide">
