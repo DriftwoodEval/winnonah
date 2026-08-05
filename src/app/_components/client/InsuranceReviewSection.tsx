@@ -154,23 +154,21 @@ export function InsuranceReviewSection({
 						<NoteHistory id={client.id} type="insurance-review" />
 					</ResponsiveDialog>
 
-					{canEdit && (
-						<Button
-							className="cursor-pointer"
-							disabled={setWaitingMutation.isPending}
-							onClick={() =>
-								setWaitingMutation.mutate({
-									clientId: client.id,
-									waiting: !review.waiting,
-								})
-							}
-							size="sm"
-							variant={review.waiting ? "secondary" : "outline"}
-						>
-							<Clock className="mr-1 h-4 w-4" />
-							{review.waiting ? "Waiting" : "Mark as Waiting"}
-						</Button>
-					)}
+					<Button
+						className="cursor-pointer"
+						disabled={!canEdit || setWaitingMutation.isPending}
+						onClick={() =>
+							setWaitingMutation.mutate({
+								clientId: client.id,
+								waiting: !review.waiting,
+							})
+						}
+						size="sm"
+						variant={review.waiting ? "secondary" : "outline"}
+					>
+						<Clock className="mr-1 h-4 w-4" />
+						{review.waiting ? "Waiting" : "Mark as Waiting"}
+					</Button>
 
 					<InsuranceReviewSubmitDialog
 						client={client}
