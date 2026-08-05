@@ -4,7 +4,11 @@
  */
 import "./src/env.js";
 import { execSync } from "node:child_process";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 import createMDX from "@next/mdx";
+
+const projectRoot = fileURLToPath(new URL(".", import.meta.url));
 
 /**
  * @param {string} command
@@ -69,6 +73,7 @@ const withMDX = createMDX({
 			"remark-frontmatter",
 			"remark-mdx-frontmatter",
 			"remark-gfm",
+			path.join(projectRoot, "src/lib/remark-docs-images.js"),
 		],
 		rehypePlugins: [
 			"rehype-slug",
