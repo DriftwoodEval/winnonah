@@ -438,7 +438,7 @@ export function getDashboardSections(
 				title: SECTION_NEEDS_OUTREACH,
 				clients: [c] as DashboardClient[],
 				description:
-					"Clients marked as needing reach out. They are in TherapyAppointment but not on the prioritization sheet.",
+					"Clients marked as needing outreach. They are in TherapyAppointment but not on the prioritization sheet.",
 				subheading: "Referrals",
 			}))
 			.slice(0, 1)
