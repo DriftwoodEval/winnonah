@@ -37,6 +37,21 @@ function DocsSidebarLink({
 	);
 }
 
+function groupNav(nav: DocNavCategory[]): DocNavCategory[][] {
+	const groups: DocNavCategory[][] = [];
+
+	for (const category of nav) {
+		const lastGroup = groups.at(-1);
+		if (category.standalone && lastGroup?.[0]?.standalone) {
+			lastGroup.push(category);
+		} else {
+			groups.push([category]);
+		}
+	}
+
+	return groups;
+}
+
 export function DocsSidebar({ nav }: { nav: DocNavCategory[] }) {
 	const pathname = usePathname();
 	const [open, setOpen] = useState(false);
@@ -54,34 +69,41 @@ export function DocsSidebar({ nav }: { nav: DocNavCategory[] }) {
 				/>
 			</button>
 			<div className={cn("flex-col gap-6 md:flex", open ? "flex" : "hidden")}>
-				{nav.map((category) =>
-					category.standalone ? (
-						<ul className="flex flex-col gap-0.5" key={category.slug}>
-							{category.items.map((item) => (
-								<DocsSidebarLink
-									item={item}
-									key={item.slug.join("/")}
-									onNavigate={() => setOpen(false)}
-									pathname={pathname}
-								/>
-							))}
-						</ul>
-					) : (
-						<div key={category.slug}>
-							<h2 className="px-3 font-semibold text-muted-foreground text-xs uppercase tracking-wide">
-								{category.title}
-							</h2>
-							<ul className="mt-1 flex flex-col gap-0.5">
-								{category.items.map((item) => (
+				{groupNav(nav).map((group) =>
+					group[0]?.standalone ? (
+						<ul
+							className="flex flex-col gap-0.5"
+							key={group.map((category) => category.slug).join("-")}
+						>
+							{group.flatMap((category) =>
+								category.items.map((item) => (
 									<DocsSidebarLink
 										item={item}
 										key={item.slug.join("/")}
 										onNavigate={() => setOpen(false)}
 										pathname={pathname}
 									/>
-								))}
-							</ul>
-						</div>
+								)),
+							)}
+						</ul>
+					) : (
+						group.map((category) => (
+							<div key={category.slug}>
+								<h2 className="px-3 font-semibold text-muted-foreground text-xs uppercase tracking-wide">
+									{category.title}
+								</h2>
+								<ul className="mt-1 flex flex-col gap-0.5">
+									{category.items.map((item) => (
+										<DocsSidebarLink
+											item={item}
+											key={item.slug.join("/")}
+											onNavigate={() => setOpen(false)}
+											pathname={pathname}
+										/>
+									))}
+								</ul>
+							</div>
+						))
 					),
 				)}
 			</div>
