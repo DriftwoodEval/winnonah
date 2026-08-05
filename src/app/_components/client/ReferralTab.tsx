@@ -258,7 +258,7 @@ export function ReferralTab({ client, readOnly }: ReferralTabProps) {
 		isNeedsReachOut &&
 		!isNeedsReview &&
 		!isOutreachExhausted &&
-		can("clients:referral:infobox");
+		can("clients:referral:fillout");
 
 	return (
 		<div className="flex w-full flex-col gap-4">

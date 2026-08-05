@@ -1687,7 +1687,7 @@ export const clientRouter = createTRPCRouter({
 	logOutreachAttempt: protectedProcedure
 		.input(z.object({ clientId: z.number(), notes: z.string().optional() }))
 		.mutation(async ({ ctx, input }) => {
-			assertPermission(ctx.session.user, ["clients:referral:infobox"]);
+			assertPermission(ctx.session.user, ["clients:referral:fillout"]);
 
 			const client = await ctx.db.query.clients.findFirst({
 				where: eq(clients.id, input.clientId),
