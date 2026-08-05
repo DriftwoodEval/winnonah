@@ -47,9 +47,24 @@ type NavItem = {
 	show: boolean;
 };
 
-function isNavItemActive(href: string, pathname: string) {
+// A prefix match (e.g. "/scheduling" matching "/scheduling/helper") only
+// counts if no sibling nav item's href is a more specific prefix of the
+// current path - otherwise both the parent and the more specific item would
+// highlight at once.
+function isNavItemActive(
+	href: string,
+	pathname: string,
+	allHrefs: string[] = [],
+) {
 	if (href === "/") return pathname === href;
-	return pathname === href || pathname.startsWith(`${href}/`);
+	if (pathname === href) return true;
+	if (!pathname.startsWith(`${href}/`)) return false;
+	return !allHrefs.some(
+		(other) =>
+			other !== href &&
+			other.startsWith(`${href}/`) &&
+			(pathname === other || pathname.startsWith(`${other}/`)),
+	);
 }
 
 export function NavigationLink({
@@ -57,13 +72,15 @@ export function NavigationLink({
 	children,
 	pathname,
 	icon: Icon,
+	allHrefs,
 }: {
 	href: string;
 	children: string;
 	pathname: string;
 	icon: LucideIcon;
+	allHrefs?: string[];
 }) {
-	const isActive = isNavItemActive(href, pathname);
+	const isActive = isNavItemActive(href, pathname, allHrefs);
 	return (
 		<Link
 			aria-label={children}
@@ -97,6 +114,7 @@ function NavigationCategory({
 	}, []);
 
 	const visibleItems = items.filter((item) => item.show);
+	const allHrefs = visibleItems.map((item) => item.href);
 
 	if (visibleItems.length === 0) return null;
 
@@ -111,7 +129,7 @@ function NavigationCategory({
 	}
 
 	const isCategoryActive = visibleItems.some((item) =>
-		isNavItemActive(item.href, pathname),
+		isNavItemActive(item.href, pathname, allHrefs),
 	);
 
 	const openNow = () => {
@@ -148,7 +166,9 @@ function NavigationCategory({
 					<DropdownMenuItem asChild className="cursor-pointer" key={item.href}>
 						<Link
 							className={
-								isNavItemActive(item.href, pathname) ? "text-secondary" : ""
+								isNavItemActive(item.href, pathname, allHrefs)
+									? "text-secondary"
+									: ""
 							}
 							href={item.href}
 						>
@@ -284,6 +304,7 @@ export default function NavigationLinks() {
 		...categories.flatMap((category) => category.items),
 		docs,
 	].filter((item) => item.show);
+	const allItemHrefs = allItems.map((item) => item.href);
 
 	return (
 		<>
@@ -322,7 +343,7 @@ export default function NavigationLinks() {
 								<DrawerClose asChild key={item.href}>
 									<Link
 										className={`flex items-center gap-2 ${
-											isNavItemActive(item.href, pathname)
+											isNavItemActive(item.href, pathname, allItemHrefs)
 												? "text-secondary"
 												: ""
 										}`}

@@ -31,6 +31,8 @@ interface ClientSearchAndAddProps {
 	resetOnAdd?: boolean;
 	initialSearchTerm?: string;
 	floating?: boolean;
+	/** Restrict results to real clients, notes-only clients, or both (default). */
+	type?: "both" | "real" | "note";
 }
 
 export function ClientSearchAndAdd({
@@ -42,6 +44,7 @@ export function ClientSearchAndAdd({
 	resetOnAdd = false,
 	initialSearchTerm = "",
 	floating = false,
+	type = "both",
 }: ClientSearchAndAddProps) {
 	const [searchTerm, setSearchTerm] = useState(initialSearchTerm);
 	const [isFocused, setIsFocused] = useState(false);
@@ -51,6 +54,7 @@ export function ClientSearchAndAdd({
 		{
 			nameSearch: debouncedSearchTerm,
 			excludeIds,
+			type,
 		},
 		{
 			enabled: debouncedSearchTerm.length >= 3,
