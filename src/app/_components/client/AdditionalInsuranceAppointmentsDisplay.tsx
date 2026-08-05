@@ -299,26 +299,28 @@ export function AdditionalInsuranceAppointmentsDisplay({
 
 			{displayAppointments.length > 0 && (
 				<div className="space-y-6 p-4">
-					{isBabyNet && (
-						<Badge className="w-full justify-center py-1" variant="destructive">
-							BABYNET
-						</Badge>
-					)}
-					{waitForPA && (
-						<Badge className="w-full justify-center py-1" variant="destructive">
-							PRIOR AUTH REQUIRED
-						</Badge>
-					)}
-					{using90000BillingCode && (
-						<Badge className="w-full justify-center py-1" variant="destructive">
-							USING 90000 BILLING CODE
-						</Badge>
-					)}
-					{fromPrecert && (
-						<Badge className="w-full justify-center py-1" variant="secondary">
-							FROM PRE-CERTIFICATION
-						</Badge>
-					)}
+					<div className="flex flex-wrap gap-2">
+						{isBabyNet && (
+							<Badge className="w-full justify-center" variant="destructive">
+								BABYNET
+							</Badge>
+						)}
+						{waitForPA && (
+							<Badge className="w-full justify-center" variant="destructive">
+								PRIOR AUTH REQUIRED
+							</Badge>
+						)}
+						{using90000BillingCode && (
+							<Badge className="w-full justify-center" variant="destructive">
+								USING 90000 BILLING CODE
+							</Badge>
+						)}
+						{fromPrecert && (
+							<Badge className="w-full justify-center" variant="secondary">
+								FROM PRE-CERTIFICATION
+							</Badge>
+						)}
+					</div>
 
 					{combined ? (
 						<div className="rounded-md border bg-background p-4 text-foreground">
