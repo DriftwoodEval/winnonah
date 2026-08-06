@@ -12,6 +12,7 @@ export const DOCS_DIR = path.join(process.cwd(), "src/content/docs");
 export interface DocFrontmatter {
 	title: string;
 	needsCleanup?: boolean;
+	notDone?: boolean;
 }
 
 export interface DocHeading {
@@ -142,6 +143,7 @@ export function getDocBySlug(slug: string[]): DocFile | null {
 		frontmatter: {
 			title: data.title ?? slug.at(-1) ?? "Untitled",
 			needsCleanup: data.needsCleanup,
+			notDone: data.notDone,
 		},
 		content,
 	};
