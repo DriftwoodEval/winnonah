@@ -25,6 +25,7 @@ import {
 	Clock,
 	FileText,
 	Home,
+	Inbox,
 	LayoutDashboard,
 	LayoutGrid,
 	LineChart,
@@ -258,6 +259,12 @@ export default function NavigationLinks() {
 			label: "Tools",
 			icon: Wrench,
 			items: [
+				{
+					href: "/referral-faxes",
+					label: "Referral Faxes",
+					icon: Inbox,
+					show: can("referrals:fax:review"),
+				},
 				{
 					href: "/fax-categorization",
 					label: "Fax Categorization",

@@ -10,6 +10,7 @@ VALID_VALUES = {
     "OPENPHONE_API_TOKEN": "token",
     "FAX_FOLDER_ID": "folder-id",
     "BASE_FOLDER_ID": "folder-id",
+    "REFERRAL_FAX_INTAKE_FOLDER_ID": "folder-id",
     "ERROR_EMAILS": "a@example.com",
 }
 
