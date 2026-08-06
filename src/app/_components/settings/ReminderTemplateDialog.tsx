@@ -33,12 +33,24 @@ import { format } from "date-fns";
 import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
+import { getSmsSegmentInfo } from "~/lib/sms";
 import { cn } from "~/lib/utils";
 import {
 	type ReminderTemplateFormValues,
 	reminderTemplateSchema,
 } from "~/lib/validations/reminders";
 import { api } from "~/trpc/react";
+
+function SmsSegmentCounter({ text }: { text: string }) {
+	const { length, encoding, segments } = getSmsSegmentInfo(text);
+	if (length === 0) return null;
+	return (
+		<p className="text-[10px] text-muted-foreground">
+			{length} characters ({encoding}) &middot;{" "}
+			{segments === 1 ? "1 text message" : `${segments} text messages`}
+		</p>
+	);
+}
 
 interface ReminderTemplateDialogProps {
 	isOpen: boolean;
@@ -170,7 +182,7 @@ export function ReminderTemplateDialog({
 	}
 	return (
 		<Dialog onOpenChange={onClose} open={isOpen}>
-			<DialogContent className="flex max-h-[90vh] flex-col overflow-hidden sm:max-w-[500px]">
+			<DialogContent className="flex max-h-[90vh] flex-col overflow-hidden sm:max-w-[700px]">
 				<DialogHeader>
 					<DialogTitle>
 						{isEditing ? "Edit Reminder Template" : "Create Reminder Template"}
@@ -336,6 +348,9 @@ export function ReminderTemplateDialog({
 										<p className="text-[10px] text-muted-foreground">
 											Available: {"$START_TIME, $DATE, $OFFICE_NAME, $LOCATION"}
 										</p>
+										<SmsSegmentCounter
+											text={messagePreview ?? field.value ?? ""}
+										/>
 										{messagePreview && (
 											<div className="whitespace-pre-wrap rounded-md bg-muted p-3 font-mono text-muted-foreground text-sm">
 												{messagePreview}
@@ -363,6 +378,9 @@ export function ReminderTemplateDialog({
 										<p className="text-[10px] text-muted-foreground">
 											Available: {"$START_TIME, $DATE, $OFFICE_NAME, $LOCATION"}
 										</p>
+										<SmsSegmentCounter
+											text={confirmationPreview ?? field.value ?? ""}
+										/>
 										{confirmationPreview && (
 											<div className="whitespace-pre-wrap rounded-md bg-muted p-3 font-mono text-muted-foreground text-sm">
 												{confirmationPreview}
