@@ -651,9 +651,6 @@ const SchedulingRowCells = memo(function SchedulingRowCells({
 	insurances,
 	isEditable,
 	onUpdate,
-	onMove,
-	upNeighborId,
-	downNeighborId,
 	onAction,
 	actionIcon,
 	actionVariant,
@@ -672,9 +669,6 @@ const SchedulingRowCells = memo(function SchedulingRowCells({
 	insurances: InsuranceWithAliases[];
 	isEditable?: boolean;
 	onUpdate?: (clientId: number, data: SchedulingUpdateData) => void;
-	onMove?: (clientId: number, neighborClientId: number) => void;
-	upNeighborId?: number;
-	downNeighborId?: number;
 	onAction: (clientId: number) => void;
 	actionIcon: React.ReactNode;
 	actionVariant: "default" | "destructive";
@@ -745,34 +739,6 @@ const SchedulingRowCells = memo(function SchedulingRowCells({
 						>
 							<GripVertical className="h-4 w-4" />
 						</button>
-					)}
-					{isEditable && (
-						<div className="flex flex-col items-center justify-center">
-							<button
-								className="cursor-pointer rounded-sm p-1 text-muted-foreground transition-colors hover:bg-accent hover:text-primary disabled:opacity-30"
-								disabled={upNeighborId === undefined}
-								onClick={() =>
-									upNeighborId !== undefined &&
-									onMove?.(scheduledClient.clientId, upNeighborId)
-								}
-								title="Move Up"
-								type="button"
-							>
-								<ChevronUp className="h-4 w-4" />
-							</button>
-							<button
-								className="cursor-pointer rounded-sm p-1 text-muted-foreground transition-colors hover:bg-accent hover:text-primary disabled:opacity-30"
-								disabled={downNeighborId === undefined}
-								onClick={() =>
-									downNeighborId !== undefined &&
-									onMove?.(scheduledClient.clientId, downNeighborId)
-								}
-								title="Move Down"
-								type="button"
-							>
-								<ChevronDown className="h-4 w-4" />
-							</button>
-						</div>
 					)}
 					<ColorPicker
 						disabled={!isEditable}
@@ -1076,7 +1042,6 @@ interface InternalSchedulingTableProps {
 	insurances: InsuranceWithAliases[];
 	isEditable: boolean;
 	onUpdate?: (clientId: number, data: SchedulingUpdateData) => void;
-	onMove?: (clientId: number, neighborClientId: number) => void;
 	onReorder?: (clientId: number, overClientId: number) => void;
 	onAction: (clientId: number) => void;
 	actionIcon: React.ReactNode;
@@ -1104,7 +1069,6 @@ function InternalSchedulingTable({
 	insurances,
 	isEditable,
 	onUpdate,
-	onMove,
 	onReorder,
 	onAction,
 	actionIcon,
@@ -1637,7 +1601,6 @@ function InternalSchedulingTable({
 										actionIcon={actionIcon}
 										actionVariant={actionVariant}
 										districts={districts}
-										downNeighborId={filteredClients[rowIndex + 1]?.clientId}
 										evaluators={sortedEvaluators}
 										insurances={insurances}
 										isActionPending={isActionPending}
@@ -1650,11 +1613,9 @@ function InternalSchedulingTable({
 										measureElement={handleMeasureElement}
 										offices={offices}
 										onAction={onAction}
-										onMove={onMove}
 										onUpdate={onUpdate}
 										rowIndex={rowIndex}
 										scheduledClient={scheduledClient}
-										upNeighborId={filteredClients[rowIndex - 1]?.clientId}
 									/>
 								);
 							})}
@@ -1797,46 +1758,6 @@ function SchedulingTableView({
 		onSettled: () => utils.scheduling.get.invalidate(),
 	});
 
-	const moveMutation = api.scheduling.move.useMutation({
-		onMutate: async (moveData) => {
-			await utils.scheduling.get.cancel(queryFilters);
-			const previousData = utils.scheduling.get.getData(queryFilters);
-			utils.scheduling.get.setData(queryFilters, (old) => {
-				if (!old) return old;
-				const clients = [...old.clients];
-				const index = clients.findIndex(
-					(c) => c.clientId === moveData.clientId,
-				);
-				const neighborIndex = clients.findIndex(
-					(c) => c.clientId === moveData.neighborClientId,
-				);
-				if (index === -1 || neighborIndex === -1) return old;
-
-				const client = clients[index];
-				const neighbor = clients[neighborIndex];
-				if (!client || !neighbor) return old;
-
-				// Swap sorts of just the two affected clients, then re-sort
-				// so clients hidden by the active filters (not adjacent in
-				// this unfiltered list) don't get shuffled.
-				clients[index] = { ...client, sort: neighbor.sort };
-				clients[neighborIndex] = { ...neighbor, sort: client.sort };
-				clients.sort(
-					(a, b) =>
-						(a.sort ?? 0) - (b.sort ?? 0) ||
-						new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(),
-				);
-
-				return { ...old, clients };
-			});
-			return { previousData };
-		},
-		onError: (_err, _moveData, context) =>
-			context?.previousData &&
-			utils.scheduling.get.setData(queryFilters, context.previousData),
-		onSettled: () => utils.scheduling.get.invalidate(),
-	});
-
 	const reorderMutation = api.scheduling.reorder.useMutation({
 		// On success, the optimistic reorder already matches what the server
 		// computed, so mark the cache stale without forcing an immediate
@@ -1943,11 +1864,6 @@ function SchedulingTableView({
 		(clientId: number) => actionMutation.mutate({ clientId }),
 		[actionMutation.mutate],
 	);
-	const handleMove = useCallback(
-		(clientId: number, neighborClientId: number) =>
-			moveMutation.mutate({ clientId, neighborClientId }),
-		[moveMutation.mutate],
-	);
 	const handleUpdate = useCallback(
 		(clientId: number, updateData: SchedulingUpdateData) =>
 			updateMutation.mutate({ clientId, ...updateData }),
@@ -1980,7 +1896,6 @@ function SchedulingTableView({
 			lastAddedClientId={lastAddedClientId}
 			offices={(data?.offices as Office[]) || []}
 			onAction={handleAction}
-			onMove={handleMove}
 			onReorder={handleReorder}
 			onScrollToClient={onScrollToClient}
 			onUpdate={type === "active" ? handleUpdate : undefined}

@@ -595,35 +595,7 @@ export const schedulingRouter = createTRPCRouter({
 				});
 		}),
 
-	move: protectedProcedure
-		.input(z.object({ clientId: z.number(), neighborClientId: z.number() }))
-		.mutation(async ({ ctx, input }) => {
-			const [client, neighbor] = await Promise.all([
-				ctx.db.query.schedulingClients.findFirst({
-					where: eq(schedulingClients.clientId, input.clientId),
-					columns: { sort: true },
-				}),
-				ctx.db.query.schedulingClients.findFirst({
-					where: eq(schedulingClients.clientId, input.neighborClientId),
-					columns: { sort: true },
-				}),
-			]);
-			if (!client || !neighbor) return;
-
-			await ctx.db.transaction(async (tx) => {
-				await tx
-					.update(schedulingClients)
-					.set({ sort: neighbor.sort })
-					.where(eq(schedulingClients.clientId, input.clientId));
-				await tx
-					.update(schedulingClients)
-					.set({ sort: client.sort })
-					.where(eq(schedulingClients.clientId, input.neighborClientId));
-			});
-		}),
-
-	// Drag-and-drop reorder to an arbitrary position, unlike `move` above
-	// which only swaps two adjacent rows. Resolves the target by clientId
+	// Drag-and-drop reorder to an arbitrary position. Resolves the target by clientId
 	// (not a client-cached sort number) and locks both rows before shifting,
 	// since this is a shared sheet other users can be reordering concurrently.
 	reorder: protectedProcedure
