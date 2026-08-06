@@ -20,6 +20,11 @@ slack() {
     -d "{\"text\": \"$1\"}" > /dev/null || true
 }
 
+# Without this, a failure partway through (e.g. MySQL promotion) would exit
+# before the flag is normally set, leaving standby-poll.sh free to retrigger
+# a brand new run (and a new STONITH loop) on every cron tick, forever.
+trap 'slack "🚨 Failover script failed at line ${LINENO}. Standby may not be fully up - check standby-poll.log and this host manually."' ERR
+
 if [ -f "${FAILOVER_FLAG}" ]; then
   log "Already active, skipping."
   exit 0
@@ -66,6 +71,10 @@ STONITH_PID=$!
 echo "${STONITH_PID}" > /tmp/stonith.pid
 log "STONITH running in background (PID ${STONITH_PID}). Proceeding with failover."
 
+# Set the flag now, not after promotion/services succeed, so a failure below
+# stops cron from retriggering this on every tick.
+touch "${FAILOVER_FLAG}"
+
 # 2. Promote MySQL
 log "Stopping replication and promoting MySQL..."
 docker exec driftwood-db mysql -uroot -p"${MYSQL_ROOT_PASSWORD}" \
@@ -88,9 +97,7 @@ ${COMPOSE} --profile active_only up -d cloudflared winnonah winnonah-python
 slack "Services started. Traffic routing to standby within seconds."
 log "Step 3 done."
 
-# 4. Set flag and ack to Worker
-touch "${FAILOVER_FLAG}"
-
+# 4. Ack to Worker
 curl -sf -X POST \
   -H "X-Monitor-Secret: ${MONITOR_SECRET}" \
   -H "Content-Type: application/json" \

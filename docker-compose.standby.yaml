@@ -1,5 +1,6 @@
 services:
   driftwood-db:
+    restart: always
     volumes:
       - winnonah_db-data:/var/lib/mysql
       - ./mysql/standby.cnf:/etc/mysql/conf.d/replication.cnf:ro
