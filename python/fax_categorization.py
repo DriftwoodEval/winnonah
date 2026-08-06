@@ -170,11 +170,12 @@ def process_faxes() -> None:
             raise RuntimeError("Could not load LLM")
 
         for i, file in enumerate(new_files, start=1):
+            task.progress(i - 1, len(new_files), detail=file["name"])
             try:
                 _process_fax(file, llm, client_lookup)
             except Exception:
                 logger.exception(f"Failed to categorize fax {file['name']}")
-            task.progress(i, len(new_files), detail=file["name"])
+            task.progress(i, len(new_files))
 
 
 def main() -> None:
