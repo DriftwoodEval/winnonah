@@ -26,6 +26,7 @@ import {
 	FileText,
 	Home,
 	LayoutDashboard,
+	LayoutGrid,
 	LineChart,
 	type LucideIcon,
 	Menu,
@@ -140,6 +141,7 @@ function NavigationCategory({
 			</DropdownMenuTrigger>
 			<DropdownMenuContent
 				align="start"
+				className="w-auto min-w-40"
 				onMouseEnter={openNow}
 				onMouseLeave={closeSoon}
 			>
@@ -188,7 +190,7 @@ export default function NavigationLinks() {
 		href: "/docs",
 		label: "Docs",
 		icon: BookOpen,
-		show: false,
+		show: true,
 	};
 
 	const categories: { label: string; icon: LucideIcon; items: NavItem[] }[] = [
@@ -256,6 +258,12 @@ export default function NavigationLinks() {
 			label: "Tools",
 			icon: Wrench,
 			items: [
+				{
+					href: "/fax-categorization",
+					label: "Fax Categorization",
+					icon: LayoutGrid,
+					show: can("fax:categorization:review"),
+				},
 				{
 					href: "/work-summary",
 					label: "Work Summary",
