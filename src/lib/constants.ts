@@ -25,6 +25,7 @@ export const TEST_NAMES = [
 	"Johnny Test",
 	"Barbara Steele",
 	"Karen Aston",
+	"Test Testerson",
 ] as const;
 
 export const PERMISSIONS = {

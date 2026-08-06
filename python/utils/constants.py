@@ -16,6 +16,7 @@ TEST_NAMES: Final = [
     "Johnny Test",
     "Barbara Steele",
     "Karen Aston",
+    "Test Testerson",
 ]
 TEST_NAMES_LOWER: Final = {n.lower() for n in TEST_NAMES}
 
