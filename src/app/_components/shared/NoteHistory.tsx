@@ -6,7 +6,7 @@ import { Badge } from "@ui/badge";
 import { Button } from "@ui/button";
 import { Card, CardContent, CardHeader } from "@ui/card";
 import { ScrollArea } from "@ui/scroll-area";
-import { formatDistanceToNow } from "date-fns";
+import { format } from "date-fns";
 import type { Change } from "diff";
 import { ChevronUp } from "lucide-react";
 import React, { useState } from "react";
@@ -256,9 +256,7 @@ export function NoteHistory({
 									<span className="font-medium text-sm">{userName}</span>
 									<span className="text-muted-foreground text-xs">
 										{version.createdAt &&
-											formatDistanceToNow(new Date(version.createdAt), {
-												addSuffix: true,
-											})}
+											format(new Date(version.createdAt), "MMM d, yyyy h:mm a")}
 									</span>
 								</div>
 							</div>
