@@ -1,13 +1,14 @@
 "use client";
 
 import { Badge } from "@ui/badge";
+import { Button } from "@ui/button";
 import {
 	Collapsible,
 	CollapsibleContent,
 	CollapsibleTrigger,
 } from "@ui/collapsible";
-import { format } from "date-fns";
-import { ChevronDown, ChevronRight } from "lucide-react";
+import { addDays, format } from "date-fns";
+import { ChevronDown, ChevronLeft, ChevronRight } from "lucide-react";
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { normalizePhoneNumber } from "~/lib/utils";
@@ -16,8 +17,18 @@ import { RecentMessagesPopover } from "../day-ahead/RecentMessagesPopover";
 
 type RecentMessagesMap = RouterOutputs["quo"]["getRecentMessages"];
 
-function useTodayStr() {
+function todayStr() {
 	return format(new Date(), "yyyy-MM-dd");
+}
+
+function useSelectedDate() {
+	const [date, setDate] = useState(todayStr);
+	const shift = (dir: -1 | 1) => {
+		setDate((d) =>
+			format(addDays(new Date(`${d}T12:00:00`), dir), "yyyy-MM-dd"),
+		);
+	};
+	return { date, shift, resetToToday: () => setDate(todayStr()) };
 }
 
 function formatTime(date: Date) {
@@ -28,17 +39,65 @@ function formatTime(date: Date) {
 	});
 }
 
+function DayNav({
+	date,
+	onShift,
+	onToday,
+}: {
+	date: string;
+	onShift: (dir: -1 | 1) => void;
+	onToday: () => void;
+}) {
+	const isToday = date === todayStr();
+	return (
+		<div className="ml-auto flex shrink-0 items-center gap-1">
+			{!isToday && (
+				<Button
+					className="h-6 px-2 text-xs"
+					onClick={onToday}
+					size="sm"
+					variant="outline"
+				>
+					Today
+				</Button>
+			)}
+			<span className="text-muted-foreground text-xs tabular-nums">
+				{format(new Date(`${date}T12:00:00`), "EEE, MMM d")}
+			</span>
+			<Button
+				className="h-6 w-6"
+				onClick={() => onShift(-1)}
+				size="icon"
+				variant="ghost"
+			>
+				<ChevronLeft className="h-3.5 w-3.5" />
+			</Button>
+			<Button
+				className="h-6 w-6"
+				onClick={() => onShift(1)}
+				size="icon"
+				variant="ghost"
+			>
+				<ChevronRight className="h-3.5 w-3.5" />
+			</Button>
+		</div>
+	);
+}
+
 function WidgetShell({
 	title,
+	nav,
 	children,
 }: {
 	title: string;
+	nav?: React.ReactNode;
 	children: React.ReactNode;
 }) {
 	return (
 		<div className="flex flex-col overflow-hidden">
 			<div className="flex shrink-0 items-center gap-2 border-b px-4 py-2.5">
-				<h2 className="font-semibold text-sm">{title}</h2>
+				<h2 className="truncate font-semibold text-sm">{title}</h2>
+				{nav}
 			</div>
 			<div className="overflow-auto px-4 py-2">{children}</div>
 		</div>
@@ -46,7 +105,7 @@ function WidgetShell({
 }
 
 export function MyDayWidget() {
-	const asDate = useTodayStr();
+	const { date: asDate, shift, resetToToday } = useSelectedDate();
 	const { data, isLoading } = api.appointments.getDayAhead.useQuery({ asDate });
 
 	const appts = data?.myAppointments ?? [];
@@ -82,7 +141,10 @@ export function MyDayWidget() {
 	const titleParts = ["My Day", myTimeRange, locationSuffix].filter(Boolean);
 
 	return (
-		<WidgetShell title={titleParts.join(" · ")}>
+		<WidgetShell
+			nav={<DayNav date={asDate} onShift={shift} onToday={resetToToday} />}
+			title={titleParts.join(" · ")}
+		>
 			{isLoading ? (
 				<p className="text-muted-foreground text-sm">Loading...</p>
 			) : !data ? null : !data.hasEvaluatorAccount ? (
@@ -90,7 +152,9 @@ export function MyDayWidget() {
 					No evaluator profile linked.
 				</p>
 			) : appts.length === 0 ? (
-				<p className="text-muted-foreground text-sm">No appointments today.</p>
+				<p className="text-muted-foreground text-sm">
+					No appointments {asDate === todayStr() ? "today" : "this day"}.
+				</p>
 			) : (
 				<div className="divide-y divide-border">
 					{appts.map((appt) => (
@@ -150,7 +214,7 @@ export function MyDayWidget() {
 }
 
 export function WhosInWidget() {
-	const asDate = useTodayStr();
+	const { date: asDate, shift, resetToToday } = useSelectedDate();
 	const { data, isLoading } = api.appointments.getDayAhead.useQuery({ asDate });
 
 	const otherOffices = (data?.offices ?? [])
@@ -179,12 +243,16 @@ export function WhosInWidget() {
 		);
 
 	return (
-		<WidgetShell title="Who's In">
+		<WidgetShell
+			nav={<DayNav date={asDate} onShift={shift} onToday={resetToToday} />}
+			title="Who's In"
+		>
 			{isLoading ? (
 				<p className="text-muted-foreground text-sm">Loading...</p>
 			) : otherOffices.length === 0 ? (
 				<p className="text-muted-foreground text-sm">
-					No one else has appointments today.
+					No one else has appointments{" "}
+					{asDate === todayStr() ? "today" : "this day"}.
 				</p>
 			) : (
 				<div className="flex flex-col gap-4">
