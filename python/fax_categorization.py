@@ -119,7 +119,7 @@ def _process_fax(file: dict, llm, client_lookup: list[dict]) -> None:
                 cursor.execute(
                     f"""
                     INSERT INTO {TABLE_FAX_CATEGORIZATION_CLIENT_LINK}
-                        (faxCategorizationId, clientId, source, matched_name, confidence)
+                        (fax_categorization_id, client_id, source, matched_name, confidence)
                     VALUES (%s, %s, 'llm', %s, 1.0)
                     """,
                     (fax_id, client_id, matched_name),

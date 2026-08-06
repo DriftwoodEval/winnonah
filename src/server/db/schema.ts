@@ -559,8 +559,8 @@ export const faxCategorizationClientLinks = createTable(
 	"fax_categorization_client_link",
 	(d) => ({
 		id: d.int().notNull().autoincrement().primaryKey(),
-		faxCategorizationId: d.int().notNull(),
-		clientId: d.int().notNull(),
+		faxCategorizationId: d.int("fax_categorization_id").notNull(),
+		clientId: d.int("client_id").notNull(),
 		source: d.mysqlEnum("source", ["llm", "manual"]).notNull(),
 		matchedName: d.varchar("matched_name", { length: 255 }),
 		confidence: d.decimal("confidence", { precision: 5, scale: 4 }),
