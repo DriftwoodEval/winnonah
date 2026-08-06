@@ -515,8 +515,8 @@ export const tasks = createTable(
 	],
 );
 
-export const referralFaxes = createTable(
-	"referral_fax",
+export const infoRequests = createTable(
+	"info_request",
 	(d) => ({
 		id: d.int().notNull().autoincrement().primaryKey(),
 		driveFileId: d.varchar("drive_file_id", { length: 255 }).notNull().unique(),
@@ -535,19 +535,19 @@ export const referralFaxes = createTable(
 		reviewedBy: d.varchar("reviewed_by", { length: 255 }),
 	}),
 	(t) => [
-		index("referral_fax_status_idx").on(t.status),
-		index("referral_fax_discovered_idx").on(t.discoveredAt),
+		index("info_request_status_idx").on(t.status),
+		index("info_request_discovered_idx").on(t.discoveredAt),
 	],
 );
 
-export const referralFaxClientLinks = createTable(
-	"referral_fax_client_link",
+export const infoRequestClientLinks = createTable(
+	"info_request_client_link",
 	(d) => ({
 		id: d.int().notNull().autoincrement().primaryKey(),
 		faxId: d
 			.int()
 			.notNull()
-			.references(() => referralFaxes.id, { onDelete: "cascade" }),
+			.references(() => infoRequests.id, { onDelete: "cascade" }),
 		clientId: d
 			.int()
 			.notNull()
@@ -563,25 +563,25 @@ export const referralFaxClientLinks = createTable(
 		reviewedBy: d.varchar("reviewed_by", { length: 255 }),
 	}),
 	(t) => [
-		uniqueIndex("referral_fax_client_link_unique").on(t.faxId, t.clientId),
-		index("referral_fax_client_link_fax_idx").on(t.faxId),
-		index("referral_fax_client_link_client_idx").on(t.clientId),
+		uniqueIndex("info_request_client_link_unique").on(t.faxId, t.clientId),
+		index("info_request_client_link_fax_idx").on(t.faxId),
+		index("info_request_client_link_client_idx").on(t.clientId),
 	],
 );
 
-export const referralFaxesRelations = relations(referralFaxes, ({ many }) => ({
-	links: many(referralFaxClientLinks),
+export const infoRequestsRelations = relations(infoRequests, ({ many }) => ({
+	links: many(infoRequestClientLinks),
 }));
 
-export const referralFaxClientLinksRelations = relations(
-	referralFaxClientLinks,
+export const infoRequestClientLinksRelations = relations(
+	infoRequestClientLinks,
 	({ one }) => ({
-		fax: one(referralFaxes, {
-			fields: [referralFaxClientLinks.faxId],
-			references: [referralFaxes.id],
+		fax: one(infoRequests, {
+			fields: [infoRequestClientLinks.faxId],
+			references: [infoRequests.id],
 		}),
 		client: one(clients, {
-			fields: [referralFaxClientLinks.clientId],
+			fields: [infoRequestClientLinks.clientId],
 			references: [clients.id],
 		}),
 	}),

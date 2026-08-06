@@ -2,7 +2,7 @@
 
 import { DashboardStatus } from "@components/client/DashboardStatus";
 import { ClientSearchAndAdd } from "@components/clients/ClientSearchAndAdd";
-import { ClientDriveFiles } from "@components/referral-faxes/ClientDriveFiles";
+import { ClientDriveFiles } from "@components/info-requests/ClientDriveFiles";
 import { Badge } from "@ui/badge";
 import { Button } from "@ui/button";
 import { Card, CardContent, CardHeader } from "@ui/card";
@@ -21,7 +21,7 @@ import type { SortedClient } from "~/lib/api-types";
 import { cn } from "~/lib/utils";
 import { api } from "~/trpc/react";
 
-export function ReferralFaxList() {
+export function InfoRequestList() {
 	const [tab, setTab] = useState<"pending" | "reviewed">("pending");
 
 	return (
@@ -42,20 +42,20 @@ export function ReferralFaxList() {
 
 function FaxList({ status }: { status: "pending" | "reviewed" }) {
 	const utils = api.useUtils();
-	const { data: faxes, isLoading } = api.referralFax.list.useQuery({
+	const { data: faxes, isLoading } = api.infoRequests.list.useQuery({
 		status,
 	});
 	const [openFaxIds, setOpenFaxIds] = useState<Set<number>>(new Set());
 
-	const invalidate = () => utils.referralFax.list.invalidate();
+	const invalidate = () => utils.infoRequests.list.invalidate();
 
-	const addLink = api.referralFax.confirmLink.useMutation({
+	const addLink = api.infoRequests.confirmLink.useMutation({
 		onSuccess: () => invalidate(),
 	});
-	const removeLink = api.referralFax.rejectLink.useMutation({
+	const removeLink = api.infoRequests.rejectLink.useMutation({
 		onSuccess: () => invalidate(),
 	});
-	const markReviewed = api.referralFax.markReviewed.useMutation({
+	const markReviewed = api.infoRequests.markReviewed.useMutation({
 		onSuccess: () => invalidate(),
 	});
 
@@ -73,7 +73,7 @@ function FaxList({ status }: { status: "pending" | "reviewed" }) {
 
 	if (isLoading) {
 		return (
-			<p className="text-muted-foreground text-sm">Loading referral faxes...</p>
+			<p className="text-muted-foreground text-sm">Loading info requests...</p>
 		);
 	}
 
@@ -83,8 +83,8 @@ function FaxList({ status }: { status: "pending" | "reviewed" }) {
 				<InboxIcon className="h-8 w-8 opacity-20" />
 				<p className="text-sm italic">
 					{status === "pending"
-						? "No referral faxes awaiting review."
-						: "No referral faxes have been reviewed yet."}
+						? "No info requests awaiting review."
+						: "No info requests have been reviewed yet."}
 				</p>
 			</div>
 		);
@@ -131,7 +131,7 @@ function FaxList({ status }: { status: "pending" | "reviewed" }) {
 								<CardContent className="grid gap-4 border-t pt-4 md:grid-cols-2">
 									<iframe
 										className="h-[500px] w-full rounded-md border"
-										src={`/api/referral-fax/${fax.driveFileId}`}
+										src={`/api/info-requests/${fax.driveFileId}`}
 										title={fax.fileName}
 									/>
 									<div className="flex flex-col gap-3">

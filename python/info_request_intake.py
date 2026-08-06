@@ -1,14 +1,14 @@
 """
-Referral Fax Intake
+Info Request Intake
 
-Polls a Google Drive folder for incoming referral update request faxes,
-extracts each one's text, uses the local LLM to identify the client(s) it's
-about, fuzzy-matches those names against emr_client, and records the fax
-plus any candidate client matches for staff to review on the
-/referral-faxes page.
+Polls a Google Drive folder for incoming information request faxes (referral
+sources asking for an update on a client), extracts each one's text, uses the
+local LLM to identify the client(s) it's about, fuzzy-matches those names
+against emr_client, and records the fax plus any candidate client matches for
+staff to review on the /info-requests page.
 
 Usage:
-    python referral_fax_intake.py
+    python info_request_intake.py
 """
 
 import json
@@ -19,7 +19,7 @@ from dotenv import load_dotenv
 from loguru import logger
 
 from utils.config import validate_config
-from utils.constants import TABLE_REFERRAL_FAX, TABLE_REFERRAL_FAX_CLIENT_LINK
+from utils.constants import TABLE_INFO_REQUEST, TABLE_INFO_REQUEST_CLIENT_LINK
 from utils.database import db_session, get_all_clients
 from utils.document_categorizer import (
     RESPONSE_TOKEN_RESERVE,
@@ -40,10 +40,10 @@ from utils.misc import json_log_format
 from utils.task_tracker import track_task
 
 logger.add(
-    "logs/referral-fax-intake.log",
+    "logs/info-request-intake.log",
     format=json_log_format,
     rotation="50 MB",
-    filter=lambda r: r["name"] == "referral_fax_intake",
+    filter=lambda r: r["name"] == "info_request_intake",
 )
 load_dotenv()
 
@@ -64,12 +64,12 @@ def _match_clients(names: list[str], client_lookup: list[dict]) -> dict[int, str
 
 def _already_seen_drive_file_ids() -> set[str]:
     with db_session() as conn, conn.cursor() as cursor:
-        cursor.execute(f"SELECT drive_file_id FROM {TABLE_REFERRAL_FAX}")
+        cursor.execute(f"SELECT drive_file_id FROM {TABLE_INFO_REQUEST}")
         return {row["drive_file_id"] for row in cursor.fetchall()}
 
 
 def _process_fax(file: dict, llm, client_lookup: list[dict]) -> None:
-    logger.info(f"Processing new referral fax: {file['name']} ({file['id']})")
+    logger.info(f"Processing new info request fax: {file['name']} ({file['id']})")
     pdf_bytes = get_file_as_bytes(file)
 
     with tempfile.NamedTemporaryFile(suffix=".pdf") as tmp:
@@ -96,7 +96,7 @@ def _process_fax(file: dict, llm, client_lookup: list[dict]) -> None:
         with conn.cursor() as cursor:
             cursor.execute(
                 f"""
-                INSERT INTO {TABLE_REFERRAL_FAX}
+                INSERT INTO {TABLE_INFO_REQUEST}
                     (drive_file_id, file_name, extracted_text, llm_raw_output)
                 VALUES (%s, %s, %s, %s)
                 """,
@@ -107,7 +107,7 @@ def _process_fax(file: dict, llm, client_lookup: list[dict]) -> None:
             for client_id, matched_name in matched_clients.items():
                 cursor.execute(
                     f"""
-                    INSERT INTO {TABLE_REFERRAL_FAX_CLIENT_LINK}
+                    INSERT INTO {TABLE_INFO_REQUEST_CLIENT_LINK}
                         (faxId, clientId, source, matched_name, confidence)
                     VALUES (%s, %s, 'llm', %s, 1.0)
                     """,
@@ -120,13 +120,13 @@ def _process_fax(file: dict, llm, client_lookup: list[dict]) -> None:
     )
 
 
-def process_referral_faxes() -> None:
-    folder_id = os.getenv("REFERRAL_FAX_INTAKE_FOLDER_ID")
+def process_info_requests() -> None:
+    folder_id = os.getenv("INFO_REQUEST_INTAKE_FOLDER_ID")
     if not folder_id:
-        logger.error("REFERRAL_FAX_INTAKE_FOLDER_ID is not set")
+        logger.error("INFO_REQUEST_INTAKE_FOLDER_ID is not set")
         return
 
-    with track_task("referral_fax_intake", "AI referral fax lookup") as task:
+    with track_task("info_request_intake", "AI info request lookup") as task:
         if task is None:
             # A previous run is still processing faxes (e.g. the LLM lookup
             # is taking longer than the cron interval); skip this run rather
@@ -135,16 +135,16 @@ def process_referral_faxes() -> None:
 
         files = list_files_in_folder(folder_id)
         if not files:
-            logger.info("No files found in referral fax intake folder.")
+            logger.info("No files found in info request intake folder.")
             return
 
         seen = _already_seen_drive_file_ids()
         new_files = [f for f in files if f["id"] not in seen]
         if not new_files:
-            logger.info("No new referral faxes to process.")
+            logger.info("No new info request faxes to process.")
             return
 
-        logger.info(f"Found {len(new_files)} new referral fax(es).")
+        logger.info(f"Found {len(new_files)} new info request fax(es).")
         task.progress(0, len(new_files))
 
         client_lookup = build_client_lookup(get_all_clients())
@@ -159,16 +159,16 @@ def process_referral_faxes() -> None:
             try:
                 _process_fax(file, llm, client_lookup)
             except Exception:
-                logger.exception(f"Failed to process referral fax {file['name']}")
+                logger.exception(f"Failed to process info request fax {file['name']}")
             task.progress(i, len(new_files), detail=file["name"])
 
 
 def main() -> None:
     try:
         validate_config()
-        process_referral_faxes()
+        process_info_requests()
     except Exception:
-        logger.exception("Failed to run referral fax intake")
+        logger.exception("Failed to run info request intake")
 
 
 if __name__ == "__main__":

@@ -8,7 +8,7 @@ export const GET = auth(async (req, { params }) => {
 		return new NextResponse("Unauthorized", { status: 401 });
 	}
 
-	if (!hasPermission(req.auth.user.permissions, "referrals:fax:review")) {
+	if (!hasPermission(req.auth.user.permissions, "info-requests:review")) {
 		return new NextResponse("Forbidden", { status: 403 });
 	}
 

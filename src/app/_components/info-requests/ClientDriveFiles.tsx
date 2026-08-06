@@ -53,7 +53,7 @@ export function ClientDriveFiles({
 	lastName: string;
 }) {
 	const [selectedFileId, setSelectedFileId] = useState<string | null>(null);
-	const { data, isLoading } = api.referralFax.getClientDriveFiles.useQuery({
+	const { data, isLoading } = api.infoRequests.getClientDriveFiles.useQuery({
 		clientId,
 	});
 

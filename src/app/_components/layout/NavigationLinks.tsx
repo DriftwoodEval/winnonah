@@ -260,10 +260,10 @@ export default function NavigationLinks() {
 			icon: Wrench,
 			items: [
 				{
-					href: "/referral-faxes",
-					label: "Referral Faxes",
+					href: "/info-requests",
+					label: "Info Requests",
 					icon: Inbox,
-					show: can("referrals:fax:review"),
+					show: can("info-requests:review"),
 				},
 				{
 					href: "/fax-categorization",
