@@ -109,6 +109,8 @@ export function IssueWidgetById({ id }: { id: string }) {
 			return <ClientsSharingQWidget />;
 		case "duplicate-names":
 			return <DuplicateNamesWidget />;
+		case "unreviewed-faxes":
+			return <UnreviewedFaxesWidget />;
 		default:
 			return null;
 	}
@@ -601,5 +603,31 @@ function DuplicateNamesWidget() {
 		<Shell>
 			<DuplicateNamesList fill groups={data ?? []} />
 		</Shell>
+	);
+}
+
+function UnreviewedFaxesWidget() {
+	const can = useCheckPermission();
+	const { data, isLoading } = api.faxCategorization.getPendingCount.useQuery(
+		undefined,
+		{ enabled: can("fax:categorization:review") },
+	);
+	if (!can("fax:categorization:review")) return null;
+	if (isLoading)
+		return (
+			<Shell>
+				<IssueListSkeleton />
+			</Shell>
+		);
+	return (
+		<Link
+			className="flex h-full w-full flex-col items-center justify-center gap-1 p-3 hover:bg-accent hover:text-accent-foreground"
+			href="/fax-categorization"
+		>
+			<span className="font-semibold text-3xl">{data ?? 0}</span>
+			<span className="text-muted-foreground text-xs uppercase tracking-wide">
+				Unreviewed Faxes
+			</span>
+		</Link>
 	);
 }

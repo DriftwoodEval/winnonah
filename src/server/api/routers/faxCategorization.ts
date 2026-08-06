@@ -1,4 +1,4 @@
-import { desc, eq } from "drizzle-orm";
+import { count, desc, eq } from "drizzle-orm";
 import z from "zod";
 import {
 	assertPermission,
@@ -31,6 +31,15 @@ export const faxCategorizationRouter = createTRPCRouter({
 				orderBy: [desc(faxCategorizations.discoveredAt)],
 			});
 		}),
+
+	getPendingCount: protectedProcedure.query(async ({ ctx }) => {
+		assertPermission(ctx.session.user, "fax:categorization:review");
+		const [row] = await ctx.db
+			.select({ count: count() })
+			.from(faxCategorizations)
+			.where(eq(faxCategorizations.status, "pending"));
+		return row?.count ?? 0;
+	}),
 
 	confirmLink: protectedProcedure
 		.input(

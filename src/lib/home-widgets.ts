@@ -250,6 +250,14 @@ export const HOME_WIDGET_DEFS: HomeWidgetDef[] = [
 		category: "issues",
 		sizing: "content",
 	},
+	{
+		id: "unreviewed-faxes",
+		label: "Unreviewed Faxes",
+		permission: "fax:categorization:review",
+		category: "issues",
+		sizing: "content",
+		fixedRows: true,
+	},
 	// Dashboard sections
 	{
 		id: "ds-active-not-on-punchlist",
