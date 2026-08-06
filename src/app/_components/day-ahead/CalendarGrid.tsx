@@ -4,7 +4,7 @@ import { Badge } from "@ui/badge";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@ui/tooltip";
 import { format } from "date-fns";
 import Link from "next/link";
-import { useMemo } from "react";
+import { createContext, useContext, useMemo, useState } from "react";
 import { getLocalTimeFromUTCDate, normalizePhoneNumber } from "~/lib/utils";
 import type { RouterOutputs } from "~/trpc/react";
 import { Redact } from "../redaction/Redact";
@@ -55,6 +55,16 @@ export type CalAppt = {
 	evaluatorName: string;
 	isCurrentUser: boolean;
 };
+
+// ─── Messages popover open state ───────────────────────────────────────────────
+
+// Shared across all appointment blocks in a view so that opening one
+// appointment's message popover suppresses hover tooltips for every
+// appointment, not just its own.
+const MessagesPopoverOpenContext = createContext<{
+	open: boolean;
+	setOpen: (open: boolean) => void;
+}>({ open: false, setOpen: () => undefined });
 
 // ─── Time helpers ─────────────────────────────────────────────────────────────
 
@@ -194,6 +204,7 @@ export function ApptBlock({
 	style,
 	messages,
 	messagesLoading,
+	tooltipSide = "right",
 }: {
 	appt: CalAppt;
 	colorClass: string;
@@ -201,6 +212,7 @@ export function ApptBlock({
 	style?: React.CSSProperties;
 	messages: RecentMessagesMap;
 	messagesLoading: boolean;
+	tooltipSide?: "top" | "right" | "bottom" | "left";
 }) {
 	const durationMin =
 		(new Date(appt.endTime).getTime() - new Date(appt.startTime).getTime()) /
@@ -218,12 +230,24 @@ export function ApptBlock({
 	const showBadges = heightPx === undefined || heightPx >= 40;
 	const showEvaluatorLine =
 		showEvaluator && (heightPx === undefined || heightPx >= 56);
+	const [tooltipOpen, setTooltipOpen] = useState(false);
+	const { open: messagesOpen, setOpen: setMessagesOpen } = useContext(
+		MessagesPopoverOpenContext,
+	);
 
 	return (
-		<Tooltip>
+		<Tooltip
+			onOpenChange={(open) => {
+				// Ignore hover changes on other appointments while a message
+				// popover is open, so a stale "open" doesn't stick around and
+				// pop the tooltip open the moment the popover closes.
+				if (!messagesOpen) setTooltipOpen(open);
+			}}
+			open={tooltipOpen && !messagesOpen}
+		>
 			<TooltipTrigger asChild>
 				<div
-					className={`absolute overflow-hidden rounded-sm border border-l-2 px-1.5 py-0.5 shadow-sm ${colorClass}`}
+					className={`absolute overflow-hidden rounded-sm border border-l-2 py-0.5 pr-4 pl-1.5 shadow-sm ${colorClass}`}
 					style={style}
 				>
 					<Link
@@ -269,24 +293,25 @@ export function ApptBlock({
 									{appt.daEval}
 								</Badge>
 							)}
-							<RecentMessagesPopover
-								appointmentStart={appt.startTime}
-								className="p-0.5"
-								isLoading={messagesLoading}
-								messages={
-									appt.clientPhone
-										? messages[normalizePhoneNumber(appt.clientPhone)]
-										: undefined
-								}
-								phoneNumber={appt.clientPhone}
-							/>
 						</div>
 					)}
+					<RecentMessagesPopover
+						appointmentStart={appt.startTime}
+						className="absolute top-0.5 right-0.5"
+						isLoading={messagesLoading}
+						messages={
+							appt.clientPhone
+								? messages[normalizePhoneNumber(appt.clientPhone)]
+								: undefined
+						}
+						onOpenChange={setMessagesOpen}
+						phoneNumber={appt.clientPhone}
+					/>
 				</div>
 			</TooltipTrigger>
 			<TooltipContent
 				className="flex-col items-start gap-0.5 text-left"
-				side="right"
+				side={tooltipSide}
 				sideOffset={6}
 			>
 				<p className="font-semibold">
@@ -343,6 +368,8 @@ export function CalendarDayView({
 		});
 	}, [appointments]);
 
+	const [messagesOpen, setMessagesOpen] = useState(false);
+
 	if (byEval.length === 0) {
 		return (
 			<p className="text-muted-foreground text-sm">No appointments this day.</p>
@@ -350,53 +377,58 @@ export function CalendarDayView({
 	}
 
 	return (
-		<div className="overflow-auto rounded-md border">
-			<div className="sticky top-0 z-10 flex border-b bg-background">
-				<div className="w-14 shrink-0 border-r" />
-				{byEval.map((ev) => (
-					<div
-						className="min-w-0 flex-1 border-l px-3 py-2 first:border-l-0"
-						key={ev.npi}
-					>
+		<MessagesPopoverOpenContext.Provider
+			value={{ open: messagesOpen, setOpen: setMessagesOpen }}
+		>
+			<div className="overflow-auto rounded-md border">
+				<div className="sticky top-0 z-10 flex border-b bg-background">
+					<div className="w-14 shrink-0 border-r" />
+					{byEval.map((ev) => (
 						<div
-							className={`truncate font-medium text-sm ${ev.isCurrentUser ? "text-primary" : ""}`}
+							className="min-w-0 flex-1 border-l px-3 py-2 first:border-l-0"
+							key={ev.npi}
 						>
-							{ev.name}
+							<div
+								className={`truncate font-medium text-sm ${ev.isCurrentUser ? "text-primary" : ""}`}
+							>
+								{ev.name}
+							</div>
+							<div className="text-[10px] text-muted-foreground">
+								{ev.appts.length} appt{ev.appts.length !== 1 ? "s" : ""}
+							</div>
 						</div>
-						<div className="text-[10px] text-muted-foreground">
-							{ev.appts.length} appt{ev.appts.length !== 1 ? "s" : ""}
+					))}
+				</div>
+				<div className="flex">
+					<TimeGutter />
+					{byEval.map((ev) => (
+						<div
+							className="relative min-w-0 flex-1 border-l first:border-l-0"
+							key={ev.npi}
+							style={{ height: TOTAL_HEIGHT }}
+						>
+							<GridLines />
+							{ev.appts.map((appt) => (
+								<ApptBlock
+									appt={appt}
+									colorClass={colorMap.get(appt.evaluatorNpi) ?? FALLBACK_COLOR}
+									key={appt.id}
+									messages={messages}
+									messagesLoading={messagesLoading}
+									style={{
+										top: blockTop(appt.startTime),
+										height: blockHeight(appt.startTime, appt.endTime),
+										left: 4,
+										right: 4,
+									}}
+									tooltipSide={byEval.length === 1 ? "top" : "right"}
+								/>
+							))}
 						</div>
-					</div>
-				))}
+					))}
+				</div>
 			</div>
-			<div className="flex">
-				<TimeGutter />
-				{byEval.map((ev) => (
-					<div
-						className="relative min-w-0 flex-1 border-l first:border-l-0"
-						key={ev.npi}
-						style={{ height: TOTAL_HEIGHT }}
-					>
-						<GridLines />
-						{ev.appts.map((appt) => (
-							<ApptBlock
-								appt={appt}
-								colorClass={colorMap.get(appt.evaluatorNpi) ?? FALLBACK_COLOR}
-								key={appt.id}
-								messages={messages}
-								messagesLoading={messagesLoading}
-								style={{
-									top: blockTop(appt.startTime),
-									height: blockHeight(appt.startTime, appt.endTime),
-									left: 4,
-									right: 4,
-								}}
-							/>
-						))}
-					</div>
-				))}
-			</div>
-		</div>
+		</MessagesPopoverOpenContext.Provider>
 	);
 }
 
@@ -427,67 +459,74 @@ export function CalendarMultiDayView({
 	}, [appointments, dates]);
 
 	const todayStr = format(new Date(), "yyyy-MM-dd");
+	const [messagesOpen, setMessagesOpen] = useState(false);
 
 	return (
-		<div className="overflow-auto rounded-md border">
-			<div className="sticky top-0 z-10 flex border-b bg-background">
-				<div className="w-14 shrink-0 border-r" />
-				{dates.map((d) => {
-					const date = new Date(`${d}T12:00:00`);
-					const isToday = d === todayStr;
-					const isEmpty = (byDate.get(d) ?? []).length === 0;
-					return (
-						<div
-							className={`min-w-0 border-l px-3 py-2 text-center first:border-l-0 ${isEmpty ? "flex-[0.35]" : "flex-1"}`}
-							key={d}
-						>
+		<MessagesPopoverOpenContext.Provider
+			value={{ open: messagesOpen, setOpen: setMessagesOpen }}
+		>
+			<div className="overflow-auto rounded-md border">
+				<div className="sticky top-0 z-10 flex border-b bg-background">
+					<div className="w-14 shrink-0 border-r" />
+					{dates.map((d) => {
+						const date = new Date(`${d}T12:00:00`);
+						const isToday = d === todayStr;
+						const isEmpty = (byDate.get(d) ?? []).length === 0;
+						return (
 							<div
-								className={`font-medium text-xs uppercase tracking-wide ${isToday ? "text-primary" : "text-muted-foreground"}`}
+								className={`min-w-0 border-l px-3 py-2 text-center first:border-l-0 ${isEmpty ? "flex-[0.35]" : "flex-1"}`}
+								key={d}
 							>
-								{format(date, "EEE")}
+								<div
+									className={`font-medium text-xs uppercase tracking-wide ${isToday ? "text-primary" : "text-muted-foreground"}`}
+								>
+									{format(date, "EEE")}
+								</div>
+								<div
+									className={`font-semibold text-sm ${isToday ? "text-primary" : ""}`}
+								>
+									{format(date, "M/d")}
+								</div>
 							</div>
+						);
+					})}
+				</div>
+				<div className="flex">
+					<TimeGutter />
+					{dates.map((d) => {
+						const dayAppts = byDate.get(d) ?? [];
+						const lanes = assignLanes(dayAppts);
+						const isEmpty = dayAppts.length === 0;
+						return (
 							<div
-								className={`font-semibold text-sm ${isToday ? "text-primary" : ""}`}
+								className={`relative min-w-0 border-l first:border-l-0 ${isEmpty ? "flex-[0.35]" : "flex-1"}`}
+								key={d}
+								style={{ height: TOTAL_HEIGHT }}
 							>
-								{format(date, "M/d")}
+								<GridLines />
+								{lanes.map(({ appt, lane, totalLanes }) => (
+									<ApptBlock
+										appt={appt}
+										colorClass={
+											colorMap.get(appt.evaluatorNpi) ?? FALLBACK_COLOR
+										}
+										key={appt.id}
+										messages={messages}
+										messagesLoading={messagesLoading}
+										showEvaluator
+										style={{
+											top: blockTop(appt.startTime),
+											height: blockHeight(appt.startTime, appt.endTime),
+											left: `calc(${(lane / totalLanes) * 100}% + 4px)`,
+											right: `calc(${((totalLanes - lane - 1) / totalLanes) * 100}% + 2px)`,
+										}}
+									/>
+								))}
 							</div>
-						</div>
-					);
-				})}
+						);
+					})}
+				</div>
 			</div>
-			<div className="flex">
-				<TimeGutter />
-				{dates.map((d) => {
-					const dayAppts = byDate.get(d) ?? [];
-					const lanes = assignLanes(dayAppts);
-					const isEmpty = dayAppts.length === 0;
-					return (
-						<div
-							className={`relative min-w-0 border-l first:border-l-0 ${isEmpty ? "flex-[0.35]" : "flex-1"}`}
-							key={d}
-							style={{ height: TOTAL_HEIGHT }}
-						>
-							<GridLines />
-							{lanes.map(({ appt, lane, totalLanes }) => (
-								<ApptBlock
-									appt={appt}
-									colorClass={colorMap.get(appt.evaluatorNpi) ?? FALLBACK_COLOR}
-									key={appt.id}
-									messages={messages}
-									messagesLoading={messagesLoading}
-									showEvaluator
-									style={{
-										top: blockTop(appt.startTime),
-										height: blockHeight(appt.startTime, appt.endTime),
-										left: `calc(${(lane / totalLanes) * 100}% + 4px)`,
-										right: `calc(${((totalLanes - lane - 1) / totalLanes) * 100}% + 2px)`,
-									}}
-								/>
-							))}
-						</div>
-					);
-				})}
-			</div>
-		</div>
+		</MessagesPopoverOpenContext.Provider>
 	);
 }

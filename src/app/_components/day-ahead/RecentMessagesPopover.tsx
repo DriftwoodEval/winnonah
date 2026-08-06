@@ -1,6 +1,7 @@
 "use client";
 
 import { Popover, PopoverContent, PopoverTrigger } from "@ui/popover";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@ui/tooltip";
 import { format } from "date-fns";
 import { Bot, MessageSquare } from "lucide-react";
 import { useMemo } from "react";
@@ -39,12 +40,14 @@ export function RecentMessagesPopover({
 	isLoading,
 	appointmentStart,
 	className,
+	onOpenChange,
 }: {
 	phoneNumber: string | null | undefined;
 	messages: RecentMessage[] | undefined;
 	isLoading: boolean;
 	appointmentStart: Date;
 	className?: string;
+	onOpenChange?: (open: boolean) => void;
 }) {
 	const { data: quoUsers } = api.quo.getQuoUsers.useQuery();
 
@@ -66,7 +69,7 @@ export function RecentMessagesPopover({
 	const isRecent = proximity === "same-day" || proximity === "day-before";
 
 	return (
-		<Popover>
+		<Popover onOpenChange={onOpenChange}>
 			<PopoverTrigger asChild>
 				<button
 					aria-label="Recent messages"
@@ -101,7 +104,14 @@ export function RecentMessagesPopover({
 									key={message.id}
 								>
 									<div className="flex w-full items-center gap-1.5">
-										<Bot className="h-3 w-3 shrink-0 opacity-70" />
+										<Tooltip>
+											<TooltipTrigger asChild>
+												<Bot className="h-3 w-3 shrink-0 opacity-70" />
+											</TooltipTrigger>
+											<TooltipContent className="max-w-64 text-left" side="top">
+												<Redact>{message.text ?? "No message text."}</Redact>
+											</TooltipContent>
+										</Tooltip>
 										<span className="truncate text-[10px]">
 											{message.reason ?? "Automated message"}
 										</span>
