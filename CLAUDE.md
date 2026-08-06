@@ -4,6 +4,9 @@ T3 stack app (Next.js, tRPC, Drizzle ORM, NextAuth) + a Python API sidecar + cro
 - No AI-isms (filler, hedging, "as an AI") and no em dashes (use comma/colon/period) in code, comments, commits, docs.
 - Prefer simple, readable code over clever/terse one-liners. DRY.
 
+## Changelog
+When making significant, user-facing changes, add an entry to `src/content/docs/changelog/index.mdx`. Use today's date, group bullets under `**New**`/`**Improved**`/`**Fixed**` in that order, and validate with `pnpm exec tsx scripts/validate-changelog.ts`. Write bullets in plain, user-friendly language describing what changed for the user, not implementation details (e.g. "Insurance review now shows the waiting badge even when you can't act on it," not "gated waiting badge render behind canUse flag").
+
 ## Commands
 - `mise run check` type-checks and lints everything (TS + Python); use `check:pnpm`/`check:ruff` to run just one side. Don't call `tsc`/`ruff` directly.
 - Trust ruff over your own syntax assumptions.

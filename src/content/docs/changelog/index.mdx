@@ -2,6 +2,40 @@
 title: Changelog
 ---
 
+## 2026-08-05 - Insurance review and permission fixes
+
+**Improved**
+- Insurance review now shows the waiting badge even when you don't have the permission to use it.
+
+**Fixed**
+- Fixed the "log attempt" button requiring the wrong permission.
+
+## 2026-08-04 - Questionnaire rule updates
+
+**Improved**
+- Questionnaire rules now include LD for DAEVALs.
+
+## 2026-07-30 - Day-ahead messages and dashboard tracking
+
+**New**
+- The day-ahead calendar now shows recent messages for each appointment, highlighted if a client messaged the day of or day before their appointment.
+- Added progress bars for long-running background tasks.
+- Records requested but not returned on the dashboard now includes prospective diagnosis and requested date.
+
+**Improved**
+- Sorting and filtering on the directory page look better.
+- The impersonation picker shrinks to fit small screens.
+- Merging clients now warns clearly that it overwrites all fields.
+
+**Fixed**
+- Fixed downloading referrals after TherapyAppointment changes.
+
+## 2026-07-29 - Dialog and modal fixes
+
+**Fixed**
+- Fixed the insurance notes preview dialog getting clipped on the right.
+- Fixed some modals not being able to get wide enough for their content.
+
 ## 2026-07-27 - Calendar lane and layout fixes
 **New**
 - Clients on the scheduling table can now be dragged and dropped.
@@ -10,6 +44,7 @@ title: Changelog
 - Evaluators no longer jump between lanes on the day-ahead calendar and short appointments show less clutter, such as using the short names for offices.
 - Empty days on the multi-day calendar view are now narrower.
 - Impersonation is more clearly labeled.
+- Client import now pulls language from the punchlist.
 
 **Fixed**
 - Stale private-pay/insurance entries are now cleaned up when no longer included on the TA import.
