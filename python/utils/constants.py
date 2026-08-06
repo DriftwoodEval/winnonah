@@ -1,4 +1,9 @@
+from datetime import datetime
 from typing import Final
+
+# Faxes discovered in the Drive folder before this date are ignored, so the
+# rollout doesn't churn through every fax ever received.
+FAX_CATEGORIZATION_START_DATE: Final = datetime(2026, 8, 5)
 
 TEST_NAMES: Final = [
     "Testman Testson",
@@ -53,6 +58,8 @@ TABLE_TASK: Final = "emr_task"
 TABLE_ROLE: Final = "emr_role"
 TABLE_EXTERNAL_RECORD: Final = "emr_external_record"
 TABLE_EXTERNAL_RECORD_HISTORY: Final = "emr_external_record_history"
+TABLE_FAX_CATEGORIZATION: Final = "emr_fax_categorization"
+TABLE_FAX_CATEGORIZATION_CLIENT_LINK: Final = "emr_fax_categorization_client_link"
 
 # DB to DataFrame Column Mapping
 CLIENT_COLUMN_MAPPING: Final = {

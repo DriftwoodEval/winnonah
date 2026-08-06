@@ -31,3 +31,8 @@ class TestBuildPrompt:
         prompt = build_prompt("some text")
         for category in CATEGORIES:
             assert category in prompt
+
+    def test_asks_for_conservative_confidence(self):
+        prompt = build_prompt("some text")
+        assert "confidence" in prompt
+        assert "conservative" in prompt
