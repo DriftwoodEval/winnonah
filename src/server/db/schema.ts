@@ -515,6 +515,78 @@ export const tasks = createTable(
 	],
 );
 
+export const infoRequests = createTable(
+	"info_request",
+	(d) => ({
+		id: d.int().notNull().autoincrement().primaryKey(),
+		driveFileId: d.varchar("drive_file_id", { length: 255 }).notNull().unique(),
+		fileName: d.varchar("file_name", { length: 255 }).notNull(),
+		discoveredAt: d
+			.timestamp("discovered_at")
+			.default(sql`CURRENT_TIMESTAMP`)
+			.notNull(),
+		status: d
+			.mysqlEnum("status", ["pending", "reviewed"])
+			.notNull()
+			.default("pending"),
+		extractedText: d.text("extracted_text"),
+		llmRawOutput: d.json("llm_raw_output"),
+		reviewedAt: d.timestamp("reviewed_at"),
+		reviewedBy: d.varchar("reviewed_by", { length: 255 }),
+	}),
+	(t) => [
+		index("info_request_status_idx").on(t.status),
+		index("info_request_discovered_idx").on(t.discoveredAt),
+	],
+);
+
+export const infoRequestClientLinks = createTable(
+	"info_request_client_link",
+	(d) => ({
+		id: d.int().notNull().autoincrement().primaryKey(),
+		faxId: d
+			.int()
+			.notNull()
+			.references(() => infoRequests.id, { onDelete: "cascade" }),
+		clientId: d
+			.int()
+			.notNull()
+			.references(() => clients.id, { onDelete: "cascade" }),
+		source: d.mysqlEnum("source", ["llm", "manual"]).notNull(),
+		matchedName: d.varchar("matched_name", { length: 255 }),
+		confidence: d.decimal("confidence", { precision: 5, scale: 4 }),
+		confirmed: d.boolean().notNull().default(false),
+		createdAt: d
+			.timestamp("created_at")
+			.default(sql`CURRENT_TIMESTAMP`)
+			.notNull(),
+		reviewedBy: d.varchar("reviewed_by", { length: 255 }),
+	}),
+	(t) => [
+		uniqueIndex("info_request_client_link_unique").on(t.faxId, t.clientId),
+		index("info_request_client_link_fax_idx").on(t.faxId),
+		index("info_request_client_link_client_idx").on(t.clientId),
+	],
+);
+
+export const infoRequestsRelations = relations(infoRequests, ({ many }) => ({
+	links: many(infoRequestClientLinks),
+}));
+
+export const infoRequestClientLinksRelations = relations(
+	infoRequestClientLinks,
+	({ one }) => ({
+		fax: one(infoRequests, {
+			fields: [infoRequestClientLinks.faxId],
+			references: [infoRequests.id],
+		}),
+		client: one(clients, {
+			fields: [infoRequestClientLinks.clientId],
+			references: [clients.id],
+		}),
+	}),
+);
+
 export const faxCategorizations = createTable(
 	"fax_categorization",
 	(d) => ({

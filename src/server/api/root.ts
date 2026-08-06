@@ -5,6 +5,7 @@ import { evaluatorDashboardRouter } from "./routers/evaluatorDashboard";
 import { externalRecordRouter } from "./routers/externalRecords";
 import { faxCategorizationRouter } from "./routers/faxCategorization";
 import { googleRouter } from "./routers/google";
+import { infoRequestsRouter } from "./routers/infoRequests";
 import { insuranceRouter } from "./routers/insurance";
 import { insuranceReviewRouter } from "./routers/insuranceReview";
 import { noteRouter } from "./routers/notes";
@@ -36,6 +37,7 @@ export const appRouter = createTRPCRouter({
 	externalRecords: externalRecordRouter,
 	faxCategorization: faxCategorizationRouter,
 	google: googleRouter,
+	infoRequests: infoRequestsRouter,
 	insurances: insuranceRouter,
 	insuranceReview: insuranceReviewRouter,
 	notes: noteRouter,

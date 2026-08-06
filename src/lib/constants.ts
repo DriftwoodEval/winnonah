@@ -112,6 +112,10 @@ export const PERMISSIONS = {
 						title: "Receive Report Queue Notifications",
 					},
 					{
+						id: "info-requests:review",
+						title: "Review Info Request Client Matches",
+					},
+					{
 						id: "fax:categorization:review",
 						title: "Review Fax Categorization Guesses",
 					},
