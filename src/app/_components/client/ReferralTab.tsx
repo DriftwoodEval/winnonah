@@ -21,7 +21,7 @@ import {
 	SelectValue,
 } from "@ui/select";
 import { Textarea } from "@ui/textarea";
-import { differenceInMonths, differenceInYears } from "date-fns";
+import { differenceInMonths, differenceInYears, format } from "date-fns";
 import {
 	AlertCircle,
 	Armchair,
@@ -364,7 +364,10 @@ export function ReferralTab({ client, readOnly }: ReferralTabProps) {
 											className="text-muted-foreground"
 											key={attempt.attemptedAt}
 										>
-											{new Date(attempt.attemptedAt).toLocaleString()}
+											{format(
+												new Date(attempt.attemptedAt),
+												"MMM d, yyyy h:mm a",
+											)}
 											{attempt.attemptedBy ? ` – ${attempt.attemptedBy}` : ""}
 											{attempt.notes ? `: ${attempt.notes}` : ""}
 										</li>
