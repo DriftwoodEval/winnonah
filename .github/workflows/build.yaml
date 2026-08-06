@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - main
+  workflow_dispatch: {}
 
 env:
   REGISTRY: ghcr.io
@@ -31,6 +32,11 @@ jobs:
       - name: Check for node changes
         id: check_node_changes
         run: |
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            echo "Manually triggered, building both images regardless of changed files."
+            echo "build_triggered=true" >> $GITHUB_OUTPUT
+            exit 0
+          fi
           echo "build_triggered=false" >> $GITHUB_OUTPUT
           for file in ${{ steps.changed-files.outputs.all_changed_files }}; do
             if [[ ! "$file" == python/* \
@@ -50,6 +56,11 @@ jobs:
       - name: Check for python changes
         id: check_python_changes
         run: |
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            echo "Manually triggered, building both images regardless of changed files."
+            echo "build_triggered=true" >> $GITHUB_OUTPUT
+            exit 0
+          fi
           echo "build_triggered=false" >> $GITHUB_OUTPUT
           for file in ${{ steps.changed-files.outputs.all_changed_files }}; do
             if [[ "$file" == python/* ]]; then
