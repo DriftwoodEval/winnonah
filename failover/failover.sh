@@ -63,6 +63,7 @@ stonith_loop() {
 # Launch STONITH in background - failover continues immediately
 stonith_loop &
 STONITH_PID=$!
+echo "${STONITH_PID}" > /tmp/stonith.pid
 log "STONITH running in background (PID ${STONITH_PID}). Proceeding with failover."
 
 # 2. Promote MySQL

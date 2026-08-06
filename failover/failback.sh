@@ -21,6 +21,15 @@ slack() {
 log "=== FAILBACK STARTING ==="
 slack "Failback initiated. Syncing primary from standby before swapping traffic."
 
+# 0. Kill standby's STONITH loop first. It retries "docker compose down" on
+# primary every 15s until it succeeds, with no awareness that failback is
+# starting, so if primary becomes reachable while STONITH is still running
+# it will tear down the services we're about to bring up.
+log "Stopping standby's STONITH loop..."
+ssh -o LogLevel=quiet -i "${STANDBY_SSH_KEY_PATH}" "${STANDBY_SSH_USER}@${STANDBY_TAILSCALE_IP}" \
+  'if [ -f /tmp/stonith.pid ]; then kill "$(cat /tmp/stonith.pid)" 2>/dev/null; rm -f /tmp/stonith.pid; fi' \
+  || log "Could not reach standby to stop STONITH, continuing."
+
 # 1. Start primary driftwood-db, redis, and the monitoring stack
 # Like caddy, these have no profile and are normally always-on, but
 # STONITH's blanket `docker compose down` on primary (failover.sh) removes
