@@ -1407,6 +1407,23 @@ export const appointmentNotesRelations = relations(
 	}),
 );
 
+export const clientDashboardSectionHistory = createTable(
+	"client_dashboard_section_history",
+	(d) => ({
+		id: d.int().notNull().autoincrement().primaryKey(),
+		clientId: d
+			.int()
+			.notNull()
+			.references(() => clients.id, { onDelete: "cascade" }),
+		sections: d.json("sections").$type<string[]>().notNull(),
+		createdAt: d
+			.timestamp("created_at")
+			.default(sql`CURRENT_TIMESTAMP`)
+			.notNull(),
+	}),
+	(t) => [index("client_dash_section_history_client_idx").on(t.clientId)],
+);
+
 export const appointmentNoteHistoryRelations = relations(
 	appointmentNoteHistory,
 	({ one }) => ({

@@ -1,19 +1,19 @@
 import type { JSONContent } from "@tiptap/core";
 import { TRPCError } from "@trpc/server";
 import { differenceInMonths, differenceInYears } from "date-fns";
-import { and, asc, desc, eq, isNotNull, not, sql } from "drizzle-orm";
+import { and, desc, eq, isNotNull } from "drizzle-orm";
 import { distance as levDistance } from "fastest-levenshtein";
 import z from "zod";
 import { env } from "~/env";
 import { fetchWithCache, invalidateCache } from "~/lib/cache";
 import { TEST_NAMES } from "~/lib/constants";
 import {
-	getDashboardSections,
 	getDuplicatePunchClients,
 	getInactivePunchClients,
-	sortNeedsReachOut,
 } from "~/lib/dashboard";
+import { getFullDashboardData } from "~/lib/dashboard-data";
 import {
+	CACHE_KEY_MISSING_PUNCHLIST,
 	CACHE_KEY_PUNCHLIST,
 	createAvailabilityEvent,
 	deleteAvailabilityEvent,
@@ -64,7 +64,6 @@ const availabilitySchema = z.object({
 	scope: z.enum(["this", "all", "future"]).optional(),
 	recurringEventId: z.string().optional(),
 });
-const CACHE_KEY_MISSING_PUNCHLIST = "google:sheets:missing-punchlist";
 
 const getPreviewData = async (ctx: Context, clientId: number) => {
 	const client = await ctx.db.query.clients.findFirst({
@@ -906,58 +905,7 @@ export const googleRouter = createTRPCRouter({
 			throw new Error("No access token or refresh token");
 		}
 
-		const isNotesOnly = eq(sql`LENGTH(${clients.id})`, 5);
-
-		const [punchClients, missingClients, needsReachOut, needsReview] =
-			await Promise.all([
-				fetchWithCache(
-					ctx,
-					CACHE_KEY_PUNCHLIST,
-					() => getPunchData(ctx.session),
-					60,
-				),
-				fetchWithCache(
-					ctx,
-					CACHE_KEY_MISSING_PUNCHLIST,
-					() => getMissingFromPunchlistData(ctx.session),
-					60,
-				),
-				ctx.db.query.clients.findMany({
-					where: and(
-						eq(clients.status, true),
-						not(isNotesOnly),
-						sql`JSON_EXTRACT(${clients.referralData}, '$.needsReachOut') = 'reach_out'`,
-					),
-					orderBy: asc(clients.addedDate),
-				}),
-				ctx.db.query.clients.findMany({
-					where: and(
-						eq(clients.status, true),
-						not(isNotesOnly),
-						sql`JSON_EXTRACT(${clients.referralData}, '$.needsReachOut') = 'review'`,
-					),
-					orderBy: asc(clients.addedDate),
-				}),
-			]);
-
-		const duplicatePunchClients = getDuplicatePunchClients(punchClients).map(
-			({ client, count }) => ({
-				hash: client.hash,
-				name: client.fullName ?? client["Client Name"] ?? String(client.id),
-				count,
-			}),
-		);
-
-		return {
-			sections: getDashboardSections(
-				punchClients,
-				missingClients,
-				sortNeedsReachOut(needsReachOut),
-				needsReview,
-			),
-			punchlistCount: punchClients?.length ?? 0,
-			duplicatePunchClients,
-		};
+		return getFullDashboardData(ctx);
 	}),
 
 	getPushPreview: protectedProcedure

@@ -38,6 +38,7 @@ import { ClientDetailsCard } from "./ClientDetailsCard";
 import { ClientHeader } from "./ClientHeader";
 import { ClientNoteEditor } from "./ClientNoteEditor";
 import { CommunicationTimeline } from "./CommunicationTimeline";
+import { DashboardSectionTimeline } from "./DashboardSectionTimeline";
 import { EligibleEvaluatorsList } from "./EligibleEvaluatorsList";
 import { InPersonAssessmentsTable } from "./InPersonAssessmentsTable";
 import { InsuranceTab } from "./InsuranceTab";
@@ -150,8 +151,13 @@ export function Client({
 
 	return (
 		<div className="relative flex w-full flex-col items-center lg:flex-row lg:items-start lg:justify-center lg:gap-8 lg:px-6">
-			{/* Spacer to balance the sticky sidebar on the right and keep main content centered */}
-			{!readOnly && <div className="hidden shrink-0 lg:block lg:w-[230px]" />}
+			{!readOnly && (
+				<div className="flex w-[calc(100%-32px)] shrink-0 flex-col gap-6 lg:sticky lg:top-14 lg:mt-0 lg:w-[230px]">
+					{client && !isLoading && (
+						<DashboardSectionTimeline clientId={client.id} />
+					)}
+				</div>
+			)}
 
 			<div className="flex w-full max-w-[calc(100%-32px)] flex-col items-center gap-6 lg:max-w-3xl">
 				<ClientHeader

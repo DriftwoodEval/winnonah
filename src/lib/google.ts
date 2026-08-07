@@ -730,6 +730,8 @@ export const pushToPunch = async (
 	return true;
 };
 
+export const CACHE_KEY_MISSING_PUNCHLIST = "google:sheets:missing-punchlist";
+
 export const getMissingFromPunchlistData = async (session: Session) => {
 	const punchClients = await getPunchData(session);
 	const punchClientIds = new Set(

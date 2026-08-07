@@ -10,7 +10,7 @@ const DEFAULT_CACHE_TTL = 3600; // 1 hour in seconds
 const inFlight = new Map<string, Promise<unknown>>();
 
 export async function fetchWithCache<T>(
-	ctx: Context,
+	ctx: Pick<Context, "redis">,
 	key: string,
 	fetcher: () => Promise<T>,
 	ttl: number,
@@ -18,7 +18,7 @@ export async function fetchWithCache<T>(
 ): Promise<{ data: T; lastFetched: number }>;
 
 export async function fetchWithCache<T>(
-	ctx: Context,
+	ctx: Pick<Context, "redis">,
 	key: string,
 	fetcher: () => Promise<T>,
 	ttl?: number,
@@ -37,7 +37,7 @@ export async function fetchWithCache<T>(
  * @returns The data from the cache or the fetcher.
  */
 export async function fetchWithCache<T>(
-	ctx: Context,
+	ctx: Pick<Context, "redis">,
 	key: string,
 	fetcher: () => Promise<T>,
 	ttl: number = DEFAULT_CACHE_TTL,

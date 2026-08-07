@@ -56,6 +56,7 @@ import {
 import {
 	appointments,
 	assessmentTypes,
+	clientDashboardSectionHistory,
 	clientInsurancePolicies,
 	clientRelated,
 	clients,
@@ -837,6 +838,19 @@ export const clientRouter = createTRPCRouter({
 			});
 
 			return clientFailures;
+		}),
+
+	getDashboardSectionHistory: protectedProcedure
+		.input(z.number().optional())
+		.query(async ({ ctx, input }) => {
+			if (!input) {
+				return [];
+			}
+
+			return ctx.db.query.clientDashboardSectionHistory.findMany({
+				where: eq(clientDashboardSectionHistory.clientId, input),
+				orderBy: asc(clientDashboardSectionHistory.createdAt),
+			});
 		}),
 
 	resolveFailure: protectedProcedure
