@@ -92,19 +92,34 @@ description = "Start the Next.js dev server"
 run = "pnpm dev"
 
 [tasks.dev]
-description = "Start development server, bringing up and installing dependencies first"
+description = "Start development server, bringing up and installing dependencies first. Use --pull/--no-pull and --sync-db/--no-sync-db to skip the prompts."
 depends = ["deps"]
 shell = "bash -c"
+usage = '''
+flag "--pull" help="Pull latest changes from git before starting"
+flag "--no-pull" help="Skip pulling latest changes"
+flag "--sync-db" help="Sync database from production before starting"
+flag "--no-sync-db" help="Skip syncing the database"
+'''
 run = """
-read -p "Pull latest changes from git first? [Y/n] " pull_answer
-if [[ ! "$pull_answer" =~ ^[Nn]$ ]]; then
-    git pull
+pull="${usage_pull:-}"
+[ -n "${usage_no_pull:-}" ] && pull="false"
+if [ -z "$pull" ]; then
+    read -p "Pull latest changes from git first? [Y/n] " pull_answer
+    [[ "$pull_answer" =~ ^[Nn]$ ]] && pull="false" || pull="true"
 fi
+[ "$pull" = "true" ] && git pull
+
 pnpm install
-read -p "Sync database from production first? [y/N] " sync_answer
-if [[ "$sync_answer" =~ ^[Yy]$ ]]; then
-    mise run sync-db
+
+sync_db="${usage_sync_db:-}"
+[ -n "${usage_no_sync_db:-}" ] && sync_db="false"
+if [ -z "$sync_db" ]; then
+    read -p "Sync database from production first? [y/N] " sync_answer
+    [[ "$sync_answer" =~ ^[Yy]$ ]] && sync_db="true" || sync_db="false"
 fi
+[ "$sync_db" = "true" ] && mise run sync-db
+
 trap "docker compose down" EXIT INT TERM
 mise run python-dev &
 mise run next-dev
