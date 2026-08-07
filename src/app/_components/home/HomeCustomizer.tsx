@@ -139,7 +139,7 @@ export function HomeCustomizer({ widgets, onChange }: HomeCustomizerProps) {
 											+
 										</Button>
 									</div>
-									{!defFor(w.id)?.fixedRows && (
+									{defFor(w.id)?.sizing !== "content" && (
 										<div className="flex items-center gap-1">
 											<span>H:</span>
 											<Button

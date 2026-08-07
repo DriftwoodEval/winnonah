@@ -11,7 +11,6 @@ export type HomeWidgetDef = {
 	category: WidgetCategory;
 	sizing: WidgetSizing;
 	dashboardSection?: string;
-	fixedRows?: true;
 	removable?: false;
 };
 
@@ -37,7 +36,6 @@ export const HOME_WIDGET_DEFS: HomeWidgetDef[] = [
 		permission: null,
 		category: "clients",
 		sizing: "content",
-		fixedRows: true,
 	},
 	{
 		id: "my-insurance-clients",
@@ -45,7 +43,6 @@ export const HOME_WIDGET_DEFS: HomeWidgetDef[] = [
 		permission: "clients:insurance:review",
 		category: "clients",
 		sizing: "content",
-		fixedRows: true,
 	},
 	{
 		id: "day-ahead-mine",
@@ -263,7 +260,6 @@ export const HOME_WIDGET_DEFS: HomeWidgetDef[] = [
 		permission: "fax:categorization:review",
 		category: "issues",
 		sizing: "content",
-		fixedRows: true,
 	},
 	// Dashboard sections
 	{

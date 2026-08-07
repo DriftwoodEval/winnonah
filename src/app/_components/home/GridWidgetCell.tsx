@@ -38,7 +38,7 @@ export function GridWidgetCell({
 
 	return (
 		<div
-			className={`min-h-0 overflow-hidden ${colClass[cols] ?? "col-span-full"} ${rowClass[rows] ?? "row-[span_1]"}`}
+			className={`min-h-0 overflow-hidden ${colClass[cols] ?? "col-span-full"} ${autoHeight ? "" : (rowClass[rows] ?? "row-[span_1]")}`}
 			style={autoHeight ? undefined : { height: vh }}
 		>
 			{children}

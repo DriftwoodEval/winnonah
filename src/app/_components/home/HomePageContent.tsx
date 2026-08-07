@@ -61,7 +61,7 @@ export function HomePageContent() {
 						const def = HOME_WIDGET_DEFS.find((d) => d.id === w.id);
 						return (
 							<GridWidgetCell
-								autoHeight={def?.fixedRows}
+								autoHeight={def?.sizing === "content"}
 								cols={w.cols}
 								key={w.id}
 								rows={w.rows}

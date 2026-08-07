@@ -202,12 +202,15 @@ export function MyDayWidget() {
 			) : (
 				<div className="divide-y divide-border">
 					{appts.map((appt) => (
-						<div className="flex items-center gap-2 py-1.5" key={appt.id}>
+						<div
+							className="flex flex-wrap items-center gap-x-2 gap-y-1 py-2"
+							key={appt.id}
+						>
 							<span className="shrink-0 whitespace-nowrap text-muted-foreground text-xs tabular-nums">
 								{formatTime(appt.startTime)} – {formatTime(appt.endTime)}
 							</span>
 							<Link
-								className="truncate font-medium text-sm hover:text-secondary"
+								className="min-w-32 flex-1 truncate font-medium text-sm hover:text-secondary"
 								href={`/clients/${appt.clientHash}`}
 							>
 								{appt.clientName}
@@ -406,12 +409,15 @@ function ExpandableEvaluator({
 			<CollapsibleContent>
 				<div className="ml-6 border-border border-l pl-3">
 					{evaluator.appointments.map((appt) => (
-						<div className="flex items-center gap-2 py-1" key={appt.id}>
+						<div
+							className="flex flex-wrap items-center gap-x-2 gap-y-1 py-1.5"
+							key={appt.id}
+						>
 							<span className="shrink-0 whitespace-nowrap text-muted-foreground text-xs tabular-nums">
 								{formatTime(appt.startTime)} – {formatTime(appt.endTime)}
 							</span>
 							<Link
-								className="truncate text-xs hover:text-secondary"
+								className="min-w-32 flex-1 truncate text-xs hover:text-secondary"
 								href={`/clients/${appt.clientHash}`}
 							>
 								{appt.clientName}
