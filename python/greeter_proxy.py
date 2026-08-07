@@ -50,10 +50,10 @@ async def send_sms(to: str, body: str) -> None:
         raise
 
 
-def get_todays_schedule() -> list[dict]:
-    """Returns today's entries from the Google Sheet: [{location, name}]."""
-    today_str = datetime.now().strftime("%m-%d-%y")
-    logger.debug(f"Fetching schedule for {today_str}")
+def get_schedule_for_date(date: datetime) -> list[dict]:
+    """Returns the given date's entries from the Google Sheet: [{location, name}]."""
+    date_str = date.strftime("%m-%d-%y")
+    logger.debug(f"Fetching schedule for {date_str}")
 
     creds = google_authenticate()
     service = build("sheets", "v4", credentials=creds)
@@ -70,14 +70,14 @@ def get_todays_schedule() -> list[dict]:
         if len(row) < 6:
             continue
         date_val = (row[0] or "").strip()
-        if date_val != today_str:
+        if date_val != date_str:
             continue
         location = (row[3] or "").strip()
         name = (row[5] or "").strip()
         if name:
             schedule.append({"location": location, "name": name})
 
-    logger.info(f"Found {len(schedule)} schedule entries for today")
+    logger.info(f"Found {len(schedule)} schedule entries for {date_str}")
     return schedule
 
 
@@ -116,7 +116,7 @@ async def process_message(sender_phone: str) -> None:
     if not is_known_user(sender_phone):
         logger.warning(f"Ignoring message from unknown number {sender_phone}")
         return
-    schedule = get_todays_schedule()
+    schedule = get_schedule_for_date(datetime.now())
 
     lines = []
 
@@ -132,6 +132,22 @@ async def process_message(sender_phone: str) -> None:
             "Please click the number after the appropriate office to get in touch with your greeter."
         )
     await send_sms(sender_phone, "\n".join(lines))
+
+
+@router.get("/pyapi/greeter-proxy/schedule")
+async def get_schedule(date: str | None = None) -> dict:
+    """Returns the greeter schedule with phone numbers for a date (default today), for display in the app."""
+    try:
+        target_date = datetime.strptime(date, "%Y-%m-%d") if date else datetime.now()
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail="Invalid date format") from e
+
+    schedule = get_schedule_for_date(target_date)
+    entries = [
+        {**entry, "phone": lookup_phone_by_first_name(entry["name"])}
+        for entry in schedule
+    ]
+    return {"entries": entries}
 
 
 @router.post("/pyapi/greeter-proxy/sms")

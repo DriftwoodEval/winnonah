@@ -177,10 +177,6 @@ export const PERMISSIONS = {
 						title: "Manage Questionnaire Rules",
 					},
 					{
-						id: "settings:greeter-proxy",
-						title: "View & Reset Greeter Proxy",
-					},
-					{
 						id: "evaluator-dashboard:admin",
 						title: "Evaluator Dashboard Admin",
 					},

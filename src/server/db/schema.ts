@@ -964,7 +964,6 @@ export const users = createTable("user", (d) => ({
 		.$type<{ name: string; id: string }[]>(),
 	maxClaimedReports: d.tinyint("max_claimed_reports"),
 	phoneNumber: d.varchar("phone_number", { length: 20 }),
-	isGreeter: d.boolean("is_greeter").notNull().default(false),
 	recentClients: d.text("recent_clients"),
 	homeWidgets: d.text("home_widgets"),
 	lastSeenChangelogDate: d.varchar("last_seen_changelog_date", { length: 32 }),
@@ -1120,11 +1119,6 @@ export const seenReportFolders = createTable("seen_report_folders", (d) => ({
 		.timestamp("notified_at")
 		.default(sql`CURRENT_TIMESTAMP`)
 		.notNull(),
-}));
-
-export const greeterProxyState = createTable("greeter_proxy_state", (d) => ({
-	key: d.varchar({ length: 100 }).notNull().primaryKey(),
-	value: d.varchar({ length: 255 }),
 }));
 
 export const appointmentReminderSettings = createTable(

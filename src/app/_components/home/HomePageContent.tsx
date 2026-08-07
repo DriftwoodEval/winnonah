@@ -15,6 +15,7 @@ import {
 import { ClientWidget } from "./ClientWidget";
 import { DashboardSectionWidget } from "./DashboardSectionWidget";
 import { MyDayWidget, WhosInWidget } from "./DayAheadWidgets";
+import { GreeterScheduleWidget } from "./GreeterScheduleWidget";
 import { GridWidgetCell } from "./GridWidgetCell";
 import { HomeCustomizer } from "./HomeCustomizer";
 import { IssueWidgetById } from "./IssueWidgetById";
@@ -79,6 +80,8 @@ export function HomePageContent() {
 										return <MyInsuranceClientsWidget />;
 									if (w.id === "day-ahead-mine") return <MyDayWidget />;
 									if (w.id === "day-ahead-offices") return <WhosInWidget />;
+									if (w.id === "greeter-schedule")
+										return <GreeterScheduleWidget />;
 									if (w.id === "cal-day")
 										return <CalendarViewWidget mode="day" />;
 									if (w.id === "cal-3day")

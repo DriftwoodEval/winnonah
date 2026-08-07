@@ -62,6 +62,13 @@ export const HOME_WIDGET_DEFS: HomeWidgetDef[] = [
 		sizing: "content",
 	},
 	{
+		id: "greeter-schedule",
+		label: "Greeter Schedule",
+		permission: null,
+		category: "schedule",
+		sizing: "content",
+	},
+	{
 		id: "cal-day",
 		label: "Day Calendar",
 		permission: null,
@@ -474,6 +481,7 @@ export const DEFAULT_WIDGET_CONFIG: Record<
 	clients: { cols: 4, rows: 4 },
 	"day-ahead-mine": { cols: 2, rows: 2 },
 	"day-ahead-offices": { cols: 2, rows: 2 },
+	"greeter-schedule": { cols: 2, rows: 2 },
 	"cal-day": { cols: 2, rows: 3 },
 	"cal-3day": { cols: 4, rows: 3 },
 	"cal-week": { cols: 4, rows: 4 },

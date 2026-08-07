@@ -30,6 +30,7 @@ import {
 	LineChart,
 	type LucideIcon,
 	Menu,
+	PhoneCall,
 	Users,
 	Wrench,
 } from "lucide-react";
@@ -233,6 +234,13 @@ export default function NavigationLinks() {
 					label: "Scheduling",
 					icon: CalendarRange,
 					show: can("pages:scheduling"),
+				},
+				{
+					id: "greeter-schedule",
+					href: "/greeter-schedule",
+					label: "Greeter Schedule",
+					icon: PhoneCall,
+					show: true,
 				},
 			],
 		},

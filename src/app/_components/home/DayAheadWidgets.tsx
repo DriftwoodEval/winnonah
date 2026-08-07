@@ -11,17 +11,53 @@ import { addDays, format } from "date-fns";
 import { ChevronDown, ChevronLeft, ChevronRight } from "lucide-react";
 import Link from "next/link";
 import { useMemo, useState } from "react";
-import { normalizePhoneNumber } from "~/lib/utils";
+import { formatPhoneNumber, normalizePhoneNumber } from "~/lib/utils";
 import { api, type RouterOutputs } from "~/trpc/react";
 import { RecentMessagesPopover } from "../day-ahead/RecentMessagesPopover";
 
 type RecentMessagesMap = RouterOutputs["quo"]["getRecentMessages"];
+type GreeterSchedule = RouterOutputs["greeterProxy"]["getSchedule"];
 
-function todayStr() {
+export function todayStr() {
 	return format(new Date(), "yyyy-MM-dd");
 }
 
-function useSelectedDate() {
+function findGreeter(
+	schedule: GreeterSchedule | undefined,
+	officeName: string | null,
+) {
+	if (!schedule || !officeName) return null;
+	const norm = officeName.trim().toLowerCase();
+	const match = schedule.find((entry) => {
+		const loc = entry.location.trim().toLowerCase();
+		return loc === norm || loc.includes(norm) || norm.includes(loc);
+	});
+	return match ?? null;
+}
+
+function GreeterLine({
+	greeter,
+}: {
+	greeter: { name: string; phone: string | null } | null;
+}) {
+	if (!greeter) return null;
+	return (
+		<div className="mb-2 flex items-center gap-1.5 border-b pb-2 text-xs">
+			<span className="text-muted-foreground">Greeter:</span>
+			<span className="font-medium">{greeter.name}</span>
+			{greeter.phone && (
+				<a
+					className="text-secondary hover:underline"
+					href={`tel:${greeter.phone}`}
+				>
+					{formatPhoneNumber(greeter.phone)}
+				</a>
+			)}
+		</div>
+	);
+}
+
+export function useSelectedDate() {
 	const [date, setDate] = useState(todayStr);
 	const shift = (dir: -1 | 1) => {
 		setDate((d) =>
@@ -39,7 +75,7 @@ function formatTime(date: Date) {
 	});
 }
 
-function DayNav({
+export function DayNav({
 	date,
 	onShift,
 	onToday,
@@ -84,7 +120,7 @@ function DayNav({
 	);
 }
 
-function WidgetShell({
+export function WidgetShell({
 	title,
 	nav,
 	children,
@@ -107,6 +143,9 @@ function WidgetShell({
 export function MyDayWidget() {
 	const { date: asDate, shift, resetToToday } = useSelectedDate();
 	const { data, isLoading } = api.appointments.getDayAhead.useQuery({ asDate });
+	const { data: greeterSchedule } = api.greeterProxy.getSchedule.useQuery({
+		date: asDate,
+	});
 
 	const appts = data?.myAppointments ?? [];
 
@@ -139,12 +178,17 @@ export function MyDayWidget() {
 		uniqueLocations.length > 0 ? uniqueLocations.join(", ") : null;
 
 	const titleParts = ["My Day", myTimeRange, locationSuffix].filter(Boolean);
+	const greeter =
+		allSameLocation && uniqueLocations[0]
+			? findGreeter(greeterSchedule, uniqueLocations[0])
+			: null;
 
 	return (
 		<WidgetShell
 			nav={<DayNav date={asDate} onShift={shift} onToday={resetToToday} />}
 			title={titleParts.join(" · ")}
 		>
+			<GreeterLine greeter={greeter} />
 			{isLoading ? (
 				<p className="text-muted-foreground text-sm">Loading...</p>
 			) : !data ? null : !data.hasEvaluatorAccount ? (
@@ -216,6 +260,9 @@ export function MyDayWidget() {
 export function WhosInWidget() {
 	const { date: asDate, shift, resetToToday } = useSelectedDate();
 	const { data, isLoading } = api.appointments.getDayAhead.useQuery({ asDate });
+	const { data: greeterSchedule } = api.greeterProxy.getSchedule.useQuery({
+		date: asDate,
+	});
 
 	const otherOffices = (data?.offices ?? [])
 		.map((office) => ({
@@ -258,9 +305,34 @@ export function WhosInWidget() {
 				<div className="flex flex-col gap-4">
 					{otherOffices.map((office) => (
 						<div key={office.locationKey}>
-							<p className="mb-1 font-semibold text-muted-foreground text-xs uppercase tracking-wider">
-								{office.officeName}
-							</p>
+							<div className="mb-1 flex items-center justify-between gap-2">
+								<p className="font-semibold text-muted-foreground text-xs uppercase tracking-wider">
+									{office.officeName}
+								</p>
+								{(() => {
+									const greeter = findGreeter(
+										greeterSchedule,
+										office.officeName,
+									);
+									if (!greeter) return null;
+									return (
+										<span className="shrink-0 text-muted-foreground text-xs normal-case">
+											{greeter.name}
+											{greeter.phone && (
+												<>
+													{" · "}
+													<a
+														className="text-secondary hover:underline"
+														href={`tel:${greeter.phone}`}
+													>
+														{formatPhoneNumber(greeter.phone)}
+													</a>
+												</>
+											)}
+										</span>
+									);
+								})()}
+							</div>
 							{office.evaluators.map((ev) => (
 								<ExpandableEvaluator
 									evaluator={ev}

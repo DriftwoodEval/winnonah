@@ -12,6 +12,14 @@ When making significant, user-facing changes, add an entry to `src/content/docs/
 - Trust ruff over your own syntax assumptions.
 - Never run `pnpm db:*` or DB migrations, leave to the user.
 
+## Home Page Widgets
+The home page (`src/app/_components/home/HomePageContent.tsx`) renders a user-configurable grid of widgets. Widget ids are plain strings, not a type union. To add a widget:
+1. Add an entry to `HOME_WIDGET_DEFS` in `src/lib/home-widgets.ts` (`id`, `label`, `permission`, `category`, `sizing`). Optionally add a default `{ cols, rows }` to `DEFAULT_WIDGET_CONFIG`.
+2. Build the component (no props, fetches its own data via tRPC) in `src/app/_components/home/`. For compact list/table widgets with day-navigation, reuse `WidgetShell`, `DayNav`, `useSelectedDate`, `todayStr` exported from `DayAheadWidgets.tsx`.
+3. Add a dispatch branch in `HomePageContent.tsx`'s `w.id === "..."` chain.
+
+The widget picker (`HomeCustomizer.tsx`) and grid sizing (`GridWidgetCell.tsx`) are fully data-driven off `HOME_WIDGET_DEFS`, no changes needed there. Storage (`users.homeWidgets`, `getHomeWidgets`/`updateHomeWidgets` in `src/server/api/routers/users.ts`) accepts any string id already.
+
 ## Path Aliases
 `~/` → `src/`, `@components/` → `src/app/_components/`, `@ui/` → `src/app/_components/ui/`
 

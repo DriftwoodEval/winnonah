@@ -200,20 +200,6 @@ export const userRouter = createTRPCRouter({
 				.where(eq(users.id, input.userId));
 		}),
 
-	setIsGreeter: protectedProcedure
-		.input(z.object({ userId: z.string(), isGreeter: z.boolean() }))
-		.mutation(async ({ ctx, input }) => {
-			assertPermission(ctx.session.user, "settings:users:edit");
-			ctx.logger.info(
-				{ ...input, updatedBy: ctx.session.user.email },
-				"Setting user greeter status",
-			);
-			await ctx.db
-				.update(users)
-				.set({ isGreeter: input.isGreeter })
-				.where(eq(users.id, input.userId));
-		}),
-
 	setMaxClaimedReports: protectedProcedure
 		.input(
 			z.object({
