@@ -966,6 +966,7 @@ export const users = createTable("user", (d) => ({
 	phoneNumber: d.varchar("phone_number", { length: 20 }),
 	recentClients: d.text("recent_clients"),
 	homeWidgets: d.text("home_widgets"),
+	headerItems: d.text("header_items"),
 	lastSeenChangelogDate: d.varchar("last_seen_changelog_date", { length: 32 }),
 	blockedEvaluatorNpis: d.json("blocked_evaluator_npis").$type<number[]>(),
 }));

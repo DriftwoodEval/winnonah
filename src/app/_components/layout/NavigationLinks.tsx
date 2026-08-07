@@ -39,9 +39,11 @@ import { usePathname } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { useEffect, useRef, useState } from "react";
 import { useCheckPermission } from "~/hooks/use-check-permission";
+import type { HeaderItemId } from "~/lib/header-items";
 import { api } from "~/trpc/react";
 
 type NavItem = {
+	id: HeaderItemId;
 	href: string;
 	label: string;
 	icon: LucideIcon;
@@ -177,10 +179,17 @@ export default function NavigationLinks() {
 	const evalReportDashboardLabel = evalReportDashboardConfig?.evaluatorFirstName
 		? `${evalReportDashboardConfig.evaluatorFirstName}'s Reports`
 		: "Report Dashboard";
+	const { data: headerPrefs } = api.users.getHeaderPreferences.useQuery(
+		undefined,
+		{ enabled: !!session },
+	);
+	const hiddenDesktop = new Set(headerPrefs?.desktop ?? []);
+	const hiddenMobile = new Set(headerPrefs?.mobile ?? []);
 
 	if (!session) return null;
 
 	const home: NavItem = {
+		id: "home",
 		href: "/",
 		label: "Home",
 		icon: Home,
@@ -188,6 +197,7 @@ export default function NavigationLinks() {
 	};
 
 	const docs: NavItem = {
+		id: "docs",
 		href: "/docs",
 		label: "Docs",
 		icon: BookOpen,
@@ -200,12 +210,14 @@ export default function NavigationLinks() {
 			icon: Users,
 			items: [
 				{
+					id: "dashboard",
 					href: "/dashboard",
 					label: "Dashboard",
 					icon: LayoutDashboard,
 					show: can("pages:dashboard"),
 				},
 				{
+					id: "directory",
 					href: "/clients/directory",
 					label: "Directory",
 					icon: Users,
@@ -218,18 +230,21 @@ export default function NavigationLinks() {
 			icon: CalendarDays,
 			items: [
 				{
+					id: "day-ahead",
 					href: "/day-ahead",
 					label: "Day Ahead",
 					icon: Calendar1,
 					show: true,
 				},
 				{
+					id: "availability",
 					href: "/availability",
 					label: "Availability",
 					icon: Clock,
 					show: can("pages:availability"),
 				},
 				{
+					id: "scheduling",
 					href: "/scheduling",
 					label: "Scheduling",
 					icon: CalendarRange,
@@ -249,12 +264,14 @@ export default function NavigationLinks() {
 			icon: FileText,
 			items: [
 				{
+					id: "claim-reports",
 					href: "/claim-reports",
 					label: "Claim Reports",
 					icon: FileText,
 					show: session.user.maxClaimedReports !== 0 || can("reports:approve"),
 				},
 				{
+					id: "report-dashboard",
 					href: "/evaluator-dashboard",
 					label: evalReportDashboardLabel,
 					icon: LineChart,
@@ -267,18 +284,21 @@ export default function NavigationLinks() {
 			icon: Wrench,
 			items: [
 				{
+					id: "fax-categorization",
 					href: "/fax-categorization",
 					label: "Fax Categorization",
 					icon: LayoutGrid,
 					show: can("fax:categorization:review"),
 				},
 				{
+					id: "work-summary",
 					href: "/work-summary",
 					label: "Work Summary",
 					icon: ClipboardClock,
 					show: can("pages:work-summary"),
 				},
 				{
+					id: "calculator",
 					href: "/calculator",
 					label: "Calculator",
 					icon: Calculator,
@@ -288,20 +308,30 @@ export default function NavigationLinks() {
 		},
 	];
 
+	const desktopCategories = categories.map((category) => ({
+		...category,
+		items: category.items.map((item) => ({
+			...item,
+			show: item.show && !hiddenDesktop.has(item.id),
+		})),
+	}));
+
 	const allItems = [
 		home,
 		...categories.flatMap((category) => category.items),
 		docs,
-	].filter((item) => item.show);
+	].filter((item) => item.show && !hiddenMobile.has(item.id));
 
 	return (
 		<>
 			{/* Desktop Navigation */}
 			<div className="hidden items-center gap-1 md:flex">
-				<NavigationLink href={home.href} icon={home.icon} pathname={pathname}>
-					{home.label}
-				</NavigationLink>
-				{categories.map((category) => (
+				{!hiddenDesktop.has(home.id) && (
+					<NavigationLink href={home.href} icon={home.icon} pathname={pathname}>
+						{home.label}
+					</NavigationLink>
+				)}
+				{desktopCategories.map((category) => (
 					<NavigationCategory
 						icon={category.icon}
 						items={category.items}
@@ -310,9 +340,11 @@ export default function NavigationLinks() {
 						pathname={pathname}
 					/>
 				))}
-				<NavigationLink href={docs.href} icon={docs.icon} pathname={pathname}>
-					{docs.label}
-				</NavigationLink>
+				{!hiddenDesktop.has(docs.id) && (
+					<NavigationLink href={docs.href} icon={docs.icon} pathname={pathname}>
+						{docs.label}
+					</NavigationLink>
+				)}
 			</div>
 
 			{/* Mobile Navigation */}

@@ -435,6 +435,50 @@ export const userRouter = createTRPCRouter({
 				.where(eq(users.id, ctx.session.user.id));
 		}),
 
+	getHeaderPreferences: protectedProcedure.query(async ({ ctx }) => {
+		const userFromDb = await ctx.db.query.users.findFirst({
+			where: eq(users.id, ctx.session.user.id),
+		});
+
+		try {
+			const parsed = JSON.parse(userFromDb?.headerItems ?? "null") as {
+				desktop?: string[];
+				mobile?: string[];
+			} | null;
+			return { desktop: parsed?.desktop ?? [], mobile: parsed?.mobile ?? [] };
+		} catch {
+			return { desktop: [], mobile: [] };
+		}
+	}),
+
+	updateHeaderPreferences: protectedProcedure
+		.input(
+			z.object({
+				surface: z.enum(["desktop", "mobile"]),
+				hiddenItems: z.array(z.string()),
+			}),
+		)
+		.mutation(async ({ ctx, input }) => {
+			const userFromDb = await ctx.db.query.users.findFirst({
+				where: eq(users.id, ctx.session.user.id),
+			});
+
+			let current: { desktop?: string[]; mobile?: string[] } = {};
+			try {
+				current =
+					(JSON.parse(userFromDb?.headerItems ?? "null") as typeof current) ??
+					{};
+			} catch {
+				current = {};
+			}
+			current[input.surface] = input.hiddenItems;
+
+			await ctx.db
+				.update(users)
+				.set({ headerItems: JSON.stringify(current) })
+				.where(eq(users.id, ctx.session.user.id));
+		}),
+
 	getLastSeenChangelogDate: protectedProcedure.query(async ({ ctx }) => {
 		const userFromDb = await ctx.db.query.users.findFirst({
 			where: eq(users.id, ctx.session.user.id),
