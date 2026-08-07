@@ -1,6 +1,8 @@
 import {
 	getUnseenChangelogEntries,
+	parseChangelogMarker,
 	renderChangelogBody,
+	serializeChangelogMarker,
 } from "~/lib/changelog";
 import { auth } from "~/server/auth";
 import { api } from "~/trpc/server";
@@ -10,9 +12,13 @@ export async function ChangelogPopup() {
 	const session = await auth();
 	if (!session) return null;
 
-	const lastSeen = await api.users.getLastSeenChangelogDate();
+	const lastSeen = parseChangelogMarker(
+		await api.users.getLastSeenChangelogDate(),
+	);
 	const entries = getUnseenChangelogEntries(lastSeen);
 	if (entries.length === 0) return null;
+
+	const latest = entries[0];
 
 	return (
 		<ChangelogPopupDialog
@@ -21,7 +27,7 @@ export async function ChangelogPopup() {
 				title: entry.title,
 				body: renderChangelogBody(entry.body),
 			}))}
-			latestDate={entries[0]?.date ?? ""}
+			latestMarker={latest ? serializeChangelogMarker(latest) : ""}
 		/>
 	);
 }

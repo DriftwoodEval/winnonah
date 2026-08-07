@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import type { ReactNode } from "react";
 import * as runtime from "react/jsx-runtime";
 import rehypeReact from "rehype-react";
@@ -15,10 +16,37 @@ export interface ChangelogEntry {
 	date: string;
 	title: string;
 	body: string;
+	hash: string;
+}
+
+/** Identifies a specific entry's content, so bullets added later the same day are still detected as unseen. */
+export interface ChangelogMarker {
+	date: string;
+	hash: string;
 }
 
 const ENTRY_HEADING = /^## (.+)$/gm;
 const ENTRY_TITLE = /^(\d{4}-\d{2}-\d{2})\s*-\s*(.+)$/;
+
+function hashEntry(title: string, body: string): string {
+	return createHash("sha256")
+		.update(`${title}\n${body}`)
+		.digest("hex")
+		.slice(0, 16);
+}
+
+export function serializeChangelogMarker(marker: ChangelogMarker): string {
+	return `${marker.date}:${marker.hash}`;
+}
+
+export function parseChangelogMarker(
+	raw: string | null,
+): ChangelogMarker | null {
+	if (!raw) return null;
+	const [date, hash] = raw.split(":");
+	if (!date) return null;
+	return { date, hash: hash ?? "" };
+}
 
 export function getChangelogEntries(): ChangelogEntry[] {
 	const doc = getDocBySlug(CHANGELOG_SLUG);
@@ -37,10 +65,14 @@ export function getChangelogEntries(): ChangelogEntry[] {
 		const start = heading.index + heading[0].length;
 		const end = headings[i + 1]?.index ?? doc.content.length;
 
+		const title = match[2];
+		const body = doc.content.slice(start, end).trim();
+
 		entries.push({
 			date: match[1],
-			title: match[2],
-			body: doc.content.slice(start, end).trim(),
+			title,
+			body,
+			hash: hashEntry(title, body),
 		});
 	}
 
@@ -56,11 +88,15 @@ export function getChangelogHeadings(): DocHeading[] {
 }
 
 export function getUnseenChangelogEntries(
-	lastSeen: string | null,
+	lastSeen: ChangelogMarker | null,
 ): ChangelogEntry[] {
 	const entries = getChangelogEntries();
 	if (!lastSeen) return entries;
-	return entries.filter((entry) => entry.date > lastSeen);
+	return entries.filter((entry) => {
+		if (entry.date > lastSeen.date) return true;
+		if (entry.date === lastSeen.date) return entry.hash !== lastSeen.hash;
+		return false;
+	});
 }
 
 export function renderChangelogBody(body: string): ReactNode {

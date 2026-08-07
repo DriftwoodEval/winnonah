@@ -25,19 +25,19 @@ interface ChangelogEntryProps {
 
 interface ChangelogPopupDialogProps {
 	entries: ChangelogEntryProps[];
-	latestDate: string;
+	latestMarker: string;
 }
 
 export function ChangelogPopupDialog({
 	entries,
-	latestDate,
+	latestMarker,
 }: ChangelogPopupDialogProps) {
 	const [open, setOpen] = useState(true);
 	const markChangelogSeen = api.users.markChangelogSeen.useMutation();
 
 	const dismiss = () => {
 		setOpen(false);
-		markChangelogSeen.mutate({ date: latestDate });
+		markChangelogSeen.mutate({ marker: latestMarker });
 	};
 
 	return (

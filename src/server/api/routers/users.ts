@@ -444,11 +444,11 @@ export const userRouter = createTRPCRouter({
 	}),
 
 	markChangelogSeen: protectedProcedure
-		.input(z.object({ date: z.string() }))
+		.input(z.object({ marker: z.string() }))
 		.mutation(async ({ ctx, input }) => {
 			await ctx.db
 				.update(users)
-				.set({ lastSeenChangelogDate: input.date })
+				.set({ lastSeenChangelogDate: input.marker })
 				.where(eq(users.id, ctx.session.user.id));
 		}),
 });
