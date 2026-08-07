@@ -12,24 +12,47 @@ const activeTasksWhere = () =>
 		gte(tasks.startedAt, new Date(Date.now() - RECENT_WINDOW_MS)),
 	);
 
+type Task = typeof tasks.$inferSelect;
+
+// Frequently-run task types (e.g. AI fax categorization) would otherwise
+// flood the list with repeat entries, so only the most recent of each
+// non-running type is kept. Running tasks are always shown.
+function dedupeByType(items: Task[]) {
+	const seenTypes = new Set<string>();
+	const result: Task[] = [];
+	for (const task of items) {
+		if (task.status === "running") {
+			result.push(task);
+			continue;
+		}
+		if (seenTypes.has(task.type)) continue;
+		seenTypes.add(task.type);
+		result.push(task);
+	}
+	return result;
+}
+
 export const taskRouter = createTRPCRouter({
 	getActive: protectedProcedure.query(async ({ ctx }) => {
-		return ctx.db.query.tasks.findMany({
+		const active = await ctx.db.query.tasks.findMany({
 			where: activeTasksWhere(),
 			orderBy: [desc(tasks.startedAt)],
 			limit: 50,
 		});
+		return dedupeByType(active);
 	}),
 
 	onTaskUpdate: protectedProcedure.subscription(async function* ({ signal }) {
 		let lastSnapshot = "";
 
 		while (!signal?.aborted) {
-			const active = await db.query.tasks.findMany({
-				where: activeTasksWhere(),
-				orderBy: [desc(tasks.startedAt)],
-				limit: 50,
-			});
+			const active = dedupeByType(
+				await db.query.tasks.findMany({
+					where: activeTasksWhere(),
+					orderBy: [desc(tasks.startedAt)],
+					limit: 50,
+				}),
+			);
 
 			const snapshot = JSON.stringify(active);
 			if (snapshot !== lastSnapshot) {
