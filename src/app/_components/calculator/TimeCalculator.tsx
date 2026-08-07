@@ -171,7 +171,7 @@ export default function TimeCalculator() {
 								<TableCell>
 									<Select
 										onValueChange={(val) =>
-											handleTimeItemChange(item.id, "name", val)
+											val && handleTimeItemChange(item.id, "name", val)
 										}
 										value={item.name}
 									>

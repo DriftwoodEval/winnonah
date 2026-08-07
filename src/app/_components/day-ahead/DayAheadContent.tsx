@@ -276,7 +276,7 @@ function DevControls({
 	const { data: users } = api.users.getAll.useQuery();
 	return (
 		<Select
-			onValueChange={(v) => onUserChange(v === "__self" ? undefined : v)}
+			onValueChange={(v) => onUserChange(!v || v === "__self" ? undefined : v)}
 			value={asUserId ?? "__self"}
 		>
 			<SelectTrigger className="h-7 w-48 text-xs">
@@ -463,11 +463,10 @@ export function DayAheadContent() {
 							<DevControls asUserId={asUserId} onUserChange={setAsUserId} />
 						)}
 						<ToggleGroup
-							onValueChange={(v) => v && setViewMode(v as ViewMode)}
+							onValueChange={(v) => v[0] && setViewMode(v[0] as ViewMode)}
 							size="sm"
 							spacing={0}
-							type="single"
-							value={viewMode}
+							value={[viewMode]}
 							variant="outline"
 						>
 							<ToggleGroupItem value="list">List</ToggleGroupItem>

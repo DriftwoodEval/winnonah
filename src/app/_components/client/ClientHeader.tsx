@@ -277,46 +277,50 @@ export function ClientHeader({
 				)}
 				{!isNotesOnlyClientId(client.id) && currentHexColor && canColor ? (
 					<Popover onOpenChange={setIsColorOpen} open={isColorOpen}>
-						<PopoverTrigger asChild>
-							<button
-								aria-label={`Current color: ${formatColorName(selectedColor)}`}
-								className="h-5 w-5 cursor-pointer rounded-full"
-								disabled={readOnly}
-								style={{ background: currentHexColor }}
-								tabIndex={0}
-								type="button"
-							/>
-						</PopoverTrigger>
+						<PopoverTrigger
+							render={
+								<button
+									aria-label={`Current color: ${formatColorName(selectedColor)}`}
+									className="h-5 w-5 cursor-pointer rounded-full"
+									disabled={readOnly}
+									style={{ background: currentHexColor }}
+									tabIndex={0}
+									type="button"
+								/>
+							}
+						/>
 						<PopoverContent className="w-auto p-2">
 							<div className="grid grid-cols-6 gap-2 pt-1">
 								{CLIENT_COLOR_KEYS.map((colorKey) => (
 									<Tooltip key={colorKey}>
-										<TooltipTrigger asChild>
-											<button
-												aria-label={`Select color: ${formatColorName(
-													colorKey,
-												)}`}
-												className="relative flex h-8 w-8 items-center justify-center rounded-sm text-sm"
-												key={colorKey}
-												onClick={() => {
-													onColorChange(colorKey);
-													setIsColorOpen(false);
-												}}
-												style={{
-													color:
-														Number.parseInt(
-															CLIENT_COLOR_MAP[colorKey].replace("#", ""),
-															16,
-														) >
-														0xffffff / 2
-															? "#333"
-															: "#FFF",
-													backgroundColor: CLIENT_COLOR_MAP[colorKey],
-												}}
-												type="button"
-											>
-												{selectedColor === colorKey && <CheckIcon />}
-											</button>
+										<TooltipTrigger
+											render={
+												<button
+													aria-label={`Select color: ${formatColorName(
+														colorKey,
+													)}`}
+													className="relative flex h-8 w-8 items-center justify-center rounded-sm text-sm"
+													key={colorKey}
+													onClick={() => {
+														onColorChange(colorKey);
+														setIsColorOpen(false);
+													}}
+													style={{
+														color:
+															Number.parseInt(
+																CLIENT_COLOR_MAP[colorKey].replace("#", ""),
+																16,
+															) >
+															0xffffff / 2
+																? "#333"
+																: "#FFF",
+														backgroundColor: CLIENT_COLOR_MAP[colorKey],
+													}}
+													type="button"
+												/>
+											}
+										>
+											{selectedColor === colorKey && <CheckIcon />}
 										</TooltipTrigger>
 										<TooltipContent>
 											<p>{formatColorName(colorKey)}</p>

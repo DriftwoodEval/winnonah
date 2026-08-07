@@ -152,28 +152,30 @@ export function QuestionnaireTableForm({
 							<FormItem className="flex w-5/10 flex-col">
 								<FormLabel>Type</FormLabel>
 								<Popover onOpenChange={setIsPopoverOpen} open={isPopoverOpen}>
-									<PopoverTrigger asChild>
-										<FormControl>
-											<Button
-												className={cn(
-													"w-full justify-between",
-													!field.value && "text-muted-foreground",
-												)}
-												disabled={isLoadingList}
-												role="combobox"
-												variant="outline"
-											>
-												{field.value
-													? questionnaireList?.find(
-															(q) => q.name === field.value,
-														)?.name
-													: isLoadingList
-														? "Loading..."
-														: "Select type"}
-												<ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-											</Button>
-										</FormControl>
-									</PopoverTrigger>
+									<PopoverTrigger
+										render={
+											<FormControl>
+												<Button
+													className={cn(
+														"w-full justify-between",
+														!field.value && "text-muted-foreground",
+													)}
+													disabled={isLoadingList}
+													role="combobox"
+													variant="outline"
+												>
+													{field.value
+														? questionnaireList?.find(
+																(q) => q.name === field.value,
+															)?.name
+														: isLoadingList
+															? "Loading..."
+															: "Select type"}
+													<ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+												</Button>
+											</FormControl>
+										}
+									/>
 									<PopoverContent className="max-h-[var(--radix-popover-content-available-height)] w-[--radix-popover-trigger-width] overflow-hidden p-0">
 										<Command>
 											<CommandInput placeholder="Search..." />
@@ -217,24 +219,26 @@ export function QuestionnaireTableForm({
 								<FormItem className="flex w-5/12 flex-col">
 									<FormLabel>Date Sent</FormLabel>
 									<Popover>
-										<PopoverTrigger asChild>
-											<FormControl>
-												<Button
-													className={cn(
-														"w-full pl-3 text-left font-normal",
-														!field.value && "text-muted-foreground",
-													)}
-													variant={"outline"}
-												>
-													{field.value ? (
-														format(field.value, "MMM d, yyyy")
-													) : (
-														<span>Pick a date</span>
-													)}
-													<CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-												</Button>
-											</FormControl>
-										</PopoverTrigger>
+										<PopoverTrigger
+											render={
+												<FormControl>
+													<Button
+														className={cn(
+															"w-full pl-3 text-left font-normal",
+															!field.value && "text-muted-foreground",
+														)}
+														variant={"outline"}
+													>
+														{field.value ? (
+															format(field.value, "MMM d, yyyy")
+														) : (
+															<span>Pick a date</span>
+														)}
+														<CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+													</Button>
+												</FormControl>
+											}
+										/>
 										<PopoverContent align="start" className="w-auto p-0">
 											<Calendar
 												disabled={(date) =>

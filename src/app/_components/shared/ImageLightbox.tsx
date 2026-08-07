@@ -6,7 +6,6 @@ import {
 	DialogDescription,
 	DialogTitle,
 } from "@ui/dialog";
-import { VisuallyHidden } from "radix-ui";
 import {
 	createContext,
 	type SyntheticEvent,
@@ -53,12 +52,12 @@ export function ImageLightboxProvider({
 					onClick={() => setImage(null)}
 					showCloseButton={false}
 				>
-					<VisuallyHidden.Root asChild>
-						<DialogTitle>{image?.alt || "Image preview"}</DialogTitle>
-					</VisuallyHidden.Root>
-					<VisuallyHidden.Root asChild>
-						<DialogDescription>Full-size image preview</DialogDescription>
-					</VisuallyHidden.Root>
+					<DialogTitle className="sr-only">
+						{image?.alt || "Image preview"}
+					</DialogTitle>
+					<DialogDescription className="sr-only">
+						Full-size image preview
+					</DialogDescription>
 					{image && (
 						// biome-ignore lint/performance/noImgElement: full-size preview of an arbitrary local image, not eligible for next/image optimization
 						<img

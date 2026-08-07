@@ -36,30 +36,30 @@ export function ScreenshotButton({
 		}
 	};
 
+	const triggerElement = children ? (
+		<button
+			className={className}
+			onClick={handleFetch}
+			title="View Latest Screenshot"
+			type="button"
+		>
+			{children}
+		</button>
+	) : (
+		<Button
+			className="h-8 w-8"
+			onClick={handleFetch}
+			size="icon"
+			title="View Latest Screenshot"
+			variant="ghost"
+		>
+			<Camera className="h-4 w-4" />
+		</Button>
+	);
+
 	return (
 		<Popover onOpenChange={setIsOpen} open={isOpen}>
-			<PopoverTrigger asChild>
-				{children ? (
-					<button
-						className={className}
-						onClick={handleFetch}
-						title="View Latest Screenshot"
-						type="button"
-					>
-						{children}
-					</button>
-				) : (
-					<Button
-						className="h-8 w-8"
-						onClick={handleFetch}
-						size="icon"
-						title="View Latest Screenshot"
-						variant="ghost"
-					>
-						<Camera className="h-4 w-4" />
-					</Button>
-				)}
-			</PopoverTrigger>
+			<PopoverTrigger render={triggerElement} />
 			<PopoverContent className="w-[600px] max-w-[90vw]">
 				<div className="grid gap-4">
 					<div className="space-y-2">

@@ -154,10 +154,12 @@ export function ClientDetailsCard({
 					<p className="font-bold">
 						Closest Office{" "}
 						<Popover>
-							<PopoverTrigger asChild>
-								<span className="cursor-pointer font-normal text-muted-foreground hover:underline">
-									(Compare)
-								</span>
+							<PopoverTrigger
+								render={
+									<span className="cursor-pointer font-normal text-muted-foreground hover:underline" />
+								}
+							>
+								(Compare)
 							</PopoverTrigger>
 							<PopoverContent side="right">
 								<ul className="list-disc p-3">

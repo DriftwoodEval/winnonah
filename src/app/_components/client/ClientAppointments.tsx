@@ -142,10 +142,12 @@ export function ClientAppointments({ clientId }: { clientId: number }) {
 							</div>
 							{!isBilling && (
 								<DropdownMenu>
-									<DropdownMenuTrigger asChild>
-										<Button className="h-6 w-6" size="icon" variant="ghost">
-											<MoreHorizontal className="h-3.5 w-3.5" />
-										</Button>
+									<DropdownMenuTrigger
+										render={
+											<Button className="h-6 w-6" size="icon" variant="ghost" />
+										}
+									>
+										<MoreHorizontal className="h-3.5 w-3.5" />
 									</DropdownMenuTrigger>
 									<DropdownMenuContent align="end">
 										{appt.confirmedAt ? (

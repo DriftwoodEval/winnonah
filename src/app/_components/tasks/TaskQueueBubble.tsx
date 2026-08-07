@@ -2,7 +2,7 @@
 
 import { Badge } from "@ui/badge";
 import { Popover, PopoverContent, PopoverTrigger } from "@ui/popover";
-import { Progress } from "@ui/progress";
+import { Progress, ProgressIndicator, ProgressTrack } from "@ui/progress";
 import { ScrollArea } from "@ui/scroll-area";
 import { Loader2 } from "lucide-react";
 import { useSession } from "next-auth/react";
@@ -40,21 +40,23 @@ export function TaskQueueBubble() {
 
 	return (
 		<Popover onOpenChange={setOpen} open={open}>
-			<PopoverTrigger asChild>
-				<Badge
-					className="flex cursor-pointer items-center gap-1"
-					variant={runningCount > 0 ? "default" : "secondary"}
-				>
-					{runningCount > 0 && <Loader2 className="h-3 w-3 animate-spin" />}
-					{runningCount > 0 ? runningCount : tasks.length}{" "}
-					<span className="hidden sm:inline">
-						{runningCount > 0
-							? "running"
-							: tasks.length === 1
-								? "recent task"
-								: "recent tasks"}
-					</span>
-				</Badge>
+			<PopoverTrigger
+				render={
+					<Badge
+						className="flex cursor-pointer items-center gap-1"
+						variant={runningCount > 0 ? "default" : "secondary"}
+					/>
+				}
+			>
+				{runningCount > 0 && <Loader2 className="h-3 w-3 animate-spin" />}
+				{runningCount > 0 ? runningCount : tasks.length}{" "}
+				<span className="hidden sm:inline">
+					{runningCount > 0
+						? "running"
+						: tasks.length === 1
+							? "recent task"
+							: "recent tasks"}
+				</span>
 			</PopoverTrigger>
 			<PopoverContent align="end" className="w-80 p-2">
 				<p className="mb-2 px-1 font-medium text-muted-foreground text-xs uppercase tracking-wide">
@@ -90,13 +92,16 @@ export function TaskQueueBubble() {
 								{task.progressTotal != null && task.progressCurrent != null && (
 									<div className="flex items-center gap-2">
 										<Progress
-											className="h-1.5"
 											value={
 												task.progressTotal > 0
 													? (task.progressCurrent / task.progressTotal) * 100
 													: 0
 											}
-										/>
+										>
+											<ProgressTrack className="h-1.5">
+												<ProgressIndicator />
+											</ProgressTrack>
+										</Progress>
 										<p className="shrink-0 text-muted-foreground text-xs">
 											{task.progressCurrent} / {task.progressTotal}
 										</p>

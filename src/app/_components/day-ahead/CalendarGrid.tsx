@@ -245,69 +245,68 @@ export function ApptBlock({
 			}}
 			open={tooltipOpen && !messagesOpen}
 		>
-			<TooltipTrigger asChild>
-				<div
-					className={`absolute overflow-hidden rounded-sm border border-l-2 py-0.5 pr-4 pl-1.5 shadow-sm ${colorClass}`}
-					style={style}
+			<TooltipTrigger
+				render={
+					<div
+						className={`absolute overflow-hidden rounded-sm border border-l-2 py-0.5 pr-4 pl-1.5 shadow-sm ${colorClass}`}
+						style={style}
+					/>
+				}
+			>
+				<Link
+					className="block truncate font-medium text-xs leading-tight hover:underline"
+					href={`/clients/${appt.clientHash}`}
 				>
-					<Link
-						className="block truncate font-medium text-xs leading-tight hover:underline"
-						href={`/clients/${appt.clientHash}`}
-					>
-						<Redact>{appt.clientName}</Redact>
-					</Link>
-					{showEvaluatorLine && (
-						<div className="truncate text-[10px] text-muted-foreground leading-tight">
-							{appt.evaluatorName}
-						</div>
-					)}
-					<div className="truncate text-[10px] text-muted-foreground tabular-nums leading-tight">
-						{formatTime(appt.startTime)}–{formatTime(appt.endTime)}
+					<Redact>{appt.clientName}</Redact>
+				</Link>
+				{showEvaluatorLine && (
+					<div className="truncate text-[10px] text-muted-foreground leading-tight">
+						{appt.evaluatorName}
 					</div>
-					{showBadges && (
-						<div className="mt-0.5 flex flex-wrap items-center gap-0.5 overflow-hidden">
-							{appt.confirmedAt && (
-								<Badge className="h-3.5 shrink-0 px-1 text-[9px] uppercase">
-									{isShort ? "C" : "Confirmed"}
-								</Badge>
-							)}
+				)}
+				<div className="truncate text-[10px] text-muted-foreground tabular-nums leading-tight">
+					{formatTime(appt.startTime)}–{formatTime(appt.endTime)}
+				</div>
+				{showBadges && (
+					<div className="mt-0.5 flex flex-wrap items-center gap-0.5 overflow-hidden">
+						{appt.confirmedAt && (
+							<Badge className="h-3.5 shrink-0 px-1 text-[9px] uppercase">
+								{isShort ? "C" : "Confirmed"}
+							</Badge>
+						)}
+						<Badge className="h-3.5 shrink-0 px-1 text-[9px]" variant="outline">
+							{badgeLocation}
+						</Badge>
+						{appt.asdAdhd && (
 							<Badge
 								className="h-3.5 shrink-0 px-1 text-[9px]"
 								variant="outline"
 							>
-								{badgeLocation}
+								{appt.asdAdhd}
 							</Badge>
-							{appt.asdAdhd && (
-								<Badge
-									className="h-3.5 shrink-0 px-1 text-[9px]"
-									variant="outline"
-								>
-									{appt.asdAdhd}
-								</Badge>
-							)}
-							{appt.daEval && (
-								<Badge
-									className="h-3.5 shrink-0 px-1 text-[9px]"
-									variant="outline"
-								>
-									{appt.daEval}
-								</Badge>
-							)}
-						</div>
-					)}
-					<RecentMessagesPopover
-						appointmentStart={appt.startTime}
-						className="absolute top-0.5 right-0.5"
-						isLoading={messagesLoading}
-						messages={
-							appt.clientPhone
-								? messages[normalizePhoneNumber(appt.clientPhone)]
-								: undefined
-						}
-						onOpenChange={setMessagesOpen}
-						phoneNumber={appt.clientPhone}
-					/>
-				</div>
+						)}
+						{appt.daEval && (
+							<Badge
+								className="h-3.5 shrink-0 px-1 text-[9px]"
+								variant="outline"
+							>
+								{appt.daEval}
+							</Badge>
+						)}
+					</div>
+				)}
+				<RecentMessagesPopover
+					appointmentStart={appt.startTime}
+					className="absolute top-0.5 right-0.5"
+					isLoading={messagesLoading}
+					messages={
+						appt.clientPhone
+							? messages[normalizePhoneNumber(appt.clientPhone)]
+							: undefined
+					}
+					onOpenChange={setMessagesOpen}
+					phoneNumber={appt.clientPhone}
+				/>
 			</TooltipTrigger>
 			<TooltipContent
 				className="flex-col items-start gap-0.5 text-left"

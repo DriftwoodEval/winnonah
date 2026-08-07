@@ -240,11 +240,11 @@ function InvitesTableActionsMenu({ invite }: { invite: Invitation }) {
 
 	return (
 		<DropdownMenu>
-			<DropdownMenuTrigger asChild>
-				<Button className="h-8 w-8 p-0" variant="ghost">
-					<span className="sr-only">Open menu</span>
-					<MoreHorizontal className="h-4 w-4" />
-				</Button>
+			<DropdownMenuTrigger
+				render={<Button className="h-8 w-8 p-0" variant="ghost" />}
+			>
+				<span className="sr-only">Open menu</span>
+				<MoreHorizontal className="h-4 w-4" />
 			</DropdownMenuTrigger>
 			<DropdownMenuContent align={alignValue}>
 				<DropdownMenuItem

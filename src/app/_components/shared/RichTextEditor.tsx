@@ -194,7 +194,7 @@ export function RichTextEditor({
 			)}
 			{!readonly && formatBar && (
 				<div className="mb-3 flex flex-wrap items-center gap-2">
-					<ToggleGroup size="sm" spacing={0} type="multiple" variant="outline">
+					<ToggleGroup size="sm" spacing={0} variant="outline">
 						<ToggleGroupItem
 							aria-label="Toggle bold"
 							data-state={editor.isActive("bold") ? "on" : "off"}
@@ -247,7 +247,7 @@ export function RichTextEditor({
 						</ToggleGroupItem>
 					</ToggleGroup>
 
-					<ToggleGroup size="sm" spacing={0} type="single" variant="outline">
+					<ToggleGroup size="sm" spacing={0} variant="outline">
 						<ToggleGroupItem
 							aria-label="Add link"
 							data-state={editor.isActive("link") ? "on" : "off"}
@@ -293,7 +293,7 @@ export function RichTextEditor({
 						</ToggleGroupItem>
 					</ToggleGroup>
 
-					<ToggleGroup size="sm" spacing={0} type="single" variant="outline">
+					<ToggleGroup size="sm" spacing={0} variant="outline">
 						<ToggleGroupItem
 							aria-label="Insert separator"
 							data-state="off"
@@ -306,7 +306,7 @@ export function RichTextEditor({
 					</ToggleGroup>
 
 					{allowImages && (
-						<ToggleGroup size="sm" spacing={0} type="single" variant="outline">
+						<ToggleGroup size="sm" spacing={0} variant="outline">
 							<ToggleGroupItem
 								aria-label="Insert image"
 								data-state="off"
@@ -318,7 +318,7 @@ export function RichTextEditor({
 						</ToggleGroup>
 					)}
 
-					<ToggleGroup size="sm" spacing={0} type="single" variant="outline">
+					<ToggleGroup size="sm" spacing={0} variant="outline">
 						<ToggleGroupItem
 							aria-label="Undo"
 							disabled={!editor.can().chain().focus().undo().run()}

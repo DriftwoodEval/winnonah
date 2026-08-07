@@ -219,6 +219,7 @@ export function InsuranceReviewSection({
 								setClaimMutation.isPending || reviewableUsers.length === 0
 							}
 							onValueChange={(email) =>
+								email &&
 								setClaimMutation.mutate({
 									clientId: client.id,
 									userEmail: email,

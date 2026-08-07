@@ -98,7 +98,7 @@ export function PermissionsField({
 				<span className="font-bold text-lg">Permissions</span>
 			</div>
 
-			<Accordion className="rounded-md border" type="multiple">
+			<Accordion className="rounded-md border" multiple>
 				{Object.entries(PERMISSIONS).map(([categoryKey, category]) => (
 					<AccordionItem key={categoryKey} value={categoryKey}>
 						<AccordionTrigger className="px-4 font-semibold text-base hover:no-underline">
@@ -113,9 +113,10 @@ export function PermissionsField({
 											<div key={subgroupKey}>
 												<div className="mb-3 flex items-center space-x-2">
 													<Checkbox
-														checked={groupState}
+														checked={groupState === true}
 														disabled={disabled}
 														id={`${categoryKey}-${subgroupKey}`}
+														indeterminate={groupState === "indeterminate"}
 														onCheckedChange={() => {
 															const newChecked = groupState === false;
 															const next = { ...value };
@@ -184,14 +185,16 @@ export function PermissionsField({
 																			{locked ? (
 																				<TooltipProvider>
 																					<Tooltip>
-																						<TooltipTrigger asChild>
-																							<span className="cursor-not-allowed">
-																								<Checkbox
-																									checked={!!effective?.[pid]}
-																									disabled
-																									id={p.id}
-																								/>
-																							</span>
+																						<TooltipTrigger
+																							render={
+																								<span className="cursor-not-allowed" />
+																							}
+																						>
+																							<Checkbox
+																								checked={!!effective?.[pid]}
+																								disabled
+																								id={p.id}
+																							/>
 																						</TooltipTrigger>
 																						<TooltipContent>
 																							You can't remove your own

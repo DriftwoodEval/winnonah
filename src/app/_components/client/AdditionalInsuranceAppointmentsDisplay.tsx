@@ -196,15 +196,17 @@ export function AdditionalInsuranceAppointmentsDisplay({
 					<h4 className="font-bold leading-none">Insurance Codes</h4>
 					<div className="flex min-w-0 items-center gap-1.5">
 						<DropdownMenu>
-							<DropdownMenuTrigger asChild>
-								<Button
-									className="px-2"
-									disabled={questionnaireBattery.length === 0}
-									size="sm"
-									variant="outline"
-								>
-									<ClipboardList className="h-4 w-4" />
-								</Button>
+							<DropdownMenuTrigger
+								render={
+									<Button
+										className="px-2"
+										disabled={questionnaireBattery.length === 0}
+										size="sm"
+										variant="outline"
+									/>
+								}
+							>
+								<ClipboardList className="h-4 w-4" />
 							</DropdownMenuTrigger>
 							<DropdownMenuContent align="end" className="w-64">
 								{questionnaireBattery.map(

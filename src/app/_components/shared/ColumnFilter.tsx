@@ -57,26 +57,24 @@ export function ColumnFilter({
 
 	return (
 		<DropdownMenu>
-			<DropdownMenuTrigger asChild>
-				<div className="relative inline-block pt-1 pr-1">
-					<Button
-						aria-label={`Filter by ${columnName}`}
-						className={
-							selectedValues.length > 0
-								? "text-primary"
-								: "text-muted-foreground"
-						}
-						size="icon-sm"
-						variant="ghost"
-					>
-						<Filter className="h-3.5 w-3.5" />
-					</Button>
-					{selectedValues.length > 0 && (
-						<span className="absolute top-0 right-0 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] text-primary-foreground leading-none">
-							{selectedValues.length}
-						</span>
-					)}
-				</div>
+			<DropdownMenuTrigger
+				render={<div className="relative inline-block pt-1 pr-1" />}
+			>
+				<Button
+					aria-label={`Filter by ${columnName}`}
+					className={
+						selectedValues.length > 0 ? "text-primary" : "text-muted-foreground"
+					}
+					size="icon-sm"
+					variant="ghost"
+				>
+					<Filter className="h-3.5 w-3.5" />
+				</Button>
+				{selectedValues.length > 0 && (
+					<span className="absolute top-0 right-0 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] text-primary-foreground leading-none">
+						{selectedValues.length}
+					</span>
+				)}
 			</DropdownMenuTrigger>
 			<DropdownMenuContent align="start" className="w-56">
 				<div className="p-2">

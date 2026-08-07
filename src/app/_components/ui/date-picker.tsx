@@ -40,17 +40,19 @@ export function DatePicker({
     <div className={`flex ${flexDirection} gap-2`}>
       {label && <Label htmlFor={id}>{label}</Label>}
       <Popover open={open} onOpenChange={setOpen}>
-        <PopoverTrigger asChild>
-          <Button
-            variant="outline"
-            size="sm"
-            id={id}
-            className={cn("max-w-32 justify-between font-normal", !date && "text-muted-foreground")}
-            disabled={disabled}
-          >
-            {date ? date.toLocaleDateString() : placeholder}
-            <ChevronDownIcon />
-          </Button>
+        <PopoverTrigger
+          render={
+            <Button
+              variant="outline"
+              size="sm"
+              id={id}
+              className={cn("max-w-32 justify-between font-normal", !date && "text-muted-foreground")}
+              disabled={disabled}
+            />
+          }
+        >
+          {date ? date.toLocaleDateString() : placeholder}
+          <ChevronDownIcon />
         </PopoverTrigger>
         <PopoverContent className="w-auto overflow-hidden p-0" align="start">
           <Calendar

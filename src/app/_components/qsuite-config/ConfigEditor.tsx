@@ -191,9 +191,11 @@ function FieldInput<T extends FieldValues>({
 						{label && <FormLabel>{label}</FormLabel>}
 						{description && (
 							<Tooltip>
-								<TooltipTrigger asChild>
-									<Info className="h-4 w-4 cursor-help text-muted-foreground" />
-								</TooltipTrigger>
+								<TooltipTrigger
+									render={
+										<Info className="h-4 w-4 cursor-help text-muted-foreground" />
+									}
+								/>
 								<TooltipContent>
 									<p className="max-w-xs">{description}</p>
 								</TooltipContent>
@@ -248,9 +250,11 @@ function ProtectedFieldInput<T extends FieldValues>({
 						{label && <FormLabel>{label}</FormLabel>}
 						{description && (
 							<Tooltip>
-								<TooltipTrigger asChild>
-									<Info className="h-4 w-4 cursor-help text-muted-foreground" />
-								</TooltipTrigger>
+								<TooltipTrigger
+									render={
+										<Info className="h-4 w-4 cursor-help text-muted-foreground" />
+									}
+								/>
 								<TooltipContent>
 									<p className="max-w-xs">{description}</p>
 								</TooltipContent>
@@ -269,19 +273,21 @@ function ProtectedFieldInput<T extends FieldValues>({
 						</FormControl>
 						{!isUnlocked ? (
 							<AlertDialog>
-								<AlertDialogTrigger asChild>
-									<Button
-										className={cn(
-											"shrink-0 cursor-pointer",
-											disabled ?? "cursor-not-allowed",
-										)}
-										disabled={disabled}
-										size="icon"
-										type="button"
-										variant="outline"
-									>
-										<Lock className="h-4 w-4" />
-									</Button>
+								<AlertDialogTrigger
+									render={
+										<Button
+											className={cn(
+												"shrink-0 cursor-pointer",
+												disabled ?? "cursor-not-allowed",
+											)}
+											disabled={disabled}
+											size="icon"
+											type="button"
+											variant="outline"
+										/>
+									}
+								>
+									<Lock className="h-4 w-4" />
 								</AlertDialogTrigger>
 								<AlertDialogContent>
 									<AlertDialogHeader>
@@ -347,9 +353,11 @@ function ListEditor<T extends FieldValues, Name extends FieldArrayPath<T>>({
 				<FormLabel>{label}</FormLabel>
 				{description && (
 					<Tooltip>
-						<TooltipTrigger asChild>
-							<Info className="h-4 w-4 cursor-help text-muted-foreground" />
-						</TooltipTrigger>
+						<TooltipTrigger
+							render={
+								<Info className="h-4 w-4 cursor-help text-muted-foreground" />
+							}
+						/>
 						<TooltipContent>
 							<p className="max-w-xs">{description}</p>
 						</TooltipContent>
@@ -732,9 +740,11 @@ function GeneralTab({
 								<div className="flex items-center gap-2">
 									<FormLabel>Name</FormLabel>
 									<Tooltip>
-										<TooltipTrigger asChild>
-											<Info className="h-4 w-4 cursor-help text-muted-foreground" />
-										</TooltipTrigger>
+										<TooltipTrigger
+											render={
+												<Info className="h-4 w-4 cursor-help text-muted-foreground" />
+											}
+										/>
 										<TooltipContent>
 											<p className="max-w-xs">
 												First name of the person sending questionnaires. Will be

@@ -79,14 +79,16 @@ export function ReportCompleteButton({
 
 	return (
 		<AlertDialog>
-			<AlertDialogTrigger asChild>
-				<Button
-					className="bg-primary text-primary-foreground hover:bg-primary/90"
-					disabled={markComplete.isPending}
-					size="sm"
-				>
-					Mark Complete
-				</Button>
+			<AlertDialogTrigger
+				render={
+					<Button
+						className="bg-primary text-primary-foreground hover:bg-primary/90"
+						disabled={markComplete.isPending}
+						size="sm"
+					/>
+				}
+			>
+				Mark Complete
 			</AlertDialogTrigger>
 			<AlertDialogContent>
 				<AlertDialogHeader>

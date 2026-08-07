@@ -22,15 +22,17 @@ const DATE_FORMAT = "MM/dd/yy";
 
 // The calendar's month/year caption uses native <select> dropdowns. On some
 // browsers/platforms, interacting with the OS-native option list is reported
-// to Radix as an "outside" interaction, closing the whole popover before a
+// to Base UI as an "outside" interaction, closing the whole popover before a
 // selection can be made. Ignore those so only real outside clicks dismiss it.
-function ignoreNativeSelectInteraction(event: {
-  target: EventTarget | null;
-  preventDefault: () => void;
+function isNativeSelectInteraction(eventDetails: {
+  reason: string;
+  event: { target: EventTarget | null };
 }) {
-  if (event.target instanceof HTMLSelectElement) {
-    event.preventDefault();
-  }
+  return (
+    (eventDetails.reason === "outside-press" ||
+      eventDetails.reason === "focus-out") &&
+    eventDetails.event.target instanceof HTMLSelectElement
+  );
 }
 
 const DateTimePicker: React.FC<DateTimePickerProps> = ({
@@ -133,24 +135,33 @@ const DateTimePicker: React.FC<DateTimePickerProps> = ({
           }}
         />
         <InputGroupAddon align="inline-end">
-          <Popover onOpenChange={setOpen} open={open}>
-            <PopoverTrigger asChild>
-              <InputGroupButton
-                variant="ghost"
-                size="icon-xs"
-                disabled={disabled}
-                aria-label="Open calendar"
-              >
-                <CalendarIcon className="h-4 w-4" />
-              </InputGroupButton>
+          <Popover
+            onOpenChange={(next, eventDetails) => {
+              if (!next && isNativeSelectInteraction(eventDetails)) {
+                eventDetails.cancel();
+                return;
+              }
+              setOpen(next);
+            }}
+            open={open}
+          >
+            <PopoverTrigger
+              render={
+                <InputGroupButton
+                  variant="ghost"
+                  size="icon-xs"
+                  disabled={disabled}
+                  aria-label="Open calendar"
+                />
+              }
+            >
+              <CalendarIcon className="h-4 w-4" />
             </PopoverTrigger>
             <PopoverContent
               align="end"
               side="bottom"
               sideOffset={4}
               className="w-auto p-0"
-              onFocusOutside={ignoreNativeSelectInteraction}
-              onPointerDownOutside={ignoreNativeSelectInteraction}
             >
               <Calendar
                 mode="single"

@@ -185,7 +185,10 @@ export function GlobalClientSearch() {
 								placeholder="Search by name, ID, DOB..."
 							/>
 						</div>
-						<Select onValueChange={handleStatusChange} value={statusFilter}>
+						<Select
+							onValueChange={(value) => value && handleStatusChange(value)}
+							value={statusFilter}
+						>
 							<SelectTrigger className="w-28 shrink-0">
 								<SelectValue placeholder="Status" />
 							</SelectTrigger>

@@ -61,7 +61,7 @@ export function EligibleEvaluatorsList({
 					</h4>
 					<Select
 						defaultValue={selectedOffice}
-						onValueChange={setSelectedOffice}
+						onValueChange={(value) => value && setSelectedOffice(value)}
 					>
 						<SelectTrigger>
 							<SelectValue placeholder="Filter by office" />

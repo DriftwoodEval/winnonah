@@ -25,7 +25,7 @@ import { api } from "~/trpc/react";
 interface InsuranceReviewSubmitDialogProps {
 	client: Client;
 	review: { content: unknown };
-	trigger: React.ReactNode;
+	trigger: React.ReactElement;
 	pending: boolean;
 	onConfirm: (insertAt: number) => void;
 }

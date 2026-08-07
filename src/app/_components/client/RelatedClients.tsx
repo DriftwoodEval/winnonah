@@ -90,14 +90,16 @@ export function RelatedClients({
 				{canEdit && (
 					<CardAction>
 						<Dialog onOpenChange={setIsAddOpen} open={isAddOpen}>
-							<DialogTrigger asChild>
-								<Button
-									className="cursor-pointer"
-									size="icon-sm"
-									variant="ghost"
-								>
-									<Plus className="h-4 w-4" />
-								</Button>
+							<DialogTrigger
+								render={
+									<Button
+										className="cursor-pointer"
+										size="icon-sm"
+										variant="ghost"
+									/>
+								}
+							>
+								<Plus className="h-4 w-4" />
 							</DialogTrigger>
 							<DialogContent className="max-w-md">
 								<DialogHeader>

@@ -93,17 +93,15 @@ export function ClientSearchAndAdd({
 		>
 			<div className="relative">
 				<Tooltip open={showTooltip}>
-					<TooltipTrigger asChild>
-						<div>
-							<Search className="absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-							<Input
-								aria-invalid={showTooltip}
-								className="pl-10"
-								onChange={(e) => setSearchTerm(e.target.value)}
-								placeholder={placeholder}
-								value={searchTerm}
-							/>
-						</div>
+					<TooltipTrigger render={<div />}>
+						<Search className="absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+						<Input
+							aria-invalid={showTooltip}
+							className="pl-10"
+							onChange={(e) => setSearchTerm(e.target.value)}
+							placeholder={placeholder}
+							value={searchTerm}
+						/>
 					</TooltipTrigger>
 					<TooltipContent>Enter at least 3 characters</TooltipContent>
 				</Tooltip>

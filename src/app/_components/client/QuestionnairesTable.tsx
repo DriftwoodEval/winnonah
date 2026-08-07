@@ -231,15 +231,17 @@ export function QuestionnairesTable({
 					<div className="flex items-center gap-4">
 						<h4 className="font-bold leading-none">Questionnaires</h4>
 						<DropdownMenu>
-							<DropdownMenuTrigger asChild>
-								<Button
-									className="px-2"
-									disabled={questionnaireBattery.length === 0}
-									size="sm"
-									variant="outline"
-								>
-									<ClipboardList className="h-4 w-4" />
-								</Button>
+							<DropdownMenuTrigger
+								render={
+									<Button
+										className="px-2"
+										disabled={questionnaireBattery.length === 0}
+										size="sm"
+										variant="outline"
+									/>
+								}
+							>
+								<ClipboardList className="h-4 w-4" />
 							</DropdownMenuTrigger>
 							<DropdownMenuContent align="start" className="w-64">
 								{questionnaireBattery.map(
@@ -320,7 +322,10 @@ export function QuestionnairesTable({
 						<span className="text-muted-foreground text-xs">
 							{selectedIds.size} selected
 						</span>
-						<Select onValueChange={setBulkStatus} value={bulkStatus}>
+						<Select
+							onValueChange={(value) => value && setBulkStatus(value)}
+							value={bulkStatus}
+						>
 							<SelectTrigger className="h-7 w-44 text-xs">
 								<SelectValue placeholder="Set status..." />
 							</SelectTrigger>
@@ -369,13 +374,8 @@ export function QuestionnairesTable({
 								{!readOnly && (
 									<TableHead className="w-8">
 										<Checkbox
-											checked={
-												allSelected
-													? true
-													: someSelected
-														? "indeterminate"
-														: false
-											}
+											checked={allSelected}
+											indeterminate={someSelected && !allSelected}
 											onCheckedChange={(c) => toggleAll(!!c)}
 										/>
 									</TableHead>

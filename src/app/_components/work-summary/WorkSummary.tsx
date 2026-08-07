@@ -333,10 +333,9 @@ export default function PieceworkSummary() {
 			<div className="flex flex-wrap items-center gap-3">
 				<ToggleGroup
 					onValueChange={(v) => {
-						if (v) setPreset(v as Preset);
+						if (v[0]) setPreset(v[0] as Preset);
 					}}
-					type="single"
-					value={preset}
+					value={[preset]}
 				>
 					<ToggleGroupItem value="4w">4 Weeks</ToggleGroupItem>
 					<ToggleGroupItem value="3m">3 Months</ToggleGroupItem>
@@ -368,10 +367,9 @@ export default function PieceworkSummary() {
 					</span>
 					<ToggleGroup
 						onValueChange={(v) => {
-							if (v) setViewMode(v as ViewMode);
+							if (v[0]) setViewMode(v[0] as ViewMode);
 						}}
-						type="single"
-						value={viewMode}
+						value={[viewMode]}
 					>
 						<ToggleGroupItem value="total">Total</ToggleGroupItem>
 						<ToggleGroupItem value="average">

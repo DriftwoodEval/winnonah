@@ -70,21 +70,23 @@ export function RecentMessagesPopover({
 
 	return (
 		<Popover onOpenChange={onOpenChange}>
-			<PopoverTrigger asChild>
-				<button
-					aria-label="Recent messages"
-					className={cn(
-						"shrink-0 rounded-full p-1 transition-colors",
-						isRecent
-							? "bg-amber-100 text-amber-700 dark:bg-amber-950/40 dark:text-amber-400"
-							: "text-muted-foreground/60 hover:bg-muted hover:text-muted-foreground",
-						className,
-					)}
-					onClick={(e) => e.stopPropagation()}
-					type="button"
-				>
-					<MessageSquare className="h-3.5 w-3.5" />
-				</button>
+			<PopoverTrigger
+				render={
+					<button
+						aria-label="Recent messages"
+						className={cn(
+							"shrink-0 rounded-full p-1 transition-colors",
+							isRecent
+								? "bg-amber-100 text-amber-700 dark:bg-amber-950/40 dark:text-amber-400"
+								: "text-muted-foreground/60 hover:bg-muted hover:text-muted-foreground",
+							className,
+						)}
+						onClick={(e) => e.stopPropagation()}
+						type="button"
+					/>
+				}
+			>
+				<MessageSquare className="h-3.5 w-3.5" />
 			</PopoverTrigger>
 			<PopoverContent
 				align="start"
@@ -105,9 +107,9 @@ export function RecentMessagesPopover({
 								>
 									<div className="flex w-full items-center gap-1.5">
 										<Tooltip>
-											<TooltipTrigger asChild>
-												<Bot className="h-3 w-3 shrink-0 opacity-70" />
-											</TooltipTrigger>
+											<TooltipTrigger
+												render={<Bot className="h-3 w-3 shrink-0 opacity-70" />}
+											/>
 											<TooltipContent className="max-w-64 text-left" side="top">
 												<Redact>{message.text ?? "No message text."}</Redact>
 											</TooltipContent>

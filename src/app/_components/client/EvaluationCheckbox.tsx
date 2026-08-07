@@ -79,8 +79,8 @@ export function EvaluationCheckbox({
 			/>
 			<TooltipProvider>
 				<Tooltip>
-					<TooltipTrigger asChild>
-						<Label htmlFor={checkboxId}>Evaluation In Process</Label>
+					<TooltipTrigger render={<Label htmlFor={checkboxId} />}>
+						Evaluation In Process
 					</TooltipTrigger>
 					<TooltipContent>
 						When requesting records, we were told an evaluation was in progress,

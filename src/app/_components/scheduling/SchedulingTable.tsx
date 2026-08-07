@@ -446,16 +446,18 @@ function SchedulingSearchBox({
 		<div className="flex items-center gap-1 px-4 py-2">
 			<Search className="size-4 text-muted-foreground" />
 			<Tooltip>
-				<TooltipTrigger asChild>
-					<Input
-						className="h-7 w-48"
-						onChange={(e) => onChange(e.target.value)}
-						onKeyDown={handleKeyDown}
-						placeholder="Find client... (ctrl+f)"
-						ref={inputRef}
-						value={value}
-					/>
-				</TooltipTrigger>
+				<TooltipTrigger
+					render={
+						<Input
+							className="h-7 w-48"
+							onChange={(e) => onChange(e.target.value)}
+							onKeyDown={handleKeyDown}
+							placeholder="Find client... (ctrl+f)"
+							ref={inputRef}
+							value={value}
+						/>
+					}
+				/>
 				<TooltipContent>
 					Enter for next match, Shift+Enter for previous
 				</TooltipContent>
@@ -519,16 +521,18 @@ function ColorPicker({
 
 	return (
 		<DropdownMenu>
-			<DropdownMenuTrigger asChild>
-				<Button className="cursor-pointer" size="icon-sm" variant="ghost">
-					<Circle
-						className="h-4 w-4"
-						fill={value ? SCHEDULING_COLOR_MAP[value] : "transparent"}
-						style={{
-							color: value ? SCHEDULING_COLOR_MAP[value] : "currentColor",
-						}}
-					/>
-				</Button>
+			<DropdownMenuTrigger
+				render={
+					<Button className="cursor-pointer" size="icon-sm" variant="ghost" />
+				}
+			>
+				<Circle
+					className="h-4 w-4"
+					fill={value ? SCHEDULING_COLOR_MAP[value] : "transparent"}
+					style={{
+						color: value ? SCHEDULING_COLOR_MAP[value] : "currentColor",
+					}}
+				/>
 			</DropdownMenuTrigger>
 			<DropdownMenuContent align="start">
 				<DropdownMenuItem
@@ -599,7 +603,7 @@ function EvaluatorSelect({
 	return (
 		<Select
 			onOpenChange={(open) => open && setHasBeenOpened(true)}
-			onValueChange={onChange}
+			onValueChange={(value) => value && onChange(value)}
 			value={value === "none" ? "" : value}
 		>
 			<SelectTrigger>
@@ -858,7 +862,7 @@ const SchedulingRowCells = memo(function SchedulingRowCells({
 				{isEditable ? (
 					<Select
 						onValueChange={(value) => {
-							if (value !== (scheduledClient.code as string | null)) {
+							if (value && value !== (scheduledClient.code as string | null)) {
 								const updates: SchedulingUpdateData = { code: value };
 								if (value === "90791") {
 									updates.office = "Virtual";
@@ -889,7 +893,10 @@ const SchedulingRowCells = memo(function SchedulingRowCells({
 				{isEditable ? (
 					<Select
 						onValueChange={(value) => {
-							if (value !== (scheduledClient.office as string | null)) {
+							if (
+								value &&
+								value !== (scheduledClient.office as string | null)
+							) {
 								onUpdate?.(scheduledClient.clientId, { office: value });
 							}
 						}}

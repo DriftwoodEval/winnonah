@@ -297,7 +297,7 @@ function ListView({
 }) {
 	return (
 		<div className="h-[600px] overflow-hidden rounded-md border bg-card">
-			<ScrollArea className="h-full" type="auto">
+			<ScrollArea className="h-full">
 				{isLoading ? (
 					<ListViewLoading />
 				) : !events?.length ? (
@@ -675,7 +675,7 @@ function CalendarView({
 
 	return (
 		<div className="overflow-hidden rounded-md border bg-card">
-			<ScrollArea className="w-full" type="auto">
+			<ScrollArea className="w-full">
 				<div className="min-w-[640px]">
 					<div
 						className="grid border-b"
@@ -700,10 +700,7 @@ function CalendarView({
 						})}
 					</div>
 
-					<ScrollArea
-						style={{ height: `${CALENDAR_VIEWPORT_HEIGHT_PX}px` }}
-						type="auto"
-					>
+					<ScrollArea style={{ height: `${CALENDAR_VIEWPORT_HEIGHT_PX}px` }}>
 						<div
 							className="grid"
 							style={{

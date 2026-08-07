@@ -27,7 +27,7 @@ interface ResponsiveDialogProps {
 	setOpen?: (open: boolean) => void;
 	title: string;
 	description?: string;
-	trigger?: React.ReactNode;
+	trigger?: React.ReactElement;
 	footer?: React.ReactNode;
 	className?: string;
 	showCloseButton?: boolean;
@@ -53,7 +53,7 @@ export function ResponsiveDialog({
 	if (isDesktop) {
 		return (
 			<Dialog onOpenChange={setOpen} open={open}>
-				{trigger && <DialogTrigger asChild>{trigger}</DialogTrigger>}
+				{trigger && <DialogTrigger render={trigger} />}
 				<DialogContent
 					className={cn(
 						"max-h-[calc(100vh-4rem)] max-w-fit overflow-x-hidden overflow-y-scroll",

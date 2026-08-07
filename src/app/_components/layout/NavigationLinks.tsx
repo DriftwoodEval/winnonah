@@ -128,19 +128,19 @@ function NavigationCategory({
 	return (
 		<DropdownMenu modal={false} onOpenChange={setOpen} open={open}>
 			<DropdownMenuTrigger
-				asChild
 				onMouseEnter={openNow}
 				onMouseLeave={closeSoon}
+				render={
+					<Button
+						aria-label={label}
+						className={`cursor-pointer gap-1.5 px-2 ${isCategoryActive ? "text-secondary" : ""}`}
+						variant="ghost"
+					/>
+				}
 			>
-				<Button
-					aria-label={label}
-					className={`cursor-pointer gap-1.5 px-2 ${isCategoryActive ? "text-secondary" : ""}`}
-					variant="ghost"
-				>
-					<Icon className="h-4 w-4 shrink-0" />
-					<span className="hidden xl:inline">{label}</span>
-					<ChevronDown className="h-3 w-3 shrink-0 opacity-60" />
-				</Button>
+				<Icon className="h-4 w-4 shrink-0" />
+				<span className="hidden xl:inline">{label}</span>
+				<ChevronDown className="h-3 w-3 shrink-0 opacity-60" />
 			</DropdownMenuTrigger>
 			<DropdownMenuContent
 				align="start"
@@ -149,16 +149,20 @@ function NavigationCategory({
 				onMouseLeave={closeSoon}
 			>
 				{visibleItems.map((item) => (
-					<DropdownMenuItem asChild className="cursor-pointer" key={item.href}>
-						<Link
-							className={
-								isNavItemActive(item.href, pathname) ? "text-secondary" : ""
-							}
-							href={item.href}
-						>
-							<item.icon className="h-4 w-4" />
-							{item.label}
-						</Link>
+					<DropdownMenuItem
+						className="cursor-pointer"
+						key={item.href}
+						render={
+							<Link
+								className={
+									isNavItemActive(item.href, pathname) ? "text-secondary" : ""
+								}
+								href={item.href}
+							/>
+						}
+					>
+						<item.icon className="h-4 w-4" />
+						{item.label}
 					</DropdownMenuItem>
 				))}
 			</DropdownMenuContent>

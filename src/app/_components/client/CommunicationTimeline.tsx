@@ -86,10 +86,12 @@ export function CommunicationTimeline({
 					Recent messages and calls. View only.
 				</CardDescription>
 				<CardAction>
-					<Button asChild className="h-auto p-0 text-xs" variant="link">
-						<Link href="https://my.quo.com" target="_blank">
-							Quo
-						</Link>
+					<Button
+						className="h-auto p-0 text-xs"
+						render={<Link href="https://my.quo.com" target="_blank" />}
+						variant="link"
+					>
+						Quo
 					</Button>
 				</CardAction>
 			</CardHeader>
@@ -138,9 +140,11 @@ export function CommunicationTimeline({
 												<div className="flex items-center justify-end gap-1">
 													{automatedMap.get(event.id) && (
 														<Tooltip>
-															<TooltipTrigger asChild>
-																<Bot className="h-3 w-3 shrink-0 opacity-60" />
-															</TooltipTrigger>
+															<TooltipTrigger
+																render={
+																	<Bot className="h-3 w-3 shrink-0 opacity-60" />
+																}
+															/>
 															<TooltipContent
 																className="max-w-[200px] text-center"
 																side="left"

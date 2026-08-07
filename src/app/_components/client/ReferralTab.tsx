@@ -406,7 +406,7 @@ export function ReferralTab({ client, readOnly }: ReferralTabProps) {
 									updateClientMutation.isPending ||
 									!can("clients:asdadhd")
 								}
-								onValueChange={handleAsdAdhdChange}
+								onValueChange={(value) => value && handleAsdAdhdChange(value)}
 								value={client.asdAdhd ?? ""}
 							>
 								<SelectTrigger id="asdAdhd">
@@ -429,6 +429,7 @@ export function ReferralTab({ client, readOnly }: ReferralTabProps) {
 								<Select
 									disabled={isReadOnly || !can("clients:language")}
 									onValueChange={(val) => {
+										if (!val) return;
 										if (val !== "Other") {
 											setLanguage(val);
 											handleLanguageChange(val);

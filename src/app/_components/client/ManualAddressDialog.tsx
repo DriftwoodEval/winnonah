@@ -117,26 +117,32 @@ function ManualAddressForm({
 								onOpenChange={setDistrictsOpen}
 								open={districtsOpen}
 							>
-								<PopoverTrigger asChild disabled={!canDistrict}>
-									<FormControl>
-										<Button
-											className={cn(
-												"w-xs justify-between",
-												!field.value && "text-muted-foreground",
-											)}
-											role="combobox"
-											variant="outline"
-										>
-											{field.value && allSchoolDistricts
-												? allSchoolDistricts.find(
-														(district) => district.fullName === field.value,
-													)?.shortName ||
-													field.value.replace(/ (County )?School District/, "")
-												: "Select district"}
-											<ChevronsUpDown className="opacity-50" />
-										</Button>
-									</FormControl>
-								</PopoverTrigger>
+								<PopoverTrigger
+									disabled={!canDistrict}
+									render={
+										<FormControl>
+											<Button
+												className={cn(
+													"w-xs justify-between",
+													!field.value && "text-muted-foreground",
+												)}
+												role="combobox"
+												variant="outline"
+											>
+												{field.value && allSchoolDistricts
+													? allSchoolDistricts.find(
+															(district) => district.fullName === field.value,
+														)?.shortName ||
+														field.value.replace(
+															/ (County )?School District/,
+															"",
+														)
+													: "Select district"}
+												<ChevronsUpDown className="opacity-50" />
+											</Button>
+										</FormControl>
+									}
+								/>
 								<PopoverContent className="w-full p-0">
 									<Command>
 										<CommandInput
@@ -218,7 +224,7 @@ export function ManualAddressDialog({
 	trigger,
 }: {
 	client: Client;
-	trigger: React.ReactNode;
+	trigger: React.ReactElement;
 }) {
 	const dialog = useResponsiveDialog();
 	const utils = api.useUtils();

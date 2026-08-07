@@ -98,11 +98,9 @@ function AddEvaluatorButton() {
 
 	return (
 		<Dialog onOpenChange={setIsOpen} open={isOpen}>
-			<DialogTrigger asChild>
-				<Button size="sm">
-					<span className="hidden sm:block">Add Evaluator</span>
-					<span className="sm:hidden">Add</span>
-				</Button>
+			<DialogTrigger render={<Button size="sm" />}>
+				<span className="hidden sm:block">Add Evaluator</span>
+				<span className="sm:hidden">Add</span>
 			</DialogTrigger>
 			<DialogContent className="max-h-[calc(100vh-4rem)] overflow-y-auto sm:max-w-2xl">
 				<DialogHeader>

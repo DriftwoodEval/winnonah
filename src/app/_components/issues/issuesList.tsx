@@ -118,7 +118,6 @@ export const IssueList = ({
 		<div className={fill ? "flex h-full w-full" : "flex max-h-80"}>
 			<ScrollArea
 				className={`${fill ? "h-full w-full" : "w-xs"} rounded-md border bg-card text-card-foreground shadow-sm`}
-				type="auto"
 			>
 				<div className="p-4">
 					<div className="flex items-center justify-between gap-4">
@@ -346,7 +345,6 @@ export const SuggestionIssueList = ({
 		<div className={fill ? "flex h-full w-full" : "flex max-h-80"}>
 			<ScrollArea
 				className={`${fill ? "h-full w-full" : "w-md"} rounded-md border bg-card text-card-foreground shadow-sm`}
-				type="auto"
 			>
 				<div className="p-4">
 					<div className="flex items-center justify-between gap-4">
@@ -525,7 +523,6 @@ export const DuplicateNamesList = ({
 		<div className={fill ? "flex h-full w-full" : "flex max-h-80"}>
 			<ScrollArea
 				className={`${fill ? "h-full w-full" : "w-md"} rounded-md border bg-card text-card-foreground shadow-sm`}
-				type="auto"
 			>
 				<div className="p-4">
 					<h1 className="mb-1 font-bold text-lg leading-none">
@@ -653,7 +650,6 @@ export const DuplicateDriveFoldersList = ({
 		<div className={fill ? "flex h-full w-full" : "flex max-h-80"}>
 			<ScrollArea
 				className={`${fill ? "h-full w-full" : "w-md"} rounded-md border bg-card text-card-foreground shadow-sm`}
-				type="auto"
 			>
 				<div className="flex flex-col p-4">
 					<div className="flex items-center justify-between">
@@ -761,7 +757,6 @@ export const ClientsSharingQuestionnaires = ({
 		<div className={fill ? "flex h-full w-full" : "flex max-h-80"}>
 			<ScrollArea
 				className={`${fill ? "h-full w-full" : "w-md"} rounded-md border bg-card text-card-foreground shadow-sm`}
-				type="auto"
 			>
 				<div className="p-4">
 					<h1 className="mb-1 font-bold text-lg leading-none">
@@ -866,7 +861,6 @@ export const PartialBatteryList = ({
 		<div className={fill ? "flex h-full w-full" : "flex max-h-80"}>
 			<ScrollArea
 				className={`${fill ? "h-full w-full" : "w-md"} rounded-md border bg-card text-card-foreground shadow-sm`}
-				type="auto"
 			>
 				<div className="flex flex-col p-4">
 					<h1 className="font-bold text-lg leading-none">

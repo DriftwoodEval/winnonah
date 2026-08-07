@@ -466,7 +466,7 @@ export function RecordsNoteEditor({
 						<TooltipTrigger>
 							<Select
 								disabled={!canEditRecordsNeeded}
-								onValueChange={handleNeededChange}
+								onValueChange={(value) => value && handleNeededChange(value)}
 								value={recordsNeeded ?? ""}
 							>
 								<SelectTrigger id={recordsNeededId}>
@@ -570,7 +570,7 @@ export function RecordsNoteEditor({
 				<div className="flex flex-row items-center gap-3">
 					<Select
 						disabled={isEditorReadOnly || !!detectedTemplateValue}
-						onValueChange={handleTemplateChange}
+						onValueChange={(value) => value && handleTemplateChange(value)}
 						value={detectedTemplateValue ?? ""}
 					>
 						<SelectTrigger className="w-full sm:w-[240px]" size="sm">

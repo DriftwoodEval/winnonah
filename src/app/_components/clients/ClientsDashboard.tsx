@@ -281,14 +281,16 @@ export function ClientsDashboard() {
 
 	const clientFormTrigger = (
 		<Tooltip>
-			<TooltipTrigger asChild>
-				<Button
-					onClick={clientFormDialog.openDialog}
-					size="icon"
-					variant="outline"
-				>
-					<Plus />
-				</Button>
+			<TooltipTrigger
+				render={
+					<Button
+						onClick={clientFormDialog.openDialog}
+						size="icon"
+						variant="outline"
+					/>
+				}
+			>
+				<Plus />
 			</TooltipTrigger>
 			<TooltipContent>
 				<p>Create Notes Only Client</p>
@@ -324,24 +326,28 @@ export function ClientsDashboard() {
 
 				<Popover>
 					<Tooltip>
-						<TooltipTrigger asChild>
-							<PopoverTrigger asChild>
-								<Button
-									size="icon"
-									variant={
-										["sort"].some(
-											(key) =>
-												queryParams[key as keyof typeof queryParams] !==
-												undefined,
-										)
-											? "default"
-											: "outline"
+						<TooltipTrigger
+							render={
+								<PopoverTrigger
+									render={
+										<Button
+											size="icon"
+											variant={
+												["sort"].some(
+													(key) =>
+														queryParams[key as keyof typeof queryParams] !==
+														undefined,
+												)
+													? "default"
+													: "outline"
+											}
+										>
+											<ArrowDownUp />
+										</Button>
 									}
-								>
-									<ArrowDownUp />
-								</Button>
-							</PopoverTrigger>
-						</TooltipTrigger>
+								/>
+							}
+						/>
 						<TooltipContent>
 							<p>Sort</p>
 						</TooltipContent>
@@ -381,35 +387,40 @@ export function ClientsDashboard() {
 
 				<Popover>
 					<Tooltip>
-						<TooltipTrigger asChild>
-							<PopoverTrigger asChild>
-								<Button
-									size="icon"
-									variant={
-										[
-											"hideBabynet",
-											"status",
-											"type",
-											"privatepay",
-											"color",
-										].some(
-											(key) =>
-												queryParams[key as keyof typeof queryParams] !==
-													false &&
-												queryParams[key as keyof typeof queryParams] !==
-													undefined &&
-												queryParams[key as keyof typeof queryParams] !==
-													"active" &&
-												queryParams[key as keyof typeof queryParams] !== "both",
-										) || (queryParams.insuranceFilter?.length ?? 0) > 0
-											? "default"
-											: "outline"
+						<TooltipTrigger
+							render={
+								<PopoverTrigger
+									render={
+										<Button
+											size="icon"
+											variant={
+												[
+													"hideBabynet",
+													"status",
+													"type",
+													"privatepay",
+													"color",
+												].some(
+													(key) =>
+														queryParams[key as keyof typeof queryParams] !==
+															false &&
+														queryParams[key as keyof typeof queryParams] !==
+															undefined &&
+														queryParams[key as keyof typeof queryParams] !==
+															"active" &&
+														queryParams[key as keyof typeof queryParams] !==
+															"both",
+												) || (queryParams.insuranceFilter?.length ?? 0) > 0
+													? "default"
+													: "outline"
+											}
+										>
+											<Filter />
+										</Button>
 									}
-								>
-									<Filter />
-								</Button>
-							</PopoverTrigger>
-						</TooltipTrigger>
+								/>
+							}
+						/>
 						<TooltipContent>
 							<p>Filter</p>
 						</TooltipContent>
@@ -465,41 +476,43 @@ export function ClientsDashboard() {
 								<div className="grid grid-cols-6 gap-2 pt-1">
 									{CLIENT_COLOR_KEYS.map((colorKey) => (
 										<Tooltip key={colorKey}>
-											<TooltipTrigger asChild>
-												<button
-													aria-label={`Filter by color: ${formatColorName(
-														colorKey,
-													)}`}
-													className="relative flex h-8 w-8 items-center justify-center rounded-full text-sm"
-													key={colorKey}
-													onClick={() => {
-														const currentValue = queryParams.color;
-														const newValue =
-															currentValue === colorKey ? false : colorKey;
-														handleUrlParamChange("color", newValue);
-													}}
-													style={{
-														color:
-															Number.parseInt(
-																CLIENT_COLOR_MAP[colorKey].replace("#", ""),
-																16,
-															) >
-															0xffffff / 2
-																? "#333"
-																: "#FFF",
-														backgroundColor: CLIENT_COLOR_MAP[colorKey],
-													}}
-													type="button"
-												>
-													{queryParams.color === colorKey ? (
-														<Check className="h-5 w-5" />
-													) : (
-														(
-															colorCounts?.find((c) => c.color === colorKey)
-																?.count ?? 0
-														).toString()
-													)}
-												</button>
+											<TooltipTrigger
+												render={
+													<button
+														aria-label={`Filter by color: ${formatColorName(
+															colorKey,
+														)}`}
+														className="relative flex h-8 w-8 items-center justify-center rounded-full text-sm"
+														key={colorKey}
+														onClick={() => {
+															const currentValue = queryParams.color;
+															const newValue =
+																currentValue === colorKey ? false : colorKey;
+															handleUrlParamChange("color", newValue);
+														}}
+														style={{
+															color:
+																Number.parseInt(
+																	CLIENT_COLOR_MAP[colorKey].replace("#", ""),
+																	16,
+																) >
+																0xffffff / 2
+																	? "#333"
+																	: "#FFF",
+															backgroundColor: CLIENT_COLOR_MAP[colorKey],
+														}}
+														type="button"
+													/>
+												}
+											>
+												{queryParams.color === colorKey ? (
+													<Check className="h-5 w-5" />
+												) : (
+													(
+														colorCounts?.find((c) => c.color === colorKey)
+															?.count ?? 0
+													).toString()
+												)}
 											</TooltipTrigger>
 											<TooltipContent>
 												<p>{formatColorName(colorKey)}</p>

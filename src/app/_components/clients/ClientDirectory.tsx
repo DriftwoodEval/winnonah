@@ -735,7 +735,9 @@ export function ClientDirectory() {
 					/>
 				</div>
 				<Select
-					onValueChange={(value) => updateParam("status", value, "active")}
+					onValueChange={(value) =>
+						value && updateParam("status", value, "active")
+					}
 					value={status}
 				>
 					<SelectTrigger className="w-full sm:w-48">
@@ -756,11 +758,17 @@ export function ClientDirectory() {
 					</SelectContent>
 				</Select>
 				<DropdownMenu>
-					<DropdownMenuTrigger asChild>
-						<Button className="w-full sm:w-auto" size="sm" variant="outline">
-							<Columns3 className="h-4 w-4" />
-							Columns
-						</Button>
+					<DropdownMenuTrigger
+						render={
+							<Button
+								className="w-full sm:w-auto"
+								size="sm"
+								variant="outline"
+							/>
+						}
+					>
+						<Columns3 className="h-4 w-4" />
+						Columns
 					</DropdownMenuTrigger>
 					<DropdownMenuContent align="start">
 						{(Object.keys(ALL_TOGGLE_LABELS) as ToggleKey[]).map((key) => (

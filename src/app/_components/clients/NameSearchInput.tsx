@@ -57,26 +57,24 @@ export function NameSearchInput({
 
 	return (
 		<Tooltip open={showTooltip}>
-			<TooltipTrigger asChild>
-				<InputGroup>
-					<InputGroupInput
-						aria-invalid={
-							inputValue.length > 0 && inputValue.length < 3 && !isFocused
-						}
-						aria-label="Search by name or ID"
-						autoFocus={isFocused}
-						className="pl-10 text-sm"
-						id={inputId}
-						onBlur={() => handleFocusBlur(false)}
-						onChange={handleChange}
-						onFocus={() => handleFocusBlur(true)}
-						placeholder={placeholder}
-						value={inputValue}
-					/>
-					<InputGroupAddon>
-						<Search />
-					</InputGroupAddon>
-				</InputGroup>
+			<TooltipTrigger render={<InputGroup />}>
+				<InputGroupInput
+					aria-invalid={
+						inputValue.length > 0 && inputValue.length < 3 && !isFocused
+					}
+					aria-label="Search by name or ID"
+					autoFocus={isFocused}
+					className="pl-10 text-sm"
+					id={inputId}
+					onBlur={() => handleFocusBlur(false)}
+					onChange={handleChange}
+					onFocus={() => handleFocusBlur(true)}
+					placeholder={placeholder}
+					value={inputValue}
+				/>
+				<InputGroupAddon>
+					<Search />
+				</InputGroupAddon>
 			</TooltipTrigger>
 			<TooltipContent>Enter at least 3 characters</TooltipContent>
 		</Tooltip>

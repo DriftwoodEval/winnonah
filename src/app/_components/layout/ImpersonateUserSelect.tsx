@@ -57,7 +57,7 @@ export function ImpersonateUserSelect() {
 	return (
 		<Select
 			disabled={pending}
-			onValueChange={(v) => viewAs(v === "__self" ? undefined : v)}
+			onValueChange={(v) => viewAs(!v || v === "__self" ? undefined : v)}
 			value={session.user.isImpersonating ? session.user.id : "__self"}
 		>
 			<SelectTrigger

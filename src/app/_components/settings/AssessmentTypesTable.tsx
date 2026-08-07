@@ -277,10 +277,8 @@ function AddTypeButton() {
 
 	return (
 		<Dialog onOpenChange={setIsOpen} open={isOpen}>
-			<DialogTrigger asChild>
-				<Button size="sm">
-					<Plus className="mr-2 h-4 w-4" /> Add Type
-				</Button>
+			<DialogTrigger render={<Button size="sm" />}>
+				<Plus className="mr-2 h-4 w-4" /> Add Type
 			</DialogTrigger>
 			<DialogContent className="sm:max-w-[450px]">
 				<DialogHeader>
@@ -328,10 +326,10 @@ function TypeActionsMenu({ qtype }: { qtype: QType }) {
 	return (
 		<>
 			<DropdownMenu>
-				<DropdownMenuTrigger asChild>
-					<Button className="h-8 w-8 p-0" variant="ghost">
-						<MoreHorizontal className="h-4 w-4" />
-					</Button>
+				<DropdownMenuTrigger
+					render={<Button className="h-8 w-8 p-0" variant="ghost" />}
+				>
+					<MoreHorizontal className="h-4 w-4" />
 				</DropdownMenuTrigger>
 				<DropdownMenuContent align="start">
 					<DropdownMenuItem onClick={() => setIsEditOpen(true)}>
