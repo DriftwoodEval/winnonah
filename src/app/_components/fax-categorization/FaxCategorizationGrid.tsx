@@ -212,6 +212,7 @@ function FaxGrid({ status }: { status: "pending" | "reviewed" }) {
 							<div className="grid flex-1 gap-4 md:grid-cols-[2fr_1fr]">
 								<iframe
 									className="h-[85vh] w-full rounded-md border"
+									key={selectedFax.driveFileId}
 									src={`/api/fax-categorization/${selectedFax.driveFileId}`}
 									title={selectedFax.fileName}
 								/>
