@@ -58,12 +58,12 @@ export function CommunicationTimeline({
 		[automatedContext],
 	);
 
-	const { data: quoUsers } = api.quo.getQuoUsers.useQuery();
+	// const { data: quoUsers } = api.quo.getQuoUsers.useQuery();
 
-	const senderFirstNameById = useMemo(
-		() => new Map(quoUsers?.map((u) => [u.id, u.name.split(" ")[0]]) ?? []),
-		[quoUsers],
-	);
+	// const senderFirstNameById = useMemo(
+	// 	() => new Map(quoUsers?.map((u) => [u.id, u.name.split(" ")[0]]) ?? []),
+	// 	[quoUsers],
+	// );
 
 	useEffect(() => {
 		if (timeline && timeline.length > 0 && bottomRef.current) {
@@ -164,11 +164,11 @@ export function CommunicationTimeline({
 																: "text-secondary-foreground/50",
 														)}
 													>
-														{event.direction === "outgoing" &&
+														{/* {event.direction === "outgoing" &&
 															!automatedMap.get(event.id) &&
 															event.userId &&
 															senderFirstNameById.get(event.userId) &&
-															`${senderFirstNameById.get(event.userId)} · `}
+															`${senderFirstNameById.get(event.userId)} · `} */}
 														{format(
 															new Date(event.createdAt),
 															new Date(event.createdAt).getFullYear() ===
