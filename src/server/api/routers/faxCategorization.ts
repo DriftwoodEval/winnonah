@@ -63,7 +63,11 @@ export const faxCategorizationRouter = createTRPCRouter({
 					reviewedBy: ctx.session.user.email,
 				})
 				.onDuplicateKeyUpdate({
-					set: { confirmed: true, reviewedBy: ctx.session.user.email },
+					set: {
+						confirmed: true,
+						rejected: false,
+						reviewedBy: ctx.session.user.email,
+					},
 				});
 			return { success: true };
 		}),
@@ -73,7 +77,8 @@ export const faxCategorizationRouter = createTRPCRouter({
 		.mutation(async ({ ctx, input }) => {
 			assertPermission(ctx.session.user, "fax:categorization:review");
 			await ctx.db
-				.delete(faxCategorizationClientLinks)
+				.update(faxCategorizationClientLinks)
+				.set({ rejected: true, reviewedBy: ctx.session.user.email })
 				.where(eq(faxCategorizationClientLinks.id, input.linkId));
 			return { success: true };
 		}),

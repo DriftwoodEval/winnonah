@@ -569,6 +569,7 @@ export const faxCategorizationClientLinks = createTable(
 		matchedName: d.varchar("matched_name", { length: 255 }),
 		confidence: d.decimal("confidence", { precision: 5, scale: 4 }),
 		confirmed: d.boolean().notNull().default(false),
+		rejected: d.boolean().notNull().default(false),
 		createdAt: d
 			.timestamp("created_at")
 			.default(sql`CURRENT_TIMESTAMP`)
