@@ -433,7 +433,7 @@ export default function AssessmentTypesTable() {
 								<TableRow>
 									{canEdit && <TableHead className="w-[50px]" />}
 									<TableHead>Name</TableHead>
-									<TableHead>Site</TableHead>
+									<TableHead className="hidden sm:table-cell">Site</TableHead>
 									<TableHead>Age Range</TableHead>
 									<TableHead>Minutes</TableHead>
 								</TableRow>
@@ -451,7 +451,7 @@ export default function AssessmentTypesTable() {
 											<TableCell className="font-medium">
 												<Badge variant="outline">{qtype.name}</Badge>
 											</TableCell>
-											<TableCell className="text-muted-foreground text-sm">
+											<TableCell className="hidden text-muted-foreground text-sm sm:table-cell">
 												{qtype.site}
 											</TableCell>
 											<TableCell className="whitespace-nowrap">

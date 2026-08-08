@@ -589,6 +589,11 @@ export default function InsurancesTable() {
 	const can = useCheckPermission();
 	const canEdit = can("settings:insurances");
 	const { data: insurances, isLoading } = api.insurances.getAll.useQuery();
+	// Renders only one of the table/card layouts (rather than both, CSS-hidden)
+	// since each row mounts its own DropdownMenu/Dialog/AlertDialog - doubling
+	// them up caused Radix's scroll-lock bookkeeping to fight itself when a
+	// menu opened on mobile.
+	const isMobile = useMediaQuery("(max-width: 639px)");
 
 	if (isLoading)
 		return <p className="p-4 text-center">Loading insurances...</p>;
@@ -603,77 +608,152 @@ export default function InsurancesTable() {
 					/>
 				)}
 			</div>
-			<div className="rounded-md border">
-				<Table>
-					<TableHeader>
-						<TableRow>
-							{canEdit && <TableHead className="w-[50px]"></TableHead>}
-							<TableHead>Short Name</TableHead>
-							<TableHead>Official Names (Aliases)</TableHead>
-							<TableHead className="text-center">Pre-Auth</TableHead>
-							<TableHead className="text-center">Lock In</TableHead>
-							<TableHead className="text-center">Appts.</TableHead>
-						</TableRow>
-					</TableHeader>
-					<TableBody>
-						{insurances?.map((insurance) => (
-							<TableRow key={insurance.id}>
-								{canEdit && (
-									<TableCell>
-										<InsuranceActionsMenu
-											existingInsurances={
-												(insurances as InsuranceWithAliases[]) ?? []
-											}
-											insurance={insurance as InsuranceWithAliases}
-										/>
-									</TableCell>
-								)}
-								<TableCell className="font-medium">
-									<Badge variant="outline">{insurance.shortName}</Badge>
-								</TableCell>
-								<TableCell>
-									<div className="flex flex-wrap gap-1">
-										{insurance.aliases.map((alias) => (
-											<Badge key={alias.name} variant="secondary">
-												{alias.name}
-											</Badge>
-										))}
-										{insurance.aliases.length === 0 && (
-											<span className="text-muted-foreground text-sm italic">
-												None
-											</span>
-										)}
-									</div>
-								</TableCell>
-								<TableCell className="text-center">
-									{insurance.preAuthNeeded ? (
-										<Check className="mx-auto h-4 w-4 text-green-500" />
-									) : (
-										<X className="mx-auto h-4 w-4 text-muted-foreground" />
-									)}
-								</TableCell>
-								<TableCell className="text-center">
-									{insurance.preAuthLockin ? (
-										<Check className="mx-auto h-4 w-4 text-green-500" />
-									) : (
-										<X className="mx-auto h-4 w-4 text-muted-foreground" />
-									)}
-								</TableCell>
-								<TableCell className="text-center">
-									{insurance.appointmentsRequired}
-								</TableCell>
-							</TableRow>
-						))}
-						{insurances?.length === 0 && (
+			{!isMobile && (
+				<div className="rounded-md border">
+					<Table>
+						<TableHeader>
 							<TableRow>
-								<TableCell className="h-24 text-center" colSpan={6}>
-									No insurances found.
-								</TableCell>
+								{canEdit && <TableHead className="w-[50px]"></TableHead>}
+								<TableHead>Short Name</TableHead>
+								<TableHead>Official Names (Aliases)</TableHead>
+								<TableHead className="text-center">Pre-Auth</TableHead>
+								<TableHead className="text-center">Lock In</TableHead>
+								<TableHead className="text-center">Appts.</TableHead>
 							</TableRow>
-						)}
-					</TableBody>
-				</Table>
-			</div>
+						</TableHeader>
+						<TableBody>
+							{insurances?.map((insurance) => (
+								<TableRow key={insurance.id}>
+									{canEdit && (
+										<TableCell>
+											<InsuranceActionsMenu
+												existingInsurances={
+													(insurances as InsuranceWithAliases[]) ?? []
+												}
+												insurance={insurance as InsuranceWithAliases}
+											/>
+										</TableCell>
+									)}
+									<TableCell className="font-medium">
+										<Badge variant="outline">{insurance.shortName}</Badge>
+									</TableCell>
+									<TableCell>
+										<div className="flex flex-wrap gap-1">
+											{insurance.aliases.map((alias) => (
+												<Badge key={alias.name} variant="secondary">
+													{alias.name}
+												</Badge>
+											))}
+											{insurance.aliases.length === 0 && (
+												<span className="text-muted-foreground text-sm italic">
+													None
+												</span>
+											)}
+										</div>
+									</TableCell>
+									<TableCell className="text-center">
+										{insurance.preAuthNeeded ? (
+											<Check className="mx-auto h-4 w-4 text-green-500" />
+										) : (
+											<X className="mx-auto h-4 w-4 text-muted-foreground" />
+										)}
+									</TableCell>
+									<TableCell className="text-center">
+										{insurance.preAuthLockin ? (
+											<Check className="mx-auto h-4 w-4 text-green-500" />
+										) : (
+											<X className="mx-auto h-4 w-4 text-muted-foreground" />
+										)}
+									</TableCell>
+									<TableCell className="text-center">
+										{insurance.appointmentsRequired}
+									</TableCell>
+								</TableRow>
+							))}
+							{insurances?.length === 0 && (
+								<TableRow>
+									<TableCell className="h-24 text-center" colSpan={6}>
+										No insurances found.
+									</TableCell>
+								</TableRow>
+							)}
+						</TableBody>
+					</Table>
+				</div>
+			)}
+
+			{isMobile && (
+				<div className="flex flex-col gap-3">
+					{insurances?.map((insurance) => (
+						<div
+							className="rounded-lg border bg-card p-4 shadow-xs"
+							key={insurance.id}
+						>
+							<div className="flex items-start justify-between gap-2">
+								<Badge variant="outline">{insurance.shortName}</Badge>
+								{canEdit && (
+									<InsuranceActionsMenu
+										existingInsurances={
+											(insurances as InsuranceWithAliases[]) ?? []
+										}
+										insurance={insurance as InsuranceWithAliases}
+									/>
+								)}
+							</div>
+
+							<div className="mt-3">
+								<div className="text-muted-foreground text-xs">
+									Official Names (Aliases)
+								</div>
+								<div className="mt-1 flex flex-wrap gap-1">
+									{insurance.aliases.map((alias) => (
+										<Badge
+											className="h-auto max-w-full whitespace-normal break-words text-left"
+											key={alias.name}
+											variant="secondary"
+										>
+											{alias.name}
+										</Badge>
+									))}
+									{insurance.aliases.length === 0 && (
+										<span className="text-muted-foreground text-sm italic">
+											None
+										</span>
+									)}
+								</div>
+							</div>
+
+							<div className="mt-3 grid grid-cols-3 gap-3">
+								<div>
+									<div className="text-muted-foreground text-xs">Pre-Auth</div>
+									{insurance.preAuthNeeded ? (
+										<Check className="h-4 w-4 text-green-500" />
+									) : (
+										<X className="h-4 w-4 text-muted-foreground" />
+									)}
+								</div>
+								<div>
+									<div className="text-muted-foreground text-xs">Lock In</div>
+									{insurance.preAuthLockin ? (
+										<Check className="h-4 w-4 text-green-500" />
+									) : (
+										<X className="h-4 w-4 text-muted-foreground" />
+									)}
+								</div>
+								<div>
+									<div className="text-muted-foreground text-xs">Appts.</div>
+									<div>{insurance.appointmentsRequired}</div>
+								</div>
+							</div>
+						</div>
+					))}
+					{insurances?.length === 0 && (
+						<p className="py-12 text-center text-muted-foreground text-sm">
+							No insurances found.
+						</p>
+					)}
+				</div>
+			)}
 		</div>
 	);
 }

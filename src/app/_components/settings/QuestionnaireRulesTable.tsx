@@ -58,6 +58,7 @@ import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 import { z } from "zod";
 import { useCheckPermission } from "~/hooks/use-check-permission";
+import { useMediaQuery } from "~/hooks/use-media-query";
 import { logger } from "~/lib/logger";
 import { api, type RouterOutputs } from "~/trpc/react";
 
@@ -488,6 +489,11 @@ export default function QuestionnaireRulesTable() {
 	const can = useCheckPermission();
 	const canEdit = can("settings:questionnaireRules");
 	const { data: rules, isLoading } = api.questionnaires.getAllRules.useQuery();
+	// Renders only one of the table/card layouts (rather than both, CSS-hidden)
+	// since each row mounts its own DropdownMenu/Dialog/AlertDialog - doubling
+	// them up caused Radix's scroll-lock bookkeeping to fight itself when a
+	// menu opened on mobile.
+	const isMobile = useMediaQuery("(max-width: 639px)");
 
 	return (
 		<div className="px-4">
@@ -501,120 +507,220 @@ export default function QuestionnaireRulesTable() {
 				</div>
 				{canEdit && <AddRuleButton />}
 			</div>
-			<div className="rounded-md border">
-				<Table>
-					<TableHeader>
-						<TableRow>
-							{canEdit && <TableHead className="w-[50px]" />}
-							<TableHead>Appt Type</TableHead>
-							<TableHead>Diagnosis</TableHead>
-							<TableHead>Age Range</TableHead>
-							<TableHead>Online</TableHead>
-							<TableHead>In-Person</TableHead>
-						</TableRow>
-					</TableHeader>
-					<TableBody>
-						{isLoading &&
-							Array.from({ length: 6 }).map((_, i) => (
-								// biome-ignore lint/suspicious/noArrayIndexKey: just a skeleton
-								<TableRow key={i}>
-									{canEdit && (
+			{!isMobile && (
+				<div className="rounded-md border">
+					<Table>
+						<TableHeader>
+							<TableRow>
+								{canEdit && <TableHead className="w-[50px]" />}
+								<TableHead>Appt Type</TableHead>
+								<TableHead>Diagnosis</TableHead>
+								<TableHead>Age Range</TableHead>
+								<TableHead>Online</TableHead>
+								<TableHead>In-Person</TableHead>
+							</TableRow>
+						</TableHeader>
+						<TableBody>
+							{isLoading &&
+								Array.from({ length: 6 }).map((_, i) => (
+									// biome-ignore lint/suspicious/noArrayIndexKey: just a skeleton
+									<TableRow key={i}>
+										{canEdit && (
+											<TableCell>
+												<Skeleton className="h-8 w-8" />
+											</TableCell>
+										)}
 										<TableCell>
-											<Skeleton className="h-8 w-8" />
+											<Skeleton className="h-5 w-16" />
 										</TableCell>
-									)}
-									<TableCell>
-										<Skeleton className="h-5 w-16" />
-									</TableCell>
-									<TableCell>
-										<Skeleton className="h-5 w-12" />
-									</TableCell>
-									<TableCell>
-										<Skeleton className="h-5 w-12" />
-									</TableCell>
-									<TableCell>
-										<div className="flex gap-1">
+										<TableCell>
+											<Skeleton className="h-5 w-12" />
+										</TableCell>
+										<TableCell>
+											<Skeleton className="h-5 w-12" />
+										</TableCell>
+										<TableCell>
+											<div className="flex gap-1">
+												<Skeleton className="h-5 w-20" />
+												<Skeleton className="h-5 w-20" />
+											</div>
+										</TableCell>
+										<TableCell>
 											<Skeleton className="h-5 w-20" />
-											<Skeleton className="h-5 w-20" />
-										</div>
-									</TableCell>
-									<TableCell>
-										<Skeleton className="h-5 w-20" />
+										</TableCell>
+									</TableRow>
+								))}
+							{!isLoading &&
+								rules?.map((rule) => (
+									<TableRow key={rule.id}>
+										{canEdit && (
+											<TableCell>
+												<RuleActionsMenu rule={rule} />
+											</TableCell>
+										)}
+										<TableCell>
+											<Badge variant="outline">
+												{DAEVAL_LABELS[rule.daeval] ?? rule.daeval}
+											</Badge>
+										</TableCell>
+										<TableCell>
+											{rule.diagnosis ? (
+												<Badge variant="secondary">
+													{DIAGNOSIS_LABELS[rule.diagnosis] ?? rule.diagnosis}
+												</Badge>
+											) : (
+												<span className="text-muted-foreground text-sm italic">
+													Any
+												</span>
+											)}
+										</TableCell>
+										<TableCell className="whitespace-nowrap">
+											{rule.minAge}–{rule.maxAge === 150 ? "∞" : rule.maxAge}
+										</TableCell>
+										<TableCell>
+											{rule.questionnaires.length > 0 ? (
+												<div className="flex flex-wrap gap-1">
+													{rule.questionnaires.map((q) => (
+														<Badge key={q} variant="secondary">
+															{q}
+														</Badge>
+													))}
+												</div>
+											) : (
+												<span className="text-muted-foreground text-sm italic">
+													None
+												</span>
+											)}
+										</TableCell>
+										<TableCell>
+											{(rule.inPersonAssessments ?? []).length > 0 ? (
+												<div className="flex flex-wrap gap-1">
+													{(rule.inPersonAssessments ?? []).map((a) => (
+														<Badge key={a} variant="outline">
+															{a}
+														</Badge>
+													))}
+												</div>
+											) : (
+												<span className="text-muted-foreground text-sm italic">
+													None
+												</span>
+											)}
+										</TableCell>
+									</TableRow>
+								))}
+							{!isLoading && rules?.length === 0 && (
+								<TableRow>
+									<TableCell
+										className="h-24 text-center"
+										colSpan={canEdit ? 6 : 5}
+									>
+										No rules configured.
 									</TableCell>
 								</TableRow>
-							))}
-						{!isLoading &&
-							rules?.map((rule) => (
-								<TableRow key={rule.id}>
-									{canEdit && (
-										<TableCell>
-											<RuleActionsMenu rule={rule} />
-										</TableCell>
-									)}
-									<TableCell>
+							)}
+						</TableBody>
+					</Table>
+				</div>
+			)}
+
+			{isMobile && (
+				<div className="flex flex-col gap-3">
+					{isLoading &&
+						Array.from({ length: 4 }).map((_, i) => (
+							<div
+								className="rounded-lg border bg-card p-4 shadow-xs"
+								// biome-ignore lint/suspicious/noArrayIndexKey: just a skeleton
+								key={i}
+							>
+								<div className="flex items-center justify-between gap-2">
+									<Skeleton className="h-5 w-24" />
+									<Skeleton className="h-8 w-8" />
+								</div>
+								<div className="mt-3 flex gap-1">
+									<Skeleton className="h-5 w-20" />
+									<Skeleton className="h-5 w-20" />
+								</div>
+							</div>
+						))}
+					{!isLoading &&
+						rules?.map((rule) => (
+							<div
+								className="rounded-lg border bg-card p-4 shadow-xs"
+								key={rule.id}
+							>
+								<div className="flex items-start justify-between gap-2">
+									<div className="flex flex-wrap items-center gap-1">
 										<Badge variant="outline">
 											{DAEVAL_LABELS[rule.daeval] ?? rule.daeval}
 										</Badge>
-									</TableCell>
-									<TableCell>
 										{rule.diagnosis ? (
 											<Badge variant="secondary">
 												{DIAGNOSIS_LABELS[rule.diagnosis] ?? rule.diagnosis}
 											</Badge>
 										) : (
 											<span className="text-muted-foreground text-sm italic">
-												Any
+												Any diagnosis
 											</span>
 										)}
-									</TableCell>
-									<TableCell className="whitespace-nowrap">
-										{rule.minAge}–{rule.maxAge === 150 ? "∞" : rule.maxAge}
-									</TableCell>
-									<TableCell>
-										{rule.questionnaires.length > 0 ? (
-											<div className="flex flex-wrap gap-1">
-												{rule.questionnaires.map((q) => (
-													<Badge key={q} variant="secondary">
-														{q}
-													</Badge>
-												))}
-											</div>
-										) : (
-											<span className="text-muted-foreground text-sm italic">
-												None
-											</span>
-										)}
-									</TableCell>
-									<TableCell>
-										{(rule.inPersonAssessments ?? []).length > 0 ? (
-											<div className="flex flex-wrap gap-1">
-												{(rule.inPersonAssessments ?? []).map((a) => (
-													<Badge key={a} variant="outline">
-														{a}
-													</Badge>
-												))}
-											</div>
-										) : (
-											<span className="text-muted-foreground text-sm italic">
-												None
-											</span>
-										)}
-									</TableCell>
-								</TableRow>
-							))}
-						{!isLoading && rules?.length === 0 && (
-							<TableRow>
-								<TableCell
-									className="h-24 text-center"
-									colSpan={canEdit ? 6 : 5}
-								>
-									No rules configured.
-								</TableCell>
-							</TableRow>
-						)}
-					</TableBody>
-				</Table>
-			</div>
+										<span className="text-muted-foreground text-sm">
+											· Ages {rule.minAge}–
+											{rule.maxAge === 150 ? "∞" : rule.maxAge}
+										</span>
+									</div>
+									{canEdit && <RuleActionsMenu rule={rule} />}
+								</div>
+
+								<div className="mt-3">
+									<div className="text-muted-foreground text-xs">Online</div>
+									{rule.questionnaires.length > 0 ? (
+										<div className="mt-1 flex flex-wrap gap-1">
+											{rule.questionnaires.map((q) => (
+												<Badge
+													className="h-auto max-w-full whitespace-normal break-words text-left"
+													key={q}
+													variant="secondary"
+												>
+													{q}
+												</Badge>
+											))}
+										</div>
+									) : (
+										<span className="text-muted-foreground text-sm italic">
+											None
+										</span>
+									)}
+								</div>
+
+								<div className="mt-3">
+									<div className="text-muted-foreground text-xs">In-Person</div>
+									{(rule.inPersonAssessments ?? []).length > 0 ? (
+										<div className="mt-1 flex flex-wrap gap-1">
+											{(rule.inPersonAssessments ?? []).map((a) => (
+												<Badge
+													className="h-auto max-w-full whitespace-normal break-words text-left"
+													key={a}
+													variant="outline"
+												>
+													{a}
+												</Badge>
+											))}
+										</div>
+									) : (
+										<span className="text-muted-foreground text-sm italic">
+											None
+										</span>
+									)}
+								</div>
+							</div>
+						))}
+					{!isLoading && rules?.length === 0 && (
+						<p className="py-12 text-center text-muted-foreground text-sm">
+							No rules configured.
+						</p>
+					)}
+				</div>
+			)}
 		</div>
 	);
 }

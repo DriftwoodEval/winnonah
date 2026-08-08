@@ -45,20 +45,30 @@ export function SettingsTabs() {
 		can("settings:qsuite:piecework");
 
 	return (
-		<div className="mx-10 my-10 flex w-full flex-col gap-6">
+		<div className="mx-4 my-6 flex w-full min-w-0 flex-col gap-6 sm:mx-10 sm:my-10">
 			<h1 className="font-bold text-2xl">Settings</h1>
 			<Tabs onValueChange={handleTabChange} value={activeTab}>
-				<div className="w-fit max-w-full overflow-x-auto overflow-y-hidden overscroll-x-contain">
-					<TabsList>
-						<TabsTrigger value="people">People</TabsTrigger>
-						<TabsTrigger value="clinical">Clinical</TabsTrigger>
-						<TabsTrigger value="scheduling">Scheduling</TabsTrigger>
-						{canQSuite && <TabsTrigger value="qsuite">QSuite</TabsTrigger>}
-						{canDownload && (
-							<TabsTrigger value="downloads">Downloads</TabsTrigger>
-						)}
-					</TabsList>
-				</div>
+				<TabsList className="!h-auto flex-wrap justify-start gap-1">
+					<TabsTrigger className="h-8 grow-0" value="people">
+						People
+					</TabsTrigger>
+					<TabsTrigger className="h-8 grow-0" value="clinical">
+						Clinical
+					</TabsTrigger>
+					<TabsTrigger className="h-8 grow-0" value="scheduling">
+						Scheduling
+					</TabsTrigger>
+					{canQSuite && (
+						<TabsTrigger className="h-8 grow-0" value="qsuite">
+							QSuite
+						</TabsTrigger>
+					)}
+					{canDownload && (
+						<TabsTrigger className="h-8 grow-0" value="downloads">
+							Downloads
+						</TabsTrigger>
+					)}
+				</TabsList>
 				<TabsContent value="people">
 					<div className="flex flex-col gap-8">
 						<PeopleTable />
