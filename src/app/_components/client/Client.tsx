@@ -152,7 +152,7 @@ export function Client({
 	return (
 		<div className="relative flex w-full flex-col items-center lg:flex-row lg:items-start lg:justify-center lg:gap-8 lg:px-6">
 			{!readOnly && (
-				<div className="flex w-[calc(100%-32px)] shrink-0 flex-col gap-6 lg:sticky lg:top-14 lg:mt-0 lg:w-[230px]">
+				<div className="order-last flex w-[calc(100%-32px)] shrink-0 flex-col gap-6 lg:sticky lg:top-14 lg:order-none lg:mt-0 lg:w-[230px]">
 					{client && !isLoading && (
 						<DashboardSectionTimeline clientId={client.id} />
 					)}

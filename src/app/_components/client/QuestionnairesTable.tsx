@@ -227,8 +227,8 @@ export function QuestionnairesTable({
 				</Alert>
 			)}
 			<div className="w-full rounded-md border shadow-sm">
-				<div className="sticky top-0 z-10 flex items-center justify-between gap-2 p-4">
-					<div className="flex items-center gap-4">
+				<div className="sticky top-0 z-10 flex flex-wrap items-center justify-between gap-2 p-4">
+					<div className="flex flex-wrap items-center gap-4">
 						<h4 className="font-bold leading-none">Questionnaires</h4>
 						<DropdownMenu>
 							<DropdownMenuTrigger asChild>
@@ -363,7 +363,7 @@ export function QuestionnairesTable({
 				)}
 
 				<div className="px-4 pb-4">
-					<Table className="text-xs">
+					<Table className="text-xs [&_td]:p-1 sm:[&_td]:p-2 [&_th]:p-1 sm:[&_th]:p-2">
 						<TableHeader>
 							<TableRow>
 								{!readOnly && (
@@ -427,7 +427,7 @@ export function QuestionnairesTable({
 									<TableCell className="hidden sm:table-cell">
 										{formatShortDate(questionnaire.sent)}
 									</TableCell>
-									<TableCell className="w-24 font-medium">
+									<TableCell className="w-24 max-w-24 truncate font-medium sm:max-w-none">
 										{isPreSession(questionnaire) && (
 											<Badge className="mr-1 text-[10px]" variant="outline">
 												Previous session
