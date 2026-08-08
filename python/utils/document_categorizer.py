@@ -46,18 +46,27 @@ CATEGORY_DEFINITIONS = {
         "to release their own records, which is a Records Request."
     ),
     "Insurance Denial": (
-        "An insurer is denying coverage, a claim, or prior authorization "
-        "for treatment. Look for explicit denial language (e.g. 'denied', "
-        "'not approved', 'adverse determination', appeal rights)."
+        "An insurer is refusing coverage, a claim, or prior authorization "
+        "for treatment, with NOTHING granted. If any visits, sessions, or "
+        "coverage are granted anywhere in the letter, even a reduced "
+        "amount, that makes it an Insurance Approval instead, even if the "
+        "same letter also refuses part of what was requested - a letter "
+        "is only a Denial when the entire request is refused. Appeal-"
+        "rights language and phrases like 'adverse determination' appear "
+        "on approval letters too (for the part not granted), so don't "
+        "treat those alone as denial signal; look for the actual outcome."
     ),
     "Insurance Approval": (
         "An insurer is approving or authorizing coverage, a claim, or "
         "prior authorization for treatment, including a partial or "
         "reduced approval (fewer visits/sessions than requested, or "
-        "coverage at a lower level than requested). Look for explicit "
-        "approval language (e.g. 'approved', 'authorized', 'partially "
-        "approved', 'reduced', effective dates or number of "
-        "visits/sessions granted)."
+        "coverage at a lower level than requested, or only some of "
+        "several requested services granted). Look for explicit approval "
+        "language (e.g. 'approved', 'authorized', 'partially approved', "
+        "'reduced', effective dates or number of visits/sessions "
+        "granted). This applies even if the letter also describes denying "
+        "the remainder of the request - if ANYTHING is granted, it's an "
+        "Approval, not a Denial."
     ),
     "Status Update Request": (
         "Someone is asking where things stand on a client - a check-in "
@@ -236,7 +245,12 @@ def build_prompt(document_text: str) -> str:
         "from clear context, and score below 0.5 whenever the wording is "
         "generic, the document could plausibly fit more than one "
         "category, or you are guessing at intent rather than reading it "
-        "directly off the page.\n\n"
+        "directly off the page. A letter that mixes approval and denial "
+        "wording for different parts of the same request (e.g. a partial "
+        "or reduced approval that also lists what wasn't granted) is a "
+        "case where the category is still clear from whether anything "
+        "was granted, but treat it as a 0.5-0.8 case, not 0.9+, since the "
+        "mixed wording is easy to misread.\n\n"
         "Document:\n"
         f"{document_text}"
     )
