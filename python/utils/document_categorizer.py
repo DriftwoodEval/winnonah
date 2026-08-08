@@ -14,7 +14,15 @@ from PIL import Image
 
 from utils.misc import capitalize_name_with_exceptions
 
-CATEGORIES = ["Referral", "Records Request", "Insurance", "Patient Documents", "Unsure"]
+CATEGORIES = [
+    "Referral",
+    "Records Request",
+    "Insurance",
+    "Insurance Denial",
+    "Insurance Approval",
+    "Patient Documents",
+    "Unsure",
+]
 
 # One-line disambiguation for each category, shown to the model in the
 # prompt.
@@ -32,9 +40,20 @@ CATEGORY_DEFINITIONS = {
     ),
     "Insurance": (
         "Coverage, billing, or claims paperwork, or an insurer's prior "
-        "authorization for treatment - NOT a patient's signed "
-        "authorization/consent to release their own records, which is a "
-        "Records Request."
+        "authorization for treatment, that is NOT specifically a denial or "
+        "approval decision - NOT a patient's signed authorization/consent "
+        "to release their own records, which is a Records Request."
+    ),
+    "Insurance Denial": (
+        "An insurer is denying coverage, a claim, or prior authorization "
+        "for treatment. Look for explicit denial language (e.g. 'denied', "
+        "'not approved', 'adverse determination', appeal rights)."
+    ),
+    "Insurance Approval": (
+        "An insurer is approving or authorizing coverage, a claim, or "
+        "prior authorization for treatment. Look for explicit approval "
+        "language (e.g. 'approved', 'authorized', effective dates or "
+        "number of visits/sessions granted)."
     ),
     "Patient Documents": (
         "Someone is sending records/information TO us about a patient "

@@ -14,6 +14,8 @@ const CATEGORIES = [
 	"Referral",
 	"Records Request",
 	"Insurance",
+	"Insurance Denial",
+	"Insurance Approval",
 	"Patient Documents",
 	"Unsure",
 ] as const;

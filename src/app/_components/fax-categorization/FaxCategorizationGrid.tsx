@@ -27,6 +27,8 @@ const CATEGORIES = [
 	"Referral",
 	"Records Request",
 	"Insurance",
+	"Insurance Denial",
+	"Insurance Approval",
 	"Patient Documents",
 	"Unsure",
 ] as const;
@@ -40,6 +42,10 @@ const CATEGORY_BADGE_CLASSES: Record<Category, string> = {
 		"border-purple-500/30 bg-purple-500/10 text-purple-700 dark:text-purple-400",
 	Insurance:
 		"border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-400",
+	"Insurance Denial":
+		"border-red-500/30 bg-red-500/10 text-red-700 dark:text-red-400",
+	"Insurance Approval":
+		"border-green-500/30 bg-green-500/10 text-green-700 dark:text-green-400",
 	"Patient Documents":
 		"border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400",
 	Unsure: "border-muted-foreground/30 bg-muted text-muted-foreground",
