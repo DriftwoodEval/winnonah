@@ -51,6 +51,13 @@ import {
 import { CSS } from "@dnd-kit/utilities";
 import { keepPreviousData } from "@tanstack/react-query";
 import { useVirtualizer, type Virtualizer } from "@tanstack/react-virtual";
+import {
+	Drawer,
+	DrawerContent,
+	DrawerHeader,
+	DrawerTitle,
+	DrawerTrigger,
+} from "@ui/drawer";
 import { Skeleton } from "@ui/skeleton";
 import { debounce } from "es-toolkit/function";
 import {
@@ -58,6 +65,7 @@ import {
 	ChevronDown,
 	ChevronUp,
 	Circle,
+	Filter,
 	GripVertical,
 	Loader2,
 	Search,
@@ -75,6 +83,7 @@ import {
 	useRef,
 	useState,
 } from "react";
+import { useMediaQuery } from "~/hooks/use-media-query";
 import type { ScheduledClient } from "~/lib/api-types";
 import {
 	formatColorName,
@@ -332,10 +341,48 @@ const SKELETON_COLUMNS: {
 	{ skeletonClassName: "h-9 w-20" }, // Actions
 ];
 
-function SchedulingTableSkeleton() {
+function SchedulingCardSkeleton() {
+	const rowCount = 8;
+
+	return (
+		<div className="flex flex-1 flex-col gap-3 overflow-hidden px-4 pb-4">
+			{Array.from({ length: rowCount }).map((_, i) => (
+				<div
+					className="rounded-lg border p-4 shadow-xs"
+					// biome-ignore lint/suspicious/noArrayIndexKey: static skeleton
+					key={i}
+				>
+					<div className="flex items-center justify-between gap-2">
+						<Skeleton className="h-5 w-32" />
+						<Skeleton className="h-8 w-14" />
+					</div>
+					<div className="mt-3 grid grid-cols-2 gap-3">
+						<Skeleton className="h-9 w-full" />
+						<Skeleton className="h-9 w-full" />
+						<Skeleton className="h-9 w-full" />
+						<Skeleton className="h-9 w-full" />
+					</div>
+				</div>
+			))}
+		</div>
+	);
+}
+
+function SchedulingTableSkeleton({ isMobile }: { isMobile?: boolean }) {
 	// The scheduling sheet routinely has hundreds of rows, so the loading
 	// state should read as a dense, scrollable sheet, not a few centered bars.
 	const rowCount = 30;
+
+	if (isMobile) {
+		return (
+			<>
+				<div className="flex items-center gap-1 px-4 py-2">
+					<Skeleton className="h-4 w-24" />
+				</div>
+				<SchedulingCardSkeleton />
+			</>
+		);
+	}
 
 	return (
 		<>
@@ -415,6 +462,7 @@ function SchedulingSearchBox({
 	onNext,
 	onPrev,
 	inputRef,
+	compact,
 }: {
 	value: string;
 	onChange: (value: string) => void;
@@ -425,6 +473,9 @@ function SchedulingSearchBox({
 	onNext: () => void;
 	onPrev: () => void;
 	inputRef: React.RefObject<HTMLInputElement | null>;
+	// Drops the padding, ctrl+f hint, and fixed width, so this fits in a
+	// single-row mobile header alongside the row count and filters button.
+	compact?: boolean;
 }) {
 	const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
 		if (e.key === "Escape") {
@@ -442,24 +493,35 @@ function SchedulingSearchBox({
 
 	const isTooShort = value.trim().length > 0 && value.trim().length < minLength;
 
+	const input = (
+		<Input
+			className={compact ? "h-8 min-w-0 flex-1" : "h-7 w-48"}
+			onChange={(e) => onChange(e.target.value)}
+			onKeyDown={handleKeyDown}
+			placeholder={compact ? "Find client..." : "Find client... (ctrl+f)"}
+			ref={inputRef}
+			value={value}
+		/>
+	);
+
 	return (
-		<div className="flex items-center gap-1 px-4 py-2">
-			<Search className="size-4 text-muted-foreground" />
-			<Tooltip>
-				<TooltipTrigger asChild>
-					<Input
-						className="h-7 w-48"
-						onChange={(e) => onChange(e.target.value)}
-						onKeyDown={handleKeyDown}
-						placeholder="Find client... (ctrl+f)"
-						ref={inputRef}
-						value={value}
-					/>
-				</TooltipTrigger>
-				<TooltipContent>
-					Enter for next match, Shift+Enter for previous
-				</TooltipContent>
-			</Tooltip>
+		<div
+			className={cn(
+				"flex min-w-0 flex-1 items-center gap-1",
+				!compact && "px-4 py-2",
+			)}
+		>
+			<Search className="size-4 shrink-0 text-muted-foreground" />
+			{compact ? (
+				input
+			) : (
+				<Tooltip>
+					<TooltipTrigger asChild>{input}</TooltipTrigger>
+					<TooltipContent>
+						Enter for next match, Shift+Enter for previous
+					</TooltipContent>
+				</Tooltip>
+			)}
 			{value && (
 				<>
 					<span className="whitespace-nowrap text-muted-foreground text-sm">
@@ -635,6 +697,194 @@ function EvaluatorSelect({
 	);
 }
 
+// Field components below are shared between the desktop table cells and the
+// mobile card view, so behavior like the Code -> office side effect can't
+// silently drift between the two layouts.
+
+function NotesField({
+	scheduledClient,
+	isEditable,
+	onUpdate,
+}: {
+	scheduledClient: ScheduledClient;
+	isEditable?: boolean;
+	onUpdate?: (clientId: number, data: SchedulingUpdateData) => void;
+}) {
+	const [localNotes, setLocalNotes] = useState(scheduledClient.notes ?? "");
+
+	useEffect(() => {
+		setLocalNotes(scheduledClient.notes ?? "");
+	}, [scheduledClient.notes]);
+
+	if (!isEditable) {
+		return (
+			<div className="wrap-break-word max-h-[2.5rem] overflow-hidden overscroll-auto text-sm">
+				{scheduledClient.notes || "-"}
+			</div>
+		);
+	}
+
+	return (
+		<Textarea
+			className="max-h-[2.5rem] min-h-[2.5rem] resize-none transition-all duration-200 focus:min-h-[10rem]"
+			onBlur={() => {
+				if (localNotes !== (scheduledClient.notes ?? "")) {
+					onUpdate?.(scheduledClient.clientId, { notes: localNotes });
+				}
+			}}
+			onChange={(e) => setLocalNotes(e.target.value)}
+			value={localNotes}
+		/>
+	);
+}
+
+function DateField({
+	scheduledClient,
+	isEditable,
+	onUpdate,
+}: {
+	scheduledClient: ScheduledClient;
+	isEditable?: boolean;
+	onUpdate?: (clientId: number, data: SchedulingUpdateData) => void;
+}) {
+	const [localDate, setLocalDate] = useState(scheduledClient.date ?? "");
+
+	useEffect(() => {
+		setLocalDate(scheduledClient.date ?? "");
+	}, [scheduledClient.date]);
+
+	if (!isEditable) return <>{scheduledClient.date || "-"}</>;
+
+	return (
+		<Input
+			onBlur={() => {
+				if (localDate !== (scheduledClient.date ?? "")) {
+					onUpdate?.(scheduledClient.clientId, { date: localDate });
+				}
+			}}
+			onChange={(e) => setLocalDate(e.target.value)}
+			value={localDate}
+		/>
+	);
+}
+
+function TimeField({
+	scheduledClient,
+	isEditable,
+	onUpdate,
+}: {
+	scheduledClient: ScheduledClient;
+	isEditable?: boolean;
+	onUpdate?: (clientId: number, data: SchedulingUpdateData) => void;
+}) {
+	const [localTime, setLocalTime] = useState(scheduledClient.time ?? "");
+
+	useEffect(() => {
+		setLocalTime(scheduledClient.time ?? "");
+	}, [scheduledClient.time]);
+
+	if (!isEditable) return <>{scheduledClient.time || "-"}</>;
+
+	return (
+		<Input
+			onBlur={() => {
+				if (localTime !== (scheduledClient.time ?? "")) {
+					onUpdate?.(scheduledClient.clientId, { time: localTime });
+				}
+			}}
+			onChange={(e) => setLocalTime(e.target.value)}
+			value={localTime}
+		/>
+	);
+}
+
+function CodeSelect({
+	scheduledClient,
+	isEditable,
+	onUpdate,
+}: {
+	scheduledClient: ScheduledClient;
+	isEditable?: boolean;
+	onUpdate?: (clientId: number, data: SchedulingUpdateData) => void;
+}) {
+	if (!isEditable) return <>{(scheduledClient.code as string) || "-"}</>;
+
+	return (
+		<Select
+			onValueChange={(value) => {
+				if (value !== (scheduledClient.code as string | null)) {
+					const updates: SchedulingUpdateData = { code: value };
+					if (value === "90791") {
+						updates.office = "Virtual";
+					} else if (value === "96136") {
+						updates.office = scheduledClient.client.closestOfficeKey ?? "";
+					}
+
+					onUpdate?.(scheduledClient.clientId, updates);
+				}
+			}}
+			value={(scheduledClient.code as string | null) ?? ""}
+		>
+			<SelectTrigger>
+				<SelectValue placeholder="Select Code" />
+			</SelectTrigger>
+			<SelectContent>
+				<SelectItem value="90791">90791</SelectItem>
+				<SelectItem value="96136">96136</SelectItem>
+			</SelectContent>
+		</Select>
+	);
+}
+
+function LocationSelect({
+	scheduledClient,
+	offices,
+	isEditable,
+	onUpdate,
+}: {
+	scheduledClient: ScheduledClient;
+	offices: Office[];
+	isEditable?: boolean;
+	onUpdate?: (clientId: number, data: SchedulingUpdateData) => void;
+}) {
+	if (!isEditable) {
+		return (
+			<>
+				{scheduledClient.office === "Virtual"
+					? "V"
+					: scheduledClient.office || "-"}
+			</>
+		);
+	}
+
+	return (
+		<Select
+			onValueChange={(value) => {
+				if (value !== (scheduledClient.office as string | null)) {
+					onUpdate?.(scheduledClient.clientId, { office: value });
+				}
+			}}
+			value={(scheduledClient.office as string | null) ?? ""}
+		>
+			<SelectTrigger>
+				<SelectValue placeholder="Select Office">
+					{scheduledClient.office === "Virtual"
+						? "V"
+						: (scheduledClient.office as string | null) || undefined}
+				</SelectValue>
+			</SelectTrigger>
+			<SelectContent>
+				<SelectItem value="Virtual">Virtual</SelectItem>
+				{offices.map((office) => (
+					<SelectItem key={office.key} value={office.key}>
+						{office.prettyName}
+					</SelectItem>
+				))}
+			</SelectContent>
+		</Select>
+	);
+}
+
 // The dnd-kit sortable machinery re-renders every mounted row's useSortable()
 // whenever ANY row mounts or unmounts (each registration dispatches through
 // DndContext's reducer, producing a new context value for all consumers) -
@@ -680,22 +930,7 @@ const SchedulingRowCells = memo(function SchedulingRowCells({
 	dragHandleAttributes: DraggableAttributes;
 	dragHandleListeners: DraggableSyntheticListeners;
 }) {
-	const [localDate, setLocalDate] = useState(scheduledClient.date ?? "");
-	const [localTime, setLocalTime] = useState(scheduledClient.time ?? "");
-	const [localNotes, setLocalNotes] = useState(scheduledClient.notes ?? "");
 	const { enabled: redactionEnabled } = useRedaction();
-
-	useEffect(() => {
-		setLocalDate(scheduledClient.date ?? "");
-	}, [scheduledClient.date]);
-
-	useEffect(() => {
-		setLocalTime(scheduledClient.time ?? "");
-	}, [scheduledClient.time]);
-
-	useEffect(() => {
-		setLocalNotes(scheduledClient.notes ?? "");
-	}, [scheduledClient.notes]);
 
 	const districtMap = useMemo(
 		() => new Map(districts.map((d) => [d.fullName, d])),
@@ -782,24 +1017,11 @@ const SchedulingRowCells = memo(function SchedulingRowCells({
 				data-col={2}
 				data-row={rowIndex}
 			>
-				{isEditable ? (
-					<Textarea
-						className="max-h-[2.5rem] min-h-[2.5rem] resize-none transition-all duration-200 focus:min-h-[10rem]"
-						onBlur={() => {
-							if (localNotes !== (scheduledClient.notes ?? "")) {
-								onUpdate?.(scheduledClient.clientId, {
-									notes: localNotes,
-								});
-							}
-						}}
-						onChange={(e) => setLocalNotes(e.target.value)}
-						value={localNotes}
-					/>
-				) : (
-					<div className="wrap-break-word max-h-[2.5rem] overflow-hidden overscroll-auto text-sm">
-						{scheduledClient.notes || "-"}
-					</div>
-				)}
+				<NotesField
+					isEditable={isEditable}
+					onUpdate={onUpdate}
+					scheduledClient={scheduledClient}
+				/>
 			</TableCell>
 
 			<TableCell
@@ -807,19 +1029,11 @@ const SchedulingRowCells = memo(function SchedulingRowCells({
 				data-col={3}
 				data-row={rowIndex}
 			>
-				{isEditable ? (
-					<Input
-						onBlur={() => {
-							if (localDate !== (scheduledClient.date ?? "")) {
-								onUpdate?.(scheduledClient.clientId, { date: localDate });
-							}
-						}}
-						onChange={(e) => setLocalDate(e.target.value)}
-						value={localDate}
-					/>
-				) : (
-					scheduledClient.date || "-"
-				)}
+				<DateField
+					isEditable={isEditable}
+					onUpdate={onUpdate}
+					scheduledClient={scheduledClient}
+				/>
 			</TableCell>
 
 			<TableCell
@@ -827,19 +1041,11 @@ const SchedulingRowCells = memo(function SchedulingRowCells({
 				data-col={4}
 				data-row={rowIndex}
 			>
-				{isEditable ? (
-					<Input
-						onBlur={() => {
-							if (localTime !== (scheduledClient.time ?? "")) {
-								onUpdate?.(scheduledClient.clientId, { time: localTime });
-							}
-						}}
-						onChange={(e) => setLocalTime(e.target.value)}
-						value={localTime}
-					/>
-				) : (
-					scheduledClient.time || "-"
-				)}
+				<TimeField
+					isEditable={isEditable}
+					onUpdate={onUpdate}
+					scheduledClient={scheduledClient}
+				/>
 			</TableCell>
 
 			<TableCell data-col={5} data-row={rowIndex}>
@@ -855,67 +1061,20 @@ const SchedulingRowCells = memo(function SchedulingRowCells({
 			</TableCell>
 
 			<TableCell data-col={7} data-row={rowIndex}>
-				{isEditable ? (
-					<Select
-						onValueChange={(value) => {
-							if (value !== (scheduledClient.code as string | null)) {
-								const updates: SchedulingUpdateData = { code: value };
-								if (value === "90791") {
-									updates.office = "Virtual";
-								} else if (value === "96136") {
-									updates.office =
-										scheduledClient.client.closestOfficeKey ?? "";
-								}
-
-								onUpdate?.(scheduledClient.clientId, updates);
-							}
-						}}
-						value={(scheduledClient.code as string | null) ?? ""}
-					>
-						<SelectTrigger>
-							<SelectValue placeholder="Select Code" />
-						</SelectTrigger>
-						<SelectContent>
-							<SelectItem value="90791">90791</SelectItem>
-							<SelectItem value="96136">96136</SelectItem>
-						</SelectContent>
-					</Select>
-				) : (
-					(scheduledClient.code as string) || "-"
-				)}
+				<CodeSelect
+					isEditable={isEditable}
+					onUpdate={onUpdate}
+					scheduledClient={scheduledClient}
+				/>
 			</TableCell>
 
 			<TableCell className="min-w-fit" data-col={8} data-row={rowIndex}>
-				{isEditable ? (
-					<Select
-						onValueChange={(value) => {
-							if (value !== (scheduledClient.office as string | null)) {
-								onUpdate?.(scheduledClient.clientId, { office: value });
-							}
-						}}
-						value={(scheduledClient.office as string | null) ?? ""}
-					>
-						<SelectTrigger>
-							<SelectValue placeholder="Select Office">
-								{scheduledClient.office === "Virtual"
-									? "V"
-									: (scheduledClient.office as string | null) || undefined}
-							</SelectValue>
-						</SelectTrigger>
-						<SelectContent>
-							<SelectItem value="Virtual">Virtual</SelectItem>
-							{offices.map((office) => (
-								<SelectItem key={office.key} value={office.key}>
-									{office.prettyName}
-								</SelectItem>
-							))}
-						</SelectContent>
-					</Select>
-				) : scheduledClient.office === "Virtual" ? (
-					"V"
-				) : (
-					scheduledClient.office || "-"
-				)}
+				<LocationSelect
+					isEditable={isEditable}
+					offices={offices}
+					onUpdate={onUpdate}
+					scheduledClient={scheduledClient}
+				/>
 			</TableCell>
 
 			<TableCell data-col={9} data-row={rowIndex}>
@@ -1031,6 +1190,278 @@ const SchedulingTableRow = memo(function SchedulingTableRow(
 	);
 });
 
+// Mobile card view. Drops drag-reorder and cell-level keyboard navigation -
+// desktop-only power-user affordances - but reuses the same field components
+// (and so the same update handlers/mutations) as the table cells above.
+const SchedulingCard = memo(function SchedulingCard({
+	scheduledClient,
+	evaluators,
+	offices,
+	districts,
+	insurances,
+	isEditable,
+	onUpdate,
+	onAction,
+	actionIcon,
+	actionVariant,
+	isActionPending,
+	isHighlighted,
+}: {
+	scheduledClient: ScheduledClient;
+	evaluators: Evaluator[];
+	offices: Office[];
+	districts: SchoolDistrict[];
+	insurances: InsuranceWithAliases[];
+	isEditable?: boolean;
+	onUpdate?: (clientId: number, data: SchedulingUpdateData) => void;
+	onAction: (clientId: number) => void;
+	actionIcon: React.ReactNode;
+	actionVariant: "default" | "destructive";
+	isActionPending: boolean;
+	isHighlighted?: boolean;
+}) {
+	const { enabled: redactionEnabled } = useRedaction();
+
+	const districtMap = useMemo(
+		() => new Map(districts.map((d) => [d.fullName, d])),
+		[districts],
+	);
+	const districtDisplay = useMemo(() => {
+		const fullName = scheduledClient.client.schoolDistrict;
+		if (!fullName) return "-";
+		const district = districtMap.get(fullName);
+		if (district?.shortName) return district.shortName;
+		return fullName.replace(/ (County )?School District/, "");
+	}, [scheduledClient.client.schoolDistrict, districtMap]);
+
+	const color =
+		scheduledClient.color && isSchedulingColor(scheduledClient.color)
+			? (scheduledClient.color as SchedulingColor)
+			: undefined;
+	const backgroundColor = color
+		? `color-mix(in srgb, ${SCHEDULING_COLOR_MAP[color]}, var(--background) 90%)`
+		: "var(--background)";
+
+	return (
+		<div
+			className={cn(
+				"rounded-lg border p-4 shadow-xs",
+				isHighlighted && "ring-2 ring-primary ring-inset",
+			)}
+			style={{ backgroundColor }}
+		>
+			<div className="flex items-start justify-between gap-2">
+				<div className="flex min-w-0 items-center gap-2">
+					<ColorPicker
+						disabled={!isEditable}
+						onChange={(value) => {
+							if (value !== (scheduledClient.color as SchedulingColor | null)) {
+								onUpdate?.(scheduledClient.clientId, { color: value });
+							}
+						}}
+						value={color}
+					/>
+					<Link
+						className="truncate font-medium hover:underline"
+						href={`/clients/${scheduledClient.client.hash}`}
+						title={
+							redactionEnabled ? undefined : scheduledClient.client.fullName
+						}
+					>
+						<Redact>{scheduledClient.client.fullName}</Redact>
+					</Link>
+				</div>
+				<Button
+					disabled={isActionPending}
+					onClick={() => onAction(scheduledClient.clientId)}
+					size="sm"
+					variant={actionVariant}
+				>
+					{isActionPending ? (
+						<Loader2 className="h-4 w-4 animate-spin" />
+					) : (
+						actionIcon
+					)}
+				</Button>
+			</div>
+
+			<div className="mt-3 grid grid-cols-2 gap-3">
+				<div>
+					<div className="mb-1 text-muted-foreground text-xs">Evaluator</div>
+					<EvaluatorSelect
+						allEvaluators={evaluators}
+						clientId={scheduledClient.clientId}
+						disabled={!isEditable}
+						onChange={(value) => {
+							const currentVal =
+								scheduledClient.evaluator?.toString() ?? "none";
+							if (value !== currentVal) {
+								onUpdate?.(scheduledClient.clientId, {
+									evaluatorNpi: value === "none" ? null : parseInt(value, 10),
+								});
+							}
+						}}
+						value={scheduledClient.evaluator?.toString() ?? "none"}
+					/>
+				</div>
+				<div>
+					<div className="mb-1 text-muted-foreground text-xs">Code</div>
+					<CodeSelect
+						isEditable={isEditable}
+						onUpdate={onUpdate}
+						scheduledClient={scheduledClient}
+					/>
+				</div>
+				<div>
+					<div className="mb-1 text-muted-foreground text-xs">Date</div>
+					<DateField
+						isEditable={isEditable}
+						onUpdate={onUpdate}
+						scheduledClient={scheduledClient}
+					/>
+				</div>
+				<div>
+					<div className="mb-1 text-muted-foreground text-xs">Time</div>
+					<TimeField
+						isEditable={isEditable}
+						onUpdate={onUpdate}
+						scheduledClient={scheduledClient}
+					/>
+				</div>
+				<div className="col-span-2">
+					<div className="mb-1 text-muted-foreground text-xs">Location</div>
+					<LocationSelect
+						isEditable={isEditable}
+						offices={offices}
+						onUpdate={onUpdate}
+						scheduledClient={scheduledClient}
+					/>
+				</div>
+				<div className="col-span-2">
+					<div className="mb-1 text-muted-foreground text-xs">Notes</div>
+					<NotesField
+						isEditable={isEditable}
+						onUpdate={onUpdate}
+						scheduledClient={scheduledClient}
+					/>
+				</div>
+			</div>
+
+			<div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-muted-foreground text-xs">
+				<span>ASD/ADHD: {scheduledClient.client.asdAdhd || "-"}</span>
+				<span>
+					Insurance:{" "}
+					{mapInsuranceToShortNames(
+						scheduledClient.client.primaryInsurance,
+						scheduledClient.client.secondaryInsurance,
+						insurances,
+					) || "-"}
+				</span>
+				<span>District: {districtDisplay}</span>
+				<span>
+					PA Date:{" "}
+					{scheduledClient.client.precertExpires
+						? getLocalDayFromUTCDate(
+								scheduledClient.client.precertExpires,
+							)?.toLocaleDateString() || "-"
+						: "-"}
+				</span>
+				<span>
+					Age:{" "}
+					{scheduledClient.client.dob
+						? formatClientAge(scheduledClient.client.dob, "short")
+						: "-"}
+				</span>
+			</div>
+		</div>
+	);
+});
+
+// Virtualized like the desktop table - the scheduling sheet routinely has
+// hundreds of rows, and cards are heavier (several Selects each) than table
+// cells, so mounting all of them at once would be a real cost on a phone.
+// The virtualizer and its scroll ref are owned by the parent (mirroring
+// tableRef/rowVirtualizer for the desktop table) rather than created here, so
+// the same search-match/newly-added-client scroll-to-index effects that
+// target the desktop table can target this list too when on mobile.
+function SchedulingCardList({
+	clients,
+	evaluators,
+	offices,
+	districts,
+	insurances,
+	isEditable,
+	onUpdate,
+	onAction,
+	actionIcon,
+	actionVariant,
+	isActionPending,
+	highlightedClientId,
+	listRef,
+	rowVirtualizer,
+}: {
+	clients: ScheduledClient[];
+	evaluators: Evaluator[];
+	offices: Office[];
+	districts: SchoolDistrict[];
+	insurances: InsuranceWithAliases[];
+	isEditable: boolean;
+	onUpdate?: (clientId: number, data: SchedulingUpdateData) => void;
+	onAction: (clientId: number) => void;
+	actionIcon: React.ReactNode;
+	actionVariant: "default" | "destructive";
+	isActionPending: boolean;
+	highlightedClientId?: number;
+	listRef: RefObject<HTMLDivElement | null>;
+	rowVirtualizer: Virtualizer<HTMLDivElement, Element>;
+}) {
+	const virtualRows = rowVirtualizer.getVirtualItems();
+
+	return (
+		<div className="min-h-0 flex-1 overflow-auto px-4 pb-4" ref={listRef}>
+			<div
+				className="relative"
+				style={{ height: rowVirtualizer.getTotalSize() }}
+			>
+				{virtualRows.map((virtualRow) => {
+					const scheduledClient = clients[virtualRow.index];
+					if (!scheduledClient) return null;
+					return (
+						<div
+							className="pb-3"
+							data-index={virtualRow.index}
+							key={scheduledClient.clientId}
+							ref={rowVirtualizer.measureElement}
+							style={{
+								position: "absolute",
+								top: 0,
+								left: 0,
+								width: "100%",
+								transform: `translateY(${virtualRow.start}px)`,
+							}}
+						>
+							<SchedulingCard
+								actionIcon={actionIcon}
+								actionVariant={actionVariant}
+								districts={districts}
+								evaluators={evaluators}
+								insurances={insurances}
+								isActionPending={isActionPending}
+								isEditable={isEditable}
+								isHighlighted={scheduledClient.clientId === highlightedClientId}
+								offices={offices}
+								onAction={onAction}
+								onUpdate={onUpdate}
+								scheduledClient={scheduledClient}
+							/>
+						</div>
+					);
+				})}
+			</div>
+		</div>
+	);
+}
+
 // --- Main Table Components ---
 
 interface InternalSchedulingTableProps {
@@ -1084,6 +1515,7 @@ function InternalSchedulingTable({
 	isFetching,
 }: InternalSchedulingTableProps) {
 	const tableRef = useRef<HTMLDivElement>(null);
+	const isMobile = useMediaQuery("(max-width: 639px)");
 
 	const dndSensors = useSensors(
 		useSensor(PointerSensor, POINTER_SENSOR_OPTIONS),
@@ -1200,6 +1632,19 @@ function InternalSchedulingTable({
 		isInitialized,
 		rowVirtualizer,
 	);
+
+	// Mirrors rowVirtualizer/tableRef above, for the mobile card list. Kept as
+	// a separate virtualizer/scroll element (rather than reusing the table's)
+	// so the search-match and newly-added-client scroll effects below can
+	// target whichever layout is actually visible.
+	const cardListRef = useRef<HTMLDivElement>(null);
+	const cardRowVirtualizer = useVirtualizer({
+		count: filteredClients.length,
+		getScrollElement: () => cardListRef.current,
+		estimateSize: () => 260,
+		overscan: 8,
+	});
+	const activeVirtualizer = isMobile ? cardRowVirtualizer : rowVirtualizer;
 	const virtualRows = rowVirtualizer.getVirtualItems();
 	const virtualTotalSize = rowVirtualizer.getTotalSize();
 	const paddingTop = virtualRows.length > 0 ? (virtualRows[0]?.start ?? 0) : 0;
@@ -1260,10 +1705,10 @@ function InternalSchedulingTable({
 
 	const currentMatchClientIndex = searchMatches[matchIndex];
 
-	// biome-ignore lint/correctness/useExhaustiveDependencies: rowVirtualizer is not a stable reference across renders and would refire this every render
+	// biome-ignore lint/correctness/useExhaustiveDependencies: activeVirtualizer is not a stable reference across renders and would refire this every render
 	useEffect(() => {
 		if (currentMatchClientIndex === undefined) return;
-		rowVirtualizer.scrollToIndex(currentMatchClientIndex, {
+		activeVirtualizer.scrollToIndex(currentMatchClientIndex, {
 			align: "center",
 			behavior: "smooth",
 		});
@@ -1284,23 +1729,25 @@ function InternalSchedulingTable({
 
 	// Browser ctrl-f can't find offscreen, virtualized-out rows, so this
 	// search box stands in for it: ctrl/cmd-f focuses it instead of opening
-	// the native find bar. Guarded by tableRef's visibility since both the
-	// active and archived tab tables stay mounted (just hidden) at once.
+	// the native find bar. Guarded by the active scroll container's
+	// visibility since both the active and archived tab tables stay mounted
+	// (just hidden) at once.
 	useEffect(() => {
 		const handleKeyDown = (e: KeyboardEvent) => {
 			if (e.key.toLowerCase() !== "f" || !(e.ctrlKey || e.metaKey)) return;
-			if (!tableRef.current || tableRef.current.offsetParent === null) return;
+			const scrollEl = isMobile ? cardListRef.current : tableRef.current;
+			if (!scrollEl || scrollEl.offsetParent === null) return;
 			e.preventDefault();
 			searchInputRef.current?.focus();
 			searchInputRef.current?.select();
 		};
 		document.addEventListener("keydown", handleKeyDown);
 		return () => document.removeEventListener("keydown", handleKeyDown);
-	}, []);
+	}, [isMobile]);
 
 	// Scrolls to a newly added client by index rather than querying the DOM
 	// for its row, since a just-added client's row may not be mounted yet.
-	// biome-ignore lint/correctness/useExhaustiveDependencies: rowVirtualizer is not a stable reference across renders and would refire this every render
+	// biome-ignore lint/correctness/useExhaustiveDependencies: activeVirtualizer is not a stable reference across renders and would refire this every render
 	useEffect(() => {
 		if (!lastAddedClientId || !isInitialized || filteredClients.length === 0) {
 			return;
@@ -1309,7 +1756,7 @@ function InternalSchedulingTable({
 			(c) => c.clientId === lastAddedClientId,
 		);
 		if (index === -1) return;
-		rowVirtualizer.scrollToIndex(index, {
+		activeVirtualizer.scrollToIndex(index, {
 			align: "center",
 			behavior: "smooth",
 		});
@@ -1454,7 +1901,7 @@ function InternalSchedulingTable({
 	};
 
 	if (!isInitialized) {
-		return <SchedulingTableSkeleton />;
+		return <SchedulingTableSkeleton isMobile={isMobile} />;
 	}
 
 	const columns: {
@@ -1487,6 +1934,102 @@ function InternalSchedulingTable({
 		{ key: "paDate", label: "PA Date" },
 		{ key: "age", label: "Age" },
 	];
+
+	if (isMobile) {
+		const filterableColumns = columns.filter((col) => !col.noFilter);
+		const activeFilterCount = filterableColumns.reduce((count, col) => {
+			const filterKey = col.filterKey ?? col.key;
+			return count + (filters[filterKey]?.length ? 1 : 0);
+		}, 0);
+
+		return (
+			<>
+				<div className="flex items-center gap-2 px-2 py-2">
+					<span className="shrink-0 text-muted-foreground text-xs">
+						{filteredClients.length}/{clients.length}
+					</span>
+					<SchedulingSearchBox
+						compact
+						inputRef={searchInputRef}
+						isPending={isSearchPending}
+						matchCount={searchMatches.length}
+						matchIndex={matchIndex}
+						minLength={MIN_SEARCH_LENGTH}
+						onChange={handleSearchChange}
+						onNext={handleSearchNext}
+						onPrev={handleSearchPrev}
+						value={searchTerm}
+					/>
+					<Drawer>
+						<DrawerTrigger asChild>
+							<Button
+								className="relative shrink-0"
+								size="icon"
+								variant="outline"
+							>
+								<Filter className="h-4 w-4" />
+								{activeFilterCount > 0 && (
+									<span className="absolute -top-1 -right-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] text-primary-foreground leading-none">
+										{activeFilterCount}
+									</span>
+								)}
+							</Button>
+						</DrawerTrigger>
+						<DrawerContent>
+							<DrawerHeader>
+								<DrawerTitle>Filters</DrawerTitle>
+							</DrawerHeader>
+							<div className="flex flex-col gap-1 overflow-y-auto px-4 pb-6">
+								{filterableColumns.map((col) => {
+									const filterKey = col.filterKey ?? col.key;
+									const isAge = filterKey === "age";
+									const options = isAge
+										? ageOptions
+										: (columnOptions[filterKey] ?? []);
+									const counts = isAge ? undefined : columnCounts[filterKey];
+									return (
+										<div
+											className="flex items-center justify-between border-b py-2 last:border-b-0"
+											key={col.key}
+										>
+											<span className="text-sm">
+												{col.filterLabel ?? col.label}
+											</span>
+											<ColumnFilter
+												columnName={col.filterLabel ?? col.label}
+												counts={counts}
+												onFilterChange={(values) =>
+													handleFilterChange(filterKey, values)
+												}
+												options={toFilterOptions(options)}
+												selectedValues={filters[filterKey] || []}
+											/>
+										</div>
+									);
+								})}
+							</div>
+						</DrawerContent>
+					</Drawer>
+				</div>
+				<SchedulingCardList
+					actionIcon={actionIcon}
+					actionVariant={actionVariant}
+					clients={filteredClients}
+					districts={districts}
+					evaluators={sortedEvaluators}
+					highlightedClientId={highlightedClientId}
+					insurances={insurances}
+					isActionPending={isActionPending}
+					isEditable={isEditable}
+					listRef={cardListRef}
+					offices={offices}
+					onAction={onAction}
+					onUpdate={onUpdate}
+					rowVirtualizer={cardRowVirtualizer}
+				/>
+			</>
+		);
+	}
 
 	return (
 		<>
@@ -1662,6 +2205,7 @@ function SchedulingTableView({
 	const utils = api.useUtils();
 	const { filters, handleFilterChange, isInitialized } =
 		useSchedulingFilterState(type);
+	const isMobile = useMediaQuery("(max-width: 639px)");
 
 	const queryFilters = useMemo(() => {
 		const result: Partial<
@@ -1870,7 +2414,7 @@ function SchedulingTableView({
 		[updateMutation.mutate],
 	);
 
-	if (isLoading) return <SchedulingTableSkeleton />;
+	if (isLoading) return <SchedulingTableSkeleton isMobile={isMobile} />;
 	if (error) return <div>Error: {error.message}</div>;
 
 	return (
