@@ -12,7 +12,6 @@ import {
 	DialogHeader,
 	DialogTitle,
 } from "@ui/dialog";
-import { Label } from "@ui/label";
 import {
 	Select,
 	SelectContent,
@@ -21,7 +20,6 @@ import {
 	SelectValue,
 } from "@ui/select";
 import { Separator } from "@ui/separator";
-import { Switch } from "@ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@ui/tabs";
 import { formatDistanceToNow } from "date-fns";
 import { FileTextIcon, InboxIcon } from "lucide-react";
@@ -95,24 +93,61 @@ function clientsWereChanged(links: FaxLink[]): boolean {
 	return links.some((link) => link.rejected || link.source === "manual");
 }
 
+function categoryWasChanged(fax: {
+	category: string | null;
+	llmCategory: string | null;
+}): boolean {
+	return fax.category !== fax.llmCategory;
+}
+
 function wasChangedByReviewer(fax: {
 	category: string | null;
 	llmCategory: string | null;
 	links: FaxLink[];
 }): boolean {
-	return fax.category !== fax.llmCategory || clientsWereChanged(fax.links);
+	return categoryWasChanged(fax) || clientsWereChanged(fax.links);
+}
+
+const REVIEW_FILTERS = ["all", "any", "category", "clients"] as const;
+type ReviewFilter = (typeof REVIEW_FILTERS)[number];
+
+const REVIEW_FILTER_LABELS: Record<ReviewFilter, string> = {
+	all: "All reviewed faxes",
+	any: "Any override",
+	category: "Category overridden",
+	clients: "Clients overridden",
+};
+
+function matchesReviewFilter(
+	fax: {
+		category: string | null;
+		llmCategory: string | null;
+		links: FaxLink[];
+	},
+	filter: ReviewFilter,
+): boolean {
+	switch (filter) {
+		case "all":
+			return true;
+		case "any":
+			return wasChangedByReviewer(fax);
+		case "category":
+			return categoryWasChanged(fax);
+		case "clients":
+			return clientsWereChanged(fax.links);
+	}
 }
 
 export function FaxCategorizationGrid() {
 	const [tab, setTab] = useState<"pending" | "reviewed">("pending");
-	const [onlyChanged, setOnlyChanged] = useState(false);
+	const [reviewFilter, setReviewFilter] = useState<ReviewFilter>("all");
 	const { data: faxes, isLoading } = api.faxCategorization.list.useQuery({
 		status: tab,
 	});
 
 	const displayedFaxes =
-		tab === "reviewed" && onlyChanged
-			? (faxes?.filter(wasChangedByReviewer) ?? [])
+		tab === "reviewed"
+			? (faxes?.filter((fax) => matchesReviewFilter(fax, reviewFilter)) ?? [])
 			: (faxes ?? []);
 
 	return (
@@ -124,16 +159,21 @@ export function FaxCategorizationGrid() {
 				</TabsList>
 				<div className="flex flex-wrap items-center gap-4">
 					{tab === "reviewed" && (
-						<div className="flex items-center gap-2">
-							<Switch
-								checked={onlyChanged}
-								id="only-changed"
-								onCheckedChange={setOnlyChanged}
-							/>
-							<Label className="font-normal" htmlFor="only-changed">
-								Only show faxes a person had to correct
-							</Label>
-						</div>
+						<Select
+							onValueChange={(value) => setReviewFilter(value as ReviewFilter)}
+							value={reviewFilter}
+						>
+							<SelectTrigger className="w-[200px]" id="review-filter">
+								<SelectValue />
+							</SelectTrigger>
+							<SelectContent>
+								{REVIEW_FILTERS.map((filter) => (
+									<SelectItem key={filter} value={filter}>
+										{REVIEW_FILTER_LABELS[filter]}
+									</SelectItem>
+								))}
+							</SelectContent>
+						</Select>
 					)}
 					{!isLoading && faxes && faxes.length > 0 && (
 						<span className="text-muted-foreground text-sm">
