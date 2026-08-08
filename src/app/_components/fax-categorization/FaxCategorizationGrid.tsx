@@ -290,7 +290,7 @@ function FaxGrid({
 									<span className="font-medium text-sm">{fax.fileName}</span>
 									<span className="text-muted-foreground text-xs">
 										{status === "reviewed" && fax.reviewedAt
-											? `reviewed ${formatDistanceToNow(new Date(fax.reviewedAt), { addSuffix: true })}`
+											? `reviewed ${formatDistanceToNow(new Date(fax.reviewedAt), { addSuffix: true })}${fax.reviewedByName ? ` by ${fax.reviewedByName}` : ""}`
 											: `discovered ${formatDistanceToNow(new Date(fax.discoveredAt), { addSuffix: true })}`}
 									</span>
 								</div>
@@ -434,6 +434,15 @@ function FaxGrid({
 												</span>{" "}
 												at {Math.round(Number(selectedFax.confidence) * 100)}%
 												confidence.
+											</p>
+										)}
+										{status === "reviewed" && selectedFax.reviewedAt && (
+											<p className="mt-2 text-muted-foreground text-xs">
+												Reviewed by{" "}
+												<span className="font-medium">
+													{selectedFax.reviewedByName ?? "someone"}
+												</span>{" "}
+												on {new Date(selectedFax.reviewedAt).toLocaleString()}
 											</p>
 										)}
 									</div>

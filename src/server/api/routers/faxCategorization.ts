@@ -1,4 +1,4 @@
-import { count, desc, eq } from "drizzle-orm";
+import { count, desc, eq, inArray } from "drizzle-orm";
 import z from "zod";
 import {
 	assertPermission,
@@ -8,6 +8,7 @@ import {
 import {
 	faxCategorizationClientLinks,
 	faxCategorizations,
+	users,
 } from "~/server/db/schema";
 
 const CATEGORIES = [
@@ -26,7 +27,7 @@ export const faxCategorizationRouter = createTRPCRouter({
 		.input(z.object({ status: z.enum(["pending", "reviewed"]).optional() }))
 		.query(async ({ ctx, input }) => {
 			assertPermission(ctx.session.user, "fax:categorization:review");
-			return ctx.db.query.faxCategorizations.findMany({
+			const faxes = await ctx.db.query.faxCategorizations.findMany({
 				where: input.status
 					? eq(faxCategorizations.status, input.status)
 					: undefined,
@@ -40,6 +41,7 @@ export const faxCategorizationRouter = createTRPCRouter({
 					confidence: true,
 					status: true,
 					reviewedAt: true,
+					reviewedBy: true,
 				},
 				with: {
 					links: {
@@ -52,6 +54,28 @@ export const faxCategorizationRouter = createTRPCRouter({
 				},
 				orderBy: [desc(faxCategorizations.discoveredAt)],
 			});
+
+			const reviewerEmails = [
+				...new Set(
+					faxes.map((fax) => fax.reviewedBy).filter((email) => email != null),
+				),
+			];
+			const reviewers = reviewerEmails.length
+				? await ctx.db
+						.select({ email: users.email, name: users.name })
+						.from(users)
+						.where(inArray(users.email, reviewerEmails))
+				: [];
+			const reviewerNameByEmail = new Map(
+				reviewers.map((reviewer) => [reviewer.email, reviewer.name]),
+			);
+
+			return faxes.map((fax) => ({
+				...fax,
+				reviewedByName: fax.reviewedBy
+					? (reviewerNameByEmail.get(fax.reviewedBy) ?? fax.reviewedBy)
+					: null,
+			}));
 		}),
 
 	getPendingCount: protectedProcedure.query(async ({ ctx }) => {
