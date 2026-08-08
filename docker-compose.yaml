@@ -23,6 +23,7 @@ services:
     volumes:
       - ./logs:/app/logs
       - ../qs/logs/screenshots:/app/q-screenshots
+      - ./python/auth_cache:/app/python/auth_cache
 
   driftwood-db:
     image: mysql
