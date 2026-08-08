@@ -21,11 +21,17 @@ const rowClass: Record<number, string> = {
 	4: "[grid-row:span_4]",
 };
 
-const heightVh: Record<number, string> = {
-	1: "calc(25svh - 2rem)",
-	2: "calc(50svh - 3rem)",
-	3: "calc(75svh - 4rem)",
-	4: "calc(100svh - 5rem)",
+// Below sm the grid is a single stacked column (see colClass), so "rows"
+// no longer means "this many of N columns worth of viewport height" - it's
+// just one card in a scrolling list. A row:4 widget claiming the desktop
+// calc (up to ~100svh) would force nearly a full screen of scrolling per
+// widget, so mobile gets a flat, modest cap instead of the proportional
+// desktop height.
+const heightClass: Record<number, string> = {
+	1: "h-[min(60vh,420px)] sm:h-[calc(25svh-2rem)]",
+	2: "h-[min(60vh,420px)] sm:h-[calc(50svh-3rem)]",
+	3: "h-[min(60vh,420px)] sm:h-[calc(75svh-4rem)]",
+	4: "h-[min(60vh,420px)] sm:h-[calc(100svh-5rem)]",
 };
 
 export function GridWidgetCell({
@@ -34,12 +40,9 @@ export function GridWidgetCell({
 	autoHeight,
 	children,
 }: GridWidgetCellProps) {
-	const vh = heightVh[rows] ?? "35vh";
-
 	return (
 		<div
-			className={`min-h-0 overflow-hidden ${colClass[cols] ?? "col-span-full"} ${autoHeight ? "" : (rowClass[rows] ?? "row-[span_1]")}`}
-			style={autoHeight ? undefined : { height: vh }}
+			className={`min-h-0 overflow-hidden ${colClass[cols] ?? "col-span-full"} ${autoHeight ? "" : (rowClass[rows] ?? "row-[span_1]")} ${autoHeight ? "" : (heightClass[rows] ?? "h-[35vh]")}`}
 		>
 			{children}
 		</div>

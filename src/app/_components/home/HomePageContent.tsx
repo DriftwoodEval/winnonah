@@ -56,7 +56,7 @@ export function HomePageContent() {
 				<HomeCustomizer onChange={handleChange} widgets={activeWidgets} />
 			</div>
 			<div className="h-full overflow-auto">
-				<div className="grid grid-cols-1 gap-4 p-4 sm:grid-flow-dense sm:grid-cols-4">
+				<div className="grid grid-cols-1 gap-4 p-4 pb-20 sm:grid-flow-dense sm:grid-cols-4">
 					{activeWidgets.map((w) => {
 						const def = HOME_WIDGET_DEFS.find((d) => d.id === w.id);
 						return (
