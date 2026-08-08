@@ -185,7 +185,7 @@ function AppointmentDetailDialog({
 
 	return (
 		<Dialog onOpenChange={(open) => !open && onClose()} open>
-			<DialogContent className="max-h-[80vh] max-w-4xl overflow-y-auto sm:max-w-4xl">
+			<DialogContent className="max-h-[80vh] overflow-y-auto sm:max-w-4xl">
 				<DialogHeader>
 					<DialogTitle>{evaluator.name}</DialogTitle>
 				</DialogHeader>
