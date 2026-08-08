@@ -20,6 +20,7 @@ CATEGORIES = [
     "Insurance",
     "Insurance Denial",
     "Insurance Approval",
+    "Status Update Request",
     "Patient Documents",
     "Unsure",
 ]
@@ -54,6 +55,12 @@ CATEGORY_DEFINITIONS = {
         "prior authorization for treatment. Look for explicit approval "
         "language (e.g. 'approved', 'authorized', effective dates or "
         "number of visits/sessions granted)."
+    ),
+    "Status Update Request": (
+        "Someone is asking where things stand on a client - a check-in "
+        "asking for a status update, progress report, or timeline on an "
+        "existing referral, request, or case, rather than submitting a "
+        "new request or sending new information."
     ),
     "Patient Documents": (
         "Someone is sending records/information TO us about a patient "
