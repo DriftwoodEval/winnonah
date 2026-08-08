@@ -296,9 +296,26 @@ function FaxGrid({ status }: { status: "pending" | "reviewed" }) {
 														key={link.id}
 													>
 														<div className="flex flex-col gap-1">
-															<span className="text-sm">
-																{link.client.fullName}
-															</span>
+															<div className="flex items-center gap-2">
+																<span className="text-sm">
+																	{link.client.fullName}
+																</span>
+																{link.source === "llm" &&
+																	link.confidence !== null &&
+																	Number(link.confidence) < 1 && (
+																		<Badge
+																			className={confidenceBadgeClass(
+																				Number(link.confidence),
+																			)}
+																			variant="outline"
+																		>
+																			{Math.round(
+																				Number(link.confidence) * 100,
+																			)}
+																			% match on "{link.matchedName}"
+																		</Badge>
+																	)}
+															</div>
 															<DashboardStatus clientId={link.clientId} />
 														</div>
 														{status === "pending" && (

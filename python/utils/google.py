@@ -351,6 +351,49 @@ def normalize_name_tokens(name: str):
     return set(clean_name.split())
 
 
+def levenshtein(a: str, b: str) -> int:
+    """Edit distance between two strings."""
+    if a == b:
+        return 0
+    if not a:
+        return len(b)
+    if not b:
+        return len(a)
+    previous_row = list(range(len(b) + 1))
+    for i, char_a in enumerate(a, start=1):
+        current_row = [i]
+        for j, char_b in enumerate(b, start=1):
+            insert_cost = current_row[j - 1] + 1
+            delete_cost = previous_row[j] + 1
+            replace_cost = previous_row[j - 1] + (char_a != char_b)
+            current_row.append(min(insert_cost, delete_cost, replace_cost))
+        previous_row = current_row
+    return previous_row[-1]
+
+
+def client_match_confidence(client_tokens: set[str], name_tokens: set[str]):
+    """Returns a 0-1 confidence score if every token in client_tokens matches
+    a token in name_tokens exactly or within a small typo tolerance
+    (Levenshtein distance), else None. Short tokens get less tolerance so
+    e.g. 'Al' won't loosely match 'Ed'."""
+    if not client_tokens or not name_tokens:
+        return None
+    total_distance = 0
+    for client_token in client_tokens:
+        if client_token in name_tokens:
+            continue
+        best_distance = min(
+            levenshtein(client_token, name_token) for name_token in name_tokens
+        )
+        max_allowed = 1 if len(client_token) <= 4 else 2
+        if best_distance > max_allowed:
+            return None
+        total_distance += best_distance
+    if total_distance == 0:
+        return 1.0
+    return max(0.6, 1.0 - 0.15 * total_distance)
+
+
 def build_client_lookup(df_clients: pd.DataFrame):
     """Pre-processes clients into a list of dicts for faster matching. Structure: [{'id': 1, 'tokens': {'john', 'smith'}}, ...]."""
     client_lookup = []

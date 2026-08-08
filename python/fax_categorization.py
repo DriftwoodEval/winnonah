@@ -34,6 +34,7 @@ from utils.document_categorizer import (
 )
 from utils.google import (
     build_client_lookup,
+    client_match_confidence,
     get_file_as_bytes,
     list_files_in_folder,
     normalize_name_tokens,
@@ -50,17 +51,23 @@ logger.add(
 load_dotenv()
 
 
-def _match_clients(names: list[str], client_lookup: list[dict]) -> dict[int, str]:
-    """Token-subset match extracted names against the client lookup (same
-    approach as utils.google's Drive-folder matcher). Returns a dict of
-    client_id -> the extracted name that matched it, deduped so each client
-    is only linked once even if matched by multiple name variants."""
-    matched: dict[int, str] = {}
+def _match_clients(
+    names: list[str], client_lookup: list[dict]
+) -> dict[int, tuple[str, float]]:
+    """Fuzzy-match extracted names against the client lookup, tolerating
+    small typos (e.g. "Jonh Smith" still matches "John Smith"). Returns a
+    dict of client_id -> (matched name, confidence), deduped so each client
+    is only linked once, keeping its best match across all extracted names."""
+    matched: dict[int, tuple[str, float]] = {}
     for name in names:
         tokens = normalize_name_tokens(name)
         for client in client_lookup:
-            if client["tokens"] and client["tokens"].issubset(tokens):
-                matched.setdefault(client["id"], name)
+            confidence = client_match_confidence(client["tokens"], tokens)
+            if confidence is None:
+                continue
+            existing = matched.get(client["id"])
+            if existing is None or confidence > existing[1]:
+                matched[client["id"]] = (name, confidence)
     return matched
 
 
@@ -115,14 +122,14 @@ def _process_fax(file: dict, llm, client_lookup: list[dict]) -> None:
             )
             fax_id = cursor.lastrowid
 
-            for client_id, matched_name in matched_clients.items():
+            for client_id, (matched_name, match_confidence) in matched_clients.items():
                 cursor.execute(
                     f"""
                     INSERT INTO {TABLE_FAX_CATEGORIZATION_CLIENT_LINK}
                         (fax_categorization_id, client_id, source, matched_name, confidence)
-                    VALUES (%s, %s, 'llm', %s, 1.0)
+                    VALUES (%s, %s, 'llm', %s, %s)
                     """,
-                    (fax_id, client_id, matched_name),
+                    (fax_id, client_id, matched_name, match_confidence),
                 )
         conn.commit()
 
