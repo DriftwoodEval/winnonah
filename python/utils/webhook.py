@@ -12,10 +12,10 @@ class SupportsBody(Protocol):
     async def body(self) -> bytes: ...
 
 
-async def verify_openphone_signature(
+async def verify_quo_signature(
     request: SupportsBody, signature_header: str, secret: str
 ) -> None:
-    """Verifies an OpenPhone webhook signature."""
+    """Verifies a Quo webhook signature."""
     try:
         parts = signature_header.split(";")
         if len(parts) != 4:

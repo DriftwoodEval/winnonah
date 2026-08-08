@@ -12,9 +12,9 @@ from utils.clients import _normalize_names, _remove_test_names
 API_TOKEN = os.getenv("OPENPHONE_API_TOKEN", "")
 
 
-def _get_all_openphone_contacts():
-    """Retrieve all contacts from the OpenPhone into a dataframe."""
-    url = "https://api.openphone.com/v1/contacts"
+def _get_all_quo_contacts():
+    """Retrieve all contacts from Quo into a dataframe."""
+    url = "https://api.quo.com/v1/contacts"
     headers = {"Authorization": API_TOKEN}
     params = {
         "maxResults": 50,
@@ -24,7 +24,7 @@ def _get_all_openphone_contacts():
     spinner_chars = ["-", "\\", "|", "/"]
     i = 0
 
-    logger.info("Fetching OpenPhone contacts... ", end="")
+    logger.info("Fetching Quo contacts... ", end="")
     sys.stdout.flush()
 
     while True:
@@ -58,7 +58,7 @@ def _get_all_openphone_contacts():
 
     sys.stdout.write("\r" + " " * 50 + "\r")
     logger.info(
-        f"Finished fetching. Found a total of {len(all_contacts_data)} OpenPhone contacts."
+        f"Finished fetching. Found a total of {len(all_contacts_data)} Quo contacts."
     )
 
     # --- Convert API JSON to a structured DataFrame ---
@@ -96,11 +96,11 @@ def _normalize_phone_number(phone_series: pd.Series) -> pd.Series:
     return cleaned
 
 
-def _create_openphone_contacts(contacts_df: pd.DataFrame):
-    """Creates contacts in OpenPhone from a DataFrame."""
-    url = "https://api.openphone.com/v1/contacts"
+def _create_quo_contacts(contacts_df: pd.DataFrame):
+    """Creates contacts in Quo from a DataFrame."""
+    url = "https://api.quo.com/v1/contacts"
     headers = {"Authorization": API_TOKEN, "Content-Type": "application/json"}
-    logger.debug(f"Creating {len(contacts_df)} contacts in OpenPhone...")
+    logger.debug(f"Creating {len(contacts_df)} contacts in Quo...")
 
     success_count = 0
     error_count = 0
@@ -136,10 +136,10 @@ def _create_openphone_contacts(contacts_df: pd.DataFrame):
 
 
 def _process_demographic_data(
-    demo_df: pd.DataFrame, openphone_df: pd.DataFrame
+    demo_df: pd.DataFrame, quo_df: pd.DataFrame
 ) -> pd.DataFrame:
     """Process demographic data by cleaning, filtering, and removing duplicates."""
-    if demo_df is None or openphone_df is None:
+    if demo_df is None or quo_df is None:
         return pd.DataFrame()
 
     initial_count = len(demo_df)
@@ -162,14 +162,14 @@ def _process_demographic_data(
     ]
 
     logger.debug("Cleaning phone numbers...")
-    openphone_df.loc[:, "phone_normalized"] = _normalize_phone_number(
-        openphone_df["phone_number_1"]
+    quo_df.loc[:, "phone_normalized"] = _normalize_phone_number(
+        quo_df["phone_number_1"]
     )
     filtered_df.loc[:, "phone_normalized"] = _normalize_phone_number(
         filtered_df["PHONE1"]
     )
 
-    op_phones_normalized = set(openphone_df["phone_normalized"].dropna())
+    op_phones_normalized = set(quo_df["phone_normalized"].dropna())
 
     final_df = filtered_df[
         ~filtered_df["phone_normalized"].isin(op_phones_normalized)
@@ -177,7 +177,7 @@ def _process_demographic_data(
 
     duplicates_removed = len(filtered_df) - len(final_df)
     logger.debug(
-        f"Removed {duplicates_removed} clients with phone numbers already in OpenPhone."
+        f"Removed {duplicates_removed} clients with phone numbers already in Quo."
     )
 
     logger.info(f"Final client count: {len(final_df)}")
@@ -185,22 +185,22 @@ def _process_demographic_data(
     return final_df.rename(columns={"PHONE1": "PHONE_NUMBER"})
 
 
-def sync_openphone():
-    """Sync OpenPhone contacts with TA demographic data."""
-    logger.info("Syncing OpenPhone contacts...")
+def sync_quo():
+    """Sync Quo contacts with TA demographic data."""
+    logger.info("Syncing Quo contacts...")
     demo_df = pd.read_csv("temp/input/clients-demographic.csv", dtype=str)
 
-    openphone_df = _get_all_openphone_contacts()
+    quo_df = _get_all_quo_contacts()
 
-    if openphone_df is None:
-        logger.error("Failed to fetch OpenPhone contacts. Skipping OpenPhone sync.")
+    if quo_df is None:
+        logger.error("Failed to fetch Quo contacts. Skipping Quo sync.")
         return
 
-    final_df = _process_demographic_data(demo_df, openphone_df)
+    final_df = _process_demographic_data(demo_df, quo_df)
 
     if final_df is not None:
-        final_df.to_csv("temp/input/openphone-merged.csv", index=False)
-        # We would import the CSV into OpenPhone here, but it doesn't show contacts in OpenPhone until a conversation has been started with them, which is pretty useless.
-        logger.success("OpenPhone CSV created.")
+        final_df.to_csv("temp/input/quo-merged.csv", index=False)
+        # We would import the CSV into Quo here, but it doesn't show contacts in Quo until a conversation has been started with them, which is pretty useless.
+        logger.success("Quo CSV created.")
     else:
-        logger.error("Failed to process OpenPhone data. Skipping OpenPhone sync.")
+        logger.error("Failed to process Quo data. Skipping Quo sync.")

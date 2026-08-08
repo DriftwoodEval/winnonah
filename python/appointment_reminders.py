@@ -31,7 +31,7 @@ from utils.google import (
 )
 from utils.misc import json_log_format
 from utils.task_tracker import track_task
-from utils.webhook import verify_openphone_signature
+from utils.webhook import verify_quo_signature
 
 logger.add(
     "logs/appointment-reminders.log",
@@ -65,7 +65,7 @@ def get_http_client() -> AsyncClient:
     global _http_client  # noqa: PLW0603
     if _http_client is None:
         _http_client = AsyncClient(
-            base_url="https://api.openphone.com/v1",
+            base_url="https://api.quo.com/v1",
             headers={
                 "Authorization": OPENPHONE_API_TOKEN,
                 "Content-Type": "application/json",
@@ -659,7 +659,7 @@ async def should_handle_reply(
 
         return True
     except Exception as e:
-        logger.error(f"Failed to check prior messages from OpenPhone: {e}")
+        logger.error(f"Failed to check prior messages from Quo: {e}")
         return True
 
 
@@ -908,9 +908,7 @@ async def handle_webhook(
         logger.warning("Webhook rejected: missing openphone-signature header")
         raise HTTPException(status_code=401, detail="Missing signature")
 
-    await verify_openphone_signature(
-        request, openphone_signature, OPENPHONE_SIGNING_SECRET
-    )
+    await verify_quo_signature(request, openphone_signature, OPENPHONE_SIGNING_SECRET)
 
     payload = await request.json()
 

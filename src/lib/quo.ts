@@ -11,16 +11,16 @@ async function timedFetch(
 		return await fetch(url, options);
 	} finally {
 		logger.debug(
-			{ duration_ms: Date.now() - start, external_api: "openphone", endpoint },
+			{ duration_ms: Date.now() - start, external_api: "quo", endpoint },
 			message,
 		);
 	}
 }
 
-export async function getOpenPhoneUsers(apiKey: string) {
+export async function getQuoUsers(apiKey: string) {
 	const response = await timedFetch(
-		"https://api.openphone.com/v1/users",
-		"Fetch OpenPhone users",
+		"https://api.quo.com/v1/users",
+		"Fetch Quo users",
 		{
 			headers: {
 				Authorization: apiKey,
@@ -43,8 +43,8 @@ export async function getOpenPhoneUsers(apiKey: string) {
 	};
 
 	const numbersResponse = await timedFetch(
-		"https://api.openphone.com/v1/phone-numbers",
-		"Fetch OpenPhone numbers",
+		"https://api.quo.com/v1/phone-numbers",
+		"Fetch Quo numbers",
 		{
 			headers: {
 				Authorization: apiKey,
@@ -102,8 +102,8 @@ export async function getMessages(
 	params.append("participants", participantPhone);
 
 	const response = await timedFetch(
-		`https://api.openphone.com/v1/messages?${params}`,
-		"Fetch OpenPhone messages",
+		`https://api.quo.com/v1/messages?${params}`,
+		"Fetch Quo messages",
 		{
 			headers: { Authorization: apiKey },
 		},
@@ -148,8 +148,8 @@ export async function getRecentMessages(
 	params.append("maxResults", String(limit));
 
 	const response = await timedFetch(
-		`https://api.openphone.com/v1/messages?${params}`,
-		"Fetch recent OpenPhone messages",
+		`https://api.quo.com/v1/messages?${params}`,
+		"Fetch recent Quo messages",
 		{
 			headers: { Authorization: apiKey },
 		},
@@ -171,7 +171,7 @@ export async function getRecentMessages(
 		}[];
 	};
 
-	// OpenPhone returns messages newest-first; reverse to chronological order.
+	// Quo returns messages newest-first; reverse to chronological order.
 	return data.data
 		.map((m) => ({
 			id: m.id,
@@ -195,8 +195,8 @@ export async function getCalls(
 	params.append("participants", participantPhone);
 
 	const response = await timedFetch(
-		`https://api.openphone.com/v1/calls?${params}`,
-		"Fetch OpenPhone calls",
+		`https://api.quo.com/v1/calls?${params}`,
+		"Fetch Quo calls",
 		{
 			headers: { Authorization: apiKey },
 		},
@@ -252,8 +252,8 @@ export async function sendMessage(
 	userId?: string,
 ) {
 	const response = await timedFetch(
-		"https://api.openphone.com/v1/messages",
-		"Send OpenPhone message",
+		"https://api.quo.com/v1/messages",
+		"Send Quo message",
 		{
 			method: "POST",
 			headers: {

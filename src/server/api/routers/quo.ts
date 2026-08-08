@@ -5,7 +5,7 @@ import { env } from "~/env";
 import { fetchWithCache } from "~/lib/cache";
 import {
 	getContactTimeline,
-	getOpenPhoneUsers,
+	getQuoUsers,
 	getRecentMessages,
 	sendMessage,
 	type TimelineEvent,
@@ -142,12 +142,12 @@ export const quoRouter = createTRPCRouter({
 		if (!apiKey || !phoneNumberId) {
 			throw new TRPCError({
 				code: "PRECONDITION_FAILED",
-				message: "OpenPhone configuration missing in environment",
+				message: "Quo configuration missing in environment",
 			});
 		}
 
 		try {
-			return await getOpenPhoneUsers(apiKey);
+			return await getQuoUsers(apiKey);
 		} catch (e) {
 			throw new TRPCError({
 				code: "INTERNAL_SERVER_ERROR",
@@ -165,7 +165,7 @@ export const quoRouter = createTRPCRouter({
 			if (!apiKey || !phoneNumberId) {
 				throw new TRPCError({
 					code: "PRECONDITION_FAILED",
-					message: "OpenPhone configuration missing in environment",
+					message: "Quo configuration missing in environment",
 				});
 			}
 
@@ -194,7 +194,7 @@ export const quoRouter = createTRPCRouter({
 			if (!apiKey || !phoneNumberId) {
 				throw new TRPCError({
 					code: "PRECONDITION_FAILED",
-					message: "OpenPhone configuration missing in environment",
+					message: "Quo configuration missing in environment",
 				});
 			}
 
@@ -230,7 +230,7 @@ export const quoRouter = createTRPCRouter({
 						).catch((err) => {
 							ctx.logger.error(
 								{ phoneNumber: phone, error: err },
-								"Failed to fetch recent OpenPhone messages",
+								"Failed to fetch recent Quo messages",
 							);
 							return [] as TimelineEvent[];
 						}),
@@ -325,7 +325,7 @@ export const quoRouter = createTRPCRouter({
 			if (!apiKey || !phoneNumberId) {
 				throw new TRPCError({
 					code: "PRECONDITION_FAILED",
-					message: "OpenPhone configuration missing in environment",
+					message: "Quo configuration missing in environment",
 				});
 			}
 
@@ -334,13 +334,13 @@ export const quoRouter = createTRPCRouter({
 
 				ctx.logger.info(
 					{ phoneNumber: normalized, sentBy: ctx.session.user.email },
-					"Sending OpenPhone message",
+					"Sending Quo message",
 				);
 
-				const openPhoneUsers = await getOpenPhoneUsers(apiKey);
+				const quoUsers = await getQuoUsers(apiKey);
 
 				const loggedInName = ctx.session.user.name?.toLowerCase().trim();
-				const matchedUser = openPhoneUsers.find(
+				const matchedUser = quoUsers.find(
 					(u) => u.name.toLowerCase().trim() === loggedInName,
 				);
 

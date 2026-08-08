@@ -10,7 +10,7 @@ from loguru import logger
 from utils.constants import TABLE_USER
 from utils.database import get_db
 from utils.google import google_authenticate
-from utils.webhook import verify_openphone_signature
+from utils.webhook import verify_quo_signature
 
 router = APIRouter()
 
@@ -26,7 +26,7 @@ def get_http_client() -> httpx.AsyncClient:
     global _http_client  # noqa: PLW0603
     if _http_client is None:
         _http_client = httpx.AsyncClient(
-            base_url="https://api.openphone.com/v1",
+            base_url="https://api.quo.com/v1",
             headers={
                 "Authorization": OPENPHONE_API_KEY,
                 "Content-Type": "application/json",
@@ -160,7 +160,7 @@ async def handle_webhook(
         logger.warning("Webhook received with no signature header")
         raise HTTPException(status_code=401, detail="Missing signature")
 
-    await verify_openphone_signature(
+    await verify_quo_signature(
         request, openphone_signature, OPENPHONE_GREETER_SIGNING_SECRET
     )
 

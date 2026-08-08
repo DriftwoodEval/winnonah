@@ -506,7 +506,7 @@ export function ConfigEditor() {
 		enabled: false,
 	});
 
-	const onSyncOpenPhone = async () => {
+	const onSyncQuo = async () => {
 		const { data, error } = await opUsersQuery.refetch();
 		if (data) {
 			form.setValue(
@@ -679,8 +679,8 @@ export function ConfigEditor() {
 									<ServicesTab
 										disabled={!canEditServices}
 										form={form}
-										onSyncOpenPhone={onSyncOpenPhone}
-										syncingOpenPhone={opUsersQuery.isFetching}
+										onSyncQuo={onSyncQuo}
+										syncingQuo={opUsersQuery.isFetching}
 									/>
 								</TabsContent>
 								<TabsContent value="records">
@@ -874,13 +874,13 @@ function GeneralTab({
 function ServicesTab({
 	form,
 	disabled,
-	onSyncOpenPhone,
-	syncingOpenPhone,
+	onSyncQuo,
+	syncingQuo,
 }: {
 	form: UseFormReturn<FormValues>;
 	disabled?: boolean;
-	onSyncOpenPhone: () => void;
-	syncingOpenPhone: boolean;
+	onSyncQuo: () => void;
+	syncingQuo: boolean;
 }) {
 	const c = form.control;
 	const commonServices = ["mhs", "qglobal", "wps", "novopsych"] as const;
@@ -996,13 +996,13 @@ function ServicesTab({
 						<div className="mb-0 flex items-center justify-between">
 							<Label className="font-medium text-sm">Users</Label>
 							<Button
-								disabled={disabled || syncingOpenPhone}
-								onClick={onSyncOpenPhone}
+								disabled={disabled || syncingQuo}
+								onClick={onSyncQuo}
 								size="sm"
 								type="button"
 								variant="outline"
 							>
-								{syncingOpenPhone ? (
+								{syncingQuo ? (
 									<Loader2 className="mr-2 h-3 w-3 animate-spin" />
 								) : (
 									<Plus className="mr-2 h-3 w-3" />

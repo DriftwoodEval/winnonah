@@ -16,7 +16,7 @@ import utils.database
 import utils.google
 import utils.location
 import utils.medicaid
-import utils.openphone
+import utils.quo
 import utils.referrals
 import utils.therapyappointment
 from utils.constants import TABLE_APPOINTMENT, TABLE_EVALUATOR
@@ -349,9 +349,9 @@ def main(
     import_only: Annotated[
         bool, typer.Option("--import-only", help="Import data from TA CSVs and exit")
     ] = False,
-    openphone: Annotated[
+    quo: Annotated[
         bool,
-        typer.Option("--openphone", help="Download TA CSVs and sync OpenPhone data"),
+        typer.Option("--quo", help="Download TA CSVs and sync Quo data"),
     ] = False,
     referrals: Annotated[
         bool,
@@ -408,7 +408,7 @@ def main(
 
     dev_mode = os.getenv("DEV_TOGGLE")
 
-    trigger_args = [openphone, download_only]
+    trigger_args = [quo, download_only]
 
     if (any(trigger_args) or not dev_mode) and not import_only:
         logger.debug("Removing temp directory")
@@ -419,10 +419,10 @@ def main(
         utils.therapyappointment.download_csvs()
         return
 
-    if openphone:
-        logger.info("Running OpenPhone sync")
+    if quo:
+        logger.info("Running Quo sync")
         utils.therapyappointment.download_csvs()
-        utils.openphone.sync_openphone()
+        utils.quo.sync_quo()
         return
 
     if referrals:
@@ -550,9 +550,9 @@ def main(
             logger.error(f"Failed to save TA hashes: {e}")
 
         try:
-            utils.openphone.sync_openphone()
+            utils.quo.sync_quo()
         except Exception as e:
-            logger.error(f"Failed to sync OpenPhone data: {e}")
+            logger.error(f"Failed to sync Quo data: {e}")
 
         try:
             utils.google.add_client_ids_to_drive()

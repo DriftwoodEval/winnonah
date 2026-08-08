@@ -7,7 +7,7 @@ import time
 import pytest
 from fastapi import HTTPException
 
-from utils.webhook import verify_openphone_signature
+from utils.webhook import verify_quo_signature
 
 SECRET = base64.b64encode(b"test-signing-secret").decode()
 
@@ -31,10 +31,10 @@ def _sign(body: bytes, secret_b64: str = SECRET, timestamp: int | None = None) -
 
 
 def _verify(request: FakeRequest, header: str, secret: str) -> None:
-    asyncio.run(verify_openphone_signature(request, header, secret))
+    asyncio.run(verify_quo_signature(request, header, secret))
 
 
-class TestVerifyOpenphoneSignature:
+class TestVerifyQuoSignature:
     def test_accepts_valid_signature(self):
         body = b'{"event": "message.received"}'
         header = _sign(body)
