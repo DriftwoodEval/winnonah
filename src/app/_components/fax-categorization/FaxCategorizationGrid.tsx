@@ -324,7 +324,7 @@ function FaxGrid({
 				onOpenChange={(open) => !open && setSelectedFaxId(null)}
 				open={selectedFax !== null}
 			>
-				<DialogContent className="flex max-h-[95vh] flex-col overflow-y-auto sm:max-w-6xl">
+				<DialogContent className="flex max-h-[95vh] max-w-[calc(100vw-2rem)] flex-col overflow-y-auto sm:max-w-[calc(100vw-2rem)]">
 					{selectedFax && (
 						<>
 							<DialogHeader>
