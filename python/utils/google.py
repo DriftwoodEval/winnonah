@@ -314,6 +314,13 @@ def get_file_as_bytes(file: dict) -> bytes:
     return service.files().get_media(fileId=file["id"]).execute()
 
 
+def update_file_content(file_id: str, content: bytes, mime_type: str) -> None:
+    """Replace a Drive file's content in place, keeping its file id/link."""
+    service = get_drive_service()
+    media = MediaInMemoryUpload(content, mimetype=mime_type)
+    service.files().update(fileId=file_id, media_body=media).execute()
+
+
 def move_drive_folder(folder_id: str, dest_folder_id: str) -> tuple[bool, str]:
     """Move a Drive folder (e.g. a client folder) to a new parent folder.
 

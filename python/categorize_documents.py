@@ -39,7 +39,7 @@ from utils.document_categorizer import (
 
 def _categorize_one(llm: Llama, pdf_path: str, want_clients: bool) -> None:
     logger.info(f"Extracting text from {pdf_path}...")
-    document_text, sources = extract_text(pdf_path, llm)
+    document_text, sources, _corrected_pdf = extract_text(pdf_path, llm)
     for i, source in enumerate(sources):
         logger.debug(f"Page {i + 1}: {source}")
 
@@ -118,7 +118,7 @@ def _run_eval(
         confidences: list[float] = []
         clients: list[str] = []
         for run in range(repeat):
-            document_text, _ = extract_text(str(pdf_path), llm)
+            document_text, _, _corrected_pdf = extract_text(str(pdf_path), llm)
             actual, clients, confidence = categorize_document(
                 llm, document_text, want_clients
             )

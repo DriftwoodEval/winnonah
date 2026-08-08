@@ -38,6 +38,7 @@ from utils.google import (
     get_file_as_bytes,
     list_files_in_folder,
     normalize_name_tokens,
+    update_file_content,
 )
 from utils.misc import json_log_format
 from utils.task_tracker import track_task
@@ -84,7 +85,11 @@ def _process_fax(file: dict, llm, client_lookup: list[dict]) -> None:
     with tempfile.NamedTemporaryFile(suffix=".pdf") as tmp:
         tmp.write(pdf_bytes)
         tmp.flush()
-        document_text, _sources = extract_text(tmp.name, llm)
+        document_text, _sources, corrected_pdf = extract_text(tmp.name, llm)
+
+    if corrected_pdf is not None:
+        logger.info(f"Fixed page orientation for {file['name']}; updating Drive copy.")
+        update_file_content(file["id"], corrected_pdf, "application/pdf")
 
     category = "Unsure"
     clients: list[str] = []

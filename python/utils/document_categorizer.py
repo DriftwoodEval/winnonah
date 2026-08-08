@@ -120,23 +120,26 @@ SIMULATED_SPECS = {
 }
 
 
-def correct_orientation(image: Image.Image) -> Image.Image:
+def correct_orientation(image: Image.Image) -> tuple[Image.Image, int]:
     """Detect a scanned page fed in sideways/upside-down and rotate it
     upright before OCR, since Tesseract's text recognition (unlike its
-    orientation detection) assumes roughly-horizontal text."""
+    orientation detection) assumes roughly-horizontal text.
+
+    Returns the (possibly rotated) image and the clockwise angle applied,
+    so the caller can also persist the fix into the source PDF page."""
     try:
         osd = pytesseract.image_to_osd(image)
     except pytesseract.TesseractError:
-        return image
+        return image, 0
 
     match = re.search(r"Rotate: (\d+)", osd)
     if not match:
-        return image
+        return image, 0
 
     angle = int(match.group(1))
     if angle == 0:
-        return image
-    return image.rotate(-angle, expand=True)
+        return image, 0
+    return image.rotate(-angle, expand=True), angle
 
 
 def header_override_category(document_text: str) -> str | None:
@@ -147,12 +150,13 @@ def header_override_category(document_text: str) -> str | None:
     return None
 
 
-def extract_text(pdf_path: str, llm: Llama) -> tuple[str, list[str]]:
+def extract_text(pdf_path: str, llm: Llama) -> tuple[str, list[str], bytes | None]:
     doc = fitz.open(pdf_path)
     pages: list[str] = []
     sources: list[str] = []
     page_count = doc.page_count
     n_ctx = llm.n_ctx()
+    orientation_fixed = False
 
     for page_number, page in enumerate(doc.pages(), start=1):
         text = cast(str, page.get_text()).strip()
@@ -161,7 +165,10 @@ def extract_text(pdf_path: str, llm: Llama) -> tuple[str, list[str]]:
         if len(text) < MIN_TEXT_LENGTH_PER_PAGE:
             pix = page.get_pixmap(dpi=300)
             image = Image.frombytes("RGB", (pix.width, pix.height), pix.samples)
-            image = correct_orientation(image)
+            image, angle = correct_orientation(image)
+            if angle:
+                page.set_rotation((page.rotation + angle) % 360)
+                orientation_fixed = True
             text = pytesseract.image_to_string(image).strip()
             source = "image scan (OCR)"
 
@@ -189,8 +196,9 @@ def extract_text(pdf_path: str, llm: Llama) -> tuple[str, list[str]]:
             )
             break
 
+    corrected_pdf = doc.tobytes() if orientation_fixed else None
     doc.close()
-    return "\n\n".join(pages), sources
+    return "\n\n".join(pages), sources, corrected_pdf
 
 
 def build_prompt(document_text: str) -> str:
