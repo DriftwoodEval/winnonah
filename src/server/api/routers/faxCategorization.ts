@@ -29,7 +29,26 @@ export const faxCategorizationRouter = createTRPCRouter({
 				where: input.status
 					? eq(faxCategorizations.status, input.status)
 					: undefined,
-				with: { links: { with: { client: true } } },
+				columns: {
+					id: true,
+					driveFileId: true,
+					fileName: true,
+					discoveredAt: true,
+					category: true,
+					llmCategory: true,
+					confidence: true,
+					status: true,
+					reviewedAt: true,
+				},
+				with: {
+					links: {
+						with: {
+							client: {
+								columns: { id: true, hash: true, fullName: true },
+							},
+						},
+					},
+				},
 				orderBy: [desc(faxCategorizations.discoveredAt)],
 			});
 		}),

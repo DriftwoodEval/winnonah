@@ -5,7 +5,13 @@ import { ClientSearchAndAdd } from "@components/clients/ClientSearchAndAdd";
 import { Badge } from "@ui/badge";
 import { Button } from "@ui/button";
 import { Card, CardContent, CardHeader } from "@ui/card";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@ui/dialog";
+import {
+	Dialog,
+	DialogContent,
+	DialogDescription,
+	DialogHeader,
+	DialogTitle,
+} from "@ui/dialog";
 import { Label } from "@ui/label";
 import {
 	Select,
@@ -24,7 +30,9 @@ import { useState } from "react";
 import { toast } from "sonner";
 import type { SortedClient } from "~/lib/api-types";
 import { cn } from "~/lib/utils";
-import { api } from "~/trpc/react";
+import { api, type RouterOutputs } from "~/trpc/react";
+
+type FaxListItem = RouterOutputs["faxCategorization"]["list"][number];
 
 const CATEGORIES = [
 	"Referral",
@@ -94,31 +102,73 @@ function wasChangedByReviewer(fax: {
 
 export function FaxCategorizationGrid() {
 	const [tab, setTab] = useState<"pending" | "reviewed">("pending");
+	const [onlyChanged, setOnlyChanged] = useState(false);
+	const { data: faxes, isLoading } = api.faxCategorization.list.useQuery({
+		status: tab,
+	});
+
+	const displayedFaxes =
+		tab === "reviewed" && onlyChanged
+			? (faxes?.filter(wasChangedByReviewer) ?? [])
+			: (faxes ?? []);
 
 	return (
 		<Tabs onValueChange={(value) => setTab(value as typeof tab)} value={tab}>
-			<TabsList>
-				<TabsTrigger value="pending">Pending</TabsTrigger>
-				<TabsTrigger value="reviewed">Reviewed</TabsTrigger>
-			</TabsList>
+			<div className="flex flex-wrap items-center justify-between gap-2">
+				<TabsList>
+					<TabsTrigger value="pending">Pending</TabsTrigger>
+					<TabsTrigger value="reviewed">Reviewed</TabsTrigger>
+				</TabsList>
+				<div className="flex flex-wrap items-center gap-4">
+					{tab === "reviewed" && (
+						<div className="flex items-center gap-2">
+							<Switch
+								checked={onlyChanged}
+								id="only-changed"
+								onCheckedChange={setOnlyChanged}
+							/>
+							<Label className="font-normal" htmlFor="only-changed">
+								Only show faxes a person had to correct
+							</Label>
+						</div>
+					)}
+					{!isLoading && faxes && faxes.length > 0 && (
+						<span className="text-muted-foreground text-sm">
+							{displayedFaxes.length} fax
+							{displayedFaxes.length === 1 ? "" : "es"}
+						</span>
+					)}
+				</div>
+			</div>
 			<TabsContent value="pending">
-				<FaxGrid status="pending" />
+				<FaxGrid faxes={faxes} isLoading={isLoading} status="pending" />
 			</TabsContent>
 			<TabsContent value="reviewed">
-				<FaxGrid status="reviewed" />
+				<FaxGrid
+					displayedFaxes={displayedFaxes}
+					faxes={faxes}
+					isLoading={isLoading}
+					status="reviewed"
+				/>
 			</TabsContent>
 		</Tabs>
 	);
 }
 
-function FaxGrid({ status }: { status: "pending" | "reviewed" }) {
+function FaxGrid({
+	status,
+	faxes,
+	isLoading,
+	displayedFaxes,
+}: {
+	status: "pending" | "reviewed";
+	faxes: FaxListItem[] | undefined;
+	isLoading: boolean;
+	displayedFaxes?: FaxListItem[];
+}) {
 	const utils = api.useUtils();
-	const { data: faxes, isLoading } = api.faxCategorization.list.useQuery({
-		status,
-	});
 	const [selectedFaxId, setSelectedFaxId] = useState<number | null>(null);
 	const [selectedCategory, setSelectedCategory] = useState<Category>("Unsure");
-	const [onlyChanged, setOnlyChanged] = useState(false);
 
 	const invalidate = () => utils.faxCategorization.list.invalidate();
 
@@ -135,10 +185,8 @@ function FaxGrid({ status }: { status: "pending" | "reviewed" }) {
 		},
 	});
 
-	const displayedFaxes =
-		status === "reviewed" && onlyChanged
-			? (faxes?.filter(wasChangedByReviewer) ?? [])
-			: (faxes ?? []);
+	const shownFaxes =
+		status === "reviewed" ? (displayedFaxes ?? []) : (faxes ?? []);
 
 	const selectedFax = faxes?.find((fax) => fax.id === selectedFaxId) ?? null;
 
@@ -172,33 +220,14 @@ function FaxGrid({ status }: { status: "pending" | "reviewed" }) {
 
 	return (
 		<>
-			<div className="flex flex-wrap items-center justify-between gap-2 pt-4">
-				{status === "reviewed" ? (
-					<div className="flex items-center gap-2">
-						<Switch
-							checked={onlyChanged}
-							id="only-changed"
-							onCheckedChange={setOnlyChanged}
-						/>
-						<Label className="font-normal" htmlFor="only-changed">
-							Only show faxes a person had to correct
-						</Label>
-					</div>
-				) : (
-					<div />
-				)}
-				<span className="text-muted-foreground text-sm">
-					{displayedFaxes.length} fax{displayedFaxes.length === 1 ? "" : "es"}
-				</span>
-			</div>
-			{displayedFaxes.length === 0 ? (
+			{shownFaxes.length === 0 ? (
 				<div className="flex flex-col items-center justify-center gap-2 py-16 text-center text-muted-foreground">
 					<InboxIcon className="h-8 w-8 opacity-20" />
 					<p className="text-sm italic">No faxes match this filter.</p>
 				</div>
 			) : (
 				<div className="grid gap-4 pt-4 sm:grid-cols-2 lg:grid-cols-3">
-					{displayedFaxes.map((fax) => (
+					{shownFaxes.map((fax) => (
 						<Card
 							className="h-full cursor-pointer transition-colors hover:bg-muted/50"
 							key={fax.id}
@@ -297,6 +326,9 @@ function FaxGrid({ status }: { status: "pending" | "reviewed" }) {
 						<>
 							<DialogHeader>
 								<DialogTitle>{selectedFax.fileName}</DialogTitle>
+								<DialogDescription className="sr-only">
+									Review and categorize this fax
+								</DialogDescription>
 							</DialogHeader>
 							<div className="grid flex-1 gap-4 md:grid-cols-[2fr_1fr]">
 								<iframe
