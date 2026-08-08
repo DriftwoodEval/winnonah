@@ -52,9 +52,12 @@ CATEGORY_DEFINITIONS = {
     ),
     "Insurance Approval": (
         "An insurer is approving or authorizing coverage, a claim, or "
-        "prior authorization for treatment. Look for explicit approval "
-        "language (e.g. 'approved', 'authorized', effective dates or "
-        "number of visits/sessions granted)."
+        "prior authorization for treatment, including a partial or "
+        "reduced approval (fewer visits/sessions than requested, or "
+        "coverage at a lower level than requested). Look for explicit "
+        "approval language (e.g. 'approved', 'authorized', 'partially "
+        "approved', 'reduced', effective dates or number of "
+        "visits/sessions granted)."
     ),
     "Status Update Request": (
         "Someone is asking where things stand on a client - a check-in "
