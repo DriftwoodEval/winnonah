@@ -281,6 +281,35 @@ function AnimatedCellContent({
 	);
 }
 
+function InfoField({
+	label,
+	value,
+	highlight,
+	wrap,
+}: {
+	label: string;
+	value: React.ReactNode;
+	highlight?: boolean;
+	// Priority's text can run long (e.g. "High Priority, BabyNet: 2:6") and is
+	// important enough that truncating it would hide the actual reason.
+	wrap?: boolean;
+}) {
+	return (
+		<div className={cn("min-w-0", wrap && "col-span-2")}>
+			<div className="text-muted-foreground text-xs">{label}</div>
+			<div
+				className={cn(
+					"text-muted-foreground",
+					wrap ? "wrap-break-word" : "truncate",
+					highlight && "font-medium text-destructive",
+				)}
+			>
+				{value}
+			</div>
+		</div>
+	);
+}
+
 interface FacetCounts {
 	counts: Record<string, number>;
 	total: number;
@@ -779,7 +808,7 @@ export function ClientDirectory() {
 
 			<Table
 				className={cn(
-					"transition-opacity duration-150",
+					"hidden transition-opacity duration-150 sm:table",
 					((isFetching && !isLoading) || isSortPending) && "opacity-50",
 				)}
 			>
@@ -1080,6 +1109,141 @@ export function ClientDirectory() {
 					)}
 				</TableBody>
 			</Table>
+
+			<div
+				className={cn(
+					"flex flex-col gap-3 transition-opacity duration-150 sm:hidden",
+					((isFetching && !isLoading) || isSortPending) && "opacity-50",
+				)}
+			>
+				{isLoading ? (
+					Array.from({ length: 5 }).map((_, i) => (
+						<div
+							className="rounded-lg border bg-card p-4 shadow-xs"
+							// biome-ignore lint/suspicious/noArrayIndexKey: static skeleton
+							key={i}
+						>
+							<Skeleton className="h-4 w-40" />
+							<div className="mt-3 grid grid-cols-2 gap-3">
+								<Skeleton className="h-8 w-full" />
+								<Skeleton className="h-8 w-full" />
+							</div>
+						</div>
+					))
+				) : clients && clients.length > 0 ? (
+					clients.map((client) => {
+						const isPriority = PRIORITY_REASONS.has(client.sortReason);
+
+						return (
+							<div
+								className="rounded-lg border bg-card p-4 shadow-xs"
+								key={client.id}
+							>
+								<Link
+									className="flex flex-wrap items-center gap-2 font-medium hover:underline"
+									href={`/clients/${client.hash}`}
+								>
+									<span className="flex items-center gap-2">
+										<span
+											className="h-3 w-3 shrink-0 rounded-full"
+											style={{
+												backgroundColor: getHexFromColor(client.color),
+											}}
+										/>
+										<Redact>{client.fullName}</Redact>
+									</span>
+									{visibleColumns[FAILURES_TOGGLE_KEY] &&
+										client.unresolvedFailures.map((reason) => (
+											<Badge
+												className="max-w-[160px]"
+												key={reason}
+												title={reason}
+												variant="destructive"
+											>
+												<span className="min-w-0 truncate">{reason}</span>
+											</Badge>
+										))}
+								</Link>
+
+								<div className="mt-3 grid grid-cols-2 gap-3">
+									{statusColumnVisible && (
+										<InfoField
+											label="Status"
+											value={client.status ? "Active" : "Inactive"}
+										/>
+									)}
+									{visibleColumns.priority && (
+										<InfoField
+											highlight={isPriority}
+											label="Priority"
+											value={
+												isPriority
+													? formatPriorityReason(
+															client.sortReason,
+															new Date(client.dob),
+														)
+													: "—"
+											}
+											wrap
+										/>
+									)}
+									{visibleColumns.for && (
+										<InfoField label="For" value={client.asdAdhd ?? "—"} />
+									)}
+									{visibleColumns.language && (
+										<InfoField
+											label="Language"
+											value={client.language ?? "—"}
+										/>
+									)}
+									{visibleColumns.daQs && (
+										<InfoField
+											label="DA Qs"
+											value={
+												getQsStage(
+													"DA",
+													punchByClientId.get(String(client.id)),
+												) ?? "—"
+											}
+										/>
+									)}
+									{visibleColumns.evalQs && (
+										<InfoField
+											label="EVAL Qs"
+											value={
+												getQsStage(
+													"EVAL",
+													punchByClientId.get(String(client.id)),
+												) ?? "—"
+											}
+										/>
+									)}
+									{visibleColumns.insurance && (
+										<InfoField
+											label="Primary Insurance"
+											value={client.primaryInsurance ?? "—"}
+										/>
+									)}
+									{visibleColumns.secondaryInsurance && (
+										<InfoField
+											label="Secondary Insurance"
+											value={
+												client.secondaryInsurance.length > 0
+													? client.secondaryInsurance.join(", ")
+													: "—"
+											}
+										/>
+									)}
+								</div>
+							</div>
+						);
+					})
+				) : (
+					<p className="py-12 text-center text-muted-foreground text-sm">
+						No clients found.
+					</p>
+				)}
+			</div>
 		</div>
 	);
 }
