@@ -2,12 +2,13 @@
 title: Changelog
 ---
 
-## 2026-08-08 - Fax categorization client matching
+## 2026-08-08
 
 **New**
 - Reviewed faxes now show a count of how many are displayed, and can be filtered to only show ones where a person had to correct the category or clients.
 - Reviewed faxes now show what the AI originally suggested next to what the reviewer actually selected, so you can see what changed.
 - Fax categorization now recognizes "Status Update Request" as its own category, for faxes asking where things stand on a client.
+- The "What's new" popup now includes a link to the full changelog page.
 
 **Improved**
 - Fax categorization now suggests a client match even when the AI's guessed name has a small typo, and shows how confident the match is.
@@ -17,8 +18,12 @@ title: Changelog
 - The AI is now more conservative about how confident it reports being in a fax's category, instead of defaulting to near-100%.
 - The fax review dialog can now open much wider, making it easier to read the fax alongside its details.
 - Insurance Approval now also catches faxes reporting a partial or reduced approval, not just full approvals.
+- The "What's new" popup now only shows updates you haven't seen yet, instead of repeating the whole day's changes every time something new is added.
 
-## 2026-08-07 - Header customization and homepage grid tweaks
+**Fixed**
+- The changelog page's table of contents no longer requires scrolling the whole page to reach the bottom of the list.
+
+## 2026-08-07
 
 **New**
 - The header bar is now customizable: show and hide items on desktop and mobile.
@@ -28,14 +33,14 @@ title: Changelog
 **Improved**
 - Homepage widgets use grid spacing better and lay out more sensibly on mobile.
 
-## 2026-08-06 - Fax categorization
+## 2026-08-06
 
 **New**
 - Added a fax categorization page: incoming faxes are automatically sorted into Referral, Records Request, Insurance, or Patient Documents, matched to client(s), and queued for staff review.
 - Added a Greeter Schedule page showing today's greeters, their office locations, and phone numbers, the same info the greeter text-back line replies with.
 - Added a Greeter Schedule home page widget, and My Day / Who's In now show the greeter for each office.
 
-## 2026-08-05 - Insurance review and permission fixes
+## 2026-08-05
 
 **Improved**
 - Insurance review now shows the waiting badge even when you don't have the permission to use it.
@@ -43,12 +48,12 @@ title: Changelog
 **Fixed**
 - Fixed the "log attempt" button requiring the wrong permission.
 
-## 2026-08-04 - Questionnaire rule updates
+## 2026-08-04
 
 **Improved**
 - Questionnaire rules now include LD for DAEVALs.
 
-## 2026-07-30 - Day-ahead messages and dashboard tracking
+## 2026-07-30
 
 **New**
 - The day-ahead calendar now shows recent messages for each appointment, highlighted if a client messaged the day of or day before their appointment.
@@ -63,13 +68,13 @@ title: Changelog
 **Fixed**
 - Fixed downloading referrals after TherapyAppointment changes.
 
-## 2026-07-29 - Dialog and modal fixes
+## 2026-07-29
 
 **Fixed**
 - Fixed the insurance notes preview dialog getting clipped on the right.
 - Fixed some modals not being able to get wide enough for their content.
 
-## 2026-07-27 - Calendar lane and layout fixes
+## 2026-07-27
 **New**
 - Clients on the scheduling table can now be dragged and dropped.
 
@@ -82,7 +87,7 @@ title: Changelog
 **Fixed**
 - Stale private-pay/insurance entries are now cleaned up when no longer included on the TA import.
 
-## 2026-07-26 - Changelog page and "what's new" popup
+## 2026-07-26
 **New**
 - Added this Changelog page.
 - Added a popup that shows unseen changelog entries the first time you visit after they're published.
@@ -92,7 +97,7 @@ title: Changelog
 - Fixed a timezone bug in the appointment reminder timeline.
 
 
-## 2026-07-25 - Punchlist and bulk questionnaire fixes
+## 2026-07-25
 **Improved**
 - Questionnaire batteries now only match for the correct age group or younger, instead of any age.
 - Pushing to the punchlist adds a new row automatically when the punchlist is full.
@@ -101,13 +106,13 @@ title: Changelog
 - Notes-only note creation now shows a clearer error message when no text is entered.
 - Bulk questionnaire input is now validated, and `dp4` is autocorrected to `dp-4`.
 
-## 2026-07-24 - Track outreach attempts
+## 2026-07-24
 **New**
 - Clients needing outreach now have a "Log Attempt" button on the Referral tab, up to 3 attempts, each recording who logged it, when, and optional notes.
 - After the 3rd failed attempt, the client automatically moves from the Needs Outreach list to the Drop List.
 - Clients attempted within the last 21 days sort to the bottom of the Needs Outreach list so staff see less-recently-tried clients first.
 
-## 2026-07-23 - Admin impersonation and referral tab updates
+## 2026-07-23
 **New**
 - Admins can now impersonate a user for troubleshooting, with a clear indicator shown while impersonating.
 - Added a "waiting" toggle for insurance review, and a post-eval-pending status to the drop list.
@@ -116,12 +121,12 @@ title: Changelog
 **Fixed**
 - Inactive notes-only clients are now hidden from search unless specifically searched for.
 
-## 2026-07-22 - Bug fixes: merge suggestions and notes-only client creation
+## 2026-07-22
 **Fixed**
 - Fixed merge suggestions showing the wrong candidate clients.
 - Fixed the "Create Notes Only Client" button not opening its dialog.
 
-## 2026-07-21 - Form and navigation polish
+## 2026-07-21
 **New**
 - Added tooltips to the homepage buttons.
 
@@ -129,25 +134,25 @@ title: Changelog
 - Save buttons now stay disabled until you actually change something on the form.
 - Reorganized the settings dialog for evaluators and users, and the records request checkbox no longer shows on the first request.
 
-## 2026-07-17 - Background task status bubble
+## 2026-07-17
 **New**
 - Added a live status bubble showing the progress of background tasks.
 
 **Fixed**
 - Fixed a timezone bug affecting the "day ahead" homepage widget.
 
-## 2026-07-16 - Insurance Denial Procedures page
+## 2026-07-16
 **New**
 - Added an Insurance Denial Procedures docs page.
 
 **Improved**
 - Client Drive folders now move to the evaluator's folder as soon as the appointment is entered, instead of waiting until a week before.
 
-## 2026-07-13 - Auto-move client folders before appointments
+## 2026-07-13
 **New**
 - Client Google Drive folders now automatically move into the evaluator's folder a week before their appointment.
 
-## 2026-07-10 - Scheduling search box and navigation icons
+## 2026-07-10
 **New**
 - Added a search box to the Scheduling page.
 
@@ -155,39 +160,39 @@ title: Changelog
 - The navigation menu now has icons and categories.
 - Tables and the Scheduling page load noticeably faster.
 
-## 2026-07-09 - Note cursor fix and reports UI polish
+## 2026-07-09
 **Improved**
 - Improved the Reports page layout, and added an evaluator preview button.
 
 **Fixed**
 - Notes no longer jump your cursor to the end while auto-saving.
 
-## 2026-07-08 - Client directory
+## 2026-07-08
 **New**
 - Added a Client Directory page, which will eventually replace the client prioritization list.
 
 **Improved**
 - Records-request failures can now be marked resolved directly, the same way questionnaire failures already could.
 
-## 2026-07-06 - Pin dashboard places
+## 2026-07-06
 **New**
 - You can now pin your place on the Dashboard, similar to the Issues list.
 - Added a "needed" dropdown to the questionnaire table, to display which batteries apply.
 
-## 2026-07-05 - Questionnaire suggestion refinements
+## 2026-07-05
 **Improved**
 - The Additional Insurance Appointments section on a client page now shows which questionnaires are required for those appointments and whether they've already been sent.
 
 **Fixed**
 - Questionnaires no longer suggest marking DA/eval sent when it's already set.
 
-## 2026-07-03 - Bulk questionnaire status edit and schedule calendar views
+## 2026-07-03
 **New**
 - Added bulk editing of questionnaire status.
 - Schedule can now be viewed by day, 3-day, or week.
 - Added more homepage widgets, including appointment calendars and confirmed appointments in the day-ahead view.
 
-## 2026-07-02 - Image support in notes
+## 2026-07-02
 **New**
 - Notes now support adding images.
 - Added a BabyNet badge to insurance code calculator.
@@ -195,29 +200,29 @@ title: Changelog
 **Improved**
 - The day-ahead homepage widget now includes links to TA and Drive.
 
-## 2026-06-29 - Day-ahead widget and evaluator watch
+## 2026-06-29
 **New**
 - Added a "day ahead" widget to the homepage.
 - Added an evaluator report watch system.
 
-## 2026-06-28 - Homepage widgets
+## 2026-06-28
 **New**
 - Added customizable widgets to the homepage.
 
 **Improved**
 - Appointment durations now round to the nearest half hour.
 
-## 2026-06-25 - Report queue wording
+## 2026-06-25
 **Improved**
 - Renamed the "Claim Top Folder" button to "Claim Next Report."
 - The report queue now shows a running count of how many reports you have claimed toward your limit.
 
-## 2026-06-24 - Reports page access rules
+## 2026-06-24
 **Improved**
 - Users with no report queue allowance who also can't approve reports are no longer shown the Reports page.
 - Insurance codes calculator now shows "not configured" instead of not appearing at all.
 
-## 2026-06-22 - Invite emails and inactive client cleanup
+## 2026-06-22
 **New**
 - New user invitations are now sent by email automatically.
 
@@ -227,7 +232,7 @@ title: Changelog
 **Fixed**
 - Inactive clients no longer show irrelevant error flags.
 
-## 2026-06-19 - Settings consolidation
+## 2026-06-19
 **New**
 - You'll be prompted to re-authenticate if our scope changes.
 
@@ -235,7 +240,7 @@ title: Changelog
 - Evaluators and Users are now combined into one People section in Settings, and the separate QSuite Config page moved into Settings too.
 - Users can now take report queue items up to their configured maximum.
 
-## 2026-06-18 - Work summary tool
+## 2026-06-18
 **New**
 - Added a Work Summary tool showing each evaluator's weekly appointment counts by type (DA, eval, ASD/ADHD).
 - The Referral tab now asks which private school a client attends, when relevant.
@@ -243,35 +248,35 @@ title: Changelog
 **Fixed**
 - Fixed a memory leak that could slow the app down over time.
 
-## 2026-06-17 - Insurance email notification permission
+## 2026-06-17
 **New**
 - Added a permission for opting in to email notifications when an insurance review is assigned to you.
 
-## 2026-06-16 - Medicaid lookup
+## 2026-06-16
 **New**
 - Added a Medicaid lookup tool to insurance review.
 
 **Improved**
 - Removed the requirement that new availability be at least a month out.
 
-## 2026-06-14 - Pause/resume insurance review
+## 2026-06-14
 **New**
 - Added the ability to pause and resume insurance review for a client.
 
 **Fixed**
 - Inactive clients no longer get automatically added to insurance review.
 
-## 2026-06-13 - Insurance review list organization
+## 2026-06-13
 **Improved**
 - Recent clients and insurance review clients have been more clearly visually separated.
 - Global search is bigger, and its keyboard shortcut hint is hidden on mobile.
 
-## 2026-06-12 - Duplicate name search and referral push
+## 2026-06-12
 **Improved**
 - Duplicate client name detection now includes inactive clients.
 - Pushing referral info to the punchlist now includes private pay information.
 
-## 2026-06-11 - Records hold dates and insurance review limits
+## 2026-06-11
 **New**
 - Added a "hold until" date for records requests.
 
@@ -282,16 +287,16 @@ title: Changelog
 **Fixed**
 - Notes now wrap long words instead of overflowing.
 
-## 2026-06-10 - Faster page loads
+## 2026-06-10
 **Improved**
 - Pages load faster by deferring background data syncing until after the page is shown.
 - Clients no longer need insurance on file to have an insurance tab.
 
-## 2026-06-08 - Insurance review wording
+## 2026-06-08
 **Improved**
 - Renamed "claimed by" to "whose turn" in insurance review.
 
-## 2026-06-07 - Duplicate client detection and insurance review
+## 2026-06-07
 **New**
 - Added detection for duplicate client names.
 - Added an insurance review section, using pre-cert info for the insurance codes box.
@@ -299,16 +304,16 @@ title: Changelog
 **Improved**
 - For reminders, only the first reply now counts as confirmation.
 
-## 2026-06-06 - Archiving evaluators and pause badge
+## 2026-06-06
 **New**
 - Evaluators can now be archived.
 - Added a "paused" badge on the Dashboard.
 
-## 2026-06-05 - 90000 billing code
+## 2026-06-05
 **New**
 - Added support for using the 90000 billing code.
 
-## 2026-06-04 - Appointment reminders launched
+## 2026-06-04
 **New**
 - Automated appointment reminders are now fully enabled.
 - Added a gray calendar icon showing clients already on the Scheduling page.
@@ -316,34 +321,34 @@ title: Changelog
 **Improved**
 - Renamed "W Folder" to "Canonical Folder" for clarity.
 
-## 2026-06-03 - Dashboard sorting
+## 2026-06-03
 **Improved**
 - Dashboard date sections are now sorted, and failures now resolve correctly when a client is found.
 
-## 2026-06-02 - Questionnaire-done logic refinements
+## 2026-06-02
 **Improved**
 - "Questionnaires done" status now accounts for the assessment battery and any evaluation activity.
 
-## 2026-05-31 - PA form and calculator options
+## 2026-05-31
 **New**
 - Added CPT codes to the Select Health prior-authorization form.
 - Added a "show units" option to the unit calculator.
 
-## 2026-05-30 - Brand colors and faster loading
+## 2026-05-30
 **Improved**
 - Updated the app's color scheme and branding.
 - Pages load progressively now instead of waiting for everything at once, with better loading placeholders.
 - The app version display moved to the user menu.
 - The Greeter Proxy settings tab was removed; rather than a complex proxy, users can now just lookup the greeter they're trying to reach.
 
-## 2026-05-29 - Recent clients list
+## 2026-05-29
 **New**
 - Added a "recent clients" list for quick access.
 
 **Improved**
 - Reminder templates now support office locations and message placeholders.
 
-## 2026-05-28 - Appointment reminder timeline refinements
+## 2026-05-28
 **New**
 - Added screenshots confirming MHS portal completion checks.
 
@@ -351,36 +356,36 @@ title: Changelog
 - The reminder timeline now highlights overdue reminders.
 - Cancelled appointments now show in the appointments table.
 
-## 2026-05-26 - Global search sizing fix
+## 2026-05-26
 **Fixed**
 - Global client search no longer takes over the full screen.
 
-## 2026-05-24 - PA button permissions
+## 2026-05-24
 **Improved**
 - The download prior-authorization button now only shows if you have permission.
 
-## 2026-05-23 - Select Health PA form and insurance search
+## 2026-05-23
 **New**
 - Added a pre-filled Select Health prior-authorization form.
 - Added phone number search and more insurance filters.
 
-## 2026-05-22 - Message logging info hovers
+## 2026-05-22
 **New**
 - Added info hovers showing automated message logs.
 
-## 2026-05-21 - Billing code rules and outreach claiming
+## 2026-05-21
 **New**
 - Added billing rules, including unit limits and codes that can't be billed without others.
 - Added the ability to claim clients for outreach.
 
-## 2026-05-19 - Paused client alerts and phone-based matching
+## 2026-05-19
 **New**
 - Paused clients now show an alert.
 
 **Improved**
 - Related-client suggestions now also match by phone number.
 
-## 2026-05-17 - Records tab and insurance code limits
+## 2026-05-17
 **New**
 - Added an "evaluation in process" option to the Records tab.
 - Insurance settings now support a maximum for each billing code.
@@ -388,118 +393,118 @@ title: Changelog
 **Improved**
 - Placeholder clients now get records-needed and referral tab support too.
 
-## 2026-05-16 - Records re-requests
+## 2026-05-16
 **New**
 - You can customize the second line of the records request email.
 
 **Improved**
 - Records requests can now be re-sent repeatedly as needed.
 
-## 2026-05-14 - Phone formatting and Spanish referral script
+## 2026-05-14
 **New**
 - Phone numbers now auto-format as you type them in.
 
 **Improved**
 - Finished the Spanish version of the referral script.
 
-## 2026-05-11 - Greeter phone number lookup
+## 2026-05-11
 **New**
 - Added a greeter phone number lookup tool, with its own permission.
 
-## 2026-05-09 - Update notifications
+## 2026-05-09
 **New**
 - Added a notification when the app updates or your permissions change.
 
-## 2026-05-08 - Appointment reminder timeline
+## 2026-05-08
 **New**
 - Added a visual timeline for appointment reminders, including rescheduled status and reply handling.
 - In-person assessments were added to assessment batteries, with their own table and import.
 
-## 2026-05-07 - Spanish referral script and in-person assessments
+## 2026-05-07
 **New**
 - Added most of the Spanish version of the referral script.
 
 **Improved**
 - In-person assessments now have an age range.
 
-## 2026-05-06 - Questionnaire rules and appointment reminder replies
+## 2026-05-06
 **New**
 - Added configurable questionnaire rules in Settings.
 
 **Improved**
 - Appointment reminders now handle rejections and update the calendar accordingly.
 
-## 2026-05-03 - Appointments on client page
+## 2026-05-03
 **New**
 - The client page now shows upcoming and past appointments, with a "confirmed" badge when a client confirms via calendar.
 
-## 2026-05-02 - Appointment reminders
+## 2026-05-02
 **New**
 - Began rolling out automated appointment reminder texts, with confirmation tracking and follow-ups for non-responses.
 
-## 2026-05-01 - Availability calendar view
+## 2026-05-01
 **New**
 - Added a calendar view for availability.
 - Added a button to apply changes to all future events in a recurring series.
 
-## 2026-04-28 - Billing report downloads
+## 2026-04-28
 **New**
 - Added the ability to download billing reports.
 
 **Improved**
 - Date and time pickers now accept typed input.
 
-## 2026-04-25 - Appointment import controls and EI text forwarding
+## 2026-04-25
 **New**
 - Added a Settings page for managing which appointment IDs are treated as trusted or ignored during appointment import (previously only editable outside the app).
 - Added the ability to send a text for the client to forward to their Early Interventionist.
 
-## 2026-04-24 - Referral faxes and availability lock-in window
+## 2026-04-24
 **New**
 - Added the ability to generate referral faxes.
 
 **Improved**
 - New availability must now be submitted at least a month in advance, and existing availability within a month is locked from editing.
 
-## 2026-04-23 - Language field renamed
+## 2026-04-23
 **Improved**
 - Renamed "interpreter" to "language," and added it to the Referral tab.
 
-## 2026-04-16 - Scheduling table layout
+## 2026-04-16
 **New**
 - Added a new post-evaluation pending questionnaire status.
 
 **Improved**
 - Merged the sort and name columns and truncated long names on the Scheduling page.
 
-## 2026-04-15 - Referral location preference
+## 2026-04-15
 **Improved**
 - Adding a client to Scheduling now uses their referral location preference.
 
-## 2026-04-11 - Referral tab for ADHD clients
+## 2026-04-11
 **Improved**
 - The Referral tab now shows records information for ADHD clients too.
 
-## 2026-04-10 - Virtual location in availability
+## 2026-04-10
 **New**
 - Added a virtual location option to availability.
 
-## 2026-04-04 - Availability page launch
+## 2026-04-04
 **New**
 - Officially launched the Availability page for evaluators.
 
 **Improved**
 - Referral tab data now gets included automatically when pushing to the punchlist.
 
-## 2026-04-02 - Cleaner scheduling reorder controls
+## 2026-04-02
 **Improved**
 - Scheduling page reordering now just shows up/down arrows instead of sort numbers.
 
-## 2026-03-28 - Manual address fix flag
+## 2026-03-28
 **New**
 - Added a flag for addresses that need manual correction.
 
-## 2026-03-26 - Scheduling reordering and better address lookup
+## 2026-03-26
 **New**
 - You can now reorder clients on the Scheduling page with up/down arrows.
 - Added a navigation link for claiming reports.
@@ -507,93 +512,93 @@ title: Changelog
 **Improved**
 - Improved address lookup accuracy.
 
-## 2026-03-24 - Fixed broken issues link
+## 2026-03-24
 **Fixed**
 - Fixed a broken link on the Issues page.
 
-## 2026-03-21 - Referral tab and report claiming launch
+## 2026-03-21
 **New**
 - Officially added the Referral / reach-out tab to client pages.
 - Officially added report claiming.
 
-## 2026-03-20 - Pause client status
+## 2026-03-20
 **New**
 - Added the ability to pause a client.
 
-## 2026-03-19 - Referral tab permission and question update
+## 2026-03-19
 **Improved**
 - Anyone can now see which clients need reach-out and review, not just certain roles.
 - Replaced the IEP question with a charter school question on the Referral tab.
 
-## 2026-03-16 - Referral tab script tweaks
+## 2026-03-16
 **Improved**
 - Simplified the referral script instructions and added coloring for the TA message section.
 
-## 2026-03-12 - Referral tab script updates
+## 2026-03-12
 **New**
 - Added another notes box and a truncated client summary header to the Referral tab.
 - Added a "followed by BabyNet" question and instructions to read the script aloud.
 
-## 2026-03-10 - Clearer next-step instructions on the dashboard
+## 2026-03-10
 **Improved**
 - Dashboard status descriptions now spell out exactly what to update on the prioritization sheet to move a client to the next stage (for example, "mark DA Qs Sent" or "schedule the DA").
 
-## 2026-03-08 - Report writing folder link
+## 2026-03-08
 **New**
 - Added a link to your report-writing folder.
 
-## 2026-03-07 - Report folder approval and limit
+## 2026-03-07
 **New**
 - Added a report folder approval and limit system.
 
-## 2026-03-05 - Referral tab age wording
+## 2026-03-05
 **Improved**
 - Updated the school records request wording, now only shown for clients under 20.
 
-## 2026-03-01 - TherapyAppointment profile link
+## 2026-03-01
 **New**
 - Added another link to the client's TherapyAppointment profile.
 
-## 2026-02-26 - Report claiming page
+## 2026-02-26
 **New**
 - Added a page for claiming reports.
 
 **Fixed**
 - The "add to scheduling" button no longer appears for clients already on the Scheduling page.
 
-## 2026-02-25 - Questionnaire screenshot preview
+## 2026-02-25
 **New**
 - Added a popup to view the latest screenshot for each questionnaire.
 
-## 2026-02-16 - Dashboard organization
+## 2026-02-16
 **Improved**
 - Dashboard sections now have headings and descriptions for clarity.
 
-## 2026-02-14 - More alerts on the client page
+## 2026-02-14
 **New**
 - Client pages now show alerts for drop list status, merge suggestions, and records needed.
 
-## 2026-02-13 - Dashboard status on client page
+## 2026-02-13
 **New**
 - The client page now shows their dashboard status.
 
 **Improved**
 - The Referral tab hides irrelevant questions based on age and warns when it shouldn't be used for BabyNet clients.
 
-## 2026-02-12 - Site moved to a new URL
+## 2026-02-12
 **Improved**
 - The site moved to a new web address, with an automatic redirect from the old one.
 - Active clients not on the punchlist now show at the top of the Dashboard, instead of on the issues page.
 
-## 2026-02-09 - Lock calculator values
+## 2026-02-09
 **New**
 - Added the ability to lock in values in the calculator.
 
-## 2026-02-07 - Records warning refinement
+## 2026-02-07
 **Improved**
 - Records-not-set warnings now only appear for clients with a TherapyAppointment account.
 
-## 2026-02-01 - Dashboard updates
+## 2026-02-01
 **New**
 - Added an issue for duplicate punchlist entries.
 - The Dashboard now remembers its state during your session.
@@ -601,11 +606,11 @@ title: Changelog
 **Improved**
 - Dashboard sections now show clients missing from the punchlist, with extra context and failure tags shown for each client.
 
-## 2026-01-31 - Suggested actions for punchlist mismatches
+## 2026-01-31
 **New**
 - Added suggested next steps for clients on the punchlist but not yet in the database.
 
-## 2026-01-30 - Scheduling navigation and records alerts
+## 2026-01-30
 **New**
 - Added arrow-key navigation on the Scheduling page.
 - Added an issue for questionnaires that were just added.
@@ -613,25 +618,25 @@ title: Changelog
 **Improved**
 - Page tabs now show descriptive titles in the browser tab.
 
-## 2026-01-29 - Questionnaire status descriptions
+## 2026-01-29
 **New**
 - Added helpful descriptions for questionnaire statuses.
 
 **Improved**
 - Reworded parts of the Referral tab script based on team feedback: moved the ASD/ADHD concern confirmation question earlier, and changed the school question to ask whether the child has been evaluated at school (not just whether they've started).
 
-## 2026-01-28 - Tabs remember their state in the URL
+## 2026-01-28
 **Improved**
 - Client page tabs now keep their state in the page URL, so links and back/forward work as expected.
 
-## 2026-01-27 - Records and availability polish
+## 2026-01-27
 **New**
 - You can now mark records as "not needed" after already requesting them.
 
 **Fixed**
 - Fixed scrolling issues in message history on mobile.
 
-## 2026-01-26 - Related clients and search by date of birth
+## 2026-01-26
 **New**
 - Added a "related clients" suggestion feature.
 - You can now search clients by date of birth.
@@ -639,7 +644,7 @@ title: Changelog
 **Improved**
 - The Records tab is now more mobile-friendly.
 
-## 2026-01-25 - Referral tab and availability editing
+## 2026-01-25
 **New**
 - Added a Referral tab to client pages.
 - You can now edit or delete availability entries, including recurring ones.
@@ -648,34 +653,34 @@ title: Changelog
 **Improved**
 - Clearer unauthorized-access error messages.
 
-## 2026-01-24 - Availability page improvements
+## 2026-01-24
 **Improved**
 - Availability now refreshes automatically after you submit changes.
 - All-day and multi-day events display more clearly.
 
-## 2026-01-22 - Records request templates
+## 2026-01-22
 **New**
 - Added "no response" and "no records" templates for records requests.
 
 **Improved**
 - The records request template dropdown now correctly shows which template was actually used, instead of sometimes guessing wrong.
 
-## 2026-01-21 - Insurance settings validation
+## 2026-01-21
 **Improved**
 - In Insurance settings, you can no longer save an alias name that's already used by a different insurance.
 
-## 2026-01-20 - Scheduling filters and cost calculator precision
+## 2026-01-20
 **Improved**
 - The Scheduling page now remembers your filters and shows filter/row counts.
 
 **Fixed**
 - Fixed rounding issues in the cost calculator.
 
-## 2026-01-19 - Appointment import overrides
+## 2026-01-19
 **New**
 - You can now ignore or override specific appointments during import.
 
-## 2026-01-18 - Scheduling table improvements
+## 2026-01-18
 **New**
 - Added an "on hold" color option.
 
@@ -683,19 +688,19 @@ title: Changelog
 - The Scheduling page header now stays visible while scrolling.
 - You can now deselect an evaluator on the Scheduling page.
 
-## 2026-01-17 - External Records tracking
+## 2026-01-17
 **New**
 - Added External Records tracking, for records requested from outside providers.
 
 **Improved**
 - Reorganized permissions for clarity.
 
-## 2026-01-16 - Insurance settings
+## 2026-01-16
 **New**
 - Added an Insurance settings page.
 - You can now edit a client's ASD/ADHD status, syncing back to punchlist.
 
-## 2026-01-15 - Mobile navigation and merge suggestions
+## 2026-01-15
 **New**
 - Added a hamburger menu for navigation on mobile.
 - The app now suggests likely matches when merging notes-only clients.
@@ -703,7 +708,7 @@ title: Changelog
 **Improved**
 - On the Scheduling page, a client's notes cell now expands when you click into it instead of staying cramped in the row.
 
-## 2026-01-14 - Build info and sorting improvements
+## 2026-01-14
 **New**
 - The app footer now shows the current build and commit info.
 - Users can now be archived, preventing them from being able to log in.
@@ -711,7 +716,7 @@ title: Changelog
 **Improved**
 - Several lists (drop list, autism stops, notes-only) now sort more sensibly.
 
-## 2026-01-12 - Scheduling page filters and sync
+## 2026-01-12
 **New**
 - Added filters and sorting to the Scheduling page.
 - Opening the Scheduling page now automatically pulls fresh punchlist data for the clients shown, instead of relying on whatever was last synced.
@@ -719,49 +724,49 @@ title: Changelog
 **Improved**
 - Selecting billing code 90791 on the Scheduling page now automatically sets the location to Virtual.
 
-## 2026-01-11 - Scheduling page details
+## 2026-01-11
 **New**
 - Added age and billing code columns to the Scheduling page.
 - Added color labels to scheduling clients.
 
-## 2026-01-10 - Scheduling page
+## 2026-01-10
 **New**
 - Added a new Scheduling page.
 - Client search (including when adding someone to Scheduling) can now filter by which office is closest to the client.
 
-## 2026-01-09 - Timezone fix for appointment matching
+## 2026-01-09
 **Fixed**
 - Fixed timezone errors affecting appointment matching.
 
-## 2026-01-06 - Time calculator defaults
+## 2026-01-06
 **New**
 - Added default times to the time calculator.
 
 **Fixed**
 - Fixed an issue creating Drive folders with no fax number.
 
-## 2026-01-05 - Time calculator
+## 2026-01-05
 **New**
 - Added a time calculator.
 
 **Fixed**
 - Re-enabled the client filters panel on the right side.
 
-## 2025-12-31 - Unit calculator improvements
+## 2025-12-31
 **New**
 - Added code descriptions, default values, and validation (no negatives or duplicates) to the unit calculator.
 
 **Fixed**
 - Various usability fixes to the calculator layout.
 
-## 2025-12-30 - Unit calculator
+## 2025-12-30
 **New**
 - Added a billing unit calculator.
 
 **Fixed**
 - You can no longer accidentally remove your own permission to edit users.
 
-## 2025-12-25 - Note editing fixes
+## 2025-12-25
 **Improved**
 - Global search now remembers your session filters.
 
@@ -769,12 +774,12 @@ title: Changelog
 - Fixed the cursor jumping to the end of a note while typing.
 - Note history no longer shows a duplicate entry when nothing changed.
 
-## 2025-12-18 - DD4 and punchlist issue alerts
+## 2025-12-18
 **New**
 - Added an alert and issues-list flag for clients whose address is in Dorchester School District 4 (DD4), since that district needs special handling.
 - Added issues-list flags for active clients missing from the punchlist, inactive clients still on the punchlist, and clients on the punchlist who don't exist in the database.
 
-## 2025-12-16 - Preventing duplicate Drive folders
+## 2025-12-16
 **New**
 - The app now blocks creating duplicate Google Drive folder links, with a menu to edit them.
 - Appointment sync errors are now emailed.
@@ -782,85 +787,85 @@ title: Changelog
 **Fixed**
 - Insurance names now match correctly regardless of extra whitespace.
 
-## 2025-12-15 - Duplicate Drive folder detection
+## 2025-12-15
 **New**
 - Added an issue flag for duplicate Google Drive folders.
 
 **Improved**
 - Notes only clients can now have a Drive folder linked too.
 
-## 2025-12-13 - Live note updates and availability page
+## 2025-12-13
 **New**
 - Notes now update live for everyone viewing the page, without needing to refresh.
 - Added a note history view.
 - Added an early version of the Availability page for evaluators.
 
-## 2025-12-11 - Bug report link
+## 2025-12-11
 **New**
 - Added a link to report bugs directly from the app.
 - Clients flagged on the "autism" stop list (from the records-screening alert) now show up as an issue to review, not just an alert on their own page.
 
-## 2025-12-10 - Gender on client details
+## 2025-12-10
 **New**
 - Added gender to the client details card.
 
-## 2025-12-09 - Bulk questionnaire status updates
+## 2025-12-09
 **Fixed**
 - Bulk-added questionnaires now correctly update "just added" status.
 
-## 2025-12-04 - Post-evaluation questionnaire status
+## 2025-12-04
 **New**
 - Added a status for questionnaires that are pending after an evaluation.
 
-## 2025-11-28 - Spanish questionnaire tracking
+## 2025-11-28
 **New**
 - Added tracking for pending Spanish-language questionnaires.
 
-## 2025-11-24 - Archive notes-only clients
+## 2025-11-24
 **New**
 - Notes-only clients can now be archived without being merged into a true client.
 
-## 2025-11-17 - Failure and questionnaire update dates
+## 2025-11-17
 **Improved**
 - Failures and questionnaires now show when they were last updated.
 
 **Fixed**
 - Browser autofill and password managers no longer interfere with form fields.
 
-## 2025-11-14 - Document and portal status on client page
+## 2025-11-14
 **New**
 - The client page now shows relevant errors about whether documents are signed and the portal has been opened.
 
-## 2025-11-07 - Appointment/insurance logic refinements
+## 2025-11-07
 **Improved**
 - When automatically matching Google Calendar appointments for insurance/billing purposes, report-writing appointments (billing code 96130) and appointments more than two weeks in the past or future are now excluded.
 
-## 2025-11-06 - Questionnaire types and archiving
+## 2025-11-06
 **New**
 - Added "archived" and "just added" as questionnaire statuses, alongside the existing pending, completed, ignoring, language, teacher, and external.
 
 **Improved**
 - Deleted questionnaires are now archived instead of permanently removed.
 
-## 2025-11-02 - Appointments from Google Calendar
+## 2025-11-02
 **New**
 - Appointment information is now merged in from Google Calendar.
 
-## 2025-10-29 - External questionnaires
+## 2025-10-29
 **New**
 - Added support for logging questionnaires sent by outside parties.
 
-## 2025-10-22 - Auto-logout and drop list
+## 2025-10-22
 **New**
 - You'll now be automatically logged out after 5 hours of inactivity.
 - Your client filters are now remembered during your session.
 - Added a "drop list" issue for clients with several reminders and unresolved problems.
 
-## 2025-10-18 - Failures tracking
+## 2025-10-18
 **New**
 - Added a Failures table for tracking DA/eval questionnaire and records-processing problems that need review, with reminder tracking so the same failure doesn't get flagged forever.
 
-## 2025-10-11 - Issues list refinements
+## 2025-10-11
 **Improved**
 - Duplicate questionnaire issues now link directly to the questionnaire and count toward the issues total.
 - The Issues page now always shows scrollbars instead of only while hovering.
@@ -868,34 +873,34 @@ title: Changelog
 **Fixed**
 - Notes-only clients only show as an error while they're still unmerged.
 
-## 2025-10-10 - Duplicate questionnaire prevention
+## 2025-10-10
 **New**
 - The app now warns about and blocks duplicate questionnaire entries.
 
 **Fixed**
 - Links typed without "https://" in notes now work correctly.
 
-## 2025-10-06 - Appointment import
+## 2025-10-06
 **New**
 - The app now imports appointment data.
 
-## 2025-10-05 - Google Drive folder matching
+## 2025-10-05
 **New**
 - Added a way to manually link, or mark not-applicable, a client's Google Drive folder.
 - Clients are now automatically matched to their Drive folder, which gets renamed to include their client ID.
 
-## 2025-10-02 - Note-saving reliability
+## 2025-10-02
 **Improved**
 - Note history now shows who made each edit by their email.
 
 **Fixed**
 - Notes now save properly no matter how you navigate away, not just via the browser back button.
 
-## 2025-09-27 - Early interventionist (EI) attendance
+## 2025-09-27
 **New**
 - Added a checkbox and badge to track if Early Interventionist (EI) attends.
 
-## 2025-09-23 - Notes only client permissions
+## 2025-09-23
 **Improved**
 - Only admins can now create notes only clients.
 - Permissions are now more granular.
@@ -903,27 +908,27 @@ title: Changelog
 **Fixed**
 - Marking a questionnaire "sent" now properly cancels the reminder prompt.
 
-## 2025-09-22 - Reminder before leaving after sending questionnaires
+## 2025-09-22
 **New**
 - You'll now be prompted to confirm before leaving the page after sending questionnaires without checking them off.
 
-## 2025-09-21 - Global search filters
+## 2025-09-21
 **New**
 - Global client search now supports filtering by status.
 
 **Fixed**
 - Fixed handling for clients who have both private pay and insurance.
 
-## 2025-09-20 - Download client chart data
+## 2025-09-20
 **New**
 - Added the ability to download client chart data from TherapyAppointment as a CSV.
 - Added teacher and language questionnaire status tracking.
 
-## 2025-09-19 - Saved place in lists
+## 2025-09-19
 **New**
 - You can now pin your place in filtered, color, and issue lists, with a button to scroll back to your pinned client.
 
-## 2025-09-18 - Merge and issue tracking improvements
+## 2025-09-18
 **New**
 - Added a "High Priority" badge on the client header.
 - Added an "autism stop" filter and issue list.
@@ -931,12 +936,12 @@ title: Changelog
 **Improved**
 - Merging duplicate clients now marks the old record inactive instead of deleting it.
 
-## 2025-09-17 - Bulk questionnaire entry
+## 2025-09-17
 **New**
 - Added the ability to add multiple questionnaires at once.
 - Added prior-authorization expiration dates to the client card, with sorting.
 
-## 2025-09-16 - Mobile dialogs and evaluator matching
+## 2025-09-16
 **New**
 - Added an issue flag for clients with no eligible evaluators.
 - Added a Google Maps link for client addresses.
@@ -945,23 +950,23 @@ title: Changelog
 - Dialogs now use a mobile-friendly "drawer" style on phones.
 - You can now block specific zip codes, not just school districts.
 
-## 2025-09-15 - Autism stop alert
+## 2025-09-15
 **New**
 - Added an alert when "autism" is found in a client's records.
 - Added an issue flag for duplicate Google Drive folder links.
 
-## 2025-09-13 - Client contact info
+## 2025-09-13
 **New**
 - Client email and phone number now show in the client list and detail page.
 
 **Improved**
 - You'll stay signed in longer between visits.
 
-## 2025-09-12 - Payment method errors
+## 2025-09-12
 **New**
 - Added an issue flag for clients with no payment method on file.
 
-## 2025-09-11 - Google Drive links
+## 2025-09-11
 **New**
 - Clients with a Google Drive folder now show a link to it.
 - Added a BabyNet checkbox on the client page for clients who are BabyNet-referred but whose insurance record doesn't say so — it affects priority sorting and turns off automatically once the client ages out.
@@ -970,40 +975,40 @@ title: Changelog
 **Improved**
 - Improved how clients are sorted, including combined BabyNet/high-priority sorting.
 
-## 2025-09-10 - Merging notes only client records
+## 2025-09-10
 **New**
 - Added a dialog for merging duplicate ("notes only") client records into real ones.
 - Added a filter to find notes only clients.
 
-## 2025-09-09 - Merged client data
+## 2025-09-09
 **Improved**
 - Dashboard client names now come from merged client records instead of just the raw punchlist, and the "Just Added" section now also checks eval-scheduling fields so clients already in progress don't show up there.
 
-## 2025-09-08 - New dashboard
+## 2025-09-08
 **New**
 - Added a Dashboard page grouping punchlist clients by where they are in the DA/evaluation questionnaire pipeline (just added, questionnaires pending/sent/done, scheduled, protocols needing scanning).
 - Dashboard entries link directly to the related client.
 
-## 2025-09-05 - Note titles
+## 2025-09-05
 **New**
 - Notes can now have titles.
 
 **Improved**
 - Shell client records now hide irrelevant sections.
 
-## 2025-09-01 - Notes only clients and high priority permission
+## 2025-09-01
 **New**
 - Added support for placeholder ("notes only") client records used before full intake.
 
 **Improved**
 - Only admins can now mark a client as high priority.
 
-## 2025-08-28 - Active insurance only
+## 2025-08-28
 **Improved**
 - Only active insurance policies are now shown.
 - Hovering over a client's color now shows the name of the color.
 
-## 2025-08-27 - Keyboard navigation and search fixes
+## 2025-08-27
 **New**
 - You can now use arrow keys to move through the client list.
 - Questionnaire status can now be edited directly.
@@ -1012,22 +1017,22 @@ title: Changelog
 - Name search is more forgiving of punctuation and formatting.
 - The filter button now changes color when filters are active.
 
-## 2025-08-26 - Office selection and name fixes
+## 2025-08-26
 **New**
 - The Eligible Evaluators list on a client page now has an office dropdown, so you can check eligibility for a specific office instead of only the client's closest ones.
 
 **Fixed**
 - Fixed a bug where last names were dropped incorrectly for clients named "Jr."
 
-## 2025-08-25 - Missing district detection
+## 2025-08-25
 **New**
 - Clients with no school district recorded now show as a missing-district issue.
 
-## 2025-08-24 - Search by partial name or ID
+## 2025-08-24
 **Improved**
 - Search now matches partial names or client IDs.
 
-## 2025-08-23 - School districts and active/inactive status
+## 2025-08-23
 **New**
 - Added a way to import and edit school district information.
 - Clients now show an Active/Inactive badge.
@@ -1038,19 +1043,19 @@ title: Changelog
 **Fixed**
 - Various display fixes for dates, note refreshing, and layout.
 
-## 2025-08-22 - Private pay filter
+## 2025-08-22
 **New**
 - Added a filter for private-pay clients.
 - Started building an integration with OpenPhone to bring phone call history into the app (backend groundwork, not yet visible in the UI).
 
-## 2025-08-21 - High priority toggle
+## 2025-08-21
 **New**
 - Added a "high priority" toggle for clients.
 
 **Improved**
 - Color filters now show a count of matching clients.
 
-## 2025-08-16 - Blocked areas and mobile-friendly tables
+## 2025-08-16
 **New**
 - Added the ability to mark areas or districts as blocked for evaluator matching.
 - When creating an evaluator in Settings, you can now also create their user login in the same step instead of inviting them separately.
@@ -1058,24 +1063,24 @@ title: Changelog
 **Improved**
 - Tables now display as cards on small screens.
 
-## 2025-08-15 - Evaluators table
+## 2025-08-15
 **New**
 - Added a table for managing evaluators.
 
-## 2025-08-14 - Invite new users
+## 2025-08-14
 **New**
 - Admins can now invite new users and assign their role.
 
-## 2025-08-08 - Settings page and notifications
+## 2025-08-08
 **New**
 - Added a Settings page with basic user editing.
 - Added toast notifications for actions.
 
-## 2025-08-07 - User roles
+## 2025-08-07
 **New**
 - Added user roles with a hierarchy of permissions.
 
-## 2025-08-06 - Faster, live search and filtering
+## 2025-08-06
 **New**
 - Added a global search box.
 - Added color-based filtering to the client list.
@@ -1083,7 +1088,7 @@ title: Changelog
 **Improved**
 - Search and filters now update instantly without reloading the page.
 
-## 2025-07-25 - Questionnaire management improvements
+## 2025-07-25
 **New**
 - Added a button to manually record questionnaires that were sent outside the system.
 - You can now edit or delete questionnaire entries, and they're sorted by when they were sent.
@@ -1092,33 +1097,33 @@ title: Changelog
 - Questionnaire links now open in a new tab.
 - Reorganized the layout of the client page.
 
-## 2025-07-21 - Colors on client list
+## 2025-07-21
 **New**
 - Color labels now show on the client list.
 
-## 2025-07-19 - Color coding
+## 2025-07-19
 **New**
 - Added colors to each client.
 
 **Improved**
 - Updated the visual theme.
 
-## 2025-07-05 - Filters for BabyNet and client status
+## 2025-07-05
 **New**
 - Added filters for BabyNet and client status on the homepage client list.
 
 **Fixed**
 - Fixed some mobile display issues.
 
-## 2025-06-13 - BabyNet age alerts
+## 2025-06-13
 **New**
 - Clients too old for BabyNet are now flagged and sorted to stand out.
 - Added a checkbox to hide BabyNet clients from the list.
 
-## 2025-06-11 - Questionnaire form
+## 2025-06-11
 **New**
 - Added a form for adding and tracking questionnaires for clients.
 
-## 2025-05-25 - Google sign-in
+## 2025-05-25
 **New**
 - Added the ability to log in with a Google account.

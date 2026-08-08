@@ -1,4 +1,5 @@
 import {
+	getChangelogEntries,
 	getUnseenChangelogEntries,
 	parseChangelogMarker,
 	renderChangelogBody,
@@ -12,22 +13,28 @@ export async function ChangelogPopup() {
 	const session = await auth();
 	if (!session) return null;
 
-	const lastSeen = parseChangelogMarker(
-		await api.users.getLastSeenChangelogDate(),
-	);
+	const lastSeen = parseChangelogMarker(await api.users.getChangelogMarker());
 	const entries = getUnseenChangelogEntries(lastSeen);
 	if (entries.length === 0) return null;
 
-	const latest = entries[0];
+	// Mark the newest day's entry fully seen, at bullet granularity, even
+	// though the popup may only be showing the bullets added since last dismissal.
+	const latestFull = getChangelogEntries()[0];
 
 	return (
 		<ChangelogPopupDialog
 			entries={entries.map((entry) => ({
 				date: entry.date,
-				title: entry.title,
 				body: renderChangelogBody(entry.body),
 			}))}
-			latestMarker={latest ? serializeChangelogMarker(latest) : ""}
+			latestMarker={
+				latestFull
+					? serializeChangelogMarker({
+							date: latestFull.date,
+							bulletHashes: latestFull.bullets.map((bullet) => bullet.hash),
+						})
+					: ""
+			}
 		/>
 	);
 }

@@ -46,7 +46,7 @@ export default async function DocsPage({ params }: PageProps) {
 
 	if (isChangelog) {
 		return (
-			<div className="flex gap-8">
+			<div className="flex items-start gap-8">
 				<article className="flex min-w-0 max-w-[75ch] flex-1 flex-col gap-6">
 					<h1 className="font-heading font-semibold text-2xl">
 						{doc.frontmatter.title}
@@ -61,7 +61,7 @@ export default async function DocsPage({ params }: PageProps) {
 	const { default: Content } = await import(`~/content/docs/${relativePath}`);
 
 	return (
-		<div className="flex gap-8">
+		<div className="flex items-start gap-8">
 			<article className="prose dark:prose-invert min-w-0 max-w-[75ch] flex-1">
 				<h1>{doc.frontmatter.title}</h1>
 				{doc.frontmatter.needsCleanup && (

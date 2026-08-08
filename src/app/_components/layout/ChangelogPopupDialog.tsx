@@ -1,6 +1,5 @@
 "use client";
 
-import { Badge } from "@ui/badge";
 import { Button } from "@ui/button";
 import {
 	Dialog,
@@ -12,6 +11,7 @@ import {
 import { ScrollArea } from "@ui/scroll-area";
 import { Separator } from "@ui/separator";
 import { SparklesIcon } from "lucide-react";
+import Link from "next/link";
 import type { ReactNode } from "react";
 import { useState } from "react";
 import { formatChangelogDate } from "~/lib/formatChangelogDate";
@@ -19,7 +19,6 @@ import { api } from "~/trpc/react";
 
 interface ChangelogEntryProps {
 	date: string;
-	title: string;
 	body: ReactNode;
 }
 
@@ -65,20 +64,24 @@ export function ChangelogPopupDialog({
 					<div className="flex flex-col divide-y divide-border">
 						{entries.map((entry) => (
 							<div className="flex flex-col gap-2 p-4" key={entry.date}>
-								<div className="flex flex-wrap items-center gap-2">
-									<h3 className="font-medium text-sm">{entry.title}</h3>
-									<Badge className="text-muted-foreground" variant="outline">
-										{formatChangelogDate(entry.date)}
-									</Badge>
-								</div>
-								<div className="prose prose-sm dark:prose-invert max-w-none text-muted-foreground [&>ul]:my-0">
+								<h3 className="font-medium text-muted-foreground text-sm">
+									{formatChangelogDate(entry.date)}
+								</h3>
+								<div className="prose prose-sm dark:prose-invert max-w-none text-muted-foreground [&>p:first-child]:mt-0 [&>p]:mt-4 [&>p]:mb-1 [&>ul]:my-0">
 									{entry.body}
 								</div>
 							</div>
 						))}
 					</div>
 				</ScrollArea>
-				<div className="flex justify-end rounded-b-xl border-t p-4">
+				<div className="flex items-center justify-between rounded-b-xl border-t p-4">
+					<Link
+						className="text-muted-foreground text-sm underline-offset-4 hover:underline"
+						href="/docs/changelog"
+						onClick={() => markChangelogSeen.mutate({ marker: latestMarker })}
+					>
+						View full changelog
+					</Link>
 					<Button onClick={dismiss}>Got it</Button>
 				</div>
 			</DialogContent>

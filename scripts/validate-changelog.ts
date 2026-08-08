@@ -7,7 +7,7 @@ const CHANGELOG_PATH = path.join(
 );
 
 const ENTRY_HEADING = /^## (.+)$/gm;
-const ENTRY_TITLE = /^(\d{4}-\d{2}-\d{2})\s*-\s*(.+)$/;
+const ENTRY_DATE = /^(\d{4}-\d{2}-\d{2})$/;
 const GROUP_LABEL = /^\*\*(.+)\*\*$/gm;
 const GROUP_ORDER = ["New", "Improved", "Fixed"];
 
@@ -26,11 +26,11 @@ for (let i = 0; i < headings.length; i++) {
 	if (!heading?.[1] || heading.index === undefined) continue;
 
 	const lineNumber = content.slice(0, heading.index).split("\n").length;
-	const match = ENTRY_TITLE.exec(heading[1]);
+	const match = ENTRY_DATE.exec(heading[1]);
 
-	if (!match?.[1] || !match[2]) {
+	if (!match?.[1]) {
 		errors.push(
-			`line ${lineNumber}: heading "## ${heading[1]}" doesn't match "## YYYY-MM-DD - Title"`,
+			`line ${lineNumber}: heading "## ${heading[1]}" doesn't match "## YYYY-MM-DD"`,
 		);
 		continue;
 	}
