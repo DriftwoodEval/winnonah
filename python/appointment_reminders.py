@@ -624,7 +624,7 @@ async def should_handle_reply(
 
     params = [
         ("phoneNumberId", OPENPHONE_NUMBER_ID),
-        ("participants[]", normalized),
+        ("participants", normalized),
         ("maxResults", 25),
         ("createdAfter", sent_at_utc.isoformat()),
     ]
