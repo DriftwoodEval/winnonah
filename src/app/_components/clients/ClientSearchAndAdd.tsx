@@ -31,6 +31,8 @@ interface ClientSearchAndAddProps {
 	resetOnAdd?: boolean;
 	initialSearchTerm?: string;
 	floating?: boolean;
+	status?: "active" | "inactive" | "all";
+	showDob?: boolean;
 }
 
 export function ClientSearchAndAdd({
@@ -42,6 +44,8 @@ export function ClientSearchAndAdd({
 	resetOnAdd = false,
 	initialSearchTerm = "",
 	floating = false,
+	status,
+	showDob = false,
 }: ClientSearchAndAddProps) {
 	const [searchTerm, setSearchTerm] = useState(initialSearchTerm);
 	const [isFocused, setIsFocused] = useState(false);
@@ -51,6 +55,7 @@ export function ClientSearchAndAdd({
 		{
 			nameSearch: debouncedSearchTerm,
 			excludeIds,
+			status,
 		},
 		{
 			enabled: debouncedSearchTerm.length >= 3,
@@ -143,6 +148,17 @@ export function ClientSearchAndAdd({
 										{!isNotesOnlyClientId(client.id) && (
 											<span className="text-muted-foreground text-xs">
 												ID: {client.id}
+											</span>
+										)}
+										{showDob && (
+											<span className="text-muted-foreground text-xs">
+												DOB:{" "}
+												{new Date(client.dob).toLocaleDateString("en-US", {
+													year: "numeric",
+													month: "numeric",
+													day: "numeric",
+													timeZone: "UTC",
+												})}
 											</span>
 										)}
 									</div>

@@ -17,6 +17,7 @@ import { Separator } from "@ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@ui/tabs";
 import { formatDistanceToNow } from "date-fns";
 import { FileTextIcon, InboxIcon } from "lucide-react";
+import Link from "next/link";
 import { useState } from "react";
 import { toast } from "sonner";
 import type { SortedClient } from "~/lib/api-types";
@@ -139,69 +140,79 @@ function FaxGrid({ status }: { status: "pending" | "reviewed" }) {
 		<>
 			<div className="grid gap-4 pt-4 sm:grid-cols-2 lg:grid-cols-3">
 				{faxes.map((fax) => (
-					<button
-						className="text-left"
+					<Card
+						className="h-full cursor-pointer transition-colors hover:bg-muted/50"
 						key={fax.id}
 						onClick={() => openFax(fax.id, fax.category)}
-						type="button"
+						onKeyDown={(e) => {
+							if (e.key === "Enter" || e.key === " ") {
+								e.preventDefault();
+								openFax(fax.id, fax.category);
+							}
+						}}
+						role="button"
+						tabIndex={0}
 					>
-						<Card className="h-full transition-colors hover:bg-muted/50">
-							<CardHeader className="flex flex-row items-start gap-2 space-y-0">
-								<FileTextIcon className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
-								<div className="flex flex-col gap-1">
-									<span className="font-medium text-sm">{fax.fileName}</span>
-									<span className="text-muted-foreground text-xs">
-										{status === "reviewed" && fax.reviewedAt
-											? `reviewed ${formatDistanceToNow(new Date(fax.reviewedAt), { addSuffix: true })}`
-											: `discovered ${formatDistanceToNow(new Date(fax.discoveredAt), { addSuffix: true })}`}
-									</span>
-								</div>
-							</CardHeader>
-							<CardContent className="flex flex-col gap-2">
-								<div className="flex flex-wrap items-center gap-1">
+						<CardHeader className="flex flex-row items-start gap-2 space-y-0">
+							<FileTextIcon className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
+							<div className="flex flex-col gap-1">
+								<span className="font-medium text-sm">{fax.fileName}</span>
+								<span className="text-muted-foreground text-xs">
+									{status === "reviewed" && fax.reviewedAt
+										? `reviewed ${formatDistanceToNow(new Date(fax.reviewedAt), { addSuffix: true })}`
+										: `discovered ${formatDistanceToNow(new Date(fax.discoveredAt), { addSuffix: true })}`}
+								</span>
+							</div>
+						</CardHeader>
+						<CardContent className="flex flex-col gap-2">
+							<div className="flex flex-wrap items-center gap-1">
+								<Badge
+									className={cn(
+										fax.category &&
+											CATEGORY_BADGE_CLASSES[fax.category as Category],
+									)}
+									variant="outline"
+								>
+									{fax.category ?? "Unsure"}
+								</Badge>
+								{fax.confidence !== null && (
 									<Badge
-										className={cn(
-											fax.category &&
-												CATEGORY_BADGE_CLASSES[fax.category as Category],
-										)}
+										className={confidenceBadgeClass(Number(fax.confidence))}
 										variant="outline"
 									>
-										{fax.category ?? "Unsure"}
+										{Math.round(Number(fax.confidence) * 100)}% confident
 									</Badge>
-									{fax.confidence !== null && (
-										<Badge
-											className={confidenceBadgeClass(Number(fax.confidence))}
-											variant="outline"
+								)}
+								{status === "reviewed" && fax.category !== fax.llmCategory && (
+									<Badge className={OVERRIDDEN_BADGE_CLASSES} variant="outline">
+										Overridden
+									</Badge>
+								)}
+							</div>
+							{fax.links.length === 0 ? (
+								<span className="text-muted-foreground text-xs italic">
+									No candidates identified.
+								</span>
+							) : (
+								<div className="flex flex-wrap items-center gap-1">
+									{fax.links.map((link) => (
+										<Link
+											href={`/clients/${link.client.hash}`}
+											key={link.id}
+											onClick={(e) => e.stopPropagation()}
 										>
-											{Math.round(Number(fax.confidence) * 100)}% confident
-										</Badge>
-									)}
-									{status === "reviewed" &&
-										fax.category !== fax.llmCategory && (
 											<Badge
-												className={OVERRIDDEN_BADGE_CLASSES}
-												variant="outline"
+												className="hover:bg-secondary/70"
+												variant="secondary"
 											>
-												Overridden
-											</Badge>
-										)}
-								</div>
-								{fax.links.length === 0 ? (
-									<span className="text-muted-foreground text-xs italic">
-										No candidates identified.
-									</span>
-								) : (
-									<div className="flex flex-wrap items-center gap-1">
-										{fax.links.map((link) => (
-											<Badge key={link.id} variant="secondary">
 												{link.client.fullName}
 											</Badge>
-										))}
-									</div>
-								)}
-							</CardContent>
-						</Card>
-					</button>
+										</Link>
+									))}
+								</div>
+							)}
+						</CardContent>
+					</Card>
 				))}
 			</div>
 
@@ -297,9 +308,12 @@ function FaxGrid({ status }: { status: "pending" | "reviewed" }) {
 													>
 														<div className="flex flex-col gap-1">
 															<div className="flex items-center gap-2">
-																<span className="text-sm">
+																<Link
+																	className="text-sm hover:underline"
+																	href={`/clients/${link.client.hash}`}
+																>
 																	{link.client.fullName}
-																</span>
+																</Link>
 																{link.source === "llm" &&
 																	link.confidence !== null &&
 																	Number(link.confidence) < 1 && (
@@ -363,6 +377,8 @@ function FaxGrid({ status }: { status: "pending" | "reviewed" }) {
 														)
 													}
 													resetOnAdd
+													showDob
+													status="all"
 												/>
 											</div>
 											<Separator />
