@@ -2,7 +2,7 @@
 
 import { Card, CardContent, CardHeader, CardTitle } from "@ui/card";
 import { Skeleton } from "@ui/skeleton";
-import { format, formatDistanceToNow } from "date-fns";
+import { format, formatDistanceToNowStrict } from "date-fns";
 import { api } from "~/trpc/react";
 
 export function DashboardSectionTimeline({ clientId }: { clientId: number }) {
@@ -37,11 +37,15 @@ export function DashboardSectionTimeline({ clientId }: { clientId: number }) {
 											: "absolute top-1 -left-[17px] h-2 w-2 rounded-full border-2 border-muted-foreground bg-background"
 									}
 								/>
-								<p
-									className="font-medium text-sm leading-tight"
-									title={format(entry.createdAt, "PPpp")}
-								>
-									{formatDistanceToNow(entry.createdAt, { addSuffix: true })}
+								<p className="font-medium text-sm leading-tight">
+									{format(entry.createdAt, "PPp")}{" "}
+									<span className="font-normal text-muted-foreground">
+										(
+										{formatDistanceToNowStrict(entry.createdAt, {
+											addSuffix: true,
+										})}
+										)
+									</span>
 								</p>
 								{entry.sections.length === 0 ? (
 									<p className="text-muted-foreground text-xs italic leading-tight">

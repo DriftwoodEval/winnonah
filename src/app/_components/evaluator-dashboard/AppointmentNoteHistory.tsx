@@ -5,7 +5,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@ui/avatar";
 import { Badge } from "@ui/badge";
 import { Card, CardContent, CardHeader } from "@ui/card";
 import { ScrollArea } from "@ui/scroll-area";
-import { format } from "date-fns";
+import { format, formatDistanceToNowStrict } from "date-fns";
 import { calculateDiff, extractTextFromTipTap } from "~/lib/diff-utils";
 import { api } from "~/trpc/react";
 
@@ -86,8 +86,22 @@ export function AppointmentNoteHistory({
 								<div className="flex flex-col">
 									<span className="font-medium text-sm">{userName}</span>
 									<span className="text-muted-foreground text-xs">
-										{version.createdAt &&
-											format(new Date(version.createdAt), "MMM d, yyyy h:mm a")}
+										{version.createdAt && (
+											<>
+												{format(
+													new Date(version.createdAt),
+													"MMM d, yyyy h:mm a",
+												)}{" "}
+												(
+												{formatDistanceToNowStrict(
+													new Date(version.createdAt),
+													{
+														addSuffix: true,
+													},
+												)}
+												)
+											</>
+										)}
 									</span>
 								</div>
 							</div>
