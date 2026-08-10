@@ -1,4 +1,30 @@
 {
+	"permissions": {
+		"deny": [
+			"Read(.env)",
+			"Read(.env*.local)",
+			"Read(**/*.pem)",
+			"Read(**/*.sql)",
+			"Read(**/*.sql.gz)",
+			"Read(**/mysql-replication.cnf)",
+			"Read(**/docker-compose.override.*)",
+			"Read(**/*.csv)",
+			"Read(**/*.log)",
+			"Read(**/*.xlsx)",
+			"Read(**/*.xls)",
+			"Edit(.env)",
+			"Edit(.env*.local)",
+			"Edit(**/*.pem)",
+			"Edit(**/*.sql)",
+			"Edit(**/*.sql.gz)",
+			"Edit(**/mysql-replication.cnf)",
+			"Edit(**/docker-compose.override.*)",
+			"Edit(**/*.csv)",
+			"Edit(**/*.log)",
+			"Edit(**/*.xlsx)",
+			"Edit(**/*.xls)"
+		]
+	},
 	"hooks": {
 		"SessionStart": [
 			{

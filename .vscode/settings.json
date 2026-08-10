@@ -1,3 +1,6 @@
 {
-	"cSpell.words": ["DAEVALs", "punchlist"]
+	"cSpell.words": ["DAEVALs", "punchlist"],
+	"python.testing.pytestArgs": ["python"],
+	"python.testing.unittestEnabled": false,
+	"python.testing.pytestEnabled": true
 }

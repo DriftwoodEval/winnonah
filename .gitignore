@@ -5,6 +5,8 @@
 
 # testing
 /coverage
+.coverage
+.coverage.*
 
 # database
 /prisma/db.sqlite
@@ -44,6 +46,9 @@ yarn-error.log*
 
 # idea files
 .idea
+
+# claude code local settings
+.claude/settings.local.json
 
 # data files
 *.csv
