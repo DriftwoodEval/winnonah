@@ -571,7 +571,7 @@ async def process_reminders(connection: Connection[DictCursor]) -> None:
         task.progress(
             len(templates),
             len(templates),
-            detail=f"{sent_today} sent so far today, {total_sent} this run",
+            detail=f"{sent_today} sent today, {total_sent} this run",
         )
         logger.info(
             f"Reminder cycle complete: {total_sent} sent, {total_skipped} skipped (no phone). "
