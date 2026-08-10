@@ -566,7 +566,8 @@ async def process_reminders(connection: Connection[DictCursor]) -> None:
             cursor.execute(
                 f"SELECT COUNT(*) AS count FROM {TABLE_APPOINTMENT_REMINDER_LOGS} WHERE DATE(sentAt) = CURDATE()"
             )
-            sent_today = cursor.fetchone()["count"]
+            count_row = cursor.fetchone()
+            sent_today = count_row["count"] if count_row else 0
 
         task.progress(
             len(templates),
