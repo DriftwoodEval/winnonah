@@ -3,3 +3,9 @@ allowBuilds:
   lefthook: true
   msw: true
   sharp: true
+
+catalog:
+  google-auth-library: ^10.9.1
+
+overrides:
+  google-auth-library: "catalog:"
