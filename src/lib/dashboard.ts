@@ -1,30 +1,78 @@
 import { format } from "date-fns";
 import type { Client, Failure, FullClientInfo } from "./models";
 
+/**
+ * Computes which pipeline-stage section each client from the prioritization
+ * sheet (the "punchlist") currently belongs to, for the /dashboard page.
+ *
+ * How it fits together:
+ *   1. DASHBOARD_CONFIG is an ordered table of rules, one per pipeline stage
+ *      (e.g. "DA Qs Sent", "Post-Eval"). Each rule's `filter` tests whether a
+ *      punch client is currently in that stage, with optional `sort` and
+ *      `extraInfo` for how to display matches.
+ *   2. getDashboardSections() runs every active punch client through every
+ *      rule to build one section per stage, then adds a few extra sections
+ *      for clients that don't come from a rule match at all: missing from
+ *      the punchlist, referrals needing outreach/review, inactive punch
+ *      clients, clients matching multiple rules, and clients matching none
+ *      ("Just Added").
+ *   3. getClientMatchedSections() answers the same "which section(s) is this
+ *      client in" question for a single client. It's used by the background
+ *      sync job in dashboard-history.ts to detect status changes.
+ *
+ * To add or change a pipeline stage, edit DASHBOARD_CONFIG below; nothing
+ * else in this file should need to change.
+ */
+
+// ---------------------------------------------------------------------------
+// Section titles
+// ---------------------------------------------------------------------------
+
+// Sections outside DASHBOARD_CONFIG (built directly in getDashboardSections).
 export const SECTION_ACTIVE_NOT_ON_PUNCHLIST = "Active and Not On Punchlist";
-export const SECTION_JUST_ADDED = "Just Added/Other";
+export const SECTION_INACTIVE_ON_PUNCHLIST = "Inactive and On Punchlist";
 export const SECTION_MULTIPLE_FILTERS = "Clients in Multiple Filters";
-export const SECTION_DA_QS_DONE = "DA Qs Done";
-export const SECTION_EVAL_QS_DONE = "Eval Qs Done";
-export const SECTION_DAEVAL_QS_DONE = "DA+Eval Qs Done";
+export const SECTION_JUST_ADDED = "Just Added/Other";
 export const SECTION_NEEDS_OUTREACH = "Needs Outreach";
 export const SECTION_REACHED_OUT_NEEDS_REVIEW = "Reached Out - Needs Review";
+
+// DASHBOARD_CONFIG rule titles, in the same order as the rules below.
+export const SECTION_RECORDS_STATUS_NOT_SET = "Records Status Not Set";
 export const SECTION_RECORDS_NEEDED_NOT_REQUESTED =
 	"Records Needed - Not Requested";
 export const SECTION_RECORDS_REQUESTED_NOT_RETURNED =
 	"Records Requested - Not Returned";
-export const SECTION_INACTIVE_ON_PUNCHLIST = "Inactive and On Punchlist";
+export const SECTION_BABYNET_NOT_DOWNLOADED =
+	"BabyNet Eval Needed - Not Downloaded";
+export const SECTION_QS_NOT_DETERMINED = "Qs Not Determined";
+export const SECTION_DA_QS_PENDING = "DA Qs Pending";
+export const SECTION_DA_QS_SENT = "DA Qs Sent";
+export const SECTION_DA_QS_DONE = "DA Qs Done";
+export const SECTION_EVAL_QS_PENDING = "Eval Qs Pending";
+export const SECTION_DAEVAL_QS_PENDING = "DA+Eval Qs Pending";
+export const SECTION_EVAL_QS_SENT = "Eval Qs Sent";
+export const SECTION_DAEVAL_QS_SENT = "DA+Eval Qs Sent";
+export const SECTION_EVAL_QS_DONE = "Eval Qs Done";
+export const SECTION_DAEVAL_QS_DONE = "DA+Eval Qs Done";
 export const SECTION_DA_SCHEDULED = "DA Scheduled";
-export const SECTION_EVAL_SCHEDULED = "Eval Scheduled";
 export const SECTION_POST_DA = "Post-DA";
+export const SECTION_EVAL_SCHEDULED = "Eval Scheduled";
 export const SECTION_POST_EVAL = "Post-Eval";
 export const SECTION_NEEDS_PROTOCOLS_SCANNED = "Needs protocols scanned";
+
+// ---------------------------------------------------------------------------
+// Types
+// ---------------------------------------------------------------------------
 
 export type DashboardClient = (FullClientInfo | Client) & {
 	matchedSections?: string[];
 	extraInfo?: string;
 	failures?: Failure[];
 };
+
+// ---------------------------------------------------------------------------
+// Referral sorting (Needs Outreach queue)
+// ---------------------------------------------------------------------------
 
 const OUTREACH_ATTEMPT_COOLDOWN_MS = 21 * 24 * 60 * 60 * 1000;
 
@@ -63,53 +111,9 @@ export function sortNeedsReachOut<T extends Client>(
 	return [...natural, ...recentlyAttempted];
 }
 
-const isRecordsReady = (client: FullClientInfo) =>
-	client.recordsNeeded === "Not Needed" ||
-	(client.recordsNeeded === "Needed" && !!client.hasExternalRecordsNote);
-
-const isDateString = (val: string | undefined | null) =>
-	!!val && !Number.isNaN(Date.parse(val));
-
-const formatScheduledDate = (val: string | undefined | null) => {
-	if (!val || !isDateString(val)) return val ?? undefined;
-	return format(new Date(val), "MM/dd/yy");
-};
-
-const isPastDate = (val: string | undefined | null) => {
-	if (!val) return false;
-	const parsed = Date.parse(val);
-	return !Number.isNaN(parsed) && parsed < Date.now();
-};
-
-const getMinReminded = (client: FullClientInfo): number => {
-	if (!client.questionnaires?.length) return 0;
-	return Math.min(...client.questionnaires.map((q) => q.reminded ?? 0));
-};
-
-const sentExtraInfo = (client: FullClientInfo) => {
-	const Qs = client.questionnaires;
-	if (!Qs || Qs.length === 0) return "Sent on punch, no Qs in EMR";
-	return `Reminded: ${getMinReminded(client)}`;
-};
-
-const sortByRemindersDesc = (a: FullClientInfo, b: FullClientInfo) => {
-	const aHasQs = !!a.questionnaires?.length;
-	const bHasQs = !!b.questionnaires?.length;
-	if (!aHasQs && !bHasQs) return 0;
-	if (!aHasQs) return -1;
-	if (!bHasQs) return 1;
-	return getMinReminded(b) - getMinReminded(a);
-};
-
-const getPunchClientIds = (punchClients: FullClientInfo[] | undefined) => {
-	return new Set(
-		punchClients
-			?.map((c) => c["Client ID"])
-			.filter((id): id is string => typeof id === "string" && id.trim() !== "")
-			.map((id) => parseInt(id, 10))
-			.filter((id) => !Number.isNaN(id)) ?? [],
-	);
-};
+// ---------------------------------------------------------------------------
+// Punch client helpers
+// ---------------------------------------------------------------------------
 
 export function getInactivePunchClients<T extends { status?: boolean | null }>(
 	punchClients: T[] | undefined,
@@ -145,6 +149,88 @@ export function getDuplicatePunchClients<T extends { "Client ID"?: string }>(
 	return duplicates;
 }
 
+const getPunchClientIds = (punchClients: FullClientInfo[] | undefined) => {
+	return new Set(
+		punchClients
+			?.map((c) => c["Client ID"])
+			.filter((id): id is string => typeof id === "string" && id.trim() !== "")
+			.map((id) => parseInt(id, 10))
+			.filter((id) => !Number.isNaN(id)) ?? [],
+	);
+};
+
+// ---------------------------------------------------------------------------
+// Rule predicates shared across DASHBOARD_CONFIG
+//
+// These exist because several pipeline stages share the same underlying
+// condition (e.g. "nothing has happened on the Eval side yet"). Extracting
+// them keeps each DASHBOARD_CONFIG filter close to a single sentence instead
+// of a wall of repeated boolean checks.
+// ---------------------------------------------------------------------------
+
+const isRecordsReady = (client: FullClientInfo) =>
+	client.recordsNeeded === "Not Needed" ||
+	(client.recordsNeeded === "Needed" && !!client.hasExternalRecordsNote);
+
+/** True when a BabyNet ER is required but hasn't been downloaded yet. */
+const needsBabyNetDownload = (client: FullClientInfo) =>
+	client.babyNetERNeeded === true && client.babyNetERDownloaded === false;
+
+const isDateString = (val: string | undefined | null) =>
+	!!val && !Number.isNaN(Date.parse(val));
+
+const formatScheduledDate = (val: string | undefined | null) => {
+	if (!val || !isDateString(val)) return val ?? undefined;
+	return format(new Date(val), "MM/dd/yy");
+};
+
+const isPastDate = (val: string | undefined | null) => {
+	if (!val) return false;
+	const parsed = Date.parse(val);
+	return !Number.isNaN(parsed) && parsed < Date.now();
+};
+
+/** True when the DA hasn't been scheduled yet (no date, and not just checked off). */
+const hasNoDaSchedule = (client: FullClientInfo) =>
+	!isDateString(client["DA Scheduled"]) && client["DA Scheduled"] !== "TRUE";
+
+/** True when no Eval questionnaires have been needed, sent, done, or scheduled. */
+const hasNoEvalActivity = (client: FullClientInfo) =>
+	client["EVAL Qs Needed"] !== "TRUE" &&
+	client["EVAL Qs Sent"] !== "TRUE" &&
+	client["EVAL Qs Done"] !== "TRUE" &&
+	!isDateString(client["EVAL date"]);
+
+const getMinReminded = (client: FullClientInfo): number => {
+	if (!client.questionnaires?.length) return 0;
+	return Math.min(...client.questionnaires.map((q) => q.reminded ?? 0));
+};
+
+const sentExtraInfo = (client: FullClientInfo) => {
+	const Qs = client.questionnaires;
+	if (!Qs || Qs.length === 0) return "Sent on punch, no Qs in EMR";
+	return `Reminded: ${getMinReminded(client)}`;
+};
+
+const sortByRemindersDesc = (a: FullClientInfo, b: FullClientInfo) => {
+	const aHasQs = !!a.questionnaires?.length;
+	const bHasQs = !!b.questionnaires?.length;
+	if (!aHasQs && !bHasQs) return 0;
+	if (!aHasQs) return -1;
+	if (!bHasQs) return 1;
+	return getMinReminded(b) - getMinReminded(a);
+};
+
+// ---------------------------------------------------------------------------
+// DASHBOARD_CONFIG: the pipeline-stage rules table
+//
+// Order matters here: it determines both display order and the order
+// getClientMatchedSections() reports matches in. A client can match more
+// than one rule; when that happens it still appears in every matching
+// section, and also gets flagged in the "Clients in Multiple Filters"
+// section below.
+// ---------------------------------------------------------------------------
+
 export const DASHBOARD_CONFIG: {
 	title: string;
 	subheading?: string;
@@ -155,15 +241,12 @@ export const DASHBOARD_CONFIG: {
 	sort?: (a: FullClientInfo, b: FullClientInfo) => number;
 }[] = [
 	{
-		title: "Records Status Not Set",
+		title: SECTION_RECORDS_STATUS_NOT_SET,
 		subheading: "Records",
 		description:
 			"Records status has not been set for these clients. Determine whether school records are needed to move forward.",
 		filter: (client: FullClientInfo) =>
-			!client.recordsNeeded &&
-			!(
-				client.babyNetERNeeded === true && client.babyNetERDownloaded === false
-			),
+			!client.recordsNeeded && !needsBabyNetDownload(client),
 	},
 	{
 		title: SECTION_RECORDS_NEEDED_NOT_REQUESTED,
@@ -210,34 +293,27 @@ export const DASHBOARD_CONFIG: {
 			Date.parse(b.externalRecordsRequestedDate ?? ""),
 	},
 	{
-		title: "BabyNet Eval Needed - Not Downloaded",
+		title: SECTION_BABYNET_NOT_DOWNLOADED,
 		description:
 			"BabyNet eval is marked needed but hasn't been downloaded. To move forward, download it (mark BabyNet eval downloaded).",
-		filter: (client: FullClientInfo) =>
-			client.babyNetERNeeded === true && client.babyNetERDownloaded === false,
+		filter: needsBabyNetDownload,
 	},
 	{
-		title: "Qs Not Determined",
+		title: SECTION_QS_NOT_DETERMINED,
 		subheading: "Questionnaires",
 		description:
 			"Records are ready and BabyNet is handled, but questionnaire needs haven't been determined. Mark DA Qs Needed and/or EVAL Qs Needed on the prioritization sheet.",
 		filter: (client: FullClientInfo) =>
 			isRecordsReady(client) &&
-			!(
-				client.babyNetERNeeded === true && client.babyNetERDownloaded === false
-			) &&
+			!needsBabyNetDownload(client) &&
 			client["DA Qs Needed"] !== "TRUE" &&
-			client["EVAL Qs Needed"] !== "TRUE" &&
 			client["DA Qs Sent"] !== "TRUE" &&
-			client["EVAL Qs Sent"] !== "TRUE" &&
 			client["DA Qs Done"] !== "TRUE" &&
-			client["EVAL Qs Done"] !== "TRUE" &&
-			!isDateString(client["DA Scheduled"]) &&
-			client["DA Scheduled"] !== "TRUE" &&
-			!isDateString(client["EVAL date"]),
+			hasNoDaSchedule(client) &&
+			hasNoEvalActivity(client),
 	},
 	{
-		title: "DA Qs Pending",
+		title: SECTION_DA_QS_PENDING,
 		description:
 			"DA questionnaires are marked needed, but haven't been sent. To move forward, send them (mark DA Qs Sent on the prioritization sheet).",
 		filter: (client: FullClientInfo) =>
@@ -248,7 +324,7 @@ export const DASHBOARD_CONFIG: {
 		failureFilter: (f) => f.daEval === "DA",
 	},
 	{
-		title: "DA Qs Sent",
+		title: SECTION_DA_QS_SENT,
 		description:
 			"DA  questionnaires have been sent, but not finished. To move forward, the client must finish them (DA Qs Done must be marked on the prioritization sheet).",
 		filter: (client: FullClientInfo) =>
@@ -265,15 +341,11 @@ export const DASHBOARD_CONFIG: {
 			"DA questionnaires are finished. To move forward, schedule the DA (DA Scheduled on the prioritization sheet must be a date or checked off).",
 		filter: (client: FullClientInfo) =>
 			client["DA Qs Done"] === "TRUE" &&
-			!isDateString(client["DA Scheduled"]) &&
-			client["DA Scheduled"] !== "TRUE" &&
-			client["EVAL Qs Needed"] !== "TRUE" &&
-			client["EVAL Qs Sent"] !== "TRUE" &&
-			client["EVAL Qs Done"] !== "TRUE" &&
-			!isDateString(client["EVAL date"]),
+			hasNoDaSchedule(client) &&
+			hasNoEvalActivity(client),
 	},
 	{
-		title: "Eval Qs Pending",
+		title: SECTION_EVAL_QS_PENDING,
 		description:
 			"Evaluation questionnaires are marked needed, but haven't been sent. To move forward, send them (mark EVAL Qs Sent on the prioritization sheet).",
 		filter: (client: FullClientInfo) =>
@@ -284,7 +356,7 @@ export const DASHBOARD_CONFIG: {
 		failureFilter: (f) => f.daEval === "EVAL",
 	},
 	{
-		title: "DA+Eval Qs Pending",
+		title: SECTION_DAEVAL_QS_PENDING,
 		description:
 			"Both DA and Evaluation questionnaires are marked needed, but haven't been sent. To move forward, send them (mark DA Qs Sent and EVAL Qs Sent on the prioritization sheet).",
 		filter: (client: FullClientInfo) =>
@@ -296,7 +368,7 @@ export const DASHBOARD_CONFIG: {
 		failureFilter: (f) => f.daEval === "DAEVAL",
 	},
 	{
-		title: "Eval Qs Sent",
+		title: SECTION_EVAL_QS_SENT,
 		description:
 			"Evaluation questionnaires have been sent, but not finished. To move forward, the client must finish them (EVAL Qs Done must be marked on the prioritization sheet).",
 		filter: (client: FullClientInfo) =>
@@ -308,7 +380,7 @@ export const DASHBOARD_CONFIG: {
 		sort: sortByRemindersDesc,
 	},
 	{
-		title: "DA+Eval Qs Sent",
+		title: SECTION_DAEVAL_QS_SENT,
 		description:
 			"Both DA and Evaluation questionnaires have been sent, but not finished. To move forward, the client must finish them (DA Qs Done and EVAL Qs Done must be marked on the prioritization sheet).",
 		filter: (client: FullClientInfo) =>
@@ -327,11 +399,7 @@ export const DASHBOARD_CONFIG: {
 		filter: (client: FullClientInfo) =>
 			client["EVAL Qs Done"] === "TRUE" &&
 			!isDateString(client["EVAL date"]) &&
-			!(
-				client["DA Qs Done"] === "TRUE" &&
-				!isDateString(client["DA Scheduled"]) &&
-				client["DA Scheduled"] !== "TRUE"
-			),
+			!(client["DA Qs Done"] === "TRUE" && hasNoDaSchedule(client)),
 	},
 	{
 		title: SECTION_DAEVAL_QS_DONE,
@@ -339,8 +407,7 @@ export const DASHBOARD_CONFIG: {
 			"Both DA and Evaluation questionnaires are finished. To move forward, schedule the appointment (DA Scheduled and EVAL date on the prioritization sheet must be a date or checked off).",
 		filter: (client: FullClientInfo) =>
 			client["DA Qs Done"] === "TRUE" &&
-			!isDateString(client["DA Scheduled"]) &&
-			client["DA Scheduled"] !== "TRUE" &&
+			hasNoDaSchedule(client) &&
 			client["EVAL Qs Done"] === "TRUE" &&
 			!isDateString(client["EVAL date"]),
 	},
@@ -353,10 +420,7 @@ export const DASHBOARD_CONFIG: {
 			((isDateString(client["DA Scheduled"]) &&
 				!isPastDate(client["DA Scheduled"])) ||
 				client["DA Scheduled"] === "TRUE") &&
-			client["EVAL Qs Needed"] !== "TRUE" &&
-			client["EVAL Qs Sent"] !== "TRUE" &&
-			client["EVAL Qs Done"] !== "TRUE" &&
-			!isDateString(client["EVAL date"]),
+			hasNoEvalActivity(client),
 		extraInfo: (client) => formatScheduledDate(client["DA Scheduled"]),
 		sort: (a, b) => {
 			const aDate = Date.parse(a["DA Scheduled"] ?? "");
@@ -372,11 +436,7 @@ export const DASHBOARD_CONFIG: {
 		description:
 			"DA appointment date has passed. Update the prioritization sheet with next steps.",
 		filter: (client: FullClientInfo) =>
-			isPastDate(client["DA Scheduled"]) &&
-			client["EVAL Qs Needed"] !== "TRUE" &&
-			client["EVAL Qs Sent"] !== "TRUE" &&
-			client["EVAL Qs Done"] !== "TRUE" &&
-			!isDateString(client["EVAL date"]),
+			isPastDate(client["DA Scheduled"]) && hasNoEvalActivity(client),
 		extraInfo: (client) => formatScheduledDate(client["DA Scheduled"]),
 		sort: (a, b) =>
 			Date.parse(a["DA Scheduled"] ?? "") - Date.parse(b["DA Scheduled"] ?? ""),
@@ -412,6 +472,10 @@ export const DASHBOARD_CONFIG: {
 			client["Protocols scanned?"] !== "TRUE",
 	},
 ];
+
+// ---------------------------------------------------------------------------
+// Section assembly
+// ---------------------------------------------------------------------------
 
 export interface DashboardSection {
 	title: string;
