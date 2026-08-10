@@ -562,13 +562,20 @@ async def process_reminders(connection: Connection[DictCursor]) -> None:
 
         connection.commit()
 
+        with connection.cursor() as cursor:
+            cursor.execute(
+                f"SELECT COUNT(*) AS count FROM {TABLE_APPOINTMENT_REMINDER_LOGS} WHERE DATE(sentAt) = CURDATE()"
+            )
+            sent_today = cursor.fetchone()["count"]
+
         task.progress(
             len(templates),
             len(templates),
-            detail=f"{total_sent} sent, {total_skipped} skipped",
+            detail=f"{sent_today} sent so far today, {total_sent} this run",
         )
         logger.info(
-            f"Reminder cycle complete: {total_sent} sent, {total_skipped} skipped (no phone)."
+            f"Reminder cycle complete: {total_sent} sent, {total_skipped} skipped (no phone). "
+            f"{sent_today} sent so far today."
         )
 
 

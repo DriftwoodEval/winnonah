@@ -9,6 +9,10 @@ import { useSession } from "next-auth/react";
 import { useState } from "react";
 import { api } from "~/trpc/react";
 
+const PROGRESS_UNIT_LABELS: Record<string, string> = {
+	appointment_reminders: "templates checked",
+};
+
 function relativeTime(date: Date) {
 	const seconds = Math.round((Date.now() - date.getTime()) / 1000);
 	if (seconds < 60) return "just now";
@@ -99,6 +103,9 @@ export function TaskQueueBubble() {
 										/>
 										<p className="shrink-0 text-muted-foreground text-xs">
 											{task.progressCurrent} / {task.progressTotal}
+											{PROGRESS_UNIT_LABELS[task.type]
+												? ` ${PROGRESS_UNIT_LABELS[task.type]}`
+												: ""}
 										</p>
 									</div>
 								)}
