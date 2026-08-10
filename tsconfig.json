@@ -46,6 +46,7 @@
 		"drizzle",
 		"docs-site",
 		"python",
-		"worker"
+		"worker",
+		"coverage"
 	]
 }

@@ -43,9 +43,9 @@ export function findDefaultInsertAt(nodes: JSONContent[]): number {
 	const gaps = findBlankLineInsertionPoints(nodes);
 	if (gaps.length === 0) return nodes.length;
 
-	const [firstGap, secondGap] = gaps;
-	if (firstGap === undefined) return nodes.length;
-
+	// gaps is non-empty, so index 0 is always present.
+	const firstGap = gaps[0] as number;
+	const secondGap = gaps[1];
 	const scanEnd = secondGap ?? nodes.length;
 	const followingText = nodes
 		.slice(firstGap, scanEnd)
