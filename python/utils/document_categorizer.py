@@ -5,7 +5,7 @@ import re
 from collections.abc import Callable
 from typing import cast
 
-import fitz  # PyMuPDF
+import pymupdf as fitz
 import pytesseract
 from llama_cpp import Llama
 from llama_cpp.llama_types import ChatCompletionRequestMessage

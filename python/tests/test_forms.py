@@ -1,6 +1,6 @@
 from datetime import date, datetime
 
-import fitz
+import pymupdf as fitz
 import pytest
 from dateutil.relativedelta import relativedelta
 

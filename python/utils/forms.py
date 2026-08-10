@@ -1,7 +1,7 @@
 from datetime import date, datetime
 from pathlib import Path
 
-import fitz  # pymupdf
+import pymupdf as fitz
 from dateutil.relativedelta import relativedelta
 
 FORM_PATH = Path(__file__).parent.parent / "forms" / "shsc-bh-testing-form.pdf"
