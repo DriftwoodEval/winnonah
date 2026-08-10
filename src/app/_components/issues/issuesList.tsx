@@ -117,7 +117,7 @@ export const IssueList = ({
 	return (
 		<div className={fill ? "flex h-full w-full" : "flex max-h-80"}>
 			<ScrollArea
-				className={`${fill ? "h-full w-full" : "w-xs"} rounded-md border bg-card text-card-foreground shadow-sm`}
+				className={`${fill ? "h-full w-full" : "w-full max-w-xs"} rounded-md border bg-card text-card-foreground shadow-sm`}
 				type="auto"
 			>
 				<div className="p-4">
@@ -345,7 +345,7 @@ export const SuggestionIssueList = ({
 	return (
 		<div className={fill ? "flex h-full w-full" : "flex max-h-80"}>
 			<ScrollArea
-				className={`${fill ? "h-full w-full" : "w-md"} rounded-md border bg-card text-card-foreground shadow-sm`}
+				className={`${fill ? "h-full w-full" : "w-full max-w-md"} rounded-md border bg-card text-card-foreground shadow-sm`}
 				type="auto"
 			>
 				<div className="p-4">
@@ -524,7 +524,7 @@ export const DuplicateNamesList = ({
 	return (
 		<div className={fill ? "flex h-full w-full" : "flex max-h-80"}>
 			<ScrollArea
-				className={`${fill ? "h-full w-full" : "w-md"} rounded-md border bg-card text-card-foreground shadow-sm`}
+				className={`${fill ? "h-full w-full" : "w-full max-w-md"} rounded-md border bg-card text-card-foreground shadow-sm`}
 				type="auto"
 			>
 				<div className="p-4">
@@ -652,7 +652,7 @@ export const DuplicateDriveFoldersList = ({
 	return (
 		<div className={fill ? "flex h-full w-full" : "flex max-h-80"}>
 			<ScrollArea
-				className={`${fill ? "h-full w-full" : "w-md"} rounded-md border bg-card text-card-foreground shadow-sm`}
+				className={`${fill ? "h-full w-full" : "w-full max-w-md"} rounded-md border bg-card text-card-foreground shadow-sm`}
 				type="auto"
 			>
 				<div className="flex flex-col p-4">
@@ -760,7 +760,7 @@ export const ClientsSharingQuestionnaires = ({
 	return (
 		<div className={fill ? "flex h-full w-full" : "flex max-h-80"}>
 			<ScrollArea
-				className={`${fill ? "h-full w-full" : "w-md"} rounded-md border bg-card text-card-foreground shadow-sm`}
+				className={`${fill ? "h-full w-full" : "w-full max-w-md"} rounded-md border bg-card text-card-foreground shadow-sm`}
 				type="auto"
 			>
 				<div className="p-4">
@@ -865,7 +865,7 @@ export const PartialBatteryList = ({
 	return (
 		<div className={fill ? "flex h-full w-full" : "flex max-h-80"}>
 			<ScrollArea
-				className={`${fill ? "h-full w-full" : "w-md"} rounded-md border bg-card text-card-foreground shadow-sm`}
+				className={`${fill ? "h-full w-full" : "w-full max-w-md"} rounded-md border bg-card text-card-foreground shadow-sm`}
 				type="auto"
 			>
 				<div className="flex flex-col p-4">

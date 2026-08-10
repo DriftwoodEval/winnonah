@@ -385,7 +385,7 @@ export function CalendarDayView({
 					<div className="w-14 shrink-0 border-r" />
 					{byEval.map((ev) => (
 						<div
-							className="min-w-0 flex-1 border-l px-3 py-2 first:border-l-0"
+							className="min-w-[110px] flex-1 border-l px-3 py-2 first:border-l-0"
 							key={ev.npi}
 						>
 							<div
@@ -403,7 +403,7 @@ export function CalendarDayView({
 					<TimeGutter />
 					{byEval.map((ev) => (
 						<div
-							className="relative min-w-0 flex-1 border-l first:border-l-0"
+							className="relative min-w-[110px] flex-1 border-l first:border-l-0"
 							key={ev.npi}
 							style={{ height: TOTAL_HEIGHT }}
 						>
@@ -474,7 +474,7 @@ export function CalendarMultiDayView({
 						const isEmpty = (byDate.get(d) ?? []).length === 0;
 						return (
 							<div
-								className={`min-w-0 border-l px-3 py-2 text-center first:border-l-0 ${isEmpty ? "flex-[0.35]" : "flex-1"}`}
+								className={`min-w-[70px] border-l px-3 py-2 text-center first:border-l-0 ${isEmpty ? "flex-[0.35]" : "flex-1"}`}
 								key={d}
 							>
 								<div
@@ -499,7 +499,7 @@ export function CalendarMultiDayView({
 						const isEmpty = dayAppts.length === 0;
 						return (
 							<div
-								className={`relative min-w-0 border-l first:border-l-0 ${isEmpty ? "flex-[0.35]" : "flex-1"}`}
+								className={`relative min-w-[70px] border-l first:border-l-0 ${isEmpty ? "flex-[0.35]" : "flex-1"}`}
 								key={d}
 								style={{ height: TOTAL_HEIGHT }}
 							>

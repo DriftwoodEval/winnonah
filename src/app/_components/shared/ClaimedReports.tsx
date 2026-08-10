@@ -60,7 +60,7 @@ export default function ClaimedReports() {
 
 	return (
 		<Card className="mx-auto my-4 w-full max-w-2xl shadow-sm">
-			<CardHeader className="flex flex-row items-center justify-between space-y-0">
+			<CardHeader className="flex flex-row flex-wrap items-center justify-between gap-2 space-y-0">
 				<div className="flex items-center gap-3">
 					<div className="rounded-lg bg-success/10 p-2 text-success">
 						<LayoutListIcon className="h-5 w-5" />

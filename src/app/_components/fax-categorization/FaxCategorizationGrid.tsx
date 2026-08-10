@@ -375,7 +375,7 @@ function FaxGrid({
 							</DialogHeader>
 							<div className="grid flex-1 gap-4 md:grid-cols-[2fr_1fr]">
 								<iframe
-									className="h-[85vh] w-full rounded-md border"
+									className="h-[50vh] w-full rounded-md border md:h-[85vh]"
 									key={selectedFax.driveFileId}
 									src={`/api/fax-categorization/${selectedFax.driveFileId}`}
 									title={selectedFax.fileName}
