@@ -1,6 +1,6 @@
 "use client";
 
-import { scrambleText } from "~/lib/scramble-text";
+import { scrambleText } from "~/lib/utils.client";
 import { useRedaction } from "./redaction";
 
 /** Wraps a piece of PII text so it can be redacted for screenshots. */

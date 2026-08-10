@@ -14,7 +14,7 @@ import { SparklesIcon } from "lucide-react";
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { useState } from "react";
-import { formatChangelogDate } from "~/lib/formatChangelogDate";
+import { formatChangelogDate } from "~/lib/utils.client";
 import { api } from "~/trpc/react";
 
 interface ChangelogEntryProps {

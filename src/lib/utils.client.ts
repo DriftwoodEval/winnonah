@@ -1,3 +1,9 @@
+/**
+ * Pure, dependency-free utilities safe to import from client components.
+ * Unlike ~/lib/utils, this file must never import server/DB-only packages
+ * (e.g. drizzle-orm), since client bundles would pull them in transitively.
+ */
+
 const LOWER = "abcdefghijklmnopqrstuvwxyz";
 const UPPER = LOWER.toUpperCase();
 const DIGITS = "0123456789";
@@ -14,5 +20,13 @@ export function scrambleText(text: string): string {
 		if (UPPER.includes(char))
 			return UPPER[Math.floor(Math.random() * 26)] ?? char;
 		return DIGITS[Math.floor(Math.random() * 10)] ?? char;
+	});
+}
+
+export function formatChangelogDate(date: string): string {
+	return new Date(`${date}T00:00:00`).toLocaleDateString(undefined, {
+		month: "long",
+		day: "numeric",
+		year: "numeric",
 	});
 }

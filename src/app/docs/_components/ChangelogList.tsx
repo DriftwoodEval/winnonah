@@ -1,5 +1,5 @@
 import { getChangelogEntries, renderChangelogBody } from "~/lib/changelog";
-import { formatChangelogDate } from "~/lib/formatChangelogDate";
+import { formatChangelogDate } from "~/lib/utils.client";
 
 export function ChangelogList() {
 	const entries = getChangelogEntries();
