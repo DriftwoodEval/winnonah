@@ -201,11 +201,7 @@ export async function GET(req: NextRequest) {
 
 		return NextResponse.json({
 			fullName: client.fullName,
-			dob: client.dob.toLocaleDateString(undefined, {
-				year: "2-digit",
-				month: "numeric",
-				day: "numeric",
-			}),
+			dob: formatDate(client.dob),
 			age: formatClientAge(client.dob, "short"),
 			phoneNumber: client.phoneNumber,
 			clientNote: fullClientNote,

@@ -9,9 +9,13 @@ import {
 	CardHeader,
 	CardTitle,
 } from "@ui/card";
-import { format, isAfter, isBefore, parseISO } from "date-fns";
+import { format, isAfter, isBefore } from "date-fns";
 import type { Client } from "~/lib/models";
-import { formatPhoneNumber, toTitleCase } from "~/lib/utils";
+import {
+	formatPhoneNumber,
+	getLocalDayFromUTCDate,
+	toTitleCase,
+} from "~/lib/utils";
 import type { AppRouter } from "~/server/api/root";
 import { api } from "~/trpc/react";
 import { Redact } from "../redaction/Redact";
@@ -24,7 +28,8 @@ interface InsuranceTabProps {
 function formatDate(dateVal: Date | string | null | undefined): string {
 	if (!dateVal) return "—";
 	try {
-		const d = typeof dateVal === "string" ? parseISO(dateVal) : dateVal;
+		const d = getLocalDayFromUTCDate(dateVal);
+		if (!d) return String(dateVal);
 		return format(d, "MM/dd/yyyy");
 	} catch {
 		return String(dateVal);
@@ -35,12 +40,12 @@ function isActive(
 	startDate: Date | string | null | undefined,
 	endDate: Date | string | null | undefined,
 ): boolean {
+	const start = getLocalDayFromUTCDate(startDate);
+	if (!start) return false;
 	const now = new Date();
-	if (!startDate) return false;
-	const start = typeof startDate === "string" ? parseISO(startDate) : startDate;
 	if (isBefore(now, start)) return false;
-	if (!endDate) return true;
-	const end = typeof endDate === "string" ? parseISO(endDate) : endDate;
+	const end = getLocalDayFromUTCDate(endDate);
+	if (!end) return true;
 	return !isAfter(now, end);
 }
 

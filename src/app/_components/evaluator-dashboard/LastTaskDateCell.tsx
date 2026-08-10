@@ -3,6 +3,7 @@
 import { DatePicker } from "@ui/date-picker";
 import { format } from "date-fns";
 import { toast } from "sonner";
+import { getLocalDayFromUTCDate } from "~/lib/utils";
 import { api } from "~/trpc/react";
 
 interface LastTaskDateCellProps {
@@ -29,7 +30,7 @@ export function LastTaskDateCell({
 	});
 
 	if (!isAdmin) {
-		const displayDate = date ?? fallbackDate;
+		const displayDate = getLocalDayFromUTCDate(date ?? fallbackDate);
 		return (
 			<span className="text-muted-foreground text-sm">
 				{displayDate ? format(displayDate, "MMM d, yyyy") : "-"}
@@ -37,13 +38,17 @@ export function LastTaskDateCell({
 		);
 	}
 
+	const localFallbackDate = getLocalDayFromUTCDate(fallbackDate);
+
 	return (
 		<DatePicker
 			allowClear
 			date={date ?? undefined}
 			id={`last-task-${appointmentId}`}
 			placeholder={
-				fallbackDate ? format(fallbackDate, "MMM d, yyyy") : "Set date"
+				localFallbackDate
+					? format(localFallbackDate, "MMM d, yyyy")
+					: "Set date"
 			}
 			setDate={(d) => {
 				const dateStr = d

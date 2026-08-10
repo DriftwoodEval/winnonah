@@ -11,7 +11,7 @@ import {
 } from "@ui/dropdown-menu";
 import { Label } from "@ui/label";
 import { Separator } from "@ui/separator";
-import { isAfter, isBefore, parseISO } from "date-fns";
+import { isAfter, isBefore } from "date-fns";
 import { CheckCircle2, ClipboardList } from "lucide-react";
 import { useMemo, useState } from "react";
 import { useCheckPermission } from "~/hooks/use-check-permission";
@@ -22,6 +22,7 @@ import {
 	packCodesIntoAppointments,
 	parsePrecertMemo,
 } from "~/lib/billing";
+import { getLocalDayFromUTCDate } from "~/lib/utils";
 import { api } from "~/trpc/react";
 
 export function AdditionalInsuranceAppointmentsDisplay({
@@ -113,31 +114,17 @@ export function AdditionalInsuranceAppointmentsDisplay({
 	const activePrecertPolicy = policies
 		.filter((p) => {
 			if (!p.precertMemo) return false;
-			if (!p.policyStartDate) return true;
+			const start = getLocalDayFromUTCDate(p.policyStartDate);
+			if (!start) return true;
 			const now = new Date();
-			const start =
-				typeof p.policyStartDate === "string"
-					? parseISO(p.policyStartDate)
-					: p.policyStartDate;
 			if (isBefore(now, start)) return false;
-			if (!p.policyEndDate) return true;
-			const end =
-				typeof p.policyEndDate === "string"
-					? parseISO(p.policyEndDate)
-					: p.policyEndDate;
+			const end = getLocalDayFromUTCDate(p.policyEndDate);
+			if (!end) return true;
 			return !isAfter(now, end);
 		})
 		.sort((a, b) => {
-			const aDate = a.policyStartDate
-				? typeof a.policyStartDate === "string"
-					? parseISO(a.policyStartDate)
-					: a.policyStartDate
-				: new Date(0);
-			const bDate = b.policyStartDate
-				? typeof b.policyStartDate === "string"
-					? parseISO(b.policyStartDate)
-					: b.policyStartDate
-				: new Date(0);
+			const aDate = getLocalDayFromUTCDate(a.policyStartDate) ?? new Date(0);
+			const bDate = getLocalDayFromUTCDate(b.policyStartDate) ?? new Date(0);
 			return bDate.getTime() - aDate.getTime();
 		})[0];
 

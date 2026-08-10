@@ -29,3 +29,6 @@ The widget picker (`HomeCustomizer.tsx`) and grid sizing (`GridWidgetCell.tsx`) 
 
 ## Data Layer
 MySQL (Docker). Tables use `emr_` prefix (`mysqlTableCreator` in `src/server/db/schema.ts`). Types inferred via Drizzle: `typeof tableName.$inferSelect`.
+
+### Date-only columns
+Columns defined with `d.date()` (e.g. `dob`, `precertExpires`, `policyStartDate`, `failedDate`) are calendar dates with no time component, but mysql2 returns them as JS `Date` objects at UTC midnight. Formatting or comparing them with local-timezone getters (`format()` from date-fns, `.toLocaleDateString()` without `timeZone: "UTC"`, raw `isBefore`/`isAfter`) shifts the displayed day back by one for any user west of UTC. Always run these values through `getLocalDayFromUTCDate` (`src/lib/utils.ts`), or its wrapper `formatShortDate`, before formatting or comparing. This does not apply to `d.datetime()`/timestamp columns (`startTime`, `createdAt`, etc.), which are real instants and should convert to local time normally.
