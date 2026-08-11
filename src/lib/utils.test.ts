@@ -2,23 +2,28 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { InsuranceWithAliases } from "~/lib/models";
 import {
 	cn,
+	compareDateOnly,
+	dateOnlyToLocalDate,
 	formatClientAge,
 	formatError,
+	formatInBusinessTime,
 	formatPhoneNumber,
 	formatReminderOffset,
 	formatShortDate,
+	formatShortInstantDate,
 	formatTaMessage,
 	getClosestOfficeKey,
 	getInsuranceShortName,
 	getInsuranceShortNamesList,
-	getLocalDayFromUTCDate,
-	getLocalTimeFromUTCDate,
 	getReminderColorClass,
 	getStatusColorClass,
 	hasPermission,
 	isNotesOnlyClientId,
+	localDateToDateOnly,
 	mapInsuranceToShortNames,
 	normalizePhoneNumber,
+	parseDateOnly,
+	toBusinessZonedTime,
 	toTitleCase,
 	userBadgeStyle,
 } from "./utils";
@@ -136,28 +141,23 @@ describe("formatClientAge", () => {
 	});
 
 	it("formats a long age under 3 years with years and months", () => {
-		const dob = new Date("2025-02-10T00:00:00Z");
-		expect(formatClientAge(dob)).toBe("1 years, 5 months");
+		expect(formatClientAge("2025-02-10")).toBe("1 years, 5 months");
 	});
 
 	it("formats a long age of 3 years or more as just years", () => {
-		const dob = new Date("2020-08-10T00:00:00Z");
-		expect(formatClientAge(dob)).toBe("5 years");
+		expect(formatClientAge("2020-08-10")).toBe("5 years");
 	});
 
 	it("formats the short form as years:months under 3 years", () => {
-		const dob = new Date("2025-02-10T00:00:00Z");
-		expect(formatClientAge(dob, "short")).toBe("1:5");
+		expect(formatClientAge("2025-02-10", "short")).toBe("1:5");
 	});
 
 	it("formats the short form as just years at 3 years or more", () => {
-		const dob = new Date("2020-08-10T00:00:00Z");
-		expect(formatClientAge(dob, "short")).toBe("5");
+		expect(formatClientAge("2020-08-10", "short")).toBe("5");
 	});
 
 	it("formats the years-only form", () => {
-		const dob = new Date("2020-08-10T00:00:00Z");
-		expect(formatClientAge(dob, "years")).toBe("5");
+		expect(formatClientAge("2020-08-10", "years")).toBe("5");
 	});
 });
 
@@ -233,39 +233,60 @@ describe("normalizePhoneNumber", () => {
 	});
 });
 
-describe("getLocalDayFromUTCDate", () => {
+describe("toBusinessZonedTime", () => {
 	it("returns undefined for nullish input", () => {
-		expect(getLocalDayFromUTCDate(null)).toBeUndefined();
-		expect(getLocalDayFromUTCDate(undefined)).toBeUndefined();
+		expect(toBusinessZonedTime(null)).toBeUndefined();
+		expect(toBusinessZonedTime(undefined)).toBeUndefined();
 	});
 
 	it("returns undefined for an invalid date string", () => {
-		expect(getLocalDayFromUTCDate("not a date")).toBeUndefined();
+		expect(toBusinessZonedTime("not a date")).toBeUndefined();
 	});
 
-	it("strips the time from a UTC date, keeping the same calendar day", () => {
-		const result = getLocalDayFromUTCDate("2026-08-10T15:30:00Z");
-		expect(result?.getFullYear()).toBe(2026);
-		expect(result?.getMonth()).toBe(7);
-		expect(result?.getDate()).toBe(10);
-		expect(result?.getHours()).toBe(0);
+	it("converts a UTC instant to America/New_York wall-clock getters (EDT, UTC-4)", () => {
+		// July: EDT.
+		const result = toBusinessZonedTime("2026-07-15T13:00:00Z");
+		expect(result?.getHours()).toBe(9);
+		expect(result?.getDate()).toBe(15);
+	});
+
+	it("converts a UTC instant to America/New_York wall-clock getters (EST, UTC-5)", () => {
+		// January: EST.
+		const result = toBusinessZonedTime("2026-01-15T13:00:00Z");
+		expect(result?.getHours()).toBe(8);
+		expect(result?.getDate()).toBe(15);
+	});
+
+	it("can shift the calendar day when near midnight UTC", () => {
+		// 2:00 AM UTC is 9:00 PM the previous day in EST.
+		const result = toBusinessZonedTime("2026-01-15T02:00:00Z");
+		expect(result?.getDate()).toBe(14);
+		expect(result?.getHours()).toBe(21);
 	});
 });
 
-describe("getLocalTimeFromUTCDate", () => {
-	it("returns undefined for nullish input", () => {
-		expect(getLocalTimeFromUTCDate(null)).toBeUndefined();
+describe("formatInBusinessTime", () => {
+	it("returns the fallback for nullish input", () => {
+		expect(formatInBusinessTime(null, "h:mm a")).toBe("N/A");
+		expect(formatInBusinessTime(undefined, "h:mm a", "unknown")).toBe(
+			"unknown",
+		);
 	});
 
-	it("returns undefined for an invalid date string", () => {
-		expect(getLocalTimeFromUTCDate("not a date")).toBeUndefined();
+	it("formats a UTC instant in business-local time", () => {
+		expect(formatInBusinessTime("2026-07-15T13:00:00Z", "h:mm a")).toBe(
+			"9:00 AM",
+		);
+	});
+});
+
+describe("formatShortInstantDate", () => {
+	it("formats the business-local calendar day as M/D/YY", () => {
+		expect(formatShortInstantDate("2026-01-15T02:00:00Z")).toBe("1/14/26");
 	});
 
-	it("preserves the UTC time-of-day as local time fields", () => {
-		const result = getLocalTimeFromUTCDate("2026-08-10T15:30:45Z");
-		expect(result?.getHours()).toBe(15);
-		expect(result?.getMinutes()).toBe(30);
-		expect(result?.getSeconds()).toBe(45);
+	it("returns the fallback for nullish input", () => {
+		expect(formatShortInstantDate(null)).toBe("N/A");
 	});
 });
 
@@ -294,6 +315,52 @@ describe("formatShortDate", () => {
 	it("returns the fallback for nullish input", () => {
 		expect(formatShortDate(null)).toBe("N/A");
 		expect(formatShortDate(undefined, "unknown")).toBe("unknown");
+	});
+});
+
+describe("parseDateOnly", () => {
+	it("returns undefined for nullish input", () => {
+		expect(parseDateOnly(null)).toBeUndefined();
+		expect(parseDateOnly(undefined)).toBeUndefined();
+	});
+
+	it("returns undefined for a malformed string", () => {
+		expect(parseDateOnly("not a date")).toBeUndefined();
+	});
+
+	it("parses year, month, and day parts", () => {
+		expect(parseDateOnly("2026-08-10")).toEqual({
+			year: 2026,
+			month: 8,
+			day: 10,
+		});
+	});
+});
+
+describe("compareDateOnly", () => {
+	it("sorts chronologically", () => {
+		expect(compareDateOnly("2026-01-01", "2026-06-01")).toBeLessThan(0);
+		expect(compareDateOnly("2026-06-01", "2026-01-01")).toBeGreaterThan(0);
+		expect(compareDateOnly("2026-06-01", "2026-06-01")).toBe(0);
+	});
+
+	it("sorts nullish values first", () => {
+		expect(compareDateOnly(null, "2026-01-01")).toBeLessThan(0);
+		expect(compareDateOnly("2026-01-01", null)).toBeGreaterThan(0);
+		expect(compareDateOnly(null, undefined)).toBe(0);
+	});
+});
+
+describe("dateOnlyToLocalDate / localDateToDateOnly", () => {
+	it("round-trips a date-only string through a local Date", () => {
+		const date = dateOnlyToLocalDate("2026-08-10");
+		expect(date).toBeDefined();
+		expect(localDateToDateOnly(date)).toBe("2026-08-10");
+	});
+
+	it("returns undefined for nullish input", () => {
+		expect(dateOnlyToLocalDate(null)).toBeUndefined();
+		expect(localDateToDateOnly(null)).toBeUndefined();
 	});
 });
 

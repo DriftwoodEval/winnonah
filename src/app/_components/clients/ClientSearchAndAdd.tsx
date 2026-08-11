@@ -6,7 +6,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@ui/tooltip";
 import { Loader2, Search } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import type { SortedClient } from "~/lib/api-types";
-import { cn, isNotesOnlyClientId } from "~/lib/utils";
+import { cn, formatDateOnlyLong, isNotesOnlyClientId } from "~/lib/utils";
 import { api } from "~/trpc/react";
 
 function useDebounce<T>(value: T, delay: number): T {
@@ -152,13 +152,7 @@ export function ClientSearchAndAdd({
 										)}
 										{showDob && (
 											<span className="text-muted-foreground text-xs">
-												DOB:{" "}
-												{new Date(client.dob).toLocaleDateString("en-US", {
-													year: "numeric",
-													month: "numeric",
-													day: "numeric",
-													timeZone: "UTC",
-												})}
+												DOB: {formatDateOnlyLong(client.dob)}
 											</span>
 										)}
 									</div>

@@ -12,8 +12,8 @@ import {
 import { format, isAfter, isBefore } from "date-fns";
 import type { Client } from "~/lib/models";
 import {
+	dateOnlyToLocalDate,
 	formatPhoneNumber,
-	getLocalDayFromUTCDate,
 	toTitleCase,
 } from "~/lib/utils";
 import type { AppRouter } from "~/server/api/root";
@@ -25,26 +25,22 @@ interface InsuranceTabProps {
 	client: Client;
 }
 
-function formatDate(dateVal: Date | string | null | undefined): string {
+function formatDate(dateVal: string | null | undefined): string {
 	if (!dateVal) return "—";
-	try {
-		const d = getLocalDayFromUTCDate(dateVal);
-		if (!d) return String(dateVal);
-		return format(d, "MM/dd/yyyy");
-	} catch {
-		return String(dateVal);
-	}
+	const d = dateOnlyToLocalDate(dateVal);
+	if (!d) return String(dateVal);
+	return format(d, "MM/dd/yyyy");
 }
 
 function isActive(
-	startDate: Date | string | null | undefined,
-	endDate: Date | string | null | undefined,
+	startDate: string | null | undefined,
+	endDate: string | null | undefined,
 ): boolean {
-	const start = getLocalDayFromUTCDate(startDate);
+	const start = dateOnlyToLocalDate(startDate);
 	if (!start) return false;
 	const now = new Date();
 	if (isBefore(now, start)) return false;
-	const end = getLocalDayFromUTCDate(endDate);
+	const end = dateOnlyToLocalDate(endDate);
 	if (!end) return true;
 	return !isAfter(now, end);
 }

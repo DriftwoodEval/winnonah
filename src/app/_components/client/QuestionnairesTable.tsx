@@ -36,6 +36,7 @@ import { QUESTIONNAIRE_STATUSES } from "~/lib/constants";
 import {
 	cn,
 	formatShortDate,
+	formatShortInstantDate,
 	formatTaMessage,
 	getReminderColorClass,
 	getStatusColorClass,
@@ -81,7 +82,7 @@ export function QuestionnairesTable({
 	readOnly,
 }: QuestionnairesTableProps) {
 	const sessionStart = sessionStartedAt ? new Date(sessionStartedAt) : null;
-	const isPreSession = (q: { sent: Date | null; updatedAt: Date | null }) => {
+	const isPreSession = (q: { sent: string | null; updatedAt: Date | null }) => {
 		if (!sessionStart) return false;
 		const date = q.sent ? new Date(q.sent) : q.updatedAt;
 		return date ? date < sessionStart : false;
@@ -290,7 +291,7 @@ export function QuestionnairesTable({
 								</AlertTitle>
 								<AlertDescription>
 									First noted {formatShortDate(failure.failedDate)}, last
-									updated {formatShortDate(failure.updatedAt)}.
+									updated {formatShortInstantDate(failure.updatedAt)}.
 								</AlertDescription>
 								{canResolveFailure && (
 									<AlertAction>
@@ -487,10 +488,10 @@ export function QuestionnairesTable({
 												className="w-full cursor-pointer text-left hover:underline"
 												link={questionnaire.link}
 											>
-												{formatShortDate(questionnaire.updatedAt)}
+												{formatShortInstantDate(questionnaire.updatedAt)}
 											</ScreenshotButton>
 										) : (
-											formatShortDate(questionnaire.updatedAt)
+											formatShortInstantDate(questionnaire.updatedAt)
 										)}
 									</TableCell>
 								</TableRow>

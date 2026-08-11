@@ -55,6 +55,7 @@ from utils.misc import (
     get_column,
     get_full_name,
 )
+from utils.timezone import now_utc
 
 load_dotenv()
 
@@ -69,6 +70,7 @@ def get_db() -> Connection[DictCursor]:
         password=db_url.password or "",
         database=db_url.path[1:],
         cursorclass=pymysql.cursors.DictCursor,
+        init_command="SET time_zone = '+00:00'",
     )
 
 
@@ -458,7 +460,7 @@ def reset_client_session(client_id: int, connection: Connection[DictCursor]) -> 
     before it. Records request history (`emr_external_record_request`) is
     left in place, since queries scope it by `sessionStartedAt` instead.
     """
-    now = datetime.utcnow()
+    now = now_utc()
 
     with connection.cursor() as cursor:
         cursor.execute(
@@ -1055,13 +1057,17 @@ def put_appointment_in_db(
             (appointment_id,),
         )
         existing = cursor.fetchone()
+        # pymysql always returns naive datetimes (representing UTC, since
+        # that's what's stored); start_time is UTC-aware, so compare on the
+        # naive wall-clock value.
+        start_time_naive_utc = start_time.replace(tzinfo=None)
         if (
             existing
             and existing["confirmedAt"] is not None
-            and existing["startTime"] != start_time
+            and existing["startTime"] != start_time_naive_utc
         ):
             logger.warning(
-                f"Appointment {appointment_id}: startTime changed from {existing['startTime']} to {start_time} - confirmedAt will be cleared (was {existing['confirmedAt']})"
+                f"Appointment {appointment_id}: startTime changed from {existing['startTime']} to {start_time_naive_utc} - confirmedAt will be cleared (was {existing['confirmedAt']})"
             )
 
     sql = f"""
@@ -1588,7 +1594,7 @@ def get_appointments_needing_folder_move(
             FROM `{TABLE_APPOINTMENT}` a
             JOIN `{TABLE_CLIENT}` c ON c.id = a.clientId
             JOIN `{TABLE_EVALUATOR}` e ON e.npi = a.evaluatorNpi
-            WHERE a.startTime > NOW()
+            WHERE a.startTime > %s
               AND a.cancelled = 0
               AND a.rescheduled = 0
               AND a.billingOnly = 0
@@ -1602,7 +1608,7 @@ def get_appointments_needing_folder_move(
           )
     """
     with connection.cursor() as cursor:
-        cursor.execute(sql)
+        cursor.execute(sql, (now_utc().replace(tzinfo=None),))
         return list(cursor.fetchall())
 
 
@@ -1839,13 +1845,13 @@ def mark_posteval_pending_questionnaires(connection: Connection[DictCursor]) -> 
             FROM {TABLE_APPOINTMENT}
             WHERE daEval IN ('EVAL', 'DAEVAL')
               AND cancelled = 0
-              AND startTime < NOW()
+              AND startTime < %s
         ) past_eval ON past_eval.clientId = q.clientId
         SET q.status = 'POSTEVAL_PENDING'
         WHERE q.status = 'PENDING'
     """
     with connection.cursor() as cursor:
-        cursor.execute(sql)
+        cursor.execute(sql, (now_utc().replace(tzinfo=None),))
         updated = cursor.rowcount
     connection.commit()
     if updated:
@@ -1915,7 +1921,7 @@ def compute_and_store_assessment_snapshot(
     if not needed_types:
         snapshot = {
             "minutes": 0,
-            "computedAt": datetime.utcnow().isoformat() + "Z",
+            "computedAt": now_utc().isoformat(),
             "ageInYears": age_in_years,
             "asdAdhd": asd_adhd,
             "includedTypes": [],
@@ -1960,7 +1966,7 @@ def compute_and_store_assessment_snapshot(
 
     snapshot = {
         "minutes": minutes,
-        "computedAt": datetime.utcnow().isoformat() + "Z",
+        "computedAt": now_utc().isoformat(),
         "ageInYears": age_in_years,
         "asdAdhd": asd_adhd,
         "includedTypes": included_types,

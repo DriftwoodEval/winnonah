@@ -1,4 +1,5 @@
 import { and, desc, eq, inArray } from "drizzle-orm";
+import { parseDateOnly } from "~/lib/utils";
 import type { Context } from "~/server/api/trpc";
 import { appointments } from "~/server/db/schema";
 
@@ -10,7 +11,7 @@ import { appointments } from "~/server/db/schema";
 export async function getQuestionnaireEligibilityAge(
 	db: Context["db"],
 	clientId: number,
-	dob: Date,
+	dob: string,
 ): Promise<number> {
 	const mostRecentEval = await db.query.appointments.findFirst({
 		where: and(
@@ -25,8 +26,16 @@ export async function getQuestionnaireEligibilityAge(
 	});
 
 	const referenceDate = mostRecentEval?.startTime ?? new Date();
+	const parsedDob = parseDateOnly(dob);
+	if (!parsedDob) return 0;
+	const dobAsUtcInstant = Date.UTC(
+		parsedDob.year,
+		parsedDob.month - 1,
+		parsedDob.day,
+	);
 
 	return Math.floor(
-		(referenceDate.getTime() - dob.getTime()) / (1000 * 60 * 60 * 24 * 365.25),
+		(referenceDate.getTime() - dobAsUtcInstant) /
+			(1000 * 60 * 60 * 24 * 365.25),
 	);
 }

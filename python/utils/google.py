@@ -5,7 +5,7 @@ import re
 import time
 from collections import deque
 from collections.abc import Sequence
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from email.message import EmailMessage
 from pathlib import Path
 
@@ -21,6 +21,7 @@ from loguru import logger
 
 import utils.database
 from utils.constants import TABLE_APPOINTMENT, TABLE_CLIENT, TABLE_EVALUATOR
+from utils.timezone import business_to_utc, now_business
 
 # If modifying these scopes, delete the file token.json.
 SCOPES = [
@@ -609,6 +610,17 @@ def sync_client_info_files():
 
     service = get_drive_service()
 
+    # "Tomorrow" means the business's calendar day, not UTC's, since
+    # a.startTime is a true UTC instant that can land on a different UTC
+    # calendar date than the business day it represents.
+    tomorrow_business = (now_business() + timedelta(days=1)).date()
+    range_start = business_to_utc(
+        datetime.combine(tomorrow_business, datetime.min.time())
+    ).replace(tzinfo=None)
+    range_end = business_to_utc(
+        datetime.combine(tomorrow_business + timedelta(days=1), datetime.min.time())
+    ).replace(tzinfo=None)
+
     with utils.database.db_session() as connection, connection.cursor() as cursor:
         cursor.execute(
             f"""
@@ -616,13 +628,14 @@ def sync_client_info_files():
             FROM {TABLE_APPOINTMENT} a
             JOIN {TABLE_CLIENT} c ON a.clientId = c.id
             JOIN {TABLE_EVALUATOR} e ON a.evaluatorNpi = e.npi
-            WHERE DATE(a.startTime) = DATE(NOW() + INTERVAL 1 DAY)
+            WHERE a.startTime >= %s AND a.startTime < %s
                 AND a.cancelled = 0
                 AND a.rescheduled = 0
                 AND a.placeholder = 0
                 AND c.driveId IS NOT NULL
             ORDER BY a.startTime
-            """
+            """,
+            (range_start, range_end),
         )
         rows = cursor.fetchall()
 
@@ -835,25 +848,30 @@ def append_gcal_event_description(
 def find_gcal_event_by_client_and_time(
     client_id: int, start_time: datetime
 ) -> dict | None:
-    """Search all calendars for an event matching client_id + start_time (±1 hr).
+    """Search all calendars for an event matching client_id + start_time (±5 min).
 
     Returns {"event_id", "calendar_id", "title"} or None if not found.
     Used as a fallback when the stored event ID is stale (e.g. event moved calendars).
+    start_time is a true UTC instant (emr_appointment.startTime), compared
+    directly against Google's tz-aware event times, no fuzzy-zone matching
+    needed.
     """
-    # Strip tzinfo for comparison — mirrors batch_search_calendar_events behaviour
-    naive_start = start_time.replace(tzinfo=None) if start_time.tzinfo else start_time
+    start_time_utc = (
+        start_time.replace(tzinfo=UTC)
+        if start_time.tzinfo is None
+        else start_time.astimezone(UTC)
+    )
 
     logger.info(
         f"Searching all calendars for client {client_id} near "
-        f"{naive_start.strftime('%Y-%m-%d %H:%M')} (±1 hr match, ±1 day fetch window)"
+        f"{start_time_utc.isoformat()} (±5 min match)"
     )
 
     creds = google_authenticate()
     service = build("calendar", "v3", credentials=creds)
 
-    # Wide fetch window (±1 day) to absorb timezone offsets in the stored startTime
-    window_start = (naive_start - timedelta(days=1)).isoformat() + "Z"
-    window_end = (naive_start + timedelta(days=1)).isoformat() + "Z"
+    window_start = (start_time_utc - timedelta(hours=1)).isoformat()
+    window_end = (start_time_utc + timedelta(hours=1)).isoformat()
 
     for calendar in service.calendarList().list().execute().get("items", []):
         calendar_id = calendar["id"]
@@ -893,19 +911,22 @@ def find_gcal_event_by_client_and_time(
                 continue
 
             event_dt = dtparser.parse(event_start_raw)
-            if event_dt.tzinfo is not None:
-                event_dt = event_dt.replace(tzinfo=None)
+            if event_dt.tzinfo is None:
+                # All-day event date, no time-of-day to compare against an
+                # appointment instant.
+                continue
+            event_dt_utc = event_dt.astimezone(UTC)
 
-            time_diff = abs((event_dt - naive_start).total_seconds())
+            time_diff = abs((event_dt_utc - start_time_utc).total_seconds())
             logger.debug(
                 f"    Client {client_id} in description of '{event.get('summary', '')}' "
-                f"on {calendar_id} — event {event_dt.strftime('%Y-%m-%d %H:%M')}, "
+                f"on {calendar_id} — event {event_dt_utc.isoformat()}, "
                 f"diff {int(time_diff)}s"
             )
 
-            if time_diff > 3600:
+            if time_diff > 300:
                 logger.warning(
-                    f"    Skipping: time diff {int(time_diff)}s exceeds 1 hr tolerance"
+                    f"    Skipping: time diff {int(time_diff)}s exceeds 5 min tolerance"
                 )
                 continue
 
@@ -922,6 +943,6 @@ def find_gcal_event_by_client_and_time(
 
     logger.warning(
         f"No calendar event found for client {client_id} near "
-        f"{naive_start.strftime('%Y-%m-%d %H:%M')}"
+        f"{start_time_utc.isoformat()}"
     )
     return None

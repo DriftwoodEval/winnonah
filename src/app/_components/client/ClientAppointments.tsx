@@ -29,7 +29,7 @@ import {
 } from "lucide-react";
 import { useSession } from "next-auth/react";
 import { useState } from "react";
-import { getLocalTimeFromUTCDate, IS_DEV } from "~/lib/utils";
+import { IS_DEV, toBusinessZonedTime } from "~/lib/utils";
 import { api } from "~/trpc/react";
 import { AppointmentReminderTimeline } from "./AppointmentReminderTimeline";
 
@@ -63,8 +63,8 @@ export function ClientAppointments({ clientId }: { clientId: number }) {
 		list: Appt[],
 		isBilling = false,
 	) => {
-		const startTime = getLocalTimeFromUTCDate(appt.startTime);
-		const endTime = getLocalTimeFromUTCDate(appt.endTime);
+		const startTime = toBusinessZonedTime(appt.startTime);
+		const endTime = toBusinessZonedTime(appt.endTime);
 		if (!startTime || !endTime) return null;
 
 		const isSuppressed = appt.cancelled || appt.rescheduled || appt.doNotRemind;

@@ -1,3 +1,8 @@
+// Single source of truth for the practice's timezone. Used to convert stored
+// UTC instants to/from the business's wall-clock time for display and for
+// business-hour logic (quiet windows, daily send gates, etc).
+export const BUSINESS_TIMEZONE = "America/New_York";
+
 export const IN_PERSON_ASSESSMENT_STATUSES = ["EXTERNAL"] as const;
 
 export const QUESTIONNAIRE_STATUSES = [

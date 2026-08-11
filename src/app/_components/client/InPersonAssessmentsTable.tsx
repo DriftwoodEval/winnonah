@@ -46,7 +46,7 @@ import { MoreHorizontal, Plus } from "lucide-react";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { useCheckPermission } from "~/hooks/use-check-permission";
-import { formatShortDate } from "~/lib/utils";
+import { formatShortInstantDate } from "~/lib/utils";
 import { api, type RouterOutputs } from "~/trpc/react";
 
 type Assessment =
@@ -314,7 +314,7 @@ export function InPersonAssessmentsTable({
 										{assessment.appointmentId ? (
 											<span className="text-muted-foreground text-xs">
 												{assessment.appointmentStartTime
-													? formatShortDate(
+													? formatShortInstantDate(
 															assessment.appointmentStartTime,
 															"—",
 														)
@@ -356,7 +356,7 @@ export function InPersonAssessmentsTable({
 										</TableCell>
 										<TableCell className="hidden sm:table-cell">
 											<span className="text-muted-foreground text-xs">
-												Archived {formatShortDate(entry.createdAt)}
+												Archived {formatShortInstantDate(entry.createdAt)}
 											</span>
 										</TableCell>
 									</TableRow>

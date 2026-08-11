@@ -261,8 +261,8 @@ export const clients = createTable(
 			.int()
 			.references(() => evaluators.npi, { onDelete: "set null" }),
 		driveFolderIsEval: d.boolean().notNull().default(false),
-		addedDate: d.date(),
-		dob: d.date().notNull(),
+		addedDate: d.date({ mode: "string" }),
+		dob: d.date({ mode: "string" }).notNull(),
 		firstName: d.varchar({ length: 255 }).notNull(),
 		lastName: d.varchar({ length: 255 }).notNull(),
 		preferredName: d.varchar({ length: 255 }),
@@ -275,7 +275,7 @@ export const clients = createTable(
 		secondaryInsurance: d.json("secondaryInsurance").$type<string[]>(),
 		qualCategory: d.varchar("qual_category", { length: 255 }),
 		paymentCategory: d.varchar("payment_category", { length: 255 }),
-		precertExpires: d.date(),
+		precertExpires: d.date({ mode: "string" }),
 		privatePay: d.boolean().notNull().default(false),
 		sessionStartedAt: d.timestamp("session_started_at"),
 		asdAdhd: d.mysqlEnum([
@@ -445,8 +445,8 @@ export const externalRecordRequests = createTable(
 			.int()
 			.notNull()
 			.references(() => clients.id, { onDelete: "cascade" }),
-		requestedDate: d.date(),
-		holdUntil: d.date("hold_until"),
+		requestedDate: d.date({ mode: "string" }),
+		holdUntil: d.date("hold_until", { mode: "string" }),
 		customMessage: d.text("custom_message"),
 		createdAt: d
 			.timestamp("created_at")
@@ -708,8 +708,8 @@ export const appointments = createTable("appointment", (d) => ({
 	calendarEventTitle: d.varchar({ length: 255 }),
 	confirmedAt: d.timestamp(),
 	doNotRemind: d.boolean().notNull().default(false),
-	lastTaskCompletedDate: d.date("last_task_completed_date"),
-	dueDateOverride: d.date("due_date_override"),
+	lastTaskCompletedDate: d.date("last_task_completed_date", { mode: "string" }),
+	dueDateOverride: d.date("due_date_override", { mode: "string" }),
 	reportCompletedAt: d.timestamp("report_completed_at"),
 	reportCompletedByEmail: d.varchar("report_completed_by_email", {
 		length: 255,
@@ -751,10 +751,10 @@ export const questionnaires = createTable(
 			.references(() => clients.id, { onDelete: "cascade" }),
 		questionnaireType: d.varchar({ length: 255 }).notNull(),
 		link: d.varchar({ length: 255 }),
-		sent: d.date(),
+		sent: d.date({ mode: "string" }),
 		status: d.mysqlEnum(QUESTIONNAIRE_STATUSES).default("PENDING"),
 		reminded: d.int().default(0),
-		lastReminded: d.date(),
+		lastReminded: d.date({ mode: "string" }),
 		updatedAt: d
 			.timestamp("updated_at")
 			.onUpdateNow()
@@ -773,7 +773,7 @@ export const inPersonAssessments = createTable(
 			.references(() => clients.id, { onDelete: "cascade" }),
 		assessmentType: d.varchar({ length: 255 }).notNull(),
 		status: d.mysqlEnum(IN_PERSON_ASSESSMENT_STATUSES),
-		addedDate: d.date(),
+		addedDate: d.date({ mode: "string" }),
 		appointmentId: d.varchar({ length: 255 }),
 		updatedAt: d
 			.timestamp("updated_at")
@@ -840,13 +840,13 @@ export const failures = createTable(
 			.references(() => clients.id, { onDelete: "cascade" }),
 		reason: d.varchar({ length: 767 }).notNull(), // Max length for primary key
 		daEval: d.mysqlEnum(["DA", "EVAL", "DAEVAL", "Records"]),
-		failedDate: d.date().notNull(),
+		failedDate: d.date({ mode: "string" }).notNull(),
 		updatedAt: d
 			.timestamp("updated_at")
 			.onUpdateNow()
 			.default(sql`CURRENT_TIMESTAMP`),
 		reminded: d.int().default(0),
-		lastReminded: d.date(),
+		lastReminded: d.date({ mode: "string" }),
 	}),
 	(t) => [primaryKey({ columns: [t.clientId, t.reason] })],
 );
@@ -1203,11 +1203,11 @@ export const clientInsurancePolicies = createTable(
 			.notNull()
 			.references(() => clients.id, { onDelete: "cascade" }),
 		policyType: d.varchar({ length: 50 }),
-		policyStartDate: d.date(),
-		policyEndDate: d.date(),
-		policyAddedDate: d.date(),
+		policyStartDate: d.date({ mode: "string" }),
+		policyEndDate: d.date({ mode: "string" }),
+		policyAddedDate: d.date({ mode: "string" }),
 		policyAddedByName: d.varchar({ length: 255 }),
-		policyModifiedDate: d.date(),
+		policyModifiedDate: d.date({ mode: "string" }),
 		policyModifiedByName: d.varchar({ length: 255 }),
 		privatePay: d.boolean(),
 		planName: d.varchar({ length: 255 }),
@@ -1235,7 +1235,7 @@ export const clientInsurancePolicies = createTable(
 		insuredMiddleName: d.varchar({ length: 255 }),
 		insuredLastName: d.varchar({ length: 255 }),
 		insuredPhone: d.varchar({ length: 50 }),
-		insuredDob: d.date(),
+		insuredDob: d.date({ mode: "string" }),
 		insuredGender: d.varchar({ length: 50 }),
 		insuredAddress1: d.varchar({ length: 255 }),
 		insuredAddress2: d.varchar({ length: 255 }),
@@ -1258,15 +1258,15 @@ export const clientInsurancePolicies = createTable(
 		treatFrequency: d.varchar({ length: 255 }),
 		copayAmount: d.varchar({ length: 100 }),
 		copayPercent: d.varchar({ length: 100 }),
-		benefitsAuthDate: d.date(),
+		benefitsAuthDate: d.date({ mode: "string" }),
 		benefitsAuthNumber: d.varchar({ length: 255 }),
 		benefitsSpokeTO: d.varchar({ length: 255 }),
 		precertCpt: d.varchar({ length: 255 }),
-		precertStartDate: d.date(),
-		precertExpireDate: d.date(),
+		precertStartDate: d.date({ mode: "string" }),
+		precertExpireDate: d.date({ mode: "string" }),
 		precertVisitAllowed: d.varchar({ length: 100 }),
 		precertVisitUsed: d.varchar({ length: 100 }),
-		precertAuthDate: d.date(),
+		precertAuthDate: d.date({ mode: "string" }),
 		precertAuthNumber: d.varchar({ length: 255 }),
 		precertSpokeTO: d.varchar({ length: 255 }),
 		precertMemo: d.varchar({ length: 1000 }),
@@ -1335,7 +1335,7 @@ export const pieceworkReportTracking = createTable(
 			.primaryKey()
 			.references(() => clients.id, { onDelete: "cascade" }),
 		writerEmail: d.varchar("writer_email", { length: 255 }),
-		trackedDate: d.date("tracked_date").notNull(),
+		trackedDate: d.date("tracked_date", { mode: "string" }).notNull(),
 	}),
 );
 

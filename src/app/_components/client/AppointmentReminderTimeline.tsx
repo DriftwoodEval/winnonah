@@ -2,7 +2,7 @@
 
 import { Skeleton } from "@ui/skeleton";
 import { format, formatDistanceToNow } from "date-fns";
-import { getLocalTimeFromUTCDate } from "~/lib/utils";
+import { formatInBusinessTime } from "~/lib/utils";
 import { api } from "~/trpc/react";
 
 function formatPreview(
@@ -12,8 +12,8 @@ function formatPreview(
 	officeLocationPhrase: string | null,
 ): string {
 	return template
-		.replace(/\$START_TIME/g, format(appointmentTime, "h:mm a"))
-		.replace(/\$DATE/g, format(appointmentTime, "EEEE, MMMM d"))
+		.replace(/\$START_TIME/g, formatInBusinessTime(appointmentTime, "h:mm a"))
+		.replace(/\$DATE/g, formatInBusinessTime(appointmentTime, "EEEE, MMMM d"))
 		.replace(/\$OFFICE_NAME/g, officeName ?? "")
 		.replace(/\$LOCATION/g, officeLocationPhrase ?? "");
 }
@@ -68,8 +68,7 @@ export function AppointmentReminderTimeline({
 			</p>
 		);
 
-	const appointmentTime =
-		getLocalTimeFromUTCDate(data.appointmentTime) ?? data.appointmentTime;
+	const appointmentTime = data.appointmentTime;
 	const officeName = data.officeName ?? null;
 	const officeLocationPhrase = data.officeLocationPhrase ?? null;
 
@@ -99,8 +98,6 @@ export function AppointmentReminderTimeline({
 				</div>
 			))}
 			{data.pending.map((item) => {
-				const scheduledFor =
-					getLocalTimeFromUTCDate(item.scheduledFor) ?? item.scheduledFor;
 				return (
 					<div
 						className="relative"
@@ -116,7 +113,7 @@ export function AppointmentReminderTimeline({
 								</span>
 							) : (
 								<>
-									{format(scheduledFor, "MMM d 'at' p")}
+									{formatInBusinessTime(item.scheduledFor, "MMM d 'at' p")}
 									{item.condition && (
 										<span className="ml-1 font-normal">({item.condition})</span>
 									)}

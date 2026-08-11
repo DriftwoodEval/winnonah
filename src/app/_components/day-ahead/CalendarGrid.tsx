@@ -5,7 +5,11 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@ui/tooltip";
 import { format } from "date-fns";
 import Link from "next/link";
 import { createContext, useContext, useMemo, useState } from "react";
-import { getLocalTimeFromUTCDate, normalizePhoneNumber } from "~/lib/utils";
+import {
+	formatInBusinessTime,
+	normalizePhoneNumber,
+	toBusinessZonedTime,
+} from "~/lib/utils";
 import type { RouterOutputs } from "~/trpc/react";
 import { Redact } from "../redaction/Redact";
 import { RecentMessagesPopover } from "./RecentMessagesPopover";
@@ -68,16 +72,18 @@ const MessagesPopoverOpenContext = createContext<{
 
 // ─── Time helpers ─────────────────────────────────────────────────────────────
 
+// A Date whose local getters (getHours, getDate, etc.) reflect business
+// time, for grid math that needs numeric hour/minute/day values.
 export function localDate(utcDate: Date): Date {
-	return getLocalTimeFromUTCDate(utcDate) ?? new Date(utcDate);
+	return toBusinessZonedTime(utcDate) ?? new Date(utcDate);
 }
 
 export function formatTime(utcDate: Date): string {
-	return format(localDate(new Date(utcDate)), "h:mm a");
+	return formatInBusinessTime(utcDate, "h:mm a");
 }
 
 export function apptDateKey(startTime: Date): string {
-	return format(localDate(new Date(startTime)), "yyyy-MM-dd");
+	return formatInBusinessTime(startTime, "yyyy-MM-dd");
 }
 
 export function blockTop(startTime: Date): number {
@@ -458,7 +464,7 @@ export function CalendarMultiDayView({
 		return map;
 	}, [appointments, dates]);
 
-	const todayStr = format(new Date(), "yyyy-MM-dd");
+	const todayStr = formatInBusinessTime(new Date(), "yyyy-MM-dd");
 	const [messagesOpen, setMessagesOpen] = useState(false);
 
 	return (

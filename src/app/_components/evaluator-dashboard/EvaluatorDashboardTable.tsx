@@ -16,11 +16,15 @@ import {
 	TooltipProvider,
 	TooltipTrigger,
 } from "@ui/tooltip";
-import { format } from "date-fns";
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
-import { cn, getLocalDayFromUTCDate } from "~/lib/utils";
+import {
+	cn,
+	dateOnlyToLocalDate,
+	formatInBusinessTime,
+	toBusinessZonedTime,
+} from "~/lib/utils";
 import type { RouterOutputs } from "~/trpc/react";
 import { api } from "~/trpc/react";
 import { AppointmentNoteCell } from "./AppointmentNoteCell";
@@ -120,13 +124,13 @@ export function EvaluatorDashboardTable({
 		(a) =>
 			!a.reportCompletedAt &&
 			new Date(a.startTime) <= now &&
-			(getLocalDayFromUTCDate(a.effectiveDueDate) ?? a.effectiveDueDate) <= now,
+			a.effectiveDueDate <= now,
 	).length;
 	const current = appointments.filter(
 		(a) =>
 			!a.reportCompletedAt &&
 			new Date(a.startTime) <= now &&
-			(getLocalDayFromUTCDate(a.effectiveDueDate) ?? a.effectiveDueDate) > now,
+			a.effectiveDueDate > now,
 	).length;
 	const future = appointments.filter((a) => new Date(a.startTime) > now).length;
 
@@ -151,9 +155,7 @@ export function EvaluatorDashboardTable({
 				{count}
 				<div className="flex flex-col gap-3">
 					{appointments.map((appt) => {
-						const isOverdue =
-							(getLocalDayFromUTCDate(appt.effectiveDueDate) ??
-								appt.effectiveDueDate) <= new Date();
+						const isOverdue = appt.effectiveDueDate <= new Date();
 						const isCompleted = !!appt.reportCompletedAt;
 						const redCard = isAdmin && (isCompleted || isOverdue);
 
@@ -183,7 +185,7 @@ export function EvaluatorDashboardTable({
 												isCompleted && "line-through",
 											)}
 										>
-											{format(new Date(appt.startTime), "MMM d, yyyy")}
+											{formatInBusinessTime(appt.startTime, "MMM d, yyyy")}
 										</p>
 									</div>
 									<TypeBadge asdAdhd={appt.asdAdhd} daEval={appt.daEval} />
@@ -210,14 +212,11 @@ export function EvaluatorDashboardTable({
 											appointmentId={appt.id}
 											date={
 												appt.lastTaskCompletedDate
-													? (getLocalDayFromUTCDate(
-															appt.lastTaskCompletedDate,
-														) ?? null)
+													? (dateOnlyToLocalDate(appt.lastTaskCompletedDate) ??
+														null)
 													: null
 											}
-											fallbackDate={
-												getLocalDayFromUTCDate(appt.startTime) ?? null
-											}
+											fallbackDate={toBusinessZonedTime(appt.startTime) ?? null}
 											isAdmin={isAdmin}
 										/>
 									</div>
@@ -229,8 +228,7 @@ export function EvaluatorDashboardTable({
 											appointmentId={appt.id}
 											dueDateOverride={
 												appt.dueDateOverride
-													? (getLocalDayFromUTCDate(appt.dueDateOverride) ??
-														null)
+													? (dateOnlyToLocalDate(appt.dueDateOverride) ?? null)
 													: null
 											}
 											effectiveDueDate={appt.effectiveDueDate}
@@ -311,9 +309,7 @@ export function EvaluatorDashboardTable({
 					</TableHeader>
 					<TableBody>
 						{appointments.map((appt) => {
-							const isOverdue =
-								(getLocalDayFromUTCDate(appt.effectiveDueDate) ??
-									appt.effectiveDueDate) <= new Date();
+							const isOverdue = appt.effectiveDueDate <= new Date();
 							const isCompleted = !!appt.reportCompletedAt;
 							const redRow = isAdmin && (isCompleted || isOverdue);
 
@@ -326,7 +322,7 @@ export function EvaluatorDashboardTable({
 									key={appt.id}
 								>
 									<TableCell className="whitespace-nowrap">
-										{format(new Date(appt.startTime), "MMM d, yyyy")}
+										{formatInBusinessTime(appt.startTime, "MMM d, yyyy")}
 									</TableCell>
 									<TableCell>
 										<ClientNameCell
@@ -353,14 +349,11 @@ export function EvaluatorDashboardTable({
 											appointmentId={appt.id}
 											date={
 												appt.lastTaskCompletedDate
-													? (getLocalDayFromUTCDate(
-															appt.lastTaskCompletedDate,
-														) ?? null)
+													? (dateOnlyToLocalDate(appt.lastTaskCompletedDate) ??
+														null)
 													: null
 											}
-											fallbackDate={
-												getLocalDayFromUTCDate(appt.startTime) ?? null
-											}
+											fallbackDate={toBusinessZonedTime(appt.startTime) ?? null}
 											isAdmin={isAdmin}
 										/>
 									</TableCell>
@@ -370,7 +363,7 @@ export function EvaluatorDashboardTable({
 												appointmentId={appt.id}
 												dueDateOverride={
 													appt.dueDateOverride
-														? (getLocalDayFromUTCDate(appt.dueDateOverride) ??
+														? (dateOnlyToLocalDate(appt.dueDateOverride) ??
 															null)
 														: null
 												}

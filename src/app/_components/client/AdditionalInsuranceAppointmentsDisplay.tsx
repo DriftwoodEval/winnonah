@@ -22,7 +22,7 @@ import {
 	packCodesIntoAppointments,
 	parsePrecertMemo,
 } from "~/lib/billing";
-import { getLocalDayFromUTCDate } from "~/lib/utils";
+import { dateOnlyToLocalDate } from "~/lib/utils";
 import { api } from "~/trpc/react";
 
 export function AdditionalInsuranceAppointmentsDisplay({
@@ -114,17 +114,17 @@ export function AdditionalInsuranceAppointmentsDisplay({
 	const activePrecertPolicy = policies
 		.filter((p) => {
 			if (!p.precertMemo) return false;
-			const start = getLocalDayFromUTCDate(p.policyStartDate);
+			const start = dateOnlyToLocalDate(p.policyStartDate);
 			if (!start) return true;
 			const now = new Date();
 			if (isBefore(now, start)) return false;
-			const end = getLocalDayFromUTCDate(p.policyEndDate);
+			const end = dateOnlyToLocalDate(p.policyEndDate);
 			if (!end) return true;
 			return !isAfter(now, end);
 		})
 		.sort((a, b) => {
-			const aDate = getLocalDayFromUTCDate(a.policyStartDate) ?? new Date(0);
-			const bDate = getLocalDayFromUTCDate(b.policyStartDate) ?? new Date(0);
+			const aDate = dateOnlyToLocalDate(a.policyStartDate) ?? new Date(0);
+			const bDate = dateOnlyToLocalDate(b.policyStartDate) ?? new Date(0);
 			return bDate.getTime() - aDate.getTime();
 		})[0];
 

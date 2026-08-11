@@ -98,6 +98,7 @@ export const configSchema = z.object({
 	failed_sheet_id: z.string(),
 	payroll_folder_id: z.string(),
 	database_url: z.string(),
+	business_timezone: z.string().default("America/New_York"),
 	excluded_ta: z.array(z.string()),
 	records_folder_id: z.string(),
 	sent_records_folder_id: z.string(),

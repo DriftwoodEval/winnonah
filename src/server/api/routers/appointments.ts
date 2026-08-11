@@ -1,6 +1,9 @@
+import { fromZonedTime } from "date-fns-tz";
 import { and, asc, count, desc, eq, gte, lte } from "drizzle-orm";
 import { z } from "zod";
 import { env } from "~/env";
+import { BUSINESS_TIMEZONE } from "~/lib/constants";
+import { formatInBusinessTime } from "~/lib/utils";
 import { createTRPCRouter, protectedProcedure } from "~/server/api/trpc";
 import {
 	appointments,
@@ -22,16 +25,17 @@ export const appointmentRouter = createTRPCRouter({
 				.optional(),
 		)
 		.query(async ({ ctx, input }) => {
-			let ref = new Date();
-			if (input?.asDate) {
-				const parsed = new Date(`${input.asDate}T00:00:00`);
-				if (!Number.isNaN(parsed.getTime())) ref = parsed;
-			}
-			const startOfDay = new Date(
-				Date.UTC(ref.getFullYear(), ref.getMonth(), ref.getDate(), 0, 0, 0),
+			// Business-local calendar day, converted to true UTC boundaries
+			// regardless of the server process's own timezone.
+			const dateOnly =
+				input?.asDate ?? formatInBusinessTime(new Date(), "yyyy-MM-dd");
+			const startOfDay = fromZonedTime(
+				`${dateOnly}T00:00:00`,
+				BUSINESS_TIMEZONE,
 			);
-			const endOfDay = new Date(
-				Date.UTC(ref.getFullYear(), ref.getMonth(), ref.getDate(), 23, 59, 59),
+			const endOfDay = fromZonedTime(
+				`${dateOnly}T23:59:59.999`,
+				BUSINESS_TIMEZONE,
 			);
 
 			const viewAsId =

@@ -100,8 +100,8 @@ import type {
 } from "~/lib/models";
 import {
 	cn,
+	dateOnlyToLocalDate,
 	formatClientAge,
-	getLocalDayFromUTCDate,
 	mapInsuranceToShortNames,
 } from "~/lib/utils";
 import { api } from "~/trpc/react";
@@ -1083,7 +1083,7 @@ const SchedulingRowCells = memo(function SchedulingRowCells({
 
 			<TableCell data-col={10} data-row={rowIndex}>
 				{scheduledClient.client.precertExpires
-					? getLocalDayFromUTCDate(
+					? dateOnlyToLocalDate(
 							scheduledClient.client.precertExpires,
 						)?.toLocaleDateString() || "-"
 					: "-"}
@@ -1361,7 +1361,7 @@ const SchedulingCard = memo(function SchedulingCard({
 				<span>
 					PA Date:{" "}
 					{scheduledClient.client.precertExpires
-						? getLocalDayFromUTCDate(
+						? dateOnlyToLocalDate(
 								scheduledClient.client.precertExpires,
 							)?.toLocaleDateString() || "-"
 						: "-"}

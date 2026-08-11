@@ -26,8 +26,9 @@ import { useCheckPermission } from "~/hooks/use-check-permission";
 import type { ClientColor } from "~/lib/colors";
 import { logger } from "~/lib/logger";
 import {
+	dateOnlyToLocalDate,
 	formatClientAge,
-	getLocalDayFromUTCDate,
+	formatShortInstantDate,
 	isNotesOnlyClientId,
 } from "~/lib/utils";
 import { api } from "~/trpc/react";
@@ -244,7 +245,7 @@ export function Client({
 											<Ban className="h-4 w-4" />
 											<AlertTitle>
 												On Drop List {(() => {
-													const date = getLocalDayFromUTCDate(
+													const date = dateOnlyToLocalDate(
 														client.initialFailureDate,
 													);
 													return date ? (
@@ -270,17 +271,12 @@ export function Client({
 													(c) => c.toUpperCase() + c.toLowerCase().slice(1),
 												)}.`;
 
-												const formattedUpdatedDate =
-													getLocalDayFromUTCDate(
-														failure.updatedAt,
-													)?.toLocaleDateString(undefined, {
-														year: "2-digit",
-														month: "numeric",
-														day: "numeric",
-													}) ?? null;
+												const formattedUpdatedDate = failure.updatedAt
+													? formatShortInstantDate(failure.updatedAt)
+													: null;
 
 												const formattedFailedDate =
-													getLocalDayFromUTCDate(
+													dateOnlyToLocalDate(
 														failure.failedDate,
 													)?.toLocaleDateString(undefined, {
 														year: "2-digit",

@@ -4,7 +4,7 @@ import Link from "next/link";
 import { memo, useMemo } from "react";
 import type { SortedClient } from "~/lib/api-types";
 import { getHexFromColor } from "~/lib/colors";
-import { cn, formatClientAge } from "~/lib/utils";
+import { cn, formatClientAge, formatDateOnlyMedium } from "~/lib/utils";
 import { Redact } from "../redaction/Redact";
 
 type ClientListItemProps = {
@@ -23,32 +23,19 @@ function ClientListItemComponent({
 	let sortReason = client.sortReason;
 
 	if (client.sortReason === "Added date") {
-		sortReason = `Added: ${client.addedDate?.toLocaleDateString("en-US", {
-			year: "numeric",
-			month: "short",
-			day: "numeric",
-			timeZone: "UTC",
-		})}`;
+		sortReason = `Added: ${formatDateOnlyMedium(client.addedDate)}`;
 	}
 
 	if (client.sortReason === "BabyNet above 2:6") {
-		sortReason = `BabyNet: ${formatClientAge(new Date(client.dob), "short")}`;
+		sortReason = `BabyNet: ${formatClientAge(client.dob, "short")}`;
 	}
 
 	if (client.sortReason === "BabyNet and High Priority") {
-		sortReason = `High Priority, BabyNet: ${formatClientAge(new Date(client.dob), "short")}`;
+		sortReason = `High Priority, BabyNet: ${formatClientAge(client.dob, "short")}`;
 	}
 
 	if (client.sortReason === "Expiration date") {
-		sortReason = `Expires: ${client.precertExpires?.toLocaleDateString(
-			"en-US",
-			{
-				year: "numeric",
-				month: "short",
-				day: "numeric",
-				timeZone: "UTC",
-			},
-		)}`;
+		sortReason = `Expires: ${formatDateOnlyMedium(client.precertExpires)}`;
 	}
 
 	return (

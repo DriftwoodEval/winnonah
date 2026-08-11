@@ -4,7 +4,7 @@ import { Badge } from "@ui/badge";
 import { Button } from "@ui/button";
 import { ScrollArea } from "@ui/scroll-area";
 import { Separator } from "@ui/separator";
-import { addMinutes, format, formatDistanceToNow } from "date-fns";
+import { format, formatDistanceToNow } from "date-fns";
 import {
 	MapIcon,
 	MapPinIcon,
@@ -22,6 +22,7 @@ import type {
 } from "~/lib/api-types";
 import type { Client, ClientWithIssueInfo } from "~/lib/models";
 import type { PermissionId } from "~/lib/types";
+import { formatInBusinessTime, formatShortDate } from "~/lib/utils";
 import { api, type RouterOutputs } from "~/trpc/react";
 import { ManualAddressDialog } from "../client/ManualAddressDialog";
 
@@ -552,15 +553,7 @@ export const DuplicateNamesList = ({
 														<div className="text-xs hover:underline">
 															{clientA.fullName}
 															<span className="ml-1 text-muted-foreground">
-																(DOB:{" "}
-																{format(
-																	addMinutes(
-																		clientA.dob,
-																		clientA.dob.getTimezoneOffset(),
-																	),
-																	"MM/dd/yy",
-																)}
-																)
+																(DOB: {formatShortDate(clientA.dob)})
 															</span>
 														</div>
 													</Link>
@@ -568,15 +561,7 @@ export const DuplicateNamesList = ({
 														<div className="text-xs hover:underline">
 															{clientB.fullName}
 															<span className="ml-1 text-muted-foreground">
-																(DOB:{" "}
-																{format(
-																	addMinutes(
-																		clientB.dob,
-																		clientB.dob.getTimezoneOffset(),
-																	),
-																	"MM/dd/yy",
-																)}
-																)
+																(DOB: {formatShortDate(clientB.dob)})
 															</span>
 														</div>
 													</Link>
@@ -691,13 +676,7 @@ export const DuplicateDriveFoldersList = ({
 								})}
 							</span>
 							<span className="text-muted-foreground">
-								{new Intl.DateTimeFormat("en-US", {
-									day: "2-digit",
-									month: "2-digit",
-									hour: "numeric",
-									minute: "numeric",
-									timeZone: "America/New_York",
-								}).format(new Date(lastFetched))}
+								{formatInBusinessTime(new Date(lastFetched), "MM/dd h:mm a")}
 							</span>
 						</p>
 						<p className="max-w-md text-muted-foreground text-sm">

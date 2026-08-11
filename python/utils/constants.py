@@ -5,6 +5,11 @@ from typing import Final
 # rollout doesn't churn through every fax ever received.
 FAX_CATEGORIZATION_START_DATE: Final = datetime(2026, 8, 5)
 
+# Single source of truth for the practice's timezone. Used to convert stored
+# UTC instants to/from the business's wall-clock time for display and for
+# business-hour logic (quiet windows, daily send gates, etc).
+BUSINESS_TIMEZONE: Final = "America/New_York"
+
 TEST_NAMES: Final = [
     "Testman Testson",
     "Testman Testson Jr.",

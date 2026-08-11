@@ -1,5 +1,6 @@
 import { and, asc, count, eq, gte, isNotNull, lt, lte, sql } from "drizzle-orm";
 import { z } from "zod";
+import { localDateToDateOnly } from "~/lib/utils";
 import {
 	assertPermission,
 	createTRPCRouter,
@@ -119,8 +120,14 @@ export const workSummaryRouter = createTRPCRouter({
 				)
 				.where(
 					and(
-						gte(pieceworkReportTracking.trackedDate, input.startDate),
-						lte(pieceworkReportTracking.trackedDate, input.endDate),
+						gte(
+							pieceworkReportTracking.trackedDate,
+							localDateToDateOnly(input.startDate) as string,
+						),
+						lte(
+							pieceworkReportTracking.trackedDate,
+							localDateToDateOnly(input.endDate) as string,
+						),
 					),
 				)
 				.groupBy(pieceworkReportTracking.writerEmail, users.name);

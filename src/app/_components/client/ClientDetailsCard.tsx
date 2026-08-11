@@ -6,7 +6,12 @@ import { AlertTriangleIcon, MapPinIcon } from "lucide-react";
 import Link from "next/link";
 import { useCheckPermission } from "~/hooks/use-check-permission";
 import type { ClientGetOneOutput } from "~/lib/api-types";
-import { cn, formatClientAge, formatPhoneNumber } from "~/lib/utils";
+import {
+	cn,
+	formatClientAge,
+	formatDateOnlyLong,
+	formatPhoneNumber,
+} from "~/lib/utils";
 import { Redact } from "../redaction/Redact";
 import { ManualAddressDialog } from "./ManualAddressDialog";
 import { SelectHealthFormButton } from "./SelectHealthFormButton";
@@ -28,14 +33,7 @@ export function ClientDetailsCard({
 				<div>
 					<p className="font-bold">Date of Birth</p>
 					<p>
-						<Redact>
-							{client.dob?.toLocaleDateString("en-US", {
-								year: "numeric",
-								month: "numeric",
-								day: "numeric",
-								timeZone: "UTC",
-							})}
-						</Redact>
+						<Redact>{formatDateOnlyLong(client.dob)}</Redact>
 					</p>
 				</div>
 			)}
@@ -48,14 +46,7 @@ export function ClientDetailsCard({
 			{client.addedDate && !truncated && (
 				<div>
 					<p className="font-bold">Date of Entry</p>
-					<p>
-						{client.addedDate?.toLocaleDateString("en-US", {
-							year: "numeric",
-							month: "numeric",
-							day: "numeric",
-							timeZone: "UTC",
-						})}
-					</p>
+					<p>{formatDateOnlyLong(client.addedDate)}</p>
 				</div>
 			)}
 
@@ -100,14 +91,7 @@ export function ClientDetailsCard({
 					{client.precertExpires && !truncated && (
 						<div>
 							<p className="font-bold">PA Expires</p>
-							<p>
-								{client.precertExpires?.toLocaleDateString("en-US", {
-									year: "numeric",
-									month: "numeric",
-									day: "numeric",
-									timeZone: "UTC",
-								})}
-							</p>
+							<p>{formatDateOnlyLong(client.precertExpires)}</p>
 						</div>
 					)}
 				</div>

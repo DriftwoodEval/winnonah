@@ -31,6 +31,7 @@ from utils.google import (
 )
 from utils.misc import json_log_format
 from utils.task_tracker import track_task
+from utils.timezone import business_to_utc, now_business, now_utc, utc_to_business
 from utils.webhook import verify_quo_signature
 
 logger.add(
@@ -83,21 +84,27 @@ def is_within_quiet_window(connection) -> bool:
         )
         settings = cursor.fetchone()
 
-    _, in_window = adjust_for_quiet_window(datetime.now(), settings)
+    # Quiet-window settings (e.g. "don't send after 9pm") are configured in
+    # business-local wall-clock time.
+    _, in_window = adjust_for_quiet_window(now_business(), settings)
     return in_window
 
 
 def _to_utc_iso(dt: datetime) -> str:
-    """Marks a naive wall-clock datetime as UTC so JS `Date` parsing is deterministic."""
+    """Tags a naive UTC datetime (as read from the DB) with UTC tzinfo so JS
+    `Date` parsing is deterministic regardless of the reading process's own
+    timezone.
+    """
     return dt.replace(tzinfo=UTC).isoformat()
 
 
 def format_message(template: str, appointment: dict) -> str:
     """Replaces placeholders with actual data."""
     office_label, office_location_phrase = _office_fields(appointment)
+    start_time_business = utc_to_business(appointment["startTime"])
     variables = {
-        "$START_TIME": appointment["startTime"].strftime("%I:%M %p"),
-        "$DATE": appointment["startTime"].strftime("%A, %B %d"),
+        "$START_TIME": start_time_business.strftime("%I:%M %p"),
+        "$DATE": start_time_business.strftime("%A, %B %d"),
         "$OFFICE_NAME": office_label or "",
         "$LOCATION": office_location_phrase or "",
     }
@@ -244,7 +251,12 @@ def get_reminder_preview(
         )
         sent_logs = list(cursor.fetchall())
 
-    now = datetime.now()
+    # appt["startTime"] and all reminder-timing arithmetic below stay in the
+    # naive-UTC domain (matching what pymysql returns for these columns) so
+    # they compare directly; only the quiet-window check needs a detour
+    # through business-local wall-clock time, since quiet hours are
+    # configured in business time.
+    now = now_utc().replace(tzinfo=None)
     start_time = appt["startTime"]
 
     suppressed_reason = None
@@ -285,8 +297,13 @@ def get_reminder_preview(
                 continue
 
             raw_scheduled = start_time - timedelta(hours=template["sendOffsetHours"])
-            scheduled_for, quiet_adjusted = adjust_for_quiet_window(
-                raw_scheduled, quiet_settings
+            adjusted_business, quiet_adjusted = adjust_for_quiet_window(
+                utc_to_business(raw_scheduled), quiet_settings
+            )
+            scheduled_for = (
+                business_to_utc(adjusted_business).replace(tzinfo=None)
+                if quiet_adjusted
+                else raw_scheduled
             )
             is_overdue = scheduled_for <= now
 
@@ -374,7 +391,8 @@ async def process_reminders(connection: Connection[DictCursor]) -> None:
 
         with connection.cursor() as cursor:
             for template_index, template in enumerate(templates, start=1):
-                max_lead_time = datetime.now() + timedelta(
+                # startTime is naive-UTC, so the cutoff needs to be too.
+                max_lead_time = now_utc().replace(tzinfo=None) + timedelta(
                     hours=template["sendOffsetHours"]
                 )
 
@@ -400,7 +418,7 @@ async def process_reminders(connection: Connection[DictCursor]) -> None:
                 logger.info(
                     f"Template [{template_name}] ({template_type}): "
                     f"window={template['sendOffsetHours']}h, "
-                    f"cutoff={max_lead_time.strftime('%Y-%m-%d %H:%M')}"
+                    f"cutoff={max_lead_time.strftime('%Y-%m-%d %H:%M')} UTC"
                 )
 
                 if template.get("isNoReplyFollowUp"):
@@ -527,7 +545,7 @@ async def process_reminders(connection: Connection[DictCursor]) -> None:
                 for appt in pending_appointments:
                     client_label = f"{appt.get('firstName', '')} {appt.get('lastName', '')} (client {appt['clientId']}, appt {appt['id']})"
                     appt_date = (
-                        appt["startTime"].strftime("%Y-%m-%d %H:%M")
+                        utc_to_business(appt["startTime"]).strftime("%Y-%m-%d %H:%M")
                         if appt.get("startTime")
                         else "unknown date"
                     )
@@ -709,7 +727,7 @@ async def handle_incoming_reply(
             return
 
         appt_date = (
-            context["startTime"].strftime("%Y-%m-%d %H:%M")
+            utc_to_business(context["startTime"]).strftime("%Y-%m-%d %H:%M")
             if context.get("startTime")
             else "unknown date"
         )
@@ -723,9 +741,7 @@ async def handle_incoming_reply(
             )
             return
 
-        ts = received_at or datetime.now()
-        if ts.tzinfo is not None:
-            ts = ts.astimezone().replace(tzinfo=None)
+        ts = utc_to_business(received_at) if received_at else now_business()
         description_note = f"From: {phone_number} - {ts.strftime('%m/%d/%Y %-I:%M %p')} - {incoming_text}"
 
         if is_confirmation(incoming_text):

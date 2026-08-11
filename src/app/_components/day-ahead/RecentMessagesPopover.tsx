@@ -2,11 +2,10 @@
 
 import { Popover, PopoverContent, PopoverTrigger } from "@ui/popover";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@ui/tooltip";
-import { format } from "date-fns";
 import { Bot, MessageSquare } from "lucide-react";
 import { useMemo } from "react";
 import type { TimelineEvent } from "~/lib/quo";
-import { cn, getLocalDayFromUTCDate } from "~/lib/utils";
+import { cn, formatInBusinessTime, toBusinessZonedTime } from "~/lib/utils";
 import { api } from "~/trpc/react";
 import { Redact } from "../redaction/Redact";
 
@@ -20,14 +19,24 @@ function getProximity(
 	messageCreatedAt: string,
 	appointmentStart: Date,
 ): Proximity {
-	const apptDay = getLocalDayFromUTCDate(appointmentStart);
+	const apptDay = toBusinessZonedTime(appointmentStart);
 	if (!apptDay) return "other";
+	const apptMidnight = new Date(
+		apptDay.getFullYear(),
+		apptDay.getMonth(),
+		apptDay.getDate(),
+	);
 
-	const msg = new Date(messageCreatedAt);
-	const msgDay = new Date(msg.getFullYear(), msg.getMonth(), msg.getDate());
+	const msgDay = toBusinessZonedTime(messageCreatedAt);
+	if (!msgDay) return "other";
+	const msgMidnight = new Date(
+		msgDay.getFullYear(),
+		msgDay.getMonth(),
+		msgDay.getDate(),
+	);
 
 	const diffDays = Math.round(
-		(apptDay.getTime() - msgDay.getTime()) / MS_PER_DAY,
+		(apptMidnight.getTime() - msgMidnight.getTime()) / MS_PER_DAY,
 	);
 	if (diffDays === 0) return "same-day";
 	if (diffDays === 1) return "day-before";
@@ -116,7 +125,7 @@ export function RecentMessagesPopover({
 											{message.reason ?? "Automated message"}
 										</span>
 										<span className="ml-auto shrink-0 text-[10px] text-secondary-foreground/50">
-											{format(new Date(message.createdAt), "M/d, h:mm a")}
+											{formatInBusinessTime(message.createdAt, "M/d, h:mm a")}
 										</span>
 									</div>
 								</div>
@@ -155,7 +164,7 @@ export function RecentMessagesPopover({
 												message.userId &&
 												senderFirstNameById.get(message.userId) &&
 												`${senderFirstNameById.get(message.userId)} · `}
-											{format(new Date(message.createdAt), "M/d, h:mm a")}
+											{formatInBusinessTime(message.createdAt, "M/d, h:mm a")}
 										</span>
 									</div>
 									<p className="whitespace-pre-wrap text-xs">

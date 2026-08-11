@@ -18,7 +18,11 @@ import { addWeeks } from "date-fns";
 import { and, desc, eq, isNotNull, isNull } from "drizzle-orm";
 import { alias } from "drizzle-orm/mysql-core";
 import { z } from "zod";
-import { hasPermission } from "~/lib/utils";
+import {
+	dateOnlyToLocalDate,
+	formatInBusinessTime,
+	hasPermission,
+} from "~/lib/utils";
 import {
 	assertPermission,
 	type Context,
@@ -274,12 +278,17 @@ export const evaluatorDashboardRouter = createTRPCRouter({
 			const now = new Date();
 			return rows
 				.map((row) => {
-					const base = row.lastTaskCompletedDate
-						? new Date(row.lastTaskCompletedDate)
-						: row.startTime;
+					// lastTaskCompletedDate/dueDateOverride are date-only columns
+					// (no timezone); startTime is a true UTC instant, so its
+					// business-local calendar day is the appointment's actual date
+					// as staff experienced it.
+					const baseDateOnly =
+						row.lastTaskCompletedDate ??
+						formatInBusinessTime(row.startTime, "yyyy-MM-dd");
+					const base = dateOnlyToLocalDate(baseDateOnly) as Date;
 					const calculated = addWeeks(base, config.dueDateWeeks);
 					const effectiveDueDate = row.dueDateOverride
-						? new Date(row.dueDateOverride)
+						? (dateOnlyToLocalDate(row.dueDateOverride) as Date)
 						: calculated;
 
 					const raw = row.noteContent;
@@ -416,7 +425,7 @@ export const evaluatorDashboardRouter = createTRPCRouter({
 			);
 			await ctx.db
 				.update(appointments)
-				.set({ lastTaskCompletedDate: input.date as unknown as Date })
+				.set({ lastTaskCompletedDate: input.date })
 				.where(eq(appointments.id, input.appointmentId));
 		}),
 
@@ -435,7 +444,7 @@ export const evaluatorDashboardRouter = createTRPCRouter({
 			);
 			await ctx.db
 				.update(appointments)
-				.set({ dueDateOverride: input.date as unknown as Date })
+				.set({ dueDateOverride: input.date })
 				.where(eq(appointments.id, input.appointmentId));
 		}),
 

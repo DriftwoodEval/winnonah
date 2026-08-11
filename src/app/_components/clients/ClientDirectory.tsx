@@ -57,7 +57,7 @@ const PRIORITY_REASONS = new Set([
 	"BabyNet and High Priority",
 ]);
 
-function formatPriorityReason(sortReason: string, dob: Date) {
+function formatPriorityReason(sortReason: string, dob: string) {
 	if (sortReason === "BabyNet above 2:6") {
 		return `BabyNet: ${formatClientAge(dob, "short")}`;
 	}
@@ -1018,10 +1018,7 @@ export function ClientDirectory() {
 												)}
 											>
 												{isPriority
-													? formatPriorityReason(
-															client.sortReason,
-															new Date(client.dob),
-														)
+													? formatPriorityReason(client.sortReason, client.dob)
 													: "—"}
 											</span>
 										</AnimatedCellContent>
@@ -1178,10 +1175,7 @@ export function ClientDirectory() {
 											label="Priority"
 											value={
 												isPriority
-													? formatPriorityReason(
-															client.sortReason,
-															new Date(client.dob),
-														)
+													? formatPriorityReason(client.sortReason, client.dob)
 													: "—"
 											}
 											wrap

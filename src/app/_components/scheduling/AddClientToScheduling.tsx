@@ -64,7 +64,7 @@ export function AddClientToScheduling({
 								variables.optimisticClient?.schoolDistrict ?? null,
 							precertExpires:
 								variables.optimisticClient?.precertExpires ?? null,
-							dob: variables.optimisticClient?.dob ?? new Date(),
+							dob: variables.optimisticClient?.dob ?? "1970-01-01",
 							referralData: variables.optimisticClient?.referralData ?? null,
 							closestOfficeKey: "",
 						},

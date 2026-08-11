@@ -2,7 +2,11 @@ import { and, desc, eq, isNotNull } from "drizzle-orm";
 import { type NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { NOTE_TEMPLATES } from "~/lib/constants";
-import { formatClientAge, getLocalDayFromUTCDate } from "~/lib/utils";
+import {
+	formatClientAge,
+	formatShortDate,
+	formatShortInstantDate,
+} from "~/lib/utils";
 import { db } from "~/server/db";
 import {
 	appointments,
@@ -156,15 +160,8 @@ export async function GET(req: NextRequest) {
 		);
 		let recordsNote = matchedTemplate ? matchedTemplate.text : fullNote;
 
-		const formatDate = (date: Date | string | null | undefined) => {
-			const d = getLocalDayFromUTCDate(date);
-			if (!d) return null;
-			return d.toLocaleDateString(undefined, {
-				year: "2-digit",
-				month: "numeric",
-				day: "numeric",
-			});
-		};
+		const formatDate = (date: string | null | undefined) =>
+			formatShortDate(date, "") || null;
 
 		if (matchedTemplate?.value === "no-response") {
 			const dates = requestsList
@@ -207,12 +204,9 @@ export async function GET(req: NextRequest) {
 			clientNote: fullClientNote,
 			records: recordsStatus,
 			babyNetERStatus: babyNetERStatus,
-			mostRecentAppointment:
-				mostRecentAppointment?.startTime.toLocaleDateString(undefined, {
-					year: "2-digit",
-					month: "numeric",
-					day: "numeric",
-				}),
+			mostRecentAppointment: mostRecentAppointment
+				? formatShortInstantDate(mostRecentAppointment.startTime)
+				: undefined,
 			mostRecentAppointmentProvider: mostRecentAppointment?.providerName,
 		});
 	} catch (error) {

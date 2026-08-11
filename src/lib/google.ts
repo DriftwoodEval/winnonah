@@ -15,6 +15,7 @@ import { OAuth2Client } from "google-auth-library";
 import type { Session } from "next-auth";
 import { env } from "~/env";
 import { fetchWithCache } from "~/lib/cache";
+import { BUSINESS_TIMEZONE } from "~/lib/constants";
 import { logger } from "~/lib/logger";
 import type { Context } from "~/server/api/trpc";
 import { db } from "~/server/db";
@@ -812,10 +813,10 @@ export async function createAvailabilityEvent(
 	const event: Event = {
 		summary: eventData.summary,
 		start: {
-			timeZone: "America/New_York",
+			timeZone: BUSINESS_TIMEZONE,
 		},
 		end: {
-			timeZone: "America/New_York",
+			timeZone: BUSINESS_TIMEZONE,
 		},
 	};
 
@@ -862,7 +863,7 @@ interface CalendarEvent {
 
 const isMidnight = (date: Date) => {
 	const parts = new Intl.DateTimeFormat("en-US", {
-		timeZone: "America/New_York",
+		timeZone: BUSINESS_TIMEZONE,
 		hour: "numeric",
 		minute: "numeric",
 		second: "numeric",
@@ -1056,21 +1057,21 @@ export async function updateAvailabilityEvent(
 		start: eventData.isAllDay
 			? {
 					date: formatDate(eventData.start),
-					timeZone: "America/New_York",
+					timeZone: BUSINESS_TIMEZONE,
 				}
 			: {
 					dateTime: formatDateTime(eventData.start),
-					timeZone: "America/New_York",
+					timeZone: BUSINESS_TIMEZONE,
 				},
 		end: eventData.isAllDay
 			? {
 					// endDate is stored inclusive in the form; Google Calendar expects exclusive
 					date: formatDate(new Date(eventData.end.getTime() + 86400000)),
-					timeZone: "America/New_York",
+					timeZone: BUSINESS_TIMEZONE,
 				}
 			: {
 					dateTime: formatDateTime(eventData.end),
-					timeZone: "America/New_York",
+					timeZone: BUSINESS_TIMEZONE,
 				},
 	};
 

@@ -40,6 +40,7 @@ import {
 	getDistanceSQL,
 	getInsuranceShortName,
 	isNotesOnlyClientId,
+	localDateToDateOnly,
 } from "~/lib/utils";
 import { referralDataSchema } from "~/lib/validations/config";
 import {
@@ -416,8 +417,8 @@ export const getPriorityInfo = () => {
 			sql`JSON_SEARCH(${clients.secondaryInsurance}, 'one', '%BabyNet%') IS NOT NULL`,
 			eq(clients.babyNet, true),
 		),
-		lt(clients.dob, highPriorityBNAge),
-		gt(clients.dob, BNAgeOutDate),
+		lt(clients.dob, localDateToDateOnly(highPriorityBNAge) as string),
+		gt(clients.dob, localDateToDateOnly(BNAgeOutDate) as string),
 	);
 
 	const sortReasonSQL = sql<string>`CASE
@@ -743,7 +744,7 @@ export const clientRouter = createTRPCRouter({
 			);
 
 			let dropListReason: string | null = null;
-			let initialFailureDate: Date | undefined;
+			let initialFailureDate: string | undefined;
 
 			if (dropListQs.length > 0) {
 				const hasPostEvalPending = dropListQs.some(
@@ -753,11 +754,8 @@ export const clientRouter = createTRPCRouter({
 					? "Qs pending (3 reminders, post-eval)"
 					: "Qs pending (3 reminders)";
 				for (const q of dropListQs) {
-					if (q.sent) {
-						const d = new Date(q.sent);
-						if (!initialFailureDate || d < initialFailureDate) {
-							initialFailureDate = d;
-						}
+					if (q.sent && (!initialFailureDate || q.sent < initialFailureDate)) {
+						initialFailureDate = q.sent;
 					}
 				}
 			}
@@ -771,9 +769,8 @@ export const clientRouter = createTRPCRouter({
 						maxReminded = f.reminded;
 						failureReasonText = f.reason;
 					}
-					const d = new Date(f.failedDate);
-					if (!initialFailureDate || d < initialFailureDate) {
-						initialFailureDate = d;
+					if (!initialFailureDate || f.failedDate < initialFailureDate) {
+						initialFailureDate = f.failedDate;
 					}
 				}
 
@@ -922,7 +919,10 @@ export const clientRouter = createTRPCRouter({
 							eq(clients.schoolDistrict, "Unknown"),
 							isNull(clients.schoolDistrict),
 						),
-						gt(clients.dob, subYears(new Date(), 21)),
+						gt(
+							clients.dob,
+							localDateToDateOnly(subYears(new Date(), 21)) as string,
+						),
 						not(isNotesOnly),
 						eq(clients.status, true),
 					),
@@ -945,7 +945,7 @@ export const clientRouter = createTRPCRouter({
 	getBabyNetErrors: protectedProcedure.query(async ({ ctx }) => {
 		assertPermission(ctx.session.user, "issues:babynet-ageout");
 
-		const ageOutDate = subYears(new Date(), 3);
+		const ageOutDate = localDateToDateOnly(subYears(new Date(), 3)) as string;
 
 		const clientsTooOldForBabyNet = await ctx.db.query.clients.findMany({
 			where: and(
@@ -963,7 +963,7 @@ export const clientRouter = createTRPCRouter({
 	}),
 
 	autoUpdateBabyNet: protectedProcedure.mutation(async ({ ctx }) => {
-		const ageOutDate = subYears(new Date(), 3);
+		const ageOutDate = localDateToDateOnly(subYears(new Date(), 3)) as string;
 
 		// Discussed in meeting on 9/11/25: Automatically disable BabyNet bool for clients that age out
 		const clientsTooOldForBabyNetBool = await ctx.db.query.clients.findMany({
@@ -1826,11 +1826,11 @@ export const clientRouter = createTRPCRouter({
 			await ctx.db.insert(clients).values({
 				id: id,
 				hash: createHash("md5").update(String(id)).digest("hex"),
-				dob: new Date(0),
+				dob: "1970-01-01",
 				firstName: input.firstName,
 				lastName: input.lastName,
 				fullName: `${input.firstName} ${input.lastName}`,
-				addedDate: new Date(),
+				addedDate: localDateToDateOnly(new Date()),
 			});
 
 			const newClient = await ctx.db.query.clients.findFirst({

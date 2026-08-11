@@ -3,7 +3,7 @@
 import { DatePicker } from "@ui/date-picker";
 import { format } from "date-fns";
 import { toast } from "sonner";
-import { cn, getLocalDayFromUTCDate } from "~/lib/utils";
+import { cn } from "~/lib/utils";
 import { api } from "~/trpc/react";
 
 interface DueDateCellProps {
@@ -20,8 +20,7 @@ export function DueDateCell({
 	isAdmin,
 }: DueDateCellProps) {
 	const utils = api.useUtils();
-	const localDueDate =
-		getLocalDayFromUTCDate(effectiveDueDate) ?? effectiveDueDate;
+	const localDueDate = effectiveDueDate;
 	const isOverdue = localDueDate <= new Date();
 
 	const setOverride = api.evaluatorDashboard.setDueDateOverride.useMutation({

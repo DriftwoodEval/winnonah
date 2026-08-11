@@ -33,6 +33,7 @@ from utils.google import (
     send_gmail,
 )
 from utils.task_tracker import track_task
+from utils.timezone import business_to_utc, now_utc
 
 DAEvalType = Literal["EVAL", "DA", "DAEVAL"]
 
@@ -592,8 +593,13 @@ def insert_appointments_with_gcal(appointment_sync_data: dict[str, list[str]] | 
             task.progress(i, total_appointments)
             appointment_id = str(appointment["APPOINTMENT_ID"])
             client_id = appointment["CLIENT_ID"]
-            start_time = pd.to_datetime(appointment["STARTTIME"]).to_pydatetime()
-            end_time = pd.to_datetime(appointment["ENDTIME"]).to_pydatetime()
+            # TherapyAppointment exports naive business-local wall-clock time.
+            start_time_business = pd.to_datetime(
+                appointment["STARTTIME"]
+            ).to_pydatetime()
+            end_time_business = pd.to_datetime(appointment["ENDTIME"]).to_pydatetime()
+            start_time = business_to_utc(start_time_business)
+            end_time = business_to_utc(end_time_business)
             cancelled = type(appointment["CANCELBYNAME"]) is str
             gcal_event_id = appointment.get("gcal_event_id")
             gcal_event_title = appointment.get("gcal_title")
@@ -622,7 +628,7 @@ def insert_appointments_with_gcal(appointment_sync_data: dict[str, list[str]] | 
                 gcal_location, gcal_daeval, is_confirmed = parse_location_and_type(
                     gcal_event_title
                 )
-                confirmed_at = datetime.now() if is_confirmed else None
+                confirmed_at = now_utc() if is_confirmed else None
 
             elif is_trusted or cancelled:
                 # Fallback to CSV NPI (trusted imports and cancelled appointments)
@@ -643,7 +649,7 @@ def insert_appointments_with_gcal(appointment_sync_data: dict[str, list[str]] | 
                     appt_name = re.sub(r"[\d\(\)]", "", appointment["NAME"]).strip()
                     logger.warning(
                         f"Skipping {label} appointment {appointment_id} ({appt_name}) for client {client_id} "
-                        f"on {start_time.strftime('%m/%d %I:%M %p')}: "
+                        f"on {start_time_business.strftime('%m/%d %I:%M %p')}: "
                         f"NPI {evaluator_npi} not found in evaluator table. "
                         f"Known NPIs: {sorted(valid_npis)}"
                     )
@@ -677,9 +683,9 @@ def insert_appointments_with_gcal(appointment_sync_data: dict[str, list[str]] | 
                 client_dob = dob_map.get(client_id)
                 if client_dob:
                     appt_date = (
-                        start_time.date()
-                        if isinstance(start_time, datetime)
-                        else start_time
+                        start_time_business.date()
+                        if isinstance(start_time_business, datetime)
+                        else start_time_business
                     )
                     age = (appt_date - client_dob).days // 365
                     in_person = get_in_person_assessments_for_client(
@@ -715,8 +721,15 @@ def insert_appointments_with_gcal(appointment_sync_data: dict[str, list[str]] | 
                 task.progress(i, total_billing)
                 appointment_id = str(appointment["APPOINTMENT_ID"])
                 client_id = appointment["CLIENT_ID"]
-                start_time = pd.to_datetime(appointment["STARTTIME"]).to_pydatetime()
-                end_time = pd.to_datetime(appointment["ENDTIME"]).to_pydatetime()
+                # TherapyAppointment exports naive business-local wall-clock time.
+                start_time_business = pd.to_datetime(
+                    appointment["STARTTIME"]
+                ).to_pydatetime()
+                end_time_business = pd.to_datetime(
+                    appointment["ENDTIME"]
+                ).to_pydatetime()
+                start_time = business_to_utc(start_time_business)
+                end_time = business_to_utc(end_time_business)
                 cancelled = type(appointment["CANCELBYNAME"]) is str
                 cpt_code = re.sub(r"\D", "", appointment["NAME"]) or "N/A"
 
@@ -736,7 +749,7 @@ def insert_appointments_with_gcal(appointment_sync_data: dict[str, list[str]] | 
                     name = re.sub(r"[\d\(\)]", "", appointment["NAME"]).strip()
                     logger.warning(
                         f"Skipping billing appointment {appointment_id} ({name}) for client {client_id} "
-                        f"on {start_time.strftime('%m/%d %I:%M %p')}: "
+                        f"on {start_time_business.strftime('%m/%d %I:%M %p')}: "
                         f"NPI {evaluator_npi} not found in evaluator table. "
                         f"Known NPIs: {sorted(valid_npis)}"
                     )

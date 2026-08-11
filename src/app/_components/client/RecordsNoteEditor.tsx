@@ -22,7 +22,12 @@ import { toast } from "sonner";
 import { useCheckPermission } from "~/hooks/use-check-permission";
 import { NOTE_TEMPLATES } from "~/lib/constants";
 import { logger } from "~/lib/logger";
-import { formatShortDate, getLocalDayFromUTCDate } from "~/lib/utils";
+import {
+	dateOnlyToLocalDate,
+	formatShortDate,
+	formatShortInstantDate,
+	localDateToDateOnly,
+} from "~/lib/utils";
 import { api } from "~/trpc/react";
 import { NoteHistory } from "../shared/NoteHistory";
 import { ResponsiveDialog } from "../shared/ResponsiveDialog";
@@ -128,8 +133,8 @@ export function RecordsNoteEditor({
 		Array<{
 			id: number;
 			clientId: number;
-			requestedDate: Date | string | null;
-			holdUntil: Date | string | null;
+			requestedDate: string | null;
+			holdUntil: string | null;
 			customMessage: string | null;
 			createdAt: Date;
 			createdBy: string | null;
@@ -306,7 +311,7 @@ export function RecordsNoteEditor({
 		setRecordRequestDateMutation.mutate({
 			requestId,
 			clientId,
-			requestedDate: date ?? null,
+			requestedDate: localDateToDateOnly(date) ?? null,
 		});
 	};
 
@@ -315,7 +320,7 @@ export function RecordsNoteEditor({
 		setRecordRequestHoldUntilMutation.mutate({
 			requestId,
 			clientId,
-			holdUntil: date ?? null,
+			holdUntil: localDateToDateOnly(date) ?? null,
 		});
 	};
 
@@ -436,7 +441,7 @@ export function RecordsNoteEditor({
 							</AlertTitle>
 							<AlertDescription>
 								First noted {formatShortDate(failure.failedDate)}, last updated{" "}
-								{formatShortDate(failure.updatedAt)}.
+								{formatShortInstantDate(failure.updatedAt)}.
 							</AlertDescription>
 							{canResolveFailure && (
 								<AlertAction>
@@ -494,9 +499,7 @@ export function RecordsNoteEditor({
 									<Label>{`Request (${i + 1})`}</Label>
 									<DatePicker
 										allowClear={canAddRequest && hasSentDate}
-										date={
-											getLocalDayFromUTCDate(req.requestedDate) ?? undefined
-										}
+										date={dateOnlyToLocalDate(req.requestedDate) ?? undefined}
 										disabled={!canAddRequest}
 										flexDirection="flex-row"
 										id={dateId}
@@ -507,7 +510,7 @@ export function RecordsNoteEditor({
 									{!req.requestedDate && (
 										<DatePicker
 											allowClear={canAddRequest && !!req.holdUntil}
-											date={getLocalDayFromUTCDate(req.holdUntil) ?? undefined}
+											date={dateOnlyToLocalDate(req.holdUntil) ?? undefined}
 											disabled={!canAddRequest}
 											flexDirection="flex-row"
 											id={`hold-${req.id}`}

@@ -30,7 +30,7 @@ import { z } from "zod";
 import { useCheckPermission } from "~/hooks/use-check-permission";
 import { logger } from "~/lib/logger";
 import type { Client } from "~/lib/models";
-import { cn } from "~/lib/utils";
+import { cn, localDateToDateOnly } from "~/lib/utils";
 import { api } from "~/trpc/react";
 import {
 	ResponsiveDialog,
@@ -348,7 +348,8 @@ export function ClientEditButton({ client }: { client: Client }) {
 
 	const BNAgeOutDate = subYears(new Date(), 3);
 
-	const underBNAge = client && client.dob > BNAgeOutDate;
+	const underBNAge =
+		client && client.dob > (localDateToDateOnly(BNAgeOutDate) as string);
 
 	const showBabyNetCheckbox =
 		underBNAge &&

@@ -1,9 +1,14 @@
 import { type ClassValue, clsx } from "clsx";
+import { formatInTimeZone, toZonedTime } from "date-fns-tz";
 import { type AnyColumn, type SQL, sql } from "drizzle-orm";
 import { twMerge } from "tailwind-merge";
 import type { InsuranceWithAliases } from "~/lib/models";
 import type { PermissionId, PermissionsObject } from "~/lib/types";
-import { PERMISSION_MAP, type QUESTIONNAIRE_STATUSES } from "./constants";
+import {
+	BUSINESS_TIMEZONE,
+	PERMISSION_MAP,
+	type QUESTIONNAIRE_STATUSES,
+} from "./constants";
 
 export const IS_DEV = process.env.NODE_ENV === "development";
 
@@ -99,20 +104,30 @@ export const getInsuranceShortNamesList = (
 
 /**
  * Format a client's age given their date of birth.
- * @param dob The client's date of birth.
+ * @param dob The client's date of birth, as a "YYYY-MM-DD" date-only string.
  * @param format The format of the returned age. Can be "short", "years", or "long".
  *   - "short": "X:Y" where X is the number of years and Y is the number of months.
  *   - "years": The number of years as a string.
  *   - "long": A human-readable string like "X years" or "X years, Y months".
  * @returns The formatted age.
  */
-export function formatClientAge(dob: Date, format = "long") {
-	const ageInMilliseconds = Date.now() - dob.getTime();
-	const years = Math.floor(ageInMilliseconds / (1000 * 60 * 60 * 24 * 365.25));
-	const months = Math.floor(
-		(ageInMilliseconds % (1000 * 60 * 60 * 24 * 365.25)) /
-			(1000 * 60 * 60 * 24 * 30.44),
-	);
+export function formatClientAge(dob: string, format = "long") {
+	const parsed = parseDateOnly(dob);
+	if (!parsed) {
+		return format === "years" ? "0" : "0 years";
+	}
+
+	const today = new Date();
+	let years = today.getFullYear() - parsed.year;
+	let months = today.getMonth() + 1 - parsed.month;
+	if (today.getDate() < parsed.day) {
+		months -= 1;
+	}
+	if (months < 0) {
+		years -= 1;
+		months += 12;
+	}
+
 	if (format === "short") {
 		return years >= 3 ? `${years}` : `${years}:${months}`;
 	}
@@ -185,19 +200,78 @@ export function normalizePhoneNumber(phoneNumber: string) {
 	return `+${digits}`;
 }
 
-export const getLocalDayFromUTCDate = (
-	utcDate: Date | string | undefined | null,
-): Date | undefined => {
-	if (!utcDate) return undefined;
+/**
+ * Parse a date-only "YYYY-MM-DD" value into its year/month/day parts, for
+ * calendar arithmetic (sorting, age calculation, comparisons) without ever
+ * constructing a Date object from it. Date-only columns have no time
+ * component or timezone, so there's nothing for a Date object to represent.
+ */
+export function parseDateOnly(
+	date: string | undefined | null,
+): { year: number; month: number; day: number } | undefined {
+	if (!date) return undefined;
+	const match = /^(\d{4})-(\d{2})-(\d{2})/.exec(date);
+	if (!match?.[1] || !match[2] || !match[3]) return undefined;
+	return {
+		year: Number(match[1]),
+		month: Number(match[2]),
+		day: Number(match[3]),
+	};
+}
 
-	const d = new Date(utcDate);
+/**
+ * Compare two date-only "YYYY-MM-DD" values chronologically. Nullish values
+ * sort first. Usable directly as an Array.prototype.sort comparator.
+ */
+export function compareDateOnly(
+	a: string | undefined | null,
+	b: string | undefined | null,
+): number {
+	if (!a && !b) return 0;
+	if (!a) return -1;
+	if (!b) return 1;
+	return a < b ? -1 : a > b ? 1 : 0;
+}
 
-	if (Number.isNaN(d.getTime())) {
-		return undefined;
-	}
+/**
+ * Convert a date-only "YYYY-MM-DD" value into a Date at local midnight, for
+ * UI components (date pickers, date-fns comparisons) that require a Date
+ * object to represent a calendar day. Builds the Date from the string's own
+ * year/month/day digits rather than parsing it as an instant, so the result
+ * always matches the stored calendar date regardless of local timezone.
+ */
+export function dateOnlyToLocalDate(
+	date: string | undefined | null,
+): Date | undefined {
+	const parsed = parseDateOnly(date);
+	if (!parsed) return undefined;
+	return new Date(parsed.year, parsed.month - 1, parsed.day);
+}
 
-	return new Date(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate());
-};
+/**
+ * Convert a Date (e.g. from a date picker) into a "YYYY-MM-DD" date-only
+ * string, using its local calendar date. Inverse of dateOnlyToLocalDate.
+ */
+export function localDateToDateOnly(
+	date: Date | undefined | null,
+): string | undefined {
+	if (!date) return undefined;
+	const year = date.getFullYear();
+	const month = String(date.getMonth() + 1).padStart(2, "0");
+	const day = String(date.getDate()).padStart(2, "0");
+	return `${year}-${month}-${day}`;
+}
+
+/**
+ * Whether a date-only "YYYY-MM-DD" value is strictly before today, in terms
+ * of the server's local calendar date.
+ */
+export function isDateOnlyPast(date: string | undefined | null): boolean {
+	if (!date) return false;
+	const today = new Date();
+	const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
+	return date < todayStr;
+}
 
 export function formatTaMessage(
 	questionnaires: { questionnaireType: string; link: string | null }[],
@@ -212,39 +286,99 @@ export function formatTaMessage(
 		.join("\n");
 }
 
+/**
+ * Format a date-only "YYYY-MM-DD" column value as M/D/YY. Formats the parts
+ * directly rather than going through a Date object, so there's no local
+ * timezone to shift the day by.
+ */
 export const formatShortDate = (
-	date: Date | string | undefined | null,
+	date: string | undefined | null,
 	fallback = "N/A",
 ): string => {
-	return (
-		getLocalDayFromUTCDate(date)?.toLocaleDateString(undefined, {
-			year: "2-digit",
-			month: "numeric",
-			day: "numeric",
-		}) ?? fallback
-	);
+	const parsed = parseDateOnly(date);
+	if (!parsed) return fallback;
+	return `${parsed.month}/${parsed.day}/${String(parsed.year).slice(2)}`;
 };
 
-export const getLocalTimeFromUTCDate = (
-	utcDate: Date | string | undefined | null,
-): Date | undefined => {
-	if (!utcDate) return undefined;
-
-	const d = new Date(utcDate);
-
-	if (Number.isNaN(d.getTime())) {
-		return undefined;
-	}
-
-	return new Date(
-		d.getUTCFullYear(),
-		d.getUTCMonth(),
-		d.getUTCDate(),
-		d.getUTCHours(),
-		d.getUTCMinutes(),
-		d.getUTCSeconds(),
-	);
+/**
+ * Format a date-only "YYYY-MM-DD" column value as M/D/YYYY.
+ */
+export const formatDateOnlyLong = (
+	date: string | undefined | null,
+	fallback = "",
+): string => {
+	const parsed = parseDateOnly(date);
+	if (!parsed) return fallback;
+	return `${parsed.month}/${parsed.day}/${parsed.year}`;
 };
+
+const SHORT_MONTH_NAMES = [
+	"Jan",
+	"Feb",
+	"Mar",
+	"Apr",
+	"May",
+	"Jun",
+	"Jul",
+	"Aug",
+	"Sep",
+	"Oct",
+	"Nov",
+	"Dec",
+];
+
+/**
+ * Format a date-only "YYYY-MM-DD" column value as "Mon D, YYYY".
+ */
+export const formatDateOnlyMedium = (
+	date: string | undefined | null,
+	fallback = "",
+): string => {
+	const parsed = parseDateOnly(date);
+	if (!parsed) return fallback;
+	return `${SHORT_MONTH_NAMES[parsed.month - 1]} ${parsed.day}, ${parsed.year}`;
+};
+
+/**
+ * Convert a true-instant (timestamp) column value, e.g. `startTime` or
+ * `updatedAt`, into a Date whose local getters (getHours, getDate, etc.)
+ * reflect the practice's business timezone rather than the browser/server's
+ * own timezone. For grid math and other calendar arithmetic that needs
+ * numeric hour/minute/day values; for display use formatInBusinessTime.
+ */
+export function toBusinessZonedTime(
+	date: Date | string | undefined | null,
+): Date | undefined {
+	if (!date) return undefined;
+	const d = toZonedTime(date, BUSINESS_TIMEZONE);
+	if (Number.isNaN(d.getTime())) return undefined;
+	return d;
+}
+
+/**
+ * Format a true-instant (timestamp) column value in the practice's business
+ * timezone, regardless of the browser/server's own timezone. `pattern` is a
+ * date-fns format string (see date-fns `format` docs).
+ */
+export function formatInBusinessTime(
+	date: Date | string | undefined | null,
+	pattern: string,
+	fallback = "N/A",
+): string {
+	if (!date) return fallback;
+	const d = new Date(date);
+	if (Number.isNaN(d.getTime())) return fallback;
+	return formatInTimeZone(d, BUSINESS_TIMEZONE, pattern);
+}
+
+/**
+ * Format the calendar day of a true-instant (timestamp) column value as
+ * M/D/YY, e.g. `startTime` or `createdAt`, in business-local time.
+ */
+export const formatShortInstantDate = (
+	date: Date | string | undefined | null,
+	fallback = "N/A",
+): string => formatInBusinessTime(date, "M/d/yy", fallback);
 
 export function getClosestOfficeKey(
 	clientLat: number,

@@ -26,6 +26,7 @@ import {
 	updatePunchData,
 } from "~/lib/google";
 import type { InsertingQuestionnaire } from "~/lib/models";
+import { localDateToDateOnly } from "~/lib/utils";
 import { CACHE_KEY_MISSING_APPOINTMENTS } from "~/server/api/routers/client";
 import {
 	assertPermission,
@@ -287,7 +288,8 @@ async function resolveApplicableRules(
 				(q) =>
 					q.sent !== null &&
 					q.status !== "ARCHIVED" &&
-					(!sessionStartedAt || q.sent >= sessionStartedAt),
+					(!sessionStartedAt ||
+						(q.sent ?? "") >= (localDateToDateOnly(sessionStartedAt) ?? "")),
 			)
 			.map((q) => q.questionnaireType),
 	);
@@ -642,7 +644,7 @@ export const questionnaireRouter = createTRPCRouter({
 				});
 			}
 
-			const sentDate = input.sent ? new Date(input.sent.toUTCString()) : null;
+			const sentDate = localDateToDateOnly(input.sent) ?? null;
 
 			if (input.link !== undefined) {
 				const linkSearch = await ctx.db.query.questionnaires.findFirst({
@@ -816,7 +818,7 @@ export const questionnaireRouter = createTRPCRouter({
 							.set({
 								questionnaireType: newQuestionnaire.questionnaireType,
 								status: "PENDING",
-								sent: new Date(),
+								sent: localDateToDateOnly(new Date()),
 								reminded: 0,
 								lastReminded: null,
 							})
@@ -829,7 +831,7 @@ export const questionnaireRouter = createTRPCRouter({
 						clientId: input.clientId,
 						questionnaireType: newQuestionnaire.questionnaireType,
 						link: newQuestionnaire.link,
-						sent: new Date(),
+						sent: localDateToDateOnly(new Date()) ?? null,
 						status: "PENDING" as "PENDING",
 						reminded: 0,
 						lastReminded: null,
@@ -906,7 +908,7 @@ export const questionnaireRouter = createTRPCRouter({
 				}
 			}
 
-			const sentDate = input.sent ? new Date(input.sent.toUTCString()) : null;
+			const sentDate = localDateToDateOnly(input.sent) ?? null;
 
 			const existing = await ctx.db.query.questionnaires.findFirst({
 				where: eq(questionnaires.id, input.id),
@@ -1300,12 +1302,15 @@ export const questionnaireRouter = createTRPCRouter({
 		)
 		.mutation(async ({ ctx, input }) => {
 			assertPermission(ctx.session.user, "clients:questionnaires:in-person");
-			await ctx.db.insert(inPersonAssessments).ignore().values({
-				clientId: input.clientId,
-				assessmentType: input.assessmentType,
-				addedDate: new Date(),
-				appointmentId: input.appointmentId,
-			});
+			await ctx.db
+				.insert(inPersonAssessments)
+				.ignore()
+				.values({
+					clientId: input.clientId,
+					assessmentType: input.assessmentType,
+					addedDate: localDateToDateOnly(new Date()),
+					appointmentId: input.appointmentId,
+				});
 			await invalidateCache(ctx, CACHE_KEY_MISSING_APPOINTMENTS);
 		}),
 

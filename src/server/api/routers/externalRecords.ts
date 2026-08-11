@@ -119,7 +119,7 @@ export const externalRecordRouter = createTRPCRouter({
 			z.object({
 				requestId: z.number(),
 				clientId: z.number(),
-				requestedDate: z.date().nullable(),
+				requestedDate: z.string().nullable(),
 			}),
 		)
 		.mutation(async ({ ctx, input }) => {
@@ -167,7 +167,7 @@ export const externalRecordRouter = createTRPCRouter({
 			z.object({
 				requestId: z.number(),
 				clientId: z.number(),
-				holdUntil: z.date().nullable(),
+				holdUntil: z.string().nullable(),
 			}),
 		)
 		.mutation(async ({ ctx, input }) => {

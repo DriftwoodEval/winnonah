@@ -36,6 +36,8 @@ class TestOfficeFields:
 
 class TestFormatMessage:
     def test_substitutes_all_placeholders(self):
+        # startTime is naive-UTC; March 5 is EST (UTC-5), so 14:30 UTC is
+        # 09:30 AM business-local.
         template = "See you $DATE at $START_TIME at $OFFICE_NAME, located $LOCATION."
         appointment = {
             "startTime": datetime(2026, 3, 5, 14, 30),
@@ -45,7 +47,7 @@ class TestFormatMessage:
         }
         result = format_message(template, appointment)
         assert result == (
-            "See you Thursday, March 05 at 02:30 PM at Downtown Office, "
+            "See you Thursday, March 05 at 09:30 AM at Downtown Office, "
             "located at our Downtown office."
         )
 
