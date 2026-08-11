@@ -11,7 +11,11 @@ import { addDays, format } from "date-fns";
 import { ChevronDown, ChevronLeft, ChevronRight } from "lucide-react";
 import Link from "next/link";
 import { useMemo, useState } from "react";
-import { formatPhoneNumber, normalizePhoneNumber } from "~/lib/utils";
+import {
+	formatInBusinessTime,
+	formatPhoneNumber,
+	normalizePhoneNumber,
+} from "~/lib/utils";
 import { api, type RouterOutputs } from "~/trpc/react";
 import { RecentMessagesPopover } from "../day-ahead/RecentMessagesPopover";
 
@@ -68,11 +72,7 @@ export function useSelectedDate() {
 }
 
 function formatTime(date: Date) {
-	return new Date(date).toLocaleTimeString([], {
-		hour: "numeric",
-		minute: "2-digit",
-		timeZone: "UTC",
-	});
+	return formatInBusinessTime(date, "h:mm a");
 }
 
 export function DayNav({
