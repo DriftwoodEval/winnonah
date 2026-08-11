@@ -27,7 +27,7 @@ import Link from "next/link";
 import { useState } from "react";
 import { toast } from "sonner";
 import type { SortedClient } from "~/lib/api-types";
-import { cn } from "~/lib/utils";
+import { cn, formatInBusinessTime } from "~/lib/utils";
 import { api, type RouterOutputs } from "~/trpc/react";
 
 type FaxListItem = RouterOutputs["faxCategorization"]["list"][number];
@@ -442,7 +442,11 @@ function FaxGrid({
 												<span className="font-medium">
 													{selectedFax.reviewedByName ?? "someone"}
 												</span>{" "}
-												on {new Date(selectedFax.reviewedAt).toLocaleString()}
+												on{" "}
+												{formatInBusinessTime(
+													selectedFax.reviewedAt,
+													"MMM d, yyyy h:mm a",
+												)}
 											</p>
 										)}
 									</div>

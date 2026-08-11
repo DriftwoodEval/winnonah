@@ -22,7 +22,7 @@ import {
 	packCodesIntoAppointments,
 	parsePrecertMemo,
 } from "~/lib/billing";
-import { dateOnlyToLocalDate } from "~/lib/utils";
+import { dateOnlyToLocalDate, formatInBusinessTime } from "~/lib/utils";
 import { api } from "~/trpc/react";
 
 export function AdditionalInsuranceAppointmentsDisplay({
@@ -169,11 +169,7 @@ export function AdditionalInsuranceAppointmentsDisplay({
 	const aggregatedCodes = aggregateBillingCodes(displayAppointments);
 
 	const computedAt = snapshot
-		? new Date(snapshot.computedAt).toLocaleDateString("en-US", {
-				month: "short",
-				day: "numeric",
-				year: "numeric",
-			})
+		? formatInBusinessTime(snapshot.computedAt, "MMM d, yyyy")
 		: null;
 
 	return (
