@@ -117,10 +117,16 @@ export function formatClientAge(dob: string, format = "long") {
 		return format === "years" ? "0" : "0 years";
 	}
 
-	const today = new Date();
-	let years = today.getFullYear() - parsed.year;
-	let months = today.getMonth() + 1 - parsed.month;
-	if (today.getDate() < parsed.day) {
+	// Use business-local "today", not the reading process's own timezone:
+	// local Date getters would make this non-deterministic (e.g. shift a day
+	// depending on whether the server/CI runner is behind or ahead of UTC).
+	const today = parseDateOnly(formatInBusinessTime(new Date(), "yyyy-MM-dd"));
+	if (!today) {
+		return format === "years" ? "0" : "0 years";
+	}
+	let years = today.year - parsed.year;
+	let months = today.month - parsed.month;
+	if (today.day < parsed.day) {
 		months -= 1;
 	}
 	if (months < 0) {

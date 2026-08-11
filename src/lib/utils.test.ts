@@ -133,7 +133,9 @@ describe("getInsuranceShortNamesList", () => {
 describe("formatClientAge", () => {
 	beforeEach(() => {
 		vi.useFakeTimers();
-		vi.setSystemTime(new Date("2026-08-10T00:00:00Z"));
+		// Noon EDT (not UTC midnight), so "today" is unambiguously 2026-08-10
+		// in business-local time regardless of the runner's own timezone.
+		vi.setSystemTime(new Date("2026-08-10T16:00:00Z"));
 	});
 
 	afterEach(() => {
@@ -141,23 +143,23 @@ describe("formatClientAge", () => {
 	});
 
 	it("formats a long age under 3 years with years and months", () => {
-		expect(formatClientAge("2025-02-10")).toBe("1 years, 5 months");
+		expect(formatClientAge("2025-02-10")).toBe("1 years, 6 months");
 	});
 
 	it("formats a long age of 3 years or more as just years", () => {
-		expect(formatClientAge("2020-08-10")).toBe("5 years");
+		expect(formatClientAge("2020-08-10")).toBe("6 years");
 	});
 
 	it("formats the short form as years:months under 3 years", () => {
-		expect(formatClientAge("2025-02-10", "short")).toBe("1:5");
+		expect(formatClientAge("2025-02-10", "short")).toBe("1:6");
 	});
 
 	it("formats the short form as just years at 3 years or more", () => {
-		expect(formatClientAge("2020-08-10", "short")).toBe("5");
+		expect(formatClientAge("2020-08-10", "short")).toBe("6");
 	});
 
 	it("formats the years-only form", () => {
-		expect(formatClientAge("2020-08-10", "years")).toBe("5");
+		expect(formatClientAge("2020-08-10", "years")).toBe("6");
 	});
 });
 
