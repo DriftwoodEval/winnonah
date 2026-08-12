@@ -35,11 +35,11 @@ export default function GreeterSchedule() {
 	return (
 		<div className="flex w-full flex-col items-center">
 			<Card className="w-full max-w-2xl">
-				<CardHeader className="flex flex-row items-center gap-4 space-y-0 pb-4">
+				<CardHeader className="flex flex-row flex-wrap items-center gap-4 space-y-0 pb-4">
 					<div className="rounded-lg bg-primary/10 p-3 text-primary">
 						<PhoneCall className="h-6 w-6" />
 					</div>
-					<div className="flex flex-1 items-center justify-between gap-3">
+					<div className="flex flex-1 flex-wrap items-center justify-between gap-3">
 						<CardTitle className="text-2xl">
 							{isToday ? "Today's Greeters" : "Greeters"}
 						</CardTitle>
@@ -52,7 +52,7 @@ export default function GreeterSchedule() {
 							>
 								<ChevronLeft className="h-5 w-5" />
 							</Button>
-							<span className="w-64 shrink-0 text-center font-medium text-lg">
+							<span className="w-44 shrink-0 text-center font-medium text-base sm:w-64 sm:text-lg">
 								{format(new Date(`${selectedDate}T12:00:00`), "EEEE, MMMM d")}
 							</span>
 							<Button
