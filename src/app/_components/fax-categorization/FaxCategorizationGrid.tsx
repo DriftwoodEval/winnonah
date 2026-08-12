@@ -27,7 +27,12 @@ import {
 import { Separator } from "@ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@ui/tabs";
 import { formatDistanceToNow } from "date-fns";
-import { ChevronDownIcon, FileTextIcon, InboxIcon } from "lucide-react";
+import {
+	ChevronDownIcon,
+	DownloadIcon,
+	FileTextIcon,
+	InboxIcon,
+} from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -145,6 +150,19 @@ function categoryWasChanged(fax: {
 	return fax.category !== fax.llmCategory;
 }
 
+// The stem here just needs to be readable; python/categorize_documents.py's
+// --eval mode only reads the category after the LAST underscore, so the id
+// suffix (for uniqueness) and category are what matter.
+function downloadEvalZip(faxes: { id: number }[]) {
+	const ids = faxes.map((fax) => fax.id).join(",");
+	const link = document.createElement("a");
+	link.href = `/api/fax-categorization/download-eval-zip?ids=${ids}`;
+	link.download = "fax-categorization-eval.zip";
+	document.body.appendChild(link);
+	link.click();
+	document.body.removeChild(link);
+}
+
 function wasChangedByReviewer(fax: {
 	category: string | null;
 	llmCategory: string | null;
@@ -225,6 +243,16 @@ export function FaxCategorizationGrid() {
 							{displayedFaxes.length} fax
 							{displayedFaxes.length === 1 ? "" : "es"}
 						</span>
+					)}
+					{tab === "reviewed" && displayedFaxes.length > 0 && (
+						<Button
+							onClick={() => downloadEvalZip(displayedFaxes)}
+							size="sm"
+							variant="outline"
+						>
+							<DownloadIcon className="size-4" />
+							Download for testing
+						</Button>
 					)}
 				</div>
 			</div>

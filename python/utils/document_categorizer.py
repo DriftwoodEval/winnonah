@@ -47,13 +47,20 @@ CATEGORY_DEFINITIONS = {
         "Someone is requesting records/information FROM us, including a "
         "signed authorization/consent form allowing us to release those "
         "records - even if the word 'authorization' appears, this is not "
-        "Insurance unless it's about coverage/billing."
+        "Insurance unless it's about coverage/billing. An insurance "
+        "company asking us for more information/documentation to process "
+        "a claim or authorization is Insurance, not Records Request, even "
+        "though it's technically requesting records from us - the sender "
+        "being an insurer handling a claim is what controls, not the "
+        "'requesting records' phrasing."
     ),
     "Insurance": (
         "Coverage, billing, or claims paperwork, or an insurer's prior "
         "authorization for treatment, that is NOT specifically a denial or "
-        "approval decision - NOT a patient's signed authorization/consent "
-        "to release their own records, which is a Records Request."
+        "approval decision. Includes an insurer asking us for additional "
+        "information/documentation/records needed to process a claim or "
+        "authorization. NOT a patient's signed authorization/consent to "
+        "release their own records, which is a Records Request."
     ),
     "Insurance Denial": (
         "An insurer is refusing coverage, a claim, or prior authorization "
