@@ -79,6 +79,17 @@ if [ -z "$WAS_RUNNING" ]; then
 fi
 """
 
+[tasks."db:studio"]
+description = "Open Drizzle Studio against the local database"
+shell = "bash -c"
+run = """
+docker compose up -d driftwood-db
+while ! docker compose ps driftwood-db --format json | grep -q '"Health":"healthy"'; do
+    sleep 0.5
+done
+pnpm db:studio
+"""
+
 [tasks."db:studio:remote"]
 description = "Open Drizzle Studio against the production database over SSH"
 run = "ssh -t -L 8282:localhost:8282 opti \"bash -ic 'cd winnonah && pnpm db:studio --port 8282'\""
