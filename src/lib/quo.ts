@@ -1,5 +1,21 @@
 import { logger } from "~/lib/logger";
 
+const MAX_RATE_LIMIT_RETRIES = 3;
+
+function sleep(ms: number): Promise<void> {
+	return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function retryDelayMs(response: Response, attempt: number): number {
+	const retryAfter = response.headers.get("Retry-After");
+	if (retryAfter) {
+		const seconds = Number(retryAfter);
+		if (!Number.isNaN(seconds)) return seconds * 1000;
+	}
+	// Exponential backoff with jitter as a fallback: ~500ms, ~1s, ~2s.
+	return 500 * 2 ** attempt + Math.random() * 250;
+}
+
 async function timedFetch(
 	url: string,
 	message: string,
@@ -8,7 +24,18 @@ async function timedFetch(
 	const start = Date.now();
 	const endpoint = new URL(url).pathname;
 	try {
-		return await fetch(url, options);
+		for (let attempt = 0; ; attempt++) {
+			const response = await fetch(url, options);
+			if (response.status !== 429 || attempt >= MAX_RATE_LIMIT_RETRIES) {
+				return response;
+			}
+			const delay = retryDelayMs(response, attempt);
+			logger.warn(
+				{ external_api: "quo", endpoint, attempt, delay_ms: delay },
+				"Quo API rate limited, retrying",
+			);
+			await sleep(delay);
+		}
 	} finally {
 		logger.debug(
 			{ duration_ms: Date.now() - start, external_api: "quo", endpoint },
