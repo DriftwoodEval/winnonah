@@ -10,7 +10,10 @@ import { addDays, format } from "date-fns";
 import { ChevronDown, ChevronLeft, ChevronRight } from "lucide-react";
 import Link from "next/link";
 import { useMemo, useState } from "react";
+import { useCheckPermission } from "~/hooks/use-check-permission";
+import { formatInBusinessTime } from "~/lib/utils";
 import { api } from "~/trpc/react";
+import { CheckInOutControl } from "../appointments/CheckInOutControl";
 import { formatTime } from "../day-ahead/CalendarGrid";
 import {
 	ApptMessagesPopover,
@@ -25,7 +28,7 @@ import {
 import { Redact } from "../redaction/Redact";
 
 export function todayStr() {
-	return format(new Date(), "yyyy-MM-dd");
+	return formatInBusinessTime(new Date(), "yyyy-MM-dd");
 }
 
 export function useSelectedDate() {
@@ -104,6 +107,8 @@ export function WidgetShell({
 }
 
 export function MyDayWidget() {
+	const can = useCheckPermission();
+	const canCheckin = can("clients:appointments:checkin");
 	const { date: asDate, shift, resetToToday } = useSelectedDate();
 	const { data, isLoading } = api.appointments.getDayAhead.useQuery({ asDate });
 	const { data: greeterSchedule } = api.greeterProxy.getSchedule.useQuery({
@@ -178,6 +183,23 @@ export function MyDayWidget() {
 								messages={recentMessages ?? {}}
 								messagesLoading={messagesLoading}
 							/>
+							{canCheckin && asDate === todayStr() && (
+								<CheckInOutControl
+									appointmentId={appt.id}
+									checkedInAt={appt.checkedInAt}
+									checkedInBy={appt.checkedInBy}
+									checkedOutAt={appt.checkedOutAt}
+									checkedOutBy={appt.checkedOutBy}
+									checkInReason={appt.checkInReason}
+									checkInReasonNote={appt.checkInReasonNote}
+									checkOutReason={appt.checkOutReason}
+									checkOutReasonNote={appt.checkOutReasonNote}
+									compact
+									endTime={appt.endTime}
+									isToday
+									startTime={appt.startTime}
+								/>
+							)}
 							{!allSameLocation && appt.officeName && (
 								<span className="ml-auto shrink-0 text-muted-foreground text-xs">
 									{appt.officeName}
@@ -192,6 +214,8 @@ export function MyDayWidget() {
 }
 
 export function WhosInWidget() {
+	const can = useCheckPermission();
+	const canCheckin = can("clients:appointments:checkin");
 	const { date: asDate, shift, resetToToday } = useSelectedDate();
 	const { data, isLoading } = api.appointments.getDayAhead.useQuery({ asDate });
 	const { data: greeterSchedule } = api.greeterProxy.getSchedule.useQuery({
@@ -247,6 +271,8 @@ export function WhosInWidget() {
 							</div>
 							{office.evaluators.map((ev) => (
 								<ExpandableEvaluator
+									asDate={asDate}
+									canCheckin={canCheckin}
 									evaluator={ev}
 									key={ev.npi}
 									messages={recentMessages ?? {}}
@@ -265,6 +291,8 @@ function ExpandableEvaluator({
 	evaluator,
 	messages,
 	messagesLoading,
+	canCheckin,
+	asDate,
 }: {
 	evaluator: {
 		name: string;
@@ -280,10 +308,20 @@ function ExpandableEvaluator({
 			clientName: string;
 			clientHash: string;
 			clientPhone: string | null;
+			checkedInAt: Date | null;
+			checkedInBy: string | null;
+			checkInReason: string | null;
+			checkInReasonNote: string | null;
+			checkedOutAt: Date | null;
+			checkedOutBy: string | null;
+			checkOutReason: string | null;
+			checkOutReasonNote: string | null;
 		}[];
 	};
 	messages: RecentMessagesMap;
 	messagesLoading: boolean;
+	canCheckin: boolean;
+	asDate: string;
 }) {
 	const [open, setOpen] = useState(false);
 	const first = evaluator.appointments[0];
@@ -338,6 +376,23 @@ function ExpandableEvaluator({
 								messages={messages}
 								messagesLoading={messagesLoading}
 							/>
+							{canCheckin && asDate === todayStr() && (
+								<CheckInOutControl
+									appointmentId={appt.id}
+									checkedInAt={appt.checkedInAt}
+									checkedInBy={appt.checkedInBy}
+									checkedOutAt={appt.checkedOutAt}
+									checkedOutBy={appt.checkedOutBy}
+									checkInReason={appt.checkInReason}
+									checkInReasonNote={appt.checkInReasonNote}
+									checkOutReason={appt.checkOutReason}
+									checkOutReasonNote={appt.checkOutReasonNote}
+									compact
+									endTime={appt.endTime}
+									isToday
+									startTime={appt.startTime}
+								/>
+							)}
 						</div>
 					))}
 				</div>

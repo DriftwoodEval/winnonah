@@ -10,6 +10,7 @@ import type { AdapterAccount } from "next-auth/adapters";
 import type z from "zod";
 import { CLIENT_COLOR_KEYS } from "~/lib/colors";
 import {
+	APPOINTMENT_CHECKIN_REASONS,
 	IN_PERSON_ASSESSMENT_STATUSES,
 	QUESTIONNAIRE_STATUSES,
 } from "~/lib/constants";
@@ -1413,6 +1414,36 @@ export const appointmentNotesRelations = relations(
 			references: [appointments.id],
 		}),
 		history: many(appointmentNoteHistory),
+	}),
+);
+
+export const appointmentCheckins = createTable("appointment_checkin", (d) => ({
+	appointmentId: d
+		.varchar({ length: 255 })
+		.notNull()
+		.primaryKey()
+		.references(() => appointments.id, { onDelete: "cascade" }),
+	checkedInAt: d.timestamp("checked_in_at"),
+	checkedInBy: d.varchar("checked_in_by", { length: 255 }),
+	checkInReason: d.mysqlEnum("check_in_reason", APPOINTMENT_CHECKIN_REASONS),
+	checkInReasonNote: d.varchar("check_in_reason_note", { length: 500 }),
+	checkedOutAt: d.timestamp("checked_out_at"),
+	checkedOutBy: d.varchar("checked_out_by", { length: 255 }),
+	checkOutReason: d.mysqlEnum("check_out_reason", APPOINTMENT_CHECKIN_REASONS),
+	checkOutReasonNote: d.varchar("check_out_reason_note", { length: 500 }),
+	updatedAt: d
+		.timestamp("updated_at")
+		.onUpdateNow()
+		.default(sql`CURRENT_TIMESTAMP`),
+}));
+
+export const appointmentCheckinsRelations = relations(
+	appointmentCheckins,
+	({ one }) => ({
+		appointment: one(appointments, {
+			fields: [appointmentCheckins.appointmentId],
+			references: [appointments.id],
+		}),
 	}),
 );
 
