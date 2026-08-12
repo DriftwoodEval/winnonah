@@ -48,6 +48,7 @@ export const PERMISSIONS = {
 					{ id: "clients:asdadhd", title: "Edit ASD/ADHD" },
 					{ id: "clients:language", title: "Edit Language" },
 					{ id: "clients:protocolsscanned", title: "Edit Protocols Scanned" },
+					{ id: "clients:pa-assigned-to", title: "Edit PA Assigned To" },
 					{ id: "clients:babynet", title: "Edit BabyNet Status" },
 					{ id: "clients:ei", title: "Edit EI Attends Status" },
 					{ id: "clients:autismstop:enable", title: "Enable Autism Stop" },

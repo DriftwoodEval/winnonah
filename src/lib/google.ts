@@ -341,6 +341,7 @@ export const updatePunchData = async (
 		asdAdhd?: string;
 		language?: string;
 		protocolsScanned?: boolean;
+		paAssignedTo?: string;
 		newId?: number;
 	},
 ) => {
@@ -375,6 +376,7 @@ export const updatePunchData = async (
 	const forIndex = headers.indexOf("For");
 	const languageIndex = headers.indexOf("Language");
 	const protocolsScannedIndex = headers.indexOf("Protocols scanned?");
+	const paAssignedToIndex = headers.indexOf("PA Assigned to");
 
 	const updateRequests: sheets_v4.Schema$ValueRange[] = [];
 
@@ -478,6 +480,19 @@ export const updatePunchData = async (
 		updateRequests.push({
 			range: cellAddress,
 			values: [[updates.protocolsScanned ? "TRUE" : "FALSE"]],
+		});
+	}
+
+	if (updates.paAssignedTo !== undefined) {
+		if (paAssignedToIndex === -1) {
+			throw new Error("PA Assigned to column not found in Punchlist");
+		}
+		const cellAddress = `${String.fromCharCode(65 + paAssignedToIndex)}${
+			clientRowIndex + 2
+		}`;
+		updateRequests.push({
+			range: cellAddress,
+			values: [[updates.paAssignedTo]],
 		});
 	}
 

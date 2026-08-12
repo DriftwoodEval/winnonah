@@ -574,7 +574,7 @@ export const clientRouter = createTRPCRouter({
 				) {
 					mostRecentLocationKeyByClientId.set(appt.clientId, appt.locationKey);
 				}
-				if (appt.startTime.getTime() >= now) {
+				if (!appt.billingOnly && appt.startTime.getTime() >= now) {
 					if (appt.daEval === "DA" || appt.daEval === "DAEVAL") {
 						daScheduledClientIds.add(appt.clientId);
 					}
