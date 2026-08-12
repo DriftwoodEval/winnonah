@@ -43,6 +43,8 @@ export const faxCategorizationRouter = createTRPCRouter({
 					extractedText: true,
 					reviewedAt: true,
 					reviewedBy: true,
+					reprocessRequestedAt: true,
+					lastReprocessedAt: true,
 				},
 				with: {
 					links: {
@@ -145,6 +147,17 @@ export const faxCategorizationRouter = createTRPCRouter({
 					reviewedAt: new Date(),
 					reviewedBy: ctx.session.user.email,
 				})
+				.where(eq(faxCategorizations.id, input.faxCategorizationId));
+			return { success: true };
+		}),
+
+	requestReprocess: protectedProcedure
+		.input(z.object({ faxCategorizationId: z.number() }))
+		.mutation(async ({ ctx, input }) => {
+			assertPermission(ctx.session.user, "fax:categorization:review");
+			await ctx.db
+				.update(faxCategorizations)
+				.set({ reprocessRequestedAt: new Date() })
 				.where(eq(faxCategorizations.id, input.faxCategorizationId));
 			return { success: true };
 		}),

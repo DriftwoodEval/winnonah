@@ -81,6 +81,45 @@ function confidenceBadgeClass(confidence: number): string {
 
 const OVERRIDDEN_BADGE_CLASSES = "border-warning/30 bg-warning/10 text-warning";
 
+function categoryBadgeClass(category: string | null): string | undefined {
+	return category ? CATEGORY_BADGE_CLASSES[category as Category] : undefined;
+}
+
+function CategoryBadges({
+	category,
+	llmCategory,
+	showOverride,
+}: {
+	category: string | null;
+	llmCategory: string | null;
+	showOverride: boolean;
+}) {
+	if (showOverride && category !== llmCategory) {
+		return (
+			<>
+				<Badge
+					className={cn(
+						"line-through opacity-60",
+						categoryBadgeClass(llmCategory),
+					)}
+					variant="outline"
+				>
+					{llmCategory ?? "Unsure"}
+				</Badge>
+				<span className="text-muted-foreground text-xs">→</span>
+				<Badge className={categoryBadgeClass(category)} variant="outline">
+					{category ?? "Unsure"}
+				</Badge>
+			</>
+		);
+	}
+	return (
+		<Badge className={categoryBadgeClass(category)} variant="outline">
+			{category ?? "Unsure"}
+		</Badge>
+	);
+}
+
 interface FaxLink {
 	id: number;
 	clientId: number;
@@ -233,6 +272,9 @@ function FaxGrid({
 			setSelectedFaxId(null);
 		},
 	});
+	const requestReprocess = api.faxCategorization.requestReprocess.useMutation({
+		onSuccess: () => invalidate(),
+	});
 
 	const shownFaxes =
 		status === "reviewed" ? (displayedFaxes ?? []) : (faxes ?? []);
@@ -316,40 +358,11 @@ function FaxGrid({
 							</CardHeader>
 							<CardContent className="flex flex-col gap-2">
 								<div className="flex flex-wrap items-center gap-1">
-									{status === "reviewed" && fax.category !== fax.llmCategory ? (
-										<>
-											<Badge
-												className={cn(
-													"line-through opacity-60",
-													fax.llmCategory &&
-														CATEGORY_BADGE_CLASSES[fax.llmCategory as Category],
-												)}
-												variant="outline"
-											>
-												{fax.llmCategory ?? "Unsure"}
-											</Badge>
-											<span className="text-muted-foreground text-xs">→</span>
-											<Badge
-												className={cn(
-													fax.category &&
-														CATEGORY_BADGE_CLASSES[fax.category as Category],
-												)}
-												variant="outline"
-											>
-												{fax.category ?? "Unsure"}
-											</Badge>
-										</>
-									) : (
-										<Badge
-											className={cn(
-												fax.category &&
-													CATEGORY_BADGE_CLASSES[fax.category as Category],
-											)}
-											variant="outline"
-										>
-											{fax.category ?? "Unsure"}
-										</Badge>
-									)}
+									<CategoryBadges
+										category={fax.category}
+										llmCategory={fax.llmCategory}
+										showOverride={status === "reviewed"}
+									/>
 									{fax.confidence !== null && (
 										<Badge
 											className={confidenceBadgeClass(Number(fax.confidence))}
@@ -365,6 +378,9 @@ function FaxGrid({
 										>
 											Clients changed
 										</Badge>
+									)}
+									{fax.reprocessRequestedAt && (
+										<Badge variant="outline">Re-run queued</Badge>
 									)}
 								</div>
 								{activeLinks(fax.links).length === 0 ? (
@@ -440,37 +456,35 @@ function FaxGrid({
 											</Select>
 										) : (
 											<div className="flex flex-wrap items-center gap-1">
-												<Badge
-													className={cn(
-														selectedFax.category &&
-															CATEGORY_BADGE_CLASSES[
-																selectedFax.category as Category
-															],
-													)}
-													variant="outline"
-												>
-													{selectedFax.category ?? "Unsure"}
-												</Badge>
-												{selectedFax.category !== selectedFax.llmCategory && (
+												<CategoryBadges
+													category={selectedFax.category}
+													llmCategory={selectedFax.llmCategory}
+													showOverride
+												/>
+												{selectedFax.confidence !== null && (
 													<Badge
-														className={OVERRIDDEN_BADGE_CLASSES}
+														className={confidenceBadgeClass(
+															Number(selectedFax.confidence),
+														)}
 														variant="outline"
 													>
-														Overridden
+														{Math.round(Number(selectedFax.confidence) * 100)}%
+														confident
 													</Badge>
 												)}
 											</div>
 										)}
-										{selectedFax.confidence !== null && (
-											<p className="mt-2 text-muted-foreground text-xs">
-												LLM guessed{" "}
-												<span className="font-medium">
-													{selectedFax.llmCategory ?? "Unsure"}
-												</span>{" "}
-												at {Math.round(Number(selectedFax.confidence) * 100)}%
-												confidence.
-											</p>
-										)}
+										{status === "pending" &&
+											selectedFax.confidence !== null && (
+												<p className="mt-2 text-muted-foreground text-xs">
+													LLM guessed{" "}
+													<span className="font-medium">
+														{selectedFax.llmCategory ?? "Unsure"}
+													</span>{" "}
+													at {Math.round(Number(selectedFax.confidence) * 100)}%
+													confidence.
+												</p>
+											)}
 										{status === "reviewed" && selectedFax.reviewedAt && (
 											<p className="mt-2 text-muted-foreground text-xs">
 												Reviewed by{" "}
@@ -488,6 +502,40 @@ function FaxGrid({
 												)}
 											</p>
 										)}
+										<div className="mt-2 flex items-center gap-2">
+											<Button
+												disabled={
+													requestReprocess.isPending ||
+													selectedFax.reprocessRequestedAt !== null
+												}
+												onClick={() =>
+													requestReprocess.mutate({
+														faxCategorizationId: selectedFax.id,
+													})
+												}
+												size="sm"
+												variant="outline"
+											>
+												Re-run AI
+											</Button>
+											{selectedFax.reprocessRequestedAt && (
+												<span className="text-muted-foreground text-xs italic">
+													Queued for re-run, keeps your category and client
+													picks.
+												</span>
+											)}
+										</div>
+										{!selectedFax.reprocessRequestedAt &&
+											selectedFax.lastReprocessedAt && (
+												<p className="mt-2 text-muted-foreground text-xs italic">
+													AI last re-ran this fax on{" "}
+													{formatInBusinessTime(
+														selectedFax.lastReprocessedAt,
+														"MMM d, yyyy h:mm a",
+													)}
+													.
+												</p>
+											)}
 									</div>
 									{status === "reviewed" && selectedFax.extractedText && (
 										<Collapsible>

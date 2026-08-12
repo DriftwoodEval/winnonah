@@ -92,7 +92,7 @@ class TestProcessFaxes:
             process_faxes()
         mock_list.assert_not_called()
 
-    def test_returns_when_no_files_in_folder(self, monkeypatch):
+    def test_returns_when_no_new_or_reprocess_faxes(self, monkeypatch):
         monkeypatch.setenv("FAX_CATEGORIZATION_FOLDER_ID", "folder-1")
         task = MagicMock()
         track_cm = MagicMock()
@@ -101,12 +101,18 @@ class TestProcessFaxes:
         with (
             patch("fax_categorization.track_task", return_value=track_cm),
             patch("fax_categorization.list_files_in_folder", return_value=[]),
-            patch("fax_categorization._already_seen_drive_file_ids") as mock_seen,
+            patch(
+                "fax_categorization._already_seen_drive_file_ids", return_value=set()
+            ),
+            patch("fax_categorization._reprocess_requested_faxes", return_value=[]),
+            patch("fax_categorization.build_client_lookup") as mock_lookup,
         ):
             process_faxes()
-        mock_seen.assert_not_called()
+        mock_lookup.assert_not_called()
 
-    def test_returns_when_all_files_already_seen(self, monkeypatch):
+    def test_returns_when_all_files_already_seen_and_none_reprocessing(
+        self, monkeypatch
+    ):
         monkeypatch.setenv("FAX_CATEGORIZATION_FOLDER_ID", "folder-1")
         task = MagicMock()
         track_cm = MagicMock()
@@ -120,6 +126,7 @@ class TestProcessFaxes:
                 "fax_categorization._already_seen_drive_file_ids",
                 return_value={"file-1"},
             ),
+            patch("fax_categorization._reprocess_requested_faxes", return_value=[]),
             patch("fax_categorization.build_client_lookup") as mock_lookup,
         ):
             process_faxes()
@@ -138,6 +145,7 @@ class TestProcessFaxes:
             patch(
                 "fax_categorization._already_seen_drive_file_ids", return_value=set()
             ),
+            patch("fax_categorization._reprocess_requested_faxes", return_value=[]),
             patch("fax_categorization.build_client_lookup", return_value=[]),
             patch("fax_categorization.get_all_clients", return_value=[]),
             patch("fax_categorization.limit_cpu_usage"),
@@ -168,6 +176,7 @@ class TestProcessFaxes:
             patch(
                 "fax_categorization._already_seen_drive_file_ids", return_value=set()
             ),
+            patch("fax_categorization._reprocess_requested_faxes", return_value=[]),
             patch("fax_categorization.build_client_lookup", return_value=[]),
             patch("fax_categorization.get_all_clients", return_value=[]),
             patch("fax_categorization.limit_cpu_usage"),
@@ -179,3 +188,37 @@ class TestProcessFaxes:
         ):
             process_faxes()
         assert mock_process.call_count == 2
+
+    def test_reprocesses_requested_faxes_and_continues_after_a_failure(
+        self, monkeypatch
+    ):
+        monkeypatch.setenv("FAX_CATEGORIZATION_FOLDER_ID", "folder-1")
+        task = MagicMock()
+        track_cm = MagicMock()
+        track_cm.__enter__.return_value = task
+        track_cm.__exit__.return_value = False
+        reprocess_faxes = [
+            {"id": 1, "drive_file_id": "file-1", "file_name": "fax1.pdf"},
+            {"id": 2, "drive_file_id": "file-2", "file_name": "fax2.pdf"},
+        ]
+        with (
+            patch("fax_categorization.track_task", return_value=track_cm),
+            patch("fax_categorization.list_files_in_folder", return_value=[]),
+            patch(
+                "fax_categorization._already_seen_drive_file_ids", return_value=set()
+            ),
+            patch(
+                "fax_categorization._reprocess_requested_faxes",
+                return_value=reprocess_faxes,
+            ),
+            patch("fax_categorization.build_client_lookup", return_value=[]),
+            patch("fax_categorization.get_all_clients", return_value=[]),
+            patch("fax_categorization.limit_cpu_usage"),
+            patch("fax_categorization.load_model", return_value=MagicMock()),
+            patch(
+                "fax_categorization._reprocess_fax",
+                side_effect=[Exception("boom"), None],
+            ) as mock_reprocess,
+        ):
+            process_faxes()
+        assert mock_reprocess.call_count == 2

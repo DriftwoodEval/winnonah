@@ -303,6 +303,13 @@ def batch_move_files(
     batch.execute()
 
 
+def get_file_by_id(file_id: str) -> dict:
+    """Look up a Drive file's id/name/mimeType by id, for re-fetching a file
+    already recorded elsewhere (e.g. by drive_file_id in our own database)."""
+    service = get_drive_service()
+    return service.files().get(fileId=file_id, fields="id, name, mimeType").execute()
+
+
 def get_file_as_bytes(file: dict) -> bytes:
     """Export Google Docs as PDF; download all other file types as-is."""
     service = get_drive_service()

@@ -554,6 +554,8 @@ export const faxCategorizations = createTable(
 		llmRawOutput: d.json("llm_raw_output"),
 		reviewedAt: d.timestamp("reviewed_at"),
 		reviewedBy: d.varchar("reviewed_by", { length: 255 }),
+		reprocessRequestedAt: d.timestamp("reprocess_requested_at"),
+		lastReprocessedAt: d.timestamp("last_reprocessed_at"),
 	}),
 	(t) => [
 		index("fax_categorization_status_idx").on(t.status),
