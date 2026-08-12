@@ -391,6 +391,47 @@ export const googleRouter = createTRPCRouter({
 			};
 		}),
 
+	setPaAssignedTo: protectedProcedure
+		.input(
+			z.object({
+				clientId: z.number(),
+				paAssignedTo: z.string(),
+			}),
+		)
+		.mutation(async ({ ctx, input }) => {
+			assertPermission(ctx.session.user, "clients:pa-assigned-to");
+			if (!ctx.session.user.accessToken || !ctx.session.user.refreshToken) {
+				throw new Error("No access token or refresh token");
+			}
+
+			ctx.logger.info(input, "Updating PA Assigned to");
+
+			try {
+				await updatePunchData(ctx.session, input.clientId.toString(), {
+					paAssignedTo: input.paAssignedTo,
+				});
+
+				await invalidateCache(
+					ctx,
+					CACHE_KEY_PUNCHLIST,
+					CACHE_KEY_MISSING_PUNCHLIST,
+				);
+			} catch (error) {
+				console.error("Error updating PA Assigned to in Google Sheets:", error);
+
+				throw new Error(
+					`Failed to update PA Assigned to in Google Sheets: ${
+						error instanceof Error ? error.message : "Unknown error"
+					}`,
+				);
+			}
+
+			return {
+				success: true,
+				message: "PA Assigned to updated successfully",
+			};
+		}),
+
 	updatePunchId: protectedProcedure
 		.input(
 			z.object({

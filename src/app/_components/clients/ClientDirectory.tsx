@@ -83,7 +83,8 @@ type ColumnKey =
 	| "priorAuthDate"
 	| "daScheduled"
 	| "evalScheduled"
-	| "location";
+	| "location"
+	| "paAssignedTo";
 
 const COLUMN_LABELS: Record<ColumnKey, string> = {
 	priority: "Priority",
@@ -97,6 +98,7 @@ const COLUMN_LABELS: Record<ColumnKey, string> = {
 	daScheduled: "DA Scheduled",
 	evalScheduled: "EVAL Scheduled",
 	location: "Location",
+	paAssignedTo: "PA Assigned To",
 };
 
 const TOGGLEABLE_COLUMNS: ColumnKey[] = [
@@ -111,6 +113,7 @@ const TOGGLEABLE_COLUMNS: ColumnKey[] = [
 	"daScheduled",
 	"evalScheduled",
 	"location",
+	"paAssignedTo",
 ];
 
 // Not a real table column, just a badge next to the name, but its visibility
@@ -136,11 +139,13 @@ const DEFAULT_VISIBLE_COLUMNS: Record<ToggleKey, boolean> = {
 	daScheduled: true,
 	evalScheduled: true,
 	location: true,
+	paAssignedTo: true,
 	[FAILURES_TOGGLE_KEY]: true,
 };
 
-// "daQs"/"evalQs" are sorted client-side (see the `clients` useMemo below)
-// since their data comes from the Google Sheets punchlist, not the DB.
+// "daQs"/"evalQs"/"paAssignedTo" are sorted client-side (see the `clients`
+// useMemo below) since their data comes from the Google Sheets punchlist,
+// not the DB.
 const SORT_KEYS = [
 	"name",
 	"priority",
@@ -155,6 +160,7 @@ const SORT_KEYS = [
 	"daScheduled",
 	"evalScheduled",
 	"location",
+	"paAssignedTo",
 ] as const;
 type SortKey = (typeof SORT_KEYS)[number];
 
@@ -253,6 +259,7 @@ function compareClients(
 	sort: SortKey,
 	sortDir: "asc" | "desc",
 	getQsRank: (prefix: QsPrefix, clientId: number) => number,
+	getPaAssignedTo: (clientId: number) => string | null,
 ): number {
 	if (sort === "priority") return comparePriority(a, b);
 
@@ -287,6 +294,8 @@ function compareClients(
 			return (Number(a.evalScheduled) - Number(b.evalScheduled)) * dir;
 		case "location":
 			return compareStrings(a.location, b.location) * dir;
+		case "paAssignedTo":
+			return compareStrings(getPaAssignedTo(a.id), getPaAssignedTo(b.id)) * dir;
 		default:
 			return compareStrings(a.fullName, b.fullName) * dir;
 	}
@@ -536,6 +545,7 @@ export function ClientDirectory() {
 		daScheduled: visibleColumns.daScheduled,
 		evalScheduled: visibleColumns.evalScheduled,
 		location: visibleColumns.location,
+		paAssignedTo: visibleColumns.paAssignedTo,
 	};
 	const effectiveSort: SortKey = sortColumnVisible[sort] ? sort : "name";
 
@@ -764,8 +774,11 @@ export function ClientDirectory() {
 			return stage ? (QS_STAGE_ORDER[stage] ?? -1) : -1;
 		};
 
+		const getPaAssignedTo = (clientId: number) =>
+			punchByClientId.get(String(clientId))?.["PA Assigned to"] ?? null;
+
 		return [...filtered].sort((a, b) =>
-			compareClients(a, b, effectiveSort, sortDir, getQsRank),
+			compareClients(a, b, effectiveSort, sortDir, getQsRank, getPaAssignedTo),
 		);
 	}, [
 		rawClients,
@@ -1008,6 +1021,16 @@ export function ClientDirectory() {
 								<SortButton label="Location" {...columnSort("location")} />
 							</AnimatedCellContent>
 						</TableHead>
+						<TableHead
+							className={collapsibleCellClass(visibleColumns.paAssignedTo)}
+						>
+							<AnimatedCellContent visible={visibleColumns.paAssignedTo}>
+								<SortButton
+									label="PA Assigned To"
+									{...columnSort("paAssignedTo")}
+								/>
+							</AnimatedCellContent>
+						</TableHead>
 					</TableRow>
 				</TableHeader>
 				<TableBody>
@@ -1207,6 +1230,19 @@ export function ClientDirectory() {
 											</span>
 										</AnimatedCellContent>
 									</TableCell>
+									<TableCell
+										className={collapsibleCellClass(
+											visibleColumns.paAssignedTo,
+										)}
+									>
+										<AnimatedCellContent visible={visibleColumns.paAssignedTo}>
+											<span className="text-muted-foreground">
+												{punchByClientId.get(String(client.id))?.[
+													"PA Assigned to"
+												] || "—"}
+											</span>
+										</AnimatedCellContent>
+									</TableCell>
 								</TableRow>
 							);
 						})
@@ -1368,6 +1404,16 @@ export function ClientDirectory() {
 										<InfoField
 											label="Location"
 											value={client.location ?? "—"}
+										/>
+									)}
+									{visibleColumns.paAssignedTo && (
+										<InfoField
+											label="PA Assigned To"
+											value={
+												punchByClientId.get(String(client.id))?.[
+													"PA Assigned to"
+												] || "—"
+											}
 										/>
 									)}
 								</div>

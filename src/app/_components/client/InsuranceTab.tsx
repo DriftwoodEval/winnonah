@@ -10,6 +10,8 @@ import {
 	CardTitle,
 } from "@ui/card";
 import { format, isAfter, isBefore } from "date-fns";
+import { useState } from "react";
+import { useCheckPermission } from "~/hooks/use-check-permission";
 import type { Client } from "~/lib/models";
 import {
 	dateOnlyToLocalDate,
@@ -19,6 +21,8 @@ import {
 import type { AppRouter } from "~/server/api/root";
 import { api } from "~/trpc/react";
 import { Redact } from "../redaction/Redact";
+import { ResponsiveDialog } from "../shared/ResponsiveDialog";
+import { EditPaAssignedToDialog } from "./EditPaAssignedToDialog";
 import { InsuranceReviewSection } from "./InsuranceReviewSection";
 
 interface InsuranceTabProps {
@@ -65,6 +69,47 @@ function InfoRow({
 	);
 }
 
+function PaAssignedToRow({
+	clientId,
+	value,
+}: {
+	clientId: number;
+	value?: string;
+}) {
+	const can = useCheckPermission();
+	const [open, setOpen] = useState(false);
+
+	if (!can("clients:pa-assigned-to")) {
+		return <InfoRow label="PA Assigned to" value={value} />;
+	}
+
+	return (
+		<div className="flex flex-col gap-0.5">
+			<span className="text-muted-foreground text-xs">PA Assigned to</span>
+			<ResponsiveDialog
+				description="Update who's assigned to handle this client's prior authorization. This will push the change to the Punchlist."
+				open={open}
+				setOpen={setOpen}
+				title="Edit PA Assigned To"
+			>
+				<EditPaAssignedToDialog
+					clientId={clientId}
+					key={value}
+					setOpen={setOpen}
+					value={value ?? ""}
+				/>
+			</ResponsiveDialog>
+			<button
+				className="cursor-pointer text-left text-sm hover:underline"
+				onClick={() => setOpen(true)}
+				type="button"
+			>
+				{value || "Assign"}
+			</button>
+		</div>
+	);
+}
+
 function SectionHeader({ children }: { children: React.ReactNode }) {
 	return (
 		<p className="mt-3 mb-1 font-semibold text-muted-foreground text-xs uppercase tracking-wide">
@@ -77,10 +122,12 @@ type Policy =
 	inferRouterOutputs<AppRouter>["clients"]["getInsurancePolicies"]["policies"][number];
 
 function PolicyCard({
+	clientId,
 	policy,
 	medicaidEligibility,
 	paAssignedTo,
 }: {
+	clientId: number;
 	policy: Policy;
 	medicaidEligibility?: {
 		qualCategory: string | null;
@@ -257,7 +304,7 @@ function PolicyCard({
 							/>
 							<InfoRow label="Spoke To" value={policy.precertSpokeTO} />
 							<InfoRow label="CPT" value={policy.precertCpt} />
-							<InfoRow label="PA Assigned to" value={paAssignedTo} />
+							<PaAssignedToRow clientId={clientId} value={paAssignedTo} />
 						</div>
 						{policy.precertMemo && (
 							<p className="mt-2 text-muted-foreground text-sm">
@@ -353,6 +400,7 @@ export function InsuranceTab({ client }: InsuranceTabProps) {
 				<>
 					{active.map((policy) => (
 						<PolicyCard
+							clientId={clientId}
 							key={policy.policyId}
 							medicaidEligibility={
 								policy.policyId === scmPolicyId
@@ -375,6 +423,7 @@ export function InsuranceTab({ client }: InsuranceTabProps) {
 							)}
 							{inactive.map((policy) => (
 								<PolicyCard
+									clientId={clientId}
 									key={policy.policyId}
 									medicaidEligibility={
 										policy.policyId === scmPolicyId
