@@ -221,6 +221,7 @@ export const workSummaryRouter = createTRPCRouter({
 					daEval: appointments.daEval,
 					asdAdhd: appointments.asdAdhd,
 					ageGroup: sql<string>`CASE WHEN TIMESTAMPDIFF(YEAR, ${clients.dob}, ${appointments.startTime}) < 7 THEN 'young' ELSE 'older' END`,
+					week: sql<number>`YEARWEEK(${appointments.startTime}, 1)`,
 					scheduledStart: appointments.startTime,
 					arrivedAt: appointmentCheckins.arrivedAt,
 					startedAt: appointmentCheckins.startedAt,
@@ -250,10 +251,9 @@ export const workSummaryRouter = createTRPCRouter({
 				number,
 				{ name: string; durationDiffs: number[]; lateStarts: number[] }
 			> = {};
-			const observedDurationAgg: Record<
-				number,
-				Record<string, { sum: number; count: number }>
-			> = {};
+			// Total logged minutes per evaluator per week, from actual check-in
+			// timing only (not extrapolated to appointments without check-ins).
+			const loggedWeeklyByNpi: Record<number, Record<number, number>> = {};
 			for (const row of timingRows) {
 				if (!row.daEval || !row.startedAt) continue;
 				timingByNpi[row.npi] ??= {
@@ -279,16 +279,10 @@ export const workSummaryRouter = createTRPCRouter({
 						entry.durationDiffs.push(actualMinutes - expectedMinutes);
 					}
 
-					const colKey = buildColKey(row.daEval, row.asdAdhd, row.ageGroup);
-					observedDurationAgg[row.npi] ??= {};
-					const npiAgg = observedDurationAgg[row.npi];
-					if (npiAgg) {
-						npiAgg[colKey] ??= { sum: 0, count: 0 };
-						const bucket = npiAgg[colKey];
-						if (bucket) {
-							bucket.sum += actualMinutes;
-							bucket.count += 1;
-						}
+					loggedWeeklyByNpi[row.npi] ??= {};
+					const weekMap = loggedWeeklyByNpi[row.npi];
+					if (weekMap) {
+						weekMap[row.week] = (weekMap[row.week] ?? 0) + actualMinutes;
 					}
 				}
 
@@ -315,22 +309,10 @@ export const workSummaryRouter = createTRPCRouter({
 				}))
 				.sort((a, b) => a.name.localeCompare(b.name));
 
-			// Prefer durations observed from actual check-in timing over the
-			// evaluator's configured estimates, since real data is more accurate.
-			const appointmentSummaryWithActuals = appointmentSummary.map((row) => {
-				const observed = observedDurationAgg[row.npi];
-				if (!observed) return row;
-				const observedAverages = Object.fromEntries(
-					Object.entries(observed).map(([key, { sum, count }]) => [
-						key,
-						sum / count,
-					]),
-				);
-				return {
-					...row,
-					durations: { ...row.durations, ...observedAverages },
-				};
-			});
+			const appointmentSummaryWithActuals = appointmentSummary.map((row) => ({
+				...row,
+				loggedWeeklyMinutes: Object.values(loggedWeeklyByNpi[row.npi] ?? {}),
+			}));
 
 			return {
 				appointments: appointmentSummaryWithActuals,
@@ -379,9 +361,16 @@ export const workSummaryRouter = createTRPCRouter({
 					startTime: appointments.startTime,
 					daEval: appointments.daEval,
 					asdAdhd: appointments.asdAdhd,
+					ageGroup: sql<string>`CASE WHEN TIMESTAMPDIFF(YEAR, ${clients.dob}, ${appointments.startTime}) < 7 THEN 'young' ELSE 'older' END`,
+					startedAt: appointmentCheckins.startedAt,
+					leftAt: appointmentCheckins.leftAt,
 				})
 				.from(appointments)
 				.innerJoin(clients, eq(appointments.clientId, clients.id))
+				.leftJoin(
+					appointmentCheckins,
+					eq(appointmentCheckins.appointmentId, appointments.id),
+				)
 				.where(
 					and(
 						eq(appointments.evaluatorNpi, input.evaluatorNpi),
@@ -396,6 +385,36 @@ export const workSummaryRouter = createTRPCRouter({
 				)
 				.orderBy(asc(appointments.startTime));
 
-			return rows;
+			const evaluatorRow = await ctx.db.query.evaluators.findFirst({
+				where: eq(evaluators.npi, input.evaluatorNpi),
+			});
+			const evaluatorDurations = (evaluatorRow?.appointmentDurations ??
+				{}) as Record<string, number>;
+
+			const configRow = await ctx.db.query.workSummaryConfig.findFirst();
+			const durationDefaults = (configRow?.appointmentDurationDefaults ??
+				{}) as Record<string, number>;
+
+			return rows.map((row) => ({
+				id: row.id,
+				clientName: row.clientName,
+				startTime: row.startTime,
+				daEval: row.daEval,
+				asdAdhd: row.asdAdhd,
+				projectedMinutes: row.daEval
+					? lookupExpectedDuration(
+							row.daEval,
+							row.asdAdhd,
+							row.ageGroup,
+							row.daEval === "DA",
+							evaluatorDurations,
+							durationDefaults,
+						)
+					: undefined,
+				loggedMinutes:
+					row.startedAt && row.leftAt
+						? (row.leftAt.getTime() - row.startedAt.getTime()) / 60000
+						: undefined,
+			}));
 		}),
 });
