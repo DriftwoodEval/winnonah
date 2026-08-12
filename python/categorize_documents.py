@@ -13,6 +13,11 @@ Usage:
     # "case123_Referral.pdf" (the segment after the last underscore is the
     # correct category):
     python categorize_documents.py --eval path/to/tagged_pdfs/
+
+    # Inspect what the fax cleanup (denoise/deskew/binarize) does to scanned
+    # pages before OCR, without touching the source PDFs:
+    python categorize_documents.py --save-preprocessed out/ path/to/file.pdf
+    python categorize_documents.py --no-fax-cleanup path/to/file.pdf
 """
 
 import argparse
@@ -37,9 +42,20 @@ from utils.document_categorizer import (
 )
 
 
-def _categorize_one(llm: Llama, pdf_path: str, want_clients: bool) -> None:
+def _categorize_one(
+    llm: Llama,
+    pdf_path: str,
+    want_clients: bool,
+    clean_faxes: bool,
+    save_preprocessed_dir: str | None,
+) -> None:
     logger.info(f"Extracting text from {pdf_path}...")
-    document_text, sources, _corrected_pdf = extract_text(pdf_path, llm)
+    document_text, sources, _corrected_pdf = extract_text(
+        pdf_path,
+        llm,
+        clean_faxes=clean_faxes,
+        save_preprocessed_dir=save_preprocessed_dir,
+    )
     for i, source in enumerate(sources):
         logger.debug(f"Page {i + 1}: {source}")
 
@@ -76,6 +92,8 @@ def _run_eval(
     threads: int,
     simulate: str | None,
     output: str,
+    clean_faxes: bool,
+    save_preprocessed_dir: str | None,
 ) -> None:
     folder_path = Path(folder)
     pdf_paths = sorted(folder_path.glob("*.pdf"))
@@ -118,7 +136,12 @@ def _run_eval(
         confidences: list[float] = []
         clients: list[str] = []
         for run in range(repeat):
-            document_text, _, _corrected_pdf = extract_text(str(pdf_path), llm)
+            document_text, _, _corrected_pdf = extract_text(
+                str(pdf_path),
+                llm,
+                clean_faxes=clean_faxes,
+                save_preprocessed_dir=save_preprocessed_dir,
+            )
             actual, clients, confidence = categorize_document(
                 llm, document_text, want_clients
             )
@@ -258,6 +281,20 @@ def main() -> None:
         help="Also identify the client(s)/patient(s) the document is about",
     )
     parser.add_argument(
+        "--no-fax-cleanup",
+        dest="clean_faxes",
+        action="store_false",
+        help="Skip the denoise/deskew/binarize cleanup normally applied to "
+        "scanned pages before OCR, to compare extracted text against the "
+        "cleaned-up version",
+    )
+    parser.add_argument(
+        "--save-preprocessed",
+        metavar="DIR",
+        help="Save each OCR'd page's preprocessed image to this directory "
+        "for visual inspection (never affects the source PDF)",
+    )
+    parser.add_argument(
         "--threads",
         type=int,
         default=None,
@@ -306,6 +343,8 @@ def main() -> None:
             threads,
             args.simulate,
             args.output,
+            args.clean_faxes,
+            args.save_preprocessed,
         )
         return
 
@@ -313,7 +352,9 @@ def main() -> None:
     for pdf_path in args.pdf_paths:
         logger.info(f"=== {pdf_path} ===")
         start = time.monotonic()
-        _categorize_one(llm, pdf_path, args.clients)
+        _categorize_one(
+            llm, pdf_path, args.clients, args.clean_faxes, args.save_preprocessed
+        )
         elapsed = time.monotonic() - start
         durations.append((pdf_path, elapsed))
         logger.info(f"Time: {elapsed:.1f}s")

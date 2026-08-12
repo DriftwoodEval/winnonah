@@ -3,8 +3,11 @@ import json
 import os
 import re
 from collections.abc import Callable
+from pathlib import Path
 from typing import cast
 
+import cv2
+import numpy as np
 import pymupdf as fitz
 import pytesseract
 from llama_cpp import Llama
@@ -158,6 +161,85 @@ def correct_orientation(image: Image.Image) -> tuple[Image.Image, int]:
     return image.rotate(-angle, expand=True), angle
 
 
+# Beyond this, assume the Hough line detector locked onto something other
+# than text baselines (a torn/folded edge, a stray mark) rather than a real
+# skew: correct_orientation already handles gross 90-degree turns, so a
+# larger residual angle here is more likely noise than a real fax tilt.
+MAX_DESKEW_ANGLE_DEGREES = 15
+
+
+def _estimate_skew_angle(binary: np.ndarray) -> float:
+    """Estimates the rotation needed to level the page, from the
+    predominant angle of near-horizontal text lines (via Hough line
+    detection). Takes the median across all detected lines so a handful of
+    stray marks or a torn edge can't skew the result the way fitting a
+    single bounding box to every dark pixel would.
+
+    Returned in the same sign convention cv2.getRotationMatrix2D expects
+    (i.e. the correction to apply), not the raw skew of the page."""
+    edges = cv2.Canny(binary, 50, 150, apertureSize=3)
+    lines = cv2.HoughLinesP(
+        edges,
+        1,
+        np.pi / 180,
+        threshold=150,
+        minLineLength=binary.shape[1] // 3,
+        maxLineGap=20,
+    )
+    if lines is None:
+        return 0.0
+
+    angles = []
+    for x1, y1, x2, y2 in lines.reshape(-1, 4):
+        angle = float(np.degrees(np.arctan2(y2 - y1, x2 - x1)))
+        if abs(angle) <= MAX_DESKEW_ANGLE_DEGREES:
+            angles.append(angle)
+
+    return float(np.median(angles)) if angles else 0.0
+
+
+def _deskew(binary: np.ndarray) -> np.ndarray:
+    """Straightens the small (non-90-degree) tilt a fax transmission or
+    sloppy feed leaves behind, which correct_orientation's coarse OSD-based
+    check doesn't catch."""
+    angle = _estimate_skew_angle(binary)
+    if abs(angle) < 0.1:
+        return binary
+
+    height, width = binary.shape
+    center = (width // 2, height // 2)
+    matrix = cv2.getRotationMatrix2D(center, angle, 1.0)
+    return cv2.warpAffine(
+        binary,
+        matrix,
+        (width, height),
+        flags=cv2.INTER_CUBIC,
+        borderMode=cv2.BORDER_REPLICATE,
+    )
+
+
+def clean_fax_image(image: Image.Image) -> Image.Image:
+    """Cleans up a faxed page scan before OCR: strips the salt-and-pepper
+    speckle fax transmission introduces, deskews any small residual tilt,
+    and binarizes for higher-contrast text, all of which Tesseract reads
+    far more reliably than a noisy grayscale fax.
+
+    Operates only on the in-memory image handed to OCR; the source PDF
+    page is never touched, so this has no effect on the Drive copy."""
+    grayscale = cv2.cvtColor(np.array(image), cv2.COLOR_RGB2GRAY)
+    denoised = cv2.fastNlMeansDenoising(grayscale, h=10)
+    binary = cv2.adaptiveThreshold(
+        denoised,
+        255,
+        cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
+        cv2.THRESH_BINARY,
+        31,
+        15,
+    )
+    deskewed = _deskew(binary)
+    return Image.fromarray(deskewed)
+
+
 def header_override_category(document_text: str) -> str | None:
     header = document_text[:HEADER_CHARS_CHECKED].upper()
     for marker, category in HEADER_CATEGORY_OVERRIDES.items():
@@ -166,7 +248,13 @@ def header_override_category(document_text: str) -> str | None:
     return None
 
 
-def extract_text(pdf_path: str, llm: Llama) -> tuple[str, list[str], bytes | None]:
+def extract_text(
+    pdf_path: str,
+    llm: Llama,
+    *,
+    clean_faxes: bool = True,
+    save_preprocessed_dir: str | None = None,
+) -> tuple[str, list[str], bytes | None]:
     doc = fitz.open(pdf_path)
     pages: list[str] = []
     sources: list[str] = []
@@ -185,6 +273,13 @@ def extract_text(pdf_path: str, llm: Llama) -> tuple[str, list[str], bytes | Non
             if angle:
                 page.set_rotation((page.rotation + angle) % 360)
                 orientation_fixed = True
+            if clean_faxes:
+                image = clean_fax_image(image)
+            if save_preprocessed_dir:
+                stem = Path(pdf_path).stem
+                out_dir = Path(save_preprocessed_dir)
+                out_dir.mkdir(parents=True, exist_ok=True)
+                image.save(out_dir / f"{stem}_page{page_number}.png")
             text = pytesseract.image_to_string(image).strip()
             source = "image scan (OCR)"
 

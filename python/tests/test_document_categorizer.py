@@ -2,9 +2,12 @@ import os
 from typing import cast
 from unittest.mock import MagicMock, patch
 
+import cv2
+import numpy as np
 import pytesseract
 import pytest
 from llama_cpp import Llama
+from PIL import Image, ImageDraw
 
 try:
     import resource
@@ -16,9 +19,11 @@ from utils.document_categorizer import (
     _clean_client_names,
     _clean_confidence,
     _complete_json,
+    _estimate_skew_angle,
     analyze_document,
     build_prompt,
     categorize_document,
+    clean_fax_image,
     correct_orientation,
     extract_clients,
     fit_to_context,
@@ -26,6 +31,20 @@ from utils.document_categorizer import (
     limit_cpu_usage,
     limit_memory_usage,
 )
+
+
+def _lined_page(skew_degrees: float) -> np.ndarray:
+    """A synthetic page of horizontal text-like lines, rotated to simulate
+    a skewed fax scan, then binarized the same way clean_fax_image does."""
+    image = Image.new("L", (600, 800), color=255)
+    draw = ImageDraw.Draw(image)
+    for y in range(50, 750, 30):
+        draw.line((50, y, 550, y), fill=0, width=4)
+    rotated = image.rotate(skew_degrees, expand=True, fillcolor=255)
+    arr = np.array(rotated)
+    return cv2.adaptiveThreshold(
+        arr, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, 31, 15
+    )
 
 
 class FakeLlm:
@@ -283,6 +302,63 @@ class TestCorrectOrientation:
             result_image, angle = correct_orientation(image)
         assert result_image is image
         assert angle == 0
+
+
+class TestCleanFaxImage:
+    def test_returns_single_channel_image_same_size(self):
+        image = Image.fromarray(
+            (np.random.default_rng(0).random((100, 150, 3)) * 255).astype("uint8"),
+            "RGB",
+        )
+        result = clean_fax_image(image)
+        assert result.size == image.size
+        assert result.mode == "L"
+
+    def test_binarizes_to_black_and_white_only(self):
+        image = Image.fromarray(
+            (np.random.default_rng(1).random((80, 80, 3)) * 255).astype("uint8"), "RGB"
+        )
+        result = clean_fax_image(image)
+        values = set(np.array(result).flatten().tolist())
+        assert values <= {0, 255}
+
+    def test_handles_blank_page_without_crashing(self):
+        image = Image.new("RGB", (100, 100), color="white")
+        result = clean_fax_image(image)
+        assert result.size == (100, 100)
+
+
+class TestEstimateSkewAngle:
+    def test_returns_near_zero_for_unskewed_page(self):
+        angle = _estimate_skew_angle(_lined_page(0))
+        assert abs(angle) < 0.5
+
+    @pytest.mark.parametrize("skew_degrees", [5, -5, 2, -8])
+    def test_recovers_the_applied_skew(self, skew_degrees):
+        # The returned angle is the correction to apply (i.e. the inverse
+        # of the skew that was applied), matching what _deskew feeds
+        # straight into cv2.getRotationMatrix2D.
+        angle = _estimate_skew_angle(_lined_page(skew_degrees))
+        assert angle == pytest.approx(-skew_degrees, abs=0.5)
+
+    def test_returns_zero_when_no_lines_detected(self):
+        blank = np.full((100, 100), 255, dtype=np.uint8)
+        assert _estimate_skew_angle(blank) == 0.0
+
+
+class TestCleanFaxImageDeskew:
+    @pytest.mark.parametrize("skew_degrees", [5, -5, 8])
+    def test_straightens_skewed_page(self, skew_degrees):
+        image = Image.new("L", (600, 800), color=255)
+        draw = ImageDraw.Draw(image)
+        for y in range(50, 750, 30):
+            draw.line((50, y, 550, y), fill=0, width=4)
+        rotated = image.rotate(skew_degrees, expand=True, fillcolor=255).convert("RGB")
+
+        cleaned = clean_fax_image(rotated)
+
+        residual = _estimate_skew_angle(np.array(cleaned))
+        assert abs(residual) < 0.5
 
 
 class TestLimitCpuUsage:
