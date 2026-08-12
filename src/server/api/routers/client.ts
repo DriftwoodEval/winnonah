@@ -6,6 +6,7 @@ import {
 	and,
 	asc,
 	count,
+	desc,
 	eq,
 	getTableColumns,
 	gt,
@@ -37,6 +38,7 @@ import {
 } from "~/lib/google";
 import type { ClientWithIssueInfo } from "~/lib/models";
 import {
+	getClosestOfficeKey,
 	getDistanceSQL,
 	getInsuranceShortName,
 	isNotesOnlyClientId,
@@ -471,31 +473,35 @@ export const clientRouter = createTRPCRouter({
 
 			// The client sorts and re-sorts this full result set itself (it's
 			// unpaginated), so the exact DB order doesn't matter beyond being stable.
-			const [rows, allInsurances, unresolvedFailures] = await Promise.all([
-				ctx.db.query.clients.findMany({
-					columns: {
-						id: true,
-						hash: true,
-						fullName: true,
-						asdAdhd: true,
-						primaryInsurance: true,
-						secondaryInsurance: true,
-						language: true,
-						status: true,
-						color: true,
-						dob: true,
-						addedDate: true,
-					},
-					extras: { sortReason: sortReasonSQL },
-					where: and(...conditions),
-					orderBy: orderBySQL,
-				}),
-				ctx.db.query.insurances.findMany({ with: { aliases: true } }),
-				ctx.db
-					.select({ clientId: failures.clientId, reason: failures.reason })
-					.from(failures)
-					.where(lt(failures.reminded, 100)),
-			]);
+			const [rows, allInsurances, unresolvedFailures, allOffices] =
+				await Promise.all([
+					ctx.db.query.clients.findMany({
+						columns: {
+							id: true,
+							hash: true,
+							fullName: true,
+							asdAdhd: true,
+							primaryInsurance: true,
+							secondaryInsurance: true,
+							language: true,
+							status: true,
+							color: true,
+							dob: true,
+							addedDate: true,
+							latitude: true,
+							longitude: true,
+						},
+						extras: { sortReason: sortReasonSQL },
+						where: and(...conditions),
+						orderBy: orderBySQL,
+					}),
+					ctx.db.query.insurances.findMany({ with: { aliases: true } }),
+					ctx.db
+						.select({ clientId: failures.clientId, reason: failures.reason })
+						.from(failures)
+						.where(lt(failures.reminded, 100)),
+					ctx.db.query.offices.findMany(),
+				]);
 
 			const failuresByClientId = new Map<number, string[]>();
 			for (const row of unresolvedFailures) {
@@ -504,7 +510,95 @@ export const clientRouter = createTRPCRouter({
 				else failuresByClientId.set(row.clientId, [row.reason]);
 			}
 
-			return rows.map((row) => ({
+			const clientIds = rows.map((row) => row.id);
+
+			// Prior auth date comes from the PRIMARY policy's precertAuthDate. A
+			// client can have multiple PRIMARY policies over time (insurance
+			// changes), so take the one with the most recent policyStartDate.
+			// Appointments feed both "DA/EVAL scheduled" (any upcoming, non-cancelled
+			// appointment of that type) and "location" (the most recent
+			// appointment's office, falling back to the closest office if virtual).
+			const [primaryPolicies, relevantAppointments] = clientIds.length
+				? await Promise.all([
+						ctx.db
+							.select({
+								clientId: clientInsurancePolicies.clientId,
+								precertAuthDate: clientInsurancePolicies.precertAuthDate,
+							})
+							.from(clientInsurancePolicies)
+							.where(
+								and(
+									inArray(clientInsurancePolicies.clientId, clientIds),
+									sql`UPPER(${clientInsurancePolicies.policyType}) = 'PRIMARY'`,
+								),
+							)
+							.orderBy(desc(clientInsurancePolicies.policyStartDate)),
+						ctx.db
+							.select({
+								clientId: appointments.clientId,
+								startTime: appointments.startTime,
+								daEval: appointments.daEval,
+								locationKey: appointments.locationKey,
+							})
+							.from(appointments)
+							.where(
+								and(
+									inArray(appointments.clientId, clientIds),
+									eq(appointments.cancelled, false),
+									eq(appointments.placeholder, false),
+								),
+							)
+							.orderBy(desc(appointments.startTime)),
+					])
+				: [[], []];
+
+			const priorAuthDateByClientId = new Map<number, string | null>();
+			for (const row of primaryPolicies) {
+				if (!priorAuthDateByClientId.has(row.clientId)) {
+					priorAuthDateByClientId.set(row.clientId, row.precertAuthDate);
+				}
+			}
+
+			const officeNameByKey = new Map(
+				allOffices.map((office) => [office.key, office.prettyName]),
+			);
+			const now = Date.now();
+			const mostRecentLocationKeyByClientId = new Map<number, string | null>();
+			const daScheduledClientIds = new Set<number>();
+			const evalScheduledClientIds = new Set<number>();
+			for (const appt of relevantAppointments) {
+				if (!mostRecentLocationKeyByClientId.has(appt.clientId)) {
+					mostRecentLocationKeyByClientId.set(appt.clientId, appt.locationKey);
+				}
+				if (appt.startTime.getTime() >= now) {
+					if (appt.daEval === "DA" || appt.daEval === "DAEVAL") {
+						daScheduledClientIds.add(appt.clientId);
+					}
+					if (appt.daEval === "EVAL" || appt.daEval === "DAEVAL") {
+						evalScheduledClientIds.add(appt.clientId);
+					}
+				}
+			}
+
+			const getLocation = (
+				latitude: string | null,
+				longitude: string | null,
+				clientId: number,
+			): string | null => {
+				const locationKey = mostRecentLocationKeyByClientId.get(clientId);
+				if (locationKey && locationKey !== "VIRTUAL") {
+					return officeNameByKey.get(locationKey) ?? locationKey;
+				}
+				if (!latitude || !longitude) return null;
+				const closestKey = getClosestOfficeKey(
+					parseFloat(latitude),
+					parseFloat(longitude),
+					allOffices,
+				);
+				return closestKey ? (officeNameByKey.get(closestKey) ?? null) : null;
+			};
+
+			return rows.map(({ latitude, longitude, ...row }) => ({
 				...row,
 				primaryInsurance: getInsuranceShortName(
 					row.primaryInsurance,
@@ -514,6 +608,10 @@ export const clientRouter = createTRPCRouter({
 					.map((name) => getInsuranceShortName(name, allInsurances))
 					.filter((name): name is string => Boolean(name)),
 				unresolvedFailures: failuresByClientId.get(row.id) ?? [],
+				priorAuthDate: priorAuthDateByClientId.get(row.id) ?? null,
+				daScheduled: daScheduledClientIds.has(row.id),
+				evalScheduled: evalScheduledClientIds.has(row.id),
+				location: getLocation(latitude, longitude, row.id),
 			}));
 		}),
 
