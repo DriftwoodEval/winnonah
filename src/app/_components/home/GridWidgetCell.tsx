@@ -23,15 +23,22 @@ const rowClass: Record<number, string> = {
 
 // Below sm the grid is a single stacked column (see colClass), so "rows"
 // no longer means "this many of N columns worth of viewport height" - it's
-// just one card in a scrolling list. A row:4 widget claiming the desktop
-// calc (up to ~100svh) would force nearly a full screen of scrolling per
-// widget, so mobile gets a flat, modest cap instead of the proportional
-// desktop height.
+// just one card in a scrolling list. Heights still scale with rows the same
+// way on mobile as desktop, so rows:4 fills the viewport on both.
+//
+// These are absolute dvh-based heights, not percentages, so they don't
+// inherit the header offset that ancestor containers apply via h-full -
+// each figure has to subtract that chrome itself: the fixed header
+// (Header.tsx, h-10 = 2.5rem) plus the grid container's own padding
+// (HomePageContent.tsx: p-4 pb-20 = 1rem top + 5rem bottom, the bottom
+// clearing the fixed HomeCustomizer button) = 8.5rem for a full-height
+// (rows:4) widget, plus 1rem per row less for the row-gap freed up when a
+// widget spans fewer rows.
 const heightClass: Record<number, string> = {
-	1: "h-[min(60vh,420px)] sm:h-[calc(25svh-2rem)]",
-	2: "h-[min(60vh,420px)] sm:h-[calc(50svh-3rem)]",
-	3: "h-[min(60vh,420px)] sm:h-[calc(75svh-4rem)]",
-	4: "h-[min(60vh,420px)] sm:h-[calc(100svh-5rem)]",
+	1: "h-[calc(25dvh-5.5rem)]",
+	2: "h-[calc(50dvh-6.5rem)]",
+	3: "h-[calc(75dvh-7.5rem)]",
+	4: "h-[calc(100dvh-8.5rem)]",
 };
 
 export function GridWidgetCell({
