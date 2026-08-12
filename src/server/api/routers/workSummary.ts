@@ -34,6 +34,17 @@ function median(nums: number[]): number {
 		: (sorted[mid] ?? 0);
 }
 
+function buildColKey(
+	daEval: string,
+	asdAdhd: string | null,
+	ageGroup: string,
+): string {
+	const isDA = daEval === "DA";
+	const diagKey = asdAdhd === "ASD+ADHD" ? "ASD" : asdAdhd;
+	const baseKey = !isDA && diagKey ? `${daEval}/${diagKey}` : daEval;
+	return isDA ? baseKey : `${baseKey}/${ageGroup}`;
+}
+
 // Mirrors the key/fallback logic the client uses in calcEstimatedMinutes,
 // so a single appointment's expected duration matches what the totals card shows.
 function lookupExpectedDuration(
@@ -123,13 +134,11 @@ export const workSummaryRouter = createTRPCRouter({
 				byNpi[row.npi] ??= { name: row.providerName, weekData: {} };
 				const entry = byNpi[row.npi];
 				if (!entry) continue;
-				const isDA = row.daEval === "DA";
-				const diagKey = row.asdAdhd === "ASD+ADHD" ? "ASD" : row.asdAdhd;
-				const baseKey =
-					!isDA && diagKey
-						? `${row.daEval}/${diagKey}`
-						: (row.daEval ?? "Unknown");
-				const key = isDA ? baseKey : `${baseKey}/${row.ageGroup}`;
+				const key = buildColKey(
+					row.daEval ?? "Unknown",
+					row.asdAdhd,
+					row.ageGroup,
+				);
 				entry.weekData[key] ??= {};
 				const weekMap = entry.weekData[key];
 				if (weekMap) weekMap[row.week] = (weekMap[row.week] ?? 0) + row.count;
@@ -241,6 +250,10 @@ export const workSummaryRouter = createTRPCRouter({
 				number,
 				{ name: string; durationDiffs: number[]; lateStarts: number[] }
 			> = {};
+			const observedDurationAgg: Record<
+				number,
+				Record<string, { sum: number; count: number }>
+			> = {};
 			for (const row of timingRows) {
 				if (!row.daEval || !row.startedAt) continue;
 				timingByNpi[row.npi] ??= {
@@ -264,6 +277,18 @@ export const workSummaryRouter = createTRPCRouter({
 					);
 					if (expectedMinutes !== undefined) {
 						entry.durationDiffs.push(actualMinutes - expectedMinutes);
+					}
+
+					const colKey = buildColKey(row.daEval, row.asdAdhd, row.ageGroup);
+					observedDurationAgg[row.npi] ??= {};
+					const npiAgg = observedDurationAgg[row.npi];
+					if (npiAgg) {
+						npiAgg[colKey] ??= { sum: 0, count: 0 };
+						const bucket = npiAgg[colKey];
+						if (bucket) {
+							bucket.sum += actualMinutes;
+							bucket.count += 1;
+						}
 					}
 				}
 
@@ -290,8 +315,25 @@ export const workSummaryRouter = createTRPCRouter({
 				}))
 				.sort((a, b) => a.name.localeCompare(b.name));
 
+			// Prefer durations observed from actual check-in timing over the
+			// evaluator's configured estimates, since real data is more accurate.
+			const appointmentSummaryWithActuals = appointmentSummary.map((row) => {
+				const observed = observedDurationAgg[row.npi];
+				if (!observed) return row;
+				const observedAverages = Object.fromEntries(
+					Object.entries(observed).map(([key, { sum, count }]) => [
+						key,
+						sum / count,
+					]),
+				);
+				return {
+					...row,
+					durations: { ...row.durations, ...observedAverages },
+				};
+			});
+
 			return {
-				appointments: appointmentSummary,
+				appointments: appointmentSummaryWithActuals,
 				reports: reportSummary,
 				checkins: checkinSummary,
 				timing: timingSummary,
