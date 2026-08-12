@@ -39,10 +39,38 @@ if [ -z "$WAS_RUNNING" ]; then
     done
 fi
 
-log "Connecting to opti over SSH..."
+log "Waiting for local database to accept connections..."
+tries=0
+until docker exec driftwood-db mysqladmin ping -h 127.0.0.1 -u root -p"${MYSQL_ROOT_PASSWORD}" --silent >/dev/null 2>&1; do
+    tries=$((tries + 1))
+    if [ "$tries" -ge 30 ]; then
+        echo "[sync-db] ERROR: local database never became reachable over TCP after 15s" >&2
+        exit 1
+    fi
+    sleep 0.5
+done
+
+DUMP_FILE="$(mktemp)"
+trap 'rm -f "$DUMP_FILE"' EXIT
+
+log "Connecting to opti over SSH and dumping to a local temp file..."
 ssh -C -o BatchMode=yes -o ConnectTimeout=10 -o ServerAliveInterval=5 -o ServerAliveCountMax=3 driftwood@opti \
     'echo "[sync-db remote] connected, starting mysqldump" >&2; cd winnonah && source .env && docker exec driftwood-db mysqldump -uroot -p"$MYSQL_ROOT_PASSWORD" --single-transaction --routines --triggers --events --set-gtid-purged=OFF driftwood; echo "[sync-db remote] mysqldump finished" >&2' \
-    | docker exec -i driftwood-db mysql -u root -p"${MYSQL_ROOT_PASSWORD}" driftwood
+    > "$DUMP_FILE" &
+SSH_PID=$!
+
+while kill -0 "$SSH_PID" 2>/dev/null; do
+    sleep 3
+    size="$(wc -c < "$DUMP_FILE" 2>/dev/null || echo 0)"
+    log "...still transferring, ${size} bytes received so far"
+done
+
+if ! wait "$SSH_PID"; then
+    echo "[sync-db] ERROR: ssh/mysqldump exited with a non-zero status" >&2
+    exit 1
+fi
+log "Dump written ($(wc -c < "$DUMP_FILE") bytes). Importing into local container..."
+docker exec -i driftwood-db mysql -h 127.0.0.1 -u root -p"${MYSQL_ROOT_PASSWORD}" driftwood < "$DUMP_FILE"
 log "Database sync complete!"
 
 if [ -z "$WAS_RUNNING" ]; then
