@@ -162,7 +162,7 @@ def _reprocess_requested_faxes() -> list[dict]:
             WHERE reprocess_requested_at IS NOT NULL
             """
         )
-        return cursor.fetchall()
+        return list(cursor.fetchall())
 
 
 def _reprocess_fax(fax: dict, llm, client_lookup: list[dict]) -> None:

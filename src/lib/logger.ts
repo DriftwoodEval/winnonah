@@ -10,6 +10,9 @@ export const logger: Logger =
 					base: null,
 					level: "debug",
 					messageKey: "message",
+					serializers: {
+						error: pino.stdSerializers.err,
+					},
 					formatters: {
 						level(label) {
 							return {
@@ -36,6 +39,9 @@ export const logger: Logger =
 		: pino({
 				base: null,
 				level: "debug",
+				serializers: {
+					error: pino.stdSerializers.err,
+				},
 				// pino-pretty also requires Node.js worker threads, so disable it in the browser
 				transport: isServer
 					? {
