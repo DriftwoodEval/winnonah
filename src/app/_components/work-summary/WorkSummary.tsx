@@ -19,6 +19,7 @@ import { ClipboardListIcon, UserIcon } from "lucide-react";
 import { Fragment, useMemo, useState } from "react";
 import { cn } from "~/lib/utils";
 import { api } from "~/trpc/react";
+import { Redact } from "../redaction/Redact";
 
 const DA_EVAL_ORDER = ["DA", "EVAL", "DAEVAL"] as const;
 const ASD_ADHD_ORDER = ["ASD", "ADHD", "ASD+LD", "ADHD+LD", "LD"];
@@ -210,7 +211,9 @@ function AppointmentDetailDialog({
 									<TableCell className="text-muted-foreground">
 										{format(appt.startTime, "MMM d, yyyy h:mm a")}
 									</TableCell>
-									<TableCell>{appt.clientName}</TableCell>
+									<TableCell>
+										<Redact>{appt.clientName}</Redact>
+									</TableCell>
 									<TableCell>
 										{appt.asdAdhd
 											? `${appt.daEval}/${appt.asdAdhd}`

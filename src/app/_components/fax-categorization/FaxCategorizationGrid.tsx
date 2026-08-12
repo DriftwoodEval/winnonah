@@ -29,6 +29,7 @@ import { toast } from "sonner";
 import type { SortedClient } from "~/lib/api-types";
 import { cn, formatInBusinessTime } from "~/lib/utils";
 import { api, type RouterOutputs } from "~/trpc/react";
+import { Redact } from "../redaction/Redact";
 
 type FaxListItem = RouterOutputs["faxCategorization"]["list"][number];
 
@@ -348,7 +349,7 @@ function FaxGrid({
 													className="hover:bg-secondary/70"
 													variant="secondary"
 												>
-													{link.client.fullName}
+													<Redact>{link.client.fullName}</Redact>
 												</Badge>
 											</Link>
 										))}
@@ -473,7 +474,7 @@ function FaxGrid({
 																		className="text-sm hover:underline"
 																		href={`/clients/${link.client.hash}`}
 																	>
-																		{link.client.fullName}
+																		<Redact>{link.client.fullName}</Redact>
 																	</Link>
 																	{link.source === "llm" &&
 																		link.confidence !== null &&
@@ -537,7 +538,7 @@ function FaxGrid({
 																		)}
 																		href={`/clients/${link.client.hash}`}
 																	>
-																		{link.client.fullName}
+																		<Redact>{link.client.fullName}</Redact>
 																	</Link>
 																	{link.rejected ? (
 																		<Badge variant="outline">
@@ -583,7 +584,7 @@ function FaxGrid({
 																	className="text-sm hover:underline"
 																	href={`/clients/${link.client.hash}`}
 																>
-																	{link.client.fullName}
+																	<Redact>{link.client.fullName}</Redact>
 																</Link>
 																{link.source === "manual" && (
 																	<Badge variant="outline">
@@ -619,7 +620,7 @@ function FaxGrid({
 															}),
 															{
 																loading: "Linking...",
-																success: `Linked ${client.fullName}`,
+																success: "Client linked",
 																error: "Could not link client",
 															},
 														)

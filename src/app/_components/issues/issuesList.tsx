@@ -25,6 +25,7 @@ import type { PermissionId } from "~/lib/types";
 import { formatInBusinessTime, formatShortDate } from "~/lib/utils";
 import { api, type RouterOutputs } from "~/trpc/react";
 import { ManualAddressDialog } from "../client/ManualAddressDialog";
+import { Redact } from "../redaction/Redact";
 
 interface IssueListProps {
 	title: string;
@@ -162,7 +163,7 @@ export const IssueList = ({
 									key={client.hash}
 								>
 									<div className="text-sm" key={client.hash}>
-										{client.fullName}{" "}
+										<Redact>{client.fullName}</Redact>{" "}
 										{client.additionalInfo && (
 											<span className="text-muted-foreground">
 												{client.additionalInfo}
@@ -388,14 +389,14 @@ export const SuggestionIssueList = ({
 									{item.hash ? (
 										<Link href={`/clients/${item.hash}`}>
 											<div className="font-medium text-sm hover:underline">
-												{item.name}
+												<Redact>{item.name}</Redact>
 											</div>
 										</Link>
 									) : (
 										<div className="font-medium text-sm">
-											{item.name}{" "}
+											<Redact>{item.name}</Redact>{" "}
 											<span className="font-normal text-muted-foreground text-xs">
-												(ID: {item.id})
+												(ID: <Redact>{item.id}</Redact>)
 											</span>
 										</div>
 									)}
@@ -414,9 +415,9 @@ export const SuggestionIssueList = ({
 												>
 													<Link href={`/clients/${suggestion.hash}`}>
 														<div className="text-xs hover:underline">
-															{suggestion.fullName}
+															<Redact>{suggestion.fullName}</Redact>
 															<span className="ml-1 text-muted-foreground">
-																(ID: {suggestion.id})
+																(ID: <Redact>{String(suggestion.id)}</Redact>)
 															</span>
 														</div>
 													</Link>
@@ -542,7 +543,9 @@ export const DuplicateNamesList = ({
 					<div className="space-y-4">
 						{groups.map((group) => (
 							<div className="rounded-md border bg-muted p-3" key={group.name}>
-								<div className="mb-2 font-medium text-sm">{group.name}</div>
+								<div className="mb-2 font-medium text-sm">
+									<Redact>{group.name}</Redact>
+								</div>
 								<div className="space-y-2">
 									{group.pairs.map(({ clientA, clientB }, pairIndex) => (
 										<div key={`${clientA.id}-${clientB.id}`}>
@@ -551,17 +554,19 @@ export const DuplicateNamesList = ({
 												<div className="space-y-1">
 													<Link href={`/clients/${clientA.hash}`}>
 														<div className="text-xs hover:underline">
-															{clientA.fullName}
+															<Redact>{clientA.fullName}</Redact>
 															<span className="ml-1 text-muted-foreground">
-																(DOB: {formatShortDate(clientA.dob)})
+																(DOB:{" "}
+																<Redact>{formatShortDate(clientA.dob)}</Redact>)
 															</span>
 														</div>
 													</Link>
 													<Link href={`/clients/${clientB.hash}`}>
 														<div className="text-xs hover:underline">
-															{clientB.fullName}
+															<Redact>{clientB.fullName}</Redact>
 															<span className="ml-1 text-muted-foreground">
-																(DOB: {formatShortDate(clientB.dob)})
+																(DOB:{" "}
+																<Redact>{formatShortDate(clientB.dob)}</Redact>)
 															</span>
 														</div>
 													</Link>
@@ -692,11 +697,11 @@ export const DuplicateDriveFoldersList = ({
 								<div className="mb-2 font-bold text-lg">
 									<Link href={`/clients/${group.clientHash}`}>
 										<span className="hover:underline">
-											{group.clientFullName}
+											<Redact>{group.clientFullName}</Redact>
 										</span>
 									</Link>
 									<span className="ml-2 font-medium text-muted-foreground text-sm">
-										[{group.clientId}]
+										[<Redact>{String(group.clientId)}</Redact>]
 									</span>
 								</div>
 
@@ -709,7 +714,9 @@ export const DuplicateDriveFoldersList = ({
 												target="_blank"
 											>
 												<div className="flex items-baseline gap-1 text-sm hover:underline">
-													<span>{folder.name}</span>
+													<span>
+														<Redact>{folder.name}</Redact>
+													</span>
 													{folder.isDbMatch && (
 														<span className="font-semibold text-primary text-xs">
 															(Canonical Folder)
@@ -767,7 +774,7 @@ export const ClientsSharingQuestionnaires = ({
 										<div key={client.id}>
 											<Link href={`/clients/${client.hash}`}>
 												<div className="text-sm hover:underline">
-													{client.fullName}
+													<Redact>{client.fullName}</Redact>
 													<span className="ml-2 text-muted-foreground text-xs">
 														({count} count{count > 1 ? "s" : ""})
 													</span>
@@ -863,7 +870,7 @@ export const PartialBatteryList = ({
 								<div className="flex flex-wrap items-baseline gap-2">
 									<Link href={`/clients/${client.hash}`}>
 										<span className="font-bold hover:underline">
-											{client.fullName}
+											<Redact>{client.fullName}</Redact>
 										</span>
 									</Link>
 									{client.language && client.language !== "English" && (

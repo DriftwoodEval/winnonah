@@ -3,6 +3,7 @@
 import { forwardRef, memo } from "react";
 import type { SortedClient } from "~/lib/api-types";
 import { cn } from "~/lib/utils";
+import { Redact } from "../redaction/Redact";
 
 type SelectableClientListItemProps = {
 	client: SortedClient;
@@ -27,7 +28,9 @@ const SelectableClientListItemComponent = forwardRef<
 			ref={ref}
 			type="button"
 		>
-			<span>{client.fullName}</span>
+			<span>
+				<Redact>{client.fullName}</Redact>
+			</span>
 			{showId && (
 				<span
 					className={cn(
@@ -35,7 +38,7 @@ const SelectableClientListItemComponent = forwardRef<
 						isSelected ? "bg-secondary text-secondary-foreground" : "",
 					)}
 				>
-					{client.id}
+					<Redact>{String(client.id)}</Redact>
 				</span>
 			)}
 		</button>

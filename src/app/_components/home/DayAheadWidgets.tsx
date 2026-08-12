@@ -18,6 +18,7 @@ import {
 } from "~/lib/utils";
 import { api, type RouterOutputs } from "~/trpc/react";
 import { RecentMessagesPopover } from "../day-ahead/RecentMessagesPopover";
+import { Redact } from "../redaction/Redact";
 
 type RecentMessagesMap = RouterOutputs["quo"]["getRecentMessages"];
 type GreeterSchedule = RouterOutputs["greeterProxy"]["getSchedule"];
@@ -213,7 +214,7 @@ export function MyDayWidget() {
 								className="min-w-32 flex-1 truncate font-medium text-sm hover:text-secondary"
 								href={`/clients/${appt.clientHash}`}
 							>
-								{appt.clientName}
+								<Redact>{appt.clientName}</Redact>
 							</Link>
 							{appt.asdAdhd && (
 								<Badge className="shrink-0 text-xs" variant="outline">
@@ -420,7 +421,7 @@ function ExpandableEvaluator({
 								className="min-w-32 flex-1 truncate text-xs hover:text-secondary"
 								href={`/clients/${appt.clientHash}`}
 							>
-								{appt.clientName}
+								<Redact>{appt.clientName}</Redact>
 							</Link>
 							{appt.asdAdhd && (
 								<Badge className="shrink-0 text-xs" variant="outline">

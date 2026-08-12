@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useSession } from "next-auth/react";
 import { useCheckPermission } from "~/hooks/use-check-permission";
 import { api } from "~/trpc/react";
+import { Redact } from "../redaction/Redact";
 
 export function RecentClientsWidget() {
 	const { data: session } = useSession();
@@ -40,7 +41,7 @@ export function RecentClientsWidget() {
 					href={`/clients/${client.hash}`}
 					key={client.hash}
 				>
-					{client.name}
+					<Redact>{client.name}</Redact>
 				</Link>
 			))}
 		</div>
@@ -85,7 +86,7 @@ export function MyInsuranceClientsWidget() {
 					href={`/clients/${c.clientHash}?tab=insurance`}
 					key={c.clientHash}
 				>
-					{c.clientName}
+					<Redact>{c.clientName}</Redact>
 				</Link>
 			))}
 		</div>

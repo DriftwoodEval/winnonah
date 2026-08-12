@@ -19,6 +19,7 @@ import { toast } from "sonner";
 import { useMediaQuery } from "~/hooks/use-media-query";
 import { api } from "~/trpc/react";
 import { Client } from "../client/Client";
+import { Redact } from "../redaction/Redact";
 
 interface ClientOverwriteFields {
 	id: number;
@@ -169,7 +170,10 @@ export function MergePreviewDialog({
 							<div>
 								<p className="mb-2">
 									Merging will overwrite the following differing fields on{" "}
-									<strong>{realClient?.fullName}</strong>:
+									<strong>
+										<Redact>{realClient?.fullName}</Redact>
+									</strong>
+									:
 								</p>
 								<ul className="space-y-1">
 									{conflictingOverwrites.map(({ field, real, fake }) => (

@@ -31,6 +31,7 @@ import { logger } from "~/lib/logger";
 import type { Client } from "~/lib/models";
 import { cn } from "~/lib/utils";
 import { api } from "~/trpc/react";
+import { Redact } from "../redaction/Redact";
 import {
 	ResponsiveDialog,
 	useResponsiveDialog,
@@ -98,7 +99,7 @@ function ManualAddressForm({
 							href={`https://maps.google.com/?q=${encodeURIComponent(initialData.address)}`}
 							target="_blank"
 						>
-							{initialData.address}
+							<Redact>{initialData.address}</Redact>
 							<ExternalLinkIcon size={14} />
 						</Link>
 					) : (

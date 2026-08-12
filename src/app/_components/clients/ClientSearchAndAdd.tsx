@@ -8,6 +8,7 @@ import { useEffect, useMemo, useState } from "react";
 import type { SortedClient } from "~/lib/api-types";
 import { cn, formatDateOnlyLong, isNotesOnlyClientId } from "~/lib/utils";
 import { api } from "~/trpc/react";
+import { Redact } from "../redaction/Redact";
 
 function useDebounce<T>(value: T, delay: number): T {
 	const [debouncedValue, setDebouncedValue] = useState<T>(value);
@@ -143,16 +144,16 @@ export function ClientSearchAndAdd({
 								>
 									<div className="flex flex-col">
 										<span className="font-medium text-sm">
-											{client.fullName}
+											<Redact>{client.fullName}</Redact>
 										</span>
 										{!isNotesOnlyClientId(client.id) && (
 											<span className="text-muted-foreground text-xs">
-												ID: {client.id}
+												ID: <Redact>{String(client.id)}</Redact>
 											</span>
 										)}
 										{showDob && (
 											<span className="text-muted-foreground text-xs">
-												DOB: {formatDateOnlyLong(client.dob)}
+												DOB: <Redact>{formatDateOnlyLong(client.dob)}</Redact>
 											</span>
 										)}
 									</div>

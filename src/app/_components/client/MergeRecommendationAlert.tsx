@@ -7,6 +7,7 @@ import { GitMerge } from "lucide-react";
 import type { Client } from "~/lib/models";
 import { isNotesOnlyClientId } from "~/lib/utils";
 import { api } from "~/trpc/react";
+import { Redact } from "../redaction/Redact";
 
 interface MergeRecommendationAlertProps {
 	client: Client;
@@ -45,7 +46,8 @@ export function MergeRecommendationAlert({
 								shouldRedirect
 							>
 								<Button className="h-7 text-xs" size="sm" variant="outline">
-									Merge with {real.fullName} ({real.id})
+									Merge with <Redact>{real.fullName}</Redact> (
+									<Redact>{String(real.id)}</Redact>)
 								</Button>
 							</MergePreviewDialog>
 						))}
@@ -75,7 +77,7 @@ export function MergeRecommendationAlert({
 							shouldRedirect
 						>
 							<Button className="h-7 text-xs" size="sm" variant="outline">
-								Merge {notesOnly.fullName} into this client
+								Merge <Redact>{notesOnly.fullName}</Redact> into this client
 							</Button>
 						</MergePreviewDialog>
 					))}
