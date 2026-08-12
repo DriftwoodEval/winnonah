@@ -29,9 +29,16 @@ CATEGORIES = [
 # prompt.
 CATEGORY_DEFINITIONS = {
     "Referral": (
-        "The document itself is sending a patient to us for care. A "
-        "document that merely mentions or summarizes a past referral as "
-        "part of the patient's care history is NOT a Referral."
+        "The document itself is sending a patient to us for care - look "
+        "for an explicit ask to schedule/see/accept the patient, a "
+        "referring provider's name/contact info, or a title like "
+        "'Referral Information Form'. This is true even when the "
+        "document also includes patient history (medical history, "
+        "diagnosis, prior care) alongside that ask - history included TO "
+        "support a referral is still a Referral, not Patient Documents. "
+        "A document that merely mentions or summarizes a past referral as "
+        "part of the patient's care history, with no current ask to "
+        "schedule or accept the patient, is NOT a Referral."
     ),
     "Records Request": (
         "Someone is requesting records/information FROM us, including a "
@@ -54,7 +61,11 @@ CATEGORY_DEFINITIONS = {
         "is only a Denial when the entire request is refused. Appeal-"
         "rights language and phrases like 'adverse determination' appear "
         "on approval letters too (for the part not granted), so don't "
-        "treat those alone as denial signal; look for the actual outcome."
+        "treat those alone as denial signal; look for the actual outcome. "
+        "The word 'Reduced' describing the decision on a request (e.g. "
+        "'the request... has been Reduced') is NEVER a Denial by itself - "
+        "a reduction means some units/visits/hours were still granted, "
+        "just fewer than requested, which makes it an Approval."
     ),
     "Insurance Approval": (
         "An insurer is approving or authorizing coverage, a claim, or "
@@ -66,7 +77,9 @@ CATEGORY_DEFINITIONS = {
         "'reduced', effective dates or number of visits/sessions "
         "granted). This applies even if the letter also describes denying "
         "the remainder of the request - if ANYTHING is granted, it's an "
-        "Approval, not a Denial."
+        "Approval, not a Denial. A decision stated only as 'Reduced' "
+        "(without the word 'denied') is an Approval: the request was "
+        "granted at a lower amount, not refused."
     ),
     "Status Update Request": (
         "Someone is asking where things stand on a client - a check-in "
@@ -77,7 +90,11 @@ CATEGORY_DEFINITIONS = {
     "Patient Documents": (
         "Someone is sending records/information TO us about a patient "
         "(e.g. medical history, special education history, a summary of "
-        "care) - not a request, and not itself a referral for care."
+        "care) with no current ask to schedule/see/accept the patient - "
+        "not a request, and not itself a referral for care. If the same "
+        "document also asks us to schedule or take on the patient, that "
+        "ask makes it a Referral instead, even though it contains patient "
+        "history."
     ),
     "Unsure": "The document's category is unclear or it fits none of the above.",
 }
