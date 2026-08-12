@@ -6,6 +6,11 @@ import { Badge } from "@ui/badge";
 import { Button } from "@ui/button";
 import { Card, CardContent, CardHeader } from "@ui/card";
 import {
+	Collapsible,
+	CollapsibleContent,
+	CollapsibleTrigger,
+} from "@ui/collapsible";
+import {
 	Dialog,
 	DialogContent,
 	DialogDescription,
@@ -22,7 +27,7 @@ import {
 import { Separator } from "@ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@ui/tabs";
 import { formatDistanceToNow } from "date-fns";
-import { FileTextIcon, InboxIcon } from "lucide-react";
+import { ChevronDownIcon, FileTextIcon, InboxIcon } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -298,15 +303,40 @@ function FaxGrid({
 							</CardHeader>
 							<CardContent className="flex flex-col gap-2">
 								<div className="flex flex-wrap items-center gap-1">
-									<Badge
-										className={cn(
-											fax.category &&
-												CATEGORY_BADGE_CLASSES[fax.category as Category],
-										)}
-										variant="outline"
-									>
-										{fax.category ?? "Unsure"}
-									</Badge>
+									{status === "reviewed" && fax.category !== fax.llmCategory ? (
+										<>
+											<Badge
+												className={cn(
+													"line-through opacity-60",
+													fax.llmCategory &&
+														CATEGORY_BADGE_CLASSES[fax.llmCategory as Category],
+												)}
+												variant="outline"
+											>
+												{fax.llmCategory ?? "Unsure"}
+											</Badge>
+											<span className="text-muted-foreground text-xs">→</span>
+											<Badge
+												className={cn(
+													fax.category &&
+														CATEGORY_BADGE_CLASSES[fax.category as Category],
+												)}
+												variant="outline"
+											>
+												{fax.category ?? "Unsure"}
+											</Badge>
+										</>
+									) : (
+										<Badge
+											className={cn(
+												fax.category &&
+													CATEGORY_BADGE_CLASSES[fax.category as Category],
+											)}
+											variant="outline"
+										>
+											{fax.category ?? "Unsure"}
+										</Badge>
+									)}
 									{fax.confidence !== null && (
 										<Badge
 											className={confidenceBadgeClass(Number(fax.confidence))}
@@ -315,15 +345,6 @@ function FaxGrid({
 											{Math.round(Number(fax.confidence) * 100)}% confident
 										</Badge>
 									)}
-									{status === "reviewed" &&
-										fax.category !== fax.llmCategory && (
-											<Badge
-												className={OVERRIDDEN_BADGE_CLASSES}
-												variant="outline"
-											>
-												Overridden
-											</Badge>
-										)}
 									{status === "reviewed" && clientsWereChanged(fax.links) && (
 										<Badge
 											className={OVERRIDDEN_BADGE_CLASSES}
@@ -451,6 +472,19 @@ function FaxGrid({
 											</p>
 										)}
 									</div>
+									{status === "reviewed" && selectedFax.extractedText && (
+										<Collapsible>
+											<CollapsibleTrigger className="flex items-center gap-1 font-medium text-muted-foreground text-xs uppercase tracking-wider hover:text-foreground">
+												<ChevronDownIcon className="h-3 w-3" />
+												Raw scraped text
+											</CollapsibleTrigger>
+											<CollapsibleContent>
+												<pre className="mt-2 max-h-64 overflow-y-auto whitespace-pre-wrap rounded-md border bg-muted/30 p-2 text-xs">
+													<Redact>{selectedFax.extractedText}</Redact>
+												</pre>
+											</CollapsibleContent>
+										</Collapsible>
+									)}
 									<Separator />
 									{status === "pending" ? (
 										<div>

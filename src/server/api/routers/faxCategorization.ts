@@ -40,6 +40,7 @@ export const faxCategorizationRouter = createTRPCRouter({
 					llmCategory: true,
 					confidence: true,
 					status: true,
+					extractedText: true,
 					reviewedAt: true,
 					reviewedBy: true,
 				},
