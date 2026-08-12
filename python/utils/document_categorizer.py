@@ -26,78 +26,58 @@ CATEGORIES = [
 ]
 
 # One-line disambiguation for each category, shown to the model in the
-# prompt.
+# prompt. Kept short on purpose: this is a 4B model with a 4096-token
+# context, so the nuance that used to live here as conditional prose now
+# lives in CATEGORY_EXAMPLES instead, since worked examples steer a small
+# model more reliably than longer if/unless clauses, and cost fewer tokens.
 CATEGORY_DEFINITIONS = {
     "Referral": (
-        "The document itself is sending a patient to us for care - look "
-        "for an explicit ask to schedule/see/accept the patient, a "
-        "referring provider's name/contact info, or a title like "
-        "'Referral Information Form'. This is true even when the "
-        "document also includes patient history (medical history, "
-        "diagnosis, prior care) alongside that ask - history included TO "
-        "support a referral is still a Referral, not Patient Documents. "
-        "A document that merely mentions or summarizes a past referral as "
-        "part of the patient's care history, with no current ask to "
-        "schedule or accept the patient, is NOT a Referral."
+        "The document itself is sending a patient to us for care (an ask "
+        "to schedule/see/accept them), not just mentioning a past one."
     ),
     "Records Request": (
         "Someone is requesting records/information FROM us, including a "
-        "signed authorization/consent form allowing us to release those "
-        "records - even if the word 'authorization' appears, this is not "
-        "Insurance unless it's about coverage/billing."
+        "signed release authorization."
     ),
     "Insurance": (
-        "Coverage, billing, or claims paperwork, or an insurer's prior "
-        "authorization for treatment, that is NOT specifically a denial or "
-        "approval decision - NOT a patient's signed authorization/consent "
-        "to release their own records, which is a Records Request."
+        "Coverage, billing, claims, or prior-authorization paperwork that "
+        "is NOT itself a denial or approval decision."
     ),
-    "Insurance Denial": (
-        "An insurer is refusing coverage, a claim, or prior authorization "
-        "for treatment, with NOTHING granted. If any visits, sessions, or "
-        "coverage are granted anywhere in the letter, even a reduced "
-        "amount, that makes it an Insurance Approval instead, even if the "
-        "same letter also refuses part of what was requested - a letter "
-        "is only a Denial when the entire request is refused. Appeal-"
-        "rights language and phrases like 'adverse determination' appear "
-        "on approval letters too (for the part not granted), so don't "
-        "treat those alone as denial signal; look for the actual outcome. "
-        "The word 'Reduced' describing the decision on a request (e.g. "
-        "'the request... has been Reduced') is NEVER a Denial by itself - "
-        "a reduction means some units/visits/hours were still granted, "
-        "just fewer than requested, which makes it an Approval."
-    ),
+    "Insurance Denial": "An insurer refuses coverage/a claim/authorization with NOTHING granted.",
     "Insurance Approval": (
-        "An insurer is approving or authorizing coverage, a claim, or "
-        "prior authorization for treatment, including a partial or "
-        "reduced approval (fewer visits/sessions than requested, or "
-        "coverage at a lower level than requested, or only some of "
-        "several requested services granted). Look for explicit approval "
-        "language (e.g. 'approved', 'authorized', 'partially approved', "
-        "'reduced', effective dates or number of visits/sessions "
-        "granted). This applies even if the letter also describes denying "
-        "the remainder of the request - if ANYTHING is granted, it's an "
-        "Approval, not a Denial. A decision stated only as 'Reduced' "
-        "(without the word 'denied') is an Approval: the request was "
-        "granted at a lower amount, not refused."
+        "An insurer approves or authorizes coverage/a claim/treatment, "
+        "including a partial or reduced approval."
     ),
     "Status Update Request": (
-        "Someone is asking where things stand on a client - a check-in "
-        "asking for a status update, progress report, or timeline on an "
-        "existing referral, request, or case, rather than submitting a "
-        "new request or sending new information."
+        "Asking where things stand on an existing referral/request/case, "
+        "not submitting anything new."
     ),
     "Patient Documents": (
-        "Someone is sending records/information TO us about a patient "
-        "(e.g. medical history, special education history, a summary of "
-        "care) with no current ask to schedule/see/accept the patient - "
-        "not a request, and not itself a referral for care. If the same "
-        "document also asks us to schedule or take on the patient, that "
-        "ask makes it a Referral instead, even though it contains patient "
-        "history."
+        "Sending records/information TO us about a patient, with no "
+        "current ask to schedule/accept them."
     ),
-    "Unsure": "The document's category is unclear or it fits none of the above.",
+    "Unsure": "Unclear, or fits none of the above.",
 }
+
+# Worked examples for confusions the model has actually made in practice, one
+# line each. On a 4B model these steer behavior more reliably (and cheaper)
+# than the longer conditional prose they replaced.
+CATEGORY_EXAMPLES = [
+    (
+        "'Referral form, please schedule an appointment... history: "
+        "diagnosed with anxiety in 2019' -> Referral, not Patient "
+        "Documents (it asks us to schedule; history is just context)."
+    ),
+    (
+        "'Coverage of 16 units has been Reduced to 10 units' -> Insurance "
+        "Approval, not Denial (reduced still means something was granted)."
+    ),
+    (
+        "Signed form authorizing us to release records to an attorney -> "
+        "Records Request, not Insurance (authorization here means consent "
+        "to release, not coverage)."
+    ),
+]
 
 # Below this many characters of extracted text, assume the page is a scan
 # (e.g. image-only) rather than genuine empty content, and fall back to OCR.
@@ -241,33 +221,23 @@ def build_prompt(document_text: str) -> str:
     category_lines = "\n".join(
         f"  - {name}: {CATEGORY_DEFINITIONS[name]}" for name in CATEGORIES
     )
+    example_lines = "\n".join(f"  - {example}" for example in CATEGORY_EXAMPLES)
     return (
         "Analyze this document and respond with a single JSON object only.\n"
         '- "category": exactly one of the following, using the definitions '
-        "below to pick the best fit. If it's unclear or genuinely "
-        'ambiguous which category applies, use "Unsure" rather than '
+        'below. If genuinely ambiguous, use "Unsure" rather than '
         "guessing:\n"
         f"{category_lines}\n"
+        "Examples of tricky cases:\n"
+        f"{example_lines}\n"
         '- "clients": every client/patient full name the document is '
-        "about, as a list (empty list if none is identifiable)\n"
-        '- "confidence": a number from 0.0 to 1.0 for how certain you are '
-        "of the category. Be conservative: most real documents are NOT "
-        "clear-cut, so assume the correct score is below 0.5 unless the "
-        "evidence forces you "
-        "higher, and treat 0.9+ as reserved for the rare document that "
-        "leaves no room for doubt at all. Score above 0.8 only when the "
-        "category is stated in so many words on the page (e.g. a letter "
-        "that literally says 'this is a referral' or 'your request is "
-        "approved'), score 0.5-0.8 when it takes a reasonable inference "
-        "from clear context, and score below 0.5 whenever the wording is "
-        "generic, the document could plausibly fit more than one "
-        "category, or you are guessing at intent rather than reading it "
-        "directly off the page. A letter that mixes approval and denial "
-        "wording for different parts of the same request (e.g. a partial "
-        "or reduced approval that also lists what wasn't granted) is a "
-        "case where the category is still clear from whether anything "
-        "was granted, but treat it as a 0.5-0.8 case, not 0.9+, since the "
-        "mixed wording is easy to misread.\n\n"
+        "about, as a list (empty if none)\n"
+        '- "confidence": 0.0-1.0, how certain you are. Be conservative: '
+        "default below 0.5. Use 0.8+ only if the category is stated in so "
+        'many words (e.g. "this is a referral", "your request is '
+        'approved"). Use 0.5-0.8 for a clear inference from context, '
+        "including partial/reduced approvals. Use below 0.5 if the "
+        "wording is generic, ambiguous, or you're guessing at intent.\n\n"
         "Document:\n"
         f"{document_text}"
     )
