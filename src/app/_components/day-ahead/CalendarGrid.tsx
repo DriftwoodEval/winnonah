@@ -5,16 +5,9 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@ui/tooltip";
 import { format } from "date-fns";
 import Link from "next/link";
 import { createContext, useContext, useMemo, useState } from "react";
-import {
-	formatInBusinessTime,
-	normalizePhoneNumber,
-	toBusinessZonedTime,
-} from "~/lib/utils";
-import type { RouterOutputs } from "~/trpc/react";
+import { formatInBusinessTime, toBusinessZonedTime } from "~/lib/utils";
 import { Redact } from "../redaction/Redact";
-import { RecentMessagesPopover } from "./RecentMessagesPopover";
-
-type RecentMessagesMap = RouterOutputs["quo"]["getRecentMessages"];
+import { ApptMessagesPopover, type RecentMessagesMap } from "./DayAheadShared";
 
 // ─── Grid constants ───────────────────────────────────────────────────────────
 
@@ -301,17 +294,12 @@ export function ApptBlock({
 							)}
 						</div>
 					)}
-					<RecentMessagesPopover
-						appointmentStart={appt.startTime}
+					<ApptMessagesPopover
+						appt={appt}
 						className="absolute top-0.5 right-0.5"
-						isLoading={messagesLoading}
-						messages={
-							appt.clientPhone
-								? messages[normalizePhoneNumber(appt.clientPhone)]
-								: undefined
-						}
+						messages={messages}
+						messagesLoading={messagesLoading}
 						onOpenChange={setMessagesOpen}
-						phoneNumber={appt.clientPhone}
 					/>
 				</div>
 			</TooltipTrigger>

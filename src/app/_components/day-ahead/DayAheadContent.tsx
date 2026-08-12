@@ -1,6 +1,5 @@
 "use client";
 
-import { Badge } from "@ui/badge";
 import { Button } from "@ui/button";
 import {
 	Collapsible,
@@ -18,13 +17,12 @@ import { Separator } from "@ui/separator";
 import { ToggleGroup, ToggleGroupItem } from "@ui/toggle-group";
 import { TooltipProvider } from "@ui/tooltip";
 import { addDays, format, startOfWeek } from "date-fns";
-import { Armchair, ChevronDown, ChevronLeft, ChevronRight } from "lucide-react";
-import Image from "next/image";
+import { ChevronDown, ChevronLeft, ChevronRight } from "lucide-react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { useEffect, useMemo, useState } from "react";
-import { IS_DEV, normalizePhoneNumber } from "~/lib/utils";
+import { IS_DEV } from "~/lib/utils";
 import { api, type RouterOutputs } from "~/trpc/react";
 import { Redact } from "../redaction/Redact";
 import {
@@ -33,11 +31,20 @@ import {
 	CalendarMultiDayView,
 	formatTime,
 } from "./CalendarGrid";
-import { RecentMessagesPopover } from "./RecentMessagesPopover";
+import {
+	ApptMessagesPopover,
+	ApptTypeBadges,
+	ClientPortalLinks,
+	ConfirmedBadge,
+	collectPhoneNumbers,
+	findGreeter,
+	GreeterInline,
+	GreeterLine,
+	type GreeterSchedule,
+	type RecentMessagesMap,
+} from "./DayAheadShared";
 
 type ViewMode = "list" | "day" | "3day" | "week";
-
-type RecentMessagesMap = RouterOutputs["quo"]["getRecentMessages"];
 
 // ─── List view types ──────────────────────────────────────────────────────────
 
@@ -94,54 +101,17 @@ function AppointmentRow({
 			>
 				<Redact>{appt.clientName}</Redact>
 			</Link>
-			{appt.clientDriveId && appt.clientDriveId !== "N/A" && (
-				<Link
-					className="shrink-0"
-					href={`https://drive.google.com/open?id=${appt.clientDriveId}`}
-					target="_blank"
-				>
-					<Image
-						alt="Google Drive"
-						className="dark:invert"
-						height={14}
-						src="/icons/google-drive.svg"
-						width={14}
-					/>
-				</Link>
-			)}
-			{appt.clientTaHash && (
-				<Link
-					className="shrink-0 text-muted-foreground hover:text-foreground"
-					href={`https://api.portal.therapyappointment.com/n/client/${appt.clientTaHash}`}
-					target="_blank"
-				>
-					<Armchair height="14" width="14" />
-				</Link>
-			)}
-			{appt.asdAdhd && (
-				<Badge className="shrink-0" variant="outline">
-					{appt.asdAdhd}
-				</Badge>
-			)}
-			{appt.daEval && (
-				<Badge className="shrink-0" variant="outline">
-					{appt.daEval}
-				</Badge>
-			)}
-			{appt.confirmedAt && (
-				<Badge className="h-4 shrink-0 px-1 text-[9px] uppercase">
-					Confirmed
-				</Badge>
-			)}
-			<RecentMessagesPopover
-				appointmentStart={appt.startTime}
-				isLoading={messagesLoading}
-				messages={
-					appt.clientPhone
-						? messages[normalizePhoneNumber(appt.clientPhone)]
-						: undefined
-				}
-				phoneNumber={appt.clientPhone}
+			<ClientPortalLinks
+				driveId={appt.clientDriveId}
+				size={14}
+				taHash={appt.clientTaHash}
+			/>
+			<ApptTypeBadges appt={appt} />
+			<ConfirmedBadge confirmedAt={appt.confirmedAt ?? null} />
+			<ApptMessagesPopover
+				appt={appt}
+				messages={messages}
+				messagesLoading={messagesLoading}
 			/>
 			<span className="ml-auto shrink-0 text-muted-foreground text-xs">
 				{appt.officeName ?? appt.locationKey ?? "Virtual"}
@@ -207,54 +177,17 @@ function EvaluatorRow({
 							>
 								<Redact>{appt.clientName}</Redact>
 							</Link>
-							{appt.clientDriveId && appt.clientDriveId !== "N/A" && (
-								<Link
-									className="shrink-0"
-									href={`https://drive.google.com/open?id=${appt.clientDriveId}`}
-									target="_blank"
-								>
-									<Image
-										alt="Google Drive"
-										className="dark:invert"
-										height={12}
-										src="/icons/google-drive.svg"
-										width={12}
-									/>
-								</Link>
-							)}
-							{appt.clientTaHash && (
-								<Link
-									className="shrink-0 text-muted-foreground hover:text-foreground"
-									href={`https://api.portal.therapyappointment.com/n/client/${appt.clientTaHash}`}
-									target="_blank"
-								>
-									<Armchair height="12" width="12" />
-								</Link>
-							)}
-							{appt.asdAdhd && (
-								<Badge className="shrink-0 text-xs" variant="outline">
-									{appt.asdAdhd}
-								</Badge>
-							)}
-							{appt.daEval && (
-								<Badge className="shrink-0 text-xs" variant="outline">
-									{appt.daEval}
-								</Badge>
-							)}
-							{appt.confirmedAt && (
-								<Badge className="h-4 shrink-0 px-1 text-[9px] uppercase">
-									Confirmed
-								</Badge>
-							)}
-							<RecentMessagesPopover
-								appointmentStart={appt.startTime}
-								isLoading={messagesLoading}
-								messages={
-									appt.clientPhone
-										? messages[normalizePhoneNumber(appt.clientPhone)]
-										: undefined
-								}
-								phoneNumber={appt.clientPhone}
+							<ClientPortalLinks
+								driveId={appt.clientDriveId}
+								size={12}
+								taHash={appt.clientTaHash}
+							/>
+							<ApptTypeBadges appt={appt} className="shrink-0 text-xs" />
+							<ConfirmedBadge confirmedAt={appt.confirmedAt} />
+							<ApptMessagesPopover
+								appt={appt}
+								messages={messages}
+								messagesLoading={messagesLoading}
 							/>
 						</div>
 					))}
@@ -370,6 +303,10 @@ export function DayAheadContent() {
 			},
 			{ enabled: viewMode === "list" },
 		);
+	const { data: greeterSchedule } = api.greeterProxy.getSchedule.useQuery(
+		{ date: selectedDate },
+		{ enabled: viewMode === "list" },
+	);
 
 	const { data: calData, isLoading: calLoading } =
 		api.appointments.getCalendarRange.useQuery(
@@ -384,24 +321,15 @@ export function DayAheadContent() {
 	const colorMap = useMemo(() => buildColorMap(calData ?? []), [calData]);
 
 	const phoneNumbers = useMemo(() => {
-		const phones = new Set<string>();
 		if (viewMode === "list") {
-			for (const appt of listData?.myAppointments ?? []) {
-				if (appt.clientPhone) phones.add(appt.clientPhone);
-			}
-			for (const office of listData?.offices ?? []) {
-				for (const ev of office.evaluators) {
-					for (const appt of ev.appointments) {
-						if (appt.clientPhone) phones.add(appt.clientPhone);
-					}
-				}
-			}
-		} else {
-			for (const appt of calData ?? []) {
-				if (appt.clientPhone) phones.add(appt.clientPhone);
-			}
+			return collectPhoneNumbers([
+				...(listData?.myAppointments ?? []),
+				...(listData?.offices ?? []).flatMap((office) =>
+					office.evaluators.flatMap((ev) => ev.appointments),
+				),
+			]);
 		}
-		return [...phones];
+		return collectPhoneNumbers(calData ?? []);
 	}, [viewMode, listData, calData]);
 
 	const { data: recentMessages, isLoading: messagesLoading } =
@@ -485,6 +413,7 @@ export function DayAheadContent() {
 					listData && (
 						<ListContent
 							data={listData}
+							greeterSchedule={greeterSchedule}
 							messages={recentMessages ?? {}}
 							messagesLoading={messagesLoading}
 						/>
@@ -516,10 +445,12 @@ export function DayAheadContent() {
 
 function ListContent({
 	data,
+	greeterSchedule,
 	messages,
 	messagesLoading,
 }: {
 	data: NonNullable<RouterOutputs["appointments"]["getDayAhead"]>;
+	greeterSchedule: GreeterSchedule | undefined;
 	messages: RecentMessagesMap;
 	messagesLoading: boolean;
 }) {
@@ -528,6 +459,14 @@ function ListContent({
 	const myTimeRange =
 		myFirst && myLast
 			? `${formatTime(myFirst.startTime)} – ${formatTime(myLast.endTime)}`
+			: null;
+
+	const myLocations = [
+		...new Set(data.myAppointments.map((a) => a.officeName).filter(Boolean)),
+	] as string[];
+	const myGreeter =
+		myLocations.length === 1 && myLocations[0]
+			? findGreeter(greeterSchedule, myLocations[0])
 			: null;
 
 	const otherOffices = data.offices
@@ -551,6 +490,7 @@ function ListContent({
 						</span>
 					)}
 				</div>
+				<GreeterLine greeter={myGreeter} />
 				{!data.hasEvaluatorAccount ? (
 					<p className="text-muted-foreground text-sm">
 						Your account is not linked to an evaluator profile.
@@ -587,11 +527,16 @@ function ListContent({
 					<div className="flex flex-col gap-6">
 						{otherOffices.map((office) => (
 							<div key={office.locationKey}>
-								<h3 className="mb-2 font-medium">
-									{office.officeName && office.officeName !== "Unknown Office"
-										? office.officeName
-										: "Virtual"}
-								</h3>
+								<div className="mb-2 flex items-center justify-between gap-2">
+									<h3 className="font-medium">
+										{office.officeName && office.officeName !== "Unknown Office"
+											? office.officeName
+											: "Virtual"}
+									</h3>
+									<GreeterInline
+										greeter={findGreeter(greeterSchedule, office.officeName)}
+									/>
+								</div>
 								<div className="flex flex-col">
 									{office.evaluators.map((ev) => (
 										<EvaluatorRow

@@ -1,6 +1,5 @@
 "use client";
 
-import { Badge } from "@ui/badge";
 import { Button } from "@ui/button";
 import {
 	Collapsible,
@@ -11,57 +10,22 @@ import { addDays, format } from "date-fns";
 import { ChevronDown, ChevronLeft, ChevronRight } from "lucide-react";
 import Link from "next/link";
 import { useMemo, useState } from "react";
+import { api } from "~/trpc/react";
+import { formatTime } from "../day-ahead/CalendarGrid";
 import {
-	formatInBusinessTime,
-	formatPhoneNumber,
-	normalizePhoneNumber,
-} from "~/lib/utils";
-import { api, type RouterOutputs } from "~/trpc/react";
-import { RecentMessagesPopover } from "../day-ahead/RecentMessagesPopover";
+	ApptMessagesPopover,
+	ApptTypeBadges,
+	ConfirmedBadge,
+	collectPhoneNumbers,
+	findGreeter,
+	GreeterInline,
+	GreeterLine,
+	type RecentMessagesMap,
+} from "../day-ahead/DayAheadShared";
 import { Redact } from "../redaction/Redact";
-
-type RecentMessagesMap = RouterOutputs["quo"]["getRecentMessages"];
-type GreeterSchedule = RouterOutputs["greeterProxy"]["getSchedule"];
 
 export function todayStr() {
 	return format(new Date(), "yyyy-MM-dd");
-}
-
-function findGreeter(
-	schedule: GreeterSchedule | undefined,
-	officeName: string | null,
-) {
-	if (!schedule || !officeName) return null;
-	const norm = officeName.trim().toLowerCase();
-	const match = schedule.find((entry) => {
-		const loc = entry.location.trim().toLowerCase();
-		return loc === norm || loc.includes(norm) || norm.includes(loc);
-	});
-	return match ?? null;
-}
-
-function GreeterLine({
-	greeter,
-}: {
-	greeter: { name: string; phone: string | null } | null;
-}) {
-	if (!greeter) return null;
-	return (
-		<div className="mb-2 flex items-center gap-1.5 border-b pb-2 text-xs">
-			<span className="text-muted-foreground">Greeter:</span>
-			<span className="font-medium">
-				<Redact>{greeter.name}</Redact>
-			</span>
-			{greeter.phone && (
-				<a
-					className="text-secondary hover:underline"
-					href={`tel:${greeter.phone}`}
-				>
-					<Redact>{formatPhoneNumber(greeter.phone)}</Redact>
-				</a>
-			)}
-		</div>
-	);
 }
 
 export function useSelectedDate() {
@@ -72,10 +36,6 @@ export function useSelectedDate() {
 		);
 	};
 	return { date, shift, resetToToday: () => setDate(todayStr()) };
-}
-
-function formatTime(date: Date) {
-	return formatInBusinessTime(date, "h:mm a");
 }
 
 export function DayNav({
@@ -152,14 +112,7 @@ export function MyDayWidget() {
 
 	const appts = data?.myAppointments ?? [];
 
-	const phoneNumbers = useMemo(
-		() => [
-			...new Set(
-				appts.map((a) => a.clientPhone).filter((p): p is string => !!p),
-			),
-		],
-		[appts],
-	);
+	const phoneNumbers = useMemo(() => collectPhoneNumbers(appts), [appts]);
 	const { data: recentMessages, isLoading: messagesLoading } =
 		api.quo.getRecentMessages.useQuery(
 			{ phoneNumbers },
@@ -218,37 +171,12 @@ export function MyDayWidget() {
 							>
 								<Redact>{appt.clientName}</Redact>
 							</Link>
-							{appt.asdAdhd && (
-								<Badge className="shrink-0 text-xs" variant="outline">
-									{appt.asdAdhd}
-								</Badge>
-							)}
-							{appt.daEval && (
-								<Badge className="shrink-0 text-xs" variant="outline">
-									{appt.daEval}
-								</Badge>
-							)}
-							{appt.confirmedAt ? (
-								<Badge className="h-4 shrink-0 px-1 text-[9px] uppercase">
-									Confirmed
-								</Badge>
-							) : (
-								<Badge
-									className="h-4 shrink-0 px-1 text-[9px] uppercase"
-									variant="destructive"
-								>
-									Unconfirmed
-								</Badge>
-							)}
-							<RecentMessagesPopover
-								appointmentStart={appt.startTime}
-								isLoading={messagesLoading}
-								messages={
-									appt.clientPhone
-										? recentMessages?.[normalizePhoneNumber(appt.clientPhone)]
-										: undefined
-								}
-								phoneNumber={appt.clientPhone}
+							<ApptTypeBadges appt={appt} className="shrink-0 text-xs" />
+							<ConfirmedBadge confirmedAt={appt.confirmedAt} showUnconfirmed />
+							<ApptMessagesPopover
+								appt={appt}
+								messages={recentMessages ?? {}}
+								messagesLoading={messagesLoading}
 							/>
 							{!allSameLocation && appt.officeName && (
 								<span className="ml-auto shrink-0 text-muted-foreground text-xs">
@@ -278,17 +206,15 @@ export function WhosInWidget() {
 		.filter((office) => office.evaluators.length > 0)
 		.sort((a, b) => (a.officeName ?? "").localeCompare(b.officeName ?? ""));
 
-	const phoneNumbers = useMemo(() => {
-		const phones = new Set<string>();
-		for (const office of otherOffices) {
-			for (const ev of office.evaluators) {
-				for (const appt of ev.appointments) {
-					if (appt.clientPhone) phones.add(appt.clientPhone);
-				}
-			}
-		}
-		return [...phones];
-	}, [otherOffices]);
+	const phoneNumbers = useMemo(
+		() =>
+			collectPhoneNumbers(
+				otherOffices.flatMap((office) =>
+					office.evaluators.flatMap((ev) => ev.appointments),
+				),
+			),
+		[otherOffices],
+	);
 	const { data: recentMessages, isLoading: messagesLoading } =
 		api.quo.getRecentMessages.useQuery(
 			{ phoneNumbers },
@@ -315,29 +241,9 @@ export function WhosInWidget() {
 								<p className="font-semibold text-muted-foreground text-xs uppercase tracking-wider">
 									{office.officeName}
 								</p>
-								{(() => {
-									const greeter = findGreeter(
-										greeterSchedule,
-										office.officeName,
-									);
-									if (!greeter) return null;
-									return (
-										<span className="shrink-0 text-muted-foreground text-xs normal-case">
-											<Redact>{greeter.name}</Redact>
-											{greeter.phone && (
-												<>
-													{" · "}
-													<a
-														className="text-secondary hover:underline"
-														href={`tel:${greeter.phone}`}
-													>
-														<Redact>{formatPhoneNumber(greeter.phone)}</Redact>
-													</a>
-												</>
-											)}
-										</span>
-									);
-								})()}
+								<GreeterInline
+									greeter={findGreeter(greeterSchedule, office.officeName)}
+								/>
 							</div>
 							{office.evaluators.map((ev) => (
 								<ExpandableEvaluator
@@ -425,37 +331,12 @@ function ExpandableEvaluator({
 							>
 								<Redact>{appt.clientName}</Redact>
 							</Link>
-							{appt.asdAdhd && (
-								<Badge className="shrink-0 text-xs" variant="outline">
-									{appt.asdAdhd}
-								</Badge>
-							)}
-							{appt.daEval && (
-								<Badge className="shrink-0 text-xs" variant="outline">
-									{appt.daEval}
-								</Badge>
-							)}
-							{appt.confirmedAt ? (
-								<Badge className="h-4 shrink-0 px-1 text-[9px] uppercase">
-									Confirmed
-								</Badge>
-							) : (
-								<Badge
-									className="h-4 shrink-0 px-1 text-[9px] uppercase"
-									variant="destructive"
-								>
-									Unconfirmed
-								</Badge>
-							)}
-							<RecentMessagesPopover
-								appointmentStart={appt.startTime}
-								isLoading={messagesLoading}
-								messages={
-									appt.clientPhone
-										? messages[normalizePhoneNumber(appt.clientPhone)]
-										: undefined
-								}
-								phoneNumber={appt.clientPhone}
+							<ApptTypeBadges appt={appt} className="shrink-0 text-xs" />
+							<ConfirmedBadge confirmedAt={appt.confirmedAt} showUnconfirmed />
+							<ApptMessagesPopover
+								appt={appt}
+								messages={messages}
+								messagesLoading={messagesLoading}
 							/>
 						</div>
 					))}
