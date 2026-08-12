@@ -40,7 +40,12 @@ import {
 	getHexFromColor,
 } from "~/lib/colors";
 import { ALLOWED_ASD_ADHD_VALUES, type PUNCH_SCHEMA } from "~/lib/constants";
-import { cn, formatClientAge } from "~/lib/utils";
+import {
+	cn,
+	compareDateOnly,
+	formatClientAge,
+	formatDateOnlyLong,
+} from "~/lib/utils";
 import { api } from "~/trpc/react";
 import { Redact } from "../redaction/Redact";
 import { NameSearchInput } from "./NameSearchInput";
@@ -74,7 +79,11 @@ type ColumnKey =
 	| "daQs"
 	| "evalQs"
 	| "insurance"
-	| "secondaryInsurance";
+	| "secondaryInsurance"
+	| "priorAuthDate"
+	| "daScheduled"
+	| "evalScheduled"
+	| "location";
 
 const COLUMN_LABELS: Record<ColumnKey, string> = {
 	priority: "Priority",
@@ -84,6 +93,10 @@ const COLUMN_LABELS: Record<ColumnKey, string> = {
 	evalQs: "EVAL Qs",
 	insurance: "Primary Insurance",
 	secondaryInsurance: "Secondary Insurance",
+	priorAuthDate: "Prior Auth Date",
+	daScheduled: "DA Scheduled",
+	evalScheduled: "EVAL Scheduled",
+	location: "Location",
 };
 
 const TOGGLEABLE_COLUMNS: ColumnKey[] = [
@@ -94,6 +107,10 @@ const TOGGLEABLE_COLUMNS: ColumnKey[] = [
 	"evalQs",
 	"insurance",
 	"secondaryInsurance",
+	"priorAuthDate",
+	"daScheduled",
+	"evalScheduled",
+	"location",
 ];
 
 // Not a real table column, just a badge next to the name, but its visibility
@@ -115,6 +132,10 @@ const DEFAULT_VISIBLE_COLUMNS: Record<ToggleKey, boolean> = {
 	evalQs: true,
 	insurance: true,
 	secondaryInsurance: true,
+	priorAuthDate: true,
+	daScheduled: true,
+	evalScheduled: true,
+	location: true,
 	[FAILURES_TOGGLE_KEY]: true,
 };
 
@@ -130,6 +151,10 @@ const SORT_KEYS = [
 	"evalQs",
 	"insurance",
 	"secondaryInsurance",
+	"priorAuthDate",
+	"daScheduled",
+	"evalScheduled",
+	"location",
 ] as const;
 type SortKey = (typeof SORT_KEYS)[number];
 
@@ -187,6 +212,10 @@ interface SortableClient {
 	sortReason: string;
 	dob: string | Date;
 	addedDate: string | Date | null;
+	priorAuthDate: string | null;
+	daScheduled: boolean;
+	evalScheduled: boolean;
+	location: string | null;
 }
 
 // Mirrors getPriorityInfo()'s SQL buckets/tie-break (server/api/routers/client.ts)
@@ -250,6 +279,14 @@ function compareClients(
 			return (getQsRank("DA", a.id) - getQsRank("DA", b.id)) * dir;
 		case "evalQs":
 			return (getQsRank("EVAL", a.id) - getQsRank("EVAL", b.id)) * dir;
+		case "priorAuthDate":
+			return compareDateOnly(a.priorAuthDate, b.priorAuthDate) * dir;
+		case "daScheduled":
+			return (Number(a.daScheduled) - Number(b.daScheduled)) * dir;
+		case "evalScheduled":
+			return (Number(a.evalScheduled) - Number(b.evalScheduled)) * dir;
+		case "location":
+			return compareStrings(a.location, b.location) * dir;
 		default:
 			return compareStrings(a.fullName, b.fullName) * dir;
 	}
@@ -495,6 +532,10 @@ export function ClientDirectory() {
 		evalQs: visibleColumns.evalQs,
 		insurance: visibleColumns.insurance,
 		secondaryInsurance: visibleColumns.secondaryInsurance,
+		priorAuthDate: visibleColumns.priorAuthDate,
+		daScheduled: visibleColumns.daScheduled,
+		evalScheduled: visibleColumns.evalScheduled,
+		location: visibleColumns.location,
 	};
 	const effectiveSort: SortKey = sortColumnVisible[sort] ? sort : "name";
 
@@ -930,6 +971,43 @@ export function ClientDirectory() {
 								/>
 							</AnimatedCellContent>
 						</TableHead>
+						<TableHead
+							className={collapsibleCellClass(visibleColumns.priorAuthDate)}
+						>
+							<AnimatedCellContent visible={visibleColumns.priorAuthDate}>
+								<SortButton
+									label="Prior Auth Date"
+									{...columnSort("priorAuthDate")}
+								/>
+							</AnimatedCellContent>
+						</TableHead>
+						<TableHead
+							className={collapsibleCellClass(visibleColumns.daScheduled)}
+						>
+							<AnimatedCellContent visible={visibleColumns.daScheduled}>
+								<SortButton
+									label="DA Scheduled"
+									{...columnSort("daScheduled")}
+								/>
+							</AnimatedCellContent>
+						</TableHead>
+						<TableHead
+							className={collapsibleCellClass(visibleColumns.evalScheduled)}
+						>
+							<AnimatedCellContent visible={visibleColumns.evalScheduled}>
+								<SortButton
+									label="EVAL Scheduled"
+									{...columnSort("evalScheduled")}
+								/>
+							</AnimatedCellContent>
+						</TableHead>
+						<TableHead
+							className={collapsibleCellClass(visibleColumns.location)}
+						>
+							<AnimatedCellContent visible={visibleColumns.location}>
+								<SortButton label="Location" {...columnSort("location")} />
+							</AnimatedCellContent>
+						</TableHead>
 					</TableRow>
 				</TableHeader>
 				<TableBody>
@@ -1089,6 +1167,46 @@ export function ClientDirectory() {
 											</span>
 										</AnimatedCellContent>
 									</TableCell>
+									<TableCell
+										className={collapsibleCellClass(
+											visibleColumns.priorAuthDate,
+										)}
+									>
+										<AnimatedCellContent visible={visibleColumns.priorAuthDate}>
+											<span className="text-muted-foreground">
+												{formatDateOnlyLong(client.priorAuthDate, "—")}
+											</span>
+										</AnimatedCellContent>
+									</TableCell>
+									<TableCell
+										className={collapsibleCellClass(visibleColumns.daScheduled)}
+									>
+										<AnimatedCellContent visible={visibleColumns.daScheduled}>
+											<span className="text-muted-foreground">
+												{client.daScheduled ? "Yes" : "—"}
+											</span>
+										</AnimatedCellContent>
+									</TableCell>
+									<TableCell
+										className={collapsibleCellClass(
+											visibleColumns.evalScheduled,
+										)}
+									>
+										<AnimatedCellContent visible={visibleColumns.evalScheduled}>
+											<span className="text-muted-foreground">
+												{client.evalScheduled ? "Yes" : "—"}
+											</span>
+										</AnimatedCellContent>
+									</TableCell>
+									<TableCell
+										className={collapsibleCellClass(visibleColumns.location)}
+									>
+										<AnimatedCellContent visible={visibleColumns.location}>
+											<span className="text-muted-foreground">
+												{client.location ?? "—"}
+											</span>
+										</AnimatedCellContent>
+									</TableCell>
 								</TableRow>
 							);
 						})
@@ -1226,6 +1344,30 @@ export function ClientDirectory() {
 													? client.secondaryInsurance.join(", ")
 													: "—"
 											}
+										/>
+									)}
+									{visibleColumns.priorAuthDate && (
+										<InfoField
+											label="Prior Auth Date"
+											value={formatDateOnlyLong(client.priorAuthDate, "—")}
+										/>
+									)}
+									{visibleColumns.daScheduled && (
+										<InfoField
+											label="DA Scheduled"
+											value={client.daScheduled ? "Yes" : "—"}
+										/>
+									)}
+									{visibleColumns.evalScheduled && (
+										<InfoField
+											label="EVAL Scheduled"
+											value={client.evalScheduled ? "Yes" : "—"}
+										/>
+									)}
+									{visibleColumns.location && (
+										<InfoField
+											label="Location"
+											value={client.location ?? "—"}
 										/>
 									)}
 								</div>
