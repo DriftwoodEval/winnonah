@@ -15,7 +15,12 @@ import {
 } from "@ui/table";
 import { ToggleGroup, ToggleGroupItem } from "@ui/toggle-group";
 import { format, subDays, subMonths } from "date-fns";
-import { ClipboardListIcon, UserIcon } from "lucide-react";
+import {
+	ClipboardCheckIcon,
+	ClipboardListIcon,
+	TimerIcon,
+	UserIcon,
+} from "lucide-react";
 import { Fragment, useMemo, useState } from "react";
 import { cn } from "~/lib/utils";
 import { api } from "~/trpc/react";
@@ -163,6 +168,13 @@ function fmtHours(minutes: number): string {
 	if (minutes === 0) return "-";
 	const h = minutes / 60;
 	return h % 1 === 0 ? `${h}h` : `${h.toFixed(1)}h`;
+}
+
+function fmtSignedMinutes(minutes: number): string {
+	const rounded = Math.round(minutes);
+	if (rounded === 0) return "on time";
+	const sign = rounded > 0 ? "+" : "";
+	return `${sign}${rounded}m`;
 }
 
 type SelectedEvaluator = { npi: number; name: string };
@@ -677,6 +689,116 @@ export default function PieceworkSummary() {
 					) : (
 						<p className="px-4 pb-4 text-muted-foreground text-sm italic">
 							No reports tracked in this range.
+						</p>
+					)}
+				</CardContent>
+			</Card>
+
+			{/* Timing card */}
+			<Card>
+				<CardHeader className="flex flex-row items-center gap-3 space-y-0 pb-4">
+					<div className="rounded-lg bg-primary/10 p-2 text-primary">
+						<TimerIcon className="h-5 w-5" />
+					</div>
+					<CardTitle>Appointment Timing</CardTitle>
+				</CardHeader>
+				<CardContent className="p-0">
+					{isLoading ? (
+						<div className="space-y-2 p-4">
+							<Skeleton className="h-8 w-full" />
+							<Skeleton className="h-8 w-full" />
+						</div>
+					) : data?.timing.length ? (
+						<div className="overflow-x-auto">
+							<Table>
+								<TableHeader>
+									<TableRow className="hover:bg-transparent">
+										<TableHead>Evaluator</TableHead>
+										<TableHead className="text-center">
+											Avg Duration vs Expected
+										</TableHead>
+										<TableHead className="text-center">
+											Median Duration vs Expected
+										</TableHead>
+										<TableHead className="text-center">
+											Avg Late Start
+										</TableHead>
+										<TableHead className="text-center">
+											Median Late Start
+										</TableHead>
+									</TableRow>
+								</TableHeader>
+								<TableBody>
+									{data.timing.map((row) => (
+										<TableRow className="hover:bg-transparent" key={row.name}>
+											<TableCell className="font-medium">{row.name}</TableCell>
+											<TableCell className="text-center">
+												{row.durationSampleSize > 0
+													? fmtSignedMinutes(row.avgDurationDiff)
+													: "-"}
+											</TableCell>
+											<TableCell className="text-center">
+												{row.durationSampleSize > 0
+													? fmtSignedMinutes(row.medianDurationDiff)
+													: "-"}
+											</TableCell>
+											<TableCell className="text-center">
+												{row.lateStartSampleSize > 0
+													? fmtSignedMinutes(row.avgLateStart)
+													: "-"}
+											</TableCell>
+											<TableCell className="text-center">
+												{row.lateStartSampleSize > 0
+													? fmtSignedMinutes(row.medianLateStart)
+													: "-"}
+											</TableCell>
+										</TableRow>
+									))}
+								</TableBody>
+							</Table>
+						</div>
+					) : (
+						<p className="px-4 pb-4 text-muted-foreground text-sm italic">
+							No check-in timing data in this range.
+						</p>
+					)}
+				</CardContent>
+			</Card>
+
+			{/* Check-ins card */}
+			<Card>
+				<CardHeader className="flex flex-row items-center gap-3 space-y-0 pb-4">
+					<div className="rounded-lg bg-primary/10 p-2 text-primary">
+						<ClipboardCheckIcon className="h-5 w-5" />
+					</div>
+					<CardTitle>Appointment Check-ins</CardTitle>
+				</CardHeader>
+				<CardContent className="p-0">
+					{isLoading ? (
+						<div className="space-y-2 p-4">
+							<Skeleton className="h-8 w-full" />
+							<Skeleton className="h-8 w-full" />
+						</div>
+					) : data?.checkins.length ? (
+						<Table>
+							<TableHeader>
+								<TableRow className="hover:bg-transparent">
+									<TableHead>Checked In By</TableHead>
+									<TableHead className="text-center">Check-ins</TableHead>
+								</TableRow>
+							</TableHeader>
+							<TableBody>
+								{data.checkins.map((row) => (
+									<TableRow className="hover:bg-transparent" key={row.name}>
+										<TableCell className="font-medium">{row.name}</TableCell>
+										<TableCell className="text-center">{row.count}</TableCell>
+									</TableRow>
+								))}
+							</TableBody>
+						</Table>
+					) : (
+						<p className="px-4 pb-4 text-muted-foreground text-sm italic">
+							No check-ins tracked in this range.
 						</p>
 					)}
 				</CardContent>

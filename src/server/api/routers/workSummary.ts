@@ -7,6 +7,7 @@ import {
 	protectedProcedure,
 } from "~/server/api/trpc";
 import {
+	appointmentCheckins,
 	appointments,
 	clients,
 	evaluators,
@@ -17,6 +18,43 @@ import {
 
 function endOfDay(date: Date): Date {
 	return new Date(date.getTime() + 24 * 60 * 60 * 1000);
+}
+
+function average(nums: number[]): number {
+	if (nums.length === 0) return 0;
+	return nums.reduce((a, b) => a + b, 0) / nums.length;
+}
+
+function median(nums: number[]): number {
+	if (nums.length === 0) return 0;
+	const sorted = [...nums].sort((a, b) => a - b);
+	const mid = Math.floor(sorted.length / 2);
+	return sorted.length % 2 === 0
+		? ((sorted[mid - 1] ?? 0) + (sorted[mid] ?? 0)) / 2
+		: (sorted[mid] ?? 0);
+}
+
+// Mirrors the key/fallback logic the client uses in calcEstimatedMinutes,
+// so a single appointment's expected duration matches what the totals card shows.
+function lookupExpectedDuration(
+	daEval: string,
+	asdAdhd: string | null,
+	ageGroup: string,
+	isDA: boolean,
+	durations: Record<string, number>,
+	globalDefaults: Record<string, number>,
+): number | undefined {
+	const diagKey = asdAdhd === "ASD+ADHD" ? "ASD" : asdAdhd;
+	const baseKey = !isDA && diagKey ? `${daEval}/${diagKey}` : daEval;
+	const ageSuffix = !isDA ? `/${ageGroup}` : "";
+	const lookup = (d: Record<string, number>): number | undefined =>
+		(ageSuffix ? d[`${baseKey}${ageSuffix}`] : undefined) ??
+		(ageSuffix ? d[`${daEval}${ageSuffix}`] : undefined) ??
+		d[baseKey] ??
+		d[daEval] ??
+		(ageSuffix ? d[`default${ageSuffix}`] : undefined) ??
+		d.default;
+	return lookup(durations) ?? lookup(globalDefaults);
 }
 
 export const workSummaryRouter = createTRPCRouter({
@@ -72,6 +110,10 @@ export const workSummaryRouter = createTRPCRouter({
 					(row.appointmentDurations ?? {}) as Record<string, number>,
 				);
 			}
+
+			const configRow = await ctx.db.query.workSummaryConfig.findFirst();
+			const durationDefaults = (configRow?.appointmentDurationDefaults ??
+				{}) as Record<string, number>;
 
 			const byNpi: Record<
 				number,
@@ -139,13 +181,120 @@ export const workSummaryRouter = createTRPCRouter({
 				}))
 				.sort((a, b) => a.name.localeCompare(b.name));
 
-			const configRow = await ctx.db.query.workSummaryConfig.findFirst();
-			const durationDefaults = (configRow?.appointmentDurationDefaults ??
-				{}) as Record<string, number>;
+			const checkinRows = await ctx.db
+				.select({
+					performedByEmail: appointmentCheckins.arrivedBy,
+					performedByName: users.name,
+					count: count(),
+				})
+				.from(appointmentCheckins)
+				.leftJoin(users, eq(users.email, appointmentCheckins.arrivedBy ?? ""))
+				.where(
+					and(
+						isNotNull(appointmentCheckins.arrivedAt),
+						gte(appointmentCheckins.arrivedAt, input.startDate),
+						lt(appointmentCheckins.arrivedAt, endOfDay(input.endDate)),
+					),
+				)
+				.groupBy(appointmentCheckins.arrivedBy, users.name);
+
+			const checkinSummary = checkinRows
+				.map((row) => ({
+					name: row.performedByName ?? row.performedByEmail ?? "Unknown",
+					count: row.count,
+				}))
+				.sort((a, b) => a.name.localeCompare(b.name));
+
+			const timingRows = await ctx.db
+				.select({
+					npi: evaluators.npi,
+					providerName: evaluators.providerName,
+					daEval: appointments.daEval,
+					asdAdhd: appointments.asdAdhd,
+					ageGroup: sql<string>`CASE WHEN TIMESTAMPDIFF(YEAR, ${clients.dob}, ${appointments.startTime}) < 7 THEN 'young' ELSE 'older' END`,
+					scheduledStart: appointments.startTime,
+					arrivedAt: appointmentCheckins.arrivedAt,
+					startedAt: appointmentCheckins.startedAt,
+					leftAt: appointmentCheckins.leftAt,
+				})
+				.from(appointments)
+				.innerJoin(evaluators, eq(appointments.evaluatorNpi, evaluators.npi))
+				.innerJoin(clients, eq(appointments.clientId, clients.id))
+				.innerJoin(
+					appointmentCheckins,
+					eq(appointmentCheckins.appointmentId, appointments.id),
+				)
+				.where(
+					and(
+						gte(appointments.startTime, input.startDate),
+						lt(appointments.startTime, endOfDay(input.endDate)),
+						eq(appointments.cancelled, false),
+						eq(appointments.rescheduled, false),
+						eq(appointments.placeholder, false),
+						eq(appointments.billingOnly, false),
+						isNotNull(appointments.daEval),
+						isNotNull(appointmentCheckins.startedAt),
+					),
+				);
+
+			const timingByNpi: Record<
+				number,
+				{ name: string; durationDiffs: number[]; lateStarts: number[] }
+			> = {};
+			for (const row of timingRows) {
+				if (!row.daEval || !row.startedAt) continue;
+				timingByNpi[row.npi] ??= {
+					name: row.providerName,
+					durationDiffs: [],
+					lateStarts: [],
+				};
+				const entry = timingByNpi[row.npi];
+				if (!entry) continue;
+
+				if (row.leftAt) {
+					const actualMinutes =
+						(row.leftAt.getTime() - row.startedAt.getTime()) / 60000;
+					const expectedMinutes = lookupExpectedDuration(
+						row.daEval,
+						row.asdAdhd,
+						row.ageGroup,
+						row.daEval === "DA",
+						durationsMap.get(row.npi) ?? {},
+						durationDefaults,
+					);
+					if (expectedMinutes !== undefined) {
+						entry.durationDiffs.push(actualMinutes - expectedMinutes);
+					}
+				}
+
+				const expectedStart =
+					row.arrivedAt &&
+					row.arrivedAt.getTime() > row.scheduledStart.getTime()
+						? row.arrivedAt
+						: row.scheduledStart;
+				entry.lateStarts.push(
+					(row.startedAt.getTime() - expectedStart.getTime()) / 60000,
+				);
+			}
+
+			const timingSummary = Object.entries(timingByNpi)
+				.map(([npi, { name, durationDiffs, lateStarts }]) => ({
+					npi: Number(npi),
+					name,
+					avgDurationDiff: average(durationDiffs),
+					medianDurationDiff: median(durationDiffs),
+					durationSampleSize: durationDiffs.length,
+					avgLateStart: average(lateStarts),
+					medianLateStart: median(lateStarts),
+					lateStartSampleSize: lateStarts.length,
+				}))
+				.sort((a, b) => a.name.localeCompare(b.name));
 
 			return {
 				appointments: appointmentSummary,
 				reports: reportSummary,
+				checkins: checkinSummary,
+				timing: timingSummary,
 				durationDefaults,
 			};
 		}),
