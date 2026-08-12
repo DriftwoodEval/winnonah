@@ -26,20 +26,27 @@ run = "uv run uvicorn api:app --reload --port 8000"
 description = "Sync the production database down to the local container"
 shell = "bash -c"
 run = """
+set -o pipefail
+log() { echo "[sync-db $(date +%H:%M:%S)] $1"; }
+
 WAS_RUNNING="$(docker ps -q -f name=driftwood-db -f status=running)"
 if [ -z "$WAS_RUNNING" ]; then
-    echo "Database container is not running. Starting driftwood-db..."
+    log "Database container is not running. Starting driftwood-db..."
     docker compose up -d driftwood-db
-    echo "Waiting for database to become healthy..."
+    log "Waiting for database to become healthy..."
     while ! docker compose ps driftwood-db --format json | grep -q '"Health":"healthy"'; do
         sleep 0.5
     done
 fi
-echo "Dumping production database..."
-ssh -C driftwood@opti 'cd winnonah && source .env && docker exec driftwood-db mysqldump -uroot -p"$MYSQL_ROOT_PASSWORD" --single-transaction --routines --triggers --events --set-gtid-purged=OFF driftwood' | docker exec -i driftwood-db mysql -u root -p"${MYSQL_ROOT_PASSWORD}" driftwood
-echo "Database sync complete!"
+
+log "Connecting to opti over SSH..."
+ssh -C -o BatchMode=yes -o ConnectTimeout=10 -o ServerAliveInterval=5 -o ServerAliveCountMax=3 driftwood@opti \
+    'echo "[sync-db remote] connected, starting mysqldump" >&2; cd winnonah && source .env && docker exec driftwood-db mysqldump -uroot -p"$MYSQL_ROOT_PASSWORD" --single-transaction --routines --triggers --events --set-gtid-purged=OFF driftwood; echo "[sync-db remote] mysqldump finished" >&2' \
+    | docker exec -i driftwood-db mysql -u root -p"${MYSQL_ROOT_PASSWORD}" driftwood
+log "Database sync complete!"
+
 if [ -z "$WAS_RUNNING" ]; then
-    echo "Shutting down automatically started database container..."
+    log "Shutting down automatically started database container..."
     docker compose stop driftwood-db
 fi
 """
