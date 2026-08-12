@@ -186,17 +186,18 @@ export function MyDayWidget() {
 							{canCheckin && asDate === todayStr() && (
 								<CheckInOutControl
 									appointmentId={appt.id}
-									checkedInAt={appt.checkedInAt}
-									checkedInBy={appt.checkedInBy}
-									checkedOutAt={appt.checkedOutAt}
-									checkedOutBy={appt.checkedOutBy}
-									checkInReason={appt.checkInReason}
-									checkInReasonNote={appt.checkInReasonNote}
-									checkOutReason={appt.checkOutReason}
-									checkOutReasonNote={appt.checkOutReasonNote}
+									arrivedAt={appt.arrivedAt}
+									arrivedBy={appt.arrivedBy}
+									arrivedNote={appt.arrivedNote}
 									compact
 									endTime={appt.endTime}
 									isToday
+									leftAt={appt.leftAt}
+									leftBy={appt.leftBy}
+									leftNote={appt.leftNote}
+									startedAt={appt.startedAt}
+									startedBy={appt.startedBy}
+									startedNote={appt.startedNote}
 									startTime={appt.startTime}
 								/>
 							)}
@@ -308,14 +309,15 @@ function ExpandableEvaluator({
 			clientName: string;
 			clientHash: string;
 			clientPhone: string | null;
-			checkedInAt: Date | null;
-			checkedInBy: string | null;
-			checkInReason: string | null;
-			checkInReasonNote: string | null;
-			checkedOutAt: Date | null;
-			checkedOutBy: string | null;
-			checkOutReason: string | null;
-			checkOutReasonNote: string | null;
+			arrivedAt: Date | null;
+			arrivedBy: string | null;
+			arrivedNote: string | null;
+			startedAt: Date | null;
+			startedBy: string | null;
+			startedNote: string | null;
+			leftAt: Date | null;
+			leftBy: string | null;
+			leftNote: string | null;
 		}[];
 	};
 	messages: RecentMessagesMap;
@@ -379,17 +381,18 @@ function ExpandableEvaluator({
 							{canCheckin && asDate === todayStr() && (
 								<CheckInOutControl
 									appointmentId={appt.id}
-									checkedInAt={appt.checkedInAt}
-									checkedInBy={appt.checkedInBy}
-									checkedOutAt={appt.checkedOutAt}
-									checkedOutBy={appt.checkedOutBy}
-									checkInReason={appt.checkInReason}
-									checkInReasonNote={appt.checkInReasonNote}
-									checkOutReason={appt.checkOutReason}
-									checkOutReasonNote={appt.checkOutReasonNote}
+									arrivedAt={appt.arrivedAt}
+									arrivedBy={appt.arrivedBy}
+									arrivedNote={appt.arrivedNote}
 									compact
 									endTime={appt.endTime}
 									isToday
+									leftAt={appt.leftAt}
+									leftBy={appt.leftBy}
+									leftNote={appt.leftNote}
+									startedAt={appt.startedAt}
+									startedBy={appt.startedBy}
+									startedNote={appt.startedNote}
 									startTime={appt.startTime}
 								/>
 							)}

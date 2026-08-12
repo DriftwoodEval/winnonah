@@ -3,10 +3,7 @@ import { fromZonedTime } from "date-fns-tz";
 import { and, asc, count, desc, eq, gte, lte } from "drizzle-orm";
 import { z } from "zod";
 import { env } from "~/env";
-import {
-	APPOINTMENT_CHECKIN_REASONS,
-	BUSINESS_TIMEZONE,
-} from "~/lib/constants";
+import { BUSINESS_TIMEZONE } from "~/lib/constants";
 import { formatInBusinessTime } from "~/lib/utils";
 import {
 	assertPermission,
@@ -24,48 +21,27 @@ import {
 	users,
 } from "~/server/db/schema";
 
-const CHECKIN_REASON_WINDOW_MINUTES = 15;
-
-const checkinInputSchema = z
-	.object({
-		appointmentId: z.string(),
-		occurredAt: z.date(),
-		reason: z.enum(APPOINTMENT_CHECKIN_REASONS).optional(),
-		reasonNote: z.string().max(500).optional(),
-	})
-	.superRefine((data, ctx) => {
-		if (data.reason === "OTHER" && !data.reasonNote?.trim()) {
-			ctx.addIssue({
-				code: "custom",
-				message: "Please describe the reason.",
-				path: ["reasonNote"],
-			});
-		}
-	});
+const checkinInputSchema = z.object({
+	appointmentId: z.string(),
+	occurredAt: z.date(),
+	note: z.string().max(500).optional(),
+});
 
 async function recordCheckin(
 	ctx: { db: Context["db"] },
 	appointmentId: string,
-	field: "checkIn" | "checkOut",
+	field: "arrived" | "started" | "left",
 	occurredAt: Date,
 	by: string | null | undefined,
-	reason: (typeof APPOINTMENT_CHECKIN_REASONS)[number] | undefined,
-	reasonNote: string | undefined,
+	note: string | undefined,
 ) {
+	const trimmedNote = note?.trim() || null;
 	const payload =
-		field === "checkIn"
-			? {
-					checkedInAt: occurredAt,
-					checkedInBy: by,
-					checkInReason: reason ?? null,
-					checkInReasonNote: reason ? (reasonNote?.trim() ?? null) : null,
-				}
-			: {
-					checkedOutAt: occurredAt,
-					checkedOutBy: by,
-					checkOutReason: reason ?? null,
-					checkOutReasonNote: reason ? (reasonNote?.trim() ?? null) : null,
-				};
+		field === "arrived"
+			? { arrivedAt: occurredAt, arrivedBy: by, arrivedNote: trimmedNote }
+			: field === "started"
+				? { startedAt: occurredAt, startedBy: by, startedNote: trimmedNote }
+				: { leftAt: occurredAt, leftBy: by, leftNote: trimmedNote };
 
 	const existing = await ctx.db.query.appointmentCheckins.findFirst({
 		where: eq(appointmentCheckins.appointmentId, appointmentId),
@@ -134,14 +110,15 @@ export const appointmentRouter = createTRPCRouter({
 							clientTaHash: clients.taHash,
 							clientPhone: clients.phoneNumber,
 							officeName: offices.prettyName,
-							checkedInAt: appointmentCheckins.checkedInAt,
-							checkedInBy: appointmentCheckins.checkedInBy,
-							checkInReason: appointmentCheckins.checkInReason,
-							checkInReasonNote: appointmentCheckins.checkInReasonNote,
-							checkedOutAt: appointmentCheckins.checkedOutAt,
-							checkedOutBy: appointmentCheckins.checkedOutBy,
-							checkOutReason: appointmentCheckins.checkOutReason,
-							checkOutReasonNote: appointmentCheckins.checkOutReasonNote,
+							arrivedAt: appointmentCheckins.arrivedAt,
+							arrivedBy: appointmentCheckins.arrivedBy,
+							arrivedNote: appointmentCheckins.arrivedNote,
+							startedAt: appointmentCheckins.startedAt,
+							startedBy: appointmentCheckins.startedBy,
+							startedNote: appointmentCheckins.startedNote,
+							leftAt: appointmentCheckins.leftAt,
+							leftBy: appointmentCheckins.leftBy,
+							leftNote: appointmentCheckins.leftNote,
 						})
 						.from(appointments)
 						.innerJoin(clients, eq(appointments.clientId, clients.id))
@@ -181,14 +158,15 @@ export const appointmentRouter = createTRPCRouter({
 					clientDriveId: clients.driveId,
 					clientTaHash: clients.taHash,
 					clientPhone: clients.phoneNumber,
-					checkedInAt: appointmentCheckins.checkedInAt,
-					checkedInBy: appointmentCheckins.checkedInBy,
-					checkInReason: appointmentCheckins.checkInReason,
-					checkInReasonNote: appointmentCheckins.checkInReasonNote,
-					checkedOutAt: appointmentCheckins.checkedOutAt,
-					checkedOutBy: appointmentCheckins.checkedOutBy,
-					checkOutReason: appointmentCheckins.checkOutReason,
-					checkOutReasonNote: appointmentCheckins.checkOutReasonNote,
+					arrivedAt: appointmentCheckins.arrivedAt,
+					arrivedBy: appointmentCheckins.arrivedBy,
+					arrivedNote: appointmentCheckins.arrivedNote,
+					startedAt: appointmentCheckins.startedAt,
+					startedBy: appointmentCheckins.startedBy,
+					startedNote: appointmentCheckins.startedNote,
+					leftAt: appointmentCheckins.leftAt,
+					leftBy: appointmentCheckins.leftBy,
+					leftNote: appointmentCheckins.leftNote,
 				})
 				.from(appointments)
 				.innerJoin(evaluators, eq(appointments.evaluatorNpi, evaluators.npi))
@@ -226,14 +204,15 @@ export const appointmentRouter = createTRPCRouter({
 					clientDriveId: string | null;
 					clientTaHash: string | null;
 					clientPhone: string | null;
-					checkedInAt: Date | null;
-					checkedInBy: string | null;
-					checkInReason: string | null;
-					checkInReasonNote: string | null;
-					checkedOutAt: Date | null;
-					checkedOutBy: string | null;
-					checkOutReason: string | null;
-					checkOutReasonNote: string | null;
+					arrivedAt: Date | null;
+					arrivedBy: string | null;
+					arrivedNote: string | null;
+					startedAt: Date | null;
+					startedBy: string | null;
+					startedNote: string | null;
+					leftAt: Date | null;
+					leftBy: string | null;
+					leftNote: string | null;
 				}[];
 			};
 			type OfficeEntry = {
@@ -275,14 +254,15 @@ export const appointmentRouter = createTRPCRouter({
 					clientDriveId: row.clientDriveId ?? null,
 					clientTaHash: row.clientTaHash ?? null,
 					clientPhone: row.clientPhone ?? null,
-					checkedInAt: row.checkedInAt ?? null,
-					checkedInBy: row.checkedInBy ?? null,
-					checkInReason: row.checkInReason ?? null,
-					checkInReasonNote: row.checkInReasonNote ?? null,
-					checkedOutAt: row.checkedOutAt ?? null,
-					checkedOutBy: row.checkedOutBy ?? null,
-					checkOutReason: row.checkOutReason ?? null,
-					checkOutReasonNote: row.checkOutReasonNote ?? null,
+					arrivedAt: row.arrivedAt ?? null,
+					arrivedBy: row.arrivedBy ?? null,
+					arrivedNote: row.arrivedNote ?? null,
+					startedAt: row.startedAt ?? null,
+					startedBy: row.startedBy ?? null,
+					startedNote: row.startedNote ?? null,
+					leftAt: row.leftAt ?? null,
+					leftBy: row.leftBy ?? null,
+					leftNote: row.leftNote ?? null,
 				});
 			}
 
@@ -336,11 +316,24 @@ export const appointmentRouter = createTRPCRouter({
 					officeName: offices.prettyName,
 					evaluatorNpi: appointments.evaluatorNpi,
 					evaluatorName: evaluators.providerName,
+					arrivedAt: appointmentCheckins.arrivedAt,
+					arrivedBy: appointmentCheckins.arrivedBy,
+					arrivedNote: appointmentCheckins.arrivedNote,
+					startedAt: appointmentCheckins.startedAt,
+					startedBy: appointmentCheckins.startedBy,
+					startedNote: appointmentCheckins.startedNote,
+					leftAt: appointmentCheckins.leftAt,
+					leftBy: appointmentCheckins.leftBy,
+					leftNote: appointmentCheckins.leftNote,
 				})
 				.from(appointments)
 				.innerJoin(evaluators, eq(appointments.evaluatorNpi, evaluators.npi))
 				.innerJoin(clients, eq(appointments.clientId, clients.id))
 				.leftJoin(offices, eq(appointments.locationKey, offices.key))
+				.leftJoin(
+					appointmentCheckins,
+					eq(appointmentCheckins.appointmentId, appointments.id),
+				)
 				.where(
 					and(
 						gte(appointments.startTime, startUTC),
@@ -368,6 +361,15 @@ export const appointmentRouter = createTRPCRouter({
 				evaluatorNpi: r.evaluatorNpi,
 				evaluatorName: r.evaluatorName,
 				isCurrentUser: r.evaluatorNpi === currentNpi,
+				arrivedAt: r.arrivedAt ?? null,
+				arrivedBy: r.arrivedBy ?? null,
+				arrivedNote: r.arrivedNote ?? null,
+				startedAt: r.startedAt ?? null,
+				startedBy: r.startedBy ?? null,
+				startedNote: r.startedNote ?? null,
+				leftAt: r.leftAt ?? null,
+				leftBy: r.leftBy ?? null,
+				leftNote: r.leftNote ?? null,
 			}));
 		}),
 
@@ -392,14 +394,15 @@ export const appointmentRouter = createTRPCRouter({
 					doNotRemind: appointments.doNotRemind,
 					evaluatorName: evaluators.providerName,
 					reminderCount: count(reminderLogs.id),
-					checkedInAt: appointmentCheckins.checkedInAt,
-					checkedInBy: appointmentCheckins.checkedInBy,
-					checkInReason: appointmentCheckins.checkInReason,
-					checkInReasonNote: appointmentCheckins.checkInReasonNote,
-					checkedOutAt: appointmentCheckins.checkedOutAt,
-					checkedOutBy: appointmentCheckins.checkedOutBy,
-					checkOutReason: appointmentCheckins.checkOutReason,
-					checkOutReasonNote: appointmentCheckins.checkOutReasonNote,
+					arrivedAt: appointmentCheckins.arrivedAt,
+					arrivedBy: appointmentCheckins.arrivedBy,
+					arrivedNote: appointmentCheckins.arrivedNote,
+					startedAt: appointmentCheckins.startedAt,
+					startedBy: appointmentCheckins.startedBy,
+					startedNote: appointmentCheckins.startedNote,
+					leftAt: appointmentCheckins.leftAt,
+					leftBy: appointmentCheckins.leftBy,
+					leftNote: appointmentCheckins.leftNote,
 				})
 				.from(appointments)
 				.leftJoin(evaluators, eq(appointments.evaluatorNpi, evaluators.npi))
@@ -425,14 +428,15 @@ export const appointmentRouter = createTRPCRouter({
 					appointments.confirmedAt,
 					appointments.doNotRemind,
 					evaluators.providerName,
-					appointmentCheckins.checkedInAt,
-					appointmentCheckins.checkedInBy,
-					appointmentCheckins.checkInReason,
-					appointmentCheckins.checkInReasonNote,
-					appointmentCheckins.checkedOutAt,
-					appointmentCheckins.checkedOutBy,
-					appointmentCheckins.checkOutReason,
-					appointmentCheckins.checkOutReasonNote,
+					appointmentCheckins.arrivedAt,
+					appointmentCheckins.arrivedBy,
+					appointmentCheckins.arrivedNote,
+					appointmentCheckins.startedAt,
+					appointmentCheckins.startedBy,
+					appointmentCheckins.startedNote,
+					appointmentCheckins.leftAt,
+					appointmentCheckins.leftBy,
+					appointmentCheckins.leftNote,
 				)
 				.orderBy(desc(appointments.startTime));
 		}),
@@ -513,7 +517,7 @@ export const appointmentRouter = createTRPCRouter({
 			};
 		}),
 
-	checkIn: protectedProcedure
+	arrive: protectedProcedure
 		.input(checkinInputSchema)
 		.mutation(async ({ ctx, input }) => {
 			assertPermission(ctx.session.user, "clients:appointments:checkin");
@@ -523,28 +527,17 @@ export const appointmentRouter = createTRPCRouter({
 			});
 			if (!appt) throw new TRPCError({ code: "NOT_FOUND" });
 
-			const diffMinutes =
-				Math.abs(input.occurredAt.getTime() - appt.startTime.getTime()) / 60000;
-			if (diffMinutes > CHECKIN_REASON_WINDOW_MINUTES && !input.reason) {
-				throw new TRPCError({
-					code: "BAD_REQUEST",
-					message:
-						"A reason is required when check-in time is more than 15 minutes from the scheduled start.",
-				});
-			}
-
 			await recordCheckin(
 				ctx,
 				input.appointmentId,
-				"checkIn",
+				"arrived",
 				input.occurredAt,
 				ctx.session.user.email,
-				input.reason,
-				input.reasonNote,
+				input.note,
 			);
 		}),
 
-	checkOut: protectedProcedure
+	start: protectedProcedure
 		.input(checkinInputSchema)
 		.mutation(async ({ ctx, input }) => {
 			assertPermission(ctx.session.user, "clients:appointments:checkin");
@@ -554,24 +547,33 @@ export const appointmentRouter = createTRPCRouter({
 			});
 			if (!appt) throw new TRPCError({ code: "NOT_FOUND" });
 
-			const diffMinutes =
-				Math.abs(input.occurredAt.getTime() - appt.endTime.getTime()) / 60000;
-			if (diffMinutes > CHECKIN_REASON_WINDOW_MINUTES && !input.reason) {
-				throw new TRPCError({
-					code: "BAD_REQUEST",
-					message:
-						"A reason is required when check-out time is more than 15 minutes from the scheduled end.",
-				});
-			}
+			await recordCheckin(
+				ctx,
+				input.appointmentId,
+				"started",
+				input.occurredAt,
+				ctx.session.user.email,
+				input.note,
+			);
+		}),
+
+	depart: protectedProcedure
+		.input(checkinInputSchema)
+		.mutation(async ({ ctx, input }) => {
+			assertPermission(ctx.session.user, "clients:appointments:checkin");
+
+			const appt = await ctx.db.query.appointments.findFirst({
+				where: eq(appointments.id, input.appointmentId),
+			});
+			if (!appt) throw new TRPCError({ code: "NOT_FOUND" });
 
 			await recordCheckin(
 				ctx,
 				input.appointmentId,
-				"checkOut",
+				"left",
 				input.occurredAt,
 				ctx.session.user.email,
-				input.reason,
-				input.reasonNote,
+				input.note,
 			);
 		}),
 });

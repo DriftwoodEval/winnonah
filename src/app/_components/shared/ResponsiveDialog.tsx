@@ -31,6 +31,7 @@ interface ResponsiveDialogProps {
 	footer?: React.ReactNode;
 	className?: string;
 	showCloseButton?: boolean;
+	onOpenAutoFocus?: (event: Event) => void;
 }
 
 export function ResponsiveDialog({
@@ -43,6 +44,7 @@ export function ResponsiveDialog({
 	footer,
 	className,
 	showCloseButton,
+	onOpenAutoFocus,
 }: ResponsiveDialogProps) {
 	const [internalOpen, setInternalOpen] = useState(false);
 	const isDesktop = useMediaQuery("(min-width: 768px)");
@@ -59,6 +61,7 @@ export function ResponsiveDialog({
 						"max-h-[calc(100vh-4rem)] max-w-fit overflow-x-hidden overflow-y-scroll",
 						className,
 					)}
+					onOpenAutoFocus={onOpenAutoFocus}
 				>
 					<DialogHeader>
 						<DialogTitle>{title}</DialogTitle>
@@ -76,7 +79,7 @@ export function ResponsiveDialog({
 	return (
 		<Drawer onOpenChange={setOpen} open={open}>
 			{trigger && <DrawerTrigger asChild>{trigger}</DrawerTrigger>}
-			<DrawerContent>
+			<DrawerContent onOpenAutoFocus={onOpenAutoFocus}>
 				<DrawerHeader className="text-left">
 					<DrawerTitle>{title}</DrawerTitle>
 					{description && <DrawerDescription>{description}</DrawerDescription>}

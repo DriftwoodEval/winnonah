@@ -10,7 +10,6 @@ import type { AdapterAccount } from "next-auth/adapters";
 import type z from "zod";
 import { CLIENT_COLOR_KEYS } from "~/lib/colors";
 import {
-	APPOINTMENT_CHECKIN_REASONS,
 	IN_PERSON_ASSESSMENT_STATUSES,
 	QUESTIONNAIRE_STATUSES,
 } from "~/lib/constants";
@@ -1423,14 +1422,15 @@ export const appointmentCheckins = createTable("appointment_checkin", (d) => ({
 		.notNull()
 		.primaryKey()
 		.references(() => appointments.id, { onDelete: "cascade" }),
-	checkedInAt: d.timestamp("checked_in_at"),
-	checkedInBy: d.varchar("checked_in_by", { length: 255 }),
-	checkInReason: d.mysqlEnum("check_in_reason", APPOINTMENT_CHECKIN_REASONS),
-	checkInReasonNote: d.varchar("check_in_reason_note", { length: 500 }),
-	checkedOutAt: d.timestamp("checked_out_at"),
-	checkedOutBy: d.varchar("checked_out_by", { length: 255 }),
-	checkOutReason: d.mysqlEnum("check_out_reason", APPOINTMENT_CHECKIN_REASONS),
-	checkOutReasonNote: d.varchar("check_out_reason_note", { length: 500 }),
+	arrivedAt: d.timestamp("arrived_at"),
+	arrivedBy: d.varchar("arrived_by", { length: 255 }),
+	arrivedNote: d.varchar("arrived_note", { length: 500 }),
+	startedAt: d.timestamp("started_at"),
+	startedBy: d.varchar("started_by", { length: 255 }),
+	startedNote: d.varchar("started_note", { length: 500 }),
+	leftAt: d.timestamp("left_at"),
+	leftBy: d.varchar("left_by", { length: 255 }),
+	leftNote: d.varchar("left_note", { length: 500 }),
 	updatedAt: d
 		.timestamp("updated_at")
 		.onUpdateNow()

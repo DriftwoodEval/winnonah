@@ -2,17 +2,13 @@
 
 import { Badge } from "@ui/badge";
 import { Button } from "@ui/button";
-import DateTimePicker from "@ui/date-time-picker";
+import { Input } from "@ui/input";
 import { Label } from "@ui/label";
-import { RadioGroup, RadioGroupItem } from "@ui/radio-group";
 import { Textarea } from "@ui/textarea";
-import { LogIn, LogOut, Pencil } from "lucide-react";
-import { useState } from "react";
+import { format } from "date-fns";
+import { DoorOpen, LogIn, LogOut, Pencil } from "lucide-react";
+import { useRef, useState } from "react";
 import { toast } from "sonner";
-import {
-	APPOINTMENT_CHECKIN_REASON_LABELS,
-	APPOINTMENT_CHECKIN_REASONS,
-} from "~/lib/constants";
 import {
 	businessZonedTimeToUtcInstant,
 	formatInBusinessTime,
@@ -24,20 +20,18 @@ import {
 	useResponsiveDialog,
 } from "../shared/ResponsiveDialog";
 
-const REASON_WINDOW_MINUTES = 15;
-
-type CheckinReason = (typeof APPOINTMENT_CHECKIN_REASONS)[number];
-type Kind = "checkin" | "checkout";
+type Kind = "arrived" | "started" | "left";
 
 export interface CheckinData {
-	checkedInAt: Date | null;
-	checkedInBy: string | null;
-	checkInReason: string | null;
-	checkInReasonNote: string | null;
-	checkedOutAt: Date | null;
-	checkedOutBy: string | null;
-	checkOutReason: string | null;
-	checkOutReasonNote: string | null;
+	arrivedAt: Date | null;
+	arrivedBy: string | null;
+	arrivedNote: string | null;
+	startedAt: Date | null;
+	startedBy: string | null;
+	startedNote: string | null;
+	leftAt: Date | null;
+	leftBy: string | null;
+	leftNote: string | null;
 }
 
 interface CheckInOutControlProps extends CheckinData {
@@ -47,6 +41,19 @@ interface CheckInOutControlProps extends CheckinData {
 	isToday: boolean;
 	compact?: boolean;
 }
+
+const KIND_CONFIG: Record<
+	Kind,
+	{
+		label: string;
+		icon: typeof DoorOpen;
+		scheduledField: "startTime" | "endTime";
+	}
+> = {
+	arrived: { label: "Arrived", icon: DoorOpen, scheduledField: "startTime" },
+	started: { label: "Started", icon: LogIn, scheduledField: "startTime" },
+	left: { label: "Left", icon: LogOut, scheduledField: "endTime" },
+};
 
 function formatClock(date: Date) {
 	return formatInBusinessTime(date, "h:mm a");
@@ -58,218 +65,198 @@ export function CheckInOutControl({
 	endTime,
 	isToday,
 	compact,
-	checkedInAt,
-	checkInReason,
-	checkInReasonNote,
-	checkedOutAt,
-	checkOutReason,
-	checkOutReasonNote,
+	arrivedAt,
+	arrivedNote,
+	startedAt,
+	startedNote,
+	leftAt,
+	leftNote,
 }: CheckInOutControlProps) {
 	const utils = api.useUtils();
 	const dialog = useResponsiveDialog();
-	const [dialogKind, setDialogKind] = useState<Kind>("checkin");
-	const [occurredAt, setOccurredAt] = useState<Date>(new Date());
-	const [reason, setReason] = useState<CheckinReason | undefined>();
-	const [reasonNote, setReasonNote] = useState("");
+	const [dialogKind, setDialogKind] = useState<Kind>("arrived");
+	// The calendar day is fixed when the dialog opens; only the time of day
+	// can be edited, so this never changes while the dialog is open.
+	const [entryDate, setEntryDate] = useState<Date>(new Date());
+	const [timeValue, setTimeValue] = useState("00:00");
+	const [note, setNote] = useState("");
+	const noteRef = useRef<HTMLTextAreaElement>(null);
 
 	const invalidate = () => {
 		void utils.appointments.getDayAhead.invalidate();
 		void utils.appointments.getByClientId.invalidate();
+		void utils.appointments.getCalendarRange.invalidate();
 	};
 
-	const checkInMutation = api.appointments.checkIn.useMutation({
+	const arriveMutation = api.appointments.arrive.useMutation({
 		onSuccess: () => {
 			invalidate();
 			dialog.closeDialog();
 		},
 		onError: (error) =>
-			toast.error("Couldn't check in", { description: error.message }),
+			toast.error("Couldn't log arrival", { description: error.message }),
 	});
-	const checkOutMutation = api.appointments.checkOut.useMutation({
+	const startMutation = api.appointments.start.useMutation({
 		onSuccess: () => {
 			invalidate();
 			dialog.closeDialog();
 		},
 		onError: (error) =>
-			toast.error("Couldn't check out", { description: error.message }),
+			toast.error("Couldn't log start", { description: error.message }),
+	});
+	const departMutation = api.appointments.depart.useMutation({
+		onSuccess: () => {
+			invalidate();
+			dialog.closeDialog();
+		},
+		onError: (error) =>
+			toast.error("Couldn't log departure", { description: error.message }),
 	});
 
-	// Business-zoned representation of the scheduled instant, so it can be
-	// diffed against `occurredAt` (a business-local wall-clock Date coming
-	// from the date/time picker) with plain getTime() subtraction.
-	const scheduledZoned = (kind: Kind) =>
-		toBusinessZonedTime(kind === "checkin" ? startTime : endTime) ?? new Date();
+	const mutationFor = (kind: Kind) =>
+		kind === "arrived"
+			? arriveMutation
+			: kind === "started"
+				? startMutation
+				: departMutation;
 
-	const diffMinutes = (kind: Kind, at: Date) =>
-		Math.abs(at.getTime() - scheduledZoned(kind).getTime()) / 60000;
-
-	const reasonRequired =
-		diffMinutes(dialogKind, occurredAt) > REASON_WINDOW_MINUTES;
+	const scheduledInstant = (kind: Kind) =>
+		KIND_CONFIG[kind].scheduledField === "startTime" ? startTime : endTime;
 
 	const openDialog = (
 		kind: Kind,
 		defaultAt: Date,
-		existing?: { reason: string | null; reasonNote: string | null },
+		existingNote?: string | null,
 	) => {
 		setDialogKind(kind);
-		setOccurredAt(defaultAt);
-		setReason((existing?.reason as CheckinReason | undefined) ?? undefined);
-		setReasonNote(existing?.reasonNote ?? "");
+		setEntryDate(defaultAt);
+		setTimeValue(format(defaultAt, "HH:mm"));
+		setNote(existingNote ?? "");
 		dialog.openDialog();
 	};
 
-	const handleQuickAction = (kind: Kind) => {
-		const nowInstant = new Date();
-		const scheduledInstant = kind === "checkin" ? startTime : endTime;
-		const diffMin =
-			Math.abs(nowInstant.getTime() - scheduledInstant.getTime()) / 60000;
-		if (isToday && diffMin <= REASON_WINDOW_MINUTES) {
-			const mutation = kind === "checkin" ? checkInMutation : checkOutMutation;
-			mutation.mutate({ appointmentId, occurredAt: nowInstant });
+	const handleClick = (
+		kind: Kind,
+		at: Date | null,
+		stageNote: string | null,
+	) => {
+		if (at) {
+			openDialog(kind, toBusinessZonedTime(at) ?? new Date(), stageNote);
 			return;
 		}
-		openDialog(
-			kind,
-			isToday
-				? (toBusinessZonedTime(nowInstant) ?? nowInstant)
-				: scheduledZoned(kind),
-		);
+		const defaultBase = isToday
+			? (toBusinessZonedTime(new Date()) ?? new Date())
+			: (toBusinessZonedTime(scheduledInstant(kind)) ?? new Date());
+		openDialog(kind, defaultBase);
 	};
 
 	const submitDialog = () => {
-		if (reasonRequired && !reason) return;
-		if (reasonRequired && reason === "OTHER" && !reasonNote.trim()) return;
-		const mutation =
-			dialogKind === "checkin" ? checkInMutation : checkOutMutation;
-		const finalReason = reasonRequired ? reason : undefined;
-		mutation.mutate({
+		const [hours, minutes] = timeValue.split(":").map(Number);
+		if (hours === undefined || minutes === undefined) return;
+		const combined = new Date(entryDate);
+		combined.setHours(hours, minutes, 0, 0);
+		mutationFor(dialogKind).mutate({
 			appointmentId,
-			occurredAt: businessZonedTimeToUtcInstant(occurredAt),
-			reason: finalReason,
-			reasonNote: finalReason === "OTHER" ? reasonNote.trim() : undefined,
+			occurredAt: businessZonedTimeToUtcInstant(combined),
+			note: note.trim() || undefined,
 		});
 	};
 
-	const isPending = checkInMutation.isPending || checkOutMutation.isPending;
-	const canSubmit = !isPending && !(reasonRequired && !reason);
+	const isPending =
+		arriveMutation.isPending ||
+		startMutation.isPending ||
+		departMutation.isPending;
 
 	const badgeSize = compact ? "h-5 px-1.5 text-[10px]" : "h-5 px-1.5 text-xs";
+
+	const stages: {
+		kind: Kind;
+		at: Date | null;
+		note: string | null;
+	}[] = [
+		{ kind: "arrived", at: arrivedAt, note: arrivedNote },
+		{ kind: "started", at: startedAt, note: startedNote },
+		{ kind: "left", at: leftAt, note: leftNote },
+	];
 
 	return (
 		<>
 			<div className="flex shrink-0 flex-wrap items-center gap-1">
-				{!checkedInAt ? (
-					<Button
-						className={compact ? "h-6 px-2 text-xs" : "h-7 px-2.5 text-xs"}
-						onClick={() => handleQuickAction("checkin")}
-						size="sm"
-						variant="outline"
-					>
-						<LogIn className="h-3 w-3" />
-						Check In
-					</Button>
-				) : (
-					<button
-						className={`${badgeSize} inline-flex items-center gap-1 rounded-md border bg-secondary text-secondary-foreground transition-colors hover:opacity-80`}
-						onClick={() =>
-							openDialog(
-								"checkin",
-								toBusinessZonedTime(checkedInAt) ?? new Date(),
-								{
-									reason: checkInReason,
-									reasonNote: checkInReasonNote,
-								},
-							)
-						}
-						type="button"
-					>
-						<LogIn className="h-2.5 w-2.5" />
-						{formatClock(checkedInAt)}
-						{checkInReason && <Pencil className="h-2.5 w-2.5 opacity-60" />}
-					</button>
-				)}
+				{stages.map(({ kind, at, note: stageNote }, i) => {
+					const { label, icon: Icon } = KIND_CONFIG[kind];
+					const prevDone = i === 0 || stages[i - 1]?.at;
+					if (!at) {
+						if (!prevDone) return null;
+						return (
+							<Button
+								className={compact ? "h-6 px-2 text-xs" : "h-7 px-2.5 text-xs"}
+								key={kind}
+								onClick={() => handleClick(kind, at, stageNote)}
+								size="sm"
+								variant="outline"
+							>
+								<Icon className="h-3 w-3" />
+								{label}
+							</Button>
+						);
+					}
+					return (
+						<button
+							className={`${badgeSize} inline-flex items-center gap-1 rounded-md border bg-secondary text-secondary-foreground transition-colors hover:opacity-80`}
+							key={kind}
+							onClick={() => handleClick(kind, at, stageNote)}
+							type="button"
+						>
+							<Icon className="h-2.5 w-2.5" />
+							{formatClock(at)}
+							{stageNote && <Pencil className="h-2.5 w-2.5 opacity-60" />}
+						</button>
+					);
+				})}
 
-				{checkedInAt && !checkedOutAt && (
-					<Button
-						className={compact ? "h-6 px-2 text-xs" : "h-7 px-2.5 text-xs"}
-						onClick={() => handleQuickAction("checkout")}
-						size="sm"
-						variant="outline"
-					>
-						<LogOut className="h-3 w-3" />
-						Check Out
-					</Button>
-				)}
-
-				{checkedOutAt && (
-					<button
-						className={`${badgeSize} inline-flex items-center gap-1 rounded-md border bg-secondary text-secondary-foreground transition-colors hover:opacity-80`}
-						onClick={() =>
-							openDialog(
-								"checkout",
-								toBusinessZonedTime(checkedOutAt) ?? new Date(),
-								{ reason: checkOutReason, reasonNote: checkOutReasonNote },
-							)
-						}
-						type="button"
-					>
-						<LogOut className="h-2.5 w-2.5" />
-						{formatClock(checkedOutAt)}
-						{checkOutReason && <Pencil className="h-2.5 w-2.5 opacity-60" />}
-					</button>
-				)}
-
-				{checkedInAt && checkedOutAt && !compact && (
+				{startedAt && leftAt && !compact && (
 					<Badge className="h-5 px-1.5 text-[10px]" variant="outline">
 						Actual:{" "}
-						{Math.round(
-							(checkedOutAt.getTime() - checkedInAt.getTime()) / 60000,
-						)}{" "}
-						min
+						{Math.round((leftAt.getTime() - startedAt.getTime()) / 60000)} min
 					</Badge>
 				)}
 			</div>
 
 			<ResponsiveDialog
-				description={`Scheduled for ${formatClock(dialogKind === "checkin" ? startTime : endTime)}`}
+				description={`${format(entryDate, "MMM d")} — scheduled for ${formatClock(scheduledInstant(dialogKind))}`}
+				onOpenAutoFocus={(e) => {
+					e.preventDefault();
+					noteRef.current?.focus();
+				}}
 				open={dialog.open}
 				setOpen={dialog.setOpen}
-				title={dialogKind === "checkin" ? "Check In" : "Check Out"}
+				title={KIND_CONFIG[dialogKind].label}
 			>
 				<div className="flex w-full min-w-72 flex-col gap-4 py-2">
 					<div className="flex flex-col gap-1.5">
 						<Label>Time</Label>
-						<DateTimePicker onChange={setOccurredAt} value={occurredAt} />
+						<Input
+							onChange={(e) => setTimeValue(e.target.value)}
+							type="time"
+							value={timeValue}
+						/>
 					</div>
 
-					{reasonRequired && (
-						<div className="flex flex-col gap-2">
-							<Label>
-								{Math.round(diffMinutes(dialogKind, occurredAt))} minutes off
-								schedule, why?
-							</Label>
-							<RadioGroup
-								onValueChange={(v) => setReason(v as CheckinReason)}
-								value={reason}
-							>
-								{APPOINTMENT_CHECKIN_REASONS.map((r) => (
-									<div className="flex items-center gap-2" key={r}>
-										<RadioGroupItem id={`reason-${r}`} value={r} />
-										<Label className="font-normal" htmlFor={`reason-${r}`}>
-											{APPOINTMENT_CHECKIN_REASON_LABELS[r]}
-										</Label>
-									</div>
-								))}
-							</RadioGroup>
-							{reason === "OTHER" && (
-								<Textarea
-									onChange={(e) => setReasonNote(e.target.value)}
-									placeholder="What happened?"
-									value={reasonNote}
-								/>
-							)}
-						</div>
-					)}
+					<div className="flex flex-col gap-1.5">
+						<Label>Note (optional)</Label>
+						<Textarea
+							onChange={(e) => setNote(e.target.value)}
+							onKeyDown={(e) => {
+								if (e.key === "Enter" && !e.shiftKey) {
+									e.preventDefault();
+									submitDialog();
+								}
+							}}
+							placeholder="Anything worth noting?"
+							ref={noteRef}
+							value={note}
+						/>
+					</div>
 
 					<div className="flex justify-end gap-2">
 						<Button
@@ -279,7 +266,7 @@ export function CheckInOutControl({
 						>
 							Cancel
 						</Button>
-						<Button disabled={!canSubmit} onClick={submitDialog} type="button">
+						<Button disabled={isPending} onClick={submitDialog} type="button">
 							Save
 						</Button>
 					</div>

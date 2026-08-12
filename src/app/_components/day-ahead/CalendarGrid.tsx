@@ -1,11 +1,14 @@
 "use client";
 
 import { Badge } from "@ui/badge";
+import { Popover, PopoverContent, PopoverTrigger } from "@ui/popover";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@ui/tooltip";
 import { format } from "date-fns";
+import { DoorOpen, LogIn, LogOut } from "lucide-react";
 import Link from "next/link";
 import { createContext, useContext, useMemo, useState } from "react";
-import { formatInBusinessTime, toBusinessZonedTime } from "~/lib/utils";
+import { cn, formatInBusinessTime, toBusinessZonedTime } from "~/lib/utils";
+import { CheckInOutControl } from "../appointments/CheckInOutControl";
 import { Redact } from "../redaction/Redact";
 import { ApptMessagesPopover, type RecentMessagesMap } from "./DayAheadShared";
 
@@ -51,6 +54,15 @@ export type CalAppt = {
 	evaluatorNpi: number;
 	evaluatorName: string;
 	isCurrentUser: boolean;
+	arrivedAt: Date | null;
+	arrivedBy: string | null;
+	arrivedNote: string | null;
+	startedAt: Date | null;
+	startedBy: string | null;
+	startedNote: string | null;
+	leftAt: Date | null;
+	leftBy: string | null;
+	leftNote: string | null;
 };
 
 // ─── Messages popover open state ───────────────────────────────────────────────
@@ -194,6 +206,84 @@ export function GridLines() {
 	);
 }
 
+// ─── Check-in indicator ─────────────────────────────────────────────────────
+
+const CHECKIN_STAGE_STYLES = {
+	left: {
+		icon: LogOut,
+		className:
+			"bg-emerald-100 text-emerald-700 ring-emerald-600/20 dark:bg-emerald-950/50 dark:text-emerald-400 dark:ring-emerald-400/20",
+	},
+	started: {
+		icon: LogIn,
+		className:
+			"bg-blue-100 text-blue-700 ring-blue-600/20 dark:bg-blue-950/50 dark:text-blue-400 dark:ring-blue-400/20",
+	},
+	arrived: {
+		icon: DoorOpen,
+		className:
+			"bg-amber-100 text-amber-700 ring-amber-600/20 dark:bg-amber-950/50 dark:text-amber-400 dark:ring-amber-400/20",
+	},
+	none: {
+		icon: DoorOpen,
+		className:
+			"bg-background text-muted-foreground/70 ring-border hover:text-foreground",
+	},
+} as const;
+
+function CheckinIndicator({ appt }: { appt: CalAppt }) {
+	const stage = appt.leftAt
+		? "left"
+		: appt.startedAt
+			? "started"
+			: appt.arrivedAt
+				? "arrived"
+				: "none";
+	const { icon: Icon, className } = CHECKIN_STAGE_STYLES[stage];
+
+	return (
+		<Popover>
+			<PopoverTrigger asChild>
+				<button
+					aria-label="Check-in status"
+					className={cn(
+						"absolute right-0.5 bottom-0.5 rounded-full p-0.5 shadow-sm ring-1 transition-colors",
+						className,
+					)}
+					onClick={(e) => e.stopPropagation()}
+					type="button"
+				>
+					<Icon className="h-3 w-3" strokeWidth={2.5} />
+				</button>
+			</PopoverTrigger>
+			<PopoverContent
+				align="end"
+				className="w-auto"
+				onClick={(e) => e.stopPropagation()}
+			>
+				<CheckInOutControl
+					appointmentId={appt.id}
+					arrivedAt={appt.arrivedAt}
+					arrivedBy={appt.arrivedBy}
+					arrivedNote={appt.arrivedNote}
+					endTime={appt.endTime}
+					isToday={
+						apptDateKey(appt.startTime) ===
+						formatInBusinessTime(new Date(), "yyyy-MM-dd")
+					}
+					leftAt={appt.leftAt}
+					leftBy={appt.leftBy}
+					leftNote={appt.leftNote}
+					startedAt={appt.startedAt}
+					startedBy={appt.startedBy}
+					startedNote={appt.startedNote}
+					startTime={appt.startTime}
+				/>
+			</PopoverContent>
+		</Popover>
+	);
+}
+
 // ─── Appointment block ────────────────────────────────────────────────────────
 
 export function ApptBlock({
@@ -204,6 +294,7 @@ export function ApptBlock({
 	messages,
 	messagesLoading,
 	tooltipSide = "right",
+	canCheckin = false,
 }: {
 	appt: CalAppt;
 	colorClass: string;
@@ -212,6 +303,7 @@ export function ApptBlock({
 	messages: RecentMessagesMap;
 	messagesLoading: boolean;
 	tooltipSide?: "top" | "right" | "bottom" | "left";
+	canCheckin?: boolean;
 }) {
 	const durationMin =
 		(new Date(appt.endTime).getTime() - new Date(appt.startTime).getTime()) /
@@ -301,6 +393,11 @@ export function ApptBlock({
 						messagesLoading={messagesLoading}
 						onOpenChange={setMessagesOpen}
 					/>
+					{canCheckin &&
+						apptDateKey(appt.startTime) <=
+							formatInBusinessTime(new Date(), "yyyy-MM-dd") && (
+							<CheckinIndicator appt={appt} />
+						)}
 				</div>
 			</TooltipTrigger>
 			<TooltipContent
@@ -336,11 +433,13 @@ export function CalendarDayView({
 	colorMap,
 	messages,
 	messagesLoading,
+	canCheckin = false,
 }: {
 	appointments: CalAppt[];
 	colorMap: Map<number, string>;
 	messages: RecentMessagesMap;
 	messagesLoading: boolean;
+	canCheckin?: boolean;
 }) {
 	const byEval = useMemo(() => {
 		const map = new Map<
@@ -407,6 +506,7 @@ export function CalendarDayView({
 							{ev.appts.map((appt) => (
 								<ApptBlock
 									appt={appt}
+									canCheckin={canCheckin}
 									colorClass={colorMap.get(appt.evaluatorNpi) ?? FALLBACK_COLOR}
 									key={appt.id}
 									messages={messages}
@@ -436,12 +536,14 @@ export function CalendarMultiDayView({
 	colorMap,
 	messages,
 	messagesLoading,
+	canCheckin = false,
 }: {
 	appointments: CalAppt[];
 	dates: string[];
 	colorMap: Map<number, string>;
 	messages: RecentMessagesMap;
 	messagesLoading: boolean;
+	canCheckin?: boolean;
 }) {
 	const byDate = useMemo(() => {
 		const map = new Map<string, CalAppt[]>();
@@ -503,6 +605,7 @@ export function CalendarMultiDayView({
 								{lanes.map(({ appt, lane, totalLanes }) => (
 									<ApptBlock
 										appt={appt}
+										canCheckin={canCheckin}
 										colorClass={
 											colorMap.get(appt.evaluatorNpi) ?? FALLBACK_COLOR
 										}

@@ -382,21 +382,6 @@ export const ALLOWED_ASD_ADHD_VALUES = [
 	"LD",
 ] as const;
 
-export const APPOINTMENT_CHECKIN_REASONS = [
-	"EVALUATOR_LATE",
-	"CLIENT_LATE",
-	"OTHER",
-] as const;
-
-export const APPOINTMENT_CHECKIN_REASON_LABELS: Record<
-	(typeof APPOINTMENT_CHECKIN_REASONS)[number],
-	string
-> = {
-	EVALUATOR_LATE: "Evaluator was late",
-	CLIENT_LATE: "Client was late",
-	OTHER: "Other",
-};
-
 export const PERMISSION_MAP = Object.values(PERMISSIONS).reduce(
 	(acc, category) => {
 		for (const subgroup of Object.values(category.subgroups)) {
