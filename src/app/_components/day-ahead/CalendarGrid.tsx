@@ -264,7 +264,7 @@ export function ApptBlock({
 					</Link>
 					{showEvaluatorLine && (
 						<div className="truncate text-[10px] text-muted-foreground leading-tight">
-							{appt.evaluatorName}
+							<Redact>{appt.evaluatorName}</Redact>
 						</div>
 					)}
 					<div className="truncate text-[10px] text-muted-foreground tabular-nums leading-tight">
@@ -327,7 +327,9 @@ export function ApptBlock({
 					{formatTime(appt.startTime)} – {formatTime(appt.endTime)}
 				</p>
 				<p className="opacity-80">{fullLocation}</p>
-				<p className="opacity-80">{appt.evaluatorName}</p>
+				<p className="opacity-80">
+					<Redact>{appt.evaluatorName}</Redact>
+				</p>
 				{(appt.asdAdhd ?? appt.daEval) && (
 					<p className="opacity-80">
 						{[appt.asdAdhd, appt.daEval].filter(Boolean).join(" · ")}
@@ -397,7 +399,7 @@ export function CalendarDayView({
 							<div
 								className={`truncate font-medium text-sm ${ev.isCurrentUser ? "text-primary" : ""}`}
 							>
-								{ev.name}
+								<Redact>{ev.name}</Redact>
 							</div>
 							<div className="text-[10px] text-muted-foreground">
 								{ev.appts.length} appt{ev.appts.length !== 1 ? "s" : ""}

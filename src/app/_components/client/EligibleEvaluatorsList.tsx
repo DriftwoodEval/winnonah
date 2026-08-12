@@ -16,6 +16,7 @@ import { useState } from "react";
 import { useCheckPermission } from "~/hooks/use-check-permission";
 import type { ClientGetOneOutput } from "~/lib/api-types";
 import { api } from "~/trpc/react";
+import { Redact } from "../redaction/Redact";
 
 interface EligibleEvaluatorsListProps {
 	client: ClientGetOneOutput;
@@ -94,7 +95,9 @@ export function EligibleEvaluatorsList({
 					) : filteredEvaluators && filteredEvaluators.length > 0 ? (
 						filteredEvaluators.map((evaluator, index) => (
 							<div key={evaluator.npi}>
-								<div className="text-sm">{evaluator.providerName}</div>
+								<div className="text-sm">
+									<Redact>{evaluator.providerName}</Redact>
+								</div>
 								{index !== filteredEvaluators.length - 1 && (
 									<Separator className="my-2" />
 								)}
@@ -157,7 +160,9 @@ export function EligibleEvaluatorsList({
 							{debugData.evaluators.map((evaluator, index) => (
 								<div key={evaluator.npi}>
 									<div className="flex items-center justify-between gap-2">
-										<span className="font-medium">{evaluator.name}</span>
+										<span className="font-medium">
+											<Redact>{evaluator.name}</Redact>
+										</span>
 										<span
 											className={statusClass(
 												evaluator.eligible,

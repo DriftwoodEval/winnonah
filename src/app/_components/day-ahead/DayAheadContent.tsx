@@ -182,7 +182,7 @@ function EvaluatorRow({
 					<ChevronRight className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
 				)}
 				<span className={evaluator.isCurrentUser ? "font-semibold" : ""}>
-					{evaluator.name}
+					<Redact>{evaluator.name}</Redact>
 				</span>
 				<span className="text-muted-foreground text-xs">
 					{evaluator.appointments.length} appt

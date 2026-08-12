@@ -2,6 +2,7 @@
 
 import { formatPhoneNumber } from "~/lib/utils";
 import { api } from "~/trpc/react";
+import { Redact } from "../redaction/Redact";
 import {
 	DayNav,
 	todayStr,
@@ -35,14 +36,14 @@ export function GreeterScheduleWidget() {
 								{entry.location}
 							</span>
 							<span className="truncate text-muted-foreground text-sm">
-								{entry.name}
+								<Redact>{entry.name}</Redact>
 							</span>
 							{entry.phone ? (
 								<a
 									className="ml-auto shrink-0 text-secondary text-xs hover:underline"
 									href={`tel:${entry.phone}`}
 								>
-									{formatPhoneNumber(entry.phone)}
+									<Redact>{formatPhoneNumber(entry.phone)}</Redact>
 								</a>
 							) : (
 								<span className="ml-auto shrink-0 text-muted-foreground text-xs italic">

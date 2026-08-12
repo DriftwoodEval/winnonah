@@ -43,6 +43,7 @@ import { logger } from "~/lib/logger";
 import type { Evaluator, User } from "~/lib/models";
 import { type PermissionsObject, permissionsSchema } from "~/lib/types";
 import { api } from "~/trpc/react";
+import { Redact } from "../redaction/Redact";
 import { ResponsiveDialog } from "../shared/ResponsiveDialog";
 import { EvaluatorForm } from "./EvaluatorForm";
 import { PermissionsField } from "./PermissionsField";
@@ -415,7 +416,7 @@ function AccountSection({
 															/>
 														</FormControl>
 														<FormLabel className="font-normal">
-															{ev.providerName}
+															<Redact>{ev.providerName}</Redact>
 														</FormLabel>
 													</FormItem>
 												))}
@@ -617,9 +618,15 @@ function EvaluatorSection({
 									: "Archive evaluator profile?"}
 							</AlertDialogTitle>
 							<AlertDialogDescription>
-								{evaluator.archived
-									? "This will make the evaluator available again for matching."
-									: `${evaluator.providerName} will be hidden from all lists and won't be matched to new clients. Can be reversed.`}
+								{evaluator.archived ? (
+									"This will make the evaluator available again for matching."
+								) : (
+									<>
+										<Redact>{evaluator.providerName}</Redact> will be hidden
+										from all lists and won't be matched to new clients. Can be
+										reversed.
+									</>
+								)}
 							</AlertDialogDescription>
 						</AlertDialogHeader>
 						<AlertDialogFooter>
@@ -774,7 +781,7 @@ export function PersonDetailDialog({
 			description={person.email}
 			open={open}
 			setOpen={setOpen}
-			title={person.name}
+			title={<Redact>{person.name}</Redact>}
 		>
 			<div className="space-y-8 pb-4">
 				{person.user && (

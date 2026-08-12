@@ -295,9 +295,22 @@ function FaxGrid({
 								<div className="flex flex-col gap-1">
 									<span className="font-medium text-sm">{fax.fileName}</span>
 									<span className="text-muted-foreground text-xs">
-										{status === "reviewed" && fax.reviewedAt
-											? `reviewed ${formatDistanceToNow(new Date(fax.reviewedAt), { addSuffix: true })}${fax.reviewedByName ? ` by ${fax.reviewedByName}` : ""}`
-											: `discovered ${formatDistanceToNow(new Date(fax.discoveredAt), { addSuffix: true })}`}
+										{status === "reviewed" && fax.reviewedAt ? (
+											<>
+												reviewed{" "}
+												{formatDistanceToNow(new Date(fax.reviewedAt), {
+													addSuffix: true,
+												})}
+												{fax.reviewedByName && (
+													<>
+														{" "}
+														by <Redact>{fax.reviewedByName}</Redact>
+													</>
+												)}
+											</>
+										) : (
+											`discovered ${formatDistanceToNow(new Date(fax.discoveredAt), { addSuffix: true })}`
+										)}
 									</span>
 								</div>
 							</CardHeader>
@@ -462,7 +475,11 @@ function FaxGrid({
 											<p className="mt-2 text-muted-foreground text-xs">
 												Reviewed by{" "}
 												<span className="font-medium">
-													{selectedFax.reviewedByName ?? "someone"}
+													{selectedFax.reviewedByName ? (
+														<Redact>{selectedFax.reviewedByName}</Redact>
+													) : (
+														"someone"
+													)}
 												</span>{" "}
 												on{" "}
 												{formatInBusinessTime(

@@ -27,6 +27,7 @@ import { useCheckPermission } from "~/hooks/use-check-permission";
 import { logger } from "~/lib/logger";
 import type { Evaluator, Role, User } from "~/lib/models";
 import { api } from "~/trpc/react";
+import { Redact } from "../redaction/Redact";
 import { EvaluatorForm } from "./EvaluatorForm";
 import {
 	formatPhoneAsYouType,
@@ -200,7 +201,7 @@ function PeopleList({
 									</TableCell>
 									<TableCell className="font-medium">
 										<div className="flex flex-col gap-1">
-											{person.name}
+											<Redact>{person.name}</Redact>
 											<div className="flex flex-wrap gap-1">
 												{person.user && (
 													<Badge className="w-fit text-xs" variant="outline">
@@ -224,9 +225,13 @@ function PeopleList({
 										{person.email}
 									</TableCell>
 									<TableCell className="text-muted-foreground">
-										{person.user?.phoneNumber
-											? formatPhoneAsYouType(person.user.phoneNumber)
-											: "—"}
+										{person.user?.phoneNumber ? (
+											<Redact>
+												{formatPhoneAsYouType(person.user.phoneNumber)}
+											</Redact>
+										) : (
+											"—"
+										)}
 									</TableCell>
 									<TableCell>
 										{person.evaluator?.insurances?.length ? (
@@ -298,7 +303,9 @@ function PeopleList({
 								</Avatar>
 								<div className="min-w-0 space-y-1">
 									<div className="flex flex-wrap items-center gap-1">
-										<p className="font-medium">{person.name}</p>
+										<p className="font-medium">
+											<Redact>{person.name}</Redact>
+										</p>
 										{person.user && (
 											<Badge className="text-xs" variant="outline">
 												User
@@ -320,7 +327,9 @@ function PeopleList({
 									</p>
 									{person.user?.phoneNumber && (
 										<p className="text-muted-foreground text-sm">
-											{formatPhoneAsYouType(person.user.phoneNumber)}
+											<Redact>
+												{formatPhoneAsYouType(person.user.phoneNumber)}
+											</Redact>
 										</p>
 									)}
 									{person.evaluator?.insurances?.length ? (

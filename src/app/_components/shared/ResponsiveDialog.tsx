@@ -25,7 +25,7 @@ interface ResponsiveDialogProps {
 	children: ReactNode;
 	open?: boolean;
 	setOpen?: (open: boolean) => void;
-	title: string;
+	title: ReactNode;
 	description?: string;
 	trigger?: React.ReactNode;
 	footer?: React.ReactNode;

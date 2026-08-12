@@ -16,6 +16,7 @@ import { ChevronLeft, ChevronRight, PhoneCall } from "lucide-react";
 import { useState } from "react";
 import { formatPhoneNumber } from "~/lib/utils";
 import { api } from "~/trpc/react";
+import { Redact } from "../redaction/Redact";
 
 export default function GreeterSchedule() {
 	const [selectedDate, setSelectedDate] = useState(() =>
@@ -91,14 +92,16 @@ export default function GreeterSchedule() {
 										<TableCell className="py-3 font-medium text-lg">
 											{entry.location}
 										</TableCell>
-										<TableCell className="py-3 text-lg">{entry.name}</TableCell>
+										<TableCell className="py-3 text-lg">
+											<Redact>{entry.name}</Redact>
+										</TableCell>
 										<TableCell className="py-3 text-lg">
 											{entry.phone ? (
 												<a
 													className="text-primary hover:underline"
 													href={`tel:${entry.phone}`}
 												>
-													{formatPhoneNumber(entry.phone)}
+													<Redact>{formatPhoneNumber(entry.phone)}</Redact>
 												</a>
 											) : (
 												<span className="text-muted-foreground italic">

@@ -49,13 +49,15 @@ function GreeterLine({
 	return (
 		<div className="mb-2 flex items-center gap-1.5 border-b pb-2 text-xs">
 			<span className="text-muted-foreground">Greeter:</span>
-			<span className="font-medium">{greeter.name}</span>
+			<span className="font-medium">
+				<Redact>{greeter.name}</Redact>
+			</span>
 			{greeter.phone && (
 				<a
 					className="text-secondary hover:underline"
 					href={`tel:${greeter.phone}`}
 				>
-					{formatPhoneNumber(greeter.phone)}
+					<Redact>{formatPhoneNumber(greeter.phone)}</Redact>
 				</a>
 			)}
 		</div>
@@ -321,7 +323,7 @@ export function WhosInWidget() {
 									if (!greeter) return null;
 									return (
 										<span className="shrink-0 text-muted-foreground text-xs normal-case">
-											{greeter.name}
+											<Redact>{greeter.name}</Redact>
 											{greeter.phone && (
 												<>
 													{" · "}
@@ -329,7 +331,7 @@ export function WhosInWidget() {
 														className="text-secondary hover:underline"
 														href={`tel:${greeter.phone}`}
 													>
-														{formatPhoneNumber(greeter.phone)}
+														<Redact>{formatPhoneNumber(greeter.phone)}</Redact>
 													</a>
 												</>
 											)}
@@ -396,7 +398,7 @@ function ExpandableEvaluator({
 				<span
 					className={`truncate text-sm ${evaluator.isCurrentUser ? "font-semibold" : ""}`}
 				>
-					{evaluator.name}
+					<Redact>{evaluator.name}</Redact>
 				</span>
 				<span className="shrink-0 text-muted-foreground text-xs">
 					{evaluator.appointments.length}
