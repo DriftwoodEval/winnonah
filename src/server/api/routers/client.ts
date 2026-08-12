@@ -539,6 +539,7 @@ export const clientRouter = createTRPCRouter({
 								startTime: appointments.startTime,
 								daEval: appointments.daEval,
 								locationKey: appointments.locationKey,
+								billingOnly: appointments.billingOnly,
 							})
 							.from(appointments)
 							.where(
@@ -567,7 +568,10 @@ export const clientRouter = createTRPCRouter({
 			const daScheduledClientIds = new Set<number>();
 			const evalScheduledClientIds = new Set<number>();
 			for (const appt of relevantAppointments) {
-				if (!mostRecentLocationKeyByClientId.has(appt.clientId)) {
+				if (
+					!appt.billingOnly &&
+					!mostRecentLocationKeyByClientId.has(appt.clientId)
+				) {
 					mostRecentLocationKeyByClientId.set(appt.clientId, appt.locationKey);
 				}
 				if (appt.startTime.getTime() >= now) {
