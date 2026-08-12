@@ -6,7 +6,7 @@ import { Input } from "@ui/input";
 import { Label } from "@ui/label";
 import { Textarea } from "@ui/textarea";
 import { format } from "date-fns";
-import { DoorOpen, LogIn, LogOut, Pencil } from "lucide-react";
+import { DoorOpen, LogIn, LogOut, Pencil, Undo2 } from "lucide-react";
 import { useRef, useState } from "react";
 import { toast } from "sonner";
 import {
@@ -112,6 +112,14 @@ export function CheckInOutControl({
 		onError: (error) =>
 			toast.error("Couldn't log departure", { description: error.message }),
 	});
+	const undoMutation = api.appointments.undoLastCheckinStep.useMutation({
+		onSuccess: () => {
+			invalidate();
+			dialog.closeDialog();
+		},
+		onError: (error) =>
+			toast.error("Couldn't undo", { description: error.message }),
+	});
 
 	const mutationFor = (kind: Kind) =>
 		kind === "arrived"
@@ -165,7 +173,16 @@ export function CheckInOutControl({
 	const isPending =
 		arriveMutation.isPending ||
 		startMutation.isPending ||
-		departMutation.isPending;
+		departMutation.isPending ||
+		undoMutation.isPending;
+
+	const lastLoggedStage: Kind | null = leftAt
+		? "left"
+		: startedAt
+			? "started"
+			: arrivedAt
+				? "arrived"
+				: null;
 
 	const badgeSize = compact ? "h-5 px-1.5 text-[10px]" : "h-5 px-1.5 text-xs";
 
@@ -258,17 +275,32 @@ export function CheckInOutControl({
 						/>
 					</div>
 
-					<div className="flex justify-end gap-2">
-						<Button
-							onClick={() => dialog.closeDialog()}
-							type="button"
-							variant="ghost"
-						>
-							Cancel
-						</Button>
-						<Button disabled={isPending} onClick={submitDialog} type="button">
-							Save
-						</Button>
+					<div className="flex items-center justify-between gap-2">
+						{dialogKind === lastLoggedStage ? (
+							<Button
+								disabled={isPending}
+								onClick={() => undoMutation.mutate({ appointmentId })}
+								type="button"
+								variant="outline"
+							>
+								<Undo2 className="h-3.5 w-3.5" />
+								Back a step
+							</Button>
+						) : (
+							<div />
+						)}
+						<div className="flex gap-2">
+							<Button
+								onClick={() => dialog.closeDialog()}
+								type="button"
+								variant="ghost"
+							>
+								Cancel
+							</Button>
+							<Button disabled={isPending} onClick={submitDialog} type="button">
+								Save
+							</Button>
+						</div>
 					</div>
 				</div>
 			</ResponsiveDialog>

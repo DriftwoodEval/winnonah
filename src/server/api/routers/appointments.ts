@@ -576,4 +576,31 @@ export const appointmentRouter = createTRPCRouter({
 				input.note,
 			);
 		}),
+
+	undoLastCheckinStep: protectedProcedure
+		.input(z.object({ appointmentId: z.string() }))
+		.mutation(async ({ ctx, input }) => {
+			assertPermission(ctx.session.user, "clients:appointments:checkin");
+
+			const existing = await ctx.db.query.appointmentCheckins.findFirst({
+				where: eq(appointmentCheckins.appointmentId, input.appointmentId),
+			});
+			if (!existing) return;
+
+			// Only the furthest-along step can be undone, so the chain
+			// (arrived -> started -> left) never ends up with gaps.
+			const payload = existing.leftAt
+				? { leftAt: null, leftBy: null, leftNote: null }
+				: existing.startedAt
+					? { startedAt: null, startedBy: null, startedNote: null }
+					: existing.arrivedAt
+						? { arrivedAt: null, arrivedBy: null, arrivedNote: null }
+						: null;
+			if (!payload) return;
+
+			await ctx.db
+				.update(appointmentCheckins)
+				.set(payload)
+				.where(eq(appointmentCheckins.appointmentId, input.appointmentId));
+		}),
 });

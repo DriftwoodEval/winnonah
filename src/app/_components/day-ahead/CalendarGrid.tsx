@@ -247,13 +247,13 @@ function CheckinIndicator({ appt }: { appt: CalAppt }) {
 				<button
 					aria-label="Check-in status"
 					className={cn(
-						"absolute right-0.5 bottom-0.5 rounded-full p-0.5 shadow-sm ring-1 transition-colors",
+						"absolute right-0.5 bottom-0.5 flex h-5 w-5 items-center justify-center rounded-full shadow-sm ring-1 transition-colors hover:scale-110",
 						className,
 					)}
 					onClick={(e) => e.stopPropagation()}
 					type="button"
 				>
-					<Icon className="h-3 w-3" strokeWidth={2.5} />
+					<Icon className="h-3.5 w-3.5" strokeWidth={2.5} />
 				</button>
 			</PopoverTrigger>
 			<PopoverContent
