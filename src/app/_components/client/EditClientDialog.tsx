@@ -343,7 +343,7 @@ export function ClientEditButton({ client }: { client: Client }) {
 
 	const { data: reviewData } = api.insuranceReview.getByClientId.useQuery(
 		client.id,
-		{ enabled: canInsuranceReview },
+		{ refetchInterval: 60_000, enabled: canInsuranceReview },
 	);
 
 	const BNAgeOutDate = subYears(new Date(), 3);

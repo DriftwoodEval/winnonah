@@ -47,9 +47,12 @@ export function AppointmentReminderTimeline({
 }: {
 	appointmentId: string;
 }) {
-	const { data, isLoading } = api.appointments.getReminderTimeline.useQuery({
-		appointmentId,
-	});
+	const { data, isLoading } = api.appointments.getReminderTimeline.useQuery(
+		{
+			appointmentId,
+		},
+		{ refetchInterval: 60_000 },
+	);
 
 	if (isLoading)
 		return (

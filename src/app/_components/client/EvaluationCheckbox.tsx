@@ -33,7 +33,7 @@ export function EvaluationCheckbox({
 
 	const { data: client } = api.clients.getOne.useQuery(
 		{ column: "id", value: clientId.toString() },
-		{ enabled: !!clientId },
+		{ refetchInterval: 60_000, enabled: !!clientId },
 	);
 
 	const [checked, setChecked] = useState(false);

@@ -33,9 +33,7 @@ export function CommunicationTimeline({
 		error,
 	} = api.quo.getContactTimeline.useQuery(
 		{ phoneNumber },
-		{
-			enabled: !!phoneNumber,
-		},
+		{ refetchInterval: 60_000, enabled: !!phoneNumber },
 	);
 
 	const outgoingMessageIds = useMemo(
@@ -49,7 +47,7 @@ export function CommunicationTimeline({
 	const { data: automatedContext } =
 		api.quo.getAutomatedMessageContext.useQuery(
 			{ messageIds: outgoingMessageIds },
-			{ enabled: outgoingMessageIds.length > 0 },
+			{ refetchInterval: 60_000, enabled: outgoingMessageIds.length > 0 },
 		);
 
 	const automatedMap = useMemo(

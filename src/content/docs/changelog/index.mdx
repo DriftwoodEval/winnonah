@@ -6,6 +6,11 @@ title: Changelog
 
 **Improved**
 - Issue lists and dashboard widgets now refresh themselves automatically, so once a background data refresh lands you'll see it without having to reload the page.
+- The Appointment Sync and QSuite settings pages now check for updates in the background too. If you've made unsaved changes when new data comes in, you'll get a toast to reload instead of your edits being silently overwritten.
+- Client pages now refresh their data automatically, so changes made by someone else (appointments, questionnaires, insurance, notes, and more) show up without a manual reload.
+
+**Fixed**
+- The client note title no longer gets overwritten by a background refresh while you're still typing it, matching how the note body already worked.
 
 ## 2026-08-12
 

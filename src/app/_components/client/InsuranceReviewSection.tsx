@@ -36,6 +36,7 @@ export function InsuranceReviewSection({
 
 	const { data: review, isLoading: isLoadingReview } =
 		api.insuranceReview.getByClientId.useQuery(client.id, {
+			refetchInterval: 60_000,
 			enabled: !!client.id,
 		});
 

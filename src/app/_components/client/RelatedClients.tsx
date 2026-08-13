@@ -48,7 +48,7 @@ export function RelatedClients({
 	const { data: phoneSuggestions = [] } =
 		api.clients.getSuggestedRelatedByPhone.useQuery(
 			{ clientId },
-			{ enabled: canEdit && !!phoneNumber },
+			{ refetchInterval: 60_000, enabled: canEdit && !!phoneNumber },
 		);
 
 	const linkMutation = api.clients.linkRelated.useMutation({

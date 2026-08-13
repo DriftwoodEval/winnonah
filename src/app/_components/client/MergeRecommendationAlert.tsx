@@ -20,6 +20,7 @@ export function MergeRecommendationAlert({
 }: MergeRecommendationAlertProps) {
 	const { data, isLoading } = api.clients.getMergeSuggestionsForClient.useQuery(
 		{ clientId: client.id },
+		{ refetchInterval: 60_000 },
 	);
 
 	if (isLoading || !data || readOnly) return null;

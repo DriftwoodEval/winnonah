@@ -28,7 +28,7 @@ export function BabyNetBoxes({
 			column: "id",
 			value: clientId.toString(),
 		},
-		{ enabled: !!clientId },
+		{ refetchInterval: 60_000, enabled: !!clientId },
 	);
 
 	const [BabyNetERNeeded, setBabyNetERNeeded] = useState(false);

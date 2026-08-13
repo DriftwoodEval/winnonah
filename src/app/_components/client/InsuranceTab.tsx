@@ -306,12 +306,14 @@ function PolicyCard({
 
 export function InsuranceTab({ client }: InsuranceTabProps) {
 	const clientId = client.id;
-	const { data, isLoading } =
-		api.clients.getInsurancePolicies.useQuery(clientId);
+	const { data, isLoading } = api.clients.getInsurancePolicies.useQuery(
+		clientId,
+		{ refetchInterval: 60_000 },
+	);
 
 	const { data: punchClient } = api.google.getClientFromPunch.useQuery(
 		clientId.toString(),
-		{ enabled: !!clientId },
+		{ refetchInterval: 60_000, enabled: !!clientId },
 	);
 
 	const paAssignedTo = punchClient?.["PA Assigned to"];

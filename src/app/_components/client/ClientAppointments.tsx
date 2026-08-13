@@ -39,9 +39,12 @@ export function ClientAppointments({ clientId }: { clientId: number }) {
 	const [expandedApptId, setExpandedApptId] = useState<string | null>(null);
 	const [billingOpen, setBillingOpen] = useState(false);
 	const { data: appointments, isLoading } =
-		api.appointments.getByClientId.useQuery({
-			clientId,
-		});
+		api.appointments.getByClientId.useQuery(
+			{
+				clientId,
+			},
+			{ refetchInterval: 60_000 },
+		);
 
 	const updateStatus = api.appointments.updateStatus.useMutation({
 		onSuccess: () =>

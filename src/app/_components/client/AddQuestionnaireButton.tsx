@@ -51,19 +51,18 @@ export function AddQuestionnaireButton({
 
 	const { data: qsSent } = api.google.getQsSent.useQuery(
 		clientId ? clientId.toString() : "",
-		{
-			enabled: !!clientId,
-		},
+		{ refetchInterval: 60_000, enabled: !!clientId },
 	);
 
 	const { data: applicableRules } =
 		api.questionnaires.getApplicableRules.useQuery(
 			{ clientId: clientId ?? 0 },
-			{ enabled: !!clientId },
+			{ refetchInterval: 60_000, enabled: !!clientId },
 		);
 
 	const { data: sentQuestionnaires } =
 		api.questionnaires.getSentQuestionnaires.useQuery(clientId ?? 0, {
+			refetchInterval: 60_000,
 			enabled: !!clientId,
 		});
 

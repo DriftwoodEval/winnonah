@@ -76,10 +76,13 @@ export function Client({
 		data: client,
 		isLoading: isLoadingClient,
 		refetch: refetchClient,
-	} = api.clients.getOne.useQuery({
-		column: "hash",
-		value: hash,
-	});
+	} = api.clients.getOne.useQuery(
+		{
+			column: "hash",
+			value: hash,
+		},
+		{ refetchInterval: 60_000 },
+	);
 
 	const isActive = isLoadingClient ? false : (client?.status ?? false);
 
@@ -146,6 +149,7 @@ export function Client({
 
 	const { data: clientFailures } = api.clients.getFailures.useQuery(
 		client?.id ?? undefined,
+		{ refetchInterval: 60_000 },
 	);
 
 	const isLoading = isLoadingClient;

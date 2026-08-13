@@ -35,16 +35,22 @@ export function AdditionalInsuranceAppointmentsDisplay({
 	const { data: insurances = [] } = api.insurances.getAll.useQuery();
 	const { data: policiesData } = api.clients.getInsurancePolicies.useQuery(
 		client.id,
+		{ refetchInterval: 60_000 },
 	);
 	const policies = policiesData?.policies ?? [];
 	const [combined, setCombined] = useState(false);
 	const utils = api.useUtils();
 
 	const { data: applicableRules } =
-		api.questionnaires.getApplicableRules.useQuery({ clientId: client.id });
+		api.questionnaires.getApplicableRules.useQuery(
+			{ clientId: client.id },
+			{ refetchInterval: 60_000 },
+		);
 
 	const { data: sentQuestionnaires } =
-		api.questionnaires.getSentQuestionnaires.useQuery(client.id);
+		api.questionnaires.getSentQuestionnaires.useQuery(client.id, {
+			refetchInterval: 60_000,
+		});
 
 	const questionnaireBattery = useMemo(() => {
 		if (!applicableRules?.rules.length) return [];

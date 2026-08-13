@@ -23,6 +23,7 @@ export function ProtocolsScannedCheckbox({
 
 	const { data: punchClient, isLoading } =
 		api.google.getClientFromPunch.useQuery(clientId.toString(), {
+			refetchInterval: 60_000,
 			enabled: !!clientId,
 		});
 

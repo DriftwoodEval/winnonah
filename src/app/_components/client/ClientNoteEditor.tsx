@@ -33,6 +33,7 @@ export function ClientNoteEditor({
 		clientId,
 		{
 			enabled: !!clientId,
+			refetchInterval: 60_000,
 		},
 	);
 
@@ -47,8 +48,9 @@ export function ClientNoteEditor({
 	const [localContent, setLocalContent] = useState(note?.contentJson ?? "");
 	const isTyping = useRef(false);
 
+	// biome-ignore lint/correctness/useExhaustiveDependencies: we exclude localTitle from deps to avoid loops, we only care when note updates
 	useEffect(() => {
-		if (note?.title) {
+		if (note?.title && note.title !== localTitle && !isTyping.current) {
 			setLocalTitle(note.title);
 		}
 	}, [note?.title]);
@@ -210,6 +212,7 @@ export function ClientNoteEditor({
 						name="title"
 						onChange={(e) => {
 							if (!canNote || readOnly) return;
+							isTyping.current = true;
 							setLocalTitle(e.target.value);
 							debouncedSaveTitle(e.target.value);
 						}}

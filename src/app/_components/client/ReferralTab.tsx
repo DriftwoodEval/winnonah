@@ -150,6 +150,7 @@ export function ReferralTab({ client, readOnly }: ReferralTabProps) {
 
 	const { data: punchClient, isLoading: isLoadingPunchClient } =
 		api.google.getClientFromPunch.useQuery(client.id.toString(), {
+			refetchInterval: 60_000,
 			enabled: !!client.id,
 		});
 
@@ -157,6 +158,7 @@ export function ReferralTab({ client, readOnly }: ReferralTabProps) {
 
 	const { data: pushPreview, isLoading: isLoadingPreview } =
 		api.google.getPushPreview.useQuery(client.id, {
+			refetchInterval: 60_000,
 			enabled:
 				!!client.id && isNeedsReview && can("clients:referral:pushtopunch"),
 		});
