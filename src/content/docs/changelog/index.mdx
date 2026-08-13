@@ -2,12 +2,23 @@
 title: Changelog
 ---
 
+## 2026-08-13
+
+**Improved**
+- Issue lists and dashboard widgets now refresh themselves automatically, so once a background data refresh lands you'll see it without having to reload the page.
+- The Appointment Sync and QSuite settings pages now check for updates in the background too. If you've made unsaved changes when new data comes in, you'll get a toast to reload instead of your edits being silently overwritten.
+- Client pages now refresh their data automatically, so changes made by someone else (appointments, questionnaires, insurance, notes, and more) show up without a manual reload.
+
+**Fixed**
+- The client note title no longer gets overwritten by a background refresh while you're still typing it, matching how the note body already worked.
+
 ## 2026-08-12
 
 **New**
 - Reviewed faxes can now be downloaded as a zip from the reviewed tab, pre-labeled with the confirmed category, for testing the AI categorization offline.
 
 **Improved**
+- Pages backed by the Punchlist or Drive duplicate search now load instantly even when the cached data has gone stale, instead of occasionally waiting on a live Google request. The refresh still happens, just in the background.
 - Faxed documents that came through noisy or slightly crooked now get cleaned up before the AI reads them, for more accurate OCR text.
 
 **Fixed**

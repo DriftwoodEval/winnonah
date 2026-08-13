@@ -35,6 +35,7 @@ export function EligibleEvaluatorsList({
 
 	const { data: eligibleEvaluators, isLoading: isLoadingEvaluators } =
 		api.evaluators.getEligibleForClient.useQuery(client.id ?? 0, {
+			refetchInterval: 60_000,
 			enabled: typeof client.id === "number" && client.id > 0,
 		});
 	const { data: offices } = api.offices.getAll.useQuery();
@@ -50,6 +51,7 @@ export function EligibleEvaluatorsList({
 
 	const { data: debugData, isLoading: isLoadingDebug } =
 		api.evaluators.getEligibilityDebug.useQuery(client.id ?? 0, {
+			refetchInterval: 60_000,
 			enabled: showDebug && typeof client.id === "number" && client.id > 0,
 		});
 

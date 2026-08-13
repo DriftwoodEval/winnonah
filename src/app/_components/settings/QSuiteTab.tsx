@@ -42,7 +42,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@ui/tabs";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@ui/tooltip";
 import { Info, Loader2, Lock, LockOpen, Plus, Trash2 } from "lucide-react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import {
 	type Control,
 	type FieldArrayPath,
@@ -56,6 +56,7 @@ import {
 import { toast } from "sonner";
 import { z } from "zod";
 import { useCheckPermission } from "~/hooks/use-check-permission";
+import { useFormSyncToast } from "~/hooks/use-form-sync-toast";
 import { cn } from "~/lib/utils";
 import {
 	pythonConfigSchema,
@@ -440,7 +441,9 @@ export function QSuiteTab() {
 	const searchParams = useSearchParams();
 
 	const utils = api.useUtils();
-	const { data: config, isLoading } = api.pyConfig.get.useQuery();
+	const { data: config, isLoading } = api.pyConfig.get.useQuery(undefined, {
+		refetchInterval: 60_000,
+	});
 	const mutation = api.pyConfig.update.useMutation({
 		onSuccess: () => {
 			toast.success("Saved");
@@ -496,49 +499,51 @@ export function QSuiteTab() {
 		}
 	};
 
-	useEffect(() => {
-		if (!config) return;
-		const { config: c, services: s } = config;
-
-		form.reset({
-			config: {
-				...c,
-				qreceive_emails: c.qreceive_emails.map((value) => ({ value })),
-				excluded_ta: c.excluded_ta.map((value) => ({ value })),
-				records_emails: toEntries(c.records_emails).map((e) => ({
-					key: stripSuffix(e.key),
-					value: {
-						email: e.value.email,
-						fax: e.value.fax,
-						aliases: e.value.aliases?.join(", ") ?? "",
+	useFormSyncToast(
+		config,
+		form,
+		({ config: c, services: s }) => {
+			form.reset({
+				config: {
+					...c,
+					qreceive_emails: c.qreceive_emails.map((value) => ({ value })),
+					excluded_ta: c.excluded_ta.map((value) => ({ value })),
+					records_emails: toEntries(c.records_emails).map((e) => ({
+						key: stripSuffix(e.key),
+						value: {
+							email: e.value.email,
+							fax: e.value.fax,
+							aliases: e.value.aliases?.join(", ") ?? "",
+						},
+					})),
+					piecework: {
+						costs: toEntries(c.piecework.costs).map((item) => ({
+							key: item.key,
+							value: {
+								DA: item.value.DA ?? undefined,
+								ADHDDA: item.value.ADHDDA ?? undefined,
+								EVAL: item.value.EVAL ?? undefined,
+								DAEVAL: item.value.DAEVAL ?? undefined,
+								REPORT: item.value.REPORT ?? undefined,
+							},
+						})),
+						staff: toEntries(c.piecework.name_map).map((e) => ({
+							key: e.key,
+							value: {
+								name: e.value,
+								email: c.piecework.payroll_emails[e.value] ?? "",
+							},
+						})),
 					},
-				})),
-				piecework: {
-					costs: toEntries(c.piecework.costs).map((item) => ({
-						key: item.key,
-						value: {
-							DA: item.value.DA ?? undefined,
-							ADHDDA: item.value.ADHDDA ?? undefined,
-							EVAL: item.value.EVAL ?? undefined,
-							DAEVAL: item.value.DAEVAL ?? undefined,
-							REPORT: item.value.REPORT ?? undefined,
-						},
-					})),
-					staff: toEntries(c.piecework.name_map).map((e) => ({
-						key: e.key,
-						value: {
-							name: e.value,
-							email: c.piecework.payroll_emails[e.value] ?? "",
-						},
-					})),
 				},
-			},
-			services: {
-				...s,
-				openphone: { ...s.openphone, users: toEntries(s.openphone.users) },
-			},
-		});
-	}, [config, form]);
+				services: {
+					...s,
+					openphone: { ...s.openphone, users: toEntries(s.openphone.users) },
+				},
+			});
+		},
+		"QSuite config was updated elsewhere.",
+	);
 
 	const onSubmit = (data: FormValues) => {
 		try {

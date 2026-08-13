@@ -13,6 +13,7 @@ export function DashboardStatus({ clientId }: { clientId: number }) {
 	const { data: dashboardData, isLoading } =
 		api.google.getDashboardData.useQuery(undefined, {
 			staleTime: 60000,
+			refetchInterval: 60000,
 		});
 
 	if (isLoading) {

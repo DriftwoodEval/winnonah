@@ -934,12 +934,14 @@ export function IssuesList() {
 
 	const { data: districtErrors, isLoading: isLoadingDistrictErrors } =
 		api.clients.getDistrictErrors.useQuery(undefined, {
+			refetchInterval: 60_000,
 			enabled: can("issues:district-issues"),
 		});
 	const { clientsWithoutDistrict = [], clientsWithPoorAddressLookup = [] } =
 		districtErrors ?? {};
 	const { data: babyNetErrors, isLoading: isLoadingBabyNetErrors } =
 		api.clients.getBabyNetErrors.useQuery(undefined, {
+			refetchInterval: 60_000,
 			enabled: can("issues:babynet-ageout"),
 		});
 
@@ -960,74 +962,90 @@ export function IssuesList() {
 
 	const { data: notInTAErrors, isLoading: isLoadingNotInTAErrors } =
 		api.clients.getNotInTAErrors.useQuery(undefined, {
+			refetchInterval: 60_000,
 			enabled: can("issues:not-in-ta"),
 		});
 	const { data: dropList, isLoading: isLoadingDropList } =
 		api.clients.getDropList.useQuery(undefined, {
+			refetchInterval: 60_000,
 			enabled: can("issues:droplist"),
 		});
 	const { data: autismStops, isLoading: isLoadingAutismStops } =
 		api.clients.getAutismStops.useQuery(undefined, {
+			refetchInterval: 60_000,
 			enabled: can("issues:autism-stops"),
 		});
 	const { data: pausedClients, isLoading: isLoadingPausedClients } =
 		api.clients.getPaused.useQuery(undefined, {
+			refetchInterval: 60_000,
 			enabled: can("issues:paused-clients"),
 		});
 	const { data: evaluationInProcess, isLoading: isLoadingEvaluationInProcess } =
 		api.clients.getEvaluationInProcess.useQuery(undefined, {
+			refetchInterval: 60_000,
 			enabled: can("issues:evaluation-in-process"),
 		});
 	const { data: notesOnlyClients, isLoading: isLoadingNotesOnlyClients } =
 		api.clients.getNotesOnlyClients.useQuery(undefined, {
+			refetchInterval: 60_000,
 			enabled: can("clients:merge"),
 		});
 	const { data: mergeSuggestions, isLoading: isLoadingMergeSuggestions } =
 		api.clients.getMergeSuggestions.useQuery(undefined, {
+			refetchInterval: 60_000,
 			enabled: can("clients:merge"),
 		});
 	const { data: noDriveIds, isLoading: isLoadingNoDriveIds } =
 		api.clients.getNoDriveIdErrors.useQuery(undefined, {
+			refetchInterval: 60_000,
 			enabled: can("issues:no-drive-ids"),
 		});
 	const {
 		data: missingRecordsNeeded,
 		isLoading: isLoadingMissingRecordsNeeded,
 	} = api.clients.getMissingRecordsNeeded.useQuery(undefined, {
+		refetchInterval: 60_000,
 		enabled: can("issues:missing-records-needed"),
 	});
 	const {
 		data: duplicateFolderNames,
 		isLoading: isLoadingDuplicateFolderNames,
 	} = api.google.findDuplicates.useQuery(undefined, {
+		refetchInterval: 60_000,
 		enabled: can("issues:duplicate-drive"),
 	});
 	const { data: dd4, isLoading: isLoadingDD4 } = api.clients.getDD4.useQuery(
 		undefined,
-		{ enabled: can("issues:dd4") },
+		{ refetchInterval: 60_000, enabled: can("issues:dd4") },
 	);
 	const { data: possiblePrivatePay, isLoading: isLoadingPossiblePrivatePay } =
 		api.clients.getPossiblePrivatePay.useQuery(undefined, {
+			refetchInterval: 60_000,
 			enabled: can("issues:private-pay"),
 		});
 	const { data: unreviewedRecords, isLoading: isLoadingUnreviewedRecords } =
 		api.clients.getUnreviewedRecords.useQuery(undefined, {
+			refetchInterval: 60_000,
 			enabled: can("issues:unreviewed-records"),
 		});
 	const { data: duplicateQLinks, isLoading: isLoadingDuplicateQLinks } =
 		api.questionnaires.getDuplicateLinks.useQuery(undefined, {
+			refetchInterval: 60_000,
 			enabled: can("issues:duplicate-questionnaires"),
 		});
 	const { data: justAddedQuestionnaires, isLoading: isLoadingJustAdded } =
 		api.questionnaires.getJustAdded.useQuery(undefined, {
+			refetchInterval: 60_000,
 			enabled: can("issues:just-added"),
 		});
 	const { data: partialBatteries, isLoading: isLoadingPartialBatteries } =
 		api.questionnaires.getPartialBatteries.useQuery(undefined, {
+			refetchInterval: 60_000,
 			enabled: can("issues:partial-battery"),
 		});
 	const { data: punchlistIssues, isLoading: isLoadingPunchlistIssues } =
 		api.google.verifyPunchClients.useQuery(undefined, {
+			refetchInterval: 60_000,
 			enabled:
 				can("issues:clients-not-in-db") ||
 				can("issues:punchlist-inactive") ||
@@ -1081,14 +1099,17 @@ export function IssuesList() {
 
 	const { data: noReferralSource, isLoading: isLoadingNoReferralSource } =
 		api.clients.getNoReferralSource.useQuery(undefined, {
+			refetchInterval: 60_000,
 			enabled: can("issues:no-referral-source"),
 		});
 	const { data: missingAppointments, isLoading: isLoadingMissingAppointments } =
 		api.clients.getMissingAppointments.useQuery(undefined, {
+			refetchInterval: 60_000,
 			enabled: can("issues:missing-appointments"),
 		});
 	const { data: duplicateNames, isLoading: isLoadingDuplicateNames } =
 		api.clients.getDuplicateNames.useQuery(undefined, {
+			refetchInterval: 60_000,
 			enabled: can("issues:duplicate-names"),
 		});
 

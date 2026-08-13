@@ -7,7 +7,9 @@ import { api } from "~/trpc/react";
 
 export function DashboardSectionTimeline({ clientId }: { clientId: number }) {
 	const { data: history, isLoading } =
-		api.clients.getDashboardSectionHistory.useQuery(clientId);
+		api.clients.getDashboardSectionHistory.useQuery(clientId, {
+			refetchInterval: 60_000,
+		});
 
 	return (
 		<Card className="w-full gap-1 rounded-md p-1">

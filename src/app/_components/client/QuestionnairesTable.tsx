@@ -92,13 +92,17 @@ export function QuestionnairesTable({
 
 	const { data: questionnairesSent, isLoading: isLoadingQuestionnaires } =
 		api.questionnaires.getSentQuestionnaires.useQuery(clientId ?? 0, {
+			refetchInterval: 60_000,
 			enabled: typeof clientId === "number" && clientId > 0,
 		});
 
 	const { data: applicableRules } =
 		api.questionnaires.getApplicableRules.useQuery(
 			{ clientId: clientId ?? 0 },
-			{ enabled: typeof clientId === "number" && clientId > 0 },
+			{
+				refetchInterval: 60_000,
+				enabled: typeof clientId === "number" && clientId > 0,
+			},
 		);
 
 	const questionnaireBattery = useMemo(() => {
@@ -134,7 +138,9 @@ export function QuestionnairesTable({
 	const can = useCheckPermission();
 	const canResolveFailure = can("clients:resolvefailure");
 
-	const { data: allFailures } = api.clients.getFailures.useQuery(clientId);
+	const { data: allFailures } = api.clients.getFailures.useQuery(clientId, {
+		refetchInterval: 60_000,
+	});
 	const failures = allFailures?.filter(
 		(f) =>
 			f.daEval !== "Records" ||

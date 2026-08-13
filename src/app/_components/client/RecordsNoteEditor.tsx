@@ -80,10 +80,12 @@ export function RecordsNoteEditor({
 
 	const { data: record, isLoading: isLoadingRecord } =
 		api.externalRecords.getExternalRecordByClientId.useQuery(clientId, {
+			refetchInterval: 60_000,
 			enabled: !!clientId,
 		});
 
 	const { data: allFailures } = api.clients.getFailures.useQuery(clientId, {
+		refetchInterval: 60_000,
 		enabled: !!clientId,
 	});
 	const recordFailures = allFailures?.filter(
@@ -122,7 +124,7 @@ export function RecordsNoteEditor({
 				column: "id",
 				value: clientId.toString(),
 			},
-			{ enabled: !!clientId },
+			{ refetchInterval: 60_000, enabled: !!clientId },
 		);
 
 	// States

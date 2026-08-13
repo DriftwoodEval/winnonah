@@ -13,10 +13,10 @@ import {
 } from "@ui/form";
 import MultipleSelector from "@ui/multiple-selector";
 import { Skeleton } from "@ui/skeleton";
-import { useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 import { useCheckPermission } from "~/hooks/use-check-permission";
+import { useFormSyncToast } from "~/hooks/use-form-sync-toast";
 import {
 	type AppointmentSyncConfig,
 	appointmentSyncConfigSchema,
@@ -28,7 +28,10 @@ export default function AppointmentsSyncSettings() {
 	const canEdit = can("settings:appointments-sync");
 	const utils = api.useUtils();
 
-	const { data: syncConfig, isLoading } = api.pyConfig.getSync.useQuery();
+	const { data: syncConfig, isLoading } = api.pyConfig.getSync.useQuery(
+		undefined,
+		{ refetchInterval: 60_000 },
+	);
 
 	const form = useForm<AppointmentSyncConfig>({
 		resolver: zodResolver(appointmentSyncConfigSchema),
@@ -38,11 +41,12 @@ export default function AppointmentsSyncSettings() {
 		},
 	});
 
-	useEffect(() => {
-		if (syncConfig) {
-			form.reset(syncConfig);
-		}
-	}, [syncConfig, form]);
+	useFormSyncToast(
+		syncConfig,
+		form,
+		(data) => form.reset(data),
+		"Sync settings were updated elsewhere.",
+	);
 
 	const updateSyncConfig = api.pyConfig.updateSync.useMutation({
 		onSuccess: () => {

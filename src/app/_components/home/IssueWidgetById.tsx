@@ -119,6 +119,7 @@ export function IssueWidgetById({ id }: { id: string }) {
 function DD4Widget() {
 	const can = useCheckPermission();
 	const { data, isLoading } = api.clients.getDD4.useQuery(undefined, {
+		refetchInterval: 60_000,
 		enabled: can("issues:dd4"),
 	});
 	return (
@@ -136,7 +137,7 @@ function JustAddedWidget() {
 	const can = useCheckPermission();
 	const { data, isLoading } = api.questionnaires.getJustAdded.useQuery(
 		undefined,
-		{ enabled: can("issues:just-added") },
+		{ refetchInterval: 60_000, enabled: can("issues:just-added") },
 	);
 	return (
 		<SimpleIssueWidget
@@ -152,6 +153,7 @@ function JustAddedWidget() {
 function PausedClientsWidget() {
 	const can = useCheckPermission();
 	const { data, isLoading } = api.clients.getPaused.useQuery(undefined, {
+		refetchInterval: 60_000,
 		enabled: can("issues:paused-clients"),
 	});
 	return (
@@ -169,7 +171,7 @@ function EvaluationInProcessWidget() {
 	const can = useCheckPermission();
 	const { data, isLoading } = api.clients.getEvaluationInProcess.useQuery(
 		undefined,
-		{ enabled: can("issues:evaluation-in-process") },
+		{ refetchInterval: 60_000, enabled: can("issues:evaluation-in-process") },
 	);
 	return (
 		<SimpleIssueWidget
@@ -186,7 +188,7 @@ function MissingAppointmentsWidget() {
 	const can = useCheckPermission();
 	const { data, isLoading } = api.clients.getMissingAppointments.useQuery(
 		undefined,
-		{ enabled: can("issues:missing-appointments") },
+		{ refetchInterval: 60_000, enabled: can("issues:missing-appointments") },
 	);
 	return (
 		<SimpleIssueWidget
@@ -202,6 +204,7 @@ function MissingAppointmentsWidget() {
 function AutismStopsWidget() {
 	const can = useCheckPermission();
 	const { data, isLoading } = api.clients.getAutismStops.useQuery(undefined, {
+		refetchInterval: 60_000,
 		enabled: can("issues:autism-stops"),
 	});
 	return (
@@ -220,7 +223,7 @@ function ClientsNotInDbWidget() {
 	const utils = api.useUtils();
 	const { data, isLoading } = api.google.verifyPunchClients.useQuery(
 		undefined,
-		{ enabled: can("issues:clients-not-in-db") },
+		{ refetchInterval: 60_000, enabled: can("issues:clients-not-in-db") },
 	);
 	const { mutate: updatePunchId, isPending } =
 		api.google.updatePunchId.useMutation({
@@ -260,7 +263,7 @@ function PunchlistInactiveWidget() {
 	const can = useCheckPermission();
 	const { data, isLoading } = api.google.verifyPunchClients.useQuery(
 		undefined,
-		{ enabled: can("issues:punchlist-inactive") },
+		{ refetchInterval: 60_000, enabled: can("issues:punchlist-inactive") },
 	);
 	return (
 		<SimpleIssueWidget
@@ -277,7 +280,7 @@ function PunchlistDuplicatesWidget() {
 	const can = useCheckPermission();
 	const { data, isLoading } = api.google.verifyPunchClients.useQuery(
 		undefined,
-		{ enabled: can("issues:punchlist-duplicates") },
+		{ refetchInterval: 60_000, enabled: can("issues:punchlist-duplicates") },
 	);
 	const dupes =
 		data?.duplicateIdClients.map(
@@ -306,7 +309,7 @@ function NoReferralSourceWidget() {
 	const can = useCheckPermission();
 	const { data, isLoading } = api.clients.getNoReferralSource.useQuery(
 		undefined,
-		{ enabled: can("issues:no-referral-source") },
+		{ refetchInterval: 60_000, enabled: can("issues:no-referral-source") },
 	);
 	return (
 		<SimpleIssueWidget
@@ -323,7 +326,7 @@ function MissingDistrictsWidget() {
 	const can = useCheckPermission();
 	const { data, isLoading } = api.clients.getDistrictErrors.useQuery(
 		undefined,
-		{ enabled: can("issues:district-issues") },
+		{ refetchInterval: 60_000, enabled: can("issues:district-issues") },
 	);
 	return (
 		<SimpleIssueWidget
@@ -340,7 +343,7 @@ function PoorAddressLookupWidget() {
 	const can = useCheckPermission();
 	const { data, isLoading } = api.clients.getDistrictErrors.useQuery(
 		undefined,
-		{ enabled: can("issues:district-issues") },
+		{ refetchInterval: 60_000, enabled: can("issues:district-issues") },
 	);
 	return (
 		<SimpleIssueWidget
@@ -356,6 +359,7 @@ function PoorAddressLookupWidget() {
 function BabyNetAgeoutWidget() {
 	const can = useCheckPermission();
 	const { data, isLoading } = api.clients.getBabyNetErrors.useQuery(undefined, {
+		refetchInterval: 60_000,
 		enabled: can("issues:babynet-ageout"),
 	});
 	return (
@@ -372,6 +376,7 @@ function BabyNetAgeoutWidget() {
 function NotInTAWidget() {
 	const can = useCheckPermission();
 	const { data, isLoading } = api.clients.getNotInTAErrors.useQuery(undefined, {
+		refetchInterval: 60_000,
 		enabled: can("issues:not-in-ta"),
 	});
 	return (
@@ -388,6 +393,7 @@ function NotInTAWidget() {
 function DropListWidget() {
 	const can = useCheckPermission();
 	const { data, isLoading } = api.clients.getDropList.useQuery(undefined, {
+		refetchInterval: 60_000,
 		enabled: can("issues:droplist"),
 	});
 	return (
@@ -403,9 +409,13 @@ function DropListWidget() {
 
 function NotesOnlyWidget() {
 	const { data: notesOnlyClients, isLoading: isLoadingNotesOnly } =
-		api.clients.getNotesOnlyClients.useQuery();
+		api.clients.getNotesOnlyClients.useQuery(undefined, {
+			refetchInterval: 60_000,
+		});
 	const { data: mergeSuggestions, isLoading: isLoadingMerge } =
-		api.clients.getMergeSuggestions.useQuery();
+		api.clients.getMergeSuggestions.useQuery(undefined, {
+			refetchInterval: 60_000,
+		});
 
 	if (isLoadingNotesOnly || isLoadingMerge)
 		return (
@@ -453,7 +463,7 @@ function NoDriveIdsWidget() {
 	const can = useCheckPermission();
 	const { data, isLoading } = api.clients.getNoDriveIdErrors.useQuery(
 		undefined,
-		{ enabled: can("issues:no-drive-ids") },
+		{ refetchInterval: 60_000, enabled: can("issues:no-drive-ids") },
 	);
 	return (
 		<SimpleIssueWidget
@@ -470,7 +480,7 @@ function PrivatePayWidget() {
 	const can = useCheckPermission();
 	const { data, isLoading } = api.clients.getPossiblePrivatePay.useQuery(
 		undefined,
-		{ enabled: can("issues:private-pay") },
+		{ refetchInterval: 60_000, enabled: can("issues:private-pay") },
 	);
 	return (
 		<SimpleIssueWidget
@@ -487,7 +497,7 @@ function MissingRecordsNeededWidget() {
 	const can = useCheckPermission();
 	const { data, isLoading } = api.clients.getMissingRecordsNeeded.useQuery(
 		undefined,
-		{ enabled: can("issues:missing-records-needed") },
+		{ refetchInterval: 60_000, enabled: can("issues:missing-records-needed") },
 	);
 	return (
 		<SimpleIssueWidget
@@ -504,7 +514,7 @@ function UnreviewedRecordsWidget() {
 	const can = useCheckPermission();
 	const { data, isLoading } = api.clients.getUnreviewedRecords.useQuery(
 		undefined,
-		{ enabled: can("issues:unreviewed-records") },
+		{ refetchInterval: 60_000, enabled: can("issues:unreviewed-records") },
 	);
 	return (
 		<SimpleIssueWidget
@@ -520,6 +530,7 @@ function UnreviewedRecordsWidget() {
 function DuplicateDriveWidget() {
 	const can = useCheckPermission();
 	const { data, isLoading } = api.google.findDuplicates.useQuery(undefined, {
+		refetchInterval: 60_000,
 		enabled: can("issues:duplicate-drive"),
 	});
 	if (!can("issues:duplicate-drive")) return null;
@@ -545,7 +556,10 @@ function DuplicateQLinkWidget() {
 	const can = useCheckPermission();
 	const { data, isLoading } = api.questionnaires.getDuplicateLinks.useQuery(
 		undefined,
-		{ enabled: can("issues:duplicate-questionnaires") },
+		{
+			refetchInterval: 60_000,
+			enabled: can("issues:duplicate-questionnaires"),
+		},
 	);
 	const clients =
 		data?.duplicatePerClient
@@ -567,7 +581,10 @@ function ClientsSharingQWidget() {
 	const can = useCheckPermission();
 	const { data, isLoading } = api.questionnaires.getDuplicateLinks.useQuery(
 		undefined,
-		{ enabled: can("issues:duplicate-questionnaires") },
+		{
+			refetchInterval: 60_000,
+			enabled: can("issues:duplicate-questionnaires"),
+		},
 	);
 	if (!can("issues:duplicate-questionnaires")) return null;
 	if (isLoading)
@@ -590,7 +607,7 @@ function DuplicateNamesWidget() {
 	const can = useCheckPermission();
 	const { data, isLoading } = api.clients.getDuplicateNames.useQuery(
 		undefined,
-		{ enabled: can("issues:duplicate-names") },
+		{ refetchInterval: 60_000, enabled: can("issues:duplicate-names") },
 	);
 	if (!can("issues:duplicate-names")) return null;
 	if (isLoading)
@@ -610,7 +627,7 @@ function UnreviewedFaxesWidget() {
 	const can = useCheckPermission();
 	const { data, isLoading } = api.faxCategorization.getPendingCount.useQuery(
 		undefined,
-		{ enabled: can("fax:categorization:review") },
+		{ refetchInterval: 60_000, enabled: can("fax:categorization:review") },
 	);
 	if (!can("fax:categorization:review")) return null;
 	if (isLoading)

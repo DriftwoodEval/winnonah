@@ -223,11 +223,13 @@ export function InPersonAssessmentsTable({
 
 	const { data: assessments, isLoading } =
 		api.questionnaires.getInPersonAssessments.useQuery(clientId ?? 0, {
+			refetchInterval: 60_000,
 			enabled: typeof clientId === "number" && clientId > 0,
 		});
 
 	const { data: history } =
 		api.questionnaires.getInPersonAssessmentHistory.useQuery(clientId ?? 0, {
+			refetchInterval: 60_000,
 			enabled:
 				!!sessionStartedAt && typeof clientId === "number" && clientId > 0,
 		});
