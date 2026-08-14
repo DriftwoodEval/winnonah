@@ -1,8 +1,21 @@
+# /// script
+# requires-python = ">=3.10"
+# dependencies = [
+#     "google-auth-oauthlib>=1.2.2",
+#     "google-api-python-client>=2.169.0",
+# ]
+# ///
 """
-Run this script to authenticate with Google and generate auth_cache/token.json.
-Requires auth_cache/credentials.json to be present.
-A browser window will open for login - sign in with the Google account used for this app.
-Send the resulting auth_cache/token.json back when done.
+Run this script to authenticate with Google and generate token.json.
+
+Portable: only needs `uv` installed (https://docs.astral.sh/uv/getting-started/installation/),
+not the rest of this repo. Run with:
+
+    uv run get_token.py
+
+Requires credentials.json to be present alongside this script.
+A browser window will open for login - sign in with the Google account this token should act as.
+Send the resulting token.json back when done.
 """
 
 import sys
@@ -11,18 +24,22 @@ from pathlib import Path
 from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import InstalledAppFlow
-from loguru import logger
 
-from utils.google import SCOPES
+# Kept in sync with SCOPES in utils/google.py. Duplicated here (rather than
+# imported) so this script has no dependency on the rest of the project.
+SCOPES = [
+    "https://www.googleapis.com/auth/drive",
+    "https://www.googleapis.com/auth/calendar",
+    "https://www.googleapis.com/auth/gmail.modify",
+]
 
-Path.mkdir(Path("auth_cache"), exist_ok=True)
-
-token_path = Path("auth_cache/token.json")
-creds_path = Path("auth_cache/credentials.json")
+script_dir = Path(__file__).parent
+token_path = script_dir / "token.json"
+creds_path = script_dir / "credentials.json"
 
 if not Path.exists(creds_path):
-    logger.error(
-        f"ERROR: {creds_path} not found. Make sure credentials.json is in the auth_cache folder."
+    print(  # noqa: T201
+        f"ERROR: {creds_path} not found. Make sure credentials.json is in the same folder as this script."
     )
     sys.exit(1)
 
@@ -40,4 +57,4 @@ if not creds or not creds.valid:
 with Path.open(token_path, "w") as f:
     f.write(creds.to_json())
 
-logger.success(f"Done! Send the file at {token_path} back.")
+print(f"Done! Send the file at {token_path} back.")  # noqa: T201
