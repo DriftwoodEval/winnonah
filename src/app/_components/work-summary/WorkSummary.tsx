@@ -15,7 +15,12 @@ import {
 } from "@ui/table";
 import { ToggleGroup, ToggleGroupItem } from "@ui/toggle-group";
 import { format, subDays, subMonths } from "date-fns";
-import { ClipboardListIcon, UserIcon } from "lucide-react";
+import {
+	ClipboardCheckIcon,
+	ClipboardListIcon,
+	TimerIcon,
+	UserIcon,
+} from "lucide-react";
 import { Fragment, useMemo, useState } from "react";
 import { cn } from "~/lib/utils";
 import { api } from "~/trpc/react";
@@ -165,6 +170,22 @@ function fmtHours(minutes: number): string {
 	return h % 1 === 0 ? `${h}h` : `${h.toFixed(1)}h`;
 }
 
+function fmtSignedMinutes(minutes: number): string {
+	const rounded = Math.round(minutes);
+	if (rounded === 0) return "on time";
+	const sign = rounded > 0 ? "+" : "";
+	return `${sign}${rounded}m`;
+}
+
+function fmtMinutes(minutes: number | undefined): string {
+	if (minutes === undefined) return "-";
+	const rounded = Math.round(minutes);
+	if (rounded < 60) return `${rounded}m`;
+	const h = Math.floor(rounded / 60);
+	const m = rounded % 60;
+	return m === 0 ? `${h}h` : `${h}h ${m}m`;
+}
+
 type SelectedEvaluator = { npi: number; name: string };
 
 function AppointmentDetailDialog({
@@ -203,6 +224,8 @@ function AppointmentDetailDialog({
 								<TableHead>Date</TableHead>
 								<TableHead>Client</TableHead>
 								<TableHead>Type</TableHead>
+								<TableHead className="text-center">Projected</TableHead>
+								<TableHead className="text-center">Logged</TableHead>
 							</TableRow>
 						</TableHeader>
 						<TableBody>
@@ -218,6 +241,12 @@ function AppointmentDetailDialog({
 										{appt.asdAdhd
 											? `${appt.daEval}/${appt.asdAdhd}`
 											: appt.daEval}
+									</TableCell>
+									<TableCell className="text-center text-muted-foreground">
+										{fmtMinutes(appt.projectedMinutes)}
+									</TableCell>
+									<TableCell className="text-center text-muted-foreground">
+										{fmtMinutes(appt.loggedMinutes)}
 									</TableCell>
 								</TableRow>
 							))}
@@ -292,6 +321,7 @@ export default function PieceworkSummary() {
 				row.durations as Record<string, number>,
 				globalDefaults,
 			);
+			const loggedMinutes = val(row.loggedWeeklyMinutes);
 			return {
 				npi: row.npi,
 				name: row.name,
@@ -299,6 +329,7 @@ export default function PieceworkSummary() {
 				groupValues,
 				rowTotal,
 				estMinutes,
+				loggedMinutes,
 			};
 		});
 
@@ -317,7 +348,9 @@ export default function PieceworkSummary() {
 		}
 		const footerTotal = Object.values(footerKeys).reduce((a, b) => a + b, 0);
 		const footerEstMinutes = rows.reduce((s, r) => s + r.estMinutes, 0);
-		const showHours = rows.some((r) => r.estMinutes > 0);
+		const footerLoggedMinutes = rows.reduce((s, r) => s + r.loggedMinutes, 0);
+		const showProjectedHours = rows.some((r) => r.estMinutes > 0);
+		const showLoggedHours = rows.some((r) => r.loggedMinutes > 0);
 
 		return {
 			colGroups,
@@ -326,7 +359,9 @@ export default function PieceworkSummary() {
 			footerGroups,
 			footerTotal,
 			footerEstMinutes,
-			showHours,
+			footerLoggedMinutes,
+			showProjectedHours,
+			showLoggedHours,
 		};
 	}, [data, viewMode, numWeeks]);
 
@@ -391,7 +426,7 @@ export default function PieceworkSummary() {
 
 			{/* Appointments card */}
 			<Card>
-				<CardHeader className="flex flex-row items-center gap-3 space-y-0 pb-4">
+				<CardHeader className="flex flex-row items-center gap-3 space-y-0">
 					<div className="rounded-lg bg-primary/10 p-2 text-primary">
 						<UserIcon className="h-5 w-5" />
 					</div>
@@ -419,15 +454,19 @@ export default function PieceworkSummary() {
 									>
 										<div className="flex items-center justify-between">
 											<span className="font-medium">{row.name}</span>
-											<div className="flex items-baseline gap-2">
-												{displayData.showHours && (
-													<span className="text-muted-foreground text-sm">
-														{fmtHours(row.estMinutes)}
-													</span>
-												)}
-												<span className="font-bold">{fmt(row.rowTotal)}</span>
-											</div>
+											<span className="font-bold">{fmt(row.rowTotal)}</span>
 										</div>
+										{(displayData.showProjectedHours ||
+											displayData.showLoggedHours) && (
+											<div className="mt-0.5 flex gap-3 text-muted-foreground text-xs">
+												{displayData.showProjectedHours && (
+													<span>Proj {fmtHours(row.estMinutes)}</span>
+												)}
+												{displayData.showLoggedHours && (
+													<span>Logged {fmtHours(row.loggedMinutes)}</span>
+												)}
+											</div>
+										)}
 										<div className="mt-1 flex flex-wrap gap-3 text-muted-foreground text-sm">
 											{displayData.colGroups
 												.filter((g) =>
@@ -445,17 +484,25 @@ export default function PieceworkSummary() {
 								<div className="rounded-lg border bg-muted/50 p-3">
 									<div className="flex items-center justify-between">
 										<span className="font-bold">All Evaluators</span>
-										<div className="flex items-baseline gap-2">
-											{displayData.showHours && (
-												<span className="text-muted-foreground text-sm">
-													{fmtHours(displayData.footerEstMinutes)}
+										<span className="font-bold">
+											{fmt(displayData.footerTotal)}
+										</span>
+									</div>
+									{(displayData.showProjectedHours ||
+										displayData.showLoggedHours) && (
+										<div className="mt-0.5 flex gap-3 text-muted-foreground text-xs">
+											{displayData.showProjectedHours && (
+												<span>
+													Proj {fmtHours(displayData.footerEstMinutes)}
 												</span>
 											)}
-											<span className="font-bold">
-												{fmt(displayData.footerTotal)}
-											</span>
+											{displayData.showLoggedHours && (
+												<span>
+													Logged {fmtHours(displayData.footerLoggedMinutes)}
+												</span>
+											)}
 										</div>
-									</div>
+									)}
 									<div className="mt-1 flex flex-wrap gap-3 text-muted-foreground text-sm">
 										{displayData.colGroups.map((g) => (
 											<span key={g.daEval}>
@@ -494,12 +541,20 @@ export default function PieceworkSummary() {
 											>
 												Total
 											</TableHead>
-											{displayData.showHours && (
+											{displayData.showProjectedHours && (
 												<TableHead
 													className="border-l text-center align-middle"
 													rowSpan={2}
 												>
-													Est. Hours
+													Projected Hours
+												</TableHead>
+											)}
+											{displayData.showLoggedHours && (
+												<TableHead
+													className="border-l text-center align-middle"
+													rowSpan={2}
+												>
+													Logged Hours
 												</TableHead>
 											)}
 										</TableRow>
@@ -580,9 +635,14 @@ export default function PieceworkSummary() {
 												<TableCell className="border-l text-center font-bold">
 													{fmt(row.rowTotal)}
 												</TableCell>
-												{displayData.showHours && (
+												{displayData.showProjectedHours && (
 													<TableCell className="border-l text-center text-muted-foreground">
 														{fmtHours(row.estMinutes)}
+													</TableCell>
+												)}
+												{displayData.showLoggedHours && (
+													<TableCell className="border-l text-center text-muted-foreground">
+														{fmtHours(row.loggedMinutes)}
 													</TableCell>
 												)}
 											</TableRow>
@@ -625,9 +685,14 @@ export default function PieceworkSummary() {
 											<TableCell className="border-l text-center font-bold">
 												{fmt(displayData.footerTotal)}
 											</TableCell>
-											{displayData.showHours && (
+											{displayData.showProjectedHours && (
 												<TableCell className="border-l text-center font-bold">
 													{fmtHours(displayData.footerEstMinutes)}
+												</TableCell>
+											)}
+											{displayData.showLoggedHours && (
+												<TableCell className="border-l text-center font-bold">
+													{fmtHours(displayData.footerLoggedMinutes)}
 												</TableCell>
 											)}
 										</TableRow>
@@ -645,7 +710,7 @@ export default function PieceworkSummary() {
 
 			{/* Reports card */}
 			<Card>
-				<CardHeader className="flex flex-row items-center gap-3 space-y-0 pb-4">
+				<CardHeader className="flex flex-row items-center gap-3 space-y-0">
 					<div className="rounded-lg bg-primary/10 p-2 text-primary">
 						<ClipboardListIcon className="h-5 w-5" />
 					</div>
@@ -658,7 +723,7 @@ export default function PieceworkSummary() {
 							<Skeleton className="h-8 w-full" />
 						</div>
 					) : data?.reports.length ? (
-						<Table>
+						<Table classNameWrapper="px-4">
 							<TableHeader>
 								<TableRow className="hover:bg-transparent">
 									<TableHead>Writer</TableHead>
@@ -677,6 +742,112 @@ export default function PieceworkSummary() {
 					) : (
 						<p className="px-4 pb-4 text-muted-foreground text-sm italic">
 							No reports tracked in this range.
+						</p>
+					)}
+				</CardContent>
+			</Card>
+
+			{/* Timing card */}
+			<Card>
+				<CardHeader className="flex flex-row items-center gap-3 space-y-0">
+					<div className="rounded-lg bg-primary/10 p-2 text-primary">
+						<TimerIcon className="h-5 w-5" />
+					</div>
+					<CardTitle>Appointment Timing</CardTitle>
+				</CardHeader>
+				<CardContent className="p-0">
+					{isLoading ? (
+						<div className="space-y-2 p-4">
+							<Skeleton className="h-8 w-full" />
+							<Skeleton className="h-8 w-full" />
+						</div>
+					) : data?.timing.length ? (
+						<Table classNameWrapper="px-4">
+							<TableHeader>
+								<TableRow className="hover:bg-transparent">
+									<TableHead>Evaluator</TableHead>
+									<TableHead className="text-center">
+										Avg Duration vs Expected
+									</TableHead>
+									<TableHead className="text-center">
+										Median Duration vs Expected
+									</TableHead>
+									<TableHead className="text-center">Avg Late Start</TableHead>
+									<TableHead className="text-center">
+										Median Late Start
+									</TableHead>
+								</TableRow>
+							</TableHeader>
+							<TableBody>
+								{data.timing.map((row) => (
+									<TableRow className="hover:bg-transparent" key={row.name}>
+										<TableCell className="font-medium">{row.name}</TableCell>
+										<TableCell className="text-center">
+											{row.durationSampleSize > 0
+												? fmtSignedMinutes(row.avgDurationDiff)
+												: "-"}
+										</TableCell>
+										<TableCell className="text-center">
+											{row.durationSampleSize > 0
+												? fmtSignedMinutes(row.medianDurationDiff)
+												: "-"}
+										</TableCell>
+										<TableCell className="text-center">
+											{row.lateStartSampleSize > 0
+												? fmtSignedMinutes(row.avgLateStart)
+												: "-"}
+										</TableCell>
+										<TableCell className="text-center">
+											{row.lateStartSampleSize > 0
+												? fmtSignedMinutes(row.medianLateStart)
+												: "-"}
+										</TableCell>
+									</TableRow>
+								))}
+							</TableBody>
+						</Table>
+					) : (
+						<p className="px-4 pb-4 text-muted-foreground text-sm italic">
+							No check-in timing data in this range.
+						</p>
+					)}
+				</CardContent>
+			</Card>
+
+			{/* Check-ins card */}
+			<Card>
+				<CardHeader className="flex flex-row items-center gap-3 space-y-0">
+					<div className="rounded-lg bg-primary/10 p-2 text-primary">
+						<ClipboardCheckIcon className="h-5 w-5" />
+					</div>
+					<CardTitle>Appointment Check-ins</CardTitle>
+				</CardHeader>
+				<CardContent className="p-0">
+					{isLoading ? (
+						<div className="space-y-2 p-4">
+							<Skeleton className="h-8 w-full" />
+							<Skeleton className="h-8 w-full" />
+						</div>
+					) : data?.checkins.length ? (
+						<Table classNameWrapper="px-4">
+							<TableHeader>
+								<TableRow className="hover:bg-transparent">
+									<TableHead>Checked In By</TableHead>
+									<TableHead className="text-center">Check-ins</TableHead>
+								</TableRow>
+							</TableHeader>
+							<TableBody>
+								{data.checkins.map((row) => (
+									<TableRow className="hover:bg-transparent" key={row.name}>
+										<TableCell className="font-medium">{row.name}</TableCell>
+										<TableCell className="text-center">{row.count}</TableCell>
+									</TableRow>
+								))}
+							</TableBody>
+						</Table>
+					) : (
+						<p className="px-4 pb-4 text-muted-foreground text-sm italic">
+							No check-ins tracked in this range.
 						</p>
 					)}
 				</CardContent>

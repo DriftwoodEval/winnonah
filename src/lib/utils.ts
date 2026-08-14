@@ -1,5 +1,5 @@
 import { type ClassValue, clsx } from "clsx";
-import { formatInTimeZone, toZonedTime } from "date-fns-tz";
+import { formatInTimeZone, fromZonedTime, toZonedTime } from "date-fns-tz";
 import { type AnyColumn, type SQL, sql } from "drizzle-orm";
 import { twMerge } from "tailwind-merge";
 import type { InsuranceWithAliases } from "~/lib/models";
@@ -385,6 +385,25 @@ export const formatShortInstantDate = (
 	date: Date | string | undefined | null,
 	fallback = "N/A",
 ): string => formatInBusinessTime(date, "M/d/yy", fallback);
+
+/**
+ * Convert a Date whose local getters (getHours, getDate, etc.) represent
+ * business-local wall-clock time, e.g. one produced by a date/time picker or
+ * by `toBusinessZonedTime`, into the true UTC instant it refers to. Inverse
+ * of `toBusinessZonedTime`, for writing timestamp columns from UI input.
+ */
+export function businessZonedTimeToUtcInstant(localDate: Date): Date {
+	const year = localDate.getFullYear();
+	const month = String(localDate.getMonth() + 1).padStart(2, "0");
+	const day = String(localDate.getDate()).padStart(2, "0");
+	const hours = String(localDate.getHours()).padStart(2, "0");
+	const minutes = String(localDate.getMinutes()).padStart(2, "0");
+	const seconds = String(localDate.getSeconds()).padStart(2, "0");
+	return fromZonedTime(
+		`${year}-${month}-${day}T${hours}:${minutes}:${seconds}`,
+		BUSINESS_TIMEZONE,
+	);
+}
 
 export function getClosestOfficeKey(
 	clientLat: number,

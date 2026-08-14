@@ -55,6 +55,10 @@ export const PERMISSIONS = {
 					{ id: "clients:pause", title: "Pause Clients" },
 					{ id: "clients:related", title: "Edit Related Clients" },
 					{ id: "clients:resolvefailure", title: "Mark Failures Resolved" },
+					{
+						id: "clients:appointments:checkin",
+						title: "Check In/Out Appointments",
+					},
 				],
 			},
 

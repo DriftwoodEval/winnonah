@@ -1,11 +1,18 @@
+import { TRPCError } from "@trpc/server";
 import { fromZonedTime } from "date-fns-tz";
 import { and, asc, count, desc, eq, gte, lte } from "drizzle-orm";
 import { z } from "zod";
 import { env } from "~/env";
 import { BUSINESS_TIMEZONE } from "~/lib/constants";
 import { formatInBusinessTime } from "~/lib/utils";
-import { createTRPCRouter, protectedProcedure } from "~/server/api/trpc";
 import {
+	assertPermission,
+	type Context,
+	createTRPCRouter,
+	protectedProcedure,
+} from "~/server/api/trpc";
+import {
+	appointmentCheckins,
 	appointments,
 	clients,
 	evaluators,
@@ -13,6 +20,44 @@ import {
 	reminderLogs,
 	users,
 } from "~/server/db/schema";
+
+const checkinInputSchema = z.object({
+	appointmentId: z.string(),
+	occurredAt: z.date(),
+	note: z.string().max(500).optional(),
+});
+
+async function recordCheckin(
+	ctx: { db: Context["db"] },
+	appointmentId: string,
+	field: "arrived" | "started" | "left",
+	occurredAt: Date,
+	by: string | null | undefined,
+	note: string | undefined,
+) {
+	const trimmedNote = note?.trim() || null;
+	const payload =
+		field === "arrived"
+			? { arrivedAt: occurredAt, arrivedBy: by, arrivedNote: trimmedNote }
+			: field === "started"
+				? { startedAt: occurredAt, startedBy: by, startedNote: trimmedNote }
+				: { leftAt: occurredAt, leftBy: by, leftNote: trimmedNote };
+
+	const existing = await ctx.db.query.appointmentCheckins.findFirst({
+		where: eq(appointmentCheckins.appointmentId, appointmentId),
+	});
+
+	if (existing) {
+		await ctx.db
+			.update(appointmentCheckins)
+			.set(payload)
+			.where(eq(appointmentCheckins.appointmentId, appointmentId));
+	} else {
+		await ctx.db
+			.insert(appointmentCheckins)
+			.values({ appointmentId, ...payload });
+	}
+}
 
 export const appointmentRouter = createTRPCRouter({
 	getDayAhead: protectedProcedure
@@ -65,10 +110,23 @@ export const appointmentRouter = createTRPCRouter({
 							clientTaHash: clients.taHash,
 							clientPhone: clients.phoneNumber,
 							officeName: offices.prettyName,
+							arrivedAt: appointmentCheckins.arrivedAt,
+							arrivedBy: appointmentCheckins.arrivedBy,
+							arrivedNote: appointmentCheckins.arrivedNote,
+							startedAt: appointmentCheckins.startedAt,
+							startedBy: appointmentCheckins.startedBy,
+							startedNote: appointmentCheckins.startedNote,
+							leftAt: appointmentCheckins.leftAt,
+							leftBy: appointmentCheckins.leftBy,
+							leftNote: appointmentCheckins.leftNote,
 						})
 						.from(appointments)
 						.innerJoin(clients, eq(appointments.clientId, clients.id))
 						.leftJoin(offices, eq(appointments.locationKey, offices.key))
+						.leftJoin(
+							appointmentCheckins,
+							eq(appointmentCheckins.appointmentId, appointments.id),
+						)
 						.where(
 							and(
 								eq(appointments.evaluatorNpi, userWithEvaluator.evaluator.npi),
@@ -100,11 +158,24 @@ export const appointmentRouter = createTRPCRouter({
 					clientDriveId: clients.driveId,
 					clientTaHash: clients.taHash,
 					clientPhone: clients.phoneNumber,
+					arrivedAt: appointmentCheckins.arrivedAt,
+					arrivedBy: appointmentCheckins.arrivedBy,
+					arrivedNote: appointmentCheckins.arrivedNote,
+					startedAt: appointmentCheckins.startedAt,
+					startedBy: appointmentCheckins.startedBy,
+					startedNote: appointmentCheckins.startedNote,
+					leftAt: appointmentCheckins.leftAt,
+					leftBy: appointmentCheckins.leftBy,
+					leftNote: appointmentCheckins.leftNote,
 				})
 				.from(appointments)
 				.innerJoin(evaluators, eq(appointments.evaluatorNpi, evaluators.npi))
 				.innerJoin(clients, eq(appointments.clientId, clients.id))
 				.leftJoin(offices, eq(appointments.locationKey, offices.key))
+				.leftJoin(
+					appointmentCheckins,
+					eq(appointmentCheckins.appointmentId, appointments.id),
+				)
 				.where(
 					and(
 						gte(appointments.startTime, startOfDay),
@@ -133,6 +204,15 @@ export const appointmentRouter = createTRPCRouter({
 					clientDriveId: string | null;
 					clientTaHash: string | null;
 					clientPhone: string | null;
+					arrivedAt: Date | null;
+					arrivedBy: string | null;
+					arrivedNote: string | null;
+					startedAt: Date | null;
+					startedBy: string | null;
+					startedNote: string | null;
+					leftAt: Date | null;
+					leftBy: string | null;
+					leftNote: string | null;
 				}[];
 			};
 			type OfficeEntry = {
@@ -174,6 +254,15 @@ export const appointmentRouter = createTRPCRouter({
 					clientDriveId: row.clientDriveId ?? null,
 					clientTaHash: row.clientTaHash ?? null,
 					clientPhone: row.clientPhone ?? null,
+					arrivedAt: row.arrivedAt ?? null,
+					arrivedBy: row.arrivedBy ?? null,
+					arrivedNote: row.arrivedNote ?? null,
+					startedAt: row.startedAt ?? null,
+					startedBy: row.startedBy ?? null,
+					startedNote: row.startedNote ?? null,
+					leftAt: row.leftAt ?? null,
+					leftBy: row.leftBy ?? null,
+					leftNote: row.leftNote ?? null,
 				});
 			}
 
@@ -227,11 +316,24 @@ export const appointmentRouter = createTRPCRouter({
 					officeName: offices.prettyName,
 					evaluatorNpi: appointments.evaluatorNpi,
 					evaluatorName: evaluators.providerName,
+					arrivedAt: appointmentCheckins.arrivedAt,
+					arrivedBy: appointmentCheckins.arrivedBy,
+					arrivedNote: appointmentCheckins.arrivedNote,
+					startedAt: appointmentCheckins.startedAt,
+					startedBy: appointmentCheckins.startedBy,
+					startedNote: appointmentCheckins.startedNote,
+					leftAt: appointmentCheckins.leftAt,
+					leftBy: appointmentCheckins.leftBy,
+					leftNote: appointmentCheckins.leftNote,
 				})
 				.from(appointments)
 				.innerJoin(evaluators, eq(appointments.evaluatorNpi, evaluators.npi))
 				.innerJoin(clients, eq(appointments.clientId, clients.id))
 				.leftJoin(offices, eq(appointments.locationKey, offices.key))
+				.leftJoin(
+					appointmentCheckins,
+					eq(appointmentCheckins.appointmentId, appointments.id),
+				)
 				.where(
 					and(
 						gte(appointments.startTime, startUTC),
@@ -259,6 +361,15 @@ export const appointmentRouter = createTRPCRouter({
 				evaluatorNpi: r.evaluatorNpi,
 				evaluatorName: r.evaluatorName,
 				isCurrentUser: r.evaluatorNpi === currentNpi,
+				arrivedAt: r.arrivedAt ?? null,
+				arrivedBy: r.arrivedBy ?? null,
+				arrivedNote: r.arrivedNote ?? null,
+				startedAt: r.startedAt ?? null,
+				startedBy: r.startedBy ?? null,
+				startedNote: r.startedNote ?? null,
+				leftAt: r.leftAt ?? null,
+				leftBy: r.leftBy ?? null,
+				leftNote: r.leftNote ?? null,
 			}));
 		}),
 
@@ -283,10 +394,23 @@ export const appointmentRouter = createTRPCRouter({
 					doNotRemind: appointments.doNotRemind,
 					evaluatorName: evaluators.providerName,
 					reminderCount: count(reminderLogs.id),
+					arrivedAt: appointmentCheckins.arrivedAt,
+					arrivedBy: appointmentCheckins.arrivedBy,
+					arrivedNote: appointmentCheckins.arrivedNote,
+					startedAt: appointmentCheckins.startedAt,
+					startedBy: appointmentCheckins.startedBy,
+					startedNote: appointmentCheckins.startedNote,
+					leftAt: appointmentCheckins.leftAt,
+					leftBy: appointmentCheckins.leftBy,
+					leftNote: appointmentCheckins.leftNote,
 				})
 				.from(appointments)
 				.leftJoin(evaluators, eq(appointments.evaluatorNpi, evaluators.npi))
 				.leftJoin(reminderLogs, eq(appointments.id, reminderLogs.appointmentId))
+				.leftJoin(
+					appointmentCheckins,
+					eq(appointmentCheckins.appointmentId, appointments.id),
+				)
 				.where(eq(appointments.clientId, input.clientId))
 				.groupBy(
 					appointments.id,
@@ -304,6 +428,15 @@ export const appointmentRouter = createTRPCRouter({
 					appointments.confirmedAt,
 					appointments.doNotRemind,
 					evaluators.providerName,
+					appointmentCheckins.arrivedAt,
+					appointmentCheckins.arrivedBy,
+					appointmentCheckins.arrivedNote,
+					appointmentCheckins.startedAt,
+					appointmentCheckins.startedBy,
+					appointmentCheckins.startedNote,
+					appointmentCheckins.leftAt,
+					appointmentCheckins.leftBy,
+					appointmentCheckins.leftNote,
 				)
 				.orderBy(desc(appointments.startTime));
 		}),
@@ -382,5 +515,92 @@ export const appointmentRouter = createTRPCRouter({
 				officeName: data.officeName,
 				officeLocationPhrase: data.officeLocationPhrase,
 			};
+		}),
+
+	arrive: protectedProcedure
+		.input(checkinInputSchema)
+		.mutation(async ({ ctx, input }) => {
+			assertPermission(ctx.session.user, "clients:appointments:checkin");
+
+			const appt = await ctx.db.query.appointments.findFirst({
+				where: eq(appointments.id, input.appointmentId),
+			});
+			if (!appt) throw new TRPCError({ code: "NOT_FOUND" });
+
+			await recordCheckin(
+				ctx,
+				input.appointmentId,
+				"arrived",
+				input.occurredAt,
+				ctx.session.user.email,
+				input.note,
+			);
+		}),
+
+	start: protectedProcedure
+		.input(checkinInputSchema)
+		.mutation(async ({ ctx, input }) => {
+			assertPermission(ctx.session.user, "clients:appointments:checkin");
+
+			const appt = await ctx.db.query.appointments.findFirst({
+				where: eq(appointments.id, input.appointmentId),
+			});
+			if (!appt) throw new TRPCError({ code: "NOT_FOUND" });
+
+			await recordCheckin(
+				ctx,
+				input.appointmentId,
+				"started",
+				input.occurredAt,
+				ctx.session.user.email,
+				input.note,
+			);
+		}),
+
+	depart: protectedProcedure
+		.input(checkinInputSchema)
+		.mutation(async ({ ctx, input }) => {
+			assertPermission(ctx.session.user, "clients:appointments:checkin");
+
+			const appt = await ctx.db.query.appointments.findFirst({
+				where: eq(appointments.id, input.appointmentId),
+			});
+			if (!appt) throw new TRPCError({ code: "NOT_FOUND" });
+
+			await recordCheckin(
+				ctx,
+				input.appointmentId,
+				"left",
+				input.occurredAt,
+				ctx.session.user.email,
+				input.note,
+			);
+		}),
+
+	undoLastCheckinStep: protectedProcedure
+		.input(z.object({ appointmentId: z.string() }))
+		.mutation(async ({ ctx, input }) => {
+			assertPermission(ctx.session.user, "clients:appointments:checkin");
+
+			const existing = await ctx.db.query.appointmentCheckins.findFirst({
+				where: eq(appointmentCheckins.appointmentId, input.appointmentId),
+			});
+			if (!existing) return;
+
+			// Only the furthest-along step can be undone, so the chain
+			// (arrived -> started -> left) never ends up with gaps.
+			const payload = existing.leftAt
+				? { leftAt: null, leftBy: null, leftNote: null }
+				: existing.startedAt
+					? { startedAt: null, startedBy: null, startedNote: null }
+					: existing.arrivedAt
+						? { arrivedAt: null, arrivedBy: null, arrivedNote: null }
+						: null;
+			if (!payload) return;
+
+			await ctx.db
+				.update(appointmentCheckins)
+				.set(payload)
+				.where(eq(appointmentCheckins.appointmentId, input.appointmentId));
 		}),
 });

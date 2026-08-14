@@ -1416,6 +1416,37 @@ export const appointmentNotesRelations = relations(
 	}),
 );
 
+export const appointmentCheckins = createTable("appointment_checkin", (d) => ({
+	appointmentId: d
+		.varchar({ length: 255 })
+		.notNull()
+		.primaryKey()
+		.references(() => appointments.id, { onDelete: "cascade" }),
+	arrivedAt: d.timestamp("arrived_at"),
+	arrivedBy: d.varchar("arrived_by", { length: 255 }),
+	arrivedNote: d.varchar("arrived_note", { length: 500 }),
+	startedAt: d.timestamp("started_at"),
+	startedBy: d.varchar("started_by", { length: 255 }),
+	startedNote: d.varchar("started_note", { length: 500 }),
+	leftAt: d.timestamp("left_at"),
+	leftBy: d.varchar("left_by", { length: 255 }),
+	leftNote: d.varchar("left_note", { length: 500 }),
+	updatedAt: d
+		.timestamp("updated_at")
+		.onUpdateNow()
+		.default(sql`CURRENT_TIMESTAMP`),
+}));
+
+export const appointmentCheckinsRelations = relations(
+	appointmentCheckins,
+	({ one }) => ({
+		appointment: one(appointments, {
+			fields: [appointmentCheckins.appointmentId],
+			references: [appointments.id],
+		}),
+	}),
+);
+
 export const clientDashboardSectionHistory = createTable(
 	"client_dashboard_section_history",
 	(d) => ({

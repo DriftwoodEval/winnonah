@@ -29,12 +29,17 @@ import {
 } from "lucide-react";
 import { useSession } from "next-auth/react";
 import { useState } from "react";
+import { useCheckPermission } from "~/hooks/use-check-permission";
 import { IS_DEV, toBusinessZonedTime } from "~/lib/utils";
 import { api } from "~/trpc/react";
+import { CheckInOutControl } from "../appointments/CheckInOutControl";
+import { todayStr } from "../home/DayAheadWidgets";
 import { AppointmentReminderTimeline } from "./AppointmentReminderTimeline";
 
 export function ClientAppointments({ clientId }: { clientId: number }) {
 	const utils = api.useUtils();
+	const can = useCheckPermission();
+	const canCheckin = can("clients:appointments:checkin");
 	const { data: session } = useSession();
 	const [expandedApptId, setExpandedApptId] = useState<string | null>(null);
 	const [billingOpen, setBillingOpen] = useState(false);
@@ -232,6 +237,31 @@ export function ClientAppointments({ clientId }: { clientId: number }) {
 							</p>
 						)}
 					</div>
+
+					{canCheckin &&
+						!isBilling &&
+						!appt.cancelled &&
+						!appt.rescheduled &&
+						!appt.placeholder &&
+						format(startTime, "yyyy-MM-dd") <= todayStr() && (
+							<div className="mt-2">
+								<CheckInOutControl
+									appointmentId={appt.id}
+									arrivedAt={appt.arrivedAt}
+									arrivedBy={appt.arrivedBy}
+									arrivedNote={appt.arrivedNote}
+									endTime={appt.endTime}
+									isToday={format(startTime, "yyyy-MM-dd") === todayStr()}
+									leftAt={appt.leftAt}
+									leftBy={appt.leftBy}
+									leftNote={appt.leftNote}
+									startedAt={appt.startedAt}
+									startedBy={appt.startedBy}
+									startedNote={appt.startedNote}
+									startTime={appt.startTime}
+								/>
+							</div>
+						)}
 
 					{!isBilling && (
 						<Collapsible

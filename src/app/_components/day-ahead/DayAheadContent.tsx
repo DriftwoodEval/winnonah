@@ -22,8 +22,10 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { useEffect, useMemo, useState } from "react";
+import { useCheckPermission } from "~/hooks/use-check-permission";
 import { IS_DEV } from "~/lib/utils";
 import { api, type RouterOutputs } from "~/trpc/react";
+import { CheckInOutControl } from "../appointments/CheckInOutControl";
 import { Redact } from "../redaction/Redact";
 import {
 	buildColorMap,
@@ -63,6 +65,15 @@ type ListAppt = {
 	officeName?: string | null;
 	confirmedAt?: Date | null;
 	calendarEventTitle?: string | null;
+	arrivedAt: Date | null;
+	arrivedBy: string | null;
+	arrivedNote: string | null;
+	startedAt: Date | null;
+	startedBy: string | null;
+	startedNote: string | null;
+	leftAt: Date | null;
+	leftBy: string | null;
+	leftNote: string | null;
 };
 
 type ListEvaluatorAppt = {
@@ -77,6 +88,15 @@ type ListEvaluatorAppt = {
 	clientTaHash: string | null;
 	clientPhone: string | null;
 	confirmedAt: Date | null;
+	arrivedAt: Date | null;
+	arrivedBy: string | null;
+	arrivedNote: string | null;
+	startedAt: Date | null;
+	startedBy: string | null;
+	startedNote: string | null;
+	leftAt: Date | null;
+	leftBy: string | null;
+	leftNote: string | null;
 };
 
 // ─── List view components ─────────────────────────────────────────────────────
@@ -85,10 +105,14 @@ function AppointmentRow({
 	appt,
 	messages,
 	messagesLoading,
+	canCheckin,
+	isToday,
 }: {
 	appt: ListAppt;
 	messages: RecentMessagesMap;
 	messagesLoading: boolean;
+	canCheckin: boolean;
+	isToday: boolean;
 }) {
 	return (
 		<div className="flex items-center gap-3 py-2">
@@ -113,6 +137,24 @@ function AppointmentRow({
 				messages={messages}
 				messagesLoading={messagesLoading}
 			/>
+			{canCheckin && (
+				<CheckInOutControl
+					appointmentId={appt.id}
+					arrivedAt={appt.arrivedAt}
+					arrivedBy={appt.arrivedBy}
+					arrivedNote={appt.arrivedNote}
+					compact
+					endTime={appt.endTime}
+					isToday={isToday}
+					leftAt={appt.leftAt}
+					leftBy={appt.leftBy}
+					leftNote={appt.leftNote}
+					startedAt={appt.startedAt}
+					startedBy={appt.startedBy}
+					startedNote={appt.startedNote}
+					startTime={appt.startTime}
+				/>
+			)}
 			<span className="ml-auto shrink-0 text-muted-foreground text-xs">
 				{appt.officeName ?? appt.locationKey ?? "Virtual"}
 			</span>
@@ -124,6 +166,8 @@ function EvaluatorRow({
 	evaluator,
 	messages,
 	messagesLoading,
+	canCheckin,
+	isToday,
 }: {
 	evaluator: {
 		name: string;
@@ -133,6 +177,8 @@ function EvaluatorRow({
 	};
 	messages: RecentMessagesMap;
 	messagesLoading: boolean;
+	canCheckin: boolean;
+	isToday: boolean;
 }) {
 	const [open, setOpen] = useState(false);
 
@@ -189,6 +235,24 @@ function EvaluatorRow({
 								messages={messages}
 								messagesLoading={messagesLoading}
 							/>
+							{canCheckin && (
+								<CheckInOutControl
+									appointmentId={appt.id}
+									arrivedAt={appt.arrivedAt}
+									arrivedBy={appt.arrivedBy}
+									arrivedNote={appt.arrivedNote}
+									compact
+									endTime={appt.endTime}
+									isToday={isToday}
+									leftAt={appt.leftAt}
+									leftBy={appt.leftBy}
+									leftNote={appt.leftNote}
+									startedAt={appt.startedAt}
+									startedBy={appt.startedBy}
+									startedNote={appt.startedNote}
+									startTime={appt.startTime}
+								/>
+							)}
 						</div>
 					))}
 				</div>
@@ -277,6 +341,8 @@ export function DayAheadContent() {
 	const [asUserId, setAsUserId] = useState<string | undefined>(undefined);
 	const { data: session } = useSession();
 	const canUseDevControls = IS_DEV && !session?.user.isImpersonating;
+	const can = useCheckPermission();
+	const canCheckin = can("clients:appointments:checkin");
 
 	const todayStr = format(new Date(), "yyyy-MM-dd");
 
@@ -412,8 +478,10 @@ export function DayAheadContent() {
 				) : viewMode === "list" ? (
 					listData && (
 						<ListContent
+							canCheckin={canCheckin && selectedDate <= todayStr}
 							data={listData}
 							greeterSchedule={greeterSchedule}
+							isToday={selectedDate === todayStr}
 							messages={recentMessages ?? {}}
 							messagesLoading={messagesLoading}
 						/>
@@ -422,6 +490,7 @@ export function DayAheadContent() {
 					viewMode === "day" ? (
 						<CalendarDayView
 							appointments={calData}
+							canCheckin={canCheckin}
 							colorMap={colorMap}
 							messages={recentMessages ?? {}}
 							messagesLoading={messagesLoading}
@@ -429,6 +498,7 @@ export function DayAheadContent() {
 					) : (
 						<CalendarMultiDayView
 							appointments={calData}
+							canCheckin={canCheckin}
 							colorMap={colorMap}
 							dates={dateRange}
 							messages={recentMessages ?? {}}
@@ -448,11 +518,15 @@ function ListContent({
 	greeterSchedule,
 	messages,
 	messagesLoading,
+	canCheckin,
+	isToday,
 }: {
 	data: NonNullable<RouterOutputs["appointments"]["getDayAhead"]>;
 	greeterSchedule: GreeterSchedule | undefined;
 	messages: RecentMessagesMap;
 	messagesLoading: boolean;
+	canCheckin: boolean;
+	isToday: boolean;
 }) {
 	const myFirst = data.myAppointments[0];
 	const myLast = data.myAppointments.at(-1);
@@ -504,6 +578,8 @@ function ListContent({
 						{data.myAppointments.map((appt) => (
 							<AppointmentRow
 								appt={appt}
+								canCheckin={canCheckin}
+								isToday={isToday}
 								key={appt.id}
 								messages={messages}
 								messagesLoading={messagesLoading}
@@ -540,7 +616,9 @@ function ListContent({
 								<div className="flex flex-col">
 									{office.evaluators.map((ev) => (
 										<EvaluatorRow
+											canCheckin={canCheckin}
 											evaluator={ev}
+											isToday={isToday}
 											key={ev.npi}
 											messages={messages}
 											messagesLoading={messagesLoading}
