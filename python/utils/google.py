@@ -27,7 +27,7 @@ from utils.timezone import business_to_utc, now_business
 SCOPES = [
     "https://www.googleapis.com/auth/drive",
     "https://www.googleapis.com/auth/calendar",
-    "https://www.googleapis.com/auth/gmail.compose",
+    "https://www.googleapis.com/auth/gmail.modify",
 ]
 
 _GOOGLE_DOC_MIME = "application/vnd.google-apps.document"
@@ -129,6 +129,12 @@ def get_sheets_service():
     """Get the Google Sheets service."""
     creds = google_authenticate()
     return build("sheets", "v4", credentials=creds)
+
+
+def get_gmail_service():
+    """Get the Gmail service."""
+    creds = google_authenticate()
+    return build("gmail", "v1", credentials=creds)
 
 
 def get_punchlist_language_map() -> dict[str, str]:
@@ -780,6 +786,95 @@ def send_gmail(
         logger.exception(error)
         send_message = None
     return send_message
+
+
+def list_gmail_messages(
+    query: str | None = None,
+    label_ids: Sequence[str] | None = None,
+    max_results: int = 50,
+) -> list[dict]:
+    """List Gmail message ids matching a search query (Gmail search syntax, e.g. "from:x@y.com is:unread").
+
+    Paginates until max_results is reached. Returns the raw {"id", "threadId"} stubs;
+    use get_gmail_message() to fetch the full content of a message.
+    """
+    service = get_gmail_service()
+    messages: list[dict] = []
+    page_token = None
+    try:
+        while len(messages) < max_results:
+            response = (
+                service.users()
+                .messages()
+                .list(
+                    userId="me",
+                    q=query,
+                    labelIds=label_ids,
+                    pageToken=page_token,
+                    maxResults=min(max_results - len(messages), 500),
+                )
+                .execute()
+            )
+            messages.extend(response.get("messages", []))
+            page_token = response.get("nextPageToken")
+            if page_token is None:
+                break
+    except HttpError as error:
+        logger.exception(error)
+    return messages[:max_results]
+
+
+def _get_message_body(payload: dict) -> tuple[str | None, str | None]:
+    """Walk a Gmail message payload's MIME parts, returning (text_plain, text_html)."""
+    text_plain = None
+    text_html = None
+
+    def decode(data: str) -> str:
+        return base64.urlsafe_b64decode(data.encode()).decode("utf-8", errors="replace")
+
+    def walk(part: dict):
+        nonlocal text_plain, text_html
+        mime_type = part.get("mimeType", "")
+        body_data = part.get("body", {}).get("data")
+        if mime_type == "text/plain" and body_data and text_plain is None:
+            text_plain = decode(body_data)
+        elif mime_type == "text/html" and body_data and text_html is None:
+            text_html = decode(body_data)
+        for subpart in part.get("parts", []):
+            walk(subpart)
+
+    walk(payload)
+    return text_plain, text_html
+
+
+def get_gmail_message(message_id: str) -> dict:
+    """Fetch and parse a single Gmail message by id.
+
+    Returns a dict with subject, from, to, date, snippet, body_text, and body_html.
+    """
+    service = get_gmail_service()
+    message = (
+        service.users()
+        .messages()
+        .get(userId="me", id=message_id, format="full")
+        .execute()
+    )
+
+    payload = message.get("payload", {})
+    headers = {h["name"].lower(): h["value"] for h in payload.get("headers", [])}
+    body_text, body_html = _get_message_body(payload)
+
+    return {
+        "id": message["id"],
+        "thread_id": message.get("threadId"),
+        "subject": headers.get("subject"),
+        "from": headers.get("from"),
+        "to": headers.get("to"),
+        "date": headers.get("date"),
+        "snippet": message.get("snippet"),
+        "body_text": body_text,
+        "body_html": body_html,
+    }
 
 
 def _patch_gcal_event(event_id: str, calendar_id: str | None, patch_fn) -> bool:
