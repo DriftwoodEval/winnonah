@@ -8,7 +8,9 @@ import { DoorOpen, LogIn, LogOut } from "lucide-react";
 import Link from "next/link";
 import { createContext, useContext, useMemo, useState } from "react";
 import { cn, formatInBusinessTime, toBusinessZonedTime } from "~/lib/utils";
+import type { RouterOutputs } from "~/trpc/react";
 import { CheckInOutControl } from "../appointments/CheckInOutControl";
+import { EvaluatorCheckInOutControl } from "../appointments/EvaluatorCheckInOutControl";
 import { Redact } from "../redaction/Redact";
 import { ApptMessagesPopover, type RecentMessagesMap } from "./DayAheadShared";
 
@@ -434,12 +436,19 @@ export function CalendarDayView({
 	messages,
 	messagesLoading,
 	canCheckin = false,
+	evaluatorCheckins,
+	evaluatorCheckinDate,
 }: {
 	appointments: CalAppt[];
 	colorMap: Map<number, string>;
 	messages: RecentMessagesMap;
 	messagesLoading: boolean;
 	canCheckin?: boolean;
+	evaluatorCheckins?: Map<
+		number,
+		RouterOutputs["appointments"]["getEvaluatorCheckins"][number]
+	>;
+	evaluatorCheckinDate?: string;
 }) {
 	const byEval = useMemo(() => {
 		const map = new Map<
@@ -478,21 +487,41 @@ export function CalendarDayView({
 			<div className="overflow-auto rounded-md border">
 				<div className="sticky top-0 z-10 flex border-b bg-background">
 					<div className="w-14 shrink-0 border-r" />
-					{byEval.map((ev) => (
-						<div
-							className="min-w-[110px] flex-1 border-l px-3 py-2 first:border-l-0"
-							key={ev.npi}
-						>
+					{byEval.map((ev) => {
+						const checkin = evaluatorCheckins?.get(ev.npi);
+						return (
 							<div
-								className={`truncate font-medium text-sm ${ev.isCurrentUser ? "text-primary" : ""}`}
+								className="min-w-[110px] flex-1 border-l px-3 py-2 first:border-l-0"
+								key={ev.npi}
 							>
-								<Redact>{ev.name}</Redact>
+								<div
+									className={`truncate font-medium text-sm ${ev.isCurrentUser ? "text-primary" : ""}`}
+								>
+									<Redact>{ev.name}</Redact>
+								</div>
+								<div className="text-[10px] text-muted-foreground">
+									{ev.appts.length} appt{ev.appts.length !== 1 ? "s" : ""}
+								</div>
+								{evaluatorCheckins &&
+									evaluatorCheckinDate &&
+									!ev.isCurrentUser && (
+										<div className="mt-1">
+											<EvaluatorCheckInOutControl
+												arrivedAt={checkin?.arrivedAt ?? null}
+												arrivedBy={checkin?.arrivedBy ?? null}
+												arrivedNote={checkin?.arrivedNote ?? null}
+												compact
+												date={evaluatorCheckinDate}
+												evaluatorNpi={ev.npi}
+												leftAt={checkin?.leftAt ?? null}
+												leftBy={checkin?.leftBy ?? null}
+												leftNote={checkin?.leftNote ?? null}
+											/>
+										</div>
+									)}
 							</div>
-							<div className="text-[10px] text-muted-foreground">
-								{ev.appts.length} appt{ev.appts.length !== 1 ? "s" : ""}
-							</div>
-						</div>
-					))}
+						);
+					})}
 				</div>
 				<div className="flex">
 					<TimeGutter />

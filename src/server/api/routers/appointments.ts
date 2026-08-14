@@ -15,6 +15,7 @@ import {
 	appointmentCheckins,
 	appointments,
 	clients,
+	evaluatorCheckins,
 	evaluators,
 	offices,
 	reminderLogs,
@@ -23,6 +24,13 @@ import {
 
 const checkinInputSchema = z.object({
 	appointmentId: z.string(),
+	occurredAt: z.date(),
+	note: z.string().max(500).optional(),
+});
+
+const evaluatorCheckinInputSchema = z.object({
+	evaluatorNpi: z.number(),
+	date: z.string(),
 	occurredAt: z.date(),
 	note: z.string().max(500).optional(),
 });
@@ -56,6 +64,61 @@ async function recordCheckin(
 		await ctx.db
 			.insert(appointmentCheckins)
 			.values({ appointmentId, ...payload });
+	}
+}
+
+async function assertNotSelfCheckin(
+	ctx: { db: Context["db"]; session: { user: { id: string } } },
+	evaluatorNpi: number,
+) {
+	const userWithEvaluator = await ctx.db.query.users.findFirst({
+		where: eq(users.id, ctx.session.user.id),
+		with: { evaluator: true },
+	});
+	if (userWithEvaluator?.evaluator?.npi === evaluatorNpi) {
+		throw new TRPCError({
+			code: "FORBIDDEN",
+			message: "Evaluators cannot check themselves in or out.",
+		});
+	}
+}
+
+async function recordEvaluatorCheckin(
+	ctx: { db: Context["db"] },
+	evaluatorNpi: number,
+	date: string,
+	field: "arrived" | "left",
+	occurredAt: Date,
+	by: string | null | undefined,
+	note: string | undefined,
+) {
+	const trimmedNote = note?.trim() || null;
+	const payload =
+		field === "arrived"
+			? { arrivedAt: occurredAt, arrivedBy: by, arrivedNote: trimmedNote }
+			: { leftAt: occurredAt, leftBy: by, leftNote: trimmedNote };
+
+	const existing = await ctx.db.query.evaluatorCheckins.findFirst({
+		where: and(
+			eq(evaluatorCheckins.evaluatorNpi, evaluatorNpi),
+			eq(evaluatorCheckins.date, date),
+		),
+	});
+
+	if (existing) {
+		await ctx.db
+			.update(evaluatorCheckins)
+			.set(payload)
+			.where(
+				and(
+					eq(evaluatorCheckins.evaluatorNpi, evaluatorNpi),
+					eq(evaluatorCheckins.date, date),
+				),
+			);
+	} else {
+		await ctx.db
+			.insert(evaluatorCheckins)
+			.values({ evaluatorNpi, date, ...payload });
 	}
 }
 
@@ -188,10 +251,35 @@ export const appointmentRouter = createTRPCRouter({
 				)
 				.orderBy(asc(appointments.startTime));
 
+			const evaluatorCheckinRows = await ctx.db
+				.select({
+					evaluatorNpi: evaluatorCheckins.evaluatorNpi,
+					arrivedAt: evaluatorCheckins.arrivedAt,
+					arrivedBy: evaluatorCheckins.arrivedBy,
+					arrivedNote: evaluatorCheckins.arrivedNote,
+					leftAt: evaluatorCheckins.leftAt,
+					leftBy: evaluatorCheckins.leftBy,
+					leftNote: evaluatorCheckins.leftNote,
+				})
+				.from(evaluatorCheckins)
+				.where(eq(evaluatorCheckins.date, dateOnly));
+			const evaluatorCheckinByNpi = new Map(
+				evaluatorCheckinRows.map((r) => [r.evaluatorNpi, r]),
+			);
+
+			type EvaluatorCheckin = {
+				arrivedAt: Date | null;
+				arrivedBy: string | null;
+				arrivedNote: string | null;
+				leftAt: Date | null;
+				leftBy: string | null;
+				leftNote: string | null;
+			};
 			type EvaluatorEntry = {
 				name: string;
 				npi: number;
 				isCurrentUser: boolean;
+				checkin: EvaluatorCheckin;
 				appointments: {
 					id: string;
 					startTime: Date;
@@ -223,6 +311,14 @@ export const appointmentRouter = createTRPCRouter({
 
 			const byOffice: Record<string, OfficeEntry> = {};
 			const currentNpi = userWithEvaluator?.evaluator?.npi;
+			const emptyCheckin: EvaluatorCheckin = {
+				arrivedAt: null,
+				arrivedBy: null,
+				arrivedNote: null,
+				leftAt: null,
+				leftBy: null,
+				leftNote: null,
+			};
 
 			for (const row of allRows) {
 				const key = row.locationKey ?? "unknown";
@@ -239,6 +335,7 @@ export const appointmentRouter = createTRPCRouter({
 					name: row.evaluatorName,
 					npi: row.evaluatorNpi,
 					isCurrentUser: row.evaluatorNpi === currentNpi,
+					checkin: evaluatorCheckinByNpi.get(row.evaluatorNpi) ?? emptyCheckin,
 					appointments: [],
 				};
 				officeEntry.evaluators[row.evaluatorNpi] = evalEntry;
@@ -602,5 +699,128 @@ export const appointmentRouter = createTRPCRouter({
 				.update(appointmentCheckins)
 				.set(payload)
 				.where(eq(appointmentCheckins.appointmentId, input.appointmentId));
+		}),
+
+	getEvaluatorCheckins: protectedProcedure
+		.input(
+			z.object({
+				startDate: z.string(), // YYYY-MM-DD
+				endDate: z.string(), // YYYY-MM-DD
+			}),
+		)
+		.query(async ({ ctx, input }) =>
+			ctx.db
+				.select({
+					evaluatorNpi: evaluatorCheckins.evaluatorNpi,
+					date: evaluatorCheckins.date,
+					arrivedAt: evaluatorCheckins.arrivedAt,
+					arrivedBy: evaluatorCheckins.arrivedBy,
+					arrivedNote: evaluatorCheckins.arrivedNote,
+					leftAt: evaluatorCheckins.leftAt,
+					leftBy: evaluatorCheckins.leftBy,
+					leftNote: evaluatorCheckins.leftNote,
+				})
+				.from(evaluatorCheckins)
+				.where(
+					and(
+						gte(evaluatorCheckins.date, input.startDate),
+						lte(evaluatorCheckins.date, input.endDate),
+					),
+				),
+		),
+
+	evaluatorArrive: protectedProcedure
+		.input(evaluatorCheckinInputSchema)
+		.mutation(async ({ ctx, input }) => {
+			assertPermission(ctx.session.user, "clients:appointments:checkin");
+			await assertNotSelfCheckin(ctx, input.evaluatorNpi);
+
+			ctx.logger.info(
+				{
+					evaluatorNpi: input.evaluatorNpi,
+					date: input.date,
+					by: ctx.session.user.email,
+				},
+				"Evaluator arrival recorded",
+			);
+
+			await recordEvaluatorCheckin(
+				ctx,
+				input.evaluatorNpi,
+				input.date,
+				"arrived",
+				input.occurredAt,
+				ctx.session.user.email,
+				input.note,
+			);
+		}),
+
+	evaluatorDepart: protectedProcedure
+		.input(evaluatorCheckinInputSchema)
+		.mutation(async ({ ctx, input }) => {
+			assertPermission(ctx.session.user, "clients:appointments:checkin");
+			await assertNotSelfCheckin(ctx, input.evaluatorNpi);
+
+			ctx.logger.info(
+				{
+					evaluatorNpi: input.evaluatorNpi,
+					date: input.date,
+					by: ctx.session.user.email,
+				},
+				"Evaluator departure recorded",
+			);
+
+			await recordEvaluatorCheckin(
+				ctx,
+				input.evaluatorNpi,
+				input.date,
+				"left",
+				input.occurredAt,
+				ctx.session.user.email,
+				input.note,
+			);
+		}),
+
+	undoLastEvaluatorCheckinStep: protectedProcedure
+		.input(z.object({ evaluatorNpi: z.number(), date: z.string() }))
+		.mutation(async ({ ctx, input }) => {
+			assertPermission(ctx.session.user, "clients:appointments:checkin");
+			await assertNotSelfCheckin(ctx, input.evaluatorNpi);
+
+			ctx.logger.info(
+				{
+					evaluatorNpi: input.evaluatorNpi,
+					date: input.date,
+					by: ctx.session.user.email,
+				},
+				"Evaluator check-in step undone",
+			);
+
+			const existing = await ctx.db.query.evaluatorCheckins.findFirst({
+				where: and(
+					eq(evaluatorCheckins.evaluatorNpi, input.evaluatorNpi),
+					eq(evaluatorCheckins.date, input.date),
+				),
+			});
+			if (!existing) return;
+
+			// Only the furthest-along step can be undone, so the chain
+			// (arrived -> left) never ends up with gaps.
+			const payload = existing.leftAt
+				? { leftAt: null, leftBy: null, leftNote: null }
+				: existing.arrivedAt
+					? { arrivedAt: null, arrivedBy: null, arrivedNote: null }
+					: null;
+			if (!payload) return;
+
+			await ctx.db
+				.update(evaluatorCheckins)
+				.set(payload)
+				.where(
+					and(
+						eq(evaluatorCheckins.evaluatorNpi, input.evaluatorNpi),
+						eq(evaluatorCheckins.date, input.date),
+					),
+				);
 		}),
 });

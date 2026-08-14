@@ -1447,6 +1447,38 @@ export const appointmentCheckinsRelations = relations(
 	}),
 );
 
+export const evaluatorCheckins = createTable(
+	"evaluator_checkin",
+	(d) => ({
+		evaluatorNpi: d
+			.int()
+			.notNull()
+			.references(() => evaluators.npi, { onDelete: "cascade" }),
+		date: d.date({ mode: "string" }).notNull(),
+		arrivedAt: d.timestamp("arrived_at"),
+		arrivedBy: d.varchar("arrived_by", { length: 255 }),
+		arrivedNote: d.varchar("arrived_note", { length: 500 }),
+		leftAt: d.timestamp("left_at"),
+		leftBy: d.varchar("left_by", { length: 255 }),
+		leftNote: d.varchar("left_note", { length: 500 }),
+		updatedAt: d
+			.timestamp("updated_at")
+			.onUpdateNow()
+			.default(sql`CURRENT_TIMESTAMP`),
+	}),
+	(t) => [primaryKey({ columns: [t.evaluatorNpi, t.date] })],
+);
+
+export const evaluatorCheckinsRelations = relations(
+	evaluatorCheckins,
+	({ one }) => ({
+		evaluator: one(evaluators, {
+			fields: [evaluatorCheckins.evaluatorNpi],
+			references: [evaluators.npi],
+		}),
+	}),
+);
+
 export const clientDashboardSectionHistory = createTable(
 	"client_dashboard_section_history",
 	(d) => ({

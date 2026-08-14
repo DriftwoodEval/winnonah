@@ -26,6 +26,7 @@ import { useCheckPermission } from "~/hooks/use-check-permission";
 import { IS_DEV } from "~/lib/utils";
 import { api, type RouterOutputs } from "~/trpc/react";
 import { CheckInOutControl } from "../appointments/CheckInOutControl";
+import { EvaluatorCheckInOutControl } from "../appointments/EvaluatorCheckInOutControl";
 import { Redact } from "../redaction/Redact";
 import {
 	buildColorMap,
@@ -168,17 +169,27 @@ function EvaluatorRow({
 	messagesLoading,
 	canCheckin,
 	isToday,
+	asDate,
 }: {
 	evaluator: {
 		name: string;
 		npi: number;
 		isCurrentUser: boolean;
+		checkin: {
+			arrivedAt: Date | null;
+			arrivedBy: string | null;
+			arrivedNote: string | null;
+			leftAt: Date | null;
+			leftBy: string | null;
+			leftNote: string | null;
+		};
 		appointments: ListEvaluatorAppt[];
 	};
 	messages: RecentMessagesMap;
 	messagesLoading: boolean;
 	canCheckin: boolean;
 	isToday: boolean;
+	asDate: string;
 }) {
 	const [open, setOpen] = useState(false);
 
@@ -191,25 +202,40 @@ function EvaluatorRow({
 
 	return (
 		<Collapsible onOpenChange={setOpen} open={open}>
-			<CollapsibleTrigger className="flex w-full cursor-pointer items-center gap-2 py-1.5 text-left hover:opacity-80">
-				{open ? (
-					<ChevronDown className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-				) : (
-					<ChevronRight className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+			<div className="flex w-full items-center gap-2 py-1.5">
+				<CollapsibleTrigger className="flex min-w-0 flex-1 cursor-pointer items-center gap-2 text-left hover:opacity-80">
+					{open ? (
+						<ChevronDown className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+					) : (
+						<ChevronRight className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+					)}
+					<span className={evaluator.isCurrentUser ? "font-semibold" : ""}>
+						<Redact>{evaluator.name}</Redact>
+					</span>
+					<span className="text-muted-foreground text-xs">
+						{evaluator.appointments.length} appt
+						{evaluator.appointments.length !== 1 ? "s" : ""}
+					</span>
+				</CollapsibleTrigger>
+				{canCheckin && (
+					<EvaluatorCheckInOutControl
+						arrivedAt={evaluator.checkin.arrivedAt}
+						arrivedBy={evaluator.checkin.arrivedBy}
+						arrivedNote={evaluator.checkin.arrivedNote}
+						compact
+						date={asDate}
+						evaluatorNpi={evaluator.npi}
+						leftAt={evaluator.checkin.leftAt}
+						leftBy={evaluator.checkin.leftBy}
+						leftNote={evaluator.checkin.leftNote}
+					/>
 				)}
-				<span className={evaluator.isCurrentUser ? "font-semibold" : ""}>
-					<Redact>{evaluator.name}</Redact>
-				</span>
-				<span className="text-muted-foreground text-xs">
-					{evaluator.appointments.length} appt
-					{evaluator.appointments.length !== 1 ? "s" : ""}
-				</span>
 				{timeRange && (
-					<span className="ml-auto shrink-0 text-muted-foreground text-xs tabular-nums">
+					<span className="shrink-0 text-muted-foreground text-xs tabular-nums">
 						{timeRange}
 					</span>
 				)}
-			</CollapsibleTrigger>
+			</div>
 			<CollapsibleContent>
 				<div className="ml-8 border-border border-l pl-4">
 					{evaluator.appointments.map((appt) => (
@@ -384,6 +410,24 @@ export function DayAheadContent() {
 			{ enabled: viewMode !== "list" },
 		);
 
+	const { data: evaluatorCheckinsData } =
+		api.appointments.getEvaluatorCheckins.useQuery(
+			{
+				startDate: dateRange.at(0) ?? format(new Date(), "yyyy-MM-dd"),
+				endDate: dateRange.at(-1) ?? format(new Date(), "yyyy-MM-dd"),
+			},
+			{ enabled: viewMode === "day" },
+		);
+	const evaluatorCheckinsByNpi = useMemo(() => {
+		const map = new Map<
+			number,
+			RouterOutputs["appointments"]["getEvaluatorCheckins"][number]
+		>();
+		for (const row of evaluatorCheckinsData ?? [])
+			map.set(row.evaluatorNpi, row);
+		return map;
+	}, [evaluatorCheckinsData]);
+
 	const colorMap = useMemo(() => buildColorMap(calData ?? []), [calData]);
 
 	const phoneNumbers = useMemo(() => {
@@ -478,6 +522,7 @@ export function DayAheadContent() {
 				) : viewMode === "list" ? (
 					listData && (
 						<ListContent
+							asDate={selectedDate}
 							canCheckin={canCheckin && selectedDate <= todayStr}
 							data={listData}
 							greeterSchedule={greeterSchedule}
@@ -492,6 +537,12 @@ export function DayAheadContent() {
 							appointments={calData}
 							canCheckin={canCheckin}
 							colorMap={colorMap}
+							evaluatorCheckinDate={selectedDate}
+							evaluatorCheckins={
+								canCheckin && selectedDate <= todayStr
+									? evaluatorCheckinsByNpi
+									: undefined
+							}
 							messages={recentMessages ?? {}}
 							messagesLoading={messagesLoading}
 						/>
@@ -520,6 +571,7 @@ function ListContent({
 	messagesLoading,
 	canCheckin,
 	isToday,
+	asDate,
 }: {
 	data: NonNullable<RouterOutputs["appointments"]["getDayAhead"]>;
 	greeterSchedule: GreeterSchedule | undefined;
@@ -527,6 +579,7 @@ function ListContent({
 	messagesLoading: boolean;
 	canCheckin: boolean;
 	isToday: boolean;
+	asDate: string;
 }) {
 	const myFirst = data.myAppointments[0];
 	const myLast = data.myAppointments.at(-1);
@@ -616,6 +669,7 @@ function ListContent({
 								<div className="flex flex-col">
 									{office.evaluators.map((ev) => (
 										<EvaluatorRow
+											asDate={asDate}
 											canCheckin={canCheckin}
 											evaluator={ev}
 											isToday={isToday}

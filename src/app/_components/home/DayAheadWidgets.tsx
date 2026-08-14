@@ -14,6 +14,7 @@ import { useCheckPermission } from "~/hooks/use-check-permission";
 import { formatInBusinessTime } from "~/lib/utils";
 import { api } from "~/trpc/react";
 import { CheckInOutControl } from "../appointments/CheckInOutControl";
+import { EvaluatorCheckInOutControl } from "../appointments/EvaluatorCheckInOutControl";
 import { formatTime } from "../day-ahead/CalendarGrid";
 import {
 	ApptMessagesPopover,
@@ -299,6 +300,14 @@ function ExpandableEvaluator({
 		name: string;
 		npi: number;
 		isCurrentUser: boolean;
+		checkin: {
+			arrivedAt: Date | null;
+			arrivedBy: string | null;
+			arrivedNote: string | null;
+			leftAt: Date | null;
+			leftBy: string | null;
+			leftNote: string | null;
+		};
 		appointments: {
 			id: string;
 			startTime: Date;
@@ -335,26 +344,41 @@ function ExpandableEvaluator({
 
 	return (
 		<Collapsible onOpenChange={setOpen} open={open}>
-			<CollapsibleTrigger className="flex w-full cursor-pointer items-center gap-1.5 py-1 text-left hover:opacity-80">
-				{open ? (
-					<ChevronDown className="h-3 w-3 shrink-0 text-muted-foreground" />
-				) : (
-					<ChevronRight className="h-3 w-3 shrink-0 text-muted-foreground" />
+			<div className="flex w-full items-center gap-1.5 py-1">
+				<CollapsibleTrigger className="flex min-w-0 flex-1 cursor-pointer items-center gap-1.5 text-left hover:opacity-80">
+					{open ? (
+						<ChevronDown className="h-3 w-3 shrink-0 text-muted-foreground" />
+					) : (
+						<ChevronRight className="h-3 w-3 shrink-0 text-muted-foreground" />
+					)}
+					<span
+						className={`truncate text-sm ${evaluator.isCurrentUser ? "font-semibold" : ""}`}
+					>
+						<Redact>{evaluator.name}</Redact>
+					</span>
+					<span className="shrink-0 text-muted-foreground text-xs">
+						{evaluator.appointments.length}
+					</span>
+				</CollapsibleTrigger>
+				{canCheckin && asDate <= todayStr() && (
+					<EvaluatorCheckInOutControl
+						arrivedAt={evaluator.checkin.arrivedAt}
+						arrivedBy={evaluator.checkin.arrivedBy}
+						arrivedNote={evaluator.checkin.arrivedNote}
+						compact
+						date={asDate}
+						evaluatorNpi={evaluator.npi}
+						leftAt={evaluator.checkin.leftAt}
+						leftBy={evaluator.checkin.leftBy}
+						leftNote={evaluator.checkin.leftNote}
+					/>
 				)}
-				<span
-					className={`truncate text-sm ${evaluator.isCurrentUser ? "font-semibold" : ""}`}
-				>
-					<Redact>{evaluator.name}</Redact>
-				</span>
-				<span className="shrink-0 text-muted-foreground text-xs">
-					{evaluator.appointments.length}
-				</span>
 				{timeRange && (
-					<span className="ml-auto shrink-0 text-muted-foreground text-xs tabular-nums">
+					<span className="shrink-0 text-muted-foreground text-xs tabular-nums">
 						{timeRange}
 					</span>
 				)}
-			</CollapsibleTrigger>
+			</div>
 			<CollapsibleContent>
 				<div className="ml-6 border-border border-l pl-3">
 					{evaluator.appointments.map((appt) => (
