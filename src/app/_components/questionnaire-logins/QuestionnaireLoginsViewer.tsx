@@ -4,8 +4,9 @@ import { Button } from "@ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@ui/card";
 import { Input } from "@ui/input";
 import { Label } from "@ui/label";
-import { Copy, Loader2 } from "lucide-react";
+import { Copy, Loader2, Mail } from "lucide-react";
 import { toast } from "sonner";
+import { formatInBusinessTime } from "~/lib/utils";
 import { api } from "~/trpc/react";
 
 function CredentialField({ label, value }: { label: string; value: string }) {
@@ -23,6 +24,63 @@ function CredentialField({ label, value }: { label: string; value: string }) {
 					<Copy className="h-4 w-4" />
 				</Button>
 			</div>
+		</div>
+	);
+}
+
+function PearsonVerificationCode() {
+	const { mutate, data, isPending } =
+		api.pyConfig.getPearsonVerificationEmail.useMutation({
+			onError: (error) => toast.error(error.message),
+		});
+
+	const emailText = data?.body_text ?? data?.snippet;
+	const code = emailText
+		? (/verification code is:?\s*(\d+)/i.exec(emailText)?.[1] ??
+			/\b\d{6}\b/.exec(emailText)?.[0])
+		: undefined;
+
+	const copy = async () => {
+		if (!code) return;
+		await navigator.clipboard.writeText(code);
+		toast.success("Code copied to clipboard");
+	};
+
+	return (
+		<div className="space-y-2 border-t pt-2">
+			<Button
+				disabled={isPending}
+				onClick={() => mutate()}
+				size="sm"
+				type="button"
+				variant="outline"
+			>
+				{isPending ? (
+					<Loader2 className="h-4 w-4 animate-spin" />
+				) : (
+					<Mail className="h-4 w-4" />
+				)}
+				Fetch token email
+			</Button>
+
+			{data && (
+				<div className="space-y-1 text-xs">
+					<p className="text-muted-foreground">
+						{formatInBusinessTime(data.date, "MMM d, h:mm a")} &middot;{" "}
+						{data.subject}
+					</p>
+					{code ? (
+						<div className="flex items-center gap-1">
+							<Input className="font-mono" readOnly value={code} />
+							<Button onClick={copy} size="icon" type="button" variant="ghost">
+								<Copy className="h-4 w-4" />
+							</Button>
+						</div>
+					) : (
+						<p className="whitespace-pre-wrap">{emailText}</p>
+					)}
+				</div>
+			)}
 		</div>
 	);
 }
@@ -63,6 +121,7 @@ export function QuestionnaireLoginsViewer() {
 					<CardContent className="space-y-2">
 						<CredentialField label="User" value={services[svc].username} />
 						<CredentialField label="Password" value={services[svc].password} />
+						{svc === "qglobal" && <PearsonVerificationCode />}
 					</CardContent>
 				</Card>
 			))}

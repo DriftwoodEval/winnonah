@@ -877,6 +877,14 @@ def get_gmail_message(message_id: str) -> dict:
     }
 
 
+def mark_gmail_message_read(message_id: str) -> None:
+    """Remove the UNREAD label from a Gmail message."""
+    service = get_gmail_service()
+    service.users().messages().modify(
+        userId="me", id=message_id, body={"removeLabelIds": ["UNREAD"]}
+    ).execute()
+
+
 def _patch_gcal_event(event_id: str, calendar_id: str | None, patch_fn) -> bool:
     """Find a calendar event by ID and apply a patch built by patch_fn(event) -> body dict.
 

@@ -1,5 +1,7 @@
 import { TRPCError } from "@trpc/server";
 import { eq } from "drizzle-orm";
+import { env } from "~/env";
+import type { PermissionsObject } from "~/lib/types";
 import { hasPermission } from "~/lib/utils";
 import {
 	appointmentSyncConfigSchema,
@@ -7,6 +9,18 @@ import {
 } from "~/lib/validations/config";
 import { createTRPCRouter, protectedProcedure } from "~/server/api/trpc";
 import { pythonConfig } from "~/server/db/schema";
+
+function assertQSuiteServicesAccess(perms: PermissionsObject) {
+	if (
+		!hasPermission(perms, "settings:qsuite:services") &&
+		!hasPermission(perms, "settings:qsuite:services:view")
+	) {
+		throw new TRPCError({
+			code: "UNAUTHORIZED",
+			message: "You don't have permission to view QSuite services credentials",
+		});
+	}
+}
 
 export const pyConfigRouter = createTRPCRouter({
 	get: protectedProcedure.query(async ({ ctx }) => {
@@ -20,17 +34,7 @@ export const pyConfigRouter = createTRPCRouter({
 	}),
 
 	getServices: protectedProcedure.query(async ({ ctx }) => {
-		const perms = ctx.session.user.permissions;
-		if (
-			!hasPermission(perms, "settings:qsuite:services") &&
-			!hasPermission(perms, "settings:qsuite:services:view")
-		) {
-			throw new TRPCError({
-				code: "UNAUTHORIZED",
-				message:
-					"You don't have permission to view QSuite services credentials",
-			});
-		}
+		assertQSuiteServicesAccess(ctx.session.user.permissions);
 
 		const record = await ctx.db.query.pythonConfig.findFirst({
 			where: eq(pythonConfig.id, 1),
@@ -42,6 +46,44 @@ export const pyConfigRouter = createTRPCRouter({
 
 		const { therapyappointment, ...services } = result.data.services;
 		return services;
+	}),
+
+	getPearsonVerificationEmail: protectedProcedure.mutation(async ({ ctx }) => {
+		assertQSuiteServicesAccess(ctx.session.user.permissions);
+
+		const cookieHeader = ctx.headers.get("cookie") ?? "";
+
+		const response = await fetch(
+			`${env.PY_API}/gmail/pearson-verification-code`,
+			{
+				headers: { Cookie: cookieHeader },
+			},
+		);
+
+		if (response.status === 404) {
+			throw new TRPCError({
+				code: "NOT_FOUND",
+				message: "No Pearson verification code email found.",
+			});
+		}
+		if (!response.ok) {
+			throw new TRPCError({
+				code: "INTERNAL_SERVER_ERROR",
+				message: "Failed to fetch verification code email.",
+			});
+		}
+
+		return (await response.json()) as {
+			id: string;
+			thread_id: string | null;
+			subject: string | null;
+			from: string | null;
+			to: string | null;
+			date: string | null;
+			snippet: string | null;
+			body_text: string | null;
+			body_html: string | null;
+		};
 	}),
 
 	update: protectedProcedure

@@ -33,7 +33,14 @@ from utils.database import (
     rematch_evaluator,
 )
 from utils.forms import fill_select_health_form
-from utils.google import google_authenticate, send_gmail, update_gcal_event_title
+from utils.google import (
+    get_gmail_message,
+    google_authenticate,
+    list_gmail_messages,
+    mark_gmail_message_read,
+    send_gmail,
+    update_gcal_event_title,
+)
 from utils.misc import json_log_format
 
 load_dotenv()
@@ -707,6 +714,25 @@ def download_csv(file_key: str, current_user: dict = Depends(get_current_user)):
         raise HTTPException(status_code=404, detail="File not found")
 
     return FileResponse(path=file_path, filename=filename, media_type="text/csv")
+
+
+@app.get("/gmail/pearson-verification-code")
+def get_pearson_verification_code(current_user: dict = Depends(get_current_user)):
+    if not current_user["permissions"].get(
+        "settings:qsuite:services"
+    ) and not current_user["permissions"].get("settings:qsuite:services:view"):
+        raise HTTPException(status_code=403, detail="Not authorized")
+
+    messages = list_gmail_messages(
+        query='to:ratingscales@driftwoodeval.com subject:"Pearson Verification Code Requested"',
+        max_results=1,
+    )
+    if not messages:
+        raise HTTPException(status_code=404, detail="No matching email found")
+
+    message = get_gmail_message(messages[0]["id"])
+    mark_gmail_message_read(message["id"])
+    return message
 
 
 @app.post("/rematch/evaluator/{npi}")
