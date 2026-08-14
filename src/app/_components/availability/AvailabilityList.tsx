@@ -242,10 +242,12 @@ function ListViewEvent({
 	event,
 	dateKey,
 	onEdit,
+	readOnly,
 }: {
 	event: CalendarEvent;
 	dateKey: string;
 	onEdit: (e: EditingEvent) => void;
+	readOnly?: boolean;
 }) {
 	const locked = isEventLocked(event);
 	const editing = toEditingEvent(event);
@@ -258,10 +260,12 @@ function ListViewEvent({
 			)}
 			key={`${dateKey}-${event.id}`}
 		>
-			<EventLockButton
-				locked={locked}
-				onEdit={() => editing && onEdit(editing)}
-			/>
+			{!readOnly && (
+				<EventLockButton
+					locked={locked}
+					onEdit={() => editing && onEdit(editing)}
+				/>
+			)}
 			<div className="flex flex-wrap items-center gap-2">
 				<p
 					className={cn(
@@ -288,12 +292,14 @@ function ListView({
 	eventsByDate,
 	sortedDates,
 	onEdit,
+	readOnly,
 }: {
 	isLoading: boolean;
 	events: CalendarEvent[] | undefined;
 	eventsByDate: EventsByDate;
 	sortedDates: string[];
 	onEdit: (e: EditingEvent) => void;
+	readOnly?: boolean;
 }) {
 	return (
 		<div className="h-[600px] overflow-hidden rounded-md border bg-card">
@@ -341,6 +347,7 @@ function ListView({
 												event={event}
 												key={`${dateKey}-${event.id}`}
 												onEdit={onEdit}
+												readOnly={readOnly}
 											/>
 										))}
 									</div>
@@ -446,17 +453,19 @@ function CalendarDayHeader({
 	day,
 	allDayEvents,
 	onEdit,
+	readOnly,
 }: {
 	day: Date;
 	allDayEvents: CalendarEvent[];
 	onEdit: (e: EditingEvent) => void;
+	readOnly?: boolean;
 }) {
 	const { data: outOfOfficePriority } = useOutOfOfficePriority();
 
 	const today = isSameDay(day, new Date());
 
 	// const isLocked = isBefore(day, startOfDay(addMonths(new Date(), 1)));
-	const isLocked = false;
+	const isLocked = readOnly || false;
 
 	return (
 		<button
@@ -467,6 +476,7 @@ function CalendarDayHeader({
 					"cursor-pointer hover:bg-muted/60 focus-visible:bg-muted/60",
 			)}
 			onClick={(e) => {
+				if (readOnly) return;
 				if (
 					e.currentTarget === e.target ||
 					(e.target as HTMLElement).tagName === "span"
@@ -504,6 +514,7 @@ function CalendarDayHeader({
 						event={event}
 						key={`allday-${event.id}`}
 						onEdit={onEdit}
+						readOnly={readOnly}
 					/>
 				))}
 			</div>
@@ -514,12 +525,14 @@ function CalendarDayHeader({
 function AllDayEventBadge({
 	event,
 	onEdit,
+	readOnly,
 }: {
 	event: CalendarEvent;
 	onEdit: (e: EditingEvent) => void;
+	readOnly?: boolean;
 }) {
 	const editing = toEditingEvent(event);
-	const locked = isEventLocked(event);
+	const locked = readOnly || isEventLocked(event);
 
 	const handleActivate = () => {
 		if (!locked && editing) onEdit(editing);
@@ -570,15 +583,17 @@ function AllDayEventBadge({
 function CalendarTimedEvent({
 	event,
 	onEdit,
+	readOnly,
 }: {
 	event: CalendarEvent;
 	onEdit: (e: EditingEvent) => void;
+	readOnly?: boolean;
 }) {
 	const start = toDate(event.start);
 	const end = toDate(event.end);
 	const startMinutes = start.getHours() * 60 + start.getMinutes();
 	const durationMinutes = differenceInMinutes(end, start);
-	const locked = isEventLocked(event);
+	const locked = readOnly || isEventLocked(event);
 	const editing = toEditingEvent(event);
 
 	const recurrenceDesc = getRecurrenceDescription(event.recurrence);
@@ -664,10 +679,12 @@ function CalendarView({
 	displayDays,
 	eventsByDate,
 	onEdit,
+	readOnly,
 }: {
 	displayDays: Date[];
 	eventsByDate: EventsByDate;
 	onEdit: (e: EditingEvent) => void;
+	readOnly?: boolean;
 }) {
 	const { data: outOfOfficePriority } = useOutOfOfficePriority();
 
@@ -695,6 +712,7 @@ function CalendarView({
 									day={day}
 									key={dateStr}
 									onEdit={onEdit}
+									readOnly={readOnly}
 								/>
 							);
 						})}
@@ -740,7 +758,7 @@ function CalendarView({
 								// 	day,
 								// 	startOfDay(addMonths(new Date(), 1)),
 								// );
-								const isLocked = false;
+								const isLocked = readOnly || false;
 
 								return (
 									<button
@@ -753,6 +771,7 @@ function CalendarView({
 										)}
 										key={dateStr}
 										onClick={(e) => {
+											if (isLocked) return;
 											// Ignore clicks that bubbled up from an actual event card
 											if (e.currentTarget !== e.target) return;
 
@@ -823,6 +842,7 @@ function CalendarView({
 												event={event}
 												key={`timed-${event.id}`}
 												onEdit={onEdit}
+												readOnly={readOnly}
 											/>
 										))}
 									</button>
@@ -921,7 +941,15 @@ function CalendarControls({
 	);
 }
 
-export function AvailabilityList() {
+export function AvailabilityList({
+	email,
+	readOnly = false,
+	title = "Upcoming Availability",
+}: {
+	email?: string;
+	readOnly?: boolean;
+	title?: string;
+} = {}) {
 	const [activeTab, setActiveTab] = useState("list");
 	const [dateRange, setDateRange] = useState<DateRange>({
 		startDate: new Date(),
@@ -953,6 +981,7 @@ export function AvailabilityList() {
 		startDate: dateRange.startDate,
 		endDate: dateRange.endDate,
 		raw: true,
+		email,
 	});
 
 	const events = rawEvents as CalendarEvent[] | undefined;
@@ -971,7 +1000,7 @@ export function AvailabilityList() {
 			value={activeTab}
 		>
 			<div className="flex items-center justify-between">
-				<h2 className="font-bold text-2xl">Upcoming Availability</h2>
+				<h2 className="font-bold text-2xl">{title}</h2>
 				<TabsList>
 					<TabsTrigger value="list">
 						<List className="mr-2 h-4 w-4" />
@@ -999,6 +1028,7 @@ export function AvailabilityList() {
 						eventsByDate={eventsByDate}
 						isLoading={isLoading}
 						onEdit={setEditingEvent}
+						readOnly={readOnly}
 						sortedDates={sortedDates}
 					/>
 				</TabsContent>
@@ -1014,12 +1044,14 @@ export function AvailabilityList() {
 							displayDays={displayDays}
 							eventsByDate={eventsByDate}
 							onEdit={setEditingEvent}
+							readOnly={readOnly}
 						/>
 					)}
 				</TabsContent>
 			</div>
 
-			{editingEvent &&
+			{!readOnly &&
+				editingEvent &&
 				(editingEvent.id === "new" ? (
 					<CreateAvailabilityDialog
 						initialData={editingEvent}

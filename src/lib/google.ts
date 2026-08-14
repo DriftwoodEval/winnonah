@@ -948,6 +948,7 @@ export async function getAvailabilityEvents(
 	session: Session,
 	startDate: Date,
 	endDate: Date,
+	calendarId = "primary",
 ): Promise<CalendarEvent[]> {
 	const calendarApi = getCalendarClient(session);
 	const allItems: calendar_v3.Schema$Event[] = [];
@@ -960,7 +961,7 @@ export async function getAvailabilityEvents(
 			"List calendar events",
 			() =>
 				calendarApi.events.list({
-					calendarId: "primary",
+					calendarId,
 					timeMin: startDate.toISOString(),
 					timeMax: endDate.toISOString(),
 					singleEvents: true,

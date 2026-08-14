@@ -499,6 +499,7 @@ export const googleRouter = createTRPCRouter({
 				startDate: z.date(),
 				endDate: z.date(),
 				raw: z.boolean().optional(),
+				email: z.string().email().optional(),
 			}),
 		)
 		.query(async ({ ctx, input }) => {
@@ -508,10 +509,13 @@ export const googleRouter = createTRPCRouter({
 				});
 			}
 
+			const calendarId = input.email ?? "primary";
+
 			let events = await getAvailabilityEvents(
 				ctx.session,
 				input.startDate,
 				input.endDate,
+				calendarId,
 			);
 
 			if (!events) {
@@ -535,7 +539,7 @@ export const googleRouter = createTRPCRouter({
 				for (const masterId of recurringEventIds) {
 					try {
 						const masterEvent = await calendarApi.events.get({
-							calendarId: "primary",
+							calendarId,
 							eventId: masterId,
 						});
 						if (masterEvent.data.recurrence) {
@@ -584,6 +588,49 @@ export const googleRouter = createTRPCRouter({
 			result.sort((a, b) => a.start.getTime() - b.start.getTime());
 
 			return result;
+		}),
+
+	getTeamAvailability: protectedProcedure
+		.input(
+			z.object({
+				startDate: z.date(),
+				endDate: z.date(),
+			}),
+		)
+		.query(async ({ ctx, input }) => {
+			if (!ctx.session) {
+				throw new TRPCError({
+					code: "UNAUTHORIZED",
+				});
+			}
+
+			const teamUsers = await ctx.db.query.users.findMany({
+				where: and(eq(users.archived, false), isNotNull(users.email)),
+				orderBy: (users, { asc }) => [asc(users.name)],
+			});
+
+			const results = await Promise.all(
+				teamUsers.map(async (u) => {
+					const email = u.email as string;
+					try {
+						const events = await getAvailabilityEvents(
+							ctx.session,
+							input.startDate,
+							input.endDate,
+							email,
+						);
+						return { email, name: u.name, events };
+					} catch (error) {
+						ctx.logger.error(
+							{ error, email },
+							"Failed to load team member availability",
+						);
+						return { email, name: u.name, events: [] };
+					}
+				}),
+			);
+
+			return results;
 		}),
 
 	updateAvailability: protectedProcedure
