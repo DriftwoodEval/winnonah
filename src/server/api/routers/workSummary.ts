@@ -1,6 +1,6 @@
 import { and, asc, count, eq, gte, isNotNull, lt, lte, sql } from "drizzle-orm";
 import { z } from "zod";
-import { localDateToDateOnly } from "~/lib/utils";
+import { formatInBusinessTime, localDateToDateOnly } from "~/lib/utils";
 import {
 	assertPermission,
 	createTRPCRouter,
@@ -10,6 +10,7 @@ import {
 	appointmentCheckins,
 	appointments,
 	clients,
+	evaluatorCheckins,
 	evaluators,
 	pieceworkReportTracking,
 	users,
@@ -314,11 +315,87 @@ export const workSummaryRouter = createTRPCRouter({
 				loggedWeeklyMinutes: Object.values(loggedWeeklyByNpi[row.npi] ?? {}),
 			}));
 
+			// Day-level lateness: an evaluator's check-in arrival time for the day
+			// vs. their first scheduled appointment of that day.
+			const firstApptRows = await ctx.db
+				.select({
+					npi: evaluators.npi,
+					providerName: evaluators.providerName,
+					startTime: appointments.startTime,
+				})
+				.from(appointments)
+				.innerJoin(evaluators, eq(appointments.evaluatorNpi, evaluators.npi))
+				.where(
+					and(
+						gte(appointments.startTime, input.startDate),
+						lt(appointments.startTime, endOfDay(input.endDate)),
+						eq(appointments.cancelled, false),
+						eq(appointments.rescheduled, false),
+						eq(appointments.placeholder, false),
+						eq(appointments.billingOnly, false),
+					),
+				)
+				.orderBy(asc(appointments.startTime));
+
+			const firstApptByNpiDate = new Map<string, Date>();
+			const nameByNpi = new Map<number, string>();
+			for (const row of firstApptRows) {
+				nameByNpi.set(row.npi, row.providerName);
+				const key = `${row.npi}|${formatInBusinessTime(row.startTime, "yyyy-MM-dd")}`;
+				if (!firstApptByNpiDate.has(key))
+					firstApptByNpiDate.set(key, row.startTime);
+			}
+
+			const arrivalRows = await ctx.db
+				.select({
+					evaluatorNpi: evaluatorCheckins.evaluatorNpi,
+					date: evaluatorCheckins.date,
+					arrivedAt: evaluatorCheckins.arrivedAt,
+				})
+				.from(evaluatorCheckins)
+				.where(
+					and(
+						isNotNull(evaluatorCheckins.arrivedAt),
+						gte(
+							evaluatorCheckins.date,
+							localDateToDateOnly(input.startDate) as string,
+						),
+						lte(
+							evaluatorCheckins.date,
+							localDateToDateOnly(input.endDate) as string,
+						),
+					),
+				);
+
+			const dayLatenessByNpi: Record<number, number[]> = {};
+			for (const row of arrivalRows) {
+				if (!row.arrivedAt) continue;
+				const firstAppt = firstApptByNpiDate.get(
+					`${row.evaluatorNpi}|${row.date}`,
+				);
+				if (!firstAppt) continue;
+				dayLatenessByNpi[row.evaluatorNpi] ??= [];
+				dayLatenessByNpi[row.evaluatorNpi]?.push(
+					(row.arrivedAt.getTime() - firstAppt.getTime()) / 60000,
+				);
+			}
+
+			const dayLatenessSummary = Object.entries(dayLatenessByNpi)
+				.map(([npi, lateness]) => ({
+					npi: Number(npi),
+					name: nameByNpi.get(Number(npi)) ?? "Unknown",
+					avgLateness: average(lateness),
+					medianLateness: median(lateness),
+					sampleSize: lateness.length,
+				}))
+				.sort((a, b) => a.name.localeCompare(b.name));
+
 			return {
 				appointments: appointmentSummaryWithActuals,
 				reports: reportSummary,
 				checkins: checkinSummary,
 				timing: timingSummary,
+				dayLateness: dayLatenessSummary,
 				durationDefaults,
 			};
 		}),

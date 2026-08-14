@@ -18,6 +18,7 @@ import { format, subDays, subMonths } from "date-fns";
 import {
 	ClipboardCheckIcon,
 	ClipboardListIcon,
+	DoorOpenIcon,
 	TimerIcon,
 	UserIcon,
 } from "lucide-react";
@@ -809,6 +810,51 @@ export default function PieceworkSummary() {
 					) : (
 						<p className="px-4 pb-4 text-muted-foreground text-sm italic">
 							No check-in timing data in this range.
+						</p>
+					)}
+				</CardContent>
+			</Card>
+
+			{/* Evaluator arrival lateness card */}
+			<Card>
+				<CardHeader className="flex flex-row items-center gap-3 space-y-0">
+					<div className="rounded-lg bg-primary/10 p-2 text-primary">
+						<DoorOpenIcon className="h-5 w-5" />
+					</div>
+					<CardTitle>Evaluator Arrival Lateness</CardTitle>
+				</CardHeader>
+				<CardContent className="p-0">
+					{isLoading ? (
+						<div className="space-y-2 p-4">
+							<Skeleton className="h-8 w-full" />
+							<Skeleton className="h-8 w-full" />
+						</div>
+					) : data?.dayLateness.length ? (
+						<Table classNameWrapper="px-4">
+							<TableHeader>
+								<TableRow className="hover:bg-transparent">
+									<TableHead>Evaluator</TableHead>
+									<TableHead className="text-center">Avg Lateness</TableHead>
+									<TableHead className="text-center">Median Lateness</TableHead>
+								</TableRow>
+							</TableHeader>
+							<TableBody>
+								{data.dayLateness.map((row) => (
+									<TableRow className="hover:bg-transparent" key={row.name}>
+										<TableCell className="font-medium">{row.name}</TableCell>
+										<TableCell className="text-center">
+											{fmtSignedMinutes(row.avgLateness)}
+										</TableCell>
+										<TableCell className="text-center">
+											{fmtSignedMinutes(row.medianLateness)}
+										</TableCell>
+									</TableRow>
+								))}
+							</TableBody>
+						</Table>
+					) : (
+						<p className="px-4 pb-4 text-muted-foreground text-sm italic">
+							No evaluator day check-ins in this range.
 						</p>
 					)}
 				</CardContent>
