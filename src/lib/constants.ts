@@ -208,6 +208,10 @@ export const PERMISSIONS = {
 						title: "Edit QSuite Services Config",
 					},
 					{
+						id: "settings:qsuite:services:view",
+						title: "View Questionnaire Logins",
+					},
+					{
 						id: "settings:qsuite:records",
 						title: "Edit QSuite Records Config",
 					},

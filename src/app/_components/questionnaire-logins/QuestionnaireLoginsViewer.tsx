@@ -1,0 +1,71 @@
+"use client";
+
+import { Button } from "@ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@ui/card";
+import { Input } from "@ui/input";
+import { Label } from "@ui/label";
+import { Copy, Loader2 } from "lucide-react";
+import { toast } from "sonner";
+import { api } from "~/trpc/react";
+
+function CredentialField({ label, value }: { label: string; value: string }) {
+	const copy = async () => {
+		await navigator.clipboard.writeText(value);
+		toast.success(`${label} copied to clipboard`);
+	};
+
+	return (
+		<div className="space-y-1">
+			<Label className="text-muted-foreground text-xs">{label}</Label>
+			<div className="flex items-center gap-1">
+				<Input className="font-mono" readOnly value={value} />
+				<Button onClick={copy} size="icon" type="button" variant="ghost">
+					<Copy className="h-4 w-4" />
+				</Button>
+			</div>
+		</div>
+	);
+}
+
+export function QuestionnaireLoginsViewer() {
+	const { data: services, isLoading } = api.pyConfig.getServices.useQuery();
+
+	if (isLoading)
+		return <Loader2 className="mx-auto mt-20 h-8 w-8 animate-spin" />;
+
+	if (!services)
+		return (
+			<p className="text-muted-foreground text-sm">No services config found.</p>
+		);
+
+	const allServices = [
+		"medicaid",
+		"mhs",
+		"qglobal",
+		"wps",
+		"novopsych",
+	] as const;
+	const serviceLabels: Record<string, string> = {
+		medicaid: "SC Medicaid",
+		mhs: "MHS",
+		qglobal: "QGlobal",
+		wps: "WPS",
+		novopsych: "NovoPsych",
+	};
+
+	return (
+		<div className="grid grid-cols-4 gap-4">
+			{allServices.map((svc) => (
+				<Card key={svc}>
+					<CardHeader>
+						<CardTitle>{serviceLabels[svc]}</CardTitle>
+					</CardHeader>
+					<CardContent className="space-y-2">
+						<CredentialField label="User" value={services[svc].username} />
+						<CredentialField label="Password" value={services[svc].password} />
+					</CardContent>
+				</Card>
+			))}
+		</div>
+	);
+}

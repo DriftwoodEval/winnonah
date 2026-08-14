@@ -1,4 +1,6 @@
+import { TRPCError } from "@trpc/server";
 import { eq } from "drizzle-orm";
+import { hasPermission } from "~/lib/utils";
 import {
 	appointmentSyncConfigSchema,
 	pythonConfigSchema,
@@ -15,6 +17,31 @@ export const pyConfigRouter = createTRPCRouter({
 		if (!record?.data) return null;
 		const result = pythonConfigSchema.safeParse(record.data);
 		return result.success ? result.data : null;
+	}),
+
+	getServices: protectedProcedure.query(async ({ ctx }) => {
+		const perms = ctx.session.user.permissions;
+		if (
+			!hasPermission(perms, "settings:qsuite:services") &&
+			!hasPermission(perms, "settings:qsuite:services:view")
+		) {
+			throw new TRPCError({
+				code: "UNAUTHORIZED",
+				message:
+					"You don't have permission to view QSuite services credentials",
+			});
+		}
+
+		const record = await ctx.db.query.pythonConfig.findFirst({
+			where: eq(pythonConfig.id, 1),
+		});
+
+		if (!record?.data) return null;
+		const result = pythonConfigSchema.safeParse(record.data);
+		if (!result.success) return null;
+
+		const { therapyappointment, ...services } = result.data.services;
+		return services;
 	}),
 
 	update: protectedProcedure

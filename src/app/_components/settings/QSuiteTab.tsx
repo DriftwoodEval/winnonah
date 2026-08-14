@@ -882,14 +882,12 @@ function ServicesTab({
 						disabled={disabled}
 						label="Password"
 						name="services.therapyappointment.password"
-						type="password"
 					/>
 					<FieldInput
 						control={c}
 						disabled={disabled}
 						label="Admin Password"
 						name="services.therapyappointment.admin_password"
-						type="password"
 					/>
 				</CardContent>
 			</Card>
@@ -909,7 +907,6 @@ function ServicesTab({
 						disabled={disabled}
 						label="Password"
 						name="services.medicaid.password"
-						type="password"
 					/>
 				</CardContent>
 			</Card>
@@ -931,7 +928,6 @@ function ServicesTab({
 								disabled={disabled}
 								label="Password"
 								name={`services.${svc}.password`}
-								type="password"
 							/>
 						</CardContent>
 					</Card>

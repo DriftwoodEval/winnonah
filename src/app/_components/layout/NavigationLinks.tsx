@@ -25,6 +25,7 @@ import {
 	Clock,
 	FileText,
 	Home,
+	KeyRound,
 	LayoutDashboard,
 	LayoutGrid,
 	LineChart,
@@ -303,6 +304,15 @@ export default function NavigationLinks() {
 					label: "Calculator",
 					icon: Calculator,
 					show: can("pages:calculator"),
+				},
+				{
+					id: "questionnaire-logins",
+					href: "/questionnaire-logins",
+					label: "Questionnaire Logins",
+					icon: KeyRound,
+					show:
+						can("settings:qsuite:services:view") ||
+						can("settings:qsuite:services"),
 				},
 			],
 		},

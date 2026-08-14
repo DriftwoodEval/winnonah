@@ -9,6 +9,7 @@ import {
 	Eye,
 	FileText,
 	Home,
+	KeyRound,
 	LayoutDashboard,
 	LayoutGrid,
 	LineChart,
@@ -34,6 +35,7 @@ export type HeaderItemId =
 	| "fax-categorization"
 	| "work-summary"
 	| "calculator"
+	| "questionnaire-logins"
 	| "docs"
 	| "search"
 	| "recent-clients"
@@ -150,6 +152,14 @@ export const HEADER_ITEM_DEFS: HeaderItemDef[] = [
 		id: "calculator",
 		label: "Calculator",
 		icon: Calculator,
+		area: "nav",
+		category: "Tools",
+		surfaces: BOTH_SURFACES,
+	},
+	{
+		id: "questionnaire-logins",
+		label: "Questionnaire Logins",
+		icon: KeyRound,
 		area: "nav",
 		category: "Tools",
 		surfaces: BOTH_SURFACES,
