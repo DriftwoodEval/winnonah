@@ -1179,6 +1179,19 @@ export const reminderLogs = createTable(
 	],
 );
 
+export const referralStatusFaxLogs = createTable(
+	"referral_status_fax_logs",
+	(d) => ({
+		id: d.int().primaryKey().autoincrement().notNull(),
+		clientId: d
+			.int()
+			.notNull()
+			.references(() => clients.id, { onDelete: "cascade" }),
+		sentAt: d.timestamp().default(sql`CURRENT_TIMESTAMP`).notNull(),
+	}),
+	(t) => [index("referral_status_fax_logs_client_idx").on(t.clientId)],
+);
+
 export const reminderReplies = createTable("reminder_replies", (d) => ({
 	id: d.int().primaryKey().autoincrement().notNull(),
 	clientId: d
