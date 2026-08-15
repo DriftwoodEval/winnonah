@@ -201,9 +201,18 @@ const hasNoEvalActivity = (client: FullClientInfo) =>
 	client["EVAL Qs Done"] !== "TRUE" &&
 	!isDateString(client["EVAL date"]);
 
+const PENDING_REMINDER_STATUSES = new Set([
+	"PENDING",
+	"POSTDA_PENDING",
+	"POSTEVAL_PENDING",
+]);
+
 const getMinReminded = (client: FullClientInfo): number => {
-	if (!client.questionnaires?.length) return 0;
-	return Math.min(...client.questionnaires.map((q) => q.reminded ?? 0));
+	const pending = client.questionnaires?.filter(
+		(q) => q.status && PENDING_REMINDER_STATUSES.has(q.status),
+	);
+	if (!pending?.length) return 0;
+	return Math.min(...pending.map((q) => q.reminded ?? 0));
 };
 
 const sentExtraInfo = (client: FullClientInfo) => {
