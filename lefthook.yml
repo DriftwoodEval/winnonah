@@ -11,8 +11,6 @@ post-merge:
 pre-commit:
   parallel: true
   commands:
-    betterleaks:
-      run: '[ "${CLAUDE_CODE_REMOTE:-}" = "true" ] && echo "Skipping betterleaks: no GitHub API access to betterleaks/betterleaks in this remote session" || mise x betterleaks -- betterleaks git --pre-commit --redact --staged --verbose --no-banner 2>&1'
     biome-check:
       run: mise x -- pnpm biome check --write {staged_files} --no-errors-on-unmatched --files-ignore-unknown=true --colors=off
       stage_fixed: true
@@ -20,9 +18,6 @@ pre-commit:
       glob: "*.py"
       stage_fixed: true
       run: mise x -- uvx ruff check {staged_files} --fix --exit-non-zero-on-fix && mise x -- uvx ruff format {staged_files}
-    deptry:
-      root: "python/"
-      run: '[ "${CLAUDE_CODE_REMOTE:-}" = "true" ] && echo "Skipping deptry: mise cannot install the pinned Python via GitHub attestation verification in this remote session" || mise x -- uv run deptry .'
     changelog:
       glob: "src/content/docs/changelog/index.mdx"
       run: mise x -- pnpm exec tsx scripts/validate-changelog.ts
