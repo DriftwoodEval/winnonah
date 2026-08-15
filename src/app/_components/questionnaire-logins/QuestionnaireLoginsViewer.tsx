@@ -7,9 +7,14 @@ import { Label } from "@ui/label";
 import { Copy, Loader2, Mail } from "lucide-react";
 import { toast } from "sonner";
 import { formatInBusinessTime } from "~/lib/utils";
+import { scrambleText } from "~/lib/utils.client";
 import { api } from "~/trpc/react";
+import { Redact } from "../redaction/Redact";
+import { useRedaction } from "../redaction/redaction";
 
 function CredentialField({ label, value }: { label: string; value: string }) {
+	const { enabled } = useRedaction();
+
 	const copy = async () => {
 		await navigator.clipboard.writeText(value);
 		toast.success(`${label} copied to clipboard`);
@@ -19,7 +24,11 @@ function CredentialField({ label, value }: { label: string; value: string }) {
 		<div className="space-y-1">
 			<Label className="text-muted-foreground text-xs">{label}</Label>
 			<div className="flex items-center gap-1">
-				<Input className="font-mono" readOnly value={value} />
+				<Input
+					className={enabled ? "select-none font-mono blur-sm" : "font-mono"}
+					readOnly
+					value={enabled ? scrambleText(value) : value}
+				/>
 				<Button onClick={copy} size="icon" type="button" variant="ghost">
 					<Copy className="h-4 w-4" />
 				</Button>
@@ -29,6 +38,7 @@ function CredentialField({ label, value }: { label: string; value: string }) {
 }
 
 function PearsonVerificationCode() {
+	const { enabled } = useRedaction();
 	const { mutate, data, isPending } =
 		api.pyConfig.getPearsonVerificationEmail.useMutation({
 			onError: (error) => toast.error(error.message),
@@ -67,17 +77,25 @@ function PearsonVerificationCode() {
 				<div className="space-y-1 text-xs">
 					<p className="text-muted-foreground">
 						{formatInBusinessTime(data.date, "MMM d, h:mm a")} &middot;{" "}
-						{data.subject}
+						<Redact>{data.subject}</Redact>
 					</p>
 					{code ? (
 						<div className="flex items-center gap-1">
-							<Input className="font-mono" readOnly value={code} />
+							<Input
+								className={
+									enabled ? "select-none font-mono blur-sm" : "font-mono"
+								}
+								readOnly
+								value={enabled ? scrambleText(code) : code}
+							/>
 							<Button onClick={copy} size="icon" type="button" variant="ghost">
 								<Copy className="h-4 w-4" />
 							</Button>
 						</div>
 					) : (
-						<p className="whitespace-pre-wrap">{emailText}</p>
+						<p className="whitespace-pre-wrap">
+							<Redact>{emailText}</Redact>
+						</p>
 					)}
 				</div>
 			)}
