@@ -3,6 +3,7 @@ import {
 	Bug,
 	Calculator,
 	Calendar1,
+	CalendarPlus,
 	CalendarRange,
 	ClipboardClock,
 	Clock,
@@ -30,6 +31,7 @@ export type HeaderItemId =
 	| "greeter-schedule"
 	| "availability"
 	| "scheduling"
+	| "scheduling-helper"
 	| "claim-reports"
 	| "reports"
 	| "report-dashboard"
@@ -113,6 +115,14 @@ export const HEADER_ITEM_DEFS: HeaderItemDef[] = [
 		id: "scheduling",
 		label: "Scheduling",
 		icon: CalendarRange,
+		area: "nav",
+		category: "Schedule",
+		surfaces: BOTH_SURFACES,
+	},
+	{
+		id: "scheduling-helper",
+		label: "Scheduling Helper",
+		icon: CalendarPlus,
 		area: "nav",
 		category: "Schedule",
 		surfaces: BOTH_SURFACES,

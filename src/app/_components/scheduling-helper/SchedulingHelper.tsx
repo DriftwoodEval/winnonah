@@ -50,7 +50,7 @@ import {
 } from "~/app/_components/day-ahead/CalendarGrid";
 import type { SortedClient } from "~/lib/api-types";
 import type { CalendarEvent } from "~/lib/google";
-import { getLocalTimeFromUTCDate, IS_DEV } from "~/lib/utils";
+import { IS_DEV, toBusinessZonedTime } from "~/lib/utils";
 import { api, type RouterOutputs } from "~/trpc/react";
 
 const APPOINTMENT_TYPES = ["DA", "EVAL", "DAEVAL"] as const;
@@ -566,6 +566,15 @@ function SchedulingHelperGrid({
 			evaluatorName: selectedEvaluator.providerName,
 			isCurrentUser: true,
 			isPreview: true,
+			arrivedAt: null,
+			arrivedBy: null,
+			arrivedNote: null,
+			startedAt: null,
+			startedBy: null,
+			startedNote: null,
+			leftAt: null,
+			leftBy: null,
+			leftNote: null,
 		};
 	}, [
 		selectedSlot,
@@ -633,8 +642,8 @@ function SchedulingHelperGrid({
 		() =>
 			(dayAppointments ?? [])
 				.map((appt) => {
-					const start = getLocalTimeFromUTCDate(appt.startTime);
-					const end = getLocalTimeFromUTCDate(appt.endTime);
+					const start = toBusinessZonedTime(appt.startTime);
+					const end = toBusinessZonedTime(appt.endTime);
 					if (!start || !end) return null;
 					return { start: start.getTime(), end: end.getTime() };
 				})

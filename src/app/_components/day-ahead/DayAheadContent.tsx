@@ -465,7 +465,6 @@ export function DayAheadContent() {
 
 	const colorMap = useMemo(() => buildColorMap(calData ?? []), [calData]);
 
-	const can = useCheckPermission();
 	const canSchedule = can("pages:scheduling");
 
 	const evaluatorNpis = useMemo(
@@ -672,9 +671,9 @@ export function DayAheadContent() {
 					viewMode === "day" ? (
 						<CalendarDayView
 							appointments={calData}
-							canCheckin={canCheckin}
 							availability={canSchedule ? dayAvailability : undefined}
 							availabilityIntensity="light"
+							canCheckin={canCheckin}
 							colorMap={colorMap}
 							evaluatorCheckinDate={selectedDate}
 							evaluatorCheckins={
@@ -689,8 +688,8 @@ export function DayAheadContent() {
 					) : (
 						<CalendarMultiDayView
 							appointments={calData}
-							canCheckin={canCheckin}
 							availability={canSchedule ? multiDayAvailability : undefined}
+							canCheckin={canCheckin}
 							colorMap={colorMap}
 							dates={dateRange}
 							messages={recentMessages ?? {}}
