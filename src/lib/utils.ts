@@ -103,27 +103,22 @@ export const getInsuranceShortNamesList = (
 };
 
 /**
- * Format a client's age given their date of birth.
- * @param dob The client's date of birth, as a "YYYY-MM-DD" date-only string.
- * @param format The format of the returned age. Can be "short", "years", or "long".
- *   - "short": "X:Y" where X is the number of years and Y is the number of months.
- *   - "years": The number of years as a string.
- *   - "long": A human-readable string like "X years" or "X years, Y months".
- * @returns The formatted age.
+ * Calculate a client's age in whole years and months given their date of
+ * birth, as of business-local "today". Returns undefined if dob is missing
+ * or unparseable.
  */
-export function formatClientAge(dob: string, format = "long") {
+export function calculateAgeYearsMonths(
+	dob: string | undefined | null,
+): { years: number; months: number } | undefined {
 	const parsed = parseDateOnly(dob);
-	if (!parsed) {
-		return format === "years" ? "0" : "0 years";
-	}
+	if (!parsed) return undefined;
 
 	// Use business-local "today", not the reading process's own timezone:
 	// local Date getters would make this non-deterministic (e.g. shift a day
 	// depending on whether the server/CI runner is behind or ahead of UTC).
 	const today = parseDateOnly(formatInBusinessTime(new Date(), "yyyy-MM-dd"));
-	if (!today) {
-		return format === "years" ? "0" : "0 years";
-	}
+	if (!today) return undefined;
+
 	let years = today.year - parsed.year;
 	let months = today.month - parsed.month;
 	if (today.day < parsed.day) {
@@ -133,6 +128,24 @@ export function formatClientAge(dob: string, format = "long") {
 		years -= 1;
 		months += 12;
 	}
+	return { years, months };
+}
+
+/**
+ * Format a client's age given their date of birth.
+ * @param dob The client's date of birth, as a "YYYY-MM-DD" date-only string.
+ * @param format The format of the returned age. Can be "short", "years", or "long".
+ *   - "short": "X:Y" where X is the number of years and Y is the number of months.
+ *   - "years": The number of years as a string.
+ *   - "long": A human-readable string like "X years" or "X years, Y months".
+ * @returns The formatted age.
+ */
+export function formatClientAge(dob: string, format = "long") {
+	const age = calculateAgeYearsMonths(dob);
+	if (!age) {
+		return format === "years" ? "0" : "0 years";
+	}
+	const { years, months } = age;
 
 	if (format === "short") {
 		return years >= 3 ? `${years}` : `${years}:${months}`;

@@ -5,6 +5,7 @@ from unittest.mock import patch
 import pytest
 
 from appointment_reminders import (
+    _compute_age_years,
     _fix_stale_event_id,
     _matches_template,
     _office_fields,
@@ -14,6 +15,7 @@ from appointment_reminders import (
     is_confirmation,
     is_within_quiet_window,
 )
+from utils.timezone import now_business
 
 
 class TestOfficeFields:
@@ -221,6 +223,53 @@ class TestMatchesTemplate:
     def test_standard_template_with_no_criteria_matches_nothing(self):
         template = make_template()
         assert _matches_template(make_appt(), template) is False
+
+    def test_age_range_filters_out_appointments_outside_range(self):
+        template = make_template(triggerKeyword="Eval", minAgeYears=5, maxAgeYears=12)
+        today = now_business().date()
+        child = make_appt(
+            calendarEventTitle="Eval visit",
+            dob=today.replace(year=today.year - 8),
+        )
+        adult = make_appt(
+            calendarEventTitle="Eval visit",
+            dob=today.replace(year=today.year - 30),
+        )
+        assert _matches_template(child, template) is True
+        assert _matches_template(adult, template) is False
+
+    def test_age_range_missing_dob_does_not_match(self):
+        template = make_template(triggerKeyword="Eval", minAgeYears=5)
+        appt = make_appt(calendarEventTitle="Eval visit", dob=None)
+        assert _matches_template(appt, template) is False
+
+    def test_age_range_applies_to_follow_up_templates(self):
+        today = now_business().date()
+        no_reply_template = make_template(isNoReplyFollowUp=True, minAgeYears=18)
+        confirmed_template = make_template(isConfirmedFollowUp=True, maxAgeYears=17)
+
+        adult = make_appt(dob=today.replace(year=today.year - 30))
+        child = make_appt(dob=today.replace(year=today.year - 10))
+
+        assert _matches_template(adult, no_reply_template, has_prior_sent=True) is True
+        assert _matches_template(child, no_reply_template, has_prior_sent=True) is False
+        assert _matches_template(child, confirmed_template) is True
+        assert _matches_template(adult, confirmed_template) is False
+
+
+class TestComputeAgeYears:
+    def test_computes_whole_years_before_birthday(self):
+        today = now_business().date()
+        dob = today.replace(year=today.year - 10) + timedelta(days=1)
+        assert _compute_age_years(dob) == 9
+
+    def test_computes_whole_years_after_birthday(self):
+        today = now_business().date()
+        dob = today.replace(year=today.year - 10) - timedelta(days=1)
+        assert _compute_age_years(dob) == 10
+
+    def test_none_dob_returns_none(self):
+        assert _compute_age_years(None) is None
 
 
 class TestIsConfirmation:

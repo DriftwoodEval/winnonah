@@ -201,6 +201,19 @@ export default function ReminderSettings() {
 											•{" "}
 										</span>
 									)}
+									{(template.minAgeYears != null ||
+										template.maxAgeYears != null) && (
+										<span>
+											Age:{" "}
+											{template.minAgeYears != null &&
+											template.maxAgeYears != null
+												? `${template.minAgeYears}-${template.maxAgeYears}`
+												: template.minAgeYears != null
+													? `${template.minAgeYears}+`
+													: `up to ${template.maxAgeYears}`}{" "}
+											•{" "}
+										</span>
+									)}
 									{formatReminderOffset(template.sendOffsetHours)}
 								</CardDescription>
 							</div>

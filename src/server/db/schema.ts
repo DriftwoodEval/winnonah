@@ -1146,6 +1146,8 @@ export const reminderTemplates = createTable("reminder_templates", (d) => ({
 	triggerKeyword: d.text(),
 	triggerDaEval: d.mysqlEnum(["EVAL", "DA", "DAEVAL"]),
 	triggerLocationKey: d.json().$type<string[]>(),
+	minAgeYears: d.int(),
+	maxAgeYears: d.int(),
 	messageTemplate: d.text().notNull(),
 	confirmationReply: d.text(),
 	sendOffsetHours: d.int().notNull(),

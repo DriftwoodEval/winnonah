@@ -83,6 +83,8 @@ export function ReminderTemplateDialog({
 			triggerKeyword: null,
 			triggerDaEval: null,
 			triggerLocationKey: null,
+			minAgeYears: null,
+			maxAgeYears: null,
 			messageTemplate: "",
 			confirmationReply: null,
 			sendOffsetHours: 24,
@@ -103,6 +105,8 @@ export function ReminderTemplateDialog({
 					triggerKeyword: null,
 					triggerDaEval: null,
 					triggerLocationKey: null,
+					minAgeYears: null,
+					maxAgeYears: null,
 					messageTemplate: "",
 					confirmationReply: null,
 					sendOffsetHours: 24,
@@ -177,6 +181,8 @@ export function ReminderTemplateDialog({
 				: values.triggerLocationKey?.length
 					? values.triggerLocationKey
 					: null,
+			minAgeYears: values.minAgeYears ?? null,
+			maxAgeYears: values.maxAgeYears ?? null,
 			...(initialData?.id ? { id: initialData.id } : {}),
 		});
 	}
@@ -331,6 +337,64 @@ export function ReminderTemplateDialog({
 									}}
 								/>
 							</div>
+
+							<div className="grid grid-cols-2 gap-4">
+								<FormField
+									control={form.control}
+									name="minAgeYears"
+									render={({ field }) => (
+										<FormItem>
+											<FormLabel>Min Client Age (Optional)</FormLabel>
+											<FormControl>
+												<Input
+													min={0}
+													onChange={(e) =>
+														field.onChange(
+															e.target.value === ""
+																? null
+																: Number(e.target.value),
+														)
+													}
+													placeholder="No minimum"
+													type="number"
+													value={field.value ?? ""}
+												/>
+											</FormControl>
+											<FormMessage />
+										</FormItem>
+									)}
+								/>
+
+								<FormField
+									control={form.control}
+									name="maxAgeYears"
+									render={({ field }) => (
+										<FormItem>
+											<FormLabel>Max Client Age (Optional)</FormLabel>
+											<FormControl>
+												<Input
+													min={0}
+													onChange={(e) =>
+														field.onChange(
+															e.target.value === ""
+																? null
+																: Number(e.target.value),
+														)
+													}
+													placeholder="No maximum"
+													type="number"
+													value={field.value ?? ""}
+												/>
+											</FormControl>
+											<FormMessage />
+										</FormItem>
+									)}
+								/>
+							</div>
+							<p className="text-[10px] text-muted-foreground">
+								Restrict this template to clients within an age range, based on
+								date of birth. Leave blank to apply to any age.
+							</p>
 
 							<FormField
 								control={form.control}

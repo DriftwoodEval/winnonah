@@ -5,7 +5,7 @@ import contextlib
 import json
 import os
 import re
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, date, datetime, timedelta
 from typing import Annotated
 
 from fastapi import APIRouter, BackgroundTasks, Header, HTTPException, Request
@@ -157,6 +157,19 @@ def adjust_for_quiet_window(
     return result, True
 
 
+def _compute_age_years(dob: date | datetime | None) -> int | None:
+    """Age in whole years as of business-local today, or None if dob is missing."""
+    if dob is None:
+        return None
+    dob_date = dob.date() if isinstance(dob, datetime) else dob
+    today = now_business().date()
+    return (
+        today.year
+        - dob_date.year
+        - ((today.month, today.day) < (dob_date.month, dob_date.day))
+    )
+
+
 def _matches_template(
     appt: dict,
     template: dict,
@@ -171,6 +184,17 @@ def _matches_template(
     Confirmed follow-up templates are filtered by SQL in process_reminders (confirmedAt IS NOT NULL);
     this function returns True for them so get_reminder_preview can show them as conditionally pending.
     """
+    min_age = template.get("minAgeYears")
+    max_age = template.get("maxAgeYears")
+    if min_age is not None or max_age is not None:
+        age = _compute_age_years(appt.get("dob"))
+        if age is None:
+            return False
+        if min_age is not None and age < min_age:
+            return False
+        if max_age is not None and age > max_age:
+            return False
+
     if template.get("isNoReplyFollowUp"):
         return has_prior_sent and not appt.get("confirmedAt")
 
@@ -220,7 +244,7 @@ def get_reminder_preview(
             f"""
             SELECT a.id, a.startTime, a.daEval, a.locationKey, a.calendarEventTitle,
                    a.cancelled, a.rescheduled, a.placeholder, a.doNotRemind, a.billingOnly,
-                   a.confirmedAt, c.language, c.phoneNumber,
+                   a.confirmedAt, c.language, c.phoneNumber, c.dob,
                    o.prettyName AS officeLabel, o.locationPhrase AS officeLocationPhrase
             FROM {TABLE_APPOINTMENT} a
             JOIN {TABLE_CLIENT} c ON a.clientId = c.id
@@ -412,6 +436,10 @@ async def process_reminders(connection: Connection[DictCursor]) -> None:
                         criteria_parts.append(f"daEval={template['triggerDaEval']}")
                     if raw_location:
                         criteria_parts.append(f"locations={raw_location}")
+                    if template.get("minAgeYears") is not None:
+                        criteria_parts.append(f"minAge={template['minAgeYears']}")
+                    if template.get("maxAgeYears") is not None:
+                        criteria_parts.append(f"maxAge={template['maxAgeYears']}")
                     template_type = (
                         f"standard ({', '.join(criteria_parts) or 'global'})"
                     )
@@ -425,7 +453,7 @@ async def process_reminders(connection: Connection[DictCursor]) -> None:
                     # Candidates: not yet sent this template, at least one other template was sent,
                     # not suppressed. _matches_template post-filter enforces confirmedAt IS NULL.
                     query = f"""
-                        SELECT a.*, c.firstName, c.lastName, c.preferredName, c.phoneNumber,
+                        SELECT a.*, c.firstName, c.lastName, c.preferredName, c.phoneNumber, c.dob,
                                o.prettyName AS officeLabel, o.locationPhrase AS officeLocationPhrase
                         FROM {TABLE_APPOINTMENT} a
                         JOIN {TABLE_CLIENT} c ON a.clientId = c.id
@@ -453,7 +481,7 @@ async def process_reminders(connection: Connection[DictCursor]) -> None:
                     # confirmedAt IS NOT NULL stays in SQL (not mirrored in _matches_template)
                     # because preview and sending have different semantics for confirmed follow-ups.
                     query = f"""
-                        SELECT a.*, c.firstName, c.lastName, c.preferredName, c.phoneNumber,
+                        SELECT a.*, c.firstName, c.lastName, c.preferredName, c.phoneNumber, c.dob,
                                o.prettyName AS officeLabel, o.locationPhrase AS officeLocationPhrase
                         FROM {TABLE_APPOINTMENT} a
                         JOIN {TABLE_CLIENT} c ON a.clientId = c.id
@@ -478,7 +506,7 @@ async def process_reminders(connection: Connection[DictCursor]) -> None:
                     # Candidates: not yet sent, not suppressed, within time window.
                     # _matches_template post-filter enforces confirmedAt IS NULL and keyword/daEval/location.
                     query = f"""
-                        SELECT a.*, c.firstName, c.lastName, c.preferredName, c.phoneNumber,
+                        SELECT a.*, c.firstName, c.lastName, c.preferredName, c.phoneNumber, c.dob,
                                o.prettyName AS officeLabel, o.locationPhrase AS officeLocationPhrase
                         FROM {TABLE_APPOINTMENT} a
                         JOIN {TABLE_CLIENT} c ON a.clientId = c.id
@@ -508,15 +536,7 @@ async def process_reminders(connection: Connection[DictCursor]) -> None:
                         if _matches_template(a, template, has_prior_sent=True)
                     ]
                     if template.get("isNoReplyFollowUp")
-                    else (
-                        raw_appointments
-                        if template.get("isConfirmedFollowUp")
-                        else [
-                            a
-                            for a in raw_appointments
-                            if _matches_template(a, template)
-                        ]
-                    )
+                    else [a for a in raw_appointments if _matches_template(a, template)]
                 )
 
                 is_standard = not template.get(
