@@ -90,7 +90,7 @@ export function localDate(utcDate: Date): Date {
 // Real-time Date objects (e.g. from Google Calendar, or a native date/time
 // picker) need to be relabeled the same way real appointments are stored -
 // naive America/New_York wall-clock values labeled UTC (see
-// getLocalTimeFromUTCDate) - or they render shifted by the Eastern UTC
+// toBusinessZonedTime) - or they render shifted by the Eastern UTC
 // offset. This assumes the browser's local timezone is America/New_York,
 // matching that existing convention.
 export function toFakeUtcDate(date: Date): Date {
@@ -771,7 +771,8 @@ export function CalendarMultiDayView({
 						const dayAppts = byDate.get(d) ?? [];
 						const lanes = assignLanes(dayAppts);
 						const dayAvailability = byDateAvailability.get(d) ?? [];
-						const isEmpty = dayAppts.length === 0 && dayAvailability.length === 0;
+						const isEmpty =
+							dayAppts.length === 0 && dayAvailability.length === 0;
 						return (
 							// biome-ignore lint/a11y/noStaticElementInteractions: click position picks a time, there's no spatial keyboard equivalent - the scheduling helper page this links to has a fully keyboard-accessible manual time input.
 							// biome-ignore lint/a11y/useKeyWithClickEvents: see above.

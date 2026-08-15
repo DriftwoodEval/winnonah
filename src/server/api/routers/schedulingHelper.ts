@@ -12,6 +12,7 @@ import {
 	protectedProcedure,
 } from "~/server/api/trpc";
 import {
+	appointmentCheckins,
 	appointments,
 	clients,
 	evaluators,
@@ -186,11 +187,24 @@ export const schedulingHelperRouter = createTRPCRouter({
 					officeName: offices.prettyName,
 					evaluatorNpi: appointments.evaluatorNpi,
 					evaluatorName: evaluators.providerName,
+					arrivedAt: appointmentCheckins.arrivedAt,
+					arrivedBy: appointmentCheckins.arrivedBy,
+					arrivedNote: appointmentCheckins.arrivedNote,
+					startedAt: appointmentCheckins.startedAt,
+					startedBy: appointmentCheckins.startedBy,
+					startedNote: appointmentCheckins.startedNote,
+					leftAt: appointmentCheckins.leftAt,
+					leftBy: appointmentCheckins.leftBy,
+					leftNote: appointmentCheckins.leftNote,
 				})
 				.from(appointments)
 				.innerJoin(evaluators, eq(appointments.evaluatorNpi, evaluators.npi))
 				.innerJoin(clients, eq(appointments.clientId, clients.id))
 				.leftJoin(offices, eq(appointments.locationKey, offices.key))
+				.leftJoin(
+					appointmentCheckins,
+					eq(appointmentCheckins.appointmentId, appointments.id),
+				)
 				.where(
 					and(
 						gte(appointments.startTime, startOfDay),
