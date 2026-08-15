@@ -25,7 +25,7 @@ const log = logger.child({ module: "dashboard-history" });
  * proactively refresh here, with the matching client, before building the
  * session.
  */
-async function getServiceSession(): Promise<Session> {
+export async function getServiceSession(): Promise<Session> {
 	const tokenPath = path.resolve("python/auth_cache/token.json");
 	const credentialsPath = path.resolve("python/auth_cache/credentials.json");
 
