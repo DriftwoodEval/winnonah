@@ -834,6 +834,112 @@ export const questionnaireRelations = relations(questionnaires, ({ one }) => ({
 	}),
 }));
 
+export const questionnaireReminderSettings = createTable(
+	"questionnaire_reminder_settings",
+	(d) => ({
+		id: d.int().notNull().autoincrement().primaryKey(),
+		stage2OffsetDays: d.int().notNull().default(14),
+		stage3OffsetDays: d.int().notNull().default(7),
+		escalationSilenceDays: d.int().notNull().default(3),
+	}),
+);
+
+export const questionnaireReminderTemplates = createTable(
+	"questionnaire_reminder_template",
+	(d) => ({
+		id: d.int().notNull().autoincrement().primaryKey(),
+		reminderIndex: d.int().notNull(),
+		variant: d
+			.mysqlEnum("variant", ["DEFAULT", "POSTDA", "POSTEVAL"])
+			.notNull(),
+		message: d.text().notNull(),
+		updatedAt: d
+			.timestamp("updated_at")
+			.onUpdateNow()
+			.default(sql`CURRENT_TIMESTAMP`),
+		updatedBy: d.varchar("updated_by", { length: 255 }),
+	}),
+	(t) => [
+		uniqueIndex("q_reminder_template_stage_variant_idx").on(
+			t.reminderIndex,
+			t.variant,
+		),
+	],
+);
+
+export const questionnaireReminderOverrides = createTable(
+	"questionnaire_reminder_override",
+	(d) => ({
+		clientId: d
+			.int()
+			.notNull()
+			.references(() => clients.id, { onDelete: "cascade" }),
+		sent: d.date({ mode: "string" }).notNull(),
+		reminderIndex: d.int().notNull(),
+		message: d.text().notNull(),
+		createdAt: d
+			.timestamp("created_at")
+			.default(sql`CURRENT_TIMESTAMP`)
+			.notNull(),
+		updatedAt: d
+			.timestamp("updated_at")
+			.onUpdateNow()
+			.default(sql`CURRENT_TIMESTAMP`),
+		updatedBy: d.varchar("updated_by", { length: 255 }),
+	}),
+	(t) => [
+		primaryKey({
+			columns: [t.clientId, t.sent, t.reminderIndex],
+			name: "q_reminder_override_pk",
+		}),
+		index("q_reminder_override_client_idx").on(t.clientId),
+	],
+);
+
+export const questionnaireReminderOverrideHistory = createTable(
+	"questionnaire_reminder_override_history",
+	(d) => ({
+		id: d.int().notNull().autoincrement().primaryKey(),
+		clientId: d.int().notNull(),
+		sent: d.date({ mode: "string" }).notNull(),
+		reminderIndex: d.int().notNull(),
+		message: d.text().notNull(),
+		updatedBy: d.varchar("updated_by", { length: 255 }),
+		createdAt: d
+			.timestamp("created_at")
+			.default(sql`CURRENT_TIMESTAMP`)
+			.notNull(),
+	}),
+	(t) => [
+		index("q_reminder_override_history_idx").on(t.clientId, t.sent),
+		foreignKey({
+			columns: [t.clientId],
+			foreignColumns: [clients.id],
+			name: "q_reminder_override_history_client_fk",
+		}).onDelete("cascade"),
+	],
+);
+
+export const questionnaireReminderOverrideRelations = relations(
+	questionnaireReminderOverrides,
+	({ one }) => ({
+		client: one(clients, {
+			fields: [questionnaireReminderOverrides.clientId],
+			references: [clients.id],
+		}),
+	}),
+);
+
+export const questionnaireReminderOverrideHistoryRelations = relations(
+	questionnaireReminderOverrideHistory,
+	({ one }) => ({
+		client: one(clients, {
+			fields: [questionnaireReminderOverrideHistory.clientId],
+			references: [clients.id],
+		}),
+	}),
+);
+
 export const inPersonAssessmentRelations = relations(
 	inPersonAssessments,
 	({ one }) => ({
