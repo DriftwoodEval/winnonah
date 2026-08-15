@@ -68,6 +68,7 @@ from utils.waze import (
     get_drive_time,
     save_drive_time,
 )
+from utils.timezone import business_to_utc
 
 load_dotenv()
 
@@ -924,14 +925,18 @@ async def create_placeholder_appointment(
     if evaluator_email is None:
         raise HTTPException(status_code=404, detail="Evaluator not found")
 
-    # Times are treated as naive America/New_York wall-clock values, matching how
-    # real appointment times are stored (see put_appointment_in_db).
-    start_time = request.start_time.replace(tzinfo=None)
-    end_time = request.end_time.replace(tzinfo=None)
+    # request.start_time/end_time are naive business-local wall-clock values
+    # (the client sends them with no UTC offset). Google Calendar wants that
+    # naive value paired with an explicit timeZone (see create_placeholder_event),
+    # while the DB stores true UTC instants, so localize before writing.
+    start_time_business = request.start_time.replace(tzinfo=None)
+    end_time_business = request.end_time.replace(tzinfo=None)
+    start_time = business_to_utc(start_time_business)
+    end_time = business_to_utc(end_time_business)
 
     title = build_placeholder_title(client_name, request.da_eval, request.location_key)
     calendar_event_id = create_placeholder_event(
-        evaluator_email, title, start_time, end_time
+        evaluator_email, title, start_time_business, end_time_business
     )
 
     appointment_id = f"plchldr-{uuid4()}"
@@ -948,7 +953,7 @@ async def create_placeholder_appointment(
         gcal_event_title=title,
         placeholder=True,
     )
-    clear_planned_office_events(evaluator_email, start_time.date())
+    clear_planned_office_events(evaluator_email, start_time_business.date())
 
     return {
         "id": appointment_id,
