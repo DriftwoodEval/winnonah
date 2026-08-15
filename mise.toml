@@ -113,6 +113,10 @@ run = "pnpm exec tsx scripts/validate-changelog.ts"
 description = "Type-check and lint everything (TS + Python)"
 depends = ["check:pnpm", "check:ruff", "check:changelog"]
 
+[tasks."test:pnpm"]
+description = "Run TS unit tests"
+run = "pnpm test"
+
 [tasks."test:python"]
 description = "Run Python unit tests"
 dir = "python"
