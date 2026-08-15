@@ -17,12 +17,14 @@ import { Separator } from "@ui/separator";
 import { ToggleGroup, ToggleGroupItem } from "@ui/toggle-group";
 import { TooltipProvider } from "@ui/tooltip";
 import { addDays, format, startOfWeek } from "date-fns";
+import { fromZonedTime } from "date-fns-tz";
 import { ChevronDown, ChevronLeft, ChevronRight } from "lucide-react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { useEffect, useMemo, useState } from "react";
 import { useCheckPermission } from "~/hooks/use-check-permission";
+import { BUSINESS_TIMEZONE } from "~/lib/constants";
 import { IS_DEV } from "~/lib/utils";
 import { api, type RouterOutputs } from "~/trpc/react";
 import { CheckInOutControl } from "../appointments/CheckInOutControl";
@@ -37,7 +39,6 @@ import {
 	DAY_START,
 	type DateAvailabilityWindow,
 	formatTime,
-	toFakeUtcDate,
 } from "./CalendarGrid";
 import {
 	ApptMessagesPopover,
@@ -66,7 +67,10 @@ function eventCoversDate(
 	event: RawAvailabilityEvent,
 	dateStr: string,
 ): boolean {
-	const dayStart = new Date(`${dateStr}T00:00:00`).getTime();
+	const dayStart = fromZonedTime(
+		`${dateStr}T00:00:00`,
+		BUSINESS_TIMEZONE,
+	).getTime();
 	const dayEnd = dayStart + 24 * 60 * 60 * 1000;
 	return (
 		new Date(event.start).getTime() < dayEnd &&
@@ -75,12 +79,14 @@ function eventCoversDate(
 }
 
 function allDayWindowFor(dateStr: string): { start: Date; end: Date } {
-	const day = new Date(`${dateStr}T00:00:00`);
-	const start = new Date(day);
-	start.setHours(DAY_START, 0, 0, 0);
-	const end = new Date(day);
-	end.setHours(DAY_END, 0, 0, 0);
-	return { start, end };
+	const pad = (n: number) => String(n).padStart(2, "0");
+	return {
+		start: fromZonedTime(
+			`${dateStr}T${pad(DAY_START)}:00:00`,
+			BUSINESS_TIMEZONE,
+		),
+		end: fromZonedTime(`${dateStr}T${pad(DAY_END)}:00:00`, BUSINESS_TIMEZONE),
+	};
 }
 
 function minutesToTimeString(minutesFromMidnight: number): string {
@@ -507,8 +513,8 @@ export function DayAheadContent() {
 					: { start: new Date(event.start), end: new Date(event.end) };
 				windows.push({
 					evaluatorNpi: npi,
-					start: toFakeUtcDate(start),
-					end: toFakeUtcDate(end),
+					start,
+					end,
 				});
 			}
 		}
@@ -550,8 +556,8 @@ export function DayAheadContent() {
 			for (const m of merged) {
 				result.push({
 					date: d,
-					start: toFakeUtcDate(new Date(m.start)),
-					end: toFakeUtcDate(new Date(m.end)),
+					start: new Date(m.start),
+					end: new Date(m.end),
 				});
 			}
 		}

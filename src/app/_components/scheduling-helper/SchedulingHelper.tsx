@@ -25,6 +25,7 @@ import {
 	TooltipProvider,
 	TooltipTrigger,
 } from "@ui/tooltip";
+import { fromZonedTime } from "date-fns-tz";
 import {
 	AlertTriangle,
 	ChevronDown,
@@ -46,11 +47,11 @@ import {
 	CalendarDayView,
 	DAY_END,
 	DAY_START,
-	toFakeUtcDate,
 } from "~/app/_components/day-ahead/CalendarGrid";
 import type { SortedClient } from "~/lib/api-types";
+import { BUSINESS_TIMEZONE } from "~/lib/constants";
 import type { CalendarEvent } from "~/lib/google";
-import { IS_DEV, toBusinessZonedTime } from "~/lib/utils";
+import { formatInBusinessTime, IS_DEV } from "~/lib/utils";
 import { api, type RouterOutputs } from "~/trpc/react";
 
 const APPOINTMENT_TYPES = ["DA", "EVAL", "DAEVAL"] as const;
@@ -71,14 +72,11 @@ function pad(n: number) {
 	return n.toString().padStart(2, "0");
 }
 
-// Formats a real Date into a naive "YYYY-MM-DDTHH:mm:ss" wall-clock string using
-// local getters. Appointment times are stored as naive America/New_York wall-clock
-// values throughout the app (see appointments.ts getDayAhead), so this assumes the
-// browser's local timezone is America/New_York, matching that existing convention.
-function toNaiveWallClockString(date: Date) {
-	return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(
-		date.getHours(),
-	)}:${pad(date.getMinutes())}:00`;
+// Formats a genuine UTC instant as a naive business-local "YYYY-MM-DDTHH:mm:ss"
+// wall-clock string, for the placeholder-creation API, which localizes it back
+// to true UTC before storing (see business_to_utc in python/api.py).
+function toBusinessWallClockString(date: Date) {
+	return formatInBusinessTime(date, "yyyy-MM-dd'T'HH:mm:ss");
 }
 
 function dateToDayString(date: Date) {
@@ -163,8 +161,11 @@ function eventMatchesOffice(
 }
 
 function eventCoversDay(event: CalendarEvent, day: string): boolean {
-	const dayStart = dayStringToLocalDate(day).getTime();
-	const dayEnd = addDays(dayStringToLocalDate(day), 1).getTime();
+	const dayStart = fromZonedTime(
+		`${day}T00:00:00`,
+		BUSINESS_TIMEZONE,
+	).getTime();
+	const dayEnd = dayStart + 24 * 60 * 60 * 1000;
 	return event.start.getTime() < dayEnd && event.end.getTime() > dayStart;
 }
 
@@ -552,8 +553,8 @@ function SchedulingHelperGrid({
 		);
 		return {
 			id: "preview",
-			startTime: toFakeUtcDate(selectedSlot.start),
-			endTime: toFakeUtcDate(realEnd),
+			startTime: selectedSlot.start,
+			endTime: realEnd,
 			daEval: appointmentType,
 			asdAdhd: null,
 			confirmedAt: null,
@@ -606,7 +607,6 @@ function SchedulingHelperGrid({
 	const evaluatorDayAvailability: AvailabilityWindow[] = useMemo(() => {
 		if (!selectedCell || !availabilityByNpi) return [];
 		const events = availabilityByNpi[selectedCell.npi] ?? [];
-		const day = dayStringToLocalDate(selectedCell.date);
 		return events
 			.filter(
 				(event) =>
@@ -620,34 +620,32 @@ function SchedulingHelperGrid({
 				// draw those as spanning the whole visible day instead of using
 				// their raw start/end.
 				if (event.isAllDay) {
-					const start = new Date(day);
-					start.setHours(DAY_START, 0, 0, 0);
-					const end = new Date(day);
-					end.setHours(DAY_END, 0, 0, 0);
 					return {
 						evaluatorNpi: selectedCell.npi,
-						start: toFakeUtcDate(start),
-						end: toFakeUtcDate(end),
+						start: fromZonedTime(
+							`${selectedCell.date}T${pad(DAY_START)}:00:00`,
+							BUSINESS_TIMEZONE,
+						),
+						end: fromZonedTime(
+							`${selectedCell.date}T${pad(DAY_END)}:00:00`,
+							BUSINESS_TIMEZONE,
+						),
 					};
 				}
 				return {
 					evaluatorNpi: selectedCell.npi,
-					start: toFakeUtcDate(event.start),
-					end: toFakeUtcDate(event.end),
+					start: event.start,
+					end: event.end,
 				};
 			});
 	}, [selectedCell, availabilityByNpi]);
 
 	const busyRanges = useMemo(
 		() =>
-			(dayAppointments ?? [])
-				.map((appt) => {
-					const start = toBusinessZonedTime(appt.startTime);
-					const end = toBusinessZonedTime(appt.endTime);
-					if (!start || !end) return null;
-					return { start: start.getTime(), end: end.getTime() };
-				})
-				.filter((range): range is { start: number; end: number } => !!range),
+			(dayAppointments ?? []).map((appt) => ({
+				start: new Date(appt.startTime).getTime(),
+				end: new Date(appt.endTime).getTime(),
+			})),
 		[dayAppointments],
 	);
 
@@ -718,10 +716,11 @@ function SchedulingHelperGrid({
 	const [manualTime, setManualTime] = useState(prefill?.time ?? "09:00");
 
 	const manualSlot = useMemo(() => {
-		if (!selectedCell) return null;
-		const [hours, minutes] = manualTime.split(":").map(Number);
-		const start = dayStringToLocalDate(selectedCell.date);
-		start.setHours(hours ?? 9, minutes ?? 0, 0, 0);
+		if (!selectedCell || !/^\d{2}:\d{2}$/.test(manualTime)) return null;
+		const start = fromZonedTime(
+			`${selectedCell.date}T${manualTime}:00`,
+			BUSINESS_TIMEZONE,
+		);
 		const end = new Date(start.getTime() + durationMinutes * 60000);
 		return { start, end };
 	}, [selectedCell, manualTime, durationMinutes]);
@@ -748,15 +747,20 @@ function SchedulingHelperGrid({
 		const snapped =
 			Math.round(minutesFromMidnight / MANUAL_TIME_SNAP_MINUTES) *
 			MANUAL_TIME_SNAP_MINUTES;
-		const start = dayStringToLocalDate(selectedCell.date);
-		start.setHours(0, snapped, 0, 0);
+		const totalMinutes = ((snapped % (24 * 60)) + 24 * 60) % (24 * 60);
+		const hh = pad(Math.floor(totalMinutes / 60));
+		const mm = pad(totalMinutes % 60);
+		const start = fromZonedTime(
+			`${selectedCell.date}T${hh}:${mm}:00`,
+			BUSINESS_TIMEZONE,
+		);
 		const end = new Date(start.getTime() + durationMinutes * 60000);
 		const error = manualSlotErrorFor(start, end);
 		if (error) {
 			toast.error(error);
 			return;
 		}
-		setManualTime(`${pad(start.getHours())}:${pad(start.getMinutes())}`);
+		setManualTime(`${hh}:${mm}`);
 		setSelectedSlot({ start, durationMinutes });
 	}
 
@@ -808,8 +812,8 @@ function SchedulingHelperGrid({
 		createPlaceholder.mutate({
 			clientId: effectiveClient.id,
 			evaluatorNpi: selectedCell.npi,
-			startTime: toNaiveWallClockString(selectedSlot.start),
-			endTime: toNaiveWallClockString(end),
+			startTime: toBusinessWallClockString(selectedSlot.start),
+			endTime: toBusinessWallClockString(end),
 			daEval: appointmentType,
 			locationKey: office,
 		});
@@ -1259,10 +1263,7 @@ function SchedulingHelperGrid({
 												size="sm"
 												variant={isSelected ? "default" : "outline"}
 											>
-												{start.toLocaleTimeString([], {
-													hour: "numeric",
-													minute: "2-digit",
-												})}
+												{formatInBusinessTime(start, "h:mm a")}
 											</Button>
 										);
 									})}
@@ -1308,18 +1309,14 @@ function SchedulingHelperGrid({
 									<div className="flex flex-wrap items-center gap-2 text-sm">
 										<span>Confirm placeholder for</span>
 										<Badge variant="secondary">
-											{selectedSlot.start.toLocaleTimeString([], {
-												hour: "numeric",
-												minute: "2-digit",
-											})}{" "}
-											-{" "}
-											{new Date(
-												selectedSlot.start.getTime() +
-													selectedSlot.durationMinutes * 60000,
-											).toLocaleTimeString([], {
-												hour: "numeric",
-												minute: "2-digit",
-											})}
+											{formatInBusinessTime(selectedSlot.start, "h:mm a")} -{" "}
+											{formatInBusinessTime(
+												new Date(
+													selectedSlot.start.getTime() +
+														selectedSlot.durationMinutes * 60000,
+												),
+												"h:mm a",
+											)}
 										</Badge>
 										<Badge variant="outline">{appointmentType}</Badge>
 										<Badge variant="outline">{office}</Badge>
@@ -1405,8 +1402,12 @@ function SchedulingHelperGrid({
 										<div className="flex flex-col gap-1 overflow-x-auto rounded-md border p-2 font-mono text-[10px]">
 											{dayAppointments.map((appt) => (
 												<div className="whitespace-nowrap" key={appt.id}>
-													{new Date(appt.startTime).toLocaleString()}-
-													{new Date(appt.endTime).toLocaleString()} | office=
+													{formatInBusinessTime(
+														appt.startTime,
+														"M/d/yy h:mm a",
+													)}
+													-{formatInBusinessTime(appt.endTime, "h:mm a")} |
+													office=
 													{appt.locationKey ?? appt.officeName ?? "none"} |
 													placeholder={String(appt.placeholder)}
 												</div>

@@ -1,11 +1,14 @@
+import { fromZonedTime } from "date-fns-tz";
 import { and, asc, eq, gte, inArray, lte, ne } from "drizzle-orm";
 import { z } from "zod";
 import { env } from "~/env";
+import { BUSINESS_TIMEZONE } from "~/lib/constants";
 import {
 	classifyAvailabilityEvents,
 	mergeOutOfOfficeEvents,
 	splitAvailabilityByOOO,
 } from "~/lib/google";
+import { formatInBusinessTime } from "~/lib/utils";
 import {
 	assertPermission,
 	createTRPCRouter,
@@ -120,16 +123,15 @@ export const schedulingHelperRouter = createTRPCRouter({
 		.query(async ({ ctx, input }) => {
 			assertPermission(ctx.session.user, SCHEDULING_PERMISSION);
 
-			// appointment startTime/endTime are stored as naive America/New_York
-			// wall-clock values (see put_appointment_in_db), so day boundaries must be
-			// built the same way getDayAhead does: parse the date's y/m/d locally,
-			// then re-anchor with Date.UTC so no timezone shift is applied.
-			const ref = new Date(`${input.date}T00:00:00`);
-			const startOfDay = new Date(
-				Date.UTC(ref.getFullYear(), ref.getMonth(), ref.getDate(), 0, 0, 0),
+			// Business-local calendar day, converted to true UTC boundaries
+			// regardless of the server process's own timezone (see getDayAhead).
+			const startOfDay = fromZonedTime(
+				`${input.date}T00:00:00`,
+				BUSINESS_TIMEZONE,
 			);
-			const endOfDay = new Date(
-				Date.UTC(ref.getFullYear(), ref.getMonth(), ref.getDate(), 23, 59, 59),
+			const endOfDay = fromZonedTime(
+				`${input.date}T23:59:59.999`,
+				BUSINESS_TIMEZONE,
 			);
 
 			return ctx.db
@@ -164,12 +166,15 @@ export const schedulingHelperRouter = createTRPCRouter({
 		.query(async ({ ctx, input }) => {
 			assertPermission(ctx.session.user, SCHEDULING_PERMISSION);
 
-			const ref = new Date(`${input.date}T00:00:00`);
-			const startOfDay = new Date(
-				Date.UTC(ref.getFullYear(), ref.getMonth(), ref.getDate(), 0, 0, 0),
+			// Business-local calendar day, converted to true UTC boundaries
+			// regardless of the server process's own timezone (see getDayAhead).
+			const startOfDay = fromZonedTime(
+				`${input.date}T00:00:00`,
+				BUSINESS_TIMEZONE,
 			);
-			const endOfDay = new Date(
-				Date.UTC(ref.getFullYear(), ref.getMonth(), ref.getDate(), 23, 59, 59),
+			const endOfDay = fromZonedTime(
+				`${input.date}T23:59:59.999`,
+				BUSINESS_TIMEZONE,
 			);
 
 			const rows = await ctx.db
@@ -225,8 +230,9 @@ export const schedulingHelperRouter = createTRPCRouter({
 				clientId: z.number(),
 				evaluatorNpi: z.number(),
 				// Naive "YYYY-MM-DDTHH:mm:ss" wall-clock strings (America/New_York, no
-				// offset) - matching how real appointment times are stored. Do not send
-				// a Date/.toISOString() here, that would introduce a timezone shift.
+				// offset). The API localizes these to true UTC before storing (see
+				// business_to_utc in python/api.py). Do not send a Date/.toISOString()
+				// here, that would introduce a timezone shift.
 				startTime: z.string(),
 				endTime: z.string(),
 				daEval: z.enum(["EVAL", "DA", "DAEVAL"]),
@@ -342,7 +348,7 @@ export const schedulingHelperRouter = createTRPCRouter({
 				result[row.evaluatorNpi] ??= [];
 				const list = result[row.evaluatorNpi];
 				list?.push({
-					date: row.startTime.toISOString().slice(0, 10),
+					date: formatInBusinessTime(row.startTime, "yyyy-MM-dd"),
 					locationKey: row.locationKey,
 					officeName: row.officeName,
 					placeholder: row.placeholder,

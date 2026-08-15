@@ -87,25 +87,6 @@ export function localDate(utcDate: Date): Date {
 	return toBusinessZonedTime(utcDate) ?? new Date(utcDate);
 }
 
-// Real-time Date objects (e.g. from Google Calendar, or a native date/time
-// picker) need to be relabeled the same way real appointments are stored -
-// naive America/New_York wall-clock values labeled UTC (see
-// toBusinessZonedTime) - or they render shifted by the Eastern UTC
-// offset. This assumes the browser's local timezone is America/New_York,
-// matching that existing convention.
-export function toFakeUtcDate(date: Date): Date {
-	return new Date(
-		Date.UTC(
-			date.getFullYear(),
-			date.getMonth(),
-			date.getDate(),
-			date.getHours(),
-			date.getMinutes(),
-			date.getSeconds(),
-		),
-	);
-}
-
 export function formatTime(utcDate: Date): string {
 	return formatInBusinessTime(utcDate, "h:mm a");
 }
@@ -475,9 +456,8 @@ export function ApptBlock({
 
 export type AvailabilityWindow = {
 	evaluatorNpi: number;
-	// Same "fake UTC" convention as CalAppt.startTime/endTime (see
-	// toFakeUtcDate in SchedulingHelper.tsx) - callers must relabel real
-	// Google Calendar instants before passing them in here.
+	// Genuine UTC instants, same as CalAppt.startTime/endTime - blockTop/
+	// blockHeight convert to business time via toBusinessZonedTime.
 	start: Date;
 	end: Date;
 };
