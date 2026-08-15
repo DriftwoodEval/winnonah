@@ -41,6 +41,7 @@ ENV CRON_SCHEDULE="0 */4 * * *" \
     NOTIFY_CRON_SCHEDULE="0 * * * *" \
     CATEGORIZATION_CRON_SCHEDULE="*/5 * * * *" \
     BABYNET_REPORT_CRON_SCHEDULE="0 1 * * 6" \
-    OFFICE_DRIVE_TIMES_CRON_SCHEDULE="*/5 * * * *"
+    OFFICE_DRIVE_TIMES_CRON_SCHEDULE="*/5 * * * *" \
+    REFERRAL_STATUS_FAX_CRON_SCHEDULE="0 13 * * 1"
 
 ENTRYPOINT ["/app/entrypoint-winnonah-python.sh"]
