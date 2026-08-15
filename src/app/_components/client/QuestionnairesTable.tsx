@@ -44,6 +44,7 @@ import {
 import { api } from "~/trpc/react";
 import { AddQuestionnaireButton } from "./AddQuestionnaireButton";
 import { ProtocolsScannedCheckbox } from "./ProtocolsScannedCheckbox";
+import { QuestionnaireReminderOverridesSummary } from "./QuestionnaireReminderOverride";
 import { QuestionnaireActionsMenu } from "./QuestionnaireTableActionsMenu";
 import { ScreenshotButton } from "./ScreenshotButton";
 
@@ -177,6 +178,19 @@ export function QuestionnairesTable({
 
 	const visibleQs =
 		questionnairesSent?.filter((q) => q.status !== "ARCHIVED") ?? [];
+
+	const allSentDates = [
+		...new Set(visibleQs.map((q) => q.sent).filter((s): s is string => !!s)),
+	];
+	// Batches whose reminders are fully exhausted (all 3 stages already sent)
+	// have nothing left to override, so don't offer them for customization.
+	const sentDates = allSentDates.filter((sent) => {
+		const maxReminded = Math.max(
+			0,
+			...visibleQs.filter((q) => q.sent === sent).map((q) => q.reminded ?? 0),
+		);
+		return maxReminded < 3;
+	});
 
 	const allVisibleIds = visibleQs.map((q) => q.id);
 	const allSelected =
@@ -320,6 +334,14 @@ export function QuestionnairesTable({
 							</Alert>
 						))}
 					</div>
+				)}
+
+				{clientId && (
+					<QuestionnaireReminderOverridesSummary
+						clientId={clientId}
+						readOnly={readOnly}
+						sentDates={sentDates}
+					/>
 				)}
 
 				{!readOnly && someSelected && (

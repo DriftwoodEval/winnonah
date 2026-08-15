@@ -5,6 +5,7 @@ import AssessmentTypesTable from "@components/settings/AssessmentTypesTable";
 import InsurancesTable from "@components/settings/InsurancesTable";
 import InvitesTable from "@components/settings/InvitesTable";
 import PeopleTable from "@components/settings/PeopleTable";
+import QuestionnaireRemindersSettings from "@components/settings/QuestionnaireRemindersSettings";
 import QuestionnaireRulesTable from "@components/settings/QuestionnaireRulesTable";
 import RolesTable from "@components/settings/RolesTable";
 import WorkSummaryDefaultsSection from "@components/settings/WorkSummaryDefaultsSection";
@@ -83,6 +84,7 @@ export function SettingsTabs() {
 						<InsurancesTable />
 						<AssessmentTypesTable />
 						<QuestionnaireRulesTable />
+						<QuestionnaireRemindersSettings />
 					</div>
 				</TabsContent>
 				<TabsContent value="scheduling">
