@@ -32,7 +32,7 @@ import {
 	TableHeader,
 	TableRow,
 } from "@ui/table";
-import { ArrowDown, ArrowUp, ArrowUpDown, Columns3 } from "lucide-react";
+import { ArrowDown, ArrowUp, ArrowUpDown, Columns3, X } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
@@ -209,6 +209,25 @@ const YES_NO_FILTER_OPTIONS: FilterOption[] = [
 	{ value: "yes", label: "Yes" },
 	{ value: "no", label: "No" },
 ];
+
+// Every URL param that represents a filter (as opposed to name search, sort,
+// or column layout), cleared together by the "Clear filters" button.
+const FILTER_PARAM_KEYS = [
+	"for",
+	"insurance",
+	"secondaryInsurance",
+	"language",
+	"status",
+	"color",
+	"priority",
+	"daQs",
+	"evalQs",
+	"priorAuthDate",
+	"daScheduled",
+	"evalScheduled",
+	"paAssignedTo",
+	"hasFailures",
+] as const;
 
 type QsPrefix = "DA" | "EVAL";
 type QsPunchRow = Pick<
@@ -496,6 +515,15 @@ const BASE_COLOR_OPTIONS: FilterOption[] = CLIENT_COLOR_KEYS.map((key) => ({
 	swatch: getHexFromColor(key),
 }));
 
+// Folded into the Name column's color filter as an extra checkbox option
+// rather than a second filter icon, so it lives inside the value namespace
+// of `color`. Doesn't collide with real color keys.
+const HAS_FAILURES_FILTER_VALUE = "__hasFailures__";
+const HAS_FAILURES_FILTER_OPTION: FilterOption = {
+	value: HAS_FAILURES_FILTER_VALUE,
+	label: "Unresolved Failures",
+};
+
 interface DirectoryFilters {
 	for?: string[];
 	insurance?: string[];
@@ -510,6 +538,7 @@ interface DirectoryFilters {
 	daScheduled?: string[];
 	evalScheduled?: string[];
 	paAssignedTo?: string[];
+	hasFailures?: boolean;
 	sort?: string;
 	sortDir?: string;
 	columns?: Partial<Record<ToggleKey, boolean>>;
@@ -908,6 +937,7 @@ export function ClientDirectory() {
 	const daScheduledFilter = getArrayParam("daScheduled");
 	const evalScheduledFilter = getArrayParam("evalScheduled");
 	const paAssignedTo = getArrayParam("paAssignedTo");
+	const hasFailures = searchParams.get("hasFailures") === "true";
 	// "priority" is the default, matching the homepage client search sort.
 	const rawSort = searchParams.get("sort");
 	const sort: SortKey = isSortKey(rawSort) ? rawSort : "priority";
@@ -973,6 +1003,9 @@ export function ClientDirectory() {
 		? evalScheduledFilter
 		: [];
 	const effectivePaAssignedTo = visibleColumns.paAssignedTo ? paAssignedTo : [];
+	const effectiveHasFailures = visibleColumns[FAILURES_TOGGLE_KEY]
+		? hasFailures
+		: false;
 
 	// The Status column only earns its keep when we're not already filtered to one status
 	const statusColumnVisible = status === "all";
@@ -1049,6 +1082,16 @@ export function ClientDirectory() {
 		router.push(`${pathname}?${params.toString()}`);
 	};
 
+	const hasActiveFilters = FILTER_PARAM_KEYS.some((key) =>
+		searchParams.has(key),
+	);
+
+	const clearAllFilters = () => {
+		const params = new URLSearchParams(searchParams.toString());
+		for (const key of FILTER_PARAM_KEYS) params.delete(key);
+		router.push(`${pathname}?${params.toString()}`);
+	};
+
 	const { data: allInsurances } = api.insurances.getAll.useQuery();
 	const { data: languageOptions } = api.clients.getUniqueLanguages.useQuery();
 	const { data: punchData } = api.google.getPunch.useQuery();
@@ -1065,7 +1108,12 @@ export function ClientDirectory() {
 		api.sessions.getDirectoryFilters.useQuery();
 	const saveFiltersMutation = api.sessions.saveDirectoryFilters.useMutation();
 
-	const savedFilters = useMemo((): DirectoryFilters | null => {
+	// The raw parsed blob, ungated by the 24h expiry - used for the fields
+	// (columns/columnOrder/sort/sortDir) that should persist indefinitely.
+	const parsedSavedFilters = useMemo((): {
+		savedAt: number;
+		filters: DirectoryFilters;
+	} | null => {
 		if (!savedFiltersData?.directoryFilters) return null;
 		try {
 			const parsed = JSON.parse(savedFiltersData.directoryFilters);
@@ -1076,12 +1124,25 @@ export function ClientDirectory() {
 			) {
 				return null;
 			}
-			if (Date.now() - parsed.savedAt > FILTER_TIMEOUT_MS) return null;
-			return parsed.filters ?? null;
+			return parsed;
 		} catch {
 			return null;
 		}
 	}, [savedFiltersData?.directoryFilters]);
+
+	// Search filters expire after FILTER_TIMEOUT_MS so a user doesn't get stuck
+	// with stale filters. Column visibility/order and sort are a layout
+	// preference, not a filter, so they're read from parsedSavedFilters
+	// directly below instead, with no expiry.
+	const savedFilters = useMemo((): DirectoryFilters | null => {
+		if (!parsedSavedFilters) return null;
+		if (Date.now() - parsedSavedFilters.savedAt > FILTER_TIMEOUT_MS) {
+			return null;
+		}
+		return parsedSavedFilters.filters ?? null;
+	}, [parsedSavedFilters]);
+
+	const savedView = parsedSavedFilters?.filters ?? null;
 
 	// Apply saved filters and column visibility on first load if the URL doesn't
 	// already specify any filters (columns aren't part of the URL, so they're
@@ -1093,28 +1154,42 @@ export function ClientDirectory() {
 			(key) => key !== "name",
 		);
 
-		if (!hasFilterParams && savedFilters) {
+		if (!hasFilterParams) {
 			const params = new URLSearchParams(searchParams.toString());
-			for (const [key, value] of Object.entries(savedFilters)) {
-				if (key === "columns") continue;
-				if (Array.isArray(value)) {
-					if (value.length > 0) params.set(key, value.join(","));
-				} else if (value) {
-					params.set(key, value);
+			if (savedFilters) {
+				for (const [key, value] of Object.entries(savedFilters)) {
+					if (
+						key === "columns" ||
+						key === "columnOrder" ||
+						key === "sort" ||
+						key === "sortDir"
+					) {
+						continue;
+					}
+					if (Array.isArray(value)) {
+						if (value.length > 0) params.set(key, value.join(","));
+					} else if (value) {
+						params.set(key, value);
+					}
 				}
 			}
-			router.replace(`${pathname}?${params.toString()}`);
+			// Sort persists indefinitely, unlike the filters above.
+			if (savedView?.sort) params.set("sort", savedView.sort);
+			if (savedView?.sortDir) params.set("sortDir", savedView.sortDir);
+			if (params.toString() !== searchParams.toString()) {
+				router.replace(`${pathname}?${params.toString()}`);
+			}
 		}
 
-		if (savedFilters?.columns) {
+		if (savedView?.columns) {
 			setVisibleColumns({
 				...DEFAULT_VISIBLE_COLUMNS,
-				...savedFilters.columns,
+				...savedView.columns,
 			});
 		}
 
-		if (savedFilters?.columnOrder) {
-			const saved = savedFilters.columnOrder.filter((key): key is ColumnKey =>
+		if (savedView?.columnOrder) {
+			const saved = savedView.columnOrder.filter((key): key is ColumnKey =>
 				(TOGGLEABLE_COLUMNS as string[]).includes(key),
 			);
 			// Any column added since this order was saved (e.g. a new column
@@ -1123,12 +1198,16 @@ export function ClientDirectory() {
 			setColumnOrder([...saved, ...missing]);
 		}
 
-		lastSavedFiltersRef.current = JSON.stringify(savedFilters ?? {});
+		lastSavedFiltersRef.current = JSON.stringify(
+			parsedSavedFilters?.filters ?? {},
+		);
 		setIsInitialized(true);
 	}, [
 		isInitialized,
 		savedFiltersData,
 		savedFilters,
+		savedView,
+		parsedSavedFilters,
 		searchParams,
 		pathname,
 		router,
@@ -1156,6 +1235,7 @@ export function ClientDirectory() {
 		if (evalScheduledFilter.length)
 			filtersToSave.evalScheduled = evalScheduledFilter;
 		if (paAssignedTo.length) filtersToSave.paAssignedTo = paAssignedTo;
+		if (hasFailures) filtersToSave.hasFailures = true;
 		if (sort !== "priority") filtersToSave.sort = sort;
 		if (sort !== "priority" && sortDir !== "asc")
 			filtersToSave.sortDir = sortDir;
@@ -1253,6 +1333,10 @@ export function ClientDirectory() {
 				if (!effectivePaAssignedTo.includes(assignedTo)) return false;
 			}
 
+			if (effectiveHasFailures && client.unresolvedFailures.length === 0) {
+				return false;
+			}
+
 			return true;
 		});
 
@@ -1273,6 +1357,7 @@ export function ClientDirectory() {
 		effectiveDaScheduledFilter,
 		effectiveEvalScheduledFilter,
 		effectivePaAssignedTo,
+		effectiveHasFailures,
 		effectiveSort,
 		sortDir,
 	]);
@@ -1293,6 +1378,18 @@ export function ClientDirectory() {
 		}
 		return toFilterOptions([...names].sort());
 	}, [rawClients]);
+
+	// Merged into the color facet counts so the Name filter's combined
+	// dropdown can show a count next to "Unresolved Failures" too.
+	const nameFilterCounts = useMemo(() => {
+		const hasFailuresCount = (rawClients ?? []).filter(
+			(client) => client.unresolvedFailures.length > 0,
+		).length;
+		return {
+			...facetCounts?.color.counts,
+			[HAS_FAILURES_FILTER_VALUE]: hasFailuresCount,
+		};
+	}, [rawClients, facetCounts?.color.counts]);
 
 	// One TableHead per reorderable column, keyed so they can be rendered in
 	// whatever order `columnOrder` says instead of this declaration order.
@@ -1608,6 +1705,17 @@ export function ClientDirectory() {
 						))}
 					</DropdownMenuContent>
 				</DropdownMenu>
+				{hasActiveFilters && (
+					<Button
+						className="w-full sm:w-auto"
+						onClick={clearAllFilters}
+						size="sm"
+						variant="outline"
+					>
+						<X className="h-4 w-4" />
+						Clear filters
+					</Button>
+				)}
 			</div>
 
 			{!isMobile && (
@@ -1627,14 +1735,49 @@ export function ClientDirectory() {
 									isScrolledLeft && "shadow-lg",
 								)}
 							>
-								<DirectoryColumnFilter
-									label="Name"
-									onClear={() => clearArrayParam("color")}
-									onToggle={(value) => toggleArrayParam("color", value)}
-									options={BASE_COLOR_OPTIONS}
-									sort={columnSort("name")}
-									values={color}
-								/>
+								<div className="flex items-center gap-1">
+									<SortButton label="Name" {...columnSort("name")} />
+									<ColumnFilter
+										columnName="Name"
+										counts={nameFilterCounts}
+										onFilterChange={(newValues) => {
+											const wantsFailures = newValues.includes(
+												HAS_FAILURES_FILTER_VALUE,
+											);
+											if (wantsFailures !== hasFailures) {
+												updateParam("hasFailures", wantsFailures ? "true" : "");
+												return;
+											}
+											const newColors = newValues.filter(
+												(v) => v !== HAS_FAILURES_FILTER_VALUE,
+											);
+											if (newColors.length === 0) {
+												clearArrayParam("color");
+												return;
+											}
+											for (const value of newColors.filter(
+												(v) => !color.includes(v),
+											)) {
+												toggleArrayParam("color", value);
+											}
+											for (const value of color.filter(
+												(v) => !newColors.includes(v),
+											)) {
+												toggleArrayParam("color", value);
+											}
+										}}
+										options={
+											visibleColumns[FAILURES_TOGGLE_KEY]
+												? [...BASE_COLOR_OPTIONS, HAS_FAILURES_FILTER_OPTION]
+												: BASE_COLOR_OPTIONS
+										}
+										selectedValues={
+											hasFailures
+												? [...color, HAS_FAILURES_FILTER_VALUE]
+												: color
+										}
+									/>
+								</div>
 							</TableHead>
 							<TableHead className={collapsibleCellClass(statusColumnVisible)}>
 								<AnimatedCellContent visible={statusColumnVisible}>
