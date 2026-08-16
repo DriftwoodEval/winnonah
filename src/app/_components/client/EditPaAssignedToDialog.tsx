@@ -24,6 +24,10 @@ export function EditPaAssignedToDialog({
 	const updatePaAssignedTo = api.google.setPaAssignedTo.useMutation({
 		onSuccess: () => {
 			toast.success("PA Assigned To updated successfully");
+			// PA Assigned To is stored on clients.paAssignedTo (kept in sync with
+			// the Punchlist), so refresh the DB-backed reads alongside the sheet.
+			utils.clients.getOne.invalidate();
+			utils.clients.directory.invalidate();
 			utils.google.getClientFromPunch.invalidate(clientId.toString());
 			utils.google.getPunch.invalidate();
 			setOpen(false);

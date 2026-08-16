@@ -411,6 +411,14 @@ export const googleRouter = createTRPCRouter({
 					paAssignedTo: input.paAssignedTo,
 				});
 
+				// The Punchlist sheet stays the source of truth (synced into
+				// clients.paAssignedTo on the next cron run), but write it through
+				// here too so the app reflects the edit immediately.
+				await ctx.db
+					.update(clients)
+					.set({ paAssignedTo: input.paAssignedTo || null })
+					.where(eq(clients.id, input.clientId));
+
 				await invalidateCache(
 					ctx,
 					CACHE_KEY_PUNCHLIST,

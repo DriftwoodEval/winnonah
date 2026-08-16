@@ -91,6 +91,7 @@ CLIENT_COLUMN_MAPPING: Final = {
     "privatePay": "POLICY_PRIVATEPAY",
     "asdAdhd": "ASD_ADHD",
     "language": "LANGUAGE",
+    "paAssignedTo": "PA_ASSIGNED_TO",
     "phoneNumber": "PHONE1",
     "email": "EMAIL",
     "gender": "GENDER",

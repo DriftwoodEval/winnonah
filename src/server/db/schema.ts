@@ -287,6 +287,7 @@ export const clients = createTable(
 			"LD",
 		]),
 		language: d.varchar({ length: 255 }).default("English"),
+		paAssignedTo: d.varchar("pa_assigned_to", { length: 255 }),
 		phoneNumber: d.varchar({ length: 255 }),
 		email: d.varchar({ length: 255 }),
 		gender: d.mysqlEnum(["Male", "Female", "Other"]),
@@ -318,6 +319,7 @@ export const clients = createTable(
 		index("added_date_idx").on(t.addedDate),
 		index("insurance_idx").on(t.primaryInsurance),
 		index("coords_idx").on(t.latitude, t.longitude),
+		index("status_idx").on(t.status),
 	],
 );
 

@@ -5,12 +5,15 @@ import {
 	type FilterOption,
 	toFilterOptions,
 } from "@components/shared/ColumnFilter";
+import type { inferRouterOutputs } from "@trpc/server";
 import { Badge } from "@ui/badge";
 import { Button } from "@ui/button";
+import { Checkbox } from "@ui/checkbox";
 import {
 	DropdownMenu,
 	DropdownMenuCheckboxItem,
 	DropdownMenuContent,
+	DropdownMenuSeparator,
 	DropdownMenuTrigger,
 } from "@ui/dropdown-menu";
 import {
@@ -32,7 +35,15 @@ import {
 import { ArrowDown, ArrowUp, ArrowUpDown, Columns3 } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useMemo, useRef, useState, useTransition } from "react";
+import {
+	memo,
+	useEffect,
+	useMemo,
+	useRef,
+	useState,
+	useTransition,
+} from "react";
+import { useMediaQuery } from "~/hooks/use-media-query";
 import {
 	CLIENT_COLOR_KEYS,
 	type ClientColor,
@@ -44,8 +55,10 @@ import {
 	cn,
 	compareDateOnly,
 	formatClientAge,
-	formatDateOnlyLong,
+	formatShortDate,
+	formatShortInstantDate,
 } from "~/lib/utils";
+import type { AppRouter } from "~/server/api/root";
 import { api } from "~/trpc/react";
 import { Redact } from "../redaction/Redact";
 import { NameSearchInput } from "./NameSearchInput";
@@ -84,6 +97,7 @@ type ColumnKey =
 	| "daScheduled"
 	| "evalScheduled"
 	| "location"
+	| "evaluator"
 	| "paAssignedTo";
 
 const COLUMN_LABELS: Record<ColumnKey, string> = {
@@ -98,6 +112,7 @@ const COLUMN_LABELS: Record<ColumnKey, string> = {
 	daScheduled: "DA Scheduled",
 	evalScheduled: "EVAL Scheduled",
 	location: "Location",
+	evaluator: "Evaluator",
 	paAssignedTo: "PA Assigned To",
 };
 
@@ -113,6 +128,7 @@ const TOGGLEABLE_COLUMNS: ColumnKey[] = [
 	"daScheduled",
 	"evalScheduled",
 	"location",
+	"evaluator",
 	"paAssignedTo",
 ];
 
@@ -139,6 +155,7 @@ const DEFAULT_VISIBLE_COLUMNS: Record<ToggleKey, boolean> = {
 	daScheduled: true,
 	evalScheduled: true,
 	location: true,
+	evaluator: true,
 	paAssignedTo: true,
 	[FAILURES_TOGGLE_KEY]: true,
 };
@@ -160,6 +177,7 @@ const SORT_KEYS = [
 	"daScheduled",
 	"evalScheduled",
 	"location",
+	"evaluator",
 	"paAssignedTo",
 ] as const;
 type SortKey = (typeof SORT_KEYS)[number];
@@ -187,6 +205,11 @@ const QS_FILTER_OPTIONS: FilterOption[] = [
 	{ value: NONE_FILTER_VALUE, label: "None" },
 ];
 
+const YES_NO_FILTER_OPTIONS: FilterOption[] = [
+	{ value: "yes", label: "Yes" },
+	{ value: "no", label: "No" },
+];
+
 type QsPrefix = "DA" | "EVAL";
 type QsPunchRow = Pick<
 	PUNCH_SCHEMA,
@@ -207,6 +230,9 @@ function getQsStage(prefix: QsPrefix, punchRow: QsPunchRow | undefined) {
 	return null;
 }
 
+type DirectoryClient =
+	inferRouterOutputs<AppRouter>["clients"]["directory"][number];
+
 interface SortableClient {
 	id: number;
 	fullName: string;
@@ -220,8 +246,12 @@ interface SortableClient {
 	addedDate: string | Date | null;
 	priorAuthDate: string | null;
 	daScheduled: boolean;
+	daScheduledDate: string | Date | null;
 	evalScheduled: boolean;
+	evalScheduledDate: string | Date | null;
 	location: string | null;
+	evaluator: string | null;
+	paAssignedTo: string | null;
 }
 
 // Mirrors getPriorityInfo()'s SQL buckets/tie-break (server/api/routers/client.ts)
@@ -259,7 +289,6 @@ function compareClients(
 	sort: SortKey,
 	sortDir: "asc" | "desc",
 	getQsRank: (prefix: QsPrefix, clientId: number) => number,
-	getPaAssignedTo: (clientId: number) => string | null,
 ): number {
 	if (sort === "priority") return comparePriority(a, b);
 
@@ -294,8 +323,10 @@ function compareClients(
 			return (Number(a.evalScheduled) - Number(b.evalScheduled)) * dir;
 		case "location":
 			return compareStrings(a.location, b.location) * dir;
+		case "evaluator":
+			return compareStrings(a.evaluator, b.evaluator) * dir;
 		case "paAssignedTo":
-			return compareStrings(getPaAssignedTo(a.id), getPaAssignedTo(b.id)) * dir;
+			return compareStrings(a.paAssignedTo, b.paAssignedTo) * dir;
 		default:
 			return compareStrings(a.fullName, b.fullName) * dir;
 	}
@@ -475,16 +506,388 @@ interface DirectoryFilters {
 	priority?: string[];
 	daQs?: string[];
 	evalQs?: string[];
+	priorAuthDate?: string[];
+	daScheduled?: string[];
+	evalScheduled?: string[];
+	paAssignedTo?: string[];
 	sort?: string;
 	sortDir?: string;
 	columns?: Partial<Record<ToggleKey, boolean>>;
+	columnOrder?: string[];
 }
+
+// Memoized so re-sorting/re-filtering (which produces a new `clients` array
+// but reuses the same client objects) or toggling an unrelated column
+// doesn't re-render every row's cells - only rows whose own props actually
+// changed re-render.
+// Renders a single reorderable column's cell content (just the inner span),
+// shared by the desktop row and, via renderColumnField below, the mobile
+// card - keeps both in sync with a single switch instead of two.
+function renderColumnCellContent(
+	key: ColumnKey,
+	client: DirectoryClient,
+	punchRow: PUNCH_SCHEMA | undefined,
+	isPriority: boolean,
+): React.ReactNode {
+	switch (key) {
+		case "priority":
+			return (
+				<span
+					className={cn(
+						"text-muted-foreground",
+						isPriority && "font-medium text-destructive",
+					)}
+				>
+					{isPriority
+						? formatPriorityReason(client.sortReason, client.dob)
+						: "—"}
+				</span>
+			);
+		case "for":
+			return (
+				<span className="text-muted-foreground">{client.asdAdhd ?? "—"}</span>
+			);
+		case "language":
+			return (
+				<span className="text-muted-foreground">{client.language ?? "—"}</span>
+			);
+		case "daQs":
+			return (
+				<span className="text-muted-foreground">
+					{getQsStage("DA", punchRow) ?? "—"}
+				</span>
+			);
+		case "evalQs":
+			return (
+				<span className="text-muted-foreground">
+					{getQsStage("EVAL", punchRow) ?? "—"}
+				</span>
+			);
+		case "insurance":
+			return (
+				<span className="text-muted-foreground">
+					{client.primaryInsurance ?? "—"}
+				</span>
+			);
+		case "secondaryInsurance":
+			return (
+				<span className="text-muted-foreground">
+					{client.secondaryInsurance.length > 0
+						? client.secondaryInsurance.join(", ")
+						: "—"}
+				</span>
+			);
+		case "priorAuthDate":
+			return (
+				<span className="text-muted-foreground">
+					{formatShortDate(client.priorAuthDate, "—")}
+				</span>
+			);
+		case "daScheduled":
+			return (
+				<span className="text-muted-foreground">
+					{client.daScheduled
+						? formatShortInstantDate(client.daScheduledDate)
+						: "—"}
+				</span>
+			);
+		case "evalScheduled":
+			return (
+				<span className="text-muted-foreground">
+					{client.evalScheduled
+						? formatShortInstantDate(client.evalScheduledDate)
+						: "—"}
+				</span>
+			);
+		case "location":
+			return (
+				<span className="text-muted-foreground">{client.location ?? "—"}</span>
+			);
+		case "evaluator":
+			return (
+				<span className="text-muted-foreground">{client.evaluator ?? "—"}</span>
+			);
+		case "paAssignedTo":
+			return (
+				<span className="text-muted-foreground">
+					{client.paAssignedTo || "—"}
+				</span>
+			);
+		default:
+			return null;
+	}
+}
+
+const ClientTableRow = memo(function ClientTableRow({
+	client,
+	statusColumnVisible,
+	visibleColumns,
+	columnOrder,
+	isScrolledLeft,
+	punchRow,
+}: {
+	client: DirectoryClient;
+	statusColumnVisible: boolean;
+	visibleColumns: Record<ToggleKey, boolean>;
+	columnOrder: ColumnKey[];
+	isScrolledLeft: boolean;
+	punchRow: PUNCH_SCHEMA | undefined;
+}) {
+	const isPriority = PRIORITY_REASONS.has(client.sortReason);
+
+	return (
+		<TableRow
+			style={{
+				contentVisibility: "auto",
+				containIntrinsicSize: "auto 41px",
+			}}
+		>
+			<TableCell
+				className={cn(
+					"sticky left-0 z-10 bg-background font-medium transition-shadow duration-200",
+					isScrolledLeft && "shadow-lg",
+				)}
+			>
+				<Link
+					className="flex flex-wrap items-center gap-2 hover:underline"
+					href={`/clients/${client.hash}`}
+				>
+					<span className="flex items-center gap-2">
+						<span
+							className="h-3 w-3 shrink-0 rounded-full"
+							style={{
+								backgroundColor: getHexFromColor(client.color),
+							}}
+						/>
+						<Redact>{client.fullName}</Redact>
+					</span>
+					{visibleColumns[FAILURES_TOGGLE_KEY] &&
+						client.unresolvedFailures.map((reason) => (
+							<Badge
+								className="max-w-[160px]"
+								key={reason}
+								title={reason}
+								variant="destructive"
+							>
+								<span className="min-w-0 truncate">{reason}</span>
+							</Badge>
+						))}
+				</Link>
+			</TableCell>
+			<TableCell className={collapsibleCellClass(statusColumnVisible)}>
+				<AnimatedCellContent visible={statusColumnVisible}>
+					<span className="text-muted-foreground">
+						{client.status ? "Active" : "Inactive"}
+					</span>
+				</AnimatedCellContent>
+			</TableCell>
+			{columnOrder.map((key) => (
+				<TableCell
+					className={collapsibleCellClass(visibleColumns[key])}
+					key={key}
+				>
+					<AnimatedCellContent visible={visibleColumns[key]}>
+						{renderColumnCellContent(key, client, punchRow, isPriority)}
+					</AnimatedCellContent>
+				</TableCell>
+			))}
+		</TableRow>
+	);
+});
+
+// Mobile counterpart to ClientTableRow - same memoization rationale.
+// Mobile counterpart to renderColumnCellContent - same switch, but each case
+// returns a full InfoField (with its own label/highlight/wrap) instead of a
+// bare span, since the card layout has no separate header row to hold labels.
+function renderColumnField(
+	key: ColumnKey,
+	client: DirectoryClient,
+	punchRow: PUNCH_SCHEMA | undefined,
+	isPriority: boolean,
+): React.ReactNode {
+	switch (key) {
+		case "priority":
+			return (
+				<InfoField
+					highlight={isPriority}
+					key={key}
+					label="Priority"
+					value={
+						isPriority
+							? formatPriorityReason(client.sortReason, client.dob)
+							: "—"
+					}
+					wrap
+				/>
+			);
+		case "for":
+			return <InfoField key={key} label="For" value={client.asdAdhd ?? "—"} />;
+		case "language":
+			return (
+				<InfoField key={key} label="Language" value={client.language ?? "—"} />
+			);
+		case "daQs":
+			return (
+				<InfoField
+					key={key}
+					label="DA Qs"
+					value={getQsStage("DA", punchRow) ?? "—"}
+				/>
+			);
+		case "evalQs":
+			return (
+				<InfoField
+					key={key}
+					label="EVAL Qs"
+					value={getQsStage("EVAL", punchRow) ?? "—"}
+				/>
+			);
+		case "insurance":
+			return (
+				<InfoField
+					key={key}
+					label="Primary Insurance"
+					value={client.primaryInsurance ?? "—"}
+				/>
+			);
+		case "secondaryInsurance":
+			return (
+				<InfoField
+					key={key}
+					label="Secondary Insurance"
+					value={
+						client.secondaryInsurance.length > 0
+							? client.secondaryInsurance.join(", ")
+							: "—"
+					}
+				/>
+			);
+		case "priorAuthDate":
+			return (
+				<InfoField
+					key={key}
+					label="Prior Auth Date"
+					value={formatShortDate(client.priorAuthDate, "—")}
+				/>
+			);
+		case "daScheduled":
+			return (
+				<InfoField
+					key={key}
+					label="DA Scheduled"
+					value={
+						client.daScheduled
+							? formatShortInstantDate(client.daScheduledDate)
+							: "—"
+					}
+				/>
+			);
+		case "evalScheduled":
+			return (
+				<InfoField
+					key={key}
+					label="EVAL Scheduled"
+					value={
+						client.evalScheduled
+							? formatShortInstantDate(client.evalScheduledDate)
+							: "—"
+					}
+				/>
+			);
+		case "location":
+			return (
+				<InfoField key={key} label="Location" value={client.location ?? "—"} />
+			);
+		case "evaluator":
+			return (
+				<InfoField
+					key={key}
+					label="Evaluator"
+					value={client.evaluator ?? "—"}
+				/>
+			);
+		case "paAssignedTo":
+			return (
+				<InfoField
+					key={key}
+					label="PA Assigned To"
+					value={client.paAssignedTo || "—"}
+				/>
+			);
+		default:
+			return null;
+	}
+}
+
+const ClientCard = memo(function ClientCard({
+	client,
+	statusColumnVisible,
+	visibleColumns,
+	columnOrder,
+	punchRow,
+}: {
+	client: DirectoryClient;
+	statusColumnVisible: boolean;
+	visibleColumns: Record<ToggleKey, boolean>;
+	columnOrder: ColumnKey[];
+	punchRow: PUNCH_SCHEMA | undefined;
+}) {
+	const isPriority = PRIORITY_REASONS.has(client.sortReason);
+
+	return (
+		<div className="rounded-lg border bg-card p-4 shadow-xs">
+			<Link
+				className="flex flex-wrap items-center gap-2 font-medium hover:underline"
+				href={`/clients/${client.hash}`}
+			>
+				<span className="flex items-center gap-2">
+					<span
+						className="h-3 w-3 shrink-0 rounded-full"
+						style={{
+							backgroundColor: getHexFromColor(client.color),
+						}}
+					/>
+					<Redact>{client.fullName}</Redact>
+				</span>
+				{visibleColumns[FAILURES_TOGGLE_KEY] &&
+					client.unresolvedFailures.map((reason) => (
+						<Badge
+							className="max-w-[160px]"
+							key={reason}
+							title={reason}
+							variant="destructive"
+						>
+							<span className="min-w-0 truncate">{reason}</span>
+						</Badge>
+					))}
+			</Link>
+
+			<div className="mt-3 grid grid-cols-2 gap-3">
+				{statusColumnVisible && (
+					<InfoField
+						label="Status"
+						value={client.status ? "Active" : "Inactive"}
+					/>
+				)}
+				{columnOrder.map(
+					(key) =>
+						visibleColumns[key] &&
+						renderColumnField(key, client, punchRow, isPriority),
+				)}
+			</div>
+		</div>
+	);
+});
 
 export function ClientDirectory() {
 	const router = useRouter();
 	const pathname = usePathname();
 	const searchParams = useSearchParams();
 	const [isSortPending, startSortTransition] = useTransition();
+	// Matches Tailwind's `sm` breakpoint. Mounting only the relevant layout
+	// (instead of rendering both and hiding one with CSS) roughly halves
+	// per-row render work, since the unpaginated client list can be long.
+	const isMobile = useMediaQuery("(max-width: 639px)");
 
 	const getArrayParam = (key: string) => {
 		const raw = searchParams.get(key);
@@ -501,19 +904,53 @@ export function ClientDirectory() {
 	const priority = getArrayParam("priority");
 	const daQs = getArrayParam("daQs");
 	const evalQs = getArrayParam("evalQs");
+	const priorAuthDateFilter = getArrayParam("priorAuthDate");
+	const daScheduledFilter = getArrayParam("daScheduled");
+	const evalScheduledFilter = getArrayParam("evalScheduled");
+	const paAssignedTo = getArrayParam("paAssignedTo");
 	// "priority" is the default, matching the homepage client search sort.
 	const rawSort = searchParams.get("sort");
 	const sort: SortKey = isSortKey(rawSort) ? rawSort : "priority";
 	// sortDir doesn't apply to "priority", which has a fixed internal order.
 	const sortDir = (searchParams.get("sortDir") ?? "asc") as "asc" | "desc";
 
+	// Tracks horizontal scroll so the sticky Name column can grow a shadow once
+	// there's content scrolled behind it, matching SchedulingTable's pattern.
+	const tableRef = useRef<HTMLDivElement>(null);
+	const [isScrolledLeft, setIsScrolledLeft] = useState(false);
+	useEffect(() => {
+		const table = tableRef.current;
+		if (!table) return;
+		const handleScroll = () => setIsScrolledLeft(table.scrollLeft > 0);
+		handleScroll();
+		table.addEventListener("scroll", handleScroll);
+		return () => table.removeEventListener("scroll", handleScroll);
+	}, []);
+
 	const [isInitialized, setIsInitialized] = useState(false);
 	const lastSavedFiltersRef = useRef("");
 
 	const [visibleColumns, setVisibleColumns] = useState(DEFAULT_VISIBLE_COLUMNS);
+	const [columnOrder, setColumnOrder] =
+		useState<ColumnKey[]>(TOGGLEABLE_COLUMNS);
 
 	const toggleColumn = (key: ToggleKey) => {
 		setVisibleColumns((prev) => ({ ...prev, [key]: !prev[key] }));
+	};
+
+	const moveColumn = (key: ColumnKey, direction: -1 | 1) => {
+		setColumnOrder((prev) => {
+			const index = prev.indexOf(key);
+			const swapWith = index + direction;
+			if (index === -1 || swapWith < 0 || swapWith >= prev.length) return prev;
+			const current = prev[index];
+			const target = prev[swapWith];
+			if (current === undefined || target === undefined) return prev;
+			const next = [...prev];
+			next[index] = target;
+			next[swapWith] = current;
+			return next;
+		});
 	};
 
 	// Hidden columns have their filters disabled, regardless of what's still in the URL
@@ -526,6 +963,16 @@ export function ClientDirectory() {
 	const effectivePriority = visibleColumns.priority ? priority : [];
 	const effectiveDaQs = visibleColumns.daQs ? daQs : [];
 	const effectiveEvalQs = visibleColumns.evalQs ? evalQs : [];
+	const effectivePriorAuthDateFilter = visibleColumns.priorAuthDate
+		? priorAuthDateFilter
+		: [];
+	const effectiveDaScheduledFilter = visibleColumns.daScheduled
+		? daScheduledFilter
+		: [];
+	const effectiveEvalScheduledFilter = visibleColumns.evalScheduled
+		? evalScheduledFilter
+		: [];
+	const effectivePaAssignedTo = visibleColumns.paAssignedTo ? paAssignedTo : [];
 
 	// The Status column only earns its keep when we're not already filtered to one status
 	const statusColumnVisible = status === "all";
@@ -545,6 +992,7 @@ export function ClientDirectory() {
 		daScheduled: visibleColumns.daScheduled,
 		evalScheduled: visibleColumns.evalScheduled,
 		location: visibleColumns.location,
+		evaluator: visibleColumns.evaluator,
 		paAssignedTo: visibleColumns.paAssignedTo,
 	};
 	const effectiveSort: SortKey = sortColumnVisible[sort] ? sort : "name";
@@ -665,6 +1113,16 @@ export function ClientDirectory() {
 			});
 		}
 
+		if (savedFilters?.columnOrder) {
+			const saved = savedFilters.columnOrder.filter((key): key is ColumnKey =>
+				(TOGGLEABLE_COLUMNS as string[]).includes(key),
+			);
+			// Any column added since this order was saved (e.g. a new column
+			// shipped later) has nowhere in the saved list, so it goes at the end.
+			const missing = TOGGLEABLE_COLUMNS.filter((key) => !saved.includes(key));
+			setColumnOrder([...saved, ...missing]);
+		}
+
 		lastSavedFiltersRef.current = JSON.stringify(savedFilters ?? {});
 		setIsInitialized(true);
 	}, [
@@ -692,6 +1150,12 @@ export function ClientDirectory() {
 		if (priority.length) filtersToSave.priority = priority;
 		if (daQs.length) filtersToSave.daQs = daQs;
 		if (evalQs.length) filtersToSave.evalQs = evalQs;
+		if (priorAuthDateFilter.length)
+			filtersToSave.priorAuthDate = priorAuthDateFilter;
+		if (daScheduledFilter.length) filtersToSave.daScheduled = daScheduledFilter;
+		if (evalScheduledFilter.length)
+			filtersToSave.evalScheduled = evalScheduledFilter;
+		if (paAssignedTo.length) filtersToSave.paAssignedTo = paAssignedTo;
 		if (sort !== "priority") filtersToSave.sort = sort;
 		if (sort !== "priority" && sortDir !== "asc")
 			filtersToSave.sortDir = sortDir;
@@ -699,6 +1163,9 @@ export function ClientDirectory() {
 			JSON.stringify(visibleColumns) !== JSON.stringify(DEFAULT_VISIBLE_COLUMNS)
 		) {
 			filtersToSave.columns = visibleColumns;
+		}
+		if (JSON.stringify(columnOrder) !== JSON.stringify(TOGGLEABLE_COLUMNS)) {
+			filtersToSave.columnOrder = columnOrder;
 		}
 
 		const serialized = JSON.stringify(filtersToSave);
@@ -711,7 +1178,7 @@ export function ClientDirectory() {
 				savedAt: Date.now(),
 			}),
 		});
-	}, [isInitialized, searchParams, visibleColumns]);
+	}, [isInitialized, searchParams, visibleColumns, columnOrder]);
 
 	// Sorting never touches the query: the full filtered result set is already
 	// on the client (there's no pagination), so every column sorts instantly
@@ -766,6 +1233,26 @@ export function ClientDirectory() {
 				if (!effectiveEvalQs.includes(stage)) return false;
 			}
 
+			if (effectivePriorAuthDateFilter.length > 0) {
+				const has = client.priorAuthDate ? "yes" : "no";
+				if (!effectivePriorAuthDateFilter.includes(has)) return false;
+			}
+
+			if (effectiveDaScheduledFilter.length > 0) {
+				const has = client.daScheduled ? "yes" : "no";
+				if (!effectiveDaScheduledFilter.includes(has)) return false;
+			}
+
+			if (effectiveEvalScheduledFilter.length > 0) {
+				const has = client.evalScheduled ? "yes" : "no";
+				if (!effectiveEvalScheduledFilter.includes(has)) return false;
+			}
+
+			if (effectivePaAssignedTo.length > 0) {
+				const assignedTo = client.paAssignedTo || NONE_FILTER_VALUE;
+				if (!effectivePaAssignedTo.includes(assignedTo)) return false;
+			}
+
 			return true;
 		});
 
@@ -774,17 +1261,18 @@ export function ClientDirectory() {
 			return stage ? (QS_STAGE_ORDER[stage] ?? -1) : -1;
 		};
 
-		const getPaAssignedTo = (clientId: number) =>
-			punchByClientId.get(String(clientId))?.["PA Assigned to"] ?? null;
-
 		return [...filtered].sort((a, b) =>
-			compareClients(a, b, effectiveSort, sortDir, getQsRank, getPaAssignedTo),
+			compareClients(a, b, effectiveSort, sortDir, getQsRank),
 		);
 	}, [
 		rawClients,
 		punchByClientId,
 		effectiveDaQs,
 		effectiveEvalQs,
+		effectivePriorAuthDateFilter,
+		effectiveDaScheduledFilter,
+		effectiveEvalScheduledFilter,
+		effectivePaAssignedTo,
 		effectiveSort,
 		sortDir,
 	]);
@@ -798,8 +1286,230 @@ export function ClientDirectory() {
 		[allInsurances],
 	);
 
+	const paAssignedToOptions: FilterOption[] = useMemo(() => {
+		const names = new Set<string>();
+		for (const client of rawClients ?? []) {
+			if (client.paAssignedTo) names.add(client.paAssignedTo);
+		}
+		return toFilterOptions([...names].sort());
+	}, [rawClients]);
+
+	// One TableHead per reorderable column, keyed so they can be rendered in
+	// whatever order `columnOrder` says instead of this declaration order.
+	const columnHeaderCells: Record<ColumnKey, React.ReactNode> = {
+		priority: (
+			<TableHead
+				className={collapsibleCellClass(visibleColumns.priority)}
+				key="priority"
+			>
+				<AnimatedCellContent visible={visibleColumns.priority}>
+					<DirectoryColumnFilter
+						facet={facetCounts?.priority}
+						label="Priority"
+						onClear={() => clearArrayParam("priority")}
+						onToggle={(value) => toggleArrayParam("priority", value)}
+						options={PRIORITY_FILTER_OPTIONS}
+						sort={columnSort("priority")}
+						values={priority}
+					/>
+				</AnimatedCellContent>
+			</TableHead>
+		),
+		for: (
+			<TableHead className={collapsibleCellClass(visibleColumns.for)} key="for">
+				<AnimatedCellContent visible={visibleColumns.for}>
+					<DirectoryColumnFilter
+						facet={facetCounts?.asdAdhd}
+						label="For"
+						onClear={() => clearArrayParam("for")}
+						onToggle={(value) => toggleArrayParam("for", value)}
+						options={withNone(toFilterOptions(ALLOWED_ASD_ADHD_VALUES))}
+						sort={columnSort("for")}
+						values={asdAdhd}
+					/>
+				</AnimatedCellContent>
+			</TableHead>
+		),
+		language: (
+			<TableHead
+				className={collapsibleCellClass(visibleColumns.language)}
+				key="language"
+			>
+				<AnimatedCellContent visible={visibleColumns.language}>
+					<DirectoryColumnFilter
+						facet={facetCounts?.language}
+						label="Language"
+						onClear={() => clearArrayParam("language")}
+						onToggle={(value) => toggleArrayParam("language", value)}
+						options={withNone(toFilterOptions(languageOptions ?? []))}
+						sort={columnSort("language")}
+						values={language}
+					/>
+				</AnimatedCellContent>
+			</TableHead>
+		),
+		daQs: (
+			<TableHead
+				className={collapsibleCellClass(visibleColumns.daQs)}
+				key="daQs"
+			>
+				<AnimatedCellContent visible={visibleColumns.daQs}>
+					<DirectoryColumnFilter
+						label="DA Qs"
+						onClear={() => clearArrayParam("daQs")}
+						onToggle={(value) => toggleArrayParam("daQs", value)}
+						options={QS_FILTER_OPTIONS}
+						sort={columnSort("daQs")}
+						values={daQs}
+					/>
+				</AnimatedCellContent>
+			</TableHead>
+		),
+		evalQs: (
+			<TableHead
+				className={collapsibleCellClass(visibleColumns.evalQs)}
+				key="evalQs"
+			>
+				<AnimatedCellContent visible={visibleColumns.evalQs}>
+					<DirectoryColumnFilter
+						label="EVAL Qs"
+						onClear={() => clearArrayParam("evalQs")}
+						onToggle={(value) => toggleArrayParam("evalQs", value)}
+						options={QS_FILTER_OPTIONS}
+						sort={columnSort("evalQs")}
+						values={evalQs}
+					/>
+				</AnimatedCellContent>
+			</TableHead>
+		),
+		insurance: (
+			<TableHead
+				className={collapsibleCellClass(visibleColumns.insurance)}
+				key="insurance"
+			>
+				<AnimatedCellContent visible={visibleColumns.insurance}>
+					<DirectoryColumnFilter
+						facet={facetCounts?.primaryInsurance}
+						label="Primary Insurance"
+						onClear={() => clearArrayParam("insurance")}
+						onToggle={(value) => toggleArrayParam("insurance", value)}
+						options={withNone(insuranceOptions)}
+						sort={columnSort("insurance")}
+						values={primaryInsurance}
+					/>
+				</AnimatedCellContent>
+			</TableHead>
+		),
+		secondaryInsurance: (
+			<TableHead
+				className={collapsibleCellClass(visibleColumns.secondaryInsurance)}
+				key="secondaryInsurance"
+			>
+				<AnimatedCellContent visible={visibleColumns.secondaryInsurance}>
+					<DirectoryColumnFilter
+						facet={facetCounts?.secondaryInsurance}
+						label="Secondary Insurance"
+						onClear={() => clearArrayParam("secondaryInsurance")}
+						onToggle={(value) => toggleArrayParam("secondaryInsurance", value)}
+						options={withNone(insuranceOptions)}
+						sort={columnSort("secondaryInsurance")}
+						values={secondaryInsurance}
+					/>
+				</AnimatedCellContent>
+			</TableHead>
+		),
+		priorAuthDate: (
+			<TableHead
+				className={collapsibleCellClass(visibleColumns.priorAuthDate)}
+				key="priorAuthDate"
+			>
+				<AnimatedCellContent visible={visibleColumns.priorAuthDate}>
+					<DirectoryColumnFilter
+						label="Prior Auth Date"
+						onClear={() => clearArrayParam("priorAuthDate")}
+						onToggle={(value) => toggleArrayParam("priorAuthDate", value)}
+						options={YES_NO_FILTER_OPTIONS}
+						sort={columnSort("priorAuthDate")}
+						values={priorAuthDateFilter}
+					/>
+				</AnimatedCellContent>
+			</TableHead>
+		),
+		daScheduled: (
+			<TableHead
+				className={collapsibleCellClass(visibleColumns.daScheduled)}
+				key="daScheduled"
+			>
+				<AnimatedCellContent visible={visibleColumns.daScheduled}>
+					<DirectoryColumnFilter
+						label="DA Scheduled"
+						onClear={() => clearArrayParam("daScheduled")}
+						onToggle={(value) => toggleArrayParam("daScheduled", value)}
+						options={YES_NO_FILTER_OPTIONS}
+						sort={columnSort("daScheduled")}
+						values={daScheduledFilter}
+					/>
+				</AnimatedCellContent>
+			</TableHead>
+		),
+		evalScheduled: (
+			<TableHead
+				className={collapsibleCellClass(visibleColumns.evalScheduled)}
+				key="evalScheduled"
+			>
+				<AnimatedCellContent visible={visibleColumns.evalScheduled}>
+					<DirectoryColumnFilter
+						label="EVAL Scheduled"
+						onClear={() => clearArrayParam("evalScheduled")}
+						onToggle={(value) => toggleArrayParam("evalScheduled", value)}
+						options={YES_NO_FILTER_OPTIONS}
+						sort={columnSort("evalScheduled")}
+						values={evalScheduledFilter}
+					/>
+				</AnimatedCellContent>
+			</TableHead>
+		),
+		location: (
+			<TableHead
+				className={collapsibleCellClass(visibleColumns.location)}
+				key="location"
+			>
+				<AnimatedCellContent visible={visibleColumns.location}>
+					<SortButton label="Location" {...columnSort("location")} />
+				</AnimatedCellContent>
+			</TableHead>
+		),
+		evaluator: (
+			<TableHead
+				className={collapsibleCellClass(visibleColumns.evaluator)}
+				key="evaluator"
+			>
+				<AnimatedCellContent visible={visibleColumns.evaluator}>
+					<SortButton label="Evaluator" {...columnSort("evaluator")} />
+				</AnimatedCellContent>
+			</TableHead>
+		),
+		paAssignedTo: (
+			<TableHead
+				className={collapsibleCellClass(visibleColumns.paAssignedTo)}
+				key="paAssignedTo"
+			>
+				<AnimatedCellContent visible={visibleColumns.paAssignedTo}>
+					<DirectoryColumnFilter
+						label="PA Assigned To"
+						onClear={() => clearArrayParam("paAssignedTo")}
+						onToggle={(value) => toggleArrayParam("paAssignedTo", value)}
+						options={withNone(paAssignedToOptions)}
+						sort={columnSort("paAssignedTo")}
+						values={paAssignedTo}
+					/>
+				</AnimatedCellContent>
+			</TableHead>
+		),
+	};
+
 	return (
-		<div className="flex w-full flex-col gap-4 p-4">
+		<div className="flex w-full min-w-0 flex-col gap-4 p-4 sm:h-[calc(100vh-2.5rem)] sm:overflow-hidden">
 			<div className="flex items-baseline gap-2">
 				<h1 className="font-bold text-lg">Client Directory</h1>
 				<span className="text-muted-foreground text-sm">
@@ -845,587 +1555,189 @@ export function ClientDirectory() {
 							Columns
 						</Button>
 					</DropdownMenuTrigger>
-					<DropdownMenuContent align="start">
-						{(Object.keys(ALL_TOGGLE_LABELS) as ToggleKey[]).map((key) => (
-							<DropdownMenuCheckboxItem
-								checked={visibleColumns[key]}
+					<DropdownMenuContent align="start" className="min-w-56">
+						<DropdownMenuCheckboxItem
+							checked={visibleColumns[FAILURES_TOGGLE_KEY]}
+							onCheckedChange={() => toggleColumn(FAILURES_TOGGLE_KEY)}
+							onSelect={(e) => e.preventDefault()}
+						>
+							{ALL_TOGGLE_LABELS[FAILURES_TOGGLE_KEY]}
+						</DropdownMenuCheckboxItem>
+						<DropdownMenuSeparator />
+						{columnOrder.map((key, index) => (
+							<div
+								className="flex items-center gap-1.5 rounded-md py-1 pr-1 pl-1.5 text-sm"
 								key={key}
-								onCheckedChange={() => toggleColumn(key)}
-								onSelect={(e) => e.preventDefault()}
 							>
-								{ALL_TOGGLE_LABELS[key]}
-							</DropdownMenuCheckboxItem>
+								<Checkbox
+									checked={visibleColumns[key]}
+									id={`column-${key}`}
+									onCheckedChange={() => toggleColumn(key)}
+								/>
+								<label
+									className="flex-1 cursor-pointer select-none"
+									htmlFor={`column-${key}`}
+								>
+									{COLUMN_LABELS[key]}
+								</label>
+								<Button
+									className="h-6 w-6"
+									disabled={index === 0}
+									onClick={() => moveColumn(key, -1)}
+									size="icon"
+									type="button"
+									variant="ghost"
+								>
+									<ArrowUp className="h-3.5 w-3.5" />
+									<span className="sr-only">Move {COLUMN_LABELS[key]} up</span>
+								</Button>
+								<Button
+									className="h-6 w-6"
+									disabled={index === columnOrder.length - 1}
+									onClick={() => moveColumn(key, 1)}
+									size="icon"
+									type="button"
+									variant="ghost"
+								>
+									<ArrowDown className="h-3.5 w-3.5" />
+									<span className="sr-only">
+										Move {COLUMN_LABELS[key]} down
+									</span>
+								</Button>
+							</div>
 						))}
 					</DropdownMenuContent>
 				</DropdownMenu>
 			</div>
 
-			<Table
-				className={cn(
-					"hidden transition-opacity duration-150 sm:table",
-					((isFetching && !isLoading) || isSortPending) && "opacity-50",
-				)}
-			>
-				<TableHeader>
-					<TableRow>
-						<TableHead>
-							<DirectoryColumnFilter
-								label="Name"
-								onClear={() => clearArrayParam("color")}
-								onToggle={(value) => toggleArrayParam("color", value)}
-								options={BASE_COLOR_OPTIONS}
-								sort={columnSort("name")}
-								values={color}
-							/>
-						</TableHead>
-						<TableHead className={collapsibleCellClass(statusColumnVisible)}>
-							<AnimatedCellContent visible={statusColumnVisible}>
-								<SortButton label="Status" {...columnSort("status")} />
-							</AnimatedCellContent>
-						</TableHead>
-						<TableHead
-							className={collapsibleCellClass(visibleColumns.priority)}
-						>
-							<AnimatedCellContent visible={visibleColumns.priority}>
+			{!isMobile && (
+				<Table
+					className={cn(
+						"transition-opacity duration-150",
+						((isFetching && !isLoading) || isSortPending) && "opacity-50",
+					)}
+					classNameWrapper="min-h-0 sm:flex-1"
+					ref={tableRef}
+				>
+					<TableHeader className="sticky top-0 z-20 bg-background">
+						<TableRow>
+							<TableHead
+								className={cn(
+									"sticky left-0 z-10 bg-background transition-shadow duration-200",
+									isScrolledLeft && "shadow-lg",
+								)}
+							>
 								<DirectoryColumnFilter
-									facet={facetCounts?.priority}
-									label="Priority"
-									onClear={() => clearArrayParam("priority")}
-									onToggle={(value) => toggleArrayParam("priority", value)}
-									options={PRIORITY_FILTER_OPTIONS}
-									sort={columnSort("priority")}
-									values={priority}
+									label="Name"
+									onClear={() => clearArrayParam("color")}
+									onToggle={(value) => toggleArrayParam("color", value)}
+									options={BASE_COLOR_OPTIONS}
+									sort={columnSort("name")}
+									values={color}
 								/>
-							</AnimatedCellContent>
-						</TableHead>
-						<TableHead className={collapsibleCellClass(visibleColumns.for)}>
-							<AnimatedCellContent visible={visibleColumns.for}>
-								<DirectoryColumnFilter
-									facet={facetCounts?.asdAdhd}
-									label="For"
-									onClear={() => clearArrayParam("for")}
-									onToggle={(value) => toggleArrayParam("for", value)}
-									options={withNone(toFilterOptions(ALLOWED_ASD_ADHD_VALUES))}
-									sort={columnSort("for")}
-									values={asdAdhd}
-								/>
-							</AnimatedCellContent>
-						</TableHead>
-						<TableHead
-							className={collapsibleCellClass(visibleColumns.language)}
-						>
-							<AnimatedCellContent visible={visibleColumns.language}>
-								<DirectoryColumnFilter
-									facet={facetCounts?.language}
-									label="Language"
-									onClear={() => clearArrayParam("language")}
-									onToggle={(value) => toggleArrayParam("language", value)}
-									options={withNone(toFilterOptions(languageOptions ?? []))}
-									sort={columnSort("language")}
-									values={language}
-								/>
-							</AnimatedCellContent>
-						</TableHead>
-						<TableHead className={collapsibleCellClass(visibleColumns.daQs)}>
-							<AnimatedCellContent visible={visibleColumns.daQs}>
-								<DirectoryColumnFilter
-									label="DA Qs"
-									onClear={() => clearArrayParam("daQs")}
-									onToggle={(value) => toggleArrayParam("daQs", value)}
-									options={QS_FILTER_OPTIONS}
-									sort={columnSort("daQs")}
-									values={daQs}
-								/>
-							</AnimatedCellContent>
-						</TableHead>
-						<TableHead className={collapsibleCellClass(visibleColumns.evalQs)}>
-							<AnimatedCellContent visible={visibleColumns.evalQs}>
-								<DirectoryColumnFilter
-									label="EVAL Qs"
-									onClear={() => clearArrayParam("evalQs")}
-									onToggle={(value) => toggleArrayParam("evalQs", value)}
-									options={QS_FILTER_OPTIONS}
-									sort={columnSort("evalQs")}
-									values={evalQs}
-								/>
-							</AnimatedCellContent>
-						</TableHead>
-						<TableHead
-							className={collapsibleCellClass(visibleColumns.insurance)}
-						>
-							<AnimatedCellContent visible={visibleColumns.insurance}>
-								<DirectoryColumnFilter
-									facet={facetCounts?.primaryInsurance}
-									label="Primary Insurance"
-									onClear={() => clearArrayParam("insurance")}
-									onToggle={(value) => toggleArrayParam("insurance", value)}
-									options={withNone(insuranceOptions)}
-									sort={columnSort("insurance")}
-									values={primaryInsurance}
-								/>
-							</AnimatedCellContent>
-						</TableHead>
-						<TableHead
-							className={collapsibleCellClass(
-								visibleColumns.secondaryInsurance,
-							)}
-						>
-							<AnimatedCellContent visible={visibleColumns.secondaryInsurance}>
-								<DirectoryColumnFilter
-									facet={facetCounts?.secondaryInsurance}
-									label="Secondary Insurance"
-									onClear={() => clearArrayParam("secondaryInsurance")}
-									onToggle={(value) =>
-										toggleArrayParam("secondaryInsurance", value)
-									}
-									options={withNone(insuranceOptions)}
-									sort={columnSort("secondaryInsurance")}
-									values={secondaryInsurance}
-								/>
-							</AnimatedCellContent>
-						</TableHead>
-						<TableHead
-							className={collapsibleCellClass(visibleColumns.priorAuthDate)}
-						>
-							<AnimatedCellContent visible={visibleColumns.priorAuthDate}>
-								<SortButton
-									label="Prior Auth Date"
-									{...columnSort("priorAuthDate")}
-								/>
-							</AnimatedCellContent>
-						</TableHead>
-						<TableHead
-							className={collapsibleCellClass(visibleColumns.daScheduled)}
-						>
-							<AnimatedCellContent visible={visibleColumns.daScheduled}>
-								<SortButton
-									label="DA Scheduled"
-									{...columnSort("daScheduled")}
-								/>
-							</AnimatedCellContent>
-						</TableHead>
-						<TableHead
-							className={collapsibleCellClass(visibleColumns.evalScheduled)}
-						>
-							<AnimatedCellContent visible={visibleColumns.evalScheduled}>
-								<SortButton
-									label="EVAL Scheduled"
-									{...columnSort("evalScheduled")}
-								/>
-							</AnimatedCellContent>
-						</TableHead>
-						<TableHead
-							className={collapsibleCellClass(visibleColumns.location)}
-						>
-							<AnimatedCellContent visible={visibleColumns.location}>
-								<SortButton label="Location" {...columnSort("location")} />
-							</AnimatedCellContent>
-						</TableHead>
-						<TableHead
-							className={collapsibleCellClass(visibleColumns.paAssignedTo)}
-						>
-							<AnimatedCellContent visible={visibleColumns.paAssignedTo}>
-								<SortButton
-									label="PA Assigned To"
-									{...columnSort("paAssignedTo")}
-								/>
-							</AnimatedCellContent>
-						</TableHead>
-					</TableRow>
-				</TableHeader>
-				<TableBody>
-					{isLoading ? (
-						Array.from({ length: 5 }).map((_, i) => (
-							// biome-ignore lint/suspicious/noArrayIndexKey: static skeleton
-							<TableRow key={i}>
-								<TableCell>
-									<Skeleton className="h-4 w-40" />
-								</TableCell>
-								<TableCell
-									className={collapsibleCellClass(statusColumnVisible)}
-								>
-									<AnimatedCellContent visible={statusColumnVisible}>
-										<Skeleton className="h-4 w-20" />
-									</AnimatedCellContent>
-								</TableCell>
-								{TOGGLEABLE_COLUMNS.map((key) => (
-									<TableCell
-										className={collapsibleCellClass(visibleColumns[key])}
-										key={key}
-									>
-										<AnimatedCellContent visible={visibleColumns[key]}>
-											<Skeleton className="h-4 w-20" />
-										</AnimatedCellContent>
-									</TableCell>
-								))}
-							</TableRow>
-						))
-					) : clients && clients.length > 0 ? (
-						clients.map((client) => {
-							const isPriority = PRIORITY_REASONS.has(client.sortReason);
-
-							return (
-								<TableRow
-									key={client.id}
-									style={{
-										contentVisibility: "auto",
-										containIntrinsicSize: "auto 41px",
-									}}
-								>
-									<TableCell className="font-medium">
-										<Link
-											className="flex flex-wrap items-center gap-2 hover:underline"
-											href={`/clients/${client.hash}`}
-										>
-											<span className="flex items-center gap-2">
-												<span
-													className="h-3 w-3 shrink-0 rounded-full"
-													style={{
-														backgroundColor: getHexFromColor(client.color),
-													}}
-												/>
-												<Redact>{client.fullName}</Redact>
-											</span>
-											{visibleColumns[FAILURES_TOGGLE_KEY] &&
-												client.unresolvedFailures.map((reason) => (
-													<Badge
-														className="max-w-[160px]"
-														key={reason}
-														title={reason}
-														variant="destructive"
-													>
-														<span className="min-w-0 truncate">{reason}</span>
-													</Badge>
-												))}
-										</Link>
+							</TableHead>
+							<TableHead className={collapsibleCellClass(statusColumnVisible)}>
+								<AnimatedCellContent visible={statusColumnVisible}>
+									<SortButton label="Status" {...columnSort("status")} />
+								</AnimatedCellContent>
+							</TableHead>
+							{columnOrder.map((key) => columnHeaderCells[key])}
+						</TableRow>
+					</TableHeader>
+					<TableBody>
+						{isLoading ? (
+							Array.from({ length: 5 }).map((_, i) => (
+								// biome-ignore lint/suspicious/noArrayIndexKey: static skeleton
+								<TableRow key={i}>
+									<TableCell className="sticky left-0 z-10 bg-background">
+										<Skeleton className="h-4 w-40" />
 									</TableCell>
 									<TableCell
 										className={collapsibleCellClass(statusColumnVisible)}
 									>
 										<AnimatedCellContent visible={statusColumnVisible}>
-											<span className="text-muted-foreground">
-												{client.status ? "Active" : "Inactive"}
-											</span>
+											<Skeleton className="h-4 w-20" />
 										</AnimatedCellContent>
 									</TableCell>
-									<TableCell
-										className={collapsibleCellClass(visibleColumns.priority)}
-									>
-										<AnimatedCellContent visible={visibleColumns.priority}>
-											<span
-												className={cn(
-													"text-muted-foreground",
-													isPriority && "font-medium text-destructive",
-												)}
-											>
-												{isPriority
-													? formatPriorityReason(client.sortReason, client.dob)
-													: "—"}
-											</span>
-										</AnimatedCellContent>
-									</TableCell>
-									<TableCell
-										className={collapsibleCellClass(visibleColumns.for)}
-									>
-										<AnimatedCellContent visible={visibleColumns.for}>
-											<span className="text-muted-foreground">
-												{client.asdAdhd ?? "—"}
-											</span>
-										</AnimatedCellContent>
-									</TableCell>
-									<TableCell
-										className={collapsibleCellClass(visibleColumns.language)}
-									>
-										<AnimatedCellContent visible={visibleColumns.language}>
-											<span className="text-muted-foreground">
-												{client.language ?? "—"}
-											</span>
-										</AnimatedCellContent>
-									</TableCell>
-									<TableCell
-										className={collapsibleCellClass(visibleColumns.daQs)}
-									>
-										<AnimatedCellContent visible={visibleColumns.daQs}>
-											<span className="text-muted-foreground">
-												{getQsStage(
-													"DA",
-													punchByClientId.get(String(client.id)),
-												) ?? "—"}
-											</span>
-										</AnimatedCellContent>
-									</TableCell>
-									<TableCell
-										className={collapsibleCellClass(visibleColumns.evalQs)}
-									>
-										<AnimatedCellContent visible={visibleColumns.evalQs}>
-											<span className="text-muted-foreground">
-												{getQsStage(
-													"EVAL",
-													punchByClientId.get(String(client.id)),
-												) ?? "—"}
-											</span>
-										</AnimatedCellContent>
-									</TableCell>
-									<TableCell
-										className={collapsibleCellClass(visibleColumns.insurance)}
-									>
-										<AnimatedCellContent visible={visibleColumns.insurance}>
-											<span className="text-muted-foreground">
-												{client.primaryInsurance ?? "—"}
-											</span>
-										</AnimatedCellContent>
-									</TableCell>
-									<TableCell
-										className={collapsibleCellClass(
-											visibleColumns.secondaryInsurance,
-										)}
-									>
-										<AnimatedCellContent
-											visible={visibleColumns.secondaryInsurance}
+									{TOGGLEABLE_COLUMNS.map((key) => (
+										<TableCell
+											className={collapsibleCellClass(visibleColumns[key])}
+											key={key}
 										>
-											<span className="text-muted-foreground">
-												{client.secondaryInsurance.length > 0
-													? client.secondaryInsurance.join(", ")
-													: "—"}
-											</span>
-										</AnimatedCellContent>
-									</TableCell>
-									<TableCell
-										className={collapsibleCellClass(
-											visibleColumns.priorAuthDate,
-										)}
-									>
-										<AnimatedCellContent visible={visibleColumns.priorAuthDate}>
-											<span className="text-muted-foreground">
-												{formatDateOnlyLong(client.priorAuthDate, "—")}
-											</span>
-										</AnimatedCellContent>
-									</TableCell>
-									<TableCell
-										className={collapsibleCellClass(visibleColumns.daScheduled)}
-									>
-										<AnimatedCellContent visible={visibleColumns.daScheduled}>
-											<span className="text-muted-foreground">
-												{client.daScheduled ? "Yes" : "—"}
-											</span>
-										</AnimatedCellContent>
-									</TableCell>
-									<TableCell
-										className={collapsibleCellClass(
-											visibleColumns.evalScheduled,
-										)}
-									>
-										<AnimatedCellContent visible={visibleColumns.evalScheduled}>
-											<span className="text-muted-foreground">
-												{client.evalScheduled ? "Yes" : "—"}
-											</span>
-										</AnimatedCellContent>
-									</TableCell>
-									<TableCell
-										className={collapsibleCellClass(visibleColumns.location)}
-									>
-										<AnimatedCellContent visible={visibleColumns.location}>
-											<span className="text-muted-foreground">
-												{client.location ?? "—"}
-											</span>
-										</AnimatedCellContent>
-									</TableCell>
-									<TableCell
-										className={collapsibleCellClass(
-											visibleColumns.paAssignedTo,
-										)}
-									>
-										<AnimatedCellContent visible={visibleColumns.paAssignedTo}>
-											<span className="text-muted-foreground">
-												{punchByClientId.get(String(client.id))?.[
-													"PA Assigned to"
-												] || "—"}
-											</span>
-										</AnimatedCellContent>
-									</TableCell>
+											<AnimatedCellContent visible={visibleColumns[key]}>
+												<Skeleton className="h-4 w-20" />
+											</AnimatedCellContent>
+										</TableCell>
+									))}
 								</TableRow>
-							);
-						})
-					) : (
-						<TableRow>
-							<TableCell
-								className="py-12 text-center"
-								colSpan={2 + TOGGLEABLE_COLUMNS.length}
-							>
-								<p className="text-muted-foreground text-sm">
-									No clients found.
-								</p>
-							</TableCell>
-						</TableRow>
+							))
+						) : clients && clients.length > 0 ? (
+							clients.map((client) => (
+								<ClientTableRow
+									client={client}
+									columnOrder={columnOrder}
+									isScrolledLeft={isScrolledLeft}
+									key={client.id}
+									punchRow={punchByClientId.get(String(client.id))}
+									statusColumnVisible={statusColumnVisible}
+									visibleColumns={visibleColumns}
+								/>
+							))
+						) : (
+							<TableRow>
+								<TableCell
+									className="py-12 text-center"
+									colSpan={2 + TOGGLEABLE_COLUMNS.length}
+								>
+									<p className="text-muted-foreground text-sm">
+										No clients found.
+									</p>
+								</TableCell>
+							</TableRow>
+						)}
+					</TableBody>
+				</Table>
+			)}
+
+			{isMobile && (
+				<div
+					className={cn(
+						"flex flex-col gap-3 transition-opacity duration-150",
+						((isFetching && !isLoading) || isSortPending) && "opacity-50",
 					)}
-				</TableBody>
-			</Table>
-
-			<div
-				className={cn(
-					"flex flex-col gap-3 transition-opacity duration-150 sm:hidden",
-					((isFetching && !isLoading) || isSortPending) && "opacity-50",
-				)}
-			>
-				{isLoading ? (
-					Array.from({ length: 5 }).map((_, i) => (
-						<div
-							className="rounded-lg border bg-card p-4 shadow-xs"
-							// biome-ignore lint/suspicious/noArrayIndexKey: static skeleton
-							key={i}
-						>
-							<Skeleton className="h-4 w-40" />
-							<div className="mt-3 grid grid-cols-2 gap-3">
-								<Skeleton className="h-8 w-full" />
-								<Skeleton className="h-8 w-full" />
-							</div>
-						</div>
-					))
-				) : clients && clients.length > 0 ? (
-					clients.map((client) => {
-						const isPriority = PRIORITY_REASONS.has(client.sortReason);
-
-						return (
+				>
+					{isLoading ? (
+						Array.from({ length: 5 }).map((_, i) => (
 							<div
 								className="rounded-lg border bg-card p-4 shadow-xs"
-								key={client.id}
+								// biome-ignore lint/suspicious/noArrayIndexKey: static skeleton
+								key={i}
 							>
-								<Link
-									className="flex flex-wrap items-center gap-2 font-medium hover:underline"
-									href={`/clients/${client.hash}`}
-								>
-									<span className="flex items-center gap-2">
-										<span
-											className="h-3 w-3 shrink-0 rounded-full"
-											style={{
-												backgroundColor: getHexFromColor(client.color),
-											}}
-										/>
-										<Redact>{client.fullName}</Redact>
-									</span>
-									{visibleColumns[FAILURES_TOGGLE_KEY] &&
-										client.unresolvedFailures.map((reason) => (
-											<Badge
-												className="max-w-[160px]"
-												key={reason}
-												title={reason}
-												variant="destructive"
-											>
-												<span className="min-w-0 truncate">{reason}</span>
-											</Badge>
-										))}
-								</Link>
-
+								<Skeleton className="h-4 w-40" />
 								<div className="mt-3 grid grid-cols-2 gap-3">
-									{statusColumnVisible && (
-										<InfoField
-											label="Status"
-											value={client.status ? "Active" : "Inactive"}
-										/>
-									)}
-									{visibleColumns.priority && (
-										<InfoField
-											highlight={isPriority}
-											label="Priority"
-											value={
-												isPriority
-													? formatPriorityReason(client.sortReason, client.dob)
-													: "—"
-											}
-											wrap
-										/>
-									)}
-									{visibleColumns.for && (
-										<InfoField label="For" value={client.asdAdhd ?? "—"} />
-									)}
-									{visibleColumns.language && (
-										<InfoField
-											label="Language"
-											value={client.language ?? "—"}
-										/>
-									)}
-									{visibleColumns.daQs && (
-										<InfoField
-											label="DA Qs"
-											value={
-												getQsStage(
-													"DA",
-													punchByClientId.get(String(client.id)),
-												) ?? "—"
-											}
-										/>
-									)}
-									{visibleColumns.evalQs && (
-										<InfoField
-											label="EVAL Qs"
-											value={
-												getQsStage(
-													"EVAL",
-													punchByClientId.get(String(client.id)),
-												) ?? "—"
-											}
-										/>
-									)}
-									{visibleColumns.insurance && (
-										<InfoField
-											label="Primary Insurance"
-											value={client.primaryInsurance ?? "—"}
-										/>
-									)}
-									{visibleColumns.secondaryInsurance && (
-										<InfoField
-											label="Secondary Insurance"
-											value={
-												client.secondaryInsurance.length > 0
-													? client.secondaryInsurance.join(", ")
-													: "—"
-											}
-										/>
-									)}
-									{visibleColumns.priorAuthDate && (
-										<InfoField
-											label="Prior Auth Date"
-											value={formatDateOnlyLong(client.priorAuthDate, "—")}
-										/>
-									)}
-									{visibleColumns.daScheduled && (
-										<InfoField
-											label="DA Scheduled"
-											value={client.daScheduled ? "Yes" : "—"}
-										/>
-									)}
-									{visibleColumns.evalScheduled && (
-										<InfoField
-											label="EVAL Scheduled"
-											value={client.evalScheduled ? "Yes" : "—"}
-										/>
-									)}
-									{visibleColumns.location && (
-										<InfoField
-											label="Location"
-											value={client.location ?? "—"}
-										/>
-									)}
-									{visibleColumns.paAssignedTo && (
-										<InfoField
-											label="PA Assigned To"
-											value={
-												punchByClientId.get(String(client.id))?.[
-													"PA Assigned to"
-												] || "—"
-											}
-										/>
-									)}
+									<Skeleton className="h-8 w-full" />
+									<Skeleton className="h-8 w-full" />
 								</div>
 							</div>
-						);
-					})
-				) : (
-					<p className="py-12 text-center text-muted-foreground text-sm">
-						No clients found.
-					</p>
-				)}
-			</div>
+						))
+					) : clients && clients.length > 0 ? (
+						clients.map((client) => (
+							<ClientCard
+								client={client}
+								columnOrder={columnOrder}
+								key={client.id}
+								punchRow={punchByClientId.get(String(client.id))}
+								statusColumnVisible={statusColumnVisible}
+								visibleColumns={visibleColumns}
+							/>
+						))
+					) : (
+						<p className="py-12 text-center text-muted-foreground text-sm">
+							No clients found.
+						</p>
+					)}
+				</div>
+			)}
 		</div>
 	);
 }

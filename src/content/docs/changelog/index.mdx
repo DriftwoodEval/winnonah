@@ -4,7 +4,21 @@ title: Changelog
 
 ## 2026-08-18
 
+**New**
+- The client directory has a new Evaluator column, showing the evaluator for the client's most recent or next appointment, or their active scheduling assignment if they have no appointments yet.
+- The Columns menu on the client directory now lets you reorder columns, not just show or hide them.
+
+**Improved**
+- The client directory's DA Scheduled and EVAL Scheduled columns now show the appointment date instead of just "Yes" (filtering is still yes/no).
+- The client directory's Prior Auth Date now matches the date format used elsewhere in that table.
+- The client directory can now filter by whether a client has a prior auth date, whether a DA or EVAL is scheduled, and by who's assigned to PA.
+- The client directory's Name column now stays put while scrolling horizontally, like the scheduling page.
+
 **Fixed**
+- The client directory table can now be scrolled horizontally when it's too wide for the screen, and the scrollbar stays reachable instead of sitting below all the rows.
+- Private-pay clients no longer show a bogus "Unknown Company" insurance card on their Insurance tab.
+- The client directory loads noticeably faster, especially with insurance filters applied.
+- PA Assigned To can now be edited on a client's Insurance tab even when they have no insurance policy or pre-certification data on file yet.
 - The Insurance Codes box now shows BabyNet billing rules whenever a client's secondary insurance is BabyNet or they're flagged to be treated as BabyNet, instead of only when BabyNet is their primary insurance.
 
 ## 2026-08-17
@@ -16,7 +30,7 @@ title: Changelog
 ## 2026-08-15
 
 **New**
-- Appointment reminder scripts can now be limited to a client age range, so you can target reminders (or reminder wording) at kids vs. adults, for example.
+- Reminder scripts can now be limited to a client age range, so you can target reminders (or reminder wording) at kids vs. adults, for example.
 
 ## 2026-08-14
 **New**

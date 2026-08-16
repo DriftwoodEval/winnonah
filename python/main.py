@@ -131,6 +131,7 @@ def import_from_ta(
             "LONGITUDE",
             "FLAG",
             "LANGUAGE",
+            "PA_ASSIGNED_TO",
         ]
         for col in new_cols:
             if col not in clients.columns:
@@ -143,6 +144,19 @@ def import_from_ta(
             punchlist_languages = {}
 
         clients["LANGUAGE"] = clients["CLIENT_ID"].astype(str).map(punchlist_languages)
+
+        try:
+            punchlist_pa_assigned_to = utils.google.get_punchlist_pa_assigned_to_map()
+        except Exception as e:
+            logger.error(f"Failed to fetch PA Assigned To from Punchlist sheet: {e}")
+            punchlist_pa_assigned_to = {}
+
+        clients["PA_ASSIGNED_TO"] = (
+            clients["CLIENT_ID"]
+            .astype(str)
+            .map(punchlist_pa_assigned_to)
+            .replace("", pd.NA)
+        )
 
         clients_to_geocode = utils.database.filter_clients_with_changed_address(
             clients, connection=conn

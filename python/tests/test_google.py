@@ -12,6 +12,7 @@ from utils.google import (
     build_client_lookup,
     client_match_confidence,
     get_punchlist_language_map,
+    get_punchlist_pa_assigned_to_map,
     levenshtein,
     normalize_name_tokens,
 )
@@ -82,6 +83,48 @@ class TestGetPunchlistLanguageMap:
             "utils.google.get_sheets_service", return_value=_mock_sheets_service(rows)
         ):
             assert get_punchlist_language_map() == {}
+
+
+class TestGetPunchlistPaAssignedToMap:
+    def test_maps_client_id_to_pa_assigned_to(self):
+        rows = [
+            ["Client ID", "Client Name", "PA Assigned to"],
+            ["12345", "Testman Testson", "Jane Doe"],
+        ]
+        with patch(
+            "utils.google.get_sheets_service", return_value=_mock_sheets_service(rows)
+        ):
+            assert get_punchlist_pa_assigned_to_map() == {"12345": "Jane Doe"}
+
+    def test_blank_cell_maps_to_empty_string(self):
+        rows = [
+            ["Client ID", "Client Name", "PA Assigned to"],
+            ["12345", "Testman Testson", ""],
+        ]
+        with patch(
+            "utils.google.get_sheets_service", return_value=_mock_sheets_service(rows)
+        ):
+            assert get_punchlist_pa_assigned_to_map() == {"12345": ""}
+
+    def test_row_shorter_than_column_maps_to_empty_string(self):
+        rows = [
+            ["Client ID", "Client Name", "PA Assigned to"],
+            ["12345", "Testman Testson"],
+        ]
+        with patch(
+            "utils.google.get_sheets_service", return_value=_mock_sheets_service(rows)
+        ):
+            assert get_punchlist_pa_assigned_to_map() == {"12345": ""}
+
+    def test_missing_column_returns_empty_map(self):
+        rows = [
+            ["Client ID", "Client Name"],
+            ["12345", "Testman Testson"],
+        ]
+        with patch(
+            "utils.google.get_sheets_service", return_value=_mock_sheets_service(rows)
+        ):
+            assert get_punchlist_pa_assigned_to_map() == {}
 
 
 class TestNormalizeNameTokens:
