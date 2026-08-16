@@ -912,7 +912,7 @@ export function ClientDirectory() {
 	const router = useRouter();
 	const pathname = usePathname();
 	const searchParams = useSearchParams();
-	const [isSortPending, startSortTransition] = useTransition();
+	const [isNavPending, startNavTransition] = useTransition();
 	// Matches Tailwind's `sm` breakpoint. Mounting only the relevant layout
 	// (instead of rendering both and hiding one with CSS) roughly halves
 	// per-row render work, since the unpaginated client list can be long.
@@ -1037,9 +1037,9 @@ export function ClientDirectory() {
 		if (newSort === "priority" || newDir === "asc") params.delete("sortDir");
 		else params.set("sortDir", newDir);
 		// Sorting doesn't hit the network, but re-rendering every row still takes
-		// a moment. Wrapping the navigation in a transition gives us isSortPending
+		// a moment. Wrapping the navigation in a transition gives us isNavPending
 		// so the table can visibly acknowledge the click while that work happens.
-		startSortTransition(() => {
+		startNavTransition(() => {
 			router.push(`${pathname}?${params.toString()}`);
 		});
 	};
@@ -1058,11 +1058,17 @@ export function ClientDirectory() {
 		onClick: () => handleSortClick(key),
 	});
 
+	// Every URL param change below drives a network refetch (the directory
+	// query and its facet counts aren't cheap), so wrapping the navigation in
+	// a transition - same as setSort above - lets the table dim immediately
+	// on click instead of waiting on a blocking render first.
 	const updateParam = (key: string, value: string, defaultValue = "") => {
 		const params = new URLSearchParams(searchParams.toString());
 		if (value && value !== defaultValue) params.set(key, value);
 		else params.delete(key);
-		router.push(`${pathname}?${params.toString()}`);
+		startNavTransition(() => {
+			router.push(`${pathname}?${params.toString()}`);
+		});
 	};
 
 	const toggleArrayParam = (key: string, value: string) => {
@@ -1073,13 +1079,17 @@ export function ClientDirectory() {
 		const params = new URLSearchParams(searchParams.toString());
 		if (next.length > 0) params.set(key, next.join(","));
 		else params.delete(key);
-		router.push(`${pathname}?${params.toString()}`);
+		startNavTransition(() => {
+			router.push(`${pathname}?${params.toString()}`);
+		});
 	};
 
 	const clearArrayParam = (key: string) => {
 		const params = new URLSearchParams(searchParams.toString());
 		params.delete(key);
-		router.push(`${pathname}?${params.toString()}`);
+		startNavTransition(() => {
+			router.push(`${pathname}?${params.toString()}`);
+		});
 	};
 
 	const hasActiveFilters = FILTER_PARAM_KEYS.some((key) =>
@@ -1089,7 +1099,9 @@ export function ClientDirectory() {
 	const clearAllFilters = () => {
 		const params = new URLSearchParams(searchParams.toString());
 		for (const key of FILTER_PARAM_KEYS) params.delete(key);
-		router.push(`${pathname}?${params.toString()}`);
+		startNavTransition(() => {
+			router.push(`${pathname}?${params.toString()}`);
+		});
 	};
 
 	const { data: allInsurances } = api.insurances.getAll.useQuery();
@@ -1722,7 +1734,7 @@ export function ClientDirectory() {
 				<Table
 					className={cn(
 						"transition-opacity duration-150",
-						((isFetching && !isLoading) || isSortPending) && "opacity-50",
+						((isFetching && !isLoading) || isNavPending) && "opacity-50",
 					)}
 					classNameWrapper="min-h-0 sm:flex-1"
 					ref={tableRef}
@@ -1846,7 +1858,7 @@ export function ClientDirectory() {
 				<div
 					className={cn(
 						"flex flex-col gap-3 transition-opacity duration-150",
-						((isFetching && !isLoading) || isSortPending) && "opacity-50",
+						((isFetching && !isLoading) || isNavPending) && "opacity-50",
 					)}
 				>
 					{isLoading ? (
