@@ -10,7 +10,8 @@ import {
 	DropdownMenuTrigger,
 } from "@ui/dropdown-menu";
 import { Input } from "@ui/input";
-import { Filter } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@ui/tooltip";
+import { Check, Filter } from "lucide-react";
 import { useMemo, useState } from "react";
 
 export interface FilterOption {
@@ -21,6 +22,21 @@ export interface FilterOption {
 
 export function toFilterOptions(values: readonly string[]): FilterOption[] {
 	return values.map((v) => ({ value: v, label: v }));
+}
+
+// "None" (the sentinel for "field is unset") reads better pinned to the top
+// of the list than wherever it happens to alphabetize to.
+function compareOptions(a: FilterOption, b: FilterOption) {
+	if (a.label === "None") return -1;
+	if (b.label === "None") return 1;
+	return a.label.localeCompare(b.label);
+}
+
+// Mirrors the color-swatch contrast logic in ClientsDashboard's color picker.
+function contrastColor(hex: string) {
+	return Number.parseInt(hex.replace("#", ""), 16) > 0xffffff / 2
+		? "#333"
+		: "#FFF";
 }
 
 interface ColumnFilterProps {
@@ -45,8 +61,13 @@ export function ColumnFilter({
 			.filter((option) =>
 				option.label.toLowerCase().includes(search.toLowerCase()),
 			)
-			.sort((a, b) => a.label.localeCompare(b.label));
+			.sort(compareOptions);
 	}, [options, search]);
+
+	// Swatch options (colors) render as a grid of circles instead of
+	// checkbox rows, matching the color picker on the client search page.
+	const swatchOptions = filteredOptions.filter((option) => option.swatch);
+	const listOptions = filteredOptions.filter((option) => !option.swatch);
 
 	const toggleValue = (value: string) => {
 		const newValues = selectedValues.includes(value)
@@ -56,7 +77,7 @@ export function ColumnFilter({
 	};
 
 	return (
-		<DropdownMenu>
+		<DropdownMenu modal={false}>
 			<DropdownMenuTrigger asChild>
 				<div className="relative inline-block pt-1 pr-1">
 					<Button
@@ -91,7 +112,40 @@ export function ColumnFilter({
 							No results found
 						</div>
 					)}
-					{filteredOptions.map((option) => {
+					{swatchOptions.length > 0 && (
+						<div className="grid grid-cols-6 gap-2 pb-2">
+							{swatchOptions.map((option) => {
+								const selected = selectedValues.includes(option.value);
+								const count = counts?.[option.value];
+								return (
+									<Tooltip key={option.value}>
+										<TooltipTrigger asChild>
+											<button
+												aria-label={`Filter by ${option.label}`}
+												className="relative flex h-8 w-8 items-center justify-center rounded-full text-sm"
+												onClick={() => toggleValue(option.value)}
+												style={{
+													backgroundColor: option.swatch,
+													color: contrastColor(option.swatch ?? "#FFFFFF"),
+												}}
+												type="button"
+											>
+												{selected ? (
+													<Check className="h-4 w-4" />
+												) : (
+													(count ?? 0)
+												)}
+											</button>
+										</TooltipTrigger>
+										<TooltipContent>
+											<p>{option.label}</p>
+										</TooltipContent>
+									</Tooltip>
+								);
+							})}
+						</div>
+					)}
+					{listOptions.map((option) => {
 						const count = counts?.[option.value];
 						return (
 							<div
@@ -107,15 +161,7 @@ export function ColumnFilter({
 									className="flex flex-1 cursor-pointer items-center justify-between gap-2 font-medium text-sm leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
 									htmlFor={`${columnName}-${option.value}`}
 								>
-									<span className="flex min-w-0 items-center gap-1 truncate">
-										{option.swatch && (
-											<span
-												className="h-2 w-2 shrink-0 rounded-full"
-												style={{ backgroundColor: option.swatch }}
-											/>
-										)}
-										<span className="truncate">{option.label}</span>
-									</span>
+									<span className="truncate">{option.label}</span>
 									{counts && (
 										<span className="text-muted-foreground text-xs">
 											{count ?? 0}
