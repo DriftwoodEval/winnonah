@@ -65,6 +65,7 @@ import {
 	clients,
 	clientsEvaluators,
 	duplicateNameIgnore,
+	evaluators,
 	externalRecordRequests,
 	externalRecords,
 	failures,
@@ -73,6 +74,7 @@ import {
 	insurances,
 	notes,
 	questionnaires,
+	schedulingClients,
 	schoolDistricts,
 } from "~/server/db/schema";
 import { getQuestionnaireEligibilityAge } from "~/server/questionnaire-age";
@@ -150,6 +152,7 @@ async function buildDirectoryConditions(
 	db: Context["db"],
 	input: DirectoryFilterInput,
 	exclude?: DirectoryFilterField,
+	aliasCache?: Map<string, Promise<string[]>>,
 ) {
 	const conditions = [not(isNotesOnly)];
 	const effectiveStatus = input.status ?? "active";
@@ -189,7 +192,9 @@ async function buildDirectoryConditions(
 	if (exclude !== "primaryInsurance" && input.primaryInsurance?.length) {
 		const { values, includeNone } = splitNoneValue(input.primaryInsurance);
 		const matchNames = (
-			await Promise.all(values.map((v) => resolveInsuranceAliasNames(db, v)))
+			await Promise.all(
+				values.map((v) => resolveInsuranceAliasNames(db, v, aliasCache)),
+			)
 		).flat();
 		const subConditions = [];
 		if (matchNames.length) {
@@ -203,7 +208,7 @@ async function buildDirectoryConditions(
 	if (exclude !== "secondaryInsurance" && input.secondaryInsurance?.length) {
 		const { values, includeNone } = splitNoneValue(input.secondaryInsurance);
 		const matchNamesByValue = await Promise.all(
-			values.map((v) => resolveInsuranceAliasNames(db, v)),
+			values.map((v) => resolveInsuranceAliasNames(db, v, aliasCache)),
 		);
 		const subConditions = [];
 		for (const matchNames of matchNamesByValue) {
@@ -468,7 +473,12 @@ export const clientRouter = createTRPCRouter({
 	directory: protectedProcedure
 		.input(directoryFilterSchema)
 		.query(async ({ ctx, input }) => {
-			const conditions = await buildDirectoryConditions(ctx.db, input);
+			const conditions = await buildDirectoryConditions(
+				ctx.db,
+				input,
+				undefined,
+				new Map(),
+			);
 			const { sortReasonSQL, orderBySQL } = getPriorityInfo();
 
 			// The client sorts and re-sorts this full result set itself (it's
@@ -484,6 +494,7 @@ export const clientRouter = createTRPCRouter({
 							primaryInsurance: true,
 							secondaryInsurance: true,
 							language: true,
+							paAssignedTo: true,
 							status: true,
 							color: true,
 							dob: true,
@@ -515,10 +526,17 @@ export const clientRouter = createTRPCRouter({
 			// Prior auth date comes from the PRIMARY policy's precertAuthDate. A
 			// client can have multiple PRIMARY policies over time (insurance
 			// changes), so take the one with the most recent policyStartDate.
-			// Appointments feed both "DA/EVAL scheduled" (any upcoming, non-cancelled
-			// appointment of that type) and "location" (the most recent
-			// appointment's office, falling back to the closest office if virtual).
-			const [primaryPolicies, relevantAppointments] = clientIds.length
+			// Appointments feed "DA/EVAL scheduled" (any upcoming, non-cancelled
+			// appointment of that type), "location" (the most recent appointment's
+			// office, falling back to the closest office if virtual), and
+			// "evaluator" (their most recent/next appointment's evaluator,
+			// falling back to their active scheduling-table assignment).
+			const [
+				primaryPolicies,
+				relevantAppointments,
+				schedulingAssignments,
+				allEvaluators,
+			] = clientIds.length
 				? await Promise.all([
 						ctx.db
 							.select({
@@ -540,6 +558,7 @@ export const clientRouter = createTRPCRouter({
 								daEval: appointments.daEval,
 								locationKey: appointments.locationKey,
 								billingOnly: appointments.billingOnly,
+								evaluatorNpi: appointments.evaluatorNpi,
 							})
 							.from(appointments)
 							.where(
@@ -550,8 +569,27 @@ export const clientRouter = createTRPCRouter({
 								),
 							)
 							.orderBy(desc(appointments.startTime)),
+						ctx.db
+							.select({
+								clientId: schedulingClients.clientId,
+								evaluatorNpi: schedulingClients.evaluator,
+							})
+							.from(schedulingClients)
+							.where(
+								and(
+									inArray(schedulingClients.clientId, clientIds),
+									eq(schedulingClients.archived, false),
+								),
+							),
+						ctx.db
+							.select({
+								npi: evaluators.npi,
+								providerName: evaluators.providerName,
+								archived: evaluators.archived,
+							})
+							.from(evaluators),
 					])
-				: [[], []];
+				: [[], [], [], []];
 
 			const priorAuthDateByClientId = new Map<number, string | null>();
 			for (const row of primaryPolicies) {
@@ -567,6 +605,17 @@ export const clientRouter = createTRPCRouter({
 			const mostRecentLocationKeyByClientId = new Map<number, string | null>();
 			const daScheduledClientIds = new Set<number>();
 			const evalScheduledClientIds = new Set<number>();
+			// relevantAppointments is ordered by startTime desc, so overwriting on
+			// every match leaves the soonest upcoming appointment's date, which is
+			// the one worth showing next to the DA/EVAL Scheduled yes/no flag.
+			const daScheduledDateByClientId = new Map<number, Date>();
+			const evalScheduledDateByClientId = new Map<number, Date>();
+			// Next-upcoming wins over most-recent-past when both exist: overwriting
+			// unconditionally on every future match leaves the soonest upcoming
+			// appointment's evaluator (desc order), while the past map only takes
+			// the first (most recent) past row seen per client.
+			const upcomingEvaluatorNpiByClientId = new Map<number, number>();
+			const pastEvaluatorNpiByClientId = new Map<number, number>();
 			for (const appt of relevantAppointments) {
 				if (
 					!appt.billingOnly &&
@@ -577,12 +626,43 @@ export const clientRouter = createTRPCRouter({
 				if (!appt.billingOnly && appt.startTime.getTime() >= now) {
 					if (appt.daEval === "DA" || appt.daEval === "DAEVAL") {
 						daScheduledClientIds.add(appt.clientId);
+						daScheduledDateByClientId.set(appt.clientId, appt.startTime);
 					}
 					if (appt.daEval === "EVAL" || appt.daEval === "DAEVAL") {
 						evalScheduledClientIds.add(appt.clientId);
+						evalScheduledDateByClientId.set(appt.clientId, appt.startTime);
 					}
+					upcomingEvaluatorNpiByClientId.set(appt.clientId, appt.evaluatorNpi);
+				} else if (
+					!appt.billingOnly &&
+					!pastEvaluatorNpiByClientId.has(appt.clientId)
+				) {
+					pastEvaluatorNpiByClientId.set(appt.clientId, appt.evaluatorNpi);
 				}
 			}
+
+			const evaluatorNameByNpi = new Map(
+				allEvaluators.map((e) => [e.npi, e.providerName]),
+			);
+			const activeEvaluatorNpis = new Set(
+				allEvaluators.filter((e) => !e.archived).map((e) => e.npi),
+			);
+			const assignedEvaluatorNpiByClientId = new Map<number, number>();
+			for (const row of schedulingAssignments) {
+				if (row.evaluatorNpi && activeEvaluatorNpis.has(row.evaluatorNpi)) {
+					assignedEvaluatorNpiByClientId.set(row.clientId, row.evaluatorNpi);
+				}
+			}
+
+			const getEvaluatorFirstName = (clientId: number): string | null => {
+				const npi =
+					upcomingEvaluatorNpiByClientId.get(clientId) ??
+					pastEvaluatorNpiByClientId.get(clientId) ??
+					assignedEvaluatorNpiByClientId.get(clientId);
+				if (!npi) return null;
+				const providerName = evaluatorNameByNpi.get(npi);
+				return providerName ? (providerName.split(" ")[0] ?? null) : null;
+			};
 
 			const getLocation = (
 				latitude: string | null,
@@ -614,8 +694,11 @@ export const clientRouter = createTRPCRouter({
 				unresolvedFailures: failuresByClientId.get(row.id) ?? [],
 				priorAuthDate: priorAuthDateByClientId.get(row.id) ?? null,
 				daScheduled: daScheduledClientIds.has(row.id),
+				daScheduledDate: daScheduledDateByClientId.get(row.id) ?? null,
 				evalScheduled: evalScheduledClientIds.has(row.id),
+				evalScheduledDate: evalScheduledDateByClientId.get(row.id) ?? null,
 				location: getLocation(latitude, longitude, row.id),
+				evaluator: getEvaluatorFirstName(row.id),
 			}));
 		}),
 
@@ -623,6 +706,34 @@ export const clientRouter = createTRPCRouter({
 		.input(directoryFilterSchema)
 		.query(async ({ ctx, input }) => {
 			const { isHighPriorityClient, isHighPriorityBN } = getPriorityInfo();
+
+			// Each facet needs its own WHERE clause (excluding that facet's own
+			// filter), but they all share the same insurance alias lookups, so
+			// building them in parallel off one cache avoids re-querying the same
+			// alias names once per facet.
+			const aliasCache = new Map<string, Promise<string[]>>();
+			const [
+				asdAdhdConditions,
+				insuranceConditions,
+				secondaryInsuranceConditions,
+				languageConditions,
+				colorConditions,
+				statusConditions,
+				priorityConditions,
+			] = await Promise.all([
+				buildDirectoryConditions(ctx.db, input, "asdAdhd", aliasCache),
+				buildDirectoryConditions(ctx.db, input, "primaryInsurance", aliasCache),
+				buildDirectoryConditions(
+					ctx.db,
+					input,
+					"secondaryInsurance",
+					aliasCache,
+				),
+				buildDirectoryConditions(ctx.db, input, "language", aliasCache),
+				buildDirectoryConditions(ctx.db, input, "color", aliasCache),
+				buildDirectoryConditions(ctx.db, input, "status", aliasCache),
+				buildDirectoryConditions(ctx.db, input, "priority", aliasCache),
+			]);
 
 			const [
 				asdAdhdRows,
@@ -637,55 +748,31 @@ export const clientRouter = createTRPCRouter({
 				ctx.db
 					.select({ value: clients.asdAdhd, count: count() })
 					.from(clients)
-					.where(
-						and(...(await buildDirectoryConditions(ctx.db, input, "asdAdhd"))),
-					)
+					.where(and(...asdAdhdConditions))
 					.groupBy(clients.asdAdhd),
 				ctx.db
 					.select({ value: clients.primaryInsurance, count: count() })
 					.from(clients)
-					.where(
-						and(
-							...(await buildDirectoryConditions(
-								ctx.db,
-								input,
-								"primaryInsurance",
-							)),
-						),
-					)
+					.where(and(...insuranceConditions))
 					.groupBy(clients.primaryInsurance),
 				ctx.db
 					.select({ secondaryInsurance: clients.secondaryInsurance })
 					.from(clients)
-					.where(
-						and(
-							...(await buildDirectoryConditions(
-								ctx.db,
-								input,
-								"secondaryInsurance",
-							)),
-						),
-					),
+					.where(and(...secondaryInsuranceConditions)),
 				ctx.db
 					.select({ value: clients.language, count: count() })
 					.from(clients)
-					.where(
-						and(...(await buildDirectoryConditions(ctx.db, input, "language"))),
-					)
+					.where(and(...languageConditions))
 					.groupBy(clients.language),
 				ctx.db
 					.select({ value: clients.color, count: count() })
 					.from(clients)
-					.where(
-						and(...(await buildDirectoryConditions(ctx.db, input, "color"))),
-					)
+					.where(and(...colorConditions))
 					.groupBy(clients.color),
 				ctx.db
 					.select({ value: clients.status, count: count() })
 					.from(clients)
-					.where(
-						and(...(await buildDirectoryConditions(ctx.db, input, "status"))),
-					)
+					.where(and(...statusConditions))
 					.groupBy(clients.status),
 				ctx.db
 					.select({
@@ -702,9 +789,7 @@ export const clientRouter = createTRPCRouter({
 						),
 					})
 					.from(clients)
-					.where(
-						and(...(await buildDirectoryConditions(ctx.db, input, "priority"))),
-					),
+					.where(and(...priorityConditions)),
 				ctx.db.query.insurances.findMany({ with: { aliases: true } }),
 			]);
 

@@ -357,6 +357,7 @@ def put_clients_in_db(clients_df: pd.DataFrame, connection: Connection[DictCurso
             else get_column(client, "LONGITUDE"),
             get_column(client, "ASD_ADHD"),
             language,
+            get_column(client, "PA_ASSIGNED_TO"),
             gender,
             phone_number,
             email,
@@ -367,8 +368,8 @@ def put_clients_in_db(clients_df: pd.DataFrame, connection: Connection[DictCurso
         values_to_insert.append(values)
 
     sql = f"""
-        INSERT INTO `{TABLE_CLIENT}` (id, hash, status, addedDate, dob, firstName, lastName, preferredName, fullName, address, schoolDistrict, latitude, longitude, asdAdhd, language, gender, phoneNumber, email, flag, taUser, referralSource)
-        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+        INSERT INTO `{TABLE_CLIENT}` (id, hash, status, addedDate, dob, firstName, lastName, preferredName, fullName, address, schoolDistrict, latitude, longitude, asdAdhd, language, pa_assigned_to, gender, phoneNumber, email, flag, taUser, referralSource)
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
         ON DUPLICATE KEY UPDATE
             hash = VALUES(hash),
             status = VALUES(status),
@@ -384,6 +385,7 @@ def put_clients_in_db(clients_df: pd.DataFrame, connection: Connection[DictCurso
             longitude = CASE WHEN VALUES(longitude) IS NOT NULL THEN VALUES(longitude) ELSE longitude END,
             asdAdhd = CASE WHEN VALUES(asdAdhd) IS NOT NULL THEN VALUES(asdAdhd) ELSE asdAdhd END,
             language = CASE WHEN VALUES(language) IS NOT NULL THEN VALUES(language) ELSE language END,
+            pa_assigned_to = CASE WHEN VALUES(pa_assigned_to) IS NOT NULL THEN VALUES(pa_assigned_to) ELSE pa_assigned_to END,
             gender = VALUES(gender),
             phoneNumber = VALUES(phoneNumber),
             email = VALUES(email),

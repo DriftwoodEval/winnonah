@@ -137,8 +137,8 @@ def get_gmail_service():
     return build("gmail", "v1", credentials=creds)
 
 
-def get_punchlist_language_map() -> dict[str, str]:
-    """Fetch a mapping of Client ID to Language from the Punchlist sheet."""
+def _get_punchlist_column_map(column_name: str) -> dict[str, str]:
+    """Fetch a mapping of Client ID to the given column's value from the Punchlist sheet."""
     service = get_sheets_service()
     result = (
         service.spreadsheets()
@@ -157,20 +157,35 @@ def get_punchlist_language_map() -> dict[str, str]:
     header = rows[0]
     try:
         id_index = header.index("Client ID")
-        language_index = header.index("Language")
+        column_index = header.index(column_name)
     except ValueError:
-        logger.warning("Client ID or Language column not found in Punchlist sheet")
+        logger.warning(
+            f"Client ID or {column_name} column not found in Punchlist sheet"
+        )
         return {}
 
-    language_map: dict[str, str] = {}
+    column_map: dict[str, str] = {}
     for row in rows[1:]:
         if len(row) <= id_index:
             continue
         client_id = row[id_index]
-        language = row[language_index].strip() if len(row) > language_index else ""
-        language_map[client_id] = language or "English"
+        value = row[column_index].strip() if len(row) > column_index else ""
+        column_map[client_id] = value
 
-    return language_map
+    return column_map
+
+
+def get_punchlist_language_map() -> dict[str, str]:
+    """Fetch a mapping of Client ID to Language from the Punchlist sheet."""
+    return {
+        client_id: value or "English"
+        for client_id, value in _get_punchlist_column_map("Language").items()
+    }
+
+
+def get_punchlist_pa_assigned_to_map() -> dict[str, str]:
+    """Fetch a mapping of Client ID to PA Assigned To from the Punchlist sheet."""
+    return _get_punchlist_column_map("PA Assigned to")
 
 
 def list_files_in_folder(
