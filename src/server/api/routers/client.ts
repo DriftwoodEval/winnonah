@@ -2151,6 +2151,19 @@ export const clientRouter = createTRPCRouter({
 				.set(updateData)
 				.where(eq(clients.id, input.clientId));
 
+			if (
+				input.schoolDistrict !== undefined &&
+				input.schoolDistrict !== currentClient.schoolDistrict
+			) {
+				const cookieHeader = ctx.headers.get("cookie") ?? "";
+				void fetch(`${env.PY_API}/rematch/client/${input.clientId}`, {
+					method: "POST",
+					headers: { Cookie: cookieHeader },
+				}).catch((err) =>
+					ctx.logger.error(err, "Failed to trigger client rematch"),
+				);
+			}
+
 			if (input.recordsNeeded === "Needed") {
 				const referralData =
 					input.referralData ??

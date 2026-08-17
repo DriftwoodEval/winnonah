@@ -1745,6 +1745,24 @@ def rematch_evaluator(npi: int, connection: Connection[DictCursor]) -> None:
 
 
 @provide_connection
+def rematch_client(client_id: str, connection: Connection[DictCursor]) -> None:
+    """Re-runs evaluator matching for a single client after their eligibility data changes."""
+    logger.info(f"Running rematch for client {client_id}")
+
+    clients = get_all_clients(connection=connection)
+    if clients.empty:
+        return
+
+    evaluators = get_evaluators_with_blocked_locations(connection=connection)
+    if not evaluators:
+        return
+
+    insert_by_matching_criteria_client_specific(
+        clients, evaluators, {str(client_id)}, connection=connection
+    )
+
+
+@provide_connection
 def get_client_eligibility_debug(
     client_id: str, connection: Connection[DictCursor]
 ) -> dict | None:

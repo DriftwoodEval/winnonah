@@ -42,41 +42,52 @@ if ! ${PRIMARY_COMPOSE} up -d --wait driftwood-db redis loki promtail grafana; t
 fi
 log "Primary MySQL OK."
 
-# 2. Point primary at standby to catch up
-log "Syncing primary from standby (${STANDBY_TAILSCALE_IP})..."
-docker exec -i driftwood-db mysql -uroot -p"${MYSQL_ROOT_PASSWORD}" << SQL
-STOP REPLICA;
-RESET REPLICA ALL;
-CHANGE REPLICATION SOURCE TO
-  SOURCE_HOST='${STANDBY_TAILSCALE_IP}',
-  SOURCE_PORT=3306,
-  SOURCE_USER='${MYSQL_REPLICATION_USER}',
-  SOURCE_PASSWORD='${MYSQL_REPLICATION_PASSWORD}',
-  SOURCE_AUTO_POSITION=1,
-  GET_SOURCE_PUBLIC_KEY=1;
-START REPLICA;
-SQL
-slack "Primary replicating from standby. Waiting to catch up..."
+# 2. Dump standby (the source of truth right now) and load it onto primary,
+# replacing primary's data wholesale instead of catching primary up via live
+# GTID replication. Seconds_Behind_Source is not a trustworthy "caught up"
+# signal right after START REPLICA: it can read 0 before the IO thread has
+# even connected to the source, and the old wait loop's first check ran with
+# no prior sleep, so it could pass instantly, before anything had actually
+# replicated, and traffic got cut back to a primary still holding its stale
+# pre-failover data. A dump-and-restore has no such false-positive.
+log "Dumping standby database (${STANDBY_TAILSCALE_IP})..."
+# MYSQL_ROOT_PASSWORD is passed explicitly since the remote shell won't have
+# it, then read back inside the heredoc's own bash -s process (see the same
+# pattern and reasoning in mysql-replication-init.sh).
+ssh -o LogLevel=quiet -i "${STANDBY_SSH_KEY_PATH}" "${STANDBY_SSH_USER}@${STANDBY_TAILSCALE_IP}" \
+  "MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD} bash -s" > /tmp/standby_dump.sql << 'REMOTE'
+set -euo pipefail
+docker exec driftwood-db mysqldump \
+  -uroot -p"${MYSQL_ROOT_PASSWORD}" \
+  --all-databases \
+  --single-transaction \
+  --source-data=2 \
+  --flush-logs \
+  --routines \
+  --triggers \
+  --events \
+  --set-gtid-purged=ON
+REMOTE
+log "Dump complete: $(du -sh /tmp/standby_dump.sql | cut -f1)"
+slack "Standby dumped. Restoring onto primary..."
 
-# 3. Wait for lag = 0
-log "Waiting for primary to catch up..."
-for i in $(seq 1 60); do
-  lag=$(docker exec driftwood-db mysql --vertical -uroot -p"${MYSQL_ROOT_PASSWORD}" \
-    -e "SHOW REPLICA STATUS" 2>/dev/null \
-    | grep "Seconds_Behind_Source" | awk '{print $2}' || true)
-  log "  Lag: ${lag:-unknown}s"
-  [ "${lag}" = "0" ] && break
-  sleep 5
-done
-log "Primary caught up."
+log "Restoring primary from standby's dump..."
+docker exec driftwood-db mysql -uroot -p"${MYSQL_ROOT_PASSWORD}" \
+  -e "STOP REPLICA; RESET REPLICA ALL; RESET BINARY LOGS AND GTIDS;
+      SET GLOBAL read_only=OFF; SET GLOBAL super_read_only=OFF;"
 
-# 4. Stop standby cloudflared and winnonah
+docker exec -i driftwood-db mysql -uroot -p"${MYSQL_ROOT_PASSWORD}" \
+  < /tmp/standby_dump.sql
+log "Primary restored from standby."
+slack "Primary restored from standby's data."
+
+# 3. Stop standby cloudflared and winnonah
 log "Stopping standby services..."
 ssh -o LogLevel=quiet -i "${STANDBY_SSH_KEY_PATH}" "${STANDBY_SSH_USER}@${STANDBY_TAILSCALE_IP}" \
   "${STANDBY_COMPOSE} --profile active_only stop cloudflared winnonah winnonah-python"
 slack "Standby tunnel stopped. Starting primary tunnel..."
 
-# 5. Start primary caddy, cloudflared, and winnonah
+# 4. Start primary caddy, cloudflared, and winnonah
 # caddy has no profile so it's normally always-on, but STONITH's blanket
 # `docker compose down` on primary (failover.sh) removes it along with
 # everything else, so it needs to be started back up explicitly here.
@@ -84,12 +95,12 @@ log "Starting primary caddy, cloudflared, and winnonah..."
 ${PRIMARY_COMPOSE} up -d caddy cloudflared winnonah
 sleep 10
 
-# 6. Start primary python jobs
+# 5. Start primary python jobs
 log "Starting primary python jobs..."
 ${PRIMARY_COMPOSE} up -d winnonah-python
 slack "Python jobs active on primary."
 
-# 7. Re-establish primary -> standby replication
+# 6. Re-establish primary -> standby replication
 log "Disconnecting primary replica channel..."
 docker exec driftwood-db mysql -uroot -p"${MYSQL_ROOT_PASSWORD}" \
   -e "STOP REPLICA; RESET REPLICA ALL;"
@@ -98,7 +109,7 @@ log "Re-seeding standby as replica..."
 bash "$DIR/mysql-replication-init.sh"
 slack "Replication restored: primary -> standby."
 
-# 8. Clear flags and ack to Worker
+# 7. Clear flags and ack to Worker
 log "Clearing failover flags..."
 ssh -o LogLevel=quiet -i "${STANDBY_SSH_KEY_PATH}" "${STANDBY_SSH_USER}@${STANDBY_TAILSCALE_IP}" \
   "rm -f /tmp/failover_active"
@@ -110,7 +121,7 @@ curl -sf -X POST \
   "https://failover-monitor.${CF_WORKER_SUBDOMAIN}.workers.dev/ack" \
   || log "Could not ack to worker."
 
-# 9. Re-enable watchtower
+# 8. Re-enable watchtower
 log "Re-enabling watchtower..."
 ${PRIMARY_COMPOSE} up -d watchtower
 
