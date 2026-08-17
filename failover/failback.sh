@@ -44,12 +44,12 @@ log "Primary MySQL OK."
 
 # 2. Dump standby (the source of truth right now) and load it onto primary,
 # replacing primary's data wholesale instead of catching primary up via live
-# GTID replication. A fresh replica catch-up has no reliable failure signal
-# here: if primary took any writes before STONITH could stop it, or its GTID
-# set doesn't cleanly fast-forward against standby's, the replica SQL thread
-# can stall or error out silently, "Seconds_Behind_Source" just reads blank
-# forever, and traffic used to get cut back to a primary that never actually
-# caught up. A dump-and-restore has no such silent-failure mode.
+# GTID replication. Seconds_Behind_Source is not a trustworthy "caught up"
+# signal right after START REPLICA: it can read 0 before the IO thread has
+# even connected to the source, and the old wait loop's first check ran with
+# no prior sleep, so it could pass instantly, before anything had actually
+# replicated, and traffic got cut back to a primary still holding its stale
+# pre-failover data. A dump-and-restore has no such false-positive.
 log "Dumping standby database (${STANDBY_TAILSCALE_IP})..."
 # MYSQL_ROOT_PASSWORD is passed explicitly since the remote shell won't have
 # it, then read back inside the heredoc's own bash -s process (see the same
