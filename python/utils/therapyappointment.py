@@ -222,13 +222,23 @@ def _loop_therapists(driver: WebDriver, func: Callable):
                 timeout=5,
             )
             therapist_npi = npi_element.text.split()[0]
-            func(driver, therapist_npi)
-
         except (NoSuchElementException, TimeoutException):
-            logger.error(f"Could not find NPI for {target['name']}, skipping!")
-            continue
+            # Non-billing staff (techs, admins, etc.) have no NPI on their
+            # profile. Their client data still needs to be downloaded, so
+            # fall back to a name-based identifier instead of skipping them.
+            logger.warning(
+                f"No NPI found for {target['name']}, downloading with a name-based identifier instead"
+            )
+            therapist_npi = _identifier_from_name(target["name"])
+
+        func(driver, therapist_npi)
 
     logger.debug("Completed therapist loop")
+
+
+def _identifier_from_name(name: str) -> str:
+    """Turns a staff member's name into a safe, unique filename fallback for staff without an NPI."""
+    return re.sub(r"[^A-Za-z0-9]+", "-", name).strip("-").lower() or "unknown"
 
 
 def _combine_files():
