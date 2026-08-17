@@ -184,7 +184,10 @@ export function QuestionnaireTableForm({
 														<CommandItem
 															key={q.name}
 															onSelect={() => {
-																form.setValue("questionnaireType", q.name);
+																form.setValue("questionnaireType", q.name, {
+																	shouldDirty: true,
+																	shouldValidate: true,
+																});
 																setIsPopoverOpen(false);
 															}}
 															value={q.name}
