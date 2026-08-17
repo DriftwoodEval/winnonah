@@ -30,6 +30,7 @@ from utils.database import (
     get_db,
     get_possible_private_pay_reasons,
     get_python_config,
+    rematch_client,
     rematch_evaluator,
 )
 from utils.forms import fill_select_health_form
@@ -742,6 +743,15 @@ def rematch_evaluator_endpoint(
     if not current_user["permissions"].get("settings:evaluators"):
         raise HTTPException(status_code=403, detail="Not authorized")
     rematch_evaluator(npi)
+    return {"status": "ok"}
+
+
+@app.post("/rematch/client/{client_id}")
+def rematch_client_endpoint(
+    client_id: str,
+    current_user: dict = Depends(get_current_user),  # noqa: ARG001
+):
+    rematch_client(client_id)
     return {"status": "ok"}
 
 
