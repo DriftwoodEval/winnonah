@@ -97,8 +97,6 @@ export function IssueWidgetById({ id }: { id: string }) {
 			return <NoDriveIdsWidget />;
 		case "private-pay":
 			return <PrivatePayWidget />;
-		case "missing-records-needed":
-			return <MissingRecordsNeededWidget />;
 		case "unreviewed-records":
 			return <UnreviewedRecordsWidget />;
 		case "duplicate-drive":
@@ -489,23 +487,6 @@ function PrivatePayWidget() {
 			isLoading={isLoading}
 			permission="issues:private-pay"
 			title="Potential Private Pay"
-		/>
-	);
-}
-
-function MissingRecordsNeededWidget() {
-	const can = useCheckPermission();
-	const { data, isLoading } = api.clients.getMissingRecordsNeeded.useQuery(
-		undefined,
-		{ refetchInterval: 60_000, enabled: can("issues:missing-records-needed") },
-	);
-	return (
-		<SimpleIssueWidget
-			clients={data}
-			description="Clients whose records needed status is not set."
-			isLoading={isLoading}
-			permission="issues:missing-records-needed"
-			title="Records Needed Not Set"
 		/>
 	);
 }

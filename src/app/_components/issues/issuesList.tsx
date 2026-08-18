@@ -1001,13 +1001,6 @@ export function IssuesList() {
 			enabled: can("issues:no-drive-ids"),
 		});
 	const {
-		data: missingRecordsNeeded,
-		isLoading: isLoadingMissingRecordsNeeded,
-	} = api.clients.getMissingRecordsNeeded.useQuery(undefined, {
-		refetchInterval: 60_000,
-		enabled: can("issues:missing-records-needed"),
-	});
-	const {
 		data: duplicateFolderNames,
 		isLoading: isLoadingDuplicateFolderNames,
 	} = api.google.findDuplicates.useQuery(undefined, {
@@ -1365,19 +1358,6 @@ export function IssuesList() {
 						clients={possiblePrivatePay}
 						description="Clients with no eligible evaluators based on insurance and district/zip code."
 						title="Potential Private Pay"
-					/>
-				)}
-			</GuardedIssue>
-
-			<GuardedIssue
-				isLoading={isLoadingMissingRecordsNeeded}
-				permission="issues:missing-records-needed"
-			>
-				{missingRecordsNeeded && missingRecordsNeeded.length !== 0 && (
-					<IssueList
-						clients={missingRecordsNeeded}
-						description="Clients whose records needed status is not set."
-						title="Records Needed Not Set"
 					/>
 				)}
 			</GuardedIssue>

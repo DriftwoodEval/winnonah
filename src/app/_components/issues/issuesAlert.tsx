@@ -63,12 +63,6 @@ export function IssuesAlert() {
 		{ ...queryOptions, enabled: can("issues:no-drive-ids") },
 	);
 
-	const { data: missingRecordsNeeded } =
-		api.clients.getMissingRecordsNeeded.useQuery(undefined, {
-			...queryOptions,
-			enabled: can("issues:missing-records-needed"),
-		});
-
 	const { data: dd4 } = api.clients.getDD4.useQuery(undefined, {
 		...queryOptions,
 		enabled: can("issues:dd4"),
@@ -177,10 +171,6 @@ export function IssuesAlert() {
 		countIf(can("clients:merge"), notesOnlyClients?.length ?? 0) +
 		countIf(can("issues:no-drive-ids"), noDriveIds?.length ?? 0) +
 		countIf(can("issues:private-pay"), possiblePrivatePay?.length ?? 0) +
-		countIf(
-			can("issues:missing-records-needed"),
-			missingRecordsNeeded?.length ?? 0,
-		) +
 		countIf(can("issues:unreviewed-records"), unreviewedRecords?.length ?? 0) +
 		countIf(
 			can("issues:duplicate-drive"),

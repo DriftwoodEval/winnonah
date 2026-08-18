@@ -213,13 +213,6 @@ export const HOME_WIDGET_DEFS: HomeWidgetDef[] = [
 		sizing: "content",
 	},
 	{
-		id: "missing-records-needed",
-		label: "Records Needed Not Set",
-		permission: "issues:missing-records-needed",
-		category: "issues",
-		sizing: "content",
-	},
-	{
 		id: "unreviewed-records",
 		label: "Unreviewed/Unreceived Records",
 		permission: "issues:unreviewed-records",
