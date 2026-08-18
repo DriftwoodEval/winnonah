@@ -225,6 +225,8 @@ const FILTER_PARAM_KEYS = [
 	"priorAuthDate",
 	"daScheduled",
 	"evalScheduled",
+	"location",
+	"evaluator",
 	"paAssignedTo",
 	"hasFailures",
 ] as const;
@@ -537,6 +539,8 @@ interface DirectoryFilters {
 	priorAuthDate?: string[];
 	daScheduled?: string[];
 	evalScheduled?: string[];
+	location?: string[];
+	evaluator?: string[];
 	paAssignedTo?: string[];
 	hasFailures?: boolean;
 	sort?: string;
@@ -936,6 +940,8 @@ export function ClientDirectory() {
 	const priorAuthDateFilter = getArrayParam("priorAuthDate");
 	const daScheduledFilter = getArrayParam("daScheduled");
 	const evalScheduledFilter = getArrayParam("evalScheduled");
+	const locationFilter = getArrayParam("location");
+	const evaluatorFilter = getArrayParam("evaluator");
 	const paAssignedTo = getArrayParam("paAssignedTo");
 	const hasFailures = searchParams.get("hasFailures") === "true";
 	// "priority" is the default, matching the homepage client search sort.
@@ -1001,6 +1007,10 @@ export function ClientDirectory() {
 		: [];
 	const effectiveEvalScheduledFilter = visibleColumns.evalScheduled
 		? evalScheduledFilter
+		: [];
+	const effectiveLocationFilter = visibleColumns.location ? locationFilter : [];
+	const effectiveEvaluatorFilter = visibleColumns.evaluator
+		? evaluatorFilter
 		: [];
 	const effectivePaAssignedTo = visibleColumns.paAssignedTo ? paAssignedTo : [];
 	const effectiveHasFailures = visibleColumns[FAILURES_TOGGLE_KEY]
@@ -1340,6 +1350,16 @@ export function ClientDirectory() {
 				if (!effectiveEvalScheduledFilter.includes(has)) return false;
 			}
 
+			if (effectiveLocationFilter.length > 0) {
+				const location = client.location || NONE_FILTER_VALUE;
+				if (!effectiveLocationFilter.includes(location)) return false;
+			}
+
+			if (effectiveEvaluatorFilter.length > 0) {
+				const evaluator = client.evaluator || NONE_FILTER_VALUE;
+				if (!effectiveEvaluatorFilter.includes(evaluator)) return false;
+			}
+
 			if (effectivePaAssignedTo.length > 0) {
 				const assignedTo = client.paAssignedTo || NONE_FILTER_VALUE;
 				if (!effectivePaAssignedTo.includes(assignedTo)) return false;
@@ -1368,6 +1388,8 @@ export function ClientDirectory() {
 		effectivePriorAuthDateFilter,
 		effectiveDaScheduledFilter,
 		effectiveEvalScheduledFilter,
+		effectiveLocationFilter,
+		effectiveEvaluatorFilter,
 		effectivePaAssignedTo,
 		effectiveHasFailures,
 		effectiveSort,
@@ -1389,6 +1411,22 @@ export function ClientDirectory() {
 			if (client.paAssignedTo) names.add(client.paAssignedTo);
 		}
 		return toFilterOptions([...names].sort());
+	}, [rawClients]);
+
+	const locationOptions: FilterOption[] = useMemo(() => {
+		const locations = new Set<string>();
+		for (const client of rawClients ?? []) {
+			if (client.location) locations.add(client.location);
+		}
+		return toFilterOptions([...locations].sort());
+	}, [rawClients]);
+
+	const evaluatorOptions: FilterOption[] = useMemo(() => {
+		const evaluators = new Set<string>();
+		for (const client of rawClients ?? []) {
+			if (client.evaluator) evaluators.add(client.evaluator);
+		}
+		return toFilterOptions([...evaluators].sort());
 	}, [rawClients]);
 
 	// Merged into the color facet counts so the Name filter's combined
@@ -1584,7 +1622,14 @@ export function ClientDirectory() {
 				key="location"
 			>
 				<AnimatedCellContent visible={visibleColumns.location}>
-					<SortButton label="Location" {...columnSort("location")} />
+					<DirectoryColumnFilter
+						label="Location"
+						onClear={() => clearArrayParam("location")}
+						onToggle={(value) => toggleArrayParam("location", value)}
+						options={withNone(locationOptions)}
+						sort={columnSort("location")}
+						values={locationFilter}
+					/>
 				</AnimatedCellContent>
 			</TableHead>
 		),
@@ -1594,7 +1639,14 @@ export function ClientDirectory() {
 				key="evaluator"
 			>
 				<AnimatedCellContent visible={visibleColumns.evaluator}>
-					<SortButton label="Evaluator" {...columnSort("evaluator")} />
+					<DirectoryColumnFilter
+						label="Evaluator"
+						onClear={() => clearArrayParam("evaluator")}
+						onToggle={(value) => toggleArrayParam("evaluator", value)}
+						options={withNone(evaluatorOptions)}
+						sort={columnSort("evaluator")}
+						values={evaluatorFilter}
+					/>
 				</AnimatedCellContent>
 			</TableHead>
 		),

@@ -183,11 +183,6 @@ def get_punchlist_language_map() -> dict[str, str]:
     }
 
 
-def get_punchlist_pa_assigned_to_map() -> dict[str, str]:
-    """Fetch a mapping of Client ID to PA Assigned To from the Punchlist sheet."""
-    return _get_punchlist_column_map("PA Assigned to")
-
-
 def list_files_in_folder(
     folder_id: str, created_after: datetime | None = None
 ) -> list[dict]:

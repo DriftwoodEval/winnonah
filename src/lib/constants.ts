@@ -254,10 +254,6 @@ export const PERMISSIONS = {
 					{ id: "issues:no-drive-ids", title: "No Drive IDs" },
 					{ id: "issues:private-pay", title: "Potential Private Pay" },
 					{
-						id: "issues:missing-records-needed",
-						title: "Records Needed Not Set",
-					},
-					{
 						id: "issues:unreviewed-records",
 						title: "Unreviewed/Unreceived Records",
 					},

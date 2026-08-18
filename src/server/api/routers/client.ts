@@ -1824,22 +1824,6 @@ export const clientRouter = createTRPCRouter({
 		);
 	}),
 
-	getMissingRecordsNeeded: protectedProcedure.query(async ({ ctx }) => {
-		assertPermission(ctx.session.user, "issues:missing-records-needed");
-
-		const clientsWithoutRecordsNeeded = await ctx.db.query.clients.findMany({
-			where: and(
-				isNull(clients.recordsNeeded),
-				isNotNull(clients.taUser),
-				eq(clients.status, true),
-				not(isNotesOnly),
-			),
-			orderBy: clients.addedDate,
-		});
-
-		return clientsWithoutRecordsNeeded;
-	}),
-
 	claimOutreach: protectedProcedure
 		.input(z.object({ clientId: z.number() }))
 		.mutation(async ({ ctx, input }) => {

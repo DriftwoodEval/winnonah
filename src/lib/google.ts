@@ -544,6 +544,14 @@ export const syncPunchData = async (ctx: Context & { session: Session }) => {
 			updates.language = client.Language.trim();
 		}
 
+		if (
+			client["PA Assigned to"] &&
+			client["PA Assigned to"].trim() !== "" &&
+			client["PA Assigned to"].trim() !== client.paAssignedTo
+		) {
+			updates.paAssignedTo = client["PA Assigned to"].trim();
+		}
+
 		if (Object.keys(updates).length > 0) {
 			updatePromises.push(
 				db.update(clients).set(updates).where(eq(clients.id, client.id)),
