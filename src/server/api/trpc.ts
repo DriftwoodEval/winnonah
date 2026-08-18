@@ -121,7 +121,10 @@ const loggerMiddleware = t.middleware(async ({ next, path, ctx }) => {
 	});
 
 	if (!result.ok) {
-		procedureLogger.error({ duration_ms: Date.now() - start }, "query failed");
+		procedureLogger.error(
+			{ error: result.error, duration_ms: Date.now() - start },
+			"query failed",
+		);
 	}
 
 	return result;
