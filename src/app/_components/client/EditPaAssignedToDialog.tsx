@@ -1,8 +1,14 @@
 "use client";
 
 import { Button } from "@ui/button";
-import { Input } from "@ui/input";
-import { type Dispatch, type SetStateAction, useState } from "react";
+import {
+	Select,
+	SelectContent,
+	SelectItem,
+	SelectTrigger,
+	SelectValue,
+} from "@ui/select";
+import { type Dispatch, type SetStateAction, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { api } from "~/trpc/react";
 
@@ -12,14 +18,31 @@ interface EditPaAssignedToDialogProps {
 	setOpen: Dispatch<SetStateAction<boolean>>;
 }
 
+const UNASSIGNED = "__unassigned";
+
 export function EditPaAssignedToDialog({
 	clientId,
 	value,
 	setOpen,
 }: EditPaAssignedToDialogProps) {
 	const utils = api.useUtils();
+	const { data: users } = api.users.getAll.useQuery({ archived: false });
 	const [paAssignedTo, setPaAssignedTo] = useState(value);
 	const [isSubmitting, setIsSubmitting] = useState(false);
+
+	// Staff are picked by first name, since that's how PA Assigned To is
+	// tracked on the Punchlist. Falls back to including the current value
+	// even if it doesn't match a user, so an existing (e.g. legacy) value
+	// isn't silently dropped from the list.
+	const firstNames = useMemo(() => {
+		const names = new Set<string>();
+		for (const user of users ?? []) {
+			const firstName = user.name?.split(" ")[0];
+			if (firstName) names.add(firstName);
+		}
+		if (value) names.add(value);
+		return [...names].sort((a, b) => a.localeCompare(b));
+	}, [users, value]);
 
 	const updatePaAssignedTo = api.google.setPaAssignedTo.useMutation({
 		onSuccess: () => {
@@ -50,11 +73,22 @@ export function EditPaAssignedToDialog({
 
 	return (
 		<form className="space-y-4" onSubmit={onSubmit}>
-			<Input
-				onChange={(e) => setPaAssignedTo(e.target.value)}
-				placeholder="Who's assigned?"
-				value={paAssignedTo}
-			/>
+			<Select
+				onValueChange={(v) => setPaAssignedTo(v === UNASSIGNED ? "" : v)}
+				value={paAssignedTo || UNASSIGNED}
+			>
+				<SelectTrigger className="w-full">
+					<SelectValue placeholder="Who's assigned?" />
+				</SelectTrigger>
+				<SelectContent>
+					<SelectItem value={UNASSIGNED}>Unassigned</SelectItem>
+					{firstNames.map((firstName) => (
+						<SelectItem key={firstName} value={firstName}>
+							{firstName}
+						</SelectItem>
+					))}
+				</SelectContent>
+			</Select>
 			<div className="flex justify-end gap-2">
 				<Button
 					disabled={isSubmitting}
