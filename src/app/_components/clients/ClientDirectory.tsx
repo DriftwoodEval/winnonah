@@ -927,7 +927,6 @@ export function ClientDirectory() {
 		return raw ? raw.split(",").filter(Boolean) : [];
 	};
 
-	const nameSearch = searchParams.get("name") ?? "";
 	const asdAdhd = getArrayParam("for");
 	const primaryInsurance = getArrayParam("insurance");
 	const secondaryInsurance = getArrayParam("secondaryInsurance");
@@ -961,6 +960,24 @@ export function ClientDirectory() {
 		handleScroll();
 		table.addEventListener("scroll", handleScroll);
 		return () => table.removeEventListener("scroll", handleScroll);
+	}, []);
+
+	// Transient per-lookup search, not persisted to the URL or saved filters,
+	// matching ClientsDashboard/GlobalClientSearch.
+	const [nameSearch, setNameSearch] = useState("");
+	const nameSearchInputRef = useRef<HTMLInputElement>(null);
+
+	// Ctrl/Cmd+F focuses the directory search instead of opening the native
+	// find bar, matching SchedulingTable's search box.
+	useEffect(() => {
+		const handleKeyDown = (e: KeyboardEvent) => {
+			if (e.key.toLowerCase() !== "f" || !(e.ctrlKey || e.metaKey)) return;
+			e.preventDefault();
+			nameSearchInputRef.current?.focus();
+			nameSearchInputRef.current?.select();
+		};
+		document.addEventListener("keydown", handleKeyDown);
+		return () => document.removeEventListener("keydown", handleKeyDown);
 	}, []);
 
 	const [isInitialized, setIsInitialized] = useState(false);
@@ -1684,7 +1701,8 @@ export function ClientDirectory() {
 				<div className="sm:max-w-xs sm:flex-1">
 					<NameSearchInput
 						initialValue={nameSearch}
-						onDebouncedChange={(value) => updateParam("name", value)}
+						inputRef={nameSearchInputRef}
+						onDebouncedChange={setNameSearch}
 						placeholder="Search by name or ID"
 					/>
 				</div>
