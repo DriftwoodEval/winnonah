@@ -412,17 +412,27 @@ def main(
     trigger_args = [quo, download_only]
 
     if (any(trigger_args) or not dev_mode) and not import_only:
-        logger.debug("Removing temp directory")
-        shutil.rmtree("temp", ignore_errors=True)
+        # Only the scratch per-therapist download directory is cleared here.
+        # temp/input is left alone so a failed download doesn't wipe out the
+        # last successfully downloaded files, which are still served for
+        # manual download from the admin UI.
+        logger.debug("Removing temp downloads directory")
+        shutil.rmtree("temp/downloads", ignore_errors=True)
 
     if download_only:
         logger.info("Running download only")
-        utils.therapyappointment.download_csvs()
+        try:
+            utils.therapyappointment.download_csvs()
+        except utils.therapyappointment.DownloadFailedError as e:
+            logger.error(str(e))
         return
 
     if quo:
         logger.info("Running Quo sync")
-        utils.therapyappointment.download_csvs()
+        try:
+            utils.therapyappointment.download_csvs()
+        except utils.therapyappointment.DownloadFailedError as e:
+            logger.error(str(e))
         utils.quo.sync_quo()
         return
 
@@ -523,9 +533,15 @@ def main(
                     f"  - {name_display} (ID: {client_row.get('CLIENT_ID', 'N/A')})"
                 )
 
-    import_from_ta(
-        clients=clients, force_clients=force_clients, should_download=not import_only
-    )
+    try:
+        import_from_ta(
+            clients=clients,
+            force_clients=force_clients,
+            should_download=not import_only,
+        )
+    except utils.therapyappointment.DownloadFailedError as e:
+        logger.error(f"{e} Skipping import for this run.")
+
     if client or force_all or import_only:
         return
 
