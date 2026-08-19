@@ -23,6 +23,19 @@ from utils.task_tracker import track_task
 DOWNLOAD_DIR = Path("temp/downloads")
 INPUT_DIR = Path("temp/input")
 
+# Files the DB import step depends on. If any of these fail to download,
+# the run must not import, but whatever copies are already in INPUT_DIR
+# (from a previous successful run) are left in place.
+REQUIRED_INPUT_FILES = {
+    "clients-appointments.csv",
+    "clients-demographic.csv",
+    "clients-insurance.csv",
+}
+
+
+class DownloadFailedError(Exception):
+    """Raised when a file the import step depends on failed to download."""
+
 
 def _wait_for_download(before: set[Path], timeout: int = 30) -> Path:
     """Waits for a new CSV to appear and finish downloading, returns its path."""
@@ -232,9 +245,16 @@ def _loop_therapists(driver: WebDriver, func: Callable):
 
 
 def _combine_files():
-    """Combines multiple therapists' CSV files into a single CSV file."""
+    """Combines multiple therapists' CSV files into a single CSV file.
+
+    Only overwrites a given INPUT_DIR file if this run actually produced data
+    for it, so a file this run failed to download keeps its previous copy.
+    Raises DownloadFailedError if a file the import step depends on wasn't
+    produced.
+    """
     logger.debug("Combining CSVs")
     INPUT_DIR.mkdir(parents=True, exist_ok=True)
+    written_files: set[str] = set()
 
     def _read_and_concat_files(pattern: str, output_file: Path):
         files = list(DOWNLOAD_DIR.glob(pattern))
@@ -254,6 +274,7 @@ def _combine_files():
         if df_list:
             df = pd.concat(df_list)
             df.to_csv(output_file, index=False, encoding="utf-8")
+            written_files.add(output_file.name)
 
     def _add_npi_and_merge(pattern: str, output_file: Path):
         files = list(DOWNLOAD_DIR.glob(pattern))
@@ -276,8 +297,7 @@ def _combine_files():
         if df_list:
             df = pd.concat(df_list)
             df.to_csv(output_file, index=False, encoding="utf-8")
-
-    Path.mkdir(INPUT_DIR, exist_ok=True)
+            written_files.add(output_file.name)
 
     _add_npi_and_merge(
         "clients-appointments_*.csv",
@@ -297,6 +317,13 @@ def _combine_files():
         "dataExport-chart*.csv",
         INPUT_DIR / "clients-chart.csv",
     )
+
+    missing = REQUIRED_INPUT_FILES - written_files
+    if missing:
+        raise DownloadFailedError(
+            f"Failed to download required file(s): {sorted(missing)}. "
+            "Previous copies in temp/input were left in place."
+        )
 
 
 def _download_referrals(driver: WebDriver):
@@ -401,7 +428,11 @@ def download_referral_csv():
 
 
 def download_csvs():
-    """Downloads CSVs from TherapyAppointment."""
+    """Downloads CSVs from TherapyAppointment.
+
+    Raises DownloadFailedError if a file the import step depends on failed
+    to download; previous copies in temp/input are left in place either way.
+    """
     logger.debug("Downloading CSVs from TherapyAppointment")
     driver, actions = w.initialize_selenium()
     check_and_login_ta(driver, actions, first_time=True)
