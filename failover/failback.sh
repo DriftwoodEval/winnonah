@@ -50,6 +50,12 @@ log "Primary MySQL OK."
 # no prior sleep, so it could pass instantly, before anything had actually
 # replicated, and traffic got cut back to a primary still holding its stale
 # pre-failover data. A dump-and-restore has no such false-positive.
+#
+# The same dump is also kept as a timestamped backup on standby itself
+# (~/winnonah/backups/failback), since it's about to be overwritten by
+# mysql-replication-init.sh re-seeding standby as primary's replica in
+# step 6, and standby is otherwise the only copy of its own pre-failback
+# state.
 log "Dumping standby database (${STANDBY_TAILSCALE_IP})..."
 # MYSQL_ROOT_PASSWORD is passed explicitly since the remote shell won't have
 # it, then read back inside the heredoc's own bash -s process (see the same
@@ -57,6 +63,10 @@ log "Dumping standby database (${STANDBY_TAILSCALE_IP})..."
 ssh -o LogLevel=quiet -i "${STANDBY_SSH_KEY_PATH}" "${STANDBY_SSH_USER}@${STANDBY_TAILSCALE_IP}" \
   "MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD} bash -s" > /tmp/standby_dump.sql << 'REMOTE'
 set -euo pipefail
+BACKUP_DIR="$HOME/winnonah/backups/failback"
+mkdir -p "$BACKUP_DIR"
+BACKUP_FILE="$BACKUP_DIR/standby_$(date +%Y%m%d_%H%M%S).sql"
+
 docker exec driftwood-db mysqldump \
   -uroot -p"${MYSQL_ROOT_PASSWORD}" \
   --all-databases \
@@ -66,10 +76,14 @@ docker exec driftwood-db mysqldump \
   --routines \
   --triggers \
   --events \
-  --set-gtid-purged=ON
+  --set-gtid-purged=ON \
+  | tee "$BACKUP_FILE"
+
+# Keep only the 5 most recent failback backups.
+ls -1t "$BACKUP_DIR"/standby_*.sql | tail -n +6 | xargs -r rm -f
 REMOTE
 log "Dump complete: $(du -sh /tmp/standby_dump.sql | cut -f1)"
-slack "Standby dumped. Restoring onto primary..."
+slack "Standby dumped and backed up on standby. Restoring onto primary..."
 
 log "Restoring primary from standby's dump..."
 docker exec driftwood-db mysql -uroot -p"${MYSQL_ROOT_PASSWORD}" \
