@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import { useState } from "react";
 import type { DocNavCategory, DocNavItem } from "~/lib/docs";
 import { cn } from "~/lib/utils";
+import { CreateDocPageDialog } from "./CreateDocPageDialog";
 
 function DocsSidebarLink({
 	item,
@@ -107,6 +108,14 @@ export function DocsSidebar({ nav }: { nav: DocNavCategory[] }) {
 					),
 				)}
 			</div>
+			<CreateDocPageDialog
+				folders={nav
+					.filter((category) => !category.standalone)
+					.map((category) => ({
+						slug: category.slug,
+						title: category.title,
+					}))}
+			/>
 		</nav>
 	);
 }
