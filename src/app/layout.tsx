@@ -2,6 +2,7 @@ import "~/styles/globals.css";
 
 import { ChangelogPopup } from "@components/layout/ChangelogPopup";
 import { Header } from "@components/layout/Header";
+import { StandbyBanner } from "@components/layout/StandbyBanner";
 import { Toaster } from "@ui/sonner";
 import type { Metadata } from "next";
 import { Inter, JetBrains_Mono } from "next/font/google";
@@ -29,6 +30,8 @@ const jetBrainsMono = JetBrains_Mono({
 export default function RootLayout({
 	children,
 }: Readonly<{ children: React.ReactNode }>) {
+	const isStandby = env.SERVER_ROLE === "standby";
+
 	return (
 		<html
 			className={cn("h-full", jetBrainsMono.variable, inter.variable)}
@@ -37,8 +40,11 @@ export default function RootLayout({
 		>
 			<body className="flex min-h-screen flex-col bg-background">
 				<Providers>
+					<StandbyBanner />
 					<Header />
-					<main className="flex grow pt-10">{children}</main>
+					<main className={cn("flex grow", isStandby ? "pt-18" : "pt-10")}>
+						{children}
+					</main>
 					<Toaster position="top-center" richColors />
 					<ChangelogPopup />
 				</Providers>

@@ -1,13 +1,20 @@
 import Link from "next/link";
 import { env } from "~/env";
+import { cn } from "~/lib/utils";
 import { HeaderActions } from "./HeaderActions";
 import NavigationLinks from "./NavigationLinks";
 
 export async function Header() {
 	const title = env.NEXT_PUBLIC_APP_TITLE;
+	const isStandby = env.SERVER_ROLE === "standby";
 
 	return (
-		<header className="fixed top-0 z-50 flex h-10 w-full items-center justify-between bg-background">
+		<header
+			className={cn(
+				"fixed z-50 flex h-10 w-full items-center justify-between bg-background",
+				isStandby ? "top-8" : "top-0",
+			)}
+		>
 			<div className="m-2 flex items-center gap-4">
 				<Link className="shrink-0" href="/">
 					<h1 className="hidden whitespace-nowrap font-bold text-2xl lg:block">

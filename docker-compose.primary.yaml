@@ -19,6 +19,8 @@ services:
 
   winnonah:
     restart: no
+    environment:
+      - SERVER_ROLE=primary
 
   winnonah-python:
     restart: no

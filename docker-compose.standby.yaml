@@ -19,6 +19,8 @@ services:
     restart: unless-stopped
     profiles:
       - active_only
+    environment:
+      - SERVER_ROLE=standby
 
   winnonah-python:
     restart: unless-stopped
