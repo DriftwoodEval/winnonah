@@ -39,6 +39,7 @@ export const env = createEnv({
 		OPENPHONE_API_TOKEN: z.string(),
 		OPENPHONE_NUMBER_ID: z.string(),
 		PY_API: z.url(),
+		SERVER_ROLE: z.enum(["primary", "standby"]).default("primary"),
 	},
 
 	/**
@@ -69,6 +70,7 @@ export const env = createEnv({
 		OPENPHONE_API_TOKEN: process.env.OPENPHONE_API_TOKEN,
 		OPENPHONE_NUMBER_ID: process.env.OPENPHONE_NUMBER_ID,
 		PY_API: process.env.PY_API,
+		SERVER_ROLE: process.env.SERVER_ROLE,
 		NEXT_PUBLIC_APP_TITLE: process.env.NEXT_PUBLIC_APP_TITLE ?? "Driftwood EMR",
 		NEXT_PUBLIC_APP_DOMAIN:
 			process.env.NEXT_PUBLIC_APP_DOMAIN ?? "emr.driftwoodeval.com",
