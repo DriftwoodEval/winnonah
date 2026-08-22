@@ -79,7 +79,7 @@ def check_report_queue_and_notify():
 
         for user in eligible_users:
             if evaluator_npi is not None:
-                blocked_raw = user.get("blocked_evaluator_npis")
+                blocked_raw = user.get("blockedEvaluatorNpis")
                 blocked = json.loads(blocked_raw) if blocked_raw else []
                 if evaluator_npi in blocked:
                     logger.info(

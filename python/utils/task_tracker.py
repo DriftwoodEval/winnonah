@@ -29,7 +29,7 @@ def _clear_orphaned_rows(connection, task_type: str) -> None:
         cursor.execute(
             f"""
             UPDATE {TABLE_TASK}
-            SET status = 'failed', completed_at = NOW(),
+            SET status = 'failed', completedAt = NOW(),
                 error = 'Orphaned: previous process died without closing this task'
             WHERE type = %s AND status = 'running'
             """,
@@ -50,7 +50,7 @@ class TaskHandle:
             cursor.execute(
                 f"""
                 UPDATE {TABLE_TASK}
-                SET progress_current = %s, progress_total = %s, detail = COALESCE(%s, detail)
+                SET progressCurrent = %s, progressTotal = %s, detail = COALESCE(%s, detail)
                 WHERE id = %s
                 """,
                 (current, total, detail, self.task_id),
@@ -89,7 +89,7 @@ def track_task(task_type: str, label: str) -> Iterator[TaskHandle | None]:
         with connection.cursor() as cursor:
             cursor.execute(
                 f"""
-                INSERT INTO {TABLE_TASK} (type, status, label, started_at)
+                INSERT INTO {TABLE_TASK} (type, status, label, startedAt)
                 VALUES (%s, 'running', %s, NOW())
                 """,
                 (task_type, label),
@@ -104,7 +104,7 @@ def track_task(task_type: str, label: str) -> Iterator[TaskHandle | None]:
                 cursor.execute(
                     f"""
                     UPDATE {TABLE_TASK}
-                    SET status = 'failed', completed_at = NOW(), error = %s
+                    SET status = 'failed', completedAt = NOW(), error = %s
                     WHERE id = %s
                     """,
                     (str(e)[:2000], task_id),
@@ -116,7 +116,7 @@ def track_task(task_type: str, label: str) -> Iterator[TaskHandle | None]:
                 cursor.execute(
                     f"""
                     UPDATE {TABLE_TASK}
-                    SET status = 'completed', completed_at = NOW()
+                    SET status = 'completed', completedAt = NOW()
                     WHERE id = %s
                     """,
                     (task_id,),

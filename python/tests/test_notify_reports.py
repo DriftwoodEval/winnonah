@@ -104,8 +104,8 @@ class TestNewFolderWithoutClientId:
         items = [{"id": "folder-1", "name": "General Report Folder"}]
         conn = FakeConnection()
         users = [
-            {"email": "a@example.com", "blocked_evaluator_npis": None},
-            {"email": "b@example.com", "blocked_evaluator_npis": None},
+            {"email": "a@example.com", "blockedEvaluatorNpis": None},
+            {"email": "b@example.com", "blockedEvaluatorNpis": None},
         ]
         with (
             patch("notify_reports.get_items_in_folder", return_value=items),
@@ -128,7 +128,7 @@ class TestNewFolderWithClientId:
     def test_extracts_client_id_and_looks_up_evaluator_npi(self):
         items = [{"id": "folder-1", "name": "Report [ABC-123]"}]
         conn = FakeConnection()
-        users = [{"email": "a@example.com", "blocked_evaluator_npis": None}]
+        users = [{"email": "a@example.com", "blockedEvaluatorNpis": None}]
         with (
             patch("notify_reports.get_items_in_folder", return_value=items),
             patch("notify_reports.get_db", return_value=conn),
@@ -149,9 +149,9 @@ class TestNewFolderWithClientId:
         users = [
             {
                 "email": "blocked@example.com",
-                "blocked_evaluator_npis": "[1234567890]",
+                "blockedEvaluatorNpis": "[1234567890]",
             },
-            {"email": "allowed@example.com", "blocked_evaluator_npis": None},
+            {"email": "allowed@example.com", "blockedEvaluatorNpis": None},
         ]
         with (
             patch("notify_reports.get_items_in_folder", return_value=items),
@@ -170,7 +170,7 @@ class TestNewFolderWithClientId:
     def test_no_client_id_in_folder_name_skips_npi_lookup(self):
         items = [{"id": "folder-1", "name": "Miscellaneous Reports"}]
         conn = FakeConnection()
-        users = [{"email": "a@example.com", "blocked_evaluator_npis": None}]
+        users = [{"email": "a@example.com", "blockedEvaluatorNpis": None}]
         with (
             patch("notify_reports.get_items_in_folder", return_value=items),
             patch("notify_reports.get_db", return_value=conn),
@@ -191,7 +191,7 @@ class TestMultipleFolders:
             {"id": "folder-new", "name": "New Report"},
         ]
         conn = FakeConnection(seen_folder_ids={"folder-seen"})
-        users = [{"email": "a@example.com", "blocked_evaluator_npis": None}]
+        users = [{"email": "a@example.com", "blockedEvaluatorNpis": None}]
         with (
             patch("notify_reports.get_items_in_folder", return_value=items),
             patch("notify_reports.get_db", return_value=conn),

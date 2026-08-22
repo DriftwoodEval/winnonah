@@ -50,8 +50,8 @@ class TestAlreadySeenDriveFileIds:
     def test_returns_set_of_seen_ids(self):
         cursor = MagicMock()
         cursor.fetchall.return_value = [
-            {"drive_file_id": "abc"},
-            {"drive_file_id": "def"},
+            {"driveFileId": "abc"},
+            {"driveFileId": "def"},
         ]
         cursor.__enter__.return_value = cursor
         conn = MagicMock()
@@ -198,8 +198,8 @@ class TestProcessFaxes:
         track_cm.__enter__.return_value = task
         track_cm.__exit__.return_value = False
         reprocess_faxes = [
-            {"id": 1, "drive_file_id": "file-1", "file_name": "fax1.pdf"},
-            {"id": 2, "drive_file_id": "file-2", "file_name": "fax2.pdf"},
+            {"id": 1, "driveFileId": "file-1", "fileName": "fax1.pdf"},
+            {"id": 2, "driveFileId": "file-2", "fileName": "fax2.pdf"},
         ]
         with (
             patch("fax_categorization.track_task", return_value=track_cm),

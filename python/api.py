@@ -147,13 +147,13 @@ def get_current_user(request: Request):
         with conn.cursor() as cursor:
             sql = f"""
                 SELECT
-                    u.id, u.email, u.name, u.permissions, u.archived, u.role_id,
+                    u.id, u.email, u.name, u.permissions, u.archived, u.roleId,
                     r.permissions AS role_permissions,
                     s.expires,
                     a.access_token, a.refresh_token, a.expires_at, a.scope
                 FROM {TABLE_SESSION} s
                 JOIN {TABLE_USER} u ON s.userId = u.id
-                LEFT JOIN {TABLE_ROLE} r ON u.role_id = r.id
+                LEFT JOIN {TABLE_ROLE} r ON u.roleId = r.id
                 LEFT JOIN {TABLE_ACCOUNT} a ON u.id = a.userId AND a.provider = 'google'
                 WHERE s.sessionToken = %s
             """
@@ -174,7 +174,7 @@ def get_current_user(request: Request):
                 json.loads(row["permissions"]) if row["permissions"] else {}
             )
             permissions = user_permissions
-            if row.get("role_id") and row.get("role_permissions"):
+            if row.get("roleId") and row.get("role_permissions"):
                 role_permissions = json.loads(row["role_permissions"])
                 permissions = {**role_permissions, **user_permissions}
 
