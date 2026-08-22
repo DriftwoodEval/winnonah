@@ -72,7 +72,7 @@ export const authConfig = {
 			clientSecret: process.env.AUTH_GOOGLE_SECRET,
 			authorization: {
 				params: {
-					hd: env.NEXT_PUBLIC_APP_HOST,
+					hd: env.AUTH_GOOGLE_WORKSPACE_DOMAIN,
 					access_type: "offline",
 					response_type: "code",
 					include_granted_scopes: "true",
@@ -97,8 +97,23 @@ export const authConfig = {
 		verificationTokensTable: verificationTokens,
 	}),
 	callbacks: {
-		async signIn({ user, account }) {
+		async signIn({ user, account, profile }) {
 			if (!user.email) return false;
+
+			if (account?.provider === "google") {
+				const googleProfile = profile as
+					| { hd?: string; email_verified?: boolean }
+					| undefined;
+
+				// `hd` in the authorization request is only a client-side hint; Google
+				// does not enforce it, so the returned profile must be checked here too.
+				if (
+					googleProfile?.hd !== env.AUTH_GOOGLE_WORKSPACE_DOMAIN ||
+					googleProfile.email_verified !== true
+				) {
+					return false;
+				}
+			}
 
 			const userInDb = await db.query.users.findFirst({
 				where: eq(users.email, user.email),
