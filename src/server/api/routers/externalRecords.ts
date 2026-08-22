@@ -1,9 +1,10 @@
 import EventEmitter from "node:events";
 import { TRPCError } from "@trpc/server";
-import { and, asc, desc, eq, sql } from "drizzle-orm";
+import { and, asc, desc, eq, gte, isNull, sql } from "drizzle-orm";
 import { z } from "zod";
 import {
 	assertPermission,
+	type Context,
 	createTRPCRouter,
 	protectedProcedure,
 } from "~/server/api/trpc";
@@ -18,6 +19,50 @@ import {
 
 const externalRecordsEmitter = new EventEmitter();
 externalRecordsEmitter.setMaxListeners(100);
+
+/**
+ * Whenever recordsNeeded is set to "Needed", this must be called so
+ * records-request.py (which INNER JOINs against external_record_request)
+ * can actually pick the client up. Private-school clients are skipped since
+ * there's no district contact to send an automated request to.
+ *
+ * A pending row from before the client's current session (a re-referral)
+ * doesn't count as "already requested": records-request.py's own query
+ * requires err.created_at >= sessionStartedAt, so a stale row would never
+ * get acted on, and the client would never get a fresh row either.
+ */
+export async function ensurePendingExternalRecordRequest(
+	ctx: {
+		db: Context["db"];
+		session: { user: { email?: string | null } };
+	},
+	clientId: number,
+	isPrivateSchool: boolean,
+) {
+	if (isPrivateSchool) return;
+
+	const client = await ctx.db.query.clients.findFirst({
+		where: eq(clients.id, clientId),
+		columns: { sessionStartedAt: true },
+	});
+
+	const pendingRequest = await ctx.db.query.externalRecordRequests.findFirst({
+		where: and(
+			eq(externalRecordRequests.clientId, clientId),
+			isNull(externalRecordRequests.requestedDate),
+			client?.sessionStartedAt
+				? gte(externalRecordRequests.createdAt, client.sessionStartedAt)
+				: undefined,
+		),
+	});
+
+	if (!pendingRequest) {
+		await ctx.db.insert(externalRecordRequests).values({
+			clientId,
+			createdBy: ctx.session.user.email,
+		});
+	}
+}
 
 // biome-ignore lint/suspicious/noExplicitAny: JSON
 const areContentsEqual = (current: any, incoming: any): boolean => {

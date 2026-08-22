@@ -49,6 +49,7 @@ import {
 	reportQueueConfig,
 	users,
 } from "~/server/db/schema";
+import { ensurePendingExternalRecordRequest } from "./externalRecords";
 import { saveNoteInternal } from "./notes";
 
 const CACHE_KEY_DUPLICATES = "google:drive:duplicate-ids";
@@ -1161,6 +1162,17 @@ export const googleRouter = createTRPCRouter({
 						.update(clients)
 						.set({ recordsNeeded })
 						.where(eq(clients.id, input));
+
+					if (recordsNeeded === "Needed") {
+						const isPrivateSchool =
+							client.referralData?.privateSchool === "yes";
+
+						await ensurePendingExternalRecordRequest(
+							ctx,
+							input,
+							isPrivateSchool,
+						);
+					}
 				}
 
 				await pushToPunch(ctx.session, previewData);

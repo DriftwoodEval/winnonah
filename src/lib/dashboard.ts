@@ -1,5 +1,6 @@
 import { format } from "date-fns";
 import type { Client, Failure, FullClientInfo } from "./models";
+import { formatShortDate, isDateOnlyPast, isNotesOnlyClientId } from "./utils";
 
 /**
  * Computes which pipeline-stage section each client from the prioritization
@@ -262,11 +263,22 @@ export const DASHBOARD_CONFIG: {
 		description:
 			"Clients who need school records but they haven't been requested from the school district yet. To move forward, request records (record the records requested date).",
 		filter: (client: FullClientInfo) =>
-			client.recordsNeeded === "Needed" && !client.externalRecordsRequestedDate,
-		extraInfo: (client: FullClientInfo) =>
-			client.referralData?.privateSchool === "yes"
-				? "Charter / Private School on intake"
-				: undefined,
+			client.recordsNeeded === "Needed" &&
+			!client.externalRecordsRequestedDate &&
+			!isNotesOnlyClientId(client.id) &&
+			// Exclude clients whose only request row is orphaned from a prior
+			// session (a re-referral): it's not something staff can act on here,
+			// and records-request.py's own query won't see it either.
+			!(client.hasRecordRequest && !client.hasCurrentSessionRecordRequest),
+		extraInfo: (client: FullClientInfo) => {
+			if (client.referralData?.privateSchool === "yes") {
+				return "Charter / Private School on intake";
+			}
+			if (client.recordsHoldUntil && !isDateOnlyPast(client.recordsHoldUntil)) {
+				return `Held until ${formatShortDate(client.recordsHoldUntil)}`;
+			}
+			return undefined;
+		},
 		failureFilter: (f) =>
 			f.daEval === "Records" ||
 			f.reason === "docs not signed" ||

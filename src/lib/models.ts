@@ -25,6 +25,9 @@ export type FullClientInfo = PUNCH_SCHEMA &
 	Client & {
 		hasExternalRecordsNote?: boolean;
 		externalRecordsRequestedDate?: string | null;
+		hasRecordRequest?: boolean;
+		hasCurrentSessionRecordRequest?: boolean;
+		recordsHoldUntil?: string | null;
 		failures?: Failure[];
 		questionnaires?: Questionnaire[];
 		hasPast96130Appt?: boolean;

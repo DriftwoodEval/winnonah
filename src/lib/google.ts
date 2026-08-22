@@ -242,6 +242,30 @@ export const getPunchData = async (session: Session) => {
 					AND ${externalRecordRequests.requestedDate} IS NOT NULL
 					AND (${clients.sessionStartedAt} IS NULL OR ${externalRecordRequests.createdAt} >= ${clients.sessionStartedAt})
 				)`,
+					// Whether the client has any external_record_request row at all,
+					// vs. one scoped to their current session. A client can have the
+					// former without the latter after a re-referral: their only
+					// request row predates sessionStartedAt, so it's orphaned and
+					// records-request.py's own query (which is session-scoped the
+					// same way) will never pick them up either.
+					hasRecordRequest: sql<boolean>`EXISTS (
+					SELECT 1 FROM ${externalRecordRequests}
+					WHERE ${externalRecordRequests.clientId} = ${clients.id}
+				)`,
+					hasCurrentSessionRecordRequest: sql<boolean>`(
+					${clients.sessionStartedAt} IS NULL OR EXISTS (
+						SELECT 1 FROM ${externalRecordRequests}
+						WHERE ${externalRecordRequests.clientId} = ${clients.id}
+						AND ${externalRecordRequests.createdAt} >= ${clients.sessionStartedAt}
+					)
+				)`,
+					recordsHoldUntil: sql<string | null>`(
+					SELECT MAX(${externalRecordRequests.holdUntil})
+					FROM ${externalRecordRequests}
+					WHERE ${externalRecordRequests.clientId} = ${clients.id}
+					AND ${externalRecordRequests.requestedDate} IS NULL
+					AND (${clients.sessionStartedAt} IS NULL OR ${externalRecordRequests.createdAt} >= ${clients.sessionStartedAt})
+				)`,
 				})
 				.from(clients)
 				.leftJoin(externalRecords, eq(clients.id, externalRecords.clientId))
@@ -300,12 +324,22 @@ export const getPunchData = async (session: Session) => {
 
 	const dbClientMap = new Map<number, FullClientInfo>(
 		dbClients.map(
-			({ client, hasExternalRecordsNote, externalRecordsRequestedDate }) => [
+			({
+				client,
+				hasExternalRecordsNote,
+				externalRecordsRequestedDate,
+				hasRecordRequest,
+				hasCurrentSessionRecordRequest,
+				recordsHoldUntil,
+			}) => [
 				client.id,
 				{
 					...client,
 					hasExternalRecordsNote,
 					externalRecordsRequestedDate,
+					hasRecordRequest,
+					hasCurrentSessionRecordRequest,
+					recordsHoldUntil,
 					failures: failureMap.get(client.id) ?? [],
 					questionnaires: questionnaireMap.get(client.id) ?? [],
 					hasPast96130Appt: past96130ClientIds.has(client.id),

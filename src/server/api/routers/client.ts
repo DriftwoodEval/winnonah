@@ -50,6 +50,7 @@ import {
 	resolveInsuranceAliasNames,
 	splitNoneValue,
 } from "~/server/api/filters";
+import { ensurePendingExternalRecordRequest } from "~/server/api/routers/externalRecords";
 import {
 	assertPermission,
 	type Context,
@@ -2346,21 +2347,11 @@ export const clientRouter = createTRPCRouter({
 					)?.referralData;
 				const isPrivateSchool = referralData?.privateSchool === "yes";
 
-				if (!isPrivateSchool) {
-					const pendingRequest =
-						await ctx.db.query.externalRecordRequests.findFirst({
-							where: and(
-								eq(externalRecordRequests.clientId, input.clientId),
-								isNull(externalRecordRequests.requestedDate),
-							),
-						});
-					if (!pendingRequest) {
-						await ctx.db.insert(externalRecordRequests).values({
-							clientId: input.clientId,
-							createdBy: ctx.session.user.email,
-						});
-					}
-				}
+				await ensurePendingExternalRecordRequest(
+					ctx,
+					input.clientId,
+					isPrivateSchool,
+				);
 			}
 
 			const updatedClient = await ctx.db.query.clients.findFirst({
@@ -2948,6 +2939,17 @@ export const clientRouter = createTRPCRouter({
 					.update(clients)
 					.set({ recordsNeeded: fakeClient.recordsNeeded })
 					.where(eq(clients.id, clientId));
+
+				if (fakeClient.recordsNeeded === "Needed") {
+					const isPrivateSchool =
+						realClient.referralData?.privateSchool === "yes";
+
+					await ensurePendingExternalRecordRequest(
+						ctx,
+						clientId,
+						isPrivateSchool,
+					);
+				}
 			}
 
 			if (fakeClient.asdAdhd) {
