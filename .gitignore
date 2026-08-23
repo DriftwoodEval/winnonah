@@ -57,6 +57,8 @@ scripts/*.json
 python/*.txt
 *.sql
 *.sql.gz
+# Intentional, hand-written migration scripts (not data exports) are tracked.
+!scripts/*.sql
 q-screenshots/*
 TestPDFs/
 python/*.jsonl

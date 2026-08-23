@@ -87,7 +87,7 @@ def is_known_user(phone: str) -> bool:
     try:
         with conn.cursor() as cur:
             cur.execute(
-                f"SELECT id FROM {TABLE_USER} WHERE phone_number = %s LIMIT 1",
+                f"SELECT id FROM {TABLE_USER} WHERE phoneNumber = %s LIMIT 1",
                 (phone,),
             )
             return cur.fetchone() is not None
@@ -101,11 +101,11 @@ def lookup_phone_by_first_name(first_name: str) -> str | None:
     try:
         with conn.cursor() as cur:
             cur.execute(
-                f"SELECT phone_number FROM {TABLE_USER} WHERE name = %s OR name LIKE %s LIMIT 1",
+                f"SELECT phoneNumber FROM {TABLE_USER} WHERE name = %s OR name LIKE %s LIMIT 1",
                 (first_name, f"{first_name} %"),
             )
             row = cur.fetchone()
-            return row["phone_number"] if row else None
+            return row["phoneNumber"] if row else None
     finally:
         conn.close()
 

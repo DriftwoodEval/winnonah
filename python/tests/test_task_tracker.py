@@ -166,7 +166,7 @@ class TestTaskHandleProgress:
         ):
             assert handle is not None
             handle.progress(5, total=10, detail="halfway")
-        progress_queries = [(q, p) for q, p in conn.executed if "progress_current" in q]
+        progress_queries = [(q, p) for q, p in conn.executed if "progressCurrent" in q]
         assert len(progress_queries) == 1
         assert progress_queries[0][1] == (5, 10, "halfway", 42)
 
@@ -178,5 +178,5 @@ class TestTaskHandleProgress:
         ):
             assert handle is not None
             handle.progress(3)
-        progress_queries = [(q, p) for q, p in conn.executed if "progress_current" in q]
+        progress_queries = [(q, p) for q, p in conn.executed if "progressCurrent" in q]
         assert progress_queries[0][1] == (3, None, None, 42)

@@ -368,7 +368,7 @@ def put_clients_in_db(clients_df: pd.DataFrame, connection: Connection[DictCurso
         values_to_insert.append(values)
 
     sql = f"""
-        INSERT INTO `{TABLE_CLIENT}` (id, hash, status, addedDate, dob, firstName, lastName, preferredName, fullName, address, schoolDistrict, latitude, longitude, asdAdhd, language, pa_assigned_to, gender, phoneNumber, email, flag, taUser, referralSource)
+        INSERT INTO `{TABLE_CLIENT}` (id, hash, status, addedDate, dob, firstName, lastName, preferredName, fullName, address, schoolDistrict, latitude, longitude, asdAdhd, language, paAssignedTo, gender, phoneNumber, email, flag, taUser, referralSource)
         VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
         ON DUPLICATE KEY UPDATE
             hash = VALUES(hash),
@@ -385,7 +385,7 @@ def put_clients_in_db(clients_df: pd.DataFrame, connection: Connection[DictCurso
             longitude = CASE WHEN VALUES(longitude) IS NOT NULL THEN VALUES(longitude) ELSE longitude END,
             asdAdhd = CASE WHEN VALUES(asdAdhd) IS NOT NULL THEN VALUES(asdAdhd) ELSE asdAdhd END,
             language = CASE WHEN VALUES(language) IS NOT NULL THEN VALUES(language) ELSE language END,
-            pa_assigned_to = CASE WHEN VALUES(pa_assigned_to) IS NOT NULL THEN VALUES(pa_assigned_to) ELSE pa_assigned_to END,
+            paAssignedTo = CASE WHEN VALUES(paAssignedTo) IS NOT NULL THEN VALUES(paAssignedTo) ELSE paAssignedTo END,
             gender = VALUES(gender),
             phoneNumber = VALUES(phoneNumber),
             email = VALUES(email),
@@ -689,7 +689,7 @@ def sync_scm_insurance_reviews(connection: Connection[DictCursor]):
     with connection.cursor() as cursor:
         cursor.executemany(
             f"""
-            INSERT INTO `{TABLE_INSURANCE_REVIEW}` (clientId, enabled, claimed_user_email, updated_by)
+            INSERT INTO `{TABLE_INSURANCE_REVIEW}` (clientId, enabled, claimedUserEmail, updatedBy)
             VALUES (%s, %s, %s, %s)
             """,
             rows,
@@ -708,7 +708,7 @@ def update_client_medicaid_eligibility(
     """Updates qual_category and payment_category on the client record."""
     with connection.cursor() as cursor:
         cursor.execute(
-            f"UPDATE `{TABLE_CLIENT}` SET qual_category = %s, payment_category = %s WHERE id = %s",
+            f"UPDATE `{TABLE_CLIENT}` SET qualCategory = %s, paymentCategory = %s WHERE id = %s",
             (qual_category, payment_category, client_id),
         )
     connection.commit()
@@ -768,7 +768,7 @@ def get_scm_clients_with_medicaid_ids(
               AND (p.policyEndDate IS NULL OR p.policyEndDate >= CURDATE())
               AND p.insuranceNumber IS NOT NULL
               AND p.insuranceNumber != ''
-              {" AND c.qual_category IS NULL" if only_new else ""}
+              {" AND c.qualCategory IS NULL" if only_new else ""}
             ORDER BY c.lastName, c.firstName
             """,
             scm_names,
@@ -1521,7 +1521,7 @@ def get_queue_notify_users(connection: Connection[DictCursor]):
     users = []
     with connection.cursor() as cursor:
         cursor.execute(
-            f"SELECT email, name, permissions, claimed_report_folder, blocked_evaluator_npis FROM {TABLE_USER} WHERE archived = 0"
+            f"SELECT email, name, permissions, claimedReportFolder, blockedEvaluatorNpis FROM {TABLE_USER} WHERE archived = 0"
         )
         rows = cursor.fetchall()
 
@@ -1529,7 +1529,7 @@ def get_queue_notify_users(connection: Connection[DictCursor]):
             permissions = json.loads(row["permissions"]) if row["permissions"] else {}
             if (
                 permissions.get("reports:notifications") is True
-                and not row["claimed_report_folder"]
+                and not row["claimedReportFolder"]
             ):
                 users.append(row)
 
@@ -1653,7 +1653,7 @@ def get_questionnaire_rules_with_in_person(
     """Load assessment battery rules, returning both online and in-person assessments."""
     with connection.cursor() as cursor:
         cursor.execute(
-            f"SELECT daeval, diagnosis, minAge, maxAge, questionnaires, in_person_assessments FROM {TABLE_QUESTIONNAIRE_RULE}"
+            f"SELECT daeval, diagnosis, minAge, maxAge, questionnaires, inPersonAssessments FROM {TABLE_QUESTIONNAIRE_RULE}"
         )
         rows = cursor.fetchall()
 
@@ -1662,7 +1662,7 @@ def get_questionnaire_rules_with_in_person(
         qs = row["questionnaires"]
         if isinstance(qs, str):
             qs = json.loads(qs)
-        ip = row["in_person_assessments"]
+        ip = row["inPersonAssessments"]
         if isinstance(ip, str):
             ip = json.loads(ip)
         rules.append(
@@ -1892,7 +1892,7 @@ def compute_and_store_assessment_snapshot(
     """
     with connection.cursor() as cursor:
         cursor.execute(
-            f"SELECT dob, asdAdhd, assessment_data FROM {TABLE_CLIENT} WHERE id = %s",
+            f"SELECT dob, asdAdhd, assessmentData FROM {TABLE_CLIENT} WHERE id = %s",
             (client_id,),
         )
         client = cursor.fetchone()
@@ -1901,7 +1901,7 @@ def compute_and_store_assessment_snapshot(
         logger.warning(f"Cannot compute snapshot for client {client_id}: missing dob")
         return False
 
-    if client.get("assessment_data") is not None:
+    if client.get("assessmentData") is not None:
         return True
 
     dob = client["dob"]
@@ -2008,7 +2008,7 @@ def _store_snapshot(
 ) -> None:
     with connection.cursor() as cursor:
         cursor.execute(
-            f"UPDATE {TABLE_CLIENT} SET assessment_data = %s WHERE id = %s",
+            f"UPDATE {TABLE_CLIENT} SET assessmentData = %s WHERE id = %s",
             (json.dumps(snapshot), client_id),
         )
     connection.commit()

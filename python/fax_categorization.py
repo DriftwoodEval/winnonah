@@ -75,8 +75,8 @@ def _match_clients(
 
 def _already_seen_drive_file_ids() -> set[str]:
     with db_session() as conn, conn.cursor() as cursor:
-        cursor.execute(f"SELECT drive_file_id FROM {TABLE_FAX_CATEGORIZATION}")
-        return {row["drive_file_id"] for row in cursor.fetchall()}
+        cursor.execute(f"SELECT driveFileId FROM {TABLE_FAX_CATEGORIZATION}")
+        return {row["driveFileId"] for row in cursor.fetchall()}
 
 
 def _extract_and_categorize(file: dict, llm) -> tuple[str, str, list[str], float]:
@@ -121,7 +121,7 @@ def _process_fax(file: dict, llm, client_lookup: list[dict]) -> None:
             cursor.execute(
                 f"""
                 INSERT INTO {TABLE_FAX_CATEGORIZATION}
-                    (drive_file_id, file_name, category, llm_category, confidence, extracted_text, llm_raw_output)
+                    (driveFileId, fileName, category, llmCategory, confidence, extractedText, llmRawOutput)
                 VALUES (%s, %s, %s, %s, %s, %s, %s)
                 """,
                 (
@@ -140,7 +140,7 @@ def _process_fax(file: dict, llm, client_lookup: list[dict]) -> None:
                 cursor.execute(
                     f"""
                     INSERT INTO {TABLE_FAX_CATEGORIZATION_CLIENT_LINK}
-                        (fax_categorization_id, client_id, source, matched_name, confidence)
+                        (faxCategorizationId, clientId, source, matchedName, confidence)
                     VALUES (%s, %s, 'llm', %s, %s)
                     """,
                     (fax_id, client_id, matched_name, match_confidence),
@@ -157,9 +157,9 @@ def _reprocess_requested_faxes() -> list[dict]:
     with db_session() as conn, conn.cursor() as cursor:
         cursor.execute(
             f"""
-            SELECT id, drive_file_id, file_name
+            SELECT id, driveFileId, fileName
             FROM {TABLE_FAX_CATEGORIZATION}
-            WHERE reprocess_requested_at IS NOT NULL
+            WHERE reprocessRequestedAt IS NOT NULL
             """
         )
         return list(cursor.fetchall())
@@ -172,8 +172,8 @@ def _reprocess_fax(fax: dict, llm, client_lookup: list[dict]) -> None:
     candidate clients; a reviewer's chosen category and any client link
     they've already acted on (confirmed, rejected, or manually added) are
     left untouched."""
-    logger.info(f"Re-running categorization for fax: {fax['file_name']} ({fax['id']})")
-    file = get_file_by_id(fax["drive_file_id"])
+    logger.info(f"Re-running categorization for fax: {fax['fileName']} ({fax['id']})")
+    file = get_file_by_id(fax["driveFileId"])
     document_text, category, clients, confidence = _extract_and_categorize(file, llm)
 
     matched_clients = _match_clients(clients, client_lookup)
@@ -187,9 +187,9 @@ def _reprocess_fax(fax: dict, llm, client_lookup: list[dict]) -> None:
             cursor.execute(
                 f"""
                 UPDATE {TABLE_FAX_CATEGORIZATION}
-                SET llm_category = %s, confidence = %s, extracted_text = %s,
-                    llm_raw_output = %s, reprocess_requested_at = NULL,
-                    last_reprocessed_at = CURRENT_TIMESTAMP
+                SET llmCategory = %s, confidence = %s, extractedText = %s,
+                    llmRawOutput = %s, reprocessRequestedAt = NULL,
+                    lastReprocessedAt = CURRENT_TIMESTAMP
                 WHERE id = %s
                 """,
                 (category, confidence, document_text, llm_raw_output, fax["id"]),
@@ -202,7 +202,7 @@ def _reprocess_fax(fax: dict, llm, client_lookup: list[dict]) -> None:
                 cursor.execute(
                     f"""
                     INSERT IGNORE INTO {TABLE_FAX_CATEGORIZATION_CLIENT_LINK}
-                        (fax_categorization_id, client_id, source, matched_name, confidence)
+                        (faxCategorizationId, clientId, source, matchedName, confidence)
                     VALUES (%s, %s, 'llm', %s, %s)
                     """,
                     (fax["id"], client_id, matched_name, match_confidence),
@@ -210,7 +210,7 @@ def _reprocess_fax(fax: dict, llm, client_lookup: list[dict]) -> None:
         conn.commit()
 
     logger.info(
-        f"Re-ran fax {fax['file_name']}: LLM now guesses {category} "
+        f"Re-ran fax {fax['fileName']}: LLM now guesses {category} "
         f"(confidence: {confidence:.2f})."
     )
 
@@ -265,11 +265,11 @@ def process_faxes() -> None:
             task.progress(done, total)
 
         for fax in reprocess_faxes:
-            task.progress(done, total, detail=fax["file_name"])
+            task.progress(done, total, detail=fax["fileName"])
             try:
                 _reprocess_fax(fax, llm, client_lookup)
             except Exception:
-                logger.exception(f"Failed to re-run fax {fax['file_name']}")
+                logger.exception(f"Failed to re-run fax {fax['fileName']}")
             done += 1
             task.progress(done, total)
 

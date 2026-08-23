@@ -89,7 +89,7 @@ class TestGetCurrentUser:
             "name": "Alice",
             "permissions": None,
             "archived": 0,
-            "role_id": None,
+            "roleId": None,
             "role_permissions": None,
             "expires": datetime.now(UTC).replace(tzinfo=None) + timedelta(days=1),
         }
@@ -116,7 +116,7 @@ class TestGetCurrentUser:
             "name": "Alice",
             "permissions": None,
             "archived": 0,
-            "role_id": None,
+            "roleId": None,
             "role_permissions": None,
             "expires": datetime.now(UTC).replace(tzinfo=None) - timedelta(days=1),
         }
@@ -136,7 +136,7 @@ class TestGetCurrentUser:
             "name": "Alice",
             "permissions": None,
             "archived": 1,
-            "role_id": None,
+            "roleId": None,
             "role_permissions": None,
             "expires": datetime.now(UTC).replace(tzinfo=None) + timedelta(days=1),
         }
@@ -156,7 +156,7 @@ class TestGetCurrentUser:
             "name": "Alice",
             "permissions": json.dumps({"reports:notifications": True}),
             "archived": 0,
-            "role_id": 5,
+            "roleId": 5,
             "role_permissions": json.dumps(
                 {"reports:notifications": False, "clients:view": True}
             ),
@@ -178,7 +178,7 @@ class TestGetCurrentUser:
             "name": "Alice",
             "permissions": None,
             "archived": 0,
-            "role_id": None,
+            "roleId": None,
             "role_permissions": None,
             "expires": datetime.now(UTC).replace(tzinfo=None) + timedelta(days=1),
         }
