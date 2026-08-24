@@ -1,11 +1,15 @@
 import { DrizzleAdapter } from "@auth/drizzle-adapter";
 import { and, eq } from "drizzle-orm/sql";
+import { cookies } from "next/headers";
 import type { DefaultSession, NextAuthConfig } from "next-auth";
 import GoogleProvider from "next-auth/providers/google";
 import { env } from "~/env";
 import type { PermissionsObject } from "~/lib/types";
 import { hasPermission } from "~/lib/utils";
-import { getImpersonationCookieId } from "~/server/auth/impersonation";
+import {
+	getImpersonationCookieId,
+	IMPERSONATION_COOKIE,
+} from "~/server/auth/impersonation";
 
 import { db } from "~/server/db";
 import {
@@ -96,6 +100,19 @@ export const authConfig = {
 		sessionsTable: sessions,
 		verificationTokensTable: verificationTokens,
 	}),
+	events: {
+		/**
+		 * The "view as" cookie is app-set, not part of the NextAuth session, so
+		 * it survives sign-out on its own. On a shared browser that leaves it
+		 * pointing at whatever user the previous person was impersonating, and
+		 * the next person to sign in inherits it if they also hold
+		 * settings:impersonate.
+		 */
+		async signOut() {
+			const store = await cookies();
+			store.delete(IMPERSONATION_COOKIE);
+		},
+	},
 	callbacks: {
 		async signIn({ user, account, profile }) {
 			if (!user.email) return false;
