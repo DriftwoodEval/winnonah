@@ -435,6 +435,42 @@ export const userRouter = createTRPCRouter({
 				.where(eq(users.id, ctx.session.user.id));
 		}),
 
+	getListFilters: protectedProcedure.query(async ({ ctx }) => {
+		const userFromDb = await ctx.db.query.users.findFirst({
+			where: eq(users.id, ctx.session.user.id),
+		});
+
+		return userFromDb?.listFilters ?? ({} as Record<string, string[]>);
+	}),
+
+	updateListFilters: protectedProcedure
+		.input(
+			z.object({
+				key: z.string(),
+				filters: z.array(z.string()),
+			}),
+		)
+		.mutation(async ({ ctx, input }) => {
+			const userFromDb = await ctx.db.query.users.findFirst({
+				where: eq(users.id, ctx.session.user.id),
+			});
+
+			if (!userFromDb) {
+				throw new TRPCError({
+					code: "NOT_FOUND",
+					message: `User with ID ${ctx.session.user.id} not found`,
+				});
+			}
+
+			const listFilters = userFromDb.listFilters ?? {};
+			listFilters[input.key] = input.filters;
+
+			await ctx.db
+				.update(users)
+				.set({ listFilters })
+				.where(eq(users.id, ctx.session.user.id));
+		}),
+
 	getHeaderPreferences: protectedProcedure.query(async ({ ctx }) => {
 		const userFromDb = await ctx.db.query.users.findFirst({
 			where: eq(users.id, ctx.session.user.id),

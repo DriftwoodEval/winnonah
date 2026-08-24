@@ -501,9 +501,41 @@ export function Dashboard() {
 			enabled: canInsuranceReview,
 		});
 
-	const [showMineOnly, setShowMineOnly] = useState(false);
 	const [insuranceFilters, setInsuranceFilters] = useState<string[]>([]);
+	const showMineOnly = insuranceFilters.includes("mine");
 	const showWaitingOnly = insuranceFilters.includes("waiting");
+
+	const insuranceListFilterKey = "insuranceReview";
+	const { data: listFilters } = api.users.getListFilters.useQuery(undefined, {
+		enabled: canInsuranceReview,
+	});
+	const { mutate: updateListFilters } =
+		api.users.updateListFilters.useMutation();
+	const appliedSavedInsuranceFiltersRef = useRef(false);
+
+	useEffect(() => {
+		const saved = listFilters?.[insuranceListFilterKey];
+		if (appliedSavedInsuranceFiltersRef.current || !saved) return;
+
+		appliedSavedInsuranceFiltersRef.current = true;
+		setInsuranceFilters(saved);
+	}, [listFilters]);
+
+	const setInsuranceMineOnly = (value: boolean) => {
+		const next = value
+			? [...insuranceFilters, "mine"]
+			: insuranceFilters.filter((v) => v !== "mine");
+		setInsuranceFilters(next);
+		updateListFilters({ key: insuranceListFilterKey, filters: next });
+	};
+
+	const setInsuranceWaitingFilter = (checked: boolean) => {
+		const next = checked
+			? [...insuranceFilters, "waiting"]
+			: insuranceFilters.filter((v) => v !== "waiting");
+		setInsuranceFilters(next);
+		updateListFilters({ key: insuranceListFilterKey, filters: next });
+	};
 	const visibleInsuranceClients = (insuranceReviewClients ?? []).filter((c) => {
 		if (showMineOnly && c.claimedUserEmail !== session?.user?.email)
 			return false;
@@ -717,7 +749,9 @@ export function Dashboard() {
 										<AccordionContent>
 											<div className="mb-2 flex flex-wrap items-center gap-2">
 												<ToggleGroup
-													onValueChange={(v) => setShowMineOnly(v === "mine")}
+													onValueChange={(v) =>
+														setInsuranceMineOnly(v === "mine")
+													}
 													size="sm"
 													spacing={0}
 													type="single"
@@ -732,11 +766,7 @@ export function Dashboard() {
 														checked={showWaitingOnly}
 														id="insurance-filter-waiting"
 														onCheckedChange={(checked) =>
-															setInsuranceFilters((prev) =>
-																checked
-																	? [...prev, "waiting"]
-																	: prev.filter((v) => v !== "waiting"),
-															)
+															setInsuranceWaitingFilter(checked === true)
 														}
 													/>
 													<Label

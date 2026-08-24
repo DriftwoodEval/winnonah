@@ -921,6 +921,7 @@ export const users = createTable("user", (d) => ({
 	headerItems: d.text(),
 	lastSeenChangelogMarker: d.text(),
 	blockedEvaluatorNpis: d.json().$type<number[]>(),
+	listFilters: d.json().$type<Record<string, string[]>>(),
 }));
 
 export const usersRelations = relations(users, ({ many, one }) => ({
