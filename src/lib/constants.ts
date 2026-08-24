@@ -198,6 +198,10 @@ export const PERMISSIONS = {
 						id: "settings:impersonate",
 						title: "Impersonate Users",
 					},
+					{
+						id: "settings:audit-log:view",
+						title: "View Audit Log",
+					},
 				],
 			},
 
