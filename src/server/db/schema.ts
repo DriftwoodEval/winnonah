@@ -1417,18 +1417,23 @@ export const appointmentNoteHistoryRelations = relations(
 	}),
 );
 
+/**
+ * Records every mutation an authenticated user makes: who, what tRPC action,
+ * which client (if any), and the changed field names (never their values,
+ * since mutation inputs routinely carry PHI). Deliberately not a foreign key
+ * on userId/clientId, cascaded or otherwise: an audit trail must survive
+ * deletion of the user or client it describes.
+ */
 export const auditLogs = createTable(
 	"audit_log",
 	(d) => ({
 		id: d.int().notNull().autoincrement().primaryKey(),
-		userId: d.varchar({ length: 255 }).references(() => users.id, {
-			onDelete: "set null",
-		}),
+		userId: d.varchar({ length: 255 }).notNull(),
 		userEmail: d.varchar({ length: 255 }).notNull(),
 		impersonatedBy: d.varchar({ length: 255 }),
 		action: d.varchar({ length: 255 }).notNull(),
-		clientId: d.int().references(() => clients.id, { onDelete: "set null" }),
-		input: d.json("input"),
+		clientId: d.int(),
+		detail: d.json("detail"),
 		success: d.boolean().notNull().default(true),
 		errorMessage: d.text(),
 		createdAt: d.timestamp().default(sql`CURRENT_TIMESTAMP`).notNull(),

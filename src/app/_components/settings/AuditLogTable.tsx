@@ -25,6 +25,18 @@ import { api } from "~/trpc/react";
 
 const PAGE_SIZE = 50;
 
+function changedFields(detail: unknown): string | null {
+	if (
+		typeof detail === "object" &&
+		detail !== null &&
+		"fields" in detail &&
+		Array.isArray((detail as { fields: unknown }).fields)
+	) {
+		return (detail as { fields: string[] }).fields.join(", ");
+	}
+	return null;
+}
+
 export default function AuditLogTable() {
 	const [userId, setUserId] = useState<string | undefined>(undefined);
 	const [action, setAction] = useState("");
@@ -114,6 +126,11 @@ export default function AuditLogTable() {
 									</TableCell>
 									<TableCell>
 										<Badge variant="outline">{row.action}</Badge>
+										{changedFields(row.detail) && (
+											<span className="block text-muted-foreground text-xs">
+												fields: {changedFields(row.detail)}
+											</span>
+										)}
 									</TableCell>
 									<TableCell>
 										{row.clientId && row.clientHash ? (

@@ -1,5 +1,3 @@
-const MAX_INPUT_LENGTH = 5000;
-
 /**
  * Most mutation inputs carry the client they act on as a top-level `clientId`
  * field, since that's the convention used across the routers. Falls back to
@@ -18,17 +16,16 @@ export function extractClientId(rawInput: unknown): number | null {
 }
 
 /**
- * Caps the serialized size of the logged input so a large payload (e.g. note
- * content, a file upload) doesn't bloat the audit table.
+ * Records which fields a mutation submitted, never their values: many
+ * mutations carry PHI (names, DOB, notes content, insurance info) in their
+ * input, and the audit trail must not become a second place that leaks from.
  */
-export function serializeAuditInput(rawInput: unknown) {
+export function summarizeAuditInput(rawInput: unknown) {
 	if (rawInput === undefined) return null;
-	const serialized = JSON.stringify(rawInput);
-	if (serialized === undefined) return null;
-	if (serialized.length <= MAX_INPUT_LENGTH) return rawInput;
-	return {
-		truncated: true,
-		length: serialized.length,
-		preview: serialized.slice(0, MAX_INPUT_LENGTH),
-	};
+	if (Array.isArray(rawInput))
+		return { type: "array", length: rawInput.length };
+	if (typeof rawInput === "object" && rawInput !== null) {
+		return { fields: Object.keys(rawInput) };
+	}
+	return { type: typeof rawInput };
 }

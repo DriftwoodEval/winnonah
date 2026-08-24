@@ -14,7 +14,7 @@ import { logger } from "~/lib/logger";
 import { redis } from "~/lib/redis";
 import type { PermissionId, PermissionsObject } from "~/lib/types";
 import { formatError, hasPermission } from "~/lib/utils";
-import { extractClientId, serializeAuditInput } from "~/server/api/audit";
+import { extractClientId, summarizeAuditInput } from "~/server/api/audit";
 import { auth } from "~/server/auth";
 import { db } from "~/server/db";
 import { auditLogs } from "~/server/db/schema";
@@ -179,7 +179,7 @@ export const protectedProcedure = t.procedure
 					: null,
 				action: path,
 				clientId: extractClientId(rawInput),
-				input: serializeAuditInput(rawInput),
+				detail: summarizeAuditInput(rawInput),
 				success: result.ok,
 				errorMessage: result.ok ? null : result.error.message,
 			});

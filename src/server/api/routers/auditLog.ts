@@ -44,7 +44,7 @@ export const auditLogRouter = createTRPCRouter({
 					impersonatedBy: auditLogs.impersonatedBy,
 					action: auditLogs.action,
 					clientId: auditLogs.clientId,
-					input: auditLogs.input,
+					detail: auditLogs.detail,
 					success: auditLogs.success,
 					errorMessage: auditLogs.errorMessage,
 					userName: users.name,
