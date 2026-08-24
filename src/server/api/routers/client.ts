@@ -1220,8 +1220,8 @@ export const clientRouter = createTRPCRouter({
 								),
 								gt(questionnaires.reminded, 3),
 								sql`(
-									(SELECT session_started_at FROM emr_client WHERE id = ${questionnaires.clientId}) IS NULL
-									OR COALESCE(${questionnaires.sent}, ${questionnaires.updatedAt}) >= (SELECT session_started_at FROM emr_client WHERE id = ${questionnaires.clientId})
+									(SELECT sessionStartedAt FROM emr_client WHERE id = ${questionnaires.clientId}) IS NULL
+									OR COALESCE(${questionnaires.sent}, ${questionnaires.updatedAt}) >= (SELECT sessionStartedAt FROM emr_client WHERE id = ${questionnaires.clientId})
 								)`,
 							),
 						},
