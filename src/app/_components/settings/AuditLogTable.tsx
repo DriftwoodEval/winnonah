@@ -25,16 +25,14 @@ import { api } from "~/trpc/react";
 
 const PAGE_SIZE = 50;
 
-function changedFields(detail: unknown): string | null {
-	if (
-		typeof detail === "object" &&
-		detail !== null &&
-		"fields" in detail &&
-		Array.isArray((detail as { fields: unknown }).fields)
-	) {
-		return (detail as { fields: string[] }).fields.join(", ");
+function formatDetail(detail: unknown): string | null {
+	if (detail === null || detail === undefined) return null;
+	if (typeof detail === "object") {
+		return Object.entries(detail as Record<string, unknown>)
+			.map(([field, value]) => `${field}: ${JSON.stringify(value)}`)
+			.join(", ");
 	}
-	return null;
+	return JSON.stringify(detail);
 }
 
 export default function AuditLogTable() {
@@ -43,12 +41,17 @@ export default function AuditLogTable() {
 	const [offset, setOffset] = useState(0);
 
 	const { data: users } = api.users.getAll.useQuery();
-	const { data } = api.auditLog.list.useQuery({
-		userId,
-		action: action || undefined,
-		limit: PAGE_SIZE,
-		offset,
-	});
+	const { data } = api.auditLog.list.useQuery(
+		{
+			userId,
+			action: action || undefined,
+			limit: PAGE_SIZE,
+			offset,
+		},
+		// Keeps the previous rows on screen while a new filter is in flight,
+		// instead of the table flashing empty on every keystroke.
+		{ placeholderData: (previousData) => previousData },
+	);
 
 	const rows = data?.rows ?? [];
 	const total = data?.total ?? 0;
@@ -126,9 +129,12 @@ export default function AuditLogTable() {
 									</TableCell>
 									<TableCell>
 										<Badge variant="outline">{row.action}</Badge>
-										{changedFields(row.detail) && (
-											<span className="block text-muted-foreground text-xs">
-												fields: {changedFields(row.detail)}
+										{formatDetail(row.detail) && (
+											<span
+												className="block max-w-md truncate text-muted-foreground text-xs"
+												title={formatDetail(row.detail) ?? undefined}
+											>
+												{formatDetail(row.detail)}
 											</span>
 										)}
 									</TableCell>

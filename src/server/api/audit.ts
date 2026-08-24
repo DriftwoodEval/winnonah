@@ -16,16 +16,13 @@ export function extractClientId(rawInput: unknown): number | null {
 }
 
 /**
- * Records which fields a mutation submitted, never their values: many
- * mutations carry PHI (names, DOB, notes content, insurance info) in their
- * input, and the audit trail must not become a second place that leaks from.
+ * Records the mutation's submitted input verbatim, including values, since
+ * an audit trail that only names which fields changed can't show what
+ * actually happened. Access to the log is restricted to the
+ * settings:audit-log:view permission, so this relies on that gate rather
+ * than on omitting the data.
  */
-export function summarizeAuditInput(rawInput: unknown) {
+export function serializeAuditInput(rawInput: unknown) {
 	if (rawInput === undefined) return null;
-	if (Array.isArray(rawInput))
-		return { type: "array", length: rawInput.length };
-	if (typeof rawInput === "object" && rawInput !== null) {
-		return { fields: Object.keys(rawInput) };
-	}
-	return { type: typeof rawInput };
+	return rawInput;
 }
