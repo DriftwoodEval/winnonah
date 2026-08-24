@@ -511,6 +511,73 @@ export function Dashboard() {
 		return true;
 	});
 
+	const utils = api.useUtils();
+	const insuranceSavedClientRef = useRef<HTMLDivElement>(null);
+	const insuranceSavedPlaceKey = "insuranceReview";
+	const { data: insuranceSavedPlaces } = api.users.getSavedPlaces.useQuery();
+	const insuranceSavedPlaceData =
+		insuranceSavedPlaces?.[insuranceSavedPlaceKey];
+	const insuranceSavedPlaceHash = insuranceSavedPlaceData?.hash;
+	const insuranceSavedPlaceIndex =
+		typeof insuranceSavedPlaceData === "object" &&
+		insuranceSavedPlaceData !== null
+			? insuranceSavedPlaceData?.index
+			: undefined;
+
+	const { mutate: updateInsuranceSavedPlace } =
+		api.users.updateSavedPlaces.useMutation({
+			onSuccess: () => {
+				utils.users.getSavedPlaces.invalidate();
+			},
+		});
+
+	const { mutate: deleteInsuranceSavedPlace } =
+		api.users.deleteSavedPlace.useMutation({
+			onSuccess: () => {
+				utils.users.getSavedPlaces.invalidate();
+			},
+		});
+
+	useEffect(() => {
+		if (!insuranceSavedPlaceHash || visibleInsuranceClients.length === 0)
+			return;
+
+		const savedClientIndex = visibleInsuranceClients.findIndex(
+			(c) => c.clientHash === insuranceSavedPlaceHash,
+		);
+
+		if (savedClientIndex === -1) {
+			const fallbackIndex =
+				insuranceSavedPlaceIndex !== undefined
+					? Math.min(
+							insuranceSavedPlaceIndex - 1,
+							visibleInsuranceClients.length - 1,
+						)
+					: 0;
+
+			const fallbackClient = visibleInsuranceClients[fallbackIndex];
+			if (fallbackClient) {
+				updateInsuranceSavedPlace({
+					key: insuranceSavedPlaceKey,
+					hash: fallbackClient.clientHash,
+					index: fallbackIndex,
+				});
+			}
+		}
+	}, [
+		visibleInsuranceClients,
+		insuranceSavedPlaceHash,
+		insuranceSavedPlaceIndex,
+		updateInsuranceSavedPlace,
+	]);
+
+	const isSavedInsuranceClient = (clientHash: string) =>
+		insuranceSavedPlaceHash === clientHash;
+
+	const scrollToSavedInsuranceClient = () => {
+		insuranceSavedClientRef.current?.scrollIntoView({ behavior: "smooth" });
+	};
+
 	const { data: schedulingData } = api.scheduling.get.useQuery(
 		{},
 		{
@@ -680,10 +747,33 @@ export function Dashboard() {
 													</Label>
 												</div>
 											</div>
+											{insuranceSavedPlaceHash && (
+												<div className="mb-2 flex justify-end">
+													<Button
+														aria-label="Scroll to saved client"
+														className="font-medium text-muted-foreground text-xs"
+														onClick={scrollToSavedInsuranceClient}
+														size="sm"
+														type="button"
+														variant="ghost"
+													>
+														<MapIcon className="h-3 w-3" />
+														<span>Go to saved</span>
+													</Button>
+												</div>
+											)}
 											<ScrollArea className="h-[400px] w-full rounded-md border bg-card text-card-foreground shadow-sm">
 												<div className="p-4">
 													{visibleInsuranceClients.map((c, index) => (
-														<div key={c.clientHash}>
+														<div
+															className="scroll-mt-12"
+															key={c.clientHash}
+															ref={
+																isSavedInsuranceClient(c.clientHash)
+																	? insuranceSavedClientRef
+																	: null
+															}
+														>
 															<Link
 																className="no-underline! hover:no-underline! flex items-center gap-2"
 																href={`/clients/${c.clientHash}?tab=insurance`}
@@ -708,9 +798,43 @@ export function Dashboard() {
 																	</span>
 																)}
 															</Link>
-															{index < visibleInsuranceClients.length - 1 && (
-																<Separator className="my-2" />
+															{isSavedInsuranceClient(c.clientHash) && (
+																<button
+																	aria-label={`Remove ${c.clientName} as saved client for Insurance Review`}
+																	className="group relative flex w-full cursor-pointer items-center py-2"
+																	onClick={() =>
+																		deleteInsuranceSavedPlace({
+																			key: insuranceSavedPlaceKey,
+																		})
+																	}
+																	type="button"
+																>
+																	<Separator className="my-2 flex-1 rounded bg-secondary data-[orientation=horizontal]:h-1" />
+																	<div className="pointer-events-none absolute top-1/2 right-0 z-10 -translate-x-1/2 -translate-y-1/2 rounded-full bg-secondary px-2 py-1 opacity-0 transition-opacity duration-200 group-hover:opacity-100 group-focus:opacity-100">
+																		<PinOff className="h-4 w-4" />
+																	</div>
+																</button>
 															)}
+															{index < visibleInsuranceClients.length - 1 &&
+																!isSavedInsuranceClient(c.clientHash) && (
+																	<button
+																		aria-label={`Set ${c.clientName} as saved client for Insurance Review`}
+																		className="group relative flex w-full cursor-pointer items-center py-2"
+																		onClick={() =>
+																			updateInsuranceSavedPlace({
+																				key: insuranceSavedPlaceKey,
+																				hash: c.clientHash,
+																				index,
+																			})
+																		}
+																		type="button"
+																	>
+																		<Separator className="flex-1" />
+																		<div className="pointer-events-none absolute top-1/2 right-0 z-10 -translate-x-1/2 -translate-y-1/2 rounded-full bg-muted px-2 py-1 opacity-0 transition-opacity duration-200 group-hover:opacity-100 group-focus:opacity-100">
+																			<Pin className="h-4 w-4" />
+																		</div>
+																	</button>
+																)}
 														</div>
 													))}
 												</div>
