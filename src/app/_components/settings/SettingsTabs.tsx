@@ -2,6 +2,7 @@
 
 import AppointmentsSyncSettings from "@components/settings/AppointmentsSyncSettings";
 import AssessmentTypesTable from "@components/settings/AssessmentTypesTable";
+import AuditLogTable from "@components/settings/AuditLogTable";
 import InsurancesTable from "@components/settings/InsurancesTable";
 import InvitesTable from "@components/settings/InvitesTable";
 import PeopleTable from "@components/settings/PeopleTable";
@@ -43,6 +44,7 @@ export function SettingsTabs() {
 		can("settings:qsuite:services") ||
 		can("settings:qsuite:records") ||
 		can("settings:qsuite:piecework");
+	const canViewAuditLog = can("settings:audit-log:view");
 
 	return (
 		<div className="mx-4 my-6 flex w-full min-w-0 flex-col gap-6 sm:mx-10 sm:my-10">
@@ -66,6 +68,11 @@ export function SettingsTabs() {
 					{canDownload && (
 						<TabsTrigger className="h-8 grow-0" value="downloads">
 							Downloads
+						</TabsTrigger>
+					)}
+					{canViewAuditLog && (
+						<TabsTrigger className="h-8 grow-0" value="audit-log">
+							Audit Log
 						</TabsTrigger>
 					)}
 				</TabsList>
@@ -99,6 +106,11 @@ export function SettingsTabs() {
 				{canDownload && (
 					<TabsContent value="downloads">
 						<BillingDownload />
+					</TabsContent>
+				)}
+				{canViewAuditLog && (
+					<TabsContent value="audit-log">
+						<AuditLogTable />
 					</TabsContent>
 				)}
 			</Tabs>

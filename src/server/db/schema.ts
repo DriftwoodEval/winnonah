@@ -1416,3 +1416,43 @@ export const appointmentNoteHistoryRelations = relations(
 		}),
 	}),
 );
+
+/**
+ * Records every mutation an authenticated user makes: who, what tRPC action,
+ * which client (if any), and the changed field names (never their values,
+ * since mutation inputs routinely carry PHI). Deliberately not a foreign key
+ * on userId/clientId, cascaded or otherwise: an audit trail must survive
+ * deletion of the user or client it describes.
+ */
+export const auditLogs = createTable(
+	"audit_log",
+	(d) => ({
+		id: d.int().notNull().autoincrement().primaryKey(),
+		userId: d.varchar({ length: 255 }).notNull(),
+		userEmail: d.varchar({ length: 255 }).notNull(),
+		impersonatedBy: d.varchar({ length: 255 }),
+		action: d.varchar({ length: 255 }).notNull(),
+		clientId: d.int(),
+		detail: d.json("detail"),
+		success: d.boolean().notNull().default(true),
+		errorMessage: d.text(),
+		createdAt: d.timestamp().default(sql`CURRENT_TIMESTAMP`).notNull(),
+	}),
+	(t) => [
+		index("audit_log_user_idx").on(t.userId),
+		index("audit_log_client_idx").on(t.clientId),
+		index("audit_log_action_idx").on(t.action),
+		index("audit_log_created_idx").on(t.createdAt),
+	],
+);
+
+export const auditLogRelations = relations(auditLogs, ({ one }) => ({
+	user: one(users, {
+		fields: [auditLogs.userId],
+		references: [users.id],
+	}),
+	client: one(clients, {
+		fields: [auditLogs.clientId],
+		references: [clients.id],
+	}),
+}));

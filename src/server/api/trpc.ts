@@ -14,8 +14,10 @@ import { logger } from "~/lib/logger";
 import { redis } from "~/lib/redis";
 import type { PermissionId, PermissionsObject } from "~/lib/types";
 import { formatError, hasPermission } from "~/lib/utils";
+import { extractClientId, serializeAuditInput } from "~/server/api/audit";
 import { auth } from "~/server/auth";
 import { db } from "~/server/db";
+import { auditLogs } from "~/server/db/schema";
 
 export type Context = Awaited<ReturnType<typeof createTRPCContext>>;
 /**
@@ -159,6 +161,33 @@ export const protectedProcedure = t.procedure
 				session: { ...ctx.session, user: ctx.session.user },
 			},
 		});
+	})
+	.use(async ({ ctx, next, path, type, getRawInput }) => {
+		const result = await next();
+
+		if (type !== "mutation") return result;
+
+		try {
+			const rawInput = await getRawInput().catch(() => undefined);
+			await ctx.db.insert(auditLogs).values({
+				userId: ctx.session.user.id,
+				userEmail: ctx.session.user.email ?? "",
+				impersonatedBy: ctx.session.user.isImpersonating
+					? (ctx.session.user.impersonatorEmail ??
+						ctx.session.user.impersonatorId ??
+						null)
+					: null,
+				action: path,
+				clientId: extractClientId(rawInput),
+				detail: serializeAuditInput(rawInput),
+				success: result.ok,
+				errorMessage: result.ok ? null : result.error.message,
+			});
+		} catch (err) {
+			ctx.logger.error({ err }, "Failed to write audit log");
+		}
+
+		return result;
 	});
 
 /**

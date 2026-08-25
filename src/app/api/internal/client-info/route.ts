@@ -7,6 +7,7 @@ import {
 	formatShortDate,
 	formatShortInstantDate,
 } from "~/lib/utils";
+import { checkInternalApiAuth } from "~/server/auth/internal-api";
 import { db } from "~/server/db";
 import {
 	appointments,
@@ -74,13 +75,21 @@ const extractTextFromTiptapJson = (tiptapJson: TiptapNode | null): string => {
 };
 
 export async function GET(req: NextRequest) {
-	const authHeader = req.headers.get("authorization");
-	if (authHeader !== `Bearer ${process.env.API_KEY}`) {
-		return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-	}
-
 	const { searchParams } = new URL(req.url);
 	const rawId = searchParams.get("id");
+	const requestedClientId = rawId && /^\d+$/.test(rawId) ? Number(rawId) : null;
+
+	const auth = await checkInternalApiAuth(
+		req,
+		"internal.clientInfo",
+		requestedClientId,
+	);
+	if (!auth.ok) {
+		return NextResponse.json(
+			{ error: "Unauthorized" },
+			{ status: auth.status },
+		);
+	}
 
 	const validation = QuerySchema.safeParse({ id: rawId });
 
