@@ -28,9 +28,11 @@ import {
 import type { InsertingQuestionnaire } from "~/lib/models";
 import {
 	REMINDER_PORTAL_LINK,
+	reminderDeadlineDate,
+	reminderDistancePhrase,
 	reminderPluralization,
 } from "~/lib/reminder-messages";
-import { localDateToDateOnly, parseDateOnly } from "~/lib/utils";
+import { formatInBusinessTime, localDateToDateOnly } from "~/lib/utils";
 import { pythonConfigSchema } from "~/lib/validations/config";
 import { CACHE_KEY_MISSING_APPOINTMENTS } from "~/server/api/routers/client";
 import {
@@ -797,31 +799,9 @@ export const questionnaireRouter = createTRPCRouter({
 				.limit(1);
 			const escalationDays = settingsRows[0]?.escalationSilenceDays ?? 3;
 
-			const sentParts = parseDateOnly(input.sent);
-			const todayParts = parseDateOnly(localDateToDateOnly(new Date()));
-			const sentUtc = sentParts
-				? Date.UTC(sentParts.year, sentParts.month - 1, sentParts.day)
-				: null;
-			const todayUtc = todayParts
-				? Date.UTC(todayParts.year, todayParts.month - 1, todayParts.day)
-				: null;
-			const distance =
-				sentUtc !== null && todayUtc !== null
-					? Math.round((todayUtc - sentUtc) / 86_400_000)
-					: 0;
-			const mmdd = sentParts
-				? `${sentParts.month}/${sentParts.day}`
-				: input.sent;
-			const distancePhrase =
-				distance === 0
-					? "today"
-					: distance === -1
-						? `on ${mmdd} (yesterday)`
-						: `on ${mmdd} (${Math.abs(distance)} days ago)`;
-
-			const deadline = new Date();
-			deadline.setDate(deadline.getDate() + escalationDays);
-			const deadlineDate = `${deadline.getMonth() + 1}/${deadline.getDate()}`;
+			const todayBusiness = formatInBusinessTime(new Date(), "yyyy-MM-dd");
+			const distancePhrase = reminderDistancePhrase(input.sent, todayBusiness);
+			const deadlineDate = reminderDeadlineDate(todayBusiness, escalationDays);
 
 			const configRecord = await ctx.db.query.pythonConfig.findFirst({
 				where: eq(pythonConfig.id, 1),

@@ -1,3 +1,5 @@
+import { parseDateOnly } from "~/lib/utils";
+
 export const REMINDER_PLACEHOLDERS = [
 	["$CLIENT_FIRST_NAME", "client's first name"],
 	["$STAFF_NAME", "sender's name"],
@@ -46,4 +48,49 @@ export function reminderPluralization(count: number) {
 		$IS_ARE: single ? "is" : "are",
 		$ITS_THEIR: single ? "its" : "their",
 	};
+}
+
+/**
+ * $DISTANCE_PHRASE: how long ago a batch was sent, relative to the
+ * practice's business-local "today". Both dates are plain "YYYY-MM-DD"
+ * strings (business-local), never `Date` objects, so this parses them as
+ * calendar dates with no timezone conversion.
+ */
+export function reminderDistancePhrase(
+	sent: string,
+	todayBusiness: string,
+): string {
+	const sentParts = parseDateOnly(sent);
+	const todayParts = parseDateOnly(todayBusiness);
+	const sentUtc = sentParts
+		? Date.UTC(sentParts.year, sentParts.month - 1, sentParts.day)
+		: null;
+	const todayUtc = todayParts
+		? Date.UTC(todayParts.year, todayParts.month - 1, todayParts.day)
+		: null;
+	const distance =
+		sentUtc !== null && todayUtc !== null
+			? Math.round((todayUtc - sentUtc) / 86_400_000)
+			: 0;
+	const mmdd = sentParts ? `${sentParts.month}/${sentParts.day}` : sent;
+	if (distance === 0) return "today";
+	if (distance === 1) return `on ${mmdd} (yesterday)`;
+	return `on ${mmdd} (${Math.abs(distance)} days ago)`;
+}
+
+/**
+ * $DEADLINE_DATE: the escalation deadline, `escalationDays` after the
+ * practice's business-local "today", formatted M/D.
+ */
+export function reminderDeadlineDate(
+	todayBusiness: string,
+	escalationDays: number,
+): string {
+	const todayParts = parseDateOnly(todayBusiness);
+	if (!todayParts) return "";
+	const deadlineUtc =
+		Date.UTC(todayParts.year, todayParts.month - 1, todayParts.day) +
+		escalationDays * 86_400_000;
+	const deadline = new Date(deadlineUtc);
+	return `${deadline.getUTCMonth() + 1}/${deadline.getUTCDate()}`;
 }

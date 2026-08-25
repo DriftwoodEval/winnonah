@@ -19,9 +19,11 @@ import { QUESTIONNAIRE_REMINDER_STAGES } from "~/lib/constants";
 import {
 	REMINDER_PLACEHOLDERS,
 	REMINDER_PORTAL_LINK,
+	reminderDeadlineDate,
 	reminderPluralization,
 } from "~/lib/reminder-messages";
 import { getSmsSegmentInfo } from "~/lib/sms";
+import { formatInBusinessTime } from "~/lib/utils";
 import { api, type RouterOutputs } from "~/trpc/react";
 
 type ReminderTemplate =
@@ -50,14 +52,13 @@ function samplePreviewValues(
 	staffName: string,
 ) {
 	const escalationDays = settings?.escalationSilenceDays ?? 3;
-	const deadline = new Date();
-	deadline.setDate(deadline.getDate() + escalationDays);
+	const todayBusiness = formatInBusinessTime(new Date(), "yyyy-MM-dd");
 	return {
 		$CLIENT_FIRST_NAME: "Alex",
 		$STAFF_NAME: staffName || "Jordan",
 		...reminderPluralization(2),
 		$DISTANCE_PHRASE: "on 3/14 (5 days ago)",
-		$DEADLINE_DATE: `${deadline.getMonth() + 1}/${deadline.getDate()}`,
+		$DEADLINE_DATE: reminderDeadlineDate(todayBusiness, escalationDays),
 		$ESCALATION_DAYS: String(escalationDays),
 		$PORTAL_LINK: REMINDER_PORTAL_LINK,
 		$COMPLETED_COUNT: "1",
