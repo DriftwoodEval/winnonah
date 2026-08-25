@@ -19,6 +19,12 @@ export const QUESTIONNAIRE_STATUSES = [
 	"JUST_ADDED",
 ] as const;
 
+export const QUESTIONNAIRE_REMINDER_STAGES = [
+	{ index: 0, label: "1st reminder (sent ASAP)" },
+	{ index: 1, label: "2nd reminder" },
+	{ index: 2, label: "3rd reminder (final, before escalation)" },
+] as const;
+
 export const TEST_NAMES = [
 	"Testman Testson",
 	"Testman Testson Jr.",
@@ -81,6 +87,10 @@ export const PERMISSIONS = {
 					{
 						id: "clients:questionnaires:in-person",
 						title: "Add, Remove, and Update In-Person Assessments",
+					},
+					{
+						id: "clients:questionnaires:overridereminder",
+						title: "Customize Reminder Messages for a Client",
 					},
 				],
 			},

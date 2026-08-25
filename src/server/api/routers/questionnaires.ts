@@ -26,7 +26,14 @@ import {
 	updatePunchData,
 } from "~/lib/google";
 import type { InsertingQuestionnaire } from "~/lib/models";
-import { localDateToDateOnly } from "~/lib/utils";
+import {
+	REMINDER_PORTAL_LINK,
+	reminderDeadlineDate,
+	reminderDistancePhrase,
+	reminderPluralization,
+} from "~/lib/reminder-messages";
+import { formatInBusinessTime, localDateToDateOnly } from "~/lib/utils";
+import { pythonConfigSchema } from "~/lib/validations/config";
 import { CACHE_KEY_MISSING_APPOINTMENTS } from "~/server/api/routers/client";
 import {
 	assertPermission,
@@ -41,6 +48,11 @@ import {
 	failures,
 	inPersonAssessmentHistory,
 	inPersonAssessments,
+	pythonConfig,
+	questionnaireReminderOverrideHistory,
+	questionnaireReminderOverrides,
+	questionnaireReminderSettings,
+	questionnaireReminderTemplates,
 	questionnaireRules,
 	questionnaires,
 } from "~/server/db/schema";
@@ -607,6 +619,222 @@ export const questionnaireRouter = createTRPCRouter({
 			}
 
 			return clientWithQuestionnaires.questionnaires ?? null;
+		}),
+
+	getReminderSettings: protectedProcedure.query(async ({ ctx }) => {
+		const settings = await ctx.db
+			.select()
+			.from(questionnaireReminderSettings)
+			.limit(1);
+		return (
+			settings[0] ?? {
+				id: 1,
+				stage2OffsetDays: 14,
+				stage3OffsetDays: 7,
+				escalationSilenceDays: 3,
+			}
+		);
+	}),
+
+	updateReminderSettings: protectedProcedure
+		.input(
+			z.object({
+				stage2OffsetDays: z.number().int().min(0),
+				stage3OffsetDays: z.number().int().min(0),
+				escalationSilenceDays: z.number().int().min(0),
+			}),
+		)
+		.mutation(async ({ ctx, input }) => {
+			assertPermission(ctx.session.user, "settings:questionnaireRules");
+			ctx.logger.info(
+				{ ...input, updatedBy: ctx.session.user.email },
+				"Updating questionnaire reminder settings",
+			);
+			return await ctx.db
+				.insert(questionnaireReminderSettings)
+				.values({ id: 1, ...input })
+				.onDuplicateKeyUpdate({ set: input });
+		}),
+
+	getReminderTemplates: protectedProcedure.query(async ({ ctx }) => {
+		return ctx.db
+			.select()
+			.from(questionnaireReminderTemplates)
+			.orderBy(
+				asc(questionnaireReminderTemplates.reminderIndex),
+				asc(questionnaireReminderTemplates.variant),
+			);
+	}),
+
+	updateReminderTemplate: protectedProcedure
+		.input(z.object({ id: z.number(), message: z.string().min(1) }))
+		.mutation(async ({ ctx, input }) => {
+			assertPermission(ctx.session.user, "settings:questionnaireRules");
+			ctx.logger.info(
+				{ ...input, updatedBy: ctx.session.user.email },
+				"Updating questionnaire reminder template",
+			);
+			return await ctx.db
+				.update(questionnaireReminderTemplates)
+				.set({
+					message: input.message,
+					updatedBy: ctx.session.user.email,
+				})
+				.where(eq(questionnaireReminderTemplates.id, input.id));
+		}),
+
+	getReminderOverrides: protectedProcedure
+		.input(z.number())
+		.query(async ({ ctx, input }) => {
+			return ctx.db
+				.select()
+				.from(questionnaireReminderOverrides)
+				.where(eq(questionnaireReminderOverrides.clientId, input))
+				.orderBy(desc(questionnaireReminderOverrides.sent));
+		}),
+
+	setReminderOverride: protectedProcedure
+		.input(
+			z.object({
+				clientId: z.number(),
+				sent: z.string(),
+				reminderIndex: z.number().int().min(0).max(2),
+				message: z.string().min(1),
+			}),
+		)
+		.mutation(async ({ ctx, input }) => {
+			assertPermission(
+				ctx.session.user,
+				"clients:questionnaires:overridereminder",
+			);
+			ctx.logger.info(
+				{ ...input, updatedBy: ctx.session.user.email },
+				"Setting questionnaire reminder override",
+			);
+			const updatedBy = ctx.session.user.email;
+			await ctx.db
+				.insert(questionnaireReminderOverrides)
+				.values({ ...input, updatedBy })
+				.onDuplicateKeyUpdate({
+					set: { message: input.message, updatedBy },
+				});
+			await ctx.db.insert(questionnaireReminderOverrideHistory).values({
+				clientId: input.clientId,
+				sent: input.sent,
+				reminderIndex: input.reminderIndex,
+				message: input.message,
+				updatedBy,
+			});
+		}),
+
+	clearReminderOverride: protectedProcedure
+		.input(
+			z.object({
+				clientId: z.number(),
+				sent: z.string(),
+				reminderIndex: z.number().int().min(0).max(2),
+			}),
+		)
+		.mutation(async ({ ctx, input }) => {
+			assertPermission(
+				ctx.session.user,
+				"clients:questionnaires:overridereminder",
+			);
+			ctx.logger.info(
+				{ ...input, updatedBy: ctx.session.user.email },
+				"Clearing questionnaire reminder override",
+			);
+			const updatedBy = ctx.session.user.email;
+			await ctx.db
+				.delete(questionnaireReminderOverrides)
+				.where(
+					and(
+						eq(questionnaireReminderOverrides.clientId, input.clientId),
+						eq(questionnaireReminderOverrides.sent, input.sent),
+						eq(
+							questionnaireReminderOverrides.reminderIndex,
+							input.reminderIndex,
+						),
+					),
+				);
+			await ctx.db.insert(questionnaireReminderOverrideHistory).values({
+				clientId: input.clientId,
+				sent: input.sent,
+				reminderIndex: input.reminderIndex,
+				message: "",
+				updatedBy,
+			});
+		}),
+
+	// Computes the same $PLACEHOLDER values render_reminder_message() would
+	// compute in the questionnaires repo (utils/messages.py), for a live,
+	// accurate preview of the default/override message for one client's
+	// batch without a round trip to the Python side. Keep in sync with that
+	// function if the placeholder set changes.
+	getReminderPreviewValues: protectedProcedure
+		.input(z.object({ clientId: z.number(), sent: z.string() }))
+		.query(async ({ ctx, input }) => {
+			const client = await ctx.db.query.clients.findFirst({
+				where: eq(clients.id, input.clientId),
+				with: { questionnaires: true },
+			});
+			const qs = client?.questionnaires ?? [];
+			const activeStatuses = new Set([
+				"PENDING",
+				"POSTDA_PENDING",
+				"POSTEVAL_PENDING",
+			]);
+			const linkCount = qs.filter(
+				(q) => q.status && activeStatuses.has(q.status),
+			).length;
+			const completedCount = qs.filter((q) => q.status === "COMPLETED").length;
+			const isPostda = qs.some((q) => q.status === "POSTDA_PENDING");
+			const isPosteval = qs.some((q) => q.status === "POSTEVAL_PENDING");
+			const variant: "DEFAULT" | "POSTDA" | "POSTEVAL" =
+				isPosteval && isPostda ? "POSTDA" : isPosteval ? "POSTEVAL" : "DEFAULT";
+
+			const settingsRows = await ctx.db
+				.select()
+				.from(questionnaireReminderSettings)
+				.limit(1);
+			const escalationDays = settingsRows[0]?.escalationSilenceDays ?? 3;
+
+			const todayBusiness = formatInBusinessTime(new Date(), "yyyy-MM-dd");
+			const distancePhrase = reminderDistancePhrase(input.sent, todayBusiness);
+			const deadlineDate = reminderDeadlineDate(todayBusiness, escalationDays);
+
+			const configRecord = await ctx.db.query.pythonConfig.findFirst({
+				where: eq(pythonConfig.id, 1),
+			});
+			const configParsed = configRecord?.data
+				? pythonConfigSchema.safeParse(configRecord.data)
+				: null;
+			const staffName = configParsed?.success
+				? configParsed.data.config.name
+				: "";
+
+			// The reminded counter is bumped for every active-pending questionnaire
+			// on the client each time a reminder goes out, so a batch's rows should
+			// all share the same count. Take the max as the batch's current stage.
+			const remindedCount = qs
+				.filter((q) => q.sent === input.sent)
+				.reduce((max, q) => Math.max(max, q.reminded ?? 0), 0);
+
+			return {
+				variant,
+				remindedCount,
+				values: {
+					$CLIENT_FIRST_NAME: client?.firstName ?? "",
+					$STAFF_NAME: staffName,
+					...reminderPluralization(linkCount),
+					$DISTANCE_PHRASE: distancePhrase,
+					$DEADLINE_DATE: deadlineDate,
+					$ESCALATION_DAYS: String(escalationDays),
+					$PORTAL_LINK: REMINDER_PORTAL_LINK,
+					$COMPLETED_COUNT: String(completedCount),
+					$REMAINING_COUNT: String(linkCount),
+				},
+			};
 		}),
 
 	addQuestionnaire: protectedProcedure
