@@ -1,6 +1,7 @@
 import { timingSafeEqual } from "node:crypto";
 import type { NextRequest } from "next/server";
 import { redis } from "~/lib/redis";
+import { recordInternalApiAudit } from "~/server/api/audit";
 
 const API_KEY = process.env.API_KEY;
 
@@ -24,10 +25,19 @@ function safeEqual(a: string, b: string): boolean {
  * Shared auth check for internal server-to-server endpoints (py-config,
  * client-info) that dispense DB credentials / PHI to the questionnaires app.
  * Rate-limits failed attempts per source IP so a scan or leaked-key probe
- * shows up in Redis/logs instead of running unbounded.
+ * shows up in Redis/logs instead of running unbounded. Every attempt is also
+ * written to the emr_audit_log table (under a sentinel system actor) so
+ * these calls show up in Settings > Audit Log alongside human activity,
+ * not just in each service's own log files.
+ *
+ * `action` names the endpoint for the audit row (e.g. "internal.pyConfig").
+ * `clientId` is the client the call concerns, when the endpoint is
+ * client-scoped (e.g. client-info's `id` query param).
  */
 export async function checkInternalApiAuth(
 	req: NextRequest,
+	action: string,
+	clientId: number | null = null,
 ): Promise<{ ok: true } | { ok: false; status: number }> {
 	const ip =
 		req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown";
@@ -38,6 +48,13 @@ export async function checkInternalApiAuth(
 		console.error(
 			`Internal API rate limit exceeded for ${ip} on ${req.nextUrl.pathname}`,
 		);
+		await recordInternalApiAudit({
+			action,
+			clientId,
+			success: false,
+			errorMessage: "Rate limited",
+			ip,
+		});
 		return { ok: false, status: 429 };
 	}
 
@@ -52,8 +69,16 @@ export async function checkInternalApiAuth(
 		console.error(
 			`Internal API auth failure from ${ip} on ${req.nextUrl.pathname} (${count} in window)`,
 		);
+		await recordInternalApiAudit({
+			action,
+			clientId,
+			success: false,
+			errorMessage: "Invalid or missing API key",
+			ip,
+		});
 		return { ok: false, status: 401 };
 	}
 
+	await recordInternalApiAudit({ action, clientId, success: true, ip });
 	return { ok: true };
 }

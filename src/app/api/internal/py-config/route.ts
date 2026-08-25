@@ -5,7 +5,7 @@ import { db } from "~/server/db";
 import { pythonConfig } from "~/server/db/schema";
 
 export async function GET(req: NextRequest) {
-	const auth = await checkInternalApiAuth(req);
+	const auth = await checkInternalApiAuth(req, "internal.pyConfig");
 	if (!auth.ok) {
 		return new NextResponse("Unauthorized", { status: auth.status });
 	}

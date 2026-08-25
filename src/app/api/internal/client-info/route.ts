@@ -75,16 +75,21 @@ const extractTextFromTiptapJson = (tiptapJson: TiptapNode | null): string => {
 };
 
 export async function GET(req: NextRequest) {
-	const auth = await checkInternalApiAuth(req);
+	const { searchParams } = new URL(req.url);
+	const rawId = searchParams.get("id");
+	const requestedClientId = rawId && /^\d+$/.test(rawId) ? Number(rawId) : null;
+
+	const auth = await checkInternalApiAuth(
+		req,
+		"internal.clientInfo",
+		requestedClientId,
+	);
 	if (!auth.ok) {
 		return NextResponse.json(
 			{ error: "Unauthorized" },
 			{ status: auth.status },
 		);
 	}
-
-	const { searchParams } = new URL(req.url);
-	const rawId = searchParams.get("id");
 
 	const validation = QuerySchema.safeParse({ id: rawId });
 
