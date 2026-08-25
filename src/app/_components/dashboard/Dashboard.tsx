@@ -115,6 +115,7 @@ function PunchListAccordionItem({
 			if (clients[fallbackIndex]) {
 				updateSavedPlaces({
 					key: savedPlaceKey,
+					clientId: clients[fallbackIndex].id,
 					hash: clients[fallbackIndex].hash,
 					index: fallbackIndex,
 				});
@@ -457,6 +458,7 @@ function PunchListAccordionItem({
 												onClick={() => {
 													updateSavedPlaces({
 														key: savedPlaceKey,
+														clientId: client.id,
 														hash: client.hash,
 														index,
 													});
@@ -591,6 +593,7 @@ export function Dashboard() {
 			if (fallbackClient) {
 				updateInsuranceSavedPlace({
 					key: insuranceSavedPlaceKey,
+					clientId: fallbackClient.clientId,
 					hash: fallbackClient.clientHash,
 					index: fallbackIndex,
 				});
@@ -853,6 +856,7 @@ export function Dashboard() {
 																		onClick={() =>
 																			updateInsuranceSavedPlace({
 																				key: insuranceSavedPlaceKey,
+																				clientId: c.clientId,
 																				hash: c.clientHash,
 																				index,
 																			})

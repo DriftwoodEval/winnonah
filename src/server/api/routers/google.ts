@@ -172,6 +172,7 @@ export const googleRouter = createTRPCRouter({
 	addIdToFolder: protectedProcedure
 		.input(
 			z.object({
+				clientId: z.number(),
 				id: z.string(),
 				folderId: z.string(),
 			}),
@@ -192,6 +193,7 @@ export const googleRouter = createTRPCRouter({
 	removeIdFromFolder: protectedProcedure
 		.input(
 			z.object({
+				clientId: z.number(),
 				folderId: z.string(),
 			}),
 		)
@@ -305,6 +307,7 @@ export const googleRouter = createTRPCRouter({
 	setQsSent: protectedProcedure
 		.input(
 			z.object({
+				clientId: z.number(),
 				id: z.string(),
 				daSent: z.boolean().optional(),
 				evalSent: z.boolean().optional(),
@@ -444,6 +447,7 @@ export const googleRouter = createTRPCRouter({
 	updatePunchId: protectedProcedure
 		.input(
 			z.object({
+				clientId: z.number(),
 				currentId: z.string(),
 				newId: z.number(),
 			}),

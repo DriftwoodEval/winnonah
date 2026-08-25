@@ -124,6 +124,7 @@ export function AddDriveButton({ client }: { client: Client }) {
 				{
 					onSuccess: () => {
 						addIdToFolder.mutate({
+							clientId: client.id,
 							folderId: match[1] as string,
 							id: String(client.id),
 						});

@@ -249,7 +249,11 @@ function ClientsNotInDbWidget() {
 					suggestions: c.suggestions,
 				}))}
 				onAction={(itemId, suggestedId) =>
-					updatePunchId({ currentId: itemId, newId: suggestedId })
+					updatePunchId({
+						clientId: suggestedId,
+						currentId: itemId,
+						newId: suggestedId,
+					})
 				}
 				title="Punchlist Clients Not In DB"
 			/>

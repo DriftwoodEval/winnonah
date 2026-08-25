@@ -189,21 +189,26 @@ export function AddQuestionnaireButton({
 
 	const handleSetDASent = () => {
 		if (clientId) {
-			setQsSent({ id: clientId.toString(), daSent: true });
+			setQsSent({ clientId, id: clientId.toString(), daSent: true });
 			setShouldBlockNavigation(false);
 		}
 	};
 
 	const handleSetEvalSent = () => {
 		if (clientId) {
-			setQsSent({ id: clientId.toString(), evalSent: true });
+			setQsSent({ clientId, id: clientId.toString(), evalSent: true });
 			setShouldBlockNavigation(false);
 		}
 	};
 
 	const handleSetBothSent = () => {
 		if (clientId) {
-			setQsSent({ id: clientId.toString(), daSent: true, evalSent: true });
+			setQsSent({
+				clientId,
+				id: clientId.toString(),
+				daSent: true,
+				evalSent: true,
+			});
 			setShouldBlockNavigation(false);
 		}
 	};

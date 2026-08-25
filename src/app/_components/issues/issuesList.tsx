@@ -99,6 +99,7 @@ export const IssueList = ({
 			if (clients[fallbackIndex]) {
 				updateSavedPlaces({
 					key: savedPlaceKey,
+					clientId: clients[fallbackIndex].id,
 					hash: clients[fallbackIndex].hash,
 					index: fallbackIndex,
 				});
@@ -250,6 +251,7 @@ export const IssueList = ({
 										onClick={() => {
 											updateSavedPlaces({
 												key: savedPlaceKey,
+												clientId: client.id,
 												hash: client.hash,
 												index,
 											});
@@ -1337,7 +1339,11 @@ export function IssuesList() {
 							suggestions: c.suggestions,
 						}))}
 						onAction={(itemId, suggestedId) =>
-							updatePunchId({ currentId: itemId, newId: suggestedId })
+							updatePunchId({
+								clientId: suggestedId,
+								currentId: itemId,
+								newId: suggestedId,
+							})
 						}
 						title="Punchlist Clients Not In DB"
 					/>

@@ -107,6 +107,7 @@ export function Client({
 	useEffect(() => {
 		if (client?.hash && client?.fullName) {
 			trackClientViewMutation.mutate({
+				clientId: client.id,
 				hash: client.hash,
 				name: client.fullName,
 			});

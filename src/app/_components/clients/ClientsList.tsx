@@ -61,6 +61,7 @@ export function ClientsList({
 			if (clients[fallbackIndex]) {
 				updateSavedPlaces({
 					key: savedPlace,
+					clientId: clients[fallbackIndex].id,
 					hash: clients[fallbackIndex].hash,
 					index: fallbackIndex,
 				});
@@ -199,6 +200,7 @@ export function ClientsList({
 											onClick={() => {
 												updateSavedPlaces({
 													key: savedPlace,
+													clientId: client.id,
 													hash: client.hash,
 													index,
 												});

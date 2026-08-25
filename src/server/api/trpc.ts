@@ -178,7 +178,7 @@ export const protectedProcedure = t.procedure
 						null)
 					: null,
 				action: path,
-				clientId: extractClientId(rawInput),
+				clientId: await extractClientId(ctx.db, path, rawInput),
 				detail: serializeAuditInput(rawInput),
 				success: result.ok,
 				errorMessage: result.ok ? null : result.error.message,

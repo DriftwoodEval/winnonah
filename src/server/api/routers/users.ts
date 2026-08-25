@@ -261,6 +261,7 @@ export const userRouter = createTRPCRouter({
 		.input(
 			z.object({
 				key: z.string(),
+				clientId: z.number().optional(),
 				hash: z.string(),
 				index: z.number().optional(),
 			}),
@@ -373,7 +374,9 @@ export const userRouter = createTRPCRouter({
 	}),
 
 	trackClientView: protectedProcedure
-		.input(z.object({ hash: z.string(), name: z.string() }))
+		.input(
+			z.object({ clientId: z.number(), hash: z.string(), name: z.string() }),
+		)
 		.mutation(async ({ ctx, input }) => {
 			const userFromDb = await ctx.db.query.users.findFirst({
 				where: eq(users.id, ctx.session.user.id),
