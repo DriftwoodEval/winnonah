@@ -853,11 +853,8 @@ export const questionnaireReminderTemplates = createTable(
 			.mysqlEnum("variant", ["DEFAULT", "POSTDA", "POSTEVAL"])
 			.notNull(),
 		message: d.text().notNull(),
-		updatedAt: d
-			.timestamp("updated_at")
-			.onUpdateNow()
-			.default(sql`CURRENT_TIMESTAMP`),
-		updatedBy: d.varchar("updated_by", { length: 255 }),
+		updatedAt: d.timestamp().onUpdateNow().default(sql`CURRENT_TIMESTAMP`),
+		updatedBy: d.varchar({ length: 255 }),
 	}),
 	(t) => [
 		uniqueIndex("q_reminder_template_stage_variant_idx").on(
@@ -877,15 +874,9 @@ export const questionnaireReminderOverrides = createTable(
 		sent: d.date({ mode: "string" }).notNull(),
 		reminderIndex: d.int().notNull(),
 		message: d.text().notNull(),
-		createdAt: d
-			.timestamp("created_at")
-			.default(sql`CURRENT_TIMESTAMP`)
-			.notNull(),
-		updatedAt: d
-			.timestamp("updated_at")
-			.onUpdateNow()
-			.default(sql`CURRENT_TIMESTAMP`),
-		updatedBy: d.varchar("updated_by", { length: 255 }),
+		createdAt: d.timestamp().default(sql`CURRENT_TIMESTAMP`).notNull(),
+		updatedAt: d.timestamp().onUpdateNow().default(sql`CURRENT_TIMESTAMP`),
+		updatedBy: d.varchar({ length: 255 }),
 	}),
 	(t) => [
 		primaryKey({
@@ -904,11 +895,8 @@ export const questionnaireReminderOverrideHistory = createTable(
 		sent: d.date({ mode: "string" }).notNull(),
 		reminderIndex: d.int().notNull(),
 		message: d.text().notNull(),
-		updatedBy: d.varchar("updated_by", { length: 255 }),
-		createdAt: d
-			.timestamp("created_at")
-			.default(sql`CURRENT_TIMESTAMP`)
-			.notNull(),
+		updatedBy: d.varchar({ length: 255 }),
+		createdAt: d.timestamp().default(sql`CURRENT_TIMESTAMP`).notNull(),
 	}),
 	(t) => [
 		index("q_reminder_override_history_idx").on(t.clientId, t.sent),
