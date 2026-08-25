@@ -2,10 +2,14 @@
 import { MergePreviewDialog } from "@components/clients/MergePreviewDialog";
 import { Badge } from "@ui/badge";
 import { Button } from "@ui/button";
+import { Label } from "@ui/label";
 import { ScrollArea } from "@ui/scroll-area";
 import { Separator } from "@ui/separator";
+import { Textarea } from "@ui/textarea";
 import { format, formatDistanceToNow } from "date-fns";
 import {
+	ClipboardList,
+	Loader2,
 	MapIcon,
 	MapPinIcon,
 	Pin,
@@ -14,7 +18,8 @@ import {
 	UserX,
 } from "lucide-react";
 import Link from "next/link";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
+import { toast } from "sonner";
 import { useCheckPermission } from "~/hooks/use-check-permission";
 import type {
 	DuplicateDriveGroup,
@@ -26,6 +31,7 @@ import { formatInBusinessTime, formatShortDate } from "~/lib/utils";
 import { api, type RouterOutputs } from "~/trpc/react";
 import { ManualAddressDialog } from "../client/ManualAddressDialog";
 import { Redact } from "../redaction/Redact";
+import { ResponsiveDialog } from "../shared/ResponsiveDialog";
 
 interface IssueListProps {
 	title: string;
@@ -33,6 +39,7 @@ interface IssueListProps {
 	clients: ClientWithIssueInfo[];
 	action?: React.ReactNode;
 	fill?: boolean;
+	showOutreachLog?: boolean;
 }
 
 export const IssueList = ({
@@ -41,6 +48,7 @@ export const IssueList = ({
 	clients,
 	action,
 	fill,
+	showOutreachLog,
 }: IssueListProps) => {
 	const utils = api.useUtils();
 	const savedClientRef = useRef<HTMLDivElement>(null);
@@ -179,6 +187,26 @@ export const IssueList = ({
 												)
 											</span>
 										)}
+										{showOutreachLog &&
+											(() => {
+												const attempts = getOutreachAttempts(client);
+												const lastAttempt = attempts.at(-1);
+												if (!lastAttempt) return null;
+												return (
+													<div className="text-muted-foreground text-xs">
+														{attempts.length} attempt
+														{attempts.length === 1 ? "" : "s"} logged, last{" "}
+														{format(
+															new Date(lastAttempt.attemptedAt),
+															"MM/dd/yy",
+														)}
+														{lastAttempt.attemptedBy
+															? ` – ${lastAttempt.attemptedBy}`
+															: ""}
+														{lastAttempt.notes ? `: ${lastAttempt.notes}` : ""}
+													</div>
+												);
+											})()}
 									</div>
 								</Link>
 								{client.flag === "poor_address_lookup" && (
@@ -190,6 +218,9 @@ export const IssueList = ({
 											</Button>
 										}
 									/>
+								)}
+								{showOutreachLog && (
+									<LogOutreachAttemptButton client={client} />
 								)}
 							</div>
 							{isSavedClient(client.hash) && (
@@ -242,6 +273,114 @@ export const IssueList = ({
 		</div>
 	);
 };
+
+interface OutreachAttempt {
+	attemptedAt: string;
+	attemptedBy?: string;
+	notes?: string;
+}
+
+function getOutreachAttempts(client: ClientWithIssueInfo): OutreachAttempt[] {
+	const loggedAttempts = client.referralData?.privatePayOutreachAttempts ?? [];
+	const attempts: OutreachAttempt[] = client.referralMessageSentAt
+		? [
+				{
+					attemptedAt: new Date(client.referralMessageSentAt).toISOString(),
+					notes: "Outreach text message sent",
+				},
+				...loggedAttempts,
+			]
+		: loggedAttempts;
+
+	return [...attempts].sort(
+		(a, b) =>
+			new Date(a.attemptedAt).getTime() - new Date(b.attemptedAt).getTime(),
+	);
+}
+
+function LogOutreachAttemptButton({ client }: { client: ClientWithIssueInfo }) {
+	const utils = api.useUtils();
+	const [open, setOpen] = useState(false);
+	const [notes, setNotes] = useState("");
+	const attempts = getOutreachAttempts(client);
+
+	const logAttemptMutation =
+		api.clients.logPrivatePayOutreachAttempt.useMutation({
+			onSuccess: () => {
+				utils.clients.getPossiblePrivatePay.invalidate();
+				toast.success("Outreach attempt logged");
+				setNotes("");
+				setOpen(false);
+			},
+			onError: (error) => {
+				toast.error("Failed to log outreach attempt", {
+					description: error.message,
+				});
+			},
+		});
+
+	return (
+		<ResponsiveDialog
+			description="Add notes about this attempt, then confirm to log it."
+			footer={
+				<Button
+					disabled={logAttemptMutation.isPending}
+					onClick={() =>
+						logAttemptMutation.mutate({
+							clientId: client.id,
+							notes: notes || undefined,
+						})
+					}
+				>
+					{logAttemptMutation.isPending ? (
+						<Loader2 className="mr-2 h-4 w-4 animate-spin" />
+					) : null}
+					Log Attempt
+				</Button>
+			}
+			open={open}
+			setOpen={setOpen}
+			title="Log Outreach Attempt"
+			trigger={
+				<Button
+					size="icon-sm"
+					title={`${attempts.length} attempt(s) logged`}
+					variant="ghost"
+				>
+					<ClipboardList className="h-3 w-3" />
+				</Button>
+			}
+		>
+			<div className="space-y-4 px-4 sm:px-0">
+				{attempts.length > 0 && (
+					<div className="space-y-2 rounded-lg bg-muted p-4 text-sm">
+						<Label className="font-semibold">Previous Attempts</Label>
+						<ul className="space-y-1">
+							{attempts.map((attempt) => (
+								<li className="text-muted-foreground" key={attempt.attemptedAt}>
+									{format(new Date(attempt.attemptedAt), "MMM d, yyyy h:mm a")}
+									{attempt.attemptedBy ? ` – ${attempt.attemptedBy}` : ""}
+									{attempt.notes ? `: ${attempt.notes}` : ""}
+								</li>
+							))}
+						</ul>
+					</div>
+				)}
+				<div className="space-y-2">
+					<Label className="font-semibold" htmlFor="privatePayAttemptNotes">
+						Notes
+					</Label>
+					<Textarea
+						id="privatePayAttemptNotes"
+						onChange={(e) => setNotes(e.target.value)}
+						placeholder="What happened on this attempt..."
+						value={notes}
+					/>
+				</div>
+			</div>
+		</ResponsiveDialog>
+	);
+}
 
 interface SuggestionIssueListProps {
 	title: string;
@@ -1357,6 +1496,7 @@ export function IssuesList() {
 					<IssueList
 						clients={possiblePrivatePay}
 						description="Clients with no eligible evaluators based on insurance and district/zip code."
+						showOutreachLog
 						title="Potential Private Pay"
 					/>
 				)}

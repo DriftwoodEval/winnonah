@@ -1246,6 +1246,7 @@ export const referralMsgLog = createTable("referral_msg_log", (d) => ({
 		.primaryKey()
 		.references(() => clients.id, { onDelete: "cascade" }),
 	openphoneMessageId: d.varchar({ length: 255 }),
+	isPrivatePayOutreach: d.boolean().notNull().default(false),
 	sentAt: d.timestamp().default(sql`CURRENT_TIMESTAMP`).notNull(),
 }));
 

@@ -75,6 +75,7 @@ import {
 	insurances,
 	notes,
 	questionnaires,
+	referralMsgLog,
 	schedulingClients,
 	schoolDistricts,
 } from "~/server/db/schema";
@@ -1491,9 +1492,19 @@ export const clientRouter = createTRPCRouter({
 
 		return fetchWithCache(ctx, CACHE_KEY_POSSIBLE_PRIVATE_PAY, async () => {
 			const noPaymentMethodOrNoEligors = await ctx.db
-				.select(getTableColumns(clients))
+				.select({
+					...getTableColumns(clients),
+					referralMessageSentAt: referralMsgLog.sentAt,
+				})
 				.from(clients)
 				.leftJoin(clientsEvaluators, eq(clients.id, clientsEvaluators.clientId))
+				.leftJoin(
+					referralMsgLog,
+					and(
+						eq(clients.id, referralMsgLog.clientId),
+						eq(referralMsgLog.isPrivatePayOutreach, true),
+					),
+				)
 				.where(
 					and(
 						or(
@@ -1931,6 +1942,52 @@ export const clientRouter = createTRPCRouter({
 			if (newAttempts.length >= 3) {
 				await invalidateCache(ctx, CACHE_KEY_DROP_LIST);
 			}
+		}),
+
+	logPrivatePayOutreachAttempt: protectedProcedure
+		.input(z.object({ clientId: z.number(), notes: z.string().optional() }))
+		.mutation(async ({ ctx, input }) => {
+			assertPermission(ctx.session.user, "issues:private-pay");
+
+			const client = await ctx.db.query.clients.findFirst({
+				where: eq(clients.id, input.clientId),
+			});
+
+			if (!client) {
+				throw new TRPCError({ code: "NOT_FOUND", message: "Client not found" });
+			}
+
+			const currentData = client.referralData ?? {};
+			const attempts = currentData.privatePayOutreachAttempts ?? [];
+			const newAttempts = [
+				...attempts,
+				{
+					attemptedAt: new Date().toISOString(),
+					attemptedBy: ctx.session.user.name ?? undefined,
+					notes: input.notes,
+				},
+			];
+
+			ctx.logger.info(
+				{
+					clientId: input.clientId,
+					attemptNumber: newAttempts.length,
+					by: ctx.session.user.email,
+				},
+				"Logged private pay outreach attempt",
+			);
+
+			await ctx.db
+				.update(clients)
+				.set({
+					referralData: {
+						...currentData,
+						privatePayOutreachAttempts: newAttempts,
+					},
+				})
+				.where(eq(clients.id, input.clientId));
+
+			await invalidateCache(ctx, CACHE_KEY_POSSIBLE_PRIVATE_PAY);
 		}),
 
 	getUnreviewedRecords: protectedProcedure.query(async ({ ctx }) => {
