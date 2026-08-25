@@ -1250,6 +1250,18 @@ export const referralMsgLog = createTable("referral_msg_log", (d) => ({
 	sentAt: d.timestamp().default(sql`CURRENT_TIMESTAMP`).notNull(),
 }));
 
+export const babynetReports = createTable(
+	"babynet_report",
+	(d) => ({
+		id: d.int().primaryKey().autoincrement().notNull(),
+		weekOf: d.date({ mode: "string" }).notNull(),
+		clientCount: d.int().notNull(),
+		amount: d.decimal({ precision: 10, scale: 2 }).notNull(),
+		createdAt: d.timestamp().default(sql`CURRENT_TIMESTAMP`).notNull(),
+	}),
+	(t) => [uniqueIndex("babynet_report_week_of_idx").on(t.weekOf)],
+);
+
 export const duplicateNameIgnore = createTable(
 	"duplicate_name_ignore",
 	(d) => ({

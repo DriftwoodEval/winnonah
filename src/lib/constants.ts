@@ -202,6 +202,10 @@ export const PERMISSIONS = {
 						id: "settings:audit-log:view",
 						title: "View Audit Log",
 					},
+					{
+						id: "settings:babynet-report:view",
+						title: "View BabyNet Report",
+					},
 				],
 			},
 

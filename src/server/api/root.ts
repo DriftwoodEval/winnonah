@@ -1,5 +1,6 @@
 import { appointmentRouter } from "./routers/appointments";
 import { auditLogRouter } from "./routers/auditLog";
+import { babynetReportRouter } from "./routers/babynetReport";
 import { clientRouter } from "./routers/client";
 import { evaluatorRouter } from "./routers/evaluator";
 import { evaluatorDashboardRouter } from "./routers/evaluatorDashboard";
@@ -33,6 +34,7 @@ import { createCallerFactory, createTRPCRouter } from "./trpc";
 export const appRouter = createTRPCRouter({
 	appointments: appointmentRouter,
 	auditLog: auditLogRouter,
+	babynetReport: babynetReportRouter,
 	evaluatorDashboard: evaluatorDashboardRouter,
 	clients: clientRouter,
 	evaluators: evaluatorRouter,
