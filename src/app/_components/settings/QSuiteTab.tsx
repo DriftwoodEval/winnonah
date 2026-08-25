@@ -78,6 +78,8 @@ const formSchema = z.object({
 	config: z.object({
 		initials: z.string(),
 		name: z.string(),
+		referral_sender_name: z.string(),
+		private_pay_sender_name: z.string(),
 		email: z.string(),
 		automated_email: z.email(),
 		qreceive_emails: z.array(arrItem(z.email())),
@@ -706,6 +708,106 @@ function GeneralTab({
 												First name of the person sending questionnaires. Will be
 												inserted into reminder messages and blamed in Quo. Must
 												be the name of a Quo user.
+											</p>
+										</TooltipContent>
+									</Tooltip>
+								</div>
+								<Select
+									disabled={disabled || !opUsers || opUsers.length === 0}
+									onValueChange={field.onChange}
+									value={field.value}
+								>
+									<FormControl>
+										<SelectTrigger>
+											<SelectValue placeholder="Select a user" />
+										</SelectTrigger>
+									</FormControl>
+									<SelectContent>
+										{Array.from(
+											new Set(
+												opUsers
+													?.map((u) => u.key.split(" ")[0])
+													.filter((n): n is string => !!n) ?? [],
+											),
+										)
+											.sort()
+											.map((name) => (
+												<SelectItem key={name} value={name}>
+													{name}
+												</SelectItem>
+											))}
+									</SelectContent>
+								</Select>
+								<FormMessage />
+							</FormItem>
+						)}
+					/>
+					<FormField
+						control={c}
+						name="config.referral_sender_name"
+						render={({ field }) => (
+							<FormItem>
+								<div className="flex items-center gap-2">
+									<FormLabel>Referral Sender Name</FormLabel>
+									<Tooltip>
+										<TooltipTrigger asChild>
+											<Info className="h-4 w-4 cursor-help text-muted-foreground" />
+										</TooltipTrigger>
+										<TooltipContent>
+											<p className="max-w-xs">
+												First name of the person the "we received your referral"
+												text is blamed on in Quo. Must be the name of a Quo
+												user.
+											</p>
+										</TooltipContent>
+									</Tooltip>
+								</div>
+								<Select
+									disabled={disabled || !opUsers || opUsers.length === 0}
+									onValueChange={field.onChange}
+									value={field.value}
+								>
+									<FormControl>
+										<SelectTrigger>
+											<SelectValue placeholder="Select a user" />
+										</SelectTrigger>
+									</FormControl>
+									<SelectContent>
+										{Array.from(
+											new Set(
+												opUsers
+													?.map((u) => u.key.split(" ")[0])
+													.filter((n): n is string => !!n) ?? [],
+											),
+										)
+											.sort()
+											.map((name) => (
+												<SelectItem key={name} value={name}>
+													{name}
+												</SelectItem>
+											))}
+									</SelectContent>
+								</Select>
+								<FormMessage />
+							</FormItem>
+						)}
+					/>
+					<FormField
+						control={c}
+						name="config.private_pay_sender_name"
+						render={({ field }) => (
+							<FormItem>
+								<div className="flex items-center gap-2">
+									<FormLabel>Private Pay Sender Name</FormLabel>
+									<Tooltip>
+										<TooltipTrigger asChild>
+											<Info className="h-4 w-4 cursor-help text-muted-foreground" />
+										</TooltipTrigger>
+										<TooltipContent>
+											<p className="max-w-xs">
+												First name of the person the private-pay insurance
+												outreach text is blamed on in Quo. Must be the name of a
+												Quo user.
 											</p>
 										</TooltipContent>
 									</Tooltip>
