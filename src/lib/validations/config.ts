@@ -88,6 +88,7 @@ export const configSchema = z.object({
 		.regex(initialsRegex)
 		.transform((val) => val.trim().toUpperCase()),
 	name: z.string(),
+	referral_sender_name: z.string(),
 	email: multiEmailSchema,
 	automated_email: emailSchema,
 	qreceive_emails: z.array(emailSchema),
