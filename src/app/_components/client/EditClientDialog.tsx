@@ -153,6 +153,7 @@ function ClientForm({
 															form.setValue(
 																"schoolDistrict",
 																district.fullName,
+																{ shouldDirty: true, shouldValidate: true },
 															);
 															setDistrictsOpen(false);
 														}}
@@ -166,7 +167,7 @@ function ClientForm({
 														<Check
 															className={cn(
 																"ml-auto",
-																district.id.toString() === field.value
+																district.fullName === field.value
 																	? "opacity-100"
 																	: "opacity-0",
 															)}
