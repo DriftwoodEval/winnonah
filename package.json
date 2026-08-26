@@ -92,7 +92,7 @@
 		"zod": "^4.4.3"
 	},
 	"devDependencies": {
-		"@biomejs/biome": "2.5.9",
+		"@biomejs/biome": "2.5.10",
 		"@tailwindcss/postcss": "^4.3.3",
 		"@types/mdast": "^4.0.4",
 		"@types/mdx": "^2.0.14",
