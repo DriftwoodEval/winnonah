@@ -66,3 +66,4 @@ python/*.jsonl
 # local overrides
 docker-compose.override.*
 mysql-replication.cnf
+mise.local.toml

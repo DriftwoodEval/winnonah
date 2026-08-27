@@ -79,6 +79,18 @@ if [ -z "$WAS_RUNNING" ]; then
 fi
 """
 
+[tasks."db:migration:cat"]
+description = "Print the newest Drizzle migration file with the '--> statement-breakpoint' lines removed"
+shell = "bash -c"
+run = """
+latest="$(ls -t drizzle/*.sql 2>/dev/null | head -1)"
+[ -z "$latest" ] && { echo "No migration files in drizzle/" >&2; exit 1; }
+echo "# $latest" >&2
+# Drop the marker when it sits on its own line, strip it when it is appended to
+# a statement, so no SQL is lost either way.
+sed -e '/^--> statement-breakpoint$/d' -e 's/--> statement-breakpoint//' "$latest"
+"""
+
 [tasks."db:studio"]
 description = "Open Drizzle Studio against the local database"
 shell = "bash -c"
@@ -142,7 +154,7 @@ description = "Start the Next.js dev server"
 run = "pnpm dev"
 
 [tasks.dev]
-description = "Start development server, bringing up and installing dependencies first. Use --pull/--no-pull and --sync-db/--no-sync-db to skip the prompts."
+description = "Start development server, bringing up and installing dependencies first. Use --pull/--no-pull and --sync-db/--no-sync-db to skip the prompts, or set DEV_PULL/DEV_SYNC_DB (e.g. in mise.local.toml) to skip them permanently."
 depends = ["deps"]
 shell = "bash -c"
 usage = '''
@@ -154,6 +166,9 @@ flag "--no-sync-db" help="Skip syncing the database"
 run = """
 pull="${usage_pull:-}"
 [ -n "${usage_no_pull:-}" ] && pull="false"
+# Fall back to DEV_PULL from the environment (e.g. a gitignored mise.local.toml)
+# before prompting, so a machine can opt out of the prompt permanently.
+[ -z "$pull" ] && pull="${DEV_PULL:-}"
 if [ -z "$pull" ]; then
     read -p "Pull latest changes from git first? [Y/n] " pull_answer
     [[ "$pull_answer" =~ ^[Nn]$ ]] && pull="false" || pull="true"
@@ -164,6 +179,7 @@ pnpm install
 
 sync_db="${usage_sync_db:-}"
 [ -n "${usage_no_sync_db:-}" ] && sync_db="false"
+[ -z "$sync_db" ] && sync_db="${DEV_SYNC_DB:-}"
 if [ -z "$sync_db" ]; then
     read -p "Sync database from production first? [y/N] " sync_answer
     [[ "$sync_answer" =~ ^[Yy]$ ]] && sync_db="true" || sync_db="false"
