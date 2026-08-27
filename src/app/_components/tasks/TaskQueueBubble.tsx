@@ -51,7 +51,7 @@ export function TaskQueueBubble() {
 				>
 					{runningCount > 0 && <Loader2 className="h-3 w-3 animate-spin" />}
 					{runningCount > 0 ? runningCount : tasks.length}{" "}
-					<span className="hidden sm:inline">
+					<span className="hidden lg:inline">
 						{runningCount > 0
 							? "running"
 							: tasks.length === 1

@@ -26,7 +26,9 @@ export function ImpersonateUserSelect() {
 		enabled: !!session,
 	});
 	const [pending, setPending] = useState(false);
-	const isDesktop = useMediaQuery("(min-width: 768px)");
+	// Collapse to the icon-only control below 1024px: the header is too crowded
+	// for the full "Acting as" label on narrow laptops and tablets.
+	const isDesktop = useMediaQuery("(min-width: 1024px)");
 
 	if (!session) return null;
 
