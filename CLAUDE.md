@@ -3,6 +3,7 @@ T3 stack app (Next.js, tRPC, Drizzle ORM, NextAuth) + a Python API sidecar + cro
 ## Code Style
 - No AI-isms (filler, hedging, "as an AI") and no em dashes (use comma/colon/period) in code, comments, commits, docs.
 - Prefer simple, readable code over clever/terse one-liners. DRY.
+- Code comments explain the current state of the code, not what changed or why it used to be different. A reader without the diff should get full value from the comment.
 
 ## Changelog
 When making significant, user-facing changes, add an entry to `src/content/docs/changelog/index.mdx`. Use today's date, group bullets under `**New**`/`**Improved**`/`**Fixed**` in that order, and validate with `pnpm exec tsx scripts/validate-changelog.ts`. Write bullets in plain, user-friendly language describing what changed for the user, not implementation details (e.g. "Insurance review now shows the waiting badge even when you can't act on it," not "gated waiting badge render behind canUse flag").
