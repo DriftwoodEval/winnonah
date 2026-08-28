@@ -14,6 +14,7 @@ from utils.database import (
     get_python_config,
     get_services_config,
     get_sync_report_date,
+    insert_by_matching_criteria_incremental,
     provide_connection,
     set_referral_fax_date,
 )
@@ -329,3 +330,50 @@ class TestFilterClientsWithChangedAddress:
         conn = FakeConnection(cursor)
         result = filter_clients_with_changed_address(clients, conn)
         assert result.empty
+
+
+class TestIncrementalMatchingRestrictToNpis:
+    """insert_by_matching_criteria_incremental with restrict_to_npis (single-evaluator rematch)."""
+
+    def _run(self, restrict):
+        clients = pd.DataFrame({"CLIENT_ID": ["c1"]})
+        # Client currently linked to A and B; matching now says only A is eligible.
+        existing = {"c1": {"A", "B"}}
+        deletes: list[tuple] = []
+        inserts: list[tuple] = []
+
+        with (
+            patch(
+                "utils.database._get_existing_client_eval_links", return_value=existing
+            ),
+            patch("utils.database.get_insurance_mappings", return_value={}),
+            patch(
+                "utils.relationships.match_by_school_district",
+                return_value=["A", "C"],
+            ),
+            patch("utils.relationships.match_by_insurance", return_value=["A", "C"]),
+            patch(
+                "utils.database._delete_client_eval_links",
+                side_effect=lambda cid, npis, **_: deletes.append((cid, set(npis))),
+            ),
+            patch(
+                "utils.database._insert_client_eval_links",
+                side_effect=lambda cid, npis, **_: inserts.append((cid, set(npis))),
+            ),
+        ):
+            insert_by_matching_criteria_incremental(
+                clients, {}, connection=MagicMock(), restrict_to_npis=restrict
+            )
+        return deletes, inserts
+
+    def test_restricted_rematch_touches_only_target_evaluator(self):
+        deletes, inserts = self._run(restrict={"C"})
+        # B is no longer eligible but is not the target, so it stays.
+        assert deletes == []
+        # C is newly eligible and is the target, so it is added.
+        assert inserts == [("c1", {"C"})]
+
+    def test_unrestricted_run_reconciles_everything(self):
+        deletes, inserts = self._run(restrict=None)
+        assert deletes == [("c1", {"B"})]
+        assert inserts == [("c1", {"C"})]

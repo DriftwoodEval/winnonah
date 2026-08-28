@@ -1120,17 +1120,22 @@ def get_evaluators_with_blocked_locations(
 ):
     """Fetches evaluators from the database, including their blocked zip codes and school districts.
 
+    Archived evaluators are excluded: they are not eligible for any client, so
+    they must never land in emr_client_eval or the matching math.
+
     Pass npi to fetch a single evaluator; omit to fetch all.
     """
     evaluators: dict[int, dict] = {}
-    npi_filter = "WHERE npi = %s" if npi is not None else ""
+    evaluator_filter = (
+        "WHERE npi = %s AND archived = 0" if npi is not None else "WHERE archived = 0"
+    )
     npi_join_filter = "WHERE bsd.evaluatorNpi = %s" if npi is not None else ""
     npi_zip_filter = "WHERE evaluatorNpi = %s" if npi is not None else ""
     npi_ins_filter = "WHERE eti.evaluatorNpi = %s" if npi is not None else ""
     params = (npi,) if npi is not None else ()
 
     with connection.cursor() as cursor:
-        cursor.execute(f"SELECT * FROM {TABLE_EVALUATOR} {npi_filter}", params)
+        cursor.execute(f"SELECT * FROM {TABLE_EVALUATOR} {evaluator_filter}", params)
         for row in cursor.fetchall():
             evaluators[row["npi"]] = {
                 **row,
@@ -1304,8 +1309,17 @@ def insert_by_matching_criteria_incremental(
     evaluators: dict,
     connection: Connection[DictCursor],
     progress_callback: Callable[[int, int], None] | None = None,
+    restrict_to_npis: set[str] | None = None,
 ) -> None:
-    """Inserts client-provider links based on matching criteria using incremental updates."""
+    """Inserts client-provider links based on matching criteria using incremental updates.
+
+    `evaluators` must be the full eligible-evaluator set, since the matching
+    math (for example "does any evaluator accept this primary insurance") is
+    computed across all of them. To reconcile only some evaluators' links
+    without touching the rest, pass their NPIs as `restrict_to_npis`: adds and
+    removes are then limited to that set, so a single evaluator can be
+    rematched without wiping every other evaluator's links for each client.
+    """
     logger.debug("Starting incremental client-evaluator matching...")
 
     existing_links = _get_existing_client_eval_links(connection=connection)
@@ -1349,13 +1363,17 @@ def insert_by_matching_criteria_incremental(
         to_add = current_should_be - current_exists
         to_remove = current_exists - current_should_be
 
+        if restrict_to_npis is not None:
+            to_add &= restrict_to_npis
+            to_remove &= restrict_to_npis
+
         if to_add or to_remove:
             updated_count += 1
             if to_remove:
                 _delete_client_eval_links(client_id, to_remove, connection=connection)
             if to_add:
                 _insert_client_eval_links(client_id, to_add, connection=connection)
-            existing_links[client_id] = current_should_be
+            existing_links[client_id] = (current_exists - to_remove) | to_add
 
     if progress_callback:
         progress_callback(processed_count, total)
@@ -1731,19 +1749,27 @@ def get_in_person_assessments_for_client(
 
 @provide_connection
 def rematch_evaluator(npi: int, connection: Connection[DictCursor]) -> None:
-    """Re-runs client matching for a single evaluator after their settings change."""
-    logger.info(f"Running rematch for evaluator NPI {npi}")
+    """Re-runs client matching for a single evaluator after their settings change.
 
-    evaluators = get_evaluators_with_blocked_locations(npi=npi, connection=connection)
-    if not evaluators:
-        logger.warning(f"Evaluator {npi} not found, skipping rematch")
-        return
+    Reconciles only this evaluator's links (in either direction, including
+    removing them all when the evaluator is now archived), leaving every other
+    evaluator's links untouched. The full evaluator set is still loaded because
+    the matching math depends on it.
+    """
+    logger.info(f"Running rematch for evaluator NPI {npi}")
 
     clients = get_all_clients(connection=connection)
     if clients.empty:
         return
 
-    insert_by_matching_criteria_incremental(clients, evaluators, connection=connection)
+    evaluators = get_evaluators_with_blocked_locations(connection=connection)
+
+    insert_by_matching_criteria_incremental(
+        clients,
+        evaluators,
+        connection=connection,
+        restrict_to_npis={str(npi)},
+    )
 
 
 @provide_connection

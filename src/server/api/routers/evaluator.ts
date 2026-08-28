@@ -397,7 +397,19 @@ export const evaluatorRouter = createTRPCRouter({
 				.update(evaluators)
 				.set({ archived: true })
 				.where(eq(evaluators.npi, npiAsInt));
-			await invalidateCache(ctx, CACHE_KEY_ALL_EVALUATORS);
+			await invalidateCache(
+				ctx,
+				CACHE_KEY_ALL_EVALUATORS,
+				CACHE_KEY_POSSIBLE_PRIVATE_PAY,
+			);
+
+			const cookieHeader = ctx.headers.get("cookie") ?? "";
+			void fetch(`${env.PY_API}/rematch/evaluator/${npiAsInt}`, {
+				method: "POST",
+				headers: { Cookie: cookieHeader },
+			}).catch((err) =>
+				ctx.logger.error(err, "Failed to trigger evaluator rematch"),
+			);
 		}),
 
 	unarchive: protectedProcedure
@@ -413,7 +425,19 @@ export const evaluatorRouter = createTRPCRouter({
 				.update(evaluators)
 				.set({ archived: false })
 				.where(eq(evaluators.npi, npiAsInt));
-			await invalidateCache(ctx, CACHE_KEY_ALL_EVALUATORS);
+			await invalidateCache(
+				ctx,
+				CACHE_KEY_ALL_EVALUATORS,
+				CACHE_KEY_POSSIBLE_PRIVATE_PAY,
+			);
+
+			const cookieHeader = ctx.headers.get("cookie") ?? "";
+			void fetch(`${env.PY_API}/rematch/evaluator/${npiAsInt}`, {
+				method: "POST",
+				headers: { Cookie: cookieHeader },
+			}).catch((err) =>
+				ctx.logger.error(err, "Failed to trigger evaluator rematch"),
+			);
 		}),
 
 	delete: protectedProcedure
