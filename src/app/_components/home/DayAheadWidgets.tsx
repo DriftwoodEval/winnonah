@@ -189,16 +189,13 @@ export function MyDayWidget() {
 									appointmentId={appt.id}
 									arrivedAt={appt.arrivedAt}
 									arrivedBy={appt.arrivedBy}
-									arrivedNote={appt.arrivedNote}
 									compact
 									endTime={appt.endTime}
 									isToday
 									leftAt={appt.leftAt}
 									leftBy={appt.leftBy}
-									leftNote={appt.leftNote}
 									startedAt={appt.startedAt}
 									startedBy={appt.startedBy}
-									startedNote={appt.startedNote}
 									startTime={appt.startTime}
 								/>
 							)}
@@ -303,10 +300,8 @@ function ExpandableEvaluator({
 		checkin: {
 			arrivedAt: Date | null;
 			arrivedBy: string | null;
-			arrivedNote: string | null;
 			leftAt: Date | null;
 			leftBy: string | null;
-			leftNote: string | null;
 		};
 		appointments: {
 			id: string;
@@ -320,13 +315,10 @@ function ExpandableEvaluator({
 			clientPhone: string | null;
 			arrivedAt: Date | null;
 			arrivedBy: string | null;
-			arrivedNote: string | null;
 			startedAt: Date | null;
 			startedBy: string | null;
-			startedNote: string | null;
 			leftAt: Date | null;
 			leftBy: string | null;
-			leftNote: string | null;
 		}[];
 	};
 	messages: RecentMessagesMap;
@@ -364,13 +356,11 @@ function ExpandableEvaluator({
 					<EvaluatorCheckInOutControl
 						arrivedAt={evaluator.checkin.arrivedAt}
 						arrivedBy={evaluator.checkin.arrivedBy}
-						arrivedNote={evaluator.checkin.arrivedNote}
 						compact
 						date={asDate}
 						evaluatorNpi={evaluator.npi}
 						leftAt={evaluator.checkin.leftAt}
 						leftBy={evaluator.checkin.leftBy}
-						leftNote={evaluator.checkin.leftNote}
 					/>
 				)}
 				{timeRange && (
@@ -407,16 +397,13 @@ function ExpandableEvaluator({
 									appointmentId={appt.id}
 									arrivedAt={appt.arrivedAt}
 									arrivedBy={appt.arrivedBy}
-									arrivedNote={appt.arrivedNote}
 									compact
 									endTime={appt.endTime}
 									isToday
 									leftAt={appt.leftAt}
 									leftBy={appt.leftBy}
-									leftNote={appt.leftNote}
 									startedAt={appt.startedAt}
 									startedBy={appt.startedBy}
-									startedNote={appt.startedNote}
 									startTime={appt.startTime}
 								/>
 							)}

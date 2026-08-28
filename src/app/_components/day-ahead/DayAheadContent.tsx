@@ -68,13 +68,10 @@ type ListAppt = {
 	calendarEventTitle?: string | null;
 	arrivedAt: Date | null;
 	arrivedBy: string | null;
-	arrivedNote: string | null;
 	startedAt: Date | null;
 	startedBy: string | null;
-	startedNote: string | null;
 	leftAt: Date | null;
 	leftBy: string | null;
-	leftNote: string | null;
 };
 
 type ListEvaluatorAppt = {
@@ -91,13 +88,10 @@ type ListEvaluatorAppt = {
 	confirmedAt: Date | null;
 	arrivedAt: Date | null;
 	arrivedBy: string | null;
-	arrivedNote: string | null;
 	startedAt: Date | null;
 	startedBy: string | null;
-	startedNote: string | null;
 	leftAt: Date | null;
 	leftBy: string | null;
-	leftNote: string | null;
 };
 
 // ─── List view components ─────────────────────────────────────────────────────
@@ -143,16 +137,13 @@ function AppointmentRow({
 					appointmentId={appt.id}
 					arrivedAt={appt.arrivedAt}
 					arrivedBy={appt.arrivedBy}
-					arrivedNote={appt.arrivedNote}
 					compact
 					endTime={appt.endTime}
 					isToday={isToday}
 					leftAt={appt.leftAt}
 					leftBy={appt.leftBy}
-					leftNote={appt.leftNote}
 					startedAt={appt.startedAt}
 					startedBy={appt.startedBy}
-					startedNote={appt.startedNote}
 					startTime={appt.startTime}
 				/>
 			)}
@@ -178,10 +169,8 @@ function EvaluatorRow({
 		checkin: {
 			arrivedAt: Date | null;
 			arrivedBy: string | null;
-			arrivedNote: string | null;
 			leftAt: Date | null;
 			leftBy: string | null;
-			leftNote: string | null;
 		};
 		appointments: ListEvaluatorAppt[];
 	};
@@ -221,13 +210,11 @@ function EvaluatorRow({
 					<EvaluatorCheckInOutControl
 						arrivedAt={evaluator.checkin.arrivedAt}
 						arrivedBy={evaluator.checkin.arrivedBy}
-						arrivedNote={evaluator.checkin.arrivedNote}
 						compact
 						date={asDate}
 						evaluatorNpi={evaluator.npi}
 						leftAt={evaluator.checkin.leftAt}
 						leftBy={evaluator.checkin.leftBy}
-						leftNote={evaluator.checkin.leftNote}
 					/>
 				)}
 				{timeRange && (
@@ -266,16 +253,13 @@ function EvaluatorRow({
 									appointmentId={appt.id}
 									arrivedAt={appt.arrivedAt}
 									arrivedBy={appt.arrivedBy}
-									arrivedNote={appt.arrivedNote}
 									compact
 									endTime={appt.endTime}
 									isToday={isToday}
 									leftAt={appt.leftAt}
 									leftBy={appt.leftBy}
-									leftNote={appt.leftNote}
 									startedAt={appt.startedAt}
 									startedBy={appt.startedBy}
-									startedNote={appt.startedNote}
 									startTime={appt.startTime}
 								/>
 							)}

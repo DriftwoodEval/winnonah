@@ -58,13 +58,10 @@ export type CalAppt = {
 	isCurrentUser: boolean;
 	arrivedAt: Date | null;
 	arrivedBy: string | null;
-	arrivedNote: string | null;
 	startedAt: Date | null;
 	startedBy: string | null;
-	startedNote: string | null;
 	leftAt: Date | null;
 	leftBy: string | null;
-	leftNote: string | null;
 };
 
 // ─── Messages popover open state ───────────────────────────────────────────────
@@ -267,7 +264,6 @@ function CheckinIndicator({ appt }: { appt: CalAppt }) {
 					appointmentId={appt.id}
 					arrivedAt={appt.arrivedAt}
 					arrivedBy={appt.arrivedBy}
-					arrivedNote={appt.arrivedNote}
 					endTime={appt.endTime}
 					isToday={
 						apptDateKey(appt.startTime) ===
@@ -275,10 +271,8 @@ function CheckinIndicator({ appt }: { appt: CalAppt }) {
 					}
 					leftAt={appt.leftAt}
 					leftBy={appt.leftBy}
-					leftNote={appt.leftNote}
 					startedAt={appt.startedAt}
 					startedBy={appt.startedBy}
-					startedNote={appt.startedNote}
 					startTime={appt.startTime}
 				/>
 			</PopoverContent>
@@ -509,13 +503,11 @@ export function CalendarDayView({
 											<EvaluatorCheckInOutControl
 												arrivedAt={checkin?.arrivedAt ?? null}
 												arrivedBy={checkin?.arrivedBy ?? null}
-												arrivedNote={checkin?.arrivedNote ?? null}
 												compact
 												date={evaluatorCheckinDate}
 												evaluatorNpi={ev.npi}
 												leftAt={checkin?.leftAt ?? null}
 												leftBy={checkin?.leftBy ?? null}
-												leftNote={checkin?.leftNote ?? null}
 											/>
 										</div>
 									)}

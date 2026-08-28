@@ -249,15 +249,12 @@ export function ClientAppointments({ clientId }: { clientId: number }) {
 									appointmentId={appt.id}
 									arrivedAt={appt.arrivedAt}
 									arrivedBy={appt.arrivedBy}
-									arrivedNote={appt.arrivedNote}
 									endTime={appt.endTime}
 									isToday={format(startTime, "yyyy-MM-dd") === todayStr()}
 									leftAt={appt.leftAt}
 									leftBy={appt.leftBy}
-									leftNote={appt.leftNote}
 									startedAt={appt.startedAt}
 									startedBy={appt.startedBy}
-									startedNote={appt.startedNote}
 									startTime={appt.startTime}
 								/>
 							</div>

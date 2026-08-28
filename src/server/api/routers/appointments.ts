@@ -25,14 +25,12 @@ import {
 const checkinInputSchema = z.object({
 	appointmentId: z.string(),
 	occurredAt: z.date(),
-	note: z.string().max(500).optional(),
 });
 
 const evaluatorCheckinInputSchema = z.object({
 	evaluatorNpi: z.number(),
 	date: z.string(),
 	occurredAt: z.date(),
-	note: z.string().max(500).optional(),
 });
 
 async function recordCheckin(
@@ -41,15 +39,13 @@ async function recordCheckin(
 	field: "arrived" | "started" | "left",
 	occurredAt: Date,
 	by: string | null | undefined,
-	note: string | undefined,
 ) {
-	const trimmedNote = note?.trim() || null;
 	const payload =
 		field === "arrived"
-			? { arrivedAt: occurredAt, arrivedBy: by, arrivedNote: trimmedNote }
+			? { arrivedAt: occurredAt, arrivedBy: by }
 			: field === "started"
-				? { startedAt: occurredAt, startedBy: by, startedNote: trimmedNote }
-				: { leftAt: occurredAt, leftBy: by, leftNote: trimmedNote };
+				? { startedAt: occurredAt, startedBy: by }
+				: { leftAt: occurredAt, leftBy: by };
 
 	const existing = await ctx.db.query.appointmentCheckins.findFirst({
 		where: eq(appointmentCheckins.appointmentId, appointmentId),
@@ -90,13 +86,11 @@ async function recordEvaluatorCheckin(
 	field: "arrived" | "left",
 	occurredAt: Date,
 	by: string | null | undefined,
-	note: string | undefined,
 ) {
-	const trimmedNote = note?.trim() || null;
 	const payload =
 		field === "arrived"
-			? { arrivedAt: occurredAt, arrivedBy: by, arrivedNote: trimmedNote }
-			: { leftAt: occurredAt, leftBy: by, leftNote: trimmedNote };
+			? { arrivedAt: occurredAt, arrivedBy: by }
+			: { leftAt: occurredAt, leftBy: by };
 
 	const existing = await ctx.db.query.evaluatorCheckins.findFirst({
 		where: and(
@@ -175,13 +169,10 @@ export const appointmentRouter = createTRPCRouter({
 							officeName: offices.prettyName,
 							arrivedAt: appointmentCheckins.arrivedAt,
 							arrivedBy: appointmentCheckins.arrivedBy,
-							arrivedNote: appointmentCheckins.arrivedNote,
 							startedAt: appointmentCheckins.startedAt,
 							startedBy: appointmentCheckins.startedBy,
-							startedNote: appointmentCheckins.startedNote,
 							leftAt: appointmentCheckins.leftAt,
 							leftBy: appointmentCheckins.leftBy,
-							leftNote: appointmentCheckins.leftNote,
 						})
 						.from(appointments)
 						.innerJoin(clients, eq(appointments.clientId, clients.id))
@@ -223,13 +214,10 @@ export const appointmentRouter = createTRPCRouter({
 					clientPhone: clients.phoneNumber,
 					arrivedAt: appointmentCheckins.arrivedAt,
 					arrivedBy: appointmentCheckins.arrivedBy,
-					arrivedNote: appointmentCheckins.arrivedNote,
 					startedAt: appointmentCheckins.startedAt,
 					startedBy: appointmentCheckins.startedBy,
-					startedNote: appointmentCheckins.startedNote,
 					leftAt: appointmentCheckins.leftAt,
 					leftBy: appointmentCheckins.leftBy,
-					leftNote: appointmentCheckins.leftNote,
 				})
 				.from(appointments)
 				.innerJoin(evaluators, eq(appointments.evaluatorNpi, evaluators.npi))
@@ -256,10 +244,8 @@ export const appointmentRouter = createTRPCRouter({
 					evaluatorNpi: evaluatorCheckins.evaluatorNpi,
 					arrivedAt: evaluatorCheckins.arrivedAt,
 					arrivedBy: evaluatorCheckins.arrivedBy,
-					arrivedNote: evaluatorCheckins.arrivedNote,
 					leftAt: evaluatorCheckins.leftAt,
 					leftBy: evaluatorCheckins.leftBy,
-					leftNote: evaluatorCheckins.leftNote,
 				})
 				.from(evaluatorCheckins)
 				.where(eq(evaluatorCheckins.date, dateOnly));
@@ -270,10 +256,8 @@ export const appointmentRouter = createTRPCRouter({
 			type EvaluatorCheckin = {
 				arrivedAt: Date | null;
 				arrivedBy: string | null;
-				arrivedNote: string | null;
 				leftAt: Date | null;
 				leftBy: string | null;
-				leftNote: string | null;
 			};
 			type EvaluatorEntry = {
 				name: string;
@@ -294,13 +278,10 @@ export const appointmentRouter = createTRPCRouter({
 					clientPhone: string | null;
 					arrivedAt: Date | null;
 					arrivedBy: string | null;
-					arrivedNote: string | null;
 					startedAt: Date | null;
 					startedBy: string | null;
-					startedNote: string | null;
 					leftAt: Date | null;
 					leftBy: string | null;
-					leftNote: string | null;
 				}[];
 			};
 			type OfficeEntry = {
@@ -314,10 +295,8 @@ export const appointmentRouter = createTRPCRouter({
 			const emptyCheckin: EvaluatorCheckin = {
 				arrivedAt: null,
 				arrivedBy: null,
-				arrivedNote: null,
 				leftAt: null,
 				leftBy: null,
-				leftNote: null,
 			};
 
 			for (const row of allRows) {
@@ -353,13 +332,10 @@ export const appointmentRouter = createTRPCRouter({
 					clientPhone: row.clientPhone ?? null,
 					arrivedAt: row.arrivedAt ?? null,
 					arrivedBy: row.arrivedBy ?? null,
-					arrivedNote: row.arrivedNote ?? null,
 					startedAt: row.startedAt ?? null,
 					startedBy: row.startedBy ?? null,
-					startedNote: row.startedNote ?? null,
 					leftAt: row.leftAt ?? null,
 					leftBy: row.leftBy ?? null,
-					leftNote: row.leftNote ?? null,
 				});
 			}
 
@@ -415,13 +391,10 @@ export const appointmentRouter = createTRPCRouter({
 					evaluatorName: evaluators.providerName,
 					arrivedAt: appointmentCheckins.arrivedAt,
 					arrivedBy: appointmentCheckins.arrivedBy,
-					arrivedNote: appointmentCheckins.arrivedNote,
 					startedAt: appointmentCheckins.startedAt,
 					startedBy: appointmentCheckins.startedBy,
-					startedNote: appointmentCheckins.startedNote,
 					leftAt: appointmentCheckins.leftAt,
 					leftBy: appointmentCheckins.leftBy,
-					leftNote: appointmentCheckins.leftNote,
 				})
 				.from(appointments)
 				.innerJoin(evaluators, eq(appointments.evaluatorNpi, evaluators.npi))
@@ -460,13 +433,10 @@ export const appointmentRouter = createTRPCRouter({
 				isCurrentUser: r.evaluatorNpi === currentNpi,
 				arrivedAt: r.arrivedAt ?? null,
 				arrivedBy: r.arrivedBy ?? null,
-				arrivedNote: r.arrivedNote ?? null,
 				startedAt: r.startedAt ?? null,
 				startedBy: r.startedBy ?? null,
-				startedNote: r.startedNote ?? null,
 				leftAt: r.leftAt ?? null,
 				leftBy: r.leftBy ?? null,
-				leftNote: r.leftNote ?? null,
 			}));
 		}),
 
@@ -493,13 +463,10 @@ export const appointmentRouter = createTRPCRouter({
 					reminderCount: count(reminderLogs.id),
 					arrivedAt: appointmentCheckins.arrivedAt,
 					arrivedBy: appointmentCheckins.arrivedBy,
-					arrivedNote: appointmentCheckins.arrivedNote,
 					startedAt: appointmentCheckins.startedAt,
 					startedBy: appointmentCheckins.startedBy,
-					startedNote: appointmentCheckins.startedNote,
 					leftAt: appointmentCheckins.leftAt,
 					leftBy: appointmentCheckins.leftBy,
-					leftNote: appointmentCheckins.leftNote,
 				})
 				.from(appointments)
 				.leftJoin(evaluators, eq(appointments.evaluatorNpi, evaluators.npi))
@@ -527,13 +494,10 @@ export const appointmentRouter = createTRPCRouter({
 					evaluators.providerName,
 					appointmentCheckins.arrivedAt,
 					appointmentCheckins.arrivedBy,
-					appointmentCheckins.arrivedNote,
 					appointmentCheckins.startedAt,
 					appointmentCheckins.startedBy,
-					appointmentCheckins.startedNote,
 					appointmentCheckins.leftAt,
 					appointmentCheckins.leftBy,
-					appointmentCheckins.leftNote,
 				)
 				.orderBy(desc(appointments.startTime));
 		}),
@@ -630,7 +594,6 @@ export const appointmentRouter = createTRPCRouter({
 				"arrived",
 				input.occurredAt,
 				ctx.session.user.email,
-				input.note,
 			);
 		}),
 
@@ -650,7 +613,6 @@ export const appointmentRouter = createTRPCRouter({
 				"started",
 				input.occurredAt,
 				ctx.session.user.email,
-				input.note,
 			);
 		}),
 
@@ -670,7 +632,6 @@ export const appointmentRouter = createTRPCRouter({
 				"left",
 				input.occurredAt,
 				ctx.session.user.email,
-				input.note,
 			);
 		}),
 
@@ -687,11 +648,11 @@ export const appointmentRouter = createTRPCRouter({
 			// Only the furthest-along step can be undone, so the chain
 			// (arrived -> started -> left) never ends up with gaps.
 			const payload = existing.leftAt
-				? { leftAt: null, leftBy: null, leftNote: null }
+				? { leftAt: null, leftBy: null }
 				: existing.startedAt
-					? { startedAt: null, startedBy: null, startedNote: null }
+					? { startedAt: null, startedBy: null }
 					: existing.arrivedAt
-						? { arrivedAt: null, arrivedBy: null, arrivedNote: null }
+						? { arrivedAt: null, arrivedBy: null }
 						: null;
 			if (!payload) return;
 
@@ -715,10 +676,8 @@ export const appointmentRouter = createTRPCRouter({
 					date: evaluatorCheckins.date,
 					arrivedAt: evaluatorCheckins.arrivedAt,
 					arrivedBy: evaluatorCheckins.arrivedBy,
-					arrivedNote: evaluatorCheckins.arrivedNote,
 					leftAt: evaluatorCheckins.leftAt,
 					leftBy: evaluatorCheckins.leftBy,
-					leftNote: evaluatorCheckins.leftNote,
 				})
 				.from(evaluatorCheckins)
 				.where(
@@ -751,7 +710,6 @@ export const appointmentRouter = createTRPCRouter({
 				"arrived",
 				input.occurredAt,
 				ctx.session.user.email,
-				input.note,
 			);
 		}),
 
@@ -777,7 +735,6 @@ export const appointmentRouter = createTRPCRouter({
 				"left",
 				input.occurredAt,
 				ctx.session.user.email,
-				input.note,
 			);
 		}),
 
@@ -807,9 +764,9 @@ export const appointmentRouter = createTRPCRouter({
 			// Only the furthest-along step can be undone, so the chain
 			// (arrived -> left) never ends up with gaps.
 			const payload = existing.leftAt
-				? { leftAt: null, leftBy: null, leftNote: null }
+				? { leftAt: null, leftBy: null }
 				: existing.arrivedAt
-					? { arrivedAt: null, arrivedBy: null, arrivedNote: null }
+					? { arrivedAt: null, arrivedBy: null }
 					: null;
 			if (!payload) return;
 

@@ -3,10 +3,9 @@
 import { Button } from "@ui/button";
 import { Input } from "@ui/input";
 import { Label } from "@ui/label";
-import { Textarea } from "@ui/textarea";
 import { format } from "date-fns";
-import { DoorOpen, LogOut, Pencil, Undo2 } from "lucide-react";
-import { useRef, useState } from "react";
+import { DoorOpen, LogOut, Undo2 } from "lucide-react";
+import { useState } from "react";
 import { toast } from "sonner";
 import {
 	businessZonedTimeToUtcInstant,
@@ -23,10 +22,8 @@ type Kind = "arrived" | "left";
 export interface EvaluatorCheckinData {
 	arrivedAt: Date | null;
 	arrivedBy: string | null;
-	arrivedNote: string | null;
 	leftAt: Date | null;
 	leftBy: string | null;
-	leftNote: string | null;
 }
 
 interface EvaluatorCheckInOutControlProps extends EvaluatorCheckinData {
@@ -49,17 +46,13 @@ export function EvaluatorCheckInOutControl({
 	date,
 	compact,
 	arrivedAt,
-	arrivedNote,
 	leftAt,
-	leftNote,
 }: EvaluatorCheckInOutControlProps) {
 	const utils = api.useUtils();
 	const dialog = useResponsiveDialog();
 	const [dialogKind, setDialogKind] = useState<Kind>("arrived");
 	const [entryDate, setEntryDate] = useState<Date>(new Date());
 	const [timeValue, setTimeValue] = useState("00:00");
-	const [note, setNote] = useState("");
-	const noteRef = useRef<HTMLTextAreaElement>(null);
 
 	const invalidate = () => {
 		void utils.appointments.getDayAhead.invalidate();
@@ -100,24 +93,15 @@ export function EvaluatorCheckInOutControl({
 		departMutation.isPending ||
 		undoMutation.isPending;
 
-	const openDialog = (
-		kind: Kind,
-		defaultAt: Date,
-		existingNote?: string | null,
-	) => {
+	const openDialog = (kind: Kind, defaultAt: Date) => {
 		setDialogKind(kind);
 		setEntryDate(defaultAt);
 		setTimeValue(format(defaultAt, "HH:mm"));
-		setNote(existingNote ?? "");
 		dialog.openDialog();
 	};
 
-	const handleClick = (
-		kind: Kind,
-		at: Date | null,
-		stageNote: string | null,
-	) => {
-		openDialog(kind, at ?? new Date(), stageNote);
+	const handleClick = (kind: Kind, at: Date | null) => {
+		openDialog(kind, at ?? new Date());
 	};
 
 	const submitDialog = () => {
@@ -129,7 +113,6 @@ export function EvaluatorCheckInOutControl({
 			evaluatorNpi,
 			date,
 			occurredAt: businessZonedTimeToUtcInstant(combined),
-			note: note.trim() || undefined,
 		});
 	};
 
@@ -141,15 +124,15 @@ export function EvaluatorCheckInOutControl({
 
 	const badgeSize = compact ? "h-5 px-1.5 text-[10px]" : "h-5 px-1.5 text-xs";
 
-	const stages: { kind: Kind; at: Date | null; note: string | null }[] = [
-		{ kind: "arrived", at: arrivedAt, note: arrivedNote },
-		{ kind: "left", at: leftAt, note: leftNote },
+	const stages: { kind: Kind; at: Date | null }[] = [
+		{ kind: "arrived", at: arrivedAt },
+		{ kind: "left", at: leftAt },
 	];
 
 	return (
 		<>
 			<div className="flex shrink-0 flex-wrap items-center gap-1">
-				{stages.map(({ kind, at, note: stageNote }, i) => {
+				{stages.map(({ kind, at }, i) => {
 					const { label, icon: Icon } = KIND_CONFIG[kind];
 					const prevDone = i === 0 || stages[i - 1]?.at;
 					if (!at) {
@@ -158,7 +141,7 @@ export function EvaluatorCheckInOutControl({
 							<Button
 								className={compact ? "h-6 px-2 text-xs" : "h-7 px-2.5 text-xs"}
 								key={kind}
-								onClick={() => handleClick(kind, at, stageNote)}
+								onClick={() => handleClick(kind, at)}
 								size="sm"
 								variant="outline"
 							>
@@ -171,12 +154,11 @@ export function EvaluatorCheckInOutControl({
 						<button
 							className={`${badgeSize} inline-flex items-center gap-1 rounded-md border bg-secondary text-secondary-foreground transition-colors hover:opacity-80`}
 							key={kind}
-							onClick={() => handleClick(kind, at, stageNote)}
+							onClick={() => handleClick(kind, at)}
 							type="button"
 						>
 							<Icon className="h-2.5 w-2.5" />
 							{formatClock(at)}
-							{stageNote && <Pencil className="h-2.5 w-2.5 opacity-60" />}
 						</button>
 					);
 				})}
@@ -184,10 +166,6 @@ export function EvaluatorCheckInOutControl({
 
 			<ResponsiveDialog
 				description={format(entryDate, "MMM d")}
-				onOpenAutoFocus={(e) => {
-					e.preventDefault();
-					noteRef.current?.focus();
-				}}
 				open={dialog.open}
 				setOpen={dialog.setOpen}
 				title={KIND_CONFIG[dialogKind].label}
@@ -197,24 +175,14 @@ export function EvaluatorCheckInOutControl({
 						<Label>Time</Label>
 						<Input
 							onChange={(e) => setTimeValue(e.target.value)}
-							type="time"
-							value={timeValue}
-						/>
-					</div>
-
-					<div className="flex flex-col gap-1.5">
-						<Label>Note (optional)</Label>
-						<Textarea
-							onChange={(e) => setNote(e.target.value)}
 							onKeyDown={(e) => {
-								if (e.key === "Enter" && !e.shiftKey) {
+								if (e.key === "Enter") {
 									e.preventDefault();
 									submitDialog();
 								}
 							}}
-							placeholder="Anything worth noting?"
-							ref={noteRef}
-							value={note}
+							type="time"
+							value={timeValue}
 						/>
 					</div>
 
