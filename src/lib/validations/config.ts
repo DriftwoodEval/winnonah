@@ -48,6 +48,11 @@ export const openPhoneServiceSchema = z.object({
 	users: z.record(z.string(), openPhoneUserSchema),
 });
 
+export const kimaiServiceSchema = z.object({
+	url: z.string(),
+	token: z.string(),
+});
+
 export const servicesSchema = z.object({
 	openphone: openPhoneServiceSchema,
 	therapyappointment: serviceWithAdminSchema,
@@ -56,6 +61,7 @@ export const servicesSchema = z.object({
 	qglobal: serviceSchema,
 	wps: serviceSchema,
 	novopsych: serviceSchema,
+	kimai: kimaiServiceSchema.optional(),
 });
 
 // Piecework Schemas

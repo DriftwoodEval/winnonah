@@ -59,6 +59,7 @@ import { useCheckPermission } from "~/hooks/use-check-permission";
 import { useFormSyncToast } from "~/hooks/use-form-sync-toast";
 import { cn } from "~/lib/utils";
 import {
+	kimaiServiceSchema,
 	pythonConfigSchema,
 	serviceSchema,
 	serviceWithAdminSchema,
@@ -135,6 +136,7 @@ const formSchema = z.object({
 		qglobal: serviceSchema,
 		wps: serviceSchema,
 		novopsych: serviceSchema,
+		kimai: kimaiServiceSchema,
 	}),
 });
 
@@ -591,6 +593,7 @@ export function QSuiteTab() {
 					},
 					services: {
 						...data.services,
+						kimai: data.services.kimai ?? { url: "", token: "" },
 						openphone: {
 							...data.services.openphone,
 							users: fromEntries(data.services.openphone.users),
@@ -1043,6 +1046,26 @@ function ServicesTab({
 					</Card>
 				))}
 			</div>
+			<Card>
+				<CardHeader>
+					<CardTitle>Kimai</CardTitle>
+				</CardHeader>
+				<CardContent className="space-y-2">
+					<FieldInput
+						control={c}
+						disabled={disabled}
+						label="URL"
+						name="services.kimai.url"
+					/>
+					<ProtectedFieldInput
+						control={c}
+						description="API token for the Kimai timesheet export in piecework."
+						disabled={disabled}
+						label="API Token"
+						name="services.kimai.token"
+					/>
+				</CardContent>
+			</Card>
 			<Card>
 				<CardHeader>
 					<CardTitle>Quo</CardTitle>
