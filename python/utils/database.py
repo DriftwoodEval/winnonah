@@ -824,12 +824,36 @@ def put_client_insurance_policies_in_db(
                 f"matching emr_client row — these policies will be skipped: {sorted(missing_client_ids)}"
             )
 
+    # Only import policies that originated with us: either added/modified by one of
+    # our staff (matched against emr_user.name, archived users included since a
+    # departed staffer's policy is still ours), or created by TherapyAppointment
+    # itself (POLICY_ADDEDBYNAME starting with "TherapyAppointment").
+    with connection.cursor() as cursor:
+        cursor.execute(f"SELECT name FROM `{TABLE_USER}`")
+        our_user_names = {
+            r["name"].strip().lower() for r in cursor.fetchall() if r["name"]
+        }
+
+    def _is_ours(val) -> bool:
+        if not isinstance(val, str):
+            return False
+        name = val.strip().lower()
+        return name in our_user_names or name.startswith("therapyappointment")
+
+    skipped_external = 0
+
     for _, row in insurance_df.iterrows():
         policy_id = get_column(row, "POLICY_ID")
         client_id = get_column(row, "CLIENT_ID")
         if policy_id is None or client_id is None:
             continue
         if isinstance(policy_id, list) or isinstance(client_id, list):
+            continue
+
+        if not _is_ours(get_column(row, "POLICY_ADDEDBYNAME")) and not _is_ours(
+            get_column(row, "POLICY_MODIFIEDBYNAME")
+        ):
+            skipped_external += 1
             continue
 
         try:
@@ -919,6 +943,11 @@ def put_client_insurance_policies_in_db(
             get_column(row, "PRECERT_MEMO"),
         )
         values_to_insert.append(values)
+
+    if skipped_external:
+        logger.info(
+            f"Skipped {skipped_external} insurance policies not added by one of our users."
+        )
 
     if not values_to_insert:
         logger.info("No insurance policies to insert.")
