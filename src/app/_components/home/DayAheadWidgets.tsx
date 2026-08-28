@@ -11,10 +11,12 @@ import { ChevronDown, ChevronLeft, ChevronRight } from "lucide-react";
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { useCheckPermission } from "~/hooks/use-check-permission";
+import { hasInPersonAppointment, isVirtualAppointment } from "~/lib/checkin";
 import { formatInBusinessTime } from "~/lib/utils";
 import { api } from "~/trpc/react";
 import { CheckInOutControl } from "../appointments/CheckInOutControl";
 import { EvaluatorCheckInOutControl } from "../appointments/EvaluatorCheckInOutControl";
+import { useCheckinDateGate } from "../appointments/use-checkin-date-gate";
 import { formatTime } from "../day-ahead/CalendarGrid";
 import {
 	ApptMessagesPopover,
@@ -110,6 +112,7 @@ export function WidgetShell({
 export function MyDayWidget() {
 	const can = useCheckPermission();
 	const canCheckin = can("clients:appointments:checkin");
+	const checkinDateGate = useCheckinDateGate();
 	const { date: asDate, shift, resetToToday } = useSelectedDate();
 	const { data, isLoading } = api.appointments.getDayAhead.useQuery({ asDate });
 	const { data: greeterSchedule } = api.greeterProxy.getSchedule.useQuery({
@@ -184,21 +187,23 @@ export function MyDayWidget() {
 								messages={recentMessages ?? {}}
 								messagesLoading={messagesLoading}
 							/>
-							{canCheckin && asDate === todayStr() && (
-								<CheckInOutControl
-									appointmentId={appt.id}
-									arrivedAt={appt.arrivedAt}
-									arrivedBy={appt.arrivedBy}
-									compact
-									endTime={appt.endTime}
-									isToday
-									leftAt={appt.leftAt}
-									leftBy={appt.leftBy}
-									startedAt={appt.startedAt}
-									startedBy={appt.startedBy}
-									startTime={appt.startTime}
-								/>
-							)}
+							{canCheckin &&
+								checkinDateGate(asDate) &&
+								!isVirtualAppointment(appt.locationKey) && (
+									<CheckInOutControl
+										appointmentId={appt.id}
+										arrivedAt={appt.arrivedAt}
+										arrivedBy={appt.arrivedBy}
+										compact
+										endTime={appt.endTime}
+										isToday={asDate === todayStr()}
+										leftAt={appt.leftAt}
+										leftBy={appt.leftBy}
+										startedAt={appt.startedAt}
+										startedBy={appt.startedBy}
+										startTime={appt.startTime}
+									/>
+								)}
 							{!allSameLocation && appt.officeName && (
 								<span className="ml-auto shrink-0 text-muted-foreground text-xs">
 									{appt.officeName}
@@ -307,6 +312,7 @@ function ExpandableEvaluator({
 			id: string;
 			startTime: Date;
 			endTime: Date;
+			locationKey: string | null;
 			daEval: string | null;
 			asdAdhd: string | null;
 			confirmedAt: Date | null;
@@ -327,6 +333,7 @@ function ExpandableEvaluator({
 	asDate: string;
 }) {
 	const [open, setOpen] = useState(false);
+	const checkinDateGate = useCheckinDateGate();
 	const first = evaluator.appointments[0];
 	const last = evaluator.appointments.at(-1);
 	const timeRange =
@@ -352,17 +359,19 @@ function ExpandableEvaluator({
 						{evaluator.appointments.length}
 					</span>
 				</CollapsibleTrigger>
-				{canCheckin && asDate <= todayStr() && (
-					<EvaluatorCheckInOutControl
-						arrivedAt={evaluator.checkin.arrivedAt}
-						arrivedBy={evaluator.checkin.arrivedBy}
-						compact
-						date={asDate}
-						evaluatorNpi={evaluator.npi}
-						leftAt={evaluator.checkin.leftAt}
-						leftBy={evaluator.checkin.leftBy}
-					/>
-				)}
+				{canCheckin &&
+					checkinDateGate(asDate) &&
+					hasInPersonAppointment(evaluator.appointments) && (
+						<EvaluatorCheckInOutControl
+							arrivedAt={evaluator.checkin.arrivedAt}
+							arrivedBy={evaluator.checkin.arrivedBy}
+							compact
+							date={asDate}
+							evaluatorNpi={evaluator.npi}
+							leftAt={evaluator.checkin.leftAt}
+							leftBy={evaluator.checkin.leftBy}
+						/>
+					)}
 				{timeRange && (
 					<span className="shrink-0 text-muted-foreground text-xs tabular-nums">
 						{timeRange}
@@ -392,21 +401,23 @@ function ExpandableEvaluator({
 								messages={messages}
 								messagesLoading={messagesLoading}
 							/>
-							{canCheckin && asDate === todayStr() && (
-								<CheckInOutControl
-									appointmentId={appt.id}
-									arrivedAt={appt.arrivedAt}
-									arrivedBy={appt.arrivedBy}
-									compact
-									endTime={appt.endTime}
-									isToday
-									leftAt={appt.leftAt}
-									leftBy={appt.leftBy}
-									startedAt={appt.startedAt}
-									startedBy={appt.startedBy}
-									startTime={appt.startTime}
-								/>
-							)}
+							{canCheckin &&
+								checkinDateGate(asDate) &&
+								!isVirtualAppointment(appt.locationKey) && (
+									<CheckInOutControl
+										appointmentId={appt.id}
+										arrivedAt={appt.arrivedAt}
+										arrivedBy={appt.arrivedBy}
+										compact
+										endTime={appt.endTime}
+										isToday={asDate === todayStr()}
+										leftAt={appt.leftAt}
+										leftBy={appt.leftBy}
+										startedAt={appt.startedAt}
+										startedBy={appt.startedBy}
+										startTime={appt.startTime}
+									/>
+								)}
 						</div>
 					))}
 				</div>

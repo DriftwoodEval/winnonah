@@ -7,10 +7,12 @@ import { format } from "date-fns";
 import { DoorOpen, LogIn, LogOut } from "lucide-react";
 import Link from "next/link";
 import { createContext, useContext, useMemo, useState } from "react";
+import { hasInPersonAppointment, isVirtualAppointment } from "~/lib/checkin";
 import { cn, formatInBusinessTime, toBusinessZonedTime } from "~/lib/utils";
 import type { RouterOutputs } from "~/trpc/react";
 import { CheckInOutControl } from "../appointments/CheckInOutControl";
 import { EvaluatorCheckInOutControl } from "../appointments/EvaluatorCheckInOutControl";
+import { useCheckinDateGate } from "../appointments/use-checkin-date-gate";
 import { Redact } from "../redaction/Redact";
 import { ApptMessagesPopover, type RecentMessagesMap } from "./DayAheadShared";
 
@@ -318,6 +320,7 @@ export function ApptBlock({
 	const showEvaluatorLine =
 		showEvaluator && (heightPx === undefined || heightPx >= 56);
 	const [tooltipOpen, setTooltipOpen] = useState(false);
+	const checkinDateGate = useCheckinDateGate();
 	const { open: messagesOpen, setOpen: setMessagesOpen } = useContext(
 		MessagesPopoverOpenContext,
 	);
@@ -390,8 +393,8 @@ export function ApptBlock({
 						onOpenChange={setMessagesOpen}
 					/>
 					{canCheckin &&
-						apptDateKey(appt.startTime) <=
-							formatInBusinessTime(new Date(), "yyyy-MM-dd") && (
+						!isVirtualAppointment(appt.locationKey) &&
+						checkinDateGate(apptDateKey(appt.startTime)) && (
 							<CheckinIndicator appt={appt} />
 						)}
 				</div>
@@ -498,7 +501,8 @@ export function CalendarDayView({
 								</div>
 								{evaluatorCheckins &&
 									evaluatorCheckinDate &&
-									!ev.isCurrentUser && (
+									!ev.isCurrentUser &&
+									hasInPersonAppointment(ev.appts) && (
 										<div className="mt-1">
 											<EvaluatorCheckInOutControl
 												arrivedAt={checkin?.arrivedAt ?? null}

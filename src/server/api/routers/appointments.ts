@@ -3,6 +3,7 @@ import { fromZonedTime } from "date-fns-tz";
 import { and, asc, count, desc, eq, gte, lte } from "drizzle-orm";
 import { z } from "zod";
 import { env } from "~/env";
+import { isVirtualAppointment } from "~/lib/checkin";
 import { BUSINESS_TIMEZONE } from "~/lib/constants";
 import { formatInBusinessTime } from "~/lib/utils";
 import {
@@ -60,6 +61,54 @@ async function recordCheckin(
 		await ctx.db
 			.insert(appointmentCheckins)
 			.values({ appointmentId, ...payload });
+	}
+}
+
+async function loadAppointmentForCheckin(
+	ctx: { db: Context["db"] },
+	appointmentId: string,
+) {
+	const appt = await ctx.db.query.appointments.findFirst({
+		where: eq(appointments.id, appointmentId),
+	});
+	if (!appt) throw new TRPCError({ code: "NOT_FOUND" });
+	if (isVirtualAppointment(appt.locationKey)) {
+		throw new TRPCError({
+			code: "BAD_REQUEST",
+			message: "Virtual appointments don't have a check-in.",
+		});
+	}
+	return appt;
+}
+
+async function assertEvaluatorHasInPersonDay(
+	ctx: { db: Context["db"] },
+	evaluatorNpi: number,
+	date: string,
+) {
+	const startOfDay = fromZonedTime(`${date}T00:00:00`, BUSINESS_TIMEZONE);
+	const endOfDay = fromZonedTime(`${date}T23:59:59.999`, BUSINESS_TIMEZONE);
+	const rows = await ctx.db
+		.select({ locationKey: appointments.locationKey })
+		.from(appointments)
+		.where(
+			and(
+				eq(appointments.evaluatorNpi, evaluatorNpi),
+				gte(appointments.startTime, startOfDay),
+				lte(appointments.startTime, endOfDay),
+				eq(appointments.cancelled, false),
+				eq(appointments.rescheduled, false),
+				eq(appointments.placeholder, false),
+				eq(appointments.billingOnly, false),
+			),
+		);
+	const hasInPerson = rows.some((r) => !isVirtualAppointment(r.locationKey));
+	if (!hasInPerson) {
+		throw new TRPCError({
+			code: "BAD_REQUEST",
+			message:
+				"This evaluator has no in-person appointments that day to be in for.",
+		});
 	}
 }
 
@@ -268,6 +317,7 @@ export const appointmentRouter = createTRPCRouter({
 					id: string;
 					startTime: Date;
 					endTime: Date;
+					locationKey: string | null;
 					daEval: string | null;
 					asdAdhd: string | null;
 					confirmedAt: Date | null;
@@ -322,6 +372,7 @@ export const appointmentRouter = createTRPCRouter({
 					id: row.appointmentId,
 					startTime: row.startTime,
 					endTime: row.endTime,
+					locationKey: row.locationKey ?? null,
 					daEval: row.daEval ?? null,
 					asdAdhd: row.asdAdhd ?? null,
 					confirmedAt: row.confirmedAt ?? null,
@@ -583,10 +634,7 @@ export const appointmentRouter = createTRPCRouter({
 		.mutation(async ({ ctx, input }) => {
 			assertPermission(ctx.session.user, "clients:appointments:checkin");
 
-			const appt = await ctx.db.query.appointments.findFirst({
-				where: eq(appointments.id, input.appointmentId),
-			});
-			if (!appt) throw new TRPCError({ code: "NOT_FOUND" });
+			await loadAppointmentForCheckin(ctx, input.appointmentId);
 
 			await recordCheckin(
 				ctx,
@@ -602,10 +650,7 @@ export const appointmentRouter = createTRPCRouter({
 		.mutation(async ({ ctx, input }) => {
 			assertPermission(ctx.session.user, "clients:appointments:checkin");
 
-			const appt = await ctx.db.query.appointments.findFirst({
-				where: eq(appointments.id, input.appointmentId),
-			});
-			if (!appt) throw new TRPCError({ code: "NOT_FOUND" });
+			await loadAppointmentForCheckin(ctx, input.appointmentId);
 
 			await recordCheckin(
 				ctx,
@@ -621,10 +666,7 @@ export const appointmentRouter = createTRPCRouter({
 		.mutation(async ({ ctx, input }) => {
 			assertPermission(ctx.session.user, "clients:appointments:checkin");
 
-			const appt = await ctx.db.query.appointments.findFirst({
-				where: eq(appointments.id, input.appointmentId),
-			});
-			if (!appt) throw new TRPCError({ code: "NOT_FOUND" });
+			await loadAppointmentForCheckin(ctx, input.appointmentId);
 
 			await recordCheckin(
 				ctx,
@@ -693,6 +735,7 @@ export const appointmentRouter = createTRPCRouter({
 		.mutation(async ({ ctx, input }) => {
 			assertPermission(ctx.session.user, "clients:appointments:checkin");
 			await assertNotSelfCheckin(ctx, input.evaluatorNpi);
+			await assertEvaluatorHasInPersonDay(ctx, input.evaluatorNpi, input.date);
 
 			ctx.logger.info(
 				{
@@ -718,6 +761,7 @@ export const appointmentRouter = createTRPCRouter({
 		.mutation(async ({ ctx, input }) => {
 			assertPermission(ctx.session.user, "clients:appointments:checkin");
 			await assertNotSelfCheckin(ctx, input.evaluatorNpi);
+			await assertEvaluatorHasInPersonDay(ctx, input.evaluatorNpi, input.date);
 
 			ctx.logger.info(
 				{

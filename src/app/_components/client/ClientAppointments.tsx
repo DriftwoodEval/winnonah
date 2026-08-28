@@ -30,9 +30,11 @@ import {
 import { useSession } from "next-auth/react";
 import { useState } from "react";
 import { useCheckPermission } from "~/hooks/use-check-permission";
+import { isVirtualAppointment } from "~/lib/checkin";
 import { IS_DEV, toBusinessZonedTime } from "~/lib/utils";
 import { api } from "~/trpc/react";
 import { CheckInOutControl } from "../appointments/CheckInOutControl";
+import { useCheckinDateGate } from "../appointments/use-checkin-date-gate";
 import { todayStr } from "../home/DayAheadWidgets";
 import { AppointmentReminderTimeline } from "./AppointmentReminderTimeline";
 
@@ -40,6 +42,7 @@ export function ClientAppointments({ clientId }: { clientId: number }) {
 	const utils = api.useUtils();
 	const can = useCheckPermission();
 	const canCheckin = can("clients:appointments:checkin");
+	const checkinDateGate = useCheckinDateGate();
 	const { data: session } = useSession();
 	const [expandedApptId, setExpandedApptId] = useState<string | null>(null);
 	const [billingOpen, setBillingOpen] = useState(false);
@@ -243,7 +246,8 @@ export function ClientAppointments({ clientId }: { clientId: number }) {
 						!appt.cancelled &&
 						!appt.rescheduled &&
 						!appt.placeholder &&
-						format(startTime, "yyyy-MM-dd") <= todayStr() && (
+						!isVirtualAppointment(appt.locationKey) &&
+						checkinDateGate(format(startTime, "yyyy-MM-dd")) && (
 							<div className="mt-2">
 								<CheckInOutControl
 									appointmentId={appt.id}

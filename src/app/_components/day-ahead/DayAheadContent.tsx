@@ -23,6 +23,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { useEffect, useMemo, useState } from "react";
 import { useCheckPermission } from "~/hooks/use-check-permission";
+import { hasInPersonAppointment, isVirtualAppointment } from "~/lib/checkin";
 import { IS_DEV } from "~/lib/utils";
 import { api, type RouterOutputs } from "~/trpc/react";
 import { CheckInOutControl } from "../appointments/CheckInOutControl";
@@ -78,6 +79,7 @@ type ListEvaluatorAppt = {
 	id: string;
 	startTime: Date;
 	endTime: Date;
+	locationKey: string | null;
 	daEval: string | null;
 	asdAdhd: string | null;
 	clientName: string;
@@ -132,7 +134,7 @@ function AppointmentRow({
 				messages={messages}
 				messagesLoading={messagesLoading}
 			/>
-			{canCheckin && (
+			{canCheckin && !isVirtualAppointment(appt.locationKey) && (
 				<CheckInOutControl
 					appointmentId={appt.id}
 					arrivedAt={appt.arrivedAt}
@@ -206,7 +208,7 @@ function EvaluatorRow({
 						{evaluator.appointments.length !== 1 ? "s" : ""}
 					</span>
 				</CollapsibleTrigger>
-				{canCheckin && (
+				{canCheckin && hasInPersonAppointment(evaluator.appointments) && (
 					<EvaluatorCheckInOutControl
 						arrivedAt={evaluator.checkin.arrivedAt}
 						arrivedBy={evaluator.checkin.arrivedBy}
@@ -248,7 +250,7 @@ function EvaluatorRow({
 								messages={messages}
 								messagesLoading={messagesLoading}
 							/>
-							{canCheckin && (
+							{canCheckin && !isVirtualAppointment(appt.locationKey) && (
 								<CheckInOutControl
 									appointmentId={appt.id}
 									arrivedAt={appt.arrivedAt}
@@ -355,6 +357,10 @@ export function DayAheadContent() {
 	const canCheckin = can("clients:appointments:checkin");
 
 	const todayStr = format(new Date(), "yyyy-MM-dd");
+	// Check-in and check-out apply to today or earlier; local dev (outside
+	// impersonation) lifts that so any day can be exercised while testing.
+	const canCheckinOnDate = (date: string) =>
+		canUseDevControls || date <= todayStr;
 
 	useEffect(() => {
 		const params = new URLSearchParams();
@@ -507,7 +513,7 @@ export function DayAheadContent() {
 					listData && (
 						<ListContent
 							asDate={selectedDate}
-							canCheckin={canCheckin && selectedDate <= todayStr}
+							canCheckin={canCheckin && canCheckinOnDate(selectedDate)}
 							data={listData}
 							greeterSchedule={greeterSchedule}
 							isToday={selectedDate === todayStr}
@@ -523,7 +529,7 @@ export function DayAheadContent() {
 							colorMap={colorMap}
 							evaluatorCheckinDate={selectedDate}
 							evaluatorCheckins={
-								canCheckin && selectedDate <= todayStr
+								canCheckin && canCheckinOnDate(selectedDate)
 									? evaluatorCheckinsByNpi
 									: undefined
 							}
