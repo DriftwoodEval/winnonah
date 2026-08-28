@@ -43,6 +43,7 @@ from utils.google import (
     update_gcal_event_title,
 )
 from utils.misc import json_log_format
+from utils.timezone import now_business
 
 load_dotenv()
 
@@ -425,7 +426,7 @@ def claim_top_folder(
             )
 
         writer_id = get_writer_id(user_name)
-        final_entry = f"{writer_id} {datetime.now().strftime('%-m/%-d')}"
+        final_entry = f"{writer_id} {now_business().strftime('%-m/%-d')}"
 
         source_query = (
             f"'{request.source_parent_id}' in parents and "

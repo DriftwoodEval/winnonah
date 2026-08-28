@@ -1,8 +1,10 @@
-from datetime import date, datetime
+from datetime import datetime
 from pathlib import Path
 
 import pymupdf as fitz
 from dateutil.relativedelta import relativedelta
+
+from utils.timezone import now_business
 
 FORM_PATH = Path(__file__).parent.parent / "forms" / "shsc-bh-testing-form.pdf"
 
@@ -37,7 +39,7 @@ def fill_select_health_form(
     """
     doc = fitz.open(FORM_PATH)
 
-    today = date.today()
+    today = now_business().date()
     stop = today + relativedelta(months=12)
     today_str = today.strftime("%m/%d/%Y")
     stop_str = stop.strftime("%m/%d/%Y")

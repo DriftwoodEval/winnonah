@@ -55,7 +55,7 @@ from utils.misc import (
     get_column,
     get_full_name,
 )
-from utils.timezone import now_utc
+from utils.timezone import now_business, now_utc
 
 load_dotenv()
 
@@ -1907,7 +1907,7 @@ def compute_and_store_assessment_snapshot(
     dob = client["dob"]
     asd_adhd: str | None = client.get("asdAdhd")
 
-    today = date.today()
+    today = now_business().date()
     age_in_years = (today - dob).days // 365
 
     # Load and filter rules by age

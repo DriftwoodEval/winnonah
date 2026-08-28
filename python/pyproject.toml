@@ -89,6 +89,7 @@ ignore = [
   "PLR0911",  # too many return statements ({returns} > {max_returns})
   "PLR0912",  # too many branches ({branches} > {max_branches})
   "PLR0913",  # too many arguments to function call ({c_args} > {max_args})
+  "PLR0917",  # too many positional arguments ({c_pos_args} > {max_pos_args})
   "PLR0915",  # too many statements ({statements} > {max_statements})
   "PLR2004",  # magic value used in comparison, consider replacing {value} with a constant variable
 ]

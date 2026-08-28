@@ -33,7 +33,7 @@ from utils.google import (
     send_gmail,
 )
 from utils.task_tracker import track_task
-from utils.timezone import business_to_utc, now_utc
+from utils.timezone import business_to_utc, now_business, now_utc
 
 DAEvalType = Literal["EVAL", "DA", "DAEVAL"]
 
@@ -145,7 +145,7 @@ class SyncReporter:
             logger.debug("No errors to report. Skipping email.")
             return
 
-        if get_sync_report_date() == date.today():
+        if get_sync_report_date() == now_business().date():
             logger.debug("Sync report already sent today. Skipping email.")
             return
 
@@ -193,12 +193,12 @@ class SyncReporter:
 
         send_gmail(
             message_text=text_summary,
-            subject=f"Appointment Sync Errors - {datetime.now().strftime('%Y-%m-%d')}",
+            subject=f"Appointment Sync Errors - {now_business().strftime('%Y-%m-%d')}",
             to_addr=recipient_email,
             from_addr="tech@driftwoodeval.com",
             html=html_content,
         )
-        set_sync_report_date(date.today())
+        set_sync_report_date(now_business().date())
 
 
 def should_skip_appointment(appointment: pd.Series) -> bool:
@@ -942,7 +942,7 @@ def move_client_folders_for_upcoming_appointments() -> None:
                 )
                 send_gmail(
                     message_text="Errors were detected while moving client Drive folders.",
-                    subject=f"Client Folder Move Errors - {datetime.now().strftime('%Y-%m-%d')}",
+                    subject=f"Client Folder Move Errors - {now_business().strftime('%Y-%m-%d')}",
                     to_addr=email_for_errors,
                     from_addr="tech@driftwoodeval.com",
                     html=html,

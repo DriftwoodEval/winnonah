@@ -570,7 +570,7 @@ def add_client_ids_to_drive():
 
 def _compute_age(dob: datetime) -> int:
     """Compute age in years as of today from a date of birth."""
-    today = datetime.now().date()
+    today = now_business().date()
     dob_date = dob.date() if isinstance(dob, datetime) else dob
     return (
         today.year

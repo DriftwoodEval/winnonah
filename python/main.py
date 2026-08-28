@@ -1,7 +1,6 @@
 import os
 import shutil
 from collections.abc import Callable
-from datetime import datetime
 from typing import Annotated, cast
 
 import pandas as pd
@@ -29,6 +28,7 @@ from utils.fax_reports import generate_report_cover_pages, send_report_faxes
 from utils.google import find_gcal_event_by_client_and_time, update_gcal_event_title
 from utils.misc import json_log_format
 from utils.task_tracker import track_task
+from utils.timezone import now_business
 
 _main_excluded_modules = {"utils.fax_close", "utils.fax_reports"}
 logger.add(
@@ -333,7 +333,7 @@ def process_referrals():
         if task is None:
             logger.info("Skipping run: a previous referrals run is still in progress.")
             return
-        if datetime.now().weekday() == 4:  # Friday
+        if now_business().weekday() == 4:  # Friday
             utils.referrals.create_and_send_referral_faxes(
                 clients, progress_callback=task.progress
             )

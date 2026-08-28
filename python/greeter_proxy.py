@@ -10,6 +10,7 @@ from loguru import logger
 from utils.constants import TABLE_USER
 from utils.database import get_db
 from utils.google import google_authenticate
+from utils.timezone import now_business
 from utils.webhook import verify_quo_signature
 
 router = APIRouter()
@@ -116,7 +117,7 @@ async def process_message(sender_phone: str) -> None:
     if not is_known_user(sender_phone):
         logger.warning(f"Ignoring message from unknown number {sender_phone}")
         return
-    schedule = get_schedule_for_date(datetime.now())
+    schedule = get_schedule_for_date(now_business())
 
     lines = []
 
@@ -138,7 +139,7 @@ async def process_message(sender_phone: str) -> None:
 async def get_schedule(date: str | None = None) -> dict:
     """Returns the greeter schedule with phone numbers for a date (default today), for display in the app."""
     try:
-        target_date = datetime.strptime(date, "%Y-%m-%d") if date else datetime.now()
+        target_date = datetime.strptime(date, "%Y-%m-%d") if date else now_business()
     except ValueError as e:
         raise HTTPException(status_code=400, detail="Invalid date format") from e
 
