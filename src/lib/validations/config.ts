@@ -93,6 +93,7 @@ export const configSchema = z.object({
 	email: multiEmailSchema,
 	automated_email: emailSchema,
 	qreceive_emails: z.array(emailSchema),
+	tech_email: z.union([emailSchema, z.literal("")]).default(""),
 	punch_list_id: z.string(),
 	punch_list_range: z
 		.string()

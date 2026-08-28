@@ -83,6 +83,7 @@ const formSchema = z.object({
 		email: z.string(),
 		automated_email: z.email(),
 		qreceive_emails: z.array(arrItem(z.email())),
+		tech_email: z.string(),
 		punch_list_id: z.string(),
 		punch_list_range: z.string(),
 		failed_sheet_id: z.string(),
@@ -855,6 +856,13 @@ function GeneralTab({
 						disabled={disabled}
 						label="Receive From Email"
 						name="config.automated_email"
+					/>
+					<FieldInput
+						control={c}
+						description="Where technical failure alerts are sent when a Receive Run email fails to go out."
+						disabled={disabled}
+						label="Tech Email"
+						name="config.tech_email"
 					/>
 				</CardContent>
 			</Card>
