@@ -6,6 +6,7 @@ title: Changelog
 
 **Improved**
 - Insurance policies imported from TherapyAppointment are now limited to policies our own staff added. Policies entered by the client are no longer pulled in.
+- When a client goes inactive and comes back, we now only start a fresh session (archiving their prior-session data) if they were inactive for 12 months or more. If they return sooner, their prior-session data stays put and instead their insurance review is turned on and assigned to Andrew, with a note recording when they were reactivated, when they were deactivated, and how long the gap was.
 
 **Fixed**
 - Editing or archiving one evaluator no longer briefly wipes every other evaluator off clients' eligible lists and the scheduling page. Evaluator changes now update just that evaluator's eligibility, and archived evaluators are dropped from eligible lists right away instead of lingering until the next overnight sync.

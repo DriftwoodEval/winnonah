@@ -13,6 +13,7 @@ from urllib.parse import urlparse
 
 import pandas as pd
 import pymysql.cursors
+from dateutil.relativedelta import relativedelta
 from dotenv import load_dotenv
 from loguru import logger
 from pymysql.connections import Connection
@@ -55,7 +56,7 @@ from utils.misc import (
     get_column,
     get_full_name,
 )
-from utils.timezone import now_business, now_utc
+from utils.timezone import now_business, now_utc, utc_to_business
 
 load_dotenv()
 
@@ -396,15 +397,17 @@ def put_clients_in_db(clients_df: pd.DataFrame, connection: Connection[DictCurso
 
     client_ids = [str(v[0]) for v in values_to_insert]
     old_status_by_id: dict[str, bool] = {}
+    old_deactivated_at_by_id: dict[str, datetime | None] = {}
     if client_ids:
         placeholders = ", ".join(["%s"] * len(client_ids))
         with connection.cursor() as cursor:
             cursor.execute(
-                f"SELECT id, status FROM `{TABLE_CLIENT}` WHERE id IN ({placeholders})",
+                f"SELECT id, status, deactivatedAt FROM `{TABLE_CLIENT}` WHERE id IN ({placeholders})",
                 client_ids,
             )
             for row in cursor.fetchall():
                 old_status_by_id[str(row["id"])] = bool(row["status"])
+                old_deactivated_at_by_id[str(row["id"])] = row["deactivatedAt"]
 
     with connection.cursor() as cursor:
         cursor.executemany(sql, values_to_insert)
@@ -412,19 +415,62 @@ def put_clients_in_db(clients_df: pd.DataFrame, connection: Connection[DictCurso
 
     logger.info(f"Successfully inserted/updated {len(values_to_insert)} clients.")
 
+    # Stamp deactivatedAt when a client flips Active -> Inactive, so that a
+    # later reactivation can tell how long they were gone.
+    deactivated_ids = [
+        client_id
+        for client_id in client_ids
+        if old_status_by_id.get(client_id) is True
+        and new_status_by_id.get(client_id) is False
+    ]
+    if deactivated_ids:
+        placeholders = ", ".join(["%s"] * len(deactivated_ids))
+        with connection.cursor() as cursor:
+            cursor.execute(
+                f"UPDATE `{TABLE_CLIENT}` SET deactivatedAt = %s WHERE id IN ({placeholders})",
+                [now_utc(), *deactivated_ids],
+            )
+        connection.commit()
+        logger.info(f"Marked {len(deactivated_ids)} client(s) deactivated.")
+
     reactivated_ids = [
         client_id
         for client_id in client_ids
         if old_status_by_id.get(client_id) is False
         and new_status_by_id.get(client_id) is True
     ]
+    twelve_months_ago = now_business().replace(tzinfo=None) - relativedelta(months=12)
     for client_id in reactivated_ids:
-        logger.info(f"Client {client_id} reactivated - starting a new session")
+        deactivated_at = old_deactivated_at_by_id.get(client_id)
+        # An unknown deactivation date (client went inactive before this was
+        # tracked) is treated as a recent reactivation.
+        inactive_12_months_or_more = (
+            deactivated_at is not None
+            and utc_to_business(deactivated_at) <= twelve_months_ago
+        )
         try:
-            reset_client_session(int(client_id), connection=connection)
+            if inactive_12_months_or_more:
+                logger.info(
+                    f"Client {client_id} reactivated after 12+ months - starting a new session"
+                )
+                reset_client_session(int(client_id), connection=connection)
+            else:
+                logger.info(
+                    f"Client {client_id} reactivated within 12 months - activating insurance review"
+                )
+                activate_reactivation_insurance_review(
+                    int(client_id), deactivated_at, connection=connection
+                )
         except Exception as e:
-            logger.error(f"Failed to reset session for client {client_id}: {e}")
+            logger.error(f"Failed to handle reactivation for client {client_id}: {e}")
             connection.rollback()
+            continue
+        with connection.cursor() as cursor:
+            cursor.execute(
+                f"UPDATE `{TABLE_CLIENT}` SET deactivatedAt = NULL WHERE id = %s",
+                (int(client_id),),
+            )
+        connection.commit()
 
 
 def _build_reactivation_note_block(reactivated_on: str) -> list[dict]:
@@ -447,6 +493,125 @@ def _build_reactivation_note_block(reactivated_on: str) -> list[dict]:
         {"type": "horizontalRule"},
         {"type": "paragraph"},
     ]
+
+
+ANDREW_EMAIL = "andrew@driftwoodeval.com"
+
+
+def _humanize_month_gap(earlier: datetime, later: datetime) -> str:
+    """A rough human-readable span like '1 year, 3 months' between two datetimes."""
+    delta = relativedelta(later, earlier)
+    parts: list[str] = []
+    if delta.years:
+        parts.append(f"{delta.years} year{'s' if delta.years != 1 else ''}")
+    if delta.months:
+        parts.append(f"{delta.months} month{'s' if delta.months != 1 else ''}")
+    if delta.days and not delta.years:
+        parts.append(f"{delta.days} day{'s' if delta.days != 1 else ''}")
+    return ", ".join(parts) if parts else "less than a day"
+
+
+def _reactivation_review_note_text(
+    reactivated_on: str, deactivated_on: str | None, distance: str | None
+) -> str:
+    """The sentence recorded when a client reactivates within 12 months."""
+    if deactivated_on is not None:
+        return (
+            f"Reactivated on {reactivated_on}, after being deactivated on "
+            f"{deactivated_on} ({distance} apart)"
+        )
+    return (
+        f"Reactivated on {reactivated_on}, after being deactivated "
+        "(deactivation date unknown)"
+    )
+
+
+@provide_connection
+def activate_reactivation_insurance_review(
+    client_id: int,
+    deactivated_at: datetime | None,
+    connection: Connection[DictCursor],
+) -> None:
+    """Handles a client who reactivated within 12 months of going inactive.
+
+    Unlike reset_client_session, the existing session continues: the client's
+    insurance review is enabled and assigned to Andrew, and a note recording
+    the gap is written to both the insurance review and the client's notes.
+    """
+    now_business_naive = now_business().replace(tzinfo=None)
+    reactivated_on = now_business_naive.date().isoformat()
+    if deactivated_at is not None:
+        deactivated_business = utc_to_business(deactivated_at)
+        deactivated_on = deactivated_business.date().isoformat()
+        distance = _humanize_month_gap(deactivated_business, now_business_naive)
+    else:
+        deactivated_on = None
+        distance = None
+
+    text = _reactivation_review_note_text(reactivated_on, deactivated_on, distance)
+    paragraph = {"type": "paragraph", "content": [{"type": "text", "text": text}]}
+    review_doc = json.dumps({"type": "doc", "content": [paragraph]})
+
+    with connection.cursor() as cursor:
+        cursor.execute(
+            f"SELECT content, updatedBy FROM `{TABLE_INSURANCE_REVIEW}` WHERE clientId = %s",
+            (client_id,),
+        )
+        review = cursor.fetchone()
+        if review is None:
+            cursor.execute(
+                f"INSERT INTO `{TABLE_INSURANCE_REVIEW}` "
+                "(clientId, content, enabled, waiting, claimedUserEmail, updatedBy) "
+                "VALUES (%s, %s, 1, 0, %s, %s)",
+                (client_id, review_doc, ANDREW_EMAIL, ANDREW_EMAIL),
+            )
+        else:
+            if review["content"] is not None:
+                cursor.execute(
+                    f"INSERT INTO `{TABLE_INSURANCE_REVIEW_HISTORY}` (reviewId, content, updatedBy) "
+                    "VALUES (%s, %s, %s)",
+                    (client_id, review["content"], review["updatedBy"]),
+                )
+            cursor.execute(
+                f"UPDATE `{TABLE_INSURANCE_REVIEW}` SET content = %s, enabled = 1, "
+                "waiting = 0, claimedUserEmail = %s, submittedToNotesAt = NULL, "
+                "updatedBy = %s WHERE clientId = %s",
+                (review_doc, ANDREW_EMAIL, ANDREW_EMAIL, client_id),
+            )
+
+        cursor.execute(
+            f"SELECT content, title, updatedBy FROM `{TABLE_NOTE}` WHERE clientId = %s",
+            (client_id,),
+        )
+        note = cursor.fetchone()
+        note_blocks = [paragraph, {"type": "paragraph"}]
+        if note is None:
+            cursor.execute(
+                f"INSERT INTO `{TABLE_NOTE}` (clientId, content) VALUES (%s, %s)",
+                (client_id, json.dumps({"type": "doc", "content": note_blocks})),
+            )
+        else:
+            if note["content"] is not None:
+                cursor.execute(
+                    f"INSERT INTO `{TABLE_NOTE_HISTORY}` (noteId, content, title, updatedBy) "
+                    "VALUES (%s, %s, %s, %s)",
+                    (client_id, note["content"], note["title"], note["updatedBy"]),
+                )
+            existing_content = (
+                json.loads(note["content"])
+                if note["content"]
+                else {"type": "doc", "content": []}
+            )
+            new_content = {
+                "type": "doc",
+                "content": [*note_blocks, *(existing_content.get("content") or [])],
+            }
+            cursor.execute(
+                f"UPDATE `{TABLE_NOTE}` SET content = %s WHERE clientId = %s",
+                (json.dumps(new_content), client_id),
+            )
+
+    connection.commit()
 
 
 @provide_connection

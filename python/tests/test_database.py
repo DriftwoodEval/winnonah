@@ -9,6 +9,8 @@ import pytest
 from utils.database import (
     _build_reactivation_note_block,
     _get_date_cache,
+    _humanize_month_gap,
+    _reactivation_review_note_text,
     _set_date_cache,
     filter_clients_with_changed_address,
     get_python_config,
@@ -272,6 +274,38 @@ class TestBuildReactivationNoteBlock:
     def test_returns_heading_rule_and_paragraph(self):
         blocks = _build_reactivation_note_block("03/05/2026")
         assert [b["type"] for b in blocks] == ["heading", "horizontalRule", "paragraph"]
+
+
+class TestHumanizeMonthGap:
+    def test_years_and_months(self):
+        assert (
+            _humanize_month_gap(dt.datetime(2024, 1, 10), dt.datetime(2025, 4, 10))
+            == "1 year, 3 months"
+        )
+
+    def test_months_only(self):
+        assert (
+            _humanize_month_gap(dt.datetime(2025, 1, 1), dt.datetime(2025, 4, 1))
+            == "3 months"
+        )
+
+    def test_days_when_under_a_month(self):
+        assert (
+            _humanize_month_gap(dt.datetime(2025, 1, 1), dt.datetime(2025, 1, 6))
+            == "5 days"
+        )
+
+
+class TestReactivationReviewNoteText:
+    def test_includes_both_dates_and_distance(self):
+        text = _reactivation_review_note_text("2026-08-28", "2026-02-28", "6 months")
+        assert "Reactivated on 2026-08-28" in text
+        assert "deactivated on 2026-02-28" in text
+        assert "(6 months apart)" in text
+
+    def test_unknown_deactivation_date(self):
+        text = _reactivation_review_note_text("2026-08-28", None, None)
+        assert "deactivation date unknown" in text
 
 
 class TestFilterClientsWithChangedAddress:

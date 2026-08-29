@@ -278,6 +278,7 @@ export const clients = createTable(
 		precertExpires: d.date({ mode: "string" }),
 		privatePay: d.boolean().notNull().default(false),
 		sessionStartedAt: d.timestamp(),
+		deactivatedAt: d.timestamp(),
 		asdAdhd: d.mysqlEnum([
 			"ASD",
 			"ADHD",
