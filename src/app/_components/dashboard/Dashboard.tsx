@@ -35,6 +35,7 @@ import { useSession } from "next-auth/react";
 import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { useCheckPermission } from "~/hooks/use-check-permission";
+import { usePersistedScroll } from "~/hooks/use-persisted-scroll";
 import { getHexFromColor, isClientColor } from "~/lib/colors";
 import {
 	type DashboardClient,
@@ -68,6 +69,7 @@ function PunchListAccordionItem({
 	const can = useCheckPermission();
 	const utils = api.useUtils();
 	const savedClientRef = useRef<HTMLDivElement>(null);
+	const persistScrollRef = usePersistedScroll(`dashboard-section:${title}`);
 	const savedPlaceKey = title
 		.split(" ")
 		.map((word, index) =>
@@ -218,7 +220,10 @@ function PunchListAccordionItem({
 						</Button>
 					</div>
 				)}
-				<ScrollArea className="h-[400px] w-full rounded-md border bg-card text-card-foreground shadow-sm">
+				<ScrollArea
+					className="h-[400px] w-full rounded-md border bg-card text-card-foreground shadow-sm"
+					viewportRef={persistScrollRef}
+				>
 					<div className="p-4">
 						{clients?.map((client, index) => {
 							const punchClient = client as FullClientInfo & DashboardClient;
@@ -547,6 +552,9 @@ export function Dashboard() {
 
 	const utils = api.useUtils();
 	const insuranceSavedClientRef = useRef<HTMLDivElement>(null);
+	const persistInsuranceScrollRef = usePersistedScroll(
+		"dashboard-section:insurance-review",
+	);
 	const insuranceSavedPlaceKey = "insuranceReview";
 	const { data: insuranceSavedPlaces } = api.users.getSavedPlaces.useQuery();
 	const insuranceSavedPlaceData =
@@ -795,7 +803,10 @@ export function Dashboard() {
 													</Button>
 												</div>
 											)}
-											<ScrollArea className="h-[400px] w-full rounded-md border bg-card text-card-foreground shadow-sm">
+											<ScrollArea
+												className="h-[400px] w-full rounded-md border bg-card text-card-foreground shadow-sm"
+												viewportRef={persistInsuranceScrollRef}
+											>
 												<div className="p-4">
 													{visibleInsuranceClients.map((c, index) => (
 														<div
