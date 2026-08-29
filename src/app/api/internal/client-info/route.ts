@@ -16,6 +16,7 @@ import {
 	externalRecordRequests,
 	externalRecords,
 	notes,
+	questionnaires,
 } from "~/server/db/schema";
 
 const QuerySchema = z.object({ id: z.string().min(1) });
@@ -119,44 +120,58 @@ export async function GET(req: NextRequest) {
 			return NextResponse.json({ error: "Client not found" }, { status: 404 });
 		}
 
-		const [externalRecord, clientNote, requestsList, mostRecentAppointment] =
-			await Promise.all([
-				db.query.externalRecords.findFirst({
-					where: eq(externalRecords.clientId, clientId),
-					columns: { content: true },
-				}),
-				db.query.notes.findFirst({
-					where: eq(notes.clientId, clientId),
-					columns: { content: true },
-				}),
-				db
-					.select({ requestedDate: externalRecordRequests.requestedDate })
-					.from(externalRecordRequests)
-					.where(
-						and(
-							eq(externalRecordRequests.clientId, clientId),
-							isNotNull(externalRecordRequests.requestedDate),
-						),
-					)
-					.orderBy(desc(externalRecordRequests.requestedDate)),
-				db
-					.select({
-						startTime: appointments.startTime,
-						providerName: evaluators.providerName,
-					})
-					.from(appointments)
-					.leftJoin(evaluators, eq(appointments.evaluatorNpi, evaluators.npi))
-					.where(
-						and(
-							eq(appointments.clientId, clientId),
-							isNotNull(appointments.calendarEventId),
-							eq(appointments.cancelled, false),
-						),
-					)
-					.orderBy(desc(appointments.startTime))
-					.limit(1)
-					.then((res) => res[0]),
-			]);
+		const [
+			externalRecord,
+			clientNote,
+			requestsList,
+			mostRecentAppointment,
+			questionnaireList,
+		] = await Promise.all([
+			db.query.externalRecords.findFirst({
+				where: eq(externalRecords.clientId, clientId),
+				columns: { content: true },
+			}),
+			db.query.notes.findFirst({
+				where: eq(notes.clientId, clientId),
+				columns: { content: true },
+			}),
+			db
+				.select({ requestedDate: externalRecordRequests.requestedDate })
+				.from(externalRecordRequests)
+				.where(
+					and(
+						eq(externalRecordRequests.clientId, clientId),
+						isNotNull(externalRecordRequests.requestedDate),
+					),
+				)
+				.orderBy(desc(externalRecordRequests.requestedDate)),
+			db
+				.select({
+					startTime: appointments.startTime,
+					providerName: evaluators.providerName,
+				})
+				.from(appointments)
+				.leftJoin(evaluators, eq(appointments.evaluatorNpi, evaluators.npi))
+				.where(
+					and(
+						eq(appointments.clientId, clientId),
+						isNotNull(appointments.calendarEventId),
+						eq(appointments.cancelled, false),
+					),
+				)
+				.orderBy(desc(appointments.startTime))
+				.limit(1)
+				.then((res) => res[0]),
+			db.query.questionnaires.findMany({
+				where: eq(questionnaires.clientId, clientId),
+				columns: {
+					questionnaireType: true,
+					status: true,
+					sent: true,
+					link: true,
+				},
+			}),
+		]);
 
 		const fullNote = extractTextFromTiptapJson(
 			externalRecord?.content as TiptapNode,
@@ -217,6 +232,12 @@ export async function GET(req: NextRequest) {
 				? formatShortInstantDate(mostRecentAppointment.startTime)
 				: undefined,
 			mostRecentAppointmentProvider: mostRecentAppointment?.providerName,
+			questionnaires: questionnaireList.map((q) => ({
+				type: q.questionnaireType,
+				status: q.status,
+				sent: formatDate(q.sent),
+				link: q.link ?? null,
+			})),
 		});
 	} catch (error) {
 		console.error("Database query failed:", error);
