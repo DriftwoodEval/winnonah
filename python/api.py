@@ -31,6 +31,7 @@ from utils.database import (
     get_db,
     get_possible_private_pay_reasons,
     get_python_config,
+    reconcile_pool_report_queue_state,
     rematch_client,
     rematch_evaluator,
 )
@@ -577,6 +578,18 @@ def claim_top_folder(
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e)) from e
+
+
+@app.post("/reports/reconcile")
+def reconcile_reports(current_user: dict = Depends(get_current_user)):  # noqa: ARG001
+    """Sync pool report rows to the live Drive report-writing queue folder.
+
+    Called by the EMR Reports page on load so a folder that was just moved in or
+    out shows the right status immediately, without waiting for the cron.
+    Idempotent: a dropped call is picked up by the next load or the cron.
+    """
+    promoted, demoted, created = reconcile_pool_report_queue_state()
+    return {"promoted": promoted, "demoted": demoted, "created": created}
 
 
 @app.post("/notifications/report-approved")

@@ -1,0 +1,72 @@
+---
+title: Report Tracking
+needsCleanup: true
+---
+
+Every evaluation ends with a written report. The **Reports** page in the EMR is where that work is tracked, from the moment an evaluation is on the calendar through to the report being written, reviewed, and billed. It replaces the "prioritization list" spreadsheet for this.
+
+## Who writes reports
+
+People fall into a few overlapping groups:
+
+- **Evaluators who write their own reports.** Their reports are theirs automatically, with nothing to claim.
+- **Evaluators who don't write their own reports.** Their reports go into a shared pool.
+- **Report writers.** Staff who take reports from the pool and write them.
+- **Combinations.** Someone can write their own eval reports and also pull pool reports for other evaluators. Each report is handled based on which evaluator it came from, so this just works.
+
+An evaluator's "Writes Own Reports" switch, in their settings, decides which group their reports go to.
+
+## Where reports come from
+
+A report appears once a client has an EVAL or DA+EVAL appointment, or a DA for an ADHD-only evaluation (those don't get a separate EVAL). A plain DA that's the first half of an ASD evaluation doesn't create a report on its own, the EVAL that follows does. Either way it's one report per client.
+
+If the evaluator writes their own reports, the report is theirs right away. If not, it's a **pool report** with no writer yet.
+
+## When a pool report can be claimed
+
+A pool report shows up as soon as the evaluation is on the calendar, which is often well before the report is ready to write. Until then it sits in the **awaiting folder** state: approvers and billing staff can see it, but writers can't, and it can't be claimed.
+
+Once someone moves the client's folder into the report-writing queue folder, the report moves to **Queued** and writers can claim it. The EMR checks the queue folder whenever the Reports page is opened and again every hour, so a moved folder shows up soon after. Move the folder back out before anyone claims it and the report goes back to awaiting.
+
+## Claiming a pool report
+
+The claim panel on the Reports page shows how many reports are waiting, a link to your writing folder, and a **Claim Next Report** button. Claiming:
+
+- gives you the next report in the queue,
+- moves that client's folder into your writing folder in Drive,
+- puts your name on the report and marks it **Claimed**.
+
+Two limits:
+
+- You can only hold so many reports at once (usually one). Once you're at your limit, a report has to be approved before you can claim another.
+- Some writers aren't allowed to write for certain evaluators. If the next report in the queue is one of those, the claim is refused.
+
+## Marking a report done
+
+A claimed report stays **Claimed** while you work on it. When it's written and sent, hit **Mark done**, which sets it to **Submitted** and records who finished it and when. **Undo** puts it back to Claimed.
+
+You can only change your own reports. Everyone can see the whole list.
+
+## Approving and releasing
+
+Staff who can approve reports use **Approve** on a claimed or submitted report. This marks it **Approved**, frees up the writer's slot so they can claim another, and emails the writer.
+
+## Billing and review
+
+Every report has four checkboxes: **Billed**, **First review**, **Second review**, and **BRIDGES billed**. Only staff who approve reports or manage report billing can change them; everyone else sees them but can't edit.
+
+The two review labels can be renamed in **Settings > Report Queue** to match what the practice calls those steps.
+
+## Archived reports
+
+When a report is done, an approver archives it and it moves to the **Archived** tab. It won't come back for that same evaluation. A later, separate evaluation gets its own fresh report.
+
+## How this connects to payroll
+
+Piecework payroll reads reports straight from the EMR. A report is paid once it's **Billed** and its **First review** isn't marked done or on hold, unless it's a kind that doesn't count for piecework (an ADHD-only report from an evaluator other than the one whose ADHD reports are paid). Reports marked as needing a **Second review** but not yet billed are flagged for the person running payroll to look at first.
+
+## Transition note
+
+While the switch from the spreadsheet is being finished, report billing and review stay in sync with the old prioritization list both ways: a change in the EMR shows up on the spreadsheet right away, and a change on the spreadsheet is pulled into the EMR (when someone opens the Reports, Scheduling, or a client page, and on an hourly job regardless).
+
+The EMR is the source of truth. If the same box is changed in both places at almost the same time, the spreadsheet version can win, which is fine for now. The whole two-way sync goes away when the spreadsheet is retired.

@@ -14,6 +14,8 @@ export const reportQueueRouter = createTRPCRouter({
 		});
 		return {
 			defaultMaxClaimedReports: record?.defaultMaxClaimedReports ?? 1,
+			firstReviewLabel: record?.firstReviewLabel ?? "AJP review",
+			secondReviewLabel: record?.secondReviewLabel ?? "MCS review",
 		};
 	}),
 
@@ -21,6 +23,8 @@ export const reportQueueRouter = createTRPCRouter({
 		.input(
 			z.object({
 				defaultMaxClaimedReports: z.number().int().min(1).max(10),
+				firstReviewLabel: z.string().min(1).max(255),
+				secondReviewLabel: z.string().min(1).max(255),
 			}),
 		)
 		.mutation(async ({ ctx, input }) => {
@@ -31,13 +35,8 @@ export const reportQueueRouter = createTRPCRouter({
 			);
 			await ctx.db
 				.insert(reportQueueConfig)
-				.values({
-					id: 1,
-					defaultMaxClaimedReports: input.defaultMaxClaimedReports,
-				})
-				.onDuplicateKeyUpdate({
-					set: { defaultMaxClaimedReports: input.defaultMaxClaimedReports },
-				});
+				.values({ id: 1, ...input })
+				.onDuplicateKeyUpdate({ set: { ...input } });
 			return { success: true };
 		}),
 });
