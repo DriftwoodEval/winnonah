@@ -79,7 +79,7 @@ if [ -z "$WAS_RUNNING" ]; then
 fi
 """
 
-[tasks."db::generate"]
+[tasks."db:generate"]
 description = "Generate a new Drizzle migration from schema changes, then print it via db:migration:cat"
 depends_post = ["db:generate:cat"]
 run = "pnpm db:generate"
