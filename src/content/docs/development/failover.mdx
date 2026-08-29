@@ -1,0 +1,216 @@
+---
+title: Failover and Failback
+---
+
+The EMR runs on two servers so that if one breaks, the other can take over
+automatically. This page explains how that works: what the
+two servers do, how a takeover is decided, what happens during it, and how to
+put things back to normal afterward.
+
+- **Primary server** The normal home of the EMR. In day-to-day operation
+  this is the only machine actually serving the site at
+  `emr.driftwoodeval.com`.
+- **Standby server** A second machine that keeps a live, up-to-the-second
+  copy of the database and sits idle, waiting. It does not serve traffic
+  until it is told to take over.
+- **The monitor** A small program running on Cloudflare (not on either
+  server) that checks every minute whether the primary is answering. It is
+  the watchdog that decides when a takeover should happen.
+- **Slack** Every meaningful step announces itself in Slack, so there is a
+  running commentary of what is happening.
+- **Tailscale** A private network that lets the two servers talk directly
+  and securely to each other, separate from the public internet.
+
+Two words for the events:
+
+- **Failover:** the standby takes over because the primary is down.
+- **Failback:** the primary is fixed and takes its job back.
+
+## Normal operation
+
+While everything is healthy:
+
+1. The primary serves the website and runs all the background jobs (imports,
+   reminders, faxes, and so on).
+2. Every change to the primary's database is streamed to the standby within
+   seconds. This is called replication.
+3. The standby's database is kept **read-only**. It accepts the incoming
+   stream of changes but refuses any other writes, which guarantees the two
+   copies cannot silently drift apart.
+4. Once an hour, the primary copies its Google login token to the standby, so
+   that if the standby ever has to send email or touch Google Drive, its
+   credentials are already fresh.
+5. The Cloudflare monitor pings `emr.driftwoodeval.com/api/health` every
+   minute and expects a quick "ok".
+
+## How a failure is detected
+
+A single failed health check means nothing. Servers hiccup. The monitor is
+deliberately patient:
+
+1. **First failed check:** the monitor privately notes the time. No alert.
+2. **Still failing after ~90 seconds:** the monitor posts a Slack warning
+   that failover will trigger soon if the primary does not recover.
+3. **Still failing after 3 minutes straight:** the monitor declares a
+   failover. It records the decision and posts to Slack.
+4. **If the primary answers at any point** during that window, the countdown
+   is cancelled and (if a warning was already sent) a "recovered" message is
+   posted.
+
+So from the primary going fully dark to a takeover being ordered is about
+three minutes.
+
+## What happens during a failover
+
+The standby checks the monitor once a minute. When it sees that a failover
+has been ordered, it runs its takeover script. Roughly 30 seconds later the
+site is back. The steps:
+
+1. **Announce.** "Failover starting on standby" goes to Slack.
+2. **Fence the primary (STONITH).** The standby starts trying, in the
+   background, to reach the primary over the private network and forcibly
+   shut its containers down. This is a safety measure explained below. It
+   does not hold up the rest of the takeover.
+3. **Promote the database.** The standby's database stops being a replica
+   and is switched from read-only to read-write, so it can accept real
+   changes again. It also makes sure a replication account exists for later,
+   when the primary comes back and needs to copy from the standby.
+4. **Start the services.** The standby starts its copy of the web app, the
+   Python sidecar, and the Cloudflare tunnel that publishes the site.
+   Traffic begins flowing to the standby within seconds.
+5. **Tell the monitor.** The standby reports "failover complete". The
+   monitor switches its recorded state to "failover active" and stops trying
+   to trigger anything new.
+6. **Email.** A "Primary server is down" email is sent to the technical
+   contacts, from `tech@driftwoodeval.com`.
+7. **Done.** A final Slack message confirms the standby is live and reminds
+   whoever is on call to run the failback script once the primary is fixed.
+
+From then on, the standby *is* the EMR. Anyone using the site sees a yellow
+banner across the top reading "Currently running on the standby server
+(failover mode)".
+
+### What does not run on the standby
+
+Some services only ever run on the primary. While the standby is serving,
+they are stopped, and they come back only when the primary does at failback:
+
+- **Grafana, Loki, and Promtail**, the dashboards and log collection. During
+  a failover there are no Grafana dashboards and no searchable logs. Slack,
+  email, and the plain log files on the servers are the only visibility
+  until failback.
+- **Watchtower**, the automatic updater. New releases are not deployed while
+  running on the standby. This is deliberate: a failover is not the moment
+  to also be shipping code changes.
+
+The database, Redis, and the Caddy web server run on both machines all the
+time. The web app, the Python sidecar, and the Cloudflare tunnel run only on
+whichever server is currently the active one.
+
+### Why the "fencing" step matters
+
+The one thing that must never happen is both servers being live at once, each
+accepting different changes to its own copy of the database. That is called
+split-brain, and it is very hard to untangle afterward.
+
+Normally the primary being genuinely dead is what triggers failover, so there
+is nothing to worry about. But if the primary is only *mostly* dead (for
+example, its network is flaky but the machine is still running background
+jobs, or the internet went out and then came back on), the standby
+needs to be sure the primary is truly stopped before
+taking over. So the standby keeps trying to reach the primary and shut it
+down, retrying every 15 seconds for as long as it takes, posting an
+occasional Slack note about its progress. This runs in the background and
+does not delay the takeover itself.
+
+## Putting things back: failback
+
+Failback is **not automatic**. Once the primary is repaired, a person runs
+the failback script on the primary by hand. The monitor helps by posting
+"Primary appears healthy again. Run failback.sh when ready." to Slack once it
+sees the primary answering.
+
+The reason it is manual: the standby has been the real EMR for a while and
+now holds the only current copy of the data. Cutting back to the primary
+means carefully copying that data back first, and that is a decision a human
+should make deliberately, at a good moment, not automatically.
+
+What the failback script does, running on the primary:
+
+1. **Announce** in Slack.
+2. **Stop the fencing loop** on the standby, so it does not tear down the
+   services the script is about to start.
+3. **Bring the primary's database back up** (along with the monitoring
+   tools), and confirm it is healthy. If it is not, the script stops here.
+4. **Copy the standby's data onto the primary.** The script takes a full
+   dump of the standby's database and loads it onto the primary, replacing
+   the primary's stale pre-failure data wholesale. A timestamped copy of
+   that dump is also kept on the standby as a backup. A full copy is used
+   rather than "let the primary catch up live" because it is impossible to
+   get a false "all caught up" reading from a full copy.
+5. **Switch the tunnel over.** The standby's web app and tunnel are stopped,
+   and the primary's web app, tunnel, and web server are started. The site
+   is now served from the primary again.
+6. **Restart the primary's background jobs.**
+7. **Re-establish replication**, this time primary to standby again, so the
+   standby goes back to being a live read-only copy, ready for next time.
+8. **Clear the failover flags** on both machines and tell the monitor
+   "failback complete". The monitor returns its state to "normal" and
+   resumes its once-a-minute health checks.
+9. **Re-enable automatic updates** (Watchtower) on the primary.
+10. **Email.** A "Failback complete" email is sent to the technical
+    contacts.
+
+A final Slack message confirms the primary is live and the system is back to
+normal. The yellow banner disappears.
+
+## Where to look
+
+- **Slack:** the running commentary of any failover or failback, plus the
+  early warnings before a failover triggers.
+- **Email:** `tech@driftwoodeval.com` sends a message to the technical
+  contacts (the `ERROR_EMAILS` list) when a failover completes and again
+  when a failback completes.
+- **The yellow banner** on the site itself: if it is showing, the standby is
+  currently serving. If not, the primary is.
+
+## What to do if data looks missing after a failback
+
+If, after a failback, something that was entered while the site was running
+on the standby appears to be gone, the copy of the standby's data back onto
+the primary may not have completed cleanly.
+
+**If you are a staff member:** do not re-enter the data yet. Email
+`tech@driftwoodeval.com` right away and describe as precisely as you can what
+is missing: which client, which record, roughly when it was entered, and what
+it should say. Re-entering it now can create duplicates that are harder to
+sort out later.
+
+**For the tech team:** every failback keeps a timestamped, full dump of the
+standby's database on the standby server itself, under
+`~/winnonah/backups/failback/` (named `standby_YYYYMMDD_HHMMSS.sql`, five most
+recent kept). This is the standby's exact state at the moment of failback,
+before replication re-seeded it from the primary. Compare that dump against
+the current primary database and restore whatever did not carry over. The
+same dump is also written to `/tmp/standby_dump.sql` on the primary during
+the failback run, though `/tmp` is not guaranteed to survive a reboot, so
+prefer the copy on the standby.
+
+## The moving parts, by file (for developers)
+
+- `worker/index.js` plus `worker/wrangler.toml`: the Cloudflare monitor.
+- `failover/standby-poll.sh`: runs every minute on the standby via cron,
+  checks the monitor, launches the takeover when told to.
+- `failover/failover.sh`: the takeover script, run on the standby.
+- `failover/failback.sh`: the return-to-normal script, run by hand on the
+  primary.
+- `failover/mysql-replication-init.sh`: sets up (or resets) database
+  replication. Run from the primary. Used for first-time setup and again at
+  the end of every failback.
+- `failover/sync-auth-cache.sh`: hourly copy of the Google login token from
+  primary to standby.
+- `python/failover_notify.py`: sends the failover and failback emails, called
+  from the two scripts.
+- `docker-compose.primary.yaml` and `docker-compose.standby.yaml`: the
+  per-role container settings (which services run, and whether the database
+  is read-only).
