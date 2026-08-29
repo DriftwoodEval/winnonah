@@ -150,8 +150,22 @@ const outreachAttemptSchema = z.object({
 	notes: z.string().optional(),
 });
 
+// One field-level change made to the referral tab after the client was pushed
+// to the punchlist. The field itself holds the new value (the source of truth
+// for every downstream program); this record preserves what the value was
+// before the post-push edit so the change can be reconciled manually.
+export const postPunchEditSchema = z.object({
+	field: z.string(),
+	label: z.string().optional(),
+	previousValue: z.string().nullable(),
+	newValue: z.string().nullable(),
+	editedAt: z.string(),
+	editedBy: z.string().optional(),
+});
+
 export const referralDataSchema = z.object({
 	notes: z.string().optional(),
+	postPunchEdits: z.array(postPunchEditSchema).optional(),
 	schoolExplanation: z.string().optional(),
 	privateSchool: z.enum(["yes", "no"]).nullable().optional(),
 	otherNotes: z.string().optional(),

@@ -1,6 +1,7 @@
 "use client";
 
 import { Alert, AlertDescription, AlertTitle } from "@ui/alert";
+import { Badge } from "@ui/badge";
 import { Button } from "@ui/button";
 import {
 	Card,
@@ -31,6 +32,7 @@ import {
 	InfoIcon,
 	Loader2,
 	LockIcon,
+	Pencil,
 	PhoneCall,
 	Send,
 	Square,
@@ -55,6 +57,44 @@ const TA_MESSAGE =
 	"Welcome to Driftwood! Thank you for setting up access to our patient portal. If you haven't already, make sure to complete all the documents and forms. Additionally, in the coming days you should receive another message here with links to questionnaires. Please complete each questionnaire completely so that we can move forward in scheduling an appointment. Failure to complete any of these steps will prevent you from moving forward.\n\nAdditionally, please review this information to better understand our process: https://driftwoodeval.com/eval-process";
 
 const COMMON_LANGUAGES = ["English", "Spanish", "Portuguese"];
+
+// Human-readable labels for fields whose post-push edits we track.
+const REFERRAL_FIELD_LABELS: Record<string, string> = {
+	notes: "Notes",
+	asdAdhd: "This is for",
+	language: "Language",
+	schoolExplanation: "Which school?",
+	privateSchool: "Charter / Private School?",
+	otherNotes: "Other Notes",
+	locationPreference: "Preference",
+	followedByBabyNet: "BabyNet",
+	walking: "Walking",
+};
+
+type PostPunchEdit = NonNullable<
+	NonNullable<Client["referralData"]>["postPunchEdits"]
+>[number];
+
+const valueToString = (value: unknown): string | null =>
+	value === null || value === undefined || value === "" ? null : String(value);
+
+function PostPunchBadge({ edit }: { edit?: PostPunchEdit }) {
+	if (!edit) {
+		return null;
+	}
+	const when = format(new Date(edit.editedAt), "MMM d, yyyy h:mm a");
+	const who = edit.editedBy ?? "unknown";
+	return (
+		<Badge
+			className="ml-2 border-amber-500 text-amber-600 dark:text-amber-400"
+			title={`Was "${edit.previousValue ?? "(empty)"}" before push. Changed by ${who} on ${when}.`}
+			variant="outline"
+		>
+			<Pencil className="mr-1 h-3 w-3" />
+			Edited after push
+		</Badge>
+	);
+}
 
 export function ReferralTab({ client, readOnly }: ReferralTabProps) {
 	const { data: session } = useSession();
@@ -163,15 +203,73 @@ export function ReferralTab({ client, readOnly }: ReferralTabProps) {
 				!!client.id && isNeedsReview && can("clients:referral:pushtopunch"),
 		});
 
-	const isReadOnly = readOnly || !!punchClient;
+	const isOnPunch = !!punchClient;
+	// Workflow controls (mark for review, push, outreach) stay locked once the
+	// client is on the punchlist. The referral data fields themselves stay
+	// editable so downstream programs always read the true, current values;
+	// each post-push change is recorded in referralData.postPunchEdits.
+	const isReadOnly = readOnly || isOnPunch;
+	const fieldsDisabled = !!readOnly;
+
+	const postPunchEdits = client.referralData?.postPunchEdits ?? [];
+	const latestEditByField = new Map<string, PostPunchEdit>();
+	for (const edit of postPunchEdits) {
+		latestEditByField.set(edit.field, edit);
+	}
+
+	// Appends a record for each field that actually changed, when the client is
+	// on the punchlist. Returns the array to store on referralData.postPunchEdits
+	// (unchanged when not on the punchlist).
+	const buildPostPunchEdits = (
+		changes: {
+			field: string;
+			previous: string | null;
+			next: string | null;
+		}[],
+	): PostPunchEdit[] | undefined => {
+		if (!isOnPunch) {
+			return client.referralData?.postPunchEdits;
+		}
+		const editedAt = new Date().toISOString();
+		const editedBy = session?.user?.name ?? undefined;
+		const additions: PostPunchEdit[] = changes
+			.filter((change) => (change.previous ?? "") !== (change.next ?? ""))
+			.map((change) => ({
+				field: change.field,
+				label: REFERRAL_FIELD_LABELS[change.field] ?? change.field,
+				previousValue: change.previous,
+				newValue: change.next,
+				editedAt,
+				editedBy,
+			}));
+		if (additions.length === 0) {
+			return client.referralData?.postPunchEdits;
+		}
+		return [...postPunchEdits, ...additions];
+	};
 
 	const handleAsdAdhdChange = (value: string) => {
+		const next =
+			value === "none"
+				? null
+				: (value as (typeof ALLOWED_ASD_ADHD_VALUES)[number]);
 		updateClientMutation.mutate({
 			clientId: client.id,
-			asdAdhd:
-				value === "none"
-					? null
-					: (value as (typeof ALLOWED_ASD_ADHD_VALUES)[number]),
+			asdAdhd: next,
+			...(isOnPunch
+				? {
+						referralData: {
+							...client.referralData,
+							postPunchEdits: buildPostPunchEdits([
+								{
+									field: "asdAdhd",
+									previous: valueToString(client.asdAdhd),
+									next: valueToString(next),
+								},
+							]),
+						},
+					}
+				: {}),
 		});
 	};
 
@@ -179,6 +277,20 @@ export function ReferralTab({ client, readOnly }: ReferralTabProps) {
 		updateClientMutation.mutate({
 			clientId: client.id,
 			language: value,
+			...(isOnPunch
+				? {
+						referralData: {
+							...client.referralData,
+							postPunchEdits: buildPostPunchEdits([
+								{
+									field: "language",
+									previous: valueToString(client.language),
+									next: valueToString(value),
+								},
+							]),
+						},
+					}
+				: {}),
 		});
 	};
 
@@ -192,9 +304,20 @@ export function ReferralTab({ client, readOnly }: ReferralTabProps) {
 		followedByBabyNet?: "yes" | "no" | null;
 		walking?: "yes" | "no" | null;
 	}) => {
+		const trackedChanges = Object.keys(updates)
+			.filter((key) => key in REFERRAL_FIELD_LABELS)
+			.map((key) => ({
+				field: key,
+				previous: valueToString(
+					(client.referralData as Record<string, unknown> | undefined)?.[key],
+				),
+				next: valueToString((updates as Record<string, unknown>)[key]),
+			}));
+
 		const newReferralData = {
 			...client.referralData,
 			...updates,
+			postPunchEdits: buildPostPunchEdits(trackedChanges),
 		};
 
 		updateClientMutation.mutate({
@@ -277,10 +400,13 @@ export function ReferralTab({ client, readOnly }: ReferralTabProps) {
 			{punchClient && (
 				<Alert>
 					<LockIcon className="h-4 w-4" />
-					<AlertTitle>Read Only</AlertTitle>
+					<AlertTitle>On the punchlist</AlertTitle>
 					<AlertDescription>
-						This client is already on the punchlist. Referral information cannot
-						be edited here.
+						This client is on the punchlist. The referral fields stay editable
+						so downstream programs read the current values, but every change
+						made from here on is flagged as an "Edited after push" change and
+						must be reconciled with the punchlist manually. Outreach and review
+						controls are locked.
 					</AlertDescription>
 				</Alert>
 			)}
@@ -380,10 +506,11 @@ export function ReferralTab({ client, readOnly }: ReferralTabProps) {
 					<div className="space-y-2">
 						<Label className="font-semibold" htmlFor="referralNotes">
 							Notes
+							<PostPunchBadge edit={latestEditByField.get("notes")} />
 						</Label>
 						<Textarea
 							disabled={
-								isReadOnly ||
+								fieldsDisabled ||
 								updateClientMutation.isPending ||
 								!can("clients:referral:infobox")
 							}
@@ -401,10 +528,13 @@ export function ReferralTab({ client, readOnly }: ReferralTabProps) {
 
 					<div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
 						<div className="space-y-2">
-							<Label htmlFor="asdAdhd">This is for</Label>
+							<Label htmlFor="asdAdhd">
+								This is for
+								<PostPunchBadge edit={latestEditByField.get("asdAdhd")} />
+							</Label>
 							<Select
 								disabled={
-									isReadOnly ||
+									fieldsDisabled ||
 									updateClientMutation.isPending ||
 									!can("clients:asdadhd")
 								}
@@ -426,10 +556,13 @@ export function ReferralTab({ client, readOnly }: ReferralTabProps) {
 						</div>
 
 						<div className="space-y-2">
-							<Label>Language</Label>
+							<Label>
+								Language
+								<PostPunchBadge edit={latestEditByField.get("language")} />
+							</Label>
 							<div className="flex flex-wrap items-center gap-2">
 								<Select
-									disabled={isReadOnly || !can("clients:language")}
+									disabled={fieldsDisabled || !can("clients:language")}
 									onValueChange={(val) => {
 										if (val !== "Other") {
 											setLanguage(val);
@@ -456,7 +589,7 @@ export function ReferralTab({ client, readOnly }: ReferralTabProps) {
 								{!isCommonLanguage && (
 									<Input
 										className="h-9 w-40"
-										disabled={isReadOnly || !can("clients:language")}
+										disabled={fieldsDisabled || !can("clients:language")}
 										onBlur={() => handleLanguageChange(language)}
 										onChange={(e) => setLanguage(e.target.value)}
 										placeholder="Specify..."
@@ -537,11 +670,16 @@ export function ReferralTab({ client, readOnly }: ReferralTabProps) {
 										)}
 									</div>
 									<div className="space-y-3 px-4">
-										<Label className="font-semibold">BabyNet?</Label>
+										<Label className="font-semibold">
+											BabyNet?
+											<PostPunchBadge
+												edit={latestEditByField.get("followedByBabyNet")}
+											/>
+										</Label>
 										<RadioGroup
 											className="flex flex-wrap gap-4"
 											disabled={
-												isReadOnly ||
+												fieldsDisabled ||
 												updateClientMutation.isPending ||
 												!can("clients:referral:fillout")
 											}
@@ -616,11 +754,14 @@ export function ReferralTab({ client, readOnly }: ReferralTabProps) {
 										)}
 									</div>
 									<div className="space-y-3 px-4">
-										<Label className="font-semibold">Walking?</Label>
+										<Label className="font-semibold">
+											Walking?
+											<PostPunchBadge edit={latestEditByField.get("walking")} />
+										</Label>
 										<RadioGroup
 											className="flex flex-wrap gap-4"
 											disabled={
-												isReadOnly ||
+												fieldsDisabled ||
 												updateClientMutation.isPending ||
 												!can("clients:referral:fillout")
 											}
@@ -667,11 +808,14 @@ export function ReferralTab({ client, readOnly }: ReferralTabProps) {
 										<div className="space-y-3 px-4">
 											<Label className="font-semibold">
 												Charter / Private School?
+												<PostPunchBadge
+													edit={latestEditByField.get("privateSchool")}
+												/>
 											</Label>
 											<RadioGroup
 												className="flex flex-wrap gap-4"
 												disabled={
-													isReadOnly ||
+													fieldsDisabled ||
 													updateClientMutation.isPending ||
 													!can("clients:referral:fillout")
 												}
@@ -703,10 +847,13 @@ export function ReferralTab({ client, readOnly }: ReferralTabProps) {
 													htmlFor="schoolExplanation"
 												>
 													Which school?
+													<PostPunchBadge
+														edit={latestEditByField.get("schoolExplanation")}
+													/>
 												</Label>
 												<Textarea
 													disabled={
-														isReadOnly ||
+														fieldsDisabled ||
 														updateClientMutation.isPending ||
 														!can("clients:referral:fillout")
 													}
@@ -847,11 +994,16 @@ export function ReferralTab({ client, readOnly }: ReferralTabProps) {
 
 									{isAdhd && (
 										<div className="space-y-2">
-											<Label className="font-semibold">Preference?</Label>
+											<Label className="font-semibold">
+												Preference?
+												<PostPunchBadge
+													edit={latestEditByField.get("locationPreference")}
+												/>
+											</Label>
 											<RadioGroup
 												className="flex flex-wrap gap-4"
 												disabled={
-													isReadOnly ||
+													fieldsDisabled ||
 													updateClientMutation.isPending ||
 													!can("clients:referral:fillout")
 												}
@@ -881,10 +1033,13 @@ export function ReferralTab({ client, readOnly }: ReferralTabProps) {
 									<div className="space-y-2">
 										<Label className="font-semibold" htmlFor="otherNotes">
 											Other Notes
+											<PostPunchBadge
+												edit={latestEditByField.get("otherNotes")}
+											/>
 										</Label>
 										<Textarea
 											disabled={
-												isReadOnly ||
+												fieldsDisabled ||
 												updateClientMutation.isPending ||
 												!can("clients:referral:fillout")
 											}
