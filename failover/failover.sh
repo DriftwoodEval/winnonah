@@ -105,6 +105,10 @@ curl -sf -X POST \
   "https://failover-monitor.${CF_WORKER_SUBDOMAIN}.workers.dev/ack" \
   || log "Could not ack to worker, non-fatal."
 
+# 5. Email notification (Slack already covered each step above)
+docker exec winnonah-python python failover_notify.py failover \
+  || log "Could not send failover email, non-fatal."
+
 log "=== FAILOVER COMPLETE ==="
 log "STONITH running in background (PID ${STONITH_PID}), retrying every ${STONITH_INTERVAL}s until confirmed. Check $STONITH_LOG for status."
 slack "Failover complete. Standby is live at emr.driftwoodeval.com. Run failback.sh on primary when it recovers."
