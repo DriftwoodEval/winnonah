@@ -128,6 +128,7 @@ export const PERMISSIONS = {
 					{ id: "clients:merge", title: "Merge with Real Client Record" },
 					{ id: "clients:download", title: "Download CSVs" },
 					{ id: "reports:approve", title: "Approve Reports" },
+					{ id: "reports:billing", title: "Manage Report Billing & Review" },
 					{
 						id: "reports:notifications",
 						title: "Receive Report Queue Notifications",

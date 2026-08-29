@@ -265,6 +265,16 @@ export default function NavigationLinks() {
 			icon: FileText,
 			items: [
 				{
+					id: "reports",
+					href: "/reports",
+					label: "Reports",
+					icon: FileText,
+					show:
+						session.user.maxClaimedReports !== 0 ||
+						can("reports:approve") ||
+						can("reports:billing"),
+				},
+				{
 					id: "claim-reports",
 					href: "/claim-reports",
 					label: "Claim Reports",

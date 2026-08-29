@@ -30,6 +30,7 @@ export type HeaderItemId =
 	| "greeter-schedule"
 	| "availability"
 	| "scheduling"
+	| "reports"
 	| "claim-reports"
 	| "report-dashboard"
 	| "fax-categorization"
@@ -114,6 +115,14 @@ export const HEADER_ITEM_DEFS: HeaderItemDef[] = [
 		icon: CalendarRange,
 		area: "nav",
 		category: "Schedule",
+		surfaces: BOTH_SURFACES,
+	},
+	{
+		id: "reports",
+		label: "Reports",
+		icon: FileText,
+		area: "nav",
+		category: "Reports",
 		surfaces: BOTH_SURFACES,
 	},
 	{
