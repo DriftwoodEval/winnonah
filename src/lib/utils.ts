@@ -31,6 +31,21 @@ export function hasPermission(
 }
 
 /**
+ * Whether a user can see the Reports page: report writers (maxClaimedReports not
+ * explicitly zeroed) plus anyone who approves reports or manages report billing.
+ */
+export function canAccessReports(user: {
+	permissions: PermissionsObject;
+	maxClaimedReports?: number | null;
+}): boolean {
+	return (
+		user.maxClaimedReports !== 0 ||
+		hasPermission(user.permissions, "reports:approve") ||
+		hasPermission(user.permissions, "reports:billing")
+	);
+}
+
+/**
  * Reformat an error message to be friendlier by replacing permission IDs with their titles.
  */
 export function formatError(message: string): string {

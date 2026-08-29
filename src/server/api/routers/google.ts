@@ -1,7 +1,7 @@
 import type { JSONContent } from "@tiptap/core";
 import { TRPCError } from "@trpc/server";
 import { differenceInMonths, differenceInYears } from "date-fns";
-import { and, desc, eq, isNotNull } from "drizzle-orm";
+import { and, desc, eq, isNotNull, isNull } from "drizzle-orm";
 import { distance as levDistance } from "fastest-levenshtein";
 import z from "zod";
 import { env } from "~/env";
@@ -44,6 +44,7 @@ import {
 	notes,
 	offices,
 	reportQueueConfig,
+	reports,
 	users,
 } from "~/server/db/schema";
 import { ensurePendingExternalRecordRequest } from "./externalRecords";
@@ -1405,6 +1406,40 @@ export const googleRouter = createTRPCRouter({
 				.set({ claimedReportFolder: newFolders })
 				.where(eq(users.id, ctx.session.user.id));
 
+			// Link the claim to the EMR report row (creating one if the appointment
+			// sync has not yet). This is the DB half of the dual-write; the punch
+			// list "Assigned to..." cell is written by the Python /folders/claim call.
+			const claimedClientId = Number(data.client_id);
+			if (!Number.isNaN(claimedClientId)) {
+				const existingReport = await ctx.db.query.reports.findFirst({
+					where: and(
+						eq(reports.clientId, claimedClientId),
+						isNull(reports.archivedAt),
+					),
+					columns: { id: true },
+				});
+				const claimFields = {
+					writerUserId: ctx.session.user.id,
+					writerEmail: ctx.session.user.email,
+					folderId: data.folder_id,
+					folderName: data.folder_claimed,
+					claimedAt: new Date(),
+					status: "claimed" as const,
+				};
+				if (existingReport) {
+					await ctx.db
+						.update(reports)
+						.set(claimFields)
+						.where(eq(reports.id, existingReport.id));
+				} else {
+					await ctx.db.insert(reports).values({
+						clientId: claimedClientId,
+						source: "auto",
+						...claimFields,
+					});
+				}
+			}
+
 			return {
 				folder_claimed: data.folder_claimed,
 				moved_into: data.moved_into,
@@ -1444,6 +1479,18 @@ export const googleRouter = createTRPCRouter({
 						remainingFolders.length > 0 ? remainingFolders : null,
 				})
 				.where(eq(users.id, input.userId));
+
+			// Mark the matching EMR report approved.
+			await ctx.db
+				.update(reports)
+				.set({
+					status: "approved",
+					approvedAt: new Date(),
+					approvedByEmail: ctx.session.user.email,
+				})
+				.where(
+					and(eq(reports.folderId, input.folderId), isNull(reports.archivedAt)),
+				);
 
 			if (approvedFolder) {
 				const cookieHeader = ctx.headers.get("cookie") ?? "";

@@ -549,6 +549,98 @@ export const updatePunchData = async (
 	return true;
 };
 
+/** 0-based column index to an A1 column reference (0 -> A, 26 -> AA). */
+const columnIndexToLetter = (index: number): string => {
+	let n = index;
+	let letter = "";
+	while (n >= 0) {
+		letter = String.fromCharCode((n % 26) + 65) + letter;
+		n = Math.floor(n / 26) - 1;
+	}
+	return letter;
+};
+
+/**
+ * Mirror a report's billing/review state into the punch list during the
+ * transition to EMR-owned report tracking. Best-effort: callers log and swallow
+ * failures since the DB is the source of truth.
+ */
+export const updatePunchReportFields = async (
+	session: Session,
+	clientId: string,
+	updates: {
+		billed?: boolean;
+		ajpReviewDone?: boolean;
+		mcsReviewNeeded?: boolean;
+		bridgesBilled?: boolean;
+	},
+) => {
+	const { PUNCHLIST_ID, PUNCHLIST_RANGE } = env;
+	const sheetsApi = getSheetsClient(session);
+
+	const response = await googleApiCall(
+		"google-sheets",
+		"spreadsheets.values.get",
+		"Get punchlist",
+		() =>
+			sheetsApi.spreadsheets.values.get({
+				spreadsheetId: PUNCHLIST_ID,
+				range: PUNCHLIST_RANGE,
+			}),
+	);
+
+	const data = response.data.values ?? [];
+	const headers = data[0] ?? [];
+	const rows = data.slice(1);
+
+	const clientRowIndex = rows.findIndex((row) => row[1] === clientId);
+	if (clientRowIndex === -1) {
+		throw new Error(`Client ID ${clientId} not found in Punchlist`);
+	}
+
+	const columnByField: Record<keyof typeof updates, string> = {
+		billed: "Billed?",
+		ajpReviewDone: "AJP Review Done/Hold for payroll",
+		mcsReviewNeeded: "MCS Review Needed",
+		bridgesBilled: "BRIDGES billed?",
+	};
+
+	const updateRequests: sheets_v4.Schema$ValueRange[] = [];
+	for (const [field, header] of Object.entries(columnByField) as [
+		keyof typeof updates,
+		string,
+	][]) {
+		const value = updates[field];
+		if (value === undefined) continue;
+		const colIndex = headers.indexOf(header);
+		if (colIndex === -1) {
+			throw new Error(`${header} column not found in Punchlist`);
+		}
+		updateRequests.push({
+			range: `${columnIndexToLetter(colIndex)}${clientRowIndex + 2}`,
+			values: [[value ? "TRUE" : "FALSE"]],
+		});
+	}
+
+	if (updateRequests.length > 0) {
+		await googleApiCall(
+			"google-sheets",
+			"spreadsheets.values.batchUpdate",
+			"Update punchlist",
+			() =>
+				sheetsApi.spreadsheets.values.batchUpdate({
+					spreadsheetId: PUNCHLIST_ID,
+					requestBody: {
+						valueInputOption: "USER_ENTERED",
+						data: updateRequests,
+					},
+				}),
+		);
+	}
+
+	return true;
+};
+
 export const syncPunchData = async (ctx: Context & { session: Session }) => {
 	const allPunchData = await fetchWithCache(
 		ctx,

@@ -45,6 +45,7 @@ from utils.constants import (
     TABLE_PYTHON_CONFIG,
     TABLE_QUESTIONNAIRE,
     TABLE_QUESTIONNAIRE_RULE,
+    TABLE_REPORT,
     TABLE_SCHOOL_DISTRICT,
     TABLE_USER,
     TEST_NAMES_LOWER,
@@ -2300,3 +2301,111 @@ def _store_snapshot(
             (json.dumps(snapshot), client_id),
         )
     connection.commit()
+
+
+@provide_connection
+def reconcile_reports_from_appointments(
+    connection: Connection[DictCursor],
+) -> int:
+    """Create report rows for clients with an evaluation appointment that do not
+    yet have one.
+
+    A report is warranted once a client has a non-cancelled EVAL or DAEVAL
+    appointment. Keyed on the client, not the appointment (a DA plus an EVAL for
+    the same client is still one report). A new row is created only when the
+    client's most recent eval appointment is newer than their newest existing
+    report, so archiving a finished report does not immediately respawn one for
+    the same eval cycle, while a genuine re-evaluation later does.
+
+    Returns the number of report rows created.
+    """
+    try:
+        adhd_npi_raw = (
+            get_python_config(1)
+            .get("config", {})
+            .get("piecework", {})
+            .get("adhd_piecework_evaluator_npi", "")
+        )
+        adhd_npi = int(adhd_npi_raw) if str(adhd_npi_raw).strip().isdigit() else None
+    except Exception:
+        adhd_npi = None
+
+    adhd_only_types = {"ADHD", "ADHD+LD"}
+
+    with connection.cursor() as cursor:
+        # Most recent eval appointment per client, plus the evaluator's
+        # writes-own-reports flag and the client's newest existing report time.
+        cursor.execute(
+            f"""
+            SELECT
+                a.clientId,
+                a.evaluatorNpi,
+                a.asdAdhd,
+                a.startTime AS lastEvalAt,
+                e.writesOwnReports,
+                e.email AS evaluatorEmail,
+                r.newestReportAt
+            FROM `{TABLE_APPOINTMENT}` a
+            JOIN `{TABLE_EVALUATOR}` e ON e.npi = a.evaluatorNpi
+            JOIN (
+                SELECT clientId, MAX(startTime) AS maxStart
+                FROM `{TABLE_APPOINTMENT}`
+                WHERE daEval IN ('EVAL', 'DAEVAL')
+                  AND cancelled = 0 AND rescheduled = 0
+                  AND placeholder = 0 AND billingOnly = 0
+                GROUP BY clientId
+            ) latest ON latest.clientId = a.clientId AND latest.maxStart = a.startTime
+            LEFT JOIN (
+                SELECT clientId, MAX(createdAt) AS newestReportAt
+                FROM `{TABLE_REPORT}`
+                GROUP BY clientId
+            ) r ON r.clientId = a.clientId
+            """
+        )
+        rows = cursor.fetchall()
+
+        created = 0
+        for row in rows:
+            # Skip if an eval report already exists at/after this eval cycle, or
+            # if any non-archived report is currently open for the client.
+            if row["newestReportAt"] and row["newestReportAt"] >= row["lastEvalAt"]:
+                continue
+            cursor.execute(
+                f"SELECT id FROM `{TABLE_REPORT}` WHERE clientId = %s AND archivedAt IS NULL",
+                (row["clientId"],),
+            )
+            if cursor.fetchone():
+                continue
+
+            self_written = bool(row["writesOwnReports"])
+            asd_adhd = row["asdAdhd"]
+            billable = (
+                not asd_adhd
+                or asd_adhd not in adhd_only_types
+                or (adhd_npi is not None and row["evaluatorNpi"] == adhd_npi)
+            )
+
+            cursor.execute(
+                f"""
+                INSERT INTO `{TABLE_REPORT}`
+                    (clientId, evaluatorNpi, asdAdhd, selfWritten, billablePiecework,
+                     status, writerEmail, source)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, 'auto')
+                """,
+                (
+                    row["clientId"],
+                    row["evaluatorNpi"],
+                    asd_adhd,
+                    self_written,
+                    billable,
+                    "writing" if self_written else "queued",
+                    row["evaluatorEmail"] if self_written else None,
+                ),
+            )
+            created += 1
+
+        connection.commit()
+
+    if created:
+        logger.info(f"Created {created} report row(s) from eval appointments")
+    return created

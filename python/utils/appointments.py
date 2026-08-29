@@ -22,6 +22,7 @@ from utils.database import (
     get_sync_report_date,
     put_appointment_in_db,
     put_in_person_assessments_in_db,
+    reconcile_reports_from_appointments,
     set_client_drive_folder_evaluator,
     set_sync_report_date,
 )
@@ -784,6 +785,11 @@ def insert_appointments_with_gcal(appointment_sync_data: dict[str, list[str]] | 
             logger.debug(
                 f"Skipped {skipped_locked_in_snapshots} assessment snapshot(s): already locked in"
             )
+
+        try:
+            reconcile_reports_from_appointments()
+        except Exception:
+            logger.exception("Failed to reconcile report rows from appointments")
 
         reporter.send_report(email_for_errors)
 
