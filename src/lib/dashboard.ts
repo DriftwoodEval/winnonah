@@ -691,31 +691,26 @@ export function getClientMatchedSections(
 // sent back to referral sources (src/app/api/internal/referral-status).
 // ---------------------------------------------------------------------------
 
+// Deliberately coarse: referral sources get one of a handful of plain-language
+// buckets (mirroring the dashboard's broad stages), not the staff-facing
+// pipeline detail. No internal shorthand like "DA" or "protocols".
 const REFERRAL_STATUS_TEXT: Partial<Record<string, string>> = {
-	[SECTION_RECORDS_STATUS_NOT_SET]: "Waiting on school records",
-	[SECTION_RECORDS_NEEDED_NOT_REQUESTED]: "Waiting on school records",
-	[SECTION_RECORDS_REQUESTED_NOT_RETURNED]: "Waiting on school records",
-	[SECTION_BABYNET_NOT_DOWNLOADED]: "Waiting on school records",
-	[SECTION_QS_NOT_DETERMINED]:
-		"Waiting on intake questionnaires before scheduling",
-	[SECTION_DA_QS_PENDING]: "Waiting on pre-DA questionnaires before scheduling",
-	[SECTION_DA_QS_SENT]: "Waiting on pre-DA questionnaires before scheduling",
-	[SECTION_DA_QS_DONE]:
-		"Pre-DA questionnaires complete, scheduling in progress",
-	[SECTION_EVAL_QS_PENDING]:
-		"Waiting on pre-eval questionnaires before scheduling",
-	[SECTION_DAEVAL_QS_PENDING]:
-		"Waiting on pre-DA and pre-eval questionnaires before scheduling",
-	[SECTION_EVAL_QS_SENT]:
-		"Waiting on pre-eval questionnaires before scheduling",
-	[SECTION_DAEVAL_QS_SENT]:
-		"Waiting on pre-DA and pre-eval questionnaires before scheduling",
-	[SECTION_EVAL_QS_DONE]:
-		"Pre-eval questionnaires complete, scheduling in progress",
-	[SECTION_DAEVAL_QS_DONE]:
-		"Pre-DA and pre-eval questionnaires complete, scheduling in progress",
+	[SECTION_RECORDS_STATUS_NOT_SET]: "Waiting on records",
+	[SECTION_RECORDS_NEEDED_NOT_REQUESTED]: "Waiting on records",
+	[SECTION_RECORDS_REQUESTED_NOT_RETURNED]: "Waiting on records",
+	[SECTION_BABYNET_NOT_DOWNLOADED]: "Waiting on records",
+	[SECTION_QS_NOT_DETERMINED]: "Waiting on questionnaires",
+	[SECTION_DA_QS_PENDING]: "Waiting on questionnaires",
+	[SECTION_DA_QS_SENT]: "Waiting on questionnaires",
+	[SECTION_DA_QS_DONE]: "Questionnaires complete, scheduling in progress",
+	[SECTION_EVAL_QS_PENDING]: "Waiting on questionnaires",
+	[SECTION_DAEVAL_QS_PENDING]: "Waiting on questionnaires",
+	[SECTION_EVAL_QS_SENT]: "Waiting on questionnaires",
+	[SECTION_DAEVAL_QS_SENT]: "Waiting on questionnaires",
+	[SECTION_EVAL_QS_DONE]: "Questionnaires complete, scheduling in progress",
+	[SECTION_DAEVAL_QS_DONE]: "Questionnaires complete, scheduling in progress",
 	[SECTION_NEEDS_PROTOCOLS_SCANNED]: "Evaluation completed, report in progress",
-	[SECTION_JUST_ADDED]: "Referral received, intake in progress",
+	[SECTION_JUST_ADDED]: "Process has not yet started",
 };
 
 export interface ReferralStatusSummary {
@@ -732,11 +727,11 @@ const appointmentStatusText = (appointment: NextRealAppointment): string => {
 	const date = formatInBusinessTime(appointment.startTime, "MM/dd/yy");
 	const label =
 		appointment.daEval === "DA"
-			? "Developmental assessment"
+			? "an intake appointment"
 			: appointment.daEval === "EVAL"
-				? "Evaluation"
-				: "Appointment";
-	return `${label} scheduled for ${date}`;
+				? "an evaluation"
+				: "an appointment";
+	return `Scheduled for ${label} on ${date}`;
 };
 
 /**
@@ -763,8 +758,8 @@ function getBaseReferralStatusSummary(
 		const date = extraInfoFor(SECTION_DA_SCHEDULED);
 		return {
 			statusText: date
-				? `Developmental assessment scheduled for ${date}`
-				: "Developmental assessment scheduled",
+				? `Scheduled for an intake appointment on ${date}`
+				: "Scheduled for an intake appointment",
 			done: false,
 		};
 	}
@@ -773,8 +768,8 @@ function getBaseReferralStatusSummary(
 		const date = extraInfoFor(SECTION_EVAL_SCHEDULED);
 		return {
 			statusText: date
-				? `Evaluation scheduled for ${date}`
-				: "Evaluation scheduled",
+				? `Scheduled for an evaluation on ${date}`
+				: "Scheduled for an evaluation",
 			done: false,
 		};
 	}
@@ -782,10 +777,9 @@ function getBaseReferralStatusSummary(
 	if (matchedTitles.includes(SECTION_POST_DA)) {
 		const isDaOnly = client["EVAL Qs Needed"] === "FALSE";
 		return isDaOnly
-			? { statusText: "Developmental assessment completed", done: true }
+			? { statusText: "Intake appointment completed", done: true }
 			: {
-					statusText:
-						"Developmental assessment completed, next steps in progress",
+					statusText: "Intake appointment completed, next steps in progress",
 					done: false,
 				};
 	}
@@ -795,7 +789,7 @@ function getBaseReferralStatusSummary(
 		if (statusText) return { statusText, done: false };
 	}
 
-	return { statusText: "Referral received, intake in progress", done: false };
+	return { statusText: "Process has not yet started", done: false };
 }
 
 /**
