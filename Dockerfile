@@ -24,6 +24,7 @@ ENV NEXT_PUBLIC_BUILD_DATE=$NEXT_PUBLIC_BUILD_DATE
 COPY . .
 
 ENV NEXT_TELEMETRY_DISABLED=1
+RUN SKIP_ENV_VALIDATION=1 pnpm test
 RUN --mount=type=cache,id=nextjs,target=/app/.next/cache \
     SKIP_ENV_VALIDATION=1 pnpm run build
 
