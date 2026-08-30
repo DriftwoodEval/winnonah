@@ -1422,9 +1422,12 @@ export const pieceworkReportTracking = createTable(
 );
 
 export const REPORT_STATUSES = [
+	// Pool report whose row exists (an eval appointment happened) but whose client
+	// folder has not yet reached the report-writing queue. Visible to approvers
+	// only, not claimable. Promoted to "queued" by the Drive-queue reconcile.
+	"pending",
 	"queued",
 	"claimed",
-	"writing",
 	"submitted",
 	"approved",
 ] as const;
@@ -1466,6 +1469,9 @@ export const reports = createTable(
 		folderId: d.varchar({ length: 255 }),
 		folderName: d.varchar({ length: 255 }),
 		claimedAt: d.timestamp(),
+		// When the client folder was observed in the report-writing queue and the
+		// row moved from "pending" to "queued".
+		queueReadyAt: d.timestamp(),
 		writerCompletedAt: d.timestamp(),
 		writerCompletedByEmail: d.varchar({ length: 255 }),
 		approvedAt: d.timestamp(),
@@ -1473,12 +1479,12 @@ export const reports = createTable(
 		billed: d.boolean().notNull().default(false),
 		billedAt: d.timestamp(),
 		billedByEmail: d.varchar({ length: 255 }),
-		ajpReviewDone: d.boolean().notNull().default(false),
-		ajpReviewAt: d.timestamp(),
-		ajpReviewByEmail: d.varchar({ length: 255 }),
-		mcsReviewNeeded: d.boolean().notNull().default(false),
-		mcsReviewNeededAt: d.timestamp(),
-		mcsReviewNeededByEmail: d.varchar({ length: 255 }),
+		firstReviewDone: d.boolean().notNull().default(false),
+		firstReviewAt: d.timestamp(),
+		firstReviewByEmail: d.varchar({ length: 255 }),
+		secondReviewNeeded: d.boolean().notNull().default(false),
+		secondReviewNeededAt: d.timestamp(),
+		secondReviewByEmail: d.varchar({ length: 255 }),
 		bridgesBilled: d.boolean().notNull().default(false),
 		bridgesBilledAt: d.timestamp(),
 		bridgesBilledByEmail: d.varchar({ length: 255 }),
@@ -1530,8 +1536,14 @@ export const reportQueueConfig = createTable("report_queue_config", (d) => ({
 	defaultMaxClaimedReports: d.int().notNull().default(1),
 	// Labels for the two named report-review stages. Configurable so the
 	// reviewer's initials are not baked into the UI.
-	firstReviewLabel: d.varchar({ length: 255 }).notNull().default("AJP review"),
-	secondReviewLabel: d.varchar({ length: 255 }).notNull().default("MCS review"),
+	firstReviewLabel: d
+		.varchar({ length: 255 })
+		.notNull()
+		.default("First review"),
+	secondReviewLabel: d
+		.varchar({ length: 255 })
+		.notNull()
+		.default("Second review"),
 }));
 
 export const appointmentNotes = createTable("appointment_note", (d) => ({

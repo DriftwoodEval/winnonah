@@ -1,43 +1,38 @@
 import { TRPCError } from "@trpc/server";
-import { and, desc, eq, isNotNull, isNull, type SQL } from "drizzle-orm";
+import { and, desc, eq, isNotNull, isNull, ne, type SQL } from "drizzle-orm";
 import { z } from "zod";
 import { env } from "~/env";
 import { invalidateCache } from "~/lib/cache";
-import { CACHE_KEY_PUNCHLIST, updatePunchReportFields } from "~/lib/google";
+import { REPORT_QUEUE_FOLDER_ID } from "~/lib/constants";
+import {
+	CACHE_KEY_PUNCHLIST,
+	syncPunchData,
+	updatePunchReportFields,
+} from "~/lib/google";
 import type { PermissionsObject } from "~/lib/types";
 import { hasPermission } from "~/lib/utils";
-import { pythonConfigSchema } from "~/lib/validations/config";
 import {
 	type Context,
 	createTRPCRouter,
 	protectedProcedure,
 } from "~/server/api/trpc";
-import {
-	appointments,
-	clients,
-	evaluators,
-	pythonConfig,
-	reports,
-	users,
-} from "~/server/db/schema";
+import { clients, evaluators, reports, users } from "~/server/db/schema";
 
 type AuthedContext = Context & {
 	session: NonNullable<Context["session"]>;
 };
 
-const ADHD_ONLY_TYPES = new Set(["ADHD", "ADHD+LD"]);
-
 const BILLING_FIELDS = {
 	billed: { at: "billedAt", by: "billedByEmail", punch: "billed" },
-	ajpReviewDone: {
-		at: "ajpReviewAt",
-		by: "ajpReviewByEmail",
-		punch: "ajpReviewDone",
+	firstReviewDone: {
+		at: "firstReviewAt",
+		by: "firstReviewByEmail",
+		punch: "firstReviewDone",
 	},
-	mcsReviewNeeded: {
-		at: "mcsReviewNeededAt",
-		by: "mcsReviewNeededByEmail",
-		punch: "mcsReviewNeeded",
+	secondReviewNeeded: {
+		at: "secondReviewNeededAt",
+		by: "secondReviewByEmail",
+		punch: "secondReviewNeeded",
 	},
 	bridgesBilled: {
 		at: "bridgesBilledAt",
@@ -81,57 +76,83 @@ function assertBillingAccess(perms: PermissionsObject) {
 	}
 }
 
-async function getAdhdPieceworkEvaluatorNpi(
-	ctx: AuthedContext,
-): Promise<number | null> {
-	const record = await ctx.db.query.pythonConfig.findFirst({
-		where: eq(pythonConfig.id, 1),
-	});
-	if (!record?.data) return null;
-	const parsed = pythonConfigSchema.safeParse(record.data);
-	if (!parsed.success) return null;
-	const raw = parsed.data.config.piecework.adhd_piecework_evaluator_npi;
-	const npi = Number(raw);
-	return raw && !Number.isNaN(npi) ? npi : null;
-}
+const RECONCILE_THROTTLE_MS = 15_000;
+let lastReconcileAt = 0;
 
 /**
- * Build the creation snapshot for a manual report: the spawning eval
- * appointment's evaluator + type, whether that evaluator writes their own
- * reports, and whether piecework should pay this report.
+ * Keep report rows in step with the two systems still feeding them during the
+ * transition: the Drive report-writing queue folder (which reports are ready to
+ * claim) and the punch list (billing/review columns, via the shared
+ * `syncPunchData`). Runs on every Reports page load, throttled so a burst of
+ * loads does not hammer Google. Periodic Python jobs are the backstop for when
+ * nobody is looking.
  */
-async function buildReportSnapshot(ctx: AuthedContext, clientId: number) {
-	const recentEval = await ctx.db.query.appointments.findFirst({
-		where: and(
-			eq(appointments.clientId, clientId),
-			eq(appointments.billingOnly, false),
-			eq(appointments.cancelled, false),
-			eq(appointments.rescheduled, false),
-			eq(appointments.placeholder, false),
-		),
-		columns: { evaluatorNpi: true, asdAdhd: true, daEval: true },
-		orderBy: desc(appointments.startTime),
-	});
+async function reconcileReports(ctx: AuthedContext) {
+	const now = Date.now();
+	if (now - lastReconcileAt < RECONCILE_THROTTLE_MS) return;
+	lastReconcileAt = now;
 
-	const evaluatorNpi = recentEval?.evaluatorNpi ?? null;
-	const asdAdhd = recentEval?.asdAdhd ?? null;
+	await Promise.allSettled([
+		reconcileReportQueueState(ctx),
+		syncPunchData(ctx),
+	]);
+}
 
-	let selfWritten = false;
-	if (evaluatorNpi != null) {
-		const evaluator = await ctx.db.query.evaluators.findFirst({
-			where: eq(evaluators.npi, evaluatorNpi),
-			columns: { writesOwnReports: true },
+// Promote "pending" -> "queued" once a pool report's client folder reaches the
+// Drive report-writing queue, and demote it again if the folder leaves before
+// anyone claims it.
+async function reconcileReportQueueState(ctx: AuthedContext) {
+	try {
+		const cookie = ctx.headers.get("cookie") ?? "";
+		const res = await fetch(`${env.PY_API}/folders/${REPORT_QUEUE_FOLDER_ID}`, {
+			headers: { Cookie: cookie },
 		});
-		selfWritten = evaluator?.writesOwnReports ?? false;
+		if (!res.ok) return;
+		const data = (await res.json()) as {
+			folders: { id: string; name: string }[];
+		};
+
+		const queuedClientIds = new Set<number>();
+		for (const folder of data.folders) {
+			const match = /\[([A-Za-z0-9-]+)\]/.exec(folder.name);
+			const clientId = match?.[1] ? Number(match[1]) : Number.NaN;
+			if (!Number.isNaN(clientId)) queuedClientIds.add(clientId);
+		}
+
+		const openPool = await ctx.db
+			.select({
+				id: reports.id,
+				clientId: reports.clientId,
+				status: reports.status,
+				writerUserId: reports.writerUserId,
+				claimedAt: reports.claimedAt,
+			})
+			.from(reports)
+			.where(and(eq(reports.selfWritten, false), isNull(reports.archivedAt)));
+
+		for (const report of openPool) {
+			const inQueue = queuedClientIds.has(report.clientId);
+			if (inQueue && report.status === "pending") {
+				await ctx.db
+					.update(reports)
+					.set({ status: "queued", queueReadyAt: new Date() })
+					.where(eq(reports.id, report.id));
+			} else if (
+				!inQueue &&
+				report.status === "queued" &&
+				!report.writerUserId &&
+				!report.claimedAt
+			) {
+				// Folder was pulled back out before anyone claimed it.
+				await ctx.db
+					.update(reports)
+					.set({ status: "pending", queueReadyAt: null })
+					.where(eq(reports.id, report.id));
+			}
+		}
+	} catch (error) {
+		ctx.logger.error(error, "Failed to reconcile report queue state");
 	}
-
-	const adhdNpi = await getAdhdPieceworkEvaluatorNpi(ctx);
-	const billablePiecework =
-		!asdAdhd ||
-		!ADHD_ONLY_TYPES.has(asdAdhd) ||
-		(adhdNpi != null && evaluatorNpi === adhdNpi);
-
-	return { evaluatorNpi, asdAdhd, selfWritten, billablePiecework };
 }
 
 export const reportsRouter = createTRPCRouter({
@@ -144,6 +165,7 @@ export const reportsRouter = createTRPCRouter({
 		)
 		.query(async ({ ctx, input }) => {
 			assertReportsPage(ctx.session.user);
+			await reconcileReports(ctx);
 			const isApprover =
 				hasPermission(ctx.session.user.permissions, "reports:approve") ||
 				hasPermission(ctx.session.user.permissions, "reports:billing");
@@ -159,6 +181,9 @@ export const reportsRouter = createTRPCRouter({
 			];
 			if (kind === "pool") where.push(eq(reports.selfWritten, false));
 			if (kind === "self") where.push(eq(reports.selfWritten, true));
+			// "pending" pool reports (folder not yet in the writing queue) are an
+			// approver-only concern.
+			if (!isApprover) where.push(ne(reports.status, "pending"));
 
 			const rows = await ctx.db
 				.select({
@@ -180,8 +205,8 @@ export const reportsRouter = createTRPCRouter({
 					writerCompletedAt: reports.writerCompletedAt,
 					approvedAt: reports.approvedAt,
 					billed: reports.billed,
-					ajpReviewDone: reports.ajpReviewDone,
-					mcsReviewNeeded: reports.mcsReviewNeeded,
+					firstReviewDone: reports.firstReviewDone,
+					secondReviewNeeded: reports.secondReviewNeeded,
 					bridgesBilled: reports.bridgesBilled,
 					source: reports.source,
 					archivedAt: reports.archivedAt,
@@ -203,6 +228,7 @@ export const reportsRouter = createTRPCRouter({
 
 	myReports: protectedProcedure.query(async ({ ctx }) => {
 		assertReportsPage(ctx.session.user);
+		await reconcileReports(ctx);
 		return ctx.db
 			.select({
 				id: reports.id,
@@ -224,22 +250,8 @@ export const reportsRouter = createTRPCRouter({
 			.orderBy(desc(reports.createdAt));
 	}),
 
-	setWritingStatus: protectedProcedure
-		.input(
-			z.object({
-				id: z.number(),
-				status: z.enum(["claimed", "writing", "submitted"]),
-			}),
-		)
-		.mutation(async ({ ctx, input }) => {
-			const report = await requireEditableReport(ctx, input.id);
-			await ctx.db
-				.update(reports)
-				.set({ status: input.status })
-				.where(eq(reports.id, report.id));
-			return { success: true };
-		}),
-
+	// The writer's only control: flip between "claimed" (still working) and
+	// "submitted" (done). No intermediate "writing" step to click through.
 	markWriterComplete: protectedProcedure
 		.input(z.object({ id: z.number(), complete: z.boolean() }))
 		.mutation(async ({ ctx, input }) => {
@@ -256,7 +268,7 @@ export const reportsRouter = createTRPCRouter({
 						: {
 								writerCompletedAt: null,
 								writerCompletedByEmail: null,
-								status: "writing",
+								status: "claimed",
 							},
 				)
 				.where(eq(reports.id, report.id));
@@ -269,8 +281,8 @@ export const reportsRouter = createTRPCRouter({
 				id: z.number(),
 				field: z.enum([
 					"billed",
-					"ajpReviewDone",
-					"mcsReviewNeeded",
+					"firstReviewDone",
+					"secondReviewNeeded",
 					"bridgesBilled",
 				]),
 				value: z.boolean(),
@@ -301,15 +313,17 @@ export const reportsRouter = createTRPCRouter({
 				"Updated report billing field",
 			);
 
-			// Dual-write to the punch list during the transition. Best effort.
+			// Dual-write out to the punch list during the transition. Best effort.
 			try {
 				await updatePunchReportFields(ctx.session, String(report.clientId), {
 					[meta.punch]: input.value,
 				});
-				await invalidateCache(ctx, CACHE_KEY_PUNCHLIST);
 			} catch (error) {
 				ctx.logger.error(error, "Failed to mirror billing field to punch list");
 			}
+			// Drop the punch-list cache so syncPunchData reads the value we just
+			// wrote out, not a stale copy that would revert this edit.
+			await invalidateCache(ctx, CACHE_KEY_PUNCHLIST);
 
 			return { success: true };
 		}),
@@ -329,6 +343,12 @@ export const reportsRouter = createTRPCRouter({
 				where: eq(reports.id, input.id),
 			});
 			if (!report) throw new TRPCError({ code: "NOT_FOUND" });
+			if (!["claimed", "submitted"].includes(report.status)) {
+				throw new TRPCError({
+					code: "BAD_REQUEST",
+					message: `Cannot approve a report that is "${report.status}".`,
+				});
+			}
 
 			await ctx.db
 				.update(reports)
@@ -356,7 +376,7 @@ export const reportsRouter = createTRPCRouter({
 				let queueCount = 0;
 				try {
 					const res = await fetch(
-						`${env.PY_API}/folders/1fGZavJU8bAqROKd8iTgoEtRT8orp4a4s`,
+						`${env.PY_API}/folders/${REPORT_QUEUE_FOLDER_ID}`,
 						{ headers: { Cookie: cookieHeader } },
 					);
 					if (res.ok) {
@@ -388,58 +408,6 @@ export const reportsRouter = createTRPCRouter({
 				}
 			}
 
-			return { success: true };
-		}),
-
-	addManualReport: protectedProcedure
-		.input(
-			z.object({ clientId: z.number(), writerUserId: z.string().optional() }),
-		)
-		.mutation(async ({ ctx, input }) => {
-			assertReportsPage(ctx.session.user);
-
-			const existing = await ctx.db.query.reports.findFirst({
-				where: and(
-					eq(reports.clientId, input.clientId),
-					isNull(reports.archivedAt),
-				),
-				columns: { id: true },
-			});
-			if (existing) {
-				throw new TRPCError({
-					code: "CONFLICT",
-					message: "This client already has an open report.",
-				});
-			}
-
-			const snapshot = await buildReportSnapshot(ctx, input.clientId);
-
-			let writerEmail: string | null = null;
-			if (input.writerUserId) {
-				const writer = await ctx.db.query.users.findFirst({
-					where: eq(users.id, input.writerUserId),
-					columns: { email: true },
-				});
-				writerEmail = writer?.email ?? null;
-			}
-
-			await ctx.db.insert(reports).values({
-				clientId: input.clientId,
-				evaluatorNpi: snapshot.evaluatorNpi,
-				asdAdhd: snapshot.asdAdhd,
-				selfWritten: snapshot.selfWritten,
-				billablePiecework: snapshot.billablePiecework,
-				status: input.writerUserId ? "writing" : "queued",
-				writerUserId: input.writerUserId ?? null,
-				writerEmail,
-				source: "manual",
-				createdByEmail: ctx.session.user.email,
-			});
-
-			ctx.logger.info(
-				{ ...input, createdBy: ctx.session.user.email },
-				"Manually added report",
-			);
 			return { success: true };
 		}),
 

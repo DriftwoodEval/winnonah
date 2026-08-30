@@ -6,6 +6,7 @@ import {
 	eq,
 	getTableColumns,
 	inArray,
+	isNull,
 	lt,
 	not,
 	notInArray,
@@ -26,6 +27,7 @@ import {
 	externalRecords,
 	failures,
 	questionnaires,
+	reports,
 } from "~/server/db/schema";
 import {
 	ALLOWED_ASD_ADHD_VALUES,
@@ -570,8 +572,8 @@ export const updatePunchReportFields = async (
 	clientId: string,
 	updates: {
 		billed?: boolean;
-		ajpReviewDone?: boolean;
-		mcsReviewNeeded?: boolean;
+		firstReviewDone?: boolean;
+		secondReviewNeeded?: boolean;
 		bridgesBilled?: boolean;
 	},
 ) => {
@@ -600,8 +602,8 @@ export const updatePunchReportFields = async (
 
 	const columnByField: Record<keyof typeof updates, string> = {
 		billed: "Billed?",
-		ajpReviewDone: "AJP Review Done/Hold for payroll",
-		mcsReviewNeeded: "MCS Review Needed",
+		firstReviewDone: "AJP Review Done/Hold for payroll",
+		secondReviewNeeded: "MCS Review Needed",
 		bridgesBilled: "BRIDGES billed?",
 	};
 
@@ -641,6 +643,33 @@ export const updatePunchReportFields = async (
 	return true;
 };
 
+// Punch-list header -> emr_report (boolean column, *At column, *ByEmail column).
+// Kept in sync back into the EMR by syncPunchData; written out by
+// updatePunchReportFields. Both halves go away when the punch list is retired.
+const PUNCH_REPORT_FIELDS = {
+	"Billed?": ["billed", "billedAt", "billedByEmail"],
+	"AJP Review Done/Hold for payroll": [
+		"firstReviewDone",
+		"firstReviewAt",
+		"firstReviewByEmail",
+	],
+	"MCS Review Needed": [
+		"secondReviewNeeded",
+		"secondReviewNeededAt",
+		"secondReviewByEmail",
+	],
+	"BRIDGES billed?": [
+		"bridgesBilled",
+		"bridgesBilledAt",
+		"bridgesBilledByEmail",
+	],
+} as const satisfies Record<string, readonly [string, string, string]>;
+
+const PUNCHLIST_SYNC_ACTOR_EMAIL = "punchlist-sync";
+
+const punchCellIsChecked = (val: string | undefined) =>
+	(val ?? "").trim().toUpperCase() === "TRUE";
+
 export const syncPunchData = async (ctx: Context & { session: Session }) => {
 	const allPunchData = await fetchWithCache(
 		ctx,
@@ -650,6 +679,19 @@ export const syncPunchData = async (ctx: Context & { session: Session }) => {
 	);
 
 	const updatePromises: Promise<unknown>[] = [];
+
+	// Current billing/review state of every open report, to skip no-op writes.
+	const openReports = await db
+		.select({
+			clientId: reports.clientId,
+			billed: reports.billed,
+			firstReviewDone: reports.firstReviewDone,
+			secondReviewNeeded: reports.secondReviewNeeded,
+			bridgesBilled: reports.bridgesBilled,
+		})
+		.from(reports)
+		.where(isNull(reports.archivedAt));
+	const openReportByClient = new Map(openReports.map((r) => [r.clientId, r]));
 
 	for (const client of allPunchData) {
 		const updates: Partial<Client> = {};
@@ -682,6 +724,33 @@ export const syncPunchData = async (ctx: Context & { session: Session }) => {
 			updatePromises.push(
 				db.update(clients).set(updates).where(eq(clients.id, client.id)),
 			);
+		}
+
+		// Report billing/review checkboxes -> emr_report.
+		const report = client.id ? openReportByClient.get(client.id) : undefined;
+		if (report) {
+			const reportPatch: Record<string, boolean | Date | string | null> = {};
+			for (const [header, [col, atCol, byCol]] of Object.entries(
+				PUNCH_REPORT_FIELDS,
+			)) {
+				const sheetValue = punchCellIsChecked(
+					client[header as keyof typeof client] as string | undefined,
+				);
+				if (report[col as keyof typeof report] === sheetValue) continue;
+				reportPatch[col] = sheetValue;
+				reportPatch[atCol] = sheetValue ? new Date() : null;
+				reportPatch[byCol] = sheetValue ? PUNCHLIST_SYNC_ACTOR_EMAIL : null;
+			}
+			if (Object.keys(reportPatch).length > 0) {
+				updatePromises.push(
+					db
+						.update(reports)
+						.set(reportPatch)
+						.where(
+							and(eq(reports.clientId, client.id), isNull(reports.archivedAt)),
+						),
+				);
+			}
 		}
 	}
 

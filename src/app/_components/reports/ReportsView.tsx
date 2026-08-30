@@ -1,10 +1,10 @@
 "use client";
 
-import { ClientSearchAndAdd } from "@components/clients/ClientSearchAndAdd";
+import ReportQueue from "@components/shared/ReportQueue";
 import { Skeleton } from "@ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@ui/tabs";
+import { useSession } from "next-auth/react";
 import { useState } from "react";
-import { toast } from "sonner";
 import { useCheckPermission } from "~/hooks/use-check-permission";
 import { api } from "~/trpc/react";
 import { ReportsTable } from "./ReportsTable";
@@ -39,37 +39,20 @@ function TabContent({
 
 export function ReportsView() {
 	const can = useCheckPermission();
+	const { data: session } = useSession();
 	const isApprover = can("reports:approve") || can("reports:billing");
 	const canApprove = can("reports:approve");
+	// The claim toolbar is only useful to people who actually claim from the pool.
+	const canClaim = (session?.user?.maxClaimedReports ?? 0) !== 0 || canApprove;
 
 	const [tab, setTab] = useState<"active" | "archived">("active");
 	const [kind, setKind] = useState<Kind>(isApprover ? "all" : "pool");
 
-	const utils = api.useUtils();
-	const addReport = api.reports.addManualReport.useMutation({
-		onSuccess: () => {
-			void utils.reports.list.invalidate();
-			toast.success("Report added.");
-		},
-		onError: (err) =>
-			toast.error("Could not add report", { description: err.message }),
-	});
-
 	return (
 		<div className="flex w-full flex-col gap-4">
-			<div className="flex flex-wrap items-end justify-between gap-3">
-				<h1 className="font-semibold text-xl">Reports</h1>
-				<div className="w-full max-w-sm">
-					<ClientSearchAndAdd
-						addButtonLabel="Add report"
-						floating
-						isAdding={addReport.isPending}
-						onAdd={(client) => addReport.mutate({ clientId: client.id })}
-						placeholder="Add a report for a client..."
-						resetOnAdd
-					/>
-				</div>
-			</div>
+			<h1 className="font-semibold text-xl">Reports</h1>
+
+			{canClaim && <ReportQueue />}
 
 			<div
 				className={`flex-wrap items-center gap-2 ${isApprover ? "flex" : "hidden"}`}

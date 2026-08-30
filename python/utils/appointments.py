@@ -22,9 +22,11 @@ from utils.database import (
     get_sync_report_date,
     put_appointment_in_db,
     put_in_person_assessments_in_db,
+    reconcile_pool_report_queue_state,
     reconcile_reports_from_appointments,
     set_client_drive_folder_evaluator,
     set_sync_report_date,
+    sync_punchlist_to_db,
 )
 from utils.google import (
     google_authenticate,
@@ -790,6 +792,16 @@ def insert_appointments_with_gcal(appointment_sync_data: dict[str, list[str]] | 
             reconcile_reports_from_appointments()
         except Exception:
             logger.exception("Failed to reconcile report rows from appointments")
+
+        try:
+            reconcile_pool_report_queue_state()
+        except Exception:
+            logger.exception("Failed to reconcile pool report queue state")
+
+        try:
+            sync_punchlist_to_db()
+        except Exception:
+            logger.exception("Failed to sync the punch list to the DB")
 
         reporter.send_report(email_for_errors)
 

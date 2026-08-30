@@ -4,6 +4,7 @@ import hashlib
 import inspect
 import json
 import os
+import re
 from collections.abc import Callable
 from contextlib import contextmanager
 from datetime import date, datetime
@@ -19,9 +20,11 @@ from loguru import logger
 from pymysql.connections import Connection
 from pymysql.cursors import DictCursor
 
+import utils.google
 import utils.relationships
 from utils.constants import (
     CLIENT_COLUMN_MAPPING,
+    REPORT_QUEUE_FOLDER_ID,
     TABLE_APPOINTMENT,
     TABLE_ASSESSMENT_TYPE,
     TABLE_BLOCKED_SCHOOL_DISTRICT,
@@ -2311,11 +2314,13 @@ def reconcile_reports_from_appointments(
     yet have one.
 
     A report is warranted once a client has a non-cancelled EVAL or DAEVAL
-    appointment. Keyed on the client, not the appointment (a DA plus an EVAL for
-    the same client is still one report). A new row is created only when the
-    client's most recent eval appointment is newer than their newest existing
-    report, so archiving a finished report does not immediately respawn one for
-    the same eval cycle, while a genuine re-evaluation later does.
+    appointment, or a standalone DA for an ADHD-only evaluation (asdAdhd of
+    'ADHD' or 'ADHD+LD'), since those never get a separate EVAL. Keyed on the
+    client, not the appointment (a DA plus an EVAL for the same client is still
+    one report). A new row is created only when the client's most recent
+    qualifying appointment is newer than their newest existing report, so
+    archiving a finished report does not immediately respawn one for the same
+    eval cycle, while a genuine re-evaluation later does.
 
     Returns the number of report rows created.
     """
@@ -2350,7 +2355,10 @@ def reconcile_reports_from_appointments(
             JOIN (
                 SELECT clientId, MAX(startTime) AS maxStart
                 FROM `{TABLE_APPOINTMENT}`
-                WHERE daEval IN ('EVAL', 'DAEVAL')
+                WHERE (
+                        daEval IN ('EVAL', 'DAEVAL')
+                        OR (daEval = 'DA' AND asdAdhd IN ('ADHD', 'ADHD+LD'))
+                      )
                   AND cancelled = 0 AND rescheduled = 0
                   AND placeholder = 0 AND billingOnly = 0
                 GROUP BY clientId
@@ -2398,7 +2406,11 @@ def reconcile_reports_from_appointments(
                     asd_adhd,
                     self_written,
                     billable,
-                    "writing" if self_written else "queued",
+                    # Self-written reports are pre-assigned to the evaluator as
+                    # "claimed". Pool reports start "pending" and are promoted to
+                    # "queued" by reconcile_pool_report_queue_state once the
+                    # client folder reaches the report-writing queue.
+                    "claimed" if self_written else "pending",
                     row["evaluatorEmail"] if self_written else None,
                 ),
             )
@@ -2409,3 +2421,210 @@ def reconcile_reports_from_appointments(
     if created:
         logger.info(f"Created {created} report row(s) from eval appointments")
     return created
+
+
+@provide_connection
+def reconcile_pool_report_queue_state(
+    connection: Connection[DictCursor],
+) -> tuple[int, int, int]:
+    """Sync pool report rows to the live contents of the Drive report-writing
+    queue folder.
+
+    - promote "pending" -> "queued" once the client folder is in the queue,
+    - demote an unclaimed "queued" -> "pending" when the folder is gone,
+    - create a "queued" row for a queued folder that has no open report yet.
+
+    The EMR runs the same reconcile on page load for near-instant feedback; this
+    is the backstop so piecework and queue notifications also see fresh state.
+    Returns (promoted, demoted, created).
+    """
+    items = utils.google.get_items_in_folder(REPORT_QUEUE_FOLDER_ID) or []
+    queued_client_ids: set[int] = set()
+    for item in items:
+        match = re.search(r"\[([A-Za-z0-9-]+)\]", item["name"])
+        if match and match.group(1).isdigit():
+            queued_client_ids.add(int(match.group(1)))
+
+    now = now_utc().replace(tzinfo=None)
+    promoted = demoted = created = 0
+
+    with connection.cursor() as cursor:
+        cursor.execute(
+            f"""
+            SELECT id, clientId, status, writerUserId, claimedAt
+            FROM `{TABLE_REPORT}`
+            WHERE selfWritten = 0 AND archivedAt IS NULL
+            """
+        )
+        open_pool = cursor.fetchall()
+        seen = {row["clientId"] for row in open_pool}
+
+        for report in open_pool:
+            in_queue = report["clientId"] in queued_client_ids
+            if in_queue and report["status"] == "pending":
+                cursor.execute(
+                    f"UPDATE `{TABLE_REPORT}` SET status = 'queued', queueReadyAt = %s WHERE id = %s",
+                    (now, report["id"]),
+                )
+                promoted += 1
+            elif (
+                not in_queue
+                and report["status"] == "queued"
+                and not report["writerUserId"]
+                and not report["claimedAt"]
+            ):
+                cursor.execute(
+                    f"UPDATE `{TABLE_REPORT}` SET status = 'pending', queueReadyAt = NULL WHERE id = %s",
+                    (report["id"],),
+                )
+                demoted += 1
+
+        for client_id in queued_client_ids - seen:
+            cursor.execute(
+                f"SELECT id FROM `{TABLE_CLIENT}` WHERE id = %s", (client_id,)
+            )
+            if not cursor.fetchone():
+                continue
+            cursor.execute(
+                f"""
+                INSERT INTO `{TABLE_REPORT}`
+                    (clientId, status, selfWritten, source, queueReadyAt)
+                VALUES (%s, 'queued', 0, 'auto', %s)
+                """,
+                (client_id, now),
+            )
+            created += 1
+
+        connection.commit()
+
+    if promoted or demoted or created:
+        logger.info(
+            f"Report queue reconcile: {promoted} promoted, {demoted} demoted, "
+            f"{created} created"
+        )
+    return promoted, demoted, created
+
+
+# Sentinel actor recorded on report fields last changed by the punch-list sync,
+# matching the EMR side (src/lib/google.ts syncPunchData), so an audit reader can
+# tell a spreadsheet edit from an in-app one.
+PUNCHLIST_SYNC_ACTOR_EMAIL = "punchlist-sync"
+
+_ALLOWED_ASD_ADHD = {"ASD", "ADHD", "ASD+ADHD", "ASD+LD", "ADHD+LD", "LD"}
+
+# Punch-list header -> emr_client column, applied when the sheet cell is
+# non-empty and differs (and, for "For", is a recognised value).
+_PUNCHLIST_CLIENT_FIELDS = {
+    "For": "asdAdhd",
+    "Language": "language",
+    "PA Assigned to": "paAssignedTo",
+}
+
+# Punch-list header -> (emr_report boolean column, at column, by column).
+_PUNCHLIST_REPORT_FIELDS = {
+    "Billed?": ("billed", "billedAt", "billedByEmail"),
+    "AJP Review Done/Hold for payroll": (
+        "firstReviewDone",
+        "firstReviewAt",
+        "firstReviewByEmail",
+    ),
+    "MCS Review Needed": (
+        "secondReviewNeeded",
+        "secondReviewNeededAt",
+        "secondReviewByEmail",
+    ),
+    "BRIDGES billed?": ("bridgesBilled", "bridgesBilledAt", "bridgesBilledByEmail"),
+}
+
+
+@provide_connection
+def sync_punchlist_to_db(
+    connection: Connection[DictCursor],
+) -> int:
+    """Pull punch-list columns into the EMR on a schedule.
+
+    The headless counterpart of the EMR's page-triggered `syncPunchData`: it
+    applies the same client fields (ASD/ADHD type, language, PA assignee) to
+    `emr_client`, plus the report billing/review checkboxes to open `emr_report`
+    rows. Only cells that are non-empty and differ from the DB are written. A
+    report cell counts as checked only when it is exactly "TRUE"
+    (case-insensitive), matching how piecework reads the sheet. Small
+    last-writer races with an in-app edit are possible and acceptable for the
+    transition; the whole mirror is removed with the sheet.
+
+    Returns the number of fields changed.
+    """
+    headers = list(_PUNCHLIST_CLIENT_FIELDS) + list(_PUNCHLIST_REPORT_FIELDS)
+    rows_by_client = utils.google.get_punchlist_rows(headers)
+
+    now = now_utc().replace(tzinfo=None)
+    changed = 0
+
+    with connection.cursor() as cursor:
+        cursor.execute(
+            f"""
+            SELECT id, asdAdhd, language, paAssignedTo
+            FROM `{TABLE_CLIENT}`
+            """
+        )
+        clients_by_id = {row["id"]: row for row in cursor.fetchall()}
+
+        cursor.execute(
+            f"""
+            SELECT id, clientId, billed, firstReviewDone, secondReviewNeeded,
+                   bridgesBilled
+            FROM `{TABLE_REPORT}`
+            WHERE archivedAt IS NULL
+            """
+        )
+        open_reports = cursor.fetchall()
+
+        for client_key, cols in rows_by_client.items():
+            if not client_key.isdigit():
+                continue
+            client = clients_by_id.get(int(client_key))
+            if not client:
+                continue
+            for header, db_col in _PUNCHLIST_CLIENT_FIELDS.items():
+                value = cols.get(header, "").strip()
+                if not value or value == (client[db_col] or ""):
+                    continue
+                if header == "For" and value not in _ALLOWED_ASD_ADHD:
+                    continue
+                cursor.execute(
+                    f"UPDATE `{TABLE_CLIENT}` SET `{db_col}` = %s WHERE id = %s",
+                    (value, int(client_key)),
+                )
+                changed += 1
+
+        for report in open_reports:
+            cols = rows_by_client.get(str(report["clientId"]))
+            if not cols:
+                continue
+            for header, (col, at_col, by_col) in _PUNCHLIST_REPORT_FIELDS.items():
+                raw = cols.get(header)
+                if raw is None:
+                    continue
+                sheet_value = 1 if raw.strip().upper() == "TRUE" else 0
+                if int(report[col]) == sheet_value:
+                    continue
+                cursor.execute(
+                    f"""
+                    UPDATE `{TABLE_REPORT}`
+                    SET `{col}` = %s, `{at_col}` = %s, `{by_col}` = %s
+                    WHERE id = %s
+                    """,
+                    (
+                        sheet_value,
+                        now if sheet_value else None,
+                        PUNCHLIST_SYNC_ACTOR_EMAIL if sheet_value else None,
+                        report["id"],
+                    ),
+                )
+                changed += 1
+
+        connection.commit()
+
+    if changed:
+        logger.info(f"Pulled {changed} field(s) from the punch list")
+    return changed

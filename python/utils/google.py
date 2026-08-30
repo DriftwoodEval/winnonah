@@ -137,8 +137,10 @@ def get_gmail_service():
     return build("gmail", "v1", credentials=creds)
 
 
-def _get_punchlist_column_map(column_name: str) -> dict[str, str]:
-    """Fetch a mapping of Client ID to the given column's value from the Punchlist sheet."""
+def get_punchlist_rows(column_names: list[str]) -> dict[str, dict[str, str]]:
+    """Fetch the Punchlist sheet once and return {Client ID: {column: value}} for
+    the requested columns. A column missing from the sheet is simply absent from
+    each row's dict."""
     service = get_sheets_service()
     result = (
         service.spreadsheets()
@@ -157,29 +159,43 @@ def _get_punchlist_column_map(column_name: str) -> dict[str, str]:
     header = rows[0]
     try:
         id_index = header.index("Client ID")
-        column_index = header.index(column_name)
     except ValueError:
-        logger.warning(
-            f"Client ID or {column_name} column not found in Punchlist sheet"
-        )
+        logger.warning("Client ID column not found in Punchlist sheet")
         return {}
 
-    column_map: dict[str, str] = {}
+    col_indexes: dict[str, int] = {}
+    for name in column_names:
+        try:
+            col_indexes[name] = header.index(name)
+        except ValueError:
+            logger.warning(f"{name} column not found in Punchlist sheet")
+
+    result_map: dict[str, dict[str, str]] = {}
     for row in rows[1:]:
         if len(row) <= id_index:
             continue
         client_id = row[id_index]
-        value = row[column_index].strip() if len(row) > column_index else ""
-        column_map[client_id] = value
+        result_map[client_id] = {
+            name: (row[index].strip() if len(row) > index else "")
+            for name, index in col_indexes.items()
+        }
 
-    return column_map
+    return result_map
+
+
+def get_punchlist_column_map(column_name: str) -> dict[str, str]:
+    """Fetch a mapping of Client ID to the given column's value from the Punchlist sheet."""
+    return {
+        client_id: cols.get(column_name, "")
+        for client_id, cols in get_punchlist_rows([column_name]).items()
+    }
 
 
 def get_punchlist_language_map() -> dict[str, str]:
     """Fetch a mapping of Client ID to Language from the Punchlist sheet."""
     return {
         client_id: value or "English"
-        for client_id, value in _get_punchlist_column_map("Language").items()
+        for client_id, value in get_punchlist_column_map("Language").items()
     }
 
 

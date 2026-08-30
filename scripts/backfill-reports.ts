@@ -162,8 +162,10 @@ async function run() {
 			: billed
 				? "approved"
 				: selfWritten
-					? "writing"
-					: "queued";
+					? "claimed"
+					: // Unclaimed pool reports start "pending"; the queue reconcile
+						// promotes them to "queued" if the folder is in the queue.
+						"pending";
 
 		console.log(
 			`${DRY_RUN ? "[DRY RUN] " : ""}client ${String(clientId).padEnd(6)} | ${status} | self=${selfWritten} | billed=${billed} | writer=${claimed?.email ?? "-"}`,
@@ -181,8 +183,8 @@ async function run() {
 				writerEmail: claimed?.email ?? null,
 				folderName: claimed?.name ?? null,
 				billed,
-				ajpReviewDone: isTrue(row[ajpCol]),
-				mcsReviewNeeded: isTrue(row[mcsCol]),
+				firstReviewDone: isTrue(row[ajpCol]),
+				secondReviewNeeded: isTrue(row[mcsCol]),
 				bridgesBilled: isTrue(row[bridgesCol]),
 				source: "backfill",
 				createdByEmail: "backfill-script",
