@@ -28,6 +28,27 @@ const redact = {
 	censor: "[REDACTED]",
 };
 
+// Production log streams: stdout plus a rotating file. The file destination is
+// skipped during `next build` (page-data collection imports this module with
+// NODE_ENV=production but has no writable log directory), which otherwise
+// prints one EACCES per route. The path is overridable so a local production
+// run does not need `/app/logs` to exist.
+function serverStreams() {
+	const streams: pino.StreamEntry[] = [
+		{ level: "debug", stream: process.stdout },
+	];
+	if (process.env.NEXT_PHASE !== "phase-production-build") {
+		streams.push({
+			level: "debug",
+			stream: pino.destination({
+				dest: process.env.LOG_FILE_PATH ?? "/app/logs/debug.log",
+				mkdir: true,
+			}),
+		});
+	}
+	return streams;
+}
+
 export const logger: Logger =
 	process.env.NODE_ENV === "production"
 		? pino(
@@ -49,18 +70,7 @@ export const logger: Logger =
 				},
 				// Only use multistream and file destinations on the server.
 				// In the browser, passing 'undefined' makes Pino default to console.log
-				isServer
-					? pino.multistream([
-							{ level: "debug", stream: process.stdout },
-							{
-								level: "debug",
-								stream: pino.destination({
-									dest: "/app/logs/debug.log",
-									mkdir: true,
-								}),
-							},
-						])
-					: undefined,
+				isServer ? pino.multistream(serverStreams()) : undefined,
 			)
 		: pino({
 				base: null,
