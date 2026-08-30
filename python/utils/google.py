@@ -186,8 +186,9 @@ def get_punchlist_rows(column_names: list[str]) -> dict[str, dict[str, str]]:
 def get_punchlist_column_map(column_name: str) -> dict[str, str]:
     """Fetch a mapping of Client ID to the given column's value from the Punchlist sheet."""
     return {
-        client_id: cols.get(column_name, "")
+        client_id: cols[column_name]
         for client_id, cols in get_punchlist_rows([column_name]).items()
+        if column_name in cols
     }
 
 
