@@ -98,7 +98,7 @@
 		"@types/mdx": "^2.0.14",
 		"@types/node": "^25.9.5",
 		"@types/react": "19.2.18",
-		"@types/react-dom": "19.2.4",
+		"@types/react-dom": "19.2.5",
 		"@vitest/coverage-v8": "4.1.10",
 		"@vitest/ui": "4.1.10",
 		"drizzle-kit": "^0.31.10",
