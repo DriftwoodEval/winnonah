@@ -6,7 +6,11 @@ import { distance as levDistance } from "fastest-levenshtein";
 import z from "zod";
 import { env } from "~/env";
 import { fetchWithCache, invalidateCache } from "~/lib/cache";
-import { TEST_NAMES } from "~/lib/constants";
+import {
+	REPORT_QUEUE_FOLDER_ID,
+	REPORT_WRITERS_FOLDER_ID,
+	TEST_NAMES,
+} from "~/lib/constants";
 import {
 	getDuplicatePunchClients,
 	getInactivePunchClients,
@@ -1290,7 +1294,17 @@ export const googleRouter = createTRPCRouter({
 		}),
 
 	claimTopFolder: protectedProcedure
-		.input(z.object({ sourceId: z.string(), destId: z.string() }))
+		.input(
+			z
+				.object({
+					sourceId: z.string(),
+					destId: z.string(),
+				})
+				.default({
+					sourceId: REPORT_QUEUE_FOLDER_ID,
+					destId: REPORT_WRITERS_FOLDER_ID,
+				}),
+		)
 		.mutation(async ({ input, ctx }) => {
 			const cookieHeader = ctx.headers.get("cookie") ?? "";
 
@@ -1499,7 +1513,7 @@ export const googleRouter = createTRPCRouter({
 				let queueCount = 0;
 				try {
 					const foldersResponse = await fetch(
-						`${env.PY_API}/folders/1fGZavJU8bAqROKd8iTgoEtRT8orp4a4s`,
+						`${env.PY_API}/folders/${REPORT_QUEUE_FOLDER_ID}`,
 						{
 							headers: { Cookie: cookieHeader },
 						},

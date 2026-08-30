@@ -4,13 +4,6 @@ import { Badge } from "@ui/badge";
 import { Button } from "@ui/button";
 import { Checkbox } from "@ui/checkbox";
 import {
-	Select,
-	SelectContent,
-	SelectItem,
-	SelectTrigger,
-	SelectValue,
-} from "@ui/select";
-import {
 	Table,
 	TableBody,
 	TableCell,
@@ -26,9 +19,13 @@ import { api } from "~/trpc/react";
 
 type Report = RouterOutputs["reports"]["list"][number];
 
-const WRITING_STATUSES = ["claimed", "writing", "submitted"] as const;
+// Statuses an approver can still approve & release from.
+const APPROVABLE_STATUSES = ["claimed", "submitted"] as const;
 
 function StatusBadge({ status }: { status: Report["status"] }) {
+	if (status === "pending") {
+		return <Badge variant="outline">awaiting folder</Badge>;
+	}
 	return <Badge variant="secondary">{status}</Badge>;
 }
 
@@ -46,21 +43,17 @@ export function ReportsTable({
 	const billingFields = [
 		{ key: "billed" as const, label: "Billed" },
 		{
-			key: "ajpReviewDone" as const,
-			label: config?.firstReviewLabel ?? "Review 1",
+			key: "firstReviewDone" as const,
+			label: config?.firstReviewLabel ?? "First review",
 		},
 		{
-			key: "mcsReviewNeeded" as const,
-			label: config?.secondReviewLabel ?? "Review 2",
+			key: "secondReviewNeeded" as const,
+			label: config?.secondReviewLabel ?? "Second review",
 		},
 		{ key: "bridgesBilled" as const, label: "BRIDGES billed" },
 	];
 	const invalidate = () => void utils.reports.list.invalidate();
 
-	const setStatus = api.reports.setWritingStatus.useMutation({
-		onSuccess: invalidate,
-		onError: (e) => toast.error("Failed", { description: e.message }),
-	});
 	const markComplete = api.reports.markWriterComplete.useMutation({
 		onSuccess: invalidate,
 		onError: (e) => toast.error("Failed", { description: e.message }),
@@ -137,36 +130,7 @@ export function ReportsTable({
 									)}
 								</TableCell>
 								<TableCell>
-									{canEditWriting && r.status !== "approved" ? (
-										<Select
-											onValueChange={(v) =>
-												setStatus.mutate({
-													id: r.id,
-													status: v as (typeof WRITING_STATUSES)[number],
-												})
-											}
-											value={
-												WRITING_STATUSES.includes(
-													r.status as (typeof WRITING_STATUSES)[number],
-												)
-													? r.status
-													: undefined
-											}
-										>
-											<SelectTrigger className="h-8 w-[120px]">
-												<SelectValue placeholder={r.status} />
-											</SelectTrigger>
-											<SelectContent>
-												{WRITING_STATUSES.map((s) => (
-													<SelectItem key={s} value={s}>
-														{s}
-													</SelectItem>
-												))}
-											</SelectContent>
-										</Select>
-									) : (
-										<StatusBadge status={r.status} />
-									)}
+									<StatusBadge status={r.status} />
 								</TableCell>
 								<TableCell className="whitespace-nowrap text-sm">
 									{r.claimedAt
@@ -237,7 +201,9 @@ export function ReportsTable({
 											</Button>
 										) : (
 											<div className="flex items-center gap-1">
-												{r.status === "submitted" && (
+												{APPROVABLE_STATUSES.includes(
+													r.status as (typeof APPROVABLE_STATUSES)[number],
+												) && (
 													<Button
 														onClick={() => approve.mutate({ id: r.id })}
 														size="sm"

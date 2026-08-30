@@ -14,6 +14,9 @@ When a change alters behavior an existing docs page under `src/content/docs/` de
 
 Category folders can nest one or more levels; each folder (including subfolders) can carry a `_category.json` (`title`, `position`). Moving a page changes its URL, so update every `/docs/...` cross-link that points at it (the validator fails the build on a dead one).
 
+## Docs
+Docs live in `src/content/docs/` as Markdown/MDX and are read by practice staff, not engineers: use plain language and skip implementation detail (schema, cron cadences, function names). Do not hard-wrap prose: one line per paragraph and per list item.
+
 ## Commands
 - `mise run check` type-checks and lints everything (TS + Python); use `check:pnpm`/`check:ruff` to run just one side. Don't call `tsc`/`ruff` directly.
 - Trust ruff over your own syntax assumptions.

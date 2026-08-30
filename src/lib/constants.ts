@@ -5,6 +5,12 @@ export const BUSINESS_TIMEZONE = "America/New_York";
 
 export const IN_PERSON_ASSESSMENT_STATUSES = ["EXTERNAL"] as const;
 
+// Google Drive folder that report-writing client folders are moved into when a
+// pool report is ready to be claimed ("001"), and the parent folder holding one
+// personal folder per report writer.
+export const REPORT_QUEUE_FOLDER_ID = "1fGZavJU8bAqROKd8iTgoEtRT8orp4a4s";
+export const REPORT_WRITERS_FOLDER_ID = "1f9lcLMr9UKUEUVGRG5j0yEJkdue4FFnV";
+
 export const QUESTIONNAIRE_STATUSES = [
 	"PENDING",
 	"COMPLETED",

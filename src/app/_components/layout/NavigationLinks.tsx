@@ -275,13 +275,6 @@ export default function NavigationLinks() {
 						can("reports:billing"),
 				},
 				{
-					id: "claim-reports",
-					href: "/claim-reports",
-					label: "Claim Reports",
-					icon: FileText,
-					show: session.user.maxClaimedReports !== 0 || can("reports:approve"),
-				},
-				{
 					id: "report-dashboard",
 					href: "/evaluator-dashboard",
 					label: evalReportDashboardLabel,
