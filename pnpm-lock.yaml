@@ -175,7 +175,7 @@ importers:
         version: 6.0.0
       remark-flexible-toc:
         specifier: ^1.2.6
-        version: 1.2.6(unified@11.0.5)
+        version: 1.2.7(unified@11.0.5)
       remark-frontmatter:
         specifier: ^5.0.0
         version: 5.0.0(supports-color@7.2.0)
@@ -4992,8 +4992,8 @@ packages:
   rehype-slug@6.0.0:
     resolution: {integrity: sha512-lWyvf/jwu+oS5+hL5eClVd3hNdmwM1kAC0BUvEGD19pajQMIzcNUd/k9GsfQ+FfECvX+JE+e9/btsKH0EjJT6A==}
 
-  remark-flexible-toc@1.2.6:
-    resolution: {integrity: sha512-DJ9PeUPswJPFoeV+GO15aSXLNRXgkNwYcCojCq+0D/L5N3+2zyrAahEmZuAQ9S73B8Qm1QLO/mRrwo+qFmr2og==}
+  remark-flexible-toc@1.2.7:
+    resolution: {integrity: sha512-ZtFQPR4B0CkVztjnaxlm4JCwrionOxR5Q2ulMiYeBuMTprZ+Zbk3S1omTpE07sZ+yrVHGVPl2HXGjpgm1C7fZg==}
     peerDependencies:
       unified: ^11
 
@@ -10484,7 +10484,7 @@ snapshots:
       hast-util-to-string: 3.0.1
       unist-util-visit: 5.1.0
 
-  remark-flexible-toc@1.2.6(unified@11.0.5):
+  remark-flexible-toc@1.2.7(unified@11.0.5):
     dependencies:
       '@types/mdast': 4.0.4
       github-slugger: 2.0.0
