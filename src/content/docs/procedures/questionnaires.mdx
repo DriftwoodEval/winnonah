@@ -1,0 +1,80 @@
+---
+title: Questionnaire Process
+---
+
+_This page doesn't have screenshots yet._
+
+Before a Diagnostic Appointment (DA) and/or Evaluation appointment, the family fills out a set of rating-scale questionnaires (BASC, Conners, Vineland, ASRS, CAARS, DP-4, CAT-Q, and others depending on age and the suspected diagnosis). Sending those questionnaires, checking whether they've been completed, and reminding families to finish them is automated. Two scripts drive it: one that sends, one that checks and reminds.
+
+## 1. Prerequisites
+
+A client only gets picked up for sending once:
+
+- They're on the prioritization list (staff refer to this as the "punch list"), a spreadsheet used to track everyone moving through the eval pipeline, with **DA Qs Needed** and/or **EVAL Qs Needed** checked but not yet marked as sent.
+- Their school records status is **Ready**. This means either **Records Needed** is set to **Not Needed**, an outside record has already been logged for them, or (for ADHD-only clients) records aren't required in the first place, since autism screening from school records doesn't apply to a pure ADHD workup. See the Records Request Process page for how a client gets to **Ready**.
+
+If records aren't ready, the client is skipped and simply doesn't come up again until they are, no failure gets logged.
+
+## 2. Figuring out which questionnaires to send
+
+What gets sent depends on three things: whether it's for the DA, the Eval, or both at once (a client can need both in the same run if neither has been sent yet); the client's age; and their prospective diagnosis (ASD, ADHD, ASD+ADHD, or one of the LD combinations).
+
+- Staff configure the actual rules in Settings under Questionnaire Rules: for each combination of DA/Eval, diagnosis, and age band, a list of questionnaire types is required.
+- ADHD clients only ever get DA questionnaires. The **EVAL Qs Needed** checkbox is ignored for them entirely, since an ADHD workup doesn't have a separate Eval questionnaire battery.
+- If a client's current age doesn't fall inside any age band configured for their diagnosis, they're skipped with a "too young" or "too old" failure. Nothing needs to be done about this by staff; once they age into range, the next run picks them up normally.
+- If no rule at all matches their diagnosis, that's an "unknown questionnaire needs" failure, which usually means the rules in Settings need a new entry for that diagnosis.
+
+## 3. Sending
+
+Someone runs the send script by hand (it's not on a schedule). For each client it picks up, it:
+
+1. Confirms the client has opened the patient portal and signed their intake documents in TherapyAppointment.
+2. Logs into whichever third-party platforms are needed (MHS, QGlobal, WPS), creating an account for the client on that platform first if one doesn't exist yet.
+3. Generates a unique link for each required questionnaire.
+4. Sends all the links in a single message through the TherapyAppointment portal.
+5. Marks **DA Qs Sent** and/or **EVAL Qs Sent** on the punch list, and records each questionnaire (link, type, status **PENDING**) against the client.
+
+### Edge cases in sending
+
+- **Spanish-speaking clients**: the portal and signed-documents checks are skipped, since they won't be using the English-language portal. Questionnaires still get generated, but no message is sent automatically, the run logs it as a failure ("Spanish Qs generated to send") so staff know to send them by hand.
+- **Any other language**: skipped entirely and logged as a failure under that language, for staff to handle manually.
+- **Portal not opened / documents not signed**: falls out and is retried automatically on every future run until resolved, no manual intervention needed unless the family is stuck.
+- **A previous unresolved failure**: most failure reasons block a client from being retried until someone resolves the underlying problem. A specific set of reasons are retried automatically every run instead ("too young," "portal not opened," "documents not signed," "not in the database," "no date of birth," "client not found," "unknown questionnaire needs").
+- **Paused or autism-stopped clients**: skipped outright. See Pause and Autism Stop below.
+- **Client is due for an Eval but was never sent their DA questionnaires**: the person running the script is prompted and can choose to add the missing DA questionnaires into this same batch.
+- **Client already has some questionnaires on file**: anything already completed (or marked done outside the system) is left alone and not regenerated. If something was sent before and is still sitting in a non-final state that isn't a simple resend, that's flagged as an "overlapping questionnaires" failure for manual review rather than silently duplicating it.
+- **A previous run was interrupted partway through**: any questionnaires it managed to generate before crashing are picked back up and reused instead of generating duplicates.
+- **A questionnaire fails to generate partway through a batch**: that one is logged as a failure, and no message is sent for that client's batch at all, so a family never receives half a set of links.
+
+## 4. Checking for completion and sending reminders
+
+A second script checks on outstanding questionnaires. It's run on a schedule several times a day, but only sends texts and the daily admin summary email during its 1pm business-hours run, other runs during the day quietly update status only.
+
+- For every client with a questionnaire still pending, it revisits that link and looks for a completion indicator on the destination site. A few platforms need an extra check against the platform's own portal to catch questionnaires that were completed but not detected on the link itself.
+- Once every non-archived questionnaire in a client's current cycle is completed (or logged as done outside the system), the client's **DA Qs Done** / **EVAL Qs Done** columns flip to true on the punch list.
+- Up to three automated text reminders go out per client, sent through the office's texting platform (Quo): the first as soon as the next run after sending finds it still outstanding, the second after a configurable number of days (14 by default), the third after another configurable gap (7 more days by default). These offsets are set in Settings under Questionnaire Reminders. Wording differs depending on whether the client is finishing up DA questionnaires, waiting on Eval questionnaires after their DA is already done ("Post-DA"), or finishing up for the final report ("Post-Eval").
+- If a client has texted the office back at all since their questionnaires were sent, the system treats them as engaged and skips the third and final reminder rather than nagging someone who's already in contact. Their pending questionnaires are marked **Ignoring** instead, so no further automated reminders go out. They're still incomplete and need staff follow-up, they just won't get auto-texted about it.
+- If three reminders have gone out and three or more days pass with no response, texting stops and the client is instead flagged in the daily admin email for a staff member to call directly.
+- A client is only ever texted once per day, even if they'd otherwise be due for more than one kind of message.
+- Reminder wording for an individual client and stage can be customized ahead of time by staff (permission-gated). Once that stage's reminder has actually gone out, the override can no longer be edited.
+
+### Failure reminders
+
+Clients stuck on "portal not opened" or "documents not signed" get their own reminder cycle, up to three text reminders with different wording, and the first one also automatically resends the portal invite. These reminders are skipped for anyone who doesn't speak English, including a heuristic that skips clients whose notes mention a PandaDoc link, since that usually means a language barrier that made someone route their paperwork through a different tool.
+
+## 5. Referral messages
+
+Handled by the same script but unrelated to questionnaires: Monday through Thursday at 10am, newly referred clients from the past 10 days who haven't been messaged yet get an initial text. If the client has no insurance on file (and hasn't already been confirmed as private pay) or no evaluator is available to take them, they get a message asking about insurance or private pay instead of the standard "we got your referral" text. Clients under 3 are also asked whether they're already working with BabyNet or Early Intervention.
+
+## 6. Staff visibility
+
+- Each client's page in the EMR has a Questionnaires table showing every questionnaire sent, its status (Pending, Completed, Post-DA Pending, Post-Eval Pending, Ignoring, External, Archived, and so on), its link, and how many reminders have gone out. Staff with permission can add a questionnaire by hand (single or in bulk), edit one, mark it done externally, or delete it.
+- The dashboard groups clients into sections that mirror the pipeline: **Qs Not Determined**, **DA Qs Pending**, **DA Qs Sent**, **DA Qs Done**, **Eval Qs Pending**, **DA+Eval Qs Pending**, **Eval Qs Sent**, **DA+Eval Qs Sent**, **Eval Qs Done**, **DA+Eval Qs Done**, and further along, **DA Scheduled**, **Post-DA**, **Eval Scheduled**, **Post-Eval**.
+- Every daily run that finds anything worth flagging (completions, clients who need a call, failures, errors) emails admins a summary. Findings from the earlier, quieter runs that day are saved and folded into that one email so nothing gets missed just because it didn't happen to occur during the 1pm run.
+
+## Pause and Autism Stop
+
+Both are set from the client's edit dialog.
+
+- **Pause** stops records requests, questionnaire sends, and all automated reminders for that client completely, until it's unchecked.
+- **"Autism" in Records** (referred to internally as autism stop) is meant to show a warning banner on the client's page when school or outside records already mention autism, so staff notice it early. In practice it also fully halts the questionnaire pipeline the same way Pause does, no sends and no reminders go out while it's checked, so treat it as a hard stop on the process, not just a banner.

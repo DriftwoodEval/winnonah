@@ -1,27 +1,49 @@
 ---
 title: Records Request Process
-needsCleanup: true
 ---
 
-Getting a client's school records is a mix of manual review in the EMR and an automated script that sends the actual request.
+_This page doesn't have screenshots yet._
+
+Before questionnaires can be sent, a client's school (or, sometimes, an outside provider's) records need to be requested and reviewed. This is a mix of manual review in the EMR and an automated script that sends the actual request.
 
 ## 1. Determine if records are needed
 
-On intake, staff set the client's `Records Needed` status to `Needed` or `Not Needed`. Both "Notes Only" and real clients can have this status set, although Notes Only clients will not have requests sent, it's just to save that information for later. Until this is set, the client shows up under **Records Status Not Set** on the dashboard.
+On intake, staff set the client's **Records Needed** field to **Needed** or **Not Needed**. Both real clients and "Notes Only" clients (used to hold information before someone is a real client) can have this set, but Notes Only clients never get an automatic request sent. It's just there to save the information for later, in case they become a real client. Until **Records Needed** is set at all, the client shows up under **Records Status Not Set** on the dashboard.
+
+ADHD-only clients don't need this step: an ADHD workup doesn't rely on school records the way an autism screening does, so they're treated as record-ready automatically regardless of what's set here.
 
 ## 2. Automated requesting
 
-Someone runs the records request script by hand (it is not on a schedule). When run, it picks up all pending requests and does the actual sending:
+Someone runs the records request script by hand (it's not on a schedule). When run, it picks up every client where:
 
-1. Finds clients that need records, have no requested date yet, and aren't paused or already flagged as an autism stop case.
-2. Logs into the client portal and confirms the consent forms have been signed.
-3. Downloads the "Receiving" and "Sending" Consent to Release of Information forms as PDFs.
-4. Reads the school district name off the consent PDF and checks it against the district on file for the client. If it doesn't match, it falls out for manual review.
-5. Looks up the district's contact info (email, and whether to fax instead of email) from the QSuite Records Config. If there's no contact on file, it falls out for manual review.
-6. Builds the outgoing message (student name, date of birth, standard request language plus any custom message) and sends it, attaching a fax cover sheet if needed.
-7. Marks the request as sent, which just means filling in the **Requested** date field on the client's Records section.
+- **Records Needed** is **Needed**,
+- no request has been sent yet (or a new one has been queued, see Queuing more requests below),
+- the **Hold until** date is empty or has already passed,
+- the client is active (not inactive),
+- the client speaks English, and
+- the client isn't a Notes Only/shell record.
 
-If any step fails (portal not opened, docs not signed, district mismatch, no contact on file, etc.), it logs a failure that shows up as an alert on the client's page in the EMR.
+For each one, it:
+
+1. Logs into the client's portal in TherapyAppointment and confirms they've opened the portal and signed their consent forms. If either isn't done yet, it stops here for this client and tries again automatically on a future run, no one needs to do anything unless the family is stuck.
+2. Checks whether this client's consent PDFs were already saved from an earlier run. If both are already sitting in the Drive folder, it treats the request as already handled and skips re-downloading and re-sending, as a safeguard against sending a district the same request twice.
+3. Downloads the "Receiving" and "Sending" Consent to Release of Information forms as PDFs and saves them to a Google Drive folder.
+4. Reads the school district name printed on each PDF.
+5. Checks that name against the district on file for the client, and against the configured list of district contacts (email, and whether to fax instead of email). If there's no contact on file for that district, or the district printed on the form doesn't match what's in the EMR, it falls out for manual review.
+6. Builds the outgoing message (student name, date of birth, standard request language, plus any custom **Email request line**) and sends it, attaching a fax cover sheet if the district needs a fax instead of an email.
+7. Marks the request as sent, which just fills in the **Requested** date field on the client's Records section, and moves the consent PDFs into a "sent" Drive folder.
+
+If any step fails, it logs a failure that shows up as an alert on the client's page in the EMR.
+
+### Edge cases
+
+- **The two consent forms name different schools.** If the "Sending" and "Receiving" forms don't agree on which district to use, the request fails as a mismatch rather than guessing. This clears itself automatically once a later request goes out with matching forms, no one has to manually resolve it.
+- **The school field was left blank on a consent form.** The automation can tell when a form's school line is empty (it sees the next line's label instead of a school name) and fails rather than sending a request with no destination. The family needs to re-sign that consent form with the school filled in.
+- **The district on the form doesn't match the district in the EMR.** This needs a person to confirm which one is right before anything gets sent, so it falls out for manual review instead of guessing.
+- **No contact info on file for a district.** Falls out for manual review; someone needs to add that district's email or fax number to the configured contact list before it can be requested automatically.
+- **Common misspellings and wording differences** in a district's printed name ("Berkley" for "Berkeley," "X County School District" vs. plain "X") are normalized automatically, so they don't cause false mismatches.
+- **Spanish-speaking clients are skipped by the automation entirely**, since the consent forms and portal are English-only. These need to be requested manually.
+- **Pause and "Autism" in Records don't stop this script.** Unlike the questionnaire-sending automation, the records request run doesn't check either the **Pause** or **"Autism" in Records** flags. A paused or autism-flagged client can still get an automatic records request sent if **Records Needed** is **Needed** and nothing else above is blocking it. Keep that in mind if you're relying on Pause to hold everything for a client.
 
 ## 3. Manual review
 
@@ -39,12 +61,12 @@ Clients that need records but don't have a request sent yet show up under **Reco
 
 ## 5. Review and log the response
 
-Once the district responds, staff add a note in the client's Records section, using one of the note templates (District/Outside - Autism, No Autism, No Response, No Records). Using one of the two **Autism** templates automatically flags the client as an autism stop case.
+Once the district (or outside provider) responds, staff add a note in the client's Records section, using one of the note templates: **District - Autism**, **District - No Autism**, **Outside - Autism**, **Outside - No Autism**, **No Response**, or **No Records**. Using either of the two "Autism" templates automatically checks the **"Autism" in Records** flag for that client.
 
-Adding a note marks the records process as done, which allows questionnaires to be sent to the family.
+Adding a note marks the records process as done, which allows questionnaires to be sent to the family. See the Questionnaire Process page for what happens next.
 
 Clients with a request sent but no note yet show up under **Records Requested - Not Returned** on the dashboard.
 
 ## BabyNet evaluation reports
 
-BabyNet evaluation reports are tracked separately with their own Needed/Downloaded status. There is no automation associated, they just show up on various lists.
+BabyNet evaluation reports are tracked separately with their own **Needed**/**Downloaded** status. There is no automation associated with this, clients simply show up on various dashboard lists based on it.
