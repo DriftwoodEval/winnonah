@@ -25,7 +25,7 @@ Worth noting: winnonah's **own** Python sidecar does not call this endpoint, it 
 
 `checkInternalApiAuth` also guards `GET /api/internal/client-info?id=<clientId>` (`src/app/api/internal/client-info/route.ts`), same bearer-token/rate-limit/audit-log mechanism as above. It returns a client summary (demographics, notes text, records status, most recent confirmed appointment, and a `questionnaires` array).
 
-**This route's consumer isn't in either repo.** Its doc comment says it's for "the questionnaires app," and nothing in the `questionnaires` repo calls it, but that's because the actual caller is a set of Google Apps Scripts (Google Sheets/Docs-side automation) outside both codebases, not a gap or dead code. Those scripts aren't documented yet, that's tracked as separate follow-up work.
+**This route's consumer isn't in either repo.** Its doc comment says it's for "the questionnaires app," and nothing in the `questionnaires` repo calls it, but that's because the actual caller is a set of Google Apps Scripts (Google Sheets/Docs-side automation) outside both codebases, not a gap or dead code. One confirmed caller is the **Office Agenda** Apps Script project's `fetchClientData` function, used to build the [Appointment Agenda Emails](/docs/procedures/appointment-agenda-emails) it generates; other scripts calling this route aren't documented yet, that's tracked as separate follow-up work.
 
 ## Calls from winnonah's TS routers into `PY_API`
 

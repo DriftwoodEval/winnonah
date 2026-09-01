@@ -1,0 +1,32 @@
+---
+title: Weekend Office Greeter Scheduling
+needsCleanup: true
+---
+
+A separate weekly job, driven by the same Google Apps Script project (**Office Agenda**, outside both the `winnonah` and `questionnaires` repos) that builds [Appointment Agenda Emails](/docs/procedures/appointment-agenda-emails), but unrelated to it. This one emails staff about weekend office coverage and keeps a shared "Shift Claims" Google Sheet up to date so people can sign up for greeter shifts.
+
+## The two weeks involved
+
+Each run looks at two different calendar weeks at once:
+
+- **The coming week.** The week starting next Monday. This is the week the email is chasing people to actually claim shifts for, using whatever's currently sitting in the Shift Claims sheet.
+- **The week after that.** The week starting the Monday after. This is the week the script previews straight from the calendar and pre-populates into the Shift Claims sheet as newly claimable rows, so people get a head start signing up before it becomes "the coming week" on a future run.
+
+## What the weekly email contains
+
+One email, subject "Greeter(s) Needed for {date range}," sent automatically (not a draft) from tech@driftwoodeval.com to a fixed distribution list, with two sections:
+
+- A preview of the office schedule for the week after next, built straight from calendar events: which offices have appointments each day and who's evaluating there, with a link to the Shift Claims spreadsheet to go claim a slot.
+- The current claimed/unclaimed status for the coming week, read from the Shift Claims sheet itself: which shifts already have a name attached and which are still open.
+
+## How shift rows get onto the spreadsheet
+
+For the week after next, the script works out one shift per office per day: office/date pairs come from real calendar appointments (using the same office-code-in-the-title parsing as the appointment agenda emails), and each shift's start/end time is set to 30 minutes before the earliest appointment and 30 minutes after the latest one at that office that day. A day/office with no matching row yet gets a new row added, with an empty **Claimed By**. A day/office that already has a row just gets its **Times** and **Scheduled Staff** columns refreshed, whatever's already in **Claimed By** is left untouched, so a shift someone already claimed doesn't get unclaimed just because the underlying appointment schedule shifted slightly.
+
+A second, separate function checks the Shift Claims sheet for anything still unclaimed in the coming week specifically and sends a reminder email about just those.
+
+## Edge cases
+
+- **One calendar is excluded from this pass entirely** (a fixed calendar ID configured in the script), separate from the exclusion list used for appointment agenda emails.
+- **Only recognized office locations get a shift row.** Appointments the location-parsing logic can't match to a known office, or that come back "Virtual," don't produce a greeter shift, there's no shift to claim for those.
+- **This script lives entirely outside both the `winnonah` and `questionnaires` repos**, in the same Google Apps Script project as the appointment agenda emails. Changing its behavior means editing it directly in the Apps Script editor, not either codebase.

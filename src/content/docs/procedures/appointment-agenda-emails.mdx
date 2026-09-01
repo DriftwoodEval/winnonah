@@ -1,0 +1,29 @@
+---
+title: Appointment Agenda Emails
+needsCleanup: true
+---
+
+Each evaluator's own Google Calendar drives a weekly draft email summarizing their coming week of client appointments. A Google Apps Script project called **Office Agenda** (outside both the `winnonah` and `questionnaires` repos, see [Architecture](/docs/development/architecture) for the internal API it calls into) does the work; nothing gets sent without a person reviewing and sending the draft themselves.
+
+## How it works
+
+1. On a schedule, the script looks at every Google Calendar on the account except three: a shared contacts/address-book calendar, and the personal calendars belonging to barbara@driftwoodeval.com and karenaston@driftwoodeval.com. Those three never get an agenda built for them.
+2. For each remaining calendar, that's each evaluator's own calendar, it looks at that calendar's events for the coming week (the upcoming Monday through the following Sunday).
+3. Non-client entries are filtered out before anything else happens: placeholder events, all-day events, events spanning multiple days, and anything whose title exactly matches (or contains) a long list of known internal/admin titles, office markers like "office," "in office," "columbia," short office initials like "ap," and internal items like "focus time," "leave open," "follow up," "meeting with," "webinar," "conference," "training," "team meeting," "out of office," "available," "meet with," "office hours," "shadowing." Whatever's left is treated as a real client appointment.
+4. What's left, per evaluator, gets grouped by day and turned into a Gmail **draft**, never sent automatically, addressed to that evaluator with andrew@driftwoodeval.com and barbara@driftwoodeval.com cc'd, subject "Appointments for {date range}." An evaluator with nothing left after filtering just doesn't get a draft that week.
+
+## What's in each appointment entry
+
+For each qualifying calendar event, the script:
+
+- Pulls a 7-digit client ID out of the event's **description** text (not the title) and, if found, looks the client up live through the app's internal client-info API, the same endpoint noted on the [Architecture](/docs/development/architecture) page as called by Google Apps Scripts outside both repos: this script is one of them.
+- Uses the client's real name from that lookup when it's available; otherwise it guesses a name from the event title itself (stripping out any appointment-type or office codes first).
+- Reads the appointment type (DA, Evaluation, or DA+Evaluation) and the location/office straight out of the event title, not from the API lookup: a short bracketed code (like `[XXX-D]`) or, failing that, plain text ("DA," "EVAL," "DA+EVAL") in the title, plus optional ADHD/LD prefixes and whether an interpreter is needed.
+- When the API returns them, the email also includes the client's age, records status, BabyNet Evaluation Report status, one line per questionnaire (with a "sent {date}" note for anything still outstanding), and any client note on file. A field the API doesn't return for that client is simply left off the email, not shown as blank.
+
+### Edge cases
+
+- **Phone number only ever appears on one evaluator's agenda.** The script hardcodes showing the client's phone number solely on the draft for shannon@driftwoodeval.com's calendar, nobody else's. This is a hardcoded special case written into the script itself, not a setting anyone can change from the app.
+- **An event with no 7-digit ID in its description never gets an EMR lookup.** It still shows up as an entry, with a name guessed from the calendar title, just without any of the age, phone, records, BabyNet, questionnaire, or note detail.
+- **Title-based filtering can catch a real client by accident.** Any event whose title happens to exactly match (or contain) one of the internal/admin phrases above is silently dropped from the agenda, the same as an actual office or meeting entry would be.
+- **This script lives entirely outside both the `winnonah` and `questionnaires` repos**, in a separate Google Apps Script project. Changing its behavior means editing it directly in the Apps Script editor, not either codebase.
