@@ -23,8 +23,10 @@ externalRecordsEmitter.setMaxListeners(100);
 /**
  * Whenever recordsNeeded is set to "Needed", this must be called so
  * records-request.py (which INNER JOINs against external_record_request)
- * can actually pick the client up. Private-school clients are skipped since
- * there's no district contact to send an automated request to.
+ * can actually pick the client up. This includes private-school clients:
+ * they get a row so the outstanding-records state is visible, and
+ * records-request.py excludes them by the referralData.privateSchool flag
+ * instead (staff request their records manually).
  *
  * A pending row from before the client's current session (a re-referral)
  * doesn't count as "already requested": records-request.py's own query
@@ -37,10 +39,7 @@ export async function ensurePendingExternalRecordRequest(
 		session: { user: { email?: string | null } };
 	},
 	clientId: number,
-	isPrivateSchool: boolean,
 ) {
-	if (isPrivateSchool) return;
-
 	const client = await ctx.db.query.clients.findFirst({
 		where: eq(clients.id, clientId),
 		columns: { sessionStartedAt: true },

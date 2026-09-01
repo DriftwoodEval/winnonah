@@ -1168,14 +1168,7 @@ export const googleRouter = createTRPCRouter({
 						.where(eq(clients.id, input));
 
 					if (recordsNeeded === "Needed") {
-						const isPrivateSchool =
-							client.referralData?.privateSchool === "yes";
-
-						await ensurePendingExternalRecordRequest(
-							ctx,
-							input,
-							isPrivateSchool,
-						);
+						await ensurePendingExternalRecordRequest(ctx, input);
 					}
 				}
 

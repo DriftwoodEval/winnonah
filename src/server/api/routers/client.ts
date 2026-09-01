@@ -2394,21 +2394,7 @@ export const clientRouter = createTRPCRouter({
 			}
 
 			if (input.recordsNeeded === "Needed") {
-				const referralData =
-					input.referralData ??
-					(
-						await ctx.db.query.clients.findFirst({
-							where: eq(clients.id, input.clientId),
-							columns: { referralData: true },
-						})
-					)?.referralData;
-				const isPrivateSchool = referralData?.privateSchool === "yes";
-
-				await ensurePendingExternalRecordRequest(
-					ctx,
-					input.clientId,
-					isPrivateSchool,
-				);
+				await ensurePendingExternalRecordRequest(ctx, input.clientId);
 			}
 
 			const updatedClient = await ctx.db.query.clients.findFirst({
@@ -2998,14 +2984,7 @@ export const clientRouter = createTRPCRouter({
 					.where(eq(clients.id, clientId));
 
 				if (fakeClient.recordsNeeded === "Needed") {
-					const isPrivateSchool =
-						realClient.referralData?.privateSchool === "yes";
-
-					await ensurePendingExternalRecordRequest(
-						ctx,
-						clientId,
-						isPrivateSchool,
-					);
+					await ensurePendingExternalRecordRequest(ctx, clientId);
 				}
 			}
 
