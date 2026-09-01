@@ -1,0 +1,20 @@
+---
+title: Greeter Schedule
+needsCleanup: true
+---
+
+A simple lookup: who's covering the front-desk/greeter role at each office on a given day, and their phone number to call. Anyone signed in can view it, no special permission needed. Navigate one day at a time with the arrows.
+
+## Where the numbers come from
+
+The schedule itself lives in a Google Sheet, staff enter a name per office per day there, this page only displays it, it doesn't edit the sheet. To turn a bare name into a clickable phone number, the app looks for a staff account whose name matches (or starts with) that name and uses the phone number on file for that account. If nothing matches, the row just shows **No number on file** instead of a number, this is a name-matching lookup against staff accounts, not a live caller-ID system, so an unusual spelling or nickname on the sheet can quietly break the match.
+
+## Texting the greeter number
+
+Any staff member whose phone number is on file can text the greeter number directly and get that same day's list texted right back automatically, no need to open the app. This is entirely backend, it never shows up anywhere in the app itself, not even in the Recent Messages popover on the [Day Ahead](/docs/procedures/day-ahead) page (that popover is scoped to client conversations, unrelated to the greeter line's own texts), the only visible effect is the reply landing on the sender's phone.
+
+## Edge cases
+
+- **If a greeter's name on the sheet doesn't closely match a staff account's name, their number won't show.** Worth checking the sheet entry uses the same first name the staff account is set up with.
+- **Texting the greeter number only works for numbers already on file for a staff account.** An unrecognized number is silently ignored, no reply, no error, nothing logged anywhere staff would see.
+- **This same schedule is also shown inline on the [Day Ahead](/docs/procedures/day-ahead) page**, next to each office, this standalone page is just the same data in one focused list.

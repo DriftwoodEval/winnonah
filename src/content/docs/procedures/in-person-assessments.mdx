@@ -1,0 +1,27 @@
+---
+title: In-Person Assessments
+needsCleanup: true
+---
+
+A client's In-Person Assessments table (on their EMR page) tracks the assessments given face-to-face during an appointment, the counterpart to the Questionnaires table for anything that isn't a link a family fills out on their own. This is the same "in-person assessments" category referenced in [Insurance Codes (Additional Appointments)](/docs/procedures/insurance-codes) and the [Questionnaire Process](/docs/procedures/questionnaires) battery rules, whether an assessment type counts as in-person is a flag set on that assessment type in Settings.
+
+## How rows get here
+
+Most rows appear automatically: when a client's DA, Eval, or DA+Eval appointment comes in from TherapyAppointment, the system adds one row per in-person assessment their battery calls for at their current age and diagnosis, linked to that appointment. This is safe to happen more than once, an assessment already tracked for a client never gets duplicated.
+
+Staff can also add one by hand with the **Add** button (**Add In-Person Assessment**), picking from whichever in-person assessment types aren't already tracked for that client.
+
+## Marking status
+
+Each row's actions menu offers **Mark as External** (the assessment was completed outside this system, mirroring the same status on the Questionnaires table) or **Clear Status** to undo that, and **Remove** (with a confirmation) to take it off the list entirely.
+
+The **Source** column shows where a row came from: a linked appointment's date and type badge if it was auto-added from a real appointment, **Imported** if it's linked to an appointment record that doesn't resolve to a start time, or **Manual** if staff added it by hand.
+
+## Session history
+
+If a client has been reactivated before, older assessment rows from their previous session show up grayed out, tagged **Previous session**, rather than disappearing. When a client flips from inactive back to active, whatever was tracked gets archived into that history and the live list starts fresh, the same reset pattern used for questionnaires.
+
+## Edge cases
+
+- **Auto-added rows only happen off a real appointment import.** An assessment added by hand has no appointment to link back to, so it always shows as **Manual** in the Source column, that's expected, not a sign something didn't sync.
+- **"Previous session" rows are read-only history.** They exist so nothing from before a reactivation gets silently lost, not for staff to edit going forward.

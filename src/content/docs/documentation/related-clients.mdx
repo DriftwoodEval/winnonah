@@ -1,0 +1,23 @@
+---
+title: Related Clients
+needsCleanup: true
+---
+
+A client's **Related Clients** card links their record to other client records, most often family sharing a household, though the system doesn't actually track what the relationship is, it's a plain connection, not a labeled one (no "sibling" or "guardian" distinction anywhere).
+
+## Linking
+
+The **+** button opens **Link Related Client**, a client search pre-filled with the current client's last name. Picking someone links both records to each other in one step, there's no separate "link the other direction" action needed.
+
+The card also proactively suggests links: any other client sharing the exact same phone number on file shows up under **Suggestions** with a one-click button to link them, useful for catching family members who share a household line without anyone having to search for them.
+
+Removing a link (hovering a linked row reveals an **X**) unlinks both directions at once.
+
+## Where it shows up
+
+Just the Related Clients card itself, each linked client is a clickable row over to their own record. It isn't connected to Fax Categorization's candidate-client matching, even though that feature's client-linking box looks similar, that similarity is a shared search component, not a shared relationship, fax-to-client matches and client-to-client relationships are two separate ideas that happen to reuse the same search UI.
+
+## Edge cases
+
+- **A client can't be linked to themselves**, that action is rejected outright.
+- **The relationship carries no type or label.** If it matters why two clients are linked, that has to be tracked in notes, not in this feature.

@@ -1,0 +1,35 @@
+---
+title: Day Ahead
+needsCleanup: true
+---
+
+The Day Ahead page is the day-of operational view: today's (or any day's) already-booked appointments, who's in the building, and check-in status. It's not for building anyone's schedule, see [Scheduling Queue](/docs/procedures/scheduling) for that, this is purely for working a day that's already set. Anyone signed in can view it, no special permission required (checking someone in or out is its own permission, see [Appointment Check-In](/docs/procedures/appointment-checkin)).
+
+## Views
+
+Four switchable views:
+
+- **List** (the default): two sections, **Your Day** (your own appointments for the selected date, only works if your account is linked to an evaluator profile) and **Who's In** (everyone else's appointments, grouped by office, each office showing that day's greeter next to its header).
+- **Day**: a real calendar grid, one column per evaluator who has appointments that day.
+- **3-Day** / **Week**: the same grid, but columns are dates instead of evaluators, with each evaluator's appointments laned side by side within a day.
+
+Navigate with the chevron arrows (shifts by one day in List/Day, by the view's whole span in 3-Day/Week), or the **Today** button, which only appears when today isn't already in view.
+
+## What you can do from here
+
+- Click through to a client's record, or straight to their Google Drive folder or TherapyAppointment portal.
+- Open a **Recent messages** popover on any appointment to see the actual text thread with that client, distinguishing automated sends (questionnaire and appointment reminders) from a real reply, highlighted when a genuine reply landed right around the appointment time.
+- Check an appointment in or out, either from the inline row control or a small status indicator on each calendar block, see [Appointment Check-In](/docs/procedures/appointment-checkin) for the full mechanics.
+- Call a greeter directly, their number is a tap-to-call link wherever it shows.
+
+There's no appointment creation, rescheduling, cancellation, or office/evaluator filtering anywhere on this page. It's a read view over whatever's already booked, with check-in actions layered on top.
+
+## Home page widgets
+
+Two compact widgets pull from the same data as the full page: **My Day** (your own appointments, with its own independent date navigation) and **Who's In** (everyone else's, grouped by office). A **Greeter Schedule** widget is also available separately. None of the three require a permission to add to your home page.
+
+## Edge cases
+
+- **Your Day only works if your account is linked to an evaluator profile.** If it isn't, the section just says so and shows nothing.
+- **The calendar views always show every evaluator with appointments that day.** There's no way to narrow it to specific people.
+- **Greeter info shown here comes from the same schedule as the standalone [Greeter Schedule](/docs/procedures/greeter-schedule) page**, see that page for how a name on the sheet turns into a clickable phone number.

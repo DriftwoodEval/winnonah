@@ -1,0 +1,37 @@
+---
+title: Claim Reports
+needsCleanup: true
+---
+
+Evaluators write reports by claiming a folder from a shared Google Drive queue of finished-but-unwritten client folders. The page is at **Claim Reports**, visible to anyone with a nonzero claim limit or anyone who can approve reports.
+
+## 1. Claiming a report
+
+The Report Queue card shows "**X of Y report(s) claimed**" and a **Claim Next Report** button.
+
+Clicking it claims whichever folder is oldest in the shared queue, moves it into your own Drive writing folder, and writes your initials plus today's date (for example "JP 9/1") into the punch list's **Assigned to OR added to report writing folder** column for that client, the same column [Piecework / Evaluator Billing Process](/docs/procedures/piecework) later reads to figure out who gets credit for the report. Your initials come from the same staff name mapping used for piecework billing (**Settings > QSuite > Piecework**), so if a claim looks right but pay credit doesn't show up later, that mapping is the first thing to check.
+
+A **My Folder** button opens your own Drive writing folder directly. Once you're at your claim limit (one by default), the button is blocked with a message naming which report needs approval before you can claim another. A claim can also be blocked outright if the client's most recent evaluator is on your blocked-evaluators list, an authorization check on who's allowed to write for whom.
+
+## 2. Approving a report
+
+Staff with the **Approve Reports** permission additionally see:
+
+- The full folder queue, not just a count.
+- A **Claimed Reports** panel listing every currently claimed folder across all staff, who claimed each one, with an **Approve and Release** button per row.
+
+Approving frees up that person's claim slot and emails them that their report was approved.
+
+## 3. Getting notified about new reports
+
+Separately, anyone with the **Receive Report Queue Notifications** permission and nothing currently claimed gets emailed whenever a genuinely new folder appears in the queue, once per folder, not repeated on every check. This runs on its own background schedule, there's no equivalent in-app list of "who got notified."
+
+## 4. Settings
+
+**Settings > People** has a **Report Queue** section with exactly one setting: **Default max claimed reports** (1 to 10), the site-wide default claim cap. An individual person can have their own override set on their own account settings instead of using the default.
+
+## Edge cases
+
+- **Claiming and approving are two separate permissions.** Most report writers can claim but not approve, someone else has to release a claimed report before its writer can claim their next one.
+- **The queue notification email only fires once per newly-appeared folder.** It's not a repeating nag, if it was missed, there's no second reminder for that same folder.
+- **A claim blocked by the evaluator-authorization check shows as a plain error**, not a distinct explanation. If a claim fails unexpectedly, that's worth checking before assuming something's broken.

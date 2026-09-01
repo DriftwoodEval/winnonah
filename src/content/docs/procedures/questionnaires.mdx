@@ -70,6 +70,7 @@ Handled by the same script but unrelated to questionnaires: Monday through Thurs
 
 - Each client's page in the EMR has a Questionnaires table showing every questionnaire sent, its status (Pending, Completed, Post-DA Pending, Post-Eval Pending, Ignoring, External, Archived, and so on), its link, and how many reminders have gone out. Staff with permission can add a questionnaire by hand (single or in bulk), edit one, mark it done externally, or delete it.
 - The dashboard groups clients into sections that mirror the pipeline: **Qs Not Determined**, **DA Qs Pending**, **DA Qs Sent**, **DA Qs Done**, **Eval Qs Pending**, **DA+Eval Qs Pending**, **Eval Qs Sent**, **DA+Eval Qs Sent**, **Eval Qs Done**, **DA+Eval Qs Done**, and further along, **DA Scheduled**, **Post-DA**, **Eval Scheduled**, **Post-Eval**.
+- A **Protocols Scanned** checkbox sits right on the Questionnaires table too, and it isn't just a reminder note: a client with a past testing appointment (CPT 96130) whose protocols haven't been marked scanned gets pulled out of **Post-Eval** entirely and shown under a separate **Needs protocols scanned** dashboard section instead, until someone checks it.
 - Every daily run that finds anything worth flagging (completions, clients who need a call, failures, errors) emails admins a summary. Findings from the earlier, quieter runs that day are saved and folded into that one email so nothing gets missed just because it didn't happen to occur during the 1pm run.
 
 ## Running the scripts manually

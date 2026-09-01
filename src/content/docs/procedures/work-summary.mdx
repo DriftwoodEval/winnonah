@@ -1,0 +1,27 @@
+---
+title: Work Summary
+needsCleanup: true
+---
+
+**Work Summary** is a manager-facing dashboard covering every evaluator over a chosen date range, not a personal self-report. It's a separate feature from [Piecework / Evaluator Billing](/docs/procedures/piecework), that page determines pay, this one is for spotting patterns in appointment load, lateness, and reporting.
+
+## Picking a range
+
+A range toggle (**4 Weeks**, **3 Months**, **6 Months**, or **Custom** with its own from/to date pickers) sets the window, and a separate **Display** toggle (**Total**, **Avg / Wk**, **Median / Wk**) controls how the appointment counts below are aggregated, a running sum for the whole range, or a per-week average or median.
+
+## The five cards
+
+- **Appointments by Evaluator**: counts per evaluator, broken out by DA/EVAL/DAEVAL, and for EVAL/DAEVAL further split by diagnosis (ASD, ADHD, ASD+LD, ADHD+LD, LD) and age band. Clicking a row opens the individual appointment list behind that number, date, client, type, and (when available) projected versus logged minutes for each.
+- **Reports Written**: a count per writer, sourced from the same report-tracking data [Piecework](/docs/procedures/piecework) uses to figure out who gets credit for a report.
+- **Appointment Timing**: per evaluator, average and median actual duration versus expected, and average and median late start, sourced from the check-in times documented in [Appointment Check-In](/docs/procedures/appointment-checkin).
+- **Evaluator Arrival Lateness**: per evaluator, average and median lateness comparing their day check-in to their first scheduled appointment.
+- **Appointment Check-ins**: a count of check-ins performed, grouped by who logged them.
+
+## Where "expected duration" comes from
+
+Projected/expected minutes are looked up per evaluator first (their own configured durations, if set), falling back to a site-wide default. Those defaults live at **Settings > People**, under **Default Appointment Durations**: a grid of hour values (half-hour steps) for DA, and for EVAL/DAEVAL split by age band and diagnosis. Editing the defaults requires the **Manage Evaluators** permission, and they only apply when an individual evaluator has nothing more specific configured for that same combination.
+
+## Edge cases
+
+- **Projected Hours and Logged Hours columns only appear when there's actually duration data to show.** Their absence for an evaluator or range isn't a bug, it just means nothing to compute from yet.
+- **The default durations are a fallback, not an override.** An evaluator with their own duration set for a given appointment type/age/diagnosis combination won't be affected by changing the site-wide default for that same combination.
