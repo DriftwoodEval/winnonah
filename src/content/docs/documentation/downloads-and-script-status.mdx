@@ -1,0 +1,19 @@
+---
+title: Downloads & Script Status
+needsCleanup: true
+---
+
+Settings > **Downloads** (gated by the **Download CSVs** permission) has two unrelated things on it: raw CSV exports for anyone who needs the underlying data outside the app, and a quick health check for whether the automation scripts across both repos actually ran recently.
+
+## CSV downloads
+
+Seven buttons, each downloading one CSV straight from the Python sidecar: **Billing**, **Appointments**, **Demographic**, **Insurance**, **Chart**, **Referral Report**, and **Quo**. These are the same raw TherapyAppointment export files the automation itself reads to do the nightly import, not a report generated on demand, so a download is only as current as whenever that file was last fetched. Each button shows that file's last-modified time underneath it (or **Missing** if the file isn't there at all).
+
+## Last Script Run Times
+
+A separate panel lists the last successful run time for five scripts, spanning both repos: **Appointment Reminders** (winnonah's own background loop, see [Appointment Reminders](/docs/procedures/appointment-reminders)), **Questionnaire Send** (`qsend.py`), **Records Request** (`records-request.py`), **Piecework** (`piecework.py`), and **Questionnaire Receive** (`qreceive.py`, see [Questionnaire Process](/docs/procedures/questionnaires), [Records Request Process](/docs/procedures/records-request), and [Piecework / Evaluator Billing Process](/docs/procedures/piecework) for what each of those actually does). A blank **Missing** here for one of the manually-run scripts (Questionnaire Send, Records Request, Piecework) doesn't necessarily mean anything is broken, it just means nobody's run it yet or the run tracking itself failed; for the automated ones (Appointment Reminders, Questionnaire Receive) it's a genuine sign something stopped working.
+
+## Edge cases
+
+- **Both panels proxy straight through to the Python sidecar** (`/download-info`, `/script-run-info`, `/download/{file}`), so if the sidecar is down, this whole tab stops working even though the rest of the app keeps running.
+- **A recent "last run" time only confirms the script started and finished successfully**, not that it actually found and processed everyone it should have. Cross-check against the actual pipeline (the [Main Dashboard](/docs/documentation/main-dashboard) or a script's own `--dry-run`/debug flags) if something seems stuck despite a fresh run time.

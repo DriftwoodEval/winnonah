@@ -1,0 +1,36 @@
+---
+title: Main Dashboard
+needsCleanup: true
+---
+
+The **Dashboard** link in the nav (gated by the **Dashboard** permission) opens the practice's day-to-day pipeline queue: an accordion of sections, one per stage a client passes through on the way from intake to a finished report. This is a different page from the [Issues Dashboard](/docs/documentation/issues-dashboard), which surfaces data problems and cleanup work, not pipeline progress. It's also different from the home page's own widgets (see [Getting Started with the Home Page](/docs/documentation/intro-to-home)), which show slices of the same underlying data in a smaller, customizable form.
+
+## How sections work
+
+Each section corresponds to one pipeline stage (Records Status Not Set, DA Qs Sent, Post-Eval, and so on) and shows a live count in its header. Opening a section shows an alert at the top explaining, in plain language, what that stage means and what to do to move a client past it, so this page is largely self-explanatory once you open a section. A client can appear in more than one section at once if it genuinely matches more than one stage's criteria.
+
+A few sections aren't tied to a specific pipeline stage:
+
+- **Active and Not On Punchlist**: active clients missing from the prioritization sheet entirely.
+- **Inactive and On Punchlist**: clients still on the sheet despite being marked inactive, they should be removed from the sheet or reactivated.
+- **Clients in Multiple Filters**: clients matching more than one stage at once, usually a sign of a data inconsistency worth a second look.
+- **Just Added/Other**: clients that don't match any specific stage yet.
+- **Needs Outreach** / **Reached Out - Needs Review**: the same [Outreach Process](/docs/procedures/outreach) queue, for clients who are in TherapyAppointment or Notes Only but not yet on the prioritization sheet.
+
+A red **Duplicate Punchlist Entries** alert appears above everything if the same client ID shows up on the prioritization sheet more than once, linking straight to each affected client.
+
+## Insurance Review, inline
+
+For staff with the **Edit Insurance Review Notes & Claim** permission, an **Insurance** heading and its own **Insurance Review** accordion section appear above the Records sections, showing every client with insurance review currently enabled. It has its own toggle row: **All**/**Mine** (filters to review items claimed by you) and a **Waiting** checkbox (filters to items flagged waiting). These choices are remembered per person. See [Insurance Review](/docs/procedures/insurance-review) for what enabling review and the Waiting flag actually mean.
+
+## Extra actions available right from the list
+
+- **Claim / Unclaim**: on the Needs Outreach section, staff with the **Claim Clients for Outreach** permission get a button per client to claim or release it, the same claim tracked on the Referral tab.
+- **Add to Scheduling**: on the DA Qs Done, Eval Qs Done, and DA+Eval Qs Done sections, a small calendar-plus icon adds that client straight to the [Scheduling Queue](/docs/procedures/scheduling) with the appropriate billing code (90791 for DA, 96136 for Eval) pre-filled, without leaving the dashboard. A client already on the Scheduling queue shows a checkmark icon instead, and the section header shows a running count like "3/8 on scheduling page."
+- **Pin your place**: hovering between two clients in any section reveals a pin icon; clicking it remembers that spot (per section, per person) so leaving the page and coming back scrolls straight back to it, with a **Go to saved** shortcut at the top of the section. The same pinning pattern exists on the [Issues Dashboard](/docs/documentation/issues-dashboard).
+
+## Edge cases
+
+- **Scroll position and which accordion sections are open both persist across visits**, stored in the browser's session storage, not per-account, so it resets in a new tab or after closing the browser.
+- **The dashboard refreshes itself automatically** every 3 minutes while the page is open, no manual refresh needed to see recent changes reflected.
+- **A client can vanish from a section without anyone touching that client directly**, since section membership is recalculated from live data (the prioritization sheet plus several EMR fields) every time the page loads, not stored anywhere as a "current stage."

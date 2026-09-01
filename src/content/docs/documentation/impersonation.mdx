@@ -1,0 +1,26 @@
+---
+title: Impersonating Another User
+needsCleanup: true
+---
+
+Staff with the **Impersonate Users** permission get a **View as...** control in the header (a masked-face icon on narrower screens, "Acting as: `<name>`" spelled out on wider ones) that lets them browse the app as if signed in as a different user entirely, home page, permissions, everything user-scoped included, without knowing that person's password.
+
+## How it works
+
+Picking a name from the dropdown sets a cookie the app reads on every request from then on. While it's set, the entire session, both the Next.js app and (since they share the same session cookie and DB) the Python sidecar, behaves as the impersonated user: their name, their permissions, their home page widgets, their view of every screen. Picking **Myself** clears it and everything reverts immediately. Switching triggers a full page reload either way.
+
+## Who can see the control, and a permission check on every request
+
+The control itself stays visible the whole time you're impersonating someone, even if the person you're impersonating doesn't themselves have the Impersonate Users permission, so you can always get back to **Myself**. But starting or changing who you're impersonating always re-checks the permission against your own real account, never the identity you're currently viewing as.
+
+That check doesn't just run once at the start either: the impersonation cookie is only honored if your real account still holds Impersonate Users at the time each request is handled. If that permission is revoked from your account while you're mid-impersonation, the very next request silently drops back to your own real identity instead of erroring, the cookie itself isn't cleared, it just stops being honored.
+
+## Staying visible in the audit log
+
+Every action taken while impersonating is still written to `emr_audit_log`, and it's marked as impersonation there rather than looking like the impersonated user acted on their own. See [Audit Log](/docs/documentation/audit-log) for how to review that history.
+
+## Edge cases
+
+- **Impersonation isn't limited to the Next.js app.** Because the Python sidecar reads the same session cookie and rebuilds the same permission set (see [Cross-Repo Architecture](/docs/development/architecture)), any sidecar-backed feature also sees you as the impersonated user while it's active.
+- **You can't impersonate yourself.** The dropdown excludes whichever account you're really signed in as from the list of people to view as.
+- **Switching identities always does a full page reload**, so any unsaved work on the page you're leaving is lost, the same as a manual refresh.

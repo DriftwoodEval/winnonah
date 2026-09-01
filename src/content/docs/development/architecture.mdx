@@ -42,7 +42,7 @@ The Python sidecar (`python/api.py`, plus `appointment_reminders.py` and `greete
 - **`py-config.ts`**: fetching the latest Pearson MFA verification code from Gmail.
 - **`greeterProxy.ts`**: the greeter schedule Sheet lookup.
 
-**Auth for these calls, a third distinct mechanism**: most forward the browser's NextAuth session cookie on the fetch. `python/api.py`'s `get_current_user` reads that cookie directly, looks the session up in `emr_session`/`emr_user`/`emr_role` (same tables the Next.js app uses), and replicates the exact role-plus-per-user-override permission merge from `src/server/auth/config.ts`, including impersonation. This only works because both processes share the DB and the TS side explicitly forwards the cookie, it's not a token or shared secret like `py-config`'s auth.
+**Auth for these calls, a third distinct mechanism**: most forward the browser's NextAuth session cookie on the fetch. `python/api.py`'s `get_current_user` reads that cookie directly, looks the session up in `emr_session`/`emr_user`/`emr_role` (same tables the Next.js app uses), and replicates the exact role-plus-per-user-override permission merge from `src/server/auth/config.ts`, including [impersonation](/docs/documentation/impersonation). This only works because both processes share the DB and the TS side explicitly forwards the cookie, it's not a token or shared secret like `py-config`'s auth.
 
 **Two exceptions with no cookie forwarded and no `get_current_user` check on the Python side**: the reminder-timeline preview and the greeter-schedule lookup. Both are protected only by `protectedProcedure` on the tRPC side and by `PY_API` presumably not being internet-reachable, not by anything the Python endpoint itself enforces.
 

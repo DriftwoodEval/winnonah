@@ -29,8 +29,9 @@ Covered on its own page, since it's more of a workflow than a settings reference
 
 Editing the credentials above requires the full Services edit permission. A separate page, **Questionnaire Logins** (in the main nav), lets staff just look credentials up and copy them, gated by either that same edit permission or a lighter view-only one, no full settings access required. It shows User/Password for Medicaid, MHS, QGlobal, WPS, and NovoPsych (not TherapyAppointment, not Kimai/Quo). For QGlobal specifically, a **Fetch token email** button pulls the latest Pearson verification email straight from Gmail on demand and tries to pull the 6-digit code out of it automatically, falling back to showing the raw email if it can't find one. This is meant for whoever's actually logging into these platforms day to day, without needing full edit rights to the credentials themselves.
 
+Settings has a separate **Downloads** tab too, raw CSV exports plus a health check for whether the automation scripts actually ran recently, see [Downloads & Script Status](/docs/documentation/downloads-and-script-status).
+
 ## Edge cases
 
 - The lock-icon fields are a confirmation step, not an access boundary, they don't stop someone who already has edit access to that tab.
 - Nothing on the Services tab is masked. Treat it as sensitive whenever it's visible on a shared screen.
-- See [Cross-Repo Architecture](/docs/development/architecture) for a real gap in how these settings are protected once you get past the UI, the tRPC procedures backing this whole page currently accept requests from any logged-in user, not just ones with the right permission.
