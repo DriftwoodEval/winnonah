@@ -1,0 +1,37 @@
+---
+title: Insurance Codes (Additional Appointments)
+needsCleanup: true
+---
+
+On a client's Insurance tab, the **Insurance Codes** box works out how many additional billable appointments an assessment plan needs, and which CPT codes and units to expect on each one. It's a planning estimate, it doesn't submit anything to insurance or schedule anything itself. Gated by the **View Insurance Codes by Appointment** permission, and only shows at all for a client with a primary insurance on file or flagged BabyNet.
+
+## 1. Two sources for the numbers
+
+- **From an active pre-certification.** If the client has an insurance policy on file with a precert memo attached and currently in effect (using the most recent one if there's more than one active), the box reads the codes and units directly out of that memo's text, recognizing a few common phrasings ("96136-1", "96136 x 1", "96136 (1)", "1 Unit 96130"), and shows a **FROM PRE-CERTIFICATION** badge. Nothing is computed in this case, it's exactly what the memo says.
+- **From a computed estimate.** Otherwise, a **Compute** button (**Recompute** once it's been run before) works one out: for the client's current age and diagnosis, it looks up which questionnaires and in-person assessments the configured battery rules call for (see [Questionnaire Process](/docs/procedures/questionnaires)), adds up each one's configured minutes (the same list the [Cost and Time Calculator](/docs/documentation/cost-time-calculator)'s Manage Tests edits), and skips anything already marked done outside the system. The result is stored as a snapshot on the client, age, diagnosis, which assessment types were included or excluded, and when it was computed. **This snapshot doesn't refresh on its own.** If the battery rules change, or the client's age or diagnosis changes, someone needs to click Recompute for the box (and anything that depends on it) to reflect it.
+
+## 2. Turning that into appointments and codes
+
+Whichever source it came from, the numbers get packed into a set of appointments:
+
+- Testing/administration time becomes **96136** (one per appointment) plus **96137** (each additional unit); review/report time becomes **96130** (one per appointment) plus **96131** (each additional unit).
+- When working from a computed estimate rather than a precert, the raw minutes are padded by 50% first, to account for review and report-writing time beyond the raw testing time, before being split into those codes.
+- Everything is packed across as many appointments as needed, respecting whatever unit limits are configured for that insurance (below). A **By Appt**/**Combined** toggle switches between seeing each appointment's codes separately or everything totaled together.
+
+## 3. Where the limits come from
+
+The box matches the client's primary insurance (or, for a BabyNet client, whichever insurance is configured as BabyNet) against the list at **Settings > Insurances**, and reads that insurance's own limits:
+
+- **Max 96136/37 Units Per Day**, the cap most appointments use.
+- **Max Units on Appointment 4**, an optional separate cap just for the 4th appointment, blank means no special limit there.
+- **Max Units Per Code** (96136/96137/96130/96131 individually), optional per-code ceilings.
+- **Using 90000 billing code**, just displays a reminder badge, it doesn't change any of the math.
+- **Pre-Auth Needed**, shown as a **PRIOR AUTH REQUIRED** badge when set.
+
+If the client's insurance isn't in that Settings list at all, the box just says it isn't configured for billing code calculation and stops there.
+
+## Edge cases
+
+- **A client whose plan has never been computed is invisible to the Missing Appointments check.** The [Issues Dashboard](/docs/documentation/issues-dashboard)'s **Appointments to be Created** card reuses this same computed snapshot (and the same insurance limits) to compare how many appointments a client actually has scheduled against how many they should need. If nobody's ever clicked Compute for a client, that snapshot is empty and the client is silently skipped from that check entirely, not flagged as missing anything.
+- **A precert always wins over a computed estimate.** As long as an active policy has a readable precert memo, the box shows that, even if a computed snapshot also exists for the client.
+- **The computed snapshot is a point-in-time estimate, not a live value.** It's easy to assume it's always current since there's no visible "stale" warning, the only way to know is checking the computed-on date shown next to it.
