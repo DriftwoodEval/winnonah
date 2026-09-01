@@ -1,0 +1,43 @@
+---
+title: Issues Dashboard
+needsCleanup: true
+---
+
+The **Issues** page (linked from the red badge in the header whenever something needs attention) is a catch-all for data problems and pending cleanup work across the whole client list: things nobody actively did wrong, they're just situations the system noticed and someone with the right permission needs to look at. Each list only shows up for staff who have the matching permission, so what you see on this page may be a subset of everything listed below.
+
+Most lists let you bookmark your place with the pin icon that appears when you hover a client, so leaving the page and coming back doesn't lose your spot.
+
+## Punchlist and data-integrity issues
+
+- **Punchlist Clients Not In DB**: clients on the punchlist (prioritization sheet) whose ID doesn't match anyone in the database, usually a typo'd ID. Shows suggested matches you can apply with **Update Punch ID**.
+- **Punchlist Clients Inactive**: clients still listed on the punchlist even though they're marked inactive in the EMR, worth confirming whether they should be removed from the sheet.
+- **Duplicate Punchlist IDs**: the same client ID appears on the punchlist more than once.
+- **Duplicate Client Names**: two active clients share the same first and last name (case-insensitive). If they really are two different people, dismiss the pair with **Not Duplicates** so it stops showing up.
+- **Duplicate Drive Folders**: more than one Google Drive folder exists for the same client ID. One is marked **(Canonical Folder)**, the one on file for that client; use the refresh icon to force a recheck if you've just cleaned folders up.
+- **No Drive IDs**: clients with no Google Drive folder ID on file at all.
+- **Not in TA**: clients who weren't imported from TherapyAppointment and also weren't added through the Notes Only feature, an unusual state worth understanding before it's left alone.
+
+## Records and district issues
+
+- **Missing Districts**: clients with no school district on file.
+- **Poor Address Lookup**: the client's address info was only found after trimming it down during lookup, worth double-checking it's actually correct. A pin icon opens a dialog to fix it manually.
+- **In DD4**: clients located in Dorchester School District 4, called out because that district needs special handling elsewhere in the app.
+- **Unreviewed/Unreceived Records**: records were needed and requested more than 3 weekdays ago but nobody's logged a note on them yet. See the [Records Request Process](/docs/procedures/records-request) page for the rest of that workflow.
+- **Autism Stops**: clients whose school (or outside) records mention autism and who should be discharged from this pipeline. Setting this flag is covered in the [Questionnaire Process](/docs/procedures/questionnaires) page under Pause and Autism Stop, it fully halts questionnaire sending and reminders for that client, not just this list entry.
+
+## Questionnaire issues
+
+- **Just Added Questionnaires**: questionnaires were generated on a third-party platform but the message with the links was never actually sent to the client, they're stuck mid-send.
+- **Partial Questionnaire Batteries**: a client has some, but not all, of the questionnaires they need. Badges call out if the portal hasn't been opened or documents aren't signed yet, which usually explains why the rest weren't sent. See the [Questionnaire Process](/docs/procedures/questionnaires) page for the sending pipeline this feeds into.
+- **Clients with Duplicate Questionnaire Links**: one client has the exact same questionnaire link recorded more than once.
+- **Clients Sharing Questionnaires**: two different clients ended up with the same questionnaire link, almost always a sign a link got assigned to the wrong person.
+
+## Client status and referral issues
+
+- **Paused Clients**: clients manually paused, shown here as a reminder to review and un-pause them when appropriate. Pausing is covered in the [Questionnaire Process](/docs/procedures/questionnaires) page, it stops records requests, questionnaire sends, and reminders entirely.
+- **Evaluation In Process**: clients currently mid-evaluation, useful as a quick "who's actively in the pipeline right now" view.
+- **Appointments to be Created**: clients who have fewer scheduled appointments than their insurance calculation says they need, a scheduling gap to fill in.
+- **No Referral Source**: active clients with nothing recorded for how they found the practice.
+- **Potential Private Pay**: clients with no evaluator eligible to take them based on insurance and location, worth reaching out about private pay. A clipboard icon lets you log each outreach attempt and its notes right from this list.
+- **Drop List**: clients who've been reminded more than 3 times without completing what was asked of them. See the [Outreach Process](/docs/procedures/outreach) page for how clients land here.
+- **Notes Only**: Notes Only client records that should probably be merged into a matching real TherapyAppointment client. Shows suggested matches with a **Merge** button, or a link to the full Merge Menu. See [Merging Client Pages](/docs/documentation/merge) for how that works.

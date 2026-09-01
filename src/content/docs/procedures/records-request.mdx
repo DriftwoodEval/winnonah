@@ -62,9 +62,28 @@ Clients that need records but don't have a request sent yet show up under **Reco
 
 Once the district (or outside provider) responds, staff add a note in the client's Records section, using one of the note templates: **District - Autism**, **District - No Autism**, **Outside - Autism**, **Outside - No Autism**, **No Response**, or **No Records**. Using either of the two "Autism" templates automatically checks the **"Autism" in Records** flag for that client.
 
-Adding a note marks the records process as done, which allows questionnaires to be sent to the family. See the Questionnaire Process page for what happens next.
+Adding a note marks the records process as done, which allows questionnaires to be sent to the family. See the [Questionnaire Process](/docs/procedures/questionnaires) page for what happens next.
 
 Clients with a request sent but no note yet show up under **Records Requested - Not Returned** on the dashboard.
+
+## Running the script manually
+
+The script lives in the `questionnaires` repo and is run from the command line with `uv run`:
+
+```bash
+uv run records-request.py
+```
+
+That processes every client due, as described above. Useful flags:
+
+```bash
+# Only process one client, by punch list ID or exact name
+uv run records-request.py --client 12345
+
+# Go through matching and downloading, but don't actually send anything
+# or save files to Drive
+uv run records-request.py --dry-run
+```
 
 ## BabyNet evaluation reports
 

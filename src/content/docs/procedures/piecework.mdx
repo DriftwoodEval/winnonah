@@ -1,0 +1,81 @@
+---
+title: Piecework / Evaluator Billing Process
+needsCleanup: true
+---
+
+Evaluator pay is worked out from a script, `piecework.py`, that someone runs by hand (it's not on a schedule) once a pay period's data is ready. It reads appointments and the prioritization list (the "punch list") to figure out who did what, multiplies by each worker's configured rate, and writes an Excel report to Google Drive for payroll.
+
+## 1. Picking a pay period
+
+Running the script prompts for a date range: **last week** or **the week before**, both Sunday through Saturday. There's no way to pick an arbitrary custom range, if a different period is ever needed, that's a code change, not a flag.
+
+## 2. What counts as billable work
+
+Two separate things get counted, per evaluator:
+
+- **Appointments.** Every non-cancelled, non-billing-only appointment in the chosen date range counts as one unit of whatever type it was (DA, EVAL, DAEVAL). A DA appointment for an ADHD client counts as its own separate type, **ADHDDA**, rather than as a plain DA.
+- **Reports.** Separately, the script looks at the punch list for clients whose report is finished and ready to be counted, and adds one **REPORT** unit for whoever wrote it. This is where the punch-list columns below matter.
+
+## 3. The punch-list columns staff maintain
+
+A client's report is only picked up once:
+
+- **Billed?** is checked, and
+- **AJP Review Done/Hold for payroll** is *not* checked.
+
+There's one exception: for an ADHD client, the report only counts once the **Evaluator** column says "AP" (any case), other ADHD reports are left out of the count entirely regardless of the other columns.
+
+**MCS Review Needed** is a separate hold: if any client is flagged for that review but isn't marked **Billed?** yet, the script stops before doing anything and asks whoever's running it to either confirm they've reviewed those clients and reload the sheet, or explicitly skip the check and continue anyway. This is the main manual checkpoint in the whole process, it exists so an unreviewed report never gets billed by accident.
+
+Once a client's report has been counted in a run, it's remembered (by client ID and date) so a later run won't bill it again. Re-running the script again on the *same day* still picks it back up, so a same-day retry after fixing something doesn't lose the client.
+
+## 4. Figuring out who gets credit for a report
+
+The report writer normally comes from the punch list's **Assigned to OR added to report writing folder** column (only the letters in that cell are used as initials). If that column is blank, the script falls back automatically: it looks up who most recently did that client's diagnostic testing appointment (CPT 96136), and if that evaluator is configured to write their own reports, credits them without asking anyone.
+
+If it still can't figure out a writer after that, whoever's running the script gets prompted per client: fix the punch list and refetch, or continue and skip that client's report for this run.
+
+Once a set of initials is worked out, the script resolves it to a real name and payroll email using the staff list configured in **Settings > QSuite > Piecework**. If a resolved name can't be matched there, the run prompts to skip that report or abort the whole run, this usually means a new staff member's initials haven't been added to that settings list yet.
+
+## 5. Doing the math
+
+For every evaluator and appointment type combination, and for each REPORT credit, the script multiplies the count by that worker's configured per-unit rate. Rates (one per worker, per appointment type: DA, ADHDDA, EVAL, DAEVAL, REPORT) are also configured in **Settings > QSuite > Piecework**, alongside the staff name/email mapping used in the step above.
+
+## 6. Output
+
+One combined Excel workbook, `piecework_output/piecework_<start>_<end>.xlsx`, with a Summary Counts sheet (one section per worker: appointment types, counts, rates, per-line cost, and a total) and a Details sheet (every individual appointment/report row across everyone). The grand total at the bottom of Summary Counts is a live spreadsheet formula, not a hardcoded number.
+
+Alongside that, the script also writes one details-only workbook per worker into its own subfolder, so each person's file can be shared without showing anyone else's numbers.
+
+Both the combined report and the per-worker files get uploaded to the configured payroll folder in Google Drive. If Kimai (the timesheet tool) is configured, its export for the same date range gets uploaded there too, but a Kimai failure never stops the rest of the report from being generated, that part is best-effort.
+
+## 7. Confirming a run actually happened
+
+**Settings > Billing Download** has a "Last Script Run Times" panel that lists a **Piecework** row with a timestamp, a quick way to check whether it ran today (or ran recently at all) without digging through logs.
+
+## 8. Running it manually
+
+```bash
+uv run piecework.py
+```
+
+That's the normal invocation, it'll prompt for the pay period and walk through the process above interactively. Two flags exist:
+
+```bash
+# Don't upload anything to Google Drive (for testing changes to the script itself)
+uv run piecework.py --dev
+
+# Testing escape hatch: force specific clients to read as billed and
+# review-cleared without touching the real punch list. Not a normal
+# workflow step, this is for verifying the script works, not for billing.
+uv run piecework.py --force-ready-clients 12345,67890
+```
+
+## Edge cases
+
+- **A client is flagged for review but not yet billed.** The run stops before processing anything and asks whether to reload the sheet (after review) or skip the check. Don't reflexively pick "skip," that check exists to prevent billing an unreviewed report.
+- **ADHD reports need "AP" as the evaluator.** Any other evaluator listed for an ADHD client's report means it's silently left out of that run's count, not billed short, just not picked up yet.
+- **Missing report writer.** The script tries the punch list column, then falls back to whoever most recently ran the client's 96136 diagnostic appointment (only if that evaluator writes their own reports), and only asks a person if both of those come up empty.
+- **Initials that don't resolve to a configured name.** Usually means someone's initials aren't in the Settings > QSuite > Piecework staff list yet, add them there rather than editing the punch list to work around it.
+- **Re-running the same day.** Reports already counted earlier that same day still show up again; reports from a previous day's run don't, so don't expect yesterday's already-billed clients to reappear if the script runs again today.
+- **Kimai isn't configured, or its export fails.** The rest of the piecework report still gets generated and uploaded, the Kimai step is skipped or logged as a failure without stopping anything else.

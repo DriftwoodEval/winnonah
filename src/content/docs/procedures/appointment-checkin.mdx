@@ -1,0 +1,45 @@
+---
+title: Appointment Check-In
+needsCleanup: true
+---
+
+For every in-person appointment, staff track the client's actual arrival, session start, and departure, separately from tracking whether the evaluator themself is even in the building that day. This only applies to in-person appointments, virtual appointments don't have a check-in at all. Logging any of it requires the **Check In/Out Appointments** permission.
+
+## 1. Client check-in: Arrived, Started, Left
+
+Three steps, always in order: **Arrived**, **Started**, **Left**. Only the next available step shows as a button, once you log it, it turns into a small clock badge showing the time instead.
+
+Clicking either the button or an already-logged badge opens a dialog to enter the time. It defaults to right now if the appointment is today, or the scheduled time otherwise, but the time is always editable before saving. Once both **Started** and **Left** are logged, a badge appears showing the actual session length in minutes.
+
+Only the furthest-along step can be undone (a **Back a step** button in the dialog), so the arrived to started to left chain never ends up with a gap in the middle. To fix an earlier mistake, walk it back one step at a time.
+
+## 2. Evaluator check-in: In for the day / Out for the day
+
+This is separate from any single appointment: an evaluator's arrival and departure is tracked once per evaluator, per calendar day, not per appointment. A few rules apply:
+
+- You can't check an evaluator in or out for a day they don't actually have an in-person appointment scheduled, the system blocks it and explains why.
+- Evaluators can never check themselves in or out, even from their own account, someone else has to log it for them.
+- Same undo rule as client check-in: only the furthest-along step (in or out) can be walked back.
+
+## 3. Where these controls show up
+
+Both the client and evaluator check-in controls appear on the Day Ahead page and its home-page widget version (built for working through a day's schedule at a glance), and the client version also shows on each client's own Appointments list on their EMR page.
+
+## 4. Manually confirming or muting an appointment
+
+On a client's Appointments list, each appointment has its own menu with two independent toggles:
+
+- **Mark Confirmed**/**Remove Confirmation**, shows a **Confirmed** badge on the appointment once set. This isn't purely cosmetic, confirming also pushes an update to the calendar system in the background.
+- **Do Not Remind**, opts that one specific appointment out of the automated SMS reminder texts. It only applies to that appointment, it doesn't carry forward to the client's next one.
+
+## 5. Seeing what reminders have gone out
+
+Each appointment can show a reminder timeline: every automated reminder already sent, and every one still scheduled, each with a rough preview of the actual message text (with the appointment's real time and office filled in). This is read-only, nothing can be sent or cancelled from here, it's just visibility into what the automated reminder system has already done or is about to do.
+
+## Edge cases
+
+- **Virtual appointments never have a check-in.** There's nothing to log, the option isn't there.
+- **An evaluator with nothing in-person that day can't be checked in.** The system blocks it rather than logging a meaningless arrival.
+- **Evaluators can't check themselves in or out**, front desk or another staff member has to do it for them.
+- **Undo only ever removes the most recent step.** If an earlier step was logged wrong, undo the later ones first to get back to it.
+- **Confirmed and Do Not Remind are per appointment**, not per client, they need to be set again on the client's next appointment if wanted again.

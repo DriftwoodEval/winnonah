@@ -10,7 +10,7 @@ Before a Diagnostic Appointment (DA) and/or Evaluation appointment, the family f
 A client only gets picked up for sending once:
 
 - They're on the prioritization list (staff refer to this as the "punch list"), a spreadsheet used to track everyone moving through the eval pipeline, with **DA Qs Needed** and/or **EVAL Qs Needed** checked but not yet marked as sent.
-- Their school records status is **Ready**. This means either **Records Needed** is set to **Not Needed**, an outside record has already been logged for them, or (for ADHD-only clients) records aren't required in the first place, since autism screening from school records doesn't apply to a pure ADHD workup. See the Records Request Process page for how a client gets to **Ready**.
+- Their school records status is **Ready**. This means either **Records Needed** is set to **Not Needed**, an outside record has already been logged for them, or (for ADHD-only clients) records aren't required in the first place, since autism screening from school records doesn't apply to a pure ADHD workup. See the [Records Request Process](/docs/procedures/records-request) page for how a client gets to **Ready**.
 
 If records aren't ready, the client is skipped and simply doesn't come up again until they are, no failure gets logged.
 
@@ -70,6 +70,56 @@ Handled by the same script but unrelated to questionnaires: Monday through Thurs
 - Each client's page in the EMR has a Questionnaires table showing every questionnaire sent, its status (Pending, Completed, Post-DA Pending, Post-Eval Pending, Ignoring, External, Archived, and so on), its link, and how many reminders have gone out. Staff with permission can add a questionnaire by hand (single or in bulk), edit one, mark it done externally, or delete it.
 - The dashboard groups clients into sections that mirror the pipeline: **Qs Not Determined**, **DA Qs Pending**, **DA Qs Sent**, **DA Qs Done**, **Eval Qs Pending**, **DA+Eval Qs Pending**, **Eval Qs Sent**, **DA+Eval Qs Sent**, **Eval Qs Done**, **DA+Eval Qs Done**, and further along, **DA Scheduled**, **Post-DA**, **Eval Scheduled**, **Post-Eval**.
 - Every daily run that finds anything worth flagging (completions, clients who need a call, failures, errors) emails admins a summary. Findings from the earlier, quieter runs that day are saved and folded into that one email so nothing gets missed just because it didn't happen to occur during the 1pm run.
+
+## Running the scripts manually
+
+Both scripts live in the `questionnaires` repo and are run from the command line with `uv run`.
+
+The send script, normally run with no flags to process everyone due:
+
+```bash
+uv run qsend.py
+```
+
+Useful flags:
+
+```bash
+# Only process one client, by punch list ID or exact name
+uv run qsend.py --client 12345
+
+# Interactively allow a client through even if their records aren't "Ready"
+uv run qsend.py --interactive
+
+# Walk through every pre-flight check for one client and print pass/fail,
+# without sending anything (useful for figuring out why someone was skipped)
+uv run qsend.py --debug-client 12345
+
+# Log into TherapyAppointment only and report what questionnaires a client
+# would get, without generating or sending anything
+uv run qsend.py --check-ready 12345
+```
+
+The check/reminder script, which runs on a schedule but can also be run by hand:
+
+```bash
+# Check status and update the punch list, but don't send texts or emails
+uv run qreceive.py --dry-run
+
+# Send texts regardless of the current time (normally restricted to the 1pm run)
+uv run qreceive.py --force-send
+
+# Skip checking on and reminding failed clients (portal not opened, docs not
+# signed), only process questionnaire completion
+uv run qreceive.py --skip-failures
+
+# Only recompute the DA/EVAL Qs Sent/Done columns on the punch list, no texts
+# or completion checks
+uv run qreceive.py --sync-batteries
+
+# Print detailed sent/done battery analysis for every client and exit,
+# without changing anything
+uv run qreceive.py --debug-batteries
+```
 
 ## Pause and Autism Stop
 

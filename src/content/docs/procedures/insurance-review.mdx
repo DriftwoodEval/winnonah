@@ -1,0 +1,45 @@
+---
+title: Insurance Review Process
+needsCleanup: true
+---
+
+When a client's insurance situation needs ongoing back-and-forth (a stuck prior authorization, a denial being worked, anything that isn't a one-and-done task), staff track it with the Insurance Review section on the client's Insurance tab: a running note, whose turn it is to act, and whether it's currently stuck waiting on someone else.
+
+## 1. Turning it on
+
+Insurance Review doesn't show up for a client until someone checks the **Insurance Review** box in the client's edit dialog ("Show the insurance review section on the insurance tab"). Turning it on for the first time claims it for whoever checked the box, unless it's already claimed by someone else.
+
+Once it's on, anyone who can see the client's Insurance tab can see the Insurance Review section. Only staff with the **Edit Insurance Review Notes & Claim** permission can actually write in it, claim it, mark it waiting, or copy it to notes.
+
+## 2. The review note
+
+A free-text note box, autosaved a couple of seconds after you stop typing. Its placeholder text suggests starting with "STOP or GO" and the details underneath, as a quick way to flag the current verdict at a glance before anyone reads further.
+
+Click the history icon to see previously saved versions, who saved them, and when. Edits by the same person within 5 minutes of each other are treated as one continuous edit and don't create a new history entry, so a quick typo fix doesn't clutter the history. A save more than 5 minutes after the last one, or a save by someone else, does get its own snapshot.
+
+## 3. Whose turn
+
+The **Whose turn** dropdown lists everyone with the Insurance Review edit permission. Assigning it to someone else emails them a notification that the case is now theirs (this only fires outside of local dev), though whether they actually receive that email also depends on their own **Receive Insurance Review Claim Email Notifications** setting. Assigning it to yourself doesn't send any notification.
+
+## 4. Waiting
+
+The **Waiting**/**Mark as Waiting** button flags a case as stalled on something outside the office (a slow district, an insurance company, a family). It's visible to anyone looking at the tab, even without edit permission, but only clickable by staff who have it. This flag also drives the **Waiting** filter on the dashboard's Insurance Review list, so it's worth keeping current.
+
+## 5. Copying to Main Notes
+
+Once a review is resolved, **Copy to Main Notes** merges its content into the client's main Notes. If the client already has notes, you get a preview first: it picks a default insertion point (a blank line in the existing notes), and you can nudge that point up or down with the arrows before confirming. If the client has no notes yet, it skips the preview and just inserts.
+
+Submitting does two things: it writes the review into Main Notes, and it turns the review off, so the Insurance Review section disappears from the Insurance tab afterward (it only shows while it's on). To start a new review for that client later, someone checks the **Insurance Review** box again. A review can only be submitted once, trying again is blocked, and submitting with no content in the note is blocked too.
+
+## 6. Where to find open reviews
+
+- The dashboard has an **Insurance Review** section (with a count) that lists every client with an active review, filterable to **All**/**Mine** and to **Waiting** only. It also remembers roughly where you left off in that list, so leaving and coming back doesn't dump you back at the top.
+- The home page has a **My Insurance Clients** widget listing only the cases currently claimed by you.
+
+## Edge cases
+
+- Insurance Review is per client, not a global setting. If you don't see the section on a client's Insurance tab, no review is active for them, someone with the permission needs to turn it on.
+- Reassigning a case to someone else notifies them by email; claiming it for yourself doesn't notify anyone.
+- Rapid edits by the same person (within 5 minutes) collapse into a single history entry; a gap longer than that, or a different editor, gets its own version in the history.
+- If a client's existing notes have no obvious blank-line gaps, the merge preview still picks a best-guess insertion point, use the arrows in the preview dialog to move it if it's not where you want.
+- Submitting to Main Notes clears the Insurance Review section from the Insurance tab, but the content itself isn't deleted, it lives on in Main Notes and in the review's history.
