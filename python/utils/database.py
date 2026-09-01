@@ -628,6 +628,7 @@ def reset_client_session(client_id: int, connection: Connection[DictCursor]) -> 
     left in place, since queries scope it by `sessionStartedAt` instead.
     """
     now = now_utc()
+    reactivated_on = now_business().date().isoformat()
 
     with connection.cursor() as cursor:
         cursor.execute(
@@ -703,7 +704,7 @@ def reset_client_session(client_id: int, connection: Connection[DictCursor]) -> 
             (client_id,),
         )
         note = cursor.fetchone()
-        separator = _build_reactivation_note_block(now.date().isoformat())
+        separator = _build_reactivation_note_block(reactivated_on)
 
         if note is None:
             cursor.execute(
