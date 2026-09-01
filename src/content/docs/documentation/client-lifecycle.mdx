@@ -1,0 +1,64 @@
+---
+title: Client Record Lifecycle
+needsCleanup: true
+---
+
+A client record can come from two different places, carries a handful of independent status flags rather than one single "stage," and can get reset partway through its life on reactivation. This page connects those pieces; for the day-to-day workflows built on top of them, see [Outreach Process](/docs/procedures/outreach), [Merging Client Pages](/docs/documentation/merge), [Records Request Process](/docs/procedures/records-request), and [Questionnaire Process](/docs/procedures/questionnaires).
+
+## Two ways a client record gets created
+
+### Notes Only
+
+Staff with the **Create Notes Only Clients** permission can click the **+** button on the client list to open **Create Notes Only Client**. It collects exactly two fields, **First Name** and **Last Name**, nothing else, no date of birth, insurance, or referral info.
+
+Behind that dialog, the server assigns the new record a random 5-digit ID (10000 to 99999) and a hardcoded, sentinel date of birth (`1970-01-01`, since the form never actually asks for one). Every other field just takes its normal default (active, no flags set).
+
+A **5-digit ID is what makes a client "Notes Only"** everywhere in the app, on both the TS and Python sides. There's no separate boolean or type column for it: any code that needs to tell Notes Only and real clients apart just checks the ID's length. Since real TherapyAppointment client IDs run far larger (9 digits and up, see below), the two ID spaces never overlap and nothing ever confuses one for the other.
+
+Because a Notes Only client's `status` can't be driven by a TherapyAppointment import (there isn't one), it gets its own manual **Archive**/**Unarchive** button on the client page instead, gated by the same Create Notes Only Clients permission, showing as "Notes Only" or "Notes Only, Archived" in the header badge.
+
+### Real (TherapyAppointment) clients
+
+Real clients are created and kept in sync entirely by the automated TherapyAppointment import (the same nightly-ish sync covered elsewhere as "winnonah's import"), never by anything a person does inside the app. Each import run inserts or updates a client row keyed on TherapyAppointment's own client ID, which becomes that record's ID here too, no ID gets generated on this side. `status` is set directly from whatever TherapyAppointment's own Active/Inactive status says, every single run, which is also why the **Edit Client** dialog refuses to let anyone hand-edit a real client's status: it can only be changed at the source.
+
+The moment an import run flips a real client from Active to Inactive, it stamps `deactivatedAt` to that moment. Flipping back to Active clears it again, after running the reactivation handling described below.
+
+## Status flags, at a glance
+
+There's no single "which stage is this client at" field anywhere on a client record. What the dashboard shows as pipeline sections (Records Needed, DA Qs Sent, Post-Eval, and so on) is worked out fresh each time from whichever of these flags and related data happen to be true right now, not stored as a stage. A client can legitimately match more than one section at once.
+
+| Flag | Set by |
+|---|---|
+| **Active/Inactive** (`status`) | Real clients: only the TherapyAppointment import. Notes Only clients: the manual Archive/Unarchive button. |
+| **Records Needed** | Staff, from the Records section. See [Records Request Process](/docs/procedures/records-request). |
+| **"Autism" in Records** (autism stop) | Staff, from Edit Client. Turning it on needs no special permission; turning it back off needs a separate **Disable Autism Stop** permission. See [Questionnaire Process](/docs/procedures/questionnaires). |
+| **Pause Client** | Staff, from Edit Client. Stops records requests, questionnaires, and automated reminders. |
+| **High Priority** | Staff, from Edit Client. Shown as a red badge on the client header. |
+| **BabyNet** | Staff, from Edit Client. Treats the client as BabyNet regardless of insurance on file. |
+| **EI Attends** | Staff, from Edit Client. |
+
+Each of these is independently permission-gated on the `clients.update` mutation, so one person might be able to change some fields on this dialog but not others.
+
+## Merge suggestions
+
+There's no scheduled job that pre-computes merge suggestions, they're calculated fresh, live, every time a page that needs them loads (and again every 60 seconds while it's open). The match is pure fuzzy name matching, Levenshtein edit distance between the Notes Only client's name and a real client's legal name and preferred name, or a plain substring match either direction, nothing else. It doesn't compare date of birth, phone number, or any other field, which is why two different children with similar names can trigger a suggestion, see the worked example on the [Merging Client Pages](/docs/documentation/merge) page.
+
+This runs two ways: on an individual client's own page (comparing just that client against the opposite category) and as a global sweep powering the [Issues Dashboard](/docs/documentation/issues-dashboard)'s Notes Only section. A Notes Only client has to be merged into (or separately pushed to the punchlist as) a real client before it can go through scheduling; see [Outreach Process](/docs/procedures/outreach) for how a Notes Only or not-yet-punchlisted real client gets there in the first place.
+
+## Reactivation: two different resets, not one
+
+When a real client flips from Inactive back to Active, what happens depends on how long they were gone, not just on the fact that they came back:
+
+- **Inactive 12 months or more (or `deactivatedAt` was never recorded)**: a full session reset. Current in-person assessment rows, the insurance review, and the external records note are all archived into their respective history and cleared to blank. **Records Needed** is cleared to `NULL` outright, unrecoverably, so staff have to re-triage it from scratch. Any outstanding alert-type failures on the client are deleted. A note is prepended flagging the reactivation date and marking everything below it as excluded from calculations. Finally, `sessionStartedAt` is stamped to the current time, this is the field that draws the line between the old session and the new one.
+- **Inactive under 12 months**: a much lighter touch. Nothing above gets reset, no session boundary gets stamped. The only thing that happens is the insurance review gets re-enabled and reassigned (any existing content archived first), and a note is added recording the reactivation and how long the client was out. **Records Needed**, in-person assessments, external records, and `sessionStartedAt` are all left exactly as they were.
+
+Both branches clear `deactivatedAt` back to `NULL` once done.
+
+`sessionStartedAt` matters beyond just this reset: it's the shared boundary both this app and the separate `questionnaires` repo use to decide whether a previously-sent questionnaire still counts toward a client's current battery. A `NULL` value means nothing has ever been reset, so all history counts; a set value means anything sent before that timestamp is treated as belonging to a prior session and ignored going forward. Because only the 12+ month branch ever sets it, a client reactivated after a shorter gap keeps counting their whole questionnaire history as one continuous session, exactly as if they'd never gone inactive at all.
+
+## Edge cases
+
+- **A Notes Only client's random ID can theoretically collide with an existing one.** There's no uniqueness check or retry, just a database error on the extremely unlikely case both land on the exact same 5-digit number.
+- **Merging never changes a real client's ID.** The Notes Only record's data gets copied over (notes appended, everything else overwritten) and the Notes Only record itself is archived, but the real client keeps the ID it already had.
+- **A reactivation after a short gap can look surprising if you're expecting a clean slate.** Nothing about in-person assessments, records status, or old questionnaires resets unless the client was out 12 months or longer, only the insurance review gets touched.
+- **An unknown `deactivatedAt`** (a client who went inactive before this tracking existed) is treated the same as a recent, short gap, the lighter branch runs, not the full reset.
