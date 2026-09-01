@@ -1,0 +1,22 @@
+---
+title: Client Communication Timeline
+needsCleanup: true
+---
+
+Every client's page has a **Communication** card, view-only, showing that client's recent texts and calls pulled live from the practice's texting/calling platform (Quo, built on OpenPhone), refetched automatically every 60 seconds. A **Quo** link in the card header opens the platform itself for anything this view doesn't cover. A smaller version of the same idea shows up as a message-bubble icon on each appointment row on [Day Ahead](/docs/procedures/day-ahead), so staff can check recent contact without leaving that page.
+
+## Telling automated messages from real ones
+
+Outgoing texts the app itself sent automatically, appointment reminders, questionnaire reminders, and referral outreach messages, are tagged with a small bot icon rather than shown as a plain sent message. Hovering it shows why it went out (which client, which reminder). This is worked out by cross-referencing the message against the app's own reminder/questionnaire/referral send logs, plus a fallback pattern match against the configured reminder templates for anything not caught in those logs, so nearly every automated send gets correctly labeled even if its originating log entry is missing.
+
+On the Day Ahead popover specifically, this distinction also drives a visual cue: the message icon turns amber if the client has sent (or received) a real, non-automated message the same day as the appointment or the day before, a quick "have they been in touch recently" signal before calling someone.
+
+## Sending a text from the app
+
+Most of this view is read-only, but the client's Referral tab has one send action: when **Followed by BabyNet?** is set to **Yes**, a **Text Link** button sends a fixed message with the BabyNet referral link to the client's phone, in English or Spanish depending on the client's language. This isn't a free-text composer, the message content is fixed, only the destination (the client's own phone number) varies.
+
+## Edge cases
+
+- **This view only ever shows history for the client's phone number on file.** A message from a different number (a parent calling from a second phone, for instance) won't show up here even if it's about the same client.
+- **The "recent contact" amber highlight on Day Ahead only counts real, non-automated messages.** An automated reminder going out earlier that day doesn't count as the client being "in touch," only something they actually said or a message a staff member sent by hand.
+- **A known gap, not yet fixed**: the tRPC procedure behind the Text Link button, `quo.sendMessage`, has no server-side permission check beyond bare authentication, and accepts any phone number and message text as input, not just the fixed BabyNet message the UI sends. Today that means any logged-in user could call it directly to text an arbitrary message, from the practice's real business number, to any phone number, bypassing the fixed wording and the Referral tab's own read-only gating entirely. Worth fixing the same way the [pyConfig gap](/docs/development/architecture) was: a real permission check on the procedure itself.

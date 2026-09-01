@@ -1,0 +1,19 @@
+---
+title: Global Client Search
+needsCleanup: true
+---
+
+Press **Ctrl+K** (**⌘K** on a Mac) from anywhere in the app, or click the search icon in the header, to open a quick-jump dialog for finding a client without leaving the page you're on. This is a different tool from the [Client Directory](/docs/documentation/client-directory): the Directory is a full browsable table with column filters, this is a fast "find one client and go" search.
+
+## How it works
+
+Typing at least 3 characters searches by name, client ID, or date of birth, with a short pause (300ms) before it actually queries so it doesn't fire on every keystroke. A **Status** dropdown (Active/Inactive/All) narrows the search, and your last choice there is remembered for next time. Results can be picked with the mouse or entirely by keyboard: arrow keys move a highlight up and down the list, Enter jumps straight to that client's page. Opening the dialog, navigating to a client, or navigating away from the current page at all automatically closes it.
+
+## Recent Clients
+
+Before typing anything, the dialog shows a **Recent** row of up to 10 clients you've opened before, newest first, each a one-click shortcut back to that client's page. This list is personal, tracked per account, and updates automatically every time you visit a client's page, there's nothing to manage about it manually.
+
+## Edge cases
+
+- **A query shorter than 3 characters returns nothing**, even if it would otherwise match. This is a deliberate floor, not a bug, searching on 1-2 characters against the full client list would be too broad to be useful.
+- **The status filter defaults to Active** and has to be changed to All or Inactive to find someone who isn't currently active, easy to forget if you're looking for a former client.

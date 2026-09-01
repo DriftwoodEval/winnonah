@@ -30,6 +30,10 @@ The box matches the client's primary insurance (or, for a BabyNet client, whiche
 
 If the client's insurance isn't in that Settings list at all, the box just says it isn't configured for billing code calculation and stops there.
 
+## 4. Downloading a Select Health PA form
+
+For a client whose primary insurance is Select Health, a **Select Health PA Form** button appears right under the Primary Insurance field (gated by the **Download PA Forms** permission). It generates a pre-filled prior-authorization PDF: the same CPT codes and unit counts this box would show, computed from the client's stored assessment minutes and Select Health's configured unit caps, get sent to the Python API to fill into the actual form, which downloads as `select-health-{client ID}.pdf`. This reuses the exact same code/unit math as the rest of this page, it isn't a separate calculation.
+
 ## Edge cases
 
 - **The Missing Appointments check computes this on a client's behalf if nobody's visited their Insurance tab yet.** The [Issues Dashboard](/docs/documentation/issues-dashboard)'s **Appointments to be Created** card reuses this same snapshot (and the same insurance limits) to compare how many appointments a client actually has scheduled against how many they should need. If a client has never had this box computed, that check computes and stores it for them automatically the next time it runs, using whatever age, diagnosis, and insurance info is already on file, so nobody needs to visit that specific client's page first. Visiting the client's Insurance tab afterward will show that same computed snapshot instead of a blank "Click Compute" prompt.

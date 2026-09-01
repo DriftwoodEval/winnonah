@@ -1,0 +1,21 @@
+---
+title: Client Notes Editor
+needsCleanup: true
+---
+
+Every client page has a general, free-form rich-text **Notes** box, title plus formatted content, gated by the **Edit Client Note Title & Content** permission. It's used across the app as the general catch-all place to write down anything about a client that doesn't have its own dedicated field, and it drives a few things elsewhere: reactivation prepends a heading to it (see [Client Record Lifecycle](/docs/documentation/client-lifecycle)), and merging a Notes Only client into a real one appends the Notes Only client's notes onto the bottom of it (see [Merging Client Pages](/docs/documentation/merge)). The Records section has its own separate notes field with template dropdowns for logging records responses (see [Records Request Process](/docs/procedures/records-request)); it's a different field, but shares the same editing, live-sync, and history machinery described below.
+
+## Live sync between open sessions
+
+If two staff have the same client's notes open at once, one person's edit shows up for the other automatically, no refresh needed. This isn't a merge of conflicting edits, it's a live push of whatever was just saved.
+
+## History and the 5-minute squash window
+
+A **History** button opens a dialog showing every past version, with a word-level diff between versions: additions highlighted, deletions struck through, long unchanged stretches collapsed so the diff stays readable on a heavily-edited note, plus who made each edit and when.
+
+Not every save creates a new history entry. If the same person edits the same note again within 5 minutes of their own last save, that earlier version isn't snapshotted, the two edits collapse into one history entry instead of one being visible as a separate, momentary version. A save more than 5 minutes after your own last edit, or any edit made by a different person, always gets its own history entry regardless of how small the change is.
+
+## Edge cases
+
+- **A rapid string of small edits by the same person only shows up as one history entry**, not one per keystroke or per save, that's the 5-minute squash window working as intended, not data loss.
+- **Switching to a different person's edit, even seconds later, always creates a full history entry**, the squash window only ever applies to the same person editing again.
