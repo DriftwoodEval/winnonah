@@ -1,0 +1,25 @@
+---
+title: Appointment Sync Settings
+needsCleanup: true
+---
+
+The automated import that pulls appointments in from TherapyAppointment (see [Cross-Repo Architecture](/docs/development/architecture)) tries to match each one to a Google Calendar event. When it can't, either no matching event exists or the two times are more than an hour apart, that appointment doesn't get imported by default. Staff resolve these one at a time at **Settings > Scheduling**, under Appointment Sync Settings.
+
+## 1. Finding out something's stuck
+
+There's no in-app list of flagged appointments. A daily error-summary email lists each one: its appointment ID, the client, the CPT code, the expected evaluator, and, for a time mismatch specifically, both the calendar's time and TherapyAppointment's time.
+
+## 2. Deciding what to do
+
+Two free-text lists on the settings page, add an ID by typing it and pressing enter:
+
+- **Trusted Appointment IDs**: the appointment imports anyway on the next sync run, despite the mismatch. Since there's no reliable calendar match to pull the evaluator from in this case, it falls back to whatever evaluator TherapyAppointment's own data says.
+- **Ignored Appointment IDs**: the appointment is dropped permanently and silently, before any matching logic even runs. Use this for something you never want re-flagged again, a known duplicate, a test entry, a bad row.
+
+Editing either list requires a specific permission, without it the lists are visible but not editable. There's no lookup or validation on what you type in, any string is accepted, so it's worth double-checking an ID against the email before saving it.
+
+## Edge cases
+
+- These lists only affect future import runs. Adding an ID here doesn't retroactively fix an appointment that already failed to import, that appointment still needs to come in on a later sync.
+- Nothing stops the same ID from ending up in both lists by mistake, that shouldn't happen, but the form doesn't prevent it.
+- Every save here goes through the app's normal audit trail like any other settings change, see the [Audit Log](/docs/documentation/audit-log) page if you need to find out who changed one of these lists and when.

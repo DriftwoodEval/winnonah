@@ -1,0 +1,37 @@
+---
+title: Availability
+needsCleanup: true
+---
+
+The Availability page lets staff (mainly evaluators) declare blocks of time as available or unavailable, and lets everyone else see the team's availability at a glance. This isn't its own storage system, every entry is a real event on the declaring person's own Google Calendar, the page is essentially a purpose-built calendar editor.
+
+## 1. My Availability
+
+Declare a block of time as **Availability** (pick one or more office locations, including Virtual, or check **Any Office**) or **Unavailability** ("Out of Office"). Either can be one-time or recurring (daily, weekly, or monthly, with an interval and an end condition: never, on a date, or after a set number of occurrences).
+
+Below the form, your own upcoming entries show either as a day-grouped agenda list or a week calendar grid, clicking an empty slot opens the declare dialog pre-filled, clicking an existing entry opens it for editing.
+
+Editing or deleting a recurring entry asks which part of the series to change: **just this instance**, **this and future events**, or **all events in the series**. Deleting asks for confirmation first.
+
+## 2. Team Availability
+
+Two views:
+
+- **Month Overview**: a read-only month grid, each day shows up to a few badges naming who's available (with office) or out that day, with a **Hide out of office** switch and a popover for any overflow beyond what fits. Entries with availability marked but no location attached don't show up here.
+- **By Person**: pick someone from a dropdown to see their availability list in read-only form, no editing, no location picker, just their entries.
+
+## 3. Out of Office Priority
+
+A per-evaluator setting an admin sets on the evaluator's profile (**Settings > Manage Evaluators**), for evaluators who find it easier to report when they're *out* rather than when they're *in*. It changes what the form defaults to and what it allows:
+
+- Normally, declaring time defaults to Availability.
+- With this flag on, it defaults to Unavailability instead, and the office-location picker disappears entirely, a banner explains the account can currently only declare unavailability.
+
+There's no manual switch to pick Available vs. Unavailable directly in the form, which one you get is entirely decided by this flag (or, when editing an existing entry, by whatever type that entry already was).
+
+## Edge cases
+
+- **The lock icon and "locked entry" messaging you might see don't currently do anything.** The underlying logic that was meant to lock entries close to their date is disabled in the code, every entry, past or future, can currently be edited or deleted regardless of how soon it is.
+- **Reading someone else's availability isn't gated by an app permission**, it works because the request goes out under your own Google account, so whether it actually returns anything real depends on the practice's Google Calendar sharing settings, not on anything in this app. If a colleague's Team Availability entries look empty or wrong, that's a calendar-sharing question, not a bug here.
+- **Nobody can edit or delete someone else's availability through this page**, every save always targets the current user's own calendar. The Team views are read-only by design, not just by convention.
+- **Availability isn't wired into Scheduling, evaluator matching, or appointment check-in.** It's a standalone calendar view, not a signal any of that logic currently reads.

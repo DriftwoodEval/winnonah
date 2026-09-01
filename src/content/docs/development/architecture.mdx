@@ -19,6 +19,8 @@ Served by winnonah's **Next.js app**, not its Python sidecar: `GET /api/internal
 
 Worth noting: winnonah's **own** Python sidecar does not call this endpoint, it reads config from environment variables and queries the DB directly. `py-config` exists specifically because `questionnaires` is a separate process without direct env/DB access of its own.
 
+**A known gap, not yet fixed**: the tRPC procedures backing that Settings UI, `pyConfig.get` and `pyConfig.update`, have no server-side permission check beyond bare authentication. The `settings:qsuite:*` permissions that gate which tabs/fields render are enforced only in the React component, so any logged-in user can currently call `pyConfig.get` directly and receive this entire payload, every service password and the DB connection string included, or call `pyConfig.update` to change it, bypassing the UI entirely. This compounds with the point below: whenever the config *is* updated, the audit log stores the full new payload verbatim, so those same secrets also end up readable there to anyone holding `settings:audit-log:view`. Worth fixing (`assertPermission` calls on both procedures, matching the pattern already used by `getServices`/`getPearsonVerificationEmail` in the same router), documented here as a known risk in the meantime, not as expected behavior.
+
 ## The internal API auth pattern, and a second route
 
 `checkInternalApiAuth` also guards `GET /api/internal/client-info?id=<clientId>` (`src/app/api/internal/client-info/route.ts`), same bearer-token/rate-limit/audit-log mechanism as above. It returns a client summary (demographics, notes text, records status, most recent confirmed appointment, and a `questionnaires` array).

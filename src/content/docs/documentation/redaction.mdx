@@ -1,0 +1,26 @@
+---
+title: PII Redaction Toggle
+needsCleanup: true
+---
+
+By default, everyone sees real client and staff names and other personal info everywhere in the app, for everyone, regardless of permissions. The redaction toggle is the opposite of an access gate, it's a self-service way to temporarily hide that information on your own screen, mainly for screen-sharing or demos.
+
+## How it works
+
+A small eye icon in the header turns redaction on or off for whatever page you're currently looking at. When it's on, personal info doesn't just get visually blurred, the real text is first scrambled into random characters (letters become other letters, numbers become other numbers, spacing and punctuation stay put), and only the scrambled version is blurred on screen. Even inspecting the page's underlying content shows the scrambled text, not the real value, and the blurred text can't be selected or copied.
+
+Turning it on affects only the page you're on, right now. Navigating anywhere else, or refreshing, resets it back off. There's no setting to leave it on permanently, and nothing is saved anywhere, it's just a live view state.
+
+## Who can use it
+
+The **Toggle PII Redaction** permission controls whether the eye icon shows up in your header at all, not whether you can see real PII, that part is unrestricted for everyone by default. Anyone with the permission can turn redaction on and off freely, with no approval step, and can also hide the button entirely from their own header via header customization if they never use it.
+
+## Where it applies
+
+Broadly: client names and details across the client page itself, client search and directories, the dashboard, the Issues page, calendar and day-ahead views, Scheduling, Work Summary, Fax Categorization, the Greeter Schedule, Questionnaire Logins, and the People list in Settings (staff names too, not just clients). It's a live-render control only, it doesn't touch anything already generated, like exported reports or PDFs, those show real information regardless of whether redaction is toggled on in the app.
+
+## Edge cases
+
+- **This is not a privacy or access control.** Anyone without the toggle enabled sees everything unredacted by default; the feature exists for screen-sharing safety, not to restrict who can see PII.
+- **It resets on every navigation.** If you're sharing your screen across multiple pages, expect to re-toggle it each time you move to a new one.
+- **Exports and generated documents are unaffected.** Redaction only changes what's rendered live in the browser.

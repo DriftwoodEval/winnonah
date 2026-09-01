@@ -1,0 +1,36 @@
+---
+title: QSuite Settings
+needsCleanup: true
+---
+
+**Settings > QSuite** holds the practice-wide configuration the automation scripts in the sibling `questionnaires` repo actually run on (see [Cross-Repo Architecture](/docs/development/architecture) for how that config gets there). It's split into sub-tabs, each requiring its own permission to edit, a tab only appears at all if you can edit it. One shared Save button submits whichever tab you're on.
+
+## General
+
+**Identity card**: **Initials**, **Name** (a dropdown of texting-platform users, this is who questionnaire messages appear to come from), **Referral Sender Name**, **Private Pay Sender Name**, **DP-4 Email** (the email address entered into WPS for that assessment), **Receive From Email** (the alias that sends the daily Receive Run summary emails), **Tech Email** (where technical failure alerts go if a Receive Run email itself fails to send).
+
+**System card**: **Punch List ID**, **Punch List Range**, **Failed Sheet ID**, **Payroll Folder ID**, **DB URL**. Several of these sit behind a lock icon requiring a confirmation click before they're editable, that's a "did you mean to touch this" friction gate, not real protection, the value is still plain text once unlocked.
+
+Below the cards: **QReceive Emails** (who gets the daily Receive Run summary) and **Excluded TA** (TherapyAppointment usernames to skip entirely when downloading data).
+
+## Services
+
+Login credentials for every third-party platform the automation touches: **TherapyAppointment** (User, Admin User, Password, Admin Password), **SC Medicaid**, **MHS**, **QGlobal**, **WPS**, **NovoPsych** (User/Password each), **Kimai** (URL, API Token), and **Quo/OpenPhone** (API Key, Main #, plus a Users list with a **Sync from API** button that repopulates it from Quo's live directory, though nothing saves until you hit the page's own Save button). None of these fields are masked while editing, worth remembering before screen-sharing this tab.
+
+## Records
+
+**Records Folder ID** and **Sent Folder ID** (both lock-gated like the System card above), plus an **Emails Map**: pick a school district, then set its contact email(s), any name aliases, and whether to fax instead of email. This is the same contact list the automated records request run uses, see the [Records Request Process](/docs/procedures/records-request) page.
+
+## Piecework
+
+Covered on its own page, since it's more of a workflow than a settings reference, see [Piecework / Evaluator Billing Process](/docs/procedures/piecework).
+
+## Questionnaire Logins, a separate read-only page
+
+Editing the credentials above requires the full Services edit permission. A separate page, **Questionnaire Logins** (in the main nav), lets staff just look credentials up and copy them, gated by either that same edit permission or a lighter view-only one, no full settings access required. It shows User/Password for Medicaid, MHS, QGlobal, WPS, and NovoPsych (not TherapyAppointment, not Kimai/Quo). For QGlobal specifically, a **Fetch token email** button pulls the latest Pearson verification email straight from Gmail on demand and tries to pull the 6-digit code out of it automatically, falling back to showing the raw email if it can't find one. This is meant for whoever's actually logging into these platforms day to day, without needing full edit rights to the credentials themselves.
+
+## Edge cases
+
+- The lock-icon fields are a confirmation step, not an access boundary, they don't stop someone who already has edit access to that tab.
+- Nothing on the Services tab is masked. Treat it as sensitive whenever it's visible on a shared screen.
+- See [Cross-Repo Architecture](/docs/development/architecture) for a real gap in how these settings are protected once you get past the UI, the tRPC procedures backing this whole page currently accept requests from any logged-in user, not just ones with the right permission.

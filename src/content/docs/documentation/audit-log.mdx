@@ -1,0 +1,23 @@
+---
+title: Audit Log
+needsCleanup: true
+---
+
+**Settings > Audit Log** records every change made through the app. This isn't a curated list of a few sensitive actions, genuinely every action that changes data (as opposed to just viewing something) writes a row automatically, there's no per-feature opt-in and nothing was hand-picked to be tracked.
+
+## What's recorded, per entry
+
+- **Who**: the staff member who made the change, or, for background automation coming from the sibling `questionnaires` app (see [Cross-Repo Architecture](/docs/development/architecture)), a system entry rather than a real account. If someone was impersonating another user when they made the change, that's shown too.
+- **What**: the specific action taken, along with the full data that was submitted with it, not just a summary of which fields changed. Since it's the whole submission rather than a before/after diff, a change to a list-style setting (like the [Appointment Sync](/docs/procedures/appointments-sync) ID lists) shows the entire resulting list at that point, not just what was added or removed. This also means a change to something sensitive, like the credentials on the [QSuite Settings](/docs/documentation/qsuite-settings) Services tab, shows up here in full, worth keeping in mind when deciding who gets access to this page.
+- **Which client**: linked automatically when the app can tell an action relates to one, left blank for actions that aren't client-specific (settings changes, role changes, and so on).
+- **Whether it succeeded**, and the error message if it didn't.
+
+## Finding something
+
+Filter by user (a dropdown of staff) or by action (a free-text search against the action's internal name), 50 results per page with Previous/Next paging.
+
+## Edge cases
+
+- **Only changes are logged, never plain viewing or browsing.** If someone needs to know who *looked at* something rather than who *changed* it, this page won't answer that.
+- **Entries show what was submitted, not a diff against the previous value.** For anything list-shaped, treat each entry as a full snapshot at that moment, not a change summary.
+- **Background automation from the sibling `questionnaires` app appears here too**, under a system entry rather than a staff account, this is expected and not a sign of an unauthorized change.
