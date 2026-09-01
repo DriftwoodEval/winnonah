@@ -19,7 +19,7 @@ import { useCheckPermission } from "~/hooks/use-check-permission";
 import {
 	getRecordsBlockerReason,
 	getUnsupportedLanguageReason,
-	hasOutstandingQuestionnaires,
+	hasQuestionnairesNeeded,
 } from "~/lib/client-blockers";
 import type { ClientColor } from "~/lib/colors";
 import { logger } from "~/lib/logger";
@@ -156,28 +156,20 @@ export function Client({
 			enabled: !!client && !isNotesOnlyClientId(client.id),
 		});
 
-	const { data: applicableRulesData } =
-		api.questionnaires.getApplicableRules.useQuery(
-			{ clientId: client?.id ?? -1 },
-			{ enabled: !!client && !isNotesOnlyClientId(client.id) },
-		);
+	const { data: punchClient } = api.google.getClientFromPunch.useQuery(
+		client?.id.toString() ?? "",
+		{
+			refetchInterval: 60_000,
+			enabled: !!client && !isNotesOnlyClientId(client.id),
+		},
+	);
 
 	const questionnaireBlockers = useMemo(() => {
 		if (!client || isNotesOnlyClientId(client.id)) return [];
 
-		// Records readiness gates questionnaire sending too (qsend.py won't
-		// send until records are Ready), but that's already explained by the
-		// records blockers below, so it isn't needed for a client who simply
-		// has nothing left to send.
-		if (
-			!applicableRulesData ||
-			!hasOutstandingQuestionnaires(
-				applicableRulesData.rules,
-				client.questionnaires,
-			)
-		) {
-			return [];
-		}
+		// No one has flagged DA or EVAL Qs as needed on the prioritization
+		// sheet, so there's nothing to send yet and nothing to be blocked on.
+		if (!hasQuestionnairesNeeded(punchClient)) return [];
 
 		const capitalize = (text: string) =>
 			`${text.charAt(0).toUpperCase()}${text.slice(1)}.`;
@@ -196,7 +188,7 @@ export function Client({
 		}
 
 		return blockers;
-	}, [client, clientFailures, applicableRulesData]);
+	}, [client, clientFailures, punchClient]);
 
 	const recordsBlockers = useMemo(() => {
 		if (!client || isNotesOnlyClientId(client.id)) return [];

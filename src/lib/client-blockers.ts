@@ -75,41 +75,24 @@ export function getUnsupportedLanguageReason(
 	return `unsupported language: ${language}`;
 }
 
-export type QuestionnaireRuleLike = {
-	questionnaires: string[] | null;
+export type PunchQsInfo = {
+	"DA Qs Needed"?: string;
+	"EVAL Qs Needed"?: string;
 };
-
-export type QuestionnaireRecordLike = {
-	questionnaireType: string;
-	status: string | null;
-};
-
-const DONE_QUESTIONNAIRE_STATUSES = new Set(["COMPLETED", "EXTERNAL"]);
 
 /**
- * Mirrors checkAndUpdateQsBatteryStatus in questionnaires.ts: true if any
- * questionnaire type required by the client's applicable rules (as returned
- * by getApplicableRules) is still outstanding, i.e. not COMPLETED or
- * EXTERNAL. False means either nothing is required at all, or everything
- * required has already been sent in and completed.
+ * Mirrors diagnose_client's first check in qsend.py and getPartialBatteries
+ * in questionnaires.ts: a client only has questionnaires outstanding once
+ * staff have marked DA or EVAL Qs as needed on the prioritization sheet.
+ * Nothing about the client's DB record (age, diagnosis, questionnaire
+ * rules) implies this on its own, so a client with no punch-list row, or
+ * with both flags unset, isn't "blocked" from anything yet.
  */
-export function hasOutstandingQuestionnaires(
-	rules: QuestionnaireRuleLike[],
-	clientQuestionnaires: QuestionnaireRecordLike[],
+export function hasQuestionnairesNeeded(
+	punchInfo: PunchQsInfo | null | undefined,
 ): boolean {
-	const requiredTypes = new Set<string>();
-	for (const rule of rules) {
-		for (const type of rule.questionnaires ?? []) requiredTypes.add(type);
-	}
-	if (requiredTypes.size === 0) return false;
-
-	return [...requiredTypes].some(
-		(type) =>
-			!clientQuestionnaires.some(
-				(q) =>
-					q.questionnaireType === type &&
-					q.status !== "ARCHIVED" &&
-					DONE_QUESTIONNAIRE_STATUSES.has(q.status ?? ""),
-			),
+	return (
+		punchInfo?.["DA Qs Needed"] === "TRUE" ||
+		punchInfo?.["EVAL Qs Needed"] === "TRUE"
 	);
 }
