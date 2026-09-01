@@ -1,0 +1,48 @@
+---
+title: Evaluator Matching
+needsCleanup: true
+---
+
+Several other pages reference "eligible evaluators" for a client without ever explaining how that's decided, the [Scheduling Queue](/docs/procedures/scheduling)'s evaluator dropdown, the Potential Private Pay issue, [Claim Reports](/docs/procedures/claim-reports)' blocked-evaluator restriction. This is that logic.
+
+Eligibility is computed in the background and stored, not calculated fresh every time someone checks it. What a client's eligible list shows is only as current as the last time it was recomputed, see "Keeping it current" below for when that actually happens.
+
+## The two criteria, only two
+
+Eligibility comes down to exactly two things: accepted insurance, and not being geographically blocked. That's the whole check, there's no diagnosis-type matching (ASD vs. ADHD), no language matching, and no age-range matching, even though an evaluator's profile has fields for some of those, they're used elsewhere (scheduling appointment types and durations), not here.
+
+### Insurance
+
+- **Private pay clients**: everyone is insurance-eligible, no insurance check happens at all.
+- **Otherwise**: an evaluator is eligible if they accept at least one of the client's primary or secondary insurances.
+- **BabyNet**: if BabyNet is one of the client's insurances, an evaluator normally needs to accept both BabyNet and the client's primary insurance, BabyNet alone doesn't cover services. Exception: if literally no evaluator in the system accepts that primary insurance, accepting BabyNet alone is enough, so a BabyNet client with an otherwise-unsupported primary insurance still isn't excluded from everyone.
+- **No recognized insurance on file at all**: nobody is eligible on this axis.
+
+### School district / zip
+
+This is an exclusion list, not a service area. Every evaluator covers everywhere by default, and only becomes ineligible for a client whose district or zip is specifically on that evaluator's own blocked list, there's no radius or drive-time calculation involved.
+
+This check is skipped entirely (everyone passes) when the client's school district is unknown or they have no address on file, or when the client is over 20.
+
+## Where staff configure this
+
+On each evaluator's own profile (Settings > People, their record): **Insurance** (a checkbox grid of what they accept), **Blocked School Districts**, and **Blocked Zip Codes**. That's the entire set of fields that feed matching, everything else on an evaluator's profile (offices, allowed appointment types, appointment durations, writes-own-reports) drives other features, not this.
+
+Archiving an evaluator removes them from matching entirely, an archived evaluator is never eligible for anyone.
+
+## Keeping it current
+
+Eligibility gets recalculated, not looked up live, whenever something that could change it happens: creating, editing, archiving, or unarchiving an evaluator, or changing a client's school district. A full pass also runs on a nightly schedule that reconciles every client, which is what actually catches insurance changes flowing in from the TherapyAppointment import, editing a client's insurance doesn't trigger an immediate recheck the way a district change does, that only catches up overnight.
+
+## Where it shows up
+
+- The [Scheduling Queue](/docs/procedures/scheduling)'s evaluator picker splits eligible evaluators from everyone else.
+- A client's own page has an **Eligible Evaluators** card. Staff who manage evaluators additionally get a **Why?** button explaining each evaluator's eligibility in plain language, which insurance matched or didn't, and whether the district check even applied.
+- The **Potential Private Pay** issue (see [Issues Dashboard](/docs/documentation/issues-dashboard)) is powered by this same underlying data, a client shows up there if they have no eligible evaluator at all, whether or not they actually have insurance on file.
+- The weekly referral outreach message (see [Questionnaire Process](/docs/procedures/questionnaires)) reads this exact same eligibility data from the sibling `questionnaires` repo, rather than computing anything independently.
+
+## Edge cases
+
+- **A client with real insurance on file can still show up as "possible private pay."** Having insurance doesn't guarantee anyone accepts it, or that the client isn't geographically blocked by every evaluator who does.
+- **Blocked Evaluators is a completely different thing**, a per-user setting on someone's own account (not on the evaluator's profile), that only hides certain evaluators' reports from that one staff member's Claim Reports queue. It has nothing to do with client-evaluator matching.
+- **Editing a client's insurance doesn't immediately recompute their eligible evaluators the way editing their school district does.** That only catches up on the next nightly pass.
