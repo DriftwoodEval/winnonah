@@ -1012,6 +1012,30 @@ export const clientRouter = createTRPCRouter({
 			};
 		}),
 
+	getOfficeDriveTimes: protectedProcedure
+		.input(z.number())
+		.query(async ({ ctx, input }) => {
+			const cookieHeader = ctx.headers.get("cookie") ?? "";
+			const response = await fetch(
+				`${env.PY_API}/clients/${input}/office-drive-times`,
+				{ headers: { Cookie: cookieHeader } },
+			);
+
+			if (!response.ok) {
+				if (response.status === 404 || response.status === 422) return [];
+				throw new Error(
+					`Failed to fetch office drive times: ${response.status}`,
+				);
+			}
+
+			return (await response.json()) as Array<{
+				key: string;
+				prettyName: string;
+				durationMinutes: number | null;
+				distanceMiles: number | null;
+			}>;
+		}),
+
 	getFailures: protectedProcedure
 		.input(z.number().optional())
 		.query(async ({ ctx, input }) => {

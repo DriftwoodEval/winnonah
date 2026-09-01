@@ -1373,6 +1373,18 @@ wheels = [
 ]
 
 [[package]]
+name = "pywaze"
+version = "1.2.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "httpx" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/e8/ca/0c2b0e6f0ec08023bf39f437feef1426896f67386d423d747311035f2ba9/pywaze-1.2.0.tar.gz", hash = "sha256:9e1a72fbe26b7f35649fa090f581afe5ea353db75181e2dafa6af7065f82b490", size = 145512, upload-time = "2026-03-13T06:58:54.547Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/4c/e8/e6c1ae384a454469db6715fdde68045ceb2337795680a86a276105f0bcca/pywaze-1.2.0-py3-none-any.whl", hash = "sha256:d2382134924826cb1d61757bf9c95d01166fd27cb279a9bad2f0d428f5e8b505", size = 6150, upload-time = "2026-03-13T06:58:53.505Z" },
+]
+
+[[package]]
 name = "pyyaml"
 version = "6.0.3"
 source = { registry = "https://pypi.org/simple" }
@@ -1808,6 +1820,7 @@ dependencies = [
     { name = "pytesseract" },
     { name = "python-dateutil" },
     { name = "python-dotenv" },
+    { name = "pywaze" },
     { name = "requests" },
     { name = "selenium" },
     { name = "shapely" },
@@ -1849,6 +1862,7 @@ requires-dist = [
     { name = "pytesseract", specifier = ">=0.3.13" },
     { name = "python-dateutil", specifier = ">=2.9.0.post0" },
     { name = "python-dotenv", specifier = ">=1.2.2" },
+    { name = "pywaze", specifier = ">=1.1.0" },
     { name = "requests", specifier = ">=2.33.1" },
     { name = "selenium", specifier = ">=4.33.0" },
     { name = "shapely", specifier = ">=2.1.2" },

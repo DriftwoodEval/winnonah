@@ -25,6 +25,7 @@ dependencies = [
   "pytesseract>=0.3.13",
   "python-dateutil>=2.9.0.post0",
   "python-dotenv>=1.2.2",
+  "pywaze>=1.1.0",
   "requests>=2.33.1",
   "selenium>=4.33.0",
   "shapely>=2.1.2",

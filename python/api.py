@@ -13,6 +13,7 @@ from fastapi.responses import FileResponse, Response
 from googleapiclient.discovery import build
 from loguru import logger
 from pydantic import BaseModel, ConfigDict, Field
+from pywaze import route_calculator
 
 import appointment_reminders
 import greeter_proxy
@@ -21,6 +22,7 @@ from utils.constants import (
     TABLE_APPOINTMENT,
     TABLE_CLIENT,
     TABLE_CLIENT_INSURANCE_POLICY,
+    TABLE_OFFICE,
     TABLE_ROLE,
     TABLE_SESSION,
     TABLE_USER,
@@ -852,4 +854,76 @@ def download_select_health_form(
         headers={
             "Content-Disposition": f'attachment; filename="select-health-{client_id}.pdf"'
         },
+    )
+
+
+KM_PER_MILE = 1.60934
+
+
+class OfficeDriveTime(BaseModel):
+    key: str
+    pretty_name: str = Field(alias="prettyName")
+    duration_minutes: float | None = Field(alias="durationMinutes")
+    distance_miles: float | None = Field(alias="distanceMiles")
+
+    model_config = ConfigDict(populate_by_name=True)
+
+
+async def _waze_drive_time(start: str, end: str) -> route_calculator.CalcRoutesResponse:
+    async with route_calculator.WazeRouteCalculator(region="US") as waze:
+        routes = await waze.calc_routes(start, end)
+        return routes[0]
+
+
+@app.get("/clients/{client_id}/office-drive-times")
+async def office_drive_times(
+    client_id: int,
+    current_user: dict = Depends(get_current_user),  # noqa: ARG001
+) -> list[OfficeDriveTime]:
+    """Live by-car drive time and distance from a client to every office, via Waze."""
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                f"SELECT latitude, longitude FROM {TABLE_CLIENT} WHERE id = %s",
+                (client_id,),
+            )
+            client_row = cursor.fetchone()
+            cursor.execute(
+                f"SELECT `key`, prettyName, latitude, longitude FROM {TABLE_OFFICE}"
+            )
+            office_rows = cursor.fetchall()
+    finally:
+        conn.close()
+
+    if not client_row:
+        raise HTTPException(status_code=404, detail="Client not found")
+    if not client_row["latitude"] or not client_row["longitude"]:
+        raise HTTPException(status_code=422, detail="Client has no coordinates on file")
+
+    start = f"{client_row['latitude']}, {client_row['longitude']}"
+
+    async def resolve(office: dict) -> OfficeDriveTime:
+        end = f"{office['latitude']}, {office['longitude']}"
+        try:
+            route = await _waze_drive_time(start, end)
+            return OfficeDriveTime(
+                key=office["key"],
+                prettyName=office["prettyName"],
+                durationMinutes=round(route.duration, 1),
+                distanceMiles=round(route.distance / KM_PER_MILE, 1),
+            )
+        except Exception as e:
+            logger.warning(f"Waze route failed for office {office['key']}: {e}")
+            return OfficeDriveTime(
+                key=office["key"],
+                prettyName=office["prettyName"],
+                durationMinutes=None,
+                distanceMiles=None,
+            )
+
+    results = await asyncio.gather(*[resolve(o) for o in office_rows])
+    return sorted(
+        results,
+        key=lambda r: (r.duration_minutes is None, r.duration_minutes or 0),
     )

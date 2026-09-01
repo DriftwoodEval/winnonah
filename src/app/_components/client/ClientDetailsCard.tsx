@@ -14,6 +14,7 @@ import {
 } from "~/lib/utils";
 import { Redact } from "../redaction/Redact";
 import { ManualAddressDialog } from "./ManualAddressDialog";
+import { OfficeDriveTimesButton } from "./OfficeDriveTimesButton";
 import { SelectHealthFormButton } from "./SelectHealthFormButton";
 
 interface ClientDetailsCardProps {
@@ -147,12 +148,16 @@ export function ClientDetailsCard({
 								<ul className="list-disc p-3">
 									{client.closestOffices.slice(1).map((office) => (
 										<li key={office.key}>
-											{office.prettyName} ({office.distanceMiles.toFixed(0)} mi)
+											<span className="font-bold">{office.prettyName}</span> (
+											{office.distanceMiles.toFixed(0)} mi)
 										</li>
 									))}
 								</ul>
 							</PopoverContent>
-						</Popover>
+						</Popover>{" "}
+						{client.closestOffices.length > 0 && (
+							<OfficeDriveTimesButton clientId={client.id} />
+						)}
 					</p>
 					<p>
 						{client.closestOffices[0]?.prettyName ?? "Unknown"}{" "}

@@ -1,0 +1,67 @@
+"use client";
+
+import { Popover, PopoverContent, PopoverTrigger } from "@ui/popover";
+import { Loader2Icon } from "lucide-react";
+import { useState } from "react";
+import { api } from "~/trpc/react";
+
+interface OfficeDriveTimesButtonProps {
+	clientId: number;
+}
+
+function formatDriveTime(minutes: number): string {
+	const total = Math.round(minutes);
+	const hours = Math.floor(total / 60);
+	const mins = total % 60;
+	if (hours === 0) return `${mins} min`;
+	if (mins === 0) return `${hours} hr`;
+	return `${hours} hr ${mins} min`;
+}
+
+export function OfficeDriveTimesButton({
+	clientId,
+}: OfficeDriveTimesButtonProps) {
+	const [enabled, setEnabled] = useState(false);
+	const driveTimes = api.clients.getOfficeDriveTimes.useQuery(clientId, {
+		enabled,
+		refetchOnWindowFocus: false,
+		staleTime: 5 * 60 * 1000,
+	});
+
+	return (
+		<Popover onOpenChange={(open) => open && setEnabled(true)}>
+			<PopoverTrigger asChild>
+				<span className="cursor-pointer font-normal text-muted-foreground hover:underline">
+					(Drive times)
+				</span>
+			</PopoverTrigger>
+			<PopoverContent side="right">
+				{driveTimes.isLoading ? (
+					<div className="flex items-center gap-2 p-3 text-muted-foreground text-sm">
+						<Loader2Icon className="h-4 w-4 animate-spin" />
+						Getting drive times from Waze
+					</div>
+				) : driveTimes.isError ? (
+					<p className="p-3 text-destructive text-sm">
+						Could not load drive times.
+					</p>
+				) : driveTimes.data && driveTimes.data.length > 0 ? (
+					<ul className="list-disc p-3">
+						{driveTimes.data.map((office) => (
+							<li key={office.key}>
+								<span className="font-bold">{office.prettyName}</span>:{" "}
+								{office.durationMinutes != null && office.distanceMiles != null
+									? `${formatDriveTime(office.durationMinutes)} (${office.distanceMiles.toFixed(0)} mi by car)`
+									: "unavailable"}
+							</li>
+						))}
+					</ul>
+				) : (
+					<p className="p-3 text-muted-foreground text-sm">
+						No drive times available.
+					</p>
+				)}
+			</PopoverContent>
+		</Popover>
+	);
+}
