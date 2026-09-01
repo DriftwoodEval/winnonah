@@ -46,7 +46,13 @@ If any step fails, it logs a failure that shows up as an alert on the client's p
 
 ## 3. Manual review
 
-In the event a records request falls out for manual review, the forms will be put in a Google Drive folder. Then, someone can run the Google App Script to generate drafts for manual sending. After manually sending a request this way, remember to also fill in the **Requested** date field on the client's Records section, since nothing does this automatically for manual sends.
+In the event a records request falls out for manual review, the consent forms land as PDFs in a Google Drive folder, using the same naming convention the automated run uses (`{First Last} {MMDDYYYY} Receiving.pdf` / `Sending.pdf`). From there, someone runs a Google Apps Script project called **SendRecords** (opened and run directly from the Apps Script editor, not from inside the EMR) to turn those into drafts:
+
+- It scans the folder and works out the unique list of students represented there by parsing each filename apart, so a student with both a Receiving and Sending PDF only gets processed once, not twice.
+- For each student, it gathers both of their consent PDFs as attachments and creates a Gmail **draft**, it does not send anything automatically, using the exact same subject and body wording the automated Python run uses ("Re: Student: {name}," the standard IEP/evaluation reports/reevaluation review request language, and the office fax number).
+- **The draft's "To" field is left blank.** That's the whole point of this path: these are specifically the requests where automation couldn't resolve a valid district or provider contact on its own, so a person has to fill in the right email address by hand before sending.
+
+After manually sending a request this way, remember to also fill in the **Requested** date field on the client's Records section, since nothing does this automatically for manual sends.
 
 ## 4. Queuing more requests
 
