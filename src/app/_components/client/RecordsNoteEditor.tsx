@@ -469,28 +469,28 @@ export function RecordsNoteEditor({
 			<div className="mb-4 flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
 				<div className="flex flex-wrap items-center gap-3">
 					<h4 className="font-bold leading-none">School Records</h4>
-					<Tooltip>
-						<TooltipTrigger>
-							<Select
-								disabled={!canEditRecordsNeeded}
-								onValueChange={handleNeededChange}
-								value={recordsNeeded ?? ""}
-							>
+					<Select
+						disabled={!canEditRecordsNeeded}
+						onValueChange={handleNeededChange}
+						value={recordsNeeded ?? ""}
+					>
+						<Tooltip>
+							<TooltipTrigger asChild>
 								<SelectTrigger id={recordsNeededId}>
 									<SelectValue placeholder="Records Needed?" />
 								</SelectTrigger>
-								<SelectContent>
-									<SelectItem value="Not Needed">Not Needed</SelectItem>
-									<SelectItem value="Needed">Needed</SelectItem>
-								</SelectContent>
-							</Select>
-						</TooltipTrigger>
-						{!canEditRecordsNeeded && !readOnly && (
-							<TooltipContent>
-								<p>{tooltipRecordsNeeded}</p>
-							</TooltipContent>
-						)}
-					</Tooltip>
+							</TooltipTrigger>
+							{!canEditRecordsNeeded && !readOnly && (
+								<TooltipContent>
+									<p>{tooltipRecordsNeeded}</p>
+								</TooltipContent>
+							)}
+						</Tooltip>
+						<SelectContent>
+							<SelectItem value="Not Needed">Not Needed</SelectItem>
+							<SelectItem value="Needed">Needed</SelectItem>
+						</SelectContent>
+					</Select>
 					<EvaluationCheckbox clientId={clientId} compact readOnly={readOnly} />
 					{recordsNeeded === "Needed" &&
 						requests.map((req, i) => {
@@ -548,7 +548,7 @@ export function RecordsNoteEditor({
 							))}
 					{canAddRequest && !requests.some((r) => !r.requestedDate) && (
 						<Tooltip>
-							<TooltipTrigger>
+							<TooltipTrigger asChild>
 								<div className="flex items-center gap-2">
 									<Checkbox
 										checked={false}

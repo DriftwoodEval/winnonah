@@ -145,6 +145,8 @@ def get_current_user(request: Request):
     if not session_token:
         raise HTTPException(status_code=401, detail="Authentication required")
 
+    impersonate_user_id = request.cookies.get("impersonate-user-id")
+
     conn = get_db()
     try:
         with conn.cursor() as cursor:
@@ -181,6 +183,18 @@ def get_current_user(request: Request):
                 role_permissions = json.loads(row["role_permissions"])
                 permissions = {**role_permissions, **user_permissions}
 
+            # Mirror the "view as another user" behavior in src/server/auth/config.ts:
+            # when a permitted user has an impersonation cookie set, everything
+            # downstream sees the impersonated user's identity and permissions.
+            if (
+                impersonate_user_id
+                and impersonate_user_id != row["id"]
+                and permissions.get("settings:impersonate")
+            ):
+                target = _lookup_user(cursor, impersonate_user_id)
+                if target:
+                    return target
+
             return {
                 "user_id": row["id"],
                 "email": row["email"],
@@ -189,6 +203,34 @@ def get_current_user(request: Request):
             }
     finally:
         conn.close()
+
+
+def _lookup_user(cursor, user_id: str) -> dict | None:
+    """Resolves a user's identity and effective permissions by id."""
+    sql = f"""
+        SELECT
+            u.id, u.email, u.name, u.permissions, u.archived,
+            r.permissions AS role_permissions
+        FROM {TABLE_USER} u
+        LEFT JOIN {TABLE_ROLE} r ON u.roleId = r.id
+        WHERE u.id = %s
+    """
+    cursor.execute(sql, (user_id,))
+    row = cursor.fetchone()
+    if not row or row.get("archived"):
+        return None
+
+    user_permissions = json.loads(row["permissions"]) if row["permissions"] else {}
+    permissions = user_permissions
+    if row.get("role_permissions"):
+        permissions = {**json.loads(row["role_permissions"]), **user_permissions}
+
+    return {
+        "user_id": row["id"],
+        "email": row["email"],
+        "name": row["name"],
+        "permissions": permissions,
+    }
 
 
 def get_writer_id(user_name: str) -> str:
