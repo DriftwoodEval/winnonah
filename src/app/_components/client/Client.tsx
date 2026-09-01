@@ -11,24 +11,22 @@ import {
 import { Skeleton } from "@ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@ui/tabs";
 import { format } from "date-fns";
-import {
-	AlertTriangleIcon,
-	Ban,
-	Clock,
-	FileText,
-	MapPinOff,
-	PauseCircle,
-} from "lucide-react";
+import { AlertTriangleIcon, Ban, FileText, MapPinOff } from "lucide-react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { useCheckPermission } from "~/hooks/use-check-permission";
+import {
+	getRecordsBlockerReason,
+	getUnsupportedLanguageReason,
+	hasQuestionnairesNeeded,
+} from "~/lib/client-blockers";
 import type { ClientColor } from "~/lib/colors";
 import { logger } from "~/lib/logger";
 import {
 	dateOnlyToLocalDate,
 	formatClientAge,
-	formatShortInstantDate,
+	formatInBusinessTime,
 	isNotesOnlyClientId,
 } from "~/lib/utils";
 import { api } from "~/trpc/react";
@@ -153,6 +151,95 @@ export function Client({
 		{ refetchInterval: 60_000 },
 	);
 
+	const { data: externalRecordData } =
+		api.externalRecords.getExternalRecordByClientId.useQuery(client?.id ?? -1, {
+			enabled: !!client && !isNotesOnlyClientId(client.id),
+		});
+
+	const { data: punchClient } = api.google.getClientFromPunch.useQuery(
+		client?.id.toString() ?? "",
+		{
+			refetchInterval: 60_000,
+			enabled: !!client && !isNotesOnlyClientId(client.id),
+		},
+	);
+
+	const questionnaireBlockers = useMemo(() => {
+		if (!client || isNotesOnlyClientId(client.id)) return [];
+
+		// No one has flagged DA or EVAL Qs as needed on the prioritization
+		// sheet, so there's nothing to send yet and nothing to be blocked on.
+		if (!hasQuestionnairesNeeded(punchClient)) return [];
+
+		const capitalize = (text: string) =>
+			`${text.charAt(0).toUpperCase()}${text.slice(1)}.`;
+
+		const blockers: string[] = (clientFailures ?? [])
+			.filter((failure) => failure.daEval !== "Records")
+			.map((failure) => capitalize(failure.reason));
+
+		if (client.pause) blockers.push("Client paused for review.");
+
+		const unsupportedLanguageReason = getUnsupportedLanguageReason(
+			client.language,
+		);
+		if (unsupportedLanguageReason) {
+			blockers.push(capitalize(unsupportedLanguageReason));
+		}
+
+		return blockers;
+	}, [client, clientFailures, punchClient]);
+
+	const recordsBlockers = useMemo(() => {
+		if (!client || isNotesOnlyClientId(client.id)) return [];
+
+		const capitalize = (text: string) =>
+			`${text.charAt(0).toUpperCase()}${text.slice(1)}.`;
+
+		const blockers: string[] = (clientFailures ?? [])
+			.filter((failure) => failure.daEval === "Records")
+			.map((failure) => capitalize(failure.reason));
+
+		if (client.recordsNeeded === null) {
+			blockers.push("Missing records-needed status.");
+			return blockers;
+		}
+
+		const currentSessionRequests = (externalRecordData?.requests ?? []).filter(
+			(request) =>
+				!client.sessionStartedAt ||
+				request.createdAt >= client.sessionStartedAt,
+		);
+		const requestedDates = currentSessionRequests.map(
+			(request) => request.requestedDate,
+		);
+		const pendingRequest = currentSessionRequests.find(
+			(request) => request.requestedDate === null,
+		);
+
+		const recordsBlockerReason = getRecordsBlockerReason({
+			recordsNeeded: client.recordsNeeded,
+			asdAdhd: client.asdAdhd,
+			hasExternalRecordContent: !!externalRecordData?.contentJson,
+			isPrivateSchool: client.referralData?.privateSchool === "yes",
+			language: client.language,
+			holdUntil: pendingRequest?.holdUntil,
+			requestedDates,
+			today: formatInBusinessTime(new Date(), "yyyy-MM-dd"),
+		});
+		if (recordsBlockerReason) blockers.push(capitalize(recordsBlockerReason));
+
+		return blockers;
+	}, [client, clientFailures, externalRecordData]);
+
+	const sendBlockers = [...questionnaireBlockers, ...recordsBlockers];
+	const sendBlockersTitle =
+		questionnaireBlockers.length > 0 && recordsBlockers.length > 0
+			? "Not Sending Questionnaires or Records"
+			: questionnaireBlockers.length > 0
+				? "Not Sending Questionnaires"
+				: "Not Sending Records";
+
 	const isLoading = isLoadingClient;
 
 	return (
@@ -245,7 +332,7 @@ export function Client({
 										<ClientDetailsCard client={client} />
 									)}
 
-									{client.isOnDropList && isActive ? (
+									{client.isOnDropList && isActive && (
 										<Alert variant="destructive">
 											<Ban className="h-4 w-4" />
 											<AlertTitle>
@@ -264,70 +351,21 @@ export function Client({
 												{client.dropListReason}.
 											</AlertDescription>
 										</Alert>
-									) : (
-										clientFailures?.map((failure) => {
-											if (
-												(failure.reason === "docs not signed" ||
-													failure.reason === "portal not opened") &&
-												isActive
-											) {
-												const reasonText = `${failure.reason?.replace(
-													/^\S/g,
-													(c) => c.toUpperCase() + c.toLowerCase().slice(1),
-												)}.`;
-
-												const formattedUpdatedDate = failure.updatedAt
-													? formatShortInstantDate(failure.updatedAt)
-													: null;
-
-												const formattedFailedDate =
-													dateOnlyToLocalDate(
-														failure.failedDate,
-													)?.toLocaleDateString(undefined, {
-														year: "2-digit",
-														month: "numeric",
-														day: "numeric",
-													}) ?? "Unknown Date";
-
-												const dateString = formattedUpdatedDate
-													? `As of ${formattedUpdatedDate} (first noted ${formattedFailedDate}).`
-													: `First noted ${formattedFailedDate}.`;
-
-												return (
-													<Alert key={failure.reason} variant="destructive">
-														<Clock />
-														<AlertTitle>{reasonText}</AlertTitle>
-														<AlertDescription>{dateString}</AlertDescription>
-													</Alert>
-												);
-											}
-											return null;
-										})
 									)}
 
-									{client.pause && isActive && (
+									{sendBlockers.length > 0 && isActive && (
 										<Alert variant="destructive">
-											<PauseCircle className="h-4 w-4" />
-											<AlertTitle>Client Paused</AlertTitle>
+											<AlertTriangleIcon className="h-4 w-4" />
+											<AlertTitle>{sendBlockersTitle}</AlertTitle>
 											<AlertDescription>
-												This client has been manually paused for review.
+												<ul className="list-disc space-y-1 pl-4">
+													{sendBlockers.map((reason) => (
+														<li key={reason}>{reason}</li>
+													))}
+												</ul>
 											</AlertDescription>
 										</Alert>
 									)}
-
-									{client.recordsNeeded === null &&
-										isActive &&
-										!isNotesOnlyClientId(client.id) && (
-											<Alert variant="destructive">
-												<AlertTriangleIcon className="h-4 w-4" />
-												<AlertTitle>Missing Records Needed Status</AlertTitle>
-												<AlertDescription>
-													Indicate whether school records are needed for this
-													client in the Records tab. Questionnaires cannot be
-													sent until then.
-												</AlertDescription>
-											</Alert>
-										)}
 
 									{!isNotesOnlyClientId(client.id) && (
 										<ClientAppointments clientId={client.id} />
