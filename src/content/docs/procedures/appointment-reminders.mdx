@@ -1,0 +1,47 @@
+---
+title: Appointment Reminders
+needsCleanup: true
+---
+
+Separate from questionnaire reminders (which nag a family to finish paperwork) and from appointment check-in (which just tracks who's actually shown up), this is the automated system that texts clients ahead of time about an upcoming appointment, and picks up on their reply to confirm it.
+
+## 1. How it runs
+
+There's no script to run by hand here. It's a background loop that starts automatically inside the Python API service and checks every 15 minutes for reminders that are due. A safeguard prevents two overlapping runs from firing the same reminder twice. Like the other automations, its last run time shows up in **Settings > Billing Download**'s "Last Script Run Times" panel, labeled **Appointment Reminders**.
+
+## 2. Reminder templates
+
+Configured at **Settings > Scheduling**, under Reminder Scripts. Staff can create any number of templates, each one is a card with an **Edit Script** button opening these fields:
+
+- **Template Name**
+- Either a **Keyword (Title Match)** (matched against the calendar event's title), or a combination of **DA/Eval**, **Locations**, and **Min/Max Client Age**, whichever set of conditions decides which appointments this template applies to.
+- **Message Template**, the actual text sent.
+- **Confirmation Reply (Optional)**, a reply text sent back automatically if this reminder's confirmation is detected.
+- **Send Before Appointment**, a number plus a Hours/Days unit picker, this is how far ahead of the appointment the reminder goes out.
+- An **Active** switch to turn a template on or off without deleting it.
+- Two mutually exclusive toggles: **No-Reply Follow-up** ("Only send if a previous reminder has not been confirmed") and **Confirmed Follow-up** ("Only send if the appointment HAS been confirmed").
+
+When more than one template could apply to the same appointment, the most-imminent one wins for that reminder cycle, later, less urgent templates get deferred rather than sending a pile of texts at once.
+
+## 3. Quiet hours
+
+Also on the Scheduling settings page: **Quiet Start (Evening)** and **Quiet End (Morning)**. Reminders never send during that window. If the whole 15-minute check happens to start inside quiet hours, nothing sends that pass, it picks back up on the next check once the window's over. If a specific reminder's due time would land inside quiet hours, it's pushed forward to the end of the window instead of being skipped outright.
+
+## 4. Office location phrases
+
+Each office has a short phrase configured (for example, "at 123 Main St, Suite 100") that fills in the `$LOCATION`/`$OFFICE_NAME` placeholders in a message template. Virtual appointments don't use an office phrase at all, they get "Virtual"/"virtually" filled in automatically.
+
+## 5. Confirmations
+
+When a client texts back, their reply is scanned for a confirmation keyword or emoji. A match marks the appointment confirmed, which can trigger that template's **Confirmation Reply** text back to them, and updates the linked Google Calendar event: a note gets appended and the event title gets a `[CONFIRMED]` suffix, so anyone looking at the calendar directly can see it too.
+
+## 6. What silently skips a reminder
+
+- The appointment is cancelled, rescheduled, billing-only, or a placeholder.
+- The client has no phone number on file.
+- **The client doesn't speak English.** This isn't a setting anyone can toggle, it's a hard rule: automated appointment reminders only ever go to English-speaking clients. Worth knowing so a missing reminder for a Spanish-speaking family isn't mistaken for a bug.
+- The appointment already has **Stop Reminders** turned on. This is the same per-appointment toggle covered in the [Appointment Check-In](/docs/procedures/appointment-checkin) page (there listed as **Do Not Remind**), it silences this whole system for that one appointment.
+
+## 7. History, for troubleshooting
+
+The Scheduling settings page also keeps three logs, the 50 most recent entries each: **Reminder History** (what was sent and when), **Confirmation Replies**, and **Non-Confirmation Replies**. These are the first place to check when someone asks "did we actually text this family?"
