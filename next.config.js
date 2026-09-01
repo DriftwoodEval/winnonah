@@ -74,6 +74,7 @@ const withMDX = createMDX({
 			"remark-mdx-frontmatter",
 			"remark-gfm",
 			path.join(projectRoot, "src/lib/remark-docs-images.js"),
+			path.join(projectRoot, "src/lib/remark-docs-callouts.js"),
 		],
 		rehypePlugins: [
 			"rehype-slug",

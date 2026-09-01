@@ -29,6 +29,33 @@ Each top-level folder under `src/content/docs/` is a sidebar category. Add a `_c
 
 Without one, the folder name is title-cased automatically.
 
+## Callouts
+
+Use callouts to pull something out of the main flow: a warning, a tip, a "this only applies if" note. Lean on them, a page with two or three well-placed callouts is easier to scan than one long wall of text.
+
+Write them as a blockquote with a marker on the first line:
+
+```md
+> [!NOTE]
+> Background or context the reader should have.
+
+> [!WARNING]
+> An action that can cause problems or lost work.
+```
+
+Everything below the marker line is the callout body and can hold normal Markdown (links, bold, lists).
+
+> [!TIP]
+> The marker is case-insensitive. To override the heading, put text after it on the same line: `> [!WARNING] Read this first`.
+
+### Types
+
+The five you'll reach for most: `NOTE`, `TIP`, `IMPORTANT`, `WARNING`, `CAUTION`. The full set, borrowed from Obsidian, is `note`, `abstract`, `info`, `todo`, `tip`, `success`, `question`, `warning`, `important`, `caution`, `failure`, `danger`, `bug`, `example`, `quote`. An unrecognized marker falls back to `note`.
+
+Aliases resolve to another type: `summary`/`tldr` to abstract, `hint` to tip, `check`/`done` to success, `help`/`faq` to question, `attention` to warning, `fail`/`missing` to failure, `error` to danger, `cite` to quote.
+
+For anything the blockquote form can't express, the `<Callout type="note" title="...">...</Callout>` component is also available directly in MDX.
+
 ## Screenshots and other images
 
 Put image files right next to the `.mdx` file that uses them, then reference them by filename:
