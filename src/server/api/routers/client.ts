@@ -1822,7 +1822,16 @@ export const clientRouter = createTRPCRouter({
 					const maxUnitsPerDay = apptConfig?.maxUnitsPerDay;
 					if (!maxUnitsPerDay) continue;
 
-					const totalMinutes = client.assessmentData?.minutes ?? 0;
+					// A client whose assessment plan has never been computed (nobody's
+					// visited their Insurance tab and clicked Compute) has no stored
+					// snapshot yet. Compute and store it now instead of silently
+					// skipping them, so this check covers everyone with the needed
+					// info on file, not just clients someone happened to look at.
+					const snapshot =
+						client.assessmentData ??
+						(await computeAndStoreAssessmentSnapshot(ctx.db, client.id));
+
+					const totalMinutes = snapshot.minutes;
 					if (totalMinutes === 0) continue;
 
 					const expectedCount = calculateAdditionalAppointments(
