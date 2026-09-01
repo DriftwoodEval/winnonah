@@ -472,6 +472,24 @@ export function isNotesOnlyClientId(
 }
 
 /**
+ * True when an error is a transient connectivity failure rather than a real
+ * application error: the request never reached the API, or the reverse proxy
+ * returned its HTML maintenance/error page instead of JSON (which surfaces as a
+ * "Unexpected token '<'" JSON parse error in the tRPC client).
+ */
+export function isServerUnavailableError(error: unknown): boolean {
+	const message = error instanceof Error ? error.message : String(error ?? "");
+	return (
+		message.includes("<!DOCTYPE") ||
+		message.includes("Unexpected token '<'") ||
+		message.includes("is not valid JSON") ||
+		message.includes("Failed to fetch") ||
+		message.includes("NetworkError") ||
+		message.includes("Load failed")
+	);
+}
+
+/**
  * Create a deterministic color for a user based on their name
  */
 export function userBadgeStyle(name: string): React.CSSProperties {

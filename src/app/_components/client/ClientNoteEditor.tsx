@@ -9,11 +9,25 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { useCheckPermission } from "~/hooks/use-check-permission";
 import { logger } from "~/lib/logger";
+import { isServerUnavailableError } from "~/lib/utils";
 import { api } from "~/trpc/react";
 import { NoteHistory } from "../shared/NoteHistory";
 import { ResponsiveDialog } from "../shared/ResponsiveDialog";
 
 const log = logger.child({ module: "ClientNoteEditor" });
+
+// Autosave runs in the background, so it regularly fires during brief backend
+// blips (deploys, health-check flaps) when the proxy serves an HTML error page.
+// Retry those transient failures before bothering the user.
+const retryOnServerUnavailable = (failureCount: number, error: unknown) =>
+	isServerUnavailableError(error) && failureCount < 5;
+const retryDelay = (attempt: number) => Math.min(1000 * 2 ** attempt, 15000);
+
+function describeSaveError(error: { message: string }) {
+	return isServerUnavailableError(error)
+		? "The server is temporarily unreachable. Your note will save automatically once the connection is back. Keep this page open."
+		: String(error.message);
+}
 
 interface ClientNoteEditorProps {
 	clientId: number;
@@ -67,19 +81,23 @@ export function ClientNoteEditor({
 	}, [note?.contentJson]);
 
 	const updateNoteMutation = api.notes.updateNote.useMutation({
+		retry: retryOnServerUnavailable,
+		retryDelay,
 		onSettled: () => {
 			isTyping.current = false;
 		},
 		onError: (error) => {
 			log.error(error, "Failed to update note");
 			toast.error("Failed to update note", {
-				description: String(error.message),
+				description: describeSaveError(error),
 				duration: 10000,
 			});
 		},
 	});
 
 	const createNoteMutation = api.notes.createNote.useMutation({
+		retry: retryOnServerUnavailable,
+		retryDelay,
 		onSuccess: () => {
 			if (clientId) {
 				utils.notes.getNoteByClientId.invalidate(clientId);
@@ -91,7 +109,7 @@ export function ClientNoteEditor({
 		onError: (error) => {
 			log.error(error, "Failed to create note");
 			toast.error("Failed to create note", {
-				description: String(error.message),
+				description: describeSaveError(error),
 				duration: 10000,
 			});
 		},
