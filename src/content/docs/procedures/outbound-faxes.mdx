@@ -1,0 +1,40 @@
+---
+title: Outbound Faxes
+needsCleanup: true
+---
+
+Entirely separate system from [Fax Categorization](/docs/procedures/fax-categorization), which sorts *incoming* faxes. This is the practice sending faxes out, to referring doctors: a thank-you note when their referrals come in, a closing notice when a case wraps up, and finished reports. All three run automatically off the same nightly job as the rest of winnonah's Python-side automation, no button anywhere in the app triggers any of them. Staff involvement is entirely through a couple of Google Sheets and Drive folders, not the EMR app itself.
+
+Every send works the same way underneath: an email addressed to `{fax number}@redfax.com`, an email-to-fax gateway service that treats the address's number as the destination and the attachment as what gets faxed. There's no delivery confirmation from the fax side, success is judged purely by whether that email sent, a fax that silently fails to arrive on the other end looks identical to a successful one from here.
+
+## Where a fax number comes from
+
+No client or evaluator record has an actual fax number field anywhere in the EMR. Every number used by this system is pulled out of free text: a referral source description imported from TherapyAppointment, a cell someone typed into a spreadsheet, or the name of a Drive folder. There's no single place to look up or correct a fax number, it depends entirely on which of the three flows below is involved.
+
+## 1. Referral thank-you faxes
+
+- **Every day**, the job scans every client's referral source text for a usable 10-digit number and makes sure a Drive folder exists for that referrer, named after them and their fax number. This same folder tree is what the report-fax flow uses below.
+- **Every Friday**, it looks at every client added since the last Friday's run, groups them by referral source, and for each source with a usable number, faxes a short thank-you note listing the newly-added clients by name, mentioning the process takes "approximately a 6- to 9-month process." It's a courtesy acknowledgment, not a clinical document.
+
+## 2. Close-to-doctor faxes
+
+Driven by a separate Google Sheet staff maintain by hand, not by anything on the client's own record or Active/Inactive status:
+
+- A row per client: mark **Fax to Dr.** as **Yes**, pick a closing reason from a dropdown (or write in an Other), and enter the doctor's name and fax number as free text.
+- Every run, any row marked Yes and not yet sent gets turned into a filled-in cover sheet (a checkbox-style form generated from a template, with the matching reason checked off) and faxed to that doctor. Once sent, the row flips to sent so it isn't re-faxed next time.
+
+**Marking a client Inactive in the app does not trigger this by itself.** The spreadsheet is the only trigger, someone has to fill in that row as one of the closing-procedure steps for the fax to actually go out.
+
+## 3. Report faxes
+
+- Staff manually drop a finished report PDF into the right doctor's Drive folder, the same referrer-folder pool the daily referral job maintains.
+- The job auto-generates a cover sheet if that doctor's folder doesn't already have per-client subfolders, or, if it does, expects each subfolder to already hold a signed cover page, then faxes whatever's there.
+- Successfully sent files move into a separate completed folder so a later run doesn't re-send them.
+
+**This isn't connected to [Claim Reports](/docs/procedures/claim-reports) at all.** Approving a report there doesn't fax anything, someone still has to manually place the finished PDF in the correct doctor folder for this flow to pick it up.
+
+## Edge cases
+
+- **A failed send just gets logged and left for the next run to retry.** Nothing surfaces it to staff directly, no admin email, no Issues card, so a fax that never went out only shows up by checking the logs.
+- **None of this is configurable through the app's Settings.** It's all raw deployment configuration plus the two Google Sheets/Drive folders staff maintain directly.
+- **Don't confuse this with the unrelated "Fax?" checkbox** on the Records Request settings' district contact list (see [QSuite Settings](/docs/documentation/qsuite-settings)), that's a separate, much smaller feature for school-district records requests, not part of this system at all.
