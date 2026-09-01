@@ -139,7 +139,7 @@ type ExtraToggleKey = typeof FAILURES_TOGGLE_KEY;
 type ToggleKey = ColumnKey | ExtraToggleKey;
 
 const ALL_TOGGLE_LABELS: Record<ToggleKey, string> = {
-	[FAILURES_TOGGLE_KEY]: "Unresolved Failures",
+	[FAILURES_TOGGLE_KEY]: "Blockers",
 	...COLUMN_LABELS,
 };
 
@@ -523,7 +523,7 @@ const BASE_COLOR_OPTIONS: FilterOption[] = CLIENT_COLOR_KEYS.map((key) => ({
 const HAS_FAILURES_FILTER_VALUE = "__hasFailures__";
 const HAS_FAILURES_FILTER_OPTION: FilterOption = {
 	value: HAS_FAILURES_FILTER_VALUE,
-	label: "Unresolved Failures",
+	label: "Blockers",
 };
 
 interface DirectoryFilters {
@@ -1447,7 +1447,7 @@ export function ClientDirectory() {
 	}, [rawClients]);
 
 	// Merged into the color facet counts so the Name filter's combined
-	// dropdown can show a count next to "Unresolved Failures" too.
+	// dropdown can show a count next to "Blockers" too.
 	const nameFilterCounts = useMemo(() => {
 		const hasFailuresCount = (rawClients ?? []).filter(
 			(client) => client.unresolvedFailures.length > 0,

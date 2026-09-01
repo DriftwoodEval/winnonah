@@ -29,6 +29,10 @@ import {
 	calculateAdditionalAppointments,
 } from "~/lib/billing";
 import { fetchWithCache, invalidateCache } from "~/lib/cache";
+import {
+	getRecordsNotReadyReason,
+	getUnsupportedLanguageReason,
+} from "~/lib/client-blockers";
 import { CLIENT_COLOR_KEYS, type ClientColor } from "~/lib/colors";
 import { ALLOWED_ASD_ADHD_VALUES } from "~/lib/constants";
 import {
@@ -503,6 +507,9 @@ export const clientRouter = createTRPCRouter({
 							addedDate: true,
 							latitude: true,
 							longitude: true,
+							pause: true,
+							recordsNeeded: true,
+							sessionStartedAt: true,
 						},
 						extras: { sortReason: sortReasonSQL },
 						where: and(...conditions),
@@ -538,6 +545,8 @@ export const clientRouter = createTRPCRouter({
 				relevantAppointments,
 				schedulingAssignments,
 				allEvaluators,
+				externalRecordRows,
+				externalRecordRequestRows,
 			] = clientIds.length
 				? await Promise.all([
 						ctx.db
@@ -590,8 +599,43 @@ export const clientRouter = createTRPCRouter({
 								archived: evaluators.archived,
 							})
 							.from(evaluators),
+						ctx.db
+							.select({
+								clientId: externalRecords.clientId,
+								content: externalRecords.content,
+							})
+							.from(externalRecords)
+							.where(inArray(externalRecords.clientId, clientIds)),
+						ctx.db
+							.select({
+								clientId: externalRecordRequests.clientId,
+								requestedDate: externalRecordRequests.requestedDate,
+								createdAt: externalRecordRequests.createdAt,
+							})
+							.from(externalRecordRequests)
+							.where(inArray(externalRecordRequests.clientId, clientIds)),
 					])
-				: [[], [], [], []];
+				: [[], [], [], [], [], []];
+
+			const sessionStartedAtByClientId = new Map(
+				rows.map((row) => [row.id, row.sessionStartedAt]),
+			);
+
+			const hasExternalRecordContentByClientId = new Set(
+				externalRecordRows
+					.filter((row) => row.content !== null)
+					.map((row) => row.clientId),
+			);
+
+			const requestedDatesByClientId = new Map<number, string[]>();
+			for (const row of externalRecordRequestRows) {
+				const sessionStartedAt = sessionStartedAtByClientId.get(row.clientId);
+				if (sessionStartedAt && row.createdAt < sessionStartedAt) continue;
+				if (!row.requestedDate) continue;
+				const existing = requestedDatesByClientId.get(row.clientId);
+				if (existing) existing.push(row.requestedDate);
+				else requestedDatesByClientId.set(row.clientId, [row.requestedDate]);
+			}
 
 			const priorAuthDateByClientId = new Map<number, string | null>();
 			for (const row of primaryPolicies) {
@@ -684,24 +728,49 @@ export const clientRouter = createTRPCRouter({
 				return closestKey ? (officeNameByKey.get(closestKey) ?? null) : null;
 			};
 
-			return rows.map(({ latitude, longitude, ...row }) => ({
-				...row,
-				primaryInsurance: getInsuranceShortName(
-					row.primaryInsurance,
-					allInsurances,
-				),
-				secondaryInsurance: (row.secondaryInsurance ?? [])
-					.map((name) => getInsuranceShortName(name, allInsurances))
-					.filter((name): name is string => Boolean(name)),
-				unresolvedFailures: failuresByClientId.get(row.id) ?? [],
-				priorAuthDate: priorAuthDateByClientId.get(row.id) ?? null,
-				daScheduled: daScheduledClientIds.has(row.id),
-				daScheduledDate: daScheduledDateByClientId.get(row.id) ?? null,
-				evalScheduled: evalScheduledClientIds.has(row.id),
-				evalScheduledDate: evalScheduledDateByClientId.get(row.id) ?? null,
-				location: getLocation(latitude, longitude, row.id),
-				evaluator: getEvaluatorFirstName(row.id),
-			}));
+			return rows.map(({ latitude, longitude, ...row }) => {
+				const blockers = [...(failuresByClientId.get(row.id) ?? [])];
+
+				if (row.pause) blockers.push("paused");
+
+				const unsupportedLanguageReason = getUnsupportedLanguageReason(
+					row.language,
+				);
+				if (unsupportedLanguageReason) blockers.push(unsupportedLanguageReason);
+
+				if (row.recordsNeeded === null) {
+					blockers.push("missing records-needed status");
+				} else {
+					const recordsNotReadyReason = getRecordsNotReadyReason({
+						recordsNeeded: row.recordsNeeded,
+						asdAdhd: row.asdAdhd,
+						hasExternalRecordContent: hasExternalRecordContentByClientId.has(
+							row.id,
+						),
+						requestedDates: requestedDatesByClientId.get(row.id) ?? [],
+					});
+					if (recordsNotReadyReason) blockers.push(recordsNotReadyReason);
+				}
+
+				return {
+					...row,
+					primaryInsurance: getInsuranceShortName(
+						row.primaryInsurance,
+						allInsurances,
+					),
+					secondaryInsurance: (row.secondaryInsurance ?? [])
+						.map((name) => getInsuranceShortName(name, allInsurances))
+						.filter((name): name is string => Boolean(name)),
+					unresolvedFailures: blockers,
+					priorAuthDate: priorAuthDateByClientId.get(row.id) ?? null,
+					daScheduled: daScheduledClientIds.has(row.id),
+					daScheduledDate: daScheduledDateByClientId.get(row.id) ?? null,
+					evalScheduled: evalScheduledClientIds.has(row.id),
+					evalScheduledDate: evalScheduledDateByClientId.get(row.id) ?? null,
+					location: getLocation(latitude, longitude, row.id),
+					evaluator: getEvaluatorFirstName(row.id),
+				};
+			});
 		}),
 
 	directoryFacetCounts: protectedProcedure
