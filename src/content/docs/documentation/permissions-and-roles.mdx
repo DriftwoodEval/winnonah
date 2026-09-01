@@ -1,0 +1,49 @@
+---
+title: Permissions and Roles
+needsCleanup: true
+---
+
+Access control in the app is entirely permission-based: around 85 individual permissions, each gating one specific action or page. A **role** is just a named bundle of those permissions, and a person's actual access is their role's permissions plus any individual overrides set on their own account.
+
+## 1. Permissions
+
+Permissions are grouped into three top-level categories, each split into subgroups:
+
+- **Clients**: General, Questionnaires, Records, Administration, Insurance, Referrals.
+- **System**: Settings, QSuite, Issues (one permission per card on the Issues dashboard, about 21 of them alone).
+- **Pages**: gates entire top-level pages (Availability, Dashboard, Calculator, Scheduling, Work Summary).
+
+Most permissions are independent, one permission, one action. A small number nest under a parent (currently just one pair: the email-notification setting for Insurance Review claims nests under the main Insurance Review permission). That nesting is enforced by the permission picker in the UI, not by the app itself: the picker won't let you check a child until its parent is checked, and unchecking the parent force-unchecks its children, but nothing on the server actually verifies a user holds the parent before honoring the child. Worth knowing if you're ever auditing what a role or user can actually do, don't assume a "child" permission is meaningless without its "parent" being separately confirmed.
+
+## 2. Roles
+
+Roles aren't fixed presets, they're free-form: an admin picks whatever combination of permissions they want and gives it a name. One role can be marked the default, applied automatically to anyone who signs in without a matching pending invitation (see below). A role can't be deleted while it's the default, or while any user or pending invitation is still assigned to it, the app reports how many people/invites are still on it if you try.
+
+Managing roles (creating, editing, deleting) and managing individual people's role/permission overrides are two separate actions gated by two separate permissions, so someone can be allowed to build roles without also being allowed to assign them to people, or vice versa.
+
+## 3. Getting a new person an account
+
+Sign-in is Google OAuth, restricted to the practice's Google Workspace domain with a verified email, there's no separate password or invite-link system gating login itself. That means anyone with a verified email on the practice's domain can sign in and get an account, whether or not they were ever explicitly invited.
+
+An "invite" doesn't create a special access link, it's a pre-assignment: someone with the right permission creates an invitation for an email address, picks a role, and optionally layers individual permission overrides on top of that role. An email goes out pointing to the normal sign-in page, nothing unique or expiring about the link itself. When that address signs in with Google for the first time:
+
+- If a matching pending invitation exists, the new account gets that invitation's role and permission overrides, and the invitation is marked used.
+- If not, the new account just gets whatever role is currently marked default, with no individual overrides.
+
+So it's worth periodically checking what the default role can actually do, since anyone on the Workspace domain can land with it just by signing in.
+
+Editing an existing person's role or permission overrides happens from their row in the People list. People aren't deleted from the system, only archived, and nobody can archive their own account. The permission picker also won't let someone remove their own ability to manage users or roles while editing their own record, a small safety rail against locking yourself out by accident.
+
+**Evaluators** are a related but separate concept: a clinical provider profile (insurances, offices) rather than a login account. A given person can be a user (a login), an evaluator (a clinical profile), both, or neither, and the two are only connected by matching email address.
+
+## 4. Where this lives
+
+The People tab under Settings is visible to every signed-in user, seeing the list of names, roles, and pending invitations doesn't require any special permission. What's gated is each specific action within it: editing a user's role or overrides, sending or deleting an invitation, and managing roles are all separately permissioned. Other Settings tabs (QSuite, Downloads, Audit Log, BabyNet Report) work differently, they're hidden from the tab bar entirely unless you hold the matching permission, rather than being visible-but-self-gated the way People is.
+
+There's no single "admin" flag anywhere in the system. Whoever can grant permissions to others is just someone holding the specific permissions for managing roles and managing users, the same kind of permission as anything else in the list.
+
+## Edge cases
+
+- **Anyone on the company's Google Workspace domain can get an account just by signing in**, invited or not, they'll simply land on the current default role. If that role is too permissive, that's a real exposure, worth checking occasionally.
+- **The parent/child nesting in the permission picker is a UI convenience, not a real dependency.** Don't rely on a permission's "parent" being enforced anywhere except while editing it through that picker.
+- **Deleting a role fails loudly, not silently**, if it's still the default or still assigned to anyone, reassign those people (or unset the default) first.

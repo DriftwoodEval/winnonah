@@ -1,0 +1,83 @@
+---
+title: Cross-Repo Architecture
+needsCleanup: true
+---
+
+`winnonah` and `questionnaires` are two separately deployed processes sharing one MySQL database. This page maps the actual integration points between them: how config flows, how they call each other over HTTP, and where they touch the same filesystem or Google services outside the DB. Static reading only, anything that couldn't be confirmed this way is called out explicitly rather than guessed.
+
+## The shared config API (`py-config`)
+
+Served by winnonah's **Next.js app**, not its Python sidecar: `GET /api/internal/py-config` (`src/app/api/internal/py-config/route.ts`). It reads one row (id=1) out of the `emr_python_config` MySQL table and returns its `data` JSON column verbatim.
+
+**Auth**: `checkInternalApiAuth(req, "internal.pyConfig")` (`src/server/auth/internal-api.ts`), a static bearer token compared with `timingSafeEqual` against `API_KEY`, not OAuth or session-based. Failures are rate-limited via Redis (10 failures / 5 min / IP → 429), and every call, success or failure, is written to `emr_audit_log` under a sentinel actor, visible at Settings > Audit Log.
+
+**Only consumer**: `questionnaires/utils/misc.py`'s `load_config()`, called once per script run with the secret from that repo's gitignored `config/local_config.yml`. The response is validated as a Pydantic `FullConfig` and merged with any local overrides.
+
+**Payload shape** (field names, not values): `services` (per-service login credentials: OpenPhone, TherapyAppointment, Medicaid, MHS, QGlobal, WPS, NovoPsych, optional Kimai), and `config` (staff names/emails, `business_timezone`, the punch list Sheet ID/range, the failed-clients Sheet ID, the payroll/records Drive folder IDs, `database_url`, and the piecework cost/staff config). The comment in `internal-api.ts` is explicit that this route exists to "dispense DB credentials / PHI to the questionnaires app," it's a genuinely sensitive endpoint, not just business rules.
+
+**Editing it**: a tRPC router, `pyConfigRouter` (`src/server/api/routers/py-config.ts`), reads/writes the same table row through Settings UI (`QSuiteTab.tsx`, `QuestionnaireRemindersSettings.tsx`, `AppointmentsSyncSettings.tsx`), so staff-facing settings changes land directly in the row this HTTP endpoint later serves.
+
+Worth noting: winnonah's **own** Python sidecar does not call this endpoint, it reads config from environment variables and queries the DB directly. `py-config` exists specifically because `questionnaires` is a separate process without direct env/DB access of its own.
+
+## The internal API auth pattern, and a second route
+
+`checkInternalApiAuth` also guards `GET /api/internal/client-info?id=<clientId>` (`src/app/api/internal/client-info/route.ts`), same bearer-token/rate-limit/audit-log mechanism as above. It returns a client summary (demographics, notes text, records status, most recent confirmed appointment, and a `questionnaires` array).
+
+**This route has no confirmed caller.** Its doc comment says it's for the `questionnaires` app, same as `py-config`, and it was recently extended to add questionnaire data specifically for that purpose, but nothing in the `questionnaires` repo calls `/api/internal/client-info`, or does any bearer-token HTTP call at all beyond `load_config()`'s single `py-config` request. Treat this as either dead/aspirational code, or consumed by something outside both repos that isn't visible from here, not as an active integration.
+
+## Calls from winnonah's TS routers into `PY_API`
+
+The Python sidecar (`python/api.py`, plus `appointment_reminders.py` and `greeter_proxy.py`, mounted under `/pyapi/`) is called from many tRPC routers. Grouped by source file, non-exhaustive labels, see the actual router for exact routes:
+
+- **`google.ts`**: Drive duplicate-folder scanning, per-user Drive subfolder lookup/creation, report-queue folder claiming (also writes initials+date into the punch list Sheet), report-approved notification email.
+- **`insuranceReview.ts`**: the claim-notification email (see [Insurance Review](/docs/procedures/insurance-review)).
+- **`users.ts`**: the invite email.
+- **`client.ts`**: download-CSV metadata/streaming for Settings > Billing Download, script-run mtimes (see Logging below), evaluator/client rematching, private-pay reason computation, Select Health PA form generation, live office drive-time lookups.
+- **`evaluator.ts`**: rematching, an eligibility-debug view.
+- **`appointments.ts`**: the calendar-confirm callback on manual appointment confirmation (see [Appointment Check-In](/docs/procedures/appointment-checkin)), and the reminder-timeline preview (see [Appointment Reminders](/docs/procedures/appointment-reminders)).
+- **`py-config.ts`**: fetching the latest Pearson MFA verification code from Gmail.
+- **`greeterProxy.ts`**: the greeter schedule Sheet lookup.
+
+**Auth for these calls, a third distinct mechanism**: most forward the browser's NextAuth session cookie on the fetch. `python/api.py`'s `get_current_user` reads that cookie directly, looks the session up in `emr_session`/`emr_user`/`emr_role` (same tables the Next.js app uses), and replicates the exact role-plus-per-user-override permission merge from `src/server/auth/config.ts`, including impersonation. This only works because both processes share the DB and the TS side explicitly forwards the cookie, it's not a token or shared secret like `py-config`'s auth.
+
+**Two exceptions with no cookie forwarded and no `get_current_user` check on the Python side**: the reminder-timeline preview and the greeter-schedule lookup. Both are protected only by `protectedProcedure` on the tRPC side and by `PY_API` presumably not being internet-reachable, not by anything the Python endpoint itself enforces.
+
+**Two more routes exist that TS never calls**: `POST /pyapi/appointment-reminders/sms` and `POST /pyapi/greeter-proxy/sms`, both OpenPhone/Quo inbound-SMS webhooks, authenticated by a signature header instead (`verify_quo_signature`), a fourth, separate mechanism again.
+
+## The TherapyAppointment import pipeline
+
+Fully automated: no upload UI, no webhook, no API poll of TherapyAppointment (TA), since TA doesn't expose one here. A Selenium browser session (`python/utils/therapyappointment.py`'s `download_csvs()`) logs into the TA portal and exports/downloads several CSVs (appointments, per-therapist data, referrals, billing, insurance, demographics) into `temp/input/` inside winnonah's Python container.
+
+**Trigger**: `entrypoint-winnonah-python.sh` runs `uvicorn api:app` in the background and installs a `supercronic` crontab running `main.py` on `CRON_SCHEDULE`. That schedule lives in the deployment's `.env`, not in any checked-out compose file, so its exact cadence can't be confirmed from the repo alone.
+
+`main.py`'s `import_from_ta()` feeds the downloaded CSVs into: appointment insertion (`utils.appointments.insert_appointments_with_gcal`, cross-referencing Google Calendar and the `emr_python_config` id=2 trusted/ignored-appointment-id row), and client demographic + insurance insertion/sync (`utils.clients.get_clients()` reads the insurance/demographic CSVs, `put_clients_in_db()`/`put_client_insurance_policies_in_db()`/`sync_client_insurance_from_policies()`/`sync_scm_insurance_reviews()`). Both run off the same cron-triggered pipeline.
+
+A separate, read-only surface (`GET /download-info`, `/script-run-info`, `/download/{file_key}` in `api.py`, surfaced in `BillingDownload.tsx`, gated on `clients:download`) lets staff download the already-imported CSVs directly, it doesn't trigger a new import.
+
+## Google Calendar, Drive, and Sheets
+
+**Each repo authenticates to Google separately**, both via an OAuth "installed app" consent flow (a real user's token, not a service account): winnonah reads `./auth_cache/credentials.json`/`token.json`, `questionnaires` reads `./config/credentials.json`/`token.json`. These are two independent credential/token files. Whether both OAuth client registrations are configured against the same underlying Workspace mailbox isn't something static reading can confirm, that's a Google Cloud Console fact, not a code fact, so don't assert or deny it.
+
+**Where IDs get set:**
+- A client's Drive folder ID (`emr_client.driveId`) starts `NULL` at creation, including for Notes Only clients. It's populated by a separate sweep (`utils.google.add_client_ids_to_drive()`, run via `main.py --drive-ids`) that scans Drive for a bracketed client ID/name match. Clients still missing one surface on the Issues dashboard (see [Issues Dashboard](/docs/documentation/issues-dashboard), **No Drive IDs**), or can be corrected by hand on the client edit form (which rejects reusing an ID already claimed by another client).
+- The punch list Sheet ID/range, payroll folder ID, records folders, and the failed-clients Sheet ID are all practice-wide constants in the shared `py-config` payload above, edited via Settings > QSuite.
+- An evaluator's own Drive folder IDs are plain editable fields on the evaluator record, not auto-discovered.
+
+## Centralized logging
+
+`log-server.py` is its own containerized service inside the `questionnaires` repo's compose stack, a bare TCP socket server that appends `app_name:message` lines to `logs/remote_<app_name>.log`. `qsend.py`, `piecework.py`, and `records-request.py` stream to it via a persistent `NetworkSink` socket; **`qreceive.py` does not**, it only logs locally, despite that repo's own CLAUDE.md summary implying otherwise.
+
+**winnonah never talks to `log-server.py` over the network.** Instead, `python/api.py` reads the resulting log files directly off a shared filesystem bind mount (`../qs/logs:/app/qs-logs` in `docker-compose.yaml`), which means the `questionnaires` repo must be checked out as a sibling directory (named `qs`) on the same host as winnonah's compose stack, a hard deployment requirement, not a convenience. `GET /script-run-info` returns only each file's **mtime**, not its content, that mtime is what Settings > Billing Download's "Last Script Run Times" panel actually shows.
+
+Separately, winnonah's own Promtail container also mounts that same `../qs/logs` path, shipping full log **content** (not just mtimes) into Loki/Grafana, that's the real place to browse `questionnaires`' log content from the winnonah side, not the Settings panel.
+
+## Task tracking and locking, two mechanisms that look similar and aren't
+
+`emr_task` is a shared MySQL table both repos write to directly via SQL, no HTTP involved. There are two independent implementations of the same `track_task` pattern (one in each repo's `utils/task_tracker.py`), each acquiring a MySQL named lock (`GET_LOCK`, keyed by task type) so overlapping runs of the same job skip instead of racing, sweeping orphaned `running` rows left by a killed process, and updating progress as the job runs.
+
+This table is **not** the same thing as the "Last Script Run Times" panel described above:
+
+- `emr_task` is read by `tasks.getActive` (`src/server/api/routers/tasks.ts`) and powers `TaskQueueBubble.tsx`, a live floating indicator of jobs currently running or started in the last 15 minutes.
+- The Settings panel is powered entirely by log-file mtimes over the shared filesystem mount (previous section), unrelated to `emr_task`.
+
+Both answer a similar question, "did this job run recently," through completely different data sources, worth keeping straight since they're easy to conflate.

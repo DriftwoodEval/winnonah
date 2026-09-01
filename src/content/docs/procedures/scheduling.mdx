@@ -1,0 +1,35 @@
+---
+title: Scheduling Queue
+needsCleanup: true
+---
+
+This is **not** the punch list. The prioritization sheet ("the punch list") described in the [Questionnaire Process](/docs/procedures/questionnaires) and [Records Request Process](/docs/procedures/records-request) pages is a Google Sheet staff manage directly. The Scheduling page is a completely separate, app-native queue for a later step: once a client is ready, this is where staff line them up to actually get an evaluation appointment booked.
+
+## 1. What it is
+
+A dedicated page (gated by one page-level permission) showing a dense, drag-reorderable table of clients waiting to be scheduled, split into **Active** and **Archived** tabs. Only the Active tab is editable, Archived is read-only aside from bringing someone back off it.
+
+## 2. Adding someone to the queue
+
+A name search box adds a client with one click, that's the entire add step, no date, time, office, or evaluator is collected up front. Everything else gets filled in afterward, directly in the table.
+
+The same add action is also available as a quick shortcut from the home dashboard, on the sections for clients whose questionnaires are done (DA, Eval, or both), so a client can be queued up in two clicks right from the dashboard without visiting the Scheduling page at all.
+
+When a client is added, their office is guessed from whichever billing **Code** gets picked for them: choosing **96136** automatically sets the office to whichever real office is geographically closest to the client, choosing **90791** automatically sets it to **Virtual**. Either can be overridden by hand afterward.
+
+## 3. Working the queue
+
+Each row has: **Evaluator**, a free-text **Notes** field, **Date** and **Time**, read-only **ASD/ADHD**, **Insurance**, **District**, **PA Date**, and **Age** (all pulled from the client's own record), the **Code**, and **Location/Office**.
+
+- Rows can be dragged to reorder, the order is saved for everyone.
+- Nearly every column can be filtered, alongside a name search with next/previous match navigation. Filter choices are remembered per person.
+- The **X** button on a row archives it off the Active tab. The un-archive action on the Archived tab puts a client back at the end of the Active queue and re-derives their office from their Code the same way adding one does.
+
+## 4. Permissions
+
+One permission gates the whole page. Unlike Insurance Review or Appointment Check-In, there's no separate, finer-grained permission for individual actions inside Scheduling, anyone who can open the page can add, edit, reorder, and archive freely.
+
+## Edge cases
+
+- **Loading the Scheduling page quietly refreshes three fields for every client on the punch list sheet:** ASD/ADHD, language, and who the PA is assigned to get copied from the sheet into the client record whenever they've changed. This isn't limited to clients actually in the Scheduling queue, it's a whole-sheet refresh that happens to be triggered by opening this page, it never writes anything back to the sheet.
+- **Scheduling doesn't put a client on the punch list, and doesn't need them to be on it.** Getting someone onto the punch list in the first place is a separate action (the **Push to Punchlist** button on a client's Referral tab). Adding, editing, reordering, or archiving someone in the Scheduling queue never touches the punch list sheet either way.

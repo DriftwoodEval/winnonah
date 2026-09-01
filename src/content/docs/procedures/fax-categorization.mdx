@@ -1,0 +1,53 @@
+---
+title: Fax Categorization
+needsCleanup: true
+---
+
+Incoming faxes are automatically sorted into a category, matched to the client(s) they're about, and queued for a person to confirm before any of it counts as done. Find it under **Tools > Fax Categorization** in the nav, gated by the **Review Fax Categorization Guesses** permission (one permission covers both viewing and reviewing, there's no separate view-only tier).
+
+## 1. How a fax gets here
+
+There's no fax-receiving feature in this app itself. A fax provider (or some process outside this codebase) delivers incoming faxes into a shared Google Drive folder. A scheduled job checks that folder for new files, there's no manual upload button and no webhook inside the app, everything starts from what shows up in that folder. Only files created in that folder from August 5, 2026 onward are ever picked up, anything older is ignored.
+
+## 2. What happens automatically before a person sees it
+
+For each new fax:
+
+1. **Reading the text.** The job tries to read the PDF's actual text first. If a page looks like a scanned image instead (barely any real text on it), it's treated as a scan: straightened if it's sideways or upside down, cleaned up (denoised, contrast-corrected), and read with OCR instead. If straightening a page actually changes it, the corrected version is saved back over the original file in Drive, so a crooked scan gets quietly fixed for good the first time it's processed.
+2. **Categorizing and matching.** A locally-run AI model (not a cloud AI service, it runs on the server itself) reads the extracted text and produces three things: a **category**, a **confidence score** for that guess, and a list of **client name(s)** the document appears to be about. Client names are then matched against every client on file, active or inactive, allowing for typos and minor misspellings, each match also gets its own confidence score.
+3. **One built-in exception**: any document whose first few hundred characters mention Disability Determination Services is automatically filed as **Records Request** without asking the model at all. Letters from that specific sender were consistently being misread as Insurance, so it's special-cased.
+
+The full category list, exactly as it appears in the app: **Referral**, **Records Request**, **Insurance**, **Insurance Denial**, **Insurance Approval**, **Status Update Request**, **Patient Documents**, **Unsure**.
+
+## 3. Reviewing a pending fax
+
+New faxes show up as cards on the **Pending** tab, newest first: filename, how long ago it was found, the guessed category, a confidence badge, and chips for each candidate client (or "No candidates identified." if none matched).
+
+Opening a card shows the actual PDF next to:
+
+- The **category** dropdown, pre-filled with the AI's guess, and a line stating its confidence in plain language.
+- **Candidate client(s)**, each with a **Remove** button to reject a bad match.
+- **Link a different client**, a search box to add someone the AI missed.
+- **Re-run AI**, which re-extracts the text and re-guesses the category, confidence, and candidate clients from scratch, without touching whatever category or client links a reviewer has already chosen. It queues a "Re-run queued" badge on the card until the next scheduled processing run picks it up, it isn't instant.
+- **Mark Reviewed**, which locks in whichever category is currently selected and moves the fax to the Reviewed tab. There's no way to send a fax back to Pending from the UI once it's been reviewed.
+
+## 4. The Reviewed tab
+
+Filterable to **All reviewed faxes**, **Any override**, **Category overridden**, or **Clients overridden**. Each card shows who reviewed it and when, and if the category was changed, both the AI's original guess and the final choice.
+
+Opening a reviewed fax additionally shows the raw extracted/OCR'd text, and the full history of client links: which ones the AI suggested (including any the reviewer later rejected) and which were added by hand. **Download for testing** bundles whatever's currently showing into a zip, this doesn't affect day-to-day categorization at all, it's a tool for measuring how accurate the AI's guesses are against what staff actually decided, used to improve the model over time.
+
+## Why a category might look wrong: the tie-breakers
+
+A few close calls are built into how the AI is instructed to decide, worth knowing before assuming a miscategorization:
+
+- **Referral vs. Patient Documents**: past medical/testing history included to support a current scheduling or acceptance request is Referral. The same kind of history with no current ask attached is Patient Documents.
+- **Records Request vs. Insurance**: a client's own signed authorization to release their records is Records Request, even though the word "authorization" is in it. An insurance company asking for more paperwork to process a claim is Insurance, not Records Request, despite also being a "request," who's asking is what decides this one, not the wording.
+- **Insurance Denial vs. Insurance Approval**: if anything at all was granted, even a reduced or partial amount, it counts as an Approval. Only a full refusal is a Denial. The word "Reduced" by itself doesn't make something a denial, and appeal-rights boilerplate shows up on both approval and denial letters, so that text alone isn't a useful signal either.
+
+## Edge cases
+
+- If a fax never shows up here at all, that's a delivery problem outside this app (it never landed in the shared Drive folder), not something this feature can fix or explain.
+- Anything delivered into that Drive folder before August 5, 2026 was never picked up automatically.
+- A low confidence score doesn't necessarily mean the category is wrong. The model is deliberately calibrated to only score high when a document plainly states its own category; treat anything under 50% as "worth a second look," not "probably an error."
+- This feature launched recently and changed rapidly in its first week or two (new categories split out, matching logic tightened, a real miscategorization bug fixed). If something here seems off, it's worth double-checking against the current behavior rather than assuming this page is still exactly right.
