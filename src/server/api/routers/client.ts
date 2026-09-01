@@ -30,7 +30,7 @@ import {
 } from "~/lib/billing";
 import { fetchWithCache, invalidateCache } from "~/lib/cache";
 import {
-	getRecordsNotReadyReason,
+	getRecordsBlockerReason,
 	getUnsupportedLanguageReason,
 } from "~/lib/client-blockers";
 import { CLIENT_COLOR_KEYS, type ClientColor } from "~/lib/colors";
@@ -42,6 +42,7 @@ import {
 } from "~/lib/google";
 import type { ClientWithIssueInfo } from "~/lib/models";
 import {
+	formatInBusinessTime,
 	getClosestOfficeKey,
 	getDistanceSQL,
 	getInsuranceShortName,
@@ -510,6 +511,7 @@ export const clientRouter = createTRPCRouter({
 							pause: true,
 							recordsNeeded: true,
 							sessionStartedAt: true,
+							referralData: true,
 						},
 						extras: { sortReason: sortReasonSQL },
 						where: and(...conditions),
@@ -610,6 +612,7 @@ export const clientRouter = createTRPCRouter({
 							.select({
 								clientId: externalRecordRequests.clientId,
 								requestedDate: externalRecordRequests.requestedDate,
+								holdUntil: externalRecordRequests.holdUntil,
 								createdAt: externalRecordRequests.createdAt,
 							})
 							.from(externalRecordRequests)
@@ -628,14 +631,20 @@ export const clientRouter = createTRPCRouter({
 			);
 
 			const requestedDatesByClientId = new Map<number, string[]>();
+			const pendingHoldUntilByClientId = new Map<number, string | null>();
 			for (const row of externalRecordRequestRows) {
 				const sessionStartedAt = sessionStartedAtByClientId.get(row.clientId);
 				if (sessionStartedAt && row.createdAt < sessionStartedAt) continue;
-				if (!row.requestedDate) continue;
+				if (!row.requestedDate) {
+					pendingHoldUntilByClientId.set(row.clientId, row.holdUntil);
+					continue;
+				}
 				const existing = requestedDatesByClientId.get(row.clientId);
 				if (existing) existing.push(row.requestedDate);
 				else requestedDatesByClientId.set(row.clientId, [row.requestedDate]);
 			}
+
+			const today = formatInBusinessTime(new Date(), "yyyy-MM-dd");
 
 			const priorAuthDateByClientId = new Map<number, string | null>();
 			for (const row of primaryPolicies) {
@@ -741,15 +750,19 @@ export const clientRouter = createTRPCRouter({
 				if (row.recordsNeeded === null) {
 					blockers.push("missing records-needed status");
 				} else {
-					const recordsNotReadyReason = getRecordsNotReadyReason({
+					const recordsBlockerReason = getRecordsBlockerReason({
 						recordsNeeded: row.recordsNeeded,
 						asdAdhd: row.asdAdhd,
 						hasExternalRecordContent: hasExternalRecordContentByClientId.has(
 							row.id,
 						),
+						isPrivateSchool: row.referralData?.privateSchool === "yes",
+						language: row.language,
+						holdUntil: pendingHoldUntilByClientId.get(row.id),
 						requestedDates: requestedDatesByClientId.get(row.id) ?? [],
+						today,
 					});
-					if (recordsNotReadyReason) blockers.push(recordsNotReadyReason);
+					if (recordsBlockerReason) blockers.push(recordsBlockerReason);
 				}
 
 				return {

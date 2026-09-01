@@ -17,14 +17,16 @@ import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { useCheckPermission } from "~/hooks/use-check-permission";
 import {
-	getRecordsNotReadyReason,
+	getRecordsBlockerReason,
 	getUnsupportedLanguageReason,
+	hasOutstandingQuestionnaires,
 } from "~/lib/client-blockers";
 import type { ClientColor } from "~/lib/colors";
 import { logger } from "~/lib/logger";
 import {
 	dateOnlyToLocalDate,
 	formatClientAge,
+	formatInBusinessTime,
 	isNotesOnlyClientId,
 } from "~/lib/utils";
 import { api } from "~/trpc/react";
@@ -154,15 +156,35 @@ export function Client({
 			enabled: !!client && !isNotesOnlyClientId(client.id),
 		});
 
-	const sendBlockers = useMemo(() => {
-		if (!client) return [];
+	const { data: applicableRulesData } =
+		api.questionnaires.getApplicableRules.useQuery(
+			{ clientId: client?.id ?? -1 },
+			{ enabled: !!client && !isNotesOnlyClientId(client.id) },
+		);
+
+	const questionnaireBlockers = useMemo(() => {
+		if (!client || isNotesOnlyClientId(client.id)) return [];
+
+		// Records readiness gates questionnaire sending too (qsend.py won't
+		// send until records are Ready), but that's already explained by the
+		// records blockers below, so it isn't needed for a client who simply
+		// has nothing left to send.
+		if (
+			!applicableRulesData ||
+			!hasOutstandingQuestionnaires(
+				applicableRulesData.rules,
+				client.questionnaires,
+			)
+		) {
+			return [];
+		}
 
 		const capitalize = (text: string) =>
 			`${text.charAt(0).toUpperCase()}${text.slice(1)}.`;
 
-		const blockers: string[] = (clientFailures ?? []).map((failure) =>
-			capitalize(failure.reason),
-		);
+		const blockers: string[] = (clientFailures ?? [])
+			.filter((failure) => failure.daEval !== "Records")
+			.map((failure) => capitalize(failure.reason));
 
 		if (client.pause) blockers.push("Client paused for review.");
 
@@ -173,32 +195,58 @@ export function Client({
 			blockers.push(capitalize(unsupportedLanguageReason));
 		}
 
-		if (!isNotesOnlyClientId(client.id)) {
-			if (client.recordsNeeded === null) {
-				blockers.push("Missing records-needed status.");
-			} else {
-				const requestedDates = (externalRecordData?.requests ?? [])
-					.filter(
-						(request) =>
-							!client.sessionStartedAt ||
-							request.createdAt >= client.sessionStartedAt,
-					)
-					.map((request) => request.requestedDate);
+		return blockers;
+	}, [client, clientFailures, applicableRulesData]);
 
-				const recordsNotReadyReason = getRecordsNotReadyReason({
-					recordsNeeded: client.recordsNeeded,
-					asdAdhd: client.asdAdhd,
-					hasExternalRecordContent: !!externalRecordData?.contentJson,
-					requestedDates,
-				});
-				if (recordsNotReadyReason) {
-					blockers.push(capitalize(recordsNotReadyReason));
-				}
-			}
+	const recordsBlockers = useMemo(() => {
+		if (!client || isNotesOnlyClientId(client.id)) return [];
+
+		const capitalize = (text: string) =>
+			`${text.charAt(0).toUpperCase()}${text.slice(1)}.`;
+
+		const blockers: string[] = (clientFailures ?? [])
+			.filter((failure) => failure.daEval === "Records")
+			.map((failure) => capitalize(failure.reason));
+
+		if (client.recordsNeeded === null) {
+			blockers.push("Missing records-needed status.");
+			return blockers;
 		}
+
+		const currentSessionRequests = (externalRecordData?.requests ?? []).filter(
+			(request) =>
+				!client.sessionStartedAt ||
+				request.createdAt >= client.sessionStartedAt,
+		);
+		const requestedDates = currentSessionRequests.map(
+			(request) => request.requestedDate,
+		);
+		const pendingRequest = currentSessionRequests.find(
+			(request) => request.requestedDate === null,
+		);
+
+		const recordsBlockerReason = getRecordsBlockerReason({
+			recordsNeeded: client.recordsNeeded,
+			asdAdhd: client.asdAdhd,
+			hasExternalRecordContent: !!externalRecordData?.contentJson,
+			isPrivateSchool: client.referralData?.privateSchool === "yes",
+			language: client.language,
+			holdUntil: pendingRequest?.holdUntil,
+			requestedDates,
+			today: formatInBusinessTime(new Date(), "yyyy-MM-dd"),
+		});
+		if (recordsBlockerReason) blockers.push(capitalize(recordsBlockerReason));
 
 		return blockers;
 	}, [client, clientFailures, externalRecordData]);
+
+	const sendBlockers = [...questionnaireBlockers, ...recordsBlockers];
+	const sendBlockersTitle =
+		questionnaireBlockers.length > 0 && recordsBlockers.length > 0
+			? "Not Sending Questionnaires or Records"
+			: questionnaireBlockers.length > 0
+				? "Not Sending Questionnaires"
+				: "Not Sending Records";
 
 	const isLoading = isLoadingClient;
 
@@ -316,9 +364,7 @@ export function Client({
 									{sendBlockers.length > 0 && isActive && (
 										<Alert variant="destructive">
 											<AlertTriangleIcon className="h-4 w-4" />
-											<AlertTitle>
-												Not Sending Questionnaires or Records
-											</AlertTitle>
+											<AlertTitle>{sendBlockersTitle}</AlertTitle>
 											<AlertDescription>
 												<ul className="list-disc space-y-1 pl-4">
 													{sendBlockers.map((reason) => (
