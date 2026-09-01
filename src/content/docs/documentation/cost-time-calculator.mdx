@@ -1,0 +1,33 @@
+---
+title: Cost and Time Calculator
+needsCleanup: true
+---
+
+The Calculator page (one permission gates all of it) is three independent scratch-pad tools stacked on top of each other. None of them are tied to a real client, appointment, or insurance record, they're for working out estimates and pricing decisions, not for billing anything directly.
+
+## Unit Calculator
+
+A checkbox list of every assessment/test type that has a default time attached (in minutes), pulled from the same list configured at **Settings > Clinical > Assessment Types**. Check whatever's actually planned for a case and the total time (hours and minutes) updates live. Your selections are remembered in your own browser only, not shared with anyone else and not tied to a client.
+
+Flipping on **Show Units** translates that total time into likely CPT billing codes: the total minutes get padded by 50% (to account for review and report-writing time beyond raw testing time), then split into 30-minute testing codes (**96136** for the first unit, **96137** for each additional) and 60-minute review/report codes (**96130** first unit, **96131** each additional), grouped into however many appointments that would actually take given per-appointment unit limits.
+
+**Manage Tests** opens the same Assessment Types list used elsewhere in the app, not a calculator-only copy. Adding, editing, or deleting a test here changes it everywhere that list is used, not just in this calculator.
+
+## Cost Calculator
+
+A free-form table of billing line items (it starts with the five codes above and placeholder unit counts), each with a code, a **weight**, a unit count, a cost per unit, and a computed row total, summing to a **Total Cost**.
+
+Its real purpose is the reverse direction: set a **Target Total**, hit **Calculate Rates**, and it back-solves a per-unit rate for every unlocked row so the whole table adds up to that target, split proportionally by each row's weight, a code weighted twice as heavily gets roughly twice the per-unit rate for the same unit count. **Locking** a row (the lock icon, or just typing directly into its cost-per-unit or row-total field) excludes it from that redistribution, its rate stays put and Calculate Rates only reallocates the remaining target across whatever's still unlocked.
+
+Rows can be freely added, removed, or reassigned to a different code, it's a pricing scratch pad, not a reflection of real charged rates anywhere else in the system.
+
+## Time Calculator
+
+The simplest of the three: pick a code, a date, a start time, and an end time for each row, get a computed duration, summed into a **Total Time**. It has no connection to the Unit Calculator's totals or to any real appointment record, it's a manual stopwatch for adding up time spent.
+
+## Edge cases
+
+- **Nothing here writes to a client or appointment record.** The one exception is **Manage Tests** in the Unit Calculator, which edits the shared Assessment Types list used across the rest of the app.
+- **Unit Calculator selections live in your browser only.** They won't show up on a different device or for a different person, and they don't reset automatically, whatever was last checked is still checked next time you open the page on that browser.
+- **The Cost Calculator's rate split is proportional to weight, not based on any real historical rate data.** Changing one row's weight reshuffles the whole distribution the next time Calculate Rates runs, not just that row.
+- The same CPT-code-packing math the Unit Calculator uses under **Show Units** also powers a similar feature on a client's own Insurance tab (working out additional billable appointments from a precert), that's a separate, client-specific feature and not documented here.
