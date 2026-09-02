@@ -21,11 +21,13 @@ import type { ALLOWED_ASD_ADHD_VALUES } from "~/lib/constants";
 import { syncPunchData } from "~/lib/google";
 import {
 	buildClosestOfficeKeyCaseSQL,
-	getClosestOfficeKey,
 	getInsuranceShortNamesList,
 	getOfficeDistanceSQL,
 } from "~/lib/utils";
-import { resolveInsuranceAliasNames } from "~/server/api/filters";
+import {
+	getClosestOfficeKeyByDriveTime,
+	resolveInsuranceAliasNames,
+} from "~/server/api/filters";
 import {
 	type Context,
 	createTRPCRouter,
@@ -526,20 +528,16 @@ export const schedulingRouter = createTRPCRouter({
 
 			if (!targetOffice) {
 				if (input.code === "96136") {
-					const [client, allOffices] = await Promise.all([
-						ctx.db.query.clients.findFirst({
-							where: eq(clients.id, input.clientId),
-							columns: { latitude: true, longitude: true },
-						}),
-						fetchWithCache(ctx, "offices:all", () =>
-							ctx.db.query.offices.findMany(),
-						),
-					]);
+					const client = await ctx.db.query.clients.findFirst({
+						where: eq(clients.id, input.clientId),
+						columns: { latitude: true, longitude: true },
+					});
 					if (client?.latitude && client?.longitude) {
-						targetOffice = getClosestOfficeKey(
-							parseFloat(client.latitude),
-							parseFloat(client.longitude),
-							allOffices,
+						targetOffice = await getClosestOfficeKeyByDriveTime(
+							ctx.db,
+							input.clientId,
+							client.latitude,
+							client.longitude,
 						);
 					}
 				} else if (input.code === "90791") {
@@ -743,20 +741,16 @@ export const schedulingRouter = createTRPCRouter({
 
 			let newOffice: string | undefined;
 			if (existing?.code === "96136") {
-				const [client, allOffices] = await Promise.all([
-					ctx.db.query.clients.findFirst({
-						where: eq(clients.id, input.clientId),
-						columns: { latitude: true, longitude: true },
-					}),
-					fetchWithCache(ctx, "offices:all", () =>
-						ctx.db.query.offices.findMany(),
-					),
-				]);
+				const client = await ctx.db.query.clients.findFirst({
+					where: eq(clients.id, input.clientId),
+					columns: { latitude: true, longitude: true },
+				});
 				if (client?.latitude && client?.longitude) {
-					newOffice = getClosestOfficeKey(
-						parseFloat(client.latitude),
-						parseFloat(client.longitude),
-						allOffices,
+					newOffice = await getClosestOfficeKeyByDriveTime(
+						ctx.db,
+						input.clientId,
+						client.latitude,
+						client.longitude,
 					);
 				}
 			} else if (existing?.code === "90791") {

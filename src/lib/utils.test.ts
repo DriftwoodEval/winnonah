@@ -12,7 +12,6 @@ import {
 	formatShortDate,
 	formatShortInstantDate,
 	formatTaMessage,
-	getClosestOfficeKey,
 	getInsuranceShortName,
 	getInsuranceShortNamesList,
 	getReminderColorClass,
@@ -363,20 +362,6 @@ describe("dateOnlyToLocalDate / localDateToDateOnly", () => {
 	it("returns undefined for nullish input", () => {
 		expect(dateOnlyToLocalDate(null)).toBeUndefined();
 		expect(localDateToDateOnly(null)).toBeUndefined();
-	});
-});
-
-describe("getClosestOfficeKey", () => {
-	it("returns undefined for an empty office list", () => {
-		expect(getClosestOfficeKey(32.78, -79.93, [])).toBeUndefined();
-	});
-
-	it("returns the key of the nearest office", () => {
-		const offices = [
-			{ key: "far", latitude: "40.7128", longitude: "-74.0060" },
-			{ key: "near", latitude: "32.7765", longitude: "-79.9311" },
-		];
-		expect(getClosestOfficeKey(32.78, -79.93, offices)).toBe("near");
 	});
 });
 

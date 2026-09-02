@@ -44,7 +44,6 @@ import type { ClientWithIssueInfo } from "~/lib/models";
 import {
 	buildClosestOfficeKeyCaseSQL,
 	formatInBusinessTime,
-	getClosestOfficeKey,
 	getDistanceSQL,
 	getInsuranceShortName,
 	getOfficeDistanceSQL,
@@ -553,6 +552,24 @@ export const clientRouter = createTRPCRouter({
 			// office, falling back to the closest office if virtual), and
 			// "evaluator" (their most recent/next appointment's evaluator,
 			// falling back to their active scheduling-table assignment).
+			// One bulk query for the whole result set's closest-office fallback
+			// (used by getLocation below), rather than a per-row lookup: this
+			// procedure is unpaginated and can return the entire directory.
+			const closestOfficeDistanceExprs = allOffices.map((o) => ({
+				key: o.key,
+				dist: getOfficeDistanceSQL(
+					clients.id,
+					clients.latitude,
+					clients.longitude,
+					o.key,
+					o.latitude,
+					o.longitude,
+				),
+			}));
+			const closestOfficeKeyCase = buildClosestOfficeKeyCaseSQL(
+				closestOfficeDistanceExprs,
+			);
+
 			const [
 				primaryPolicies,
 				relevantAppointments,
@@ -560,6 +577,7 @@ export const clientRouter = createTRPCRouter({
 				allEvaluators,
 				externalRecordRows,
 				externalRecordRequestRows,
+				closestOfficeRows,
 			] = clientIds.length
 				? await Promise.all([
 						ctx.db
@@ -628,8 +646,21 @@ export const clientRouter = createTRPCRouter({
 							})
 							.from(externalRecordRequests)
 							.where(inArray(externalRecordRequests.clientId, clientIds)),
+						ctx.db
+							.select({
+								id: clients.id,
+								closestOfficeKey: closestOfficeKeyCase.mapWith(String),
+							})
+							.from(clients)
+							.where(
+								and(
+									inArray(clients.id, clientIds),
+									not(isNull(clients.latitude)),
+									not(isNull(clients.longitude)),
+								),
+							),
 					])
-				: [[], [], [], [], [], []];
+				: [[], [], [], [], [], [], []];
 
 			const sessionStartedAtByClientId = new Map(
 				rows.map((row) => [row.id, row.sessionStartedAt]),
@@ -663,6 +694,10 @@ export const clientRouter = createTRPCRouter({
 					priorAuthDateByClientId.set(row.clientId, row.precertAuthDate);
 				}
 			}
+
+			const closestOfficeKeyByClientId = new Map(
+				closestOfficeRows.map((row) => [row.id, row.closestOfficeKey]),
+			);
 
 			const officeNameByKey = new Map(
 				allOffices.map((office) => [office.key, office.prettyName]),
@@ -730,71 +765,65 @@ export const clientRouter = createTRPCRouter({
 				return providerName ? (providerName.split(" ")[0] ?? null) : null;
 			};
 
-			const getLocation = (
-				latitude: string | null,
-				longitude: string | null,
-				clientId: number,
-			): string | null => {
+			const getLocation = (clientId: number): string | null => {
 				const locationKey = mostRecentLocationKeyByClientId.get(clientId);
 				if (locationKey && locationKey !== "VIRTUAL") {
 					return officeNameByKey.get(locationKey) ?? locationKey;
 				}
-				if (!latitude || !longitude) return null;
-				const closestKey = getClosestOfficeKey(
-					parseFloat(latitude),
-					parseFloat(longitude),
-					allOffices,
-				);
+				const closestKey = closestOfficeKeyByClientId.get(clientId);
 				return closestKey ? (officeNameByKey.get(closestKey) ?? null) : null;
 			};
 
-			return rows.map(({ latitude, longitude, ...row }) => {
-				const blockers = [...(failuresByClientId.get(row.id) ?? [])];
+			return rows.map(
+				({ latitude: _latitude, longitude: _longitude, ...row }) => {
+					const blockers = [...(failuresByClientId.get(row.id) ?? [])];
 
-				if (row.pause) blockers.push("paused");
+					if (row.pause) blockers.push("paused");
 
-				const unsupportedLanguageReason = getUnsupportedLanguageReason(
-					row.language,
-				);
-				if (unsupportedLanguageReason) blockers.push(unsupportedLanguageReason);
+					const unsupportedLanguageReason = getUnsupportedLanguageReason(
+						row.language,
+					);
+					if (unsupportedLanguageReason)
+						blockers.push(unsupportedLanguageReason);
 
-				if (row.recordsNeeded === null) {
-					blockers.push("missing records-needed status");
-				} else {
-					const recordsBlockerReason = getRecordsBlockerReason({
-						recordsNeeded: row.recordsNeeded,
-						asdAdhd: row.asdAdhd,
-						hasExternalRecordContent: hasExternalRecordContentByClientId.has(
-							row.id,
+					if (row.recordsNeeded === null) {
+						blockers.push("missing records-needed status");
+					} else {
+						const recordsBlockerReason = getRecordsBlockerReason({
+							recordsNeeded: row.recordsNeeded,
+							asdAdhd: row.asdAdhd,
+							hasExternalRecordContent: hasExternalRecordContentByClientId.has(
+								row.id,
+							),
+							isPrivateSchool: row.referralData?.privateSchool === "yes",
+							language: row.language,
+							holdUntil: pendingHoldUntilByClientId.get(row.id),
+							requestedDates: requestedDatesByClientId.get(row.id) ?? [],
+							today,
+						});
+						if (recordsBlockerReason) blockers.push(recordsBlockerReason);
+					}
+
+					return {
+						...row,
+						primaryInsurance: getInsuranceShortName(
+							row.primaryInsurance,
+							allInsurances,
 						),
-						isPrivateSchool: row.referralData?.privateSchool === "yes",
-						language: row.language,
-						holdUntil: pendingHoldUntilByClientId.get(row.id),
-						requestedDates: requestedDatesByClientId.get(row.id) ?? [],
-						today,
-					});
-					if (recordsBlockerReason) blockers.push(recordsBlockerReason);
-				}
-
-				return {
-					...row,
-					primaryInsurance: getInsuranceShortName(
-						row.primaryInsurance,
-						allInsurances,
-					),
-					secondaryInsurance: (row.secondaryInsurance ?? [])
-						.map((name) => getInsuranceShortName(name, allInsurances))
-						.filter((name): name is string => Boolean(name)),
-					unresolvedFailures: blockers,
-					priorAuthDate: priorAuthDateByClientId.get(row.id) ?? null,
-					daScheduled: daScheduledClientIds.has(row.id),
-					daScheduledDate: daScheduledDateByClientId.get(row.id) ?? null,
-					evalScheduled: evalScheduledClientIds.has(row.id),
-					evalScheduledDate: evalScheduledDateByClientId.get(row.id) ?? null,
-					location: getLocation(latitude, longitude, row.id),
-					evaluator: getEvaluatorFirstName(row.id),
-				};
-			});
+						secondaryInsurance: (row.secondaryInsurance ?? [])
+							.map((name) => getInsuranceShortName(name, allInsurances))
+							.filter((name): name is string => Boolean(name)),
+						unresolvedFailures: blockers,
+						priorAuthDate: priorAuthDateByClientId.get(row.id) ?? null,
+						daScheduled: daScheduledClientIds.has(row.id),
+						daScheduledDate: daScheduledDateByClientId.get(row.id) ?? null,
+						evalScheduled: evalScheduledClientIds.has(row.id),
+						evalScheduledDate: evalScheduledDateByClientId.get(row.id) ?? null,
+						location: getLocation(row.id),
+						evaluator: getEvaluatorFirstName(row.id),
+					};
+				},
+			);
 		}),
 
 	directoryFacetCounts: protectedProcedure
