@@ -1,9 +1,11 @@
+import asyncio
 import json
 from datetime import UTC, datetime, timedelta
 from unittest.mock import MagicMock, patch
 
 import pytest
 from fastapi import HTTPException
+from pywaze.route_calculator import CalcRoutesResponse
 
 from api import (
     _apply_confirmed_marker,
@@ -13,6 +15,7 @@ from api import (
     get_current_user,
     get_user_folder,
     get_writer_id,
+    office_drive_times,
 )
 
 
@@ -61,12 +64,16 @@ class FakeConnection:
     def __init__(self, cursor=None):
         self._cursor = cursor or FakeCursor()
         self.closed = False
+        self.commits = 0
 
     def cursor(self):
         return self._cursor
 
     def close(self):
         self.closed = True
+
+    def commit(self):
+        self.commits += 1
 
 
 def _mock_request(cookies: dict):
@@ -371,3 +378,75 @@ class TestFindDuplicates:
             result = _find_duplicates(service)
         assert len(result) == 1
         assert len(result[0]["folders"]) == 2
+
+
+class TestOfficeDriveTimes:
+    def test_persists_results_and_sorts_fastest_first(self):
+        client_row = {"latitude": "33.9", "longitude": "-81.0"}
+        office_rows = [
+            {
+                "key": "columbia",
+                "prettyName": "Columbia",
+                "latitude": "34.0",
+                "longitude": "-80.9",
+            },
+            {
+                "key": "charleston",
+                "prettyName": "Charleston",
+                "latitude": "32.8",
+                "longitude": "-79.9",
+            },
+        ]
+        cursor = FakeCursor(fetchone_result=client_row, fetchall_result=office_rows)
+        conn = FakeConnection(cursor)
+
+        async def fake_get_drive_time(start, end):  # noqa: ARG001
+            if "34.0" in end:
+                return CalcRoutesResponse(
+                    duration=10.0, distance=16.0934, name="", street_names=[]
+                )
+            return CalcRoutesResponse(
+                duration=90.0, distance=160.934, name="", street_names=[]
+            )
+
+        with (
+            patch("api.get_db", return_value=conn),
+            patch("api.get_drive_time", side_effect=fake_get_drive_time),
+        ):
+            results = asyncio.run(office_drive_times(client_id=42, current_user={}))
+
+        assert [r.key for r in results] == ["columbia", "charleston"]
+        assert results[0].duration_minutes == 10.0
+        assert results[0].distance_miles == 10.0
+
+        insert_calls = [
+            (query, params)
+            for query, params in cursor.executed
+            if query.startswith("INSERT INTO emr_office_drive_time")
+        ]
+        assert len(insert_calls) == 2
+        assert {params[0] for _, params in insert_calls} == {42}
+        assert {params[1] for _, params in insert_calls} == {"columbia", "charleston"}
+
+    def test_raises_404_for_unknown_client(self):
+        conn = FakeConnection(FakeCursor(fetchone_result=None, fetchall_result=[]))
+        with (
+            patch("api.get_db", return_value=conn),
+            pytest.raises(HTTPException) as exc_info,
+        ):
+            asyncio.run(office_drive_times(client_id=999, current_user={}))
+        assert exc_info.value.status_code == 404
+
+    def test_raises_422_when_client_has_no_coordinates(self):
+        conn = FakeConnection(
+            FakeCursor(
+                fetchone_result={"latitude": None, "longitude": None},
+                fetchall_result=[],
+            )
+        )
+        with (
+            patch("api.get_db", return_value=conn),
+            pytest.raises(HTTPException) as exc_info,
+        ):
+            asyncio.run(office_drive_times(client_id=42, current_user={}))
+        assert exc_info.value.status_code == 422

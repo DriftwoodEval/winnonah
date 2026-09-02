@@ -8,7 +8,7 @@ from utils.constants import TABLE_CLIENT, TABLE_OFFICE, TABLE_OFFICE_DRIVE_TIME
 from utils.database import get_db
 from utils.misc import json_log_format
 from utils.timezone import now_utc
-from utils.waze import KM_PER_MILE, get_drive_time
+from utils.waze import KM_PER_MILE, get_drive_time, save_drive_time
 
 logger.add(
     "logs/office-drive-times.log",
@@ -90,30 +90,6 @@ def count_stale_pairs(conn) -> int:
         cursor.execute(sql, _stale_cutoffs())
         row = cursor.fetchone()
         return row["n"] if row else 0
-
-
-def save_drive_time(
-    conn,
-    client_id: int,
-    office_key: str,
-    duration_minutes: float | None,
-    distance_miles: float | None,
-) -> None:
-    """Upserts a client-office drive time, including a failed (null) lookup."""
-    sql = f"""
-        INSERT INTO {TABLE_OFFICE_DRIVE_TIME}
-          (clientId, officeKey, durationMinutes, distanceMiles, computedAt)
-        VALUES (%s, %s, %s, %s, %s)
-        ON DUPLICATE KEY UPDATE
-          durationMinutes = VALUES(durationMinutes),
-          distanceMiles = VALUES(distanceMiles),
-          computedAt = VALUES(computedAt)
-    """
-    with conn.cursor() as cursor:
-        cursor.execute(
-            sql, (client_id, office_key, duration_minutes, distance_miles, now_utc())
-        )
-    conn.commit()
 
 
 async def resolve_pair(
