@@ -27,24 +27,45 @@ STALE_AFTER_DAYS = 21
 # than a successful one, so a transient failure doesn't sit stale for weeks.
 FAILURE_RETRY_AFTER_DAYS = 1
 
-# Caps how many client-office pairs one run processes, so a large backlog
-# (e.g. right after this feature ships, or a new office is added) gets
-# worked off over several nightly runs instead of bursting requests at Waze
-# all at once.
-MAX_PAIRS_PER_RUN = 300
+# Caps how many client-office pairs one run processes. Small and frequent
+# (see the cron schedule in the Dockerfile) beats big and rare: a bounded
+# per-run trickle spread across the whole day is much gentler on Waze's
+# unofficial, unrate-limited endpoint than a single nightly burst sized to
+# clear the whole backlog, even at the same daily total.
+MAX_PAIRS_PER_RUN = 40
 
 # Waze has no published rate limit for this unofficial endpoint, so this
 # keeps concurrent requests low and staggers them rather than trusting the
 # server to queue politely.
-CONCURRENCY = 3
-REQUEST_STAGGER_SECONDS = 0.3
+CONCURRENCY = 2
+REQUEST_STAGGER_SECONDS = 1.0
+
+
+_STALE_WHERE = f"""
+    FROM {TABLE_CLIENT} c
+    CROSS JOIN {TABLE_OFFICE} o
+    LEFT JOIN {TABLE_OFFICE_DRIVE_TIME} dt
+      ON dt.clientId = c.id AND dt.officeKey = o.`key`
+    WHERE c.status = 1
+      AND c.latitude IS NOT NULL
+      AND c.longitude IS NOT NULL
+      AND (
+        dt.computedAt IS NULL
+        OR (dt.durationMinutes IS NULL AND dt.computedAt < %s)
+        OR (dt.durationMinutes IS NOT NULL AND dt.computedAt < %s)
+      )
+"""
+
+
+def _stale_cutoffs() -> tuple:
+    return (
+        now_utc() - timedelta(days=FAILURE_RETRY_AFTER_DAYS),
+        now_utc() - timedelta(days=STALE_AFTER_DAYS),
+    )
 
 
 def get_stale_pairs(conn) -> list[dict]:
     """Client-office pairs due for a drive-time refresh, oldest/missing first."""
-    success_cutoff = now_utc() - timedelta(days=STALE_AFTER_DAYS)
-    failure_cutoff = now_utc() - timedelta(days=FAILURE_RETRY_AFTER_DAYS)
-
     sql = f"""
         SELECT
           c.id AS clientId,
@@ -53,24 +74,22 @@ def get_stale_pairs(conn) -> list[dict]:
           o.`key` AS officeKey,
           o.latitude AS officeLatitude,
           o.longitude AS officeLongitude
-        FROM {TABLE_CLIENT} c
-        CROSS JOIN {TABLE_OFFICE} o
-        LEFT JOIN {TABLE_OFFICE_DRIVE_TIME} dt
-          ON dt.clientId = c.id AND dt.officeKey = o.`key`
-        WHERE c.status = 1
-          AND c.latitude IS NOT NULL
-          AND c.longitude IS NOT NULL
-          AND (
-            dt.computedAt IS NULL
-            OR (dt.durationMinutes IS NULL AND dt.computedAt < %s)
-            OR (dt.durationMinutes IS NOT NULL AND dt.computedAt < %s)
-          )
+        {_STALE_WHERE}
         ORDER BY dt.computedAt IS NOT NULL, dt.computedAt
         LIMIT %s
     """
     with conn.cursor() as cursor:
-        cursor.execute(sql, (failure_cutoff, success_cutoff, MAX_PAIRS_PER_RUN))
+        cursor.execute(sql, (*_stale_cutoffs(), MAX_PAIRS_PER_RUN))
         return cursor.fetchall()
+
+
+def count_stale_pairs(conn) -> int:
+    """Total client-office pairs currently due for a refresh, for backlog visibility."""
+    sql = f"SELECT COUNT(*) AS n {_STALE_WHERE}"
+    with conn.cursor() as cursor:
+        cursor.execute(sql, _stale_cutoffs())
+        row = cursor.fetchone()
+        return row["n"] if row else 0
 
 
 def save_drive_time(
@@ -143,7 +162,11 @@ async def refresh_drive_times() -> None:
             )
 
         succeeded = sum(1 for _, duration_minutes, _ in results if duration_minutes)
-        logger.info(f"Refreshed {succeeded}/{len(pairs)} client-office drive time(s)")
+        remaining = count_stale_pairs(conn)
+        logger.info(
+            f"Refreshed {succeeded}/{len(pairs)} client-office drive time(s), "
+            f"{remaining} still due for refresh"
+        )
     finally:
         conn.close()
 
