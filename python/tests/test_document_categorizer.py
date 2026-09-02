@@ -19,23 +19,26 @@ from utils.document_categorizer import (
     _clean_client_names,
     _clean_confidence,
     _complete_json,
+    _denoise_binarize,
+    _deskew,
     _estimate_skew_angle,
+    _orient_by_reading,
+    _rotate_clockwise,
     analyze_document,
     build_prompt,
     categorize_document,
-    clean_fax_image,
-    correct_orientation,
     extract_clients,
     fit_to_context,
     header_override_category,
     limit_cpu_usage,
     limit_memory_usage,
+    page_rotation,
 )
 
 
 def _lined_page(skew_degrees: float) -> np.ndarray:
     """A synthetic page of horizontal text-like lines, rotated to simulate
-    a skewed fax scan, then binarized the same way clean_fax_image does."""
+    a skewed fax scan, then binarized the same way _denoise_binarize does."""
     image = Image.new("L", (600, 800), color=255)
     draw = ImageDraw.Draw(image)
     for y in range(50, 750, 30):
@@ -264,89 +267,139 @@ class TestCategorizeDocument:
         assert confidence == 0.6
 
 
-class TestCorrectOrientation:
-    def test_returns_image_unchanged_when_no_rotation_needed(self):
-        image = MagicMock()
-        with patch(
-            "pytesseract.image_to_osd", return_value="Rotate: 0\nOrientation: 0"
-        ):
-            result_image, angle = correct_orientation(image)
-        assert result_image is image
-        assert angle == 0
+class TestPageRotation:
+    BINARY = np.zeros((8, 8), dtype=np.uint8)
 
-    def test_rotates_image_by_detected_angle(self):
-        image = MagicMock()
-        rotated = MagicMock()
-        image.rotate.return_value = rotated
+    def test_zero_when_osd_confidently_upright(self):
         with patch(
             "pytesseract.image_to_osd",
-            return_value="Rotate: 90\nOrientation: 90\nOrientation confidence: 7.50",
+            return_value="Rotate: 0\nOrientation confidence: 7.50",
         ):
-            result_image, angle = correct_orientation(image)
-        assert result_image is rotated
-        assert angle == 90
-        image.rotate.assert_called_once_with(-90, expand=True)
+            assert page_rotation(MagicMock(), self.BINARY) == 0
 
-    def test_ignores_rotation_when_confidence_is_low(self):
-        image = MagicMock()
+    def test_returns_osd_angle_when_raw_and_clean_agree_confidently(self):
+        with (
+            patch(
+                "pytesseract.image_to_osd",
+                return_value="Rotate: 90\nOrientation confidence: 7.50",
+            ) as osd,
+            patch("utils.document_categorizer._orient_by_reading") as fallback,
+        ):
+            assert page_rotation(MagicMock(), self.BINARY) == 90
+        assert osd.call_count == 2
+        fallback.assert_not_called()
+
+    def test_reads_four_ways_when_osd_confidence_low(self):
+        with (
+            patch(
+                "pytesseract.image_to_osd",
+                return_value="Rotate: 90\nOrientation confidence: 0.31",
+            ),
+            patch(
+                "utils.document_categorizer._orient_by_reading", return_value=270
+            ) as fallback,
+        ):
+            assert page_rotation(MagicMock(), self.BINARY) == 270
+        fallback.assert_called_once()
+
+    def test_reads_four_ways_when_osd_fails(self):
+        with (
+            patch(
+                "pytesseract.image_to_osd",
+                side_effect=pytesseract.TesseractError(1, "no OSD"),
+            ),
+            patch(
+                "utils.document_categorizer._orient_by_reading", return_value=0
+            ) as fallback,
+        ):
+            assert page_rotation(MagicMock(), self.BINARY) == 0
+        fallback.assert_called_once()
+
+    def test_reads_four_ways_when_raw_and_clean_osd_disagree(self):
+        with (
+            patch(
+                "pytesseract.image_to_osd",
+                side_effect=[
+                    "Rotate: 0\nOrientation confidence: 5.00",
+                    "Rotate: 90\nOrientation confidence: 5.00",
+                ],
+            ),
+            patch(
+                "utils.document_categorizer._orient_by_reading", return_value=270
+            ) as fallback,
+        ):
+            assert page_rotation(MagicMock(), self.BINARY) == 270
+        fallback.assert_called_once()
+
+
+class TestRotateClockwise:
+    def test_lossless_quarter_turns(self):
+        arr = np.arange(6, dtype=np.uint8).reshape(2, 3)
+        assert np.array_equal(_rotate_clockwise(arr, 0), arr)
+        assert np.array_equal(_rotate_clockwise(arr, 90), np.rot90(arr, -1))
+        assert np.array_equal(_rotate_clockwise(arr, 180), np.rot90(arr, 2))
+        assert np.array_equal(_rotate_clockwise(arr, 270), np.rot90(arr, 1))
+        round_trip = _rotate_clockwise(_rotate_clockwise(arr, 270), 90)
+        assert np.array_equal(round_trip, arr)
+
+
+class TestOrientByReading:
+    def _img(self):
+        return Image.new("RGB", (20, 20), color="white")
+
+    def test_keeps_the_rotation_that_reads_as_the_most_text(self):
+        # scores returned for rotations 0, 90, 180, 270 in that order
         with patch(
-            "pytesseract.image_to_osd",
-            return_value="Rotate: 90\nOrientation: 90\nOrientation confidence: 0.31",
+            "utils.document_categorizer._readability_score",
+            side_effect=[300.0, 4000.0, 200.0, 100.0],
         ):
-            result_image, angle = correct_orientation(image)
-        assert result_image is image
-        assert angle == 0
-        image.rotate.assert_not_called()
+            assert _orient_by_reading(self._img()) == 90
 
-    def test_ignores_rotation_when_confidence_is_absent(self):
-        image = MagicMock()
+    def test_no_rotation_when_upright_already_reads_best(self):
         with patch(
-            "pytesseract.image_to_osd", return_value="Rotate: 90\nOrientation: 90"
+            "utils.document_categorizer._readability_score",
+            side_effect=[4000.0, 300.0, 200.0, 100.0],
         ):
-            result_image, angle = correct_orientation(image)
-        assert result_image is image
-        assert angle == 0
+            assert _orient_by_reading(self._img()) == 0
 
-    def test_returns_image_unchanged_when_osd_fails(self):
-        image = MagicMock()
+    def test_leaves_page_alone_when_nothing_reads_well(self):
         with patch(
-            "pytesseract.image_to_osd",
-            side_effect=pytesseract.TesseractError(1, "no OSD"),
+            "utils.document_categorizer._readability_score",
+            side_effect=[120.0, 200.0, 60.0, 30.0],
         ):
-            result_image, angle = correct_orientation(image)
-        assert result_image is image
-        assert angle == 0
+            assert _orient_by_reading(self._img()) == 0
 
-    def test_returns_image_unchanged_when_osd_output_unparseable(self):
-        image = MagicMock()
-        with patch("pytesseract.image_to_osd", return_value="garbage output"):
-            result_image, angle = correct_orientation(image)
-        assert result_image is image
-        assert angle == 0
+    def test_leaves_page_alone_when_winner_barely_beats_runner_up(self):
+        # near-tie between two perpendicular orientations: an upright page
+        # Tesseract happens to read about as well rotated 90 degrees
+        with patch(
+            "utils.document_categorizer._readability_score",
+            side_effect=[9326.0, 9353.0, 830.0, 1090.0],
+        ):
+            assert _orient_by_reading(self._img()) == 0
+
+    def test_rotates_landscape_page_that_reads_clearly_better_one_way(self):
+        # real shape: correct orientation (270) beats its upside down (90)
+        # decisively and edges out the perpendicular render
+        with patch(
+            "utils.document_categorizer._readability_score",
+            side_effect=[3112.0, 329.0, 645.0, 4495.0],
+        ):
+            assert _orient_by_reading(self._img()) == 270
 
 
-class TestCleanFaxImage:
-    def test_returns_single_channel_image_same_size(self):
+class TestDenoiseBinarize:
+    def test_returns_black_and_white_array_same_size(self):
         image = Image.fromarray(
             (np.random.default_rng(0).random((100, 150, 3)) * 255).astype("uint8"),
             "RGB",
         )
-        result = clean_fax_image(image)
-        assert result.size == image.size
-        assert result.mode == "L"
-
-    def test_binarizes_to_black_and_white_only(self):
-        image = Image.fromarray(
-            (np.random.default_rng(1).random((80, 80, 3)) * 255).astype("uint8"), "RGB"
-        )
-        result = clean_fax_image(image)
-        values = set(np.array(result).flatten().tolist())
-        assert values <= {0, 255}
+        result = _denoise_binarize(image)
+        assert result.shape == (100, 150)
+        assert set(np.unique(result).tolist()) <= {0, 255}
 
     def test_handles_blank_page_without_crashing(self):
-        image = Image.new("RGB", (100, 100), color="white")
-        result = clean_fax_image(image)
-        assert result.size == (100, 100)
+        _denoise_binarize(Image.new("RGB", (100, 100), color="white"))
 
 
 class TestEstimateSkewAngle:
@@ -367,7 +420,7 @@ class TestEstimateSkewAngle:
         assert _estimate_skew_angle(blank) == 0.0
 
 
-class TestCleanFaxImageDeskew:
+class TestDeskew:
     @pytest.mark.parametrize("skew_degrees", [5, -5, 8])
     def test_straightens_skewed_page(self, skew_degrees):
         image = Image.new("L", (600, 800), color=255)
@@ -376,10 +429,9 @@ class TestCleanFaxImageDeskew:
             draw.line((50, y, 550, y), fill=0, width=4)
         rotated = image.rotate(skew_degrees, expand=True, fillcolor=255).convert("RGB")
 
-        cleaned = clean_fax_image(rotated)
+        cleaned = _deskew(_denoise_binarize(rotated))
 
-        residual = _estimate_skew_angle(np.array(cleaned))
-        assert abs(residual) < 0.5
+        assert abs(_estimate_skew_angle(cleaned)) < 0.5
 
 
 class TestLimitCpuUsage:
