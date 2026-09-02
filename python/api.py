@@ -45,7 +45,7 @@ from utils.google import (
 )
 from utils.misc import json_log_format
 from utils.timezone import now_business
-from utils.waze import KM_PER_MILE, get_drive_time
+from utils.waze import KM_PER_MILE, get_drive_time, save_drive_time
 
 load_dotenv()
 
@@ -928,7 +928,12 @@ async def office_drive_times(
     client_id: int,
     current_user: dict = Depends(get_current_user),  # noqa: ARG001
 ) -> list[OfficeDriveTime]:
-    """Live by-car drive time and distance from a client to every office, via Waze."""
+    """Live by-car drive time and distance from a client to every office, via Waze.
+
+    Also persists each result to emr_office_drive_time, so opening this acts
+    as an on-demand refresh of the closest-office ranking for this client
+    instead of waiting on the nightly backfill.
+    """
     conn = get_db()
     try:
         with conn.cursor() as cursor:
@@ -971,6 +976,20 @@ async def office_drive_times(
             )
 
     results = await asyncio.gather(*[resolve(o) for o in office_rows])
+
+    write_conn = get_db()
+    try:
+        for result in results:
+            save_drive_time(
+                write_conn,
+                client_id,
+                result.key,
+                result.duration_minutes,
+                result.distance_miles,
+            )
+    finally:
+        write_conn.close()
+
     return sorted(
         results,
         key=lambda r: (r.duration_minutes is None, r.duration_minutes or 0),
