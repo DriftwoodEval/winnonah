@@ -1,5 +1,20 @@
 {
-	"cSpell.words": ["DAEVALs", "punchlist"],
+	"cSpell.words": [
+		"DAEVALs",
+		"gcal",
+		"Kimai",
+		"mtimes",
+		"Promtail",
+		"punchlist",
+		"pyapi",
+		"Pydantic",
+		"qreceive",
+		"qsend",
+		"qsuite",
+		"supercronic",
+		"therapyappointment",
+		"uvicorn"
+	],
 	"python.testing.pytestArgs": ["python"],
 	"python.testing.unittestEnabled": false,
 	"python.testing.pytestEnabled": true
