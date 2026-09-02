@@ -58,6 +58,10 @@ function stripForScan(content: string): string {
 const docs = walkDocsDir(DOCS_DIR);
 const slugSet = new Set(docs.map((d) => d.slug.join("/")));
 const errors: string[] = [];
+// Broken doc-to-doc links are surfaced in the UI (rendered in the danger color)
+// rather than failing the build, so a page can link ahead to one not written
+// yet. They're still worth listing here as a nudge.
+const warnings: string[] = [];
 
 const titlesByCategory = new Map<string, Map<string, string>>();
 
@@ -99,7 +103,7 @@ for (const doc of docs) {
 		const target = (m[1] ?? "").split("#")[0] ?? "";
 		const targetSlug = target.split("/").filter(Boolean).join("/");
 		if (!slugSet.has(targetSlug)) {
-			errors.push(
+			warnings.push(
 				`${rel}: link to "/docs/${target}" doesn't resolve to any doc page`,
 			);
 		}
@@ -116,6 +120,11 @@ for (const doc of docs) {
 			);
 		}
 	}
+}
+
+if (warnings.length > 0) {
+	console.warn(`Docs warnings (${warnings.length} broken doc link(s)):`);
+	for (const warning of warnings) console.warn(`  - ${warning}`);
 }
 
 if (errors.length > 0) {

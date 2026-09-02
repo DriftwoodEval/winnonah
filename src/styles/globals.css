@@ -256,6 +256,12 @@
 	@apply rounded-lg border border-border p-4 text-[0.875em];
 }
 
+/* Doc links whose target page doesn't exist, flagged by remark-docs-links. */
+.prose a.broken-doc-link {
+	color: var(--error);
+	text-decoration-color: var(--error);
+}
+
 /* rehype-pretty-code emits both light and dark colors as CSS variables per token;
    pick the right one based on our next-themes `.dark` class. */
 .prose pre[data-theme],
