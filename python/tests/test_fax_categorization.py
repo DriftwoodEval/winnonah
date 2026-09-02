@@ -37,6 +37,14 @@ class TestMatchClients:
         matched = _match_clients(["Jonh Smith", "John Smith"], client_lookup)
         assert matched[1] == ("John Smith", 1.0)
 
+    def test_exact_match_drops_low_confidence_matches(self):
+        client_lookup = [
+            _client(1, {"john", "smith"}),
+            _client(2, {"jon", "smithe"}),
+        ]
+        matched = _match_clients(["John Smith"], client_lookup)
+        assert matched == {1: ("John Smith", 1.0)}
+
     def test_matches_multiple_distinct_clients(self):
         client_lookup = [
             _client(1, {"john", "smith"}),

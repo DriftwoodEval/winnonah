@@ -70,6 +70,13 @@ def _match_clients(
             existing = matched.get(client["id"])
             if existing is None or confidence > existing[1]:
                 matched[client["id"]] = (name, confidence)
+    # Once any client is an exact match, the fuzzy guesses are almost always
+    # OCR noise landing on an unrelated client. Keep only the exact matches so
+    # the reviewer is not shown low-confidence distractions.
+    if any(confidence >= 1.0 for _, confidence in matched.values()):
+        matched = {
+            client_id: value for client_id, value in matched.items() if value[1] >= 1.0
+        }
     return matched
 
 
