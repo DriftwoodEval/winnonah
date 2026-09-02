@@ -5,7 +5,7 @@ allowBuilds:
   sharp: true
 
 catalog:
-  google-auth-library: ^10.9.1
+  google-auth-library: ^11.0.0
 
 overrides:
   google-auth-library: "catalog:"
