@@ -1,10 +1,8 @@
 "use client";
 
-import { Button } from "@ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@ui/popover";
-import { Loader2Icon, RefreshCwIcon } from "lucide-react";
+import { Loader2Icon } from "lucide-react";
 import { useEffect, useState } from "react";
-import { cn } from "~/lib/utils";
 import { api } from "~/trpc/react";
 
 interface OfficeDriveTimesButtonProps {
@@ -32,8 +30,8 @@ export function OfficeDriveTimesButton({
 	});
 
 	// The server persists every lookup back to the closest-office ranking, so
-	// a fetch here (initial open or manual refresh) doubles as a refresh of
-	// that ranking. Pick up the change once it lands.
+	// reopening this popover (which refetches once staleTime has passed)
+	// doubles as a refresh of that ranking. Pick up the change once it lands.
 	useEffect(() => {
 		if (driveTimes.dataUpdatedAt) {
 			void utils.clients.getOne.invalidate();
@@ -41,30 +39,13 @@ export function OfficeDriveTimesButton({
 	}, [driveTimes.dataUpdatedAt, utils]);
 
 	return (
-		<Popover onOpenChange={(open) => open && setEnabled(true)}>
+		<Popover onOpenChange={setEnabled}>
 			<PopoverTrigger asChild>
 				<span className="cursor-pointer font-normal text-muted-foreground hover:underline">
 					(Drive times)
 				</span>
 			</PopoverTrigger>
-			<PopoverContent className="w-72 p-0" side="right">
-				<div className="flex items-center justify-between gap-2 border-b p-3 py-2">
-					<span className="font-bold text-sm">Drive times</span>
-					<Button
-						disabled={driveTimes.isFetching}
-						onClick={() => driveTimes.refetch()}
-						size="icon-xs"
-						title="Refresh from Waze"
-						variant="ghost"
-					>
-						<RefreshCwIcon
-							className={cn(
-								"h-3.5 w-3.5",
-								driveTimes.isFetching && "animate-spin",
-							)}
-						/>
-					</Button>
-				</div>
+			<PopoverContent side="right">
 				{driveTimes.isLoading ? (
 					<div className="flex items-center gap-2 p-3 text-muted-foreground text-sm">
 						<Loader2Icon className="h-4 w-4 animate-spin" />
