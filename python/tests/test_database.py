@@ -8,6 +8,7 @@ import pytest
 
 from utils.database import (
     _build_reactivation_note_block,
+    _build_reactivation_review_separator,
     _get_date_cache,
     _humanize_month_gap,
     _reactivation_review_note_text,
@@ -274,6 +275,27 @@ class TestBuildReactivationNoteBlock:
     def test_returns_heading_rule_and_paragraph(self):
         blocks = _build_reactivation_note_block("03/05/2026")
         assert [b["type"] for b in blocks] == ["heading", "horizontalRule", "paragraph"]
+
+
+class TestBuildReactivationReviewSeparator:
+    def test_returns_heading_rule_and_paragraph(self):
+        blocks = _build_reactivation_review_separator("2026-03-05", "4 months")
+        assert [b["type"] for b in blocks] == ["heading", "horizontalRule", "paragraph"]
+
+    def test_heading_includes_date_and_gap(self):
+        heading = _build_reactivation_review_separator("2026-03-05", "4 months")[0]
+        text = heading["content"][0]["text"]
+        assert "2026-03-05" in text
+        assert "inactive 4 months" in text
+
+    def test_heading_omits_gap_when_unknown(self):
+        heading = _build_reactivation_review_separator("2026-03-05", None)[0]
+        text = heading["content"][0]["text"]
+        assert text == "Reactivated on 2026-03-05"
+
+    def test_makes_no_exclusion_claim(self):
+        heading = _build_reactivation_review_separator("2026-03-05", "4 months")[0]
+        assert "excluded" not in heading["content"][0]["text"]
 
 
 class TestHumanizeMonthGap:

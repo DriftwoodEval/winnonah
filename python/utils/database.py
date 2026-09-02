@@ -453,7 +453,9 @@ def put_clients_in_db(clients_df: pd.DataFrame, connection: Connection[DictCurso
                 logger.info(
                     f"Client {client_id} reactivated after 12+ months - starting a new session"
                 )
-                reset_client_session(int(client_id), connection=connection)
+                reset_client_session(
+                    int(client_id), deactivated_at, connection=connection
+                )
             else:
                 logger.info(
                     f"Client {client_id} reactivated within 12 months - activating insurance review"
@@ -489,6 +491,29 @@ def _build_reactivation_note_block(reactivated_on: str) -> list[dict]:
                     ),
                 }
             ],
+        },
+        {"type": "horizontalRule"},
+        {"type": "paragraph"},
+    ]
+
+
+def _build_reactivation_review_separator(
+    reactivated_on: str, gap: str | None
+) -> list[dict]:
+    """TipTap nodes prepended to a reactivated client's insurance review.
+
+    Unlike the notes separator, this keeps the prior review content in place and
+    makes no claim about it being excluded from anything: an insurance review is
+    ongoing case history, not session-scoped data.
+    """
+    label = f"Reactivated on {reactivated_on}"
+    if gap:
+        label += f" (inactive {gap})"
+    return [
+        {
+            "type": "heading",
+            "attrs": {"level": 3},
+            "content": [{"type": "text", "text": label}],
         },
         {"type": "horizontalRule"},
         {"type": "paragraph"},
@@ -615,20 +640,35 @@ def activate_reactivation_insurance_review(
 
 
 @provide_connection
-def reset_client_session(client_id: int, connection: Connection[DictCursor]) -> None:
+def reset_client_session(
+    client_id: int,
+    deactivated_at: datetime | None,
+    connection: Connection[DictCursor],
+) -> None:
     """Archives a reactivated client's prior-session data and starts a fresh one.
 
     Runs when a client's status flips from Inactive back to Active in the TA
-    import. Mutable "current state" rows (in-person assessments, insurance
-    review, external records note) are archived into their history tables and
-    reset in place; `recordsNeeded` is cleared so staff re-triage it; failures
-    are cleared outright; a separator is prepended to the client's notes; and
+    import. Mutable "current state" rows (in-person assessments, external
+    records note) are archived into their history tables and reset in place;
+    `recordsNeeded` is cleared so staff re-triage it; failures are cleared
+    outright; a separator is prepended to the client's notes; and
     `sessionStartedAt` is stamped so calculations can exclude everything
     before it. Records request history (`emr_external_record_request`) is
     left in place, since queries scope it by `sessionStartedAt` instead.
+
+    The insurance review is the exception: its content is kept, with a dated
+    separator prepended, since it is ongoing case history rather than
+    session-scoped data.
     """
     now = now_utc()
     reactivated_on = now_business().date().isoformat()
+    gap = (
+        _humanize_month_gap(
+            utc_to_business(deactivated_at), now_business().replace(tzinfo=None)
+        )
+        if deactivated_at is not None
+        else None
+    )
 
     with connection.cursor() as cursor:
         cursor.execute(
@@ -658,20 +698,23 @@ def reset_client_session(client_id: int, connection: Connection[DictCursor]) -> 
             )
 
         cursor.execute(
-            f"SELECT content, updatedBy FROM `{TABLE_INSURANCE_REVIEW}` WHERE clientId = %s",
+            f"SELECT content FROM `{TABLE_INSURANCE_REVIEW}` WHERE clientId = %s",
             (client_id,),
         )
         review = cursor.fetchone()
         if review and review["content"] is not None:
+            existing_review = json.loads(review["content"])
+            new_review = {
+                "type": "doc",
+                "content": [
+                    *_build_reactivation_review_separator(reactivated_on, gap),
+                    *(existing_review.get("content") or []),
+                ],
+            }
             cursor.execute(
-                f"INSERT INTO `{TABLE_INSURANCE_REVIEW_HISTORY}` (reviewId, content, updatedBy) "
-                "VALUES (%s, %s, %s)",
-                (client_id, review["content"], review["updatedBy"]),
-            )
-            cursor.execute(
-                f"UPDATE `{TABLE_INSURANCE_REVIEW}` SET content = NULL, "
+                f"UPDATE `{TABLE_INSURANCE_REVIEW}` SET content = %s, "
                 "submittedToNotesAt = NULL WHERE clientId = %s",
-                (client_id,),
+                (json.dumps(new_review), client_id),
             )
 
         cursor.execute(
