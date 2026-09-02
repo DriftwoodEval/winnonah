@@ -511,7 +511,7 @@ export function EvaluatorForm({
 					</CardContent>
 				</Card>
 
-				<Card>
+				<Card className="overflow-visible">
 					<CardHeader>
 						<CardTitle>Insurance & Offices</CardTitle>
 					</CardHeader>
