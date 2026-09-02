@@ -255,6 +255,9 @@ importers:
       drizzle-kit:
         specifier: ^0.31.10
         version: 0.31.10
+      github-slugger:
+        specifier: ^2.0.0
+        version: 2.0.0
       lefthook:
         specifier: ^2.1.10
         version: 2.1.10

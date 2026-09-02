@@ -1,0 +1,96 @@
+---
+title: Onboarding an Evaluator
+needsCleanup: true
+---
+
+Adding a new evaluator touches several parts of the app: an evaluator profile, usually a linked user login, matching settings that decide which clients they can see, and a piecework entry so they get paid. This page walks through all of it in order. You need the **Manage Evaluators** permission for most steps, and some steps need other permissions noted as they come up.
+
+Everything here lives under **Settings > People** unless stated otherwise.
+
+## 1. Gather what you need first
+
+Before you start, collect:
+
+- The evaluator's **NPI** (National Provider Identifier), the 10-digit number. The evaluator or whoever handles their credentialing will have it; it is also publicly searchable in the national NPI registry by name.
+- The email address they will use to **log in with Google**. This is their `@driftwoodeval.com` address.
+- Which **offices** they work from (including Virtual).
+- Which **insurances** they accept.
+- Which **appointment types** they perform (DA, Evaluation, DA+Evaluation, and for evaluations, which diagnosis types).
+
+> [!WARNING]
+> Both the **NPI** and the **email** are permanent once the profile is created. They cannot be edited afterward. Double-check both before saving. If you catch a mistake right after creating the profile, delete it and start over, there is no history to lose on a brand-new profile.
+
+## 2. Make sure they have a Google Workspace account
+
+The evaluator's Google account (their `@driftwoodeval.com` login and its calendar) is set up in Google Workspace, not in this app. It needs to exist before the rest of this is useful, because:
+
+- They log into the app with that Google account.
+- Their [Availability](/docs/procedures/availability) entries are events on that account's calendar.
+- Their weekly [Appointment Agenda Emails](/docs/procedures/appointment-agenda-emails) are built from that same calendar.
+
+## 3. Create the evaluator profile
+
+On the **People** tab, click **Add Evaluator**. The form has several sections.
+
+### Basic Info
+
+- **NPI**: the 10-digit number. Permanent.
+- **Provider Name**: their legal name used for billing and insurance, can be different than the name used on their Google account.
+- **Email**: the address they log in with. This is also the link between the evaluator profile and their user account, see [step 5](#5-give-them-a-login). Permanent.
+- **Writes Own Reports**: turn on if this evaluator writes the reports for their own clients. When a report's writer is left blank on the punch list (the prioritization spreadsheet), this lets the [piecework](/docs/procedures/piecework) script credit them automatically based on their most recent testing appointment.
+
+### Drive Folders
+
+- **Drive Folder**: paste the Google Drive folder link or ID for this evaluator's folder. Once a client has an upcoming appointment with them, that client's folder is moved here automatically.
+- **Eval Drive Folder**: optional. If set, clients with an upcoming Evaluation appointment go here instead of the regular Drive Folder.
+
+### Insurance & Offices
+
+- **Insurance**: check every insurance this evaluator accepts. This directly controls which clients they can be matched to, see [Evaluator Matching](/docs/documentation/evaluator-matching).
+- **Offices**: check each office they can ever work from. This also affects [Evaluator Matching](/docs/documentation/evaluator-matching).
+- **Blocked School Districts** and **Blocked Zip Codes**: leave empty in the normal case. An evaluator covers everywhere by default. Only add a district or zip here if this evaluator should *never* be matched to clients from that area. Blocked zips can be typed in if they aren't already in the list.
+
+### Appointment Types & Durations
+
+- **Allowed Appointment Types**: a grid of DA, EVAL, and DAEVAL, with diagnosis subtypes (ASD, ASD+LD, ADHD+LD, LD) for the two eval types. Check "Any" to enable a whole row, or check individual diagnosis boxes. A new profile starts with DA, EVAL, and DAEVAL all fully enabled, uncheck anything this evaluator does not do.
+- **Appointment Durations (hours)**: how long each appointment type takes for this evaluator, in hours (for example `1.5` means 90 minutes). Leave a box blank to fall back to the practice-wide default (shown as a grayed-out placeholder; those defaults are set lower on the same People tab). A diagnosis-specific value beats the age-only row, which beats the default. Rows for types this evaluator can't perform are grayed out.
+
+Click **Create Evaluator**.
+
+## 4. What happens automatically when you save
+
+Saving the profile kicks off a background recheck that compares this evaluator against every client and builds their eligible-client links. You don't have to trigger anything. The same recheck runs whenever you later edit, archive, or unarchive the profile. See [Evaluator Matching](/docs/documentation/evaluator-matching) for exactly what makes a client eligible.
+
+## 5. Give them a login
+
+The evaluator profile by itself does not let anyone log in. A profile and a user account are matched up automatically when their email addresses are identical, which is why step 3 stressed using the real login email. Oen their row in the People list and click **Send Invite**. They accept the invite by signing in with Google, at which point their user account exists and links to the profile.
+
+See [Permissions and Roles](/docs/documentation/permissions-and-roles) for how invitations and roles work.
+
+## 6. Set their role, permissions, and contact info
+
+Once they have accepted the invite, open the person's row again. The same dialog now shows a **Role & Permissions** and a **Contact & Limits** section:
+
+- **Role**: pick the role that matches what this evaluator should be able to do. Permissions checked below the role are applied on top of it as overrides.
+- **Phone Number**: the evaluator's personal phone number, for being reached by staff or automated messages.
+- **Max Claimed Reports**: leave blank unless this evaluator should be allowed more or fewer claimed reports to write at once than the default (see [Claim Reports](/docs/procedures/claim-reports)).
+- **Blocked Evaluators**: unrelated to client matching. It stops *this* person from claiming or being notified about *other* evaluators' reports. Usually left empty.
+
+## 7. Add them to piecework
+
+If this evaluator writes other people's reports, their initials have to resolve to a name and a payroll email, and their per-unit rates have to be set. All of this is in **Settings > QSuite > Piecework** (needs the Edit QSuite Piecework Config permission):
+
+- Add their **initials** mapped to their full name.
+- Add their **payroll email**.
+- Set their **rates** for each unit type they earn (DA, ADHDDA, EVAL, DAEVAL, REPORT).
+
+If this is skipped, the [piecework](/docs/procedures/piecework) script will stop and prompt whoever runs it when it hits a report or appointment it can't attribute.
+
+## 8. Confirm everything took
+
+- Open a client you know this evaluator should be eligible for and check the **Eligible Evaluators** card. If you have the Manage Evaluators permission, the **Why?** button explains any evaluator's eligibility in plain language.
+- If they log in, have them open [Availability](/docs/procedures/availability) and confirm they can add entries.
+
+## Offboarding
+
+To remove an evaluator, open their row and **Archive** it. Archiving the person archives both the user account (they can no longer log in) and the evaluator profile (they are removed from matching and hidden from lists). It can be reversed by unarchiving. Deleting a profile outright is also possible but rarely the right choice, archiving keeps their history intact.

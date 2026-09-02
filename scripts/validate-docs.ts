@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import matter from "@11ty/gray-matter";
+import GithubSlugger from "github-slugger";
 
 const DOCS_DIR = path.join(process.cwd(), "src/content/docs");
 
@@ -55,8 +56,32 @@ function stripForScan(content: string): string {
 		.replace(/`[^`\n]*`/g, "");
 }
 
+/**
+ * Collect the heading anchor ids for a page the way the MDX build does:
+ * rehype-slug runs github-slugger over each heading's text, disambiguating
+ * repeats with a trailing counter.
+ */
+function headingSlugs(content: string): Set<string> {
+	const slugger = new GithubSlugger();
+	const slugs = new Set<string>();
+	const withoutCode = content
+		.replace(/```[\s\S]*?```/g, "")
+		.replace(/`[^`\n]*`/g, "");
+	for (const m of withoutCode.matchAll(/^ {0,3}#{1,6}\s+(.+?)\s*#*\s*$/gm)) {
+		const text = (m[1] ?? "")
+			.replace(/!?\[([^\]]*)\]\([^)]*\)/g, "$1")
+			.replace(/[*_~]/g, "")
+			.trim();
+		slugs.add(slugger.slug(text));
+	}
+	return slugs;
+}
+
 const docs = walkDocsDir(DOCS_DIR);
 const slugSet = new Set(docs.map((d) => d.slug.join("/")));
+const headingsBySlug = new Map(
+	docs.map((d) => [d.slug.join("/"), headingSlugs(d.content)]),
+);
 const errors: string[] = [];
 // Broken doc-to-doc links are surfaced in the UI (rendered in the danger color)
 // rather than failing the build, so a page can link ahead to one not written
@@ -100,11 +125,27 @@ for (const doc of docs) {
 
 	// Doc-to-doc links, e.g. [Records Request Process](/docs/procedures/records-request)
 	for (const m of scannable.matchAll(/\]\(\/docs\/([^)\s]*)\)/g)) {
-		const target = (m[1] ?? "").split("#")[0] ?? "";
-		const targetSlug = target.split("/").filter(Boolean).join("/");
+		const [pathPart, anchor] = (m[1] ?? "").split("#");
+		const targetSlug = (pathPart ?? "").split("/").filter(Boolean).join("/");
 		if (!slugSet.has(targetSlug)) {
 			warnings.push(
-				`${rel}: link to "/docs/${target}" doesn't resolve to any doc page`,
+				`${rel}: link to "/docs/${m[1]}" doesn't resolve to any doc page`,
+			);
+			continue;
+		}
+		if (anchor && !headingsBySlug.get(targetSlug)?.has(anchor)) {
+			errors.push(
+				`${rel}: link to "/docs/${m[1]}" points at a heading that doesn't exist on that page`,
+			);
+		}
+	}
+
+	// Same-page anchor links, e.g. [see below](#where-the-number-comes-from)
+	for (const m of scannable.matchAll(/\]\(#([^)\s]+)\)/g)) {
+		const anchor = m[1] ?? "";
+		if (!headingsBySlug.get(doc.slug.join("/"))?.has(anchor)) {
+			errors.push(
+				`${rel}: link to "#${anchor}" points at a heading that doesn't exist on this page`,
 			);
 		}
 	}

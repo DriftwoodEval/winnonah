@@ -1,11 +1,13 @@
 {
 	"cSpell.words": [
+		"ADHDDA",
 		"ASRS",
 		"automations",
 		"BASC",
 		"customizer",
 		"DAEVAL",
 		"DAEVALs",
+		"driftwoodeval",
 		"gcal",
 		"Kimai",
 		"mtimes",
@@ -21,6 +23,9 @@
 		"refetched",
 		"supercronic",
 		"therapyappointment",
+		"timesheet",
+		"unarchiving",
+		"unreviewed",
 		"uvicorn"
 	],
 	"python.testing.pytestArgs": ["python"],

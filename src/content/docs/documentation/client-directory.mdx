@@ -1,0 +1,28 @@
+---
+title: Client Directory
+needsCleanup: true
+---
+
+The **Directory** link in the nav (`/clients/directory`) is a full, sortable, filterable table of every client in the database, open to any logged-in user with no special permission. It's a different tool from the home page's quick client search (a fast lookup-by-name) and from the [Main Dashboard](/docs/documentation/main-dashboard) or [Issues Dashboard](/docs/documentation/issues-dashboard) (curated, criteria-driven lists): this is the plain "browse and search everyone" screen.
+
+## Columns
+
+Beyond the always-visible name and status, every other column can be shown or hidden from the **Columns** menu: **Priority**, **For** (ASD/ADHD), **Language**, **DA Qs**, **EVAL Qs**, **Primary Insurance**, **Secondary Insurance**, **Prior Auth Date**, **DA Scheduled**, **EVAL Scheduled**, **Location**, **Evaluator**, and **PA Assigned To**. A separate **Unresolved Failures** toggle in the same menu isn't a real column, it's a badge shown next to a client's name when they have one.
+
+Each column in the menu has its own checkbox to show/hide it, plus up/down arrow buttons to reorder it relative to the others, both changes apply immediately to the table.
+
+## Filtering, sorting, and search
+
+Most columns have their own filter control (a multi-select dropdown for insurance, language, priority, location, and so on) alongside a name search box, and the table can be sorted by clicking most column headers. Most columns sort on the database side; a few (**DA Qs**, **EVAL Qs**, **PA Assigned To**) come from the prioritization sheet rather than the database, so those sort client-side against whatever's currently loaded. A **Clear filters** button appears once any filter is active.
+
+## What persists, and for how long
+
+Column visibility, column order, and the current sort are saved per person and persist indefinitely, they're restored automatically the next time you open the Directory. Search filters (the multi-select and name filters, not layout) are also saved per person, but only for 24 hours, so an old, forgotten filter doesn't silently keep hiding clients on a later visit. Active filters (except name search) round-trip through the page's URL too, so a filtered link can be shared or bookmarked.
+
+A **Status** dropdown next to the search box (Active/Inactive/All, each showing a live count) controls which clients show up at all, defaulting to Active.
+
+## Edge cases
+
+- **DA Qs, EVAL Qs, and PA Assigned To reflect the prioritization sheet, not just the EMR.** A client missing from that sheet shows blank in these columns.
+- **Toggling the Status column filter to "all" reveals a Status column** that's otherwise hidden while filtering to just active or just inactive clients.
+- **Column layout is shared across every filter view**, since it's a separate saved preference from the filters themselves, changing which columns show doesn't reset your active filters or vice versa.
