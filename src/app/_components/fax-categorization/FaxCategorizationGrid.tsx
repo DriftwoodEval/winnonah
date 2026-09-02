@@ -30,6 +30,7 @@ import { formatDistanceToNow } from "date-fns";
 import {
 	ChevronDownIcon,
 	DownloadIcon,
+	ExternalLinkIcon,
 	FileTextIcon,
 	InboxIcon,
 } from "lucide-react";
@@ -447,7 +448,17 @@ function FaxGrid({
 					{selectedFax && (
 						<>
 							<DialogHeader>
-								<DialogTitle>{selectedFax.fileName}</DialogTitle>
+								<DialogTitle>
+									<a
+										className="inline-flex items-center gap-1.5 hover:underline"
+										href={`https://drive.google.com/file/d/${selectedFax.driveFileId}/view`}
+										rel="noopener noreferrer"
+										target="_blank"
+									>
+										{selectedFax.fileName}
+										<ExternalLinkIcon className="size-4 shrink-0 text-muted-foreground" />
+									</a>
+								</DialogTitle>
 								<DialogDescription className="sr-only">
 									Review and categorize this fax
 								</DialogDescription>
