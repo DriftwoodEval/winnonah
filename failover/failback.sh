@@ -140,7 +140,7 @@ log "Re-enabling watchtower..."
 ${PRIMARY_COMPOSE} up -d watchtower
 
 # 9. Email notification (Slack already covered each step above)
-docker exec winnonah-python python failover_notify.py failback \
+docker exec winnonah-python uv run failover_notify.py failback \
   || log "Could not send failback email, non-fatal."
 
 log "=== FAILBACK COMPLETE ==="

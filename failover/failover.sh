@@ -106,7 +106,7 @@ curl -sf -X POST \
   || log "Could not ack to worker, non-fatal."
 
 # 5. Email notification (Slack already covered each step above)
-docker exec winnonah-python python failover_notify.py failover \
+docker exec winnonah-python uv run failover_notify.py failover \
   || log "Could not send failover email, non-fatal."
 
 log "=== FAILOVER COMPLETE ==="
