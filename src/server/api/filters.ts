@@ -1,6 +1,12 @@
-import { eq } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
+import { getDistanceSQL } from "~/lib/utils";
 import type { Context } from "~/server/api/trpc";
-import { insuranceAliases, insurances } from "~/server/db/schema";
+import {
+	insuranceAliases,
+	insurances,
+	officeDriveTimes,
+	offices,
+} from "~/server/db/schema";
 
 // Sentinel value meaning "the underlying field is null/unset", used across all
 // multi-select filters so a user can filter for e.g. "no language on file."
@@ -42,4 +48,38 @@ export async function resolveInsuranceAliasNames(
 
 	cache?.set(shortName, promise);
 	return promise;
+}
+
+// Picks a client's closest office, preferring the real by-car distance
+// cached in emr_office_drive_time over the straight-line calc, which is
+// used only as a fallback for a client not yet backfilled or whose last
+// Waze lookup failed. For a single, already-known client (auto-assigning an
+// office on the scheduling sheet); a bulk query over many clients should
+// build its own correlated-subquery CASE instead (see getOfficeDistanceSQL
+// and buildClosestOfficeKeyCaseSQL in ~/lib/utils).
+export async function getClosestOfficeKeyByDriveTime(
+	db: Context["db"],
+	clientId: number,
+	clientLat: string,
+	clientLon: string,
+): Promise<string | undefined> {
+	const distanceExpr = sql<number>`CAST(COALESCE(
+		${officeDriveTimes.distanceMiles},
+		${getDistanceSQL(clientLat, clientLon, offices.latitude, offices.longitude)}
+	) AS DOUBLE)`;
+
+	const [closest] = await db
+		.select({ key: offices.key })
+		.from(offices)
+		.leftJoin(
+			officeDriveTimes,
+			and(
+				eq(officeDriveTimes.officeKey, offices.key),
+				eq(officeDriveTimes.clientId, clientId),
+			),
+		)
+		.orderBy(distanceExpr)
+		.limit(1);
+
+	return closest?.key;
 }

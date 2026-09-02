@@ -1,7 +1,7 @@
 import type { JSONContent } from "@tiptap/core";
 import { TRPCError } from "@trpc/server";
 import { differenceInMonths, differenceInYears } from "date-fns";
-import { and, desc, eq, isNotNull, sql } from "drizzle-orm";
+import { and, desc, eq, isNotNull } from "drizzle-orm";
 import { distance as levDistance } from "fastest-levenshtein";
 import z from "zod";
 import { env } from "~/env";
@@ -30,11 +30,8 @@ import {
 } from "~/lib/google";
 import type { Client } from "~/lib/models";
 import type { DuplicateGroup } from "~/lib/types";
-import {
-	getDistanceSQL,
-	getInsuranceShortName,
-	hasPermission,
-} from "~/lib/utils";
+import { getInsuranceShortName, hasPermission } from "~/lib/utils";
+import { getClosestOfficeKeyByDriveTime } from "~/server/api/filters";
 import {
 	assertPermission,
 	type Context,
@@ -45,7 +42,6 @@ import {
 	appointments,
 	clients,
 	notes,
-	officeDriveTimes,
 	offices,
 	reportQueueConfig,
 	users,
@@ -125,38 +121,19 @@ const getPreviewData = async (ctx: Context, clientId: number) => {
 
 	let location: string | null = null;
 	if (client.latitude && client.longitude) {
-		// Prefers the real by-car distance cached in emr_office_drive_time over
-		// the straight-line calc, which is used only as a fallback for a client
-		// not yet backfilled or whose last Waze lookup failed.
-		const distanceExpr = sql<number>`CAST(COALESCE(
-			${officeDriveTimes.distanceMiles},
-			${getDistanceSQL(client.latitude, client.longitude, offices.latitude, offices.longitude)}
-		) AS DOUBLE)`;
+		const closestOfficeKey = await getClosestOfficeKeyByDriveTime(
+			ctx.db,
+			client.id,
+			client.latitude,
+			client.longitude,
+		);
 
-		const [closestOffice] = await ctx.db
-			.select({
-				key: offices.key,
-				distance: distanceExpr,
-			})
-			.from(offices)
-			.leftJoin(
-				officeDriveTimes,
-				and(
-					eq(officeDriveTimes.officeKey, offices.key),
-					eq(officeDriveTimes.clientId, client.id),
-				),
-			)
-			.orderBy(distanceExpr)
-			.limit(1);
-
-		if (closestOffice) {
-			if (closestOffice.key === "CHS") {
-				location = "Charleston";
-			} else if (closestOffice.key === "COL") {
-				location = "C (Columbia)";
-			} else {
-				location = closestOffice.key;
-			}
+		if (closestOfficeKey === "CHS") {
+			location = "Charleston";
+		} else if (closestOfficeKey === "COL") {
+			location = "C (Columbia)";
+		} else if (closestOfficeKey) {
+			location = closestOfficeKey;
 		}
 	}
 
