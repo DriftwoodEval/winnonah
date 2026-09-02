@@ -13,7 +13,6 @@ from fastapi.responses import FileResponse, Response
 from googleapiclient.discovery import build
 from loguru import logger
 from pydantic import BaseModel, ConfigDict, Field
-from pywaze import route_calculator
 
 import appointment_reminders
 import greeter_proxy
@@ -46,6 +45,7 @@ from utils.google import (
 )
 from utils.misc import json_log_format
 from utils.timezone import now_business
+from utils.waze import KM_PER_MILE, get_drive_time
 
 load_dotenv()
 
@@ -914,9 +914,6 @@ def download_select_health_form(
     )
 
 
-KM_PER_MILE = 1.60934
-
-
 class OfficeDriveTime(BaseModel):
     key: str
     pretty_name: str = Field(alias="prettyName")
@@ -924,12 +921,6 @@ class OfficeDriveTime(BaseModel):
     distance_miles: float | None = Field(alias="distanceMiles")
 
     model_config = ConfigDict(populate_by_name=True)
-
-
-async def _waze_drive_time(start: str, end: str) -> route_calculator.CalcRoutesResponse:
-    async with route_calculator.WazeRouteCalculator(region="US") as waze:
-        routes = await waze.calc_routes(start, end)
-        return routes[0]
 
 
 @app.get("/clients/{client_id}/office-drive-times")
@@ -963,7 +954,7 @@ async def office_drive_times(
     async def resolve(office: dict) -> OfficeDriveTime:
         end = f"{office['latitude']}, {office['longitude']}"
         try:
-            route = await _waze_drive_time(start, end)
+            route = await get_drive_time(start, end)
             return OfficeDriveTime(
                 key=office["key"],
                 prettyName=office["prettyName"],

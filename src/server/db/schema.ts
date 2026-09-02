@@ -324,6 +324,41 @@ export const clients = createTable(
 	],
 );
 
+export const officeDriveTimes = createTable(
+	"office_drive_time",
+	(d) => ({
+		clientId: d
+			.int()
+			.notNull()
+			.references(() => clients.id, { onDelete: "cascade" }),
+		officeKey: d
+			.varchar({ length: 255 })
+			.notNull()
+			.references(() => offices.key, { onDelete: "cascade" }),
+		// By-car duration and distance from the client to this office, from
+		// Waze. Null means the last lookup failed (bad coords, Waze error),
+		// not that the office is unreachable.
+		durationMinutes: d.decimal({ precision: 6, scale: 1 }),
+		distanceMiles: d.decimal({ precision: 6, scale: 1 }),
+		computedAt: d.timestamp().notNull(),
+	}),
+	(t) => [primaryKey({ columns: [t.clientId, t.officeKey] })],
+);
+
+export const officeDriveTimesRelations = relations(
+	officeDriveTimes,
+	({ one }) => ({
+		client: one(clients, {
+			fields: [officeDriveTimes.clientId],
+			references: [clients.id],
+		}),
+		office: one(offices, {
+			fields: [officeDriveTimes.officeKey],
+			references: [offices.key],
+		}),
+	}),
+);
+
 export const clientRelated = createTable(
 	"client_related",
 	(d) => ({
