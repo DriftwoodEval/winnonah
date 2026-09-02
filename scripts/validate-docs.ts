@@ -43,6 +43,18 @@ function walkDocsDir(dir: string, baseSlug: string[] = []): DocEntry[] {
 	return docs;
 }
 
+/**
+ * Remove text that shouldn't be scanned for links or images: MDX comments,
+ * fenced code blocks, and inline code. A commented-out or example
+ * `![](foo.jpg)` isn't a real broken reference.
+ */
+function stripForScan(content: string): string {
+	return content
+		.replace(/\{\/\*[\s\S]*?\*\/\}/g, "")
+		.replace(/```[\s\S]*?```/g, "")
+		.replace(/`[^`\n]*`/g, "");
+}
+
 const docs = walkDocsDir(DOCS_DIR);
 const slugSet = new Set(docs.map((d) => d.slug.join("/")));
 const errors: string[] = [];
@@ -80,8 +92,10 @@ for (const doc of docs) {
 		}
 	}
 
+	const scannable = stripForScan(doc.content);
+
 	// Doc-to-doc links, e.g. [Records Request Process](/docs/procedures/records-request)
-	for (const m of doc.content.matchAll(/\]\(\/docs\/([^)\s]*)\)/g)) {
+	for (const m of scannable.matchAll(/\]\(\/docs\/([^)\s]*)\)/g)) {
 		const target = (m[1] ?? "").split("#")[0] ?? "";
 		const targetSlug = target.split("/").filter(Boolean).join("/");
 		if (!slugSet.has(targetSlug)) {
@@ -92,7 +106,7 @@ for (const doc of docs) {
 	}
 
 	// Relative image references, e.g. ![Description](cheddar.jpg)
-	for (const m of doc.content.matchAll(/!\[[^\]]*\]\(([^)\s]+)\)/g)) {
+	for (const m of scannable.matchAll(/!\[[^\]]*\]\(([^)\s]+)\)/g)) {
 		const src = m[1];
 		if (!src || /^([a-z]+:)?\/\//i.test(src) || src.startsWith("/")) continue;
 		const imgPath = path.join(path.dirname(doc.filePath), src);
