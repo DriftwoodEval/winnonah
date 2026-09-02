@@ -42,7 +42,7 @@ export function OfficeDriveTimesButton({
 		<Popover onOpenChange={setEnabled}>
 			<PopoverTrigger asChild>
 				<span className="cursor-pointer font-normal text-muted-foreground hover:underline">
-					(Drive times)
+					(Compare)
 				</span>
 			</PopoverTrigger>
 			<PopoverContent side="right">
