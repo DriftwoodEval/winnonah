@@ -434,20 +434,21 @@ export const getDistanceSQL = (
 };
 
 /**
- * SQL expression for the distance in miles from a client row to one office,
- * preferring the real by-car distance cached in emr_office_drive_time
- * (backfilled nightly by office_drive_times.py, refreshed live whenever
- * staff open a client's Drive Times popup) over the straight-line calc,
- * which is used only as a fallback for a client not yet backfilled or whose
- * last Waze lookup failed. Explicitly cast to DOUBLE since
+ * The one canonical SQL expression for the distance in miles from a client to
+ * one office: the real by-car distance cached in emr_office_drive_time
+ * (backfilled by office_drive_times.py, refreshed live whenever staff open a
+ * client's Drive Times popup) when present, else the straight-line calc as a
+ * fallback for a client not yet backfilled or whose last Waze lookup failed.
+ * Every closest-office query (filter, sort, single-client lookup) ranks by
+ * this so they all agree. Explicitly cast to DOUBLE since
  * emr_office_drive_time.distanceMiles is a DECIMAL column, which mysql2
  * decodes as a string unless the driver is told otherwise.
  */
 export const getOfficeDistanceSQL = (
-	clientId: SQL | AnyColumn,
+	clientId: SQL | AnyColumn | number,
 	clientLat: SQL | AnyColumn | string | number | null | undefined,
 	clientLon: SQL | AnyColumn | string | number | null | undefined,
-	officeKey: string,
+	officeKey: SQL | AnyColumn | string,
 	officeLat: SQL | AnyColumn | string | number | null | undefined,
 	officeLon: SQL | AnyColumn | string | number | null | undefined,
 ) => {

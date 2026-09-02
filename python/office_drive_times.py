@@ -8,7 +8,13 @@ from utils.constants import TABLE_CLIENT, TABLE_OFFICE, TABLE_OFFICE_DRIVE_TIME
 from utils.database import get_db
 from utils.misc import json_log_format
 from utils.timezone import now_utc
-from utils.waze import KM_PER_MILE, get_drive_time, save_drive_time
+from utils.waze import (
+    KM_PER_MILE,
+    WAZE_MAX_CONCURRENCY,
+    WAZE_REQUEST_STAGGER_SECONDS,
+    get_drive_time,
+    save_drive_time,
+)
 
 logger.add(
     "logs/office-drive-times.log",
@@ -34,11 +40,10 @@ FAILURE_RETRY_AFTER_DAYS = 1
 # clear the whole backlog, even at the same daily total.
 MAX_PAIRS_PER_RUN = 40
 
-# Waze has no published rate limit for this unofficial endpoint, so this
-# keeps concurrent requests low and staggers them rather than trusting the
-# server to queue politely.
-CONCURRENCY = 2
-REQUEST_STAGGER_SECONDS = 1.0
+# Concurrency and stagger for Waze's unofficial, unrate-limited endpoint are
+# shared with the on-demand lookup in api.py (see utils/waze.py).
+CONCURRENCY = WAZE_MAX_CONCURRENCY
+REQUEST_STAGGER_SECONDS = WAZE_REQUEST_STAGGER_SECONDS
 
 
 _STALE_WHERE = f"""

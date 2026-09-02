@@ -44,7 +44,6 @@ import type { ClientWithIssueInfo } from "~/lib/models";
 import {
 	buildClosestOfficeKeyCaseSQL,
 	formatInBusinessTime,
-	getDistanceSQL,
 	getInsuranceShortName,
 	getOfficeDistanceSQL,
 	isNotesOnlyClientId,
@@ -1109,21 +1108,23 @@ export const clientRouter = createTRPCRouter({
 
 			let closestOffices: ClosestOffice[] = [];
 			if (syncedClient.latitude && syncedClient.longitude) {
-				// Prefers the real by-car distance backfilled nightly by
-				// office_drive_times.py (see emr_office_drive_time). Falls back to
-				// straight-line distance for a client that hasn't been backfilled
-				// yet, or whose last Waze lookup failed.
+				const distanceMilesSQL = getOfficeDistanceSQL(
+					syncedClient.id,
+					syncedClient.latitude,
+					syncedClient.longitude,
+					sql`o.key`,
+					sql`o.latitude`,
+					sql`o.longitude`,
+				);
 				const [rows] = await ctx.db.execute<ClosestOffice>(sql`
         SELECT
           o.key,
           o.prettyName,
           o.latitude,
           o.longitude,
-          CAST(COALESCE(dt.distanceMiles, ${getDistanceSQL(syncedClient.latitude, syncedClient.longitude, sql`o.latitude`, sql`o.longitude`)}) AS DOUBLE) as distanceMiles
+          ${distanceMilesSQL} as distanceMiles
         FROM emr_office o
-        LEFT JOIN emr_office_drive_time dt
-          ON dt.officeKey = o.key AND dt.clientId = ${syncedClient.id}
-        ORDER BY dt.durationMinutes IS NULL, dt.durationMinutes, distanceMiles
+        ORDER BY distanceMiles
       `);
 
 				closestOffices = rows as unknown as ClosestOffice[];

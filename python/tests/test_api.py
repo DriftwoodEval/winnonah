@@ -380,38 +380,71 @@ class TestFindDuplicates:
         assert len(result[0]["folders"]) == 2
 
 
+class RoutingCursor:
+    """Cursor whose fetch results depend on which query was last executed:
+    the client lookup, the office list, or the cached-drive-times lookup."""
+
+    def __init__(self, client_row, office_rows, cached_rows=None):
+        self.client_row = client_row
+        self.office_rows = office_rows
+        self.cached_rows = cached_rows or []
+        self.executed = []
+        self._last = ""
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc):
+        return False
+
+    def execute(self, query, params=None):
+        self._last = " ".join(query.split())
+        self.executed.append((self._last, params))
+
+    def fetchone(self):
+        return self.client_row
+
+    def fetchall(self):
+        if self._last.startswith("SELECT officeKey"):
+            return self.cached_rows
+        if "prettyName" in self._last:
+            return self.office_rows
+        return []
+
+
+_OFFICE_ROWS = [
+    {
+        "key": "columbia",
+        "prettyName": "Columbia",
+        "latitude": "34.0",
+        "longitude": "-80.9",
+    },
+    {
+        "key": "charleston",
+        "prettyName": "Charleston",
+        "latitude": "32.8",
+        "longitude": "-79.9",
+    },
+]
+
+
+async def _fake_get_drive_time(start, end):  # noqa: ARG001
+    if "34.0" in end:
+        return CalcRoutesResponse(
+            duration=10.0, distance=16.0934, name="", street_names=[]
+        )
+    return CalcRoutesResponse(duration=90.0, distance=160.934, name="", street_names=[])
+
+
 class TestOfficeDriveTimes:
     def test_persists_results_and_sorts_fastest_first(self):
-        client_row = {"latitude": "33.9", "longitude": "-81.0"}
-        office_rows = [
-            {
-                "key": "columbia",
-                "prettyName": "Columbia",
-                "latitude": "34.0",
-                "longitude": "-80.9",
-            },
-            {
-                "key": "charleston",
-                "prettyName": "Charleston",
-                "latitude": "32.8",
-                "longitude": "-79.9",
-            },
-        ]
-        cursor = FakeCursor(fetchone_result=client_row, fetchall_result=office_rows)
+        cursor = RoutingCursor({"latitude": "33.9", "longitude": "-81.0"}, _OFFICE_ROWS)
         conn = FakeConnection(cursor)
-
-        async def fake_get_drive_time(start, end):  # noqa: ARG001
-            if "34.0" in end:
-                return CalcRoutesResponse(
-                    duration=10.0, distance=16.0934, name="", street_names=[]
-                )
-            return CalcRoutesResponse(
-                duration=90.0, distance=160.934, name="", street_names=[]
-            )
 
         with (
             patch("api.get_db", return_value=conn),
-            patch("api.get_drive_time", side_effect=fake_get_drive_time),
+            patch("api.get_drive_time", side_effect=_fake_get_drive_time),
+            patch("api.WAZE_REQUEST_STAGGER_SECONDS", 0),
         ):
             results = asyncio.run(office_drive_times(client_id=42, current_user={}))
 
@@ -420,16 +453,82 @@ class TestOfficeDriveTimes:
         assert results[0].distance_miles == 10.0
 
         insert_calls = [
-            (query, params)
+            params
             for query, params in cursor.executed
             if query.startswith("INSERT INTO emr_office_drive_time")
         ]
         assert len(insert_calls) == 2
-        assert {params[0] for _, params in insert_calls} == {42}
-        assert {params[1] for _, params in insert_calls} == {"columbia", "charleston"}
+        assert {params[0] for params in insert_calls} == {42}
+        assert {params[1] for params in insert_calls} == {"columbia", "charleston"}
+
+    def test_serves_fresh_cache_without_calling_waze(self):
+        recent = datetime.now(UTC).replace(tzinfo=None) - timedelta(hours=1)
+        cached_rows = [
+            {
+                "officeKey": "columbia",
+                "durationMinutes": 12.0,
+                "distanceMiles": 7.0,
+                "computedAt": recent,
+            },
+            {
+                "officeKey": "charleston",
+                "durationMinutes": 88.0,
+                "distanceMiles": 95.0,
+                "computedAt": recent,
+            },
+        ]
+        cursor = RoutingCursor(
+            {"latitude": "33.9", "longitude": "-81.0"}, _OFFICE_ROWS, cached_rows
+        )
+        conn = FakeConnection(cursor)
+        waze = MagicMock()
+
+        with (
+            patch("api.get_db", return_value=conn),
+            patch("api.get_drive_time", waze),
+        ):
+            results = asyncio.run(office_drive_times(client_id=42, current_user={}))
+
+        waze.assert_not_called()
+        assert [r.key for r in results] == ["columbia", "charleston"]
+        assert results[0].duration_minutes == 12.0
+        assert not any(
+            query.startswith("INSERT INTO emr_office_drive_time")
+            for query, _ in cursor.executed
+        )
+
+    def test_refetches_stale_cache(self):
+        stale = datetime.now(UTC).replace(tzinfo=None) - timedelta(days=1)
+        cached_rows = [
+            {
+                "officeKey": "columbia",
+                "durationMinutes": 99.0,
+                "distanceMiles": 99.0,
+                "computedAt": stale,
+            },
+        ]
+        cursor = RoutingCursor(
+            {"latitude": "33.9", "longitude": "-81.0"}, _OFFICE_ROWS, cached_rows
+        )
+        conn = FakeConnection(cursor)
+
+        with (
+            patch("api.get_db", return_value=conn),
+            patch("api.get_drive_time", side_effect=_fake_get_drive_time),
+            patch("api.WAZE_REQUEST_STAGGER_SECONDS", 0),
+        ):
+            results = asyncio.run(office_drive_times(client_id=42, current_user={}))
+
+        assert results[0].duration_minutes == 10.0
+        insert_keys = {
+            params[1]
+            for query, params in cursor.executed
+            if query.startswith("INSERT INTO emr_office_drive_time")
+        }
+        assert insert_keys == {"columbia", "charleston"}
 
     def test_raises_404_for_unknown_client(self):
-        conn = FakeConnection(FakeCursor(fetchone_result=None, fetchall_result=[]))
+        conn = FakeConnection(RoutingCursor(None, []))
         with (
             patch("api.get_db", return_value=conn),
             pytest.raises(HTTPException) as exc_info,
@@ -438,12 +537,7 @@ class TestOfficeDriveTimes:
         assert exc_info.value.status_code == 404
 
     def test_raises_422_when_client_has_no_coordinates(self):
-        conn = FakeConnection(
-            FakeCursor(
-                fetchone_result={"latitude": None, "longitude": None},
-                fetchall_result=[],
-            )
-        )
+        conn = FakeConnection(RoutingCursor({"latitude": None, "longitude": None}, []))
         with (
             patch("api.get_db", return_value=conn),
             pytest.raises(HTTPException) as exc_info,

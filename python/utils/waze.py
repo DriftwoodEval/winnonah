@@ -12,12 +12,30 @@ from utils.timezone import now_utc
 
 KM_PER_MILE = 1.60934
 
+# Waze's route endpoint is unofficial and has no published rate limit, so both
+# callers cap concurrent requests and stagger them rather than trusting the
+# server to queue politely.
+WAZE_MAX_CONCURRENCY = 2
+WAZE_REQUEST_STAGGER_SECONDS = 1.0
+
 
 async def get_drive_time(start: str, end: str) -> route_calculator.CalcRoutesResponse:
     """Returns the fastest by-car route between two "lat, lon" points, via Waze."""
     async with route_calculator.WazeRouteCalculator(region="US") as waze:
         routes = await waze.calc_routes(start, end)
         return routes[0]
+
+
+def get_cached_drive_times(conn, client_id: int) -> dict[str, dict]:
+    """Every stored client-office drive time for one client, keyed by officeKey."""
+    sql = f"""
+        SELECT officeKey, durationMinutes, distanceMiles, computedAt
+        FROM {TABLE_OFFICE_DRIVE_TIME}
+        WHERE clientId = %s
+    """
+    with conn.cursor() as cursor:
+        cursor.execute(sql, (client_id,))
+        return {row["officeKey"]: row for row in cursor.fetchall()}
 
 
 def save_drive_time(

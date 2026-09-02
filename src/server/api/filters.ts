@@ -1,12 +1,7 @@
-import { and, eq, sql } from "drizzle-orm";
-import { getDistanceSQL } from "~/lib/utils";
+import { eq } from "drizzle-orm";
+import { getOfficeDistanceSQL } from "~/lib/utils";
 import type { Context } from "~/server/api/trpc";
-import {
-	insuranceAliases,
-	insurances,
-	officeDriveTimes,
-	offices,
-} from "~/server/db/schema";
+import { insuranceAliases, insurances, offices } from "~/server/db/schema";
 
 // Sentinel value meaning "the underlying field is null/unset", used across all
 // multi-select filters so a user can filter for e.g. "no language on file."
@@ -50,34 +45,28 @@ export async function resolveInsuranceAliasNames(
 	return promise;
 }
 
-// Picks a client's closest office, preferring the real by-car distance
-// cached in emr_office_drive_time over the straight-line calc, which is
-// used only as a fallback for a client not yet backfilled or whose last
-// Waze lookup failed. For a single, already-known client (auto-assigning an
-// office on the scheduling sheet); a bulk query over many clients should
-// build its own correlated-subquery CASE instead (see getOfficeDistanceSQL
-// and buildClosestOfficeKeyCaseSQL in ~/lib/utils).
+// Picks a single known client's closest office, ranked by getOfficeDistanceSQL
+// (real Waze distance when cached, straight-line fallback otherwise). Used when
+// auto-assigning an office on the scheduling sheet or the appointment preview.
+// A bulk query over many client rows uses buildClosestOfficeKeyCaseSQL instead.
 export async function getClosestOfficeKeyByDriveTime(
 	db: Context["db"],
 	clientId: number,
 	clientLat: string,
 	clientLon: string,
 ): Promise<string | undefined> {
-	const distanceExpr = sql<number>`CAST(COALESCE(
-		${officeDriveTimes.distanceMiles},
-		${getDistanceSQL(clientLat, clientLon, offices.latitude, offices.longitude)}
-	) AS DOUBLE)`;
+	const distanceExpr = getOfficeDistanceSQL(
+		clientId,
+		clientLat,
+		clientLon,
+		offices.key,
+		offices.latitude,
+		offices.longitude,
+	);
 
 	const [closest] = await db
 		.select({ key: offices.key })
 		.from(offices)
-		.leftJoin(
-			officeDriveTimes,
-			and(
-				eq(officeDriveTimes.officeKey, offices.key),
-				eq(officeDriveTimes.clientId, clientId),
-			),
-		)
 		.orderBy(distanceExpr)
 		.limit(1);
 
