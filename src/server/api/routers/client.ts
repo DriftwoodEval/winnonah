@@ -42,10 +42,12 @@ import {
 } from "~/lib/google";
 import type { ClientWithIssueInfo } from "~/lib/models";
 import {
+	buildClosestOfficeKeyCaseSQL,
 	formatInBusinessTime,
 	getClosestOfficeKey,
 	getDistanceSQL,
 	getInsuranceShortName,
+	getOfficeDistanceSQL,
 	isNotesOnlyClientId,
 	localDateToDateOnly,
 } from "~/lib/utils";
@@ -2776,37 +2778,18 @@ export const clientRouter = createTRPCRouter({
 					if (office && allOffices.length > 0) {
 						const distanceExprs = allOffices.map((o) => ({
 							key: o.key,
-							dist: getDistanceSQL(
+							dist: getOfficeDistanceSQL(
+								clients.id,
 								clients.latitude,
 								clients.longitude,
+								o.key,
 								o.latitude,
 								o.longitude,
 							),
 						}));
 
-						// Build a CASE statement to find the key of the office with the minimum distance
-						let closestOfficeKeyCase = sql`CASE `;
-						for (let i = 0; i < distanceExprs.length; i++) {
-							const current = distanceExprs[i];
-							if (!current) continue;
-							const others = distanceExprs.filter((_, idx) => idx !== i);
-
-							if (others.length === 0) {
-								closestOfficeKeyCase = sql`${current.key}`;
-								break;
-							}
-
-							const isClosestConditions = others.map(
-								(other) => sql`${current.dist} <= ${other.dist}`,
-							);
-							closestOfficeKeyCase = sql.join([
-								closestOfficeKeyCase,
-								sql`WHEN `,
-								sql.join(isClosestConditions, sql` AND `),
-								sql` THEN ${current.key} `,
-							]);
-						}
-						closestOfficeKeyCase = sql.join([closestOfficeKeyCase, sql`END`]);
+						const closestOfficeKeyCase =
+							buildClosestOfficeKeyCaseSQL(distanceExprs);
 
 						conditions.push(
 							and(
@@ -2925,26 +2908,30 @@ export const clientRouter = createTRPCRouter({
         END`.as("sortReason");
 					}
 
-					let selectedOfficeCoords: {
+					let selectedOffice: {
+						key: string;
 						latitude: string;
 						longitude: string;
 					} | null = null;
 					if (office) {
 						const officeData = allOffices.find((o) => o.key === office);
 						if (officeData) {
-							selectedOfficeCoords = {
+							selectedOffice = {
+								key: officeData.key,
 								latitude: officeData.latitude,
 								longitude: officeData.longitude,
 							};
 						}
 					}
 
-					const distanceToOfficeSQL = selectedOfficeCoords
-						? getDistanceSQL(
+					const distanceToOfficeSQL = selectedOffice
+						? getOfficeDistanceSQL(
+								clients.id,
 								clients.latitude,
 								clients.longitude,
-								selectedOfficeCoords.latitude,
-								selectedOfficeCoords.longitude,
+								selectedOffice.key,
+								selectedOffice.latitude,
+								selectedOffice.longitude,
 							).as("distanceToOffice")
 						: sql<null>`NULL`.as("distanceToOffice");
 
