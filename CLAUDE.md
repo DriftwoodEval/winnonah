@@ -9,6 +9,9 @@ T3 stack app (Next.js, tRPC, Drizzle ORM, NextAuth) + a Python API sidecar + cro
 ## Changelog
 When making significant, user-facing changes, add an entry to `src/content/docs/changelog/index.mdx`. Use today's date, group bullets under `**New**`/`**Improved**`/`**Fixed**` in that order, and validate with `pnpm exec tsx scripts/validate-changelog.ts`. Write bullets in plain, user-friendly language describing what changed for the user, not implementation details (e.g. "Insurance review now shows the waiting badge even when you can't act on it," not "gated waiting badge render behind canUse flag").
 
+## Docs
+When a change alters behavior an existing docs page under `src/content/docs/` describes (a renamed label, a changed rule, a removed or added step, a workflow that now works differently), update that page in the same change. Grep the docs for the feature name or UI label to find affected pages. Docs are written for non-technical staff: describe what the user sees and does, not the implementation. Validate with `mise run check:docs`.
+
 ## Commands
 - `mise run check` type-checks and lints everything (TS + Python); use `check:pnpm`/`check:ruff` to run just one side. Don't call `tsc`/`ruff` directly.
 - Trust ruff over your own syntax assumptions.
