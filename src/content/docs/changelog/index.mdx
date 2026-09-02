@@ -13,6 +13,8 @@ title: Changelog
 
 **Fixed**
 - Client notes now retry a save automatically when the server is briefly unreachable (for example during a deploy), instead of failing with a confusing "not valid JSON" error. If it still can't save, the message now explains the connection dropped and the note will save once it is back.
+- QSuite settings (service credentials, database connection info, and appointments sync settings) are now properly restricted to staff with QSuite permissions on the server side, not just hidden from the Settings page for everyone else.
+- Sending the BabyNet referral text now requires the same permission as filling out the Referral tab, on the server side, not just hidden from staff who can't fill out the tab.
 
 ## 2026-08-31
 

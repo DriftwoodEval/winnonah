@@ -22,8 +22,38 @@ function assertQSuiteServicesAccess(perms: PermissionsObject) {
 	}
 }
 
+// The full python config (services credentials, database_url, and other
+// business config) is only for the QSuite settings tab, gated the same way
+// that tab itself is: any one of its edit permissions grants access to view
+// and submit the whole config, matching how the tab's single save button
+// already works today.
+function assertQSuiteConfigAccess(perms: PermissionsObject) {
+	if (
+		!hasPermission(perms, "settings:qsuite:general") &&
+		!hasPermission(perms, "settings:qsuite:services") &&
+		!hasPermission(perms, "settings:qsuite:records") &&
+		!hasPermission(perms, "settings:qsuite:piecework")
+	) {
+		throw new TRPCError({
+			code: "UNAUTHORIZED",
+			message: "You don't have permission to view QSuite configuration",
+		});
+	}
+}
+
+function assertAppointmentsSyncAccess(perms: PermissionsObject) {
+	if (!hasPermission(perms, "settings:appointments-sync")) {
+		throw new TRPCError({
+			code: "UNAUTHORIZED",
+			message: "You don't have permission to manage appointments sync",
+		});
+	}
+}
+
 export const pyConfigRouter = createTRPCRouter({
 	get: protectedProcedure.query(async ({ ctx }) => {
+		assertQSuiteConfigAccess(ctx.session.user.permissions);
+
 		const record = await ctx.db.query.pythonConfig.findFirst({
 			where: eq(pythonConfig.id, 1),
 		});
@@ -31,6 +61,16 @@ export const pyConfigRouter = createTRPCRouter({
 		if (!record?.data) return null;
 		const result = pythonConfigSchema.safeParse(record.data);
 		return result.success ? result.data : null;
+	}),
+
+	getPracticeName: protectedProcedure.query(async ({ ctx }) => {
+		const record = await ctx.db.query.pythonConfig.findFirst({
+			where: eq(pythonConfig.id, 1),
+		});
+
+		if (!record?.data) return "";
+		const result = pythonConfigSchema.safeParse(record.data);
+		return result.success ? result.data.config.name : "";
 	}),
 
 	getServices: protectedProcedure.query(async ({ ctx }) => {
@@ -89,6 +129,8 @@ export const pyConfigRouter = createTRPCRouter({
 	update: protectedProcedure
 		.input(pythonConfigSchema)
 		.mutation(async ({ ctx, input }) => {
+			assertQSuiteConfigAccess(ctx.session.user.permissions);
+
 			ctx.logger.info(
 				{ ...input, updatedBy: ctx.session.user.email },
 				"Updating Python config",
@@ -102,6 +144,8 @@ export const pyConfigRouter = createTRPCRouter({
 		}),
 
 	getSync: protectedProcedure.query(async ({ ctx }) => {
+		assertAppointmentsSyncAccess(ctx.session.user.permissions);
+
 		const record = await ctx.db.query.pythonConfig.findFirst({
 			where: eq(pythonConfig.id, 2),
 		});
@@ -120,6 +164,8 @@ export const pyConfigRouter = createTRPCRouter({
 	updateSync: protectedProcedure
 		.input(appointmentSyncConfigSchema)
 		.mutation(async ({ ctx, input }) => {
+			assertAppointmentsSyncAccess(ctx.session.user.permissions);
+
 			ctx.logger.info(
 				{ ...input, updatedBy: ctx.session.user.email },
 				"Updating Python appointment sync config",

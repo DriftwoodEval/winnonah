@@ -244,12 +244,9 @@ export default function QuestionnaireRemindersSettings() {
 	const { data: settings } = api.questionnaires.getReminderSettings.useQuery();
 	const { data: templates } =
 		api.questionnaires.getReminderTemplates.useQuery();
-	const { data: pyConfig } = api.pyConfig.get.useQuery();
+	const { data: practiceName } = api.pyConfig.getPracticeName.useQuery();
 
-	const previewValues = samplePreviewValues(
-		settings,
-		pyConfig?.config.name ?? "",
-	);
+	const previewValues = samplePreviewValues(settings, practiceName ?? "");
 
 	const findTemplate = (
 		reminderIndex: number,
