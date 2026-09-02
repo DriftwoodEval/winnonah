@@ -1,0 +1,11 @@
+---
+title: BabyNet Weekly Report
+---
+
+A read-only ledger, not a workflow. **Settings > BabyNet Report** (its own top-level Settings tab, separate from People) shows a table: **Week Of**, **Client Count**, **Amount**, one row per week a report has been generated.
+
+This report is a fully automated weekly billing rollup: on its own schedule, a script counts how many distinct clients billed that week had BabyNet insurance (reading the same billing export the TherapyAppointment import uses), multiplies that count by a fixed per-client rate, and saves the result. Running again on the same day updates that day's row rather than adding a duplicate.
+
+## Edge cases
+
+- **The per-client dollar amount is a fixed constant in the script**, not a setting anywhere in the app. Changing it requires a code change, not a settings update.
