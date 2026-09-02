@@ -17,6 +17,12 @@ import {
 	XIcon,
 	ZapIcon,
 } from "lucide-react";
+import {
+	Children,
+	isValidElement,
+	type ReactElement,
+	type ReactNode,
+} from "react";
 import { resolveCalloutType } from "~/lib/callout-types.mjs";
 import { cn } from "~/lib/utils";
 
@@ -91,7 +97,24 @@ const CALLOUT_STYLES: Record<CalloutType, CalloutStyle> = {
 interface CalloutProps {
 	type?: string;
 	title?: string;
+	/** Render the heading in normal weight instead of bold. */
+	plain?: boolean;
 	children: React.ReactNode;
+}
+
+/**
+ * Marker element the `remark-docs-callouts` plugin wraps a callout's heading in
+ * when the author put text after the marker (`> [!TIP] Some heading`). It lets
+ * the heading carry inline formatting (emphasis, code, links) instead of being
+ * flattened to a plain string. `<Callout>` pulls it out of its children; it is
+ * never meant to be rendered on its own.
+ */
+export function CalloutTitle({ children }: { children: ReactNode }) {
+	return <>{children}</>;
+}
+
+function isEmptyChild(child: ReactNode): boolean {
+	return typeof child === "string" && child.trim().length === 0;
 }
 
 /**
@@ -100,18 +123,35 @@ interface CalloutProps {
  * blockquote (`> [!TIP]`), which `remark-docs-callouts` rewrites into this.
  * `type` accepts any canonical name or alias from `callout-types.mjs`.
  */
-export function Callout({ type = "note", title, children }: CalloutProps) {
+export function Callout({
+	type = "note",
+	title,
+	plain = false,
+	children,
+}: CalloutProps) {
 	const resolved = (resolveCalloutType(type) ?? "note") as CalloutType;
 	const style = CALLOUT_STYLES[resolved];
 	const Icon = style.icon;
 
+	const kids = Children.toArray(children);
+	const titleEl = kids.find(
+		(child): child is ReactElement<{ children: ReactNode }> =>
+			isValidElement(child) && child.type === CalloutTitle,
+	);
+	const body = kids.filter(
+		(child) => child !== titleEl && !isEmptyChild(child),
+	);
+	const heading = titleEl ? titleEl.props.children : (title ?? style.label);
+
 	return (
 		<Alert className={cn("not-prose my-6", style.className)}>
 			<Icon />
-			<AlertTitle>{title ?? style.label}</AlertTitle>
-			<AlertDescription className="text-foreground [&_a]:underline">
-				{children}
-			</AlertDescription>
+			<AlertTitle className={cn(plain && "font-normal")}>{heading}</AlertTitle>
+			{body.length > 0 && (
+				<AlertDescription className="text-foreground [&_a]:underline">
+					{body}
+				</AlertDescription>
+			)}
 		</Alert>
 	);
 }

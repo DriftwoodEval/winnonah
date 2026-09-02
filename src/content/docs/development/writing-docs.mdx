@@ -9,10 +9,14 @@ Docs are plain Markdown/MDX files in `src/content/docs/`, organized into categor
 ```md
 ---
 title: My Page Title
+needsCleanup: true
+notDone: false
 ---
 ```
 
-- `title` — shown in the sidebar, browser tab, and rendered as the page's heading
+- `title` (required) — shown in the sidebar, browser tab, and rendered as the page's heading. Must be unique within its category.
+- `needsCleanup` (optional boolean) — renders a "this page is still rough" banner at the top, for a page that's accurate but too technical or missing screenshots.
+- `notDone` (optional boolean) — renders a "work in progress" banner, for a page that isn't finished being written.
 
 Pages within a category are sorted alphabetically by title, so there's no `position` to set.
 
@@ -23,11 +27,14 @@ Each top-level folder under `src/content/docs/` is a sidebar category. Add a `_c
 ```json
 {
 	"title": "Development",
-	"position": 99
+	"position": 99,
+	"standalone": false
 }
 ```
 
-Without one, the folder name is title-cased automatically.
+- `title` — the sidebar heading for the category. Without a `_category.json`, the folder name is title-cased automatically.
+- `position` — lower numbers sort higher in the sidebar. Categories without one sort last.
+- `standalone` (optional boolean) — the category's pages render as a flat list with no heading, and consecutive standalone categories merge into one block. Also hides the category from the "new doc page" folder picker.
 
 ## Callouts
 
@@ -45,8 +52,26 @@ Write them as a blockquote with a marker on the first line:
 
 Everything below the marker line is the callout body and can hold normal Markdown (links, bold, lists).
 
+The body is optional. A marker on its own renders just the type heading, and a marker with text after it renders that text as the heading with nothing below:
+
+```md
+> [!WARNING] Do not skip this step
+```
+
+> [!WARNING] Do not skip this step
+
 > [!TIP]
-> The marker is case-insensitive. To override the heading, put text after it on the same line: `> [!WARNING] Read this first`.
+> The marker is case-insensitive. To override the heading, put text after it on the same line: `> [!WARNING] Read this first`. That heading text can use inline formatting (emphasis, `code`, links).
+
+Add a `~` right after the marker to render the heading in normal weight instead of bold:
+
+```md
+> [!NOTE]~ A quieter heading
+> body text
+```
+
+> [!NOTE]~ A quieter heading
+> body text
 
 ### Types
 
@@ -54,7 +79,10 @@ The types available are `note`, `abstract`, `info`, `todo`, `tip`, `success`, `q
 
 There are some aliases that resolve to another type: `summary`/`tldr` to abstract, `hint` to tip, `check`/`done` to success, `help`/`faq` to question, `attention` to warning, `fail`/`missing` to failure, `error` to danger, `cite` to quote.
 
-Below are all of the types visualized.
+<Accordion type="single" collapsible>
+<AccordionItem value="types">
+<AccordionTrigger>See every type</AccordionTrigger>
+<AccordionContent>
 
 >[!NOTE]
 > Note looks like this.
@@ -100,6 +128,10 @@ Below are all of the types visualized.
 
 >[!QUOTE]
 > Quote looks like this.
+
+</AccordionContent>
+</AccordionItem>
+</Accordion>
 
 For anything the blockquote form can't express, the `<Callout type="note" title="...">...</Callout>` component is also available directly in MDX.
 

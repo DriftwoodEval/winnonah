@@ -12,8 +12,8 @@ export default function DocsLayout({
 
 	return (
 		<Guard>
-			<div className="mx-auto flex w-full max-w-[90rem] flex-col gap-6 px-4 py-8 md:flex-row md:gap-8">
-				<div className="flex w-full flex-col gap-4 md:sticky md:top-14 md:h-[calc(100vh-3.5rem)] md:w-56 md:shrink-0">
+			<div className="mx-auto flex w-full max-w-[90rem] flex-col gap-6 px-4 py-8 lg:flex-row lg:gap-8">
+				<div className="flex w-full flex-col gap-4 lg:sticky lg:top-14 lg:h-[calc(100vh-3.5rem)] lg:w-56 lg:shrink-0">
 					<DocsSearch />
 					<DocsSidebar nav={nav} />
 				</div>

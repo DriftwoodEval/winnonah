@@ -58,9 +58,9 @@ export function DocsSidebar({ nav }: { nav: DocNavCategory[] }) {
 	const [open, setOpen] = useState(false);
 
 	return (
-		<nav className="flex flex-col gap-4 md:min-h-0 md:flex-1 md:overflow-y-auto">
+		<nav className="flex flex-col gap-4 lg:min-h-0 lg:flex-1 lg:overflow-y-auto">
 			<button
-				className="flex items-center justify-between rounded-md border border-input px-3 py-1.5 text-sm md:hidden"
+				className="flex items-center justify-between rounded-md border border-input px-3 py-1.5 text-sm lg:hidden"
 				onClick={() => setOpen((prev) => !prev)}
 				type="button"
 			>
@@ -69,7 +69,7 @@ export function DocsSidebar({ nav }: { nav: DocNavCategory[] }) {
 					className={cn("size-4 transition-transform", open && "rotate-180")}
 				/>
 			</button>
-			<div className={cn("flex-col gap-6 md:flex", open ? "flex" : "hidden")}>
+			<div className={cn("flex-col gap-6 lg:flex", open ? "flex" : "hidden")}>
 				{groupNav(nav).map((group) =>
 					group[0]?.standalone ? (
 						<ul
@@ -107,15 +107,15 @@ export function DocsSidebar({ nav }: { nav: DocNavCategory[] }) {
 						))
 					),
 				)}
+				<CreateDocPageDialog
+					folders={nav
+						.filter((category) => !category.standalone)
+						.map((category) => ({
+							slug: category.slug,
+							title: category.title,
+						}))}
+				/>
 			</div>
-			<CreateDocPageDialog
-				folders={nav
-					.filter((category) => !category.standalone)
-					.map((category) => ({
-						slug: category.slug,
-						title: category.title,
-					}))}
-			/>
 		</nav>
 	);
 }

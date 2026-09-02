@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { notFound, redirect } from "next/navigation";
 import { ChangelogList } from "~/app/docs/_components/ChangelogList";
 import { DocStatusNotice } from "~/app/docs/_components/DocStatusNotice";
+import { MobileTableOfContents } from "~/app/docs/_components/MobileTableOfContents";
 import { TableOfContents } from "~/app/docs/_components/TableOfContents";
 import { CHANGELOG_SLUG, getChangelogHeadings } from "~/lib/changelog";
 import {
@@ -51,6 +52,7 @@ export default async function DocsPage({ params }: PageProps) {
 					<h1 className="font-heading font-semibold text-2xl">
 						{doc.frontmatter.title}
 					</h1>
+					<MobileTableOfContents headings={getChangelogHeadings()} />
 					<ChangelogList />
 				</article>
 				<TableOfContents headings={getChangelogHeadings()} />
@@ -68,6 +70,10 @@ export default async function DocsPage({ params }: PageProps) {
 					<DocStatusNotice variant="needsCleanup" />
 				)}
 				{doc.frontmatter.notDone && <DocStatusNotice variant="notDone" />}
+				<MobileTableOfContents
+					editPath={relativePath}
+					headings={getDocHeadings(slug)}
+				/>
 				<Content />
 			</article>
 			<TableOfContents
