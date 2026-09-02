@@ -108,6 +108,15 @@ function matchNotesOnlyToReal(notesOnlyName: string, real: ClientRow) {
 			(notesOnlyName.includes(fullName) || fullName.includes(notesOnlyName)));
 	return { distance, isMatch: !!isMatch };
 }
+
+// When any candidate is an exact name match (distance 0), the fuzzier ones are
+// almost always noise, so keep only the exact matches. Multiple exact matches
+// are all kept.
+function preferExactMatches<T extends { distance: number }>(matches: T[]): T[] {
+	return matches.some((m) => m.distance === 0)
+		? matches.filter((m) => m.distance === 0)
+		: matches;
+}
 function buildClientIdPrefixCondition(trimmedSearch: string) {
 	const numericId = parseInt(trimmedSearch, 10);
 	if (Number.isNaN(numericId) || !/^\d+$/.test(trimmedSearch)) return undefined;
@@ -1505,21 +1514,29 @@ export const clientRouter = createTRPCRouter({
 
 			if (targetIsNotesOnly) {
 				const notesOnlyName = targetClient.fullName.toLowerCase();
-				const suggestedRealClients = candidates
-					.map((real) => ({
-						...real,
-						...matchNotesOnlyToReal(notesOnlyName, real),
-					}))
-					.filter((c) => c.isMatch)
+				const suggestedRealClients = preferExactMatches(
+					candidates
+						.map((real) => ({
+							...real,
+							...matchNotesOnlyToReal(notesOnlyName, real),
+						}))
+						.filter((c) => c.isMatch),
+				)
 					.sort((a, b) => a.distance - b.distance)
 					.slice(0, 5);
 				return { suggestedRealClients, suggestedNotesOnlyClients: [] };
 			}
 
-			const suggestedNotesOnlyClients = candidates.filter(
-				(notesOnly) =>
-					matchNotesOnlyToReal(notesOnly.fullName.toLowerCase(), targetClient)
-						.isMatch,
+			const suggestedNotesOnlyClients = preferExactMatches(
+				candidates
+					.map((notesOnly) => ({
+						...notesOnly,
+						...matchNotesOnlyToReal(
+							notesOnly.fullName.toLowerCase(),
+							targetClient,
+						),
+					}))
+					.filter((c) => c.isMatch),
 			);
 			return {
 				suggestedRealClients: [],
@@ -1549,12 +1566,14 @@ export const clientRouter = createTRPCRouter({
 		for (const notesOnly of notesOnlyClients) {
 			const notesOnlyName = notesOnly.fullName.toLowerCase();
 
-			const matchingRealClients = realClients
-				.map((real) => ({
-					...real,
-					...matchNotesOnlyToReal(notesOnlyName, real),
-				}))
-				.filter((c) => c.isMatch)
+			const matchingRealClients = preferExactMatches(
+				realClients
+					.map((real) => ({
+						...real,
+						...matchNotesOnlyToReal(notesOnlyName, real),
+					}))
+					.filter((c) => c.isMatch),
+			)
 				.sort((a, b) => a.distance - b.distance)
 				.slice(0, 5);
 
