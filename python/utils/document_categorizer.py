@@ -178,16 +178,18 @@ MIN_ORIENTATION_CONFIDENCE = 2.0
 # rotations and keep whichever reads as the most text. The score is the
 # summed word confidence (rewards both more words and cleaner ones), since
 # a page upside down still yields a fair count of low-confidence junk that
-# a bare word count doesn't separate from the right way up. Only act when
-# the best rotation clears a floor and beats every other rotation by the
-# margin, otherwise the page is genuinely unreadable (blank, heavy
-# handwriting) or landscape (where upright and upside down read almost
-# alike) and we leave it as received. The margin is deliberately close to
-# 1: a real sideways page's correct orientation reads several times better
-# than the wrong ones, and every fax gets a human review anyway.
+# a bare word count doesn't separate from the right way up. Act outright
+# only when the best rotation clears a floor and beats the rest by the
+# margin. When two rotations read close to each other (a page whose
+# upright and upside down, or occasionally two perpendicular renders, look
+# about as legible to OCR) a raw+clean-agreed OSD reading breaks the tie
+# even below the confidence we'd trust it at on its own. Otherwise the
+# page is unreadable (blank, heavy handwriting) and we leave it as
+# received; every fax gets a human review anyway.
 _MIN_WORD_CONFIDENCE = 55
 _MIN_ORIENTATION_SCORE = 800.0
 _ORIENTATION_SCORE_MARGIN = 1.35
+_MIN_OSD_TIEBREAK_CONFIDENCE = 1.0
 _WORDLIKE = re.compile(r"[A-Za-z]{3,}")
 
 
@@ -222,28 +224,42 @@ def _readability_score(image: Image.Image) -> float:
     )
 
 
-def _orient_by_reading(image: Image.Image) -> int:
-    """Decide orientation by OCR when OSD can't: score 0/90/180/270 and
-    return the clockwise angle of the most readable one, or 0 if none of
-    them read well enough to be sure."""
-    scores = {
+def _rotation_scores(image: Image.Image) -> dict[int, float]:
+    """Readability score at each of the four 90-degree rotations."""
+    return {
         angle: _readability_score(
             image if angle == 0 else image.rotate(-angle, expand=True)
         )
         for angle in (0, 90, 180, 270)
     }
+
+
+def _orient_by_reading(
+    image: Image.Image, osd_hint: int | None = None, osd_conf: float = 0.0
+) -> int:
+    """Decide orientation by OCR when OSD can't: score 0/90/180/270 and
+    return the clockwise angle of the most readable one, or 0 if none reads
+    well enough to be sure.
+
+    `osd_hint` is a raw+clean-agreed OSD angle (with `osd_conf` its lower
+    confidence). It's only consulted to break a near-tie between the top
+    two rotations: for a genuine 180-degree up/down tie the OSD angle wins
+    directly, for an odd perpendicular near-tie the higher-reading rotation
+    wins once OSD has vouched that it's plausible."""
+    scores = _rotation_scores(image)
     logger.debug(
         f"Orientation-by-reading scores: { {a: round(s) for a, s in scores.items()} }"
     )
-    best_angle = max(scores, key=lambda a: scores[a])
-    best = scores[best_angle]
-    runner_up = max(s for a, s in scores.items() if a != best_angle)
+    ranked = sorted(scores, key=lambda a: scores[a], reverse=True)
+    best, second = ranked[0], ranked[1]
 
-    if best < _MIN_ORIENTATION_SCORE or best < _ORIENTATION_SCORE_MARGIN * max(
-        runner_up, 1.0
-    ):
+    if scores[best] < _MIN_ORIENTATION_SCORE:
         return 0
-    return best_angle
+    if scores[best] >= _ORIENTATION_SCORE_MARGIN * max(scores[second], 1.0):
+        return best
+    if osd_hint in (best, second) and osd_conf >= _MIN_OSD_TIEBREAK_CONFIDENCE:
+        return osd_hint if (best - second) % 180 == 0 else best
+    return 0
 
 
 def _osd_reading(image: Image.Image) -> tuple[int, float]:
@@ -267,27 +283,26 @@ def page_rotation(rgb: Image.Image, binary: np.ndarray) -> int:
     detection) assumes roughly-horizontal text. 0 means already upright, or
     not callable with confidence.
 
-    Trusts Tesseract OSD only when it reads the same confident angle off
-    both the raw render and the denoised `binary`: binarizing a hard page
-    can hand OSD a confident-looking reading the raw page doesn't support.
-    Otherwise reads the page four ways and keeps the most legible (see
-    _orient_by_reading)."""
+    Trusts Tesseract OSD outright only when it reads the same confident
+    angle off both the raw render and the denoised `binary`: binarizing a
+    hard page can hand OSD a confident-looking reading the raw page doesn't
+    support. Otherwise reads the page four ways (see _orient_by_reading),
+    passing along a weaker raw+clean-agreed OSD angle as a tiebreaker."""
     clean = Image.fromarray(binary)
     raw_angle, raw_conf = _osd_reading(rgb)
     clean_angle, clean_conf = _osd_reading(clean)
 
-    if (
-        raw_angle == clean_angle
-        and raw_conf >= MIN_ORIENTATION_CONFIDENCE
-        and clean_conf >= MIN_ORIENTATION_CONFIDENCE
-    ):
-        return raw_angle
+    agreed = raw_angle if raw_angle == clean_angle else None
+    conf = min(raw_conf, clean_conf)
+
+    if agreed is not None and conf >= MIN_ORIENTATION_CONFIDENCE:
+        return agreed
 
     logger.debug(
         f"OSD not jointly confident (raw {raw_angle}deg@{raw_conf:.1f}, "
         f"clean {clean_angle}deg@{clean_conf:.1f}); reading page four ways"
     )
-    return _orient_by_reading(clean)
+    return _orient_by_reading(clean, osd_hint=agreed, osd_conf=conf)
 
 
 def _rotate_clockwise(binary: np.ndarray, angle: int) -> np.ndarray:

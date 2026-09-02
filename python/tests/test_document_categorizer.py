@@ -387,6 +387,37 @@ class TestOrientByReading:
         ):
             assert _orient_by_reading(self._img()) == 270
 
+    def test_osd_hint_breaks_a_perpendicular_near_tie_toward_best(self):
+        # 90 and 180 read close and are 90 degrees apart; OSD agreed on 180,
+        # so take the higher-reading rotation (90)
+        with patch(
+            "utils.document_categorizer._readability_score",
+            side_effect=[122.0, 3900.0, 3473.0, 251.0],
+        ):
+            assert _orient_by_reading(self._img(), osd_hint=180, osd_conf=1.8) == 90
+
+    def test_osd_hint_breaks_a_180_degree_tie_toward_osd(self):
+        # 0 and 180 read close and are 180 degrees apart; trust OSD's call
+        with patch(
+            "utils.document_categorizer._readability_score",
+            side_effect=[3900.0, 200.0, 3473.0, 150.0],
+        ):
+            assert _orient_by_reading(self._img(), osd_hint=180, osd_conf=1.8) == 180
+
+    def test_osd_hint_ignored_when_too_unconfident(self):
+        with patch(
+            "utils.document_categorizer._readability_score",
+            side_effect=[122.0, 3900.0, 3473.0, 251.0],
+        ):
+            assert _orient_by_reading(self._img(), osd_hint=180, osd_conf=0.4) == 0
+
+    def test_osd_hint_ignored_when_not_among_the_top_two(self):
+        with patch(
+            "utils.document_categorizer._readability_score",
+            side_effect=[122.0, 3900.0, 3473.0, 251.0],
+        ):
+            assert _orient_by_reading(self._img(), osd_hint=0, osd_conf=3.0) == 0
+
 
 class TestDenoiseBinarize:
     def test_returns_black_and_white_array_same_size(self):
