@@ -4,7 +4,12 @@ from unittest.mock import AsyncMock, patch
 import pytest
 from pywaze.route_calculator import CalcRoutesResponse
 
-from office_drive_times import get_stale_pairs, resolve_pair, save_drive_time
+from office_drive_times import (
+    count_stale_pairs,
+    get_stale_pairs,
+    resolve_pair,
+    save_drive_time,
+)
 
 
 class FakeCursor:
@@ -24,10 +29,14 @@ class FakeCursor:
     def fetchall(self):
         return self.conn.rows
 
+    def fetchone(self):
+        return {"n": self.conn.count}
+
 
 class FakeConnection:
-    def __init__(self, rows=None):
+    def __init__(self, rows=None, count=0):
         self.rows = rows or []
+        self.count = count
         self.executed = []
         self.commits = 0
 
@@ -113,3 +122,13 @@ def test_get_stale_pairs_queries_missing_and_stale_rows():
     # so failure_cutoff (1 day ago) is more recent than success_cutoff (21 days ago)
     assert len(params) == 3
     assert params[0] > params[1]
+
+
+def test_count_stale_pairs_uses_same_filters():
+    conn = FakeConnection(count=17)
+
+    assert count_stale_pairs(conn) == 17
+    query, params = conn.executed[0]
+    assert "SELECT COUNT(*)" in query
+    assert "CROSS JOIN emr_office" in query
+    assert len(params) == 2
