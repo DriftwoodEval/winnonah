@@ -2,6 +2,12 @@
 title: Changelog
 ---
 
+## 2026-09-02
+
+**Fixed**
+- When several therapists' client exports are imported together, a client who is active with one therapist but discharged by another is now kept active. Previously whichever file happened to be read first won, so such a client could be marked inactive by mistake.
+- Reactivating a client within 12 months no longer wipes their insurance review. The existing review is kept, with a dated "Reactivated on..." heading added at the top, matching how client notes already handle it.
+
 ## 2026-09-01
 
 **New**

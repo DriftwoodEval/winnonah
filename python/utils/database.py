@@ -574,8 +574,16 @@ def activate_reactivation_insurance_review(
         distance = None
 
     text = _reactivation_review_note_text(reactivated_on, deactivated_on, distance)
-    paragraph = {"type": "paragraph", "content": [{"type": "text", "text": text}]}
-    review_doc = json.dumps({"type": "doc", "content": [paragraph]})
+    # A big-font heading so the reactivation stands out in the notes and review,
+    # matching the separator reset_client_session prepends.
+    marker_blocks = [
+        {
+            "type": "heading",
+            "attrs": {"level": 3},
+            "content": [{"type": "text", "text": text}],
+        },
+        {"type": "paragraph"},
+    ]
 
     with connection.cursor() as cursor:
         cursor.execute(
@@ -588,7 +596,12 @@ def activate_reactivation_insurance_review(
                 f"INSERT INTO `{TABLE_INSURANCE_REVIEW}` "
                 "(clientId, content, enabled, waiting, claimedUserEmail, updatedBy) "
                 "VALUES (%s, %s, 1, 0, %s, %s)",
-                (client_id, review_doc, ANDREW_EMAIL, ANDREW_EMAIL),
+                (
+                    client_id,
+                    json.dumps({"type": "doc", "content": marker_blocks}),
+                    ANDREW_EMAIL,
+                    ANDREW_EMAIL,
+                ),
             )
         else:
             if review["content"] is not None:
@@ -597,11 +610,22 @@ def activate_reactivation_insurance_review(
                     "VALUES (%s, %s, %s)",
                     (client_id, review["content"], review["updatedBy"]),
                 )
+            # Prepend the marker, keep the prior review content. An insurance
+            # review is ongoing case history, not session-scoped data.
+            existing_review = (
+                json.loads(review["content"])
+                if review["content"]
+                else {"type": "doc", "content": []}
+            )
+            new_review = {
+                "type": "doc",
+                "content": [*marker_blocks, *(existing_review.get("content") or [])],
+            }
             cursor.execute(
                 f"UPDATE `{TABLE_INSURANCE_REVIEW}` SET content = %s, enabled = 1, "
                 "waiting = 0, claimedUserEmail = %s, submittedToNotesAt = NULL, "
                 "updatedBy = %s WHERE clientId = %s",
-                (review_doc, ANDREW_EMAIL, ANDREW_EMAIL, client_id),
+                (json.dumps(new_review), ANDREW_EMAIL, ANDREW_EMAIL, client_id),
             )
 
         cursor.execute(
@@ -609,7 +633,7 @@ def activate_reactivation_insurance_review(
             (client_id,),
         )
         note = cursor.fetchone()
-        note_blocks = [paragraph, {"type": "paragraph"}]
+        note_blocks = marker_blocks
         if note is None:
             cursor.execute(
                 f"INSERT INTO `{TABLE_NOTE}` (clientId, content) VALUES (%s, %s)",
