@@ -78,6 +78,8 @@
 	--warning-foreground: oklch(1 0 0);
 	--error: oklch(0.52 0.12 22);
 	--error-foreground: oklch(1 0 0);
+	--info: oklch(0.52 0.13 250);
+	--info-foreground: oklch(1 0 0);
 }
 
 .dark {
@@ -110,6 +112,8 @@
 	--warning-foreground: oklch(1 0 0);
 	--error: oklch(0.66 0.12 22);
 	--error-foreground: oklch(1 0 0);
+	--info: oklch(0.66 0.13 250);
+	--info-foreground: oklch(1 0 0);
 }
 
 @theme inline {
@@ -185,6 +189,8 @@
 	--color-warning-foreground: var(--warning-foreground);
 	--color-error: var(--error);
 	--color-error-foreground: var(--error-foreground);
+	--color-info: var(--info);
+	--color-info-foreground: var(--info-foreground);
 	--font-heading: var(--font-sans);
 	--radius-2xl: calc(var(--radius) * 1.8);
 	--radius-3xl: calc(var(--radius) * 2.2);
