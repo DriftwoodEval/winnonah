@@ -1,7 +1,7 @@
 import type { JSONContent } from "@tiptap/core";
 import { TRPCError } from "@trpc/server";
 import { differenceInMonths, differenceInYears } from "date-fns";
-import { and, desc, eq, isNotNull } from "drizzle-orm";
+import { and, desc, eq, isNotNull, sql } from "drizzle-orm";
 import { distance as levDistance } from "fastest-levenshtein";
 import z from "zod";
 import { env } from "~/env";
@@ -45,6 +45,7 @@ import {
 	appointments,
 	clients,
 	notes,
+	officeDriveTimes,
 	offices,
 	reportQueueConfig,
 	users,
@@ -124,12 +125,13 @@ const getPreviewData = async (ctx: Context, clientId: number) => {
 
 	let location: string | null = null;
 	if (client.latitude && client.longitude) {
-		const distanceExpr = getDistanceSQL(
-			client.latitude,
-			client.longitude,
-			offices.latitude,
-			offices.longitude,
-		);
+		// Prefers the real by-car distance cached in emr_office_drive_time over
+		// the straight-line calc, which is used only as a fallback for a client
+		// not yet backfilled or whose last Waze lookup failed.
+		const distanceExpr = sql<number>`CAST(COALESCE(
+			${officeDriveTimes.distanceMiles},
+			${getDistanceSQL(client.latitude, client.longitude, offices.latitude, offices.longitude)}
+		) AS DOUBLE)`;
 
 		const [closestOffice] = await ctx.db
 			.select({
@@ -137,6 +139,13 @@ const getPreviewData = async (ctx: Context, clientId: number) => {
 				distance: distanceExpr,
 			})
 			.from(offices)
+			.leftJoin(
+				officeDriveTimes,
+				and(
+					eq(officeDriveTimes.officeKey, offices.key),
+					eq(officeDriveTimes.clientId, client.id),
+				),
+			)
 			.orderBy(distanceExpr)
 			.limit(1);
 

@@ -462,6 +462,65 @@ export const getDistanceSQL = (
 };
 
 /**
+ * SQL expression for the distance in miles from a client row to one office,
+ * preferring the real by-car distance cached in emr_office_drive_time
+ * (backfilled nightly by office_drive_times.py, refreshed live whenever
+ * staff open a client's Drive Times popup) over the straight-line calc,
+ * which is used only as a fallback for a client not yet backfilled or whose
+ * last Waze lookup failed. Explicitly cast to DOUBLE since
+ * emr_office_drive_time.distanceMiles is a DECIMAL column, which mysql2
+ * decodes as a string unless the driver is told otherwise.
+ */
+export const getOfficeDistanceSQL = (
+	clientId: SQL | AnyColumn,
+	clientLat: SQL | AnyColumn | string | number | null | undefined,
+	clientLon: SQL | AnyColumn | string | number | null | undefined,
+	officeKey: string,
+	officeLat: SQL | AnyColumn | string | number | null | undefined,
+	officeLon: SQL | AnyColumn | string | number | null | undefined,
+) => {
+	return sql<number>`CAST(COALESCE(
+		(SELECT dt.distanceMiles FROM emr_office_drive_time dt
+		 WHERE dt.clientId = ${clientId} AND dt.officeKey = ${officeKey}),
+		${getDistanceSQL(clientLat, clientLon, officeLat, officeLon)}
+	) AS DOUBLE)`;
+};
+
+/**
+ * Builds a SQL CASE expression resolving to the key of whichever office is
+ * closest, given a per-office distance expression (see getOfficeDistanceSQL).
+ * Used to filter, group, or sort a bulk client query by closest office.
+ */
+export const buildClosestOfficeKeyCaseSQL = (
+	distanceExprs: { key: string; dist: SQL }[],
+) => {
+	if (distanceExprs.length === 0) return sql`NULL`;
+
+	let closestOfficeKeyCase = sql`CASE `;
+	for (let i = 0; i < distanceExprs.length; i++) {
+		const current = distanceExprs[i];
+		if (!current) continue;
+		const others = distanceExprs.filter((_, idx) => idx !== i);
+
+		if (others.length === 0) {
+			closestOfficeKeyCase = sql`${current.key}`;
+			break;
+		}
+
+		const isClosestConditions = others.map(
+			(other) => sql`${current.dist} <= ${other.dist}`,
+		);
+		closestOfficeKeyCase = sql.join([
+			closestOfficeKeyCase,
+			sql`WHEN `,
+			sql.join(isClosestConditions, sql` AND `),
+			sql` THEN ${current.key} `,
+		]);
+	}
+	return sql.join([closestOfficeKeyCase, sql`END`]);
+};
+
+/**
  * Check if a client ID is a notes only client ID (5 characters long).
  */
 export function isNotesOnlyClientId(
