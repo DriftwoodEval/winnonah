@@ -36,6 +36,12 @@ Each top-level folder under `src/content/docs/` is a sidebar category. Add a `_c
 - `position` — lower numbers sort higher in the sidebar. Categories without one sort last.
 - `standalone` (optional boolean) — the category's pages render as a flat list with no heading, and consecutive standalone categories merge into one block. Also hides the category from the "new doc page" folder picker.
 
+### Subfolders
+
+Folders can nest. A subfolder inside a category becomes a collapsible group in the sidebar under its parent, and takes its own `_category.json` (same `title` / `position` keys; `position` orders it against its sibling subfolders and the parent's loose pages). The subfolder adds a segment to the URL, so `procedures/appointments/reminders.mdx` serves at `/docs/procedures/appointments/reminders`. A subfolder that contains the page you're on opens automatically.
+
+Keep it shallow. One level of subfolders inside a category is almost always enough; deeper nesting is possible but gets hard to scan.
+
 ## Callouts
 
 Use callouts to pull something out of the main flow: a warning, a tip, a "this only applies if" note. Lean on them, a page with two or three well-placed callouts is easier to scan than one long wall of text.

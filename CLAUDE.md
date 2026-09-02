@@ -12,6 +12,8 @@ When making significant, user-facing changes, add an entry to `src/content/docs/
 ## Docs
 When a change alters behavior an existing docs page under `src/content/docs/` describes (a renamed label, a changed rule, a removed or added step, a workflow that now works differently), update that page in the same change. Grep the docs for the feature name or UI label to find affected pages. Docs are written for non-technical staff: describe what the user sees and does, not the implementation. Validate with `mise run check:docs`.
 
+Category folders can nest one or more levels; each folder (including subfolders) can carry a `_category.json` (`title`, `position`). Moving a page changes its URL, so update every `/docs/...` cross-link that points at it (the validator fails the build on a dead one).
+
 ## Commands
 - `mise run check` type-checks and lints everything (TS + Python); use `check:pnpm`/`check:ruff` to run just one side. Don't call `tsc`/`ruff` directly.
 - Trust ruff over your own syntax assumptions.

@@ -28,6 +28,7 @@ Don't start writing from a one-line request. First pin down:
   - **procedures/** — a task staff carry out, step by step ("how to do X").
   - **documentation/** — a feature or screen and what it does ("what X is").
   - **development/** — engineering-facing (architecture, deploy, setup). Write these for developers, not the layperson audience.
+  - Categories can have topic subfolders (`procedures/appointments/`, `documentation/clients/`). If the target category already uses subfolders, put the page in the one it belongs to; don't create a new subfolder for a single page.
 - Whether a page already covers this. If one does, this is an edit, not a new file, confirm with the user before creating a duplicate.
 
 Ask the user to dump whatever they know (background, edge cases, why it works the way it does, what confuses people about it). Then ask 3 to 8 targeted questions to fill the gaps you still have. Cheap to ask now, expensive to guess wrong.
