@@ -154,6 +154,10 @@ services:
       - WATCHTOWER_CLEANUP=true
       - WATCHTOWER_HTTP_API_UPDATE=true
       - WATCHTOWER_HTTP_API_TOKEN=${WATCHTOWER_HTTP_API_TOKEN}
+      # Lets containers on this host (e.g. questionnaires' qreceive) delay
+      # their own update via lifecycle hook labels, so a deploy doesn't kill
+      # an in-progress run. No-op for containers that don't set those labels.
+      - WATCHTOWER_LIFECYCLE_HOOKS=true
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
       - /etc/localtime:/etc/localtime:ro
