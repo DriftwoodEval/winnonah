@@ -636,13 +636,41 @@ def _fix_stale_event_id(context: dict, old_event_id: str) -> dict | None:
 def is_confirmation(incoming_text: str) -> bool:
     """
     Checks for a confirmed response with word boundary protection
-    and common confirmation emojis.
+    and common confirmation emojis (thumbs-up, check marks, hearts).
     """
-    thumbs_up_emojis = ["👍", "👍🏻", "👍🏼", "👍🏽", "👍🏾", "👍🏿", "✅", "✔️"]
-    if any(emoji in incoming_text for emoji in thumbs_up_emojis):
+    confirmation_emojis = [
+        "👍",
+        "👍🏻",
+        "👍🏼",
+        "👍🏽",
+        "👍🏾",
+        "👍🏿",
+        "✅",
+        "✔️",
+        "❤️",
+        "❤",
+        "🧡",
+        "💛",
+        "💚",
+        "💙",
+        "💜",
+        "🖤",
+        "🤍",
+        "🤎",
+        "💕",
+        "💖",
+        "💗",
+        "💓",
+        "💞",
+        "💝",
+        "💘",
+        "♥️",
+        "♥",
+    ]
+    if any(emoji in incoming_text for emoji in confirmation_emojis):
         return True
 
-    keywords = ["Y", "YES", "YEAH", "YEA", "CONFIRM", "CONFIRMED"]
+    keywords = ["Y", "YES", "YEAH", "YEA", "OK", "OKAY", "CONFIRM", "CONFIRMED"]
     pattern = rf"\b({'|'.join([re.escape(k) for k in keywords])})\b"
 
     return bool(re.search(pattern, incoming_text, re.IGNORECASE))

@@ -568,20 +568,26 @@ export const appointmentRouter = createTRPCRouter({
 				.set({ confirmedAt, ...rest })
 				.where(eq(appointments.id, id));
 
-			if (confirmedAt !== undefined && confirmedAt !== null) {
+			if (confirmedAt !== undefined) {
+				const confirmed = confirmedAt !== null;
 				ctx.logger.info(
-					{ appointmentId: id, confirmedBy: ctx.session.user.email },
-					"Appointment manually confirmed",
+					{ appointmentId: id, by: ctx.session.user.email, confirmed },
+					confirmed
+						? "Appointment manually confirmed"
+						: "Appointment confirmation removed",
 				);
 
 				const cookieHeader = ctx.headers.get("cookie") ?? "";
-				void fetch(`${env.PY_API}/appointments/${id}/confirm-calendar`, {
-					method: "POST",
-					headers: { Cookie: cookieHeader },
-				}).catch((err) =>
+				void fetch(
+					`${env.PY_API}/appointments/${id}/confirm-calendar?confirmed=${confirmed}`,
+					{
+						method: "POST",
+						headers: { Cookie: cookieHeader },
+					},
+				).catch((err) =>
 					ctx.logger.error(
 						err,
-						"Failed to update calendar on appointment confirm",
+						"Failed to sync calendar on appointment confirmation change",
 					),
 				);
 			}

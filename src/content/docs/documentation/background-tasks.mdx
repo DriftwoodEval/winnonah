@@ -1,0 +1,17 @@
+---
+title: Background Tasks
+needsCleanup: true
+---
+
+A badge in the header (labeled **Task Queue** in [Header Customization](/docs/documentation/header-customization), where it can be hidden if wanted) shows what background automation is currently running or just finished, updating live. It only appears at all once there's something to show, it's invisible on a quiet system with nothing running or recently run.
+
+## What it shows
+
+The badge itself is a count: while anything is actively running it shows that count with a spinner and reads "N running," otherwise it shows a plain count of recent tasks. Clicking it opens a list of each task's label, a status badge (running, failed, or otherwise), how long ago it started, and, for tasks that report it, a progress bar with a current/total count. Multiple entries of the same task type are deduplicated down to just the most recent one.
+
+A task only shows up here at all while it's running, or for 15 minutes after it started, then it drops off the list on its own, this isn't a permanent log, just a "what's happening right now or just happened" view.
+
+## Edge cases
+
+- **This complements, but is different from, [Downloads & Script Status](/docs/documentation/downloads-and-script-status)'s "Last Script Run Times" panel.** That panel is a static timestamp check, good for confirming a script ran at all sometime recently. This bubble is real-time and only covers roughly the last 15 minutes, useful for watching something in progress, not for auditing whether last night's run happened.
+- **A failed task still only shows for that same 15-minute window**, then it disappears from here the same as a successful one, this isn't where to look for a historical record of failures.

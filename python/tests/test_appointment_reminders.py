@@ -275,14 +275,14 @@ class TestComputeAgeYears:
 class TestIsConfirmation:
     @pytest.mark.parametrize(
         "text",
-        ["yes", "Yes!", "YEAH", "confirm", "Confirmed, thanks", "y"],
+        ["yes", "Yes!", "YEAH", "confirm", "Confirmed, thanks", "y", "ok", "Okay!"],
     )
     def test_recognizes_confirmation_keywords(self, text):
         assert is_confirmation(text) is True
 
     @pytest.mark.parametrize(
         "text",
-        ["👍", "✅", "Sounds good 👍🏽"],
+        ["👍", "✅", "Sounds good 👍🏽", "❤️", "see you then 💜"],
     )
     def test_recognizes_confirmation_emoji(self, text):
         assert is_confirmation(text) is True

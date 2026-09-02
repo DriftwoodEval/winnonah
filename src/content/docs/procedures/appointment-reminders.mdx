@@ -1,0 +1,87 @@
+---
+title: Appointment Reminders
+needsCleanup: true
+---
+
+Separate from questionnaire reminders (which tell a family to finish paperwork) and from appointment check-in (which just tracks who's actually shown up), this is the automated system that texts clients ahead of time about an upcoming appointment, and picks up on their reply to confirm it.
+
+## 1. How it runs
+
+A background loop that starts automatically inside the Python API service and checks every 15 minutes for reminders that are due. Like the other automations, its last run time shows up in **Settings > Billing Download**'s "Last Script Run Times" panel, labeled **Appointment Reminders**.
+
+## 2. Reminder templates
+
+Configured at **Settings > Scheduling**, under Reminder Scripts. Staff can create any number of templates, each one is a card with an **Edit Script** button opening these fields:
+
+- **Template Name**
+- Either a **Keyword (Title Match)** (matched against the calendar event's title), or a combination of **DA/Eval**, **Locations**, and **Min/Max Client Age**, whichever set of conditions decides which appointments this template applies to.
+- **Message Template**, the actual text sent. Can use the placeholders in section 4.
+- **Confirmation Reply (Optional)**, a reply text sent back automatically if this reminder's confirmation is detected. Can also use the section 4 placeholders.
+- **Send Before Appointment**, a number plus a Hours/Days unit picker, this is how far ahead of the appointment the reminder goes out.
+- An **Active** switch to turn a template on or off without deleting it.
+- Two mutually exclusive toggles: **No-Reply Follow-up** ("Only send if a previous reminder has NOT been confirmed") and **Confirmed Follow-up** ("Only send if the appointment HAS been confirmed").
+
+## 3. Quiet hours
+
+Also on the Scheduling settings page: **Quiet Start (Evening)** and **Quiet End (Morning)**. Reminders never send during that window. If a specific reminder's due time would land inside quiet hours, it's pushed forward to the end of the window instead of being skipped outright.
+
+## 4. Placeholders
+
+Both the **Message Template** and the **Confirmation Reply** can use these tokens. When the text goes out, each one is swapped for that appointment's real value (in practice time):
+
+| Placeholder | Fills in with | Example |
+|---|---|---|
+| `$START_TIME` | Appointment start time | `2:30 PM` |
+| `$DATE` | Appointment day | `Tuesday, September 1` |
+| `$OFFICE_NAME` | The office's display name | `Mount Pleasant` |
+| `$LOCATION` | The office's location phrase (see below) | `at 123 Main St, Suite 100` |
+
+The template editor lists these under both text boxes and shows a live preview with sample values as you type.
+
+**Office location phrases.** `$OFFICE_NAME` and `$LOCATION` pull from each office's setup at the top of the same Scheduling settings page. `$OFFICE_NAME` is the office's display name; `$LOCATION` is a short phrase you write per office, and it should include the leading preposition so it reads naturally in a sentence, for example "at 123 Main St, Suite 100" or "inside Business Center at 123 Main St".
+
+> [!NOTE]
+> Virtual appointments have no office. `$OFFICE_NAME` becomes "Virtual" and `$LOCATION` becomes "virtually" automatically. An office with no location phrase set, or an appointment the system can't match to an office, leaves `$OFFICE_NAME` / `$LOCATION` blank. A misspelled token (`$STARTTIME`) is left in the message as-is, so proofread the preview.
+
+## 5. Confirmations
+
+When a client texts back, their reply is scanned for a sign of confirmation. A match marks the appointment confirmed, which can trigger that template's **Confirmation Reply** text back to them, and updates the linked Google Calendar event: a note gets appended and the event title gets a `[CONFIRMED]` suffix, so anyone looking at the calendar directly can see it too.
+
+A reply counts as a confirmation if either:
+
+- it contains a thumbs-up, check-mark, or heart emoji (👍 in any skin tone, ✅, ✔️, or any heart) anywhere in the message, or
+- it contains one of the words **Y**, **YES**, **YEAH**, **YEA**, **OK**, **OKAY**, **CONFIRM**, or **CONFIRMED** as a whole word (case doesn't matter).
+
+Whole word means "ok thanks" and "Y" on its own both count, but "yesterday" does not. Anything else, "no", "reschedule", a question, is treated as a non-confirmation and lands in the **Non-Confirmation Replies** log for staff to read.
+
+**Only the client's first text back after a reminder is checked.** If they've already replied once since the reminder went out, later messages are ignored by the confirmation automation, even if a later one says "yes". So a client who first asks a question and then confirms won't get auto-confirmed; staff have to mark it confirmed by hand.
+
+> [!NOTE]
+> The reply is also skipped if anyone on staff has texted the client manually since the reminder. If a person is already handling the thread, the automation stays out of it and doesn't send the Confirmation Reply.
+
+### Marking an appointment confirmed by hand
+
+When the automation can't do it (the client called instead of texting, replied in a way that didn't match, or replied after already saying something else), staff confirm the appointment themselves: on the client's page, in the Appointments list, open the **⋯** menu on that appointment and choose **Mark Confirmed**. Any logged-in user can do this.
+
+A manual confirmation stamps the appointment as confirmed, shows a **Confirmed** badge on it, and adds the `[CONFIRMED]` suffix to the linked Google Calendar event's title. It does not send the Confirmation Reply text (that only happens for an automatic confirmation).
+
+**Remove Confirmation** (the same menu, once an appointment is confirmed) clears the confirmed status and badge, strips the `[CONFIRMED]` suffix back off the calendar event, and standard reminders start applying again.
+
+## 6. Turning reminders off
+
+**For one appointment.** On the client's page, in the Appointments list, open the **⋯** menu on that appointment and choose **Stop Reminders** (it becomes **Resume Reminders** to switch back). This blocks every reminder template for that one appointment and doesn't carry over to the client's other appointments. Any logged-in user can do it.
+
+**For everyone.** Turn off a template's **Active** switch in **Settings > Scheduling** to stop that template firing for all appointments, without deleting it.
+
+There's no single control to stop all future reminders for a client. Confirming an appointment stops its remaining standard reminders on its own (follow-up templates can still fire); cancelling or rescheduling stops all of them.
+
+## 7. What silently skips a reminder
+
+- The appointment is cancelled, rescheduled, billing-only, or a placeholder.
+- The client has no phone number on file.
+- The client doesn't speak English.
+- The appointment has **Stop Reminders** turned on (see section 6).
+
+## 8. History, for troubleshooting
+
+The Scheduling settings page also keeps three logs, the 50 most recent entries each: **Reminder History** (what was sent and when), **Confirmation Replies**, and **Non-Confirmation Replies**. These are the first place to check when someone asks "did we actually text this family?"

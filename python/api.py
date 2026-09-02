@@ -822,11 +822,25 @@ def possible_private_pay_reasons(
     return get_possible_private_pay_reasons(client_ids)
 
 
+def _apply_confirmed_marker(title: str, confirmed: bool) -> str | None:
+    """Returns `title` with the ` [CONFIRMED]` suffix added or removed to match
+    `confirmed`, or None if it already matches and nothing needs to change."""
+    has_marker = "[CONFIRMED]" in title
+    if confirmed and not has_marker:
+        return f"{title} [CONFIRMED]".strip()
+    if not confirmed and has_marker:
+        return title.replace(" [CONFIRMED]", "").replace("[CONFIRMED]", "").strip()
+    return None
+
+
 @app.post("/appointments/{appointment_id}/confirm-calendar")
 def confirm_appointment_calendar(
     appointment_id: str,
+    confirmed: bool = True,
     current_user: dict = Depends(get_current_user),  # noqa: ARG001
 ):
+    """Adds or removes the `[CONFIRMED]` suffix on the linked calendar event to
+    match the appointment's confirmed state (`confirmed=false` strips it)."""
     conn = get_db()
     try:
         with conn.cursor() as cursor:
@@ -843,8 +857,9 @@ def confirm_appointment_calendar(
 
     event_id = row.get("calendarEventId")
     current_title = row.get("calendarEventTitle") or ""
-    if event_id and "[CONFIRMED]" not in current_title:
-        new_title = f"{current_title} [CONFIRMED]".strip()
+
+    new_title = _apply_confirmed_marker(current_title, confirmed) if event_id else None
+    if new_title is not None:
         try:
             update_gcal_event_title(event_id, new_title)
         except Exception as e:

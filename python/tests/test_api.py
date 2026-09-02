@@ -6,6 +6,7 @@ import pytest
 from fastapi import HTTPException
 
 from api import (
+    _apply_confirmed_marker,
     _find_duplicates,
     col_num_to_letter,
     find_drive_folder,
@@ -72,6 +73,25 @@ def _mock_request(cookies: dict):
     request = MagicMock()
     request.cookies = cookies
     return request
+
+
+class TestApplyConfirmedMarker:
+    def test_adds_marker_when_confirming(self):
+        assert _apply_confirmed_marker("Jane Doe DA", True) == "Jane Doe DA [CONFIRMED]"
+
+    def test_removes_marker_when_unconfirming(self):
+        assert (
+            _apply_confirmed_marker("Jane Doe DA [CONFIRMED]", False) == "Jane Doe DA"
+        )
+
+    def test_no_change_when_already_confirmed(self):
+        assert _apply_confirmed_marker("Jane Doe DA [CONFIRMED]", True) is None
+
+    def test_no_change_when_already_unconfirmed(self):
+        assert _apply_confirmed_marker("Jane Doe DA", False) is None
+
+    def test_removes_marker_with_no_leading_space(self):
+        assert _apply_confirmed_marker("[CONFIRMED]", False) == ""
 
 
 class TestGetCurrentUser:

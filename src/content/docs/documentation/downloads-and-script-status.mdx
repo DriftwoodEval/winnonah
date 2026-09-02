@@ -1,0 +1,18 @@
+---
+title: Downloads & Script Status
+needsCleanup: true
+---
+
+Settings > **Downloads** (gated by the **Download CSVs** permission) has both raw CSV exports for anyone who needs the underlying data outside the app, and a quick health check for whether the automation scripts across both repos actually ran recently.
+
+## CSV downloads
+
+Seven buttons, each downloading one CSV straight from the Python sidecar: **Billing**, **Appointments**, **Demographic**, **Insurance**, **Chart**, **Referral Report**, and **Quo**. These are the same raw TherapyAppointment export files the automation itself reads to do the nightly import, not a report generated on demand, so a download is only as current as whenever that file was last fetched. Each button shows that file's last-modified time underneath it (or **Missing** if the file isn't there at all).
+
+## Last Script Run Times
+
+A separate panel lists the last successful run time for five scripts, spanning both repos: **Appointment Reminders** (see [Appointment Reminders](/docs/procedures/appointment-reminders)), **Questionnaire Send** (`qsend.py`), **Records Request** (`records-request.py`), **Piecework** (`piecework.py`), and **Questionnaire Receive** (`qreceive.py`, see [Questionnaire Process](/docs/procedures/questionnaires), [Records Request Process](/docs/procedures/records-request), and [Piecework / Payment Process](/docs/procedures/piecework) for what each of those actually does). See [Background Tasks](/docs/documentation/background-tasks) for a real-time view of the last 15 minutes of activity, a different, live complement to this panel's static timestamps.
+
+## Edge cases
+
+- **Both panels proxy straight through to the Python sidecar**, so if we're running in a degraded state (see [Failover](/docs/development/failover)), this whole tab stops working even though the rest of the app keeps running.
