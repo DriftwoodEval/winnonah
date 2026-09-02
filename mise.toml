@@ -126,6 +126,10 @@ uvx ruff format python
 description = "Validate changelog entry formatting and group ordering"
 run = "pnpm exec tsx scripts/validate-changelog.ts"
 
+[tasks."check:docs"]
+description = "Validate docs frontmatter, cross-links, and image references"
+run = "pnpm exec tsx scripts/validate-docs.ts"
+
 [tasks.check]
 description = "Type-check and lint everything (TS + Python)"
 depends = ["check:pnpm", "check:ruff", "check:changelog"]
