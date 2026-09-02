@@ -20,11 +20,14 @@ import { fetchWithCache } from "~/lib/cache";
 import type { ALLOWED_ASD_ADHD_VALUES } from "~/lib/constants";
 import { syncPunchData } from "~/lib/google";
 import {
-	getClosestOfficeKey,
-	getDistanceSQL,
+	buildClosestOfficeKeyCaseSQL,
 	getInsuranceShortNamesList,
+	getOfficeDistanceSQL,
 } from "~/lib/utils";
-import { resolveInsuranceAliasNames } from "~/server/api/filters";
+import {
+	getClosestOfficeKeyByDriveTime,
+	resolveInsuranceAliasNames,
+} from "~/server/api/filters";
 import {
 	type Context,
 	createTRPCRouter,
@@ -112,38 +115,17 @@ function computeClosestOfficeKeyCase(
 ) {
 	const distanceExprs = allOffices.map((o) => ({
 		key: o.key,
-		dist: getDistanceSQL(
+		dist: getOfficeDistanceSQL(
+			clients.id,
 			clients.latitude,
 			clients.longitude,
+			o.key,
 			o.latitude,
 			o.longitude,
 		),
 	}));
 
-	if (distanceExprs.length === 0) return sql`NULL`;
-
-	let closestOfficeKeyCase = sql`CASE `;
-	for (let i = 0; i < distanceExprs.length; i++) {
-		const current = distanceExprs[i];
-		if (!current) continue;
-		const others = distanceExprs.filter((_, idx) => idx !== i);
-
-		if (others.length === 0) {
-			closestOfficeKeyCase = sql`${current.key}`;
-			break;
-		}
-
-		const isClosestConditions = others.map(
-			(other) => sql`${current.dist} <= ${other.dist}`,
-		);
-		closestOfficeKeyCase = sql.join([
-			closestOfficeKeyCase,
-			sql`WHEN `,
-			sql.join(isClosestConditions, sql` AND `),
-			sql` THEN ${current.key} `,
-		]);
-	}
-	return sql.join([closestOfficeKeyCase, sql`END`]);
+	return buildClosestOfficeKeyCaseSQL(distanceExprs);
 }
 
 // Builds the WHERE conditions for the derived, per-column filters shown on the
@@ -546,20 +528,16 @@ export const schedulingRouter = createTRPCRouter({
 
 			if (!targetOffice) {
 				if (input.code === "96136") {
-					const [client, allOffices] = await Promise.all([
-						ctx.db.query.clients.findFirst({
-							where: eq(clients.id, input.clientId),
-							columns: { latitude: true, longitude: true },
-						}),
-						fetchWithCache(ctx, "offices:all", () =>
-							ctx.db.query.offices.findMany(),
-						),
-					]);
+					const client = await ctx.db.query.clients.findFirst({
+						where: eq(clients.id, input.clientId),
+						columns: { latitude: true, longitude: true },
+					});
 					if (client?.latitude && client?.longitude) {
-						targetOffice = getClosestOfficeKey(
-							parseFloat(client.latitude),
-							parseFloat(client.longitude),
-							allOffices,
+						targetOffice = await getClosestOfficeKeyByDriveTime(
+							ctx.db,
+							input.clientId,
+							client.latitude,
+							client.longitude,
 						);
 					}
 				} else if (input.code === "90791") {
@@ -763,20 +741,16 @@ export const schedulingRouter = createTRPCRouter({
 
 			let newOffice: string | undefined;
 			if (existing?.code === "96136") {
-				const [client, allOffices] = await Promise.all([
-					ctx.db.query.clients.findFirst({
-						where: eq(clients.id, input.clientId),
-						columns: { latitude: true, longitude: true },
-					}),
-					fetchWithCache(ctx, "offices:all", () =>
-						ctx.db.query.offices.findMany(),
-					),
-				]);
+				const client = await ctx.db.query.clients.findFirst({
+					where: eq(clients.id, input.clientId),
+					columns: { latitude: true, longitude: true },
+				});
 				if (client?.latitude && client?.longitude) {
-					newOffice = getClosestOfficeKey(
-						parseFloat(client.latitude),
-						parseFloat(client.longitude),
-						allOffices,
+					newOffice = await getClosestOfficeKeyByDriveTime(
+						ctx.db,
+						input.clientId,
+						client.latitude,
+						client.longitude,
 					);
 				}
 			} else if (existing?.code === "90791") {

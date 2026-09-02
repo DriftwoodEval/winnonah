@@ -2,7 +2,7 @@
 
 import { Popover, PopoverContent, PopoverTrigger } from "@ui/popover";
 import { Loader2Icon } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { api } from "~/trpc/react";
 
 interface OfficeDriveTimesButtonProps {
@@ -22,17 +22,27 @@ export function OfficeDriveTimesButton({
 	clientId,
 }: OfficeDriveTimesButtonProps) {
 	const [enabled, setEnabled] = useState(false);
+	const utils = api.useUtils();
 	const driveTimes = api.clients.getOfficeDriveTimes.useQuery(clientId, {
 		enabled,
 		refetchOnWindowFocus: false,
 		staleTime: 5 * 60 * 1000,
 	});
 
+	// The server persists every lookup back to the closest-office ranking, so
+	// reopening this popover (which refetches once staleTime has passed)
+	// doubles as a refresh of that ranking. Pick up the change once it lands.
+	useEffect(() => {
+		if (driveTimes.dataUpdatedAt) {
+			void utils.clients.getOne.invalidate();
+		}
+	}, [driveTimes.dataUpdatedAt, utils]);
+
 	return (
-		<Popover onOpenChange={(open) => open && setEnabled(true)}>
+		<Popover onOpenChange={setEnabled}>
 			<PopoverTrigger asChild>
 				<span className="cursor-pointer font-normal text-muted-foreground hover:underline">
-					(Drive times)
+					(Compare)
 				</span>
 			</PopoverTrigger>
 			<PopoverContent side="right">

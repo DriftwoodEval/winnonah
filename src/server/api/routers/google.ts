@@ -30,11 +30,8 @@ import {
 } from "~/lib/google";
 import type { Client } from "~/lib/models";
 import type { DuplicateGroup } from "~/lib/types";
-import {
-	getDistanceSQL,
-	getInsuranceShortName,
-	hasPermission,
-} from "~/lib/utils";
+import { getInsuranceShortName, hasPermission } from "~/lib/utils";
+import { getClosestOfficeKeyByDriveTime } from "~/server/api/filters";
 import {
 	assertPermission,
 	type Context,
@@ -124,30 +121,19 @@ const getPreviewData = async (ctx: Context, clientId: number) => {
 
 	let location: string | null = null;
 	if (client.latitude && client.longitude) {
-		const distanceExpr = getDistanceSQL(
+		const closestOfficeKey = await getClosestOfficeKeyByDriveTime(
+			ctx.db,
+			client.id,
 			client.latitude,
 			client.longitude,
-			offices.latitude,
-			offices.longitude,
 		);
 
-		const [closestOffice] = await ctx.db
-			.select({
-				key: offices.key,
-				distance: distanceExpr,
-			})
-			.from(offices)
-			.orderBy(distanceExpr)
-			.limit(1);
-
-		if (closestOffice) {
-			if (closestOffice.key === "CHS") {
-				location = "Charleston";
-			} else if (closestOffice.key === "COL") {
-				location = "C (Columbia)";
-			} else {
-				location = closestOffice.key;
-			}
+		if (closestOfficeKey === "CHS") {
+			location = "Charleston";
+		} else if (closestOfficeKey === "COL") {
+			location = "C (Columbia)";
+		} else if (closestOfficeKey) {
+			location = closestOfficeKey;
 		}
 	}
 

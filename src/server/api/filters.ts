@@ -1,6 +1,7 @@
 import { eq } from "drizzle-orm";
+import { getOfficeDistanceSQL } from "~/lib/utils";
 import type { Context } from "~/server/api/trpc";
-import { insuranceAliases, insurances } from "~/server/db/schema";
+import { insuranceAliases, insurances, offices } from "~/server/db/schema";
 
 // Sentinel value meaning "the underlying field is null/unset", used across all
 // multi-select filters so a user can filter for e.g. "no language on file."
@@ -42,4 +43,32 @@ export async function resolveInsuranceAliasNames(
 
 	cache?.set(shortName, promise);
 	return promise;
+}
+
+// Picks a single known client's closest office, ranked by getOfficeDistanceSQL
+// (real Waze distance when cached, straight-line fallback otherwise). Used when
+// auto-assigning an office on the scheduling sheet or the appointment preview.
+// A bulk query over many client rows uses buildClosestOfficeKeyCaseSQL instead.
+export async function getClosestOfficeKeyByDriveTime(
+	db: Context["db"],
+	clientId: number,
+	clientLat: string,
+	clientLon: string,
+): Promise<string | undefined> {
+	const distanceExpr = getOfficeDistanceSQL(
+		clientId,
+		clientLat,
+		clientLon,
+		offices.key,
+		offices.latitude,
+		offices.longitude,
+	);
+
+	const [closest] = await db
+		.select({ key: offices.key })
+		.from(offices)
+		.orderBy(distanceExpr)
+		.limit(1);
+
+	return closest?.key;
 }

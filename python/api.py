@@ -4,7 +4,7 @@ import os
 import re
 import time
 from contextlib import asynccontextmanager
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 from dotenv import load_dotenv
@@ -13,7 +13,6 @@ from fastapi.responses import FileResponse, Response
 from googleapiclient.discovery import build
 from loguru import logger
 from pydantic import BaseModel, ConfigDict, Field
-from pywaze import route_calculator
 
 import appointment_reminders
 import greeter_proxy
@@ -45,7 +44,15 @@ from utils.google import (
     update_gcal_event_title,
 )
 from utils.misc import json_log_format
-from utils.timezone import now_business
+from utils.timezone import now_business, now_utc
+from utils.waze import (
+    KM_PER_MILE,
+    WAZE_MAX_CONCURRENCY,
+    WAZE_REQUEST_STAGGER_SECONDS,
+    get_cached_drive_times,
+    get_drive_time,
+    save_drive_time,
+)
 
 load_dotenv()
 
@@ -914,9 +921,6 @@ def download_select_health_form(
     )
 
 
-KM_PER_MILE = 1.60934
-
-
 class OfficeDriveTime(BaseModel):
     key: str
     pretty_name: str = Field(alias="prettyName")
@@ -926,10 +930,12 @@ class OfficeDriveTime(BaseModel):
     model_config = ConfigDict(populate_by_name=True)
 
 
-async def _waze_drive_time(start: str, end: str) -> route_calculator.CalcRoutesResponse:
-    async with route_calculator.WazeRouteCalculator(region="US") as waze:
-        routes = await waze.calc_routes(start, end)
-        return routes[0]
+# A drive time fetched on demand (staff opening the Drive Times popup) is
+# reused for this long before another open re-queries Waze, so repeatedly
+# reopening the popup can't fan request bursts at Waze's unofficial,
+# unrate-limited endpoint. The office_drive_times.py backfill keeps entries
+# fresh well within this window anyway.
+ON_DEMAND_FRESH = timedelta(hours=6)
 
 
 @app.get("/clients/{client_id}/office-drive-times")
@@ -937,7 +943,13 @@ async def office_drive_times(
     client_id: int,
     current_user: dict = Depends(get_current_user),  # noqa: ARG001
 ) -> list[OfficeDriveTime]:
-    """Live by-car drive time and distance from a client to every office, via Waze."""
+    """By-car drive time and distance from a client to every office.
+
+    Serves a recent cached result when one is on hand (see ON_DEMAND_FRESH),
+    otherwise queries Waze (throttled) and persists it to
+    emr_office_drive_time, so opening this popup doubles as an on-demand
+    refresh of the closest-office ranking without waiting on the backfill.
+    """
     conn = get_db()
     try:
         with conn.cursor() as cursor:
@@ -950,37 +962,76 @@ async def office_drive_times(
                 f"SELECT `key`, prettyName, latitude, longitude FROM {TABLE_OFFICE}"
             )
             office_rows = cursor.fetchall()
+
+        if not client_row:
+            raise HTTPException(status_code=404, detail="Client not found")
+        if not client_row["latitude"] or not client_row["longitude"]:
+            raise HTTPException(
+                status_code=422, detail="Client has no coordinates on file"
+            )
+
+        start = f"{client_row['latitude']}, {client_row['longitude']}"
+        cached = get_cached_drive_times(conn, client_id)
+        fresh_cutoff = now_utc().replace(tzinfo=None) - ON_DEMAND_FRESH
+        semaphore = asyncio.Semaphore(WAZE_MAX_CONCURRENCY)
+
+        async def resolve(office: dict) -> tuple[OfficeDriveTime, bool]:
+            """The drive time for one office, and whether it was freshly fetched."""
+            prior = cached.get(office["key"])
+            if (
+                prior
+                and prior["durationMinutes"] is not None
+                and prior["computedAt"] >= fresh_cutoff
+            ):
+                return (
+                    OfficeDriveTime(
+                        key=office["key"],
+                        prettyName=office["prettyName"],
+                        durationMinutes=float(prior["durationMinutes"]),
+                        distanceMiles=float(prior["distanceMiles"]),
+                    ),
+                    False,
+                )
+
+            end = f"{office['latitude']}, {office['longitude']}"
+            async with semaphore:
+                try:
+                    route = await get_drive_time(start, end)
+                    duration_minutes = round(route.duration, 1)
+                    distance_miles = round(route.distance / KM_PER_MILE, 1)
+                except Exception as e:
+                    logger.warning(f"Waze route failed for office {office['key']}: {e}")
+                    duration_minutes = None
+                    distance_miles = None
+                await asyncio.sleep(WAZE_REQUEST_STAGGER_SECONDS)
+
+            return (
+                OfficeDriveTime(
+                    key=office["key"],
+                    prettyName=office["prettyName"],
+                    durationMinutes=duration_minutes,
+                    distanceMiles=distance_miles,
+                ),
+                True,
+            )
+
+        resolved = await asyncio.gather(*[resolve(o) for o in office_rows])
+
+        # Persist the freshly fetched results sequentially: pymysql connections
+        # can't be shared across the concurrent resolve() coroutines above.
+        for drive_time, was_fetched in resolved:
+            if was_fetched:
+                save_drive_time(
+                    conn,
+                    client_id,
+                    drive_time.key,
+                    drive_time.duration_minutes,
+                    drive_time.distance_miles,
+                )
     finally:
         conn.close()
 
-    if not client_row:
-        raise HTTPException(status_code=404, detail="Client not found")
-    if not client_row["latitude"] or not client_row["longitude"]:
-        raise HTTPException(status_code=422, detail="Client has no coordinates on file")
-
-    start = f"{client_row['latitude']}, {client_row['longitude']}"
-
-    async def resolve(office: dict) -> OfficeDriveTime:
-        end = f"{office['latitude']}, {office['longitude']}"
-        try:
-            route = await _waze_drive_time(start, end)
-            return OfficeDriveTime(
-                key=office["key"],
-                prettyName=office["prettyName"],
-                durationMinutes=round(route.duration, 1),
-                distanceMiles=round(route.distance / KM_PER_MILE, 1),
-            )
-        except Exception as e:
-            logger.warning(f"Waze route failed for office {office['key']}: {e}")
-            return OfficeDriveTime(
-                key=office["key"],
-                prettyName=office["prettyName"],
-                durationMinutes=None,
-                distanceMiles=None,
-            )
-
-    results = await asyncio.gather(*[resolve(o) for o in office_rows])
     return sorted(
-        results,
+        (drive_time for drive_time, _ in resolved),
         key=lambda r: (r.duration_minutes is None, r.duration_minutes or 0),
     )

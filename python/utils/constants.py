@@ -66,6 +66,7 @@ TABLE_EXTERNAL_RECORD_HISTORY: Final = "emr_external_record_history"
 TABLE_FAX_CATEGORIZATION: Final = "emr_fax_categorization"
 TABLE_FAX_CATEGORIZATION_CLIENT_LINK: Final = "emr_fax_categorization_client_link"
 TABLE_BABYNET_REPORT: Final = "emr_babynet_report"
+TABLE_OFFICE_DRIVE_TIME: Final = "emr_office_drive_time"
 
 # DB to DataFrame Column Mapping
 CLIENT_COLUMN_MAPPING: Final = {
