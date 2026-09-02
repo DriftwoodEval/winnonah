@@ -166,10 +166,22 @@ SIMULATED_SPECS = {
 }
 
 
+# Tesseract's OSD reports an "Orientation confidence" alongside the angle.
+# On a noisy or sparse fax page it happily returns a wrong 90/270 with a
+# confidence well under 1, and the caller persists that rotation into the
+# Drive copy, so a page that was upright lands sideways. A clean reading on
+# a real sideways page scores many times this; below it, leave the page
+# alone and let the human reviewer catch a genuine misfeed.
+MIN_ORIENTATION_CONFIDENCE = 2.0
+
+
 def correct_orientation(image: Image.Image) -> tuple[Image.Image, int]:
     """Detect a scanned page fed in sideways/upside-down and rotate it
     upright before OCR, since Tesseract's text recognition (unlike its
     orientation detection) assumes roughly-horizontal text.
+
+    Only acts on a confident OSD reading (see MIN_ORIENTATION_CONFIDENCE);
+    a low-confidence guess is treated as "no rotation".
 
     Returns the (possibly rotated) image and the clockwise angle applied,
     so the caller can also persist the fix into the source PDF page."""
@@ -185,6 +197,16 @@ def correct_orientation(image: Image.Image) -> tuple[Image.Image, int]:
     angle = int(match.group(1))
     if angle == 0:
         return image, 0
+
+    conf_match = re.search(r"Orientation confidence: ([\d.]+)", osd)
+    confidence = float(conf_match.group(1)) if conf_match else 0.0
+    if confidence < MIN_ORIENTATION_CONFIDENCE:
+        logger.debug(
+            f"Ignoring low-confidence orientation guess ({angle}deg, "
+            f"confidence {confidence:.2f})"
+        )
+        return image, 0
+
     return image.rotate(-angle, expand=True), angle
 
 

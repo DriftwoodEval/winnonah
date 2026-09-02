@@ -279,12 +279,33 @@ class TestCorrectOrientation:
         rotated = MagicMock()
         image.rotate.return_value = rotated
         with patch(
-            "pytesseract.image_to_osd", return_value="Rotate: 90\nOrientation: 90"
+            "pytesseract.image_to_osd",
+            return_value="Rotate: 90\nOrientation: 90\nOrientation confidence: 7.50",
         ):
             result_image, angle = correct_orientation(image)
         assert result_image is rotated
         assert angle == 90
         image.rotate.assert_called_once_with(-90, expand=True)
+
+    def test_ignores_rotation_when_confidence_is_low(self):
+        image = MagicMock()
+        with patch(
+            "pytesseract.image_to_osd",
+            return_value="Rotate: 90\nOrientation: 90\nOrientation confidence: 0.31",
+        ):
+            result_image, angle = correct_orientation(image)
+        assert result_image is image
+        assert angle == 0
+        image.rotate.assert_not_called()
+
+    def test_ignores_rotation_when_confidence_is_absent(self):
+        image = MagicMock()
+        with patch(
+            "pytesseract.image_to_osd", return_value="Rotate: 90\nOrientation: 90"
+        ):
+            result_image, angle = correct_orientation(image)
+        assert result_image is image
+        assert angle == 0
 
     def test_returns_image_unchanged_when_osd_fails(self):
         image = MagicMock()
