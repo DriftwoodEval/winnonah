@@ -19,7 +19,7 @@
 		"typecheck": "tsc --noEmit"
 	},
 	"dependencies": {
-		"@11ty/gray-matter": "^2.1.0",
+		"@11ty/gray-matter": "^3.0.0",
 		"@auth/drizzle-adapter": "^1.11.3",
 		"@dnd-kit/core": "^6.3.1",
 		"@dnd-kit/sortable": "^10.0.0",

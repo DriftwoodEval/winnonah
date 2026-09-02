@@ -12,8 +12,8 @@ importers:
   .:
     dependencies:
       '@11ty/gray-matter':
-        specifier: ^2.1.0
-        version: 2.1.0
+        specifier: ^3.0.0
+        version: 3.0.0
       '@auth/drizzle-adapter':
         specifier: ^1.11.3
         version: 1.11.3
@@ -288,8 +288,8 @@ importers:
 
 packages:
 
-  '@11ty/gray-matter@2.1.0':
-    resolution: {integrity: sha512-fNdBOb3MgDz/1UCIoeY4wDuGbp+/3s5y6UrsyfMabECbh/CVycj7Er33JXqSxRwxrRKXcGE1Jipuq/1mODInsQ==}
+  '@11ty/gray-matter@3.0.0':
+    resolution: {integrity: sha512-mi6KB36DZCpCfCb9XP3NtDDNXe1N0jKtuFj9mTCZNy5H7vTabODyMgFmmOiGIGJKt+i8mJqEb/REtK+JTEzlpQ==}
     engines: {node: '>=11'}
 
   '@alloc/quick-lru@5.2.0':
@@ -3911,6 +3911,10 @@ packages:
     resolution: {integrity: sha512-CY6crGq313MX8GkwvB7tzgp99vjQxY1++5y10/BKN/GUfHqWaOGQMNZkBvqSzsZKWk/ijwHlWzzkLulsGHhjWQ==}
     hasBin: true
 
+  js-yaml@5.4.1:
+    resolution: {integrity: sha512-28R/k+NAjeuf7+CKlTxWZVExJGwVVLwY06DgEnOMz2gEpfNkDcD7QvyiVPT0xy0XXhU8vHsd4Ot42OOPdJG7dQ==}
+    hasBin: true
+
   jsesc@3.1.0:
     resolution: {integrity: sha512-/sM3dO2FOzXjKQhJuo0Q173wf2KOo8t4I8vHy6lF9poUp7bKT0/NHE8fPX23PwfhnykfqnC2xRxOnVw5XuGIaA==}
     engines: {node: '>=6'}
@@ -5703,9 +5707,9 @@ packages:
 
 snapshots:
 
-  '@11ty/gray-matter@2.1.0':
+  '@11ty/gray-matter@3.0.0':
     dependencies:
-      js-yaml: 4.3.1
+      js-yaml: 5.4.1
       section-matter: 1.0.0
 
   '@alloc/quick-lru@5.2.0': {}
@@ -9083,6 +9087,10 @@ snapshots:
   js-tokens@4.0.0: {}
 
   js-yaml@4.3.1:
+    dependencies:
+      argparse: 2.0.1
+
+  js-yaml@5.4.1:
     dependencies:
       argparse: 2.0.1
 
