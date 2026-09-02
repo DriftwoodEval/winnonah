@@ -14,6 +14,7 @@ title: Changelog
 
 **Fixed**
 - Fax processing no longer rotates a scanned page unless it's confident which way is up. A noisy or near-blank page was sometimes turned sideways on a bad guess and saved that way in Drive.
+- Pausing a client, or checking "Autism" in Records, now also stops the automated records request from going out, matching how it already blocks questionnaires. Previously a paused client could still get a school records request sent automatically.
 - Client notes now retry a save automatically when the server is briefly unreachable (for example during a deploy), instead of failing with a confusing "not valid JSON" error. If it still can't save, the message now explains the connection dropped and the note will save once it is back.
 - QSuite settings (service credentials, database connection info, and appointments sync settings) are now properly restricted to staff with QSuite permissions on the server side, not just hidden from the Settings page for everyone else.
 - Sending the BabyNet referral text now requires the same permission as filling out the Referral tab, on the server side, not just hidden from staff who can't fill out the tab.
