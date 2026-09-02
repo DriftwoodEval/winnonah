@@ -1087,7 +1087,6 @@ export const clientRouter = createTRPCRouter({
           ${getDistanceSQL(syncedClient.latitude, syncedClient.longitude, sql`o.latitude`, sql`o.longitude`)} as distanceMiles
         FROM emr_office o
         ORDER BY distanceMiles
-        LIMIT 3
       `);
 
 				closestOffices = rows as unknown as ClosestOffice[];
