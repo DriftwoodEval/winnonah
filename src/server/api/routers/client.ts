@@ -1088,7 +1088,7 @@ export const clientRouter = createTRPCRouter({
           o.prettyName,
           o.latitude,
           o.longitude,
-          COALESCE(dt.distanceMiles, ${getDistanceSQL(syncedClient.latitude, syncedClient.longitude, sql`o.latitude`, sql`o.longitude`)}) as distanceMiles
+          CAST(COALESCE(dt.distanceMiles, ${getDistanceSQL(syncedClient.latitude, syncedClient.longitude, sql`o.latitude`, sql`o.longitude`)}) AS DOUBLE) as distanceMiles
         FROM emr_office o
         LEFT JOIN emr_office_drive_time dt
           ON dt.officeKey = o.key AND dt.clientId = ${syncedClient.id}
