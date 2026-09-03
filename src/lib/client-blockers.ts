@@ -18,10 +18,13 @@ export type RecordsBlockerInput = {
  * records haven't been (and, as things are currently configured, won't be)
  * automatically requested, or null if nothing is outstanding.
  *
- * "Not Needed", an ADHD-only diagnosis, and already-present record content
- * all mean nothing further is required. Otherwise, records-request.py only
- * picks up a client from get_clients_needing_records() when they're not
- * private-school (staff handle those manually, per
+ * "Not Needed" and already-present record content both mean nothing further
+ * is required. An ADHD-only diagnosis (ADHD in asdAdhd, ASD absent) means an
+ * outstanding request never blocks a send, but the records are still chased,
+ * so a private-school ADHD-only client still needs the manual-request note
+ * (get_record_ready_client_ids in questionnaires reports the same). Otherwise,
+ * records-request.py only picks up a client from get_clients_needing_records()
+ * when they're not private-school (staff handle those manually, per
  * ensurePendingExternalRecordRequest's comment), their language is exactly
  * "English" (unlike qsend.py, records-request.py does not also allow
  * Spanish), and any hold on the pending request has expired.
@@ -29,16 +32,20 @@ export type RecordsBlockerInput = {
 export function getRecordsBlockerReason(
 	input: RecordsBlockerInput,
 ): string | null {
-	if (
-		input.recordsNeeded === "Not Needed" ||
-		input.asdAdhd === "ADHD" ||
-		input.hasExternalRecordContent
-	) {
+	if (input.recordsNeeded === "Not Needed" || input.hasExternalRecordContent) {
 		return null;
 	}
 
 	if (input.isPrivateSchool) {
 		return "records needed, private-school client, records must be requested manually";
+	}
+
+	const isAdhdOnly =
+		!!input.asdAdhd &&
+		input.asdAdhd.includes("ADHD") &&
+		!input.asdAdhd.includes("ASD");
+	if (isAdhdOnly) {
+		return null;
 	}
 
 	if (input.language !== "English") {

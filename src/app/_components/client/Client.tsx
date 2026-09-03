@@ -146,23 +146,29 @@ export function Client({
 		updateClientColorMutation.mutate({ clientId: client.id, color });
 	};
 
-	const { data: clientFailures } = api.clients.getFailures.useQuery(
-		client?.id ?? undefined,
-		{ refetchInterval: 60_000 },
-	);
+	const { data: clientFailures, isPending: isPendingFailures } =
+		api.clients.getFailures.useQuery(client?.id ?? undefined, {
+			refetchInterval: 60_000,
+		});
 
-	const { data: externalRecordData } =
+	const { data: externalRecordData, isPending: isPendingExternalRecord } =
 		api.externalRecords.getExternalRecordByClientId.useQuery(client?.id ?? -1, {
 			enabled: !!client && !isNotesOnlyClientId(client.id),
 		});
 
-	const { data: punchClient } = api.google.getClientFromPunch.useQuery(
-		client?.id.toString() ?? "",
-		{
+	const { data: punchClient, isPending: isPendingPunch } =
+		api.google.getClientFromPunch.useQuery(client?.id.toString() ?? "", {
 			refetchInterval: 60_000,
 			enabled: !!client && !isNotesOnlyClientId(client.id),
-		},
-	);
+		});
+
+	// The blocker lists below fold in data from all three queries above. Until
+	// they've resolved, render nothing rather than a half-populated alert that
+	// grows an item at a time as each query lands.
+	const blockersReady =
+		!!client &&
+		(isNotesOnlyClientId(client.id) ||
+			(!isPendingFailures && !isPendingExternalRecord && !isPendingPunch));
 
 	const questionnaireBlockers = useMemo(() => {
 		if (!client || isNotesOnlyClientId(client.id)) return [];
@@ -353,7 +359,7 @@ export function Client({
 										</Alert>
 									)}
 
-									{sendBlockers.length > 0 && isActive && (
+									{blockersReady && sendBlockers.length > 0 && isActive && (
 										<Alert variant="destructive">
 											<AlertTriangleIcon className="h-4 w-4" />
 											<AlertTitle>{sendBlockersTitle}</AlertTitle>
