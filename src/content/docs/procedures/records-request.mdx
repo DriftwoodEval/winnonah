@@ -15,9 +15,9 @@ Someone runs the records request script by hand (it is not on a schedule). When 
 
 1. Finds clients that need records, have no requested date yet, and aren't paused or already flagged as an autism stop case.
 2. Logs into the client portal and confirms the consent forms have been signed.
-3. Downloads the "Receiving" and "Sending" Consent to Release of Information forms as PDFs.
-4. Reads the school district name off the consent PDF and checks it against the district on file for the client. If it doesn't match, it falls out for manual review.
-5. Looks up the district's contact info (email, and whether to fax instead of email) from the QSuite Records Config. If there's no contact on file, it falls out for manual review.
+3. Downloads the "Receiving" and "Sending" Consent to Release of Information forms as PDFs. For private and charter school clients (marked Charter / Private School on the Referral tab), it uses the "Private School Receiving / Sending Release of Information" forms instead.
+4. Reads the school name off the consent PDF. For a standard-form client it checks that against the district on file, and falls out for manual review if they don't match. For a private or charter school client, it uses whatever school they entered on the private-school form, as long as it's a known private school in the Records Config. If the private-school forms have been assigned but not signed yet, the client just waits for a later run like any other unsigned document. If the forms were never assigned, or the school they entered isn't a recognized private school, it falls out for manual review.
+5. Looks up the school's contact info (email, and whether to fax instead of email) from the QSuite Records Config, which lists both public districts and private / charter schools. If there's no contact on file, it falls out for manual review.
 6. Builds the outgoing message (student name, date of birth, standard request language plus any custom message) and sends it, attaching a fax cover sheet if needed.
 7. Marks the request as sent, which just means filling in the **Requested** date field on the client's Records section.
 

@@ -272,7 +272,7 @@ export const DASHBOARD_CONFIG: {
 			!(client.hasRecordRequest && !client.hasCurrentSessionRecordRequest),
 		extraInfo: (client: FullClientInfo) => {
 			if (client.referralData?.privateSchool === "yes") {
-				return "Charter / Private School on intake";
+				return "Charter / Private School (uses private-school consent forms)";
 			}
 			if (client.recordsHoldUntil && !isDateOnlyPast(client.recordsHoldUntil)) {
 				return `Held until ${formatShortDate(client.recordsHoldUntil)}`;
