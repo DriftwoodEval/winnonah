@@ -98,60 +98,29 @@ async function reconcileReports(ctx: AuthedContext) {
 	]);
 }
 
-// Promote "pending" -> "queued" once a pool report's client folder reaches the
-// Drive report-writing queue, and demote it again if the folder leaves before
-// anyone claims it.
+/**
+ * Ask the Python sidecar to sync pool report rows to the live Drive queue folder
+ * (promote "pending" -> "queued", demote unclaimed folders back, create rows for
+ * folders with no report yet). Same job the cron runs; called here so a
+ * just-moved folder shows the right status without waiting for it. Time-capped
+ * so a slow Drive call cannot hang the page; a dropped call is picked up next
+ * load or by the cron.
+ */
 async function reconcileReportQueueState(ctx: AuthedContext) {
 	try {
-		const cookie = ctx.headers.get("cookie") ?? "";
-		const res = await fetch(`${env.PY_API}/folders/${REPORT_QUEUE_FOLDER_ID}`, {
-			headers: { Cookie: cookie },
+		const res = await fetch(`${env.PY_API}/reports/reconcile`, {
+			method: "POST",
+			headers: { Cookie: ctx.headers.get("cookie") ?? "" },
+			signal: AbortSignal.timeout(4000),
 		});
-		if (!res.ok) return;
-		const data = (await res.json()) as {
-			folders: { id: string; name: string }[];
-		};
-
-		const queuedClientIds = new Set<number>();
-		for (const folder of data.folders) {
-			const match = /\[([A-Za-z0-9-]+)\]/.exec(folder.name);
-			const clientId = match?.[1] ? Number(match[1]) : Number.NaN;
-			if (!Number.isNaN(clientId)) queuedClientIds.add(clientId);
-		}
-
-		const openPool = await ctx.db
-			.select({
-				id: reports.id,
-				clientId: reports.clientId,
-				status: reports.status,
-				writerUserId: reports.writerUserId,
-				claimedAt: reports.claimedAt,
-			})
-			.from(reports)
-			.where(and(eq(reports.selfWritten, false), isNull(reports.archivedAt)));
-
-		for (const report of openPool) {
-			const inQueue = queuedClientIds.has(report.clientId);
-			if (inQueue && report.status === "pending") {
-				await ctx.db
-					.update(reports)
-					.set({ status: "queued", queueReadyAt: new Date() })
-					.where(eq(reports.id, report.id));
-			} else if (
-				!inQueue &&
-				report.status === "queued" &&
-				!report.writerUserId &&
-				!report.claimedAt
-			) {
-				// Folder was pulled back out before anyone claimed it.
-				await ctx.db
-					.update(reports)
-					.set({ status: "pending", queueReadyAt: null })
-					.where(eq(reports.id, report.id));
-			}
+		if (!res.ok) {
+			ctx.logger.error(
+				{ status: res.status },
+				"Report queue reconcile call failed",
+			);
 		}
 	} catch (error) {
-		ctx.logger.error(error, "Failed to reconcile report queue state");
+		ctx.logger.error(error, "Report queue reconcile call failed");
 	}
 }
 
