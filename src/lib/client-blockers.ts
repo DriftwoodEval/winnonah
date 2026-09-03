@@ -32,6 +32,14 @@ export type RecordsBlockerInput = {
  * "English" (unlike qsend.py, records-request.py does not also allow
  * Spanish), and any hold on the pending request has expired.
  */
+/**
+ * Reason returned when a client needs records but has never had a request
+ * queued or sent. Redundant with the dashboard's "Records Needed - Not
+ * Requested" section title, so that section filters it out.
+ */
+export const RECORDS_NOT_YET_REQUESTED_REASON =
+	"records needed but not yet requested";
+
 export function getRecordsBlockerReason(
 	input: RecordsBlockerInput,
 ): string | null {
@@ -67,7 +75,7 @@ export function getRecordsBlockerReason(
 	// hold) has already returned above; a bare "still waiting on records" is
 	// not something staff act on, so it no longer blocks a send.
 	if (sentDates.length === 0 && !input.hasPendingRequest) {
-		return "records needed but not yet requested";
+		return RECORDS_NOT_YET_REQUESTED_REASON;
 	}
 
 	return null;

@@ -266,6 +266,15 @@ export const getPunchData = async (session: Session) => {
 					AND ${externalRecordRequests.requestedDate} IS NULL
 					AND (${clients.sessionStartedAt} IS NULL OR ${externalRecordRequests.createdAt} >= ${clients.sessionStartedAt})
 				)`,
+					// When the pending (not-yet-sent) request was queued, as a UTC
+					// instant, for display in the "Records Needed - Not Requested" section.
+					recordsRequestQueuedDate: sql<string | null>`(
+					SELECT DATE_FORMAT(MAX(${externalRecordRequests.createdAt}), '%Y-%m-%dT%H:%i:%sZ')
+					FROM ${externalRecordRequests}
+					WHERE ${externalRecordRequests.clientId} = ${clients.id}
+					AND ${externalRecordRequests.requestedDate} IS NULL
+					AND (${clients.sessionStartedAt} IS NULL OR ${externalRecordRequests.createdAt} >= ${clients.sessionStartedAt})
+				)`,
 				})
 				.from(clients)
 				.leftJoin(externalRecords, eq(clients.id, externalRecords.clientId))
@@ -331,6 +340,7 @@ export const getPunchData = async (session: Session) => {
 				hasRecordRequest,
 				hasCurrentSessionRecordRequest,
 				recordsHoldUntil,
+				recordsRequestQueuedDate,
 			}) => [
 				client.id,
 				{
@@ -340,6 +350,7 @@ export const getPunchData = async (session: Session) => {
 					hasRecordRequest,
 					hasCurrentSessionRecordRequest,
 					recordsHoldUntil,
+					recordsRequestQueuedDate,
 					failures: failureMap.get(client.id) ?? [],
 					questionnaires: questionnaireMap.get(client.id) ?? [],
 					hasPast96130Appt: past96130ClientIds.has(client.id),

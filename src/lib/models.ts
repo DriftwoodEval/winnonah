@@ -29,6 +29,7 @@ export type FullClientInfo = PUNCH_SCHEMA &
 		hasRecordRequest?: boolean;
 		hasCurrentSessionRecordRequest?: boolean;
 		recordsHoldUntil?: string | null;
+		recordsRequestQueuedDate?: string | null;
 		failures?: Failure[];
 		questionnaires?: Questionnaire[];
 		hasPast96130Appt?: boolean;

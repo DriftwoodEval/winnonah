@@ -44,7 +44,6 @@ import {
 	SECTION_EVAL_QS_DONE,
 	SECTION_NEEDS_OUTREACH,
 	SECTION_REACHED_OUT_NEEDS_REVIEW,
-	SECTION_RECORDS_NEEDED_NOT_REQUESTED,
 	SECTION_RECORDS_REQUESTED_NOT_RETURNED,
 } from "~/lib/dashboard";
 import type { FullClientInfo } from "~/lib/models";
@@ -180,8 +179,6 @@ function PunchListAccordionItem({
 	const isClaimableSection = title === SECTION_NEEDS_OUTREACH;
 	const isRecordsNotReturnedSection =
 		title === SECTION_RECORDS_REQUESTED_NOT_RETURNED;
-	const isRecordsNeededNotRequestedSection =
-		title === SECTION_RECORDS_NEEDED_NOT_REQUESTED;
 
 	return (
 		<AccordionItem value={title}>
@@ -266,8 +263,7 @@ function PunchListAccordionItem({
 																	{punchClient.asdAdhd}
 																</span>
 															)}
-														{(isOutreachSection ||
-															isRecordsNeededNotRequestedSection) &&
+														{isOutreachSection &&
 															language &&
 															language.toLowerCase() !== "english" && (
 																<span className="font-bold text-destructive text-xs">
@@ -324,9 +320,18 @@ function PunchListAccordionItem({
 															</span>
 														)}
 													</div>
-													{punchClient.extraInfo && (
+													{(punchClient.extraInfo ||
+														punchClient.dangerInfo) && (
 														<span className="text-muted-foreground text-xs">
 															{punchClient.extraInfo}
+															{punchClient.extraInfo &&
+																punchClient.dangerInfo &&
+																", "}
+															{punchClient.dangerInfo && (
+																<span className="text-destructive">
+																	{punchClient.dangerInfo}
+																</span>
+															)}
 														</span>
 													)}
 												</div>
@@ -694,7 +699,7 @@ export function Dashboard() {
 	if (isLoading)
 		return (
 			<div className="mx-4 mt-8 flex grow flex-col items-center">
-				<Skeleton className="h-[400px] w-full bg-muted md:w-1/2" />
+				<Skeleton className="h-[400px] w-full bg-muted lg:w-3/4 xl:w-1/2" />
 			</div>
 		);
 
@@ -706,7 +711,7 @@ export function Dashboard() {
 	return (
 		<div className="mx-4 mt-8 flex grow flex-col items-center">
 			<Accordion
-				className="w-full md:w-1/2"
+				className="w-full lg:w-3/4 xl:w-1/2"
 				onValueChange={handleOpenItemsChange}
 				type="multiple"
 				value={openItems}

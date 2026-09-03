@@ -1,6 +1,10 @@
 import { format } from "date-fns";
+import {
+	getRecordsBlockerReason,
+	RECORDS_NOT_YET_REQUESTED_REASON,
+} from "./client-blockers";
 import type { Client, Failure, FullClientInfo } from "./models";
-import { formatShortDate, isDateOnlyPast, isNotesOnlyClientId } from "./utils";
+import { formatShortInstantDate, isNotesOnlyClientId } from "./utils";
 
 /**
  * Computes which pipeline-stage section each client from the prioritization
@@ -68,6 +72,8 @@ export const SECTION_NEEDS_PROTOCOLS_SCANNED = "Needs protocols scanned";
 export type DashboardClient = (FullClientInfo | Client) & {
 	matchedSections?: string[];
 	extraInfo?: string;
+	/** Secondary line rendered in the danger color, e.g. why a step is blocked. */
+	dangerInfo?: string;
 	failures?: Failure[];
 };
 
@@ -248,6 +254,7 @@ export const DASHBOARD_CONFIG: {
 	filter: (client: FullClientInfo) => boolean;
 	failureFilter?: (failure: Failure) => boolean;
 	extraInfo?: (client: FullClientInfo) => string | undefined;
+	dangerInfo?: (client: FullClientInfo) => string | undefined;
 	sort?: (a: FullClientInfo, b: FullClientInfo) => number;
 }[] = [
 	{
@@ -270,14 +277,38 @@ export const DASHBOARD_CONFIG: {
 			// session (a re-referral): it's not something staff can act on here,
 			// and records-request.py's own query won't see it either.
 			!(client.hasRecordRequest && !client.hasCurrentSessionRecordRequest),
-		extraInfo: (client: FullClientInfo) => {
-			if (client.referralData?.privateSchool === "yes") {
-				return "Charter / Private School on intake";
+		extraInfo: (client: FullClientInfo) =>
+			client.recordsRequestQueuedDate
+				? `Queued ${formatShortInstantDate(client.recordsRequestQueuedDate)}`
+				: undefined,
+		// Same "why aren't records being requested" reasons shown on the client
+		// page (private school, unsupported language, an unexpired hold). The
+		// bare "not yet requested" reason just restates this section's title.
+		dangerInfo: (client: FullClientInfo) => {
+			const reason = getRecordsBlockerReason({
+				recordsNeeded: client.recordsNeeded ?? null,
+				asdAdhd: client.asdAdhd ?? null,
+				hasExternalRecordContent: !!client.hasExternalRecordsNote,
+				isPrivateSchool: client.referralData?.privateSchool === "yes",
+				language: client.language ?? null,
+				holdUntil: client.recordsHoldUntil,
+				hasPendingRequest: !!client.recordsRequestQueuedDate,
+				requestedDates: [],
+				today: format(new Date(), "yyyy-MM-dd"),
+			});
+			if (!reason || reason === RECORDS_NOT_YET_REQUESTED_REASON) {
+				return undefined;
 			}
-			if (client.recordsHoldUntil && !isDateOnlyPast(client.recordsHoldUntil)) {
-				return `Held until ${formatShortDate(client.recordsHoldUntil)}`;
+			// Automated requests only go out in English; just name the language.
+			if (reason.includes("require English")) {
+				return client.language ?? "Language not set";
 			}
-			return undefined;
+			// This section already says records are needed and that they need
+			// requesting; keep just the lead-in that names the reason.
+			const trimmed = reason
+				.replace(/^records needed,? (but )?/i, "")
+				.replace(/, records must be requested manually$/i, "");
+			return `${trimmed.charAt(0).toUpperCase()}${trimmed.slice(1)}`;
 		},
 		failureFilter: (f) =>
 			f.daEval === "Records" ||
@@ -563,6 +594,7 @@ export function getDashboardSections(
 						(f.reminded ?? 0) < 100 && (config.failureFilter?.(f) ?? false),
 				),
 				extraInfo: config.extraInfo?.(client),
+				dangerInfo: config.dangerInfo?.(client),
 			})),
 		};
 	});
