@@ -16,7 +16,7 @@ import { Textarea } from "@ui/textarea";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@ui/tooltip";
 import { debounce } from "es-toolkit/function";
 import { isEqual } from "es-toolkit/predicate";
-import { History, Info } from "lucide-react";
+import { History, Info, X } from "lucide-react";
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { useCheckPermission } from "~/hooks/use-check-permission";
@@ -201,6 +201,14 @@ export function RecordsNoteEditor({
 			onError: (error) => handleError(error, "flag record request"),
 		});
 
+	const cancelRecordRequestMutation =
+		api.externalRecords.cancelRecordRequest.useMutation({
+			onSuccess: () => {
+				utils.externalRecords.getExternalRecordByClientId.invalidate(clientId);
+			},
+			onError: (error) => handleError(error, "cancel record request"),
+		});
+
 	const setRecordRequestDateMutation =
 		api.externalRecords.setRecordRequestDate.useMutation({
 			onSuccess: () => {
@@ -306,6 +314,11 @@ export function RecordsNoteEditor({
 	const handleFlagRequest = () => {
 		if (!clientId) return;
 		flagRecordRequestMutation.mutate({ clientId });
+	};
+
+	const handleCancelRequest = (requestId: number) => {
+		if (!clientId) return;
+		cancelRecordRequestMutation.mutate({ requestId, clientId });
 	};
 
 	const handleSetRequestDate = (requestId: number, date: Date | undefined) => {
@@ -492,60 +505,90 @@ export function RecordsNoteEditor({
 						</SelectContent>
 					</Select>
 					<EvaluationCheckbox clientId={clientId} compact readOnly={readOnly} />
-					{recordsNeeded === "Needed" &&
-						requests.map((req, i) => {
-							const hasSentDate = !!req.requestedDate;
-							const dateId = `date-${req.id}`;
+				</div>
+
+				<ResponsiveDialog
+					className="max-h-[calc(100vh-4rem)] max-w-2xl overflow-x-hidden overflow-y-scroll sm:max-w-2xl"
+					title="Note History"
+					trigger={historyTrigger}
+				>
+					<NoteHistory id={clientId} type="record" />
+				</ResponsiveDialog>
+			</div>
+			{recordsNeeded === "Needed" && (
+				<div className="mb-4 space-y-3">
+					<div className="grid gap-3 sm:grid-cols-2">
+						{requests.map((req, i) => {
+							const isSent = !!req.requestedDate;
 							return (
-								<div className="flex flex-wrap items-center gap-2" key={req.id}>
-									<Label>{`Request (${i + 1})`}</Label>
-									<DatePicker
-										allowClear={canAddRequest && hasSentDate}
-										date={dateOnlyToLocalDate(req.requestedDate) ?? undefined}
-										disabled={!canAddRequest}
-										flexDirection="flex-row"
-										id={dateId}
-										label={i === 0 ? "Requested" : `Requested (${i + 1})`}
-										placeholder="Pick date"
-										setDate={(date) => handleSetRequestDate(req.id, date)}
-									/>
-									{!req.requestedDate && (
+								<div
+									className="rounded-md border border-border bg-card/50 p-3"
+									key={req.id}
+								>
+									<div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+										<Label className="font-semibold">{`Request ${i + 1}`}</Label>
+										<span className="text-muted-foreground text-sm">
+											Queued {formatShortInstantDate(req.createdAt)}
+											{!isSent && ", not yet sent"}
+										</span>
+										<div className="grow" />
+										{!isSent && canAddRequest && (
+											<Button
+												disabled={cancelRecordRequestMutation.isPending}
+												onClick={() => handleCancelRequest(req.id)}
+												size="sm"
+												variant="outline"
+											>
+												<X className="h-4 w-4" />
+												Cancel request
+											</Button>
+										)}
+									</div>
+									<div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-2">
 										<DatePicker
-											allowClear={canAddRequest && !!req.holdUntil}
-											date={dateOnlyToLocalDate(req.holdUntil) ?? undefined}
+											allowClear={canAddRequest && isSent}
+											date={dateOnlyToLocalDate(req.requestedDate) ?? undefined}
 											disabled={!canAddRequest}
 											flexDirection="flex-row"
-											id={`hold-${req.id}`}
-											label="Hold until"
-											placeholder="No hold"
-											setDate={(date) => handleSetHoldUntil(req.id, date)}
+											id={`date-${req.id}`}
+											label="Requested"
+											placeholder="Pick date"
+											setDate={(date) => handleSetRequestDate(req.id, date)}
 										/>
+										{!isSent && (
+											<DatePicker
+												allowClear={canAddRequest && !!req.holdUntil}
+												date={dateOnlyToLocalDate(req.holdUntil) ?? undefined}
+												disabled={!canAddRequest}
+												flexDirection="flex-row"
+												id={`hold-${req.id}`}
+												label="Hold until"
+												placeholder="No hold"
+												setDate={(date) => handleSetHoldUntil(req.id, date)}
+											/>
+										)}
+									</div>
+									{!isSent && (
+										<div className="mt-2">
+											<Label className="mb-1 block text-muted-foreground text-xs">
+												Email request line
+											</Label>
+											<Textarea
+												className="text-sm"
+												defaultValue={req.customMessage ?? ""}
+												disabled={!canAddRequest}
+												onChange={(e) =>
+													debouncedSaveMessage(req.id, e.target.value)
+												}
+												placeholder="Please send the most recent IEP, any Evaluation Reports, and any Reevaluation Review information."
+												rows={2}
+											/>
+										</div>
 									)}
 								</div>
 							);
 						})}
-					{recordsNeeded === "Needed" &&
-						requests
-							.filter((r) => !r.requestedDate)
-							.map((req) => (
-								<div className="w-full space-y-2" key={`msg-${req.id}`}>
-									<div>
-										<Label className="mb-1 block text-muted-foreground text-xs">
-											Email request line
-										</Label>
-										<Textarea
-											className="text-sm"
-											defaultValue={req.customMessage ?? ""}
-											disabled={!canAddRequest}
-											onChange={(e) =>
-												debouncedSaveMessage(req.id, e.target.value)
-											}
-											placeholder="Please send the most recent IEP, any Evaluation Reports, and any Reevaluation Review information."
-											rows={2}
-										/>
-									</div>
-								</div>
-							))}
+					</div>
 					{canAddRequest && !requests.some((r) => !r.requestedDate) && (
 						<Tooltip>
 							<TooltipTrigger asChild>
@@ -558,9 +601,7 @@ export function RecordsNoteEditor({
 											if (checked) handleFlagRequest();
 										}}
 									/>
-									<Label htmlFor={newRequestId}>
-										{requests.length > 0 ? "Request Again?" : "Requested?"}
-									</Label>
+									<Label htmlFor={newRequestId}>Request again?</Label>
 								</div>
 							</TooltipTrigger>
 							{!canAddRequest && !readOnly && (
@@ -571,8 +612,15 @@ export function RecordsNoteEditor({
 						</Tooltip>
 					)}
 				</div>
-
-				<div className="flex flex-row items-center gap-3">
+			)}
+			{isLoading ? (
+				<div className="flex flex-col gap-2">
+					<Skeleton className="h-9 w-full rounded-md" />
+					<Skeleton className="h-9 w-1/4 rounded-md" />
+					<Skeleton className="h-20 w-full rounded-md" key="skeleton-editor" />
+				</div>
+			) : (
+				<div className="space-y-2">
 					<Select
 						disabled={isEditorReadOnly || !!detectedTemplateValue}
 						onValueChange={handleTemplateChange}
@@ -589,24 +637,6 @@ export function RecordsNoteEditor({
 							))}
 						</SelectContent>
 					</Select>
-
-					<ResponsiveDialog
-						className="max-h-[calc(100vh-4rem)] max-w-2xl overflow-x-hidden overflow-y-scroll sm:max-w-2xl"
-						title="Note History"
-						trigger={historyTrigger}
-					>
-						<NoteHistory id={clientId} type="record" />
-					</ResponsiveDialog>
-				</div>
-			</div>
-			{isLoading ? (
-				<div className="flex flex-col gap-2">
-					<Skeleton className="h-9 w-full rounded-md" />
-					<Skeleton className="h-9 w-1/4 rounded-md" />
-					<Skeleton className="h-20 w-full rounded-md" key="skeleton-editor" />
-				</div>
-			) : (
-				<div>
 					<RichTextEditor
 						formatBar={false}
 						key={editorKey}

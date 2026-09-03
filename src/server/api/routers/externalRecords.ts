@@ -163,6 +163,38 @@ export const externalRecordRouter = createTRPCRouter({
 			return requests;
 		}),
 
+	cancelRecordRequest: protectedProcedure
+		.input(z.object({ requestId: z.number(), clientId: z.number() }))
+		.mutation(async ({ ctx, input }) => {
+			assertPermission(ctx.session.user, "clients:records:requested");
+			ctx.logger.info(input, "Cancelling record request");
+
+			// Only a still-pending (unsent) request can be cancelled. A row with a
+			// requestedDate has already gone out and is part of the record.
+			await ctx.db
+				.delete(externalRecordRequests)
+				.where(
+					and(
+						eq(externalRecordRequests.id, input.requestId),
+						eq(externalRecordRequests.clientId, input.clientId),
+						sql`${externalRecordRequests.requestedDate} IS NULL`,
+					),
+				);
+
+			const requests = await ctx.db
+				.select()
+				.from(externalRecordRequests)
+				.where(eq(externalRecordRequests.clientId, input.clientId))
+				.orderBy(asc(externalRecordRequests.id));
+
+			externalRecordsEmitter.emit("externalRecordsNoteUpdate", {
+				clientId: input.clientId,
+				requests,
+			});
+
+			return requests;
+		}),
+
 	setRecordRequestDate: protectedProcedure
 		.input(
 			z.object({
