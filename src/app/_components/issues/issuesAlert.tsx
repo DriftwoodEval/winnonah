@@ -202,7 +202,7 @@ export function IssuesAlert() {
 		<Badge asChild variant="destructive">
 			<Link className="flex items-center gap-1" href="/issues">
 				{errorsLength}{" "}
-				<span className="hidden md:inline">
+				<span className="hidden lg:inline">
 					{errorsLength === 1 ? "issue" : "issues"}
 				</span>
 			</Link>
