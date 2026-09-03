@@ -1,6 +1,6 @@
 import EventEmitter from "node:events";
 import { TRPCError } from "@trpc/server";
-import { and, asc, desc, eq, gte, isNull, sql } from "drizzle-orm";
+import { and, asc, desc, eq, gte, sql } from "drizzle-orm";
 import { z } from "zod";
 import {
 	assertPermission,
@@ -28,10 +28,16 @@ externalRecordsEmitter.setMaxListeners(100);
  * records-request.py excludes them by the referralData.privateSchool flag
  * instead (staff request their records manually).
  *
- * A pending row from before the client's current session (a re-referral)
+ * A row from before the client's current session (a re-referral)
  * doesn't count as "already requested": records-request.py's own query
  * requires err.created_at >= sessionStartedAt, so a stale row would never
  * get acted on, and the client would never get a fresh row either.
+ *
+ * Within the current session, any existing row counts, whether it's still
+ * pending or was already sent. This is idempotent, not a re-request: it must
+ * not queue another send for a client whose records were already requested
+ * this session. The explicit "request records again" action
+ * (flagRecordRequest) is the only path that inserts a second row.
  */
 export async function ensurePendingExternalRecordRequest(
 	ctx: {
@@ -45,17 +51,16 @@ export async function ensurePendingExternalRecordRequest(
 		columns: { sessionStartedAt: true },
 	});
 
-	const pendingRequest = await ctx.db.query.externalRecordRequests.findFirst({
+	const existingRequest = await ctx.db.query.externalRecordRequests.findFirst({
 		where: and(
 			eq(externalRecordRequests.clientId, clientId),
-			isNull(externalRecordRequests.requestedDate),
 			client?.sessionStartedAt
 				? gte(externalRecordRequests.createdAt, client.sessionStartedAt)
 				: undefined,
 		),
 	});
 
-	if (!pendingRequest) {
+	if (!existingRequest) {
 		await ctx.db.insert(externalRecordRequests).values({
 			clientId,
 			createdBy: ctx.session.user.email,
