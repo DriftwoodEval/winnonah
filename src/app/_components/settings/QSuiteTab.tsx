@@ -42,7 +42,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@ui/tabs";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@ui/tooltip";
 import { Info, Loader2, Lock, LockOpen, Plus, Trash2 } from "lucide-react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { useState } from "react";
+import { memo, useMemo, useState } from "react";
 import {
 	type Control,
 	type FieldArrayPath,
@@ -1132,6 +1132,62 @@ function ServicesTab({
 	);
 }
 
+type DistrictOption = { id: number; name: string };
+
+const DistrictKeySelect = memo(function DistrictKeySelect({
+	control,
+	name,
+	disabled,
+	options,
+	selectedDistricts,
+}: {
+	control: Control<FormValues>;
+	name: Path<FormValues>;
+	disabled?: boolean;
+	options: DistrictOption[];
+	selectedDistricts: string[];
+}) {
+	const [open, setOpen] = useState(false);
+	return (
+		<FormField
+			control={control}
+			name={name}
+			render={({ field }) => (
+				<FormItem>
+					<Select
+						disabled={disabled}
+						onOpenChange={setOpen}
+						onValueChange={field.onChange}
+						open={open}
+						value={field.value as string}
+					>
+						<FormControl>
+							<SelectTrigger className="w-full">
+								<SelectValue placeholder="Select District" />
+							</SelectTrigger>
+						</FormControl>
+						<SelectContent>
+							{open &&
+								options
+									.filter(
+										(opt) =>
+											!selectedDistricts.includes(opt.name) ||
+											opt.name === field.value,
+									)
+									.map((opt) => (
+										<SelectItem key={opt.id} value={opt.name}>
+											{opt.name}
+										</SelectItem>
+									))}
+						</SelectContent>
+					</Select>
+					<FormMessage />
+				</FormItem>
+			)}
+		/>
+	);
+});
+
 function RecordsTab({
 	form,
 	disabled,
@@ -1141,6 +1197,17 @@ function RecordsTab({
 }) {
 	const { data: allSchoolDistricts } =
 		api.evaluators.getAllSchoolDistricts.useQuery();
+	const districtOptions = useMemo<DistrictOption[]>(() => {
+		const seen = new Set<string>();
+		const opts: DistrictOption[] = [];
+		for (const dist of allSchoolDistricts ?? []) {
+			const name = stripSuffix(dist.fullName);
+			if (seen.has(name)) continue;
+			seen.add(name);
+			opts.push({ id: dist.id, name });
+		}
+		return opts.sort((a, b) => a.name.localeCompare(b.name));
+	}, [allSchoolDistricts]);
 	const recordsEmails = form.watch("config.records_emails");
 	const selectedDistricts = Array.isArray(recordsEmails)
 		? recordsEmails.map((e) => e.key)
@@ -1182,42 +1249,12 @@ function RecordsTab({
 						label=""
 						name="config.records_emails"
 						renderKey={(p, d) => (
-							<FormField
+							<DistrictKeySelect
 								control={form.control}
+								disabled={d}
 								name={p as Path<FormValues>}
-								render={({ field }) => (
-									<FormItem>
-										<Select
-											disabled={d}
-											onValueChange={field.onChange}
-											value={field.value as string}
-										>
-											<FormControl>
-												<SelectTrigger className="w-full">
-													<SelectValue placeholder="Select District" />
-												</SelectTrigger>
-											</FormControl>
-											<SelectContent>
-												{allSchoolDistricts
-													?.filter(
-														(dist) =>
-															!selectedDistricts.includes(
-																stripSuffix(dist.fullName),
-															) || stripSuffix(dist.fullName) === field.value,
-													)
-													.map((dist) => (
-														<SelectItem
-															key={dist.id}
-															value={stripSuffix(dist.fullName)}
-														>
-															{stripSuffix(dist.fullName)}
-														</SelectItem>
-													))}
-											</SelectContent>
-										</Select>
-										<FormMessage />
-									</FormItem>
-								)}
+								options={districtOptions}
+								selectedDistricts={selectedDistricts}
 							/>
 						)}
 						renderValue={(p, d) => (
