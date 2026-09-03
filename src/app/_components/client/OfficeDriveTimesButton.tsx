@@ -61,7 +61,7 @@ export function OfficeDriveTimesButton({
 							<li key={office.key}>
 								<span className="font-bold">{office.prettyName}</span>:{" "}
 								{office.durationMinutes != null && office.distanceMiles != null
-									? `${formatDriveTime(office.durationMinutes)} (${office.distanceMiles.toFixed(0)} mi by car)`
+									? `${office.distanceMiles.toFixed(0)} mi (${formatDriveTime(office.durationMinutes)})`
 									: "unavailable"}
 							</li>
 						))}
