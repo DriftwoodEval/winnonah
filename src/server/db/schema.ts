@@ -89,6 +89,11 @@ export const schoolDistricts = createTable("school_district", (d) => ({
 	id: d.int().notNull().primaryKey(),
 	shortName: d.varchar({ length: 255 }),
 	fullName: d.varchar({ length: 255 }).notNull(),
+	// Private and charter schools are stored in the same table so they appear
+	// in the QSuite records-contact picker and resolve through the same
+	// config.records_emails map. records-request.py uses this flag to tell a
+	// private-school consent form from a public-district one.
+	isPrivate: d.boolean().notNull().default(false),
 }));
 
 export const zipCodes = createTable("zip_code", (d) => ({

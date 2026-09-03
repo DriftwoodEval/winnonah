@@ -146,34 +146,36 @@ function ClientForm({
 										<CommandList>
 											<CommandEmpty>No district found.</CommandEmpty>
 											<CommandGroup>
-												{allSchoolDistricts?.map((district) => (
-													<CommandItem
-														key={district.id}
-														onSelect={() => {
-															form.setValue(
-																"schoolDistrict",
-																district.fullName,
-																{ shouldDirty: true, shouldValidate: true },
-															);
-															setDistrictsOpen(false);
-														}}
-														value={district.fullName}
-													>
-														{district.shortName ||
-															district.fullName.replace(
-																/ (County )?School District/,
-																"",
-															)}
-														<Check
-															className={cn(
-																"ml-auto",
-																district.fullName === field.value
-																	? "opacity-100"
-																	: "opacity-0",
-															)}
-														/>
-													</CommandItem>
-												))}
+												{allSchoolDistricts
+													?.filter((district) => !district.isPrivate)
+													.map((district) => (
+														<CommandItem
+															key={district.id}
+															onSelect={() => {
+																form.setValue(
+																	"schoolDistrict",
+																	district.fullName,
+																	{ shouldDirty: true, shouldValidate: true },
+																);
+																setDistrictsOpen(false);
+															}}
+															value={district.fullName}
+														>
+															{district.shortName ||
+																district.fullName.replace(
+																	/ (County )?School District/,
+																	"",
+																)}
+															<Check
+																className={cn(
+																	"ml-auto",
+																	district.fullName === field.value
+																		? "opacity-100"
+																		: "opacity-0",
+																)}
+															/>
+														</CommandItem>
+													))}
 											</CommandGroup>
 										</CommandList>
 									</Command>
