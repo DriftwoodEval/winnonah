@@ -1,4 +1,4 @@
-import { and, desc, eq, gte, like, lte, sql } from "drizzle-orm";
+import { and, desc, eq, gte, lte, sql } from "drizzle-orm";
 import z from "zod";
 import {
 	assertPermission,
@@ -21,7 +21,7 @@ function buildWhere(input: z.infer<typeof filterSchema>) {
 	const conditions = [
 		input.userId ? eq(auditLogs.userId, input.userId) : undefined,
 		input.clientId ? eq(auditLogs.clientId, input.clientId) : undefined,
-		input.action ? like(auditLogs.action, `%${input.action}%`) : undefined,
+		input.action ? eq(auditLogs.action, input.action) : undefined,
 		input.from ? gte(auditLogs.createdAt, input.from) : undefined,
 		input.to ? lte(auditLogs.createdAt, input.to) : undefined,
 	].filter((c): c is NonNullable<typeof c> => c !== undefined);

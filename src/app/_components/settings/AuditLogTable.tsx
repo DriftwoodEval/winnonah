@@ -2,7 +2,6 @@
 
 import { Badge } from "@ui/badge";
 import { Button } from "@ui/button";
-import { Input } from "@ui/input";
 import {
 	Select,
 	SelectContent,
@@ -46,6 +45,7 @@ export default function AuditLogTable() {
 	const [offset, setOffset] = useState(0);
 
 	const { data: users } = api.users.getAll.useQuery();
+	const { data: actionNames } = api.auditLog.getActionNames.useQuery();
 	const { data } = api.auditLog.list.useQuery(
 		{
 			userId,
@@ -93,12 +93,24 @@ export default function AuditLogTable() {
 					</SelectContent>
 				</Select>
 
-				<Input
-					className="w-[200px]"
-					onChange={(e) => resetAndSet<string>(setAction)(e.target.value)}
-					placeholder="Filter by action..."
-					value={action}
-				/>
+				<Select
+					onValueChange={resetAndSet<string>((value) =>
+						setAction(value === "all" ? "" : value),
+					)}
+					value={action || "all"}
+				>
+					<SelectTrigger className="w-[240px]">
+						<SelectValue placeholder="All actions" />
+					</SelectTrigger>
+					<SelectContent>
+						<SelectItem value="all">All actions</SelectItem>
+						{actionNames?.map((name) => (
+							<SelectItem key={name} value={name}>
+								{name}
+							</SelectItem>
+						))}
+					</SelectContent>
+				</Select>
 
 				{client ? (
 					<Button
