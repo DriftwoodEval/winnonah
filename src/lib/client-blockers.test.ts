@@ -13,6 +13,7 @@ function input(overrides: Partial<RecordsBlockerInput>): RecordsBlockerInput {
 		language: "English",
 		holdUntil: null,
 		requestedDates: [],
+		hasPendingRequest: false,
 		today: "2026-09-03",
 		...overrides,
 	};
@@ -72,13 +73,19 @@ describe("getRecordsBlockerReason", () => {
 		);
 	});
 
-	it("reports records requested but not received", () => {
+	it("stops blocking once records have been requested and no request is pending", () => {
 		expect(
 			getRecordsBlockerReason(input({ requestedDates: ["2026-08-01"] })),
-		).toMatch(/requested on/);
+		).toBeNull();
 	});
 
-	it("reports records not yet requested", () => {
+	it("does not block for a pending request with no outstanding blocker", () => {
+		expect(
+			getRecordsBlockerReason(input({ hasPendingRequest: true })),
+		).toBeNull();
+	});
+
+	it("reports records not yet requested when no request has ever existed", () => {
 		expect(getRecordsBlockerReason(input({}))).toMatch(/not yet requested/);
 	});
 });

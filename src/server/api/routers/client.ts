@@ -798,6 +798,7 @@ export const clientRouter = createTRPCRouter({
 							isPrivateSchool: row.referralData?.privateSchool === "yes",
 							language: row.language,
 							holdUntil: pendingHoldUntilByClientId.get(row.id),
+							hasPendingRequest: pendingHoldUntilByClientId.has(row.id),
 							requestedDates: requestedDatesByClientId.get(row.id) ?? [],
 							today,
 						});

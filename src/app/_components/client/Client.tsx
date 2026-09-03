@@ -230,6 +230,7 @@ export function Client({
 			isPrivateSchool: client.referralData?.privateSchool === "yes",
 			language: client.language,
 			holdUntil: pendingRequest?.holdUntil,
+			hasPendingRequest: !!pendingRequest,
 			requestedDates,
 			today: formatInBusinessTime(new Date(), "yyyy-MM-dd"),
 		});

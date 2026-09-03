@@ -5,6 +5,7 @@ title: Changelog
 ## 2026-09-03
 
 **Improved**
+- The "Not Sending Records" alert is quieter about records that were already requested. Once a request has gone out and nothing is pending, it no longer keeps flagging the client as waiting on records. It still shows when a client has never had a request, or when a pending request is held up (private school, unsupported language, or an active hold).
 - The Audit Log (Settings > Audit Log) can now be filtered by client: search for a client by name and the log narrows to entries about that client.
 - The Audit Log's action filter is now a dropdown of the actions that actually appear in the log, instead of a free-text box.
 

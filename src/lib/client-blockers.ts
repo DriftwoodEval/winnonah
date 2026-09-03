@@ -7,7 +7,10 @@ export type RecordsBlockerInput = {
 	isPrivateSchool: boolean;
 	language: string | null;
 	holdUntil: string | null | undefined;
+	/** Dates of requests that have actually been sent (never null entries). */
 	requestedDates: (string | null | undefined)[];
+	/** True when a request row exists that has not been sent yet. */
+	hasPendingRequest: boolean;
 	/** Today's date, business-local, as "YYYY-MM-DD". */
 	today: string;
 };
@@ -57,15 +60,17 @@ export function getRecordsBlockerReason(
 	}
 
 	const sentDates = input.requestedDates.filter((d): d is string => !!d);
-	if (sentDates.length === 0) {
+
+	// The only records blocker left to report is a client who has never had a
+	// request at all. Once a request exists (still pending, or already sent),
+	// any real blocker on it (private school, wrong language, an unexpired
+	// hold) has already returned above; a bare "still waiting on records" is
+	// not something staff act on, so it no longer blocks a send.
+	if (sentDates.length === 0 && !input.hasPendingRequest) {
 		return "records needed but not yet requested";
 	}
 
-	const lastSent = sentDates.reduce((latest, d) =>
-		compareDateOnly(d, latest) > 0 ? d : latest,
-	);
-	const verb = sentDates.length >= 2 ? "requested again" : "requested";
-	return `records needed, ${verb} on ${formatShortDate(lastSent)}, but not yet received`;
+	return null;
 }
 
 const SUPPORTED_QUESTIONNAIRE_LANGUAGES = new Set(["English", "Spanish"]);
