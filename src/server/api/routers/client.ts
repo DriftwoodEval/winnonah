@@ -42,10 +42,10 @@ import {
 } from "~/lib/google";
 import type { ClientWithIssueInfo } from "~/lib/models";
 import {
-	buildClosestOfficeKeyCaseSQL,
 	formatInBusinessTime,
+	getClosestOfficeKey,
 	getInsuranceShortName,
-	getOfficeDistanceSQL,
+	getOfficeDistanceMiles,
 	isNotesOnlyClientId,
 	localDateToDateOnly,
 } from "~/lib/utils";
@@ -79,6 +79,7 @@ import {
 	insuranceAliases,
 	insurances,
 	notes,
+	officeDriveTimes,
 	questionnaires,
 	referralMsgLog,
 	schedulingClients,
@@ -551,24 +552,10 @@ export const clientRouter = createTRPCRouter({
 			// office, falling back to the closest office if virtual), and
 			// "evaluator" (their most recent/next appointment's evaluator,
 			// falling back to their active scheduling-table assignment).
-			// One bulk query for the whole result set's closest-office fallback
-			// (used by getLocation below), rather than a per-row lookup: this
-			// procedure is unpaginated and can return the entire directory.
-			const closestOfficeDistanceExprs = allOffices.map((o) => ({
-				key: o.key,
-				dist: getOfficeDistanceSQL(
-					clients.id,
-					clients.latitude,
-					clients.longitude,
-					o.key,
-					o.latitude,
-					o.longitude,
-				),
-			}));
-			const closestOfficeKeyCase = buildClosestOfficeKeyCaseSQL(
-				closestOfficeDistanceExprs,
-			);
-
+			// The closest-office fallback (used by getLocation below) is computed
+			// in JS from the drive-time rows fetched here: this procedure is
+			// unpaginated and can return the whole directory, and doing it in SQL
+			// inlines one correlated subquery per office pair per row.
 			const [
 				primaryPolicies,
 				relevantAppointments,
@@ -576,7 +563,7 @@ export const clientRouter = createTRPCRouter({
 				allEvaluators,
 				externalRecordRows,
 				externalRecordRequestRows,
-				closestOfficeRows,
+				driveTimeRows,
 			] = clientIds.length
 				? await Promise.all([
 						ctx.db
@@ -647,17 +634,12 @@ export const clientRouter = createTRPCRouter({
 							.where(inArray(externalRecordRequests.clientId, clientIds)),
 						ctx.db
 							.select({
-								id: clients.id,
-								closestOfficeKey: closestOfficeKeyCase.mapWith(String),
+								clientId: officeDriveTimes.clientId,
+								officeKey: officeDriveTimes.officeKey,
+								distanceMiles: officeDriveTimes.distanceMiles,
 							})
-							.from(clients)
-							.where(
-								and(
-									inArray(clients.id, clientIds),
-									not(isNull(clients.latitude)),
-									not(isNull(clients.longitude)),
-								),
-							),
+							.from(officeDriveTimes)
+							.where(inArray(officeDriveTimes.clientId, clientIds)),
 					])
 				: [[], [], [], [], [], [], []];
 
@@ -694,9 +676,28 @@ export const clientRouter = createTRPCRouter({
 				}
 			}
 
-			const closestOfficeKeyByClientId = new Map(
-				closestOfficeRows.map((row) => [row.id, row.closestOfficeKey]),
-			);
+			const driveMilesByClientId = new Map<number, Map<string, number>>();
+			for (const row of driveTimeRows) {
+				if (row.distanceMiles === null) continue;
+				let officeMap = driveMilesByClientId.get(row.clientId);
+				if (!officeMap) {
+					officeMap = new Map();
+					driveMilesByClientId.set(row.clientId, officeMap);
+				}
+				officeMap.set(row.officeKey, parseFloat(row.distanceMiles));
+			}
+
+			const closestOfficeKeyByClientId = new Map<number, string>();
+			for (const row of rows) {
+				if (!row.latitude || !row.longitude) continue;
+				const closestKey = getClosestOfficeKey(
+					parseFloat(row.latitude),
+					parseFloat(row.longitude),
+					allOffices,
+					driveMilesByClientId.get(row.id),
+				);
+				if (closestKey) closestOfficeKeyByClientId.set(row.id, closestKey);
+			}
 
 			const officeNameByKey = new Map(
 				allOffices.map((office) => [office.key, office.prettyName]),
@@ -1108,26 +1109,43 @@ export const clientRouter = createTRPCRouter({
 
 			let closestOffices: ClosestOffice[] = [];
 			if (syncedClient.latitude && syncedClient.longitude) {
-				const distanceMilesSQL = getOfficeDistanceSQL(
-					syncedClient.id,
-					syncedClient.latitude,
-					syncedClient.longitude,
-					sql`o.key`,
-					sql`o.latitude`,
-					sql`o.longitude`,
-				);
-				const [rows] = await ctx.db.execute<ClosestOffice>(sql`
-        SELECT
-          o.key,
-          o.prettyName,
-          o.latitude,
-          o.longitude,
-          ${distanceMilesSQL} as distanceMiles
-        FROM emr_office o
-        ORDER BY distanceMiles
-      `);
+				const clientLat = parseFloat(syncedClient.latitude);
+				const clientLon = parseFloat(syncedClient.longitude);
+				const [allOffices, driveTimeRows] = await Promise.all([
+					ctx.db.query.offices.findMany(),
+					ctx.db
+						.select({
+							officeKey: officeDriveTimes.officeKey,
+							distanceMiles: officeDriveTimes.distanceMiles,
+						})
+						.from(officeDriveTimes)
+						.where(eq(officeDriveTimes.clientId, syncedClient.id)),
+				]);
 
-				closestOffices = rows as unknown as ClosestOffice[];
+				const driveMilesByOfficeKey = new Map<string, number>();
+				for (const row of driveTimeRows) {
+					if (row.distanceMiles !== null) {
+						driveMilesByOfficeKey.set(
+							row.officeKey,
+							parseFloat(row.distanceMiles),
+						);
+					}
+				}
+
+				closestOffices = allOffices
+					.map((o) => ({
+						key: o.key,
+						prettyName: o.prettyName,
+						latitude: o.latitude,
+						longitude: o.longitude,
+						distanceMiles: getOfficeDistanceMiles(
+							clientLat,
+							clientLon,
+							o,
+							driveMilesByOfficeKey.get(o.key),
+						),
+					}))
+					.sort((a, b) => a.distanceMiles - b.distanceMiles);
 			}
 
 			return {
@@ -2805,27 +2823,16 @@ export const clientRouter = createTRPCRouter({
 
 					const allOffices = await ctx.db.query.offices.findMany();
 
-					if (office && allOffices.length > 0) {
-						const distanceExprs = allOffices.map((o) => ({
-							key: o.key,
-							dist: getOfficeDistanceSQL(
-								clients.id,
-								clients.latitude,
-								clients.longitude,
-								o.key,
-								o.latitude,
-								o.longitude,
-							),
-						}));
-
-						const closestOfficeKeyCase =
-							buildClosestOfficeKeyCaseSQL(distanceExprs);
-
+					// When filtering by closest office we only restrict to geocoded
+					// clients in SQL here; the office match itself is done in JS
+					// below, rather than a SQL CASE that inlines one correlated
+					// drive-time subquery per office pair per row.
+					const officeFilterActive = Boolean(office && allOffices.length > 0);
+					if (officeFilterActive) {
 						conditions.push(
 							and(
 								not(isNull(clients.latitude)),
 								not(isNull(clients.longitude)),
-								eq(closestOfficeKeyCase, office),
 							),
 						);
 					}
@@ -2902,19 +2909,6 @@ export const clientRouter = createTRPCRouter({
 						}
 					}
 
-					const countByColor = await ctx.db
-						.select({
-							color: clients.color,
-							count: sql<number>`COUNT(*)`.as("count"),
-						})
-						.from(clients)
-						.where(conditions.length > 0 ? and(...conditions) : undefined)
-						.groupBy(clients.color);
-
-					if (color) {
-						conditions.push(eq(clients.color, color));
-					}
-
 					let { sortReasonSQL, orderBySQL } = getPriorityInfo();
 
 					if (effectiveSort === "priority") {
@@ -2938,38 +2932,108 @@ export const clientRouter = createTRPCRouter({
         END`.as("sortReason");
 					}
 
-					let selectedOffice: {
-						key: string;
-						latitude: string;
-						longitude: string;
-					} | null = null;
-					if (office) {
-						const officeData = allOffices.find((o) => o.key === office);
-						if (officeData) {
-							selectedOffice = {
-								key: officeData.key,
-								latitude: officeData.latitude,
-								longitude: officeData.longitude,
-							};
+					const selectedOffice =
+						officeFilterActive && office
+							? (allOffices.find((o) => o.key === office) ?? null)
+							: null;
+
+					// Closest-office filter: pull the candidate set (every filter
+					// except the office and color), rank offices per client in JS,
+					// then derive the color counts and apply the color filter in
+					// memory so the counts still reflect the office filter.
+					if (officeFilterActive) {
+						if (!selectedOffice) return { clients: [], colorCounts: [] };
+
+						const preColorRows = await ctx.db
+							.select({
+								...getTableColumns(clients),
+								sortReason: sortReasonSQL,
+							})
+							.from(clients)
+							.where(and(...conditions))
+							.orderBy(...orderBySQL);
+
+						const candidateIds = preColorRows.map((row) => row.id);
+						const driveTimeRows = candidateIds.length
+							? await ctx.db
+									.select({
+										clientId: officeDriveTimes.clientId,
+										officeKey: officeDriveTimes.officeKey,
+										distanceMiles: officeDriveTimes.distanceMiles,
+									})
+									.from(officeDriveTimes)
+									.where(inArray(officeDriveTimes.clientId, candidateIds))
+							: [];
+
+						const driveMilesByClientId = new Map<number, Map<string, number>>();
+						for (const row of driveTimeRows) {
+							if (row.distanceMiles === null) continue;
+							let officeMap = driveMilesByClientId.get(row.clientId);
+							if (!officeMap) {
+								officeMap = new Map();
+								driveMilesByClientId.set(row.clientId, officeMap);
+							}
+							officeMap.set(row.officeKey, parseFloat(row.distanceMiles));
 						}
+
+						const finalRows: Array<
+							(typeof preColorRows)[number] & { distanceToOffice: number }
+						> = [];
+						const countMap = new Map<
+							(typeof preColorRows)[number]["color"],
+							number
+						>();
+						for (const row of preColorRows) {
+							if (!row.latitude || !row.longitude) continue;
+							const lat = parseFloat(row.latitude);
+							const lon = parseFloat(row.longitude);
+							const driveMiles = driveMilesByClientId.get(row.id);
+							if (
+								getClosestOfficeKey(lat, lon, allOffices, driveMiles) !==
+								selectedOffice.key
+							) {
+								continue;
+							}
+							countMap.set(row.color, (countMap.get(row.color) ?? 0) + 1);
+							if (color && row.color !== color) continue;
+							finalRows.push({
+								...row,
+								distanceToOffice: getOfficeDistanceMiles(
+									lat,
+									lon,
+									selectedOffice,
+									driveMiles?.get(selectedOffice.key),
+								),
+							});
+						}
+
+						return {
+							clients: finalRows,
+							colorCounts: [...countMap].map(([c, count]) => ({
+								color: c,
+								count,
+							})),
+						};
 					}
 
-					const distanceToOfficeSQL = selectedOffice
-						? getOfficeDistanceSQL(
-								clients.id,
-								clients.latitude,
-								clients.longitude,
-								selectedOffice.key,
-								selectedOffice.latitude,
-								selectedOffice.longitude,
-							).as("distanceToOffice")
-						: sql<null>`NULL`.as("distanceToOffice");
+					const countByColor = await ctx.db
+						.select({
+							color: clients.color,
+							count: sql<number>`COUNT(*)`.as("count"),
+						})
+						.from(clients)
+						.where(conditions.length > 0 ? and(...conditions) : undefined)
+						.groupBy(clients.color);
+
+					if (color) {
+						conditions.push(eq(clients.color, color));
+					}
 
 					const filteredAndSortedClients = await ctx.db
 						.select({
 							...getTableColumns(clients),
 							sortReason: sortReasonSQL,
-							distanceToOffice: distanceToOfficeSQL,
+							distanceToOffice: sql<null>`NULL`.as("distanceToOffice"),
 						})
 						.from(clients)
 						.where(and(conditions.length > 0 ? and(...conditions) : undefined))

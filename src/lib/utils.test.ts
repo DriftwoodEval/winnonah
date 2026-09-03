@@ -12,8 +12,10 @@ import {
 	formatShortDate,
 	formatShortInstantDate,
 	formatTaMessage,
+	getClosestOfficeKey,
 	getInsuranceShortName,
 	getInsuranceShortNamesList,
+	getOfficeDistanceMiles,
 	getReminderColorClass,
 	getStatusColorClass,
 	hasPermission,
@@ -378,6 +380,44 @@ describe("isNotesOnlyClientId", () => {
 	it("returns false for nullish input", () => {
 		expect(isNotesOnlyClientId(null)).toBe(false);
 		expect(isNotesOnlyClientId(undefined)).toBe(false);
+	});
+});
+
+describe("getClosestOfficeKey", () => {
+	const offices = [
+		{ key: "near", latitude: "34.00", longitude: "-81.00" },
+		{ key: "far", latitude: "34.50", longitude: "-81.00" },
+	];
+
+	it("picks the straight-line closest office with no drive data", () => {
+		expect(getClosestOfficeKey(34.05, -81.0, offices)).toBe("near");
+	});
+
+	it("prefers a cached drive distance over the straight-line estimate", () => {
+		const driveMiles = new Map([
+			["near", 40],
+			["far", 5],
+		]);
+		expect(getClosestOfficeKey(34.05, -81.0, offices, driveMiles)).toBe("far");
+	});
+
+	it("falls back to straight-line for an office with no drive row", () => {
+		const driveMiles = new Map([["far", 500]]);
+		expect(getClosestOfficeKey(34.05, -81.0, offices, driveMiles)).toBe("near");
+	});
+});
+
+describe("getOfficeDistanceMiles", () => {
+	const office = { latitude: "34.50", longitude: "-81.00" };
+
+	it("returns the cached drive distance when given one", () => {
+		expect(getOfficeDistanceMiles(34.0, -81.0, office, 12.3)).toBe(12.3);
+	});
+
+	it("falls back to straight-line miles with no cached distance", () => {
+		const miles = getOfficeDistanceMiles(34.0, -81.0, office);
+		expect(miles).toBeGreaterThan(30);
+		expect(miles).toBeLessThan(40);
 	});
 });
 

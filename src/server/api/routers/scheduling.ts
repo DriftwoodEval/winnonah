@@ -19,11 +19,7 @@ import { z } from "zod";
 import { fetchWithCache } from "~/lib/cache";
 import type { ALLOWED_ASD_ADHD_VALUES } from "~/lib/constants";
 import { syncPunchData } from "~/lib/google";
-import {
-	buildClosestOfficeKeyCaseSQL,
-	getInsuranceShortNamesList,
-	getOfficeDistanceSQL,
-} from "~/lib/utils";
+import { getClosestOfficeKey, getInsuranceShortNamesList } from "~/lib/utils";
 import {
 	getClosestOfficeKeyByDriveTime,
 	resolveInsuranceAliasNames,
@@ -33,7 +29,12 @@ import {
 	createTRPCRouter,
 	protectedProcedure,
 } from "~/server/api/trpc";
-import { clients, evaluators, schedulingClients } from "~/server/db/schema";
+import {
+	clients,
+	evaluators,
+	officeDriveTimes,
+	schedulingClients,
+} from "~/server/db/schema";
 
 const schedulingFilterSchema = z.object({
 	color: z.array(z.string()).optional(),
@@ -110,22 +111,64 @@ async function fetchSchedulingRefData(ctx: Context) {
 	return { allOffices, allEvaluators, allDistricts, allInsurances };
 }
 
-function computeClosestOfficeKeyCase(
+// The closest office is the fallback location for a scheduling row that has no
+// explicit office. The scheduling sheet is one small table fully loaded on
+// every request, so rank each client's offices in JS from the cached drive
+// times here and emit a plain `id -> key` CASE. Ranking it in SQL instead would
+// make every grouped facet query re-run one correlated drive-time subquery per
+// office pair per row.
+async function computeClosestOfficeKeyCase(
+	db: Context["db"],
 	allOffices: Awaited<ReturnType<typeof fetchSchedulingRefData>>["allOffices"],
+	archived: boolean,
 ) {
-	const distanceExprs = allOffices.map((o) => ({
-		key: o.key,
-		dist: getOfficeDistanceSQL(
-			clients.id,
-			clients.latitude,
-			clients.longitude,
-			o.key,
-			o.latitude,
-			o.longitude,
-		),
-	}));
+	const rows = await db
+		.select({
+			id: clients.id,
+			latitude: clients.latitude,
+			longitude: clients.longitude,
+		})
+		.from(schedulingClients)
+		.innerJoin(clients, eq(schedulingClients.clientId, clients.id))
+		.where(eq(schedulingClients.archived, archived));
 
-	return buildClosestOfficeKeyCaseSQL(distanceExprs);
+	const clientIds = rows.map((row) => row.id);
+	const driveTimeRows = clientIds.length
+		? await db
+				.select({
+					clientId: officeDriveTimes.clientId,
+					officeKey: officeDriveTimes.officeKey,
+					distanceMiles: officeDriveTimes.distanceMiles,
+				})
+				.from(officeDriveTimes)
+				.where(inArray(officeDriveTimes.clientId, clientIds))
+		: [];
+
+	const driveMilesByClientId = new Map<number, Map<string, number>>();
+	for (const row of driveTimeRows) {
+		if (row.distanceMiles === null) continue;
+		let officeMap = driveMilesByClientId.get(row.clientId);
+		if (!officeMap) {
+			officeMap = new Map();
+			driveMilesByClientId.set(row.clientId, officeMap);
+		}
+		officeMap.set(row.officeKey, parseFloat(row.distanceMiles));
+	}
+
+	const whenClauses = [];
+	for (const row of rows) {
+		if (!row.latitude || !row.longitude) continue;
+		const key = getClosestOfficeKey(
+			parseFloat(row.latitude),
+			parseFloat(row.longitude),
+			allOffices,
+			driveMilesByClientId.get(row.id),
+		);
+		if (key) whenClauses.push(sql`WHEN ${row.id} THEN ${key}`);
+	}
+
+	if (!whenClauses.length) return sql`NULL`;
+	return sql`CASE ${clients.id} ${sql.join(whenClauses, sql` `)} END`;
 }
 
 // Builds the WHERE conditions for the derived, per-column filters shown on the
@@ -135,7 +178,7 @@ async function buildSchedulingConditions(
 	db: Context["db"],
 	input: SchedulingFilterInput,
 	refData: Awaited<ReturnType<typeof fetchSchedulingRefData>>,
-	closestOfficeKeyCase: ReturnType<typeof computeClosestOfficeKeyCase>,
+	closestOfficeKeyCase: Awaited<ReturnType<typeof computeClosestOfficeKeyCase>>,
 	exclude?: SchedulingFilterField,
 ) {
 	const conditions = [];
@@ -278,7 +321,11 @@ async function fetchScheduledClients(
 	}
 
 	const refData = await fetchSchedulingRefData(ctx);
-	const closestOfficeKeyCase = computeClosestOfficeKeyCase(refData.allOffices);
+	const closestOfficeKeyCase = await computeClosestOfficeKeyCase(
+		ctx.db,
+		refData.allOffices,
+		archived,
+	);
 	const conditions = await buildSchedulingConditions(
 		ctx.db,
 		input,
@@ -325,7 +372,11 @@ async function fetchSchedulingFacetCounts(
 	input: SchedulingFilterInput,
 ) {
 	const refData = await fetchSchedulingRefData(ctx);
-	const closestOfficeKeyCase = computeClosestOfficeKeyCase(refData.allOffices);
+	const closestOfficeKeyCase = await computeClosestOfficeKeyCase(
+		ctx.db,
+		refData.allOffices,
+		archived,
+	);
 
 	const baseWhere = async (exclude: SchedulingFilterField) =>
 		and(
@@ -411,15 +462,18 @@ async function fetchSchedulingFacetCounts(
 			.select({
 				officeKey: sql<
 					string | null
-				>`COALESCE(${schedulingClients.office}, ${closestOfficeKeyCase})`,
+				>`COALESCE(${schedulingClients.office}, ${closestOfficeKeyCase})`.as(
+					"officeKey",
+				),
 				count: count(),
 			})
 			.from(schedulingClients)
 			.innerJoin(clients, eq(schedulingClients.clientId, clients.id))
 			.where(await baseWhere("location"))
-			.groupBy(
-				sql`COALESCE(${schedulingClients.office}, ${closestOfficeKeyCase})`,
-			),
+			// Group by the select alias, not the expression: only_full_group_by
+			// does not treat a repeated CASE expression as matching the select
+			// list, so repeating it here fails with error 1055.
+			.groupBy(sql`officeKey`),
 		ctx.db
 			.select({ value: clients.schoolDistrict, count: count() })
 			.from(schedulingClients)
