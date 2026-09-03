@@ -18,10 +18,12 @@ import {
 	TableHeader,
 	TableRow,
 } from "@ui/table";
+import { X } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
 import { formatInBusinessTime } from "~/lib/utils";
 import { api } from "~/trpc/react";
+import { ClientSearchAndAdd } from "../clients/ClientSearchAndAdd";
 
 const PAGE_SIZE = 50;
 
@@ -38,6 +40,9 @@ function formatDetail(detail: unknown): string | null {
 export default function AuditLogTable() {
 	const [userId, setUserId] = useState<string | undefined>(undefined);
 	const [action, setAction] = useState("");
+	const [client, setClient] = useState<{ id: number; fullName: string } | null>(
+		null,
+	);
 	const [offset, setOffset] = useState(0);
 
 	const { data: users } = api.users.getAll.useQuery();
@@ -45,6 +50,7 @@ export default function AuditLogTable() {
 		{
 			userId,
 			action: action || undefined,
+			clientId: client?.id,
 			limit: PAGE_SIZE,
 			offset,
 		},
@@ -93,6 +99,29 @@ export default function AuditLogTable() {
 					placeholder="Filter by action..."
 					value={action}
 				/>
+
+				{client ? (
+					<Button
+						className="gap-1"
+						onClick={() => resetAndSet(setClient)(null)}
+						variant="outline"
+					>
+						{client.fullName}
+						<X className="h-4 w-4" />
+					</Button>
+				) : (
+					<div className="w-[240px]">
+						<ClientSearchAndAdd
+							addButtonLabel="Filter"
+							floating
+							onAdd={(c) =>
+								resetAndSet(setClient)({ id: c.id, fullName: c.fullName })
+							}
+							placeholder="Filter by client..."
+							status="all"
+						/>
+					</div>
+				)}
 			</div>
 
 			<div className="overflow-x-auto">
