@@ -926,7 +926,7 @@ export function ClientDirectory() {
 	// Matches Tailwind's `sm` breakpoint. Mounting only the relevant layout
 	// (instead of rendering both and hiding one with CSS) roughly halves
 	// per-row render work, since the unpaginated client list can be long.
-	const isMobile = useMediaQuery("(max-width: 639px)");
+	const isMobile = useMediaQuery("(max-width: 1023px)");
 
 	const getArrayParam = (key: string) => {
 		const raw = searchParams.get(key);

@@ -593,7 +593,7 @@ export default function InsurancesTable() {
 	// since each row mounts its own DropdownMenu/Dialog/AlertDialog - doubling
 	// them up caused Radix's scroll-lock bookkeeping to fight itself when a
 	// menu opened on mobile.
-	const isMobile = useMediaQuery("(max-width: 639px)");
+	const isMobile = useMediaQuery("(max-width: 1023px)");
 
 	if (isLoading)
 		return <p className="p-4 text-center">Loading insurances...</p>;
