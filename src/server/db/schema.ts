@@ -13,6 +13,7 @@ import {
 	IN_PERSON_ASSESSMENT_STATUSES,
 	QUESTIONNAIRE_STATUSES,
 } from "~/lib/constants";
+import type { PinnedList } from "~/lib/pinned-list";
 import type { PermissionsObject } from "~/lib/types";
 import type {
 	AdditionalInsuranceAppointments,
@@ -1052,6 +1053,7 @@ export const users = createTable("user", (d) => ({
 	lastSeenChangelogMarker: d.text(),
 	blockedEvaluatorNpis: d.json().$type<number[]>(),
 	listFilters: d.json().$type<Record<string, string[]>>(),
+	pinnedList: d.json().$type<PinnedList>(),
 }));
 
 export const usersRelations = relations(users, ({ many, one }) => ({

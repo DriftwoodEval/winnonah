@@ -2,6 +2,7 @@ import { TRPCError } from "@trpc/server";
 import { eq } from "drizzle-orm";
 import z from "zod";
 import { env } from "~/env";
+import { pinnedListSchema } from "~/lib/pinned-list";
 import { type PermissionsObject, permissionsSchema } from "~/lib/types";
 import {
 	assertPermission,
@@ -473,6 +474,30 @@ export const userRouter = createTRPCRouter({
 				.set({ listFilters })
 				.where(eq(users.id, ctx.session.user.id));
 		}),
+
+	getPinnedList: protectedProcedure.query(async ({ ctx }) => {
+		const userFromDb = await ctx.db.query.users.findFirst({
+			where: eq(users.id, ctx.session.user.id),
+		});
+
+		return userFromDb?.pinnedList ?? null;
+	}),
+
+	setPinnedList: protectedProcedure
+		.input(pinnedListSchema)
+		.mutation(async ({ ctx, input }) => {
+			await ctx.db
+				.update(users)
+				.set({ pinnedList: input })
+				.where(eq(users.id, ctx.session.user.id));
+		}),
+
+	clearPinnedList: protectedProcedure.mutation(async ({ ctx }) => {
+		await ctx.db
+			.update(users)
+			.set({ pinnedList: null })
+			.where(eq(users.id, ctx.session.user.id));
+	}),
 
 	getHeaderPreferences: protectedProcedure.query(async ({ ctx }) => {
 		const userFromDb = await ctx.db.query.users.findFirst({

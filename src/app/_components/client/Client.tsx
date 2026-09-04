@@ -43,6 +43,7 @@ import { InPersonAssessmentsTable } from "./InPersonAssessmentsTable";
 import { InsuranceTab } from "./InsuranceTab";
 import { MergeRecommendationAlert } from "./MergeRecommendationAlert";
 import { PersistentStatusAlert } from "./PersistentStatusAlert";
+import { PinnedListNav } from "./PinnedListNav";
 import { QuestionnairesTable } from "./QuestionnairesTable";
 import { RecordsNoteEditor } from "./RecordsNoteEditor";
 import { ReferralTab } from "./ReferralTab";
@@ -260,6 +261,8 @@ export function Client({
 			)}
 
 			<div className="flex w-full max-w-[calc(100%-32px)] flex-col items-center gap-6 lg:max-w-3xl">
+				{!readOnly && <PinnedListNav clientHash={hash} />}
+
 				<ClientHeader
 					client={client}
 					isLoading={isLoading}

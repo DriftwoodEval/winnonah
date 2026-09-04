@@ -36,6 +36,7 @@ import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { useCheckPermission } from "~/hooks/use-check-permission";
 import { usePersistedScroll } from "~/hooks/use-persisted-scroll";
+import { usePinnedList } from "~/hooks/use-pinned-list";
 import { getHexFromColor, isClientColor } from "~/lib/colors";
 import {
 	type DashboardClient,
@@ -47,9 +48,31 @@ import {
 	SECTION_RECORDS_REQUESTED_NOT_RETURNED,
 } from "~/lib/dashboard";
 import type { FullClientInfo } from "~/lib/models";
+import type { PinnedList } from "~/lib/pinned-list";
 import { userBadgeStyle } from "~/lib/utils";
 import { api } from "~/trpc/react";
 import { Redact } from "../redaction/Redact";
+
+function PinListButton({ pinned }: { pinned: PinnedList }) {
+	const { isPinned, setPinned, clearPinned } = usePinnedList();
+	const active = isPinned(pinned);
+
+	return (
+		<Button
+			aria-label={
+				active ? "Unpin this list" : "Pin this list for prev/next navigation"
+			}
+			className="font-medium text-muted-foreground text-xs"
+			onClick={() => (active ? clearPinned() : setPinned(pinned))}
+			size="sm"
+			type="button"
+			variant="ghost"
+		>
+			{active ? <PinOff className="h-3 w-3" /> : <Pin className="h-3 w-3" />}
+			<span>{active ? "Pinned for prev/next" : "Pin this list"}</span>
+		</Button>
+	);
+}
 
 interface PunchListAccordionProps {
 	clients: DashboardClient[];
@@ -202,6 +225,9 @@ function PunchListAccordionItem({
 						<AlertDescription>{description}</AlertDescription>
 					</Alert>
 				)}
+				<div className="mb-2 flex justify-end">
+					<PinListButton pinned={{ kind: "dashboardSection", title }} />
+				</div>
 				{savedPlaceKey && savedPlaceHash && (
 					<div className="mb-2 flex justify-end">
 						<Button
@@ -499,6 +525,7 @@ export function Dashboard() {
 	const can = useCheckPermission();
 	const canInsuranceReview = can("clients:insurance:review");
 	const { data: session } = useSession();
+	const utils = api.useUtils();
 
 	const {
 		data: dashboardData,
@@ -521,8 +548,11 @@ export function Dashboard() {
 	const { data: listFilters } = api.users.getListFilters.useQuery(undefined, {
 		enabled: canInsuranceReview,
 	});
-	const { mutate: updateListFilters } =
-		api.users.updateListFilters.useMutation();
+	const { mutate: updateListFilters } = api.users.updateListFilters.useMutation(
+		{
+			onSuccess: () => utils.users.getListFilters.invalidate(),
+		},
+	);
 	const appliedSavedInsuranceFiltersRef = useRef(false);
 
 	useEffect(() => {
@@ -555,7 +585,6 @@ export function Dashboard() {
 		return true;
 	});
 
-	const utils = api.useUtils();
 	const insuranceSavedClientRef = useRef<HTMLDivElement>(null);
 	const persistInsuranceScrollRef = usePersistedScroll(
 		"dashboard-section:insurance-review",
@@ -792,6 +821,9 @@ export function Dashboard() {
 														Waiting
 													</Label>
 												</div>
+											</div>
+											<div className="mb-2 flex justify-end">
+												<PinListButton pinned={{ kind: "insuranceReview" }} />
 											</div>
 											{insuranceSavedPlaceHash && (
 												<div className="mb-2 flex justify-end">
