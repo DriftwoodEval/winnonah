@@ -686,39 +686,54 @@ export const insuranceReviewHistoryRelations = relations(
 	}),
 );
 
-export const appointments = createTable("appointment", (d) => ({
-	id: d.varchar({ length: 255 }).notNull().primaryKey(),
-	clientId: d
-		.int()
-		.notNull()
-		.references(() => clients.id, { onDelete: "cascade" }),
-	evaluatorNpi: d
-		.int()
-		.notNull()
-		.references(() => evaluators.npi, { onDelete: "cascade" }),
-	startTime: d.timestamp("startTime").notNull(),
-	endTime: d.timestamp("endTime").notNull(),
-	cpt: d.varchar({ length: 255 }),
-	daEval: d.mysqlEnum(["EVAL", "DA", "DAEVAL"]),
-	asdAdhd: d.mysqlEnum(["ASD", "ADHD", "ASD+ADHD", "ASD+LD", "ADHD+LD", "LD"]),
-	cancelled: d.boolean().notNull().default(false),
-	rescheduled: d.boolean().notNull().default(false),
-	placeholder: d.boolean().notNull().default(false),
-	billingOnly: d.boolean().notNull().default(false),
-	locationKey: d.varchar({ length: 255 }),
-	calendarEventId: d.varchar({ length: 255 }),
-	calendarEventTitle: d.varchar({ length: 255 }),
-	confirmedAt: d.timestamp(),
-	doNotRemind: d.boolean().notNull().default(false),
-	lastTaskCompletedDate: d.date({ mode: "string" }),
-	dueDateOverride: d.date({ mode: "string" }),
-	reportCompletedAt: d.timestamp(),
-	reportCompletedByEmail: d.varchar({
-		length: 255,
+export const appointments = createTable(
+	"appointment",
+	(d) => ({
+		id: d.varchar({ length: 255 }).notNull().primaryKey(),
+		clientId: d
+			.int()
+			.notNull()
+			.references(() => clients.id, { onDelete: "cascade" }),
+		evaluatorNpi: d
+			.int()
+			.notNull()
+			.references(() => evaluators.npi, { onDelete: "cascade" }),
+		startTime: d.timestamp("startTime").notNull(),
+		endTime: d.timestamp("endTime").notNull(),
+		cpt: d.varchar({ length: 255 }),
+		daEval: d.mysqlEnum(["EVAL", "DA", "DAEVAL"]),
+		asdAdhd: d.mysqlEnum([
+			"ASD",
+			"ADHD",
+			"ASD+ADHD",
+			"ASD+LD",
+			"ADHD+LD",
+			"LD",
+		]),
+		cancelled: d.boolean().notNull().default(false),
+		rescheduled: d.boolean().notNull().default(false),
+		placeholder: d.boolean().notNull().default(false),
+		billingOnly: d.boolean().notNull().default(false),
+		locationKey: d.varchar({ length: 255 }),
+		calendarEventId: d.varchar({ length: 255 }),
+		calendarEventTitle: d.varchar({ length: 255 }),
+		confirmedAt: d.timestamp(),
+		doNotRemind: d.boolean().notNull().default(false),
+		lastTaskCompletedDate: d.date({ mode: "string" }),
+		dueDateOverride: d.date({ mode: "string" }),
+		reportCompletedAt: d.timestamp(),
+		reportCompletedByEmail: d.varchar({
+			length: 255,
+		}),
+		evaluatorDashboardArchivedAt: d.timestamp(),
+		evaluatorDashboardShowAnyway: d.boolean().notNull().default(false),
 	}),
-	evaluatorDashboardArchivedAt: d.timestamp(),
-	evaluatorDashboardShowAnyway: d.boolean().notNull().default(false),
-}));
+	(t) => [
+		index("appointment_start_time_idx").on(t.startTime),
+		index("appointment_client_idx").on(t.clientId),
+		index("appointment_evaluator_idx").on(t.evaluatorNpi),
+	],
+);
 
 export const assessmentTypes = createTable("assessment_type", (d) => ({
 	id: d.int().notNull().autoincrement().primaryKey(),
