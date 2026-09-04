@@ -7,6 +7,7 @@ from collections import deque
 from collections.abc import Sequence
 from datetime import UTC, datetime, timedelta
 from email.message import EmailMessage
+from functools import lru_cache
 from pathlib import Path
 
 import pandas as pd
@@ -34,24 +35,35 @@ _GOOGLE_DOC_MIME = "application/vnd.google-apps.document"
 _GOOGLE_FOLDER_MIME = "application/vnd.google-apps.folder"
 
 
+@lru_cache(maxsize=1)
+def _creds_holder() -> list[Credentials | None]:
+    """One-item mutable box holding the cached credentials, if any.
+
+    A plain module-level variable would need `global` to reassign from
+    inside google_authenticate(); mutating a cached list avoids that.
+    """
+    return [None]
+
+
 def google_authenticate():
     """Authenticate with Google using the credentials in ./auth_cache/credentials.json (obtained from Google Cloud Console) and ./auth_cache/token.json (user-specific).
 
     If the credentials are not valid, the user is prompted to log in.
     The credentials are then saved to ./auth_cache/token.json for the next run.
     Returns the authenticated credentials.
-    """
-    creds = None
-    # The file token.json stores the user's access and refresh tokens, and is
-    # created automatically when the authorization flow completes for the first
-    # time.
-    if Path.exists(Path("auth_cache/token.json")):
-        creds = Credentials.from_authorized_user_file("./auth_cache/token.json", SCOPES)
-    # If there are no valid credentials, start the authorization flow
-    else:
-        creds = None
 
-    # If the credentials are invalid or have expired, refresh the credentials
+    Keeps the credentials object in memory across calls within a process,
+    rather than re-reading and re-writing token.json on every single call:
+    refresh() updates the cached object (and its access token) in place, so
+    a service object built from it earlier keeps working without needing to
+    be rebuilt.
+    """
+    holder = _creds_holder()
+    creds = holder[0]
+
+    if creds is None and Path.exists(Path("auth_cache/token.json")):
+        creds = Credentials.from_authorized_user_file("./auth_cache/token.json", SCOPES)
+
     if not creds or not creds.valid:
         if creds and creds.expired and creds.refresh_token:
             creds.refresh(Request())
@@ -62,20 +74,20 @@ def google_authenticate():
             )
             creds = flow.run_local_server(port=0)
 
-    # Save the credentials for the next run
-    with Path.open(Path("auth_cache/token.json"), "w") as token:
-        token.write(creds.to_json())
+        # Save the credentials for the next run, only when they actually changed.
+        with Path.open(Path("auth_cache/token.json"), "w") as token:
+            token.write(creds.to_json())
 
+    holder[0] = creds
     return creds
 
 
 def get_items_in_folder(folder_id: str):
     """Get all items in the given folder."""
-    creds = google_authenticate()
     files = None
     for _ in range(3):  # Try up to 3 times
         try:
-            service = build("drive", "v3", credentials=creds)
+            service = get_drive_service()
             files = []
             page_token = None
             while True:
@@ -106,9 +118,8 @@ def get_items_in_folder(folder_id: str):
 
 def create_folder_in_folder(new_folder_name: str, parent_folder_id: str):
     """Create a new folder in the given parent folder."""
-    creds = google_authenticate()
     try:
-        service = build("drive", "v3", credentials=creds)
+        service = get_drive_service()
         file_metadata = {
             "name": new_folder_name,
             "mimeType": _GOOGLE_FOLDER_MIME,
@@ -119,22 +130,32 @@ def create_folder_in_folder(new_folder_name: str, parent_folder_id: str):
         logger.error(f"An error occurred: {err}")
 
 
+@lru_cache(maxsize=1)
 def get_drive_service():
-    """Get the Google Drive service."""
+    """Get the Google Drive service, reusing the same instance across calls."""
     creds = google_authenticate()
     return build("drive", "v3", credentials=creds)
 
 
+@lru_cache(maxsize=1)
 def get_sheets_service():
-    """Get the Google Sheets service."""
+    """Get the Google Sheets service, reusing the same instance across calls."""
     creds = google_authenticate()
     return build("sheets", "v4", credentials=creds)
 
 
+@lru_cache(maxsize=1)
 def get_gmail_service():
-    """Get the Gmail service."""
+    """Get the Gmail service, reusing the same instance across calls."""
     creds = google_authenticate()
     return build("gmail", "v1", credentials=creds)
+
+
+@lru_cache(maxsize=1)
+def get_calendar_service():
+    """Get the Google Calendar service, reusing the same instance across calls."""
+    creds = google_authenticate()
+    return build("calendar", "v3", credentials=creds)
 
 
 def _get_punchlist_column_map(column_name: str) -> dict[str, str]:
@@ -739,10 +760,8 @@ def send_gmail(
     attachments: Sequence[str | tuple[bytes, str]] | None = None,
 ):
     """Send an email using the Gmail API."""
-    creds = google_authenticate()
-
     try:
-        service = build("gmail", "v1", credentials=creds)
+        service = get_gmail_service()
 
         message = EmailMessage()
         message.set_content(message_text)
@@ -900,8 +919,7 @@ def _patch_gcal_event(event_id: str, calendar_id: str | None, patch_fn) -> bool:
 
     Scans all calendars unless calendar_id is provided. Returns True if patched.
     """
-    creds = google_authenticate()
-    service = build("calendar", "v3", credentials=creds)
+    service = get_calendar_service()
 
     if calendar_id:
         calendars = [{"id": calendar_id}]
@@ -987,8 +1005,7 @@ def find_gcal_event_by_client_and_time(
         f"{start_time_utc.isoformat()} (±5 min match)"
     )
 
-    creds = google_authenticate()
-    service = build("calendar", "v3", credentials=creds)
+    service = get_calendar_service()
 
     window_start = (start_time_utc - timedelta(hours=1)).isoformat()
     window_end = (start_time_utc + timedelta(hours=1)).isoformat()

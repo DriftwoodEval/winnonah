@@ -868,7 +868,13 @@ const ClientCard = memo(function ClientCard({
 	const isPriority = PRIORITY_REASONS.has(client.sortReason);
 
 	return (
-		<div className="rounded-lg border bg-card p-4 shadow-xs">
+		<div
+			className="rounded-lg border bg-card p-4 shadow-xs"
+			style={{
+				contentVisibility: "auto",
+				containIntrinsicSize: "auto 220px",
+			}}
+		>
 			<Link
 				className="flex flex-wrap items-center gap-2 font-medium hover:underline"
 				href={`/clients/${client.hash}`}
@@ -920,7 +926,7 @@ export function ClientDirectory() {
 	// Matches Tailwind's `sm` breakpoint. Mounting only the relevant layout
 	// (instead of rendering both and hiding one with CSS) roughly halves
 	// per-row render work, since the unpaginated client list can be long.
-	const isMobile = useMediaQuery("(max-width: 639px)");
+	const isMobile = useMediaQuery("(max-width: 1023px)");
 
 	const getArrayParam = (key: string) => {
 		const raw = searchParams.get(key);
