@@ -357,6 +357,9 @@ def prepare_appointments_from_csv(
     appointments_df["NAME"] = appointments_df["NAME"].fillna("N/A").astype(str)
 
     appointments_df["STARTTIME_DT"] = pd.to_datetime(appointments_df["STARTTIME"])
+    appointments_df["ENDTIME_DT"] = pd.to_datetime(
+        appointments_df["ENDTIME"], errors="coerce"
+    )
 
     if appointments_df["STARTTIME_DT"].isna().any():
         missing_count = appointments_df["STARTTIME_DT"].isna().sum()
@@ -393,6 +396,7 @@ def prepare_appointments_from_csv(
     flagged_skip_appointment = 0
     flagged_90000_duplicate = 0
     flagged_next_day_billing = 0
+    flagged_short_duration = 0
 
     for idx, appointment in appointments_df.iterrows():
         appointment_id = str(appointment["APPOINTMENT_ID"])
@@ -412,6 +416,14 @@ def prepare_appointments_from_csv(
 
         if should_skip_appointment(appointment):
             flagged_skip_appointment += 1
+            billing_indices.add(idx)
+            continue
+
+        # Appointments shorter than 30 minutes are insurance billing entries, not
+        # real sessions. Skip rows with an unparseable ENDTIME rather than guess.
+        end_time = appointment["ENDTIME_DT"]
+        if pd.notna(end_time) and (end_time - start_time) < timedelta(minutes=30):
+            flagged_short_duration += 1
             billing_indices.add(idx)
             continue
 
@@ -451,6 +463,11 @@ def prepare_appointments_from_csv(
         logger.debug(
             f"Flagged {flagged_next_day_billing} appointment(s) as billing-only "
             "(seen on previous day)."
+        )
+    if flagged_short_duration:
+        logger.debug(
+            f"Flagged {flagged_short_duration} appointment(s) as billing-only "
+            "(shorter than 30 minutes)."
         )
     billing_df = appointments_df.loc[list(billing_indices)].copy()
     appointments_df = appointments_df.drop(
