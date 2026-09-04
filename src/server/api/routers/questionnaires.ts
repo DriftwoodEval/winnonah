@@ -354,26 +354,40 @@ async function resolveApplicableRules(
 	return { rules: resultRules, ageInYears };
 }
 
-async function checkAndUpdateQsBatteryStatus(ctx: Context, clientId: number) {
+async function checkAndUpdateQsBatteryStatus(
+	ctx: Context,
+	clientId: number,
+	preloaded?: {
+		client?: typeof clients.$inferSelect;
+		allRules?: (typeof questionnaireRules.$inferSelect)[];
+		clientQs?: (typeof questionnaires.$inferSelect)[];
+	},
+) {
 	const session = ctx.session;
 	if (!session) return;
 	if (!session.user?.accessToken || !session.user?.refreshToken) return;
 
-	const client = await ctx.db.query.clients.findFirst({
-		where: eq(clients.id, clientId),
-	});
+	const client =
+		preloaded?.client ??
+		(await ctx.db.query.clients.findFirst({
+			where: eq(clients.id, clientId),
+		}));
 	if (!client) return;
 
-	const allRules = await ctx.db.query.questionnaireRules.findMany({
-		orderBy: [
-			asc(questionnaireRules.daeval),
-			asc(questionnaireRules.diagnosis),
-			asc(questionnaireRules.minAge),
-		],
-	});
-	const clientQs = await ctx.db.query.questionnaires.findMany({
-		where: eq(questionnaires.clientId, clientId),
-	});
+	const allRules =
+		preloaded?.allRules ??
+		(await ctx.db.query.questionnaireRules.findMany({
+			orderBy: [
+				asc(questionnaireRules.daeval),
+				asc(questionnaireRules.diagnosis),
+				asc(questionnaireRules.minAge),
+			],
+		}));
+	const clientQs =
+		preloaded?.clientQs ??
+		(await ctx.db.query.questionnaires.findMany({
+			where: eq(questionnaires.clientId, clientId),
+		}));
 
 	const { rules: applicableRules } = await resolveApplicableRules(
 		ctx,
@@ -1216,8 +1230,39 @@ export const questionnaireRouter = createTRPCRouter({
 				columns: { clientId: true },
 			});
 			const uniqueClientIds = [...new Set(affectedQs.map((q) => q.clientId))];
+
+			const [allRules, allClients, allClientQs] = await Promise.all([
+				ctx.db.query.questionnaireRules.findMany({
+					orderBy: [
+						asc(questionnaireRules.daeval),
+						asc(questionnaireRules.diagnosis),
+						asc(questionnaireRules.minAge),
+					],
+				}),
+				ctx.db.query.clients.findMany({
+					where: inArray(clients.id, uniqueClientIds),
+				}),
+				ctx.db.query.questionnaires.findMany({
+					where: inArray(questionnaires.clientId, uniqueClientIds),
+				}),
+			]);
+			const clientsById = new Map(allClients.map((c) => [c.id, c]));
+			const qsByClientId = new Map<
+				number,
+				(typeof questionnaires.$inferSelect)[]
+			>();
+			for (const q of allClientQs) {
+				const group = qsByClientId.get(q.clientId);
+				if (group) group.push(q);
+				else qsByClientId.set(q.clientId, [q]);
+			}
+
 			for (const clientId of uniqueClientIds) {
-				await checkAndUpdateQsBatteryStatus(ctx, clientId);
+				await checkAndUpdateQsBatteryStatus(ctx, clientId, {
+					client: clientsById.get(clientId),
+					allRules,
+					clientQs: qsByClientId.get(clientId) ?? [],
+				});
 			}
 
 			return { success: true };
