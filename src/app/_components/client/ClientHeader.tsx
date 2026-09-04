@@ -141,14 +141,30 @@ export function ClientHeader({
 						{!readOnly && !isNotesOnlyClientId(client.id) && (
 							<ClientEditButton client={client} />
 						)}
-						{!readOnly &&
-							(!client.driveId || client.driveId === "N/A") &&
-							canDrive && (
-								<>
-									<Separator orientation="vertical" />
-									<AddDriveButton client={client} />
-								</>
-							)}
+						{!readOnly && !client.driveId && canDrive && (
+							<>
+								<Separator orientation="vertical" />
+								<AddDriveButton client={client} />
+							</>
+						)}
+						{!readOnly && client.driveId === "N/A" && canDrive && (
+							<>
+								<Separator orientation="vertical" />
+								<button
+									aria-label="Edit Drive"
+									onClick={() => setEditDriveOpen(true)}
+									type="button"
+								>
+									<Image
+										alt="Edit Google Drive folder"
+										className="dark:invert"
+										height={16}
+										src="/icons/google-drive.svg"
+										width={16}
+									/>
+								</button>
+							</>
+						)}
 						{!readOnly &&
 							!isNotesOnlyClientId(client.id) &&
 							client.driveId &&
