@@ -868,7 +868,13 @@ const ClientCard = memo(function ClientCard({
 	const isPriority = PRIORITY_REASONS.has(client.sortReason);
 
 	return (
-		<div className="rounded-lg border bg-card p-4 shadow-xs">
+		<div
+			className="rounded-lg border bg-card p-4 shadow-xs"
+			style={{
+				contentVisibility: "auto",
+				containIntrinsicSize: "auto 220px",
+			}}
+		>
 			<Link
 				className="flex flex-wrap items-center gap-2 font-medium hover:underline"
 				href={`/clients/${client.hash}`}
