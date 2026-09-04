@@ -36,7 +36,6 @@ import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { useCheckPermission } from "~/hooks/use-check-permission";
 import { usePersistedScroll } from "~/hooks/use-persisted-scroll";
-import { usePinnedList } from "~/hooks/use-pinned-list";
 import { getHexFromColor, isClientColor } from "~/lib/colors";
 import {
 	type DashboardClient,
@@ -48,31 +47,10 @@ import {
 	SECTION_RECORDS_REQUESTED_NOT_RETURNED,
 } from "~/lib/dashboard";
 import type { FullClientInfo } from "~/lib/models";
-import type { PinnedList } from "~/lib/pinned-list";
 import { userBadgeStyle } from "~/lib/utils";
 import { api } from "~/trpc/react";
 import { Redact } from "../redaction/Redact";
-
-function PinListButton({ pinned }: { pinned: PinnedList }) {
-	const { isPinned, setPinned, clearPinned } = usePinnedList();
-	const active = isPinned(pinned);
-
-	return (
-		<Button
-			aria-label={
-				active ? "Unpin this list" : "Pin this list for prev/next navigation"
-			}
-			className="font-medium text-muted-foreground text-xs"
-			onClick={() => (active ? clearPinned() : setPinned(pinned))}
-			size="sm"
-			type="button"
-			variant="ghost"
-		>
-			{active ? <PinOff className="h-3 w-3" /> : <Pin className="h-3 w-3" />}
-			<span>{active ? "Pinned for prev/next" : "Pin this list"}</span>
-		</Button>
-	);
-}
+import { PinListButton } from "./PinListButton";
 
 interface PunchListAccordionProps {
 	clients: DashboardClient[];

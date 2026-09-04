@@ -13,6 +13,7 @@ import {
 } from "~/lib/dashboard";
 import type { Client, FullClientInfo } from "~/lib/models";
 import { api } from "~/trpc/react";
+import { PinListButton } from "../dashboard/PinListButton";
 import { Redact } from "../redaction/Redact";
 
 interface DashboardSectionWidgetProps {
@@ -52,11 +53,14 @@ export function DashboardSectionWidget({
 
 	return (
 		<div className="flex h-full flex-col">
-			<div className="flex shrink-0 items-center gap-2 border-b px-3 py-2">
+			<div className="flex shrink-0 items-center justify-between gap-2 border-b px-3 py-2">
 				<span className="font-medium text-sm">
 					{sectionTitle}{" "}
 					<span className="text-muted-foreground">({clients.length})</span>
 				</span>
+				<PinListButton
+					pinned={{ kind: "dashboardSection", title: sectionTitle }}
+				/>
 			</div>
 			{clients.length === 0 ? (
 				<p className="px-3 py-4 text-center text-muted-foreground text-sm">

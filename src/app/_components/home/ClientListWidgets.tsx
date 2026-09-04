@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useSession } from "next-auth/react";
 import { useCheckPermission } from "~/hooks/use-check-permission";
 import { api } from "~/trpc/react";
+import { PinListButton } from "../dashboard/PinListButton";
 import { Redact } from "../redaction/Redact";
 
 export function RecentClientsWidget() {
@@ -67,28 +68,31 @@ export function MyInsuranceClientsWidget() {
 		);
 	}
 
-	if (!clients?.length) {
-		return (
-			<p className="px-3 py-4 text-center text-muted-foreground text-sm">
-				No claimed insurance clients
-			</p>
-		);
-	}
-
 	return (
-		<div className="flex flex-wrap items-center gap-2 overflow-auto rounded-lg border border-destructive/20 bg-destructive/5 p-3">
-			<span className="text-muted-foreground text-xs uppercase tracking-wide">
-				My Insurance Clients
-			</span>
-			{clients.map((c) => (
-				<Link
-					className="shrink-0 whitespace-nowrap rounded-md border bg-background px-2.5 py-1 text-sm shadow-xs hover:bg-accent hover:text-accent-foreground dark:border-input dark:bg-input/30 dark:hover:bg-input/50"
-					href={`/clients/${c.clientHash}?tab=insurance`}
-					key={c.clientHash}
-				>
-					<Redact>{c.clientName}</Redact>
-				</Link>
-			))}
+		<div className="flex flex-col gap-2 overflow-auto rounded-lg border border-destructive/20 bg-destructive/5 p-3">
+			<div className="flex items-center justify-between gap-2">
+				<span className="text-muted-foreground text-xs uppercase tracking-wide">
+					My Insurance Clients
+				</span>
+				<PinListButton pinned={{ kind: "insuranceReview" }} />
+			</div>
+			{!clients?.length ? (
+				<p className="py-2 text-center text-muted-foreground text-sm">
+					No claimed insurance clients
+				</p>
+			) : (
+				<div className="flex flex-wrap items-center gap-2">
+					{clients.map((c) => (
+						<Link
+							className="shrink-0 whitespace-nowrap rounded-md border bg-background px-2.5 py-1 text-sm shadow-xs hover:bg-accent hover:text-accent-foreground dark:border-input dark:bg-input/30 dark:hover:bg-input/50"
+							href={`/clients/${c.clientHash}?tab=insurance`}
+							key={c.clientHash}
+						>
+							<Redact>{c.clientName}</Redact>
+						</Link>
+					))}
+				</div>
+			)}
 		</div>
 	);
 }
