@@ -4,6 +4,7 @@ import hashlib
 import inspect
 import json
 import os
+import time
 from collections.abc import Callable
 from contextlib import contextmanager
 from datetime import date, datetime
@@ -61,18 +62,34 @@ from utils.timezone import now_business, now_utc, utc_to_business
 load_dotenv()
 
 
+DB_CONNECT_MAX_ATTEMPTS = 3
+DB_CONNECT_BACKOFF_SECONDS = 1
+
+
 def get_db() -> Connection[DictCursor]:
-    """Returns a connection to the database."""
+    """Returns a connection to the database, retrying on transient connect failures."""
     db_url = urlparse(os.getenv("DATABASE_URL", ""))
-    return pymysql.connect(
-        host=db_url.hostname,
-        port=db_url.port or 3306,
-        user=db_url.username,
-        password=db_url.password or "",
-        database=db_url.path[1:],
-        cursorclass=pymysql.cursors.DictCursor,
-        init_command="SET time_zone = '+00:00'",
-    )
+    for attempt in range(1, DB_CONNECT_MAX_ATTEMPTS + 1):
+        try:
+            return pymysql.connect(
+                host=db_url.hostname,
+                port=db_url.port or 3306,
+                user=db_url.username,
+                password=db_url.password or "",
+                database=db_url.path[1:],
+                cursorclass=pymysql.cursors.DictCursor,
+                init_command="SET time_zone = '+00:00'",
+            )
+        except (OSError, pymysql.err.OperationalError) as e:
+            if attempt == DB_CONNECT_MAX_ATTEMPTS:
+                raise
+            wait = DB_CONNECT_BACKOFF_SECONDS * 2 ** (attempt - 1)
+            logger.warning(
+                f"DB connect attempt {attempt}/{DB_CONNECT_MAX_ATTEMPTS} failed"
+                f" ({e}), retrying in {wait}s"
+            )
+            time.sleep(wait)
+    raise AssertionError("unreachable")
 
 
 def provide_connection(func: Callable) -> Callable:

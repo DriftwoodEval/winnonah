@@ -1515,7 +1515,7 @@ function InternalSchedulingTable({
 	isFetching,
 }: InternalSchedulingTableProps) {
 	const tableRef = useRef<HTMLDivElement>(null);
-	const isMobile = useMediaQuery("(max-width: 639px)");
+	const isMobile = useMediaQuery("(max-width: 1023px)");
 
 	const dndSensors = useSensors(
 		useSensor(PointerSensor, POINTER_SENSOR_OPTIONS),
@@ -2205,7 +2205,7 @@ function SchedulingTableView({
 	const utils = api.useUtils();
 	const { filters, handleFilterChange, isInitialized } =
 		useSchedulingFilterState(type);
-	const isMobile = useMediaQuery("(max-width: 639px)");
+	const isMobile = useMediaQuery("(max-width: 1023px)");
 
 	const queryFilters = useMemo(() => {
 		const result: Partial<

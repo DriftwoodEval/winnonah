@@ -58,7 +58,7 @@ export function ResponsiveDialog({
 				{trigger && <DialogTrigger asChild>{trigger}</DialogTrigger>}
 				<DialogContent
 					className={cn(
-						"max-h-[calc(100vh-4rem)] max-w-fit overflow-x-hidden overflow-y-scroll",
+						"max-h-[calc(100vh-4rem)] max-w-[min(fit-content,calc(100%-2rem))] overflow-x-hidden overflow-y-scroll",
 						className,
 					)}
 					onOpenAutoFocus={onOpenAutoFocus}
