@@ -183,9 +183,13 @@ MIN_ORIENTATION_CONFIDENCE = 2.0
 # margin. When two rotations read close to each other (a page whose
 # upright and upside down, or occasionally two perpendicular renders, look
 # about as legible to OCR) a raw+clean-agreed OSD reading breaks the tie
-# even below the confidence we'd trust it at on its own. Otherwise the
-# page is unreadable (blank, heavy handwriting) and we leave it as
-# received; every fax gets a human review anyway.
+# even below the confidence we'd trust it at on its own. Failing that, if
+# the upright render barely reads at all but two renders 90 degrees apart
+# both read well, the page is simply sideways (its heavy fax speckle or a
+# big rotated logo narrowing the gap between the right way up and its
+# 180-flip), so take the higher-reading of the two. Otherwise the page is
+# unreadable (blank, heavy handwriting) and we leave it as received; every
+# fax gets a human review anyway.
 _MIN_WORD_CONFIDENCE = 55
 _MIN_ORIENTATION_SCORE = 800.0
 _ORIENTATION_SCORE_MARGIN = 1.35
@@ -259,6 +263,14 @@ def _orient_by_reading(
         return best
     if osd_hint in (best, second) and osd_conf >= _MIN_OSD_TIEBREAK_CONFIDENCE:
         return osd_hint if (best - second) % 180 == 0 else best
+    if (
+        scores[0] < _MIN_ORIENTATION_SCORE
+        and scores[second] >= _MIN_ORIENTATION_SCORE
+        and (best - second) % 180 != 0
+    ):
+        # Upright barely reads, but `best` and its 180-flip (`second`) both
+        # do: the page is sideways and `best` is the way up.
+        return best
     return 0
 
 

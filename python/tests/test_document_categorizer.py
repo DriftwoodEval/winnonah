@@ -405,16 +405,27 @@ class TestOrientByReading:
             assert _orient_by_reading(self._img(), osd_hint=180, osd_conf=1.8) == 180
 
     def test_osd_hint_ignored_when_too_unconfident(self):
+        # upright still reads well enough not to trip the sideways rule, so
+        # the weak OSD hint is the only lever and it's ignored
         with patch(
             "utils.document_categorizer._readability_score",
-            side_effect=[122.0, 3900.0, 3473.0, 251.0],
+            side_effect=[900.0, 3900.0, 3473.0, 251.0],
         ):
             assert _orient_by_reading(self._img(), osd_hint=180, osd_conf=0.4) == 0
+
+    def test_rotates_sideways_page_when_upright_barely_reads(self):
+        # angle 0 is near-blank; 90 and its 180-flip both read well (fax
+        # speckle narrowing the gap), so rotate to the higher-reading 90
+        with patch(
+            "utils.document_categorizer._readability_score",
+            side_effect=[241.0, 3642.0, 3054.0, 120.0],
+        ):
+            assert _orient_by_reading(self._img()) == 90
 
     def test_osd_hint_ignored_when_not_among_the_top_two(self):
         with patch(
             "utils.document_categorizer._readability_score",
-            side_effect=[122.0, 3900.0, 3473.0, 251.0],
+            side_effect=[900.0, 3900.0, 3473.0, 251.0],
         ):
             assert _orient_by_reading(self._img(), osd_hint=0, osd_conf=3.0) == 0
 
