@@ -141,12 +141,14 @@ export function ClientHeader({
 						{!readOnly && !isNotesOnlyClientId(client.id) && (
 							<ClientEditButton client={client} />
 						)}
-						{!readOnly && !client.driveId && canDrive && (
-							<>
-								<Separator orientation="vertical" />
-								<AddDriveButton client={client} />
-							</>
-						)}
+						{!readOnly &&
+							(!client.driveId || client.driveId === "N/A") &&
+							canDrive && (
+								<>
+									<Separator orientation="vertical" />
+									<AddDriveButton client={client} />
+								</>
+							)}
 						{!readOnly &&
 							!isNotesOnlyClientId(client.id) &&
 							client.driveId &&
