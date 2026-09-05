@@ -265,14 +265,22 @@ export default function NavigationLinks() {
 			icon: FileText,
 			items: [
 				{
+					id: "claim-reports",
+					href: "/claim-reports",
+					label: "Claim Reports",
+					icon: FileText,
+					show: session.user.maxClaimedReports !== 0 || can("reports:approve"),
+				},
+				{
 					id: "reports",
 					href: "/reports",
-					label: "Reports",
+					label: "Reports (Beta)",
 					icon: FileText,
 					show:
-						session.user.maxClaimedReports !== 0 ||
-						can("reports:approve") ||
-						can("reports:billing"),
+						(session.user.maxClaimedReports !== 0 ||
+							can("reports:approve") ||
+							can("reports:billing")) &&
+						can("reports:beta"),
 				},
 				{
 					id: "report-dashboard",

@@ -30,6 +30,7 @@ export type HeaderItemId =
 	| "greeter-schedule"
 	| "availability"
 	| "scheduling"
+	| "claim-reports"
 	| "reports"
 	| "report-dashboard"
 	| "fax-categorization"
@@ -117,8 +118,16 @@ export const HEADER_ITEM_DEFS: HeaderItemDef[] = [
 		surfaces: BOTH_SURFACES,
 	},
 	{
+		id: "claim-reports",
+		label: "Claim Reports",
+		icon: FileText,
+		area: "nav",
+		category: "Reports",
+		surfaces: BOTH_SURFACES,
+	},
+	{
 		id: "reports",
-		label: "Reports",
+		label: "Reports (Beta)",
 		icon: FileText,
 		area: "nav",
 		category: "Reports",
