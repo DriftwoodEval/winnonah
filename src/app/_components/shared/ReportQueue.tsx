@@ -12,14 +12,21 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { useCheckPermission } from "~/hooks/use-check-permission";
+import {
+	REPORT_QUEUE_FOLDER_ID,
+	REPORT_WRITERS_FOLDER_ID,
+} from "~/lib/constants";
 import { api } from "~/trpc/react";
 
 interface ReportQueueProps {
-	sourceId: string;
-	destId: string;
+	sourceId?: string;
+	destId?: string;
 }
 
-export default function ReportQueue({ sourceId, destId }: ReportQueueProps) {
+export default function ReportQueue({
+	sourceId = REPORT_QUEUE_FOLDER_ID,
+	destId = REPORT_WRITERS_FOLDER_ID,
+}: ReportQueueProps) {
 	const utils = api.useUtils();
 	const can = useCheckPermission();
 	const canApprove = can("reports:approve");
@@ -54,6 +61,8 @@ export default function ReportQueue({ sourceId, destId }: ReportQueueProps) {
 				else void utils.google.getQueueCount.invalidate();
 				void utils.google.getClaimedFolders.invalidate();
 				void utils.google.getClaimedReports.invalidate();
+				void utils.reports.list.invalidate();
+				void utils.reports.myReports.invalidate();
 				return `Claimed "${data.folder_claimed}" into "${data.moved_into}"`;
 			},
 			error: (err: Error) => err.message,

@@ -1423,6 +1423,105 @@ export const pieceworkReportTracking = createTable(
 	}),
 );
 
+export const REPORT_STATUSES = [
+	// Pool report whose row exists (an eval appointment happened) but whose client
+	// folder has not yet reached the report-writing queue. Visible to approvers
+	// only, not claimable. Promoted to "queued" by the Drive-queue reconcile.
+	"pending",
+	"queued",
+	"claimed",
+	"submitted",
+	"approved",
+] as const;
+
+export const reports = createTable(
+	"report",
+	(d) => ({
+		id: d.int().notNull().autoincrement().primaryKey(),
+		clientId: d
+			.int()
+			.notNull()
+			.references(() => clients.id, { onDelete: "cascade" }),
+		// Evaluator of the eval appointment that spawned this report. Used for the
+		// blocked-evaluator claim gate and for display.
+		evaluatorNpi: d
+			.int()
+			.references(() => evaluators.npi, { onDelete: "set null" }),
+		asdAdhd: d.mysqlEnum([
+			"ASD",
+			"ADHD",
+			"ASD+ADHD",
+			"ASD+LD",
+			"ADHD+LD",
+			"LD",
+		]),
+		// Snapshot of the spawning evaluator's writesOwnReports at creation.
+		// false: pool report claimed on /claim-reports. true: written by the
+		// evaluator who did the testing, pre-assigned, never in the claim queue.
+		selfWritten: d.boolean().notNull().default(false),
+		// Snapshot computed at creation: false when this is an ADHD-only report and
+		// the evaluator is not the configured ADHD-piecework evaluator. Mirrors
+		// piecework's "For != ADHD OR Evaluator == ap" filter.
+		billablePiecework: d.boolean().notNull().default(true),
+		status: d.mysqlEnum(REPORT_STATUSES).notNull().default("queued"),
+		writerUserId: d
+			.varchar({ length: 255 })
+			.references(() => users.id, { onDelete: "set null" }),
+		writerEmail: d.varchar({ length: 255 }),
+		folderId: d.varchar({ length: 255 }),
+		folderName: d.varchar({ length: 255 }),
+		claimedAt: d.timestamp(),
+		// When the client folder was observed in the report-writing queue and the
+		// row moved from "pending" to "queued".
+		queueReadyAt: d.timestamp(),
+		writerCompletedAt: d.timestamp(),
+		writerCompletedByEmail: d.varchar({ length: 255 }),
+		approvedAt: d.timestamp(),
+		approvedByEmail: d.varchar({ length: 255 }),
+		billed: d.boolean().notNull().default(false),
+		billedAt: d.timestamp(),
+		billedByEmail: d.varchar({ length: 255 }),
+		firstReviewDone: d.boolean().notNull().default(false),
+		firstReviewAt: d.timestamp(),
+		firstReviewByEmail: d.varchar({ length: 255 }),
+		secondReviewNeeded: d.boolean().notNull().default(false),
+		secondReviewNeededAt: d.timestamp(),
+		secondReviewByEmail: d.varchar({ length: 255 }),
+		bridgesBilled: d.boolean().notNull().default(false),
+		bridgesBilledAt: d.timestamp(),
+		bridgesBilledByEmail: d.varchar({ length: 255 }),
+		source: d
+			.mysqlEnum(["auto", "manual", "backfill"])
+			.notNull()
+			.default("auto"),
+		createdByEmail: d.varchar({ length: 255 }),
+		notes: d.text(),
+		archivedAt: d.timestamp(),
+		createdAt: d.timestamp().default(sql`CURRENT_TIMESTAMP`).notNull(),
+		updatedAt: d.timestamp().onUpdateNow().default(sql`CURRENT_TIMESTAMP`),
+	}),
+	(t) => [
+		index("report_client_idx").on(t.clientId),
+		index("report_status_idx").on(t.status),
+		index("report_writer_idx").on(t.writerUserId),
+	],
+);
+
+export const reportsRelations = relations(reports, ({ one }) => ({
+	client: one(clients, {
+		fields: [reports.clientId],
+		references: [clients.id],
+	}),
+	evaluator: one(evaluators, {
+		fields: [reports.evaluatorNpi],
+		references: [evaluators.npi],
+	}),
+	writer: one(users, {
+		fields: [reports.writerUserId],
+		references: [users.id],
+	}),
+}));
+
 export const workSummaryConfig = createTable("work_summary_config", (d) => ({
 	id: d.int().notNull().primaryKey().default(1),
 	appointmentDurationDefaults: d
@@ -1437,6 +1536,16 @@ export const workSummaryConfig = createTable("work_summary_config", (d) => ({
 export const reportQueueConfig = createTable("report_queue_config", (d) => ({
 	id: d.int().notNull().primaryKey().default(1),
 	defaultMaxClaimedReports: d.int().notNull().default(1),
+	// Labels for the two named report-review stages. Configurable so the
+	// reviewer's initials are not baked into the UI.
+	firstReviewLabel: d
+		.varchar({ length: 255 })
+		.notNull()
+		.default("First review"),
+	secondReviewLabel: d
+		.varchar({ length: 255 })
+		.notNull()
+		.default("Second review"),
 }));
 
 export const appointmentNotes = createTable("appointment_note", (d) => ({

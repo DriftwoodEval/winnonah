@@ -40,7 +40,10 @@ function useItemAvailability(): Record<HeaderItemId, boolean> {
 	const canSeeEvalReportDashboard =
 		(session?.user.isEvaluator ?? false) || can("evaluator-dashboard:admin");
 	const canSeeClaimReports =
-		session?.user.maxClaimedReports !== 0 || can("reports:approve");
+		session?.user.maxClaimedReports !== 0 ||
+		can("reports:approve") ||
+		can("reports:billing");
+	const canSeeReports = canSeeClaimReports && can("reports:beta");
 
 	const availability = {} as Record<HeaderItemId, boolean>;
 	for (const def of HEADER_ITEM_DEFS) {
@@ -48,6 +51,8 @@ function useItemAvailability(): Record<HeaderItemId, boolean> {
 			availability[def.id] = canSeeEvalReportDashboard;
 		} else if (def.id === "claim-reports") {
 			availability[def.id] = canSeeClaimReports;
+		} else if (def.id === "reports") {
+			availability[def.id] = canSeeReports;
 		} else {
 			const permission = ITEM_PERMISSIONS[def.id];
 			availability[def.id] = permission ? can(permission) : true;

@@ -30,6 +30,36 @@ export function hasPermission(
 }
 
 /**
+ * Whether a user can see the Reports page: report writers (maxClaimedReports not
+ * explicitly zeroed) plus anyone who approves reports or manages report billing.
+ */
+export function canAccessReports(user: {
+	permissions: PermissionsObject;
+	maxClaimedReports?: number | null;
+}): boolean {
+	return (
+		user.maxClaimedReports !== 0 ||
+		hasPermission(user.permissions, "reports:approve") ||
+		hasPermission(user.permissions, "reports:billing")
+	);
+}
+
+/**
+ * Whether a user can see the new unified /reports page, currently in closed beta.
+ * Same audience as canAccessReports, gated further on the reports:beta permission.
+ * Remove this gate (and the reports:beta permission) at GA, once /claim-reports
+ * and ClaimedReports.tsx are retired in favor of this page.
+ */
+export function canAccessReportsBeta(user: {
+	permissions: PermissionsObject;
+	maxClaimedReports?: number | null;
+}): boolean {
+	return (
+		canAccessReports(user) && hasPermission(user.permissions, "reports:beta")
+	);
+}
+
+/**
  * Reformat an error message to be friendlier by replacing permission IDs with their titles.
  */
 export function formatError(message: string): string {

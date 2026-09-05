@@ -78,6 +78,9 @@ export const pieceworkConfigSchema = z.object({
 	costs: z.record(z.string(), pieceworkCostsSchema),
 	name_map: z.record(z.string(), z.string()),
 	payroll_emails: z.record(z.string(), z.email()),
+	// NPI of the evaluator whose ADHD reports are paid as piecework. Other ADHD
+	// reports are not. Empty string when unset.
+	adhd_piecework_evaluator_npi: z.string().default(""),
 });
 
 // --- Main Config Schemas ---
