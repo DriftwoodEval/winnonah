@@ -10,7 +10,7 @@ import {
 	updatePunchReportFields,
 } from "~/lib/google";
 import type { PermissionsObject } from "~/lib/types";
-import { hasPermission } from "~/lib/utils";
+import { canAccessReportsBeta, hasPermission } from "~/lib/utils";
 import {
 	type Context,
 	createTRPCRouter,
@@ -41,22 +41,11 @@ const BILLING_FIELDS = {
 	},
 } as const;
 
-function canAccessReportsPage(
-	perms: PermissionsObject,
-	maxClaimed?: number | null,
-) {
-	return (
-		maxClaimed !== 0 ||
-		hasPermission(perms, "reports:approve") ||
-		hasPermission(perms, "reports:billing")
-	);
-}
-
 function assertReportsPage(user: {
 	permissions: PermissionsObject;
 	maxClaimedReports?: number | null;
 }) {
-	if (!canAccessReportsPage(user.permissions, user.maxClaimedReports)) {
+	if (!canAccessReportsBeta(user)) {
 		throw new TRPCError({
 			code: "UNAUTHORIZED",
 			message: "You don't have access to Reports",

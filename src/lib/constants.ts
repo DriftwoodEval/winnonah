@@ -135,6 +135,7 @@ export const PERMISSIONS = {
 					{ id: "clients:download", title: "Download CSVs" },
 					{ id: "reports:approve", title: "Approve Reports" },
 					{ id: "reports:billing", title: "Manage Report Billing & Review" },
+					{ id: "reports:beta", title: "Access New Reports Page (Beta)" },
 					{
 						id: "reports:notifications",
 						title: "Receive Report Queue Notifications",

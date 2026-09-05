@@ -3,7 +3,7 @@ import { eq } from "drizzle-orm";
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { ReportsView } from "~/app/_components/reports/ReportsView";
-import { canAccessReports } from "~/lib/utils";
+import { canAccessReportsBeta } from "~/lib/utils";
 import { auth } from "~/server/auth";
 import { db } from "~/server/db";
 import { users } from "~/server/db/schema";
@@ -22,7 +22,7 @@ export default async function Page() {
 			columns: { maxClaimedReports: true },
 		});
 		if (
-			!canAccessReports({
+			!canAccessReportsBeta({
 				permissions: session.user.permissions,
 				maxClaimedReports: user?.maxClaimedReports,
 			})
