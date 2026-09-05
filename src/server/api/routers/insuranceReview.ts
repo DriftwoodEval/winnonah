@@ -1,5 +1,6 @@
 import type { JSONContent } from "@tiptap/core";
 import { and, asc, desc, eq, isNull } from "drizzle-orm";
+import { alias } from "drizzle-orm/mysql-core";
 import { z } from "zod";
 import { env } from "~/env";
 import {
@@ -16,6 +17,7 @@ import {
 import {
 	clients,
 	insuranceReview,
+	insuranceReviewClaimHistory,
 	insuranceReviewHistory,
 	notes,
 	users,
@@ -119,12 +121,15 @@ export const insuranceReviewRouter = createTRPCRouter({
 				where: eq(insuranceReview.clientId, input.clientId),
 			});
 
+			let claimedBy: string | null = null;
+
 			if (current) {
 				const updates: Partial<typeof insuranceReview.$inferInsert> = {
 					enabled: input.enabled,
 				};
 				if (input.enabled && !current.claimedUserEmail) {
-					updates.claimedUserEmail = ctx.session.user.email;
+					claimedBy = ctx.session.user.email ?? null;
+					updates.claimedUserEmail = claimedBy;
 				}
 				if (input.enabled) {
 					updates.submittedToNotesAt = null;
@@ -134,11 +139,20 @@ export const insuranceReviewRouter = createTRPCRouter({
 					.set(updates)
 					.where(eq(insuranceReview.clientId, input.clientId));
 			} else {
+				claimedBy = input.enabled ? (ctx.session.user.email ?? null) : null;
 				await ctx.db.insert(insuranceReview).values({
 					clientId: input.clientId,
 					enabled: input.enabled,
-					claimedUserEmail: input.enabled ? ctx.session.user.email : null,
+					claimedUserEmail: claimedBy,
 					updatedBy: ctx.session.user.email,
+				});
+			}
+
+			if (claimedBy) {
+				await ctx.db.insert(insuranceReviewClaimHistory).values({
+					reviewId: input.clientId,
+					userEmail: claimedBy,
+					setBy: ctx.session.user.email,
 				});
 			}
 
@@ -173,10 +187,18 @@ export const insuranceReviewRouter = createTRPCRouter({
 				"Setting insurance review claim",
 			);
 
-			await ctx.db
-				.update(insuranceReview)
-				.set({ claimedUserEmail: input.userEmail })
-				.where(eq(insuranceReview.clientId, input.clientId));
+			await ctx.db.transaction(async (tx) => {
+				await tx
+					.update(insuranceReview)
+					.set({ claimedUserEmail: input.userEmail })
+					.where(eq(insuranceReview.clientId, input.clientId));
+
+				await tx.insert(insuranceReviewClaimHistory).values({
+					reviewId: input.clientId,
+					userEmail: input.userEmail,
+					setBy: ctx.session.user.email,
+				});
+			});
 
 			if (
 				input.userEmail !== ctx.session.user.email &&
@@ -257,6 +279,33 @@ export const insuranceReviewRouter = createTRPCRouter({
 			};
 
 			return [currentVersion, ...history];
+		}),
+
+	getClaimHistory: protectedProcedure
+		.input(z.object({ clientId: z.number() }))
+		.query(async ({ ctx, input }) => {
+			assertPermission(ctx.session.user, "clients:insurance:review");
+
+			const setByUsers = alias(users, "set_by_users");
+
+			return ctx.db
+				.select({
+					id: insuranceReviewClaimHistory.id,
+					userEmail: insuranceReviewClaimHistory.userEmail,
+					userName: users.name,
+					userImage: users.image,
+					setBy: insuranceReviewClaimHistory.setBy,
+					setByName: setByUsers.name,
+					createdAt: insuranceReviewClaimHistory.createdAt,
+				})
+				.from(insuranceReviewClaimHistory)
+				.leftJoin(users, eq(insuranceReviewClaimHistory.userEmail, users.email))
+				.leftJoin(
+					setByUsers,
+					eq(insuranceReviewClaimHistory.setBy, setByUsers.email),
+				)
+				.where(eq(insuranceReviewClaimHistory.reviewId, input.clientId))
+				.orderBy(desc(insuranceReviewClaimHistory.createdAt));
 		}),
 
 	submitToNotes: protectedProcedure

@@ -12,7 +12,7 @@ import {
 } from "@ui/select";
 import { debounce } from "es-toolkit/function";
 import { isEqual } from "es-toolkit/predicate";
-import { Clock, History, Send } from "lucide-react";
+import { Clock, History, Send, Users } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { useCheckPermission } from "~/hooks/use-check-permission";
@@ -21,6 +21,7 @@ import { hasPermission } from "~/lib/utils";
 import { api } from "~/trpc/react";
 import { NoteHistory } from "../shared/NoteHistory";
 import { ResponsiveDialog } from "../shared/ResponsiveDialog";
+import { InsuranceReviewClaimHistory } from "./InsuranceReviewClaimHistory";
 import { InsuranceReviewSubmitDialog } from "./InsuranceReviewSubmitDialog";
 
 interface InsuranceReviewSectionProps {
@@ -238,6 +239,21 @@ export function InsuranceReviewSection({
 								))}
 							</SelectContent>
 						</Select>
+						<ResponsiveDialog
+							className="max-h-[calc(100vh-4rem)] max-w-lg overflow-x-hidden overflow-y-scroll sm:max-w-lg"
+							title="Assignment History"
+							trigger={
+								<Button
+									className="cursor-pointer rounded-full"
+									size="icon"
+									variant="ghost"
+								>
+									<Users />
+								</Button>
+							}
+						>
+							<InsuranceReviewClaimHistory clientId={client.id} />
+						</ResponsiveDialog>
 					</div>
 				)}
 
