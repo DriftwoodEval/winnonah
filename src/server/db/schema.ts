@@ -665,6 +665,25 @@ export const insuranceReviewHistory = createTable(
 	],
 );
 
+export const insuranceReviewClaimHistory = createTable(
+	"insurance_review_claim_history",
+	(d) => ({
+		id: d.int().notNull().autoincrement().primaryKey(),
+		reviewId: d.int().notNull(),
+		userEmail: d.varchar({ length: 255 }).notNull(),
+		setBy: d.varchar({ length: 255 }),
+		createdAt: d.timestamp().default(sql`CURRENT_TIMESTAMP`).notNull(),
+	}),
+	(t) => [
+		index("insurance_review_claim_history_idx").on(t.reviewId),
+		foreignKey({
+			columns: [t.reviewId],
+			foreignColumns: [insuranceReview.clientId],
+			name: "insurance_review_claim_history_id_fk",
+		}).onDelete("cascade"),
+	],
+);
+
 export const insuranceReviewRelations = relations(
 	insuranceReview,
 	({ one, many }) => ({
@@ -673,6 +692,7 @@ export const insuranceReviewRelations = relations(
 			references: [clients.id],
 		}),
 		history: many(insuranceReviewHistory),
+		claimHistory: many(insuranceReviewClaimHistory),
 	}),
 );
 
@@ -681,6 +701,16 @@ export const insuranceReviewHistoryRelations = relations(
 	({ one }) => ({
 		review: one(insuranceReview, {
 			fields: [insuranceReviewHistory.reviewId],
+			references: [insuranceReview.clientId],
+		}),
+	}),
+);
+
+export const insuranceReviewClaimHistoryRelations = relations(
+	insuranceReviewClaimHistory,
+	({ one }) => ({
+		review: one(insuranceReview, {
+			fields: [insuranceReviewClaimHistory.reviewId],
 			references: [insuranceReview.clientId],
 		}),
 	}),
