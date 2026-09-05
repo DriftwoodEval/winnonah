@@ -147,6 +147,29 @@ export function ClientHeader({
 								<AddDriveButton client={client} />
 							</>
 						)}
+						{!readOnly && client.driveId === "N/A" && canDrive && (
+							<>
+								<Separator orientation="vertical" />
+								<Tooltip>
+									<TooltipTrigger asChild>
+										<button
+											aria-label="No Drive folder linked, click to add one"
+											onClick={() => setEditDriveOpen(true)}
+											type="button"
+										>
+											<Image
+												alt="No Drive folder linked"
+												className="opacity-40 grayscale dark:invert"
+												height={16}
+												src="/icons/google-drive.svg"
+												width={16}
+											/>
+										</button>
+									</TooltipTrigger>
+									<TooltipContent>No Drive folder linked</TooltipContent>
+								</Tooltip>
+							</>
+						)}
 						{!readOnly &&
 							!isNotesOnlyClientId(client.id) &&
 							client.driveId &&
