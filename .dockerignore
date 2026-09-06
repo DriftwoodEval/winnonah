@@ -15,8 +15,8 @@ scratch
 # Docker and orchestration files
 Dockerfile
 .dockerignore
-docker-compose.yaml
-docker-compose.override.yaml
+docker-compose*.yaml
+docker-compose*.yml
 
 # Local environment variables
 .env
@@ -26,10 +26,34 @@ docker-compose.override.yaml
 # Development tooling and configs
 biome.jsonc
 drizzle.config.ts
+drizzle/
 README.md
 commitlint.config.js
 lefthook.yml
+renovate.json
+.gitattributes
+components.json
 scripts/
+flake.nix
+flake.lock
+.envrc
+mise.toml
+mise.local.toml
+.claude
+.vscode
+.ruff_cache
+.coverage
+*.md
+
+# Infra and observability (separate images / compose-only)
+caddy/
+grafana/
+failover/
+mysql/
+mysql-replication.cnf
+logs/
+loki-config.yaml
+promtail-config.yaml
 
 # Separate image/project
 python/
