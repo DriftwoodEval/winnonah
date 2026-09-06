@@ -45,7 +45,7 @@ export const evaluatorInputSchema = z.object({
 		.transform((v) => v?.trim() || null),
 });
 
-const CACHE_KEY_ALL_EVALUATORS = "evaluators:all";
+export const CACHE_KEY_ALL_EVALUATORS = "evaluators:all";
 
 export const evaluatorRouter = createTRPCRouter({
 	getAll: protectedProcedure.query(async ({ ctx }) => {

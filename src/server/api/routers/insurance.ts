@@ -3,24 +3,36 @@ import { z } from "zod";
 import { fetchWithCache, invalidateCache } from "~/lib/cache";
 import { additionalInsuranceAppointmentsSchema } from "~/lib/validations/config";
 import { CACHE_KEY_MISSING_APPOINTMENTS } from "~/server/api/routers/client";
+import { CACHE_KEY_ALL_EVALUATORS } from "~/server/api/routers/evaluator";
 import {
 	assertPermission,
 	createTRPCRouter,
 	protectedProcedure,
 } from "~/server/api/trpc";
-import { clients, insuranceAliases, insurances } from "~/server/db/schema";
+import {
+	clients,
+	evaluatorsToInsurances,
+	insuranceAliases,
+	insurances,
+} from "~/server/db/schema";
 
 const CACHE_KEY_ALL_INSURANCES = "insurances:all";
 
 export const insuranceRouter = createTRPCRouter({
 	getAll: protectedProcedure.query(async ({ ctx }) => {
 		return fetchWithCache(ctx, CACHE_KEY_ALL_INSURANCES, async () => {
-			return ctx.db.query.insurances.findMany({
+			const results = await ctx.db.query.insurances.findMany({
 				orderBy: (insurances, { asc }) => [asc(insurances.shortName)],
 				with: {
 					aliases: true,
+					evaluators: { with: { evaluator: { columns: { npi: true } } } },
 				},
 			});
+
+			return results.map(({ evaluators, ...insurance }) => ({
+				...insurance,
+				evaluatorNpis: evaluators.map((link) => link.evaluator.npi),
+			}));
 		});
 	}),
 
@@ -57,6 +69,7 @@ export const insuranceRouter = createTRPCRouter({
 				appointmentsRequired: z.number().int().min(1).default(1),
 				additionalAppts: additionalInsuranceAppointmentsSchema.optional(),
 				aliases: z.array(z.string()).default([]),
+				evaluatorNpis: z.array(z.number()).default([]),
 			}),
 		)
 		.mutation(async ({ ctx, input }) => {
@@ -64,7 +77,7 @@ export const insuranceRouter = createTRPCRouter({
 
 			ctx.logger.info(input, "Creating insurance");
 
-			const { aliases, ...insuranceData } = input;
+			const { aliases, evaluatorNpis, ...insuranceData } = input;
 
 			const result = await ctx.db.transaction(async (tx) => {
 				const [result] = await tx.insert(insurances).values(insuranceData);
@@ -79,6 +92,15 @@ export const insuranceRouter = createTRPCRouter({
 					);
 				}
 
+				if (evaluatorNpis.length > 0) {
+					await tx.insert(evaluatorsToInsurances).values(
+						evaluatorNpis.map((evaluatorNpi) => ({
+							evaluatorNpi,
+							insuranceId,
+						})),
+					);
+				}
+
 				return result;
 			});
 
@@ -86,6 +108,7 @@ export const insuranceRouter = createTRPCRouter({
 				ctx,
 				CACHE_KEY_ALL_INSURANCES,
 				CACHE_KEY_MISSING_APPOINTMENTS,
+				CACHE_KEY_ALL_EVALUATORS,
 			);
 			return result;
 		}),
@@ -100,13 +123,14 @@ export const insuranceRouter = createTRPCRouter({
 				appointmentsRequired: z.number().int().min(1),
 				additionalAppts: additionalInsuranceAppointmentsSchema.optional(),
 				aliases: z.array(z.string()).default([]),
+				evaluatorNpis: z.array(z.number()).default([]),
 			}),
 		)
 		.mutation(async ({ ctx, input }) => {
 			assertPermission(ctx.session.user, "settings:insurances");
 
 			ctx.logger.info(input, "Updating insurance");
-			const { id, aliases, ...data } = input;
+			const { id, aliases, evaluatorNpis, ...data } = input;
 
 			await ctx.db.transaction(async (tx) => {
 				await tx.update(insurances).set(data).where(eq(insurances.id, id));
@@ -124,12 +148,26 @@ export const insuranceRouter = createTRPCRouter({
 						})),
 					);
 				}
+
+				await tx
+					.delete(evaluatorsToInsurances)
+					.where(eq(evaluatorsToInsurances.insuranceId, id));
+
+				if (evaluatorNpis.length > 0) {
+					await tx.insert(evaluatorsToInsurances).values(
+						evaluatorNpis.map((evaluatorNpi) => ({
+							evaluatorNpi,
+							insuranceId: id,
+						})),
+					);
+				}
 			});
 
 			await invalidateCache(
 				ctx,
 				CACHE_KEY_ALL_INSURANCES,
 				CACHE_KEY_MISSING_APPOINTMENTS,
+				CACHE_KEY_ALL_EVALUATORS,
 			);
 		}),
 
@@ -145,6 +183,7 @@ export const insuranceRouter = createTRPCRouter({
 				ctx,
 				CACHE_KEY_ALL_INSURANCES,
 				CACHE_KEY_MISSING_APPOINTMENTS,
+				CACHE_KEY_ALL_EVALUATORS,
 			);
 		}),
 });

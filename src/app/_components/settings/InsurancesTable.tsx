@@ -76,6 +76,7 @@ const createFormSchema = (unavailableAliases: Set<string>) =>
 				});
 			}
 		}),
+		evaluatorNpis: z.array(z.number()),
 	});
 
 type InsuranceFormValues = z.infer<ReturnType<typeof createFormSchema>>;
@@ -83,6 +84,7 @@ type InsuranceFormValues = z.infer<ReturnType<typeof createFormSchema>>;
 type InsuranceWithAliases = Insurance & {
 	aliases: { name: string }[];
 	additionalAppts: z.infer<typeof additionalInsuranceAppointmentsSchema>;
+	evaluatorNpis: number[];
 };
 
 interface InsuranceFormProps {
@@ -228,6 +230,8 @@ function InsuranceForm({
 	const isEditing = !!initialData;
 	const { data: clientInsuranceNames } =
 		api.insurances.getUniqueNamesFromClients.useQuery();
+	const { data: allEvaluators, isLoading: isLoadingEvaluators } =
+		api.evaluators.getAll.useQuery();
 
 	const defaultValues = useMemo(() => {
 		if (initialData) {
@@ -246,6 +250,7 @@ function InsuranceForm({
 				preAuthLockin: initialData.preAuthLockin,
 				appointmentsRequired: initialData.appointmentsRequired,
 				aliases: initialData.aliases.map((a) => a.name),
+				evaluatorNpis: initialData.evaluatorNpis,
 				additionalAppts: {
 					maxUnitsPerDay: appts?.maxUnitsPerDay ?? 6,
 					using90000BillingCode: appts?.using90000BillingCode,
@@ -263,6 +268,7 @@ function InsuranceForm({
 			preAuthLockin: false,
 			appointmentsRequired: 1,
 			aliases: [],
+			evaluatorNpis: [],
 			additionalAppts: {
 				maxUnitsPerDay: 6,
 				max96130: undefined,
@@ -419,6 +425,61 @@ function InsuranceForm({
 							)}
 						/>
 					</div>
+
+					<FormField
+						control={form.control}
+						name="evaluatorNpis"
+						render={() => (
+							<FormItem>
+								<FormLabel>Evaluators Who Take This Insurance</FormLabel>
+								<div className="grid max-h-48 grid-cols-2 gap-2 overflow-y-auto rounded-md border p-4 sm:grid-cols-3">
+									{isLoadingEvaluators ? (
+										<p>Loading evaluators...</p>
+									) : (
+										allEvaluators?.map((evaluator) => (
+											<FormField
+												control={form.control}
+												key={evaluator.npi}
+												name="evaluatorNpis"
+												render={({ field }) => (
+													<FormItem className="flex items-center space-x-2 space-y-0">
+														<FormControl>
+															<Checkbox
+																checked={field.value?.includes(evaluator.npi)}
+																disabled={isLoading}
+																onCheckedChange={(checked) => {
+																	return checked
+																		? field.onChange([
+																				...field.value,
+																				evaluator.npi,
+																			])
+																		: field.onChange(
+																				field.value?.filter(
+																					(value: number) =>
+																						value !== evaluator.npi,
+																				),
+																			);
+																}}
+															/>
+														</FormControl>
+														<FormLabel className="font-normal">
+															{evaluator.providerName}
+														</FormLabel>
+													</FormItem>
+												)}
+											/>
+										))
+									)}
+									{!isLoadingEvaluators && allEvaluators?.length === 0 && (
+										<p className="text-muted-foreground text-sm italic">
+											No evaluators found.
+										</p>
+									)}
+								</div>
+								<FormMessage />
+							</FormItem>
+						)}
+					/>
 
 					<Separator />
 
