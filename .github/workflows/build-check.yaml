@@ -4,6 +4,10 @@ on:
   pull_request:
     branches:
       - main
+  # Renovate uses branch automerge (no PR), so run the checks on the branch push
+  # too. Without this, automerge-eligible updates wait forever on absent checks.
+  push:
+    branches:
       - renovate/**
 
 concurrency:
