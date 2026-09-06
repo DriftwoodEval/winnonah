@@ -1,9 +1,9 @@
 import fs from "node:fs";
 import path from "node:path";
+import { sheets } from "@googleapis/sheets";
 import { and, desc, eq, isNull } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
 import { OAuth2Client } from "google-auth-library";
-import { google } from "googleapis";
 import mysql from "mysql2/promise";
 import { env } from "~/env";
 import * as schema from "~/server/db/schema";
@@ -34,7 +34,7 @@ async function run() {
 		clientSecret: credentials.installed.client_secret,
 	});
 	oauth2Client.setCredentials(token);
-	const sheets = google.sheets({ version: "v4", auth: oauth2Client });
+	const sheetsApi = sheets({ version: "v4", auth: oauth2Client });
 
 	const connection = await mysql.createConnection(env.DATABASE_URL);
 	const db = drizzle(connection, { schema, mode: "default" });
@@ -51,7 +51,7 @@ async function run() {
 	)?.config?.piecework?.adhd_piecework_evaluator_npi;
 	if (raw && !Number.isNaN(Number(raw))) adhdNpi = Number(raw);
 
-	const response = await sheets.spreadsheets.values.get({
+	const response = await sheetsApi.spreadsheets.values.get({
 		spreadsheetId: env.PUNCHLIST_ID,
 		range: env.PUNCHLIST_RANGE,
 	});
