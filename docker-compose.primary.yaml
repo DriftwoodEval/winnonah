@@ -17,7 +17,12 @@ services:
   cloudflared:
     restart: no
 
-  winnonah:
+  winnonah-a:
+    restart: no
+    environment:
+      - SERVER_ROLE=primary
+
+  winnonah-b:
     restart: no
     environment:
       - SERVER_ROLE=primary
