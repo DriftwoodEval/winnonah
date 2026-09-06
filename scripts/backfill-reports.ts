@@ -10,7 +10,9 @@ import * as schema from "~/server/db/schema";
 
 const DRY_RUN = process.argv.includes("--dry-run");
 
-const ADHD_ONLY_TYPES = new Set(["ADHD", "ADHD+LD"]);
+// ADHD+LD gets a full EVAL like any other diagnosis, so only plain "ADHD"
+// counts as ADHD-only (DA-only, paid off the ADHD piecework evaluator).
+const ADHD_ONLY_TYPES = new Set(["ADHD"]);
 
 type ReportStatus = (typeof schema.REPORT_STATUSES)[number];
 

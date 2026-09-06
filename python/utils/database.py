@@ -6,7 +6,6 @@ import json
 import os
 import re
 import time
-import re
 from collections.abc import Callable
 from contextlib import contextmanager
 from datetime import date, datetime
@@ -2333,7 +2332,8 @@ def reconcile_reports_from_appointments(
 
     A report is warranted once a client has a non-cancelled EVAL or DAEVAL
     appointment, or a standalone DA for an ADHD-only evaluation (asdAdhd of
-    'ADHD' or 'ADHD+LD'), since those never get a separate EVAL. Keyed on the
+    'ADHD'), since those never get a separate EVAL. ADHD+LD gets a full EVAL
+    like any other diagnosis, so it is not treated as ADHD-only here. Keyed on the
     client, not the appointment (a DA plus an EVAL for the same client is still
     one report). A new row is created only when the client's most recent
     qualifying appointment is newer than their newest existing report, so
@@ -2353,7 +2353,7 @@ def reconcile_reports_from_appointments(
     except Exception:
         adhd_npi = None
 
-    adhd_only_types = {"ADHD", "ADHD+LD"}
+    adhd_only_types = {"ADHD"}
 
     with connection.cursor() as cursor:
         # Most recent eval appointment per client, plus the evaluator's
@@ -2375,7 +2375,7 @@ def reconcile_reports_from_appointments(
                 FROM `{TABLE_APPOINTMENT}`
                 WHERE (
                         daEval IN ('EVAL', 'DAEVAL')
-                        OR (daEval = 'DA' AND asdAdhd IN ('ADHD', 'ADHD+LD'))
+                        OR (daEval = 'DA' AND asdAdhd = 'ADHD')
                       )
                   AND cancelled = 0 AND rescheduled = 0
                   AND placeholder = 0 AND billingOnly = 0
