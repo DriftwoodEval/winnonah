@@ -6,6 +6,7 @@ import {
 	eq,
 	getTableColumns,
 	inArray,
+	isNull,
 	lt,
 	not,
 	notInArray,
@@ -26,6 +27,7 @@ import {
 	externalRecords,
 	failures,
 	questionnaires,
+	reports,
 } from "~/server/db/schema";
 import {
 	ALLOWED_ASD_ADHD_VALUES,
@@ -560,6 +562,125 @@ export const updatePunchData = async (
 	return true;
 };
 
+/** 0-based column index to an A1 column reference (0 -> A, 26 -> AA). */
+const columnIndexToLetter = (index: number): string => {
+	let n = index;
+	let letter = "";
+	while (n >= 0) {
+		letter = String.fromCharCode((n % 26) + 65) + letter;
+		n = Math.floor(n / 26) - 1;
+	}
+	return letter;
+};
+
+/**
+ * Mirror a report's billing/review state into the punch list during the
+ * transition to EMR-owned report tracking. Best-effort: callers log and swallow
+ * failures since the DB is the source of truth.
+ */
+export const updatePunchReportFields = async (
+	session: Session,
+	clientId: string,
+	updates: {
+		billed?: boolean;
+		firstReviewDone?: boolean;
+		secondReviewNeeded?: boolean;
+		bridgesBilled?: boolean;
+	},
+) => {
+	const { PUNCHLIST_ID, PUNCHLIST_RANGE } = env;
+	const sheetsApi = getSheetsClient(session);
+
+	const response = await googleApiCall(
+		"google-sheets",
+		"spreadsheets.values.get",
+		"Get punchlist",
+		() =>
+			sheetsApi.spreadsheets.values.get({
+				spreadsheetId: PUNCHLIST_ID,
+				range: PUNCHLIST_RANGE,
+			}),
+	);
+
+	const data = response.data.values ?? [];
+	const headers = data[0] ?? [];
+	const rows = data.slice(1);
+
+	const clientRowIndex = rows.findIndex((row) => row[1] === clientId);
+	if (clientRowIndex === -1) {
+		throw new Error(`Client ID ${clientId} not found in Punchlist`);
+	}
+
+	const columnByField: Record<keyof typeof updates, string> = {
+		billed: "Billed?",
+		firstReviewDone: "AJP Review Done/Hold for payroll",
+		secondReviewNeeded: "MCS Review Needed",
+		bridgesBilled: "BRIDGES billed?",
+	};
+
+	const updateRequests: sheets_v4.Schema$ValueRange[] = [];
+	for (const [field, header] of Object.entries(columnByField) as [
+		keyof typeof updates,
+		string,
+	][]) {
+		const value = updates[field];
+		if (value === undefined) continue;
+		const colIndex = headers.indexOf(header);
+		if (colIndex === -1) {
+			throw new Error(`${header} column not found in Punchlist`);
+		}
+		updateRequests.push({
+			range: `${columnIndexToLetter(colIndex)}${clientRowIndex + 2}`,
+			values: [[value ? "TRUE" : "FALSE"]],
+		});
+	}
+
+	if (updateRequests.length > 0) {
+		await googleApiCall(
+			"google-sheets",
+			"spreadsheets.values.batchUpdate",
+			"Update punchlist",
+			() =>
+				sheetsApi.spreadsheets.values.batchUpdate({
+					spreadsheetId: PUNCHLIST_ID,
+					requestBody: {
+						valueInputOption: "USER_ENTERED",
+						data: updateRequests,
+					},
+				}),
+		);
+	}
+
+	return true;
+};
+
+// Punch-list header -> emr_report (boolean column, *At column, *ByEmail column).
+// Kept in sync back into the EMR by syncPunchData; written out by
+// updatePunchReportFields. Both halves go away when the punch list is retired.
+const PUNCH_REPORT_FIELDS = {
+	"Billed?": ["billed", "billedAt", "billedByEmail"],
+	"AJP Review Done/Hold for payroll": [
+		"firstReviewDone",
+		"firstReviewAt",
+		"firstReviewByEmail",
+	],
+	"MCS Review Needed": [
+		"secondReviewNeeded",
+		"secondReviewNeededAt",
+		"secondReviewByEmail",
+	],
+	"BRIDGES billed?": [
+		"bridgesBilled",
+		"bridgesBilledAt",
+		"bridgesBilledByEmail",
+	],
+} as const satisfies Record<string, readonly [string, string, string]>;
+
+const PUNCHLIST_SYNC_ACTOR_EMAIL = "punchlist-sync";
+
+const punchCellIsChecked = (val: string | undefined) =>
+	(val ?? "").trim().toUpperCase() === "TRUE";
+
 export const syncPunchData = async (ctx: Context & { session: Session }) => {
 	const allPunchData = await fetchWithCache(
 		ctx,
@@ -569,6 +690,19 @@ export const syncPunchData = async (ctx: Context & { session: Session }) => {
 	);
 
 	const updatePromises: Promise<unknown>[] = [];
+
+	// Current billing/review state of every open report, to skip no-op writes.
+	const openReports = await db
+		.select({
+			clientId: reports.clientId,
+			billed: reports.billed,
+			firstReviewDone: reports.firstReviewDone,
+			secondReviewNeeded: reports.secondReviewNeeded,
+			bridgesBilled: reports.bridgesBilled,
+		})
+		.from(reports)
+		.where(isNull(reports.archivedAt));
+	const openReportByClient = new Map(openReports.map((r) => [r.clientId, r]));
 
 	for (const client of allPunchData) {
 		const updates: Partial<Client> = {};
@@ -601,6 +735,33 @@ export const syncPunchData = async (ctx: Context & { session: Session }) => {
 			updatePromises.push(
 				db.update(clients).set(updates).where(eq(clients.id, client.id)),
 			);
+		}
+
+		// Report billing/review checkboxes -> emr_report.
+		const report = client.id ? openReportByClient.get(client.id) : undefined;
+		if (report) {
+			const reportPatch: Record<string, boolean | Date | string | null> = {};
+			for (const [header, [col, atCol, byCol]] of Object.entries(
+				PUNCH_REPORT_FIELDS,
+			)) {
+				const sheetValue = punchCellIsChecked(
+					client[header as keyof typeof client] as string | undefined,
+				);
+				if (report[col as keyof typeof report] === sheetValue) continue;
+				reportPatch[col] = sheetValue;
+				reportPatch[atCol] = sheetValue ? new Date() : null;
+				reportPatch[byCol] = sheetValue ? PUNCHLIST_SYNC_ACTOR_EMAIL : null;
+			}
+			if (Object.keys(reportPatch).length > 0) {
+				updatePromises.push(
+					db
+						.update(reports)
+						.set(reportPatch)
+						.where(
+							and(eq(reports.clientId, client.id), isNull(reports.archivedAt)),
+						),
+				);
+			}
 		}
 	}
 
