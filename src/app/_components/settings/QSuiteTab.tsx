@@ -1181,7 +1181,7 @@ const DistrictKeySelect = memo(function DistrictKeySelect({
 								</span>
 							</SelectTrigger>
 						</FormControl>
-						<SelectContent>
+						<SelectContent position="popper">
 							{open &&
 								options
 									.filter(
