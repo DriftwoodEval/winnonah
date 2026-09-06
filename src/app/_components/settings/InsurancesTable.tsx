@@ -46,7 +46,7 @@ import {
 	TableHeader,
 	TableRow,
 } from "@ui/table";
-import { Check, MoreHorizontal, X } from "lucide-react";
+import { AlertTriangle, Check, MoreHorizontal, X } from "lucide-react";
 import { useMemo, useState } from "react";
 import { type UseFormReturn, useForm } from "react-hook-form";
 import { toast } from "sonner";
@@ -76,6 +76,7 @@ const createFormSchema = (unavailableAliases: Set<string>) =>
 				});
 			}
 		}),
+		evaluatorNpis: z.array(z.number()),
 	});
 
 type InsuranceFormValues = z.infer<ReturnType<typeof createFormSchema>>;
@@ -83,6 +84,7 @@ type InsuranceFormValues = z.infer<ReturnType<typeof createFormSchema>>;
 type InsuranceWithAliases = Insurance & {
 	aliases: { name: string }[];
 	additionalAppts: z.infer<typeof additionalInsuranceAppointmentsSchema>;
+	evaluatorNpis: number[];
 };
 
 interface InsuranceFormProps {
@@ -228,6 +230,8 @@ function InsuranceForm({
 	const isEditing = !!initialData;
 	const { data: clientInsuranceNames } =
 		api.insurances.getUniqueNamesFromClients.useQuery();
+	const { data: allEvaluators, isLoading: isLoadingEvaluators } =
+		api.evaluators.getAll.useQuery();
 
 	const defaultValues = useMemo(() => {
 		if (initialData) {
@@ -246,6 +250,7 @@ function InsuranceForm({
 				preAuthLockin: initialData.preAuthLockin,
 				appointmentsRequired: initialData.appointmentsRequired,
 				aliases: initialData.aliases.map((a) => a.name),
+				evaluatorNpis: initialData.evaluatorNpis,
 				additionalAppts: {
 					maxUnitsPerDay: appts?.maxUnitsPerDay ?? 6,
 					using90000BillingCode: appts?.using90000BillingCode,
@@ -263,6 +268,7 @@ function InsuranceForm({
 			preAuthLockin: false,
 			appointmentsRequired: 1,
 			aliases: [],
+			evaluatorNpis: [],
 			additionalAppts: {
 				maxUnitsPerDay: 6,
 				max96130: undefined,
@@ -419,6 +425,67 @@ function InsuranceForm({
 							)}
 						/>
 					</div>
+
+					<FormField
+						control={form.control}
+						name="evaluatorNpis"
+						render={({ field }) => (
+							<FormItem>
+								<FormLabel>Evaluators Who Take This Insurance</FormLabel>
+								{field.value.length === 0 && (
+									<div className="flex items-center gap-2 rounded-md border border-warning/30 bg-warning/10 px-3 py-2 text-sm text-warning">
+										<AlertTriangle className="h-4 w-4 shrink-0" />
+										No evaluators take this insurance.
+									</div>
+								)}
+								<div className="grid max-h-48 grid-cols-2 gap-2 overflow-y-auto rounded-md border p-4 sm:grid-cols-3">
+									{isLoadingEvaluators ? (
+										<p>Loading evaluators...</p>
+									) : (
+										allEvaluators?.map((evaluator) => (
+											<FormField
+												control={form.control}
+												key={evaluator.npi}
+												name="evaluatorNpis"
+												render={({ field }) => (
+													<FormItem className="flex items-center space-x-2 space-y-0">
+														<FormControl>
+															<Checkbox
+																checked={field.value?.includes(evaluator.npi)}
+																disabled={isLoading}
+																onCheckedChange={(checked) => {
+																	return checked
+																		? field.onChange([
+																				...field.value,
+																				evaluator.npi,
+																			])
+																		: field.onChange(
+																				field.value?.filter(
+																					(value: number) =>
+																						value !== evaluator.npi,
+																				),
+																			);
+																}}
+															/>
+														</FormControl>
+														<FormLabel className="font-normal">
+															{evaluator.providerName}
+														</FormLabel>
+													</FormItem>
+												)}
+											/>
+										))
+									)}
+									{!isLoadingEvaluators && allEvaluators?.length === 0 && (
+										<p className="text-muted-foreground text-sm italic">
+											No evaluators found.
+										</p>
+									)}
+								</div>
+								<FormMessage />
+							</FormItem>
+						)}
+					/>
 
 					<Separator />
 
@@ -623,7 +690,14 @@ export default function InsurancesTable() {
 						</TableHeader>
 						<TableBody>
 							{insurances?.map((insurance) => (
-								<TableRow key={insurance.id}>
+								<TableRow
+									className={
+										insurance.evaluatorNpis.length === 0
+											? "opacity-50"
+											: undefined
+									}
+									key={insurance.id}
+								>
 									{canEdit && (
 										<TableCell>
 											<InsuranceActionsMenu
@@ -635,7 +709,15 @@ export default function InsurancesTable() {
 										</TableCell>
 									)}
 									<TableCell className="font-medium">
-										<Badge variant="outline">{insurance.shortName}</Badge>
+										<div className="flex flex-col items-start gap-1">
+											<Badge variant="outline">{insurance.shortName}</Badge>
+											{insurance.evaluatorNpis.length === 0 && (
+												<span className="flex items-center gap-1 text-warning text-xs">
+													<AlertTriangle className="h-3 w-3" />
+													No evaluators
+												</span>
+											)}
+										</div>
 									</TableCell>
 									<TableCell>
 										<div className="flex flex-wrap gap-1">
@@ -686,11 +768,21 @@ export default function InsurancesTable() {
 				<div className="flex flex-col gap-3">
 					{insurances?.map((insurance) => (
 						<div
-							className="rounded-lg border bg-card p-4 shadow-xs"
+							className={`rounded-lg border bg-card p-4 shadow-xs ${
+								insurance.evaluatorNpis.length === 0 ? "opacity-50" : ""
+							}`}
 							key={insurance.id}
 						>
 							<div className="flex items-start justify-between gap-2">
-								<Badge variant="outline">{insurance.shortName}</Badge>
+								<div className="flex flex-col items-start gap-1">
+									<Badge variant="outline">{insurance.shortName}</Badge>
+									{insurance.evaluatorNpis.length === 0 && (
+										<span className="flex items-center gap-1 text-warning text-xs">
+											<AlertTriangle className="h-3 w-3" />
+											No evaluators
+										</span>
+									)}
+								</div>
 								{canEdit && (
 									<InsuranceActionsMenu
 										existingInsurances={
