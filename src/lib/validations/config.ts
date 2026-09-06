@@ -136,6 +136,94 @@ export const pythonConfigSchema = z.object({
 	config: configSchema,
 });
 
+// Read-side ("lenient") config schema.
+//
+// The stored Python config can be mid-setup: a field left blank, failing a
+// format regex, or missing outright. `pythonConfigSchema` (enforced on save)
+// rejects all of that. If the read path used it too, a single unfilled field
+// would collapse the whole response to null and the QSuite settings page would
+// render blank. This schema mirrors `pythonConfigSchema`'s shape but relaxes
+// every constraint and defaults every leaf, so the form always loads and the
+// gaps can be filled in. Saving still goes through the strict schema.
+const lenientString = () => z.string().catch("");
+const lenientRecord = <T extends z.ZodTypeAny>(value: T) =>
+	z.record(z.string(), value).catch({});
+// An object that falls back to its own all-defaulted shape when the stored
+// value is missing or the wrong type, instead of failing the whole parse.
+// Every leaf in `shape` must itself default (lenientString/lenientRecord/
+// `.catch(...)`), so `parse({})` always succeeds.
+const lenientObject = <T extends z.ZodRawShape>(shape: T) => {
+	const schema = z.object(shape);
+	return schema.catch(schema.parse({}));
+};
+
+const serviceShape = {
+	username: lenientString(),
+	password: lenientString(),
+};
+const lenientService = lenientObject(serviceShape);
+const lenientServiceWithAdmin = lenientObject({
+	...serviceShape,
+	admin_username: lenientString(),
+	admin_password: lenientString(),
+});
+
+const lenientServicesSchema = lenientObject({
+	openphone: lenientObject({
+		key: lenientString(),
+		main_number: lenientString(),
+		users: lenientRecord(lenientObject({ id: lenientString() })),
+	}),
+	therapyappointment: lenientServiceWithAdmin,
+	medicaid: lenientService,
+	mhs: lenientService,
+	qglobal: lenientService,
+	wps: lenientService,
+	novopsych: lenientService,
+	kimai: lenientObject({
+		url: lenientString(),
+		token: lenientString(),
+	}).optional(),
+});
+
+const lenientConfigSchema = lenientObject({
+	initials: lenientString(),
+	name: lenientString(),
+	referral_sender_name: lenientString(),
+	private_pay_sender_name: lenientString(),
+	email: lenientString(),
+	automated_email: lenientString(),
+	qreceive_emails: z.array(z.string()).catch([]),
+	tech_email: lenientString(),
+	punch_list_id: lenientString(),
+	punch_list_range: lenientString(),
+	failed_sheet_id: lenientString(),
+	payroll_folder_id: lenientString(),
+	database_url: lenientString(),
+	business_timezone: z.string().catch("America/New_York"),
+	excluded_ta: z.array(z.string()).catch([]),
+	records_folder_id: lenientString(),
+	sent_records_folder_id: lenientString(),
+	records_emails: lenientRecord(
+		lenientObject({
+			email: lenientString(),
+			fax: z.boolean().catch(false),
+			aliases: z.array(z.string()).catch([]),
+		}),
+	),
+	piecework: lenientObject({
+		costs: lenientRecord(pieceworkCostsSchema.catch({})),
+		name_map: lenientRecord(lenientString()),
+		payroll_emails: lenientRecord(lenientString()),
+		adhd_piecework_evaluator_npi: lenientString(),
+	}),
+});
+
+export const lenientPythonConfigSchema = lenientObject({
+	services: lenientServicesSchema,
+	config: lenientConfigSchema,
+});
+
 export const appointmentSyncConfigSchema = z.object({
 	trusted_appointment_ids: z.array(z.string()),
 	ignored_appointment_ids: z.array(z.string()),

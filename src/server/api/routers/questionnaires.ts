@@ -33,7 +33,7 @@ import {
 	reminderPluralization,
 } from "~/lib/reminder-messages";
 import { formatInBusinessTime, localDateToDateOnly } from "~/lib/utils";
-import { pythonConfigSchema } from "~/lib/validations/config";
+import { lenientPythonConfigSchema } from "~/lib/validations/config";
 import { CACHE_KEY_MISSING_APPOINTMENTS } from "~/server/api/routers/client";
 import {
 	assertPermission,
@@ -821,7 +821,7 @@ export const questionnaireRouter = createTRPCRouter({
 				where: eq(pythonConfig.id, 1),
 			});
 			const configParsed = configRecord?.data
-				? pythonConfigSchema.safeParse(configRecord.data)
+				? lenientPythonConfigSchema.safeParse(configRecord.data)
 				: null;
 			const staffName = configParsed?.success
 				? configParsed.data.config.name

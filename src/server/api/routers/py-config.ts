@@ -5,6 +5,7 @@ import type { PermissionsObject } from "~/lib/types";
 import { hasPermission } from "~/lib/utils";
 import {
 	appointmentSyncConfigSchema,
+	lenientPythonConfigSchema,
 	pythonConfigSchema,
 } from "~/lib/validations/config";
 import { createTRPCRouter, protectedProcedure } from "~/server/api/trpc";
@@ -59,7 +60,7 @@ export const pyConfigRouter = createTRPCRouter({
 		});
 
 		if (!record?.data) return null;
-		const result = pythonConfigSchema.safeParse(record.data);
+		const result = lenientPythonConfigSchema.safeParse(record.data);
 		return result.success ? result.data : null;
 	}),
 
@@ -69,7 +70,7 @@ export const pyConfigRouter = createTRPCRouter({
 		});
 
 		if (!record?.data) return "";
-		const result = pythonConfigSchema.safeParse(record.data);
+		const result = lenientPythonConfigSchema.safeParse(record.data);
 		return result.success ? result.data.config.name : "";
 	}),
 
@@ -81,7 +82,7 @@ export const pyConfigRouter = createTRPCRouter({
 		});
 
 		if (!record?.data) return null;
-		const result = pythonConfigSchema.safeParse(record.data);
+		const result = lenientPythonConfigSchema.safeParse(record.data);
 		if (!result.success) return null;
 
 		const { therapyappointment, ...services } = result.data.services;
