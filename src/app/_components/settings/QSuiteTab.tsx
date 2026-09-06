@@ -122,6 +122,7 @@ const formSchema = z.object({
 					}),
 				),
 			),
+			adhd_piecework_evaluator_npi: z.string(),
 		}),
 	}),
 	services: z.object({
@@ -356,7 +357,10 @@ function ListEditor<T extends FieldValues, Name extends FieldArrayPath<T>>({
 				)}
 			</div>
 			{fields.map((field, i) => (
-				<div className="mb-2 flex w-full items-end gap-2" key={field.id}>
+				<div
+					className="mb-2 flex w-full flex-col items-stretch gap-2 sm:flex-row sm:items-end"
+					key={field.id}
+				>
 					{renderItem(i)}
 					<Button
 						disabled={disabled}
@@ -391,7 +395,7 @@ function KeyValueList<T extends FieldValues, Name extends FieldArrayPath<T>>({
 	defaultValue,
 	renderKey,
 	renderValue,
-	keyClassName = "w-1/3",
+	keyClassName = "w-full sm:w-1/3",
 	disabled,
 	description,
 }: {
@@ -539,6 +543,8 @@ export function QSuiteTab() {
 								email: c.piecework.payroll_emails[e.value] ?? "",
 							},
 						})),
+						adhd_piecework_evaluator_npi:
+							c.piecework.adhd_piecework_evaluator_npi ?? "",
 					},
 				},
 				services: {
@@ -589,6 +595,8 @@ export function QSuiteTab() {
 										value: s.value.email,
 									})),
 							),
+							adhd_piecework_evaluator_npi:
+								data.config.piecework.adhd_piecework_evaluator_npi,
 						},
 					},
 					services: {
@@ -613,8 +621,8 @@ export function QSuiteTab() {
 		<Form {...form}>
 			<div className="space-y-4">
 				<Tabs onValueChange={handleTabChange} value={activeTab}>
-					<div className="flex items-center justify-between">
-						<TabsList>
+					<div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+						<TabsList className="!h-auto flex-wrap justify-start gap-1">
 							{canEditGeneral && (
 								<TabsTrigger value="general">General</TabsTrigger>
 							)}
@@ -688,7 +696,7 @@ function GeneralTab({
 				<CardHeader>
 					<CardTitle>Identity</CardTitle>
 				</CardHeader>
-				<CardContent className="grid grid-cols-2 gap-4">
+				<CardContent className="grid gap-4 sm:grid-cols-2">
 					<FieldInput
 						control={c}
 						description="Initials of the person sending questionnaires. Will be filled in on questionnaire sites."
@@ -873,7 +881,7 @@ function GeneralTab({
 				<CardHeader>
 					<CardTitle>System</CardTitle>
 				</CardHeader>
-				<CardContent className="grid grid-cols-2 gap-4">
+				<CardContent className="grid gap-4 sm:grid-cols-2">
 					<ProtectedFieldInput
 						control={c}
 						description="The Google Sheet ID for the Punch List."
@@ -912,7 +920,7 @@ function GeneralTab({
 					/>
 				</CardContent>
 			</Card>
-			<div className="grid grid-cols-2 gap-6">
+			<div className="grid gap-6 sm:grid-cols-2">
 				<ListEditor
 					control={c}
 					description="List of emails that receive Receive Run emails."
@@ -976,7 +984,7 @@ function ServicesTab({
 				<CardHeader>
 					<CardTitle>TherapyAppointment</CardTitle>
 				</CardHeader>
-				<CardContent className="grid grid-cols-2 gap-4">
+				<CardContent className="grid gap-4 sm:grid-cols-2">
 					<FieldInput
 						control={c}
 						description="Username for TherapyAppointment (This user will be used to send questionnaires)."
@@ -1008,7 +1016,7 @@ function ServicesTab({
 				<CardHeader>
 					<CardTitle>SC Medicaid</CardTitle>
 				</CardHeader>
-				<CardContent className="grid grid-cols-2 gap-4">
+				<CardContent className="grid gap-4 sm:grid-cols-2">
 					<FieldInput
 						control={c}
 						disabled={disabled}
@@ -1023,7 +1031,7 @@ function ServicesTab({
 					/>
 				</CardContent>
 			</Card>
-			<div className="grid grid-cols-4 gap-4">
+			<div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
 				{commonServices.map((svc) => (
 					<Card key={svc}>
 						<CardHeader>
@@ -1071,7 +1079,7 @@ function ServicesTab({
 					<CardTitle>Quo</CardTitle>
 				</CardHeader>
 				<CardContent className="space-y-4">
-					<div className="grid grid-cols-2 gap-4">
+					<div className="grid gap-4 sm:grid-cols-2">
 						<ProtectedFieldInput
 							control={c}
 							description="API Key for Quo integration."
@@ -1216,7 +1224,7 @@ function RecordsTab({
 	return (
 		<div className="grid gap-6">
 			<Card>
-				<CardContent className="grid grid-cols-2 gap-4 pt-6">
+				<CardContent className="grid gap-4 pt-6 sm:grid-cols-2">
 					<ProtectedFieldInput
 						control={form.control}
 						description="The Google Drive folder ID for storing client records consent forms."
@@ -1258,14 +1266,16 @@ function RecordsTab({
 							/>
 						)}
 						renderValue={(p, d) => (
-							<div className="flex items-center gap-2">
+							<div className="flex flex-1 flex-col gap-2 sm:flex-row sm:items-center">
 								<FieldInput
+									className="flex-1"
 									control={form.control}
 									disabled={d}
 									name={`${p}.email` as Path<FormValues>}
 									placeholder="Email"
 								/>
 								<FieldInput
+									className="flex-1"
 									control={form.control}
 									disabled={d}
 									name={`${p}.aliases` as Path<FormValues>}
@@ -1275,7 +1285,7 @@ function RecordsTab({
 									control={form.control}
 									name={`${p}.fax` as Path<FormValues>}
 									render={({ field }) => (
-										<FormItem className="mt-2 flex items-center gap-2 space-y-0">
+										<FormItem className="flex items-center gap-2 space-y-0 sm:mt-2">
 											<FormControl>
 												<Input
 													checked={field.value as boolean}
@@ -1372,7 +1382,7 @@ function PieceworkTab({
 							/>
 						)}
 						renderValue={(p, d) => (
-							<div className="grid flex-1 grid-cols-5 gap-2">
+							<div className="grid flex-1 grid-cols-3 gap-2 sm:grid-cols-5">
 								{["DA", "ADHDDA", "EVAL", "DAEVAL", "REPORT"].map((k) => (
 									<FormField
 										control={form.control}
@@ -1408,6 +1418,52 @@ function PieceworkTab({
 			</Card>
 			<Card>
 				<CardHeader>
+					<CardTitle>ADHD-Only Report Billing</CardTitle>
+					<CardDescription>
+						Reports for ADHD-only evaluations (a DA with no separate eval) are
+						not counted as billable piecework, except for the one evaluator
+						chosen here.
+					</CardDescription>
+				</CardHeader>
+				<CardContent>
+					<FormField
+						control={form.control}
+						name="config.piecework.adhd_piecework_evaluator_npi"
+						render={({ field }) => (
+							<FormItem>
+								<FormLabel>Evaluator</FormLabel>
+								<Select
+									disabled={disabled}
+									onValueChange={(v) => field.onChange(v === "none" ? "" : v)}
+									value={field.value || "none"}
+								>
+									<FormControl>
+										<SelectTrigger className="w-full">
+											<SelectValue placeholder="Select Evaluator" />
+										</SelectTrigger>
+									</FormControl>
+									<SelectContent>
+										<SelectItem value="none">None</SelectItem>
+										{evaluators
+											?.slice()
+											.sort((a, b) =>
+												a.providerName.localeCompare(b.providerName),
+											)
+											.map((ev) => (
+												<SelectItem key={ev.npi} value={String(ev.npi)}>
+													{ev.providerName}
+												</SelectItem>
+											))}
+									</SelectContent>
+								</Select>
+								<FormMessage />
+							</FormItem>
+						)}
+					/>
+				</CardContent>
+			</Card>
+			<Card>
+				<CardHeader>
 					<CardTitle>Staff</CardTitle>
 					<CardDescription>
 						Map initials to full names and payroll emails.
@@ -1423,7 +1479,7 @@ function PieceworkTab({
 						label=""
 						name="config.piecework.staff"
 						renderValue={(p, d) => (
-							<div className="grid flex-1 grid-cols-2 gap-2">
+							<div className="grid flex-1 gap-2 sm:grid-cols-2">
 								<FieldInput
 									control={form.control}
 									disabled={d}
