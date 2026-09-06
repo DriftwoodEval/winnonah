@@ -297,6 +297,7 @@ export const clients = createTable(
 		highPriority: d.boolean().notNull().default(false),
 		babyNet: d.boolean().notNull().default(false),
 		autismStop: d.boolean().notNull().default(false),
+		alreadyDx: d.boolean().notNull().default(false),
 		pause: d.boolean().notNull().default(false),
 		eiAttends: d.boolean().notNull().default(false),
 		flag: d.varchar({ length: 255 }),

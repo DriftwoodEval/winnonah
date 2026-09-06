@@ -65,6 +65,7 @@ export const PERMISSIONS = {
 					{ id: "clients:ei", title: "Edit EI Attends Status" },
 					{ id: "clients:autismstop:enable", title: "Enable Autism Stop" },
 					{ id: "clients:autismstop:disable", title: "Disable Autism Stop" },
+					{ id: "clients:alreadydx", title: "Edit Already Diagnosed Label" },
 					{ id: "clients:pause", title: "Pause Clients" },
 					{ id: "clients:related", title: "Edit Related Clients" },
 					{ id: "clients:resolvefailure", title: "Mark Failures Resolved" },

@@ -241,6 +241,11 @@ export function ClientHeader({
 					{client.highPriority && (
 						<Badge variant="destructive">High Priority</Badge>
 					)}
+					{client.alreadyDx && (
+						<Badge className="bg-warning text-warning-foreground">
+							Already Diagnosed
+						</Badge>
+					)}
 					{client.eiAttends && <Badge variant="secondary">EI Attends</Badge>}
 				</div>
 
