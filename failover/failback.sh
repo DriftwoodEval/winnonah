@@ -95,18 +95,29 @@ docker exec -i driftwood-db mysql -uroot -p"${MYSQL_ROOT_PASSWORD}" \
 log "Primary restored from standby."
 slack "Primary restored from standby's data."
 
-# 3. Stop standby cloudflared and winnonah
-log "Stopping standby services..."
+# 3. Stop standby cloudflared and its active web slot
+# Deploy.sh can leave either winnonah-a or winnonah-b running on standby
+# (a rolling deploy may have happened while standby was serving), so find
+# whichever one is actually up rather than assuming winnonah-a.
+STANDBY_SLOT=$(ssh -o LogLevel=quiet -i "${STANDBY_SSH_KEY_PATH}" "${STANDBY_SSH_USER}@${STANDBY_TAILSCALE_IP}" \
+  'for s in winnonah-a winnonah-b; do
+     [ "$(docker inspect -f "{{.State.Running}}" "$s" 2>/dev/null)" = "true" ] && echo "$s" && break
+   done')
+STANDBY_SLOT="${STANDBY_SLOT:-winnonah-a}"
+
+log "Stopping standby services (web slot: ${STANDBY_SLOT})..."
 ssh -o LogLevel=quiet -i "${STANDBY_SSH_KEY_PATH}" "${STANDBY_SSH_USER}@${STANDBY_TAILSCALE_IP}" \
-  "${STANDBY_COMPOSE} --profile active_only stop cloudflared winnonah winnonah-python"
+  "${STANDBY_COMPOSE} --profile active_only stop cloudflared ${STANDBY_SLOT} winnonah-python"
 slack "Standby tunnel stopped. Starting primary tunnel..."
 
-# 4. Start primary caddy, cloudflared, and winnonah
+# 4. Start primary caddy, cloudflared, and winnonah-a
 # caddy has no profile so it's normally always-on, but STONITH's blanket
 # `docker compose down` on primary (failover.sh) removes it along with
 # everything else, so it needs to be started back up explicitly here.
-log "Starting primary caddy, cloudflared, and winnonah..."
-${PRIMARY_COMPOSE} up -d caddy cloudflared winnonah
+# Primary was fully torn down, so there's no existing web slot to preserve -
+# winnonah-a is always the right one to start.
+log "Starting primary caddy, cloudflared, and winnonah-a..."
+${PRIMARY_COMPOSE} up -d caddy cloudflared winnonah-a
 sleep 10
 
 # 5. Start primary python jobs

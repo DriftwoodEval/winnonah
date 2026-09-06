@@ -227,11 +227,32 @@ jobs:
           oauth-secret: ${{ secrets.TS_OAUTH_CLIENT_SECRET }}
           tags: tag:ci
 
-      # Watchtower's HTTP API is bound to primary's Tailscale IP only
-      # (docker-compose.primary.yaml), so this is reachable over the
-      # tailnet CI just joined, and nowhere else.
+      # winnonah-a/winnonah-b are labeled watchtower.enable=false (see
+      # docker-compose.yaml), so this update only reaches winnonah-python
+      # and anything else watchtower manages directly. The web app is
+      # deployed by the rolling step below instead, so it never goes
+      # through watchtower's stop-then-start-anew update.
       - name: Trigger watchtower update
         run: |
           curl -sf -X POST \
             -H "Authorization: Bearer ${{ secrets.WATCHTOWER_HTTP_API_TOKEN }}" \
             "http://${{ secrets.WATCHTOWER_HOST }}:8080/v1/update"
+
+      # Blue/green deploy for the web app (scripts/deploy.sh): starts the
+      # idle winnonah-a/winnonah-b slot on the new image, waits for it to
+      # pass /api/health, then stops the old slot, so Caddy always has a
+      # healthy backend and the site never shows the maintenance page for
+      # a routine deploy.
+      #
+      # Requires an SSH keypair authorized on the primary host for a user
+      # that can run docker compose there (secrets: DEPLOY_SSH_KEY,
+      # DEPLOY_SSH_USER), and the host's repo checkout kept up to date
+      # with main the same way docker-compose*.yaml/Caddyfile already are.
+      - name: Deploy web app (blue/green)
+        if: needs.build-node.result == 'success'
+        run: |
+          install -m 600 /dev/null ~/.ssh/deploy_key
+          echo "${{ secrets.DEPLOY_SSH_KEY }}" > ~/.ssh/deploy_key
+          ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=accept-new \
+            "${{ secrets.DEPLOY_SSH_USER }}@${{ secrets.WATCHTOWER_HOST }}" \
+            "${{ secrets.DEPLOY_PATH }}/scripts/deploy.sh primary"

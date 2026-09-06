@@ -15,7 +15,14 @@ services:
     profiles:
       - active_only
 
-  winnonah:
+  winnonah-a:
+    restart: unless-stopped
+    profiles:
+      - active_only
+    environment:
+      - SERVER_ROLE=standby
+
+  winnonah-b:
     restart: unless-stopped
     profiles:
       - active_only

@@ -92,8 +92,11 @@ slack "MySQL promoted to primary."
 log "Step 2 done."
 
 # 3. Start services
-log "Starting cloudflared, winnonah, winnonah-python..."
-${COMPOSE} --profile active_only up -d cloudflared winnonah winnonah-python
+# Standby had no web slot running before failover (docker-compose.standby.yaml
+# gates winnonah-a/winnonah-b behind the active_only profile), so there's no
+# existing state to preserve - winnonah-a is always the right one to start.
+log "Starting cloudflared, winnonah-a, winnonah-python..."
+${COMPOSE} --profile active_only up -d cloudflared winnonah-a winnonah-python
 slack "Services started. Traffic routing to standby within seconds."
 log "Step 3 done."
 

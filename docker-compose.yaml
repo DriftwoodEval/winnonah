@@ -1,30 +1,49 @@
-services:
-  winnonah:
-    restart: no
-    image: ghcr.io/driftwoodeval/winnonah:latest
-    container_name: winnonah
-    environment:
-      - DATABASE_URL=${DOCKER_DATABASE_URL}
-      - AUTH_SECRET=${AUTH_SECRET}
-      - AUTH_TRUST_HOST=true
-      - AUTH_GOOGLE_ID=${AUTH_GOOGLE_ID}
-      - AUTH_GOOGLE_SECRET=${AUTH_GOOGLE_SECRET}
-      - AUTH_GOOGLE_WORKSPACE_DOMAIN=${AUTH_GOOGLE_WORKSPACE_DOMAIN}
-      - AUTH_URL=${AUTH_URL}
-      - PUNCHLIST_ID=${PUNCHLIST_ID}
-      - PUNCHLIST_RANGE=${PUNCHLIST_RANGE}
-      - REDIS_HOST=${DOCKER_REDIS_HOST}
-      - OPENPHONE_API_TOKEN=${OPENPHONE_API_TOKEN}
-      - OPENPHONE_NUMBER_ID=${OPENPHONE_NUMBER_ID}
-      - API_KEY=${API_KEY}
-      - NEXT_PUBLIC_APP_TITLE=${NEXT_PUBLIC_APP_TITLE}
-      - NEXT_PUBLIC_APP_DOMAIN=${NEXT_PUBLIC_APP_DOMAIN}
-      - PY_API=${DOCKER_PY_API}
+x-winnonah-base: &winnonah-base
+  restart: no
+  image: ghcr.io/driftwoodeval/winnonah:latest
+  # Rolling deploys (scripts/deploy.sh) update one slot at a time, so
+  # watchtower must never touch these on its own poll cycle.
+  labels:
+    - "com.centurylinklabs.watchtower.enable=false"
+  # Only started explicitly, by name, from scripts/deploy.sh or a failover
+  # activation script. Keeps `docker compose up -d` from starting a second
+  # web slot as a side effect.
+  profiles:
+    - web
+  environment:
+    - DATABASE_URL=${DOCKER_DATABASE_URL}
+    - AUTH_SECRET=${AUTH_SECRET}
+    - AUTH_TRUST_HOST=true
+    - AUTH_GOOGLE_ID=${AUTH_GOOGLE_ID}
+    - AUTH_GOOGLE_SECRET=${AUTH_GOOGLE_SECRET}
+    - AUTH_GOOGLE_WORKSPACE_DOMAIN=${AUTH_GOOGLE_WORKSPACE_DOMAIN}
+    - AUTH_URL=${AUTH_URL}
+    - PUNCHLIST_ID=${PUNCHLIST_ID}
+    - PUNCHLIST_RANGE=${PUNCHLIST_RANGE}
+    - REDIS_HOST=${DOCKER_REDIS_HOST}
+    - OPENPHONE_API_TOKEN=${OPENPHONE_API_TOKEN}
+    - OPENPHONE_NUMBER_ID=${OPENPHONE_NUMBER_ID}
+    - API_KEY=${API_KEY}
+    - NEXT_PUBLIC_APP_TITLE=${NEXT_PUBLIC_APP_TITLE}
+    - NEXT_PUBLIC_APP_DOMAIN=${NEXT_PUBLIC_APP_DOMAIN}
+    - PY_API=${DOCKER_PY_API}
+  volumes:
+    - ./logs:/app/logs
+    - ../qs/logs/screenshots:/app/q-screenshots
+    - ./python/auth_cache:/app/python/auth_cache
 
-    volumes:
-      - ./logs:/app/logs
-      - ../qs/logs/screenshots:/app/q-screenshots
-      - ./python/auth_cache:/app/python/auth_cache
+services:
+  # Two identical slots for the web app. Caddy proxies to both and fails
+  # over on a health check failure, so exactly one runs in steady state
+  # and scripts/deploy.sh briefly starts the idle slot to cut over without
+  # downtime. See caddy/Caddyfile.
+  winnonah-a:
+    <<: *winnonah-base
+    container_name: winnonah-a
+
+  winnonah-b:
+    <<: *winnonah-base
+    container_name: winnonah-b
 
   driftwood-db:
     image: mysql
@@ -164,3 +183,9 @@ volumes:
   loki-data:
   grafana-data:
   promtail-positions:
+
+networks:
+  default:
+    # Pinned so scripts/deploy.sh can reach the idle slot's health endpoint
+    # without guessing the compose-generated project/network name.
+    name: winnonah-net
