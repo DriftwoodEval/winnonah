@@ -269,7 +269,7 @@ function ClientForm({
 								<div className="space-y-1 leading-none">
 									<FormLabel>Already Diagnosed</FormLabel>
 									<FormDescription>
-										Show a warning label on the client's page. Doesn't stop
+										Show a warning banner on the client's page. Doesn't stop
 										records requests, questionnaires, or reminders.
 									</FormDescription>
 								</div>
