@@ -406,6 +406,7 @@ export const insuranceReviewRouter = createTRPCRouter({
 				clientId: clients.id,
 				clientName: clients.fullName,
 				clientHash: clients.hash,
+				waiting: insuranceReview.waiting,
 			})
 			.from(insuranceReview)
 			.innerJoin(clients, eq(insuranceReview.clientId, clients.id))

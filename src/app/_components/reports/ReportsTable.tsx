@@ -22,11 +22,22 @@ type Report = RouterOutputs["reports"]["list"][number];
 // Statuses an approver can still approve & release from.
 const APPROVABLE_STATUSES = ["claimed", "submitted"] as const;
 
+const STATUS_LABELS: Partial<Record<Report["status"], string>> = {
+	pending: "Awaiting folder",
+};
+
+function statusLabel(status: Report["status"]) {
+	return (
+		STATUS_LABELS[status] ??
+		`${status.charAt(0).toUpperCase()}${status.slice(1).toLowerCase()}`
+	);
+}
+
 function StatusBadge({ status }: { status: Report["status"] }) {
 	if (status === "pending") {
-		return <Badge variant="outline">awaiting folder</Badge>;
+		return <Badge variant="outline">{statusLabel(status)}</Badge>;
 	}
-	return <Badge variant="secondary">{status}</Badge>;
+	return <Badge variant="secondary">{statusLabel(status)}</Badge>;
 }
 
 export function ReportsTable({
@@ -141,7 +152,10 @@ export function ReportsTable({
 									{r.writerCompletedAt ? (
 										<div className="flex items-center gap-1">
 											<span className="text-muted-foreground text-xs">
-												{formatInBusinessTime(r.writerCompletedAt, "MMM d")}
+												{formatInBusinessTime(
+													r.writerCompletedAt,
+													"MMM d, yyyy",
+												)}
 											</span>
 											{canEditWriting && (
 												<Button
