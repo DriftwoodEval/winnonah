@@ -1171,7 +1171,14 @@ const DistrictKeySelect = memo(function DistrictKeySelect({
 					>
 						<FormControl>
 							<SelectTrigger className="w-full">
-								<SelectValue placeholder="Select District" />
+								{/* Render the value directly instead of <SelectValue>: Radix only
+								    learns an item's label while its content is mounted, so a
+								    closed select whose items are lazily rendered would show blank. */}
+								<span
+									className={field.value ? undefined : "text-muted-foreground"}
+								>
+									{(field.value as string) || "Select District"}
+								</span>
 							</SelectTrigger>
 						</FormControl>
 						<SelectContent>
