@@ -10,9 +10,10 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from "@ui/select";
+import { formatDistanceToNowStrict } from "date-fns";
 import { debounce } from "es-toolkit/function";
 import { isEqual } from "es-toolkit/predicate";
-import { Clock, History, Send } from "lucide-react";
+import { Clock, History, Send, Users } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { useCheckPermission } from "~/hooks/use-check-permission";
@@ -21,6 +22,7 @@ import { hasPermission } from "~/lib/utils";
 import { api } from "~/trpc/react";
 import { NoteHistory } from "../shared/NoteHistory";
 import { ResponsiveDialog } from "../shared/ResponsiveDialog";
+import { InsuranceReviewClaimHistory } from "./InsuranceReviewClaimHistory";
 import { InsuranceReviewSubmitDialog } from "./InsuranceReviewSubmitDialog";
 
 interface InsuranceReviewSectionProps {
@@ -55,6 +57,12 @@ export function InsuranceReviewSection({
 		[allUsers],
 	);
 
+	const { data: claimHistory } = api.insuranceReview.getClaimHistory.useQuery(
+		{ clientId: client.id },
+		{ enabled: canEdit },
+	);
+	const latestClaim = claimHistory?.[0];
+
 	const [localContent, setLocalContent] = useState<JSONContent | string>("");
 
 	// biome-ignore lint/correctness/useExhaustiveDependencies: only sync on server data change
@@ -75,6 +83,7 @@ export function InsuranceReviewSection({
 	const setClaimMutation = api.insuranceReview.setClaim.useMutation({
 		onSuccess: () => {
 			utils.insuranceReview.getByClientId.invalidate(client.id);
+			utils.insuranceReview.getClaimHistory.invalidate({ clientId: client.id });
 		},
 		onError: (error) => {
 			toast.error("Failed to update claim", { description: error.message });
@@ -213,31 +222,59 @@ export function InsuranceReviewSection({
 				/>
 
 				{canEdit && (
-					<div className="flex items-center gap-2">
-						<span className="text-muted-foreground text-sm">Whose turn:</span>
-						<Select
-							disabled={
-								setClaimMutation.isPending || reviewableUsers.length === 0
-							}
-							onValueChange={(email) =>
-								setClaimMutation.mutate({
-									clientId: client.id,
-									userEmail: email,
-								})
-							}
-							value={review?.claimedUserEmail ?? ""}
-						>
-							<SelectTrigger className="w-[200px]">
-								<SelectValue placeholder="Assign reviewer..." />
-							</SelectTrigger>
-							<SelectContent>
-								{reviewableUsers.map((u) => (
-									<SelectItem key={u.id} value={u.email ?? ""}>
-										{u.name ?? u.email}
-									</SelectItem>
-								))}
-							</SelectContent>
-						</Select>
+					<div className="space-y-1">
+						<div className="flex items-center gap-2">
+							<span className="text-muted-foreground text-sm">Whose turn:</span>
+							<Select
+								disabled={
+									setClaimMutation.isPending || reviewableUsers.length === 0
+								}
+								onValueChange={(email) =>
+									setClaimMutation.mutate({
+										clientId: client.id,
+										userEmail: email,
+									})
+								}
+								value={review?.claimedUserEmail ?? ""}
+							>
+								<SelectTrigger className="w-[200px]">
+									<SelectValue placeholder="Assign reviewer..." />
+								</SelectTrigger>
+								<SelectContent>
+									{reviewableUsers.map((u) => (
+										<SelectItem key={u.id} value={u.email ?? ""}>
+											{u.name ?? u.email}
+										</SelectItem>
+									))}
+								</SelectContent>
+							</Select>
+							<ResponsiveDialog
+								className="max-h-[calc(100vh-4rem)] max-w-lg overflow-x-hidden overflow-y-scroll sm:max-w-lg"
+								title="Assignment History"
+								trigger={
+									<Button
+										className="cursor-pointer rounded-full"
+										size="icon"
+										variant="ghost"
+									>
+										<Users />
+									</Button>
+								}
+							>
+								<InsuranceReviewClaimHistory clientId={client.id} />
+							</ResponsiveDialog>
+						</div>
+
+						{latestClaim && (
+							<p className="text-muted-foreground text-xs">
+								{latestClaim.setBy === latestClaim.userEmail
+									? "Self-assigned"
+									: `Assigned by ${latestClaim.setByName || latestClaim.setBy}`}{" "}
+								{formatDistanceToNowStrict(new Date(latestClaim.createdAt), {
+									addSuffix: true,
+								})}
+							</p>
+						)}
 					</div>
 				)}
 

@@ -648,7 +648,10 @@ def notify_insurance_review_claimed(
             "reason": "recipient has not opted in to email notifications",
         }
 
-    subject = f"Insurance Review Assigned: {request.client_name}"
+    subject = (
+        f"{request.claimer_name} assigned you an insurance review: "
+        f"{request.client_name}"
+    )
 
     link_text = f"\n\nView client: {request.client_url}" if request.client_url else ""
     message_text = (
