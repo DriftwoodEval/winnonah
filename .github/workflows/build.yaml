@@ -251,6 +251,7 @@ jobs:
       - name: Deploy web app (blue/green)
         if: needs.build-node.result == 'success'
         run: |
+          mkdir -p ~/.ssh
           install -m 600 /dev/null ~/.ssh/deploy_key
           echo "${{ secrets.DEPLOY_SSH_KEY }}" > ~/.ssh/deploy_key
           ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=accept-new \
