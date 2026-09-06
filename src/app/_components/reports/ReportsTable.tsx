@@ -22,11 +22,39 @@ type Report = RouterOutputs["reports"]["list"][number];
 // Statuses an approver can still approve & release from.
 const APPROVABLE_STATUSES = ["claimed", "submitted"] as const;
 
-function StatusBadge({ status }: { status: Report["status"] }) {
-	if (status === "pending") {
-		return <Badge variant="outline">awaiting folder</Badge>;
+// "claimed" covers two different situations: a pool report a writer actively
+// took off the queue, and a self-written report that was pre-assigned to its
+// evaluator at creation and never went through a claim step. Label them
+// differently so "claimed" doesn't get used for reports nobody claimed.
+function StatusBadge({
+	status,
+	selfWritten,
+}: {
+	status: Report["status"];
+	selfWritten: boolean;
+}) {
+	switch (status) {
+		case "pending":
+			return <Badge variant="outline">awaiting folder</Badge>;
+		case "queued":
+			return (
+				<Badge className="border-warning/40 text-warning" variant="outline">
+					in queue
+				</Badge>
+			);
+		case "claimed":
+			return (
+				<Badge variant="secondary">{selfWritten ? "writing" : "claimed"}</Badge>
+			);
+		case "approved":
+			return (
+				<Badge className="border-success/40 text-success" variant="outline">
+					approved
+				</Badge>
+			);
+		default:
+			return <Badge variant="secondary">{status}</Badge>;
 	}
-	return <Badge variant="secondary">{status}</Badge>;
 }
 
 export function ReportsTable({
@@ -95,7 +123,7 @@ export function ReportsTable({
 						<TableHead>Type</TableHead>
 						<TableHead>Writer</TableHead>
 						<TableHead>Status</TableHead>
-						<TableHead>Claimed</TableHead>
+						<TableHead>Claimed on</TableHead>
 						<TableHead>Writer done</TableHead>
 						{billingFields.map((f) => (
 							<TableHead key={f.key}>{f.label}</TableHead>
@@ -130,7 +158,7 @@ export function ReportsTable({
 									)}
 								</TableCell>
 								<TableCell>
-									<StatusBadge status={r.status} />
+									<StatusBadge selfWritten={r.selfWritten} status={r.status} />
 								</TableCell>
 								<TableCell className="whitespace-nowrap text-sm">
 									{r.claimedAt

@@ -164,12 +164,12 @@ export default function ReportQueue({
 										<div className="flex flex-col gap-2">
 											{claimedFolders.map((folder) => (
 												<div
-													className="flex items-center justify-between rounded-md bg-amber-50 p-3 dark:bg-amber-950/20"
+													className="flex items-center justify-between rounded-md bg-warning/10 p-3"
 													key={folder.id}
 												>
 													<div className="flex items-center gap-3">
 														<FolderIcon
-															className="fill-amber-500 text-amber-500"
+															className="fill-warning/20 text-warning"
 															size={18}
 														/>
 														<span className="font-bold text-sm leading-none">
@@ -177,7 +177,7 @@ export default function ReportQueue({
 														</span>
 													</div>
 													<Button
-														className="h-8 w-8 text-amber-600 hover:cursor-pointer hover:bg-amber-100 hover:text-amber-700 dark:hover:bg-amber-900/30"
+														className="h-8 w-8 text-warning hover:cursor-pointer hover:bg-warning/10 hover:text-warning"
 														onClick={() =>
 															window.open(
 																`https://drive.google.com/drive/folders/${folder.id}`,
@@ -212,7 +212,7 @@ export default function ReportQueue({
 											>
 												<div className="flex items-center gap-3">
 													<FolderIcon
-														className="fill-amber-500/20 text-amber-500"
+														className="fill-primary/20 text-primary"
 														size={18}
 													/>
 													<span className="font-medium text-sm leading-none">
