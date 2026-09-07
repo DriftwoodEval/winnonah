@@ -1871,7 +1871,12 @@ export const clientRouter = createTRPCRouter({
 				ctx.session.user,
 				"clients:additional-insurance-appointments",
 			);
-			return computeAndStoreAssessmentSnapshot(ctx.db, input.clientId);
+			const snapshot = await computeAndStoreAssessmentSnapshot(
+				ctx.db,
+				input.clientId,
+			);
+			await invalidateCache(ctx, CACHE_KEY_MISSING_APPOINTMENTS);
+			return snapshot;
 		}),
 
 	getMissingAppointments: protectedProcedure.query(async ({ ctx }) => {
