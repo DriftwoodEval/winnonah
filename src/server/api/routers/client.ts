@@ -1969,6 +1969,7 @@ export const clientRouter = createTRPCRouter({
 					const apptConfig = ins?.additionalAppts as
 						| {
 								maxUnitsPerDay?: number;
+								using90000BillingCode?: boolean;
 								max96130?: number;
 								max96131?: number;
 								max96136?: number;
@@ -1976,6 +1977,8 @@ export const clientRouter = createTRPCRouter({
 								maxAppt4Units?: number;
 						  }
 						| undefined;
+					if (apptConfig?.using90000BillingCode) continue;
+
 					const maxUnitsPerDay = apptConfig?.maxUnitsPerDay;
 					if (!maxUnitsPerDay) continue;
 
