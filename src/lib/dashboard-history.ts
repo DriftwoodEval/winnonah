@@ -1,14 +1,22 @@
 import fs from "node:fs";
 import path from "node:path";
-import { desc, eq } from "drizzle-orm";
+import { desc, eq, lt } from "drizzle-orm";
 import { OAuth2Client } from "google-auth-library";
 import type { Session } from "next-auth";
-import { getClientMatchedSections } from "~/lib/dashboard";
+import {
+	getClientFailureSections,
+	getClientIssueListSections,
+	getClientMatchedSections,
+} from "~/lib/dashboard";
 import { getFullDashboardData } from "~/lib/dashboard-data";
 import { logger } from "~/lib/logger";
 import { redis } from "~/lib/redis";
 import { db } from "~/server/db";
-import { clientDashboardSectionHistory } from "~/server/db/schema";
+import {
+	clientDashboardSectionHistory,
+	clients,
+	failures,
+} from "~/server/db/schema";
 
 const log = logger.child({ module: "dashboard-history" });
 
@@ -66,19 +74,55 @@ function sectionsKey(sections: string[]): string {
  */
 export async function syncDashboardSectionHistory() {
 	const session = await getServiceSession();
-	const { punchClients, missingClients, needsReachOut, needsReview } =
-		await getFullDashboardData({ db, redis, session });
+	const [
+		{ punchClients, missingClients, needsReachOut, needsReview },
+		allClients,
+		activeFailures,
+	] = await Promise.all([
+		getFullDashboardData({ db, redis, session }),
+		db
+			.select({
+				id: clients.id,
+				status: clients.status,
+				pause: clients.pause,
+				autismStop: clients.autismStop,
+				evaluationInProcess: clients.evaluationInProcess,
+				schoolDistrict: clients.schoolDistrict,
+				referralSource: clients.referralSource,
+			})
+			.from(clients),
+		db.select().from(failures).where(lt(failures.reminded, 100)),
+	]);
 
 	// Punch rows with no matching DB client (getPunchData returns sheet-only
 	// data for those) have no `id`, so filter those out before inserting.
 	const hasId = (c: { id?: number | null }): c is { id: number } =>
 		typeof c.id === "number";
 
+	const failuresByClientId = new Map<number, typeof activeFailures>();
+	for (const failure of activeFailures) {
+		const clientFailures = failuresByClientId.get(failure.clientId) ?? [];
+		clientFailures.push(failure);
+		failuresByClientId.set(failure.clientId, clientFailures);
+	}
+
+	const clientsById = new Map(allClients.map((c) => [c.id, c]));
+
 	const clientIds = new Set<number>([
 		...(punchClients?.filter(hasId).map((c) => c.id) ?? []),
 		...(missingClients?.filter(hasId).map((c) => c.id) ?? []),
 		...(needsReachOut?.filter(hasId).map((c) => c.id) ?? []),
 		...(needsReview?.filter(hasId).map((c) => c.id) ?? []),
+		...allClients
+			.filter(
+				(c) =>
+					getClientIssueListSections({
+						...c,
+						failures: failuresByClientId.get(c.id),
+					}).length > 0,
+			)
+			.map((c) => c.id),
+		...failuresByClientId.keys(),
 	]);
 
 	let updatedCount = 0;
@@ -90,6 +134,17 @@ export async function syncDashboardSectionHistory() {
 			needsReachOut,
 			needsReview,
 		);
+		const clientFailures = failuresByClientId.get(clientId);
+		const issueListSections = getClientIssueListSections({
+			...(clientsById.get(clientId) ?? { id: clientId }),
+			failures: clientFailures,
+		});
+		const failureSections = getClientFailureSections(clientFailures);
+		const sections = [
+			...matchedSections,
+			...issueListSections,
+			...failureSections,
+		];
 
 		const [lastRow] = await db
 			.select({ sections: clientDashboardSectionHistory.sections })
@@ -98,16 +153,13 @@ export async function syncDashboardSectionHistory() {
 			.orderBy(desc(clientDashboardSectionHistory.createdAt))
 			.limit(1);
 
-		if (
-			lastRow &&
-			sectionsKey(lastRow.sections) === sectionsKey(matchedSections)
-		) {
+		if (lastRow && sectionsKey(lastRow.sections) === sectionsKey(sections)) {
 			continue;
 		}
 
 		await db.insert(clientDashboardSectionHistory).values({
 			clientId,
-			sections: matchedSections,
+			sections,
 		});
 		updatedCount++;
 	}

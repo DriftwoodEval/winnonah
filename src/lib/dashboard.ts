@@ -670,6 +670,87 @@ export function getDashboardSections(
 	];
 }
 
+// ---------------------------------------------------------------------------
+// Issue-list membership (the /issues page)
+//
+// A subset of the /issues lists that reduce to a single client's own columns,
+// as opposed to ones that only make sense as a cross-client comparison
+// (duplicate names, duplicate punchlist IDs, clients missing from the
+// punchlist, etc). Used to label a client's issue-list membership in the
+// dashboard history alongside their workflow sections.
+// ---------------------------------------------------------------------------
+
+export const SECTION_ISSUE_DD4 = "Issue: Clients in DD4";
+export const SECTION_ISSUE_PAUSED = "Issue: Paused Clients";
+export const SECTION_ISSUE_AUTISM_STOP = "Issue: Autism Stops";
+export const SECTION_ISSUE_EVALUATION_IN_PROCESS =
+	"Issue: Evaluation In Process";
+export const SECTION_ISSUE_NO_REFERRAL_SOURCE = "Issue: No Referral Source";
+export const SECTION_ISSUE_DROP_LIST = "Issue: Drop List";
+
+export type IssueListClient = {
+	id: number;
+	status?: boolean | null;
+	pause?: boolean | null;
+	autismStop?: boolean | null;
+	evaluationInProcess?: boolean | null;
+	schoolDistrict?: string | null;
+	referralSource?: string | null;
+	failures?: Failure[];
+};
+
+/** Mirrors the same-named /issues page queries in src/server/api/routers/client.ts. */
+export function getClientIssueListSections(client: IssueListClient): string[] {
+	const sections: string[] = [];
+
+	if (
+		client.schoolDistrict === "Dorchester School District 4" &&
+		client.status
+	) {
+		sections.push(SECTION_ISSUE_DD4);
+	}
+	if (client.pause) sections.push(SECTION_ISSUE_PAUSED);
+	if (client.autismStop && client.status) {
+		sections.push(SECTION_ISSUE_AUTISM_STOP);
+	}
+	if (client.evaluationInProcess && client.status) {
+		sections.push(SECTION_ISSUE_EVALUATION_IN_PROCESS);
+	}
+	if (
+		client.status &&
+		!isNotesOnlyClientId(client.id) &&
+		(client.referralSource === "No Referral Source" || !client.referralSource)
+	) {
+		sections.push(SECTION_ISSUE_NO_REFERRAL_SOURCE);
+	}
+	// Same "recurring, unresolved failure" threshold used to derive the drop
+	// list badge on the client page (Client.tsx).
+	if (
+		client.failures?.some(
+			(f) => (f.reminded ?? 0) > 3 && (f.reminded ?? 0) < 100,
+		)
+	) {
+		sections.push(SECTION_ISSUE_DROP_LIST);
+	}
+
+	return sections;
+}
+
+// ---------------------------------------------------------------------------
+// Failure history
+// ---------------------------------------------------------------------------
+
+/** Labels a client's currently unresolved failures for the dashboard history. */
+export function getClientFailureSections(
+	failures: Failure[] | undefined,
+): string[] {
+	return (failures ?? [])
+		.filter((f) => (f.reminded ?? 0) < 100)
+		.map(
+			(f) => `Failure: ${f.reason.charAt(0).toUpperCase()}${f.reason.slice(1)}`,
+		);
+}
+
 export function getClientMatchedSections(
 	client: { id: number },
 	allPunchClients: FullClientInfo[] | undefined,

@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 import {
 	DASHBOARD_CONFIG,
 	type DashboardClient,
+	getClientFailureSections,
+	getClientIssueListSections,
 	getClientMatchedSections,
 	getDashboardSections,
 	getDuplicatePunchClients,
@@ -9,13 +11,19 @@ import {
 	SECTION_ACTIVE_NOT_ON_PUNCHLIST,
 	SECTION_DA_QS_DONE,
 	SECTION_INACTIVE_ON_PUNCHLIST,
+	SECTION_ISSUE_AUTISM_STOP,
+	SECTION_ISSUE_DD4,
+	SECTION_ISSUE_DROP_LIST,
+	SECTION_ISSUE_EVALUATION_IN_PROCESS,
+	SECTION_ISSUE_NO_REFERRAL_SOURCE,
+	SECTION_ISSUE_PAUSED,
 	SECTION_JUST_ADDED,
 	SECTION_MULTIPLE_FILTERS,
 	SECTION_NEEDS_OUTREACH,
 	SECTION_REACHED_OUT_NEEDS_REVIEW,
 	sortNeedsReachOut,
 } from "./dashboard";
-import type { Client, FullClientInfo } from "./models";
+import type { Client, Failure, FullClientInfo } from "./models";
 
 function client(overrides: Partial<Client> & { id: number }): Client {
 	return {
@@ -307,5 +315,151 @@ describe("getClientMatchedSections", () => {
 			undefined,
 		);
 		expect(result).toEqual([]);
+	});
+});
+
+function failure(overrides: Partial<Failure> & { reason: string }): Failure {
+	return {
+		clientId: 1,
+		daEval: null,
+		failedDate: "2026-01-01",
+		updatedAt: new Date(),
+		reminded: 0,
+		lastReminded: null,
+		...overrides,
+	} as Failure;
+}
+
+describe("getClientIssueListSections", () => {
+	it("returns an empty array for a client matching no issue list", () => {
+		expect(
+			getClientIssueListSections({
+				id: 1,
+				status: true,
+				referralSource: "Physician",
+			}),
+		).toEqual([]);
+	});
+
+	it("flags DD4 only for active clients in that district", () => {
+		expect(
+			getClientIssueListSections({
+				id: 1,
+				status: true,
+				schoolDistrict: "Dorchester School District 4",
+				referralSource: "Physician",
+			}),
+		).toEqual([SECTION_ISSUE_DD4]);
+		expect(
+			getClientIssueListSections({
+				id: 1,
+				status: false,
+				schoolDistrict: "Dorchester School District 4",
+				referralSource: "Physician",
+			}),
+		).toEqual([]);
+	});
+
+	it("flags paused clients regardless of status", () => {
+		expect(
+			getClientIssueListSections({ id: 1, status: false, pause: true }),
+		).toEqual([SECTION_ISSUE_PAUSED]);
+	});
+
+	it("flags active autism-stop clients", () => {
+		expect(
+			getClientIssueListSections({
+				id: 1,
+				status: true,
+				autismStop: true,
+				referralSource: "Physician",
+			}),
+		).toEqual([SECTION_ISSUE_AUTISM_STOP]);
+	});
+
+	it("flags active evaluation-in-process clients", () => {
+		expect(
+			getClientIssueListSections({
+				id: 1,
+				status: true,
+				evaluationInProcess: true,
+				referralSource: "Physician",
+			}),
+		).toEqual([SECTION_ISSUE_EVALUATION_IN_PROCESS]);
+	});
+
+	it("flags active clients with no referral source, but not notes-only clients", () => {
+		expect(
+			getClientIssueListSections({ id: 1, status: true, referralSource: null }),
+		).toEqual([SECTION_ISSUE_NO_REFERRAL_SOURCE]);
+		expect(
+			getClientIssueListSections({
+				id: 12345,
+				status: true,
+				referralSource: null,
+			}),
+		).toEqual([]);
+	});
+
+	it("flags clients with a recurring, unresolved failure as on the drop list", () => {
+		expect(
+			getClientIssueListSections({
+				id: 1,
+				status: true,
+				referralSource: "Physician",
+				failures: [failure({ reason: "docs not signed", reminded: 4 })],
+			}),
+		).toEqual([SECTION_ISSUE_DROP_LIST]);
+		expect(
+			getClientIssueListSections({
+				id: 1,
+				status: true,
+				referralSource: "Physician",
+				failures: [failure({ reason: "docs not signed", reminded: 3 })],
+			}),
+		).toEqual([]);
+		expect(
+			getClientIssueListSections({
+				id: 1,
+				status: true,
+				referralSource: "Physician",
+				failures: [failure({ reason: "docs not signed", reminded: 104 })],
+			}),
+		).toEqual([]);
+	});
+
+	it("can match multiple issue lists at once", () => {
+		expect(
+			getClientIssueListSections({
+				id: 1,
+				status: true,
+				pause: true,
+				autismStop: true,
+				referralSource: "Physician",
+			}),
+		).toEqual([SECTION_ISSUE_PAUSED, SECTION_ISSUE_AUTISM_STOP]);
+	});
+});
+
+describe("getClientFailureSections", () => {
+	it("returns an empty array with no failures", () => {
+		expect(getClientFailureSections(undefined)).toEqual([]);
+	});
+
+	it("labels and capitalizes each unresolved failure", () => {
+		expect(
+			getClientFailureSections([
+				failure({ reason: "portal not opened" }),
+				failure({ reason: "docs not signed" }),
+			]),
+		).toEqual(["Failure: Portal not opened", "Failure: Docs not signed"]);
+	});
+
+	it("excludes resolved failures", () => {
+		expect(
+			getClientFailureSections([
+				failure({ reason: "portal not opened", reminded: 100 }),
+			]),
+		).toEqual([]);
 	});
 });

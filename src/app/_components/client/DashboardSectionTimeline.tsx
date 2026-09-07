@@ -3,7 +3,14 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@ui/card";
 import { Skeleton } from "@ui/skeleton";
 import { format, formatDistanceToNowStrict } from "date-fns";
+import { cn } from "~/lib/utils";
 import { api } from "~/trpc/react";
+
+function sectionTextClass(section: string): string {
+	if (section.startsWith("Failure: ")) return "text-destructive";
+	if (section.startsWith("Issue: ")) return "text-warning";
+	return "text-muted-foreground";
+}
 
 export function DashboardSectionTimeline({ clientId }: { clientId: number }) {
 	const { data: history, isLoading } =
@@ -56,7 +63,10 @@ export function DashboardSectionTimeline({ clientId }: { clientId: number }) {
 								) : (
 									entry.sections.map((section) => (
 										<p
-											className="text-muted-foreground text-xs leading-tight"
+											className={cn(
+												"text-xs leading-tight",
+												sectionTextClass(section),
+											)}
 											key={section}
 										>
 											{section}
