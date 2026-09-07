@@ -38,6 +38,7 @@ import {
 	SelectValue,
 } from "@ui/select";
 import { Separator } from "@ui/separator";
+import { Skeleton } from "@ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@ui/tabs";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@ui/tooltip";
 import { Info, Loader2, Lock, LockOpen, Plus, Trash2 } from "lucide-react";
@@ -615,7 +616,22 @@ export function QSuiteTab() {
 	};
 
 	if (isLoading)
-		return <Loader2 className="mx-auto mt-20 h-8 w-8 animate-spin" />;
+		return (
+			<div className="space-y-4">
+				<div className="flex flex-wrap gap-2">
+					<Skeleton className="h-8 w-20" />
+					<Skeleton className="h-8 w-20" />
+					<Skeleton className="h-8 w-20" />
+					<Skeleton className="h-8 w-20" />
+				</div>
+				<div className="grid gap-4 sm:grid-cols-2">
+					<Skeleton className="h-24 w-full" />
+					<Skeleton className="h-24 w-full" />
+					<Skeleton className="h-24 w-full" />
+					<Skeleton className="h-24 w-full" />
+				</div>
+			</div>
+		);
 
 	return (
 		<Form {...form}>

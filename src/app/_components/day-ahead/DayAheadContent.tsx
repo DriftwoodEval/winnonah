@@ -14,6 +14,7 @@ import {
 	SelectValue,
 } from "@ui/select";
 import { Separator } from "@ui/separator";
+import { Skeleton } from "@ui/skeleton";
 import { ToggleGroup, ToggleGroupItem } from "@ui/toggle-group";
 import { TooltipProvider } from "@ui/tooltip";
 import { addDays, format, startOfWeek } from "date-fns";
@@ -508,7 +509,12 @@ export function DayAheadContent() {
 
 				{/* Content */}
 				{isLoading ? (
-					<div className="text-muted-foreground text-sm">Loading...</div>
+					<div className="flex flex-col gap-2">
+						<Skeleton className="h-12 w-full" />
+						<Skeleton className="h-12 w-full" />
+						<Skeleton className="h-12 w-full" />
+						<Skeleton className="h-12 w-3/4" />
+					</div>
 				) : viewMode === "list" ? (
 					listData && (
 						<ListContent

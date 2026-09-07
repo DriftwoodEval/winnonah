@@ -23,9 +23,10 @@ interface DashboardSectionWidgetProps {
 export function DashboardSectionWidget({
 	sectionTitle,
 }: DashboardSectionWidgetProps) {
-	const { data, isLoading } = api.google.getDashboardData.useQuery(undefined, {
-		refetchInterval: 180000,
-	});
+	const { data, isLoading, isError } = api.google.getDashboardData.useQuery(
+		undefined,
+		{ refetchInterval: 180000 },
+	);
 
 	if (isLoading) {
 		return (
@@ -35,6 +36,14 @@ export function DashboardSectionWidget({
 				<Skeleton className="h-3 w-full" />
 				<Skeleton className="h-3 w-3/4" />
 			</div>
+		);
+	}
+
+	if (isError) {
+		return (
+			<p className="px-3 py-4 text-center text-muted-foreground text-sm">
+				Couldn't load. Try refreshing the page.
+			</p>
 		);
 	}
 
@@ -157,12 +166,12 @@ function DashboardClientRow({
 							</span>
 						)}
 						{full.autismStop && (
-							<span className="shrink-0 rounded-sm bg-destructive px-1 py-0.5 text-[10px] text-destructive-foreground">
+							<span className="shrink-0 rounded-sm bg-warning px-1 py-0.5 text-[10px] text-warning-foreground">
 								Autism Stop
 							</span>
 						)}
 						{full.pause && (
-							<span className="shrink-0 rounded-sm bg-destructive px-1 py-0.5 text-[10px] text-destructive-foreground">
+							<span className="shrink-0 rounded-sm bg-warning px-1 py-0.5 text-[10px] text-warning-foreground">
 								Paused
 							</span>
 						)}

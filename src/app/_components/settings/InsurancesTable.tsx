@@ -735,14 +735,14 @@ export default function InsurancesTable() {
 									</TableCell>
 									<TableCell className="text-center">
 										{insurance.preAuthNeeded ? (
-											<Check className="mx-auto h-4 w-4 text-green-500" />
+											<Check className="mx-auto h-4 w-4 text-success" />
 										) : (
 											<X className="mx-auto h-4 w-4 text-muted-foreground" />
 										)}
 									</TableCell>
 									<TableCell className="text-center">
 										{insurance.preAuthLockin ? (
-											<Check className="mx-auto h-4 w-4 text-green-500" />
+											<Check className="mx-auto h-4 w-4 text-success" />
 										) : (
 											<X className="mx-auto h-4 w-4 text-muted-foreground" />
 										)}
@@ -819,7 +819,7 @@ export default function InsurancesTable() {
 								<div>
 									<div className="text-muted-foreground text-xs">Pre-Auth</div>
 									{insurance.preAuthNeeded ? (
-										<Check className="h-4 w-4 text-green-500" />
+										<Check className="h-4 w-4 text-success" />
 									) : (
 										<X className="h-4 w-4 text-muted-foreground" />
 									)}
@@ -827,7 +827,7 @@ export default function InsurancesTable() {
 								<div>
 									<div className="text-muted-foreground text-xs">Lock In</div>
 									{insurance.preAuthLockin ? (
-										<Check className="h-4 w-4 text-green-500" />
+										<Check className="h-4 w-4 text-success" />
 									) : (
 										<X className="h-4 w-4 text-muted-foreground" />
 									)}

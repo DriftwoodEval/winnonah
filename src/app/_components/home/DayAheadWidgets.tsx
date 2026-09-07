@@ -6,6 +6,7 @@ import {
 	CollapsibleContent,
 	CollapsibleTrigger,
 } from "@ui/collapsible";
+import { Skeleton } from "@ui/skeleton";
 import { addDays, format } from "date-fns";
 import { ChevronDown, ChevronLeft, ChevronRight } from "lucide-react";
 import Link from "next/link";
@@ -91,21 +92,40 @@ export function DayNav({
 
 export function WidgetShell({
 	title,
+	linkHref,
 	nav,
 	children,
 }: {
 	title: string;
+	linkHref?: string;
 	nav?: React.ReactNode;
 	children: React.ReactNode;
 }) {
 	return (
 		<div className="flex flex-col overflow-hidden">
 			<div className="flex shrink-0 items-center gap-2 border-b px-4 py-2.5">
-				<h2 className="truncate font-semibold text-sm">{title}</h2>
+				{linkHref ? (
+					<Link
+						className="truncate font-semibold text-sm hover:text-secondary"
+						href={linkHref}
+					>
+						{title}
+					</Link>
+				) : (
+					<h2 className="truncate font-semibold text-sm">{title}</h2>
+				)}
 				{nav}
 			</div>
 			<div className="overflow-auto px-4 py-2">{children}</div>
 		</div>
+	);
+}
+
+export function WidgetError() {
+	return (
+		<p className="text-muted-foreground text-sm">
+			Couldn't load. Try refreshing the page.
+		</p>
 	);
 }
 
@@ -114,7 +134,9 @@ export function MyDayWidget() {
 	const canCheckin = can("clients:appointments:checkin");
 	const checkinDateGate = useCheckinDateGate();
 	const { date: asDate, shift, resetToToday } = useSelectedDate();
-	const { data, isLoading } = api.appointments.getDayAhead.useQuery({ asDate });
+	const { data, isLoading, isError } = api.appointments.getDayAhead.useQuery({
+		asDate,
+	});
 	const { data: greeterSchedule } = api.greeterProxy.getSchedule.useQuery({
 		date: asDate,
 	});
@@ -150,12 +172,19 @@ export function MyDayWidget() {
 
 	return (
 		<WidgetShell
+			linkHref="/day-ahead"
 			nav={<DayNav date={asDate} onShift={shift} onToday={resetToToday} />}
 			title={titleParts.join(" · ")}
 		>
 			<GreeterLine greeter={greeter} />
-			{isLoading ? (
-				<p className="text-muted-foreground text-sm">Loading...</p>
+			{isError ? (
+				<WidgetError />
+			) : isLoading ? (
+				<div className="flex flex-col gap-2 py-2">
+					<Skeleton className="h-4 w-full" />
+					<Skeleton className="h-4 w-full" />
+					<Skeleton className="h-4 w-3/4" />
+				</div>
 			) : !data ? null : !data.hasEvaluatorAccount ? (
 				<p className="text-muted-foreground text-sm">
 					No evaluator profile linked.
@@ -221,7 +250,9 @@ export function WhosInWidget() {
 	const can = useCheckPermission();
 	const canCheckin = can("clients:appointments:checkin");
 	const { date: asDate, shift, resetToToday } = useSelectedDate();
-	const { data, isLoading } = api.appointments.getDayAhead.useQuery({ asDate });
+	const { data, isLoading, isError } = api.appointments.getDayAhead.useQuery({
+		asDate,
+	});
 	const { data: greeterSchedule } = api.greeterProxy.getSchedule.useQuery({
 		date: asDate,
 	});
@@ -251,11 +282,18 @@ export function WhosInWidget() {
 
 	return (
 		<WidgetShell
+			linkHref="/day-ahead"
 			nav={<DayNav date={asDate} onShift={shift} onToday={resetToToday} />}
 			title="Who's In"
 		>
-			{isLoading ? (
-				<p className="text-muted-foreground text-sm">Loading...</p>
+			{isError ? (
+				<WidgetError />
+			) : isLoading ? (
+				<div className="flex flex-col gap-2 py-2">
+					<Skeleton className="h-4 w-full" />
+					<Skeleton className="h-4 w-full" />
+					<Skeleton className="h-4 w-3/4" />
+				</div>
 			) : otherOffices.length === 0 ? (
 				<p className="text-muted-foreground text-sm">
 					No one else has appointments{" "}
