@@ -21,9 +21,7 @@ export function DashboardSectionTimeline({ clientId }: { clientId: number }) {
 	return (
 		<Card className="w-full gap-1 rounded-md p-1">
 			<CardHeader className="px-3 py-2">
-				<CardTitle className="font-semibold text-sm">
-					Dashboard History
-				</CardTitle>
+				<CardTitle className="font-semibold text-sm">History</CardTitle>
 			</CardHeader>
 			<CardContent className="px-2 pb-2">
 				{isLoading ? (
