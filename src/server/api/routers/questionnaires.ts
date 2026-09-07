@@ -2,29 +2,15 @@ import fs from "node:fs";
 import path from "node:path";
 import { URL } from "node:url";
 import { TRPCError } from "@trpc/server";
-import {
-	and,
-	asc,
-	count,
-	countDistinct,
-	desc,
-	eq,
-	gt,
-	inArray,
-	isNotNull,
-	lt,
-	not,
-	or,
-	sql,
-} from "drizzle-orm";
+import { and, asc, desc, eq, inArray, not, or } from "drizzle-orm";
 import { z } from "zod";
-import { fetchWithCache, invalidateCache } from "~/lib/cache";
+import { invalidateCache } from "~/lib/cache";
 import { QUESTIONNAIRE_STATUSES } from "~/lib/constants";
+import { updatePunchData } from "~/lib/google";
 import {
-	CACHE_KEY_PUNCHLIST,
-	getPunchData,
-	updatePunchData,
-} from "~/lib/google";
+	getDuplicateQuestionnaireLinksData,
+	getPartialBatteriesList,
+} from "~/lib/issue-lists";
 import type { InsertingQuestionnaire } from "~/lib/models";
 import {
 	REMINDER_PORTAL_LINK,
@@ -57,6 +43,7 @@ import {
 	questionnaires,
 } from "~/server/db/schema";
 import { getQuestionnaireEligibilityAge } from "~/server/questionnaire-age";
+import { resolveApplicableRules } from "~/server/questionnaire-rules";
 
 interface QuestionnaireDetails {
 	name: string;
@@ -254,106 +241,6 @@ const questionnaireRuleInputSchema = questionnaireRuleBaseSchema
 		path: ["diagnosis"],
 	});
 
-/**
- * Picks the questionnaire rules that apply to a client, grouped by
- * (daeval, diagnosis). Within each group, a rule is considered applicable
- * if every questionnaire type it requires has already been sent to the
- * client and the rule's band is not older than the client's current age
- * (younger or accurate bands only, since an older band's questionnaires
- * shouldn't be treated as satisfied before the client has grown into
- * them); when several such rules in a group fully match (because their
- * questionnaire types overlap, e.g. shared across age bands), the rule
- * requiring the most types is preferred as the closest match to what was
- * actually sent. Only questionnaires sent since the client's current
- * session started (`sessionStartedAt`) count, so a prior cycle's sends
- * don't satisfy the current one. If no rule in a group fully matches yet,
- * that group falls back to filtering by the client's age at their most
- * recent eval appointment.
- */
-async function resolveApplicableRules(
-	ctx: Context,
-	clientId: number,
-	client: typeof clients.$inferSelect,
-	allRules: (typeof questionnaireRules.$inferSelect)[],
-	clientQs: (typeof questionnaires.$inferSelect)[],
-) {
-	const asdAdhd = client.asdAdhd;
-	const wantedDiagnoses = new Set<string | null>();
-	if (!asdAdhd) {
-		wantedDiagnoses.add("ASD");
-		wantedDiagnoses.add("ADHD");
-		wantedDiagnoses.add("LD");
-	} else {
-		if (asdAdhd.includes("ASD")) wantedDiagnoses.add("ASD");
-		if (asdAdhd.includes("ADHD")) wantedDiagnoses.add("ADHD");
-		if (asdAdhd.includes("LD")) wantedDiagnoses.add("LD");
-	}
-
-	const diagnosisFiltered = allRules.filter((r) =>
-		wantedDiagnoses.has(r.diagnosis),
-	);
-
-	const sessionStartedAt = client.sessionStartedAt;
-	const sentTypes = new Set(
-		clientQs
-			.filter(
-				(q) =>
-					q.sent !== null &&
-					q.status !== "ARCHIVED" &&
-					(!sessionStartedAt ||
-						(q.sent ?? "") >= (localDateToDateOnly(sessionStartedAt) ?? "")),
-			)
-			.map((q) => q.questionnaireType),
-	);
-
-	const groups = new Map<string, typeof diagnosisFiltered>();
-	for (const rule of diagnosisFiltered) {
-		const key = `${rule.daeval}|${rule.diagnosis ?? "null"}`;
-		const group = groups.get(key);
-		if (group) {
-			group.push(rule);
-		} else {
-			groups.set(key, [rule]);
-		}
-	}
-
-	const ageInYears = await getQuestionnaireEligibilityAge(
-		ctx.db,
-		clientId,
-		client.dob,
-	);
-	const resultRules: (typeof diagnosisFiltered)[number][] = [];
-
-	for (const groupRules of groups.values()) {
-		const fullyMatched = groupRules.filter((r) => {
-			const qs = r.questionnaires ?? [];
-			return (
-				qs.length > 0 &&
-				qs.every((q) => sentTypes.has(q)) &&
-				r.minAge <= ageInYears
-			);
-		});
-
-		if (fullyMatched.length > 0) {
-			const best = fullyMatched.reduce((a, b) =>
-				(b.questionnaires?.length ?? 0) > (a.questionnaires?.length ?? 0)
-					? b
-					: a,
-			);
-			resultRules.push(best);
-			continue;
-		}
-
-		for (const r of groupRules) {
-			if (r.minAge <= ageInYears && r.maxAge >= ageInYears) {
-				resultRules.push(r);
-			}
-		}
-	}
-
-	return { rules: resultRules, ageInYears };
-}
-
 async function checkAndUpdateQsBatteryStatus(
 	ctx: Context,
 	clientId: number,
@@ -390,7 +277,7 @@ async function checkAndUpdateQsBatteryStatus(
 		}));
 
 	const { rules: applicableRules } = await resolveApplicableRules(
-		ctx,
+		ctx.db,
 		clientId,
 		client,
 		allRules,
@@ -560,7 +447,7 @@ export const questionnaireRouter = createTRPCRouter({
 			});
 
 			const { rules, ageInYears } = await resolveApplicableRules(
-				ctx,
+				ctx.db,
 				input.clientId,
 				client,
 				allRules,
@@ -1271,90 +1158,7 @@ export const questionnaireRouter = createTRPCRouter({
 	getDuplicateLinks: protectedProcedure.query(async ({ ctx }) => {
 		assertPermission(ctx.session.user, "issues:duplicate-questionnaires");
 
-		// 1. Clients with the same link multiple times (grouped by link + clientId)
-		const duplicatePerClient = await ctx.db
-			.select({
-				link: questionnaires.link,
-				clientId: questionnaires.clientId,
-				count: count().as("count"),
-			})
-			.from(questionnaires)
-			.where(
-				and(
-					isNotNull(questionnaires.link),
-					not(eq(questionnaires.status, "ARCHIVED")),
-				),
-			)
-			.groupBy(questionnaires.link, questionnaires.clientId)
-			.having(gt(count(), 1));
-
-		// Get full client objects for duplicatePerClient
-		const clientIdsForDuplicates = duplicatePerClient.map(
-			(row) => row.clientId,
-		);
-		const clientsForDuplicates =
-			clientIdsForDuplicates.length > 0
-				? await ctx.db
-						.select()
-						.from(clients)
-						.where(inArray(clients.id, clientIdsForDuplicates))
-				: [];
-
-		// 2. Links shared across multiple clients
-		const sharedAcrossClients = await ctx.db
-			.select({
-				link: questionnaires.link,
-			})
-			.from(questionnaires)
-			.where(
-				and(
-					isNotNull(questionnaires.link),
-					not(eq(questionnaires.status, "ARCHIVED")),
-				),
-			)
-			.groupBy(questionnaires.link)
-			.having(gt(countDistinct(questionnaires.clientId), 1));
-
-		// Get all clients for each shared link
-		const sharedLinksWithClients = await Promise.all(
-			sharedAcrossClients.map(async ({ link }) => {
-				if (link === null) {
-					return {
-						link: null,
-						clients: [],
-					};
-				}
-
-				const clientsWithLink = await ctx.db
-					.select({
-						client: clients,
-						count: count().as("count"),
-					})
-					.from(questionnaires)
-					.innerJoin(clients, eq(questionnaires.clientId, clients.id))
-					.where(
-						and(
-							eq(questionnaires.link, link),
-							not(eq(questionnaires.status, "ARCHIVED")),
-						),
-					)
-					.groupBy(clients.id);
-
-				return {
-					link,
-					clients: clientsWithLink,
-				};
-			}),
-		);
-
-		return {
-			duplicatePerClient: duplicatePerClient.map((row) => ({
-				link: row.link,
-				client: clientsForDuplicates.find((c) => c.id === row.clientId),
-				count: row.count,
-			})),
-			sharedAcrossClients: sharedLinksWithClients,
-		};
+		return getDuplicateQuestionnaireLinksData(ctx.db);
 	}),
 
 	getJustAdded: protectedProcedure.query(async ({ ctx }) => {
@@ -1374,138 +1178,7 @@ export const questionnaireRouter = createTRPCRouter({
 	getPartialBatteries: protectedProcedure.query(async ({ ctx }) => {
 		assertPermission(ctx.session.user, "issues:partial-battery");
 
-		if (!ctx.session.user.accessToken || !ctx.session.user.refreshToken) {
-			throw new Error("No access token or refresh token");
-		}
-
-		const isNotesOnly = eq(sql`LENGTH(${clients.id})`, 5);
-
-		const activeClients = await ctx.db.query.clients.findMany({
-			where: and(
-				eq(clients.status, true),
-				eq(clients.pause, false),
-				eq(clients.autismStop, false),
-				not(isNotesOnly),
-			),
-		});
-
-		const punchData = await fetchWithCache(
-			ctx,
-			CACHE_KEY_PUNCHLIST,
-			() => getPunchData(ctx.session),
-			60,
-		);
-
-		const punchByClientId = new Map(
-			punchData.map((row) => [parseInt(row["Client ID"] ?? "", 10), row]),
-		);
-
-		const allRules = await ctx.db.query.questionnaireRules.findMany({
-			orderBy: [
-				asc(questionnaireRules.daeval),
-				asc(questionnaireRules.diagnosis),
-				asc(questionnaireRules.minAge),
-			],
-		});
-
-		const results: (typeof clients.$inferSelect & {
-			daeval: "DA" | "EVAL";
-			missingTypes: string[];
-			sentTypes: string[];
-			hasDocsNotSigned: boolean;
-			hasPortalNotOpened: boolean;
-		})[] = [];
-
-		for (const client of activeClients) {
-			const punchInfo = punchByClientId.get(client.id);
-			const daNeeded = punchInfo?.["DA Qs Needed"] === "TRUE";
-			const evalNeeded = punchInfo?.["EVAL Qs Needed"] === "TRUE";
-
-			if (!daNeeded && !evalNeeded) continue;
-
-			const clientQs = await ctx.db.query.questionnaires.findMany({
-				where: eq(questionnaires.clientId, client.id),
-			});
-
-			const { rules: applicableRules } = await resolveApplicableRules(
-				ctx,
-				client.id,
-				client,
-				allRules,
-				clientQs,
-			);
-
-			const daQTypes = new Set<string>();
-			const evalQTypes = new Set<string>();
-			for (const rule of applicableRules) {
-				const qs = rule.questionnaires ?? [];
-				if (rule.daeval === "DA") {
-					for (const q of qs) daQTypes.add(q);
-				}
-				if (rule.daeval === "EVAL") {
-					for (const q of qs) evalQTypes.add(q);
-				}
-				// DAEVAL rules only apply to clients getting a combined DA+EVAL
-				// battery; don't pull them into a single DA-only or EVAL-only need.
-				if (rule.daeval === "DAEVAL" && daNeeded && evalNeeded) {
-					for (const q of qs) {
-						daQTypes.add(q);
-						evalQTypes.add(q);
-					}
-				}
-			}
-
-			if (daQTypes.size === 0 && evalQTypes.size === 0) continue;
-
-			const activeSentTypes = new Set(
-				clientQs
-					.filter((q) => q.status !== "ARCHIVED")
-					.map((q) => q.questionnaireType),
-			);
-
-			const batteriesToCheck = [
-				["DA", daQTypes, daNeeded],
-				["EVAL", evalQTypes, evalNeeded],
-			] as const;
-
-			for (const [daeval, requiredTypes, needed] of batteriesToCheck) {
-				if (!needed || requiredTypes.size === 0) continue;
-
-				const sentTypes = [...requiredTypes].filter((t) =>
-					activeSentTypes.has(t),
-				);
-				const missingTypes = [...requiredTypes].filter(
-					(t) => !activeSentTypes.has(t),
-				);
-
-				if (sentTypes.length > 0 && missingTypes.length > 0) {
-					const clientFailures = await ctx.db.query.failures.findMany({
-						where: and(
-							eq(failures.clientId, client.id),
-							lt(failures.reminded, 100),
-						),
-					});
-
-					const hasDocsNotSigned = clientFailures.some(
-						(f) => f.reason === "docs not signed",
-					);
-					const hasPortalNotOpened = clientFailures.some(
-						(f) => f.reason === "portal not opened",
-					);
-
-					results.push({
-						...client,
-						daeval,
-						missingTypes,
-						sentTypes,
-						hasDocsNotSigned,
-						hasPortalNotOpened,
-					});
-				}
-			}
-		}
-
-		return results;
+		return getPartialBatteriesList(ctx);
 	}),
 
 	getLatestScreenshot: protectedProcedure

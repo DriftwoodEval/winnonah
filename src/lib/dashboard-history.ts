@@ -7,8 +7,18 @@ import {
 	getClientFailureSections,
 	getClientIssueListSections,
 	getClientMatchedSections,
+	SECTION_ISSUE_DUPLICATE_QUESTIONNAIRES,
+	SECTION_ISSUE_MISSING_APPOINTMENTS,
+	SECTION_ISSUE_PARTIAL_BATTERY,
+	SECTION_ISSUE_UNREVIEWED_RECORDS,
 } from "~/lib/dashboard";
 import { getFullDashboardData } from "~/lib/dashboard-data";
+import {
+	getDuplicateQuestionnaireLinksData,
+	getMissingAppointmentsList,
+	getPartialBatteriesList,
+	getUnreviewedRecordsList,
+} from "~/lib/issue-lists";
 import { logger } from "~/lib/logger";
 import { redis } from "~/lib/redis";
 import { db } from "~/server/db";
@@ -78,6 +88,10 @@ export async function syncDashboardSectionHistory() {
 		{ punchClients, missingClients, needsReachOut, needsReview },
 		allClients,
 		activeFailures,
+		unreviewedRecords,
+		missingAppointments,
+		duplicateQuestionnaireLinks,
+		partialBatteries,
 	] = await Promise.all([
 		getFullDashboardData({ db, redis, session }),
 		db
@@ -89,10 +103,32 @@ export async function syncDashboardSectionHistory() {
 				evaluationInProcess: clients.evaluationInProcess,
 				schoolDistrict: clients.schoolDistrict,
 				referralSource: clients.referralSource,
+				dob: clients.dob,
+				flag: clients.flag,
+				primaryInsurance: clients.primaryInsurance,
+				secondaryInsurance: clients.secondaryInsurance,
+				addedDate: clients.addedDate,
+				driveId: clients.driveId,
 			})
 			.from(clients),
 		db.select().from(failures).where(lt(failures.reminded, 100)),
+		getUnreviewedRecordsList(db),
+		getMissingAppointmentsList(db),
+		getDuplicateQuestionnaireLinksData(db),
+		getPartialBatteriesList({ db, redis, session }),
 	]);
+
+	const unreviewedRecordsIds = new Set(unreviewedRecords.map((c) => c.id));
+	const missingAppointmentsIds = new Set(missingAppointments.map((c) => c.id));
+	const duplicateQuestionnaireIds = new Set([
+		...duplicateQuestionnaireLinks.duplicatePerClient
+			.map((row) => row.client?.id)
+			.filter((id): id is number => typeof id === "number"),
+		...duplicateQuestionnaireLinks.sharedAcrossClients.flatMap((row) =>
+			row.clients.map((c) => c.client.id),
+		),
+	]);
+	const partialBatteryIds = new Set(partialBatteries.map((c) => c.id));
 
 	// Punch rows with no matching DB client (getPunchData returns sheet-only
 	// data for those) have no `id`, so filter those out before inserting.
@@ -123,6 +159,10 @@ export async function syncDashboardSectionHistory() {
 			)
 			.map((c) => c.id),
 		...failuresByClientId.keys(),
+		...unreviewedRecordsIds,
+		...missingAppointmentsIds,
+		...duplicateQuestionnaireIds,
+		...partialBatteryIds,
 	]);
 
 	let updatedCount = 0;
@@ -140,9 +180,18 @@ export async function syncDashboardSectionHistory() {
 			failures: clientFailures,
 		});
 		const failureSections = getClientFailureSections(clientFailures);
+		const batchIssueSections = [
+			unreviewedRecordsIds.has(clientId) && SECTION_ISSUE_UNREVIEWED_RECORDS,
+			missingAppointmentsIds.has(clientId) &&
+				SECTION_ISSUE_MISSING_APPOINTMENTS,
+			duplicateQuestionnaireIds.has(clientId) &&
+				SECTION_ISSUE_DUPLICATE_QUESTIONNAIRES,
+			partialBatteryIds.has(clientId) && SECTION_ISSUE_PARTIAL_BATTERY,
+		].filter((s): s is string => typeof s === "string");
 		const sections = [
 			...matchedSections,
 			...issueListSections,
+			...batchIssueSections,
 			...failureSections,
 		];
 

@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import type { JSONContent } from "@tiptap/core";
 import { TRPCError } from "@trpc/server";
-import { format, subBusinessDays, subMonths, subYears } from "date-fns";
+import { subMonths, subYears } from "date-fns";
 import {
 	and,
 	asc,
@@ -40,6 +40,10 @@ import {
 	syncPunchData,
 	updatePunchData,
 } from "~/lib/google";
+import {
+	getMissingAppointmentsList,
+	getUnreviewedRecordsList,
+} from "~/lib/issue-lists";
 import type { ClientWithIssueInfo } from "~/lib/models";
 import {
 	formatInBusinessTime,
@@ -1876,143 +1880,7 @@ export const clientRouter = createTRPCRouter({
 		return fetchWithCache(
 			ctx,
 			CACHE_KEY_MISSING_APPOINTMENTS,
-			async () => {
-				const activeClients = await ctx.db.query.clients.findMany({
-					where: and(
-						eq(clients.status, true),
-						isNotNull(clients.primaryInsurance),
-						not(isNotesOnly),
-					),
-				});
-
-				if (activeClients.length === 0) return [];
-
-				const allInsurances = await ctx.db.query.insurances.findMany({
-					with: { aliases: true },
-				});
-
-				type InsuranceWithAliases = (typeof allInsurances)[0];
-				const insuranceByName = new Map<string, InsuranceWithAliases>();
-				for (const ins of allInsurances) {
-					insuranceByName.set(ins.shortName, ins);
-					for (const alias of ins.aliases) {
-						insuranceByName.set(alias.name, ins);
-					}
-				}
-
-				const relevantClients = activeClients.filter((c) => {
-					if (!c.primaryInsurance) return false;
-					const ins = insuranceByName.get(c.primaryInsurance);
-					return (
-						((ins?.additionalAppts as { maxUnitsPerDay?: number } | undefined)
-							?.maxUnitsPerDay ?? 0) > 0
-					);
-				});
-
-				if (relevantClients.length === 0) return [];
-
-				const clientIds = relevantClients.map((c) => c.id);
-
-				const apptCountRows = await ctx.db
-					.select({
-						clientId: appointments.clientId,
-						activeCount: count(),
-					})
-					.from(appointments)
-					.where(
-						and(
-							inArray(appointments.clientId, clientIds),
-							eq(appointments.cancelled, false),
-							eq(appointments.placeholder, false),
-						),
-					)
-					.groupBy(appointments.clientId);
-
-				const apptCountMap = new Map(
-					apptCountRows.map((r) => [r.clientId, r.activeCount]),
-				);
-
-				const apptCptRows = await ctx.db
-					.select({
-						clientId: appointments.clientId,
-						cpt: appointments.cpt,
-						cptCount: count(),
-					})
-					.from(appointments)
-					.where(
-						and(
-							inArray(appointments.clientId, clientIds),
-							eq(appointments.cancelled, false),
-							eq(appointments.placeholder, false),
-						),
-					)
-					.groupBy(appointments.clientId, appointments.cpt);
-
-				const count96136ByClient = new Map<number, number>();
-				const has9613637ByClient = new Set<number>();
-				const count96130ByClient = new Map<number, number>();
-				for (const row of apptCptRows) {
-					if (row.cpt === "96136") {
-						count96136ByClient.set(row.clientId, row.cptCount);
-						has9613637ByClient.add(row.clientId);
-					} else if (row.cpt === "96137") {
-						has9613637ByClient.add(row.clientId);
-					} else if (row.cpt === "96130") {
-						count96130ByClient.set(row.clientId, row.cptCount);
-					}
-				}
-
-				const result: ClientWithIssueInfo[] = [];
-				for (const client of relevantClients) {
-					if (!client.primaryInsurance) continue;
-					const ins = insuranceByName.get(client.primaryInsurance);
-					const apptConfig = ins?.additionalAppts as
-						| {
-								maxUnitsPerDay?: number;
-								max96130?: number;
-								max96131?: number;
-								max96136?: number;
-								max96137?: number;
-								maxAppt4Units?: number;
-						  }
-						| undefined;
-					const maxUnitsPerDay = apptConfig?.maxUnitsPerDay;
-					if (!maxUnitsPerDay) continue;
-
-					const totalMinutes = client.assessmentData?.minutes ?? 0;
-					if (totalMinutes === 0) continue;
-
-					const expectedCount = calculateAdditionalAppointments(
-						totalMinutes,
-						maxUnitsPerDay,
-						{
-							max96130: apptConfig?.max96130,
-							max96131: apptConfig?.max96131,
-							max96136: apptConfig?.max96136,
-							max96137: apptConfig?.max96137,
-							maxAppt4Units: apptConfig?.maxAppt4Units,
-						},
-					).length;
-
-					if (expectedCount === 0) continue;
-
-					const actualCount = apptCountMap.get(client.id) ?? 0;
-					if (actualCount >= expectedCount) continue;
-
-					const has96130 = (count96130ByClient.get(client.id) ?? 0) > 0;
-					const hasExactlyOne96136 = count96136ByClient.get(client.id) === 1;
-					const has9613637WithoutReview =
-						has9613637ByClient.has(client.id) && !has96130;
-					if (!hasExactlyOne96136 && !has9613637WithoutReview) continue;
-
-					result.push({
-						...client,
-						additionalInfo: `(${actualCount} of ${expectedCount} appts)`,
-					});
-				}
-
-				return result;
-			},
+			() => getMissingAppointmentsList(ctx.db),
 			6 * 60 * 1000, // 6 hours
 		);
 	}),
@@ -2174,46 +2042,7 @@ export const clientRouter = createTRPCRouter({
 	getUnreviewedRecords: protectedProcedure.query(async ({ ctx }) => {
 		assertPermission(ctx.session.user, "issues:unreviewed-records");
 
-		const threeWeekdaysAgo = format(
-			subBusinessDays(new Date(), 3),
-			"yyyy-MM-dd",
-		);
-
-		const latestRequest = ctx.db
-			.select({
-				clientId: externalRecordRequests.clientId,
-				latestDate:
-					sql<string>`MAX(${externalRecordRequests.requestedDate})`.as(
-						"latest_date",
-					),
-			})
-			.from(externalRecordRequests)
-			.where(isNotNull(externalRecordRequests.requestedDate))
-			.groupBy(externalRecordRequests.clientId)
-			.as("latest_request");
-
-		const results = await ctx.db
-			.select({
-				...getTableColumns(clients),
-				additionalInfo: sql<string>`CONCAT(
-          '(Requested: ',
-          DATE_FORMAT(${latestRequest.latestDate}, '%m/%d/%y'),
-          ')'
-        )`,
-			})
-			.from(clients)
-			.innerJoin(externalRecords, eq(clients.id, externalRecords.clientId))
-			.innerJoin(latestRequest, eq(clients.id, latestRequest.clientId))
-			.where(
-				and(
-					eq(clients.recordsNeeded, "Needed"),
-					lt(latestRequest.latestDate, threeWeekdaysAgo),
-					isNull(externalRecords.content),
-				),
-			)
-			.orderBy(asc(latestRequest.latestDate));
-
-		return results;
+		return getUnreviewedRecordsList(ctx.db);
 	}),
 
 	createNotesOnly: protectedProcedure
