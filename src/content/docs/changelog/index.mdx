@@ -4,6 +4,9 @@ title: Changelog
 
 ## 2026-09-07
 
+**Improved**
+- The client page's History card (formerly "Dashboard History") now also shows which issues lists a client is on (Paused Clients, Autism Stops, Drop List, District Issues, Too Old for BabyNet, Not in TA, No Drive IDs, Unreviewed Records, Appointments to be Created, Duplicate Questionnaires, Partial Questionnaire Battery, and more) and their failure history (portal not opened, docs not signed, and similar), alongside the workflow stage changes it already tracked.
+
 **Fixed**
 - Insurance codes by appointment now respects the per-code unit maximums (Max 96136, Max 96137, Max 96130, Max 96131) as a max TOTAL across all appointments, not a max per appointment. Previously each appointment got its own fresh allowance, so an extra appointment could appear billing more units of a code than the configured maximum allowed.
 - Clients on a 90000 billing code insurance no longer show up on the "Appointments to be Created" issues list.

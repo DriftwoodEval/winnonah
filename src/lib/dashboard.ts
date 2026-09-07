@@ -1,10 +1,14 @@
-import { format } from "date-fns";
+import { format, subYears } from "date-fns";
 import {
 	getRecordsBlockerReason,
 	RECORDS_NOT_YET_REQUESTED_REASON,
 } from "./client-blockers";
 import type { Client, Failure, FullClientInfo } from "./models";
-import { formatShortInstantDate, isNotesOnlyClientId } from "./utils";
+import {
+	formatShortInstantDate,
+	isNotesOnlyClientId,
+	localDateToDateOnly,
+} from "./utils";
 
 /**
  * Computes which pipeline-stage section each client from the prioritization
@@ -668,6 +672,143 @@ export function getDashboardSections(
 		...referralSections,
 		...filteredSections,
 	];
+}
+
+// ---------------------------------------------------------------------------
+// Issue-list membership (the /issues page)
+//
+// A subset of the /issues lists that reduce to a single client's own columns,
+// as opposed to ones that only make sense as a cross-client comparison
+// (duplicate names, duplicate punchlist IDs, clients missing from the
+// punchlist, etc). Used to label a client's issue-list membership in the
+// dashboard history alongside their workflow sections.
+// ---------------------------------------------------------------------------
+
+export const SECTION_ISSUE_DD4 = "Issue: Clients in DD4";
+export const SECTION_ISSUE_PAUSED = "Issue: Paused Clients";
+export const SECTION_ISSUE_AUTISM_STOP = "Issue: Autism Stops";
+export const SECTION_ISSUE_EVALUATION_IN_PROCESS =
+	"Issue: Evaluation In Process";
+export const SECTION_ISSUE_NO_REFERRAL_SOURCE = "Issue: No Referral Source";
+export const SECTION_ISSUE_DROP_LIST = "Issue: Drop List";
+export const SECTION_ISSUE_DISTRICT = "Issue: District Issues";
+export const SECTION_ISSUE_BABYNET_AGEOUT = "Issue: Too Old for BabyNet";
+export const SECTION_ISSUE_NOT_IN_TA = "Issue: Not in TA";
+export const SECTION_ISSUE_NO_DRIVE_ID = "Issue: No Drive IDs";
+
+// Issue lists whose membership can't be read off a single client row: they
+// need a cross-table query (appointment counts, questionnaire links, records
+// requests) run once per sync tick. dashboard-history.ts computes the
+// matching client ID sets via src/lib/issue-lists.ts and adds these labels
+// directly, rather than through getClientIssueListSections below.
+export const SECTION_ISSUE_UNREVIEWED_RECORDS =
+	"Issue: Unreviewed/Unreceived Records";
+export const SECTION_ISSUE_MISSING_APPOINTMENTS =
+	"Issue: Appointments to be Created";
+export const SECTION_ISSUE_DUPLICATE_QUESTIONNAIRES =
+	"Issue: Duplicate Questionnaires";
+export const SECTION_ISSUE_PARTIAL_BATTERY =
+	"Issue: Partial Questionnaire Battery";
+
+export type IssueListClient = {
+	id: number;
+	status?: boolean | null;
+	pause?: boolean | null;
+	autismStop?: boolean | null;
+	evaluationInProcess?: boolean | null;
+	schoolDistrict?: string | null;
+	referralSource?: string | null;
+	dob?: string | null;
+	flag?: string | null;
+	primaryInsurance?: string | null;
+	secondaryInsurance?: string[] | null;
+	addedDate?: string | null;
+	driveId?: string | null;
+	failures?: Failure[];
+};
+
+/** Mirrors the same-named /issues page queries in src/server/api/routers/client.ts. */
+export function getClientIssueListSections(client: IssueListClient): string[] {
+	const sections: string[] = [];
+	const isNotesOnly = isNotesOnlyClientId(client.id);
+
+	if (
+		client.schoolDistrict === "Dorchester School District 4" &&
+		client.status
+	) {
+		sections.push(SECTION_ISSUE_DD4);
+	}
+	if (client.pause) sections.push(SECTION_ISSUE_PAUSED);
+	if (client.autismStop && client.status) {
+		sections.push(SECTION_ISSUE_AUTISM_STOP);
+	}
+	if (client.evaluationInProcess && client.status) {
+		sections.push(SECTION_ISSUE_EVALUATION_IN_PROCESS);
+	}
+	if (
+		client.status &&
+		!isNotesOnly &&
+		(client.referralSource === "No Referral Source" || !client.referralSource)
+	) {
+		sections.push(SECTION_ISSUE_NO_REFERRAL_SOURCE);
+	}
+	// Same "recurring, unresolved failure" threshold used to derive the drop
+	// list badge on the client page (Client.tsx).
+	if (
+		client.failures?.some(
+			(f) => (f.reminded ?? 0) > 3 && (f.reminded ?? 0) < 100,
+		)
+	) {
+		sections.push(SECTION_ISSUE_DROP_LIST);
+	}
+
+	const under21CutOff = localDateToDateOnly(subYears(new Date(), 21));
+	const noDistrictSet =
+		(!client.schoolDistrict || client.schoolDistrict === "Unknown") &&
+		!!client.dob &&
+		!!under21CutOff &&
+		client.dob > under21CutOff;
+	const poorAddressLookup = client.flag === "poor_address_lookup";
+	if (client.status && !isNotesOnly && (noDistrictSet || poorAddressLookup)) {
+		sections.push(SECTION_ISSUE_DISTRICT);
+	}
+
+	const babyNetAgeOutCutOff = localDateToDateOnly(subYears(new Date(), 3));
+	const hasBabyNetInsurance =
+		!!client.primaryInsurance?.includes("BabyNet") ||
+		!!client.secondaryInsurance?.some((s) => s.includes("BabyNet"));
+	if (
+		client.status &&
+		hasBabyNetInsurance &&
+		client.dob &&
+		babyNetAgeOutCutOff &&
+		client.dob < babyNetAgeOutCutOff
+	) {
+		sections.push(SECTION_ISSUE_BABYNET_AGEOUT);
+	}
+
+	if (!client.addedDate) sections.push(SECTION_ISSUE_NOT_IN_TA);
+
+	if (!isNotesOnly && !client.driveId) {
+		sections.push(SECTION_ISSUE_NO_DRIVE_ID);
+	}
+
+	return sections;
+}
+
+// ---------------------------------------------------------------------------
+// Failure history
+// ---------------------------------------------------------------------------
+
+/** Labels a client's currently unresolved failures for the dashboard history. */
+export function getClientFailureSections(
+	failures: Failure[] | undefined,
+): string[] {
+	return (failures ?? [])
+		.filter((f) => (f.reminded ?? 0) < 100)
+		.map(
+			(f) => `Failure: ${f.reason.charAt(0).toUpperCase()}${f.reason.slice(1)}`,
+		);
 }
 
 export function getClientMatchedSections(
