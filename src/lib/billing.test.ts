@@ -192,7 +192,7 @@ describe("calculateAdditionalAppointments", () => {
 		]);
 	});
 
-	it("respects per-code unit caps", () => {
+	it("respects per-code unit caps as day-wide totals, not per-appointment", () => {
 		const result = calculateAdditionalAppointments(300, 8, {
 			max96136: 1,
 			max96137: 2,
@@ -208,26 +208,34 @@ describe("calculateAdditionalAppointments", () => {
 			},
 			{
 				codes: [
-					{ code: "96136", units: 1 },
-					{ code: "96137", units: 2 },
+					{ code: "96130", units: 1 },
+					{ code: "96131", units: 1 },
 				],
 			},
+		]);
+	});
+
+	it("stops billing a code once its day-wide cap is reached, even with units left to place", () => {
+		// Regression test: max96136/max96137 previously reset per appointment,
+		// so a single 7-unit block would spill into a second appointment
+		// (96136 x1, 96137 x1) instead of stopping once the day's caps were hit.
+		const result = calculateAdditionalAppointments(500, 7, {
+			max96136: 1,
+			max96137: 6,
+			max96130: 1,
+			max96131: 5,
+		});
+		expect(result).toEqual([
 			{
 				codes: [
 					{ code: "96136", units: 1 },
-					{ code: "96137", units: 2 },
-				],
-			},
-			{
-				codes: [
-					{ code: "96136", units: 1 },
-					{ code: "96137", units: 1 },
+					{ code: "96137", units: 6 },
 				],
 			},
 			{
 				codes: [
 					{ code: "96130", units: 1 },
-					{ code: "96131", units: 1 },
+					{ code: "96131", units: 5 },
 				],
 			},
 		]);

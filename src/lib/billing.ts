@@ -178,23 +178,32 @@ export function calculateAdditionalAppointments(
 			? maxUnitsPerCode.maxAppt4Units
 			: maxUnitsPerDay;
 
-	// Fill 96136/96137 (30-min codes), including converted overflow from 96130/131
-	// Caps apply per appointment: each appointment gets its own 96136, up to cap96137.
+	// Fill 96136/96137 (30-min codes), including converted overflow from 96130/131.
+	// Caps apply across the whole day: cap96136/cap96137 bound the running total
+	// billed for that code, not the amount billed on any single appointment.
 	function fill136_137(remaining: number): number {
+		let billed96136 = 0;
+		let billed96137 = 0;
 		while (remaining > 0) {
 			const unitCap = getApptUnitCap(appointments.length);
 			const codes: BillingCode[] = [];
 			let taken = 0;
-			if (cap96136 > 0) {
+			if (billed96136 < cap96136) {
 				codes.push({ code: "96136", units: 1 });
+				billed96136++;
 				remaining--;
 				taken++;
 			}
 			// 96137 requires a 96136 on the same appointment
-			if (codes.length > 0 && cap96137 > 0 && taken < unitCap) {
-				const take = Math.min(remaining, unitCap - taken, cap96137);
+			if (codes.length > 0 && billed96137 < cap96137 && taken < unitCap) {
+				const take = Math.min(
+					remaining,
+					unitCap - taken,
+					cap96137 - billed96137,
+				);
 				if (take > 0) {
 					codes.push({ code: "96137", units: take });
+					billed96137 += take;
 					remaining -= take;
 				}
 			}
