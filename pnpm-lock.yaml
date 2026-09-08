@@ -30,8 +30,8 @@ importers:
         specifier: ^16.0.0
         version: 16.0.0(supports-color@7.2.0)
       '@googleapis/drive':
-        specifier: ^21.0.0
-        version: 21.0.0(supports-color@7.2.0)
+        specifier: ^22.0.0
+        version: 22.0.0(supports-color@7.2.0)
       '@googleapis/sheets':
         specifier: ^14.0.0
         version: 14.0.0(supports-color@7.2.0)
@@ -1018,8 +1018,8 @@ packages:
     resolution: {integrity: sha512-Z/8Jdf4hMvmMlBMhP0whZNPSixEpYv4mC5RJfrlvrnqpf/rV68MJ+8M9MmyqUt7/SQp2zRfVmEqkk+csB2Cgmg==}
     engines: {node: '>=12.0.0'}
 
-  '@googleapis/drive@21.0.0':
-    resolution: {integrity: sha512-vebQpAqn+FZcmDWh1TEQTcYdkKftcSaHc7kO2ZxrINBb+ZMcFu1UybD3+maeqdLs60HrRDYwyzJ6TgZ7/Vn2Rg==}
+  '@googleapis/drive@22.0.0':
+    resolution: {integrity: sha512-u21JQPR5mGKt8OqjsDndb+l5b44IXCKTum+P1Q1rlWmi2pUNZqcNeq7csx06xlwj+UeZv5/ZhhhAjziVZu86Dg==}
     engines: {node: '>=12.0.0'}
 
   '@googleapis/sheets@14.0.0':
@@ -6286,7 +6286,7 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  '@googleapis/drive@21.0.0(supports-color@7.2.0)':
+  '@googleapis/drive@22.0.0(supports-color@7.2.0)':
     dependencies:
       googleapis-common: 8.0.3(supports-color@7.2.0)
     transitivePeerDependencies:
