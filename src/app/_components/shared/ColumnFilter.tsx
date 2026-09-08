@@ -20,8 +20,15 @@ export interface FilterOption {
 	swatch?: string;
 }
 
+// Mirrors NONE_FILTER_VALUE in src/server/api/filters.ts: the sentinel a facet
+// count uses for rows whose underlying field is null/unset. Shown as "None".
+const NONE_FILTER_VALUE = "__none__";
+
 export function toFilterOptions(values: readonly string[]): FilterOption[] {
-	return values.map((v) => ({ value: v, label: v }));
+	return values.map((v) => ({
+		value: v,
+		label: v === NONE_FILTER_VALUE ? "None" : v,
+	}));
 }
 
 // "None" (the sentinel for "field is unset") reads better pinned to the top

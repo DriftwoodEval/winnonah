@@ -8,12 +8,14 @@ import {
 	gt,
 	gte,
 	inArray,
+	isNull,
 	lt,
 	lte,
 	ne,
 	or,
 	sql,
 } from "drizzle-orm";
+import type { AnyMySqlColumn } from "drizzle-orm/mysql-core";
 import type { Session } from "next-auth";
 import { z } from "zod";
 import { fetchWithCache } from "~/lib/cache";
@@ -22,7 +24,9 @@ import { syncPunchData } from "~/lib/google";
 import { getClosestOfficeKey, getInsuranceShortNamesList } from "~/lib/utils";
 import {
 	getClosestOfficeKeyByDriveTime,
+	NONE_FILTER_VALUE,
 	resolveInsuranceAliasNames,
+	splitNoneValue,
 } from "~/server/api/filters";
 import {
 	type Context,
@@ -183,59 +187,105 @@ async function buildSchedulingConditions(
 ) {
 	const conditions = [];
 
+	// text/varchar columns store "unset" as either NULL or an empty string; the
+	// facet counts fold both into the None sentinel, so the filter must too.
+	const isUnsetText = (col: AnyMySqlColumn) => or(isNull(col), eq(col, ""));
+
 	if (exclude !== "color" && input.color?.length) {
-		conditions.push(inArray(schedulingClients.color, input.color));
+		const { values, includeNone } = splitNoneValue(input.color);
+		const subConditions = [];
+		if (values.length)
+			subConditions.push(inArray(schedulingClients.color, values));
+		if (includeNone) subConditions.push(isUnsetText(schedulingClients.color));
+		const combined = or(...subConditions);
+		if (combined) conditions.push(combined);
 	}
 
 	if (exclude !== "date" && input.date?.length) {
-		conditions.push(inArray(schedulingClients.date, input.date));
+		const { values, includeNone } = splitNoneValue(input.date);
+		const subConditions = [];
+		if (values.length)
+			subConditions.push(inArray(schedulingClients.date, values));
+		if (includeNone) subConditions.push(isUnsetText(schedulingClients.date));
+		const combined = or(...subConditions);
+		if (combined) conditions.push(combined);
 	}
 
 	if (exclude !== "time" && input.time?.length) {
-		conditions.push(inArray(schedulingClients.time, input.time));
+		const { values, includeNone } = splitNoneValue(input.time);
+		const subConditions = [];
+		if (values.length)
+			subConditions.push(inArray(schedulingClients.time, values));
+		if (includeNone) subConditions.push(isUnsetText(schedulingClients.time));
+		const combined = or(...subConditions);
+		if (combined) conditions.push(combined);
 	}
 
 	if (exclude !== "code" && input.code?.length) {
-		conditions.push(inArray(schedulingClients.code, input.code));
+		const { values, includeNone } = splitNoneValue(input.code);
+		const subConditions = [];
+		if (values.length)
+			subConditions.push(inArray(schedulingClients.code, values));
+		if (includeNone) subConditions.push(isUnsetText(schedulingClients.code));
+		const combined = or(...subConditions);
+		if (combined) conditions.push(combined);
 	}
 
 	if (exclude !== "asdAdhd" && input.asdAdhd?.length) {
-		conditions.push(
-			inArray(
-				clients.asdAdhd,
-				input.asdAdhd as (typeof ALLOWED_ASD_ADHD_VALUES)[number][],
-			),
-		);
+		const { values, includeNone } = splitNoneValue(input.asdAdhd);
+		const subConditions = [];
+		if (values.length) {
+			subConditions.push(
+				inArray(
+					clients.asdAdhd,
+					values as (typeof ALLOWED_ASD_ADHD_VALUES)[number][],
+				),
+			);
+		}
+		if (includeNone) subConditions.push(isNull(clients.asdAdhd));
+		const combined = or(...subConditions);
+		if (combined) conditions.push(combined);
 	}
 
 	if (exclude !== "paDate" && input.paDate?.length) {
-		conditions.push(
-			or(
-				...input.paDate.map(
+		const { values, includeNone } = splitNoneValue(input.paDate);
+		const subConditions = [];
+		if (values.length) {
+			const dateMatch = or(
+				...values.map(
 					(v) => sql`DATE_FORMAT(${clients.precertExpires}, '%Y-%m-%d') = ${v}`,
 				),
-			) ?? sql`FALSE`,
-		);
+			);
+			if (dateMatch) subConditions.push(dateMatch);
+		}
+		if (includeNone) subConditions.push(isNull(clients.precertExpires));
+		const combined = or(...subConditions);
+		if (combined) conditions.push(combined);
 	}
 
 	if (exclude !== "evaluator" && input.evaluator?.length) {
-		const wantedFirstNames = input.evaluator;
+		const { values, includeNone } = splitNoneValue(input.evaluator);
 		const matchingNpis = refData.allEvaluators
-			.filter((e) =>
-				wantedFirstNames.includes(e.providerName.split(" ")[0] ?? ""),
-			)
+			.filter((e) => values.includes(e.providerName.split(" ")[0] ?? ""))
 			.map((e) => e.npi);
-		conditions.push(
-			matchingNpis.length
-				? inArray(schedulingClients.evaluator, matchingNpis)
-				: sql`FALSE`,
-		);
+		const subConditions = [];
+		if (values.length) {
+			subConditions.push(
+				matchingNpis.length
+					? inArray(schedulingClients.evaluator, matchingNpis)
+					: sql`FALSE`,
+			);
+		}
+		if (includeNone) subConditions.push(isNull(schedulingClients.evaluator));
+		const combined = or(...subConditions);
+		if (combined) conditions.push(combined);
 	}
 
 	if (exclude !== "location" && input.location?.length) {
-		const wantsVirtual = input.location.includes("Virtual");
+		const { values, includeNone } = splitNoneValue(input.location);
+		const wantsVirtual = values.includes("Virtual");
 		const matchingKeys = refData.allOffices
-			.filter((o) => input.location?.includes(o.prettyName))
+			.filter((o) => values.includes(o.prettyName))
 			.map((o) => o.key);
 
 		const subConditions = [];
@@ -249,59 +299,77 @@ async function buildSchedulingConditions(
 				)})`,
 			);
 		}
+		if (includeNone) {
+			subConditions.push(
+				sql`COALESCE(${schedulingClients.office}, ${closestOfficeKeyCase}) IS NULL`,
+			);
+		}
 		conditions.push(or(...subConditions) ?? sql`FALSE`);
 	}
 
 	if (exclude !== "district" && input.district?.length) {
-		const wantedDisplayNames = input.district;
+		const { values: wantedDisplayNames, includeNone } = splitNoneValue(
+			input.district,
+		);
 		const matchingFullNames = refData.allDistricts
 			.filter((d) => wantedDisplayNames.includes(districtDisplayName(d)))
 			.map((d) => d.fullName);
 		const knownFullNames = refData.allDistricts.map((d) => d.fullName);
 
 		const subConditions = [];
-		if (matchingFullNames.length) {
-			subConditions.push(inArray(clients.schoolDistrict, matchingFullNames));
+		if (wantedDisplayNames.length) {
+			if (matchingFullNames.length) {
+				subConditions.push(inArray(clients.schoolDistrict, matchingFullNames));
+			}
+			// Clients whose schoolDistrict has no matching schoolDistricts row fall
+			// back to their own stripped name, mirroring the facet count fallback
+			// below and the client-side display logic this filter replaced.
+			subConditions.push(
+				sql`(${
+					knownFullNames.length
+						? sql`${clients.schoolDistrict} NOT IN (${sql.join(
+								knownFullNames.map((n) => sql`${n}`),
+								sql`, `,
+							)})`
+						: sql`${clients.schoolDistrict} IS NOT NULL`
+				}) AND REGEXP_REPLACE(${clients.schoolDistrict}, ' (County )?School District', '', 1, 1) IN (${sql.join(
+					wantedDisplayNames.map((n) => sql`${n}`),
+					sql`, `,
+				)})`,
+			);
 		}
-		// Clients whose schoolDistrict has no matching schoolDistricts row fall
-		// back to their own stripped name, mirroring the facet count fallback
-		// below and the client-side display logic this filter replaced.
-		subConditions.push(
-			sql`(${
-				knownFullNames.length
-					? sql`${clients.schoolDistrict} NOT IN (${sql.join(
-							knownFullNames.map((n) => sql`${n}`),
-							sql`, `,
-						)})`
-					: sql`${clients.schoolDistrict} IS NOT NULL`
-			}) AND REGEXP_REPLACE(${clients.schoolDistrict}, ' (County )?School District', '', 1, 1) IN (${sql.join(
-				wantedDisplayNames.map((n) => sql`${n}`),
-				sql`, `,
-			)})`,
-		);
+		if (includeNone) subConditions.push(isNull(clients.schoolDistrict));
 		conditions.push(or(...subConditions) ?? sql`FALSE`);
 	}
 
 	if (exclude !== "insuranceNames" && input.insuranceNames?.length) {
+		const { values, includeNone } = splitNoneValue(input.insuranceNames);
 		const matchNames = (
-			await Promise.all(
-				input.insuranceNames.map((v) => resolveInsuranceAliasNames(db, v)),
-			)
+			await Promise.all(values.map((v) => resolveInsuranceAliasNames(db, v)))
 		).flat();
-		if (matchNames.length) {
-			const secondaryConditions = matchNames.map(
-				(name) =>
-					sql`JSON_SEARCH(${clients.secondaryInsurance}, 'one', ${name}) IS NOT NULL`,
-			);
-			conditions.push(
-				or(
+		const subConditions = [];
+		if (values.length) {
+			if (matchNames.length) {
+				const secondaryConditions = matchNames.map(
+					(name) =>
+						sql`JSON_SEARCH(${clients.secondaryInsurance}, 'one', ${name}) IS NOT NULL`,
+				);
+				const match = or(
 					inArray(clients.primaryInsurance, matchNames),
 					...secondaryConditions,
-				) ?? sql`FALSE`,
-			);
-		} else {
-			conditions.push(sql`FALSE`);
+				);
+				if (match) subConditions.push(match);
+			} else {
+				subConditions.push(sql`FALSE`);
+			}
 		}
+		if (includeNone) {
+			subConditions.push(
+				sql`${clients.primaryInsurance} IS NULL AND (${clients.secondaryInsurance} IS NULL OR JSON_LENGTH(${clients.secondaryInsurance}) = 0)`,
+			);
+		}
+		const combined = or(...subConditions);
+		if (combined) conditions.push(combined);
 	}
 
 	return conditions;
@@ -393,8 +461,9 @@ async function fetchSchedulingFacetCounts(
 	const toCountMap = (rows: { value: string | null; count: number }[]) => {
 		const counts: Record<string, number> = {};
 		for (const row of rows) {
-			if (row.value === null || row.value === "") continue;
-			counts[row.value] = (counts[row.value] ?? 0) + row.count;
+			const key =
+				row.value === null || row.value === "" ? NONE_FILTER_VALUE : row.value;
+			counts[key] = (counts[key] ?? 0) + row.count;
 		}
 		return counts;
 	};
@@ -492,7 +561,11 @@ async function fetchSchedulingFacetCounts(
 
 	const evaluatorCounts: Record<string, number> = {};
 	for (const row of evaluatorRows) {
-		if (row.npi === null) continue;
+		if (row.npi === null) {
+			evaluatorCounts[NONE_FILTER_VALUE] =
+				(evaluatorCounts[NONE_FILTER_VALUE] ?? 0) + row.count;
+			continue;
+		}
 		const evaluator = refData.allEvaluators.find((e) => e.npi === row.npi);
 		const firstName = evaluator?.providerName.split(" ")[0];
 		if (!firstName) continue;
@@ -501,7 +574,11 @@ async function fetchSchedulingFacetCounts(
 
 	const locationCounts: Record<string, number> = {};
 	for (const row of locationRows) {
-		if (!row.officeKey) continue;
+		if (!row.officeKey) {
+			locationCounts[NONE_FILTER_VALUE] =
+				(locationCounts[NONE_FILTER_VALUE] ?? 0) + row.count;
+			continue;
+		}
 		const display =
 			row.officeKey === "Virtual"
 				? "Virtual"
@@ -512,7 +589,11 @@ async function fetchSchedulingFacetCounts(
 
 	const districtCounts: Record<string, number> = {};
 	for (const row of districtRows) {
-		if (!row.value) continue;
+		if (!row.value) {
+			districtCounts[NONE_FILTER_VALUE] =
+				(districtCounts[NONE_FILTER_VALUE] ?? 0) + row.count;
+			continue;
+		}
 		const district = refData.allDistricts.find((d) => d.fullName === row.value);
 		const display = district
 			? districtDisplayName(district)
@@ -527,6 +608,11 @@ async function fetchSchedulingFacetCounts(
 			row.secondaryInsurance,
 			refData.allInsurances,
 		);
+		if (names.length === 0) {
+			insuranceCounts[NONE_FILTER_VALUE] =
+				(insuranceCounts[NONE_FILTER_VALUE] ?? 0) + 1;
+			continue;
+		}
 		for (const name of names) {
 			insuranceCounts[name] = (insuranceCounts[name] ?? 0) + 1;
 		}
