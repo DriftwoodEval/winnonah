@@ -87,7 +87,7 @@ jobs:
 
       - name: Cache Docker build mounts
         id: cache-mounts
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: |
             .docker-cache/pnpm-store
