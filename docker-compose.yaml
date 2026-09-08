@@ -46,7 +46,9 @@ services:
     container_name: winnonah-b
 
   driftwood-db:
-    image: mysql
+    # Pinned: the data volume is on the 9.x lineage and MySQL refuses to
+    # upgrade it across a lineage jump (e.g. to the 26.x calendar releases).
+    image: mysql:9.4
     container_name: driftwood-db
     restart: no
     environment:
