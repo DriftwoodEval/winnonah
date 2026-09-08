@@ -314,6 +314,17 @@ export function Client({
 							title="Dorchester District 4"
 						/>
 
+						<PersistentStatusAlert
+							condition={!!client.alreadyDx}
+							description="Staff have flagged this client as already diagnosed. This is a heads-up only, it doesn't stop records requests, questionnaires, or reminders."
+							icon={AlertTriangleIcon}
+							identifier={client.hash}
+							showPopup={false}
+							slug="already-dx"
+							title="Already Diagnosed"
+							variant="warning"
+						/>
+
 						<Tabs
 							className="w-full"
 							onValueChange={handleTabChange}

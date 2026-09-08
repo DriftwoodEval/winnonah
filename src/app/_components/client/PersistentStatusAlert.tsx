@@ -11,6 +11,8 @@ import {
 import type { LucideIcon } from "lucide-react";
 import { useEffect, useState } from "react";
 
+type Variant = "default" | "destructive" | "warning";
+
 type Props = {
 	// Unique key for localStorage
 	slug: string;
@@ -23,7 +25,11 @@ type Props = {
 	icon: LucideIcon;
 	// How many times the Dialog should pop up before stopping (default: 6)
 	maxPopups?: number;
-	variant?: "default" | "destructive";
+	variant?: Variant;
+	// Whether this alert also pops up as a Dialog on a user's first few visits
+	// to the page (default: true). Set false for a banner-only warning that
+	// doesn't need to interrupt the page.
+	showPopup?: boolean;
 };
 
 export function PersistentStatusAlert({
@@ -35,12 +41,13 @@ export function PersistentStatusAlert({
 	icon: Icon,
 	maxPopups = 6,
 	variant = "destructive",
+	showPopup = true,
 }: Props) {
 	const STORAGE_KEY = `alert:${slug}:${identifier}`;
 	const [isDialogOpen, setIsDialogOpen] = useState(false);
 
 	useEffect(() => {
-		if (!condition) return;
+		if (!condition || !showPopup) return;
 
 		const storedData = localStorage.getItem(STORAGE_KEY);
 		const now = Date.now();
@@ -66,39 +73,49 @@ export function PersistentStatusAlert({
 			localStorage.setItem(STORAGE_KEY, JSON.stringify(visitData));
 			setIsDialogOpen(true);
 		}
-	}, [condition, STORAGE_KEY, maxPopups]);
+	}, [condition, showPopup, STORAGE_KEY, maxPopups]);
 
 	if (!condition) return null;
 
 	const variantStyles =
 		variant === "destructive"
 			? "bg-destructive text-destructive-foreground"
-			: "";
+			: variant === "warning"
+				? "bg-warning text-warning-foreground"
+				: "";
+	const descriptionStyles =
+		variant === "destructive"
+			? "text-destructive-foreground/90!"
+			: variant === "warning"
+				? "text-warning-foreground/90!"
+				: undefined;
+	// The underlying Alert component only styles "default"/"destructive"
+	// itself; "warning" reuses "default" there and gets its color from
+	// variantStyles above.
+	const alertVariant = variant === "warning" ? "default" : variant;
 
 	return (
 		<>
-			<Alert className={variantStyles} variant={variant}>
+			<Alert className={variantStyles} variant={alertVariant}>
 				<Icon className="h-4 w-4" />
 				<AlertTitle>{title}</AlertTitle>
-				<AlertDescription className="text-destructive-foreground/90!">
+				<AlertDescription className={descriptionStyles}>
 					{description}
 				</AlertDescription>
 			</Alert>
 
-			<Dialog onOpenChange={setIsDialogOpen} open={isDialogOpen}>
-				<DialogContent className={variantStyles}>
-					<DialogHeader>
-						<DialogTitle>{title}</DialogTitle>
-						<DialogDescription
-							className={
-								variant === "destructive" ? "text-destructive-foreground" : ""
-							}
-						>
-							{description}
-						</DialogDescription>
-					</DialogHeader>
-				</DialogContent>
-			</Dialog>
+			{showPopup && (
+				<Dialog onOpenChange={setIsDialogOpen} open={isDialogOpen}>
+					<DialogContent className={variantStyles}>
+						<DialogHeader>
+							<DialogTitle>{title}</DialogTitle>
+							<DialogDescription className={descriptionStyles}>
+								{description}
+							</DialogDescription>
+						</DialogHeader>
+					</DialogContent>
+				</Dialog>
+			)}
 		</>
 	);
 }

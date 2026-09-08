@@ -41,6 +41,7 @@ const formSchema = z.object({
 	schoolDistrict: z.string(),
 	highPriority: z.boolean(),
 	autismStop: z.boolean(),
+	alreadyDx: z.boolean(),
 	pause: z.boolean(),
 	babyNet: z.boolean(),
 	eiAttends: z.boolean(),
@@ -79,6 +80,7 @@ function ClientForm({
 	const canBabyNet = can("clients:babynet");
 	const canSetEI = can("clients:ei");
 	const canAutismStopDisable = can("clients:autismstop:disable");
+	const canAlreadyDx = can("clients:alreadydx");
 	const canPause = can("clients:pause");
 	const canInsuranceReview = can("clients:insurance:review");
 
@@ -88,6 +90,7 @@ function ClientForm({
 				schoolDistrict: initialData.schoolDistrict ?? "",
 				highPriority: initialData.highPriority ?? false,
 				autismStop: initialData.autismStop ?? false,
+				alreadyDx: initialData.alreadyDx ?? false,
 				pause: initialData.pause ?? false,
 				babyNet: initialData.babyNet ?? false,
 				eiAttends: initialData.eiAttends ?? false,
@@ -251,6 +254,29 @@ function ClientForm({
 						)}
 					/>
 
+					<FormField
+						control={form.control}
+						name="alreadyDx"
+						render={({ field }) => (
+							<FormItem className="flex flex-row">
+								<FormControl>
+									<Checkbox
+										checked={field.value}
+										disabled={!canAlreadyDx}
+										onCheckedChange={field.onChange}
+									/>
+								</FormControl>
+								<div className="space-y-1 leading-none">
+									<FormLabel>Already Diagnosed</FormLabel>
+									<FormDescription>
+										Show a warning banner on the client's page. Doesn't stop
+										records requests, questionnaires, or reminders.
+									</FormDescription>
+								</div>
+							</FormItem>
+						)}
+					/>
+
 					{showBabyNetCheckbox && (
 						<FormField
 							control={form.control}
@@ -405,6 +431,7 @@ export function ClientEditButton({ client }: { client: Client }) {
 			clientId: client.id,
 			schoolDistrict: values.schoolDistrict,
 			pause: values.pause,
+			alreadyDx: values.alreadyDx,
 			highPriority: values.highPriority,
 			babyNet: values.babyNet,
 			eiAttends: values.eiAttends,

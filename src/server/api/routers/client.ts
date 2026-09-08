@@ -2172,6 +2172,7 @@ export const clientRouter = createTRPCRouter({
 				longitude: z.string().optional(),
 				flag: z.string().nullish().optional(),
 				highPriority: z.boolean().optional(),
+				alreadyDx: z.boolean().optional(),
 				pause: z.boolean().optional(),
 				babyNet: z.boolean().optional(),
 				eiAttends: z.boolean().optional(),
@@ -2232,6 +2233,10 @@ export const clientRouter = createTRPCRouter({
 				...(input.highPriority !== undefined &&
 				input.highPriority !== currentClient.highPriority
 					? (["clients:priority"] as const)
+					: []),
+				...(input.alreadyDx !== undefined &&
+				input.alreadyDx !== currentClient.alreadyDx
+					? (["clients:alreadydx"] as const)
 					: []),
 				...(input.pause !== undefined && input.pause !== currentClient.pause
 					? (["clients:pause"] as const)
@@ -2308,6 +2313,7 @@ export const clientRouter = createTRPCRouter({
 				latitude?: string;
 				longitude?: string;
 				highPriority?: boolean;
+				alreadyDx?: boolean;
 				pause?: boolean;
 				babyNet?: boolean;
 				eiAttends?: boolean;
@@ -2340,6 +2346,9 @@ export const clientRouter = createTRPCRouter({
 			}
 			if (input.highPriority !== undefined) {
 				updateData.highPriority = input.highPriority;
+			}
+			if (input.alreadyDx !== undefined) {
+				updateData.alreadyDx = input.alreadyDx;
 			}
 			if (input.pause !== undefined) {
 				updateData.pause = input.pause;
