@@ -129,27 +129,63 @@ function buildClientIdPrefixCondition(trimmedSearch: string) {
 	return like(clients.id, `${numericId}%`);
 }
 
+// Split the user's input into words, dropping punctuation.
+function nameSearchWords(trimmedSearch: string) {
+	return trimmedSearch
+		.replace(/[^\w ]/g, " ")
+		.split(" ")
+		.filter(Boolean);
+}
+
+// fullName with punctuation stripped, matching how search words are cleaned.
+// The doubled escaping is deliberate: the backslash has to survive both JS and
+// SQL string parsing.
+const cleanedFullNameExpr = sql`REGEXP_REPLACE(${clients.fullName}, '[^\\\\w ]', '')`;
+
 function buildClientNameWordsCondition(trimmedSearch: string) {
 	if (trimmedSearch.length < 3 || !/[a-zA-Z]/.test(trimmedSearch)) {
 		return undefined;
 	}
 
-	// Clean the user's input string by replacing non-alphanumeric characters with spaces
-	const cleanedSearchString = trimmedSearch.replace(/[^\w ]/g, " ");
-
-	// Split the cleaned string by spaces and filter out any empty strings
-	const searchWords = cleanedSearchString.split(" ").filter(Boolean);
+	const searchWords = nameSearchWords(trimmedSearch);
 	if (searchWords.length === 0) return undefined;
 
 	const nameConditions = searchWords.map(
-		(word) =>
-			sql`REGEXP_REPLACE(${
-				clients.fullName
-				// As bizarre as this looks, we have to escape the slash for both JS and SQL
-			}, '[^\\\\w ]', '') like ${`%${word}%`}`,
+		(word) => sql`${cleanedFullNameExpr} like ${`%${word}%`}`,
 	);
 
 	return and(...nameConditions);
+}
+
+// Superset SQL prefilter for name words that are within one Levenshtein edit of
+// a name in the record. If a single character is substituted, inserted, or
+// deleted, at least one half of the word survives intact, so an exact substring
+// match on either half is guaranteed to include every true edit-distance-1 hit.
+// It also lets through false positives, which fuzzyNameRowMatches removes in JS.
+function buildFuzzyNameWordsCondition(searchWords: string[]) {
+	const perWord = searchWords.map((word) => {
+		if (word.length < 4) {
+			return sql`${cleanedFullNameExpr} like ${`%${word}%`}`;
+		}
+		const mid = Math.ceil(word.length / 2);
+		const head = word.slice(0, mid);
+		const tail = word.slice(word.length - mid);
+		return or(
+			sql`${cleanedFullNameExpr} like ${`%${word}%`}`,
+			sql`${cleanedFullNameExpr} like ${`%${head}%`}`,
+			sql`${cleanedFullNameExpr} like ${`%${tail}%`}`,
+		);
+	});
+	return and(...perWord);
+}
+
+// JS confirmation that every search word is within one edit of some name token.
+function fuzzyNameRowMatches(searchWords: string[], fullName: string) {
+	const tokens = nameSearchWords(fullName.toLowerCase());
+	return searchWords.every((raw) => {
+		const word = raw.toLowerCase();
+		return tokens.some((t) => t.includes(word) || levDistance(word, t) <= 1);
+	});
 }
 
 const directoryFilterSchema = z.object({
@@ -2588,6 +2624,12 @@ export const clientRouter = createTRPCRouter({
 
 					const conditions = [];
 
+					// When set, the name search matched by word substring; index
+					// points at that condition so a second pass can swap in a
+					// looser fuzzy prefilter for typo tolerance.
+					let strictNameCondIndex: number | undefined;
+					let fuzzyNameWords: string[] | undefined;
+
 					if (excludeIds && excludeIds.length > 0) {
 						conditions.push(not(inArray(clients.id, excludeIds)));
 					}
@@ -2650,7 +2692,11 @@ export const clientRouter = createTRPCRouter({
 								} else {
 									const nameCondition =
 										buildClientNameWordsCondition(trimmedSearch);
-									if (nameCondition) conditions.push(nameCondition);
+									if (nameCondition) {
+										strictNameCondIndex = conditions.length;
+										fuzzyNameWords = nameSearchWords(trimmedSearch);
+										conditions.push(nameCondition);
+									}
 								}
 							}
 						}
@@ -2874,8 +2920,40 @@ export const clientRouter = createTRPCRouter({
 						.where(and(conditions.length > 0 ? and(...conditions) : undefined))
 						.orderBy(...orderBySQL);
 
+					// Typo-tolerant pass: pull clients whose name is within one edit
+					// of the search words, drop the ones already matched exactly,
+					// verify the rest in JS, and append them below the exact
+					// matches so a misspelling still surfaces the client, ranked
+					// lower. lazy: color counts stay exact-match only.
+					let resultClients: typeof filteredAndSortedClients =
+						filteredAndSortedClients;
+					if (fuzzyNameWords && strictNameCondIndex !== undefined) {
+						const exactIds = new Set(resultClients.map((c) => c.id));
+						const fuzzyConditions = conditions.map((c, i) =>
+							i === strictNameCondIndex
+								? buildFuzzyNameWordsCondition(fuzzyNameWords)
+								: c,
+						);
+						const fuzzyCandidates = await ctx.db
+							.select({
+								...getTableColumns(clients),
+								sortReason: sortReasonSQL,
+								distanceToOffice: sql<null>`NULL`.as("distanceToOffice"),
+							})
+							.from(clients)
+							.where(and(...fuzzyConditions))
+							.orderBy(...orderBySQL)
+							.limit(100);
+						const fuzzyMatches = fuzzyCandidates.filter(
+							(row) =>
+								!exactIds.has(row.id) &&
+								fuzzyNameRowMatches(fuzzyNameWords, row.fullName),
+						);
+						resultClients = [...resultClients, ...fuzzyMatches];
+					}
+
 					return {
-						clients: filteredAndSortedClients,
+						clients: resultClients,
 						colorCounts: countByColor,
 					};
 				},
