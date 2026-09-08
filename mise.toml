@@ -1,6 +1,5 @@
 [tools]
-node = "22"
-pnpm = "latest"
+node = "24"
 uv = "latest"
 
 [env]
@@ -8,6 +7,11 @@ _.file = ".env"
 
 [settings.task]
 output = "interleave"
+
+[settings.node]
+# Run `corepack enable` after installing Node so pnpm comes from the
+# `packageManager` field in package.json, our single source for the pnpm version.
+corepack = true
 
 [tasks.deps]
 description = "Spin up needed Docker containers for development"
