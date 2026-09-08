@@ -46,7 +46,7 @@ services:
     container_name: winnonah-b
 
   driftwood-db:
-    image: mysql
+    image: mysql:26.7
     container_name: driftwood-db
     restart: no
     environment:
