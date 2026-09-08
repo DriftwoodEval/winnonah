@@ -10,5 +10,12 @@
 		":automergeMinor",
 		":automergeBranch",
 		":automergeRequireAllStatusChecks"
+	],
+	"packageRules": [
+		{
+			"description": "Pinned to the abetlen CPU-wheel index, which Renovate cannot resolve; bump manually alongside wheel availability",
+			"matchDepNames": ["llama-cpp-python"],
+			"enabled": false
+		}
 	]
 }
