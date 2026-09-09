@@ -79,6 +79,13 @@ TABLE_BABYNET_REPORT: Final = "emr_babynet_report"
 TABLE_OFFICE_DRIVE_TIME: Final = "emr_office_drive_time"
 TABLE_REPORT: Final = "emr_report"
 TABLE_PIECEWORK_REPORT_TRACKING: Final = "emr_piecework_report_tracking"
+TABLE_SPECIAL_ACCOMMODATIONS_NOTICE: Final = "emr_special_accommodations_notice"
+
+# SCDHHS inbox for interpreter/accommodation requests. When we schedule an
+# appointment for a Medicaid client who does not speak English, we email this
+# address the client's name, Medicaid number, and language. The subject must
+# contain the word "secure" so Paubox encrypts the message on the way out.
+SPECIAL_ACCOMMODATIONS_EMAIL: Final = "SpecialAccommodations@scdhhs.gov"
 
 # DB to DataFrame Column Mapping
 CLIENT_COLUMN_MAPPING: Final = {

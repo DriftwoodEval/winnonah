@@ -867,6 +867,24 @@ export const inPersonAssessmentHistoryRelations = relations(
 	}),
 );
 
+// One row per client we have notified SCDHHS Special Accommodations about,
+// after scheduling an appointment for a Medicaid client who does not speak
+// English. Presence of the row is the "already sent" guard: the notice goes
+// out once per client.
+export const specialAccommodationsNotices = createTable(
+	"special_accommodations_notice",
+	(d) => ({
+		clientId: d
+			.int()
+			.notNull()
+			.primaryKey()
+			.references(() => clients.id, { onDelete: "cascade" }),
+		language: d.varchar({ length: 255 }).notNull(),
+		medicaidNumber: d.varchar({ length: 255 }).notNull(),
+		sentAt: d.timestamp().default(sql`CURRENT_TIMESTAMP`).notNull(),
+	}),
+);
+
 export const failures = createTable(
 	"failure",
 	(d) => ({

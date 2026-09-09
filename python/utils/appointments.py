@@ -35,6 +35,7 @@ from utils.google import (
     rename_drive_folder,
     send_gmail,
 )
+from utils.special_accommodations import notify_special_accommodations
 from utils.task_tracker import track_task
 from utils.timezone import business_to_utc, now_business, now_utc
 
@@ -607,6 +608,7 @@ def insert_appointments_with_gcal(appointment_sync_data: dict[str, list[str]] | 
         skipped_locked_in_snapshots = 0
         in_person_assessments_added = 0
         clients_with_in_person_assessments: set[int] = set()
+        newly_scheduled_client_ids: set[int] = set()
 
         total_appointments = len(appointments_df)
         for i, (_, appointment) in enumerate(appointments_df.iterrows(), start=1):
@@ -683,7 +685,7 @@ def insert_appointments_with_gcal(appointment_sync_data: dict[str, list[str]] | 
                     logger.error(f"No title found for event ID: {gcal_event_id}")
                 continue
 
-            put_appointment_in_db(
+            was_new_appointment = put_appointment_in_db(
                 appointment_id=appointment_id,
                 client_id=client_id,
                 evaluator_npi=evaluator_npi,
@@ -698,6 +700,12 @@ def insert_appointments_with_gcal(appointment_sync_data: dict[str, list[str]] | 
                 gcal_event_title=gcal_event_title,
                 confirmed_at=confirmed_at,
             )
+            # Only real, newly scheduled appointments count. This branch never
+            # writes billing-only or placeholder rows (that is the billing_df
+            # loop and the app UI respectively), so a fresh non-cancelled insert
+            # here is always a genuine appointment.
+            if was_new_appointment and not cancelled:
+                newly_scheduled_client_ids.add(client_id)
 
             if not cancelled and gcal_daeval and battery_rules:
                 client_dob = dob_map.get(client_id)
@@ -804,6 +812,11 @@ def insert_appointments_with_gcal(appointment_sync_data: dict[str, list[str]] | 
             logger.debug(
                 f"Skipped {skipped_locked_in_snapshots} assessment snapshot(s): already locked in"
             )
+
+        try:
+            notify_special_accommodations(newly_scheduled_client_ids)
+        except Exception:
+            logger.exception("Failed to send Special Accommodations notices")
 
         try:
             reconcile_reports_from_appointments()
