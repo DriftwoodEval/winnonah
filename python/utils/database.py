@@ -6,7 +6,7 @@ import json
 import os
 import re
 import time
-from collections.abc import Callable
+from collections.abc import Callable, Iterable
 from contextlib import contextmanager
 from datetime import date, datetime
 from functools import wraps
@@ -60,6 +60,7 @@ from utils.constants import (
     TABLE_REPORT,
     TABLE_ROLE,
     TABLE_SCHOOL_DISTRICT,
+    TABLE_SPECIAL_ACCOMMODATIONS_NOTICE,
     TABLE_USER,
     TEST_NAMES_LOWER,
 )
@@ -1370,6 +1371,106 @@ def get_medicaid_clients_with_ids(
     return list(clients_by_id.values())
 
 
+def _resolve_scm_insurance_names(cursor: DictCursor) -> list[str]:
+    """All insurance names (shortNames + aliases) that map to SCM (Medicaid)."""
+    cursor.execute(
+        f"""
+        SELECT i.id
+        FROM `{TABLE_INSURANCE}` i
+        LEFT JOIN `{TABLE_INSURANCE_ALIAS}` a ON a.insuranceId = i.id
+        WHERE i.shortName = %s OR a.name = %s
+        """,
+        (SCM_ALIAS, SCM_ALIAS),
+    )
+    scm_ids = list({row["id"] for row in cursor.fetchall()})
+    if not scm_ids:
+        return []
+
+    id_placeholders = ", ".join(["%s"] * len(scm_ids))
+    cursor.execute(
+        f"""
+        SELECT i.shortName AS name FROM `{TABLE_INSURANCE}` i WHERE i.id IN ({id_placeholders})
+        UNION
+        SELECT a.name FROM `{TABLE_INSURANCE_ALIAS}` a WHERE a.insuranceId IN ({id_placeholders})
+        """,
+        scm_ids + scm_ids,
+    )
+    return [row["name"] for row in cursor.fetchall()]
+
+
+@provide_connection
+def get_non_english_medicaid_clients_for_notice(
+    client_ids: Iterable[int],
+    connection: Connection[DictCursor] | None = None,
+) -> list[dict]:
+    """Active, non-English-speaking clients among client_ids who have SCM
+    (Medicaid) primary insurance with a policy number and have not already had a
+    SCDHHS Special Accommodations notice sent.
+
+    Returns id, firstName, lastName, language, insuranceNumber.
+    """
+    assert connection is not None
+    ids = sorted({int(cid) for cid in client_ids})
+    if not ids:
+        return []
+
+    with connection.cursor() as cursor:
+        scm_names = _resolve_scm_insurance_names(cursor)
+        if not scm_names:
+            return []
+
+        id_placeholders = ", ".join(["%s"] * len(ids))
+        name_placeholders = ", ".join(["%s"] * len(scm_names))
+        cursor.execute(
+            f"""
+            SELECT c.id, c.firstName, c.lastName, c.language, p.insuranceNumber
+            FROM `{TABLE_CLIENT}` c
+            JOIN `{TABLE_CLIENT_INSURANCE_POLICY}` p ON p.clientId = c.id
+            WHERE c.id IN ({id_placeholders})
+              AND c.status = 1
+              AND c.language IS NOT NULL
+              AND LOWER(c.language) NOT IN ('', 'english')
+              AND c.primaryInsurance IN ({name_placeholders})
+              AND p.policyType = 'PRIMARY'
+              AND (p.policyEndDate IS NULL OR p.policyEndDate >= CURDATE())
+              AND p.insuranceNumber IS NOT NULL
+              AND p.insuranceNumber != ''
+              AND NOT EXISTS (
+                  SELECT 1 FROM `{TABLE_SPECIAL_ACCOMMODATIONS_NOTICE}` n
+                  WHERE n.clientId = c.id
+              )
+            GROUP BY c.id, c.firstName, c.lastName, c.language, p.insuranceNumber
+            ORDER BY c.lastName, c.firstName
+            """,
+            ids + scm_names,
+        )
+        return list(cursor.fetchall())
+
+
+@provide_connection
+def record_special_accommodations_notice(
+    client_id: int,
+    language: str,
+    medicaid_number: str,
+    connection: Connection[DictCursor] | None = None,
+) -> None:
+    """Records that the SCDHHS Special Accommodations notice was sent for this client."""
+    assert connection is not None
+    with connection.cursor() as cursor:
+        cursor.execute(
+            f"""
+            INSERT INTO `{TABLE_SPECIAL_ACCOMMODATIONS_NOTICE}`
+                (clientId, language, medicaidNumber)
+            VALUES (%s, %s, %s)
+            ON DUPLICATE KEY UPDATE
+                language = VALUES(language),
+                medicaidNumber = VALUES(medicaidNumber)
+            """,
+            (client_id, language, medicaid_number),
+        )
+    connection.commit()
+
+
 @provide_connection
 def put_client_insurance_policies_in_db(
     insurance_df: pd.DataFrame, connection: Connection[DictCursor]
@@ -1788,11 +1889,12 @@ def put_appointment_in_db(
     confirmed_at: datetime | None = None,
     billing_only: bool = False,
     placeholder: bool = False,
-) -> bool:
-    """Inserts an appointment into the database.
+) -> tuple[bool, bool]:
+    """Inserts or updates an appointment.
 
-    Returns whether an existing appointment's startTime changed (i.e. it was
-    moved/rescheduled), for the run summary shown in the app.
+    Returns (created, rescheduled): whether a new appointment row was created, and
+    whether an existing appointment's startTime changed (i.e. it was moved), for
+    the run summary shown in the app.
     """
     with connection.cursor() as cursor:
         cursor.execute(f"SELECT 1 FROM `{TABLE_CLIENT}` WHERE id = %s", (client_id,))
@@ -1800,7 +1902,7 @@ def put_appointment_in_db(
             logger.warning(
                 f"Skipping appointment {appointment_id}: no client row found for client_id={client_id}"
             )
-            return False
+            return False, False
 
         cursor.execute(
             f"""SELECT startTime, endTime, confirmedAt, cancelled, evaluatorNpi, daEval,
@@ -1953,7 +2055,7 @@ def put_appointment_in_db(
         cursor.execute(sql, params)
         connection.commit()
 
-    return rescheduled
+    return existing is None, rescheduled
 
 
 @provide_connection
@@ -2046,6 +2148,9 @@ def delete_appointment(appointment_id: str, connection: Connection[DictCursor]) 
             (appointment_id,),
         )
         connection.commit()
+        # MySQL returns rowcount 1 for a fresh INSERT and 2 for an
+        # ON DUPLICATE KEY UPDATE that changed a row (0 if unchanged).
+        return cursor.rowcount == 1
 
 
 @provide_connection
