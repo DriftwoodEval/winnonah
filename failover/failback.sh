@@ -21,19 +21,19 @@ slack() {
 log "=== FAILBACK STARTING ==="
 slack "Failback initiated. Syncing primary from standby before swapping traffic."
 
-# 0. Kill standby's STONITH loop first. It retries "docker compose down" on
-# primary every 15s until it succeeds, with no awareness that failback is
-# starting, so if primary becomes reachable while STONITH is still running
-# it will tear down the services we're about to bring up.
+# 0. Kill standby's STONITH loop first. It retries stopping and removing
+# primary's containers every 15s until it succeeds, with no awareness that
+# failback is starting, so if primary becomes reachable while STONITH is still
+# running it will tear down the services we're about to bring up.
 log "Stopping standby's STONITH loop..."
 ssh -o LogLevel=quiet -i "${STANDBY_SSH_KEY_PATH}" "${STANDBY_SSH_USER}@${STANDBY_TAILSCALE_IP}" \
   'if [ -f /tmp/stonith.pid ]; then kill "$(cat /tmp/stonith.pid)" 2>/dev/null; rm -f /tmp/stonith.pid; fi' \
   || log "Could not reach standby to stop STONITH, continuing."
 
 # 1. Start primary driftwood-db, redis, and the monitoring stack
-# Like caddy, these have no profile and are normally always-on, but
-# STONITH's blanket `docker compose down` on primary (failover.sh) removes
-# them along with everything else, so bring them back up here.
+# Like caddy, these have no profile and are normally always-on, but STONITH
+# (failover.sh) stops and removes every primary container, so bring them back
+# up here.
 log "Starting primary driftwood-db, redis, loki, promtail, and grafana..."
 if ! ${PRIMARY_COMPOSE} up -d --wait driftwood-db redis loki promtail grafana; then
   log "Primary MySQL did not become healthy. Fix it first."
@@ -111,11 +111,10 @@ ssh -o LogLevel=quiet -i "${STANDBY_SSH_KEY_PATH}" "${STANDBY_SSH_USER}@${STANDB
 slack "Standby tunnel stopped. Starting primary tunnel..."
 
 # 4. Start primary caddy, cloudflared, and winnonah-a
-# caddy has no profile so it's normally always-on, but STONITH's blanket
-# `docker compose down` on primary (failover.sh) removes it along with
-# everything else, so it needs to be started back up explicitly here.
-# Primary was fully torn down, so there's no existing web slot to preserve -
-# winnonah-a is always the right one to start.
+# caddy has no profile so it's normally always-on, but STONITH (failover.sh)
+# stops and removes it along with everything else, so start it back up
+# explicitly here. Primary was fully torn down, so there's no existing web slot
+# to preserve - winnonah-a is always the right one to start.
 log "Starting primary caddy, cloudflared, and winnonah-a..."
 ${PRIMARY_COMPOSE} up -d caddy cloudflared winnonah-a
 sleep 10

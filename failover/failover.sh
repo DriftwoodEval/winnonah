@@ -42,12 +42,19 @@ stonith_loop() {
   while true; do
     echo "[$(date '+%H:%M:%S')] STONITH: Attempt #$attempt..." >> "$STONITH_LOG"
 
+    # Stop and remove the containers, but never `docker compose down`: down also
+    # tears down winnonah-net, which fails (and exits non-zero) whenever a
+    # container is already half-detached from it, e.g. after a crash. That would
+    # make STONITH retry forever and never send the success signal even though
+    # primary is already safely down. `stop && rm -f` leaves the empty network
+    # in place (failback's `up -d` reuses it) and exits 0 once the containers
+    # are gone, which is all split-brain prevention actually needs.
     if ssh -o LogLevel=quiet \
            -o ConnectTimeout=5 \
            -o BatchMode=yes \
            -i "${STANDBY_SSH_KEY_PATH}" \
            "${STANDBY_SSH_USER}@${PRIMARY_TAILSCALE_IP}" \
-           "cd ~/winnonah && docker compose down" >> "$STONITH_LOG" 2>&1; then
+           "cd ~/winnonah && docker compose stop && docker compose rm -f" >> "$STONITH_LOG" 2>&1; then
 
       echo "[$(date '+%H:%M:%S')] STONITH: Success. Primary containers stopped." >> "$STONITH_LOG"
       slack "✅ STONITH Success: Primary containers confirmed stopped on ${PRIMARY_TAILSCALE_IP}. Split-brain risk averted."
@@ -97,8 +104,30 @@ log "Step 2 done."
 # existing state to preserve - winnonah-a is always the right one to start.
 log "Starting cloudflared, winnonah-a, winnonah-python..."
 ${COMPOSE} --profile active_only up -d cloudflared winnonah-a winnonah-python
-slack "Services started. Traffic routing to standby within seconds."
 log "Step 3 done."
+
+# 3b. Confirm winnonah-a is actually serving before telling the world traffic is
+# live. winnonah-a has no compose healthcheck, so `up -d` returning only means
+# the container started, not that Next.js is up. Standby is the last line of
+# defense, so a failed probe alerts loudly but does not abort: a half-up standby
+# still beats no standby.
+log "Waiting for winnonah-a to pass /api/health (timeout 60s)..."
+health_ok=false
+for _ in $(seq 1 30); do
+  if docker run --rm --network winnonah-net curlimages/curl:latest \
+       -sf "http://winnonah-a:3000/api/health" >/dev/null 2>&1; then
+    health_ok=true
+    break
+  fi
+  sleep 2
+done
+if [ "${health_ok}" = true ]; then
+  log "winnonah-a healthy."
+  slack "Services started and winnonah-a is serving. Traffic routing to standby within seconds."
+else
+  log "WARNING: winnonah-a did not pass /api/health within 60s."
+  slack "⚠️ Failover: winnonah-a on standby did not pass /api/health within 60s. Site may still be down - check standby now."
+fi
 
 # 4. Ack to Worker
 curl -sf -X POST \
