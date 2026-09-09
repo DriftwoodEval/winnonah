@@ -20,13 +20,15 @@ An evaluator's "Writes Own Reports" switch, in their settings, decides which gro
 
 A report appears once a client has an EVAL or DA+EVAL appointment, or a DA for an ADHD-only evaluation (those don't get a separate EVAL). A plain DA that's the first half of an ASD evaluation doesn't create a report on its own, the EVAL that follows does. Either way it's one report per client.
 
-If the evaluator writes their own reports, the report is theirs right away. If not, it's a **pool report** with no writer yet.
+Only evaluations dated August 1, 2026 or later create a report automatically. If an older evaluation still needs a report, move the client's folder into the report-writing queue folder and a report is created for it.
+
+If the evaluator writes their own reports, the report is theirs right away and shows as **Writing**. If not, it's a **pool report** with no writer yet.
 
 ## When a pool report can be claimed
 
 A pool report shows up as soon as the evaluation is on the calendar, which is often well before the report is ready to write. Until then it sits in the **awaiting folder** state: approvers and billing staff can see it, but writers can't, and it can't be claimed.
 
-Once someone moves the client's folder into the report-writing queue folder, the report moves to **Queued** and writers can claim it. The EMR checks the queue folder whenever the Reports page is opened and again every hour, so a moved folder shows up soon after. Move the folder back out before anyone claims it and the report goes back to awaiting.
+Once someone moves the client's folder into the report-writing queue folder, the report moves to **In queue** and writers can claim it. The EMR checks the queue folder whenever the Reports page is opened and again every hour, so a moved folder shows up soon after. Move the folder back out before anyone claims it and the report goes back to awaiting.
 
 ## Claiming a pool report
 
@@ -53,7 +55,7 @@ Staff who can approve reports use **Approve** on a claimed or submitted report. 
 
 ## Billing and review
 
-Every report has four checkboxes: **Billed**, **First review**, **Second review**, and **BRIDGES billed**. Only staff who approve reports or manage report billing can change them; everyone else sees them but can't edit.
+Every report has checkboxes for **Billed**, the first review, and the second review. The second review has two: one for when it has been requested ("needed") and one for when it has been carried out ("done"). Only staff who approve reports or manage report billing can change them; everyone else sees them but can't edit.
 
 The two review labels can be renamed in **Settings > Report Queue** to match what the practice calls those steps.
 

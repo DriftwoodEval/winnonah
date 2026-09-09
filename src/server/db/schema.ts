@@ -1530,12 +1530,14 @@ export const reports = createTable(
 		firstReviewDone: d.boolean().notNull().default(false),
 		firstReviewAt: d.timestamp(),
 		firstReviewByEmail: d.varchar({ length: 255 }),
+		// The second review has two independent flags: it has been requested
+		// ("needed"), and it has been carried out ("done").
 		secondReviewNeeded: d.boolean().notNull().default(false),
 		secondReviewNeededAt: d.timestamp(),
 		secondReviewByEmail: d.varchar({ length: 255 }),
-		bridgesBilled: d.boolean().notNull().default(false),
-		bridgesBilledAt: d.timestamp(),
-		bridgesBilledByEmail: d.varchar({ length: 255 }),
+		secondReviewDone: d.boolean().notNull().default(false),
+		secondReviewDoneAt: d.timestamp(),
+		secondReviewDoneByEmail: d.varchar({ length: 255 }),
 		source: d
 			.mysqlEnum(["auto", "manual", "backfill"])
 			.notNull()

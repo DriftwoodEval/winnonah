@@ -26,6 +26,7 @@ import utils.relationships
 from utils.constants import (
     CLIENT_COLUMN_MAPPING,
     REPORT_QUEUE_FOLDER_ID,
+    REPORT_TRACKING_START_DATE,
     TABLE_APPOINTMENT,
     TABLE_ASSESSMENT_TYPE,
     TABLE_BLOCKED_SCHOOL_DISTRICT,
@@ -61,7 +62,7 @@ from utils.misc import (
     get_column,
     get_full_name,
 )
-from utils.timezone import now_business, now_utc, utc_to_business
+from utils.timezone import business_to_utc, now_business, now_utc, utc_to_business
 
 load_dotenv()
 
@@ -2340,8 +2341,13 @@ def reconcile_reports_from_appointments(
     archiving a finished report does not immediately respawn one for the same
     eval cycle, while a genuine re-evaluation later does.
 
+    Evals before REPORT_TRACKING_START_DATE are ignored so enabling the feature
+    does not backfill the whole history of past evaluations; older reports that
+    still need writing enter through the Drive report-writing queue folder.
+
     Returns the number of report rows created.
     """
+    cutoff = business_to_utc(REPORT_TRACKING_START_DATE).replace(tzinfo=None)
     try:
         adhd_npi_raw = (
             get_python_config(1)
@@ -2379,6 +2385,7 @@ def reconcile_reports_from_appointments(
                       )
                   AND cancelled = 0 AND rescheduled = 0
                   AND placeholder = 0 AND billingOnly = 0
+                  AND startTime >= %s
                 GROUP BY clientId
             ) latest ON latest.clientId = a.clientId AND latest.maxStart = a.startTime
             LEFT JOIN (
@@ -2386,7 +2393,8 @@ def reconcile_reports_from_appointments(
                 FROM `{TABLE_REPORT}`
                 GROUP BY clientId
             ) r ON r.clientId = a.clientId
-            """
+            """,
+            (cutoff,),
         )
         rows = cursor.fetchall()
 
@@ -2551,7 +2559,6 @@ _PUNCHLIST_REPORT_FIELDS = {
         "secondReviewNeededAt",
         "secondReviewByEmail",
     ),
-    "BRIDGES billed?": ("bridgesBilled", "bridgesBilledAt", "bridgesBilledByEmail"),
 }
 
 
@@ -2589,8 +2596,7 @@ def sync_punchlist_to_db(
 
         cursor.execute(
             f"""
-            SELECT id, clientId, billed, firstReviewDone, secondReviewNeeded,
-                   bridgesBilled
+            SELECT id, clientId, billed, firstReviewDone, secondReviewNeeded
             FROM `{TABLE_REPORT}`
             WHERE archivedAt IS NULL
             """

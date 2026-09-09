@@ -353,7 +353,6 @@ export type PUNCH_SCHEMA = {
 	"Assigned to OR added to report writing folder": string | undefined;
 	"MCS Review Needed": string | undefined;
 	"AJP Review Done/Hold for payroll": string | undefined;
-	"BRIDGES billed?": string | undefined;
 	"Billed?": string | undefined;
 	hash: string;
 };

@@ -26,6 +26,23 @@ const STATUS_LABELS: Partial<Record<Report["status"], string>> = {
 	pending: "Awaiting folder",
 };
 
+// A linked writer shows their first name. When a report only carries an email
+// that matches no user, fall back to the local part ("jane.doe@..." -> "Jane Doe").
+function writerDisplay(
+	name: string | null | undefined,
+	email: string | null | undefined,
+) {
+	if (name) return name.split(" ")[0] ?? name;
+	if (!email) return null;
+	const local = email.split("@")[0] ?? "";
+	const guess = local
+		.split(/[._-]+/)
+		.filter(Boolean)
+		.map((part) => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
+		.join(" ");
+	return guess || null;
+}
+
 function statusLabel(status: Report["status"]) {
 	return (
 		STATUS_LABELS[status] ??
@@ -33,11 +50,39 @@ function statusLabel(status: Report["status"]) {
 	);
 }
 
-function StatusBadge({ status }: { status: Report["status"] }) {
-	if (status === "pending") {
-		return <Badge variant="outline">{statusLabel(status)}</Badge>;
+// "claimed" covers two different situations: a pool report a writer actively
+// took off the queue, and a self-written report that was pre-assigned to its
+// evaluator at creation and never went through a claim step. Label them
+// differently so "claimed" doesn't get used for reports nobody claimed.
+function StatusBadge({
+	status,
+	selfWritten,
+}: {
+	status: Report["status"];
+	selfWritten: boolean;
+}) {
+	switch (status) {
+		case "pending":
+			return <Badge variant="outline">{statusLabel(status)}</Badge>;
+		case "queued":
+			return (
+				<Badge className="border-warning/40 text-warning" variant="outline">
+					In queue
+				</Badge>
+			);
+		case "claimed":
+			return (
+				<Badge variant="secondary">{selfWritten ? "Writing" : "Claimed"}</Badge>
+			);
+		case "approved":
+			return (
+				<Badge className="border-success/40 text-success" variant="outline">
+					Approved
+				</Badge>
+			);
+		default:
+			return <Badge variant="secondary">{statusLabel(status)}</Badge>;
 	}
-	return <Badge variant="secondary">{statusLabel(status)}</Badge>;
 }
 
 export function ReportsTable({
@@ -51,17 +96,15 @@ export function ReportsTable({
 }) {
 	const utils = api.useUtils();
 	const { data: config } = api.reportQueue.getConfig.useQuery();
+	const secondReview = config?.secondReviewLabel ?? "Second review";
 	const billingFields = [
 		{ key: "billed" as const, label: "Billed" },
 		{
 			key: "firstReviewDone" as const,
 			label: config?.firstReviewLabel ?? "First review",
 		},
-		{
-			key: "secondReviewNeeded" as const,
-			label: config?.secondReviewLabel ?? "Second review",
-		},
-		{ key: "bridgesBilled" as const, label: "BRIDGES billed" },
+		{ key: "secondReviewNeeded" as const, label: `${secondReview} needed` },
+		{ key: "secondReviewDone" as const, label: `${secondReview} done` },
 	];
 	const invalidate = () => void utils.reports.list.invalidate();
 
@@ -104,9 +147,10 @@ export function ReportsTable({
 					<TableRow>
 						<TableHead>Client</TableHead>
 						<TableHead>Type</TableHead>
+						<TableHead>Eval date</TableHead>
 						<TableHead>Writer</TableHead>
 						<TableHead>Status</TableHead>
-						<TableHead>Claimed</TableHead>
+						<TableHead>Claimed on</TableHead>
 						<TableHead>Writer done</TableHead>
 						{billingFields.map((f) => (
 							<TableHead key={f.key}>{f.label}</TableHead>
@@ -136,12 +180,19 @@ export function ReportsTable({
 									)}
 								</TableCell>
 								<TableCell className="whitespace-nowrap text-sm">
-									{r.writerName ?? r.writerEmail ?? (
+									{r.evalAppointmentAt ? (
+										formatInBusinessTime(r.evalAppointmentAt, "MMM d, yyyy")
+									) : (
+										<span className="text-muted-foreground text-xs">-</span>
+									)}
+								</TableCell>
+								<TableCell className="whitespace-nowrap text-sm">
+									{writerDisplay(r.writerName, r.writerEmail) ?? (
 										<span className="text-muted-foreground">Unclaimed</span>
 									)}
 								</TableCell>
 								<TableCell>
-									<StatusBadge status={r.status} />
+									<StatusBadge selfWritten={r.selfWritten} status={r.status} />
 								</TableCell>
 								<TableCell className="whitespace-nowrap text-sm">
 									{r.claimedAt
@@ -175,7 +226,6 @@ export function ReportsTable({
 												markComplete.mutate({ id: r.id, complete: true })
 											}
 											size="sm"
-											variant="outline"
 										>
 											Mark done
 										</Button>
@@ -221,7 +271,6 @@ export function ReportsTable({
 													<Button
 														onClick={() => approve.mutate({ id: r.id })}
 														size="sm"
-														variant="outline"
 													>
 														Approve
 													</Button>
@@ -229,7 +278,7 @@ export function ReportsTable({
 												<Button
 													onClick={() => archive.mutate({ id: r.id })}
 													size="sm"
-													variant="ghost"
+													variant="destructive"
 												>
 													Archive
 												</Button>

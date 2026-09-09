@@ -32,8 +32,15 @@ function TabContent({
 		);
 	}
 
+	const reports = data ?? [];
+
 	return (
-		<ReportsTable isApprover={isApprover} reports={data ?? []} tab={tab} />
+		<div className="flex w-full flex-col gap-2">
+			<span className="text-muted-foreground text-sm">
+				{reports.length} report{reports.length === 1 ? "" : "s"}
+			</span>
+			<ReportsTable isApprover={isApprover} reports={reports} tab={tab} />
+		</div>
 	);
 }
 
@@ -52,7 +59,7 @@ export function ReportsView() {
 		<div className="flex w-full flex-col gap-4">
 			<h1 className="font-semibold text-xl">Reports</h1>
 
-			{canClaim && <ReportQueue />}
+			{canClaim && <ReportQueue className="w-full" />}
 
 			<div
 				className={`flex-wrap items-center gap-2 ${isApprover ? "flex" : "hidden"}`}

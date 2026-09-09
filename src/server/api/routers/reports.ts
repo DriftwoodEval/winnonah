@@ -1,5 +1,15 @@
 import { TRPCError } from "@trpc/server";
-import { and, desc, eq, isNotNull, isNull, ne, type SQL } from "drizzle-orm";
+import {
+	and,
+	desc,
+	eq,
+	isNotNull,
+	isNull,
+	ne,
+	type SQL,
+	sql,
+} from "drizzle-orm";
+import { alias } from "drizzle-orm/mysql-core";
 import { z } from "zod";
 import { env } from "~/env";
 import { invalidateCache } from "~/lib/cache";
@@ -16,7 +26,13 @@ import {
 	createTRPCRouter,
 	protectedProcedure,
 } from "~/server/api/trpc";
-import { clients, evaluators, reports, users } from "~/server/db/schema";
+import {
+	appointments,
+	clients,
+	evaluators,
+	reports,
+	users,
+} from "~/server/db/schema";
 
 type AuthedContext = Context & {
 	session: NonNullable<Context["session"]>;
@@ -34,10 +50,11 @@ const BILLING_FIELDS = {
 		by: "secondReviewByEmail",
 		punch: "secondReviewNeeded",
 	},
-	bridgesBilled: {
-		at: "bridgesBilledAt",
-		by: "bridgesBilledByEmail",
-		punch: "bridgesBilled",
+	// EMR-only: no punch-list column mirrors "second review done".
+	secondReviewDone: {
+		at: "secondReviewDoneAt",
+		by: "secondReviewDoneByEmail",
+		punch: null,
 	},
 } as const;
 
@@ -143,6 +160,28 @@ export const reportsRouter = createTRPCRouter({
 			// approver-only concern.
 			if (!isApprover) where.push(ne(reports.status, "pending"));
 
+			// Reports claimed before the user was linked (or written outside the app)
+			// only carry an email; match it back to a user so we can show a name.
+			const writerByEmail = alias(users, "writer_by_email");
+
+			// A report is keyed to the client, not one appointment, so the eval date
+			// shown is the client's most recent qualifying eval appointment, mirroring
+			// the rule that spawns the report row (reconcile_reports_from_appointments
+			// in python/utils/database.py).
+			const evalAppointmentAt = sql<Date | null>`(
+				SELECT MAX(${appointments.startTime})
+				FROM ${appointments}
+				WHERE ${appointments.clientId} = ${reports.clientId}
+				  AND (
+					${appointments.daEval} IN ('EVAL', 'DAEVAL')
+					OR (${appointments.daEval} = 'DA' AND ${appointments.asdAdhd} = 'ADHD')
+				  )
+				  AND ${appointments.cancelled} = 0
+				  AND ${appointments.rescheduled} = 0
+				  AND ${appointments.placeholder} = 0
+				  AND ${appointments.billingOnly} = 0
+			)`;
+
 			const rows = await ctx.db
 				.select({
 					id: reports.id,
@@ -156,16 +195,18 @@ export const reportsRouter = createTRPCRouter({
 					writerUserId: reports.writerUserId,
 					writerEmail: reports.writerEmail,
 					writerName: users.name,
+					writerEmailName: writerByEmail.name,
 					evaluatorName: evaluators.providerName,
 					folderId: reports.folderId,
 					folderName: reports.folderName,
+					evalAppointmentAt,
 					claimedAt: reports.claimedAt,
 					writerCompletedAt: reports.writerCompletedAt,
 					approvedAt: reports.approvedAt,
 					billed: reports.billed,
 					firstReviewDone: reports.firstReviewDone,
 					secondReviewNeeded: reports.secondReviewNeeded,
-					bridgesBilled: reports.bridgesBilled,
+					secondReviewDone: reports.secondReviewDone,
 					source: reports.source,
 					archivedAt: reports.archivedAt,
 					createdAt: reports.createdAt,
@@ -173,12 +214,20 @@ export const reportsRouter = createTRPCRouter({
 				.from(reports)
 				.innerJoin(clients, eq(reports.clientId, clients.id))
 				.leftJoin(users, eq(reports.writerUserId, users.id))
+				.leftJoin(writerByEmail, eq(reports.writerEmail, writerByEmail.email))
 				.leftJoin(evaluators, eq(reports.evaluatorNpi, evaluators.npi))
 				.where(and(...where))
-				.orderBy(desc(reports.createdAt));
+				// Oldest eval first, so the longest-waiting report is at the top.
+				// Rows with no eval date (queue-folder-only) sort last.
+				.orderBy(
+					sql`${evalAppointmentAt} IS NULL`,
+					sql`${evalAppointmentAt} ASC`,
+					desc(reports.createdAt),
+				);
 
-			return rows.map((r) => ({
+			return rows.map(({ writerEmailName, ...r }) => ({
 				...r,
+				writerName: r.writerName ?? writerEmailName,
 				canEditBilling: isApprover,
 				isMine: r.writerUserId === ctx.session.user.id,
 			}));
@@ -241,7 +290,7 @@ export const reportsRouter = createTRPCRouter({
 					"billed",
 					"firstReviewDone",
 					"secondReviewNeeded",
-					"bridgesBilled",
+					"secondReviewDone",
 				]),
 				value: z.boolean(),
 			}),
@@ -271,17 +320,23 @@ export const reportsRouter = createTRPCRouter({
 				"Updated report billing field",
 			);
 
-			// Dual-write out to the punch list during the transition. Best effort.
-			try {
-				await updatePunchReportFields(ctx.session, String(report.clientId), {
-					[meta.punch]: input.value,
-				});
-			} catch (error) {
-				ctx.logger.error(error, "Failed to mirror billing field to punch list");
+			// Dual-write out to the punch list during the transition, for the fields
+			// that still have a punch-list column. Best effort.
+			if (meta.punch) {
+				try {
+					await updatePunchReportFields(ctx.session, String(report.clientId), {
+						[meta.punch]: input.value,
+					});
+				} catch (error) {
+					ctx.logger.error(
+						error,
+						"Failed to mirror billing field to punch list",
+					);
+				}
+				// Drop the punch-list cache so syncPunchData reads the value we just
+				// wrote out, not a stale copy that would revert this edit.
+				await invalidateCache(ctx, CACHE_KEY_PUNCHLIST);
 			}
-			// Drop the punch-list cache so syncPunchData reads the value we just
-			// wrote out, not a stale copy that would revert this edit.
-			await invalidateCache(ctx, CACHE_KEY_PUNCHLIST);
 
 			return { success: true };
 		}),

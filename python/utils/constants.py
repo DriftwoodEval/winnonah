@@ -5,6 +5,12 @@ from typing import Final
 # rollout doesn't churn through every fax ever received.
 FAX_CATEGORIZATION_START_DATE: Final = datetime(2026, 8, 5)
 
+# Evaluation appointments before this business-local date do not auto-create a
+# report row, so turning the feature on doesn't backfill the entire history of
+# past evals. Older reports that still need writing enter through the Drive
+# report-writing queue folder instead. Hard cutoff, business-local midnight.
+REPORT_TRACKING_START_DATE: Final = datetime(2026, 8, 1)
+
 # Single source of truth for the practice's timezone. Used to convert stored
 # UTC instants to/from the business's wall-clock time for display and for
 # business-hour logic (quiet windows, daily send gates, etc).

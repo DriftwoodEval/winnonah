@@ -585,7 +585,6 @@ export const updatePunchReportFields = async (
 		billed?: boolean;
 		firstReviewDone?: boolean;
 		secondReviewNeeded?: boolean;
-		bridgesBilled?: boolean;
 	},
 ) => {
 	const { PUNCHLIST_ID, PUNCHLIST_RANGE } = env;
@@ -615,7 +614,6 @@ export const updatePunchReportFields = async (
 		billed: "Billed?",
 		firstReviewDone: "AJP Review Done/Hold for payroll",
 		secondReviewNeeded: "MCS Review Needed",
-		bridgesBilled: "BRIDGES billed?",
 	};
 
 	const updateRequests: sheets_v4.Schema$ValueRange[] = [];
@@ -669,11 +667,6 @@ const PUNCH_REPORT_FIELDS = {
 		"secondReviewNeededAt",
 		"secondReviewByEmail",
 	],
-	"BRIDGES billed?": [
-		"bridgesBilled",
-		"bridgesBilledAt",
-		"bridgesBilledByEmail",
-	],
 } as const satisfies Record<string, readonly [string, string, string]>;
 
 const PUNCHLIST_SYNC_ACTOR_EMAIL = "punchlist-sync";
@@ -698,7 +691,6 @@ export const syncPunchData = async (ctx: Context & { session: Session }) => {
 			billed: reports.billed,
 			firstReviewDone: reports.firstReviewDone,
 			secondReviewNeeded: reports.secondReviewNeeded,
-			bridgesBilled: reports.bridgesBilled,
 		})
 		.from(reports)
 		.where(isNull(reports.archivedAt));
