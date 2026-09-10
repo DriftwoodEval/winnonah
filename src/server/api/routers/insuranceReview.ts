@@ -211,7 +211,7 @@ export const insuranceReviewRouter = createTRPCRouter({
 					});
 
 					const clientUrl = client?.hash
-						? `https://${env.NEXT_PUBLIC_APP_DOMAIN}/clients/${client.hash}?tab=insurance`
+						? `https://${env.NEXT_PUBLIC_APP_DOMAIN}/clients/${client.hash}?tab=admin-review`
 						: null;
 
 					const cookieHeader = ctx.headers.get("cookie") ?? "";

@@ -11,10 +11,10 @@ import type { FullClientInfo } from "./models";
 
 /**
  * A single list a user can "pin" to walk through client by client. Only one is
- * pinned at a time (stored on `users.pinnedList`). Insurance Review carries no
+ * pinned at a time (stored on `users.pinnedList`). Admin Review carries no
  * filter state here: the Mine/Waiting toggles live in
  * `users.listFilters["insuranceReview"]` and are re-applied when the list is
- * resolved, so a pinned Insurance Review list always matches the dashboard.
+ * resolved, so a pinned Admin Review list always matches the dashboard.
  */
 export const pinnedListSchema = z.discriminatedUnion("kind", [
 	z.object({ kind: z.literal("dashboardSection"), title: z.string() }),
@@ -24,7 +24,7 @@ export const pinnedListSchema = z.discriminatedUnion("kind", [
 export type PinnedList = z.infer<typeof pinnedListSchema>;
 
 export function pinnedListLabel(pinned: PinnedList): string {
-	return pinned.kind === "insuranceReview" ? "Insurance Review" : pinned.title;
+	return pinned.kind === "insuranceReview" ? "Admin Review" : pinned.title;
 }
 
 /** Outreach sections deep-link to the referral tab, matching Dashboard.tsx. */
@@ -41,7 +41,7 @@ export interface PinnedListEntry {
 	tab?: string;
 	/** Client color key, when set. */
 	color?: string;
-	/** Insurance Review only: the client is waiting on something. */
+	/** Admin Review only: the client is waiting on something. */
 	waiting?: boolean;
 	/** Blocker/alert labels, rendered as destructive chips (same as the dashboard). */
 	chips: string[];
@@ -152,7 +152,7 @@ export function resolvePinnedListEntries(
 		.map((c) => ({
 			hash: c.clientHash,
 			name: c.clientName ?? "",
-			tab: "insurance",
+			tab: "admin-review",
 			waiting: c.waiting ?? false,
 			chips: [],
 			meta: c.claimedUserName

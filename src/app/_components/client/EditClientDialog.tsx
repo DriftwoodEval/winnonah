@@ -338,9 +338,9 @@ function ClientForm({
 										/>
 									</FormControl>
 									<div className="space-y-1 leading-none">
-										<FormLabel>Insurance Review</FormLabel>
+										<FormLabel>Admin Review</FormLabel>
 										<FormDescription>
-											Show the insurance review section on the insurance tab.
+											Show the Admin Review tab for this client.
 										</FormDescription>
 									</div>
 								</FormItem>
@@ -418,7 +418,7 @@ export function ClientEditButton({ client }: { client: Client }) {
 			utils.insuranceReview.getByClientId.invalidate(client.id);
 		},
 		onError: (error) => {
-			toast.error("Failed to update insurance review", {
+			toast.error("Failed to update admin review", {
 				description: error.message,
 			});
 		},

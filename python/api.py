@@ -662,24 +662,23 @@ def notify_insurance_review_claimed(
         }
 
     subject = (
-        f"{request.claimer_name} assigned you an insurance review: "
-        f"{request.client_name}"
+        f"{request.claimer_name} assigned you an admin review: {request.client_name}"
     )
 
     link_text = f"\n\nView client: {request.client_url}" if request.client_url else ""
     message_text = (
         f"{request.claimer_name} has assigned you as the reviewer for "
-        f"{request.client_name}'s insurance review.{link_text}"
+        f"{request.client_name}'s admin review.{link_text}"
     )
 
     link_html = (
-        f'<p><a href="{request.client_url}">View {request.client_name}\'s insurance tab</a></p>'
+        f'<p><a href="{request.client_url}">View {request.client_name}\'s admin review tab</a></p>'
         if request.client_url
         else ""
     )
     html_content = f"""
     <p><strong>{request.claimer_name}</strong> has assigned you as the reviewer for
-    <strong>{request.client_name}</strong>'s insurance review.</p>
+    <strong>{request.client_name}</strong>'s admin review.</p>
     {link_html}
     """
 

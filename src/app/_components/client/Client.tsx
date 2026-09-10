@@ -40,6 +40,7 @@ import { CommunicationTimeline } from "./CommunicationTimeline";
 import { DashboardSectionTimeline } from "./DashboardSectionTimeline";
 import { EligibleEvaluatorsList } from "./EligibleEvaluatorsList";
 import { InPersonAssessmentsTable } from "./InPersonAssessmentsTable";
+import { InsuranceReviewSection } from "./InsuranceReviewSection";
 import { InsuranceTab } from "./InsuranceTab";
 import { MergeRecommendationAlert } from "./MergeRecommendationAlert";
 import { PersistentStatusAlert } from "./PersistentStatusAlert";
@@ -339,6 +340,9 @@ export function Client({
 									{!isNotesOnlyClientId(client.id) && (
 										<TabsTrigger value="insurance">Insurance</TabsTrigger>
 									)}
+									{!isNotesOnlyClientId(client.id) && (
+										<TabsTrigger value="admin-review">Admin Review</TabsTrigger>
+									)}
 									{/* It's fine that this doesn't stop people from just visiting the URL, we aren't hiding this for security, we're hiding it so that we don't get people confused about it existing */}
 									{can("clients:referral:tab") && (
 										<TabsTrigger value="referral">Referral</TabsTrigger>
@@ -461,6 +465,14 @@ export function Client({
 									<div className="mb-6 flex w-full flex-col gap-4">
 										<ClientDetailsCard client={client} truncated />
 										<InsuranceTab client={client} />
+									</div>
+								</TabsContent>
+							)}
+							{!isNotesOnlyClientId(client.id) && (
+								<TabsContent value="admin-review">
+									<div className="mb-6 flex w-full flex-col gap-4">
+										<ClientDetailsCard client={client} truncated />
+										<InsuranceReviewSection client={client} />
 									</div>
 								</TabsContent>
 							)}

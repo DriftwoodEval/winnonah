@@ -118,7 +118,7 @@ describe("buildReviewBlock", () => {
 
 		expect(block[0]).toEqual({ type: "paragraph" });
 		expect(block[1]).toMatchObject({
-			content: [{ type: "text", text: "Insurance Review" }],
+			content: [{ type: "text", text: "Admin Review" }],
 		});
 		expect(block[2]).toEqual(paragraph([text("custom review text")]));
 		expect(block.at(-2)).toEqual({ type: "horizontalRule" });

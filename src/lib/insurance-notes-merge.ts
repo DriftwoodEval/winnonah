@@ -71,7 +71,7 @@ export function buildReviewBlock(
 			content: [
 				{
 					type: "text",
-					text: "Insurance Review",
+					text: "Admin Review",
 					marks: [{ type: "bold" }],
 				},
 			],

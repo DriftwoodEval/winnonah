@@ -157,11 +157,11 @@ export const PERMISSIONS = {
 					},
 					{
 						id: "clients:insurance:review",
-						title: "Edit Insurance Review Notes & Claim",
+						title: "Edit Admin Review Notes & Claim",
 					},
 					{
 						id: "clients:insurance:review:email-notifications",
-						title: "Receive Insurance Review Claim Email Notifications",
+						title: "Receive Admin Review Claim Email Notifications",
 						parent: "clients:insurance:review" as const,
 					},
 					{ id: "clients:pa-forms", title: "Download PA Forms" },

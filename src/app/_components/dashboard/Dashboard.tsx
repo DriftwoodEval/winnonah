@@ -758,12 +758,12 @@ export function Dashboard() {
 							(insuranceReviewClients?.length ?? 0) > 0 && (
 								<>
 									<h2 className="mt-6 mb-2 self-start font-bold text-lg">
-										Insurance
+										Admin Review
 									</h2>
 									<AccordionItem value="insurance-review">
 										<AccordionTrigger>
 											<span className="flex items-center gap-1">
-												Insurance Review
+												Admin Review
 												<span className="text-muted-foreground text-sm">
 													({visibleInsuranceClients.length})
 												</span>
@@ -835,7 +835,7 @@ export function Dashboard() {
 														>
 															<Link
 																className="no-underline! hover:no-underline! flex items-center gap-2"
-																href={`/clients/${c.clientHash}?tab=insurance`}
+																href={`/clients/${c.clientHash}?tab=admin-review`}
 															>
 																<span>
 																	<Redact>{c.clientName}</Redact>
@@ -859,7 +859,7 @@ export function Dashboard() {
 															</Link>
 															{isSavedInsuranceClient(c.clientHash) && (
 																<button
-																	aria-label={`Remove ${c.clientName} as saved client for Insurance Review`}
+																	aria-label={`Remove ${c.clientName} as saved client for Admin Review`}
 																	className="group relative flex w-full cursor-pointer items-center py-2"
 																	onClick={() =>
 																		deleteInsuranceSavedPlace({
@@ -877,7 +877,7 @@ export function Dashboard() {
 															{index < visibleInsuranceClients.length - 1 &&
 																!isSavedInsuranceClient(c.clientHash) && (
 																	<button
-																		aria-label={`Set ${c.clientName} as saved client for Insurance Review`}
+																		aria-label={`Set ${c.clientName} as saved client for Admin Review`}
 																		className="group relative flex w-full cursor-pointer items-center py-2"
 																		onClick={() =>
 																			updateInsuranceSavedPlace({
