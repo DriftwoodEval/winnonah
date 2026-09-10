@@ -226,7 +226,6 @@ export function Client({
 
 		const recordsBlockerReason = getRecordsBlockerReason({
 			recordsNeeded: client.recordsNeeded,
-			asdAdhd: client.asdAdhd,
 			hasExternalRecordContent: !!externalRecordData?.contentJson,
 			isPrivateSchool: client.referralData?.privateSchool === "yes",
 			language: client.language,

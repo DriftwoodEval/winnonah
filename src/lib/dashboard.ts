@@ -291,7 +291,6 @@ export const DASHBOARD_CONFIG: {
 		dangerInfo: (client: FullClientInfo) => {
 			const reason = getRecordsBlockerReason({
 				recordsNeeded: client.recordsNeeded ?? null,
-				asdAdhd: client.asdAdhd ?? null,
 				hasExternalRecordContent: !!client.hasExternalRecordsNote,
 				isPrivateSchool: client.referralData?.privateSchool === "yes",
 				language: client.language ?? null,

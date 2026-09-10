@@ -7,7 +7,6 @@ import {
 function input(overrides: Partial<RecordsBlockerInput>): RecordsBlockerInput {
 	return {
 		recordsNeeded: "Needed",
-		asdAdhd: "ASD",
 		hasExternalRecordContent: false,
 		isPrivateSchool: false,
 		language: "English",
@@ -30,27 +29,6 @@ describe("getRecordsBlockerReason", () => {
 		expect(
 			getRecordsBlockerReason(input({ hasExternalRecordContent: true })),
 		).toBeNull();
-	});
-
-	it("returns null for an ADHD-only client with no autism", () => {
-		expect(getRecordsBlockerReason(input({ asdAdhd: "ADHD" }))).toBeNull();
-		expect(
-			getRecordsBlockerReason(input({ asdAdhd: "ADHD, anxiety" })),
-		).toBeNull();
-	});
-
-	it("still blocks an ADHD-only client who has autism listed", () => {
-		expect(getRecordsBlockerReason(input({ asdAdhd: "ASD/ADHD" }))).toMatch(
-			/not yet requested/,
-		);
-	});
-
-	it("flags a private-school ADHD-only client for a manual request", () => {
-		expect(
-			getRecordsBlockerReason(
-				input({ asdAdhd: "ADHD", isPrivateSchool: true }),
-			),
-		).toMatch(/private-school/);
 	});
 
 	it("flags a private-school client before checking request history", () => {

@@ -831,7 +831,6 @@ export const clientRouter = createTRPCRouter({
 					} else {
 						const recordsBlockerReason = getRecordsBlockerReason({
 							recordsNeeded: row.recordsNeeded,
-							asdAdhd: row.asdAdhd,
 							hasExternalRecordContent: hasExternalRecordContentByClientId.has(
 								row.id,
 							),

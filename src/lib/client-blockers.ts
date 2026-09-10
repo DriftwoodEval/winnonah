@@ -2,7 +2,6 @@ import { compareDateOnly, formatShortDate } from "~/lib/utils";
 
 export type RecordsBlockerInput = {
 	recordsNeeded: "Needed" | "Not Needed" | null;
-	asdAdhd: string | null;
 	hasExternalRecordContent: boolean;
 	isPrivateSchool: boolean;
 	language: string | null;
@@ -22,15 +21,15 @@ export type RecordsBlockerInput = {
  * automatically requested, or null if nothing is outstanding.
  *
  * "Not Needed" and already-present record content both mean nothing further
- * is required. An ADHD-only diagnosis (ADHD in asdAdhd, ASD absent) means an
- * outstanding request never blocks a send, but the records are still chased,
- * so a private-school ADHD-only client still needs the manual-request note
- * (get_record_ready_client_ids in questionnaires reports the same). Otherwise,
- * records-request.py only picks up a client from get_clients_needing_records()
- * when they're not private-school (staff handle those manually, per
- * ensurePendingExternalRecordRequest's comment), their language is exactly
- * "English" (unlike qsend.py, records-request.py does not also allow
- * Spanish), and any hold on the pending request has expired.
+ * is required. Otherwise, records-request.py only picks up a client from
+ * get_clients_needing_records() when they're not private-school (staff handle
+ * those manually, per ensurePendingExternalRecordRequest's comment), their
+ * language is exactly "English" (unlike qsend.py, records-request.py does not
+ * also allow Spanish), and any hold on the pending request has expired. Any
+ * of those unmet is a reason staff must act, and it is reported here
+ * regardless of diagnosis: an ADHD-only client's outstanding records never
+ * block a questionnaire send (that gate lives elsewhere), but a records
+ * request that will never go out on its own still needs a person.
  */
 /**
  * Reason returned when a client needs records but has never had a request
@@ -49,14 +48,6 @@ export function getRecordsBlockerReason(
 
 	if (input.isPrivateSchool) {
 		return "records needed, private-school client, records must be requested manually";
-	}
-
-	const isAdhdOnly =
-		!!input.asdAdhd &&
-		input.asdAdhd.includes("ADHD") &&
-		!input.asdAdhd.includes("ASD");
-	if (isAdhdOnly) {
-		return null;
 	}
 
 	if (input.language !== "English") {
