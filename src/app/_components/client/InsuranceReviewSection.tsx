@@ -18,12 +18,25 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { useCheckPermission } from "~/hooks/use-check-permission";
 import type { Client } from "~/lib/models";
-import { hasPermission } from "~/lib/utils";
+import { hasPermission, isServerUnavailableError } from "~/lib/utils";
 import { api } from "~/trpc/react";
 import { NoteHistory } from "../shared/NoteHistory";
 import { ResponsiveDialog } from "../shared/ResponsiveDialog";
 import { InsuranceReviewClaimHistory } from "./InsuranceReviewClaimHistory";
 import { InsuranceReviewSubmitDialog } from "./InsuranceReviewSubmitDialog";
+
+// Autosave runs in the background, so it regularly fires during brief backend
+// blips (deploys, health-check flaps) when the proxy serves an HTML error page.
+// Retry those transient failures before bothering the user.
+const retryOnServerUnavailable = (failureCount: number, error: unknown) =>
+	isServerUnavailableError(error) && failureCount < 5;
+const retryDelay = (attempt: number) => Math.min(1000 * 2 ** attempt, 15000);
+
+function describeSaveError(error: { message: string }) {
+	return isServerUnavailableError(error)
+		? "The server is temporarily unreachable. Your review notes will save automatically once the connection is back. Keep this page open."
+		: error.message;
+}
 
 interface InsuranceReviewSectionProps {
 	client: Client;
@@ -73,9 +86,12 @@ export function InsuranceReviewSection({
 	}, [review?.content]);
 
 	const updateMutation = api.insuranceReview.update.useMutation({
+		retry: retryOnServerUnavailable,
+		retryDelay,
 		onError: (error) => {
 			toast.error("Failed to save review notes", {
-				description: error.message,
+				description: describeSaveError(error),
+				duration: 10000,
 			});
 		},
 	});
