@@ -133,7 +133,7 @@ export async function GET(req: NextRequest) {
 			}),
 			db.query.notes.findFirst({
 				where: eq(notes.clientId, clientId),
-				columns: { content: true },
+				columns: { content: true, title: true },
 			}),
 			db
 				.select({ requestedDate: externalRecordRequests.requestedDate })
@@ -225,6 +225,7 @@ export async function GET(req: NextRequest) {
 			dob: formatDate(client.dob),
 			age: formatClientAge(client.dob, "short"),
 			phoneNumber: client.phoneNumber,
+			clientNoteTitle: clientNote?.title ?? null,
 			clientNote: fullClientNote,
 			records: recordsStatus,
 			babyNetERStatus: babyNetERStatus,
