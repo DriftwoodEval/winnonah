@@ -1,3 +1,4 @@
+import html
 import os
 import re
 from collections import defaultdict
@@ -915,7 +916,7 @@ def move_client_folders_for_upcoming_appointments() -> None:
                         errors.append(msg)
                         continue
 
-            if not client_drive_id:
+            if not client_drive_id or client_drive_id == "N/A":
                 msg = (
                     f"{client_name} (ID: {client_id}): has no Drive folder configured."
                 )
@@ -972,7 +973,7 @@ def move_client_folders_for_upcoming_appointments() -> None:
             if email_for_errors:
                 html = (
                     "<h3>Client Drive Folder Move Errors</h3><ul>"
-                    + "".join(f"<li>{e}</li>" for e in errors)
+                    + "".join(f"<li>{html.escape(e)}</li>" for e in errors)
                     + "</ul>"
                 )
                 send_gmail(

@@ -694,6 +694,7 @@ def sync_client_info_files():
                 AND a.rescheduled = 0
                 AND a.placeholder = 0
                 AND c.driveId IS NOT NULL
+                AND c.driveId != 'N/A'
             ORDER BY a.startTime
             """,
             (range_start, range_end),
