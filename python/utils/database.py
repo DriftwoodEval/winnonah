@@ -27,6 +27,8 @@ from utils.constants import (
     CLIENT_COLUMN_MAPPING,
     REPORT_QUEUE_FOLDER_ID,
     REPORT_TRACKING_START_DATE,
+    TABLE_ADMIN_REVIEW,
+    TABLE_ADMIN_REVIEW_HISTORY,
     TABLE_APPOINTMENT,
     TABLE_ASSESSMENT_TYPE,
     TABLE_BLOCKED_SCHOOL_DISTRICT,
@@ -43,8 +45,6 @@ from utils.constants import (
     TABLE_IN_PERSON_ASSESSMENT_HISTORY,
     TABLE_INSURANCE,
     TABLE_INSURANCE_ALIAS,
-    TABLE_INSURANCE_REVIEW,
-    TABLE_INSURANCE_REVIEW_HISTORY,
     TABLE_NOTE,
     TABLE_NOTE_HISTORY,
     TABLE_PYTHON_CONFIG,
@@ -480,9 +480,9 @@ def put_clients_in_db(clients_df: pd.DataFrame, connection: Connection[DictCurso
                 )
             else:
                 logger.info(
-                    f"Client {client_id} reactivated within 12 months - activating insurance review"
+                    f"Client {client_id} reactivated within 12 months - activating admin review"
                 )
-                activate_reactivation_insurance_review(
+                activate_reactivation_admin_review(
                     int(client_id), deactivated_at, connection=connection
                 )
         except Exception as e:
@@ -522,10 +522,10 @@ def _build_reactivation_note_block(reactivated_on: str) -> list[dict]:
 def _build_reactivation_review_separator(
     reactivated_on: str, gap: str | None
 ) -> list[dict]:
-    """TipTap nodes prepended to a reactivated client's insurance review.
+    """TipTap nodes prepended to a reactivated client's admin review.
 
     Unlike the notes separator, this keeps the prior review content in place and
-    makes no claim about it being excluded from anything: an insurance review is
+    makes no claim about it being excluded from anything: an admin review is
     ongoing case history, not session-scoped data.
     """
     label = f"Reactivated on {reactivated_on}"
@@ -574,7 +574,7 @@ def _reactivation_review_note_text(
 
 
 @provide_connection
-def activate_reactivation_insurance_review(
+def activate_reactivation_admin_review(
     client_id: int,
     deactivated_at: datetime | None,
     connection: Connection[DictCursor],
@@ -582,8 +582,8 @@ def activate_reactivation_insurance_review(
     """Handles a client who reactivated within 12 months of going inactive.
 
     Unlike reset_client_session, the existing session continues: the client's
-    insurance review is enabled and assigned to Andrew, and a note recording
-    the gap is written to both the insurance review and the client's notes.
+    admin review is enabled and assigned to Andrew, and a note recording
+    the gap is written to both the admin review and the client's notes.
     """
     now_business_naive = now_business().replace(tzinfo=None)
     reactivated_on = now_business_naive.date().isoformat()
@@ -609,13 +609,13 @@ def activate_reactivation_insurance_review(
 
     with connection.cursor() as cursor:
         cursor.execute(
-            f"SELECT content, updatedBy FROM `{TABLE_INSURANCE_REVIEW}` WHERE clientId = %s",
+            f"SELECT content, updatedBy FROM `{TABLE_ADMIN_REVIEW}` WHERE clientId = %s",
             (client_id,),
         )
         review = cursor.fetchone()
         if review is None:
             cursor.execute(
-                f"INSERT INTO `{TABLE_INSURANCE_REVIEW}` "
+                f"INSERT INTO `{TABLE_ADMIN_REVIEW}` "
                 "(clientId, content, enabled, waiting, claimedUserEmail, updatedBy) "
                 "VALUES (%s, %s, 1, 0, %s, %s)",
                 (
@@ -628,7 +628,7 @@ def activate_reactivation_insurance_review(
         else:
             if review["content"] is not None:
                 cursor.execute(
-                    f"INSERT INTO `{TABLE_INSURANCE_REVIEW_HISTORY}` (reviewId, content, updatedBy) "
+                    f"INSERT INTO `{TABLE_ADMIN_REVIEW_HISTORY}` (reviewId, content, updatedBy) "
                     "VALUES (%s, %s, %s)",
                     (client_id, review["content"], review["updatedBy"]),
                 )
@@ -644,7 +644,7 @@ def activate_reactivation_insurance_review(
                 "content": [*marker_blocks, *(existing_review.get("content") or [])],
             }
             cursor.execute(
-                f"UPDATE `{TABLE_INSURANCE_REVIEW}` SET content = %s, enabled = 1, "
+                f"UPDATE `{TABLE_ADMIN_REVIEW}` SET content = %s, enabled = 1, "
                 "waiting = 0, claimedUserEmail = %s, submittedToNotesAt = NULL, "
                 "updatedBy = %s WHERE clientId = %s",
                 (json.dumps(new_review), ANDREW_EMAIL, ANDREW_EMAIL, client_id),
@@ -702,7 +702,7 @@ def reset_client_session(
     before it. Records request history (`emr_external_record_request`) is
     left in place, since queries scope it by `sessionStartedAt` instead.
 
-    The insurance review is the exception: its content is kept, with a dated
+    The admin review is the exception: its content is kept, with a dated
     separator prepended, since it is ongoing case history rather than
     session-scoped data.
     """
@@ -744,7 +744,7 @@ def reset_client_session(
             )
 
         cursor.execute(
-            f"SELECT content FROM `{TABLE_INSURANCE_REVIEW}` WHERE clientId = %s",
+            f"SELECT content FROM `{TABLE_ADMIN_REVIEW}` WHERE clientId = %s",
             (client_id,),
         )
         review = cursor.fetchone()
@@ -758,7 +758,7 @@ def reset_client_session(
                 ],
             }
             cursor.execute(
-                f"UPDATE `{TABLE_INSURANCE_REVIEW}` SET content = %s, "
+                f"UPDATE `{TABLE_ADMIN_REVIEW}` SET content = %s, "
                 "submittedToNotesAt = NULL WHERE clientId = %s",
                 (json.dumps(new_review), client_id),
             )
@@ -877,9 +877,9 @@ DEFAULT_EMAIL = "barbara@driftwoodeval.com"
 
 
 @provide_connection
-def sync_scm_insurance_reviews(connection: Connection[DictCursor]):
-    """Creates insurance_review rows for SCM clients that don't have one yet."""
-    logger.debug("Syncing SCM insurance review records")
+def sync_scm_admin_reviews(connection: Connection[DictCursor]):
+    """Creates admin_review rows for SCM clients that don't have one yet."""
+    logger.debug("Syncing SCM admin review records")
 
     # Collect all insurance names (shortName + aliases) that map to SCM
     with connection.cursor() as cursor:
@@ -923,7 +923,7 @@ def sync_scm_insurance_reviews(connection: Connection[DictCursor]):
             f"""
             SELECT c.id
             FROM `{TABLE_CLIENT}` c
-            LEFT JOIN `{TABLE_INSURANCE_REVIEW}` ir ON ir.clientId = c.id
+            LEFT JOIN `{TABLE_ADMIN_REVIEW}` ir ON ir.clientId = c.id
             WHERE c.primaryInsurance IN ({name_placeholders})
               AND ir.clientId IS NULL
               AND c.status = 1
@@ -933,7 +933,7 @@ def sync_scm_insurance_reviews(connection: Connection[DictCursor]):
         clients_to_backfill = cursor.fetchall()
 
     if not clients_to_backfill:
-        logger.info("All SCM clients already have insurance review records.")
+        logger.info("All SCM clients already have admin review records.")
         return
 
     rows = [
@@ -944,13 +944,13 @@ def sync_scm_insurance_reviews(connection: Connection[DictCursor]):
     with connection.cursor() as cursor:
         cursor.executemany(
             f"""
-            INSERT INTO `{TABLE_INSURANCE_REVIEW}` (clientId, enabled, claimedUserEmail, updatedBy)
+            INSERT INTO `{TABLE_ADMIN_REVIEW}` (clientId, enabled, claimedUserEmail, updatedBy)
             VALUES (%s, %s, %s, %s)
             """,
             rows,
         )
     connection.commit()
-    logger.info(f"Created {len(rows)} SCM insurance review record(s).")
+    logger.info(f"Created {len(rows)} SCM admin review record(s).")
 
 
 @provide_connection

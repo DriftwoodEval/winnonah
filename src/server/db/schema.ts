@@ -631,7 +631,7 @@ export const faxCategorizationClientLinksRelations = relations(
 	}),
 );
 
-export const insuranceReview = createTable("insurance_review", (d) => ({
+export const adminReview = createTable("admin_review", (d) => ({
 	clientId: d
 		.int()
 		.notNull()
@@ -647,8 +647,8 @@ export const insuranceReview = createTable("insurance_review", (d) => ({
 	submittedToNotesAt: d.timestamp(),
 }));
 
-export const insuranceReviewHistory = createTable(
-	"insurance_review_history",
+export const adminReviewHistory = createTable(
+	"admin_review_history",
 	(d) => ({
 		id: d.int().notNull().autoincrement().primaryKey(),
 		reviewId: d.int().notNull(),
@@ -657,17 +657,17 @@ export const insuranceReviewHistory = createTable(
 		createdAt: d.timestamp().default(sql`CURRENT_TIMESTAMP`).notNull(),
 	}),
 	(t) => [
-		index("insurance_review_history_idx").on(t.reviewId),
+		index("admin_review_history_idx").on(t.reviewId),
 		foreignKey({
 			columns: [t.reviewId],
-			foreignColumns: [insuranceReview.clientId],
-			name: "insurance_review_id_fk",
+			foreignColumns: [adminReview.clientId],
+			name: "admin_review_id_fk",
 		}).onDelete("cascade"),
 	],
 );
 
-export const insuranceReviewClaimHistory = createTable(
-	"insurance_review_claim_history",
+export const adminReviewClaimHistory = createTable(
+	"admin_review_claim_history",
 	(d) => ({
 		id: d.int().notNull().autoincrement().primaryKey(),
 		reviewId: d.int().notNull(),
@@ -676,43 +676,40 @@ export const insuranceReviewClaimHistory = createTable(
 		createdAt: d.timestamp().default(sql`CURRENT_TIMESTAMP`).notNull(),
 	}),
 	(t) => [
-		index("insurance_review_claim_history_idx").on(t.reviewId),
+		index("admin_review_claim_history_idx").on(t.reviewId),
 		foreignKey({
 			columns: [t.reviewId],
-			foreignColumns: [insuranceReview.clientId],
-			name: "insurance_review_claim_history_id_fk",
+			foreignColumns: [adminReview.clientId],
+			name: "admin_review_claim_history_id_fk",
 		}).onDelete("cascade"),
 	],
 );
 
-export const insuranceReviewRelations = relations(
-	insuranceReview,
-	({ one, many }) => ({
-		client: one(clients, {
-			fields: [insuranceReview.clientId],
-			references: [clients.id],
-		}),
-		history: many(insuranceReviewHistory),
-		claimHistory: many(insuranceReviewClaimHistory),
+export const adminReviewRelations = relations(adminReview, ({ one, many }) => ({
+	client: one(clients, {
+		fields: [adminReview.clientId],
+		references: [clients.id],
 	}),
-);
+	history: many(adminReviewHistory),
+	claimHistory: many(adminReviewClaimHistory),
+}));
 
-export const insuranceReviewHistoryRelations = relations(
-	insuranceReviewHistory,
+export const adminReviewHistoryRelations = relations(
+	adminReviewHistory,
 	({ one }) => ({
-		review: one(insuranceReview, {
-			fields: [insuranceReviewHistory.reviewId],
-			references: [insuranceReview.clientId],
+		review: one(adminReview, {
+			fields: [adminReviewHistory.reviewId],
+			references: [adminReview.clientId],
 		}),
 	}),
 );
 
-export const insuranceReviewClaimHistoryRelations = relations(
-	insuranceReviewClaimHistory,
+export const adminReviewClaimHistoryRelations = relations(
+	adminReviewClaimHistory,
 	({ one }) => ({
-		review: one(insuranceReview, {
-			fields: [insuranceReviewClaimHistory.reviewId],
-			references: [insuranceReview.clientId],
+		review: one(adminReview, {
+			fields: [adminReviewClaimHistory.reviewId],
+			references: [adminReview.clientId],
 		}),
 	}),
 );

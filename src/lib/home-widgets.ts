@@ -40,7 +40,7 @@ export const HOME_WIDGET_DEFS: HomeWidgetDef[] = [
 	{
 		id: "my-insurance-clients",
 		label: "My Insurance Clients",
-		permission: "clients:insurance:review",
+		permission: "clients:admin:review",
 		category: "clients",
 		sizing: "content",
 	},

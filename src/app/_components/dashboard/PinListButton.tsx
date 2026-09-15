@@ -6,7 +6,7 @@ import { usePinnedList } from "~/hooks/use-pinned-list";
 import type { PinnedList } from "~/lib/pinned-list";
 
 /**
- * Pin/unpin a list (a dashboard section or the Insurance Review list) so its
+ * Pin/unpin a list (a dashboard section or the Admin Review list) so its
  * clients get a prev/next bar on their pages. Shared by the dashboard
  * (`Dashboard.tsx`) and the home page widgets (`DashboardSectionWidget.tsx`,
  * `ClientListWidgets.tsx`).

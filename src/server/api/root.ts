@@ -1,3 +1,4 @@
+import { adminReviewRouter } from "./routers/adminReview";
 import { appointmentRouter } from "./routers/appointments";
 import { auditLogRouter } from "./routers/auditLog";
 import { babynetReportRouter } from "./routers/babynetReport";
@@ -9,7 +10,6 @@ import { faxCategorizationRouter } from "./routers/faxCategorization";
 import { googleRouter } from "./routers/google";
 import { greeterProxyRouter } from "./routers/greeterProxy";
 import { insuranceRouter } from "./routers/insurance";
-import { insuranceReviewRouter } from "./routers/insuranceReview";
 import { noteRouter } from "./routers/notes";
 import { officeRouter } from "./routers/office";
 import { pyConfigRouter } from "./routers/py-config";
@@ -44,7 +44,7 @@ export const appRouter = createTRPCRouter({
 	google: googleRouter,
 	greeterProxy: greeterProxyRouter,
 	insurances: insuranceRouter,
-	insuranceReview: insuranceReviewRouter,
+	adminReview: adminReviewRouter,
 	notes: noteRouter,
 	offices: officeRouter,
 	workSummary: workSummaryRouter,

@@ -66,11 +66,11 @@ export function MyInsuranceClientsWidget() {
 		data: clients,
 		isLoading,
 		isError,
-	} = api.insuranceReview.getMyClaimedClients.useQuery(undefined, {
-		enabled: can("clients:insurance:review"),
+	} = api.adminReview.getMyClaimedClients.useQuery(undefined, {
+		enabled: can("clients:admin:review"),
 	});
 
-	if (!can("clients:insurance:review")) return null;
+	if (!can("clients:admin:review")) return null;
 
 	if (isLoading) {
 		return (
@@ -86,9 +86,9 @@ export function MyInsuranceClientsWidget() {
 		<div className="flex flex-col gap-2 overflow-auto rounded-lg border border-destructive/20 bg-destructive/5 p-3">
 			<div className="flex items-center justify-between gap-2">
 				<span className="text-muted-foreground text-xs uppercase tracking-wide">
-					My Insurance Clients
+					My Admin Review Clients
 				</span>
-				<PinListButton pinned={{ kind: "insuranceReview" }} />
+				<PinListButton pinned={{ kind: "adminReview" }} />
 			</div>
 			{isError ? (
 				<p className="py-2 text-center text-muted-foreground text-sm">
@@ -96,14 +96,14 @@ export function MyInsuranceClientsWidget() {
 				</p>
 			) : !clients?.length ? (
 				<p className="py-2 text-center text-muted-foreground text-sm">
-					No claimed insurance clients
+					No claimed admin review clients
 				</p>
 			) : (
 				<div className="flex flex-wrap items-center gap-2">
 					{clients.map((c) => (
 						<Link
 							className="flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-md border bg-background px-2.5 py-1 text-sm shadow-xs hover:bg-accent hover:text-accent-foreground dark:border-input dark:bg-input/30 dark:hover:bg-input/50"
-							href={`/clients/${c.clientHash}?tab=insurance`}
+							href={`/clients/${c.clientHash}?tab=admin-review`}
 							key={c.clientHash}
 						>
 							<Redact>{c.clientName}</Redact>

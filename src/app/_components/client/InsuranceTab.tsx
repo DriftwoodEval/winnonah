@@ -23,7 +23,6 @@ import { api } from "~/trpc/react";
 import { Redact } from "../redaction/Redact";
 import { ResponsiveDialog } from "../shared/ResponsiveDialog";
 import { EditPaAssignedToDialog } from "./EditPaAssignedToDialog";
-import { InsuranceReviewSection } from "./InsuranceReviewSection";
 
 interface InsuranceTabProps {
 	client: Client;
@@ -376,7 +375,6 @@ export function InsuranceTab({ client }: InsuranceTabProps) {
 
 	return (
 		<div className="flex w-full flex-col gap-4">
-			<InsuranceReviewSection client={client} />
 			<PaAssignedToRow clientId={clientId} value={paAssignedTo} />
 			{isLoading ? (
 				[1, 2].map((i) => (

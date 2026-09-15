@@ -13,7 +13,7 @@ from utils.database import (
     _humanize_month_gap,
     _reactivation_review_note_text,
     _set_date_cache,
-    activate_reactivation_insurance_review,
+    activate_reactivation_admin_review,
     filter_clients_with_changed_address,
     get_python_config,
     get_services_config,
@@ -278,7 +278,7 @@ class TestBuildReactivationNoteBlock:
         assert [b["type"] for b in blocks] == ["heading", "horizontalRule", "paragraph"]
 
 
-class TestActivateReactivationInsuranceReview:
+class TestActivateReactivationAdminReview:
     def test_keeps_existing_review_content_and_prepends_marker(self):
         existing = json.dumps(
             {
@@ -300,18 +300,18 @@ class TestActivateReactivationInsuranceReview:
         )
         conn = FakeConnection(cursor)
 
-        activate_reactivation_insurance_review(123, None, connection=conn)
+        activate_reactivation_admin_review(123, None, connection=conn)
 
         review_update = next(
             params
             for query, params in cursor.executed
-            if query.startswith("UPDATE `emr_insurance_review` SET content")
+            if query.startswith("UPDATE `emr_admin_review` SET content")
         )
         new_content = json.dumps(json.loads(review_update[0]))
         assert "OLD REVIEW NOTE" in new_content
         assert "Reactivated on" in new_content
         assert any(
-            "INSERT INTO `emr_insurance_review_history`" in query
+            "INSERT INTO `emr_admin_review_history`" in query
             for query, _ in cursor.executed
         )
 

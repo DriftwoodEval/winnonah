@@ -100,7 +100,7 @@ class ApprovalNotificationRequest(BaseModel):
     queue_count: int
 
 
-class InsuranceReviewClaimRequest(BaseModel):
+class AdminReviewClaimRequest(BaseModel):
     user_email: str
     client_name: str
     claimer_name: str
@@ -628,16 +628,16 @@ def notify_report_approved(
     return {"status": "success"}
 
 
-@app.post("/notifications/insurance-review-claimed")
-def notify_insurance_review_claimed(
-    request: InsuranceReviewClaimRequest,
+@app.post("/notifications/admin-review-claimed")
+def notify_admin_review_claimed(
+    request: AdminReviewClaimRequest,
     current_user: dict = Depends(get_current_user),
 ):
-    """Sends a notification email when a user is assigned as the insurance reviewer for a client."""
-    if not current_user["permissions"].get("clients:insurance:review"):
+    """Sends a notification email when a user is assigned as the admin reviewer for a client."""
+    if not current_user["permissions"].get("clients:admin:review"):
         raise HTTPException(
             status_code=403,
-            detail="Not authorized to send insurance review notifications",
+            detail="Not authorized to send admin review notifications",
         )
 
     conn = get_db()
@@ -655,31 +655,30 @@ def notify_insurance_review_claimed(
         return {"status": "skipped", "reason": "recipient not found"}
 
     recipient_permissions = json.loads(row["permissions"]) if row["permissions"] else {}
-    if not recipient_permissions.get("clients:insurance:review:email-notifications"):
+    if not recipient_permissions.get("clients:admin:review:email-notifications"):
         return {
             "status": "skipped",
             "reason": "recipient has not opted in to email notifications",
         }
 
     subject = (
-        f"{request.claimer_name} assigned you an insurance review: "
-        f"{request.client_name}"
+        f"{request.claimer_name} assigned you an admin review: {request.client_name}"
     )
 
     link_text = f"\n\nView client: {request.client_url}" if request.client_url else ""
     message_text = (
         f"{request.claimer_name} has assigned you as the reviewer for "
-        f"{request.client_name}'s insurance review.{link_text}"
+        f"{request.client_name}'s admin review.{link_text}"
     )
 
     link_html = (
-        f'<p><a href="{request.client_url}">View {request.client_name}\'s insurance tab</a></p>'
+        f'<p><a href="{request.client_url}">View {request.client_name}\'s admin review tab</a></p>'
         if request.client_url
         else ""
     )
     html_content = f"""
     <p><strong>{request.claimer_name}</strong> has assigned you as the reviewer for
-    <strong>{request.client_name}</strong>'s insurance review.</p>
+    <strong>{request.client_name}</strong>'s admin review.</p>
     {link_html}
     """
 

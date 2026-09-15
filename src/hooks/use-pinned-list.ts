@@ -24,7 +24,7 @@ export function usePinnedList() {
 	);
 
 	const isSection = pinned?.kind === "dashboardSection";
-	const isInsurance = pinned?.kind === "insuranceReview";
+	const isAdminReview = pinned?.kind === "adminReview";
 
 	// lazy: on a client page this fires the same cached getDashboardData query
 	// the dashboard uses. Extra fetch, acceptable; refetch left off.
@@ -32,12 +32,12 @@ export function usePinnedList() {
 		undefined,
 		{ enabled: isSection },
 	);
-	const { data: insuranceClients } = api.insuranceReview.getAllEnabled.useQuery(
+	const { data: adminClients } = api.adminReview.getAllEnabled.useQuery(
 		undefined,
-		{ enabled: isInsurance },
+		{ enabled: isAdminReview },
 	);
 	const { data: listFilters } = api.users.getListFilters.useQuery(undefined, {
-		enabled: isInsurance,
+		enabled: isAdminReview,
 		refetchOnMount: "always",
 	});
 
@@ -51,17 +51,17 @@ export function usePinnedList() {
 		onSuccess: () => utils.users.getListFilters.invalidate(),
 	});
 
-	const insuranceFilters = listFilters?.insuranceReview ?? [];
+	const adminFilters = listFilters?.adminReview ?? [];
 
 	const entries = useMemo<PinnedListEntry[]>(() => {
 		if (!pinned) return [];
 		return resolvePinnedListEntries(pinned, {
 			dashboardSections: dashboardData?.sections,
-			insuranceClients: insuranceClients ?? undefined,
-			insuranceFilters: listFilters?.insuranceReview,
+			adminClients: adminClients ?? undefined,
+			adminFilters: listFilters?.adminReview,
 			userEmail: session?.user?.email,
 		});
-	}, [pinned, dashboardData, insuranceClients, listFilters, session]);
+	}, [pinned, dashboardData, adminClients, listFilters, session]);
 
 	return {
 		pinned: pinned ?? null,
@@ -80,15 +80,15 @@ export function usePinnedList() {
 		},
 		setPinned: (list: PinnedList) => setPinnedList.mutate(list),
 		clearPinned: () => clearPinnedList.mutate(),
-		insuranceFilters,
-		setInsuranceFilter: (key: "mine" | "waiting", on: boolean) => {
+		adminFilters,
+		setAdminFilter: (key: "mine" | "waiting", on: boolean) => {
 			const next = on
-				? [...insuranceFilters.filter((v) => v !== key), key]
-				: insuranceFilters.filter((v) => v !== key);
-			updateListFilters.mutate({ key: "insuranceReview", filters: next });
+				? [...adminFilters.filter((v) => v !== key), key]
+				: adminFilters.filter((v) => v !== key);
+			updateListFilters.mutate({ key: "adminReview", filters: next });
 		},
-		clearInsuranceFilters: () =>
-			updateListFilters.mutate({ key: "insuranceReview", filters: [] }),
+		clearAdminFilters: () =>
+			updateListFilters.mutate({ key: "adminReview", filters: [] }),
 	};
 }
 
@@ -99,9 +99,9 @@ export function usePinnedListNav(currentHash: string) {
 		label,
 		entries,
 		clearPinned,
-		insuranceFilters,
-		setInsuranceFilter,
-		clearInsuranceFilters,
+		adminFilters,
+		setAdminFilter,
+		clearAdminFilters,
 	} = usePinnedList();
 
 	const index = entries.findIndex((e) => e.hash === currentHash);
@@ -117,8 +117,8 @@ export function usePinnedListNav(currentHash: string) {
 		prev: onList && index > 0 ? entries[index - 1] : null,
 		next: onList && index < entries.length - 1 ? entries[index + 1] : null,
 		clearPinned,
-		insuranceFilters,
-		setInsuranceFilter,
-		clearInsuranceFilters,
+		adminFilters,
+		setAdminFilter,
+		clearAdminFilters,
 	};
 }

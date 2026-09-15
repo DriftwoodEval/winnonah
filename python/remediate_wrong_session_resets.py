@@ -4,7 +4,7 @@ Before 2026-08-28 (and until the fixed image is deployed), every Inactive to
 Active flip ran `reset_client_session`, archiving the client's prior-session
 data and stamping `sessionStartedAt`, with no check on how long they were gone.
 Clients who came back within 12 months should instead have kept their session
-and had their insurance review reopened (`activate_reactivation_insurance_review`).
+and had their admin review reopened (`activate_reactivation_admin_review`).
 
 This script finds those clients, restores what `reset_client_session` archived,
 clears `sessionStartedAt`, and applies the correct within-12-months treatment.
@@ -12,7 +12,7 @@ clears `sessionStartedAt`, and applies the correct within-12-months treatment.
 Dry run by default. Pass --apply to write.
 
 Recovery notes:
-- In-person assessments, insurance review content, external records note, and
+- In-person assessments, admin review content, external records note, and
   client notes were archived to their *_history tables and are restored here.
 - `client.recordsNeeded` was cleared and never archived: it cannot be restored
   and staff must re-triage. Affected clients are listed in the report.
@@ -33,18 +33,18 @@ from pymysql.connections import Connection
 from pymysql.cursors import DictCursor
 
 from utils.constants import (
+    TABLE_ADMIN_REVIEW,
+    TABLE_ADMIN_REVIEW_HISTORY,
     TABLE_APPOINTMENT,
     TABLE_CLIENT,
     TABLE_EXTERNAL_RECORD,
     TABLE_EXTERNAL_RECORD_HISTORY,
     TABLE_IN_PERSON_ASSESSMENT,
     TABLE_IN_PERSON_ASSESSMENT_HISTORY,
-    TABLE_INSURANCE_REVIEW,
-    TABLE_INSURANCE_REVIEW_HISTORY,
     TABLE_NOTE,
     TABLE_NOTE_HISTORY,
 )
-from utils.database import activate_reactivation_insurance_review, db_session
+from utils.database import activate_reactivation_admin_review, db_session
 from utils.timezone import utc_to_business
 
 # Reactivation gaps at or above this are treated as legitimate full restarts
@@ -193,9 +193,9 @@ def remediate_client(
             cursor,
             client_id,
             session_start,
-            TABLE_INSURANCE_REVIEW_HISTORY,
+            TABLE_ADMIN_REVIEW_HISTORY,
             "reviewId",
-            TABLE_INSURANCE_REVIEW,
+            TABLE_ADMIN_REVIEW,
             "content = %s, submittedToNotesAt = NULL",
         )
         external_restored = _restore_single_blob(
@@ -223,10 +223,10 @@ def remediate_client(
         )
     connection.commit()
 
-    # Reopen the insurance review with the correct within-12-months note. The
+    # Reopen the admin review with the correct within-12-months note. The
     # original deactivatedAt is unknown here, so the note records the gap as
     # unknown.
-    activate_reactivation_insurance_review(client_id, None, connection=connection)
+    activate_reactivation_admin_review(client_id, None, connection=connection)
 
     logger.info(
         f"Remediated {label}: assessments={assessments_restored}, "

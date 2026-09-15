@@ -31,6 +31,7 @@ import {
 } from "~/lib/utils";
 import { api } from "~/trpc/react";
 import { AdditionalInsuranceAppointmentsDisplay } from "./AdditionalInsuranceAppointmentsDisplay";
+import { AdminReviewSection } from "./AdminReviewSection";
 import { BabyNetBoxes } from "./BabyNetBoxes";
 import { ClientAppointments } from "./ClientAppointments";
 import { ClientDetailsCard } from "./ClientDetailsCard";
@@ -339,6 +340,9 @@ export function Client({
 									{!isNotesOnlyClientId(client.id) && (
 										<TabsTrigger value="insurance">Insurance</TabsTrigger>
 									)}
+									{!isNotesOnlyClientId(client.id) && (
+										<TabsTrigger value="admin-review">Admin Review</TabsTrigger>
+									)}
 									{/* It's fine that this doesn't stop people from just visiting the URL, we aren't hiding this for security, we're hiding it so that we don't get people confused about it existing */}
 									{can("clients:referral:tab") && (
 										<TabsTrigger value="referral">Referral</TabsTrigger>
@@ -461,6 +465,14 @@ export function Client({
 									<div className="mb-6 flex w-full flex-col gap-4">
 										<ClientDetailsCard client={client} truncated />
 										<InsuranceTab client={client} />
+									</div>
+								</TabsContent>
+							)}
+							{!isNotesOnlyClientId(client.id) && (
+								<TabsContent value="admin-review">
+									<div className="mb-6 flex w-full flex-col gap-4">
+										<ClientDetailsCard client={client} truncated />
+										<AdminReviewSection client={client} />
 									</div>
 								</TabsContent>
 							)}

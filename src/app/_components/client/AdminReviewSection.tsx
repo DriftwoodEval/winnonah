@@ -22,8 +22,8 @@ import { hasPermission, isServerUnavailableError } from "~/lib/utils";
 import { api } from "~/trpc/react";
 import { NoteHistory } from "../shared/NoteHistory";
 import { ResponsiveDialog } from "../shared/ResponsiveDialog";
-import { InsuranceReviewClaimHistory } from "./InsuranceReviewClaimHistory";
-import { InsuranceReviewSubmitDialog } from "./InsuranceReviewSubmitDialog";
+import { AdminReviewClaimHistory } from "./AdminReviewClaimHistory";
+import { AdminReviewSubmitDialog } from "./AdminReviewSubmitDialog";
 
 // Autosave runs in the background, so it regularly fires during brief backend
 // blips (deploys, health-check flaps) when the proxy serves an HTML error page.
@@ -38,19 +38,17 @@ function describeSaveError(error: { message: string }) {
 		: error.message;
 }
 
-interface InsuranceReviewSectionProps {
+interface AdminReviewSectionProps {
 	client: Client;
 }
 
-export function InsuranceReviewSection({
-	client,
-}: InsuranceReviewSectionProps) {
+export function AdminReviewSection({ client }: AdminReviewSectionProps) {
 	const can = useCheckPermission();
 	const utils = api.useUtils();
-	const canEdit = can("clients:insurance:review");
+	const canEdit = can("clients:admin:review");
 
 	const { data: review, isLoading: isLoadingReview } =
-		api.insuranceReview.getByClientId.useQuery(client.id, {
+		api.adminReview.getByClientId.useQuery(client.id, {
 			refetchInterval: 60_000,
 			enabled: !!client.id,
 		});
@@ -64,13 +62,12 @@ export function InsuranceReviewSection({
 		() =>
 			(allUsers ?? []).filter(
 				(u) =>
-					u.permissions &&
-					hasPermission(u.permissions, "clients:insurance:review"),
+					u.permissions && hasPermission(u.permissions, "clients:admin:review"),
 			),
 		[allUsers],
 	);
 
-	const { data: claimHistory } = api.insuranceReview.getClaimHistory.useQuery(
+	const { data: claimHistory } = api.adminReview.getClaimHistory.useQuery(
 		{ clientId: client.id },
 		{ enabled: canEdit },
 	);
@@ -85,7 +82,7 @@ export function InsuranceReviewSection({
 		}
 	}, [review?.content]);
 
-	const updateMutation = api.insuranceReview.update.useMutation({
+	const updateMutation = api.adminReview.update.useMutation({
 		retry: retryOnServerUnavailable,
 		retryDelay,
 		onError: (error) => {
@@ -96,21 +93,21 @@ export function InsuranceReviewSection({
 		},
 	});
 
-	const setClaimMutation = api.insuranceReview.setClaim.useMutation({
+	const setClaimMutation = api.adminReview.setClaim.useMutation({
 		onSuccess: () => {
-			utils.insuranceReview.getByClientId.invalidate(client.id);
-			utils.insuranceReview.getClaimHistory.invalidate({ clientId: client.id });
+			utils.adminReview.getByClientId.invalidate(client.id);
+			utils.adminReview.getClaimHistory.invalidate({ clientId: client.id });
 		},
 		onError: (error) => {
 			toast.error("Failed to update claim", { description: error.message });
 		},
 	});
 
-	const setWaitingMutation = api.insuranceReview.setWaiting.useMutation({
+	const setWaitingMutation = api.adminReview.setWaiting.useMutation({
 		onSuccess: () => {
-			utils.insuranceReview.getByClientId.invalidate(client.id);
-			utils.insuranceReview.getAllEnabled.invalidate();
-			utils.insuranceReview.getMyClaimedClients.invalidate();
+			utils.adminReview.getByClientId.invalidate(client.id);
+			utils.adminReview.getAllEnabled.invalidate();
+			utils.adminReview.getMyClaimedClients.invalidate();
 		},
 		onError: (error) => {
 			toast.error("Failed to update waiting state", {
@@ -119,13 +116,13 @@ export function InsuranceReviewSection({
 		},
 	});
 
-	const submitMutation = api.insuranceReview.submitToNotes.useMutation({
+	const submitMutation = api.adminReview.submitToNotes.useMutation({
 		onSuccess: (result) => {
 			if (result.success) {
 				toast.success("Review notes submitted to client notes");
 				utils.notes.getNoteByClientId.invalidate(client.id);
-				utils.insuranceReview.getByClientId.invalidate(client.id);
-				utils.insuranceReview.getMyClaimedClients.invalidate();
+				utils.adminReview.getByClientId.invalidate(client.id);
+				utils.adminReview.getMyClaimedClients.invalidate();
 			} else {
 				toast.error("Nothing to submit", { description: result.reason });
 			}
@@ -177,7 +174,7 @@ export function InsuranceReviewSection({
 						title="Review History"
 						trigger={historyTrigger}
 					>
-						<NoteHistory id={client.id} type="insurance-review" />
+						<NoteHistory id={client.id} type="admin-review" />
 					</ResponsiveDialog>
 
 					<Button
@@ -196,7 +193,7 @@ export function InsuranceReviewSection({
 						{review.waiting ? "Waiting" : "Mark as Waiting"}
 					</Button>
 
-					<InsuranceReviewSubmitDialog
+					<AdminReviewSubmitDialog
 						client={client}
 						onConfirm={async (insertAt) => {
 							debouncedSave.cancel();
@@ -227,12 +224,12 @@ export function InsuranceReviewSection({
 				<RichTextEditor
 					allowImages
 					formatBar={false}
-					key={`insurance-review-${client.id}`}
+					key={`admin-review-${client.id}`}
 					onChange={(content) => {
 						setLocalContent(content as JSONContent);
 						debouncedSave(content);
 					}}
-					placeholder={"STOP or GO\n\nInsurance review notes..."}
+					placeholder={"STOP or GO\n\nAdmin review notes..."}
 					readonly={!canEdit}
 					value={localContent}
 				/>
@@ -277,7 +274,7 @@ export function InsuranceReviewSection({
 									</Button>
 								}
 							>
-								<InsuranceReviewClaimHistory clientId={client.id} />
+								<AdminReviewClaimHistory clientId={client.id} />
 							</ResponsiveDialog>
 						</div>
 

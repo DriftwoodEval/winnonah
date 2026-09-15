@@ -45,7 +45,7 @@ const formSchema = z.object({
 	pause: z.boolean(),
 	babyNet: z.boolean(),
 	eiAttends: z.boolean(),
-	insuranceReviewEnabled: z.boolean(),
+	adminReviewEnabled: z.boolean(),
 });
 
 type ClientFormValues = z.infer<typeof formSchema>;
@@ -57,7 +57,7 @@ interface ClientFormProps {
 	onClose: () => void;
 	showBabyNetCheckbox?: boolean;
 	showEICheckbox?: boolean;
-	initialInsuranceReviewEnabled?: boolean;
+	initialAdminReviewEnabled?: boolean;
 }
 
 const log = logger.child({ module: "EditClientDialog" });
@@ -69,7 +69,7 @@ function ClientForm({
 	onClose,
 	showBabyNetCheckbox = false,
 	showEICheckbox = false,
-	initialInsuranceReviewEnabled = false,
+	initialAdminReviewEnabled = false,
 }: ClientFormProps) {
 	const { data: allSchoolDistricts } =
 		api.evaluators.getAllSchoolDistricts.useQuery();
@@ -82,7 +82,7 @@ function ClientForm({
 	const canAutismStopDisable = can("clients:autismstop:disable");
 	const canAlreadyDx = can("clients:alreadydx");
 	const canPause = can("clients:pause");
-	const canInsuranceReview = can("clients:insurance:review");
+	const canAdminReview = can("clients:admin:review");
 
 	const defaultValues = useMemo(() => {
 		if (initialData) {
@@ -94,10 +94,10 @@ function ClientForm({
 				pause: initialData.pause ?? false,
 				babyNet: initialData.babyNet ?? false,
 				eiAttends: initialData.eiAttends ?? false,
-				insuranceReviewEnabled: initialInsuranceReviewEnabled,
+				adminReviewEnabled: initialAdminReviewEnabled,
 			};
 		}
-	}, [initialData, initialInsuranceReviewEnabled]);
+	}, [initialData, initialAdminReviewEnabled]);
 
 	const form = useForm<ClientFormValues>({
 		resolver: zodResolver(formSchema),
@@ -325,10 +325,10 @@ function ClientForm({
 						/>
 					)}
 
-					{canInsuranceReview && (
+					{canAdminReview && (
 						<FormField
 							control={form.control}
-							name="insuranceReviewEnabled"
+							name="adminReviewEnabled"
 							render={({ field }) => (
 								<FormItem className="flex flex-row">
 									<FormControl>
@@ -338,9 +338,9 @@ function ClientForm({
 										/>
 									</FormControl>
 									<div className="space-y-1 leading-none">
-										<FormLabel>Insurance Review</FormLabel>
+										<FormLabel>Admin Review</FormLabel>
 										<FormDescription>
-											Show the insurance review section on the insurance tab.
+											Show the Admin Review tab on this client.
 										</FormDescription>
 									</div>
 								</FormItem>
@@ -366,11 +366,11 @@ export function ClientEditButton({ client }: { client: Client }) {
 	const dialog = useResponsiveDialog();
 	const utils = api.useUtils();
 	const can = useCheckPermission();
-	const canInsuranceReview = can("clients:insurance:review");
+	const canAdminReview = can("clients:admin:review");
 
-	const { data: reviewData } = api.insuranceReview.getByClientId.useQuery(
+	const { data: reviewData } = api.adminReview.getByClientId.useQuery(
 		client.id,
-		{ refetchInterval: 60_000, enabled: canInsuranceReview },
+		{ refetchInterval: 60_000, enabled: canAdminReview },
 	);
 
 	const BNAgeOutDate = subYears(new Date(), 3);
@@ -413,12 +413,12 @@ export function ClientEditButton({ client }: { client: Client }) {
 		},
 	});
 
-	const setInsuranceReviewEnabled = api.insuranceReview.setEnabled.useMutation({
+	const setAdminReviewEnabled = api.adminReview.setEnabled.useMutation({
 		onSuccess: () => {
-			utils.insuranceReview.getByClientId.invalidate(client.id);
+			utils.adminReview.getByClientId.invalidate(client.id);
 		},
 		onError: (error) => {
-			toast.error("Failed to update insurance review", {
+			toast.error("Failed to update admin review", {
 				description: error.message,
 			});
 		},
@@ -447,12 +447,12 @@ export function ClientEditButton({ client }: { client: Client }) {
 		}
 
 		if (
-			canInsuranceReview &&
-			values.insuranceReviewEnabled !== (reviewData?.enabled ?? false)
+			canAdminReview &&
+			values.adminReviewEnabled !== (reviewData?.enabled ?? false)
 		) {
-			setInsuranceReviewEnabled.mutate({
+			setAdminReviewEnabled.mutate({
 				clientId: client.id,
-				enabled: values.insuranceReviewEnabled,
+				enabled: values.adminReviewEnabled,
 			});
 		}
 	}
@@ -467,12 +467,12 @@ export function ClientEditButton({ client }: { client: Client }) {
 			trigger={trigger}
 		>
 			<ClientForm
+				initialAdminReviewEnabled={reviewData?.enabled ?? false}
 				initialData={client}
-				initialInsuranceReviewEnabled={reviewData?.enabled ?? false}
 				isLoading={
 					updateClient.isPending ||
 					updateAutismStop.isPending ||
-					setInsuranceReviewEnabled.isPending
+					setAdminReviewEnabled.isPending
 				}
 				onClose={dialog.closeDialog}
 				onSubmit={onEditSubmit}

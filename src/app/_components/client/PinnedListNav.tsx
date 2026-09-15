@@ -89,17 +89,17 @@ export function PinnedListNav({ clientHash }: { clientHash: string }) {
 		prev,
 		next,
 		clearPinned,
-		insuranceFilters,
-		setInsuranceFilter,
-		clearInsuranceFilters,
+		adminFilters,
+		setAdminFilter,
+		clearAdminFilters,
 	} = usePinnedListNav(clientHash);
 	const [expanded, setExpanded] = useState(false);
 
 	if (!label) return null;
 
-	const isInsurance = pinned?.kind === "insuranceReview";
-	const mineOn = insuranceFilters.includes("mine");
-	const waitingOn = insuranceFilters.includes("waiting");
+	const isAdminReview = pinned?.kind === "adminReview";
+	const mineOn = adminFilters.includes("mine");
+	const waitingOn = adminFilters.includes("waiting");
 	const filtered = mineOn || waitingOn;
 
 	return (
@@ -131,7 +131,7 @@ export function PinnedListNav({ clientHash }: { clientHash: string }) {
 					<X className="h-4 w-4" />
 				</Button>
 			</div>
-			{isInsurance && (
+			{isAdminReview && (
 				<div className="flex items-center gap-2 border-t px-3 py-1.5 text-xs">
 					<span className="text-muted-foreground">
 						{filtered ? "Filtered:" : "Filter:"}
@@ -142,7 +142,7 @@ export function PinnedListNav({ clientHash }: { clientHash: string }) {
 								? "bg-primary text-primary-foreground"
 								: "bg-muted text-muted-foreground"
 						}`}
-						onClick={() => setInsuranceFilter("mine", !mineOn)}
+						onClick={() => setAdminFilter("mine", !mineOn)}
 						type="button"
 					>
 						Mine
@@ -153,7 +153,7 @@ export function PinnedListNav({ clientHash }: { clientHash: string }) {
 								? "bg-primary text-primary-foreground"
 								: "bg-muted text-muted-foreground"
 						}`}
-						onClick={() => setInsuranceFilter("waiting", !waitingOn)}
+						onClick={() => setAdminFilter("waiting", !waitingOn)}
 						type="button"
 					>
 						Waiting
@@ -161,7 +161,7 @@ export function PinnedListNav({ clientHash }: { clientHash: string }) {
 					{filtered && (
 						<button
 							className="ml-auto text-muted-foreground underline"
-							onClick={clearInsuranceFilters}
+							onClick={clearAdminFilters}
 							type="button"
 						>
 							Clear

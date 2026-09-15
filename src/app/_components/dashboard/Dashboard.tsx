@@ -501,7 +501,7 @@ function PunchListAccordionItem({
 
 export function Dashboard() {
 	const can = useCheckPermission();
-	const canInsuranceReview = can("clients:insurance:review");
+	const canAdminReview = can("clients:admin:review");
 	const { data: session } = useSession();
 	const utils = api.useUtils();
 
@@ -513,79 +513,79 @@ export function Dashboard() {
 		refetchInterval: 180000, // 3 minutes
 	});
 
-	const { data: insuranceReviewClients } =
-		api.insuranceReview.getAllEnabled.useQuery(undefined, {
-			enabled: canInsuranceReview,
-		});
+	const { data: adminReviewClients } = api.adminReview.getAllEnabled.useQuery(
+		undefined,
+		{
+			enabled: canAdminReview,
+		},
+	);
 
-	const [insuranceFilters, setInsuranceFilters] = useState<string[]>([]);
-	const showMineOnly = insuranceFilters.includes("mine");
-	const showWaitingOnly = insuranceFilters.includes("waiting");
+	const [adminFilters, setAdminFilters] = useState<string[]>([]);
+	const showMineOnly = adminFilters.includes("mine");
+	const showWaitingOnly = adminFilters.includes("waiting");
 
-	const insuranceListFilterKey = "insuranceReview";
+	const adminListFilterKey = "adminReview";
 	const { data: listFilters } = api.users.getListFilters.useQuery(undefined, {
-		enabled: canInsuranceReview,
+		enabled: canAdminReview,
 	});
 	const { mutate: updateListFilters } = api.users.updateListFilters.useMutation(
 		{
 			onSuccess: () => utils.users.getListFilters.invalidate(),
 		},
 	);
-	const appliedSavedInsuranceFiltersRef = useRef(false);
+	const appliedSavedAdminFiltersRef = useRef(false);
 
 	useEffect(() => {
-		const saved = listFilters?.[insuranceListFilterKey];
-		if (appliedSavedInsuranceFiltersRef.current || !saved) return;
+		const saved = listFilters?.[adminListFilterKey];
+		if (appliedSavedAdminFiltersRef.current || !saved) return;
 
-		appliedSavedInsuranceFiltersRef.current = true;
-		setInsuranceFilters(saved);
+		appliedSavedAdminFiltersRef.current = true;
+		setAdminFilters(saved);
 	}, [listFilters]);
 
-	const setInsuranceMineOnly = (value: boolean) => {
+	const setAdminMineOnly = (value: boolean) => {
 		const next = value
-			? [...insuranceFilters, "mine"]
-			: insuranceFilters.filter((v) => v !== "mine");
-		setInsuranceFilters(next);
-		updateListFilters({ key: insuranceListFilterKey, filters: next });
+			? [...adminFilters, "mine"]
+			: adminFilters.filter((v) => v !== "mine");
+		setAdminFilters(next);
+		updateListFilters({ key: adminListFilterKey, filters: next });
 	};
 
-	const setInsuranceWaitingFilter = (checked: boolean) => {
+	const setAdminWaitingFilter = (checked: boolean) => {
 		const next = checked
-			? [...insuranceFilters, "waiting"]
-			: insuranceFilters.filter((v) => v !== "waiting");
-		setInsuranceFilters(next);
-		updateListFilters({ key: insuranceListFilterKey, filters: next });
+			? [...adminFilters, "waiting"]
+			: adminFilters.filter((v) => v !== "waiting");
+		setAdminFilters(next);
+		updateListFilters({ key: adminListFilterKey, filters: next });
 	};
-	const visibleInsuranceClients = (insuranceReviewClients ?? []).filter((c) => {
+	const visibleAdminClients = (adminReviewClients ?? []).filter((c) => {
 		if (showMineOnly && c.claimedUserEmail !== session?.user?.email)
 			return false;
 		if (showWaitingOnly && !c.waiting) return false;
 		return true;
 	});
 
-	const insuranceSavedClientRef = useRef<HTMLDivElement>(null);
-	const persistInsuranceScrollRef = usePersistedScroll(
-		"dashboard-section:insurance-review",
+	const adminSavedClientRef = useRef<HTMLDivElement>(null);
+	const persistAdminScrollRef = usePersistedScroll(
+		"dashboard-section:admin-review",
 	);
-	const insuranceSavedPlaceKey = "insuranceReview";
-	const { data: insuranceSavedPlaces } = api.users.getSavedPlaces.useQuery();
-	const insuranceSavedPlaceData =
-		insuranceSavedPlaces?.[insuranceSavedPlaceKey];
-	const insuranceSavedPlaceHash = insuranceSavedPlaceData?.hash;
-	const insuranceSavedPlaceIndex =
-		typeof insuranceSavedPlaceData === "object" &&
-		insuranceSavedPlaceData !== null
-			? insuranceSavedPlaceData?.index
+	const adminSavedPlaceKey = "adminReview";
+	const { data: adminSavedPlaces } = api.users.getSavedPlaces.useQuery();
+	const adminSavedPlaceData = adminSavedPlaces?.[adminSavedPlaceKey];
+	const adminSavedPlaceHash = adminSavedPlaceData?.hash;
+	const adminSavedPlaceIndex =
+		typeof adminSavedPlaceData === "object" && adminSavedPlaceData !== null
+			? adminSavedPlaceData?.index
 			: undefined;
 
-	const { mutate: updateInsuranceSavedPlace } =
+	const { mutate: updateAdminSavedPlace } =
 		api.users.updateSavedPlaces.useMutation({
 			onSuccess: () => {
 				utils.users.getSavedPlaces.invalidate();
 			},
 		});
 
-	const { mutate: deleteInsuranceSavedPlace } =
+	const { mutate: deleteAdminSavedPlace } =
 		api.users.deleteSavedPlace.useMutation({
 			onSuccess: () => {
 				utils.users.getSavedPlaces.invalidate();
@@ -593,26 +593,22 @@ export function Dashboard() {
 		});
 
 	useEffect(() => {
-		if (!insuranceSavedPlaceHash || visibleInsuranceClients.length === 0)
-			return;
+		if (!adminSavedPlaceHash || visibleAdminClients.length === 0) return;
 
-		const savedClientIndex = visibleInsuranceClients.findIndex(
-			(c) => c.clientHash === insuranceSavedPlaceHash,
+		const savedClientIndex = visibleAdminClients.findIndex(
+			(c) => c.clientHash === adminSavedPlaceHash,
 		);
 
 		if (savedClientIndex === -1) {
 			const fallbackIndex =
-				insuranceSavedPlaceIndex !== undefined
-					? Math.min(
-							insuranceSavedPlaceIndex - 1,
-							visibleInsuranceClients.length - 1,
-						)
+				adminSavedPlaceIndex !== undefined
+					? Math.min(adminSavedPlaceIndex - 1, visibleAdminClients.length - 1)
 					: 0;
 
-			const fallbackClient = visibleInsuranceClients[fallbackIndex];
+			const fallbackClient = visibleAdminClients[fallbackIndex];
 			if (fallbackClient) {
-				updateInsuranceSavedPlace({
-					key: insuranceSavedPlaceKey,
+				updateAdminSavedPlace({
+					key: adminSavedPlaceKey,
 					clientId: fallbackClient.clientId,
 					hash: fallbackClient.clientHash,
 					index: fallbackIndex,
@@ -620,17 +616,17 @@ export function Dashboard() {
 			}
 		}
 	}, [
-		visibleInsuranceClients,
-		insuranceSavedPlaceHash,
-		insuranceSavedPlaceIndex,
-		updateInsuranceSavedPlace,
+		visibleAdminClients,
+		adminSavedPlaceHash,
+		adminSavedPlaceIndex,
+		updateAdminSavedPlace,
 	]);
 
-	const isSavedInsuranceClient = (clientHash: string) =>
-		insuranceSavedPlaceHash === clientHash;
+	const isSavedAdminClient = (clientHash: string) =>
+		adminSavedPlaceHash === clientHash;
 
-	const scrollToSavedInsuranceClient = () => {
-		insuranceSavedClientRef.current?.scrollIntoView({ behavior: "smooth" });
+	const scrollToSavedAdminClient = () => {
+		adminSavedClientRef.current?.scrollIntoView({ behavior: "smooth" });
 	};
 
 	const { data: schedulingData } = api.scheduling.get.useQuery(
@@ -754,27 +750,25 @@ export function Dashboard() {
 				{finalSections.map((section) => (
 					<Fragment key={section.title}>
 						{section.subheading === "Records" &&
-							canInsuranceReview &&
-							(insuranceReviewClients?.length ?? 0) > 0 && (
+							canAdminReview &&
+							(adminReviewClients?.length ?? 0) > 0 && (
 								<>
 									<h2 className="mt-6 mb-2 self-start font-bold text-lg">
-										Insurance
+										Admin Review
 									</h2>
-									<AccordionItem value="insurance-review">
+									<AccordionItem value="admin-review">
 										<AccordionTrigger>
 											<span className="flex items-center gap-1">
-												Insurance Review
+												Admin Review
 												<span className="text-muted-foreground text-sm">
-													({visibleInsuranceClients.length})
+													({visibleAdminClients.length})
 												</span>
 											</span>
 										</AccordionTrigger>
 										<AccordionContent>
 											<div className="mb-2 flex flex-wrap items-center gap-2">
 												<ToggleGroup
-													onValueChange={(v) =>
-														setInsuranceMineOnly(v === "mine")
-													}
+													onValueChange={(v) => setAdminMineOnly(v === "mine")}
 													size="sm"
 													spacing={0}
 													type="single"
@@ -787,28 +781,28 @@ export function Dashboard() {
 												<div className="flex items-center gap-2">
 													<Checkbox
 														checked={showWaitingOnly}
-														id="insurance-filter-waiting"
+														id="admin-filter-waiting"
 														onCheckedChange={(checked) =>
-															setInsuranceWaitingFilter(checked === true)
+															setAdminWaitingFilter(checked === true)
 														}
 													/>
 													<Label
 														className="font-normal"
-														htmlFor="insurance-filter-waiting"
+														htmlFor="admin-filter-waiting"
 													>
 														Waiting
 													</Label>
 												</div>
 											</div>
 											<div className="mb-2 flex justify-end">
-												<PinListButton pinned={{ kind: "insuranceReview" }} />
+												<PinListButton pinned={{ kind: "adminReview" }} />
 											</div>
-											{insuranceSavedPlaceHash && (
+											{adminSavedPlaceHash && (
 												<div className="mb-2 flex justify-end">
 													<Button
 														aria-label="Scroll to saved client"
 														className="font-medium text-muted-foreground text-xs"
-														onClick={scrollToSavedInsuranceClient}
+														onClick={scrollToSavedAdminClient}
 														size="sm"
 														type="button"
 														variant="ghost"
@@ -820,22 +814,22 @@ export function Dashboard() {
 											)}
 											<ScrollArea
 												className="h-[400px] w-full rounded-md border bg-card text-card-foreground shadow-sm"
-												viewportRef={persistInsuranceScrollRef}
+												viewportRef={persistAdminScrollRef}
 											>
 												<div className="p-4">
-													{visibleInsuranceClients.map((c, index) => (
+													{visibleAdminClients.map((c, index) => (
 														<div
 															className="scroll-mt-12"
 															key={c.clientHash}
 															ref={
-																isSavedInsuranceClient(c.clientHash)
-																	? insuranceSavedClientRef
+																isSavedAdminClient(c.clientHash)
+																	? adminSavedClientRef
 																	: null
 															}
 														>
 															<Link
 																className="no-underline! hover:no-underline! flex items-center gap-2"
-																href={`/clients/${c.clientHash}?tab=insurance`}
+																href={`/clients/${c.clientHash}?tab=admin-review`}
 															>
 																<span>
 																	<Redact>{c.clientName}</Redact>
@@ -857,13 +851,13 @@ export function Dashboard() {
 																	</span>
 																)}
 															</Link>
-															{isSavedInsuranceClient(c.clientHash) && (
+															{isSavedAdminClient(c.clientHash) && (
 																<button
-																	aria-label={`Remove ${c.clientName} as saved client for Insurance Review`}
+																	aria-label={`Remove ${c.clientName} as saved client for Admin Review`}
 																	className="group relative flex w-full cursor-pointer items-center py-2"
 																	onClick={() =>
-																		deleteInsuranceSavedPlace({
-																			key: insuranceSavedPlaceKey,
+																		deleteAdminSavedPlace({
+																			key: adminSavedPlaceKey,
 																		})
 																	}
 																	type="button"
@@ -874,14 +868,14 @@ export function Dashboard() {
 																	</div>
 																</button>
 															)}
-															{index < visibleInsuranceClients.length - 1 &&
-																!isSavedInsuranceClient(c.clientHash) && (
+															{index < visibleAdminClients.length - 1 &&
+																!isSavedAdminClient(c.clientHash) && (
 																	<button
-																		aria-label={`Set ${c.clientName} as saved client for Insurance Review`}
+																		aria-label={`Set ${c.clientName} as saved client for Admin Review`}
 																		className="group relative flex w-full cursor-pointer items-center py-2"
 																		onClick={() =>
-																			updateInsuranceSavedPlace({
-																				key: insuranceSavedPlaceKey,
+																			updateAdminSavedPlace({
+																				key: adminSavedPlaceKey,
 																				clientId: c.clientId,
 																				hash: c.clientHash,
 																				index,

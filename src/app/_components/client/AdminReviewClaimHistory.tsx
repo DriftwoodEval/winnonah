@@ -6,13 +6,9 @@ import { ScrollArea } from "@ui/scroll-area";
 import { format, formatDistanceToNowStrict } from "date-fns";
 import { api } from "~/trpc/react";
 
-export function InsuranceReviewClaimHistory({
-	clientId,
-}: {
-	clientId: number;
-}) {
+export function AdminReviewClaimHistory({ clientId }: { clientId: number }) {
 	const { data: claimHistory, isLoading } =
-		api.insuranceReview.getClaimHistory.useQuery({ clientId });
+		api.adminReview.getClaimHistory.useQuery({ clientId });
 
 	if (isLoading)
 		return (

@@ -156,13 +156,13 @@ export const PERMISSIONS = {
 						title: "View Insurance Codes by Appointment",
 					},
 					{
-						id: "clients:insurance:review",
-						title: "Edit Insurance Review Notes & Claim",
+						id: "clients:admin:review",
+						title: "Edit Admin Review Notes & Claim",
 					},
 					{
-						id: "clients:insurance:review:email-notifications",
-						title: "Receive Insurance Review Claim Email Notifications",
-						parent: "clients:insurance:review" as const,
+						id: "clients:admin:review:email-notifications",
+						title: "Receive Admin Review Claim Email Notifications",
+						parent: "clients:admin:review" as const,
 					},
 					{ id: "clients:pa-forms", title: "Download PA Forms" },
 				],
