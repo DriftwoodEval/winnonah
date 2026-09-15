@@ -191,8 +191,8 @@ importers:
         specifier: ^22.0.0
         version: 22.0.0(supports-color@7.2.0)
       '@googleapis/sheets':
-        specifier: ^14.0.0
-        version: 14.0.0(supports-color@7.2.0)
+        specifier: ^17.0.0
+        version: 17.0.0(supports-color@7.2.0)
       '@hookform/resolvers':
         specifier: ^5.7.1
         version: 5.9.1(@standard-schema/spec@1.1.0)(ajv-formats@2.1.1(ajv@8.20.0))(ajv@8.20.0)(react-hook-form@7.88.0(react@19.3.0))(zod@4.6.2)
@@ -1180,9 +1180,9 @@ packages:
     resolution: {integrity: sha512-u21JQPR5mGKt8OqjsDndb+l5b44IXCKTum+P1Q1rlWmi2pUNZqcNeq7csx06xlwj+UeZv5/ZhhhAjziVZu86Dg==}
     engines: {node: '>=12.0.0'}
 
-  '@googleapis/sheets@14.0.0':
-    resolution: {integrity: sha512-fANEl4RQohsPYUWhcLSYyUyE8A8bRfvw/bp8h0t8VDQqTgdQ3itZBkty4nddtdqCAvNDpA+KM66OejVKDd6aFg==}
-    engines: {node: '>=12.0.0'}
+  '@googleapis/sheets@17.0.0':
+    resolution: {integrity: sha512-0XvHbv14k41joeRF1NAAYbX7/GnHfL+FOWdn+711j4IRzByqDxA3x7U2LCJi5WjbQDBlLlAyOEgAf/uDcIsbSw==}
+    engines: {node: '>=22.0.0'}
 
   '@hono/node-server@2.1.0':
     resolution: {integrity: sha512-XovyyCCnBzW+zKu+z/zq8hwNs4KOR5rEMAOxo2f40Q5xoOI37IMm6MIg2COOUtUApo0i6850MTBKH2u4QLGIqg==}
@@ -3915,6 +3915,10 @@ packages:
     resolution: {integrity: sha512-7g1yzQKx0mmNTjiK0H9dJ8eqKqDBveES9vLHeg5neb3BMQy/d1oQefIMhIpOVT8a+f+LOcixMEdRbFIW/cQUJw==}
     engines: {node: '>=18'}
 
+  googleapis-common@9.0.4:
+    resolution: {integrity: sha512-fcI5bm1gN+9MNb+gvANRPFsxaJ07h/ZYvKCh6H3RoDJBUTwp5ySaCpCqnmX8gnGJUD/9bKmkacivRJT1g+xXyg==}
+    engines: {node: '>=22'}
+
   gopd@1.2.0:
     resolution: {integrity: sha512-ZUKRh6/kUFoAiTAtTYPZJ3hw9wNxx+BIBOijnlG9PnrJsCcSjs1wyyD6vJpaYtgnzDrKYRSqf3OO6Rfa93xsRg==}
     engines: {node: '>= 0.4'}
@@ -6583,9 +6587,9 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  '@googleapis/sheets@14.0.0(supports-color@7.2.0)':
+  '@googleapis/sheets@17.0.0(supports-color@7.2.0)':
     dependencies:
-      googleapis-common: 8.0.3(supports-color@7.2.0)
+      googleapis-common: 9.0.4(supports-color@7.2.0)
     transitivePeerDependencies:
       - supports-color
 
@@ -9146,6 +9150,17 @@ snapshots:
       gaxios: 7.1.3(supports-color@7.2.0)
       google-auth-library: 11.0.2(supports-color@7.2.0)
       google-logging-utils: 1.1.3
+      qs: 6.15.3
+      url-template: 2.0.8
+    transitivePeerDependencies:
+      - supports-color
+
+  googleapis-common@9.0.4(supports-color@7.2.0):
+    dependencies:
+      extend: 3.0.2
+      gaxios: 7.3.0(supports-color@7.2.0)
+      google-auth-library: 11.0.2(supports-color@7.2.0)
+      google-logging-utils: 2.0.1
       qs: 6.15.3
       url-template: 2.0.8
     transitivePeerDependencies:
