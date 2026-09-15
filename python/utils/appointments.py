@@ -916,7 +916,13 @@ def move_client_folders_for_upcoming_appointments() -> None:
                         errors.append(msg)
                         continue
 
-            if not client_drive_id or client_drive_id == "N/A":
+            if client_drive_id == "N/A":
+                msg = f"{client_name} (ID: {client_id}): Drive folder is marked N/A."
+                logger.warning(msg)
+                errors.append(msg)
+                continue
+
+            if not client_drive_id:
                 msg = (
                     f"{client_name} (ID: {client_id}): has no Drive folder configured."
                 )
