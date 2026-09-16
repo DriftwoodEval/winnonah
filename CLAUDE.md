@@ -22,6 +22,9 @@ Docs live in `src/content/docs/` as Markdown/MDX and are read by practice staff,
 - Trust ruff over your own syntax assumptions.
 - Never run `pnpm db:*` or DB migrations, leave to the user.
 
+## Local Development
+Every page requires a logged-in NextAuth session, and Claude has no way to authenticate as a real user, so starting the dev server and browser-testing a UI change is never possible here regardless of Docker/`.env` availability. Don't attempt it. Verify UI changes with `mise run check` and existing tests, and say plainly that the change wasn't browser-tested rather than claiming otherwise.
+
 ## Home Page Widgets
 The home page (`src/app/_components/home/HomePageContent.tsx`) renders a user-configurable grid of widgets. Widget ids are plain strings, not a type union. To add a widget:
 1. Add an entry to `HOME_WIDGET_DEFS` in `src/lib/home-widgets.ts` (`id`, `label`, `permission`, `category`, `sizing`). Optionally add a default `{ cols, rows }` to `DEFAULT_WIDGET_CONFIG`.

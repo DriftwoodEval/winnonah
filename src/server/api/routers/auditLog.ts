@@ -1,4 +1,4 @@
-import { and, desc, eq, gte, lte, sql } from "drizzle-orm";
+import { and, desc, eq, gte, like, lte, sql } from "drizzle-orm";
 import z from "zod";
 import {
 	assertPermission,
@@ -17,11 +17,25 @@ const filterSchema = z.object({
 	offset: z.number().min(0).default(0),
 });
 
+/**
+ * Actions are dot-namespaced (e.g. "internal.failure.update",
+ * "appointments.updateStatus"). A value ending in ".*" filters by the
+ * namespace prefix (everything before the trailing "*") instead of an
+ * exact action name, so "internal.*" matches every "internal."-prefixed
+ * action.
+ */
+function buildActionCondition(action: string) {
+	if (action.endsWith(".*")) {
+		return like(auditLogs.action, `${action.slice(0, -1)}%`);
+	}
+	return eq(auditLogs.action, action);
+}
+
 function buildWhere(input: z.infer<typeof filterSchema>) {
 	const conditions = [
 		input.userId ? eq(auditLogs.userId, input.userId) : undefined,
 		input.clientId ? eq(auditLogs.clientId, input.clientId) : undefined,
-		input.action ? eq(auditLogs.action, input.action) : undefined,
+		input.action ? buildActionCondition(input.action) : undefined,
 		input.from ? gte(auditLogs.createdAt, input.from) : undefined,
 		input.to ? lte(auditLogs.createdAt, input.to) : undefined,
 	].filter((c): c is NonNullable<typeof c> => c !== undefined);
