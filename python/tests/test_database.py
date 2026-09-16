@@ -20,6 +20,8 @@ from utils.database import (
     get_sync_report_date,
     insert_by_matching_criteria_incremental,
     provide_connection,
+    put_client_insurance_policies_in_db,
+    put_clients_in_db,
     set_referral_fax_date,
 )
 
@@ -38,6 +40,10 @@ class FakeCursor:
 
     def execute(self, query, params=None):
         self.executed.append((" ".join(query.split()), params))
+
+    def executemany(self, query, params_list=None):
+        for params in params_list or []:
+            self.executed.append((" ".join(query.split()), params))
 
     def fetchone(self):
         return self.fetchone_result
@@ -314,6 +320,208 @@ class TestActivateReactivationAdminReview:
             "INSERT INTO `emr_admin_review_history`" in query
             for query, _ in cursor.executed
         )
+
+
+class TestPutClientsInDb:
+    def _existing_row(self, **overrides):
+        row = {
+            "id": 1,
+            "status": True,
+            "deactivatedAt": None,
+            "addedDate": "2020-01-01",
+            "dob": "1990-05-04",
+            "firstName": "Jane",
+            "lastName": "Doe",
+            "preferredName": None,
+            "fullName": "Jane Doe",
+            "address": "123 Main St",
+            "schoolDistrict": "Some District",
+            "latitude": "33.50000000",
+            "longitude": "-80.00000000",
+            "asdAdhd": "ASD",
+            "language": "English",
+            "paAssignedTo": "PA1",
+            "gender": "Female",
+            "phoneNumber": "8035551234",
+            "email": "jane@example.com",
+            "flag": None,
+            "taUser": "jdoe",
+            "referralSource": "web",
+        }
+        row.update(overrides)
+        return row
+
+    def _client_df(self, **overrides):
+        row = {
+            "CLIENT_ID": 1,
+            "FIRSTNAME": "Jane",
+            "LASTNAME": "Doe",
+            "PREFERRED_NAME": None,
+            "ADDED_DATE": dt.date(2020, 1, 1),
+            "DOB": dt.date(1990, 5, 4),
+            "GENDER": "Female",
+            "PHONE1": "8035551234",
+            "EMAIL": "jane@example.com",
+            "STATUS": "Active",
+            "LANGUAGE": "English",
+            "ADDRESS": "123 Main St",
+            "SCHOOL_DISTRICT": "Some District",
+            "LATITUDE": 33.5,
+            "LONGITUDE": -80.0,
+            "ASD_ADHD": "ASD",
+            "PA_ASSIGNED_TO": "PA1",
+            "FLAG": None,
+            "LOGIN_NAME": "jdoe",
+            "REFERRAL_SOURCE": "web",
+        }
+        row.update(overrides)
+        return pd.DataFrame([row])
+
+    def test_no_audit_log_when_nothing_actually_changes(self):
+        cursor = FakeCursor(fetchall_result=[self._existing_row()])
+        conn = FakeConnection(cursor)
+
+        put_clients_in_db(self._client_df(), connection=conn)
+
+        assert not any(
+            "INSERT INTO `emr_audit_log`" in query for query, _ in cursor.executed
+        )
+
+    def test_audit_log_written_only_for_changed_field(self):
+        cursor = FakeCursor(fetchall_result=[self._existing_row()])
+        conn = FakeConnection(cursor)
+
+        put_clients_in_db(self._client_df(PHONE1="8039998888"), connection=conn)
+
+        audit_inserts = [
+            params
+            for query, params in cursor.executed
+            if "INSERT INTO `emr_audit_log`" in query
+        ]
+        assert len(audit_inserts) == 1
+        _, _, action, client_id, detail, _, _ = audit_inserts[0]
+        assert action == "python.client.update"
+        assert client_id == 1
+        parsed = json.loads(detail)
+        assert set(parsed) == {"phoneNumber"}
+        assert parsed["phoneNumber"] == {"old": "8035551234", "new": "8039998888"}
+
+
+class _DefaultNoneDict(dict):
+    """Dict that returns None for any column not explicitly set, so tests
+    don't have to enumerate every one of the insurance policy table's ~70
+    columns just to assert on the one or two that changed."""
+
+    def __missing__(self, key):
+        return None
+
+
+class _RoutingCursor:
+    """Fake cursor that returns a different canned `fetchall` result per
+    query, matched by substring. Needed for functions (like the insurance
+    sync) that run several distinct SELECTs in one call."""
+
+    def __init__(self, routes: list[tuple[str, list]]):
+        self.routes = routes
+        self.executed = []
+        self.rowcount = 0
+        self._pending = []
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc):
+        return False
+
+    def execute(self, query, params=None):
+        q = " ".join(query.split())
+        self.executed.append((q, params))
+        self._pending = next(
+            (result for substr, result in self.routes if substr in q), []
+        )
+        self.rowcount = len(self._pending)
+
+    def executemany(self, query, params_list=None):
+        for params in params_list or []:
+            self.executed.append((" ".join(query.split()), params))
+
+    def fetchall(self):
+        return self._pending
+
+    def fetchone(self):
+        return self._pending[0] if self._pending else None
+
+
+class TestPutClientInsurancePoliciesInDb:
+    def _routes(self, existing_policy_row):
+        return [
+            ("FROM `emr_client` WHERE id IN", [{"id": 1}]),
+            ("FROM `emr_user`", []),
+            (
+                "FROM `emr_client_insurance_policy` WHERE policyId IN",
+                [existing_policy_row],
+            ),
+            ("SELECT clientId, policyId FROM `emr_client_insurance_policy`", []),
+        ]
+
+    def _policy_df(self, **overrides):
+        row = {
+            "CLIENT_ID": 1,
+            "POLICY_ID": "p1",
+            "POLICY_ADDEDBYNAME": "TherapyAppointment System",
+            "POLICY_ENDDATE": dt.date(2025, 1, 1),
+        }
+        row.update(overrides)
+        return pd.DataFrame([row])
+
+    def test_no_audit_log_when_nothing_actually_changes(self):
+        existing = _DefaultNoneDict(
+            {
+                "policyId": "p1",
+                "clientId": 1,
+                "policyAddedByName": "TherapyAppointment System",
+                "policyEndDate": "2025-01-01",
+            }
+        )
+        cursor = _RoutingCursor(self._routes(existing))
+        conn = FakeConnection(cursor)
+
+        put_client_insurance_policies_in_db(self._policy_df(), connection=conn)
+
+        assert not any(
+            "INSERT INTO `emr_audit_log`" in query for query, _ in cursor.executed
+        )
+
+    def test_audit_log_written_only_for_changed_field(self):
+        existing = _DefaultNoneDict(
+            {
+                "policyId": "p1",
+                "clientId": 1,
+                "policyAddedByName": "TherapyAppointment System",
+                "policyEndDate": "2024-06-01",
+            }
+        )
+        cursor = _RoutingCursor(self._routes(existing))
+        conn = FakeConnection(cursor)
+
+        put_client_insurance_policies_in_db(self._policy_df(), connection=conn)
+
+        audit_inserts = [
+            params
+            for query, params in cursor.executed
+            if "INSERT INTO `emr_audit_log`" in query
+        ]
+        assert len(audit_inserts) == 1
+        _, _, action, client_id, detail, _, _ = audit_inserts[0]
+        assert action == "python.insurance.updatePolicy"
+        assert client_id == 1
+        parsed = json.loads(detail)
+        assert parsed["policyId"] == "p1"
+        assert set(parsed["changes"]) == {"policyEndDate"}
+        assert parsed["changes"]["policyEndDate"] == {
+            "old": "2024-06-01",
+            "new": "2025-01-01",
+        }
 
 
 class TestBuildReactivationReviewSeparator:

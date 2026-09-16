@@ -14,6 +14,7 @@ import {
 import { db } from "~/server/db";
 import {
 	accounts,
+	auditLogs,
 	evaluators,
 	invitations,
 	roles,
@@ -111,6 +112,30 @@ export const authConfig = {
 		async signOut() {
 			const store = await cookies();
 			store.delete(IMPERSONATION_COOKIE);
+		},
+		/**
+		 * Runs after the adapter has persisted a new user, so `user.id` is
+		 * populated here, unlike in the `signIn` callback where it isn't yet
+		 * for a first-time sign-in.
+		 */
+		async signIn({ user, isNewUser }) {
+			if (!isNewUser || !user.email || !user.id) return;
+
+			const invitation = await db.query.invitations.findFirst({
+				where: and(
+					eq(invitations.email, user.email),
+					eq(invitations.status, "accepted"),
+				),
+			});
+			if (!invitation) return;
+
+			await db.insert(auditLogs).values({
+				userId: user.id,
+				userEmail: user.email,
+				action: "invitation.accepted",
+				detail: { invitationId: invitation.id, roleId: user.roleId ?? null },
+				success: true,
+			});
 		},
 	},
 	callbacks: {

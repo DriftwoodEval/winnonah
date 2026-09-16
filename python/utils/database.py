@@ -31,6 +31,7 @@ from utils.constants import (
     TABLE_ADMIN_REVIEW_HISTORY,
     TABLE_APPOINTMENT,
     TABLE_ASSESSMENT_TYPE,
+    TABLE_AUDIT_LOG,
     TABLE_BLOCKED_SCHOOL_DISTRICT,
     TABLE_BLOCKED_ZIP_CODE,
     TABLE_CLIENT,
@@ -311,19 +312,24 @@ def put_clients_in_db(clients_df: pd.DataFrame, connection: Connection[DictCurso
 
     values_to_insert = []
     new_status_by_id: dict[str, bool] = {}
+    client_updates: dict[str, dict] = {}
 
     incoming_ids = [str(cid) for cid in clients_df["CLIENT_ID"] if pd.notna(cid)]
-    existing_language_by_id: dict[str, str | None] = {}
+    existing_by_id: dict[str, dict] = {}
     if incoming_ids:
         placeholders = ", ".join(["%s"] * len(incoming_ids))
         with connection.cursor() as cursor:
             cursor.execute(
-                f"SELECT id, language FROM `{TABLE_CLIENT}` WHERE id IN ({placeholders})",
+                f"""
+                SELECT id, status, deactivatedAt, addedDate, dob, firstName, lastName,
+                       preferredName, fullName, address, schoolDistrict, latitude,
+                       longitude, asdAdhd, language, paAssignedTo, gender, phoneNumber,
+                       email, flag, taUser, referralSource
+                FROM `{TABLE_CLIENT}` WHERE id IN ({placeholders})
+                """,
                 incoming_ids,
             )
-            existing_language_by_id = {
-                str(row["id"]): row["language"] for row in cursor.fetchall()
-            }
+            existing_by_id = {str(row["id"]): row for row in cursor.fetchall()}
 
     for _, client in clients_df.iterrows():
         client_id = get_column(client, "CLIENT_ID")
@@ -356,8 +362,10 @@ def put_clients_in_db(clients_df: pd.DataFrame, connection: Connection[DictCurso
         new_status = get_column(client, "STATUS") != "Inactive"
         new_status_by_id[str(client_id)] = new_status
 
+        existing = existing_by_id.get(str(client_id))
+
         language = get_column(client, "LANGUAGE")
-        if language is None and existing_language_by_id.get(str(client_id)) is None:
+        if language is None and (existing is None or existing["language"] is None):
             language = "English"
 
         values = (
@@ -390,6 +398,65 @@ def put_clients_in_db(clients_df: pd.DataFrame, connection: Connection[DictCurso
         )
         values_to_insert.append(values)
 
+        # Mirror the ON DUPLICATE KEY UPDATE's CASE rules to compute the
+        # value each column will actually end up with, so we diff against
+        # what's really changing rather than logging a no-op on every sync.
+        if existing is not None:
+            school_district = get_column(client, "SCHOOL_DISTRICT")
+            effective = {
+                "status": new_status,
+                "addedDate": added_date_formatted,
+                "dob": dob_formatted,
+                "firstName": firstname,
+                "lastName": lastname,
+                "preferredName": preferred_name,
+                "fullName": full_name,
+                "address": get_column(client, "ADDRESS"),
+                "schoolDistrict": school_district
+                if school_district is not None and school_district != "Unknown"
+                else existing["schoolDistrict"],
+                "latitude": values[11]
+                if values[11] is not None
+                else existing["latitude"],
+                "longitude": values[12]
+                if values[12] is not None
+                else existing["longitude"],
+                "asdAdhd": get_column(client, "ASD_ADHD")
+                if get_column(client, "ASD_ADHD") is not None
+                else existing["asdAdhd"],
+                "language": language if language is not None else existing["language"],
+                "paAssignedTo": get_column(client, "PA_ASSIGNED_TO")
+                if get_column(client, "PA_ASSIGNED_TO") is not None
+                else existing["paAssignedTo"],
+                "gender": gender,
+                "phoneNumber": phone_number,
+                "email": email,
+                "flag": get_column(client, "FLAG"),
+                "taUser": get_column(client, "LOGIN_NAME", default=None),
+                "referralSource": get_column(client, "REFERRAL_SOURCE", default=None)
+                if get_column(client, "REFERRAL_SOURCE", default=None) is not None
+                else existing["referralSource"],
+            }
+
+            # latitude/longitude come back from MySQL as Decimal but are
+            # computed here as strings/floats from the CSV, so compare them
+            # numerically rather than by type-sensitive equality.
+            def _differs(field: str, new_value, existing=existing) -> bool:
+                old_value = existing[field]
+                if field in ("latitude", "longitude"):
+                    if old_value is None or new_value is None:
+                        return old_value != new_value
+                    return float(old_value) != float(new_value)
+                return new_value != old_value
+
+            diff = {
+                field: {"old": existing[field], "new": new_value}
+                for field, new_value in effective.items()
+                if _differs(field, new_value)
+            }
+            if diff:
+                client_updates[str(client_id)] = diff
+
     sql = f"""
         INSERT INTO `{TABLE_CLIENT}` (id, hash, status, addedDate, dob, firstName, lastName, preferredName, fullName, address, schoolDistrict, latitude, longitude, asdAdhd, language, paAssignedTo, gender, phoneNumber, email, flag, taUser, referralSource)
         VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
@@ -418,21 +485,26 @@ def put_clients_in_db(clients_df: pd.DataFrame, connection: Connection[DictCurso
     """
 
     client_ids = [str(v[0]) for v in values_to_insert]
-    old_status_by_id: dict[str, bool] = {}
-    old_deactivated_at_by_id: dict[str, datetime | None] = {}
-    if client_ids:
-        placeholders = ", ".join(["%s"] * len(client_ids))
-        with connection.cursor() as cursor:
-            cursor.execute(
-                f"SELECT id, status, deactivatedAt FROM `{TABLE_CLIENT}` WHERE id IN ({placeholders})",
-                client_ids,
-            )
-            for row in cursor.fetchall():
-                old_status_by_id[str(row["id"])] = bool(row["status"])
-                old_deactivated_at_by_id[str(row["id"])] = row["deactivatedAt"]
+    old_status_by_id: dict[str, bool] = {
+        client_id: bool(row["status"]) for client_id, row in existing_by_id.items()
+    }
+    old_deactivated_at_by_id: dict[str, datetime | None] = {
+        client_id: row["deactivatedAt"] for client_id, row in existing_by_id.items()
+    }
 
     with connection.cursor() as cursor:
         cursor.executemany(sql, values_to_insert)
+
+    for client_id, diff in client_updates.items():
+        record_audit_log(
+            connection,
+            "python.client.update",
+            int(client_id),
+            "system:csv-sync",
+            "csv-sync (internal)",
+            detail=diff,
+        )
+
     connection.commit()
 
     logger.info(f"Successfully inserted/updated {len(values_to_insert)} clients.")
@@ -447,10 +519,20 @@ def put_clients_in_db(clients_df: pd.DataFrame, connection: Connection[DictCurso
     ]
     if deactivated_ids:
         placeholders = ", ".join(["%s"] * len(deactivated_ids))
+        deactivated_at = now_utc()
         with connection.cursor() as cursor:
             cursor.execute(
                 f"UPDATE `{TABLE_CLIENT}` SET deactivatedAt = %s WHERE id IN ({placeholders})",
-                [now_utc(), *deactivated_ids],
+                [deactivated_at, *deactivated_ids],
+            )
+        for client_id in deactivated_ids:
+            record_audit_log(
+                connection,
+                "python.client.deactivate",
+                int(client_id),
+                "system:csv-sync",
+                "csv-sync (internal)",
+                detail={"deactivatedAt": deactivated_at.isoformat()},
             )
         connection.commit()
         logger.info(f"Marked {len(deactivated_ids)} client(s) deactivated.")
@@ -578,6 +660,8 @@ def activate_reactivation_admin_review(
     client_id: int,
     deactivated_at: datetime | None,
     connection: Connection[DictCursor],
+    actor_id: str = "system:csv-sync",
+    actor_email: str = "csv-sync (internal)",
 ) -> None:
     """Handles a client who reactivated within 12 months of going inactive.
 
@@ -682,6 +766,18 @@ def activate_reactivation_admin_review(
                 (json.dumps(new_content), client_id),
             )
 
+    record_audit_log(
+        connection,
+        "python.reactivation.activateReview",
+        client_id,
+        actor_id,
+        actor_email,
+        detail={
+            "reactivatedOn": reactivated_on,
+            "deactivatedOn": deactivated_on,
+            "monthsGap": distance,
+        },
+    )
     connection.commit()
 
 
@@ -690,6 +786,8 @@ def reset_client_session(
     client_id: int,
     deactivated_at: datetime | None,
     connection: Connection[DictCursor],
+    actor_id: str = "system:csv-sync",
+    actor_email: str = "csv-sync (internal)",
 ) -> None:
     """Archives a reactivated client's prior-session data and starts a fresh one.
 
@@ -826,6 +924,22 @@ def reset_client_session(
             (now, client_id),
         )
 
+    record_audit_log(
+        connection,
+        "python.session.reset",
+        client_id,
+        actor_id,
+        actor_email,
+        detail={
+            "reactivatedOn": reactivated_on,
+            "monthsGap": gap,
+            "sessionStartedAt": now.isoformat(),
+            "inPersonAssessmentsArchived": len(assessments),
+            "externalRecordArchived": bool(
+                external_record and external_record["content"] is not None
+            ),
+        },
+    )
     connection.commit()
 
 
@@ -949,6 +1063,14 @@ def sync_scm_admin_reviews(connection: Connection[DictCursor]):
             """,
             rows,
         )
+    for client in clients_to_backfill:
+        record_audit_log(
+            connection,
+            "python.adminReview.scmBackfill",
+            client["id"],
+            "system:csv-sync",
+            "csv-sync (internal)",
+        )
     connection.commit()
     logger.info(f"Created {len(rows)} SCM admin review record(s).")
 
@@ -966,6 +1088,14 @@ def update_client_medicaid_eligibility(
             f"UPDATE `{TABLE_CLIENT}` SET qualCategory = %s, paymentCategory = %s WHERE id = %s",
             (qual_category, payment_category, client_id),
         )
+    record_audit_log(
+        connection,
+        "python.medicaidEligibility.update",
+        client_id,
+        "system:csv-sync",
+        "csv-sync (internal)",
+        detail={"qualCategory": qual_category, "paymentCategory": payment_category},
+    )
     connection.commit()
 
 
@@ -1233,7 +1363,8 @@ def put_client_insurance_policies_in_db(
 
     placeholders = ", ".join(["%s"] * len(values_to_insert[0]))
 
-    update_cols = [c.strip() for c in cols.split(",") if c.strip() != "policyId"]
+    col_names = [c.strip() for c in cols.split(",")]
+    update_cols = [c for c in col_names if c != "policyId"]
     on_duplicate = ", ".join(f"{c} = VALUES({c})" for c in update_cols)
 
     sql_stmt = f"""
@@ -1242,8 +1373,48 @@ def put_client_insurance_policies_in_db(
         ON DUPLICATE KEY UPDATE {on_duplicate};
     """
 
+    # Diff against the current row so we log only what actually changed,
+    # not a no-op on every sync (every column is unconditionally overwritten
+    # by ON DUPLICATE KEY UPDATE above, so a straight equality diff matches
+    # what will really land in the DB).
+    policy_ids = [values[0] for values in values_to_insert]
+    existing_by_policy_id: dict[str, dict] = {}
+    if policy_ids:
+        id_placeholders = ", ".join(["%s"] * len(policy_ids))
+        with connection.cursor() as cursor:
+            cursor.execute(
+                f"SELECT {cols} FROM `{TABLE_CLIENT_INSURANCE_POLICY}` WHERE policyId IN ({id_placeholders})",
+                policy_ids,
+            )
+            existing_by_policy_id = {row["policyId"]: row for row in cursor.fetchall()}
+
+    policy_updates: list[tuple[int, str, dict]] = []
+    for values in values_to_insert:
+        new_row = dict(zip(col_names, values, strict=True))
+        existing = existing_by_policy_id.get(new_row["policyId"])
+        if existing is None:
+            continue
+        diff = {
+            col: {"old": existing[col], "new": new_row[col]}
+            for col in update_cols
+            if new_row[col] != existing[col]
+        }
+        if diff:
+            policy_updates.append((new_row["clientId"], new_row["policyId"], diff))
+
     with connection.cursor() as cursor:
         cursor.executemany(sql_stmt, values_to_insert)
+
+    for client_id, policy_id, diff in policy_updates:
+        record_audit_log(
+            connection,
+            "python.insurance.updatePolicy",
+            client_id,
+            "system:csv-sync",
+            "csv-sync (internal)",
+            detail={"policyId": policy_id, "changes": diff},
+        )
+
     connection.commit()
 
     logger.info(
@@ -1259,6 +1430,16 @@ def put_client_insurance_policies_in_db(
     with connection.cursor() as cursor:
         cursor.execute(
             f"""
+            SELECT clientId, policyId FROM `{TABLE_CLIENT_INSURANCE_POLICY}`
+            WHERE clientId IN ({client_id_placeholders})
+              AND policyId NOT IN ({policy_id_placeholders})
+            """,
+            [*imported_client_ids, *imported_policy_ids],
+        )
+        stale_policies = cursor.fetchall()
+
+        cursor.execute(
+            f"""
             DELETE FROM `{TABLE_CLIENT_INSURANCE_POLICY}`
             WHERE clientId IN ({client_id_placeholders})
               AND policyId NOT IN ({policy_id_placeholders})
@@ -1266,6 +1447,15 @@ def put_client_insurance_policies_in_db(
             [*imported_client_ids, *imported_policy_ids],
         )
         deleted = cursor.rowcount
+    for policy in stale_policies:
+        record_audit_log(
+            connection,
+            "python.insurance.removeStalePolicy",
+            policy["clientId"],
+            "system:csv-sync",
+            "csv-sync (internal)",
+            detail={"policyId": policy["policyId"]},
+        )
     connection.commit()
 
     if deleted:
@@ -1298,6 +1488,45 @@ def update_client_ta_hashes(
     except Exception as e:
         logger.error(f"Failed to update taHashes: {e}")
         connection.rollback()
+
+
+def record_audit_log(
+    connection: Connection[DictCursor],
+    action: str,
+    client_id: int | None,
+    actor_id: str,
+    actor_email: str,
+    *,
+    success: bool = True,
+    error_message: str | None = None,
+    detail: dict | None = None,
+) -> None:
+    """Write a row to emr_audit_log for a direct DB write made by a Python script.
+
+    Called on the same connection as the write it's recording, before that
+    write's commit, so the two land in the same transaction. Best-effort:
+    a failure here must never take down the caller's actual write, so
+    errors are logged and swallowed rather than raised.
+    """
+    try:
+        with connection.cursor() as cursor:
+            cursor.execute(
+                f"""
+                INSERT INTO `{TABLE_AUDIT_LOG}` (userId, userEmail, action, clientId, detail, success, errorMessage)
+                VALUES (%s, %s, %s, %s, %s, %s, %s)
+                """,
+                (
+                    actor_id,
+                    actor_email,
+                    action,
+                    client_id,
+                    json.dumps(detail, default=str) if detail is not None else None,
+                    success,
+                    error_message,
+                ),
+            )
+    except Exception:
+        logger.exception(f"Failed to write audit log for action={action}")
 
 
 def resolve_failure_in_db(
@@ -1347,13 +1576,26 @@ def put_appointment_in_db(
         # that's what's stored); start_time is UTC-aware, so compare on the
         # naive wall-clock value.
         start_time_naive_utc = start_time.replace(tzinfo=None)
-        if (
-            existing
-            and existing["confirmedAt"] is not None
-            and existing["startTime"] != start_time_naive_utc
-        ):
+        if existing and existing["startTime"] != start_time_naive_utc:
             logger.warning(
-                f"Appointment {appointment_id}: startTime changed from {existing['startTime']} to {start_time_naive_utc} - confirmedAt will be cleared (was {existing['confirmedAt']})"
+                f"Appointment {appointment_id}: startTime changed from {existing['startTime']} to {start_time_naive_utc}"
+                + (
+                    f" - confirmedAt will be cleared (was {existing['confirmedAt']})"
+                    if existing["confirmedAt"] is not None
+                    else ""
+                )
+            )
+            record_audit_log(
+                connection,
+                "python.appointments.reschedule",
+                client_id,
+                "system:csv-sync",
+                "csv-sync (internal)",
+                detail={
+                    "appointmentId": appointment_id,
+                    "oldStartTime": existing["startTime"].isoformat(),
+                    "newStartTime": start_time_naive_utc.isoformat(),
+                },
             )
 
     sql = f"""
@@ -1930,6 +2172,14 @@ def set_client_drive_folder_evaluator(
             "driveFolderIsEval = %s WHERE id = %s",
             (evaluator_npi, is_eval, client_id),
         )
+    record_audit_log(
+        connection,
+        "python.client.driveFolderMoved",
+        int(client_id),
+        "system:csv-sync",
+        "csv-sync (internal)",
+        detail={"evaluatorNpi": evaluator_npi, "isEval": is_eval},
+    )
     connection.commit()
 
 
@@ -2321,6 +2571,14 @@ def _store_snapshot(
             f"UPDATE {TABLE_CLIENT} SET assessmentData = %s WHERE id = %s",
             (json.dumps(snapshot), client_id),
         )
+    record_audit_log(
+        connection,
+        "python.assessment.snapshotUpdate",
+        client_id,
+        "system:csv-sync",
+        "csv-sync (internal)",
+        detail=snapshot,
+    )
     connection.commit()
 
 
@@ -2440,6 +2698,19 @@ def reconcile_reports_from_appointments(
                     row["evaluatorEmail"] if self_written else None,
                 ),
             )
+            record_audit_log(
+                connection,
+                "python.report.createFromAppointment",
+                row["clientId"],
+                "system:csv-sync",
+                "csv-sync (internal)",
+                detail={
+                    "evaluatorNpi": row["evaluatorNpi"],
+                    "asdAdhd": asd_adhd,
+                    "selfWritten": self_written,
+                    "billablePiecework": billable,
+                },
+            )
             created += 1
 
         connection.commit()
@@ -2492,6 +2763,14 @@ def reconcile_pool_report_queue_state(
                     f"UPDATE `{TABLE_REPORT}` SET status = 'queued', queueReadyAt = %s WHERE id = %s",
                     (now, report["id"]),
                 )
+                record_audit_log(
+                    connection,
+                    "python.report.promoteToQueued",
+                    report["clientId"],
+                    "system:report-sync",
+                    "report sync (internal)",
+                    detail={"reportId": report["id"]},
+                )
                 promoted += 1
             elif (
                 not in_queue
@@ -2502,6 +2781,14 @@ def reconcile_pool_report_queue_state(
                 cursor.execute(
                     f"UPDATE `{TABLE_REPORT}` SET status = 'pending', queueReadyAt = NULL WHERE id = %s",
                     (report["id"],),
+                )
+                record_audit_log(
+                    connection,
+                    "python.report.demoteToPending",
+                    report["clientId"],
+                    "system:report-sync",
+                    "report sync (internal)",
+                    detail={"reportId": report["id"]},
                 )
                 demoted += 1
 
@@ -2518,6 +2805,13 @@ def reconcile_pool_report_queue_state(
                 VALUES (%s, 'queued', 0, 'auto', %s)
                 """,
                 (client_id, now),
+            )
+            record_audit_log(
+                connection,
+                "python.report.createFromQueueFolder",
+                client_id,
+                "system:report-sync",
+                "report sync (internal)",
             )
             created += 1
 
@@ -2619,6 +2913,18 @@ def sync_punchlist_to_db(
                     f"UPDATE `{TABLE_CLIENT}` SET `{db_col}` = %s WHERE id = %s",
                     (value, int(client_key)),
                 )
+                record_audit_log(
+                    connection,
+                    "python.punchlist.updateClientField",
+                    int(client_key),
+                    "system:punchlist-sync",
+                    PUNCHLIST_SYNC_ACTOR_EMAIL,
+                    detail={
+                        "field": db_col,
+                        "oldValue": client[db_col],
+                        "newValue": value,
+                    },
+                )
                 changed += 1
 
         for report in open_reports:
@@ -2644,6 +2950,18 @@ def sync_punchlist_to_db(
                         PUNCHLIST_SYNC_ACTOR_EMAIL if sheet_value else None,
                         report["id"],
                     ),
+                )
+                record_audit_log(
+                    connection,
+                    "python.punchlist.updateReportField",
+                    report["clientId"],
+                    "system:punchlist-sync",
+                    PUNCHLIST_SYNC_ACTOR_EMAIL,
+                    detail={
+                        "reportId": report["id"],
+                        "field": col,
+                        "newValue": sheet_value,
+                    },
                 )
                 changed += 1
 

@@ -226,7 +226,13 @@ def remediate_client(
     # Reopen the admin review with the correct within-12-months note. The
     # original deactivatedAt is unknown here, so the note records the gap as
     # unknown.
-    activate_reactivation_admin_review(client_id, None, connection=connection)
+    activate_reactivation_admin_review(
+        client_id,
+        None,
+        connection=connection,
+        actor_id="system:session-remediation",
+        actor_email="session remediation (internal)",
+    )
 
     logger.info(
         f"Remediated {label}: assessments={assessments_restored}, "

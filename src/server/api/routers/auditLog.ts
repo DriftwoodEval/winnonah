@@ -78,4 +78,20 @@ export const auditLogRouter = createTRPCRouter({
 
 		return rows.map((r) => r.action);
 	}),
+
+	getDistinctUsers: protectedProcedure.query(async ({ ctx }) => {
+		assertPermission(ctx.session.user, "settings:audit-log:view");
+
+		const rows = await ctx.db
+			.selectDistinct({
+				userId: auditLogs.userId,
+				userEmail: auditLogs.userEmail,
+				userName: users.name,
+			})
+			.from(auditLogs)
+			.leftJoin(users, eq(auditLogs.userId, users.id))
+			.orderBy(auditLogs.userEmail);
+
+		return rows;
+	}),
 });

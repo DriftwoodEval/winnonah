@@ -43,8 +43,9 @@ export default function AuditLogTable() {
 		null,
 	);
 	const [offset, setOffset] = useState(0);
+	const [expandedRows, setExpandedRows] = useState<Set<number>>(new Set());
 
-	const { data: users } = api.users.getAll.useQuery();
+	const { data: auditUsers } = api.auditLog.getDistinctUsers.useQuery();
 	const { data: actionNames } = api.auditLog.getActionNames.useQuery();
 	const { data } = api.auditLog.list.useQuery(
 		{
@@ -85,9 +86,9 @@ export default function AuditLogTable() {
 					</SelectTrigger>
 					<SelectContent>
 						<SelectItem value="all">All users</SelectItem>
-						{users?.map((user) => (
-							<SelectItem key={user.id} value={user.id}>
-								{user.name ?? user.email}
+						{auditUsers?.map((user) => (
+							<SelectItem key={user.userId} value={user.userId}>
+								{user.userName ?? user.userEmail}
 							</SelectItem>
 						))}
 					</SelectContent>
@@ -170,14 +171,33 @@ export default function AuditLogTable() {
 									</TableCell>
 									<TableCell>
 										<Badge variant="outline">{row.action}</Badge>
-										{formatDetail(row.detail) && (
-											<span
-												className="block max-w-md truncate text-muted-foreground text-xs"
-												title={formatDetail(row.detail) ?? undefined}
-											>
-												{formatDetail(row.detail)}
-											</span>
-										)}
+										{formatDetail(row.detail) &&
+											(expandedRows.has(row.id) ? (
+												<button
+													className="block max-w-md whitespace-pre-wrap break-words text-left text-muted-foreground text-xs"
+													onClick={() =>
+														setExpandedRows((prev) => {
+															const next = new Set(prev);
+															next.delete(row.id);
+															return next;
+														})
+													}
+													type="button"
+												>
+													{formatDetail(row.detail)}
+												</button>
+											) : (
+												<button
+													className="block max-w-md truncate text-left text-muted-foreground text-xs"
+													onClick={() =>
+														setExpandedRows((prev) => new Set(prev).add(row.id))
+													}
+													title="Click to expand"
+													type="button"
+												>
+													{formatDetail(row.detail)}
+												</button>
+											))}
 									</TableCell>
 									<TableCell>
 										{row.clientId && row.clientHash ? (
