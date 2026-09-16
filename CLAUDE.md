@@ -23,7 +23,7 @@ Docs live in `src/content/docs/` as Markdown/MDX and are read by practice staff,
 - Never run `pnpm db:*` or DB migrations, leave to the user.
 
 ## Local Development
-This app needs a running MySQL (Docker) instance and `.env` credentials to boot. In a sandboxed session without Docker or `.env` access (e.g. Claude Code on the web), don't try to start the dev server or browser-test UI changes: verify with `mise run check` and existing tests instead, and say so plainly rather than claiming a browser check that didn't happen. If Docker and `.env` are available, starting the dev server and testing in a browser is still the right call for UI changes.
+Every page requires a logged-in NextAuth session, and Claude has no way to authenticate as a real user, so starting the dev server and browser-testing a UI change is never possible here regardless of Docker/`.env` availability. Don't attempt it. Verify UI changes with `mise run check` and existing tests, and say plainly that the change wasn't browser-tested rather than claiming otherwise.
 
 ## Home Page Widgets
 The home page (`src/app/_components/home/HomePageContent.tsx`) renders a user-configurable grid of widgets. Widget ids are plain strings, not a type union. To add a widget:
