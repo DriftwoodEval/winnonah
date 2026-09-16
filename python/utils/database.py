@@ -1568,35 +1568,112 @@ def put_appointment_in_db(
             return
 
         cursor.execute(
-            f"SELECT startTime, confirmedAt FROM `{TABLE_APPOINTMENT}` WHERE id = %s",
+            f"""SELECT startTime, endTime, confirmedAt, cancelled, evaluatorNpi, daEval,
+                       asdAdhd, locationKey, calendarEventId, cpt, calendarEventTitle,
+                       billingOnly
+                FROM `{TABLE_APPOINTMENT}` WHERE id = %s""",
             (appointment_id,),
         )
         existing = cursor.fetchone()
         # pymysql always returns naive datetimes (representing UTC, since
-        # that's what's stored); start_time is UTC-aware, so compare on the
-        # naive wall-clock value.
+        # that's what's stored); start_time/end_time are UTC-aware, so compare
+        # on the naive wall-clock value.
         start_time_naive_utc = start_time.replace(tzinfo=None)
-        if existing and existing["startTime"] != start_time_naive_utc:
-            logger.warning(
-                f"Appointment {appointment_id}: startTime changed from {existing['startTime']} to {start_time_naive_utc}"
-                + (
-                    f" - confirmedAt will be cleared (was {existing['confirmedAt']})"
-                    if existing["confirmedAt"] is not None
-                    else ""
-                )
-            )
+        end_time_naive_utc = end_time.replace(tzinfo=None)
+
+        if existing is None:
             record_audit_log(
                 connection,
-                "python.appointments.reschedule",
+                "python.appointments.create",
                 client_id,
                 "system:csv-sync",
                 "csv-sync (internal)",
                 detail={
                     "appointmentId": appointment_id,
-                    "oldStartTime": existing["startTime"].isoformat(),
-                    "newStartTime": start_time_naive_utc.isoformat(),
+                    "startTime": start_time_naive_utc.isoformat(),
+                    "endTime": end_time_naive_utc.isoformat(),
+                    "evaluatorNpi": evaluator_npi,
+                    "cpt": cpt,
+                    "daEval": da_eval,
+                    "asdAdhd": asd_adhd,
+                    "cancelled": bool(cancelled),
+                    "billingOnly": billing_only,
                 },
             )
+        else:
+            rescheduled = existing["startTime"] != start_time_naive_utc
+            if rescheduled:
+                logger.warning(
+                    f"Appointment {appointment_id}: startTime changed from {existing['startTime']} to {start_time_naive_utc}"
+                    + (
+                        f" - confirmedAt will be cleared (was {existing['confirmedAt']})"
+                        if existing["confirmedAt"] is not None
+                        else ""
+                    )
+                )
+                record_audit_log(
+                    connection,
+                    "python.appointments.reschedule",
+                    client_id,
+                    "system:csv-sync",
+                    "csv-sync (internal)",
+                    detail={
+                        "appointmentId": appointment_id,
+                        "oldStartTime": existing["startTime"].isoformat(),
+                        "newStartTime": start_time_naive_utc.isoformat(),
+                    },
+                )
+
+            # cancelled resets to False on a reschedule regardless of the incoming
+            # value, mirroring the CASE logic in the UPDATE below.
+            effective_cancelled = False if rescheduled else bool(cancelled)
+            existing_cancelled = bool(existing["cancelled"])
+            if effective_cancelled != existing_cancelled:
+                record_audit_log(
+                    connection,
+                    "python.appointments.cancel"
+                    if effective_cancelled
+                    else "python.appointments.uncancel",
+                    client_id,
+                    "system:csv-sync",
+                    "csv-sync (internal)",
+                    detail={"appointmentId": appointment_id},
+                )
+
+            # Fields the UPDATE below only overwrites when the incoming value is
+            # non-null, so compute what each field will actually become before
+            # diffing against the existing row.
+            effective = {
+                "endTime": end_time_naive_utc,
+                "evaluatorNpi": evaluator_npi,
+                "daEval": da_eval if da_eval is not None else existing["daEval"],
+                "asdAdhd": asd_adhd if asd_adhd is not None else existing["asdAdhd"],
+                "locationKey": location
+                if location is not None
+                else existing["locationKey"],
+                "calendarEventId": gcal_event_id
+                if gcal_event_id is not None
+                else existing["calendarEventId"],
+                "cpt": cpt,
+                "calendarEventTitle": gcal_event_title
+                if gcal_event_title is not None
+                else existing["calendarEventTitle"],
+                "billingOnly": billing_only,
+            }
+            diff = {
+                field: {"old": existing[field], "new": new_value}
+                for field, new_value in effective.items()
+                if new_value != existing[field]
+            }
+            if diff:
+                record_audit_log(
+                    connection,
+                    "python.appointments.update",
+                    client_id,
+                    "system:csv-sync",
+                    "csv-sync (internal)",
+                    detail={"appointmentId": appointment_id, "changes": diff},
+                )
 
     sql = f"""
         INSERT INTO `{TABLE_APPOINTMENT}` (id, clientId, evaluatorNpi, startTime, endTime, daEval, asdAdhd, cancelled, locationKey, calendarEventId, cpt, calendarEventTitle, confirmedAt, billingOnly)
