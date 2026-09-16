@@ -22,6 +22,9 @@ Docs live in `src/content/docs/` as Markdown/MDX and are read by practice staff,
 - Trust ruff over your own syntax assumptions.
 - Never run `pnpm db:*` or DB migrations, leave to the user.
 
+## Local Development
+This app needs a running MySQL (Docker) instance and `.env` credentials to boot. In a sandboxed session without Docker or `.env` access (e.g. Claude Code on the web), don't try to start the dev server or browser-test UI changes: verify with `mise run check` and existing tests instead, and say so plainly rather than claiming a browser check that didn't happen. If Docker and `.env` are available, starting the dev server and testing in a browser is still the right call for UI changes.
+
 ## Home Page Widgets
 The home page (`src/app/_components/home/HomePageContent.tsx`) renders a user-configurable grid of widgets. Widget ids are plain strings, not a type union. To add a widget:
 1. Add an entry to `HOME_WIDGET_DEFS` in `src/lib/home-widgets.ts` (`id`, `label`, `permission`, `category`, `sizing`). Optionally add a default `{ cols, rows }` to `DEFAULT_WIDGET_CONFIG`.
