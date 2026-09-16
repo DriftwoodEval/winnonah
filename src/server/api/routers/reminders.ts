@@ -1,5 +1,6 @@
 import { asc, desc, eq } from "drizzle-orm";
 import z from "zod";
+import { diffValues, setAuditDetail } from "~/server/api/audit";
 import { createTRPCRouter, protectedProcedure } from "~/server/api/trpc";
 import {
 	appointmentReminderSettings,
@@ -27,6 +28,12 @@ export const reminderRouter = createTRPCRouter({
 			}),
 		)
 		.mutation(async ({ ctx, input }) => {
+			const existing = await ctx.db
+				.select()
+				.from(appointmentReminderSettings)
+				.limit(1);
+			setAuditDetail(ctx, diffValues(existing[0] ?? {}, input));
+
 			ctx.logger.info(
 				{ ...input, updatedBy: ctx.session.user.email },
 				"Updating reminder settings",
@@ -63,11 +70,19 @@ export const reminderRouter = createTRPCRouter({
 			}),
 		)
 		.mutation(async ({ ctx, input }) => {
+			const { id, ...data } = input;
+
+			if (id) {
+				const existing = await ctx.db.query.reminderTemplates.findFirst({
+					where: eq(reminderTemplates.id, id),
+				});
+				setAuditDetail(ctx, diffValues(existing ?? {}, data));
+			}
+
 			ctx.logger.info(
 				{ ...input, updatedBy: ctx.session.user.email },
 				"Upserting reminder template",
 			);
-			const { id, ...data } = input;
 			if (id) {
 				return await ctx.db
 					.update(reminderTemplates)

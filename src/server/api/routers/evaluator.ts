@@ -2,6 +2,7 @@ import { eq, ne, sql } from "drizzle-orm";
 import z from "zod";
 import { env } from "~/env";
 import { fetchWithCache, invalidateCache } from "~/lib/cache";
+import { diffValues, setAuditDetail } from "~/server/api/audit";
 import { CACHE_KEY_POSSIBLE_PRIVATE_PAY } from "~/server/api/routers/client";
 import {
 	assertPermission,
@@ -289,8 +290,6 @@ export const evaluatorRouter = createTRPCRouter({
 		.mutation(async ({ ctx, input }) => {
 			assertPermission(ctx.session.user, "settings:evaluators");
 
-			ctx.logger.info(input, "Updating evaluator");
-
 			const npiAsInt = parseInt(input.npi, 10);
 			const {
 				offices,
@@ -299,6 +298,50 @@ export const evaluatorRouter = createTRPCRouter({
 				insurances: insuranceIds,
 				...evaluatorData
 			} = input;
+
+			const existing = await ctx.db.query.evaluators.findFirst({
+				where: eq(evaluators.npi, npiAsInt),
+				with: {
+					offices: true,
+					blockedSchoolDistricts: true,
+					blockedZipCodes: true,
+					insurances: true,
+				},
+			});
+			const {
+				offices: existingOfficeLinks,
+				blockedSchoolDistricts: existingBlockedDistrictLinks,
+				blockedZipCodes: existingBlockedZipLinks,
+				insurances: existingInsuranceLinks,
+				...existingData
+			} = existing ?? {};
+			setAuditDetail(
+				ctx,
+				diffValues(
+					{
+						...existingData,
+						offices: existingOfficeLinks?.map((link) => link.officeKey) ?? [],
+						blockedDistricts:
+							existingBlockedDistrictLinks?.map(
+								(link) => link.schoolDistrictId,
+							) ?? [],
+						blockedZips:
+							existingBlockedZipLinks?.map((link) => link.zipCode) ?? [],
+						insurances:
+							existingInsuranceLinks?.map((link) => link.insuranceId) ?? [],
+					},
+					{
+						...evaluatorData,
+						npi: npiAsInt,
+						offices,
+						blockedDistricts,
+						blockedZips,
+						insurances: insuranceIds,
+					},
+				),
+			);
+
+			ctx.logger.info(input, "Updating evaluator");
 
 			const result = await ctx.db.transaction(async (tx) => {
 				// Update core evaluator data

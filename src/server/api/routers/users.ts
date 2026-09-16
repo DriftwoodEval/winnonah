@@ -4,6 +4,7 @@ import z from "zod";
 import { env } from "~/env";
 import { pinnedListSchema } from "~/lib/pinned-list";
 import { type PermissionsObject, permissionsSchema } from "~/lib/types";
+import { diffValues, setAuditDetail } from "~/server/api/audit";
 import {
 	assertPermission,
 	createTRPCRouter,
@@ -56,8 +57,6 @@ export const userRouter = createTRPCRouter({
 		.mutation(async ({ ctx, input }) => {
 			assertPermission(ctx.session.user, "settings:users:edit");
 
-			ctx.logger.info(input, "Updating user");
-
 			const updateData: {
 				permissions?: PermissionsObject;
 				roleId?: number | null;
@@ -73,6 +72,19 @@ export const userRouter = createTRPCRouter({
 					message: "No data provided to update.",
 				});
 			}
+
+			const existing = await ctx.db.query.users.findFirst({
+				where: eq(users.id, input.userId),
+			});
+			const before: Record<string, unknown> = {};
+			const after: Record<string, unknown> = {};
+			for (const key of Object.keys(updateData)) {
+				before[key] = existing?.[key as keyof typeof existing];
+				after[key] = updateData[key as keyof typeof updateData];
+			}
+			setAuditDetail(ctx, diffValues(before, after));
+
+			ctx.logger.info(input, "Updating user");
 
 			await ctx.db
 				.update(users)
@@ -229,6 +241,15 @@ export const userRouter = createTRPCRouter({
 		)
 		.mutation(async ({ ctx, input }) => {
 			assertPermission(ctx.session.user, "settings:users:edit");
+
+			const existing = await ctx.db.query.users.findFirst({
+				where: eq(users.id, input.userId),
+			});
+			setAuditDetail(
+				ctx,
+				diffValues(existing?.blockedEvaluatorNpis ?? [], input.npis ?? []),
+			);
+
 			ctx.logger.info(
 				{ ...input, updatedBy: ctx.session.user.email },
 				"Setting blocked evaluator NPIs",
@@ -433,6 +454,18 @@ export const userRouter = createTRPCRouter({
 			}),
 		)
 		.mutation(async ({ ctx, input }) => {
+			const userFromDb = await ctx.db.query.users.findFirst({
+				where: eq(users.id, ctx.session.user.id),
+			});
+			let existingWidgets: unknown[] = [];
+			try {
+				existingWidgets =
+					(JSON.parse(userFromDb?.homeWidgets ?? "null") as unknown[]) ?? [];
+			} catch {
+				existingWidgets = [];
+			}
+			setAuditDetail(ctx, diffValues(existingWidgets, input.widgets));
+
 			await ctx.db
 				.update(users)
 				.set({ homeWidgets: JSON.stringify(input.widgets) })
@@ -467,7 +500,16 @@ export const userRouter = createTRPCRouter({
 			}
 
 			const listFilters = userFromDb.listFilters ?? {};
+			const previousFilters = listFilters[input.key] ?? [];
 			listFilters[input.key] = input.filters;
+
+			setAuditDetail(
+				ctx,
+				diffValues(
+					{ key: input.key, filters: previousFilters },
+					{ key: input.key, filters: input.filters },
+				),
+			);
 
 			await ctx.db
 				.update(users)
@@ -535,7 +577,16 @@ export const userRouter = createTRPCRouter({
 			} catch {
 				current = {};
 			}
+			const previousHiddenItems = current[input.surface] ?? [];
 			current[input.surface] = input.hiddenItems;
+
+			setAuditDetail(
+				ctx,
+				diffValues(
+					{ surface: input.surface, hiddenItems: previousHiddenItems },
+					{ surface: input.surface, hiddenItems: input.hiddenItems },
+				),
+			);
 
 			await ctx.db
 				.update(users)
