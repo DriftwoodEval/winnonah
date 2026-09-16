@@ -185,8 +185,8 @@ importers:
         specifier: ^3.2.2
         version: 3.2.2(react@19.3.0)
       '@googleapis/calendar':
-        specifier: ^16.0.0
-        version: 16.0.0(supports-color@7.2.0)
+        specifier: ^19.0.0
+        version: 19.0.0(supports-color@7.2.0)
       '@googleapis/drive':
         specifier: ^22.0.0
         version: 22.0.0(supports-color@7.2.0)
@@ -1172,9 +1172,9 @@ packages:
   '@floating-ui/utils@0.2.12':
     resolution: {integrity: sha512-HpCo8tmWzLVad5s2d19EhAz5zqrrQ6s69qd6moPMQvkOuSwDT1YgRfWSVuc4ennqrgv3OHppiOGMQ7oC13yIww==}
 
-  '@googleapis/calendar@16.0.0':
-    resolution: {integrity: sha512-Z/8Jdf4hMvmMlBMhP0whZNPSixEpYv4mC5RJfrlvrnqpf/rV68MJ+8M9MmyqUt7/SQp2zRfVmEqkk+csB2Cgmg==}
-    engines: {node: '>=12.0.0'}
+  '@googleapis/calendar@19.0.0':
+    resolution: {integrity: sha512-IK8eQiTDUCmI43sHlAs7O/PpPphSPY40HDoW/L7byQdQ4Qq8E9FaVDB/HRBsvlLToS+yI4x3C90tR8HrFoHYWQ==}
+    engines: {node: '>=22.0.0'}
 
   '@googleapis/drive@22.0.0':
     resolution: {integrity: sha512-u21JQPR5mGKt8OqjsDndb+l5b44IXCKTum+P1Q1rlWmi2pUNZqcNeq7csx06xlwj+UeZv5/ZhhhAjziVZu86Dg==}
@@ -6575,9 +6575,9 @@ snapshots:
 
   '@floating-ui/utils@0.2.12': {}
 
-  '@googleapis/calendar@16.0.0(supports-color@7.2.0)':
+  '@googleapis/calendar@19.0.0(supports-color@7.2.0)':
     dependencies:
-      googleapis-common: 8.0.3(supports-color@7.2.0)
+      googleapis-common: 9.0.4(supports-color@7.2.0)
     transitivePeerDependencies:
       - supports-color
 
