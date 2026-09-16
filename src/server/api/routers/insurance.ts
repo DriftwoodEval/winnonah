@@ -2,6 +2,7 @@ import { eq } from "drizzle-orm";
 import { z } from "zod";
 import { fetchWithCache, invalidateCache } from "~/lib/cache";
 import { additionalInsuranceAppointmentsSchema } from "~/lib/validations/config";
+import { diffValues, setAuditDetail } from "~/server/api/audit";
 import { CACHE_KEY_MISSING_APPOINTMENTS } from "~/server/api/routers/client";
 import { CACHE_KEY_ALL_EVALUATORS } from "~/server/api/routers/evaluator";
 import {
@@ -129,8 +130,34 @@ export const insuranceRouter = createTRPCRouter({
 		.mutation(async ({ ctx, input }) => {
 			assertPermission(ctx.session.user, "settings:insurances");
 
-			ctx.logger.info(input, "Updating insurance");
 			const { id, aliases, evaluatorNpis, ...data } = input;
+
+			const existing = await ctx.db.query.insurances.findFirst({
+				where: eq(insurances.id, id),
+				with: {
+					aliases: true,
+					evaluators: true,
+				},
+			});
+			const {
+				aliases: existingAliasLinks,
+				evaluators: existingEvaluatorLinks,
+				...existingData
+			} = existing ?? {};
+			setAuditDetail(
+				ctx,
+				diffValues(
+					{
+						...existingData,
+						aliases: existingAliasLinks?.map((link) => link.name) ?? [],
+						evaluatorNpis:
+							existingEvaluatorLinks?.map((link) => link.evaluatorNpi) ?? [],
+					},
+					{ ...data, aliases, evaluatorNpis },
+				),
+			);
+
+			ctx.logger.info(input, "Updating insurance");
 
 			await ctx.db.transaction(async (tx) => {
 				await tx.update(insurances).set(data).where(eq(insurances.id, id));

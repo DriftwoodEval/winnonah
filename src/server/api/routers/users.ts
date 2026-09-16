@@ -241,6 +241,15 @@ export const userRouter = createTRPCRouter({
 		)
 		.mutation(async ({ ctx, input }) => {
 			assertPermission(ctx.session.user, "settings:users:edit");
+
+			const existing = await ctx.db.query.users.findFirst({
+				where: eq(users.id, input.userId),
+			});
+			setAuditDetail(
+				ctx,
+				diffValues(existing?.blockedEvaluatorNpis ?? [], input.npis ?? []),
+			);
+
 			ctx.logger.info(
 				{ ...input, updatedBy: ctx.session.user.email },
 				"Setting blocked evaluator NPIs",
