@@ -20,6 +20,7 @@ from utils.database import (
     get_sync_report_date,
     insert_by_matching_criteria_incremental,
     provide_connection,
+    put_appointment_in_db,
     put_client_insurance_policies_in_db,
     put_clients_in_db,
     set_referral_fax_date,
@@ -522,6 +523,121 @@ class TestPutClientInsurancePoliciesInDb:
             "old": "2024-06-01",
             "new": "2025-01-01",
         }
+
+
+class TestPutAppointmentInDb:
+    def _routes(self, existing_row):
+        return [
+            ("FROM `emr_client` WHERE id", [{"1": 1}]),
+            (
+                "FROM `emr_appointment` WHERE id",
+                [existing_row] if existing_row is not None else [],
+            ),
+        ]
+
+    def _call(self, connection, **overrides):
+        params = {
+            "appointment_id": "appt1",
+            "client_id": 1,
+            "evaluator_npi": 1234567890,
+            "cpt": "96130",
+            "start_time": dt.datetime(2025, 1, 1, 14, 0, tzinfo=dt.UTC),
+            "end_time": dt.datetime(2025, 1, 1, 15, 0, tzinfo=dt.UTC),
+            "da_eval": "EVAL",
+            "asd_adhd": "ASD",
+            "cancelled": False,
+            "location": "COL",
+            "gcal_event_id": "evt1",
+            "gcal_event_title": "[COL-E]",
+        }
+        params.update(overrides)
+        put_appointment_in_db(connection=connection, **params)
+
+    def _audit_inserts(self, cursor):
+        return [
+            params
+            for query, params in cursor.executed
+            if "INSERT INTO `emr_audit_log`" in query
+        ]
+
+    def _existing_row(self, **overrides):
+        row = _DefaultNoneDict(
+            {
+                "startTime": dt.datetime(2025, 1, 1, 14, 0),
+                "endTime": dt.datetime(2025, 1, 1, 15, 0),
+                "cancelled": False,
+                "evaluatorNpi": 1234567890,
+                "daEval": "EVAL",
+                "asdAdhd": "ASD",
+                "locationKey": "COL",
+                "calendarEventId": "evt1",
+                "cpt": "96130",
+                "calendarEventTitle": "[COL-E]",
+                "billingOnly": False,
+            }
+        )
+        row.update(overrides)
+        return row
+
+    def test_logs_create_for_new_appointment(self):
+        cursor = _RoutingCursor(self._routes(None))
+        conn = FakeConnection(cursor)
+
+        self._call(conn)
+
+        inserts = self._audit_inserts(cursor)
+        assert len(inserts) == 1
+        _, _, action, client_id, detail, _, _ = inserts[0]
+        assert action == "python.appointments.create"
+        assert client_id == 1
+        assert json.loads(detail)["appointmentId"] == "appt1"
+
+    def test_no_audit_log_when_nothing_changes(self):
+        cursor = _RoutingCursor(self._routes(self._existing_row()))
+        conn = FakeConnection(cursor)
+
+        self._call(conn)
+
+        assert self._audit_inserts(cursor) == []
+
+    def test_logs_reschedule_when_start_time_changes(self):
+        cursor = _RoutingCursor(self._routes(self._existing_row()))
+        conn = FakeConnection(cursor)
+
+        self._call(conn, start_time=dt.datetime(2025, 1, 2, 14, 0, tzinfo=dt.UTC))
+
+        actions = [params[2] for params in self._audit_inserts(cursor)]
+        assert "python.appointments.reschedule" in actions
+
+    def test_logs_cancel_when_newly_cancelled(self):
+        cursor = _RoutingCursor(self._routes(self._existing_row(cancelled=False)))
+        conn = FakeConnection(cursor)
+
+        self._call(conn, cancelled=True)
+
+        actions = [params[2] for params in self._audit_inserts(cursor)]
+        assert "python.appointments.cancel" in actions
+
+    def test_logs_uncancel_when_no_longer_cancelled(self):
+        cursor = _RoutingCursor(self._routes(self._existing_row(cancelled=True)))
+        conn = FakeConnection(cursor)
+
+        self._call(conn, cancelled=False)
+
+        actions = [params[2] for params in self._audit_inserts(cursor)]
+        assert "python.appointments.uncancel" in actions
+
+    def test_logs_update_for_other_field_change(self):
+        cursor = _RoutingCursor(self._routes(self._existing_row(evaluatorNpi=999)))
+        conn = FakeConnection(cursor)
+
+        self._call(conn, evaluator_npi=1234567890)
+
+        inserts = self._audit_inserts(cursor)
+        update_inserts = [p for p in inserts if p[2] == "python.appointments.update"]
+        assert len(update_inserts) == 1
+        detail = json.loads(update_inserts[0][4])
+        assert detail["changes"]["evaluatorNpi"] == {"old": 999, "new": 1234567890}
 
 
 class TestBuildReactivationReviewSeparator:
