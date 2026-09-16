@@ -4,6 +4,7 @@ import z from "zod";
 import { env } from "~/env";
 import { pinnedListSchema } from "~/lib/pinned-list";
 import { type PermissionsObject, permissionsSchema } from "~/lib/types";
+import { diffValues, setAuditDetail } from "~/server/api/audit";
 import {
 	assertPermission,
 	createTRPCRouter,
@@ -56,8 +57,6 @@ export const userRouter = createTRPCRouter({
 		.mutation(async ({ ctx, input }) => {
 			assertPermission(ctx.session.user, "settings:users:edit");
 
-			ctx.logger.info(input, "Updating user");
-
 			const updateData: {
 				permissions?: PermissionsObject;
 				roleId?: number | null;
@@ -73,6 +72,19 @@ export const userRouter = createTRPCRouter({
 					message: "No data provided to update.",
 				});
 			}
+
+			const existing = await ctx.db.query.users.findFirst({
+				where: eq(users.id, input.userId),
+			});
+			const before: Record<string, unknown> = {};
+			const after: Record<string, unknown> = {};
+			for (const key of Object.keys(updateData)) {
+				before[key] = existing?.[key as keyof typeof existing];
+				after[key] = updateData[key as keyof typeof updateData];
+			}
+			setAuditDetail(ctx, diffValues(before, after));
+
+			ctx.logger.info(input, "Updating user");
 
 			await ctx.db
 				.update(users)

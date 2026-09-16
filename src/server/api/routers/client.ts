@@ -54,6 +54,7 @@ import {
 	localDateToDateOnly,
 } from "~/lib/utils";
 import { referralDataSchema } from "~/lib/validations/config";
+import { diffValues, setAuditDetail } from "~/server/api/audit";
 import {
 	NONE_FILTER_VALUE,
 	resolveInsuranceAliasNames,
@@ -2433,6 +2434,14 @@ export const clientRouter = createTRPCRouter({
 			if (input.referralData !== undefined) {
 				updateData.referralData = input.referralData;
 			}
+
+			const before: Record<string, unknown> = {};
+			const after: Record<string, unknown> = {};
+			for (const key of Object.keys(updateData)) {
+				before[key] = currentClient[key as keyof typeof currentClient];
+				after[key] = updateData[key as keyof typeof updateData];
+			}
+			setAuditDetail(ctx, diffValues(before, after));
 
 			await ctx.db
 				.update(clients)

@@ -2,6 +2,7 @@ import { TRPCError } from "@trpc/server";
 import { eq, ne } from "drizzle-orm";
 import z from "zod";
 import { permissionsSchema } from "~/lib/types";
+import { diffValues, setAuditDetail } from "~/server/api/audit";
 import {
 	assertPermission,
 	createTRPCRouter,
@@ -53,6 +54,28 @@ export const rolesRouter = createTRPCRouter({
 		.mutation(async ({ ctx, input }) => {
 			assertPermission(ctx.session.user, "settings:roles:edit");
 
+			const existing = await ctx.db.query.roles.findFirst({
+				where: eq(roles.id, input.id),
+			});
+
+			const updateData = {
+				...(input.name !== undefined && { name: input.name }),
+				...(input.permissions !== undefined && {
+					permissions: input.permissions,
+				}),
+				...(input.isDefault !== undefined && {
+					isDefault: input.isDefault,
+				}),
+			};
+
+			const before: Record<string, unknown> = {};
+			const after: Record<string, unknown> = {};
+			for (const key of Object.keys(updateData)) {
+				before[key] = existing?.[key as keyof typeof existing];
+				after[key] = updateData[key as keyof typeof updateData];
+			}
+			setAuditDetail(ctx, diffValues(before, after));
+
 			ctx.logger.info(input, "Updating role");
 
 			await ctx.db.transaction(async (tx) => {
@@ -62,18 +85,7 @@ export const rolesRouter = createTRPCRouter({
 						.set({ isDefault: false })
 						.where(ne(roles.id, input.id));
 				}
-				await tx
-					.update(roles)
-					.set({
-						...(input.name !== undefined && { name: input.name }),
-						...(input.permissions !== undefined && {
-							permissions: input.permissions,
-						}),
-						...(input.isDefault !== undefined && {
-							isDefault: input.isDefault,
-						}),
-					})
-					.where(eq(roles.id, input.id));
+				await tx.update(roles).set(updateData).where(eq(roles.id, input.id));
 			});
 		}),
 

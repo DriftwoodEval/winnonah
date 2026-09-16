@@ -165,11 +165,91 @@ export async function extractClientId(
  * an audit trail that only names which fields changed can't show what
  * actually happened. Access to the log is restricted to the
  * settings:audit-log:view permission, so this relies on that gate rather
- * than on omitting the data.
+ * than on omitting the data. This is the default for mutations that don't
+ * call `setAuditDetail` themselves (see `diffValues`): fine for small,
+ * targeted inputs where the submission already is the change, but a
+ * mutation that replaces a whole stored object (a config blob, a permissions
+ * set, a list-style setting) should compute a diff instead so the log shows
+ * only what changed.
  */
 export function serializeAuditInput(rawInput: unknown) {
 	if (rawInput === undefined) return null;
 	return rawInput;
+}
+
+/** Box the audit middleware reads after a mutation runs; `set` distinguishes "computed a diff of nothing" from "didn't opt in", since either can leave `value` as `undefined`. */
+export type AuditDetailBox = { value: unknown; set: boolean };
+
+/**
+ * Hands the audit middleware a computed diff (see `diffValues`) to log
+ * instead of the raw mutation input. Call from inside a mutation resolver
+ * that has `ctx.auditDetail` in scope.
+ */
+export function setAuditDetail(
+	ctx: { auditDetail: AuditDetailBox },
+	value: unknown,
+) {
+	ctx.auditDetail.value = value;
+	ctx.auditDetail.set = true;
+}
+
+function isPlainObject(value: unknown): value is Record<string, unknown> {
+	return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function valuesEqual(a: unknown, b: unknown): boolean {
+	if (a === b) return true;
+	if (Array.isArray(a) && Array.isArray(b)) {
+		return a.length === b.length && a.every((v, i) => valuesEqual(v, b[i]));
+	}
+	if (isPlainObject(a) && isPlainObject(b)) {
+		const keys = new Set([...Object.keys(a), ...Object.keys(b)]);
+		return [...keys].every((key) => valuesEqual(a[key], b[key]));
+	}
+	return false;
+}
+
+/**
+ * Diffs two arrays by membership rather than position, since list-style
+ * settings (id allowlists, etc.) are edited by adding or removing entries,
+ * not by reordering them.
+ */
+function diffArray(before: unknown[], after: unknown[]) {
+	const beforeSet = new Set(before);
+	const afterSet = new Set(after);
+	return {
+		added: after.filter((v) => !beforeSet.has(v)),
+		removed: before.filter((v) => !afterSet.has(v)),
+	};
+}
+
+/**
+ * Compares two values and returns only what changed, so a mutation that
+ * replaces a whole stored object can log a diff instead of the entire
+ * result: plain objects are diffed recursively (a change three levels deep
+ * shows just that leaf, not the whole containing object), arrays are diffed
+ * by membership (`added`/`removed`), and anything else is compared directly
+ * as `{ from, to }`. Returns `undefined` when nothing changed, and callers
+ * that recurse drop that key entirely rather than keeping a no-op entry.
+ */
+export function diffValues(before: unknown, after: unknown): unknown {
+	if (valuesEqual(before, after)) return undefined;
+
+	if (Array.isArray(before) && Array.isArray(after)) {
+		return diffArray(before, after);
+	}
+
+	if (isPlainObject(before) && isPlainObject(after)) {
+		const keys = new Set([...Object.keys(before), ...Object.keys(after)]);
+		const changed: Record<string, unknown> = {};
+		for (const key of keys) {
+			const diff = diffValues(before[key], after[key]);
+			if (diff !== undefined) changed[key] = diff;
+		}
+		return changed;
+	}
+
+	return { from: before ?? null, to: after ?? null };
 }
 
 /**

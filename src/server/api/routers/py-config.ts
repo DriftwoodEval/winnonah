@@ -8,6 +8,7 @@ import {
 	lenientPythonConfigSchema,
 	pythonConfigSchema,
 } from "~/lib/validations/config";
+import { diffValues, setAuditDetail } from "~/server/api/audit";
 import { createTRPCRouter, protectedProcedure } from "~/server/api/trpc";
 import { pythonConfig } from "~/server/db/schema";
 
@@ -132,6 +133,11 @@ export const pyConfigRouter = createTRPCRouter({
 		.mutation(async ({ ctx, input }) => {
 			assertQSuiteConfigAccess(ctx.session.user.permissions);
 
+			const existing = await ctx.db.query.pythonConfig.findFirst({
+				where: eq(pythonConfig.id, 1),
+			});
+			setAuditDetail(ctx, diffValues(existing?.data ?? {}, input));
+
 			ctx.logger.info(
 				{ ...input, updatedBy: ctx.session.user.email },
 				"Updating Python config",
@@ -166,6 +172,20 @@ export const pyConfigRouter = createTRPCRouter({
 		.input(appointmentSyncConfigSchema)
 		.mutation(async ({ ctx, input }) => {
 			assertAppointmentsSyncAccess(ctx.session.user.permissions);
+
+			const existing = await ctx.db.query.pythonConfig.findFirst({
+				where: eq(pythonConfig.id, 2),
+			});
+			setAuditDetail(
+				ctx,
+				diffValues(
+					existing?.data ?? {
+						trusted_appointment_ids: [],
+						ignored_appointment_ids: [],
+					},
+					input,
+				),
+			);
 
 			ctx.logger.info(
 				{ ...input, updatedBy: ctx.session.user.email },
