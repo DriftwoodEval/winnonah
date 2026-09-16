@@ -5,7 +5,9 @@ import { Button } from "@ui/button";
 import {
 	Select,
 	SelectContent,
+	SelectGroup,
 	SelectItem,
+	SelectLabel,
 	SelectTrigger,
 	SelectValue,
 } from "@ui/select";
@@ -25,6 +27,22 @@ import { api } from "~/trpc/react";
 import { ClientSearchAndAdd } from "../clients/ClientSearchAndAdd";
 
 const PAGE_SIZE = 50;
+
+/**
+ * Actions are dot-namespaced (e.g. "internal.failure.update"). Groups them
+ * by that leading namespace so the filter can offer both an exact action
+ * and a "<namespace>.*" option that matches every action in the namespace.
+ */
+function groupActionsByCategory(actionNames: string[]) {
+	const byCategory = new Map<string, string[]>();
+	for (const name of actionNames) {
+		const category = name.split(".")[0] ?? name;
+		const names = byCategory.get(category) ?? [];
+		names.push(name);
+		byCategory.set(category, names);
+	}
+	return [...byCategory.entries()].sort(([a], [b]) => a.localeCompare(b));
+}
 
 function formatDetail(detail: unknown): string | null {
 	if (detail === null || detail === undefined) return null;
@@ -62,6 +80,7 @@ export default function AuditLogTable() {
 
 	const rows = data?.rows ?? [];
 	const total = data?.total ?? 0;
+	const actionCategories = groupActionsByCategory(actionNames ?? []);
 
 	function resetAndSet<T>(setter: (value: T) => void) {
 		return (value: T) => {
@@ -105,10 +124,18 @@ export default function AuditLogTable() {
 					</SelectTrigger>
 					<SelectContent>
 						<SelectItem value="all">All actions</SelectItem>
-						{actionNames?.map((name) => (
-							<SelectItem key={name} value={name}>
-								{name}
-							</SelectItem>
+						{actionCategories.map(([category, names]) => (
+							<SelectGroup key={category}>
+								<SelectLabel>{category}</SelectLabel>
+								<SelectItem value={`${category}.*`}>
+									All {category}.*
+								</SelectItem>
+								{names.map((name) => (
+									<SelectItem key={name} value={name}>
+										{name}
+									</SelectItem>
+								))}
+							</SelectGroup>
 						))}
 					</SelectContent>
 				</Select>
