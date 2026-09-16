@@ -20,6 +20,7 @@ import {
 } from "~/lib/reminder-messages";
 import { formatInBusinessTime, localDateToDateOnly } from "~/lib/utils";
 import { lenientPythonConfigSchema } from "~/lib/validations/config";
+import { diffValues, setAuditDetail } from "~/server/api/audit";
 import { CACHE_KEY_MISSING_APPOINTMENTS } from "~/server/api/routers/client";
 import {
 	assertPermission,
@@ -398,8 +399,15 @@ export const questionnaireRouter = createTRPCRouter({
 		.input(z.object({ id: z.number() }).merge(questionnaireTypeInputSchema))
 		.mutation(async ({ ctx, input }) => {
 			assertPermission(ctx.session.user, "settings:questionnaireRules");
-			ctx.logger.info(input, "Updating questionnaire type");
+
 			const { id, ...data } = input;
+
+			const existing = await ctx.db.query.assessmentTypes.findFirst({
+				where: eq(assessmentTypes.id, id),
+			});
+			setAuditDetail(ctx, diffValues(existing ?? {}, data));
+
+			ctx.logger.info(input, "Updating questionnaire type");
 			await ctx.db
 				.update(assessmentTypes)
 				.set(data)
@@ -485,8 +493,15 @@ export const questionnaireRouter = createTRPCRouter({
 		)
 		.mutation(async ({ ctx, input }) => {
 			assertPermission(ctx.session.user, "settings:questionnaireRules");
-			ctx.logger.info(input, "Updating questionnaire rule");
+
 			const { id, ...data } = input;
+
+			const existing = await ctx.db.query.questionnaireRules.findFirst({
+				where: eq(questionnaireRules.id, id),
+			});
+			setAuditDetail(ctx, diffValues(existing ?? {}, data));
+
+			ctx.logger.info(input, "Updating questionnaire rule");
 			await ctx.db
 				.update(questionnaireRules)
 				.set(data)
@@ -547,6 +562,13 @@ export const questionnaireRouter = createTRPCRouter({
 		)
 		.mutation(async ({ ctx, input }) => {
 			assertPermission(ctx.session.user, "settings:questionnaireRules");
+
+			const existing = await ctx.db
+				.select()
+				.from(questionnaireReminderSettings)
+				.limit(1);
+			setAuditDetail(ctx, diffValues(existing[0] ?? {}, input));
+
 			ctx.logger.info(
 				{ ...input, updatedBy: ctx.session.user.email },
 				"Updating questionnaire reminder settings",
@@ -1043,14 +1065,28 @@ export const questionnaireRouter = createTRPCRouter({
 				where: eq(questionnaires.id, input.id),
 			});
 
+			const updateData = {
+				questionnaireType: input.questionnaireType,
+				link: input.link,
+				sent: sentDate,
+				status: input.status,
+			};
+			setAuditDetail(
+				ctx,
+				diffValues(
+					{
+						questionnaireType: existing?.questionnaireType,
+						link: existing?.link,
+						sent: existing?.sent,
+						status: existing?.status,
+					},
+					updateData,
+				),
+			);
+
 			await ctx.db
 				.update(questionnaires)
-				.set({
-					questionnaireType: input.questionnaireType,
-					link: input.link,
-					sent: sentDate,
-					status: input.status,
-				})
+				.set(updateData)
 				.where(eq(questionnaires.id, input.id));
 
 			if (existing && input.status !== "ARCHIVED") {

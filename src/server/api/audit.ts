@@ -212,14 +212,14 @@ function valuesEqual(a: unknown, b: unknown): boolean {
 /**
  * Diffs two arrays by membership rather than position, since list-style
  * settings (id allowlists, etc.) are edited by adding or removing entries,
- * not by reordering them.
+ * not by reordering them. Membership is checked with `valuesEqual` rather
+ * than a `Set`, so this also works for arrays of objects (e.g. home widget
+ * configs), where two structurally-equal entries are different references.
  */
 function diffArray(before: unknown[], after: unknown[]) {
-	const beforeSet = new Set(before);
-	const afterSet = new Set(after);
 	return {
-		added: after.filter((v) => !beforeSet.has(v)),
-		removed: before.filter((v) => !afterSet.has(v)),
+		added: after.filter((v) => !before.some((b) => valuesEqual(b, v))),
+		removed: before.filter((v) => !after.some((a) => valuesEqual(a, v))),
 	};
 }
 

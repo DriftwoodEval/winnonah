@@ -1,5 +1,6 @@
 import { eq } from "drizzle-orm";
 import z from "zod";
+import { diffValues, setAuditDetail } from "~/server/api/audit";
 import {
 	assertPermission,
 	createTRPCRouter,
@@ -29,6 +30,12 @@ export const reportQueueRouter = createTRPCRouter({
 		)
 		.mutation(async ({ ctx, input }) => {
 			assertPermission(ctx.session.user, "reports:approve");
+
+			const existing = await ctx.db.query.reportQueueConfig.findFirst({
+				where: eq(reportQueueConfig.id, 1),
+			});
+			setAuditDetail(ctx, diffValues(existing ?? {}, input));
+
 			ctx.logger.info(
 				{ ...input, updatedBy: ctx.session.user.email },
 				"Updating report queue config",

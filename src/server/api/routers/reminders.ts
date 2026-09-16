@@ -28,6 +28,12 @@ export const reminderRouter = createTRPCRouter({
 			}),
 		)
 		.mutation(async ({ ctx, input }) => {
+			const existing = await ctx.db
+				.select()
+				.from(appointmentReminderSettings)
+				.limit(1);
+			setAuditDetail(ctx, diffValues(existing[0] ?? {}, input));
+
 			ctx.logger.info(
 				{ ...input, updatedBy: ctx.session.user.email },
 				"Updating reminder settings",
