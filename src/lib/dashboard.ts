@@ -1,9 +1,9 @@
 import { format, subYears } from "date-fns";
+import { formatInBusinessTime } from "~/lib/utils";
 import {
 	getRecordsBlockerReason,
 	RECORDS_NOT_YET_REQUESTED_REASON,
 } from "./client-blockers";
-import { formatInBusinessTime } from "~/lib/utils";
 import type { Client, Failure, FullClientInfo } from "./models";
 import {
 	formatShortInstantDate,
@@ -867,10 +867,14 @@ export function getClientMatchedSections(
 // buckets (mirroring the dashboard's broad stages), not the staff-facing
 // pipeline detail. No internal shorthand like "DA" or "protocols".
 const REFERRAL_STATUS_TEXT: Partial<Record<string, string>> = {
-	[SECTION_RECORDS_STATUS_NOT_SET]: "Waiting on records",
-	[SECTION_RECORDS_NEEDED_NOT_REQUESTED]: "Waiting on records",
-	[SECTION_RECORDS_REQUESTED_NOT_RETURNED]: "Waiting on records",
-	[SECTION_BABYNET_NOT_DOWNLOADED]: "Waiting on records",
+	[SECTION_RECORDS_STATUS_NOT_SET]:
+		"Waiting for educational or additional records",
+	[SECTION_RECORDS_NEEDED_NOT_REQUESTED]:
+		"Waiting for educational or additional records",
+	[SECTION_RECORDS_REQUESTED_NOT_RETURNED]:
+		"Waiting for educational or additional records",
+	[SECTION_BABYNET_NOT_DOWNLOADED]:
+		"Waiting for educational or additional records",
 	[SECTION_QS_NOT_DETERMINED]: "Waiting on questionnaires",
 	[SECTION_DA_QS_PENDING]: "Waiting on questionnaires",
 	[SECTION_DA_QS_SENT]: "Waiting on questionnaires",

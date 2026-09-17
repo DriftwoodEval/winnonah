@@ -218,6 +218,22 @@
 	scroll-margin-top: 4rem;
 }
 
+.tiptap {
+	@apply wrap-break-word;
+}
+
+.tiptap .is-editor-empty:first-child::before {
+	height: 0;
+	color: var(--muted-foreground);
+	white-space: pre-line;
+	content: attr(data-placeholder);
+	@apply pointer-events-none float-left;
+}
+
+.tiptap a {
+	@apply text-primary cursor-pointer;
+}
+
 /* rehype-autolink-headings appends an <a><span class="icon-link"></span></a>
    after each heading's text; show it as a "#" that only appears on hover. */
 .prose :where(h1, h2, h3, h4, h5, h6) a {
@@ -274,20 +290,4 @@
 .dark .prose pre[data-theme] span {
 	color: var(--shiki-dark);
 	background-color: var(--shiki-dark-bg);
-}
-
-.tiptap {
-	@apply wrap-break-word;
-}
-
-.tiptap .is-editor-empty:first-child::before {
-	height: 0;
-	color: var(--muted-foreground);
-	white-space: pre-line;
-	content: attr(data-placeholder);
-	@apply pointer-events-none float-left;
-}
-
-.tiptap a {
-	@apply text-primary cursor-pointer;
 }
