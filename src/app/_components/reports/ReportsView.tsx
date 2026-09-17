@@ -34,14 +34,7 @@ function TabContent({
 
 	const reports = data ?? [];
 
-	return (
-		<div className="flex w-full flex-col gap-2">
-			<span className="text-muted-foreground text-sm">
-				{reports.length} report{reports.length === 1 ? "" : "s"}
-			</span>
-			<ReportsTable isApprover={isApprover} reports={reports} tab={tab} />
-		</div>
-	);
+	return <ReportsTable isApprover={isApprover} reports={reports} tab={tab} />;
 }
 
 export function ReportsView() {

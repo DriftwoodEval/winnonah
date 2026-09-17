@@ -1,8 +1,21 @@
 "use client";
 
+import {
+	ColumnFilter,
+	type FilterOption,
+	toFilterOptions,
+} from "@components/shared/ColumnFilter";
 import { Badge } from "@ui/badge";
 import { Button } from "@ui/button";
 import { Checkbox } from "@ui/checkbox";
+import {
+	DropdownMenu,
+	DropdownMenuContent,
+	DropdownMenuItem,
+	DropdownMenuSeparator,
+	DropdownMenuTrigger,
+} from "@ui/dropdown-menu";
+import { Input } from "@ui/input";
 import {
 	Table,
 	TableBody,
@@ -11,9 +24,11 @@ import {
 	TableHeader,
 	TableRow,
 } from "@ui/table";
+import { ChevronDown } from "lucide-react";
 import Link from "next/link";
+import { useMemo, useState } from "react";
 import { toast } from "sonner";
-import { formatInBusinessTime } from "~/lib/utils";
+import { cn, formatInBusinessTime } from "~/lib/utils";
 import type { RouterOutputs } from "~/trpc/react";
 import { api } from "~/trpc/react";
 
@@ -25,6 +40,19 @@ const APPROVABLE_STATUSES = ["claimed", "submitted"] as const;
 const STATUS_LABELS: Partial<Record<Report["status"], string>> = {
 	pending: "Awaiting folder",
 };
+
+interface SavedFilters {
+	status: string[];
+	writer: string[];
+	type: string[];
+}
+
+const EMPTY_FILTERS: SavedFilters = { status: [], writer: [], type: [] };
+
+interface SavedView {
+	name: string;
+	filters: SavedFilters;
+}
 
 // A linked writer shows their first name. When a report only carries an email
 // that matches no user, fall back to the local part ("jane.doe@..." -> "Jane Doe").
@@ -97,14 +125,16 @@ export function ReportsTable({
 	const utils = api.useUtils();
 	const { data: config } = api.reportQueue.getConfig.useQuery();
 	const secondReview = config?.secondReviewLabel ?? "Second review";
+	// Order matters here: it drives both the header row and each row's cells.
+	// secondReview* sits right after "Writer done" and before "Billed".
 	const billingFields = [
+		{ key: "secondReviewNeeded" as const, label: `${secondReview} needed` },
+		{ key: "secondReviewDone" as const, label: `${secondReview} done` },
 		{ key: "billed" as const, label: "Billed" },
 		{
 			key: "firstReviewDone" as const,
 			label: config?.firstReviewLabel ?? "First review",
 		},
-		{ key: "secondReviewNeeded" as const, label: `${secondReview} needed` },
-		{ key: "secondReviewDone" as const, label: `${secondReview} done` },
 	];
 	const invalidate = () => void utils.reports.list.invalidate();
 
@@ -117,10 +147,11 @@ export function ReportsTable({
 		onError: (e) => toast.error("Failed", { description: e.message }),
 	});
 	const approve = api.reports.approveAndRelease.useMutation({
-		onSuccess: () => {
-			invalidate();
-			toast.success("Report approved and released.");
-		},
+		onSuccess: invalidate,
+		onError: (e) => toast.error("Failed", { description: e.message }),
+	});
+	const unapprove = api.reports.unapprove.useMutation({
+		onSuccess: invalidate,
 		onError: (e) => toast.error("Failed", { description: e.message }),
 	});
 	const archive = api.reports.archive.useMutation({
@@ -132,6 +163,139 @@ export function ReportsTable({
 		onError: (e) => toast.error("Failed", { description: e.message }),
 	});
 
+	// --- Column filters + saved views -------------------------------------
+	const [filters, setFilters] = useState<SavedFilters>(EMPTY_FILTERS);
+	const { data: savedFilters } = api.sessions.getReportsFilters.useQuery();
+	const saveFilters = api.sessions.saveReportsFilters.useMutation();
+	const views: SavedView[] = useMemo(() => {
+		if (!savedFilters?.reportsFilters) return [];
+		try {
+			const parsed = JSON.parse(savedFilters.reportsFilters) as {
+				views?: SavedView[];
+			};
+			return parsed.views ?? [];
+		} catch {
+			return [];
+		}
+	}, [savedFilters]);
+	const [newViewName, setNewViewName] = useState("");
+
+	function persistViews(next: SavedView[]) {
+		saveFilters.mutate({ reportsFilters: JSON.stringify({ views: next }) });
+	}
+
+	function saveCurrentView() {
+		const name = newViewName.trim();
+		if (!name) return;
+		const next = [...views.filter((v) => v.name !== name), { name, filters }];
+		persistViews(next);
+		setNewViewName("");
+		toast.success(`Saved view "${name}".`);
+	}
+
+	function deleteView(name: string) {
+		persistViews(views.filter((v) => v.name !== name));
+	}
+
+	const statusOptions: FilterOption[] = toFilterOptions(
+		[...new Set(reports.map((r) => r.status))].map((s) => statusLabel(s)),
+	).map((opt) => ({ ...opt, value: opt.label }));
+	const writerOptions: FilterOption[] = toFilterOptions(
+		[
+			...new Set(
+				reports.map(
+					(r) => writerDisplay(r.writerName, r.writerEmail) ?? "Unclaimed",
+				),
+			),
+		].sort(),
+	);
+	const typeOptions: FilterOption[] = toFilterOptions(
+		[...new Set(reports.flatMap((r) => (r.asdAdhd ? [r.asdAdhd] : [])))].sort(),
+	);
+
+	const filteredReports = reports.filter((r) => {
+		if (
+			filters.status.length > 0 &&
+			!filters.status.includes(statusLabel(r.status))
+		)
+			return false;
+		if (
+			filters.writer.length > 0 &&
+			!filters.writer.includes(
+				writerDisplay(r.writerName, r.writerEmail) ?? "Unclaimed",
+			)
+		)
+			return false;
+		if (filters.type.length > 0 && !filters.type.includes(r.asdAdhd ?? ""))
+			return false;
+		return true;
+	});
+
+	// --- Bulk selection + actions -------------------------------------------
+	const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
+	const visibleIds = filteredReports.map((r) => r.id);
+	const allSelected =
+		visibleIds.length > 0 && visibleIds.every((id) => selectedIds.has(id));
+	const someSelected = visibleIds.some((id) => selectedIds.has(id));
+
+	function toggleAll(checked: boolean) {
+		setSelectedIds(checked ? new Set(visibleIds) : new Set());
+	}
+	function toggleOne(id: number, checked: boolean) {
+		setSelectedIds((prev) => {
+			const next = new Set(prev);
+			if (checked) next.add(id);
+			else next.delete(id);
+			return next;
+		});
+	}
+
+	const bulkCheckboxFields = [
+		{ field: "writerCompletedAt" as const, label: "Writer done" },
+		...billingFields.map((f) => ({ field: f.key, label: f.label })),
+	];
+	type BulkCheckboxField = (typeof bulkCheckboxFields)[number]["field"];
+	type BulkAction =
+		| "approve"
+		| "archive"
+		| { field: BulkCheckboxField; value: boolean };
+
+	async function applyBulkAction(action: BulkAction) {
+		const selected = filteredReports.filter((r) => selectedIds.has(r.id));
+		if (selected.length === 0) return;
+
+		const results = await Promise.allSettled(
+			selected.map((r) => {
+				if (action === "approve") {
+					if (
+						!APPROVABLE_STATUSES.includes(
+							r.status as (typeof APPROVABLE_STATUSES)[number],
+						)
+					)
+						return Promise.resolve();
+					return approve.mutateAsync({ id: r.id });
+				}
+				if (action === "archive") return archive.mutateAsync({ id: r.id });
+				if (action.field === "writerCompletedAt")
+					return markComplete.mutateAsync({ id: r.id, complete: action.value });
+				return setBilling.mutateAsync({
+					id: r.id,
+					field: action.field,
+					value: action.value,
+				});
+			}),
+		);
+		const failed = results.filter((r) => r.status === "rejected").length;
+		if (failed > 0) {
+			toast.error(`${failed} of ${selected.length} failed.`);
+		} else {
+			toast.success(
+				`Updated ${selected.length} report${selected.length === 1 ? "" : "s"}.`,
+			);
+		}
+		setSelectedIds(new Set());
+	}
+
 	if (reports.length === 0) {
 		return (
 			<p className="py-8 text-center text-muted-foreground text-sm">
@@ -141,156 +305,358 @@ export function ReportsTable({
 	}
 
 	return (
-		<div className="w-full overflow-x-auto">
-			<Table>
-				<TableHeader>
-					<TableRow>
-						<TableHead>Client</TableHead>
-						<TableHead>Type</TableHead>
-						<TableHead>Eval date</TableHead>
-						<TableHead>Writer</TableHead>
-						<TableHead>Status</TableHead>
-						<TableHead>Claimed on</TableHead>
-						<TableHead>Writer done</TableHead>
-						{billingFields.map((f) => (
-							<TableHead key={f.key}>{f.label}</TableHead>
+		<div className="flex w-full flex-col gap-2">
+			<div className="flex flex-wrap items-center justify-between gap-2">
+				<span className="text-muted-foreground text-sm">
+					Showing {filteredReports.length} of {reports.length} report
+					{reports.length === 1 ? "" : "s"}
+				</span>
+				<DropdownMenu>
+					<DropdownMenuTrigger asChild>
+						<Button size="sm" variant="outline">
+							Views <ChevronDown className="ml-1 h-3.5 w-3.5" />
+						</Button>
+					</DropdownMenuTrigger>
+					<DropdownMenuContent align="end" className="w-64">
+						{views.length === 0 && (
+							<div className="p-2 text-muted-foreground text-sm">
+								No saved views yet
+							</div>
+						)}
+						{views.map((v) => (
+							<div
+								className="flex items-center justify-between px-2 py-1"
+								key={v.name}
+							>
+								<button
+									className="flex-1 text-left text-sm hover:underline"
+									onClick={() => setFilters(v.filters)}
+									type="button"
+								>
+									{v.name}
+								</button>
+								<Button
+									onClick={() => deleteView(v.name)}
+									size="sm"
+									variant="ghost"
+								>
+									Delete
+								</Button>
+							</div>
 						))}
-						{isApprover && <TableHead />}
-					</TableRow>
-				</TableHeader>
-				<TableBody>
-					{reports.map((r) => {
-						const canEditWriting = r.isMine || isApprover;
-						return (
-							<TableRow key={r.id}>
-								<TableCell>
-									<Link
-										className="text-sm hover:underline"
-										href={`/clients/${r.clientHash}`}
-									>
-										{r.clientFullName}
-									</Link>
-								</TableCell>
-								<TableCell className="whitespace-nowrap">
-									{r.asdAdhd && <Badge variant="secondary">{r.asdAdhd}</Badge>}
-									{r.selfWritten && (
-										<Badge className="ml-1" variant="outline">
-											self
-										</Badge>
-									)}
-								</TableCell>
-								<TableCell className="whitespace-nowrap text-sm">
-									{r.evalAppointmentAt ? (
-										formatInBusinessTime(r.evalAppointmentAt, "MMM d, yyyy")
-									) : (
-										<span className="text-muted-foreground text-xs">-</span>
-									)}
-								</TableCell>
-								<TableCell className="whitespace-nowrap text-sm">
-									{writerDisplay(r.writerName, r.writerEmail) ?? (
-										<span className="text-muted-foreground">Unclaimed</span>
-									)}
-								</TableCell>
-								<TableCell>
-									<StatusBadge selfWritten={r.selfWritten} status={r.status} />
-								</TableCell>
-								<TableCell className="whitespace-nowrap text-sm">
-									{r.claimedAt
-										? formatInBusinessTime(r.claimedAt, "MMM d, yyyy")
-										: "-"}
-								</TableCell>
-								<TableCell className="whitespace-nowrap">
-									{r.writerCompletedAt ? (
-										<div className="flex items-center gap-1">
-											<span className="text-muted-foreground text-xs">
-												{formatInBusinessTime(
-													r.writerCompletedAt,
-													"MMM d, yyyy",
-												)}
-											</span>
-											{canEditWriting && (
-												<Button
-													onClick={() =>
-														markComplete.mutate({ id: r.id, complete: false })
-													}
-													size="sm"
-													variant="ghost"
-												>
-													Undo
-												</Button>
-											)}
-										</div>
-									) : canEditWriting ? (
+						<DropdownMenuSeparator />
+						<div className="flex items-center gap-1 p-2">
+							<Input
+								className="h-8"
+								onChange={(e) => setNewViewName(e.target.value)}
+								onKeyDown={(e) => e.key === "Enter" && saveCurrentView()}
+								placeholder="Save current filters as..."
+								value={newViewName}
+							/>
+							<Button onClick={saveCurrentView} size="sm">
+								Save
+							</Button>
+						</div>
+						{(filters.status.length > 0 ||
+							filters.writer.length > 0 ||
+							filters.type.length > 0) && (
+							<DropdownMenuItem
+								className="justify-center text-destructive"
+								onClick={() => setFilters(EMPTY_FILTERS)}
+							>
+								Clear all filters
+							</DropdownMenuItem>
+						)}
+					</DropdownMenuContent>
+				</DropdownMenu>
+			</div>
+
+			{isApprover && someSelected && (
+				<div className="flex flex-wrap items-center gap-2 rounded-md border bg-muted/50 p-2">
+					<span className="text-sm">{selectedIds.size} selected</span>
+					<Button onClick={() => applyBulkAction("approve")} size="sm">
+						Approve
+					</Button>
+					<DropdownMenu>
+						<DropdownMenuTrigger asChild>
+							<Button size="sm" variant="outline">
+								Set checkbox <ChevronDown className="ml-1 h-3.5 w-3.5" />
+							</Button>
+						</DropdownMenuTrigger>
+						<DropdownMenuContent align="start">
+							{bulkCheckboxFields.map((f) => (
+								<div
+									className="flex items-center justify-between gap-2 px-2 py-1"
+									key={f.field}
+								>
+									<span className="text-sm">{f.label}</span>
+									<div className="flex gap-1">
 										<Button
 											onClick={() =>
-												markComplete.mutate({ id: r.id, complete: true })
+												applyBulkAction({ field: f.field, value: true })
 											}
 											size="sm"
+											variant="outline"
 										>
-											Mark done
+											Check
 										</Button>
-									) : (
-										<span className="text-muted-foreground text-xs">-</span>
-									)}
-								</TableCell>
-								{billingFields.map((f) => (
-									<TableCell key={f.key}>
-										{r.canEditBilling ? (
+										<Button
+											onClick={() =>
+												applyBulkAction({ field: f.field, value: false })
+											}
+											size="sm"
+											variant="ghost"
+										>
+											Uncheck
+										</Button>
+									</div>
+								</div>
+							))}
+						</DropdownMenuContent>
+					</DropdownMenu>
+					<Button
+						onClick={() => applyBulkAction("archive")}
+						size="sm"
+						variant="destructive"
+					>
+						Archive
+					</Button>
+					<Button
+						onClick={() => setSelectedIds(new Set())}
+						size="sm"
+						variant="ghost"
+					>
+						Clear
+					</Button>
+				</div>
+			)}
+
+			<div className="w-full overflow-x-auto">
+				<Table>
+					<TableHeader>
+						<TableRow>
+							{isApprover && (
+								<TableHead className="w-8">
+									<Checkbox
+										checked={
+											allSelected
+												? true
+												: someSelected
+													? "indeterminate"
+													: false
+										}
+										onCheckedChange={(v) => toggleAll(v === true)}
+									/>
+								</TableHead>
+							)}
+							<TableHead>Client</TableHead>
+							<TableHead>
+								<div className="flex items-center gap-1">
+									Type
+									<ColumnFilter
+										columnName="Type"
+										onFilterChange={(v) =>
+											setFilters((f) => ({ ...f, type: v }))
+										}
+										options={typeOptions}
+										selectedValues={filters.type}
+									/>
+								</div>
+							</TableHead>
+							<TableHead>Eval date</TableHead>
+							<TableHead>
+								<div className="flex items-center gap-1">
+									Writer
+									<ColumnFilter
+										columnName="Writer"
+										onFilterChange={(v) =>
+											setFilters((f) => ({ ...f, writer: v }))
+										}
+										options={writerOptions}
+										selectedValues={filters.writer}
+									/>
+								</div>
+							</TableHead>
+							<TableHead>
+								<div className="flex items-center gap-1">
+									Status
+									<ColumnFilter
+										columnName="Status"
+										onFilterChange={(v) =>
+											setFilters((f) => ({ ...f, status: v }))
+										}
+										options={statusOptions}
+										selectedValues={filters.status}
+									/>
+								</div>
+							</TableHead>
+							<TableHead>Claimed on</TableHead>
+							<TableHead>Writer done</TableHead>
+							{billingFields.map((f) => (
+								<TableHead key={f.key}>{f.label}</TableHead>
+							))}
+							{isApprover && <TableHead />}
+						</TableRow>
+					</TableHeader>
+					<TableBody>
+						{filteredReports.map((r) => {
+							const canEditWriting = r.isMine || isApprover;
+							return (
+								<TableRow
+									className={cn(!r.clientActive && "opacity-50")}
+									key={r.id}
+								>
+									{isApprover && (
+										<TableCell>
 											<Checkbox
-												checked={r[f.key]}
-												onCheckedChange={(v) =>
-													setBilling.mutate({
-														id: r.id,
-														field: f.key,
-														value: v === true,
-													})
-												}
+												checked={selectedIds.has(r.id)}
+												onCheckedChange={(v) => toggleOne(r.id, v === true)}
 											/>
-										) : r[f.key] ? (
-											<Badge variant="secondary">yes</Badge>
+										</TableCell>
+									)}
+									<TableCell>
+										<Link
+											className="text-sm hover:underline"
+											href={`/clients/${r.clientHash}`}
+										>
+											{r.clientFullName}
+										</Link>
+									</TableCell>
+									<TableCell className="whitespace-nowrap">
+										{r.asdAdhd && (
+											<Badge variant="secondary">{r.asdAdhd}</Badge>
+										)}
+										{r.selfWritten && (
+											<Badge className="ml-1" variant="outline">
+												self
+											</Badge>
+										)}
+									</TableCell>
+									<TableCell className="whitespace-nowrap text-sm">
+										{r.evalAppointmentAt ? (
+											formatInBusinessTime(r.evalAppointmentAt, "MMM d, yyyy")
 										) : (
 											<span className="text-muted-foreground text-xs">-</span>
 										)}
 									</TableCell>
-								))}
-								{isApprover && (
-									<TableCell className="whitespace-nowrap">
-										{tab === "archived" ? (
-											<Button
-												onClick={() => unarchive.mutate({ id: r.id })}
-												size="sm"
-												variant="ghost"
-											>
-												Restore
-											</Button>
-										) : (
-											<div className="flex items-center gap-1">
-												{APPROVABLE_STATUSES.includes(
-													r.status as (typeof APPROVABLE_STATUSES)[number],
-												) && (
-													<Button
-														onClick={() => approve.mutate({ id: r.id })}
-														size="sm"
-													>
-														Approve
-													</Button>
-												)}
-												<Button
-													onClick={() => archive.mutate({ id: r.id })}
-													size="sm"
-													variant="destructive"
-												>
-													Archive
-												</Button>
-											</div>
+									<TableCell className="whitespace-nowrap text-sm">
+										{writerDisplay(r.writerName, r.writerEmail) ?? (
+											<span className="text-muted-foreground">Unclaimed</span>
 										)}
 									</TableCell>
-								)}
-							</TableRow>
-						);
-					})}
-				</TableBody>
-			</Table>
+									<TableCell>
+										<StatusBadge
+											selfWritten={r.selfWritten}
+											status={r.status}
+										/>
+									</TableCell>
+									<TableCell className="whitespace-nowrap text-sm">
+										{r.claimedAt
+											? formatInBusinessTime(r.claimedAt, "MMM d, yyyy")
+											: "-"}
+									</TableCell>
+									<TableCell className="whitespace-nowrap">
+										{r.writerCompletedAt ? (
+											<div className="flex items-center gap-1">
+												<span className="text-muted-foreground text-xs">
+													{formatInBusinessTime(
+														r.writerCompletedAt,
+														"MMM d, yyyy",
+													)}
+												</span>
+												{canEditWriting && (
+													<Button
+														onClick={() =>
+															markComplete.mutate({ id: r.id, complete: false })
+														}
+														size="sm"
+														variant="ghost"
+													>
+														Undo
+													</Button>
+												)}
+											</div>
+										) : canEditWriting ? (
+											<Button
+												onClick={() =>
+													markComplete.mutate({ id: r.id, complete: true })
+												}
+												size="sm"
+											>
+												Mark done
+											</Button>
+										) : (
+											<span className="text-muted-foreground text-xs">-</span>
+										)}
+									</TableCell>
+									{billingFields.map((f) => (
+										<TableCell key={f.key}>
+											{r.canEditBilling ? (
+												<Checkbox
+													checked={r[f.key]}
+													onCheckedChange={(v) =>
+														setBilling.mutate({
+															id: r.id,
+															field: f.key,
+															value: v === true,
+														})
+													}
+												/>
+											) : r[f.key] ? (
+												<Badge variant="secondary">yes</Badge>
+											) : (
+												<span className="text-muted-foreground text-xs">-</span>
+											)}
+										</TableCell>
+									))}
+									{isApprover && (
+										<TableCell className="whitespace-nowrap">
+											{tab === "archived" ? (
+												<Button
+													onClick={() => unarchive.mutate({ id: r.id })}
+													size="sm"
+													variant="ghost"
+												>
+													Restore
+												</Button>
+											) : (
+												<div className="flex items-center gap-1">
+													{APPROVABLE_STATUSES.includes(
+														r.status as (typeof APPROVABLE_STATUSES)[number],
+													) && (
+														<Button
+															onClick={() => approve.mutate({ id: r.id })}
+															size="sm"
+														>
+															Approve
+														</Button>
+													)}
+													{r.status === "approved" && (
+														<Button
+															onClick={() => unapprove.mutate({ id: r.id })}
+															size="sm"
+															variant="ghost"
+														>
+															Undo
+														</Button>
+													)}
+													<Button
+														onClick={() => archive.mutate({ id: r.id })}
+														size="sm"
+														variant="destructive"
+													>
+														Archive
+													</Button>
+												</div>
+											)}
+										</TableCell>
+									)}
+								</TableRow>
+							);
+						})}
+					</TableBody>
+				</Table>
+			</div>
 		</div>
 	);
 }

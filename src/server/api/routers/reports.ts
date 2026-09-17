@@ -188,6 +188,7 @@ export const reportsRouter = createTRPCRouter({
 					clientId: reports.clientId,
 					clientFullName: clients.fullName,
 					clientHash: clients.hash,
+					clientActive: clients.status,
 					asdAdhd: reports.asdAdhd,
 					selfWritten: reports.selfWritten,
 					billablePiecework: reports.billablePiecework,
@@ -418,6 +419,64 @@ export const reportsRouter = createTRPCRouter({
 					});
 				} catch (error) {
 					ctx.logger.error(error, "Failed to send approval notification");
+				}
+			}
+
+			return { success: true };
+		}),
+
+	// Undoes approveAndRelease: puts the report back to claimed/submitted and
+	// restores the writer's claim slot. The slot is restored unconditionally,
+	// even if that puts the writer back over their maxClaimedReports cap: the
+	// cap only governs new voluntary claims, and this report was already
+	// theirs a moment ago.
+	unapprove: protectedProcedure
+		.input(z.object({ id: z.number() }))
+		.mutation(async ({ ctx, input }) => {
+			assertBillingAccess(ctx.session.user.permissions);
+			if (!hasPermission(ctx.session.user.permissions, "reports:approve")) {
+				throw new TRPCError({
+					code: "UNAUTHORIZED",
+					message: "You don't have permission to reports:approve",
+				});
+			}
+
+			const report = await ctx.db.query.reports.findFirst({
+				where: eq(reports.id, input.id),
+			});
+			if (!report) throw new TRPCError({ code: "NOT_FOUND" });
+			if (report.status !== "approved") {
+				throw new TRPCError({
+					code: "BAD_REQUEST",
+					message: `Cannot undo approval on a report that is "${report.status}".`,
+				});
+			}
+
+			await ctx.db
+				.update(reports)
+				.set({
+					status: report.writerCompletedAt ? "submitted" : "claimed",
+					approvedAt: null,
+					approvedByEmail: null,
+				})
+				.where(eq(reports.id, input.id));
+
+			if (report.writerUserId && report.folderId) {
+				const writer = await ctx.db.query.users.findFirst({
+					where: eq(users.id, report.writerUserId),
+					columns: { claimedReportFolder: true },
+				});
+				const current = writer?.claimedReportFolder ?? [];
+				if (!current.some((f) => f.id === report.folderId)) {
+					await ctx.db
+						.update(users)
+						.set({
+							claimedReportFolder: [
+								...current,
+								{ id: report.folderId, name: report.folderName ?? "" },
+							],
+						})
+						.where(eq(users.id, report.writerUserId));
 				}
 			}
 

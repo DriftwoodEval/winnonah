@@ -1176,6 +1176,7 @@ export const sessions = createTable(
 		clientFilters: d.text(),
 		schedulingFilters: d.text(),
 		directoryFilters: d.text(),
+		reportsFilters: d.text(),
 	}),
 	(t) => [index("session_user_id_idx").on(t.userId)],
 );
