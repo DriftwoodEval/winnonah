@@ -1,4 +1,5 @@
 import { format, subYears } from "date-fns";
+import { formatInBusinessTime } from "~/lib/utils";
 import {
 	getRecordsBlockerReason,
 	RECORDS_NOT_YET_REQUESTED_REASON,
@@ -851,4 +852,136 @@ export function getClientMatchedSections(
 	}
 
 	return matchedSections;
+}
+
+// ---------------------------------------------------------------------------
+// Referral-source status faxes
+//
+// Maps a client's dashboard pipeline stage to referral-source-facing wording,
+// distinct from the DASHBOARD_CONFIG section titles above (which are
+// staff-facing, e.g. "DA+Eval Qs Sent"). Used by the quarterly status fax
+// sent back to referral sources (src/app/api/internal/referral-status).
+// ---------------------------------------------------------------------------
+
+// Deliberately coarse: referral sources get one of a handful of plain-language
+// buckets (mirroring the dashboard's broad stages), not the staff-facing
+// pipeline detail. No internal shorthand like "DA" or "protocols".
+const REFERRAL_STATUS_TEXT: Partial<Record<string, string>> = {
+	[SECTION_RECORDS_STATUS_NOT_SET]:
+		"Waiting for educational or additional records",
+	[SECTION_RECORDS_NEEDED_NOT_REQUESTED]:
+		"Waiting for educational or additional records",
+	[SECTION_RECORDS_REQUESTED_NOT_RETURNED]:
+		"Waiting for educational or additional records",
+	[SECTION_BABYNET_NOT_DOWNLOADED]:
+		"Waiting for educational or additional records",
+	[SECTION_QS_NOT_DETERMINED]: "Waiting on questionnaires",
+	[SECTION_DA_QS_PENDING]: "Waiting on questionnaires",
+	[SECTION_DA_QS_SENT]: "Waiting on questionnaires",
+	[SECTION_DA_QS_DONE]: "Questionnaires complete, scheduling in progress",
+	[SECTION_EVAL_QS_PENDING]: "Waiting on questionnaires",
+	[SECTION_DAEVAL_QS_PENDING]: "Waiting on questionnaires",
+	[SECTION_EVAL_QS_SENT]: "Waiting on questionnaires",
+	[SECTION_DAEVAL_QS_SENT]: "Waiting on questionnaires",
+	[SECTION_EVAL_QS_DONE]: "Questionnaires complete, scheduling in progress",
+	[SECTION_DAEVAL_QS_DONE]: "Questionnaires complete, scheduling in progress",
+	[SECTION_NEEDS_PROTOCOLS_SCANNED]: "Evaluation completed, report in progress",
+	[SECTION_JUST_ADDED]: "Process has not yet started",
+};
+
+export interface ReferralStatusSummary {
+	statusText: string;
+	done: boolean;
+}
+
+export interface NextRealAppointment {
+	startTime: Date | string;
+	daEval: "DA" | "EVAL" | "DAEVAL" | null;
+}
+
+const appointmentStatusText = (appointment: NextRealAppointment): string => {
+	const date = formatInBusinessTime(appointment.startTime, "MM/dd/yy");
+	const label =
+		appointment.daEval === "DA"
+			? "an intake appointment"
+			: appointment.daEval === "EVAL"
+				? "an evaluation"
+				: "an appointment";
+	return `Scheduled for ${label} on ${date}`;
+};
+
+/**
+ * Fully evaluated (Post-Eval) always stops the faxes. Post-DA only stops
+ * them when the client's questionnaire needs show no eval was ever planned
+ * (the DA-only/ADHD pathway) - there's no separate intake-level flag for
+ * this, so it reuses the same "EVAL Qs Needed" punchlist column
+ * DASHBOARD_CONFIG itself uses to distinguish DA-only clients.
+ */
+function getBaseReferralStatusSummary(
+	client: FullClientInfo,
+): ReferralStatusSummary {
+	const matchedTitles = DASHBOARD_CONFIG.filter((config) =>
+		config.filter(client),
+	).map((config) => config.title);
+	const extraInfoFor = (title: string) =>
+		DASHBOARD_CONFIG.find((c) => c.title === title)?.extraInfo?.(client);
+
+	if (matchedTitles.includes(SECTION_POST_EVAL)) {
+		return { statusText: "Evaluation completed", done: true };
+	}
+
+	if (matchedTitles.includes(SECTION_DA_SCHEDULED)) {
+		const date = extraInfoFor(SECTION_DA_SCHEDULED);
+		return {
+			statusText: date
+				? `Scheduled for an intake appointment on ${date}`
+				: "Scheduled for an intake appointment",
+			done: false,
+		};
+	}
+
+	if (matchedTitles.includes(SECTION_EVAL_SCHEDULED)) {
+		const date = extraInfoFor(SECTION_EVAL_SCHEDULED);
+		return {
+			statusText: date
+				? `Scheduled for an evaluation on ${date}`
+				: "Scheduled for an evaluation",
+			done: false,
+		};
+	}
+
+	if (matchedTitles.includes(SECTION_POST_DA)) {
+		const isDaOnly = client["EVAL Qs Needed"] === "FALSE";
+		return isDaOnly
+			? { statusText: "Intake appointment completed", done: true }
+			: {
+					statusText: "Intake appointment completed, next steps in progress",
+					done: false,
+				};
+	}
+
+	for (const title of matchedTitles) {
+		const statusText = REFERRAL_STATUS_TEXT[title];
+		if (statusText) return { statusText, done: false };
+	}
+
+	return { statusText: "Process has not yet started", done: false };
+}
+
+/**
+ * nextAppointment is the client's next real (non-cancelled, non-rescheduled,
+ * non-placeholder, non-billing-only) appointment from emr_appointment, if
+ * any. Staff often book the appointment in TherapyAppointment before
+ * updating the punchlist (records/questionnaire columns, "DA
+ * Scheduled"/"EVAL date"), so a real appointment on the books is more
+ * current than any punchlist-derived status and takes precedence over it,
+ * unless the client has already been fully evaluated (done).
+ */
+export function getReferralStatusSummary(
+	client: FullClientInfo,
+	nextAppointment?: NextRealAppointment,
+): ReferralStatusSummary {
+	const base = getBaseReferralStatusSummary(client);
+	if (base.done || !nextAppointment) return base;
+	return { statusText: appointmentStatusText(nextAppointment), done: false };
 }
