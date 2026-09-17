@@ -223,7 +223,6 @@ export function AdminReviewSection({ client }: AdminReviewSectionProps) {
 			<div className="space-y-3">
 				<RichTextEditor
 					allowImages
-					formatBar={false}
 					key={`admin-review-${client.id}`}
 					onChange={(content) => {
 						setLocalContent(content as JSONContent);
