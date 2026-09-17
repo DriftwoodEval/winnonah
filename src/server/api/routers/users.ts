@@ -605,6 +605,8 @@ export const userRouter = createTRPCRouter({
 	markChangelogSeen: protectedProcedure
 		.input(z.object({ marker: z.string() }))
 		.mutation(async ({ ctx, input }) => {
+			if (ctx.session.user.isImpersonating) return;
+
 			await ctx.db
 				.update(users)
 				.set({ lastSeenChangelogMarker: input.marker })

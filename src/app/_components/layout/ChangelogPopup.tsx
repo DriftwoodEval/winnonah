@@ -11,7 +11,7 @@ import { ChangelogPopupDialog } from "./ChangelogPopupDialog";
 
 export async function ChangelogPopup() {
 	const session = await auth();
-	if (!session) return null;
+	if (!session || session.user.isImpersonating) return null;
 
 	const lastSeen = parseChangelogMarker(await api.users.getChangelogMarker());
 	const entries = getUnseenChangelogEntries(lastSeen);
