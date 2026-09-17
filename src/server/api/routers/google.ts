@@ -99,19 +99,31 @@ const getPreviewData = async (ctx: Context, clientId: number) => {
 		: null;
 
 	const daQsNeeded = true;
-	let evalQsNeeded = false;
 
-	if (client.primaryInsurance) {
-		const primaryInsuranceRecord = allInsurances.find(
-			(i) =>
-				i.shortName === primaryInsurance ||
-				i.aliases.some((a) => a.name === client.primaryInsurance),
-		);
+	const findInsuranceRecord = (name: string | null) =>
+		name
+			? allInsurances.find(
+					(i) =>
+						i.shortName === getInsuranceShortName(name, allInsurances) ||
+						i.aliases.some((a) => a.name === name),
+				)
+			: undefined;
 
-		if (primaryInsuranceRecord?.appointmentsRequired === 1) {
-			evalQsNeeded = true;
-		}
-	}
+	// Use the more restrictive of primary/secondary insurance: more
+	// appointments required is more restrictive. If either insurance
+	// requires 2 appointments, the DA and eval visits are separate, so
+	// only DA questionnaires are needed now.
+	const appointmentsRequired = [
+		findInsuranceRecord(client.primaryInsurance),
+		...(client.secondaryInsurance ?? []).map(findInsuranceRecord),
+	].reduce<number | undefined>((max, record) => {
+		if (record?.appointmentsRequired === undefined) return max;
+		return max === undefined
+			? record.appointmentsRequired
+			: Math.max(max, record.appointmentsRequired);
+	}, undefined);
+
+	const evalQsNeeded = appointmentsRequired === 1;
 
 	// Calculate records needed status
 	const ageInMonths = differenceInMonths(new Date(), new Date(client.dob));
