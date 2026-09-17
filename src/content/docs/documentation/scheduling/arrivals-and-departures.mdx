@@ -1,6 +1,5 @@
 ---
 title: Arrivals and Departures
-notDone: true
 ---
 
 **<big>Greeters can use the Day Ahead page to track arrival and departure times of both clients and evaluators, conveniently in the same place. This allows for appointment durations to be logged, in case appointments take longer than expected, allowing for future appointment scheduling to be planned accordingly.</big>**
@@ -12,22 +11,33 @@ notDone: true
 
 Note: Arrivals and Departures only need to be done for in person appointments. Evaluators and clients cannot be checked in or out for virtual appointments.
 
-### 1. Marking Evaluator(s) as "In for the Day"
+### Marking Evaluator(s) as "In for the Day"
 
-**Evaluators should be marked as "In for the Day" first thing when they arrive.** This is done by clicking on the "In for the Day" button directly across from the specific evaluators name, and clicking the "Save" button.
+**Evaluators should be marked as "In for the Day" first thing when they arrive at the office for the day.** This is done by clicking on the "In for the Day" button directly across from the specific evaluator's name, and clicking the "Save" button.
 
 > [!tip] The time field will automatically fill in with the current time, however, if needed, a different time can be typed into the space and submitted instead.
 
 ![animated gif showing the process of marking an evaluator as "In for the Day" and opening the list of appointments for that evaluator for today](images/eval_in.gif)
 
-Clicking on the evaluators name will open the list of clients and appointments for that evaluator for the day. This is where you can see relevant client information for the day's appointment, as well as the "Arrived" buttons for each appointment.
+> [!TODO] Once an evaluator is completely done for the day, they also must be marked as "Out for the Day". This can be done by using the button that is now in the same place as the "In for the Day" button originally was.
 
-### 2. Marking Clients as "Arrived" + Appointments as "Started"
+Clicking on the evaluator's name will open the list of clients and appointments for that evaluator for the day. This is where you can see relevant client information for the day's appointment, as well as the "Arrived" buttons for each appointment.
 
-![](images/client_in.gif)
+### Marking Clients Status
 
-### 3. Marking Clients as "Left"
+Just like marking an evaluator as "In for the Day", clients must be marked as:
+- **First:** "Arrived" when they physically arrive to the office for their appointment
+- **Then:** "Started" when the evaluator retrieves the client and the appointment begins
+- **Finally:** "Left" when the client's appointment ends and the client is no longer with the evaluator
 
-![](images/client_out.gif)
+All three of these actions are functionally done the same as checking in the evaluator, except that the client's buttons are found to the right of each client's appointment information.
 
-### 4. Marking the Evaluator(s) as "Out for the Day"
+> [!WARNING] These actions must be done sequentially
+> ie. a client must be marked "Arrived" before they can be marked as "Started"
+
+![animated gif showing the process of marking a client as "Arrived", followed by marking an appointment as "Started"](images/client_in.gif)
+
+> [!TIP] Tip:  If you mess up a time, or mark a status incorrectly, you can update or revert a time entry by reclicking on the appropriate time entry button.
+> A window will pop up that allows you to change the time and save it, or, if you click on the most recent entry, there will be a button that allows you to go "Back a Step", which will essentially undo the newest time entry.
+
+![animated gif showing the process of marking a client as "Left" following the appointment ending](images/client_out.gif)
