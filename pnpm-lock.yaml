@@ -191,8 +191,8 @@ importers:
         specifier: ^25.0.0
         version: 25.0.0(supports-color@7.2.0)
       '@googleapis/sheets':
-        specifier: ^17.0.0
-        version: 17.0.0(supports-color@7.2.0)
+        specifier: ^18.0.0
+        version: 18.0.0(supports-color@7.2.0)
       '@hookform/resolvers':
         specifier: ^5.7.1
         version: 5.9.1(@standard-schema/spec@1.1.0)(ajv-formats@2.1.1(ajv@8.20.0))(ajv@8.20.0)(react-hook-form@7.88.0(react@19.3.0))(zod@4.6.5)
@@ -1180,8 +1180,8 @@ packages:
     resolution: {integrity: sha512-tCw1qO18DjC7b6AMTbhRuqUqVA2F9FYA2aQlqQlkDD9eybe/ClRD1XRcIXuNhKDhvCGP9WORC8IrUmSUC1IyVw==}
     engines: {node: '>=22.0.0'}
 
-  '@googleapis/sheets@17.0.0':
-    resolution: {integrity: sha512-0XvHbv14k41joeRF1NAAYbX7/GnHfL+FOWdn+711j4IRzByqDxA3x7U2LCJi5WjbQDBlLlAyOEgAf/uDcIsbSw==}
+  '@googleapis/sheets@18.0.0':
+    resolution: {integrity: sha512-eTImgWys+sdWu9ouENthzqGHGpw4LUD7k5Qd4/VGmxT+s/x2JFJCcYW8HqCS6BihpVGqA+xYGiopmthgxZoBGg==}
     engines: {node: '>=22.0.0'}
 
   '@hono/node-server@2.1.0':
@@ -6469,7 +6469,7 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  '@googleapis/sheets@17.0.0(supports-color@7.2.0)':
+  '@googleapis/sheets@18.0.0(supports-color@7.2.0)':
     dependencies:
       googleapis-common: 9.0.4(supports-color@7.2.0)
     transitivePeerDependencies:
