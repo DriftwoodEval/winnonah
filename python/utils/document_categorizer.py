@@ -577,6 +577,11 @@ def analyze_document(llm: Llama, document_text: str) -> tuple[str, list[str], fl
     (possibly large) document text."""
     data = _complete_json(llm, build_prompt(document_text), DOCUMENT_SCHEMA, 0.0)
     category = str(data.get("category", ""))
+    if category not in CATEGORIES:
+        # A truncated or malformed model reply lands here as well as a
+        # genuinely unrecognized category; either way "Unsure" is the safe,
+        # storable fallback rather than an empty string the DB enum rejects.
+        category = "Unsure"
     clients = _clean_client_names(data.get("clients"))
     confidence = _clean_confidence(data.get("confidence"))
     return category, clients, confidence
