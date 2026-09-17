@@ -86,6 +86,11 @@ export function Client({
 
 	const isActive = isLoadingClient ? false : (client?.status ?? false);
 
+	const { data: adminReview } = api.adminReview.getByClientId.useQuery(
+		client?.id ?? -1,
+		{ enabled: !!client?.id },
+	);
+
 	const [selectedColor, setSelectedColor] = useState<ClientColor | null>(null);
 
 	const utils = api.useUtils();
@@ -340,7 +345,7 @@ export function Client({
 									{!isNotesOnlyClientId(client.id) && (
 										<TabsTrigger value="insurance">Insurance</TabsTrigger>
 									)}
-									{!isNotesOnlyClientId(client.id) && (
+									{!isNotesOnlyClientId(client.id) && adminReview?.enabled && (
 										<TabsTrigger value="admin-review">Admin Review</TabsTrigger>
 									)}
 									{/* It's fine that this doesn't stop people from just visiting the URL, we aren't hiding this for security, we're hiding it so that we don't get people confused about it existing */}
