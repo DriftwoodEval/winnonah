@@ -13,7 +13,17 @@
       devShells.${system}.default = pkgs.mkShell {
         # python/utils/document_categorizer.py shells out to this via
         # pytesseract at runtime.
-        packages = [ pkgs.tesseract ];
+        packages = [
+          pkgs.tesseract
+          pkgs.chromium
+          pkgs.chromedriver
+        ];
+
+        # Selenium (python/utils/webdriving.py) otherwise falls back to
+        # Selenium Manager's auto-downloaded chromedriver, which is a generic
+        # Linux binary that can't find its shared libraries on NixOS.
+        CHROME_BIN = "${pkgs.chromium}/bin/chromium";
+        CHROMEDRIVER_PATH = "${pkgs.chromedriver}/bin/chromedriver";
       };
     };
 }
