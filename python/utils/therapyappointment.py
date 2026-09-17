@@ -84,6 +84,8 @@ def login_ta(driver: WebDriver, actions: ActionChains) -> None:
     actions.send_keys(Keys.ENTER)
     actions.perform()
 
+    w.find_element(driver, By.XPATH, "//*[contains(text(), 'Clients')]", timeout=20)
+
 
 def check_and_login_ta(
     driver: WebDriver,
@@ -111,11 +113,12 @@ def _open_profile(driver: WebDriver):
     """Opens the therapist profile page."""
     logger.debug("Opening profile")
     w.click_element(driver, By.CLASS_NAME, "user-menu-button")
-    w.click_element(
+    element = w.find_visible_element(
         driver,
         By.XPATH,
-        "//span[contains(normalize-space(text()), 'Your Profile')]",
+        "//*[@role='listitem'][contains(@aria-label, 'Your Profile')]",
     )
+    element.click()
 
 
 def _export_data(driver: WebDriver, npi: str | None = None):  # noqa: ARG001 Needs to match function signature of _download_data

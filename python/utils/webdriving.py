@@ -100,6 +100,36 @@ def find_element(
         raise e
 
 
+def find_visible_element(
+    driver: WebDriver,
+    by: str,
+    locator: str,
+    timeout: int = 5,
+) -> WebElement:
+    """Find the first visible element among all matches of a locator.
+
+    Some pages keep a hidden duplicate of an element around (e.g. a
+    responsive layout's off-screen copy for another breakpoint). A plain
+    `element_to_be_clickable` only ever looks at the first match in document
+    order, so it can wait forever on a hidden node while a visible match
+    sits right next to it.
+    """
+
+    def _first_visible(d: WebDriver):
+        for element in d.find_elements(by, locator):
+            if element.is_displayed() and element.is_enabled():
+                return element
+        return False
+
+    try:
+        return WebDriverWait(driver, timeout).until(_first_visible)
+    except TimeoutException as e:
+        logger.warning(
+            f"Timeout ({timeout}s) waiting for a visible element with {by}='{locator}'."
+        )
+        raise e
+
+
 def check_if_element_exists(
     driver: WebDriver,
     by: str,
