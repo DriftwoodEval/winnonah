@@ -1,3 +1,14 @@
+"""Scrapes eligibility data from the SC Medicaid provider portal via Selenium.
+
+Runs as part of the normal cron pipeline (main.py) every CRON_SCHEDULE
+interval (every 4 hours by default, see python/Dockerfile), checking only
+clients whose qualCategory is still NULL. A full recheck of a specific
+client, or of every never-checked client, can be forced with
+`python main.py --medicaid [--client <name-or-id>]`. Portal credentials
+come from the medicaid entry in the app's services config (Settings >
+QSuite tab), not from environment variables.
+"""
+
 from time import sleep
 
 from loguru import logger
