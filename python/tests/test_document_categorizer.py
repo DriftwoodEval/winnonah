@@ -219,7 +219,7 @@ class TestAnalyzeDocument:
         category, clients, confidence = analyze_document(
             llm.as_llama(), "some document text"
         )
-        assert category == ""
+        assert category == "Unsure"
         assert clients == []
         assert confidence == 0.0
 
