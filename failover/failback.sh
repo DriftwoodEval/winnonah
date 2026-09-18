@@ -13,10 +13,31 @@ STANDBY_COMPOSE="docker compose -f ~/winnonah/docker-compose.yaml -f ~/winnonah/
 
 log()   { echo "[$(date '+%H:%M:%S')] FAILBACK: $*"; }
 slack() {
+  # JSON-encoded via python3 rather than hand-built, since a hand-built
+  # payload breaks on a message containing a double quote or newline (e.g.
+  # a failing command reported by the ERR trap below).
+  local payload
+  payload="$(python3 -c 'import json, sys; print(json.dumps({"text": sys.argv[1]}))' "$1")"
   curl -s -X POST "${SLACK_WEBHOOK_URL}" \
     -H "Content-Type: application/json" \
-    -d "{\"text\": \"$1\"}" > /dev/null || true
+    -d "${payload}" > /dev/null || true
 }
+
+# Without this, a failure partway through exits with `set -e` and no other
+# indication of what happened or where, as if the script had just stopped.
+#
+# The trap calls a function rather than inlining these steps, and passes
+# $?/$LINENO/$BASH_COMMAND in as arguments, because referencing them from
+# separate statements inside the trap body (rather than in one single
+# expansion) makes bash report the wrong line for a command that spans
+# multiple physical lines: $LINENO drifts to the end of that command, or
+# further, instead of staying on the line where it started.
+on_error() {
+  local status="$1" line="$2" command="$3"
+  log "FAILED (exit ${status}) at line ${line}: ${command}"
+  slack "🚨 Failback script failed at line ${line} (exit ${status}): \`${command:0:500}\`. Check the primary manually before retrying."
+}
+trap 'on_error "$?" "${LINENO}" "${BASH_COMMAND}"' ERR
 
 log "=== FAILBACK STARTING ==="
 slack "Failback initiated. Syncing primary from standby before swapping traffic."
@@ -34,6 +55,17 @@ ssh -o LogLevel=quiet -i "${STANDBY_SSH_KEY_PATH}" "${STANDBY_SSH_USER}@${STANDB
 # Like caddy, these have no profile and are normally always-on, but STONITH
 # (failover.sh) stops and removes every primary container, so bring them back
 # up here.
+#
+# This `up` may print Compose WARN lines about "winnonah_default" or
+# "winnonah_winnonah_db-data" not matching the compose file. Those are
+# leftover network/volume objects from before the default network was pinned
+# to winnonah-net and the db volume was made external (see the `networks:`
+# block in docker-compose.yaml and `volumes:` in docker-compose.primary.yaml).
+# Compose leaves them untouched and uses the correctly named resources
+# instead, so the warning itself is harmless noise, not a failure. Do NOT
+# `docker network rm`/`docker volume rm` them though: a container can still
+# be attached to one by its old ID even with the name unused, and removing it
+# breaks that container ("network <id> not found" on its next start).
 log "Starting primary driftwood-db, redis, loki, promtail, and grafana..."
 if ! ${PRIMARY_COMPOSE} up -d --wait driftwood-db redis loki promtail grafana; then
   log "Primary MySQL did not become healthy. Fix it first."
@@ -99,10 +131,16 @@ slack "Primary restored from standby's data."
 # Deploy.sh can leave either winnonah-a or winnonah-b running on standby
 # (a rolling deploy may have happened while standby was serving), so find
 # whichever one is actually up rather than assuming winnonah-a.
+#
+# The remote loop's own exit status is discarded with `; exit 0`: when
+# neither slot is running, the last command inside the loop is a failed `[`
+# test, which would otherwise make the ssh call itself fail and, under this
+# script's `set -e`, kill failback silently right here with no Slack alert
+# and no indication of why.
 STANDBY_SLOT=$(ssh -o LogLevel=quiet -i "${STANDBY_SSH_KEY_PATH}" "${STANDBY_SSH_USER}@${STANDBY_TAILSCALE_IP}" \
   'for s in winnonah-a winnonah-b; do
      [ "$(docker inspect -f "{{.State.Running}}" "$s" 2>/dev/null)" = "true" ] && echo "$s" && break
-   done')
+   done; exit 0')
 STANDBY_SLOT="${STANDBY_SLOT:-winnonah-a}"
 
 log "Stopping standby services (web slot: ${STANDBY_SLOT})..."
