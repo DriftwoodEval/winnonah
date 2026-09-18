@@ -201,22 +201,6 @@ same dump is also written to `/tmp/standby_dump.sql` on the primary during
 the failback run, though `/tmp` is not guaranteed to survive a reboot, so
 prefer the copy on the standby.
 
-## A warning that's safe to ignore (for developers)
-
-When failback.sh brings the primary's database back up, Docker Compose may
-print two WARN lines about a network called `winnonah_default` or a volume
-called `winnonah_winnonah_db-data` not matching the compose file. These are
-leftover objects from before the default network was pinned to
-`winnonah-net` and the database volume was made external, and Compose
-leaves them alone rather than touching them automatically. Failback still
-completes normally, so the warning itself can be ignored, but do not remove
-either object by hand: a running or stopped container can still be attached
-to one by its old ID even though the name is now unused, and deleting it out
-from under that container breaks it (`docker start`/`up` then fails with
-something like "network `<id>` not found"). If they need cleaning up,
-confirm nothing references them first (`docker network inspect`/`docker
-volume inspect` lists containers using them).
-
 ## The moving parts, by file (for developers)
 
 - `worker/index.js` plus `worker/wrangler.toml`: the Cloudflare monitor.
