@@ -15,15 +15,32 @@ STONITH_INTERVAL=15 # retry every 15s
 
 log()   { echo "[$(date '+%H:%M:%S')] FAILOVER: $*"; }
 slack() {
+  # JSON-encoded via python3 rather than hand-built, since a hand-built
+  # payload breaks on a message containing a double quote or newline (e.g.
+  # a failing command reported by the ERR trap below).
+  local payload
+  payload="$(python3 -c 'import json, sys; print(json.dumps({"text": sys.argv[1]}))' "$1")"
   curl -s -X POST "${SLACK_WEBHOOK_URL}" \
     -H "Content-Type: application/json" \
-    -d "{\"text\": \"$1\"}" > /dev/null || true
+    -d "${payload}" > /dev/null || true
 }
 
 # Without this, a failure partway through (e.g. MySQL promotion) would exit
 # before the flag is normally set, leaving standby-poll.sh free to retrigger
 # a brand new run (and a new STONITH loop) on every cron tick, forever.
-trap 'slack "🚨 Failover script failed at line ${LINENO}. Standby may not be fully up - check standby-poll.log and this host manually."' ERR
+#
+# The trap calls a function rather than inlining these steps, and passes
+# $?/$LINENO/$BASH_COMMAND in as arguments, because referencing them from
+# separate statements inside the trap body (rather than in one single
+# expansion) makes bash report the wrong line for a command that spans
+# multiple physical lines: $LINENO drifts to the end of that command, or
+# further, instead of staying on the line where it started.
+on_error() {
+  local status="$1" line="$2" command="$3"
+  log "FAILED (exit ${status}) at line ${line}: ${command}"
+  slack "🚨 Failover script failed at line ${line} (exit ${status}): \`${command:0:500}\`. Standby may not be fully up - check standby-poll.log and this host manually."
+}
+trap 'on_error "$?" "${LINENO}" "${BASH_COMMAND}"' ERR
 
 if [ -f "${FAILOVER_FLAG}" ]; then
   log "Already active, skipping."
