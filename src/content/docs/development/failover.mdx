@@ -164,6 +164,11 @@ What the failback script does, running on the primary:
 A final Slack message confirms the primary is live and the system is back to
 normal. The yellow banner disappears.
 
+If any step fails partway through, Slack gets an alert saying the failback
+script failed and naming which line, and the script itself stops right there
+instead of continuing on to later steps. Whoever is running it should check
+the primary manually before trying again.
+
 ## Where to look
 
 - **Slack:** the running commentary of any failover or failback, plus the

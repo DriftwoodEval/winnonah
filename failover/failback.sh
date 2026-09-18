@@ -18,6 +18,10 @@ slack() {
     -d "{\"text\": \"$1\"}" > /dev/null || true
 }
 
+# Without this, a failure partway through exits with `set -e` and no other
+# indication of what happened or where, as if the script had just stopped.
+trap 'slack "🚨 Failback script failed at line ${LINENO}. Check the primary manually before retrying."' ERR
+
 log "=== FAILBACK STARTING ==="
 slack "Failback initiated. Syncing primary from standby before swapping traffic."
 
@@ -108,10 +112,16 @@ slack "Primary restored from standby's data."
 # Deploy.sh can leave either winnonah-a or winnonah-b running on standby
 # (a rolling deploy may have happened while standby was serving), so find
 # whichever one is actually up rather than assuming winnonah-a.
+#
+# The remote loop's own exit status is discarded with `; exit 0`: when
+# neither slot is running, the last command inside the loop is a failed `[`
+# test, which would otherwise make the ssh call itself fail and, under this
+# script's `set -e`, kill failback silently right here with no Slack alert
+# and no indication of why.
 STANDBY_SLOT=$(ssh -o LogLevel=quiet -i "${STANDBY_SSH_KEY_PATH}" "${STANDBY_SSH_USER}@${STANDBY_TAILSCALE_IP}" \
   'for s in winnonah-a winnonah-b; do
      [ "$(docker inspect -f "{{.State.Running}}" "$s" 2>/dev/null)" = "true" ] && echo "$s" && break
-   done')
+   done; exit 0')
 STANDBY_SLOT="${STANDBY_SLOT:-winnonah-a}"
 
 log "Stopping standby services (web slot: ${STANDBY_SLOT})..."
