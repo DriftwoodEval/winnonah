@@ -34,6 +34,15 @@ ssh -o LogLevel=quiet -i "${STANDBY_SSH_KEY_PATH}" "${STANDBY_SSH_USER}@${STANDB
 # Like caddy, these have no profile and are normally always-on, but STONITH
 # (failover.sh) stops and removes every primary container, so bring them back
 # up here.
+#
+# This `up` may print Compose WARN lines about "winnonah_default" or
+# "winnonah_winnonah_db-data" not matching the compose file. Those are
+# leftover network/volume objects from before the default network was pinned
+# to winnonah-net and the db volume was made external (see the `networks:`
+# block in docker-compose.yaml and `volumes:` in docker-compose.primary.yaml).
+# Compose leaves them untouched and uses the correctly named resources
+# instead, so they are harmless noise, not a failure. Safe to `docker network
+# rm`/`docker volume rm` once confirmed unused, but not required.
 log "Starting primary driftwood-db, redis, loki, promtail, and grafana..."
 if ! ${PRIMARY_COMPOSE} up -d --wait driftwood-db redis loki promtail grafana; then
   log "Primary MySQL did not become healthy. Fix it first."
