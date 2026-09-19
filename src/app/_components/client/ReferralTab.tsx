@@ -298,6 +298,7 @@ export function ReferralTab({ client, readOnly }: ReferralTabProps) {
 		notes?: string;
 		schoolExplanation?: string;
 		privateSchool?: "yes" | "no" | null;
+		privateSchoolConfirmed?: boolean;
 		otherNotes?: string;
 		locationPreference?: string;
 		needsReachOut?: "reach_out" | "review" | null;
@@ -822,7 +823,10 @@ export function ReferralTab({ client, readOnly }: ReferralTabProps) {
 												onValueChange={(value) => {
 													const val = value as "yes" | "no";
 													setPrivateSchool(val);
-													handleReferralDataChange({ privateSchool: val });
+													handleReferralDataChange({
+														privateSchool: val,
+														privateSchoolConfirmed: false,
+													});
 												}}
 												value={privateSchool ?? undefined}
 											>
@@ -870,6 +874,28 @@ export function ReferralTab({ client, readOnly }: ReferralTabProps) {
 													placeholder="..."
 													value={schoolExplanation}
 												/>
+												{client.referralData?.privateSchoolConfirmed ? (
+													<p className="text-muted-foreground text-sm">
+														Confirmed as a private / charter school.
+													</p>
+												) : can("clients:referral:confirmprivateschool") ? (
+													<Button
+														disabled={updateClientMutation.isPending}
+														onClick={() =>
+															handleReferralDataChange({
+																privateSchoolConfirmed: true,
+															})
+														}
+														type="button"
+													>
+														Confirm Private / Charter School
+													</Button>
+												) : (
+													<p className="text-muted-foreground text-sm">
+														Records requests wait until this is confirmed as a
+														private / charter school.
+													</p>
+												)}
 											</div>
 										)}
 									</div>
@@ -1218,10 +1244,10 @@ export function ReferralTab({ client, readOnly }: ReferralTabProps) {
 												<span>
 													{pushPreview.recordsNeeded ?? "Not Needed"}
 													{pushPreview.recordsNeeded === "Needed" &&
-														pushPreview.isPrivateSchool && (
+														pushPreview.isPrivateSchoolUnconfirmed && (
 															<span className="ml-1 text-muted-foreground">
-																(Charter / Private School on intake - will not
-																auto-request)
+																(Charter / Private School on intake - records
+																wait until it is confirmed)
 															</span>
 														)}
 												</span>

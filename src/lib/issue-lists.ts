@@ -76,6 +76,40 @@ export async function getUnreviewedRecordsList(db: Context["db"]) {
 }
 
 /**
+ * Clients whose intake says private / charter school, records are needed and
+ * haven't been requested yet, and nobody has confirmed the private-school
+ * answer. Records automation skips them until confirmed (see
+ * isPrivateSchoolUnconfirmed in client-blockers.ts).
+ */
+export async function getUnconfirmedPrivateSchoolList(db: Context["db"]) {
+	return db
+		.select(getTableColumns(clients))
+		.from(clients)
+		.where(
+			and(
+				not(isNotesOnly),
+				eq(clients.status, true),
+				eq(clients.recordsNeeded, "Needed"),
+				sql`JSON_UNQUOTE(JSON_EXTRACT(${clients.referralData}, '$.privateSchool')) = 'yes'`,
+				sql`COALESCE(JSON_UNQUOTE(JSON_EXTRACT(${clients.referralData}, '$.privateSchoolConfirmed')), 'false') != 'true'`,
+				sql`NOT EXISTS (
+					SELECT 1 FROM ${externalRecords}
+					WHERE ${externalRecords.clientId} = ${clients.id}
+					AND ${externalRecords.content} IS NOT NULL
+				)`,
+				sql`NOT EXISTS (
+					SELECT 1 FROM ${externalRecordRequests}
+					WHERE ${externalRecordRequests.clientId} = ${clients.id}
+					AND ${externalRecordRequests.requestedDate} IS NOT NULL
+					AND (${clients.sessionStartedAt} IS NULL
+						OR ${externalRecordRequests.createdAt} >= ${clients.sessionStartedAt})
+				)`,
+			),
+		)
+		.orderBy(asc(clients.addedDate));
+}
+
+/**
  * Clients whose insurance allows additional appointments (96130/96136/96137)
  * beyond the base evaluation, but don't have enough of them scheduled yet.
  * Mirrors the /issues page's "Appointments to be Created" list (client.ts's

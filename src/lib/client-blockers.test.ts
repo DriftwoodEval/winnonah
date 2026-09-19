@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
 	getRecordsBlockerReason,
+	isPrivateSchoolUnconfirmed,
 	type RecordsBlockerInput,
 } from "./client-blockers";
 
@@ -8,7 +9,7 @@ function input(overrides: Partial<RecordsBlockerInput>): RecordsBlockerInput {
 	return {
 		recordsNeeded: "Needed",
 		hasExternalRecordContent: false,
-		isPrivateSchool: false,
+		isPrivateSchoolUnconfirmed: false,
 		language: "English",
 		holdUntil: null,
 		requestedDates: [],
@@ -31,12 +32,21 @@ describe("getRecordsBlockerReason", () => {
 		).toBeNull();
 	});
 
-	it("flags a private-school client before checking request history", () => {
+	it("flags an unconfirmed private-school client that has no request yet", () => {
+		expect(
+			getRecordsBlockerReason(input({ isPrivateSchoolUnconfirmed: true })),
+		).toMatch(/private school not yet confirmed/);
+	});
+
+	it("stops flagging an unconfirmed private-school client once a request was sent", () => {
 		expect(
 			getRecordsBlockerReason(
-				input({ isPrivateSchool: true, requestedDates: ["2026-08-01"] }),
+				input({
+					isPrivateSchoolUnconfirmed: true,
+					requestedDates: ["2026-08-01"],
+				}),
 			),
-		).toMatch(/private-school/);
+		).toBeNull();
 	});
 
 	it("reports an unsupported language", () => {
@@ -65,5 +75,19 @@ describe("getRecordsBlockerReason", () => {
 
 	it("reports records not yet requested when no request has ever existed", () => {
 		expect(getRecordsBlockerReason(input({}))).toMatch(/not yet requested/);
+	});
+});
+
+describe("isPrivateSchoolUnconfirmed", () => {
+	it("is true only when intake says yes and it is not confirmed", () => {
+		expect(isPrivateSchoolUnconfirmed({ privateSchool: "yes" })).toBe(true);
+		expect(
+			isPrivateSchoolUnconfirmed({
+				privateSchool: "yes",
+				privateSchoolConfirmed: true,
+			}),
+		).toBe(false);
+		expect(isPrivateSchoolUnconfirmed({ privateSchool: "no" })).toBe(false);
+		expect(isPrivateSchoolUnconfirmed(null)).toBe(false);
 	});
 });
