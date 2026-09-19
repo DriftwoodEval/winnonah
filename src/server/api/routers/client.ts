@@ -49,6 +49,7 @@ import {
 	formatInBusinessTime,
 	getClosestOfficeKey,
 	getInsuranceShortName,
+	getInsuranceShortNamesList,
 	getOfficeDistanceMiles,
 	isNotesOnlyClientId,
 	localDateToDateOnly,
@@ -3339,15 +3340,40 @@ export const clientRouter = createTRPCRouter({
 	getInsurancePolicies: protectedProcedure
 		.input(z.number())
 		.query(async ({ ctx, input }) => {
-			const policies = await ctx.db.query.clientInsurancePolicies.findMany({
-				where: eq(clientInsurancePolicies.clientId, input),
-				orderBy: (t, { asc, desc }) => [
-					asc(t.policyType),
-					desc(t.policyStartDate),
-				],
-			});
+			const [policies, client, allInsurances] = await Promise.all([
+				ctx.db.query.clientInsurancePolicies.findMany({
+					where: eq(clientInsurancePolicies.clientId, input),
+					orderBy: (t, { asc, desc }) => [
+						asc(t.policyType),
+						desc(t.policyStartDate),
+					],
+				}),
+				ctx.db.query.clients.findFirst({
+					where: eq(clients.id, input),
+					columns: {
+						primaryInsurance: true,
+						secondaryInsurance: true,
+						medicaidOrganization: true,
+					},
+				}),
+				ctx.db.query.insurances.findMany({ with: { aliases: true } }),
+			]);
 
-			return { policies };
+			// The portal Organization is resolved through insurance aliases. An
+			// unresolved name comes back unchanged, so it also counts as a mismatch.
+			const organizationInsurance = getInsuranceShortName(
+				client?.medicaidOrganization ?? null,
+				allInsurances,
+			);
+			const organizationMismatch =
+				!!organizationInsurance &&
+				!getInsuranceShortNamesList(
+					client?.primaryInsurance ?? null,
+					client?.secondaryInsurance ?? null,
+					allInsurances,
+				).includes(organizationInsurance);
+
+			return { policies, organizationInsurance, organizationMismatch };
 		}),
 
 	syncPunchData: protectedProcedure.mutation(async ({ ctx }) => {

@@ -1139,10 +1139,12 @@ def get_medicaid_clients_with_ids(
     only_due: bool = True,
     connection: Connection[DictCursor] | None = None,
 ) -> list[dict]:
-    """Returns active clients on a Medicaid-portal insurance with their policy numbers.
+    """Returns active clients with a Medicaid-portal insurance as primary or secondary.
 
-    With only_due, restricts to clients never checked or last checked more than
-    MEDICAID_RECHECK_DAYS ago.
+    Only policy numbers the portal accepts (exactly 10 digits) are considered.
+    Each client appears once with the policy number to search, preferring the
+    primary policy. With only_due, restricts to clients never checked or last
+    checked more than MEDICAID_RECHECK_DAYS ago.
     """
     assert connection is not None
     shortname_placeholders = ", ".join(["%s"] * len(MEDICAID_SHORT_NAMES))
@@ -1150,10 +1152,10 @@ def get_medicaid_clients_with_ids(
     with connection.cursor() as cursor:
         cursor.execute(
             f"""
-            SELECT c.id, c.firstName, c.lastName, p.insuranceNumber
+            SELECT c.id, c.firstName, c.lastName, TRIM(p.insuranceNumber) AS insuranceNumber
             FROM `{TABLE_CLIENT}` c
             JOIN `{TABLE_CLIENT_INSURANCE_POLICY}` p ON p.clientId = c.id
-            WHERE c.primaryInsurance IN (
+            WHERE COALESCE(p.insuranceCompanyName, p.policyCompanyName) IN (
                     SELECT i.shortName FROM `{TABLE_INSURANCE}` i
                     WHERE i.shortName IN ({shortname_placeholders})
                     UNION
@@ -1162,20 +1164,25 @@ def get_medicaid_clients_with_ids(
                     WHERE i.shortName IN ({shortname_placeholders})
                 )
               AND c.status = 1
-              AND p.policyType = 'PRIMARY'
+              AND p.policyType IN ('PRIMARY', 'SECONDARY')
               AND (p.policyEndDate IS NULL OR p.policyEndDate >= CURDATE())
-              AND p.insuranceNumber IS NOT NULL
-              AND p.insuranceNumber != ''
+              AND TRIM(p.insuranceNumber) REGEXP '^[0-9]{{10}}$'
               {
                 " AND (c.medicaidCheckedAt IS NULL OR c.medicaidCheckedAt < UTC_TIMESTAMP() - INTERVAL %s DAY)"
                 if only_due
                 else ""
             }
-            ORDER BY c.lastName, c.firstName
+            ORDER BY c.lastName, c.firstName, c.id, p.policyType = 'PRIMARY' DESC
             """,
             MEDICAID_SHORT_NAMES * 2 + ([MEDICAID_RECHECK_DAYS] if only_due else []),
         )
-        return list(cursor.fetchall())
+        rows = cursor.fetchall()
+
+    # Rows are ordered primary-first, so the first row per client wins.
+    clients_by_id: dict[int, dict] = {}
+    for row in rows:
+        clients_by_id.setdefault(row["id"], row)
+    return list(clients_by_id.values())
 
 
 @provide_connection
