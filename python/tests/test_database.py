@@ -7,6 +7,7 @@ import pandas as pd
 import pytest
 
 from utils.database import (
+    MEDICAID_RECHECK_DAYS,
     _build_reactivation_note_block,
     _build_reactivation_review_separator,
     _get_date_cache,
@@ -15,6 +16,7 @@ from utils.database import (
     _set_date_cache,
     activate_reactivation_admin_review,
     filter_clients_with_changed_address,
+    get_medicaid_clients_with_ids,
     get_python_config,
     get_services_config,
     get_sync_report_date,
@@ -24,6 +26,7 @@ from utils.database import (
     put_client_insurance_policies_in_db,
     put_clients_in_db,
     set_referral_fax_date,
+    update_client_medicaid_eligibility,
 )
 
 
@@ -796,3 +799,95 @@ class TestIncrementalMatchingRestrictToNpis:
         deletes, inserts = self._run(restrict=None)
         assert deletes == [("c1", {"B"})]
         assert inserts == [("c1", {"C"})]
+
+
+class TestGetMedicaidClientsWithIds:
+    def test_client_with_primary_and_secondary_is_returned_once_using_primary(self):
+        primary = {
+            "id": 1,
+            "firstName": "A",
+            "lastName": "B",
+            "insuranceNumber": "1111111111",
+        }
+        secondary = {**primary, "insuranceNumber": "2222222222"}
+        other = {
+            "id": 2,
+            "firstName": "C",
+            "lastName": "D",
+            "insuranceNumber": "3333333333",
+        }
+        conn = FakeConnection(FakeCursor(fetchall_result=[primary, secondary, other]))
+
+        result = get_medicaid_clients_with_ids(connection=conn)
+
+        assert result == [primary, other]
+
+    def test_query_matches_policy_company_and_requires_ten_digits(self):
+        cursor = FakeCursor()
+
+        get_medicaid_clients_with_ids(connection=FakeConnection(cursor))
+
+        query, _ = cursor.executed[0]
+        assert "COALESCE(p.insuranceCompanyName, p.policyCompanyName) IN" in query
+        assert "p.policyType IN ('PRIMARY', 'SECONDARY')" in query
+        assert "REGEXP '^[0-9]{10}$'" in query
+
+    def test_only_due_adds_recheck_window_parameter(self):
+        due_cursor = FakeCursor()
+        all_cursor = FakeCursor()
+
+        get_medicaid_clients_with_ids(
+            only_due=True, connection=FakeConnection(due_cursor)
+        )
+        get_medicaid_clients_with_ids(
+            only_due=False, connection=FakeConnection(all_cursor)
+        )
+
+        due_query, due_params = due_cursor.executed[0]
+        all_query, all_params = all_cursor.executed[0]
+        assert "medicaidCheckedAt" in due_query
+        assert due_params[-1] == MEDICAID_RECHECK_DAYS
+        assert "medicaidCheckedAt" not in all_query
+        assert len(due_params) == len(all_params) + 1
+
+
+FIELDS = {
+    "qualCategory": "DISABLED",
+    "paymentCategory": "TEFRA",
+    "medicaidOrganization": "SELECT HEALTH OF SOUTH CAR",
+    "medicaidCarrier1": "ONE",
+    "medicaidCarrier2": None,
+}
+
+
+class TestUpdateClientMedicaidEligibility:
+    def test_stores_all_fields_and_stamps_checked_time(self):
+        cursor = FakeCursor()
+        conn = FakeConnection(cursor)
+
+        update_client_medicaid_eligibility(5, FIELDS, "policy-1", connection=conn)
+
+        query, params = cursor.executed[0]
+        assert "medicaidCheckedAt = UTC_TIMESTAMP()" in query
+        assert params == (
+            "DISABLED",
+            "TEFRA",
+            "SELECT HEALTH OF SOUTH CAR",
+            "ONE",
+            None,
+            "policy-1",
+            5,
+        )
+        assert conn.commits == 1
+
+    def test_not_found_only_stamps_checked_time(self):
+        cursor = FakeCursor()
+
+        update_client_medicaid_eligibility(
+            5, None, "policy-1", connection=FakeConnection(cursor)
+        )
+
+        query, params = cursor.executed[0]
+        assert "qualCategory" not in query
+        assert "medicaidCheckedAt = UTC_TIMESTAMP()" in query
+        assert params == (5,)

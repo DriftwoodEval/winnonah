@@ -1092,9 +1092,10 @@ def sync_scm_admin_reviews(connection: Connection[DictCursor]):
 def update_client_medicaid_eligibility(
     client_id: int,
     eligibility: dict[str, str | None] | None,
+    policy_id: str,
     connection: Connection[DictCursor],
 ) -> None:
-    """Stores the scraped portal fields on the client and stamps medicaidCheckedAt.
+    """Stores the scraped portal fields and the policy searched, and stamps medicaidCheckedAt.
 
     With eligibility=None (client not found on the portal), only the timestamp
     is updated so the client is retried next month instead of every run.
@@ -1111,7 +1112,7 @@ def update_client_medicaid_eligibility(
                 UPDATE `{TABLE_CLIENT}`
                 SET qualCategory = %s, paymentCategory = %s, medicaidOrganization = %s,
                     medicaidCarrier1 = %s, medicaidCarrier2 = %s,
-                    medicaidCheckedAt = UTC_TIMESTAMP()
+                    medicaidPolicyId = %s, medicaidCheckedAt = UTC_TIMESTAMP()
                 WHERE id = %s
                 """,
                 (
@@ -1120,6 +1121,7 @@ def update_client_medicaid_eligibility(
                     eligibility["medicaidOrganization"],
                     eligibility["medicaidCarrier1"],
                     eligibility["medicaidCarrier2"],
+                    policy_id,
                     client_id,
                 ),
             )
@@ -1152,7 +1154,7 @@ def get_medicaid_clients_with_ids(
     with connection.cursor() as cursor:
         cursor.execute(
             f"""
-            SELECT c.id, c.firstName, c.lastName, TRIM(p.insuranceNumber) AS insuranceNumber
+            SELECT c.id, c.firstName, c.lastName, p.policyId, TRIM(p.insuranceNumber) AS insuranceNumber
             FROM `{TABLE_CLIENT}` c
             JOIN `{TABLE_CLIENT_INSURANCE_POLICY}` p ON p.clientId = c.id
             WHERE COALESCE(p.insuranceCompanyName, p.policyCompanyName) IN (

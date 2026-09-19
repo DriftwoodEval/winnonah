@@ -178,7 +178,7 @@ def _run_medicaid_eligibility_lookup(
                         )
                         continue
                 utils.database.update_client_medicaid_eligibility(
-                    client["id"], eligibility
+                    client["id"], eligibility, client["policyId"]
                 )
     finally:
         logout_medicaid(driver)
@@ -224,6 +224,11 @@ def search_single_client(driver: WebDriver, client_id: str) -> dict[str, str | N
     _open_query_form(driver).send_keys(client_id)
     w.click_element(driver, By.NAME, "checkEligibilityButton")
     w.click_element(driver, By.NAME, "displayButton1")
+    return read_eligibility(driver)
+
+
+def read_eligibility(driver: WebDriver) -> dict[str, str | None]:
+    """Read the eligibility fields from the results page the driver is on."""
     qual_category = w.find_element(
         driver, By.XPATH, "//li[label[text()='Qual. Category:']]/p"
     )

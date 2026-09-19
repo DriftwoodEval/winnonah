@@ -389,12 +389,8 @@ export function InsuranceTab({ client }: InsuranceTabProps) {
 	// Private-pay "policies" carry no real insurance company, just a
 	// leftover/synced row - showing a card for them reads as "Unknown Company".
 	const policies = (data?.policies ?? []).filter((p) => !p.privatePay);
-	const primaryPolicyId = policies.find(
-		(p) => p.policyType?.toUpperCase() === "PRIMARY",
-	)?.policyId;
-
-	// Only clients with a Medicaid portal lookup on file have anything to show.
-	const medicaidEligibility = client.medicaidCheckedAt
+	// Shown on the policy the portal lookup searched, once a lookup has found the client.
+	const medicaidEligibility = client.medicaidPolicyId
 		? {
 				qualCategory: client.qualCategory ?? null,
 				paymentCategory: client.paymentCategory ?? null,
@@ -433,7 +429,7 @@ export function InsuranceTab({ client }: InsuranceTabProps) {
 						<PolicyCard
 							key={policy.policyId}
 							medicaidEligibility={
-								policy.policyId === primaryPolicyId
+								policy.policyId === client.medicaidPolicyId
 									? medicaidEligibility
 									: undefined
 							}
@@ -451,7 +447,7 @@ export function InsuranceTab({ client }: InsuranceTabProps) {
 								<PolicyCard
 									key={policy.policyId}
 									medicaidEligibility={
-										policy.policyId === primaryPolicyId
+										policy.policyId === client.medicaidPolicyId
 											? medicaidEligibility
 											: undefined
 									}
