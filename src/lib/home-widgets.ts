@@ -220,6 +220,13 @@ export const HOME_WIDGET_DEFS: HomeWidgetDef[] = [
 		sizing: "content",
 	},
 	{
+		id: "private-school-confirm",
+		label: "Private School Awaiting Confirmation",
+		permission: "issues:private-school-confirm",
+		category: "issues",
+		sizing: "content",
+	},
+	{
 		id: "duplicate-drive",
 		label: "Duplicate Drive Folders",
 		permission: "issues:duplicate-drive",

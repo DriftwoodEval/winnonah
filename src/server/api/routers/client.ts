@@ -32,6 +32,7 @@ import { fetchWithCache, invalidateCache } from "~/lib/cache";
 import {
 	getRecordsBlockerReason,
 	getUnsupportedLanguageReason,
+	isPrivateSchoolUnconfirmed,
 } from "~/lib/client-blockers";
 import { CLIENT_COLOR_KEYS, type ClientColor } from "~/lib/colors";
 import { ALLOWED_ASD_ADHD_VALUES } from "~/lib/constants";
@@ -42,6 +43,7 @@ import {
 } from "~/lib/google";
 import {
 	getMissingAppointmentsList,
+	getUnconfirmedPrivateSchoolList,
 	getUnreviewedRecordsList,
 } from "~/lib/issue-lists";
 import type { ClientWithIssueInfo } from "~/lib/models";
@@ -836,7 +838,9 @@ export const clientRouter = createTRPCRouter({
 							hasExternalRecordContent: hasExternalRecordContentByClientId.has(
 								row.id,
 							),
-							isPrivateSchool: row.referralData?.privateSchool === "yes",
+							isPrivateSchoolUnconfirmed: isPrivateSchoolUnconfirmed(
+								row.referralData,
+							),
 							language: row.language,
 							holdUntil: pendingHoldUntilByClientId.get(row.id),
 							hasPendingRequest: pendingHoldUntilByClientId.has(row.id),
@@ -2085,6 +2089,12 @@ export const clientRouter = createTRPCRouter({
 		assertPermission(ctx.session.user, "issues:unreviewed-records");
 
 		return getUnreviewedRecordsList(ctx.db);
+	}),
+
+	getUnconfirmedPrivateSchool: protectedProcedure.query(async ({ ctx }) => {
+		assertPermission(ctx.session.user, "issues:private-school-confirm");
+
+		return getUnconfirmedPrivateSchoolList(ctx.db);
 	}),
 
 	createNotesOnly: protectedProcedure

@@ -99,6 +99,8 @@ export function IssueWidgetById({ id }: { id: string }) {
 			return <PrivatePayWidget />;
 		case "unreviewed-records":
 			return <UnreviewedRecordsWidget />;
+		case "private-school-confirm":
+			return <PrivateSchoolConfirmWidget />;
 		case "duplicate-drive":
 			return <DuplicateDriveWidget />;
 		case "duplicate-q-links":
@@ -508,6 +510,23 @@ function UnreviewedRecordsWidget() {
 			isLoading={isLoading}
 			permission="issues:unreviewed-records"
 			title="Unreviewed/Unreceived Records"
+		/>
+	);
+}
+
+function PrivateSchoolConfirmWidget() {
+	const can = useCheckPermission();
+	const { data, isLoading } = api.clients.getUnconfirmedPrivateSchool.useQuery(
+		undefined,
+		{ refetchInterval: 60_000, enabled: can("issues:private-school-confirm") },
+	);
+	return (
+		<SimpleIssueWidget
+			clients={data}
+			description="Intake says private or charter school. Records requests wait until someone confirms it on the Referral tab."
+			isLoading={isLoading}
+			permission="issues:private-school-confirm"
+			title="Private School Awaiting Confirmation"
 		/>
 	);
 }

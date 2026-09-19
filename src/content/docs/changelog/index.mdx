@@ -9,9 +9,11 @@ title: Changelog
 - Medicaid eligibility is now looked up for clients with ATC, BabyNet, SH, SCM, HB, Humana, Molina, or Molina Marketplace as their primary or secondary insurance, not just SCM.
 - The Organization from the SC Medicaid portal is matched to an insurance using the same aliases as the rest of the app, and a warning appears if it isn't one of the client's primary or secondary insurances.
 - When records come back for a client whose primary insurance is SH, Admin Review is now turned on automatically and assigned to Andrew.
+- The records request automation now handles private and charter school clients. The QSuite Records Config lists private and charter schools alongside public districts, so you can add a contact for each. A client marked Charter / Private School at intake waits until someone with permission presses the new "Confirm Private / Charter School" button on the Referral tab; they show under "Records Needed - Not Requested" as "Private school not yet confirmed" and on a new "Private School Awaiting Confirmation" issues list (also available as a home page widget) until then, or until the intake answer is changed to No. Once confirmed, the client is assigned the Charter School consent forms, and the next day the family gets a text that we sent them. When they have signed the forms and the school they entered has a contact on file, the request is sent automatically. Otherwise (no forms yet, or an unrecognized school) it falls out for manual review.
 
 **Improved**
 - Medicaid eligibility is now refreshed about once a month instead of only being looked up when it was missing.
+- The QSuite Records Config school picker opens much faster, and each option is now tagged when it's a private or charter school.
 
 ## 2026-09-16
 

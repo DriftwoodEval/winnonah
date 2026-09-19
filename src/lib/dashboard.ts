@@ -2,6 +2,7 @@ import { format, subYears } from "date-fns";
 import { formatInBusinessTime } from "~/lib/utils";
 import {
 	getRecordsBlockerReason,
+	isPrivateSchoolUnconfirmed,
 	RECORDS_NOT_YET_REQUESTED_REASON,
 } from "./client-blockers";
 import type { Client, Failure, FullClientInfo } from "./models";
@@ -293,7 +294,9 @@ export const DASHBOARD_CONFIG: {
 			const reason = getRecordsBlockerReason({
 				recordsNeeded: client.recordsNeeded ?? null,
 				hasExternalRecordContent: !!client.hasExternalRecordsNote,
-				isPrivateSchool: client.referralData?.privateSchool === "yes",
+				isPrivateSchoolUnconfirmed: isPrivateSchoolUnconfirmed(
+					client.referralData,
+				),
 				language: client.language ?? null,
 				holdUntil: client.recordsHoldUntil,
 				hasPendingRequest: !!client.recordsRequestQueuedDate,
@@ -309,9 +312,7 @@ export const DASHBOARD_CONFIG: {
 			}
 			// This section already says records are needed and that they need
 			// requesting; keep just the lead-in that names the reason.
-			const trimmed = reason
-				.replace(/^records needed,? (but )?/i, "")
-				.replace(/, records must be requested manually$/i, "");
+			const trimmed = reason.replace(/^records needed,? (but )?/i, "");
 			return `${trimmed.charAt(0).toUpperCase()}${trimmed.slice(1)}`;
 		},
 		failureFilter: (f) =>
@@ -703,6 +704,8 @@ export const SECTION_ISSUE_NO_DRIVE_ID = "Issue: No Drive IDs";
 // directly, rather than through getClientIssueListSections below.
 export const SECTION_ISSUE_UNREVIEWED_RECORDS =
 	"Issue: Unreviewed/Unreceived Records";
+export const SECTION_ISSUE_PRIVATE_SCHOOL_CONFIRM =
+	"Issue: Private School Awaiting Confirmation";
 export const SECTION_ISSUE_MISSING_APPOINTMENTS =
 	"Issue: Appointments to be Created";
 export const SECTION_ISSUE_DUPLICATE_QUESTIONNAIRES =

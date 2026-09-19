@@ -3,7 +3,8 @@ import { compareDateOnly, formatShortDate } from "~/lib/utils";
 export type RecordsBlockerInput = {
 	recordsNeeded: "Needed" | "Not Needed" | null;
 	hasExternalRecordContent: boolean;
-	isPrivateSchool: boolean;
+	/** Intake says private school but nobody has confirmed it yet. */
+	isPrivateSchoolUnconfirmed: boolean;
 	language: string | null;
 	holdUntil: string | null | undefined;
 	/** Dates of requests that have actually been sent (never null entries). */
@@ -22,10 +23,9 @@ export type RecordsBlockerInput = {
  *
  * "Not Needed" and already-present record content both mean nothing further
  * is required. Otherwise, records-request.py only picks up a client from
- * get_clients_needing_records() when they're not private-school (staff handle
- * those manually, per ensurePendingExternalRecordRequest's comment), their
- * language is exactly "English" (unlike qsend.py, records-request.py does not
- * also allow Spanish), and any hold on the pending request has expired. Any
+ * get_clients_needing_records() when any private-school answer on intake has
+ * been confirmed, their language is exactly "English" (unlike qsend.py,
+ * records-request.py does not also allow Spanish), and any hold on the pending request has expired. Any
  * of those unmet is a reason staff must act, and it is reported here
  * regardless of diagnosis: an ADHD-only client's outstanding records never
  * block a questionnaire send (that gate lives elsewhere), but a records
@@ -46,10 +46,6 @@ export function getRecordsBlockerReason(
 		return null;
 	}
 
-	if (input.isPrivateSchool) {
-		return "records needed, private-school client, records must be requested manually";
-	}
-
 	if (input.language !== "English") {
 		return `records needed, but automated records requests require English (client's language is ${input.language ?? "not set"})`;
 	}
@@ -59,6 +55,12 @@ export function getRecordsBlockerReason(
 	}
 
 	const sentDates = input.requestedDates.filter((d): d is string => !!d);
+
+	// Held until someone confirms the private-school answer; once a request has
+	// gone out the block no longer matters.
+	if (input.isPrivateSchoolUnconfirmed && sentDates.length === 0) {
+		return "records needed, private school not yet confirmed";
+	}
 
 	// The only records blocker left to report is a client who has never had a
 	// request at all. Once a request exists (still pending, or already sent),
@@ -105,5 +107,23 @@ export function hasQuestionnairesNeeded(
 	return (
 		punchInfo?.["DA Qs Needed"] === "TRUE" ||
 		punchInfo?.["EVAL Qs Needed"] === "TRUE"
+	);
+}
+
+/**
+ * Intake says the client attends a private or charter school, but nobody with
+ * the confirm permission has pressed the confirm button yet. Mirrors the
+ * unconfirmed exclusion in get_clients_needing_records() in
+ * questionnaires/utils/database.py.
+ */
+export function isPrivateSchoolUnconfirmed(
+	referralData:
+		| { privateSchool?: string | null; privateSchoolConfirmed?: boolean }
+		| null
+		| undefined,
+): boolean {
+	return (
+		referralData?.privateSchool === "yes" &&
+		!referralData.privateSchoolConfirmed
 	);
 }
