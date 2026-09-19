@@ -13,6 +13,7 @@ from appointment_reminders import (
     format_message,
     get_reminder_preview,
     is_confirmation,
+    is_negative,
     is_within_quiet_window,
 )
 from utils.timezone import now_business
@@ -297,6 +298,22 @@ class TestIsConfirmation:
     )
     def test_rejects_non_confirmation_text(self, text):
         assert is_confirmation(text) is False
+
+
+class TestIsNegative:
+    @pytest.mark.parametrize(
+        "text",
+        ["no", "No.", "N", "nope!", "CANCEL", "stop", " no ", "👎", "no 👎"],
+    )
+    def test_recognizes_decline(self, text):
+        assert is_negative(text) is True
+
+    @pytest.mark.parametrize(
+        "text",
+        ["no problem, see you then", "yes", "can we reschedule?", "not sure yet", ""],
+    )
+    def test_rejects_other_text(self, text):
+        assert is_negative(text) is False
 
 
 class FakeCursor:

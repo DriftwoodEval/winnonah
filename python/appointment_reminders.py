@@ -676,6 +676,21 @@ def is_confirmation(incoming_text: str) -> bool:
     return bool(re.search(pattern, incoming_text, re.IGNORECASE))
 
 
+NEGATIVE_KEYWORDS = ["N", "NO", "NOPE", "CANCEL", "STOP"]
+NEGATIVE_PATTERN = re.compile(
+    rf"\W*({'|'.join(re.escape(k) for k in NEGATIVE_KEYWORDS)})\W*",
+    re.IGNORECASE,
+)
+
+
+def is_negative(incoming_text: str) -> bool:
+    """
+    Checks for a clear decline. The whole message must be a negative keyword
+    (or 👎), so "no problem, see you then" is not treated as a decline.
+    """
+    return "👎" in incoming_text or bool(NEGATIVE_PATTERN.fullmatch(incoming_text))
+
+
 async def should_handle_reply(
     message_id: str | None,
     sent_at: datetime,
@@ -894,6 +909,15 @@ async def handle_incoming_reply(
                     ts,
                 ),
             )
+
+            if is_negative(incoming_text):
+                logger.info(
+                    f"Negative reply: stopping reminders for appt {context['appointment_id']}."
+                )
+                cursor.execute(
+                    f"UPDATE {TABLE_APPOINTMENT} SET doNotRemind = 1 WHERE id = %s",
+                    (context["appointment_id"],),
+                )
 
             event_id = context.get("calendarEventId")
             if event_id:

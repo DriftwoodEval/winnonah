@@ -52,7 +52,7 @@ A reply counts as a confirmation if either:
 - it contains a thumbs-up, check-mark, or heart emoji (👍 in any skin tone, ✅, ✔️, or any heart) anywhere in the message, or
 - it contains one of the words **Y**, **YES**, **YEAH**, **YEA**, **OK**, **OKAY**, **CONFIRM**, or **CONFIRMED** as a whole word (case doesn't matter).
 
-Whole word means "ok thanks" and "Y" on its own both count, but "yesterday" does not. Anything else, "no", "reschedule", a question, is treated as a non-confirmation and lands in the **Non-Confirmation Replies** log for staff to read.
+Whole word means "ok thanks" and "Y" on its own both count, but "yesterday" does not. Anything else, "reschedule", a question, is treated as a non-confirmation and lands in the **Non-Confirmation Replies** log for staff to read. A clear decline also stops reminders, see [section 6](#6-turning-reminders-off).
 
 **Only the client's first text back after a reminder is checked.** If they've already replied once since the reminder went out, later messages are ignored by the confirmation automation, even if a later one says "yes". So a client who first asks a question and then confirms won't get auto-confirmed; staff have to mark it confirmed by hand.
 
@@ -73,6 +73,8 @@ A manual confirmation stamps the appointment as confirmed, shows a **Confirmed**
 
 **For everyone.** Turn off a template's **Active** switch in **Settings > Scheduling** to stop that template firing for all appointments, without deleting it.
 
+**When a client says no.** If a client's reply is only a decline (**N**, **NO**, **NOPE**, **CANCEL**, **STOP**, or a 👎), reminders for that appointment stop automatically, the same as **Stop Reminders**, and the reply is logged under **Non-Confirmation Replies**. The whole message has to be the decline: "no problem, see you then" doesn't count, and neither does a longer message like "no I can't make it", so staff should still read the non-confirmation log. Use **Resume Reminders** to turn them back on.
+
 There's no single control to stop all future reminders for a client. Confirming an appointment stops its remaining standard reminders on its own (follow-up templates can still fire); cancelling or rescheduling stops all of them.
 
 ## 7. What silently skips a reminder
@@ -80,7 +82,7 @@ There's no single control to stop all future reminders for a client. Confirming 
 - The appointment is cancelled, rescheduled, billing-only, or a placeholder.
 - The client has no phone number on file.
 - The client doesn't speak English.
-- The appointment has **Stop Reminders** turned on (see [section 6](#6-turning-reminders-off)).
+- The appointment has **Stop Reminders** turned on, either by staff or because the client replied with a decline (see [section 6](#6-turning-reminders-off)).
 
 ## 8. History, for troubleshooting
 
