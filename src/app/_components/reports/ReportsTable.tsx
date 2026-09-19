@@ -45,13 +45,32 @@ interface SavedFilters {
 	status: string[];
 	writer: string[];
 	type: string[];
+	evaluator: string[];
+	writerDone: string[];
+	secondReviewNeeded: string[];
+	secondReviewDone: string[];
+	billed: string[];
+	firstReviewDone: string[];
 }
+
+type FilterKey = keyof SavedFilters;
 
 // Headers wrap onto several lines and hug the bottom edge, so short labels
 // leave the spare room above them.
 const HEAD_CLASS = "h-auto whitespace-normal align-bottom py-2";
 
-const EMPTY_FILTERS: SavedFilters = { status: [], writer: [], type: [] };
+const EMPTY_FILTERS: SavedFilters = {
+	status: [],
+	writer: [],
+	type: [],
+	evaluator: [],
+	writerDone: [],
+	secondReviewNeeded: [],
+	secondReviewDone: [],
+	billed: [],
+	firstReviewDone: [],
+};
+const FILTER_KEYS = Object.keys(EMPTY_FILTERS) as FilterKey[];
 
 interface SavedView {
 	name: string;
@@ -78,6 +97,25 @@ function writerDisplay(
 // Rows for Beth's evals are shown in bold.
 function isBethEvaluator(providerName: string | null) {
 	return providerName?.split(" ")[0]?.toLowerCase() === "beth";
+}
+
+// The text a report shows for a filterable column; filter options are the
+// distinct values and a row passes when its value is among the selected ones.
+function filterValue(r: Report, key: FilterKey) {
+	switch (key) {
+		case "status":
+			return statusLabel(r.status);
+		case "writer":
+			return writerDisplay(r.writerName, r.writerEmail) ?? "Unclaimed";
+		case "type":
+			return r.asdAdhd ?? "None";
+		case "evaluator":
+			return r.evalEvaluatorName ?? "None";
+		case "writerDone":
+			return r.writerCompletedAt ? "Yes" : "No";
+		default:
+			return r[key] ? "Yes" : "No";
+	}
 }
 
 function statusLabel(status: Report["status"]) {
@@ -199,62 +237,72 @@ export function ReportsTable({
 		const next = [...views.filter((v) => v.name !== name), { name, filters }];
 		persistViews(next);
 		setNewViewName("");
-		toast.success(`Saved view "${name}".`);
+		toast.success(`Saved filter "${name}".`);
 	}
 
 	function deleteView(name: string) {
 		persistViews(views.filter((v) => v.name !== name));
 	}
 
-	const statusOptions: FilterOption[] = toFilterOptions(
-		[...new Set(reports.map((r) => r.status))].map((s) => statusLabel(s)),
-	).map((opt) => ({ ...opt, value: opt.label }));
-	const writerOptions: FilterOption[] = toFilterOptions(
-		[
-			...new Set(
-				reports.map(
-					(r) => writerDisplay(r.writerName, r.writerEmail) ?? "Unclaimed",
-				),
-			),
-		].sort(),
-	);
-	const typeOptions: FilterOption[] = toFilterOptions(
-		[...new Set(reports.flatMap((r) => (r.asdAdhd ? [r.asdAdhd] : [])))].sort(),
+	const hasActiveFilters = Object.values(filters).some((v) => v.length > 0);
+
+	function filterOptions(key: FilterKey): FilterOption[] {
+		return toFilterOptions(
+			[...new Set(reports.map((r) => filterValue(r, key)))].sort(),
+		);
+	}
+
+	const filteredReports = reports.filter((r) =>
+		FILTER_KEYS.every(
+			(key) =>
+				filters[key].length === 0 || filters[key].includes(filterValue(r, key)),
+		),
 	);
 
-	const filteredReports = reports.filter((r) => {
-		if (
-			filters.status.length > 0 &&
-			!filters.status.includes(statusLabel(r.status))
-		)
-			return false;
-		if (
-			filters.writer.length > 0 &&
-			!filters.writer.includes(
-				writerDisplay(r.writerName, r.writerEmail) ?? "Unclaimed",
-			)
-		)
-			return false;
-		if (filters.type.length > 0 && !filters.type.includes(r.asdAdhd ?? ""))
-			return false;
-		return true;
-	});
+	function filterHead(key: FilterKey, label: string) {
+		return (
+			<TableHead className={HEAD_CLASS} key={key}>
+				<div className="flex items-end gap-1">
+					{label}
+					<ColumnFilter
+						columnName={label}
+						onFilterChange={(v) => setFilters((f) => ({ ...f, [key]: v }))}
+						options={filterOptions(key)}
+						selectedValues={filters[key]}
+					/>
+				</div>
+			</TableHead>
+		);
+	}
 
 	// --- Bulk selection + actions -------------------------------------------
+	// In select mode, clicking anywhere on a row toggles it.
+	const [selectMode, setSelectMode] = useState(false);
 	const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
 	const visibleIds = filteredReports.map((r) => r.id);
 	const allSelected =
 		visibleIds.length > 0 && visibleIds.every((id) => selectedIds.has(id));
 	const someSelected = visibleIds.some((id) => selectedIds.has(id));
 
+	function toggleSelectMode() {
+		setSelectMode((on) => !on);
+		setSelectedIds(new Set());
+	}
 	function toggleAll(checked: boolean) {
 		setSelectedIds(checked ? new Set(visibleIds) : new Set());
 	}
-	function toggleOne(id: number, checked: boolean) {
+	// Buttons and checkboxes inside a row keep their own behavior; anything else,
+	// including the client link, selects the row.
+	function onRowClick(e: React.MouseEvent, id: number) {
+		if (!selectMode || (e.target as HTMLElement).closest("button")) return;
+		e.preventDefault();
+		toggleOne(id);
+	}
+	function toggleOne(id: number) {
 		setSelectedIds((prev) => {
 			const next = new Set(prev);
-			if (checked) next.add(id);
-			else next.delete(id);
+			if (next.has(id)) next.delete(id);
+			else next.add(id);
 			return next;
 		});
 	}
@@ -320,123 +368,149 @@ export function ReportsTable({
 					Showing {filteredReports.length} of {reports.length} report
 					{reports.length === 1 ? "" : "s"}
 				</span>
-				<DropdownMenu>
-					<DropdownMenuTrigger asChild>
-						<Button size="sm" variant="outline">
-							Views <ChevronDown className="ml-1 h-3.5 w-3.5" />
+				<div className="flex items-center gap-2">
+					{isApprover && (
+						<Button
+							onClick={toggleSelectMode}
+							size="sm"
+							variant={selectMode ? "default" : "outline"}
+						>
+							{selectMode ? "Done selecting" : "Select"}
 						</Button>
-					</DropdownMenuTrigger>
-					<DropdownMenuContent align="end" className="w-64">
-						{views.length === 0 && (
-							<div className="p-2 text-muted-foreground text-sm">
-								No saved views yet
-							</div>
-						)}
-						{views.map((v) => (
-							<div
-								className="flex items-center justify-between px-2 py-1"
-								key={v.name}
-							>
-								<button
-									className="flex-1 text-left text-sm hover:underline"
-									onClick={() => setFilters(v.filters)}
-									type="button"
-								>
-									{v.name}
-								</button>
-								<Button
-									onClick={() => deleteView(v.name)}
-									size="sm"
-									variant="ghost"
-								>
-									Delete
-								</Button>
-							</div>
-						))}
-						<DropdownMenuSeparator />
-						<div className="flex items-center gap-1 p-2">
-							<Input
-								className="h-8"
-								onChange={(e) => setNewViewName(e.target.value)}
-								onKeyDown={(e) => e.key === "Enter" && saveCurrentView()}
-								placeholder="Save current filters as..."
-								value={newViewName}
-							/>
-							<Button onClick={saveCurrentView} size="sm">
-								Save
-							</Button>
-						</div>
-						{(filters.status.length > 0 ||
-							filters.writer.length > 0 ||
-							filters.type.length > 0) && (
-							<DropdownMenuItem
-								className="justify-center text-destructive"
-								onClick={() => setFilters(EMPTY_FILTERS)}
-							>
-								Clear all filters
-							</DropdownMenuItem>
-						)}
-					</DropdownMenuContent>
-				</DropdownMenu>
-			</div>
-
-			{isApprover && someSelected && (
-				<div className="flex flex-wrap items-center gap-2 rounded-md border bg-muted/50 p-2">
-					<span className="text-sm">{selectedIds.size} selected</span>
-					<Button onClick={() => applyBulkAction("approve")} size="sm">
-						Approve
-					</Button>
+					)}
 					<DropdownMenu>
 						<DropdownMenuTrigger asChild>
 							<Button size="sm" variant="outline">
-								Set checkbox <ChevronDown className="ml-1 h-3.5 w-3.5" />
+								Saved filters <ChevronDown className="ml-1 h-3.5 w-3.5" />
 							</Button>
 						</DropdownMenuTrigger>
-						<DropdownMenuContent align="start">
-							{bulkCheckboxFields.map((f) => (
+						<DropdownMenuContent align="end" className="w-64">
+							{views.length === 0 && (
+								<div className="p-2 text-muted-foreground text-sm">
+									No saved filters yet
+								</div>
+							)}
+							{views.map((v) => (
 								<div
-									className="flex items-center justify-between gap-2 px-2 py-1"
-									key={f.field}
+									className="flex items-center justify-between px-2 py-1"
+									key={v.name}
 								>
-									<span className="text-sm">{f.label}</span>
-									<div className="flex gap-1">
-										<Button
-											onClick={() =>
-												applyBulkAction({ field: f.field, value: true })
-											}
-											size="sm"
-											variant="outline"
-										>
-											Check
-										</Button>
-										<Button
-											onClick={() =>
-												applyBulkAction({ field: f.field, value: false })
-											}
-											size="sm"
-											variant="ghost"
-										>
-											Uncheck
-										</Button>
-									</div>
+									<button
+										className="flex-1 text-left text-sm hover:underline"
+										onClick={() =>
+											setFilters({ ...EMPTY_FILTERS, ...v.filters })
+										}
+										type="button"
+									>
+										{v.name}
+									</button>
+									<Button
+										onClick={() => deleteView(v.name)}
+										size="sm"
+										variant="ghost"
+									>
+										Delete
+									</Button>
 								</div>
 							))}
+							<DropdownMenuSeparator />
+							<div className="flex items-center gap-1 p-2">
+								<Input
+									className="h-8"
+									onChange={(e) => setNewViewName(e.target.value)}
+									onKeyDown={(e) => e.key === "Enter" && saveCurrentView()}
+									placeholder="Save current filters as..."
+									value={newViewName}
+								/>
+								<Button onClick={saveCurrentView} size="sm">
+									Save
+								</Button>
+							</div>
+							{hasActiveFilters && (
+								<DropdownMenuItem
+									className="justify-center text-destructive"
+									onClick={() => setFilters(EMPTY_FILTERS)}
+								>
+									Clear all filters
+								</DropdownMenuItem>
+							)}
 						</DropdownMenuContent>
 					</DropdownMenu>
+				</div>
+			</div>
+
+			{isApprover && selectMode && (
+				<div className="flex flex-wrap items-center gap-2 rounded-md border bg-muted/50 p-2">
+					<span className="text-sm">
+						{selectedIds.size > 0
+							? `${selectedIds.size} selected`
+							: "Click rows to select them"}
+					</span>
 					<Button
-						onClick={() => applyBulkAction("archive")}
+						onClick={() => toggleAll(!allSelected)}
 						size="sm"
-						variant="destructive"
+						variant="outline"
 					>
-						Archive
+						{allSelected ? "Deselect all" : "Select all"}
 					</Button>
-					<Button
-						onClick={() => setSelectedIds(new Set())}
-						size="sm"
-						variant="ghost"
-					>
-						Clear
-					</Button>
+					{someSelected && (
+						<>
+							<Button onClick={() => applyBulkAction("approve")} size="sm">
+								Approve
+							</Button>
+							<DropdownMenu>
+								<DropdownMenuTrigger asChild>
+									<Button size="sm" variant="outline">
+										Set checkbox <ChevronDown className="ml-1 h-3.5 w-3.5" />
+									</Button>
+								</DropdownMenuTrigger>
+								<DropdownMenuContent align="start" className="w-[26rem] p-2">
+									{bulkCheckboxFields.map((f) => (
+										<div
+											className="flex items-center justify-between gap-4 px-2 py-1.5"
+											key={f.field}
+										>
+											<span className="flex-1 text-sm">{f.label}</span>
+											<div className="flex shrink-0 gap-2">
+												<Button
+													onClick={() =>
+														applyBulkAction({ field: f.field, value: true })
+													}
+													size="sm"
+													variant="outline"
+												>
+													Check
+												</Button>
+												<Button
+													onClick={() =>
+														applyBulkAction({ field: f.field, value: false })
+													}
+													size="sm"
+													variant="ghost"
+												>
+													Uncheck
+												</Button>
+											</div>
+										</div>
+									))}
+								</DropdownMenuContent>
+							</DropdownMenu>
+							<Button
+								onClick={() => applyBulkAction("archive")}
+								size="sm"
+								variant="destructive"
+							>
+								Archive
+							</Button>
+							<Button
+								onClick={() => setSelectedIds(new Set())}
+								size="sm"
+								variant="ghost"
+							>
+								Clear
+							</Button>
+						</>
+					)}
 				</div>
 			)}
 
@@ -444,69 +518,15 @@ export function ReportsTable({
 				<Table classNameWrapper="max-h-[calc(100vh-4.5rem)]">
 					<TableHeader className="sticky top-0 z-20 bg-background shadow-[inset_0_-1px_0_var(--border)]">
 						<TableRow>
-							{isApprover && (
-								<TableHead className={cn("w-8", HEAD_CLASS)}>
-									<Checkbox
-										checked={
-											allSelected
-												? true
-												: someSelected
-													? "indeterminate"
-													: false
-										}
-										onCheckedChange={(v) => toggleAll(v === true)}
-									/>
-								</TableHead>
-							)}
 							<TableHead className={HEAD_CLASS}>Client</TableHead>
-							<TableHead className={HEAD_CLASS}>
-								<div className="flex items-center gap-1">
-									Type
-									<ColumnFilter
-										columnName="Type"
-										onFilterChange={(v) =>
-											setFilters((f) => ({ ...f, type: v }))
-										}
-										options={typeOptions}
-										selectedValues={filters.type}
-									/>
-								</div>
-							</TableHead>
+							{filterHead("type", "Type")}
 							<TableHead className={HEAD_CLASS}>Eval date</TableHead>
-							<TableHead className={HEAD_CLASS}>Evaluator</TableHead>
-							<TableHead className={HEAD_CLASS}>
-								<div className="flex items-center gap-1">
-									Writer
-									<ColumnFilter
-										columnName="Writer"
-										onFilterChange={(v) =>
-											setFilters((f) => ({ ...f, writer: v }))
-										}
-										options={writerOptions}
-										selectedValues={filters.writer}
-									/>
-								</div>
-							</TableHead>
-							<TableHead className={HEAD_CLASS}>
-								<div className="flex items-center gap-1">
-									Status
-									<ColumnFilter
-										columnName="Status"
-										onFilterChange={(v) =>
-											setFilters((f) => ({ ...f, status: v }))
-										}
-										options={statusOptions}
-										selectedValues={filters.status}
-									/>
-								</div>
-							</TableHead>
+							{filterHead("evaluator", "Evaluator")}
+							{filterHead("writer", "Writer")}
+							{filterHead("status", "Status")}
 							<TableHead className={HEAD_CLASS}>Claimed on</TableHead>
-							<TableHead className={HEAD_CLASS}>Writer done</TableHead>
-							{billingFields.map((f) => (
-								<TableHead className={HEAD_CLASS} key={f.key}>
-									{f.label}
-								</TableHead>
-							))}
+							{filterHead("writerDone", "Writer done")}
+							{billingFields.map((f) => filterHead(f.key, f.label))}
 							{isApprover && <TableHead className={HEAD_CLASS} />}
 						</TableRow>
 					</TableHeader>
@@ -520,19 +540,14 @@ export function ReportsTable({
 										// without buttons, plus the text beside buttons in mixed cells.
 										!r.clientActive &&
 											"[&_td:has(button)_span]:opacity-50 [&_td:not(:has(button))]:opacity-50",
+										selectMode && "cursor-pointer select-none",
 										isBethEvaluator(r.evalEvaluatorName) &&
 											"font-bold **:font-bold",
 									)}
+									data-state={selectedIds.has(r.id) ? "selected" : undefined}
 									key={r.id}
+									onClick={(e) => onRowClick(e, r.id)}
 								>
-									{isApprover && (
-										<TableCell>
-											<Checkbox
-												checked={selectedIds.has(r.id)}
-												onCheckedChange={(v) => toggleOne(r.id, v === true)}
-											/>
-										</TableCell>
-									)}
 									<TableCell>
 										<Link
 											className="text-sm hover:underline"
