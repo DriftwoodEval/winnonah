@@ -987,6 +987,19 @@ def sync_client_insurance_from_policies(connection: Connection[DictCursor]):
 
 
 SCM_ALIAS = "SCM"
+
+# Insurances whose members are looked up on the SC Medicaid portal.
+MEDICAID_SHORT_NAMES = [
+    "SCM",
+    "BabyNet",
+    "SH",
+    "HB",
+    "ATC",
+    "Humana",
+    "Molina",
+    "MolinaMarketplace",
+]
+MEDICAID_RECHECK_DAYS = 30
 DEFAULT_EMAIL = "barbara@driftwoodeval.com"
 
 
@@ -1078,68 +1091,61 @@ def sync_scm_admin_reviews(connection: Connection[DictCursor]):
 @provide_connection
 def update_client_medicaid_eligibility(
     client_id: int,
-    qual_category: str,
-    payment_category: str,
+    eligibility: dict[str, str | None] | None,
     connection: Connection[DictCursor],
 ) -> None:
-    """Updates qual_category and payment_category on the client record."""
+    """Stores the scraped portal fields on the client and stamps medicaidCheckedAt.
+
+    With eligibility=None (client not found on the portal), only the timestamp
+    is updated so the client is retried next month instead of every run.
+    """
     with connection.cursor() as cursor:
-        cursor.execute(
-            f"UPDATE `{TABLE_CLIENT}` SET qualCategory = %s, paymentCategory = %s WHERE id = %s",
-            (qual_category, payment_category, client_id),
-        )
+        if eligibility is None:
+            cursor.execute(
+                f"UPDATE `{TABLE_CLIENT}` SET medicaidCheckedAt = UTC_TIMESTAMP() WHERE id = %s",
+                (client_id,),
+            )
+        else:
+            cursor.execute(
+                f"""
+                UPDATE `{TABLE_CLIENT}`
+                SET qualCategory = %s, paymentCategory = %s, medicaidOrganization = %s,
+                    medicaidCarrier1 = %s, medicaidCarrier2 = %s,
+                    medicaidCheckedAt = UTC_TIMESTAMP()
+                WHERE id = %s
+                """,
+                (
+                    eligibility["qualCategory"],
+                    eligibility["paymentCategory"],
+                    eligibility["medicaidOrganization"],
+                    eligibility["medicaidCarrier1"],
+                    eligibility["medicaidCarrier2"],
+                    client_id,
+                ),
+            )
     record_audit_log(
         connection,
         "python.medicaidEligibility.update",
         client_id,
         "system:csv-sync",
         "csv-sync (internal)",
-        detail={"qualCategory": qual_category, "paymentCategory": payment_category},
+        detail=eligibility,
     )
     connection.commit()
 
 
 @provide_connection
-def get_scm_clients_with_medicaid_ids(
-    only_new: bool = True,
+def get_medicaid_clients_with_ids(
+    only_due: bool = True,
     connection: Connection[DictCursor] | None = None,
 ) -> list[dict]:
-    """Returns active clients with SCM insurance and their medicaid (insurance) numbers."""
+    """Returns active clients on a Medicaid-portal insurance with their policy numbers.
+
+    With only_due, restricts to clients never checked or last checked more than
+    MEDICAID_RECHECK_DAYS ago.
+    """
     assert connection is not None
-    with connection.cursor() as cursor:
-        cursor.execute(
-            f"""
-            SELECT i.id, i.shortName
-            FROM `{TABLE_INSURANCE}` i
-            LEFT JOIN `{TABLE_INSURANCE_ALIAS}` a ON a.insuranceId = i.id
-            WHERE i.shortName = %s OR a.name = %s
-            """,
-            (SCM_ALIAS, SCM_ALIAS),
-        )
-        scm_insurance_rows = cursor.fetchall()
-
-    if not scm_insurance_rows:
-        return []
-
-    scm_ids = list({row["id"] for row in scm_insurance_rows})
-    id_placeholders = ", ".join(["%s"] * len(scm_ids))
-
-    with connection.cursor() as cursor:
-        cursor.execute(
-            f"""
-            SELECT i.shortName AS name FROM `{TABLE_INSURANCE}` i WHERE i.id IN ({id_placeholders})
-            UNION
-            SELECT a.name FROM `{TABLE_INSURANCE_ALIAS}` a WHERE a.insuranceId IN ({id_placeholders})
-            """,
-            scm_ids + scm_ids,
-        )
-        name_rows = cursor.fetchall()
-
-    scm_names = [row["name"] for row in name_rows]
-    if not scm_names:
-        return []
-
-    name_placeholders = ", ".join(["%s"] * len(scm_names))
+    shortname_placeholders = ", ".join(["%s"] * len(MEDICAID_SHORT_NAMES))
 
     with connection.cursor() as cursor:
         cursor.execute(
@@ -1147,16 +1153,27 @@ def get_scm_clients_with_medicaid_ids(
             SELECT c.id, c.firstName, c.lastName, p.insuranceNumber
             FROM `{TABLE_CLIENT}` c
             JOIN `{TABLE_CLIENT_INSURANCE_POLICY}` p ON p.clientId = c.id
-            WHERE c.primaryInsurance IN ({name_placeholders})
+            WHERE c.primaryInsurance IN (
+                    SELECT i.shortName FROM `{TABLE_INSURANCE}` i
+                    WHERE i.shortName IN ({shortname_placeholders})
+                    UNION
+                    SELECT a.name FROM `{TABLE_INSURANCE_ALIAS}` a
+                    JOIN `{TABLE_INSURANCE}` i ON i.id = a.insuranceId
+                    WHERE i.shortName IN ({shortname_placeholders})
+                )
               AND c.status = 1
               AND p.policyType = 'PRIMARY'
               AND (p.policyEndDate IS NULL OR p.policyEndDate >= CURDATE())
               AND p.insuranceNumber IS NOT NULL
               AND p.insuranceNumber != ''
-              {" AND c.qualCategory IS NULL" if only_new else ""}
+              {
+                " AND (c.medicaidCheckedAt IS NULL OR c.medicaidCheckedAt < UTC_TIMESTAMP() - INTERVAL %s DAY)"
+                if only_due
+                else ""
+            }
             ORDER BY c.lastName, c.firstName
             """,
-            scm_names,
+            MEDICAID_SHORT_NAMES * 2 + ([MEDICAID_RECHECK_DAYS] if only_due else []),
         )
         return list(cursor.fetchall())
 

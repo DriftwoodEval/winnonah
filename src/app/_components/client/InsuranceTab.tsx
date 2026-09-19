@@ -120,15 +120,20 @@ function SectionHeader({ children }: { children: React.ReactNode }) {
 type Policy =
 	inferRouterOutputs<AppRouter>["clients"]["getInsurancePolicies"]["policies"][number];
 
+type MedicaidEligibility = {
+	qualCategory: string | null;
+	paymentCategory: string | null;
+	medicaidOrganization: string | null;
+	medicaidCarrier1: string | null;
+	medicaidCarrier2: string | null;
+};
+
 function PolicyCard({
 	policy,
 	medicaidEligibility,
 }: {
 	policy: Policy;
-	medicaidEligibility?: {
-		qualCategory: string | null;
-		paymentCategory: string | null;
-	};
+	medicaidEligibility?: MedicaidEligibility;
 }) {
 	const active = isActive(policy.policyStartDate, policy.policyEndDate);
 	const companyName =
@@ -324,18 +329,29 @@ function PolicyCard({
 					</>
 				)}
 
-				{(medicaidEligibility?.qualCategory ??
-					medicaidEligibility?.paymentCategory) && (
+				{medicaidEligibility && (
 					<>
 						<SectionHeader>Medicaid Eligibility</SectionHeader>
 						<div className="grid grid-cols-2 gap-x-6 gap-y-2 sm:grid-cols-3">
 							<InfoRow
 								label="Qual. Category"
-								value={medicaidEligibility?.qualCategory}
+								value={medicaidEligibility.qualCategory}
 							/>
 							<InfoRow
 								label="Payment Category"
-								value={medicaidEligibility?.paymentCategory}
+								value={medicaidEligibility.paymentCategory}
+							/>
+							<InfoRow
+								label="Organization"
+								value={medicaidEligibility.medicaidOrganization}
+							/>
+							<InfoRow
+								label="Carrier 1"
+								value={medicaidEligibility.medicaidCarrier1}
+							/>
+							<InfoRow
+								label="Carrier 2"
+								value={medicaidEligibility.medicaidCarrier2}
 							/>
 						</div>
 					</>
@@ -357,13 +373,19 @@ export function InsuranceTab({ client }: InsuranceTabProps) {
 	// Private-pay "policies" carry no real insurance company, just a
 	// leftover/synced row - showing a card for them reads as "Unknown Company".
 	const policies = (data?.policies ?? []).filter((p) => !p.privatePay);
-	const scmAliasNames = data?.scmAliasNames ?? [];
-	const isScmClient =
-		!!client.primaryInsurance &&
-		scmAliasNames.includes(client.primaryInsurance);
+	const primaryPolicyId = policies.find(
+		(p) => p.policyType?.toUpperCase() === "PRIMARY",
+	)?.policyId;
 
-	const scmPolicyId = isScmClient
-		? policies.find((p) => p.policyType?.toUpperCase() === "PRIMARY")?.policyId
+	// Only clients with a Medicaid portal lookup on file have anything to show.
+	const medicaidEligibility = client.medicaidCheckedAt
+		? {
+				qualCategory: client.qualCategory ?? null,
+				paymentCategory: client.paymentCategory ?? null,
+				medicaidOrganization: client.medicaidOrganization ?? null,
+				medicaidCarrier1: client.medicaidCarrier1 ?? null,
+				medicaidCarrier2: client.medicaidCarrier2 ?? null,
+			}
 		: undefined;
 
 	const active = policies.filter((p) =>
@@ -393,11 +415,8 @@ export function InsuranceTab({ client }: InsuranceTabProps) {
 						<PolicyCard
 							key={policy.policyId}
 							medicaidEligibility={
-								policy.policyId === scmPolicyId
-									? {
-											qualCategory: client.qualCategory ?? null,
-											paymentCategory: client.paymentCategory ?? null,
-										}
+								policy.policyId === primaryPolicyId
+									? medicaidEligibility
 									: undefined
 							}
 							policy={policy}
@@ -414,11 +433,8 @@ export function InsuranceTab({ client }: InsuranceTabProps) {
 								<PolicyCard
 									key={policy.policyId}
 									medicaidEligibility={
-										policy.policyId === scmPolicyId
-											? {
-													qualCategory: client.qualCategory ?? null,
-													paymentCategory: client.paymentCategory ?? null,
-												}
+										policy.policyId === primaryPolicyId
+											? medicaidEligibility
 											: undefined
 									}
 									policy={policy}

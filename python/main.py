@@ -403,11 +403,21 @@ def main(
             help="Check if logged in to SC Medicaid Portal and log in if not",
         ),
     ] = False,
+    medicaid_preview: Annotated[
+        str | None,
+        typer.Option(
+            "--medicaid-preview",
+            help="Log in to SC Medicaid Portal, search this Medicaid ID, and log every field found (no DB writes)",
+        ),
+    ] = None,
 ):
     """Main entry point for the script, parses the command line arguments and runs the appropriate functions."""
     utils.config.validate_config()
 
     dev_mode = os.getenv("DEV_TOGGLE")
+    if medicaid_preview:
+        utils.medicaid.preview_medicaid_lookup(medicaid_preview)
+        return
 
     trigger_args = [quo, download_only]
 
@@ -481,12 +491,12 @@ def main(
                         ids_filter.append(part)
                     else:
                         names_filter.append(part)
-            utils.medicaid.lookup_scm_eligibility(
+            utils.medicaid.lookup_medicaid_eligibility(
                 names=names_filter or None,
                 client_ids=ids_filter or None,
             )
         else:
-            utils.medicaid.lookup_new_scm_eligibility()
+            utils.medicaid.lookup_due_medicaid_eligibility()
         return
 
     force_clients: pd.DataFrame | None = None
@@ -557,9 +567,9 @@ def main(
             logger.error(f"Failed to process referrals: {e}")
 
         try:
-            utils.medicaid.lookup_new_scm_eligibility()
+            utils.medicaid.lookup_due_medicaid_eligibility()
         except Exception as e:
-            logger.error(f"Failed to lookup SCM eligibility: {e}")
+            logger.error(f"Failed to lookup Medicaid eligibility: {e}")
 
         try:
             utils.therapyappointment.save_ta_hashes()
