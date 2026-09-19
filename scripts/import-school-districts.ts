@@ -1,8 +1,8 @@
 import * as fs from "node:fs";
 import path, { dirname } from "node:path";
 import { fileURLToPath } from "node:url";
-import xlsx from "@e965/xlsx";
 import type { InferInsertModel } from "drizzle-orm";
+import ExcelJS from "exceljs";
 import { db } from "~/server/db";
 import { schoolDistricts } from "~/server/db/schema";
 
@@ -47,31 +47,33 @@ async function importSchoolDistricts() {
 		}
 
 		// Read the Excel workbook.
-		const workbook = xlsx.readFile(filePath);
-		const sheetName = workbook.SheetNames[0];
-		if (!sheetName) {
+		const workbook = new ExcelJS.Workbook();
+		await workbook.xlsx.readFile(filePath);
+		const worksheet = workbook.worksheets[0];
+		if (!worksheet) {
 			throw new Error("No worksheets found in the Excel file.");
 		}
 
-		const worksheet = workbook.Sheets[sheetName];
-		if (!worksheet) {
-			throw new Error(`Worksheet '${sheetName}' not found in the workbook.`);
-		}
+		// Row 3 holds the column headers; data starts on row 4.
+		const headers: string[] = [];
+		worksheet.getRow(3).eachCell((cell, colNumber) => {
+			headers[colNumber] = cell.text.trim();
+		});
 
-		// Convert the worksheet data to a JSON array. We get a clean array of objects
-		// where keys are column headers and values are cell contents.
-		const headers = xlsx.utils.sheet_to_json(worksheet, {
-			raw: false,
-			header: 1,
-			range: "A3:F3",
-		})[0] as string[];
-
-		// Now, read the data using the headers we just extracted.
-		// The range starts from row 4 to skip the header row.
-		const data: ExcelRow[] = xlsx.utils.sheet_to_json(worksheet, {
-			raw: false,
-			defval: "",
-			header: headers,
+		// Build one object per data row, keyed by column header.
+		const data: ExcelRow[] = [];
+		worksheet.eachRow((row, rowNumber) => {
+			if (rowNumber <= 3) return;
+			const record: ExcelRow = {
+				"District ID Number": 0,
+				"School District Name": "",
+				"State Postal Code": "",
+			};
+			row.eachCell((cell, colNumber) => {
+				const header = headers[colNumber];
+				if (header) record[header] = cell.text;
+			});
+			data.push(record);
 		});
 
 		console.log(`Found ${data.length} rows in the Excel file.`);

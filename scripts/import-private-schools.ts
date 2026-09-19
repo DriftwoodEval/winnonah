@@ -1,8 +1,8 @@
 import * as fs from "node:fs";
 import path, { dirname } from "node:path";
 import { fileURLToPath } from "node:url";
-import xlsx from "@e965/xlsx";
 import type { InferInsertModel } from "drizzle-orm";
+import ExcelJS from "exceljs";
 import { db } from "~/server/db";
 import { schoolDistricts } from "~/server/db/schema";
 
@@ -41,28 +41,22 @@ async function importPrivateSchools() {
 			);
 		}
 
-		const workbook = xlsx.readFile(filePath);
-		const sheetName = workbook.SheetNames[0];
-		if (!sheetName) throw new Error("No worksheets found in the Excel file.");
-		const worksheet = workbook.Sheets[sheetName];
-		if (!worksheet) throw new Error(`Worksheet '${sheetName}' not found.`);
+		const workbook = new ExcelJS.Workbook();
+		await workbook.xlsx.readFile(filePath);
+		const worksheet = workbook.worksheets[0];
+		if (!worksheet) throw new Error("No worksheets found in the Excel file.");
 
 		// Row 1 is the header ("Org. Member:", "Name:", "Street Address:", ...).
 		// Only the school name (column B) matters here; contact info is entered
 		// per school in the QSuite Records Config.
-		const rows = xlsx.utils.sheet_to_json<string[]>(worksheet, {
-			raw: false,
-			defval: "",
-			header: 1,
-		});
-
 		const uniqueByName = new Map<string, string>();
-		for (const row of rows.slice(1)) {
-			const name = normalizeName(row[1] ?? "");
-			if (!name) continue;
+		worksheet.eachRow((row, rowNumber) => {
+			if (rowNumber === 1) return;
+			const name = normalizeName(row.getCell(2).text);
+			if (!name) return;
 			const key = name.toLowerCase();
 			if (!uniqueByName.has(key)) uniqueByName.set(key, name);
-		}
+		});
 
 		const names = Array.from(uniqueByName.values()).sort((a, b) =>
 			a.localeCompare(b),
