@@ -9,6 +9,8 @@ import {
 	protectedProcedure,
 } from "~/server/api/trpc";
 import {
+	adminReview,
+	adminReviewClaimHistory,
 	clients,
 	externalRecordHistory,
 	externalRecordRequests,
@@ -64,6 +66,61 @@ export async function ensurePendingExternalRecordRequest(
 		await ctx.db.insert(externalRecordRequests).values({
 			clientId,
 			createdBy: ctx.session.user.email,
+		});
+	}
+}
+
+const ADMIN_REVIEW_INSURANCE_SHORT_NAME = "SH";
+const ADMIN_REVIEW_REVIEWER_EMAIL = "andrew@driftwoodeval.com";
+
+/**
+ * Records coming back for a client whose primary insurance is "SH" need
+ * Andrew's admin review: enable it, assign it to him, and reopen it if it was
+ * already submitted to notes.
+ */
+async function activateAdminReviewForShClient(
+	ctx: { db: Context["db"]; session: { user: { email?: string | null } } },
+	clientId: number,
+) {
+	const client = await ctx.db.query.clients.findFirst({
+		where: eq(clients.id, clientId),
+		columns: {},
+		with: {
+			primaryInsuranceDetails: { with: { insurance: true } },
+		},
+	});
+	if (
+		client?.primaryInsuranceDetails?.insurance.shortName !==
+		ADMIN_REVIEW_INSURANCE_SHORT_NAME
+	) {
+		return;
+	}
+
+	const current = await ctx.db.query.adminReview.findFirst({
+		where: eq(adminReview.clientId, clientId),
+	});
+
+	await ctx.db
+		.insert(adminReview)
+		.values({
+			clientId,
+			enabled: true,
+			claimedUserEmail: ADMIN_REVIEW_REVIEWER_EMAIL,
+			updatedBy: ctx.session.user.email,
+		})
+		.onDuplicateKeyUpdate({
+			set: {
+				enabled: true,
+				claimedUserEmail: ADMIN_REVIEW_REVIEWER_EMAIL,
+				submittedToNotesAt: null,
+			},
+		});
+
+	if (current?.claimedUserEmail !== ADMIN_REVIEW_REVIEWER_EMAIL) {
+		await ctx.db.insert(adminReviewClaimHistory).values({
+			reviewId: clientId,
+			userEmail: ADMIN_REVIEW_REVIEWER_EMAIL,
+			setBy: ctx.session.user.email,
 		});
 	}
 }
@@ -364,6 +421,7 @@ export const externalRecordRouter = createTRPCRouter({
 
 				const HISTORY_MERGE_WINDOW = 5 * 60 * 1000; // 5 minutes
 
+				let recordsReceived = false;
 				const changed = await ctx.db.transaction(async (tx) => {
 					const currentRecordNote = await tx.query.externalRecords.findFirst({
 						where: eq(externalRecords.clientId, input.clientId),
@@ -376,6 +434,7 @@ export const externalRecordRouter = createTRPCRouter({
 							content: input.contentJson,
 							updatedBy: ctx.session.user.email,
 						});
+						recordsReceived = true;
 						return true;
 					}
 
@@ -390,6 +449,9 @@ export const externalRecordRouter = createTRPCRouter({
 					);
 
 					if (contentChanged) {
+						if (currentRecordNote.content === null) {
+							recordsReceived = true;
+						}
 						const timeSinceLastUpdate = currentRecordNote.updatedAt
 							? Date.now() - new Date(currentRecordNote.updatedAt).getTime()
 							: Number.POSITIVE_INFINITY;
@@ -436,6 +498,10 @@ export const externalRecordRouter = createTRPCRouter({
 					);
 					return false;
 				});
+
+				if (recordsReceived) {
+					await activateAdminReviewForShClient(ctx, input.clientId);
+				}
 
 				if (changed) {
 					const updatedNote = await ctx.db.query.externalRecords.findFirst({
@@ -497,6 +563,8 @@ export const externalRecordRouter = createTRPCRouter({
 					.set({ autismStop: true })
 					.where(eq(clients.id, input.clientId));
 			}
+
+			await activateAdminReviewForShClient(ctx, input.clientId);
 
 			const newRecordNote = await ctx.db.query.externalRecords.findFirst({
 				where: eq(externalRecords.clientId, input.clientId),
