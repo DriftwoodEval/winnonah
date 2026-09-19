@@ -47,6 +47,10 @@ interface SavedFilters {
 	type: string[];
 }
 
+// Headers wrap onto several lines and hug the bottom edge, so short labels
+// leave the spare room above them.
+const HEAD_CLASS = "h-auto whitespace-normal align-bottom py-2";
+
 const EMPTY_FILTERS: SavedFilters = { status: [], writer: [], type: [] };
 
 interface SavedView {
@@ -69,6 +73,11 @@ function writerDisplay(
 		.map((part) => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
 		.join(" ");
 	return guess || null;
+}
+
+// Rows for Beth's evals are shown in bold.
+function isBethEvaluator(providerName: string | null) {
+	return providerName?.split(" ")[0]?.toLowerCase() === "beth";
 }
 
 function statusLabel(status: Report["status"]) {
@@ -431,12 +440,12 @@ export function ReportsTable({
 				</div>
 			)}
 
-			<div className="w-full overflow-x-auto">
-				<Table>
-					<TableHeader>
+			<div className="w-full">
+				<Table classNameWrapper="max-h-[calc(100vh-4.5rem)]">
+					<TableHeader className="sticky top-0 z-20 bg-background shadow-[inset_0_-1px_0_var(--border)]">
 						<TableRow>
 							{isApprover && (
-								<TableHead className="w-8">
+								<TableHead className={cn("w-8", HEAD_CLASS)}>
 									<Checkbox
 										checked={
 											allSelected
@@ -449,8 +458,8 @@ export function ReportsTable({
 									/>
 								</TableHead>
 							)}
-							<TableHead>Client</TableHead>
-							<TableHead>
+							<TableHead className={HEAD_CLASS}>Client</TableHead>
+							<TableHead className={HEAD_CLASS}>
 								<div className="flex items-center gap-1">
 									Type
 									<ColumnFilter
@@ -463,8 +472,9 @@ export function ReportsTable({
 									/>
 								</div>
 							</TableHead>
-							<TableHead>Eval date</TableHead>
-							<TableHead>
+							<TableHead className={HEAD_CLASS}>Eval date</TableHead>
+							<TableHead className={HEAD_CLASS}>Evaluator</TableHead>
+							<TableHead className={HEAD_CLASS}>
 								<div className="flex items-center gap-1">
 									Writer
 									<ColumnFilter
@@ -477,7 +487,7 @@ export function ReportsTable({
 									/>
 								</div>
 							</TableHead>
-							<TableHead>
+							<TableHead className={HEAD_CLASS}>
 								<div className="flex items-center gap-1">
 									Status
 									<ColumnFilter
@@ -490,12 +500,14 @@ export function ReportsTable({
 									/>
 								</div>
 							</TableHead>
-							<TableHead>Claimed on</TableHead>
-							<TableHead>Writer done</TableHead>
+							<TableHead className={HEAD_CLASS}>Claimed on</TableHead>
+							<TableHead className={HEAD_CLASS}>Writer done</TableHead>
 							{billingFields.map((f) => (
-								<TableHead key={f.key}>{f.label}</TableHead>
+								<TableHead className={HEAD_CLASS} key={f.key}>
+									{f.label}
+								</TableHead>
 							))}
-							{isApprover && <TableHead />}
+							{isApprover && <TableHead className={HEAD_CLASS} />}
 						</TableRow>
 					</TableHeader>
 					<TableBody>
@@ -503,7 +515,14 @@ export function ReportsTable({
 							const canEditWriting = r.isMine || isApprover;
 							return (
 								<TableRow
-									className={cn(!r.clientActive && "opacity-50")}
+									className={cn(
+										// Opacity on the row would dim its buttons too, so dim the cells
+										// without buttons, plus the text beside buttons in mixed cells.
+										!r.clientActive &&
+											"[&_td:has(button)_span]:opacity-50 [&_td:not(:has(button))]:opacity-50",
+										isBethEvaluator(r.evalEvaluatorName) &&
+											"font-bold **:font-bold",
+									)}
 									key={r.id}
 								>
 									{isApprover && (
@@ -536,6 +555,11 @@ export function ReportsTable({
 										{r.evalAppointmentAt ? (
 											formatInBusinessTime(r.evalAppointmentAt, "MMM d, yyyy")
 										) : (
+											<span className="text-muted-foreground text-xs">-</span>
+										)}
+									</TableCell>
+									<TableCell className="whitespace-nowrap text-sm">
+										{r.evalEvaluatorName ?? (
 											<span className="text-muted-foreground text-xs">-</span>
 										)}
 									</TableCell>

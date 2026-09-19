@@ -168,18 +168,29 @@ export const reportsRouter = createTRPCRouter({
 			// shown is the client's most recent qualifying eval appointment, mirroring
 			// the rule that spawns the report row (reconcile_reports_from_appointments
 			// in python/utils/database.py).
+			const isReportEvalAppointment = sql`
+				${appointments.clientId} = ${reports.clientId}
+				AND (
+					${appointments.daEval} IN ('EVAL', 'DAEVAL')
+					OR (${appointments.daEval} = 'DA' AND ${appointments.asdAdhd} = 'ADHD')
+				)
+				AND ${appointments.cancelled} = 0
+				AND ${appointments.rescheduled} = 0
+				AND ${appointments.placeholder} = 0
+				AND ${appointments.billingOnly} = 0`;
 			const evalAppointmentAt = sql<Date | null>`(
 				SELECT MAX(${appointments.startTime})
 				FROM ${appointments}
-				WHERE ${appointments.clientId} = ${reports.clientId}
-				  AND (
-					${appointments.daEval} IN ('EVAL', 'DAEVAL')
-					OR (${appointments.daEval} = 'DA' AND ${appointments.asdAdhd} = 'ADHD')
-				  )
-				  AND ${appointments.cancelled} = 0
-				  AND ${appointments.rescheduled} = 0
-				  AND ${appointments.placeholder} = 0
-				  AND ${appointments.billingOnly} = 0
+				WHERE ${isReportEvalAppointment}
+			)`;
+			// The evaluator on that same (most recent) eval appointment.
+			const evalEvaluatorName = sql<string | null>`(
+				SELECT ${evaluators.providerName}
+				FROM ${appointments}
+				JOIN ${evaluators} ON ${evaluators.npi} = ${appointments.evaluatorNpi}
+				WHERE ${isReportEvalAppointment}
+				ORDER BY ${appointments.startTime} DESC
+				LIMIT 1
 			)`;
 
 			const rows = await ctx.db
@@ -201,6 +212,7 @@ export const reportsRouter = createTRPCRouter({
 					folderId: reports.folderId,
 					folderName: reports.folderName,
 					evalAppointmentAt,
+					evalEvaluatorName,
 					claimedAt: reports.claimedAt,
 					writerCompletedAt: reports.writerCompletedAt,
 					approvedAt: reports.approvedAt,
