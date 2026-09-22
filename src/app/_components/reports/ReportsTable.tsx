@@ -31,6 +31,7 @@ import { toast } from "sonner";
 import { cn, formatInBusinessTime } from "~/lib/utils";
 import type { RouterOutputs } from "~/trpc/react";
 import { api } from "~/trpc/react";
+import { ReportNoteCell } from "./ReportNoteCell";
 
 type Report = RouterOutputs["reports"]["list"][number];
 
@@ -291,10 +292,17 @@ export function ReportsTable({
 	function toggleAll(checked: boolean) {
 		setSelectedIds(checked ? new Set(visibleIds) : new Set());
 	}
-	// Buttons and checkboxes inside a row keep their own behavior; anything else,
-	// including the client link, selects the row.
+	// Buttons, checkboxes, and inputs inside a row keep their own behavior;
+	// anything else, including the client link, selects the row. Clicks inside
+	// popovers bubble through React from outside the row's DOM, so skip those.
 	function onRowClick(e: React.MouseEvent, id: number) {
-		if (!selectMode || (e.target as HTMLElement).closest("button")) return;
+		const target = e.target as HTMLElement;
+		if (
+			!selectMode ||
+			!e.currentTarget.contains(target) ||
+			target.closest("button, input")
+		)
+			return;
 		e.preventDefault();
 		toggleOne(id);
 	}
@@ -527,6 +535,7 @@ export function ReportsTable({
 							<TableHead className={HEAD_CLASS}>Claimed on</TableHead>
 							{filterHead("writerDone", "Writer done")}
 							{billingFields.map((f) => filterHead(f.key, f.label))}
+							<TableHead className={HEAD_CLASS}>Notes</TableHead>
 							{isApprover && <TableHead className={HEAD_CLASS} />}
 						</TableRow>
 					</TableHeader>
@@ -648,6 +657,13 @@ export function ReportsTable({
 											)}
 										</TableCell>
 									))}
+									<TableCell>
+										<ReportNoteCell
+											canEdit={canEditWriting}
+											note={r.notes}
+											reportId={r.id}
+										/>
+									</TableCell>
 									{isApprover && (
 										<TableCell className="whitespace-nowrap">
 											{tab === "archived" ? (

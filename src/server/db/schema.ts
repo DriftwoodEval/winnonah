@@ -1592,6 +1592,23 @@ export const reportsRelations = relations(reports, ({ one }) => ({
 	}),
 }));
 
+// One row per edit of a report's short note (`reports.notes`), holding the text
+// it was changed to (null when cleared).
+export const reportNoteHistory = createTable(
+	"report_note_history",
+	(d) => ({
+		id: d.int().notNull().autoincrement().primaryKey(),
+		reportId: d
+			.int()
+			.notNull()
+			.references(() => reports.id, { onDelete: "cascade" }),
+		note: d.text(),
+		updatedBy: d.varchar({ length: 255 }),
+		createdAt: d.timestamp().default(sql`CURRENT_TIMESTAMP`).notNull(),
+	}),
+	(t) => [index("report_note_history_report_idx").on(t.reportId)],
+);
+
 export const workSummaryConfig = createTable("work_summary_config", (d) => ({
 	id: d.int().notNull().primaryKey().default(1),
 	appointmentDurationDefaults: d

@@ -204,6 +204,79 @@ def get_punchlist_rows(column_names: list[str]) -> dict[str, dict[str, str]]:
     return result_map
 
 
+def classify_review_color(background: dict[str, float] | None) -> str | None:
+    """Classify a Sheets cell background as "red" (#ff0000), "green" (#00ff00),
+    or None for any other color.
+
+    The punch list marks a second review by cell color: red means the review is
+    needed, green means it is done. The API omits a channel that is 0.
+    """
+    if not background:
+        return None
+    channels = tuple(
+        round(background.get(name, 0.0) * 255) for name in ("red", "green", "blue")
+    )
+    if channels == (255, 0, 0):
+        return "red"
+    if channels == (0, 255, 0):
+        return "green"
+    return None
+
+
+def get_punchlist_review_colors(column_name: str) -> dict[str, str | None]:
+    """Fetch {Client ID: "red" | "green" | None} from a Punchlist column's cell
+    background colors. Returns an empty dict when the Client ID or the requested
+    column is missing from the sheet."""
+    service = get_sheets_service()
+    result = (
+        service.spreadsheets()
+        .get(
+            spreadsheetId=os.getenv("PUNCHLIST_ID"),
+            ranges=[os.getenv("PUNCHLIST_RANGE")],
+            includeGridData=True,
+            fields="sheets.data.rowData.values(formattedValue,effectiveFormat.backgroundColor)",
+        )
+        .execute()
+    )
+
+    try:
+        grid_rows = result["sheets"][0]["data"][0].get("rowData", [])
+    except (KeyError, IndexError):
+        return {}
+    if not grid_rows:
+        return {}
+
+    def cells(row: dict) -> list[dict]:
+        return row.get("values", [])
+
+    header = [cell.get("formattedValue", "") for cell in cells(grid_rows[0])]
+    if "Client ID" not in header or column_name not in header:
+        logger.warning(
+            f"Client ID or {column_name} column not found in Punchlist sheet"
+        )
+        return {}
+    id_index = header.index("Client ID")
+    column_index = header.index(column_name)
+
+    colors: dict[str, str | None] = {}
+    for row in grid_rows[1:]:
+        row_cells = cells(row)
+        if len(row_cells) <= id_index:
+            continue
+        client_id = row_cells[id_index].get("formattedValue", "").strip()
+        if not client_id:
+            continue
+        background = None
+        if len(row_cells) > column_index:
+            background = (
+                row_cells[column_index]
+                .get("effectiveFormat", {})
+                .get("backgroundColor")
+            )
+        colors[client_id] = classify_review_color(background)
+    return colors
+
+
 def get_punchlist_column_map(column_name: str) -> dict[str, str]:
     """Fetch a mapping of Client ID to the given column's value from the Punchlist sheet."""
     return {

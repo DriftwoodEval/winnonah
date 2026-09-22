@@ -30,6 +30,7 @@ import {
 	appointments,
 	clients,
 	evaluators,
+	reportNoteHistory,
 	reports,
 	users,
 } from "~/server/db/schema";
@@ -213,6 +214,7 @@ export const reportsRouter = createTRPCRouter({
 					folderName: reports.folderName,
 					evalAppointmentAt,
 					evalEvaluatorName,
+					notes: reports.notes,
 					claimedAt: reports.claimedAt,
 					writerCompletedAt: reports.writerCompletedAt,
 					approvedAt: reports.approvedAt,
@@ -293,6 +295,51 @@ export const reportsRouter = createTRPCRouter({
 				)
 				.where(eq(reports.id, report.id));
 			return { success: true };
+		}),
+
+	// A short comment on the report. Every change is kept in reportNoteHistory.
+	setNote: protectedProcedure
+		.input(z.object({ id: z.number(), note: z.string().max(500) }))
+		.mutation(async ({ ctx, input }) => {
+			await requireEditableReport(ctx, input.id);
+			const note = input.note.trim() || null;
+
+			await ctx.db.transaction(async (tx) => {
+				const current = await tx.query.reports.findFirst({
+					where: eq(reports.id, input.id),
+					columns: { notes: true },
+				});
+				if ((current?.notes ?? null) === note) return;
+
+				await tx
+					.update(reports)
+					.set({ notes: note })
+					.where(eq(reports.id, input.id));
+				await tx.insert(reportNoteHistory).values({
+					reportId: input.id,
+					note,
+					updatedBy: ctx.session.user.email,
+				});
+			});
+			return { success: true };
+		}),
+
+	noteHistory: protectedProcedure
+		.input(z.object({ id: z.number() }))
+		.query(async ({ ctx, input }) => {
+			assertReportsPage(ctx.session.user);
+			return ctx.db
+				.select({
+					id: reportNoteHistory.id,
+					note: reportNoteHistory.note,
+					updatedBy: reportNoteHistory.updatedBy,
+					updatedByName: users.name,
+					createdAt: reportNoteHistory.createdAt,
+				})
+				.from(reportNoteHistory)
+				.leftJoin(users, eq(reportNoteHistory.updatedBy, users.email))
+				.where(eq(reportNoteHistory.reportId, input.id))
+				.orderBy(desc(reportNoteHistory.createdAt), desc(reportNoteHistory.id));
 		}),
 
 	setBillingField: protectedProcedure

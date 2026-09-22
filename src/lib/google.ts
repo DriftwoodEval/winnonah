@@ -662,12 +662,66 @@ const PUNCH_REPORT_FIELDS = {
 		"firstReviewAt",
 		"firstReviewByEmail",
 	],
-	"MCS Review Needed": [
-		"secondReviewNeeded",
-		"secondReviewNeededAt",
-		"secondReviewByEmail",
-	],
 } as const satisfies Record<string, readonly [string, string, string]>;
+
+// The second review is tracked by the cell color of this column, not its text:
+// red (#ff0000) means the review is needed, green (#00ff00) means it is done.
+const PUNCH_SECOND_REVIEW_HEADER = "MCS Review Needed";
+
+type ReviewColor = "red" | "green" | null;
+
+// The Sheets API omits a color channel that is 0.
+export const classifyReviewColor = (
+	background: sheets_v4.Schema$Color | null | undefined,
+): ReviewColor => {
+	if (!background) return null;
+	const [red, green, blue] = [
+		background.red,
+		background.green,
+		background.blue,
+	].map((channel) => Math.round((channel ?? 0) * 255));
+	if (red === 255 && green === 0 && blue === 0) return "red";
+	if (red === 0 && green === 255 && blue === 0) return "green";
+	return null;
+};
+
+// Client ID -> color of that client's cell in the second-review column.
+const getSecondReviewColors = async (session: Session) => {
+	const { PUNCHLIST_ID, PUNCHLIST_RANGE } = env;
+	const sheetsApi = getSheetsClient(session);
+
+	const response = await googleApiCall(
+		"google-sheets",
+		"spreadsheets.get",
+		"Get punchlist colors",
+		() =>
+			sheetsApi.spreadsheets.get({
+				spreadsheetId: PUNCHLIST_ID,
+				ranges: [PUNCHLIST_RANGE],
+				includeGridData: true,
+				fields:
+					"sheets.data.rowData.values(formattedValue,effectiveFormat.backgroundColor)",
+			}),
+	);
+
+	const colors = new Map<string, ReviewColor>();
+	const rowData = response.data.sheets?.[0]?.data?.[0]?.rowData ?? [];
+	const header = (rowData[0]?.values ?? []).map((c) => c.formattedValue ?? "");
+	const idIndex = header.indexOf("Client ID");
+	const columnIndex = header.indexOf(PUNCH_SECOND_REVIEW_HEADER);
+	if (idIndex === -1 || columnIndex === -1) return colors;
+
+	for (const row of rowData.slice(1)) {
+		const cells = row.values ?? [];
+		const clientId = (cells[idIndex]?.formattedValue ?? "").trim();
+		if (!clientId) continue;
+		colors.set(
+			clientId,
+			classifyReviewColor(cells[columnIndex]?.effectiveFormat?.backgroundColor),
+		);
+	}
+	return colors;
+};
 
 const PUNCHLIST_SYNC_ACTOR_EMAIL = "punchlist-sync";
 
@@ -682,6 +736,8 @@ export const syncPunchData = async (ctx: Context & { session: Session }) => {
 		60,
 	);
 
+	const secondReviewColors = await getSecondReviewColors(ctx.session);
+
 	const updatePromises: Promise<unknown>[] = [];
 
 	// Current billing/review state of every open report, to skip no-op writes.
@@ -691,6 +747,7 @@ export const syncPunchData = async (ctx: Context & { session: Session }) => {
 			billed: reports.billed,
 			firstReviewDone: reports.firstReviewDone,
 			secondReviewNeeded: reports.secondReviewNeeded,
+			secondReviewDone: reports.secondReviewDone,
 		})
 		.from(reports)
 		.where(isNull(reports.archivedAt));
@@ -743,6 +800,31 @@ export const syncPunchData = async (ctx: Context & { session: Session }) => {
 				reportPatch[col] = sheetValue;
 				reportPatch[atCol] = sheetValue ? new Date() : null;
 				reportPatch[byCol] = sheetValue ? PUNCHLIST_SYNC_ACTOR_EMAIL : null;
+			}
+			// Second review: red sets "needed", green sets "done", any other color
+			// clears both.
+			const color = secondReviewColors.get(String(client.id));
+			if (color !== undefined) {
+				const secondReviewFields = [
+					{
+						col: "secondReviewNeeded",
+						atCol: "secondReviewNeededAt",
+						byCol: "secondReviewByEmail",
+						wanted: color === "red",
+					},
+					{
+						col: "secondReviewDone",
+						atCol: "secondReviewDoneAt",
+						byCol: "secondReviewDoneByEmail",
+						wanted: color === "green",
+					},
+				] as const;
+				for (const { col, atCol, byCol, wanted } of secondReviewFields) {
+					if (report[col] === wanted) continue;
+					reportPatch[col] = wanted;
+					reportPatch[atCol] = wanted ? new Date() : null;
+					reportPatch[byCol] = wanted ? PUNCHLIST_SYNC_ACTOR_EMAIL : null;
+				}
 			}
 			if (Object.keys(reportPatch).length > 0) {
 				updatePromises.push(

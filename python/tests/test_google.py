@@ -10,8 +10,10 @@ from utils.google import (
     _patch_info_lines,
     _sync_client_info_file,
     build_client_lookup,
+    classify_review_color,
     client_match_confidence,
     get_punchlist_language_map,
+    get_punchlist_review_colors,
     levenshtein,
     normalize_name_tokens,
 )
@@ -329,3 +331,79 @@ class TestSyncClientInfoFile:
         content = media.getbytes(0, media.size()).decode()
         assert content.startswith("John Smith")
         assert "DOB 01/01/2000" in content
+
+
+class TestClassifyReviewColor:
+    def test_pure_red_is_red(self):
+        assert classify_review_color({"red": 1.0}) == "red"
+        assert classify_review_color({"red": 1, "green": 0, "blue": 0}) == "red"
+
+    def test_pure_green_is_green(self):
+        assert classify_review_color({"green": 1.0}) == "green"
+
+    def test_other_colors_are_neither(self):
+        assert classify_review_color({"red": 1.0, "green": 1.0, "blue": 1.0}) is None
+        assert classify_review_color({"red": 0.957, "green": 0.8, "blue": 0.8}) is None
+        assert classify_review_color({"red": 1.0, "green": 0.95}) is None
+        assert classify_review_color({"blue": 1.0}) is None
+        assert classify_review_color(None) is None
+        assert classify_review_color({}) is None
+
+
+def _mock_grid_service(rows: list[list[tuple[str, dict | None]]]):
+    """rows: per row, a list of (formattedValue, backgroundColor) cells."""
+    service = MagicMock()
+    service.spreadsheets.return_value.get.return_value.execute.return_value = {
+        "sheets": [
+            {
+                "data": [
+                    {
+                        "rowData": [
+                            {
+                                "values": [
+                                    {
+                                        "formattedValue": value,
+                                        "effectiveFormat": {"backgroundColor": color},
+                                    }
+                                    for value, color in row
+                                ]
+                            }
+                            for row in rows
+                        ]
+                    }
+                ]
+            }
+        ]
+    }
+    return service
+
+
+class TestGetPunchlistReviewColors:
+    def test_maps_client_id_to_review_color(self):
+        red = {"red": 1.0}
+        green = {"green": 1.0}
+        white = {"red": 1.0, "green": 1.0, "blue": 1.0}
+        rows = [
+            [("Client Name", None), ("Client ID", None), ("MCS Review Needed", None)],
+            [("A", None), ("1", None), ("TRUE", red)],
+            [("B", None), ("2", None), ("", green)],
+            [("C", None), ("3", None), ("", white)],
+        ]
+        with patch(
+            "utils.google.get_sheets_service", return_value=_mock_grid_service(rows)
+        ):
+            assert get_punchlist_review_colors("MCS Review Needed") == {
+                "1": "red",
+                "2": "green",
+                "3": None,
+            }
+
+    def test_missing_column_returns_empty_map(self):
+        rows = [
+            [("Client Name", None), ("Client ID", None)],
+            [("A", None), ("1", None)],
+        ]
+        with patch(
+            "utils.google.get_sheets_service", return_value=_mock_grid_service(rows)
+        ):
+            assert get_punchlist_review_colors("MCS Review Needed") == {}

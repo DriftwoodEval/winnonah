@@ -2951,12 +2951,21 @@ _PUNCHLIST_REPORT_FIELDS = {
         "firstReviewAt",
         "firstReviewByEmail",
     ),
-    "MCS Review Needed": (
-        "secondReviewNeeded",
-        "secondReviewNeededAt",
-        "secondReviewByEmail",
-    ),
 }
+
+# The second review is tracked by the cell color of this column, not its text:
+# red means the review is needed, green means it is done.
+_PUNCHLIST_SECOND_REVIEW_HEADER = "MCS Review Needed"
+_SECOND_REVIEW_NEEDED_FIELD = (
+    "secondReviewNeeded",
+    "secondReviewNeededAt",
+    "secondReviewByEmail",
+)
+_SECOND_REVIEW_DONE_FIELD = (
+    "secondReviewDone",
+    "secondReviewDoneAt",
+    "secondReviewDoneByEmail",
+)
 
 
 @provide_connection
@@ -2970,7 +2979,9 @@ def sync_punchlist_to_db(
     `emr_client`, plus the report billing/review checkboxes to open `emr_report`
     rows. Only cells that are non-empty and differ from the DB are written. A
     report cell counts as checked only when it is exactly "TRUE"
-    (case-insensitive), matching how piecework reads the sheet. Small
+    (case-insensitive), matching how piecework reads the sheet. The second review
+    is read from the "MCS Review Needed" cell color instead: red sets "needed",
+    green sets "done", and any other color clears both. Small
     last-writer races with an in-app edit are possible and acceptable for the
     transition; the whole mirror is removed with the sheet.
 
@@ -2978,6 +2989,9 @@ def sync_punchlist_to_db(
     """
     headers = list(_PUNCHLIST_CLIENT_FIELDS) + list(_PUNCHLIST_REPORT_FIELDS)
     rows_by_client = utils.google.get_punchlist_rows(headers)
+    second_review_colors = utils.google.get_punchlist_review_colors(
+        _PUNCHLIST_SECOND_REVIEW_HEADER
+    )
 
     now = now_utc().replace(tzinfo=None)
     changed = 0
@@ -2993,7 +3007,8 @@ def sync_punchlist_to_db(
 
         cursor.execute(
             f"""
-            SELECT id, clientId, billed, firstReviewDone, secondReviewNeeded
+            SELECT id, clientId, billed, firstReviewDone, secondReviewNeeded,
+                   secondReviewDone
             FROM `{TABLE_REPORT}`
             WHERE archivedAt IS NULL
             """
@@ -3031,14 +3046,19 @@ def sync_punchlist_to_db(
                 changed += 1
 
         for report in open_reports:
-            cols = rows_by_client.get(str(report["clientId"]))
-            if not cols:
-                continue
-            for header, (col, at_col, by_col) in _PUNCHLIST_REPORT_FIELDS.items():
+            client_key = str(report["clientId"])
+            cols = rows_by_client.get(client_key, {})
+            # (emr_report columns, value the sheet says it should have)
+            wanted = []
+            for header, fields in _PUNCHLIST_REPORT_FIELDS.items():
                 raw = cols.get(header)
-                if raw is None:
-                    continue
-                sheet_value = 1 if raw.strip().upper() == "TRUE" else 0
+                if raw is not None:
+                    wanted.append((fields, 1 if raw.strip().upper() == "TRUE" else 0))
+            if client_key in second_review_colors:
+                color = second_review_colors[client_key]
+                wanted.append((_SECOND_REVIEW_NEEDED_FIELD, int(color == "red")))
+                wanted.append((_SECOND_REVIEW_DONE_FIELD, int(color == "green")))
+            for (col, at_col, by_col), sheet_value in wanted:
                 if int(report[col]) == sheet_value:
                     continue
                 cursor.execute(
