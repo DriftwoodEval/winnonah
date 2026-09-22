@@ -57,5 +57,6 @@ promtail-config.yaml
 
 # Separate image/project
 python/
+!python/utils/permissions.py
 docs/
 worker/
