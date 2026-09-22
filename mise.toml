@@ -4,6 +4,9 @@ uv = "latest"
 
 [env]
 _.file = ".env"
+# Corepack otherwise asks before downloading a new pnpm version, which hangs
+# non-interactive runs like the lefthook install hooks.
+COREPACK_ENABLE_DOWNLOAD_PROMPT = "0"
 
 [settings.task]
 output = "interleave"
