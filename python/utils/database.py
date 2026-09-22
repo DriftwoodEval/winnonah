@@ -63,6 +63,7 @@ from utils.misc import (
     get_column,
     get_full_name,
 )
+from utils.permissions import has_permission
 from utils.timezone import business_to_utc, now_business, now_utc, utc_to_business
 
 load_dotenv()
@@ -2175,7 +2176,7 @@ def get_queue_notify_users(connection: Connection[DictCursor]):
         for row in rows:
             permissions = json.loads(row["permissions"]) if row["permissions"] else {}
             if (
-                permissions.get("reports:notifications") is True
+                has_permission(permissions, "reports:notifications")
                 and not row["claimedReportFolder"]
             ):
                 users.append(row)

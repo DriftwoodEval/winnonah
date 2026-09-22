@@ -45,6 +45,7 @@ from utils.google import (
     update_gcal_event_title,
 )
 from utils.misc import json_log_format
+from utils.permissions import has_permission
 from utils.timezone import now_business, now_utc
 from utils.waze import (
     KM_PER_MILE,
@@ -197,7 +198,7 @@ def get_current_user(request: Request):
             if (
                 impersonate_user_id
                 and impersonate_user_id != row["id"]
-                and permissions.get("settings:impersonate")
+                and has_permission(permissions, "settings:impersonate")
             ):
                 target = _lookup_user(cursor, impersonate_user_id)
                 if target:
@@ -598,7 +599,7 @@ def notify_report_approved(
     current_user: dict = Depends(get_current_user),
 ):
     """Sends a notification email to a user when their report is approved."""
-    if not current_user["permissions"].get("reports:approve"):
+    if not has_permission(current_user["permissions"], "reports:approve"):
         raise HTTPException(
             status_code=403, detail="Not authorized to send approval notifications"
         )
@@ -634,7 +635,7 @@ def notify_admin_review_claimed(
     current_user: dict = Depends(get_current_user),
 ):
     """Sends a notification email when a user is assigned as the admin reviewer for a client."""
-    if not current_user["permissions"].get("clients:admin:review"):
+    if not has_permission(current_user["permissions"], "clients:admin:review"):
         raise HTTPException(
             status_code=403,
             detail="Not authorized to send admin review notifications",
@@ -655,7 +656,9 @@ def notify_admin_review_claimed(
         return {"status": "skipped", "reason": "recipient not found"}
 
     recipient_permissions = json.loads(row["permissions"]) if row["permissions"] else {}
-    if not recipient_permissions.get("clients:admin:review:email-notifications"):
+    if not has_permission(
+        recipient_permissions, "clients:admin:review:email-notifications"
+    ):
         return {
             "status": "skipped",
             "reason": "recipient has not opted in to email notifications",
@@ -746,7 +749,7 @@ SCRIPT_LOGS: dict[str, str] = {
 
 @app.get("/download-info")
 def download_file_info(current_user: dict = Depends(get_current_user)):
-    if not current_user["permissions"].get("clients:download"):
+    if not has_permission(current_user["permissions"], "clients:download"):
         raise HTTPException(status_code=403, detail="Not authorized")
 
     result: dict[str, float | None] = {}
@@ -758,7 +761,7 @@ def download_file_info(current_user: dict = Depends(get_current_user)):
 
 @app.get("/script-run-info")
 def script_run_info(current_user: dict = Depends(get_current_user)):
-    if not current_user["permissions"].get("clients:download"):
+    if not has_permission(current_user["permissions"], "clients:download"):
         raise HTTPException(status_code=403, detail="Not authorized")
 
     result: dict[str, float | None] = {}
@@ -770,7 +773,7 @@ def script_run_info(current_user: dict = Depends(get_current_user)):
 
 @app.get("/download/{file_key}")
 def download_csv(file_key: str, current_user: dict = Depends(get_current_user)):
-    if not current_user["permissions"].get("clients:download"):
+    if not has_permission(current_user["permissions"], "clients:download"):
         raise HTTPException(status_code=403, detail="Not authorized")
 
     filename = DOWNLOADABLE_FILES.get(file_key)
@@ -786,9 +789,11 @@ def download_csv(file_key: str, current_user: dict = Depends(get_current_user)):
 
 @app.get("/gmail/pearson-verification-code")
 def get_pearson_verification_code(current_user: dict = Depends(get_current_user)):
-    if not current_user["permissions"].get(
-        "settings:qsuite:services"
-    ) and not current_user["permissions"].get("settings:qsuite:services:view"):
+    if not has_permission(
+        current_user["permissions"], "settings:qsuite:services"
+    ) and not has_permission(
+        current_user["permissions"], "settings:qsuite:services:view"
+    ):
         raise HTTPException(status_code=403, detail="Not authorized")
 
     messages = list_gmail_messages(
@@ -807,7 +812,7 @@ def get_pearson_verification_code(current_user: dict = Depends(get_current_user)
 def rematch_evaluator_endpoint(
     npi: int, current_user: dict = Depends(get_current_user)
 ):
-    if not current_user["permissions"].get("settings:evaluators"):
+    if not has_permission(current_user["permissions"], "settings:evaluators"):
         raise HTTPException(status_code=403, detail="Not authorized")
     rematch_evaluator(npi)
     return {"status": "ok"}
@@ -826,7 +831,7 @@ def rematch_client_endpoint(
 def client_eligibility_debug(
     client_id: str, current_user: dict = Depends(get_current_user)
 ):
-    if not current_user["permissions"].get("settings:evaluators"):
+    if not has_permission(current_user["permissions"], "settings:evaluators"):
         raise HTTPException(status_code=403, detail="Not authorized")
 
     result = get_client_eligibility_debug(client_id)
@@ -899,7 +904,7 @@ def download_select_health_form(
     current_user: dict = Depends(get_current_user),
 ):
     """Generates a filled Select Health behavioral health testing authorization PDF."""
-    if not current_user["permissions"].get("clients:pa-forms"):
+    if not has_permission(current_user["permissions"], "clients:pa-forms"):
         raise HTTPException(status_code=403, detail="Not authorized")
 
     conn = get_db()

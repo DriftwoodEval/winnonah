@@ -16,14 +16,44 @@ export type PermissionId = {
 	}[Subgroups<C>];
 }[Categories];
 
-export type PermissionsObject = Partial<Record<PermissionId, boolean>>;
+/**
+ * A heading-level flag ("<category>:<subgroup>:all", e.g. "system:issues:all") that
+ * grants every permission under that subgroup heading, including ones added later.
+ * An explicit value for an individual permission takes precedence over it.
+ */
+export type PermissionGroupId = {
+	[C in Categories]: `${C}:${Subgroups<C> & string}:all`;
+}[Categories];
+
+export type PermissionsObject = Partial<
+	Record<PermissionId | PermissionGroupId, boolean>
+>;
 export const permissionsSchema = z.record(z.string(), z.boolean().optional());
+
+export function permissionGroupId(
+	categoryKey: string,
+	subgroupKey: string,
+): PermissionGroupId {
+	return `${categoryKey}:${subgroupKey}:all` as PermissionGroupId;
+}
 
 export const allPermissionIds = Object.values(PERMISSIONS).flatMap((category) =>
 	Object.values(category.subgroups).flatMap((subgroup) =>
 		subgroup.permissions.map((p: { id: string }) => p.id),
 	),
 ) as PermissionId[];
+
+/** The heading flag that covers each permission. */
+export const PERMISSION_GROUP_IDS = Object.fromEntries(
+	Object.entries(PERMISSIONS).flatMap(([categoryKey, category]) =>
+		Object.entries(category.subgroups).flatMap(([subgroupKey, subgroup]) =>
+			subgroup.permissions.map((p: { id: string }) => [
+				p.id,
+				permissionGroupId(categoryKey, subgroupKey),
+			]),
+		),
+	),
+) as Record<PermissionId, PermissionGroupId>;
 
 export interface GoogleFolder {
 	id: string;
