@@ -1,5 +1,4 @@
 import asyncio
-import json
 import os
 import re
 import time
@@ -45,7 +44,7 @@ from utils.google import (
     update_gcal_event_title,
 )
 from utils.misc import json_log_format
-from utils.permissions import has_permission
+from utils.permissions import effective_permissions, has_permission
 from utils.timezone import now_business, now_utc
 from utils.waze import (
     KM_PER_MILE,
@@ -181,16 +180,9 @@ def get_current_user(request: Request):
             if row.get("archived"):
                 raise HTTPException(status_code=403, detail="Account archived")
 
-            # Mirrors the session callback in src/server/auth/config.ts: effective
-            # permissions are the user's role permissions with per-user overrides
-            # layered on top.
-            user_permissions = (
-                json.loads(row["permissions"]) if row["permissions"] else {}
+            permissions = effective_permissions(
+                row["permissions"], row.get("role_permissions")
             )
-            permissions = user_permissions
-            if row.get("roleId") and row.get("role_permissions"):
-                role_permissions = json.loads(row["role_permissions"])
-                permissions = {**role_permissions, **user_permissions}
 
             # Mirror the "view as another user" behavior in src/server/auth/config.ts:
             # when a permitted user has an impersonation cookie set, everything
@@ -229,10 +221,7 @@ def _lookup_user(cursor, user_id: str) -> dict | None:
     if not row or row.get("archived"):
         return None
 
-    user_permissions = json.loads(row["permissions"]) if row["permissions"] else {}
-    permissions = user_permissions
-    if row.get("role_permissions"):
-        permissions = {**json.loads(row["role_permissions"]), **user_permissions}
+    permissions = effective_permissions(row["permissions"], row.get("role_permissions"))
 
     return {
         "user_id": row["id"],
@@ -645,7 +634,12 @@ def notify_admin_review_claimed(
     try:
         with conn.cursor() as cursor:
             cursor.execute(
-                f"SELECT permissions FROM {TABLE_USER} WHERE email = %s AND archived = 0",
+                f"""
+                    SELECT u.permissions, r.permissions AS role_permissions
+                    FROM {TABLE_USER} u
+                    LEFT JOIN {TABLE_ROLE} r ON u.roleId = r.id
+                    WHERE u.email = %s AND u.archived = 0
+                """,
                 (request.user_email,),
             )
             row = cursor.fetchone()
@@ -655,7 +649,9 @@ def notify_admin_review_claimed(
     if not row:
         return {"status": "skipped", "reason": "recipient not found"}
 
-    recipient_permissions = json.loads(row["permissions"]) if row["permissions"] else {}
+    recipient_permissions = effective_permissions(
+        row["permissions"], row["role_permissions"]
+    )
     if not has_permission(
         recipient_permissions, "clients:admin:review:email-notifications"
     ):

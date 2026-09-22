@@ -1,5 +1,7 @@
 """Permission checks matching hasPermission in src/lib/utils.ts."""
 
+import json
+
 # The heading ("<category>:<subgroup>:all") flag that covers each permission checked
 # on the Python side, mirroring PERMISSIONS in src/lib/constants.ts.
 # src/lib/python-permissions.test.ts fails if an entry here disagrees with it.
@@ -27,3 +29,16 @@ def has_permission(permissions: dict, permission: str) -> bool:
     if value is None:
         value = permissions.get(PERMISSION_GROUPS[permission])
     return bool(value)
+
+
+def effective_permissions(
+    user_permissions: str | None, role_permissions: str | None
+) -> dict:
+    """A user's effective permissions from the stored JSON columns.
+
+    Mirrors the session callback in src/server/auth/config.ts: the role's
+    permissions with the user's own overrides layered on top.
+    """
+    role = json.loads(role_permissions) if role_permissions else {}
+    user = json.loads(user_permissions) if user_permissions else {}
+    return {**role, **user}
