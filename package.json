@@ -25,7 +25,7 @@
 		"@dnd-kit/sortable": "^10.0.0",
 		"@dnd-kit/utilities": "^3.2.2",
 		"@googleapis/calendar": "^20.0.0",
-		"@googleapis/drive": "^25.0.0",
+		"@googleapis/drive": "^26.0.0",
 		"@googleapis/sheets": "^17.0.0",
 		"@hookform/resolvers": "^5.7.1",
 		"@mdx-js/loader": "^3.1.1",
