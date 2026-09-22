@@ -5,6 +5,12 @@ export const BUSINESS_TIMEZONE = "America/New_York";
 
 export const IN_PERSON_ASSESSMENT_STATUSES = ["EXTERNAL"] as const;
 
+// Google Drive folder that report-writing client folders are moved into when a
+// pool report is ready to be claimed ("001"), and the parent folder holding one
+// personal folder per report writer.
+export const REPORT_QUEUE_FOLDER_ID = "1fGZavJU8bAqROKd8iTgoEtRT8orp4a4s";
+export const REPORT_WRITERS_FOLDER_ID = "1f9lcLMr9UKUEUVGRG5j0yEJkdue4FFnV";
+
 export const QUESTIONNAIRE_STATUSES = [
 	"PENDING",
 	"COMPLETED",
@@ -17,6 +23,12 @@ export const QUESTIONNAIRE_STATUSES = [
 	"EXTERNAL",
 	"ARCHIVED",
 	"JUST_ADDED",
+] as const;
+
+export const QUESTIONNAIRE_REMINDER_STAGES = [
+	{ index: 0, label: "1st reminder (sent ASAP)" },
+	{ index: 1, label: "2nd reminder" },
+	{ index: 2, label: "3rd reminder (final, before escalation)" },
 ] as const;
 
 export const TEST_NAMES = [
@@ -48,10 +60,12 @@ export const PERMISSIONS = {
 					{ id: "clients:asdadhd", title: "Edit ASD/ADHD" },
 					{ id: "clients:language", title: "Edit Language" },
 					{ id: "clients:protocolsscanned", title: "Edit Protocols Scanned" },
+					{ id: "clients:pa-assigned-to", title: "Edit PA Assigned To" },
 					{ id: "clients:babynet", title: "Edit BabyNet Status" },
 					{ id: "clients:ei", title: "Edit EI Attends Status" },
 					{ id: "clients:autismstop:enable", title: "Enable Autism Stop" },
 					{ id: "clients:autismstop:disable", title: "Disable Autism Stop" },
+					{ id: "clients:alreadydx", title: "Edit Already Diagnosed Label" },
 					{ id: "clients:pause", title: "Pause Clients" },
 					{ id: "clients:related", title: "Edit Related Clients" },
 					{ id: "clients:resolvefailure", title: "Mark Failures Resolved" },
@@ -80,6 +94,10 @@ export const PERMISSIONS = {
 					{
 						id: "clients:questionnaires:in-person",
 						title: "Add, Remove, and Update In-Person Assessments",
+					},
+					{
+						id: "clients:questionnaires:overridereminder",
+						title: "Customize Reminder Messages for a Client",
 					},
 				],
 			},
@@ -117,6 +135,8 @@ export const PERMISSIONS = {
 					{ id: "clients:merge", title: "Merge with Real Client Record" },
 					{ id: "clients:download", title: "Download CSVs" },
 					{ id: "reports:approve", title: "Approve Reports" },
+					{ id: "reports:billing", title: "Manage Report Billing & Review" },
+					{ id: "reports:beta", title: "Access New Reports Page (Beta)" },
 					{
 						id: "reports:notifications",
 						title: "Receive Report Queue Notifications",
@@ -136,13 +156,13 @@ export const PERMISSIONS = {
 						title: "View Insurance Codes by Appointment",
 					},
 					{
-						id: "clients:insurance:review",
-						title: "Edit Insurance Review Notes & Claim",
+						id: "clients:admin:review",
+						title: "Edit Admin Review Notes & Claim",
 					},
 					{
-						id: "clients:insurance:review:email-notifications",
-						title: "Receive Insurance Review Claim Email Notifications",
-						parent: "clients:insurance:review" as const,
+						id: "clients:admin:review:email-notifications",
+						title: "Receive Admin Review Claim Email Notifications",
+						parent: "clients:admin:review" as const,
 					},
 					{ id: "clients:pa-forms", title: "Download PA Forms" },
 				],
@@ -162,6 +182,10 @@ export const PERMISSIONS = {
 					},
 					{ id: "clients:referral:claim", title: "Claim Clients for Outreach" },
 					{ id: "clients:referral:pushtopunch", title: "Push to Punchlist" },
+					{
+						id: "clients:referral:confirmprivateschool",
+						title: "Confirm Private / Charter School",
+					},
 				],
 			},
 		},
@@ -196,6 +220,14 @@ export const PERMISSIONS = {
 					{
 						id: "settings:impersonate",
 						title: "Impersonate Users",
+					},
+					{
+						id: "settings:audit-log:view",
+						title: "View Audit Log",
+					},
+					{
+						id: "settings:babynet-report:view",
+						title: "View BabyNet Report",
 					},
 				],
 			},
@@ -253,12 +285,12 @@ export const PERMISSIONS = {
 					{ id: "issues:no-drive-ids", title: "No Drive IDs" },
 					{ id: "issues:private-pay", title: "Potential Private Pay" },
 					{
-						id: "issues:missing-records-needed",
-						title: "Records Needed Not Set",
-					},
-					{
 						id: "issues:unreviewed-records",
 						title: "Unreviewed/Unreceived Records",
+					},
+					{
+						id: "issues:private-school-confirm",
+						title: "Private School Awaiting Confirmation",
 					},
 					{ id: "issues:duplicate-drive", title: "Duplicate Drive Folders" },
 					{
@@ -329,7 +361,6 @@ export type PUNCH_SCHEMA = {
 	"Assigned to OR added to report writing folder": string | undefined;
 	"MCS Review Needed": string | undefined;
 	"AJP Review Done/Hold for payroll": string | undefined;
-	"BRIDGES billed?": string | undefined;
 	"Billed?": string | undefined;
 	hash: string;
 };

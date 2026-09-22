@@ -5,11 +5,13 @@ from dotenv import load_dotenv
 from loguru import logger
 
 from utils.config import validate_config
-from utils.constants import TABLE_SEEN_REPORT_FOLDERS
+from utils.constants import REPORT_QUEUE_FOLDER_ID, TABLE_SEEN_REPORT_FOLDERS
 from utils.database import (
     get_db,
     get_most_recent_non_billing_evaluator_npi,
     get_queue_notify_users,
+    reconcile_pool_report_queue_state,
+    sync_punchlist_to_db,
 )
 from utils.google import get_items_in_folder, send_gmail
 from utils.misc import json_log_format
@@ -25,7 +27,7 @@ load_dotenv()
 
 def check_report_queue_and_notify():
     """Checks the Report Queue for new folders and notifies eligible users."""
-    source_id = "1fGZavJU8bAqROKd8iTgoEtRT8orp4a4s"
+    source_id = REPORT_QUEUE_FOLDER_ID
 
     logger.info(f"Checking report queue: {source_id}")
 
@@ -79,7 +81,7 @@ def check_report_queue_and_notify():
 
         for user in eligible_users:
             if evaluator_npi is not None:
-                blocked_raw = user.get("blocked_evaluator_npis")
+                blocked_raw = user.get("blockedEvaluatorNpis")
                 blocked = json.loads(blocked_raw) if blocked_raw else []
                 if evaluator_npi in blocked:
                     logger.info(
@@ -109,6 +111,14 @@ def main():
     """Entry point for the report notifications script."""
     try:
         validate_config()
+        try:
+            reconcile_pool_report_queue_state()
+        except Exception:
+            logger.exception("Failed to reconcile pool report queue state")
+        try:
+            sync_punchlist_to_db()
+        except Exception:
+            logger.exception("Failed to sync the punch list to the DB")
         check_report_queue_and_notify()
     except Exception as e:
         logger.exception(f"Failed to run report notifications: {e}")

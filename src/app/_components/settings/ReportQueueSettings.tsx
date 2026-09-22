@@ -27,11 +27,15 @@ export default function ReportQueueSettings() {
 	});
 
 	const [value, setValue] = useState<number>(1);
+	const [firstReviewLabel, setFirstReviewLabel] = useState("AJP review");
+	const [secondReviewLabel, setSecondReviewLabel] = useState("MCS review");
 	const [dirty, setDirty] = useState(false);
 
 	useEffect(() => {
 		if (data) {
 			setValue(data.defaultMaxClaimedReports);
+			setFirstReviewLabel(data.firstReviewLabel);
+			setSecondReviewLabel(data.secondReviewLabel);
 			setDirty(false);
 		}
 	}, [data]);
@@ -52,32 +56,66 @@ export default function ReportQueueSettings() {
 				</div>
 				<Button
 					disabled={!dirty || setConfig.isPending}
-					onClick={() => setConfig.mutate({ defaultMaxClaimedReports: value })}
+					onClick={() =>
+						setConfig.mutate({
+							defaultMaxClaimedReports: value,
+							firstReviewLabel: firstReviewLabel.trim() || "Review 1",
+							secondReviewLabel: secondReviewLabel.trim() || "Review 2",
+						})
+					}
 					size="sm"
 				>
 					{setConfig.isPending ? "Saving..." : "Save"}
 				</Button>
 			</div>
 
-			<div className="flex items-center gap-3 rounded-md border p-4">
-				<Label className="whitespace-nowrap" htmlFor="default-max-claimed">
-					Default max claimed reports
-				</Label>
-				<Input
-					className="w-24"
-					id="default-max-claimed"
-					max={10}
-					min={1}
-					onChange={(e) => {
-						const num = Number.parseInt(e.target.value, 10);
-						if (!Number.isNaN(num) && num >= 1 && num <= 10) {
-							setValue(num);
+			<div className="flex flex-col gap-3 rounded-md border p-4">
+				<div className="flex items-center gap-3">
+					<Label className="whitespace-nowrap" htmlFor="default-max-claimed">
+						Default max claimed reports
+					</Label>
+					<Input
+						className="w-24"
+						id="default-max-claimed"
+						max={10}
+						min={1}
+						onChange={(e) => {
+							const num = Number.parseInt(e.target.value, 10);
+							if (!Number.isNaN(num) && num >= 1 && num <= 10) {
+								setValue(num);
+								setDirty(true);
+							}
+						}}
+						type="number"
+						value={value}
+					/>
+				</div>
+				<div className="flex items-center gap-3">
+					<Label className="whitespace-nowrap" htmlFor="first-review-label">
+						First review label
+					</Label>
+					<Input
+						className="w-48"
+						id="first-review-label"
+						onChange={(e) => {
+							setFirstReviewLabel(e.target.value);
 							setDirty(true);
-						}
-					}}
-					type="number"
-					value={value}
-				/>
+						}}
+						value={firstReviewLabel}
+					/>
+					<Label className="whitespace-nowrap" htmlFor="second-review-label">
+						Second review label
+					</Label>
+					<Input
+						className="w-48"
+						id="second-review-label"
+						onChange={(e) => {
+							setSecondReviewLabel(e.target.value);
+							setDirty(true);
+						}}
+						value={secondReviewLabel}
+					/>
+				</div>
 			</div>
 		</div>
 	);

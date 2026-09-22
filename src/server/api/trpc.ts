@@ -14,8 +14,14 @@ import { logger } from "~/lib/logger";
 import { redis } from "~/lib/redis";
 import type { PermissionId, PermissionsObject } from "~/lib/types";
 import { formatError, hasPermission } from "~/lib/utils";
+import {
+	type AuditDetailBox,
+	extractClientId,
+	serializeAuditInput,
+} from "~/server/api/audit";
 import { auth } from "~/server/auth";
 import { db } from "~/server/db";
+import { auditLogs } from "~/server/db/schema";
 
 export type Context = Awaited<ReturnType<typeof createTRPCContext>>;
 /**
@@ -121,7 +127,10 @@ const loggerMiddleware = t.middleware(async ({ next, path, ctx }) => {
 	});
 
 	if (!result.ok) {
-		procedureLogger.error({ duration_ms: Date.now() - start }, "query failed");
+		procedureLogger.error(
+			{ error: result.error, duration_ms: Date.now() - start },
+			"query failed",
+		);
 	}
 
 	return result;
@@ -156,6 +165,40 @@ export const protectedProcedure = t.procedure
 				session: { ...ctx.session, user: ctx.session.user },
 			},
 		});
+	})
+	.use(async ({ ctx, next, path, type, getRawInput }) => {
+		// A mutation that replaces a whole stored object can call
+		// `setAuditDetail` with a computed diff (see `diffValues`); this box is
+		// the same object reference throughout the call, so the assignment is
+		// visible here after `next()` resolves.
+		const auditDetail: AuditDetailBox = { value: undefined, set: false };
+		const result = await next({ ctx: { auditDetail } });
+
+		if (type !== "mutation") return result;
+
+		try {
+			const rawInput = await getRawInput().catch(() => undefined);
+			await ctx.db.insert(auditLogs).values({
+				userId: ctx.session.user.id,
+				userEmail: ctx.session.user.email ?? "",
+				impersonatedBy: ctx.session.user.isImpersonating
+					? (ctx.session.user.impersonatorEmail ??
+						ctx.session.user.impersonatorId ??
+						null)
+					: null,
+				action: path,
+				clientId: await extractClientId(ctx.db, path, rawInput),
+				detail: auditDetail.set
+					? (auditDetail.value ?? null)
+					: serializeAuditInput(rawInput),
+				success: result.ok,
+				errorMessage: result.ok ? null : result.error.message,
+			});
+		} catch (err) {
+			ctx.logger.error({ err }, "Failed to write audit log");
+		}
+
+		return result;
 	});
 
 /**

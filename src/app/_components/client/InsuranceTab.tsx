@@ -10,6 +10,8 @@ import {
 	CardTitle,
 } from "@ui/card";
 import { format, isAfter, isBefore } from "date-fns";
+import { useState } from "react";
+import { useCheckPermission } from "~/hooks/use-check-permission";
 import type { Client } from "~/lib/models";
 import {
 	dateOnlyToLocalDate,
@@ -19,7 +21,8 @@ import {
 import type { AppRouter } from "~/server/api/root";
 import { api } from "~/trpc/react";
 import { Redact } from "../redaction/Redact";
-import { InsuranceReviewSection } from "./InsuranceReviewSection";
+import { ResponsiveDialog } from "../shared/ResponsiveDialog";
+import { EditPaAssignedToDialog } from "./EditPaAssignedToDialog";
 
 interface InsuranceTabProps {
 	client: Client;
@@ -65,6 +68,47 @@ function InfoRow({
 	);
 }
 
+function PaAssignedToRow({
+	clientId,
+	value,
+}: {
+	clientId: number;
+	value?: string;
+}) {
+	const can = useCheckPermission();
+	const [open, setOpen] = useState(false);
+
+	if (!can("clients:pa-assigned-to")) {
+		return <InfoRow label="PA Assigned to" value={value} />;
+	}
+
+	return (
+		<div className="flex flex-col gap-0.5">
+			<span className="text-muted-foreground text-xs">PA Assigned to</span>
+			<ResponsiveDialog
+				description="Update who's assigned to handle this client's prior authorization. This will push the change to the Punchlist."
+				open={open}
+				setOpen={setOpen}
+				title="Edit PA Assigned To"
+			>
+				<EditPaAssignedToDialog
+					clientId={clientId}
+					key={value}
+					setOpen={setOpen}
+					value={value ?? ""}
+				/>
+			</ResponsiveDialog>
+			<button
+				className="cursor-pointer text-left text-sm hover:underline"
+				onClick={() => setOpen(true)}
+				type="button"
+			>
+				{value || "Assign"}
+			</button>
+		</div>
+	);
+}
+
 function SectionHeader({ children }: { children: React.ReactNode }) {
 	return (
 		<p className="mt-3 mb-1 font-semibold text-muted-foreground text-xs uppercase tracking-wide">
@@ -76,17 +120,22 @@ function SectionHeader({ children }: { children: React.ReactNode }) {
 type Policy =
 	inferRouterOutputs<AppRouter>["clients"]["getInsurancePolicies"]["policies"][number];
 
+type MedicaidEligibility = {
+	qualCategory: string | null;
+	paymentCategory: string | null;
+	medicaidOrganization: string | null;
+	organizationInsurance: string | null;
+	organizationMismatch: boolean;
+	medicaidCarrier1: string | null;
+	medicaidCarrier2: string | null;
+};
+
 function PolicyCard({
 	policy,
 	medicaidEligibility,
-	paAssignedTo,
 }: {
 	policy: Policy;
-	medicaidEligibility?: {
-		qualCategory: string | null;
-		paymentCategory: string | null;
-	};
-	paAssignedTo?: string;
+	medicaidEligibility?: MedicaidEligibility;
 }) {
 	const active = isActive(policy.policyStartDate, policy.policyEndDate);
 	const companyName =
@@ -257,7 +306,6 @@ function PolicyCard({
 							/>
 							<InfoRow label="Spoke To" value={policy.precertSpokeTO} />
 							<InfoRow label="CPT" value={policy.precertCpt} />
-							<InfoRow label="PA Assigned to" value={paAssignedTo} />
 						</div>
 						{policy.precertMemo && (
 							<p className="mt-2 text-muted-foreground text-sm">
@@ -283,20 +331,45 @@ function PolicyCard({
 					</>
 				)}
 
-				{(medicaidEligibility?.qualCategory ??
-					medicaidEligibility?.paymentCategory) && (
+				{medicaidEligibility && (
 					<>
 						<SectionHeader>Medicaid Eligibility</SectionHeader>
 						<div className="grid grid-cols-2 gap-x-6 gap-y-2 sm:grid-cols-3">
 							<InfoRow
 								label="Qual. Category"
-								value={medicaidEligibility?.qualCategory}
+								value={medicaidEligibility.qualCategory}
 							/>
 							<InfoRow
 								label="Payment Category"
-								value={medicaidEligibility?.paymentCategory}
+								value={medicaidEligibility.paymentCategory}
+							/>
+							<InfoRow
+								label="Organization"
+								value={
+									medicaidEligibility.organizationInsurance ===
+									medicaidEligibility.medicaidOrganization
+										? medicaidEligibility.medicaidOrganization
+										: `${medicaidEligibility.organizationInsurance} (${medicaidEligibility.medicaidOrganization})`
+								}
+							/>
+							<InfoRow
+								label="Carrier 1"
+								value={medicaidEligibility.medicaidCarrier1}
+							/>
+							<InfoRow
+								label="Carrier 2"
+								value={medicaidEligibility.medicaidCarrier2}
 							/>
 						</div>
+						{medicaidEligibility.organizationMismatch && (
+							<Badge
+								className="mt-2 border-warning/40 text-warning"
+								variant="outline"
+							>
+								Organization doesn't match this client's primary or secondary
+								insurance
+							</Badge>
+						)}
 					</>
 				)}
 			</CardContent>
@@ -311,21 +384,22 @@ export function InsuranceTab({ client }: InsuranceTabProps) {
 		{ refetchInterval: 60_000 },
 	);
 
-	const { data: punchClient } = api.google.getClientFromPunch.useQuery(
-		clientId.toString(),
-		{ refetchInterval: 60_000, enabled: !!clientId },
-	);
+	const paAssignedTo = client.paAssignedTo ?? undefined;
 
-	const paAssignedTo = punchClient?.["PA Assigned to"];
-
-	const policies = data?.policies ?? [];
-	const scmAliasNames = data?.scmAliasNames ?? [];
-	const isScmClient =
-		!!client.primaryInsurance &&
-		scmAliasNames.includes(client.primaryInsurance);
-
-	const scmPolicyId = isScmClient
-		? policies.find((p) => p.policyType?.toUpperCase() === "PRIMARY")?.policyId
+	// Private-pay "policies" carry no real insurance company, just a
+	// leftover/synced row - showing a card for them reads as "Unknown Company".
+	const policies = (data?.policies ?? []).filter((p) => !p.privatePay);
+	// Shown on the policy the portal lookup searched, once a lookup has found the client.
+	const medicaidEligibility = client.medicaidPolicyId
+		? {
+				qualCategory: client.qualCategory ?? null,
+				paymentCategory: client.paymentCategory ?? null,
+				medicaidOrganization: client.medicaidOrganization ?? null,
+				organizationInsurance: data?.organizationInsurance ?? null,
+				organizationMismatch: data?.organizationMismatch ?? false,
+				medicaidCarrier1: client.medicaidCarrier1 ?? null,
+				medicaidCarrier2: client.medicaidCarrier2 ?? null,
+			}
 		: undefined;
 
 	const active = policies.filter((p) =>
@@ -337,7 +411,7 @@ export function InsuranceTab({ client }: InsuranceTabProps) {
 
 	return (
 		<div className="flex w-full flex-col gap-4">
-			<InsuranceReviewSection client={client} />
+			<PaAssignedToRow clientId={clientId} value={paAssignedTo} />
 			{isLoading ? (
 				[1, 2].map((i) => (
 					<div
@@ -355,14 +429,10 @@ export function InsuranceTab({ client }: InsuranceTabProps) {
 						<PolicyCard
 							key={policy.policyId}
 							medicaidEligibility={
-								policy.policyId === scmPolicyId
-									? {
-											qualCategory: client.qualCategory ?? null,
-											paymentCategory: client.paymentCategory ?? null,
-										}
+								policy.policyId === client.medicaidPolicyId
+									? medicaidEligibility
 									: undefined
 							}
-							paAssignedTo={paAssignedTo}
 							policy={policy}
 						/>
 					))}
@@ -377,14 +447,10 @@ export function InsuranceTab({ client }: InsuranceTabProps) {
 								<PolicyCard
 									key={policy.policyId}
 									medicaidEligibility={
-										policy.policyId === scmPolicyId
-											? {
-													qualCategory: client.qualCategory ?? null,
-													paymentCategory: client.paymentCategory ?? null,
-												}
+										policy.policyId === client.medicaidPolicyId
+											? medicaidEligibility
 											: undefined
 									}
-									paAssignedTo={paAssignedTo}
 									policy={policy}
 								/>
 							))}

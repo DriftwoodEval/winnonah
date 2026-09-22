@@ -1,10 +1,9 @@
 import asyncio
-import json
 import os
 import re
 import time
 from contextlib import asynccontextmanager
-from datetime import UTC, date, datetime
+from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
 from uuid import uuid4
 
@@ -23,6 +22,7 @@ from utils.constants import (
     TABLE_APPOINTMENT,
     TABLE_CLIENT,
     TABLE_CLIENT_INSURANCE_POLICY,
+    TABLE_OFFICE,
     TABLE_ROLE,
     TABLE_SESSION,
     TABLE_USER,
@@ -38,6 +38,8 @@ from utils.database import (
     get_possible_private_pay_reasons,
     get_python_config,
     put_appointment_in_db,
+    reconcile_pool_report_queue_state,
+    rematch_client,
     rematch_evaluator,
 )
 from utils.forms import fill_select_health_form
@@ -55,7 +57,16 @@ from utils.google import (
     update_gcal_event_title,
 )
 from utils.misc import json_log_format
-from utils.timezone import business_to_utc
+from utils.permissions import effective_permissions, has_permission
+from utils.timezone import business_to_utc, now_business, now_utc
+from utils.waze import (
+    KM_PER_MILE,
+    WAZE_MAX_CONCURRENCY,
+    WAZE_REQUEST_STAGGER_SECONDS,
+    get_cached_drive_times,
+    get_drive_time,
+    save_drive_time,
+)
 
 load_dotenv()
 
@@ -102,7 +113,7 @@ class ApprovalNotificationRequest(BaseModel):
     queue_count: int
 
 
-class InsuranceReviewClaimRequest(BaseModel):
+class AdminReviewClaimRequest(BaseModel):
     user_email: str
     client_name: str
     claimer_name: str
@@ -175,18 +186,20 @@ def get_current_user(request: Request):
     if not session_token:
         raise HTTPException(status_code=401, detail="Authentication required")
 
+    impersonate_user_id = request.cookies.get("impersonate-user-id")
+
     conn = get_db()
     try:
         with conn.cursor() as cursor:
             sql = f"""
                 SELECT
-                    u.id, u.email, u.name, u.permissions, u.archived, u.role_id,
+                    u.id, u.email, u.name, u.permissions, u.archived, u.roleId,
                     r.permissions AS role_permissions,
                     s.expires,
                     a.access_token, a.refresh_token, a.expires_at, a.scope
                 FROM {TABLE_SESSION} s
                 JOIN {TABLE_USER} u ON s.userId = u.id
-                LEFT JOIN {TABLE_ROLE} r ON u.role_id = r.id
+                LEFT JOIN {TABLE_ROLE} r ON u.roleId = r.id
                 LEFT JOIN {TABLE_ACCOUNT} a ON u.id = a.userId AND a.provider = 'google'
                 WHERE s.sessionToken = %s
             """
@@ -200,16 +213,21 @@ def get_current_user(request: Request):
             if row.get("archived"):
                 raise HTTPException(status_code=403, detail="Account archived")
 
-            # Mirrors the session callback in src/server/auth/config.ts: effective
-            # permissions are the user's role permissions with per-user overrides
-            # layered on top.
-            user_permissions = (
-                json.loads(row["permissions"]) if row["permissions"] else {}
+            permissions = effective_permissions(
+                row["permissions"], row.get("role_permissions")
             )
-            permissions = user_permissions
-            if row.get("role_id") and row.get("role_permissions"):
-                role_permissions = json.loads(row["role_permissions"])
-                permissions = {**role_permissions, **user_permissions}
+
+            # Mirror the "view as another user" behavior in src/server/auth/config.ts:
+            # when a permitted user has an impersonation cookie set, everything
+            # downstream sees the impersonated user's identity and permissions.
+            if (
+                impersonate_user_id
+                and impersonate_user_id != row["id"]
+                and has_permission(permissions, "settings:impersonate")
+            ):
+                target = _lookup_user(cursor, impersonate_user_id)
+                if target:
+                    return target
 
             return {
                 "user_id": row["id"],
@@ -219,6 +237,31 @@ def get_current_user(request: Request):
             }
     finally:
         conn.close()
+
+
+def _lookup_user(cursor, user_id: str) -> dict | None:
+    """Resolves a user's identity and effective permissions by id."""
+    sql = f"""
+        SELECT
+            u.id, u.email, u.name, u.permissions, u.archived,
+            r.permissions AS role_permissions
+        FROM {TABLE_USER} u
+        LEFT JOIN {TABLE_ROLE} r ON u.roleId = r.id
+        WHERE u.id = %s
+    """
+    cursor.execute(sql, (user_id,))
+    row = cursor.fetchone()
+    if not row or row.get("archived"):
+        return None
+
+    permissions = effective_permissions(row["permissions"], row.get("role_permissions"))
+
+    return {
+        "user_id": row["id"],
+        "email": row["email"],
+        "name": row["name"],
+        "permissions": permissions,
+    }
 
 
 def get_writer_id(user_name: str) -> str:
@@ -458,7 +501,7 @@ def claim_top_folder(
             )
 
         writer_id = get_writer_id(user_name)
-        final_entry = f"{writer_id} {datetime.now().strftime('%-m/%-d')}"
+        final_entry = f"{writer_id} {now_business().strftime('%-m/%-d')}"
 
         source_query = (
             f"'{request.source_parent_id}' in parents and "
@@ -560,13 +603,25 @@ def claim_top_folder(
         raise HTTPException(status_code=500, detail=str(e)) from e
 
 
+@app.post("/reports/reconcile")
+def reconcile_reports(current_user: dict = Depends(get_current_user)):  # noqa: ARG001
+    """Sync pool report rows to the live Drive report-writing queue folder.
+
+    Called by the EMR Reports page on load so a folder that was just moved in or
+    out shows the right status immediately, without waiting for the cron.
+    Idempotent: a dropped call is picked up by the next load or the cron.
+    """
+    promoted, demoted, created = reconcile_pool_report_queue_state()
+    return {"promoted": promoted, "demoted": demoted, "created": created}
+
+
 @app.post("/notifications/report-approved")
 def notify_report_approved(
     request: ApprovalNotificationRequest,
     current_user: dict = Depends(get_current_user),
 ):
     """Sends a notification email to a user when their report is approved."""
-    if not current_user["permissions"].get("reports:approve"):
+    if not has_permission(current_user["permissions"], "reports:approve"):
         raise HTTPException(
             status_code=403, detail="Not authorized to send approval notifications"
         )
@@ -596,23 +651,28 @@ def notify_report_approved(
     return {"status": "success"}
 
 
-@app.post("/notifications/insurance-review-claimed")
-def notify_insurance_review_claimed(
-    request: InsuranceReviewClaimRequest,
+@app.post("/notifications/admin-review-claimed")
+def notify_admin_review_claimed(
+    request: AdminReviewClaimRequest,
     current_user: dict = Depends(get_current_user),
 ):
-    """Sends a notification email when a user is assigned as the insurance reviewer for a client."""
-    if not current_user["permissions"].get("clients:insurance:review"):
+    """Sends a notification email when a user is assigned as the admin reviewer for a client."""
+    if not has_permission(current_user["permissions"], "clients:admin:review"):
         raise HTTPException(
             status_code=403,
-            detail="Not authorized to send insurance review notifications",
+            detail="Not authorized to send admin review notifications",
         )
 
     conn = get_db()
     try:
         with conn.cursor() as cursor:
             cursor.execute(
-                f"SELECT permissions FROM {TABLE_USER} WHERE email = %s AND archived = 0",
+                f"""
+                    SELECT u.permissions, r.permissions AS role_permissions
+                    FROM {TABLE_USER} u
+                    LEFT JOIN {TABLE_ROLE} r ON u.roleId = r.id
+                    WHERE u.email = %s AND u.archived = 0
+                """,
                 (request.user_email,),
             )
             row = cursor.fetchone()
@@ -622,29 +682,35 @@ def notify_insurance_review_claimed(
     if not row:
         return {"status": "skipped", "reason": "recipient not found"}
 
-    recipient_permissions = json.loads(row["permissions"]) if row["permissions"] else {}
-    if not recipient_permissions.get("clients:insurance:review:email-notifications"):
+    recipient_permissions = effective_permissions(
+        row["permissions"], row["role_permissions"]
+    )
+    if not has_permission(
+        recipient_permissions, "clients:admin:review:email-notifications"
+    ):
         return {
             "status": "skipped",
             "reason": "recipient has not opted in to email notifications",
         }
 
-    subject = f"Insurance Review Assigned: {request.client_name}"
+    subject = (
+        f"{request.claimer_name} assigned you an admin review: {request.client_name}"
+    )
 
     link_text = f"\n\nView client: {request.client_url}" if request.client_url else ""
     message_text = (
         f"{request.claimer_name} has assigned you as the reviewer for "
-        f"{request.client_name}'s insurance review.{link_text}"
+        f"{request.client_name}'s admin review.{link_text}"
     )
 
     link_html = (
-        f'<p><a href="{request.client_url}">View {request.client_name}\'s insurance tab</a></p>'
+        f'<p><a href="{request.client_url}">View {request.client_name}\'s admin review tab</a></p>'
         if request.client_url
         else ""
     )
     html_content = f"""
     <p><strong>{request.claimer_name}</strong> has assigned you as the reviewer for
-    <strong>{request.client_name}</strong>'s insurance review.</p>
+    <strong>{request.client_name}</strong>'s admin review.</p>
     {link_html}
     """
 
@@ -712,7 +778,7 @@ SCRIPT_LOGS: dict[str, str] = {
 
 @app.get("/download-info")
 def download_file_info(current_user: dict = Depends(get_current_user)):
-    if not current_user["permissions"].get("clients:download"):
+    if not has_permission(current_user["permissions"], "clients:download"):
         raise HTTPException(status_code=403, detail="Not authorized")
 
     result: dict[str, float | None] = {}
@@ -724,7 +790,7 @@ def download_file_info(current_user: dict = Depends(get_current_user)):
 
 @app.get("/script-run-info")
 def script_run_info(current_user: dict = Depends(get_current_user)):
-    if not current_user["permissions"].get("clients:download"):
+    if not has_permission(current_user["permissions"], "clients:download"):
         raise HTTPException(status_code=403, detail="Not authorized")
 
     result: dict[str, float | None] = {}
@@ -736,7 +802,7 @@ def script_run_info(current_user: dict = Depends(get_current_user)):
 
 @app.get("/download/{file_key}")
 def download_csv(file_key: str, current_user: dict = Depends(get_current_user)):
-    if not current_user["permissions"].get("clients:download"):
+    if not has_permission(current_user["permissions"], "clients:download"):
         raise HTTPException(status_code=403, detail="Not authorized")
 
     filename = DOWNLOADABLE_FILES.get(file_key)
@@ -752,9 +818,11 @@ def download_csv(file_key: str, current_user: dict = Depends(get_current_user)):
 
 @app.get("/gmail/pearson-verification-code")
 def get_pearson_verification_code(current_user: dict = Depends(get_current_user)):
-    if not current_user["permissions"].get(
-        "settings:qsuite:services"
-    ) and not current_user["permissions"].get("settings:qsuite:services:view"):
+    if not has_permission(
+        current_user["permissions"], "settings:qsuite:services"
+    ) and not has_permission(
+        current_user["permissions"], "settings:qsuite:services:view"
+    ):
         raise HTTPException(status_code=403, detail="Not authorized")
 
     messages = list_gmail_messages(
@@ -773,9 +841,18 @@ def get_pearson_verification_code(current_user: dict = Depends(get_current_user)
 def rematch_evaluator_endpoint(
     npi: int, current_user: dict = Depends(get_current_user)
 ):
-    if not current_user["permissions"].get("settings:evaluators"):
+    if not has_permission(current_user["permissions"], "settings:evaluators"):
         raise HTTPException(status_code=403, detail="Not authorized")
     rematch_evaluator(npi)
+    return {"status": "ok"}
+
+
+@app.post("/rematch/client/{client_id}")
+def rematch_client_endpoint(
+    client_id: str,
+    current_user: dict = Depends(get_current_user),  # noqa: ARG001
+):
+    rematch_client(client_id)
     return {"status": "ok"}
 
 
@@ -783,7 +860,7 @@ def rematch_evaluator_endpoint(
 def client_eligibility_debug(
     client_id: str, current_user: dict = Depends(get_current_user)
 ):
-    if not current_user["permissions"].get("settings:evaluators"):
+    if not has_permission(current_user["permissions"], "settings:evaluators"):
         raise HTTPException(status_code=403, detail="Not authorized")
 
     result = get_client_eligibility_debug(client_id)
@@ -932,11 +1009,25 @@ def possible_private_pay_reasons(
     return get_possible_private_pay_reasons(client_ids)
 
 
+def _apply_confirmed_marker(title: str, confirmed: bool) -> str | None:
+    """Returns `title` with the ` [CONFIRMED]` suffix added or removed to match
+    `confirmed`, or None if it already matches and nothing needs to change."""
+    has_marker = "[CONFIRMED]" in title
+    if confirmed and not has_marker:
+        return f"{title} [CONFIRMED]".strip()
+    if not confirmed and has_marker:
+        return title.replace(" [CONFIRMED]", "").replace("[CONFIRMED]", "").strip()
+    return None
+
+
 @app.post("/appointments/{appointment_id}/confirm-calendar")
 def confirm_appointment_calendar(
     appointment_id: str,
+    confirmed: bool = True,
     current_user: dict = Depends(get_current_user),  # noqa: ARG001
 ):
+    """Adds or removes the `[CONFIRMED]` suffix on the linked calendar event to
+    match the appointment's confirmed state (`confirmed=false` strips it)."""
     conn = get_db()
     try:
         with conn.cursor() as cursor:
@@ -953,8 +1044,9 @@ def confirm_appointment_calendar(
 
     event_id = row.get("calendarEventId")
     current_title = row.get("calendarEventTitle") or ""
-    if event_id and "[CONFIRMED]" not in current_title:
-        new_title = f"{current_title} [CONFIRMED]".strip()
+
+    new_title = _apply_confirmed_marker(current_title, confirmed) if event_id else None
+    if new_title is not None:
         try:
             update_gcal_event_title(event_id, new_title)
         except Exception as e:
@@ -972,7 +1064,7 @@ def download_select_health_form(
     current_user: dict = Depends(get_current_user),
 ):
     """Generates a filled Select Health behavioral health testing authorization PDF."""
-    if not current_user["permissions"].get("clients:pa-forms"):
+    if not has_permission(current_user["permissions"], "clients:pa-forms"):
         raise HTTPException(status_code=403, detail="Not authorized")
 
     conn = get_db()
@@ -1006,4 +1098,120 @@ def download_select_health_form(
         headers={
             "Content-Disposition": f'attachment; filename="select-health-{client_id}.pdf"'
         },
+    )
+
+
+class OfficeDriveTime(BaseModel):
+    key: str
+    pretty_name: str = Field(alias="prettyName")
+    duration_minutes: float | None = Field(alias="durationMinutes")
+    distance_miles: float | None = Field(alias="distanceMiles")
+
+    model_config = ConfigDict(populate_by_name=True)
+
+
+# A drive time fetched on demand (staff opening the Drive Times popup) is
+# reused for this long before another open re-queries Waze, so repeatedly
+# reopening the popup can't fan request bursts at Waze's unofficial,
+# unrate-limited endpoint. The office_drive_times.py backfill keeps entries
+# fresh well within this window anyway.
+ON_DEMAND_FRESH = timedelta(hours=6)
+
+
+@app.get("/clients/{client_id}/office-drive-times")
+async def office_drive_times(
+    client_id: int,
+    current_user: dict = Depends(get_current_user),  # noqa: ARG001
+) -> list[OfficeDriveTime]:
+    """By-car drive time and distance from a client to every office.
+
+    Serves a recent cached result when one is on hand (see ON_DEMAND_FRESH),
+    otherwise queries Waze (throttled) and persists it to
+    emr_office_drive_time, so opening this popup doubles as an on-demand
+    refresh of the closest-office ranking without waiting on the backfill.
+    """
+    conn = get_db()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                f"SELECT latitude, longitude FROM {TABLE_CLIENT} WHERE id = %s",
+                (client_id,),
+            )
+            client_row = cursor.fetchone()
+            cursor.execute(
+                f"SELECT `key`, prettyName, latitude, longitude FROM {TABLE_OFFICE}"
+            )
+            office_rows = cursor.fetchall()
+
+        if not client_row:
+            raise HTTPException(status_code=404, detail="Client not found")
+        if not client_row["latitude"] or not client_row["longitude"]:
+            raise HTTPException(
+                status_code=422, detail="Client has no coordinates on file"
+            )
+
+        start = f"{client_row['latitude']}, {client_row['longitude']}"
+        cached = get_cached_drive_times(conn, client_id)
+        fresh_cutoff = now_utc().replace(tzinfo=None) - ON_DEMAND_FRESH
+        semaphore = asyncio.Semaphore(WAZE_MAX_CONCURRENCY)
+
+        async def resolve(office: dict) -> tuple[OfficeDriveTime, bool]:
+            """The drive time for one office, and whether it was freshly fetched."""
+            prior = cached.get(office["key"])
+            if (
+                prior
+                and prior["durationMinutes"] is not None
+                and prior["computedAt"] >= fresh_cutoff
+            ):
+                return (
+                    OfficeDriveTime(
+                        key=office["key"],
+                        prettyName=office["prettyName"],
+                        durationMinutes=float(prior["durationMinutes"]),
+                        distanceMiles=float(prior["distanceMiles"]),
+                    ),
+                    False,
+                )
+
+            end = f"{office['latitude']}, {office['longitude']}"
+            async with semaphore:
+                try:
+                    route = await get_drive_time(start, end)
+                    duration_minutes = round(route.duration, 1)
+                    distance_miles = round(route.distance / KM_PER_MILE, 1)
+                except Exception as e:
+                    logger.warning(f"Waze route failed for office {office['key']}: {e}")
+                    duration_minutes = None
+                    distance_miles = None
+                await asyncio.sleep(WAZE_REQUEST_STAGGER_SECONDS)
+
+            return (
+                OfficeDriveTime(
+                    key=office["key"],
+                    prettyName=office["prettyName"],
+                    durationMinutes=duration_minutes,
+                    distanceMiles=distance_miles,
+                ),
+                True,
+            )
+
+        resolved = await asyncio.gather(*[resolve(o) for o in office_rows])
+
+        # Persist the freshly fetched results sequentially: pymysql connections
+        # can't be shared across the concurrent resolve() coroutines above.
+        for drive_time, was_fetched in resolved:
+            if was_fetched:
+                save_drive_time(
+                    conn,
+                    client_id,
+                    drive_time.key,
+                    drive_time.duration_minutes,
+                    drive_time.distance_miles,
+                )
+    finally:
+        conn.close()
+
+    return sorted(
+        (drive_time for drive_time, _ in resolved),
+        key=lambda r: (r.duration_minutes is None, r.duration_minutes or 0),
     )

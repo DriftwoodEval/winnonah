@@ -1,7 +1,6 @@
 "use client";
 import { Alert, AlertDescription, AlertTitle } from "@ui/alert";
 import { Button } from "@ui/button";
-import { Popover, PopoverContent, PopoverTrigger } from "@ui/popover";
 import { AlertTriangleIcon, MapPinIcon } from "lucide-react";
 import Link from "next/link";
 import { useCheckPermission } from "~/hooks/use-check-permission";
@@ -14,6 +13,7 @@ import {
 } from "~/lib/utils";
 import { Redact } from "../redaction/Redact";
 import { ManualAddressDialog } from "./ManualAddressDialog";
+import { OfficeDriveTimesButton } from "./OfficeDriveTimesButton";
 import { SelectHealthFormButton } from "./SelectHealthFormButton";
 
 interface ClientDetailsCardProps {
@@ -137,22 +137,9 @@ export function ClientDetailsCard({
 				<div>
 					<p className="font-bold">
 						Closest Office{" "}
-						<Popover>
-							<PopoverTrigger asChild>
-								<span className="cursor-pointer font-normal text-muted-foreground hover:underline">
-									(Compare)
-								</span>
-							</PopoverTrigger>
-							<PopoverContent side="right">
-								<ul className="list-disc p-3">
-									{client.closestOffices.slice(1).map((office) => (
-										<li key={office.key}>
-											{office.prettyName} ({office.distanceMiles.toFixed(0)} mi)
-										</li>
-									))}
-								</ul>
-							</PopoverContent>
-						</Popover>
+						{client.closestOffices.length > 0 && (
+							<OfficeDriveTimesButton clientId={client.id} />
+						)}
 					</p>
 					<p>
 						{client.closestOffices[0]?.prettyName ?? "Unknown"}{" "}

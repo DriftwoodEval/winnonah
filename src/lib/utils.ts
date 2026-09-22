@@ -1,9 +1,12 @@
 import { type ClassValue, clsx } from "clsx";
 import { formatInTimeZone, fromZonedTime, toZonedTime } from "date-fns-tz";
-import { type AnyColumn, type SQL, sql } from "drizzle-orm";
 import { twMerge } from "tailwind-merge";
 import type { InsuranceWithAliases } from "~/lib/models";
-import type { PermissionId, PermissionsObject } from "~/lib/types";
+import {
+	PERMISSION_GROUP_IDS,
+	type PermissionId,
+	type PermissionsObject,
+} from "~/lib/types";
 import {
 	BUSINESS_TIMEZONE,
 	PERMISSION_MAP,
@@ -23,11 +26,47 @@ export function toTitleCase(str: string): string {
 	);
 }
 
+/**
+ * Whether a permissions object grants a permission. An explicit value for the
+ * permission wins; otherwise its heading's "all" flag (see PermissionGroupId) decides.
+ */
 export function hasPermission(
 	userPerms: PermissionsObject,
 	permission: PermissionId,
 ): boolean {
-	return !!userPerms[permission];
+	return !!(
+		userPerms[permission] ?? userPerms[PERMISSION_GROUP_IDS[permission]]
+	);
+}
+
+/**
+ * Whether a user can see the Reports page: report writers (maxClaimedReports not
+ * explicitly zeroed) plus anyone who approves reports or manages report billing.
+ */
+export function canAccessReports(user: {
+	permissions: PermissionsObject;
+	maxClaimedReports?: number | null;
+}): boolean {
+	return (
+		user.maxClaimedReports !== 0 ||
+		hasPermission(user.permissions, "reports:approve") ||
+		hasPermission(user.permissions, "reports:billing")
+	);
+}
+
+/**
+ * Whether a user can see the new unified /reports page, currently in closed beta.
+ * Same audience as canAccessReports, gated further on the reports:beta permission.
+ * Remove this gate (and the reports:beta permission) at GA, once /claim-reports
+ * and ClaimedReports.tsx are retired in favor of this page.
+ */
+export function canAccessReportsBeta(user: {
+	permissions: PermissionsObject;
+	maxClaimedReports?: number | null;
+}): boolean {
+	return (
+		canAccessReports(user) && hasPermission(user.permissions, "reports:beta")
+	);
 }
 
 /**
@@ -418,26 +457,72 @@ export function businessZonedTimeToUtcInstant(localDate: Date): Date {
 	);
 }
 
+/**
+ * Straight-line (great-circle) distance in miles between two lat/lon points.
+ */
+export function haversineMiles(
+	lat1: number,
+	lon1: number,
+	lat2: number,
+	lon2: number,
+): number {
+	const toRad = (v: number) => (v * Math.PI) / 180;
+	const cosAngle = Math.min(
+		1,
+		Math.cos(toRad(lat1)) *
+			Math.cos(toRad(lat2)) *
+			Math.cos(toRad(lon2) - toRad(lon1)) +
+			Math.sin(toRad(lat1)) * Math.sin(toRad(lat2)),
+	);
+	return 3959 * Math.acos(cosAngle);
+}
+
+/**
+ * Distance in miles from a client to one office: the real by-car distance
+ * cached in emr_office_drive_time (backfilled by office_drive_times.py,
+ * refreshed live when staff open a client's Drive Times popup) when we have
+ * one, else the straight-line fallback for a client not yet backfilled or whose
+ * last Waze lookup failed. Every closest-office ranking (filter, sort,
+ * single-client lookup) uses this so they all agree.
+ */
+export function getOfficeDistanceMiles(
+	clientLat: number,
+	clientLon: number,
+	office: { latitude: string; longitude: string },
+	driveMiles?: number,
+): number {
+	return (
+		driveMiles ??
+		haversineMiles(
+			clientLat,
+			clientLon,
+			parseFloat(office.latitude),
+			parseFloat(office.longitude),
+		)
+	);
+}
+
+/**
+ * Picks the key of the office closest to a client, preferring a cached real
+ * drive distance (miles, keyed by office key) over the straight-line fallback.
+ * Ties break toward the earlier office in `allOffices`.
+ */
 export function getClosestOfficeKey(
 	clientLat: number,
 	clientLon: number,
 	allOffices: Array<{ key: string; latitude: string; longitude: string }>,
+	driveMilesByOfficeKey?: Map<string, number>,
 ): string | undefined {
 	if (!allOffices.length) return undefined;
-	const toRad = (v: number) => (v * Math.PI) / 180;
 	let closestKey: string | undefined;
 	let minDist = Infinity;
 	for (const office of allOffices) {
-		const lat2 = parseFloat(office.latitude);
-		const lon2 = parseFloat(office.longitude);
-		const cosAngle = Math.min(
-			1,
-			Math.cos(toRad(clientLat)) *
-				Math.cos(toRad(lat2)) *
-				Math.cos(toRad(lon2) - toRad(clientLon)) +
-				Math.sin(toRad(clientLat)) * Math.sin(toRad(lat2)),
+		const dist = getOfficeDistanceMiles(
+			clientLat,
+			clientLon,
+			office,
+			driveMilesByOfficeKey?.get(office.key),
 		);
-		const dist = 3959 * Math.acos(cosAngle);
 		if (dist < minDist) {
 			minDist = dist;
 			closestKey = office.key;
@@ -445,21 +530,6 @@ export function getClosestOfficeKey(
 	}
 	return closestKey;
 }
-
-export const getDistanceSQL = (
-	lat1: SQL | AnyColumn | string | number | null | undefined,
-	lon1: SQL | AnyColumn | string | number | null | undefined,
-	lat2: SQL | AnyColumn | string | number | null | undefined,
-	lon2: SQL | AnyColumn | string | number | null | undefined,
-) => {
-	return sql<number>`(3959 * acos(
-		cos(radians(${lat1})) *
-		cos(radians(${lat2})) *
-		cos(radians(${lon2}) - radians(${lon1})) +
-		sin(radians(${lat1})) *
-		sin(radians(${lat2}))
-	))`;
-};
 
 /**
  * Check if a client ID is a notes only client ID (5 characters long).
@@ -469,6 +539,24 @@ export function isNotesOnlyClientId(
 ): boolean {
 	if (id === undefined || id === null) return false;
 	return id.toString().length === 5;
+}
+
+/**
+ * True when an error is a transient connectivity failure rather than a real
+ * application error: the request never reached the API, or the reverse proxy
+ * returned its HTML maintenance/error page instead of JSON (which surfaces as a
+ * "Unexpected token '<'" JSON parse error in the tRPC client).
+ */
+export function isServerUnavailableError(error: unknown): boolean {
+	const message = error instanceof Error ? error.message : String(error ?? "");
+	return (
+		message.includes("<!DOCTYPE") ||
+		message.includes("Unexpected token '<'") ||
+		message.includes("is not valid JSON") ||
+		message.includes("Failed to fetch") ||
+		message.includes("NetworkError") ||
+		message.includes("Load failed")
+	);
 }
 
 /**

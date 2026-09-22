@@ -1,5 +1,16 @@
-import { format } from "date-fns";
+import { format, subYears } from "date-fns";
+import { formatInBusinessTime } from "~/lib/utils";
+import {
+	getRecordsBlockerReason,
+	isPrivateSchoolUnconfirmed,
+	RECORDS_NOT_YET_REQUESTED_REASON,
+} from "./client-blockers";
 import type { Client, Failure, FullClientInfo } from "./models";
+import {
+	formatShortInstantDate,
+	isNotesOnlyClientId,
+	localDateToDateOnly,
+} from "./utils";
 
 /**
  * Computes which pipeline-stage section each client from the prioritization
@@ -67,6 +78,8 @@ export const SECTION_NEEDS_PROTOCOLS_SCANNED = "Needs protocols scanned";
 export type DashboardClient = (FullClientInfo | Client) & {
 	matchedSections?: string[];
 	extraInfo?: string;
+	/** Secondary line rendered in the danger color, e.g. why a step is blocked. */
+	dangerInfo?: string;
 	failures?: Failure[];
 };
 
@@ -247,6 +260,7 @@ export const DASHBOARD_CONFIG: {
 	filter: (client: FullClientInfo) => boolean;
 	failureFilter?: (failure: Failure) => boolean;
 	extraInfo?: (client: FullClientInfo) => string | undefined;
+	dangerInfo?: (client: FullClientInfo) => string | undefined;
 	sort?: (a: FullClientInfo, b: FullClientInfo) => number;
 }[] = [
 	{
@@ -262,11 +276,45 @@ export const DASHBOARD_CONFIG: {
 		description:
 			"Clients who need school records but they haven't been requested from the school district yet. To move forward, request records (record the records requested date).",
 		filter: (client: FullClientInfo) =>
-			client.recordsNeeded === "Needed" && !client.externalRecordsRequestedDate,
+			client.recordsNeeded === "Needed" &&
+			!client.externalRecordsRequestedDate &&
+			!isNotesOnlyClientId(client.id) &&
+			// Exclude clients whose only request row is orphaned from a prior
+			// session (a re-referral): it's not something staff can act on here,
+			// and records-request.py's own query won't see it either.
+			!(client.hasRecordRequest && !client.hasCurrentSessionRecordRequest),
 		extraInfo: (client: FullClientInfo) =>
-			client.referralData?.privateSchool === "yes"
-				? "Charter / Private School on intake"
+			client.recordsRequestQueuedDate
+				? `Queued ${formatShortInstantDate(client.recordsRequestQueuedDate)}`
 				: undefined,
+		// Same "why aren't records being requested" reasons shown on the client
+		// page (private school, unsupported language, an unexpired hold). The
+		// bare "not yet requested" reason just restates this section's title.
+		dangerInfo: (client: FullClientInfo) => {
+			const reason = getRecordsBlockerReason({
+				recordsNeeded: client.recordsNeeded ?? null,
+				hasExternalRecordContent: !!client.hasExternalRecordsNote,
+				isPrivateSchoolUnconfirmed: isPrivateSchoolUnconfirmed(
+					client.referralData,
+				),
+				language: client.language ?? null,
+				holdUntil: client.recordsHoldUntil,
+				hasPendingRequest: !!client.recordsRequestQueuedDate,
+				requestedDates: [],
+				today: format(new Date(), "yyyy-MM-dd"),
+			});
+			if (!reason || reason === RECORDS_NOT_YET_REQUESTED_REASON) {
+				return undefined;
+			}
+			// Automated requests only go out in English; just name the language.
+			if (reason.includes("require English")) {
+				return client.language ?? "Language not set";
+			}
+			// This section already says records are needed and that they need
+			// requesting; keep just the lead-in that names the reason.
+			const trimmed = reason.replace(/^records needed,? (but )?/i, "");
+			return `${trimmed.charAt(0).toUpperCase()}${trimmed.slice(1)}`;
+		},
 		failureFilter: (f) =>
 			f.daEval === "Records" ||
 			f.reason === "docs not signed" ||
@@ -551,6 +599,7 @@ export function getDashboardSections(
 						(f.reminded ?? 0) < 100 && (config.failureFilter?.(f) ?? false),
 				),
 				extraInfo: config.extraInfo?.(client),
+				dangerInfo: config.dangerInfo?.(client),
 			})),
 		};
 	});
@@ -626,6 +675,145 @@ export function getDashboardSections(
 	];
 }
 
+// ---------------------------------------------------------------------------
+// Issue-list membership (the /issues page)
+//
+// A subset of the /issues lists that reduce to a single client's own columns,
+// as opposed to ones that only make sense as a cross-client comparison
+// (duplicate names, duplicate punchlist IDs, clients missing from the
+// punchlist, etc). Used to label a client's issue-list membership in the
+// dashboard history alongside their workflow sections.
+// ---------------------------------------------------------------------------
+
+export const SECTION_ISSUE_DD4 = "Issue: Clients in DD4";
+export const SECTION_ISSUE_PAUSED = "Issue: Paused Clients";
+export const SECTION_ISSUE_AUTISM_STOP = "Issue: Autism Stops";
+export const SECTION_ISSUE_EVALUATION_IN_PROCESS =
+	"Issue: Evaluation In Process";
+export const SECTION_ISSUE_NO_REFERRAL_SOURCE = "Issue: No Referral Source";
+export const SECTION_ISSUE_DROP_LIST = "Issue: Drop List";
+export const SECTION_ISSUE_DISTRICT = "Issue: District Issues";
+export const SECTION_ISSUE_BABYNET_AGEOUT = "Issue: Too Old for BabyNet";
+export const SECTION_ISSUE_NOT_IN_TA = "Issue: Not in TA";
+export const SECTION_ISSUE_NO_DRIVE_ID = "Issue: No Drive IDs";
+
+// Issue lists whose membership can't be read off a single client row: they
+// need a cross-table query (appointment counts, questionnaire links, records
+// requests) run once per sync tick. dashboard-history.ts computes the
+// matching client ID sets via src/lib/issue-lists.ts and adds these labels
+// directly, rather than through getClientIssueListSections below.
+export const SECTION_ISSUE_UNREVIEWED_RECORDS =
+	"Issue: Unreviewed/Unreceived Records";
+export const SECTION_ISSUE_PRIVATE_SCHOOL_CONFIRM =
+	"Issue: Private School Awaiting Confirmation";
+export const SECTION_ISSUE_MISSING_APPOINTMENTS =
+	"Issue: Appointments to be Created";
+export const SECTION_ISSUE_DUPLICATE_QUESTIONNAIRES =
+	"Issue: Duplicate Questionnaires";
+export const SECTION_ISSUE_PARTIAL_BATTERY =
+	"Issue: Partial Questionnaire Battery";
+
+export type IssueListClient = {
+	id: number;
+	status?: boolean | null;
+	pause?: boolean | null;
+	autismStop?: boolean | null;
+	evaluationInProcess?: boolean | null;
+	schoolDistrict?: string | null;
+	referralSource?: string | null;
+	dob?: string | null;
+	flag?: string | null;
+	primaryInsurance?: string | null;
+	secondaryInsurance?: string[] | null;
+	addedDate?: string | null;
+	driveId?: string | null;
+	failures?: Failure[];
+};
+
+/** Mirrors the same-named /issues page queries in src/server/api/routers/client.ts. */
+export function getClientIssueListSections(client: IssueListClient): string[] {
+	const sections: string[] = [];
+	const isNotesOnly = isNotesOnlyClientId(client.id);
+
+	if (
+		client.schoolDistrict === "Dorchester School District 4" &&
+		client.status
+	) {
+		sections.push(SECTION_ISSUE_DD4);
+	}
+	if (client.pause) sections.push(SECTION_ISSUE_PAUSED);
+	if (client.autismStop && client.status) {
+		sections.push(SECTION_ISSUE_AUTISM_STOP);
+	}
+	if (client.evaluationInProcess && client.status) {
+		sections.push(SECTION_ISSUE_EVALUATION_IN_PROCESS);
+	}
+	if (
+		client.status &&
+		!isNotesOnly &&
+		(client.referralSource === "No Referral Source" || !client.referralSource)
+	) {
+		sections.push(SECTION_ISSUE_NO_REFERRAL_SOURCE);
+	}
+	// Same "recurring, unresolved failure" threshold used to derive the drop
+	// list badge on the client page (Client.tsx).
+	if (
+		client.failures?.some(
+			(f) => (f.reminded ?? 0) > 3 && (f.reminded ?? 0) < 100,
+		)
+	) {
+		sections.push(SECTION_ISSUE_DROP_LIST);
+	}
+
+	const under21CutOff = localDateToDateOnly(subYears(new Date(), 21));
+	const noDistrictSet =
+		(!client.schoolDistrict || client.schoolDistrict === "Unknown") &&
+		!!client.dob &&
+		!!under21CutOff &&
+		client.dob > under21CutOff;
+	const poorAddressLookup = client.flag === "poor_address_lookup";
+	if (client.status && !isNotesOnly && (noDistrictSet || poorAddressLookup)) {
+		sections.push(SECTION_ISSUE_DISTRICT);
+	}
+
+	const babyNetAgeOutCutOff = localDateToDateOnly(subYears(new Date(), 3));
+	const hasBabyNetInsurance =
+		!!client.primaryInsurance?.includes("BabyNet") ||
+		!!client.secondaryInsurance?.some((s) => s.includes("BabyNet"));
+	if (
+		client.status &&
+		hasBabyNetInsurance &&
+		client.dob &&
+		babyNetAgeOutCutOff &&
+		client.dob < babyNetAgeOutCutOff
+	) {
+		sections.push(SECTION_ISSUE_BABYNET_AGEOUT);
+	}
+
+	if (!client.addedDate) sections.push(SECTION_ISSUE_NOT_IN_TA);
+
+	if (!isNotesOnly && !client.driveId) {
+		sections.push(SECTION_ISSUE_NO_DRIVE_ID);
+	}
+
+	return sections;
+}
+
+// ---------------------------------------------------------------------------
+// Failure history
+// ---------------------------------------------------------------------------
+
+/** Labels a client's currently unresolved failures for the dashboard history. */
+export function getClientFailureSections(
+	failures: Failure[] | undefined,
+): string[] {
+	return (failures ?? [])
+		.filter((f) => (f.reminded ?? 0) < 100)
+		.map(
+			(f) => `Failure: ${f.reason.charAt(0).toUpperCase()}${f.reason.slice(1)}`,
+		);
+}
+
 export function getClientMatchedSections(
 	client: { id: number },
 	allPunchClients: FullClientInfo[] | undefined,
@@ -667,4 +855,136 @@ export function getClientMatchedSections(
 	}
 
 	return matchedSections;
+}
+
+// ---------------------------------------------------------------------------
+// Referral-source status faxes
+//
+// Maps a client's dashboard pipeline stage to referral-source-facing wording,
+// distinct from the DASHBOARD_CONFIG section titles above (which are
+// staff-facing, e.g. "DA+Eval Qs Sent"). Used by the quarterly status fax
+// sent back to referral sources (src/app/api/internal/referral-status).
+// ---------------------------------------------------------------------------
+
+// Deliberately coarse: referral sources get one of a handful of plain-language
+// buckets (mirroring the dashboard's broad stages), not the staff-facing
+// pipeline detail. No internal shorthand like "DA" or "protocols".
+const REFERRAL_STATUS_TEXT: Partial<Record<string, string>> = {
+	[SECTION_RECORDS_STATUS_NOT_SET]:
+		"Waiting for educational or additional records",
+	[SECTION_RECORDS_NEEDED_NOT_REQUESTED]:
+		"Waiting for educational or additional records",
+	[SECTION_RECORDS_REQUESTED_NOT_RETURNED]:
+		"Waiting for educational or additional records",
+	[SECTION_BABYNET_NOT_DOWNLOADED]:
+		"Waiting for educational or additional records",
+	[SECTION_QS_NOT_DETERMINED]: "Waiting on questionnaires",
+	[SECTION_DA_QS_PENDING]: "Waiting on questionnaires",
+	[SECTION_DA_QS_SENT]: "Waiting on questionnaires",
+	[SECTION_DA_QS_DONE]: "Questionnaires complete, scheduling in progress",
+	[SECTION_EVAL_QS_PENDING]: "Waiting on questionnaires",
+	[SECTION_DAEVAL_QS_PENDING]: "Waiting on questionnaires",
+	[SECTION_EVAL_QS_SENT]: "Waiting on questionnaires",
+	[SECTION_DAEVAL_QS_SENT]: "Waiting on questionnaires",
+	[SECTION_EVAL_QS_DONE]: "Questionnaires complete, scheduling in progress",
+	[SECTION_DAEVAL_QS_DONE]: "Questionnaires complete, scheduling in progress",
+	[SECTION_NEEDS_PROTOCOLS_SCANNED]: "Evaluation completed, report in progress",
+	[SECTION_JUST_ADDED]: "Process has not yet started",
+};
+
+export interface ReferralStatusSummary {
+	statusText: string;
+	done: boolean;
+}
+
+export interface NextRealAppointment {
+	startTime: Date | string;
+	daEval: "DA" | "EVAL" | "DAEVAL" | null;
+}
+
+const appointmentStatusText = (appointment: NextRealAppointment): string => {
+	const date = formatInBusinessTime(appointment.startTime, "MM/dd/yy");
+	const label =
+		appointment.daEval === "DA"
+			? "an intake appointment"
+			: appointment.daEval === "EVAL"
+				? "an evaluation"
+				: "an appointment";
+	return `Scheduled for ${label} on ${date}`;
+};
+
+/**
+ * Fully evaluated (Post-Eval) always stops the faxes. Post-DA only stops
+ * them when the client's questionnaire needs show no eval was ever planned
+ * (the DA-only/ADHD pathway) - there's no separate intake-level flag for
+ * this, so it reuses the same "EVAL Qs Needed" punchlist column
+ * DASHBOARD_CONFIG itself uses to distinguish DA-only clients.
+ */
+function getBaseReferralStatusSummary(
+	client: FullClientInfo,
+): ReferralStatusSummary {
+	const matchedTitles = DASHBOARD_CONFIG.filter((config) =>
+		config.filter(client),
+	).map((config) => config.title);
+	const extraInfoFor = (title: string) =>
+		DASHBOARD_CONFIG.find((c) => c.title === title)?.extraInfo?.(client);
+
+	if (matchedTitles.includes(SECTION_POST_EVAL)) {
+		return { statusText: "Evaluation completed", done: true };
+	}
+
+	if (matchedTitles.includes(SECTION_DA_SCHEDULED)) {
+		const date = extraInfoFor(SECTION_DA_SCHEDULED);
+		return {
+			statusText: date
+				? `Scheduled for an intake appointment on ${date}`
+				: "Scheduled for an intake appointment",
+			done: false,
+		};
+	}
+
+	if (matchedTitles.includes(SECTION_EVAL_SCHEDULED)) {
+		const date = extraInfoFor(SECTION_EVAL_SCHEDULED);
+		return {
+			statusText: date
+				? `Scheduled for an evaluation on ${date}`
+				: "Scheduled for an evaluation",
+			done: false,
+		};
+	}
+
+	if (matchedTitles.includes(SECTION_POST_DA)) {
+		const isDaOnly = client["EVAL Qs Needed"] === "FALSE";
+		return isDaOnly
+			? { statusText: "Intake appointment completed", done: true }
+			: {
+					statusText: "Intake appointment completed, next steps in progress",
+					done: false,
+				};
+	}
+
+	for (const title of matchedTitles) {
+		const statusText = REFERRAL_STATUS_TEXT[title];
+		if (statusText) return { statusText, done: false };
+	}
+
+	return { statusText: "Process has not yet started", done: false };
+}
+
+/**
+ * nextAppointment is the client's next real (non-cancelled, non-rescheduled,
+ * non-placeholder, non-billing-only) appointment from emr_appointment, if
+ * any. Staff often book the appointment in TherapyAppointment before
+ * updating the punchlist (records/questionnaire columns, "DA
+ * Scheduled"/"EVAL date"), so a real appointment on the books is more
+ * current than any punchlist-derived status and takes precedence over it,
+ * unless the client has already been fully evaluated (done).
+ */
+export function getReferralStatusSummary(
+	client: FullClientInfo,
+	nextAppointment?: NextRealAppointment,
+): ReferralStatusSummary {
+	const base = getBaseReferralStatusSummary(client);
+	if (base.done || !nextAppointment) return base;
+	return { statusText: appointmentStatusText(nextAppointment), done: false };
 }

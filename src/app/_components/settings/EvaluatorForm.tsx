@@ -216,10 +216,12 @@ export function EvaluatorForm({
 
 	const districtOptions = useMemo(() => {
 		return (
-			allSchoolDistricts?.map((district) => ({
-				value: district.id.toString(),
-				label: district.shortName || district.fullName,
-			})) ?? []
+			allSchoolDistricts
+				?.filter((district) => !district.isPrivate)
+				.map((district) => ({
+					value: district.id.toString(),
+					label: district.shortName || district.fullName,
+				})) ?? []
 		);
 	}, [allSchoolDistricts]);
 
@@ -511,7 +513,7 @@ export function EvaluatorForm({
 					</CardContent>
 				</Card>
 
-				<Card>
+				<Card className="overflow-visible">
 					<CardHeader>
 						<CardTitle>Insurance & Offices</CardTitle>
 					</CardHeader>

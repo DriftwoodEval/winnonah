@@ -4,6 +4,8 @@ import hashlib
 import inspect
 import json
 import os
+import re
+import time
 from collections.abc import Callable
 from contextlib import contextmanager
 from datetime import date, datetime
@@ -13,16 +15,23 @@ from urllib.parse import urlparse
 
 import pandas as pd
 import pymysql.cursors
+from dateutil.relativedelta import relativedelta
 from dotenv import load_dotenv
 from loguru import logger
 from pymysql.connections import Connection
 from pymysql.cursors import DictCursor
 
+import utils.google
 import utils.relationships
 from utils.constants import (
     CLIENT_COLUMN_MAPPING,
+    REPORT_QUEUE_FOLDER_ID,
+    REPORT_TRACKING_START_DATE,
+    TABLE_ADMIN_REVIEW,
+    TABLE_ADMIN_REVIEW_HISTORY,
     TABLE_APPOINTMENT,
     TABLE_ASSESSMENT_TYPE,
+    TABLE_AUDIT_LOG,
     TABLE_BLOCKED_SCHOOL_DISTRICT,
     TABLE_BLOCKED_ZIP_CODE,
     TABLE_CLIENT,
@@ -37,13 +46,13 @@ from utils.constants import (
     TABLE_IN_PERSON_ASSESSMENT_HISTORY,
     TABLE_INSURANCE,
     TABLE_INSURANCE_ALIAS,
-    TABLE_INSURANCE_REVIEW,
-    TABLE_INSURANCE_REVIEW_HISTORY,
     TABLE_NOTE,
     TABLE_NOTE_HISTORY,
     TABLE_PYTHON_CONFIG,
     TABLE_QUESTIONNAIRE,
     TABLE_QUESTIONNAIRE_RULE,
+    TABLE_REPORT,
+    TABLE_ROLE,
     TABLE_SCHOOL_DISTRICT,
     TABLE_USER,
     TEST_NAMES_LOWER,
@@ -55,23 +64,40 @@ from utils.misc import (
     get_column,
     get_full_name,
 )
-from utils.timezone import now_utc
+from utils.permissions import effective_permissions, has_permission
+from utils.timezone import business_to_utc, now_business, now_utc, utc_to_business
 
 load_dotenv()
 
 
+DB_CONNECT_MAX_ATTEMPTS = 3
+DB_CONNECT_BACKOFF_SECONDS = 1
+
+
 def get_db() -> Connection[DictCursor]:
-    """Returns a connection to the database."""
+    """Returns a connection to the database, retrying on transient connect failures."""
     db_url = urlparse(os.getenv("DATABASE_URL", ""))
-    return pymysql.connect(
-        host=db_url.hostname,
-        port=db_url.port or 3306,
-        user=db_url.username,
-        password=db_url.password or "",
-        database=db_url.path[1:],
-        cursorclass=pymysql.cursors.DictCursor,
-        init_command="SET time_zone = '+00:00'",
-    )
+    for attempt in range(1, DB_CONNECT_MAX_ATTEMPTS + 1):
+        try:
+            return pymysql.connect(
+                host=db_url.hostname,
+                port=db_url.port or 3306,
+                user=db_url.username,
+                password=db_url.password or "",
+                database=db_url.path[1:],
+                cursorclass=pymysql.cursors.DictCursor,
+                init_command="SET time_zone = '+00:00'",
+            )
+        except (OSError, pymysql.err.OperationalError) as e:
+            if attempt == DB_CONNECT_MAX_ATTEMPTS:
+                raise
+            wait = DB_CONNECT_BACKOFF_SECONDS * 2 ** (attempt - 1)
+            logger.warning(
+                f"DB connect attempt {attempt}/{DB_CONNECT_MAX_ATTEMPTS} failed"
+                f" ({e}), retrying in {wait}s"
+            )
+            time.sleep(wait)
+    raise AssertionError("unreachable")
 
 
 def provide_connection(func: Callable) -> Callable:
@@ -288,19 +314,24 @@ def put_clients_in_db(clients_df: pd.DataFrame, connection: Connection[DictCurso
 
     values_to_insert = []
     new_status_by_id: dict[str, bool] = {}
+    client_updates: dict[str, dict] = {}
 
     incoming_ids = [str(cid) for cid in clients_df["CLIENT_ID"] if pd.notna(cid)]
-    existing_language_by_id: dict[str, str | None] = {}
+    existing_by_id: dict[str, dict] = {}
     if incoming_ids:
         placeholders = ", ".join(["%s"] * len(incoming_ids))
         with connection.cursor() as cursor:
             cursor.execute(
-                f"SELECT id, language FROM `{TABLE_CLIENT}` WHERE id IN ({placeholders})",
+                f"""
+                SELECT id, status, deactivatedAt, addedDate, dob, firstName, lastName,
+                       preferredName, fullName, address, schoolDistrict, latitude,
+                       longitude, asdAdhd, language, paAssignedTo, gender, phoneNumber,
+                       email, flag, taUser, referralSource
+                FROM `{TABLE_CLIENT}` WHERE id IN ({placeholders})
+                """,
                 incoming_ids,
             )
-            existing_language_by_id = {
-                str(row["id"]): row["language"] for row in cursor.fetchall()
-            }
+            existing_by_id = {str(row["id"]): row for row in cursor.fetchall()}
 
     for _, client in clients_df.iterrows():
         client_id = get_column(client, "CLIENT_ID")
@@ -333,8 +364,10 @@ def put_clients_in_db(clients_df: pd.DataFrame, connection: Connection[DictCurso
         new_status = get_column(client, "STATUS") != "Inactive"
         new_status_by_id[str(client_id)] = new_status
 
+        existing = existing_by_id.get(str(client_id))
+
         language = get_column(client, "LANGUAGE")
-        if language is None and existing_language_by_id.get(str(client_id)) is None:
+        if language is None and (existing is None or existing["language"] is None):
             language = "English"
 
         values = (
@@ -357,6 +390,7 @@ def put_clients_in_db(clients_df: pd.DataFrame, connection: Connection[DictCurso
             else get_column(client, "LONGITUDE"),
             get_column(client, "ASD_ADHD"),
             language,
+            get_column(client, "PA_ASSIGNED_TO"),
             gender,
             phone_number,
             email,
@@ -366,9 +400,68 @@ def put_clients_in_db(clients_df: pd.DataFrame, connection: Connection[DictCurso
         )
         values_to_insert.append(values)
 
+        # Mirror the ON DUPLICATE KEY UPDATE's CASE rules to compute the
+        # value each column will actually end up with, so we diff against
+        # what's really changing rather than logging a no-op on every sync.
+        if existing is not None:
+            school_district = get_column(client, "SCHOOL_DISTRICT")
+            effective = {
+                "status": new_status,
+                "addedDate": added_date_formatted,
+                "dob": dob_formatted,
+                "firstName": firstname,
+                "lastName": lastname,
+                "preferredName": preferred_name,
+                "fullName": full_name,
+                "address": get_column(client, "ADDRESS"),
+                "schoolDistrict": school_district
+                if school_district is not None and school_district != "Unknown"
+                else existing["schoolDistrict"],
+                "latitude": values[11]
+                if values[11] is not None
+                else existing["latitude"],
+                "longitude": values[12]
+                if values[12] is not None
+                else existing["longitude"],
+                "asdAdhd": get_column(client, "ASD_ADHD")
+                if get_column(client, "ASD_ADHD") is not None
+                else existing["asdAdhd"],
+                "language": language if language is not None else existing["language"],
+                "paAssignedTo": get_column(client, "PA_ASSIGNED_TO")
+                if get_column(client, "PA_ASSIGNED_TO") is not None
+                else existing["paAssignedTo"],
+                "gender": gender,
+                "phoneNumber": phone_number,
+                "email": email,
+                "flag": get_column(client, "FLAG"),
+                "taUser": get_column(client, "LOGIN_NAME", default=None),
+                "referralSource": get_column(client, "REFERRAL_SOURCE", default=None)
+                if get_column(client, "REFERRAL_SOURCE", default=None) is not None
+                else existing["referralSource"],
+            }
+
+            # latitude/longitude come back from MySQL as Decimal but are
+            # computed here as strings/floats from the CSV, so compare them
+            # numerically rather than by type-sensitive equality.
+            def _differs(field: str, new_value, existing=existing) -> bool:
+                old_value = existing[field]
+                if field in ("latitude", "longitude"):
+                    if old_value is None or new_value is None:
+                        return old_value != new_value
+                    return float(old_value) != float(new_value)
+                return new_value != old_value
+
+            diff = {
+                field: {"old": existing[field], "new": new_value}
+                for field, new_value in effective.items()
+                if _differs(field, new_value)
+            }
+            if diff:
+                client_updates[str(client_id)] = diff
+
     sql = f"""
-        INSERT INTO `{TABLE_CLIENT}` (id, hash, status, addedDate, dob, firstName, lastName, preferredName, fullName, address, schoolDistrict, latitude, longitude, asdAdhd, language, gender, phoneNumber, email, flag, taUser, referralSource)
-        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+        INSERT INTO `{TABLE_CLIENT}` (id, hash, status, addedDate, dob, firstName, lastName, preferredName, fullName, address, schoolDistrict, latitude, longitude, asdAdhd, language, paAssignedTo, gender, phoneNumber, email, flag, taUser, referralSource)
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
         ON DUPLICATE KEY UPDATE
             hash = VALUES(hash),
             status = VALUES(status),
@@ -384,6 +477,7 @@ def put_clients_in_db(clients_df: pd.DataFrame, connection: Connection[DictCurso
             longitude = CASE WHEN VALUES(longitude) IS NOT NULL THEN VALUES(longitude) ELSE longitude END,
             asdAdhd = CASE WHEN VALUES(asdAdhd) IS NOT NULL THEN VALUES(asdAdhd) ELSE asdAdhd END,
             language = CASE WHEN VALUES(language) IS NOT NULL THEN VALUES(language) ELSE language END,
+            paAssignedTo = CASE WHEN VALUES(paAssignedTo) IS NOT NULL THEN VALUES(paAssignedTo) ELSE paAssignedTo END,
             gender = VALUES(gender),
             phoneNumber = VALUES(phoneNumber),
             email = VALUES(email),
@@ -393,22 +487,57 @@ def put_clients_in_db(clients_df: pd.DataFrame, connection: Connection[DictCurso
     """
 
     client_ids = [str(v[0]) for v in values_to_insert]
-    old_status_by_id: dict[str, bool] = {}
-    if client_ids:
-        placeholders = ", ".join(["%s"] * len(client_ids))
-        with connection.cursor() as cursor:
-            cursor.execute(
-                f"SELECT id, status FROM `{TABLE_CLIENT}` WHERE id IN ({placeholders})",
-                client_ids,
-            )
-            for row in cursor.fetchall():
-                old_status_by_id[str(row["id"])] = bool(row["status"])
+    old_status_by_id: dict[str, bool] = {
+        client_id: bool(row["status"]) for client_id, row in existing_by_id.items()
+    }
+    old_deactivated_at_by_id: dict[str, datetime | None] = {
+        client_id: row["deactivatedAt"] for client_id, row in existing_by_id.items()
+    }
 
     with connection.cursor() as cursor:
         cursor.executemany(sql, values_to_insert)
+
+    for client_id, diff in client_updates.items():
+        record_audit_log(
+            connection,
+            "python.client.update",
+            int(client_id),
+            "system:csv-sync",
+            "csv-sync (internal)",
+            detail=diff,
+        )
+
     connection.commit()
 
     logger.info(f"Successfully inserted/updated {len(values_to_insert)} clients.")
+
+    # Stamp deactivatedAt when a client flips Active -> Inactive, so that a
+    # later reactivation can tell how long they were gone.
+    deactivated_ids = [
+        client_id
+        for client_id in client_ids
+        if old_status_by_id.get(client_id) is True
+        and new_status_by_id.get(client_id) is False
+    ]
+    if deactivated_ids:
+        placeholders = ", ".join(["%s"] * len(deactivated_ids))
+        deactivated_at = now_utc()
+        with connection.cursor() as cursor:
+            cursor.execute(
+                f"UPDATE `{TABLE_CLIENT}` SET deactivatedAt = %s WHERE id IN ({placeholders})",
+                [deactivated_at, *deactivated_ids],
+            )
+        for client_id in deactivated_ids:
+            record_audit_log(
+                connection,
+                "python.client.deactivate",
+                int(client_id),
+                "system:csv-sync",
+                "csv-sync (internal)",
+                detail={"deactivatedAt": deactivated_at.isoformat()},
+            )
+        connection.commit()
+        logger.info(f"Marked {len(deactivated_ids)} client(s) deactivated.")
 
     reactivated_ids = [
         client_id
@@ -416,13 +545,40 @@ def put_clients_in_db(clients_df: pd.DataFrame, connection: Connection[DictCurso
         if old_status_by_id.get(client_id) is False
         and new_status_by_id.get(client_id) is True
     ]
+    twelve_months_ago = now_business().replace(tzinfo=None) - relativedelta(months=12)
     for client_id in reactivated_ids:
-        logger.info(f"Client {client_id} reactivated - starting a new session")
+        deactivated_at = old_deactivated_at_by_id.get(client_id)
+        # An unknown deactivation date (client went inactive before this was
+        # tracked) is treated as a recent reactivation.
+        inactive_12_months_or_more = (
+            deactivated_at is not None
+            and utc_to_business(deactivated_at) <= twelve_months_ago
+        )
         try:
-            reset_client_session(int(client_id), connection=connection)
+            if inactive_12_months_or_more:
+                logger.info(
+                    f"Client {client_id} reactivated after 12+ months - starting a new session"
+                )
+                reset_client_session(
+                    int(client_id), deactivated_at, connection=connection
+                )
+            else:
+                logger.info(
+                    f"Client {client_id} reactivated within 12 months - activating admin review"
+                )
+                activate_reactivation_admin_review(
+                    int(client_id), deactivated_at, connection=connection
+                )
         except Exception as e:
-            logger.error(f"Failed to reset session for client {client_id}: {e}")
+            logger.error(f"Failed to handle reactivation for client {client_id}: {e}")
             connection.rollback()
+            continue
+        with connection.cursor() as cursor:
+            cursor.execute(
+                f"UPDATE `{TABLE_CLIENT}` SET deactivatedAt = NULL WHERE id = %s",
+                (int(client_id),),
+            )
+        connection.commit()
 
 
 def _build_reactivation_note_block(reactivated_on: str) -> list[dict]:
@@ -447,20 +603,218 @@ def _build_reactivation_note_block(reactivated_on: str) -> list[dict]:
     ]
 
 
+def _build_reactivation_review_separator(
+    reactivated_on: str, gap: str | None
+) -> list[dict]:
+    """TipTap nodes prepended to a reactivated client's admin review.
+
+    Unlike the notes separator, this keeps the prior review content in place and
+    makes no claim about it being excluded from anything: an admin review is
+    ongoing case history, not session-scoped data.
+    """
+    label = f"Reactivated on {reactivated_on}"
+    if gap:
+        label += f" (inactive {gap})"
+    return [
+        {
+            "type": "heading",
+            "attrs": {"level": 3},
+            "content": [{"type": "text", "text": label}],
+        },
+        {"type": "horizontalRule"},
+        {"type": "paragraph"},
+    ]
+
+
+ANDREW_EMAIL = "andrew@driftwoodeval.com"
+
+
+def _humanize_month_gap(earlier: datetime, later: datetime) -> str:
+    """A rough human-readable span like '1 year, 3 months' between two datetimes."""
+    delta = relativedelta(later, earlier)
+    parts: list[str] = []
+    if delta.years:
+        parts.append(f"{delta.years} year{'s' if delta.years != 1 else ''}")
+    if delta.months:
+        parts.append(f"{delta.months} month{'s' if delta.months != 1 else ''}")
+    if delta.days and not delta.years:
+        parts.append(f"{delta.days} day{'s' if delta.days != 1 else ''}")
+    return ", ".join(parts) if parts else "less than a day"
+
+
+def _reactivation_review_note_text(
+    reactivated_on: str, deactivated_on: str | None, distance: str | None
+) -> str:
+    """The sentence recorded when a client reactivates within 12 months."""
+    if deactivated_on is not None:
+        return (
+            f"Reactivated on {reactivated_on}, after being deactivated on "
+            f"{deactivated_on} ({distance} apart)"
+        )
+    return (
+        f"Reactivated on {reactivated_on}, after being deactivated "
+        "(deactivation date unknown)"
+    )
+
+
 @provide_connection
-def reset_client_session(client_id: int, connection: Connection[DictCursor]) -> None:
+def activate_reactivation_admin_review(
+    client_id: int,
+    deactivated_at: datetime | None,
+    connection: Connection[DictCursor],
+    actor_id: str = "system:csv-sync",
+    actor_email: str = "csv-sync (internal)",
+) -> None:
+    """Handles a client who reactivated within 12 months of going inactive.
+
+    Unlike reset_client_session, the existing session continues: the client's
+    admin review is enabled and assigned to Andrew, and a note recording
+    the gap is written to both the admin review and the client's notes.
+    """
+    now_business_naive = now_business().replace(tzinfo=None)
+    reactivated_on = now_business_naive.date().isoformat()
+    if deactivated_at is not None:
+        deactivated_business = utc_to_business(deactivated_at)
+        deactivated_on = deactivated_business.date().isoformat()
+        distance = _humanize_month_gap(deactivated_business, now_business_naive)
+    else:
+        deactivated_on = None
+        distance = None
+
+    text = _reactivation_review_note_text(reactivated_on, deactivated_on, distance)
+    # A big-font heading so the reactivation stands out in the notes and review,
+    # matching the separator reset_client_session prepends.
+    marker_blocks = [
+        {
+            "type": "heading",
+            "attrs": {"level": 3},
+            "content": [{"type": "text", "text": text}],
+        },
+        {"type": "paragraph"},
+    ]
+
+    with connection.cursor() as cursor:
+        cursor.execute(
+            f"SELECT content, updatedBy FROM `{TABLE_ADMIN_REVIEW}` WHERE clientId = %s",
+            (client_id,),
+        )
+        review = cursor.fetchone()
+        if review is None:
+            cursor.execute(
+                f"INSERT INTO `{TABLE_ADMIN_REVIEW}` "
+                "(clientId, content, enabled, waiting, claimedUserEmail, updatedBy) "
+                "VALUES (%s, %s, 1, 0, %s, %s)",
+                (
+                    client_id,
+                    json.dumps({"type": "doc", "content": marker_blocks}),
+                    ANDREW_EMAIL,
+                    ANDREW_EMAIL,
+                ),
+            )
+        else:
+            if review["content"] is not None:
+                cursor.execute(
+                    f"INSERT INTO `{TABLE_ADMIN_REVIEW_HISTORY}` (reviewId, content, updatedBy) "
+                    "VALUES (%s, %s, %s)",
+                    (client_id, review["content"], review["updatedBy"]),
+                )
+            # Prepend the marker, keep the prior review content. An insurance
+            # review is ongoing case history, not session-scoped data.
+            existing_review = (
+                json.loads(review["content"])
+                if review["content"]
+                else {"type": "doc", "content": []}
+            )
+            new_review = {
+                "type": "doc",
+                "content": [*marker_blocks, *(existing_review.get("content") or [])],
+            }
+            cursor.execute(
+                f"UPDATE `{TABLE_ADMIN_REVIEW}` SET content = %s, enabled = 1, "
+                "waiting = 0, claimedUserEmail = %s, submittedToNotesAt = NULL, "
+                "updatedBy = %s WHERE clientId = %s",
+                (json.dumps(new_review), ANDREW_EMAIL, ANDREW_EMAIL, client_id),
+            )
+
+        cursor.execute(
+            f"SELECT content, title, updatedBy FROM `{TABLE_NOTE}` WHERE clientId = %s",
+            (client_id,),
+        )
+        note = cursor.fetchone()
+        note_blocks = marker_blocks
+        if note is None:
+            cursor.execute(
+                f"INSERT INTO `{TABLE_NOTE}` (clientId, content) VALUES (%s, %s)",
+                (client_id, json.dumps({"type": "doc", "content": note_blocks})),
+            )
+        else:
+            if note["content"] is not None:
+                cursor.execute(
+                    f"INSERT INTO `{TABLE_NOTE_HISTORY}` (noteId, content, title, updatedBy) "
+                    "VALUES (%s, %s, %s, %s)",
+                    (client_id, note["content"], note["title"], note["updatedBy"]),
+                )
+            existing_content = (
+                json.loads(note["content"])
+                if note["content"]
+                else {"type": "doc", "content": []}
+            )
+            new_content = {
+                "type": "doc",
+                "content": [*note_blocks, *(existing_content.get("content") or [])],
+            }
+            cursor.execute(
+                f"UPDATE `{TABLE_NOTE}` SET content = %s WHERE clientId = %s",
+                (json.dumps(new_content), client_id),
+            )
+
+    record_audit_log(
+        connection,
+        "python.reactivation.activateReview",
+        client_id,
+        actor_id,
+        actor_email,
+        detail={
+            "reactivatedOn": reactivated_on,
+            "deactivatedOn": deactivated_on,
+            "monthsGap": distance,
+        },
+    )
+    connection.commit()
+
+
+@provide_connection
+def reset_client_session(
+    client_id: int,
+    deactivated_at: datetime | None,
+    connection: Connection[DictCursor],
+    actor_id: str = "system:csv-sync",
+    actor_email: str = "csv-sync (internal)",
+) -> None:
     """Archives a reactivated client's prior-session data and starts a fresh one.
 
     Runs when a client's status flips from Inactive back to Active in the TA
-    import. Mutable "current state" rows (in-person assessments, insurance
-    review, external records note) are archived into their history tables and
-    reset in place; `recordsNeeded` is cleared so staff re-triage it; failures
-    are cleared outright; a separator is prepended to the client's notes; and
+    import. Mutable "current state" rows (in-person assessments, external
+    records note) are archived into their history tables and reset in place;
+    `recordsNeeded` is cleared so staff re-triage it; failures are cleared
+    outright; a separator is prepended to the client's notes; and
     `sessionStartedAt` is stamped so calculations can exclude everything
     before it. Records request history (`emr_external_record_request`) is
     left in place, since queries scope it by `sessionStartedAt` instead.
+
+    The admin review is the exception: its content is kept, with a dated
+    separator prepended, since it is ongoing case history rather than
+    session-scoped data.
     """
     now = now_utc()
+    reactivated_on = now_business().date().isoformat()
+    gap = (
+        _humanize_month_gap(
+            utc_to_business(deactivated_at), now_business().replace(tzinfo=None)
+        )
+        if deactivated_at is not None
+        else None
+    )
 
     with connection.cursor() as cursor:
         cursor.execute(
@@ -490,20 +844,23 @@ def reset_client_session(client_id: int, connection: Connection[DictCursor]) -> 
             )
 
         cursor.execute(
-            f"SELECT content, updatedBy FROM `{TABLE_INSURANCE_REVIEW}` WHERE clientId = %s",
+            f"SELECT content FROM `{TABLE_ADMIN_REVIEW}` WHERE clientId = %s",
             (client_id,),
         )
         review = cursor.fetchone()
         if review and review["content"] is not None:
+            existing_review = json.loads(review["content"])
+            new_review = {
+                "type": "doc",
+                "content": [
+                    *_build_reactivation_review_separator(reactivated_on, gap),
+                    *(existing_review.get("content") or []),
+                ],
+            }
             cursor.execute(
-                f"INSERT INTO `{TABLE_INSURANCE_REVIEW_HISTORY}` (reviewId, content, updatedBy) "
-                "VALUES (%s, %s, %s)",
-                (client_id, review["content"], review["updatedBy"]),
-            )
-            cursor.execute(
-                f"UPDATE `{TABLE_INSURANCE_REVIEW}` SET content = NULL, "
+                f"UPDATE `{TABLE_ADMIN_REVIEW}` SET content = %s, "
                 "submittedToNotesAt = NULL WHERE clientId = %s",
-                (client_id,),
+                (json.dumps(new_review), client_id),
             )
 
         cursor.execute(
@@ -536,7 +893,7 @@ def reset_client_session(client_id: int, connection: Connection[DictCursor]) -> 
             (client_id,),
         )
         note = cursor.fetchone()
-        separator = _build_reactivation_note_block(now.date().isoformat())
+        separator = _build_reactivation_note_block(reactivated_on)
 
         if note is None:
             cursor.execute(
@@ -569,6 +926,22 @@ def reset_client_session(client_id: int, connection: Connection[DictCursor]) -> 
             (now, client_id),
         )
 
+    record_audit_log(
+        connection,
+        "python.session.reset",
+        client_id,
+        actor_id,
+        actor_email,
+        detail={
+            "reactivatedOn": reactivated_on,
+            "monthsGap": gap,
+            "sessionStartedAt": now.isoformat(),
+            "inPersonAssessmentsArchived": len(assessments),
+            "externalRecordArchived": bool(
+                external_record and external_record["content"] is not None
+            ),
+        },
+    )
     connection.commit()
 
 
@@ -616,13 +989,26 @@ def sync_client_insurance_from_policies(connection: Connection[DictCursor]):
 
 
 SCM_ALIAS = "SCM"
+
+# Insurances whose members are looked up on the SC Medicaid portal.
+MEDICAID_SHORT_NAMES = [
+    "SCM",
+    "BabyNet",
+    "SH",
+    "HB",
+    "ATC",
+    "Humana",
+    "Molina",
+    "MolinaMarketplace",
+]
+MEDICAID_RECHECK_DAYS = 30
 DEFAULT_EMAIL = "barbara@driftwoodeval.com"
 
 
 @provide_connection
-def sync_scm_insurance_reviews(connection: Connection[DictCursor]):
-    """Creates insurance_review rows for SCM clients that don't have one yet."""
-    logger.debug("Syncing SCM insurance review records")
+def sync_scm_admin_reviews(connection: Connection[DictCursor]):
+    """Creates admin_review rows for SCM clients that don't have one yet."""
+    logger.debug("Syncing SCM admin review records")
 
     # Collect all insurance names (shortName + aliases) that map to SCM
     with connection.cursor() as cursor:
@@ -666,7 +1052,7 @@ def sync_scm_insurance_reviews(connection: Connection[DictCursor]):
             f"""
             SELECT c.id
             FROM `{TABLE_CLIENT}` c
-            LEFT JOIN `{TABLE_INSURANCE_REVIEW}` ir ON ir.clientId = c.id
+            LEFT JOIN `{TABLE_ADMIN_REVIEW}` ir ON ir.clientId = c.id
             WHERE c.primaryInsurance IN ({name_placeholders})
               AND ir.clientId IS NULL
               AND c.status = 1
@@ -676,7 +1062,7 @@ def sync_scm_insurance_reviews(connection: Connection[DictCursor]):
         clients_to_backfill = cursor.fetchall()
 
     if not clients_to_backfill:
-        logger.info("All SCM clients already have insurance review records.")
+        logger.info("All SCM clients already have admin review records.")
         return
 
     rows = [
@@ -687,91 +1073,120 @@ def sync_scm_insurance_reviews(connection: Connection[DictCursor]):
     with connection.cursor() as cursor:
         cursor.executemany(
             f"""
-            INSERT INTO `{TABLE_INSURANCE_REVIEW}` (clientId, enabled, claimed_user_email, updated_by)
+            INSERT INTO `{TABLE_ADMIN_REVIEW}` (clientId, enabled, claimedUserEmail, updatedBy)
             VALUES (%s, %s, %s, %s)
             """,
             rows,
         )
+    for client in clients_to_backfill:
+        record_audit_log(
+            connection,
+            "python.adminReview.scmBackfill",
+            client["id"],
+            "system:csv-sync",
+            "csv-sync (internal)",
+        )
     connection.commit()
-    logger.info(f"Created {len(rows)} SCM insurance review record(s).")
+    logger.info(f"Created {len(rows)} SCM admin review record(s).")
 
 
 @provide_connection
 def update_client_medicaid_eligibility(
     client_id: int,
-    qual_category: str,
-    payment_category: str,
+    eligibility: dict[str, str | None] | None,
+    policy_id: str,
     connection: Connection[DictCursor],
 ) -> None:
-    """Updates qual_category and payment_category on the client record."""
+    """Stores the scraped portal fields and the policy searched, and stamps medicaidCheckedAt.
+
+    With eligibility=None (client not found on the portal), only the timestamp
+    is updated so the client is retried next month instead of every run.
+    """
     with connection.cursor() as cursor:
-        cursor.execute(
-            f"UPDATE `{TABLE_CLIENT}` SET qual_category = %s, payment_category = %s WHERE id = %s",
-            (qual_category, payment_category, client_id),
-        )
+        if eligibility is None:
+            cursor.execute(
+                f"UPDATE `{TABLE_CLIENT}` SET medicaidCheckedAt = UTC_TIMESTAMP() WHERE id = %s",
+                (client_id,),
+            )
+        else:
+            cursor.execute(
+                f"""
+                UPDATE `{TABLE_CLIENT}`
+                SET qualCategory = %s, paymentCategory = %s, medicaidOrganization = %s,
+                    medicaidCarrier1 = %s, medicaidCarrier2 = %s,
+                    medicaidPolicyId = %s, medicaidCheckedAt = UTC_TIMESTAMP()
+                WHERE id = %s
+                """,
+                (
+                    eligibility["qualCategory"],
+                    eligibility["paymentCategory"],
+                    eligibility["medicaidOrganization"],
+                    eligibility["medicaidCarrier1"],
+                    eligibility["medicaidCarrier2"],
+                    policy_id,
+                    client_id,
+                ),
+            )
+    record_audit_log(
+        connection,
+        "python.medicaidEligibility.update",
+        client_id,
+        "system:csv-sync",
+        "csv-sync (internal)",
+        detail=eligibility,
+    )
     connection.commit()
 
 
 @provide_connection
-def get_scm_clients_with_medicaid_ids(
-    only_new: bool = True,
+def get_medicaid_clients_with_ids(
+    only_due: bool = True,
     connection: Connection[DictCursor] | None = None,
 ) -> list[dict]:
-    """Returns active clients with SCM insurance and their medicaid (insurance) numbers."""
+    """Returns active clients with a Medicaid-portal insurance as primary or secondary.
+
+    Only policy numbers the portal accepts (exactly 10 digits) are considered.
+    Each client appears once with the policy number to search, preferring the
+    primary policy. With only_due, restricts to clients never checked or last
+    checked more than MEDICAID_RECHECK_DAYS ago.
+    """
     assert connection is not None
-    with connection.cursor() as cursor:
-        cursor.execute(
-            f"""
-            SELECT i.id, i.shortName
-            FROM `{TABLE_INSURANCE}` i
-            LEFT JOIN `{TABLE_INSURANCE_ALIAS}` a ON a.insuranceId = i.id
-            WHERE i.shortName = %s OR a.name = %s
-            """,
-            (SCM_ALIAS, SCM_ALIAS),
-        )
-        scm_insurance_rows = cursor.fetchall()
-
-    if not scm_insurance_rows:
-        return []
-
-    scm_ids = list({row["id"] for row in scm_insurance_rows})
-    id_placeholders = ", ".join(["%s"] * len(scm_ids))
+    shortname_placeholders = ", ".join(["%s"] * len(MEDICAID_SHORT_NAMES))
 
     with connection.cursor() as cursor:
         cursor.execute(
             f"""
-            SELECT i.shortName AS name FROM `{TABLE_INSURANCE}` i WHERE i.id IN ({id_placeholders})
-            UNION
-            SELECT a.name FROM `{TABLE_INSURANCE_ALIAS}` a WHERE a.insuranceId IN ({id_placeholders})
-            """,
-            scm_ids + scm_ids,
-        )
-        name_rows = cursor.fetchall()
-
-    scm_names = [row["name"] for row in name_rows]
-    if not scm_names:
-        return []
-
-    name_placeholders = ", ".join(["%s"] * len(scm_names))
-
-    with connection.cursor() as cursor:
-        cursor.execute(
-            f"""
-            SELECT c.id, c.firstName, c.lastName, p.insuranceNumber
+            SELECT c.id, c.firstName, c.lastName, p.policyId, TRIM(p.insuranceNumber) AS insuranceNumber
             FROM `{TABLE_CLIENT}` c
             JOIN `{TABLE_CLIENT_INSURANCE_POLICY}` p ON p.clientId = c.id
-            WHERE c.primaryInsurance IN ({name_placeholders})
+            WHERE COALESCE(p.insuranceCompanyName, p.policyCompanyName) IN (
+                    SELECT i.shortName FROM `{TABLE_INSURANCE}` i
+                    WHERE i.shortName IN ({shortname_placeholders})
+                    UNION
+                    SELECT a.name FROM `{TABLE_INSURANCE_ALIAS}` a
+                    JOIN `{TABLE_INSURANCE}` i ON i.id = a.insuranceId
+                    WHERE i.shortName IN ({shortname_placeholders})
+                )
               AND c.status = 1
-              AND p.policyType = 'PRIMARY'
+              AND p.policyType IN ('PRIMARY', 'SECONDARY')
               AND (p.policyEndDate IS NULL OR p.policyEndDate >= CURDATE())
-              AND p.insuranceNumber IS NOT NULL
-              AND p.insuranceNumber != ''
-              {" AND c.qual_category IS NULL" if only_new else ""}
-            ORDER BY c.lastName, c.firstName
+              AND TRIM(p.insuranceNumber) REGEXP '^[0-9]{{10}}$'
+              {
+                " AND (c.medicaidCheckedAt IS NULL OR c.medicaidCheckedAt < UTC_TIMESTAMP() - INTERVAL %s DAY)"
+                if only_due
+                else ""
+            }
+            ORDER BY c.lastName, c.firstName, c.id, p.policyType = 'PRIMARY' DESC
             """,
-            scm_names,
+            MEDICAID_SHORT_NAMES * 2 + ([MEDICAID_RECHECK_DAYS] if only_due else []),
         )
-        return list(cursor.fetchall())
+        rows = cursor.fetchall()
+
+    # Rows are ordered primary-first, so the first row per client wins.
+    clients_by_id: dict[int, dict] = {}
+    for row in rows:
+        clients_by_id.setdefault(row["id"], row)
+    return list(clients_by_id.values())
 
 
 @provide_connection
@@ -822,12 +1237,36 @@ def put_client_insurance_policies_in_db(
                 f"matching emr_client row — these policies will be skipped: {sorted(missing_client_ids)}"
             )
 
+    # Only import policies that originated with us: either added/modified by one of
+    # our staff (matched against emr_user.name, archived users included since a
+    # departed staffer's policy is still ours), or created by TherapyAppointment
+    # itself (POLICY_ADDEDBYNAME starting with "TherapyAppointment").
+    with connection.cursor() as cursor:
+        cursor.execute(f"SELECT name FROM `{TABLE_USER}`")
+        our_user_names = {
+            r["name"].strip().lower() for r in cursor.fetchall() if r["name"]
+        }
+
+    def _is_ours(val) -> bool:
+        if not isinstance(val, str):
+            return False
+        name = val.strip().lower()
+        return name in our_user_names or name.startswith("therapyappointment")
+
+    skipped_external = 0
+
     for _, row in insurance_df.iterrows():
         policy_id = get_column(row, "POLICY_ID")
         client_id = get_column(row, "CLIENT_ID")
         if policy_id is None or client_id is None:
             continue
         if isinstance(policy_id, list) or isinstance(client_id, list):
+            continue
+
+        if not _is_ours(get_column(row, "POLICY_ADDEDBYNAME")) and not _is_ours(
+            get_column(row, "POLICY_MODIFIEDBYNAME")
+        ):
+            skipped_external += 1
             continue
 
         try:
@@ -918,6 +1357,11 @@ def put_client_insurance_policies_in_db(
         )
         values_to_insert.append(values)
 
+    if skipped_external:
+        logger.info(
+            f"Skipped {skipped_external} insurance policies not added by one of our users."
+        )
+
     if not values_to_insert:
         logger.info("No insurance policies to insert.")
         return
@@ -947,7 +1391,8 @@ def put_client_insurance_policies_in_db(
 
     placeholders = ", ".join(["%s"] * len(values_to_insert[0]))
 
-    update_cols = [c.strip() for c in cols.split(",") if c.strip() != "policyId"]
+    col_names = [c.strip() for c in cols.split(",")]
+    update_cols = [c for c in col_names if c != "policyId"]
     on_duplicate = ", ".join(f"{c} = VALUES({c})" for c in update_cols)
 
     sql_stmt = f"""
@@ -956,8 +1401,48 @@ def put_client_insurance_policies_in_db(
         ON DUPLICATE KEY UPDATE {on_duplicate};
     """
 
+    # Diff against the current row so we log only what actually changed,
+    # not a no-op on every sync (every column is unconditionally overwritten
+    # by ON DUPLICATE KEY UPDATE above, so a straight equality diff matches
+    # what will really land in the DB).
+    policy_ids = [values[0] for values in values_to_insert]
+    existing_by_policy_id: dict[str, dict] = {}
+    if policy_ids:
+        id_placeholders = ", ".join(["%s"] * len(policy_ids))
+        with connection.cursor() as cursor:
+            cursor.execute(
+                f"SELECT {cols} FROM `{TABLE_CLIENT_INSURANCE_POLICY}` WHERE policyId IN ({id_placeholders})",
+                policy_ids,
+            )
+            existing_by_policy_id = {row["policyId"]: row for row in cursor.fetchall()}
+
+    policy_updates: list[tuple[int, str, dict]] = []
+    for values in values_to_insert:
+        new_row = dict(zip(col_names, values, strict=True))
+        existing = existing_by_policy_id.get(new_row["policyId"])
+        if existing is None:
+            continue
+        diff = {
+            col: {"old": existing[col], "new": new_row[col]}
+            for col in update_cols
+            if new_row[col] != existing[col]
+        }
+        if diff:
+            policy_updates.append((new_row["clientId"], new_row["policyId"], diff))
+
     with connection.cursor() as cursor:
         cursor.executemany(sql_stmt, values_to_insert)
+
+    for client_id, policy_id, diff in policy_updates:
+        record_audit_log(
+            connection,
+            "python.insurance.updatePolicy",
+            client_id,
+            "system:csv-sync",
+            "csv-sync (internal)",
+            detail={"policyId": policy_id, "changes": diff},
+        )
+
     connection.commit()
 
     logger.info(
@@ -973,6 +1458,16 @@ def put_client_insurance_policies_in_db(
     with connection.cursor() as cursor:
         cursor.execute(
             f"""
+            SELECT clientId, policyId FROM `{TABLE_CLIENT_INSURANCE_POLICY}`
+            WHERE clientId IN ({client_id_placeholders})
+              AND policyId NOT IN ({policy_id_placeholders})
+            """,
+            [*imported_client_ids, *imported_policy_ids],
+        )
+        stale_policies = cursor.fetchall()
+
+        cursor.execute(
+            f"""
             DELETE FROM `{TABLE_CLIENT_INSURANCE_POLICY}`
             WHERE clientId IN ({client_id_placeholders})
               AND policyId NOT IN ({policy_id_placeholders})
@@ -980,6 +1475,15 @@ def put_client_insurance_policies_in_db(
             [*imported_client_ids, *imported_policy_ids],
         )
         deleted = cursor.rowcount
+    for policy in stale_policies:
+        record_audit_log(
+            connection,
+            "python.insurance.removeStalePolicy",
+            policy["clientId"],
+            "system:csv-sync",
+            "csv-sync (internal)",
+            detail={"policyId": policy["policyId"]},
+        )
     connection.commit()
 
     if deleted:
@@ -1012,6 +1516,45 @@ def update_client_ta_hashes(
     except Exception as e:
         logger.error(f"Failed to update taHashes: {e}")
         connection.rollback()
+
+
+def record_audit_log(
+    connection: Connection[DictCursor],
+    action: str,
+    client_id: int | None,
+    actor_id: str,
+    actor_email: str,
+    *,
+    success: bool = True,
+    error_message: str | None = None,
+    detail: dict | None = None,
+) -> None:
+    """Write a row to emr_audit_log for a direct DB write made by a Python script.
+
+    Called on the same connection as the write it's recording, before that
+    write's commit, so the two land in the same transaction. Best-effort:
+    a failure here must never take down the caller's actual write, so
+    errors are logged and swallowed rather than raised.
+    """
+    try:
+        with connection.cursor() as cursor:
+            cursor.execute(
+                f"""
+                INSERT INTO `{TABLE_AUDIT_LOG}` (userId, userEmail, action, clientId, detail, success, errorMessage)
+                VALUES (%s, %s, %s, %s, %s, %s, %s)
+                """,
+                (
+                    actor_id,
+                    actor_email,
+                    action,
+                    client_id,
+                    json.dumps(detail, default=str) if detail is not None else None,
+                    success,
+                    error_message,
+                ),
+            )
+    except Exception:
+        logger.exception(f"Failed to write audit log for action={action}")
 
 
 def resolve_failure_in_db(
@@ -1054,22 +1597,112 @@ def put_appointment_in_db(
             return
 
         cursor.execute(
-            f"SELECT startTime, confirmedAt FROM `{TABLE_APPOINTMENT}` WHERE id = %s",
+            f"""SELECT startTime, endTime, confirmedAt, cancelled, evaluatorNpi, daEval,
+                       asdAdhd, locationKey, calendarEventId, cpt, calendarEventTitle,
+                       billingOnly
+                FROM `{TABLE_APPOINTMENT}` WHERE id = %s""",
             (appointment_id,),
         )
         existing = cursor.fetchone()
         # pymysql always returns naive datetimes (representing UTC, since
-        # that's what's stored); start_time is UTC-aware, so compare on the
-        # naive wall-clock value.
+        # that's what's stored); start_time/end_time are UTC-aware, so compare
+        # on the naive wall-clock value.
         start_time_naive_utc = start_time.replace(tzinfo=None)
-        if (
-            existing
-            and existing["confirmedAt"] is not None
-            and existing["startTime"] != start_time_naive_utc
-        ):
-            logger.warning(
-                f"Appointment {appointment_id}: startTime changed from {existing['startTime']} to {start_time_naive_utc} - confirmedAt will be cleared (was {existing['confirmedAt']})"
+        end_time_naive_utc = end_time.replace(tzinfo=None)
+
+        if existing is None:
+            record_audit_log(
+                connection,
+                "python.appointments.create",
+                client_id,
+                "system:csv-sync",
+                "csv-sync (internal)",
+                detail={
+                    "appointmentId": appointment_id,
+                    "startTime": start_time_naive_utc.isoformat(),
+                    "endTime": end_time_naive_utc.isoformat(),
+                    "evaluatorNpi": evaluator_npi,
+                    "cpt": cpt,
+                    "daEval": da_eval,
+                    "asdAdhd": asd_adhd,
+                    "cancelled": bool(cancelled),
+                    "billingOnly": billing_only,
+                },
             )
+        else:
+            rescheduled = existing["startTime"] != start_time_naive_utc
+            if rescheduled:
+                logger.warning(
+                    f"Appointment {appointment_id}: startTime changed from {existing['startTime']} to {start_time_naive_utc}"
+                    + (
+                        f" - confirmedAt will be cleared (was {existing['confirmedAt']})"
+                        if existing["confirmedAt"] is not None
+                        else ""
+                    )
+                )
+                record_audit_log(
+                    connection,
+                    "python.appointments.reschedule",
+                    client_id,
+                    "system:csv-sync",
+                    "csv-sync (internal)",
+                    detail={
+                        "appointmentId": appointment_id,
+                        "oldStartTime": existing["startTime"].isoformat(),
+                        "newStartTime": start_time_naive_utc.isoformat(),
+                    },
+                )
+
+            # cancelled resets to False on a reschedule regardless of the incoming
+            # value, mirroring the CASE logic in the UPDATE below.
+            effective_cancelled = False if rescheduled else bool(cancelled)
+            existing_cancelled = bool(existing["cancelled"])
+            if effective_cancelled != existing_cancelled:
+                record_audit_log(
+                    connection,
+                    "python.appointments.cancel"
+                    if effective_cancelled
+                    else "python.appointments.uncancel",
+                    client_id,
+                    "system:csv-sync",
+                    "csv-sync (internal)",
+                    detail={"appointmentId": appointment_id},
+                )
+
+            # Fields the UPDATE below only overwrites when the incoming value is
+            # non-null, so compute what each field will actually become before
+            # diffing against the existing row.
+            effective = {
+                "endTime": end_time_naive_utc,
+                "evaluatorNpi": evaluator_npi,
+                "daEval": da_eval if da_eval is not None else existing["daEval"],
+                "asdAdhd": asd_adhd if asd_adhd is not None else existing["asdAdhd"],
+                "locationKey": location
+                if location is not None
+                else existing["locationKey"],
+                "calendarEventId": gcal_event_id
+                if gcal_event_id is not None
+                else existing["calendarEventId"],
+                "cpt": cpt,
+                "calendarEventTitle": gcal_event_title
+                if gcal_event_title is not None
+                else existing["calendarEventTitle"],
+                "billingOnly": billing_only,
+            }
+            diff = {
+                field: {"old": existing[field], "new": new_value}
+                for field, new_value in effective.items()
+                if new_value != existing[field]
+            }
+            if diff:
+                record_audit_log(
+                    connection,
+                    "python.appointments.update",
+                    client_id,
+                    "system:csv-sync",
+                    "csv-sync (internal)",
+                    detail={"appointmentId": appointment_id, "changes": diff},
+                )
 
     sql = f"""
         INSERT INTO `{TABLE_APPOINTMENT}` (id, clientId, evaluatorNpi, startTime, endTime, daEval, asdAdhd, cancelled, locationKey, calendarEventId, cpt, calendarEventTitle, confirmedAt, billingOnly, placeholder)
@@ -1189,17 +1822,22 @@ def get_evaluators_with_blocked_locations(
 ):
     """Fetches evaluators from the database, including their blocked zip codes and school districts.
 
+    Archived evaluators are excluded: they are not eligible for any client, so
+    they must never land in emr_client_eval or the matching math.
+
     Pass npi to fetch a single evaluator; omit to fetch all.
     """
     evaluators: dict[int, dict] = {}
-    npi_filter = "WHERE npi = %s" if npi is not None else ""
+    evaluator_filter = (
+        "WHERE npi = %s AND archived = 0" if npi is not None else "WHERE archived = 0"
+    )
     npi_join_filter = "WHERE bsd.evaluatorNpi = %s" if npi is not None else ""
     npi_zip_filter = "WHERE evaluatorNpi = %s" if npi is not None else ""
     npi_ins_filter = "WHERE eti.evaluatorNpi = %s" if npi is not None else ""
     params = (npi,) if npi is not None else ()
 
     with connection.cursor() as cursor:
-        cursor.execute(f"SELECT * FROM {TABLE_EVALUATOR} {npi_filter}", params)
+        cursor.execute(f"SELECT * FROM {TABLE_EVALUATOR} {evaluator_filter}", params)
         for row in cursor.fetchall():
             evaluators[row["npi"]] = {
                 **row,
@@ -1373,8 +2011,17 @@ def insert_by_matching_criteria_incremental(
     evaluators: dict,
     connection: Connection[DictCursor],
     progress_callback: Callable[[int, int], None] | None = None,
+    restrict_to_npis: set[str] | None = None,
 ) -> None:
-    """Inserts client-provider links based on matching criteria using incremental updates."""
+    """Inserts client-provider links based on matching criteria using incremental updates.
+
+    `evaluators` must be the full eligible-evaluator set, since the matching
+    math (for example "does any evaluator accept this primary insurance") is
+    computed across all of them. To reconcile only some evaluators' links
+    without touching the rest, pass their NPIs as `restrict_to_npis`: adds and
+    removes are then limited to that set, so a single evaluator can be
+    rematched without wiping every other evaluator's links for each client.
+    """
     logger.debug("Starting incremental client-evaluator matching...")
 
     existing_links = _get_existing_client_eval_links(connection=connection)
@@ -1418,13 +2065,17 @@ def insert_by_matching_criteria_incremental(
         to_add = current_should_be - current_exists
         to_remove = current_exists - current_should_be
 
+        if restrict_to_npis is not None:
+            to_add &= restrict_to_npis
+            to_remove &= restrict_to_npis
+
         if to_add or to_remove:
             updated_count += 1
             if to_remove:
                 _delete_client_eval_links(client_id, to_remove, connection=connection)
             if to_add:
                 _insert_client_eval_links(client_id, to_add, connection=connection)
-            existing_links[client_id] = current_should_be
+            existing_links[client_id] = (current_exists - to_remove) | to_add
 
     if progress_callback:
         progress_callback(processed_count, total)
@@ -1586,19 +2237,28 @@ def get_npi_to_name_map(
 
 @provide_connection
 def get_queue_notify_users(connection: Connection[DictCursor]):
-    """Returns a list of users who have the reports:notifications permission and no active claimed report."""
+    """Returns a list of users who have the reports:notifications permission (directly or through their role) and no active claimed report."""
     users = []
     with connection.cursor() as cursor:
         cursor.execute(
-            f"SELECT email, name, permissions, claimed_report_folder, blocked_evaluator_npis FROM {TABLE_USER} WHERE archived = 0"
+            f"""
+                SELECT
+                    u.email, u.name, u.permissions, u.claimedReportFolder,
+                    u.blockedEvaluatorNpis, r.permissions AS role_permissions
+                FROM {TABLE_USER} u
+                LEFT JOIN {TABLE_ROLE} r ON u.roleId = r.id
+                WHERE u.archived = 0
+            """
         )
         rows = cursor.fetchall()
 
         for row in rows:
-            permissions = json.loads(row["permissions"]) if row["permissions"] else {}
+            permissions = effective_permissions(
+                row["permissions"], row["role_permissions"]
+            )
             if (
-                permissions.get("reports:notifications") is True
-                and not row["claimed_report_folder"]
+                has_permission(permissions, "reports:notifications")
+                and not row["claimedReportFolder"]
             ):
                 users.append(row)
 
@@ -1697,6 +2357,14 @@ def set_client_drive_folder_evaluator(
             "driveFolderIsEval = %s WHERE id = %s",
             (evaluator_npi, is_eval, client_id),
         )
+    record_audit_log(
+        connection,
+        "python.client.driveFolderMoved",
+        int(client_id),
+        "system:csv-sync",
+        "csv-sync (internal)",
+        detail={"evaluatorNpi": evaluator_npi, "isEval": is_eval},
+    )
     connection.commit()
 
 
@@ -1722,7 +2390,7 @@ def get_questionnaire_rules_with_in_person(
     """Load assessment battery rules, returning both online and in-person assessments."""
     with connection.cursor() as cursor:
         cursor.execute(
-            f"SELECT daeval, diagnosis, minAge, maxAge, questionnaires, in_person_assessments FROM {TABLE_QUESTIONNAIRE_RULE}"
+            f"SELECT daeval, diagnosis, minAge, maxAge, questionnaires, inPersonAssessments FROM {TABLE_QUESTIONNAIRE_RULE}"
         )
         rows = cursor.fetchall()
 
@@ -1731,7 +2399,7 @@ def get_questionnaire_rules_with_in_person(
         qs = row["questionnaires"]
         if isinstance(qs, str):
             qs = json.loads(qs)
-        ip = row["in_person_assessments"]
+        ip = row["inPersonAssessments"]
         if isinstance(ip, str):
             ip = json.loads(ip)
         rules.append(
@@ -1800,19 +2468,45 @@ def get_in_person_assessments_for_client(
 
 @provide_connection
 def rematch_evaluator(npi: int, connection: Connection[DictCursor]) -> None:
-    """Re-runs client matching for a single evaluator after their settings change."""
-    logger.info(f"Running rematch for evaluator NPI {npi}")
+    """Re-runs client matching for a single evaluator after their settings change.
 
-    evaluators = get_evaluators_with_blocked_locations(npi=npi, connection=connection)
-    if not evaluators:
-        logger.warning(f"Evaluator {npi} not found, skipping rematch")
-        return
+    Reconciles only this evaluator's links (in either direction, including
+    removing them all when the evaluator is now archived), leaving every other
+    evaluator's links untouched. The full evaluator set is still loaded because
+    the matching math depends on it.
+    """
+    logger.info(f"Running rematch for evaluator NPI {npi}")
 
     clients = get_all_clients(connection=connection)
     if clients.empty:
         return
 
-    insert_by_matching_criteria_incremental(clients, evaluators, connection=connection)
+    evaluators = get_evaluators_with_blocked_locations(connection=connection)
+
+    insert_by_matching_criteria_incremental(
+        clients,
+        evaluators,
+        connection=connection,
+        restrict_to_npis={str(npi)},
+    )
+
+
+@provide_connection
+def rematch_client(client_id: str, connection: Connection[DictCursor]) -> None:
+    """Re-runs evaluator matching for a single client after their eligibility data changes."""
+    logger.info(f"Running rematch for client {client_id}")
+
+    clients = get_all_clients(connection=connection)
+    if clients.empty:
+        return
+
+    evaluators = get_evaluators_with_blocked_locations(connection=connection)
+    if not evaluators:
+        return
+
+    insert_by_matching_criteria_client_specific(
+        clients, evaluators, {str(client_id)}, connection=connection
+    )
 
 
 @provide_connection
@@ -1943,7 +2637,7 @@ def compute_and_store_assessment_snapshot(
     """
     with connection.cursor() as cursor:
         cursor.execute(
-            f"SELECT dob, asdAdhd, assessment_data FROM {TABLE_CLIENT} WHERE id = %s",
+            f"SELECT dob, asdAdhd, assessmentData FROM {TABLE_CLIENT} WHERE id = %s",
             (client_id,),
         )
         client = cursor.fetchone()
@@ -1952,13 +2646,13 @@ def compute_and_store_assessment_snapshot(
         logger.warning(f"Cannot compute snapshot for client {client_id}: missing dob")
         return False
 
-    if client.get("assessment_data") is not None:
+    if client.get("assessmentData") is not None:
         return True
 
     dob = client["dob"]
     asd_adhd: str | None = client.get("asdAdhd")
 
-    today = date.today()
+    today = now_business().date()
     age_in_years = (today - dob).days // 365
 
     # Load and filter rules by age
@@ -2059,7 +2753,425 @@ def _store_snapshot(
 ) -> None:
     with connection.cursor() as cursor:
         cursor.execute(
-            f"UPDATE {TABLE_CLIENT} SET assessment_data = %s WHERE id = %s",
+            f"UPDATE {TABLE_CLIENT} SET assessmentData = %s WHERE id = %s",
             (json.dumps(snapshot), client_id),
         )
+    record_audit_log(
+        connection,
+        "python.assessment.snapshotUpdate",
+        client_id,
+        "system:csv-sync",
+        "csv-sync (internal)",
+        detail=snapshot,
+    )
     connection.commit()
+
+
+@provide_connection
+def reconcile_reports_from_appointments(
+    connection: Connection[DictCursor],
+) -> int:
+    """Create report rows for clients with an evaluation appointment that do not
+    yet have one.
+
+    A report is warranted once a client has a non-cancelled EVAL or DAEVAL
+    appointment, or a standalone DA for an ADHD-only evaluation (asdAdhd of
+    'ADHD'), since those never get a separate EVAL. ADHD+LD gets a full EVAL
+    like any other diagnosis, so it is not treated as ADHD-only here. Keyed on the
+    client, not the appointment (a DA plus an EVAL for the same client is still
+    one report). A new row is created only when the client's most recent
+    qualifying appointment is newer than their newest existing report, so
+    archiving a finished report does not immediately respawn one for the same
+    eval cycle, while a genuine re-evaluation later does.
+
+    Evals before REPORT_TRACKING_START_DATE are ignored so enabling the feature
+    does not backfill the whole history of past evaluations; older reports that
+    still need writing enter through the Drive report-writing queue folder.
+
+    Returns the number of report rows created.
+    """
+    cutoff = business_to_utc(REPORT_TRACKING_START_DATE).replace(tzinfo=None)
+    try:
+        adhd_npi_raw = (
+            get_python_config(1)
+            .get("config", {})
+            .get("piecework", {})
+            .get("adhd_piecework_evaluator_npi", "")
+        )
+        adhd_npi = int(adhd_npi_raw) if str(adhd_npi_raw).strip().isdigit() else None
+    except Exception:
+        adhd_npi = None
+
+    adhd_only_types = {"ADHD"}
+
+    with connection.cursor() as cursor:
+        # Most recent eval appointment per client, plus the evaluator's
+        # writes-own-reports flag and the client's newest existing report time.
+        cursor.execute(
+            f"""
+            SELECT
+                a.clientId,
+                a.evaluatorNpi,
+                a.asdAdhd,
+                a.startTime AS lastEvalAt,
+                e.writesOwnReports,
+                e.email AS evaluatorEmail,
+                r.newestReportAt
+            FROM `{TABLE_APPOINTMENT}` a
+            JOIN `{TABLE_EVALUATOR}` e ON e.npi = a.evaluatorNpi
+            JOIN (
+                SELECT clientId, MAX(startTime) AS maxStart
+                FROM `{TABLE_APPOINTMENT}`
+                WHERE (
+                        daEval IN ('EVAL', 'DAEVAL')
+                        OR (daEval = 'DA' AND asdAdhd = 'ADHD')
+                      )
+                  AND cancelled = 0 AND rescheduled = 0
+                  AND placeholder = 0 AND billingOnly = 0
+                  AND startTime >= %s
+                GROUP BY clientId
+            ) latest ON latest.clientId = a.clientId AND latest.maxStart = a.startTime
+            LEFT JOIN (
+                SELECT clientId, MAX(createdAt) AS newestReportAt
+                FROM `{TABLE_REPORT}`
+                GROUP BY clientId
+            ) r ON r.clientId = a.clientId
+            """,
+            (cutoff,),
+        )
+        rows = cursor.fetchall()
+
+        created = 0
+        for row in rows:
+            # Skip if an eval report already exists at/after this eval cycle, or
+            # if any non-archived report is currently open for the client.
+            if row["newestReportAt"] and row["newestReportAt"] >= row["lastEvalAt"]:
+                continue
+            cursor.execute(
+                f"SELECT id FROM `{TABLE_REPORT}` WHERE clientId = %s AND archivedAt IS NULL",
+                (row["clientId"],),
+            )
+            if cursor.fetchone():
+                continue
+
+            self_written = bool(row["writesOwnReports"])
+            asd_adhd = row["asdAdhd"]
+            billable = (
+                not asd_adhd
+                or asd_adhd not in adhd_only_types
+                or (adhd_npi is not None and row["evaluatorNpi"] == adhd_npi)
+            )
+
+            cursor.execute(
+                f"""
+                INSERT INTO `{TABLE_REPORT}`
+                    (clientId, evaluatorNpi, asdAdhd, selfWritten, billablePiecework,
+                     status, writerEmail, source)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, 'auto')
+                """,
+                (
+                    row["clientId"],
+                    row["evaluatorNpi"],
+                    asd_adhd,
+                    self_written,
+                    billable,
+                    # Self-written reports are pre-assigned to the evaluator as
+                    # "claimed". Pool reports start "pending" and are promoted to
+                    # "queued" by reconcile_pool_report_queue_state once the
+                    # client folder reaches the report-writing queue.
+                    "claimed" if self_written else "pending",
+                    row["evaluatorEmail"] if self_written else None,
+                ),
+            )
+            record_audit_log(
+                connection,
+                "python.report.createFromAppointment",
+                row["clientId"],
+                "system:csv-sync",
+                "csv-sync (internal)",
+                detail={
+                    "evaluatorNpi": row["evaluatorNpi"],
+                    "asdAdhd": asd_adhd,
+                    "selfWritten": self_written,
+                    "billablePiecework": billable,
+                },
+            )
+            created += 1
+
+        connection.commit()
+
+    if created:
+        logger.info(f"Created {created} report row(s) from eval appointments")
+    return created
+
+
+@provide_connection
+def reconcile_pool_report_queue_state(
+    connection: Connection[DictCursor],
+) -> tuple[int, int, int]:
+    """Sync pool report rows to the live contents of the Drive report-writing
+    queue folder.
+
+    - promote "pending" -> "queued" once the client folder is in the queue,
+    - demote an unclaimed "queued" -> "pending" when the folder is gone,
+    - create a "queued" row for a queued folder that has no open report yet.
+
+    The EMR runs the same reconcile on page load for near-instant feedback; this
+    is the backstop so piecework and queue notifications also see fresh state.
+    Returns (promoted, demoted, created).
+    """
+    items = utils.google.get_items_in_folder(REPORT_QUEUE_FOLDER_ID) or []
+    queued_client_ids: set[int] = set()
+    for item in items:
+        match = re.search(r"\[([A-Za-z0-9-]+)\]", item["name"])
+        if match and match.group(1).isdigit():
+            queued_client_ids.add(int(match.group(1)))
+
+    now = now_utc().replace(tzinfo=None)
+    promoted = demoted = created = 0
+
+    with connection.cursor() as cursor:
+        cursor.execute(
+            f"""
+            SELECT id, clientId, status, writerUserId, claimedAt
+            FROM `{TABLE_REPORT}`
+            WHERE selfWritten = 0 AND archivedAt IS NULL
+            """
+        )
+        open_pool = cursor.fetchall()
+        seen = {row["clientId"] for row in open_pool}
+
+        for report in open_pool:
+            in_queue = report["clientId"] in queued_client_ids
+            if in_queue and report["status"] == "pending":
+                cursor.execute(
+                    f"UPDATE `{TABLE_REPORT}` SET status = 'queued', queueReadyAt = %s WHERE id = %s",
+                    (now, report["id"]),
+                )
+                record_audit_log(
+                    connection,
+                    "python.report.promoteToQueued",
+                    report["clientId"],
+                    "system:report-sync",
+                    "report sync (internal)",
+                    detail={"reportId": report["id"]},
+                )
+                promoted += 1
+            elif (
+                not in_queue
+                and report["status"] == "queued"
+                and not report["writerUserId"]
+                and not report["claimedAt"]
+            ):
+                cursor.execute(
+                    f"UPDATE `{TABLE_REPORT}` SET status = 'pending', queueReadyAt = NULL WHERE id = %s",
+                    (report["id"],),
+                )
+                record_audit_log(
+                    connection,
+                    "python.report.demoteToPending",
+                    report["clientId"],
+                    "system:report-sync",
+                    "report sync (internal)",
+                    detail={"reportId": report["id"]},
+                )
+                demoted += 1
+
+        for client_id in queued_client_ids - seen:
+            cursor.execute(
+                f"SELECT id FROM `{TABLE_CLIENT}` WHERE id = %s", (client_id,)
+            )
+            if not cursor.fetchone():
+                continue
+            cursor.execute(
+                f"""
+                INSERT INTO `{TABLE_REPORT}`
+                    (clientId, status, selfWritten, source, queueReadyAt)
+                VALUES (%s, 'queued', 0, 'auto', %s)
+                """,
+                (client_id, now),
+            )
+            record_audit_log(
+                connection,
+                "python.report.createFromQueueFolder",
+                client_id,
+                "system:report-sync",
+                "report sync (internal)",
+            )
+            created += 1
+
+        connection.commit()
+
+    if promoted or demoted or created:
+        logger.info(
+            f"Report queue reconcile: {promoted} promoted, {demoted} demoted, "
+            f"{created} created"
+        )
+    return promoted, demoted, created
+
+
+# Sentinel actor recorded on report fields last changed by the punch-list sync,
+# matching the EMR side (src/lib/google.ts syncPunchData), so an audit reader can
+# tell a spreadsheet edit from an in-app one.
+PUNCHLIST_SYNC_ACTOR_EMAIL = "punchlist-sync"
+
+_ALLOWED_ASD_ADHD = {"ASD", "ADHD", "ASD+ADHD", "ASD+LD", "ADHD+LD", "LD"}
+
+# Punch-list header -> emr_client column, applied when the sheet cell is
+# non-empty and differs (and, for "For", is a recognised value).
+_PUNCHLIST_CLIENT_FIELDS = {
+    "For": "asdAdhd",
+    "Language": "language",
+    "PA Assigned to": "paAssignedTo",
+}
+
+# Punch-list header -> (emr_report boolean column, at column, by column).
+_PUNCHLIST_REPORT_FIELDS = {
+    "Billed?": ("billed", "billedAt", "billedByEmail"),
+    "AJP Review Done/Hold for payroll": (
+        "firstReviewDone",
+        "firstReviewAt",
+        "firstReviewByEmail",
+    ),
+}
+
+# The second review is tracked by the cell color of this column, not its text:
+# red means the review is needed, green means it is done.
+_PUNCHLIST_SECOND_REVIEW_HEADER = "MCS Review Needed"
+_SECOND_REVIEW_NEEDED_FIELD = (
+    "secondReviewNeeded",
+    "secondReviewNeededAt",
+    "secondReviewByEmail",
+)
+_SECOND_REVIEW_DONE_FIELD = (
+    "secondReviewDone",
+    "secondReviewDoneAt",
+    "secondReviewDoneByEmail",
+)
+
+
+@provide_connection
+def sync_punchlist_to_db(
+    connection: Connection[DictCursor],
+) -> int:
+    """Pull punch-list columns into the EMR on a schedule.
+
+    The headless counterpart of the EMR's page-triggered `syncPunchData`: it
+    applies the same client fields (ASD/ADHD type, language, PA assignee) to
+    `emr_client`, plus the report billing/review checkboxes to open `emr_report`
+    rows. Only cells that are non-empty and differ from the DB are written. A
+    report cell counts as checked only when it is exactly "TRUE"
+    (case-insensitive), matching how piecework reads the sheet. The second review
+    is read from the "MCS Review Needed" cell color instead: red sets "needed",
+    green sets "done", and any other color clears both. Small
+    last-writer races with an in-app edit are possible and acceptable for the
+    transition; the whole mirror is removed with the sheet.
+
+    Returns the number of fields changed.
+    """
+    headers = list(_PUNCHLIST_CLIENT_FIELDS) + list(_PUNCHLIST_REPORT_FIELDS)
+    rows_by_client = utils.google.get_punchlist_rows(headers)
+    second_review_colors = utils.google.get_punchlist_review_colors(
+        _PUNCHLIST_SECOND_REVIEW_HEADER
+    )
+
+    now = now_utc().replace(tzinfo=None)
+    changed = 0
+
+    with connection.cursor() as cursor:
+        cursor.execute(
+            f"""
+            SELECT id, asdAdhd, language, paAssignedTo
+            FROM `{TABLE_CLIENT}`
+            """
+        )
+        clients_by_id = {row["id"]: row for row in cursor.fetchall()}
+
+        cursor.execute(
+            f"""
+            SELECT id, clientId, billed, firstReviewDone, secondReviewNeeded,
+                   secondReviewDone
+            FROM `{TABLE_REPORT}`
+            WHERE archivedAt IS NULL
+            """
+        )
+        open_reports = cursor.fetchall()
+
+        for client_key, cols in rows_by_client.items():
+            if not client_key.isdigit():
+                continue
+            client = clients_by_id.get(int(client_key))
+            if not client:
+                continue
+            for header, db_col in _PUNCHLIST_CLIENT_FIELDS.items():
+                value = cols.get(header, "").strip()
+                if not value or value == (client[db_col] or ""):
+                    continue
+                if header == "For" and value not in _ALLOWED_ASD_ADHD:
+                    continue
+                cursor.execute(
+                    f"UPDATE `{TABLE_CLIENT}` SET `{db_col}` = %s WHERE id = %s",
+                    (value, int(client_key)),
+                )
+                record_audit_log(
+                    connection,
+                    "python.punchlist.updateClientField",
+                    int(client_key),
+                    "system:punchlist-sync",
+                    PUNCHLIST_SYNC_ACTOR_EMAIL,
+                    detail={
+                        "field": db_col,
+                        "oldValue": client[db_col],
+                        "newValue": value,
+                    },
+                )
+                changed += 1
+
+        for report in open_reports:
+            client_key = str(report["clientId"])
+            cols = rows_by_client.get(client_key, {})
+            # (emr_report columns, value the sheet says it should have)
+            wanted = []
+            for header, fields in _PUNCHLIST_REPORT_FIELDS.items():
+                raw = cols.get(header)
+                if raw is not None:
+                    wanted.append((fields, 1 if raw.strip().upper() == "TRUE" else 0))
+            if client_key in second_review_colors:
+                color = second_review_colors[client_key]
+                wanted.append((_SECOND_REVIEW_NEEDED_FIELD, int(color == "red")))
+                wanted.append((_SECOND_REVIEW_DONE_FIELD, int(color == "green")))
+            for (col, at_col, by_col), sheet_value in wanted:
+                if int(report[col]) == sheet_value:
+                    continue
+                cursor.execute(
+                    f"""
+                    UPDATE `{TABLE_REPORT}`
+                    SET `{col}` = %s, `{at_col}` = %s, `{by_col}` = %s
+                    WHERE id = %s
+                    """,
+                    (
+                        sheet_value,
+                        now if sheet_value else None,
+                        PUNCHLIST_SYNC_ACTOR_EMAIL if sheet_value else None,
+                        report["id"],
+                    ),
+                )
+                record_audit_log(
+                    connection,
+                    "python.punchlist.updateReportField",
+                    report["clientId"],
+                    "system:punchlist-sync",
+                    PUNCHLIST_SYNC_ACTOR_EMAIL,
+                    detail={
+                        "reportId": report["id"],
+                        "field": col,
+                        "newValue": sheet_value,
+                    },
+                )
+                changed += 1
+
+        connection.commit()
+
+    if changed:
+        logger.info(f"Pulled {changed} field(s) from the punch list")
+    return changed

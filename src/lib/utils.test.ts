@@ -15,6 +15,7 @@ import {
 	getClosestOfficeKey,
 	getInsuranceShortName,
 	getInsuranceShortNamesList,
+	getOfficeDistanceMiles,
 	getReminderColorClass,
 	getStatusColorClass,
 	hasPermission,
@@ -53,6 +54,34 @@ describe("hasPermission", () => {
 
 	it("returns false when the permission is missing", () => {
 		expect(hasPermission({}, "clients:notes")).toBe(false);
+	});
+
+	it("grants every permission under a heading's all flag", () => {
+		const perms = { "system:issues:all": true };
+		expect(hasPermission(perms, "issues:dd4")).toBe(true);
+		expect(hasPermission(perms, "issues:partial-battery")).toBe(true);
+		expect(hasPermission(perms, "settings:users:edit")).toBe(false);
+	});
+
+	it("lets an explicit value override the heading's all flag", () => {
+		expect(
+			hasPermission(
+				{ "system:issues:all": true, "issues:dd4": false },
+				"issues:dd4",
+			),
+		).toBe(false);
+		expect(
+			hasPermission(
+				{ "system:issues:all": false, "issues:dd4": true },
+				"issues:dd4",
+			),
+		).toBe(true);
+	});
+
+	it("uses the subgroup heading, not the permission id prefix", () => {
+		expect(
+			hasPermission({ "clients:admin:all": true }, "reports:approve"),
+		).toBe(true);
 	});
 });
 
@@ -366,20 +395,6 @@ describe("dateOnlyToLocalDate / localDateToDateOnly", () => {
 	});
 });
 
-describe("getClosestOfficeKey", () => {
-	it("returns undefined for an empty office list", () => {
-		expect(getClosestOfficeKey(32.78, -79.93, [])).toBeUndefined();
-	});
-
-	it("returns the key of the nearest office", () => {
-		const offices = [
-			{ key: "far", latitude: "40.7128", longitude: "-74.0060" },
-			{ key: "near", latitude: "32.7765", longitude: "-79.9311" },
-		];
-		expect(getClosestOfficeKey(32.78, -79.93, offices)).toBe("near");
-	});
-});
-
 describe("isNotesOnlyClientId", () => {
 	it("returns true for a 5-character id", () => {
 		expect(isNotesOnlyClientId("12345")).toBe(true);
@@ -393,6 +408,44 @@ describe("isNotesOnlyClientId", () => {
 	it("returns false for nullish input", () => {
 		expect(isNotesOnlyClientId(null)).toBe(false);
 		expect(isNotesOnlyClientId(undefined)).toBe(false);
+	});
+});
+
+describe("getClosestOfficeKey", () => {
+	const offices = [
+		{ key: "near", latitude: "34.00", longitude: "-81.00" },
+		{ key: "far", latitude: "34.50", longitude: "-81.00" },
+	];
+
+	it("picks the straight-line closest office with no drive data", () => {
+		expect(getClosestOfficeKey(34.05, -81.0, offices)).toBe("near");
+	});
+
+	it("prefers a cached drive distance over the straight-line estimate", () => {
+		const driveMiles = new Map([
+			["near", 40],
+			["far", 5],
+		]);
+		expect(getClosestOfficeKey(34.05, -81.0, offices, driveMiles)).toBe("far");
+	});
+
+	it("falls back to straight-line for an office with no drive row", () => {
+		const driveMiles = new Map([["far", 500]]);
+		expect(getClosestOfficeKey(34.05, -81.0, offices, driveMiles)).toBe("near");
+	});
+});
+
+describe("getOfficeDistanceMiles", () => {
+	const office = { latitude: "34.50", longitude: "-81.00" };
+
+	it("returns the cached drive distance when given one", () => {
+		expect(getOfficeDistanceMiles(34.0, -81.0, office, 12.3)).toBe(12.3);
+	});
+
+	it("falls back to straight-line miles with no cached distance", () => {
+		const miles = getOfficeDistanceMiles(34.0, -81.0, office);
+		expect(miles).toBeGreaterThan(30);
+		expect(miles).toBeLessThan(40);
 	});
 });
 

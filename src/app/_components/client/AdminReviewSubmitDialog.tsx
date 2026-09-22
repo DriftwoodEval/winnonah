@@ -22,7 +22,7 @@ import {
 import type { Client } from "~/lib/models";
 import { api } from "~/trpc/react";
 
-interface InsuranceReviewSubmitDialogProps {
+interface AdminReviewSubmitDialogProps {
 	client: Client;
 	review: { content: unknown };
 	trigger: React.ReactNode;
@@ -30,13 +30,13 @@ interface InsuranceReviewSubmitDialogProps {
 	onConfirm: (insertAt: number) => void;
 }
 
-export function InsuranceReviewSubmitDialog({
+export function AdminReviewSubmitDialog({
 	client,
 	review,
 	trigger,
 	pending,
 	onConfirm,
-}: InsuranceReviewSubmitDialogProps) {
+}: AdminReviewSubmitDialogProps) {
 	const [open, setOpen] = useState(false);
 	const [selectedInsertAt, setSelectedInsertAt] = useState<number | null>(null);
 	const [noteContentJson, setNoteContentJson] = useState<JSONContent | null>(

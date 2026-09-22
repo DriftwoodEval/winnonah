@@ -226,6 +226,10 @@ function useTableScroll(
 	return { isScrolledLeft, isScrolledTop };
 }
 
+// Sentinel for "the underlying field is null/unset" - mirrors NONE_FILTER_VALUE
+// in src/server/api/filters.ts, which the server uses in the facet counts.
+const NONE_FILTER_VALUE = "__none__";
+
 // Manages filter state + its session-backed persistence. The filter values
 // themselves are sent to the server as query input (see SchedulingTableView),
 // except "age" which stays client-side since it's computed from dob, not a
@@ -1532,7 +1536,7 @@ function InternalSchedulingTable({
 	isFetching,
 }: InternalSchedulingTableProps) {
 	const tableRef = useRef<HTMLDivElement>(null);
-	const isMobile = useMediaQuery("(max-width: 639px)");
+	const isMobile = useMediaQuery("(max-width: 1023px)");
 
 	const dndSensors = useSensors(
 		useSensor(PointerSensor, POINTER_SENSOR_OPTIONS),
@@ -1560,17 +1564,22 @@ function InternalSchedulingTable({
 	// DA/EVAL Qs filters client-side instead of pushing them into SQL.
 	const ageOptions = useMemo(() => {
 		const set = new Set<string>();
+		let hasNone = false;
 		for (const c of clients) {
 			if (c.client.dob) set.add(formatClientAge(c.client.dob, "short"));
+			else hasNone = true;
 		}
-		return Array.from(set).sort();
+		const sorted = Array.from(set).sort();
+		return hasNone ? [NONE_FILTER_VALUE, ...sorted] : sorted;
 	}, [clients]);
 
 	const filteredClients = useMemo(() => {
 		const ageFilter = filters.age;
 		if (!ageFilter?.length) return clients;
 		return clients.filter((c) => {
-			const age = c.client.dob ? formatClientAge(c.client.dob, "short") : "";
+			const age = c.client.dob
+				? formatClientAge(c.client.dob, "short")
+				: NONE_FILTER_VALUE;
 			return ageFilter.includes(age);
 		});
 	}, [clients, filters.age]);
@@ -2222,7 +2231,7 @@ function SchedulingTableView({
 	const utils = api.useUtils();
 	const { filters, handleFilterChange, isInitialized } =
 		useSchedulingFilterState(type);
-	const isMobile = useMediaQuery("(max-width: 639px)");
+	const isMobile = useMediaQuery("(max-width: 1023px)");
 
 	const queryFilters = useMemo(() => {
 		const result: Partial<

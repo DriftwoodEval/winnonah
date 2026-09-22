@@ -45,6 +45,10 @@ const getInitials = (name: string | null | undefined) => {
 		.join("");
 };
 
+function sortInsurances<T extends { shortName: string }>(insurances: T[]): T[] {
+	return [...insurances].sort((a, b) => a.shortName.localeCompare(b.shortName));
+}
+
 function mergePeople(
 	users: User[] | undefined,
 	evaluators: Evaluator[] | undefined,
@@ -236,11 +240,13 @@ function PeopleList({
 									<TableCell>
 										{person.evaluator?.insurances?.length ? (
 											<div className="flex flex-wrap gap-1">
-												{person.evaluator.insurances.map((ins) => (
-													<Badge key={ins.id} variant="secondary">
-														{ins.shortName}
-													</Badge>
-												))}
+												{sortInsurances(person.evaluator.insurances).map(
+													(ins) => (
+														<Badge key={ins.id} variant="secondary">
+															{ins.shortName}
+														</Badge>
+													),
+												)}
 											</div>
 										) : (
 											<span className="text-muted-foreground">—</span>
@@ -334,11 +340,13 @@ function PeopleList({
 									)}
 									{person.evaluator?.insurances?.length ? (
 										<div className="flex flex-wrap gap-1 pt-1">
-											{person.evaluator.insurances.map((ins) => (
-												<Badge key={ins.id} variant="secondary">
-													{ins.shortName}
-												</Badge>
-											))}
+											{sortInsurances(person.evaluator.insurances).map(
+												(ins) => (
+													<Badge key={ins.id} variant="secondary">
+														{ins.shortName}
+													</Badge>
+												),
+											)}
 										</div>
 									) : null}
 								</div>

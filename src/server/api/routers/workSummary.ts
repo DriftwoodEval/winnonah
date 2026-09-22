@@ -1,6 +1,7 @@
 import { and, asc, count, eq, gte, isNotNull, lt, lte, sql } from "drizzle-orm";
 import { z } from "zod";
 import { formatInBusinessTime, localDateToDateOnly } from "~/lib/utils";
+import { diffValues, setAuditDetail } from "~/server/api/audit";
 import {
 	assertPermission,
 	createTRPCRouter,
@@ -410,6 +411,13 @@ export const workSummaryRouter = createTRPCRouter({
 		.input(z.record(z.string(), z.number().nonnegative().int()))
 		.mutation(async ({ ctx, input }) => {
 			assertPermission(ctx.session.user, "settings:evaluators");
+
+			const existing = await ctx.db.query.workSummaryConfig.findFirst();
+			setAuditDetail(
+				ctx,
+				diffValues(existing?.appointmentDurationDefaults ?? {}, input),
+			);
+
 			ctx.logger.info(
 				{ ...input, updatedBy: ctx.session.user.email },
 				"Setting appointment duration defaults",

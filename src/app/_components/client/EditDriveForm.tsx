@@ -133,6 +133,7 @@ export function EditDriveForm({
 
 		if (oldDriveId && oldDriveId !== "N/A") {
 			removeIdFromFolder.mutate({
+				clientId: client.id,
 				folderId: oldDriveId,
 			});
 		}
@@ -146,6 +147,7 @@ export function EditDriveForm({
 				onSuccess: () => {
 					if (newDriveId !== "N/A") {
 						addIdToFolder.mutate({
+							clientId: client.id,
 							folderId: newDriveId,
 							id: String(client.id),
 						});

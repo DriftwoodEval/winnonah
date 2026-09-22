@@ -493,7 +493,7 @@ export default function QuestionnaireRulesTable() {
 	// since each row mounts its own DropdownMenu/Dialog/AlertDialog - doubling
 	// them up caused Radix's scroll-lock bookkeeping to fight itself when a
 	// menu opened on mobile.
-	const isMobile = useMediaQuery("(max-width: 639px)");
+	const isMobile = useMediaQuery("(max-width: 1023px)");
 
 	return (
 		<div className="px-4">

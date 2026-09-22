@@ -72,7 +72,15 @@ def _remove_test_names(df: pd.DataFrame) -> pd.DataFrame:
 
 
 def _consolidate_by_id(clients: pd.DataFrame) -> pd.DataFrame:
-    """Deduplicates client rows, the insurance CSV has one row per policy per client."""
+    """Deduplicates client rows down to one per client.
+
+    The insurance CSV has one row per policy per client. Separately, when
+    several therapists' demographic exports are combined a client can appear
+    once per therapist, and a client active with one therapist but discharged
+    by another shows up as both "Active" and "Inactive". Such a client is still
+    active, so sort the active rows first and keep the first row per client:
+    a client is only treated as Inactive when every therapist's export says so.
+    """
     logger.debug("Consolidating clients by ID")
     insurance_cols = [
         "POLICY_TYPE",
@@ -84,9 +92,12 @@ def _consolidate_by_id(clients: pd.DataFrame) -> pd.DataFrame:
         "POLICY_PRIVATEPAY",
         "POLICY_INSURANCENUMBER",
     ]
-    return clients.drop(columns=insurance_cols, errors="ignore").drop_duplicates(
-        subset="CLIENT_ID", keep="first"
-    )
+    deduped = clients.drop(columns=insurance_cols, errors="ignore")
+    if "STATUS" in deduped.columns:
+        deduped = deduped.sort_values(
+            "STATUS", key=lambda col: col.eq("Inactive"), kind="stable"
+        )
+    return deduped.drop_duplicates(subset="CLIENT_ID", keep="first")
 
 
 def _combine_address_info(clients: pd.DataFrame) -> pd.DataFrame:

@@ -23,6 +23,7 @@ import {
 	formatInBusinessTime,
 	hasPermission,
 } from "~/lib/utils";
+import { diffValues, setAuditDetail } from "~/server/api/audit";
 import {
 	assertPermission,
 	type Context,
@@ -183,6 +184,19 @@ export const evaluatorDashboardRouter = createTRPCRouter({
 		)
 		.mutation(async ({ ctx, input }) => {
 			assertPermission(ctx.session.user, "settings:evaluators");
+
+			const existing = await ctx.db.query.workSummaryConfig.findFirst();
+			setAuditDetail(
+				ctx,
+				diffValues(
+					{
+						dueDateWeeks: existing?.evaluatorDashboardDueDateWeeks,
+						showMarkComplete: existing?.evaluatorDashboardShowMarkComplete,
+					},
+					input,
+				),
+			);
+
 			ctx.logger.info(
 				{ ...input, updatedBy: ctx.session.user.email },
 				"Updating evaluator dashboard config",

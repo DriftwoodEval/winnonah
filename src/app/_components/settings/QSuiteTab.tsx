@@ -38,11 +38,12 @@ import {
 	SelectValue,
 } from "@ui/select";
 import { Separator } from "@ui/separator";
+import { Skeleton } from "@ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@ui/tabs";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@ui/tooltip";
 import { Info, Loader2, Lock, LockOpen, Plus, Trash2 } from "lucide-react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { useState } from "react";
+import { memo, useMemo, useState } from "react";
 import {
 	type Control,
 	type FieldArrayPath,
@@ -59,6 +60,7 @@ import { useCheckPermission } from "~/hooks/use-check-permission";
 import { useFormSyncToast } from "~/hooks/use-form-sync-toast";
 import { cn } from "~/lib/utils";
 import {
+	kimaiServiceSchema,
 	pythonConfigSchema,
 	serviceSchema,
 	serviceWithAdminSchema,
@@ -78,9 +80,12 @@ const formSchema = z.object({
 	config: z.object({
 		initials: z.string(),
 		name: z.string(),
+		referral_sender_name: z.string(),
+		private_pay_sender_name: z.string(),
 		email: z.string(),
 		automated_email: z.email(),
 		qreceive_emails: z.array(arrItem(z.email())),
+		tech_email: z.string(),
 		punch_list_id: z.string(),
 		punch_list_range: z.string(),
 		failed_sheet_id: z.string(),
@@ -118,6 +123,7 @@ const formSchema = z.object({
 					}),
 				),
 			),
+			adhd_piecework_evaluator_npi: z.string(),
 		}),
 	}),
 	services: z.object({
@@ -132,6 +138,7 @@ const formSchema = z.object({
 		qglobal: serviceSchema,
 		wps: serviceSchema,
 		novopsych: serviceSchema,
+		kimai: kimaiServiceSchema,
 	}),
 });
 
@@ -351,7 +358,10 @@ function ListEditor<T extends FieldValues, Name extends FieldArrayPath<T>>({
 				)}
 			</div>
 			{fields.map((field, i) => (
-				<div className="mb-2 flex w-full items-end gap-2" key={field.id}>
+				<div
+					className="mb-2 flex w-full flex-col items-stretch gap-2 sm:flex-row sm:items-end"
+					key={field.id}
+				>
 					{renderItem(i)}
 					<Button
 						disabled={disabled}
@@ -386,7 +396,7 @@ function KeyValueList<T extends FieldValues, Name extends FieldArrayPath<T>>({
 	defaultValue,
 	renderKey,
 	renderValue,
-	keyClassName = "w-1/3",
+	keyClassName = "w-full sm:w-1/3",
 	disabled,
 	description,
 }: {
@@ -534,6 +544,8 @@ export function QSuiteTab() {
 								email: c.piecework.payroll_emails[e.value] ?? "",
 							},
 						})),
+						adhd_piecework_evaluator_npi:
+							c.piecework.adhd_piecework_evaluator_npi ?? "",
 					},
 				},
 				services: {
@@ -584,10 +596,13 @@ export function QSuiteTab() {
 										value: s.value.email,
 									})),
 							),
+							adhd_piecework_evaluator_npi:
+								data.config.piecework.adhd_piecework_evaluator_npi,
 						},
 					},
 					services: {
 						...data.services,
+						kimai: data.services.kimai ?? { url: "", token: "" },
 						openphone: {
 							...data.services.openphone,
 							users: fromEntries(data.services.openphone.users),
@@ -601,14 +616,29 @@ export function QSuiteTab() {
 	};
 
 	if (isLoading)
-		return <Loader2 className="mx-auto mt-20 h-8 w-8 animate-spin" />;
+		return (
+			<div className="space-y-4">
+				<div className="flex flex-wrap gap-2">
+					<Skeleton className="h-8 w-20" />
+					<Skeleton className="h-8 w-20" />
+					<Skeleton className="h-8 w-20" />
+					<Skeleton className="h-8 w-20" />
+				</div>
+				<div className="grid gap-4 sm:grid-cols-2">
+					<Skeleton className="h-24 w-full" />
+					<Skeleton className="h-24 w-full" />
+					<Skeleton className="h-24 w-full" />
+					<Skeleton className="h-24 w-full" />
+				</div>
+			</div>
+		);
 
 	return (
 		<Form {...form}>
 			<div className="space-y-4">
 				<Tabs onValueChange={handleTabChange} value={activeTab}>
-					<div className="flex items-center justify-between">
-						<TabsList>
+					<div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+						<TabsList className="!h-auto flex-wrap justify-start gap-1">
 							{canEditGeneral && (
 								<TabsTrigger value="general">General</TabsTrigger>
 							)}
@@ -682,7 +712,7 @@ function GeneralTab({
 				<CardHeader>
 					<CardTitle>Identity</CardTitle>
 				</CardHeader>
-				<CardContent className="grid grid-cols-2 gap-4">
+				<CardContent className="grid gap-4 sm:grid-cols-2">
 					<FieldInput
 						control={c}
 						description="Initials of the person sending questionnaires. Will be filled in on questionnaire sites."
@@ -740,6 +770,106 @@ function GeneralTab({
 							</FormItem>
 						)}
 					/>
+					<FormField
+						control={c}
+						name="config.referral_sender_name"
+						render={({ field }) => (
+							<FormItem>
+								<div className="flex items-center gap-2">
+									<FormLabel>Referral Sender Name</FormLabel>
+									<Tooltip>
+										<TooltipTrigger asChild>
+											<Info className="h-4 w-4 cursor-help text-muted-foreground" />
+										</TooltipTrigger>
+										<TooltipContent>
+											<p className="max-w-xs">
+												First name of the person the "we received your referral"
+												text is blamed on in Quo. Must be the name of a Quo
+												user.
+											</p>
+										</TooltipContent>
+									</Tooltip>
+								</div>
+								<Select
+									disabled={disabled || !opUsers || opUsers.length === 0}
+									onValueChange={field.onChange}
+									value={field.value}
+								>
+									<FormControl>
+										<SelectTrigger>
+											<SelectValue placeholder="Select a user" />
+										</SelectTrigger>
+									</FormControl>
+									<SelectContent>
+										{Array.from(
+											new Set(
+												opUsers
+													?.map((u) => u.key.split(" ")[0])
+													.filter((n): n is string => !!n) ?? [],
+											),
+										)
+											.sort()
+											.map((name) => (
+												<SelectItem key={name} value={name}>
+													{name}
+												</SelectItem>
+											))}
+									</SelectContent>
+								</Select>
+								<FormMessage />
+							</FormItem>
+						)}
+					/>
+					<FormField
+						control={c}
+						name="config.private_pay_sender_name"
+						render={({ field }) => (
+							<FormItem>
+								<div className="flex items-center gap-2">
+									<FormLabel>Private Pay Sender Name</FormLabel>
+									<Tooltip>
+										<TooltipTrigger asChild>
+											<Info className="h-4 w-4 cursor-help text-muted-foreground" />
+										</TooltipTrigger>
+										<TooltipContent>
+											<p className="max-w-xs">
+												First name of the person the private-pay insurance
+												outreach text is blamed on in Quo. Must be the name of a
+												Quo user.
+											</p>
+										</TooltipContent>
+									</Tooltip>
+								</div>
+								<Select
+									disabled={disabled || !opUsers || opUsers.length === 0}
+									onValueChange={field.onChange}
+									value={field.value}
+								>
+									<FormControl>
+										<SelectTrigger>
+											<SelectValue placeholder="Select a user" />
+										</SelectTrigger>
+									</FormControl>
+									<SelectContent>
+										{Array.from(
+											new Set(
+												opUsers
+													?.map((u) => u.key.split(" ")[0])
+													.filter((n): n is string => !!n) ?? [],
+											),
+										)
+											.sort()
+											.map((name) => (
+												<SelectItem key={name} value={name}>
+													{name}
+												</SelectItem>
+											))}
+									</SelectContent>
+								</Select>
+								<FormMessage />
+							</FormItem>
+						)}
+					/>
 					<FieldInput
 						control={c}
 						description="Email entered into WPS for the DP-4."
@@ -754,13 +884,20 @@ function GeneralTab({
 						label="Receive From Email"
 						name="config.automated_email"
 					/>
+					<FieldInput
+						control={c}
+						description="Where technical failure alerts are sent when a Receive Run email fails to go out."
+						disabled={disabled}
+						label="Tech Email"
+						name="config.tech_email"
+					/>
 				</CardContent>
 			</Card>
 			<Card>
 				<CardHeader>
 					<CardTitle>System</CardTitle>
 				</CardHeader>
-				<CardContent className="grid grid-cols-2 gap-4">
+				<CardContent className="grid gap-4 sm:grid-cols-2">
 					<ProtectedFieldInput
 						control={c}
 						description="The Google Sheet ID for the Punch List."
@@ -799,7 +936,7 @@ function GeneralTab({
 					/>
 				</CardContent>
 			</Card>
-			<div className="grid grid-cols-2 gap-6">
+			<div className="grid gap-6 sm:grid-cols-2">
 				<ListEditor
 					control={c}
 					description="List of emails that receive Receive Run emails."
@@ -863,7 +1000,7 @@ function ServicesTab({
 				<CardHeader>
 					<CardTitle>TherapyAppointment</CardTitle>
 				</CardHeader>
-				<CardContent className="grid grid-cols-2 gap-4">
+				<CardContent className="grid gap-4 sm:grid-cols-2">
 					<FieldInput
 						control={c}
 						description="Username for TherapyAppointment (This user will be used to send questionnaires)."
@@ -895,7 +1032,7 @@ function ServicesTab({
 				<CardHeader>
 					<CardTitle>SC Medicaid</CardTitle>
 				</CardHeader>
-				<CardContent className="grid grid-cols-2 gap-4">
+				<CardContent className="grid gap-4 sm:grid-cols-2">
 					<FieldInput
 						control={c}
 						disabled={disabled}
@@ -910,7 +1047,7 @@ function ServicesTab({
 					/>
 				</CardContent>
 			</Card>
-			<div className="grid grid-cols-4 gap-4">
+			<div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
 				{commonServices.map((svc) => (
 					<Card key={svc}>
 						<CardHeader>
@@ -935,10 +1072,30 @@ function ServicesTab({
 			</div>
 			<Card>
 				<CardHeader>
+					<CardTitle>Kimai</CardTitle>
+				</CardHeader>
+				<CardContent className="space-y-2">
+					<FieldInput
+						control={c}
+						disabled={disabled}
+						label="URL"
+						name="services.kimai.url"
+					/>
+					<ProtectedFieldInput
+						control={c}
+						description="API token for the Kimai timesheet export in piecework."
+						disabled={disabled}
+						label="API Token"
+						name="services.kimai.token"
+					/>
+				</CardContent>
+			</Card>
+			<Card>
+				<CardHeader>
 					<CardTitle>Quo</CardTitle>
 				</CardHeader>
 				<CardContent className="space-y-4">
-					<div className="grid grid-cols-2 gap-4">
+					<div className="grid gap-4 sm:grid-cols-2">
 						<ProtectedFieldInput
 							control={c}
 							description="API Key for Quo integration."
@@ -999,6 +1156,74 @@ function ServicesTab({
 	);
 }
 
+type DistrictOption = { id: number; name: string; isPrivate: boolean };
+
+const DistrictKeySelect = memo(function DistrictKeySelect({
+	control,
+	name,
+	disabled,
+	options,
+	selectedDistricts,
+}: {
+	control: Control<FormValues>;
+	name: Path<FormValues>;
+	disabled?: boolean;
+	options: DistrictOption[];
+	selectedDistricts: string[];
+}) {
+	const [open, setOpen] = useState(false);
+	return (
+		<FormField
+			control={control}
+			name={name}
+			render={({ field }) => (
+				<FormItem>
+					<Select
+						disabled={disabled}
+						onOpenChange={setOpen}
+						onValueChange={field.onChange}
+						open={open}
+						value={field.value as string}
+					>
+						<FormControl>
+							<SelectTrigger className="w-full">
+								{/* Render the value directly instead of <SelectValue>: Radix only
+								    learns an item's label while its content is mounted, so a
+								    closed select whose items are lazily rendered would show blank. */}
+								<span
+									className={field.value ? undefined : "text-muted-foreground"}
+								>
+									{(field.value as string) || "Select District"}
+								</span>
+							</SelectTrigger>
+						</FormControl>
+						<SelectContent position="popper">
+							{open &&
+								options
+									.filter(
+										(opt) =>
+											!selectedDistricts.includes(opt.name) ||
+											opt.name === field.value,
+									)
+									.map((opt) => (
+										<SelectItem key={opt.id} value={opt.name}>
+											{opt.name}
+											{opt.isPrivate && (
+												<span className="ml-2 text-muted-foreground">
+													(private)
+												</span>
+											)}
+										</SelectItem>
+									))}
+						</SelectContent>
+					</Select>
+					<FormMessage />
+				</FormItem>
+			)}
+		/>
+	);
+});
+
 function RecordsTab({
 	form,
 	disabled,
@@ -1008,6 +1233,17 @@ function RecordsTab({
 }) {
 	const { data: allSchoolDistricts } =
 		api.evaluators.getAllSchoolDistricts.useQuery();
+	const districtOptions = useMemo<DistrictOption[]>(() => {
+		const seen = new Set<string>();
+		const opts: DistrictOption[] = [];
+		for (const dist of allSchoolDistricts ?? []) {
+			const name = stripSuffix(dist.fullName);
+			if (seen.has(name)) continue;
+			seen.add(name);
+			opts.push({ id: dist.id, name, isPrivate: dist.isPrivate });
+		}
+		return opts.sort((a, b) => a.name.localeCompare(b.name));
+	}, [allSchoolDistricts]);
 	const recordsEmails = form.watch("config.records_emails");
 	const selectedDistricts = Array.isArray(recordsEmails)
 		? recordsEmails.map((e) => e.key)
@@ -1016,7 +1252,7 @@ function RecordsTab({
 	return (
 		<div className="grid gap-6">
 			<Card>
-				<CardContent className="grid grid-cols-2 gap-4 pt-6">
+				<CardContent className="grid gap-4 pt-6 sm:grid-cols-2">
 					<ProtectedFieldInput
 						control={form.control}
 						description="The Google Drive folder ID for storing client records consent forms."
@@ -1037,7 +1273,8 @@ function RecordsTab({
 				<CardHeader>
 					<CardTitle>Emails Map</CardTitle>
 					<CardDescription>
-						Map of school districts to emails to send records requests to.
+						Map of school districts and private schools to emails to send
+						records requests to.
 					</CardDescription>
 				</CardHeader>
 				<CardContent>
@@ -1049,53 +1286,25 @@ function RecordsTab({
 						label=""
 						name="config.records_emails"
 						renderKey={(p, d) => (
-							<FormField
+							<DistrictKeySelect
 								control={form.control}
+								disabled={d}
 								name={p as Path<FormValues>}
-								render={({ field }) => (
-									<FormItem>
-										<Select
-											disabled={d}
-											onValueChange={field.onChange}
-											value={field.value as string}
-										>
-											<FormControl>
-												<SelectTrigger className="w-full">
-													<SelectValue placeholder="Select District" />
-												</SelectTrigger>
-											</FormControl>
-											<SelectContent>
-												{allSchoolDistricts
-													?.filter(
-														(dist) =>
-															!selectedDistricts.includes(
-																stripSuffix(dist.fullName),
-															) || stripSuffix(dist.fullName) === field.value,
-													)
-													.map((dist) => (
-														<SelectItem
-															key={dist.id}
-															value={stripSuffix(dist.fullName)}
-														>
-															{stripSuffix(dist.fullName)}
-														</SelectItem>
-													))}
-											</SelectContent>
-										</Select>
-										<FormMessage />
-									</FormItem>
-								)}
+								options={districtOptions}
+								selectedDistricts={selectedDistricts}
 							/>
 						)}
 						renderValue={(p, d) => (
-							<div className="flex items-center gap-2">
+							<div className="flex flex-1 flex-col gap-2 sm:flex-row sm:items-center">
 								<FieldInput
+									className="flex-1"
 									control={form.control}
 									disabled={d}
 									name={`${p}.email` as Path<FormValues>}
 									placeholder="Email"
 								/>
 								<FieldInput
+									className="flex-1"
 									control={form.control}
 									disabled={d}
 									name={`${p}.aliases` as Path<FormValues>}
@@ -1105,7 +1314,7 @@ function RecordsTab({
 									control={form.control}
 									name={`${p}.fax` as Path<FormValues>}
 									render={({ field }) => (
-										<FormItem className="mt-2 flex items-center gap-2 space-y-0">
+										<FormItem className="flex items-center gap-2 space-y-0 sm:mt-2">
 											<FormControl>
 												<Input
 													checked={field.value as boolean}
@@ -1202,7 +1411,7 @@ function PieceworkTab({
 							/>
 						)}
 						renderValue={(p, d) => (
-							<div className="grid flex-1 grid-cols-5 gap-2">
+							<div className="grid flex-1 grid-cols-3 gap-2 sm:grid-cols-5">
 								{["DA", "ADHDDA", "EVAL", "DAEVAL", "REPORT"].map((k) => (
 									<FormField
 										control={form.control}
@@ -1238,6 +1447,52 @@ function PieceworkTab({
 			</Card>
 			<Card>
 				<CardHeader>
+					<CardTitle>ADHD-Only Report Billing</CardTitle>
+					<CardDescription>
+						Reports for ADHD-only evaluations (a DA with no separate eval) are
+						not counted as billable piecework, except for the one evaluator
+						chosen here.
+					</CardDescription>
+				</CardHeader>
+				<CardContent>
+					<FormField
+						control={form.control}
+						name="config.piecework.adhd_piecework_evaluator_npi"
+						render={({ field }) => (
+							<FormItem>
+								<FormLabel>Evaluator</FormLabel>
+								<Select
+									disabled={disabled}
+									onValueChange={(v) => field.onChange(v === "none" ? "" : v)}
+									value={field.value || "none"}
+								>
+									<FormControl>
+										<SelectTrigger className="w-full">
+											<SelectValue placeholder="Select Evaluator" />
+										</SelectTrigger>
+									</FormControl>
+									<SelectContent>
+										<SelectItem value="none">None</SelectItem>
+										{evaluators
+											?.slice()
+											.sort((a, b) =>
+												a.providerName.localeCompare(b.providerName),
+											)
+											.map((ev) => (
+												<SelectItem key={ev.npi} value={String(ev.npi)}>
+													{ev.providerName}
+												</SelectItem>
+											))}
+									</SelectContent>
+								</Select>
+								<FormMessage />
+							</FormItem>
+						)}
+					/>
+				</CardContent>
+			</Card>
+			<Card>
+				<CardHeader>
 					<CardTitle>Staff</CardTitle>
 					<CardDescription>
 						Map initials to full names and payroll emails.
@@ -1253,7 +1508,7 @@ function PieceworkTab({
 						label=""
 						name="config.piecework.staff"
 						renderValue={(p, d) => (
-							<div className="grid flex-1 grid-cols-2 gap-2">
+							<div className="grid flex-1 gap-2 sm:grid-cols-2">
 								<FieldInput
 									control={form.control}
 									disabled={d}

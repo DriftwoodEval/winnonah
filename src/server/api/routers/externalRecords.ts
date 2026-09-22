@@ -1,13 +1,16 @@
 import EventEmitter from "node:events";
 import { TRPCError } from "@trpc/server";
-import { and, asc, desc, eq, sql } from "drizzle-orm";
+import { and, asc, desc, eq, gte, sql } from "drizzle-orm";
 import { z } from "zod";
 import {
 	assertPermission,
+	type Context,
 	createTRPCRouter,
 	protectedProcedure,
 } from "~/server/api/trpc";
 import {
+	adminReview,
+	adminReviewClaimHistory,
 	clients,
 	externalRecordHistory,
 	externalRecordRequests,
@@ -18,6 +21,108 @@ import {
 
 const externalRecordsEmitter = new EventEmitter();
 externalRecordsEmitter.setMaxListeners(100);
+
+/**
+ * Whenever recordsNeeded is set to "Needed", this must be called so
+ * records-request.py (which INNER JOINs against external_record_request)
+ * can actually pick the client up. This includes private-school clients:
+ * records-request.py handles them too, matching against the private-school
+ * consent forms and the isPrivate school-district contacts.
+ *
+ * A row from before the client's current session (a re-referral)
+ * doesn't count as "already requested": records-request.py's own query
+ * requires err.created_at >= sessionStartedAt, so a stale row would never
+ * get acted on, and the client would never get a fresh row either.
+ *
+ * Within the current session, any existing row counts, whether it's still
+ * pending or was already sent. This is idempotent, not a re-request: it must
+ * not queue another send for a client whose records were already requested
+ * this session. The explicit "request records again" action
+ * (flagRecordRequest) is the only path that inserts a second row.
+ */
+export async function ensurePendingExternalRecordRequest(
+	ctx: {
+		db: Context["db"];
+		session: { user: { email?: string | null } };
+	},
+	clientId: number,
+) {
+	const client = await ctx.db.query.clients.findFirst({
+		where: eq(clients.id, clientId),
+		columns: { sessionStartedAt: true },
+	});
+
+	const existingRequest = await ctx.db.query.externalRecordRequests.findFirst({
+		where: and(
+			eq(externalRecordRequests.clientId, clientId),
+			client?.sessionStartedAt
+				? gte(externalRecordRequests.createdAt, client.sessionStartedAt)
+				: undefined,
+		),
+	});
+
+	if (!existingRequest) {
+		await ctx.db.insert(externalRecordRequests).values({
+			clientId,
+			createdBy: ctx.session.user.email,
+		});
+	}
+}
+
+const ADMIN_REVIEW_INSURANCE_SHORT_NAME = "SH";
+const ADMIN_REVIEW_REVIEWER_EMAIL = "andrew@driftwoodeval.com";
+
+/**
+ * Records coming back for a client whose primary insurance is "SH" need
+ * Andrew's admin review: enable it, assign it to him, and reopen it if it was
+ * already submitted to notes.
+ */
+async function activateAdminReviewForShClient(
+	ctx: { db: Context["db"]; session: { user: { email?: string | null } } },
+	clientId: number,
+) {
+	const client = await ctx.db.query.clients.findFirst({
+		where: eq(clients.id, clientId),
+		columns: {},
+		with: {
+			primaryInsuranceDetails: { with: { insurance: true } },
+		},
+	});
+	if (
+		client?.primaryInsuranceDetails?.insurance.shortName !==
+		ADMIN_REVIEW_INSURANCE_SHORT_NAME
+	) {
+		return;
+	}
+
+	const current = await ctx.db.query.adminReview.findFirst({
+		where: eq(adminReview.clientId, clientId),
+	});
+
+	await ctx.db
+		.insert(adminReview)
+		.values({
+			clientId,
+			enabled: true,
+			claimedUserEmail: ADMIN_REVIEW_REVIEWER_EMAIL,
+			updatedBy: ctx.session.user.email,
+		})
+		.onDuplicateKeyUpdate({
+			set: {
+				enabled: true,
+				claimedUserEmail: ADMIN_REVIEW_REVIEWER_EMAIL,
+				submittedToNotesAt: null,
+			},
+		});
+
+	if (current?.claimedUserEmail !== ADMIN_REVIEW_REVIEWER_EMAIL) {
+		await ctx.db.insert(adminReviewClaimHistory).values({
+			reviewId: clientId,
+			userEmail: ADMIN_REVIEW_REVIEWER_EMAIL,
+			setBy: ctx.session.user.email,
+		});
+	}
+}
 
 // biome-ignore lint/suspicious/noExplicitAny: JSON
 const areContentsEqual = (current: any, incoming: any): boolean => {
@@ -105,6 +210,38 @@ export const externalRecordRouter = createTRPCRouter({
 					.where(eq(externalRecordRequests.clientId, input.clientId))
 					.orderBy(asc(externalRecordRequests.id));
 			});
+
+			externalRecordsEmitter.emit("externalRecordsNoteUpdate", {
+				clientId: input.clientId,
+				requests,
+			});
+
+			return requests;
+		}),
+
+	cancelRecordRequest: protectedProcedure
+		.input(z.object({ requestId: z.number(), clientId: z.number() }))
+		.mutation(async ({ ctx, input }) => {
+			assertPermission(ctx.session.user, "clients:records:requested");
+			ctx.logger.info(input, "Cancelling record request");
+
+			// Only a still-pending (unsent) request can be cancelled. A row with a
+			// requestedDate has already gone out and is part of the record.
+			await ctx.db
+				.delete(externalRecordRequests)
+				.where(
+					and(
+						eq(externalRecordRequests.id, input.requestId),
+						eq(externalRecordRequests.clientId, input.clientId),
+						sql`${externalRecordRequests.requestedDate} IS NULL`,
+					),
+				);
+
+			const requests = await ctx.db
+				.select()
+				.from(externalRecordRequests)
+				.where(eq(externalRecordRequests.clientId, input.clientId))
+				.orderBy(asc(externalRecordRequests.id));
 
 			externalRecordsEmitter.emit("externalRecordsNoteUpdate", {
 				clientId: input.clientId,
@@ -283,6 +420,7 @@ export const externalRecordRouter = createTRPCRouter({
 
 				const HISTORY_MERGE_WINDOW = 5 * 60 * 1000; // 5 minutes
 
+				let recordsReceived = false;
 				const changed = await ctx.db.transaction(async (tx) => {
 					const currentRecordNote = await tx.query.externalRecords.findFirst({
 						where: eq(externalRecords.clientId, input.clientId),
@@ -295,6 +433,7 @@ export const externalRecordRouter = createTRPCRouter({
 							content: input.contentJson,
 							updatedBy: ctx.session.user.email,
 						});
+						recordsReceived = true;
 						return true;
 					}
 
@@ -309,6 +448,9 @@ export const externalRecordRouter = createTRPCRouter({
 					);
 
 					if (contentChanged) {
+						if (currentRecordNote.content === null) {
+							recordsReceived = true;
+						}
 						const timeSinceLastUpdate = currentRecordNote.updatedAt
 							? Date.now() - new Date(currentRecordNote.updatedAt).getTime()
 							: Number.POSITIVE_INFINITY;
@@ -355,6 +497,10 @@ export const externalRecordRouter = createTRPCRouter({
 					);
 					return false;
 				});
+
+				if (recordsReceived) {
+					await activateAdminReviewForShClient(ctx, input.clientId);
+				}
 
 				if (changed) {
 					const updatedNote = await ctx.db.query.externalRecords.findFirst({
@@ -416,6 +562,8 @@ export const externalRecordRouter = createTRPCRouter({
 					.set({ autismStop: true })
 					.where(eq(clients.id, input.clientId));
 			}
+
+			await activateAdminReviewForShClient(ctx, input.clientId);
 
 			const newRecordNote = await ctx.db.query.externalRecords.findFirst({
 				where: eq(externalRecords.clientId, input.clientId),

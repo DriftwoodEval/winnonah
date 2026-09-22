@@ -1,11 +1,12 @@
 import { createHash } from "node:crypto";
 import type { JSONContent } from "@tiptap/core";
 import { TRPCError } from "@trpc/server";
-import { format, subBusinessDays, subMonths, subYears } from "date-fns";
+import { subMonths, subYears } from "date-fns";
 import {
 	and,
 	asc,
 	count,
+	desc,
 	eq,
 	getTableColumns,
 	gt,
@@ -28,6 +29,11 @@ import {
 	calculateAdditionalAppointments,
 } from "~/lib/billing";
 import { fetchWithCache, invalidateCache } from "~/lib/cache";
+import {
+	getRecordsBlockerReason,
+	getUnsupportedLanguageReason,
+	isPrivateSchoolUnconfirmed,
+} from "~/lib/client-blockers";
 import { CLIENT_COLOR_KEYS, type ClientColor } from "~/lib/colors";
 import { ALLOWED_ASD_ADHD_VALUES } from "~/lib/constants";
 import {
@@ -35,19 +41,29 @@ import {
 	syncPunchData,
 	updatePunchData,
 } from "~/lib/google";
+import {
+	getMissingAppointmentsList,
+	getUnconfirmedPrivateSchoolList,
+	getUnreviewedRecordsList,
+} from "~/lib/issue-lists";
 import type { ClientWithIssueInfo } from "~/lib/models";
 import {
-	getDistanceSQL,
+	formatInBusinessTime,
+	getClosestOfficeKey,
 	getInsuranceShortName,
+	getInsuranceShortNamesList,
+	getOfficeDistanceMiles,
 	isNotesOnlyClientId,
 	localDateToDateOnly,
 } from "~/lib/utils";
 import { referralDataSchema } from "~/lib/validations/config";
+import { diffValues, setAuditDetail } from "~/server/api/audit";
 import {
 	NONE_FILTER_VALUE,
 	resolveInsuranceAliasNames,
 	splitNoneValue,
 } from "~/server/api/filters";
+import { ensurePendingExternalRecordRequest } from "~/server/api/routers/externalRecords";
 import {
 	assertPermission,
 	type Context,
@@ -63,6 +79,7 @@ import {
 	clients,
 	clientsEvaluators,
 	duplicateNameIgnore,
+	evaluators,
 	externalRecordRequests,
 	externalRecords,
 	failures,
@@ -70,7 +87,10 @@ import {
 	insuranceAliases,
 	insurances,
 	notes,
+	officeDriveTimes,
 	questionnaires,
+	referralMsgLog,
+	schedulingClients,
 	schoolDistricts,
 } from "~/server/db/schema";
 import { getQuestionnaireEligibilityAge } from "~/server/questionnaire-age";
@@ -97,6 +117,15 @@ function matchNotesOnlyToReal(notesOnlyName: string, real: ClientRow) {
 			(notesOnlyName.includes(fullName) || fullName.includes(notesOnlyName)));
 	return { distance, isMatch: !!isMatch };
 }
+
+// When any candidate is an exact name match (distance 0), the fuzzier ones are
+// almost always noise, so keep only the exact matches. Multiple exact matches
+// are all kept.
+function preferExactMatches<T extends { distance: number }>(matches: T[]): T[] {
+	return matches.some((m) => m.distance === 0)
+		? matches.filter((m) => m.distance === 0)
+		: matches;
+}
 function buildClientIdPrefixCondition(trimmedSearch: string) {
 	const numericId = parseInt(trimmedSearch, 10);
 	if (Number.isNaN(numericId) || !/^\d+$/.test(trimmedSearch)) return undefined;
@@ -104,27 +133,63 @@ function buildClientIdPrefixCondition(trimmedSearch: string) {
 	return like(clients.id, `${numericId}%`);
 }
 
+// Split the user's input into words, dropping punctuation.
+function nameSearchWords(trimmedSearch: string) {
+	return trimmedSearch
+		.replace(/[^\w ]/g, " ")
+		.split(" ")
+		.filter(Boolean);
+}
+
+// fullName with punctuation stripped, matching how search words are cleaned.
+// The doubled escaping is deliberate: the backslash has to survive both JS and
+// SQL string parsing.
+const cleanedFullNameExpr = sql`REGEXP_REPLACE(${clients.fullName}, '[^\\\\w ]', '')`;
+
 function buildClientNameWordsCondition(trimmedSearch: string) {
 	if (trimmedSearch.length < 3 || !/[a-zA-Z]/.test(trimmedSearch)) {
 		return undefined;
 	}
 
-	// Clean the user's input string by replacing non-alphanumeric characters with spaces
-	const cleanedSearchString = trimmedSearch.replace(/[^\w ]/g, " ");
-
-	// Split the cleaned string by spaces and filter out any empty strings
-	const searchWords = cleanedSearchString.split(" ").filter(Boolean);
+	const searchWords = nameSearchWords(trimmedSearch);
 	if (searchWords.length === 0) return undefined;
 
 	const nameConditions = searchWords.map(
-		(word) =>
-			sql`REGEXP_REPLACE(${
-				clients.fullName
-				// As bizarre as this looks, we have to escape the slash for both JS and SQL
-			}, '[^\\\\w ]', '') like ${`%${word}%`}`,
+		(word) => sql`${cleanedFullNameExpr} like ${`%${word}%`}`,
 	);
 
 	return and(...nameConditions);
+}
+
+// Superset SQL prefilter for name words that are within one Levenshtein edit of
+// a name in the record. If a single character is substituted, inserted, or
+// deleted, at least one half of the word survives intact, so an exact substring
+// match on either half is guaranteed to include every true edit-distance-1 hit.
+// It also lets through false positives, which fuzzyNameRowMatches removes in JS.
+function buildFuzzyNameWordsCondition(searchWords: string[]) {
+	const perWord = searchWords.map((word) => {
+		if (word.length < 4) {
+			return sql`${cleanedFullNameExpr} like ${`%${word}%`}`;
+		}
+		const mid = Math.ceil(word.length / 2);
+		const head = word.slice(0, mid);
+		const tail = word.slice(word.length - mid);
+		return or(
+			sql`${cleanedFullNameExpr} like ${`%${word}%`}`,
+			sql`${cleanedFullNameExpr} like ${`%${head}%`}`,
+			sql`${cleanedFullNameExpr} like ${`%${tail}%`}`,
+		);
+	});
+	return and(...perWord);
+}
+
+// JS confirmation that every search word is within one edit of some name token.
+function fuzzyNameRowMatches(searchWords: string[], fullName: string) {
+	const tokens = nameSearchWords(fullName.toLowerCase());
+	return searchWords.every((raw) => {
+		const word = raw.toLowerCase();
+		return tokens.some((t) => t.includes(word) || levDistance(word, t) <= 1);
+	});
 }
 
 const directoryFilterSchema = z.object({
@@ -148,6 +213,7 @@ async function buildDirectoryConditions(
 	db: Context["db"],
 	input: DirectoryFilterInput,
 	exclude?: DirectoryFilterField,
+	aliasCache?: Map<string, Promise<string[]>>,
 ) {
 	const conditions = [not(isNotesOnly)];
 	const effectiveStatus = input.status ?? "active";
@@ -187,7 +253,9 @@ async function buildDirectoryConditions(
 	if (exclude !== "primaryInsurance" && input.primaryInsurance?.length) {
 		const { values, includeNone } = splitNoneValue(input.primaryInsurance);
 		const matchNames = (
-			await Promise.all(values.map((v) => resolveInsuranceAliasNames(db, v)))
+			await Promise.all(
+				values.map((v) => resolveInsuranceAliasNames(db, v, aliasCache)),
+			)
 		).flat();
 		const subConditions = [];
 		if (matchNames.length) {
@@ -201,7 +269,7 @@ async function buildDirectoryConditions(
 	if (exclude !== "secondaryInsurance" && input.secondaryInsurance?.length) {
 		const { values, includeNone } = splitNoneValue(input.secondaryInsurance);
 		const matchNamesByValue = await Promise.all(
-			values.map((v) => resolveInsuranceAliasNames(db, v)),
+			values.map((v) => resolveInsuranceAliasNames(db, v, aliasCache)),
 		);
 		const subConditions = [];
 		for (const matchNames of matchNamesByValue) {
@@ -466,36 +534,50 @@ export const clientRouter = createTRPCRouter({
 	directory: protectedProcedure
 		.input(directoryFilterSchema)
 		.query(async ({ ctx, input }) => {
-			const conditions = await buildDirectoryConditions(ctx.db, input);
+			const conditions = await buildDirectoryConditions(
+				ctx.db,
+				input,
+				undefined,
+				new Map(),
+			);
 			const { sortReasonSQL, orderBySQL } = getPriorityInfo();
 
 			// The client sorts and re-sorts this full result set itself (it's
 			// unpaginated), so the exact DB order doesn't matter beyond being stable.
-			const [rows, allInsurances, unresolvedFailures] = await Promise.all([
-				ctx.db.query.clients.findMany({
-					columns: {
-						id: true,
-						hash: true,
-						fullName: true,
-						asdAdhd: true,
-						primaryInsurance: true,
-						secondaryInsurance: true,
-						language: true,
-						status: true,
-						color: true,
-						dob: true,
-						addedDate: true,
-					},
-					extras: { sortReason: sortReasonSQL },
-					where: and(...conditions),
-					orderBy: orderBySQL,
-				}),
-				ctx.db.query.insurances.findMany({ with: { aliases: true } }),
-				ctx.db
-					.select({ clientId: failures.clientId, reason: failures.reason })
-					.from(failures)
-					.where(lt(failures.reminded, 100)),
-			]);
+			const [rows, allInsurances, unresolvedFailures, allOffices] =
+				await Promise.all([
+					ctx.db.query.clients.findMany({
+						columns: {
+							id: true,
+							hash: true,
+							fullName: true,
+							asdAdhd: true,
+							primaryInsurance: true,
+							secondaryInsurance: true,
+							language: true,
+							paAssignedTo: true,
+							status: true,
+							color: true,
+							dob: true,
+							addedDate: true,
+							latitude: true,
+							longitude: true,
+							pause: true,
+							recordsNeeded: true,
+							sessionStartedAt: true,
+							referralData: true,
+						},
+						extras: { sortReason: sortReasonSQL },
+						where: and(...conditions),
+						orderBy: orderBySQL,
+					}),
+					ctx.db.query.insurances.findMany({ with: { aliases: true } }),
+					ctx.db
+						.select({ clientId: failures.clientId, reason: failures.reason })
+						.from(failures)
+						.where(lt(failures.reminded, 100)),
+					ctx.db.query.offices.findMany(),
+				]);
 
 			const failuresByClientId = new Map<number, string[]>();
 			for (const row of unresolvedFailures) {
@@ -504,23 +586,324 @@ export const clientRouter = createTRPCRouter({
 				else failuresByClientId.set(row.clientId, [row.reason]);
 			}
 
-			return rows.map((row) => ({
-				...row,
-				primaryInsurance: getInsuranceShortName(
-					row.primaryInsurance,
-					allInsurances,
-				),
-				secondaryInsurance: (row.secondaryInsurance ?? [])
-					.map((name) => getInsuranceShortName(name, allInsurances))
-					.filter((name): name is string => Boolean(name)),
-				unresolvedFailures: failuresByClientId.get(row.id) ?? [],
-			}));
+			const clientIds = rows.map((row) => row.id);
+
+			// Prior auth date comes from the PRIMARY policy's precertAuthDate. A
+			// client can have multiple PRIMARY policies over time (insurance
+			// changes), so take the one with the most recent policyStartDate.
+			// Appointments feed "DA/EVAL scheduled" (any upcoming, non-cancelled
+			// appointment of that type), "location" (the most recent appointment's
+			// office, falling back to the closest office if virtual), and
+			// "evaluator" (their most recent/next appointment's evaluator,
+			// falling back to their active scheduling-table assignment).
+			// The closest-office fallback (used by getLocation below) is computed
+			// in JS from the drive-time rows fetched here: this procedure is
+			// unpaginated and can return the whole directory, and doing it in SQL
+			// inlines one correlated subquery per office pair per row.
+			const [
+				primaryPolicies,
+				relevantAppointments,
+				schedulingAssignments,
+				allEvaluators,
+				externalRecordRows,
+				externalRecordRequestRows,
+				driveTimeRows,
+			] = clientIds.length
+				? await Promise.all([
+						ctx.db
+							.select({
+								clientId: clientInsurancePolicies.clientId,
+								precertAuthDate: clientInsurancePolicies.precertAuthDate,
+							})
+							.from(clientInsurancePolicies)
+							.where(
+								and(
+									inArray(clientInsurancePolicies.clientId, clientIds),
+									sql`UPPER(${clientInsurancePolicies.policyType}) = 'PRIMARY'`,
+								),
+							)
+							.orderBy(desc(clientInsurancePolicies.policyStartDate)),
+						ctx.db
+							.select({
+								clientId: appointments.clientId,
+								startTime: appointments.startTime,
+								daEval: appointments.daEval,
+								locationKey: appointments.locationKey,
+								billingOnly: appointments.billingOnly,
+								evaluatorNpi: appointments.evaluatorNpi,
+							})
+							.from(appointments)
+							.where(
+								and(
+									inArray(appointments.clientId, clientIds),
+									eq(appointments.cancelled, false),
+									eq(appointments.placeholder, false),
+								),
+							)
+							.orderBy(desc(appointments.startTime)),
+						ctx.db
+							.select({
+								clientId: schedulingClients.clientId,
+								evaluatorNpi: schedulingClients.evaluator,
+							})
+							.from(schedulingClients)
+							.where(
+								and(
+									inArray(schedulingClients.clientId, clientIds),
+									eq(schedulingClients.archived, false),
+								),
+							),
+						ctx.db
+							.select({
+								npi: evaluators.npi,
+								providerName: evaluators.providerName,
+								archived: evaluators.archived,
+							})
+							.from(evaluators),
+						ctx.db
+							.select({
+								clientId: externalRecords.clientId,
+								content: externalRecords.content,
+							})
+							.from(externalRecords)
+							.where(inArray(externalRecords.clientId, clientIds)),
+						ctx.db
+							.select({
+								clientId: externalRecordRequests.clientId,
+								requestedDate: externalRecordRequests.requestedDate,
+								holdUntil: externalRecordRequests.holdUntil,
+								createdAt: externalRecordRequests.createdAt,
+							})
+							.from(externalRecordRequests)
+							.where(inArray(externalRecordRequests.clientId, clientIds)),
+						ctx.db
+							.select({
+								clientId: officeDriveTimes.clientId,
+								officeKey: officeDriveTimes.officeKey,
+								distanceMiles: officeDriveTimes.distanceMiles,
+							})
+							.from(officeDriveTimes)
+							.where(inArray(officeDriveTimes.clientId, clientIds)),
+					])
+				: [[], [], [], [], [], [], []];
+
+			const sessionStartedAtByClientId = new Map(
+				rows.map((row) => [row.id, row.sessionStartedAt]),
+			);
+
+			const hasExternalRecordContentByClientId = new Set(
+				externalRecordRows
+					.filter((row) => row.content !== null)
+					.map((row) => row.clientId),
+			);
+
+			const requestedDatesByClientId = new Map<number, string[]>();
+			const pendingHoldUntilByClientId = new Map<number, string | null>();
+			for (const row of externalRecordRequestRows) {
+				const sessionStartedAt = sessionStartedAtByClientId.get(row.clientId);
+				if (sessionStartedAt && row.createdAt < sessionStartedAt) continue;
+				if (!row.requestedDate) {
+					pendingHoldUntilByClientId.set(row.clientId, row.holdUntil);
+					continue;
+				}
+				const existing = requestedDatesByClientId.get(row.clientId);
+				if (existing) existing.push(row.requestedDate);
+				else requestedDatesByClientId.set(row.clientId, [row.requestedDate]);
+			}
+
+			const today = formatInBusinessTime(new Date(), "yyyy-MM-dd");
+
+			const priorAuthDateByClientId = new Map<number, string | null>();
+			for (const row of primaryPolicies) {
+				if (!priorAuthDateByClientId.has(row.clientId)) {
+					priorAuthDateByClientId.set(row.clientId, row.precertAuthDate);
+				}
+			}
+
+			const driveMilesByClientId = new Map<number, Map<string, number>>();
+			for (const row of driveTimeRows) {
+				if (row.distanceMiles === null) continue;
+				let officeMap = driveMilesByClientId.get(row.clientId);
+				if (!officeMap) {
+					officeMap = new Map();
+					driveMilesByClientId.set(row.clientId, officeMap);
+				}
+				officeMap.set(row.officeKey, parseFloat(row.distanceMiles));
+			}
+
+			const closestOfficeKeyByClientId = new Map<number, string>();
+			for (const row of rows) {
+				if (!row.latitude || !row.longitude) continue;
+				const closestKey = getClosestOfficeKey(
+					parseFloat(row.latitude),
+					parseFloat(row.longitude),
+					allOffices,
+					driveMilesByClientId.get(row.id),
+				);
+				if (closestKey) closestOfficeKeyByClientId.set(row.id, closestKey);
+			}
+
+			const officeNameByKey = new Map(
+				allOffices.map((office) => [office.key, office.prettyName]),
+			);
+			const now = Date.now();
+			const mostRecentLocationKeyByClientId = new Map<number, string | null>();
+			const daScheduledClientIds = new Set<number>();
+			const evalScheduledClientIds = new Set<number>();
+			// relevantAppointments is ordered by startTime desc, so overwriting on
+			// every match leaves the soonest upcoming appointment's date, which is
+			// the one worth showing next to the DA/EVAL Scheduled yes/no flag.
+			const daScheduledDateByClientId = new Map<number, Date>();
+			const evalScheduledDateByClientId = new Map<number, Date>();
+			// Next-upcoming wins over most-recent-past when both exist: overwriting
+			// unconditionally on every future match leaves the soonest upcoming
+			// appointment's evaluator (desc order), while the past map only takes
+			// the first (most recent) past row seen per client.
+			const upcomingEvaluatorNpiByClientId = new Map<number, number>();
+			const pastEvaluatorNpiByClientId = new Map<number, number>();
+			for (const appt of relevantAppointments) {
+				if (
+					!appt.billingOnly &&
+					!mostRecentLocationKeyByClientId.has(appt.clientId)
+				) {
+					mostRecentLocationKeyByClientId.set(appt.clientId, appt.locationKey);
+				}
+				if (!appt.billingOnly && appt.startTime.getTime() >= now) {
+					if (appt.daEval === "DA" || appt.daEval === "DAEVAL") {
+						daScheduledClientIds.add(appt.clientId);
+						daScheduledDateByClientId.set(appt.clientId, appt.startTime);
+					}
+					if (appt.daEval === "EVAL" || appt.daEval === "DAEVAL") {
+						evalScheduledClientIds.add(appt.clientId);
+						evalScheduledDateByClientId.set(appt.clientId, appt.startTime);
+					}
+					upcomingEvaluatorNpiByClientId.set(appt.clientId, appt.evaluatorNpi);
+				} else if (
+					!appt.billingOnly &&
+					!pastEvaluatorNpiByClientId.has(appt.clientId)
+				) {
+					pastEvaluatorNpiByClientId.set(appt.clientId, appt.evaluatorNpi);
+				}
+			}
+
+			const evaluatorNameByNpi = new Map(
+				allEvaluators.map((e) => [e.npi, e.providerName]),
+			);
+			const activeEvaluatorNpis = new Set(
+				allEvaluators.filter((e) => !e.archived).map((e) => e.npi),
+			);
+			const assignedEvaluatorNpiByClientId = new Map<number, number>();
+			for (const row of schedulingAssignments) {
+				if (row.evaluatorNpi && activeEvaluatorNpis.has(row.evaluatorNpi)) {
+					assignedEvaluatorNpiByClientId.set(row.clientId, row.evaluatorNpi);
+				}
+			}
+
+			const getEvaluatorFirstName = (clientId: number): string | null => {
+				const npi =
+					upcomingEvaluatorNpiByClientId.get(clientId) ??
+					pastEvaluatorNpiByClientId.get(clientId) ??
+					assignedEvaluatorNpiByClientId.get(clientId);
+				if (!npi) return null;
+				const providerName = evaluatorNameByNpi.get(npi);
+				return providerName ? (providerName.split(" ")[0] ?? null) : null;
+			};
+
+			const getLocation = (clientId: number): string | null => {
+				const locationKey = mostRecentLocationKeyByClientId.get(clientId);
+				if (locationKey && locationKey !== "VIRTUAL") {
+					return officeNameByKey.get(locationKey) ?? locationKey;
+				}
+				const closestKey = closestOfficeKeyByClientId.get(clientId);
+				return closestKey ? (officeNameByKey.get(closestKey) ?? null) : null;
+			};
+
+			return rows.map(
+				({ latitude: _latitude, longitude: _longitude, ...row }) => {
+					const blockers = [...(failuresByClientId.get(row.id) ?? [])];
+
+					if (row.pause) blockers.push("paused");
+
+					const unsupportedLanguageReason = getUnsupportedLanguageReason(
+						row.language,
+					);
+					if (unsupportedLanguageReason)
+						blockers.push(unsupportedLanguageReason);
+
+					if (row.recordsNeeded === null) {
+						blockers.push("missing records-needed status");
+					} else {
+						const recordsBlockerReason = getRecordsBlockerReason({
+							recordsNeeded: row.recordsNeeded,
+							hasExternalRecordContent: hasExternalRecordContentByClientId.has(
+								row.id,
+							),
+							isPrivateSchoolUnconfirmed: isPrivateSchoolUnconfirmed(
+								row.referralData,
+							),
+							language: row.language,
+							holdUntil: pendingHoldUntilByClientId.get(row.id),
+							hasPendingRequest: pendingHoldUntilByClientId.has(row.id),
+							requestedDates: requestedDatesByClientId.get(row.id) ?? [],
+							today,
+						});
+						if (recordsBlockerReason) blockers.push(recordsBlockerReason);
+					}
+
+					return {
+						...row,
+						primaryInsurance: getInsuranceShortName(
+							row.primaryInsurance,
+							allInsurances,
+						),
+						secondaryInsurance: (row.secondaryInsurance ?? [])
+							.map((name) => getInsuranceShortName(name, allInsurances))
+							.filter((name): name is string => Boolean(name)),
+						unresolvedFailures: blockers,
+						priorAuthDate: priorAuthDateByClientId.get(row.id) ?? null,
+						daScheduled: daScheduledClientIds.has(row.id),
+						daScheduledDate: daScheduledDateByClientId.get(row.id) ?? null,
+						evalScheduled: evalScheduledClientIds.has(row.id),
+						evalScheduledDate: evalScheduledDateByClientId.get(row.id) ?? null,
+						location: getLocation(row.id),
+						evaluator: getEvaluatorFirstName(row.id),
+					};
+				},
+			);
 		}),
 
 	directoryFacetCounts: protectedProcedure
 		.input(directoryFilterSchema)
 		.query(async ({ ctx, input }) => {
 			const { isHighPriorityClient, isHighPriorityBN } = getPriorityInfo();
+
+			// Each facet needs its own WHERE clause (excluding that facet's own
+			// filter), but they all share the same insurance alias lookups, so
+			// building them in parallel off one cache avoids re-querying the same
+			// alias names once per facet.
+			const aliasCache = new Map<string, Promise<string[]>>();
+			const [
+				asdAdhdConditions,
+				insuranceConditions,
+				secondaryInsuranceConditions,
+				languageConditions,
+				colorConditions,
+				statusConditions,
+				priorityConditions,
+			] = await Promise.all([
+				buildDirectoryConditions(ctx.db, input, "asdAdhd", aliasCache),
+				buildDirectoryConditions(ctx.db, input, "primaryInsurance", aliasCache),
+				buildDirectoryConditions(
+					ctx.db,
+					input,
+					"secondaryInsurance",
+					aliasCache,
+				),
+				buildDirectoryConditions(ctx.db, input, "language", aliasCache),
+				buildDirectoryConditions(ctx.db, input, "color", aliasCache),
+				buildDirectoryConditions(ctx.db, input, "status", aliasCache),
+				buildDirectoryConditions(ctx.db, input, "priority", aliasCache),
+			]);
 
 			const [
 				asdAdhdRows,
@@ -535,55 +918,31 @@ export const clientRouter = createTRPCRouter({
 				ctx.db
 					.select({ value: clients.asdAdhd, count: count() })
 					.from(clients)
-					.where(
-						and(...(await buildDirectoryConditions(ctx.db, input, "asdAdhd"))),
-					)
+					.where(and(...asdAdhdConditions))
 					.groupBy(clients.asdAdhd),
 				ctx.db
 					.select({ value: clients.primaryInsurance, count: count() })
 					.from(clients)
-					.where(
-						and(
-							...(await buildDirectoryConditions(
-								ctx.db,
-								input,
-								"primaryInsurance",
-							)),
-						),
-					)
+					.where(and(...insuranceConditions))
 					.groupBy(clients.primaryInsurance),
 				ctx.db
 					.select({ secondaryInsurance: clients.secondaryInsurance })
 					.from(clients)
-					.where(
-						and(
-							...(await buildDirectoryConditions(
-								ctx.db,
-								input,
-								"secondaryInsurance",
-							)),
-						),
-					),
+					.where(and(...secondaryInsuranceConditions)),
 				ctx.db
 					.select({ value: clients.language, count: count() })
 					.from(clients)
-					.where(
-						and(...(await buildDirectoryConditions(ctx.db, input, "language"))),
-					)
+					.where(and(...languageConditions))
 					.groupBy(clients.language),
 				ctx.db
 					.select({ value: clients.color, count: count() })
 					.from(clients)
-					.where(
-						and(...(await buildDirectoryConditions(ctx.db, input, "color"))),
-					)
+					.where(and(...colorConditions))
 					.groupBy(clients.color),
 				ctx.db
 					.select({ value: clients.status, count: count() })
 					.from(clients)
-					.where(
-						and(...(await buildDirectoryConditions(ctx.db, input, "status"))),
-					)
+					.where(and(...statusConditions))
 					.groupBy(clients.status),
 				ctx.db
 					.select({
@@ -600,9 +959,7 @@ export const clientRouter = createTRPCRouter({
 						),
 					})
 					.from(clients)
-					.where(
-						and(...(await buildDirectoryConditions(ctx.db, input, "priority"))),
-					),
+					.where(and(...priorityConditions)),
 				ctx.db.query.insurances.findMany({ with: { aliases: true } }),
 			]);
 
@@ -798,19 +1155,43 @@ export const clientRouter = createTRPCRouter({
 
 			let closestOffices: ClosestOffice[] = [];
 			if (syncedClient.latitude && syncedClient.longitude) {
-				const [rows] = await ctx.db.execute<ClosestOffice>(sql`
-        SELECT
-          o.key,
-          o.prettyName,
-          o.latitude,
-          o.longitude,
-          ${getDistanceSQL(syncedClient.latitude, syncedClient.longitude, sql`o.latitude`, sql`o.longitude`)} as distanceMiles
-        FROM emr_office o
-        ORDER BY distanceMiles
-        LIMIT 3
-      `);
+				const clientLat = parseFloat(syncedClient.latitude);
+				const clientLon = parseFloat(syncedClient.longitude);
+				const [allOffices, driveTimeRows] = await Promise.all([
+					ctx.db.query.offices.findMany(),
+					ctx.db
+						.select({
+							officeKey: officeDriveTimes.officeKey,
+							distanceMiles: officeDriveTimes.distanceMiles,
+						})
+						.from(officeDriveTimes)
+						.where(eq(officeDriveTimes.clientId, syncedClient.id)),
+				]);
 
-				closestOffices = rows as unknown as ClosestOffice[];
+				const driveMilesByOfficeKey = new Map<string, number>();
+				for (const row of driveTimeRows) {
+					if (row.distanceMiles !== null) {
+						driveMilesByOfficeKey.set(
+							row.officeKey,
+							parseFloat(row.distanceMiles),
+						);
+					}
+				}
+
+				closestOffices = allOffices
+					.map((o) => ({
+						key: o.key,
+						prettyName: o.prettyName,
+						latitude: o.latitude,
+						longitude: o.longitude,
+						distanceMiles: getOfficeDistanceMiles(
+							clientLat,
+							clientLon,
+							o,
+							driveMilesByOfficeKey.get(o.key),
+						),
+					}))
+					.sort((a, b) => a.distanceMiles - b.distanceMiles);
 			}
 
 			return {
@@ -821,6 +1202,30 @@ export const clientRouter = createTRPCRouter({
 				dropListReason,
 				initialFailureDate,
 			};
+		}),
+
+	getOfficeDriveTimes: protectedProcedure
+		.input(z.number())
+		.query(async ({ ctx, input }) => {
+			const cookieHeader = ctx.headers.get("cookie") ?? "";
+			const response = await fetch(
+				`${env.PY_API}/clients/${input}/office-drive-times`,
+				{ headers: { Cookie: cookieHeader } },
+			);
+
+			if (!response.ok) {
+				if (response.status === 404 || response.status === 422) return [];
+				throw new Error(
+					`Failed to fetch office drive times: ${response.status}`,
+				);
+			}
+
+			return (await response.json()) as Array<{
+				key: string;
+				prettyName: string;
+				durationMinutes: number | null;
+				distanceMiles: number | null;
+			}>;
 		}),
 
 	getFailures: protectedProcedure
@@ -1032,8 +1437,8 @@ export const clientRouter = createTRPCRouter({
 								),
 								gt(questionnaires.reminded, 3),
 								sql`(
-									(SELECT session_started_at FROM emr_client WHERE id = ${questionnaires.clientId}) IS NULL
-									OR COALESCE(${questionnaires.sent}, ${questionnaires.updatedAt}) >= (SELECT session_started_at FROM emr_client WHERE id = ${questionnaires.clientId})
+									(SELECT sessionStartedAt FROM emr_client WHERE id = ${questionnaires.clientId}) IS NULL
+									OR COALESCE(${questionnaires.sent}, ${questionnaires.updatedAt}) >= (SELECT sessionStartedAt FROM emr_client WHERE id = ${questionnaires.clientId})
 								)`,
 							),
 						},
@@ -1210,21 +1615,29 @@ export const clientRouter = createTRPCRouter({
 
 			if (targetIsNotesOnly) {
 				const notesOnlyName = targetClient.fullName.toLowerCase();
-				const suggestedRealClients = candidates
-					.map((real) => ({
-						...real,
-						...matchNotesOnlyToReal(notesOnlyName, real),
-					}))
-					.filter((c) => c.isMatch)
+				const suggestedRealClients = preferExactMatches(
+					candidates
+						.map((real) => ({
+							...real,
+							...matchNotesOnlyToReal(notesOnlyName, real),
+						}))
+						.filter((c) => c.isMatch),
+				)
 					.sort((a, b) => a.distance - b.distance)
 					.slice(0, 5);
 				return { suggestedRealClients, suggestedNotesOnlyClients: [] };
 			}
 
-			const suggestedNotesOnlyClients = candidates.filter(
-				(notesOnly) =>
-					matchNotesOnlyToReal(notesOnly.fullName.toLowerCase(), targetClient)
-						.isMatch,
+			const suggestedNotesOnlyClients = preferExactMatches(
+				candidates
+					.map((notesOnly) => ({
+						...notesOnly,
+						...matchNotesOnlyToReal(
+							notesOnly.fullName.toLowerCase(),
+							targetClient,
+						),
+					}))
+					.filter((c) => c.isMatch),
 			);
 			return {
 				suggestedRealClients: [],
@@ -1254,12 +1667,14 @@ export const clientRouter = createTRPCRouter({
 		for (const notesOnly of notesOnlyClients) {
 			const notesOnlyName = notesOnly.fullName.toLowerCase();
 
-			const matchingRealClients = realClients
-				.map((real) => ({
-					...real,
-					...matchNotesOnlyToReal(notesOnlyName, real),
-				}))
-				.filter((c) => c.isMatch)
+			const matchingRealClients = preferExactMatches(
+				realClients
+					.map((real) => ({
+						...real,
+						...matchNotesOnlyToReal(notesOnlyName, real),
+					}))
+					.filter((c) => c.isMatch),
+			)
 				.sort((a, b) => a.distance - b.distance)
 				.slice(0, 5);
 
@@ -1303,9 +1718,19 @@ export const clientRouter = createTRPCRouter({
 
 		return fetchWithCache(ctx, CACHE_KEY_POSSIBLE_PRIVATE_PAY, async () => {
 			const noPaymentMethodOrNoEligors = await ctx.db
-				.select(getTableColumns(clients))
+				.select({
+					...getTableColumns(clients),
+					referralMessageSentAt: referralMsgLog.sentAt,
+				})
 				.from(clients)
 				.leftJoin(clientsEvaluators, eq(clients.id, clientsEvaluators.clientId))
+				.leftJoin(
+					referralMsgLog,
+					and(
+						eq(clients.id, referralMsgLog.clientId),
+						eq(referralMsgLog.isPrivatePayOutreach, true),
+					),
+				)
 				.where(
 					and(
 						or(
@@ -1487,7 +1912,12 @@ export const clientRouter = createTRPCRouter({
 				ctx.session.user,
 				"clients:additional-insurance-appointments",
 			);
-			return computeAndStoreAssessmentSnapshot(ctx.db, input.clientId);
+			const snapshot = await computeAndStoreAssessmentSnapshot(
+				ctx.db,
+				input.clientId,
+			);
+			await invalidateCache(ctx, CACHE_KEY_MISSING_APPOINTMENTS);
+			return snapshot;
 		}),
 
 	getMissingAppointments: protectedProcedure.query(async ({ ctx }) => {
@@ -1496,161 +1926,9 @@ export const clientRouter = createTRPCRouter({
 		return fetchWithCache(
 			ctx,
 			CACHE_KEY_MISSING_APPOINTMENTS,
-			async () => {
-				const activeClients = await ctx.db.query.clients.findMany({
-					where: and(
-						eq(clients.status, true),
-						isNotNull(clients.primaryInsurance),
-						not(isNotesOnly),
-					),
-				});
-
-				if (activeClients.length === 0) return [];
-
-				const allInsurances = await ctx.db.query.insurances.findMany({
-					with: { aliases: true },
-				});
-
-				type InsuranceWithAliases = (typeof allInsurances)[0];
-				const insuranceByName = new Map<string, InsuranceWithAliases>();
-				for (const ins of allInsurances) {
-					insuranceByName.set(ins.shortName, ins);
-					for (const alias of ins.aliases) {
-						insuranceByName.set(alias.name, ins);
-					}
-				}
-
-				const relevantClients = activeClients.filter((c) => {
-					if (!c.primaryInsurance) return false;
-					const ins = insuranceByName.get(c.primaryInsurance);
-					return (
-						((ins?.additionalAppts as { maxUnitsPerDay?: number } | undefined)
-							?.maxUnitsPerDay ?? 0) > 0
-					);
-				});
-
-				if (relevantClients.length === 0) return [];
-
-				const clientIds = relevantClients.map((c) => c.id);
-
-				const apptCountRows = await ctx.db
-					.select({
-						clientId: appointments.clientId,
-						activeCount: count(),
-					})
-					.from(appointments)
-					.where(
-						and(
-							inArray(appointments.clientId, clientIds),
-							eq(appointments.cancelled, false),
-							eq(appointments.placeholder, false),
-						),
-					)
-					.groupBy(appointments.clientId);
-
-				const apptCountMap = new Map(
-					apptCountRows.map((r) => [r.clientId, r.activeCount]),
-				);
-
-				const apptCptRows = await ctx.db
-					.select({
-						clientId: appointments.clientId,
-						cpt: appointments.cpt,
-						cptCount: count(),
-					})
-					.from(appointments)
-					.where(
-						and(
-							inArray(appointments.clientId, clientIds),
-							eq(appointments.cancelled, false),
-							eq(appointments.placeholder, false),
-						),
-					)
-					.groupBy(appointments.clientId, appointments.cpt);
-
-				const count96136ByClient = new Map<number, number>();
-				const has9613637ByClient = new Set<number>();
-				const count96130ByClient = new Map<number, number>();
-				for (const row of apptCptRows) {
-					if (row.cpt === "96136") {
-						count96136ByClient.set(row.clientId, row.cptCount);
-						has9613637ByClient.add(row.clientId);
-					} else if (row.cpt === "96137") {
-						has9613637ByClient.add(row.clientId);
-					} else if (row.cpt === "96130") {
-						count96130ByClient.set(row.clientId, row.cptCount);
-					}
-				}
-
-				const result: ClientWithIssueInfo[] = [];
-				for (const client of relevantClients) {
-					if (!client.primaryInsurance) continue;
-					const ins = insuranceByName.get(client.primaryInsurance);
-					const apptConfig = ins?.additionalAppts as
-						| {
-								maxUnitsPerDay?: number;
-								max96130?: number;
-								max96131?: number;
-								max96136?: number;
-								max96137?: number;
-								maxAppt4Units?: number;
-						  }
-						| undefined;
-					const maxUnitsPerDay = apptConfig?.maxUnitsPerDay;
-					if (!maxUnitsPerDay) continue;
-
-					const totalMinutes = client.assessmentData?.minutes ?? 0;
-					if (totalMinutes === 0) continue;
-
-					const expectedCount = calculateAdditionalAppointments(
-						totalMinutes,
-						maxUnitsPerDay,
-						{
-							max96130: apptConfig?.max96130,
-							max96131: apptConfig?.max96131,
-							max96136: apptConfig?.max96136,
-							max96137: apptConfig?.max96137,
-							maxAppt4Units: apptConfig?.maxAppt4Units,
-						},
-					).length;
-
-					if (expectedCount === 0) continue;
-
-					const actualCount = apptCountMap.get(client.id) ?? 0;
-					if (actualCount >= expectedCount) continue;
-
-					const has96130 = (count96130ByClient.get(client.id) ?? 0) > 0;
-					const hasExactlyOne96136 = count96136ByClient.get(client.id) === 1;
-					const has9613637WithoutReview =
-						has9613637ByClient.has(client.id) && !has96130;
-					if (!hasExactlyOne96136 && !has9613637WithoutReview) continue;
-
-					result.push({
-						...client,
-						additionalInfo: `(${actualCount} of ${expectedCount} appts)`,
-					});
-				}
-
-				return result;
-			},
+			() => getMissingAppointmentsList(ctx.db),
 			6 * 60 * 1000, // 6 hours
 		);
-	}),
-
-	getMissingRecordsNeeded: protectedProcedure.query(async ({ ctx }) => {
-		assertPermission(ctx.session.user, "issues:missing-records-needed");
-
-		const clientsWithoutRecordsNeeded = await ctx.db.query.clients.findMany({
-			where: and(
-				isNull(clients.recordsNeeded),
-				isNotNull(clients.taUser),
-				eq(clients.status, true),
-				not(isNotesOnly),
-			),
-			orderBy: clients.addedDate,
-		});
-
-		return clientsWithoutRecordsNeeded;
 	}),
 
 	claimOutreach: protectedProcedure
@@ -1761,49 +2039,62 @@ export const clientRouter = createTRPCRouter({
 			}
 		}),
 
+	logPrivatePayOutreachAttempt: protectedProcedure
+		.input(z.object({ clientId: z.number(), notes: z.string().optional() }))
+		.mutation(async ({ ctx, input }) => {
+			assertPermission(ctx.session.user, "issues:private-pay");
+
+			const client = await ctx.db.query.clients.findFirst({
+				where: eq(clients.id, input.clientId),
+			});
+
+			if (!client) {
+				throw new TRPCError({ code: "NOT_FOUND", message: "Client not found" });
+			}
+
+			const currentData = client.referralData ?? {};
+			const attempts = currentData.privatePayOutreachAttempts ?? [];
+			const newAttempts = [
+				...attempts,
+				{
+					attemptedAt: new Date().toISOString(),
+					attemptedBy: ctx.session.user.name ?? undefined,
+					notes: input.notes,
+				},
+			];
+
+			ctx.logger.info(
+				{
+					clientId: input.clientId,
+					attemptNumber: newAttempts.length,
+					by: ctx.session.user.email,
+				},
+				"Logged private pay outreach attempt",
+			);
+
+			await ctx.db
+				.update(clients)
+				.set({
+					referralData: {
+						...currentData,
+						privatePayOutreachAttempts: newAttempts,
+					},
+				})
+				.where(eq(clients.id, input.clientId));
+
+			await invalidateCache(ctx, CACHE_KEY_POSSIBLE_PRIVATE_PAY);
+		}),
+
 	getUnreviewedRecords: protectedProcedure.query(async ({ ctx }) => {
 		assertPermission(ctx.session.user, "issues:unreviewed-records");
 
-		const threeWeekdaysAgo = format(
-			subBusinessDays(new Date(), 3),
-			"yyyy-MM-dd",
-		);
+		return getUnreviewedRecordsList(ctx.db);
+	}),
 
-		const latestRequest = ctx.db
-			.select({
-				clientId: externalRecordRequests.clientId,
-				latestDate:
-					sql<string>`MAX(${externalRecordRequests.requestedDate})`.as(
-						"latest_date",
-					),
-			})
-			.from(externalRecordRequests)
-			.where(isNotNull(externalRecordRequests.requestedDate))
-			.groupBy(externalRecordRequests.clientId)
-			.as("latest_request");
+	getUnconfirmedPrivateSchool: protectedProcedure.query(async ({ ctx }) => {
+		assertPermission(ctx.session.user, "issues:private-school-confirm");
 
-		const results = await ctx.db
-			.select({
-				...getTableColumns(clients),
-				additionalInfo: sql<string>`CONCAT(
-          '(Requested: ',
-          DATE_FORMAT(${latestRequest.latestDate}, '%m/%d/%y'),
-          ')'
-        )`,
-			})
-			.from(clients)
-			.innerJoin(externalRecords, eq(clients.id, externalRecords.clientId))
-			.innerJoin(latestRequest, eq(clients.id, latestRequest.clientId))
-			.where(
-				and(
-					eq(clients.recordsNeeded, "Needed"),
-					lt(latestRequest.latestDate, threeWeekdaysAgo),
-					isNull(externalRecords.content),
-				),
-			)
-			.orderBy(asc(latestRequest.latestDate));
-
-		return results;
+		return getUnconfirmedPrivateSchoolList(ctx.db);
 	}),
 
 	createNotesOnly: protectedProcedure
@@ -1892,6 +2183,7 @@ export const clientRouter = createTRPCRouter({
 				longitude: z.string().optional(),
 				flag: z.string().nullish().optional(),
 				highPriority: z.boolean().optional(),
+				alreadyDx: z.boolean().optional(),
 				pause: z.boolean().optional(),
 				babyNet: z.boolean().optional(),
 				eiAttends: z.boolean().optional(),
@@ -1952,6 +2244,10 @@ export const clientRouter = createTRPCRouter({
 				...(input.highPriority !== undefined &&
 				input.highPriority !== currentClient.highPriority
 					? (["clients:priority"] as const)
+					: []),
+				...(input.alreadyDx !== undefined &&
+				input.alreadyDx !== currentClient.alreadyDx
+					? (["clients:alreadydx"] as const)
 					: []),
 				...(input.pause !== undefined && input.pause !== currentClient.pause
 					? (["clients:pause"] as const)
@@ -2028,6 +2324,7 @@ export const clientRouter = createTRPCRouter({
 				latitude?: string;
 				longitude?: string;
 				highPriority?: boolean;
+				alreadyDx?: boolean;
 				pause?: boolean;
 				babyNet?: boolean;
 				eiAttends?: boolean;
@@ -2060,6 +2357,9 @@ export const clientRouter = createTRPCRouter({
 			}
 			if (input.highPriority !== undefined) {
 				updateData.highPriority = input.highPriority;
+			}
+			if (input.alreadyDx !== undefined) {
+				updateData.alreadyDx = input.alreadyDx;
 			}
 			if (input.pause !== undefined) {
 				updateData.pause = input.pause;
@@ -2146,37 +2446,34 @@ export const clientRouter = createTRPCRouter({
 				updateData.referralData = input.referralData;
 			}
 
+			const before: Record<string, unknown> = {};
+			const after: Record<string, unknown> = {};
+			for (const key of Object.keys(updateData)) {
+				before[key] = currentClient[key as keyof typeof currentClient];
+				after[key] = updateData[key as keyof typeof updateData];
+			}
+			setAuditDetail(ctx, diffValues(before, after));
+
 			await ctx.db
 				.update(clients)
 				.set(updateData)
 				.where(eq(clients.id, input.clientId));
 
-			if (input.recordsNeeded === "Needed") {
-				const referralData =
-					input.referralData ??
-					(
-						await ctx.db.query.clients.findFirst({
-							where: eq(clients.id, input.clientId),
-							columns: { referralData: true },
-						})
-					)?.referralData;
-				const isPrivateSchool = referralData?.privateSchool === "yes";
+			if (
+				input.schoolDistrict !== undefined &&
+				input.schoolDistrict !== currentClient.schoolDistrict
+			) {
+				const cookieHeader = ctx.headers.get("cookie") ?? "";
+				void fetch(`${env.PY_API}/rematch/client/${input.clientId}`, {
+					method: "POST",
+					headers: { Cookie: cookieHeader },
+				}).catch((err) =>
+					ctx.logger.error(err, "Failed to trigger client rematch"),
+				);
+			}
 
-				if (!isPrivateSchool) {
-					const pendingRequest =
-						await ctx.db.query.externalRecordRequests.findFirst({
-							where: and(
-								eq(externalRecordRequests.clientId, input.clientId),
-								isNull(externalRecordRequests.requestedDate),
-							),
-						});
-					if (!pendingRequest) {
-						await ctx.db.insert(externalRecordRequests).values({
-							clientId: input.clientId,
-							createdBy: ctx.session.user.email,
-						});
-					}
-				}
+			if (input.recordsNeeded === "Needed") {
+				await ensurePendingExternalRecordRequest(ctx, input.clientId);
 			}
 
 			const updatedClient = await ctx.db.query.clients.findFirst({
@@ -2355,6 +2652,12 @@ export const clientRouter = createTRPCRouter({
 
 					const conditions = [];
 
+					// When set, the name search matched by word substring; index
+					// points at that condition so a second pass can swap in a
+					// looser fuzzy prefilter for typo tolerance.
+					let strictNameCondIndex: number | undefined;
+					let fuzzyNameWords: string[] | undefined;
+
 					if (excludeIds && excludeIds.length > 0) {
 						conditions.push(not(inArray(clients.id, excludeIds)));
 					}
@@ -2417,7 +2720,11 @@ export const clientRouter = createTRPCRouter({
 								} else {
 									const nameCondition =
 										buildClientNameWordsCondition(trimmedSearch);
-									if (nameCondition) conditions.push(nameCondition);
+									if (nameCondition) {
+										strictNameCondIndex = conditions.length;
+										fuzzyNameWords = nameSearchWords(trimmedSearch);
+										conditions.push(nameCondition);
+									}
 								}
 							}
 						}
@@ -2425,46 +2732,16 @@ export const clientRouter = createTRPCRouter({
 
 					const allOffices = await ctx.db.query.offices.findMany();
 
-					if (office && allOffices.length > 0) {
-						const distanceExprs = allOffices.map((o) => ({
-							key: o.key,
-							dist: getDistanceSQL(
-								clients.latitude,
-								clients.longitude,
-								o.latitude,
-								o.longitude,
-							),
-						}));
-
-						// Build a CASE statement to find the key of the office with the minimum distance
-						let closestOfficeKeyCase = sql`CASE `;
-						for (let i = 0; i < distanceExprs.length; i++) {
-							const current = distanceExprs[i];
-							if (!current) continue;
-							const others = distanceExprs.filter((_, idx) => idx !== i);
-
-							if (others.length === 0) {
-								closestOfficeKeyCase = sql`${current.key}`;
-								break;
-							}
-
-							const isClosestConditions = others.map(
-								(other) => sql`${current.dist} <= ${other.dist}`,
-							);
-							closestOfficeKeyCase = sql.join([
-								closestOfficeKeyCase,
-								sql`WHEN `,
-								sql.join(isClosestConditions, sql` AND `),
-								sql` THEN ${current.key} `,
-							]);
-						}
-						closestOfficeKeyCase = sql.join([closestOfficeKeyCase, sql`END`]);
-
+					// When filtering by closest office we only restrict to geocoded
+					// clients in SQL here; the office match itself is done in JS
+					// below, rather than a SQL CASE that inlines one correlated
+					// drive-time subquery per office pair per row.
+					const officeFilterActive = Boolean(office && allOffices.length > 0);
+					if (officeFilterActive) {
 						conditions.push(
 							and(
 								not(isNull(clients.latitude)),
 								not(isNull(clients.longitude)),
-								eq(closestOfficeKeyCase, office),
 							),
 						);
 					}
@@ -2541,19 +2818,6 @@ export const clientRouter = createTRPCRouter({
 						}
 					}
 
-					const countByColor = await ctx.db
-						.select({
-							color: clients.color,
-							count: sql<number>`COUNT(*)`.as("count"),
-						})
-						.from(clients)
-						.where(conditions.length > 0 ? and(...conditions) : undefined)
-						.groupBy(clients.color);
-
-					if (color) {
-						conditions.push(eq(clients.color, color));
-					}
-
 					let { sortReasonSQL, orderBySQL } = getPriorityInfo();
 
 					if (effectiveSort === "priority") {
@@ -2577,41 +2841,147 @@ export const clientRouter = createTRPCRouter({
         END`.as("sortReason");
 					}
 
-					let selectedOfficeCoords: {
-						latitude: string;
-						longitude: string;
-					} | null = null;
-					if (office) {
-						const officeData = allOffices.find((o) => o.key === office);
-						if (officeData) {
-							selectedOfficeCoords = {
-								latitude: officeData.latitude,
-								longitude: officeData.longitude,
-							};
+					const selectedOffice =
+						officeFilterActive && office
+							? (allOffices.find((o) => o.key === office) ?? null)
+							: null;
+
+					// Closest-office filter: pull the candidate set (every filter
+					// except the office and color), rank offices per client in JS,
+					// then derive the color counts and apply the color filter in
+					// memory so the counts still reflect the office filter.
+					if (officeFilterActive) {
+						if (!selectedOffice) return { clients: [], colorCounts: [] };
+
+						const preColorRows = await ctx.db
+							.select({
+								...getTableColumns(clients),
+								sortReason: sortReasonSQL,
+							})
+							.from(clients)
+							.where(and(...conditions))
+							.orderBy(...orderBySQL);
+
+						const candidateIds = preColorRows.map((row) => row.id);
+						const driveTimeRows = candidateIds.length
+							? await ctx.db
+									.select({
+										clientId: officeDriveTimes.clientId,
+										officeKey: officeDriveTimes.officeKey,
+										distanceMiles: officeDriveTimes.distanceMiles,
+									})
+									.from(officeDriveTimes)
+									.where(inArray(officeDriveTimes.clientId, candidateIds))
+							: [];
+
+						const driveMilesByClientId = new Map<number, Map<string, number>>();
+						for (const row of driveTimeRows) {
+							if (row.distanceMiles === null) continue;
+							let officeMap = driveMilesByClientId.get(row.clientId);
+							if (!officeMap) {
+								officeMap = new Map();
+								driveMilesByClientId.set(row.clientId, officeMap);
+							}
+							officeMap.set(row.officeKey, parseFloat(row.distanceMiles));
 						}
+
+						const finalRows: Array<
+							(typeof preColorRows)[number] & { distanceToOffice: number }
+						> = [];
+						const countMap = new Map<
+							(typeof preColorRows)[number]["color"],
+							number
+						>();
+						for (const row of preColorRows) {
+							if (!row.latitude || !row.longitude) continue;
+							const lat = parseFloat(row.latitude);
+							const lon = parseFloat(row.longitude);
+							const driveMiles = driveMilesByClientId.get(row.id);
+							if (
+								getClosestOfficeKey(lat, lon, allOffices, driveMiles) !==
+								selectedOffice.key
+							) {
+								continue;
+							}
+							countMap.set(row.color, (countMap.get(row.color) ?? 0) + 1);
+							if (color && row.color !== color) continue;
+							finalRows.push({
+								...row,
+								distanceToOffice: getOfficeDistanceMiles(
+									lat,
+									lon,
+									selectedOffice,
+									driveMiles?.get(selectedOffice.key),
+								),
+							});
+						}
+
+						return {
+							clients: finalRows,
+							colorCounts: [...countMap].map(([c, count]) => ({
+								color: c,
+								count,
+							})),
+						};
 					}
 
-					const distanceToOfficeSQL = selectedOfficeCoords
-						? getDistanceSQL(
-								clients.latitude,
-								clients.longitude,
-								selectedOfficeCoords.latitude,
-								selectedOfficeCoords.longitude,
-							).as("distanceToOffice")
-						: sql<null>`NULL`.as("distanceToOffice");
+					const countByColor = await ctx.db
+						.select({
+							color: clients.color,
+							count: sql<number>`COUNT(*)`.as("count"),
+						})
+						.from(clients)
+						.where(conditions.length > 0 ? and(...conditions) : undefined)
+						.groupBy(clients.color);
+
+					if (color) {
+						conditions.push(eq(clients.color, color));
+					}
 
 					const filteredAndSortedClients = await ctx.db
 						.select({
 							...getTableColumns(clients),
 							sortReason: sortReasonSQL,
-							distanceToOffice: distanceToOfficeSQL,
+							distanceToOffice: sql<null>`NULL`.as("distanceToOffice"),
 						})
 						.from(clients)
 						.where(and(conditions.length > 0 ? and(...conditions) : undefined))
 						.orderBy(...orderBySQL);
 
+					// Typo-tolerant pass: pull clients whose name is within one edit
+					// of the search words, drop the ones already matched exactly,
+					// verify the rest in JS, and append them below the exact
+					// matches so a misspelling still surfaces the client, ranked
+					// lower. lazy: color counts stay exact-match only.
+					let resultClients: typeof filteredAndSortedClients =
+						filteredAndSortedClients;
+					if (fuzzyNameWords && strictNameCondIndex !== undefined) {
+						const exactIds = new Set(resultClients.map((c) => c.id));
+						const fuzzyConditions = conditions.map((c, i) =>
+							i === strictNameCondIndex
+								? buildFuzzyNameWordsCondition(fuzzyNameWords)
+								: c,
+						);
+						const fuzzyCandidates = await ctx.db
+							.select({
+								...getTableColumns(clients),
+								sortReason: sortReasonSQL,
+								distanceToOffice: sql<null>`NULL`.as("distanceToOffice"),
+							})
+							.from(clients)
+							.where(and(...fuzzyConditions))
+							.orderBy(...orderBySQL)
+							.limit(100);
+						const fuzzyMatches = fuzzyCandidates.filter(
+							(row) =>
+								!exactIds.has(row.id) &&
+								fuzzyNameRowMatches(fuzzyNameWords, row.fullName),
+						);
+						resultClients = [...resultClients, ...fuzzyMatches];
+					}
+
 					return {
-						clients: filteredAndSortedClients,
+						clients: resultClients,
 						colorCounts: countByColor,
 					};
 				},
@@ -2764,6 +3134,10 @@ export const clientRouter = createTRPCRouter({
 					.update(clients)
 					.set({ recordsNeeded: fakeClient.recordsNeeded })
 					.where(eq(clients.id, clientId));
+
+				if (fakeClient.recordsNeeded === "Needed") {
+					await ensurePendingExternalRecordRequest(ctx, clientId);
+				}
 			}
 
 			if (fakeClient.asdAdhd) {
@@ -2976,7 +3350,7 @@ export const clientRouter = createTRPCRouter({
 	getInsurancePolicies: protectedProcedure
 		.input(z.number())
 		.query(async ({ ctx, input }) => {
-			const [policies, scmInsurance] = await Promise.all([
+			const [policies, client, allInsurances] = await Promise.all([
 				ctx.db.query.clientInsurancePolicies.findMany({
 					where: eq(clientInsurancePolicies.clientId, input),
 					orderBy: (t, { asc, desc }) => [
@@ -2984,17 +3358,32 @@ export const clientRouter = createTRPCRouter({
 						desc(t.policyStartDate),
 					],
 				}),
-				ctx.db.query.insurances.findFirst({
-					where: eq(insurances.shortName, "SCM"),
-					with: { aliases: true },
+				ctx.db.query.clients.findFirst({
+					where: eq(clients.id, input),
+					columns: {
+						primaryInsurance: true,
+						secondaryInsurance: true,
+						medicaidOrganization: true,
+					},
 				}),
+				ctx.db.query.insurances.findMany({ with: { aliases: true } }),
 			]);
 
-			const scmAliasNames = scmInsurance
-				? [scmInsurance.shortName, ...scmInsurance.aliases.map((a) => a.name)]
-				: [];
+			// The portal Organization is resolved through insurance aliases. An
+			// unresolved name comes back unchanged, so it also counts as a mismatch.
+			const organizationInsurance = getInsuranceShortName(
+				client?.medicaidOrganization ?? null,
+				allInsurances,
+			);
+			const organizationMismatch =
+				!!organizationInsurance &&
+				!getInsuranceShortNamesList(
+					client?.primaryInsurance ?? null,
+					client?.secondaryInsurance ?? null,
+					allInsurances,
+				).includes(organizationInsurance);
 
-			return { policies, scmAliasNames };
+			return { policies, organizationInsurance, organizationMismatch };
 		}),
 
 	syncPunchData: protectedProcedure.mutation(async ({ ctx }) => {

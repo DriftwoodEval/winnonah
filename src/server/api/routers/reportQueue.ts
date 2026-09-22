@@ -1,5 +1,6 @@
 import { eq } from "drizzle-orm";
 import z from "zod";
+import { diffValues, setAuditDetail } from "~/server/api/audit";
 import {
 	assertPermission,
 	createTRPCRouter,
@@ -14,6 +15,8 @@ export const reportQueueRouter = createTRPCRouter({
 		});
 		return {
 			defaultMaxClaimedReports: record?.defaultMaxClaimedReports ?? 1,
+			firstReviewLabel: record?.firstReviewLabel ?? "AJP review",
+			secondReviewLabel: record?.secondReviewLabel ?? "MCS review",
 		};
 	}),
 
@@ -21,23 +24,26 @@ export const reportQueueRouter = createTRPCRouter({
 		.input(
 			z.object({
 				defaultMaxClaimedReports: z.number().int().min(1).max(10),
+				firstReviewLabel: z.string().min(1).max(255),
+				secondReviewLabel: z.string().min(1).max(255),
 			}),
 		)
 		.mutation(async ({ ctx, input }) => {
 			assertPermission(ctx.session.user, "reports:approve");
+
+			const existing = await ctx.db.query.reportQueueConfig.findFirst({
+				where: eq(reportQueueConfig.id, 1),
+			});
+			setAuditDetail(ctx, diffValues(existing ?? {}, input));
+
 			ctx.logger.info(
 				{ ...input, updatedBy: ctx.session.user.email },
 				"Updating report queue config",
 			);
 			await ctx.db
 				.insert(reportQueueConfig)
-				.values({
-					id: 1,
-					defaultMaxClaimedReports: input.defaultMaxClaimedReports,
-				})
-				.onDuplicateKeyUpdate({
-					set: { defaultMaxClaimedReports: input.defaultMaxClaimedReports },
-				});
+				.values({ id: 1, ...input })
+				.onDuplicateKeyUpdate({ set: { ...input } });
 			return { success: true };
 		}),
 });

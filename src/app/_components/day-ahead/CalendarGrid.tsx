@@ -7,10 +7,12 @@ import { format } from "date-fns";
 import { DoorOpen, LogIn, LogOut } from "lucide-react";
 import Link from "next/link";
 import { createContext, useContext, useMemo, useState } from "react";
+import { hasInPersonAppointment, isVirtualAppointment } from "~/lib/checkin";
 import { cn, formatInBusinessTime, toBusinessZonedTime } from "~/lib/utils";
 import type { RouterOutputs } from "~/trpc/react";
 import { CheckInOutControl } from "../appointments/CheckInOutControl";
 import { EvaluatorCheckInOutControl } from "../appointments/EvaluatorCheckInOutControl";
+import { useCheckinDateGate } from "../appointments/use-checkin-date-gate";
 import { Redact } from "../redaction/Redact";
 import { ApptMessagesPopover, type RecentMessagesMap } from "./DayAheadShared";
 
@@ -58,13 +60,10 @@ export type CalAppt = {
 	isCurrentUser: boolean;
 	arrivedAt: Date | null;
 	arrivedBy: string | null;
-	arrivedNote: string | null;
 	startedAt: Date | null;
 	startedBy: string | null;
-	startedNote: string | null;
 	leftAt: Date | null;
 	leftBy: string | null;
-	leftNote: string | null;
 	/** Not a real appointment yet - render as a pending/ghost block instead. */
 	isPreview?: boolean;
 };
@@ -269,7 +268,6 @@ function CheckinIndicator({ appt }: { appt: CalAppt }) {
 					appointmentId={appt.id}
 					arrivedAt={appt.arrivedAt}
 					arrivedBy={appt.arrivedBy}
-					arrivedNote={appt.arrivedNote}
 					endTime={appt.endTime}
 					isToday={
 						apptDateKey(appt.startTime) ===
@@ -277,10 +275,8 @@ function CheckinIndicator({ appt }: { appt: CalAppt }) {
 					}
 					leftAt={appt.leftAt}
 					leftBy={appt.leftBy}
-					leftNote={appt.leftNote}
 					startedAt={appt.startedAt}
 					startedBy={appt.startedBy}
-					startedNote={appt.startedNote}
 					startTime={appt.startTime}
 				/>
 			</PopoverContent>
@@ -329,6 +325,7 @@ export function ApptBlock({
 	const showEvaluatorLine =
 		showEvaluator && (heightPx === undefined || heightPx >= 56);
 	const [tooltipOpen, setTooltipOpen] = useState(false);
+	const checkinDateGate = useCheckinDateGate();
 	const { open: messagesOpen, setOpen: setMessagesOpen } = useContext(
 		MessagesPopoverOpenContext,
 	);
@@ -419,8 +416,8 @@ export function ApptBlock({
 						/>
 					)}
 					{canCheckin &&
-						apptDateKey(appt.startTime) <=
-							formatInBusinessTime(new Date(), "yyyy-MM-dd") && (
+						!isVirtualAppointment(appt.locationKey) &&
+						checkinDateGate(apptDateKey(appt.startTime)) && (
 							<CheckinIndicator appt={appt} />
 						)}
 				</div>
@@ -568,18 +565,17 @@ export function CalendarDayView({
 								</div>
 								{evaluatorCheckins &&
 									evaluatorCheckinDate &&
-									!ev.isCurrentUser && (
+									!ev.isCurrentUser &&
+									hasInPersonAppointment(ev.appts) && (
 										<div className="mt-1">
 											<EvaluatorCheckInOutControl
 												arrivedAt={checkin?.arrivedAt ?? null}
 												arrivedBy={checkin?.arrivedBy ?? null}
-												arrivedNote={checkin?.arrivedNote ?? null}
 												compact
 												date={evaluatorCheckinDate}
 												evaluatorNpi={ev.npi}
 												leftAt={checkin?.leftAt ?? null}
 												leftBy={checkin?.leftBy ?? null}
-												leftNote={checkin?.leftNote ?? null}
 											/>
 										</div>
 									)}

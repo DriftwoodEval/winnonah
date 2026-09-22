@@ -63,12 +63,6 @@ export function IssuesAlert() {
 		{ ...queryOptions, enabled: can("issues:no-drive-ids") },
 	);
 
-	const { data: missingRecordsNeeded } =
-		api.clients.getMissingRecordsNeeded.useQuery(undefined, {
-			...queryOptions,
-			enabled: can("issues:missing-records-needed"),
-		});
-
 	const { data: dd4 } = api.clients.getDD4.useQuery(undefined, {
 		...queryOptions,
 		enabled: can("issues:dd4"),
@@ -84,6 +78,12 @@ export function IssuesAlert() {
 		undefined,
 		{ ...queryOptions, enabled: can("issues:unreviewed-records") },
 	);
+
+	const { data: unconfirmedPrivateSchool } =
+		api.clients.getUnconfirmedPrivateSchool.useQuery(undefined, {
+			...queryOptions,
+			enabled: can("issues:private-school-confirm"),
+		});
 
 	const { data: duplicateQLinks } =
 		api.questionnaires.getDuplicateLinks.useQuery(undefined, {
@@ -177,11 +177,11 @@ export function IssuesAlert() {
 		countIf(can("clients:merge"), notesOnlyClients?.length ?? 0) +
 		countIf(can("issues:no-drive-ids"), noDriveIds?.length ?? 0) +
 		countIf(can("issues:private-pay"), possiblePrivatePay?.length ?? 0) +
-		countIf(
-			can("issues:missing-records-needed"),
-			missingRecordsNeeded?.length ?? 0,
-		) +
 		countIf(can("issues:unreviewed-records"), unreviewedRecords?.length ?? 0) +
+		countIf(
+			can("issues:private-school-confirm"),
+			unconfirmedPrivateSchool?.length ?? 0,
+		) +
 		countIf(
 			can("issues:duplicate-drive"),
 			duplicateFolderNames?.data.length ?? 0,
@@ -212,7 +212,7 @@ export function IssuesAlert() {
 		<Badge asChild variant="destructive">
 			<Link className="flex items-center gap-1" href="/issues">
 				{errorsLength}{" "}
-				<span className="hidden sm:inline">
+				<span className="hidden lg:inline">
 					{errorsLength === 1 ? "issue" : "issues"}
 				</span>
 			</Link>

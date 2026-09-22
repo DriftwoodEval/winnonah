@@ -1,6 +1,7 @@
 "use client";
 
 import { Button } from "@ui/button";
+import { Skeleton } from "@ui/skeleton";
 import { TooltipProvider } from "@ui/tooltip";
 import { addDays, format, startOfWeek } from "date-fns";
 import { fromZonedTime } from "date-fns-tz";
@@ -137,10 +138,11 @@ export function CalendarViewWidget({ mode }: { mode: CalWidgetMode }) {
 	);
 	const todayInRange = dateRange.includes(todayStr);
 
-	const { data, isLoading } = api.appointments.getCalendarRange.useQuery({
-		startDate: dateRange[0] ?? todayStr,
-		endDate: dateRange.at(-1) ?? todayStr,
-	});
+	const { data, isLoading, isError } =
+		api.appointments.getCalendarRange.useQuery({
+			startDate: dateRange[0] ?? todayStr,
+			endDate: dateRange.at(-1) ?? todayStr,
+		});
 
 	const colorMap = useMemo(() => buildColorMap(data ?? []), [data]);
 
@@ -307,8 +309,16 @@ export function CalendarViewWidget({ mode }: { mode: CalWidgetMode }) {
 	return (
 		<TooltipProvider>
 			<WidgetShell linkHref={linkHref} nav={nav} title={LABEL[mode]}>
-				{isLoading ? (
-					<p className="text-muted-foreground text-sm">Loading...</p>
+				{isError ? (
+					<p className="text-muted-foreground text-sm">
+						Couldn't load. Try refreshing the page.
+					</p>
+				) : isLoading ? (
+					<div className="flex flex-col gap-2 p-1">
+						<Skeleton className="h-4 w-full" />
+						<Skeleton className="h-4 w-full" />
+						<Skeleton className="h-4 w-3/4" />
+					</div>
 				) : !data ? null : mode === "day" ? (
 					<CalendarDayView
 						appointments={data}

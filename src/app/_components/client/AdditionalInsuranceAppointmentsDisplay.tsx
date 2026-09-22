@@ -88,11 +88,26 @@ export function AdditionalInsuranceAppointmentsDisplay({
 		},
 	});
 
-	const insurance = insurances.find(
+	const isBabyNet =
+		client.babyNet ||
+		(client.primaryInsurance?.toLowerCase().includes("babynet") ?? false) ||
+		(client.secondaryInsurance ?? []).some((s) =>
+			s.toLowerCase().includes("babynet"),
+		);
+
+	const primaryMatchedInsurance = insurances.find(
 		(i) =>
 			i.shortName === client.primaryInsurance ||
 			i.aliases.some((a) => a.name === client.primaryInsurance),
 	);
+	const babyNetInsurance = insurances.find(
+		(i) =>
+			i.shortName.toLowerCase() === "babynet" ||
+			i.aliases.some((a) => a.name.toLowerCase().includes("babynet")),
+	);
+	const insurance = isBabyNet
+		? (babyNetInsurance ?? primaryMatchedInsurance)
+		: primaryMatchedInsurance;
 
 	const additionalAppts = insurance?.additionalAppts as
 		| {
@@ -108,12 +123,6 @@ export function AdditionalInsuranceAppointmentsDisplay({
 
 	const maxUnitsPerDay = additionalAppts?.maxUnitsPerDay ?? 6;
 	const waitForPA = insurance?.preAuthNeeded ?? false;
-	const isBabyNet =
-		client.babyNet ||
-		(client.primaryInsurance?.toLowerCase().includes("babynet") ?? false) ||
-		(client.secondaryInsurance ?? []).some((s) =>
-			s.toLowerCase().includes("babynet"),
-		);
 	const using90000BillingCode = additionalAppts?.using90000BillingCode ?? false;
 	const snapshot = client.assessmentData;
 
@@ -137,7 +146,7 @@ export function AdditionalInsuranceAppointmentsDisplay({
 	const precertMemo = activePrecertPolicy?.precertMemo ?? null;
 	const precertCodes = precertMemo ? parsePrecertMemo(precertMemo) : null;
 
-	if (!canSee || !client.primaryInsurance) {
+	if (!canSee || (!client.primaryInsurance && !isBabyNet)) {
 		return null;
 	}
 

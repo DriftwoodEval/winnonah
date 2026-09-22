@@ -4,6 +4,7 @@ from datetime import datetime
 import pandas as pd
 
 from utils.misc import get_column
+from utils.timezone import now_business
 
 
 def _normalize_insurance_name(name: str, standardized_mappings: dict[str, str]) -> str:
@@ -98,7 +99,7 @@ def _get_client_age(client: pd.Series) -> int | None:
         return None
 
     client_dob = datetime.strptime(client_dob, "%Y-%m-%d")
-    current_date = datetime.now()
+    current_date = now_business()
     return (
         current_date.year
         - client_dob.year

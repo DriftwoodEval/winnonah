@@ -150,6 +150,18 @@ class TestConsolidateById:
         result = _consolidate_by_id(df)
         assert list(result["CLIENT_ID"]) == [1]
 
+    def test_active_with_any_therapist_wins_over_inactive(self):
+        df = pd.DataFrame(
+            {
+                "CLIENT_ID": [1, 1, 2],
+                "FIRSTNAME": ["John", "John", "Jane"],
+                "STATUS": ["Inactive", "Active", "Inactive"],
+            }
+        )
+        result = _consolidate_by_id(df).set_index("CLIENT_ID")
+        assert result.loc[1, "STATUS"] == "Active"
+        assert result.loc[2, "STATUS"] == "Inactive"
+
 
 class TestRemoveInvalidClients:
     def test_removes_rows_with_nan_client_id(self):

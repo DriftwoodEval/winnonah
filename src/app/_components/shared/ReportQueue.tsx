@@ -12,14 +12,23 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { useCheckPermission } from "~/hooks/use-check-permission";
+import {
+	REPORT_QUEUE_FOLDER_ID,
+	REPORT_WRITERS_FOLDER_ID,
+} from "~/lib/constants";
 import { api } from "~/trpc/react";
 
 interface ReportQueueProps {
-	sourceId: string;
-	destId: string;
+	sourceId?: string;
+	destId?: string;
+	className?: string;
 }
 
-export default function ReportQueue({ sourceId, destId }: ReportQueueProps) {
+export default function ReportQueue({
+	sourceId = REPORT_QUEUE_FOLDER_ID,
+	destId = REPORT_WRITERS_FOLDER_ID,
+	className = "mx-auto my-4 w-full max-w-2xl",
+}: ReportQueueProps) {
 	const utils = api.useUtils();
 	const can = useCheckPermission();
 	const canApprove = can("reports:approve");
@@ -54,6 +63,8 @@ export default function ReportQueue({ sourceId, destId }: ReportQueueProps) {
 				else void utils.google.getQueueCount.invalidate();
 				void utils.google.getClaimedFolders.invalidate();
 				void utils.google.getClaimedReports.invalidate();
+				void utils.reports.list.invalidate();
+				void utils.reports.myReports.invalidate();
 				return `Claimed "${data.folder_claimed}" into "${data.moved_into}"`;
 			},
 			error: (err: Error) => err.message,
@@ -71,7 +82,7 @@ export default function ReportQueue({ sourceId, destId }: ReportQueueProps) {
 		: (queueCount ?? 0);
 
 	return (
-		<Card className="mx-auto my-4 w-full max-w-2xl shadow-sm">
+		<Card className={`shadow-sm ${className}`}>
 			<CardHeader className="flex flex-row flex-wrap items-center justify-between gap-2 space-y-0">
 				<div className="flex items-center gap-3">
 					<div className="rounded-lg bg-primary/10 p-2 text-primary">
@@ -155,12 +166,12 @@ export default function ReportQueue({ sourceId, destId }: ReportQueueProps) {
 										<div className="flex flex-col gap-2">
 											{claimedFolders.map((folder) => (
 												<div
-													className="flex items-center justify-between rounded-md bg-amber-50 p-3 dark:bg-amber-950/20"
+													className="flex items-center justify-between rounded-md bg-warning/10 p-3"
 													key={folder.id}
 												>
 													<div className="flex items-center gap-3">
 														<FolderIcon
-															className="fill-amber-500 text-amber-500"
+															className="fill-warning/20 text-warning"
 															size={18}
 														/>
 														<span className="font-bold text-sm leading-none">
@@ -168,7 +179,7 @@ export default function ReportQueue({ sourceId, destId }: ReportQueueProps) {
 														</span>
 													</div>
 													<Button
-														className="h-8 w-8 text-amber-600 hover:cursor-pointer hover:bg-amber-100 hover:text-amber-700 dark:hover:bg-amber-900/30"
+														className="h-8 w-8 text-warning hover:cursor-pointer hover:bg-warning/10 hover:text-warning"
 														onClick={() =>
 															window.open(
 																`https://drive.google.com/drive/folders/${folder.id}`,
@@ -203,7 +214,7 @@ export default function ReportQueue({ sourceId, destId }: ReportQueueProps) {
 											>
 												<div className="flex items-center gap-3">
 													<FolderIcon
-														className="fill-amber-500/20 text-amber-500"
+														className="fill-primary/20 text-primary"
 														size={18}
 													/>
 													<span className="font-medium text-sm leading-none">

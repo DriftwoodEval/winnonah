@@ -20,11 +20,16 @@ export type Questionnaire = typeof questionnaires.$inferSelect;
 export interface ClientWithIssueInfo extends Client {
 	additionalInfo?: string;
 	initialFailureDate?: Date;
+	referralMessageSentAt?: Date | null;
 }
 export type FullClientInfo = PUNCH_SCHEMA &
 	Client & {
 		hasExternalRecordsNote?: boolean;
 		externalRecordsRequestedDate?: string | null;
+		hasRecordRequest?: boolean;
+		hasCurrentSessionRecordRequest?: boolean;
+		recordsHoldUntil?: string | null;
+		recordsRequestQueuedDate?: string | null;
 		failures?: Failure[];
 		questionnaires?: Questionnaire[];
 		hasPast96130Appt?: boolean;

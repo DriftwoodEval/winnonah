@@ -5,12 +5,16 @@ import Link from "next/link";
 import { useSession } from "next-auth/react";
 import { useCheckPermission } from "~/hooks/use-check-permission";
 import { api } from "~/trpc/react";
+import { PinListButton } from "../dashboard/PinListButton";
 import { Redact } from "../redaction/Redact";
 
 export function RecentClientsWidget() {
 	const { data: session } = useSession();
-	const { data: recentClients, isLoading } =
-		api.users.getRecentClients.useQuery(undefined, { enabled: !!session });
+	const {
+		data: recentClients,
+		isLoading,
+		isError,
+	} = api.users.getRecentClients.useQuery(undefined, { enabled: !!session });
 
 	if (isLoading) {
 		return (
@@ -19,6 +23,14 @@ export function RecentClientsWidget() {
 				<Skeleton className="h-7 w-28" />
 				<Skeleton className="h-7 w-16" />
 			</div>
+		);
+	}
+
+	if (isError) {
+		return (
+			<p className="px-3 py-4 text-center text-muted-foreground text-sm">
+				Couldn't load. Try refreshing the page.
+			</p>
 		);
 	}
 
@@ -50,12 +62,15 @@ export function RecentClientsWidget() {
 
 export function MyInsuranceClientsWidget() {
 	const can = useCheckPermission();
-	const { data: clients, isLoading } =
-		api.insuranceReview.getMyClaimedClients.useQuery(undefined, {
-			enabled: can("clients:insurance:review"),
-		});
+	const {
+		data: clients,
+		isLoading,
+		isError,
+	} = api.adminReview.getMyClaimedClients.useQuery(undefined, {
+		enabled: can("clients:admin:review"),
+	});
 
-	if (!can("clients:insurance:review")) return null;
+	if (!can("clients:admin:review")) return null;
 
 	if (isLoading) {
 		return (
@@ -67,28 +82,40 @@ export function MyInsuranceClientsWidget() {
 		);
 	}
 
-	if (!clients?.length) {
-		return (
-			<p className="px-3 py-4 text-center text-muted-foreground text-sm">
-				No claimed insurance clients
-			</p>
-		);
-	}
-
 	return (
-		<div className="flex flex-wrap items-center gap-2 overflow-auto rounded-lg border border-destructive/20 bg-destructive/5 p-3">
-			<span className="text-muted-foreground text-xs uppercase tracking-wide">
-				My Insurance Clients
-			</span>
-			{clients.map((c) => (
-				<Link
-					className="shrink-0 whitespace-nowrap rounded-md border bg-background px-2.5 py-1 text-sm shadow-xs hover:bg-accent hover:text-accent-foreground dark:border-input dark:bg-input/30 dark:hover:bg-input/50"
-					href={`/clients/${c.clientHash}?tab=insurance`}
-					key={c.clientHash}
-				>
-					<Redact>{c.clientName}</Redact>
-				</Link>
-			))}
+		<div className="flex flex-col gap-2 overflow-auto rounded-lg border border-destructive/20 bg-destructive/5 p-3">
+			<div className="flex items-center justify-between gap-2">
+				<span className="text-muted-foreground text-xs uppercase tracking-wide">
+					My Admin Review Clients
+				</span>
+				<PinListButton pinned={{ kind: "adminReview" }} />
+			</div>
+			{isError ? (
+				<p className="py-2 text-center text-muted-foreground text-sm">
+					Couldn't load. Try refreshing the page.
+				</p>
+			) : !clients?.length ? (
+				<p className="py-2 text-center text-muted-foreground text-sm">
+					No claimed admin review clients
+				</p>
+			) : (
+				<div className="flex flex-wrap items-center gap-2">
+					{clients.map((c) => (
+						<Link
+							className="flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-md border bg-background px-2.5 py-1 text-sm shadow-xs hover:bg-accent hover:text-accent-foreground dark:border-input dark:bg-input/30 dark:hover:bg-input/50"
+							href={`/clients/${c.clientHash}?tab=admin-review`}
+							key={c.clientHash}
+						>
+							<Redact>{c.clientName}</Redact>
+							{c.waiting && (
+								<span className="rounded-sm bg-warning px-1 py-0.5 text-[10px] text-warning-foreground">
+									Waiting
+								</span>
+							)}
+						</Link>
+					))}
+				</div>
+			)}
 		</div>
 	);
 }

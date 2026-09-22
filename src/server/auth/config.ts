@@ -1,15 +1,20 @@
 import { DrizzleAdapter } from "@auth/drizzle-adapter";
 import { and, eq } from "drizzle-orm/sql";
+import { cookies } from "next/headers";
 import type { DefaultSession, NextAuthConfig } from "next-auth";
 import GoogleProvider from "next-auth/providers/google";
 import { env } from "~/env";
 import type { PermissionsObject } from "~/lib/types";
 import { hasPermission } from "~/lib/utils";
-import { getImpersonationCookieId } from "~/server/auth/impersonation";
+import {
+	getImpersonationCookieId,
+	IMPERSONATION_COOKIE,
+} from "~/server/auth/impersonation";
 
 import { db } from "~/server/db";
 import {
 	accounts,
+	auditLogs,
 	evaluators,
 	invitations,
 	roles,
@@ -72,7 +77,7 @@ export const authConfig = {
 			clientSecret: process.env.AUTH_GOOGLE_SECRET,
 			authorization: {
 				params: {
-					hd: env.NEXT_PUBLIC_APP_HOST,
+					hd: env.AUTH_GOOGLE_WORKSPACE_DOMAIN,
 					access_type: "offline",
 					response_type: "code",
 					include_granted_scopes: "true",
@@ -96,9 +101,61 @@ export const authConfig = {
 		sessionsTable: sessions,
 		verificationTokensTable: verificationTokens,
 	}),
+	events: {
+		/**
+		 * The "view as" cookie is app-set, not part of the NextAuth session, so
+		 * it survives sign-out on its own. On a shared browser that leaves it
+		 * pointing at whatever user the previous person was impersonating, and
+		 * the next person to sign in inherits it if they also hold
+		 * settings:impersonate.
+		 */
+		async signOut() {
+			const store = await cookies();
+			store.delete(IMPERSONATION_COOKIE);
+		},
+		/**
+		 * Runs after the adapter has persisted a new user, so `user.id` is
+		 * populated here, unlike in the `signIn` callback where it isn't yet
+		 * for a first-time sign-in.
+		 */
+		async signIn({ user, isNewUser }) {
+			if (!isNewUser || !user.email || !user.id) return;
+
+			const invitation = await db.query.invitations.findFirst({
+				where: and(
+					eq(invitations.email, user.email),
+					eq(invitations.status, "accepted"),
+				),
+			});
+			if (!invitation) return;
+
+			await db.insert(auditLogs).values({
+				userId: user.id,
+				userEmail: user.email,
+				action: "invitation.accepted",
+				detail: { invitationId: invitation.id, roleId: user.roleId ?? null },
+				success: true,
+			});
+		},
+	},
 	callbacks: {
-		async signIn({ user, account }) {
+		async signIn({ user, account, profile }) {
 			if (!user.email) return false;
+
+			if (account?.provider === "google") {
+				const googleProfile = profile as
+					| { hd?: string; email_verified?: boolean }
+					| undefined;
+
+				// `hd` in the authorization request is only a client-side hint; Google
+				// does not enforce it, so the returned profile must be checked here too.
+				if (
+					googleProfile?.hd !== env.AUTH_GOOGLE_WORKSPACE_DOMAIN ||
+					googleProfile.email_verified !== true
+				) {
+					return false;
+				}
+			}
 
 			const userInDb = await db.query.users.findFirst({
 				where: eq(users.email, user.email),

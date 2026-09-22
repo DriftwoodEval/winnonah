@@ -5,6 +5,7 @@ import pytest
 from dateutil.relativedelta import relativedelta
 
 from utils.forms import fill_select_health_form
+from utils.timezone import now_business
 
 
 def get_field_values(pdf_bytes: bytes) -> dict[str, str | bool]:
@@ -55,7 +56,7 @@ class TestFillSelectHealthForm:
         [(11, False), (12, True), (25, True)],
     )
     def test_substance_abuse_checkbox_reflects_age_cutoff(self, age_years, expect_yes):
-        dob = date.today() - relativedelta(years=age_years)
+        dob = now_business().date() - relativedelta(years=age_years)
         values = get_field_values(fill_select_health_form({"dob": dob}))
 
         assert values["Age"] == str(age_years)
@@ -72,8 +73,9 @@ class TestFillSelectHealthForm:
         cpt_codes = [{"code": "96130", "units": 4}]
         values = get_field_values(fill_select_health_form({}, cpt_codes=cpt_codes))
 
-        today_str = date.today().strftime("%m/%d/%Y")
-        stop_str = (date.today() + relativedelta(months=12)).strftime("%m/%d/%Y")
+        today = now_business().date()
+        today_str = today.strftime("%m/%d/%Y")
+        stop_str = (today + relativedelta(months=12)).strftime("%m/%d/%Y")
 
         assert values["Start date 4.5"] == today_str
         assert values["Stop date"] == stop_str

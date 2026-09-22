@@ -97,10 +97,10 @@ export function IssueWidgetById({ id }: { id: string }) {
 			return <NoDriveIdsWidget />;
 		case "private-pay":
 			return <PrivatePayWidget />;
-		case "missing-records-needed":
-			return <MissingRecordsNeededWidget />;
 		case "unreviewed-records":
 			return <UnreviewedRecordsWidget />;
+		case "private-school-confirm":
+			return <PrivateSchoolConfirmWidget />;
 		case "duplicate-drive":
 			return <DuplicateDriveWidget />;
 		case "duplicate-q-links":
@@ -251,7 +251,11 @@ function ClientsNotInDbWidget() {
 					suggestions: c.suggestions,
 				}))}
 				onAction={(itemId, suggestedId) =>
-					updatePunchId({ currentId: itemId, newId: suggestedId })
+					updatePunchId({
+						clientId: suggestedId,
+						currentId: itemId,
+						newId: suggestedId,
+					})
 				}
 				title="Punchlist Clients Not In DB"
 			/>
@@ -493,23 +497,6 @@ function PrivatePayWidget() {
 	);
 }
 
-function MissingRecordsNeededWidget() {
-	const can = useCheckPermission();
-	const { data, isLoading } = api.clients.getMissingRecordsNeeded.useQuery(
-		undefined,
-		{ refetchInterval: 60_000, enabled: can("issues:missing-records-needed") },
-	);
-	return (
-		<SimpleIssueWidget
-			clients={data}
-			description="Clients whose records needed status is not set."
-			isLoading={isLoading}
-			permission="issues:missing-records-needed"
-			title="Records Needed Not Set"
-		/>
-	);
-}
-
 function UnreviewedRecordsWidget() {
 	const can = useCheckPermission();
 	const { data, isLoading } = api.clients.getUnreviewedRecords.useQuery(
@@ -523,6 +510,23 @@ function UnreviewedRecordsWidget() {
 			isLoading={isLoading}
 			permission="issues:unreviewed-records"
 			title="Unreviewed/Unreceived Records"
+		/>
+	);
+}
+
+function PrivateSchoolConfirmWidget() {
+	const can = useCheckPermission();
+	const { data, isLoading } = api.clients.getUnconfirmedPrivateSchool.useQuery(
+		undefined,
+		{ refetchInterval: 60_000, enabled: can("issues:private-school-confirm") },
+	);
+	return (
+		<SimpleIssueWidget
+			clients={data}
+			description="Intake says private or charter school. Records requests wait until someone confirms it on the Referral tab."
+			isLoading={isLoading}
+			permission="issues:private-school-confirm"
+			title="Private School Awaiting Confirmation"
 		/>
 	);
 }

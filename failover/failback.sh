@@ -13,27 +13,59 @@ STANDBY_COMPOSE="docker compose -f ~/winnonah/docker-compose.yaml -f ~/winnonah/
 
 log()   { echo "[$(date '+%H:%M:%S')] FAILBACK: $*"; }
 slack() {
+  # JSON-encoded via python3 rather than hand-built, since a hand-built
+  # payload breaks on a message containing a double quote or newline (e.g.
+  # a failing command reported by the ERR trap below).
+  local payload
+  payload="$(python3 -c 'import json, sys; print(json.dumps({"text": sys.argv[1]}))' "$1")"
   curl -s -X POST "${SLACK_WEBHOOK_URL}" \
     -H "Content-Type: application/json" \
-    -d "{\"text\": \"$1\"}" > /dev/null || true
+    -d "${payload}" > /dev/null || true
 }
+
+# Without this, a failure partway through exits with `set -e` and no other
+# indication of what happened or where, as if the script had just stopped.
+#
+# The trap calls a function rather than inlining these steps, and passes
+# $?/$LINENO/$BASH_COMMAND in as arguments, because referencing them from
+# separate statements inside the trap body (rather than in one single
+# expansion) makes bash report the wrong line for a command that spans
+# multiple physical lines: $LINENO drifts to the end of that command, or
+# further, instead of staying on the line where it started.
+on_error() {
+  local status="$1" line="$2" command="$3"
+  log "FAILED (exit ${status}) at line ${line}: ${command}"
+  slack "🚨 Failback script failed at line ${line} (exit ${status}): \`${command:0:500}\`. Check the primary manually before retrying."
+}
+trap 'on_error "$?" "${LINENO}" "${BASH_COMMAND}"' ERR
 
 log "=== FAILBACK STARTING ==="
 slack "Failback initiated. Syncing primary from standby before swapping traffic."
 
-# 0. Kill standby's STONITH loop first. It retries "docker compose down" on
-# primary every 15s until it succeeds, with no awareness that failback is
-# starting, so if primary becomes reachable while STONITH is still running
-# it will tear down the services we're about to bring up.
+# 0. Kill standby's STONITH loop first. It retries stopping and removing
+# primary's containers every 15s until it succeeds, with no awareness that
+# failback is starting, so if primary becomes reachable while STONITH is still
+# running it will tear down the services we're about to bring up.
 log "Stopping standby's STONITH loop..."
 ssh -o LogLevel=quiet -i "${STANDBY_SSH_KEY_PATH}" "${STANDBY_SSH_USER}@${STANDBY_TAILSCALE_IP}" \
   'if [ -f /tmp/stonith.pid ]; then kill "$(cat /tmp/stonith.pid)" 2>/dev/null; rm -f /tmp/stonith.pid; fi' \
   || log "Could not reach standby to stop STONITH, continuing."
 
 # 1. Start primary driftwood-db, redis, and the monitoring stack
-# Like caddy, these have no profile and are normally always-on, but
-# STONITH's blanket `docker compose down` on primary (failover.sh) removes
-# them along with everything else, so bring them back up here.
+# Like caddy, these have no profile and are normally always-on, but STONITH
+# (failover.sh) stops and removes every primary container, so bring them back
+# up here.
+#
+# This `up` may print Compose WARN lines about "winnonah_default" or
+# "winnonah_winnonah_db-data" not matching the compose file. Those are
+# leftover network/volume objects from before the default network was pinned
+# to winnonah-net and the db volume was made external (see the `networks:`
+# block in docker-compose.yaml and `volumes:` in docker-compose.primary.yaml).
+# Compose leaves them untouched and uses the correctly named resources
+# instead, so the warning itself is harmless noise, not a failure. Do NOT
+# `docker network rm`/`docker volume rm` them though: a container can still
+# be attached to one by its old ID even with the name unused, and removing it
+# breaks that container ("network <id> not found" on its next start).
 log "Starting primary driftwood-db, redis, loki, promtail, and grafana..."
 if ! ${PRIMARY_COMPOSE} up -d --wait driftwood-db redis loki promtail grafana; then
   log "Primary MySQL did not become healthy. Fix it first."
@@ -42,54 +74,95 @@ if ! ${PRIMARY_COMPOSE} up -d --wait driftwood-db redis loki promtail grafana; t
 fi
 log "Primary MySQL OK."
 
-# 2. Point primary at standby to catch up
-log "Syncing primary from standby (${STANDBY_TAILSCALE_IP})..."
-docker exec -i driftwood-db mysql -uroot -p"${MYSQL_ROOT_PASSWORD}" << SQL
-STOP REPLICA;
-RESET REPLICA ALL;
-CHANGE REPLICATION SOURCE TO
-  SOURCE_HOST='${STANDBY_TAILSCALE_IP}',
-  SOURCE_PORT=3306,
-  SOURCE_USER='${MYSQL_REPLICATION_USER}',
-  SOURCE_PASSWORD='${MYSQL_REPLICATION_PASSWORD}',
-  SOURCE_AUTO_POSITION=1,
-  GET_SOURCE_PUBLIC_KEY=1;
-START REPLICA;
-SQL
-slack "Primary replicating from standby. Waiting to catch up..."
-
-# 3. Wait for lag = 0
-log "Waiting for primary to catch up..."
-for i in $(seq 1 60); do
-  lag=$(docker exec driftwood-db mysql --vertical -uroot -p"${MYSQL_ROOT_PASSWORD}" \
-    -e "SHOW REPLICA STATUS" 2>/dev/null \
-    | grep "Seconds_Behind_Source" | awk '{print $2}' || true)
-  log "  Lag: ${lag:-unknown}s"
-  [ "${lag}" = "0" ] && break
-  sleep 5
-done
-log "Primary caught up."
-
-# 4. Stop standby cloudflared and winnonah
-log "Stopping standby services..."
+# 2. Dump standby (the source of truth right now) and load it onto primary,
+# replacing primary's data wholesale instead of catching primary up via live
+# GTID replication. Seconds_Behind_Source is not a trustworthy "caught up"
+# signal right after START REPLICA: it can read 0 before the IO thread has
+# even connected to the source, and the old wait loop's first check ran with
+# no prior sleep, so it could pass instantly, before anything had actually
+# replicated, and traffic got cut back to a primary still holding its stale
+# pre-failover data. A dump-and-restore has no such false-positive.
+#
+# The same dump is also kept as a timestamped backup on standby itself
+# (~/winnonah/backups/failback), since it's about to be overwritten by
+# mysql-replication-init.sh re-seeding standby as primary's replica in
+# step 6, and standby is otherwise the only copy of its own pre-failback
+# state.
+log "Dumping standby database (${STANDBY_TAILSCALE_IP})..."
+# MYSQL_ROOT_PASSWORD is passed explicitly since the remote shell won't have
+# it, then read back inside the heredoc's own bash -s process (see the same
+# pattern and reasoning in mysql-replication-init.sh).
 ssh -o LogLevel=quiet -i "${STANDBY_SSH_KEY_PATH}" "${STANDBY_SSH_USER}@${STANDBY_TAILSCALE_IP}" \
-  "${STANDBY_COMPOSE} --profile active_only stop cloudflared winnonah winnonah-python"
+  "MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD} bash -s" > /tmp/standby_dump.sql << 'REMOTE'
+set -euo pipefail
+BACKUP_DIR="$HOME/winnonah/backups/failback"
+mkdir -p "$BACKUP_DIR"
+BACKUP_FILE="$BACKUP_DIR/standby_$(date +%Y%m%d_%H%M%S).sql"
+
+docker exec driftwood-db mysqldump \
+  -uroot -p"${MYSQL_ROOT_PASSWORD}" \
+  --all-databases \
+  --single-transaction \
+  --source-data=2 \
+  --flush-logs \
+  --routines \
+  --triggers \
+  --events \
+  --set-gtid-purged=ON \
+  | tee "$BACKUP_FILE"
+
+# Keep only the 5 most recent failback backups.
+ls -1t "$BACKUP_DIR"/standby_*.sql | tail -n +6 | xargs -r rm -f
+REMOTE
+log "Dump complete: $(du -sh /tmp/standby_dump.sql | cut -f1)"
+slack "Standby dumped and backed up on standby. Restoring onto primary..."
+
+log "Restoring primary from standby's dump..."
+docker exec driftwood-db mysql -uroot -p"${MYSQL_ROOT_PASSWORD}" \
+  -e "STOP REPLICA; RESET REPLICA ALL; RESET BINARY LOGS AND GTIDS;
+      SET GLOBAL read_only=OFF; SET GLOBAL super_read_only=OFF;"
+
+docker exec -i driftwood-db mysql -uroot -p"${MYSQL_ROOT_PASSWORD}" \
+  < /tmp/standby_dump.sql
+log "Primary restored from standby."
+slack "Primary restored from standby's data."
+
+# 3. Stop standby cloudflared and its active web slot
+# Deploy.sh can leave either winnonah-a or winnonah-b running on standby
+# (a rolling deploy may have happened while standby was serving), so find
+# whichever one is actually up rather than assuming winnonah-a.
+#
+# The remote loop's own exit status is discarded with `; exit 0`: when
+# neither slot is running, the last command inside the loop is a failed `[`
+# test, which would otherwise make the ssh call itself fail and, under this
+# script's `set -e`, kill failback silently right here with no Slack alert
+# and no indication of why.
+STANDBY_SLOT=$(ssh -o LogLevel=quiet -i "${STANDBY_SSH_KEY_PATH}" "${STANDBY_SSH_USER}@${STANDBY_TAILSCALE_IP}" \
+  'for s in winnonah-a winnonah-b; do
+     [ "$(docker inspect -f "{{.State.Running}}" "$s" 2>/dev/null)" = "true" ] && echo "$s" && break
+   done; exit 0')
+STANDBY_SLOT="${STANDBY_SLOT:-winnonah-a}"
+
+log "Stopping standby services (web slot: ${STANDBY_SLOT})..."
+ssh -o LogLevel=quiet -i "${STANDBY_SSH_KEY_PATH}" "${STANDBY_SSH_USER}@${STANDBY_TAILSCALE_IP}" \
+  "${STANDBY_COMPOSE} --profile active_only stop cloudflared ${STANDBY_SLOT} winnonah-python"
 slack "Standby tunnel stopped. Starting primary tunnel..."
 
-# 5. Start primary caddy, cloudflared, and winnonah
-# caddy has no profile so it's normally always-on, but STONITH's blanket
-# `docker compose down` on primary (failover.sh) removes it along with
-# everything else, so it needs to be started back up explicitly here.
-log "Starting primary caddy, cloudflared, and winnonah..."
-${PRIMARY_COMPOSE} up -d caddy cloudflared winnonah
+# 4. Start primary caddy, cloudflared, and winnonah-a
+# caddy has no profile so it's normally always-on, but STONITH (failover.sh)
+# stops and removes it along with everything else, so start it back up
+# explicitly here. Primary was fully torn down, so there's no existing web slot
+# to preserve - winnonah-a is always the right one to start.
+log "Starting primary caddy, cloudflared, and winnonah-a..."
+${PRIMARY_COMPOSE} up -d caddy cloudflared winnonah-a
 sleep 10
 
-# 6. Start primary python jobs
+# 5. Start primary python jobs
 log "Starting primary python jobs..."
 ${PRIMARY_COMPOSE} up -d winnonah-python
 slack "Python jobs active on primary."
 
-# 7. Re-establish primary -> standby replication
+# 6. Re-establish primary -> standby replication
 log "Disconnecting primary replica channel..."
 docker exec driftwood-db mysql -uroot -p"${MYSQL_ROOT_PASSWORD}" \
   -e "STOP REPLICA; RESET REPLICA ALL;"
@@ -98,7 +171,7 @@ log "Re-seeding standby as replica..."
 bash "$DIR/mysql-replication-init.sh"
 slack "Replication restored: primary -> standby."
 
-# 8. Clear flags and ack to Worker
+# 7. Clear flags and ack to Worker
 log "Clearing failover flags..."
 ssh -o LogLevel=quiet -i "${STANDBY_SSH_KEY_PATH}" "${STANDBY_SSH_USER}@${STANDBY_TAILSCALE_IP}" \
   "rm -f /tmp/failover_active"
@@ -110,9 +183,13 @@ curl -sf -X POST \
   "https://failover-monitor.${CF_WORKER_SUBDOMAIN}.workers.dev/ack" \
   || log "Could not ack to worker."
 
-# 9. Re-enable watchtower
+# 8. Re-enable watchtower
 log "Re-enabling watchtower..."
 ${PRIMARY_COMPOSE} up -d watchtower
+
+# 9. Email notification (Slack already covered each step above)
+docker exec winnonah-python uv run failover_notify.py failback \
+  || log "Could not send failback email, non-fatal."
 
 log "=== FAILBACK COMPLETE ==="
 slack "Failback complete. Primary is live at emr.driftwoodeval.com. System normal."

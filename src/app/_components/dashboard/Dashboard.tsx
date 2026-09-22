@@ -35,6 +35,7 @@ import { useSession } from "next-auth/react";
 import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { useCheckPermission } from "~/hooks/use-check-permission";
+import { usePersistedScroll } from "~/hooks/use-persisted-scroll";
 import { getHexFromColor, isClientColor } from "~/lib/colors";
 import {
 	type DashboardClient,
@@ -43,13 +44,13 @@ import {
 	SECTION_EVAL_QS_DONE,
 	SECTION_NEEDS_OUTREACH,
 	SECTION_REACHED_OUT_NEEDS_REVIEW,
-	SECTION_RECORDS_NEEDED_NOT_REQUESTED,
 	SECTION_RECORDS_REQUESTED_NOT_RETURNED,
 } from "~/lib/dashboard";
 import type { FullClientInfo } from "~/lib/models";
 import { userBadgeStyle } from "~/lib/utils";
 import { api } from "~/trpc/react";
 import { Redact } from "../redaction/Redact";
+import { PinListButton } from "./PinListButton";
 
 interface PunchListAccordionProps {
 	clients: DashboardClient[];
@@ -68,6 +69,7 @@ function PunchListAccordionItem({
 	const can = useCheckPermission();
 	const utils = api.useUtils();
 	const savedClientRef = useRef<HTMLDivElement>(null);
+	const persistScrollRef = usePersistedScroll(`dashboard-section:${title}`);
 	const savedPlaceKey = title
 		.split(" ")
 		.map((word, index) =>
@@ -115,6 +117,7 @@ function PunchListAccordionItem({
 			if (clients[fallbackIndex]) {
 				updateSavedPlaces({
 					key: savedPlaceKey,
+					clientId: clients[fallbackIndex].id,
 					hash: clients[fallbackIndex].hash,
 					index: fallbackIndex,
 				});
@@ -177,8 +180,6 @@ function PunchListAccordionItem({
 	const isClaimableSection = title === SECTION_NEEDS_OUTREACH;
 	const isRecordsNotReturnedSection =
 		title === SECTION_RECORDS_REQUESTED_NOT_RETURNED;
-	const isRecordsNeededNotRequestedSection =
-		title === SECTION_RECORDS_NEEDED_NOT_REQUESTED;
 
 	return (
 		<AccordionItem value={title}>
@@ -202,6 +203,9 @@ function PunchListAccordionItem({
 						<AlertDescription>{description}</AlertDescription>
 					</Alert>
 				)}
+				<div className="mb-2 flex justify-end">
+					<PinListButton pinned={{ kind: "dashboardSection", title }} />
+				</div>
 				{savedPlaceKey && savedPlaceHash && (
 					<div className="mb-2 flex justify-end">
 						<Button
@@ -217,7 +221,10 @@ function PunchListAccordionItem({
 						</Button>
 					</div>
 				)}
-				<ScrollArea className="h-[400px] w-full rounded-md border bg-card text-card-foreground shadow-sm">
+				<ScrollArea
+					className="h-[400px] w-full rounded-md border bg-card text-card-foreground shadow-sm"
+					viewportRef={persistScrollRef}
+				>
 					<div className="p-4">
 						{clients?.map((client, index) => {
 							const punchClient = client as FullClientInfo & DashboardClient;
@@ -260,8 +267,7 @@ function PunchListAccordionItem({
 																	{punchClient.asdAdhd}
 																</span>
 															)}
-														{(isOutreachSection ||
-															isRecordsNeededNotRequestedSection) &&
+														{isOutreachSection &&
 															language &&
 															language.toLowerCase() !== "english" && (
 																<span className="font-bold text-destructive text-xs">
@@ -318,9 +324,18 @@ function PunchListAccordionItem({
 															</span>
 														)}
 													</div>
-													{punchClient.extraInfo && (
+													{(punchClient.extraInfo ||
+														punchClient.dangerInfo) && (
 														<span className="text-muted-foreground text-xs">
 															{punchClient.extraInfo}
+															{punchClient.extraInfo &&
+																punchClient.dangerInfo &&
+																", "}
+															{punchClient.dangerInfo && (
+																<span className="text-destructive">
+																	{punchClient.dangerInfo}
+																</span>
+															)}
 														</span>
 													)}
 												</div>
@@ -457,6 +472,7 @@ function PunchListAccordionItem({
 												onClick={() => {
 													updateSavedPlaces({
 														key: savedPlaceKey,
+														clientId: client.id,
 														hash: client.hash,
 														index,
 													});
@@ -485,8 +501,9 @@ function PunchListAccordionItem({
 
 export function Dashboard() {
 	const can = useCheckPermission();
-	const canInsuranceReview = can("clients:insurance:review");
+	const canAdminReview = can("clients:admin:review");
 	const { data: session } = useSession();
+	const utils = api.useUtils();
 
 	const {
 		data: dashboardData,
@@ -496,20 +513,121 @@ export function Dashboard() {
 		refetchInterval: 180000, // 3 minutes
 	});
 
-	const { data: insuranceReviewClients } =
-		api.insuranceReview.getAllEnabled.useQuery(undefined, {
-			enabled: canInsuranceReview,
-		});
+	const { data: adminReviewClients } = api.adminReview.getAllEnabled.useQuery(
+		undefined,
+		{
+			enabled: canAdminReview,
+		},
+	);
 
-	const [showMineOnly, setShowMineOnly] = useState(false);
-	const [insuranceFilters, setInsuranceFilters] = useState<string[]>([]);
-	const showWaitingOnly = insuranceFilters.includes("waiting");
-	const visibleInsuranceClients = (insuranceReviewClients ?? []).filter((c) => {
+	const [adminFilters, setAdminFilters] = useState<string[]>([]);
+	const showMineOnly = adminFilters.includes("mine");
+	const showWaitingOnly = adminFilters.includes("waiting");
+
+	const adminListFilterKey = "adminReview";
+	const { data: listFilters } = api.users.getListFilters.useQuery(undefined, {
+		enabled: canAdminReview,
+	});
+	const { mutate: updateListFilters } = api.users.updateListFilters.useMutation(
+		{
+			onSuccess: () => utils.users.getListFilters.invalidate(),
+		},
+	);
+	const appliedSavedAdminFiltersRef = useRef(false);
+
+	useEffect(() => {
+		const saved = listFilters?.[adminListFilterKey];
+		if (appliedSavedAdminFiltersRef.current || !saved) return;
+
+		appliedSavedAdminFiltersRef.current = true;
+		setAdminFilters(saved);
+	}, [listFilters]);
+
+	const setAdminMineOnly = (value: boolean) => {
+		const next = value
+			? [...adminFilters, "mine"]
+			: adminFilters.filter((v) => v !== "mine");
+		setAdminFilters(next);
+		updateListFilters({ key: adminListFilterKey, filters: next });
+	};
+
+	const setAdminWaitingFilter = (checked: boolean) => {
+		const next = checked
+			? [...adminFilters, "waiting"]
+			: adminFilters.filter((v) => v !== "waiting");
+		setAdminFilters(next);
+		updateListFilters({ key: adminListFilterKey, filters: next });
+	};
+	const visibleAdminClients = (adminReviewClients ?? []).filter((c) => {
 		if (showMineOnly && c.claimedUserEmail !== session?.user?.email)
 			return false;
 		if (showWaitingOnly && !c.waiting) return false;
 		return true;
 	});
+
+	const adminSavedClientRef = useRef<HTMLDivElement>(null);
+	const persistAdminScrollRef = usePersistedScroll(
+		"dashboard-section:admin-review",
+	);
+	const adminSavedPlaceKey = "adminReview";
+	const { data: adminSavedPlaces } = api.users.getSavedPlaces.useQuery();
+	const adminSavedPlaceData = adminSavedPlaces?.[adminSavedPlaceKey];
+	const adminSavedPlaceHash = adminSavedPlaceData?.hash;
+	const adminSavedPlaceIndex =
+		typeof adminSavedPlaceData === "object" && adminSavedPlaceData !== null
+			? adminSavedPlaceData?.index
+			: undefined;
+
+	const { mutate: updateAdminSavedPlace } =
+		api.users.updateSavedPlaces.useMutation({
+			onSuccess: () => {
+				utils.users.getSavedPlaces.invalidate();
+			},
+		});
+
+	const { mutate: deleteAdminSavedPlace } =
+		api.users.deleteSavedPlace.useMutation({
+			onSuccess: () => {
+				utils.users.getSavedPlaces.invalidate();
+			},
+		});
+
+	useEffect(() => {
+		if (!adminSavedPlaceHash || visibleAdminClients.length === 0) return;
+
+		const savedClientIndex = visibleAdminClients.findIndex(
+			(c) => c.clientHash === adminSavedPlaceHash,
+		);
+
+		if (savedClientIndex === -1) {
+			const fallbackIndex =
+				adminSavedPlaceIndex !== undefined
+					? Math.min(adminSavedPlaceIndex - 1, visibleAdminClients.length - 1)
+					: 0;
+
+			const fallbackClient = visibleAdminClients[fallbackIndex];
+			if (fallbackClient) {
+				updateAdminSavedPlace({
+					key: adminSavedPlaceKey,
+					clientId: fallbackClient.clientId,
+					hash: fallbackClient.clientHash,
+					index: fallbackIndex,
+				});
+			}
+		}
+	}, [
+		visibleAdminClients,
+		adminSavedPlaceHash,
+		adminSavedPlaceIndex,
+		updateAdminSavedPlace,
+	]);
+
+	const isSavedAdminClient = (clientHash: string) =>
+		adminSavedPlaceHash === clientHash;
+
+	const scrollToSavedAdminClient = () => {
+		adminSavedClientRef.current?.scrollIntoView({ behavior: "smooth" });
+	};
 
 	const { data: schedulingData } = api.scheduling.get.useQuery(
 		{},
@@ -584,7 +702,7 @@ export function Dashboard() {
 	if (isLoading)
 		return (
 			<div className="mx-4 mt-8 flex grow flex-col items-center">
-				<Skeleton className="h-[400px] w-full bg-muted md:w-1/2" />
+				<Skeleton className="h-[400px] w-full bg-muted lg:w-3/4 xl:w-1/2" />
 			</div>
 		);
 
@@ -596,7 +714,7 @@ export function Dashboard() {
 	return (
 		<div className="mx-4 mt-8 flex grow flex-col items-center">
 			<Accordion
-				className="w-full md:w-1/2"
+				className="w-full lg:w-3/4 xl:w-1/2"
 				onValueChange={handleOpenItemsChange}
 				type="multiple"
 				value={openItems}
@@ -632,25 +750,25 @@ export function Dashboard() {
 				{finalSections.map((section) => (
 					<Fragment key={section.title}>
 						{section.subheading === "Records" &&
-							canInsuranceReview &&
-							(insuranceReviewClients?.length ?? 0) > 0 && (
+							canAdminReview &&
+							(adminReviewClients?.length ?? 0) > 0 && (
 								<>
 									<h2 className="mt-6 mb-2 self-start font-bold text-lg">
-										Insurance
+										Admin Review
 									</h2>
-									<AccordionItem value="insurance-review">
+									<AccordionItem value="admin-review">
 										<AccordionTrigger>
 											<span className="flex items-center gap-1">
-												Insurance Review
+												Admin Review
 												<span className="text-muted-foreground text-sm">
-													({visibleInsuranceClients.length})
+													({visibleAdminClients.length})
 												</span>
 											</span>
 										</AccordionTrigger>
 										<AccordionContent>
 											<div className="mb-2 flex flex-wrap items-center gap-2">
 												<ToggleGroup
-													onValueChange={(v) => setShowMineOnly(v === "mine")}
+													onValueChange={(v) => setAdminMineOnly(v === "mine")}
 													size="sm"
 													spacing={0}
 													type="single"
@@ -663,30 +781,55 @@ export function Dashboard() {
 												<div className="flex items-center gap-2">
 													<Checkbox
 														checked={showWaitingOnly}
-														id="insurance-filter-waiting"
+														id="admin-filter-waiting"
 														onCheckedChange={(checked) =>
-															setInsuranceFilters((prev) =>
-																checked
-																	? [...prev, "waiting"]
-																	: prev.filter((v) => v !== "waiting"),
-															)
+															setAdminWaitingFilter(checked === true)
 														}
 													/>
 													<Label
 														className="font-normal"
-														htmlFor="insurance-filter-waiting"
+														htmlFor="admin-filter-waiting"
 													>
 														Waiting
 													</Label>
 												</div>
 											</div>
-											<ScrollArea className="h-[400px] w-full rounded-md border bg-card text-card-foreground shadow-sm">
+											<div className="mb-2 flex justify-end">
+												<PinListButton pinned={{ kind: "adminReview" }} />
+											</div>
+											{adminSavedPlaceHash && (
+												<div className="mb-2 flex justify-end">
+													<Button
+														aria-label="Scroll to saved client"
+														className="font-medium text-muted-foreground text-xs"
+														onClick={scrollToSavedAdminClient}
+														size="sm"
+														type="button"
+														variant="ghost"
+													>
+														<MapIcon className="h-3 w-3" />
+														<span>Go to saved</span>
+													</Button>
+												</div>
+											)}
+											<ScrollArea
+												className="h-[400px] w-full rounded-md border bg-card text-card-foreground shadow-sm"
+												viewportRef={persistAdminScrollRef}
+											>
 												<div className="p-4">
-													{visibleInsuranceClients.map((c, index) => (
-														<div key={c.clientHash}>
+													{visibleAdminClients.map((c, index) => (
+														<div
+															className="scroll-mt-12"
+															key={c.clientHash}
+															ref={
+																isSavedAdminClient(c.clientHash)
+																	? adminSavedClientRef
+																	: null
+															}
+														>
 															<Link
 																className="no-underline! hover:no-underline! flex items-center gap-2"
-																href={`/clients/${c.clientHash}?tab=insurance`}
+																href={`/clients/${c.clientHash}?tab=admin-review`}
 															>
 																<span>
 																	<Redact>{c.clientName}</Redact>
@@ -708,9 +851,44 @@ export function Dashboard() {
 																	</span>
 																)}
 															</Link>
-															{index < visibleInsuranceClients.length - 1 && (
-																<Separator className="my-2" />
+															{isSavedAdminClient(c.clientHash) && (
+																<button
+																	aria-label={`Remove ${c.clientName} as saved client for Admin Review`}
+																	className="group relative flex w-full cursor-pointer items-center py-2"
+																	onClick={() =>
+																		deleteAdminSavedPlace({
+																			key: adminSavedPlaceKey,
+																		})
+																	}
+																	type="button"
+																>
+																	<Separator className="my-2 flex-1 rounded bg-secondary data-[orientation=horizontal]:h-1" />
+																	<div className="pointer-events-none absolute top-1/2 right-0 z-10 -translate-x-1/2 -translate-y-1/2 rounded-full bg-secondary px-2 py-1 opacity-0 transition-opacity duration-200 group-hover:opacity-100 group-focus:opacity-100">
+																		<PinOff className="h-4 w-4" />
+																	</div>
+																</button>
 															)}
+															{index < visibleAdminClients.length - 1 &&
+																!isSavedAdminClient(c.clientHash) && (
+																	<button
+																		aria-label={`Set ${c.clientName} as saved client for Admin Review`}
+																		className="group relative flex w-full cursor-pointer items-center py-2"
+																		onClick={() =>
+																			updateAdminSavedPlace({
+																				key: adminSavedPlaceKey,
+																				clientId: c.clientId,
+																				hash: c.clientHash,
+																				index,
+																			})
+																		}
+																		type="button"
+																	>
+																		<Separator className="flex-1" />
+																		<div className="pointer-events-none absolute top-1/2 right-0 z-10 -translate-x-1/2 -translate-y-1/2 rounded-full bg-muted px-2 py-1 opacity-0 transition-opacity duration-200 group-hover:opacity-100 group-focus:opacity-100">
+																			<Pin className="h-4 w-4" />
+																		</div>
+																	</button>
+																)}
 														</div>
 													))}
 												</div>

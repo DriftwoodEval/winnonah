@@ -6,6 +6,7 @@ import {
 	eq,
 	getTableColumns,
 	inArray,
+	isNull,
 	lt,
 	not,
 	notInArray,
@@ -27,6 +28,7 @@ import {
 	externalRecords,
 	failures,
 	questionnaires,
+	reports,
 } from "~/server/db/schema";
 import {
 	ALLOWED_ASD_ADHD_VALUES,
@@ -256,6 +258,39 @@ export const getPunchData = async (session: Session) => {
 							AND ${externalRecordRequests.requestedDate} IS NOT NULL
 					AND (${clients.sessionStartedAt} IS NULL OR ${externalRecordRequests.createdAt} >= ${clients.sessionStartedAt})
 						)`,
+						// Whether the client has any external_record_request row at all,
+						// vs. one scoped to their current session. A client can have the
+						// former without the latter after a re-referral: their only
+						// request row predates sessionStartedAt, so it's orphaned and
+						// records-request.py's own query (which is session-scoped the
+						// same way) will never pick them up either.
+						hasRecordRequest: sql<boolean>`EXISTS (
+						SELECT 1 FROM ${externalRecordRequests}
+						WHERE ${externalRecordRequests.clientId} = ${clients.id}
+				)`,
+						hasCurrentSessionRecordRequest: sql<boolean>`(
+						${clients.sessionStartedAt} IS NULL OR EXISTS (
+							SELECT 1 FROM ${externalRecordRequests}
+							WHERE ${externalRecordRequests.clientId} = ${clients.id}
+							AND ${externalRecordRequests.createdAt} >= ${clients.sessionStartedAt}
+						)
+				)`,
+						recordsHoldUntil: sql<string | null>`(
+						SELECT MAX(${externalRecordRequests.holdUntil})
+						FROM ${externalRecordRequests}
+						WHERE ${externalRecordRequests.clientId} = ${clients.id}
+						AND ${externalRecordRequests.requestedDate} IS NULL
+						AND (${clients.sessionStartedAt} IS NULL OR ${externalRecordRequests.createdAt} >= ${clients.sessionStartedAt})
+				)`,
+						// When the pending (not-yet-sent) request was queued, as a UTC
+						// instant, for display in the "Records Needed - Not Requested" section.
+						recordsRequestQueuedDate: sql<string | null>`(
+						SELECT DATE_FORMAT(MAX(${externalRecordRequests.createdAt}), '%Y-%m-%dT%H:%i:%sZ')
+						FROM ${externalRecordRequests}
+						WHERE ${externalRecordRequests.clientId} = ${clients.id}
+						AND ${externalRecordRequests.requestedDate} IS NULL
+						AND (${clients.sessionStartedAt} IS NULL OR ${externalRecordRequests.createdAt} >= ${clients.sessionStartedAt})
+				)`,
 					})
 					.from(clients)
 					.leftJoin(externalRecords, eq(clients.id, externalRecords.clientId))
@@ -333,12 +368,24 @@ export const getPunchData = async (session: Session) => {
 
 	const dbClientMap = new Map<number, FullClientInfo>(
 		dbClients.map(
-			({ client, hasExternalRecordsNote, externalRecordsRequestedDate }) => [
+			({
+				client,
+				hasExternalRecordsNote,
+				externalRecordsRequestedDate,
+				hasRecordRequest,
+				hasCurrentSessionRecordRequest,
+				recordsHoldUntil,
+				recordsRequestQueuedDate,
+			}) => [
 				client.id,
 				{
 					...client,
 					hasExternalRecordsNote,
 					externalRecordsRequestedDate,
+					hasRecordRequest,
+					hasCurrentSessionRecordRequest,
+					recordsHoldUntil,
+					recordsRequestQueuedDate,
 					failures: failureMap.get(client.id) ?? [],
 					questionnaires: questionnaireMap.get(client.id) ?? [],
 					hasPast96130Appt: past96130ClientIds.has(client.id),
@@ -374,6 +421,7 @@ export const updatePunchData = async (
 		asdAdhd?: string;
 		language?: string;
 		protocolsScanned?: boolean;
+		paAssignedTo?: string;
 		newId?: number;
 	},
 ) => {
@@ -408,6 +456,7 @@ export const updatePunchData = async (
 	const forIndex = headers.indexOf("For");
 	const languageIndex = headers.indexOf("Language");
 	const protocolsScannedIndex = headers.indexOf("Protocols scanned?");
+	const paAssignedToIndex = headers.indexOf("PA Assigned to");
 
 	const updateRequests: sheets_v4.Schema$ValueRange[] = [];
 
@@ -514,6 +563,19 @@ export const updatePunchData = async (
 		});
 	}
 
+	if (updates.paAssignedTo !== undefined) {
+		if (paAssignedToIndex === -1) {
+			throw new Error("PA Assigned to column not found in Punchlist");
+		}
+		const cellAddress = `${String.fromCharCode(65 + paAssignedToIndex)}${
+			clientRowIndex + 2
+		}`;
+		updateRequests.push({
+			range: cellAddress,
+			values: [[updates.paAssignedTo]],
+		});
+	}
+
 	if (updateRequests.length > 0) {
 		await googleApiCall(
 			"google-sheets",
@@ -533,6 +595,293 @@ export const updatePunchData = async (
 	return true;
 };
 
+/** 0-based column index to an A1 column reference (0 -> A, 26 -> AA). */
+const columnIndexToLetter = (index: number): string => {
+	let n = index;
+	let letter = "";
+	while (n >= 0) {
+		letter = String.fromCharCode((n % 26) + 65) + letter;
+		n = Math.floor(n / 26) - 1;
+	}
+	return letter;
+};
+
+// The Punchlist sheet's numeric sheetId, needed for grid-range requests
+// (batchUpdate cell formatting) as opposed to A1-notation value writes.
+const getPunchlistSheetId = async (
+	sheetsApi: sheets_v4.Sheets,
+): Promise<number> => {
+	const { PUNCHLIST_ID, PUNCHLIST_RANGE } = env;
+	const sheetName = PUNCHLIST_RANGE.split("!")[0];
+	const spreadsheet = await googleApiCall(
+		"google-sheets",
+		"spreadsheets.get",
+		"Get punchlist sheet metadata",
+		() =>
+			sheetsApi.spreadsheets.get({
+				spreadsheetId: PUNCHLIST_ID,
+				fields: "sheets.properties",
+			}),
+	);
+	const sheetId = spreadsheet.data.sheets?.find(
+		(sheet) => sheet.properties?.title === sheetName,
+	)?.properties?.sheetId;
+
+	if (sheetId === undefined || sheetId === null) {
+		throw new Error(`Sheet "${sheetName}" not found in Punchlist`);
+	}
+	return sheetId;
+};
+
+/**
+ * Mirror a report's billing/review state into the punch list during the
+ * transition to EMR-owned report tracking. Best-effort: callers log and swallow
+ * failures since the DB is the source of truth.
+ */
+export const updatePunchReportFields = async (
+	session: Session,
+	clientId: string,
+	updates: {
+		billed?: boolean;
+		firstReviewDone?: boolean;
+	},
+) => {
+	const { PUNCHLIST_ID, PUNCHLIST_RANGE } = env;
+	const sheetsApi = getSheetsClient(session);
+
+	const response = await googleApiCall(
+		"google-sheets",
+		"spreadsheets.values.get",
+		"Get punchlist",
+		() =>
+			sheetsApi.spreadsheets.values.get({
+				spreadsheetId: PUNCHLIST_ID,
+				range: PUNCHLIST_RANGE,
+			}),
+	);
+
+	const data = response.data.values ?? [];
+	const headers = data[0] ?? [];
+	const rows = data.slice(1);
+
+	const clientRowIndex = rows.findIndex((row) => row[1] === clientId);
+	if (clientRowIndex === -1) {
+		throw new Error(`Client ID ${clientId} not found in Punchlist`);
+	}
+
+	const columnByField: Record<keyof typeof updates, string> = {
+		billed: "Billed?",
+		firstReviewDone: "AJP Review Done/Hold for payroll",
+	};
+
+	const updateRequests: sheets_v4.Schema$ValueRange[] = [];
+	for (const [field, header] of Object.entries(columnByField) as [
+		keyof typeof updates,
+		string,
+	][]) {
+		const value = updates[field];
+		if (value === undefined) continue;
+		const colIndex = headers.indexOf(header);
+		if (colIndex === -1) {
+			throw new Error(`${header} column not found in Punchlist`);
+		}
+		updateRequests.push({
+			range: `${columnIndexToLetter(colIndex)}${clientRowIndex + 2}`,
+			values: [[value ? "TRUE" : "FALSE"]],
+		});
+	}
+
+	if (updateRequests.length > 0) {
+		await googleApiCall(
+			"google-sheets",
+			"spreadsheets.values.batchUpdate",
+			"Update punchlist",
+			() =>
+				sheetsApi.spreadsheets.values.batchUpdate({
+					spreadsheetId: PUNCHLIST_ID,
+					requestBody: {
+						valueInputOption: "USER_ENTERED",
+						data: updateRequests,
+					},
+				}),
+		);
+	}
+
+	return true;
+};
+
+// Punch-list header -> emr_report (boolean column, *At column, *ByEmail column).
+// Kept in sync back into the EMR by syncPunchData; written out by
+// updatePunchReportFields. Both halves go away when the punch list is retired.
+const PUNCH_REPORT_FIELDS = {
+	"Billed?": ["billed", "billedAt", "billedByEmail"],
+	"AJP Review Done/Hold for payroll": [
+		"firstReviewDone",
+		"firstReviewAt",
+		"firstReviewByEmail",
+	],
+} as const satisfies Record<string, readonly [string, string, string]>;
+
+// The second review is tracked by the cell color of this column, not its text:
+// red (#ff0000) means the review is needed, green (#00ff00) means it is done.
+const PUNCH_SECOND_REVIEW_HEADER = "MCS Review Needed";
+
+type ReviewColor = "red" | "green" | null;
+
+// The Sheets API omits a color channel that is 0.
+export const classifyReviewColor = (
+	background: sheets_v4.Schema$Color | null | undefined,
+): ReviewColor => {
+	if (!background) return null;
+	const [red, green, blue] = [
+		background.red,
+		background.green,
+		background.blue,
+	].map((channel) => Math.round((channel ?? 0) * 255));
+	if (red === 255 && green === 0 && blue === 0) return "red";
+	if (red === 0 && green === 255 && blue === 0) return "green";
+	return null;
+};
+
+// Client ID -> color of that client's cell in the second-review column.
+const getSecondReviewColors = async (session: Session) => {
+	const { PUNCHLIST_ID, PUNCHLIST_RANGE } = env;
+	const sheetsApi = getSheetsClient(session);
+
+	const response = await googleApiCall(
+		"google-sheets",
+		"spreadsheets.get",
+		"Get punchlist colors",
+		() =>
+			sheetsApi.spreadsheets.get({
+				spreadsheetId: PUNCHLIST_ID,
+				ranges: [PUNCHLIST_RANGE],
+				includeGridData: true,
+				fields:
+					"sheets.data.rowData.values(formattedValue,effectiveFormat.backgroundColor)",
+			}),
+	);
+
+	const colors = new Map<string, ReviewColor>();
+	const rowData = response.data.sheets?.[0]?.data?.[0]?.rowData ?? [];
+	const header = (rowData[0]?.values ?? []).map((c) => c.formattedValue ?? "");
+	const idIndex = header.indexOf("Client ID");
+	const columnIndex = header.indexOf(PUNCH_SECOND_REVIEW_HEADER);
+	if (idIndex === -1 || columnIndex === -1) return colors;
+
+	for (const row of rowData.slice(1)) {
+		const cells = row.values ?? [];
+		const clientId = (cells[idIndex]?.formattedValue ?? "").trim();
+		if (!clientId) continue;
+		colors.set(
+			clientId,
+			classifyReviewColor(cells[columnIndex]?.effectiveFormat?.backgroundColor),
+		);
+	}
+	return colors;
+};
+
+const REVIEW_COLOR_RED = { red: 1, green: 0, blue: 0 };
+const REVIEW_COLOR_GREEN = { red: 0, green: 1, blue: 0 };
+const REVIEW_COLOR_NONE = { red: 1, green: 1, blue: 1 };
+
+/**
+ * Mirror a report's second-review state into the punch list, matching how
+ * getSecondReviewColors reads it back: the "MCS Review Needed" cell's
+ * background goes red when needed, green when done, white otherwise, and its
+ * text is "TRUE" when either box is checked, "FALSE" when neither is.
+ * Best-effort: callers log and swallow failures since the DB is the source of
+ * truth.
+ */
+export const updatePunchSecondReview = async (
+	session: Session,
+	clientId: string,
+	state: { needed: boolean; done: boolean },
+) => {
+	const { PUNCHLIST_ID, PUNCHLIST_RANGE } = env;
+	const sheetsApi = getSheetsClient(session);
+
+	const response = await googleApiCall(
+		"google-sheets",
+		"spreadsheets.values.get",
+		"Get punchlist",
+		() =>
+			sheetsApi.spreadsheets.values.get({
+				spreadsheetId: PUNCHLIST_ID,
+				range: PUNCHLIST_RANGE,
+			}),
+	);
+
+	const data = response.data.values ?? [];
+	const headers = data[0] ?? [];
+	const rows = data.slice(1);
+
+	const clientRowIndex = rows.findIndex((row) => row[1] === clientId);
+	if (clientRowIndex === -1) {
+		throw new Error(`Client ID ${clientId} not found in Punchlist`);
+	}
+	const columnIndex = headers.indexOf(PUNCH_SECOND_REVIEW_HEADER);
+	if (columnIndex === -1) {
+		throw new Error(
+			`${PUNCH_SECOND_REVIEW_HEADER} column not found in Punchlist`,
+		);
+	}
+
+	const sheetId = await getPunchlistSheetId(sheetsApi);
+	const rowIndex = clientRowIndex + 1; // +1 for the header row, grid index is 0-based.
+	const backgroundColor = state.needed
+		? REVIEW_COLOR_RED
+		: state.done
+			? REVIEW_COLOR_GREEN
+			: REVIEW_COLOR_NONE;
+
+	await googleApiCall(
+		"google-sheets",
+		"spreadsheets.batchUpdate",
+		"Update punchlist second review cell",
+		() =>
+			sheetsApi.spreadsheets.batchUpdate({
+				spreadsheetId: PUNCHLIST_ID,
+				requestBody: {
+					requests: [
+						{
+							updateCells: {
+								range: {
+									sheetId,
+									startRowIndex: rowIndex,
+									endRowIndex: rowIndex + 1,
+									startColumnIndex: columnIndex,
+									endColumnIndex: columnIndex + 1,
+								},
+								rows: [
+									{
+										values: [
+											{
+												userEnteredValue: {
+													stringValue:
+														state.needed || state.done ? "TRUE" : "FALSE",
+												},
+												userEnteredFormat: { backgroundColor },
+											},
+										],
+									},
+								],
+								fields: "userEnteredValue,userEnteredFormat.backgroundColor",
+							},
+						},
+					],
+				},
+			}),
+	);
+
+	return true;
+};
+
+const PUNCHLIST_SYNC_ACTOR_EMAIL = "punchlist-sync";
+
+const punchCellIsChecked = (val: string | undefined) =>
+	(val ?? "").trim().toUpperCase() === "TRUE";
+
 export const syncPunchData = async (ctx: Context & { session: Session }) => {
 	const allPunchData = await fetchWithCache(
 		ctx,
@@ -541,7 +890,22 @@ export const syncPunchData = async (ctx: Context & { session: Session }) => {
 		60,
 	);
 
+	const secondReviewColors = await getSecondReviewColors(ctx.session);
+
 	const updatePromises: Promise<unknown>[] = [];
+
+	// Current billing/review state of every open report, to skip no-op writes.
+	const openReports = await db
+		.select({
+			clientId: reports.clientId,
+			billed: reports.billed,
+			firstReviewDone: reports.firstReviewDone,
+			secondReviewNeeded: reports.secondReviewNeeded,
+			secondReviewDone: reports.secondReviewDone,
+		})
+		.from(reports)
+		.where(isNull(reports.archivedAt));
+	const openReportByClient = new Map(openReports.map((r) => [r.clientId, r]));
 
 	for (const client of allPunchData) {
 		const updates: Partial<Client> = {};
@@ -562,10 +926,70 @@ export const syncPunchData = async (ctx: Context & { session: Session }) => {
 			updates.language = client.Language.trim();
 		}
 
+		if (
+			client["PA Assigned to"] &&
+			client["PA Assigned to"].trim() !== "" &&
+			client["PA Assigned to"].trim() !== client.paAssignedTo
+		) {
+			updates.paAssignedTo = client["PA Assigned to"].trim();
+		}
+
 		if (Object.keys(updates).length > 0) {
 			updatePromises.push(
 				db.update(clients).set(updates).where(eq(clients.id, client.id)),
 			);
+		}
+
+		// Report billing/review checkboxes -> emr_report.
+		const report = client.id ? openReportByClient.get(client.id) : undefined;
+		if (report) {
+			const reportPatch: Record<string, boolean | Date | string | null> = {};
+			for (const [header, [col, atCol, byCol]] of Object.entries(
+				PUNCH_REPORT_FIELDS,
+			)) {
+				const sheetValue = punchCellIsChecked(
+					client[header as keyof typeof client] as string | undefined,
+				);
+				if (report[col as keyof typeof report] === sheetValue) continue;
+				reportPatch[col] = sheetValue;
+				reportPatch[atCol] = sheetValue ? new Date() : null;
+				reportPatch[byCol] = sheetValue ? PUNCHLIST_SYNC_ACTOR_EMAIL : null;
+			}
+			// Second review: red sets "needed", green sets "done", any other color
+			// clears both.
+			const color = secondReviewColors.get(String(client.id));
+			if (color !== undefined) {
+				const secondReviewFields = [
+					{
+						col: "secondReviewNeeded",
+						atCol: "secondReviewNeededAt",
+						byCol: "secondReviewByEmail",
+						wanted: color === "red",
+					},
+					{
+						col: "secondReviewDone",
+						atCol: "secondReviewDoneAt",
+						byCol: "secondReviewDoneByEmail",
+						wanted: color === "green",
+					},
+				] as const;
+				for (const { col, atCol, byCol, wanted } of secondReviewFields) {
+					if (report[col] === wanted) continue;
+					reportPatch[col] = wanted;
+					reportPatch[atCol] = wanted ? new Date() : null;
+					reportPatch[byCol] = wanted ? PUNCHLIST_SYNC_ACTOR_EMAIL : null;
+				}
+			}
+			if (Object.keys(reportPatch).length > 0) {
+				updatePromises.push(
+					db
+						.update(reports)
+						.set(reportPatch)
+						.where(
+							and(eq(reports.clientId, client.id), isNull(reports.archivedAt)),
+						),
+				);
+			}
 		}
 	}
 
@@ -645,24 +1069,7 @@ export const pushToPunch = async (
 	const rowNumber = targetRowIndex + 2; // +1 for 0-index, +1 for header row
 
 	if (needsNewRow) {
-		const sheetName = PUNCHLIST_RANGE.split("!")[0];
-		const spreadsheet = await googleApiCall(
-			"google-sheets",
-			"spreadsheets.get",
-			"Get punchlist sheet metadata",
-			() =>
-				sheetsApi.spreadsheets.get({
-					spreadsheetId: PUNCHLIST_ID,
-					fields: "sheets.properties",
-				}),
-		);
-		const sheetId = spreadsheet.data.sheets?.find(
-			(sheet) => sheet.properties?.title === sheetName,
-		)?.properties?.sheetId;
-
-		if (sheetId === undefined || sheetId === null) {
-			throw new Error(`Sheet "${sheetName}" not found in Punchlist`);
-		}
+		const sheetId = await getPunchlistSheetId(sheetsApi);
 
 		// Insert a new row at the end, inheriting formatting/validation from the row above it
 		await googleApiCall(

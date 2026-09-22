@@ -166,31 +166,166 @@ SIMULATED_SPECS = {
 }
 
 
-def correct_orientation(image: Image.Image) -> tuple[Image.Image, int]:
-    """Detect a scanned page fed in sideways/upside-down and rotate it
-    upright before OCR, since Tesseract's text recognition (unlike its
-    orientation detection) assumes roughly-horizontal text.
+# Tesseract's OSD reports an "Orientation confidence" alongside the angle.
+# On a noisy or sparse fax page it happily returns a wrong 90/270 with a
+# confidence well under 1, and the caller persists that rotation into the
+# Drive copy, so a page that was upright lands sideways. We trust OSD only
+# when it clears this on both the raw and the denoised render and the two
+# agree (see page_rotation); otherwise we read the page four ways.
+MIN_ORIENTATION_CONFIDENCE = 2.0
 
-    Returns the (possibly rotated) image and the clockwise angle applied,
-    so the caller can also persist the fix into the source PDF page."""
+# Fallback when OSD isn't confident: OCR the page at all four 90-degree
+# rotations and keep whichever reads as the most text. The score is the
+# summed word confidence (rewards both more words and cleaner ones), since
+# a page upside down still yields a fair count of low-confidence junk that
+# a bare word count doesn't separate from the right way up. Act outright
+# only when the best rotation clears a floor and beats the rest by the
+# margin. When two rotations read close to each other (a page whose
+# upright and upside down, or occasionally two perpendicular renders, look
+# about as legible to OCR) a raw+clean-agreed OSD reading breaks the tie
+# even below the confidence we'd trust it at on its own. Failing that, if
+# the upright render barely reads at all but two renders 90 degrees apart
+# both read well, the page is simply sideways (its heavy fax speckle or a
+# big rotated logo narrowing the gap between the right way up and its
+# 180-flip), so take the higher-reading of the two. Otherwise the page is
+# unreadable (blank, heavy handwriting) and we leave it as received; every
+# fax gets a human review anyway.
+_MIN_WORD_CONFIDENCE = 55
+_MIN_ORIENTATION_SCORE = 800.0
+_ORIENTATION_SCORE_MARGIN = 1.35
+_MIN_OSD_TIEBREAK_CONFIDENCE = 1.0
+_WORDLIKE = re.compile(r"[A-Za-z]{3,}")
+
+
+def _denoise_binarize(image: Image.Image) -> np.ndarray:
+    """Grayscale, strip fax speckle, and threshold to crisp black/white.
+    Shared by the orientation checks and the pre-OCR cleanup; does not
+    deskew (that step needs a settled orientation first)."""
+    grayscale = cv2.cvtColor(np.array(image), cv2.COLOR_RGB2GRAY)
+    denoised = cv2.fastNlMeansDenoising(grayscale, h=10)
+    return cv2.adaptiveThreshold(
+        denoised,
+        255,
+        cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
+        cv2.THRESH_BINARY,
+        31,
+        15,
+    )
+
+
+def _readability_score(image: Image.Image) -> float:
+    """Summed confidence of the word-shaped tokens Tesseract reads off this
+    image. A proxy for 'is this text the right way up': high when the page
+    is upright and legible, near zero when it's sideways or blank."""
+    try:
+        data = pytesseract.image_to_data(image, output_type=pytesseract.Output.DICT)
+    except pytesseract.TesseractError:
+        return 0.0
+    return sum(
+        float(conf)
+        for text, conf in zip(data["text"], data["conf"], strict=True)
+        if float(conf) >= _MIN_WORD_CONFIDENCE and _WORDLIKE.search(text)
+    )
+
+
+def _rotation_scores(image: Image.Image) -> dict[int, float]:
+    """Readability score at each of the four 90-degree rotations."""
+    return {
+        angle: _readability_score(
+            image if angle == 0 else image.rotate(-angle, expand=True)
+        )
+        for angle in (0, 90, 180, 270)
+    }
+
+
+def _orient_by_reading(
+    image: Image.Image, osd_hint: int | None = None, osd_conf: float = 0.0
+) -> int:
+    """Decide orientation by OCR when OSD can't: score 0/90/180/270 and
+    return the clockwise angle of the most readable one, or 0 if none reads
+    well enough to be sure.
+
+    `osd_hint` is a raw+clean-agreed OSD angle (with `osd_conf` its lower
+    confidence). It's only consulted to break a near-tie between the top
+    two rotations: for a genuine 180-degree up/down tie the OSD angle wins
+    directly, for an odd perpendicular near-tie the higher-reading rotation
+    wins once OSD has vouched that it's plausible."""
+    scores = _rotation_scores(image)
+    logger.debug(
+        f"Orientation-by-reading scores: { {a: round(s) for a, s in scores.items()} }"
+    )
+    ranked = sorted(scores, key=lambda a: scores[a], reverse=True)
+    best, second = ranked[0], ranked[1]
+
+    if scores[best] < _MIN_ORIENTATION_SCORE:
+        return 0
+    if scores[best] >= _ORIENTATION_SCORE_MARGIN * max(scores[second], 1.0):
+        return best
+    if osd_hint in (best, second) and osd_conf >= _MIN_OSD_TIEBREAK_CONFIDENCE:
+        return osd_hint if (best - second) % 180 == 0 else best
+    if (
+        scores[0] < _MIN_ORIENTATION_SCORE
+        and scores[second] >= _MIN_ORIENTATION_SCORE
+        and (best - second) % 180 != 0
+    ):
+        # Upright barely reads, but `best` and its 180-flip (`second`) both
+        # do: the page is sideways and `best` is the way up.
+        return best
+    return 0
+
+
+def _osd_reading(image: Image.Image) -> tuple[int, float]:
+    """Tesseract's orientation call: (clockwise angle to upright, confidence).
+    A failed or unparseable reading comes back as (0, 0.0)."""
     try:
         osd = pytesseract.image_to_osd(image)
     except pytesseract.TesseractError:
-        return image, 0
+        return 0, 0.0
+    angle = re.search(r"Rotate: (\d+)", osd)
+    confidence = re.search(r"Orientation confidence: ([\d.]+)", osd)
+    return (
+        int(angle.group(1)) if angle else 0,
+        float(confidence.group(1)) if confidence else 0.0,
+    )
 
-    match = re.search(r"Rotate: (\d+)", osd)
-    if not match:
-        return image, 0
 
-    angle = int(match.group(1))
-    if angle == 0:
-        return image, 0
-    return image.rotate(-angle, expand=True), angle
+def page_rotation(rgb: Image.Image, binary: np.ndarray) -> int:
+    """Clockwise angle (0/90/180/270) to turn a scanned page upright before
+    OCR, since Tesseract's text recognition (unlike its orientation
+    detection) assumes roughly-horizontal text. 0 means already upright, or
+    not callable with confidence.
+
+    Trusts Tesseract OSD outright only when it reads the same confident
+    angle off both the raw render and the denoised `binary`: binarizing a
+    hard page can hand OSD a confident-looking reading the raw page doesn't
+    support. Otherwise reads the page four ways (see _orient_by_reading),
+    passing along a weaker raw+clean-agreed OSD angle as a tiebreaker."""
+    clean = Image.fromarray(binary)
+    raw_angle, raw_conf = _osd_reading(rgb)
+    clean_angle, clean_conf = _osd_reading(clean)
+
+    agreed = raw_angle if raw_angle == clean_angle else None
+    conf = min(raw_conf, clean_conf)
+
+    if agreed is not None and conf >= MIN_ORIENTATION_CONFIDENCE:
+        return agreed
+
+    logger.debug(
+        f"OSD not jointly confident (raw {raw_angle}deg@{raw_conf:.1f}, "
+        f"clean {clean_angle}deg@{clean_conf:.1f}); reading page four ways"
+    )
+    return _orient_by_reading(clean, osd_hint=agreed, osd_conf=conf)
+
+
+def _rotate_clockwise(binary: np.ndarray, angle: int) -> np.ndarray:
+    """Lossless 90-degree-multiple clockwise rotation of a binary page.
+    Returns a contiguous array so OpenCV (in _deskew) accepts it."""
+    return np.ascontiguousarray(np.rot90(binary, k=(-angle // 90) % 4))
 
 
 # Beyond this, assume the Hough line detector locked onto something other
 # than text baselines (a torn/folded edge, a stray mark) rather than a real
-# skew: correct_orientation already handles gross 90-degree turns, so a
+# skew: page_rotation already handles gross 90-degree turns, so a
 # larger residual angle here is more likely noise than a real fax tilt.
 MAX_DESKEW_ANGLE_DEGREES = 15
 
@@ -227,8 +362,8 @@ def _estimate_skew_angle(binary: np.ndarray) -> float:
 
 def _deskew(binary: np.ndarray) -> np.ndarray:
     """Straightens the small (non-90-degree) tilt a fax transmission or
-    sloppy feed leaves behind, which correct_orientation's coarse OSD-based
-    check doesn't catch."""
+    sloppy feed leaves behind, which page_rotation's 90-degree
+    orientation check doesn't catch."""
     angle = _estimate_skew_angle(binary)
     if abs(angle) < 0.1:
         return binary
@@ -243,28 +378,6 @@ def _deskew(binary: np.ndarray) -> np.ndarray:
         flags=cv2.INTER_CUBIC,
         borderMode=cv2.BORDER_REPLICATE,
     )
-
-
-def clean_fax_image(image: Image.Image) -> Image.Image:
-    """Cleans up a faxed page scan before OCR: strips the salt-and-pepper
-    speckle fax transmission introduces, deskews any small residual tilt,
-    and binarizes for higher-contrast text, all of which Tesseract reads
-    far more reliably than a noisy grayscale fax.
-
-    Operates only on the in-memory image handed to OCR; the source PDF
-    page is never touched, so this has no effect on the Drive copy."""
-    grayscale = cv2.cvtColor(np.array(image), cv2.COLOR_RGB2GRAY)
-    denoised = cv2.fastNlMeansDenoising(grayscale, h=10)
-    binary = cv2.adaptiveThreshold(
-        denoised,
-        255,
-        cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
-        cv2.THRESH_BINARY,
-        31,
-        15,
-    )
-    deskewed = _deskew(binary)
-    return Image.fromarray(deskewed)
 
 
 def header_override_category(document_text: str) -> str | None:
@@ -296,12 +409,19 @@ def extract_text(
         if len(text) < MIN_TEXT_LENGTH_PER_PAGE:
             pix = page.get_pixmap(dpi=300)
             image = Image.frombytes("RGB", (pix.width, pix.height), pix.samples)
-            image, angle = correct_orientation(image)
+            binary = _denoise_binarize(image)
+
+            angle = page_rotation(image, binary)
             if angle:
                 page.set_rotation((page.rotation + angle) % 360)
                 orientation_fixed = True
+                image = image.rotate(-angle, expand=True)
+                binary = _rotate_clockwise(binary, angle)
+
             if clean_faxes:
-                image = clean_fax_image(image)
+                # binary is already denoised and rotated upright; deskewing
+                # the small residual tilt is all that's left.
+                image = Image.fromarray(_deskew(binary))
             if save_preprocessed_dir:
                 stem = Path(pdf_path).stem
                 out_dir = Path(save_preprocessed_dir)
@@ -457,6 +577,11 @@ def analyze_document(llm: Llama, document_text: str) -> tuple[str, list[str], fl
     (possibly large) document text."""
     data = _complete_json(llm, build_prompt(document_text), DOCUMENT_SCHEMA, 0.0)
     category = str(data.get("category", ""))
+    if category not in CATEGORIES:
+        # A truncated or malformed model reply lands here as well as a
+        # genuinely unrecognized category; either way "Unsure" is the safe,
+        # storable fallback rather than an empty string the DB enum rejects.
+        category = "Unsure"
     clients = _clean_client_names(data.get("clients"))
     confidence = _clean_confidence(data.get("confidence"))
     return category, clients, confidence

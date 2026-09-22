@@ -2,31 +2,25 @@ import fs from "node:fs";
 import path from "node:path";
 import { URL } from "node:url";
 import { TRPCError } from "@trpc/server";
-import {
-	and,
-	asc,
-	count,
-	countDistinct,
-	desc,
-	eq,
-	gt,
-	inArray,
-	isNotNull,
-	lt,
-	not,
-	or,
-	sql,
-} from "drizzle-orm";
+import { and, asc, desc, eq, inArray, not, or } from "drizzle-orm";
 import { z } from "zod";
-import { fetchWithCache, invalidateCache } from "~/lib/cache";
+import { invalidateCache } from "~/lib/cache";
 import { QUESTIONNAIRE_STATUSES } from "~/lib/constants";
+import { updatePunchData } from "~/lib/google";
 import {
-	CACHE_KEY_PUNCHLIST,
-	getPunchData,
-	updatePunchData,
-} from "~/lib/google";
+	getDuplicateQuestionnaireLinksData,
+	getPartialBatteriesList,
+} from "~/lib/issue-lists";
 import type { InsertingQuestionnaire } from "~/lib/models";
-import { localDateToDateOnly } from "~/lib/utils";
+import {
+	REMINDER_PORTAL_LINK,
+	reminderDeadlineDate,
+	reminderDistancePhrase,
+	reminderPluralization,
+} from "~/lib/reminder-messages";
+import { formatInBusinessTime, localDateToDateOnly } from "~/lib/utils";
+import { lenientPythonConfigSchema } from "~/lib/validations/config";
+import { diffValues, setAuditDetail } from "~/server/api/audit";
 import { CACHE_KEY_MISSING_APPOINTMENTS } from "~/server/api/routers/client";
 import {
 	assertPermission,
@@ -41,10 +35,16 @@ import {
 	failures,
 	inPersonAssessmentHistory,
 	inPersonAssessments,
+	pythonConfig,
+	questionnaireReminderOverrideHistory,
+	questionnaireReminderOverrides,
+	questionnaireReminderSettings,
+	questionnaireReminderTemplates,
 	questionnaireRules,
 	questionnaires,
 } from "~/server/db/schema";
 import { getQuestionnaireEligibilityAge } from "~/server/questionnaire-age";
+import { resolveApplicableRules } from "~/server/questionnaire-rules";
 
 interface QuestionnaireDetails {
 	name: string;
@@ -242,129 +242,43 @@ const questionnaireRuleInputSchema = questionnaireRuleBaseSchema
 		path: ["diagnosis"],
 	});
 
-/**
- * Picks the questionnaire rules that apply to a client, grouped by
- * (daeval, diagnosis). Within each group, a rule is considered applicable
- * if every questionnaire type it requires has already been sent to the
- * client and the rule's band is not older than the client's current age
- * (younger or accurate bands only, since an older band's questionnaires
- * shouldn't be treated as satisfied before the client has grown into
- * them); when several such rules in a group fully match (because their
- * questionnaire types overlap, e.g. shared across age bands), the rule
- * requiring the most types is preferred as the closest match to what was
- * actually sent. Only questionnaires sent since the client's current
- * session started (`sessionStartedAt`) count, so a prior cycle's sends
- * don't satisfy the current one. If no rule in a group fully matches yet,
- * that group falls back to filtering by the client's age at their most
- * recent eval appointment.
- */
-async function resolveApplicableRules(
+async function checkAndUpdateQsBatteryStatus(
 	ctx: Context,
 	clientId: number,
-	client: typeof clients.$inferSelect,
-	allRules: (typeof questionnaireRules.$inferSelect)[],
-	clientQs: (typeof questionnaires.$inferSelect)[],
+	preloaded?: {
+		client?: typeof clients.$inferSelect;
+		allRules?: (typeof questionnaireRules.$inferSelect)[];
+		clientQs?: (typeof questionnaires.$inferSelect)[];
+	},
 ) {
-	const asdAdhd = client.asdAdhd;
-	const wantedDiagnoses = new Set<string | null>();
-	if (!asdAdhd) {
-		wantedDiagnoses.add("ASD");
-		wantedDiagnoses.add("ADHD");
-		wantedDiagnoses.add("LD");
-	} else {
-		if (asdAdhd.includes("ASD")) wantedDiagnoses.add("ASD");
-		if (asdAdhd.includes("ADHD")) wantedDiagnoses.add("ADHD");
-		if (asdAdhd.includes("LD")) wantedDiagnoses.add("LD");
-	}
-
-	const diagnosisFiltered = allRules.filter((r) =>
-		wantedDiagnoses.has(r.diagnosis),
-	);
-
-	const sessionStartedAt = client.sessionStartedAt;
-	const sentTypes = new Set(
-		clientQs
-			.filter(
-				(q) =>
-					q.sent !== null &&
-					q.status !== "ARCHIVED" &&
-					(!sessionStartedAt ||
-						(q.sent ?? "") >= (localDateToDateOnly(sessionStartedAt) ?? "")),
-			)
-			.map((q) => q.questionnaireType),
-	);
-
-	const groups = new Map<string, typeof diagnosisFiltered>();
-	for (const rule of diagnosisFiltered) {
-		const key = `${rule.daeval}|${rule.diagnosis ?? "null"}`;
-		const group = groups.get(key);
-		if (group) {
-			group.push(rule);
-		} else {
-			groups.set(key, [rule]);
-		}
-	}
-
-	const ageInYears = await getQuestionnaireEligibilityAge(
-		ctx.db,
-		clientId,
-		client.dob,
-	);
-	const resultRules: (typeof diagnosisFiltered)[number][] = [];
-
-	for (const groupRules of groups.values()) {
-		const fullyMatched = groupRules.filter((r) => {
-			const qs = r.questionnaires ?? [];
-			return (
-				qs.length > 0 &&
-				qs.every((q) => sentTypes.has(q)) &&
-				r.minAge <= ageInYears
-			);
-		});
-
-		if (fullyMatched.length > 0) {
-			const best = fullyMatched.reduce((a, b) =>
-				(b.questionnaires?.length ?? 0) > (a.questionnaires?.length ?? 0)
-					? b
-					: a,
-			);
-			resultRules.push(best);
-			continue;
-		}
-
-		for (const r of groupRules) {
-			if (r.minAge <= ageInYears && r.maxAge >= ageInYears) {
-				resultRules.push(r);
-			}
-		}
-	}
-
-	return { rules: resultRules, ageInYears };
-}
-
-async function checkAndUpdateQsBatteryStatus(ctx: Context, clientId: number) {
 	const session = ctx.session;
 	if (!session) return;
 	if (!session.user?.accessToken || !session.user?.refreshToken) return;
 
-	const client = await ctx.db.query.clients.findFirst({
-		where: eq(clients.id, clientId),
-	});
+	const client =
+		preloaded?.client ??
+		(await ctx.db.query.clients.findFirst({
+			where: eq(clients.id, clientId),
+		}));
 	if (!client) return;
 
-	const allRules = await ctx.db.query.questionnaireRules.findMany({
-		orderBy: [
-			asc(questionnaireRules.daeval),
-			asc(questionnaireRules.diagnosis),
-			asc(questionnaireRules.minAge),
-		],
-	});
-	const clientQs = await ctx.db.query.questionnaires.findMany({
-		where: eq(questionnaires.clientId, clientId),
-	});
+	const allRules =
+		preloaded?.allRules ??
+		(await ctx.db.query.questionnaireRules.findMany({
+			orderBy: [
+				asc(questionnaireRules.daeval),
+				asc(questionnaireRules.diagnosis),
+				asc(questionnaireRules.minAge),
+			],
+		}));
+	const clientQs =
+		preloaded?.clientQs ??
+		(await ctx.db.query.questionnaires.findMany({
+			where: eq(questionnaires.clientId, clientId),
+		}));
 
 	const { rules: applicableRules } = await resolveApplicableRules(
-		ctx,
+		ctx.db,
 		clientId,
 		client,
 		allRules,
@@ -485,8 +399,15 @@ export const questionnaireRouter = createTRPCRouter({
 		.input(z.object({ id: z.number() }).merge(questionnaireTypeInputSchema))
 		.mutation(async ({ ctx, input }) => {
 			assertPermission(ctx.session.user, "settings:questionnaireRules");
-			ctx.logger.info(input, "Updating questionnaire type");
+
 			const { id, ...data } = input;
+
+			const existing = await ctx.db.query.assessmentTypes.findFirst({
+				where: eq(assessmentTypes.id, id),
+			});
+			setAuditDetail(ctx, diffValues(existing ?? {}, data));
+
+			ctx.logger.info(input, "Updating questionnaire type");
 			await ctx.db
 				.update(assessmentTypes)
 				.set(data)
@@ -534,7 +455,7 @@ export const questionnaireRouter = createTRPCRouter({
 			});
 
 			const { rules, ageInYears } = await resolveApplicableRules(
-				ctx,
+				ctx.db,
 				input.clientId,
 				client,
 				allRules,
@@ -572,8 +493,15 @@ export const questionnaireRouter = createTRPCRouter({
 		)
 		.mutation(async ({ ctx, input }) => {
 			assertPermission(ctx.session.user, "settings:questionnaireRules");
-			ctx.logger.info(input, "Updating questionnaire rule");
+
 			const { id, ...data } = input;
+
+			const existing = await ctx.db.query.questionnaireRules.findFirst({
+				where: eq(questionnaireRules.id, id),
+			});
+			setAuditDetail(ctx, diffValues(existing ?? {}, data));
+
+			ctx.logger.info(input, "Updating questionnaire rule");
 			await ctx.db
 				.update(questionnaireRules)
 				.set(data)
@@ -607,6 +535,229 @@ export const questionnaireRouter = createTRPCRouter({
 			}
 
 			return clientWithQuestionnaires.questionnaires ?? null;
+		}),
+
+	getReminderSettings: protectedProcedure.query(async ({ ctx }) => {
+		const settings = await ctx.db
+			.select()
+			.from(questionnaireReminderSettings)
+			.limit(1);
+		return (
+			settings[0] ?? {
+				id: 1,
+				stage2OffsetDays: 14,
+				stage3OffsetDays: 7,
+				escalationSilenceDays: 3,
+			}
+		);
+	}),
+
+	updateReminderSettings: protectedProcedure
+		.input(
+			z.object({
+				stage2OffsetDays: z.number().int().min(0),
+				stage3OffsetDays: z.number().int().min(0),
+				escalationSilenceDays: z.number().int().min(0),
+			}),
+		)
+		.mutation(async ({ ctx, input }) => {
+			assertPermission(ctx.session.user, "settings:questionnaireRules");
+
+			const existing = await ctx.db
+				.select()
+				.from(questionnaireReminderSettings)
+				.limit(1);
+			setAuditDetail(ctx, diffValues(existing[0] ?? {}, input));
+
+			ctx.logger.info(
+				{ ...input, updatedBy: ctx.session.user.email },
+				"Updating questionnaire reminder settings",
+			);
+			return await ctx.db
+				.insert(questionnaireReminderSettings)
+				.values({ id: 1, ...input })
+				.onDuplicateKeyUpdate({ set: input });
+		}),
+
+	getReminderTemplates: protectedProcedure.query(async ({ ctx }) => {
+		return ctx.db
+			.select()
+			.from(questionnaireReminderTemplates)
+			.orderBy(
+				asc(questionnaireReminderTemplates.reminderIndex),
+				asc(questionnaireReminderTemplates.variant),
+			);
+	}),
+
+	updateReminderTemplate: protectedProcedure
+		.input(z.object({ id: z.number(), message: z.string().min(1) }))
+		.mutation(async ({ ctx, input }) => {
+			assertPermission(ctx.session.user, "settings:questionnaireRules");
+			ctx.logger.info(
+				{ ...input, updatedBy: ctx.session.user.email },
+				"Updating questionnaire reminder template",
+			);
+			return await ctx.db
+				.update(questionnaireReminderTemplates)
+				.set({
+					message: input.message,
+					updatedBy: ctx.session.user.email,
+				})
+				.where(eq(questionnaireReminderTemplates.id, input.id));
+		}),
+
+	getReminderOverrides: protectedProcedure
+		.input(z.number())
+		.query(async ({ ctx, input }) => {
+			return ctx.db
+				.select()
+				.from(questionnaireReminderOverrides)
+				.where(eq(questionnaireReminderOverrides.clientId, input))
+				.orderBy(desc(questionnaireReminderOverrides.sent));
+		}),
+
+	setReminderOverride: protectedProcedure
+		.input(
+			z.object({
+				clientId: z.number(),
+				sent: z.string(),
+				reminderIndex: z.number().int().min(0).max(2),
+				message: z.string().min(1),
+			}),
+		)
+		.mutation(async ({ ctx, input }) => {
+			assertPermission(
+				ctx.session.user,
+				"clients:questionnaires:overridereminder",
+			);
+			ctx.logger.info(
+				{ ...input, updatedBy: ctx.session.user.email },
+				"Setting questionnaire reminder override",
+			);
+			const updatedBy = ctx.session.user.email;
+			await ctx.db
+				.insert(questionnaireReminderOverrides)
+				.values({ ...input, updatedBy })
+				.onDuplicateKeyUpdate({
+					set: { message: input.message, updatedBy },
+				});
+			await ctx.db.insert(questionnaireReminderOverrideHistory).values({
+				clientId: input.clientId,
+				sent: input.sent,
+				reminderIndex: input.reminderIndex,
+				message: input.message,
+				updatedBy,
+			});
+		}),
+
+	clearReminderOverride: protectedProcedure
+		.input(
+			z.object({
+				clientId: z.number(),
+				sent: z.string(),
+				reminderIndex: z.number().int().min(0).max(2),
+			}),
+		)
+		.mutation(async ({ ctx, input }) => {
+			assertPermission(
+				ctx.session.user,
+				"clients:questionnaires:overridereminder",
+			);
+			ctx.logger.info(
+				{ ...input, updatedBy: ctx.session.user.email },
+				"Clearing questionnaire reminder override",
+			);
+			const updatedBy = ctx.session.user.email;
+			await ctx.db
+				.delete(questionnaireReminderOverrides)
+				.where(
+					and(
+						eq(questionnaireReminderOverrides.clientId, input.clientId),
+						eq(questionnaireReminderOverrides.sent, input.sent),
+						eq(
+							questionnaireReminderOverrides.reminderIndex,
+							input.reminderIndex,
+						),
+					),
+				);
+			await ctx.db.insert(questionnaireReminderOverrideHistory).values({
+				clientId: input.clientId,
+				sent: input.sent,
+				reminderIndex: input.reminderIndex,
+				message: "",
+				updatedBy,
+			});
+		}),
+
+	// Computes the same $PLACEHOLDER values render_reminder_message() would
+	// compute in the questionnaires repo (utils/messages.py), for a live,
+	// accurate preview of the default/override message for one client's
+	// batch without a round trip to the Python side. Keep in sync with that
+	// function if the placeholder set changes.
+	getReminderPreviewValues: protectedProcedure
+		.input(z.object({ clientId: z.number(), sent: z.string() }))
+		.query(async ({ ctx, input }) => {
+			const client = await ctx.db.query.clients.findFirst({
+				where: eq(clients.id, input.clientId),
+				with: { questionnaires: true },
+			});
+			const qs = client?.questionnaires ?? [];
+			const activeStatuses = new Set([
+				"PENDING",
+				"POSTDA_PENDING",
+				"POSTEVAL_PENDING",
+			]);
+			const linkCount = qs.filter(
+				(q) => q.status && activeStatuses.has(q.status),
+			).length;
+			const completedCount = qs.filter((q) => q.status === "COMPLETED").length;
+			const isPostda = qs.some((q) => q.status === "POSTDA_PENDING");
+			const isPosteval = qs.some((q) => q.status === "POSTEVAL_PENDING");
+			const variant: "DEFAULT" | "POSTDA" | "POSTEVAL" =
+				isPosteval && isPostda ? "POSTDA" : isPosteval ? "POSTEVAL" : "DEFAULT";
+
+			const settingsRows = await ctx.db
+				.select()
+				.from(questionnaireReminderSettings)
+				.limit(1);
+			const escalationDays = settingsRows[0]?.escalationSilenceDays ?? 3;
+
+			const todayBusiness = formatInBusinessTime(new Date(), "yyyy-MM-dd");
+			const distancePhrase = reminderDistancePhrase(input.sent, todayBusiness);
+			const deadlineDate = reminderDeadlineDate(todayBusiness, escalationDays);
+
+			const configRecord = await ctx.db.query.pythonConfig.findFirst({
+				where: eq(pythonConfig.id, 1),
+			});
+			const configParsed = configRecord?.data
+				? lenientPythonConfigSchema.safeParse(configRecord.data)
+				: null;
+			const staffName = configParsed?.success
+				? configParsed.data.config.name
+				: "";
+
+			// The reminded counter is bumped for every active-pending questionnaire
+			// on the client each time a reminder goes out, so a batch's rows should
+			// all share the same count. Take the max as the batch's current stage.
+			const remindedCount = qs
+				.filter((q) => q.sent === input.sent)
+				.reduce((max, q) => Math.max(max, q.reminded ?? 0), 0);
+
+			return {
+				variant,
+				remindedCount,
+				values: {
+					$CLIENT_FIRST_NAME: client?.firstName ?? "",
+					$STAFF_NAME: staffName,
+					...reminderPluralization(linkCount),
+					$DISTANCE_PHRASE: distancePhrase,
+					$DEADLINE_DATE: deadlineDate,
+					$ESCALATION_DAYS: String(escalationDays),
+					$PORTAL_LINK: REMINDER_PORTAL_LINK,
+					$COMPLETED_COUNT: String(completedCount),
+					$REMAINING_COUNT: String(linkCount),
+				},
+			};
 		}),
 
 	addQuestionnaire: protectedProcedure
@@ -914,14 +1065,28 @@ export const questionnaireRouter = createTRPCRouter({
 				where: eq(questionnaires.id, input.id),
 			});
 
+			const updateData = {
+				questionnaireType: input.questionnaireType,
+				link: input.link,
+				sent: sentDate,
+				status: input.status,
+			};
+			setAuditDetail(
+				ctx,
+				diffValues(
+					{
+						questionnaireType: existing?.questionnaireType,
+						link: existing?.link,
+						sent: existing?.sent,
+						status: existing?.status,
+					},
+					updateData,
+				),
+			);
+
 			await ctx.db
 				.update(questionnaires)
-				.set({
-					questionnaireType: input.questionnaireType,
-					link: input.link,
-					sent: sentDate,
-					status: input.status,
-				})
+				.set(updateData)
 				.where(eq(questionnaires.id, input.id));
 
 			if (existing && input.status !== "ARCHIVED") {
@@ -988,8 +1153,39 @@ export const questionnaireRouter = createTRPCRouter({
 				columns: { clientId: true },
 			});
 			const uniqueClientIds = [...new Set(affectedQs.map((q) => q.clientId))];
+
+			const [allRules, allClients, allClientQs] = await Promise.all([
+				ctx.db.query.questionnaireRules.findMany({
+					orderBy: [
+						asc(questionnaireRules.daeval),
+						asc(questionnaireRules.diagnosis),
+						asc(questionnaireRules.minAge),
+					],
+				}),
+				ctx.db.query.clients.findMany({
+					where: inArray(clients.id, uniqueClientIds),
+				}),
+				ctx.db.query.questionnaires.findMany({
+					where: inArray(questionnaires.clientId, uniqueClientIds),
+				}),
+			]);
+			const clientsById = new Map(allClients.map((c) => [c.id, c]));
+			const qsByClientId = new Map<
+				number,
+				(typeof questionnaires.$inferSelect)[]
+			>();
+			for (const q of allClientQs) {
+				const group = qsByClientId.get(q.clientId);
+				if (group) group.push(q);
+				else qsByClientId.set(q.clientId, [q]);
+			}
+
 			for (const clientId of uniqueClientIds) {
-				await checkAndUpdateQsBatteryStatus(ctx, clientId);
+				await checkAndUpdateQsBatteryStatus(ctx, clientId, {
+					client: clientsById.get(clientId),
+					allRules,
+					clientQs: qsByClientId.get(clientId) ?? [],
+				});
 			}
 
 			return { success: true };
@@ -998,90 +1194,7 @@ export const questionnaireRouter = createTRPCRouter({
 	getDuplicateLinks: protectedProcedure.query(async ({ ctx }) => {
 		assertPermission(ctx.session.user, "issues:duplicate-questionnaires");
 
-		// 1. Clients with the same link multiple times (grouped by link + clientId)
-		const duplicatePerClient = await ctx.db
-			.select({
-				link: questionnaires.link,
-				clientId: questionnaires.clientId,
-				count: count().as("count"),
-			})
-			.from(questionnaires)
-			.where(
-				and(
-					isNotNull(questionnaires.link),
-					not(eq(questionnaires.status, "ARCHIVED")),
-				),
-			)
-			.groupBy(questionnaires.link, questionnaires.clientId)
-			.having(gt(count(), 1));
-
-		// Get full client objects for duplicatePerClient
-		const clientIdsForDuplicates = duplicatePerClient.map(
-			(row) => row.clientId,
-		);
-		const clientsForDuplicates =
-			clientIdsForDuplicates.length > 0
-				? await ctx.db
-						.select()
-						.from(clients)
-						.where(inArray(clients.id, clientIdsForDuplicates))
-				: [];
-
-		// 2. Links shared across multiple clients
-		const sharedAcrossClients = await ctx.db
-			.select({
-				link: questionnaires.link,
-			})
-			.from(questionnaires)
-			.where(
-				and(
-					isNotNull(questionnaires.link),
-					not(eq(questionnaires.status, "ARCHIVED")),
-				),
-			)
-			.groupBy(questionnaires.link)
-			.having(gt(countDistinct(questionnaires.clientId), 1));
-
-		// Get all clients for each shared link
-		const sharedLinksWithClients = await Promise.all(
-			sharedAcrossClients.map(async ({ link }) => {
-				if (link === null) {
-					return {
-						link: null,
-						clients: [],
-					};
-				}
-
-				const clientsWithLink = await ctx.db
-					.select({
-						client: clients,
-						count: count().as("count"),
-					})
-					.from(questionnaires)
-					.innerJoin(clients, eq(questionnaires.clientId, clients.id))
-					.where(
-						and(
-							eq(questionnaires.link, link),
-							not(eq(questionnaires.status, "ARCHIVED")),
-						),
-					)
-					.groupBy(clients.id);
-
-				return {
-					link,
-					clients: clientsWithLink,
-				};
-			}),
-		);
-
-		return {
-			duplicatePerClient: duplicatePerClient.map((row) => ({
-				link: row.link,
-				client: clientsForDuplicates.find((c) => c.id === row.clientId),
-				count: row.count,
-			})),
-			sharedAcrossClients: sharedLinksWithClients,
-		};
+		return getDuplicateQuestionnaireLinksData(ctx.db);
 	}),
 
 	getJustAdded: protectedProcedure.query(async ({ ctx }) => {
@@ -1101,138 +1214,7 @@ export const questionnaireRouter = createTRPCRouter({
 	getPartialBatteries: protectedProcedure.query(async ({ ctx }) => {
 		assertPermission(ctx.session.user, "issues:partial-battery");
 
-		if (!ctx.session.user.accessToken || !ctx.session.user.refreshToken) {
-			throw new Error("No access token or refresh token");
-		}
-
-		const isNotesOnly = eq(sql`LENGTH(${clients.id})`, 5);
-
-		const activeClients = await ctx.db.query.clients.findMany({
-			where: and(
-				eq(clients.status, true),
-				eq(clients.pause, false),
-				eq(clients.autismStop, false),
-				not(isNotesOnly),
-			),
-		});
-
-		const punchData = await fetchWithCache(
-			ctx,
-			CACHE_KEY_PUNCHLIST,
-			() => getPunchData(ctx.session),
-			60,
-		);
-
-		const punchByClientId = new Map(
-			punchData.map((row) => [parseInt(row["Client ID"] ?? "", 10), row]),
-		);
-
-		const allRules = await ctx.db.query.questionnaireRules.findMany({
-			orderBy: [
-				asc(questionnaireRules.daeval),
-				asc(questionnaireRules.diagnosis),
-				asc(questionnaireRules.minAge),
-			],
-		});
-
-		const results: (typeof clients.$inferSelect & {
-			daeval: "DA" | "EVAL";
-			missingTypes: string[];
-			sentTypes: string[];
-			hasDocsNotSigned: boolean;
-			hasPortalNotOpened: boolean;
-		})[] = [];
-
-		for (const client of activeClients) {
-			const punchInfo = punchByClientId.get(client.id);
-			const daNeeded = punchInfo?.["DA Qs Needed"] === "TRUE";
-			const evalNeeded = punchInfo?.["EVAL Qs Needed"] === "TRUE";
-
-			if (!daNeeded && !evalNeeded) continue;
-
-			const clientQs = await ctx.db.query.questionnaires.findMany({
-				where: eq(questionnaires.clientId, client.id),
-			});
-
-			const { rules: applicableRules } = await resolveApplicableRules(
-				ctx,
-				client.id,
-				client,
-				allRules,
-				clientQs,
-			);
-
-			const daQTypes = new Set<string>();
-			const evalQTypes = new Set<string>();
-			for (const rule of applicableRules) {
-				const qs = rule.questionnaires ?? [];
-				if (rule.daeval === "DA") {
-					for (const q of qs) daQTypes.add(q);
-				}
-				if (rule.daeval === "EVAL") {
-					for (const q of qs) evalQTypes.add(q);
-				}
-				// DAEVAL rules only apply to clients getting a combined DA+EVAL
-				// battery; don't pull them into a single DA-only or EVAL-only need.
-				if (rule.daeval === "DAEVAL" && daNeeded && evalNeeded) {
-					for (const q of qs) {
-						daQTypes.add(q);
-						evalQTypes.add(q);
-					}
-				}
-			}
-
-			if (daQTypes.size === 0 && evalQTypes.size === 0) continue;
-
-			const activeSentTypes = new Set(
-				clientQs
-					.filter((q) => q.status !== "ARCHIVED")
-					.map((q) => q.questionnaireType),
-			);
-
-			const batteriesToCheck = [
-				["DA", daQTypes, daNeeded],
-				["EVAL", evalQTypes, evalNeeded],
-			] as const;
-
-			for (const [daeval, requiredTypes, needed] of batteriesToCheck) {
-				if (!needed || requiredTypes.size === 0) continue;
-
-				const sentTypes = [...requiredTypes].filter((t) =>
-					activeSentTypes.has(t),
-				);
-				const missingTypes = [...requiredTypes].filter(
-					(t) => !activeSentTypes.has(t),
-				);
-
-				if (sentTypes.length > 0 && missingTypes.length > 0) {
-					const clientFailures = await ctx.db.query.failures.findMany({
-						where: and(
-							eq(failures.clientId, client.id),
-							lt(failures.reminded, 100),
-						),
-					});
-
-					const hasDocsNotSigned = clientFailures.some(
-						(f) => f.reason === "docs not signed",
-					);
-					const hasPortalNotOpened = clientFailures.some(
-						(f) => f.reason === "portal not opened",
-					);
-
-					results.push({
-						...client,
-						daeval,
-						missingTypes,
-						sentTypes,
-						hasDocsNotSigned,
-						hasPortalNotOpened,
-					});
-				}
-			}
-		}
-
-		return results;
+		return getPartialBatteriesList(ctx);
 	}),
 
 	getLatestScreenshot: protectedProcedure

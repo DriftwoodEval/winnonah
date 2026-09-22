@@ -21,3 +21,8 @@ pre-commit:
     changelog:
       glob: "src/content/docs/changelog/index.mdx"
       run: mise x -- pnpm exec tsx scripts/validate-changelog.ts
+    docs:
+      glob:
+        - "src/content/docs/**/*"
+        - "scripts/validate-docs.ts"
+      run: mise x -- pnpm exec tsx scripts/validate-docs.ts

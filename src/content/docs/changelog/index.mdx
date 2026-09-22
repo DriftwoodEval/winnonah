@@ -2,10 +2,202 @@
 title: Changelog
 ---
 
+## 2026-09-22
+
+**Improved**
+- When editing a role's or person's permissions, checking a heading (like Issues or General) now gives every permission under it, including ones added in the future, so you no longer have to go back and tick new permissions for each person. You can still uncheck individual permissions under a checked heading to leave them out. Headings where every box is ticked one by one show as partly checked until you check the heading itself.
+
+**Fixed**
+- "Receive Report Queue Notifications" and "Receive Admin Review Claim Email Notifications" now work when they come from a person's role, not only when they're checked on the person directly.
+
+## 2026-09-18
+
+**New**
+- The Medicaid Eligibility section on a client's insurance now also shows the Organization and both Carriers from the SC Medicaid portal.
+- Medicaid eligibility is now looked up for clients with ATC, BabyNet, SH, SCM, HB, Humana, Molina, or Molina Marketplace as their primary or secondary insurance, not just SCM.
+- The Organization from the SC Medicaid portal is matched to an insurance using the same aliases as the rest of the app, and a warning appears if it isn't one of the client's primary or secondary insurances.
+- When records come back for a client whose primary insurance is SH, Admin Review is now turned on automatically and assigned to Andrew.
+- The records request automation now handles private and charter school clients. The QSuite Records Config lists private and charter schools alongside public districts, so you can add a contact for each. A client marked Charter / Private School at intake waits until someone with permission presses the new "Confirm Private / Charter School" button on the Referral tab; they show under "Records Needed - Not Requested" as "Private school not yet confirmed" and on a new "Private School Awaiting Confirmation" issues list (also available as a home page widget) until then, or until the intake answer is changed to No. Once confirmed, the client is assigned the Charter School consent forms, and the next day the family gets a text that we sent them. When they have signed the forms and the school they entered has a contact on file, the request is sent automatically. Otherwise (no forms yet, or an unrecognized school) it falls out for manual review.
+
+**Improved**
+- Medicaid eligibility is now refreshed about once a month instead of only being looked up when it was missing.
+- The QSuite Records Config school picker opens much faster, and each option is now tagged when it's a private or charter school.
+
+## 2026-09-16
+
+**New**
+- The Audit Log now records appointment imports: creating a new appointment, rescheduling one, cancelling or uncancelling one, and other changes like a switched evaluator or location.
+- The Audit Log's action filter is now grouped by category, and each category has an "All ___.*" option to see every action in that category at once instead of picking one at a time.
+- The Reports page (beta) can now filter by Type, Writer, and Status, and you can save your current filters as a named view to reuse later.
+- The Reports page (beta) supports bulk actions: select multiple reports and approve, archive, or mark a billing field for all of them at once.
+- Approving a report on the Reports page (beta) can now be undone, putting it back to claimed or submitted and returning it to the writer's queue.
+
+**Improved**
+- On the Reports page (beta), the second-review columns now appear right after "Writer done" and before "Billed", and rows for inactive clients are shown dimmed.
+- Editing a stored record or settings page (a client, an evaluator, an insurance, a role's permissions, a person's permission overrides, a questionnaire type or rule, reminder or report-queue settings, and more) now shows only what actually changed in the Audit Log, instead of the entire submitted form, list, or record every time.
+
+**Fixed**
+- The Audit Log no longer fills up with a repeated entry every time the questionnaires system checks on an outstanding failure and finds nothing has changed. It only logs an entry when a failure is actually resolved or updated.
+
+## 2026-09-15
+
+**Improved**
+- Insurance Review is now called Admin Review and has moved off the Insurance tab onto its own tab on the client page.
+
+## 2026-09-10
+
+**Fixed**
+- ADHD-only clients (no autism) now show the "Not Sending Records" alert and the reason under "Records Needed - Not Requested" when their records request can't go out on its own (client speaks a language other than English, private school, or an active hold). Previously these were hidden for ADHD-only clients, so a request that needed a person to send it manually could sit unnoticed.
+
+## 2026-09-08
+
+**Improved**
+- The quick client search (Cmd/Ctrl + K) now tolerates a one-letter typo in a name. Exact matches still come first; near-matches are listed below them so a misspelled name still finds the client.
+- Every column filter on the scheduling page now has a "None" option, so you can filter for rows with no evaluator, no date, no code, no insurance, no district, no age on file, and so on.
+
+## 2026-09-07
+
+**Improved**
+- The client page's History card (formerly "Dashboard History") now also shows which issues lists a client is on (Paused Clients, Autism Stops, Drop List, District Issues, Too Old for BabyNet, Not in TA, No Drive IDs, Unreviewed Records, Appointments to be Created, Duplicate Questionnaires, Partial Questionnaire Battery, and more) and their failure history (portal not opened, docs not signed, and similar), alongside the workflow stage changes it already tracked.
+
+**Fixed**
+- Insurance codes by appointment now respects the per-code unit maximums (Max 96136, Max 96137, Max 96130, Max 96131) as a max TOTAL across all appointments, not a max per appointment. Previously each appointment got its own fresh allowance, so an extra appointment could appear billing more units of a code than the configured maximum allowed.
+- Clients on a 90000 billing code insurance no longer show up on the "Appointments to be Created" issues list.
+- Recomputing a client's assessment minutes now immediately updates their expected appointment count on the Missing Appointments issues dashboard. Previously that count could stay stale for up to an hour after a recompute.
+
+## 2026-09-06
+
+**New**
+- Settings > QSuite > Piecework now has an "ADHD-Only Report Billing" setting for choosing the one evaluator whose ADHD-only evaluation reports still count as billable piecework. This could previously only be changed behind the scenes.
+- The Add/Edit Insurance dialog now has a checklist of evaluators, so you can set which evaluators take an insurance right from the insurance itself, not just from each evaluator's own settings.
+- Insurances with no evaluators assigned now show a "No evaluators" warning, both in the Add/Edit Insurance dialog and in the Insurances list, where they're also shown faded out.
+- Clients can now be marked "Already Diagnosed" from the Edit Client dialog. This shows a warning banner on the client's page but doesn't stop records requests, questionnaires, or reminders.
+
+**Improved**
+- The QSuite settings tab now lays out properly on a phone. The tab bar wraps instead of overflowing, and the multi-column field groups (services, records emails, piecework rates) stack into a single column on narrow screens.
+- The "My Day", "Who's In", and "Greeter Schedule" home page widgets now have clickable titles that link to their full pages, matching the calendar widgets.
+- Home page widgets now show a "couldn't load" message instead of silently looking empty when their data fails to load.
+- Report statuses now show as friendly labels ("Claimed", "Submitted") instead of raw lowercase text, and the "Claimed" and "Writer done" dates on the reports table always include the year.
+- The "My Insurance Clients" home widget now shows the Waiting badge next to a client's name, matching the dashboard's Insurance Review list.
+- The "Autism Stop" and "Paused" badges on the dashboard now show in a neutral color instead of the same red used for real problems, so a red badge consistently means something needs attention.
+- The Day Ahead page and the QSuite and BabyNet settings tabs now show a shaped loading skeleton instead of plain "Loading..." text while their data loads.
+
+## 2026-09-05
+
+**New**
+- The insurance review section now has an Assignment History view (the people icon next to "Whose turn") showing who was assigned the review and when, and who made each assignment.
+- The insurance review section now shows who most recently assigned the current reviewer, and when, right under "Whose turn."
+
+**Improved**
+- The email you get when someone assigns you an insurance review now names them right in the subject line, not just the message body.
+
+**Fixed**
+- The QSuite settings tab no longer shows up blank when the saved configuration is missing a value or has one in the wrong format. The form now loads with whatever is filled in so you can finish the rest.
+
+## 2026-09-04
+
+**Fixed**
+- Clients marked "N/A" for their Drive folder now show an Edit Drive option again, so you can go back and link a folder later instead of being stuck with no way to add one.
+
+## 2026-09-03
+
+**New**
+- You can now pin the list you're working through on the dashboard. Each dashboard section, and the Insurance Review list, has a "Pin this list" button; once pinned, every client on that list gets a Prev / Next bar at the top of their page so you can walk the list without going back to the dashboard. Click the list name in the bar to expand the whole list, with the same names, colors, badges, and notes it shows on the dashboard. The Insurance Review pin follows your All/Mine and Waiting filters, and the bar shows when those filters are active with buttons to toggle or clear them. Only one list is pinned at a time, and the bar has an unpin button. The same "Pin this list" button is on the home page widgets: each Dashboard Section widget and the My Insurance Clients widget.
+
+**Improved**
+- The dashboard's "Records Needed - Not Requested" section now shows the date each pending request was queued, plus the reason a request isn't going out automatically (private-school client, a language other than English, or an active hold), matching the "Not Sending Records" alert on the client's page.
+- The School Records section is clearer about queued requests. Each request is now its own card showing the date it was queued and whether it has been sent, instead of a cramped row of date fields.
+- A records request that was queued by mistake can now be undone: while it is still pending, a "Cancel request" button on its card removes it. Once the request has a Requested date it has gone out and stays on the record.
+- The "Not Sending Records" alert is quieter about records that were already requested. Once a request has gone out and nothing is pending, it no longer keeps flagging the client as waiting on records. It still shows when a client has never had a request, or when a pending request is held up (private school, unsupported language, or an active hold).
+- The Audit Log (Settings > Audit Log) can now be filtered by client: search for a client by name and the log narrows to entries about that client.
+- The Audit Log's action filter is now a dropdown of the actions that actually appear in the log, instead of a free-text box.
+
+**Fixed**
+- The scheduling sheet's column filters work again. After the switch to real driving distance they showed "No results found" for every column; the option lists and counts are back.
+- The client directory, the client search (including its office filter), and the scheduling sheet load much faster again. The recent switch to real driving distance had made them recompute every client's closest office in a slow way on each load; that work now happens in memory.
+- The records and questionnaire alerts on a client's page no longer flash a partial list of reasons while the page is still loading; they wait until all the underlying data is in and show the complete list at once.
+
+## 2026-09-02
+
+**Improved**
+- Closest Office, and every other office-distance filter, sort, or auto-assignment in the app (the client directory's office filter, the scheduling grid, punch list reports, and the office auto-filled when adding an in-person client to the scheduling sheet), now reflects real by-car driving distance instead of a straight-line estimate. It's kept fresh automatically, and opening a client's Compare popup refreshes that client's numbers on the spot.
+
+**Fixed**
+- When several therapists' client exports are imported together, a client who is active with one therapist but discharged by another is now kept active. Previously whichever file happened to be read first won, so such a client could be marked inactive by mistake.
+- Reactivating a client within 12 months no longer wipes their insurance review. The existing review is kept, with a dated "Reactivated on..." heading added at the top, matching how client notes already handle it.
+- The "Compare" popup on a client's Closest Office line now lists every office with real distance and time instead of just the other offices' straight-line distance.
+
+## 2026-09-01
+
+**New**
+- A client's page now shows a "Not Sending Questionnaires" and/or "Not Sending Records" alert whenever something is holding up automated sending, listing every reason at once: paused, an unsupported language, a missing records-needed status, a private-school client whose records need to be requested manually, records on hold, records that haven't been requested or received yet, or an unresolved delivery failure. The questionnaire half only shows up once staff have actually marked DA or EVAL Qs as needed on the prioritization sheet, so it stays out of the way for clients nothing has been asked of yet.
+- The client directory's Blockers badges (previously "Unresolved Failures") now also flag those same reasons, so you can spot a blocked client without opening their page.
+
+**Improved**
+- The filename at the top of the fax review popup is now a link that opens the fax directly in Google Drive.
+- Docs pages can now show callouts (note, tip, important, warning, caution, and more), so key warnings and side notes stand out from the surrounding text instead of getting lost in it.
+
+**Fixed**
+- Fax processing is better at getting scanned pages right way up. When the quick orientation check isn't sure (common on noisy faxes), it now reads the page at all four rotations and keeps whichever one comes out as real text, instead of acting on a bad guess and saving a page sideways in Drive. A page it still can't read confidently is left as received.
+- Pausing a client, or checking "Autism" in Records, now also stops the automated records request from going out, matching how it already blocks questionnaires. Previously a paused client could still get a school records request sent automatically.
+- Client notes now retry a save automatically when the server is briefly unreachable (for example during a deploy), instead of failing with a confusing "not valid JSON" error. If it still can't save, the message now explains the connection dropped and the note will save once it is back.
+- QSuite settings (service credentials, database connection info, and appointments sync settings) are now properly restricted to staff with QSuite permissions on the server side, not just hidden from the Settings page for everyone else.
+- Sending the BabyNet referral text now requires the same permission as filling out the Referral tab, on the server side, not just hidden from staff who can't fill out the tab.
+
+## 2026-08-31
+
+**New**
+- The client's Closest Office line has a new "Drive times" link that pulls live by-car drive time and mileage to each office from Waze, sorted fastest first.
+
+**Fixed**
+- The reactivation separator added to a client's notes when a fresh session starts now shows the reactivation date in practice time, so an evening reactivation no longer records tomorrow's date.
+
+## 2026-08-29
+
+**Improved**
+- The dashboard now remembers how far you had scrolled inside each section's box, not just the page as a whole, and puts you back there when you return.
+
+## 2026-08-28
+
+**Improved**
+- The Referral tab stays editable after a client is pushed to the punchlist. The fields now hold the true, current values, and any field changed after the push is flagged with an "Edited after push" badge that shows the previous value and who changed it. Outreach and review controls stay locked once a client is on the punchlist.
+- Insurance policies imported from TherapyAppointment are now limited to policies our own staff added. Policies entered by the client are no longer pulled in.
+- When a client goes inactive and comes back, we now only start a fresh session (archiving their prior-session data) if they were inactive for 12 months or more. If they return sooner, their prior-session data stays put and instead their insurance review is turned on and assigned to Andrew, with a note recording when they were reactivated, when they were deactivated, and how long the gap was.
+
+**Fixed**
+- Editing or archiving one evaluator no longer briefly wipes every other evaluator off clients' eligible lists and the scheduling page. Evaluator changes now update just that evaluator's eligibility, and archived evaluators are dropped from eligible lists right away instead of lingering until the next overnight sync.
+
+## 2026-08-18
+
+**New**
+- The client directory has a new Evaluator column, showing the evaluator for the client's most recent or next appointment, or their active scheduling assignment if they have no appointments yet.
+- The Columns menu on the client directory now lets you reorder columns, not just show or hide them.
+
+**Improved**
+- The client directory's DA Scheduled and EVAL Scheduled columns now show the appointment date instead of just "Yes" (filtering is still yes/no).
+- The client directory's Prior Auth Date now matches the date format used elsewhere in that table.
+- The client directory can now filter by whether a client has a prior auth date, whether a DA or EVAL is scheduled, and by who's assigned to PA.
+- The client directory's Name column now stays put while scrolling horizontally, like the scheduling page.
+
+**Fixed**
+- The client directory table can now be scrolled horizontally when it's too wide for the screen, and the scrollbar stays reachable instead of sitting below all the rows.
+- Private-pay clients no longer show a bogus "Unknown Company" insurance card on their Insurance tab.
+- The client directory loads noticeably faster, especially with insurance filters applied.
+- PA Assigned To can now be edited on a client's Insurance tab even when they have no insurance policy or pre-certification data on file yet.
+- The Insurance Codes box now shows BabyNet billing rules whenever a client's secondary insurance is BabyNet or they're flagged to be treated as BabyNet, instead of only when BabyNet is their primary insurance.
+
+## 2026-08-17
+
+**Fixed**
+- Changing a questionnaire's type when editing it no longer leaves the Save Changes button stuck grayed out.
+- Correcting a client's school district now updates their eligible evaluators right away, instead of leaving the eligible evaluators list and scheduling page out of sync with the "Why?" breakdown until the next overnight sync.
+
 ## 2026-08-15
 
 **New**
 - Reminder scripts can now be limited to a client age range, so you can target reminders (or reminder wording) at kids vs. adults, for example.
+- Questionnaire reminder messages and their timing are now editable from Settings instead of being fixed, including separate wording for the 1st, 2nd, and 3rd reminder and for post-DA/post-eval clients.
+- You can now override the reminder text for a specific client's batch of questionnaires (all questionnaires sent to them on the same day), for one-off situations, from the client's Questionnaires table.
 
 ## 2026-08-14
 **New**
@@ -14,6 +206,7 @@ title: Changelog
 - Evaluators can now be checked in and out for the whole day. Look for the button next to their name in Who's In and the Day calendar view.
 - Work Summary now shows an Evaluator Arrival Lateness card, comparing each evaluator's day check-in time against their first scheduled appointment.
 - The Availability page now has a Team Availability tab, with a month-at-a-glance calendar showing everyone's availability and out-of-office time, plus a per-person view for browsing one coworker's schedule at a time.
+- Referral sources now get an automatic status fax every 3 months for clients who are still in our evaluation process, letting them know what we're waiting on or when the appointment is scheduled.
 
 ## 2026-08-13
 
@@ -28,6 +221,8 @@ title: Changelog
 ## 2026-08-12
 
 **New**
+- The client directory now has columns for prior auth date, whether a DA or eval is scheduled, the client's location (their most recent in-person appointment site, or their closest office if they're seen virtually), and who's assigned to their prior authorization.
+- On the insurance tab, "PA Assigned to" can now be clicked to edit who's assigned, which pushes the change straight to the Punchlist.
 - Reviewed faxes can now be downloaded as a zip from the reviewed tab, pre-labeled with the confirmed category, for testing the AI categorization offline.
 
 **Improved**

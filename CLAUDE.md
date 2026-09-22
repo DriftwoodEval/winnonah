@@ -3,14 +3,27 @@ T3 stack app (Next.js, tRPC, Drizzle ORM, NextAuth) + a Python API sidecar + cro
 ## Code Style
 - No AI-isms (filler, hedging, "as an AI") and no em dashes (use comma/colon/period) in code, comments, commits, docs.
 - Prefer simple, readable code over clever/terse one-liners. DRY.
+- Code comments explain the current state of the code, not what changed or why it used to be different. A reader without the diff should get full value from the comment.
+- Use our named color tokens, never raw Tailwind palette colors (`bg-red-500`, `text-amber-600`, etc.). The tokens are defined in `src/styles/globals.css`: semantic (`success`, `warning`, `error`, `primary`, `destructive`, `muted`, `accent`, `border`, `card`, `popover`, each with a `-foreground` where it applies) and brand (`brand-green`, `brand-teal`, `brand-tan`, `brand-cream`). Semantic tokens have Tailwind utilities (`bg-success`, `border-warning/40`); the brand tokens beyond `brand-green` (which is `primary`) are CSS vars only, reach them with `var(--brand-teal)`. If nothing fits, add a token to `globals.css` rather than hardcoding a palette color.
 
 ## Changelog
 When making significant, user-facing changes, add an entry to `src/content/docs/changelog/index.mdx`. Use today's date, group bullets under `**New**`/`**Improved**`/`**Fixed**` in that order, and validate with `pnpm exec tsx scripts/validate-changelog.ts`. Write bullets in plain, user-friendly language describing what changed for the user, not implementation details (e.g. "Insurance review now shows the waiting badge even when you can't act on it," not "gated waiting badge render behind canUse flag").
+
+## Docs
+When a change alters behavior an existing docs page under `src/content/docs/` describes (a renamed label, a changed rule, a removed or added step, a workflow that now works differently), update that page in the same change. Grep the docs for the feature name or UI label to find affected pages. Docs are written for non-technical staff: describe what the user sees and does, not the implementation. Validate with `mise run check:docs`.
+
+Category folders can nest one or more levels; each folder (including subfolders) can carry a `_category.json` (`title`, `position`). Moving a page changes its URL, so update every `/docs/...` cross-link that points at it (the validator fails the build on a dead one).
+
+## Docs
+Docs live in `src/content/docs/` as Markdown/MDX and are read by practice staff, not engineers: use plain language and skip implementation detail (schema, cron cadences, function names). Do not hard-wrap prose: one line per paragraph and per list item.
 
 ## Commands
 - `mise run check` type-checks and lints everything (TS + Python); use `check:pnpm`/`check:ruff` to run just one side. Don't call `tsc`/`ruff` directly.
 - Trust ruff over your own syntax assumptions.
 - Never run `pnpm db:*` or DB migrations, leave to the user.
+
+## Local Development
+Every page requires a logged-in NextAuth session, and Claude has no way to authenticate as a real user, so starting the dev server and browser-testing a UI change is never possible here regardless of Docker/`.env` availability. Don't attempt it. Verify UI changes with `mise run check` and existing tests, and say plainly that the change wasn't browser-tested rather than claiming otherwise.
 
 ## Home Page Widgets
 The home page (`src/app/_components/home/HomePageContent.tsx`) renders a user-configurable grid of widgets. Widget ids are plain strings, not a type union. To add a widget:
@@ -40,3 +53,13 @@ Columns defined with `d.timestamp()` (e.g. `startTime`, `endTime`, `confirmedAt`
 - Constructing a UTC instant from business-local wall-clock input (e.g. a day-boundary query): `date-fns-tz`'s `fromZonedTime(dateString, BUSINESS_TIMEZONE)` (see `getDayAhead` in `src/server/api/routers/appointments.ts`).
 
 On the Python side (`winnonah/python/utils/timezone.py` and `questionnaires/utils/timezone.py`, kept in sync), the same conventions apply via `business_to_utc`/`utc_to_business`/`now_utc`/`now_business`. `emr_appointment.startTime`/`endTime` are written by `python/utils/appointments.py` from TherapyAppointment CSV exports, which are naive business-local wall-clock time: always localize via `business_to_utc` before inserting, never write a naive value directly.
+
+<!-- BEGIN:nextjs-agent-rules -->
+
+# This is NOT the Next.js you know
+
+This version has breaking changes — APIs, conventions, and file structure may all differ from your training data. Read the relevant guide in `node_modules/next/dist/docs/` (resolved from this file's directory; in monorepos the `next` package may not be visible from the repo root) before writing any code. Heed deprecation notices.
+
+This block is written and re-added by `next dev` — verify at `node_modules/next/dist/server/lib/generate-agent-files.js`. Removing it from a diff only re-creates the uncommitted change; committing it with your work keeps the tree clean.
+
+<!-- END:nextjs-agent-rules -->

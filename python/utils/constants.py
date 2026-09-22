@@ -5,10 +5,20 @@ from typing import Final
 # rollout doesn't churn through every fax ever received.
 FAX_CATEGORIZATION_START_DATE: Final = datetime(2026, 8, 5)
 
+# Evaluation appointments before this business-local date do not auto-create a
+# report row, so turning the feature on doesn't backfill the entire history of
+# past evals. Older reports that still need writing enter through the Drive
+# report-writing queue folder instead. Hard cutoff, business-local midnight.
+REPORT_TRACKING_START_DATE: Final = datetime(2026, 8, 1)
+
 # Single source of truth for the practice's timezone. Used to convert stored
 # UTC instants to/from the business's wall-clock time for display and for
 # business-hour logic (quiet windows, daily send gates, etc).
 BUSINESS_TIMEZONE: Final = "America/New_York"
+
+# Google Drive folder that client folders are moved into when a pool report is
+# ready to be claimed ("001"). Mirrored in src/lib/constants.ts.
+REPORT_QUEUE_FOLDER_ID: Final = "1fGZavJU8bAqROKd8iTgoEtRT8orp4a4s"
 
 TEST_NAMES: Final = [
     "Testman Testson",
@@ -50,12 +60,14 @@ TABLE_APPOINTMENT_REMINDER_SETTINGS: Final = "emr_appointment_reminder_settings"
 TABLE_APPOINTMENT_REMINDER_TEMPLATES = "emr_reminder_templates"
 TABLE_APPOINTMENT_REMINDER_LOGS = "emr_reminder_logs"
 TABLE_APPOINTMENT_REMINDER_REPLIES = "emr_reminder_replies"
+TABLE_REFERRAL_STATUS_FAX_LOGS: Final = "emr_referral_status_fax_logs"
 TABLE_QUESTIONNAIRE_MSG_LOGS: Final = "emr_questionnaire_msg_logs"
 TABLE_FAILURE: Final = "emr_failure"
+TABLE_AUDIT_LOG: Final = "emr_audit_log"
 TABLE_ASSESSMENT_TYPE: Final = "emr_assessment_type"
 TABLE_CLIENT_INSURANCE_POLICY: Final = "emr_client_insurance_policy"
-TABLE_INSURANCE_REVIEW: Final = "emr_insurance_review"
-TABLE_INSURANCE_REVIEW_HISTORY: Final = "emr_insurance_review_history"
+TABLE_ADMIN_REVIEW: Final = "emr_admin_review"
+TABLE_ADMIN_REVIEW_HISTORY: Final = "emr_admin_review_history"
 TABLE_IN_PERSON_ASSESSMENT_HISTORY: Final = "emr_in_person_assessment_history"
 TABLE_NOTE: Final = "emr_note"
 TABLE_NOTE_HISTORY: Final = "emr_note_history"
@@ -65,6 +77,10 @@ TABLE_EXTERNAL_RECORD: Final = "emr_external_record"
 TABLE_EXTERNAL_RECORD_HISTORY: Final = "emr_external_record_history"
 TABLE_FAX_CATEGORIZATION: Final = "emr_fax_categorization"
 TABLE_FAX_CATEGORIZATION_CLIENT_LINK: Final = "emr_fax_categorization_client_link"
+TABLE_BABYNET_REPORT: Final = "emr_babynet_report"
+TABLE_OFFICE_DRIVE_TIME: Final = "emr_office_drive_time"
+TABLE_REPORT: Final = "emr_report"
+TABLE_PIECEWORK_REPORT_TRACKING: Final = "emr_piecework_report_tracking"
 
 # DB to DataFrame Column Mapping
 CLIENT_COLUMN_MAPPING: Final = {
@@ -91,6 +107,7 @@ CLIENT_COLUMN_MAPPING: Final = {
     "privatePay": "POLICY_PRIVATEPAY",
     "asdAdhd": "ASD_ADHD",
     "language": "LANGUAGE",
+    "paAssignedTo": "PA_ASSIGNED_TO",
     "phoneNumber": "PHONE1",
     "email": "EMAIL",
     "gender": "GENDER",

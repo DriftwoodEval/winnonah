@@ -2,7 +2,7 @@ import os
 import re
 from collections import defaultdict
 from collections.abc import Callable
-from datetime import date, timedelta
+from datetime import timedelta
 from pathlib import Path
 
 import pandas as pd
@@ -12,6 +12,7 @@ from loguru import logger
 import utils.database
 import utils.google
 from utils.misc import format_name
+from utils.timezone import now_business
 
 LETTERHEAD_PATH = Path("letterhead.png")
 IGNORE_SOURCES = {"unknown", "no referral source", "", "babynet"}
@@ -93,7 +94,7 @@ def create_and_send_referral_faxes(
     logger.debug("Starting referral fax process")
 
     last_date = utils.database.get_referral_fax_date() or (
-        date.today() - timedelta(days=30)
+        now_business().date() - timedelta(days=30)
     )
 
     cutoff_date = last_date + timedelta(days=1)

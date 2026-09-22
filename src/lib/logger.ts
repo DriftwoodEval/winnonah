@@ -3,6 +3,52 @@ import pino, { type Logger } from "pino";
 // Check if we are running on the Node.js server or in the browser
 const isServer = typeof window === "undefined";
 
+// Field names that carry client PHI. Routers commonly log a whole mutation
+// `input` object (e.g. `ctx.logger.info(input, "Updating client")`), which
+// merges these fields into the top level of the log record, or one level
+// down under a wrapper key (`*`). Redact both shapes so PHI never lands in
+// debug.log or stdout regardless of which router does the logging.
+const phiFields = [
+	"dob",
+	"firstName",
+	"lastName",
+	"preferredName",
+	"fullName",
+	"address",
+	"primaryInsurance",
+	"secondaryInsurance",
+	"phoneNumber",
+	"email",
+	"insuranceNumber",
+	"planName",
+	"policyCompanyName",
+];
+const redact = {
+	paths: [...phiFields, ...phiFields.map((f) => `*.${f}`)],
+	censor: "[REDACTED]",
+};
+
+// Production log streams: stdout plus a rotating file. The file destination is
+// skipped during `next build` (page-data collection imports this module with
+// NODE_ENV=production but has no writable log directory), which otherwise
+// prints one EACCES per route. The path is overridable so a local production
+// run does not need `/app/logs` to exist.
+function serverStreams() {
+	const streams: pino.StreamEntry[] = [
+		{ level: "debug", stream: process.stdout },
+	];
+	if (process.env.NEXT_PHASE !== "phase-production-build") {
+		streams.push({
+			level: "debug",
+			stream: pino.destination({
+				dest: process.env.LOG_FILE_PATH ?? "/app/logs/debug.log",
+				mkdir: true,
+			}),
+		});
+	}
+	return streams;
+}
+
 export const logger: Logger =
 	process.env.NODE_ENV === "production"
 		? pino(
@@ -10,6 +56,7 @@ export const logger: Logger =
 					base: null,
 					level: "debug",
 					messageKey: "message",
+					redact,
 					serializers: {
 						error: pino.stdSerializers.err,
 					},
@@ -23,22 +70,12 @@ export const logger: Logger =
 				},
 				// Only use multistream and file destinations on the server.
 				// In the browser, passing 'undefined' makes Pino default to console.log
-				isServer
-					? pino.multistream([
-							{ level: "debug", stream: process.stdout },
-							{
-								level: "debug",
-								stream: pino.destination({
-									dest: "/app/logs/debug.log",
-									mkdir: true,
-								}),
-							},
-						])
-					: undefined,
+				isServer ? pino.multistream(serverStreams()) : undefined,
 			)
 		: pino({
 				base: null,
 				level: "debug",
+				redact,
 				serializers: {
 					error: pino.stdSerializers.err,
 				},

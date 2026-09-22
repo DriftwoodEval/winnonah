@@ -25,6 +25,7 @@ dependencies = [
   "pytesseract>=0.3.13",
   "python-dateutil>=2.9.0.post0",
   "python-dotenv>=1.2.2",
+  "pywaze>=1.1.0",
   "requests>=2.33.1",
   "selenium>=4.33.0",
   "shapely>=2.1.2",
@@ -89,6 +90,7 @@ ignore = [
   "PLR0911",  # too many return statements ({returns} > {max_returns})
   "PLR0912",  # too many branches ({branches} > {max_branches})
   "PLR0913",  # too many arguments to function call ({c_args} > {max_args})
+  "PLR0917",  # too many positional arguments ({c_pos_args} > {max_pos_args})
   "PLR0915",  # too many statements ({statements} > {max_statements})
   "PLR2004",  # magic value used in comparison, consider replacing {value} with a constant variable
 ]

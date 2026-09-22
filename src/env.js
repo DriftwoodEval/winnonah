@@ -24,6 +24,7 @@ export const env = createEnv({
 		AUTH_URL: z.string(),
 		AUTH_GOOGLE_ID: z.string(),
 		AUTH_GOOGLE_SECRET: z.string(),
+		AUTH_GOOGLE_WORKSPACE_DOMAIN: z.string(),
 		DATABASE_URL: z.url(),
 		NODE_ENV: z
 			.enum(["development", "test", "production"])
@@ -39,6 +40,7 @@ export const env = createEnv({
 		OPENPHONE_API_TOKEN: z.string(),
 		OPENPHONE_NUMBER_ID: z.string(),
 		PY_API: z.url(),
+		SERVER_ROLE: z.enum(["primary", "standby"]).default("primary"),
 	},
 
 	/**
@@ -61,6 +63,7 @@ export const env = createEnv({
 		AUTH_URL: process.env.AUTH_URL,
 		AUTH_GOOGLE_ID: process.env.AUTH_GOOGLE_ID,
 		AUTH_GOOGLE_SECRET: process.env.AUTH_GOOGLE_SECRET,
+		AUTH_GOOGLE_WORKSPACE_DOMAIN: process.env.AUTH_GOOGLE_WORKSPACE_DOMAIN,
 		DATABASE_URL: process.env.DATABASE_URL,
 		NODE_ENV: process.env.NODE_ENV,
 		PUNCHLIST_ID: process.env.PUNCHLIST_ID,
@@ -69,6 +72,7 @@ export const env = createEnv({
 		OPENPHONE_API_TOKEN: process.env.OPENPHONE_API_TOKEN,
 		OPENPHONE_NUMBER_ID: process.env.OPENPHONE_NUMBER_ID,
 		PY_API: process.env.PY_API,
+		SERVER_ROLE: process.env.SERVER_ROLE,
 		NEXT_PUBLIC_APP_TITLE: process.env.NEXT_PUBLIC_APP_TITLE ?? "Driftwood EMR",
 		NEXT_PUBLIC_APP_DOMAIN:
 			process.env.NEXT_PUBLIC_APP_DOMAIN ?? "emr.driftwoodeval.com",

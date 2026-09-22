@@ -1,3 +1,4 @@
+import html
 import os
 import re
 from collections import defaultdict
@@ -22,8 +23,11 @@ from utils.database import (
     get_sync_report_date,
     put_appointment_in_db,
     put_in_person_assessments_in_db,
+    reconcile_pool_report_queue_state,
+    reconcile_reports_from_appointments,
     set_client_drive_folder_evaluator,
     set_sync_report_date,
+    sync_punchlist_to_db,
 )
 from utils.google import (
     clear_planned_office_events,
@@ -34,7 +38,7 @@ from utils.google import (
     send_gmail,
 )
 from utils.task_tracker import track_task
-from utils.timezone import business_to_utc, now_utc
+from utils.timezone import business_to_utc, now_business, now_utc
 
 DAEvalType = Literal["EVAL", "DA", "DAEVAL"]
 
@@ -146,7 +150,7 @@ class SyncReporter:
             logger.debug("No errors to report. Skipping email.")
             return
 
-        if get_sync_report_date() == date.today():
+        if get_sync_report_date() == now_business().date():
             logger.debug("Sync report already sent today. Skipping email.")
             return
 
@@ -194,12 +198,12 @@ class SyncReporter:
 
         send_gmail(
             message_text=text_summary,
-            subject=f"Appointment Sync Errors - {datetime.now().strftime('%Y-%m-%d')}",
+            subject=f"Appointment Sync Errors - {now_business().strftime('%Y-%m-%d')}",
             to_addr=recipient_email,
             from_addr="tech@driftwoodeval.com",
             html=html_content,
         )
-        set_sync_report_date(date.today())
+        set_sync_report_date(now_business().date())
 
 
 def should_skip_appointment(appointment: pd.Series) -> bool:
@@ -358,6 +362,9 @@ def prepare_appointments_from_csv(
     appointments_df["NAME"] = appointments_df["NAME"].fillna("N/A").astype(str)
 
     appointments_df["STARTTIME_DT"] = pd.to_datetime(appointments_df["STARTTIME"])
+    appointments_df["ENDTIME_DT"] = pd.to_datetime(
+        appointments_df["ENDTIME"], errors="coerce"
+    )
 
     if appointments_df["STARTTIME_DT"].isna().any():
         missing_count = appointments_df["STARTTIME_DT"].isna().sum()
@@ -394,6 +401,7 @@ def prepare_appointments_from_csv(
     flagged_skip_appointment = 0
     flagged_90000_duplicate = 0
     flagged_next_day_billing = 0
+    flagged_short_duration = 0
 
     for idx, appointment in appointments_df.iterrows():
         appointment_id = str(appointment["APPOINTMENT_ID"])
@@ -413,6 +421,14 @@ def prepare_appointments_from_csv(
 
         if should_skip_appointment(appointment):
             flagged_skip_appointment += 1
+            billing_indices.add(idx)
+            continue
+
+        # Appointments shorter than 30 minutes are insurance billing entries, not
+        # real sessions. Skip rows with an unparseable ENDTIME rather than guess.
+        end_time = appointment["ENDTIME_DT"]
+        if pd.notna(end_time) and (end_time - start_time) < timedelta(minutes=30):
+            flagged_short_duration += 1
             billing_indices.add(idx)
             continue
 
@@ -452,6 +468,11 @@ def prepare_appointments_from_csv(
         logger.debug(
             f"Flagged {flagged_next_day_billing} appointment(s) as billing-only "
             "(seen on previous day)."
+        )
+    if flagged_short_duration:
+        logger.debug(
+            f"Flagged {flagged_short_duration} appointment(s) as billing-only "
+            "(shorter than 30 minutes)."
         )
     billing_df = appointments_df.loc[list(billing_indices)].copy()
     appointments_df = appointments_df.drop(
@@ -799,6 +820,21 @@ def insert_appointments_with_gcal(appointment_sync_data: dict[str, list[str]] | 
                 f"Skipped {skipped_locked_in_snapshots} assessment snapshot(s): already locked in"
             )
 
+        try:
+            reconcile_reports_from_appointments()
+        except Exception:
+            logger.exception("Failed to reconcile report rows from appointments")
+
+        try:
+            reconcile_pool_report_queue_state()
+        except Exception:
+            logger.exception("Failed to reconcile pool report queue state")
+
+        try:
+            sync_punchlist_to_db()
+        except Exception:
+            logger.exception("Failed to sync the punch list to the DB")
+
         reporter.send_report(email_for_errors)
 
 
@@ -894,6 +930,12 @@ def move_client_folders_for_upcoming_appointments() -> None:
                         errors.append(msg)
                         continue
 
+            if client_drive_id == "N/A":
+                msg = f"{client_name} (ID: {client_id}): Drive folder is marked N/A."
+                logger.warning(msg)
+                errors.append(msg)
+                continue
+
             if not client_drive_id:
                 msg = (
                     f"{client_name} (ID: {client_id}): has no Drive folder configured."
@@ -951,12 +993,12 @@ def move_client_folders_for_upcoming_appointments() -> None:
             if email_for_errors:
                 html = (
                     "<h3>Client Drive Folder Move Errors</h3><ul>"
-                    + "".join(f"<li>{e}</li>" for e in errors)
+                    + "".join(f"<li>{html.escape(e)}</li>" for e in errors)
                     + "</ul>"
                 )
                 send_gmail(
                     message_text="Errors were detected while moving client Drive folders.",
-                    subject=f"Client Folder Move Errors - {datetime.now().strftime('%Y-%m-%d')}",
+                    subject=f"Client Folder Move Errors - {now_business().strftime('%Y-%m-%d')}",
                     to_addr=email_for_errors,
                     from_addr="tech@driftwoodeval.com",
                     html=html,

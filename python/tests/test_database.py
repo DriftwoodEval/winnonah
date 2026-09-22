@@ -7,15 +7,26 @@ import pandas as pd
 import pytest
 
 from utils.database import (
+    MEDICAID_RECHECK_DAYS,
     _build_reactivation_note_block,
+    _build_reactivation_review_separator,
     _get_date_cache,
+    _humanize_month_gap,
+    _reactivation_review_note_text,
     _set_date_cache,
+    activate_reactivation_admin_review,
     filter_clients_with_changed_address,
+    get_medicaid_clients_with_ids,
     get_python_config,
     get_services_config,
     get_sync_report_date,
+    insert_by_matching_criteria_incremental,
     provide_connection,
+    put_appointment_in_db,
+    put_client_insurance_policies_in_db,
+    put_clients_in_db,
     set_referral_fax_date,
+    update_client_medicaid_eligibility,
 )
 
 
@@ -33,6 +44,10 @@ class FakeCursor:
 
     def execute(self, query, params=None):
         self.executed.append((" ".join(query.split()), params))
+
+    def executemany(self, query, params_list=None):
+        for params in params_list or []:
+            self.executed.append((" ".join(query.split()), params))
 
     def fetchone(self):
         return self.fetchone_result
@@ -273,6 +288,414 @@ class TestBuildReactivationNoteBlock:
         assert [b["type"] for b in blocks] == ["heading", "horizontalRule", "paragraph"]
 
 
+class TestActivateReactivationAdminReview:
+    def test_keeps_existing_review_content_and_prepends_marker(self):
+        existing = json.dumps(
+            {
+                "type": "doc",
+                "content": [
+                    {
+                        "type": "paragraph",
+                        "content": [{"type": "text", "text": "OLD REVIEW NOTE"}],
+                    }
+                ],
+            }
+        )
+        cursor = FakeCursor(
+            fetchone_result={
+                "content": existing,
+                "title": None,
+                "updatedBy": "someone@example.com",
+            }
+        )
+        conn = FakeConnection(cursor)
+
+        activate_reactivation_admin_review(123, None, connection=conn)
+
+        review_update = next(
+            params
+            for query, params in cursor.executed
+            if query.startswith("UPDATE `emr_admin_review` SET content")
+        )
+        new_content = json.dumps(json.loads(review_update[0]))
+        assert "OLD REVIEW NOTE" in new_content
+        assert "Reactivated on" in new_content
+        assert any(
+            "INSERT INTO `emr_admin_review_history`" in query
+            for query, _ in cursor.executed
+        )
+
+
+class TestPutClientsInDb:
+    def _existing_row(self, **overrides):
+        row = {
+            "id": 1,
+            "status": True,
+            "deactivatedAt": None,
+            "addedDate": "2020-01-01",
+            "dob": "1990-05-04",
+            "firstName": "Jane",
+            "lastName": "Doe",
+            "preferredName": None,
+            "fullName": "Jane Doe",
+            "address": "123 Main St",
+            "schoolDistrict": "Some District",
+            "latitude": "33.50000000",
+            "longitude": "-80.00000000",
+            "asdAdhd": "ASD",
+            "language": "English",
+            "paAssignedTo": "PA1",
+            "gender": "Female",
+            "phoneNumber": "8035551234",
+            "email": "jane@example.com",
+            "flag": None,
+            "taUser": "jdoe",
+            "referralSource": "web",
+        }
+        row.update(overrides)
+        return row
+
+    def _client_df(self, **overrides):
+        row = {
+            "CLIENT_ID": 1,
+            "FIRSTNAME": "Jane",
+            "LASTNAME": "Doe",
+            "PREFERRED_NAME": None,
+            "ADDED_DATE": dt.date(2020, 1, 1),
+            "DOB": dt.date(1990, 5, 4),
+            "GENDER": "Female",
+            "PHONE1": "8035551234",
+            "EMAIL": "jane@example.com",
+            "STATUS": "Active",
+            "LANGUAGE": "English",
+            "ADDRESS": "123 Main St",
+            "SCHOOL_DISTRICT": "Some District",
+            "LATITUDE": 33.5,
+            "LONGITUDE": -80.0,
+            "ASD_ADHD": "ASD",
+            "PA_ASSIGNED_TO": "PA1",
+            "FLAG": None,
+            "LOGIN_NAME": "jdoe",
+            "REFERRAL_SOURCE": "web",
+        }
+        row.update(overrides)
+        return pd.DataFrame([row])
+
+    def test_no_audit_log_when_nothing_actually_changes(self):
+        cursor = FakeCursor(fetchall_result=[self._existing_row()])
+        conn = FakeConnection(cursor)
+
+        put_clients_in_db(self._client_df(), connection=conn)
+
+        assert not any(
+            "INSERT INTO `emr_audit_log`" in query for query, _ in cursor.executed
+        )
+
+    def test_audit_log_written_only_for_changed_field(self):
+        cursor = FakeCursor(fetchall_result=[self._existing_row()])
+        conn = FakeConnection(cursor)
+
+        put_clients_in_db(self._client_df(PHONE1="8039998888"), connection=conn)
+
+        audit_inserts = [
+            params
+            for query, params in cursor.executed
+            if "INSERT INTO `emr_audit_log`" in query
+        ]
+        assert len(audit_inserts) == 1
+        _, _, action, client_id, detail, _, _ = audit_inserts[0]
+        assert action == "python.client.update"
+        assert client_id == 1
+        parsed = json.loads(detail)
+        assert set(parsed) == {"phoneNumber"}
+        assert parsed["phoneNumber"] == {"old": "8035551234", "new": "8039998888"}
+
+
+class _DefaultNoneDict(dict):
+    """Dict that returns None for any column not explicitly set, so tests
+    don't have to enumerate every one of the insurance policy table's ~70
+    columns just to assert on the one or two that changed."""
+
+    def __missing__(self, key):
+        return None
+
+
+class _RoutingCursor:
+    """Fake cursor that returns a different canned `fetchall` result per
+    query, matched by substring. Needed for functions (like the insurance
+    sync) that run several distinct SELECTs in one call."""
+
+    def __init__(self, routes: list[tuple[str, list]]):
+        self.routes = routes
+        self.executed = []
+        self.rowcount = 0
+        self._pending = []
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc):
+        return False
+
+    def execute(self, query, params=None):
+        q = " ".join(query.split())
+        self.executed.append((q, params))
+        self._pending = next(
+            (result for substr, result in self.routes if substr in q), []
+        )
+        self.rowcount = len(self._pending)
+
+    def executemany(self, query, params_list=None):
+        for params in params_list or []:
+            self.executed.append((" ".join(query.split()), params))
+
+    def fetchall(self):
+        return self._pending
+
+    def fetchone(self):
+        return self._pending[0] if self._pending else None
+
+
+class TestPutClientInsurancePoliciesInDb:
+    def _routes(self, existing_policy_row):
+        return [
+            ("FROM `emr_client` WHERE id IN", [{"id": 1}]),
+            ("FROM `emr_user`", []),
+            (
+                "FROM `emr_client_insurance_policy` WHERE policyId IN",
+                [existing_policy_row],
+            ),
+            ("SELECT clientId, policyId FROM `emr_client_insurance_policy`", []),
+        ]
+
+    def _policy_df(self, **overrides):
+        row = {
+            "CLIENT_ID": 1,
+            "POLICY_ID": "p1",
+            "POLICY_ADDEDBYNAME": "TherapyAppointment System",
+            "POLICY_ENDDATE": dt.date(2025, 1, 1),
+        }
+        row.update(overrides)
+        return pd.DataFrame([row])
+
+    def test_no_audit_log_when_nothing_actually_changes(self):
+        existing = _DefaultNoneDict(
+            {
+                "policyId": "p1",
+                "clientId": 1,
+                "policyAddedByName": "TherapyAppointment System",
+                "policyEndDate": "2025-01-01",
+            }
+        )
+        cursor = _RoutingCursor(self._routes(existing))
+        conn = FakeConnection(cursor)
+
+        put_client_insurance_policies_in_db(self._policy_df(), connection=conn)
+
+        assert not any(
+            "INSERT INTO `emr_audit_log`" in query for query, _ in cursor.executed
+        )
+
+    def test_audit_log_written_only_for_changed_field(self):
+        existing = _DefaultNoneDict(
+            {
+                "policyId": "p1",
+                "clientId": 1,
+                "policyAddedByName": "TherapyAppointment System",
+                "policyEndDate": "2024-06-01",
+            }
+        )
+        cursor = _RoutingCursor(self._routes(existing))
+        conn = FakeConnection(cursor)
+
+        put_client_insurance_policies_in_db(self._policy_df(), connection=conn)
+
+        audit_inserts = [
+            params
+            for query, params in cursor.executed
+            if "INSERT INTO `emr_audit_log`" in query
+        ]
+        assert len(audit_inserts) == 1
+        _, _, action, client_id, detail, _, _ = audit_inserts[0]
+        assert action == "python.insurance.updatePolicy"
+        assert client_id == 1
+        parsed = json.loads(detail)
+        assert parsed["policyId"] == "p1"
+        assert set(parsed["changes"]) == {"policyEndDate"}
+        assert parsed["changes"]["policyEndDate"] == {
+            "old": "2024-06-01",
+            "new": "2025-01-01",
+        }
+
+
+class TestPutAppointmentInDb:
+    def _routes(self, existing_row):
+        return [
+            ("FROM `emr_client` WHERE id", [{"1": 1}]),
+            (
+                "FROM `emr_appointment` WHERE id",
+                [existing_row] if existing_row is not None else [],
+            ),
+        ]
+
+    def _call(self, connection, **overrides):
+        params = {
+            "appointment_id": "appt1",
+            "client_id": 1,
+            "evaluator_npi": 1234567890,
+            "cpt": "96130",
+            "start_time": dt.datetime(2025, 1, 1, 14, 0, tzinfo=dt.UTC),
+            "end_time": dt.datetime(2025, 1, 1, 15, 0, tzinfo=dt.UTC),
+            "da_eval": "EVAL",
+            "asd_adhd": "ASD",
+            "cancelled": False,
+            "location": "COL",
+            "gcal_event_id": "evt1",
+            "gcal_event_title": "[COL-E]",
+        }
+        params.update(overrides)
+        put_appointment_in_db(connection=connection, **params)
+
+    def _audit_inserts(self, cursor):
+        return [
+            params
+            for query, params in cursor.executed
+            if "INSERT INTO `emr_audit_log`" in query
+        ]
+
+    def _existing_row(self, **overrides):
+        row = _DefaultNoneDict(
+            {
+                "startTime": dt.datetime(2025, 1, 1, 14, 0),
+                "endTime": dt.datetime(2025, 1, 1, 15, 0),
+                "cancelled": False,
+                "evaluatorNpi": 1234567890,
+                "daEval": "EVAL",
+                "asdAdhd": "ASD",
+                "locationKey": "COL",
+                "calendarEventId": "evt1",
+                "cpt": "96130",
+                "calendarEventTitle": "[COL-E]",
+                "billingOnly": False,
+            }
+        )
+        row.update(overrides)
+        return row
+
+    def test_logs_create_for_new_appointment(self):
+        cursor = _RoutingCursor(self._routes(None))
+        conn = FakeConnection(cursor)
+
+        self._call(conn)
+
+        inserts = self._audit_inserts(cursor)
+        assert len(inserts) == 1
+        _, _, action, client_id, detail, _, _ = inserts[0]
+        assert action == "python.appointments.create"
+        assert client_id == 1
+        assert json.loads(detail)["appointmentId"] == "appt1"
+
+    def test_no_audit_log_when_nothing_changes(self):
+        cursor = _RoutingCursor(self._routes(self._existing_row()))
+        conn = FakeConnection(cursor)
+
+        self._call(conn)
+
+        assert self._audit_inserts(cursor) == []
+
+    def test_logs_reschedule_when_start_time_changes(self):
+        cursor = _RoutingCursor(self._routes(self._existing_row()))
+        conn = FakeConnection(cursor)
+
+        self._call(conn, start_time=dt.datetime(2025, 1, 2, 14, 0, tzinfo=dt.UTC))
+
+        actions = [params[2] for params in self._audit_inserts(cursor)]
+        assert "python.appointments.reschedule" in actions
+
+    def test_logs_cancel_when_newly_cancelled(self):
+        cursor = _RoutingCursor(self._routes(self._existing_row(cancelled=False)))
+        conn = FakeConnection(cursor)
+
+        self._call(conn, cancelled=True)
+
+        actions = [params[2] for params in self._audit_inserts(cursor)]
+        assert "python.appointments.cancel" in actions
+
+    def test_logs_uncancel_when_no_longer_cancelled(self):
+        cursor = _RoutingCursor(self._routes(self._existing_row(cancelled=True)))
+        conn = FakeConnection(cursor)
+
+        self._call(conn, cancelled=False)
+
+        actions = [params[2] for params in self._audit_inserts(cursor)]
+        assert "python.appointments.uncancel" in actions
+
+    def test_logs_update_for_other_field_change(self):
+        cursor = _RoutingCursor(self._routes(self._existing_row(evaluatorNpi=999)))
+        conn = FakeConnection(cursor)
+
+        self._call(conn, evaluator_npi=1234567890)
+
+        inserts = self._audit_inserts(cursor)
+        update_inserts = [p for p in inserts if p[2] == "python.appointments.update"]
+        assert len(update_inserts) == 1
+        detail = json.loads(update_inserts[0][4])
+        assert detail["changes"]["evaluatorNpi"] == {"old": 999, "new": 1234567890}
+
+
+class TestBuildReactivationReviewSeparator:
+    def test_returns_heading_rule_and_paragraph(self):
+        blocks = _build_reactivation_review_separator("2026-03-05", "4 months")
+        assert [b["type"] for b in blocks] == ["heading", "horizontalRule", "paragraph"]
+
+    def test_heading_includes_date_and_gap(self):
+        heading = _build_reactivation_review_separator("2026-03-05", "4 months")[0]
+        text = heading["content"][0]["text"]
+        assert "2026-03-05" in text
+        assert "inactive 4 months" in text
+
+    def test_heading_omits_gap_when_unknown(self):
+        heading = _build_reactivation_review_separator("2026-03-05", None)[0]
+        text = heading["content"][0]["text"]
+        assert text == "Reactivated on 2026-03-05"
+
+    def test_makes_no_exclusion_claim(self):
+        heading = _build_reactivation_review_separator("2026-03-05", "4 months")[0]
+        assert "excluded" not in heading["content"][0]["text"]
+
+
+class TestHumanizeMonthGap:
+    def test_years_and_months(self):
+        assert (
+            _humanize_month_gap(dt.datetime(2024, 1, 10), dt.datetime(2025, 4, 10))
+            == "1 year, 3 months"
+        )
+
+    def test_months_only(self):
+        assert (
+            _humanize_month_gap(dt.datetime(2025, 1, 1), dt.datetime(2025, 4, 1))
+            == "3 months"
+        )
+
+    def test_days_when_under_a_month(self):
+        assert (
+            _humanize_month_gap(dt.datetime(2025, 1, 1), dt.datetime(2025, 1, 6))
+            == "5 days"
+        )
+
+
+class TestReactivationReviewNoteText:
+    def test_includes_both_dates_and_distance(self):
+        text = _reactivation_review_note_text("2026-08-28", "2026-02-28", "6 months")
+        assert "Reactivated on 2026-08-28" in text
+        assert "deactivated on 2026-02-28" in text
+        assert "(6 months apart)" in text
+
+    def test_unknown_deactivation_date(self):
+        text = _reactivation_review_note_text("2026-08-28", None, None)
+        assert "deactivation date unknown" in text
+
+
 class TestFilterClientsWithChangedAddress:
     def test_filters_out_clients_with_no_address(self):
         clients = pd.DataFrame(
@@ -329,3 +752,142 @@ class TestFilterClientsWithChangedAddress:
         conn = FakeConnection(cursor)
         result = filter_clients_with_changed_address(clients, conn)
         assert result.empty
+
+
+class TestIncrementalMatchingRestrictToNpis:
+    """insert_by_matching_criteria_incremental with restrict_to_npis (single-evaluator rematch)."""
+
+    def _run(self, restrict):
+        clients = pd.DataFrame({"CLIENT_ID": ["c1"]})
+        # Client currently linked to A and B; matching now says only A is eligible.
+        existing = {"c1": {"A", "B"}}
+        deletes: list[tuple] = []
+        inserts: list[tuple] = []
+
+        with (
+            patch(
+                "utils.database._get_existing_client_eval_links", return_value=existing
+            ),
+            patch("utils.database.get_insurance_mappings", return_value={}),
+            patch(
+                "utils.relationships.match_by_school_district",
+                return_value=["A", "C"],
+            ),
+            patch("utils.relationships.match_by_insurance", return_value=["A", "C"]),
+            patch(
+                "utils.database._delete_client_eval_links",
+                side_effect=lambda cid, npis, **_: deletes.append((cid, set(npis))),
+            ),
+            patch(
+                "utils.database._insert_client_eval_links",
+                side_effect=lambda cid, npis, **_: inserts.append((cid, set(npis))),
+            ),
+        ):
+            insert_by_matching_criteria_incremental(
+                clients, {}, connection=MagicMock(), restrict_to_npis=restrict
+            )
+        return deletes, inserts
+
+    def test_restricted_rematch_touches_only_target_evaluator(self):
+        deletes, inserts = self._run(restrict={"C"})
+        # B is no longer eligible but is not the target, so it stays.
+        assert deletes == []
+        # C is newly eligible and is the target, so it is added.
+        assert inserts == [("c1", {"C"})]
+
+    def test_unrestricted_run_reconciles_everything(self):
+        deletes, inserts = self._run(restrict=None)
+        assert deletes == [("c1", {"B"})]
+        assert inserts == [("c1", {"C"})]
+
+
+class TestGetMedicaidClientsWithIds:
+    def test_client_with_primary_and_secondary_is_returned_once_using_primary(self):
+        primary = {
+            "id": 1,
+            "firstName": "A",
+            "lastName": "B",
+            "insuranceNumber": "1111111111",
+        }
+        secondary = {**primary, "insuranceNumber": "2222222222"}
+        other = {
+            "id": 2,
+            "firstName": "C",
+            "lastName": "D",
+            "insuranceNumber": "3333333333",
+        }
+        conn = FakeConnection(FakeCursor(fetchall_result=[primary, secondary, other]))
+
+        result = get_medicaid_clients_with_ids(connection=conn)
+
+        assert result == [primary, other]
+
+    def test_query_matches_policy_company_and_requires_ten_digits(self):
+        cursor = FakeCursor()
+
+        get_medicaid_clients_with_ids(connection=FakeConnection(cursor))
+
+        query, _ = cursor.executed[0]
+        assert "COALESCE(p.insuranceCompanyName, p.policyCompanyName) IN" in query
+        assert "p.policyType IN ('PRIMARY', 'SECONDARY')" in query
+        assert "REGEXP '^[0-9]{10}$'" in query
+
+    def test_only_due_adds_recheck_window_parameter(self):
+        due_cursor = FakeCursor()
+        all_cursor = FakeCursor()
+
+        get_medicaid_clients_with_ids(
+            only_due=True, connection=FakeConnection(due_cursor)
+        )
+        get_medicaid_clients_with_ids(
+            only_due=False, connection=FakeConnection(all_cursor)
+        )
+
+        due_query, due_params = due_cursor.executed[0]
+        all_query, all_params = all_cursor.executed[0]
+        assert "medicaidCheckedAt" in due_query
+        assert due_params[-1] == MEDICAID_RECHECK_DAYS
+        assert "medicaidCheckedAt" not in all_query
+        assert len(due_params) == len(all_params) + 1
+
+
+FIELDS = {
+    "qualCategory": "DISABLED",
+    "paymentCategory": "TEFRA",
+    "medicaidOrganization": "SELECT HEALTH OF SOUTH CAR",
+    "medicaidCarrier1": "ONE",
+    "medicaidCarrier2": None,
+}
+
+
+class TestUpdateClientMedicaidEligibility:
+    def test_stores_all_fields_and_stamps_checked_time(self):
+        cursor = FakeCursor()
+        conn = FakeConnection(cursor)
+
+        update_client_medicaid_eligibility(5, FIELDS, "policy-1", connection=conn)
+
+        query, params = cursor.executed[0]
+        assert "medicaidCheckedAt = UTC_TIMESTAMP()" in query
+        assert params == (
+            "DISABLED",
+            "TEFRA",
+            "SELECT HEALTH OF SOUTH CAR",
+            "ONE",
+            None,
+            "policy-1",
+            5,
+        )
+        assert conn.commits == 1
+
+    def test_not_found_only_stamps_checked_time(self):
+        cursor = FakeCursor()
+
+        update_client_medicaid_eligibility(
+            5, None, "policy-1", connection=FakeConnection(cursor)
+        )
+
+        query, params = cursor.executed[0]
+        assert "qualCategory" not in query
+        assert "medicaidCheckedAt = UTC_TIMESTAMP()" in query
+        assert params == (5,)

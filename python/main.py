@@ -1,7 +1,6 @@
 import os
 import shutil
 from collections.abc import Callable
-from datetime import datetime
 from typing import Annotated, cast
 
 import pandas as pd
@@ -29,6 +28,7 @@ from utils.fax_reports import generate_report_cover_pages, send_report_faxes
 from utils.google import find_gcal_event_by_client_and_time, update_gcal_event_title
 from utils.misc import json_log_format
 from utils.task_tracker import track_task
+from utils.timezone import now_business
 
 _main_excluded_modules = {"utils.fax_close", "utils.fax_reports"}
 logger.add(
@@ -131,6 +131,7 @@ def import_from_ta(
             "LONGITUDE",
             "FLAG",
             "LANGUAGE",
+            "PA_ASSIGNED_TO",
         ]
         for col in new_cols:
             if col not in clients.columns:
@@ -199,7 +200,7 @@ def import_from_ta(
             raw_insurance, connection=conn
         )
         utils.database.sync_client_insurance_from_policies(connection=conn)
-        utils.database.sync_scm_insurance_reviews(connection=conn)
+        utils.database.sync_scm_admin_reviews(connection=conn)
 
         all_clients_from_db = utils.database.get_all_clients(connection=conn)
 
@@ -332,7 +333,7 @@ def process_referrals():
         if task is None:
             logger.info("Skipping run: a previous referrals run is still in progress.")
             return
-        if datetime.now().weekday() == 4:  # Friday
+        if now_business().weekday() == 4:  # Friday
             utils.referrals.create_and_send_referral_faxes(
                 clients, progress_callback=task.progress
             )
@@ -402,26 +403,46 @@ def main(
             help="Check if logged in to SC Medicaid Portal and log in if not",
         ),
     ] = False,
+    medicaid_preview: Annotated[
+        str | None,
+        typer.Option(
+            "--medicaid-preview",
+            help="Log in to SC Medicaid Portal, search this Medicaid ID, and log every field found (no DB writes)",
+        ),
+    ] = None,
 ):
     """Main entry point for the script, parses the command line arguments and runs the appropriate functions."""
     utils.config.validate_config()
 
     dev_mode = os.getenv("DEV_TOGGLE")
+    if medicaid_preview:
+        utils.medicaid.preview_medicaid_lookup(medicaid_preview)
+        return
 
     trigger_args = [quo, download_only]
 
     if (any(trigger_args) or not dev_mode) and not import_only:
-        logger.debug("Removing temp directory")
-        shutil.rmtree("temp", ignore_errors=True)
+        # Only the scratch per-therapist download directory is cleared here.
+        # temp/input is left alone so a failed download doesn't wipe out the
+        # last successfully downloaded files, which are still served for
+        # manual download from the admin UI.
+        logger.debug("Removing temp downloads directory")
+        shutil.rmtree("temp/downloads", ignore_errors=True)
 
     if download_only:
         logger.info("Running download only")
-        utils.therapyappointment.download_csvs()
+        try:
+            utils.therapyappointment.download_csvs()
+        except utils.therapyappointment.DownloadFailedError as e:
+            logger.error(str(e))
         return
 
     if quo:
         logger.info("Running Quo sync")
-        utils.therapyappointment.download_csvs()
+        try:
+            utils.therapyappointment.download_csvs()
+        except utils.therapyappointment.DownloadFailedError as e:
+            logger.error(str(e))
         utils.quo.sync_quo()
         return
 
@@ -470,12 +491,12 @@ def main(
                         ids_filter.append(part)
                     else:
                         names_filter.append(part)
-            utils.medicaid.lookup_scm_eligibility(
+            utils.medicaid.lookup_medicaid_eligibility(
                 names=names_filter or None,
                 client_ids=ids_filter or None,
             )
         else:
-            utils.medicaid.lookup_new_scm_eligibility()
+            utils.medicaid.lookup_due_medicaid_eligibility()
         return
 
     force_clients: pd.DataFrame | None = None
@@ -522,9 +543,15 @@ def main(
                     f"  - {name_display} (ID: {client_row.get('CLIENT_ID', 'N/A')})"
                 )
 
-    import_from_ta(
-        clients=clients, force_clients=force_clients, should_download=not import_only
-    )
+    try:
+        import_from_ta(
+            clients=clients,
+            force_clients=force_clients,
+            should_download=not import_only,
+        )
+    except utils.therapyappointment.DownloadFailedError as e:
+        logger.error(f"{e} Skipping import for this run.")
+
     if client or force_all or import_only:
         return
 
@@ -540,9 +567,9 @@ def main(
             logger.error(f"Failed to process referrals: {e}")
 
         try:
-            utils.medicaid.lookup_new_scm_eligibility()
+            utils.medicaid.lookup_due_medicaid_eligibility()
         except Exception as e:
-            logger.error(f"Failed to lookup SCM eligibility: {e}")
+            logger.error(f"Failed to lookup Medicaid eligibility: {e}")
 
         try:
             utils.therapyappointment.save_ta_hashes()

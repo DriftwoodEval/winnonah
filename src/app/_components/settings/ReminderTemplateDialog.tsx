@@ -33,6 +33,7 @@ import { format } from "date-fns";
 import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
+import { HighlightedPreview } from "~/app/_components/shared/PlaceholderHighlight";
 import { getSmsSegmentInfo } from "~/lib/sms";
 import { cn } from "~/lib/utils";
 import {
@@ -149,12 +150,19 @@ export function ReminderTemplateDialog({
 		Date.now() + sendOffsetHours * 60 * 60 * 1000,
 	);
 
+	const previewValues = {
+		$START_TIME: format(previewApptTime, "h:mm a"),
+		$DATE: format(previewApptTime, "EEEE, MMMM d"),
+		$OFFICE_NAME: previewOffice?.prettyName ?? "",
+		$LOCATION: previewOffice?.locationPhrase ?? "",
+	};
+
 	const applyPreviewVars = (t: string) =>
 		t
-			.replace(/\$START_TIME/g, format(previewApptTime, "h:mm a"))
-			.replace(/\$DATE/g, format(previewApptTime, "EEEE, MMMM d"))
-			.replace(/\$OFFICE_NAME/g, previewOffice?.prettyName ?? "")
-			.replace(/\$LOCATION/g, previewOffice?.locationPhrase ?? "");
+			.replace(/\$START_TIME/g, previewValues.$START_TIME)
+			.replace(/\$DATE/g, previewValues.$DATE)
+			.replace(/\$OFFICE_NAME/g, previewValues.$OFFICE_NAME)
+			.replace(/\$LOCATION/g, previewValues.$LOCATION);
 
 	const messageTemplate = form.watch("messageTemplate");
 	const messagePreview = messageTemplate
@@ -415,10 +423,12 @@ export function ReminderTemplateDialog({
 										<SmsSegmentCounter
 											text={messagePreview ?? field.value ?? ""}
 										/>
-										{messagePreview && (
-											<div className="whitespace-pre-wrap rounded-md bg-muted p-3 font-mono text-muted-foreground text-sm">
-												{messagePreview}
-											</div>
+										{field.value && (
+											<HighlightedPreview
+												className="rounded-md bg-muted p-3 font-mono text-muted-foreground text-sm"
+												template={field.value}
+												values={previewValues}
+											/>
 										)}
 										<FormMessage />
 									</FormItem>
@@ -445,10 +455,12 @@ export function ReminderTemplateDialog({
 										<SmsSegmentCounter
 											text={confirmationPreview ?? field.value ?? ""}
 										/>
-										{confirmationPreview && (
-											<div className="whitespace-pre-wrap rounded-md bg-muted p-3 font-mono text-muted-foreground text-sm">
-												{confirmationPreview}
-											</div>
+										{field.value && (
+											<HighlightedPreview
+												className="rounded-md bg-muted p-3 font-mono text-muted-foreground text-sm"
+												template={field.value}
+												values={previewValues}
+											/>
 										)}
 										<FormMessage />
 									</FormItem>

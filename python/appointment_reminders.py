@@ -636,16 +636,59 @@ def _fix_stale_event_id(context: dict, old_event_id: str) -> dict | None:
 def is_confirmation(incoming_text: str) -> bool:
     """
     Checks for a confirmed response with word boundary protection
-    and common confirmation emojis.
+    and common confirmation emojis (thumbs-up, check marks, hearts).
     """
-    thumbs_up_emojis = ["👍", "👍🏻", "👍🏼", "👍🏽", "👍🏾", "👍🏿", "✅", "✔️"]
-    if any(emoji in incoming_text for emoji in thumbs_up_emojis):
+    confirmation_emojis = [
+        "👍",
+        "👍🏻",
+        "👍🏼",
+        "👍🏽",
+        "👍🏾",
+        "👍🏿",
+        "✅",
+        "✔️",
+        "❤️",
+        "❤",
+        "🧡",
+        "💛",
+        "💚",
+        "💙",
+        "💜",
+        "🖤",
+        "🤍",
+        "🤎",
+        "💕",
+        "💖",
+        "💗",
+        "💓",
+        "💞",
+        "💝",
+        "💘",
+        "♥️",
+        "♥",
+    ]
+    if any(emoji in incoming_text for emoji in confirmation_emojis):
         return True
 
-    keywords = ["Y", "YES", "YEAH", "YEA", "CONFIRM", "CONFIRMED"]
+    keywords = ["Y", "YES", "YEAH", "YEA", "OK", "OKAY", "CONFIRM", "CONFIRMED"]
     pattern = rf"\b({'|'.join([re.escape(k) for k in keywords])})\b"
 
     return bool(re.search(pattern, incoming_text, re.IGNORECASE))
+
+
+NEGATIVE_KEYWORDS = ["N", "NO", "NOPE", "CANCEL", "STOP"]
+NEGATIVE_PATTERN = re.compile(
+    rf"\W*({'|'.join(re.escape(k) for k in NEGATIVE_KEYWORDS)})\W*",
+    re.IGNORECASE,
+)
+
+
+def is_negative(incoming_text: str) -> bool:
+    """
+    Checks for a clear decline. The whole message must be a negative keyword
+    (or 👎), so "no problem, see you then" is not treated as a decline.
+    """
+    return "👎" in incoming_text or bool(NEGATIVE_PATTERN.fullmatch(incoming_text))
 
 
 async def should_handle_reply(
@@ -866,6 +909,15 @@ async def handle_incoming_reply(
                     ts,
                 ),
             )
+
+            if is_negative(incoming_text):
+                logger.info(
+                    f"Negative reply: stopping reminders for appt {context['appointment_id']}."
+                )
+                cursor.execute(
+                    f"UPDATE {TABLE_APPOINTMENT} SET doNotRemind = 1 WHERE id = %s",
+                    (context["appointment_id"],),
+                )
 
             event_id = context.get("calendarEventId")
             if event_id:

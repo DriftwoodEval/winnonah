@@ -13,6 +13,7 @@ import {
 	IN_PERSON_ASSESSMENT_STATUSES,
 	QUESTIONNAIRE_STATUSES,
 } from "~/lib/constants";
+import type { PinnedList } from "~/lib/pinned-list";
 import type { PermissionsObject } from "~/lib/types";
 import type {
 	AdditionalInsuranceAppointments,
@@ -43,7 +44,7 @@ export const evaluators = createTable("evaluator", (d) => ({
 		.notNull()
 		.default(["DA", "EVAL", "DAEVAL"]),
 	writesOwnReports: d.boolean().notNull().default(false),
-	evaluatorDashboard: d.boolean("evaluator_dashboard").notNull().default(false),
+	evaluatorDashboard: d.boolean().notNull().default(false),
 	driveFolderId: d.varchar({ length: 255 }),
 	evalDriveFolderId: d.varchar({ length: 255 }),
 }));
@@ -89,6 +90,11 @@ export const schoolDistricts = createTable("school_district", (d) => ({
 	id: d.int().notNull().primaryKey(),
 	shortName: d.varchar({ length: 255 }),
 	fullName: d.varchar({ length: 255 }).notNull(),
+	// Private and charter schools are stored in the same table so they appear
+	// in the QSuite records-contact picker and resolve through the same
+	// config.records_emails map. records-request.py uses this flag to tell a
+	// private-school consent form from a public-district one.
+	isPrivate: d.boolean().notNull().default(false),
 }));
 
 export const zipCodes = createTable("zip_code", (d) => ({
@@ -273,11 +279,18 @@ export const clients = createTable(
 		longitude: d.decimal({ precision: 11, scale: 8 }),
 		primaryInsurance: d.varchar({ length: 255 }),
 		secondaryInsurance: d.json("secondaryInsurance").$type<string[]>(),
-		qualCategory: d.varchar("qual_category", { length: 255 }),
-		paymentCategory: d.varchar("payment_category", { length: 255 }),
+		qualCategory: d.varchar({ length: 255 }),
+		paymentCategory: d.varchar({ length: 255 }),
+		medicaidOrganization: d.varchar({ length: 255 }),
+		medicaidCarrier1: d.varchar({ length: 255 }),
+		medicaidCarrier2: d.varchar({ length: 255 }),
+		// The policy whose insurance number the last successful portal lookup used.
+		medicaidPolicyId: d.varchar({ length: 36 }),
+		medicaidCheckedAt: d.timestamp(),
 		precertExpires: d.date({ mode: "string" }),
 		privatePay: d.boolean().notNull().default(false),
-		sessionStartedAt: d.timestamp("session_started_at"),
+		sessionStartedAt: d.timestamp(),
+		deactivatedAt: d.timestamp(),
 		asdAdhd: d.mysqlEnum([
 			"ASD",
 			"ADHD",
@@ -287,6 +300,7 @@ export const clients = createTable(
 			"LD",
 		]),
 		language: d.varchar({ length: 255 }).default("English"),
+		paAssignedTo: d.varchar({ length: 255 }),
 		phoneNumber: d.varchar({ length: 255 }),
 		email: d.varchar({ length: 255 }),
 		gender: d.mysqlEnum(["Male", "Female", "Other"]),
@@ -294,6 +308,7 @@ export const clients = createTable(
 		highPriority: d.boolean().notNull().default(false),
 		babyNet: d.boolean().notNull().default(false),
 		autismStop: d.boolean().notNull().default(false),
+		alreadyDx: d.boolean().notNull().default(false),
 		pause: d.boolean().notNull().default(false),
 		eiAttends: d.boolean().notNull().default(false),
 		flag: d.varchar({ length: 255 }),
@@ -308,7 +323,7 @@ export const clients = createTable(
 			.json("referralData")
 			.$type<z.infer<typeof referralDataSchema>>(),
 		assessmentData: d
-			.json("assessment_data")
+			.json()
 			.$type<import("~/lib/billing").AssessmentSnapshot>(),
 	}),
 	(t) => [
@@ -318,7 +333,43 @@ export const clients = createTable(
 		index("added_date_idx").on(t.addedDate),
 		index("insurance_idx").on(t.primaryInsurance),
 		index("coords_idx").on(t.latitude, t.longitude),
+		index("status_idx").on(t.status),
 	],
+);
+
+export const officeDriveTimes = createTable(
+	"office_drive_time",
+	(d) => ({
+		clientId: d
+			.int()
+			.notNull()
+			.references(() => clients.id, { onDelete: "cascade" }),
+		officeKey: d
+			.varchar({ length: 255 })
+			.notNull()
+			.references(() => offices.key, { onDelete: "cascade" }),
+		// By-car duration and distance from the client to this office, from
+		// Waze. Null means the last lookup failed (bad coords, Waze error),
+		// not that the office is unreachable.
+		durationMinutes: d.decimal({ precision: 6, scale: 1 }),
+		distanceMiles: d.decimal({ precision: 6, scale: 1 }),
+		computedAt: d.timestamp().notNull(),
+	}),
+	(t) => [primaryKey({ columns: [t.clientId, t.officeKey] })],
+);
+
+export const officeDriveTimesRelations = relations(
+	officeDriveTimes,
+	({ one }) => ({
+		client: one(clients, {
+			fields: [officeDriveTimes.clientId],
+			references: [clients.id],
+		}),
+		office: one(offices, {
+			fields: [officeDriveTimes.officeKey],
+			references: [offices.key],
+		}),
+	}),
 );
 
 export const clientRelated = createTable(
@@ -346,15 +397,9 @@ export const notes = createTable(
 			.references(() => clients.id, { onDelete: "cascade" }),
 		content: d.json("content"),
 		title: d.text(),
-		createdAt: d
-			.timestamp("created_at")
-			.default(sql`CURRENT_TIMESTAMP`)
-			.notNull(),
-		updatedAt: d
-			.timestamp("updated_at")
-			.onUpdateNow()
-			.default(sql`CURRENT_TIMESTAMP`),
-		updatedBy: d.varchar("updated_by", { length: 255 }),
+		createdAt: d.timestamp().default(sql`CURRENT_TIMESTAMP`).notNull(),
+		updatedAt: d.timestamp().onUpdateNow().default(sql`CURRENT_TIMESTAMP`),
+		updatedBy: d.varchar({ length: 255 }),
 	}),
 	(t) => [index("note_client_idx").on(t.clientId)],
 );
@@ -369,11 +414,8 @@ export const noteHistory = createTable(
 			.references(() => notes.clientId, { onDelete: "cascade" }),
 		content: d.json("content").notNull(),
 		title: d.text(),
-		updatedBy: d.varchar("updated_by", { length: 255 }),
-		createdAt: d
-			.timestamp("created_at")
-			.default(sql`CURRENT_TIMESTAMP`)
-			.notNull(),
+		updatedBy: d.varchar({ length: 255 }),
+		createdAt: d.timestamp().default(sql`CURRENT_TIMESTAMP`).notNull(),
 	}),
 	(t) => [index("note_history_note_idx").on(t.noteId)],
 );
@@ -402,15 +444,9 @@ export const externalRecords = createTable(
 			.primaryKey()
 			.references(() => clients.id, { onDelete: "cascade" }),
 		content: d.json("content"),
-		createdAt: d
-			.timestamp("created_at")
-			.default(sql`CURRENT_TIMESTAMP`)
-			.notNull(),
-		updatedAt: d
-			.timestamp("updated_at")
-			.onUpdateNow()
-			.default(sql`CURRENT_TIMESTAMP`),
-		updatedBy: d.varchar("updated_by", { length: 255 }),
+		createdAt: d.timestamp().default(sql`CURRENT_TIMESTAMP`).notNull(),
+		updatedAt: d.timestamp().onUpdateNow().default(sql`CURRENT_TIMESTAMP`),
+		updatedBy: d.varchar({ length: 255 }),
 	}),
 	(t) => [index("note_client_idx").on(t.clientId)],
 );
@@ -421,11 +457,8 @@ export const externalRecordHistory = createTable(
 		id: d.int().notNull().autoincrement().primaryKey(),
 		externalRecordId: d.int().notNull(),
 		content: d.json("content").notNull(),
-		updatedBy: d.varchar("updated_by", { length: 255 }),
-		createdAt: d
-			.timestamp("created_at")
-			.default(sql`CURRENT_TIMESTAMP`)
-			.notNull(),
+		updatedBy: d.varchar({ length: 255 }),
+		createdAt: d.timestamp().default(sql`CURRENT_TIMESTAMP`).notNull(),
 	}),
 	(t) => [
 		index("external_record_history_idx").on(t.externalRecordId),
@@ -446,13 +479,10 @@ export const externalRecordRequests = createTable(
 			.notNull()
 			.references(() => clients.id, { onDelete: "cascade" }),
 		requestedDate: d.date({ mode: "string" }),
-		holdUntil: d.date("hold_until", { mode: "string" }),
-		customMessage: d.text("custom_message"),
-		createdAt: d
-			.timestamp("created_at")
-			.default(sql`CURRENT_TIMESTAMP`)
-			.notNull(),
-		createdBy: d.varchar("created_by", { length: 255 }),
+		holdUntil: d.date({ mode: "string" }),
+		customMessage: d.text(),
+		createdAt: d.timestamp().default(sql`CURRENT_TIMESTAMP`).notNull(),
+		createdBy: d.varchar({ length: 255 }),
 	}),
 	(t) => [index("external_record_request_client_idx").on(t.clientId)],
 );
@@ -500,14 +530,11 @@ export const tasks = createTable(
 			.default("running"),
 		label: d.varchar("label", { length: 255 }).notNull(),
 		detail: d.varchar("detail", { length: 255 }),
-		progressCurrent: d.int("progress_current"),
-		progressTotal: d.int("progress_total"),
+		progressCurrent: d.int(),
+		progressTotal: d.int(),
 		error: d.text("error"),
-		startedAt: d
-			.timestamp("started_at")
-			.default(sql`CURRENT_TIMESTAMP`)
-			.notNull(),
-		completedAt: d.timestamp("completed_at"),
+		startedAt: d.timestamp().default(sql`CURRENT_TIMESTAMP`).notNull(),
+		completedAt: d.timestamp(),
 	}),
 	(t) => [
 		index("task_status_idx").on(t.status),
@@ -519,12 +546,9 @@ export const faxCategorizations = createTable(
 	"fax_categorization",
 	(d) => ({
 		id: d.int().notNull().autoincrement().primaryKey(),
-		driveFileId: d.varchar("drive_file_id", { length: 255 }).notNull().unique(),
-		fileName: d.varchar("file_name", { length: 255 }).notNull(),
-		discoveredAt: d
-			.timestamp("discovered_at")
-			.default(sql`CURRENT_TIMESTAMP`)
-			.notNull(),
+		driveFileId: d.varchar({ length: 255 }).notNull().unique(),
+		fileName: d.varchar({ length: 255 }).notNull(),
+		discoveredAt: d.timestamp().default(sql`CURRENT_TIMESTAMP`).notNull(),
 		category: d.mysqlEnum("category", [
 			"Referral",
 			"Records Request",
@@ -535,7 +559,7 @@ export const faxCategorizations = createTable(
 			"Patient Documents",
 			"Unsure",
 		]),
-		llmCategory: d.mysqlEnum("llm_category", [
+		llmCategory: d.mysqlEnum([
 			"Referral",
 			"Records Request",
 			"Insurance",
@@ -550,12 +574,12 @@ export const faxCategorizations = createTable(
 			.mysqlEnum("status", ["pending", "reviewed"])
 			.notNull()
 			.default("pending"),
-		extractedText: d.text("extracted_text"),
-		llmRawOutput: d.json("llm_raw_output"),
-		reviewedAt: d.timestamp("reviewed_at"),
-		reviewedBy: d.varchar("reviewed_by", { length: 255 }),
-		reprocessRequestedAt: d.timestamp("reprocess_requested_at"),
-		lastReprocessedAt: d.timestamp("last_reprocessed_at"),
+		extractedText: d.text(),
+		llmRawOutput: d.json(),
+		reviewedAt: d.timestamp(),
+		reviewedBy: d.varchar({ length: 255 }),
+		reprocessRequestedAt: d.timestamp(),
+		lastReprocessedAt: d.timestamp(),
 	}),
 	(t) => [
 		index("fax_categorization_status_idx").on(t.status),
@@ -567,18 +591,15 @@ export const faxCategorizationClientLinks = createTable(
 	"fax_categorization_client_link",
 	(d) => ({
 		id: d.int().notNull().autoincrement().primaryKey(),
-		faxCategorizationId: d.int("fax_categorization_id").notNull(),
-		clientId: d.int("client_id").notNull(),
+		faxCategorizationId: d.int().notNull(),
+		clientId: d.int().notNull(),
 		source: d.mysqlEnum("source", ["llm", "manual"]).notNull(),
-		matchedName: d.varchar("matched_name", { length: 255 }),
+		matchedName: d.varchar({ length: 255 }),
 		confidence: d.decimal("confidence", { precision: 5, scale: 4 }),
 		confirmed: d.boolean().notNull().default(false),
 		rejected: d.boolean().notNull().default(false),
-		createdAt: d
-			.timestamp("created_at")
-			.default(sql`CURRENT_TIMESTAMP`)
-			.notNull(),
-		reviewedBy: d.varchar("reviewed_by", { length: 255 }),
+		createdAt: d.timestamp().default(sql`CURRENT_TIMESTAMP`).notNull(),
+		reviewedBy: d.varchar({ length: 255 }),
 	}),
 	(t) => [
 		uniqueIndex("fax_categorization_client_link_unique").on(
@@ -621,7 +642,7 @@ export const faxCategorizationClientLinksRelations = relations(
 	}),
 );
 
-export const insuranceReview = createTable("insurance_review", (d) => ({
+export const adminReview = createTable("admin_review", (d) => ({
 	clientId: d
 		.int()
 		.notNull()
@@ -630,98 +651,128 @@ export const insuranceReview = createTable("insurance_review", (d) => ({
 	content: d.json("content"),
 	enabled: d.boolean().notNull().default(false),
 	waiting: d.boolean().notNull().default(false),
-	claimedUserEmail: d.varchar("claimed_user_email", { length: 255 }),
-	createdAt: d
-		.timestamp("created_at")
-		.default(sql`CURRENT_TIMESTAMP`)
-		.notNull(),
-	updatedAt: d
-		.timestamp("updated_at")
-		.onUpdateNow()
-		.default(sql`CURRENT_TIMESTAMP`),
-	updatedBy: d.varchar("updated_by", { length: 255 }),
-	submittedToNotesAt: d.timestamp("submitted_to_notes_at"),
+	claimedUserEmail: d.varchar({ length: 255 }),
+	createdAt: d.timestamp().default(sql`CURRENT_TIMESTAMP`).notNull(),
+	updatedAt: d.timestamp().onUpdateNow().default(sql`CURRENT_TIMESTAMP`),
+	updatedBy: d.varchar({ length: 255 }),
+	submittedToNotesAt: d.timestamp(),
 }));
 
-export const insuranceReviewHistory = createTable(
-	"insurance_review_history",
+export const adminReviewHistory = createTable(
+	"admin_review_history",
 	(d) => ({
 		id: d.int().notNull().autoincrement().primaryKey(),
 		reviewId: d.int().notNull(),
 		content: d.json("content").notNull(),
-		updatedBy: d.varchar("updated_by", { length: 255 }),
-		createdAt: d
-			.timestamp("created_at")
-			.default(sql`CURRENT_TIMESTAMP`)
-			.notNull(),
+		updatedBy: d.varchar({ length: 255 }),
+		createdAt: d.timestamp().default(sql`CURRENT_TIMESTAMP`).notNull(),
 	}),
 	(t) => [
-		index("insurance_review_history_idx").on(t.reviewId),
+		index("admin_review_history_idx").on(t.reviewId),
 		foreignKey({
 			columns: [t.reviewId],
-			foreignColumns: [insuranceReview.clientId],
-			name: "insurance_review_id_fk",
+			foreignColumns: [adminReview.clientId],
+			name: "admin_review_id_fk",
 		}).onDelete("cascade"),
 	],
 );
 
-export const insuranceReviewRelations = relations(
-	insuranceReview,
-	({ one, many }) => ({
-		client: one(clients, {
-			fields: [insuranceReview.clientId],
-			references: [clients.id],
-		}),
-		history: many(insuranceReviewHistory),
+export const adminReviewClaimHistory = createTable(
+	"admin_review_claim_history",
+	(d) => ({
+		id: d.int().notNull().autoincrement().primaryKey(),
+		reviewId: d.int().notNull(),
+		userEmail: d.varchar({ length: 255 }).notNull(),
+		setBy: d.varchar({ length: 255 }),
+		createdAt: d.timestamp().default(sql`CURRENT_TIMESTAMP`).notNull(),
 	}),
+	(t) => [
+		index("admin_review_claim_history_idx").on(t.reviewId),
+		foreignKey({
+			columns: [t.reviewId],
+			foreignColumns: [adminReview.clientId],
+			name: "admin_review_claim_history_id_fk",
+		}).onDelete("cascade"),
+	],
 );
 
-export const insuranceReviewHistoryRelations = relations(
-	insuranceReviewHistory,
-	({ one }) => ({
-		review: one(insuranceReview, {
-			fields: [insuranceReviewHistory.reviewId],
-			references: [insuranceReview.clientId],
-		}),
+export const adminReviewRelations = relations(adminReview, ({ one, many }) => ({
+	client: one(clients, {
+		fields: [adminReview.clientId],
+		references: [clients.id],
 	}),
-);
-
-export const appointments = createTable("appointment", (d) => ({
-	id: d.varchar({ length: 255 }).notNull().primaryKey(),
-	clientId: d
-		.int()
-		.notNull()
-		.references(() => clients.id, { onDelete: "cascade" }),
-	evaluatorNpi: d
-		.int()
-		.notNull()
-		.references(() => evaluators.npi, { onDelete: "cascade" }),
-	startTime: d.timestamp("startTime").notNull(),
-	endTime: d.timestamp("endTime").notNull(),
-	cpt: d.varchar({ length: 255 }),
-	daEval: d.mysqlEnum(["EVAL", "DA", "DAEVAL"]),
-	asdAdhd: d.mysqlEnum(["ASD", "ADHD", "ASD+ADHD", "ASD+LD", "ADHD+LD", "LD"]),
-	cancelled: d.boolean().notNull().default(false),
-	rescheduled: d.boolean().notNull().default(false),
-	placeholder: d.boolean().notNull().default(false),
-	billingOnly: d.boolean().notNull().default(false),
-	locationKey: d.varchar({ length: 255 }),
-	calendarEventId: d.varchar({ length: 255 }),
-	calendarEventTitle: d.varchar({ length: 255 }),
-	confirmedAt: d.timestamp(),
-	doNotRemind: d.boolean().notNull().default(false),
-	lastTaskCompletedDate: d.date("last_task_completed_date", { mode: "string" }),
-	dueDateOverride: d.date("due_date_override", { mode: "string" }),
-	reportCompletedAt: d.timestamp("report_completed_at"),
-	reportCompletedByEmail: d.varchar("report_completed_by_email", {
-		length: 255,
-	}),
-	evaluatorDashboardArchivedAt: d.timestamp("evaluator_dashboard_archived_at"),
-	evaluatorDashboardShowAnyway: d
-		.boolean("evaluator_dashboard_show_anyway")
-		.notNull()
-		.default(false),
+	history: many(adminReviewHistory),
+	claimHistory: many(adminReviewClaimHistory),
 }));
+
+export const adminReviewHistoryRelations = relations(
+	adminReviewHistory,
+	({ one }) => ({
+		review: one(adminReview, {
+			fields: [adminReviewHistory.reviewId],
+			references: [adminReview.clientId],
+		}),
+	}),
+);
+
+export const adminReviewClaimHistoryRelations = relations(
+	adminReviewClaimHistory,
+	({ one }) => ({
+		review: one(adminReview, {
+			fields: [adminReviewClaimHistory.reviewId],
+			references: [adminReview.clientId],
+		}),
+	}),
+);
+
+export const appointments = createTable(
+	"appointment",
+	(d) => ({
+		id: d.varchar({ length: 255 }).notNull().primaryKey(),
+		clientId: d
+			.int()
+			.notNull()
+			.references(() => clients.id, { onDelete: "cascade" }),
+		evaluatorNpi: d
+			.int()
+			.notNull()
+			.references(() => evaluators.npi, { onDelete: "cascade" }),
+		startTime: d.timestamp("startTime").notNull(),
+		endTime: d.timestamp("endTime").notNull(),
+		cpt: d.varchar({ length: 255 }),
+		daEval: d.mysqlEnum(["EVAL", "DA", "DAEVAL"]),
+		asdAdhd: d.mysqlEnum([
+			"ASD",
+			"ADHD",
+			"ASD+ADHD",
+			"ASD+LD",
+			"ADHD+LD",
+			"LD",
+		]),
+		cancelled: d.boolean().notNull().default(false),
+		rescheduled: d.boolean().notNull().default(false),
+		placeholder: d.boolean().notNull().default(false),
+		billingOnly: d.boolean().notNull().default(false),
+		locationKey: d.varchar({ length: 255 }),
+		calendarEventId: d.varchar({ length: 255 }),
+		calendarEventTitle: d.varchar({ length: 255 }),
+		confirmedAt: d.timestamp(),
+		doNotRemind: d.boolean().notNull().default(false),
+		lastTaskCompletedDate: d.date({ mode: "string" }),
+		dueDateOverride: d.date({ mode: "string" }),
+		reportCompletedAt: d.timestamp(),
+		reportCompletedByEmail: d.varchar({
+			length: 255,
+		}),
+		evaluatorDashboardArchivedAt: d.timestamp(),
+		evaluatorDashboardShowAnyway: d.boolean().notNull().default(false),
+	}),
+	(t) => [
+		index("appointment_start_time_idx").on(t.startTime),
+		index("appointment_client_idx").on(t.clientId),
+		index("appointment_evaluator_idx").on(t.evaluatorNpi),
+	],
+);
 
 export const assessmentTypes = createTable("assessment_type", (d) => ({
 	id: d.int().notNull().autoincrement().primaryKey(),
@@ -730,7 +781,7 @@ export const assessmentTypes = createTable("assessment_type", (d) => ({
 	minAge: d.int().notNull(),
 	maxAge: d.int().notNull(),
 	minutes: d.int(),
-	inPerson: d.boolean("in_person").notNull().default(false),
+	inPerson: d.boolean().notNull().default(false),
 }));
 
 export const questionnaireRules = createTable("questionnaire_rule", (d) => ({
@@ -740,7 +791,7 @@ export const questionnaireRules = createTable("questionnaire_rule", (d) => ({
 	minAge: d.int().notNull(),
 	maxAge: d.int().notNull(),
 	questionnaires: d.json("questionnaires").$type<string[]>().notNull(),
-	inPersonAssessments: d.json("in_person_assessments").$type<string[]>(),
+	inPersonAssessments: d.json().$type<string[]>(),
 }));
 
 export const questionnaires = createTable(
@@ -757,10 +808,7 @@ export const questionnaires = createTable(
 		status: d.mysqlEnum(QUESTIONNAIRE_STATUSES).default("PENDING"),
 		reminded: d.int().default(0),
 		lastReminded: d.date({ mode: "string" }),
-		updatedAt: d
-			.timestamp("updated_at")
-			.onUpdateNow()
-			.default(sql`CURRENT_TIMESTAMP`),
+		updatedAt: d.timestamp().onUpdateNow().default(sql`CURRENT_TIMESTAMP`),
 	}),
 	(t) => [index("questionnaire_client_idx").on(t.clientId)],
 );
@@ -777,10 +825,7 @@ export const inPersonAssessments = createTable(
 		status: d.mysqlEnum(IN_PERSON_ASSESSMENT_STATUSES),
 		addedDate: d.date({ mode: "string" }),
 		appointmentId: d.varchar({ length: 255 }),
-		updatedAt: d
-			.timestamp("updated_at")
-			.onUpdateNow()
-			.default(sql`CURRENT_TIMESTAMP`),
+		updatedAt: d.timestamp().onUpdateNow().default(sql`CURRENT_TIMESTAMP`),
 	}),
 	(t) => [
 		index("in_person_assessment_client_idx").on(t.clientId),
@@ -797,10 +842,7 @@ export const inPersonAssessmentHistory = createTable(
 		id: d.int().notNull().autoincrement().primaryKey(),
 		assessmentId: d.int().notNull(),
 		content: d.json("content").notNull(),
-		createdAt: d
-			.timestamp("created_at")
-			.default(sql`CURRENT_TIMESTAMP`)
-			.notNull(),
+		createdAt: d.timestamp().default(sql`CURRENT_TIMESTAMP`).notNull(),
 	}),
 	(t) => [
 		index("in_person_assessment_history_idx").on(t.assessmentId),
@@ -843,10 +885,7 @@ export const failures = createTable(
 		reason: d.varchar({ length: 767 }).notNull(), // Max length for primary key
 		daEval: d.mysqlEnum(["DA", "EVAL", "DAEVAL", "Records"]),
 		failedDate: d.date({ mode: "string" }).notNull(),
-		updatedAt: d
-			.timestamp("updated_at")
-			.onUpdateNow()
-			.default(sql`CURRENT_TIMESTAMP`),
+		updatedAt: d.timestamp().onUpdateNow().default(sql`CURRENT_TIMESTAMP`),
 		reminded: d.int().default(0),
 		lastReminded: d.date({ mode: "string" }),
 	}),
@@ -885,6 +924,100 @@ export const questionnaireRelations = relations(questionnaires, ({ one }) => ({
 		references: [clients.id],
 	}),
 }));
+
+export const questionnaireReminderSettings = createTable(
+	"questionnaire_reminder_settings",
+	(d) => ({
+		id: d.int().notNull().autoincrement().primaryKey(),
+		stage2OffsetDays: d.int().notNull().default(14),
+		stage3OffsetDays: d.int().notNull().default(7),
+		escalationSilenceDays: d.int().notNull().default(3),
+	}),
+);
+
+export const questionnaireReminderTemplates = createTable(
+	"questionnaire_reminder_template",
+	(d) => ({
+		id: d.int().notNull().autoincrement().primaryKey(),
+		reminderIndex: d.int().notNull(),
+		variant: d
+			.mysqlEnum("variant", ["DEFAULT", "POSTDA", "POSTEVAL"])
+			.notNull(),
+		message: d.text().notNull(),
+		updatedAt: d.timestamp().onUpdateNow().default(sql`CURRENT_TIMESTAMP`),
+		updatedBy: d.varchar({ length: 255 }),
+	}),
+	(t) => [
+		uniqueIndex("q_reminder_template_stage_variant_idx").on(
+			t.reminderIndex,
+			t.variant,
+		),
+	],
+);
+
+export const questionnaireReminderOverrides = createTable(
+	"questionnaire_reminder_override",
+	(d) => ({
+		clientId: d
+			.int()
+			.notNull()
+			.references(() => clients.id, { onDelete: "cascade" }),
+		sent: d.date({ mode: "string" }).notNull(),
+		reminderIndex: d.int().notNull(),
+		message: d.text().notNull(),
+		createdAt: d.timestamp().default(sql`CURRENT_TIMESTAMP`).notNull(),
+		updatedAt: d.timestamp().onUpdateNow().default(sql`CURRENT_TIMESTAMP`),
+		updatedBy: d.varchar({ length: 255 }),
+	}),
+	(t) => [
+		primaryKey({
+			columns: [t.clientId, t.sent, t.reminderIndex],
+			name: "q_reminder_override_pk",
+		}),
+		index("q_reminder_override_client_idx").on(t.clientId),
+	],
+);
+
+export const questionnaireReminderOverrideHistory = createTable(
+	"questionnaire_reminder_override_history",
+	(d) => ({
+		id: d.int().notNull().autoincrement().primaryKey(),
+		clientId: d.int().notNull(),
+		sent: d.date({ mode: "string" }).notNull(),
+		reminderIndex: d.int().notNull(),
+		message: d.text().notNull(),
+		updatedBy: d.varchar({ length: 255 }),
+		createdAt: d.timestamp().default(sql`CURRENT_TIMESTAMP`).notNull(),
+	}),
+	(t) => [
+		index("q_reminder_override_history_idx").on(t.clientId, t.sent),
+		foreignKey({
+			columns: [t.clientId],
+			foreignColumns: [clients.id],
+			name: "q_reminder_override_history_client_fk",
+		}).onDelete("cascade"),
+	],
+);
+
+export const questionnaireReminderOverrideRelations = relations(
+	questionnaireReminderOverrides,
+	({ one }) => ({
+		client: one(clients, {
+			fields: [questionnaireReminderOverrides.clientId],
+			references: [clients.id],
+		}),
+	}),
+);
+
+export const questionnaireReminderOverrideHistoryRelations = relations(
+	questionnaireReminderOverrideHistory,
+	({ one }) => ({
+		client: one(clients, {
+			fields: [questionnaireReminderOverrideHistory.clientId],
+			references: [clients.id],
+		}),
+	}),
+);
 
 export const inPersonAssessmentRelations = relations(
 	inPersonAssessments,
@@ -936,12 +1069,9 @@ export const roles = createTable("role", (d) => ({
 	id: d.int().notNull().autoincrement().primaryKey(),
 	name: d.varchar({ length: 255 }).notNull().unique(),
 	permissions: d.json("permissions").$type<PermissionsObject>().notNull(),
-	isDefault: d.boolean("is_default").notNull().default(false),
-	createdAt: d
-		.timestamp("created_at")
-		.default(sql`CURRENT_TIMESTAMP`)
-		.notNull(),
-	updatedAt: d.timestamp("updated_at").defaultNow().onUpdateNow(),
+	isDefault: d.boolean().notNull().default(false),
+	createdAt: d.timestamp().default(sql`CURRENT_TIMESTAMP`).notNull(),
+	updatedAt: d.timestamp().defaultNow().onUpdateNow(),
 }));
 
 export const rolesRelations = relations(roles, ({ many }) => ({
@@ -966,18 +1096,18 @@ export const users = createTable("user", (d) => ({
 	image: d.varchar({ length: 255 }),
 	savedPlaces: d.json(),
 	permissions: d.json("permissions").$type<PermissionsObject>(),
-	roleId: d.int("role_id").references(() => roles.id),
+	roleId: d.int().references(() => roles.id),
 	archived: d.boolean("archived").notNull().default(false),
-	claimedReportFolder: d
-		.json("claimed_report_folder")
-		.$type<{ name: string; id: string }[]>(),
-	maxClaimedReports: d.tinyint("max_claimed_reports"),
-	phoneNumber: d.varchar("phone_number", { length: 20 }),
-	recentClients: d.text("recent_clients"),
-	homeWidgets: d.text("home_widgets"),
-	headerItems: d.text("header_items"),
-	lastSeenChangelogMarker: d.text("last_seen_changelog_marker"),
-	blockedEvaluatorNpis: d.json("blocked_evaluator_npis").$type<number[]>(),
+	claimedReportFolder: d.json().$type<{ name: string; id: string }[]>(),
+	maxClaimedReports: d.tinyint(),
+	phoneNumber: d.varchar({ length: 20 }),
+	recentClients: d.text(),
+	homeWidgets: d.text(),
+	headerItems: d.text(),
+	lastSeenChangelogMarker: d.text(),
+	blockedEvaluatorNpis: d.json().$type<number[]>(),
+	listFilters: d.json().$type<Record<string, string[]>>(),
+	pinnedList: d.json().$type<PinnedList>(),
 }));
 
 export const usersRelations = relations(users, ({ many, one }) => ({
@@ -1029,16 +1159,13 @@ export const invitations = createTable("invitation", (d) => ({
 	email: d.varchar({ length: 255 }).notNull().unique(),
 	savedPlaces: d.json(),
 	permissions: d.json("permissions").$type<PermissionsObject>(),
-	roleId: d.int("role_id").references(() => roles.id),
+	roleId: d.int().references(() => roles.id),
 	status: d
 		.mysqlEnum("status", ["pending", "accepted"])
 		.notNull()
 		.default("pending"),
 	usedAt: d.timestamp(),
-	createdAt: d
-		.timestamp("created_at")
-		.default(sql`CURRENT_TIMESTAMP`)
-		.notNull(),
+	createdAt: d.timestamp().default(sql`CURRENT_TIMESTAMP`).notNull(),
 }));
 
 export const invitationsRelations = relations(invitations, ({ one }) => ({
@@ -1060,6 +1187,7 @@ export const sessions = createTable(
 		clientFilters: d.text(),
 		schedulingFilters: d.text(),
 		directoryFilters: d.text(),
+		reportsFilters: d.text(),
 	}),
 	(t) => [index("session_user_id_idx").on(t.userId)],
 );
@@ -1095,10 +1223,7 @@ export const schedulingClients = createTable(
 		code: d.text(),
 		color: d.varchar({ length: 50 }),
 		sort: d.int().notNull().default(0),
-		createdAt: d
-			.timestamp("created_at")
-			.default(sql`CURRENT_TIMESTAMP`)
-			.notNull(),
+		createdAt: d.timestamp().default(sql`CURRENT_TIMESTAMP`).notNull(),
 	}),
 	(t) => [index("scheduling_client_id_idx").on(t.clientId)],
 );
@@ -1120,15 +1245,12 @@ type ConfigData =
 export const pythonConfig = createTable("python_config", (d) => ({
 	id: d.int().notNull().primaryKey(),
 	data: d.json("data").$type<ConfigData>().notNull(),
-	updatedAt: d.timestamp("updated_at").defaultNow().onUpdateNow(),
+	updatedAt: d.timestamp().defaultNow().onUpdateNow(),
 }));
 
 export const seenReportFolders = createTable("seen_report_folders", (d) => ({
 	folderId: d.varchar({ length: 255 }).notNull().primaryKey(),
-	notifiedAt: d
-		.timestamp("notified_at")
-		.default(sql`CURRENT_TIMESTAMP`)
-		.notNull(),
+	notifiedAt: d.timestamp().default(sql`CURRENT_TIMESTAMP`).notNull(),
 }));
 
 export const appointmentReminderSettings = createTable(
@@ -1179,6 +1301,19 @@ export const reminderLogs = createTable(
 			name: "rem_log_tmpl_fk",
 		}).onDelete("cascade"),
 	],
+);
+
+export const referralStatusFaxLogs = createTable(
+	"referral_status_fax_logs",
+	(d) => ({
+		id: d.int().primaryKey().autoincrement().notNull(),
+		clientId: d
+			.int()
+			.notNull()
+			.references(() => clients.id, { onDelete: "cascade" }),
+		sentAt: d.timestamp().default(sql`CURRENT_TIMESTAMP`).notNull(),
+	}),
+	(t) => [index("referral_status_fax_logs_client_idx").on(t.clientId)],
 );
 
 export const reminderReplies = createTable("reminder_replies", (d) => ({
@@ -1311,8 +1446,21 @@ export const referralMsgLog = createTable("referral_msg_log", (d) => ({
 		.primaryKey()
 		.references(() => clients.id, { onDelete: "cascade" }),
 	openphoneMessageId: d.varchar({ length: 255 }),
+	isPrivatePayOutreach: d.boolean().notNull().default(false),
 	sentAt: d.timestamp().default(sql`CURRENT_TIMESTAMP`).notNull(),
 }));
+
+export const babynetReports = createTable(
+	"babynet_report",
+	(d) => ({
+		id: d.int().primaryKey().autoincrement().notNull(),
+		weekOf: d.date({ mode: "string" }).notNull(),
+		clientCount: d.int().notNull(),
+		amount: d.decimal({ precision: 10, scale: 2 }).notNull(),
+		createdAt: d.timestamp().default(sql`CURRENT_TIMESTAMP`).notNull(),
+	}),
+	(t) => [uniqueIndex("babynet_report_week_of_idx").on(t.weekOf)],
+);
 
 export const duplicateNameIgnore = createTable(
 	"duplicate_name_ignore",
@@ -1338,9 +1486,127 @@ export const pieceworkReportTracking = createTable(
 			.notNull()
 			.primaryKey()
 			.references(() => clients.id, { onDelete: "cascade" }),
-		writerEmail: d.varchar("writer_email", { length: 255 }),
-		trackedDate: d.date("tracked_date", { mode: "string" }).notNull(),
+		writerEmail: d.varchar({ length: 255 }),
+		trackedDate: d.date({ mode: "string" }).notNull(),
 	}),
+);
+
+export const REPORT_STATUSES = [
+	// Pool report whose row exists (an eval appointment happened) but whose client
+	// folder has not yet reached the report-writing queue. Visible to approvers
+	// only, not claimable. Promoted to "queued" by the Drive-queue reconcile.
+	"pending",
+	"queued",
+	"claimed",
+	"submitted",
+	"approved",
+] as const;
+
+export const reports = createTable(
+	"report",
+	(d) => ({
+		id: d.int().notNull().autoincrement().primaryKey(),
+		clientId: d
+			.int()
+			.notNull()
+			.references(() => clients.id, { onDelete: "cascade" }),
+		// Evaluator of the eval appointment that spawned this report. Used for the
+		// blocked-evaluator claim gate and for display.
+		evaluatorNpi: d
+			.int()
+			.references(() => evaluators.npi, { onDelete: "set null" }),
+		asdAdhd: d.mysqlEnum([
+			"ASD",
+			"ADHD",
+			"ASD+ADHD",
+			"ASD+LD",
+			"ADHD+LD",
+			"LD",
+		]),
+		// Snapshot of the spawning evaluator's writesOwnReports at creation.
+		// false: pool report claimed on /claim-reports. true: written by the
+		// evaluator who did the testing, pre-assigned, never in the claim queue.
+		selfWritten: d.boolean().notNull().default(false),
+		// Snapshot computed at creation: false when this is an ADHD-only report and
+		// the evaluator is not the configured ADHD-piecework evaluator. Mirrors
+		// piecework's "For != ADHD OR Evaluator == ap" filter.
+		billablePiecework: d.boolean().notNull().default(true),
+		status: d.mysqlEnum(REPORT_STATUSES).notNull().default("queued"),
+		writerUserId: d
+			.varchar({ length: 255 })
+			.references(() => users.id, { onDelete: "set null" }),
+		writerEmail: d.varchar({ length: 255 }),
+		folderId: d.varchar({ length: 255 }),
+		folderName: d.varchar({ length: 255 }),
+		claimedAt: d.timestamp(),
+		// When the client folder was observed in the report-writing queue and the
+		// row moved from "pending" to "queued".
+		queueReadyAt: d.timestamp(),
+		writerCompletedAt: d.timestamp(),
+		writerCompletedByEmail: d.varchar({ length: 255 }),
+		approvedAt: d.timestamp(),
+		approvedByEmail: d.varchar({ length: 255 }),
+		billed: d.boolean().notNull().default(false),
+		billedAt: d.timestamp(),
+		billedByEmail: d.varchar({ length: 255 }),
+		firstReviewDone: d.boolean().notNull().default(false),
+		firstReviewAt: d.timestamp(),
+		firstReviewByEmail: d.varchar({ length: 255 }),
+		// The second review has two independent flags: it has been requested
+		// ("needed"), and it has been carried out ("done").
+		secondReviewNeeded: d.boolean().notNull().default(false),
+		secondReviewNeededAt: d.timestamp(),
+		secondReviewByEmail: d.varchar({ length: 255 }),
+		secondReviewDone: d.boolean().notNull().default(false),
+		secondReviewDoneAt: d.timestamp(),
+		secondReviewDoneByEmail: d.varchar({ length: 255 }),
+		source: d
+			.mysqlEnum(["auto", "manual", "backfill"])
+			.notNull()
+			.default("auto"),
+		createdByEmail: d.varchar({ length: 255 }),
+		notes: d.text(),
+		archivedAt: d.timestamp(),
+		createdAt: d.timestamp().default(sql`CURRENT_TIMESTAMP`).notNull(),
+		updatedAt: d.timestamp().onUpdateNow().default(sql`CURRENT_TIMESTAMP`),
+	}),
+	(t) => [
+		index("report_client_idx").on(t.clientId),
+		index("report_status_idx").on(t.status),
+		index("report_writer_idx").on(t.writerUserId),
+	],
+);
+
+export const reportsRelations = relations(reports, ({ one }) => ({
+	client: one(clients, {
+		fields: [reports.clientId],
+		references: [clients.id],
+	}),
+	evaluator: one(evaluators, {
+		fields: [reports.evaluatorNpi],
+		references: [evaluators.npi],
+	}),
+	writer: one(users, {
+		fields: [reports.writerUserId],
+		references: [users.id],
+	}),
+}));
+
+// One row per edit of a report's short note (`reports.notes`), holding the text
+// it was changed to (null when cleared).
+export const reportNoteHistory = createTable(
+	"report_note_history",
+	(d) => ({
+		id: d.int().notNull().autoincrement().primaryKey(),
+		reportId: d
+			.int()
+			.notNull()
+			.references(() => reports.id, { onDelete: "cascade" }),
+		note: d.text(),
+		updatedBy: d.varchar({ length: 255 }),
+		createdAt: d.timestamp().default(sql`CURRENT_TIMESTAMP`).notNull(),
+	}),
+	(t) => [index("report_note_history_report_idx").on(t.reportId)],
 );
 
 export const workSummaryConfig = createTable("work_summary_config", (d) => ({
@@ -1350,21 +1616,23 @@ export const workSummaryConfig = createTable("work_summary_config", (d) => ({
 		.$type<Record<string, number>>()
 		.notNull()
 		.default({}),
-	evaluatorDashboardDueDateWeeks: d
-		.int("evaluator_dashboard_due_date_weeks")
-		.default(4),
-	evaluatorDashboardShowMarkComplete: d
-		.boolean("evaluator_dashboard_show_mark_complete")
-		.notNull()
-		.default(true),
+	evaluatorDashboardDueDateWeeks: d.int().default(4),
+	evaluatorDashboardShowMarkComplete: d.boolean().notNull().default(true),
 }));
 
 export const reportQueueConfig = createTable("report_queue_config", (d) => ({
 	id: d.int().notNull().primaryKey().default(1),
-	defaultMaxClaimedReports: d
-		.int("default_max_claimed_reports")
+	defaultMaxClaimedReports: d.int().notNull().default(1),
+	// Labels for the two named report-review stages. Configurable so the
+	// reviewer's initials are not baked into the UI.
+	firstReviewLabel: d
+		.varchar({ length: 255 })
 		.notNull()
-		.default(1),
+		.default("First review"),
+	secondReviewLabel: d
+		.varchar({ length: 255 })
+		.notNull()
+		.default("Second review"),
 }));
 
 export const appointmentNotes = createTable("appointment_note", (d) => ({
@@ -1374,15 +1642,9 @@ export const appointmentNotes = createTable("appointment_note", (d) => ({
 		.primaryKey()
 		.references(() => appointments.id, { onDelete: "cascade" }),
 	content: d.json("content"),
-	createdAt: d
-		.timestamp("created_at")
-		.default(sql`CURRENT_TIMESTAMP`)
-		.notNull(),
-	updatedAt: d
-		.timestamp("updated_at")
-		.onUpdateNow()
-		.default(sql`CURRENT_TIMESTAMP`),
-	updatedBy: d.varchar("updated_by", { length: 255 }),
+	createdAt: d.timestamp().default(sql`CURRENT_TIMESTAMP`).notNull(),
+	updatedAt: d.timestamp().onUpdateNow().default(sql`CURRENT_TIMESTAMP`),
+	updatedBy: d.varchar({ length: 255 }),
 }));
 
 export const appointmentNoteHistory = createTable(
@@ -1391,11 +1653,8 @@ export const appointmentNoteHistory = createTable(
 		id: d.int().notNull().autoincrement().primaryKey(),
 		noteId: d.varchar({ length: 255 }).notNull(),
 		content: d.json("content").notNull(),
-		updatedBy: d.varchar("updated_by", { length: 255 }),
-		createdAt: d
-			.timestamp("created_at")
-			.default(sql`CURRENT_TIMESTAMP`)
-			.notNull(),
+		updatedBy: d.varchar({ length: 255 }),
+		createdAt: d.timestamp().default(sql`CURRENT_TIMESTAMP`).notNull(),
 	}),
 	(t) => [
 		index("appt_note_history_note_idx").on(t.noteId),
@@ -1424,19 +1683,13 @@ export const appointmentCheckins = createTable("appointment_checkin", (d) => ({
 		.notNull()
 		.primaryKey()
 		.references(() => appointments.id, { onDelete: "cascade" }),
-	arrivedAt: d.timestamp("arrived_at"),
-	arrivedBy: d.varchar("arrived_by", { length: 255 }),
-	arrivedNote: d.varchar("arrived_note", { length: 500 }),
-	startedAt: d.timestamp("started_at"),
-	startedBy: d.varchar("started_by", { length: 255 }),
-	startedNote: d.varchar("started_note", { length: 500 }),
-	leftAt: d.timestamp("left_at"),
-	leftBy: d.varchar("left_by", { length: 255 }),
-	leftNote: d.varchar("left_note", { length: 500 }),
-	updatedAt: d
-		.timestamp("updated_at")
-		.onUpdateNow()
-		.default(sql`CURRENT_TIMESTAMP`),
+	arrivedAt: d.timestamp(),
+	arrivedBy: d.varchar({ length: 255 }),
+	startedAt: d.timestamp(),
+	startedBy: d.varchar({ length: 255 }),
+	leftAt: d.timestamp(),
+	leftBy: d.varchar({ length: 255 }),
+	updatedAt: d.timestamp().onUpdateNow().default(sql`CURRENT_TIMESTAMP`),
 }));
 
 export const appointmentCheckinsRelations = relations(
@@ -1457,16 +1710,11 @@ export const evaluatorCheckins = createTable(
 			.notNull()
 			.references(() => evaluators.npi, { onDelete: "cascade" }),
 		date: d.date({ mode: "string" }).notNull(),
-		arrivedAt: d.timestamp("arrived_at"),
-		arrivedBy: d.varchar("arrived_by", { length: 255 }),
-		arrivedNote: d.varchar("arrived_note", { length: 500 }),
-		leftAt: d.timestamp("left_at"),
-		leftBy: d.varchar("left_by", { length: 255 }),
-		leftNote: d.varchar("left_note", { length: 500 }),
-		updatedAt: d
-			.timestamp("updated_at")
-			.onUpdateNow()
-			.default(sql`CURRENT_TIMESTAMP`),
+		arrivedAt: d.timestamp(),
+		arrivedBy: d.varchar({ length: 255 }),
+		leftAt: d.timestamp(),
+		leftBy: d.varchar({ length: 255 }),
+		updatedAt: d.timestamp().onUpdateNow().default(sql`CURRENT_TIMESTAMP`),
 	}),
 	(t) => [primaryKey({ columns: [t.evaluatorNpi, t.date] })],
 );
@@ -1490,10 +1738,7 @@ export const clientDashboardSectionHistory = createTable(
 			.notNull()
 			.references(() => clients.id, { onDelete: "cascade" }),
 		sections: d.json("sections").$type<string[]>().notNull(),
-		createdAt: d
-			.timestamp("created_at")
-			.default(sql`CURRENT_TIMESTAMP`)
-			.notNull(),
+		createdAt: d.timestamp().default(sql`CURRENT_TIMESTAMP`).notNull(),
 	}),
 	(t) => [index("client_dash_section_history_client_idx").on(t.clientId)],
 );
@@ -1507,3 +1752,43 @@ export const appointmentNoteHistoryRelations = relations(
 		}),
 	}),
 );
+
+/**
+ * Records every mutation an authenticated user makes: who, what tRPC action,
+ * which client (if any), and the changed field names (never their values,
+ * since mutation inputs routinely carry PHI). Deliberately not a foreign key
+ * on userId/clientId, cascaded or otherwise: an audit trail must survive
+ * deletion of the user or client it describes.
+ */
+export const auditLogs = createTable(
+	"audit_log",
+	(d) => ({
+		id: d.int().notNull().autoincrement().primaryKey(),
+		userId: d.varchar({ length: 255 }).notNull(),
+		userEmail: d.varchar({ length: 255 }).notNull(),
+		impersonatedBy: d.varchar({ length: 255 }),
+		action: d.varchar({ length: 255 }).notNull(),
+		clientId: d.int(),
+		detail: d.json("detail"),
+		success: d.boolean().notNull().default(true),
+		errorMessage: d.text(),
+		createdAt: d.timestamp().default(sql`CURRENT_TIMESTAMP`).notNull(),
+	}),
+	(t) => [
+		index("audit_log_user_idx").on(t.userId),
+		index("audit_log_client_idx").on(t.clientId),
+		index("audit_log_action_idx").on(t.action),
+		index("audit_log_created_idx").on(t.createdAt),
+	],
+);
+
+export const auditLogRelations = relations(auditLogs, ({ one }) => ({
+	user: one(users, {
+		fields: [auditLogs.userId],
+		references: [users.id],
+	}),
+	client: one(clients, {
+		fields: [auditLogs.clientId],
+		references: [clients.id],
+	}),
+}));

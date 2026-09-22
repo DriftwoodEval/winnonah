@@ -1,3 +1,15 @@
+"""Scrapes eligibility data from the SC Medicaid provider portal via Selenium.
+
+Runs as part of the normal cron pipeline (main.py) every CRON_SCHEDULE
+interval (every 4 hours by default, see python/Dockerfile), checking clients on
+the insurances in MEDICAID_SHORT_NAMES that were never checked or were last
+checked more than MEDICAID_RECHECK_DAYS ago. A full recheck of a specific
+client, or of every client, can be forced with
+`python main.py --medicaid [--client <name-or-id>]`. Portal credentials
+come from the medicaid entry in the app's services config (Settings >
+QSuite tab), not from environment variables.
+"""
+
 from time import sleep
 
 from loguru import logger
@@ -8,6 +20,7 @@ from selenium.common.exceptions import (
 from selenium.webdriver import ActionChains, Keys
 from selenium.webdriver.common.by import By
 from selenium.webdriver.remote.webdriver import WebDriver
+from selenium.webdriver.remote.webelement import WebElement
 from selenium.webdriver.support.ui import Select
 
 import utils.database
@@ -71,18 +84,20 @@ def check_and_login_medicaid(first_time: bool = False) -> WebDriver:
     return driver
 
 
-def lookup_new_scm_eligibility() -> None:
-    """Look up eligibility for SCM clients that have never been checked (no qual_category)."""
-    _run_scm_eligibility_lookup(only_new=True)
+def lookup_due_medicaid_eligibility() -> None:
+    """Look up eligibility for clients never checked or not checked in the last month."""
+    _run_medicaid_eligibility_lookup(only_due=True)
 
 
-def lookup_scm_eligibility(
-    only_new: bool = False,
+def lookup_medicaid_eligibility(
+    only_due: bool = False,
     names: list[str] | None = None,
     client_ids: list[str] | None = None,
 ) -> None:
-    """Force eligibility lookup for all SCM clients, or filter by name/ID strings."""
-    _run_scm_eligibility_lookup(only_new=only_new, names=names, client_ids=client_ids)
+    """Force eligibility lookup for all Medicaid-portal clients, or filter by name/ID strings."""
+    _run_medicaid_eligibility_lookup(
+        only_due=only_due, names=names, client_ids=client_ids
+    )
 
 
 def _ensure_logged_in(driver: WebDriver) -> None:
@@ -98,12 +113,12 @@ def _ensure_logged_in(driver: WebDriver) -> None:
         select_provider(driver, "1669135125")
 
 
-def _run_scm_eligibility_lookup(
-    only_new: bool,
+def _run_medicaid_eligibility_lookup(
+    only_due: bool,
     names: list[str] | None = None,
     client_ids: list[str] | None = None,
 ) -> None:
-    clients = utils.database.get_scm_clients_with_medicaid_ids(only_new=only_new)
+    clients = utils.database.get_medicaid_clients_with_ids(only_due=only_due)
 
     if client_ids:
         str_ids = {str(cid) for cid in client_ids}
@@ -118,10 +133,10 @@ def _run_scm_eligibility_lookup(
         clients = [c for c in clients if _matches_name(c)]
 
     if not clients:
-        logger.info("No SCM clients to check eligibility for")
+        logger.info("No clients to check eligibility for")
         return
 
-    logger.info(f"Looking up eligibility for {len(clients)} SCM client(s)")
+    logger.info(f"Looking up eligibility for {len(clients)} client(s)")
     try:
         driver = check_and_login_medicaid(first_time=True)
     except Exception:
@@ -131,7 +146,7 @@ def _run_scm_eligibility_lookup(
 
     try:
         with track_task(
-            "scm_eligibility_lookup", "Looking up SC Medicaid eligibility"
+            "medicaid_eligibility_lookup", "Looking up SC Medicaid eligibility"
         ) as task:
             if task is None:
                 logger.info(
@@ -144,25 +159,26 @@ def _run_scm_eligibility_lookup(
                 task.progress(i, total)
                 medicaid_id = client["insuranceNumber"]
                 try:
-                    qual_category, payment_category = search_single_client(
-                        driver, medicaid_id
-                    )
+                    eligibility = search_single_client(driver, medicaid_id)
                 except (NoSuchElementException, TimeoutException):
                     logger.warning(
                         f"Error searching client {medicaid_id}, verifying login and retrying"
                     )
                     _ensure_logged_in(driver)
                     try:
-                        qual_category, payment_category = search_single_client(
-                            driver, medicaid_id
+                        eligibility = search_single_client(driver, medicaid_id)
+                    except (NoSuchElementException, TimeoutException):
+                        logger.warning(
+                            f"Client {medicaid_id} not found after re-login, marking as checked"
                         )
+                        eligibility = None
                     except Exception:
                         logger.error(
                             f"Failed to look up eligibility for client {medicaid_id} after re-login, skipping"
                         )
                         continue
                 utils.database.update_client_medicaid_eligibility(
-                    client["id"], qual_category, payment_category
+                    client["id"], eligibility, client["policyId"]
                 )
     finally:
         logout_medicaid(driver)
@@ -183,17 +199,76 @@ def select_provider(driver: WebDriver, provider_value: str) -> None:
     w.click_element(driver, By.ID, "update")
 
 
-def search_single_client(driver: WebDriver, client_id: str) -> tuple[str, str]:
-    """Search for a single client in SC Medicaid Portal and return (qual_category, payment_category)."""
+def _open_query_form(driver: WebDriver, max_attempts: int = 3) -> WebElement:
+    """Load the single-query page and return the Medicaid ID input.
+
+    Right after login the provider selection can still be settling, in which
+    case the form is missing. Reloading the page gives it time to finish.
+    """
+    url = f"{BASE_PORTAL_URL}/eligibility/entersinglequery"
+    for attempt in range(1, max_attempts):
+        driver.get(url)
+        try:
+            return w.find_element(driver, By.NAME, "MedicaidID")
+        except TimeoutException:
+            logger.warning(
+                f"Medicaid ID form not found (attempt {attempt}/{max_attempts}), reloading"
+            )
+    driver.get(url)
+    return w.find_element(driver, By.NAME, "MedicaidID")
+
+
+def search_single_client(driver: WebDriver, client_id: str) -> dict[str, str | None]:
+    """Search for a single client in SC Medicaid Portal and return the scraped fields."""
     logger.info(f"Searching for client {client_id}")
-    driver.get(f"{BASE_PORTAL_URL}/eligibility/entersinglequery")
-    w.find_element(driver, By.NAME, "MedicaidID").send_keys(client_id)
+    _open_query_form(driver).send_keys(client_id)
     w.click_element(driver, By.NAME, "checkEligibilityButton")
     w.click_element(driver, By.NAME, "displayButton1")
+    return read_eligibility(driver)
+
+
+def read_eligibility(driver: WebDriver) -> dict[str, str | None]:
+    """Read the eligibility fields from the results page the driver is on."""
     qual_category = w.find_element(
         driver, By.XPATH, "//li[label[text()='Qual. Category:']]/p"
     )
     payment_category = w.find_element(
         driver, By.XPATH, "//li[label[text()='Payment Category:']]/p"
     )
-    return qual_category.text, payment_category.text
+    # The page has loaded by now, so optional fields are read without waiting.
+    organization = driver.find_elements(
+        By.XPATH, "//td[normalize-space()='Organization:']/following-sibling::td[1]"
+    )
+    carriers = driver.find_elements(
+        By.XPATH,
+        "//td[contains(normalize-space(), 'Carrier')]/following-sibling::td[1]",
+    )
+    return {
+        "qualCategory": qual_category.text,
+        "paymentCategory": payment_category.text,
+        "medicaidOrganization": organization[0].text if organization else None,
+        "medicaidCarrier1": carriers[0].text if len(carriers) > 0 else None,
+        "medicaidCarrier2": carriers[1].text if len(carriers) > 1 else None,
+    }
+
+
+def preview_medicaid_lookup(medicaid_id: str) -> None:
+    """Log in, search one Medicaid ID, and log every label/value pair on the results page.
+
+    Writes nothing to the database. Use it to check what the portal shows and
+    that search_single_client's labels match.
+    """
+    driver = check_and_login_medicaid(first_time=True)
+    try:
+        eligibility = search_single_client(driver, medicaid_id)
+        logger.info(f"Scraped: {eligibility}")
+        logger.info("All label/value pairs on the page:")
+        for item in driver.find_elements(By.XPATH, "//li[label]"):
+            label = item.find_element(By.XPATH, "./label").text
+            value = "".join(p.text for p in item.find_elements(By.XPATH, "./p"))
+            logger.info(f"  {label!r}: {value!r}")
+        for row in driver.find_elements(By.XPATH, "//tr[count(td)=2]"):
+            cells = row.find_elements(By.XPATH, "./td")
+            logger.info(f"  {cells[0].text!r}: {cells[1].text!r}")
+    finally:
+        logout_medicaid(driver)

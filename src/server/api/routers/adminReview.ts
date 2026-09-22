@@ -1,5 +1,6 @@
 import type { JSONContent } from "@tiptap/core";
 import { and, asc, desc, eq, isNull } from "drizzle-orm";
+import { alias } from "drizzle-orm/mysql-core";
 import { z } from "zod";
 import { env } from "~/env";
 import {
@@ -14,9 +15,10 @@ import {
 	protectedProcedure,
 } from "~/server/api/trpc";
 import {
+	adminReview,
+	adminReviewClaimHistory,
+	adminReviewHistory,
 	clients,
-	insuranceReview,
-	insuranceReviewHistory,
 	notes,
 	users,
 } from "~/server/db/schema";
@@ -31,12 +33,12 @@ function areContentsEqual(
 	return JSON.stringify(a) === JSON.stringify(b);
 }
 
-export const insuranceReviewRouter = createTRPCRouter({
+export const adminReviewRouter = createTRPCRouter({
 	getByClientId: protectedProcedure
 		.input(z.number())
 		.query(async ({ ctx, input: clientId }) => {
-			const review = await ctx.db.query.insuranceReview.findFirst({
-				where: eq(insuranceReview.clientId, clientId),
+			const review = await ctx.db.query.adminReview.findFirst({
+				where: eq(adminReview.clientId, clientId),
 			});
 			return review ?? null;
 		}),
@@ -49,20 +51,20 @@ export const insuranceReviewRouter = createTRPCRouter({
 			}),
 		)
 		.mutation(async ({ ctx, input }) => {
-			assertPermission(ctx.session.user, "clients:insurance:review");
+			assertPermission(ctx.session.user, "clients:admin:review");
 
 			ctx.logger.info(
 				{ clientId: input.clientId, updatedBy: ctx.session.user.email },
-				"Updating insurance review",
+				"Updating admin review",
 			);
 
 			await ctx.db.transaction(async (tx) => {
-				const current = await tx.query.insuranceReview.findFirst({
-					where: eq(insuranceReview.clientId, input.clientId),
+				const current = await tx.query.adminReview.findFirst({
+					where: eq(adminReview.clientId, input.clientId),
 				});
 
 				if (!current) {
-					await tx.insert(insuranceReview).values({
+					await tx.insert(adminReview).values({
 						clientId: input.clientId,
 						content: input.contentJson,
 						enabled: true,
@@ -86,7 +88,7 @@ export const insuranceReviewRouter = createTRPCRouter({
 					timeSince < HISTORY_MERGE_WINDOW;
 
 				if (!isRecentSameUser && current.content !== null) {
-					await tx.insert(insuranceReviewHistory).values({
+					await tx.insert(adminReviewHistory).values({
 						reviewId: current.clientId,
 						content: current.content,
 						updatedBy: current.updatedBy,
@@ -94,12 +96,12 @@ export const insuranceReviewRouter = createTRPCRouter({
 				}
 
 				await tx
-					.update(insuranceReview)
+					.update(adminReview)
 					.set({
 						content: input.contentJson,
 						updatedBy: ctx.session.user.email,
 					})
-					.where(eq(insuranceReview.clientId, input.clientId));
+					.where(eq(adminReview.clientId, input.clientId));
 			});
 
 			return { success: true };
@@ -108,37 +110,49 @@ export const insuranceReviewRouter = createTRPCRouter({
 	setEnabled: protectedProcedure
 		.input(z.object({ clientId: z.number(), enabled: z.boolean() }))
 		.mutation(async ({ ctx, input }) => {
-			assertPermission(ctx.session.user, "clients:insurance:review");
+			assertPermission(ctx.session.user, "clients:admin:review");
 
 			ctx.logger.info(
 				{ ...input, updatedBy: ctx.session.user.email },
-				"Setting insurance review enabled",
+				"Setting admin review enabled",
 			);
 
-			const current = await ctx.db.query.insuranceReview.findFirst({
-				where: eq(insuranceReview.clientId, input.clientId),
+			const current = await ctx.db.query.adminReview.findFirst({
+				where: eq(adminReview.clientId, input.clientId),
 			});
 
+			let claimedBy: string | null = null;
+
 			if (current) {
-				const updates: Partial<typeof insuranceReview.$inferInsert> = {
+				const updates: Partial<typeof adminReview.$inferInsert> = {
 					enabled: input.enabled,
 				};
 				if (input.enabled && !current.claimedUserEmail) {
-					updates.claimedUserEmail = ctx.session.user.email;
+					claimedBy = ctx.session.user.email ?? null;
+					updates.claimedUserEmail = claimedBy;
 				}
 				if (input.enabled) {
 					updates.submittedToNotesAt = null;
 				}
 				await ctx.db
-					.update(insuranceReview)
+					.update(adminReview)
 					.set(updates)
-					.where(eq(insuranceReview.clientId, input.clientId));
+					.where(eq(adminReview.clientId, input.clientId));
 			} else {
-				await ctx.db.insert(insuranceReview).values({
+				claimedBy = input.enabled ? (ctx.session.user.email ?? null) : null;
+				await ctx.db.insert(adminReview).values({
 					clientId: input.clientId,
 					enabled: input.enabled,
-					claimedUserEmail: input.enabled ? ctx.session.user.email : null,
+					claimedUserEmail: claimedBy,
 					updatedBy: ctx.session.user.email,
+				});
+			}
+
+			if (claimedBy) {
+				await ctx.db.insert(adminReviewClaimHistory).values({
+					reviewId: input.clientId,
+					userEmail: claimedBy,
+					setBy: ctx.session.user.email,
 				});
 			}
 
@@ -148,17 +162,17 @@ export const insuranceReviewRouter = createTRPCRouter({
 	setWaiting: protectedProcedure
 		.input(z.object({ clientId: z.number(), waiting: z.boolean() }))
 		.mutation(async ({ ctx, input }) => {
-			assertPermission(ctx.session.user, "clients:insurance:review");
+			assertPermission(ctx.session.user, "clients:admin:review");
 
 			ctx.logger.info(
 				{ ...input, updatedBy: ctx.session.user.email },
-				"Setting insurance review waiting",
+				"Setting admin review waiting",
 			);
 
 			await ctx.db
-				.update(insuranceReview)
+				.update(adminReview)
 				.set({ waiting: input.waiting })
-				.where(eq(insuranceReview.clientId, input.clientId));
+				.where(eq(adminReview.clientId, input.clientId));
 
 			return { success: true };
 		}),
@@ -166,17 +180,25 @@ export const insuranceReviewRouter = createTRPCRouter({
 	setClaim: protectedProcedure
 		.input(z.object({ clientId: z.number(), userEmail: z.string().email() }))
 		.mutation(async ({ ctx, input }) => {
-			assertPermission(ctx.session.user, "clients:insurance:review");
+			assertPermission(ctx.session.user, "clients:admin:review");
 
 			ctx.logger.info(
 				{ ...input, claimedBy: ctx.session.user.email },
-				"Setting insurance review claim",
+				"Setting admin review claim",
 			);
 
-			await ctx.db
-				.update(insuranceReview)
-				.set({ claimedUserEmail: input.userEmail })
-				.where(eq(insuranceReview.clientId, input.clientId));
+			await ctx.db.transaction(async (tx) => {
+				await tx
+					.update(adminReview)
+					.set({ claimedUserEmail: input.userEmail })
+					.where(eq(adminReview.clientId, input.clientId));
+
+				await tx.insert(adminReviewClaimHistory).values({
+					reviewId: input.clientId,
+					userEmail: input.userEmail,
+					setBy: ctx.session.user.email,
+				});
+			});
 
 			if (
 				input.userEmail !== ctx.session.user.email &&
@@ -189,11 +211,11 @@ export const insuranceReviewRouter = createTRPCRouter({
 					});
 
 					const clientUrl = client?.hash
-						? `https://${env.NEXT_PUBLIC_APP_DOMAIN}/clients/${client.hash}?tab=insurance`
+						? `https://${env.NEXT_PUBLIC_APP_DOMAIN}/clients/${client.hash}?tab=admin-review`
 						: null;
 
 					const cookieHeader = ctx.headers.get("cookie") ?? "";
-					await fetch(`${env.PY_API}/notifications/insurance-review-claimed`, {
+					await fetch(`${env.PY_API}/notifications/admin-review-claimed`, {
 						method: "POST",
 						headers: {
 							"Content-Type": "application/json",
@@ -209,7 +231,7 @@ export const insuranceReviewRouter = createTRPCRouter({
 				} catch (error) {
 					ctx.logger.error(
 						error,
-						"Failed to send insurance review claim notification",
+						"Failed to send admin review claim notification",
 					);
 				}
 			}
@@ -222,30 +244,30 @@ export const insuranceReviewRouter = createTRPCRouter({
 		.query(async ({ ctx, input }) => {
 			const history = await ctx.db
 				.select({
-					id: insuranceReviewHistory.id,
-					content: insuranceReviewHistory.content,
-					updatedBy: insuranceReviewHistory.updatedBy,
-					createdAt: insuranceReviewHistory.createdAt,
+					id: adminReviewHistory.id,
+					content: adminReviewHistory.content,
+					updatedBy: adminReviewHistory.updatedBy,
+					createdAt: adminReviewHistory.createdAt,
 					updatedByName: users.name,
 					updatedByImage: users.image,
 				})
-				.from(insuranceReviewHistory)
-				.leftJoin(users, eq(insuranceReviewHistory.updatedBy, users.email))
-				.where(eq(insuranceReviewHistory.reviewId, input.reviewId))
-				.orderBy(desc(insuranceReviewHistory.createdAt));
+				.from(adminReviewHistory)
+				.leftJoin(users, eq(adminReviewHistory.updatedBy, users.email))
+				.where(eq(adminReviewHistory.reviewId, input.reviewId))
+				.orderBy(desc(adminReviewHistory.createdAt));
 
 			const current = await ctx.db
 				.select({
-					id: insuranceReview.clientId,
-					content: insuranceReview.content,
-					updatedBy: insuranceReview.updatedBy,
-					createdAt: insuranceReview.updatedAt,
+					id: adminReview.clientId,
+					content: adminReview.content,
+					updatedBy: adminReview.updatedBy,
+					createdAt: adminReview.updatedAt,
 					updatedByName: users.name,
 					updatedByImage: users.image,
 				})
-				.from(insuranceReview)
-				.leftJoin(users, eq(insuranceReview.updatedBy, users.email))
-				.where(eq(insuranceReview.clientId, input.reviewId))
+				.from(adminReview)
+				.leftJoin(users, eq(adminReview.updatedBy, users.email))
+				.where(eq(adminReview.clientId, input.reviewId))
 				.limit(1);
 
 			if (!current[0]) return [];
@@ -259,6 +281,33 @@ export const insuranceReviewRouter = createTRPCRouter({
 			return [currentVersion, ...history];
 		}),
 
+	getClaimHistory: protectedProcedure
+		.input(z.object({ clientId: z.number() }))
+		.query(async ({ ctx, input }) => {
+			assertPermission(ctx.session.user, "clients:admin:review");
+
+			const setByUsers = alias(users, "set_by_users");
+
+			return ctx.db
+				.select({
+					id: adminReviewClaimHistory.id,
+					userEmail: adminReviewClaimHistory.userEmail,
+					userName: users.name,
+					userImage: users.image,
+					setBy: adminReviewClaimHistory.setBy,
+					setByName: setByUsers.name,
+					createdAt: adminReviewClaimHistory.createdAt,
+				})
+				.from(adminReviewClaimHistory)
+				.leftJoin(users, eq(adminReviewClaimHistory.userEmail, users.email))
+				.leftJoin(
+					setByUsers,
+					eq(adminReviewClaimHistory.setBy, setByUsers.email),
+				)
+				.where(eq(adminReviewClaimHistory.reviewId, input.clientId))
+				.orderBy(desc(adminReviewClaimHistory.createdAt));
+		}),
+
 	submitToNotes: protectedProcedure
 		.input(
 			z.object({
@@ -267,15 +316,15 @@ export const insuranceReviewRouter = createTRPCRouter({
 			}),
 		)
 		.mutation(async ({ ctx, input: { clientId, insertAt } }) => {
-			assertPermission(ctx.session.user, "clients:insurance:review");
+			assertPermission(ctx.session.user, "clients:admin:review");
 
 			ctx.logger.info(
 				{ clientId, insertAt, submittedBy: ctx.session.user.email },
-				"Submitting insurance review to notes",
+				"Submitting admin review to notes",
 			);
 
-			const review = await ctx.db.query.insuranceReview.findFirst({
-				where: eq(insuranceReview.clientId, clientId),
+			const review = await ctx.db.query.adminReview.findFirst({
+				where: eq(adminReview.clientId, clientId),
 			});
 
 			if (review?.submittedToNotesAt) {
@@ -318,35 +367,35 @@ export const insuranceReviewRouter = createTRPCRouter({
 			await saveNoteInternal(ctx, { clientId, contentJson: finalContent });
 
 			await ctx.db
-				.update(insuranceReview)
+				.update(adminReview)
 				.set({ submittedToNotesAt: new Date(), enabled: false })
-				.where(eq(insuranceReview.clientId, clientId));
+				.where(eq(adminReview.clientId, clientId));
 
 			return { success: true };
 		}),
 
 	getAllEnabled: protectedProcedure.query(async ({ ctx }) => {
-		assertPermission(ctx.session.user, "clients:insurance:review");
+		assertPermission(ctx.session.user, "clients:admin:review");
 
 		return ctx.db
 			.select({
 				clientId: clients.id,
 				clientName: clients.fullName,
 				clientHash: clients.hash,
-				claimedUserEmail: insuranceReview.claimedUserEmail,
+				claimedUserEmail: adminReview.claimedUserEmail,
 				claimedUserName: users.name,
-				waiting: insuranceReview.waiting,
+				waiting: adminReview.waiting,
 			})
-			.from(insuranceReview)
-			.innerJoin(clients, eq(insuranceReview.clientId, clients.id))
-			.leftJoin(users, eq(insuranceReview.claimedUserEmail, users.email))
+			.from(adminReview)
+			.innerJoin(clients, eq(adminReview.clientId, clients.id))
+			.leftJoin(users, eq(adminReview.claimedUserEmail, users.email))
 			.where(
 				and(
-					eq(insuranceReview.enabled, true),
-					isNull(insuranceReview.submittedToNotesAt),
+					eq(adminReview.enabled, true),
+					isNull(adminReview.submittedToNotesAt),
 				),
 			)
-			.orderBy(desc(insuranceReview.updatedAt), asc(clients.fullName));
+			.orderBy(desc(adminReview.updatedAt), asc(clients.fullName));
 	}),
 
 	getMyClaimedClients: protectedProcedure.query(async ({ ctx }) => {
@@ -357,16 +406,17 @@ export const insuranceReviewRouter = createTRPCRouter({
 				clientId: clients.id,
 				clientName: clients.fullName,
 				clientHash: clients.hash,
+				waiting: adminReview.waiting,
 			})
-			.from(insuranceReview)
-			.innerJoin(clients, eq(insuranceReview.clientId, clients.id))
+			.from(adminReview)
+			.innerJoin(clients, eq(adminReview.clientId, clients.id))
 			.where(
 				and(
-					eq(insuranceReview.claimedUserEmail, ctx.session.user.email),
-					eq(insuranceReview.enabled, true),
-					isNull(insuranceReview.submittedToNotesAt),
+					eq(adminReview.claimedUserEmail, ctx.session.user.email),
+					eq(adminReview.enabled, true),
+					isNull(adminReview.submittedToNotesAt),
 				),
 			)
-			.orderBy(desc(insuranceReview.updatedAt), asc(clients.fullName));
+			.orderBy(desc(adminReview.updatedAt), asc(clients.fullName));
 	}),
 });

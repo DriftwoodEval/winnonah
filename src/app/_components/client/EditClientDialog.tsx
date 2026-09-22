@@ -41,10 +41,11 @@ const formSchema = z.object({
 	schoolDistrict: z.string(),
 	highPriority: z.boolean(),
 	autismStop: z.boolean(),
+	alreadyDx: z.boolean(),
 	pause: z.boolean(),
 	babyNet: z.boolean(),
 	eiAttends: z.boolean(),
-	insuranceReviewEnabled: z.boolean(),
+	adminReviewEnabled: z.boolean(),
 });
 
 type ClientFormValues = z.infer<typeof formSchema>;
@@ -56,7 +57,7 @@ interface ClientFormProps {
 	onClose: () => void;
 	showBabyNetCheckbox?: boolean;
 	showEICheckbox?: boolean;
-	initialInsuranceReviewEnabled?: boolean;
+	initialAdminReviewEnabled?: boolean;
 }
 
 const log = logger.child({ module: "EditClientDialog" });
@@ -68,7 +69,7 @@ function ClientForm({
 	onClose,
 	showBabyNetCheckbox = false,
 	showEICheckbox = false,
-	initialInsuranceReviewEnabled = false,
+	initialAdminReviewEnabled = false,
 }: ClientFormProps) {
 	const { data: allSchoolDistricts } =
 		api.evaluators.getAllSchoolDistricts.useQuery();
@@ -79,8 +80,9 @@ function ClientForm({
 	const canBabyNet = can("clients:babynet");
 	const canSetEI = can("clients:ei");
 	const canAutismStopDisable = can("clients:autismstop:disable");
+	const canAlreadyDx = can("clients:alreadydx");
 	const canPause = can("clients:pause");
-	const canInsuranceReview = can("clients:insurance:review");
+	const canAdminReview = can("clients:admin:review");
 
 	const defaultValues = useMemo(() => {
 		if (initialData) {
@@ -88,13 +90,14 @@ function ClientForm({
 				schoolDistrict: initialData.schoolDistrict ?? "",
 				highPriority: initialData.highPriority ?? false,
 				autismStop: initialData.autismStop ?? false,
+				alreadyDx: initialData.alreadyDx ?? false,
 				pause: initialData.pause ?? false,
 				babyNet: initialData.babyNet ?? false,
 				eiAttends: initialData.eiAttends ?? false,
-				insuranceReviewEnabled: initialInsuranceReviewEnabled,
+				adminReviewEnabled: initialAdminReviewEnabled,
 			};
 		}
-	}, [initialData, initialInsuranceReviewEnabled]);
+	}, [initialData, initialAdminReviewEnabled]);
 
 	const form = useForm<ClientFormValues>({
 		resolver: zodResolver(formSchema),
@@ -146,33 +149,36 @@ function ClientForm({
 										<CommandList>
 											<CommandEmpty>No district found.</CommandEmpty>
 											<CommandGroup>
-												{allSchoolDistricts?.map((district) => (
-													<CommandItem
-														key={district.id}
-														onSelect={() => {
-															form.setValue(
-																"schoolDistrict",
-																district.fullName,
-															);
-															setDistrictsOpen(false);
-														}}
-														value={district.fullName}
-													>
-														{district.shortName ||
-															district.fullName.replace(
-																/ (County )?School District/,
-																"",
-															)}
-														<Check
-															className={cn(
-																"ml-auto",
-																district.id.toString() === field.value
-																	? "opacity-100"
-																	: "opacity-0",
-															)}
-														/>
-													</CommandItem>
-												))}
+												{allSchoolDistricts
+													?.filter((district) => !district.isPrivate)
+													.map((district) => (
+														<CommandItem
+															key={district.id}
+															onSelect={() => {
+																form.setValue(
+																	"schoolDistrict",
+																	district.fullName,
+																	{ shouldDirty: true, shouldValidate: true },
+																);
+																setDistrictsOpen(false);
+															}}
+															value={district.fullName}
+														>
+															{district.shortName ||
+																district.fullName.replace(
+																	/ (County )?School District/,
+																	"",
+																)}
+															<Check
+																className={cn(
+																	"ml-auto",
+																	district.fullName === field.value
+																		? "opacity-100"
+																		: "opacity-0",
+																)}
+															/>
+														</CommandItem>
+													))}
 											</CommandGroup>
 										</CommandList>
 									</Command>
@@ -250,6 +256,29 @@ function ClientForm({
 						)}
 					/>
 
+					<FormField
+						control={form.control}
+						name="alreadyDx"
+						render={({ field }) => (
+							<FormItem className="flex flex-row">
+								<FormControl>
+									<Checkbox
+										checked={field.value}
+										disabled={!canAlreadyDx}
+										onCheckedChange={field.onChange}
+									/>
+								</FormControl>
+								<div className="space-y-1 leading-none">
+									<FormLabel>Already Diagnosed</FormLabel>
+									<FormDescription>
+										Show a warning banner on the client's page. Doesn't stop
+										records requests, questionnaires, or reminders.
+									</FormDescription>
+								</div>
+							</FormItem>
+						)}
+					/>
+
 					{showBabyNetCheckbox && (
 						<FormField
 							control={form.control}
@@ -298,10 +327,10 @@ function ClientForm({
 						/>
 					)}
 
-					{canInsuranceReview && (
+					{canAdminReview && (
 						<FormField
 							control={form.control}
-							name="insuranceReviewEnabled"
+							name="adminReviewEnabled"
 							render={({ field }) => (
 								<FormItem className="flex flex-row">
 									<FormControl>
@@ -311,9 +340,9 @@ function ClientForm({
 										/>
 									</FormControl>
 									<div className="space-y-1 leading-none">
-										<FormLabel>Insurance Review</FormLabel>
+										<FormLabel>Admin Review</FormLabel>
 										<FormDescription>
-											Show the insurance review section on the insurance tab.
+											Show the Admin Review tab on this client.
 										</FormDescription>
 									</div>
 								</FormItem>
@@ -339,11 +368,11 @@ export function ClientEditButton({ client }: { client: Client }) {
 	const dialog = useResponsiveDialog();
 	const utils = api.useUtils();
 	const can = useCheckPermission();
-	const canInsuranceReview = can("clients:insurance:review");
+	const canAdminReview = can("clients:admin:review");
 
-	const { data: reviewData } = api.insuranceReview.getByClientId.useQuery(
+	const { data: reviewData } = api.adminReview.getByClientId.useQuery(
 		client.id,
-		{ refetchInterval: 60_000, enabled: canInsuranceReview },
+		{ refetchInterval: 60_000, enabled: canAdminReview },
 	);
 
 	const BNAgeOutDate = subYears(new Date(), 3);
@@ -386,12 +415,12 @@ export function ClientEditButton({ client }: { client: Client }) {
 		},
 	});
 
-	const setInsuranceReviewEnabled = api.insuranceReview.setEnabled.useMutation({
+	const setAdminReviewEnabled = api.adminReview.setEnabled.useMutation({
 		onSuccess: () => {
-			utils.insuranceReview.getByClientId.invalidate(client.id);
+			utils.adminReview.getByClientId.invalidate(client.id);
 		},
 		onError: (error) => {
-			toast.error("Failed to update insurance review", {
+			toast.error("Failed to update admin review", {
 				description: error.message,
 			});
 		},
@@ -404,6 +433,7 @@ export function ClientEditButton({ client }: { client: Client }) {
 			clientId: client.id,
 			schoolDistrict: values.schoolDistrict,
 			pause: values.pause,
+			alreadyDx: values.alreadyDx,
 			highPriority: values.highPriority,
 			babyNet: values.babyNet,
 			eiAttends: values.eiAttends,
@@ -419,12 +449,12 @@ export function ClientEditButton({ client }: { client: Client }) {
 		}
 
 		if (
-			canInsuranceReview &&
-			values.insuranceReviewEnabled !== (reviewData?.enabled ?? false)
+			canAdminReview &&
+			values.adminReviewEnabled !== (reviewData?.enabled ?? false)
 		) {
-			setInsuranceReviewEnabled.mutate({
+			setAdminReviewEnabled.mutate({
 				clientId: client.id,
-				enabled: values.insuranceReviewEnabled,
+				enabled: values.adminReviewEnabled,
 			});
 		}
 	}
@@ -439,12 +469,12 @@ export function ClientEditButton({ client }: { client: Client }) {
 			trigger={trigger}
 		>
 			<ClientForm
+				initialAdminReviewEnabled={reviewData?.enabled ?? false}
 				initialData={client}
-				initialInsuranceReviewEnabled={reviewData?.enabled ?? false}
 				isLoading={
 					updateClient.isPending ||
 					updateAutismStop.isPending ||
-					setInsuranceReviewEnabled.isPending
+					setAdminReviewEnabled.isPending
 				}
 				onClose={dialog.closeDialog}
 				onSubmit={onEditSubmit}

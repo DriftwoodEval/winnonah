@@ -1,5 +1,11 @@
 :80 {
-	reverse_proxy winnonah:3000 {
+	# Two upstream slots for the rolling deploy (see scripts/deploy.sh).
+	# Only one is running in steady state; lb_policy first always prefers
+	# winnonah-a and only falls back to winnonah-b when a's health check
+	# fails, so a deploy's stop-the-old-slot step is an instant, seamless
+	# cutover rather than a race between two live backends.
+	reverse_proxy winnonah-a:3000 winnonah-b:3000 {
+		lb_policy first
 		health_uri /api/health
 		health_interval 5s
 		health_timeout 3s

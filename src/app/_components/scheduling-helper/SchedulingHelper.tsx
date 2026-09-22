@@ -569,13 +569,10 @@ function SchedulingHelperGrid({
 			isPreview: true,
 			arrivedAt: null,
 			arrivedBy: null,
-			arrivedNote: null,
 			startedAt: null,
 			startedBy: null,
-			startedNote: null,
 			leftAt: null,
 			leftBy: null,
-			leftNote: null,
 		};
 	}, [
 		selectedSlot,

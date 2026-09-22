@@ -24,7 +24,7 @@ const handler = (req: NextRequest) =>
 		router: appRouter,
 		createContext: () => createContext(req),
 		onError: ({ path, error }) => {
-			log.error({ path, error: error.message }, "tRPC error");
+			log.error({ path, error }, "tRPC error");
 		},
 	});
 

@@ -1,4 +1,7 @@
+import { adminReviewRouter } from "./routers/adminReview";
 import { appointmentRouter } from "./routers/appointments";
+import { auditLogRouter } from "./routers/auditLog";
+import { babynetReportRouter } from "./routers/babynetReport";
 import { clientRouter } from "./routers/client";
 import { evaluatorRouter } from "./routers/evaluator";
 import { evaluatorDashboardRouter } from "./routers/evaluatorDashboard";
@@ -7,7 +10,6 @@ import { faxCategorizationRouter } from "./routers/faxCategorization";
 import { googleRouter } from "./routers/google";
 import { greeterProxyRouter } from "./routers/greeterProxy";
 import { insuranceRouter } from "./routers/insurance";
-import { insuranceReviewRouter } from "./routers/insuranceReview";
 import { noteRouter } from "./routers/notes";
 import { officeRouter } from "./routers/office";
 import { pyConfigRouter } from "./routers/py-config";
@@ -15,6 +17,7 @@ import { questionnaireRouter } from "./routers/questionnaires";
 import { quoRouter } from "./routers/quo";
 import { reminderRouter } from "./routers/reminders";
 import { reportQueueRouter } from "./routers/reportQueue";
+import { reportsRouter } from "./routers/reports";
 import { rolesRouter } from "./routers/roles";
 import { schedulingRouter } from "./routers/scheduling";
 import { schedulingHelperRouter } from "./routers/schedulingHelper";
@@ -32,6 +35,8 @@ import { createCallerFactory, createTRPCRouter } from "./trpc";
  */
 export const appRouter = createTRPCRouter({
 	appointments: appointmentRouter,
+	auditLog: auditLogRouter,
+	babynetReport: babynetReportRouter,
 	evaluatorDashboard: evaluatorDashboardRouter,
 	clients: clientRouter,
 	evaluators: evaluatorRouter,
@@ -40,11 +45,12 @@ export const appRouter = createTRPCRouter({
 	google: googleRouter,
 	greeterProxy: greeterProxyRouter,
 	insurances: insuranceRouter,
-	insuranceReview: insuranceReviewRouter,
+	adminReview: adminReviewRouter,
 	notes: noteRouter,
 	offices: officeRouter,
 	workSummary: workSummaryRouter,
 	reportQueue: reportQueueRouter,
+	reports: reportsRouter,
 	pyConfig: pyConfigRouter,
 	questionnaires: questionnaireRouter,
 	quo: quoRouter,

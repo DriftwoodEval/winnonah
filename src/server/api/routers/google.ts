@@ -1,12 +1,17 @@
 import type { JSONContent } from "@tiptap/core";
 import { TRPCError } from "@trpc/server";
 import { differenceInMonths, differenceInYears } from "date-fns";
-import { and, desc, eq, isNotNull } from "drizzle-orm";
+import { and, desc, eq, isNotNull, isNull } from "drizzle-orm";
 import { distance as levDistance } from "fastest-levenshtein";
 import z from "zod";
 import { env } from "~/env";
 import { fetchWithCache, invalidateCache } from "~/lib/cache";
-import { TEST_NAMES } from "~/lib/constants";
+import { isPrivateSchoolUnconfirmed } from "~/lib/client-blockers";
+import {
+	REPORT_QUEUE_FOLDER_ID,
+	REPORT_WRITERS_FOLDER_ID,
+	TEST_NAMES,
+} from "~/lib/constants";
 import {
 	getDuplicatePunchClients,
 	getInactivePunchClients,
@@ -30,11 +35,8 @@ import {
 } from "~/lib/google";
 import type { Client } from "~/lib/models";
 import type { DuplicateGroup } from "~/lib/types";
-import {
-	getDistanceSQL,
-	getInsuranceShortName,
-	hasPermission,
-} from "~/lib/utils";
+import { getInsuranceShortName, hasPermission } from "~/lib/utils";
+import { getClosestOfficeKeyByDriveTime } from "~/server/api/filters";
 import {
 	assertPermission,
 	type Context,
@@ -47,8 +49,10 @@ import {
 	notes,
 	offices,
 	reportQueueConfig,
+	reports,
 	users,
 } from "~/server/db/schema";
+import { ensurePendingExternalRecordRequest } from "./externalRecords";
 import { saveNoteInternal } from "./notes";
 
 const CACHE_KEY_DUPLICATES = "google:drive:duplicate-ids";
@@ -96,19 +100,31 @@ const getPreviewData = async (ctx: Context, clientId: number) => {
 		: null;
 
 	const daQsNeeded = true;
-	let evalQsNeeded = false;
 
-	if (client.primaryInsurance) {
-		const primaryInsuranceRecord = allInsurances.find(
-			(i) =>
-				i.shortName === primaryInsurance ||
-				i.aliases.some((a) => a.name === client.primaryInsurance),
-		);
+	const findInsuranceRecord = (name: string | null) =>
+		name
+			? allInsurances.find(
+					(i) =>
+						i.shortName === getInsuranceShortName(name, allInsurances) ||
+						i.aliases.some((a) => a.name === name),
+				)
+			: undefined;
 
-		if (primaryInsuranceRecord?.appointmentsRequired === 1) {
-			evalQsNeeded = true;
-		}
-	}
+	// Use the more restrictive of primary/secondary insurance: more
+	// appointments required is more restrictive. If either insurance
+	// requires 2 appointments, the DA and eval visits are separate, so
+	// only DA questionnaires are needed now.
+	const appointmentsRequired = [
+		findInsuranceRecord(client.primaryInsurance),
+		...(client.secondaryInsurance ?? []).map(findInsuranceRecord),
+	].reduce<number | undefined>((max, record) => {
+		if (record?.appointmentsRequired === undefined) return max;
+		return max === undefined
+			? record.appointmentsRequired
+			: Math.max(max, record.appointmentsRequired);
+	}, undefined);
+
+	const evalQsNeeded = appointmentsRequired === 1;
 
 	// Calculate records needed status
 	const ageInMonths = differenceInMonths(new Date(), new Date(client.dob));
@@ -123,30 +139,19 @@ const getPreviewData = async (ctx: Context, clientId: number) => {
 
 	let location: string | null = null;
 	if (client.latitude && client.longitude) {
-		const distanceExpr = getDistanceSQL(
+		const closestOfficeKey = await getClosestOfficeKeyByDriveTime(
+			ctx.db,
+			client.id,
 			client.latitude,
 			client.longitude,
-			offices.latitude,
-			offices.longitude,
 		);
 
-		const [closestOffice] = await ctx.db
-			.select({
-				key: offices.key,
-				distance: distanceExpr,
-			})
-			.from(offices)
-			.orderBy(distanceExpr)
-			.limit(1);
-
-		if (closestOffice) {
-			if (closestOffice.key === "CHS") {
-				location = "Charleston";
-			} else if (closestOffice.key === "COL") {
-				location = "C (Columbia)";
-			} else {
-				location = closestOffice.key;
-			}
+		if (closestOfficeKey === "CHS") {
+			location = "Charleston";
+		} else if (closestOfficeKey === "COL") {
+			location = "C (Columbia)";
+		} else if (closestOfficeKey) {
+			location = closestOfficeKey;
 		}
 	}
 
@@ -162,7 +167,7 @@ const getPreviewData = async (ctx: Context, clientId: number) => {
 		daQsNeeded,
 		evalQsNeeded,
 		recordsNeeded,
-		isPrivateSchool: client.referralData?.privateSchool === "yes",
+		isPrivateSchoolUnconfirmed: isPrivateSchoolUnconfirmed(client.referralData),
 	};
 };
 
@@ -171,6 +176,7 @@ export const googleRouter = createTRPCRouter({
 	addIdToFolder: protectedProcedure
 		.input(
 			z.object({
+				clientId: z.number(),
 				id: z.string(),
 				folderId: z.string(),
 			}),
@@ -191,6 +197,7 @@ export const googleRouter = createTRPCRouter({
 	removeIdFromFolder: protectedProcedure
 		.input(
 			z.object({
+				clientId: z.number(),
 				folderId: z.string(),
 			}),
 		)
@@ -304,6 +311,7 @@ export const googleRouter = createTRPCRouter({
 	setQsSent: protectedProcedure
 		.input(
 			z.object({
+				clientId: z.number(),
 				id: z.string(),
 				daSent: z.boolean().optional(),
 				evalSent: z.boolean().optional(),
@@ -391,9 +399,59 @@ export const googleRouter = createTRPCRouter({
 			};
 		}),
 
+	setPaAssignedTo: protectedProcedure
+		.input(
+			z.object({
+				clientId: z.number(),
+				paAssignedTo: z.string(),
+			}),
+		)
+		.mutation(async ({ ctx, input }) => {
+			assertPermission(ctx.session.user, "clients:pa-assigned-to");
+			if (!ctx.session.user.accessToken || !ctx.session.user.refreshToken) {
+				throw new Error("No access token or refresh token");
+			}
+
+			ctx.logger.info(input, "Updating PA Assigned to");
+
+			try {
+				await updatePunchData(ctx.session, input.clientId.toString(), {
+					paAssignedTo: input.paAssignedTo,
+				});
+
+				// The Punchlist sheet stays the source of truth (synced into
+				// clients.paAssignedTo on the next cron run), but write it through
+				// here too so the app reflects the edit immediately.
+				await ctx.db
+					.update(clients)
+					.set({ paAssignedTo: input.paAssignedTo || null })
+					.where(eq(clients.id, input.clientId));
+
+				await invalidateCache(
+					ctx,
+					CACHE_KEY_PUNCHLIST,
+					CACHE_KEY_MISSING_PUNCHLIST,
+				);
+			} catch (error) {
+				console.error("Error updating PA Assigned to in Google Sheets:", error);
+
+				throw new Error(
+					`Failed to update PA Assigned to in Google Sheets: ${
+						error instanceof Error ? error.message : "Unknown error"
+					}`,
+				);
+			}
+
+			return {
+				success: true,
+				message: "PA Assigned to updated successfully",
+			};
+		}),
+
 	updatePunchId: protectedProcedure
 		.input(
 			z.object({
+				clientId: z.number(),
 				currentId: z.string(),
 				newId: z.number(),
 			}),
@@ -1112,6 +1170,10 @@ export const googleRouter = createTRPCRouter({
 						.update(clients)
 						.set({ recordsNeeded })
 						.where(eq(clients.id, input));
+
+					if (recordsNeeded === "Needed") {
+						await ensurePendingExternalRecordRequest(ctx, input);
+					}
 				}
 
 				await pushToPunch(ctx.session, previewData);
@@ -1245,7 +1307,17 @@ export const googleRouter = createTRPCRouter({
 		}),
 
 	claimTopFolder: protectedProcedure
-		.input(z.object({ sourceId: z.string(), destId: z.string() }))
+		.input(
+			z
+				.object({
+					sourceId: z.string(),
+					destId: z.string(),
+				})
+				.default({
+					sourceId: REPORT_QUEUE_FOLDER_ID,
+					destId: REPORT_WRITERS_FOLDER_ID,
+				}),
+		)
 		.mutation(async ({ input, ctx }) => {
 			const cookieHeader = ctx.headers.get("cookie") ?? "";
 
@@ -1361,6 +1433,40 @@ export const googleRouter = createTRPCRouter({
 				.set({ claimedReportFolder: newFolders })
 				.where(eq(users.id, ctx.session.user.id));
 
+			// Link the claim to the EMR report row (creating one if the appointment
+			// sync has not yet). This is the DB half of the dual-write; the punch
+			// list "Assigned to..." cell is written by the Python /folders/claim call.
+			const claimedClientId = Number(data.client_id);
+			if (!Number.isNaN(claimedClientId)) {
+				const existingReport = await ctx.db.query.reports.findFirst({
+					where: and(
+						eq(reports.clientId, claimedClientId),
+						isNull(reports.archivedAt),
+					),
+					columns: { id: true },
+				});
+				const claimFields = {
+					writerUserId: ctx.session.user.id,
+					writerEmail: ctx.session.user.email,
+					folderId: data.folder_id,
+					folderName: data.folder_claimed,
+					claimedAt: new Date(),
+					status: "claimed" as const,
+				};
+				if (existingReport) {
+					await ctx.db
+						.update(reports)
+						.set(claimFields)
+						.where(eq(reports.id, existingReport.id));
+				} else {
+					await ctx.db.insert(reports).values({
+						clientId: claimedClientId,
+						source: "auto",
+						...claimFields,
+					});
+				}
+			}
+
 			return {
 				folder_claimed: data.folder_claimed,
 				moved_into: data.moved_into,
@@ -1401,6 +1507,18 @@ export const googleRouter = createTRPCRouter({
 				})
 				.where(eq(users.id, input.userId));
 
+			// Mark the matching EMR report approved.
+			await ctx.db
+				.update(reports)
+				.set({
+					status: "approved",
+					approvedAt: new Date(),
+					approvedByEmail: ctx.session.user.email,
+				})
+				.where(
+					and(eq(reports.folderId, input.folderId), isNull(reports.archivedAt)),
+				);
+
 			if (approvedFolder) {
 				const cookieHeader = ctx.headers.get("cookie") ?? "";
 
@@ -1408,7 +1526,7 @@ export const googleRouter = createTRPCRouter({
 				let queueCount = 0;
 				try {
 					const foldersResponse = await fetch(
-						`${env.PY_API}/folders/1fGZavJU8bAqROKd8iTgoEtRT8orp4a4s`,
+						`${env.PY_API}/folders/${REPORT_QUEUE_FOLDER_ID}`,
 						{
 							headers: { Cookie: cookieHeader },
 						},

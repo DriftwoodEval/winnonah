@@ -3,6 +3,7 @@ import { fromZonedTime } from "date-fns-tz";
 import { and, asc, count, desc, eq, gte, lte } from "drizzle-orm";
 import { z } from "zod";
 import { env } from "~/env";
+import { isVirtualAppointment } from "~/lib/checkin";
 import { BUSINESS_TIMEZONE } from "~/lib/constants";
 import { formatInBusinessTime } from "~/lib/utils";
 import {
@@ -25,14 +26,12 @@ import {
 const checkinInputSchema = z.object({
 	appointmentId: z.string(),
 	occurredAt: z.date(),
-	note: z.string().max(500).optional(),
 });
 
 const evaluatorCheckinInputSchema = z.object({
 	evaluatorNpi: z.number(),
 	date: z.string(),
 	occurredAt: z.date(),
-	note: z.string().max(500).optional(),
 });
 
 async function recordCheckin(
@@ -41,15 +40,13 @@ async function recordCheckin(
 	field: "arrived" | "started" | "left",
 	occurredAt: Date,
 	by: string | null | undefined,
-	note: string | undefined,
 ) {
-	const trimmedNote = note?.trim() || null;
 	const payload =
 		field === "arrived"
-			? { arrivedAt: occurredAt, arrivedBy: by, arrivedNote: trimmedNote }
+			? { arrivedAt: occurredAt, arrivedBy: by }
 			: field === "started"
-				? { startedAt: occurredAt, startedBy: by, startedNote: trimmedNote }
-				: { leftAt: occurredAt, leftBy: by, leftNote: trimmedNote };
+				? { startedAt: occurredAt, startedBy: by }
+				: { leftAt: occurredAt, leftBy: by };
 
 	const existing = await ctx.db.query.appointmentCheckins.findFirst({
 		where: eq(appointmentCheckins.appointmentId, appointmentId),
@@ -64,6 +61,54 @@ async function recordCheckin(
 		await ctx.db
 			.insert(appointmentCheckins)
 			.values({ appointmentId, ...payload });
+	}
+}
+
+async function loadAppointmentForCheckin(
+	ctx: { db: Context["db"] },
+	appointmentId: string,
+) {
+	const appt = await ctx.db.query.appointments.findFirst({
+		where: eq(appointments.id, appointmentId),
+	});
+	if (!appt) throw new TRPCError({ code: "NOT_FOUND" });
+	if (isVirtualAppointment(appt.locationKey)) {
+		throw new TRPCError({
+			code: "BAD_REQUEST",
+			message: "Virtual appointments don't have a check-in.",
+		});
+	}
+	return appt;
+}
+
+async function assertEvaluatorHasInPersonDay(
+	ctx: { db: Context["db"] },
+	evaluatorNpi: number,
+	date: string,
+) {
+	const startOfDay = fromZonedTime(`${date}T00:00:00`, BUSINESS_TIMEZONE);
+	const endOfDay = fromZonedTime(`${date}T23:59:59.999`, BUSINESS_TIMEZONE);
+	const rows = await ctx.db
+		.select({ locationKey: appointments.locationKey })
+		.from(appointments)
+		.where(
+			and(
+				eq(appointments.evaluatorNpi, evaluatorNpi),
+				gte(appointments.startTime, startOfDay),
+				lte(appointments.startTime, endOfDay),
+				eq(appointments.cancelled, false),
+				eq(appointments.rescheduled, false),
+				eq(appointments.placeholder, false),
+				eq(appointments.billingOnly, false),
+			),
+		);
+	const hasInPerson = rows.some((r) => !isVirtualAppointment(r.locationKey));
+	if (!hasInPerson) {
+		throw new TRPCError({
+			code: "BAD_REQUEST",
+			message:
+				"This evaluator has no in-person appointments that day to be in for.",
+		});
 	}
 }
 
@@ -90,13 +135,11 @@ async function recordEvaluatorCheckin(
 	field: "arrived" | "left",
 	occurredAt: Date,
 	by: string | null | undefined,
-	note: string | undefined,
 ) {
-	const trimmedNote = note?.trim() || null;
 	const payload =
 		field === "arrived"
-			? { arrivedAt: occurredAt, arrivedBy: by, arrivedNote: trimmedNote }
-			: { leftAt: occurredAt, leftBy: by, leftNote: trimmedNote };
+			? { arrivedAt: occurredAt, arrivedBy: by }
+			: { leftAt: occurredAt, leftBy: by };
 
 	const existing = await ctx.db.query.evaluatorCheckins.findFirst({
 		where: and(
@@ -175,13 +218,10 @@ export const appointmentRouter = createTRPCRouter({
 							officeName: offices.prettyName,
 							arrivedAt: appointmentCheckins.arrivedAt,
 							arrivedBy: appointmentCheckins.arrivedBy,
-							arrivedNote: appointmentCheckins.arrivedNote,
 							startedAt: appointmentCheckins.startedAt,
 							startedBy: appointmentCheckins.startedBy,
-							startedNote: appointmentCheckins.startedNote,
 							leftAt: appointmentCheckins.leftAt,
 							leftBy: appointmentCheckins.leftBy,
-							leftNote: appointmentCheckins.leftNote,
 						})
 						.from(appointments)
 						.innerJoin(clients, eq(appointments.clientId, clients.id))
@@ -223,13 +263,10 @@ export const appointmentRouter = createTRPCRouter({
 					clientPhone: clients.phoneNumber,
 					arrivedAt: appointmentCheckins.arrivedAt,
 					arrivedBy: appointmentCheckins.arrivedBy,
-					arrivedNote: appointmentCheckins.arrivedNote,
 					startedAt: appointmentCheckins.startedAt,
 					startedBy: appointmentCheckins.startedBy,
-					startedNote: appointmentCheckins.startedNote,
 					leftAt: appointmentCheckins.leftAt,
 					leftBy: appointmentCheckins.leftBy,
-					leftNote: appointmentCheckins.leftNote,
 				})
 				.from(appointments)
 				.innerJoin(evaluators, eq(appointments.evaluatorNpi, evaluators.npi))
@@ -256,10 +293,8 @@ export const appointmentRouter = createTRPCRouter({
 					evaluatorNpi: evaluatorCheckins.evaluatorNpi,
 					arrivedAt: evaluatorCheckins.arrivedAt,
 					arrivedBy: evaluatorCheckins.arrivedBy,
-					arrivedNote: evaluatorCheckins.arrivedNote,
 					leftAt: evaluatorCheckins.leftAt,
 					leftBy: evaluatorCheckins.leftBy,
-					leftNote: evaluatorCheckins.leftNote,
 				})
 				.from(evaluatorCheckins)
 				.where(eq(evaluatorCheckins.date, dateOnly));
@@ -270,10 +305,8 @@ export const appointmentRouter = createTRPCRouter({
 			type EvaluatorCheckin = {
 				arrivedAt: Date | null;
 				arrivedBy: string | null;
-				arrivedNote: string | null;
 				leftAt: Date | null;
 				leftBy: string | null;
-				leftNote: string | null;
 			};
 			type EvaluatorEntry = {
 				name: string;
@@ -284,6 +317,7 @@ export const appointmentRouter = createTRPCRouter({
 					id: string;
 					startTime: Date;
 					endTime: Date;
+					locationKey: string | null;
 					daEval: string | null;
 					asdAdhd: string | null;
 					confirmedAt: Date | null;
@@ -294,13 +328,10 @@ export const appointmentRouter = createTRPCRouter({
 					clientPhone: string | null;
 					arrivedAt: Date | null;
 					arrivedBy: string | null;
-					arrivedNote: string | null;
 					startedAt: Date | null;
 					startedBy: string | null;
-					startedNote: string | null;
 					leftAt: Date | null;
 					leftBy: string | null;
-					leftNote: string | null;
 				}[];
 			};
 			type OfficeEntry = {
@@ -314,10 +345,8 @@ export const appointmentRouter = createTRPCRouter({
 			const emptyCheckin: EvaluatorCheckin = {
 				arrivedAt: null,
 				arrivedBy: null,
-				arrivedNote: null,
 				leftAt: null,
 				leftBy: null,
-				leftNote: null,
 			};
 
 			for (const row of allRows) {
@@ -343,6 +372,7 @@ export const appointmentRouter = createTRPCRouter({
 					id: row.appointmentId,
 					startTime: row.startTime,
 					endTime: row.endTime,
+					locationKey: row.locationKey ?? null,
 					daEval: row.daEval ?? null,
 					asdAdhd: row.asdAdhd ?? null,
 					confirmedAt: row.confirmedAt ?? null,
@@ -353,13 +383,10 @@ export const appointmentRouter = createTRPCRouter({
 					clientPhone: row.clientPhone ?? null,
 					arrivedAt: row.arrivedAt ?? null,
 					arrivedBy: row.arrivedBy ?? null,
-					arrivedNote: row.arrivedNote ?? null,
 					startedAt: row.startedAt ?? null,
 					startedBy: row.startedBy ?? null,
-					startedNote: row.startedNote ?? null,
 					leftAt: row.leftAt ?? null,
 					leftBy: row.leftBy ?? null,
-					leftNote: row.leftNote ?? null,
 				});
 			}
 
@@ -415,13 +442,10 @@ export const appointmentRouter = createTRPCRouter({
 					evaluatorName: evaluators.providerName,
 					arrivedAt: appointmentCheckins.arrivedAt,
 					arrivedBy: appointmentCheckins.arrivedBy,
-					arrivedNote: appointmentCheckins.arrivedNote,
 					startedAt: appointmentCheckins.startedAt,
 					startedBy: appointmentCheckins.startedBy,
-					startedNote: appointmentCheckins.startedNote,
 					leftAt: appointmentCheckins.leftAt,
 					leftBy: appointmentCheckins.leftBy,
-					leftNote: appointmentCheckins.leftNote,
 				})
 				.from(appointments)
 				.innerJoin(evaluators, eq(appointments.evaluatorNpi, evaluators.npi))
@@ -460,13 +484,10 @@ export const appointmentRouter = createTRPCRouter({
 				isCurrentUser: r.evaluatorNpi === currentNpi,
 				arrivedAt: r.arrivedAt ?? null,
 				arrivedBy: r.arrivedBy ?? null,
-				arrivedNote: r.arrivedNote ?? null,
 				startedAt: r.startedAt ?? null,
 				startedBy: r.startedBy ?? null,
-				startedNote: r.startedNote ?? null,
 				leftAt: r.leftAt ?? null,
 				leftBy: r.leftBy ?? null,
-				leftNote: r.leftNote ?? null,
 			}));
 		}),
 
@@ -493,13 +514,10 @@ export const appointmentRouter = createTRPCRouter({
 					reminderCount: count(reminderLogs.id),
 					arrivedAt: appointmentCheckins.arrivedAt,
 					arrivedBy: appointmentCheckins.arrivedBy,
-					arrivedNote: appointmentCheckins.arrivedNote,
 					startedAt: appointmentCheckins.startedAt,
 					startedBy: appointmentCheckins.startedBy,
-					startedNote: appointmentCheckins.startedNote,
 					leftAt: appointmentCheckins.leftAt,
 					leftBy: appointmentCheckins.leftBy,
-					leftNote: appointmentCheckins.leftNote,
 				})
 				.from(appointments)
 				.leftJoin(evaluators, eq(appointments.evaluatorNpi, evaluators.npi))
@@ -527,13 +545,10 @@ export const appointmentRouter = createTRPCRouter({
 					evaluators.providerName,
 					appointmentCheckins.arrivedAt,
 					appointmentCheckins.arrivedBy,
-					appointmentCheckins.arrivedNote,
 					appointmentCheckins.startedAt,
 					appointmentCheckins.startedBy,
-					appointmentCheckins.startedNote,
 					appointmentCheckins.leftAt,
 					appointmentCheckins.leftBy,
-					appointmentCheckins.leftNote,
 				)
 				.orderBy(desc(appointments.startTime));
 		}),
@@ -553,20 +568,26 @@ export const appointmentRouter = createTRPCRouter({
 				.set({ confirmedAt, ...rest })
 				.where(eq(appointments.id, id));
 
-			if (confirmedAt !== undefined && confirmedAt !== null) {
+			if (confirmedAt !== undefined) {
+				const confirmed = confirmedAt !== null;
 				ctx.logger.info(
-					{ appointmentId: id, confirmedBy: ctx.session.user.email },
-					"Appointment manually confirmed",
+					{ appointmentId: id, by: ctx.session.user.email, confirmed },
+					confirmed
+						? "Appointment manually confirmed"
+						: "Appointment confirmation removed",
 				);
 
 				const cookieHeader = ctx.headers.get("cookie") ?? "";
-				void fetch(`${env.PY_API}/appointments/${id}/confirm-calendar`, {
-					method: "POST",
-					headers: { Cookie: cookieHeader },
-				}).catch((err) =>
+				void fetch(
+					`${env.PY_API}/appointments/${id}/confirm-calendar?confirmed=${confirmed}`,
+					{
+						method: "POST",
+						headers: { Cookie: cookieHeader },
+					},
+				).catch((err) =>
 					ctx.logger.error(
 						err,
-						"Failed to update calendar on appointment confirm",
+						"Failed to sync calendar on appointment confirmation change",
 					),
 				);
 			}
@@ -619,10 +640,7 @@ export const appointmentRouter = createTRPCRouter({
 		.mutation(async ({ ctx, input }) => {
 			assertPermission(ctx.session.user, "clients:appointments:checkin");
 
-			const appt = await ctx.db.query.appointments.findFirst({
-				where: eq(appointments.id, input.appointmentId),
-			});
-			if (!appt) throw new TRPCError({ code: "NOT_FOUND" });
+			await loadAppointmentForCheckin(ctx, input.appointmentId);
 
 			await recordCheckin(
 				ctx,
@@ -630,7 +648,6 @@ export const appointmentRouter = createTRPCRouter({
 				"arrived",
 				input.occurredAt,
 				ctx.session.user.email,
-				input.note,
 			);
 		}),
 
@@ -639,10 +656,7 @@ export const appointmentRouter = createTRPCRouter({
 		.mutation(async ({ ctx, input }) => {
 			assertPermission(ctx.session.user, "clients:appointments:checkin");
 
-			const appt = await ctx.db.query.appointments.findFirst({
-				where: eq(appointments.id, input.appointmentId),
-			});
-			if (!appt) throw new TRPCError({ code: "NOT_FOUND" });
+			await loadAppointmentForCheckin(ctx, input.appointmentId);
 
 			await recordCheckin(
 				ctx,
@@ -650,7 +664,6 @@ export const appointmentRouter = createTRPCRouter({
 				"started",
 				input.occurredAt,
 				ctx.session.user.email,
-				input.note,
 			);
 		}),
 
@@ -659,10 +672,7 @@ export const appointmentRouter = createTRPCRouter({
 		.mutation(async ({ ctx, input }) => {
 			assertPermission(ctx.session.user, "clients:appointments:checkin");
 
-			const appt = await ctx.db.query.appointments.findFirst({
-				where: eq(appointments.id, input.appointmentId),
-			});
-			if (!appt) throw new TRPCError({ code: "NOT_FOUND" });
+			await loadAppointmentForCheckin(ctx, input.appointmentId);
 
 			await recordCheckin(
 				ctx,
@@ -670,7 +680,6 @@ export const appointmentRouter = createTRPCRouter({
 				"left",
 				input.occurredAt,
 				ctx.session.user.email,
-				input.note,
 			);
 		}),
 
@@ -687,11 +696,11 @@ export const appointmentRouter = createTRPCRouter({
 			// Only the furthest-along step can be undone, so the chain
 			// (arrived -> started -> left) never ends up with gaps.
 			const payload = existing.leftAt
-				? { leftAt: null, leftBy: null, leftNote: null }
+				? { leftAt: null, leftBy: null }
 				: existing.startedAt
-					? { startedAt: null, startedBy: null, startedNote: null }
+					? { startedAt: null, startedBy: null }
 					: existing.arrivedAt
-						? { arrivedAt: null, arrivedBy: null, arrivedNote: null }
+						? { arrivedAt: null, arrivedBy: null }
 						: null;
 			if (!payload) return;
 
@@ -715,10 +724,8 @@ export const appointmentRouter = createTRPCRouter({
 					date: evaluatorCheckins.date,
 					arrivedAt: evaluatorCheckins.arrivedAt,
 					arrivedBy: evaluatorCheckins.arrivedBy,
-					arrivedNote: evaluatorCheckins.arrivedNote,
 					leftAt: evaluatorCheckins.leftAt,
 					leftBy: evaluatorCheckins.leftBy,
-					leftNote: evaluatorCheckins.leftNote,
 				})
 				.from(evaluatorCheckins)
 				.where(
@@ -734,6 +741,7 @@ export const appointmentRouter = createTRPCRouter({
 		.mutation(async ({ ctx, input }) => {
 			assertPermission(ctx.session.user, "clients:appointments:checkin");
 			await assertNotSelfCheckin(ctx, input.evaluatorNpi);
+			await assertEvaluatorHasInPersonDay(ctx, input.evaluatorNpi, input.date);
 
 			ctx.logger.info(
 				{
@@ -751,7 +759,6 @@ export const appointmentRouter = createTRPCRouter({
 				"arrived",
 				input.occurredAt,
 				ctx.session.user.email,
-				input.note,
 			);
 		}),
 
@@ -760,6 +767,7 @@ export const appointmentRouter = createTRPCRouter({
 		.mutation(async ({ ctx, input }) => {
 			assertPermission(ctx.session.user, "clients:appointments:checkin");
 			await assertNotSelfCheckin(ctx, input.evaluatorNpi);
+			await assertEvaluatorHasInPersonDay(ctx, input.evaluatorNpi, input.date);
 
 			ctx.logger.info(
 				{
@@ -777,7 +785,6 @@ export const appointmentRouter = createTRPCRouter({
 				"left",
 				input.occurredAt,
 				ctx.session.user.email,
-				input.note,
 			);
 		}),
 
@@ -807,9 +814,9 @@ export const appointmentRouter = createTRPCRouter({
 			// Only the furthest-along step can be undone, so the chain
 			// (arrived -> left) never ends up with gaps.
 			const payload = existing.leftAt
-				? { leftAt: null, leftBy: null, leftNote: null }
+				? { leftAt: null, leftBy: null }
 				: existing.arrivedAt
-					? { arrivedAt: null, arrivedBy: null, arrivedNote: null }
+					? { arrivedAt: null, arrivedBy: null }
 					: null;
 			if (!payload) return;
 

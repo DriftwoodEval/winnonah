@@ -2,6 +2,7 @@ import { eq, ne, sql } from "drizzle-orm";
 import z from "zod";
 import { env } from "~/env";
 import { fetchWithCache, invalidateCache } from "~/lib/cache";
+import { diffValues, setAuditDetail } from "~/server/api/audit";
 import { CACHE_KEY_POSSIBLE_PRIVATE_PAY } from "~/server/api/routers/client";
 import {
 	assertPermission,
@@ -45,7 +46,7 @@ export const evaluatorInputSchema = z.object({
 		.transform((v) => v?.trim() || null),
 });
 
-const CACHE_KEY_ALL_EVALUATORS = "evaluators:all";
+export const CACHE_KEY_ALL_EVALUATORS = "evaluators:all";
 
 export const evaluatorRouter = createTRPCRouter({
 	getAll: protectedProcedure.query(async ({ ctx }) => {
@@ -289,8 +290,6 @@ export const evaluatorRouter = createTRPCRouter({
 		.mutation(async ({ ctx, input }) => {
 			assertPermission(ctx.session.user, "settings:evaluators");
 
-			ctx.logger.info(input, "Updating evaluator");
-
 			const npiAsInt = parseInt(input.npi, 10);
 			const {
 				offices,
@@ -299,6 +298,50 @@ export const evaluatorRouter = createTRPCRouter({
 				insurances: insuranceIds,
 				...evaluatorData
 			} = input;
+
+			const existing = await ctx.db.query.evaluators.findFirst({
+				where: eq(evaluators.npi, npiAsInt),
+				with: {
+					offices: true,
+					blockedSchoolDistricts: true,
+					blockedZipCodes: true,
+					insurances: true,
+				},
+			});
+			const {
+				offices: existingOfficeLinks,
+				blockedSchoolDistricts: existingBlockedDistrictLinks,
+				blockedZipCodes: existingBlockedZipLinks,
+				insurances: existingInsuranceLinks,
+				...existingData
+			} = existing ?? {};
+			setAuditDetail(
+				ctx,
+				diffValues(
+					{
+						...existingData,
+						offices: existingOfficeLinks?.map((link) => link.officeKey) ?? [],
+						blockedDistricts:
+							existingBlockedDistrictLinks?.map(
+								(link) => link.schoolDistrictId,
+							) ?? [],
+						blockedZips:
+							existingBlockedZipLinks?.map((link) => link.zipCode) ?? [],
+						insurances:
+							existingInsuranceLinks?.map((link) => link.insuranceId) ?? [],
+					},
+					{
+						...evaluatorData,
+						npi: npiAsInt,
+						offices,
+						blockedDistricts,
+						blockedZips,
+						insurances: insuranceIds,
+					},
+				),
+			);
+
+			ctx.logger.info(input, "Updating evaluator");
 
 			const result = await ctx.db.transaction(async (tx) => {
 				// Update core evaluator data
@@ -397,7 +440,19 @@ export const evaluatorRouter = createTRPCRouter({
 				.update(evaluators)
 				.set({ archived: true })
 				.where(eq(evaluators.npi, npiAsInt));
-			await invalidateCache(ctx, CACHE_KEY_ALL_EVALUATORS);
+			await invalidateCache(
+				ctx,
+				CACHE_KEY_ALL_EVALUATORS,
+				CACHE_KEY_POSSIBLE_PRIVATE_PAY,
+			);
+
+			const cookieHeader = ctx.headers.get("cookie") ?? "";
+			void fetch(`${env.PY_API}/rematch/evaluator/${npiAsInt}`, {
+				method: "POST",
+				headers: { Cookie: cookieHeader },
+			}).catch((err) =>
+				ctx.logger.error(err, "Failed to trigger evaluator rematch"),
+			);
 		}),
 
 	unarchive: protectedProcedure
@@ -413,7 +468,19 @@ export const evaluatorRouter = createTRPCRouter({
 				.update(evaluators)
 				.set({ archived: false })
 				.where(eq(evaluators.npi, npiAsInt));
-			await invalidateCache(ctx, CACHE_KEY_ALL_EVALUATORS);
+			await invalidateCache(
+				ctx,
+				CACHE_KEY_ALL_EVALUATORS,
+				CACHE_KEY_POSSIBLE_PRIVATE_PAY,
+			);
+
+			const cookieHeader = ctx.headers.get("cookie") ?? "";
+			void fetch(`${env.PY_API}/rematch/evaluator/${npiAsInt}`, {
+				method: "POST",
+				headers: { Cookie: cookieHeader },
+			}).catch((err) =>
+				ctx.logger.error(err, "Failed to trigger evaluator rematch"),
+			);
 		}),
 
 	delete: protectedProcedure
@@ -444,11 +511,7 @@ export const evaluatorRouter = createTRPCRouter({
 	getAllSchoolDistricts: protectedProcedure.query(async ({ ctx }) => {
 		return fetchWithCache(ctx, "school-districts:all", async () => {
 			return ctx.db.query.schoolDistricts.findMany({
-				orderBy: (schoolDistricts, { asc, sql }) => [
-					sql`CASE WHEN ${schoolDistricts.shortName} IS NOT NULL THEN 0 ELSE 1 END`,
-					asc(schoolDistricts.shortName),
-					asc(schoolDistricts.fullName),
-				],
+				orderBy: (schoolDistricts, { asc }) => [asc(schoolDistricts.fullName)],
 			});
 		});
 	}),

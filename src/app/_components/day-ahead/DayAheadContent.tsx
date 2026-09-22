@@ -14,6 +14,7 @@ import {
 	SelectValue,
 } from "@ui/select";
 import { Separator } from "@ui/separator";
+import { Skeleton } from "@ui/skeleton";
 import { ToggleGroup, ToggleGroupItem } from "@ui/toggle-group";
 import { TooltipProvider } from "@ui/tooltip";
 import { addDays, format, startOfWeek } from "date-fns";
@@ -24,6 +25,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { useEffect, useMemo, useState } from "react";
 import { useCheckPermission } from "~/hooks/use-check-permission";
+import { hasInPersonAppointment, isVirtualAppointment } from "~/lib/checkin";
 import { BUSINESS_TIMEZONE } from "~/lib/constants";
 import { IS_DEV } from "~/lib/utils";
 import { api, type RouterOutputs } from "~/trpc/react";
@@ -118,19 +120,17 @@ type ListAppt = {
 	calendarEventTitle?: string | null;
 	arrivedAt: Date | null;
 	arrivedBy: string | null;
-	arrivedNote: string | null;
 	startedAt: Date | null;
 	startedBy: string | null;
-	startedNote: string | null;
 	leftAt: Date | null;
 	leftBy: string | null;
-	leftNote: string | null;
 };
 
 type ListEvaluatorAppt = {
 	id: string;
 	startTime: Date;
 	endTime: Date;
+	locationKey: string | null;
 	daEval: string | null;
 	asdAdhd: string | null;
 	clientName: string;
@@ -141,13 +141,10 @@ type ListEvaluatorAppt = {
 	confirmedAt: Date | null;
 	arrivedAt: Date | null;
 	arrivedBy: string | null;
-	arrivedNote: string | null;
 	startedAt: Date | null;
 	startedBy: string | null;
-	startedNote: string | null;
 	leftAt: Date | null;
 	leftBy: string | null;
-	leftNote: string | null;
 };
 
 // ─── List view components ─────────────────────────────────────────────────────
@@ -188,21 +185,18 @@ function AppointmentRow({
 				messages={messages}
 				messagesLoading={messagesLoading}
 			/>
-			{canCheckin && (
+			{canCheckin && !isVirtualAppointment(appt.locationKey) && (
 				<CheckInOutControl
 					appointmentId={appt.id}
 					arrivedAt={appt.arrivedAt}
 					arrivedBy={appt.arrivedBy}
-					arrivedNote={appt.arrivedNote}
 					compact
 					endTime={appt.endTime}
 					isToday={isToday}
 					leftAt={appt.leftAt}
 					leftBy={appt.leftBy}
-					leftNote={appt.leftNote}
 					startedAt={appt.startedAt}
 					startedBy={appt.startedBy}
-					startedNote={appt.startedNote}
 					startTime={appt.startTime}
 				/>
 			)}
@@ -228,10 +222,8 @@ function EvaluatorRow({
 		checkin: {
 			arrivedAt: Date | null;
 			arrivedBy: string | null;
-			arrivedNote: string | null;
 			leftAt: Date | null;
 			leftBy: string | null;
-			leftNote: string | null;
 		};
 		appointments: ListEvaluatorAppt[];
 	};
@@ -267,17 +259,15 @@ function EvaluatorRow({
 						{evaluator.appointments.length !== 1 ? "s" : ""}
 					</span>
 				</CollapsibleTrigger>
-				{canCheckin && (
+				{canCheckin && hasInPersonAppointment(evaluator.appointments) && (
 					<EvaluatorCheckInOutControl
 						arrivedAt={evaluator.checkin.arrivedAt}
 						arrivedBy={evaluator.checkin.arrivedBy}
-						arrivedNote={evaluator.checkin.arrivedNote}
 						compact
 						date={asDate}
 						evaluatorNpi={evaluator.npi}
 						leftAt={evaluator.checkin.leftAt}
 						leftBy={evaluator.checkin.leftBy}
-						leftNote={evaluator.checkin.leftNote}
 					/>
 				)}
 				{timeRange && (
@@ -311,21 +301,18 @@ function EvaluatorRow({
 								messages={messages}
 								messagesLoading={messagesLoading}
 							/>
-							{canCheckin && (
+							{canCheckin && !isVirtualAppointment(appt.locationKey) && (
 								<CheckInOutControl
 									appointmentId={appt.id}
 									arrivedAt={appt.arrivedAt}
 									arrivedBy={appt.arrivedBy}
-									arrivedNote={appt.arrivedNote}
 									compact
 									endTime={appt.endTime}
 									isToday={isToday}
 									leftAt={appt.leftAt}
 									leftBy={appt.leftBy}
-									leftNote={appt.leftNote}
 									startedAt={appt.startedAt}
 									startedBy={appt.startedBy}
-									startedNote={appt.startedNote}
 									startTime={appt.startTime}
 								/>
 							)}
@@ -421,6 +408,10 @@ export function DayAheadContent() {
 	const canCheckin = can("clients:appointments:checkin");
 
 	const todayStr = format(new Date(), "yyyy-MM-dd");
+	// Check-in and check-out apply to today or earlier; local dev (outside
+	// impersonation) lifts that so any day can be exercised while testing.
+	const canCheckinOnDate = (date: string) =>
+		canUseDevControls || date <= todayStr;
 
 	useEffect(() => {
 		const params = new URLSearchParams();
@@ -664,12 +655,17 @@ export function DayAheadContent() {
 
 				{/* Content */}
 				{isLoading ? (
-					<div className="text-muted-foreground text-sm">Loading...</div>
+					<div className="flex flex-col gap-2">
+						<Skeleton className="h-12 w-full" />
+						<Skeleton className="h-12 w-full" />
+						<Skeleton className="h-12 w-full" />
+						<Skeleton className="h-12 w-3/4" />
+					</div>
 				) : viewMode === "list" ? (
 					listData && (
 						<ListContent
 							asDate={selectedDate}
-							canCheckin={canCheckin && selectedDate <= todayStr}
+							canCheckin={canCheckin && canCheckinOnDate(selectedDate)}
 							data={listData}
 							greeterSchedule={greeterSchedule}
 							isToday={selectedDate === todayStr}
@@ -687,7 +683,7 @@ export function DayAheadContent() {
 							colorMap={colorMap}
 							evaluatorCheckinDate={selectedDate}
 							evaluatorCheckins={
-								canCheckin && selectedDate <= todayStr
+								canCheckin && canCheckinOnDate(selectedDate)
 									? evaluatorCheckinsByNpi
 									: undefined
 							}

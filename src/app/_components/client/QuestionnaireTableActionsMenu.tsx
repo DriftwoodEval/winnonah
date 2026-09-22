@@ -23,6 +23,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { logger } from "~/lib/logger";
 import { api, type RouterOutputs } from "~/trpc/react";
+import { QuestionnaireReminderOverrideDialog } from "./QuestionnaireReminderOverride";
 import {
 	QuestionnaireTableForm,
 	type QuestionnaireTableFormValues,
@@ -43,6 +44,7 @@ export function QuestionnaireActionsMenu({
 }: QuestionnaireActionsMenuProps) {
 	const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
 	const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+	const [isReminderDialogOpen, setIsReminderDialogOpen] = useState(false);
 	const utils = api.useUtils();
 
 	const { mutate: updateQuestionnaire, isPending: isUpdating } =
@@ -103,6 +105,11 @@ export function QuestionnaireActionsMenu({
 					<DropdownMenuItem onClick={() => setIsEditDialogOpen(true)}>
 						Edit
 					</DropdownMenuItem>
+					{questionnaire.sent && (
+						<DropdownMenuItem onClick={() => setIsReminderDialogOpen(true)}>
+							Customize reminder messages for this batch
+						</DropdownMenuItem>
+					)}
 					<DropdownMenuItem
 						className="text-destructive"
 						onClick={() => setIsDeleteDialogOpen(true)}
@@ -111,6 +118,15 @@ export function QuestionnaireActionsMenu({
 					</DropdownMenuItem>
 				</DropdownMenuContent>
 			</DropdownMenu>
+
+			{questionnaire.sent && (
+				<QuestionnaireReminderOverrideDialog
+					clientId={questionnaire.clientId}
+					onOpenChange={setIsReminderDialogOpen}
+					open={isReminderDialogOpen}
+					sent={questionnaire.sent}
+				/>
+			)}
 
 			{/* Edit Dialog */}
 			<Dialog onOpenChange={setIsEditDialogOpen} open={isEditDialogOpen}>

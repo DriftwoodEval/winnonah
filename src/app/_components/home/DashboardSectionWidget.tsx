@@ -13,6 +13,7 @@ import {
 } from "~/lib/dashboard";
 import type { Client, FullClientInfo } from "~/lib/models";
 import { api } from "~/trpc/react";
+import { PinListButton } from "../dashboard/PinListButton";
 import { Redact } from "../redaction/Redact";
 
 interface DashboardSectionWidgetProps {
@@ -22,9 +23,10 @@ interface DashboardSectionWidgetProps {
 export function DashboardSectionWidget({
 	sectionTitle,
 }: DashboardSectionWidgetProps) {
-	const { data, isLoading } = api.google.getDashboardData.useQuery(undefined, {
-		refetchInterval: 180000,
-	});
+	const { data, isLoading, isError } = api.google.getDashboardData.useQuery(
+		undefined,
+		{ refetchInterval: 180000 },
+	);
 
 	if (isLoading) {
 		return (
@@ -34,6 +36,14 @@ export function DashboardSectionWidget({
 				<Skeleton className="h-3 w-full" />
 				<Skeleton className="h-3 w-3/4" />
 			</div>
+		);
+	}
+
+	if (isError) {
+		return (
+			<p className="px-3 py-4 text-center text-muted-foreground text-sm">
+				Couldn't load. Try refreshing the page.
+			</p>
 		);
 	}
 
@@ -52,11 +62,14 @@ export function DashboardSectionWidget({
 
 	return (
 		<div className="flex h-full flex-col">
-			<div className="flex shrink-0 items-center gap-2 border-b px-3 py-2">
+			<div className="flex shrink-0 items-center justify-between gap-2 border-b px-3 py-2">
 				<span className="font-medium text-sm">
 					{sectionTitle}{" "}
 					<span className="text-muted-foreground">({clients.length})</span>
 				</span>
+				<PinListButton
+					pinned={{ kind: "dashboardSection", title: sectionTitle }}
+				/>
 			</div>
 			{clients.length === 0 ? (
 				<p className="px-3 py-4 text-center text-muted-foreground text-sm">
@@ -153,12 +166,12 @@ function DashboardClientRow({
 							</span>
 						)}
 						{full.autismStop && (
-							<span className="shrink-0 rounded-sm bg-destructive px-1 py-0.5 text-[10px] text-destructive-foreground">
+							<span className="shrink-0 rounded-sm bg-warning px-1 py-0.5 text-[10px] text-warning-foreground">
 								Autism Stop
 							</span>
 						)}
 						{full.pause && (
-							<span className="shrink-0 rounded-sm bg-destructive px-1 py-0.5 text-[10px] text-destructive-foreground">
+							<span className="shrink-0 rounded-sm bg-warning px-1 py-0.5 text-[10px] text-warning-foreground">
 								Paused
 							</span>
 						)}
