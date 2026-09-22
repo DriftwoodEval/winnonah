@@ -311,6 +311,17 @@ export default function NavigationLinks() {
 						can("reports:beta"),
 				},
 				{
+					id: "reports",
+					href: "/reports",
+					label: "Reports (Beta)",
+					icon: FileText,
+					show:
+						(session.user.maxClaimedReports !== 0 ||
+							can("reports:approve") ||
+							can("reports:billing")) &&
+						can("reports:beta"),
+				},
+				{
 					id: "report-dashboard",
 					href: "/evaluator-dashboard",
 					label: evalReportDashboardLabel,
