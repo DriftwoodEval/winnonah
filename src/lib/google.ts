@@ -573,6 +573,33 @@ const columnIndexToLetter = (index: number): string => {
 	return letter;
 };
 
+// The Punchlist sheet's numeric sheetId, needed for grid-range requests
+// (batchUpdate cell formatting) as opposed to A1-notation value writes.
+const getPunchlistSheetId = async (
+	sheetsApi: sheets_v4.Sheets,
+): Promise<number> => {
+	const { PUNCHLIST_ID, PUNCHLIST_RANGE } = env;
+	const sheetName = PUNCHLIST_RANGE.split("!")[0];
+	const spreadsheet = await googleApiCall(
+		"google-sheets",
+		"spreadsheets.get",
+		"Get punchlist sheet metadata",
+		() =>
+			sheetsApi.spreadsheets.get({
+				spreadsheetId: PUNCHLIST_ID,
+				fields: "sheets.properties",
+			}),
+	);
+	const sheetId = spreadsheet.data.sheets?.find(
+		(sheet) => sheet.properties?.title === sheetName,
+	)?.properties?.sheetId;
+
+	if (sheetId === undefined || sheetId === null) {
+		throw new Error(`Sheet "${sheetName}" not found in Punchlist`);
+	}
+	return sheetId;
+};
+
 /**
  * Mirror a report's billing/review state into the punch list during the
  * transition to EMR-owned report tracking. Best-effort: callers log and swallow
@@ -584,7 +611,6 @@ export const updatePunchReportFields = async (
 	updates: {
 		billed?: boolean;
 		firstReviewDone?: boolean;
-		secondReviewNeeded?: boolean;
 	},
 ) => {
 	const { PUNCHLIST_ID, PUNCHLIST_RANGE } = env;
@@ -613,7 +639,6 @@ export const updatePunchReportFields = async (
 	const columnByField: Record<keyof typeof updates, string> = {
 		billed: "Billed?",
 		firstReviewDone: "AJP Review Done/Hold for payroll",
-		secondReviewNeeded: "MCS Review Needed",
 	};
 
 	const updateRequests: sheets_v4.Schema$ValueRange[] = [];
@@ -721,6 +746,102 @@ const getSecondReviewColors = async (session: Session) => {
 		);
 	}
 	return colors;
+};
+
+const REVIEW_COLOR_RED = { red: 1, green: 0, blue: 0 };
+const REVIEW_COLOR_GREEN = { red: 0, green: 1, blue: 0 };
+const REVIEW_COLOR_NONE = { red: 1, green: 1, blue: 1 };
+
+/**
+ * Mirror a report's second-review state into the punch list, matching how
+ * getSecondReviewColors reads it back: the "MCS Review Needed" cell's
+ * background goes red when needed, green when done, white otherwise, and its
+ * text is "TRUE" when either box is checked, "FALSE" when neither is.
+ * Best-effort: callers log and swallow failures since the DB is the source of
+ * truth.
+ */
+export const updatePunchSecondReview = async (
+	session: Session,
+	clientId: string,
+	state: { needed: boolean; done: boolean },
+) => {
+	const { PUNCHLIST_ID, PUNCHLIST_RANGE } = env;
+	const sheetsApi = getSheetsClient(session);
+
+	const response = await googleApiCall(
+		"google-sheets",
+		"spreadsheets.values.get",
+		"Get punchlist",
+		() =>
+			sheetsApi.spreadsheets.values.get({
+				spreadsheetId: PUNCHLIST_ID,
+				range: PUNCHLIST_RANGE,
+			}),
+	);
+
+	const data = response.data.values ?? [];
+	const headers = data[0] ?? [];
+	const rows = data.slice(1);
+
+	const clientRowIndex = rows.findIndex((row) => row[1] === clientId);
+	if (clientRowIndex === -1) {
+		throw new Error(`Client ID ${clientId} not found in Punchlist`);
+	}
+	const columnIndex = headers.indexOf(PUNCH_SECOND_REVIEW_HEADER);
+	if (columnIndex === -1) {
+		throw new Error(
+			`${PUNCH_SECOND_REVIEW_HEADER} column not found in Punchlist`,
+		);
+	}
+
+	const sheetId = await getPunchlistSheetId(sheetsApi);
+	const rowIndex = clientRowIndex + 1; // +1 for the header row, grid index is 0-based.
+	const backgroundColor = state.needed
+		? REVIEW_COLOR_RED
+		: state.done
+			? REVIEW_COLOR_GREEN
+			: REVIEW_COLOR_NONE;
+
+	await googleApiCall(
+		"google-sheets",
+		"spreadsheets.batchUpdate",
+		"Update punchlist second review cell",
+		() =>
+			sheetsApi.spreadsheets.batchUpdate({
+				spreadsheetId: PUNCHLIST_ID,
+				requestBody: {
+					requests: [
+						{
+							updateCells: {
+								range: {
+									sheetId,
+									startRowIndex: rowIndex,
+									endRowIndex: rowIndex + 1,
+									startColumnIndex: columnIndex,
+									endColumnIndex: columnIndex + 1,
+								},
+								rows: [
+									{
+										values: [
+											{
+												userEnteredValue: {
+													stringValue:
+														state.needed || state.done ? "TRUE" : "FALSE",
+												},
+												userEnteredFormat: { backgroundColor },
+											},
+										],
+									},
+								],
+								fields: "userEnteredValue,userEnteredFormat.backgroundColor",
+							},
+						},
+					],
+				},
+			}),
+	);
+
+	return true;
 };
 
 const PUNCHLIST_SYNC_ACTOR_EMAIL = "punchlist-sync";
@@ -915,24 +1036,7 @@ export const pushToPunch = async (
 	const rowNumber = targetRowIndex + 2; // +1 for 0-index, +1 for header row
 
 	if (needsNewRow) {
-		const sheetName = PUNCHLIST_RANGE.split("!")[0];
-		const spreadsheet = await googleApiCall(
-			"google-sheets",
-			"spreadsheets.get",
-			"Get punchlist sheet metadata",
-			() =>
-				sheetsApi.spreadsheets.get({
-					spreadsheetId: PUNCHLIST_ID,
-					fields: "sheets.properties",
-				}),
-		);
-		const sheetId = spreadsheet.data.sheets?.find(
-			(sheet) => sheet.properties?.title === sheetName,
-		)?.properties?.sheetId;
-
-		if (sheetId === undefined || sheetId === null) {
-			throw new Error(`Sheet "${sheetName}" not found in Punchlist`);
-		}
+		const sheetId = await getPunchlistSheetId(sheetsApi);
 
 		// Insert a new row at the end, inheriting formatting/validation from the row above it
 		await googleApiCall(

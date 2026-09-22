@@ -85,6 +85,6 @@ Piecework payroll reads reports straight from the EMR. A report is paid once it'
 
 While the switch from the spreadsheet is being finished, report billing and review stay in sync with the old prioritization list both ways: a change in the EMR shows up on the spreadsheet right away, and a change on the spreadsheet is pulled into the EMR (when someone opens the Reports, Scheduling, or a client page, and on an hourly job regardless).
 
-On the spreadsheet, the second review is shown by the color of the **MCS Review Needed** cell instead of a checkbox: pure red (#ff0000) means the second review is needed, and pure green (#00ff00) means it is done. Any other color, including no color, clears both. Because the spreadsheet color decides, a second review box changed in the EMR can be switched back at the next sync unless the cell color is changed to match.
+On the spreadsheet, the second review is shown by the color of the **MCS Review Needed** cell instead of a checkbox: pure red (#ff0000) means the second review is needed, and pure green (#00ff00) means it is done. Any other color, including no color, clears both. Checking either second review box in the EMR sets the cell's color to match, so the change sticks instead of being reverted at the next sync.
 
 The EMR is the source of truth. If the same box is changed in both places at almost the same time, the spreadsheet version can win, which is fine for now. The whole two-way sync goes away when the spreadsheet is retired.

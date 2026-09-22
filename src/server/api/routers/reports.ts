@@ -18,6 +18,7 @@ import {
 	CACHE_KEY_PUNCHLIST,
 	syncPunchData,
 	updatePunchReportFields,
+	updatePunchSecondReview,
 } from "~/lib/google";
 import type { PermissionsObject } from "~/lib/types";
 import { canAccessReportsBeta, hasPermission } from "~/lib/utils";
@@ -46,18 +47,25 @@ const BILLING_FIELDS = {
 		by: "firstReviewByEmail",
 		punch: "firstReviewDone",
 	},
+	// Mirrored to the punch list as the "MCS Review Needed" cell's color, not a
+	// plain TRUE/FALSE column like the fields above, so these two are handled
+	// separately in setBillingField.
 	secondReviewNeeded: {
 		at: "secondReviewNeededAt",
 		by: "secondReviewByEmail",
-		punch: "secondReviewNeeded",
+		punch: null,
 	},
-	// EMR-only: no punch-list column mirrors "second review done".
 	secondReviewDone: {
 		at: "secondReviewDoneAt",
 		by: "secondReviewDoneByEmail",
 		punch: null,
 	},
 } as const;
+
+const SECOND_REVIEW_FIELDS = [
+	"secondReviewNeeded",
+	"secondReviewDone",
+] as const;
 
 function assertReportsPage(user: {
 	permissions: PermissionsObject;
@@ -360,7 +368,12 @@ export const reportsRouter = createTRPCRouter({
 
 			const report = await ctx.db.query.reports.findFirst({
 				where: eq(reports.id, input.id),
-				columns: { id: true, clientId: true },
+				columns: {
+					id: true,
+					clientId: true,
+					secondReviewNeeded: true,
+					secondReviewDone: true,
+				},
 			});
 			if (!report) throw new TRPCError({ code: "NOT_FOUND" });
 
@@ -380,23 +393,32 @@ export const reportsRouter = createTRPCRouter({
 				"Updated report billing field",
 			);
 
-			// Dual-write out to the punch list during the transition, for the fields
-			// that still have a punch-list column. Best effort.
-			if (meta.punch) {
-				try {
+			// Dual-write out to the punch list during the transition. Best effort.
+			try {
+				if (meta.punch) {
 					await updatePunchReportFields(ctx.session, String(report.clientId), {
 						[meta.punch]: input.value,
 					});
-				} catch (error) {
-					ctx.logger.error(
-						error,
-						"Failed to mirror billing field to punch list",
-					);
+				} else if (
+					(SECOND_REVIEW_FIELDS as readonly string[]).includes(input.field)
+				) {
+					await updatePunchSecondReview(ctx.session, String(report.clientId), {
+						needed:
+							input.field === "secondReviewNeeded"
+								? input.value
+								: report.secondReviewNeeded,
+						done:
+							input.field === "secondReviewDone"
+								? input.value
+								: report.secondReviewDone,
+					});
 				}
-				// Drop the punch-list cache so syncPunchData reads the value we just
-				// wrote out, not a stale copy that would revert this edit.
-				await invalidateCache(ctx, CACHE_KEY_PUNCHLIST);
+			} catch (error) {
+				ctx.logger.error(error, "Failed to mirror billing field to punch list");
 			}
+			// Drop the punch-list cache so syncPunchData reads the value we just
+			// wrote out, not a stale copy that would revert this edit.
+			await invalidateCache(ctx, CACHE_KEY_PUNCHLIST);
 
 			return { success: true };
 		}),
