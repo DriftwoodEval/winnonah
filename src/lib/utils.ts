@@ -2,7 +2,11 @@ import { type ClassValue, clsx } from "clsx";
 import { formatInTimeZone, fromZonedTime, toZonedTime } from "date-fns-tz";
 import { twMerge } from "tailwind-merge";
 import type { InsuranceWithAliases } from "~/lib/models";
-import type { PermissionId, PermissionsObject } from "~/lib/types";
+import {
+	PERMISSION_GROUP_IDS,
+	type PermissionId,
+	type PermissionsObject,
+} from "~/lib/types";
 import {
 	BUSINESS_TIMEZONE,
 	PERMISSION_MAP,
@@ -22,11 +26,17 @@ export function toTitleCase(str: string): string {
 	);
 }
 
+/**
+ * Whether a permissions object grants a permission. An explicit value for the
+ * permission wins; otherwise its heading's "all" flag (see PermissionGroupId) decides.
+ */
 export function hasPermission(
 	userPerms: PermissionsObject,
 	permission: PermissionId,
 ): boolean {
-	return !!userPerms[permission];
+	return !!(
+		userPerms[permission] ?? userPerms[PERMISSION_GROUP_IDS[permission]]
+	);
 }
 
 /**

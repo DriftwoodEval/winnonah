@@ -52,6 +52,7 @@ from utils.constants import (
     TABLE_QUESTIONNAIRE,
     TABLE_QUESTIONNAIRE_RULE,
     TABLE_REPORT,
+    TABLE_ROLE,
     TABLE_SCHOOL_DISTRICT,
     TABLE_USER,
     TEST_NAMES_LOWER,
@@ -63,6 +64,7 @@ from utils.misc import (
     get_column,
     get_full_name,
 )
+from utils.permissions import effective_permissions, has_permission
 from utils.timezone import business_to_utc, now_business, now_utc, utc_to_business
 
 load_dotenv()
@@ -2164,18 +2166,27 @@ def get_npi_to_name_map(
 
 @provide_connection
 def get_queue_notify_users(connection: Connection[DictCursor]):
-    """Returns a list of users who have the reports:notifications permission and no active claimed report."""
+    """Returns a list of users who have the reports:notifications permission (directly or through their role) and no active claimed report."""
     users = []
     with connection.cursor() as cursor:
         cursor.execute(
-            f"SELECT email, name, permissions, claimedReportFolder, blockedEvaluatorNpis FROM {TABLE_USER} WHERE archived = 0"
+            f"""
+                SELECT
+                    u.email, u.name, u.permissions, u.claimedReportFolder,
+                    u.blockedEvaluatorNpis, r.permissions AS role_permissions
+                FROM {TABLE_USER} u
+                LEFT JOIN {TABLE_ROLE} r ON u.roleId = r.id
+                WHERE u.archived = 0
+            """
         )
         rows = cursor.fetchall()
 
         for row in rows:
-            permissions = json.loads(row["permissions"]) if row["permissions"] else {}
+            permissions = effective_permissions(
+                row["permissions"], row["role_permissions"]
+            )
             if (
-                permissions.get("reports:notifications") is True
+                has_permission(permissions, "reports:notifications")
                 and not row["claimedReportFolder"]
             ):
                 users.append(row)

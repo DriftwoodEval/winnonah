@@ -55,6 +55,34 @@ describe("hasPermission", () => {
 	it("returns false when the permission is missing", () => {
 		expect(hasPermission({}, "clients:notes")).toBe(false);
 	});
+
+	it("grants every permission under a heading's all flag", () => {
+		const perms = { "system:issues:all": true };
+		expect(hasPermission(perms, "issues:dd4")).toBe(true);
+		expect(hasPermission(perms, "issues:partial-battery")).toBe(true);
+		expect(hasPermission(perms, "settings:users:edit")).toBe(false);
+	});
+
+	it("lets an explicit value override the heading's all flag", () => {
+		expect(
+			hasPermission(
+				{ "system:issues:all": true, "issues:dd4": false },
+				"issues:dd4",
+			),
+		).toBe(false);
+		expect(
+			hasPermission(
+				{ "system:issues:all": false, "issues:dd4": true },
+				"issues:dd4",
+			),
+		).toBe(true);
+	});
+
+	it("uses the subgroup heading, not the permission id prefix", () => {
+		expect(
+			hasPermission({ "clients:admin:all": true }, "reports:approve"),
+		).toBe(true);
+	});
 });
 
 describe("formatError", () => {
