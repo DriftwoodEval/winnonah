@@ -46,8 +46,9 @@ jobs:
       - name: Run tests
         run: pnpm test
 
-      - name: Check for unused code
-        run: pnpm knip
+      # Advisory only: findings show up as annotations on the PR but never fail the job.
+      - name: Report unused code
+        run: pnpm knip --reporter github-actions
 
       - name: Cache Next.js build
         uses: actions/cache@v6

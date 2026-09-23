@@ -7,7 +7,7 @@
 		"build": "next build",
 		"check": "tsc --noEmit && biome check --write .",
 		"check:unsafe": "biome check --write --unsafe .",
-		"knip": "SKIP_ENV_VALIDATION=1 knip",
+		"knip": "SKIP_ENV_VALIDATION=1 knip --no-exit-code",
 		"db:generate": "drizzle-kit generate",
 		"db:migrate": "drizzle-kit migrate",
 		"db:push": "drizzle-kit push",

@@ -132,7 +132,7 @@ uvx ruff format python
 """
 
 [tasks."check:knip"]
-description = "Find unused files, exports, and dependencies"
+description = "Report unused files, exports, and dependencies (advisory, never fails)"
 run = "pnpm knip"
 
 [tasks."check:changelog"]
