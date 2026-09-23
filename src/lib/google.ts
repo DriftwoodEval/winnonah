@@ -963,11 +963,6 @@ export const syncPunchData = async (ctx: Context & { session: Session }) => {
 	await Promise.all(updatePromises);
 };
 
-export const getClientFromPunchData = async (session: Session, id: string) => {
-	const data = await getPunchData(session);
-	return data.find((client) => client["Client ID"] === id);
-};
-
 export const pushToPunch = async (
 	session: Session,
 	client: {

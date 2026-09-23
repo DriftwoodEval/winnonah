@@ -131,6 +131,10 @@ uvx ruff check python --fix
 uvx ruff format python
 """
 
+[tasks."check:knip"]
+description = "Find unused files, exports, and dependencies"
+run = "pnpm knip"
+
 [tasks."check:changelog"]
 description = "Validate changelog entry formatting and group ordering"
 run = "pnpm exec tsx scripts/validate-changelog.ts"
@@ -141,7 +145,7 @@ run = "pnpm exec tsx scripts/validate-docs.ts"
 
 [tasks.check]
 description = "Type-check and lint everything (TS + Python)"
-depends = ["check:pnpm", "check:ruff", "check:changelog"]
+depends = ["check:pnpm", "check:ruff", "check:changelog", "check:knip"]
 
 [tasks."test:pnpm"]
 description = "Run TS unit tests"

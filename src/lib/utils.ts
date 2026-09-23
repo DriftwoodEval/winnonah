@@ -320,17 +320,6 @@ export function localDateToDateOnly(
 	return `${year}-${month}-${day}`;
 }
 
-/**
- * Whether a date-only "YYYY-MM-DD" value is strictly before today, in terms
- * of the server's local calendar date.
- */
-export function isDateOnlyPast(date: string | undefined | null): boolean {
-	if (!date) return false;
-	const today = new Date();
-	const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
-	return date < todayStr;
-}
-
 export function formatTaMessage(
 	questionnaires: { questionnaireType: string; link: string | null }[],
 ): string {

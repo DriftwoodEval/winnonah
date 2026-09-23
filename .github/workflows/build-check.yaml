@@ -46,6 +46,9 @@ jobs:
       - name: Run tests
         run: pnpm test
 
+      - name: Check for unused code
+        run: pnpm knip
+
       - name: Cache Next.js build
         uses: actions/cache@v6
         with:

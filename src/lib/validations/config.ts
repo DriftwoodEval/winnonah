@@ -230,7 +230,6 @@ export const appointmentSyncConfigSchema = z.object({
 	ignored_appointment_ids: z.array(z.string()),
 });
 
-export type pythonConfig = z.infer<typeof pythonConfigSchema>;
 export type AppointmentSyncConfig = z.infer<typeof appointmentSyncConfigSchema>;
 export type AdditionalInsuranceAppointments = z.infer<
 	typeof additionalInsuranceAppointmentsSchema

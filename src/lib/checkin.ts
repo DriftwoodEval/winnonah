@@ -3,14 +3,17 @@
  * casing has varied ("Virtual" from calendar titles, "VIRTUAL" elsewhere), so
  * comparisons go through isVirtualAppointment.
  */
-export const VIRTUAL_LOCATION_KEY = "Virtual";
+const VIRTUAL_LOCATION_KEY = "Virtual";
 
 /**
  * An appointment with no office, or the virtual location key, happens over
  * video. Nobody arrives in person, so there is no check-in or check-out.
  */
 export function isVirtualAppointment(locationKey: string | null | undefined) {
-	return !locationKey || locationKey.toLowerCase() === "virtual";
+	return (
+		!locationKey ||
+		locationKey.toLowerCase() === VIRTUAL_LOCATION_KEY.toLowerCase()
+	);
 }
 
 /**

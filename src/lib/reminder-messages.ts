@@ -16,10 +16,6 @@ export const REMINDER_PLACEHOLDERS = [
 	["$REMAINING_COUNT", "number of questionnaires still pending"],
 ] as const;
 
-export const REMINDER_PLACEHOLDER_TOKENS = REMINDER_PLACEHOLDERS.map(
-	([token]) => token,
-);
-
 export const REMINDER_PORTAL_LINK = "https://portal.therapyappointment.com";
 
 /**

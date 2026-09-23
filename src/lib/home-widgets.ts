@@ -488,10 +488,6 @@ export function getWidgetDefaults(id: string): { cols: number; rows: number } {
 	return DEFAULT_WIDGET_CONFIG[id] ?? { cols: 1, rows: 2 };
 }
 
-export function getWidgetSizing(id: string): WidgetSizing {
-	return HOME_WIDGET_DEFS.find((d) => d.id === id)?.sizing ?? "content";
-}
-
 export const DEFAULT_HOME_WIDGETS: WidgetConfig[] = [
 	{ id: "clients", cols: 4, rows: 4 },
 ];
