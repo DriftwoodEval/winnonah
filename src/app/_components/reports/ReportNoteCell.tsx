@@ -92,11 +92,13 @@ export function ReportNoteCell({
 				</span>
 			)}
 			<Popover>
-				<PopoverTrigger asChild>
-					<Button aria-label="Note history" size="sm" variant="ghost">
-						<History className="h-3.5 w-3.5" />
-					</Button>
-				</PopoverTrigger>
+				<PopoverTrigger
+					render={
+						<Button aria-label="Note history" size="sm" variant="ghost">
+							<History className="h-3.5 w-3.5" />
+						</Button>
+					}
+				/>
 				<PopoverContent align="end" className="w-80">
 					<NoteHistoryList reportId={reportId} />
 				</PopoverContent>

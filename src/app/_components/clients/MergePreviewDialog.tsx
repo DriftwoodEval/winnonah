@@ -35,7 +35,7 @@ interface MergePreviewDialogProps {
 	fakeClient: ClientOverwriteFields | null;
 	onSuccess?: () => void;
 	shouldRedirect?: boolean;
-	children: React.ReactNode;
+	children: React.ReactElement;
 }
 
 export function MergePreviewDialog({
@@ -124,9 +124,10 @@ export function MergePreviewDialog({
 	return (
 		<>
 			<Dialog onOpenChange={setMergeDialogOpen} open={mergeDialogOpen}>
-				<DialogTrigger asChild disabled={!realClient || !fakeClient}>
-					{children}
-				</DialogTrigger>
+				<DialogTrigger
+					disabled={!realClient || !fakeClient}
+					render={children}
+				/>
 				<DialogContent className="max-h-[calc(100vh-4rem)] max-w-[calc(100vw-2rem)] overflow-x-auto overflow-y-auto sm:max-w-[calc(100vw-2rem)]">
 					<DialogTitle>Preview Merge</DialogTitle>
 					<div className="flex w-full flex-col justify-between gap-10 lg:min-w-5xl lg:flex-row">
@@ -166,26 +167,28 @@ export function MergePreviewDialog({
 				<AlertDialogContent>
 					<AlertDialogHeader>
 						<AlertDialogTitle>Overwrite Status Fields?</AlertDialogTitle>
-						<AlertDialogDescription asChild>
-							<div>
-								<p className="mb-2">
-									Merging will overwrite the following differing fields on{" "}
-									<strong>
-										<Redact>{realClient?.fullName}</Redact>
-									</strong>
-									:
-								</p>
-								<ul className="space-y-1">
-									{conflictingOverwrites.map(({ field, real, fake }) => (
-										<li key={field}>
-											<strong>{field}:</strong> &ldquo;{real}&rdquo; &rarr;{" "}
-											&ldquo;{fake}&rdquo;
-										</li>
-									))}
-								</ul>
-								<p className="mt-2">Do you want to continue?</p>
-							</div>
-						</AlertDialogDescription>
+						<AlertDialogDescription
+							render={
+								<div>
+									<p className="mb-2">
+										Merging will overwrite the following differing fields on{" "}
+										<strong>
+											<Redact>{realClient?.fullName}</Redact>
+										</strong>
+										:
+									</p>
+									<ul className="space-y-1">
+										{conflictingOverwrites.map(({ field, real, fake }) => (
+											<li key={field}>
+												<strong>{field}:</strong> &ldquo;{real}&rdquo; &rarr;{" "}
+												&ldquo;{fake}&rdquo;
+											</li>
+										))}
+									</ul>
+									<p className="mt-2">Do you want to continue?</p>
+								</div>
+							}
+						/>
 					</AlertDialogHeader>
 					<AlertDialogFooter>
 						<AlertDialogCancel>Cancel</AlertDialogCancel>

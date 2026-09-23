@@ -95,9 +95,12 @@ export default function AuditLogTable() {
 
 			<div className="flex flex-wrap gap-2">
 				<Select
-					onValueChange={resetAndSet<string | undefined>((value) =>
-						setUserId(value === "all" ? undefined : value),
-					)}
+					onValueChange={(v) =>
+						v !== null &&
+						resetAndSet<string | undefined>((value) =>
+							setUserId(value === "all" ? undefined : value),
+						)(v)
+					}
 					value={userId ?? "all"}
 				>
 					<SelectTrigger className="w-[200px]">
@@ -114,9 +117,12 @@ export default function AuditLogTable() {
 				</Select>
 
 				<Select
-					onValueChange={resetAndSet<string>((value) =>
-						setAction(value === "all" ? "" : value),
-					)}
+					onValueChange={(v) =>
+						v !== null &&
+						resetAndSet<string>((value) =>
+							setAction(value === "all" ? "" : value),
+						)(v)
+					}
 					value={action || "all"}
 				>
 					<SelectTrigger className="w-[240px]">

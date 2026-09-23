@@ -53,15 +53,17 @@ export function CreateDocPageDialog({
 
 	return (
 		<Dialog onOpenChange={setOpen} open={open}>
-			<DialogTrigger asChild>
-				<button
-					className="mt-4 flex items-center gap-1.5 rounded-md px-3 py-1 text-muted-foreground text-sm hover:bg-accent hover:text-accent-foreground"
-					type="button"
-				>
-					<FilePlus2 className="size-3.5" />
-					Create new page
-				</button>
-			</DialogTrigger>
+			<DialogTrigger
+				render={
+					<button
+						className="mt-4 flex items-center gap-1.5 rounded-md px-3 py-1 text-muted-foreground text-sm hover:bg-accent hover:text-accent-foreground"
+						type="button"
+					>
+						<FilePlus2 className="size-3.5" />
+						Create new page
+					</button>
+				}
+			/>
 			<DialogContent>
 				<DialogHeader>
 					<DialogTitle>Create New Page</DialogTitle>
@@ -73,7 +75,10 @@ export function CreateDocPageDialog({
 				<div className="space-y-4">
 					<div className="space-y-1.5">
 						<Label htmlFor="doc-folder">Folder</Label>
-						<Select onValueChange={setFolder} value={folder}>
+						<Select
+							onValueChange={(v) => v !== null && setFolder(v)}
+							value={folder}
+						>
 							<SelectTrigger className="w-full" id="doc-folder">
 								<SelectValue placeholder="Select a folder" />
 							</SelectTrigger>
@@ -97,23 +102,31 @@ export function CreateDocPageDialog({
 					</div>
 				</div>
 				<DialogFooter>
-					<DialogClose asChild>
-						<Button type="button" variant="ghost">
-							Cancel
-						</Button>
-					</DialogClose>
-					{canCreate ? (
-						<DialogClose asChild>
-							<Button asChild>
-								<a
-									href={buildCreateUrl(folder, title)}
-									rel="noreferrer"
-									target="_blank"
-								>
-									Create on GitHub
-								</a>
+					<DialogClose
+						render={
+							<Button type="button" variant="ghost">
+								Cancel
 							</Button>
-						</DialogClose>
+						}
+					/>
+					{canCreate ? (
+						<DialogClose
+							nativeButton={false}
+							render={
+								<Button
+									nativeButton={false}
+									render={
+										<a
+											href={buildCreateUrl(folder, title)}
+											rel="noreferrer"
+											target="_blank"
+										>
+											Create on GitHub
+										</a>
+									}
+								/>
+							}
+						/>
 					) : (
 						<Button disabled type="button">
 							Create on GitHub

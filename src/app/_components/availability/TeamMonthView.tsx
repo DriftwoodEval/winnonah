@@ -166,14 +166,16 @@ function DayCell({
 
 				{overflow > 0 && (
 					<Popover>
-						<PopoverTrigger asChild>
-							<button
-								className="cursor-pointer text-left text-[10px] text-muted-foreground hover:underline"
-								type="button"
-							>
-								+{overflow} more
-							</button>
-						</PopoverTrigger>
+						<PopoverTrigger
+							render={
+								<button
+									className="cursor-pointer text-left text-[10px] text-muted-foreground hover:underline"
+									type="button"
+								>
+									+{overflow} more
+								</button>
+							}
+						/>
 						<PopoverContent className="w-64">
 							<p className="mb-1 font-medium text-sm">
 								{format(day, "MMMM d, yyyy")}

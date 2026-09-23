@@ -1713,7 +1713,9 @@ export function ClientDirectory() {
 					/>
 				</div>
 				<Select
-					onValueChange={(value) => updateParam("status", value, "active")}
+					onValueChange={(value) =>
+						value !== null && updateParam("status", value, "active")
+					}
 					value={status}
 				>
 					<SelectTrigger className="w-full sm:w-48">
@@ -1734,17 +1736,18 @@ export function ClientDirectory() {
 					</SelectContent>
 				</Select>
 				<DropdownMenu>
-					<DropdownMenuTrigger asChild>
-						<Button className="w-full sm:w-auto" size="sm" variant="outline">
-							<Columns3 className="h-4 w-4" />
-							Columns
-						</Button>
-					</DropdownMenuTrigger>
+					<DropdownMenuTrigger
+						render={
+							<Button className="w-full sm:w-auto" size="sm" variant="outline">
+								<Columns3 className="h-4 w-4" />
+								Columns
+							</Button>
+						}
+					/>
 					<DropdownMenuContent align="start" className="min-w-56">
 						<DropdownMenuCheckboxItem
 							checked={visibleColumns[FAILURES_TOGGLE_KEY]}
 							onCheckedChange={() => toggleColumn(FAILURES_TOGGLE_KEY)}
-							onSelect={(e) => e.preventDefault()}
 						>
 							{ALL_TOGGLE_LABELS[FAILURES_TOGGLE_KEY]}
 						</DropdownMenuCheckboxItem>

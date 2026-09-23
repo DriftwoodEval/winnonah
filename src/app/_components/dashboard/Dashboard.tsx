@@ -409,11 +409,13 @@ function PunchListAccordionItem({
 											(onSchedulingTable ? (
 												<TooltipProvider>
 													<Tooltip>
-														<TooltipTrigger asChild>
-															<span className="inline-flex h-7 w-7 shrink-0 items-center justify-center">
-																<CalendarCheck className="h-4 w-4 text-muted-foreground opacity-50" />
-															</span>
-														</TooltipTrigger>
+														<TooltipTrigger
+															render={
+																<span className="inline-flex h-7 w-7 shrink-0 items-center justify-center">
+																	<CalendarCheck className="h-4 w-4 text-muted-foreground opacity-50" />
+																</span>
+															}
+														/>
 														<TooltipContent>
 															Already on scheduling page
 														</TooltipContent>
@@ -715,8 +717,8 @@ export function Dashboard() {
 		<div className="mx-4 mt-8 flex grow flex-col items-center">
 			<Accordion
 				className="w-full lg:w-3/4 xl:w-1/2"
+				multiple
 				onValueChange={handleOpenItemsChange}
-				type="multiple"
 				value={openItems}
 			>
 				{(dashboardData?.duplicatePunchClients?.length ?? 0) > 0 && (
@@ -768,11 +770,12 @@ export function Dashboard() {
 										<AccordionContent>
 											<div className="mb-2 flex flex-wrap items-center gap-2">
 												<ToggleGroup
-													onValueChange={(v) => setAdminMineOnly(v === "mine")}
+													onValueChange={(v) =>
+														setAdminMineOnly(v[0] === "mine")
+													}
 													size="sm"
 													spacing={0}
-													type="single"
-													value={showMineOnly ? "mine" : "all"}
+													value={[showMineOnly ? "mine" : "all"]}
 													variant="outline"
 												>
 													<ToggleGroupItem value="all">All</ToggleGroupItem>

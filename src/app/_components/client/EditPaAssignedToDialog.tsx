@@ -74,7 +74,9 @@ export function EditPaAssignedToDialog({
 	return (
 		<form className="space-y-4" onSubmit={onSubmit}>
 			<Select
-				onValueChange={(v) => setPaAssignedTo(v === UNASSIGNED ? "" : v)}
+				onValueChange={(v) =>
+					v !== null && setPaAssignedTo(v === UNASSIGNED ? "" : v)
+				}
 				value={paAssignedTo || UNASSIGNED}
 			>
 				<SelectTrigger className="w-full">

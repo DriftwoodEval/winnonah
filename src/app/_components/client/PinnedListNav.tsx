@@ -172,12 +172,18 @@ export function PinnedListNav({ clientHash }: { clientHash: string }) {
 			{onList && (
 				<div className="flex gap-1 border-t px-2 py-1">
 					{prev ? (
-						<Button asChild className="flex-1" size="sm" variant="ghost">
-							<Link href={entryHref(prev)}>
-								<ChevronLeft className="h-4 w-4" />
-								Prev
-							</Link>
-						</Button>
+						<Button
+							className="flex-1"
+							nativeButton={false}
+							render={
+								<Link href={entryHref(prev)}>
+									<ChevronLeft className="h-4 w-4" />
+									Prev
+								</Link>
+							}
+							size="sm"
+							variant="ghost"
+						/>
 					) : (
 						<span className="flex flex-1 items-center justify-center gap-1 py-1.5 text-muted-foreground text-xs">
 							<ChevronLeft className="h-4 w-4" />
@@ -185,12 +191,18 @@ export function PinnedListNav({ clientHash }: { clientHash: string }) {
 						</span>
 					)}
 					{next ? (
-						<Button asChild className="flex-1" size="sm" variant="ghost">
-							<Link href={entryHref(next)}>
-								Next
-								<ChevronRight className="h-4 w-4" />
-							</Link>
-						</Button>
+						<Button
+							className="flex-1"
+							nativeButton={false}
+							render={
+								<Link href={entryHref(next)}>
+									Next
+									<ChevronRight className="h-4 w-4" />
+								</Link>
+							}
+							size="sm"
+							variant="ghost"
+						/>
 					) : (
 						<span className="flex flex-1 items-center justify-center gap-1 py-1.5 text-muted-foreground text-xs">
 							Next

@@ -379,11 +379,13 @@ function AddRuleButton() {
 
 	return (
 		<Dialog onOpenChange={setIsOpen} open={isOpen}>
-			<DialogTrigger asChild>
-				<Button size="sm">
-					<Plus className="mr-2 h-4 w-4" /> Add Rule
-				</Button>
-			</DialogTrigger>
+			<DialogTrigger
+				render={
+					<Button size="sm">
+						<Plus className="mr-2 h-4 w-4" /> Add Rule
+					</Button>
+				}
+			/>
 			<DialogContent className="sm:max-w-[500px]">
 				<DialogHeader>
 					<DialogTitle>Add Battery Rule</DialogTitle>
@@ -430,11 +432,13 @@ function RuleActionsMenu({ rule }: { rule: Rule }) {
 	return (
 		<>
 			<DropdownMenu>
-				<DropdownMenuTrigger asChild>
-					<Button className="h-8 w-8 p-0" variant="ghost">
-						<MoreHorizontal className="h-4 w-4" />
-					</Button>
-				</DropdownMenuTrigger>
+				<DropdownMenuTrigger
+					render={
+						<Button className="h-8 w-8 p-0" variant="ghost">
+							<MoreHorizontal className="h-4 w-4" />
+						</Button>
+					}
+				/>
 				<DropdownMenuContent align="start">
 					<DropdownMenuItem onClick={() => setIsEditOpen(true)}>
 						Edit

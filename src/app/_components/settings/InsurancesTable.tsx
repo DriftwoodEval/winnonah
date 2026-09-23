@@ -533,9 +533,7 @@ function AddInsuranceButton({
 
 	return (
 		<Dialog onOpenChange={setIsOpen} open={isOpen}>
-			<DialogTrigger asChild>
-				<Button size="sm">Add Insurance</Button>
-			</DialogTrigger>
+			<DialogTrigger render={<Button size="sm">Add Insurance</Button>} />
 			<DialogContent className="max-h-[95vh] sm:max-w-[700px]">
 				<DialogHeader>
 					<DialogTitle>Add Insurance</DialogTitle>
@@ -590,11 +588,13 @@ function InsuranceActionsMenu({
 	return (
 		<>
 			<DropdownMenu>
-				<DropdownMenuTrigger asChild>
-					<Button className="h-8 w-8 p-0" variant="ghost">
-						<MoreHorizontal className="h-4 w-4" />
-					</Button>
-				</DropdownMenuTrigger>
+				<DropdownMenuTrigger
+					render={
+						<Button className="h-8 w-8 p-0" variant="ghost">
+							<MoreHorizontal className="h-4 w-4" />
+						</Button>
+					}
+				/>
 				<DropdownMenuContent align={isDesktop ? "start" : "end"}>
 					<DropdownMenuItem onClick={() => setIsEditDialogOpen(true)}>
 						Edit

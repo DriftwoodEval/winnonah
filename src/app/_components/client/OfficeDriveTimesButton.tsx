@@ -40,11 +40,14 @@ export function OfficeDriveTimesButton({
 
 	return (
 		<Popover onOpenChange={setEnabled}>
-			<PopoverTrigger asChild>
-				<span className="cursor-pointer font-normal text-muted-foreground hover:underline">
-					(Compare)
-				</span>
-			</PopoverTrigger>
+			<PopoverTrigger
+				nativeButton={false}
+				render={
+					<span className="cursor-pointer font-normal text-muted-foreground hover:underline">
+						(Compare)
+					</span>
+				}
+			/>
 			<PopoverContent side="right">
 				{driveTimes.isLoading ? (
 					<div className="flex items-center gap-2 p-3 text-muted-foreground text-sm">

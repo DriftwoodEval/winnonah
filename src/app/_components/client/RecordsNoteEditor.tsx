@@ -484,15 +484,17 @@ export function RecordsNoteEditor({
 					<h4 className="font-bold leading-none">School Records</h4>
 					<Select
 						disabled={!canEditRecordsNeeded}
-						onValueChange={handleNeededChange}
+						onValueChange={(v) => v !== null && handleNeededChange(v)}
 						value={recordsNeeded ?? ""}
 					>
 						<Tooltip>
-							<TooltipTrigger asChild>
-								<SelectTrigger id={recordsNeededId}>
-									<SelectValue placeholder="Records Needed?" />
-								</SelectTrigger>
-							</TooltipTrigger>
+							<TooltipTrigger
+								render={
+									<SelectTrigger id={recordsNeededId}>
+										<SelectValue placeholder="Records Needed?" />
+									</SelectTrigger>
+								}
+							/>
 							{!canEditRecordsNeeded && !readOnly && (
 								<TooltipContent>
 									<p>{tooltipRecordsNeeded}</p>
@@ -591,19 +593,21 @@ export function RecordsNoteEditor({
 					</div>
 					{canAddRequest && !requests.some((r) => !r.requestedDate) && (
 						<Tooltip>
-							<TooltipTrigger asChild>
-								<div className="flex items-center gap-2">
-									<Checkbox
-										checked={false}
-										disabled={!canAddRequest}
-										id={newRequestId}
-										onCheckedChange={(checked) => {
-											if (checked) handleFlagRequest();
-										}}
-									/>
-									<Label htmlFor={newRequestId}>Request again?</Label>
-								</div>
-							</TooltipTrigger>
+							<TooltipTrigger
+								render={
+									<div className="flex items-center gap-2">
+										<Checkbox
+											checked={false}
+											disabled={!canAddRequest}
+											id={newRequestId}
+											onCheckedChange={(checked) => {
+												if (checked) handleFlagRequest();
+											}}
+										/>
+										<Label htmlFor={newRequestId}>Request again?</Label>
+									</div>
+								}
+							/>
 							{!canAddRequest && !readOnly && (
 								<TooltipContent>
 									<p>{tooltipAddRequest}</p>
@@ -623,7 +627,7 @@ export function RecordsNoteEditor({
 				<div className="space-y-2">
 					<Select
 						disabled={isEditorReadOnly || !!detectedTemplateValue}
-						onValueChange={handleTemplateChange}
+						onValueChange={(v) => v !== null && handleTemplateChange(v)}
 						value={detectedTemplateValue ?? ""}
 					>
 						<SelectTrigger className="w-full sm:w-[240px]" size="sm">

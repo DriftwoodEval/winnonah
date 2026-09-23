@@ -25,7 +25,7 @@ import { api } from "~/trpc/react";
 interface AdminReviewSubmitDialogProps {
 	client: Client;
 	review: { content: unknown };
-	trigger: React.ReactNode;
+	trigger: React.ReactElement;
 	pending: boolean;
 	onConfirm: (insertAt: number) => void;
 }
@@ -80,8 +80,13 @@ export function AdminReviewSubmitDialog({
 	const canMoveDown =
 		currentIndex !== -1 && currentIndex < candidates.length - 1;
 
-	const handleTriggerClick = (event: React.MouseEvent) => {
+	const handleTriggerClick = (
+		event: React.MouseEvent & { preventBaseUIHandler?: () => void },
+	) => {
 		event.preventDefault();
+		// DialogTrigger's own click handler opens the dialog immediately; stop it
+		// so the async fetch below can decide whether to open it at all.
+		event.preventBaseUIHandler?.();
 		void utils.notes.getNoteByClientId.fetch(client.id).then((fetchedNote) => {
 			const content = (fetchedNote?.contentJson as JSONContent | null) ?? {
 				type: "doc",

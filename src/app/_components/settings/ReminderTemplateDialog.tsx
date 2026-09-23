@@ -495,8 +495,8 @@ export function ReminderTemplateDialog({
 													/>
 												</FormControl>
 												<Select
-													onValueChange={(v: "hours" | "days") => {
-														setOffsetUnit(v);
+													onValueChange={(v) => {
+														if (v !== null) setOffsetUnit(v);
 													}}
 													value={offsetUnit}
 												>

@@ -44,22 +44,25 @@ export function TaskQueueBubble() {
 
 	return (
 		<Popover onOpenChange={setOpen} open={open}>
-			<PopoverTrigger asChild>
-				<Badge
-					className="flex cursor-pointer items-center gap-1"
-					variant={runningCount > 0 ? "default" : "secondary"}
-				>
-					{runningCount > 0 && <Loader2 className="h-3 w-3 animate-spin" />}
-					{runningCount > 0 ? runningCount : tasks.length}{" "}
-					<span className="hidden lg:inline">
-						{runningCount > 0
-							? "running"
-							: tasks.length === 1
-								? "recent task"
-								: "recent tasks"}
-					</span>
-				</Badge>
-			</PopoverTrigger>
+			<PopoverTrigger
+				nativeButton={false}
+				render={
+					<Badge
+						className="flex cursor-pointer items-center gap-1"
+						variant={runningCount > 0 ? "default" : "secondary"}
+					>
+						{runningCount > 0 && <Loader2 className="h-3 w-3 animate-spin" />}
+						{runningCount > 0 ? runningCount : tasks.length}{" "}
+						<span className="hidden lg:inline">
+							{runningCount > 0
+								? "running"
+								: tasks.length === 1
+									? "recent task"
+									: "recent tasks"}
+						</span>
+					</Badge>
+				}
+			/>
 			<PopoverContent align="end" className="w-80 p-2">
 				<p className="mb-2 px-1 font-medium text-muted-foreground text-xs uppercase tracking-wide">
 					Background Tasks

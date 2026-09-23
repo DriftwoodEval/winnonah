@@ -209,13 +209,16 @@ export function IssuesAlert() {
 	}
 
 	return (
-		<Badge asChild variant="destructive">
-			<Link className="flex items-center gap-1" href="/issues">
-				{errorsLength}{" "}
-				<span className="hidden lg:inline">
-					{errorsLength === 1 ? "issue" : "issues"}
-				</span>
-			</Link>
-		</Badge>
+		<Badge
+			render={
+				<Link className="flex items-center gap-1" href="/issues">
+					{errorsLength}{" "}
+					<span className="hidden lg:inline">
+						{errorsLength === 1 ? "issue" : "issues"}
+					</span>
+				</Link>
+			}
+			variant="destructive"
+		/>
 	);
 }

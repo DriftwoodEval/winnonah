@@ -520,7 +520,7 @@ function SchedulingSearchBox({
 				input
 			) : (
 				<Tooltip>
-					<TooltipTrigger asChild>{input}</TooltipTrigger>
+					<TooltipTrigger render={input} />
 					<TooltipContent>
 						Enter for next match, Shift+Enter for previous
 					</TooltipContent>
@@ -585,22 +585,23 @@ function ColorPicker({
 
 	return (
 		<DropdownMenu>
-			<DropdownMenuTrigger asChild>
-				<Button className="cursor-pointer" size="icon-sm" variant="ghost">
-					<Circle
-						className="h-4 w-4"
-						fill={value ? SCHEDULING_COLOR_MAP[value] : "transparent"}
-						style={{
-							color: value ? SCHEDULING_COLOR_MAP[value] : "currentColor",
-						}}
-					/>
-				</Button>
-			</DropdownMenuTrigger>
+			<DropdownMenuTrigger
+				render={
+					<Button className="cursor-pointer" size="icon-sm" variant="ghost">
+						<Circle
+							className="h-4 w-4"
+							fill={value ? SCHEDULING_COLOR_MAP[value] : "transparent"}
+							style={{
+								color: value ? SCHEDULING_COLOR_MAP[value] : "currentColor",
+							}}
+						/>
+					</Button>
+				}
+			/>
 			<DropdownMenuContent align="start">
 				<DropdownMenuItem
 					className="cursor-pointer"
 					onClick={() => onChange(null)}
-					onSelect={() => onChange(null)}
 				>
 					No Color
 				</DropdownMenuItem>
@@ -610,7 +611,6 @@ function ColorPicker({
 							className="cursor-pointer"
 							key={color}
 							onClick={() => onChange(color)}
-							onSelect={() => onChange(color)}
 						>
 							<div className="flex items-center gap-2">
 								<div
@@ -665,7 +665,7 @@ function EvaluatorSelect({
 	return (
 		<Select
 			onOpenChange={(open) => open && setHasBeenOpened(true)}
-			onValueChange={onChange}
+			onValueChange={(v) => v !== null && onChange(v)}
 			value={value === "none" ? "" : value}
 		>
 			<SelectTrigger>
@@ -816,7 +816,10 @@ function CodeSelect({
 	return (
 		<Select
 			onValueChange={(value) => {
-				if (value !== (scheduledClient.code as string | null)) {
+				if (
+					value !== null &&
+					value !== (scheduledClient.code as string | null)
+				) {
 					const updates: SchedulingUpdateData = { code: value };
 					if (value === "90791") {
 						updates.office = "Virtual";
@@ -864,7 +867,10 @@ function LocationSelect({
 	return (
 		<Select
 			onValueChange={(value) => {
-				if (value !== (scheduledClient.office as string | null)) {
+				if (
+					value !== null &&
+					value !== (scheduledClient.office as string | null)
+				) {
 					onUpdate?.(scheduledClient.clientId, { office: value });
 				}
 			}}
@@ -1970,20 +1976,22 @@ function InternalSchedulingTable({
 						value={searchTerm}
 					/>
 					<Drawer>
-						<DrawerTrigger asChild>
-							<Button
-								className="relative shrink-0"
-								size="icon"
-								variant="outline"
-							>
-								<Filter className="h-4 w-4" />
-								{activeFilterCount > 0 && (
-									<span className="absolute -top-1 -right-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] text-primary-foreground leading-none">
-										{activeFilterCount}
-									</span>
-								)}
-							</Button>
-						</DrawerTrigger>
+						<DrawerTrigger
+							render={
+								<Button
+									className="relative shrink-0"
+									size="icon"
+									variant="outline"
+								>
+									<Filter className="h-4 w-4" />
+									{activeFilterCount > 0 && (
+										<span className="absolute -top-1 -right-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] text-primary-foreground leading-none">
+											{activeFilterCount}
+										</span>
+									)}
+								</Button>
+							}
+						/>
 						<DrawerContent>
 							<DrawerHeader>
 								<DrawerTitle>Filters</DrawerTitle>

@@ -78,7 +78,7 @@ function ClientNameCell({ name, hash }: { name: string; hash: string }) {
 	return (
 		<TooltipProvider>
 			<Tooltip>
-				<TooltipTrigger asChild>{link}</TooltipTrigger>
+				<TooltipTrigger render={link} />
 				<TooltipContent>{name}</TooltipContent>
 			</Tooltip>
 		</TooltipProvider>
@@ -294,9 +294,7 @@ export function EvaluatorDashboardTable({
 							<TableHead>Last Task</TableHead>
 							<TooltipProvider>
 								<Tooltip>
-									<TooltipTrigger asChild>
-										<TableHead>Due Date</TableHead>
-									</TooltipTrigger>
+									<TooltipTrigger render={<TableHead>Due Date</TableHead>} />
 									<TooltipContent>
 										{config.data?.dueDateWeeks} weeks from appointment date or
 										last task date if it exists, overrideable

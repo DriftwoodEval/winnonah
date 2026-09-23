@@ -64,13 +64,17 @@ export function HomeCustomizer({ widgets, onChange }: HomeCustomizerProps) {
 	return (
 		<Popover>
 			<Tooltip>
-				<TooltipTrigger asChild>
-					<PopoverTrigger asChild>
-						<Button size="icon" variant="outline">
-							<Settings className="h-4 w-4" />
-						</Button>
-					</PopoverTrigger>
-				</TooltipTrigger>
+				<TooltipTrigger
+					render={
+						<PopoverTrigger
+							render={
+								<Button size="icon" variant="outline">
+									<Settings className="h-4 w-4" />
+								</Button>
+							}
+						/>
+					}
+				/>
 				<TooltipContent>
 					<p>Customize Home Page</p>
 				</TooltipContent>

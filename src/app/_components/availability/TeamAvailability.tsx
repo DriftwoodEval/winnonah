@@ -43,7 +43,10 @@ function PersonView() {
 
 	return (
 		<div className="flex flex-col gap-4">
-			<Select onValueChange={handleEmailChange} value={selectedEmail}>
+			<Select
+				onValueChange={(v) => v !== null && handleEmailChange(v)}
+				value={selectedEmail}
+			>
 				<SelectTrigger className="w-[280px]">
 					<SelectValue placeholder="Select a person" />
 				</SelectTrigger>

@@ -1,15 +1,17 @@
 "use client"
 
 import * as React from "react"
-
 import { cn } from "~/lib/utils"
 
-const Table = React.forwardRef<
-  HTMLDivElement,
-  React.ComponentProps<"table"> & {
-    classNameWrapper?: React.ComponentProps<"div">["className"];
-  }
->(({ className, classNameWrapper, ...props }, ref) => {
+function Table({
+  className,
+  classNameWrapper,
+  ref,
+  ...props
+}: Omit<React.ComponentProps<"table">, "ref"> & {
+  classNameWrapper?: React.ComponentProps<"div">["className"]
+  ref?: React.Ref<HTMLDivElement>
+}) {
   return (
     <div
       data-slot="table-container"
@@ -17,7 +19,7 @@ const Table = React.forwardRef<
       className={cn(
         "relative w-full overflow-x-auto",
         "overflow-y-auto",
-        classNameWrapper && classNameWrapper,
+        classNameWrapper
       )}
     >
       <table
@@ -26,9 +28,8 @@ const Table = React.forwardRef<
         {...props}
       />
     </div>
-  );
-});
-Table.displayName = "Table";
+  )
+}
 
 function TableHeader({ className, ...props }: React.ComponentProps<"thead">) {
   return (
@@ -63,7 +64,7 @@ function TableFooter({ className, ...props }: React.ComponentProps<"tfoot">) {
   )
 }
 
-function TableRow({ className, ...props }: React.ComponentPropsWithRef<"tr">) {
+function TableRow({ className, ...props }: React.ComponentProps<"tr">) {
   return (
     <tr
       data-slot="table-row"

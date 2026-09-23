@@ -129,20 +129,20 @@ function NavigationCategory({
 	return (
 		<DropdownMenu modal={false} onOpenChange={setOpen} open={open}>
 			<DropdownMenuTrigger
-				asChild
 				onMouseEnter={openNow}
 				onMouseLeave={closeSoon}
-			>
-				<Button
-					aria-label={label}
-					className={`cursor-pointer gap-1.5 px-2 ${isCategoryActive ? "text-secondary" : ""}`}
-					variant="ghost"
-				>
-					<Icon className="h-4 w-4 shrink-0" />
-					<span className="hidden xl:inline">{label}</span>
-					<ChevronDown className="h-3 w-3 shrink-0 opacity-60" />
-				</Button>
-			</DropdownMenuTrigger>
+				render={
+					<Button
+						aria-label={label}
+						className={`cursor-pointer gap-1.5 px-2 ${isCategoryActive ? "text-secondary" : ""}`}
+						variant="ghost"
+					>
+						<Icon className="h-4 w-4 shrink-0" />
+						<span className="hidden xl:inline">{label}</span>
+						<ChevronDown className="h-3 w-3 shrink-0 opacity-60" />
+					</Button>
+				}
+			/>
 			<DropdownMenuContent
 				align="start"
 				className="w-auto min-w-40"
@@ -150,17 +150,21 @@ function NavigationCategory({
 				onMouseLeave={closeSoon}
 			>
 				{visibleItems.map((item) => (
-					<DropdownMenuItem asChild className="cursor-pointer" key={item.href}>
-						<Link
-							className={
-								isNavItemActive(item.href, pathname) ? "text-secondary" : ""
-							}
-							href={item.href}
-						>
-							<item.icon className="h-4 w-4" />
-							{item.label}
-						</Link>
-					</DropdownMenuItem>
+					<DropdownMenuItem
+						className="cursor-pointer"
+						key={item.href}
+						render={
+							<Link
+								className={
+									isNavItemActive(item.href, pathname) ? "text-secondary" : ""
+								}
+								href={item.href}
+							>
+								<item.icon className="h-4 w-4" />
+								{item.label}
+							</Link>
+						}
+					/>
 				))}
 			</DropdownMenuContent>
 		</DropdownMenu>
@@ -370,30 +374,36 @@ export default function NavigationLinks() {
 
 			{/* Mobile Navigation */}
 			<div className="md:hidden">
-				<Drawer direction="left">
-					<DrawerTrigger asChild>
-						<Button size="icon" variant="ghost">
-							<Menu className="h-5 w-5" />
-							<span className="sr-only">Toggle navigation</span>
-						</Button>
-					</DrawerTrigger>
+				<Drawer swipeDirection="left">
+					<DrawerTrigger
+						render={
+							<Button size="icon" variant="ghost">
+								<Menu className="h-5 w-5" />
+								<span className="sr-only">Toggle navigation</span>
+							</Button>
+						}
+					/>
 					<DrawerContent>
 						<DrawerHeader className="text-left"></DrawerHeader>
 						<div className="flex flex-col gap-4 p-4">
 							{allItems.map((item) => (
-								<DrawerClose asChild key={item.href}>
-									<Link
-										className={`flex items-center gap-2 ${
-											isNavItemActive(item.href, pathname)
-												? "text-secondary"
-												: ""
-										}`}
-										href={item.href}
-									>
-										<item.icon className="h-4 w-4" />
-										{item.label}
-									</Link>
-								</DrawerClose>
+								<DrawerClose
+									key={item.href}
+									nativeButton={false}
+									render={
+										<Link
+											className={`flex items-center gap-2 ${
+												isNavItemActive(item.href, pathname)
+													? "text-secondary"
+													: ""
+											}`}
+											href={item.href}
+										>
+											<item.icon className="h-4 w-4" />
+											{item.label}
+										</Link>
+									}
+								/>
 							))}
 						</div>
 					</DrawerContent>

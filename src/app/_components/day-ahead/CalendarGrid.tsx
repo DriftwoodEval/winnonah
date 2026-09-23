@@ -244,19 +244,21 @@ function CheckinIndicator({ appt }: { appt: CalAppt }) {
 
 	return (
 		<Popover>
-			<PopoverTrigger asChild>
-				<button
-					aria-label="Check-in status"
-					className={cn(
-						"absolute right-0.5 bottom-0.5 flex h-5 w-5 items-center justify-center rounded-full shadow-sm ring-1 transition-colors hover:scale-110",
-						className,
-					)}
-					onClick={(e) => e.stopPropagation()}
-					type="button"
-				>
-					<Icon className="h-3.5 w-3.5" strokeWidth={2.5} />
-				</button>
-			</PopoverTrigger>
+			<PopoverTrigger
+				render={
+					<button
+						aria-label="Check-in status"
+						className={cn(
+							"absolute right-0.5 bottom-0.5 flex h-5 w-5 items-center justify-center rounded-full shadow-sm ring-1 transition-colors hover:scale-110",
+							className,
+						)}
+						onClick={(e) => e.stopPropagation()}
+						type="button"
+					>
+						<Icon className="h-3.5 w-3.5" strokeWidth={2.5} />
+					</button>
+				}
+			/>
 			<PopoverContent
 				align="end"
 				className="w-auto"
@@ -335,70 +337,72 @@ export function ApptBlock({
 			}}
 			open={tooltipOpen && !messagesOpen}
 		>
-			<TooltipTrigger asChild>
-				<div
-					className={`absolute overflow-hidden rounded-sm border border-l-2 py-0.5 pr-4 pl-1.5 shadow-sm ${colorClass}`}
-					style={style}
-				>
-					<Link
-						className="block truncate font-medium text-xs leading-tight hover:underline"
-						href={`/clients/${appt.clientHash}`}
+			<TooltipTrigger
+				render={
+					<div
+						className={`absolute overflow-hidden rounded-sm border border-l-2 py-0.5 pr-4 pl-1.5 shadow-sm ${colorClass}`}
+						style={style}
 					>
-						<Redact>{appt.clientName}</Redact>
-					</Link>
-					{showEvaluatorLine && (
-						<div className="truncate text-[10px] text-muted-foreground leading-tight">
-							<Redact>{appt.evaluatorName}</Redact>
-						</div>
-					)}
-					<div className="truncate text-[10px] text-muted-foreground tabular-nums leading-tight">
-						{formatTime(appt.startTime)}–{formatTime(appt.endTime)}
-					</div>
-					{showBadges && (
-						<div className="mt-0.5 flex flex-wrap items-center gap-0.5 overflow-hidden">
-							{appt.confirmedAt && (
-								<Badge className="h-3.5 shrink-0 px-1 text-[9px] uppercase">
-									{isShort ? "C" : "Confirmed"}
-								</Badge>
-							)}
-							<Badge
-								className="h-3.5 shrink-0 px-1 text-[9px]"
-								variant="outline"
-							>
-								{badgeLocation}
-							</Badge>
-							{appt.asdAdhd && (
-								<Badge
-									className="h-3.5 shrink-0 px-1 text-[9px]"
-									variant="outline"
-								>
-									{appt.asdAdhd}
-								</Badge>
-							)}
-							{appt.daEval && (
-								<Badge
-									className="h-3.5 shrink-0 px-1 text-[9px]"
-									variant="outline"
-								>
-									{appt.daEval}
-								</Badge>
-							)}
-						</div>
-					)}
-					<ApptMessagesPopover
-						appt={appt}
-						className="absolute top-0.5 right-0.5"
-						messages={messages}
-						messagesLoading={messagesLoading}
-						onOpenChange={setMessagesOpen}
-					/>
-					{canCheckin &&
-						!isVirtualAppointment(appt.locationKey) &&
-						checkinDateGate(apptDateKey(appt.startTime)) && (
-							<CheckinIndicator appt={appt} />
+						<Link
+							className="block truncate font-medium text-xs leading-tight hover:underline"
+							href={`/clients/${appt.clientHash}`}
+						>
+							<Redact>{appt.clientName}</Redact>
+						</Link>
+						{showEvaluatorLine && (
+							<div className="truncate text-[10px] text-muted-foreground leading-tight">
+								<Redact>{appt.evaluatorName}</Redact>
+							</div>
 						)}
-				</div>
-			</TooltipTrigger>
+						<div className="truncate text-[10px] text-muted-foreground tabular-nums leading-tight">
+							{formatTime(appt.startTime)}–{formatTime(appt.endTime)}
+						</div>
+						{showBadges && (
+							<div className="mt-0.5 flex flex-wrap items-center gap-0.5 overflow-hidden">
+								{appt.confirmedAt && (
+									<Badge className="h-3.5 shrink-0 px-1 text-[9px] uppercase">
+										{isShort ? "C" : "Confirmed"}
+									</Badge>
+								)}
+								<Badge
+									className="h-3.5 shrink-0 px-1 text-[9px]"
+									variant="outline"
+								>
+									{badgeLocation}
+								</Badge>
+								{appt.asdAdhd && (
+									<Badge
+										className="h-3.5 shrink-0 px-1 text-[9px]"
+										variant="outline"
+									>
+										{appt.asdAdhd}
+									</Badge>
+								)}
+								{appt.daEval && (
+									<Badge
+										className="h-3.5 shrink-0 px-1 text-[9px]"
+										variant="outline"
+									>
+										{appt.daEval}
+									</Badge>
+								)}
+							</div>
+						)}
+						<ApptMessagesPopover
+							appt={appt}
+							className="absolute top-0.5 right-0.5"
+							messages={messages}
+							messagesLoading={messagesLoading}
+							onOpenChange={setMessagesOpen}
+						/>
+						{canCheckin &&
+							!isVirtualAppointment(appt.locationKey) &&
+							checkinDateGate(apptDateKey(appt.startTime)) && (
+								<CheckinIndicator appt={appt} />
+							)}
+					</div>
+				}
+			/>
 			<TooltipContent
 				className="flex-col items-start gap-0.5 text-left"
 				side={tooltipSide}

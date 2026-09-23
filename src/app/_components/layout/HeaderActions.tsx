@@ -51,12 +51,14 @@ export function HeaderActions() {
 
 			{session && !isHidden("recent-clients") && !!recentClients?.length && (
 				<Popover>
-					<PopoverTrigger asChild>
-						<Button size="icon" variant="ghost">
-							<Clock className="h-4 w-4" />
-							<span className="sr-only">Recent clients</span>
-						</Button>
-					</PopoverTrigger>
+					<PopoverTrigger
+						render={
+							<Button size="icon" variant="ghost">
+								<Clock className="h-4 w-4" />
+								<span className="sr-only">Recent clients</span>
+							</Button>
+						}
+					/>
 					<PopoverContent align="end" className="w-64 p-2">
 						<p className="mb-2 px-1 font-medium text-muted-foreground text-xs uppercase tracking-wide">
 							Recent Clients
@@ -100,25 +102,34 @@ export function HeaderActions() {
 
 			{session && (
 				<Popover
-					onOpenChange={(open) => {
+					onOpenChange={(open, eventDetails) => {
+						// Hovering a nav dropdown to preview a change auto-focuses
+						// that menu, which would otherwise be treated as a dismiss.
+						if (!open && eventDetails.reason === "focus-out") {
+							eventDetails.cancel();
+							return;
+						}
 						setAvatarOpen(open);
 						if (!open) setAvatarView("menu");
 					}}
 					open={avatarOpen}
 				>
-					<PopoverTrigger asChild>
-						<Avatar className="cursor-pointer shadow-xs">
-							<AvatarImage src={session.user?.image ?? ""} />
-							<AvatarFallback>
-								{session?.user?.name
-									? session.user.name
-											.split(" ")
-											.map((n) => (n ?? "")[0]?.toUpperCase())
-											.join("")
-									: ""}
-							</AvatarFallback>
-						</Avatar>
-					</PopoverTrigger>
+					<PopoverTrigger
+						nativeButton={false}
+						render={
+							<Avatar className="cursor-pointer shadow-xs">
+								<AvatarImage src={session.user?.image ?? ""} />
+								<AvatarFallback>
+									{session?.user?.name
+										? session.user.name
+												.split(" ")
+												.map((n) => (n ?? "")[0]?.toUpperCase())
+												.join("")
+										: ""}
+								</AvatarFallback>
+							</Avatar>
+						}
+					/>
 					{avatarView === "menu" ? (
 						<PopoverContent align="end" className="w-56 gap-1 p-1">
 							<Link
@@ -175,11 +186,6 @@ export function HeaderActions() {
 						<PopoverContent
 							align="end"
 							className="flex max-h-[75vh] w-[26rem] max-w-[92vw] flex-col gap-3 overflow-y-auto md:max-h-[90vh]"
-							onFocusOutside={(event) => {
-								// Hovering a nav dropdown to preview a change auto-focuses
-								// that menu, which would otherwise be treated as a dismiss.
-								event.preventDefault();
-							}}
 						>
 							<button
 								className="flex items-center gap-1 text-muted-foreground text-xs hover:text-foreground"

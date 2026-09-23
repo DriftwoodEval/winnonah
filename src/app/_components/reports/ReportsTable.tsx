@@ -387,11 +387,13 @@ export function ReportsTable({
 						</Button>
 					)}
 					<DropdownMenu>
-						<DropdownMenuTrigger asChild>
-							<Button size="sm" variant="outline">
-								Saved filters <ChevronDown className="ml-1 h-3.5 w-3.5" />
-							</Button>
-						</DropdownMenuTrigger>
+						<DropdownMenuTrigger
+							render={
+								<Button size="sm" variant="outline">
+									Saved filters <ChevronDown className="ml-1 h-3.5 w-3.5" />
+								</Button>
+							}
+						/>
 						<DropdownMenuContent align="end" className="w-64">
 							{views.length === 0 && (
 								<div className="p-2 text-muted-foreground text-sm">
@@ -467,11 +469,13 @@ export function ReportsTable({
 								Approve
 							</Button>
 							<DropdownMenu>
-								<DropdownMenuTrigger asChild>
-									<Button size="sm" variant="outline">
-										Set checkbox <ChevronDown className="ml-1 h-3.5 w-3.5" />
-									</Button>
-								</DropdownMenuTrigger>
+								<DropdownMenuTrigger
+									render={
+										<Button size="sm" variant="outline">
+											Set checkbox <ChevronDown className="ml-1 h-3.5 w-3.5" />
+										</Button>
+									}
+								/>
 								<DropdownMenuContent align="start" className="w-[26rem] p-2">
 									{bulkCheckboxFields.map((f) => (
 										<div

@@ -311,7 +311,7 @@ export default function CostCalculator() {
 								<TableCell>
 									<Select
 										onValueChange={(val) =>
-											handleCostItemChange(item.id, "name", val)
+											val !== null && handleCostItemChange(item.id, "name", val)
 										}
 										value={item.name}
 									>

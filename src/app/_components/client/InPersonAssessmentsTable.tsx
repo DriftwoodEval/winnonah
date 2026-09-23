@@ -80,11 +80,13 @@ function AssessmentActionsMenu({ assessment }: { assessment: Assessment }) {
 	return (
 		<>
 			<DropdownMenu>
-				<DropdownMenuTrigger asChild>
-					<Button className="h-8 w-8 p-0" variant="ghost">
-						<MoreHorizontal className="h-4 w-4" />
-					</Button>
-				</DropdownMenuTrigger>
+				<DropdownMenuTrigger
+					render={
+						<Button className="h-8 w-8 p-0" variant="ghost">
+							<MoreHorizontal className="h-4 w-4" />
+						</Button>
+					}
+				/>
 				<DropdownMenuContent align="start">
 					{assessment.status !== "EXTERNAL" ? (
 						<DropdownMenuItem
@@ -162,17 +164,22 @@ function AddInPersonAssessmentButton({
 
 	return (
 		<Dialog onOpenChange={setIsOpen} open={isOpen}>
-			<DialogTrigger asChild>
-				<Button size="sm" variant="outline">
-					<Plus className="mr-1 h-4 w-4" /> Add
-				</Button>
-			</DialogTrigger>
+			<DialogTrigger
+				render={
+					<Button size="sm" variant="outline">
+						<Plus className="mr-1 h-4 w-4" /> Add
+					</Button>
+				}
+			/>
 			<DialogContent className="sm:max-w-[360px]">
 				<DialogHeader>
 					<DialogTitle>Add In-Person Assessment</DialogTitle>
 				</DialogHeader>
 				<div className="space-y-4 pt-2">
-					<Select onValueChange={setSelected} value={selected}>
+					<Select
+						onValueChange={(v) => v !== null && setSelected(v)}
+						value={selected}
+					>
 						<SelectTrigger>
 							<SelectValue placeholder="Select assessment..." />
 						</SelectTrigger>

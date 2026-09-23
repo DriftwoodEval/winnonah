@@ -146,7 +146,7 @@ export function PermissionsField({
 				<span className="font-bold text-lg">Permissions</span>
 			</div>
 
-			<Accordion className="rounded-md border" type="multiple">
+			<Accordion className="rounded-md border" multiple>
 				{Object.entries(PERMISSIONS).map(([categoryKey, category]) => (
 					<AccordionItem key={categoryKey} value={categoryKey}>
 						<AccordionTrigger className="px-4 font-semibold text-base hover:no-underline">
@@ -165,9 +165,10 @@ export function PermissionsField({
 											<div key={subgroupKey}>
 												<div className="mb-3 flex items-center space-x-2">
 													<Checkbox
-														checked={groupState}
+														checked={groupState === true}
 														disabled={disabled}
 														id={`${categoryKey}-${subgroupKey}`}
+														indeterminate={groupState === "indeterminate"}
 														onCheckedChange={() =>
 															toggleGroup(groupId, subgroup.permissions)
 														}
@@ -221,18 +222,20 @@ export function PermissionsField({
 																		{locked ? (
 																			<TooltipProvider>
 																				<Tooltip>
-																					<TooltipTrigger asChild>
-																						<span className="cursor-not-allowed">
-																							<Checkbox
-																								checked={hasPermission(
-																									effective,
-																									pid,
-																								)}
-																								disabled
-																								id={p.id}
-																							/>
-																						</span>
-																					</TooltipTrigger>
+																					<TooltipTrigger
+																						render={
+																							<span className="cursor-not-allowed">
+																								<Checkbox
+																									checked={hasPermission(
+																										effective,
+																										pid,
+																									)}
+																									disabled
+																									id={p.id}
+																								/>
+																							</span>
+																						}
+																					/>
 																					<TooltipContent>
 																						You can't remove your own
 																						user-management permission

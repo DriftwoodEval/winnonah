@@ -27,11 +27,11 @@ interface ResponsiveDialogProps {
 	setOpen?: (open: boolean) => void;
 	title: ReactNode;
 	description?: string;
-	trigger?: React.ReactNode;
+	trigger?: React.ReactElement;
 	footer?: React.ReactNode;
 	className?: string;
 	showCloseButton?: boolean;
-	onOpenAutoFocus?: (event: Event) => void;
+	initialFocus?: boolean | React.RefObject<HTMLElement | null>;
 }
 
 export function ResponsiveDialog({
@@ -44,7 +44,7 @@ export function ResponsiveDialog({
 	footer,
 	className,
 	showCloseButton,
-	onOpenAutoFocus,
+	initialFocus,
 }: ResponsiveDialogProps) {
 	const [internalOpen, setInternalOpen] = useState(false);
 	const isDesktop = useMediaQuery("(min-width: 768px)");
@@ -55,13 +55,13 @@ export function ResponsiveDialog({
 	if (isDesktop) {
 		return (
 			<Dialog onOpenChange={setOpen} open={open}>
-				{trigger && <DialogTrigger asChild>{trigger}</DialogTrigger>}
+				{trigger && <DialogTrigger nativeButton={false} render={trigger} />}
 				<DialogContent
 					className={cn(
 						"max-h-[calc(100vh-4rem)] max-w-[min(fit-content,calc(100%-2rem))] overflow-x-hidden overflow-y-scroll",
 						className,
 					)}
-					onOpenAutoFocus={onOpenAutoFocus}
+					initialFocus={initialFocus}
 				>
 					<DialogHeader>
 						<DialogTitle>{title}</DialogTitle>
@@ -78,8 +78,8 @@ export function ResponsiveDialog({
 
 	return (
 		<Drawer onOpenChange={setOpen} open={open}>
-			{trigger && <DrawerTrigger asChild>{trigger}</DrawerTrigger>}
-			<DrawerContent onOpenAutoFocus={onOpenAutoFocus}>
+			{trigger && <DrawerTrigger nativeButton={false} render={trigger} />}
+			<DrawerContent initialFocus={initialFocus}>
 				<DrawerHeader className="text-left">
 					<DrawerTitle>{title}</DrawerTitle>
 					{description && <DrawerDescription>{description}</DrawerDescription>}
@@ -88,9 +88,7 @@ export function ResponsiveDialog({
 				<DrawerFooter className="pt-2">
 					{footer}
 					{showCloseButton && (
-						<DrawerClose asChild>
-							<Button variant="outline">Cancel</Button>
-						</DrawerClose>
+						<DrawerClose render={<Button variant="outline">Cancel</Button>} />
 					)}
 				</DrawerFooter>
 			</DrawerContent>

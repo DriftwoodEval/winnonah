@@ -242,6 +242,7 @@ export function AdminReviewSection({ client }: AdminReviewSectionProps) {
 									setClaimMutation.isPending || reviewableUsers.length === 0
 								}
 								onValueChange={(email) =>
+									email !== null &&
 									setClaimMutation.mutate({
 										clientId: client.id,
 										userEmail: email,

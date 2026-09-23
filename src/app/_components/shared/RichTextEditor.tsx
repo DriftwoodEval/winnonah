@@ -3,7 +3,12 @@
 import Image from "@tiptap/extension-image";
 import Placeholder from "@tiptap/extension-placeholder";
 import type { Editor } from "@tiptap/react";
-import { EditorContent, type JSONContent, useEditor } from "@tiptap/react";
+import {
+	EditorContent,
+	type JSONContent,
+	useEditor,
+	useEditorState,
+} from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import { ToggleGroup, ToggleGroupItem } from "@ui/toggle-group";
 import {
@@ -154,6 +159,26 @@ export function RichTextEditor({
 		editorRef.current = editor;
 	}, [editor]);
 
+	// tiptap v3's useEditor doesn't re-render on every transaction by default
+	// (perf), so the toolbar's active-mark highlighting needs its own
+	// subscription to re-render on cursor movement, not just on click.
+	const activeMarks = useEditorState({
+		editor,
+		selector: ({ editor: e }) => ({
+			bold: e?.isActive("bold") ?? false,
+			strike: e?.isActive("strike") ?? false,
+			italic: e?.isActive("italic") ?? false,
+			underline: e?.isActive("underline") ?? false,
+			link: e?.isActive("link") ?? false,
+		}),
+	}) ?? {
+		bold: false,
+		strike: false,
+		italic: false,
+		underline: false,
+		link: false,
+	};
+
 	useEffect(() => {
 		if (!editor || value === undefined || editor.isFocused) return;
 
@@ -194,10 +219,24 @@ export function RichTextEditor({
 			)}
 			{!readonly && formatBar && (
 				<div className="mb-3 flex flex-wrap items-center gap-2">
-					<ToggleGroup size="sm" spacing={0} type="multiple" variant="outline">
+					<ToggleGroup
+						multiple
+						onValueChange={() => {
+							// Each item's own onClick drives the actual editor command;
+							// `value` below is the sole source of truth for pressed state.
+						}}
+						size="sm"
+						spacing={0}
+						value={[
+							activeMarks.bold && "bold",
+							activeMarks.strike && "strike",
+							activeMarks.italic && "italic",
+							activeMarks.underline && "underline",
+						].filter((v): v is string => !!v)}
+						variant="outline"
+					>
 						<ToggleGroupItem
 							aria-label="Toggle bold"
-							data-state={editor.isActive("bold") ? "on" : "off"}
 							disabled={!editor.can().chain().focus().toggleBold().run()}
 							onClick={() => editor.chain().focus().toggleBold().run()}
 							value="bold"
@@ -206,7 +245,6 @@ export function RichTextEditor({
 						</ToggleGroupItem>
 						<ToggleGroupItem
 							aria-label="Toggle strikethrough"
-							data-state={editor.isActive("strike") ? "on" : "off"}
 							disabled={!editor.can().chain().focus().toggleStrike().run()}
 							onClick={() => editor.chain().focus().toggleStrike().run()}
 							value="strike"
@@ -215,7 +253,6 @@ export function RichTextEditor({
 						</ToggleGroupItem>
 						<ToggleGroupItem
 							aria-label="Toggle italic"
-							data-state={editor.isActive("italic") ? "on" : "off"}
 							disabled={!editor.can().chain().focus().toggleItalic().run()}
 							onClick={() => editor.chain().focus().toggleItalic().run()}
 							value="italic"
@@ -224,7 +261,6 @@ export function RichTextEditor({
 						</ToggleGroupItem>
 						<ToggleGroupItem
 							aria-label="Toggle underline"
-							data-state={editor.isActive("underline") ? "on" : "off"}
 							disabled={!editor.can().chain().focus().toggleUnderline().run()}
 							onClick={() => editor.chain().focus().toggleUnderline().run()}
 							value="underline"
@@ -234,7 +270,6 @@ export function RichTextEditor({
 
 						<ToggleGroupItem
 							aria-label="Clear formatting"
-							data-state="off"
 							disabled={
 								!editor.can().chain().focus().clearNodes().unsetAllMarks().run()
 							}
@@ -247,10 +282,15 @@ export function RichTextEditor({
 						</ToggleGroupItem>
 					</ToggleGroup>
 
-					<ToggleGroup size="sm" spacing={0} type="single" variant="outline">
+					<ToggleGroup
+						onValueChange={() => {}}
+						size="sm"
+						spacing={0}
+						value={activeMarks.link ? ["link"] : []}
+						variant="outline"
+					>
 						<ToggleGroupItem
 							aria-label="Add link"
-							data-state={editor.isActive("link") ? "on" : "off"}
 							disabled={
 								!editor
 									.can()
@@ -293,10 +333,15 @@ export function RichTextEditor({
 						</ToggleGroupItem>
 					</ToggleGroup>
 
-					<ToggleGroup size="sm" spacing={0} type="single" variant="outline">
+					<ToggleGroup
+						onValueChange={() => {}}
+						size="sm"
+						spacing={0}
+						value={[]}
+						variant="outline"
+					>
 						<ToggleGroupItem
 							aria-label="Insert separator"
-							data-state="off"
 							disabled={!editor.can().chain().focus().setHorizontalRule().run()}
 							onClick={() => editor.chain().focus().setHorizontalRule().run()}
 							value="horizontalRule"
@@ -306,10 +351,15 @@ export function RichTextEditor({
 					</ToggleGroup>
 
 					{allowImages && (
-						<ToggleGroup size="sm" spacing={0} type="single" variant="outline">
+						<ToggleGroup
+							onValueChange={() => {}}
+							size="sm"
+							spacing={0}
+							value={[]}
+							variant="outline"
+						>
 							<ToggleGroupItem
 								aria-label="Insert image"
-								data-state="off"
 								onClick={() => imageInputRef.current?.click()}
 								value="image"
 							>
@@ -318,7 +368,13 @@ export function RichTextEditor({
 						</ToggleGroup>
 					)}
 
-					<ToggleGroup size="sm" spacing={0} type="single" variant="outline">
+					<ToggleGroup
+						onValueChange={() => {}}
+						size="sm"
+						spacing={0}
+						value={[]}
+						variant="outline"
+					>
 						<ToggleGroupItem
 							aria-label="Undo"
 							disabled={!editor.can().chain().focus().undo().run()}
