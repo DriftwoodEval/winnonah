@@ -1,0 +1,15 @@
+{
+	"$schema": "https://unpkg.com/knip@6/schema.json",
+	"entry": [
+		"scripts/*.ts",
+		"src/lib/remark-docs-*.js",
+		"src/content/docs/**/*.mdx",
+		"worker/index.js"
+	],
+	"ignoreFiles": ["commitlint.config.js"],
+	"ignoreDependencies": ["pino-pretty"],
+	"ignoreExportsUsedInFile": true,
+	"ignoreIssues": {
+		"src/app/_components/ui/**": ["exports", "types"]
+	}
+}
