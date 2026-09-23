@@ -192,18 +192,20 @@ export function EvaluatorForm({
 		{ enabled: canManageDashboard && isDashboardEvaluator },
 	);
 	const [dueDateWeeks, setDueDateWeeks] = useState(4);
-	const [dueDateDirty, setDueDateDirty] = useState(false);
+	const [showMarkComplete, setShowMarkComplete] = useState(true);
+	const [dashboardConfigDirty, setDashboardConfigDirty] = useState(false);
 	useEffect(() => {
 		if (dashboardConfig) {
 			setDueDateWeeks(dashboardConfig.dueDateWeeks);
-			setDueDateDirty(false);
+			setShowMarkComplete(dashboardConfig.showMarkComplete);
+			setDashboardConfigDirty(false);
 		}
 	}, [dashboardConfig]);
 	const setConfig = api.evaluatorDashboard.setConfig.useMutation({
 		onSuccess: () => {
 			toast.success("Dashboard settings saved.");
 			void utils.evaluatorDashboard.getConfig.invalidate();
-			setDueDateDirty(false);
+			setDashboardConfigDirty(false);
 		},
 		onError: (err) =>
 			toast.error("Failed to save settings", { description: err.message }),
@@ -921,7 +923,7 @@ export function EvaluatorForm({
 							</div>
 
 							{isDashboardEvaluator && (
-								<div className="flex items-center gap-3 border-t pt-3">
+								<div className="flex flex-wrap items-center gap-3 border-t pt-3">
 									<Label
 										className="whitespace-nowrap text-sm"
 										htmlFor={`due-weeks-${initialData.npi}`}
@@ -937,7 +939,7 @@ export function EvaluatorForm({
 											const n = Number.parseInt(e.target.value, 10);
 											if (!Number.isNaN(n) && n >= 0 && n <= 52) {
 												setDueDateWeeks(n);
-												setDueDateDirty(true);
+												setDashboardConfigDirty(true);
 											}
 										}}
 										type="number"
@@ -946,15 +948,27 @@ export function EvaluatorForm({
 									<span className="text-muted-foreground text-xs">
 										weeks after appointment (or last task date)
 									</span>
+									<div className="flex items-center gap-2">
+										<Switch
+											checked={showMarkComplete}
+											id={`show-mark-complete-${initialData.npi}`}
+											onCheckedChange={(checked) => {
+												setShowMarkComplete(checked);
+												setDashboardConfigDirty(true);
+											}}
+										/>
+										<Label
+											className="font-normal text-sm"
+											htmlFor={`show-mark-complete-${initialData.npi}`}
+										>
+											Show "Mark Complete" button
+										</Label>
+									</div>
 									<Button
 										className="ml-auto"
-										disabled={!dueDateDirty || setConfig.isPending}
+										disabled={!dashboardConfigDirty || setConfig.isPending}
 										onClick={() =>
-											setConfig.mutate({
-												dueDateWeeks,
-												showMarkComplete:
-													dashboardConfig?.showMarkComplete ?? true,
-											})
+											setConfig.mutate({ dueDateWeeks, showMarkComplete })
 										}
 										size="sm"
 										type="button"
