@@ -125,7 +125,6 @@ type MedicaidEligibility = {
 	paymentCategory: string | null;
 	medicaidOrganization: string | null;
 	organizationInsurance: string | null;
-	organizationMismatch: boolean;
 	medicaidCarrier1: string | null;
 	medicaidCarrier2: string | null;
 };
@@ -361,15 +360,6 @@ function PolicyCard({
 								value={medicaidEligibility.medicaidCarrier2}
 							/>
 						</div>
-						{medicaidEligibility.organizationMismatch && (
-							<Badge
-								className="mt-2 border-warning/40 text-warning"
-								variant="outline"
-							>
-								Organization doesn't match this client's primary or secondary
-								insurance
-							</Badge>
-						)}
 					</>
 				)}
 			</CardContent>
@@ -396,7 +386,6 @@ export function InsuranceTab({ client }: InsuranceTabProps) {
 				paymentCategory: client.paymentCategory ?? null,
 				medicaidOrganization: client.medicaidOrganization ?? null,
 				organizationInsurance: data?.organizationInsurance ?? null,
-				organizationMismatch: data?.organizationMismatch ?? false,
 				medicaidCarrier1: client.medicaidCarrier1 ?? null,
 				medicaidCarrier2: client.medicaidCarrier2 ?? null,
 			}

@@ -92,6 +92,14 @@ export function Client({
 		{ enabled: !!client?.id },
 	);
 
+	const { data: insurancePolicies } = api.clients.getInsurancePolicies.useQuery(
+		client?.id ?? -1,
+		{ enabled: !!client?.medicaidPolicyId, refetchInterval: 60_000 },
+	);
+	const organizationMismatch =
+		!!client?.medicaidPolicyId &&
+		(insurancePolicies?.organizationMismatch ?? false);
+
 	const [selectedColor, setSelectedColor] = useState<ClientColor | null>(null);
 
 	const utils = api.useUtils();
@@ -331,6 +339,15 @@ export function Client({
 							slug="already-dx"
 							title="Already Diagnosed"
 							variant="warning"
+						/>
+
+						<PersistentStatusAlert
+							condition={organizationMismatch}
+							description="This client's Medicaid organization doesn't match their primary or secondary insurance on file. Check the Insurance tab."
+							icon={AlertTriangleIcon}
+							identifier={client.hash}
+							slug="insurance-org-mismatch"
+							title="Insurance Doesn't Match"
 						/>
 
 						<Tabs

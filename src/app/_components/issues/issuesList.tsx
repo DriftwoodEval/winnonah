@@ -1169,6 +1169,11 @@ export function IssuesList() {
 		refetchInterval: 60_000,
 		enabled: can("issues:private-school-confirm"),
 	});
+	const { data: insuranceMismatch, isLoading: isLoadingInsuranceMismatch } =
+		api.clients.getInsuranceMismatch.useQuery(undefined, {
+			refetchInterval: 60_000,
+			enabled: can("issues:insurance-mismatch"),
+		});
 	const { data: duplicateQLinks, isLoading: isLoadingDuplicateQLinks } =
 		api.questionnaires.getDuplicateLinks.useQuery(undefined, {
 			refetchInterval: 60_000,
@@ -1537,6 +1542,19 @@ export function IssuesList() {
 						clients={unconfirmedPrivateSchool}
 						description="Intake says private or charter school. Records requests wait until someone confirms it on the Referral tab."
 						title="Private School Awaiting Confirmation"
+					/>
+				)}
+			</GuardedIssue>
+
+			<GuardedIssue
+				isLoading={isLoadingInsuranceMismatch}
+				permission="issues:insurance-mismatch"
+			>
+				{insuranceMismatch && insuranceMismatch.length !== 0 && (
+					<IssueList
+						clients={insuranceMismatch}
+						description="Medicaid portal organization doesn't match either insurance on file."
+						title="Insurance Doesn't Match"
 					/>
 				)}
 			</GuardedIssue>

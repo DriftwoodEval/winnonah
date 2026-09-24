@@ -712,6 +712,8 @@ export const SECTION_ISSUE_DUPLICATE_QUESTIONNAIRES =
 	"Issue: Duplicate Questionnaires";
 export const SECTION_ISSUE_PARTIAL_BATTERY =
 	"Issue: Partial Questionnaire Battery";
+export const SECTION_ISSUE_INSURANCE_MISMATCH =
+	"Issue: Insurance Doesn't Match";
 
 export type IssueListClient = {
 	id: number;

@@ -313,6 +313,10 @@ export const PERMISSIONS = {
 						id: "issues:partial-battery",
 						title: "Partial Questionnaire Battery",
 					},
+					{
+						id: "issues:insurance-mismatch",
+						title: "Insurance Doesn't Match",
+					},
 				],
 			},
 		},

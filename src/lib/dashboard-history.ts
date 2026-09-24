@@ -8,6 +8,7 @@ import {
 	getClientIssueListSections,
 	getClientMatchedSections,
 	SECTION_ISSUE_DUPLICATE_QUESTIONNAIRES,
+	SECTION_ISSUE_INSURANCE_MISMATCH,
 	SECTION_ISSUE_MISSING_APPOINTMENTS,
 	SECTION_ISSUE_PARTIAL_BATTERY,
 	SECTION_ISSUE_PRIVATE_SCHOOL_CONFIRM,
@@ -16,6 +17,7 @@ import {
 import { getFullDashboardData } from "~/lib/dashboard-data";
 import {
 	getDuplicateQuestionnaireLinksData,
+	getInsuranceMismatchList,
 	getMissingAppointmentsList,
 	getPartialBatteriesList,
 	getUnconfirmedPrivateSchoolList,
@@ -95,6 +97,7 @@ export async function syncDashboardSectionHistory() {
 		missingAppointments,
 		duplicateQuestionnaireLinks,
 		partialBatteries,
+		insuranceMismatch,
 	] = await Promise.all([
 		getFullDashboardData({ db, redis, session }),
 		db
@@ -120,6 +123,7 @@ export async function syncDashboardSectionHistory() {
 		getMissingAppointmentsList(db),
 		getDuplicateQuestionnaireLinksData(db),
 		getPartialBatteriesList({ db, redis, session }),
+		getInsuranceMismatchList(db),
 	]);
 
 	const unreviewedRecordsIds = new Set(unreviewedRecords.map((c) => c.id));
@@ -136,6 +140,7 @@ export async function syncDashboardSectionHistory() {
 		),
 	]);
 	const partialBatteryIds = new Set(partialBatteries.map((c) => c.id));
+	const insuranceMismatchIds = new Set(insuranceMismatch.map((c) => c.id));
 
 	// Punch rows with no matching DB client (getPunchData returns sheet-only
 	// data for those) have no `id`, so filter those out before inserting.
@@ -171,6 +176,7 @@ export async function syncDashboardSectionHistory() {
 		...missingAppointmentsIds,
 		...duplicateQuestionnaireIds,
 		...partialBatteryIds,
+		...insuranceMismatchIds,
 	]);
 
 	let updatedCount = 0;
@@ -197,6 +203,7 @@ export async function syncDashboardSectionHistory() {
 			duplicateQuestionnaireIds.has(clientId) &&
 				SECTION_ISSUE_DUPLICATE_QUESTIONNAIRES,
 			partialBatteryIds.has(clientId) && SECTION_ISSUE_PARTIAL_BATTERY,
+			insuranceMismatchIds.has(clientId) && SECTION_ISSUE_INSURANCE_MISMATCH,
 		].filter((s): s is string => typeof s === "string");
 		const sections = [
 			...matchedSections,

@@ -19,6 +19,7 @@ import { calculateAdditionalAppointments } from "~/lib/billing";
 import { fetchWithCache } from "~/lib/cache";
 import { CACHE_KEY_PUNCHLIST, getPunchData } from "~/lib/google";
 import type { ClientWithIssueInfo } from "~/lib/models";
+import { getInsuranceShortName, getInsuranceShortNamesList } from "~/lib/utils";
 import type { Context } from "~/server/api/trpc";
 import {
 	appointments,
@@ -253,6 +254,50 @@ export async function getMissingAppointmentsList(
 			...client,
 			additionalInfo: `(${actualCount} of ${expectedCount} appts)`,
 		});
+	}
+
+	return result;
+}
+
+/**
+ * Active clients whose Medicaid portal organization doesn't resolve to
+ * either of their insurances on file. Mirrors the mismatch check in
+ * getInsurancePolicies (client.ts), run fleet-wide instead of per-client.
+ */
+export async function getInsuranceMismatchList(
+	db: Context["db"],
+): Promise<ClientWithIssueInfo[]> {
+	const [activeClients, allInsurances] = await Promise.all([
+		db.query.clients.findMany({
+			where: and(
+				eq(clients.status, true),
+				isNotNull(clients.medicaidOrganization),
+				not(isNotesOnly),
+			),
+		}),
+		db.query.insurances.findMany({ with: { aliases: true } }),
+	]);
+
+	const result: ClientWithIssueInfo[] = [];
+	for (const client of activeClients) {
+		const organizationInsurance = getInsuranceShortName(
+			client.medicaidOrganization,
+			allInsurances,
+		);
+		const organizationMismatch =
+			!!organizationInsurance &&
+			!getInsuranceShortNamesList(
+				client.primaryInsurance,
+				client.secondaryInsurance,
+				allInsurances,
+			).includes(organizationInsurance);
+
+		if (organizationMismatch) {
+			result.push({
+				...client,
+				additionalInfo: `(Organization: ${organizationInsurance})`,
+			});
+		}
 	}
 
 	return result;

@@ -42,6 +42,7 @@ import {
 	updatePunchData,
 } from "~/lib/google";
 import {
+	getInsuranceMismatchList,
 	getMissingAppointmentsList,
 	getUnconfirmedPrivateSchoolList,
 	getUnreviewedRecordsList,
@@ -2095,6 +2096,12 @@ export const clientRouter = createTRPCRouter({
 		assertPermission(ctx.session.user, "issues:private-school-confirm");
 
 		return getUnconfirmedPrivateSchoolList(ctx.db);
+	}),
+
+	getInsuranceMismatch: protectedProcedure.query(async ({ ctx }) => {
+		assertPermission(ctx.session.user, "issues:insurance-mismatch");
+
+		return getInsuranceMismatchList(ctx.db);
 	}),
 
 	createNotesOnly: protectedProcedure

@@ -85,6 +85,11 @@ export function IssuesAlert() {
 			enabled: can("issues:private-school-confirm"),
 		});
 
+	const { data: insuranceMismatch } = api.clients.getInsuranceMismatch.useQuery(
+		undefined,
+		{ ...queryOptions, enabled: can("issues:insurance-mismatch") },
+	);
+
 	const { data: duplicateQLinks } =
 		api.questionnaires.getDuplicateLinks.useQuery(undefined, {
 			...queryOptions,
@@ -182,6 +187,7 @@ export function IssuesAlert() {
 			can("issues:private-school-confirm"),
 			unconfirmedPrivateSchool?.length ?? 0,
 		) +
+		countIf(can("issues:insurance-mismatch"), insuranceMismatch?.length ?? 0) +
 		countIf(
 			can("issues:duplicate-drive"),
 			duplicateFolderNames?.data.length ?? 0,
