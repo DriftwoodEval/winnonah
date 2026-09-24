@@ -64,7 +64,7 @@ const REFERRAL_FIELD_LABELS: Record<string, string> = {
 	asdAdhd: "This is for",
 	language: "Language",
 	schoolExplanation: "Which school?",
-	privateSchool: "Charter / Private School?",
+	charterSchool: "Charter School?",
 	otherNotes: "Other Notes",
 	locationPreference: "Preference",
 	followedByBabyNet: "BabyNet",
@@ -121,8 +121,8 @@ export function ReferralTab({ client, readOnly }: ReferralTabProps) {
 	const [walking, setWalking] = useState<"yes" | "no" | null>(
 		client.referralData?.walking ?? null,
 	);
-	const [privateSchool, setPrivateSchool] = useState<"yes" | "no" | null>(
-		client.referralData?.privateSchool ?? null,
+	const [charterSchool, setCharterSchool] = useState<"yes" | "no" | null>(
+		client.referralData?.charterSchool ?? null,
 	);
 	const [logAttemptOpen, setLogAttemptOpen] = useState(false);
 	const [attemptNotes, setAttemptNotes] = useState("");
@@ -135,7 +135,7 @@ export function ReferralTab({ client, readOnly }: ReferralTabProps) {
 		setLocationPreference(client.referralData?.locationPreference ?? "");
 		setFollowedByBabyNet(client.referralData?.followedByBabyNet ?? null);
 		setWalking(client.referralData?.walking ?? null);
-		setPrivateSchool(client.referralData?.privateSchool ?? null);
+		setCharterSchool(client.referralData?.charterSchool ?? null);
 	}, [client.referralData, client.language]);
 
 	const updateClientMutation = api.clients.update.useMutation({
@@ -297,8 +297,8 @@ export function ReferralTab({ client, readOnly }: ReferralTabProps) {
 	const handleReferralDataChange = (updates: {
 		notes?: string;
 		schoolExplanation?: string;
-		privateSchool?: "yes" | "no" | null;
-		privateSchoolConfirmed?: boolean;
+		charterSchool?: "yes" | "no" | null;
+		charterSchoolConfirmed?: boolean;
 		otherNotes?: string;
 		locationPreference?: string;
 		needsReachOut?: "reach_out" | "review" | null;
@@ -795,22 +795,22 @@ export function ReferralTab({ client, readOnly }: ReferralTabProps) {
 									<div className="rounded-lg bg-muted p-4 text-sm">
 										{isSpanish ? (
 											<p>
-												¿Asiste el niño a una escuela chárter o privada? En caso
+												¿Asiste el niño a una escuela chárter? En caso
 												afirmativo, ¿a qué escuela?
 											</p>
 										) : (
 											<p>
-												Does the child go to charter / private school? If so,
-												which school?
+												Does the child go to charter school? If so, which
+												school?
 											</p>
 										)}
 									</div>
 									<div className="space-y-4">
 										<div className="space-y-3 px-4">
 											<Label className="font-semibold">
-												Charter / Private School?
+												Charter School?
 												<PostPunchBadge
-													edit={latestEditByField.get("privateSchool")}
+													edit={latestEditByField.get("charterSchool")}
 												/>
 											</Label>
 											<RadioGroup
@@ -822,13 +822,13 @@ export function ReferralTab({ client, readOnly }: ReferralTabProps) {
 												}
 												onValueChange={(value) => {
 													const val = value as "yes" | "no";
-													setPrivateSchool(val);
+													setCharterSchool(val);
 													handleReferralDataChange({
-														privateSchool: val,
-														privateSchoolConfirmed: false,
+														charterSchool: val,
+														charterSchoolConfirmed: false,
 													});
 												}}
-												value={privateSchool ?? undefined}
+												value={charterSchool ?? undefined}
 											>
 												<div className="flex items-center space-x-2">
 													<RadioGroupItem id="ps-yes" value="yes" />
@@ -844,7 +844,7 @@ export function ReferralTab({ client, readOnly }: ReferralTabProps) {
 												</div>
 											</RadioGroup>
 										</div>
-										{privateSchool === "yes" && (
+										{charterSchool === "yes" && (
 											<div className="space-y-2">
 												<Label
 													className="font-semibold"
@@ -874,26 +874,26 @@ export function ReferralTab({ client, readOnly }: ReferralTabProps) {
 													placeholder="..."
 													value={schoolExplanation}
 												/>
-												{client.referralData?.privateSchoolConfirmed ? (
+												{client.referralData?.charterSchoolConfirmed ? (
 													<p className="text-muted-foreground text-sm">
-														Confirmed as a private / charter school.
+														Confirmed as a charter school.
 													</p>
-												) : can("clients:referral:confirmprivateschool") ? (
+												) : can("clients:referral:confirmcharterschool") ? (
 													<Button
 														disabled={updateClientMutation.isPending}
 														onClick={() =>
 															handleReferralDataChange({
-																privateSchoolConfirmed: true,
+																charterSchoolConfirmed: true,
 															})
 														}
 														type="button"
 													>
-														Confirm Private / Charter School
+														Confirm Charter School
 													</Button>
 												) : (
 													<p className="text-muted-foreground text-sm">
 														Records requests wait until this is confirmed as a
-														private / charter school.
+														charter school.
 													</p>
 												)}
 											</div>
@@ -1244,10 +1244,10 @@ export function ReferralTab({ client, readOnly }: ReferralTabProps) {
 												<span>
 													{pushPreview.recordsNeeded ?? "Not Needed"}
 													{pushPreview.recordsNeeded === "Needed" &&
-														pushPreview.isPrivateSchoolUnconfirmed && (
+														pushPreview.isCharterSchoolUnconfirmed && (
 															<span className="ml-1 text-muted-foreground">
-																(Charter / Private School on intake - records
-																wait until it is confirmed)
+																(Charter School on intake - records wait until
+																it is confirmed)
 															</span>
 														)}
 												</span>

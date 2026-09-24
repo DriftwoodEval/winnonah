@@ -6,7 +6,7 @@ import { distance as levDistance } from "fastest-levenshtein";
 import z from "zod";
 import { env } from "~/env";
 import { fetchWithCache, invalidateCache } from "~/lib/cache";
-import { isPrivateSchoolUnconfirmed } from "~/lib/client-blockers";
+import { isCharterSchoolUnconfirmed } from "~/lib/client-blockers";
 import {
 	REPORT_QUEUE_FOLDER_ID,
 	REPORT_WRITERS_FOLDER_ID,
@@ -167,7 +167,7 @@ const getPreviewData = async (ctx: Context, clientId: number) => {
 		daQsNeeded,
 		evalQsNeeded,
 		recordsNeeded,
-		isPrivateSchoolUnconfirmed: isPrivateSchoolUnconfirmed(client.referralData),
+		isCharterSchoolUnconfirmed: isCharterSchoolUnconfirmed(client.referralData),
 	};
 };
 

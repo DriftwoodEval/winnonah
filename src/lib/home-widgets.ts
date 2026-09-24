@@ -220,9 +220,9 @@ export const HOME_WIDGET_DEFS: HomeWidgetDef[] = [
 		sizing: "content",
 	},
 	{
-		id: "private-school-confirm",
-		label: "Private School Awaiting Confirmation",
-		permission: "issues:private-school-confirm",
+		id: "charter-school-confirm",
+		label: "Charter School Awaiting Confirmation",
+		permission: "issues:charter-school-confirm",
 		category: "issues",
 		sizing: "content",
 	},

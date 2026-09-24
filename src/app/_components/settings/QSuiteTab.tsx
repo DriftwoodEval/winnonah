@@ -1156,7 +1156,7 @@ function ServicesTab({
 	);
 }
 
-type DistrictOption = { id: number; name: string; isPrivate: boolean };
+type DistrictOption = { id: number; name: string; isCharter: boolean };
 
 const DistrictKeySelect = memo(function DistrictKeySelect({
 	control,
@@ -1208,9 +1208,9 @@ const DistrictKeySelect = memo(function DistrictKeySelect({
 									.map((opt) => (
 										<SelectItem key={opt.id} value={opt.name}>
 											{opt.name}
-											{opt.isPrivate && (
+											{opt.isCharter && (
 												<span className="ml-2 text-muted-foreground">
-													(private)
+													(charter)
 												</span>
 											)}
 										</SelectItem>
@@ -1240,7 +1240,7 @@ function RecordsTab({
 			const name = stripSuffix(dist.fullName);
 			if (seen.has(name)) continue;
 			seen.add(name);
-			opts.push({ id: dist.id, name, isPrivate: dist.isPrivate });
+			opts.push({ id: dist.id, name, isCharter: dist.isCharter });
 		}
 		return opts.sort((a, b) => a.name.localeCompare(b.name));
 	}, [allSchoolDistricts]);
@@ -1273,7 +1273,7 @@ function RecordsTab({
 				<CardHeader>
 					<CardTitle>Emails Map</CardTitle>
 					<CardDescription>
-						Map of school districts and private schools to emails to send
+						Map of school districts and charter schools to emails to send
 						records requests to.
 					</CardDescription>
 				</CardHeader>

@@ -183,8 +183,8 @@ export const PERMISSIONS = {
 					{ id: "clients:referral:claim", title: "Claim Clients for Outreach" },
 					{ id: "clients:referral:pushtopunch", title: "Push to Punchlist" },
 					{
-						id: "clients:referral:confirmprivateschool",
-						title: "Confirm Private / Charter School",
+						id: "clients:referral:confirmcharterschool",
+						title: "Confirm Charter School",
 					},
 				],
 			},
@@ -289,8 +289,8 @@ export const PERMISSIONS = {
 						title: "Unreviewed/Unreceived Records",
 					},
 					{
-						id: "issues:private-school-confirm",
-						title: "Private School Awaiting Confirmation",
+						id: "issues:charter-school-confirm",
+						title: "Charter School Awaiting Confirmation",
 					},
 					{ id: "issues:duplicate-drive", title: "Duplicate Drive Folders" },
 					{

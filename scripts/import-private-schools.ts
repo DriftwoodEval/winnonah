@@ -6,9 +6,12 @@ import ExcelJS from "exceljs";
 import { db } from "~/server/db";
 import { schoolDistricts } from "~/server/db/schema";
 
-// Loads the "Private School Consolidated List" spreadsheet into the
-// school_district table with isPrivate = true, so private and charter schools
-// show up in the QSuite records-contact picker alongside public districts.
+// lazy: this still loads the "Private School Consolidated List" spreadsheet,
+// which is actual private schools, not charter schools. It sets isCharter =
+// true on every row so those names show up in the QSuite records-contact
+// picker, but that's wrong for a charter-only seed. Don't run this against
+// that list; replace it with a real charter-school list first, or drop this
+// script if charter schools will be entered by hand instead.
 //
 // Pass the .xlsx path as the first argument, or drop it next to this script as
 // "private-schools.xlsx".
@@ -17,15 +20,15 @@ import { schoolDistricts } from "~/server/db/schema";
 // federal NCES id). They are derived from each school's position in the
 // sorted, de-duplicated name list, so re-running with the same list is
 // idempotent. If the list is re-ordered or schools are renamed, ids shift and
-// re-running leaves the old rows behind: clear "WHERE isPrivate = 1" first for
-// a full reimport.
-const PRIVATE_SCHOOL_ID_BASE = 900_000_000;
+// re-running leaves the old rows behind: clear "WHERE isCharter = 1" first
+// for a full reimport.
+const CHARTER_SCHOOL_ID_BASE = 900_000_000;
 
-type PrivateSchoolInsert = InferInsertModel<typeof schoolDistricts>;
+type CharterSchoolInsert = InferInsertModel<typeof schoolDistricts>;
 
 const normalizeName = (name: string) => name.replace(/\s+/g, " ").trim();
 
-async function importPrivateSchools() {
+async function importCharterSchools() {
 	try {
 		const filePath =
 			process.argv[2] ??
@@ -67,11 +70,11 @@ async function importPrivateSchools() {
 			return;
 		}
 
-		const toInsert: PrivateSchoolInsert[] = names.map((fullName, i) => ({
-			id: PRIVATE_SCHOOL_ID_BASE + i,
+		const toInsert: CharterSchoolInsert[] = names.map((fullName, i) => ({
+			id: CHARTER_SCHOOL_ID_BASE + i,
 			fullName,
 			shortName: null,
-			isPrivate: true,
+			isCharter: true,
 		}));
 
 		console.log("Starting database insertion...");
@@ -80,7 +83,7 @@ async function importPrivateSchools() {
 				.insert(schoolDistricts)
 				.values(school)
 				.onDuplicateKeyUpdate({
-					set: { fullName: school.fullName, isPrivate: true },
+					set: { fullName: school.fullName, isCharter: true },
 				});
 		}
 
@@ -93,4 +96,4 @@ async function importPrivateSchools() {
 	}
 }
 
-importPrivateSchools();
+importCharterSchools();

@@ -3,8 +3,8 @@ import { compareDateOnly, formatShortDate } from "~/lib/utils";
 export type RecordsBlockerInput = {
 	recordsNeeded: "Needed" | "Not Needed" | null;
 	hasExternalRecordContent: boolean;
-	/** Intake says private school but nobody has confirmed it yet. */
-	isPrivateSchoolUnconfirmed: boolean;
+	/** Intake says charter school but nobody has confirmed it yet. */
+	isCharterSchoolUnconfirmed: boolean;
 	language: string | null;
 	holdUntil: string | null | undefined;
 	/** Dates of requests that have actually been sent (never null entries). */
@@ -23,7 +23,7 @@ export type RecordsBlockerInput = {
  *
  * "Not Needed" and already-present record content both mean nothing further
  * is required. Otherwise, records-request.py only picks up a client from
- * get_clients_needing_records() when any private-school answer on intake has
+ * get_clients_needing_records() when any charter-school answer on intake has
  * been confirmed, their language is exactly "English" (unlike qsend.py,
  * records-request.py does not also allow Spanish), and any hold on the pending request has expired. Any
  * of those unmet is a reason staff must act, and it is reported here
@@ -56,15 +56,15 @@ export function getRecordsBlockerReason(
 
 	const sentDates = input.requestedDates.filter((d): d is string => !!d);
 
-	// Held until someone confirms the private-school answer; once a request has
+	// Held until someone confirms the charter-school answer; once a request has
 	// gone out the block no longer matters.
-	if (input.isPrivateSchoolUnconfirmed && sentDates.length === 0) {
-		return "records needed, private school not yet confirmed";
+	if (input.isCharterSchoolUnconfirmed && sentDates.length === 0) {
+		return "records needed, charter school not yet confirmed";
 	}
 
 	// The only records blocker left to report is a client who has never had a
 	// request at all. Once a request exists (still pending, or already sent),
-	// any real blocker on it (private school, wrong language, an unexpired
+	// any real blocker on it (charter school, wrong language, an unexpired
 	// hold) has already returned above; a bare "still waiting on records" is
 	// not something staff act on, so it no longer blocks a send.
 	if (sentDates.length === 0 && !input.hasPendingRequest) {
@@ -111,19 +111,19 @@ export function hasQuestionnairesNeeded(
 }
 
 /**
- * Intake says the client attends a private or charter school, but nobody with
- * the confirm permission has pressed the confirm button yet. Mirrors the
+ * Intake says the client attends a charter school, but nobody with the
+ * confirm permission has pressed the confirm button yet. Mirrors the
  * unconfirmed exclusion in get_clients_needing_records() in
  * questionnaires/utils/database.py.
  */
-export function isPrivateSchoolUnconfirmed(
+export function isCharterSchoolUnconfirmed(
 	referralData:
-		| { privateSchool?: string | null; privateSchoolConfirmed?: boolean }
+		| { charterSchool?: string | null; charterSchoolConfirmed?: boolean }
 		| null
 		| undefined,
 ): boolean {
 	return (
-		referralData?.privateSchool === "yes" &&
-		!referralData.privateSchoolConfirmed
+		referralData?.charterSchool === "yes" &&
+		!referralData.charterSchoolConfirmed
 	);
 }

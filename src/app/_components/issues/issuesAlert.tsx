@@ -79,10 +79,10 @@ export function IssuesAlert() {
 		{ ...queryOptions, enabled: can("issues:unreviewed-records") },
 	);
 
-	const { data: unconfirmedPrivateSchool } =
-		api.clients.getUnconfirmedPrivateSchool.useQuery(undefined, {
+	const { data: unconfirmedCharterSchool } =
+		api.clients.getUnconfirmedCharterSchool.useQuery(undefined, {
 			...queryOptions,
-			enabled: can("issues:private-school-confirm"),
+			enabled: can("issues:charter-school-confirm"),
 		});
 
 	const { data: duplicateQLinks } =
@@ -179,8 +179,8 @@ export function IssuesAlert() {
 		countIf(can("issues:private-pay"), possiblePrivatePay?.length ?? 0) +
 		countIf(can("issues:unreviewed-records"), unreviewedRecords?.length ?? 0) +
 		countIf(
-			can("issues:private-school-confirm"),
-			unconfirmedPrivateSchool?.length ?? 0,
+			can("issues:charter-school-confirm"),
+			unconfirmedCharterSchool?.length ?? 0,
 		) +
 		countIf(
 			can("issues:duplicate-drive"),

@@ -1163,11 +1163,11 @@ export function IssuesList() {
 			enabled: can("issues:unreviewed-records"),
 		});
 	const {
-		data: unconfirmedPrivateSchool,
-		isLoading: isLoadingUnconfirmedPrivateSchool,
-	} = api.clients.getUnconfirmedPrivateSchool.useQuery(undefined, {
+		data: unconfirmedCharterSchool,
+		isLoading: isLoadingUnconfirmedCharterSchool,
+	} = api.clients.getUnconfirmedCharterSchool.useQuery(undefined, {
 		refetchInterval: 60_000,
-		enabled: can("issues:private-school-confirm"),
+		enabled: can("issues:charter-school-confirm"),
 	});
 	const { data: duplicateQLinks, isLoading: isLoadingDuplicateQLinks } =
 		api.questionnaires.getDuplicateLinks.useQuery(undefined, {
@@ -1529,14 +1529,14 @@ export function IssuesList() {
 			</GuardedIssue>
 
 			<GuardedIssue
-				isLoading={isLoadingUnconfirmedPrivateSchool}
-				permission="issues:private-school-confirm"
+				isLoading={isLoadingUnconfirmedCharterSchool}
+				permission="issues:charter-school-confirm"
 			>
-				{unconfirmedPrivateSchool && unconfirmedPrivateSchool.length !== 0 && (
+				{unconfirmedCharterSchool && unconfirmedCharterSchool.length !== 0 && (
 					<IssueList
-						clients={unconfirmedPrivateSchool}
-						description="Intake says private or charter school. Records requests wait until someone confirms it on the Referral tab."
-						title="Private School Awaiting Confirmation"
+						clients={unconfirmedCharterSchool}
+						description="Intake says charter school. Records requests wait until someone confirms it on the Referral tab."
+						title="Charter School Awaiting Confirmation"
 					/>
 				)}
 			</GuardedIssue>
