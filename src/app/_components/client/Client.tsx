@@ -20,7 +20,7 @@ import {
 	getRecordsBlockerReason,
 	getUnsupportedLanguageReason,
 	hasQuestionnairesNeeded,
-	isPrivateSchoolUnconfirmed,
+	isCharterSchoolUnconfirmed,
 } from "~/lib/client-blockers";
 import type { ClientColor } from "~/lib/colors";
 import { logger } from "~/lib/logger";
@@ -234,7 +234,7 @@ export function Client({
 		const recordsBlockerReason = getRecordsBlockerReason({
 			recordsNeeded: client.recordsNeeded,
 			hasExternalRecordContent: !!externalRecordData?.contentJson,
-			isPrivateSchoolUnconfirmed: isPrivateSchoolUnconfirmed(
+			isCharterSchoolUnconfirmed: isCharterSchoolUnconfirmed(
 				client.referralData,
 			),
 			language: client.language,

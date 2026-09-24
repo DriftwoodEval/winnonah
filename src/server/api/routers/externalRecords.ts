@@ -25,9 +25,9 @@ externalRecordsEmitter.setMaxListeners(100);
 /**
  * Whenever recordsNeeded is set to "Needed", this must be called so
  * records-request.py (which INNER JOINs against external_record_request)
- * can actually pick the client up. This includes private-school clients:
- * records-request.py handles them too, matching against the private-school
- * consent forms and the isPrivate school-district contacts.
+ * can actually pick the client up. This includes charter-school clients:
+ * records-request.py handles them too, matching against the charter-school
+ * consent forms and the isCharter school-district contacts.
  *
  * A row from before the client's current session (a re-referral)
  * doesn't count as "already requested": records-request.py's own query

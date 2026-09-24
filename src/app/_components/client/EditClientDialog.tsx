@@ -150,7 +150,7 @@ function ClientForm({
 											<CommandEmpty>No district found.</CommandEmpty>
 											<CommandGroup>
 												{allSchoolDistricts
-													?.filter((district) => !district.isPrivate)
+													?.filter((district) => !district.isCharter)
 													.map((district) => (
 														<CommandItem
 															key={district.id}

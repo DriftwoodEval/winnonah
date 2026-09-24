@@ -76,12 +76,12 @@ export async function getUnreviewedRecordsList(db: Context["db"]) {
 }
 
 /**
- * Clients whose intake says private / charter school, records are needed and
- * haven't been requested yet, and nobody has confirmed the private-school
- * answer. Records automation skips them until confirmed (see
- * isPrivateSchoolUnconfirmed in client-blockers.ts).
+ * Clients whose intake says charter school, records are needed and haven't
+ * been requested yet, and nobody has confirmed the charter-school answer.
+ * Records automation skips them until confirmed (see
+ * isCharterSchoolUnconfirmed in client-blockers.ts).
  */
-export async function getUnconfirmedPrivateSchoolList(db: Context["db"]) {
+export async function getUnconfirmedCharterSchoolList(db: Context["db"]) {
 	return db
 		.select(getTableColumns(clients))
 		.from(clients)
@@ -90,8 +90,8 @@ export async function getUnconfirmedPrivateSchoolList(db: Context["db"]) {
 				not(isNotesOnly),
 				eq(clients.status, true),
 				eq(clients.recordsNeeded, "Needed"),
-				sql`JSON_UNQUOTE(JSON_EXTRACT(${clients.referralData}, '$.privateSchool')) = 'yes'`,
-				sql`COALESCE(JSON_UNQUOTE(JSON_EXTRACT(${clients.referralData}, '$.privateSchoolConfirmed')), 'false') != 'true'`,
+				sql`JSON_UNQUOTE(JSON_EXTRACT(${clients.referralData}, '$.charterSchool')) = 'yes'`,
+				sql`COALESCE(JSON_UNQUOTE(JSON_EXTRACT(${clients.referralData}, '$.charterSchoolConfirmed')), 'false') != 'true'`,
 				sql`NOT EXISTS (
 					SELECT 1 FROM ${externalRecords}
 					WHERE ${externalRecords.clientId} = ${clients.id}

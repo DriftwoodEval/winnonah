@@ -2,7 +2,7 @@ import { format, subYears } from "date-fns";
 import { formatInBusinessTime } from "~/lib/utils";
 import {
 	getRecordsBlockerReason,
-	isPrivateSchoolUnconfirmed,
+	isCharterSchoolUnconfirmed,
 	RECORDS_NOT_YET_REQUESTED_REASON,
 } from "./client-blockers";
 import type { Client, Failure, FullClientInfo } from "./models";
@@ -288,13 +288,13 @@ export const DASHBOARD_CONFIG: {
 				? `Queued ${formatShortInstantDate(client.recordsRequestQueuedDate)}`
 				: undefined,
 		// Same "why aren't records being requested" reasons shown on the client
-		// page (private school, unsupported language, an unexpired hold). The
+		// page (charter school, unsupported language, an unexpired hold). The
 		// bare "not yet requested" reason just restates this section's title.
 		dangerInfo: (client: FullClientInfo) => {
 			const reason = getRecordsBlockerReason({
 				recordsNeeded: client.recordsNeeded ?? null,
 				hasExternalRecordContent: !!client.hasExternalRecordsNote,
-				isPrivateSchoolUnconfirmed: isPrivateSchoolUnconfirmed(
+				isCharterSchoolUnconfirmed: isCharterSchoolUnconfirmed(
 					client.referralData,
 				),
 				language: client.language ?? null,
@@ -704,8 +704,8 @@ export const SECTION_ISSUE_NO_DRIVE_ID = "Issue: No Drive IDs";
 // directly, rather than through getClientIssueListSections below.
 export const SECTION_ISSUE_UNREVIEWED_RECORDS =
 	"Issue: Unreviewed/Unreceived Records";
-export const SECTION_ISSUE_PRIVATE_SCHOOL_CONFIRM =
-	"Issue: Private School Awaiting Confirmation";
+export const SECTION_ISSUE_CHARTER_SCHOOL_CONFIRM =
+	"Issue: Charter School Awaiting Confirmation";
 export const SECTION_ISSUE_MISSING_APPOINTMENTS =
 	"Issue: Appointments to be Created";
 export const SECTION_ISSUE_DUPLICATE_QUESTIONNAIRES =

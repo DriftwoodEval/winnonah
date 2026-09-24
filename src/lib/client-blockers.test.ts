@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
 	getRecordsBlockerReason,
-	isPrivateSchoolUnconfirmed,
+	isCharterSchoolUnconfirmed,
 	type RecordsBlockerInput,
 } from "./client-blockers";
 
@@ -9,7 +9,7 @@ function input(overrides: Partial<RecordsBlockerInput>): RecordsBlockerInput {
 	return {
 		recordsNeeded: "Needed",
 		hasExternalRecordContent: false,
-		isPrivateSchoolUnconfirmed: false,
+		isCharterSchoolUnconfirmed: false,
 		language: "English",
 		holdUntil: null,
 		requestedDates: [],
@@ -32,17 +32,17 @@ describe("getRecordsBlockerReason", () => {
 		).toBeNull();
 	});
 
-	it("flags an unconfirmed private-school client that has no request yet", () => {
+	it("flags an unconfirmed charter-school client that has no request yet", () => {
 		expect(
-			getRecordsBlockerReason(input({ isPrivateSchoolUnconfirmed: true })),
-		).toMatch(/private school not yet confirmed/);
+			getRecordsBlockerReason(input({ isCharterSchoolUnconfirmed: true })),
+		).toMatch(/charter school not yet confirmed/);
 	});
 
-	it("stops flagging an unconfirmed private-school client once a request was sent", () => {
+	it("stops flagging an unconfirmed charter-school client once a request was sent", () => {
 		expect(
 			getRecordsBlockerReason(
 				input({
-					isPrivateSchoolUnconfirmed: true,
+					isCharterSchoolUnconfirmed: true,
 					requestedDates: ["2026-08-01"],
 				}),
 			),
@@ -78,16 +78,16 @@ describe("getRecordsBlockerReason", () => {
 	});
 });
 
-describe("isPrivateSchoolUnconfirmed", () => {
+describe("isCharterSchoolUnconfirmed", () => {
 	it("is true only when intake says yes and it is not confirmed", () => {
-		expect(isPrivateSchoolUnconfirmed({ privateSchool: "yes" })).toBe(true);
+		expect(isCharterSchoolUnconfirmed({ charterSchool: "yes" })).toBe(true);
 		expect(
-			isPrivateSchoolUnconfirmed({
-				privateSchool: "yes",
-				privateSchoolConfirmed: true,
+			isCharterSchoolUnconfirmed({
+				charterSchool: "yes",
+				charterSchoolConfirmed: true,
 			}),
 		).toBe(false);
-		expect(isPrivateSchoolUnconfirmed({ privateSchool: "no" })).toBe(false);
-		expect(isPrivateSchoolUnconfirmed(null)).toBe(false);
+		expect(isCharterSchoolUnconfirmed({ charterSchool: "no" })).toBe(false);
+		expect(isCharterSchoolUnconfirmed(null)).toBe(false);
 	});
 });
