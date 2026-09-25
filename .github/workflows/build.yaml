@@ -257,3 +257,22 @@ jobs:
           ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=accept-new \
             "${{ secrets.DEPLOY_SSH_USER }}@${{ secrets.WATCHTOWER_HOST }}" \
             "${{ secrets.DEPLOY_PATH }}/scripts/deploy.sh primary"
+
+      # Pre-stage new images on standby for the next failover. winnonah-a,
+      # winnonah-b, and winnonah-python are gated behind the active_only
+      # profile there (see docker-compose.standby.yaml) and never run until
+      # failover.sh starts them, so neither watchtower's poll nor its HTTP
+      # API can update them: both only touch already-running containers.
+      # `compose pull` fetches the new layers onto standby's Docker host
+      # without creating or restarting any container, so standby stays idle
+      # but is never more than one build behind primary. Requires the same
+      # SSH keypair as the primary deploy step to also be authorized on the
+      # standby host.
+      - name: Pull latest images on standby
+        run: |
+          mkdir -p ~/.ssh
+          install -m 600 /dev/null ~/.ssh/deploy_key
+          echo "${{ secrets.DEPLOY_SSH_KEY }}" > ~/.ssh/deploy_key
+          ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=accept-new \
+            "${{ secrets.DEPLOY_SSH_USER }}@${{ secrets.STANDBY_HOST }}" \
+            "cd ${{ secrets.DEPLOY_PATH }} && docker compose -f docker-compose.yaml -f docker-compose.standby.yaml pull winnonah-a winnonah-b winnonah-python"
