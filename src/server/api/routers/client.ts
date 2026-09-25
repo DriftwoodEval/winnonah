@@ -54,6 +54,8 @@ import {
 	getInsuranceShortName,
 	getInsuranceShortNamesList,
 	getOfficeDistanceMiles,
+	hasPermission,
+	isBabyNetInsurance,
 	isNotesOnlyClientId,
 	localDateToDateOnly,
 } from "~/lib/utils";
@@ -2229,6 +2231,15 @@ export const clientRouter = createTRPCRouter({
 				});
 			}
 
+			// A babynet-limited holder can make these specific changes without the
+			// full permission, but only for a BabyNet client.
+			const babyNetLimited =
+				isBabyNetInsurance(currentClient) &&
+				hasPermission(
+					ctx.session.user.permissions,
+					"clients:referral:babynet-limited",
+				);
+
 			const permissionsToCheck = [
 				...(input.color !== undefined && input.color !== currentClient.color
 					? (["clients:color"] as const)
@@ -2289,7 +2300,8 @@ export const clientRouter = createTRPCRouter({
 					? (["clients:records:evaluation"] as const)
 					: []),
 				...(input.asdAdhd !== undefined &&
-				input.asdAdhd !== currentClient.asdAdhd
+				input.asdAdhd !== currentClient.asdAdhd &&
+				!babyNetLimited
 					? (["clients:asdadhd"] as const)
 					: []),
 				...(input.language !== undefined &&
@@ -2311,7 +2323,9 @@ export const clientRouter = createTRPCRouter({
 										current.needsReachOut === "reach_out"));
 
 							if (reachOutChanged) {
-								return ["clients:referral:infobox"] as const;
+								return babyNetLimited
+									? []
+									: (["clients:referral:infobox"] as const);
 							}
 
 							return ["clients:referral:fillout"] as const;

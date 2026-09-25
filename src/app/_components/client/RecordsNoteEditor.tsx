@@ -26,6 +26,7 @@ import {
 	dateOnlyToLocalDate,
 	formatShortDate,
 	formatShortInstantDate,
+	isBabyNetInsurance,
 	localDateToDateOnly,
 } from "~/lib/utils";
 import { api } from "~/trpc/react";
@@ -400,8 +401,13 @@ export function RecordsNoteEditor({
 
 	const isLoading = isLoadingRecord || isLoadingClient;
 	const canEditRecordsNeeded = canRecordsNeeded && !readOnly;
+	const canRequestRecordsForClient =
+		canRecordRequested ||
+		(can("clients:referral:babynet-limited") &&
+			!!client &&
+			isBabyNetInsurance(client));
 	const canAddRequest =
-		canRecordRequested && !readOnly && recordsNeeded === "Needed";
+		canRequestRecordsForClient && !readOnly && recordsNeeded === "Needed";
 
 	// Text Editor is editable if records are needed, a request was made, and not read-only
 	const isEditorReadOnly =
@@ -412,7 +418,8 @@ export function RecordsNoteEditor({
 
 	const tooltipRecordsNeeded = !canRecordNote && "Missing permissions.";
 
-	const tooltipAddRequest = !canRecordRequested && "Missing permissions.";
+	const tooltipAddRequest =
+		!canRequestRecordsForClient && "Missing permissions.";
 
 	const recordsNeededId = useId();
 	const newRequestId = useId();

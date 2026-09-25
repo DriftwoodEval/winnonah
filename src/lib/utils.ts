@@ -40,6 +40,40 @@ export function hasPermission(
 }
 
 /**
+ * Whether a client is on BabyNet: the manually-set flag, or "BabyNet" appearing
+ * in either insurance on file. Case-insensitive since insurance names on intake
+ * aren't consistently cased.
+ */
+export function isBabyNetInsurance(client: {
+	babyNet?: boolean | null;
+	primaryInsurance?: string | null;
+	secondaryInsurance?: string[] | null;
+}): boolean {
+	return !!(
+		client.babyNet ||
+		client.primaryInsurance?.toLowerCase().includes("babynet") ||
+		client.secondaryInsurance?.some((s) => s.toLowerCase().includes("babynet"))
+	);
+}
+
+/**
+ * Like hasPermission, but also passes for clients:referral:babynet-limited
+ * holders when the client is BabyNet (isBabyNetInsurance) - a narrow role
+ * scoped to a few referral/records/push-to-punch actions on BabyNet clients only.
+ */
+export function hasPermissionOrBabyNetLimited(
+	userPerms: PermissionsObject,
+	permission: PermissionId,
+	client: Parameters<typeof isBabyNetInsurance>[0],
+): boolean {
+	return (
+		hasPermission(userPerms, permission) ||
+		(isBabyNetInsurance(client) &&
+			hasPermission(userPerms, "clients:referral:babynet-limited"))
+	);
+}
+
+/**
  * Whether a user can see the Reports page: report writers (maxClaimedReports not
  * explicitly zeroed) plus anyone who approves reports or manages report billing.
  */

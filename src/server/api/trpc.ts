@@ -13,7 +13,11 @@ import { ZodError } from "zod";
 import { logger } from "~/lib/logger";
 import { redis } from "~/lib/redis";
 import type { PermissionId, PermissionsObject } from "~/lib/types";
-import { formatError, hasPermission } from "~/lib/utils";
+import {
+	formatError,
+	hasPermission,
+	hasPermissionOrBabyNetLimited,
+} from "~/lib/utils";
 import {
 	type AuditDetailBox,
 	extractClientId,
@@ -218,6 +222,23 @@ export function assertPermission(
 		throw new TRPCError({
 			code: "UNAUTHORIZED",
 			message: `You don't have permission to ${missingPermissions.join(", ")}`,
+		});
+	}
+}
+
+/**
+ * Like assertPermission, but also passes for clients:referral:babynet-limited
+ * holders when the client is BabyNet (see isBabyNetInsurance in ~/lib/utils).
+ */
+export function assertPermissionOrBabyNetLimited(
+	user: { permissions: PermissionsObject },
+	permission: PermissionId,
+	client: Parameters<typeof hasPermissionOrBabyNetLimited>[2],
+) {
+	if (!hasPermissionOrBabyNetLimited(user.permissions, permission, client)) {
+		throw new TRPCError({
+			code: "UNAUTHORIZED",
+			message: `You don't have permission to ${permission}`,
 		});
 	}
 }

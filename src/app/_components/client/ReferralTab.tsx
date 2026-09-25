@@ -44,7 +44,7 @@ import { toast } from "sonner";
 import { useCheckPermission } from "~/hooks/use-check-permission";
 import { ALLOWED_ASD_ADHD_VALUES } from "~/lib/constants";
 import type { Client } from "~/lib/models";
-import { isNotesOnlyClientId } from "~/lib/utils";
+import { isBabyNetInsurance, isNotesOnlyClientId } from "~/lib/utils";
 import { api } from "~/trpc/react";
 import { ResponsiveDialog } from "../shared/ResponsiveDialog";
 
@@ -100,6 +100,10 @@ export function ReferralTab({ client, readOnly }: ReferralTabProps) {
 	const { data: session } = useSession();
 	const can = useCheckPermission();
 	const utils = api.useUtils();
+
+	const isBabyNet = isBabyNetInsurance(client);
+	const canBabyNetLimited =
+		can("clients:referral:babynet-limited") && isBabyNet;
 
 	const [notes, setNotes] = useState<string>(client.referralData?.notes ?? "");
 	const [language, setLanguage] = useState<string>(
@@ -200,7 +204,9 @@ export function ReferralTab({ client, readOnly }: ReferralTabProps) {
 		api.google.getPushPreview.useQuery(client.id, {
 			refetchInterval: 60_000,
 			enabled:
-				!!client.id && isNeedsReview && can("clients:referral:pushtopunch"),
+				!!client.id &&
+				isNeedsReview &&
+				(can("clients:referral:pushtopunch") || canBabyNetLimited),
 		});
 
 	const isOnPunch = !!punchClient;
@@ -366,13 +372,6 @@ export function ReferralTab({ client, readOnly }: ReferralTabProps) {
 	const isBetween2And3 = ageInYears >= 2 && ageInYears < 3;
 	const displayName = client.preferredName ?? client.firstName;
 
-	const isBabyNet =
-		client.babyNet ||
-		client.primaryInsurance?.toLowerCase().includes("babynet") ||
-		(client.secondaryInsurance ?? []).some((s) =>
-			s.toLowerCase().includes("babynet"),
-		);
-
 	const isNeedsReachOut = client.referralData?.needsReachOut === "reach_out";
 
 	const isCommonLanguage = COMMON_LANGUAGES.includes(language);
@@ -462,7 +461,7 @@ export function ReferralTab({ client, readOnly }: ReferralTabProps) {
 									isReadOnly ||
 									updateClientMutation.isPending ||
 									isNeedsReview ||
-									!can("clients:referral:infobox")
+									!(can("clients:referral:infobox") || canBabyNetLimited)
 								}
 								id="needsReachOutReferral"
 								onCheckedChange={(checked) =>
@@ -537,7 +536,7 @@ export function ReferralTab({ client, readOnly }: ReferralTabProps) {
 								disabled={
 									fieldsDisabled ||
 									updateClientMutation.isPending ||
-									!can("clients:asdadhd")
+									!(can("clients:asdadhd") || canBabyNetLimited)
 								}
 								onValueChange={handleAsdAdhdChange}
 								value={client.asdAdhd ?? ""}
@@ -1176,7 +1175,7 @@ export function ReferralTab({ client, readOnly }: ReferralTabProps) {
 						)}
 
 						{isNeedsReview &&
-							can("clients:referral:pushtopunch") &&
+							(can("clients:referral:pushtopunch") || canBabyNetLimited) &&
 							!punchClient && (
 								<Alert className="bg-secondary/20">
 									<InfoIcon className="h-4 w-4" />
@@ -1277,26 +1276,27 @@ export function ReferralTab({ client, readOnly }: ReferralTabProps) {
 								{isNeedsReview ? "Marked for Review" : "Mark for Review"}
 							</Button>
 
-							{isNeedsReview && can("clients:referral:pushtopunch") && (
-								<Button
-									className="w-full sm:w-auto"
-									disabled={
-										isReadOnly ||
-										pushToPunchMutation.isPending ||
-										!!punchClient ||
-										isLoadingPunchClient
-									}
-									onClick={() => pushToPunchMutation.mutate(client.id)}
-									variant="outline"
-								>
-									{pushToPunchMutation.isPending ? (
-										<Loader2 className="mr-2 h-4 w-4 animate-spin" />
-									) : (
-										<ArrowUpCircle className="mr-2 h-4 w-4" />
-									)}
-									{punchClient ? "Already on Punchlist" : "Push to Punchlist"}
-								</Button>
-							)}
+							{isNeedsReview &&
+								(can("clients:referral:pushtopunch") || canBabyNetLimited) && (
+									<Button
+										className="w-full sm:w-auto"
+										disabled={
+											isReadOnly ||
+											pushToPunchMutation.isPending ||
+											!!punchClient ||
+											isLoadingPunchClient
+										}
+										onClick={() => pushToPunchMutation.mutate(client.id)}
+										variant="outline"
+									>
+										{pushToPunchMutation.isPending ? (
+											<Loader2 className="mr-2 h-4 w-4 animate-spin" />
+										) : (
+											<ArrowUpCircle className="mr-2 h-4 w-4" />
+										)}
+										{punchClient ? "Already on Punchlist" : "Push to Punchlist"}
+									</Button>
+								)}
 						</div>
 					</CardContent>
 				</Card>

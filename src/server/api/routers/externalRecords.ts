@@ -4,6 +4,7 @@ import { and, asc, desc, eq, gte, sql } from "drizzle-orm";
 import { z } from "zod";
 import {
 	assertPermission,
+	assertPermissionOrBabyNetLimited,
 	type Context,
 	createTRPCRouter,
 	protectedProcedure,
@@ -185,7 +186,19 @@ export const externalRecordRouter = createTRPCRouter({
 	flagRecordRequest: protectedProcedure
 		.input(z.object({ clientId: z.number() }))
 		.mutation(async ({ ctx, input }) => {
-			assertPermission(ctx.session.user, "clients:records:requested");
+			const client = await ctx.db.query.clients.findFirst({
+				where: eq(clients.id, input.clientId),
+				columns: {
+					babyNet: true,
+					primaryInsurance: true,
+					secondaryInsurance: true,
+				},
+			});
+			assertPermissionOrBabyNetLimited(
+				ctx.session.user,
+				"clients:records:requested",
+				client ?? {},
+			);
 			ctx.logger.info(input, "Flagging record request");
 
 			const requests = await ctx.db.transaction(async (tx) => {

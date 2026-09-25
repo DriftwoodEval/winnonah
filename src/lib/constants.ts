@@ -186,6 +186,11 @@ export const PERMISSIONS = {
 						id: "clients:referral:confirmprivateschool",
 						title: "Confirm Private / Charter School",
 					},
+					{
+						id: "clients:referral:babynet-limited",
+						title:
+							"BabyNet Clients Only: This Is For, Needs Outreach, Push to Punchlist, Records Request",
+					},
 				],
 			},
 		},

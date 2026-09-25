@@ -39,6 +39,7 @@ import { getInsuranceShortName, hasPermission } from "~/lib/utils";
 import { getClosestOfficeKeyByDriveTime } from "~/server/api/filters";
 import {
 	assertPermission,
+	assertPermissionOrBabyNetLimited,
 	type Context,
 	createTRPCRouter,
 	protectedProcedure,
@@ -1016,14 +1017,25 @@ export const googleRouter = createTRPCRouter({
 	getPushPreview: protectedProcedure
 		.input(z.number())
 		.query(async ({ ctx, input }) => {
-			assertPermission(ctx.session.user, "clients:referral:pushtopunch");
+			const client = await ctx.db.query.clients.findFirst({
+				where: eq(clients.id, input),
+				columns: {
+					babyNet: true,
+					primaryInsurance: true,
+					secondaryInsurance: true,
+				},
+			});
+			assertPermissionOrBabyNetLimited(
+				ctx.session.user,
+				"clients:referral:pushtopunch",
+				client ?? {},
+			);
 			return getPreviewData(ctx, input);
 		}),
 
 	pushToPunch: protectedProcedure
 		.input(z.number())
 		.mutation(async ({ ctx, input }) => {
-			assertPermission(ctx.session.user, "clients:referral:pushtopunch");
 			if (!ctx.session.user.accessToken || !ctx.session.user.refreshToken) {
 				throw new Error("No access token or refresh token");
 			}
@@ -1038,6 +1050,12 @@ export const googleRouter = createTRPCRouter({
 					message: "Client not found",
 				});
 			}
+
+			assertPermissionOrBabyNetLimited(
+				ctx.session.user,
+				"clients:referral:pushtopunch",
+				client,
+			);
 
 			const previewData = await getPreviewData(ctx, input);
 
