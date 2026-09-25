@@ -119,13 +119,16 @@ log "Step 2 done."
 # Standby had no web slot running before failover (docker-compose.standby.yaml
 # gates winnonah-a/winnonah-b behind the active_only profile), so there's no
 # existing state to preserve - winnonah-a is always the right one to start.
-log "Starting cloudflared, winnonah-a, winnonah-python..."
+# kimai's data dir (./kimai/data, ./kimai/plugins) is synced from primary by
+# cron (see sync-kimai-data.sh), so whatever standby has on disk right now is
+# what it serves - there is no promotion step for it beyond starting it.
+log "Starting cloudflared, winnonah-a, winnonah-python, kimai..."
 # Retries because `up -d` on a not-yet-existing network can hit a Docker
 # Compose race ("network ... not found") where one container attaches before
 # the network finishes being created - transient, succeeds on rerun.
 up_ok=false
 for attempt in 1 2 3; do
-  if ${COMPOSE} --profile active_only up -d cloudflared winnonah-a winnonah-python; then
+  if ${COMPOSE} --profile active_only up -d cloudflared winnonah-a winnonah-python kimai; then
     up_ok=true
     break
   fi
@@ -135,8 +138,11 @@ done
 # Let the 4th attempt run unguarded on total failure, so set -e's ERR trap
 # fires normally (correct line/command in the Slack alert) instead of us
 # reporting it manually here.
-[ "${up_ok}" = true ] || ${COMPOSE} --profile active_only up -d cloudflared winnonah-a winnonah-python
+[ "${up_ok}" = true ] || ${COMPOSE} --profile active_only up -d cloudflared winnonah-a winnonah-python kimai
 log "Step 3 done."
+
+# lazy: no health probe for kimai here (unlike winnonah-a below). If it fails
+# to come up, `up -d` still reports success; check it manually after a failover.
 
 # 3b. Confirm winnonah-a is actually serving before telling the world traffic is
 # live. winnonah-a has no compose healthcheck, so `up -d` returning only means

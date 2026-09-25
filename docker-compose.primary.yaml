@@ -30,6 +30,9 @@ services:
   winnonah-python:
     restart: no
 
+  kimai:
+    restart: no
+
   # HTTP API port bound to primary's own Tailscale IP so it's reachable
   # only over the tailnet, not the public interface, and only on primary
   # (the host CI actually deploys to).

@@ -18,3 +18,12 @@
 		}
 	}
 }
+
+# Kimai. Point its Cloudflare Tunnel public hostname at http://caddy:8090
+# (not directly at kimai:8001) so these forwarded-proto headers apply.
+:8090 {
+	reverse_proxy kimai:8001 {
+		header_up X-Forwarded-Proto https
+		header_up X-Forwarded-Port 443
+	}
+}

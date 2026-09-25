@@ -34,6 +34,11 @@ services:
     profiles:
       - active_only
 
+  kimai:
+    restart: unless-stopped
+    profiles:
+      - active_only
+
   loki:
     profiles:
       - primary_only

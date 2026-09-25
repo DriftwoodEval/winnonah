@@ -45,6 +45,30 @@ services:
     <<: *winnonah-base
     container_name: winnonah-b
 
+  # Same restart/profile treatment as winnonah-a/b so STONITH, failover.sh,
+  # and failback.sh cover it too. Its database lives in driftwood-db, so
+  # replication covers that; ./kimai/data and ./kimai/plugins are synced to
+  # standby separately (see failover/sync-kimai-data.sh).
+  kimai:
+    container_name: kimai
+    image: kimai/kimai2:stable
+    restart: no
+    labels:
+      - "com.centurylinklabs.watchtower.enable=false"
+    profiles:
+      - web
+    environment:
+      - APP_SECRET=${KIMAI_APP_SECRET}
+      - TRUSTED_HOSTS=${KIMAI_TRUSTED_HOSTS}
+      - TRUSTED_PROXIES=${KIMAI_TRUSTED_PROXIES}
+      - ADMINMAIL=${KIMAI_ADMIN_EMAIL}
+      - ADMINPASS=${KIMAI_ADMIN_PASSWORD}
+      - "DATABASE_URL=mysql://${KIMAI_DATABASE_USER}:${KIMAI_DATABASE_PASSWORD}@driftwood-db/${KIMAI_DATABASE_NAME}?charset=utf8mb4&serverVersion=${KIMAI_DATABASE_SERVER_VERSION}"
+    volumes:
+      - ./kimai/data:/opt/kimai/var/data
+      - ./kimai/plugins:/opt/kimai/var/plugins
+      - ./kimai/local.yaml:/opt/kimai/config/packages/local.yaml:ro
+
   driftwood-db:
     image: mysql:26.7
     container_name: driftwood-db
