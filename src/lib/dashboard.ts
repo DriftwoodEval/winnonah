@@ -8,6 +8,7 @@ import {
 import type { Client, Failure, FullClientInfo } from "./models";
 import {
 	formatShortInstantDate,
+	isBabyNetInsurance,
 	isNotesOnlyClientId,
 	localDateToDateOnly,
 } from "./utils";
@@ -727,6 +728,7 @@ export type IssueListClient = {
 	flag?: string | null;
 	primaryInsurance?: string | null;
 	secondaryInsurance?: string[] | null;
+	babyNet?: boolean | null;
 	addedDate?: string | null;
 	driveId?: string | null;
 	failures?: Failure[];
@@ -779,12 +781,9 @@ export function getClientIssueListSections(client: IssueListClient): string[] {
 	}
 
 	const babyNetAgeOutCutOff = localDateToDateOnly(subYears(new Date(), 3));
-	const hasBabyNetInsurance =
-		!!client.primaryInsurance?.includes("BabyNet") ||
-		!!client.secondaryInsurance?.some((s) => s.includes("BabyNet"));
 	if (
 		client.status &&
-		hasBabyNetInsurance &&
+		isBabyNetInsurance(client) &&
 		client.dob &&
 		babyNetAgeOutCutOff &&
 		client.dob < babyNetAgeOutCutOff

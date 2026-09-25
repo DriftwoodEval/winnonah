@@ -22,7 +22,11 @@ import {
 	packCodesIntoAppointments,
 	parsePrecertMemo,
 } from "~/lib/billing";
-import { dateOnlyToLocalDate, formatInBusinessTime } from "~/lib/utils";
+import {
+	dateOnlyToLocalDate,
+	formatInBusinessTime,
+	isBabyNetInsurance,
+} from "~/lib/utils";
 import { api } from "~/trpc/react";
 
 export function AdditionalInsuranceAppointmentsDisplay({
@@ -88,12 +92,7 @@ export function AdditionalInsuranceAppointmentsDisplay({
 		},
 	});
 
-	const isBabyNet =
-		client.babyNet ||
-		(client.primaryInsurance?.toLowerCase().includes("babynet") ?? false) ||
-		(client.secondaryInsurance ?? []).some((s) =>
-			s.toLowerCase().includes("babynet"),
-		);
+	const isBabyNet = isBabyNetInsurance(client);
 
 	const primaryMatchedInsurance = insurances.find(
 		(i) =>

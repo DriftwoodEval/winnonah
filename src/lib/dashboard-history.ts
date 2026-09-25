@@ -113,6 +113,7 @@ export async function syncDashboardSectionHistory() {
 				flag: clients.flag,
 				primaryInsurance: clients.primaryInsurance,
 				secondaryInsurance: clients.secondaryInsurance,
+				babyNet: clients.babyNet,
 				addedDate: clients.addedDate,
 				driveId: clients.driveId,
 			})

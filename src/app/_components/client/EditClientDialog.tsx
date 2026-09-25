@@ -382,7 +382,7 @@ export function ClientEditButton({ client }: { client: Client }) {
 
 	const showBabyNetCheckbox =
 		underBNAge &&
-		client.primaryInsurance !== "BabyNet" &&
+		!client.primaryInsurance?.toLowerCase().includes("babynet") &&
 		!(client.secondaryInsurance ?? []).some((s) =>
 			s.toLowerCase().includes("babynet"),
 		);
