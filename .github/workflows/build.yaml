@@ -218,8 +218,8 @@ jobs:
     needs: [build-node, build-python]
     if: always() && (needs.build-node.result == 'success' || needs.build-python.result == 'success')
     steps:
-      # Requires a Tailscale OAuth client with access to the primary host's
-      # tailnet (secrets: TS_OAUTH_CLIENT_ID, TS_OAUTH_CLIENT_SECRET).
+      # Requires a Tailscale OAuth client with access to both hosts' tailnet
+      # (secrets: TS_OAUTH_CLIENT_ID, TS_OAUTH_CLIENT_SECRET).
       - name: Connect to Tailscale
         uses: tailscale/github-action@v4
         with:
@@ -227,27 +227,54 @@ jobs:
           oauth-secret: ${{ secrets.TS_OAUTH_CLIENT_SECRET }}
           tags: tag:ci
 
+      # Asks the same failover-monitor worker that failover/standby-poll.sh
+      # polls which host is currently serving traffic, so a routine deploy
+      # still reaches the live site if standby is active after a failover,
+      # instead of only ever updating primary.
+      - name: Determine active server
+        id: active
+        run: |
+          state=$(curl -sf --max-time 10 \
+            -H "X-Monitor-Secret: ${{ secrets.MONITOR_SECRET }}" \
+            "https://failover-monitor.${{ secrets.CF_WORKER_SUBDOMAIN }}.workers.dev/state" \
+            | python3 -c "import sys, json; print(json.load(sys.stdin)['state'])")
+          echo "Worker state: ${state}"
+          if [ "${state}" = "failover_active" ]; then
+            echo "role=standby" >> "$GITHUB_OUTPUT"
+            echo "host=${{ secrets.STANDBY_HOST }}" >> "$GITHUB_OUTPUT"
+            echo "idle_role=primary" >> "$GITHUB_OUTPUT"
+            echo "idle_host=${{ secrets.WATCHTOWER_HOST }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "role=primary" >> "$GITHUB_OUTPUT"
+            echo "host=${{ secrets.WATCHTOWER_HOST }}" >> "$GITHUB_OUTPUT"
+            echo "idle_role=standby" >> "$GITHUB_OUTPUT"
+            echo "idle_host=${{ secrets.STANDBY_HOST }}" >> "$GITHUB_OUTPUT"
+          fi
+
       # winnonah-a/winnonah-b are labeled watchtower.enable=false (see
       # docker-compose.yaml), so this update only reaches winnonah-python
-      # and anything else watchtower manages directly. The web app is
-      # deployed by the rolling step below instead, so it never goes
-      # through watchtower's stop-then-start-anew update.
-      - name: Trigger watchtower update
+      # and anything else watchtower manages directly on whichever server
+      # is currently active. The web app is deployed by the rolling step
+      # below instead, so it never goes through watchtower's
+      # stop-then-start-anew update.
+      - name: Trigger watchtower update on active server
         run: |
           curl -sf -X POST \
             -H "Authorization: Bearer ${{ secrets.WATCHTOWER_HTTP_API_TOKEN }}" \
-            "http://${{ secrets.WATCHTOWER_HOST }}:8080/v1/update"
+            "http://${{ steps.active.outputs.host }}:8080/v1/update"
 
       # Blue/green deploy for the web app (scripts/deploy.sh): starts the
       # idle winnonah-a/winnonah-b slot on the new image, waits for it to
       # pass /api/health, then stops the old slot, so Caddy always has a
-      # healthy backend and the site never shows the maintenance page for
-      # a routine deploy.
+      # healthy backend and the site never shows the maintenance page for a
+      # routine deploy. Targets whichever server the step above found to be
+      # currently active, so this still lands on standby if that's the one
+      # serving traffic after a failover.
       #
-      # Requires an SSH keypair authorized on the primary host for a user
-      # that can run docker compose there (secrets: DEPLOY_SSH_KEY,
-      # DEPLOY_SSH_USER), and the host's repo checkout kept up to date
-      # with main the same way docker-compose*.yaml/Caddyfile already are.
+      # Requires an SSH keypair authorized on both hosts for a user that can
+      # run docker compose there (secrets: DEPLOY_SSH_KEY, DEPLOY_SSH_USER),
+      # and each host's repo checkout kept up to date with main the same way
+      # docker-compose*.yaml/Caddyfile already are.
       - name: Deploy web app (blue/green)
         if: needs.build-node.result == 'success'
         run: |
@@ -255,24 +282,25 @@ jobs:
           install -m 600 /dev/null ~/.ssh/deploy_key
           echo "${{ secrets.DEPLOY_SSH_KEY }}" > ~/.ssh/deploy_key
           ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=accept-new \
-            "${{ secrets.DEPLOY_SSH_USER }}@${{ secrets.WATCHTOWER_HOST }}" \
-            "${{ secrets.DEPLOY_PATH }}/scripts/deploy.sh primary"
+            "${{ secrets.DEPLOY_SSH_USER }}@${{ steps.active.outputs.host }}" \
+            "${{ secrets.DEPLOY_PATH }}/scripts/deploy.sh ${{ steps.active.outputs.role }}"
 
-      # Pre-stage new images on standby for the next failover. winnonah-a,
-      # winnonah-b, and winnonah-python are gated behind the active_only
-      # profile there (see docker-compose.standby.yaml) and never run until
-      # failover.sh starts them, so neither watchtower's poll nor its HTTP
-      # API can update them: both only touch already-running containers.
-      # `compose pull` fetches the new layers onto standby's Docker host
-      # without creating or restarting any container, so standby stays idle
-      # but is never more than one build behind primary. Requires the same
-      # SSH keypair as the primary deploy step to also be authorized on the
-      # standby host.
-      - name: Pull latest images on standby
+      # Pre-stage new images on the idle server too, so it's never more than
+      # one build behind whichever server is actually serving. winnonah-a,
+      # winnonah-b, and winnonah-python only run on a server once it becomes
+      # active (see the active_only profile in docker-compose.standby.yaml),
+      # so neither watchtower's poll nor its HTTP API can update them there
+      # beforehand: both only touch already-running containers. `compose
+      # pull` fetches the new layers without creating or restarting any
+      # container. continue-on-error because the idle server can be
+      # unreachable, e.g. primary is still down, which is why standby is the
+      # active one right now.
+      - name: Pull latest images on idle server
+        continue-on-error: true
         run: |
           mkdir -p ~/.ssh
           install -m 600 /dev/null ~/.ssh/deploy_key
           echo "${{ secrets.DEPLOY_SSH_KEY }}" > ~/.ssh/deploy_key
-          ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=accept-new \
-            "${{ secrets.DEPLOY_SSH_USER }}@${{ secrets.STANDBY_HOST }}" \
-            "cd ${{ secrets.DEPLOY_PATH }} && docker compose -f docker-compose.yaml -f docker-compose.standby.yaml pull winnonah-a winnonah-b winnonah-python"
+          ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=accept-new -o ConnectTimeout=10 \
+            "${{ secrets.DEPLOY_SSH_USER }}@${{ steps.active.outputs.idle_host }}" \
+            "cd ${{ secrets.DEPLOY_PATH }} && docker compose -f docker-compose.yaml -f docker-compose.${{ steps.active.outputs.idle_role }}.yaml pull winnonah-a winnonah-b winnonah-python"
