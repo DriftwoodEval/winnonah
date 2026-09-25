@@ -120,7 +120,22 @@ log "Step 2 done."
 # gates winnonah-a/winnonah-b behind the active_only profile), so there's no
 # existing state to preserve - winnonah-a is always the right one to start.
 log "Starting cloudflared, winnonah-a, winnonah-python..."
-${COMPOSE} --profile active_only up -d cloudflared winnonah-a winnonah-python
+# Retries because `up -d` on a not-yet-existing network can hit a Docker
+# Compose race ("network ... not found") where one container attaches before
+# the network finishes being created - transient, succeeds on rerun.
+up_ok=false
+for attempt in 1 2 3; do
+  if ${COMPOSE} --profile active_only up -d cloudflared winnonah-a winnonah-python; then
+    up_ok=true
+    break
+  fi
+  log "up -d failed (attempt ${attempt}/3), retrying in 3s..."
+  sleep 3
+done
+# Let the 4th attempt run unguarded on total failure, so set -e's ERR trap
+# fires normally (correct line/command in the Slack alert) instead of us
+# reporting it manually here.
+[ "${up_ok}" = true ] || ${COMPOSE} --profile active_only up -d cloudflared winnonah-a winnonah-python
 log "Step 3 done."
 
 # 3b. Confirm winnonah-a is actually serving before telling the world traffic is
