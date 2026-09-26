@@ -73,6 +73,8 @@ services:
     image: mysql:26.7
     container_name: driftwood-db
     restart: no
+    labels:
+      - "com.centurylinklabs.watchtower.enable=false"
     environment:
       - MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD}
       - MYSQL_DATABASE=${MYSQL_DATABASE}
