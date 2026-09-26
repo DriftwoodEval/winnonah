@@ -46,5 +46,11 @@ services:
     profiles:
       - primary_only
 
+  # HTTP API port bound to standby's own Tailscale IP, mirroring primary
+  # (docker-compose.primary.yaml), so CI's deploy job can reach whichever
+  # host is currently active, standby included, once it takes over after a
+  # failover.
   watchtower:
     restart: always
+    ports:
+      - "${STANDBY_TAILSCALE_IP}:8080:8080"

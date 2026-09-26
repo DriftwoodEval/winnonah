@@ -40,7 +40,11 @@ While everything is healthy:
 4. Once an hour, the primary copies its Google login token to the standby, so
    that if the standby ever has to send email or touch Google Drive, its
    credentials are already fresh.
-5. The Cloudflare monitor pings `emr.driftwoodeval.com/api/health` every
+5. Every time a new version is built, the standby downloads the new web app
+   and Python sidecar images too, so they are ready to go the moment a
+   failover starts it up. This never starts or restarts anything on the
+   standby: it only downloads the new version in the background.
+6. The Cloudflare monitor pings `emr.driftwoodeval.com/api/health` every
    minute and expects a quick "ok".
 
 ## How a failure is detected
@@ -92,20 +96,19 @@ banner across the top reading "Currently running on the standby server
 
 ### What does not run on the standby
 
-Some services only ever run on the primary. While the standby is serving,
-they are stopped, and they come back only when the primary does at failback:
+**Grafana, Loki, and Promtail**, the dashboards and log collection, only ever
+run on the primary. While the standby is serving, they are stopped, and they
+come back only when the primary does at failback. During a failover there
+are no Grafana dashboards and no searchable logs; Slack, email, and the
+plain log files on the servers are the only visibility until failback.
 
-- **Grafana, Loki, and Promtail**, the dashboards and log collection. During
-  a failover there are no Grafana dashboards and no searchable logs. Slack,
-  email, and the plain log files on the servers are the only visibility
-  until failback.
-- **Watchtower**, the automatic updater. New releases are not deployed while
-  running on the standby. This is deliberate: a failover is not the moment
-  to also be shipping code changes.
-
-The database, Redis, and the Caddy web server run on both machines all the
+The database, Redis, Caddy, and Watchtower run on both machines all the
 time. The web app, the Python sidecar, and the Cloudflare tunnel run only on
 whichever server is currently the active one.
+
+New code released while the standby is the one serving traffic still reaches
+it automatically, the same way it normally reaches the primary: the build
+pipeline checks which server is currently active and deploys there.
 
 ### Why the "fencing" step matters
 
@@ -219,3 +222,8 @@ prefer the copy on the standby.
 - `docker-compose.primary.yaml` and `docker-compose.standby.yaml`: the
   per-role container settings (which services run, and whether the database
   is read-only).
+- `.github/workflows/build.yaml`'s `deploy` job: asks the same monitor
+  worker which server is currently active and deploys the new build there
+  (primary in normal operation, standby after a failover), then pulls the
+  new web app and Python sidecar images onto the other, idle server too,
+  without starting them there.
