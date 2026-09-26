@@ -145,16 +145,26 @@ STANDBY_SLOT="${STANDBY_SLOT:-winnonah-a}"
 
 log "Stopping standby services (web slot: ${STANDBY_SLOT})..."
 ssh -o LogLevel=quiet -i "${STANDBY_SSH_KEY_PATH}" "${STANDBY_SSH_USER}@${STANDBY_TAILSCALE_IP}" \
-  "${STANDBY_COMPOSE} --profile active_only stop cloudflared ${STANDBY_SLOT} winnonah-python"
+  "${STANDBY_COMPOSE} --profile active_only stop cloudflared ${STANDBY_SLOT} winnonah-python kimai"
 slack "Standby tunnel stopped. Starting primary tunnel..."
+
+# 3b. Pull kimai's data dir back from standby. It's the source of truth for
+# anything uploaded while standby was live, the same way the DB dump above is.
+# The regular cron sync (sync-kimai-data.sh) only runs primary -> standby, so
+# without this pull primary would come back up serving stale attachments.
+log "Pulling kimai data/plugins from standby..."
+rsync -az -e "ssh -i ${STANDBY_SSH_KEY_PATH} -o LogLevel=quiet" \
+  "${STANDBY_SSH_USER}@${STANDBY_TAILSCALE_IP}:~/winnonah/kimai/data/" "$ROOT/kimai/data/"
+rsync -az -e "ssh -i ${STANDBY_SSH_KEY_PATH} -o LogLevel=quiet" \
+  "${STANDBY_SSH_USER}@${STANDBY_TAILSCALE_IP}:~/winnonah/kimai/plugins/" "$ROOT/kimai/plugins/"
 
 # 4. Start primary caddy, cloudflared, and winnonah-a
 # caddy has no profile so it's normally always-on, but STONITH (failover.sh)
 # stops and removes it along with everything else, so start it back up
 # explicitly here. Primary was fully torn down, so there's no existing web slot
 # to preserve - winnonah-a is always the right one to start.
-log "Starting primary caddy, cloudflared, and winnonah-a..."
-${PRIMARY_COMPOSE} up -d caddy cloudflared winnonah-a
+log "Starting primary caddy, cloudflared, winnonah-a, and kimai..."
+${PRIMARY_COMPOSE} up -d caddy cloudflared winnonah-a kimai
 sleep 10
 
 # 5. Start primary python jobs

@@ -67,3 +67,8 @@ python/*.jsonl
 docker-compose.override.*
 mysql-replication.cnf
 mise.local.toml
+
+# kimai runtime data and secrets, server-local
+kimai/data/
+kimai/plugins/
+kimai/local.yaml
