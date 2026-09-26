@@ -65,6 +65,8 @@ const REFERRAL_FIELD_LABELS: Record<string, string> = {
 	language: "Language",
 	schoolExplanation: "Which school?",
 	privateSchool: "Charter / Private School?",
+	evaluatedByAgency: "Evaluated by School District/MUSC/Prisma/OIDD?",
+	evaluatedByAgencyNotes: "Evaluation Notes",
 	otherNotes: "Other Notes",
 	locationPreference: "Preference",
 	followedByBabyNet: "BabyNet",
@@ -128,6 +130,12 @@ export function ReferralTab({ client, readOnly }: ReferralTabProps) {
 	const [privateSchool, setPrivateSchool] = useState<"yes" | "no" | null>(
 		client.referralData?.privateSchool ?? null,
 	);
+	const [evaluatedByAgency, setEvaluatedByAgency] = useState<
+		"yes" | "no" | null
+	>(client.referralData?.evaluatedByAgency ?? null);
+	const [evaluatedByAgencyNotes, setEvaluatedByAgencyNotes] = useState<string>(
+		client.referralData?.evaluatedByAgencyNotes ?? "",
+	);
 	const [logAttemptOpen, setLogAttemptOpen] = useState(false);
 	const [attemptNotes, setAttemptNotes] = useState("");
 
@@ -140,6 +148,10 @@ export function ReferralTab({ client, readOnly }: ReferralTabProps) {
 		setFollowedByBabyNet(client.referralData?.followedByBabyNet ?? null);
 		setWalking(client.referralData?.walking ?? null);
 		setPrivateSchool(client.referralData?.privateSchool ?? null);
+		setEvaluatedByAgency(client.referralData?.evaluatedByAgency ?? null);
+		setEvaluatedByAgencyNotes(
+			client.referralData?.evaluatedByAgencyNotes ?? "",
+		);
 	}, [client.referralData, client.language]);
 
 	const updateClientMutation = api.clients.update.useMutation({
@@ -305,6 +317,8 @@ export function ReferralTab({ client, readOnly }: ReferralTabProps) {
 		schoolExplanation?: string;
 		privateSchool?: "yes" | "no" | null;
 		privateSchoolConfirmed?: boolean;
+		evaluatedByAgency?: "yes" | "no" | null;
+		evaluatedByAgencyNotes?: string;
 		otherNotes?: string;
 		locationPreference?: string;
 		needsReachOut?: "reach_out" | "review" | null;
@@ -842,6 +856,81 @@ export function ReferralTab({ client, readOnly }: ReferralTabProps) {
 													</Label>
 												</div>
 											</RadioGroup>
+										</div>
+										<div className="space-y-3 px-4">
+											<Label className="font-semibold">
+												Has your child been evaluated by the school district,
+												MUSC, Prisma, or OIDD?
+												<PostPunchBadge
+													edit={latestEditByField.get("evaluatedByAgency")}
+												/>
+											</Label>
+											<RadioGroup
+												className="flex flex-wrap gap-4"
+												disabled={
+													fieldsDisabled ||
+													updateClientMutation.isPending ||
+													!can("clients:referral:fillout")
+												}
+												onValueChange={(value) => {
+													const val = value as "yes" | "no";
+													setEvaluatedByAgency(val);
+													handleReferralDataChange({ evaluatedByAgency: val });
+												}}
+												value={evaluatedByAgency ?? undefined}
+											>
+												<div className="flex items-center space-x-2">
+													<RadioGroupItem id="eba-yes" value="yes" />
+													<Label className="font-normal" htmlFor="eba-yes">
+														Yes
+													</Label>
+												</div>
+												<div className="flex items-center space-x-2">
+													<RadioGroupItem id="eba-no" value="no" />
+													<Label className="font-normal" htmlFor="eba-no">
+														No
+													</Label>
+												</div>
+											</RadioGroup>
+											{evaluatedByAgency === "yes" && (
+												<div className="space-y-2">
+													<Label
+														className="font-normal"
+														htmlFor="evaluatedByAgencyNotes"
+													>
+														Notes
+														<PostPunchBadge
+															edit={latestEditByField.get(
+																"evaluatedByAgencyNotes",
+															)}
+														/>
+													</Label>
+													<Textarea
+														disabled={
+															fieldsDisabled ||
+															updateClientMutation.isPending ||
+															!can("clients:referral:fillout")
+														}
+														id="evaluatedByAgencyNotes"
+														onBlur={() => {
+															if (
+																evaluatedByAgencyNotes !==
+																(client.referralData?.evaluatedByAgencyNotes ??
+																	"")
+															) {
+																handleReferralDataChange({
+																	evaluatedByAgencyNotes,
+																});
+															}
+														}}
+														onChange={(e) =>
+															setEvaluatedByAgencyNotes(e.target.value)
+														}
+														placeholder="..."
+														value={evaluatedByAgencyNotes}
+													/>
+												</div>
+											)}
 										</div>
 										{privateSchool === "yes" && (
 											<div className="space-y-2">

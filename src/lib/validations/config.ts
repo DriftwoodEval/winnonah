@@ -262,6 +262,8 @@ export const referralDataSchema = z.object({
 	privateSchool: z.enum(["yes", "no"]).nullable().optional(),
 	// Set by someone with the confirm permission once intake's "yes" is verified.
 	privateSchoolConfirmed: z.boolean().optional(),
+	evaluatedByAgency: z.enum(["yes", "no"]).nullable().optional(),
+	evaluatedByAgencyNotes: z.string().optional(),
 	otherNotes: z.string().optional(),
 	locationPreference: z.string().optional(),
 	needsReachOut: z.enum(["reach_out", "review"]).nullable().optional(),
