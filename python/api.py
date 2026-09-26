@@ -604,7 +604,7 @@ def notify_report_approved(
 
     html_content = f"""
     <p>Your report for <strong>{request.report_name}</strong> has been approved.</p>
-    <p>You can now claim a new report in the app: <a href="https://emr.driftwoodeval.com/claim-reports">Claim Reports</a> f"({request.queue_count} report{"s" if request.queue_count != 1 else ""} in queue)"</p>
+    <p>You can now claim a new report in the app: <a href="https://emr.driftwoodeval.com/claim-reports">Claim Reports</a> ({request.queue_count} report{"s" if request.queue_count != 1 else ""} in queue)</p>
     """
 
     send_gmail(
