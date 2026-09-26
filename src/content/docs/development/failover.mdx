@@ -204,6 +204,32 @@ same dump is also written to `/tmp/standby_dump.sql` on the primary during
 the failback run, though `/tmp` is not guaranteed to survive a reboot, so
 prefer the copy on the standby.
 
+## Starting services by hand (for developers)
+
+Outside the scripted failover/failback flow, always include both compose
+files and the env file so the right role-specific settings (read-only
+database, which services run) are in effect:
+
+On the primary:
+
+```
+docker compose -f docker-compose.yaml -f docker-compose.primary.yaml --env-file .env up -d <service>
+```
+
+On the standby:
+
+```
+docker compose -f docker-compose.yaml -f docker-compose.standby.yaml --env-file .env up -d <service>
+```
+
+`docker-compose.override.yaml` merges in automatically, no extra `-f` needed
+for it.
+
+Some services (the web app slots, Kimai) are gated behind the `web` compose
+profile so a bare `docker compose up -d` never starts a second web slot by
+accident. Naming a service explicitly on the command line, as above,
+activates its profile automatically, no `--profile` flag needed.
+
 ## The moving parts, by file (for developers)
 
 - `worker/index.js` plus `worker/wrangler.toml`: the Cloudflare monitor.
