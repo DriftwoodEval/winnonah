@@ -76,7 +76,7 @@ const SEARCH_ENTRIES: SearchEntry[] = [
 		subValue: "staff",
 	},
 	{
-		label: "Roles & Permissions",
+		label: "Roles",
 		keywords: "roles permissions access control",
 		tab: "people",
 		subParam: "peopleSubTab",
@@ -338,7 +338,7 @@ export function SettingsTabs() {
 								Staff
 							</TabsTrigger>
 							<TabsTrigger className="h-8 grow-0" value="roles">
-								Roles & Permissions
+								Roles
 							</TabsTrigger>
 							<TabsTrigger className="h-8 grow-0" value="ei-contacts">
 								EI Contacts
