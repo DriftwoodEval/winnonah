@@ -207,14 +207,11 @@ function PeopleList({
 										<div className="flex flex-col gap-1">
 											<Redact>{person.name}</Redact>
 											<div className="flex flex-wrap gap-1">
-												{person.user && (
-													<Badge className="w-fit text-xs" variant="outline">
-														User
-													</Badge>
-												)}
 												{person.evaluator && (
 													<Badge className="w-fit text-xs" variant="outline">
-														Evaluator
+														{person.user
+															? "Evaluator"
+															: "Evaluator (No Account)"}
 													</Badge>
 												)}
 												{getRoleName(person.user?.roleId) && (
@@ -312,14 +309,9 @@ function PeopleList({
 										<p className="font-medium">
 											<Redact>{person.name}</Redact>
 										</p>
-										{person.user && (
-											<Badge className="text-xs" variant="outline">
-												User
-											</Badge>
-										)}
 										{person.evaluator && (
 											<Badge className="text-xs" variant="outline">
-												Evaluator
+												{person.user ? "Evaluator" : "Evaluator (No Account)"}
 											</Badge>
 										)}
 										{getRoleName(person.user?.roleId) && (
