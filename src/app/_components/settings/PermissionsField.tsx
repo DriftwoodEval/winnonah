@@ -9,13 +9,15 @@ import {
 import { Button } from "@ui/button";
 import { Checkbox } from "@ui/checkbox";
 import { FormLabel } from "@ui/form";
+import { Input } from "@ui/input";
 import {
 	Tooltip,
 	TooltipContent,
 	TooltipProvider,
 	TooltipTrigger,
 } from "@ui/tooltip";
-import { X } from "lucide-react";
+import { Search, X } from "lucide-react";
+import { useState } from "react";
 import { PERMISSIONS } from "~/lib/constants";
 import {
 	PERMISSION_GROUP_IDS,
@@ -47,8 +49,16 @@ export function PermissionsField({
 	isPermissionDisabled = () => false,
 	basePermissions = {},
 }: PermissionsFieldProps) {
+	const [query, setQuery] = useState("");
+	const [manualOpenItems, setManualOpenItems] = useState<string[]>([]);
+	const trimmedQuery = query.trim().toLowerCase();
+	const hasQuery = trimmedQuery.length > 0;
+
 	const effective: PermissionsObject = { ...basePermissions, ...value };
 	const showOverrides = Object.keys(basePermissions).length > 0;
+
+	const titleMatches = (title: string) =>
+		title.toLowerCase().includes(trimmedQuery);
 
 	const isOverridden = (id: PermissionId) =>
 		value?.[id] !== undefined &&
@@ -140,226 +150,317 @@ export function PermissionsField({
 		commit(next);
 	};
 
+	const categoryEntries = Object.entries(PERMISSIONS).map(
+		([categoryKey, category]) => {
+			const categoryMatches = titleMatches(category.title);
+			const subgroupEntries = Object.entries(category.subgroups).map(
+				([subgroupKey, subgroup]) => {
+					const subgroupMatches = titleMatches(subgroup.title);
+					const showAllInSubgroup =
+						!hasQuery || categoryMatches || subgroupMatches;
+					const topLevelPerms = subgroup.permissions.filter(
+						(p: PermissionEntry) => !p.parent,
+					);
+					const visibleTopLevelPerms = showAllInSubgroup
+						? topLevelPerms
+						: topLevelPerms.filter((p: PermissionEntry) => {
+								const subs = subgroup.permissions.filter(
+									(s: PermissionEntry) => s.parent === p.id,
+								);
+								return (
+									titleMatches(p.title) ||
+									subs.some((s: PermissionEntry) => titleMatches(s.title))
+								);
+							});
+					return {
+						subgroupKey,
+						subgroup,
+						showAllInSubgroup,
+						visibleTopLevelPerms,
+						visible: showAllInSubgroup || visibleTopLevelPerms.length > 0,
+					};
+				},
+			);
+			return {
+				categoryKey,
+				category,
+				subgroupEntries,
+				visible: !hasQuery || subgroupEntries.some((s) => s.visible),
+			};
+		},
+	);
+
+	const openItems = hasQuery
+		? categoryEntries.filter((c) => c.visible).map((c) => c.categoryKey)
+		: manualOpenItems;
+
 	return (
 		<div className="space-y-3">
 			<div className="flex items-center justify-between border-b pb-2">
 				<span className="font-bold text-lg">Permissions</span>
 			</div>
 
-			<Accordion className="rounded-md border" type="multiple">
-				{Object.entries(PERMISSIONS).map(([categoryKey, category]) => (
-					<AccordionItem key={categoryKey} value={categoryKey}>
-						<AccordionTrigger className="px-4 font-semibold text-base hover:no-underline">
-							{category.title}
-						</AccordionTrigger>
-						<AccordionContent className="px-4 pt-2 pb-4">
-							<div className="grid grid-cols-1 gap-x-12 gap-y-6 md:grid-cols-2">
-								{Object.entries(category.subgroups).map(
-									([subgroupKey, subgroup]) => {
-										const groupId = permissionGroupId(categoryKey, subgroupKey);
-										const groupState = getGroupState(
-											groupId,
-											subgroup.permissions,
-										);
-										return (
-											<div key={subgroupKey}>
-												<div className="mb-3 flex items-center space-x-2">
-													<Checkbox
-														checked={groupState}
-														disabled={disabled}
-														id={`${categoryKey}-${subgroupKey}`}
-														onCheckedChange={() =>
-															toggleGroup(groupId, subgroup.permissions)
-														}
-													/>
-													<FormLabel
-														className="font-semibold text-md"
-														htmlFor={`${categoryKey}-${subgroupKey}`}
-													>
-														{subgroup.title}
-													</FormLabel>
-													{groupState === true && (
-														<span className="text-muted-foreground text-xs">
-															All, including new permissions
-														</span>
-													)}
-													{showOverrides &&
-														subgroupHasOverride(
-															groupId,
-															subgroup.permissions,
-														) && (
-															<Button
-																className="h-6 px-2 font-normal text-xs"
+			<div className="relative">
+				<Search className="absolute top-1/2 left-2.5 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+				<Input
+					className="pl-8"
+					onChange={(e) => setQuery(e.target.value)}
+					placeholder="Search permissions..."
+					value={query}
+				/>
+			</div>
+
+			{hasQuery && categoryEntries.every((c) => !c.visible) && (
+				<p className="py-2 text-muted-foreground text-sm">
+					No permissions match "{query}".
+				</p>
+			)}
+
+			<Accordion
+				className="rounded-md border"
+				onValueChange={(v) => {
+					if (!hasQuery) setManualOpenItems(v);
+				}}
+				type="multiple"
+				value={openItems}
+			>
+				{categoryEntries
+					.filter((c) => c.visible)
+					.map(({ categoryKey, category, subgroupEntries }) => (
+						<AccordionItem key={categoryKey} value={categoryKey}>
+							<AccordionTrigger className="px-4 font-semibold text-base hover:no-underline">
+								{category.title}
+							</AccordionTrigger>
+							<AccordionContent className="px-4 pt-2 pb-4">
+								<div className="grid grid-cols-1 gap-x-12 gap-y-6 md:grid-cols-2">
+									{subgroupEntries
+										.filter((s) => s.visible)
+										.map(
+											({
+												subgroupKey,
+												subgroup,
+												showAllInSubgroup,
+												visibleTopLevelPerms,
+											}) => {
+												const groupId = permissionGroupId(
+													categoryKey,
+													subgroupKey,
+												);
+												const groupState = getGroupState(
+													groupId,
+													subgroup.permissions,
+												);
+												return (
+													<div key={subgroupKey}>
+														<div className="mb-3 flex items-center space-x-2">
+															<Checkbox
+																checked={groupState}
 																disabled={disabled}
-																onClick={() =>
-																	resetSubgroupOverrides(
-																		groupId,
-																		subgroup.permissions,
-																	)
+																id={`${categoryKey}-${subgroupKey}`}
+																onCheckedChange={() =>
+																	toggleGroup(groupId, subgroup.permissions)
 																}
-																size="sm"
-																type="button"
-																variant="outline"
+															/>
+															<FormLabel
+																className="font-semibold text-md"
+																htmlFor={`${categoryKey}-${subgroupKey}`}
 															>
-																Reset to role default
-															</Button>
-														)}
-												</div>
+																{subgroup.title}
+															</FormLabel>
+															{groupState === true && (
+																<span className="text-muted-foreground text-xs">
+																	All, including new permissions
+																</span>
+															)}
+															{showOverrides &&
+																subgroupHasOverride(
+																	groupId,
+																	subgroup.permissions,
+																) && (
+																	<Button
+																		className="h-6 px-2 font-normal text-xs"
+																		disabled={disabled}
+																		onClick={() =>
+																			resetSubgroupOverrides(
+																				groupId,
+																				subgroup.permissions,
+																			)
+																		}
+																		size="sm"
+																		type="button"
+																		variant="outline"
+																	>
+																		Reset to role default
+																	</Button>
+																)}
+														</div>
 
-												<div className="ml-8 space-y-2">
-													{subgroup.permissions
-														.filter((p: PermissionEntry) => !p.parent)
-														.map((p: PermissionEntry) => {
-															const pid = p.id as PermissionId;
-															const subs = subgroup.permissions.filter(
-																(s: PermissionEntry) => s.parent === p.id,
-															);
-															const locked = isPermissionDisabled(p.id);
-															return (
-																<div key={p.id}>
-																	<div className="flex items-center space-x-2">
-																		{locked ? (
-																			<TooltipProvider>
-																				<Tooltip>
-																					<TooltipTrigger asChild>
-																						<span className="cursor-not-allowed">
-																							<Checkbox
-																								checked={hasPermission(
-																									effective,
-																									pid,
-																								)}
-																								disabled
-																								id={p.id}
-																							/>
-																						</span>
-																					</TooltipTrigger>
-																					<TooltipContent>
-																						You can't remove your own
-																						user-management permission
-																					</TooltipContent>
-																				</Tooltip>
-																			</TooltipProvider>
-																		) : (
-																			<Checkbox
-																				checked={hasPermission(effective, pid)}
-																				disabled={disabled}
-																				id={p.id}
-																				onCheckedChange={(checked) => {
-																					const next = {
-																						...value,
-																						[pid]: !!checked,
-																					};
-																					if (!checked) {
-																						for (const sub of subs) {
-																							next[sub.id as PermissionId] =
-																								false;
-																						}
-																					}
-																					commit(next);
-																				}}
-																			/>
-																		)}
-																		<FormLabel htmlFor={p.id}>
-																			{p.title}
-																		</FormLabel>
-																		{showOverrides &&
-																			!locked &&
-																			isOverridden(pid) && (
-																				<Button
-																					className="h-5 gap-1 px-1.5 font-normal text-muted-foreground text-xs"
-																					disabled={disabled}
-																					onClick={() => resetOverride(pid)}
-																					size="sm"
-																					title="Reset to role default"
-																					type="button"
-																					variant="ghost"
-																				>
-																					(role default:{" "}
-																					{hasPermission(basePermissions, pid)
-																						? "on"
-																						: "off"}
-																					)
-																					<X className="h-3 w-3" />
-																				</Button>
-																			)}
-																	</div>
-
-																	{subs.length > 0 && (
-																		<div className="mt-1 ml-6 space-y-1">
-																			{subs.map((sub: PermissionEntry) => (
-																				<div
-																					className="flex items-center space-x-2"
-																					key={sub.id}
-																				>
+														<div className="ml-8 space-y-2">
+															{visibleTopLevelPerms.map(
+																(p: PermissionEntry) => {
+																	const pid = p.id as PermissionId;
+																	const allSubs = subgroup.permissions.filter(
+																		(s: PermissionEntry) => s.parent === p.id,
+																	);
+																	const subs =
+																		showAllInSubgroup || titleMatches(p.title)
+																			? allSubs
+																			: allSubs.filter((s: PermissionEntry) =>
+																					titleMatches(s.title),
+																				);
+																	const locked = isPermissionDisabled(p.id);
+																	return (
+																		<div key={p.id}>
+																			<div className="flex items-center space-x-2">
+																				{locked ? (
+																					<TooltipProvider>
+																						<Tooltip>
+																							<TooltipTrigger asChild>
+																								<span className="cursor-not-allowed">
+																									<Checkbox
+																										checked={hasPermission(
+																											effective,
+																											pid,
+																										)}
+																										disabled
+																										id={p.id}
+																									/>
+																								</span>
+																							</TooltipTrigger>
+																							<TooltipContent>
+																								You can't remove your own
+																								user-management permission
+																							</TooltipContent>
+																						</Tooltip>
+																					</TooltipProvider>
+																				) : (
 																					<Checkbox
 																						checked={hasPermission(
 																							effective,
-																							sub.id as PermissionId,
+																							pid,
 																						)}
-																						disabled={
-																							disabled ||
-																							!hasPermission(effective, pid)
-																						}
-																						id={sub.id}
-																						onCheckedChange={(checked) =>
-																							commit({
+																						disabled={disabled}
+																						id={p.id}
+																						onCheckedChange={(checked) => {
+																							const next = {
 																								...value,
-																								[sub.id as PermissionId]:
-																									!!checked,
-																							})
-																						}
-																					/>
-																					<FormLabel
-																						className="font-normal"
-																						htmlFor={sub.id}
-																					>
-																						{sub.title}
-																					</FormLabel>
-																					{showOverrides &&
-																						!locked &&
-																						isOverridden(
-																							sub.id as PermissionId,
-																						) && (
-																							<Button
-																								className="h-5 gap-1 px-1.5 font-normal text-muted-foreground text-xs"
-																								disabled={disabled}
-																								onClick={() =>
-																									resetOverride(
-																										sub.id as PermissionId,
-																									)
+																								[pid]: !!checked,
+																							};
+																							if (!checked) {
+																								for (const sub of allSubs) {
+																									next[sub.id as PermissionId] =
+																										false;
 																								}
-																								size="sm"
-																								title="Reset to role default"
-																								type="button"
-																								variant="ghost"
-																							>
-																								(role default:{" "}
-																								{hasPermission(
-																									basePermissions,
+																							}
+																							commit(next);
+																						}}
+																					/>
+																				)}
+																				<FormLabel htmlFor={p.id}>
+																					{p.title}
+																				</FormLabel>
+																				{showOverrides &&
+																					!locked &&
+																					isOverridden(pid) && (
+																						<Button
+																							className="h-5 gap-1 px-1.5 font-normal text-muted-foreground text-xs"
+																							disabled={disabled}
+																							onClick={() => resetOverride(pid)}
+																							size="sm"
+																							title="Reset to role default"
+																							type="button"
+																							variant="ghost"
+																						>
+																							(role default:{" "}
+																							{hasPermission(
+																								basePermissions,
+																								pid,
+																							)
+																								? "on"
+																								: "off"}
+																							)
+																							<X className="h-3 w-3" />
+																						</Button>
+																					)}
+																			</div>
+
+																			{subs.length > 0 && (
+																				<div className="mt-1 ml-6 space-y-1">
+																					{subs.map((sub: PermissionEntry) => (
+																						<div
+																							className="flex items-center space-x-2"
+																							key={sub.id}
+																						>
+																							<Checkbox
+																								checked={hasPermission(
+																									effective,
 																									sub.id as PermissionId,
-																								)
-																									? "on"
-																									: "off"}
-																								)
-																								<X className="h-3 w-3" />
-																							</Button>
-																						)}
+																								)}
+																								disabled={
+																									disabled ||
+																									!hasPermission(effective, pid)
+																								}
+																								id={sub.id}
+																								onCheckedChange={(checked) =>
+																									commit({
+																										...value,
+																										[sub.id as PermissionId]:
+																											!!checked,
+																									})
+																								}
+																							/>
+																							<FormLabel
+																								className="font-normal"
+																								htmlFor={sub.id}
+																							>
+																								{sub.title}
+																							</FormLabel>
+																							{showOverrides &&
+																								!locked &&
+																								isOverridden(
+																									sub.id as PermissionId,
+																								) && (
+																									<Button
+																										className="h-5 gap-1 px-1.5 font-normal text-muted-foreground text-xs"
+																										disabled={disabled}
+																										onClick={() =>
+																											resetOverride(
+																												sub.id as PermissionId,
+																											)
+																										}
+																										size="sm"
+																										title="Reset to role default"
+																										type="button"
+																										variant="ghost"
+																									>
+																										(role default:{" "}
+																										{hasPermission(
+																											basePermissions,
+																											sub.id as PermissionId,
+																										)
+																											? "on"
+																											: "off"}
+																										)
+																										<X className="h-3 w-3" />
+																									</Button>
+																								)}
+																						</div>
+																					))}
 																				</div>
-																			))}
+																			)}
 																		</div>
-																	)}
-																</div>
-															);
-														})}
-												</div>
-											</div>
-										);
-									},
-								)}
-							</div>
-						</AccordionContent>
-					</AccordionItem>
-				))}
+																	);
+																},
+															)}
+														</div>
+													</div>
+												);
+											},
+										)}
+								</div>
+							</AccordionContent>
+						</AccordionItem>
+					))}
 			</Accordion>
 		</div>
 	);
