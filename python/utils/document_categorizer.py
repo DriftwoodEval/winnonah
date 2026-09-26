@@ -1,4 +1,6 @@
+import base64
 import contextlib
+import io
 import json
 import os
 import re
@@ -7,6 +9,7 @@ from pathlib import Path
 from typing import cast
 
 import cv2
+import httpx
 import numpy as np
 import pymupdf as fitz
 import pytesseract
@@ -16,6 +19,29 @@ from loguru import logger
 from PIL import Image
 
 from utils.misc import capitalize_name_with_exceptions
+
+# A local vision LLM (served by Ollama) reads scanned pages directly instead
+# of Tesseract OCR: much better transcription quality (see eval notes), at
+# the cost of ~2-3 minutes/page on CPU-only hardware (no viable GPU backend
+# found on the deployed hardware's Intel iGPU - its Vulkan path produces
+# degenerate output). Categorization stays on the fast local Gemma model in
+# categorize_document below; only the text-extraction step changes.
+VISION_OCR_HOST = os.getenv("VISION_OCR_HOST", "http://localhost:11434")
+VISION_OCR_MODEL = os.getenv("VISION_OCR_MODEL", "qwen2.5vl:7b")
+# Keeps a page's request within the vision model's context window: at this
+# width, one page runs a few thousand vision tokens - see PROMPT_TOKEN_RESERVE
+# below.
+VISION_OCR_MAX_WIDTH = 1000
+VISION_OCR_NUM_CTX = 8192
+# Reserved for the prompt text plus the model's transcription reply.
+VISION_OCR_PROMPT_RESERVE = 200
+VISION_OCR_RESPONSE_RESERVE = 1500
+
+VISION_TRANSCRIBE_SCHEMA = {
+    "type": "object",
+    "properties": {"transcription": {"type": "string"}},
+    "required": ["transcription"],
+}
 
 CATEGORIES = [
     "Referral",
@@ -380,6 +406,43 @@ def _deskew(binary: np.ndarray) -> np.ndarray:
     )
 
 
+def _transcribe_with_vision(image: Image.Image) -> str:
+    """Reads a scanned page's text via a local vision LLM (Ollama), in place
+    of Tesseract OCR: markedly better transcription quality (correctly
+    reads faint/skewed fax text Tesseract garbles), at the cost of roughly
+    2-3 minutes/page on CPU-only hardware. Returns "" on any failure so a
+    single bad page doesn't take down the whole document's extraction."""
+    if image.width > VISION_OCR_MAX_WIDTH:
+        ratio = VISION_OCR_MAX_WIDTH / image.width
+        image = image.resize((VISION_OCR_MAX_WIDTH, int(image.height * ratio)))
+
+    buf = io.BytesIO()
+    image.save(buf, format="PNG")
+    payload = {
+        "model": VISION_OCR_MODEL,
+        "prompt": (
+            "This image is a page of a scanned fax. Respond with a single "
+            'JSON object: {"transcription": "..."} containing a full '
+            "plain-text transcription of everything legible on the page, "
+            "in reading order."
+        ),
+        "images": [base64.b64encode(buf.getvalue()).decode()],
+        "stream": False,
+        "options": {"num_ctx": VISION_OCR_NUM_CTX, "temperature": 0.0},
+        "format": VISION_TRANSCRIBE_SCHEMA,
+    }
+    try:
+        response = httpx.post(
+            f"{VISION_OCR_HOST}/api/generate", json=payload, timeout=600
+        )
+        response.raise_for_status()
+        data = json.loads(response.json().get("response", "{}"))
+        return str(data.get("transcription", ""))
+    except (httpx.HTTPError, json.JSONDecodeError) as e:
+        logger.warning(f"Vision OCR request failed: {e}")
+        return ""
+
+
 def header_override_category(document_text: str) -> str | None:
     header = document_text[:HEADER_CHARS_CHECKED].upper()
     for marker, category in HEADER_CATEGORY_OVERRIDES.items():
@@ -418,17 +481,19 @@ def extract_text(
                 image = image.rotate(-angle, expand=True)
                 binary = _rotate_clockwise(binary, angle)
 
-            if clean_faxes:
-                # binary is already denoised and rotated upright; deskewing
-                # the small residual tilt is all that's left.
-                image = Image.fromarray(_deskew(binary))
             if save_preprocessed_dir:
+                # The vision model reads the plain rotation-corrected image
+                # (binarizing/deskewing hurts its legibility more than it
+                # helps), but clean_faxes still controls whether the saved
+                # preview shows that cleanup step, for inspecting it
+                # independent of what's actually sent to the model.
+                preview = Image.fromarray(_deskew(binary)) if clean_faxes else image
                 stem = Path(pdf_path).stem
                 out_dir = Path(save_preprocessed_dir)
                 out_dir.mkdir(parents=True, exist_ok=True)
-                image.save(out_dir / f"{stem}_page{page_number}.png")
-            text = pytesseract.image_to_string(image).strip()
-            source = "image scan (OCR)"
+                preview.save(out_dir / f"{stem}_page{page_number}.png")
+            text = _transcribe_with_vision(image).strip()
+            source = "image scan (vision LLM)"
 
         logger.debug(f"Page {page_number}/{page_count}: {source}")
         pages.append(text)

@@ -3,6 +3,7 @@ from typing import cast
 from unittest.mock import MagicMock, patch
 
 import cv2
+import httpx
 import numpy as np
 import pytesseract
 import pytest
@@ -24,6 +25,7 @@ from utils.document_categorizer import (
     _estimate_skew_angle,
     _orient_by_reading,
     _rotate_clockwise,
+    _transcribe_with_vision,
     analyze_document,
     build_prompt,
     categorize_document,
@@ -474,6 +476,33 @@ class TestDeskew:
         cleaned = _deskew(_denoise_binarize(rotated))
 
         assert abs(_estimate_skew_angle(cleaned)) < 0.5
+
+
+class TestTranscribeWithVision:
+    def test_parses_transcription_from_response(self):
+        page = Image.new("RGB", (100, 100), color="white")
+        fake_response = MagicMock()
+        fake_response.json.return_value = {
+            "response": '{"transcription": "hello world"}'
+        }
+        with patch("httpx.post", return_value=fake_response) as mock_post:
+            result = _transcribe_with_vision(page)
+        assert result == "hello world"
+        mock_post.assert_called_once()
+
+    def test_returns_empty_string_on_http_error(self):
+        page = Image.new("RGB", (100, 100), color="white")
+        with patch("httpx.post", side_effect=httpx.ConnectError("refused")):
+            result = _transcribe_with_vision(page)
+        assert result == ""
+
+    def test_returns_empty_string_on_invalid_json(self):
+        page = Image.new("RGB", (100, 100), color="white")
+        fake_response = MagicMock()
+        fake_response.json.return_value = {"response": "not json"}
+        with patch("httpx.post", return_value=fake_response):
+            result = _transcribe_with_vision(page)
+        assert result == ""
 
 
 class TestLimitCpuUsage:

@@ -29,6 +29,15 @@ services:
     environment:
       - SERVER_ROLE=standby
 
+  ollama:
+    restart: unless-stopped
+    profiles:
+      - active_only
+
+  ollama-pull:
+    profiles:
+      - active_only
+
   winnonah-python:
     restart: unless-stopped
     profiles:

@@ -109,12 +109,48 @@ services:
       ${CF_TOKEN}
     restart: no
 
+  ollama:
+    image: ollama/ollama:latest
+    container_name: ollama
+    restart: always
+    # CPU-only on this hardware: the host's Intel iGPU produces degenerate
+    # output over Vulkan (see fax categorization vision-OCR eval), so no
+    # GPU passthrough is configured here.
+    volumes:
+      - ollama-data:/root/.ollama
+    healthcheck:
+      test: ["CMD", "ollama", "list"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # One-shot: pulls the fax-categorization vision model into ollama-data on
+  # first start, then exits. ollama's own image cache means later runs are a
+  # no-op (`ollama pull` is idempotent), so this is cheap to leave running
+  # on every `docker compose up`.
+  ollama-pull:
+    image: ollama/ollama:latest
+    container_name: ollama-pull
+    restart: "no"
+    depends_on:
+      ollama:
+        condition: service_healthy
+    environment:
+      - OLLAMA_HOST=http://ollama:11434
+    entrypoint: ["ollama", "pull", "qwen2.5vl:7b"]
+
   winnonah-python:
     image: ghcr.io/driftwoodeval/winnonah-python:latest
     container_name: winnonah-python
     restart: always
+    depends_on:
+      ollama:
+        condition: service_healthy
+      ollama-pull:
+        condition: service_completed_successfully
     environment:
       - HEADLESS=true
+      - VISION_OCR_HOST=http://ollama:11434
       - DATABASE_URL=${DOCKER_DATABASE_URL}
       - PUNCHLIST_ID=${PUNCHLIST_ID}
       - PUNCHLIST_RANGE=${PUNCHLIST_RANGE}
@@ -211,6 +247,7 @@ volumes:
   loki-data:
   grafana-data:
   promtail-positions:
+  ollama-data:
 
 networks:
   default:
