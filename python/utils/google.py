@@ -5,7 +5,7 @@ import re
 import time
 from collections import deque
 from collections.abc import Sequence
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, date, datetime, timedelta
 from email.message import EmailMessage
 from functools import lru_cache
 from pathlib import Path
@@ -1174,3 +1174,166 @@ def find_gcal_event_by_client_and_time(
         f"{start_time_utc.isoformat()}"
     )
     return None
+
+
+def list_calendar_events_batch(
+    calendar_ids: list[str], time_min: datetime, time_max: datetime
+) -> dict[str, list[dict]]:
+    """Fetch events (expanded recurrences) for each given calendar id in a time range.
+
+    Returns {calendar_id: [event, ...]}. Calendars that error out (e.g. no access) are
+    returned with an empty list rather than raising.
+    """
+    creds = google_authenticate()
+    service = build("calendar", "v3", credentials=creds)
+
+    time_min_str = time_min.isoformat() + ("Z" if time_min.tzinfo is None else "")
+    time_max_str = time_max.isoformat() + ("Z" if time_max.tzinfo is None else "")
+
+    results: dict[str, list[dict]] = {}
+    for calendar_id in calendar_ids:
+        events: list[dict] = []
+        page_token = None
+        try:
+            while True:
+                page = (
+                    service.events()
+                    .list(
+                        calendarId=calendar_id,
+                        timeMin=time_min_str,
+                        timeMax=time_max_str,
+                        singleEvents=True,
+                        orderBy="startTime",
+                        pageToken=page_token,
+                    )
+                    .execute()
+                )
+                events.extend(page.get("items", []))
+                page_token = page.get("nextPageToken")
+                if not page_token:
+                    break
+        except HttpError as e:
+            logger.warning(f"Could not list events for calendar {calendar_id}: {e}")
+            events = []
+
+        results[calendar_id] = events
+
+    return results
+
+
+def create_placeholder_event(
+    calendar_id: str, title: str, start: datetime, end: datetime
+) -> str:
+    """Insert a placeholder hold event on an evaluator's calendar. Returns the event id.
+
+    start/end are treated as naive America/New_York wall-clock times, matching how
+    appointment times are stored in the database (see put_appointment_in_db).
+    """
+    creds = google_authenticate()
+    service = build("calendar", "v3", credentials=creds)
+
+    naive_start = start.replace(tzinfo=None) if start.tzinfo else start
+    naive_end = end.replace(tzinfo=None) if end.tzinfo else end
+
+    event = (
+        service.events()
+        .insert(
+            calendarId=calendar_id,
+            body={
+                "summary": title,
+                "start": {
+                    "dateTime": naive_start.isoformat(),
+                    "timeZone": "America/New_York",
+                },
+                "end": {
+                    "dateTime": naive_end.isoformat(),
+                    "timeZone": "America/New_York",
+                },
+            },
+        )
+        .execute()
+    )
+    logger.info(f"Created placeholder event {event['id']} on calendar {calendar_id}")
+    return event["id"]
+
+
+def delete_calendar_event(calendar_id: str, event_id: str) -> None:
+    """Delete a calendar event. Used to clean up placeholder holds."""
+    creds = google_authenticate()
+    service = build("calendar", "v3", credentials=creds)
+    try:
+        service.events().delete(calendarId=calendar_id, eventId=event_id).execute()
+        logger.info(f"Deleted calendar event {event_id} on calendar {calendar_id}")
+    except HttpError as e:
+        if e.resp.status == 410:
+            logger.info(f"Calendar event {event_id} already deleted")
+        else:
+            raise
+
+
+PLANNED_OFFICE_TITLE_PREFIX = "Planned: "
+
+
+def create_all_day_event(calendar_id: str, title: str, date: date) -> str:
+    """Insert an all-day event on an evaluator's calendar. Returns the event id.
+
+    Used to mark a "planned" office for a day the evaluator hasn't booked
+    anything on yet - see clear_planned_office_events, which removes it once a
+    real booking lands.
+    """
+    creds = google_authenticate()
+    service = build("calendar", "v3", credentials=creds)
+
+    end_date = date + timedelta(days=1)
+    event = (
+        service.events()
+        .insert(
+            calendarId=calendar_id,
+            body={
+                "summary": title,
+                "start": {"date": date.isoformat()},
+                "end": {"date": end_date.isoformat()},
+            },
+        )
+        .execute()
+    )
+    logger.info(f"Created all-day event {event['id']} on calendar {calendar_id}")
+    return event["id"]
+
+
+def clear_planned_office_events(calendar_id: str, date: date) -> None:
+    """Delete any "Planned: <office>" all-day events on the given calendar/date.
+
+    Called once a placeholder or real appointment lands on that evaluator's
+    day, so a stale "planned" marker doesn't linger once the day is actually
+    booked.
+    """
+    creds = google_authenticate()
+    service = build("calendar", "v3", credentials=creds)
+
+    time_min = datetime.combine(date, datetime.min.time()).isoformat() + "Z"
+    time_max = (
+        datetime.combine(date + timedelta(days=1), datetime.min.time()).isoformat()
+        + "Z"
+    )
+
+    try:
+        events = (
+            service.events()
+            .list(
+                calendarId=calendar_id,
+                timeMin=time_min,
+                timeMax=time_max,
+                singleEvents=True,
+            )
+            .execute()
+            .get("items", [])
+        )
+    except HttpError as e:
+        logger.warning(f"Could not list events for calendar {calendar_id}: {e}")
+        return
+
+    for event in events:
+        summary = event.get("summary") or ""
+        if summary.startswith(PLANNED_OFFICE_TITLE_PREFIX):
+            delete_calendar_event(calendar_id, event["id"])

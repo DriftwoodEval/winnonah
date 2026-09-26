@@ -30,6 +30,7 @@ from utils.database import (
     sync_punchlist_to_db,
 )
 from utils.google import (
+    clear_planned_office_events,
     google_authenticate,
     list_subfolders,
     move_drive_folder,
@@ -700,6 +701,19 @@ def insert_appointments_with_gcal(appointment_sync_data: dict[str, list[str]] | 
                 confirmed_at=confirmed_at,
             )
 
+            if not cancelled and gcal_calendar_id:
+                appt_day = (
+                    start_time.date()
+                    if isinstance(start_time, datetime)
+                    else start_time
+                )
+                try:
+                    clear_planned_office_events(gcal_calendar_id, appt_day)
+                except Exception as e:
+                    logger.warning(
+                        f"Could not clear planned-office events for {gcal_calendar_id} on {appt_day}: {e}"
+                    )
+
             if not cancelled and gcal_daeval and battery_rules:
                 client_dob = dob_map.get(client_id)
                 if client_dob:
@@ -1026,3 +1040,26 @@ def parse_location_and_type(
         return "Virtual", "DA", is_confirmed
 
     return None, None, is_confirmed
+
+
+def build_placeholder_title(
+    client_name: str, da_eval: DAEvalType, location_key: str
+) -> str:
+    """Build a placeholder calendar event title in the standard [LOC-TYPE] format.
+
+    Examples:
+        ("Jane Doe", "DAEVAL", "COL") -> "plchldr Jane Doe DAEVAL [COL-DE]"
+        ("Jane Doe", "DA", "Virtual") -> "plchldr Jane Doe DA [V]"
+    """
+    type_letter_map: dict[DAEvalType, str] = {
+        "EVAL": "E",
+        "DA": "D",
+        "DAEVAL": "DE",
+    }
+
+    if location_key == "Virtual":
+        tag = "[V]"
+    else:
+        tag = f"[{location_key}-{type_letter_map[da_eval]}]"
+
+    return f"plchldr {client_name} {da_eval} {tag}"

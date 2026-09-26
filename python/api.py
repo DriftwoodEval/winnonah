@@ -3,8 +3,9 @@ import os
 import re
 import time
 from contextlib import asynccontextmanager
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
+from uuid import uuid4
 
 from dotenv import load_dotenv
 from fastapi import Depends, FastAPI, HTTPException, Request
@@ -15,6 +16,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 import appointment_reminders
 import greeter_proxy
+from utils.appointments import DAEvalType, build_placeholder_title
 from utils.constants import (
     TABLE_ACCOUNT,
     TABLE_APPOINTMENT,
@@ -26,18 +28,29 @@ from utils.constants import (
     TABLE_USER,
 )
 from utils.database import (
+    delete_appointment,
     get_client_eligibility_debug,
+    get_client_name,
     get_db,
+    get_evaluator_email,
+    get_evaluator_emails,
+    get_placeholder_appointment,
     get_possible_private_pay_reasons,
     get_python_config,
+    put_appointment_in_db,
     reconcile_pool_report_queue_state,
     rematch_client,
     rematch_evaluator,
 )
 from utils.forms import fill_select_health_form
 from utils.google import (
+    clear_planned_office_events,
+    create_all_day_event,
+    create_placeholder_event,
+    delete_calendar_event,
     get_gmail_message,
     google_authenticate,
+    list_calendar_events_batch,
     list_gmail_messages,
     mark_gmail_message_read,
     send_gmail,
@@ -45,7 +58,7 @@ from utils.google import (
 )
 from utils.misc import json_log_format
 from utils.permissions import effective_permissions, has_permission
-from utils.timezone import now_business, now_utc
+from utils.timezone import business_to_utc, now_business, now_utc
 from utils.waze import (
     KM_PER_MILE,
     WAZE_MAX_CONCURRENCY,
@@ -124,6 +137,26 @@ class CptCodeEntry(BaseModel):
 class SelectHealthFormRequest(BaseModel):
     model_config = ConfigDict(populate_by_name=True)
     cpt_codes: list[CptCodeEntry] = Field(default=[], alias="cptCodes")
+
+
+class CreatePlaceholderAppointmentRequest(BaseModel):
+    client_id: int
+    evaluator_npi: int
+    start_time: datetime
+    end_time: datetime
+    da_eval: DAEvalType
+    location_key: str
+
+
+class PlanOfficeRequest(BaseModel):
+    evaluator_npi: int
+    date: date
+    title: str
+
+
+class UnplanOfficeRequest(BaseModel):
+    evaluator_npi: int
+    date: date
 
 
 def get_google_services():
@@ -834,6 +867,137 @@ def client_eligibility_debug(
     if result is None:
         raise HTTPException(status_code=404, detail="Client not found")
     return result
+
+
+@app.get("/evaluators/availability")
+async def evaluators_availability(
+    npis: str,
+    start: datetime,
+    end: datetime,
+    current_user: dict = Depends(get_current_user),
+):
+    if not current_user["permissions"].get("pages:scheduling"):
+        raise HTTPException(status_code=403, detail="Not authorized")
+
+    npi_list = [int(n) for n in npis.split(",") if n]
+    email_by_npi = get_evaluator_emails(npi_list)
+
+    events_by_email = list_calendar_events_batch(
+        list(email_by_npi.values()), start, end
+    )
+
+    return {npi: events_by_email.get(email, []) for npi, email in email_by_npi.items()}
+
+
+@app.post("/appointments/placeholder")
+async def create_placeholder_appointment(
+    request: CreatePlaceholderAppointmentRequest,
+    current_user: dict = Depends(get_current_user),
+):
+    if not current_user["permissions"].get("pages:scheduling"):
+        raise HTTPException(status_code=403, detail="Not authorized")
+
+    client_name = get_client_name(request.client_id)
+    if client_name is None:
+        raise HTTPException(status_code=404, detail="Client not found")
+
+    evaluator_email = get_evaluator_email(request.evaluator_npi)
+    if evaluator_email is None:
+        raise HTTPException(status_code=404, detail="Evaluator not found")
+
+    # request.start_time/end_time are naive business-local wall-clock values
+    # (the client sends them with no UTC offset). Google Calendar wants that
+    # naive value paired with an explicit timeZone (see create_placeholder_event),
+    # while the DB stores true UTC instants, so localize before writing.
+    start_time_business = request.start_time.replace(tzinfo=None)
+    end_time_business = request.end_time.replace(tzinfo=None)
+    start_time = business_to_utc(start_time_business)
+    end_time = business_to_utc(end_time_business)
+
+    title = build_placeholder_title(client_name, request.da_eval, request.location_key)
+    calendar_event_id = create_placeholder_event(
+        evaluator_email, title, start_time_business, end_time_business
+    )
+
+    appointment_id = f"plchldr-{uuid4()}"
+    put_appointment_in_db(
+        appointment_id=appointment_id,
+        client_id=request.client_id,
+        evaluator_npi=request.evaluator_npi,
+        cpt="",
+        start_time=start_time,
+        end_time=end_time,
+        da_eval=request.da_eval,
+        location=request.location_key,
+        gcal_event_id=calendar_event_id,
+        gcal_event_title=title,
+        placeholder=True,
+    )
+    clear_planned_office_events(evaluator_email, start_time_business.date())
+
+    return {
+        "id": appointment_id,
+        "clientId": request.client_id,
+        "evaluatorNpi": request.evaluator_npi,
+        "startTime": start_time,
+        "endTime": end_time,
+        "daEval": request.da_eval,
+        "locationKey": request.location_key,
+        "calendarEventId": calendar_event_id,
+        "calendarEventTitle": title,
+    }
+
+
+@app.delete("/appointments/placeholder/{appointment_id}")
+async def delete_placeholder_appointment(
+    appointment_id: str, current_user: dict = Depends(get_current_user)
+):
+    if not current_user["permissions"].get("pages:scheduling"):
+        raise HTTPException(status_code=403, detail="Not authorized")
+
+    appointment = get_placeholder_appointment(appointment_id)
+    if appointment is None:
+        raise HTTPException(status_code=404, detail="Placeholder appointment not found")
+
+    if appointment["calendarEventId"] and appointment["evaluatorEmail"]:
+        delete_calendar_event(
+            appointment["evaluatorEmail"], appointment["calendarEventId"]
+        )
+
+    delete_appointment(appointment_id)
+    return {"status": "ok"}
+
+
+@app.post("/evaluators/planned-office")
+async def plan_evaluator_office(
+    request: PlanOfficeRequest, current_user: dict = Depends(get_current_user)
+):
+    if not current_user["permissions"].get("pages:scheduling"):
+        raise HTTPException(status_code=403, detail="Not authorized")
+
+    evaluator_email = get_evaluator_email(request.evaluator_npi)
+    if evaluator_email is None:
+        raise HTTPException(status_code=404, detail="Evaluator not found")
+
+    calendar_event_id = create_all_day_event(
+        evaluator_email, request.title, request.date
+    )
+    return {"calendarEventId": calendar_event_id}
+
+
+@app.delete("/evaluators/planned-office")
+async def unplan_evaluator_office(
+    request: UnplanOfficeRequest, current_user: dict = Depends(get_current_user)
+):
+    if not current_user["permissions"].get("pages:scheduling"):
+        raise HTTPException(status_code=403, detail="Not authorized")
+
+    evaluator_email = get_evaluator_email(request.evaluator_npi)
+    if evaluator_email is None:
+        raise HTTPException(status_code=404, detail="Evaluator not found")
+
+    clear_planned_office_events(evaluator_email, request.date)
+    return {"status": "ok"}
 
 
 @app.post("/clients/possible-private-pay-reasons")
