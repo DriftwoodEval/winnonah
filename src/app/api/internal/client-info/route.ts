@@ -1,79 +1,9 @@
-import { and, desc, eq, isNotNull } from "drizzle-orm";
 import { type NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
-import { NOTE_TEMPLATES } from "~/lib/constants";
-import {
-	formatClientAge,
-	formatShortDate,
-	formatShortInstantDate,
-} from "~/lib/utils";
 import { checkInternalApiAuth } from "~/server/auth/internal-api";
-import { db } from "~/server/db";
-import {
-	appointments,
-	clients,
-	evaluators,
-	externalRecordRequests,
-	externalRecords,
-	notes,
-	questionnaires,
-} from "~/server/db/schema";
+import { getClientInfoData } from "~/server/client-info";
 
 const QuerySchema = z.object({ id: z.string().min(1) });
-
-interface TiptapNode {
-	type?: string;
-	text?: string;
-	content?: TiptapNode[];
-	// biome-ignore lint/suspicious/noExplicitAny: allow for other properties
-	[key: string]: any;
-}
-
-const extractTextFromTiptapJson = (tiptapJson: TiptapNode | null): string => {
-	if (
-		!tiptapJson ||
-		typeof tiptapJson !== "object" ||
-		!Array.isArray(tiptapJson.content)
-	) {
-		return "";
-	}
-
-	let fullText = "";
-
-	const traverse = (node: TiptapNode) => {
-		if (node.type === "text" && node.text) {
-			fullText += node.text;
-		}
-
-		if (node.content && Array.isArray(node.content)) {
-			node.content.forEach(traverse);
-		}
-
-		// End block-level elements with a period so lines read sensibly once joined
-		if (
-			node.type === "paragraph" ||
-			node.type === "heading" ||
-			node.type === "listItem"
-		) {
-			const trimmed = fullText.trimEnd();
-			if (trimmed.length > 0 && !/[.!?]$/.test(trimmed)) {
-				fullText = `${trimmed}.`;
-			} else {
-				fullText = trimmed;
-			}
-
-			if (!fullText.endsWith(" ")) {
-				fullText += " ";
-			}
-		}
-	};
-
-	tiptapJson.content.forEach(traverse);
-
-	return fullText
-		.replace(/[ \t]+/g, " ") // Replace multiple spaces/tabs with a single space
-		.trim();
-};
 
 export async function GET(req: NextRequest) {
 	const { searchParams } = new URL(req.url);
@@ -104,142 +34,13 @@ export async function GET(req: NextRequest) {
 	const clientId = parseInt(validation.data.id, 10);
 
 	try {
-		const client = await db.query.clients.findFirst({
-			where: eq(clients.id, clientId),
-			columns: {
-				fullName: true,
-				dob: true,
-				phoneNumber: true,
-				recordsNeeded: true,
-				babyNetERNeeded: true,
-				babyNetERDownloaded: true,
-			},
-		});
+		const clientInfo = await getClientInfoData(clientId);
 
-		if (!client) {
+		if (!clientInfo) {
 			return NextResponse.json({ error: "Client not found" }, { status: 404 });
 		}
 
-		const [
-			externalRecord,
-			clientNote,
-			requestsList,
-			mostRecentAppointment,
-			questionnaireList,
-		] = await Promise.all([
-			db.query.externalRecords.findFirst({
-				where: eq(externalRecords.clientId, clientId),
-				columns: { content: true },
-			}),
-			db.query.notes.findFirst({
-				where: eq(notes.clientId, clientId),
-				columns: { content: true, title: true },
-			}),
-			db
-				.select({ requestedDate: externalRecordRequests.requestedDate })
-				.from(externalRecordRequests)
-				.where(
-					and(
-						eq(externalRecordRequests.clientId, clientId),
-						isNotNull(externalRecordRequests.requestedDate),
-					),
-				)
-				.orderBy(desc(externalRecordRequests.requestedDate)),
-			db
-				.select({
-					startTime: appointments.startTime,
-					providerName: evaluators.providerName,
-				})
-				.from(appointments)
-				.leftJoin(evaluators, eq(appointments.evaluatorNpi, evaluators.npi))
-				.where(
-					and(
-						eq(appointments.clientId, clientId),
-						isNotNull(appointments.calendarEventId),
-						eq(appointments.cancelled, false),
-					),
-				)
-				.orderBy(desc(appointments.startTime))
-				.limit(1)
-				.then((res) => res[0]),
-			db.query.questionnaires.findMany({
-				where: eq(questionnaires.clientId, clientId),
-				columns: {
-					questionnaireType: true,
-					status: true,
-					sent: true,
-					link: true,
-				},
-			}),
-		]);
-
-		const fullNote = extractTextFromTiptapJson(
-			externalRecord?.content as TiptapNode,
-		).trim();
-		const fullClientNote = extractTextFromTiptapJson(
-			clientNote?.content as TiptapNode,
-		).trim();
-		const matchedTemplate = NOTE_TEMPLATES.find((t) =>
-			fullNote.includes(t.text),
-		);
-		let recordsNote = matchedTemplate ? matchedTemplate.text : fullNote;
-
-		const formatDate = (date: string | null | undefined) =>
-			formatShortDate(date, "") || null;
-
-		if (matchedTemplate?.value === "no-response") {
-			const dates = requestsList
-				.map((r) => formatDate(r.requestedDate))
-				.filter(Boolean);
-			if (dates.length > 0) {
-				recordsNote = `${recordsNote} (${dates.join(", ")})`;
-			}
-		}
-
-		const recordsReviewed = fullNote.length > 0;
-		const latestRequest = requestsList[0];
-		const firstRequest = requestsList.at(-1);
-
-		let recordsStatus: string | boolean = false;
-		if (client.recordsNeeded === "Needed") {
-			if (recordsReviewed) {
-				recordsStatus = recordsNote;
-			} else if (requestsList.length === 0) {
-				recordsStatus = "Needed but not requested";
-			} else if (requestsList.length === 1) {
-				recordsStatus = `Requested ${formatDate(firstRequest?.requestedDate)} and not received/reviewed`;
-			} else {
-				recordsStatus = `Requested again ${formatDate(latestRequest?.requestedDate)} and not received/reviewed`;
-			}
-		}
-
-		let babyNetERStatus: string | boolean = false;
-		if (client.babyNetERNeeded) {
-			babyNetERStatus = client.babyNetERNeeded
-				? "Downloaded"
-				: "Needed but not downloaded";
-		}
-
-		return NextResponse.json({
-			fullName: client.fullName,
-			dob: formatDate(client.dob),
-			age: formatClientAge(client.dob, "short"),
-			phoneNumber: client.phoneNumber,
-			clientNoteTitle: clientNote?.title ?? null,
-			clientNote: fullClientNote,
-			records: recordsStatus,
-			babyNetERStatus: babyNetERStatus,
-			mostRecentAppointment: mostRecentAppointment
-				? formatShortInstantDate(mostRecentAppointment.startTime)
-				: undefined,
-			mostRecentAppointmentProvider: mostRecentAppointment?.providerName,
-			questionnaires: questionnaireList.map((q) => ({
-				type: q.questionnaireType,
-				status: q.status,
-				sent: formatDate(q.sent),
-				link: q.link ?? null,
-			})),
-		});
+		return NextResponse.json(clientInfo);
 	} catch (error) {
 		console.error("Database query failed:", error);
 		return NextResponse.json(

@@ -61,6 +61,7 @@ python/*.txt
 !scripts/*.sql
 q-screenshots/*
 TestPDFs/
+TestPDFs.bak/
 python/*.jsonl
 
 # local overrides

@@ -3,6 +3,7 @@ import { fromZonedTime } from "date-fns-tz";
 import { and, asc, count, desc, eq, gte, lte } from "drizzle-orm";
 import { z } from "zod";
 import { env } from "~/env";
+import { formatAppointmentInfoBlock } from "~/lib/appointment-info-block";
 import { isVirtualAppointment } from "~/lib/checkin";
 import { BUSINESS_TIMEZONE } from "~/lib/constants";
 import { formatInBusinessTime } from "~/lib/utils";
@@ -12,6 +13,7 @@ import {
 	createTRPCRouter,
 	protectedProcedure,
 } from "~/server/api/trpc";
+import { getClientInfoData } from "~/server/client-info";
 import {
 	appointmentCheckins,
 	appointments,
@@ -551,6 +553,32 @@ export const appointmentRouter = createTRPCRouter({
 					appointmentCheckins.leftBy,
 				)
 				.orderBy(desc(appointments.startTime));
+		}),
+
+	getInfoBlock: protectedProcedure
+		.input(z.object({ appointmentId: z.string() }))
+		.query(async ({ ctx, input }) => {
+			assertPermission(ctx.session.user, "clients:appointments:copyinfo");
+
+			const appointment = await ctx.db.query.appointments.findFirst({
+				where: eq(appointments.id, input.appointmentId),
+				columns: { startTime: true, calendarEventTitle: true, clientId: true },
+			});
+
+			if (!appointment) {
+				throw new TRPCError({ code: "NOT_FOUND" });
+			}
+
+			const client = await getClientInfoData(appointment.clientId);
+
+			return {
+				block: formatAppointmentInfoBlock({
+					title: appointment.calendarEventTitle ?? "",
+					startTime: appointment.startTime,
+					includePhone: true,
+					client,
+				}),
+			};
 		}),
 
 	updateStatus: protectedProcedure

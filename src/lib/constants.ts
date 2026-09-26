@@ -73,6 +73,10 @@ export const PERMISSIONS = {
 						id: "clients:appointments:checkin",
 						title: "Check In/Out Appointments",
 					},
+					{
+						id: "clients:appointments:copyinfo",
+						title: "Copy Appointment Info",
+					},
 				],
 			},
 

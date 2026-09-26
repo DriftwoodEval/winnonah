@@ -23,12 +23,14 @@ import {
 	ChevronDown,
 	ChevronRight,
 	Clock,
+	Copy,
 	MapPin,
 	MoreHorizontal,
 	User,
 } from "lucide-react";
 import { useSession } from "next-auth/react";
 import { useState } from "react";
+import { toast } from "sonner";
 import { useCheckPermission } from "~/hooks/use-check-permission";
 import { isVirtualAppointment } from "~/lib/checkin";
 import { IS_DEV, toBusinessZonedTime } from "~/lib/utils";
@@ -42,6 +44,7 @@ export function ClientAppointments({ clientId }: { clientId: number }) {
 	const utils = api.useUtils();
 	const can = useCheckPermission();
 	const canCheckin = can("clients:appointments:checkin");
+	const canCopyInfo = can("clients:appointments:copyinfo");
 	const checkinDateGate = useCheckinDateGate();
 	const { data: session } = useSession();
 	const [expandedApptId, setExpandedApptId] = useState<string | null>(null);
@@ -58,6 +61,18 @@ export function ClientAppointments({ clientId }: { clientId: number }) {
 		onSuccess: () =>
 			void utils.appointments.getByClientId.invalidate({ clientId }),
 	});
+
+	const copyInfoBlock = async (appointmentId: string) => {
+		try {
+			const { block } = await utils.appointments.getInfoBlock.fetch({
+				appointmentId,
+			});
+			await navigator.clipboard.writeText(block);
+			toast.success("Copied appointment info to clipboard");
+		} catch {
+			toast.error("Failed to copy appointment info");
+		}
+	};
 
 	if (isLoading) return <Skeleton className="h-64 w-full rounded-md" />;
 
@@ -151,6 +166,17 @@ export function ClientAppointments({ clientId }: { clientId: number }) {
 								<Clock className="h-3 w-3" />
 								{format(startTime, "p")} - {format(endTime, "p")}
 							</div>
+							{!isBilling && canCopyInfo && (
+								<Button
+									className="h-6 w-6"
+									onClick={() => void copyInfoBlock(appt.id)}
+									size="icon"
+									title="Copy appointment info"
+									variant="ghost"
+								>
+									<Copy className="h-3.5 w-3.5" />
+								</Button>
+							)}
 							{!isBilling && (
 								<DropdownMenu>
 									<DropdownMenuTrigger asChild>
