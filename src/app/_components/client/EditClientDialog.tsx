@@ -36,6 +36,7 @@ import {
 	ResponsiveDialog,
 	useResponsiveDialog,
 } from "../shared/ResponsiveDialog";
+import { EiContactCombobox } from "./EiContactCombobox";
 
 const formSchema = z.object({
 	schoolDistrict: z.string(),
@@ -44,7 +45,8 @@ const formSchema = z.object({
 	alreadyDx: z.boolean(),
 	pause: z.boolean(),
 	babyNet: z.boolean(),
-	eiAttends: z.boolean(),
+	eiContactId: z.number().nullable(),
+	eiRemindersEnabled: z.boolean(),
 	adminReviewEnabled: z.boolean(),
 });
 
@@ -78,7 +80,7 @@ function ClientForm({
 	const canDistrict = can("clients:schooldistrict");
 	const canPriority = can("clients:priority");
 	const canBabyNet = can("clients:babynet");
-	const canSetEI = can("clients:ei");
+	const canSetEiReminders = can("clients:ei-reminders");
 	const canAutismStopDisable = can("clients:autismstop:disable");
 	const canAlreadyDx = can("clients:alreadydx");
 	const canPause = can("clients:pause");
@@ -93,7 +95,8 @@ function ClientForm({
 				alreadyDx: initialData.alreadyDx ?? false,
 				pause: initialData.pause ?? false,
 				babyNet: initialData.babyNet ?? false,
-				eiAttends: initialData.eiAttends ?? false,
+				eiContactId: initialData.eiContactId ?? null,
+				eiRemindersEnabled: initialData.eiRemindersEnabled ?? false,
 				adminReviewEnabled: initialAdminReviewEnabled,
 			};
 		}
@@ -306,20 +309,45 @@ function ClientForm({
 					{showEICheckbox && (
 						<FormField
 							control={form.control}
-							name="eiAttends"
+							name="eiContactId"
+							render={({ field }) => (
+								<FormItem>
+									<FormLabel>EI Contact</FormLabel>
+									<EiContactCombobox
+										disabled={!canSetEiReminders}
+										onChange={field.onChange}
+										value={field.value}
+									/>
+									<FormDescription>
+										Reminders enabled below go to this contact's number instead
+										of the client's normal phone number.
+									</FormDescription>
+									<FormMessage />
+								</FormItem>
+							)}
+						/>
+					)}
+
+					{showEICheckbox && (
+						<FormField
+							control={form.control}
+							name="eiRemindersEnabled"
 							render={({ field }) => (
 								<FormItem className="flex flex-row">
 									<FormControl>
 										<Checkbox
 											checked={field.value}
-											disabled={!canSetEI}
+											disabled={
+												!canSetEiReminders || !form.watch("eiContactId")
+											}
 											onCheckedChange={field.onChange}
 										/>
 									</FormControl>
 									<div className="space-y-1 leading-none">
-										<FormLabel>EI Attends</FormLabel>
+										<FormLabel>EI Reminders Enabled</FormLabel>
 										<FormDescription>
-											Client's EI wants to be included in meetings.
+											Send templates marked "EI Reminder" (Settings &gt; People)
+											to the EI contact above.
 										</FormDescription>
 									</div>
 								</FormItem>
@@ -380,6 +408,9 @@ export function ClientEditButton({ client }: { client: Client }) {
 	const underBNAge =
 		client && client.dob > (localDateToDateOnly(BNAgeOutDate) as string);
 
+	const showEICheckbox =
+		underBNAge || client.eiRemindersEnabled || !!client.eiContactId;
+
 	const showBabyNetCheckbox =
 		underBNAge &&
 		!client.primaryInsurance?.toLowerCase().includes("babynet") &&
@@ -436,7 +467,8 @@ export function ClientEditButton({ client }: { client: Client }) {
 			alreadyDx: values.alreadyDx,
 			highPriority: values.highPriority,
 			babyNet: values.babyNet,
-			eiAttends: values.eiAttends,
+			eiContactId: values.eiContactId,
+			eiRemindersEnabled: values.eiRemindersEnabled,
 		};
 
 		updateClient.mutate(updatedValues);
@@ -479,7 +511,7 @@ export function ClientEditButton({ client }: { client: Client }) {
 				onClose={dialog.closeDialog}
 				onSubmit={onEditSubmit}
 				showBabyNetCheckbox={showBabyNetCheckbox}
-				showEICheckbox={underBNAge}
+				showEICheckbox={showEICheckbox}
 			/>
 		</ResponsiveDialog>
 	);

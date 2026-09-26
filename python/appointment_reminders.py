@@ -21,6 +21,7 @@ from utils.constants import (
     TABLE_APPOINTMENT_REMINDER_SETTINGS,
     TABLE_APPOINTMENT_REMINDER_TEMPLATES,
     TABLE_CLIENT,
+    TABLE_EI_CONTACT,
     TABLE_OFFICE,
 )
 from utils.database import provide_connection
@@ -57,6 +58,22 @@ def _office_fields(appt: dict) -> tuple[str | None, str | None]:
     if appt.get("locationKey") == VIRTUAL_LOCATION_KEY:
         return VIRTUAL_LOCATION_KEY, "virtually"
     return appt.get("officeLabel"), appt.get("officeLocationPhrase")
+
+
+def _reminder_destination(appt: dict, template: dict) -> str | None:
+    """Returns the phone number this reminder should go to.
+
+    Goes to the EI phone number instead of the client's own number when this
+    is an EI reminder template and the client has EI reminders enabled with
+    an EI number on file.
+    """
+    if (
+        template.get("isEiReminder")
+        and appt.get("eiRemindersEnabled")
+        and appt.get("eiPhoneNumber")
+    ):
+        return appt["eiPhoneNumber"]
+    return appt.get("phoneNumber")
 
 
 _http_client: AsyncClient | None = None
@@ -405,7 +422,9 @@ async def process_reminders(connection: Connection[DictCursor]) -> None:
     logger.info(f"Processing {len(templates)} active reminder template(s).")
     total_sent = 0
     total_skipped = 0
-    already_sent_this_cycle: set[int] = set()
+    # Keyed by (appointmentId, isEiReminder) so an EI send and a family send for
+    # the same appointment don't defer each other within a cycle.
+    already_sent_this_cycle: set[tuple[str, bool]] = set()
 
     with track_task("appointment_reminders", "Appointment reminders") as task:
         if task is None:
@@ -449,17 +468,33 @@ async def process_reminders(connection: Connection[DictCursor]) -> None:
                     f"cutoff={max_lead_time.strftime('%Y-%m-%d %H:%M')} UTC"
                 )
 
+                # EI reminder templates only ever go to clients with EI reminders
+                # enabled and an EI number on file (never to the family's own
+                # number as a fallback), and regardless of the client's
+                # language, since it's the EI coordinator reading it, not the
+                # family. Non-EI templates keep the normal language filter and
+                # are unaffected by EI settings.
+                language_clause = (
+                    "c.eiRemindersEnabled = 1 AND ei.phoneNumber IS NOT NULL"
+                    if template.get("isEiReminder")
+                    else "c.language = 'English'"
+                )
+
                 if template.get("isNoReplyFollowUp"):
-                    # Candidates: not yet sent this template, at least one other template was sent,
-                    # not suppressed. _matches_template post-filter enforces confirmedAt IS NULL.
+                    # Candidates: not yet sent this template, at least one other template in
+                    # the same channel (EI vs. family) was sent, not suppressed.
+                    # _matches_template post-filter enforces confirmedAt IS NULL.
                     query = f"""
                         SELECT a.*, c.firstName, c.lastName, c.preferredName, c.phoneNumber, c.dob,
+                               ei.phoneNumber AS eiPhoneNumber, c.eiRemindersEnabled,
                                o.prettyName AS officeLabel, o.locationPhrase AS officeLocationPhrase
                         FROM {TABLE_APPOINTMENT} a
                         JOIN {TABLE_CLIENT} c ON a.clientId = c.id
                         LEFT JOIN {TABLE_OFFICE} o ON a.locationKey = o.`key`
+                        LEFT JOIN {TABLE_EI_CONTACT} ei ON c.eiContactId = ei.id
                         LEFT JOIN {TABLE_APPOINTMENT_REMINDER_LOGS} l_this ON a.id = l_this.appointmentId AND l_this.reminderTemplateId = %s
                         JOIN {TABLE_APPOINTMENT_REMINDER_LOGS} l_prev ON a.id = l_prev.appointmentId AND l_prev.reminderTemplateId != %s
+                        JOIN {TABLE_APPOINTMENT_REMINDER_TEMPLATES} t_prev ON l_prev.reminderTemplateId = t_prev.id AND t_prev.isEiReminder = %s
                         WHERE l_this.id IS NULL
                         AND l_prev.id IS NOT NULL
                         AND a.cancelled = 0
@@ -467,13 +502,14 @@ async def process_reminders(connection: Connection[DictCursor]) -> None:
                         AND a.doNotRemind = 0
                         AND a.placeholder = 0
                         AND a.billingOnly = 0
-                        AND c.language = 'English'
+                        AND {language_clause}
                         AND a.startTime <= %s
                         AND a.startTime >= NOW()
                     """
                     params = (
                         template["id"],
                         template["id"],
+                        bool(template.get("isEiReminder")),
                         max_lead_time,
                     )
                 elif template.get("isConfirmedFollowUp"):
@@ -482,10 +518,12 @@ async def process_reminders(connection: Connection[DictCursor]) -> None:
                     # because preview and sending have different semantics for confirmed follow-ups.
                     query = f"""
                         SELECT a.*, c.firstName, c.lastName, c.preferredName, c.phoneNumber, c.dob,
+                               ei.phoneNumber AS eiPhoneNumber, c.eiRemindersEnabled,
                                o.prettyName AS officeLabel, o.locationPhrase AS officeLocationPhrase
                         FROM {TABLE_APPOINTMENT} a
                         JOIN {TABLE_CLIENT} c ON a.clientId = c.id
                         LEFT JOIN {TABLE_OFFICE} o ON a.locationKey = o.`key`
+                        LEFT JOIN {TABLE_EI_CONTACT} ei ON c.eiContactId = ei.id
                         LEFT JOIN {TABLE_APPOINTMENT_REMINDER_LOGS} l_this ON a.id = l_this.appointmentId AND l_this.reminderTemplateId = %s
                         WHERE l_this.id IS NULL
                         AND a.confirmedAt IS NOT NULL
@@ -494,7 +532,7 @@ async def process_reminders(connection: Connection[DictCursor]) -> None:
                         AND a.doNotRemind = 0
                         AND a.placeholder = 0
                         AND a.billingOnly = 0
-                        AND c.language = 'English'
+                        AND {language_clause}
                         AND a.startTime <= %s
                         AND a.startTime >= NOW()
                     """
@@ -507,10 +545,12 @@ async def process_reminders(connection: Connection[DictCursor]) -> None:
                     # _matches_template post-filter enforces confirmedAt IS NULL and keyword/daEval/location.
                     query = f"""
                         SELECT a.*, c.firstName, c.lastName, c.preferredName, c.phoneNumber, c.dob,
+                               ei.phoneNumber AS eiPhoneNumber, c.eiRemindersEnabled,
                                o.prettyName AS officeLabel, o.locationPhrase AS officeLocationPhrase
                         FROM {TABLE_APPOINTMENT} a
                         JOIN {TABLE_CLIENT} c ON a.clientId = c.id
                         LEFT JOIN {TABLE_OFFICE} o ON a.locationKey = o.`key`
+                        LEFT JOIN {TABLE_EI_CONTACT} ei ON c.eiContactId = ei.id
                         LEFT JOIN {TABLE_APPOINTMENT_REMINDER_LOGS} l ON a.id = l.appointmentId AND l.reminderTemplateId = %s
                         WHERE l.id IS NULL
                         AND a.cancelled = 0
@@ -518,7 +558,7 @@ async def process_reminders(connection: Connection[DictCursor]) -> None:
                         AND a.doNotRemind = 0
                         AND a.placeholder = 0
                         AND a.billingOnly = 0
-                        AND c.language = 'English'
+                        AND {language_clause}
                         AND a.startTime <= %s
                         AND a.startTime >= NOW()
                     """
@@ -542,16 +582,17 @@ async def process_reminders(connection: Connection[DictCursor]) -> None:
                 is_standard = not template.get(
                     "isNoReplyFollowUp"
                 ) and not template.get("isConfirmedFollowUp")
+                is_ei = bool(template.get("isEiReminder"))
                 if is_standard and already_sent_this_cycle:
                     deferred = [
                         a
                         for a in pending_appointments
-                        if a["id"] in already_sent_this_cycle
+                        if (a["id"], is_ei) in already_sent_this_cycle
                     ]
                     pending_appointments = [
                         a
                         for a in pending_appointments
-                        if a["id"] not in already_sent_this_cycle
+                        if (a["id"], is_ei) not in already_sent_this_cycle
                     ]
                     if deferred:
                         logger.info(
@@ -570,7 +611,9 @@ async def process_reminders(connection: Connection[DictCursor]) -> None:
                         else "unknown date"
                     )
 
-                    if not appt.get("phoneNumber"):
+                    destination = _reminder_destination(appt, template)
+
+                    if not destination:
                         logger.warning(
                             f"Skipping [{template_name}] for {client_label} on {appt_date}: no phone number."
                         )
@@ -579,14 +622,23 @@ async def process_reminders(connection: Connection[DictCursor]) -> None:
 
                     message = format_message(template["messageTemplate"], appt)
 
-                    message_id = await send_sms(appt["phoneNumber"], message)
+                    try:
+                        message_id = await send_sms(destination, message)
+                    except Exception as e:
+                        # A single bad/unreachable number shouldn't abort the whole
+                        # cycle and keep every other appointment from being reminded.
+                        logger.error(
+                            f"Failed to send [{template_name}] to {client_label} on {appt_date} (to={destination}): {e}"
+                        )
+                        total_skipped += 1
+                        continue
                     logger.info(
                         f"Sent [{template_name}] to {client_label} on {appt_date} "
                         f"(msg_id={message_id})."
                     )
                     total_sent += 1
                     if is_standard:
-                        already_sent_this_cycle.add(appt["id"])
+                        already_sent_this_cycle.add((appt["id"], is_ei))
 
                     try:
                         cursor.execute(
@@ -772,9 +824,13 @@ async def handle_incoming_reply(
             FROM {TABLE_APPOINTMENT} a
             JOIN {TABLE_CLIENT} c ON a.clientId = c.id
             LEFT JOIN {TABLE_OFFICE} o ON a.locationKey = o.`key`
+            LEFT JOIN {TABLE_EI_CONTACT} ei ON c.eiContactId = ei.id
             JOIN {TABLE_APPOINTMENT_REMINDER_LOGS} l ON a.id = l.appointmentId
             JOIN {TABLE_APPOINTMENT_REMINDER_TEMPLATES} t ON l.reminderTemplateId = t.id
-            WHERE c.phoneNumber = %s
+            WHERE (
+                (c.phoneNumber = %s AND t.isEiReminder = 0)
+                OR (c.eiRemindersEnabled = 1 AND ei.phoneNumber = %s AND t.isEiReminder = 1)
+            )
             AND a.confirmedAt IS NULL
             AND a.cancelled = 0
             AND a.rescheduled = 0
@@ -783,7 +839,10 @@ async def handle_incoming_reply(
             ORDER BY l.sentAt DESC
             LIMIT 1
         """
-        cursor.execute(query, (clean_phone,))
+        # An EI number that covers multiple children matches all of them here;
+        # like a shared household phoneNumber, the most-recently-texted
+        # appointment wins, same heuristic as normal replies.
+        cursor.execute(query, (clean_phone, clean_phone))
         context = cursor.fetchone()
 
         if not context:

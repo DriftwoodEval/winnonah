@@ -1,5 +1,6 @@
 "use client";
 
+import { Badge } from "@ui/badge";
 import { Button } from "@ui/button";
 import {
 	Card,
@@ -178,7 +179,10 @@ export default function ReminderSettings() {
 					<Card key={template.id}>
 						<CardHeader className="flex flex-row items-center justify-between">
 							<div className="space-y-1">
-								<CardTitle>{template.name}</CardTitle>
+								<CardTitle className="flex items-center gap-2">
+									{template.name}
+									{template.isEiReminder && <Badge variant="outline">EI</Badge>}
+								</CardTitle>
 								<CardDescription>
 									{template.triggerKeyword && (
 										<span>Keyword: "{template.triggerKeyword}" • </span>

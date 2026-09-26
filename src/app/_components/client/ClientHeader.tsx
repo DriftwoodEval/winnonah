@@ -241,7 +241,6 @@ export function ClientHeader({
 					{client.highPriority && (
 						<Badge variant="destructive">High Priority</Badge>
 					)}
-					{client.eiAttends && <Badge variant="secondary">EI Attends</Badge>}
 				</div>
 
 				{isNotesOnlyClientId(client.id) &&

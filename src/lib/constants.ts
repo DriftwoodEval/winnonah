@@ -62,7 +62,10 @@ export const PERMISSIONS = {
 					{ id: "clients:protocolsscanned", title: "Edit Protocols Scanned" },
 					{ id: "clients:pa-assigned-to", title: "Edit PA Assigned To" },
 					{ id: "clients:babynet", title: "Edit BabyNet Status" },
-					{ id: "clients:ei", title: "Edit EI Attends Status" },
+					{
+						id: "clients:ei-reminders",
+						title: "Edit EI Reminder Number & Toggle",
+					},
 					{ id: "clients:autismstop:enable", title: "Enable Autism Stop" },
 					{ id: "clients:autismstop:disable", title: "Disable Autism Stop" },
 					{ id: "clients:alreadydx", title: "Edit Already Diagnosed Label" },

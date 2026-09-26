@@ -293,6 +293,18 @@ export function normalizePhoneNumber(phoneNumber: string) {
 }
 
 /**
+ * Validates a US phone number and returns it as 10 bare digits, matching how
+ * clients.phoneNumber is stored. Returns null if it's not a valid 10-digit
+ * (optionally 11-digit with a leading 1) US number.
+ */
+export function parseUsPhoneDigits(phoneNumber: string): string | null {
+	const digits = phoneNumber.replace(/\D/g, "");
+	if (digits.length === 10) return digits;
+	if (digits.length === 11 && digits.startsWith("1")) return digits.slice(-10);
+	return null;
+}
+
+/**
  * Parse a date-only "YYYY-MM-DD" value into its year/month/day parts, for
  * calendar arithmetic (sorting, age calculation, comparisons) without ever
  * constructing a Date object from it. Date-only columns have no time

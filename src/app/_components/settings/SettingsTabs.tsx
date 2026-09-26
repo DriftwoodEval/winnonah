@@ -4,6 +4,7 @@ import AppointmentsSyncSettings from "@components/settings/AppointmentsSyncSetti
 import AssessmentTypesTable from "@components/settings/AssessmentTypesTable";
 import AuditLogTable from "@components/settings/AuditLogTable";
 import BabynetReportSettings from "@components/settings/BabynetReportSettings";
+import EiContactsSettings from "@components/settings/EiContactsSettings";
 import InsurancesTable from "@components/settings/InsurancesTable";
 import InvitesTable from "@components/settings/InvitesTable";
 import PeopleTable from "@components/settings/PeopleTable";
@@ -80,6 +81,13 @@ const SEARCH_ENTRIES: SearchEntry[] = [
 		tab: "people",
 		subParam: "peopleSubTab",
 		subValue: "roles",
+	},
+	{
+		label: "EI Contacts",
+		keywords: "people ei contacts early intervention directory",
+		tab: "people",
+		subParam: "peopleSubTab",
+		subValue: "ei-contacts",
 	},
 	{
 		label: "Insurances",
@@ -332,6 +340,9 @@ export function SettingsTabs() {
 							<TabsTrigger className="h-8 grow-0" value="roles">
 								Roles & Permissions
 							</TabsTrigger>
+							<TabsTrigger className="h-8 grow-0" value="ei-contacts">
+								EI Contacts
+							</TabsTrigger>
 						</TabsList>
 						<TabsContent value="staff">
 							<div className="flex flex-col gap-8">
@@ -341,6 +352,9 @@ export function SettingsTabs() {
 						</TabsContent>
 						<TabsContent value="roles">
 							<RolesTable />
+						</TabsContent>
+						<TabsContent value="ei-contacts">
+							<EiContactsSettings />
 						</TabsContent>
 					</Tabs>
 				</TabsContent>

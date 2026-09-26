@@ -159,6 +159,22 @@ export function ClientDetailsCard({
 				</div>
 			)}
 
+			{client.eiContact && (
+				<div>
+					<p className="font-bold">
+						EI Contact{client.eiRemindersEnabled ? "" : " (reminders off)"}
+					</p>
+					<Link
+						className="hover:underline"
+						href={`tel:${client.eiContact.phoneNumber}`}
+					>
+						<Redact>
+							{`${client.eiContact.name} — ${formatPhoneNumber(client.eiContact.phoneNumber)}`}
+						</Redact>
+					</Link>
+				</div>
+			)}
+
 			{client.email && (
 				<div>
 					<p className="font-bold">Email</p>

@@ -310,7 +310,10 @@ export const clients = createTable(
 		autismStop: d.boolean().notNull().default(false),
 		alreadyDx: d.boolean().notNull().default(false),
 		pause: d.boolean().notNull().default(false),
-		eiAttends: d.boolean().notNull().default(false),
+		eiContactId: d
+			.int()
+			.references(() => eiContacts.id, { onDelete: "set null" }),
+		eiRemindersEnabled: d.boolean().notNull().default(false),
 		flag: d.varchar({ length: 255 }),
 		taHash: d.varchar({ length: 255 }),
 		taUser: d.varchar({ length: 255 }),
@@ -336,6 +339,22 @@ export const clients = createTable(
 		index("status_idx").on(t.status),
 	],
 );
+
+// Directory of Early Intervention coordinators, shared across clients so the
+// same EI's number only needs to be entered once.
+export const eiContacts = createTable(
+	"ei_contact",
+	(d) => ({
+		id: d.int().primaryKey().autoincrement().notNull(),
+		name: d.varchar({ length: 255 }).notNull(),
+		phoneNumber: d.varchar({ length: 255 }).notNull(),
+	}),
+	(t) => [index("ei_contact_phone_idx").on(t.phoneNumber)],
+);
+
+export const eiContactsRelations = relations(eiContacts, ({ many }) => ({
+	clients: many(clients),
+}));
 
 export const officeDriveTimes = createTable(
 	"office_drive_time",
@@ -903,6 +922,10 @@ export const clientRelations = relations(clients, ({ many, one }) => ({
 		fields: [clients.primaryInsurance],
 		references: [insuranceAliases.name],
 	}),
+	eiContact: one(eiContacts, {
+		fields: [clients.eiContactId],
+		references: [eiContacts.id],
+	}),
 }));
 
 export const clientRelatedRelations = relations(clientRelated, ({ one }) => ({
@@ -1276,6 +1299,9 @@ export const reminderTemplates = createTable("reminder_templates", (d) => ({
 	isActive: d.boolean().notNull().default(false),
 	isNoReplyFollowUp: d.boolean().notNull().default(false),
 	isConfirmedFollowUp: d.boolean().notNull().default(false),
+	// When true, this template is sent to a client's EI contact's number
+	// instead of their normal phoneNumber, for clients with eiRemindersEnabled.
+	isEiReminder: d.boolean().notNull().default(false),
 }));
 
 export const reminderLogs = createTable(

@@ -92,6 +92,7 @@ export function ReminderTemplateDialog({
 			isActive: true,
 			isNoReplyFollowUp: false,
 			isConfirmedFollowUp: false,
+			isEiReminder: false,
 		},
 	});
 
@@ -114,6 +115,7 @@ export function ReminderTemplateDialog({
 					isActive: true,
 					isNoReplyFollowUp: false,
 					isConfirmedFollowUp: false,
+					isEiReminder: false,
 				});
 				setOffsetUnit("days");
 			}
@@ -559,6 +561,28 @@ export function ReminderTemplateDialog({
 													if (checked)
 														form.setValue("isNoReplyFollowUp", false);
 												}}
+											/>
+										</FormControl>
+									</FormItem>
+								)}
+							/>
+
+							<FormField
+								control={form.control}
+								name="isEiReminder"
+								render={({ field }) => (
+									<FormItem className="flex flex-row items-center justify-between rounded-md border p-3 shadow-sm">
+										<div className="space-y-0.5">
+											<FormLabel>EI Reminder</FormLabel>
+											<FormDescription>
+												For clients with EI Reminders enabled, send this to
+												their EI contact's number instead of their own.
+											</FormDescription>
+										</div>
+										<FormControl>
+											<Switch
+												checked={field.value}
+												onCheckedChange={field.onChange}
 											/>
 										</FormControl>
 									</FormItem>

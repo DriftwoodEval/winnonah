@@ -20,6 +20,7 @@ Configured at **Settings > Scheduling**, under Reminder Scripts. Staff can creat
 - **Send Before Appointment**, a number plus a Hours/Days unit picker, this is how far ahead of the appointment the reminder goes out.
 - An **Active** switch to turn a template on or off without deleting it.
 - Two mutually exclusive toggles: **No-Reply Follow-up** ("Only send if a previous reminder has NOT been confirmed") and **Confirmed Follow-up** ("Only send if the appointment HAS been confirmed").
+- An **EI Reminder** toggle. See [section 7](#7-ei-reminders).
 
 ## 3. Quiet hours
 
@@ -77,13 +78,25 @@ A manual confirmation stamps the appointment as confirmed, shows a **Confirmed**
 
 There's no single control to stop all future reminders for a client. Confirming an appointment stops its remaining standard reminders on its own (follow-up templates can still fire); cancelling or rescheduling stops all of them.
 
-## 7. What silently skips a reminder
+## 7. EI Reminders
+
+A client can have an **EI Contact** on file, for their Early Intervention coordinator, set from the **Edit Client** dialog (the pencil icon next to the client's name). Alongside it is an **EI Reminders Enabled** toggle. These fields show for clients under 3 years old, and for any client that already has an EI contact or EI reminders on, so they stay editable after a client ages out.
+
+EI contacts come from a shared directory (**Settings > People > EI Contacts**) of coordinators' names and phone numbers, since the same coordinator often covers several clients: entering one once and picking them from the search box on each client avoids re-typing the same number. Picking a contact who isn't listed yet can be done right from the Edit Client dialog's search box, which adds them to the directory. Editing a contact's number in the directory updates it everywhere that contact is selected; deleting a contact clears it from any client that had it selected.
+
+Which reminders actually go to that number is controlled per template, not per client: each reminder template in **Settings > Scheduling** has an **EI Reminder** toggle. A template with that toggle on is sent **only** to clients with EI Reminders enabled and an EI contact on file, and only to that contact's number, never to the client's own number. A client without EI Reminders enabled never receives that template at all. Templates without the toggle always go to the client's own number as normal, and are unaffected by any client's EI settings.
+
+EI reminders go out even if the client doesn't speak English, since the EI coordinator, not the family, is the one reading them.
+
+Confirmation replies, and the "no-reply follow-up" check, are tracked separately for EI and family reminders on the same appointment: an EI coordinator's reply only counts toward EI templates, and a family's reply only counts toward the family's own templates.
+
+## 8. What silently skips a reminder
 
 - The appointment is cancelled, rescheduled, billing-only, or a placeholder.
-- The client has no phone number on file.
-- The client doesn't speak English.
+- The client has no phone number on file for that reminder: a normal template with no client phone number, or an EI Reminder template for a client without EI Reminders enabled and an EI contact on file.
+- The client doesn't speak English, unless that reminder is going to an EI phone number (see [section 7](#7-ei-reminders)).
 - The appointment has **Stop Reminders** turned on, either by staff or because the client replied with a decline (see [section 6](#6-turning-reminders-off)).
 
-## 8. History, for troubleshooting
+## 9. History, for troubleshooting
 
 The Scheduling settings page also keeps three logs, the 50 most recent entries each: **Reminder History** (what was sent and when), **Confirmation Replies**, and **Non-Confirmation Replies**. These are the first place to check when someone asks "did we actually text this family?"

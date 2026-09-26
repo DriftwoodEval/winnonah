@@ -1081,6 +1081,7 @@ export const clientRouter = createTRPCRouter({
 					primaryInsuranceDetails: {
 						with: { insurance: true },
 					},
+					eiContact: true,
 				},
 			});
 
@@ -2195,7 +2196,8 @@ export const clientRouter = createTRPCRouter({
 				alreadyDx: z.boolean().optional(),
 				pause: z.boolean().optional(),
 				babyNet: z.boolean().optional(),
-				eiAttends: z.boolean().optional(),
+				eiContactId: z.number().nullable().optional(),
+				eiRemindersEnabled: z.boolean().optional(),
 				driveId: z.string().optional(),
 				status: z.boolean().optional(),
 				recordsNeeded: z.enum(["Needed", "Not Needed"]).optional(),
@@ -2274,9 +2276,11 @@ export const clientRouter = createTRPCRouter({
 				input.babyNet !== currentClient.babyNet
 					? (["clients:babynet"] as const)
 					: []),
-				...(input.eiAttends !== undefined &&
-				input.eiAttends !== currentClient.eiAttends
-					? (["clients:ei"] as const)
+				...((input.eiContactId !== undefined &&
+					input.eiContactId !== currentClient.eiContactId) ||
+				(input.eiRemindersEnabled !== undefined &&
+					input.eiRemindersEnabled !== currentClient.eiRemindersEnabled)
+					? (["clients:ei-reminders"] as const)
 					: []),
 				...(input.driveId !== undefined &&
 				input.driveId !== currentClient.driveId
@@ -2348,7 +2352,8 @@ export const clientRouter = createTRPCRouter({
 				alreadyDx?: boolean;
 				pause?: boolean;
 				babyNet?: boolean;
-				eiAttends?: boolean;
+				eiContactId?: number | null;
+				eiRemindersEnabled?: boolean;
 				flag?: string | null;
 				driveId?: string | null;
 				status?: boolean;
@@ -2388,8 +2393,11 @@ export const clientRouter = createTRPCRouter({
 			if (input.babyNet !== undefined) {
 				updateData.babyNet = input.babyNet;
 			}
-			if (input.eiAttends !== undefined) {
-				updateData.eiAttends = input.eiAttends;
+			if (input.eiContactId !== undefined) {
+				updateData.eiContactId = input.eiContactId;
+			}
+			if (input.eiRemindersEnabled !== undefined) {
+				updateData.eiRemindersEnabled = input.eiRemindersEnabled;
 			}
 			if (input.driveId !== undefined) {
 				const existingClient = await ctx.db.query.clients.findFirst({

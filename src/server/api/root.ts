@@ -3,6 +3,7 @@ import { appointmentRouter } from "./routers/appointments";
 import { auditLogRouter } from "./routers/auditLog";
 import { babynetReportRouter } from "./routers/babynetReport";
 import { clientRouter } from "./routers/client";
+import { eiContactsRouter } from "./routers/ei-contacts";
 import { evaluatorRouter } from "./routers/evaluator";
 import { evaluatorDashboardRouter } from "./routers/evaluatorDashboard";
 import { externalRecordRouter } from "./routers/externalRecords";
@@ -38,6 +39,7 @@ export const appRouter = createTRPCRouter({
 	babynetReport: babynetReportRouter,
 	evaluatorDashboard: evaluatorDashboardRouter,
 	clients: clientRouter,
+	eiContacts: eiContactsRouter,
 	evaluators: evaluatorRouter,
 	externalRecords: externalRecordRouter,
 	faxCategorization: faxCategorizationRouter,

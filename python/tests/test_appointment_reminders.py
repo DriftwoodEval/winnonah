@@ -9,6 +9,7 @@ from appointment_reminders import (
     _fix_stale_event_id,
     _matches_template,
     _office_fields,
+    _reminder_destination,
     adjust_for_quiet_window,
     format_message,
     get_reminder_preview,
@@ -35,6 +36,35 @@ class TestOfficeFields:
             "officeLocationPhrase": "at our Downtown office",
         }
         assert _office_fields(appt) == ("Downtown Office", "at our Downtown office")
+
+
+class TestReminderDestination:
+    def test_ei_enabled_and_ei_template_uses_ei_number(self):
+        appt = {
+            "phoneNumber": "8435551234",
+            "eiPhoneNumber": "8435559999",
+            "eiRemindersEnabled": True,
+        }
+        template = {"isEiReminder": True}
+        assert _reminder_destination(appt, template) == "8435559999"
+
+    def test_ei_enabled_but_not_an_ei_template_uses_client_number(self):
+        appt = {
+            "phoneNumber": "8435551234",
+            "eiPhoneNumber": "8435559999",
+            "eiRemindersEnabled": True,
+        }
+        template = {"isEiReminder": False}
+        assert _reminder_destination(appt, template) == "8435551234"
+
+    def test_no_ei_number_uses_client_number(self):
+        appt = {
+            "phoneNumber": "8435551234",
+            "eiPhoneNumber": None,
+            "eiRemindersEnabled": True,
+        }
+        template = {"isEiReminder": True}
+        assert _reminder_destination(appt, template) == "8435551234"
 
 
 class TestFormatMessage:

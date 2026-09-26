@@ -60,6 +60,7 @@ TABLE_APPOINTMENT_REMINDER_SETTINGS: Final = "emr_appointment_reminder_settings"
 TABLE_APPOINTMENT_REMINDER_TEMPLATES = "emr_reminder_templates"
 TABLE_APPOINTMENT_REMINDER_LOGS = "emr_reminder_logs"
 TABLE_APPOINTMENT_REMINDER_REPLIES = "emr_reminder_replies"
+TABLE_EI_CONTACT: Final = "emr_ei_contact"
 TABLE_REFERRAL_STATUS_FAX_LOGS: Final = "emr_referral_status_fax_logs"
 TABLE_QUESTIONNAIRE_MSG_LOGS: Final = "emr_questionnaire_msg_logs"
 TABLE_FAILURE: Final = "emr_failure"
@@ -116,7 +117,6 @@ CLIENT_COLUMN_MAPPING: Final = {
     "babyNet": "BABYNET",
     "autismStop": "AUTISM_STOP",
     "pause": "PAUSE",
-    "eiAttends": "EI_ATTENDS",
     "flag": "FLAG",
     "taHash": "TA_HASH",
     "referralSource": "REFERRAL_SOURCE",

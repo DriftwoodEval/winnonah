@@ -67,6 +67,7 @@ export const reminderRouter = createTRPCRouter({
 				isActive: z.boolean(),
 				isNoReplyFollowUp: z.boolean(),
 				isConfirmedFollowUp: z.boolean(),
+				isEiReminder: z.boolean(),
 			}),
 		)
 		.mutation(async ({ ctx, input }) => {

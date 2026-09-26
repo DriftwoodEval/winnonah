@@ -14,6 +14,7 @@ export const reminderTemplateSchema = z
 		isActive: z.boolean(),
 		isNoReplyFollowUp: z.boolean(),
 		isConfirmedFollowUp: z.boolean(),
+		isEiReminder: z.boolean(),
 	})
 	.refine(
 		(data) =>
