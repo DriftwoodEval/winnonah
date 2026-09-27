@@ -19,6 +19,7 @@ import { GreeterScheduleWidget } from "./GreeterScheduleWidget";
 import { GridWidgetCell } from "./GridWidgetCell";
 import { HomeCustomizer } from "./HomeCustomizer";
 import { IssueWidgetById } from "./IssueWidgetById";
+import { RunSummaryWidget } from "./RunSummaryWidget";
 
 export function HomePageContent() {
 	const utils = api.useUtils();
@@ -88,6 +89,7 @@ export function HomePageContent() {
 										return <CalendarViewWidget mode="3day" />;
 									if (w.id === "cal-week")
 										return <CalendarViewWidget mode="week" />;
+									if (w.id === "run-summary") return <RunSummaryWidget />;
 									return <IssueWidgetById id={w.id} />;
 								})()}
 							</GridWidgetCell>

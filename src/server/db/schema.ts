@@ -14,6 +14,7 @@ import {
 	QUESTIONNAIRE_STATUSES,
 } from "~/lib/constants";
 import type { PinnedList } from "~/lib/pinned-list";
+import type { RunSummary } from "~/lib/run-summary";
 import type { PermissionsObject } from "~/lib/types";
 import type {
 	AdditionalInsuranceAppointments,
@@ -552,6 +553,7 @@ export const tasks = createTable(
 		progressCurrent: d.int(),
 		progressTotal: d.int(),
 		error: d.text("error"),
+		summary: d.json("summary").$type<RunSummary>(),
 		startedAt: d.timestamp().default(sql`CURRENT_TIMESTAMP`).notNull(),
 		completedAt: d.timestamp(),
 	}),

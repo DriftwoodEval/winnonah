@@ -607,6 +607,7 @@ def insert_appointments_with_gcal(appointment_sync_data: dict[str, list[str]] | 
         battery_rules = get_questionnaire_rules_with_in_person()
         skipped_locked_in_snapshots = 0
         in_person_assessments_added = 0
+        appointments_synced = 0
         clients_with_in_person_assessments: set[int] = set()
 
         total_appointments = len(appointments_df)
@@ -699,6 +700,7 @@ def insert_appointments_with_gcal(appointment_sync_data: dict[str, list[str]] | 
                 gcal_event_title=gcal_event_title,
                 confirmed_at=confirmed_at,
             )
+            appointments_synced += 1
 
             if not cancelled and gcal_daeval and battery_rules:
                 client_dob = dob_map.get(client_id)
@@ -787,6 +789,7 @@ def insert_appointments_with_gcal(appointment_sync_data: dict[str, list[str]] | 
                     asd_adhd=asd_adhd_map.get(client_id),
                     billing_only=True,
                 )
+                appointments_synced += 1
 
                 if (
                     not cancelled
@@ -822,6 +825,7 @@ def insert_appointments_with_gcal(appointment_sync_data: dict[str, list[str]] | 
             logger.exception("Failed to sync the punch list to the DB")
 
         reporter.send_report(email_for_errors)
+        task.set_summary({"appointments_synced": appointments_synced})
 
 
 _LETTER_RANGE_SUBFOLDER_RE = re.compile(r"^([A-Za-z])\s*-\s*([A-Za-z])$")

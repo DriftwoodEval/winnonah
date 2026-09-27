@@ -308,8 +308,14 @@ def get_all_clients(connection: Connection[DictCursor]) -> pd.DataFrame:
 
 
 @provide_connection
-def put_clients_in_db(clients_df: pd.DataFrame, connection: Connection[DictCursor]):
-    """Inserts or updates client data in the database from a DataFrame."""
+def put_clients_in_db(
+    clients_df: pd.DataFrame, connection: Connection[DictCursor]
+) -> dict[str, int]:
+    """Inserts or updates client data in the database from a DataFrame.
+
+    Returns counts of new clients and clients whose address changed, for the
+    run summary shown in the app.
+    """
     logger.debug("Inserting clients into database")
 
     values_to_insert = []
@@ -507,6 +513,18 @@ def put_clients_in_db(clients_df: pd.DataFrame, connection: Connection[DictCurso
             detail=diff,
         )
 
+    new_client_ids = [
+        client_id for client_id in client_ids if client_id not in existing_by_id
+    ]
+    for client_id in new_client_ids:
+        record_audit_log(
+            connection,
+            "python.client.create",
+            int(client_id),
+            "system:csv-sync",
+            "csv-sync (internal)",
+        )
+
     connection.commit()
 
     logger.info(f"Successfully inserted/updated {len(values_to_insert)} clients.")
@@ -579,6 +597,16 @@ def put_clients_in_db(clients_df: pd.DataFrame, connection: Connection[DictCurso
                 (int(client_id),),
             )
         connection.commit()
+
+    address_change_count = sum(
+        1 for diff in client_updates.values() if "address" in diff
+    )
+    return {
+        "new_clients": len(new_client_ids),
+        "address_changes": address_change_count,
+        "deactivated": len(deactivated_ids),
+        "reactivated": len(reactivated_ids),
+    }
 
 
 def _build_reactivation_note_block(reactivated_on: str) -> list[dict]:
@@ -1192,8 +1220,12 @@ def get_medicaid_clients_with_ids(
 @provide_connection
 def put_client_insurance_policies_in_db(
     insurance_df: pd.DataFrame, connection: Connection[DictCursor]
-):
-    """Inserts or updates all client insurance policies from the raw insurance CSV."""
+) -> int:
+    """Inserts or updates all client insurance policies from the raw insurance CSV.
+
+    Returns the number of distinct clients whose insurance changed, for the
+    run summary shown in the app.
+    """
     logger.debug("Inserting client insurance policies into database")
 
     def _parse_date(val) -> str | None:
@@ -1364,7 +1396,7 @@ def put_client_insurance_policies_in_db(
 
     if not values_to_insert:
         logger.info("No insurance policies to insert.")
-        return
+        return None
 
     cols = (
         "policyId, clientId, policyType, policyStartDate, policyEndDate, "
@@ -1488,6 +1520,11 @@ def put_client_insurance_policies_in_db(
 
     if deleted:
         logger.info(f"Removed {deleted} stale insurance policies no longer in export.")
+
+    changed_client_ids = {client_id for client_id, _, _ in policy_updates} | {
+        policy["clientId"] for policy in stale_policies
+    }
+    return len(changed_client_ids)
 
 
 @provide_connection
@@ -1941,8 +1978,10 @@ def insert_by_matching_criteria_incremental(
     connection: Connection[DictCursor],
     progress_callback: Callable[[int, int], None] | None = None,
     restrict_to_npis: set[str] | None = None,
-) -> None:
+) -> int:
     """Inserts client-provider links based on matching criteria using incremental updates.
+
+    Returns the number of clients whose evaluator matches changed.
 
     `evaluators` must be the full eligible-evaluator set, since the matching
     math (for example "does any evaluator accept this primary insurance") is
@@ -2012,6 +2051,7 @@ def insert_by_matching_criteria_incremental(
     logger.info(
         f"Completed incremental matching: {processed_count} clients processed, {updated_count} clients updated"
     )
+    return updated_count
 
 
 @provide_connection
@@ -2020,8 +2060,11 @@ def insert_by_matching_criteria_client_specific(
     evaluators: dict,
     specific_client_ids: set[str],
     connection: Connection[DictCursor],
-) -> None:
-    """Updates client-evaluator relationships for specific clients only."""
+) -> int:
+    """Updates client-evaluator relationships for specific clients only.
+
+    Returns the number of clients whose evaluator matches changed.
+    """
     logger.debug(
         f"Starting client-specific matching for {len(specific_client_ids)} clients..."
     )
@@ -2065,6 +2108,7 @@ def insert_by_matching_criteria_client_specific(
         )
 
     logger.info(f"Completed client-specific matching: {updated_count} clients updated")
+    return updated_count
 
 
 def insert_by_matching_criteria(
@@ -2073,23 +2117,25 @@ def insert_by_matching_criteria(
     connection: Connection[DictCursor],
     force_client_ids: set[str] | None = None,
     progress_callback: Callable[[int, int], None] | None = None,
-) -> None:
-    """Enhanced client-evaluator matching with options for full or partial updates."""
+) -> int:
+    """Enhanced client-evaluator matching with options for full or partial updates.
+
+    Returns the number of clients whose evaluator matches changed.
+    """
     if force_client_ids:
         logger.info(
             f"Force-updating relationships for {len(force_client_ids)} specific clients"
         )
-        insert_by_matching_criteria_client_specific(
+        return insert_by_matching_criteria_client_specific(
             clients, evaluators, force_client_ids, connection=connection
         )
-    else:
-        logger.info("Running incremental update for all clients")
-        insert_by_matching_criteria_incremental(
-            clients,
-            evaluators,
-            connection=connection,
-            progress_callback=progress_callback,
-        )
+    logger.info("Running incremental update for all clients")
+    return insert_by_matching_criteria_incremental(
+        clients,
+        evaluators,
+        connection=connection,
+        progress_callback=progress_callback,
+    )
 
 
 @provide_connection

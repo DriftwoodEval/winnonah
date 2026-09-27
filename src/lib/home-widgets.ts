@@ -261,6 +261,13 @@ export const HOME_WIDGET_DEFS: HomeWidgetDef[] = [
 		category: "issues",
 		sizing: "content",
 	},
+	{
+		id: "run-summary",
+		label: "Run Summary",
+		permission: "clients:download",
+		category: "dashboard",
+		sizing: "content",
+	},
 	// Dashboard sections
 	{
 		id: "ds-active-not-on-punchlist",

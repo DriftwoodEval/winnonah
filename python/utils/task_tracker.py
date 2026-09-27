@@ -7,6 +7,7 @@ MySQL named lock.
 
 from __future__ import annotations
 
+import json
 from collections.abc import Iterator
 from contextlib import contextmanager
 
@@ -54,6 +55,16 @@ class TaskHandle:
                 WHERE id = %s
                 """,
                 (current, total, detail, self.task_id),
+            )
+        self._connection.commit()
+
+    def set_summary(self, summary: dict) -> None:
+        """Records domain-specific counts (sent, imported, errors by reason,
+        etc.) for the run summary shown in the app."""
+        with self._connection.cursor() as cursor:
+            cursor.execute(
+                f"UPDATE {TABLE_TASK} SET summary = %s WHERE id = %s",
+                (json.dumps(summary, default=str), self.task_id),
             )
         self._connection.commit()
 

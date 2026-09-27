@@ -1,3 +1,4 @@
+import json
 from unittest.mock import patch
 
 import pytest
@@ -180,3 +181,19 @@ class TestTaskHandleProgress:
             handle.progress(3)
         progress_queries = [(q, p) for q, p in conn.executed if "progressCurrent" in q]
         assert progress_queries[0][1] == (3, None, None, 42)
+
+
+class TestTaskHandleSetSummary:
+    def test_writes_summary_as_json(self):
+        conn = FakeConnection(lock_acquired=True)
+        with (
+            patch("utils.task_tracker.get_db", return_value=conn),
+            track_task("import_from_ta", "Importing from TA") as handle,
+        ):
+            assert handle is not None
+            handle.set_summary({"new_clients": 3, "address_changes": 1})
+        summary_queries = [(q, p) for q, p in conn.executed if "SET summary" in q]
+        assert len(summary_queries) == 1
+        query_json, task_id = summary_queries[0][1]
+        assert json.loads(query_json) == {"new_clients": 3, "address_changes": 1}
+        assert task_id == 42

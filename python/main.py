@@ -193,12 +193,37 @@ def import_from_ta(
             clients.update(clients_to_geocode)
 
         clients = clients.reset_index()
-        utils.database.put_clients_in_db(clients, connection=conn)
 
-        raw_insurance = utils.clients.get_raw_insurance_data(should_download_csvs=False)
-        utils.database.put_client_insurance_policies_in_db(
-            raw_insurance, connection=conn
-        )
+        with track_task(
+            "import_from_ta", "Importing clients from TherapyAppointment"
+        ) as task:
+            if task is None:
+                logger.info(
+                    "Skipping client/insurance import: a previous import_from_ta run is still in progress."
+                )
+            else:
+                client_counts = utils.database.put_clients_in_db(
+                    clients, connection=conn
+                )
+
+                raw_insurance = utils.clients.get_raw_insurance_data(
+                    should_download_csvs=False
+                )
+                insurance_change_count = (
+                    utils.database.put_client_insurance_policies_in_db(
+                        raw_insurance, connection=conn
+                    )
+                )
+                task.set_summary(
+                    {
+                        "new_clients": client_counts["new_clients"],
+                        "address_changes": client_counts["address_changes"],
+                        "deactivated": client_counts["deactivated"],
+                        "reactivated": client_counts["reactivated"],
+                        "insurance_changes": insurance_change_count,
+                    }
+                )
+
         utils.database.sync_client_insurance_from_policies(connection=conn)
         utils.database.sync_scm_admin_reviews(connection=conn)
 
@@ -222,13 +247,14 @@ def import_from_ta(
                 "Matching clients to evaluators by insurance and location",
             ) as task:
                 if task is not None:
-                    utils.database.insert_by_matching_criteria(
+                    rematch_count = utils.database.insert_by_matching_criteria(
                         all_clients_from_db,
                         evaluators,
                         connection=conn,
                         force_client_ids=force_clients_ids,
                         progress_callback=task.progress,
                     )
+                    task.set_summary({"evaluator_matches_changed": rematch_count})
 
         appointment_sync_config = utils.config.load_appointment_sync_config()
         utils.appointments.insert_appointments_with_gcal(appointment_sync_config)

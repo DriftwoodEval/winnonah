@@ -13,6 +13,10 @@ Seven buttons, each downloading one CSV straight from the Python sidecar: **Bill
 
 A separate panel lists the last successful run time for five scripts, spanning both repos: **Appointment Reminders** (see [Appointment Reminders](/docs/documentation/scheduling/appointment-reminders)), **Questionnaire Send** (`qsend.py`), **Records Request** (`records-request.py`), **Piecework** (`piecework.py`), and **Questionnaire Receive** (`qreceive.py`, see [Questionnaire Process](/docs/procedures/questionnaires), [Records Request Process](/docs/procedures/records-request), and [Piecework / Payment Process](/docs/procedures/piecework) for what each of those actually does). See [Background Tasks](/docs/documentation/system/background-tasks) for a real-time view of the last 15 minutes of activity, a different, live complement to this panel's static timestamps.
 
+## Run Summary
+
+A third panel shows what the last run of each of five jobs actually did: the **TherapyAppointment Import** (new clients added, addresses and insurance changed, clients deactivated or reactivated), **Questionnaire Send** (questionnaires sent, and a breakdown of failure reasons like "portal not opened" or "docs not signed"), **Records Request** (records requested, and the same kind of failure breakdown), **Evaluator Matching** (how many clients' evaluator matches changed), and **Appointment Sync** (how many appointments were synced). A run that failed outright shows the error instead of counts. The same summary also appears as a "Run Summary" home widget, so staff who check daily don't need to visit Settings for it.
+
 ## Edge cases
 
-- **Both panels proxy straight through to the Python sidecar**, so if we're running in a degraded state (see [Failover](/docs/development/failover)), this whole tab stops working even though the rest of the app keeps running.
+- **The CSV and Script Run Times panels proxy straight through to the Python sidecar**, so if we're running in a degraded state (see [Failover](/docs/development/failover)), those two panels stop working even though the rest of the app, including the Run Summary panel, keeps working.

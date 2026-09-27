@@ -1,10 +1,24 @@
-import { desc, eq, gte, or } from "drizzle-orm";
-import { createTRPCRouter, protectedProcedure } from "~/server/api/trpc";
+import { desc, eq, gte, inArray, or } from "drizzle-orm";
+import {
+	assertPermission,
+	createTRPCRouter,
+	protectedProcedure,
+} from "~/server/api/trpc";
 import { db } from "~/server/db";
 import { tasks } from "~/server/db/schema";
 
 const RECENT_WINDOW_MS = 1000 * 60 * 15;
 const POLL_INTERVAL_MS = 3000;
+
+// Task types whose runs produce a `summary` worth showing on the run summary
+// section (Downloads settings tab and the home widget).
+const RUN_SUMMARY_TYPES = [
+	"import_from_ta",
+	"questionnaire_send",
+	"records_request",
+	"evaluator_rematch",
+	"appointment_sync",
+] as const;
 
 const activeTasksWhere = () =>
 	or(
@@ -40,6 +54,26 @@ export const taskRouter = createTRPCRouter({
 			limit: 50,
 		});
 		return dedupeByType(active);
+	}),
+
+	getRunSummaries: protectedProcedure.query(async ({ ctx }) => {
+		assertPermission(ctx.session.user, "clients:download");
+
+		const recent = await ctx.db.query.tasks.findMany({
+			where: inArray(tasks.type, RUN_SUMMARY_TYPES),
+			orderBy: [desc(tasks.startedAt)],
+			limit: RUN_SUMMARY_TYPES.length * 10,
+		});
+
+		const latestByType = new Map<string, Task>();
+		for (const task of recent) {
+			if (!latestByType.has(task.type)) latestByType.set(task.type, task);
+		}
+
+		return RUN_SUMMARY_TYPES.map((type) => ({
+			type,
+			task: latestByType.get(type) ?? null,
+		}));
 	}),
 
 	onTaskUpdate: protectedProcedure.subscription(async function* ({ signal }) {

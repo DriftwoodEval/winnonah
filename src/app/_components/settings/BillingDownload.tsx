@@ -6,6 +6,7 @@ import { format } from "date-fns";
 import { DownloadIcon, Loader2 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
+import RunSummaryList from "~/app/_components/RunSummaryList";
 import { api } from "~/trpc/react";
 
 type CsvKey =
@@ -143,6 +144,13 @@ export default function BillingDownload() {
 							);
 						})}
 					</div>
+				</CardContent>
+			</Card>
+
+			<Card>
+				<CardContent>
+					<h3 className="mb-3 font-semibold text-sm">Run Summary</h3>
+					<RunSummaryList />
 				</CardContent>
 			</Card>
 		</div>
