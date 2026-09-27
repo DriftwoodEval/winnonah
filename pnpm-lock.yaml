@@ -186,7 +186,7 @@ importers:
         version: 3.2.2(react@19.3.0)
       '@googleapis/calendar':
         specifier: ^20.0.0
-        version: 20.0.0
+        version: 20.0.1
       '@googleapis/drive':
         specifier: ^26.0.0
         version: 26.0.0
@@ -1172,8 +1172,8 @@ packages:
   '@floating-ui/utils@0.2.12':
     resolution: {integrity: sha512-HpCo8tmWzLVad5s2d19EhAz5zqrrQ6s69qd6moPMQvkOuSwDT1YgRfWSVuc4ennqrgv3OHppiOGMQ7oC13yIww==}
 
-  '@googleapis/calendar@20.0.0':
-    resolution: {integrity: sha512-IPrgcKWT4oaKLi8esda9aReF62pKQSV1UkgOi0e0A7/oU30Uj4eQuA1tpJiNxTZ0gJlLo/sLAOhscDOiEf7uOA==}
+  '@googleapis/calendar@20.0.1':
+    resolution: {integrity: sha512-NclDdcEoPvPBCHwUtcQj9rqWelAVl/nRj98WLUrNM2ByvqXjjUP0Ux/0nVb/FH9hoLR+dw9f0zHDOu2Di8oqrg==}
     engines: {node: '>=22.0.0'}
 
   '@googleapis/drive@26.0.0':
@@ -6455,7 +6455,7 @@ snapshots:
 
   '@floating-ui/utils@0.2.12': {}
 
-  '@googleapis/calendar@20.0.0':
+  '@googleapis/calendar@20.0.1':
     dependencies:
       googleapis-common: 9.1.0
     transitivePeerDependencies:
