@@ -241,6 +241,10 @@ export const PERMISSIONS = {
 						id: "settings:babynet-report:view",
 						title: "View BabyNet Report",
 					},
+					{
+						id: "settings:exclusion-check:notifications",
+						title: "Receive Monthly Exclusion List Check Results",
+					},
 				],
 			},
 
