@@ -1,0 +1,57 @@
+---
+title: Piecework / Payment Process
+needsCleanup: true
+---
+
+Evaluators and report writers are paid per piece of work, a completed appointment or a written report, rather than a flat salary. Once a week, someone runs the piecework script by hand to turn the last week or two of appointments and finished reports into an Excel payroll report, and upload it to Google Drive for whoever runs payroll.
+
+> [!NOTE]
+> This is a separate process from [Work Summary](/docs/documentation/system/work-summary), which is for spotting patterns (appointment load, lateness), not for pay.
+
+## 1. Picking the date range
+
+Running the script prompts for a range: **last week**, or the **week before last**, both full Sunday-through-Saturday weeks counted back from whatever day you actually run it. For example, running it on a Wednesday offers the Sunday-Saturday week that ended this past weekend as "last week," and the one before that as "week before last." There's no way to pick an arbitrary custom range or reach back further than those two weeks, so don't let more than two weeks go by without running it, or a week's worth of work would have no way to be picked up automatically.
+
+## 2. What counts as a "piece"
+
+- Every non-cancelled appointment an evaluator had in that week counts, split by type: **DA**, **ADHD DA** (a DA that stands alone as an ADHD evaluation, billed separately from a regular DA), **Eval**, and **DA+Eval**.
+- Every report that becomes ready to bill during that week also counts as one piece, credited to whoever wrote it.
+
+> [!IMPORTANT]
+> A report for an ADHD-only evaluation (a DA with no separate Eval to follow) does **not** count as a billable piece, with one exception: whichever single evaluator is chosen in **Settings > QSuite > Piecework** under **ADHD-Only Report Billing** does get credit for theirs. Every other evaluator's ADHD-only reports are excluded from piecework entirely.
+
+## 3. Deciding which reports are ready, and who wrote them
+
+A report counts once it's **Billed** and its first review isn't marked done or on hold (see [Report Tracking](/docs/documentation/reports/report-tracking) for what those statuses mean and where they're set). If any reports need a second review but aren't billed yet, the script pauses and asks whether to go handle that first and reload, or skip the check and continue anyway.
+
+For each ready report, the script figures out who gets paid for it:
+
+- If the evaluator has **Writes Own Reports** turned on (see [Report Tracking](/docs/documentation/reports/report-tracking)), it's credited to them automatically, based on their most recent evaluation appointment for that client.
+- Otherwise, it's credited to whoever the report was assigned to, by matching their initials against the full names configured in **Settings > QSuite > Piecework** under **Staff**.
+
+If the script can't work out a writer for one or more reports, it stops and asks whether to go fix the assignment and reload, or continue while skipping just those reports (they'll be picked up on a later run instead).
+
+> [!NOTE]
+> The script keeps its own record of which reports it has already counted, by date. Re-running it again the same day picks up anything that changed since the last run without double-counting a report from an earlier day.
+
+## 4. Setting pay rates
+
+**Settings > QSuite > Piecework**, under **Costs**, sets the rate paid per piece, per evaluator, for each of DA, ADHD DA, Eval, DA+Eval, and Report. A single shared **default** rate can also be set, used for any evaluator without their own rate configured for a given type.
+
+## 5. What comes out
+
+Once everything is tallied, the script produces:
+
+- One combined Excel workbook with a **Summary Counts** sheet (each evaluator's piece counts, rate, cost, a subtotal, and a grand total across everyone) and a **Details** sheet (every individual appointment and report that went into it). This uploads to the practice's payroll folder in Google Drive.
+- A separate Excel file per worker, containing just their own detail rows, uploaded into that worker's own subfolder.
+- If Kimai (a separate time-tracking system) is configured, a timesheet export for the same date range, uploaded alongside the rest. This step is skipped quietly if Kimai isn't set up, and a failure here never stops the rest of the report from being generated.
+
+## Settings staff can change
+
+Everything above the actual appointment and report data lives in **Settings > QSuite > Piecework** (the **Edit QSuite Piecework Config** permission):
+
+- **Costs**: per-evaluator (or default) pay rate for each piece type.
+- **ADHD-Only Report Billing**: which one evaluator's ADHD-only reports count for piecework.
+- **Staff**: the mapping from a report writer's initials to their full name and payroll email address, used to credit reports and to label the individual detail files.
+
+The script's last run time and what it actually produced also show up under **Settings > Downloads**, see [Downloads & Script Status](/docs/documentation/system/downloads-and-script-status).

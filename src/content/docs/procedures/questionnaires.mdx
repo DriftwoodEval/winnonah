@@ -1,0 +1,101 @@
+---
+title: Questionnaire Process
+needsCleanup: true
+---
+
+Before most evaluations, the family (and sometimes a teacher) fills out rating-scale questionnaires online. Two automated scripts handle almost all of it: one generates the links and sends them, the other checks on completion and nags people who haven't finished. Staff mostly interact with this through the client's **Questionnaires** tab and two Settings pages, stepping in by hand only when the automation flags a problem.
+
+> [!NOTE]~ Terms used on this page
+> **DA** is a Diagnostic Assessment appointment; **Eval** is the full evaluation appointment that follows it (some clients get a combined **DA+Eval**). **ASD**, **ADHD**, and **LD** are the diagnoses the assessment rules key off of. **TA** is short for TherapyAppointment, the client portal. "**Business time**" means the practice's own local time zone, no matter where the script happens to run or what time zone a staff member's computer is set to.
+
+## 1. Getting a client onto the list
+
+A client has to clear several gates before either script will touch them:
+
+- Their Records status has to read **Ready** (see [Records Request Process](/docs/procedures/records-request)).
+- On the Client Prioritization sheet (the "punch list", a shared Google Sheet that also drives scheduling, separate from the EMR itself), the relevant "Needed" column, **DA Qs Needed** or **EVAL Qs Needed**, has to be `TRUE`, with the matching **DA Qs Sent** / **EVAL Qs Sent** column not yet checked. ADHD-only clients are the one exception: they only ever need the DA battery, so their EVAL columns are ignored entirely.
+- They can't be flagged **Autism Stop** (set from the records process once autism is ruled out, see [Records Request Process](/docs/procedures/records-request)) or **paused** (a hold staff can set on a client to stop all automation for them temporarily).
+- Their language has to be English, Spanish, or blank, the only two the scripts know how to handle (see below).
+
+> [!NOTE]
+> Ask an admin about your role's permissions (**Settings > Roles**) if any button or checkbox described below is missing or disabled for you.
+
+## 2. Deciding which assessments to send
+
+Which specific questionnaires (and in-person assessments) a client needs is configured in **Settings > Assessment Types & Rules**, as a table of rules. Each rule says: for this appointment type (DA, Eval, or DA+Eval) and this diagnosis (ASD, ADHD, or LD) and this age range, send these online assessments and note these in-person ones. Staff who can **Manage Questionnaire Rules** can add, edit, or delete rules there.
+
+A few things about how rules combine:
+
+- A client flagged **ASD+ADHD** gets the union of the ASD rule and the ADHD rule for their appointment type, nothing dropped from either.
+- **LD** only ever applies to a combined DA+Eval battery, alongside ASD.
+- The age used is the client's age at their next scheduled evaluation appointment if one exists, otherwise their age today.
+
+If no rule matches a client's diagnosis, appointment type, and age, the send fails with **Unknown questionnaire needs**, and if their age falls outside every matching rule's range, it fails with **Too young** or **Too old** instead. All three show up as an alert on the client's Questionnaires tab. If you see one, first double-check the client's diagnosis and date of birth are entered correctly; if they are and this is simply a legitimate case the rules don't cover yet, add or edit a rule in **Settings > Assessment Types & Rules** to cover it.
+
+## 3. Sending questionnaires
+
+Someone runs the send script by hand (it's not on a schedule). For each client it picks up, it logs into TherapyAppointment and, depending on the assessment, one or more of three other testing platforms (QGlobal, MHS, and WPS), generates each required questionnaire there, and sends the client one text message (through TherapyAppointment) with all the links.
+
+Before generating anything, it re-checks the language and Autism Stop/paused gates from step 1, plus two more that can only be seen live in TherapyAppointment:
+
+- The client has opened their TherapyAppointment portal invite. If not, the send is deferred and the client's page shows a **Portal not opened** alert.
+- The client has signed everything TherapyAppointment has assigned them (their intake paperwork, plus, for a client whose school records are being requested, the consent forms authorizing that, see [Records Request Process](/docs/procedures/records-request)). If anything is still unsigned, the client's page shows a **Docs not signed** alert. A client 22 or older is the one exception: an unsigned school-records consent form alone won't trigger this alert for them, since we don't request school records past that age, but any other unsigned paperwork still will.
+
+Both checks are retried automatically every time either script runs, so the alert clears itself as soon as the family actually opens the portal or finishes signing, no one needs to watch for that. If it's genuinely stuck, it eventually surfaces to a person anyway: see the reminder-and-call-list escalation in the next section, which applies to these two failures too.
+
+A handful of other failures need a person to actually fix something, since nothing will resolve them by retrying: the client can't be found in TherapyAppointment at all, they're missing from our database, or their date of birth isn't on file. Each shows up as its own plainly-named alert on the client's Questionnaires tab.
+
+> [!IMPORTANT]
+> Spanish-speaking clients skip the portal/paperwork checks and still get their questionnaires generated, but the script does not text them (there's no automated Spanish message yet). That shows up as a **Spanish Qs generated to send** alert, staff need to send those links by hand.
+
+Once a battery is fully sent, the corresponding **Qs Sent** column on the punch list is checked off, and each questionnaire is recorded against the client as **Pending**.
+
+## 4. Checking for completion and sending reminders
+
+A second script runs automatically several times a day. Every run, it revisits every pending questionnaire's own site and checks whether it's been finished; only at **1pm business time** does it actually send anything to families, so a family might complete something mid-morning without seeing a reminder come through until the next 1pm pass, if at all.
+
+Reminders follow a fixed cadence, all configurable in **Settings > Questionnaire Reminders**:
+
+- The 1st reminder goes out the same day a client still has something pending.
+- The 2nd goes out after **Days before 2nd reminder** have passed.
+- The 3rd goes out after **Days before 3rd reminder** more have passed.
+- If a client stays silent for **Silent days before escalation** after that 3rd reminder, they move to a manual call list included in the admin summary email (see below) instead of getting a 4th text.
+
+The reminder wording itself also lives on that Settings page, edited per stage (1st/2nd/3rd) and per situation: a **Default** message, a **Post-DA** variant for a client who still owes questionnaires after finishing their DA (before their Eval), and a **Post-Eval** variant for one still owing something after the full evaluation. Placeholders like the client's first name or how many questionnaires remain are listed right on that page and filled in automatically.
+
+> [!TIP]
+> If a client replies to a text after their questionnaires were sent, and they're about to get their final (3rd) reminder, the script skips it and marks their remaining questionnaires **Ignoring** instead. It assumes a reply means someone is already handling it outside the automation, rather than nagging a family that's already responded.
+
+The same failures that block a send (portal not opened, docs not signed) also get their own reminder texts on this same 1pm run, using different wording, and the same escalation to a manual call after 3 unanswered reminders.
+
+> [!NOTE]
+> This same script, on the same daily run, also sends two other kinds of automated text unrelated to questionnaire completion: a welcome text to brand-new referrals (Monday through Thursday at 10am business time), and a nudge to sign the school-records consent forms for confirmed private/charter school clients. Both piggyback on this script because it already has the texting connection open; neither is part of the questionnaire process itself.
+
+## 5. The admin summary email
+
+Once a day, whoever the send/receive process is configured to notify gets a summary email covering: clients who finished everything, clients moved to the manual call list, clients whose questionnaires are being ignored, anyone a text failed to send to, and any other errors from the run. If sending that email itself fails, a separate alert email goes to tech staff and the content is held and retried on the next 1pm run rather than lost.
+
+## 6. Where staff manage this: the client's Questionnaires tab
+
+Every client's Questionnaires tab shows their sent questionnaires (date, type, link, times reminded, status, and when it was last checked) plus any open failure alerts. From here staff can:
+
+- **Add Questionnaire** or **Bulk Add** a batch by pasting text, for anything sent outside the automated flow. This needs the **Create Questionnaires**, **Create External Questionnaires**, or **Create Bulk Questionnaires** permission depending on which button.
+- Select one or more rows and set their status in bulk, or use **Copy TA Message** to copy the same link text the automation would have sent.
+- Edit or delete an individual questionnaire from its row menu.
+- **Customize reminder messages for this batch**, from that same row menu, overriding just one stage's wording for everything sent to this client on that date. This needs the **Customize Reminder Messages for a Client** permission, and only applies to a reminder stage that hasn't gone out yet.
+- **Mark Resolved** on a failure alert, for staff with the **Mark Failures Resolved** permission. The automation re-checks and clears portal/paperwork alerts on its own once they're actually fixed, so this is mainly for clearing an alert staff have handled another way.
+- Check **Protocols Scanned** once paper protocols from an in-person assessment have been scanned in, if given the **Edit Protocols Scanned** permission.
+
+> [!NOTE]
+> A dropdown next to the Questionnaires heading shows the client's DA and/or Eval battery: every assessment the rules require, with a checkmark once the whole group has been sent.
+
+A red **"JUST_ADDED" Questionnaires** banner means a questionnaire was generated but never actually sent or marked **Pending**, until that's fixed it's invisible to the completion checks and reminders. To fix it: make sure the client actually has that link (send it yourself if the automated text didn't go out), then select the row and set its status to **Pending** using the bulk status action above, or **Edit** it individually.
+
+## 7. Keeping an eye on problems fleet-wide
+
+Two sections on the Issues page cover recurring questionnaire problems across every client:
+
+- **Duplicate Questionnaires**: the same link used more than once for one client, or the same link shared across different clients, both signs a link was copied to the wrong place. Check each client's Questionnaires tab to see which one the link actually belongs to, **Delete** the wrong entry, and if a client is genuinely missing their own link, **Add Questionnaire** to give them a correct one.
+- **Partial Questionnaire Battery**: an active client who needs a DA and/or Eval battery has sent some but not all of the required assessment types for it. Check the client's page for an open failure alert explaining why the rest never went out; if there isn't one, **Add Questionnaire** the missing type(s) by hand.
+
+Both scripts' last run times and what each one actually did (sent, reminded, or failed, and why) also show up under **Settings > Downloads**, see [Downloads & Script Status](/docs/documentation/system/downloads-and-script-status).
