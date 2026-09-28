@@ -608,6 +608,10 @@ def insert_appointments_with_gcal(appointment_sync_data: dict[str, list[str]] | 
         skipped_locked_in_snapshots = 0
         in_person_assessments_added = 0
         appointments_synced = 0
+        real_synced = 0
+        billing_only_synced = 0
+        cancelled_synced = 0
+        moved_synced = 0
         clients_with_in_person_assessments: set[int] = set()
 
         total_appointments = len(appointments_df)
@@ -685,7 +689,7 @@ def insert_appointments_with_gcal(appointment_sync_data: dict[str, list[str]] | 
                     logger.error(f"No title found for event ID: {gcal_event_id}")
                 continue
 
-            put_appointment_in_db(
+            rescheduled = put_appointment_in_db(
                 appointment_id=appointment_id,
                 client_id=client_id,
                 evaluator_npi=evaluator_npi,
@@ -701,6 +705,11 @@ def insert_appointments_with_gcal(appointment_sync_data: dict[str, list[str]] | 
                 confirmed_at=confirmed_at,
             )
             appointments_synced += 1
+            real_synced += 1
+            if cancelled:
+                cancelled_synced += 1
+            if rescheduled:
+                moved_synced += 1
 
             if not cancelled and gcal_daeval and battery_rules:
                 client_dob = dob_map.get(client_id)
@@ -778,7 +787,7 @@ def insert_appointments_with_gcal(appointment_sync_data: dict[str, list[str]] | 
                     )
                     continue
 
-                put_appointment_in_db(
+                rescheduled = put_appointment_in_db(
                     appointment_id=appointment_id,
                     client_id=client_id,
                     evaluator_npi=evaluator_npi,
@@ -790,6 +799,11 @@ def insert_appointments_with_gcal(appointment_sync_data: dict[str, list[str]] | 
                     billing_only=True,
                 )
                 appointments_synced += 1
+                billing_only_synced += 1
+                if cancelled:
+                    cancelled_synced += 1
+                if rescheduled:
+                    moved_synced += 1
 
                 if (
                     not cancelled
@@ -825,7 +839,15 @@ def insert_appointments_with_gcal(appointment_sync_data: dict[str, list[str]] | 
             logger.exception("Failed to sync the punch list to the DB")
 
         reporter.send_report(email_for_errors)
-        task.set_summary({"appointments_synced": appointments_synced})
+        task.set_summary(
+            {
+                "appointments_synced": appointments_synced,
+                "real_synced": real_synced,
+                "billing_only_synced": billing_only_synced,
+                "cancelled_synced": cancelled_synced,
+                "moved_synced": moved_synced,
+            }
+        )
 
 
 _LETTER_RANGE_SUBFOLDER_RE = re.compile(r"^([A-Za-z])\s*-\s*([A-Za-z])$")

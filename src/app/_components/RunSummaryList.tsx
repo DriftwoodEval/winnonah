@@ -24,6 +24,10 @@ const COUNT_FIELDS: { key: CountField; label: string }[] = [
 	{ key: "reactivated", label: "Reactivated" },
 	{ key: "evaluator_matches_changed", label: "Evaluator matches changed" },
 	{ key: "appointments_synced", label: "Appointments synced" },
+	{ key: "real_synced", label: "Real appointments" },
+	{ key: "billing_only_synced", label: "Billing-only" },
+	{ key: "cancelled_synced", label: "Cancelled" },
+	{ key: "moved_synced", label: "Moved" },
 ];
 
 export default function RunSummaryList() {

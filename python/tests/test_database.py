@@ -496,6 +496,27 @@ class TestPutClientInsurancePoliciesInDb:
             "INSERT INTO `emr_audit_log`" in query for query, _ in cursor.executed
         )
 
+    def test_no_audit_log_when_date_unchanged_but_returned_as_date_object(self):
+        """pymysql's DictCursor returns DATE columns as datetime.date objects,
+        not strings, unlike the string-keyed fixtures above. An unchanged date
+        must not be reported as a diff just because of that type mismatch."""
+        existing = _DefaultNoneDict(
+            {
+                "policyId": "p1",
+                "clientId": 1,
+                "policyAddedByName": "TherapyAppointment System",
+                "policyEndDate": dt.date(2025, 1, 1),
+            }
+        )
+        cursor = _RoutingCursor(self._routes(existing))
+        conn = FakeConnection(cursor)
+
+        put_client_insurance_policies_in_db(self._policy_df(), connection=conn)
+
+        assert not any(
+            "INSERT INTO `emr_audit_log`" in query for query, _ in cursor.executed
+        )
+
     def test_audit_log_written_only_for_changed_field(self):
         existing = _DefaultNoneDict(
             {

@@ -15,5 +15,9 @@ export type RunSummary = {
 	reactivated?: number;
 	evaluator_matches_changed?: number;
 	appointments_synced?: number;
+	real_synced?: number;
+	billing_only_synced?: number;
+	cancelled_synced?: number;
+	moved_synced?: number;
 	errors?: Record<string, number>;
 };

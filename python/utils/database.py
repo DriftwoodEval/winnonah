@@ -1448,6 +1448,14 @@ def put_client_insurance_policies_in_db(
             )
             existing_by_policy_id = {row["policyId"]: row for row in cursor.fetchall()}
 
+    def _comparable(val):
+        # pymysql returns DATE columns as date/datetime objects, while new_row's
+        # values are already "YYYY-MM-DD" strings, so normalize both to strings
+        # before diffing or every date column looks changed on every sync.
+        if isinstance(val, (date, datetime)):
+            return val.strftime("%Y-%m-%d")
+        return val
+
     policy_updates: list[tuple[int, str, dict]] = []
     for values in values_to_insert:
         new_row = dict(zip(col_names, values, strict=True))
@@ -1457,7 +1465,7 @@ def put_client_insurance_policies_in_db(
         diff = {
             col: {"old": existing[col], "new": new_row[col]}
             for col in update_cols
-            if new_row[col] != existing[col]
+            if _comparable(new_row[col]) != _comparable(existing[col])
         }
         if diff:
             policy_updates.append((new_row["clientId"], new_row["policyId"], diff))
@@ -1622,15 +1630,19 @@ def put_appointment_in_db(
     gcal_event_title: str | None = None,
     confirmed_at: datetime | None = None,
     billing_only: bool = False,
-):
-    """Inserts an appointment into the database."""
+) -> bool:
+    """Inserts an appointment into the database.
+
+    Returns whether an existing appointment's startTime changed (i.e. it was
+    moved/rescheduled), for the run summary shown in the app.
+    """
     with connection.cursor() as cursor:
         cursor.execute(f"SELECT 1 FROM `{TABLE_CLIENT}` WHERE id = %s", (client_id,))
         if not cursor.fetchone():
             logger.warning(
                 f"Skipping appointment {appointment_id}: no client row found for client_id={client_id}"
             )
-            return
+            return False
 
         cursor.execute(
             f"""SELECT startTime, endTime, confirmedAt, cancelled, evaluatorNpi, daEval,
@@ -1646,6 +1658,7 @@ def put_appointment_in_db(
         start_time_naive_utc = start_time.replace(tzinfo=None)
         end_time_naive_utc = end_time.replace(tzinfo=None)
 
+        rescheduled = False
         if existing is None:
             record_audit_log(
                 connection,
@@ -1779,6 +1792,8 @@ def put_appointment_in_db(
     with connection.cursor() as cursor:
         cursor.execute(sql, params)
         connection.commit()
+
+    return rescheduled
 
 
 @provide_connection
