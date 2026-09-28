@@ -24,6 +24,7 @@ import {
 	mapInsuranceToShortNames,
 	normalizePhoneNumber,
 	parseDateOnly,
+	sanitizeFailureReason,
 	toBusinessZonedTime,
 	toTitleCase,
 	userBadgeStyle,
@@ -100,6 +101,36 @@ describe("formatError", () => {
 
 	it("returns the message unchanged when no permission id matches", () => {
 		expect(formatError("some other error")).toBe("some other error");
+	});
+});
+
+describe("sanitizeFailureReason", () => {
+	it("returns normal reasons unchanged", () => {
+		expect(sanitizeFailureReason("docs not signed")).toBe("docs not signed");
+	});
+
+	it("replaces a raw Selenium stack trace with a generic message", () => {
+		expect(sanitizeFailureReason("Message: boom\nStacktrace:\n  at foo")).toBe(
+			"automation error, remaining questionnaires must be sent manually",
+		);
+	});
+
+	it("matches the prefix case-insensitively and with leading whitespace", () => {
+		expect(
+			sanitizeFailureReason("  message: boom\nStacktrace:\n  at foo"),
+		).toBe("automation error, remaining questionnaires must be sent manually");
+	});
+
+	it("leaves a reason with only 'Message:' unchanged", () => {
+		expect(sanitizeFailureReason("Message: docs not signed")).toBe(
+			"Message: docs not signed",
+		);
+	});
+
+	it("leaves a reason with only 'Stacktrace:' unchanged", () => {
+		expect(sanitizeFailureReason("Stacktrace: something odd")).toBe(
+			"Stacktrace: something odd",
+		);
 	});
 });
 

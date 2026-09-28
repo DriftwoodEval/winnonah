@@ -122,6 +122,25 @@ export function formatError(message: string): string {
 	return formattedMessage;
 }
 
+// Selenium renders every WebDriverException as "Message: <msg>\nStacktrace:\n...",
+// which lands in the DB verbatim on some failures. Detect that shape rather
+// than stripping it there, so the raw text is preserved in the database and
+// only the display is cleaned up.
+const SELENIUM_MESSAGE_PREFIX = /^\s*message:/i;
+
+/**
+ * Failure reasons are normally short, human-written strings ("docs not
+ * signed", "too young"), but a raw Selenium stack trace can also land in the
+ * reason column. Replace that with a generic, user-facing message instead of
+ * rendering the trace.
+ */
+export function sanitizeFailureReason(reason: string): string {
+	if (SELENIUM_MESSAGE_PREFIX.test(reason) && reason.includes("Stacktrace:")) {
+		return "automation error, remaining questionnaires must be sent manually";
+	}
+	return reason;
+}
+
 export const getInsuranceShortName = (
 	officialName: string | null,
 	insurances: InsuranceWithAliases[],

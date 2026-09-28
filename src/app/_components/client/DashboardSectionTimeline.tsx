@@ -3,13 +3,25 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@ui/card";
 import { Skeleton } from "@ui/skeleton";
 import { format, formatDistanceToNowStrict } from "date-fns";
-import { cn } from "~/lib/utils";
+import { cn, sanitizeFailureReason } from "~/lib/utils";
 import { api } from "~/trpc/react";
 
+const FAILURE_PREFIX = "Failure: ";
+
 function sectionTextClass(section: string): string {
-	if (section.startsWith("Failure: ")) return "text-destructive";
+	if (section.startsWith(FAILURE_PREFIX)) return "text-destructive";
 	if (section.startsWith("Issue: ")) return "text-warning";
 	return "text-muted-foreground";
+}
+
+// Failure sections are snapshotted verbatim into history at the time they
+// occurred, so an old row can still carry a raw stack trace from before the
+// reason was sanitized at the source. Clean it up at render time too.
+function sectionDisplayText(section: string): string {
+	if (!section.startsWith(FAILURE_PREFIX)) return section;
+	return (
+		FAILURE_PREFIX + sanitizeFailureReason(section.slice(FAILURE_PREFIX.length))
+	);
 }
 
 export function DashboardSectionTimeline({ clientId }: { clientId: number }) {
@@ -67,7 +79,7 @@ export function DashboardSectionTimeline({ clientId }: { clientId: number }) {
 											)}
 											key={section}
 										>
-											{section}
+											{sectionDisplayText(section)}
 										</p>
 									))
 								)}

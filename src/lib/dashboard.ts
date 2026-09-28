@@ -11,6 +11,7 @@ import {
 	isBabyNetInsurance,
 	isNotesOnlyClientId,
 	localDateToDateOnly,
+	sanitizeFailureReason,
 } from "./utils";
 
 /**
@@ -810,9 +811,10 @@ export function getClientFailureSections(
 ): string[] {
 	return (failures ?? [])
 		.filter((f) => (f.reminded ?? 0) < 100)
-		.map(
-			(f) => `Failure: ${f.reason.charAt(0).toUpperCase()}${f.reason.slice(1)}`,
-		);
+		.map((f) => {
+			const reason = sanitizeFailureReason(f.reason);
+			return `Failure: ${reason.charAt(0).toUpperCase()}${reason.slice(1)}`;
+		});
 }
 
 export function getClientMatchedSections(

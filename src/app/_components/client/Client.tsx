@@ -29,6 +29,7 @@ import {
 	formatClientAge,
 	formatInBusinessTime,
 	isNotesOnlyClientId,
+	sanitizeFailureReason,
 } from "~/lib/utils";
 import { api } from "~/trpc/react";
 import { AdditionalInsuranceAppointmentsDisplay } from "./AdditionalInsuranceAppointmentsDisplay";
@@ -198,7 +199,7 @@ export function Client({
 
 		const blockers: string[] = (clientFailures ?? [])
 			.filter((failure) => failure.daEval !== "Records")
-			.map((failure) => capitalize(failure.reason));
+			.map((failure) => capitalize(sanitizeFailureReason(failure.reason)));
 
 		if (client.pause) blockers.push("Client paused for review.");
 
