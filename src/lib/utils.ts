@@ -122,6 +122,25 @@ export function formatError(message: string): string {
 	return formattedMessage;
 }
 
+const MAX_READABLE_FAILURE_REASON_LENGTH = 150;
+
+/**
+ * Failure reasons are normally short, human-written strings ("docs not
+ * signed", "too young"), but an unhandled exception upstream can still land
+ * a raw, multi-line stack trace in the reason column. Collapse anything
+ * that long or multi-line into a generic, user-facing message instead of
+ * rendering the trace.
+ */
+export function sanitizeFailureReason(reason: string): string {
+	if (
+		reason.includes("\n") ||
+		reason.length > MAX_READABLE_FAILURE_REASON_LENGTH
+	) {
+		return "automation error, remaining questionnaires must be sent manually";
+	}
+	return reason;
+}
+
 export const getInsuranceShortName = (
 	officialName: string | null,
 	insurances: InsuranceWithAliases[],

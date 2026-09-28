@@ -24,6 +24,7 @@ import {
 	mapInsuranceToShortNames,
 	normalizePhoneNumber,
 	parseDateOnly,
+	sanitizeFailureReason,
 	toBusinessZonedTime,
 	toTitleCase,
 	userBadgeStyle,
@@ -100,6 +101,24 @@ describe("formatError", () => {
 
 	it("returns the message unchanged when no permission id matches", () => {
 		expect(formatError("some other error")).toBe("some other error");
+	});
+});
+
+describe("sanitizeFailureReason", () => {
+	it("returns short, single-line reasons unchanged", () => {
+		expect(sanitizeFailureReason("docs not signed")).toBe("docs not signed");
+	});
+
+	it("replaces multi-line reasons with a generic message", () => {
+		expect(sanitizeFailureReason("Message: boom\nStacktrace:\n  at foo")).toBe(
+			"automation error, remaining questionnaires must be sent manually",
+		);
+	});
+
+	it("replaces reasons longer than the readable limit", () => {
+		expect(sanitizeFailureReason("x".repeat(200))).toBe(
+			"automation error, remaining questionnaires must be sent manually",
+		);
 	});
 });
 
