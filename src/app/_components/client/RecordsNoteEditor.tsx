@@ -28,6 +28,7 @@ import {
 	formatShortInstantDate,
 	isBabyNetInsurance,
 	localDateToDateOnly,
+	sanitizeFailureReason,
 } from "~/lib/utils";
 import { api } from "~/trpc/react";
 import { NoteHistory } from "../shared/NoteHistory";
@@ -454,36 +455,38 @@ export function RecordsNoteEditor({
 		<div className="w-full">
 			{recordFailures && recordFailures.length > 0 && (
 				<div className="mb-4 flex flex-col gap-2">
-					{recordFailures.map((failure) => (
-						<Alert key={failure.reason} variant="destructive">
-							<Info className="h-4 w-4" />
-							<AlertTitle>
-								{failure.reason.charAt(0).toUpperCase() +
-									failure.reason.slice(1)}
-							</AlertTitle>
-							<AlertDescription>
-								First noted {formatShortDate(failure.failedDate)}, last updated{" "}
-								{formatShortInstantDate(failure.updatedAt)}.
-							</AlertDescription>
-							{canResolveFailure && (
-								<AlertAction>
-									<Button
-										disabled={resolveFailure.isPending}
-										onClick={() =>
-											resolveFailure.mutate({
-												clientId,
-												reason: failure.reason,
-											})
-										}
-										size="sm"
-										variant="outline"
-									>
-										Mark Resolved
-									</Button>
-								</AlertAction>
-							)}
-						</Alert>
-					))}
+					{recordFailures.map((failure) => {
+						const reason = sanitizeFailureReason(failure.reason);
+						return (
+							<Alert key={failure.reason} variant="destructive">
+								<Info className="h-4 w-4" />
+								<AlertTitle>
+									{reason.charAt(0).toUpperCase() + reason.slice(1)}
+								</AlertTitle>
+								<AlertDescription>
+									First noted {formatShortDate(failure.failedDate)}, last
+									updated {formatShortInstantDate(failure.updatedAt)}.
+								</AlertDescription>
+								{canResolveFailure && (
+									<AlertAction>
+										<Button
+											disabled={resolveFailure.isPending}
+											onClick={() =>
+												resolveFailure.mutate({
+													clientId,
+													reason: failure.reason,
+												})
+											}
+											size="sm"
+											variant="outline"
+										>
+											Mark Resolved
+										</Button>
+									</AlertAction>
+								)}
+							</Alert>
+						);
+					})}
 				</div>
 			)}
 			<div className="mb-4 flex flex-col justify-between gap-4 sm:flex-row sm:items-end">

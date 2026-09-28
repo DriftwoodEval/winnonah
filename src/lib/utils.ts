@@ -134,8 +134,13 @@ const SELENIUM_MESSAGE_PREFIX = /^\s*message:/i;
  * reason column. Replace that with a generic, user-facing message instead of
  * rendering the trace.
  */
+const SELENIUM_STACKTRACE = /stacktrace:/i;
+
 export function sanitizeFailureReason(reason: string): string {
-	if (SELENIUM_MESSAGE_PREFIX.test(reason) && reason.includes("Stacktrace:")) {
+	if (
+		SELENIUM_MESSAGE_PREFIX.test(reason) &&
+		SELENIUM_STACKTRACE.test(reason)
+	) {
 		return "automation error, remaining questionnaires must be sent manually";
 	}
 	return reason;

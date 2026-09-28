@@ -40,6 +40,7 @@ import {
 	formatTaMessage,
 	getReminderColorClass,
 	getStatusColorClass,
+	sanitizeFailureReason,
 } from "~/lib/utils";
 import { api } from "~/trpc/react";
 import { AddQuestionnaireButton } from "./AddQuestionnaireButton";
@@ -302,37 +303,39 @@ export function QuestionnairesTable({
 
 				{failures && failures.length > 0 && (
 					<div className="flex flex-col gap-2 border-t px-4 py-3">
-						{failures.map((failure) => (
-							<Alert key={failure.reason} variant="destructive">
-								<Info className="h-4 w-4" />
-								<AlertTitle>
-									{failure.reason.charAt(0).toUpperCase() +
-										failure.reason.slice(1)}
-								</AlertTitle>
-								<AlertDescription>
-									First noted {formatShortDate(failure.failedDate)}, last
-									updated {formatShortInstantDate(failure.updatedAt)}.
-								</AlertDescription>
-								{canResolveFailure && (
-									<AlertAction>
-										<Button
-											disabled={resolveFailure.isPending}
-											onClick={() =>
-												clientId &&
-												resolveFailure.mutate({
-													clientId,
-													reason: failure.reason,
-												})
-											}
-											size="sm"
-											variant="outline"
-										>
-											Mark Resolved
-										</Button>
-									</AlertAction>
-								)}
-							</Alert>
-						))}
+						{failures.map((failure) => {
+							const reason = sanitizeFailureReason(failure.reason);
+							return (
+								<Alert key={failure.reason} variant="destructive">
+									<Info className="h-4 w-4" />
+									<AlertTitle>
+										{reason.charAt(0).toUpperCase() + reason.slice(1)}
+									</AlertTitle>
+									<AlertDescription>
+										First noted {formatShortDate(failure.failedDate)}, last
+										updated {formatShortInstantDate(failure.updatedAt)}.
+									</AlertDescription>
+									{canResolveFailure && (
+										<AlertAction>
+											<Button
+												disabled={resolveFailure.isPending}
+												onClick={() =>
+													clientId &&
+													resolveFailure.mutate({
+														clientId,
+														reason: failure.reason,
+													})
+												}
+												size="sm"
+												variant="outline"
+											>
+												Mark Resolved
+											</Button>
+										</AlertAction>
+									)}
+								</Alert>
+							);
+						})}
 					</div>
 				)}
 

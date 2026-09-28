@@ -221,7 +221,7 @@ export function Client({
 
 		const blockers: string[] = (clientFailures ?? [])
 			.filter((failure) => failure.daEval === "Records")
-			.map((failure) => capitalize(failure.reason));
+			.map((failure) => capitalize(sanitizeFailureReason(failure.reason)));
 
 		if (client.recordsNeeded === null) {
 			blockers.push("Missing records-needed status.");

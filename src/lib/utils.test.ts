@@ -132,6 +132,12 @@ describe("sanitizeFailureReason", () => {
 			"Stacktrace: something odd",
 		);
 	});
+
+	it("matches a lowercased stack trace (qsend re-adds prior reasons lowercased)", () => {
+		expect(sanitizeFailureReason("message: boom\nstacktrace:\n  at foo")).toBe(
+			"automation error, remaining questionnaires must be sent manually",
+		);
+	});
 });
 
 const insurances: InsuranceWithAliases[] = [
