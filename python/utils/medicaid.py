@@ -243,12 +243,16 @@ def read_eligibility(driver: WebDriver) -> dict[str, str | None]:
         By.XPATH,
         "//td[contains(normalize-space(), 'Carrier')]/following-sibling::td[1]",
     )
+    limited_benefit = driver.find_elements(
+        By.XPATH, "//li[label[text()='Limited Benefit:']]/p"
+    )
     return {
         "qualCategory": qual_category.text,
         "paymentCategory": payment_category.text,
         "medicaidOrganization": organization[0].text if organization else None,
         "medicaidCarrier1": carriers[0].text if len(carriers) > 0 else None,
         "medicaidCarrier2": carriers[1].text if len(carriers) > 1 else None,
+        "limitedBenefit": limited_benefit[0].text if limited_benefit else None,
     }
 
 

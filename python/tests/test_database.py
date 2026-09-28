@@ -878,6 +878,7 @@ FIELDS = {
     "medicaidOrganization": "SELECT HEALTH OF SOUTH CAR",
     "medicaidCarrier1": "ONE",
     "medicaidCarrier2": None,
+    "limitedBenefit": "NO",
 }
 
 
@@ -896,6 +897,7 @@ class TestUpdateClientMedicaidEligibility:
             "SELECT HEALTH OF SOUTH CAR",
             "ONE",
             None,
+            "NO",
             "policy-1",
             5,
         )

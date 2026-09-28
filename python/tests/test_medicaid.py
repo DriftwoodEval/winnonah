@@ -11,6 +11,7 @@ RESULTS_PAGE = (
     "<html><body><ul>"
     "<li><label>Qual. Category:</label><p>DISABLED</p></li>"
     "<li><label>Payment Category:</label><p>TEFRA</p></li>"
+    "<li><label>Limited Benefit:</label><p>NO</p></li>"
     "</ul><table>"
     "<tr><td class='td3b'>Organization:</td><td class='td4'>SELECT HEALTH OF SOUTH CAR</td></tr>"
     "{carriers}"
@@ -45,6 +46,7 @@ class TestReadEligibility:
             "medicaidOrganization": "SELECT HEALTH OF SOUTH CAR",
             "medicaidCarrier1": "CARRIER ONE",
             "medicaidCarrier2": "CARRIER TWO",
+            "limitedBenefit": "NO",
         }
 
     def test_missing_carriers_are_none(self, driver):

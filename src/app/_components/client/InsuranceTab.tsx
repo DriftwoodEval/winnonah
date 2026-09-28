@@ -127,6 +127,7 @@ type MedicaidEligibility = {
 	organizationInsurance: string | null;
 	medicaidCarrier1: string | null;
 	medicaidCarrier2: string | null;
+	limitedBenefit: string | null;
 };
 
 function PolicyCard({
@@ -359,6 +360,10 @@ function PolicyCard({
 								label="Carrier 2"
 								value={medicaidEligibility.medicaidCarrier2}
 							/>
+							<InfoRow
+								label="Limited Benefit"
+								value={medicaidEligibility.limitedBenefit}
+							/>
 						</div>
 					</>
 				)}
@@ -388,6 +393,7 @@ export function InsuranceTab({ client }: InsuranceTabProps) {
 				organizationInsurance: data?.organizationInsurance ?? null,
 				medicaidCarrier1: client.medicaidCarrier1 ?? null,
 				medicaidCarrier2: client.medicaidCarrier2 ?? null,
+				limitedBenefit: client.limitedBenefit ?? null,
 			}
 		: undefined;
 

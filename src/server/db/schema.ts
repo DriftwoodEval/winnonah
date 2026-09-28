@@ -285,6 +285,7 @@ export const clients = createTable(
 		medicaidOrganization: d.varchar({ length: 255 }),
 		medicaidCarrier1: d.varchar({ length: 255 }),
 		medicaidCarrier2: d.varchar({ length: 255 }),
+		limitedBenefit: d.varchar({ length: 255 }),
 		// The policy whose insurance number the last successful portal lookup used.
 		medicaidPolicyId: d.varchar({ length: 36 }),
 		medicaidCheckedAt: d.timestamp(),
