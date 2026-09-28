@@ -499,6 +499,24 @@ def claim_top_folder(
             supportsAllDrives=True,
         ).execute()
 
+        # Reparenting alone doesn't grant access if the folder (or a file inside
+        # it) carries its own explicit/restricted sharing from a previous
+        # claim: it moves into the writer's folder but the writer can't open
+        # it. Granting the writer directly fixes the folder and cascades to
+        # any nested files that don't have their own separate restriction.
+        current_user_email = current_user.get("email")
+        if current_user_email:
+            drive_service.permissions().create(
+                fileId=target_folder["id"],
+                body={
+                    "type": "user",
+                    "role": "writer",
+                    "emailAddress": current_user_email,
+                },
+                sendNotificationEmail=False,
+                supportsAllDrives=True,
+            ).execute()
+
         punchlist_range = os.getenv("PUNCHLIST_RANGE")
         sheet_data = (
             sheets_service.spreadsheets()
