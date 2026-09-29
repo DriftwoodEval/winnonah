@@ -1901,6 +1901,15 @@ def get_client_name(client_id: int, connection: Connection[DictCursor]) -> str |
 
 
 @provide_connection
+def get_client_dob(client_id: int, connection: Connection[DictCursor]) -> date | None:
+    """Returns the client's date of birth, or None if not found."""
+    with connection.cursor() as cursor:
+        cursor.execute(f"SELECT dob FROM {TABLE_CLIENT} WHERE id = %s", (client_id,))
+        row = cursor.fetchone()
+        return row["dob"] if row else None
+
+
+@provide_connection
 def get_placeholder_appointment(
     appointment_id: str, connection: Connection[DictCursor]
 ) -> dict | None:

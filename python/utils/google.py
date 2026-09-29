@@ -1230,7 +1230,7 @@ def list_calendar_events_batch(
 
 
 def create_placeholder_event(
-    calendar_id: str, title: str, start: datetime, end: datetime
+    calendar_id: str, title: str, start: datetime, end: datetime, description: str
 ) -> str:
     """Insert a placeholder hold event on an evaluator's calendar. Returns the event id.
 
@@ -1249,6 +1249,7 @@ def create_placeholder_event(
             calendarId=calendar_id,
             body={
                 "summary": title,
+                "description": description,
                 "start": {
                     "dateTime": naive_start.isoformat(),
                     "timeZone": "America/New_York",

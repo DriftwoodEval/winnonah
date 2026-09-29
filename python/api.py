@@ -16,7 +16,11 @@ from pydantic import BaseModel, ConfigDict, Field
 
 import appointment_reminders
 import greeter_proxy
-from utils.appointments import DAEvalType, build_placeholder_title
+from utils.appointments import (
+    DAEvalType,
+    build_placeholder_description,
+    build_placeholder_title,
+)
 from utils.constants import (
     TABLE_ACCOUNT,
     TABLE_APPOINTMENT,
@@ -29,6 +33,7 @@ from utils.constants import (
 )
 from utils.database import (
     delete_appointment,
+    get_client_dob,
     get_client_eligibility_debug,
     get_client_name,
     get_db,
@@ -925,6 +930,7 @@ async def create_placeholder_appointment(
     client_name = get_client_name(request.client_id)
     if client_name is None:
         raise HTTPException(status_code=404, detail="Client not found")
+    client_dob = get_client_dob(request.client_id)
 
     evaluator_email = get_evaluator_email(request.evaluator_npi)
     if evaluator_email is None:
@@ -940,8 +946,9 @@ async def create_placeholder_appointment(
     end_time = business_to_utc(end_time_business)
 
     title = build_placeholder_title(client_name, request.da_eval, request.location_key)
+    description = build_placeholder_description(request.client_id, client_dob)
     calendar_event_id = create_placeholder_event(
-        evaluator_email, title, start_time_business, end_time_business
+        evaluator_email, title, start_time_business, end_time_business, description
     )
 
     appointment_id = f"plchldr-{uuid4()}"
@@ -1009,6 +1016,7 @@ async def move_placeholder_appointment(
     client_name = get_client_name(appointment["clientId"])
     if client_name is None:
         raise HTTPException(status_code=404, detail="Client not found")
+    client_dob = get_client_dob(appointment["clientId"])
 
     evaluator_email = get_evaluator_email(request.evaluator_npi)
     if evaluator_email is None:
@@ -1024,13 +1032,14 @@ async def move_placeholder_appointment(
     title = build_placeholder_title(
         client_name, appointment["daEval"], request.location_key
     )
+    description = build_placeholder_description(appointment["clientId"], client_dob)
 
     if appointment["calendarEventId"] and appointment["evaluatorEmail"]:
         delete_calendar_event(
             appointment["evaluatorEmail"], appointment["calendarEventId"]
         )
     calendar_event_id = create_placeholder_event(
-        evaluator_email, title, start_time_business, end_time_business
+        evaluator_email, title, start_time_business, end_time_business, description
     )
 
     put_appointment_in_db(

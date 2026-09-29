@@ -1122,3 +1122,10 @@ def build_placeholder_title(
         tag = f"[{location_key}-{type_letter_map[da_eval]}]"
 
     return f"plchldr {client_name} {da_eval} {tag}"
+
+
+def build_placeholder_description(client_id: int, dob: date) -> str:
+    """Build the calendar event description for a placeholder appointment."""
+    today = now_business().date()
+    age = today.year - dob.year - ((today.month, today.day) < (dob.month, dob.day))
+    return f"Age: {age}\nClient ID: {client_id}"
