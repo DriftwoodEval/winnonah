@@ -282,9 +282,9 @@ export default function NavigationLinks() {
 				{
 					id: "scheduling-helper",
 					href: "/scheduling/helper",
-					label: "Scheduling Helper",
+					label: "Scheduling Helper (Beta)",
 					icon: CalendarPlus,
-					show: can("pages:scheduling"),
+					show: can("pages:scheduling-helper"),
 				},
 			],
 		},

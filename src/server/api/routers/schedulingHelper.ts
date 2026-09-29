@@ -23,13 +23,13 @@ import {
 	schedulingClients,
 } from "~/server/db/schema";
 
-const SCHEDULING_PERMISSION = "pages:scheduling";
+const SCHEDULING_HELPER_PERMISSION = "pages:scheduling-helper";
 
 export const schedulingHelperRouter = createTRPCRouter({
 	getSchedulingQueueInfo: protectedProcedure
 		.input(z.object({ clientId: z.number() }))
 		.query(async ({ ctx, input }) => {
-			assertPermission(ctx.session.user, SCHEDULING_PERMISSION);
+			assertPermission(ctx.session.user, SCHEDULING_HELPER_PERMISSION);
 
 			const row = await ctx.db.query.schedulingClients.findFirst({
 				where: eq(schedulingClients.clientId, input.clientId),
@@ -52,7 +52,7 @@ export const schedulingHelperRouter = createTRPCRouter({
 			}),
 		)
 		.query(async ({ ctx, input }) => {
-			assertPermission(ctx.session.user, SCHEDULING_PERMISSION);
+			assertPermission(ctx.session.user, SCHEDULING_HELPER_PERMISSION);
 
 			if (input.evaluatorNpis.length === 0) return {};
 
@@ -121,7 +121,7 @@ export const schedulingHelperRouter = createTRPCRouter({
 	getEvaluatorDayAppointments: protectedProcedure
 		.input(z.object({ evaluatorNpi: z.number(), date: z.string() }))
 		.query(async ({ ctx, input }) => {
-			assertPermission(ctx.session.user, SCHEDULING_PERMISSION);
+			assertPermission(ctx.session.user, SCHEDULING_HELPER_PERMISSION);
 
 			// Business-local calendar day, converted to true UTC boundaries
 			// regardless of the server process's own timezone (see getDayAhead).
@@ -164,7 +164,7 @@ export const schedulingHelperRouter = createTRPCRouter({
 	getOfficeCalendar: protectedProcedure
 		.input(z.object({ date: z.string() }))
 		.query(async ({ ctx, input }) => {
-			assertPermission(ctx.session.user, SCHEDULING_PERMISSION);
+			assertPermission(ctx.session.user, SCHEDULING_HELPER_PERMISSION);
 
 			// Business-local calendar day, converted to true UTC boundaries
 			// regardless of the server process's own timezone (see getDayAhead).
@@ -237,7 +237,7 @@ export const schedulingHelperRouter = createTRPCRouter({
 			}),
 		)
 		.mutation(async ({ ctx, input }) => {
-			assertPermission(ctx.session.user, SCHEDULING_PERMISSION);
+			assertPermission(ctx.session.user, SCHEDULING_HELPER_PERMISSION);
 
 			const cookieHeader = ctx.headers.get("cookie") ?? "";
 			const response = await fetch(`${env.PY_API}/appointments/placeholder`, {
@@ -278,7 +278,7 @@ export const schedulingHelperRouter = createTRPCRouter({
 	deletePlaceholder: protectedProcedure
 		.input(z.object({ appointmentId: z.string() }))
 		.mutation(async ({ ctx, input }) => {
-			assertPermission(ctx.session.user, SCHEDULING_PERMISSION);
+			assertPermission(ctx.session.user, SCHEDULING_HELPER_PERMISSION);
 
 			const cookieHeader = ctx.headers.get("cookie") ?? "";
 			const response = await fetch(
@@ -307,7 +307,7 @@ export const schedulingHelperRouter = createTRPCRouter({
 			}),
 		)
 		.query(async ({ ctx, input }) => {
-			assertPermission(ctx.session.user, SCHEDULING_PERMISSION);
+			assertPermission(ctx.session.user, SCHEDULING_HELPER_PERMISSION);
 
 			if (input.evaluatorNpis.length === 0) return {};
 
@@ -363,7 +363,7 @@ export const schedulingHelperRouter = createTRPCRouter({
 			}),
 		)
 		.mutation(async ({ ctx, input }) => {
-			assertPermission(ctx.session.user, SCHEDULING_PERMISSION);
+			assertPermission(ctx.session.user, SCHEDULING_HELPER_PERMISSION);
 
 			const officePrettyName =
 				input.officeKey === "Virtual"
@@ -399,7 +399,7 @@ export const schedulingHelperRouter = createTRPCRouter({
 	unplanOffice: protectedProcedure
 		.input(z.object({ evaluatorNpi: z.number(), date: z.string() }))
 		.mutation(async ({ ctx, input }) => {
-			assertPermission(ctx.session.user, SCHEDULING_PERMISSION);
+			assertPermission(ctx.session.user, SCHEDULING_HELPER_PERMISSION);
 
 			const cookieHeader = ctx.headers.get("cookie") ?? "";
 			const response = await fetch(`${env.PY_API}/evaluators/planned-office`, {

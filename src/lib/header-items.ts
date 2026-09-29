@@ -121,7 +121,7 @@ export const HEADER_ITEM_DEFS: HeaderItemDef[] = [
 	},
 	{
 		id: "scheduling-helper",
-		label: "Scheduling Helper",
+		label: "Scheduling Helper (Beta)",
 		icon: CalendarPlus,
 		area: "nav",
 		category: "Schedule",

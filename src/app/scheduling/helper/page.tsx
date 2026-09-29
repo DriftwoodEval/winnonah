@@ -9,7 +9,7 @@ export const metadata: Metadata = {
 
 export default async function SchedulingHelperPage() {
 	return (
-		<Guard permission="pages:scheduling">
+		<Guard permission="pages:scheduling-helper">
 			<Suspense>
 				<div className="w-full px-5 pt-10">
 					<SchedulingHelper />

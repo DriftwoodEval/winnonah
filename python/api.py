@@ -894,7 +894,7 @@ async def evaluators_availability(
     end: datetime,
     current_user: dict = Depends(get_current_user),
 ):
-    if not current_user["permissions"].get("pages:scheduling"):
+    if not current_user["permissions"].get("pages:scheduling-helper"):
         raise HTTPException(status_code=403, detail="Not authorized")
 
     npi_list = [int(n) for n in npis.split(",") if n]
@@ -912,7 +912,7 @@ async def create_placeholder_appointment(
     request: CreatePlaceholderAppointmentRequest,
     current_user: dict = Depends(get_current_user),
 ):
-    if not current_user["permissions"].get("pages:scheduling"):
+    if not current_user["permissions"].get("pages:scheduling-helper"):
         raise HTTPException(status_code=403, detail="Not authorized")
 
     client_name = get_client_name(request.client_id)
@@ -970,7 +970,7 @@ async def create_placeholder_appointment(
 async def delete_placeholder_appointment(
     appointment_id: str, current_user: dict = Depends(get_current_user)
 ):
-    if not current_user["permissions"].get("pages:scheduling"):
+    if not current_user["permissions"].get("pages:scheduling-helper"):
         raise HTTPException(status_code=403, detail="Not authorized")
 
     appointment = get_placeholder_appointment(appointment_id)
@@ -990,7 +990,7 @@ async def delete_placeholder_appointment(
 async def plan_evaluator_office(
     request: PlanOfficeRequest, current_user: dict = Depends(get_current_user)
 ):
-    if not current_user["permissions"].get("pages:scheduling"):
+    if not current_user["permissions"].get("pages:scheduling-helper"):
         raise HTTPException(status_code=403, detail="Not authorized")
 
     evaluator_email = get_evaluator_email(request.evaluator_npi)
@@ -1007,7 +1007,7 @@ async def plan_evaluator_office(
 async def unplan_evaluator_office(
     request: UnplanOfficeRequest, current_user: dict = Depends(get_current_user)
 ):
-    if not current_user["permissions"].get("pages:scheduling"):
+    if not current_user["permissions"].get("pages:scheduling-helper"):
         raise HTTPException(status_code=403, detail="Not authorized")
 
     evaluator_email = get_evaluator_email(request.evaluator_npi)
