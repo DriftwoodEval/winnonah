@@ -3,8 +3,7 @@ import os
 import re
 import time
 from contextlib import asynccontextmanager
-from datetime import UTC, datetime, timedelta
-from datetime import UTC, date, datetime
+from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
 from uuid import uuid4
 
@@ -59,7 +58,7 @@ from utils.google import (
 )
 from utils.misc import json_log_format
 from utils.permissions import effective_permissions, has_permission
-from utils.timezone import now_business, now_utc
+from utils.timezone import business_to_utc, now_business, now_utc
 from utils.waze import (
     KM_PER_MILE,
     WAZE_MAX_CONCURRENCY,
@@ -68,7 +67,6 @@ from utils.waze import (
     get_drive_time,
     save_drive_time,
 )
-from utils.timezone import business_to_utc
 
 load_dotenv()
 

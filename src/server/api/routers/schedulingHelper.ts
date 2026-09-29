@@ -194,13 +194,10 @@ export const schedulingHelperRouter = createTRPCRouter({
 					evaluatorName: evaluators.providerName,
 					arrivedAt: appointmentCheckins.arrivedAt,
 					arrivedBy: appointmentCheckins.arrivedBy,
-					arrivedNote: appointmentCheckins.arrivedNote,
 					startedAt: appointmentCheckins.startedAt,
 					startedBy: appointmentCheckins.startedBy,
-					startedNote: appointmentCheckins.startedNote,
 					leftAt: appointmentCheckins.leftAt,
 					leftBy: appointmentCheckins.leftBy,
-					leftNote: appointmentCheckins.leftNote,
 				})
 				.from(appointments)
 				.innerJoin(evaluators, eq(appointments.evaluatorNpi, evaluators.npi))
