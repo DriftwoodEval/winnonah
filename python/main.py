@@ -221,6 +221,7 @@ def import_from_ta(
                         "deactivated": client_counts["deactivated"],
                         "reactivated": client_counts["reactivated"],
                         "insurance_changes": insurance_change_count,
+                        "errors": client_counts["errors"],
                     }
                 )
 
@@ -247,14 +248,23 @@ def import_from_ta(
                 "Matching clients to evaluators by insurance and location",
             ) as task:
                 if task is not None:
+                    rematch_row_errors: list[tuple[str, str, str]] = []
                     rematch_count = utils.database.insert_by_matching_criteria(
                         all_clients_from_db,
                         evaluators,
                         connection=conn,
                         force_client_ids=force_clients_ids,
                         progress_callback=task.progress,
+                        row_errors=rematch_row_errors,
                     )
-                    task.set_summary({"evaluator_matches_changed": rematch_count})
+                    task.set_summary(
+                        {
+                            "evaluator_matches_changed": rematch_count,
+                            "errors": utils.database.build_client_errors(
+                                rematch_row_errors
+                            ),
+                        }
+                    )
 
         appointment_sync_config = utils.config.load_appointment_sync_config()
         utils.appointments.insert_appointments_with_gcal(appointment_sync_config)

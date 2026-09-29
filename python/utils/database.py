@@ -10,7 +10,7 @@ from collections.abc import Callable
 from contextlib import contextmanager
 from datetime import date, datetime
 from functools import wraps
-from typing import Literal, cast
+from typing import Any, Literal, cast
 from urllib.parse import urlparse
 
 import pandas as pd
@@ -307,10 +307,24 @@ def get_all_clients(connection: Connection[DictCursor]) -> pd.DataFrame:
     return df
 
 
+def build_client_errors(
+    row_errors: list[tuple[str, str, str]],
+) -> dict[str, dict]:
+    """Converts a list of (reason, client_hash, name) failures into the run
+    summary's `errors` shape, so the app can link each error to the
+    client(s) it applies to."""
+    errors: dict[str, dict] = {}
+    for reason, client_hash, name in row_errors:
+        entry = errors.setdefault(reason, {"count": 0, "clients": []})
+        entry["count"] += 1
+        entry["clients"].append({"hash": client_hash, "name": name})
+    return errors
+
+
 @provide_connection
 def put_clients_in_db(
     clients_df: pd.DataFrame, connection: Connection[DictCursor]
-) -> dict[str, int]:
+) -> dict[str, Any]:
     """Inserts or updates client data in the database from a DataFrame.
 
     Returns counts of new clients and clients whose address changed, for the
@@ -321,6 +335,8 @@ def put_clients_in_db(
     values_to_insert = []
     new_status_by_id: dict[str, bool] = {}
     client_updates: dict[str, dict] = {}
+    full_name_by_id: dict[str, str] = {}
+    row_errors: list[tuple[str, str, str]] = []  # (reason, client_hash, full_name)
 
     incoming_ids = [str(cid) for cid in clients_df["CLIENT_ID"] if pd.notna(cid)]
     existing_by_id: dict[str, dict] = {}
@@ -350,120 +366,132 @@ def put_clients_in_db(
         firstname = get_column(client, "FIRSTNAME")
         lastname = get_column(client, "LASTNAME")
         preferred_name = get_column(client, "PREFERRED_NAME")
-
         full_name = get_full_name(firstname, lastname, preferred_name)
 
-        added_date = get_column(client, "ADDED_DATE")
-        added_date_formatted: str | None = None
-        if isinstance(added_date, (str, date)):
-            added_date_formatted = format_date(added_date)
+        try:
+            added_date = get_column(client, "ADDED_DATE")
+            added_date_formatted: str | None = None
+            if isinstance(added_date, (str, date)):
+                added_date_formatted = format_date(added_date)
 
-        dob = get_column(client, "DOB")
-        dob_formatted: str | None = "1900-01-01"
-        if isinstance(dob, (str, date)):
-            dob_formatted = format_date(dob)
+            dob = get_column(client, "DOB")
+            dob_formatted: str | None = "1900-01-01"
+            if isinstance(dob, (str, date)):
+                dob_formatted = format_date(dob)
 
-        gender = format_gender(get_column(client, "GENDER"))
-        phone_number = format_phone_number(get_column(client, "PHONE1"))
-        email = get_column(client, "EMAIL")
+            gender = format_gender(get_column(client, "GENDER"))
+            phone_number = format_phone_number(get_column(client, "PHONE1"))
+            email = get_column(client, "EMAIL")
 
-        new_status = get_column(client, "STATUS") != "Inactive"
+            new_status = get_column(client, "STATUS") != "Inactive"
+
+            existing = existing_by_id.get(str(client_id))
+
+            language = get_column(client, "LANGUAGE")
+            if language is None and (existing is None or existing["language"] is None):
+                language = "English"
+
+            values = (
+                client_id,
+                hashlib.md5(str(client_id).encode("utf-8")).hexdigest(),
+                new_status,
+                added_date_formatted,
+                dob_formatted,
+                firstname,
+                lastname,
+                preferred_name,
+                full_name,
+                get_column(client, "ADDRESS"),
+                get_column(client, "SCHOOL_DISTRICT"),
+                None
+                if get_column(client, "LATITUDE") == "Unknown"
+                else get_column(client, "LATITUDE"),
+                None
+                if get_column(client, "LONGITUDE") == "Unknown"
+                else get_column(client, "LONGITUDE"),
+                get_column(client, "ASD_ADHD"),
+                language,
+                get_column(client, "PA_ASSIGNED_TO"),
+                gender,
+                phone_number,
+                email,
+                get_column(client, "FLAG"),
+                get_column(client, "LOGIN_NAME", default=None),
+                get_column(client, "REFERRAL_SOURCE", default=None),
+            )
+
+            # Mirror the ON DUPLICATE KEY UPDATE's CASE rules to compute the
+            # value each column will actually end up with, so we diff against
+            # what's really changing rather than logging a no-op on every sync.
+            diff: dict | None = None
+            if existing is not None:
+                school_district = get_column(client, "SCHOOL_DISTRICT")
+                effective = {
+                    "status": new_status,
+                    "addedDate": added_date_formatted,
+                    "dob": dob_formatted,
+                    "firstName": firstname,
+                    "lastName": lastname,
+                    "preferredName": preferred_name,
+                    "fullName": full_name,
+                    "address": get_column(client, "ADDRESS"),
+                    "schoolDistrict": school_district
+                    if school_district is not None and school_district != "Unknown"
+                    else existing["schoolDistrict"],
+                    "latitude": values[11]
+                    if values[11] is not None
+                    else existing["latitude"],
+                    "longitude": values[12]
+                    if values[12] is not None
+                    else existing["longitude"],
+                    "asdAdhd": get_column(client, "ASD_ADHD")
+                    if get_column(client, "ASD_ADHD") is not None
+                    else existing["asdAdhd"],
+                    "language": language
+                    if language is not None
+                    else existing["language"],
+                    "paAssignedTo": get_column(client, "PA_ASSIGNED_TO")
+                    if get_column(client, "PA_ASSIGNED_TO") is not None
+                    else existing["paAssignedTo"],
+                    "gender": gender,
+                    "phoneNumber": phone_number,
+                    "email": email,
+                    "flag": get_column(client, "FLAG"),
+                    "taUser": get_column(client, "LOGIN_NAME", default=None),
+                    "referralSource": get_column(
+                        client, "REFERRAL_SOURCE", default=None
+                    )
+                    if get_column(client, "REFERRAL_SOURCE", default=None) is not None
+                    else existing["referralSource"],
+                }
+
+                # latitude/longitude come back from MySQL as Decimal but are
+                # computed here as strings/floats from the CSV, so compare them
+                # numerically rather than by type-sensitive equality.
+                def _differs(field: str, new_value, existing=existing) -> bool:
+                    old_value = existing[field]
+                    if field in ("latitude", "longitude"):
+                        if old_value is None or new_value is None:
+                            return old_value != new_value
+                        return float(old_value) != float(new_value)
+                    return new_value != old_value
+
+                diff = {
+                    field: {"old": existing[field], "new": new_value}
+                    for field, new_value in effective.items()
+                    if _differs(field, new_value)
+                }
+        except Exception as e:
+            logger.error(f"Skipping client {client_id} ({full_name}): {e}")
+            client_hash = hashlib.md5(str(client_id).encode("utf-8")).hexdigest()
+            row_errors.append(("Could not process client row", client_hash, full_name))
+            continue
+
         new_status_by_id[str(client_id)] = new_status
-
-        existing = existing_by_id.get(str(client_id))
-
-        language = get_column(client, "LANGUAGE")
-        if language is None and (existing is None or existing["language"] is None):
-            language = "English"
-
-        values = (
-            client_id,
-            hashlib.md5(str(client_id).encode("utf-8")).hexdigest(),
-            new_status,
-            added_date_formatted,
-            dob_formatted,
-            firstname,
-            lastname,
-            preferred_name,
-            full_name,
-            get_column(client, "ADDRESS"),
-            get_column(client, "SCHOOL_DISTRICT"),
-            None
-            if get_column(client, "LATITUDE") == "Unknown"
-            else get_column(client, "LATITUDE"),
-            None
-            if get_column(client, "LONGITUDE") == "Unknown"
-            else get_column(client, "LONGITUDE"),
-            get_column(client, "ASD_ADHD"),
-            language,
-            get_column(client, "PA_ASSIGNED_TO"),
-            gender,
-            phone_number,
-            email,
-            get_column(client, "FLAG"),
-            get_column(client, "LOGIN_NAME", default=None),
-            get_column(client, "REFERRAL_SOURCE", default=None),
-        )
+        full_name_by_id[str(client_id)] = full_name
         values_to_insert.append(values)
-
-        # Mirror the ON DUPLICATE KEY UPDATE's CASE rules to compute the
-        # value each column will actually end up with, so we diff against
-        # what's really changing rather than logging a no-op on every sync.
-        if existing is not None:
-            school_district = get_column(client, "SCHOOL_DISTRICT")
-            effective = {
-                "status": new_status,
-                "addedDate": added_date_formatted,
-                "dob": dob_formatted,
-                "firstName": firstname,
-                "lastName": lastname,
-                "preferredName": preferred_name,
-                "fullName": full_name,
-                "address": get_column(client, "ADDRESS"),
-                "schoolDistrict": school_district
-                if school_district is not None and school_district != "Unknown"
-                else existing["schoolDistrict"],
-                "latitude": values[11]
-                if values[11] is not None
-                else existing["latitude"],
-                "longitude": values[12]
-                if values[12] is not None
-                else existing["longitude"],
-                "asdAdhd": get_column(client, "ASD_ADHD")
-                if get_column(client, "ASD_ADHD") is not None
-                else existing["asdAdhd"],
-                "language": language if language is not None else existing["language"],
-                "paAssignedTo": get_column(client, "PA_ASSIGNED_TO")
-                if get_column(client, "PA_ASSIGNED_TO") is not None
-                else existing["paAssignedTo"],
-                "gender": gender,
-                "phoneNumber": phone_number,
-                "email": email,
-                "flag": get_column(client, "FLAG"),
-                "taUser": get_column(client, "LOGIN_NAME", default=None),
-                "referralSource": get_column(client, "REFERRAL_SOURCE", default=None)
-                if get_column(client, "REFERRAL_SOURCE", default=None) is not None
-                else existing["referralSource"],
-            }
-
-            # latitude/longitude come back from MySQL as Decimal but are
-            # computed here as strings/floats from the CSV, so compare them
-            # numerically rather than by type-sensitive equality.
-            def _differs(field: str, new_value, existing=existing) -> bool:
-                old_value = existing[field]
-                if field in ("latitude", "longitude"):
-                    if old_value is None or new_value is None:
-                        return old_value != new_value
-                    return float(old_value) != float(new_value)
-                return new_value != old_value
-
-            diff = {
-                field: {"old": existing[field], "new": new_value}
-                for field, new_value in effective.items()
-                if _differs(field, new_value)
-            }
-            if diff:
-                client_updates[str(client_id)] = diff
+        if diff:
+            client_updates[str(client_id)] = diff
 
     sql = f"""
         INSERT INTO `{TABLE_CLIENT}` (id, hash, status, addedDate, dob, firstName, lastName, preferredName, fullName, address, schoolDistrict, latitude, longitude, asdAdhd, language, paAssignedTo, gender, phoneNumber, email, flag, taUser, referralSource)
@@ -492,7 +520,6 @@ def put_clients_in_db(
             referralSource = CASE WHEN VALUES(referralSource) IS NOT NULL THEN VALUES(referralSource) ELSE referralSource END;
     """
 
-    client_ids = [str(v[0]) for v in values_to_insert]
     old_status_by_id: dict[str, bool] = {
         client_id: bool(row["status"]) for client_id, row in existing_by_id.items()
     }
@@ -500,8 +527,44 @@ def put_clients_in_db(
         client_id: row["deactivatedAt"] for client_id, row in existing_by_id.items()
     }
 
-    with connection.cursor() as cursor:
-        cursor.executemany(sql, values_to_insert)
+    try:
+        with connection.cursor() as cursor:
+            cursor.executemany(sql, values_to_insert)
+    except Exception:
+        # The bulk statement is all-or-nothing, so one bad row aborts every
+        # row in the batch. Retry one row at a time to find the bad one(s)
+        # and still land the rest; ON DUPLICATE KEY UPDATE makes each retry
+        # idempotent, so re-running already-inserted rows is harmless.
+        connection.rollback()
+        logger.warning(
+            "Bulk client insert failed; retrying rows individually to isolate the failure(s)"
+        )
+        failed_ids: set[str] = set()
+        for row in values_to_insert:
+            row_client_id = str(row[0])
+            try:
+                with connection.cursor() as cursor:
+                    cursor.execute(sql, row)
+                connection.commit()
+            except Exception as e:
+                connection.rollback()
+                logger.error(f"Failed to insert client {row_client_id}: {e}")
+                failed_ids.add(row_client_id)
+                row_errors.append(
+                    (
+                        "Database rejected client row",
+                        row[1],  # precomputed md5 hash
+                        full_name_by_id.get(row_client_id, row_client_id),
+                    )
+                )
+        values_to_insert = [
+            row for row in values_to_insert if str(row[0]) not in failed_ids
+        ]
+        client_updates = {
+            cid: diff for cid, diff in client_updates.items() if cid not in failed_ids
+        }
+
+    client_ids = [str(v[0]) for v in values_to_insert]
 
     for client_id, diff in client_updates.items():
         record_audit_log(
@@ -606,6 +669,7 @@ def put_clients_in_db(
         "address_changes": address_change_count,
         "deactivated": len(deactivated_ids),
         "reactivated": len(reactivated_ids),
+        "errors": build_client_errors(row_errors),
     }
 
 
@@ -1994,6 +2058,7 @@ def insert_by_matching_criteria_incremental(
     connection: Connection[DictCursor],
     progress_callback: Callable[[int, int], None] | None = None,
     restrict_to_npis: set[str] | None = None,
+    row_errors: list[tuple[str, str, str]] | None = None,
 ) -> int:
     """Inserts client-provider links based on matching criteria using incremental updates.
 
@@ -2005,6 +2070,11 @@ def insert_by_matching_criteria_incremental(
     without touching the rest, pass their NPIs as `restrict_to_npis`: adds and
     removes are then limited to that set, so a single evaluator can be
     rematched without wiping every other evaluator's links for each client.
+
+    When `row_errors` is passed, a client whose links fail to write is
+    skipped (and left for the next run) instead of aborting the whole batch,
+    and its failure is appended as (reason, client_hash, name) for the run
+    summary shown in the app.
     """
     logger.debug("Starting incremental client-evaluator matching...")
 
@@ -2054,11 +2124,31 @@ def insert_by_matching_criteria_incremental(
             to_remove &= restrict_to_npis
 
         if to_add or to_remove:
+            try:
+                if to_remove:
+                    _delete_client_eval_links(
+                        client_id, to_remove, connection=connection
+                    )
+                if to_add:
+                    _insert_client_eval_links(client_id, to_add, connection=connection)
+            except Exception as e:
+                logger.error(
+                    f"Failed to update evaluator matches for client {client_id}: {e}"
+                )
+                if row_errors is not None:
+                    row_errors.append(
+                        (
+                            "Failed to update evaluator matches",
+                            get_column(client, "HASH") or client_id,
+                            get_full_name(
+                                get_column(client, "FIRSTNAME"),
+                                get_column(client, "LASTNAME"),
+                                get_column(client, "PREFERRED_NAME"),
+                            ),
+                        )
+                    )
+                continue
             updated_count += 1
-            if to_remove:
-                _delete_client_eval_links(client_id, to_remove, connection=connection)
-            if to_add:
-                _insert_client_eval_links(client_id, to_add, connection=connection)
             existing_links[client_id] = (current_exists - to_remove) | to_add
 
     if progress_callback:
@@ -2076,10 +2166,16 @@ def insert_by_matching_criteria_client_specific(
     evaluators: dict,
     specific_client_ids: set[str],
     connection: Connection[DictCursor],
+    row_errors: list[tuple[str, str, str]] | None = None,
 ) -> int:
     """Updates client-evaluator relationships for specific clients only.
 
     Returns the number of clients whose evaluator matches changed.
+
+    When `row_errors` is passed, a client whose links fail to write is
+    skipped instead of aborting the whole batch, and its failure is
+    appended as (reason, client_hash, name) for the run summary shown in
+    the app.
     """
     logger.debug(
         f"Starting client-specific matching for {len(specific_client_ids)} clients..."
@@ -2112,13 +2208,27 @@ def insert_by_matching_criteria_client_specific(
             set(eligible_evaluators_by_district) & set(eligible_evaluators_by_insurance)
         )
 
-        for npi in matched_evaluator_npis:
-            _link_client_provider(client_id, npi, connection=connection)
-
-        updated_count += 1
         full_name = (
             f"{client.get('FIRSTNAME', '')} {client.get('LASTNAME', '')}".strip()
         )
+        try:
+            for npi in matched_evaluator_npis:
+                _link_client_provider(client_id, npi, connection=connection)
+        except Exception as e:
+            logger.error(
+                f"Failed to update evaluator matches for client {client_id}: {e}"
+            )
+            if row_errors is not None:
+                row_errors.append(
+                    (
+                        "Failed to update evaluator matches",
+                        get_column(client, "HASH") or client_id,
+                        full_name,
+                    )
+                )
+            continue
+
+        updated_count += 1
         logger.debug(
             f"Updated relationships for {full_name} (ID: {client_id}): {len(matched_evaluator_npis)} matches"
         )
@@ -2133,17 +2243,26 @@ def insert_by_matching_criteria(
     connection: Connection[DictCursor],
     force_client_ids: set[str] | None = None,
     progress_callback: Callable[[int, int], None] | None = None,
+    row_errors: list[tuple[str, str, str]] | None = None,
 ) -> int:
     """Enhanced client-evaluator matching with options for full or partial updates.
 
     Returns the number of clients whose evaluator matches changed.
+
+    When `row_errors` is passed, a client whose links fail to write is
+    skipped instead of aborting the whole batch; see
+    `insert_by_matching_criteria_incremental`.
     """
     if force_client_ids:
         logger.info(
             f"Force-updating relationships for {len(force_client_ids)} specific clients"
         )
         return insert_by_matching_criteria_client_specific(
-            clients, evaluators, force_client_ids, connection=connection
+            clients,
+            evaluators,
+            force_client_ids,
+            connection=connection,
+            row_errors=row_errors,
         )
     logger.info("Running incremental update for all clients")
     return insert_by_matching_criteria_incremental(
@@ -2151,6 +2270,7 @@ def insert_by_matching_criteria(
         evaluators,
         connection=connection,
         progress_callback=progress_callback,
+        row_errors=row_errors,
     )
 
 

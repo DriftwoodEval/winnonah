@@ -61,12 +61,16 @@ class FakeConnection:
         self._cursor = cursor or FakeCursor()
         self.closed = False
         self.commits = 0
+        self.rollbacks = 0
 
     def cursor(self):
         return self._cursor
 
     def commit(self):
         self.commits += 1
+
+    def rollback(self):
+        self.rollbacks += 1
 
     def close(self):
         self.closed = True
@@ -409,6 +413,46 @@ class TestPutClientsInDb:
         parsed = json.loads(detail)
         assert set(parsed) == {"phoneNumber"}
         assert parsed["phoneNumber"] == {"old": "8035551234", "new": "8039998888"}
+
+    def test_bad_row_is_reported_without_aborting_the_rest(self):
+        """A bad row must not abort the whole batch: the bulk insert fails,
+        the retry-one-at-a-time fallback isolates the bad row, and the rest
+        still land."""
+
+        class FailingBulkCursor(FakeCursor):
+            def executemany(self, query, params_list=None):  # noqa: ARG002
+                raise Exception("simulated bulk insert failure")
+
+            def execute(self, query, params=None):
+                if params and str(params[0]) == "2":
+                    raise Exception("simulated row failure")
+                super().execute(query, params)
+
+        cursor = FailingBulkCursor()
+        conn = FakeConnection(cursor)
+
+        clients_df = pd.concat(
+            [
+                self._client_df(CLIENT_ID=1, FIRSTNAME="Good", LASTNAME="Client"),
+                self._client_df(CLIENT_ID=2, FIRSTNAME="Bad", LASTNAME="Client"),
+            ],
+            ignore_index=True,
+        )
+
+        result = put_clients_in_db(clients_df, connection=conn)
+
+        inserted_ids = {
+            params[0]
+            for query, params in cursor.executed
+            if query.startswith("INSERT INTO `emr_client`")
+        }
+        assert inserted_ids == {1}
+        assert result["new_clients"] == 1
+        assert result["errors"]["Database rejected client row"]["count"] == 1
+        assert (
+            result["errors"]["Database rejected client row"]["clients"][0]["name"]
+            == "Bad Client"
+        )
 
 
 class _DefaultNoneDict(dict):
