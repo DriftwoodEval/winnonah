@@ -733,9 +733,14 @@ def _patch_info_lines(content: str, updates: dict[str, str]) -> str:
     return "\n".join(lines)
 
 
-def sync_client_info_files():
-    """For each client with an appointment tomorrow, create or update their '0 - {name} info.txt'
-    file in their Drive folder with Name, DOB, Age, Date, and Evaluator.
+def sync_client_info_files(
+    start_date: date | None = None, end_date: date | None = None
+):
+    """For each client with an appointment in [start_date, end_date] (inclusive, business
+    calendar days), create or update their '0 - {name} info.txt' file in their Drive folder
+    with Name, DOB, Age, Date, and Evaluator.
+
+    Defaults to tomorrow only when no dates are given.
 
     If the file already exists, only the known field lines are overwritten in place; any
     other content in the file (e.g. manually added notes) is left untouched.
@@ -744,15 +749,18 @@ def sync_client_info_files():
 
     service = get_drive_service()
 
-    # "Tomorrow" means the business's calendar day, not UTC's, since
-    # a.startTime is a true UTC instant that can land on a different UTC
-    # calendar date than the business day it represents.
-    tomorrow_business = (now_business() + timedelta(days=1)).date()
+    # Business calendar days, not UTC's, since a.startTime is a true UTC instant
+    # that can land on a different UTC calendar date than the business day it represents.
+    if start_date is None:
+        start_date = (now_business() + timedelta(days=1)).date()
+    if end_date is None:
+        end_date = start_date
+
     range_start = business_to_utc(
-        datetime.combine(tomorrow_business, datetime.min.time())
+        datetime.combine(start_date, datetime.min.time())
     ).replace(tzinfo=None)
     range_end = business_to_utc(
-        datetime.combine(tomorrow_business + timedelta(days=1), datetime.min.time())
+        datetime.combine(end_date + timedelta(days=1), datetime.min.time())
     ).replace(tzinfo=None)
 
     with utils.database.db_session() as connection, connection.cursor() as cursor:
@@ -774,7 +782,7 @@ def sync_client_info_files():
         )
         rows = cursor.fetchall()
 
-    # Multiple appointments tomorrow for the same client: use the earliest.
+    # Multiple appointments in range for the same client: use the earliest.
     seen_drive_ids = set()
     appointments = []
     for row in rows:
@@ -783,7 +791,7 @@ def sync_client_info_files():
         seen_drive_ids.add(row["driveId"])
         appointments.append(row)
 
-    logger.info(f"Found {len(appointments)} client(s) with an appointment tomorrow.")
+    logger.info(f"Found {len(appointments)} client(s) with an appointment in range.")
 
     for row in appointments:
         try:

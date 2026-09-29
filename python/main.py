@@ -1,6 +1,7 @@
 import os
 import shutil
 from collections.abc import Callable
+from datetime import date
 from typing import Annotated, cast
 
 import pandas as pd
@@ -38,6 +39,28 @@ logger.add(
     filter=lambda r: r["name"] not in _main_excluded_modules,
 )
 load_dotenv()
+
+
+def _parse_date_arg(value: str) -> date:
+    """Parse a 'YYYY-MM-DD' or 'MM-DD' date string, defaulting to the current business year."""
+    parts = value.split("-")
+    if len(parts) == 2:
+        month, day = parts
+        return date(now_business().year, int(month), int(day))
+    return date.fromisoformat(value)
+
+
+def _parse_for_date(for_date: str | None) -> tuple[date | None, date | None]:
+    """Parse a --for-date value: a single date or a 'START..END' range."""
+    if for_date is None:
+        return None, None
+    if ".." in for_date:
+        start_str, end_str = for_date.split("..", 1)
+        start_date = _parse_date_arg(start_str)
+        end_date = _parse_date_arg(end_str)
+    else:
+        start_date = end_date = _parse_date_arg(for_date)
+    return start_date, end_date
 
 
 def filter_clients_by_criteria(
@@ -404,6 +427,16 @@ def main(
             help="Sync '0 - {name} info.txt' files for clients with an appointment tomorrow",
         ),
     ] = False,
+    for_date: Annotated[
+        str | None,
+        typer.Option(
+            "--for-date",
+            help=(
+                "With --client-info-files, sync for this date or 'START..END' date range "
+                "instead of tomorrow. Accepts YYYY-MM-DD or MM-DD (current year assumed)."
+            ),
+        ),
+    ] = None,
     save_ta_hashes: Annotated[
         bool, typer.Option("--save-ta-hashes", help="Save TA hashes to DB")
     ] = False,
@@ -494,8 +527,9 @@ def main(
         return
 
     if client_info_files:
-        logger.info("Syncing client info files")
-        utils.google.sync_client_info_files()
+        start_date, end_date = _parse_for_date(for_date)
+        logger.info(f"Syncing client info files for {start_date}..{end_date}")
+        utils.google.sync_client_info_files(start_date, end_date)
         return
 
     if save_ta_hashes:
