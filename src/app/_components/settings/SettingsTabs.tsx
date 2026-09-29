@@ -11,6 +11,7 @@ import PeopleTable from "@components/settings/PeopleTable";
 import QuestionnaireRemindersSettings from "@components/settings/QuestionnaireRemindersSettings";
 import QuestionnaireRulesTable from "@components/settings/QuestionnaireRulesTable";
 import RolesTable from "@components/settings/RolesTable";
+import SchedulingGapDefaultSection from "@components/settings/SchedulingGapDefaultSection";
 import WorkSummaryDefaultsSection from "@components/settings/WorkSummaryDefaultsSection";
 import {
 	Command,
@@ -412,6 +413,7 @@ export function SettingsTabs() {
 						</TabsContent>
 						<TabsContent value="durations">
 							<WorkSummaryDefaultsSection />
+							<SchedulingGapDefaultSection />
 						</TabsContent>
 					</Tabs>
 				</TabsContent>

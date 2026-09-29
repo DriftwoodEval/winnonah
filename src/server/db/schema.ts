@@ -48,6 +48,9 @@ export const evaluators = createTable("evaluator", (d) => ({
 	evaluatorDashboard: d.boolean().notNull().default(false),
 	driveFolderId: d.varchar({ length: 255 }),
 	evalDriveFolderId: d.varchar({ length: 255 }),
+	// Minutes required between this evaluator's appointments in the scheduling
+	// helper. Null falls back to schedulingHelperConfig.defaultGapMinutes.
+	gapMinutes: d.int(),
 }));
 
 export const insurances = createTable("insurance", (d) => ({
@@ -1663,6 +1666,16 @@ export const reportQueueConfig = createTable("report_queue_config", (d) => ({
 		.notNull()
 		.default("Second review"),
 }));
+
+export const schedulingHelperConfig = createTable(
+	"scheduling_helper_config",
+	(d) => ({
+		id: d.int().notNull().primaryKey().default(1),
+		// Site-wide default minutes required between an evaluator's appointments,
+		// used when an evaluator has no gapMinutes override set (see evaluators).
+		defaultGapMinutes: d.int().notNull().default(0),
+	}),
+);
 
 export const appointmentNotes = createTable("appointment_note", (d) => ({
 	appointmentId: d

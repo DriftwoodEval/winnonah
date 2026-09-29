@@ -40,6 +40,7 @@ export const evaluatorFormSchema = z.object({
 	appointmentDurations: z.record(z.string(), z.number().nonnegative().int()),
 	allowedAppointmentTypes: z.array(z.string()),
 	writesOwnReports: z.boolean(),
+	gapMinutes: z.number().int().min(0).max(480).nullable(),
 	driveFolderId: z.string(),
 	evalDriveFolderId: z.string(),
 });
@@ -175,6 +176,7 @@ export function EvaluatorForm({
 	const { data: allInsurances, isLoading: isLoadingInsurances } =
 		api.insurances.getAll.useQuery();
 	const { data: globalDefaults } = api.workSummary.getDefaults.useQuery();
+	const { data: gapConfig } = api.schedulingHelper.getGapConfig.useQuery();
 	const utils = api.useUtils();
 	const isDashboardEvaluator =
 		isEditing && (initialData?.evaluatorDashboard ?? false);
@@ -246,6 +248,7 @@ export function EvaluatorForm({
 					],
 				),
 				writesOwnReports: initialData.writesOwnReports ?? false,
+				gapMinutes: initialData.gapMinutes ?? null,
 				driveFolderId: initialData.driveFolderId ?? "",
 				evalDriveFolderId: initialData.evalDriveFolderId ?? "",
 			};
@@ -262,6 +265,7 @@ export function EvaluatorForm({
 			appointmentDurations: {},
 			allowedAppointmentTypes: expandAllowedTypes(["DA", "EVAL", "DAEVAL"]),
 			writesOwnReports: false,
+			gapMinutes: null,
 			driveFolderId: "",
 			evalDriveFolderId: "",
 		};
@@ -452,6 +456,34 @@ export function EvaluatorForm({
 												checked={field.value}
 												disabled={isLoading || disabled}
 												onCheckedChange={field.onChange}
+											/>
+										</FormControl>
+										<FormMessage />
+									</FormItem>
+								)}
+							/>
+							<FormField
+								control={form.control}
+								name="gapMinutes"
+								render={({ field }) => (
+									<FormItem>
+										<FormLabel>Gap Between Appointments (minutes)</FormLabel>
+										<FormDescription>
+											Leave blank to use the site default (
+											{gapConfig?.defaultGapMinutes ?? 0} min).
+										</FormDescription>
+										<FormControl>
+											<Input
+												disabled={isLoading || disabled}
+												min={0}
+												onChange={(e) => {
+													const raw = e.target.value;
+													field.onChange(raw === "" ? null : Number(raw));
+												}}
+												placeholder={String(gapConfig?.defaultGapMinutes ?? 0)}
+												step={5}
+												type="number"
+												value={field.value ?? ""}
 											/>
 										</FormControl>
 										<FormMessage />

@@ -82,6 +82,7 @@ TABLE_BABYNET_REPORT: Final = "emr_babynet_report"
 TABLE_OFFICE_DRIVE_TIME: Final = "emr_office_drive_time"
 TABLE_REPORT: Final = "emr_report"
 TABLE_PIECEWORK_REPORT_TRACKING: Final = "emr_piecework_report_tracking"
+TABLE_SCHEDULING_HELPER_CONFIG: Final = "emr_scheduling_helper_config"
 
 # DB to DataFrame Column Mapping
 CLIENT_COLUMN_MAPPING: Final = {

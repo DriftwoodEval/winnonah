@@ -9,6 +9,7 @@ import {
 	splitAvailabilityByOOO,
 } from "~/lib/google";
 import { formatInBusinessTime } from "~/lib/utils";
+import { diffValues, setAuditDetail } from "~/server/api/audit";
 import {
 	assertPermission,
 	createTRPCRouter,
@@ -21,7 +22,15 @@ import {
 	evaluators,
 	offices,
 	schedulingClients,
+	schedulingHelperConfig,
 } from "~/server/db/schema";
+
+async function parsePyApiError(response: Response): Promise<string> {
+	const data = (await response.json().catch(() => null)) as {
+		detail?: string;
+	} | null;
+	return data?.detail || `Request failed: ${response.status}`;
+}
 
 const SCHEDULING_HELPER_PERMISSION = "pages:scheduling-helper";
 
@@ -258,9 +267,7 @@ export const schedulingHelperRouter = createTRPCRouter({
 			});
 
 			if (!response.ok) {
-				throw new Error(
-					`Failed to create placeholder appointment: ${response.status}`,
-				);
+				throw new Error(await parsePyApiError(response));
 			}
 
 			return response.json() as Promise<{
@@ -329,9 +336,7 @@ export const schedulingHelperRouter = createTRPCRouter({
 			);
 
 			if (!response.ok) {
-				throw new Error(
-					`Failed to move placeholder appointment: ${response.status}`,
-				);
+				throw new Error(await parsePyApiError(response));
 			}
 
 			return response.json() as Promise<{
@@ -477,5 +482,35 @@ export const schedulingHelperRouter = createTRPCRouter({
 			}
 
 			return { status: "ok" as const };
+		}),
+
+	getGapConfig: protectedProcedure.query(async ({ ctx }) => {
+		assertPermission(ctx.session.user, SCHEDULING_HELPER_PERMISSION);
+
+		const row = await ctx.db.query.schedulingHelperConfig.findFirst({
+			where: eq(schedulingHelperConfig.id, 1),
+		});
+		return { defaultGapMinutes: row?.defaultGapMinutes ?? 0 };
+	}),
+
+	setGapConfig: protectedProcedure
+		.input(z.object({ defaultGapMinutes: z.number().int().min(0).max(480) }))
+		.mutation(async ({ ctx, input }) => {
+			assertPermission(ctx.session.user, "settings:evaluators");
+
+			const existing = await ctx.db.query.schedulingHelperConfig.findFirst({
+				where: eq(schedulingHelperConfig.id, 1),
+			});
+			setAuditDetail(ctx, diffValues(existing ?? {}, input));
+
+			ctx.logger.info(
+				{ ...input, updatedBy: ctx.session.user.email },
+				"Setting scheduling helper default gap minutes",
+			);
+			await ctx.db
+				.insert(schedulingHelperConfig)
+				.values({ id: 1, ...input })
+				.onDuplicateKeyUpdate({ set: { ...input } });
+			return { success: true };
 		}),
 });

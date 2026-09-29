@@ -8,7 +8,7 @@ import re
 import time
 from collections.abc import Callable
 from contextlib import contextmanager
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from functools import wraps
 from typing import Any, Literal, cast
 from urllib.parse import urlparse
@@ -53,6 +53,7 @@ from utils.constants import (
     TABLE_QUESTIONNAIRE_RULE,
     TABLE_REPORT,
     TABLE_ROLE,
+    TABLE_SCHEDULING_HELPER_CONFIG,
     TABLE_SCHOOL_DISTRICT,
     TABLE_USER,
     TEST_NAMES_LOWER,
@@ -1887,6 +1888,61 @@ def get_evaluator_emails(
             tuple(npis),
         )
         return {row["npi"]: row["email"] for row in cursor.fetchall()}
+
+
+@provide_connection
+def get_evaluator_gap_minutes(
+    npi: int, connection: Connection[DictCursor]
+) -> int | None:
+    """Returns the evaluator's gap-between-appointments override in minutes,
+    or None if they have no override (use the site default)."""
+    with connection.cursor() as cursor:
+        cursor.execute(
+            f"SELECT gapMinutes FROM {TABLE_EVALUATOR} WHERE npi = %s", (npi,)
+        )
+        row = cursor.fetchone()
+        return row["gapMinutes"] if row else None
+
+
+@provide_connection
+def get_default_gap_minutes(connection: Connection[DictCursor]) -> int:
+    """Returns the site-wide default minutes required between appointments."""
+    with connection.cursor() as cursor:
+        cursor.execute(
+            f"SELECT defaultGapMinutes FROM {TABLE_SCHEDULING_HELPER_CONFIG} WHERE id = 1"
+        )
+        row = cursor.fetchone()
+        return row["defaultGapMinutes"] if row else 0
+
+
+@provide_connection
+def get_evaluator_nearby_appointments(
+    evaluator_npi: int,
+    start_time: datetime,
+    end_time: datetime,
+    gap_minutes: int,
+    connection: Connection[DictCursor],
+    exclude_appointment_id: str | None = None,
+) -> list[dict]:
+    """Returns the evaluator's non-cancelled appointments that fall within
+    gap_minutes of [start_time, end_time], for gap-between-appointments enforcement."""
+    buffer = timedelta(minutes=gap_minutes)
+    window_start = start_time - buffer
+    window_end = end_time + buffer
+
+    query = f"""
+        SELECT id, startTime, endTime FROM {TABLE_APPOINTMENT}
+        WHERE evaluatorNpi = %s AND cancelled = FALSE AND rescheduled = FALSE
+          AND billingOnly = FALSE AND startTime < %s AND endTime > %s
+    """
+    params: list = [evaluator_npi, window_end, window_start]
+    if exclude_appointment_id:
+        query += " AND id != %s"
+        params.append(exclude_appointment_id)
+
+    with connection.cursor() as cursor:
+        cursor.execute(query, tuple(params))
+        return cursor.fetchall()
 
 
 @provide_connection
