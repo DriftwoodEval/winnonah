@@ -17,6 +17,7 @@ from utils.database import (
     get_appointments_needing_folder_move,
     get_client_id_to_asd_adhd_map,
     get_client_id_to_dob_map,
+    get_client_id_to_hash_map,
     get_in_person_assessments_for_client,
     get_npi_to_name_map,
     get_questionnaire_rules_with_in_person,
@@ -142,6 +143,36 @@ class SyncReporter:
     def has_errors(self) -> bool:
         """Check if any errors have been logged."""
         return any([self.time_mismatches, self.missing_in_gcal, self.missing_npis])
+
+    def to_run_summary_errors(self, hash_map: dict[int, str]) -> dict[str, dict]:
+        """Converts logged errors into the run summary's `errors` shape, so
+        the app can link each error to the client(s) it applies to."""
+        errors: dict[str, dict] = {}
+
+        if self.missing_npis:
+            errors["Missing NPI mapping"] = {"count": len(self.missing_npis)}
+
+        if self.time_mismatches:
+            errors["Time mismatch (calendar vs TA)"] = {
+                "count": len(self.time_mismatches),
+                "clients": [
+                    {"hash": client_hash, "name": item["client_name"]}
+                    for item in self.time_mismatches
+                    if (client_hash := hash_map.get(item["client_id"]))
+                ],
+            }
+
+        if self.missing_in_gcal:
+            errors["Missing from Google Calendar"] = {
+                "count": len(self.missing_in_gcal),
+                "clients": [
+                    {"hash": client_hash, "name": item["name"]}
+                    for item in self.missing_in_gcal
+                    if (client_hash := hash_map.get(item["client_id"]))
+                ],
+            }
+
+        return errors
 
     def send_report(self, recipient_email: str):
         """Send a summary email of all logged errors."""
@@ -604,6 +635,7 @@ def insert_appointments_with_gcal(appointment_sync_data: dict[str, list[str]] | 
         valid_npis = set(npi_cache.values())
         asd_adhd_map = get_client_id_to_asd_adhd_map()
         dob_map = get_client_id_to_dob_map()
+        hash_map = get_client_id_to_hash_map()
         battery_rules = get_questionnaire_rules_with_in_person()
         skipped_locked_in_snapshots = 0
         in_person_assessments_added = 0
@@ -846,6 +878,7 @@ def insert_appointments_with_gcal(appointment_sync_data: dict[str, list[str]] | 
                 "billing_only_synced": billing_only_synced,
                 "cancelled_synced": cancelled_synced,
                 "moved_synced": moved_synced,
+                "errors": reporter.to_run_summary_errors(hash_map),
             }
         )
 

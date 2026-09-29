@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import type { RunSummary } from "~/lib/run-summary";
 import { formatInBusinessTime } from "~/lib/utils";
 import { api } from "~/trpc/react";
@@ -67,11 +68,36 @@ export default function RunSummaryList() {
 								</span>
 							))}
 							{task.summary.errors &&
-								Object.entries(task.summary.errors).map(([reason, count]) => (
-									<span className="text-warning" key={reason}>
-										{reason}: <strong>{count}</strong>
-									</span>
-								))}
+								Object.entries(task.summary.errors).map(([reason, entry]) => {
+									// Older rows recorded before per-client links existed have
+									// a plain number here instead of a { count, clients } entry.
+									const { count, clients } =
+										typeof entry === "number"
+											? { count: entry, clients: undefined }
+											: entry;
+									return (
+										<span className="text-warning" key={reason}>
+											{reason}: <strong>{count}</strong>
+											{clients && clients.length > 0 && (
+												<>
+													{" ("}
+													{clients.map((client, i) => (
+														<span key={client.hash}>
+															{i > 0 && ", "}
+															<Link
+																className="underline hover:no-underline"
+																href={`/clients/${client.hash}`}
+															>
+																{client.name}
+															</Link>
+														</span>
+													))}
+													{")"}
+												</>
+											)}
+										</span>
+									);
+								})}
 						</div>
 					)}
 				</div>

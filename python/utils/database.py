@@ -2410,6 +2410,21 @@ def set_client_drive_folder_evaluator(
 
 
 @provide_connection
+def get_client_id_to_hash_map(
+    connection: Connection[DictCursor],
+) -> dict[int, str]:
+    """Returns a dictionary mapping client ID (int) to their hash (str)."""
+    try:
+        with connection.cursor() as cursor:
+            cursor.execute(f"SELECT id, hash FROM {TABLE_CLIENT}")
+            results = cursor.fetchall()
+            return {row["id"]: row["hash"] for row in results if row["hash"]}
+    except Exception:
+        logger.exception("Error fetching client ID to hash map")
+        return {}
+
+
+@provide_connection
 def get_client_id_to_dob_map(
     connection: Connection[DictCursor],
 ) -> dict[int, date]:
