@@ -148,6 +148,13 @@ class CreatePlaceholderAppointmentRequest(BaseModel):
     location_key: str
 
 
+class MovePlaceholderAppointmentRequest(BaseModel):
+    evaluator_npi: int
+    start_time: datetime
+    end_time: datetime
+    location_key: str
+
+
 class PlanOfficeRequest(BaseModel):
     evaluator_npi: int
     date: date
@@ -894,7 +901,7 @@ async def evaluators_availability(
     end: datetime,
     current_user: dict = Depends(get_current_user),
 ):
-    if not current_user["permissions"].get("pages:scheduling-helper"):
+    if not has_permission(current_user["permissions"], "pages:scheduling-helper"):
         raise HTTPException(status_code=403, detail="Not authorized")
 
     npi_list = [int(n) for n in npis.split(",") if n]
@@ -912,7 +919,7 @@ async def create_placeholder_appointment(
     request: CreatePlaceholderAppointmentRequest,
     current_user: dict = Depends(get_current_user),
 ):
-    if not current_user["permissions"].get("pages:scheduling-helper"):
+    if not has_permission(current_user["permissions"], "pages:scheduling-helper"):
         raise HTTPException(status_code=403, detail="Not authorized")
 
     client_name = get_client_name(request.client_id)
@@ -970,7 +977,7 @@ async def create_placeholder_appointment(
 async def delete_placeholder_appointment(
     appointment_id: str, current_user: dict = Depends(get_current_user)
 ):
-    if not current_user["permissions"].get("pages:scheduling-helper"):
+    if not has_permission(current_user["permissions"], "pages:scheduling-helper"):
         raise HTTPException(status_code=403, detail="Not authorized")
 
     appointment = get_placeholder_appointment(appointment_id)
@@ -986,11 +993,77 @@ async def delete_placeholder_appointment(
     return {"status": "ok"}
 
 
+@app.patch("/appointments/placeholder/{appointment_id}")
+async def move_placeholder_appointment(
+    appointment_id: str,
+    request: MovePlaceholderAppointmentRequest,
+    current_user: dict = Depends(get_current_user),
+):
+    if not has_permission(current_user["permissions"], "pages:scheduling-helper"):
+        raise HTTPException(status_code=403, detail="Not authorized")
+
+    appointment = get_placeholder_appointment(appointment_id)
+    if appointment is None:
+        raise HTTPException(status_code=404, detail="Placeholder appointment not found")
+
+    client_name = get_client_name(appointment["clientId"])
+    if client_name is None:
+        raise HTTPException(status_code=404, detail="Client not found")
+
+    evaluator_email = get_evaluator_email(request.evaluator_npi)
+    if evaluator_email is None:
+        raise HTTPException(status_code=404, detail="Evaluator not found")
+
+    # See create_placeholder_appointment above: request.start_time/end_time are
+    # naive business-local wall-clock values that need localizing before storage.
+    start_time_business = request.start_time.replace(tzinfo=None)
+    end_time_business = request.end_time.replace(tzinfo=None)
+    start_time = business_to_utc(start_time_business)
+    end_time = business_to_utc(end_time_business)
+
+    title = build_placeholder_title(
+        client_name, appointment["daEval"], request.location_key
+    )
+
+    if appointment["calendarEventId"] and appointment["evaluatorEmail"]:
+        delete_calendar_event(
+            appointment["evaluatorEmail"], appointment["calendarEventId"]
+        )
+    calendar_event_id = create_placeholder_event(
+        evaluator_email, title, start_time_business, end_time_business
+    )
+
+    put_appointment_in_db(
+        appointment_id=appointment_id,
+        client_id=appointment["clientId"],
+        evaluator_npi=request.evaluator_npi,
+        cpt="",
+        start_time=start_time,
+        end_time=end_time,
+        da_eval=appointment["daEval"],
+        location=request.location_key,
+        gcal_event_id=calendar_event_id,
+        gcal_event_title=title,
+        placeholder=True,
+    )
+    clear_planned_office_events(evaluator_email, start_time_business.date())
+
+    return {
+        "id": appointment_id,
+        "evaluatorNpi": request.evaluator_npi,
+        "startTime": start_time,
+        "endTime": end_time,
+        "locationKey": request.location_key,
+        "calendarEventId": calendar_event_id,
+        "calendarEventTitle": title,
+    }
+
+
 @app.post("/evaluators/planned-office")
 async def plan_evaluator_office(
     request: PlanOfficeRequest, current_user: dict = Depends(get_current_user)
 ):
-    if not current_user["permissions"].get("pages:scheduling-helper"):
+    if not has_permission(current_user["permissions"], "pages:scheduling-helper"):
         raise HTTPException(status_code=403, detail="Not authorized")
 
     evaluator_email = get_evaluator_email(request.evaluator_npi)
@@ -1007,7 +1080,7 @@ async def plan_evaluator_office(
 async def unplan_evaluator_office(
     request: UnplanOfficeRequest, current_user: dict = Depends(get_current_user)
 ):
-    if not current_user["permissions"].get("pages:scheduling-helper"):
+    if not has_permission(current_user["permissions"], "pages:scheduling-helper"):
         raise HTTPException(status_code=403, detail="Not authorized")
 
     evaluator_email = get_evaluator_email(request.evaluator_npi)

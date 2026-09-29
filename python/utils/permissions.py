@@ -10,6 +10,7 @@ PERMISSION_GROUPS = {
     "clients:admin:review:email-notifications": "clients:insurance:all",
     "clients:download": "clients:admin:all",
     "clients:pa-forms": "clients:insurance:all",
+    "pages:scheduling-helper": "pages:access:all",
     "reports:approve": "clients:admin:all",
     "reports:notifications": "clients:admin:all",
     "settings:evaluators": "system:settings:all",

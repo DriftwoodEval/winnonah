@@ -1904,13 +1904,15 @@ def get_client_name(client_id: int, connection: Connection[DictCursor]) -> str |
 def get_placeholder_appointment(
     appointment_id: str, connection: Connection[DictCursor]
 ) -> dict | None:
-    """Returns a placeholder appointment's id, evaluatorNpi, calendarEventId and the
-    evaluator's email (their calendar id), or None if not found or not a placeholder.
+    """Returns a placeholder appointment's id, clientId, evaluatorNpi, daEval,
+    calendarEventId and the evaluator's email (their calendar id), or None if not
+    found or not a placeholder.
     """
     with connection.cursor() as cursor:
         cursor.execute(
             f"""
-            SELECT a.id, a.evaluatorNpi, a.calendarEventId, e.email AS evaluatorEmail
+            SELECT a.id, a.clientId, a.evaluatorNpi, a.daEval, a.calendarEventId,
+                   e.email AS evaluatorEmail
             FROM `{TABLE_APPOINTMENT}` a
             JOIN {TABLE_EVALUATOR} e ON e.npi = a.evaluatorNpi
             WHERE a.id = %s AND a.placeholder = 1

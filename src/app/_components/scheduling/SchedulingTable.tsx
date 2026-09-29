@@ -84,6 +84,7 @@ import {
 	useRef,
 	useState,
 } from "react";
+import { useCheckPermission } from "~/hooks/use-check-permission";
 import { useMediaQuery } from "~/hooks/use-media-query";
 import type { ScheduledClient } from "~/lib/api-types";
 import {
@@ -936,6 +937,8 @@ const SchedulingRowCells = memo(function SchedulingRowCells({
 	dragHandleListeners: DraggableSyntheticListeners;
 }) {
 	const { enabled: redactionEnabled } = useRedaction();
+	const can = useCheckPermission();
+	const canUseSchedulingHelper = can("pages:scheduling-helper");
 
 	const districtMap = useMemo(
 		() => new Map(districts.map((d) => [d.fullName, d])),
@@ -1102,7 +1105,7 @@ const SchedulingRowCells = memo(function SchedulingRowCells({
 
 			<TableCell data-col={12} data-row={rowIndex}>
 				<div className="flex items-center gap-1">
-					{isEditable && (
+					{isEditable && canUseSchedulingHelper && (
 						<Tooltip>
 							<TooltipTrigger asChild>
 								<Button asChild size="sm" variant="outline">

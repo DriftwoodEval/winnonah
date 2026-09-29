@@ -1,6 +1,16 @@
 "use client";
 
 import { Alert, AlertDescription, AlertTitle } from "@ui/alert";
+import {
+	AlertDialog,
+	AlertDialogAction,
+	AlertDialogCancel,
+	AlertDialogContent,
+	AlertDialogDescription,
+	AlertDialogFooter,
+	AlertDialogHeader,
+	AlertDialogTitle,
+} from "@ui/alert-dialog";
 import { Badge } from "@ui/badge";
 import { Button } from "@ui/button";
 import { Card } from "@ui/card";
@@ -238,7 +248,15 @@ export function SchedulingHelper() {
 type ClientLike = { id: number; hash: string; fullName: string };
 
 type CellStatus =
-	| { kind: "booked"; officeLabel: string; placeholder: boolean }
+	| {
+			kind: "booked";
+			officeLabel: string;
+			locationKey: string | null;
+			placeholder: boolean;
+			id: string;
+			startTime: Date;
+			endTime: Date;
+	  }
 	| { kind: "planned"; officeLabel: string }
 	| { kind: "available"; officeLabels: string[] }
 	| { kind: "ooo" }
@@ -399,7 +417,11 @@ function SchedulingHelperGrid({
 						officeKeyToLabel.get(booked.locationKey ?? "") ??
 						booked.locationKey ??
 						"Virtual",
+					locationKey: booked.locationKey,
 					placeholder: booked.placeholder,
+					id: booked.id,
+					startTime: booked.startTime,
+					endTime: booked.endTime,
 				};
 			}
 
@@ -531,9 +553,22 @@ function SchedulingHelperGrid({
 	// Only split once a client is picked and eligibility has actually loaded -
 	// otherwise (no client, or still loading) everyone stays in the eligible
 	// list so the grid doesn't flash people into "ineligible" prematurely.
+	// Within each list, evaluators with no marked availability (and no existing
+	// booking) in the window sink to the bottom - still shown and pickable,
+	// just out of the way of who's actually bookable right now.
 	const { eligibleList, ineligibleList } = useMemo(() => {
+		const byAvailability = (a: Evaluator, b: Evaluator) => {
+			const aAvailable = hasAvailabilityInWindow.get(a.npi) ?? true;
+			const bAvailable = hasAvailabilityInWindow.get(b.npi) ?? true;
+			if (aAvailable !== bAvailable) return aAvailable ? -1 : 1;
+			return 0;
+		};
+
 		if (!effectiveClient || !eligibleEvaluators) {
-			return { eligibleList: typeAllowedEvaluators, ineligibleList: [] };
+			return {
+				eligibleList: typeAllowedEvaluators.toSorted(byAvailability),
+				ineligibleList: [],
+			};
 		}
 		const eligibleNpis = new Set(eligibleEvaluators.map((e) => e.npi));
 		const eligible: Evaluator[] = [];
@@ -541,8 +576,16 @@ function SchedulingHelperGrid({
 		for (const evaluator of typeAllowedEvaluators) {
 			(eligibleNpis.has(evaluator.npi) ? eligible : ineligible).push(evaluator);
 		}
-		return { eligibleList: eligible, ineligibleList: ineligible };
-	}, [typeAllowedEvaluators, effectiveClient, eligibleEvaluators]);
+		return {
+			eligibleList: eligible.toSorted(byAvailability),
+			ineligibleList: ineligible.toSorted(byAvailability),
+		};
+	}, [
+		typeAllowedEvaluators,
+		effectiveClient,
+		eligibleEvaluators,
+		hasAvailabilityInWindow,
+	]);
 
 	const previewAppointment: CalAppt | null = useMemo(() => {
 		if (!selectedSlot || !selectedCell || !office || !selectedEvaluator) {
@@ -736,20 +779,33 @@ function SchedulingHelperGrid({
 		? manualSlotErrorFor(manualSlot.start, manualSlot.end)
 		: null;
 
-	// Clicking directly on the evaluator's calendar preview picks that time,
-	// snapped to the nearest half hour, as long as it doesn't overlap an
-	// existing appointment - same rule as the manual time input.
-	function handleCalendarSlotClick(minutesFromMidnight: number) {
-		if (!selectedCell) return;
+	// Snaps a click/drop position to the nearest half hour and resolves it to a
+	// true UTC instant on the given business-local calendar day.
+	function snappedTimeFromMinutes(
+		dateStr: string,
+		minutesFromMidnight: number,
+	) {
 		const snapped =
 			Math.round(minutesFromMidnight / MANUAL_TIME_SNAP_MINUTES) *
 			MANUAL_TIME_SNAP_MINUTES;
 		const totalMinutes = ((snapped % (24 * 60)) + 24 * 60) % (24 * 60);
 		const hh = pad(Math.floor(totalMinutes / 60));
 		const mm = pad(totalMinutes % 60);
-		const start = fromZonedTime(
-			`${selectedCell.date}T${hh}:${mm}:00`,
-			BUSINESS_TIMEZONE,
+		return {
+			start: fromZonedTime(`${dateStr}T${hh}:${mm}:00`, BUSINESS_TIMEZONE),
+			hh,
+			mm,
+		};
+	}
+
+	// Clicking directly on the evaluator's calendar preview picks that time,
+	// snapped to the nearest half hour, as long as it doesn't overlap an
+	// existing appointment - same rule as the manual time input.
+	function handleCalendarSlotClick(minutesFromMidnight: number) {
+		if (!selectedCell) return;
+		const { start, hh, mm } = snappedTimeFromMinutes(
+			selectedCell.date,
+			minutesFromMidnight,
 		);
 		const end = new Date(start.getTime() + durationMinutes * 60000);
 		const error = manualSlotErrorFor(start, end);
@@ -767,7 +823,6 @@ function SchedulingHelperGrid({
 		onSuccess: () => {
 			toast.success("Placeholder appointment created");
 			setSelectedSlot(null);
-			setSelectedCell(null);
 			void utils.appointments.getByClientId.invalidate();
 			void utils.schedulingHelper.getEvaluatorDayAppointments.invalidate();
 			void utils.schedulingHelper.getEvaluatorAppointmentsInRange.invalidate();
@@ -780,6 +835,149 @@ function SchedulingHelperGrid({
 			});
 		},
 	});
+
+	const [pendingMove, setPendingMove] = useState<{
+		appointmentId: string;
+		clientName: string | null;
+		evaluatorName: string;
+		evaluatorNpi: number;
+		locationKey: string;
+		oldStart: Date;
+		newStart: Date;
+		newEnd: Date;
+	} | null>(null);
+
+	const movePlaceholder = api.schedulingHelper.movePlaceholder.useMutation({
+		onSuccess: () => {
+			toast.success("Placeholder moved");
+			setPendingMove(null);
+			void utils.schedulingHelper.getEvaluatorDayAppointments.invalidate();
+			void utils.schedulingHelper.getEvaluatorAppointmentsInRange.invalidate();
+			void utils.schedulingHelper.getOfficeCalendar.invalidate();
+			void utils.schedulingHelper.getAvailability.invalidate();
+		},
+		onError: (error) => {
+			toast.error("Failed to move placeholder appointment", {
+				description: error.message,
+			});
+		},
+	});
+
+	const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
+
+	const deletePlaceholder = api.schedulingHelper.deletePlaceholder.useMutation({
+		onSuccess: () => {
+			toast.success("Placeholder deleted");
+			setPendingDeleteId(null);
+			void utils.appointments.getByClientId.invalidate();
+			void utils.schedulingHelper.getEvaluatorDayAppointments.invalidate();
+			void utils.schedulingHelper.getEvaluatorAppointmentsInRange.invalidate();
+			void utils.schedulingHelper.getOfficeCalendar.invalidate();
+			void utils.schedulingHelper.getAvailability.invalidate();
+		},
+		onError: (error) => {
+			toast.error("Failed to delete placeholder appointment", {
+				description: error.message,
+			});
+		},
+	});
+
+	// Dragging a placeholder block to a new time on its evaluator's day - see
+	// CalendarDayView's onMovePlaceholder. Only opens the confirmation, the
+	// actual move only happens once the user confirms it.
+	function handleMovePlaceholderDrop(
+		appointmentId: string,
+		evaluatorNpi: number,
+		minutesFromMidnight: number,
+	) {
+		if (!selectedCell) return;
+		const moved = evaluatorDayAppointments.find((a) => a.id === appointmentId);
+		if (!moved) return;
+		const durationMs = moved.endTime.getTime() - moved.startTime.getTime();
+		const { start: newStart } = snappedTimeFromMinutes(
+			selectedCell.date,
+			minutesFromMidnight,
+		);
+		const newEnd = new Date(newStart.getTime() + durationMs);
+		const overlapsExisting = (dayAppointments ?? []).some(
+			(appt) =>
+				appt.id !== appointmentId &&
+				newStart.getTime() < new Date(appt.endTime).getTime() &&
+				newEnd.getTime() > new Date(appt.startTime).getTime(),
+		);
+		if (overlapsExisting) {
+			toast.error("Overlaps an existing appointment");
+			return;
+		}
+		setPendingMove({
+			appointmentId,
+			clientName: moved.clientName,
+			evaluatorName: selectedEvaluator?.providerName ?? "this evaluator",
+			evaluatorNpi,
+			locationKey: moved.locationKey ?? office ?? "",
+			oldStart: moved.startTime,
+			newStart,
+			newEnd,
+		});
+	}
+
+	// Dragging a placeholder badge from one day column to another in the main
+	// evaluator x day grid (same evaluator, no exact-time data there, so the
+	// original time of day carries over) - see EvaluatorRow's onDropPlaceholder.
+	function handleDropPlaceholderDay(args: {
+		appointmentId: string;
+		evaluatorNpi: number;
+		day: string;
+		startTime: Date;
+		endTime: Date;
+	}) {
+		if (args.day === dateToDayString(args.startTime)) return;
+		const durationMs = args.endTime.getTime() - args.startTime.getTime();
+		const timeOfDay = formatInBusinessTime(args.startTime, "HH:mm:ss");
+		const newStart = fromZonedTime(
+			`${args.day}T${timeOfDay}`,
+			BUSINESS_TIMEZONE,
+		);
+		const newEnd = new Date(newStart.getTime() + durationMs);
+
+		const evaluatorAppointments = appointmentsByNpi?.[args.evaluatorNpi] ?? [];
+		const record = evaluatorAppointments.find(
+			(a) => a.id === args.appointmentId,
+		);
+		if (!record) return;
+
+		const alreadyBookedThatDay = evaluatorAppointments.some(
+			(a) => a.date === args.day && a.id !== args.appointmentId,
+		);
+		if (alreadyBookedThatDay) {
+			toast.error("This evaluator already has an appointment that day");
+			return;
+		}
+
+		setPendingMove({
+			appointmentId: args.appointmentId,
+			clientName: null,
+			evaluatorName:
+				typeAllowedEvaluators.find((e) => e.npi === args.evaluatorNpi)
+					?.providerName ?? "this evaluator",
+			evaluatorNpi: args.evaluatorNpi,
+			locationKey: record.locationKey ?? "",
+			oldStart: args.startTime,
+			newStart,
+			newEnd,
+		});
+	}
+
+	function handleConfirmMove() {
+		if (!pendingMove) return;
+		movePlaceholder.mutate({
+			appointmentId: pendingMove.appointmentId,
+			evaluatorNpi: pendingMove.evaluatorNpi,
+			startTime: toBusinessWallClockString(pendingMove.newStart),
+			endTime: toBusinessWallClockString(pendingMove.newEnd),
+			locationKey: pendingMove.locationKey,
+		});
+	}
 
 	const planOffice = api.schedulingHelper.planOffice.useMutation({
 		onSuccess: () => {
@@ -977,7 +1175,12 @@ function SchedulingHelperGrid({
 					</Card>
 					<div className="flex flex-wrap items-center gap-x-4 gap-y-1 px-1 text-xs">
 						<Badge variant="default">Booked</Badge>
-						<Badge variant="secondary">Placeholder</Badge>
+						<Badge
+							className="border-warning border-dashed bg-warning/15 text-warning dark:bg-warning/25"
+							variant="outline"
+						>
+							Placeholder
+						</Badge>
 						<Badge variant="outline">Planned</Badge>
 						<Badge
 							className="border-success/40 bg-success/10 text-success"
@@ -1038,6 +1241,7 @@ function SchedulingHelperGrid({
 												evaluator={evaluator}
 												hasAvailability={hasAvailability}
 												key={evaluator.npi}
+												onDropPlaceholder={handleDropPlaceholderDay}
 												onSelectCell={(date) => {
 													setSelectedCell({ npi: evaluator.npi, date });
 													setSelectedSlot(null);
@@ -1084,6 +1288,7 @@ function SchedulingHelperGrid({
 													evaluator={evaluator}
 													hasAvailability={hasAvailability}
 													key={evaluator.npi}
+													onDropPlaceholder={handleDropPlaceholderDay}
 													onSelectCell={(date) => {
 														setSelectedCell({ npi: evaluator.npi, date });
 														setSelectedSlot(null);
@@ -1372,6 +1577,8 @@ function SchedulingHelperGrid({
 									}
 									messages={{}}
 									messagesLoading={false}
+									onDeletePlaceholder={setPendingDeleteId}
+									onMovePlaceholder={handleMovePlaceholderDrop}
 									onSlotClick={(npi, minutes) => {
 										if (npi === selectedCell.npi) {
 											handleCalendarSlotClick(minutes);
@@ -1381,6 +1588,73 @@ function SchedulingHelperGrid({
 								/>
 							)}
 						</Card>
+
+						<AlertDialog
+							onOpenChange={(open) => !open && setPendingMove(null)}
+							open={!!pendingMove}
+						>
+							<AlertDialogContent>
+								<AlertDialogHeader>
+									<AlertDialogTitle>Move this placeholder?</AlertDialogTitle>
+									<AlertDialogDescription>
+										{pendingMove && (
+											<>
+												Move{" "}
+												{pendingMove.clientName
+													? `${pendingMove.clientName}'s placeholder`
+													: "this placeholder"}{" "}
+												for {pendingMove.evaluatorName} from{" "}
+												{formatInBusinessTime(
+													pendingMove.oldStart,
+													"MMM d, h:mm a",
+												)}{" "}
+												to{" "}
+												{formatInBusinessTime(
+													pendingMove.newStart,
+													"MMM d, h:mm a",
+												)}
+												–{formatInBusinessTime(pendingMove.newEnd, "h:mm a")}?
+											</>
+										)}
+									</AlertDialogDescription>
+								</AlertDialogHeader>
+								<AlertDialogFooter>
+									<AlertDialogCancel>Cancel</AlertDialogCancel>
+									<AlertDialogAction onClick={handleConfirmMove}>
+										Move
+									</AlertDialogAction>
+								</AlertDialogFooter>
+							</AlertDialogContent>
+						</AlertDialog>
+
+						<AlertDialog
+							onOpenChange={(open) => !open && setPendingDeleteId(null)}
+							open={!!pendingDeleteId}
+						>
+							<AlertDialogContent>
+								<AlertDialogHeader>
+									<AlertDialogTitle>Delete this placeholder?</AlertDialogTitle>
+									<AlertDialogDescription>
+										This removes the hold and its calendar event. This can't be
+										undone.
+									</AlertDialogDescription>
+								</AlertDialogHeader>
+								<AlertDialogFooter>
+									<AlertDialogCancel>Cancel</AlertDialogCancel>
+									<AlertDialogAction
+										className="bg-destructive"
+										onClick={() =>
+											pendingDeleteId &&
+											deletePlaceholder.mutate({
+												appointmentId: pendingDeleteId,
+											})
+										}
+									>
+										Delete
+									</AlertDialogAction>
+								</AlertDialogFooter>
+							</AlertDialogContent>
+						</AlertDialog>
 
 						{IS_DEV && (
 							<Collapsible onOpenChange={setShowDebug} open={showDebug}>
@@ -1447,6 +1721,7 @@ function EvaluatorRow({
 	cellStatus,
 	selectedCell,
 	onSelectCell,
+	onDropPlaceholder,
 }: {
 	evaluator: Evaluator;
 	visibleDays: string[];
@@ -1456,6 +1731,17 @@ function EvaluatorRow({
 	cellStatus: (npi: number, day: string) => CellStatus;
 	selectedCell: { npi: number; date: string } | null;
 	onSelectCell: (day: string) => void;
+	/**
+	 * Called when a placeholder badge is dragged from one day to another in
+	 * this evaluator's row - lets the caller confirm and persist the move.
+	 */
+	onDropPlaceholder: (args: {
+		appointmentId: string;
+		evaluatorNpi: number;
+		day: string;
+		startTime: Date;
+		endTime: Date;
+	}) => void;
 }) {
 	const isLoading = availabilityLoading || appointmentsLoading;
 	const nameLabel = (
@@ -1489,15 +1775,53 @@ function EvaluatorRow({
 						className={`border-t border-l p-1.5 text-left text-xs transition-colors hover:bg-muted/50 ${isSelected ? "bg-muted" : ""}`}
 						key={day}
 						onClick={() => onSelectCell(day)}
+						onDragOver={(e) => e.preventDefault()}
+						onDrop={(e) => {
+							e.preventDefault();
+							const raw = e.dataTransfer.getData("text/plain");
+							if (!raw) return;
+							const payload = JSON.parse(raw) as {
+								appointmentId: string;
+								evaluatorNpi: number;
+								startTime: string;
+								endTime: string;
+							};
+							if (payload.evaluatorNpi !== evaluator.npi) return;
+							onDropPlaceholder({
+								appointmentId: payload.appointmentId,
+								evaluatorNpi: payload.evaluatorNpi,
+								day,
+								startTime: new Date(payload.startTime),
+								endTime: new Date(payload.endTime),
+							});
+						}}
 						type="button"
 					>
 						{isLoading ? (
 							<Skeleton className="h-5 w-full rounded-sm" />
 						) : status.kind === "booked" ? (
 							<Badge
-								className="w-full justify-center truncate"
-								variant={status.placeholder ? "secondary" : "default"}
+								className={`w-full justify-center truncate ${status.placeholder ? "cursor-grab border-2 border-warning border-dashed bg-warning/15 text-warning active:cursor-grabbing dark:bg-warning/25" : ""}`}
+								draggable={status.placeholder}
+								onDragStart={
+									status.placeholder
+										? (e) => {
+												e.dataTransfer.setData(
+													"text/plain",
+													JSON.stringify({
+														appointmentId: status.id,
+														evaluatorNpi: evaluator.npi,
+														startTime: status.startTime.toISOString(),
+														endTime: status.endTime.toISOString(),
+													}),
+												);
+												e.dataTransfer.effectAllowed = "move";
+											}
+										: undefined
+								}
+								variant={status.placeholder ? "outline" : "default"}
 							>
+								{status.placeholder ? "plchldr: " : ""}
 								{status.officeLabel}
 							</Badge>
 						) : status.kind === "planned" ? (

@@ -198,6 +198,7 @@ export const schedulingHelperRouter = createTRPCRouter({
 					startedBy: appointmentCheckins.startedBy,
 					leftAt: appointmentCheckins.leftAt,
 					leftBy: appointmentCheckins.leftBy,
+					placeholder: appointments.placeholder,
 				})
 				.from(appointments)
 				.innerJoin(evaluators, eq(appointments.evaluatorNpi, evaluators.npi))
@@ -295,6 +296,55 @@ export const schedulingHelperRouter = createTRPCRouter({
 			return { status: "ok" as const };
 		}),
 
+	movePlaceholder: protectedProcedure
+		.input(
+			z.object({
+				appointmentId: z.string(),
+				evaluatorNpi: z.number(),
+				// Naive wall-clock strings, see createPlaceholder above.
+				startTime: z.string(),
+				endTime: z.string(),
+				locationKey: z.string(),
+			}),
+		)
+		.mutation(async ({ ctx, input }) => {
+			assertPermission(ctx.session.user, SCHEDULING_HELPER_PERMISSION);
+
+			const cookieHeader = ctx.headers.get("cookie") ?? "";
+			const response = await fetch(
+				`${env.PY_API}/appointments/placeholder/${input.appointmentId}`,
+				{
+					method: "PATCH",
+					headers: {
+						Cookie: cookieHeader,
+						"Content-Type": "application/json",
+					},
+					body: JSON.stringify({
+						evaluator_npi: input.evaluatorNpi,
+						start_time: input.startTime,
+						end_time: input.endTime,
+						location_key: input.locationKey,
+					}),
+				},
+			);
+
+			if (!response.ok) {
+				throw new Error(
+					`Failed to move placeholder appointment: ${response.status}`,
+				);
+			}
+
+			return response.json() as Promise<{
+				id: string;
+				evaluatorNpi: number;
+				startTime: string;
+				endTime: string;
+				locationKey: string;
+				calendarEventId: string;
+				calendarEventTitle: string;
+			}>;
+		}),
+
 	// Batched per-evaluator existing appointments across a date range, so the
 	// evaluator x day grid can show which office someone is already booked into
 	// on a given day without one query per cell.
@@ -313,8 +363,10 @@ export const schedulingHelperRouter = createTRPCRouter({
 
 			const rows = await ctx.db
 				.select({
+					id: appointments.id,
 					evaluatorNpi: appointments.evaluatorNpi,
 					startTime: appointments.startTime,
+					endTime: appointments.endTime,
 					locationKey: appointments.locationKey,
 					officeName: offices.prettyName,
 					placeholder: appointments.placeholder,
@@ -335,7 +387,10 @@ export const schedulingHelperRouter = createTRPCRouter({
 			const result: Record<
 				number,
 				{
+					id: string;
 					date: string;
+					startTime: Date;
+					endTime: Date;
 					locationKey: string | null;
 					officeName: string | null;
 					placeholder: boolean;
@@ -345,7 +400,10 @@ export const schedulingHelperRouter = createTRPCRouter({
 				result[row.evaluatorNpi] ??= [];
 				const list = result[row.evaluatorNpi];
 				list?.push({
+					id: row.id,
 					date: formatInBusinessTime(row.startTime, "yyyy-MM-dd"),
+					startTime: row.startTime,
+					endTime: row.endTime,
 					locationKey: row.locationKey,
 					officeName: row.officeName,
 					placeholder: row.placeholder,

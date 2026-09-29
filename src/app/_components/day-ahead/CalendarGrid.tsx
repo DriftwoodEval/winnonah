@@ -4,7 +4,7 @@ import { Badge } from "@ui/badge";
 import { Popover, PopoverContent, PopoverTrigger } from "@ui/popover";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@ui/tooltip";
 import { format } from "date-fns";
-import { DoorOpen, LogIn, LogOut } from "lucide-react";
+import { DoorOpen, LogIn, LogOut, X } from "lucide-react";
 import Link from "next/link";
 import { createContext, useContext, useMemo, useState } from "react";
 import { hasInPersonAppointment, isVirtualAppointment } from "~/lib/checkin";
@@ -66,6 +66,8 @@ export type CalAppt = {
 	leftBy: string | null;
 	/** Not a real appointment yet - render as a pending/ghost block instead. */
 	isPreview?: boolean;
+	/** A scheduling-helper hold rather than a confirmed appointment. */
+	placeholder?: boolean;
 };
 
 // ─── Messages popover open state ───────────────────────────────────────────────
@@ -107,6 +109,14 @@ export function blockHeight(startTime: Date, endTime: Date): number {
 	const durMin =
 		(new Date(endTime).getTime() - new Date(startTime).getTime()) / 60000;
 	return Math.max((durMin / 60) * HOUR_HEIGHT, 24);
+}
+
+// Inverse of blockTop: turns a click/drop's page Y position within a day
+// column into minutes since midnight.
+function minutesFromMidnightAtY(clientY: number, column: HTMLElement): number {
+	const rect = column.getBoundingClientRect();
+	const offsetY = clientY - rect.top;
+	return DAY_START * 60 + ((offsetY - GRID_PADDING) / HOUR_HEIGHT) * 60;
 }
 
 // ─── Color map ────────────────────────────────────────────────────────────────
@@ -296,6 +306,9 @@ export function ApptBlock({
 	messagesLoading,
 	tooltipSide = "right",
 	canCheckin = false,
+	draggable = false,
+	onDragStart,
+	onDelete,
 }: {
 	appt: CalAppt;
 	colorClass: string;
@@ -307,6 +320,11 @@ export function ApptBlock({
 	messagesLoading: boolean;
 	tooltipSide?: "top" | "right" | "bottom" | "left";
 	canCheckin?: boolean;
+	/** Lets the block be dragged to a new time - see CalendarDayView's onMovePlaceholder. */
+	draggable?: boolean;
+	onDragStart?: (e: React.DragEvent<HTMLDivElement>) => void;
+	/** Shows a small delete button on the block - only meaningful for placeholders. */
+	onDelete?: () => void;
 }) {
 	const durationMin =
 		(new Date(appt.endTime).getTime() - new Date(appt.startTime).getTime()) /
@@ -331,6 +349,8 @@ export function ApptBlock({
 	);
 	const previewClass =
 		"border-2 border-dashed border-primary bg-primary/10 dark:bg-primary/20 animate-pulse";
+	const placeholderClass =
+		"border-2 border-dashed border-warning bg-warning/15 dark:bg-warning/25";
 
 	return (
 		<Tooltip
@@ -343,8 +363,11 @@ export function ApptBlock({
 			open={tooltipOpen && !messagesOpen}
 		>
 			<TooltipTrigger asChild>
+				{/* biome-ignore lint/a11y/noStaticElementInteractions: drag-to-move has no keyboard equivalent here - see CalendarDayView's onMovePlaceholder doc comment. */}
 				<div
-					className={`absolute overflow-hidden rounded-sm border border-l-2 py-0.5 pr-4 pl-1.5 shadow-sm ${appt.isPreview ? previewClass : colorClass}`}
+					className={`absolute overflow-hidden rounded-sm border border-l-2 py-0.5 pr-4 pl-1.5 shadow-sm ${appt.isPreview ? previewClass : appt.placeholder ? placeholderClass : colorClass} ${draggable ? "cursor-grab active:cursor-grabbing" : ""}`}
+					draggable={draggable}
+					onDragStart={onDragStart}
 					style={style}
 				>
 					{appt.isPreview ? (
@@ -388,6 +411,14 @@ export function ApptBlock({
 									Pending
 								</Badge>
 							)}
+							{!appt.isPreview && appt.placeholder && (
+								<Badge
+									className="h-3.5 border-warning/40 px-1 text-[9px] text-warning uppercase"
+									variant="outline"
+								>
+									plchldr
+								</Badge>
+							)}
 							{appt.asdAdhd && (
 								<Badge
 									className="h-3.5 shrink-0 px-1 text-[9px]"
@@ -414,6 +445,19 @@ export function ApptBlock({
 							messagesLoading={messagesLoading}
 							onOpenChange={setMessagesOpen}
 						/>
+					)}
+					{!appt.isPreview && appt.placeholder && onDelete && (
+						<button
+							aria-label="Delete placeholder"
+							className="absolute top-0.5 right-0.5 rounded-sm p-0.5 text-muted-foreground hover:bg-background/80 hover:text-destructive"
+							onClick={(e) => {
+								e.stopPropagation();
+								onDelete();
+							}}
+							type="button"
+						>
+							<X className="h-3 w-3" />
+						</button>
 					)}
 					{canCheckin &&
 						!isVirtualAppointment(appt.locationKey) &&
@@ -444,6 +488,9 @@ export function ApptBlock({
 				)}
 				{appt.confirmedAt && <p className="opacity-80">Confirmed</p>}
 				{appt.isPreview && <p className="opacity-80">Not yet created</p>}
+				{!appt.isPreview && appt.placeholder && (
+					<p className="opacity-80">Placeholder hold</p>
+				)}
 			</TooltipContent>
 		</Tooltip>
 	);
@@ -472,6 +519,8 @@ export function CalendarDayView({
 	extraEvaluators,
 	showMessages = true,
 	onSlotClick,
+	onMovePlaceholder,
+	onDeletePlaceholder,
 }: {
 	appointments: CalAppt[];
 	colorMap: Map<number, string>;
@@ -501,6 +550,19 @@ export function CalendarDayView({
 	 * click position into a picked time. Omit to make the grid non-clickable.
 	 */
 	onSlotClick?: (npi: number, minutesFromMidnight: number) => void;
+	/**
+	 * Called with (appointmentId, evaluatorNpi, minutesFromMidnight) when an
+	 * appointment with `placeholder: true` is dragged and dropped onto a
+	 * column. Only placeholder appointments become draggable, and only when
+	 * this is provided - the caller is expected to confirm before persisting.
+	 */
+	onMovePlaceholder?: (
+		appointmentId: string,
+		evaluatorNpi: number,
+		minutesFromMidnight: number,
+	) => void;
+	/** Shows a delete button on placeholder blocks, called with the appointment id. */
+	onDeletePlaceholder?: (appointmentId: string) => void;
 }) {
 	const byEval = useMemo(() => {
 		const map = new Map<
@@ -594,12 +656,36 @@ export function CalendarDayView({
 							onClick={
 								onSlotClick
 									? (e) => {
-											const rect = e.currentTarget.getBoundingClientRect();
-											const offsetY = e.clientY - rect.top;
-											const minutesFromMidnight =
-												DAY_START * 60 +
-												((offsetY - GRID_PADDING) / HOUR_HEIGHT) * 60;
-											onSlotClick(ev.npi, minutesFromMidnight);
+											onSlotClick(
+												ev.npi,
+												minutesFromMidnightAtY(e.clientY, e.currentTarget),
+											);
+										}
+									: undefined
+							}
+							onDragOver={
+								onMovePlaceholder ? (e) => e.preventDefault() : undefined
+							}
+							onDrop={
+								onMovePlaceholder
+									? (e) => {
+											e.preventDefault();
+											const raw = e.dataTransfer.getData("text/plain");
+											if (!raw) return;
+											const { appointmentId, grabOffsetY } = JSON.parse(
+												raw,
+											) as { appointmentId: string; grabOffsetY: number };
+											// Subtract the point where the block was grabbed so the
+											// block's top edge (its start time), not the cursor, lands
+											// where it's dropped.
+											onMovePlaceholder(
+												appointmentId,
+												ev.npi,
+												minutesFromMidnightAtY(
+													e.clientY - grabOffsetY,
+													e.currentTarget,
+												),
+											);
 										}
 									: undefined
 							}
@@ -629,9 +715,32 @@ export function CalendarDayView({
 									appt={appt}
 									canCheckin={canCheckin}
 									colorClass={colorMap.get(appt.evaluatorNpi) ?? FALLBACK_COLOR}
+									draggable={!!onMovePlaceholder && appt.placeholder === true}
 									key={appt.id}
 									messages={messages}
 									messagesLoading={messagesLoading}
+									onDelete={
+										onDeletePlaceholder && appt.placeholder === true
+											? () => onDeletePlaceholder(appt.id)
+											: undefined
+									}
+									onDragStart={
+										onMovePlaceholder
+											? (e) => {
+													const grabOffsetY =
+														e.clientY -
+														e.currentTarget.getBoundingClientRect().top;
+													e.dataTransfer.setData(
+														"text/plain",
+														JSON.stringify({
+															appointmentId: appt.id,
+															grabOffsetY,
+														}),
+													);
+													e.dataTransfer.effectAllowed = "move";
+												}
+											: undefined
+									}
 									showMessages={showMessages}
 									style={{
 										top: blockTop(appt.startTime),
