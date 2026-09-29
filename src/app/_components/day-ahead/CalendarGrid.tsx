@@ -320,7 +320,7 @@ export function ApptBlock({
 	messagesLoading: boolean;
 	tooltipSide?: "top" | "right" | "bottom" | "left";
 	canCheckin?: boolean;
-	/** Lets the block be dragged to a new time - see CalendarDayView's onMovePlaceholder. */
+	/** Lets the block be dragged to a new time - see CalendarDayView's onMovePlaceholder doc comment. */
 	draggable?: boolean;
 	onDragStart?: (e: React.DragEvent<HTMLDivElement>) => void;
 	/** Shows a small delete button on the block - only meaningful for placeholders. */
@@ -378,6 +378,7 @@ export function ApptBlock({
 						<Link
 							className="block truncate font-medium text-xs leading-tight hover:underline"
 							href={`/clients/${appt.clientHash}`}
+							onClick={(e) => e.stopPropagation()}
 						>
 							<Redact>{appt.clientName}</Redact>
 						</Link>
