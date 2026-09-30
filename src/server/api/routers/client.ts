@@ -2332,6 +2332,15 @@ export const clientRouter = createTRPCRouter({
 									: (["clients:referral:infobox"] as const);
 							}
 
+							const reviewChanged =
+								updates.needsReachOut !== current.needsReachOut &&
+								(updates.needsReachOut === "review" ||
+									current.needsReachOut === "review");
+
+							if (reviewChanged && babyNetLimited) {
+								return [];
+							}
+
 							return ["clients:referral:fillout"] as const;
 						})()
 					: []),

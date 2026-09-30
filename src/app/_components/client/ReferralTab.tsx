@@ -1353,7 +1353,7 @@ export function ReferralTab({ client, readOnly }: ReferralTabProps) {
 								disabled={
 									isReadOnly ||
 									updateClientMutation.isPending ||
-									!can("clients:referral:fillout")
+									!(can("clients:referral:fillout") || canBabyNetLimited)
 								}
 								onClick={() =>
 									handleReferralDataChange({
