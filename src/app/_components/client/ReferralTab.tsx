@@ -856,6 +856,62 @@ export function ReferralTab({ client, readOnly }: ReferralTabProps) {
 													</Label>
 												</div>
 											</RadioGroup>
+											{privateSchool === "yes" && (
+												<div className="space-y-2">
+													<Label
+														className="font-semibold"
+														htmlFor="schoolExplanation"
+													>
+														Which school?
+														<PostPunchBadge
+															edit={latestEditByField.get("schoolExplanation")}
+														/>
+													</Label>
+													<Textarea
+														disabled={
+															fieldsDisabled ||
+															updateClientMutation.isPending ||
+															!can("clients:referral:fillout")
+														}
+														id="schoolExplanation"
+														onBlur={() => {
+															if (
+																schoolExplanation !==
+																(client.referralData?.schoolExplanation ?? "")
+															) {
+																handleReferralDataChange({ schoolExplanation });
+															}
+														}}
+														onChange={(e) =>
+															setSchoolExplanation(e.target.value)
+														}
+														placeholder="..."
+														value={schoolExplanation}
+													/>
+													{client.referralData?.privateSchoolConfirmed ? (
+														<p className="text-muted-foreground text-sm">
+															Confirmed as a private / charter school.
+														</p>
+													) : can("clients:referral:confirmprivateschool") ? (
+														<Button
+															disabled={updateClientMutation.isPending}
+															onClick={() =>
+																handleReferralDataChange({
+																	privateSchoolConfirmed: true,
+																})
+															}
+															type="button"
+														>
+															Confirm Private / Charter School
+														</Button>
+													) : (
+														<p className="text-muted-foreground text-sm">
+															Records requests wait until this is confirmed as a
+															private / charter school.
+														</p>
+													)}
+												</div>
+											)}
 										</div>
 										<div className="space-y-3 px-4">
 											<Label className="font-semibold">
@@ -932,60 +988,6 @@ export function ReferralTab({ client, readOnly }: ReferralTabProps) {
 												</div>
 											)}
 										</div>
-										{privateSchool === "yes" && (
-											<div className="space-y-2">
-												<Label
-													className="font-semibold"
-													htmlFor="schoolExplanation"
-												>
-													Which school?
-													<PostPunchBadge
-														edit={latestEditByField.get("schoolExplanation")}
-													/>
-												</Label>
-												<Textarea
-													disabled={
-														fieldsDisabled ||
-														updateClientMutation.isPending ||
-														!can("clients:referral:fillout")
-													}
-													id="schoolExplanation"
-													onBlur={() => {
-														if (
-															schoolExplanation !==
-															(client.referralData?.schoolExplanation ?? "")
-														) {
-															handleReferralDataChange({ schoolExplanation });
-														}
-													}}
-													onChange={(e) => setSchoolExplanation(e.target.value)}
-													placeholder="..."
-													value={schoolExplanation}
-												/>
-												{client.referralData?.privateSchoolConfirmed ? (
-													<p className="text-muted-foreground text-sm">
-														Confirmed as a private / charter school.
-													</p>
-												) : can("clients:referral:confirmprivateschool") ? (
-													<Button
-														disabled={updateClientMutation.isPending}
-														onClick={() =>
-															handleReferralDataChange({
-																privateSchoolConfirmed: true,
-															})
-														}
-														type="button"
-													>
-														Confirm Private / Charter School
-													</Button>
-												) : (
-													<p className="text-muted-foreground text-sm">
-														Records requests wait until this is confirmed as a
-														private / charter school.
-													</p>
-												)}
-											</div>
-										)}
 									</div>
 								</div>
 							)}
