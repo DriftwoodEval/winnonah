@@ -69,6 +69,7 @@ import {
 import { ensurePendingExternalRecordRequest } from "~/server/api/routers/externalRecords";
 import {
 	assertPermission,
+	assertPermissionOrBabyNetLimited,
 	type Context,
 	createTRPCRouter,
 	protectedProcedure,
@@ -1983,8 +1984,6 @@ export const clientRouter = createTRPCRouter({
 	logOutreachAttempt: protectedProcedure
 		.input(z.object({ clientId: z.number(), notes: z.string().optional() }))
 		.mutation(async ({ ctx, input }) => {
-			assertPermission(ctx.session.user, ["clients:referral:fillout"]);
-
 			const client = await ctx.db.query.clients.findFirst({
 				where: eq(clients.id, input.clientId),
 			});
@@ -1992,6 +1991,12 @@ export const clientRouter = createTRPCRouter({
 			if (!client) {
 				throw new TRPCError({ code: "NOT_FOUND", message: "Client not found" });
 			}
+
+			assertPermissionOrBabyNetLimited(
+				ctx.session.user,
+				"clients:referral:fillout",
+				client,
+			);
 
 			const currentData = client.referralData ?? {};
 			const attempts = currentData.outreachAttempts ?? [];

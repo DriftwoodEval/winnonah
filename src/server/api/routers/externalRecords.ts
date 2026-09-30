@@ -159,6 +159,31 @@ const extractTextFromTiptapJson = (tiptapJson: any): string => {
 	return fullText;
 };
 
+/**
+ * Requires clients:records:requested, or the BabyNet-limited permission when
+ * the client is a BabyNet client.
+ */
+const assertCanManageRecordRequests = async (
+	ctx: Pick<Context, "db"> & {
+		session: NonNullable<Context["session"]>;
+	},
+	clientId: number,
+) => {
+	const client = await ctx.db.query.clients.findFirst({
+		where: eq(clients.id, clientId),
+		columns: {
+			babyNet: true,
+			primaryInsurance: true,
+			secondaryInsurance: true,
+		},
+	});
+	assertPermissionOrBabyNetLimited(
+		ctx.session.user,
+		"clients:records:requested",
+		client ?? {},
+	);
+};
+
 export const externalRecordRouter = createTRPCRouter({
 	getExternalRecordByClientId: protectedProcedure
 		.input(z.number())
@@ -186,19 +211,7 @@ export const externalRecordRouter = createTRPCRouter({
 	flagRecordRequest: protectedProcedure
 		.input(z.object({ clientId: z.number() }))
 		.mutation(async ({ ctx, input }) => {
-			const client = await ctx.db.query.clients.findFirst({
-				where: eq(clients.id, input.clientId),
-				columns: {
-					babyNet: true,
-					primaryInsurance: true,
-					secondaryInsurance: true,
-				},
-			});
-			assertPermissionOrBabyNetLimited(
-				ctx.session.user,
-				"clients:records:requested",
-				client ?? {},
-			);
+			await assertCanManageRecordRequests(ctx, input.clientId);
 			ctx.logger.info(input, "Flagging record request");
 
 			const requests = await ctx.db.transaction(async (tx) => {
@@ -235,7 +248,7 @@ export const externalRecordRouter = createTRPCRouter({
 	cancelRecordRequest: protectedProcedure
 		.input(z.object({ requestId: z.number(), clientId: z.number() }))
 		.mutation(async ({ ctx, input }) => {
-			assertPermission(ctx.session.user, "clients:records:requested");
+			await assertCanManageRecordRequests(ctx, input.clientId);
 			ctx.logger.info(input, "Cancelling record request");
 
 			// Only a still-pending (unsent) request can be cancelled. A row with a
@@ -273,7 +286,7 @@ export const externalRecordRouter = createTRPCRouter({
 			}),
 		)
 		.mutation(async ({ ctx, input }) => {
-			assertPermission(ctx.session.user, "clients:records:requested");
+			await assertCanManageRecordRequests(ctx, input.clientId);
 			ctx.logger.info(input, "Setting record request date");
 
 			await ctx.db
@@ -321,7 +334,7 @@ export const externalRecordRouter = createTRPCRouter({
 			}),
 		)
 		.mutation(async ({ ctx, input }) => {
-			assertPermission(ctx.session.user, "clients:records:requested");
+			await assertCanManageRecordRequests(ctx, input.clientId);
 			ctx.logger.info(input, "Setting record request hold until");
 
 			await ctx.db
@@ -344,7 +357,7 @@ export const externalRecordRouter = createTRPCRouter({
 			}),
 		)
 		.mutation(async ({ ctx, input }) => {
-			assertPermission(ctx.session.user, "clients:records:requested");
+			await assertCanManageRecordRequests(ctx, input.clientId);
 			ctx.logger.info(input, "Setting record request message");
 
 			await ctx.db
