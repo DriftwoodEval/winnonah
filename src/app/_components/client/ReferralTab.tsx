@@ -397,7 +397,7 @@ export function ReferralTab({ client, readOnly }: ReferralTabProps) {
 		isNeedsReachOut &&
 		!isNeedsReview &&
 		!isOutreachExhausted &&
-		can("clients:referral:fillout");
+		(can("clients:referral:fillout") || canBabyNetLimited);
 
 	return (
 		<div className="flex w-full flex-col gap-4">
@@ -1353,7 +1353,7 @@ export function ReferralTab({ client, readOnly }: ReferralTabProps) {
 								disabled={
 									isReadOnly ||
 									updateClientMutation.isPending ||
-									!can("clients:referral:fillout")
+									!(can("clients:referral:fillout") || canBabyNetLimited)
 								}
 								onClick={() =>
 									handleReferralDataChange({
