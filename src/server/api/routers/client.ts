@@ -32,7 +32,7 @@ import { fetchWithCache, invalidateCache } from "~/lib/cache";
 import {
 	getRecordsBlockerReason,
 	getUnsupportedLanguageReason,
-	isPrivateSchoolUnconfirmed,
+	isCharterSchoolUnconfirmed,
 } from "~/lib/client-blockers";
 import { CLIENT_COLOR_KEYS, type ClientColor } from "~/lib/colors";
 import { ALLOWED_ASD_ADHD_VALUES } from "~/lib/constants";
@@ -44,7 +44,7 @@ import {
 import {
 	getInsuranceMismatchList,
 	getMissingAppointmentsList,
-	getUnconfirmedPrivateSchoolList,
+	getUnconfirmedCharterSchoolList,
 	getUnreviewedRecordsList,
 } from "~/lib/issue-lists";
 import type { ClientWithIssueInfo } from "~/lib/models";
@@ -842,7 +842,7 @@ export const clientRouter = createTRPCRouter({
 							hasExternalRecordContent: hasExternalRecordContentByClientId.has(
 								row.id,
 							),
-							isPrivateSchoolUnconfirmed: isPrivateSchoolUnconfirmed(
+							isCharterSchoolUnconfirmed: isCharterSchoolUnconfirmed(
 								row.referralData,
 							),
 							language: row.language,
@@ -2101,10 +2101,10 @@ export const clientRouter = createTRPCRouter({
 		return getUnreviewedRecordsList(ctx.db);
 	}),
 
-	getUnconfirmedPrivateSchool: protectedProcedure.query(async ({ ctx }) => {
-		assertPermission(ctx.session.user, "issues:private-school-confirm");
+	getUnconfirmedCharterSchool: protectedProcedure.query(async ({ ctx }) => {
+		assertPermission(ctx.session.user, "issues:charter-school-confirm");
 
-		return getUnconfirmedPrivateSchoolList(ctx.db);
+		return getUnconfirmedCharterSchoolList(ctx.db);
 	}),
 
 	getInsuranceMismatch: protectedProcedure.query(async ({ ctx }) => {

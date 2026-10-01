@@ -219,7 +219,7 @@ export function EvaluatorForm({
 	const districtOptions = useMemo(() => {
 		return (
 			allSchoolDistricts
-				?.filter((district) => !district.isPrivate)
+				?.filter((district) => !district.isCharter)
 				.map((district) => ({
 					value: district.id.toString(),
 					label: district.shortName || district.fullName,

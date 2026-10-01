@@ -7,11 +7,11 @@ import {
 	getClientFailureSections,
 	getClientIssueListSections,
 	getClientMatchedSections,
+	SECTION_ISSUE_CHARTER_SCHOOL_CONFIRM,
 	SECTION_ISSUE_DUPLICATE_QUESTIONNAIRES,
 	SECTION_ISSUE_INSURANCE_MISMATCH,
 	SECTION_ISSUE_MISSING_APPOINTMENTS,
 	SECTION_ISSUE_PARTIAL_BATTERY,
-	SECTION_ISSUE_PRIVATE_SCHOOL_CONFIRM,
 	SECTION_ISSUE_UNREVIEWED_RECORDS,
 } from "~/lib/dashboard";
 import { getFullDashboardData } from "~/lib/dashboard-data";
@@ -20,7 +20,7 @@ import {
 	getInsuranceMismatchList,
 	getMissingAppointmentsList,
 	getPartialBatteriesList,
-	getUnconfirmedPrivateSchoolList,
+	getUnconfirmedCharterSchoolList,
 	getUnreviewedRecordsList,
 } from "~/lib/issue-lists";
 import { logger } from "~/lib/logger";
@@ -93,7 +93,7 @@ export async function syncDashboardSectionHistory() {
 		allClients,
 		activeFailures,
 		unreviewedRecords,
-		unconfirmedPrivateSchool,
+		unconfirmedCharterSchool,
 		missingAppointments,
 		duplicateQuestionnaireLinks,
 		partialBatteries,
@@ -120,7 +120,7 @@ export async function syncDashboardSectionHistory() {
 			.from(clients),
 		db.select().from(failures).where(lt(failures.reminded, 100)),
 		getUnreviewedRecordsList(db),
-		getUnconfirmedPrivateSchoolList(db),
+		getUnconfirmedCharterSchoolList(db),
 		getMissingAppointmentsList(db),
 		getDuplicateQuestionnaireLinksData(db),
 		getPartialBatteriesList({ db, redis, session }),
@@ -128,8 +128,8 @@ export async function syncDashboardSectionHistory() {
 	]);
 
 	const unreviewedRecordsIds = new Set(unreviewedRecords.map((c) => c.id));
-	const unconfirmedPrivateSchoolIds = new Set(
-		unconfirmedPrivateSchool.map((c) => c.id),
+	const unconfirmedCharterSchoolIds = new Set(
+		unconfirmedCharterSchool.map((c) => c.id),
 	);
 	const missingAppointmentsIds = new Set(missingAppointments.map((c) => c.id));
 	const duplicateQuestionnaireIds = new Set([
@@ -173,7 +173,7 @@ export async function syncDashboardSectionHistory() {
 			.map((c) => c.id),
 		...failuresByClientId.keys(),
 		...unreviewedRecordsIds,
-		...unconfirmedPrivateSchoolIds,
+		...unconfirmedCharterSchoolIds,
 		...missingAppointmentsIds,
 		...duplicateQuestionnaireIds,
 		...partialBatteryIds,
@@ -197,8 +197,8 @@ export async function syncDashboardSectionHistory() {
 		const failureSections = getClientFailureSections(clientFailures);
 		const batchIssueSections = [
 			unreviewedRecordsIds.has(clientId) && SECTION_ISSUE_UNREVIEWED_RECORDS,
-			unconfirmedPrivateSchoolIds.has(clientId) &&
-				SECTION_ISSUE_PRIVATE_SCHOOL_CONFIRM,
+			unconfirmedCharterSchoolIds.has(clientId) &&
+				SECTION_ISSUE_CHARTER_SCHOOL_CONFIRM,
 			missingAppointmentsIds.has(clientId) &&
 				SECTION_ISSUE_MISSING_APPOINTMENTS,
 			duplicateQuestionnaireIds.has(clientId) &&
