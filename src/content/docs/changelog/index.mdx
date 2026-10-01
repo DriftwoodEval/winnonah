@@ -2,6 +2,14 @@
 title: Changelog
 ---
 
+## 2026-10-01
+
+**Improved**
+- Appointment sync now prefers the calendar belonging to the evaluator TherapyAppointment has on file when an appointment's event shows up on more than one evaluator's calendar, and the sync error email calls out when that happened so it can be double-checked.
+
+**Fixed**
+- Appointment sync was only checking the first page of evaluator calendars, so if there were enough evaluators, some appointments never got matched to Google Calendar and silently failed to import. All calendars are now checked.
+
 ## 2026-09-30
 
 **New**

@@ -93,6 +93,7 @@ class SyncReporter:
         self.time_mismatches: list[dict[str, Any]] = []
         self.missing_in_gcal: list[dict[str, Any]] = []
         self.missing_npis: list[str] = []
+        self.ambiguous_calendar_matches: list[dict[str, Any]] = []
 
     def log_time_mismatch(
         self,
@@ -142,9 +143,41 @@ class SyncReporter:
         """Log a missing NPI for a calendar ID."""
         self.missing_npis.append(calendar_id)
 
+    def log_ambiguous_calendar_match(
+        self,
+        name: str,
+        client_id: int,
+        start_time: str,
+        appointment_id: str,
+        chosen_evaluator_name: str,
+        matched_expected_evaluator: bool,
+        other_evaluators: list[str],
+        cpt_code: str = "N/A",
+    ):
+        """Log an appointment matched on more than one evaluator's calendar."""
+        self.ambiguous_calendar_matches.append(
+            {
+                "name": name,
+                "client_id": client_id,
+                "start_time": start_time,
+                "appointment_id": appointment_id,
+                "chosen_evaluator_name": chosen_evaluator_name,
+                "matched_expected_evaluator": matched_expected_evaluator,
+                "other_evaluators": other_evaluators,
+                "cpt_code": cpt_code,
+            }
+        )
+
     def has_errors(self) -> bool:
         """Check if any errors have been logged."""
-        return any([self.time_mismatches, self.missing_in_gcal, self.missing_npis])
+        return any(
+            [
+                self.time_mismatches,
+                self.missing_in_gcal,
+                self.missing_npis,
+                self.ambiguous_calendar_matches,
+            ]
+        )
 
     def to_run_summary_errors(self, hash_map: dict[int, str]) -> dict[str, dict]:
         """Converts logged errors into the run summary's `errors` shape, so
@@ -170,6 +203,16 @@ class SyncReporter:
                 "clients": [
                     {"hash": client_hash, "name": item["name"]}
                     for item in self.missing_in_gcal
+                    if (client_hash := hash_map.get(item["client_id"]))
+                ],
+            }
+
+        if self.ambiguous_calendar_matches:
+            errors["Matched on more than one evaluator's calendar"] = {
+                "count": len(self.ambiguous_calendar_matches),
+                "clients": [
+                    {"hash": client_hash, "name": item["name"]}
+                    for item in self.ambiguous_calendar_matches
                     if (client_hash := hash_map.get(item["client_id"]))
                 ],
             }
@@ -226,6 +269,28 @@ class SyncReporter:
                 )
             html_content += "</ul>"
 
+        if self.ambiguous_calendar_matches:
+            html_content += "<h3>Matched on More Than One Evaluator's Calendar</h3>"
+            html_content += (
+                "<p>TA has a matching event (same client ID, within 1hr) on more than "
+                "one evaluator's calendar. The appointment was imported under the "
+                "evaluator TA's NPI expects when that calendar had a match, otherwise "
+                "under the first calendar found:</p><ul>"
+            )
+            for item in self.ambiguous_calendar_matches:
+                expected_note = (
+                    "matched TA's expected evaluator"
+                    if item["matched_expected_evaluator"]
+                    else "TA's expected evaluator had no matching event"
+                )
+                html_content += (
+                    f"<li><b>{item['name']}</b> (ID: {item['client_id']}) @ {item['start_time']}: "
+                    f"imported under <b>{item['chosen_evaluator_name']}</b> ({expected_note}), "
+                    f"also found on {', '.join(item['other_evaluators'])}'s calendar"
+                    f"<br>&nbsp;&nbsp;<i>Appt ID: {item.get('appointment_id', 'N/A')} | CPT: {item.get('cpt_code', 'N/A')}</i></li>"
+                )
+            html_content += "</ul>"
+
         html_content += "<p>This email was generated and sent automatically.</p>"
 
         send_gmail(
@@ -236,6 +301,15 @@ class SyncReporter:
             html=html_content,
         )
         set_sync_report_date(now_business().date())
+
+
+def _parse_csv_npi(raw_npi: Any) -> int | None:
+    """Parse the CSV's NPI value, which pandas may read as a float (e.g. 1.0)
+    when the column has any blank values. Returns None if missing/invalid."""
+    try:
+        return int(raw_npi) if pd.notna(raw_npi) else None
+    except (ValueError, TypeError):
+        return None
 
 
 def should_skip_appointment(appointment: pd.Series) -> bool:
@@ -251,15 +325,24 @@ def batch_search_calendar_events(
     calendars: list[dict],
     appointments_df: pd.DataFrame,
     reporter: SyncReporter,
+    npi_to_email: dict[int, str],
+    calendar_names: dict[str, str],
 ) -> dict[int, dict]:
     """Search Google Calendar events in batches by date.
 
+    An appointment can have a matching event (same client ID, within 1hr) on more
+    than one evaluator's calendar. When that happens, the calendar matching the
+    evaluator NPI TA has on file for the appointment wins; if none of the matches
+    is on that calendar, the first one found is used instead. Either way, the
+    ambiguity is logged via the reporter so it surfaces in the sync error email.
+
     Returns dict mapping appointment index to event details (id, title, calendar_id).
     """
-    results = {}
+    candidates_by_idx: dict[int, list[dict]] = defaultdict(list)
+    near_miss_by_idx: dict[int, list[dict]] = defaultdict(list)
 
     if appointments_df.empty:
-        return results
+        return {}
 
     # Calculate search window
     timestamps = pd.to_datetime(appointments_df["STARTTIME"])
@@ -332,9 +415,6 @@ def batch_search_calendar_events(
             day_events = events_by_date.get(date_key, [])
 
             for idx, appointment in date_appointments:
-                if idx in results:  # Already found in a previous calendar
-                    continue
-
                 client_id = appointment["CLIENT_ID"]
                 start_time = pd.to_datetime(appointment["STARTTIME"]).to_pydatetime()
                 if start_time.tzinfo is not None:
@@ -352,30 +432,87 @@ def batch_search_calendar_events(
                     time_diff = abs((event_dt - start_time).total_seconds())
 
                     if time_diff <= 3600:  # 1 hour tolerance
-                        results[idx] = {
-                            "event_id": event["id"],
-                            "title": event.get("summary", "No title"),
-                            "calendar_id": calendar_id,
-                        }
-                        break
-                    # Log specific mismatch
-                    logger.warning(
-                        f"Found event with Client ID {client_id} but wrong time: "
-                        f"Event: {event_dt}, Expected: {start_time}, Diff: {int(time_diff)}s"
-                    )
-                    cpt_code = re.sub(r"\D", "", appointment["NAME"]) or "N/A"
-                    reporter.log_time_mismatch(
-                        appointment_idx=idx,
-                        appointment_id=str(appointment["APPOINTMENT_ID"]),
-                        client_name=re.sub(
-                            r"[\d\(\)]", "", appointment["NAME"]
-                        ).strip(),
-                        client_id=client_id,
-                        found_time=event_dt,
-                        expected_time=start_time.strftime("%m/%d/%Y %I:%M %p"),
-                        cpt_code=cpt_code,
-                    )
+                        candidates_by_idx[idx].append(
+                            {
+                                "event_id": event["id"],
+                                "title": event.get("summary", "No title"),
+                                "calendar_id": calendar_id,
+                                "event_dt": event_dt,
+                            }
+                        )
+                    else:
+                        # Log specific mismatch, but only act on it during
+                        # resolution if no calendar had an in-tolerance match.
+                        logger.warning(
+                            f"Found event with Client ID {client_id} but wrong time: "
+                            f"Event: {event_dt}, Expected: {start_time}, Diff: {int(time_diff)}s"
+                        )
+                        near_miss_by_idx[idx].append(
+                            {
+                                "event_dt": event_dt,
+                                "time_diff": time_diff,
+                            }
+                        )
                     break
+
+    results: dict[int, dict] = {}
+
+    for idx, appointment in appointments_df.iterrows():
+        candidates = candidates_by_idx.get(idx)
+
+        if not candidates:
+            near_misses = near_miss_by_idx.get(idx)
+            if near_misses:
+                closest = min(near_misses, key=lambda m: m["time_diff"])
+                cpt_code = re.sub(r"\D", "", appointment["NAME"]) or "N/A"
+                reporter.log_time_mismatch(
+                    appointment_idx=idx,
+                    appointment_id=str(appointment["APPOINTMENT_ID"]),
+                    client_name=re.sub(r"[\d\(\)]", "", appointment["NAME"]).strip(),
+                    client_id=appointment["CLIENT_ID"],
+                    found_time=closest["event_dt"].strftime("%m/%d/%Y %-I:%M %p"),
+                    expected_time=pd.to_datetime(appointment["STARTTIME"])
+                    .to_pydatetime()
+                    .strftime("%m/%d/%Y %-I:%M %p"),
+                    cpt_code=cpt_code,
+                )
+            continue
+
+        expected_npi = _parse_csv_npi(appointment.get("NPI"))
+        expected_email = npi_to_email.get(expected_npi) if expected_npi else None
+        expected_candidates = [
+            c for c in candidates if c["calendar_id"] == expected_email
+        ]
+        chosen = expected_candidates[0] if expected_candidates else candidates[0]
+
+        results[idx] = {
+            "event_id": chosen["event_id"],
+            "title": chosen["title"],
+            "calendar_id": chosen["calendar_id"],
+        }
+
+        other_calendar_ids = {
+            c["calendar_id"]
+            for c in candidates
+            if c["calendar_id"] != chosen["calendar_id"]
+        }
+        if other_calendar_ids:
+            reporter.log_ambiguous_calendar_match(
+                name=re.sub(r"[\d\(\)]", "", appointment["NAME"]).strip(),
+                client_id=appointment["CLIENT_ID"],
+                start_time=pd.to_datetime(appointment["STARTTIME"])
+                .to_pydatetime()
+                .strftime("%m/%d/%Y %-I:%M %p"),
+                appointment_id=str(appointment["APPOINTMENT_ID"]),
+                chosen_evaluator_name=calendar_names.get(
+                    chosen["calendar_id"], chosen["calendar_id"]
+                ),
+                matched_expected_evaluator=bool(expected_candidates),
+                other_evaluators=sorted(
+                    calendar_names.get(cal_id, cal_id) for cal_id in other_calendar_ids
+                ),
+                cpt_code=re.sub(r"\D", "", appointment["NAME"]) or "N/A",
+            )
 
     return results
 
@@ -384,6 +521,7 @@ def prepare_appointments_from_csv(
     reporter: SyncReporter,
     trusted_ids: set[str],
     ignored_ids: set[str],
+    npi_cache: dict[str, int],
 ):
     """Load CSV, filter invalid rows, and merge with Google Calendar data."""
 
@@ -413,6 +551,10 @@ def prepare_appointments_from_csv(
         appointments_df[col] = None
 
     npi_map = get_npi_to_name_map()
+    npi_to_email = {npi: email for email, npi in npi_cache.items()}
+    calendar_names = {
+        email: npi_map.get(npi, email) for email, npi in npi_cache.items()
+    }
 
     # Track dates to detect next-day 'appointments' for insurance
     # Exclude cancelled appointments — they shouldn't count as a "real" prior appointment.
@@ -522,11 +664,17 @@ def prepare_appointments_from_csv(
 
     logger.info(f"Searching Google Calendar for {len(appointments_df)} appointments...")
 
-    calendar_list = service.calendarList().list().execute()
-    calendars = calendar_list.get("items", [])
+    calendars = []
+    page_token = None
+    while True:
+        calendar_list = service.calendarList().list(pageToken=page_token).execute()
+        calendars.extend(calendar_list.get("items", []))
+        page_token = calendar_list.get("nextPageToken")
+        if not page_token:
+            break
 
     search_results = batch_search_calendar_events(
-        service, calendars, appointments_df, reporter
+        service, calendars, appointments_df, reporter, npi_to_email, calendar_names
     )
 
     mismatched_indices = {item["appointment_idx"] for item in reporter.time_mismatches}
@@ -561,14 +709,12 @@ def prepare_appointments_from_csv(
             start_time = appointment["STARTTIME_DT"]
 
             raw_npi = appointment.get("NPI")
-            npi_int = (
-                int(raw_npi) if pd.notna(raw_npi) and str(raw_npi).isdigit() else 0
-            )
+            npi_int = _parse_csv_npi(raw_npi)
             evaluator_name = npi_map.get(npi_int, f"Unknown NPI ({raw_npi})")
 
             logger.error(
                 f"Not found in any calendar: {name} ({appointment['CLIENT_ID']}) "
-                f"at {start_time.strftime('%m/%d %I:%M %p')} "
+                f"at {start_time.strftime('%m/%d/%Y %-I:%M %p')} "
                 f"[Expected Evaluator: {evaluator_name}]"
             )
 
@@ -576,7 +722,7 @@ def prepare_appointments_from_csv(
             reporter.log_missing_in_gcal(
                 name=name,
                 client_id=appointment["CLIENT_ID"],
-                start_time=start_time.strftime("%m/%d %I:%M %p"),
+                start_time=start_time.strftime("%m/%d/%Y %-I:%M %p"),
                 evaluator_name=evaluator_name,
                 appointment_id=appointment_id,
                 cpt_code=cpt_code,
@@ -613,12 +759,14 @@ def insert_appointments_with_gcal(appointment_sync_data: dict[str, list[str]] | 
     email_for_errors = os.getenv("ERROR_EMAILS", "")
 
     reporter = SyncReporter()
+    npi_cache = get_all_evaluators_npi_map()
 
     logger.info("Processing appointments from CSV and Google Calendar...")
     appointments_df, billing_df = prepare_appointments_from_csv(
         reporter,
         trusted_ids=trusted_ids,
         ignored_ids=ignored_ids,
+        npi_cache=npi_cache,
     )
 
     if appointments_df.empty and billing_df.empty:
@@ -633,7 +781,6 @@ def insert_appointments_with_gcal(appointment_sync_data: dict[str, list[str]] | 
             return
 
         logger.info(f"Inserting {len(appointments_df)} appointments into database...")
-        npi_cache = get_all_evaluators_npi_map()
         valid_npis = set(npi_cache.values())
         asd_adhd_map = get_client_id_to_asd_adhd_map()
         dob_map = get_client_id_to_dob_map()
@@ -697,11 +844,7 @@ def insert_appointments_with_gcal(appointment_sync_data: dict[str, list[str]] | 
 
             elif is_trusted or cancelled:
                 # Fallback to CSV NPI (trusted imports and cancelled appointments)
-                raw_npi = appointment.get("NPI")
-                try:
-                    evaluator_npi = int(raw_npi) if pd.notna(raw_npi) else None
-                except (ValueError, TypeError):
-                    evaluator_npi = None
+                evaluator_npi = _parse_csv_npi(appointment.get("NPI"))
 
                 if not evaluator_npi:
                     logger.warning(
@@ -826,11 +969,7 @@ def insert_appointments_with_gcal(appointment_sync_data: dict[str, list[str]] | 
                 cancelled = type(appointment["CANCELBYNAME"]) is str
                 cpt_code = re.sub(r"\D", "", appointment["NAME"]) or "N/A"
 
-                raw_npi = appointment.get("NPI")
-                try:
-                    evaluator_npi = int(raw_npi) if pd.notna(raw_npi) else None
-                except (ValueError, TypeError):
-                    evaluator_npi = None
+                evaluator_npi = _parse_csv_npi(appointment.get("NPI"))
 
                 if not evaluator_npi:
                     logger.warning(
