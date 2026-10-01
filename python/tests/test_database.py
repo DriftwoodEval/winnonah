@@ -21,6 +21,7 @@ from utils.database import (
     get_services_config,
     get_sync_report_date,
     insert_by_matching_criteria_incremental,
+    mark_posteval_pending_questionnaires,
     provide_connection,
     put_appointment_in_db,
     put_client_insurance_policies_in_db,
@@ -31,9 +32,10 @@ from utils.database import (
 
 
 class FakeCursor:
-    def __init__(self, fetchone_result=None, fetchall_result=None):
+    def __init__(self, fetchone_result=None, fetchall_result=None, rowcount_result=0):
         self.fetchone_result = fetchone_result
         self.fetchall_result = fetchall_result or []
+        self.rowcount = rowcount_result
         self.executed = []
 
     def __enter__(self):
@@ -1001,3 +1003,50 @@ class TestUpdateClientMedicaidEligibility:
         assert "qualCategory" not in query
         assert "medicaidCheckedAt = UTC_TIMESTAMP()" in query
         assert params == (5,)
+
+
+class TestMarkPostevalPendingQuestionnaires:
+    def test_logs_an_audit_entry_per_affected_client(self):
+        cursor = FakeCursor(
+            fetchall_result=[
+                {"id": 1, "clientId": 10, "questionnaireType": "DP-4"},
+                {"id": 2, "clientId": 10, "questionnaireType": "Vineland-3"},
+                {"id": 3, "clientId": 20, "questionnaireType": "DP-4"},
+            ],
+            rowcount_result=3,
+        )
+        conn = FakeConnection(cursor)
+
+        mark_posteval_pending_questionnaires(connection=conn)
+
+        audit_rows = [
+            params for query, params in cursor.executed if "emr_audit_log" in query
+        ]
+        assert len(audit_rows) == 2
+
+        actor_id, _actor_email, action, client_id, detail, success, error = audit_rows[
+            0
+        ]
+        assert actor_id == "system:questionnaire-sweep"
+        assert action == "python.questionnaire.markPostevalPending"
+        assert client_id == 10
+        assert json.loads(detail) == {"questionnaireTypes": ["DP-4", "Vineland-3"]}
+        assert success is True
+        assert error is None
+
+        assert audit_rows[1][3] == 20
+        assert json.loads(audit_rows[1][4]) == {"questionnaireTypes": ["DP-4"]}
+
+        assert conn.commits == 1
+
+    def test_no_affected_rows_logs_nothing(self):
+        cursor = FakeCursor(fetchall_result=[], rowcount_result=0)
+        conn = FakeConnection(cursor)
+
+        mark_posteval_pending_questionnaires(connection=conn)
+
+        audit_rows = [
+            params for query, params in cursor.executed if "emr_audit_log" in query
+        ]
+        assert audit_rows == []
+        assert conn.commits == 1

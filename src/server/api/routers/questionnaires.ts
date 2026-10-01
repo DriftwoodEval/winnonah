@@ -13,6 +13,11 @@ import {
 } from "~/lib/issue-lists";
 import type { InsertingQuestionnaire } from "~/lib/models";
 import {
+	formatQuestionnaireHistoryEntry,
+	NO_DISPLAYABLE_BULK_UPDATE,
+	QUESTIONNAIRE_HISTORY_ACTIONS,
+} from "~/lib/questionnaire-history";
+import {
 	REMINDER_PORTAL_LINK,
 	reminderDeadlineDate,
 	reminderDistancePhrase,
@@ -31,6 +36,7 @@ import {
 import {
 	appointments,
 	assessmentTypes,
+	auditLogs,
 	clients,
 	failures,
 	inPersonAssessmentHistory,
@@ -42,6 +48,7 @@ import {
 	questionnaireReminderTemplates,
 	questionnaireRules,
 	questionnaires,
+	users,
 } from "~/server/db/schema";
 import { getQuestionnaireEligibilityAge } from "~/server/questionnaire-age";
 import { resolveApplicableRules } from "~/server/questionnaire-rules";
@@ -537,6 +544,51 @@ export const questionnaireRouter = createTRPCRouter({
 			return clientWithQuestionnaires.questionnaires ?? null;
 		}),
 
+	/**
+	 * Who changed what and when for a client's questionnaire rows, drawn from
+	 * the shared `emr_audit_log` table (see `src/server/api/audit.ts`). Covers
+	 * edits made in the app and the automated writes from the `questionnaires`
+	 * TherapyAppointment sync and the posteval-pending cron sweep. Returns only
+	 * the display fields, not the raw audit detail (that stays gated behind
+	 * settings:audit-log:view).
+	 */
+	getQuestionnaireHistory: protectedProcedure
+		.input(z.number())
+		.query(async ({ ctx, input }) => {
+			const rows = await ctx.db
+				.select({
+					id: auditLogs.id,
+					createdAt: auditLogs.createdAt,
+					action: auditLogs.action,
+					detail: auditLogs.detail,
+					userId: auditLogs.userId,
+					userEmail: auditLogs.userEmail,
+					userName: users.name,
+				})
+				.from(auditLogs)
+				.leftJoin(users, eq(auditLogs.userId, users.id))
+				.where(
+					and(
+						eq(auditLogs.clientId, input),
+						eq(auditLogs.success, true),
+						inArray(auditLogs.action, QUESTIONNAIRE_HISTORY_ACTIONS),
+					),
+				)
+				.orderBy(desc(auditLogs.createdAt))
+				.limit(200);
+
+			return rows
+				.map((row) => ({
+					id: row.id,
+					createdAt: row.createdAt,
+					actor: row.userId.startsWith("system:")
+						? "Automatic"
+						: (row.userName ?? row.userEmail),
+					description: formatQuestionnaireHistoryEntry(row.action, row.detail),
+				}))
+				.filter((entry) => entry.description !== NO_DISPLAYABLE_BULK_UPDATE);
+		}),
+
 	getReminderSettings: protectedProcedure.query(async ({ ctx }) => {
 		const settings = await ctx.db
 			.select()
@@ -816,6 +868,13 @@ export const questionnaireRouter = createTRPCRouter({
 
 					if (linkSearch.clientId === input.clientId) {
 						if (linkSearch.status === "ARCHIVED") {
+							setAuditDetail(ctx, {
+								questionnaireId: linkSearch.id,
+								questionnaireType: input.questionnaireType,
+								reactivated: true,
+								sent: sentDate,
+								status: input.status,
+							});
 							await ctx.db
 								.update(questionnaires)
 								.set({
@@ -887,6 +946,13 @@ export const questionnaireRouter = createTRPCRouter({
 				where: eq(questionnaires.id, newId),
 			});
 
+			setAuditDetail(ctx, {
+				questionnaireId: newId,
+				questionnaireType: input.questionnaireType,
+				sent: sentDate,
+				status: input.status,
+			});
+
 			await invalidateCache(ctx, CACHE_KEY_MISSING_APPOINTMENTS);
 
 			if (input.status === "COMPLETED" || input.status === "EXTERNAL") {
@@ -950,6 +1016,8 @@ export const questionnaireRouter = createTRPCRouter({
 
 			const questionnairesToInsert: InsertingQuestionnaire[] = [];
 			const processedTypes = new Set<string>();
+			const reactivated: string[] = [];
+			const added: string[] = [];
 
 			for (const newQuestionnaire of parsedQuestionnaires) {
 				const existingByLink = await ctx.db.query.questionnaires.findFirst({
@@ -975,6 +1043,7 @@ export const questionnaireRouter = createTRPCRouter({
 							})
 							.where(eq(questionnaires.id, existingByLink.id));
 						processedTypes.add(newQuestionnaire.questionnaireType);
+						reactivated.push(newQuestionnaire.questionnaireType);
 					}
 					// skip, link already exists in an active status
 				} else {
@@ -988,8 +1057,11 @@ export const questionnaireRouter = createTRPCRouter({
 						lastReminded: null,
 					});
 					processedTypes.add(newQuestionnaire.questionnaireType);
+					added.push(newQuestionnaire.questionnaireType);
 				}
 			}
+
+			setAuditDetail(ctx, { added, reactivated });
 
 			if (questionnairesToInsert.length > 0) {
 				try {
@@ -1071,18 +1143,22 @@ export const questionnaireRouter = createTRPCRouter({
 				sent: sentDate,
 				status: input.status,
 			};
-			setAuditDetail(
-				ctx,
-				diffValues(
+			setAuditDetail(ctx, {
+				questionnaireId: input.id,
+				questionnaireType: input.questionnaireType,
+				changes: diffValues(
 					{
 						questionnaireType: existing?.questionnaireType,
-						link: existing?.link,
+						link: existing?.link ?? null,
 						sent: existing?.sent,
 						status: existing?.status,
 					},
-					updateData,
+					{
+						...updateData,
+						link: updateData.link ?? null,
+					},
 				),
-			);
+			});
 
 			await ctx.db
 				.update(questionnaires)
@@ -1123,6 +1199,15 @@ export const questionnaireRouter = createTRPCRouter({
 
 			ctx.logger.info(input, "Deleting questionnaire");
 
+			const existing = await ctx.db.query.questionnaires.findFirst({
+				where: eq(questionnaires.id, input.id),
+			});
+
+			setAuditDetail(ctx, {
+				questionnaireId: input.id,
+				questionnaireType: existing?.questionnaireType,
+			});
+
 			await ctx.db
 				.update(questionnaires)
 				.set({ status: "ARCHIVED" })
@@ -1143,16 +1228,32 @@ export const questionnaireRouter = createTRPCRouter({
 
 			ctx.logger.info(input, "Bulk updating questionnaire status");
 
+			const before = await ctx.db.query.questionnaires.findMany({
+				where: inArray(questionnaires.id, input.ids),
+				columns: {
+					id: true,
+					clientId: true,
+					questionnaireType: true,
+					status: true,
+				},
+			});
+
+			setAuditDetail(ctx, {
+				status: input.status,
+				questionnaires: before.map((q) => ({
+					questionnaireId: q.id,
+					questionnaireType: q.questionnaireType,
+					from: q.status,
+					to: input.status,
+				})),
+			});
+
 			await ctx.db
 				.update(questionnaires)
 				.set({ status: input.status })
 				.where(inArray(questionnaires.id, input.ids));
 
-			const affectedQs = await ctx.db.query.questionnaires.findMany({
-				where: inArray(questionnaires.id, input.ids),
-				columns: { clientId: true },
-			});
-			const uniqueClientIds = [...new Set(affectedQs.map((q) => q.clientId))];
+			const uniqueClientIds = [...new Set(before.map((q) => q.clientId))];
 
 			const [allRules, allClients, allClientQs] = await Promise.all([
 				ctx.db.query.questionnaireRules.findMany({

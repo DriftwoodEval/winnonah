@@ -1,4 +1,4 @@
-import { eq } from "drizzle-orm";
+import { eq, inArray } from "drizzle-orm";
 import { logger } from "~/lib/logger";
 import { db } from "~/server/db";
 import {
@@ -45,6 +45,22 @@ async function resolveViaFaxLink(db: Db, linkId: unknown) {
 		columns: { clientId: true },
 	});
 	return row?.clientId ?? null;
+}
+
+/**
+ * `bulkUpdateStatus` acts on a set of questionnaire ids, which the UI only
+ * ever sends from a single client's table. Resolves to that client when
+ * every affected row shares one, and null (unattributed) for the rare case
+ * of a mixed-client id list, since clientId is a single column.
+ */
+async function resolveViaQuestionnaireIds(db: Db, ids: unknown) {
+	if (!Array.isArray(ids) || ids.length === 0) return null;
+	const rows = await db.query.questionnaires.findMany({
+		where: inArray(questionnaires.id, ids),
+		columns: { clientId: true },
+	});
+	const uniqueClientIds = [...new Set(rows.map((r) => r.clientId))];
+	return uniqueClientIds.length === 1 ? (uniqueClientIds[0] ?? null) : null;
 }
 
 /**
@@ -114,6 +130,10 @@ const RELATED_ID_RESOLVERS: Record<
 	"questionnaires.deleteQuestionnaire": {
 		field: "id",
 		resolve: resolveViaQuestionnaire,
+	},
+	"questionnaires.bulkUpdateStatus": {
+		field: "ids",
+		resolve: resolveViaQuestionnaireIds,
 	},
 	"questionnaires.updateInPersonAssessmentStatus": {
 		field: "id",

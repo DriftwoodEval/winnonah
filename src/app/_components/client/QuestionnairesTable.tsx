@@ -33,6 +33,7 @@ import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { useCheckPermission } from "~/hooks/use-check-permission";
 import { QUESTIONNAIRE_STATUSES } from "~/lib/constants";
+import { statusLabel } from "~/lib/questionnaire-history";
 import {
 	cn,
 	formatShortDate,
@@ -45,6 +46,7 @@ import {
 import { api } from "~/trpc/react";
 import { AddQuestionnaireButton } from "./AddQuestionnaireButton";
 import { ProtocolsScannedCheckbox } from "./ProtocolsScannedCheckbox";
+import { QuestionnaireHistoryButton } from "./QuestionnaireHistory";
 import { QuestionnaireReminderOverridesSummary } from "./QuestionnaireReminderOverride";
 import { QuestionnaireActionsMenu } from "./QuestionnaireTableActionsMenu";
 import { ScreenshotButton } from "./ScreenshotButton";
@@ -57,20 +59,6 @@ const truncateLink = (link: string | null, maxLength = 25) => {
 	}
 	return truncated;
 };
-
-const STATUS_LABELS: Partial<
-	Record<(typeof QUESTIONNAIRE_STATUSES)[number], string>
-> = {
-	POSTEVAL_PENDING: "Post-Eval, Pending",
-	POSTDA_PENDING: "Post-DA, Pending",
-};
-
-function statusLabel(s: string) {
-	return (
-		STATUS_LABELS[s as keyof typeof STATUS_LABELS] ??
-		`${s.charAt(0).toUpperCase()}${s.slice(1).toLowerCase()}`
-	);
-}
 
 interface QuestionnairesTableProps {
 	clientId: number | undefined;
@@ -298,7 +286,10 @@ export function QuestionnairesTable({
 						)}
 					</div>
 
-					{!readOnly && <AddQuestionnaireButton clientId={clientId} />}
+					<div className="flex items-center gap-2">
+						{!readOnly && <AddQuestionnaireButton clientId={clientId} />}
+						{clientId && <QuestionnaireHistoryButton clientId={clientId} />}
+					</div>
 				</div>
 
 				{failures && failures.length > 0 && (

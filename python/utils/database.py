@@ -2921,6 +2921,19 @@ def mark_posteval_pending_questionnaires(connection: Connection[DictCursor]) -> 
     A client is considered post-eval when they have at least one non-cancelled EVAL
     appointment whose startTime is in the past.
     """
+    cutoff = now_utc().replace(tzinfo=None)
+    select_sql = f"""
+        SELECT q.id, q.clientId, q.questionnaireType
+        FROM {TABLE_QUESTIONNAIRE} q
+        JOIN (
+            SELECT DISTINCT clientId
+            FROM {TABLE_APPOINTMENT}
+            WHERE daEval IN ('EVAL', 'DAEVAL')
+              AND cancelled = 0
+              AND startTime < %s
+        ) past_eval ON past_eval.clientId = q.clientId
+        WHERE q.status = 'PENDING'
+    """
     sql = f"""
         UPDATE {TABLE_QUESTIONNAIRE} q
         JOIN (
@@ -2934,8 +2947,26 @@ def mark_posteval_pending_questionnaires(connection: Connection[DictCursor]) -> 
         WHERE q.status = 'PENDING'
     """
     with connection.cursor() as cursor:
-        cursor.execute(sql, (now_utc().replace(tzinfo=None),))
+        cursor.execute(select_sql, (cutoff,))
+        affected = cursor.fetchall()
+        cursor.execute(sql, (cutoff,))
         updated = cursor.rowcount
+
+    affected_by_client: dict[int, list[str]] = {}
+    for row in affected:
+        affected_by_client.setdefault(row["clientId"], []).append(
+            row["questionnaireType"]
+        )
+    for client_id, types in affected_by_client.items():
+        record_audit_log(
+            connection,
+            "python.questionnaire.markPostevalPending",
+            client_id,
+            "system:questionnaire-sweep",
+            "questionnaire-sweep (internal)",
+            detail={"questionnaireTypes": types},
+        )
+
     connection.commit()
     if updated:
         logger.info(f"Marked {updated} questionnaire(s) as POSTEVAL_PENDING")
