@@ -1464,6 +1464,10 @@ def put_client_insurance_policies_in_db(
         logger.info("No insurance policies to insert.")
         return None
 
+    # Collapse to one row per policyId, keeping the last, so superseded duplicate
+    # rows in the export aren't diffed against the final DB state.
+    values_to_insert = list({values[0]: values for values in values_to_insert}.values())
+
     cols = (
         "policyId, clientId, policyType, policyStartDate, policyEndDate, "
         "policyAddedDate, policyAddedByName, policyModifiedDate, policyModifiedByName, "

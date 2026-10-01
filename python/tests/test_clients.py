@@ -9,6 +9,7 @@ from utils.clients import (
     _normalize_names,
     _remove_invalid_clients,
     _remove_test_names,
+    get_raw_insurance_data,
 )
 
 
@@ -303,3 +304,21 @@ class TestMergeReferralData:
         result = _merge_referral_data(clients_df)
 
         assert result.iloc[0]["REFERRAL_SOURCE"] is None
+
+
+class TestGetRawInsuranceData:
+    def test_reads_numeric_looking_columns_as_strings(self, tmp_path, monkeypatch):
+        """INSURANCE_ZIP and other numeric-looking columns must come back as the
+        exact CSV text (e.g. "29401"), not a pandas-inferred float ("29401.0"),
+        or they compare as changed against the DB's varchar value on every sync."""
+        monkeypatch.chdir(tmp_path)
+        input_dir = tmp_path / "temp" / "input"
+        input_dir.mkdir(parents=True)
+        (input_dir / "clients-insurance.csv").write_text(
+            "CLIENT_ID,POLICY_ID,INSURANCE_ZIP\n1,p1,29401\n"
+        )
+        monkeypatch.setenv("DEV_TOGGLE", "1")
+
+        result = get_raw_insurance_data(should_download_csvs=False)
+
+        assert result.iloc[0]["INSURANCE_ZIP"] == "29401"

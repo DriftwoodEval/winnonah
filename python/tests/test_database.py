@@ -592,6 +592,49 @@ class TestPutClientInsurancePoliciesInDb:
             "new": "2025-01-01",
         }
 
+    def test_no_audit_log_for_superseded_duplicate_policy_rows(self):
+        """The export can contain multiple rows for the same POLICY_ID (one per
+        benefits-check event). Only the last row's state should be diffed and
+        inserted, otherwise an earlier, superseded row looks like a change."""
+        existing = _DefaultNoneDict(
+            {
+                "policyId": "p1",
+                "clientId": 1,
+                "policyAddedByName": "TherapyAppointment System",
+                "policyEndDate": "2025-01-01",
+            }
+        )
+        cursor = _RoutingCursor(self._routes(existing))
+        conn = FakeConnection(cursor)
+        df = pd.DataFrame(
+            [
+                {
+                    "CLIENT_ID": 1,
+                    "POLICY_ID": "p1",
+                    "POLICY_ADDEDBYNAME": "TherapyAppointment System",
+                    "POLICY_ENDDATE": dt.date(2024, 6, 1),
+                },
+                {
+                    "CLIENT_ID": 1,
+                    "POLICY_ID": "p1",
+                    "POLICY_ADDEDBYNAME": "TherapyAppointment System",
+                    "POLICY_ENDDATE": dt.date(2025, 1, 1),
+                },
+            ]
+        )
+
+        put_client_insurance_policies_in_db(df, connection=conn)
+
+        assert not any(
+            "INSERT INTO `emr_audit_log`" in query for query, _ in cursor.executed
+        )
+        insert_calls = [
+            params
+            for query, params in cursor.executed
+            if "INSERT INTO `emr_client_insurance_policy`" in query
+        ]
+        assert len(insert_calls) == 1
+
 
 class TestPutAppointmentInDb:
     def _routes(self, existing_row):

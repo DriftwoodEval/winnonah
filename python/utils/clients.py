@@ -218,7 +218,11 @@ def get_raw_insurance_data(should_download_csvs: bool | None = True) -> pd.DataF
     """Returns the raw insurance CSV as a DataFrame without any consolidation."""
     if not os.getenv("DEV_TOGGLE") and should_download_csvs:
         download_csvs()
-    return utils.spreadsheets.open_local(Path("temp/input/clients-insurance.csv"))
+    # dtype=str keeps CSV text as-is so varchar columns diff cleanly against the
+    # DB instead of pandas inferring float64 and false-positiving every sync.
+    return utils.spreadsheets.open_local(
+        Path("temp/input/clients-insurance.csv"), dtype=str
+    )
 
 
 def get_clients(should_download_csvs: bool | None = True) -> pd.DataFrame:
