@@ -527,6 +527,23 @@ class TestOfficeDriveTimes:
         }
         assert insert_keys == {"columbia", "charleston"}
 
+    def test_falls_back_to_straight_line_distance_when_waze_fails(self):
+        cursor = RoutingCursor({"latitude": "33.9", "longitude": "-81.0"}, _OFFICE_ROWS)
+        conn = FakeConnection(cursor)
+
+        with (
+            patch("api.get_db", return_value=conn),
+            patch("api.get_drive_time", side_effect=Exception("Unavailable")),
+            patch("api.WAZE_REQUEST_STAGGER_SECONDS", 0),
+        ):
+            results = asyncio.run(office_drive_times(client_id=42, current_user={}))
+
+        for r in results:
+            assert r.duration_minutes is None
+            assert r.distance_miles is None
+            assert r.straight_line_miles is not None
+            assert r.straight_line_miles > 0
+
     def test_raises_404_for_unknown_client(self):
         conn = FakeConnection(RoutingCursor(None, []))
         with (

@@ -62,7 +62,9 @@ export function OfficeDriveTimesButton({
 								<span className="font-bold">{office.prettyName}</span>:{" "}
 								{office.durationMinutes != null && office.distanceMiles != null
 									? `${office.distanceMiles.toFixed(0)} mi (${formatDriveTime(office.durationMinutes)})`
-									: "unavailable"}
+									: office.straightLineMiles != null
+										? `~${office.straightLineMiles.toFixed(0)} mi (bird's-eye, drive time unavailable)`
+										: "unavailable"}
 							</li>
 						))}
 					</ul>

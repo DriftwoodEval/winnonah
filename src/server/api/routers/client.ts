@@ -1230,6 +1230,7 @@ export const clientRouter = createTRPCRouter({
 				prettyName: string;
 				durationMinutes: number | null;
 				distanceMiles: number | null;
+				straightLineMiles: number | null;
 			}>;
 		}),
 

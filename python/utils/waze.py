@@ -5,12 +5,33 @@ manual per-client refresh) and for the office_drive_times.py batch job that
 backfills emr_office_drive_time in the background.
 """
 
+import math
+
 from pywaze import route_calculator
 
 from utils.constants import TABLE_OFFICE_DRIVE_TIME
 from utils.timezone import now_utc
 
 KM_PER_MILE = 1.60934
+
+EARTH_RADIUS_MILES = 3959
+
+
+def haversine_miles(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
+    """Straight-line (bird's-eye) distance in miles between two coordinates.
+
+    Used as a fallback when Waze can't return a drive route, so it's not an
+    actual driving distance.
+    """
+    lat1_r, lon1_r, lat2_r, lon2_r = map(math.radians, (lat1, lon1, lat2, lon2))
+    d_lat = lat2_r - lat1_r
+    d_lon = lon2_r - lon1_r
+    a = (
+        math.sin(d_lat / 2) ** 2
+        + math.cos(lat1_r) * math.cos(lat2_r) * math.sin(d_lon / 2) ** 2
+    )
+    return 2 * EARTH_RADIUS_MILES * math.asin(math.sqrt(a))
+
 
 # Waze's route endpoint is unofficial and has no published rate limit, so both
 # callers cap concurrent requests and stagger them rather than trusting the

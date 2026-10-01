@@ -73,6 +73,7 @@ from utils.waze import (
     WAZE_REQUEST_STAGGER_SECONDS,
     get_cached_drive_times,
     get_drive_time,
+    haversine_miles,
     save_drive_time,
 )
 
@@ -1246,6 +1247,9 @@ class OfficeDriveTime(BaseModel):
     pretty_name: str = Field(alias="prettyName")
     duration_minutes: float | None = Field(alias="durationMinutes")
     distance_miles: float | None = Field(alias="distanceMiles")
+    # Straight-line (bird's-eye) distance, set only when Waze couldn't return
+    # a drive route, so the UI has something to show besides "unavailable".
+    straight_line_miles: float | None = Field(alias="straightLineMiles", default=None)
 
     model_config = ConfigDict(populate_by_name=True)
 
@@ -1314,6 +1318,7 @@ async def office_drive_times(
                 )
 
             end = f"{office['latitude']}, {office['longitude']}"
+            straight_line_miles = None
             async with semaphore:
                 try:
                     route = await get_drive_time(start, end)
@@ -1323,6 +1328,15 @@ async def office_drive_times(
                     logger.warning(f"Waze route failed for office {office['key']}: {e}")
                     duration_minutes = None
                     distance_miles = None
+                    straight_line_miles = round(
+                        haversine_miles(
+                            float(client_row["latitude"]),
+                            float(client_row["longitude"]),
+                            float(office["latitude"]),
+                            float(office["longitude"]),
+                        ),
+                        1,
+                    )
                 await asyncio.sleep(WAZE_REQUEST_STAGGER_SECONDS)
 
             return (
@@ -1331,6 +1345,7 @@ async def office_drive_times(
                     prettyName=office["prettyName"],
                     durationMinutes=duration_minutes,
                     distanceMiles=distance_miles,
+                    straightLineMiles=straight_line_miles,
                 ),
                 True,
             )
