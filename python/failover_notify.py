@@ -17,7 +17,6 @@ from dotenv import load_dotenv
 from loguru import logger
 
 from utils.google import send_gmail
-from utils.timezone import now_business
 
 FROM_ADDR = "tech@driftwoodeval.com"
 
@@ -56,11 +55,8 @@ def main() -> int:
         logger.error("ERROR_EMAILS is not set, cannot send notification.")
         return 1
 
-    timestamp = now_business().strftime("%Y-%m-%d %H:%M:%S %Z")
-    message_text = f"{body}\n\nTime: {timestamp}"
-
     send_gmail(
-        message_text=message_text,
+        message_text=body,
         subject=f"[Driftwood EMR] {subject}",
         to_addr=", ".join(recipients),
         from_addr=FROM_ADDR,

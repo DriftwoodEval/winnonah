@@ -348,6 +348,19 @@ export function parseDateOnly(
 }
 
 /**
+ * Round minutes-from-midnight to the nearest 30-minute slot and render it as
+ * a zero-padded "HH:mm" string, for use as a URL query param or similar
+ * internal value (not a display string).
+ */
+export function minutesToTimeString(minutesFromMidnight: number): string {
+	const snapped = Math.round(minutesFromMidnight / 30) * 30;
+	const total = ((snapped % (24 * 60)) + 24 * 60) % (24 * 60);
+	const hours = Math.floor(total / 60);
+	const minutes = total % 60;
+	return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}`;
+}
+
+/**
  * Compare two date-only "YYYY-MM-DD" values chronologically. Nullish values
  * sort first. Usable directly as an Array.prototype.sort comparator.
  */

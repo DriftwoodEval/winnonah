@@ -27,7 +27,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useCheckPermission } from "~/hooks/use-check-permission";
 import { hasInPersonAppointment, isVirtualAppointment } from "~/lib/checkin";
 import { BUSINESS_TIMEZONE } from "~/lib/constants";
-import { IS_DEV } from "~/lib/utils";
+import { IS_DEV, minutesToTimeString } from "~/lib/utils";
 import { api, type RouterOutputs } from "~/trpc/react";
 import { CheckInOutControl } from "../appointments/CheckInOutControl";
 import { EvaluatorCheckInOutControl } from "../appointments/EvaluatorCheckInOutControl";
@@ -89,14 +89,6 @@ function allDayWindowFor(dateStr: string): { start: Date; end: Date } {
 		),
 		end: fromZonedTime(`${dateStr}T${pad(DAY_END)}:00:00`, BUSINESS_TIMEZONE),
 	};
-}
-
-function minutesToTimeString(minutesFromMidnight: number): string {
-	const snapped = Math.round(minutesFromMidnight / 30) * 30;
-	const total = ((snapped % (24 * 60)) + 24 * 60) % (24 * 60);
-	const hours = Math.floor(total / 60);
-	const minutes = total % 60;
-	return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}`;
 }
 
 type ViewMode = "list" | "day" | "3day" | "week";

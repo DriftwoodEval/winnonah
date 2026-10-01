@@ -648,7 +648,7 @@ function CalendarTimedEvent({
 			<div
 				className={cn(sharedClassName, "cursor-not-allowed opacity-80")}
 				style={style}
-				title={`${start.toLocaleTimeString("en-US", { timeStyle: "short" })} - ${end.toLocaleTimeString("en-US", { timeStyle: "short" })}`}
+				title={`${format(start, "h:mm a")} - ${format(end, "h:mm a")}`}
 			>
 				<Content />
 			</div>
@@ -667,7 +667,7 @@ function CalendarTimedEvent({
 				if (e.key === "Enter" || e.key === " ") handleActivate();
 			}}
 			style={style}
-			title={`${start.toLocaleTimeString("en-US", { timeStyle: "short" })} - ${end.toLocaleTimeString("en-US", { timeStyle: "short" })}`}
+			title={`${format(start, "h:mm a")} - ${format(end, "h:mm a")}`}
 			type="button"
 		>
 			<Content />

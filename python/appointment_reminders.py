@@ -120,7 +120,7 @@ def format_message(template: str, appointment: dict) -> str:
     office_label, office_location_phrase = _office_fields(appointment)
     start_time_business = utc_to_business(appointment["startTime"])
     variables = {
-        "$START_TIME": start_time_business.strftime("%I:%M %p"),
+        "$START_TIME": start_time_business.strftime("%-I:%M %p"),
         "$DATE": start_time_business.strftime("%A, %B %d"),
         "$OFFICE_NAME": office_label or "",
         "$LOCATION": office_location_phrase or "",
