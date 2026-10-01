@@ -7,7 +7,7 @@ from typing import Any, Literal
 
 import pandas as pd
 from dateutil import parser
-from googleapiclient.discovery import build
+from dateutil.relativedelta import relativedelta
 from loguru import logger
 
 from utils.constants import TEST_NAMES_LOWER
@@ -31,6 +31,7 @@ from utils.database import (
     sync_punchlist_to_db,
 )
 from utils.google import (
+    build_google_service,
     clear_planned_office_events,
     google_authenticate,
     list_subfolders,
@@ -387,7 +388,7 @@ def prepare_appointments_from_csv(
     """Load CSV, filter invalid rows, and merge with Google Calendar data."""
 
     creds = google_authenticate()
-    service = build("calendar", "v3", credentials=creds)
+    service = build_google_service("calendar", "v3", creds)
 
     appointments_df = pd.read_csv("temp/input/clients-appointments.csv")
     appointments_df["NAME"] = appointments_df["NAME"].fillna("N/A").astype(str)
@@ -646,6 +647,11 @@ def insert_appointments_with_gcal(appointment_sync_data: dict[str, list[str]] | 
         cancelled_synced = 0
         moved_synced = 0
         clients_with_in_person_assessments: set[int] = set()
+        cleared_office_events: set[tuple[str, date]] = set()
+        # "Planned: <office>" placeholders are only ever set for the near term, so
+        # there's no point clearing them for appointments well outside that window.
+        office_events_window_start = now_business().date() - relativedelta(months=1)
+        office_events_window_end = now_business().date() + relativedelta(months=3)
 
         total_appointments = len(appointments_df)
         for i, (_, appointment) in enumerate(appointments_df.iterrows(), start=1):
@@ -750,12 +756,21 @@ def insert_appointments_with_gcal(appointment_sync_data: dict[str, list[str]] | 
                     if isinstance(start_time, datetime)
                     else start_time
                 )
-                try:
-                    clear_planned_office_events(gcal_calendar_id, appt_day)
-                except Exception as e:
-                    logger.warning(
-                        f"Could not clear planned-office events for {gcal_calendar_id} on {appt_day}: {e}"
-                    )
+                office_event_key = (gcal_calendar_id, appt_day)
+                in_office_events_window = (
+                    office_events_window_start <= appt_day <= office_events_window_end
+                )
+                if (
+                    in_office_events_window
+                    and office_event_key not in cleared_office_events
+                ):
+                    try:
+                        clear_planned_office_events(gcal_calendar_id, appt_day)
+                    except Exception as e:
+                        logger.warning(
+                            f"Could not clear planned-office events for {gcal_calendar_id} on {appt_day}: {e}"
+                        )
+                    cleared_office_events.add(office_event_key)
 
             if not cancelled and gcal_daeval and battery_rules:
                 client_dob = dob_map.get(client_id)

@@ -10,6 +10,8 @@ from email.message import EmailMessage
 from functools import lru_cache
 from pathlib import Path
 
+import google_auth_httplib2
+import httplib2
 import pandas as pd
 from dateutil import parser as dtparser
 from google.auth.transport.requests import Request
@@ -33,6 +35,18 @@ SCOPES = [
 
 _GOOGLE_DOC_MIME = "application/vnd.google-apps.document"
 _GOOGLE_FOLDER_MIME = "application/vnd.google-apps.folder"
+
+# googleapiclient's default transport has no socket timeout, so a stalled
+# connection blocks .execute() forever with no error or log output.
+_REQUEST_TIMEOUT_SECONDS = 30
+
+
+def build_google_service(api: str, version: str, creds):
+    """Build a Google API service with a bounded request timeout."""
+    http = google_auth_httplib2.AuthorizedHttp(
+        creds, http=httplib2.Http(timeout=_REQUEST_TIMEOUT_SECONDS)
+    )
+    return build(api, version, http=http)
 
 
 @lru_cache(maxsize=1)
@@ -134,28 +148,28 @@ def create_folder_in_folder(new_folder_name: str, parent_folder_id: str):
 def get_drive_service():
     """Get the Google Drive service, reusing the same instance across calls."""
     creds = google_authenticate()
-    return build("drive", "v3", credentials=creds)
+    return build_google_service("drive", "v3", creds)
 
 
 @lru_cache(maxsize=1)
 def get_sheets_service():
     """Get the Google Sheets service, reusing the same instance across calls."""
     creds = google_authenticate()
-    return build("sheets", "v4", credentials=creds)
+    return build_google_service("sheets", "v4", creds)
 
 
 @lru_cache(maxsize=1)
 def get_gmail_service():
     """Get the Gmail service, reusing the same instance across calls."""
     creds = google_authenticate()
-    return build("gmail", "v1", credentials=creds)
+    return build_google_service("gmail", "v1", creds)
 
 
 @lru_cache(maxsize=1)
 def get_calendar_service():
     """Get the Google Calendar service, reusing the same instance across calls."""
     creds = google_authenticate()
-    return build("calendar", "v3", credentials=creds)
+    return build_google_service("calendar", "v3", creds)
 
 
 def get_punchlist_rows(column_names: list[str]) -> dict[str, dict[str, str]]:
@@ -1193,7 +1207,7 @@ def list_calendar_events_batch(
     returned with an empty list rather than raising.
     """
     creds = google_authenticate()
-    service = build("calendar", "v3", credentials=creds)
+    service = build_google_service("calendar", "v3", creds)
 
     time_min_str = time_min.isoformat() + ("Z" if time_min.tzinfo is None else "")
     time_max_str = time_max.isoformat() + ("Z" if time_max.tzinfo is None else "")
@@ -1238,7 +1252,7 @@ def create_placeholder_event(
     appointment times are stored in the database (see put_appointment_in_db).
     """
     creds = google_authenticate()
-    service = build("calendar", "v3", credentials=creds)
+    service = build_google_service("calendar", "v3", creds)
 
     naive_start = start.replace(tzinfo=None) if start.tzinfo else start
     naive_end = end.replace(tzinfo=None) if end.tzinfo else end
@@ -1269,7 +1283,7 @@ def create_placeholder_event(
 def delete_calendar_event(calendar_id: str, event_id: str) -> None:
     """Delete a calendar event. Used to clean up placeholder holds."""
     creds = google_authenticate()
-    service = build("calendar", "v3", credentials=creds)
+    service = build_google_service("calendar", "v3", creds)
     try:
         service.events().delete(calendarId=calendar_id, eventId=event_id).execute()
         logger.info(f"Deleted calendar event {event_id} on calendar {calendar_id}")
@@ -1291,7 +1305,7 @@ def create_all_day_event(calendar_id: str, title: str, date: date) -> str:
     real booking lands.
     """
     creds = google_authenticate()
-    service = build("calendar", "v3", credentials=creds)
+    service = build_google_service("calendar", "v3", creds)
 
     end_date = date + timedelta(days=1)
     event = (
@@ -1318,7 +1332,7 @@ def clear_planned_office_events(calendar_id: str, date: date) -> None:
     booked.
     """
     creds = google_authenticate()
-    service = build("calendar", "v3", credentials=creds)
+    service = build_google_service("calendar", "v3", creds)
 
     time_min = datetime.combine(date, datetime.min.time()).isoformat() + "Z"
     time_max = (
