@@ -1283,7 +1283,8 @@ async def office_drive_times(
             )
             client_row = cursor.fetchone()
             cursor.execute(
-                f"SELECT `key`, prettyName, latitude, longitude FROM {TABLE_OFFICE}"
+                f"SELECT `key`, prettyName, latitude, longitude FROM {TABLE_OFFICE} "
+                "WHERE archived = 0"
             )
             office_rows = cursor.fetchall()
 

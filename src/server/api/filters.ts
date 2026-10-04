@@ -66,7 +66,8 @@ export async function getClosestOfficeKeyByDriveTime(
 				latitude: offices.latitude,
 				longitude: offices.longitude,
 			})
-			.from(offices),
+			.from(offices)
+			.where(eq(offices.archived, false)),
 		db
 			.select({
 				officeKey: officeDriveTimes.officeKey,

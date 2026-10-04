@@ -223,6 +223,9 @@ export const offices = createTable("office", (d) => ({
 	locationPhrase: d.varchar({ length: 500 }),
 	latitude: d.decimal({ precision: 10, scale: 8 }).notNull(),
 	longitude: d.decimal({ precision: 11, scale: 8 }).notNull(),
+	// Archived offices stay on past appointments and availability but are
+	// hidden from pickers and excluded from closest-office ranking.
+	archived: d.boolean().notNull().default(false),
 }));
 
 export const officesRelations = relations(offices, ({ many }) => ({

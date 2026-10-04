@@ -244,7 +244,9 @@ export function TeamMonthView() {
 		startDate: gridStart,
 		endDate: add(gridEnd, { days: 1 }),
 	});
-	const { data: offices } = api.offices.getAll.useQuery();
+	const { data: offices } = api.offices.getAll.useQuery({
+		includeArchived: true,
+	});
 
 	const officeNames = new Map(
 		(offices ?? []).map((o) => [o.key, o.prettyName] as const),
