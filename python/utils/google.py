@@ -38,7 +38,7 @@ _GOOGLE_FOLDER_MIME = "application/vnd.google-apps.folder"
 
 # googleapiclient's default transport has no socket timeout, so a stalled
 # connection blocks .execute() forever with no error or log output.
-_REQUEST_TIMEOUT_SECONDS = 30
+_REQUEST_TIMEOUT_SECONDS = 90
 
 
 def build_google_service(api: str, version: str, creds):

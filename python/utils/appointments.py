@@ -1,6 +1,7 @@
 import html
 import os
 import re
+import time
 from collections import defaultdict
 from datetime import date, datetime, timedelta
 from typing import Any, Literal
@@ -94,6 +95,7 @@ class SyncReporter:
         self.missing_in_gcal: list[dict[str, Any]] = []
         self.missing_npis: list[str] = []
         self.ambiguous_calendar_matches: list[dict[str, Any]] = []
+        self.calendar_fetch_failures: list[str] = []
 
     def log_time_mismatch(
         self,
@@ -143,6 +145,12 @@ class SyncReporter:
         """Log a missing NPI for a calendar ID."""
         self.missing_npis.append(calendar_id)
 
+    def log_calendar_fetch_failed(self, calendar_name: str):
+        """Log a calendar whose events could not be fetched after retries.
+        Any 'missing from Google Calendar' entries from the same run may
+        actually be on this calendar and were never checked."""
+        self.calendar_fetch_failures.append(calendar_name)
+
     def log_ambiguous_calendar_match(
         self,
         name: str,
@@ -176,6 +184,7 @@ class SyncReporter:
                 self.missing_in_gcal,
                 self.missing_npis,
                 self.ambiguous_calendar_matches,
+                self.calendar_fetch_failures,
             ]
         )
 
@@ -186,6 +195,11 @@ class SyncReporter:
 
         if self.missing_npis:
             errors["Missing NPI mapping"] = {"count": len(self.missing_npis)}
+
+        if self.calendar_fetch_failures:
+            errors["Could not fetch calendar events"] = {
+                "count": len(self.calendar_fetch_failures)
+            }
 
         if self.time_mismatches:
             errors["Time mismatch (calendar vs TA)"] = {
@@ -245,6 +259,19 @@ class SyncReporter:
                 + "</ul>"
             )
 
+        if self.calendar_fetch_failures:
+            html_content += "<h3>Calendars That Could Not Be Searched</h3>"
+            html_content += (
+                "<p>These calendars' events could not be fetched after retries, so "
+                "any appointments listed below as missing from Google Calendar may "
+                "actually be on one of these:</p>"
+            )
+            html_content += (
+                "<ul>"
+                + "".join([f"<li>{name}</li>" for name in self.calendar_fetch_failures])
+                + "</ul>"
+            )
+
         if self.missing_in_gcal:
             html_content += "<h3>Appointments Missing in Google Calendar</h3>"
             html_content += (
@@ -301,6 +328,44 @@ class SyncReporter:
             html=html_content,
         )
         set_sync_report_date(now_business().date())
+
+
+_EVENT_PAGE_MAX_RETRIES = 3
+
+
+def _fetch_events_page(
+    service,
+    calendar_id: str,
+    search_start: str,
+    search_end: str,
+    page_token: str | None,
+) -> dict:
+    """Fetch one page of calendar events, retrying transient failures (e.g. the
+    bounded request timeout in build_google_service) so a single bad page
+    doesn't discard events already fetched from earlier pages of this calendar."""
+    for attempt in range(1, _EVENT_PAGE_MAX_RETRIES + 1):
+        try:
+            return (
+                service.events()
+                .list(
+                    calendarId=calendar_id,
+                    timeMin=search_start,
+                    timeMax=search_end,
+                    singleEvents=True,
+                    orderBy="startTime",
+                    pageToken=page_token,
+                )
+                .execute()
+            )
+        except Exception:
+            if attempt == _EVENT_PAGE_MAX_RETRIES:
+                raise
+            logger.warning(
+                f"Retrying events page for calendar {calendar_id} "
+                f"(attempt {attempt}/{_EVENT_PAGE_MAX_RETRIES})"
+            )
+            time.sleep(attempt)
+    raise RuntimeError("unreachable")
 
 
 def _parse_csv_npi(raw_npi: Any) -> int | None:
@@ -365,33 +430,32 @@ def batch_search_calendar_events(
         calendar_id = calendar["id"]
         all_events = []
         page_token = None
+        fetch_failed = False
 
-        try:
-            while True:
-                events_result = (
-                    service.events()
-                    .list(
-                        calendarId=calendar_id,
-                        timeMin=search_start,
-                        timeMax=search_end,
-                        singleEvents=True,
-                        orderBy="startTime",
-                        pageToken=page_token,
-                    )
-                    .execute()
+        while True:
+            try:
+                events_result = _fetch_events_page(
+                    service, calendar_id, search_start, search_end, page_token
                 )
+            except Exception:
+                logger.exception(
+                    f"Giving up fetching events for calendar "
+                    f"{calendar.get('summary', 'Unknown')} after "
+                    f"{_EVENT_PAGE_MAX_RETRIES} attempts; appointments on this "
+                    "calendar may be falsely reported missing"
+                )
+                fetch_failed = True
+                break
 
-                events = events_result.get("items", [])
-                all_events.extend(events)
+            events = events_result.get("items", [])
+            all_events.extend(events)
 
-                page_token = events_result.get("nextPageToken")
-                if not page_token:
-                    break
-        except Exception:
-            logger.exception(
-                f"Error searching calendar {calendar.get('summary', 'Unknown')}"
-            )
-            continue
+            page_token = events_result.get("nextPageToken")
+            if not page_token:
+                break
+
+        if fetch_failed:
+            reporter.log_calendar_fetch_failed(calendar.get("summary", calendar_id))
 
         if not all_events:
             continue

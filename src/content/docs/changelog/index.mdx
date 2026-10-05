@@ -2,6 +2,11 @@
 title: Changelog
 ---
 
+## 2026-10-05
+
+**Fixed**
+- Appointment sync could falsely report an appointment missing from Google Calendar if a single request to that evaluator's calendar failed partway through, even though the appointment was really there. The sync now retries a failed calendar instead of giving up on it, and the error email lists any calendar it still couldn't check so those "missing" appointments can be told apart from real ones.
+
 ## 2026-10-01
 
 **Improved**
