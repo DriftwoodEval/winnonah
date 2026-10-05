@@ -52,6 +52,7 @@ _STALE_WHERE = f"""
     LEFT JOIN {TABLE_OFFICE_DRIVE_TIME} dt
       ON dt.clientId = c.id AND dt.officeKey = o.`key`
     WHERE c.status = 1
+      AND o.archived = 0
       AND c.latitude IS NOT NULL
       AND c.longitude IS NOT NULL
       AND (

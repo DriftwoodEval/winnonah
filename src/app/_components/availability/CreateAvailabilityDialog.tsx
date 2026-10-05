@@ -85,7 +85,9 @@ export function CreateAvailabilityDialog({
 	}, [isOpen, initialData, form]);
 
 	const isUnavailability = form.watch("isUnavailability");
-	const { data: offices } = api.offices.getAll.useQuery();
+	const { data: offices } = api.offices.getAll.useQuery({
+		includeArchived: true,
+	});
 
 	const createAvailability = api.google.createAvailability.useMutation({
 		onSuccess: async (_, variables) => {

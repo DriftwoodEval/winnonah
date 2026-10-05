@@ -580,7 +580,9 @@ export const clientRouter = createTRPCRouter({
 						.select({ clientId: failures.clientId, reason: failures.reason })
 						.from(failures)
 						.where(lt(failures.reminded, 100)),
-					ctx.db.query.offices.findMany(),
+					ctx.db.query.offices.findMany({
+						where: (o, { eq }) => eq(o.archived, false),
+					}),
 				]);
 
 			const failuresByClientId = new Map<number, string[]>();
@@ -1163,7 +1165,9 @@ export const clientRouter = createTRPCRouter({
 				const clientLat = parseFloat(syncedClient.latitude);
 				const clientLon = parseFloat(syncedClient.longitude);
 				const [allOffices, driveTimeRows] = await Promise.all([
-					ctx.db.query.offices.findMany(),
+					ctx.db.query.offices.findMany({
+						where: (o, { eq }) => eq(o.archived, false),
+					}),
 					ctx.db
 						.select({
 							officeKey: officeDriveTimes.officeKey,
@@ -2774,7 +2778,9 @@ export const clientRouter = createTRPCRouter({
 						}
 					}
 
-					const allOffices = await ctx.db.query.offices.findMany();
+					const allOffices = await ctx.db.query.offices.findMany({
+						where: (o, { eq }) => eq(o.archived, false),
+					});
 
 					// When filtering by closest office we only restrict to geocoded
 					// clients in SQL here; the office match itself is done in JS

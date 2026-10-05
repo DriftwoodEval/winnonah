@@ -24,6 +24,7 @@ import { format, formatDistanceToNow } from "date-fns";
 import Link from "next/link";
 import { useState } from "react";
 import { toast } from "sonner";
+import { useCheckPermission } from "~/hooks/use-check-permission";
 import { formatInBusinessTime, formatReminderOffset } from "~/lib/utils";
 import { api, type RouterOutputs } from "~/trpc/react";
 import { ReminderTemplateDialog } from "./ReminderTemplateDialog";
@@ -32,13 +33,17 @@ type ReminderTemplate = RouterOutputs["reminders"]["getTemplates"][number];
 
 export default function ReminderSettings() {
 	const utils = api.useUtils();
+	const can = useCheckPermission();
+	const canManageOffices = can("settings:evaluators");
 	const [isModalOpen, setIsModalOpen] = useState(false);
 	const [selectedTemplate, setSelectedTemplate] =
 		useState<ReminderTemplate | null>(null);
 
 	const { data: settings } = api.reminders.getSettings.useQuery();
 	const { data: templates } = api.reminders.getTemplates.useQuery();
-	const { data: offices } = api.offices.getAll.useQuery();
+	const { data: offices } = api.offices.getAll.useQuery({
+		includeArchived: true,
+	});
 	const { data: logs } = api.reminders.getLogs.useQuery({
 		limit: 50,
 		offset: 0,
@@ -62,6 +67,15 @@ export default function ReminderSettings() {
 		onSuccess: () => {
 			void utils.offices.getAll.invalidate();
 			toast.success("Office location phrase updated");
+		},
+	});
+
+	const setOfficeArchived = api.offices.setArchived.useMutation({
+		onSuccess: (_data, variables) => {
+			void utils.offices.getAll.invalidate();
+			toast.success(
+				variables.archived ? "Office archived" : "Office unarchived",
+			);
 		},
 	});
 
@@ -123,6 +137,43 @@ export default function ReminderSettings() {
 							type="time"
 						/>
 					</div>
+				</CardContent>
+			</Card>
+
+			<Card>
+				<CardHeader>
+					<CardTitle>Offices</CardTitle>
+					<CardDescription>
+						Archived offices no longer appear in office pickers or count toward
+						the closest office. Past appointments and availability keep their
+						office.
+					</CardDescription>
+				</CardHeader>
+				<CardContent className="space-y-3">
+					{offices?.map((office) => (
+						<div
+							className="flex items-center justify-between gap-4"
+							key={office.key}
+						>
+							<span className="flex items-center gap-2">
+								{office.prettyName}
+								{office.archived && <Badge variant="outline">Archived</Badge>}
+							</span>
+							<Button
+								disabled={!canManageOffices || setOfficeArchived.isPending}
+								onClick={() =>
+									setOfficeArchived.mutate({
+										key: office.key,
+										archived: !office.archived,
+									})
+								}
+								size="sm"
+								variant="outline"
+							>
+								{office.archived ? "Unarchive" : "Archive"}
+							</Button>
+						</div>
+					))}
 				</CardContent>
 			</Card>
 

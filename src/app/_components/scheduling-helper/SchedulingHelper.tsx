@@ -279,7 +279,9 @@ function SchedulingHelperGrid({
 	lockedClient: ClientLike | null;
 	prefill?: SchedulingHelperPrefill;
 }) {
-	const { data: offices } = api.offices.getAll.useQuery();
+	const { data: offices } = api.offices.getAll.useQuery({
+		includeArchived: true,
+	});
 	const { data: evaluators, isLoading: isLoadingEvaluators } =
 		api.evaluators.getAll.useQuery();
 	const { data: queueInfo } =
@@ -1102,11 +1104,13 @@ function SchedulingHelperGrid({
 									<SelectContent>
 										<SelectItem value="any">Any office</SelectItem>
 										<SelectItem value="Virtual">Virtual</SelectItem>
-										{offices?.map((o) => (
-											<SelectItem key={o.key} value={o.key}>
-												{o.prettyName}
-											</SelectItem>
-										))}
+										{offices
+											?.filter((o) => !o.archived)
+											.map((o) => (
+												<SelectItem key={o.key} value={o.key}>
+													{o.prettyName}
+												</SelectItem>
+											))}
 									</SelectContent>
 								</Select>
 							</div>

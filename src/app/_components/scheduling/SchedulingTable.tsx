@@ -881,11 +881,13 @@ function LocationSelect({
 			</SelectTrigger>
 			<SelectContent>
 				<SelectItem value="Virtual">Virtual</SelectItem>
-				{offices.map((office) => (
-					<SelectItem key={office.key} value={office.key}>
-						{office.prettyName}
-					</SelectItem>
-				))}
+				{offices
+					.filter((office) => !office.archived)
+					.map((office) => (
+						<SelectItem key={office.key} value={office.key}>
+							{office.prettyName}
+						</SelectItem>
+					))}
 			</SelectContent>
 		</Select>
 	);

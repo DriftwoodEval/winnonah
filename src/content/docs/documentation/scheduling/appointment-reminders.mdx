@@ -41,6 +41,8 @@ The template editor lists these under both text boxes and shows a live preview w
 
 **Office location phrases.** `$OFFICE_NAME` and `$LOCATION` pull from each office's setup at the top of the same Scheduling settings page. `$OFFICE_NAME` is the office's display name; `$LOCATION` is a short phrase you write per office, and it should include the leading preposition so it reads naturally in a sentence, for example "at 123 Main St, Suite 100" or "inside Business Center at 123 Main St".
 
+**Archiving an office.** The Offices card at the top of the same page lists every office with an Archive button. Archive an office you no longer use: it disappears from office pickers and is no longer considered when finding a client's closest office, while past appointments and availability still show it. Archived offices are marked "Archived" and can be restored with Unarchive. You need the Manage Evaluators permission to archive or unarchive.
+
 > [!NOTE]
 > Virtual appointments have no office. `$OFFICE_NAME` becomes "Virtual" and `$LOCATION` becomes "virtually" automatically. An office with no location phrase set, or an appointment the system can't match to an office, leaves `$OFFICE_NAME` / `$LOCATION` blank. A misspelled token (`$STARTTIME`) is left in the message as-is, so proofread the preview.
 

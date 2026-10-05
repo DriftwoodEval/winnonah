@@ -159,13 +159,14 @@ async function computeClosestOfficeKeyCase(
 		officeMap.set(row.officeKey, parseFloat(row.distanceMiles));
 	}
 
+	const activeOffices = allOffices.filter((o) => !o.archived);
 	const whenClauses = [];
 	for (const row of rows) {
 		if (!row.latitude || !row.longitude) continue;
 		const key = getClosestOfficeKey(
 			parseFloat(row.latitude),
 			parseFloat(row.longitude),
-			allOffices,
+			activeOffices,
 			driveMilesByClientId.get(row.id),
 		);
 		if (key) whenClauses.push(sql`WHEN ${row.id} THEN ${key}`);
