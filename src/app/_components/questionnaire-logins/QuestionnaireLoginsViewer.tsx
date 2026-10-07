@@ -114,15 +114,8 @@ export function QuestionnaireLoginsViewer() {
 			<p className="text-muted-foreground text-sm">No services config found.</p>
 		);
 
-	const allServices = [
-		"medicaid",
-		"mhs",
-		"qglobal",
-		"wps",
-		"novopsych",
-	] as const;
+	const allServices = ["mhs", "qglobal", "wps", "novopsych"] as const;
 	const serviceLabels: Record<string, string> = {
-		medicaid: "SC Medicaid",
 		mhs: "MHS",
 		qglobal: "QGlobal",
 		wps: "WPS",
