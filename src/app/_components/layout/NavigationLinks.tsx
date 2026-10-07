@@ -408,18 +408,18 @@ export default function NavigationLinks() {
 					</DrawerTrigger>
 					<DrawerContent>
 						<DrawerHeader className="text-left"></DrawerHeader>
-						<div className="flex flex-col gap-4 p-4">
+						<div className="flex flex-col gap-1 overflow-y-auto p-4">
 							{allItems.map((item) => (
 								<DrawerClose asChild key={item.href}>
 									<Link
-										className={`flex items-center gap-2 ${
+										className={`flex items-center gap-3 rounded-md px-2 py-3 text-base active:bg-muted ${
 											isNavItemActive(item.href, pathname, allItemHrefs)
 												? "text-secondary"
 												: ""
 										}`}
 										href={item.href}
 									>
-										<item.icon className="h-4 w-4" />
+										<item.icon className="h-5 w-5" />
 										{item.label}
 									</Link>
 								</DrawerClose>

@@ -15,13 +15,13 @@ export function RecentClients({ onNavigate }: { onNavigate?: () => void }) {
 	if (!recentClients?.length) return null;
 
 	return (
-		<div className="flex shrink-0 items-center gap-2 overflow-x-auto rounded-lg border border-primary/20 bg-primary/5 px-3 py-2">
-			<span className="text-muted-foreground text-xs uppercase tracking-wide">
+		<div className="flex min-w-0 max-w-full shrink-0 snap-x items-center gap-2 overflow-x-auto overscroll-x-contain [-ms-overflow-style:none] [scrollbar-width:none] md:rounded-lg md:border md:border-primary/20 md:bg-primary/5 md:px-3 md:py-2 [&::-webkit-scrollbar]:hidden">
+			<span className="shrink-0 text-muted-foreground text-xs uppercase tracking-wide">
 				Recent
 			</span>
 			{recentClients.map((client) => (
 				<Link
-					className="shrink-0 whitespace-nowrap rounded-md border bg-background px-2.5 py-1 text-sm shadow-xs hover:bg-accent hover:text-accent-foreground dark:border-input dark:bg-input/30 dark:hover:bg-input/50"
+					className="shrink-0 snap-start whitespace-nowrap rounded-full border bg-background px-3 py-1.5 text-sm shadow-xs hover:bg-accent hover:text-accent-foreground md:rounded-md md:px-2.5 md:py-1 dark:border-input dark:bg-input/30 dark:hover:bg-input/50"
 					href={`/clients/${client.hash}`}
 					key={client.hash}
 					onClick={onNavigate}

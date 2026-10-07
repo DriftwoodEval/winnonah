@@ -116,7 +116,7 @@ export default function ReminderSettings() {
 						Reminders will not be sent during these hours.
 					</CardDescription>
 				</CardHeader>
-				<CardContent className="grid grid-cols-2 gap-4">
+				<CardContent className="grid grid-cols-1 gap-4 sm:grid-cols-2">
 					<div className="space-y-2">
 						<Label>Quiet Start (Evening)</Label>
 						<Input
