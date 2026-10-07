@@ -116,7 +116,7 @@ export default function ReminderSettings() {
 						Reminders will not be sent during these hours.
 					</CardDescription>
 				</CardHeader>
-				<CardContent className="grid grid-cols-2 gap-4">
+				<CardContent className="grid grid-cols-1 gap-4 sm:grid-cols-2">
 					<div className="space-y-2">
 						<Label>Quiet Start (Evening)</Label>
 						<Input
@@ -200,7 +200,7 @@ export default function ReminderSettings() {
 				<CardContent className="space-y-3">
 					{offices?.map((office) => (
 						<div
-							className="grid grid-cols-[180px_1fr] items-center gap-4"
+							className="grid grid-cols-1 gap-1.5 sm:grid-cols-[180px_1fr] sm:items-center sm:gap-4"
 							key={office.key}
 						>
 							<Label>{office.prettyName}</Label>

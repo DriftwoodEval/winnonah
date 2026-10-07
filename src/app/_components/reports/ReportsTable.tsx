@@ -526,7 +526,14 @@ export function ReportsTable({
 				<Table classNameWrapper="max-h-[calc(100vh-4.5rem)]">
 					<TableHeader className="sticky top-0 z-20 bg-background shadow-[inset_0_-1px_0_var(--border)]">
 						<TableRow>
-							<TableHead className={HEAD_CLASS}>Client</TableHead>
+							<TableHead
+								className={cn(
+									HEAD_CLASS,
+									"max-md:sticky max-md:left-0 max-md:z-10 max-md:bg-background",
+								)}
+							>
+								Client
+							</TableHead>
 							{filterHead("type", "Type")}
 							<TableHead className={HEAD_CLASS}>Eval date</TableHead>
 							{filterHead("evaluator", "Evaluator")}
@@ -557,7 +564,7 @@ export function ReportsTable({
 									key={r.id}
 									onClick={(e) => onRowClick(e, r.id)}
 								>
-									<TableCell>
+									<TableCell className="max-md:sticky max-md:left-0 max-md:z-10 max-md:bg-background">
 										<Link
 											className="text-sm hover:underline"
 											href={`/clients/${r.clientHash}`}

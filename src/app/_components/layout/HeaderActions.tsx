@@ -89,7 +89,12 @@ export function HeaderActions() {
 			{isDesktop && !isHidden("theme-switcher") && <ThemeSwitcher />}
 
 			{!session && (
-				<Button onClick={() => signIn("google")} size="sm" variant="secondary">
+				<Button
+					className="max-md:h-8"
+					onClick={() => signIn("google")}
+					size="sm"
+					variant="secondary"
+				>
 					<span className="hidden sm:block">Sign in</span>
 
 					<span className="block sm:hidden">

@@ -227,7 +227,7 @@ export function FaxCategorizationGrid() {
 							onValueChange={(value) => setReviewFilter(value as ReviewFilter)}
 							value={reviewFilter}
 						>
-							<SelectTrigger className="w-[200px]" id="review-filter">
+							<SelectTrigger className="w-full sm:w-[200px]" id="review-filter">
 								<SelectValue />
 							</SelectTrigger>
 							<SelectContent>

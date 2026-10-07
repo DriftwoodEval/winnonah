@@ -46,7 +46,7 @@ export default function GreeterSchedule() {
 						</CardTitle>
 						<div className="flex items-center gap-1">
 							<Button
-								className="h-8 w-8"
+								className="h-8 w-8 max-md:size-10"
 								onClick={() => navigate(-1)}
 								size="icon"
 								variant="ghost"
@@ -57,7 +57,7 @@ export default function GreeterSchedule() {
 								{format(new Date(`${selectedDate}T12:00:00`), "EEEE, MMMM d")}
 							</span>
 							<Button
-								className="h-8 w-8"
+								className="h-8 w-8 max-md:size-10"
 								onClick={() => navigate(1)}
 								size="icon"
 								variant="ghost"

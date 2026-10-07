@@ -159,7 +159,7 @@ export function GlobalClientSearch() {
 	return (
 		<>
 			<Button
-				className="flex h-9 w-auto cursor-pointer items-center gap-2 border-none bg-transparent px-2 shadow-none hover:bg-transparent"
+				className="flex h-9 w-auto cursor-pointer items-center gap-2 border-none bg-transparent px-2 shadow-none hover:bg-transparent max-md:h-9"
 				onClick={() => setOpen(true)}
 			>
 				<Search className="h-4 w-4 text-muted-foreground" />

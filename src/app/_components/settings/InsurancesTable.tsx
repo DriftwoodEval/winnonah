@@ -815,7 +815,7 @@ export default function InsurancesTable() {
 								</div>
 							</div>
 
-							<div className="mt-3 grid grid-cols-3 gap-3">
+							<div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-3">
 								<div>
 									<div className="text-muted-foreground text-xs">Pre-Auth</div>
 									{insurance.preAuthNeeded ? (

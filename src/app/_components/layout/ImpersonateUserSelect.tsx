@@ -63,7 +63,10 @@ export function ImpersonateUserSelect() {
 			value={session.user.isImpersonating ? session.user.id : "__self"}
 		>
 			<SelectTrigger
-				className={cn("h-7 min-w-0 border-dashed text-xs", isDesktop && "w-44")}
+				className={cn(
+					"h-7 min-w-0 border-dashed text-xs max-md:data-[size=default]:h-8",
+					isDesktop && "w-44",
+				)}
 			>
 				<SelectValue placeholder="View as...">
 					{isDesktop ? (
