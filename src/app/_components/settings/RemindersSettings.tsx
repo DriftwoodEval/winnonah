@@ -200,7 +200,7 @@ export default function ReminderSettings() {
 				<CardContent className="space-y-3">
 					{offices?.map((office) => (
 						<div
-							className="grid grid-cols-[180px_1fr] items-center gap-4"
+							className="grid grid-cols-1 gap-1.5 sm:grid-cols-[180px_1fr] sm:items-center sm:gap-4"
 							key={office.key}
 						>
 							<Label>{office.prettyName}</Label>
