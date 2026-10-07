@@ -82,6 +82,67 @@ export default function AuditLogTable() {
 	const total = data?.total ?? 0;
 	const actionCategories = groupActionsByCategory(actionNames ?? []);
 
+	type AuditRow = (typeof rows)[number];
+
+	const formatTime = (row: AuditRow) =>
+		formatInBusinessTime(row.createdAt, "M/d/yy h:mm a");
+
+	const renderUser = (row: AuditRow) => (
+		<>
+			{row.userName ?? row.userEmail}
+			{row.impersonatedBy && (
+				<span className="block text-muted-foreground text-xs">
+					impersonated by {row.impersonatedBy}
+				</span>
+			)}
+		</>
+	);
+
+	const toggleExpanded = (id: number) =>
+		setExpandedRows((prev) => {
+			const next = new Set(prev);
+			if (!next.delete(id)) next.add(id);
+			return next;
+		});
+
+	const renderAction = (row: AuditRow) => {
+		const detail = formatDetail(row.detail);
+		const expanded = expandedRows.has(row.id);
+		return (
+			<>
+				<Badge variant="outline">{row.action}</Badge>
+				{detail && (
+					<button
+						className={`block max-w-md text-left text-muted-foreground text-xs ${expanded ? "whitespace-pre-wrap break-words" : "truncate"}`}
+						onClick={() => toggleExpanded(row.id)}
+						title={expanded ? undefined : "Click to expand"}
+						type="button"
+					>
+						{detail}
+					</button>
+				)}
+			</>
+		);
+	};
+
+	const renderClient = (row: AuditRow) =>
+		row.clientId && row.clientHash ? (
+			<Link className="hover:underline" href={`/clients/${row.clientHash}`}>
+				{row.clientFirstName} {row.clientLastName}
+			</Link>
+		) : (
+			<span className="text-muted-foreground">—</span>
+		);
+
+	const renderStatus = (row: AuditRow) =>
+		row.success ? (
+			<Badge variant="outline">Success</Badge>
+		) : (
+			<Badge title={row.errorMessage ?? ""} variant="destructive">
+				Failed
+			</Badge>
+		);
+
 	function resetAndSet<T>(setter: (value: T) => void) {
 		return (value: T) => {
 			setOffset(0);
@@ -100,7 +161,7 @@ export default function AuditLogTable() {
 					)}
 					value={userId ?? "all"}
 				>
-					<SelectTrigger className="w-[200px]">
+					<SelectTrigger className="w-full sm:w-[200px]">
 						<SelectValue placeholder="All users" />
 					</SelectTrigger>
 					<SelectContent>
@@ -119,7 +180,7 @@ export default function AuditLogTable() {
 					)}
 					value={action || "all"}
 				>
-					<SelectTrigger className="w-[240px]">
+					<SelectTrigger className="w-full sm:w-[240px]">
 						<SelectValue placeholder="All actions" />
 					</SelectTrigger>
 					<SelectContent>
@@ -150,7 +211,7 @@ export default function AuditLogTable() {
 						<X className="h-4 w-4" />
 					</Button>
 				) : (
-					<div className="w-[240px]">
+					<div className="w-full sm:w-[240px]">
 						<ClientSearchAndAdd
 							addButtonLabel="Filter"
 							floating
@@ -164,7 +225,7 @@ export default function AuditLogTable() {
 				)}
 			</div>
 
-			<div className="overflow-x-auto">
+			<div className="hidden overflow-x-auto md:block">
 				<Table>
 					<TableHeader>
 						<TableRow>
@@ -186,75 +247,42 @@ export default function AuditLogTable() {
 							rows.map((row) => (
 								<TableRow key={row.id}>
 									<TableCell className="whitespace-nowrap">
-										{formatInBusinessTime(row.createdAt, "M/d/yy h:mm a")}
+										{formatTime(row)}
 									</TableCell>
-									<TableCell>
-										{row.userName ?? row.userEmail}
-										{row.impersonatedBy && (
-											<span className="block text-muted-foreground text-xs">
-												impersonated by {row.impersonatedBy}
-											</span>
-										)}
-									</TableCell>
-									<TableCell>
-										<Badge variant="outline">{row.action}</Badge>
-										{formatDetail(row.detail) &&
-											(expandedRows.has(row.id) ? (
-												<button
-													className="block max-w-md whitespace-pre-wrap break-words text-left text-muted-foreground text-xs"
-													onClick={() =>
-														setExpandedRows((prev) => {
-															const next = new Set(prev);
-															next.delete(row.id);
-															return next;
-														})
-													}
-													type="button"
-												>
-													{formatDetail(row.detail)}
-												</button>
-											) : (
-												<button
-													className="block max-w-md truncate text-left text-muted-foreground text-xs"
-													onClick={() =>
-														setExpandedRows((prev) => new Set(prev).add(row.id))
-													}
-													title="Click to expand"
-													type="button"
-												>
-													{formatDetail(row.detail)}
-												</button>
-											))}
-									</TableCell>
-									<TableCell>
-										{row.clientId && row.clientHash ? (
-											<Link
-												className="hover:underline"
-												href={`/clients/${row.clientHash}`}
-											>
-												{row.clientFirstName} {row.clientLastName}
-											</Link>
-										) : (
-											<span className="text-muted-foreground">—</span>
-										)}
-									</TableCell>
-									<TableCell>
-										{row.success ? (
-											<Badge variant="outline">Success</Badge>
-										) : (
-											<Badge
-												title={row.errorMessage ?? ""}
-												variant="destructive"
-											>
-												Failed
-											</Badge>
-										)}
-									</TableCell>
+									<TableCell>{renderUser(row)}</TableCell>
+									<TableCell>{renderAction(row)}</TableCell>
+									<TableCell>{renderClient(row)}</TableCell>
+									<TableCell>{renderStatus(row)}</TableCell>
 								</TableRow>
 							))
 						)}
 					</TableBody>
 				</Table>
+			</div>
+
+			<div className="flex flex-col gap-2 md:hidden">
+				{rows.length === 0 ? (
+					<p className="py-4 text-center text-sm">
+						No audit log entries found.
+					</p>
+				) : (
+					rows.map((row) => (
+						<div
+							className="space-y-1.5 rounded-lg border p-3 text-sm"
+							key={row.id}
+						>
+							<div className="flex items-center justify-between gap-2">
+								<span className="text-muted-foreground text-xs">
+									{formatTime(row)}
+								</span>
+								{renderStatus(row)}
+							</div>
+							<div>{renderUser(row)}</div>
+							<div>{renderAction(row)}</div>
+							<div>{renderClient(row)}</div>
+						</div>
+					))
+				)}
 			</div>
 
 			<div className="flex items-center justify-between">

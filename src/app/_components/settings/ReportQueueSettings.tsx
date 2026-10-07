@@ -95,7 +95,7 @@ export default function ReportQueueSettings() {
 						First review label
 					</Label>
 					<Input
-						className="w-48"
+						className="w-full sm:w-48"
 						id="first-review-label"
 						onChange={(e) => {
 							setFirstReviewLabel(e.target.value);
@@ -107,7 +107,7 @@ export default function ReportQueueSettings() {
 						Second review label
 					</Label>
 					<Input
-						className="w-48"
+						className="w-full sm:w-48"
 						id="second-review-label"
 						onChange={(e) => {
 							setSecondReviewLabel(e.target.value);

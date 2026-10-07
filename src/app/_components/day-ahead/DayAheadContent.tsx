@@ -589,12 +589,12 @@ export function DayAheadContent() {
 
 	return (
 		<TooltipProvider>
-			<div className="flex h-full flex-col gap-4 overflow-auto p-6">
+			<div className="flex h-full flex-col gap-4 overflow-auto p-3 sm:p-6">
 				{/* Header */}
 				<div className="flex flex-wrap items-center gap-3">
 					<div className="flex items-center gap-1">
 						<Button
-							className="h-7 w-7"
+							className="h-7 w-7 max-md:size-10"
 							onClick={() => navigate(-1)}
 							size="icon"
 							variant="ghost"
@@ -605,7 +605,7 @@ export function DayAheadContent() {
 							{displayDate}
 						</h1>
 						<Button
-							className="h-7 w-7"
+							className="h-7 w-7 max-md:size-10"
 							onClick={() => navigate(1)}
 							size="icon"
 							variant="ghost"
