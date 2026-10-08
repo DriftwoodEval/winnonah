@@ -47,6 +47,8 @@ class TestReadEligibility:
             "medicaidCarrier1": "CARRIER ONE",
             "medicaidCarrier2": "CARRIER TWO",
             "limitedBenefit": "NO",
+            "medicaidSpecialProgram": None,
+            "medicaidSpecialProgramMessage": None,
         }
 
     def test_missing_carriers_are_none(self, driver):
