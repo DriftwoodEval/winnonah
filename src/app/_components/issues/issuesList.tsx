@@ -21,6 +21,7 @@ import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { useCheckPermission } from "~/hooks/use-check-permission";
+import { useIssueCounts } from "~/hooks/use-issue-counts";
 import type {
 	DuplicateDriveGroup,
 	SharedQuestionnaireData,
@@ -1259,79 +1260,8 @@ export function IssuesList() {
 			enabled: can("issues:duplicate-names"),
 		});
 
-	// Lists the user can see that finished loading with no items. Queries the
-	// user lacks permission for are disabled and stay undefined, so they are skipped.
-	const issueCounts: { title: string; count: number | undefined }[] = [
-		{ title: "In DD4", count: dd4?.length },
-		{
-			title: "Just Added Questionnaires",
-			count: justAddedQuestionnaires?.length,
-		},
-		{ title: "Paused Clients", count: pausedClients?.length },
-		{ title: "Evaluation In Process", count: evaluationInProcess?.length },
-		{ title: "Appointments to be Created", count: missingAppointments?.length },
-		{ title: "Autism Stops", count: autismStops?.length },
-		{
-			title: "Punchlist Clients Not In DB",
-			count: can("issues:clients-not-in-db")
-				? punchlistIssues?.clientsNotInDb.length
-				: undefined,
-		},
-		{
-			title: "Punchlist Clients Inactive",
-			count: can("issues:punchlist-inactive")
-				? punchlistIssues?.inactiveClients.length
-				: undefined,
-		},
-		{
-			title: "Duplicate Punchlist IDs",
-			count: can("issues:punchlist-duplicates")
-				? punchlistIssues && punchlistDuplicateIds.length
-				: undefined,
-		},
-		{ title: "No Referral Source", count: noReferralSource?.length },
-		{
-			title: "Missing Districts",
-			count: districtErrors && clientsWithoutDistrict.length,
-		},
-		{
-			title: "Poor Address Lookup",
-			count: districtErrors && clientsWithPoorAddressLookup.length,
-		},
-		{ title: "Too Old for BabyNet", count: babyNetErrors?.length },
-		{ title: "Not in TA", count: notInTAErrors?.length },
-		{ title: "Drop List", count: dropList?.length },
-		{ title: "Notes Only", count: notesOnlyClients?.length },
-		{ title: "No Drive IDs", count: noDriveIds?.length },
-		{ title: "Potential Private Pay", count: possiblePrivatePay?.length },
-		{
-			title: "Unreviewed/Unreceived Records",
-			count: unreviewedRecords?.length,
-		},
-		{
-			title: "Charter School Awaiting Confirmation",
-			count: unconfirmedCharterSchool?.length,
-		},
-		{ title: "Insurance Doesn't Match", count: insuranceMismatch?.length },
-		{
-			title: "Duplicate Drive Folders",
-			count: duplicateFolderNames?.data.length,
-		},
-		{
-			title: "Clients with Duplicate Questionnaire Links",
-			count: duplicateQLinks && clientsWithDuplicateLinks.length,
-		},
-		{
-			title: "Clients Sharing Questionnaires",
-			count: duplicateQLinks?.sharedAcrossClients.length,
-		},
-		{ title: "Duplicate Client Names", count: duplicateNames?.length },
-		{
-			title: "Partial Questionnaire Batteries",
-			count: partialBatteries?.length,
-		},
-	];
-	const emptyLists = issueCounts
+	// Lists the user can see that finished loading with no items.
+	const emptyLists = useIssueCounts({ refetchInterval: 60_000 })
 		.filter(({ count }) => count === 0)
 		.map(({ title }) => title);
 
