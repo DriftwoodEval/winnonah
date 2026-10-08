@@ -968,6 +968,8 @@ FIELDS = {
     "medicaidCarrier1": "ONE",
     "medicaidCarrier2": None,
     "limitedBenefit": "NO",
+    "medicaidSpecialProgram": "WAIVER",
+    "medicaidSpecialProgramMessage": "Enrolled",
 }
 
 
@@ -987,6 +989,8 @@ class TestUpdateClientMedicaidEligibility:
             "ONE",
             None,
             "NO",
+            "WAIVER",
+            "Enrolled",
             "policy-1",
             5,
         )
