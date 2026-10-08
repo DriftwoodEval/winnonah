@@ -26,6 +26,7 @@ import type {
 	DuplicateDriveGroup,
 	SharedQuestionnaireData,
 } from "~/lib/api-types";
+import { ISSUE_TITLES } from "~/lib/issue-titles";
 import type { Client, ClientWithIssueInfo } from "~/lib/models";
 import type { PermissionId } from "~/lib/types";
 import { formatInBusinessTime, formatShortDate } from "~/lib/utils";
@@ -673,7 +674,7 @@ export const DuplicateNamesList = ({
 			>
 				<div className="p-4">
 					<h1 className="mb-1 font-bold text-lg leading-none">
-						Duplicate Client Names{" "}
+						{ISSUE_TITLES.duplicateNames}{" "}
 						<span className="font-medium text-muted-foreground text-sm">
 							({totalPairs} pair{totalPairs !== 1 ? "s" : ""})
 						</span>
@@ -790,7 +791,7 @@ export const DuplicateDriveFoldersList = ({
 				<div className="flex flex-col p-4">
 					<div className="flex items-center justify-between">
 						<h1 className="font-bold text-lg leading-none">
-							Duplicate Drive Folders{" "}
+							{ISSUE_TITLES.duplicateDriveFolders}{" "}
 							<span className="font-medium text-muted-foreground text-sm">
 								({duplicates.length} client{duplicates.length !== 1 ? "s" : ""})
 							</span>
@@ -893,7 +894,7 @@ export const ClientsSharingQuestionnaires = ({
 			>
 				<div className="p-4">
 					<h1 className="mb-1 font-bold text-lg leading-none">
-						Clients Sharing Questionnaires{" "}
+						{ISSUE_TITLES.sharedQuestionnaires}{" "}
 						<span className="font-medium text-muted-foreground text-sm">
 							({sharedLinksData.length} shared link
 							{sharedLinksData.length > 1 ? "s" : ""})
@@ -998,7 +999,7 @@ export const PartialBatteryList = ({
 			>
 				<div className="flex flex-col p-4">
 					<h1 className="font-bold text-lg leading-none">
-						Partial Questionnaire Batteries{" "}
+						{ISSUE_TITLES.partialBatteries}{" "}
 						<span className="font-medium text-muted-foreground text-sm">
 							({clients.length} client{clients.length !== 1 ? "s" : ""})
 						</span>
@@ -1272,7 +1273,7 @@ export function IssuesList() {
 					<IssueList
 						clients={dd4}
 						description="Clients located in Dorchester District 4."
-						title="In DD4"
+						title={ISSUE_TITLES.dd4}
 					/>
 				)}
 			</GuardedIssue>
@@ -1285,7 +1286,7 @@ export function IssuesList() {
 					<IssueList
 						clients={justAddedQuestionnaires}
 						description="Questionnaires generated but not sent to client."
-						title="Just Added Questionnaires"
+						title={ISSUE_TITLES.justAddedQuestionnaires}
 					/>
 				)}
 			</GuardedIssue>
@@ -1298,7 +1299,7 @@ export function IssuesList() {
 					<IssueList
 						clients={pausedClients}
 						description="Manually paused clients for review."
-						title="Paused Clients"
+						title={ISSUE_TITLES.pausedClients}
 					/>
 				)}
 			</GuardedIssue>
@@ -1311,7 +1312,7 @@ export function IssuesList() {
 					<IssueList
 						clients={evaluationInProcess}
 						description="Clients with an evaluation currently in process."
-						title="Evaluation In Process"
+						title={ISSUE_TITLES.evaluationInProcess}
 					/>
 				)}
 			</GuardedIssue>
@@ -1324,7 +1325,7 @@ export function IssuesList() {
 					<IssueList
 						clients={missingAppointments}
 						description="Clients with fewer scheduled appointments than the insurance calculation requires."
-						title="Appointments to be Created"
+						title={ISSUE_TITLES.missingAppointments}
 					/>
 				)}
 			</GuardedIssue>
@@ -1337,7 +1338,7 @@ export function IssuesList() {
 					<IssueList
 						clients={autismStops}
 						description='"Autism" found in school records, should be discharged.'
-						title="Autism Stops"
+						title={ISSUE_TITLES.autismStops}
 					/>
 				)}
 			</GuardedIssue>
@@ -1363,7 +1364,7 @@ export function IssuesList() {
 								newId: suggestedId,
 							})
 						}
-						title="Punchlist Clients Not In DB"
+						title={ISSUE_TITLES.punchlistNotInDb}
 					/>
 				)}
 			</GuardedIssue>
@@ -1376,7 +1377,7 @@ export function IssuesList() {
 					<IssueList
 						clients={punchlistIssues.inactiveClients}
 						description="Inactive clients currently on the punchlist."
-						title="Punchlist Clients Inactive"
+						title={ISSUE_TITLES.punchlistInactive}
 					/>
 				)}
 			</GuardedIssue>
@@ -1389,7 +1390,7 @@ export function IssuesList() {
 					<IssueList
 						clients={punchlistDuplicateIds as ClientWithIssueInfo[]}
 						description="Duplicate client IDs found on the punchlist."
-						title="Duplicate Punchlist IDs"
+						title={ISSUE_TITLES.punchlistDuplicateIds}
 					/>
 				)}
 			</GuardedIssue>
@@ -1402,7 +1403,7 @@ export function IssuesList() {
 					<IssueList
 						clients={noReferralSource}
 						description="Active clients with no referral source."
-						title="No Referral Source"
+						title={ISSUE_TITLES.noReferralSource}
 					/>
 				)}
 			</GuardedIssue>
@@ -1415,7 +1416,7 @@ export function IssuesList() {
 					<IssueList
 						clients={clientsWithoutDistrict}
 						description="Clients missing a school district."
-						title="Missing Districts"
+						title={ISSUE_TITLES.missingDistricts}
 					/>
 				)}
 			</GuardedIssue>
@@ -1429,7 +1430,7 @@ export function IssuesList() {
 						<IssueList
 							clients={clientsWithPoorAddressLookup}
 							description="Address info was only found after cutting, should be double checked."
-							title="Poor Address Lookup"
+							title={ISSUE_TITLES.poorAddressLookup}
 						/>
 					)}
 			</GuardedIssue>
@@ -1442,7 +1443,7 @@ export function IssuesList() {
 					<IssueList
 						clients={babyNetErrors}
 						description="Clients who have aged out of BabyNet eligibility, but still have it listed."
-						title="Too Old for BabyNet"
+						title={ISSUE_TITLES.babyNetAgeOut}
 					/>
 				)}
 			</GuardedIssue>
@@ -1455,7 +1456,7 @@ export function IssuesList() {
 					<IssueList
 						clients={notInTAErrors}
 						description="Clients who were not imported from TA and were not added using the Notes Only feature."
-						title="Not in TA"
+						title={ISSUE_TITLES.notInTA}
 					/>
 				)}
 			</GuardedIssue>
@@ -1465,7 +1466,7 @@ export function IssuesList() {
 					<IssueList
 						clients={dropList}
 						description="Clients who have been reminded more than 3 times and aren't completing tasks."
-						title="Drop List"
+						title={ISSUE_TITLES.dropList}
 					/>
 				)}
 			</GuardedIssue>
@@ -1494,7 +1495,7 @@ export function IssuesList() {
 									(s) => s.notesOnlyClient.id === client.id,
 								)?.suggestedRealClients ?? [],
 						}))}
-						title="Notes Only"
+						title={ISSUE_TITLES.notesOnly}
 					/>
 				)}
 			</GuardedIssue>
@@ -1507,7 +1508,7 @@ export function IssuesList() {
 					<IssueList
 						clients={noDriveIds}
 						description="Clients missing a Google Drive folder ID."
-						title="No Drive IDs"
+						title={ISSUE_TITLES.noDriveIds}
 					/>
 				)}
 			</GuardedIssue>
@@ -1521,7 +1522,7 @@ export function IssuesList() {
 						clients={possiblePrivatePay}
 						description="Clients with no eligible evaluators based on insurance and district/zip code."
 						showOutreachLog
-						title="Potential Private Pay"
+						title={ISSUE_TITLES.possiblePrivatePay}
 					/>
 				)}
 			</GuardedIssue>
@@ -1534,7 +1535,7 @@ export function IssuesList() {
 					<IssueList
 						clients={unreviewedRecords}
 						description="Records needed and requested more than 3 weekdays ago, but not reviewed."
-						title="Unreviewed/Unreceived Records"
+						title={ISSUE_TITLES.unreviewedRecords}
 					/>
 				)}
 			</GuardedIssue>
@@ -1547,7 +1548,7 @@ export function IssuesList() {
 					<IssueList
 						clients={unconfirmedCharterSchool}
 						description="Intake says charter school. Records requests wait until someone confirms it on the Referral tab."
-						title="Charter School Awaiting Confirmation"
+						title={ISSUE_TITLES.charterSchoolConfirm}
 					/>
 				)}
 			</GuardedIssue>
@@ -1560,7 +1561,7 @@ export function IssuesList() {
 					<IssueList
 						clients={insuranceMismatch}
 						description="Medicaid portal organization doesn't match either insurance on file."
-						title="Insurance Doesn't Match"
+						title={ISSUE_TITLES.insuranceMismatch}
 					/>
 				)}
 			</GuardedIssue>
@@ -1585,7 +1586,7 @@ export function IssuesList() {
 					<IssueList
 						clients={clientsWithDuplicateLinks}
 						description="Clients who have the same questionnaire link multiple times."
-						title="Clients with Duplicate Questionnaire Links"
+						title={ISSUE_TITLES.duplicateQuestionnaireLinks}
 					/>
 				)}
 			</GuardedIssue>

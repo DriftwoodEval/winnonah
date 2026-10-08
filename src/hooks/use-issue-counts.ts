@@ -1,4 +1,5 @@
 import { useCheckPermission } from "~/hooks/use-check-permission";
+import { ISSUE_TITLES } from "~/lib/issue-titles";
 import { api } from "~/trpc/react";
 
 export interface IssueCount {
@@ -132,75 +133,84 @@ export function useIssueCounts(
 		).size;
 
 	return [
-		{ title: "In DD4", count: dd4?.length },
+		{ title: ISSUE_TITLES.dd4, count: dd4?.length },
 		{
-			title: "Just Added Questionnaires",
+			title: ISSUE_TITLES.justAddedQuestionnaires,
 			count: justAddedQuestionnaires?.length,
 		},
-		{ title: "Paused Clients", count: pausedClients?.length },
-		{ title: "Evaluation In Process", count: evaluationInProcess?.length },
-		{ title: "Appointments to be Created", count: missingAppointments?.length },
-		{ title: "Autism Stops", count: autismStops?.length },
+		{ title: ISSUE_TITLES.pausedClients, count: pausedClients?.length },
 		{
-			title: "Punchlist Clients Not In DB",
+			title: ISSUE_TITLES.evaluationInProcess,
+			count: evaluationInProcess?.length,
+		},
+		{
+			title: ISSUE_TITLES.missingAppointments,
+			count: missingAppointments?.length,
+		},
+		{ title: ISSUE_TITLES.autismStops, count: autismStops?.length },
+		{
+			title: ISSUE_TITLES.punchlistNotInDb,
 			count: can("issues:clients-not-in-db")
 				? punchlistIssues?.clientsNotInDb.length
 				: undefined,
 		},
 		{
-			title: "Punchlist Clients Inactive",
+			title: ISSUE_TITLES.punchlistInactive,
 			count: can("issues:punchlist-inactive")
 				? punchlistIssues?.inactiveClients.length
 				: undefined,
 		},
 		{
-			title: "Duplicate Punchlist IDs",
+			title: ISSUE_TITLES.punchlistDuplicateIds,
 			count: can("issues:punchlist-duplicates")
 				? punchlistIssues?.duplicateIdClients.length
 				: undefined,
 		},
-		{ title: "No Referral Source", count: noReferralSource?.length },
+		{ title: ISSUE_TITLES.noReferralSource, count: noReferralSource?.length },
 		{
-			title: "Missing Districts",
+			title: ISSUE_TITLES.missingDistricts,
 			count: districtErrors?.clientsWithoutDistrict.length,
 		},
 		{
-			title: "Poor Address Lookup",
+			title: ISSUE_TITLES.poorAddressLookup,
 			count: districtErrors?.clientsWithPoorAddressLookup.length,
 		},
-		{ title: "Too Old for BabyNet", count: babyNetErrors?.length },
-		{ title: "Not in TA", count: notInTAErrors?.length },
-		{ title: "Drop List", count: dropList?.length },
-		{ title: "Notes Only", count: notesOnlyClients?.length },
-		{ title: "No Drive IDs", count: noDriveIds?.length },
-		{ title: "Potential Private Pay", count: possiblePrivatePay?.length },
+		{ title: ISSUE_TITLES.babyNetAgeOut, count: babyNetErrors?.length },
+		{ title: ISSUE_TITLES.notInTA, count: notInTAErrors?.length },
+		{ title: ISSUE_TITLES.dropList, count: dropList?.length },
+		{ title: ISSUE_TITLES.notesOnly, count: notesOnlyClients?.length },
+		{ title: ISSUE_TITLES.noDriveIds, count: noDriveIds?.length },
 		{
-			title: "Unreviewed/Unreceived Records",
+			title: ISSUE_TITLES.possiblePrivatePay,
+			count: possiblePrivatePay?.length,
+		},
+		{
+			title: ISSUE_TITLES.unreviewedRecords,
 			count: unreviewedRecords?.length,
 		},
 		{
-			title: "Charter School Awaiting Confirmation",
+			title: ISSUE_TITLES.charterSchoolConfirm,
 			count: unconfirmedCharterSchool?.length,
 		},
-		{ title: "Insurance Doesn't Match", count: insuranceMismatch?.length },
+		{ title: ISSUE_TITLES.insuranceMismatch, count: insuranceMismatch?.length },
 		{
-			title: "Duplicate Drive Folders",
+			title: ISSUE_TITLES.duplicateDriveFolders,
 			count: duplicateFolderNames?.data.length,
 		},
 		{
-			title: "Clients with Duplicate Questionnaire Links",
+			title: ISSUE_TITLES.duplicateQuestionnaireLinks,
 			count: clientsWithDuplicateLinks,
 		},
 		{
-			title: "Clients Sharing Questionnaires",
+			title: ISSUE_TITLES.sharedQuestionnaires,
 			count: duplicateQLinks?.sharedAcrossClients.length,
 		},
 		{
-			title: "Duplicate Client Names",
+			title: ISSUE_TITLES.duplicateNames,
 			count: duplicateNames?.reduce((sum, g) => sum + g.pairs.length, 0),
 		},
 		{
-			title: "Partial Questionnaire Batteries",
+			title: ISSUE_TITLES.partialBatteries,
 			count:
 				partialBatteries && new Set(partialBatteries.map((b) => b.id)).size,
 		},
