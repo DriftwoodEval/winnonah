@@ -476,7 +476,11 @@ def main(
         str | None,
         typer.Option(
             "--medicaid-preview",
-            help="Log in to SC Medicaid Portal, search this Medicaid ID, and log every field found (no DB writes)",
+            help=(
+                "Log in to SC Medicaid Portal, search this client, and log every "
+                "field found (no DB writes). Takes a raw Medicaid ID, or an "
+                "internal client ID/name to look the Medicaid ID up from the DB"
+            ),
         ),
     ] = None,
 ):

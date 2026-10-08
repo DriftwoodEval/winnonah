@@ -128,6 +128,8 @@ type MedicaidEligibility = {
 	medicaidCarrier1: string | null;
 	medicaidCarrier2: string | null;
 	limitedBenefit: string | null;
+	medicaidSpecialProgram: string | null;
+	medicaidSpecialProgramMessage: string | null;
 };
 
 function PolicyCard({
@@ -364,7 +366,16 @@ function PolicyCard({
 								label="Limited Benefit"
 								value={medicaidEligibility.limitedBenefit}
 							/>
+							<InfoRow
+								label="Special Program"
+								value={medicaidEligibility.medicaidSpecialProgram}
+							/>
 						</div>
+						{medicaidEligibility.medicaidSpecialProgramMessage && (
+							<p className="mt-2 text-muted-foreground text-sm">
+								{medicaidEligibility.medicaidSpecialProgramMessage}
+							</p>
+						)}
 					</>
 				)}
 			</CardContent>
@@ -394,6 +405,9 @@ export function InsuranceTab({ client }: InsuranceTabProps) {
 				medicaidCarrier1: client.medicaidCarrier1 ?? null,
 				medicaidCarrier2: client.medicaidCarrier2 ?? null,
 				limitedBenefit: client.limitedBenefit ?? null,
+				medicaidSpecialProgram: client.medicaidSpecialProgram ?? null,
+				medicaidSpecialProgramMessage:
+					client.medicaidSpecialProgramMessage ?? null,
 			}
 		: undefined;
 

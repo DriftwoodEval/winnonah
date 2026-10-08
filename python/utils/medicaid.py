@@ -10,6 +10,7 @@ come from the medicaid entry in the app's services config (Settings >
 QSuite tab), not from environment variables.
 """
 
+import re
 from time import sleep
 
 from loguru import logger
@@ -220,7 +221,7 @@ def _open_query_form(driver: WebDriver, max_attempts: int = 3) -> WebElement:
 
 def search_single_client(driver: WebDriver, client_id: str) -> dict[str, str | None]:
     """Search for a single client in SC Medicaid Portal and return the scraped fields."""
-    logger.info(f"Searching for client {client_id}")
+    logger.info("Searching for client")
     _open_query_form(driver).send_keys(client_id)
     w.click_element(driver, By.NAME, "checkEligibilityButton")
     w.click_element(driver, By.NAME, "displayButton1")
@@ -246,6 +247,14 @@ def read_eligibility(driver: WebDriver) -> dict[str, str | None]:
     limited_benefit = driver.find_elements(
         By.XPATH, "//li[label[text()='Limited Benefit:']]/p"
     )
+    special_program = driver.find_elements(
+        By.XPATH,
+        "//table[@id='rspTbl']//td[normalize-space()='Description:']/following-sibling::td[1]",
+    )
+    special_program_message = driver.find_elements(
+        By.XPATH,
+        "//table[@id='rspTbl']//td[normalize-space()='Message:']/following-sibling::td[1]",
+    )
     return {
         "qualCategory": qual_category.text,
         "paymentCategory": payment_category.text,
@@ -253,18 +262,48 @@ def read_eligibility(driver: WebDriver) -> dict[str, str | None]:
         "medicaidCarrier1": carriers[0].text if len(carriers) > 0 else None,
         "medicaidCarrier2": carriers[1].text if len(carriers) > 1 else None,
         "limitedBenefit": limited_benefit[0].text if limited_benefit else None,
+        "medicaidSpecialProgram": special_program[0].text if special_program else None,
+        "medicaidSpecialProgramMessage": special_program_message[0].text
+        if special_program_message
+        else None,
     }
 
 
-def preview_medicaid_lookup(medicaid_id: str) -> None:
-    """Log in, search one Medicaid ID, and log every label/value pair on the results page.
+def _resolve_medicaid_id(client: str) -> str:
+    """Resolve a raw Medicaid ID, or an internal client ID/name, to a Medicaid ID."""
+    if re.fullmatch(r"\d{10}", client):
+        return client
 
-    Writes nothing to the database. Use it to check what the portal shows and
-    that search_single_client's labels match.
+    clients = utils.database.get_medicaid_clients_with_ids(only_due=False)
+    matches = [
+        c
+        for c in clients
+        if str(c["id"]) == client
+        or client.lower() in f"{c['firstName']} {c['lastName']}".lower()
+    ]
+    if not matches:
+        raise ValueError(f"No Medicaid-portal client found matching {client!r}")
+    if len(matches) > 1:
+        raise ValueError(
+            f"Multiple clients match {client!r}, use the internal client ID instead"
+        )
+    return matches[0]["insuranceNumber"]
+
+
+def preview_medicaid_lookup(client: str) -> None:
+    """Log in, search one client, and log every label/value pair on the results page.
+
+    `client` is a raw Medicaid ID, or an internal client ID/name to look up the
+    Medicaid ID for. Writes nothing to the database. Use it to check what the
+    portal shows and that search_single_client's labels match.
     """
+    medicaid_id = _resolve_medicaid_id(client)
     driver = check_and_login_medicaid(first_time=True)
     try:
         eligibility = search_single_client(driver, medicaid_id)
+        input(
+            "Results page loaded, inspect the browser now. Press Enter to continue..."
+        )
         logger.info(f"Scraped: {eligibility}")
         logger.info("All label/value pairs on the page:")
         for item in driver.find_elements(By.XPATH, "//li[label]"):
