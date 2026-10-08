@@ -55,6 +55,7 @@ export function RelatedClients({
 		onSuccess: () => {
 			toast.success("Clients linked");
 			utils.clients.getOne.invalidate();
+			utils.clients.getSuggestedRelatedByPhone.invalidate();
 		},
 		onError: (error) => {
 			toast.error("Failed to link clients", {
@@ -67,6 +68,7 @@ export function RelatedClients({
 		onSuccess: () => {
 			toast.success("Clients unlinked");
 			utils.clients.getOne.invalidate();
+			utils.clients.getSuggestedRelatedByPhone.invalidate();
 		},
 		onError: (error) => {
 			toast.error("Failed to unlink clients", {
