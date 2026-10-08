@@ -2477,6 +2477,14 @@ def get_all_evaluators_npi_map(
 
 
 @provide_connection
+def get_archived_evaluator_npis(connection: Connection[DictCursor]) -> set[int]:
+    """Returns the NPIs of archived evaluators, who have no live Google Calendar."""
+    with connection.cursor() as cursor:
+        cursor.execute(f"SELECT npi FROM {TABLE_EVALUATOR} WHERE archived = 1")
+        return {row["npi"] for row in cursor.fetchall()}
+
+
+@provide_connection
 def get_npi_to_name_map(
     connection: Connection[DictCursor],
 ) -> dict[int, str]:

@@ -16,6 +16,7 @@ from utils.database import (
     compute_and_store_assessment_snapshot,
     get_all_evaluators_npi_map,
     get_appointments_needing_folder_move,
+    get_archived_evaluator_npis,
     get_client_id_to_asd_adhd_map,
     get_client_id_to_dob_map,
     get_client_id_to_hash_map,
@@ -586,6 +587,7 @@ def prepare_appointments_from_csv(
     trusted_ids: set[str],
     ignored_ids: set[str],
     npi_cache: dict[str, int],
+    archived_npis: set[int],
 ):
     """Load CSV, filter invalid rows, and merge with Google Calendar data."""
 
@@ -726,6 +728,15 @@ def prepare_appointments_from_csv(
     cancelled_df = appointments_df[cancelled_mask].copy()
     appointments_df = appointments_df[~cancelled_mask].copy().reset_index(drop=True)
 
+    # Archived evaluators have no live Google Calendar to match against (their
+    # calendar is transferred to an empty placeholder on offboarding), so trust
+    # the TherapyAppointment import directly instead of reporting them missing.
+    archived_mask = appointments_df["NPI"].apply(
+        lambda n: _parse_csv_npi(n) in archived_npis
+    )
+    archived_df = appointments_df[archived_mask].copy()
+    appointments_df = appointments_df[~archived_mask].copy().reset_index(drop=True)
+
     logger.info(f"Searching Google Calendar for {len(appointments_df)} appointments...")
 
     calendars = []
@@ -804,7 +815,10 @@ def prepare_appointments_from_csv(
         appointments_df.update(updates_df)
 
     result_df = appointments_df.drop(index=list(final_drops)).reset_index(drop=True)
-    return pd.concat([result_df, cancelled_df], ignore_index=True), billing_df
+    return (
+        pd.concat([result_df, archived_df, cancelled_df], ignore_index=True),
+        billing_df,
+    )
 
 
 def insert_appointments_with_gcal(appointment_sync_data: dict[str, list[str]] | None):
@@ -824,6 +838,7 @@ def insert_appointments_with_gcal(appointment_sync_data: dict[str, list[str]] | 
 
     reporter = SyncReporter()
     npi_cache = get_all_evaluators_npi_map()
+    archived_npis = get_archived_evaluator_npis()
 
     logger.info("Processing appointments from CSV and Google Calendar...")
     appointments_df, billing_df = prepare_appointments_from_csv(
@@ -831,6 +846,7 @@ def insert_appointments_with_gcal(appointment_sync_data: dict[str, list[str]] | 
         trusted_ids=trusted_ids,
         ignored_ids=ignored_ids,
         npi_cache=npi_cache,
+        archived_npis=archived_npis,
     )
 
     if appointments_df.empty and billing_df.empty:
@@ -883,6 +899,8 @@ def insert_appointments_with_gcal(appointment_sync_data: dict[str, list[str]] | 
             cpt_code = re.sub(r"\D", "", appointment["NAME"]) or "N/A"
 
             is_trusted = appointment_id in trusted_ids
+            csv_npi = _parse_csv_npi(appointment.get("NPI"))
+            archived_evaluator = csv_npi in archived_npis
 
             evaluator_npi = None
             gcal_location = None
@@ -906,18 +924,26 @@ def insert_appointments_with_gcal(appointment_sync_data: dict[str, list[str]] | 
                 )
                 confirmed_at = now_utc() if is_confirmed else None
 
-            elif is_trusted or cancelled:
-                # Fallback to CSV NPI (trusted imports and cancelled appointments)
-                evaluator_npi = _parse_csv_npi(appointment.get("NPI"))
+            elif is_trusted or cancelled or archived_evaluator:
+                # Fallback to CSV NPI (trusted imports, cancelled appointments, and
+                # appointments for archived evaluators, who have no live calendar)
+                evaluator_npi = csv_npi
 
                 if not evaluator_npi:
+                    label = "cancelled" if cancelled else "trusted"
                     logger.warning(
-                        f"Skipping {'cancelled' if cancelled else 'trusted'} appointment {appointment_id} for {client_id}: No valid NPI in CSV."
+                        f"Skipping {label} appointment {appointment_id} for {client_id}: No valid NPI in CSV."
                     )
                     continue
 
                 if evaluator_npi not in valid_npis:
-                    label = "cancelled" if cancelled else "trusted"
+                    label = (
+                        "cancelled"
+                        if cancelled
+                        else "archived evaluator"
+                        if archived_evaluator
+                        else "trusted"
+                    )
                     appt_name = re.sub(r"[\d\(\)]", "", appointment["NAME"]).strip()
                     logger.warning(
                         f"Skipping {label} appointment {appointment_id} ({appt_name}) for client {client_id} "
