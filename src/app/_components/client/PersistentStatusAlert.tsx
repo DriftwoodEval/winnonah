@@ -9,7 +9,7 @@ import {
 	DialogTitle,
 } from "@ui/dialog";
 import type { LucideIcon } from "lucide-react";
-import { useEffect, useState } from "react";
+import { type ReactNode, useEffect, useState } from "react";
 
 type Variant = "default" | "destructive" | "warning";
 
@@ -30,6 +30,8 @@ type Props = {
 	// to the page (default: true). Set false for a banner-only warning that
 	// doesn't need to interrupt the page.
 	showPopup?: boolean;
+	// Optional content rendered under the description, e.g. an action button
+	action?: ReactNode;
 };
 
 export function PersistentStatusAlert({
@@ -42,6 +44,7 @@ export function PersistentStatusAlert({
 	maxPopups = 6,
 	variant = "destructive",
 	showPopup = true,
+	action,
 }: Props) {
 	const STORAGE_KEY = `alert:${slug}:${identifier}`;
 	const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -102,6 +105,7 @@ export function PersistentStatusAlert({
 				<AlertDescription className={descriptionStyles}>
 					{description}
 				</AlertDescription>
+				{action && <div className="col-start-2 mt-2">{action}</div>}
 			</Alert>
 
 			{showPopup && (

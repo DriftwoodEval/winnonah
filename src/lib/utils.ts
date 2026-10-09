@@ -200,6 +200,22 @@ export const getInsuranceShortNamesList = (
 };
 
 /**
+ * Snapshot of the fields that decide an insurance mismatch. An ignored
+ * mismatch only stays ignored while the client's current signature equals the
+ * one saved when it was ignored.
+ */
+export const getInsuranceMismatchSignature = (client: {
+	medicaidOrganization: string | null;
+	primaryInsurance: string | null;
+	secondaryInsurance: string[] | null;
+}) =>
+	JSON.stringify([
+		client.medicaidOrganization,
+		client.primaryInsurance,
+		client.secondaryInsurance ?? [],
+	]);
+
+/**
  * Calculate a client's age in whole years and months given their date of
  * birth, as of business-local "today". Returns undefined if dob is missing
  * or unparseable.

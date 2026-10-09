@@ -19,7 +19,11 @@ import { calculateAdditionalAppointments } from "~/lib/billing";
 import { fetchWithCache } from "~/lib/cache";
 import { CACHE_KEY_PUNCHLIST, getPunchData } from "~/lib/google";
 import type { ClientWithIssueInfo } from "~/lib/models";
-import { getInsuranceShortName, getInsuranceShortNamesList } from "~/lib/utils";
+import {
+	getInsuranceMismatchSignature,
+	getInsuranceShortName,
+	getInsuranceShortNamesList,
+} from "~/lib/utils";
 import type { Context } from "~/server/api/trpc";
 import {
 	appointments,
@@ -28,6 +32,7 @@ import {
 	externalRecordRequests,
 	externalRecords,
 	failures,
+	insuranceMismatchIgnore,
 	questionnaireRules,
 	questionnaires,
 } from "~/server/db/schema";
@@ -268,7 +273,7 @@ export async function getMissingAppointmentsList(
 export async function getInsuranceMismatchList(
 	db: Context["db"],
 ): Promise<ClientWithIssueInfo[]> {
-	const [activeClients, allInsurances] = await Promise.all([
+	const [activeClients, allInsurances, ignores] = await Promise.all([
 		db.query.clients.findMany({
 			where: and(
 				eq(clients.status, true),
@@ -277,10 +282,20 @@ export async function getInsuranceMismatchList(
 			),
 		}),
 		db.query.insurances.findMany({ with: { aliases: true } }),
+		db.select().from(insuranceMismatchIgnore),
 	]);
+	const ignoredSignatures = new Map(
+		ignores.map((i) => [i.clientId, i.signature]),
+	);
 
 	const result: ClientWithIssueInfo[] = [];
 	for (const client of activeClients) {
+		if (
+			ignoredSignatures.get(client.id) === getInsuranceMismatchSignature(client)
+		) {
+			continue;
+		}
+
 		const organizationInsurance = getInsuranceShortName(
 			client.medicaidOrganization,
 			allInsurances,
