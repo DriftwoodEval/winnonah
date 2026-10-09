@@ -8,8 +8,10 @@ import {
 	getClientIssueListSections,
 	getClientMatchedSections,
 	SECTION_ISSUE_CHARTER_SCHOOL_CONFIRM,
+	SECTION_ISSUE_DUPLICATE_NAMES,
 	SECTION_ISSUE_DUPLICATE_QUESTIONNAIRES,
 	SECTION_ISSUE_INSURANCE_MISMATCH,
+	SECTION_ISSUE_JUST_ADDED_QUESTIONNAIRES,
 	SECTION_ISSUE_MEDICAID_NOT_FOUND,
 	SECTION_ISSUE_MISSING_APPOINTMENTS,
 	SECTION_ISSUE_PARTIAL_BATTERY,
@@ -17,8 +19,10 @@ import {
 } from "~/lib/dashboard";
 import { getFullDashboardData } from "~/lib/dashboard-data";
 import {
+	getDuplicateNamesList,
 	getDuplicateQuestionnaireLinksData,
 	getInsuranceMismatchList,
+	getJustAddedQuestionnairesList,
 	getMedicaidNotFoundList,
 	getMissingAppointmentsList,
 	getPartialBatteriesList,
@@ -101,6 +105,8 @@ export async function syncDashboardSectionHistory() {
 		partialBatteries,
 		insuranceMismatch,
 		medicaidNotFound,
+		justAddedQuestionnaires,
+		duplicateNames,
 	] = await Promise.all([
 		getFullDashboardData({ db, redis, session }),
 		db
@@ -129,6 +135,8 @@ export async function syncDashboardSectionHistory() {
 		getPartialBatteriesList({ db, redis, session }),
 		getInsuranceMismatchList(db),
 		getMedicaidNotFoundList(db),
+		getJustAddedQuestionnairesList(db),
+		getDuplicateNamesList(db),
 	]);
 
 	const unreviewedRecordsIds = new Set(unreviewedRecords.map((c) => c.id));
@@ -147,6 +155,14 @@ export async function syncDashboardSectionHistory() {
 	const partialBatteryIds = new Set(partialBatteries.map((c) => c.id));
 	const insuranceMismatchIds = new Set(insuranceMismatch.map((c) => c.id));
 	const medicaidNotFoundIds = new Set(medicaidNotFound.map((c) => c.id));
+	const justAddedQuestionnaireIds = new Set(
+		justAddedQuestionnaires.map((c) => c.id),
+	);
+	const duplicateNameIds = new Set(
+		duplicateNames.flatMap((group) =>
+			group.pairs.flatMap((pair) => [pair.clientA.id, pair.clientB.id]),
+		),
+	);
 
 	// Punch rows with no matching DB client (getPunchData returns sheet-only
 	// data for those) have no `id`, so filter those out before inserting.
@@ -184,6 +200,8 @@ export async function syncDashboardSectionHistory() {
 		...partialBatteryIds,
 		...insuranceMismatchIds,
 		...medicaidNotFoundIds,
+		...justAddedQuestionnaireIds,
+		...duplicateNameIds,
 	]);
 
 	let updatedCount = 0;
@@ -212,6 +230,9 @@ export async function syncDashboardSectionHistory() {
 			partialBatteryIds.has(clientId) && SECTION_ISSUE_PARTIAL_BATTERY,
 			insuranceMismatchIds.has(clientId) && SECTION_ISSUE_INSURANCE_MISMATCH,
 			medicaidNotFoundIds.has(clientId) && SECTION_ISSUE_MEDICAID_NOT_FOUND,
+			justAddedQuestionnaireIds.has(clientId) &&
+				SECTION_ISSUE_JUST_ADDED_QUESTIONNAIRES,
+			duplicateNameIds.has(clientId) && SECTION_ISSUE_DUPLICATE_NAMES,
 		].filter((s): s is string => typeof s === "string");
 		const sections = [
 			...matchedSections,

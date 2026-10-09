@@ -698,6 +698,7 @@ export const SECTION_ISSUE_DISTRICT = "Issue: District Issues";
 export const SECTION_ISSUE_BABYNET_AGEOUT = "Issue: Too Old for BabyNet";
 export const SECTION_ISSUE_NOT_IN_TA = "Issue: Not in TA";
 export const SECTION_ISSUE_NO_DRIVE_ID = "Issue: No Drive IDs";
+export const SECTION_ISSUE_NOTES_ONLY = "Issue: Notes Only";
 
 // Issue lists whose membership can't be read off a single client row: they
 // need a cross-table query (appointment counts, questionnaire links, records
@@ -716,6 +717,9 @@ export const SECTION_ISSUE_PARTIAL_BATTERY =
 	"Issue: Partial Questionnaire Battery";
 export const SECTION_ISSUE_INSURANCE_MISMATCH =
 	"Issue: Insurance Doesn't Match";
+export const SECTION_ISSUE_JUST_ADDED_QUESTIONNAIRES =
+	"Issue: Just Added Questionnaires";
+export const SECTION_ISSUE_DUPLICATE_NAMES = "Issue: Duplicate Client Names";
 export const SECTION_ISSUE_MEDICAID_NOT_FOUND = "Issue: Not Found on Medicaid";
 
 export type IssueListClient = {
@@ -794,6 +798,8 @@ export function getClientIssueListSections(client: IssueListClient): string[] {
 	}
 
 	if (!client.addedDate) sections.push(SECTION_ISSUE_NOT_IN_TA);
+
+	if (isNotesOnly && client.status) sections.push(SECTION_ISSUE_NOTES_ONLY);
 
 	if (!isNotesOnly && !client.driveId) {
 		sections.push(SECTION_ISSUE_NO_DRIVE_ID);

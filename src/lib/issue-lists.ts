@@ -24,6 +24,7 @@ import type { Context } from "~/server/api/trpc";
 import {
 	appointments,
 	clients,
+	duplicateNameIgnore,
 	externalRecordRequests,
 	externalRecords,
 	failures,
@@ -545,4 +546,72 @@ export async function getPartialBatteriesList(
 	}
 
 	return results;
+}
+
+/**
+ * Clients with at least one questionnaire in the JUST_ADDED state. Mirrors the
+ * /issues page's "Just Added Questionnaires" list (questionnaires.ts's
+ * getJustAdded).
+ */
+export async function getJustAddedQuestionnairesList(db: Context["db"]) {
+	const rows = await db
+		.selectDistinct({ client: clients })
+		.from(questionnaires)
+		.innerJoin(clients, eq(questionnaires.clientId, clients.id))
+		.where(eq(questionnaires.status, "JUST_ADDED"));
+
+	return rows.map((row) => row.client);
+}
+
+/**
+ * Pairs of real clients sharing a first and last name, grouped by name and
+ * excluding pairs staff have marked as not duplicates. Mirrors the /issues
+ * page's "Duplicate Client Names" list.
+ */
+export async function getDuplicateNamesList(db: Context["db"]) {
+	const [allClients, ignoredPairs] = await Promise.all([
+		db.select().from(clients).where(sql`LENGTH(${clients.id}) != 5`),
+		db.select().from(duplicateNameIgnore),
+	]);
+
+	const ignoredSet = new Set(
+		ignoredPairs.map((p) => `${p.clientIdA}:${p.clientIdB}`),
+	);
+
+	const byName = new Map<string, typeof allClients>();
+	for (const c of allClients) {
+		const key = `${c.firstName.toLowerCase()} ${c.lastName.toLowerCase()}`;
+		const group = byName.get(key) ?? [];
+		group.push(c);
+		byName.set(key, group);
+	}
+
+	const grouped: {
+		name: string;
+		pairs: {
+			clientA: (typeof allClients)[0];
+			clientB: (typeof allClients)[0];
+		}[];
+	}[] = [];
+
+	for (const group of byName.values()) {
+		if (group.length < 2) continue;
+		const pairs = [];
+		for (let i = 0; i < group.length; i++) {
+			for (let j = i + 1; j < group.length; j++) {
+				const ca = group[i];
+				const cb = group[j];
+				if (!ca || !cb) continue;
+				const idA = Math.min(ca.id, cb.id);
+				const idB = Math.max(ca.id, cb.id);
+				if (!ignoredSet.has(`${idA}:${idB}`)) {
+					pairs.push({ clientA: ca, clientB: cb });
+				}
+			}
+		}
+		const first = pairs[0];
+		if (first) grouped.push({ name: first.clientA.fullName, pairs });
+	}
+
+	return grouped.sort((a, b) => a.name.localeCompare(b.name));
 }
