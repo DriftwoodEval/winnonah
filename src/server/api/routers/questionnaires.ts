@@ -9,6 +9,7 @@ import { QUESTIONNAIRE_STATUSES } from "~/lib/constants";
 import { updatePunchData } from "~/lib/google";
 import {
 	getDuplicateQuestionnaireLinksData,
+	getJustAddedQuestionnairesList,
 	getPartialBatteriesList,
 } from "~/lib/issue-lists";
 import type { InsertingQuestionnaire } from "~/lib/models";
@@ -1301,15 +1302,7 @@ export const questionnaireRouter = createTRPCRouter({
 	getJustAdded: protectedProcedure.query(async ({ ctx }) => {
 		assertPermission(ctx.session.user, "issues:just-added");
 
-		const clientsWithJustAdded = await ctx.db
-			.selectDistinct({
-				client: clients,
-			})
-			.from(questionnaires)
-			.innerJoin(clients, eq(questionnaires.clientId, clients.id))
-			.where(eq(questionnaires.status, "JUST_ADDED"));
-
-		return clientsWithJustAdded.map((row) => row.client);
+		return getJustAddedQuestionnairesList(ctx.db);
 	}),
 
 	getPartialBatteries: protectedProcedure.query(async ({ ctx }) => {

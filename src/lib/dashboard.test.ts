@@ -21,6 +21,7 @@ import {
 	SECTION_ISSUE_NO_DRIVE_ID,
 	SECTION_ISSUE_NO_REFERRAL_SOURCE,
 	SECTION_ISSUE_NOT_IN_TA,
+	SECTION_ISSUE_NOTES_ONLY,
 	SECTION_ISSUE_PAUSED,
 	SECTION_JUST_ADDED,
 	SECTION_MULTIPLE_FILTERS,
@@ -403,6 +404,17 @@ describe("getClientIssueListSections", () => {
 			getClientIssueListSections(
 				cleanIssueClient({ id: 12345, referralSource: null }),
 			),
+		).toEqual([SECTION_ISSUE_NOTES_ONLY]);
+	});
+
+	it("flags active notes-only clients", () => {
+		expect(getClientIssueListSections(cleanIssueClient({ id: 12345 }))).toEqual(
+			[SECTION_ISSUE_NOTES_ONLY],
+		);
+		expect(
+			getClientIssueListSections(
+				cleanIssueClient({ id: 12345, status: false }),
+			),
 		).toEqual([]);
 	});
 
@@ -498,7 +510,7 @@ describe("getClientIssueListSections", () => {
 			getClientIssueListSections(
 				cleanIssueClient({ id: 12345, driveId: null }),
 			),
-		).toEqual([]);
+		).toEqual([SECTION_ISSUE_NOTES_ONLY]);
 	});
 
 	it("can match multiple issue lists at once", () => {

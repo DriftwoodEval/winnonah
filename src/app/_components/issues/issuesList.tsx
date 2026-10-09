@@ -1218,6 +1218,11 @@ export function IssuesList() {
 			refetchInterval: 60_000,
 			enabled: can("issues:insurance-mismatch"),
 		});
+	const { data: medicaidNotFound, isLoading: isLoadingMedicaidNotFound } =
+		api.clients.getMedicaidNotFound.useQuery(undefined, {
+			refetchInterval: 60_000,
+			enabled: can("issues:insurance-mismatch"),
+		});
 	const { data: duplicateQLinks, isLoading: isLoadingDuplicateQLinks } =
 		api.questionnaires.getDuplicateLinks.useQuery(undefined, {
 			refetchInterval: 60_000,
@@ -1642,6 +1647,20 @@ export function IssuesList() {
 						clients={insuranceMismatch}
 						description="Medicaid portal organization doesn't match either insurance on file."
 						title={ISSUE_TITLES.insuranceMismatch}
+					/>
+				)}
+			</GuardedIssue>
+		),
+		medicaidNotFound: (
+			<GuardedIssue
+				isLoading={isLoadingMedicaidNotFound}
+				permission={ISSUE_LIST_PERMISSIONS.medicaidNotFound}
+			>
+				{medicaidNotFound && medicaidNotFound.length !== 0 && (
+					<IssueList
+						clients={medicaidNotFound}
+						description="The Medicaid portal couldn't find these clients. Check the insurance number on file."
+						title={ISSUE_TITLES.medicaidNotFound}
 					/>
 				)}
 			</GuardedIssue>

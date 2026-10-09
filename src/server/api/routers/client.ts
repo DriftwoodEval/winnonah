@@ -42,7 +42,9 @@ import {
 	updatePunchData,
 } from "~/lib/google";
 import {
+	getDuplicateNamesList,
 	getInsuranceMismatchList,
+	getMedicaidNotFoundList,
 	getMissingAppointmentsList,
 	getUnconfirmedCharterSchoolList,
 	getUnreviewedRecordsList,
@@ -1854,51 +1856,7 @@ export const clientRouter = createTRPCRouter({
 	getDuplicateNames: protectedProcedure.query(async ({ ctx }) => {
 		assertPermission(ctx.session.user, "issues:duplicate-names");
 
-		const [allClients, ignoredPairs] = await Promise.all([
-			ctx.db.select().from(clients).where(sql`LENGTH(${clients.id}) != 5`),
-			ctx.db.select().from(duplicateNameIgnore),
-		]);
-
-		const ignoredSet = new Set(
-			ignoredPairs.map((p) => `${p.clientIdA}:${p.clientIdB}`),
-		);
-
-		const byName = new Map<string, typeof allClients>();
-		for (const c of allClients) {
-			const key = `${c.firstName.toLowerCase()} ${c.lastName.toLowerCase()}`;
-			const group = byName.get(key) ?? [];
-			group.push(c);
-			byName.set(key, group);
-		}
-
-		const grouped: {
-			name: string;
-			pairs: {
-				clientA: (typeof allClients)[0];
-				clientB: (typeof allClients)[0];
-			}[];
-		}[] = [];
-
-		for (const group of byName.values()) {
-			if (group.length < 2) continue;
-			const pairs = [];
-			for (let i = 0; i < group.length; i++) {
-				for (let j = i + 1; j < group.length; j++) {
-					const ca = group[i];
-					const cb = group[j];
-					if (!ca || !cb) continue;
-					const idA = Math.min(ca.id, cb.id);
-					const idB = Math.max(ca.id, cb.id);
-					if (!ignoredSet.has(`${idA}:${idB}`)) {
-						pairs.push({ clientA: ca, clientB: cb });
-					}
-				}
-			}
-			const first = pairs[0];
-			if (first) grouped.push({ name: first.clientA.fullName, pairs });
-		}
-
-		return grouped.sort((a, b) => a.name.localeCompare(b.name));
+		return getDuplicateNamesList(ctx.db);
 	}),
 
 	ignoreDuplicateNamePair: protectedProcedure
@@ -2115,6 +2073,12 @@ export const clientRouter = createTRPCRouter({
 		assertPermission(ctx.session.user, "issues:insurance-mismatch");
 
 		return getInsuranceMismatchList(ctx.db);
+	}),
+
+	getMedicaidNotFound: protectedProcedure.query(async ({ ctx }) => {
+		assertPermission(ctx.session.user, "issues:insurance-mismatch");
+
+		return getMedicaidNotFoundList(ctx.db);
 	}),
 
 	createNotesOnly: protectedProcedure

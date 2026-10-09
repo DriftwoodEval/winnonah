@@ -87,6 +87,10 @@ export function useIssueCounts(
 		undefined,
 		query(can("issues:insurance-mismatch")),
 	);
+	const { data: medicaidNotFound } = api.clients.getMedicaidNotFound.useQuery(
+		undefined,
+		query(can("issues:insurance-mismatch")),
+	);
 	const { data: duplicateQLinks } =
 		api.questionnaires.getDuplicateLinks.useQuery(
 			undefined,
@@ -193,6 +197,7 @@ export function useIssueCounts(
 			count: unconfirmedCharterSchool?.length,
 		},
 		{ title: ISSUE_TITLES.insuranceMismatch, count: insuranceMismatch?.length },
+		{ title: ISSUE_TITLES.medicaidNotFound, count: medicaidNotFound?.length },
 		{
 			title: ISSUE_TITLES.duplicateDriveFolders,
 			count: duplicateFolderNames?.data.length,

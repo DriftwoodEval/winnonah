@@ -375,6 +375,17 @@ export function Client({
 							title="Insurance Doesn't Match"
 						/>
 
+						<PersistentStatusAlert
+							condition={!!client.medicaidNotFound}
+							description="The Medicaid portal couldn't find this client. Check the insurance number on the Insurance tab."
+							icon={AlertTriangleIcon}
+							identifier={client.hash}
+							showPopup={false}
+							slug="medicaid-not-found"
+							title="Not Found on Medicaid"
+							variant="warning"
+						/>
+
 						<Tabs
 							className="w-full"
 							onValueChange={handleTabChange}
