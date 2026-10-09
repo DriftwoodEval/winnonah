@@ -1,6 +1,7 @@
 "use client";
 
 import { Alert, AlertDescription, AlertTitle } from "@ui/alert";
+import { Button } from "@ui/button";
 import {
 	Select,
 	SelectContent,
@@ -102,6 +103,15 @@ export function Client({
 	const organizationMismatch =
 		!!client?.medicaidPolicyId &&
 		(insurancePolicies?.organizationMismatch ?? false);
+
+	const ignoreInsuranceMismatch =
+		api.clients.ignoreInsuranceMismatch.useMutation({
+			onSuccess: () => {
+				utils.clients.getInsurancePolicies.invalidate();
+				utils.clients.getInsuranceMismatch.invalidate();
+			},
+			onError: (error) => toast.error(error.message),
+		});
 
 	const { data: allInsurances } = api.insurances.getAll.useQuery();
 	// Primary and secondary insurance names are resolved through aliases to the
@@ -367,6 +377,21 @@ export function Client({
 						/>
 
 						<PersistentStatusAlert
+							action={
+								can("issues:insurance-mismatch") &&
+								!readOnly && (
+									<Button
+										disabled={ignoreInsuranceMismatch.isPending}
+										onClick={() =>
+											ignoreInsuranceMismatch.mutate({ clientId: client.id })
+										}
+										size="sm"
+										variant="outline"
+									>
+										Ignore until insurance changes
+									</Button>
+								)
+							}
 							condition={organizationMismatch}
 							description="This client's Medicaid organization doesn't match their primary or secondary insurance on file. Check the Insurance tab."
 							icon={AlertTriangleIcon}

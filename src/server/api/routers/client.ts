@@ -53,6 +53,7 @@ import type { ClientWithIssueInfo } from "~/lib/models";
 import {
 	formatInBusinessTime,
 	getClosestOfficeKey,
+	getInsuranceMismatchSignature,
 	getInsuranceShortName,
 	getInsuranceShortNamesList,
 	getOfficeDistanceMiles,
@@ -91,6 +92,7 @@ import {
 	failures,
 	inPersonAssessments,
 	insuranceAliases,
+	insuranceMismatchIgnore,
 	insurances,
 	notes,
 	officeDriveTimes,
@@ -3364,7 +3366,7 @@ export const clientRouter = createTRPCRouter({
 	getInsurancePolicies: protectedProcedure
 		.input(z.number())
 		.query(async ({ ctx, input }) => {
-			const [policies, client, allInsurances] = await Promise.all([
+			const [policies, client, allInsurances, ignore] = await Promise.all([
 				ctx.db.query.clientInsurancePolicies.findMany({
 					where: eq(clientInsurancePolicies.clientId, input),
 					orderBy: (t, { asc, desc }) => [
@@ -3381,6 +3383,9 @@ export const clientRouter = createTRPCRouter({
 					},
 				}),
 				ctx.db.query.insurances.findMany({ with: { aliases: true } }),
+				ctx.db.query.insuranceMismatchIgnore.findFirst({
+					where: eq(insuranceMismatchIgnore.clientId, input),
+				}),
 			]);
 
 			// The portal Organization is resolved through insurance aliases. An
@@ -3389,15 +3394,49 @@ export const clientRouter = createTRPCRouter({
 				client?.medicaidOrganization ?? null,
 				allInsurances,
 			);
-			const organizationMismatch =
+			const hasOrganizationMismatch =
 				!!organizationInsurance &&
 				!getInsuranceShortNamesList(
 					client?.primaryInsurance ?? null,
 					client?.secondaryInsurance ?? null,
 					allInsurances,
 				).includes(organizationInsurance);
+			// An ignored mismatch stays hidden only while the insurance fields are
+			// unchanged since it was ignored.
+			const isIgnored =
+				!!client &&
+				!!ignore &&
+				ignore.signature === getInsuranceMismatchSignature(client);
 
-			return { policies, organizationInsurance, organizationMismatch };
+			return {
+				policies,
+				organizationInsurance,
+				organizationMismatch: hasOrganizationMismatch && !isIgnored,
+			};
+		}),
+
+	ignoreInsuranceMismatch: protectedProcedure
+		.input(z.object({ clientId: z.number() }))
+		.mutation(async ({ ctx, input }) => {
+			assertPermission(ctx.session.user, "issues:insurance-mismatch");
+
+			const client = await ctx.db.query.clients.findFirst({
+				where: eq(clients.id, input.clientId),
+				columns: {
+					medicaidOrganization: true,
+					primaryInsurance: true,
+					secondaryInsurance: true,
+				},
+			});
+			if (!client) {
+				throw new TRPCError({ code: "NOT_FOUND", message: "Client not found" });
+			}
+
+			const signature = getInsuranceMismatchSignature(client);
+			await ctx.db
+				.insert(insuranceMismatchIgnore)
+				.values({ clientId: input.clientId, signature })
+				.onDuplicateKeyUpdate({ set: { signature } });
 		}),
 
 	syncPunchData: protectedProcedure.mutation(async ({ ctx }) => {

@@ -1518,6 +1518,22 @@ export const duplicateNameIgnore = createTable(
 	(t) => [uniqueIndex("dup_name_pair_idx").on(t.clientIdA, t.clientIdB)],
 );
 
+// A client's insurance mismatch that staff chose to ignore. The signature is
+// the Medicaid organization plus primary and secondary insurance at the time
+// of ignoring, so the ignore stops applying as soon as any of them changes.
+export const insuranceMismatchIgnore = createTable(
+	"insurance_mismatch_ignore",
+	(d) => ({
+		clientId: d
+			.int()
+			.notNull()
+			.primaryKey()
+			.references(() => clients.id, { onDelete: "cascade" }),
+		signature: d.text().notNull(),
+		createdAt: d.timestamp().default(sql`CURRENT_TIMESTAMP`).notNull(),
+	}),
+);
+
 export const pieceworkReportTracking = createTable(
 	"piecework_report_tracking",
 	(d) => ({
