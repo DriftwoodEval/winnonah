@@ -25,6 +25,7 @@ import {
 import type { ClientColor } from "~/lib/colors";
 import { logger } from "~/lib/logger";
 import {
+	calculateAgeYearsMonths,
 	dateOnlyToLocalDate,
 	formatClientAge,
 	formatInBusinessTime,
@@ -100,6 +101,10 @@ export function Client({
 	const organizationMismatch =
 		!!client?.medicaidPolicyId &&
 		(insurancePolicies?.organizationMismatch ?? false);
+
+	const isSelectHealthAdult =
+		!!client?.primaryInsurance?.toLowerCase().includes("select health") &&
+		(calculateAgeYearsMonths(client.dob)?.years ?? 0) >= 21;
 
 	const [selectedColor, setSelectedColor] = useState<ClientColor | null>(null);
 
@@ -339,6 +344,17 @@ export function Client({
 							showPopup={false}
 							slug="already-dx"
 							title="Already Diagnosed"
+							variant="warning"
+						/>
+
+						<PersistentStatusAlert
+							condition={isSelectHealthAdult}
+							description="Caution: This is a Select Health adult, we probably won't get an evaluation approved."
+							icon={AlertTriangleIcon}
+							identifier={client.hash}
+							showPopup={false}
+							slug="select-health-adult"
+							title="Select Health Adult"
 							variant="warning"
 						/>
 
