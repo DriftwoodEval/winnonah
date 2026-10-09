@@ -29,6 +29,7 @@ import {
 	dateOnlyToLocalDate,
 	formatClientAge,
 	formatInBusinessTime,
+	getInsuranceShortNamesList,
 	isNotesOnlyClientId,
 	sanitizeFailureReason,
 } from "~/lib/utils";
@@ -102,9 +103,16 @@ export function Client({
 		!!client?.medicaidPolicyId &&
 		(insurancePolicies?.organizationMismatch ?? false);
 
+	const { data: allInsurances } = api.insurances.getAll.useQuery();
+	// Primary and secondary insurance names are resolved through aliases to the
+	// short name ("SH" is Select Health).
+	const hasSelectHealth = getInsuranceShortNamesList(
+		client?.primaryInsurance ?? null,
+		client?.secondaryInsurance ?? null,
+		allInsurances ?? [],
+	).includes("SH");
 	const isSelectHealthAdult =
-		!!client?.primaryInsurance?.toLowerCase().includes("select health") &&
-		(calculateAgeYearsMonths(client.dob)?.years ?? 0) >= 21;
+		hasSelectHealth && (calculateAgeYearsMonths(client?.dob)?.years ?? 0) >= 21;
 
 	const [selectedColor, setSelectedColor] = useState<ClientColor | null>(null);
 
