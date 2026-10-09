@@ -5,6 +5,9 @@ needsCleanup: true
 
 Getting a client's school records is a mix of manual review in the EMR and an automated script that sends the actual request.
 
+> [!NOTE]
+> Once a client turns 22, we no longer request records from their school, there's no school left to ask. The automated script simply skips them from that age on, whatever their `Records Needed` status says. It also stops counting an unsigned school-records consent form against a client of that age on the general "docs not signed" check used when sending questionnaires (see [Questionnaire Process](/docs/procedures/questionnaires)), since that form doesn't apply to them either. Every other required form still has to be signed.
+
 ## 1. Determine if records are needed
 
 On intake, staff set the client's `Records Needed` status to `Needed` or `Not Needed`. Both "Notes Only" and real clients can have this status set, although Notes Only clients will not have requests sent, it's just to save that information for later. Until this is set, the client shows up under **Records Status Not Set** on the dashboard.
