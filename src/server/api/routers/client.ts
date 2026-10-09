@@ -51,6 +51,11 @@ import {
 } from "~/lib/issue-lists";
 import type { ClientWithIssueInfo } from "~/lib/models";
 import {
+	formatReferralHistoryEntry,
+	NOT_A_REFERRAL_CHANGE,
+	REFERRAL_HISTORY_ACTIONS,
+} from "~/lib/referral-history";
+import {
 	formatInBusinessTime,
 	getClosestOfficeKey,
 	getInsuranceMismatchSignature,
@@ -80,6 +85,7 @@ import {
 import {
 	appointments,
 	assessmentTypes,
+	auditLogs,
 	clientDashboardSectionHistory,
 	clientInsurancePolicies,
 	clientRelated,
@@ -100,6 +106,7 @@ import {
 	referralMsgLog,
 	schedulingClients,
 	schoolDistricts,
+	users,
 } from "~/server/db/schema";
 import { getQuestionnaireEligibilityAge } from "~/server/questionnaire-age";
 
@@ -1269,6 +1276,49 @@ export const clientRouter = createTRPCRouter({
 			});
 		}),
 
+	/**
+	 * Who changed what and when on a client's referral tab, drawn from the
+	 * shared `emr_audit_log` table (see `src/server/api/audit.ts`). `clients.update`
+	 * also covers unrelated fields, so rows whose diff touches nothing
+	 * referral-related are dropped.
+	 */
+	getReferralHistory: protectedProcedure
+		.input(z.number())
+		.query(async ({ ctx, input }) => {
+			const rows = await ctx.db
+				.select({
+					id: auditLogs.id,
+					createdAt: auditLogs.createdAt,
+					action: auditLogs.action,
+					detail: auditLogs.detail,
+					userId: auditLogs.userId,
+					userEmail: auditLogs.userEmail,
+					userName: users.name,
+				})
+				.from(auditLogs)
+				.leftJoin(users, eq(auditLogs.userId, users.id))
+				.where(
+					and(
+						eq(auditLogs.clientId, input),
+						eq(auditLogs.success, true),
+						inArray(auditLogs.action, REFERRAL_HISTORY_ACTIONS),
+					),
+				)
+				.orderBy(desc(auditLogs.createdAt))
+				.limit(200);
+
+			return rows
+				.map((row) => ({
+					id: row.id,
+					createdAt: row.createdAt,
+					actor: row.userId.startsWith("system:")
+						? "Automatic"
+						: (row.userName ?? row.userEmail),
+					description: formatReferralHistoryEntry(row.action, row.detail),
+				}))
+				.filter((entry) => entry.description !== NOT_A_REFERRAL_CHANGE);
+		}),
+
 	resolveFailure: protectedProcedure
 		.input(z.object({ clientId: z.number(), reason: z.string() }))
 		.mutation(async ({ ctx, input }) => {
@@ -1932,6 +1982,8 @@ export const clientRouter = createTRPCRouter({
 				},
 				"Setting outreach claim",
 			);
+
+			setAuditDetail(ctx, { claiming: !isClaimed });
 
 			await ctx.db
 				.update(clients)

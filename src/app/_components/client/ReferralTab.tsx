@@ -44,9 +44,11 @@ import { toast } from "sonner";
 import { useCheckPermission } from "~/hooks/use-check-permission";
 import { ALLOWED_ASD_ADHD_VALUES } from "~/lib/constants";
 import type { Client } from "~/lib/models";
+import { REFERRAL_FIELD_LABELS } from "~/lib/referral-history";
 import { isBabyNetInsurance, isNotesOnlyClientId } from "~/lib/utils";
 import { api } from "~/trpc/react";
 import { ResponsiveDialog } from "../shared/ResponsiveDialog";
+import { ReferralHistoryButton } from "./ReferralHistory";
 
 interface ReferralTabProps {
 	client: Client;
@@ -57,21 +59,6 @@ const TA_MESSAGE =
 	"Welcome to Driftwood! Thank you for setting up access to our patient portal. If you haven't already, make sure to complete all the documents and forms. Additionally, in the coming days you should receive another message here with links to questionnaires. Please complete each questionnaire completely so that we can move forward in scheduling an appointment. Failure to complete any of these steps will prevent you from moving forward.\n\nAdditionally, please review this information to better understand our process: https://driftwoodeval.com/eval-process";
 
 const COMMON_LANGUAGES = ["English", "Spanish", "Portuguese"];
-
-// Human-readable labels for fields whose post-push edits we track.
-const REFERRAL_FIELD_LABELS: Record<string, string> = {
-	notes: "Notes",
-	asdAdhd: "This is for",
-	language: "Language",
-	schoolExplanation: "Which school?",
-	charterSchool: "Charter School?",
-	evaluatedByAgency: "Evaluated by School District/MUSC/Prisma/OIDD?",
-	evaluatedByAgencyNotes: "Evaluation Notes",
-	otherNotes: "Other Notes",
-	locationPreference: "Preference",
-	followedByBabyNet: "BabyNet",
-	walking: "Walking",
-};
 
 type PostPunchEdit = NonNullable<
 	NonNullable<Client["referralData"]>["postPunchEdits"]
@@ -429,6 +416,7 @@ export function ReferralTab({ client, readOnly }: ReferralTabProps) {
 				<CardHeader className="flex flex-row items-center justify-between space-y-0">
 					<CardTitle>Referral Information</CardTitle>
 					<div className="flex items-center gap-4">
+						<ReferralHistoryButton clientId={client.id} />
 						{(isNeedsReachOut || isNeedsReview) &&
 							client.referralData?.outreachClaimedBy && (
 								<span className="text-muted-foreground text-sm">
