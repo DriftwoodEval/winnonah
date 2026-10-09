@@ -1192,13 +1192,14 @@ def update_client_medicaid_eligibility(
 ) -> None:
     """Stores the scraped portal fields and the policy searched, and stamps medicaidCheckedAt.
 
-    With eligibility=None (client not found on the portal), only the timestamp
-    is updated so the client is retried next month instead of every run.
+    With eligibility=None (client not found on the portal), the timestamp is
+    updated so the client is retried next month instead of every run, and
+    medicaidNotFound is set so the app can flag the client.
     """
     with connection.cursor() as cursor:
         if eligibility is None:
             cursor.execute(
-                f"UPDATE `{TABLE_CLIENT}` SET medicaidCheckedAt = UTC_TIMESTAMP() WHERE id = %s",
+                f"UPDATE `{TABLE_CLIENT}` SET medicaidCheckedAt = UTC_TIMESTAMP(), medicaidNotFound = TRUE WHERE id = %s",
                 (client_id,),
             )
         else:
@@ -1208,7 +1209,8 @@ def update_client_medicaid_eligibility(
                 SET qualCategory = %s, paymentCategory = %s, medicaidOrganization = %s,
                     medicaidCarrier1 = %s, medicaidCarrier2 = %s, limitedBenefit = %s,
                     medicaidSpecialProgram = %s, medicaidSpecialProgramMessage = %s,
-                    medicaidPolicyId = %s, medicaidCheckedAt = UTC_TIMESTAMP()
+                    medicaidPolicyId = %s, medicaidCheckedAt = UTC_TIMESTAMP(),
+                    medicaidNotFound = FALSE
                 WHERE id = %s
                 """,
                 (

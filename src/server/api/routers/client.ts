@@ -43,6 +43,7 @@ import {
 } from "~/lib/google";
 import {
 	getInsuranceMismatchList,
+	getMedicaidNotFoundList,
 	getMissingAppointmentsList,
 	getUnconfirmedCharterSchoolList,
 	getUnreviewedRecordsList,
@@ -2115,6 +2116,12 @@ export const clientRouter = createTRPCRouter({
 		assertPermission(ctx.session.user, "issues:insurance-mismatch");
 
 		return getInsuranceMismatchList(ctx.db);
+	}),
+
+	getMedicaidNotFound: protectedProcedure.query(async ({ ctx }) => {
+		assertPermission(ctx.session.user, "issues:insurance-mismatch");
+
+		return getMedicaidNotFoundList(ctx.db);
 	}),
 
 	createNotesOnly: protectedProcedure

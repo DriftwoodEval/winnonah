@@ -304,6 +304,22 @@ export async function getInsuranceMismatchList(
 }
 
 /**
+ * Active clients the last Medicaid portal lookup could not find, usually
+ * because the insurance number on file is wrong.
+ */
+export async function getMedicaidNotFoundList(
+	db: Context["db"],
+): Promise<ClientWithIssueInfo[]> {
+	return db.query.clients.findMany({
+		where: and(
+			eq(clients.status, true),
+			eq(clients.medicaidNotFound, true),
+			not(isNotesOnly),
+		),
+	});
+}
+
+/**
  * Questionnaire links reused more than once for the same client, or shared
  * across different clients. Mirrors the /issues page's "Duplicate
  * Questionnaires" list (questionnaires.ts's getDuplicateLinks).

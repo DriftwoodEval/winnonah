@@ -297,6 +297,8 @@ export const clients = createTable(
 		// The policy whose insurance number the last successful portal lookup used.
 		medicaidPolicyId: d.varchar({ length: 36 }),
 		medicaidCheckedAt: d.timestamp(),
+		// True when the last portal lookup could not find the client.
+		medicaidNotFound: d.boolean().notNull().default(false),
 		precertExpires: d.date({ mode: "string" }),
 		privatePay: d.boolean().notNull().default(false),
 		sessionStartedAt: d.timestamp(),
