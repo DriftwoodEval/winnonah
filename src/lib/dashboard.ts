@@ -716,6 +716,7 @@ export const SECTION_ISSUE_PARTIAL_BATTERY =
 	"Issue: Partial Questionnaire Battery";
 export const SECTION_ISSUE_INSURANCE_MISMATCH =
 	"Issue: Insurance Doesn't Match";
+export const SECTION_ISSUE_MEDICAID_NOT_FOUND = "Issue: Not Found on Medicaid";
 
 export type IssueListClient = {
 	id: number;

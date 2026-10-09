@@ -10,6 +10,7 @@ import {
 	SECTION_ISSUE_CHARTER_SCHOOL_CONFIRM,
 	SECTION_ISSUE_DUPLICATE_QUESTIONNAIRES,
 	SECTION_ISSUE_INSURANCE_MISMATCH,
+	SECTION_ISSUE_MEDICAID_NOT_FOUND,
 	SECTION_ISSUE_MISSING_APPOINTMENTS,
 	SECTION_ISSUE_PARTIAL_BATTERY,
 	SECTION_ISSUE_UNREVIEWED_RECORDS,
@@ -18,6 +19,7 @@ import { getFullDashboardData } from "~/lib/dashboard-data";
 import {
 	getDuplicateQuestionnaireLinksData,
 	getInsuranceMismatchList,
+	getMedicaidNotFoundList,
 	getMissingAppointmentsList,
 	getPartialBatteriesList,
 	getUnconfirmedCharterSchoolList,
@@ -98,6 +100,7 @@ export async function syncDashboardSectionHistory() {
 		duplicateQuestionnaireLinks,
 		partialBatteries,
 		insuranceMismatch,
+		medicaidNotFound,
 	] = await Promise.all([
 		getFullDashboardData({ db, redis, session }),
 		db
@@ -125,6 +128,7 @@ export async function syncDashboardSectionHistory() {
 		getDuplicateQuestionnaireLinksData(db),
 		getPartialBatteriesList({ db, redis, session }),
 		getInsuranceMismatchList(db),
+		getMedicaidNotFoundList(db),
 	]);
 
 	const unreviewedRecordsIds = new Set(unreviewedRecords.map((c) => c.id));
@@ -142,6 +146,7 @@ export async function syncDashboardSectionHistory() {
 	]);
 	const partialBatteryIds = new Set(partialBatteries.map((c) => c.id));
 	const insuranceMismatchIds = new Set(insuranceMismatch.map((c) => c.id));
+	const medicaidNotFoundIds = new Set(medicaidNotFound.map((c) => c.id));
 
 	// Punch rows with no matching DB client (getPunchData returns sheet-only
 	// data for those) have no `id`, so filter those out before inserting.
@@ -178,6 +183,7 @@ export async function syncDashboardSectionHistory() {
 		...duplicateQuestionnaireIds,
 		...partialBatteryIds,
 		...insuranceMismatchIds,
+		...medicaidNotFoundIds,
 	]);
 
 	let updatedCount = 0;
@@ -205,6 +211,7 @@ export async function syncDashboardSectionHistory() {
 				SECTION_ISSUE_DUPLICATE_QUESTIONNAIRES,
 			partialBatteryIds.has(clientId) && SECTION_ISSUE_PARTIAL_BATTERY,
 			insuranceMismatchIds.has(clientId) && SECTION_ISSUE_INSURANCE_MISMATCH,
+			medicaidNotFoundIds.has(clientId) && SECTION_ISSUE_MEDICAID_NOT_FOUND,
 		].filter((s): s is string => typeof s === "string");
 		const sections = [
 			...matchedSections,
