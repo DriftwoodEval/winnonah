@@ -171,13 +171,52 @@ describe("formatQuestionnaireHistoryEntry", () => {
 		).toBe("Sent a reminder message");
 	});
 
-	it("still labels a failure reminder without template info", () => {
+	it("includes the failure reason on a failure reminder", () => {
 		expect(
 			formatQuestionnaireHistoryEntry("internal.questionnaire.messageSent", {
 				isFailureReminder: true,
 				failureReason: "docs not signed",
 			}),
+		).toBe("Sent a failure reminder message: docs not signed");
+	});
+
+	it("labels a failure reminder with no reason recorded", () => {
+		expect(
+			formatQuestionnaireHistoryEntry("internal.questionnaire.messageSent", {
+				isFailureReminder: true,
+			}),
 		).toBe("Sent a failure reminder message");
+	});
+
+	it("shows the send reason on an automated create", () => {
+		expect(
+			formatQuestionnaireHistoryEntry("internal.questionnaire.create", {
+				questionnaireType: "DP-4",
+				sent: "2026-01-02",
+				status: "JUST_ADDED",
+				reason: "New on list",
+			}),
+		).toBe("Added DP-4 (New on list)");
+	});
+
+	it("falls back to a generic label for an automated create with no reason recorded", () => {
+		expect(
+			formatQuestionnaireHistoryEntry("internal.questionnaire.create", {
+				questionnaireType: "DP-4",
+			}),
+		).toBe("Added DP-4 (automated)");
+	});
+
+	it("shows the status-change reason on an automated update", () => {
+		expect(
+			formatQuestionnaireHistoryEntry("internal.questionnaire.update", {
+				questionnaireType: "DP-4",
+				status: "POSTEVAL_PENDING",
+				reason: "had a matching EVAL appointment on 2026-01-01",
+			}),
+		).toBe(
+			"Set DP-4 to Post-Eval, Pending (had a matching EVAL appointment on 2026-01-01)",
+		);
 	});
 
 	it("formats an automated posteval sweep", () => {

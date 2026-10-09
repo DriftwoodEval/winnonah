@@ -222,14 +222,16 @@ export function formatQuestionnaireHistoryEntry(
 			const type = d.questionnaireType
 				? String(d.questionnaireType)
 				: "a questionnaire";
-			return `Added ${type} (automated)`;
+			const reason = d.reason ? ` (${d.reason})` : " (automated)";
+			return `Added ${type}${reason}`;
 		}
 		case "internal.questionnaire.update": {
 			const type = d.questionnaireType
 				? String(d.questionnaireType)
 				: "a questionnaire";
 			const status = d.status ? statusLabel(String(d.status)) : "unknown";
-			return `Set ${type} to ${status} (automated)`;
+			const reason = d.reason ? ` (${d.reason})` : " (automated)";
+			return `Set ${type} to ${status}${reason}`;
 		}
 		case "internal.questionnaire.bulkUpdate": {
 			const qs = Array.isArray(d.questionnaires)
@@ -242,9 +244,14 @@ export function formatQuestionnaireHistoryEntry(
 			return `${lines.join("; ")} (automated)`;
 		}
 		case "internal.questionnaire.messageSent": {
-			return d.isFailureReminder
-				? "Sent a failure reminder message"
-				: `Sent a reminder message${reminderTemplateDescription(d)}`;
+			if (!d.isFailureReminder) {
+				return `Sent a reminder message${reminderTemplateDescription(d)}`;
+			}
+			const reason =
+				typeof d.failureReason === "string" && d.failureReason
+					? `: ${d.failureReason}`
+					: "";
+			return `Sent a failure reminder message${reason}`;
 		}
 		case "python.questionnaire.markPostevalPending": {
 			const types = Array.isArray(d.questionnaireTypes)
