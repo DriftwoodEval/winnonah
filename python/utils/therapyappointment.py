@@ -564,12 +564,20 @@ def go_to_client(
     return None
 
 
+# The client list page name, which is the URL tail when no profile was opened.
+INVALID_TA_HASH = "allclients"
+
+
 def get_ta_hash(driver: WebDriver, actions: ActionChains, client_id: str) -> str | None:
     """Goes to the client's profile and returns their hash from their link."""
     client_url = go_to_client(driver, actions, client_id)
     if not client_url:
         return None
-    return client_url.split("/")[-1]
+    ta_hash = client_url.rstrip("/").split("/")[-1]
+    if ta_hash.lower() == INVALID_TA_HASH:
+        logger.warning(f"Client {client_id} did not open a profile, got {client_url}")
+        return None
+    return ta_hash
 
 
 def save_ta_hashes():
@@ -580,7 +588,9 @@ def save_ta_hashes():
         clients = utils.database.get_all_clients(connection=conn)
 
         clients_to_update = clients[
-            (clients["TA_HASH"].isna()) | (clients["TA_HASH"] == "NONE")
+            (clients["TA_HASH"].isna())
+            | (clients["TA_HASH"] == "NONE")
+            | (clients["TA_HASH"].str.lower() == INVALID_TA_HASH)
         ]
 
         logger.info(f"{len(clients_to_update)} clients to search for TA hashes")
