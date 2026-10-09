@@ -25,7 +25,7 @@ import {
 	UserX,
 } from "lucide-react";
 import Link from "next/link";
-import { useEffect, useRef, useState } from "react";
+import { Fragment, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { useCheckPermission } from "~/hooks/use-check-permission";
 import { useIssueCounts } from "~/hooks/use-issue-counts";
@@ -33,7 +33,12 @@ import type {
 	DuplicateDriveGroup,
 	SharedQuestionnaireData,
 } from "~/lib/api-types";
-import { ISSUE_TITLES } from "~/lib/issue-titles";
+import {
+	ISSUE_LIST_PERMISSIONS,
+	ISSUE_TITLES,
+	type IssueListId,
+	mergeIssueListOrder,
+} from "~/lib/issue-titles";
 import type { Client, ClientWithIssueInfo } from "~/lib/models";
 import type { PermissionId } from "~/lib/types";
 import { formatInBusinessTime, formatShortDate } from "~/lib/utils";
@@ -41,6 +46,7 @@ import { api, type RouterOutputs } from "~/trpc/react";
 import { ManualAddressDialog } from "../client/ManualAddressDialog";
 import { Redact } from "../redaction/Redact";
 import { ResponsiveDialog } from "../shared/ResponsiveDialog";
+import { IssueListCustomizer } from "./IssueListCustomizer";
 
 interface IssueListProps {
 	title: string;
@@ -1302,9 +1308,24 @@ export function IssuesList() {
 		.filter(({ count }) => count === 0)
 		.map(({ title }) => title);
 
-	return (
-		<div className="flex flex-wrap justify-center gap-10">
-			<GuardedIssue isLoading={isLoadingDD4} permission="issues:dd4">
+	const { data: savedOrder } = api.users.getIssueListOrder.useQuery();
+	const { mutate: updateOrder } = api.users.updateIssueListOrder.useMutation();
+	const order = mergeIssueListOrder(savedOrder);
+
+	const handleOrderChange = async (next: IssueListId[]) => {
+		// Cancel any in-flight fetch so it can't land after this optimistic
+		// write and revert the order back to the old value.
+		await utils.users.getIssueListOrder.cancel();
+		utils.users.getIssueListOrder.setData(undefined, next);
+		updateOrder({ order: next });
+	};
+
+	const issueBlocks: Record<IssueListId, React.ReactNode> = {
+		dd4: (
+			<GuardedIssue
+				isLoading={isLoadingDD4}
+				permission={ISSUE_LIST_PERMISSIONS.dd4}
+			>
 				{dd4 && dd4.length !== 0 && (
 					<IssueList
 						clients={dd4}
@@ -1313,10 +1334,11 @@ export function IssuesList() {
 					/>
 				)}
 			</GuardedIssue>
-
+		),
+		justAddedQuestionnaires: (
 			<GuardedIssue
 				isLoading={isLoadingJustAdded}
-				permission="issues:just-added"
+				permission={ISSUE_LIST_PERMISSIONS.justAddedQuestionnaires}
 			>
 				{justAddedQuestionnaires && justAddedQuestionnaires.length !== 0 && (
 					<IssueList
@@ -1326,10 +1348,11 @@ export function IssuesList() {
 					/>
 				)}
 			</GuardedIssue>
-
+		),
+		pausedClients: (
 			<GuardedIssue
 				isLoading={isLoadingPausedClients}
-				permission="issues:paused-clients"
+				permission={ISSUE_LIST_PERMISSIONS.pausedClients}
 			>
 				{pausedClients && pausedClients.length !== 0 && (
 					<IssueList
@@ -1339,10 +1362,11 @@ export function IssuesList() {
 					/>
 				)}
 			</GuardedIssue>
-
+		),
+		evaluationInProcess: (
 			<GuardedIssue
 				isLoading={isLoadingEvaluationInProcess}
-				permission="issues:evaluation-in-process"
+				permission={ISSUE_LIST_PERMISSIONS.evaluationInProcess}
 			>
 				{evaluationInProcess && evaluationInProcess.length !== 0 && (
 					<IssueList
@@ -1352,10 +1376,11 @@ export function IssuesList() {
 					/>
 				)}
 			</GuardedIssue>
-
+		),
+		missingAppointments: (
 			<GuardedIssue
 				isLoading={isLoadingMissingAppointments}
-				permission="issues:missing-appointments"
+				permission={ISSUE_LIST_PERMISSIONS.missingAppointments}
 			>
 				{missingAppointments && missingAppointments.length !== 0 && (
 					<IssueList
@@ -1365,10 +1390,11 @@ export function IssuesList() {
 					/>
 				)}
 			</GuardedIssue>
-
+		),
+		autismStops: (
 			<GuardedIssue
 				isLoading={isLoadingAutismStops}
-				permission="issues:autism-stops"
+				permission={ISSUE_LIST_PERMISSIONS.autismStops}
 			>
 				{autismStops && autismStops.length !== 0 && (
 					<IssueList
@@ -1378,10 +1404,11 @@ export function IssuesList() {
 					/>
 				)}
 			</GuardedIssue>
-
+		),
+		punchlistNotInDb: (
 			<GuardedIssue
 				isLoading={isLoadingPunchlistIssues}
-				permission="issues:clients-not-in-db"
+				permission={ISSUE_LIST_PERMISSIONS.punchlistNotInDb}
 			>
 				{punchlistIssues && punchlistIssues.clientsNotInDb.length !== 0 && (
 					<SuggestionIssueList
@@ -1404,10 +1431,11 @@ export function IssuesList() {
 					/>
 				)}
 			</GuardedIssue>
-
+		),
+		punchlistInactive: (
 			<GuardedIssue
 				isLoading={isLoadingPunchlistIssues}
-				permission="issues:punchlist-inactive"
+				permission={ISSUE_LIST_PERMISSIONS.punchlistInactive}
 			>
 				{punchlistIssues && punchlistIssues.inactiveClients.length !== 0 && (
 					<IssueList
@@ -1417,10 +1445,11 @@ export function IssuesList() {
 					/>
 				)}
 			</GuardedIssue>
-
+		),
+		punchlistDuplicateIds: (
 			<GuardedIssue
 				isLoading={isLoadingPunchlistIssues}
-				permission="issues:punchlist-duplicates"
+				permission={ISSUE_LIST_PERMISSIONS.punchlistDuplicateIds}
 			>
 				{punchlistDuplicateIds.length !== 0 && (
 					<IssueList
@@ -1430,10 +1459,11 @@ export function IssuesList() {
 					/>
 				)}
 			</GuardedIssue>
-
+		),
+		noReferralSource: (
 			<GuardedIssue
 				isLoading={isLoadingNoReferralSource}
-				permission="issues:no-referral-source"
+				permission={ISSUE_LIST_PERMISSIONS.noReferralSource}
 			>
 				{noReferralSource && noReferralSource.length !== 0 && (
 					<IssueList
@@ -1443,10 +1473,11 @@ export function IssuesList() {
 					/>
 				)}
 			</GuardedIssue>
-
+		),
+		missingDistricts: (
 			<GuardedIssue
 				isLoading={isLoadingDistrictErrors}
-				permission="issues:district-issues"
+				permission={ISSUE_LIST_PERMISSIONS.missingDistricts}
 			>
 				{clientsWithoutDistrict && clientsWithoutDistrict.length !== 0 && (
 					<IssueList
@@ -1456,10 +1487,11 @@ export function IssuesList() {
 					/>
 				)}
 			</GuardedIssue>
-
+		),
+		poorAddressLookup: (
 			<GuardedIssue
 				isLoading={isLoadingDistrictErrors}
-				permission="issues:district-issues"
+				permission={ISSUE_LIST_PERMISSIONS.poorAddressLookup}
 			>
 				{clientsWithPoorAddressLookup &&
 					clientsWithPoorAddressLookup.length !== 0 && (
@@ -1470,10 +1502,11 @@ export function IssuesList() {
 						/>
 					)}
 			</GuardedIssue>
-
+		),
+		babyNetAgeOut: (
 			<GuardedIssue
 				isLoading={isLoadingBabyNetErrors}
-				permission="issues:babynet-ageout"
+				permission={ISSUE_LIST_PERMISSIONS.babyNetAgeOut}
 			>
 				{babyNetErrors && babyNetErrors.length !== 0 && (
 					<IssueList
@@ -1483,10 +1516,11 @@ export function IssuesList() {
 					/>
 				)}
 			</GuardedIssue>
-
+		),
+		notInTA: (
 			<GuardedIssue
 				isLoading={isLoadingNotInTAErrors}
-				permission="issues:not-in-ta"
+				permission={ISSUE_LIST_PERMISSIONS.notInTA}
 			>
 				{notInTAErrors && notInTAErrors.length !== 0 && (
 					<IssueList
@@ -1496,8 +1530,12 @@ export function IssuesList() {
 					/>
 				)}
 			</GuardedIssue>
-
-			<GuardedIssue isLoading={isLoadingDropList} permission="issues:droplist">
+		),
+		dropList: (
+			<GuardedIssue
+				isLoading={isLoadingDropList}
+				permission={ISSUE_LIST_PERMISSIONS.dropList}
+			>
 				{dropList && dropList.length !== 0 && (
 					<IssueList
 						clients={dropList}
@@ -1506,10 +1544,11 @@ export function IssuesList() {
 					/>
 				)}
 			</GuardedIssue>
-
+		),
+		notesOnly: (
 			<GuardedIssue
 				isLoading={isLoadingNotesOnlyClients || isLoadingMergeSuggestions}
-				permission="clients:merge"
+				permission={ISSUE_LIST_PERMISSIONS.notesOnly}
 			>
 				{notesOnlyClients && notesOnlyClients.length !== 0 && (
 					<SuggestionIssueList
@@ -1535,10 +1574,11 @@ export function IssuesList() {
 					/>
 				)}
 			</GuardedIssue>
-
+		),
+		noDriveIds: (
 			<GuardedIssue
 				isLoading={isLoadingNoDriveIds}
-				permission="issues:no-drive-ids"
+				permission={ISSUE_LIST_PERMISSIONS.noDriveIds}
 			>
 				{noDriveIds && noDriveIds.length !== 0 && (
 					<IssueList
@@ -1548,10 +1588,11 @@ export function IssuesList() {
 					/>
 				)}
 			</GuardedIssue>
-
+		),
+		possiblePrivatePay: (
 			<GuardedIssue
 				isLoading={isLoadingPossiblePrivatePay}
-				permission="issues:private-pay"
+				permission={ISSUE_LIST_PERMISSIONS.possiblePrivatePay}
 			>
 				{possiblePrivatePay && possiblePrivatePay.length !== 0 && (
 					<IssueList
@@ -1562,10 +1603,11 @@ export function IssuesList() {
 					/>
 				)}
 			</GuardedIssue>
-
+		),
+		unreviewedRecords: (
 			<GuardedIssue
 				isLoading={isLoadingUnreviewedRecords}
-				permission="issues:unreviewed-records"
+				permission={ISSUE_LIST_PERMISSIONS.unreviewedRecords}
 			>
 				{unreviewedRecords && unreviewedRecords.length !== 0 && (
 					<IssueList
@@ -1575,10 +1617,11 @@ export function IssuesList() {
 					/>
 				)}
 			</GuardedIssue>
-
+		),
+		charterSchoolConfirm: (
 			<GuardedIssue
 				isLoading={isLoadingUnconfirmedCharterSchool}
-				permission="issues:charter-school-confirm"
+				permission={ISSUE_LIST_PERMISSIONS.charterSchoolConfirm}
 			>
 				{unconfirmedCharterSchool && unconfirmedCharterSchool.length !== 0 && (
 					<IssueList
@@ -1588,10 +1631,11 @@ export function IssuesList() {
 					/>
 				)}
 			</GuardedIssue>
-
+		),
+		insuranceMismatch: (
 			<GuardedIssue
 				isLoading={isLoadingInsuranceMismatch}
-				permission="issues:insurance-mismatch"
+				permission={ISSUE_LIST_PERMISSIONS.insuranceMismatch}
 			>
 				{insuranceMismatch && insuranceMismatch.length !== 0 && (
 					<IssueList
@@ -1601,10 +1645,11 @@ export function IssuesList() {
 					/>
 				)}
 			</GuardedIssue>
-
+		),
+		duplicateDriveFolders: (
 			<GuardedIssue
 				isLoading={isLoadingDuplicateFolderNames}
-				permission="issues:duplicate-drive"
+				permission={ISSUE_LIST_PERMISSIONS.duplicateDriveFolders}
 			>
 				{duplicateFolderNames && duplicateFolderNames.data.length > 0 && (
 					<DuplicateDriveFoldersList
@@ -1613,10 +1658,11 @@ export function IssuesList() {
 					/>
 				)}
 			</GuardedIssue>
-
+		),
+		duplicateQuestionnaireLinks: (
 			<GuardedIssue
 				isLoading={isLoadingDuplicateQLinks}
-				permission="issues:duplicate-questionnaires"
+				permission={ISSUE_LIST_PERMISSIONS.duplicateQuestionnaireLinks}
 			>
 				{duplicateQLinks && clientsWithDuplicateLinks.length > 0 && (
 					<IssueList
@@ -1626,10 +1672,11 @@ export function IssuesList() {
 					/>
 				)}
 			</GuardedIssue>
-
+		),
+		sharedQuestionnaires: (
 			<GuardedIssue
 				isLoading={isLoadingDuplicateQLinks}
-				permission="issues:duplicate-questionnaires"
+				permission={ISSUE_LIST_PERMISSIONS.sharedQuestionnaires}
 			>
 				{duplicateQLinks?.sharedAcrossClients &&
 					duplicateQLinks.sharedAcrossClients.length > 0 && (
@@ -1638,26 +1685,40 @@ export function IssuesList() {
 						/>
 					)}
 			</GuardedIssue>
-
+		),
+		duplicateNames: (
 			<GuardedIssue
 				isLoading={isLoadingDuplicateNames}
-				permission="issues:duplicate-names"
+				permission={ISSUE_LIST_PERMISSIONS.duplicateNames}
 			>
 				{duplicateNames && duplicateNames.length > 0 && (
 					<DuplicateNamesList groups={duplicateNames} />
 				)}
 			</GuardedIssue>
-
+		),
+		partialBatteries: (
 			<GuardedIssue
 				isLoading={isLoadingPartialBatteries}
-				permission="issues:partial-battery"
+				permission={ISSUE_LIST_PERMISSIONS.partialBatteries}
 			>
 				{partialBatteries && partialBatteries.length > 0 && (
 					<PartialBatteryList issues={partialBatteries} />
 				)}
 			</GuardedIssue>
+		),
+	};
 
-			<EmptyListsCard titles={emptyLists} />
+	return (
+		<div className="flex flex-col gap-4">
+			<div className="flex items-center justify-end">
+				<IssueListCustomizer onChange={handleOrderChange} order={order} />
+			</div>
+			<div className="flex flex-wrap justify-center gap-10">
+				{order.map((id) => (
+					<Fragment key={id}>{issueBlocks[id]}</Fragment>
+				))}
+				<EmptyListsCard titles={emptyLists} />
+			</div>
 		</div>
 	);
 }

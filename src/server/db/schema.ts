@@ -1138,6 +1138,7 @@ export const users = createTable("user", (d) => ({
 	recentClients: d.text(),
 	homeWidgets: d.text(),
 	headerItems: d.text(),
+	issueListOrder: d.text(),
 	lastSeenChangelogMarker: d.text(),
 	blockedEvaluatorNpis: d.json().$type<number[]>(),
 	listFilters: d.json().$type<Record<string, string[]>>(),

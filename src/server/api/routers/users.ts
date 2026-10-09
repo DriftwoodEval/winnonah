@@ -472,6 +472,41 @@ export const userRouter = createTRPCRouter({
 				.where(eq(users.id, ctx.session.user.id));
 		}),
 
+	getIssueListOrder: protectedProcedure.query(async ({ ctx }) => {
+		const userFromDb = await ctx.db.query.users.findFirst({
+			where: eq(users.id, ctx.session.user.id),
+		});
+
+		try {
+			return JSON.parse(userFromDb?.issueListOrder ?? "null") as
+				| string[]
+				| null;
+		} catch {
+			return null;
+		}
+	}),
+
+	updateIssueListOrder: protectedProcedure
+		.input(z.object({ order: z.array(z.string()) }))
+		.mutation(async ({ ctx, input }) => {
+			const userFromDb = await ctx.db.query.users.findFirst({
+				where: eq(users.id, ctx.session.user.id),
+			});
+			let existingOrder: unknown[] = [];
+			try {
+				existingOrder =
+					(JSON.parse(userFromDb?.issueListOrder ?? "null") as unknown[]) ?? [];
+			} catch {
+				existingOrder = [];
+			}
+			setAuditDetail(ctx, diffValues(existingOrder, input.order));
+
+			await ctx.db
+				.update(users)
+				.set({ issueListOrder: JSON.stringify(input.order) })
+				.where(eq(users.id, ctx.session.user.id));
+		}),
+
 	getListFilters: protectedProcedure.query(async ({ ctx }) => {
 		const userFromDb = await ctx.db.query.users.findFirst({
 			where: eq(users.id, ctx.session.user.id),
