@@ -2,6 +2,13 @@
 import { MergePreviewDialog } from "@components/clients/MergePreviewDialog";
 import { Badge } from "@ui/badge";
 import { Button } from "@ui/button";
+import {
+	Card,
+	CardContent,
+	CardDescription,
+	CardHeader,
+	CardTitle,
+} from "@ui/card";
 import { Label } from "@ui/label";
 import { ScrollArea } from "@ui/scroll-area";
 import { Separator } from "@ui/separator";
@@ -1071,6 +1078,33 @@ const GuardedIssue = ({
 	return <>{children}</>;
 };
 
+const EmptyListsCard = ({ titles }: { titles: string[] }) => {
+	if (titles.length === 0) return null;
+
+	return (
+		<Card className="w-full max-w-md gap-3 py-4">
+			<CardHeader className="px-4">
+				<CardTitle className="font-bold text-lg leading-none">
+					Empty Lists{" "}
+					<span className="font-medium text-muted-foreground text-sm">
+						({titles.length})
+					</span>
+				</CardTitle>
+				<CardDescription className="text-xs">
+					These lists have no items.
+				</CardDescription>
+			</CardHeader>
+			<CardContent className="px-4">
+				<ul className="list-disc space-y-1 pl-5 text-sm marker:text-muted-foreground">
+					{titles.map((title) => (
+						<li key={title}>{title}</li>
+					))}
+				</ul>
+			</CardContent>
+		</Card>
+	);
+};
+
 export function IssuesList() {
 	const utils = api.useUtils();
 	const can = useCheckPermission();
@@ -1621,11 +1655,7 @@ export function IssuesList() {
 				)}
 			</GuardedIssue>
 
-			{emptyLists.length > 0 && (
-				<p className="w-full text-center text-muted-foreground text-sm">
-					The following lists have no items: {emptyLists.join(", ")}.
-				</p>
-			)}
+			<EmptyListsCard titles={emptyLists} />
 		</div>
 	);
 }
