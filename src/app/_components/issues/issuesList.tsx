@@ -1081,6 +1081,8 @@ const GuardedIssue = ({
 const EmptyListsCard = ({ titles }: { titles: string[] }) => {
 	if (titles.length === 0) return null;
 
+	const sortedTitles = titles.toSorted((a, b) => a.localeCompare(b));
+
 	return (
 		<Card className="w-full max-w-md gap-3 py-4">
 			<CardHeader className="px-4">
@@ -1096,7 +1098,7 @@ const EmptyListsCard = ({ titles }: { titles: string[] }) => {
 			</CardHeader>
 			<CardContent className="px-4">
 				<ul className="list-disc space-y-1 pl-5 text-sm marker:text-muted-foreground">
-					{titles.map((title) => (
+					{sortedTitles.map((title) => (
 						<li key={title}>{title}</li>
 					))}
 				</ul>
