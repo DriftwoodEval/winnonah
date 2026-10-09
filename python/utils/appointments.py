@@ -97,6 +97,7 @@ class SyncReporter:
         self.missing_npis: list[str] = []
         self.ambiguous_calendar_matches: list[dict[str, Any]] = []
         self.calendar_fetch_failures: list[str] = []
+        self.unidentified_calendar_events: list[dict[str, Any]] = []
 
     def log_time_mismatch(
         self,
@@ -138,6 +139,44 @@ class SyncReporter:
                 "start_time": start_time,
                 "evaluator_name": evaluator_name,
                 "appointment_id": appointment_id,
+                "cpt_code": cpt_code,
+            }
+        )
+
+    def log_unidentified_calendar_event(
+        self,
+        appointment_idx: int,
+        appointment_id: str,
+        client_name: str,
+        client_id: int,
+        event_title: str,
+        event_time: str,
+        name_in_title: bool,
+        expected_time: str,
+        evaluator_name: str,
+        cpt_code: str = "N/A",
+    ):
+        """Log an appointment with no client ID match anywhere, but where the
+        expected evaluator's own calendar has an event at the right time with
+        no client ID on it. Not assumed to be the same appointment, just
+        surfaced as a lead for staff to check manually. Still treated as not
+        found for insert purposes: nothing gets imported off this guess.
+
+        name_in_title says whether the event's title has the client's name,
+        which is some evidence it's actually this appointment rather than an
+        unrelated event that happened to land at the same time.
+        """
+        self.unidentified_calendar_events.append(
+            {
+                "appointment_idx": appointment_idx,
+                "appointment_id": appointment_id,
+                "client_name": client_name,
+                "client_id": client_id,
+                "event_title": event_title,
+                "event_time": event_time,
+                "name_in_title": name_in_title,
+                "expected_time": expected_time,
+                "evaluator_name": evaluator_name,
                 "cpt_code": cpt_code,
             }
         )
@@ -186,6 +225,7 @@ class SyncReporter:
                 self.missing_npis,
                 self.ambiguous_calendar_matches,
                 self.calendar_fetch_failures,
+                self.unidentified_calendar_events,
             ]
         )
 
@@ -228,6 +268,16 @@ class SyncReporter:
                 "clients": [
                     {"hash": client_hash, "name": item["name"]}
                     for item in self.ambiguous_calendar_matches
+                    if (client_hash := hash_map.get(item["client_id"]))
+                ],
+            }
+
+        if self.unidentified_calendar_events:
+            errors["Calendar event found without a client ID"] = {
+                "count": len(self.unidentified_calendar_events),
+                "clients": [
+                    {"hash": client_hash, "name": item["client_name"]}
+                    for item in self.unidentified_calendar_events
                     if (client_hash := hash_map.get(item["client_id"]))
                 ],
             }
@@ -319,6 +369,27 @@ class SyncReporter:
                 )
             html_content += "</ul>"
 
+        if self.unidentified_calendar_events:
+            html_content += "<h3>Calendar Event Found Without a Client ID</h3>"
+            html_content += (
+                "<p>No event anywhere has this client's ID, but the expected "
+                "evaluator's calendar has an event at the right time with no "
+                "ID on it.</p><ul>"
+            )
+            for item in self.unidentified_calendar_events:
+                name_note = (
+                    "event title has the client's name"
+                    if item["name_in_title"]
+                    else "event title does NOT have the client's name, may be unrelated"
+                )
+                html_content += (
+                    f"<li><b>{item['client_name']}</b> (ID: {item['client_id']}): "
+                    f"TA has {item['expected_time']}, found event '{html.escape(item['event_title'])}' "
+                    f"at {item['event_time']} on <b>{item['evaluator_name']}</b>'s calendar ({name_note}) "
+                    f"<br>&nbsp;&nbsp;<i>Appt ID: {item.get('appointment_id', 'N/A')} | CPT: {item.get('cpt_code', 'N/A')}</i></li>"
+                )
+            html_content += "</ul>"
+
         html_content += "<p>This email was generated and sent automatically.</p>"
 
         send_gmail(
@@ -406,6 +477,7 @@ def batch_search_calendar_events(
     """
     candidates_by_idx: dict[int, list[dict]] = defaultdict(list)
     near_miss_by_idx: dict[int, list[dict]] = defaultdict(list)
+    unidentified_by_idx: dict[int, list[dict]] = defaultdict(list)
 
     if appointments_df.empty:
         return {}
@@ -481,9 +553,15 @@ def batch_search_calendar_events(
 
             for idx, appointment in date_appointments:
                 client_id = appointment["CLIENT_ID"]
+                client_name = re.sub(r"[\d\(\)]", "", appointment["NAME"]).strip()
                 start_time = pd.to_datetime(appointment["STARTTIME"]).to_pydatetime()
                 if start_time.tzinfo is not None:
                     start_time = start_time.replace(tzinfo=None)
+
+                expected_npi = _parse_csv_npi(appointment.get("NPI"))
+                expected_email = (
+                    npi_to_email.get(expected_npi) if expected_npi else None
+                )
 
                 # Iterate only the events for this specific day
                 for event_dt, event in day_events:
@@ -491,6 +569,27 @@ def batch_search_calendar_events(
 
                     # Check Client ID
                     if str(client_id) not in description:
+                        # No ID anywhere on this event, but if it's at the right
+                        # time on the expected evaluator's own calendar, flag it
+                        # as a lead rather than silently skipping it. Evaluators'
+                        # generic "<name> Available" blocks aren't appointments
+                        # at all, so they're excluded rather than flagged.
+                        title = event.get("summary", "No title")
+                        if (
+                            calendar_id == expected_email
+                            and not title.strip().lower().endswith("available")
+                        ):
+                            time_diff = abs((event_dt - start_time).total_seconds())
+                            if time_diff <= 3600:
+                                unidentified_by_idx[idx].append(
+                                    {
+                                        "title": title,
+                                        "event_dt": event_dt,
+                                        "time_diff": time_diff,
+                                        "name_in_title": bool(client_name)
+                                        and client_name.lower() in title.lower(),
+                                    }
+                                )
                         continue
 
                     # Check Time Difference
@@ -523,6 +622,9 @@ def batch_search_calendar_events(
     results: dict[int, dict] = {}
 
     for idx, appointment in appointments_df.iterrows():
+        expected_npi = _parse_csv_npi(appointment.get("NPI"))
+        expected_email = npi_to_email.get(expected_npi) if expected_npi else None
+
         candidates = candidates_by_idx.get(idx)
 
         if not candidates:
@@ -541,10 +643,38 @@ def batch_search_calendar_events(
                     .strftime("%m/%d/%Y %-I:%M %p"),
                     cpt_code=cpt_code,
                 )
+            else:
+                unidentified = unidentified_by_idx.get(idx)
+                if unidentified:
+                    # Prefer a candidate whose title has the client's name, even
+                    # if it's not the closest in time, over one that doesn't.
+                    closest = min(
+                        unidentified,
+                        key=lambda m: (not m["name_in_title"], m["time_diff"]),
+                    )
+                    cpt_code = re.sub(r"\D", "", appointment["NAME"]) or "N/A"
+                    reporter.log_unidentified_calendar_event(
+                        appointment_idx=idx,
+                        appointment_id=str(appointment["APPOINTMENT_ID"]),
+                        client_name=re.sub(
+                            r"[\d\(\)]", "", appointment["NAME"]
+                        ).strip(),
+                        client_id=appointment["CLIENT_ID"],
+                        event_title=closest["title"],
+                        event_time=closest["event_dt"].strftime("%m/%d/%Y %-I:%M %p"),
+                        name_in_title=closest["name_in_title"],
+                        expected_time=pd.to_datetime(appointment["STARTTIME"])
+                        .to_pydatetime()
+                        .strftime("%m/%d/%Y %-I:%M %p"),
+                        evaluator_name=calendar_names.get(
+                            expected_email, expected_email
+                        )
+                        if expected_email
+                        else "Unknown",
+                        cpt_code=cpt_code,
+                    )
             continue
 
-        expected_npi = _parse_csv_npi(appointment.get("NPI"))
-        expected_email = npi_to_email.get(expected_npi) if expected_npi else None
         expected_candidates = [
             c for c in candidates if c["calendar_id"] == expected_email
         ]
@@ -753,6 +883,9 @@ def prepare_appointments_from_csv(
     )
 
     mismatched_indices = {item["appointment_idx"] for item in reporter.time_mismatches}
+    unidentified_indices = {
+        item["appointment_idx"] for item in reporter.unidentified_calendar_events
+    }
     final_drops = set()
 
     gcal_updates = {}
@@ -778,6 +911,18 @@ def prepare_appointments_from_csv(
                 )
             else:
                 # We already logged the mismatch, so just add to drop list
+                final_drops.add(idx)
+        elif idx in unidentified_indices:
+            # Only a lead (same time, no ID match), never treated as a match:
+            # this appointment is dropped (or trusted off the CSV NPI) exactly
+            # like a plain "not found" appointment would be.
+            if is_trusted:
+                logger.warning(
+                    f"Trusting import for appointment {appointment_id} despite "
+                    "unidentified calendar event."
+                )
+            else:
+                # We already logged this via log_unidentified_calendar_event
                 final_drops.add(idx)
         else:
             name = re.sub(r"[\d\(\)]", "", appointment["NAME"]).strip()
