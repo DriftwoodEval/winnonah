@@ -3,6 +3,13 @@
 import { Alert, AlertDescription, AlertTitle } from "@ui/alert";
 import { Button } from "@ui/button";
 import {
+	Popover,
+	PopoverContent,
+	PopoverHeader,
+	PopoverTitle,
+	PopoverTrigger,
+} from "@ui/popover";
+import {
 	Select,
 	SelectContent,
 	SelectItem,
@@ -32,6 +39,7 @@ import {
 	formatInBusinessTime,
 	getInsuranceShortNamesList,
 	isNotesOnlyClientId,
+	resolveInsuranceShortName,
 	sanitizeFailureReason,
 } from "~/lib/utils";
 import { api } from "~/trpc/react";
@@ -56,6 +64,35 @@ import { ReferralTab } from "./ReferralTab";
 import { RelatedClients } from "./RelatedClients";
 
 const log = logger.child({ module: "Client" });
+
+function InsuranceMatchDebugRow({
+	label,
+	entry,
+}: {
+	label: string;
+	entry: { raw: string | null; shortName: string | null; resolved: boolean };
+}) {
+	if (!entry.raw) return null;
+	return (
+		<div>
+			<div className="text-muted-foreground">{label}</div>
+			<div className="font-mono">
+				{JSON.stringify(entry.raw)}
+				{entry.resolved ? (
+					<>
+						{" "}
+						→ insurance <span className="font-semibold">{entry.shortName}</span>
+					</>
+				) : (
+					<span className="text-destructive">
+						{" "}
+						→ no insurance found for this
+					</span>
+				)}
+			</div>
+		</div>
+	);
+}
 
 export function Client({
 	hash,
@@ -114,6 +151,22 @@ export function Client({
 		});
 
 	const { data: allInsurances } = api.insurances.getAll.useQuery();
+	// Debug detail for the "Insurance Doesn't Match" alert: shows exactly what
+	// was compared, since the match is an exact string lookup against
+	// insurances/insuranceAliases with no normalization.
+	const insuranceMatchDebug = allInsurances && {
+		org: resolveInsuranceShortName(
+			client?.medicaidOrganization ?? null,
+			allInsurances,
+		),
+		primary: resolveInsuranceShortName(
+			client?.primaryInsurance ?? null,
+			allInsurances,
+		),
+		secondary: (client?.secondaryInsurance ?? []).map((s) =>
+			resolveInsuranceShortName(s, allInsurances),
+		),
+	};
 	// Primary and secondary insurance names are resolved through aliases to the
 	// short name ("SH" is Select Health).
 	const hasSelectHealth = getInsuranceShortNamesList(
@@ -378,19 +431,85 @@ export function Client({
 
 						<PersistentStatusAlert
 							action={
-								can("issues:insurance-mismatch") &&
-								!readOnly && (
-									<Button
-										disabled={ignoreInsuranceMismatch.isPending}
-										onClick={() =>
-											ignoreInsuranceMismatch.mutate({ clientId: client.id })
-										}
-										size="sm"
-										variant="outline"
-									>
-										Ignore until insurance changes
-									</Button>
-								)
+								<div className="flex items-center gap-2">
+									{insuranceMatchDebug && (
+										<Popover>
+											<PopoverTrigger asChild>
+												<Button size="sm" variant="outline">
+													Why doesn't it match?
+												</Button>
+											</PopoverTrigger>
+											<PopoverContent className="w-96">
+												<PopoverHeader>
+													<PopoverTitle>Insurance match details</PopoverTitle>
+												</PopoverHeader>
+												<p className="text-muted-foreground text-xs">
+													We take the Medicaid portal's organization and the
+													client's insurance on file, resolve each to a known
+													insurance below, then check whether the organization's
+													insurance is one of the on-file insurances.
+												</p>
+												<div className="space-y-2 text-xs">
+													<InsuranceMatchDebugRow
+														entry={insuranceMatchDebug.org}
+														label="Medicaid portal says organization is"
+													/>
+													<div className="border-t pt-2 font-medium text-muted-foreground">
+														On file:
+													</div>
+													<InsuranceMatchDebugRow
+														entry={insuranceMatchDebug.primary}
+														label="Primary insurance"
+													/>
+													{insuranceMatchDebug.secondary.map((entry, i) => (
+														<InsuranceMatchDebugRow
+															entry={entry}
+															// biome-ignore lint/suspicious/noArrayIndexKey: stable list from the client record
+															key={i}
+															label={`Secondary insurance ${i + 1}`}
+														/>
+													))}
+												</div>
+												<p className="border-t pt-2 text-xs">
+													{insuranceMatchDebug.org.shortName &&
+													!insuranceMatchDebug.org.resolved ? (
+														<>
+															<span className="font-medium">Can't check:</span>{" "}
+															no insurance record or alias matches the Medicaid
+															organization string above. Add it as an alias on
+															the right insurance to fix this.
+														</>
+													) : (
+														<>
+															<span className="font-medium">
+																Doesn't match:
+															</span>{" "}
+															<span className="font-mono">
+																{insuranceMatchDebug.org.shortName}
+															</span>{" "}
+															isn't one of the insurances on file above. Either
+															the client's insurance on file is wrong, or these
+															two insurances should be linked as aliases of the
+															same insurance record.
+														</>
+													)}
+												</p>
+											</PopoverContent>
+										</Popover>
+									)}
+									{can("issues:insurance-mismatch") && !readOnly && (
+										<Button
+											disabled={ignoreInsuranceMismatch.isPending}
+											onClick={() =>
+												ignoreInsuranceMismatch.mutate({ clientId: client.id })
+											}
+											size="sm"
+											variant="outline"
+										>
+											Ignore until insurance changes
+										</Button>
+									)}
+								</div>
 							}
 							condition={organizationMismatch}
 							description="This client's Medicaid organization doesn't match their primary or secondary insurance on file. Check the Insurance tab."

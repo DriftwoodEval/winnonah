@@ -159,6 +159,28 @@ export const getInsuranceShortName = (
 	return insurance?.shortName || officialName;
 };
 
+/**
+ * Same resolution as getInsuranceShortName, but also reports whether the name
+ * actually matched an insurance/alias row, since a miss passes through
+ * unchanged and is otherwise indistinguishable from an exact shortName match.
+ */
+export const resolveInsuranceShortName = (
+	officialName: string | null,
+	insurances: InsuranceWithAliases[],
+): { raw: string | null; shortName: string | null; resolved: boolean } => {
+	if (!officialName) return { raw: null, shortName: null, resolved: false };
+	const insurance = insurances.find(
+		(i) =>
+			i.shortName === officialName ||
+			i.aliases.some((a) => a.name === officialName),
+	);
+	return {
+		raw: officialName,
+		shortName: insurance?.shortName || officialName,
+		resolved: !!insurance,
+	};
+};
+
 export const mapInsuranceToShortNames = (
 	primary: string | null,
 	secondary: string[] | null,
