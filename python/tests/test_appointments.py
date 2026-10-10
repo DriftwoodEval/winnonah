@@ -158,7 +158,13 @@ class TestBatchSearchCalendarEvents:
         reporter = SyncReporter()
 
         results = batch_search_calendar_events(
-            service, calendars, appointments_df, reporter, npi_to_email, calendar_names
+            service,
+            calendars,
+            appointments_df,
+            reporter,
+            npi_to_email,
+            calendar_names,
+            client_name_variants={},
         )
 
         assert results[0]["calendar_id"] == "right@example.com"
@@ -208,6 +214,7 @@ class TestBatchSearchCalendarEvents:
             reporter,
             npi_to_email={},
             calendar_names={"only@example.com": "Only Evaluator"},
+            client_name_variants={},
         )
 
         assert results[0]["calendar_id"] == "only@example.com"
