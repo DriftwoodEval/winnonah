@@ -175,22 +175,48 @@ def print_sample(
             )
 
 
+BATCH_SIZE = 1000
+
+
+def _chunked(items: list, size: int):
+    for i in range(0, len(items), size):
+        yield items[i : i + size]
+
+
 def apply_noop_cleanup(connection, plans: list[tuple[int, str, dict | None]]) -> None:
-    deleted = stripped = 0
+    """Batches deletes and updates so a multi-million-row cleanup over a
+    remote (SSH-tunneled) connection doesn't pay one network round trip per
+    row, and commits per batch so progress survives an interruption instead
+    of sitting in one giant uncommitted transaction."""
+    delete_ids = [row_id for row_id, outcome, _ in plans if outcome == "delete"]
+    strips = [
+        (row_id, new_detail)
+        for row_id, outcome, new_detail in plans
+        if outcome == "strip"
+    ]
+
+    deleted = 0
     with connection.cursor() as cursor:
-        for row_id, outcome, new_detail in plans:
-            if outcome == "delete":
-                cursor.execute(
-                    f"DELETE FROM `{TABLE_AUDIT_LOG}` WHERE id = %s", (row_id,)
-                )
-                deleted += 1
-            else:
-                cursor.execute(
-                    f"UPDATE `{TABLE_AUDIT_LOG}` SET detail = %s WHERE id = %s",
-                    (json.dumps(new_detail), row_id),
-                )
-                stripped += 1
-    connection.commit()
+        for batch in _chunked(delete_ids, BATCH_SIZE):
+            placeholders = ", ".join(["%s"] * len(batch))
+            cursor.execute(
+                f"DELETE FROM `{TABLE_AUDIT_LOG}` WHERE id IN ({placeholders})", batch
+            )
+            connection.commit()
+            deleted += len(batch)
+            logger.info(f"Deleted {deleted}/{len(delete_ids)} fully no-op row(s)")
+
+    stripped = 0
+    with connection.cursor() as cursor:
+        for batch in _chunked(strips, BATCH_SIZE):
+            cursor.executemany(
+                f"UPDATE `{TABLE_AUDIT_LOG}` SET detail = %s WHERE id = %s",
+                [(json.dumps(new_detail), row_id) for row_id, new_detail in batch],
+            )
+            connection.commit()
+            stripped += len(batch)
+            logger.info(f"Stripped {stripped}/{len(strips)} partial row(s)")
+
     logger.info(
         f"Deleted {deleted} fully no-op row(s), stripped {stripped} partial row(s)."
     )
