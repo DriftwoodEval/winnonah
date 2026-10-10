@@ -1,4 +1,4 @@
-import datetime
+import datetime as dt
 from unittest.mock import Mock, patch
 
 import pytest
@@ -214,7 +214,7 @@ def test_parse_sc_rows_splits_last_first_and_reads_banner():
             "29201",
             "Ind-Lic HC Serv Prov",
             "Excluded",
-            datetime.datetime(2020, 1, 1),
+            dt.datetime(2020, 1, 1),
         ),
     )
 
