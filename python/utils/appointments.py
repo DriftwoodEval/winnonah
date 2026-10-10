@@ -1,3 +1,4 @@
+import difflib
 import html
 import os
 import re
@@ -20,6 +21,7 @@ from utils.database import (
     get_client_id_to_asd_adhd_map,
     get_client_id_to_dob_map,
     get_client_id_to_hash_map,
+    get_client_id_to_name_variants_map,
     get_in_person_assessments_for_client,
     get_npi_to_name_map,
     get_questionnaire_rules_with_in_person,
@@ -449,9 +451,39 @@ def _parse_csv_npi(raw_npi: Any) -> int | None:
         return None
 
 
+def _is_close_name_match(name: str, title: str, cutoff: float = 0.8) -> bool:
+    """Whether `name` appears in `title`, exactly or via fuzzy word matching
+    (catches nicknames, misspellings, and titles missing part of the name)."""
+    name = name.strip().lower()
+    if not name:
+        return False
+
+    title_lower = title.lower()
+    if name in title_lower:
+        return True
+
+    name_words = [w for w in re.findall(r"[a-z]+", name) if len(w) > 2]
+    if not name_words:
+        return False
+
+    title_words = re.findall(r"[a-z]+", title_lower)
+    close_matches = sum(
+        1
+        for w in name_words
+        if difflib.get_close_matches(w, title_words, cutoff=cutoff)
+    )
+    return close_matches / len(name_words) >= 0.5
+
+
+def _clean_appointment_name(appointment: pd.Series) -> str:
+    """Strips the CPT code and parens off the CSV's NAME field, leaving just
+    the client's name."""
+    return re.sub(r"[\d\(\)]", "", appointment["NAME"]).strip()
+
+
 def should_skip_appointment(appointment: pd.Series) -> bool:
     """Skip test clients or 'Reports' CPT code."""
-    name = re.sub(r"[\d\(\)]", "", appointment["NAME"]).strip().lower()
+    name = _clean_appointment_name(appointment).lower()
     cpt = re.sub(r"\D", "", appointment["NAME"])
 
     return name in TEST_NAMES_LOWER or "96130" in cpt
@@ -464,6 +496,7 @@ def batch_search_calendar_events(
     reporter: SyncReporter,
     npi_to_email: dict[int, str],
     calendar_names: dict[str, str],
+    client_name_variants: dict[int, list[str]],
 ) -> dict[int, dict]:
     """Search Google Calendar events in batches by date.
 
@@ -553,7 +586,15 @@ def batch_search_calendar_events(
 
             for idx, appointment in date_appointments:
                 client_id = appointment["CLIENT_ID"]
-                client_name = re.sub(r"[\d\(\)]", "", appointment["NAME"]).strip()
+                client_name = _clean_appointment_name(appointment)
+                client_names = [
+                    n
+                    for n in (
+                        client_name,
+                        *client_name_variants.get(client_id, []),
+                    )
+                    if n
+                ]
                 start_time = pd.to_datetime(appointment["STARTTIME"]).to_pydatetime()
                 if start_time.tzinfo is not None:
                     start_time = start_time.replace(tzinfo=None)
@@ -586,8 +627,10 @@ def batch_search_calendar_events(
                                         "title": title,
                                         "event_dt": event_dt,
                                         "time_diff": time_diff,
-                                        "name_in_title": bool(client_name)
-                                        and client_name.lower() in title.lower(),
+                                        "name_in_title": any(
+                                            _is_close_name_match(n, title)
+                                            for n in client_names
+                                        ),
                                     }
                                 )
                         continue
@@ -635,7 +678,7 @@ def batch_search_calendar_events(
                 reporter.log_time_mismatch(
                     appointment_idx=idx,
                     appointment_id=str(appointment["APPOINTMENT_ID"]),
-                    client_name=re.sub(r"[\d\(\)]", "", appointment["NAME"]).strip(),
+                    client_name=_clean_appointment_name(appointment),
                     client_id=appointment["CLIENT_ID"],
                     found_time=closest["event_dt"].strftime("%m/%d/%Y %-I:%M %p"),
                     expected_time=pd.to_datetime(appointment["STARTTIME"])
@@ -693,7 +736,7 @@ def batch_search_calendar_events(
         }
         if other_calendar_ids:
             reporter.log_ambiguous_calendar_match(
-                name=re.sub(r"[\d\(\)]", "", appointment["NAME"]).strip(),
+                name=_clean_appointment_name(appointment),
                 client_id=appointment["CLIENT_ID"],
                 start_time=pd.to_datetime(appointment["STARTTIME"])
                 .to_pydatetime()
@@ -746,6 +789,7 @@ def prepare_appointments_from_csv(
     for col in ["gcal_event_id", "gcal_title", "gcal_calendar_id"]:
         appointments_df[col] = None
 
+    client_name_variants = get_client_id_to_name_variants_map()
     npi_map = get_npi_to_name_map()
     npi_to_email = {npi: email for email, npi in npi_cache.items()}
     calendar_names = {
@@ -879,7 +923,13 @@ def prepare_appointments_from_csv(
             break
 
     search_results = batch_search_calendar_events(
-        service, calendars, appointments_df, reporter, npi_to_email, calendar_names
+        service,
+        calendars,
+        appointments_df,
+        reporter,
+        npi_to_email,
+        calendar_names,
+        client_name_variants,
     )
 
     mismatched_indices = {item["appointment_idx"] for item in reporter.time_mismatches}
@@ -925,7 +975,7 @@ def prepare_appointments_from_csv(
                 # We already logged this via log_unidentified_calendar_event
                 final_drops.add(idx)
         else:
-            name = re.sub(r"[\d\(\)]", "", appointment["NAME"]).strip()
+            name = _clean_appointment_name(appointment)
             start_time = appointment["STARTTIME_DT"]
 
             raw_npi = appointment.get("NPI")
@@ -1089,7 +1139,7 @@ def insert_appointments_with_gcal(appointment_sync_data: dict[str, list[str]] | 
                         if archived_evaluator
                         else "trusted"
                     )
-                    appt_name = re.sub(r"[\d\(\)]", "", appointment["NAME"]).strip()
+                    appt_name = _clean_appointment_name(appointment)
                     logger.warning(
                         f"Skipping {label} appointment {appointment_id} ({appt_name}) for client {client_id} "
                         f"on {start_time_business.strftime('%m/%d %I:%M %p')}: "
@@ -1213,7 +1263,7 @@ def insert_appointments_with_gcal(appointment_sync_data: dict[str, list[str]] | 
                     continue
 
                 if evaluator_npi not in valid_npis:
-                    name = re.sub(r"[\d\(\)]", "", appointment["NAME"]).strip()
+                    name = _clean_appointment_name(appointment)
                     logger.warning(
                         f"Skipping billing appointment {appointment_id} ({name}) for client {client_id} "
                         f"on {start_time_business.strftime('%m/%d %I:%M %p')}: "

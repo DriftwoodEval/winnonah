@@ -2715,6 +2715,36 @@ def get_client_id_to_dob_map(
 
 
 @provide_connection
+def get_client_id_to_name_variants_map(
+    connection: Connection[DictCursor],
+) -> dict[int, list[str]]:
+    """Returns a dictionary mapping client ID (int) to a list of name variants
+    to match against: their full name (which folds the legal first name into
+    parens after their preferred name, e.g. "Jon (Jonathan) Smith"), their
+    plain legal "<firstName> <lastName>", and, where they have a preferred
+    name, "<preferredName> <lastName>" on its own."""
+    try:
+        with connection.cursor() as cursor:
+            cursor.execute(
+                "SELECT id, fullName, firstName, preferredName, lastName "
+                f"FROM {TABLE_CLIENT} WHERE fullName IS NOT NULL"
+            )
+            results = cursor.fetchall()
+            variants: dict[int, list[str]] = {}
+            for row in results:
+                names = [row["fullName"]]
+                if row["firstName"] and row["lastName"]:
+                    names.append(f"{row['firstName']} {row['lastName']}")
+                if row["preferredName"] and row["lastName"]:
+                    names.append(f"{row['preferredName']} {row['lastName']}")
+                variants[row["id"]] = names
+            return variants
+    except Exception:
+        logger.exception("Error fetching client ID to name variants map")
+        return {}
+
+
+@provide_connection
 def get_questionnaire_rules_with_in_person(
     connection: Connection[DictCursor],
 ) -> list[dict]:
