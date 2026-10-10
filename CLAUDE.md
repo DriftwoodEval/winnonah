@@ -28,7 +28,7 @@ Every page requires a logged-in NextAuth session, and Claude has no way to authe
 ## Tests
 When changing a function's signature, return shape, or behavior, grep its test files for every call site and check whether existing tests still hold, not just whether they still pass. If a change will break a test, say so and either update the test yourself or flag it with the specific test name and why, don't leave it for CI to discover. Don't delete or weaken a test to make it pass; fix the test's expectations to match the new intended behavior, or fix the code if the test caught a real regression.
 
-This applies to the Python suite (`uv run pytest` under `python/`) and any TS unit/integration tests; it does not mean standing up live browser or end-to-end tests, which this project doesn't run (see Local Development above).
+This applies to the Python suite (`uv run pytest` under `python/`) and any TS unit/integration tests; it does not mean standing up live browser or end-to-end tests, which this project doesn't run (see Local Development above). Also run `mise run check:ruff` (or full `mise run check`) after editing Python, ahead of pytest: a ruff failure (unused import, bad type annotation) is often the faster signal, and trust its output over your own assumptions about Python syntax validity.
 
 ## Home Page Widgets
 The home page (`src/app/_components/home/HomePageContent.tsx`) renders a user-configurable grid of widgets. Widget ids are plain strings, not a type union. To add a widget:
