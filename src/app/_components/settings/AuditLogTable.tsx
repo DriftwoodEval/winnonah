@@ -11,6 +11,7 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from "@ui/select";
+import { Skeleton } from "@ui/skeleton";
 import {
 	Table,
 	TableBody,
@@ -27,6 +28,7 @@ import { api } from "~/trpc/react";
 import { ClientSearchAndAdd } from "../clients/ClientSearchAndAdd";
 
 const PAGE_SIZE = 50;
+const SKELETON_ROWS = ["a", "b", "c", "d", "e"];
 
 /**
  * Actions are dot-namespaced (e.g. "internal.failure.update"). Groups them
@@ -65,7 +67,7 @@ export default function AuditLogTable() {
 
 	const { data: auditUsers } = api.auditLog.getDistinctUsers.useQuery();
 	const { data: actionNames } = api.auditLog.getActionNames.useQuery();
-	const { data } = api.auditLog.list.useQuery(
+	const { data, isPending } = api.auditLog.list.useQuery(
 		{
 			userId,
 			action: action || undefined,
@@ -237,7 +239,15 @@ export default function AuditLogTable() {
 						</TableRow>
 					</TableHeader>
 					<TableBody>
-						{rows.length === 0 ? (
+						{isPending ? (
+							SKELETON_ROWS.map((key) => (
+								<TableRow key={key}>
+									<TableCell colSpan={5}>
+										<Skeleton className="h-5 w-full" />
+									</TableCell>
+								</TableRow>
+							))
+						) : rows.length === 0 ? (
 							<TableRow>
 								<TableCell className="text-center" colSpan={5}>
 									No audit log entries found.
@@ -261,7 +271,11 @@ export default function AuditLogTable() {
 			</div>
 
 			<div className="flex flex-col gap-2 md:hidden">
-				{rows.length === 0 ? (
+				{isPending ? (
+					SKELETON_ROWS.map((key) => (
+						<Skeleton className="h-16 w-full rounded-lg" key={key} />
+					))
+				) : rows.length === 0 ? (
 					<p className="py-4 text-center text-sm">
 						No audit log entries found.
 					</p>

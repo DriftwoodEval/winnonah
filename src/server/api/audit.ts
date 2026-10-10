@@ -280,7 +280,7 @@ export function diffValues(before: unknown, after: unknown): unknown {
  */
 export const INTERNAL_API_ACTOR = {
 	userId: "system:internal-api",
-	userEmail: "questionnaires (internal API)",
+	userEmail: "Questionnaires app (API)",
 };
 
 export async function recordInternalApiAudit(entry: {

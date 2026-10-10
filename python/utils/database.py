@@ -468,13 +468,20 @@ def put_clients_in_db(
 
                 # latitude/longitude come back from MySQL as Decimal but are
                 # computed here as strings/floats from the CSV, so compare them
-                # numerically rather than by type-sensitive equality.
+                # numerically rather than by type-sensitive equality. dob/addedDate
+                # come back as datetime.date but are computed here as strings, so
+                # a type-sensitive != always looks like a change even when the
+                # calendar date is identical.
                 def _differs(field: str, new_value, existing=existing) -> bool:
                     old_value = existing[field]
                     if field in ("latitude", "longitude"):
                         if old_value is None or new_value is None:
                             return old_value != new_value
                         return float(old_value) != float(new_value)
+                    if field in ("dob", "addedDate"):
+                        if old_value is None or new_value is None:
+                            return old_value != new_value
+                        return format_date(old_value) != format_date(new_value)
                     return new_value != old_value
 
                 diff = {
@@ -573,7 +580,7 @@ def put_clients_in_db(
             "python.client.update",
             int(client_id),
             "system:csv-sync",
-            "csv-sync (internal)",
+            "TA import",
             detail=diff,
         )
 
@@ -586,7 +593,7 @@ def put_clients_in_db(
             "python.client.create",
             int(client_id),
             "system:csv-sync",
-            "csv-sync (internal)",
+            "TA import",
         )
 
     connection.commit()
@@ -615,7 +622,7 @@ def put_clients_in_db(
                 "python.client.deactivate",
                 int(client_id),
                 "system:csv-sync",
-                "csv-sync (internal)",
+                "TA import",
                 detail={"deactivatedAt": deactivated_at.isoformat()},
             )
         connection.commit()
@@ -756,7 +763,7 @@ def activate_reactivation_admin_review(
     deactivated_at: datetime | None,
     connection: Connection[DictCursor],
     actor_id: str = "system:csv-sync",
-    actor_email: str = "csv-sync (internal)",
+    actor_email: str = "TA import",
 ) -> None:
     """Handles a client who reactivated within 12 months of going inactive.
 
@@ -882,7 +889,7 @@ def reset_client_session(
     deactivated_at: datetime | None,
     connection: Connection[DictCursor],
     actor_id: str = "system:csv-sync",
-    actor_email: str = "csv-sync (internal)",
+    actor_email: str = "TA import",
 ) -> None:
     """Archives a reactivated client's prior-session data and starts a fresh one.
 
@@ -1177,7 +1184,7 @@ def sync_scm_admin_reviews(connection: Connection[DictCursor]):
             "python.adminReview.scmBackfill",
             client["id"],
             "system:csv-sync",
-            "csv-sync (internal)",
+            "TA import",
         )
     connection.commit()
     logger.info(f"Created {len(rows)} SCM admin review record(s).")
@@ -1231,7 +1238,7 @@ def update_client_medicaid_eligibility(
         "python.medicaidEligibility.update",
         client_id,
         "system:csv-sync",
-        "csv-sync (internal)",
+        "TA import",
         detail=eligibility,
     )
     connection.commit()
@@ -1554,7 +1561,7 @@ def put_client_insurance_policies_in_db(
             "python.insurance.updatePolicy",
             client_id,
             "system:csv-sync",
-            "csv-sync (internal)",
+            "TA import",
             detail={"policyId": policy_id, "changes": diff},
         )
 
@@ -1596,7 +1603,7 @@ def put_client_insurance_policies_in_db(
             "python.insurance.removeStalePolicy",
             policy["clientId"],
             "system:csv-sync",
-            "csv-sync (internal)",
+            "TA import",
             detail={"policyId": policy["policyId"]},
         )
     connection.commit()
@@ -1741,7 +1748,7 @@ def put_appointment_in_db(
                 "python.appointments.create",
                 client_id,
                 "system:csv-sync",
-                "csv-sync (internal)",
+                "TA import",
                 detail={
                     "appointmentId": appointment_id,
                     "startTime": start_time_naive_utc.isoformat(),
@@ -1770,7 +1777,7 @@ def put_appointment_in_db(
                     "python.appointments.reschedule",
                     client_id,
                     "system:csv-sync",
-                    "csv-sync (internal)",
+                    "TA import",
                     detail={
                         "appointmentId": appointment_id,
                         "oldStartTime": existing["startTime"].isoformat(),
@@ -1790,7 +1797,7 @@ def put_appointment_in_db(
                     else "python.appointments.uncancel",
                     client_id,
                     "system:csv-sync",
-                    "csv-sync (internal)",
+                    "TA import",
                     detail={"appointmentId": appointment_id},
                 )
 
@@ -1825,7 +1832,7 @@ def put_appointment_in_db(
                     "python.appointments.update",
                     client_id,
                     "system:csv-sync",
-                    "csv-sync (internal)",
+                    "TA import",
                     detail={"appointmentId": appointment_id, "changes": diff},
                 )
 
@@ -2691,7 +2698,7 @@ def set_client_drive_folder_evaluator(
         "python.client.driveFolderMoved",
         int(client_id),
         "system:csv-sync",
-        "csv-sync (internal)",
+        "TA import",
         detail={"evaluatorNpi": evaluator_npi, "isEval": is_eval},
     )
     connection.commit()
@@ -3038,7 +3045,7 @@ def mark_posteval_pending_questionnaires(connection: Connection[DictCursor]) -> 
             "python.questionnaire.markPostevalPending",
             client_id,
             "system:questionnaire-sweep",
-            "questionnaire-sweep (internal)",
+            "Posteval questionnaire sweep",
             detail={"questionnaireTypes": types},
         )
 
@@ -3185,7 +3192,7 @@ def _store_snapshot(
         "python.assessment.snapshotUpdate",
         client_id,
         "system:csv-sync",
-        "csv-sync (internal)",
+        "TA import",
         detail=snapshot,
     )
     connection.commit()
@@ -3312,7 +3319,7 @@ def reconcile_reports_from_appointments(
                 "python.report.createFromAppointment",
                 row["clientId"],
                 "system:csv-sync",
-                "csv-sync (internal)",
+                "TA import",
                 detail={
                     "evaluatorNpi": row["evaluatorNpi"],
                     "asdAdhd": asd_adhd,
@@ -3377,7 +3384,7 @@ def reconcile_pool_report_queue_state(
                     "python.report.promoteToQueued",
                     report["clientId"],
                     "system:report-sync",
-                    "report sync (internal)",
+                    "Report queue sync",
                     detail={"reportId": report["id"]},
                 )
                 promoted += 1
@@ -3396,7 +3403,7 @@ def reconcile_pool_report_queue_state(
                     "python.report.demoteToPending",
                     report["clientId"],
                     "system:report-sync",
-                    "report sync (internal)",
+                    "Report queue sync",
                     detail={"reportId": report["id"]},
                 )
                 demoted += 1
@@ -3420,7 +3427,7 @@ def reconcile_pool_report_queue_state(
                 "python.report.createFromQueueFolder",
                 client_id,
                 "system:report-sync",
-                "report sync (internal)",
+                "Report queue sync",
             )
             created += 1
 
@@ -3437,7 +3444,7 @@ def reconcile_pool_report_queue_state(
 # Sentinel actor recorded on report fields last changed by the punch-list sync,
 # matching the EMR side (src/lib/google.ts syncPunchData), so an audit reader can
 # tell a spreadsheet edit from an in-app one.
-PUNCHLIST_SYNC_ACTOR_EMAIL = "punchlist-sync"
+PUNCHLIST_SYNC_ACTOR_EMAIL = "Punchlist sync"
 
 _ALLOWED_ASD_ADHD = {"ASD", "ADHD", "ASD+ADHD", "ASD+LD", "ADHD+LD", "LD"}
 

@@ -231,7 +231,7 @@ def remediate_client(
         None,
         connection=connection,
         actor_id="system:session-remediation",
-        actor_email="session remediation (internal)",
+        actor_email="Session remediation",
     )
 
     logger.info(
