@@ -1975,6 +1975,19 @@ def get_client_dob(client_id: int, connection: Connection[DictCursor]) -> date |
 
 
 @provide_connection
+def get_client_drive_id(
+    client_id: int, connection: Connection[DictCursor]
+) -> str | None:
+    """Returns the client's Google Drive folder id, or None if not found or unset."""
+    with connection.cursor() as cursor:
+        cursor.execute(
+            f"SELECT driveId FROM {TABLE_CLIENT} WHERE id = %s", (client_id,)
+        )
+        row = cursor.fetchone()
+        return row["driveId"] if row else None
+
+
+@provide_connection
 def get_placeholder_appointment(
     appointment_id: str, connection: Connection[DictCursor]
 ) -> dict | None:
@@ -2711,6 +2724,25 @@ def get_client_id_to_dob_map(
             return {row["id"]: row["dob"] for row in results if row["dob"]}
     except Exception:
         logger.exception("Error fetching client ID to DOB map")
+        return {}
+
+
+@provide_connection
+def get_client_id_to_drive_id_map(
+    connection: Connection[DictCursor],
+) -> dict[int, str]:
+    """Returns a dictionary mapping client ID (int) to their Google Drive folder ID,
+    excluding clients with no drive folder or the 'N/A' sentinel value."""
+    try:
+        with connection.cursor() as cursor:
+            cursor.execute(
+                f"SELECT id, driveId FROM {TABLE_CLIENT} "
+                "WHERE driveId IS NOT NULL AND driveId != 'N/A'"
+            )
+            results = cursor.fetchall()
+            return {row["id"]: row["driveId"] for row in results}
+    except Exception:
+        logger.exception("Error fetching client ID to drive ID map")
         return {}
 
 

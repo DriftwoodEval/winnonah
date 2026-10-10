@@ -1096,6 +1096,43 @@ def append_gcal_event_description(
     return patched
 
 
+def drive_folder_link(drive_id: str) -> str:
+    """Builds the Google Drive folder URL for a client's drive ID."""
+    return f"https://drive.google.com/drive/folders/{drive_id}"
+
+
+def _insert_drive_link_into_description(description: str, drive_id: str) -> str:
+    """Insert a Drive link line right after the client info header and before
+    any blank-line-separated block (e.g. appointment reminder reply notes
+    appended by append_gcal_event_description)."""
+    line = f"Drive: {drive_folder_link(drive_id)}"
+    if "\n\n" in description:
+        head, _, tail = description.partition("\n\n")
+        return f"{head}\n{line}\n\n{tail}"
+    if description:
+        return f"{description}\n{line}"
+    return line
+
+
+def set_gcal_event_drive_link(
+    event_id: str, drive_id: str, calendar_id: str | None = None
+) -> bool:
+    """Insert the client's Drive folder link into a Google Calendar event's
+    description, after the client info header and before any reminder reply
+    notes. Returns True if updated."""
+
+    def patch_fn(event):
+        current = event.get("description") or ""
+        return {"description": _insert_drive_link_into_description(current, drive_id)}
+
+    patched = _patch_gcal_event(event_id, calendar_id, patch_fn)
+    if patched:
+        logger.info(f"Inserted Drive link into calendar event {event_id} description.")
+    else:
+        logger.warning(f"Calendar event {event_id} not found in any calendar")
+    return patched
+
+
 def find_gcal_event_by_client_and_time(
     client_id: int, start_time: datetime
 ) -> dict | None:

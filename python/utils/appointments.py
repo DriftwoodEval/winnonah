@@ -20,6 +20,7 @@ from utils.database import (
     get_archived_evaluator_npis,
     get_client_id_to_asd_adhd_map,
     get_client_id_to_dob_map,
+    get_client_id_to_drive_id_map,
     get_client_id_to_hash_map,
     get_client_id_to_name_variants_map,
     get_in_person_assessments_for_client,
@@ -37,11 +38,13 @@ from utils.database import (
 from utils.google import (
     build_google_service,
     clear_planned_office_events,
+    drive_folder_link,
     google_authenticate,
     list_subfolders,
     move_drive_folder,
     rename_drive_folder,
     send_gmail,
+    set_gcal_event_drive_link,
 )
 from utils.task_tracker import track_task
 from utils.timezone import business_to_utc, now_business, now_utc
@@ -645,6 +648,7 @@ def batch_search_calendar_events(
                                 "title": event.get("summary", "No title"),
                                 "calendar_id": calendar_id,
                                 "event_dt": event_dt,
+                                "description": description,
                             }
                         )
                     else:
@@ -727,6 +731,7 @@ def batch_search_calendar_events(
             "event_id": chosen["event_id"],
             "title": chosen["title"],
             "calendar_id": chosen["calendar_id"],
+            "description": chosen["description"],
         }
 
         other_calendar_ids = {
@@ -786,7 +791,7 @@ def prepare_appointments_from_csv(
         by=["CLIENT_ID", "STARTTIME_DT"]
     ).reset_index(drop=True)
 
-    for col in ["gcal_event_id", "gcal_title", "gcal_calendar_id"]:
+    for col in ["gcal_event_id", "gcal_title", "gcal_calendar_id", "gcal_description"]:
         appointments_df[col] = None
 
     client_name_variants = get_client_id_to_name_variants_map()
@@ -953,6 +958,7 @@ def prepare_appointments_from_csv(
                 "gcal_event_id": result["event_id"],
                 "gcal_title": result["title"],
                 "gcal_calendar_id": result["calendar_id"],
+                "gcal_description": result["description"],
             }
         elif idx in mismatched_indices:
             if is_trusted:
@@ -1060,6 +1066,7 @@ def insert_appointments_with_gcal(appointment_sync_data: dict[str, list[str]] | 
         asd_adhd_map = get_client_id_to_asd_adhd_map()
         dob_map = get_client_id_to_dob_map()
         hash_map = get_client_id_to_hash_map()
+        drive_id_map = get_client_id_to_drive_id_map()
         battery_rules = get_questionnaire_rules_with_in_person()
         skipped_locked_in_snapshots = 0
         in_person_assessments_added = 0
@@ -1091,6 +1098,7 @@ def insert_appointments_with_gcal(appointment_sync_data: dict[str, list[str]] | 
             gcal_event_id = appointment.get("gcal_event_id")
             gcal_event_title = appointment.get("gcal_title")
             gcal_calendar_id = appointment.get("gcal_calendar_id")
+            gcal_description = appointment.get("gcal_description") or ""
             cpt_code = re.sub(r"\D", "", appointment["NAME"]) or "N/A"
 
             is_trusted = appointment_id in trusted_ids
@@ -1171,6 +1179,17 @@ def insert_appointments_with_gcal(appointment_sync_data: dict[str, list[str]] | 
                 gcal_event_title=gcal_event_title,
                 confirmed_at=confirmed_at,
             )
+
+            if not cancelled and gcal_event_id and gcal_calendar_id:
+                client_drive_id = drive_id_map.get(client_id)
+                if (
+                    client_drive_id
+                    and drive_folder_link(client_drive_id) not in gcal_description
+                ):
+                    set_gcal_event_drive_link(
+                        gcal_event_id, client_drive_id, calendar_id=gcal_calendar_id
+                    )
+
             appointments_synced += 1
             real_synced += 1
             if cancelled:
@@ -1563,8 +1582,13 @@ def build_placeholder_title(
     return f"plchldr {client_name} {da_eval} {tag}"
 
 
-def build_placeholder_description(client_id: int, dob: date) -> str:
+def build_placeholder_description(
+    client_id: int, dob: date, drive_id: str | None
+) -> str:
     """Build the calendar event description for a placeholder appointment."""
     today = now_business().date()
     age = today.year - dob.year - ((today.month, today.day) < (dob.month, dob.day))
-    return f"Age: {age}\nClient ID: {client_id}"
+    lines = [f"Age: {age}", f"Client ID: {client_id}"]
+    if drive_id and drive_id != "N/A":
+        lines.append(f"Drive: {drive_folder_link(drive_id)}")
+    return "\n".join(lines)

@@ -34,6 +34,7 @@ from utils.constants import (
 from utils.database import (
     delete_appointment,
     get_client_dob,
+    get_client_drive_id,
     get_client_eligibility_debug,
     get_client_name,
     get_db,
@@ -963,6 +964,7 @@ async def create_placeholder_appointment(
     if client_name is None:
         raise HTTPException(status_code=404, detail="Client not found")
     client_dob = get_client_dob(request.client_id)
+    client_drive_id = get_client_drive_id(request.client_id)
 
     evaluator_email = get_evaluator_email(request.evaluator_npi)
     if evaluator_email is None:
@@ -980,7 +982,9 @@ async def create_placeholder_appointment(
     _enforce_gap(request.evaluator_npi, start_time, end_time)
 
     title = build_placeholder_title(client_name, request.da_eval, request.location_key)
-    description = build_placeholder_description(request.client_id, client_dob)
+    description = build_placeholder_description(
+        request.client_id, client_dob, client_drive_id
+    )
     calendar_event_id = create_placeholder_event(
         evaluator_email, title, start_time_business, end_time_business, description
     )
@@ -1051,6 +1055,7 @@ async def move_placeholder_appointment(
     if client_name is None:
         raise HTTPException(status_code=404, detail="Client not found")
     client_dob = get_client_dob(appointment["clientId"])
+    client_drive_id = get_client_drive_id(appointment["clientId"])
 
     evaluator_email = get_evaluator_email(request.evaluator_npi)
     if evaluator_email is None:
@@ -1073,7 +1078,9 @@ async def move_placeholder_appointment(
     title = build_placeholder_title(
         client_name, appointment["daEval"], request.location_key
     )
-    description = build_placeholder_description(appointment["clientId"], client_dob)
+    description = build_placeholder_description(
+        appointment["clientId"], client_dob, client_drive_id
+    )
 
     if appointment["calendarEventId"] and appointment["evaluatorEmail"]:
         delete_calendar_event(
