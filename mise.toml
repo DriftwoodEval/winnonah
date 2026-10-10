@@ -120,6 +120,23 @@ pnpm db:studio
 description = "Open Drizzle Studio against the production database over SSH"
 run = "ssh -t -L 8282:localhost:8282 opti \"bash -ic 'cd winnonah && pnpm db:studio --port 8282'\""
 
+[tasks."db:tui"]
+description = "Open a SQL TUI (Harlequin) against the local database"
+shell = "bash -c"
+run = """
+docker compose up -d driftwood-db
+while ! docker compose ps driftwood-db --format json | grep -q '"Health":"healthy"'; do
+    sleep 0.5
+done
+uvx --with harlequin-mysql harlequin -a mysql -h 127.0.0.1 -u root --password "$MYSQL_ROOT_PASSWORD" -d "$MYSQL_DATABASE"
+"""
+
+[tasks."db:tui:remote"]
+description = "Open a SQL TUI (Harlequin) against the production database over SSH"
+run = """
+ssh -t driftwood@opti "bash -ic 'cd winnonah && source .env && uvx --with harlequin-mysql harlequin -a mysql -h 127.0.0.1 -u root --password \\"\\$MYSQL_ROOT_PASSWORD\\" -d \\"\\$MYSQL_DATABASE\\"'"
+"""
+
 [tasks."check:pnpm"]
 description = "Type-check and lint TS"
 run = "pnpm check"
