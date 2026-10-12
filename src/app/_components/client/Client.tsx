@@ -506,7 +506,7 @@ export function Client({
 											size="sm"
 											variant="outline"
 										>
-											Ignore until insurance changes
+											Ignore
 										</Button>
 									)}
 								</div>
