@@ -237,6 +237,9 @@ def read_eligibility(driver: WebDriver) -> dict[str, str | None]:
         driver, By.XPATH, "//li[label[text()='Payment Category:']]/p"
     )
     # The page has loaded by now, so optional fields are read without waiting.
+    beneficiary_status = driver.find_elements(
+        By.XPATH, "//li[label[text()='Beneficiary is:']]/p"
+    )
     organization = driver.find_elements(
         By.XPATH, "//td[normalize-space()='Organization:']/following-sibling::td[1]"
     )
@@ -258,6 +261,9 @@ def read_eligibility(driver: WebDriver) -> dict[str, str | None]:
     return {
         "qualCategory": qual_category.text,
         "paymentCategory": payment_category.text,
+        "medicaidBeneficiaryStatus": beneficiary_status[0].text
+        if beneficiary_status
+        else None,
         "medicaidOrganization": organization[0].text if organization else None,
         "medicaidCarrier1": carriers[0].text if len(carriers) > 0 else None,
         "medicaidCarrier2": carriers[1].text if len(carriers) > 1 else None,

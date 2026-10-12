@@ -43,6 +43,7 @@ class TestReadEligibility:
         assert medicaid.read_eligibility(driver) == {
             "qualCategory": "DISABLED",
             "paymentCategory": "TEFRA",
+            "medicaidBeneficiaryStatus": None,
             "medicaidOrganization": "SELECT HEALTH OF SOUTH CAR",
             "medicaidCarrier1": "CARRIER ONE",
             "medicaidCarrier2": "CARRIER TWO",
@@ -59,6 +60,19 @@ class TestReadEligibility:
         assert result["medicaidOrganization"] == "SELECT HEALTH OF SOUTH CAR"
         assert result["medicaidCarrier1"] is None
         assert result["medicaidCarrier2"] is None
+
+    def test_reads_ineligible_beneficiary_status(self, driver):
+        html = RESULTS_PAGE.replace(
+            "<li><label>Qual. Category:</label><p>DISABLED</p></li>",
+            "<li><label>Qual. Category:</label><p>DISABLED</p></li>"
+            "<li><label>Beneficiary is:</label>"
+            "<p style='color:red; font-weight:bold;'>INELIGIBLE</p></li>",
+        ).format(carriers="")
+        driver.get("data:text/html," + quote(html))
+
+        result = medicaid.read_eligibility(driver)
+
+        assert result["medicaidBeneficiaryStatus"] == "INELIGIBLE"
 
 
 CLIENT = {

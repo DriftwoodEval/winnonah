@@ -964,6 +964,7 @@ class TestGetMedicaidClientsWithIds:
 FIELDS = {
     "qualCategory": "DISABLED",
     "paymentCategory": "TEFRA",
+    "medicaidBeneficiaryStatus": "ELIGIBLE",
     "medicaidOrganization": "SELECT HEALTH OF SOUTH CAR",
     "medicaidCarrier1": "ONE",
     "medicaidCarrier2": None,
@@ -991,6 +992,7 @@ class TestUpdateClientMedicaidEligibility:
             "NO",
             "WAIVER",
             "Enrolled",
+            "ELIGIBLE",
             "policy-1",
             5,
         )

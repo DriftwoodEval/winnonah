@@ -1216,6 +1216,7 @@ def update_client_medicaid_eligibility(
                 SET qualCategory = %s, paymentCategory = %s, medicaidOrganization = %s,
                     medicaidCarrier1 = %s, medicaidCarrier2 = %s, limitedBenefit = %s,
                     medicaidSpecialProgram = %s, medicaidSpecialProgramMessage = %s,
+                    medicaidBeneficiaryStatus = %s,
                     medicaidPolicyId = %s, medicaidCheckedAt = UTC_TIMESTAMP(),
                     medicaidNotFound = FALSE
                 WHERE id = %s
@@ -1229,6 +1230,7 @@ def update_client_medicaid_eligibility(
                     eligibility["limitedBenefit"],
                     eligibility["medicaidSpecialProgram"],
                     eligibility["medicaidSpecialProgramMessage"],
+                    eligibility["medicaidBeneficiaryStatus"],
                     policy_id,
                     client_id,
                 ),

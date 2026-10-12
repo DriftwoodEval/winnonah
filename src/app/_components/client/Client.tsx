@@ -530,6 +530,17 @@ export function Client({
 							variant="warning"
 						/>
 
+						<PersistentStatusAlert
+							condition={
+								client.medicaidBeneficiaryStatus?.toUpperCase() === "INELIGIBLE"
+							}
+							description="The Medicaid portal reports this client's beneficiary status as ineligible. Check the Insurance tab."
+							icon={AlertTriangleIcon}
+							identifier={client.hash}
+							slug="medicaid-beneficiary-ineligible"
+							title="Medicaid Ineligible"
+						/>
+
 						<Tabs
 							className="w-full"
 							onValueChange={handleTabChange}

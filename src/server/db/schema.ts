@@ -294,6 +294,8 @@ export const clients = createTable(
 		limitedBenefit: d.varchar({ length: 255 }),
 		medicaidSpecialProgram: d.varchar({ length: 255 }),
 		medicaidSpecialProgramMessage: d.varchar({ length: 500 }),
+		// Raw "Beneficiary is:" value from the portal, e.g. "ELIGIBLE" or "INELIGIBLE".
+		medicaidBeneficiaryStatus: d.varchar({ length: 50 }),
 		// The policy whose insurance number the last successful portal lookup used.
 		medicaidPolicyId: d.varchar({ length: 36 }),
 		medicaidCheckedAt: d.timestamp(),
