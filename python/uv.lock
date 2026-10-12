@@ -1,5 +1,5 @@
 version = 1
-revision = 5
+revision = 3
 requires-python = ">=3.13"
 resolution-markers = [
     "python_full_version >= '3.14' and sys_platform == 'win32'",
@@ -1629,15 +1629,15 @@ wheels = [
 
 [[package]]
 name = "pywaze"
-version = "1.2.3"
+version = "1.2.4"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "curl-cffi" },
     { name = "httpx" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/ad/75/fb71a32d0d27e431416bd46b282e75241c3070e08b64129249579ce0f090/pywaze-1.2.3.tar.gz", hash = "sha256:aff086c53a543974850ce87de66a65fd16e038b72c9e2c7935c7591ccbcd5d85", size = 159776, upload-time = "2026-10-01T15:26:16.835Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/21/99/076c3af3a874afab9fc00029f958d1101564973ae445e29cb2410a53b250/pywaze-1.2.4.tar.gz", hash = "sha256:d29c828bed0d0d81ebb838792637268dd9bc1b50b215e176804e6b71de73208f", size = 160683, upload-time = "2026-10-07T08:31:17.921Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/b2/97/34facb27eb28ac4f38dcfe3ab0d6c584d7bf912bc7b8586de45a99fa39fb/pywaze-1.2.3-py3-none-any.whl", hash = "sha256:260b31c0d385b30e47def95a83df27fd46a4d654d45e222fc57a00f57e0813de", size = 6754, upload-time = "2026-10-01T15:26:15.627Z" },
+    { url = "https://files.pythonhosted.org/packages/d1/f1/f1f8d9bec4a4b484075a0cdb64f3ce8ae1a81339a04ee4e87fcd68ae4e69/pywaze-1.2.4-py3-none-any.whl", hash = "sha256:42ef1d85ee3a71edc4aeaeb0c7cd959a2143a2a41d5e8339fec56d1f561b4af1", size = 6815, upload-time = "2026-10-07T08:31:16.431Z" },
 ]
 
 [[package]]
