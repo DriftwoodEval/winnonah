@@ -452,6 +452,20 @@ export function isDateOnlyPast(date: string | undefined | null): boolean {
 	return date < todayStr;
 }
 
+/**
+ * Whether a date-only policy start/end range covers today. A missing start
+ * date means not yet active; a missing end date means no expiration.
+ */
+export function isPolicyActive(
+	startDate: string | undefined | null,
+	endDate: string | undefined | null,
+): boolean {
+	const today = new Date();
+	const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
+	if (!startDate || compareDateOnly(startDate, todayStr) > 0) return false;
+	return !endDate || compareDateOnly(endDate, todayStr) >= 0;
+}
+
 export function formatTaMessage(
 	questionnaires: { questionnaireType: string; link: string | null }[],
 ): string {

@@ -9,13 +9,14 @@ import {
 	CardHeader,
 	CardTitle,
 } from "@ui/card";
-import { format, isAfter, isBefore } from "date-fns";
+import { format } from "date-fns";
 import { useState } from "react";
 import { useCheckPermission } from "~/hooks/use-check-permission";
 import type { Client } from "~/lib/models";
 import {
 	dateOnlyToLocalDate,
 	formatPhoneNumber,
+	isPolicyActive,
 	toTitleCase,
 } from "~/lib/utils";
 import type { AppRouter } from "~/server/api/root";
@@ -33,19 +34,6 @@ function formatDate(dateVal: string | null | undefined): string {
 	const d = dateOnlyToLocalDate(dateVal);
 	if (!d) return String(dateVal);
 	return format(d, "MM/dd/yyyy");
-}
-
-function isActive(
-	startDate: string | null | undefined,
-	endDate: string | null | undefined,
-): boolean {
-	const start = dateOnlyToLocalDate(startDate);
-	if (!start) return false;
-	const now = new Date();
-	if (isBefore(now, start)) return false;
-	const end = dateOnlyToLocalDate(endDate);
-	if (!end) return true;
-	return !isAfter(now, end);
 }
 
 function InfoRow({
@@ -139,7 +127,7 @@ function PolicyCard({
 	policy: Policy;
 	medicaidEligibility?: MedicaidEligibility;
 }) {
-	const active = isActive(policy.policyStartDate, policy.policyEndDate);
+	const active = isPolicyActive(policy.policyStartDate, policy.policyEndDate);
 	const companyName =
 		policy.insuranceCompanyName ?? policy.policyCompanyName ?? null;
 
@@ -412,10 +400,10 @@ export function InsuranceTab({ client }: InsuranceTabProps) {
 		: undefined;
 
 	const active = policies.filter((p) =>
-		isActive(p.policyStartDate, p.policyEndDate),
+		isPolicyActive(p.policyStartDate, p.policyEndDate),
 	);
 	const inactive = policies.filter(
-		(p) => !isActive(p.policyStartDate, p.policyEndDate),
+		(p) => !isPolicyActive(p.policyStartDate, p.policyEndDate),
 	);
 
 	return (

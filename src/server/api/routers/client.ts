@@ -65,6 +65,7 @@ import {
 	hasPermission,
 	isBabyNetInsurance,
 	isNotesOnlyClientId,
+	isPolicyActive,
 	localDateToDateOnly,
 } from "~/lib/utils";
 import { referralDataSchema } from "~/lib/validations/config";
@@ -3459,11 +3460,17 @@ export const clientRouter = createTRPCRouter({
 				!!client &&
 				!!ignore &&
 				ignore.signature === getInsuranceMismatchSignature(client);
+			const hasActivePolicy = policies.some((p) =>
+				isPolicyActive(p.policyStartDate, p.policyEndDate),
+			);
 
 			return {
 				policies,
 				organizationInsurance,
-				organizationMismatch: hasOrganizationMismatch && !isIgnored,
+				// Only flag a mismatch when the client has an active policy to check
+				// against; a client with no active coverage has nothing to mismatch.
+				organizationMismatch:
+					hasOrganizationMismatch && hasActivePolicy && !isIgnored,
 			};
 		}),
 
