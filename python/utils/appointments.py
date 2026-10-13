@@ -692,13 +692,12 @@ def batch_search_calendar_events(
                 )
             else:
                 unidentified = unidentified_by_idx.get(idx)
-                if unidentified:
-                    # Prefer a candidate whose title has the client's name, even
-                    # if it's not the closest in time, over one that doesn't.
-                    closest = min(
-                        unidentified,
-                        key=lambda m: (not m["name_in_title"], m["time_diff"]),
-                    )
+                # Only worth surfacing as a lead when the title actually names
+                # the client; otherwise it's indistinguishable from a plain
+                # "not found" appointment, so let it fall through to that pool.
+                name_matched = [m for m in (unidentified or []) if m["name_in_title"]]
+                if name_matched:
+                    closest = min(name_matched, key=lambda m: m["time_diff"])
                     cpt_code = re.sub(r"\D", "", appointment["NAME"]) or "N/A"
                     reporter.log_unidentified_calendar_event(
                         appointment_idx=idx,
