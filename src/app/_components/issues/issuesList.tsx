@@ -1223,6 +1223,11 @@ export function IssuesList() {
 			refetchInterval: 60_000,
 			enabled: can("issues:insurance-mismatch"),
 		});
+	const { data: medicaidIneligible, isLoading: isLoadingMedicaidIneligible } =
+		api.clients.getMedicaidIneligible.useQuery(undefined, {
+			refetchInterval: 60_000,
+			enabled: can("issues:insurance-mismatch"),
+		});
 	const { data: duplicateQLinks, isLoading: isLoadingDuplicateQLinks } =
 		api.questionnaires.getDuplicateLinks.useQuery(undefined, {
 			refetchInterval: 60_000,
@@ -1661,6 +1666,20 @@ export function IssuesList() {
 						clients={medicaidNotFound}
 						description="The Medicaid portal couldn't find these clients. Check the insurance number on file."
 						title={ISSUE_TITLES.medicaidNotFound}
+					/>
+				)}
+			</GuardedIssue>
+		),
+		medicaidIneligible: (
+			<GuardedIssue
+				isLoading={isLoadingMedicaidIneligible}
+				permission={ISSUE_LIST_PERMISSIONS.medicaidIneligible}
+			>
+				{medicaidIneligible && medicaidIneligible.length !== 0 && (
+					<IssueList
+						clients={medicaidIneligible}
+						description="The Medicaid portal reports these clients as an ineligible beneficiary. Check the Insurance tab."
+						title={ISSUE_TITLES.medicaidIneligible}
 					/>
 				)}
 			</GuardedIssue>

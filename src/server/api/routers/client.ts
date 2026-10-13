@@ -44,6 +44,7 @@ import {
 import {
 	getDuplicateNamesList,
 	getInsuranceMismatchList,
+	getMedicaidIneligibleList,
 	getMedicaidNotFoundList,
 	getMissingAppointmentsList,
 	getUnconfirmedCharterSchoolList,
@@ -2134,6 +2135,12 @@ export const clientRouter = createTRPCRouter({
 		assertPermission(ctx.session.user, "issues:insurance-mismatch");
 
 		return getMedicaidNotFoundList(ctx.db);
+	}),
+
+	getMedicaidIneligible: protectedProcedure.query(async ({ ctx }) => {
+		assertPermission(ctx.session.user, "issues:insurance-mismatch");
+
+		return getMedicaidIneligibleList(ctx.db);
 	}),
 
 	createNotesOnly: protectedProcedure

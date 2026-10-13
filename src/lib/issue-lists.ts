@@ -336,6 +336,22 @@ export async function getMedicaidNotFoundList(
 }
 
 /**
+ * Active clients the Medicaid portal reports as an ineligible beneficiary.
+ * Mirrors the PersistentStatusAlert banner on the client page (Client.tsx).
+ */
+export async function getMedicaidIneligibleList(
+	db: Context["db"],
+): Promise<ClientWithIssueInfo[]> {
+	return db.query.clients.findMany({
+		where: and(
+			eq(clients.status, true),
+			sql`upper(${clients.medicaidBeneficiaryStatus}) = 'INELIGIBLE'`,
+			not(isNotesOnly),
+		),
+	});
+}
+
+/**
  * Questionnaire links reused more than once for the same client, or shared
  * across different clients. Mirrors the /issues page's "Duplicate
  * Questionnaires" list (questionnaires.ts's getDuplicateLinks).
