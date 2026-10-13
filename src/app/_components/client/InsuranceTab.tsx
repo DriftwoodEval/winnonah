@@ -16,6 +16,7 @@ import type { Client } from "~/lib/models";
 import {
 	dateOnlyToLocalDate,
 	formatPhoneNumber,
+	formatShortInstantDate,
 	isPolicyActive,
 	toTitleCase,
 } from "~/lib/utils";
@@ -118,6 +119,7 @@ type MedicaidEligibility = {
 	limitedBenefit: string | null;
 	medicaidSpecialProgram: string | null;
 	medicaidSpecialProgramMessage: string | null;
+	medicaidCheckedAt: Date | string | null;
 };
 
 function PolicyCard({
@@ -358,6 +360,16 @@ function PolicyCard({
 								label="Special Program"
 								value={medicaidEligibility.medicaidSpecialProgram}
 							/>
+							<InfoRow
+								label="Checked At"
+								value={
+									medicaidEligibility.medicaidCheckedAt
+										? formatShortInstantDate(
+												medicaidEligibility.medicaidCheckedAt,
+											)
+										: null
+								}
+							/>
 						</div>
 						{medicaidEligibility.medicaidSpecialProgramMessage && (
 							<p className="mt-2 text-muted-foreground text-sm">
@@ -396,6 +408,7 @@ export function InsuranceTab({ client }: InsuranceTabProps) {
 				medicaidSpecialProgram: client.medicaidSpecialProgram ?? null,
 				medicaidSpecialProgramMessage:
 					client.medicaidSpecialProgramMessage ?? null,
+				medicaidCheckedAt: client.medicaidCheckedAt ?? null,
 			}
 		: undefined;
 
