@@ -16,7 +16,7 @@ import { useState } from "react";
 import { useCheckPermission } from "~/hooks/use-check-permission";
 import type { ClientGetOneOutput } from "~/lib/api-types";
 import { api } from "~/trpc/react";
-import { Redact } from "../redaction/Redact";
+import { Redact } from "../../redaction/Redact";
 
 interface EligibleEvaluatorsListProps {
 	client: ClientGetOneOutput;

@@ -19,7 +19,7 @@ import { api } from "~/trpc/react";
 import {
 	ResponsiveDialog,
 	useResponsiveDialog,
-} from "../shared/ResponsiveDialog";
+} from "../../shared/ResponsiveDialog";
 import {
 	QuestionnaireBulkForm,
 	type QuestionnaireBulkFormValues,

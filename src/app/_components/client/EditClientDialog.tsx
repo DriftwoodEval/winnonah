@@ -36,7 +36,7 @@ import {
 	ResponsiveDialog,
 	useResponsiveDialog,
 } from "../shared/ResponsiveDialog";
-import { EiContactCombobox } from "./EiContactCombobox";
+import { EiContactCombobox } from "./referral/EiContactCombobox";
 
 const formSchema = z.object({
 	schoolDistrict: z.string(),

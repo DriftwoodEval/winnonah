@@ -1,6 +1,6 @@
 "use client";
 
-import { DashboardStatus } from "@components/client/DashboardStatus";
+import { DashboardStatus } from "@components/client/status/DashboardStatus";
 import { ClientSearchAndAdd } from "@components/clients/ClientSearchAndAdd";
 import { Badge } from "@ui/badge";
 import { Button } from "@ui/button";

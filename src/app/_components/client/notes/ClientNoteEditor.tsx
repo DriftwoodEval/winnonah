@@ -11,8 +11,8 @@ import { useCheckPermission } from "~/hooks/use-check-permission";
 import { logger } from "~/lib/logger";
 import { isServerUnavailableError } from "~/lib/utils";
 import { api } from "~/trpc/react";
-import { NoteHistory } from "../shared/NoteHistory";
-import { ResponsiveDialog } from "../shared/ResponsiveDialog";
+import { NoteHistory } from "../../shared/NoteHistory";
+import { ResponsiveDialog } from "../../shared/ResponsiveDialog";
 
 const log = logger.child({ module: "ClientNoteEditor" });
 

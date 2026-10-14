@@ -17,9 +17,9 @@ import { useEffect, useMemo, useRef } from "react";
 import type { TimelineEvent } from "~/lib/quo";
 import { cn } from "~/lib/utils";
 import { api } from "~/trpc/react";
-import { Redact } from "../redaction/Redact";
-import { Button } from "../ui/button";
-import { Tooltip, TooltipContent, TooltipTrigger } from "../ui/tooltip";
+import { Redact } from "../../redaction/Redact";
+import { Button } from "../../ui/button";
+import { Tooltip, TooltipContent, TooltipTrigger } from "../../ui/tooltip";
 
 export function CommunicationTimeline({
 	phoneNumber,
