@@ -76,7 +76,7 @@ import {
 	resolveInsuranceAliasNames,
 	splitNoneValue,
 } from "~/server/api/filters";
-import { ensurePendingExternalRecordRequest } from "~/server/api/routers/externalRecords";
+import { ensurePendingExternalRecordRequest } from "~/server/api/routers/clients/externalRecords";
 import {
 	assertPermission,
 	assertPermissionOrBabyNetLimited,

@@ -1,7 +1,7 @@
 import { eq } from "drizzle-orm";
 import { z } from "zod";
 import { fetchWithCache, invalidateCache } from "~/lib/cache";
-import { CACHE_KEY_ALL_EVALUATORS } from "~/server/api/routers/evaluator";
+import { CACHE_KEY_ALL_EVALUATORS } from "~/server/api/routers/scheduling/evaluator";
 import {
 	assertPermission,
 	createTRPCRouter,
