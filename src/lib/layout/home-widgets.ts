@@ -1,4 +1,4 @@
-import type { PermissionId } from "./types";
+import type { PermissionId } from "../types";
 
 export type WidgetCategory = "clients" | "schedule" | "issues" | "dashboard";
 

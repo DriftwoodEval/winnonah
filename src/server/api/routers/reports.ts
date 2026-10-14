@@ -19,7 +19,7 @@ import {
 	syncPunchData,
 	updatePunchReportFields,
 	updatePunchSecondReview,
-} from "~/lib/google";
+} from "~/lib/integrations/google";
 import type { PermissionsObject } from "~/lib/types";
 import { canAccessReportsBeta, hasPermission } from "~/lib/utils";
 import {

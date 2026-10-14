@@ -9,7 +9,7 @@ import {
 	ISSUE_LIST_PERMISSIONS,
 	ISSUE_TITLES,
 	type IssueListId,
-} from "~/lib/issue-titles";
+} from "~/lib/issues/issue-titles";
 
 interface IssueListCustomizerProps {
 	order: IssueListId[];

@@ -6,24 +6,24 @@ import { and, asc, desc, eq, inArray, not, or } from "drizzle-orm";
 import { z } from "zod";
 import { fetchIssueList, invalidateCache } from "~/lib/cache";
 import { QUESTIONNAIRE_STATUSES } from "~/lib/constants";
-import { updatePunchData } from "~/lib/google";
+import { updatePunchData } from "~/lib/integrations/google";
 import {
 	getDuplicateQuestionnaireLinksData,
 	getJustAddedQuestionnairesList,
 	getPartialBatteriesList,
-} from "~/lib/issue-lists";
+} from "~/lib/issues/issue-lists";
 import type { InsertingQuestionnaire } from "~/lib/models";
 import {
 	formatQuestionnaireHistoryEntry,
 	NO_DISPLAYABLE_BULK_UPDATE,
 	QUESTIONNAIRE_HISTORY_ACTIONS,
-} from "~/lib/questionnaire-history";
+} from "~/lib/questionnaires/questionnaire-history";
 import {
 	REMINDER_PORTAL_LINK,
 	reminderDeadlineDate,
 	reminderDistancePhrase,
 	reminderPluralization,
-} from "~/lib/reminder-messages";
+} from "~/lib/questionnaires/reminder-messages";
 import { formatInBusinessTime, localDateToDateOnly } from "~/lib/utils";
 import { lenientPythonConfigSchema } from "~/lib/validations/config";
 import { diffValues, setAuditDetail } from "~/server/api/audit";
@@ -51,8 +51,8 @@ import {
 	questionnaires,
 	users,
 } from "~/server/db/schema";
-import { getQuestionnaireEligibilityAge } from "~/server/questionnaire-age";
-import { resolveApplicableRules } from "~/server/questionnaire-rules";
+import { getQuestionnaireEligibilityAge } from "~/server/services/questionnaire-age";
+import { resolveApplicableRules } from "~/server/services/questionnaire-rules";
 
 interface QuestionnaireDetails {
 	name: string;

@@ -12,7 +12,7 @@ import { signIn, signOut, useSession } from "next-auth/react";
 import { useState } from "react";
 import { useCheckPermission } from "~/hooks/use-check-permission";
 import { useMediaQuery } from "~/hooks/use-media-query";
-import type { HeaderItemId } from "~/lib/header-items";
+import type { HeaderItemId } from "~/lib/layout/header-items";
 import { api } from "~/trpc/react";
 import { RedactionToggle } from "../redaction/RedactionToggle";
 import { GlobalClientSearch } from "./GlobalClientSearch";

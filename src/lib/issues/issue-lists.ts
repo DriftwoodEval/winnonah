@@ -15,7 +15,7 @@ import {
 import type { Session } from "next-auth";
 import { calculateAdditionalAppointments } from "~/lib/billing";
 import { fetchWithCache } from "~/lib/cache";
-import { CACHE_KEY_PUNCHLIST, getPunchData } from "~/lib/google";
+import { CACHE_KEY_PUNCHLIST, getPunchData } from "~/lib/integrations/google";
 import type { ClientWithIssueInfo } from "~/lib/models";
 import {
 	getInsuranceMismatchSignature,
@@ -37,8 +37,8 @@ import {
 import {
 	ageAtReference,
 	getMostRecentEvalStartTimes,
-} from "~/server/questionnaire-age";
-import { resolveApplicableRules } from "~/server/questionnaire-rules";
+} from "~/server/services/questionnaire-age";
+import { resolveApplicableRules } from "~/server/services/questionnaire-rules";
 
 const isNotesOnly = eq(sql`LENGTH(${clients.id})`, 5);
 

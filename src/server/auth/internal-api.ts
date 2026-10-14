@@ -1,6 +1,6 @@
 import { timingSafeEqual } from "node:crypto";
 import type { NextRequest } from "next/server";
-import { redis } from "~/lib/redis";
+import { redis } from "~/lib/integrations/redis";
 import { recordInternalApiAudit } from "~/server/api/audit";
 
 const API_KEY = process.env.API_KEY;

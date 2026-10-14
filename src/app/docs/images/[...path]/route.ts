@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import { NextResponse } from "next/server";
 import sharp from "sharp";
-import { resolveDocsAssetPath } from "~/lib/docs";
+import { resolveDocsAssetPath } from "~/lib/docs/docs";
 
 const CONTENT_TYPES: Record<string, string> = {
 	".png": "image/png",

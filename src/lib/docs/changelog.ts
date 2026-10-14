@@ -7,8 +7,8 @@ import remarkParse from "remark-parse";
 import remarkRehype from "remark-rehype";
 import "server-only";
 import { unified } from "unified";
+import { formatChangelogDate } from "../utils.client";
 import { type DocHeading, getDocBySlug } from "./docs";
-import { formatChangelogDate } from "./utils.client";
 
 export const CHANGELOG_SLUG = ["changelog"];
 

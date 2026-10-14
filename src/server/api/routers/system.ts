@@ -1,5 +1,8 @@
 import { createTRPCRouter, protectedProcedure } from "~/server/api/trpc";
-import { SERVER_START_TIME, systemEmitter } from "~/server/systemEmitter";
+import {
+	SERVER_START_TIME,
+	systemEmitter,
+} from "~/server/services/systemEmitter";
 
 export const systemRouter = createTRPCRouter({
 	onSystemUpdate: protectedProcedure.subscription(async function* ({

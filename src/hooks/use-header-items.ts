@@ -1,6 +1,6 @@
 import { useSession } from "next-auth/react";
 import { useCheckPermission } from "~/hooks/use-check-permission";
-import { HEADER_ITEM_DEFS, type HeaderItemId } from "~/lib/header-items";
+import { HEADER_ITEM_DEFS, type HeaderItemId } from "~/lib/layout/header-items";
 import type { PermissionId } from "~/lib/types";
 import { api } from "~/trpc/react";
 

@@ -13,7 +13,7 @@ import {
 	type HeaderItemDef,
 	type HeaderItemId,
 	isNavItemDef,
-} from "~/lib/header-items";
+} from "~/lib/layout/header-items";
 import { api } from "~/trpc/react";
 
 const GROUP_ORDER: (HeaderItemCategory | "General")[] = [

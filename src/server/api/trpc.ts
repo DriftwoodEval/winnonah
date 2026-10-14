@@ -11,8 +11,8 @@ import { initTRPC, TRPCError } from "@trpc/server";
 import superjson from "superjson";
 import { ZodError } from "zod";
 import { invalidateIssueLists } from "~/lib/cache";
+import { redis } from "~/lib/integrations/redis";
 import { logger } from "~/lib/logger";
-import { redis } from "~/lib/redis";
 import type { PermissionId, PermissionsObject } from "~/lib/types";
 import {
 	formatError,

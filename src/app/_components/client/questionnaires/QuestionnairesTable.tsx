@@ -33,7 +33,7 @@ import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { useCheckPermission } from "~/hooks/use-check-permission";
 import { QUESTIONNAIRE_STATUSES } from "~/lib/constants";
-import { statusLabel } from "~/lib/questionnaire-history";
+import { statusLabel } from "~/lib/questionnaires/questionnaire-history";
 import {
 	cn,
 	formatShortDate,

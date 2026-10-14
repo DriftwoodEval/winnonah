@@ -9,7 +9,7 @@ import {
 	getRecentMessages,
 	sendMessage,
 	type TimelineEvent,
-} from "~/lib/quo";
+} from "~/lib/integrations/quo";
 import { normalizePhoneNumber } from "~/lib/utils";
 import {
 	assertPermission,

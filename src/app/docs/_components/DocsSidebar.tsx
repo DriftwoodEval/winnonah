@@ -4,7 +4,7 @@ import { ChevronDown } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
-import type { DocNavCategory, DocNavItem } from "~/lib/docs";
+import type { DocNavCategory, DocNavItem } from "~/lib/docs/docs";
 import { cn } from "~/lib/utils";
 import { CreateDocPageDialog } from "./CreateDocPageDialog";
 

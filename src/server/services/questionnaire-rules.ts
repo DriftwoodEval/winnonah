@@ -5,7 +5,7 @@ import type {
 	questionnaireRules,
 	questionnaires,
 } from "~/server/db/schema";
-import { getQuestionnaireEligibilityAge } from "~/server/questionnaire-age";
+import { getQuestionnaireEligibilityAge } from "~/server/services/questionnaire-age";
 
 /**
  * Picks the questionnaire rules that apply to a client, grouped by

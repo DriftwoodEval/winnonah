@@ -14,7 +14,7 @@ import { format } from "date-fns";
 import { Bot, Clock, PhoneIncoming, PhoneOutgoing } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useMemo, useRef } from "react";
-import type { TimelineEvent } from "~/lib/quo";
+import type { TimelineEvent } from "~/lib/integrations/quo";
 import { cn } from "~/lib/utils";
 import { api } from "~/trpc/react";
 import { Redact } from "../../redaction/Redact";

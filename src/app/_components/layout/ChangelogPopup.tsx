@@ -4,7 +4,7 @@ import {
 	parseChangelogMarker,
 	renderChangelogBody,
 	serializeChangelogMarker,
-} from "~/lib/changelog";
+} from "~/lib/docs/changelog";
 import { auth } from "~/server/auth";
 import { api } from "~/trpc/server";
 import { ChangelogPopupDialog } from "./ChangelogPopupDialog";

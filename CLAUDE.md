@@ -33,7 +33,7 @@ This applies to the Python suite (`uv run pytest` under `python/`) and any TS un
 
 ## Home Page Widgets
 The home page (`src/app/_components/home/HomePageContent.tsx`) renders a user-configurable grid of widgets. Widget ids are plain strings, not a type union. To add a widget:
-1. Add an entry to `HOME_WIDGET_DEFS` in `src/lib/home-widgets.ts` (`id`, `label`, `permission`, `category`, `sizing`). Optionally add a default `{ cols, rows }` to `DEFAULT_WIDGET_CONFIG`.
+1. Add an entry to `HOME_WIDGET_DEFS` in `src/lib/layout/home-widgets.ts` (`id`, `label`, `permission`, `category`, `sizing`). Optionally add a default `{ cols, rows }` to `DEFAULT_WIDGET_CONFIG`.
 2. Build the component (no props, fetches its own data via tRPC) in `src/app/_components/home/`. For compact list/table widgets with day-navigation, reuse `WidgetShell`, `DayNav`, `useSelectedDate`, `todayStr` exported from `DayAheadWidgets.tsx`.
 3. Add a dispatch branch in `HomePageContent.tsx`'s `w.id === "..."` chain.
 

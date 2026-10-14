@@ -32,7 +32,7 @@ import {
 	splitAvailabilityByOOO,
 	updateAvailabilityEvent,
 	updatePunchData,
-} from "~/lib/google";
+} from "~/lib/integrations/google";
 import type { Client } from "~/lib/models";
 import type { DuplicateGroup } from "~/lib/types";
 import { getInsuranceShortName, hasPermission } from "~/lib/utils";
