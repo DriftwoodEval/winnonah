@@ -8,6 +8,7 @@ from pathlib import Path
 from uuid import uuid4
 
 from dotenv import load_dotenv
+from driftwood_common.log_format import json_log_format
 from driftwood_common.timezone import business_to_utc, now_business, now_utc
 from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.responses import FileResponse, Response
@@ -63,7 +64,6 @@ from utils.google import (
     send_gmail,
     update_gcal_event_title,
 )
-from utils.misc import json_log_format
 from utils.permissions import effective_permissions, has_permission
 from utils.waze import (
     KM_PER_MILE,

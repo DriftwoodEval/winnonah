@@ -1,11 +1,11 @@
 import pandas as pd
 from dotenv import load_dotenv
+from driftwood_common.log_format import json_log_format
 from driftwood_common.timezone import now_business
 from loguru import logger
 
 from utils.constants import TABLE_BABYNET_REPORT
 from utils.database import get_db
-from utils.misc import json_log_format
 from utils.therapyappointment import INPUT_DIR
 
 logger.add(

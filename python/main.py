@@ -7,6 +7,7 @@ from typing import Annotated, cast
 import pandas as pd
 import typer
 from dotenv import load_dotenv
+from driftwood_common.log_format import json_log_format
 from driftwood_common.timezone import now_business
 from loguru import logger
 
@@ -28,7 +29,6 @@ from utils.fax_close import (
 )
 from utils.fax_reports import generate_report_cover_pages, send_report_faxes
 from utils.google import find_gcal_event_by_client_and_time, update_gcal_event_title
-from utils.misc import json_log_format
 from utils.task_tracker import track_task
 
 _main_excluded_modules = {"utils.fax_close", "utils.fax_reports"}

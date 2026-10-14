@@ -4,6 +4,7 @@ import time
 
 import typer
 from dotenv import load_dotenv
+from driftwood_common.log_format import json_log_format
 from loguru import logger
 
 from utils.fax import (
@@ -43,7 +44,6 @@ from utils.google import (
     move_file,
     send_gmail,
 )
-from utils.misc import json_log_format
 
 logger.add(
     "logs/fax-close.log",

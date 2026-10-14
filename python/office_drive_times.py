@@ -2,12 +2,12 @@ import asyncio
 from datetime import timedelta
 
 from dotenv import load_dotenv
+from driftwood_common.log_format import json_log_format
 from driftwood_common.timezone import now_utc
 from loguru import logger
 
 from utils.constants import TABLE_CLIENT, TABLE_OFFICE, TABLE_OFFICE_DRIVE_TIME
 from utils.database import get_db
-from utils.misc import json_log_format
 from utils.waze import (
     KM_PER_MILE,
     WAZE_MAX_CONCURRENCY,

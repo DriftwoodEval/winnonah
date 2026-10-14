@@ -10,12 +10,12 @@ import openpyxl
 import pandas as pd
 import requests
 from dotenv import load_dotenv
+from driftwood_common.log_format import json_log_format
 from driftwood_common.timezone import now_business
 from loguru import logger
 
 from utils.database import get_active_workers, get_exclusion_check_notify_users
 from utils.google import send_gmail
-from utils.misc import json_log_format
 
 logger.add(
     "logs/exclusion-check.log",
