@@ -4,7 +4,7 @@ from unittest.mock import AsyncMock, patch
 import pytest
 from pywaze.route_calculator import CalcRoutesResponse
 
-from office_drive_times import (
+from cron.office_drive_times import (
     count_stale_pairs,
     get_stale_pairs,
     resolve_pair,
@@ -74,8 +74,8 @@ def test_resolve_pair(waze_result, waze_error, expected_duration, expected_dista
 
     async def run():
         with (
-            patch("office_drive_times.get_drive_time", mock_get_drive_time),
-            patch("office_drive_times.REQUEST_STAGGER_SECONDS", 0),
+            patch("cron.office_drive_times.get_drive_time", mock_get_drive_time),
+            patch("cron.office_drive_times.REQUEST_STAGGER_SECONDS", 0),
         ):
             return await resolve_pair(asyncio.Semaphore(1), pair)
 

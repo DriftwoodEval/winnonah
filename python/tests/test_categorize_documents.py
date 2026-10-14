@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from categorize_documents import _expected_category
+from tools.categorize_documents import _expected_category
 
 
 class TestExpectedCategory:

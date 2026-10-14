@@ -21,7 +21,7 @@ Docs live in `src/content/docs/` as Markdown/MDX and are read by practice staff,
 - `mise run check` type-checks and lints everything (TS + Python); use `check:pnpm`/`check:ruff` to run just one side. Don't call `tsc`/`ruff` directly.
 - Trust ruff over your own syntax assumptions.
 - Never run `pnpm db:*` or DB migrations, leave to the user.
-- Python one-offs live in `python/oneoff/` and run as modules from `python/`, e.g. `uv run python -m oneoff.remediate_noop_audit_log`. Run them as modules, not by file path, so `utils` imports resolve.
+- The Python sidecar is laid out by role under `python/`: `api/` (FastAPI app and routers; served as `api.app:app`), `cron/` (scheduled jobs), `tools/` and `oneoff/` (manual scripts), `utils/` (shared logic), `common/` (code shared with `questionnaires`). `failover_notify.py` stays at the top because the host failover scripts call it by name. Run any script as a module from `python/`, not by file path, so `utils` imports resolve: `uv run python -m cron.main`, `uv run python -m oneoff.remediate_noop_audit_log`.
 
 ## Local Development
 Every page requires a logged-in NextAuth session, and Claude has no way to authenticate as a real user, so starting the dev server and browser-testing a UI change is never possible here regardless of Docker/`.env` availability. Don't attempt it. Verify UI changes with `mise run check` and existing tests, and say plainly that the change wasn't browser-tested rather than claiming otherwise.

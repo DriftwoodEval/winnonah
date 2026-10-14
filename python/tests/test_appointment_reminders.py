@@ -5,7 +5,7 @@ from unittest.mock import patch
 import pytest
 from driftwood_common.timezone import now_business
 
-from appointment_reminders import (
+from api.appointment_reminders import (
     _compute_age_years,
     _fix_stale_event_id,
     _matches_template,
@@ -399,7 +399,7 @@ class TestFixStaleEventId:
         }
         found_event = {"id": "event-2"}
         with patch(
-            "appointment_reminders.find_gcal_event_by_client_and_time",
+            "api.appointment_reminders.find_gcal_event_by_client_and_time",
             return_value=found_event,
         ):
             result = _fix_stale_event_id(context, "stale-event-1")
@@ -412,7 +412,7 @@ class TestFixStaleEventId:
             "startTime": datetime(2026, 3, 5, 9, 0),
         }
         with patch(
-            "appointment_reminders.find_gcal_event_by_client_and_time",
+            "api.appointment_reminders.find_gcal_event_by_client_and_time",
             return_value=None,
         ):
             result = _fix_stale_event_id(context, "stale-event-1")

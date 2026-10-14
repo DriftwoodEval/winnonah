@@ -1,6 +1,6 @@
 from unittest.mock import MagicMock, patch
 
-from fax_categorization import (
+from cron.fax_categorization import (
     _already_seen_drive_file_ids,
     _match_clients,
     process_faxes,
@@ -65,7 +65,7 @@ class TestAlreadySeenDriveFileIds:
         conn = MagicMock()
         conn.cursor.return_value = cursor
         conn.__enter__.return_value = conn
-        with patch("fax_categorization.db_session", return_value=conn):
+        with patch("cron.fax_categorization.db_session", return_value=conn):
             result = _already_seen_drive_file_ids()
         assert result == {"abc", "def"}
 
@@ -76,7 +76,7 @@ class TestAlreadySeenDriveFileIds:
         conn = MagicMock()
         conn.cursor.return_value = cursor
         conn.__enter__.return_value = conn
-        with patch("fax_categorization.db_session", return_value=conn):
+        with patch("cron.fax_categorization.db_session", return_value=conn):
             result = _already_seen_drive_file_ids()
         assert result == set()
 
@@ -84,7 +84,7 @@ class TestAlreadySeenDriveFileIds:
 class TestProcessFaxes:
     def test_returns_early_when_folder_id_not_set(self, monkeypatch):
         monkeypatch.delenv("FAX_CATEGORIZATION_FOLDER_ID", raising=False)
-        with patch("fax_categorization.track_task") as mock_track:
+        with patch("cron.fax_categorization.track_task") as mock_track:
             process_faxes()
         mock_track.assert_not_called()
 
@@ -94,8 +94,8 @@ class TestProcessFaxes:
         track_cm.__enter__.return_value = None
         track_cm.__exit__.return_value = False
         with (
-            patch("fax_categorization.track_task", return_value=track_cm),
-            patch("fax_categorization.list_files_in_folder") as mock_list,
+            patch("cron.fax_categorization.track_task", return_value=track_cm),
+            patch("cron.fax_categorization.list_files_in_folder") as mock_list,
         ):
             process_faxes()
         mock_list.assert_not_called()
@@ -107,13 +107,16 @@ class TestProcessFaxes:
         track_cm.__enter__.return_value = task
         track_cm.__exit__.return_value = False
         with (
-            patch("fax_categorization.track_task", return_value=track_cm),
-            patch("fax_categorization.list_files_in_folder", return_value=[]),
+            patch("cron.fax_categorization.track_task", return_value=track_cm),
+            patch("cron.fax_categorization.list_files_in_folder", return_value=[]),
             patch(
-                "fax_categorization._already_seen_drive_file_ids", return_value=set()
+                "cron.fax_categorization._already_seen_drive_file_ids",
+                return_value=set(),
             ),
-            patch("fax_categorization._reprocess_requested_faxes", return_value=[]),
-            patch("fax_categorization.build_client_lookup") as mock_lookup,
+            patch(
+                "cron.fax_categorization._reprocess_requested_faxes", return_value=[]
+            ),
+            patch("cron.fax_categorization.build_client_lookup") as mock_lookup,
         ):
             process_faxes()
         mock_lookup.assert_not_called()
@@ -128,14 +131,16 @@ class TestProcessFaxes:
         track_cm.__exit__.return_value = False
         files = [{"id": "file-1", "name": "fax.pdf"}]
         with (
-            patch("fax_categorization.track_task", return_value=track_cm),
-            patch("fax_categorization.list_files_in_folder", return_value=files),
+            patch("cron.fax_categorization.track_task", return_value=track_cm),
+            patch("cron.fax_categorization.list_files_in_folder", return_value=files),
             patch(
-                "fax_categorization._already_seen_drive_file_ids",
+                "cron.fax_categorization._already_seen_drive_file_ids",
                 return_value={"file-1"},
             ),
-            patch("fax_categorization._reprocess_requested_faxes", return_value=[]),
-            patch("fax_categorization.build_client_lookup") as mock_lookup,
+            patch(
+                "cron.fax_categorization._reprocess_requested_faxes", return_value=[]
+            ),
+            patch("cron.fax_categorization.build_client_lookup") as mock_lookup,
         ):
             process_faxes()
         mock_lookup.assert_not_called()
@@ -148,17 +153,20 @@ class TestProcessFaxes:
         track_cm.__exit__.return_value = False
         files = [{"id": "file-1", "name": "fax.pdf"}]
         with (
-            patch("fax_categorization.track_task", return_value=track_cm),
-            patch("fax_categorization.list_files_in_folder", return_value=files),
+            patch("cron.fax_categorization.track_task", return_value=track_cm),
+            patch("cron.fax_categorization.list_files_in_folder", return_value=files),
             patch(
-                "fax_categorization._already_seen_drive_file_ids", return_value=set()
+                "cron.fax_categorization._already_seen_drive_file_ids",
+                return_value=set(),
             ),
-            patch("fax_categorization._reprocess_requested_faxes", return_value=[]),
-            patch("fax_categorization.build_client_lookup", return_value=[]),
-            patch("fax_categorization.get_all_clients", return_value=[]),
-            patch("fax_categorization.limit_cpu_usage"),
-            patch("fax_categorization.load_model", return_value=None),
-            patch("fax_categorization._process_fax") as mock_process,
+            patch(
+                "cron.fax_categorization._reprocess_requested_faxes", return_value=[]
+            ),
+            patch("cron.fax_categorization.build_client_lookup", return_value=[]),
+            patch("cron.fax_categorization.get_all_clients", return_value=[]),
+            patch("cron.fax_categorization.limit_cpu_usage"),
+            patch("cron.fax_categorization.load_model", return_value=None),
+            patch("cron.fax_categorization._process_fax") as mock_process,
         ):
             try:
                 process_faxes()
@@ -179,18 +187,21 @@ class TestProcessFaxes:
             {"id": "file-2", "name": "fax2.pdf"},
         ]
         with (
-            patch("fax_categorization.track_task", return_value=track_cm),
-            patch("fax_categorization.list_files_in_folder", return_value=files),
+            patch("cron.fax_categorization.track_task", return_value=track_cm),
+            patch("cron.fax_categorization.list_files_in_folder", return_value=files),
             patch(
-                "fax_categorization._already_seen_drive_file_ids", return_value=set()
+                "cron.fax_categorization._already_seen_drive_file_ids",
+                return_value=set(),
             ),
-            patch("fax_categorization._reprocess_requested_faxes", return_value=[]),
-            patch("fax_categorization.build_client_lookup", return_value=[]),
-            patch("fax_categorization.get_all_clients", return_value=[]),
-            patch("fax_categorization.limit_cpu_usage"),
-            patch("fax_categorization.load_model", return_value=MagicMock()),
             patch(
-                "fax_categorization._process_fax",
+                "cron.fax_categorization._reprocess_requested_faxes", return_value=[]
+            ),
+            patch("cron.fax_categorization.build_client_lookup", return_value=[]),
+            patch("cron.fax_categorization.get_all_clients", return_value=[]),
+            patch("cron.fax_categorization.limit_cpu_usage"),
+            patch("cron.fax_categorization.load_model", return_value=MagicMock()),
+            patch(
+                "cron.fax_categorization._process_fax",
                 side_effect=[Exception("boom"), None],
             ) as mock_process,
         ):
@@ -210,21 +221,22 @@ class TestProcessFaxes:
             {"id": 2, "driveFileId": "file-2", "fileName": "fax2.pdf"},
         ]
         with (
-            patch("fax_categorization.track_task", return_value=track_cm),
-            patch("fax_categorization.list_files_in_folder", return_value=[]),
+            patch("cron.fax_categorization.track_task", return_value=track_cm),
+            patch("cron.fax_categorization.list_files_in_folder", return_value=[]),
             patch(
-                "fax_categorization._already_seen_drive_file_ids", return_value=set()
+                "cron.fax_categorization._already_seen_drive_file_ids",
+                return_value=set(),
             ),
             patch(
-                "fax_categorization._reprocess_requested_faxes",
+                "cron.fax_categorization._reprocess_requested_faxes",
                 return_value=reprocess_faxes,
             ),
-            patch("fax_categorization.build_client_lookup", return_value=[]),
-            patch("fax_categorization.get_all_clients", return_value=[]),
-            patch("fax_categorization.limit_cpu_usage"),
-            patch("fax_categorization.load_model", return_value=MagicMock()),
+            patch("cron.fax_categorization.build_client_lookup", return_value=[]),
+            patch("cron.fax_categorization.get_all_clients", return_value=[]),
+            patch("cron.fax_categorization.limit_cpu_usage"),
+            patch("cron.fax_categorization.load_model", return_value=MagicMock()),
             patch(
-                "fax_categorization._reprocess_fax",
+                "cron.fax_categorization._reprocess_fax",
                 side_effect=[Exception("boom"), None],
             ) as mock_reprocess,
         ):

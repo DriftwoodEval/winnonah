@@ -40,7 +40,7 @@ Pick the filename last: kebab-case slug, `.mdx`. URL is `/docs/<section>/<slug>`
 Same three code surfaces as `verify-docs` (read section 2 of that skill for the full breakdown):
 
 - **T3 web app** — `winnonah/src/app/_components/**`, `winnonah/src/server/api/routers/**`, `winnonah/src/server/db/schema.ts`, `winnonah/src/lib/**` for anything UI, permission, or business-rule shaped.
-- **winnonah Python sidecar and cron scripts** — `winnonah/python/` (`api.py`, `main.py`, standalone root scripts) and `winnonah/python/utils/` for background syncs, scheduled jobs, fax/document processing, reminders, internal reports.
+- **winnonah Python sidecar and cron scripts** — `winnonah/python/` (`api/app.py`, `cron/main.py`, the other jobs in `cron/`) and `winnonah/python/utils/` for background syncs, scheduled jobs, fax/document processing, reminders, internal reports.
 - **questionnaires repo** — root scripts and `questionnaires/utils/` for questionnaire send/receive, records requests, piecework exports.
 
 Read the relevant files in full. Trace the real flow: which component renders the button, what happens when it's clicked, what gets written, which permission gates it, what the numeric rules are ("3 attempts", "21 days"). Capture exact label text, permission names, defaults, and thresholds as you go, then translate them into plain language for the page. The page says what staff experience; the code is just how you learn what that is.

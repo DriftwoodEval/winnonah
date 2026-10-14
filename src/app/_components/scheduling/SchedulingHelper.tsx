@@ -84,7 +84,7 @@ function pad(n: number) {
 
 // Formats a genuine UTC instant as a naive business-local "YYYY-MM-DDTHH:mm:ss"
 // wall-clock string, for the placeholder-creation API, which localizes it back
-// to true UTC before storing (see business_to_utc in python/api.py).
+// to true UTC before storing (see business_to_utc in python/api/app.py).
 function toBusinessWallClockString(date: Date) {
 	return formatInBusinessTime(date, "yyyy-MM-dd'T'HH:mm:ss");
 }

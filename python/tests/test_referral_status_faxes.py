@@ -2,7 +2,7 @@ import datetime as dt
 from datetime import date, timedelta
 from unittest.mock import patch
 
-from referral_status_faxes import (
+from cron.referral_status_faxes import (
     fetch_referral_statuses,
     get_last_sent_dates,
     is_due,
@@ -50,7 +50,7 @@ class TestFetchReferralStatuses:
                 return [_client()]
 
         with patch(
-            "referral_status_faxes.requests.get", return_value=FakeResponse()
+            "cron.referral_status_faxes.requests.get", return_value=FakeResponse()
         ) as mock_get:
             result = fetch_referral_statuses()
 
@@ -156,7 +156,9 @@ class TestIsDue:
 class TestSendReferralStatusFaxes:
     def test_no_statuses_returned_sends_nothing(self):
         with (
-            patch("referral_status_faxes.fetch_referral_statuses", return_value=[]),
+            patch(
+                "cron.referral_status_faxes.fetch_referral_statuses", return_value=[]
+            ),
             patch("utils.google.send_gmail") as mock_send,
         ):
             send_referral_status_faxes()
@@ -166,10 +168,10 @@ class TestSendReferralStatusFaxes:
         recent = _client(added_date=date.today() - timedelta(days=10))
         with (
             patch(
-                "referral_status_faxes.fetch_referral_statuses",
+                "cron.referral_status_faxes.fetch_referral_statuses",
                 return_value=[recent],
             ),
-            patch("referral_status_faxes.get_last_sent_dates", return_value={}),
+            patch("cron.referral_status_faxes.get_last_sent_dates", return_value={}),
             patch("utils.google.send_gmail") as mock_send,
         ):
             send_referral_status_faxes()
@@ -179,10 +181,10 @@ class TestSendReferralStatusFaxes:
         finished = _client(done=True)
         with (
             patch(
-                "referral_status_faxes.fetch_referral_statuses",
+                "cron.referral_status_faxes.fetch_referral_statuses",
                 return_value=[finished],
             ),
-            patch("referral_status_faxes.get_last_sent_dates", return_value={}),
+            patch("cron.referral_status_faxes.get_last_sent_dates", return_value={}),
             patch("utils.google.send_gmail") as mock_send,
         ):
             send_referral_status_faxes()
@@ -191,9 +193,11 @@ class TestSendReferralStatusFaxes:
     def test_client_faxed_within_three_months_is_skipped(self):
         due = _client(client_id=1)
         with (
-            patch("referral_status_faxes.fetch_referral_statuses", return_value=[due]),
             patch(
-                "referral_status_faxes.get_last_sent_dates",
+                "cron.referral_status_faxes.fetch_referral_statuses", return_value=[due]
+            ),
+            patch(
+                "cron.referral_status_faxes.get_last_sent_dates",
                 return_value={1: date.today() - timedelta(days=5)},
             ),
             patch("utils.google.send_gmail") as mock_send,
@@ -204,13 +208,15 @@ class TestSendReferralStatusFaxes:
     def test_client_last_faxed_over_three_months_ago_is_sent_again(self):
         due = _client(client_id=1)
         with (
-            patch("referral_status_faxes.fetch_referral_statuses", return_value=[due]),
             patch(
-                "referral_status_faxes.get_last_sent_dates",
+                "cron.referral_status_faxes.fetch_referral_statuses", return_value=[due]
+            ),
+            patch(
+                "cron.referral_status_faxes.get_last_sent_dates",
                 return_value={1: date.today() - timedelta(days=100)},
             ),
             patch("utils.google.send_gmail") as mock_send,
-            patch("referral_status_faxes.log_faxes_sent") as mock_log,
+            patch("cron.referral_status_faxes.log_faxes_sent") as mock_log,
         ):
             send_referral_status_faxes()
         mock_send.assert_called_once()
@@ -223,9 +229,10 @@ class TestSendReferralStatusFaxes:
         stale = _client(client_id=1, added_date=date.today() - timedelta(days=210))
         with (
             patch(
-                "referral_status_faxes.fetch_referral_statuses", return_value=[stale]
+                "cron.referral_status_faxes.fetch_referral_statuses",
+                return_value=[stale],
             ),
-            patch("referral_status_faxes.get_last_sent_dates", return_value={}),
+            patch("cron.referral_status_faxes.get_last_sent_dates", return_value={}),
             patch("utils.google.send_gmail") as mock_send,
         ):
             send_referral_status_faxes()
@@ -235,11 +242,11 @@ class TestSendReferralStatusFaxes:
         bad_source = _client(referral_source="No Referral Source")
         with (
             patch(
-                "referral_status_faxes.fetch_referral_statuses",
+                "cron.referral_status_faxes.fetch_referral_statuses",
                 return_value=[bad_source],
             ),
             patch(
-                "referral_status_faxes.get_last_sent_dates",
+                "cron.referral_status_faxes.get_last_sent_dates",
                 return_value={1: date.today() - timedelta(days=100)},
             ),
             patch("utils.google.send_gmail") as mock_send,
@@ -254,17 +261,18 @@ class TestSendReferralStatusFaxes:
         ]
         with (
             patch(
-                "referral_status_faxes.fetch_referral_statuses", return_value=clients
+                "cron.referral_status_faxes.fetch_referral_statuses",
+                return_value=clients,
             ),
             patch(
-                "referral_status_faxes.get_last_sent_dates",
+                "cron.referral_status_faxes.get_last_sent_dates",
                 return_value={
                     1: date.today() - timedelta(days=100),
                     2: date.today() - timedelta(days=100),
                 },
             ),
             patch("utils.google.send_gmail") as mock_send,
-            patch("referral_status_faxes.log_faxes_sent") as mock_log,
+            patch("cron.referral_status_faxes.log_faxes_sent") as mock_log,
         ):
             send_referral_status_faxes()
         mock_send.assert_called_once()
@@ -275,13 +283,15 @@ class TestSendReferralStatusFaxes:
         monkeypatch.chdir(tmp_path)
         due = _client(client_id=1)
         with (
-            patch("referral_status_faxes.fetch_referral_statuses", return_value=[due]),
             patch(
-                "referral_status_faxes.get_last_sent_dates",
+                "cron.referral_status_faxes.fetch_referral_statuses", return_value=[due]
+            ),
+            patch(
+                "cron.referral_status_faxes.get_last_sent_dates",
                 return_value={1: date.today() - timedelta(days=100)},
             ),
             patch("utils.google.send_gmail") as mock_send,
-            patch("referral_status_faxes.log_faxes_sent") as mock_log,
+            patch("cron.referral_status_faxes.log_faxes_sent") as mock_log,
         ):
             send_referral_status_faxes(dry_run=True)
         mock_send.assert_not_called()

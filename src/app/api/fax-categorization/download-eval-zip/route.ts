@@ -7,7 +7,7 @@ import { auth } from "~/server/auth";
 import { db } from "~/server/db";
 import { faxCategorizations } from "~/server/db/schema";
 
-// python/categorize_documents.py's --eval mode expects PDFs named
+// python/tools/categorize_documents.py's --eval mode expects PDFs named
 // "..._<Category>.pdf", reading the segment after the last underscore as
 // the ground-truth category, so each entry keeps a human-readable stem,
 // the fax id (for uniqueness), and the reviewer-confirmed category.

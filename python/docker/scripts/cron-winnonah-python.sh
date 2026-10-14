@@ -4,4 +4,4 @@ echo "-------------------------------------------------------------"
 echo " Running Winnonah Python: $(date)"
 echo "-------------------------------------------------------------"
 
-cd /app && uv run main.py
+cd /app && uv run python -m cron.main

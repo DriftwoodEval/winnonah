@@ -41,7 +41,7 @@ FAILURE_RETRY_AFTER_DAYS = 1
 MAX_PAIRS_PER_RUN = 40
 
 # Concurrency and stagger for Waze's unofficial, unrate-limited endpoint are
-# shared with the on-demand lookup in api.py (see utils/waze.py).
+# shared with the on-demand lookup in api/app.py (see utils/waze.py).
 CONCURRENCY = WAZE_MAX_CONCURRENCY
 REQUEST_STAGGER_SECONDS = WAZE_REQUEST_STAGGER_SECONDS
 

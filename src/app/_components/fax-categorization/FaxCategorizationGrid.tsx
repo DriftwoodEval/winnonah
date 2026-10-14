@@ -146,7 +146,7 @@ function categoryWasChanged(fax: {
 	return fax.category !== fax.llmCategory;
 }
 
-// The stem here just needs to be readable; python/categorize_documents.py's
+// The stem here just needs to be readable; python/tools/categorize_documents.py's
 // --eval mode only reads the category after the LAST underscore, so the id
 // suffix (for uniqueness) and category are what matter.
 function downloadEvalZip(faxes: { id: number }[]) {
