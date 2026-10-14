@@ -16,6 +16,8 @@ import type { Client, FullClientInfo } from "~/lib/models";
 import { api } from "~/trpc/react";
 import { PinListButton } from "../dashboard/PinListButton";
 import { Redact } from "../redaction/Redact";
+import { EmptyState } from "../shared/EmptyState";
+import { ErrorState } from "../shared/ErrorState";
 
 interface DashboardSectionWidgetProps {
 	sectionTitle: string;
@@ -24,10 +26,10 @@ interface DashboardSectionWidgetProps {
 export function DashboardSectionWidget({
 	sectionTitle,
 }: DashboardSectionWidgetProps) {
-	const { data, isLoading, isError } = api.google.getDashboardData.useQuery(
-		undefined,
-		{ refetchInterval: 180000 },
-	);
+	const { data, isLoading, isError, refetch } =
+		api.google.getDashboardData.useQuery(undefined, {
+			refetchInterval: 180000,
+		});
 
 	if (isLoading) {
 		return (
@@ -41,11 +43,7 @@ export function DashboardSectionWidget({
 	}
 
 	if (isError) {
-		return (
-			<p className="px-3 py-4 text-center text-muted-foreground text-sm">
-				Couldn't load. Try refreshing the page.
-			</p>
-		);
+		return <ErrorState compact onRetry={refetch} />;
 	}
 
 	const section = data?.sections.find((s) => s.title === sectionTitle);
@@ -73,9 +71,7 @@ export function DashboardSectionWidget({
 				/>
 			</div>
 			{clients.length === 0 ? (
-				<p className="px-3 py-4 text-center text-muted-foreground text-sm">
-					None
-				</p>
+				<EmptyState compact title="No clients in this list" />
 			) : (
 				<ul className="min-h-0 flex-1 divide-y overflow-auto">
 					{clients.map((client) => (

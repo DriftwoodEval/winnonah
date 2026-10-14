@@ -22,6 +22,7 @@ import {
 	DAY_START,
 	type DateAvailabilityWindow,
 } from "../day-ahead/CalendarGrid";
+import { ErrorState } from "../shared/ErrorState";
 
 export type CalWidgetMode = "day" | "3day" | "week";
 
@@ -131,7 +132,7 @@ export function CalendarViewWidget({ mode }: { mode: CalWidgetMode }) {
 	);
 	const todayInRange = dateRange.includes(todayStr);
 
-	const { data, isLoading, isError } =
+	const { data, isLoading, isError, refetch } =
 		api.appointments.getCalendarRange.useQuery({
 			startDate: dateRange[0] ?? todayStr,
 			endDate: dateRange.at(-1) ?? todayStr,
@@ -303,9 +304,7 @@ export function CalendarViewWidget({ mode }: { mode: CalWidgetMode }) {
 		<TooltipProvider>
 			<WidgetShell linkHref={linkHref} nav={nav} title={LABEL[mode]}>
 				{isError ? (
-					<p className="text-muted-foreground text-sm">
-						Couldn't load. Try refreshing the page.
-					</p>
+					<ErrorState compact onRetry={refetch} />
 				) : isLoading ? (
 					<div className="flex flex-col gap-2 p-1">
 						<Skeleton className="h-4 w-full" />

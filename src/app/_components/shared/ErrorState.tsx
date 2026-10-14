@@ -34,7 +34,7 @@ export function ErrorState({
 			{onRetry && (
 				<Button
 					className="mt-1"
-					onClick={onRetry}
+					onClick={() => onRetry()}
 					size="sm"
 					type="button"
 					variant="outline"

@@ -14,21 +14,34 @@ import {
 	IssueListSkeleton,
 	SuggestionIssueList,
 } from "../issues/issuesList";
+import { ErrorState } from "../shared/ErrorState";
 import { MyDayWidget, WhosInWidget } from "./DayAheadWidgets";
 
 function Shell({ children }: { children: React.ReactNode }) {
 	return <div className="flex h-full w-full flex-col">{children}</div>;
 }
 
+function IssueWidgetError({ onRetry }: { onRetry: () => void }) {
+	return (
+		<Shell>
+			<ErrorState compact onRetry={onRetry} />
+		</Shell>
+	);
+}
+
 function SimpleIssueWidget({
 	permission,
 	isLoading,
+	isError,
+	onRetry,
 	clients,
 	title,
 	description,
 }: {
 	permission: PermissionId;
 	isLoading: boolean;
+	isError: boolean;
+	onRetry: () => void;
 	clients: ClientWithIssueInfo[] | undefined;
 	title: string;
 	description: string;
@@ -41,6 +54,7 @@ function SimpleIssueWidget({
 				<IssueListSkeleton />
 			</Shell>
 		);
+	if (isError) return <IssueWidgetError onRetry={onRetry} />;
 	return (
 		<Shell>
 			<IssueList
@@ -118,15 +132,20 @@ export function IssueWidgetById({ id }: { id: string }) {
 
 function DD4Widget() {
 	const can = useCheckPermission();
-	const { data, isLoading } = api.clients.getDD4.useQuery(undefined, {
-		refetchInterval: 60_000,
-		enabled: can("issues:dd4"),
-	});
+	const { data, isLoading, isError, refetch } = api.clients.getDD4.useQuery(
+		undefined,
+		{
+			refetchInterval: 60_000,
+			enabled: can("issues:dd4"),
+		},
+	);
 	return (
 		<SimpleIssueWidget
 			clients={data}
 			description="Clients located in Dorchester District 4."
+			isError={isError}
 			isLoading={isLoading}
+			onRetry={refetch}
 			permission="issues:dd4"
 			title="In DD4"
 		/>
@@ -135,15 +154,18 @@ function DD4Widget() {
 
 function JustAddedWidget() {
 	const can = useCheckPermission();
-	const { data, isLoading } = api.questionnaires.getJustAdded.useQuery(
-		undefined,
-		{ refetchInterval: 60_000, enabled: can("issues:just-added") },
-	);
+	const { data, isLoading, isError, refetch } =
+		api.questionnaires.getJustAdded.useQuery(undefined, {
+			refetchInterval: 60_000,
+			enabled: can("issues:just-added"),
+		});
 	return (
 		<SimpleIssueWidget
 			clients={data}
 			description="Questionnaires generated but not sent to client."
+			isError={isError}
 			isLoading={isLoading}
+			onRetry={refetch}
 			permission="issues:just-added"
 			title="Just Added Questionnaires"
 		/>
@@ -152,15 +174,20 @@ function JustAddedWidget() {
 
 function PausedClientsWidget() {
 	const can = useCheckPermission();
-	const { data, isLoading } = api.clients.getPaused.useQuery(undefined, {
-		refetchInterval: 60_000,
-		enabled: can("issues:paused-clients"),
-	});
+	const { data, isLoading, isError, refetch } = api.clients.getPaused.useQuery(
+		undefined,
+		{
+			refetchInterval: 60_000,
+			enabled: can("issues:paused-clients"),
+		},
+	);
 	return (
 		<SimpleIssueWidget
 			clients={data}
 			description="Manually paused clients for review."
+			isError={isError}
 			isLoading={isLoading}
+			onRetry={refetch}
 			permission="issues:paused-clients"
 			title="Paused Clients"
 		/>
@@ -169,15 +196,18 @@ function PausedClientsWidget() {
 
 function EvaluationInProcessWidget() {
 	const can = useCheckPermission();
-	const { data, isLoading } = api.clients.getEvaluationInProcess.useQuery(
-		undefined,
-		{ refetchInterval: 60_000, enabled: can("issues:evaluation-in-process") },
-	);
+	const { data, isLoading, isError, refetch } =
+		api.clients.getEvaluationInProcess.useQuery(undefined, {
+			refetchInterval: 60_000,
+			enabled: can("issues:evaluation-in-process"),
+		});
 	return (
 		<SimpleIssueWidget
 			clients={data}
 			description="Clients with an evaluation currently in process."
+			isError={isError}
 			isLoading={isLoading}
+			onRetry={refetch}
 			permission="issues:evaluation-in-process"
 			title="Evaluation In Process"
 		/>
@@ -186,15 +216,18 @@ function EvaluationInProcessWidget() {
 
 function MissingAppointmentsWidget() {
 	const can = useCheckPermission();
-	const { data, isLoading } = api.clients.getMissingAppointments.useQuery(
-		undefined,
-		{ refetchInterval: 60_000, enabled: can("issues:missing-appointments") },
-	);
+	const { data, isLoading, isError, refetch } =
+		api.clients.getMissingAppointments.useQuery(undefined, {
+			refetchInterval: 60_000,
+			enabled: can("issues:missing-appointments"),
+		});
 	return (
 		<SimpleIssueWidget
 			clients={data}
 			description="Clients with fewer scheduled appointments than the insurance calculation requires."
+			isError={isError}
 			isLoading={isLoading}
+			onRetry={refetch}
 			permission="issues:missing-appointments"
 			title="Appointments to be Created"
 		/>
@@ -203,15 +236,18 @@ function MissingAppointmentsWidget() {
 
 function AutismStopsWidget() {
 	const can = useCheckPermission();
-	const { data, isLoading } = api.clients.getAutismStops.useQuery(undefined, {
-		refetchInterval: 60_000,
-		enabled: can("issues:autism-stops"),
-	});
+	const { data, isLoading, isError, refetch } =
+		api.clients.getAutismStops.useQuery(undefined, {
+			refetchInterval: 60_000,
+			enabled: can("issues:autism-stops"),
+		});
 	return (
 		<SimpleIssueWidget
 			clients={data}
 			description='"Autism" found in school records, should be discharged.'
+			isError={isError}
 			isLoading={isLoading}
+			onRetry={refetch}
 			permission="issues:autism-stops"
 			title="Autism Stops"
 		/>
@@ -221,10 +257,11 @@ function AutismStopsWidget() {
 function ClientsNotInDbWidget() {
 	const can = useCheckPermission();
 	const utils = api.useUtils();
-	const { data, isLoading } = api.google.verifyPunchClients.useQuery(
-		undefined,
-		{ refetchInterval: 60_000, enabled: can("issues:clients-not-in-db") },
-	);
+	const { data, isLoading, isError, refetch } =
+		api.google.verifyPunchClients.useQuery(undefined, {
+			refetchInterval: 60_000,
+			enabled: can("issues:clients-not-in-db"),
+		});
 	const { mutate: updatePunchId, isPending } =
 		api.google.updatePunchId.useMutation({
 			onSuccess: () => {
@@ -238,6 +275,7 @@ function ClientsNotInDbWidget() {
 				<IssueListSkeleton />
 			</Shell>
 		);
+	if (isError) return <IssueWidgetError onRetry={refetch} />;
 	return (
 		<Shell>
 			<SuggestionIssueList
@@ -265,15 +303,18 @@ function ClientsNotInDbWidget() {
 
 function PunchlistInactiveWidget() {
 	const can = useCheckPermission();
-	const { data, isLoading } = api.google.verifyPunchClients.useQuery(
-		undefined,
-		{ refetchInterval: 60_000, enabled: can("issues:punchlist-inactive") },
-	);
+	const { data, isLoading, isError, refetch } =
+		api.google.verifyPunchClients.useQuery(undefined, {
+			refetchInterval: 60_000,
+			enabled: can("issues:punchlist-inactive"),
+		});
 	return (
 		<SimpleIssueWidget
 			clients={data?.inactiveClients}
 			description="Inactive clients currently on the punchlist."
+			isError={isError}
 			isLoading={isLoading}
+			onRetry={refetch}
 			permission="issues:punchlist-inactive"
 			title="Punchlist Clients Inactive"
 		/>
@@ -282,10 +323,11 @@ function PunchlistInactiveWidget() {
 
 function PunchlistDuplicatesWidget() {
 	const can = useCheckPermission();
-	const { data, isLoading } = api.google.verifyPunchClients.useQuery(
-		undefined,
-		{ refetchInterval: 60_000, enabled: can("issues:punchlist-duplicates") },
-	);
+	const { data, isLoading, isError, refetch } =
+		api.google.verifyPunchClients.useQuery(undefined, {
+			refetchInterval: 60_000,
+			enabled: can("issues:punchlist-duplicates"),
+		});
 	const dupes =
 		data?.duplicateIdClients.map(
 			(c) =>
@@ -302,7 +344,9 @@ function PunchlistDuplicatesWidget() {
 		<SimpleIssueWidget
 			clients={dupes}
 			description="Duplicate client IDs found on the punchlist."
+			isError={isError}
 			isLoading={isLoading}
+			onRetry={refetch}
 			permission="issues:punchlist-duplicates"
 			title="Duplicate Punchlist IDs"
 		/>
@@ -311,15 +355,18 @@ function PunchlistDuplicatesWidget() {
 
 function NoReferralSourceWidget() {
 	const can = useCheckPermission();
-	const { data, isLoading } = api.clients.getNoReferralSource.useQuery(
-		undefined,
-		{ refetchInterval: 60_000, enabled: can("issues:no-referral-source") },
-	);
+	const { data, isLoading, isError, refetch } =
+		api.clients.getNoReferralSource.useQuery(undefined, {
+			refetchInterval: 60_000,
+			enabled: can("issues:no-referral-source"),
+		});
 	return (
 		<SimpleIssueWidget
 			clients={data}
 			description="Active clients with no referral source."
+			isError={isError}
 			isLoading={isLoading}
+			onRetry={refetch}
 			permission="issues:no-referral-source"
 			title="No Referral Source"
 		/>
@@ -328,15 +375,18 @@ function NoReferralSourceWidget() {
 
 function MissingDistrictsWidget() {
 	const can = useCheckPermission();
-	const { data, isLoading } = api.clients.getDistrictErrors.useQuery(
-		undefined,
-		{ refetchInterval: 60_000, enabled: can("issues:district-issues") },
-	);
+	const { data, isLoading, isError, refetch } =
+		api.clients.getDistrictErrors.useQuery(undefined, {
+			refetchInterval: 60_000,
+			enabled: can("issues:district-issues"),
+		});
 	return (
 		<SimpleIssueWidget
 			clients={data?.clientsWithoutDistrict}
 			description="Clients missing a school district."
+			isError={isError}
 			isLoading={isLoading}
+			onRetry={refetch}
 			permission="issues:district-issues"
 			title="Missing Districts"
 		/>
@@ -345,15 +395,18 @@ function MissingDistrictsWidget() {
 
 function PoorAddressLookupWidget() {
 	const can = useCheckPermission();
-	const { data, isLoading } = api.clients.getDistrictErrors.useQuery(
-		undefined,
-		{ refetchInterval: 60_000, enabled: can("issues:district-issues") },
-	);
+	const { data, isLoading, isError, refetch } =
+		api.clients.getDistrictErrors.useQuery(undefined, {
+			refetchInterval: 60_000,
+			enabled: can("issues:district-issues"),
+		});
 	return (
 		<SimpleIssueWidget
 			clients={data?.clientsWithPoorAddressLookup}
 			description="Address info was only found after cutting, should be double checked."
+			isError={isError}
 			isLoading={isLoading}
+			onRetry={refetch}
 			permission="issues:district-issues"
 			title="Poor Address Lookup"
 		/>
@@ -362,15 +415,18 @@ function PoorAddressLookupWidget() {
 
 function BabyNetAgeoutWidget() {
 	const can = useCheckPermission();
-	const { data, isLoading } = api.clients.getBabyNetErrors.useQuery(undefined, {
-		refetchInterval: 60_000,
-		enabled: can("issues:babynet-ageout"),
-	});
+	const { data, isLoading, isError, refetch } =
+		api.clients.getBabyNetErrors.useQuery(undefined, {
+			refetchInterval: 60_000,
+			enabled: can("issues:babynet-ageout"),
+		});
 	return (
 		<SimpleIssueWidget
 			clients={data}
 			description="Clients who have aged out of BabyNet eligibility, but still have it listed."
+			isError={isError}
 			isLoading={isLoading}
+			onRetry={refetch}
 			permission="issues:babynet-ageout"
 			title="Too Old for BabyNet"
 		/>
@@ -379,15 +435,18 @@ function BabyNetAgeoutWidget() {
 
 function NotInTAWidget() {
 	const can = useCheckPermission();
-	const { data, isLoading } = api.clients.getNotInTAErrors.useQuery(undefined, {
-		refetchInterval: 60_000,
-		enabled: can("issues:not-in-ta"),
-	});
+	const { data, isLoading, isError, refetch } =
+		api.clients.getNotInTAErrors.useQuery(undefined, {
+			refetchInterval: 60_000,
+			enabled: can("issues:not-in-ta"),
+		});
 	return (
 		<SimpleIssueWidget
 			clients={data}
 			description="Clients who were not imported from TA and were not added using the Notes Only feature."
+			isError={isError}
 			isLoading={isLoading}
+			onRetry={refetch}
 			permission="issues:not-in-ta"
 			title="Not in TA"
 		/>
@@ -396,15 +455,18 @@ function NotInTAWidget() {
 
 function DropListWidget() {
 	const can = useCheckPermission();
-	const { data, isLoading } = api.clients.getDropList.useQuery(undefined, {
-		refetchInterval: 60_000,
-		enabled: can("issues:droplist"),
-	});
+	const { data, isLoading, isError, refetch } =
+		api.clients.getDropList.useQuery(undefined, {
+			refetchInterval: 60_000,
+			enabled: can("issues:droplist"),
+		});
 	return (
 		<SimpleIssueWidget
 			clients={data}
 			description="Clients who have been reminded more than 3 times and aren't completing tasks."
+			isError={isError}
 			isLoading={isLoading}
+			onRetry={refetch}
 			permission="issues:droplist"
 			title="Drop List"
 		/>
@@ -412,10 +474,14 @@ function DropListWidget() {
 }
 
 function NotesOnlyWidget() {
-	const { data: notesOnlyClients, isLoading: isLoadingNotesOnly } =
-		api.clients.getNotesOnlyClients.useQuery(undefined, {
-			refetchInterval: 60_000,
-		});
+	const {
+		data: notesOnlyClients,
+		isLoading: isLoadingNotesOnly,
+		isError: notesOnlyFailed,
+		refetch: refetchNotesOnly,
+	} = api.clients.getNotesOnlyClients.useQuery(undefined, {
+		refetchInterval: 60_000,
+	});
 	const { data: mergeSuggestions, isLoading: isLoadingMerge } =
 		api.clients.getMergeSuggestions.useQuery(undefined, {
 			refetchInterval: 60_000,
@@ -427,6 +493,7 @@ function NotesOnlyWidget() {
 				<IssueListSkeleton />
 			</Shell>
 		);
+	if (notesOnlyFailed) return <IssueWidgetError onRetry={refetchNotesOnly} />;
 	const clients = notesOnlyClients ?? [];
 	const sorted = clients.toSorted((a, b) => {
 		const aHas = mergeSuggestions?.some((s) => s.notesOnlyClient.id === a.id);
@@ -465,15 +532,18 @@ function NotesOnlyWidget() {
 
 function NoDriveIdsWidget() {
 	const can = useCheckPermission();
-	const { data, isLoading } = api.clients.getNoDriveIdErrors.useQuery(
-		undefined,
-		{ refetchInterval: 60_000, enabled: can("issues:no-drive-ids") },
-	);
+	const { data, isLoading, isError, refetch } =
+		api.clients.getNoDriveIdErrors.useQuery(undefined, {
+			refetchInterval: 60_000,
+			enabled: can("issues:no-drive-ids"),
+		});
 	return (
 		<SimpleIssueWidget
 			clients={data}
 			description="Clients missing a Google Drive folder ID."
+			isError={isError}
 			isLoading={isLoading}
+			onRetry={refetch}
 			permission="issues:no-drive-ids"
 			title="No Drive IDs"
 		/>
@@ -482,15 +552,18 @@ function NoDriveIdsWidget() {
 
 function PrivatePayWidget() {
 	const can = useCheckPermission();
-	const { data, isLoading } = api.clients.getPossiblePrivatePay.useQuery(
-		undefined,
-		{ refetchInterval: 60_000, enabled: can("issues:private-pay") },
-	);
+	const { data, isLoading, isError, refetch } =
+		api.clients.getPossiblePrivatePay.useQuery(undefined, {
+			refetchInterval: 60_000,
+			enabled: can("issues:private-pay"),
+		});
 	return (
 		<SimpleIssueWidget
 			clients={data}
 			description="Clients with no eligible evaluators based on insurance and district/zip code."
+			isError={isError}
 			isLoading={isLoading}
+			onRetry={refetch}
 			permission="issues:private-pay"
 			title="Potential Private Pay"
 		/>
@@ -499,15 +572,18 @@ function PrivatePayWidget() {
 
 function UnreviewedRecordsWidget() {
 	const can = useCheckPermission();
-	const { data, isLoading } = api.clients.getUnreviewedRecords.useQuery(
-		undefined,
-		{ refetchInterval: 60_000, enabled: can("issues:unreviewed-records") },
-	);
+	const { data, isLoading, isError, refetch } =
+		api.clients.getUnreviewedRecords.useQuery(undefined, {
+			refetchInterval: 60_000,
+			enabled: can("issues:unreviewed-records"),
+		});
 	return (
 		<SimpleIssueWidget
 			clients={data}
 			description="Records needed and requested more than 3 weekdays ago, but not reviewed."
+			isError={isError}
 			isLoading={isLoading}
+			onRetry={refetch}
 			permission="issues:unreviewed-records"
 			title="Unreviewed/Unreceived Records"
 		/>
@@ -516,15 +592,18 @@ function UnreviewedRecordsWidget() {
 
 function CharterSchoolConfirmWidget() {
 	const can = useCheckPermission();
-	const { data, isLoading } = api.clients.getUnconfirmedCharterSchool.useQuery(
-		undefined,
-		{ refetchInterval: 60_000, enabled: can("issues:charter-school-confirm") },
-	);
+	const { data, isLoading, isError, refetch } =
+		api.clients.getUnconfirmedCharterSchool.useQuery(undefined, {
+			refetchInterval: 60_000,
+			enabled: can("issues:charter-school-confirm"),
+		});
 	return (
 		<SimpleIssueWidget
 			clients={data}
 			description="Intake says charter school. Records requests wait until someone confirms it on the Referral tab."
+			isError={isError}
 			isLoading={isLoading}
+			onRetry={refetch}
 			permission="issues:charter-school-confirm"
 			title="Charter School Awaiting Confirmation"
 		/>
@@ -533,10 +612,11 @@ function CharterSchoolConfirmWidget() {
 
 function DuplicateDriveWidget() {
 	const can = useCheckPermission();
-	const { data, isLoading } = api.google.findDuplicates.useQuery(undefined, {
-		refetchInterval: 60_000,
-		enabled: can("issues:duplicate-drive"),
-	});
+	const { data, isLoading, isError, refetch } =
+		api.google.findDuplicates.useQuery(undefined, {
+			refetchInterval: 60_000,
+			enabled: can("issues:duplicate-drive"),
+		});
 	if (!can("issues:duplicate-drive")) return null;
 	if (isLoading)
 		return (
@@ -544,6 +624,7 @@ function DuplicateDriveWidget() {
 				<IssueListSkeleton />
 			</Shell>
 		);
+	if (isError) return <IssueWidgetError onRetry={refetch} />;
 	if (!data) return null;
 	return (
 		<Shell>
@@ -558,13 +639,11 @@ function DuplicateDriveWidget() {
 
 function DuplicateQLinkWidget() {
 	const can = useCheckPermission();
-	const { data, isLoading } = api.questionnaires.getDuplicateLinks.useQuery(
-		undefined,
-		{
+	const { data, isLoading, isError, refetch } =
+		api.questionnaires.getDuplicateLinks.useQuery(undefined, {
 			refetchInterval: 60_000,
 			enabled: can("issues:duplicate-questionnaires"),
-		},
-	);
+		});
 	const clients =
 		data?.duplicatePerClient
 			.map((item) => item.client)
@@ -574,7 +653,9 @@ function DuplicateQLinkWidget() {
 		<SimpleIssueWidget
 			clients={clients}
 			description="Clients who have the same questionnaire link multiple times."
+			isError={isError}
 			isLoading={isLoading}
+			onRetry={refetch}
 			permission="issues:duplicate-questionnaires"
 			title="Clients with Duplicate Questionnaire Links"
 		/>
@@ -583,13 +664,11 @@ function DuplicateQLinkWidget() {
 
 function ClientsSharingQWidget() {
 	const can = useCheckPermission();
-	const { data, isLoading } = api.questionnaires.getDuplicateLinks.useQuery(
-		undefined,
-		{
+	const { data, isLoading, isError, refetch } =
+		api.questionnaires.getDuplicateLinks.useQuery(undefined, {
 			refetchInterval: 60_000,
 			enabled: can("issues:duplicate-questionnaires"),
-		},
-	);
+		});
 	if (!can("issues:duplicate-questionnaires")) return null;
 	if (isLoading)
 		return (
@@ -597,6 +676,7 @@ function ClientsSharingQWidget() {
 				<IssueListSkeleton />
 			</Shell>
 		);
+	if (isError) return <IssueWidgetError onRetry={refetch} />;
 	return (
 		<Shell>
 			<ClientsSharingQuestionnaires
@@ -609,10 +689,11 @@ function ClientsSharingQWidget() {
 
 function DuplicateNamesWidget() {
 	const can = useCheckPermission();
-	const { data, isLoading } = api.clients.getDuplicateNames.useQuery(
-		undefined,
-		{ refetchInterval: 60_000, enabled: can("issues:duplicate-names") },
-	);
+	const { data, isLoading, isError, refetch } =
+		api.clients.getDuplicateNames.useQuery(undefined, {
+			refetchInterval: 60_000,
+			enabled: can("issues:duplicate-names"),
+		});
 	if (!can("issues:duplicate-names")) return null;
 	if (isLoading)
 		return (
@@ -620,6 +701,7 @@ function DuplicateNamesWidget() {
 				<IssueListSkeleton />
 			</Shell>
 		);
+	if (isError) return <IssueWidgetError onRetry={refetch} />;
 	return (
 		<Shell>
 			<DuplicateNamesList fill groups={data ?? []} />
@@ -629,10 +711,11 @@ function DuplicateNamesWidget() {
 
 function UnreviewedFaxesWidget() {
 	const can = useCheckPermission();
-	const { data, isLoading } = api.faxCategorization.getPendingCount.useQuery(
-		undefined,
-		{ refetchInterval: 60_000, enabled: can("fax:categorization:review") },
-	);
+	const { data, isLoading, isError, refetch } =
+		api.faxCategorization.getPendingCount.useQuery(undefined, {
+			refetchInterval: 60_000,
+			enabled: can("fax:categorization:review"),
+		});
 	if (!can("fax:categorization:review")) return null;
 	if (isLoading)
 		return (
@@ -640,6 +723,7 @@ function UnreviewedFaxesWidget() {
 				<IssueListSkeleton />
 			</Shell>
 		);
+	if (isError) return <IssueWidgetError onRetry={refetch} />;
 	return (
 		<Link
 			className="flex h-full w-full flex-col items-center justify-center gap-1 p-3 hover:bg-accent hover:text-accent-foreground"

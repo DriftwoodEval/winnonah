@@ -5,11 +5,16 @@ import { Skeleton } from "@ui/skeleton";
 import Link from "next/link";
 import { getHexFromColor } from "~/lib/colors";
 import { formatCurrency } from "~/lib/utils";
-import { useReportSections } from "../dashboard/ReportsDashboardSections";
+import { useReportSectionsQuery } from "../dashboard/ReportsDashboardSections";
 import { Redact } from "../redaction/Redact";
+import { EmptyState } from "../shared/EmptyState";
+import { ErrorState } from "../shared/ErrorState";
 
 export function ReportsSectionWidget({ sectionId }: { sectionId: string }) {
-	const section = useReportSections()?.find((s) => s.id === sectionId);
+	const { sections, isError, refetch } = useReportSectionsQuery();
+	const section = sections?.find((s) => s.id === sectionId);
+
+	if (isError) return <ErrorState compact onRetry={refetch} />;
 
 	if (!section) {
 		return (
@@ -30,9 +35,7 @@ export function ReportsSectionWidget({ sectionId }: { sectionId: string }) {
 				</span>
 			</div>
 			{section.reports.length === 0 ? (
-				<p className="px-3 py-4 text-center text-muted-foreground text-sm">
-					None
-				</p>
+				<EmptyState compact title="No reports in this list" />
 			) : (
 				<ul className="min-h-0 flex-1 divide-y overflow-auto">
 					{section.reports.map((r) => (
