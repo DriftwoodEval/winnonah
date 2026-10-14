@@ -447,6 +447,12 @@ export const reportsRouter = createTRPCRouter({
 					message: `Cannot approve a report that is "${report.status}".`,
 				});
 			}
+			if (!report.writerCompletedAt) {
+				throw new TRPCError({
+					code: "BAD_REQUEST",
+					message: "Mark the report done before approving it.",
+				});
+			}
 
 			await ctx.db
 				.update(reports)

@@ -26,7 +26,7 @@ import {
 } from "@ui/table";
 import { ChevronDown } from "lucide-react";
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { type ReactNode, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { cn, formatInBusinessTime } from "~/lib/utils";
 import type { RouterOutputs } from "~/trpc/react";
@@ -37,6 +37,16 @@ type Report = RouterOutputs["reports"]["list"][number];
 
 // Statuses an approver can still approve & release from.
 const APPROVABLE_STATUSES = ["claimed", "submitted"] as const;
+
+// A report can only be approved once the writer has marked it done.
+function canApprove(r: Report) {
+	return (
+		r.writerCompletedAt !== null &&
+		APPROVABLE_STATUSES.includes(
+			r.status as (typeof APPROVABLE_STATUSES)[number],
+		)
+	);
+}
 
 const STATUS_LABELS: Partial<Record<Report["status"], string>> = {
 	pending: "Awaiting folder",
@@ -93,6 +103,29 @@ function writerDisplay(
 		.map((part) => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
 		.join(" ");
 	return guess || null;
+}
+
+function LegendItem({
+	sample,
+	description,
+}: {
+	sample: ReactNode;
+	description: string;
+}) {
+	return (
+		<div className="flex items-center gap-2">
+			{sample}
+			<span className="text-muted-foreground">{description}</span>
+		</div>
+	);
+}
+
+// Dates in the current year drop the year to save column width.
+function formatReportDate(date: Date) {
+	const sameYear =
+		formatInBusinessTime(date, "yyyy") ===
+		formatInBusinessTime(new Date(), "yyyy");
+	return formatInBusinessTime(date, sameYear ? "MMM d" : "MMM d, yyyy");
 }
 
 // Rows for Beth's evals are shown in bold.
@@ -175,15 +208,19 @@ export function ReportsTable({
 	const secondReview = config?.secondReviewLabel ?? "Second review";
 	// Order matters here: it drives both the header row and each row's cells.
 	// secondReview* sits right after "Writer done" and before "Billed".
-	const billingFields = [
+	const secondReviewFields = [
 		{ key: "secondReviewNeeded" as const, label: `${secondReview} needed` },
 		{ key: "secondReviewDone" as const, label: `${secondReview} done` },
+	];
+	const billingFields = [
+		...secondReviewFields,
 		{ key: "billed" as const, label: "Billed" },
 		{
 			key: "firstReviewDone" as const,
 			label: config?.firstReviewLabel ?? "First review",
 		},
 	];
+	const otherBillingFields = billingFields.slice(secondReviewFields.length);
 	const invalidate = () => void utils.reports.list.invalidate();
 
 	const markComplete = api.reports.markWriterComplete.useMutation({
@@ -332,12 +369,7 @@ export function ReportsTable({
 		const results = await Promise.allSettled(
 			selected.map((r) => {
 				if (action === "approve") {
-					if (
-						!APPROVABLE_STATUSES.includes(
-							r.status as (typeof APPROVABLE_STATUSES)[number],
-						)
-					)
-						return Promise.resolve();
+					if (!canApprove(r)) return Promise.resolve();
 					return approve.mutateAsync({ id: r.id });
 				}
 				if (action === "archive") return archive.mutateAsync({ id: r.id });
@@ -522,6 +554,33 @@ export function ReportsTable({
 				</div>
 			)}
 
+			<div className="flex flex-wrap gap-x-6 gap-y-2 rounded-md border bg-muted/30 px-3 py-2 text-xs">
+				<LegendItem
+					description="Beth's eval"
+					sample={<span className="font-bold">Bold</span>}
+				/>
+				<LegendItem
+					description="Inactive client"
+					sample={<span className="opacity-50">Grayed out</span>}
+				/>
+				<LegendItem
+					description="Evaluator writes their own report"
+					sample={<Badge variant="outline">self</Badge>}
+				/>
+				<LegendItem
+					description="A writer took it from the queue"
+					sample={<Badge variant="secondary">Claimed</Badge>}
+				/>
+				<LegendItem
+					description="Self-written report in progress"
+					sample={<Badge variant="secondary">Writing</Badge>}
+				/>
+				<LegendItem
+					description="Report approved, writer can take another from the queue"
+					sample={<StatusBadge selfWritten={false} status="approved" />}
+				/>
+			</div>
+
 			<div className="w-full">
 				<Table classNameWrapper="max-h-[calc(100vh-4.5rem)]">
 					<TableHeader className="sticky top-0 z-20 bg-background shadow-[inset_0_-1px_0_var(--border)]">
@@ -538,10 +597,26 @@ export function ReportsTable({
 							<TableHead className={HEAD_CLASS}>Eval date</TableHead>
 							{filterHead("evaluator", "Evaluator")}
 							{filterHead("writer", "Writer")}
-							{filterHead("status", "Status")}
 							<TableHead className={HEAD_CLASS}>Claimed on</TableHead>
 							{filterHead("writerDone", "Writer done")}
-							{billingFields.map((f) => filterHead(f.key, f.label))}
+							{filterHead("status", "Status")}
+							<TableHead className={HEAD_CLASS}>
+								<div className="flex items-end gap-1">
+									{secondReview}
+									{secondReviewFields.map((f) => (
+										<ColumnFilter
+											columnName={f.label}
+											key={f.key}
+											onFilterChange={(v) =>
+												setFilters((cur) => ({ ...cur, [f.key]: v }))
+											}
+											options={filterOptions(f.key)}
+											selectedValues={filters[f.key]}
+										/>
+									))}
+								</div>
+							</TableHead>
+							{otherBillingFields.map((f) => filterHead(f.key, f.label))}
 							<TableHead className={HEAD_CLASS}>Notes</TableHead>
 							{isApprover && <TableHead className={HEAD_CLASS} />}
 						</TableRow>
@@ -564,10 +639,11 @@ export function ReportsTable({
 									key={r.id}
 									onClick={(e) => onRowClick(e, r.id)}
 								>
-									<TableCell className="max-md:sticky max-md:left-0 max-md:z-10 max-md:bg-background">
+									<TableCell className="max-w-[200px] max-md:sticky max-md:left-0 max-md:z-10 max-md:bg-background">
 										<Link
-											className="text-sm hover:underline"
+											className="block truncate text-sm hover:underline"
 											href={`/clients/${r.clientHash}`}
+											title={r.clientFullName}
 										>
 											{r.clientFullName}
 										</Link>
@@ -584,7 +660,7 @@ export function ReportsTable({
 									</TableCell>
 									<TableCell className="whitespace-nowrap text-sm">
 										{r.evalAppointmentAt ? (
-											formatInBusinessTime(r.evalAppointmentAt, "MMM d, yyyy")
+											formatReportDate(r.evalAppointmentAt)
 										) : (
 											<span className="text-muted-foreground text-xs">-</span>
 										)}
@@ -599,32 +675,21 @@ export function ReportsTable({
 											<span className="text-muted-foreground">Unclaimed</span>
 										)}
 									</TableCell>
-									<TableCell>
-										<StatusBadge
-											selfWritten={r.selfWritten}
-											status={r.status}
-										/>
-									</TableCell>
 									<TableCell className="whitespace-nowrap text-sm">
-										{r.claimedAt
-											? formatInBusinessTime(r.claimedAt, "MMM d, yyyy")
-											: "-"}
+										{r.claimedAt ? formatReportDate(r.claimedAt) : "-"}
 									</TableCell>
 									<TableCell className="whitespace-nowrap">
 										{r.writerCompletedAt ? (
 											<div className="flex items-center gap-1">
 												<span className="text-muted-foreground text-xs">
-													{formatInBusinessTime(
-														r.writerCompletedAt,
-														"MMM d, yyyy",
-													)}
+													{formatReportDate(r.writerCompletedAt)}
 												</span>
 												{canEditWriting && (
 													<Button
 														onClick={() =>
 															markComplete.mutate({ id: r.id, complete: false })
 														}
-														size="sm"
+														size="xs"
 														variant="ghost"
 													>
 														Undo
@@ -636,7 +701,7 @@ export function ReportsTable({
 												onClick={() =>
 													markComplete.mutate({ id: r.id, complete: true })
 												}
-												size="sm"
+												size="xs"
 											>
 												Mark done
 											</Button>
@@ -644,7 +709,65 @@ export function ReportsTable({
 											<span className="text-muted-foreground text-xs">-</span>
 										)}
 									</TableCell>
-									{billingFields.map((f) => (
+									<TableCell className="whitespace-nowrap">
+										<div className="flex items-center gap-1">
+											<StatusBadge
+												selfWritten={r.selfWritten}
+												status={r.status}
+											/>
+											{isApprover && tab === "active" && (
+												<>
+													{canApprove(r) && (
+														<Button
+															onClick={() => approve.mutate({ id: r.id })}
+															size="xs"
+														>
+															Approve
+														</Button>
+													)}
+													{r.status === "approved" && (
+														<Button
+															onClick={() => unapprove.mutate({ id: r.id })}
+															size="xs"
+															variant="ghost"
+														>
+															Undo
+														</Button>
+													)}
+												</>
+											)}
+										</div>
+									</TableCell>
+									<TableCell>
+										<div className="flex flex-col gap-1">
+											{secondReviewFields.map((f) => (
+												<div className="flex items-center gap-2" key={f.key}>
+													{r.canEditBilling ? (
+														<Checkbox
+															checked={r[f.key]}
+															onCheckedChange={(v) =>
+																setBilling.mutate({
+																	id: r.id,
+																	field: f.key,
+																	value: v === true,
+																})
+															}
+														/>
+													) : r[f.key] ? (
+														<Badge variant="secondary">yes</Badge>
+													) : (
+														<span className="text-muted-foreground text-xs">
+															-
+														</span>
+													)}
+													<span className="text-muted-foreground text-xs">
+														{f.key === "secondReviewNeeded" ? "Needed" : "Done"}
+													</span>
+												</div>
+											))}
+										</div>
+									</TableCell>
+									{otherBillingFields.map((f) => (
 										<TableCell key={f.key}>
 											{r.canEditBilling ? (
 												<Checkbox
@@ -676,35 +799,16 @@ export function ReportsTable({
 											{tab === "archived" ? (
 												<Button
 													onClick={() => unarchive.mutate({ id: r.id })}
-													size="sm"
+													size="xs"
 													variant="ghost"
 												>
 													Restore
 												</Button>
 											) : (
 												<div className="flex items-center gap-1">
-													{APPROVABLE_STATUSES.includes(
-														r.status as (typeof APPROVABLE_STATUSES)[number],
-													) && (
-														<Button
-															onClick={() => approve.mutate({ id: r.id })}
-															size="sm"
-														>
-															Approve
-														</Button>
-													)}
-													{r.status === "approved" && (
-														<Button
-															onClick={() => unapprove.mutate({ id: r.id })}
-															size="sm"
-															variant="ghost"
-														>
-															Undo
-														</Button>
-													)}
 													<Button
 														onClick={() => archive.mutate({ id: r.id })}
-														size="sm"
+														size="xs"
 														variant="destructive"
 													>
 														Archive
