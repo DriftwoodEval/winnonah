@@ -5,6 +5,9 @@ description = "Code shared by the winnonah and questionnaires Python projects"
 requires-python = ">=3.13"
 dependencies = [
   "loguru>=0.7.3",
+  "ratelimit>=2.2.1",
+  "requests>=2.33.1",
+  "tenacity>=9.1.2",
 ]
 
 [build-system]

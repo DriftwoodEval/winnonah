@@ -1,9 +1,9 @@
+import asyncio
 import os
 from datetime import datetime
 from typing import Annotated
 
-import httpx
-from driftwood_common.quo import build_send_payload
+from driftwood_common.quo_client import QuoClient
 from driftwood_common.timezone import now_business
 from fastapi import APIRouter, BackgroundTasks, Header, HTTPException, Request
 from googleapiclient.discovery import build
@@ -21,32 +21,23 @@ OPENPHONE_GREETER_NUMBER_ID = os.getenv("OPENPHONE_GREETER_NUMBER_ID", "")
 OPENPHONE_GREETER_SIGNING_SECRET = os.getenv("OPENPHONE_GREETER_SIGNING_SECRET", "")
 GREETER_SCHEDULE_SHEET_ID = os.getenv("GREETER_SCHEDULE_SHEET_ID", "")
 
-_http_client: httpx.AsyncClient | None = None
+_quo_client: QuoClient | None = None
 
 
-def get_http_client() -> httpx.AsyncClient:
-    global _http_client  # noqa: PLW0603
-    if _http_client is None:
-        _http_client = httpx.AsyncClient(
-            base_url="https://api.quo.com/v1",
-            headers={
-                "Authorization": OPENPHONE_API_KEY,
-                "Content-Type": "application/json",
-            },
+def get_quo_client() -> QuoClient:
+    global _quo_client  # noqa: PLW0603
+    if _quo_client is None:
+        _quo_client = QuoClient(
+            OPENPHONE_API_KEY, phone_number_id=OPENPHONE_GREETER_NUMBER_ID
         )
-    return _http_client
+    return _quo_client
 
 
 async def send_sms(to: str, body: str) -> None:
-    client = get_http_client()
     logger.debug(f"Sending SMS to {to} from {OPENPHONE_GREETER_NUMBER_ID}: {body!r}")
     try:
-        response = await client.post(
-            "/messages",
-            json=build_send_payload(body, OPENPHONE_GREETER_NUMBER_ID, to),
-        )
-        response.raise_for_status()
-        logger.info(f"SMS sent to {to} (status {response.status_code})")
+        await asyncio.to_thread(get_quo_client().send_text, body, to)
+        logger.info(f"SMS sent to {to}")
     except Exception as e:
         logger.error(f"Failed to send SMS to {to}: {e}")
         raise
