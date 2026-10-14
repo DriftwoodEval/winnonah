@@ -277,17 +277,20 @@ export const authConfig = {
 				session.user.email = targetUser.email;
 				session.user.image = targetUser.image;
 
-				let effectivePermissions =
-					(targetUser.permissions as PermissionsObject) ?? {};
-				if (targetUser.roleId) {
-					const role = await db.query.roles.findFirst({
-						where: eq(roles.id, targetUser.roleId),
-					});
-					if (role) {
-						effectivePermissions = {
-							...role.permissions,
-							...targetUser.permissions,
-						};
+				let effectivePermissions = realUserPermissions;
+				if (isImpersonating) {
+					effectivePermissions =
+						(targetUser.permissions as PermissionsObject) ?? {};
+					if (targetUser.roleId) {
+						const role = await db.query.roles.findFirst({
+							where: eq(roles.id, targetUser.roleId),
+						});
+						if (role) {
+							effectivePermissions = {
+								...role.permissions,
+								...targetUser.permissions,
+							};
+						}
 					}
 				}
 				session.user.permissions = effectivePermissions;
