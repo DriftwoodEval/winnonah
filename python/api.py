@@ -38,11 +38,8 @@ from utils.database import (
     get_client_eligibility_debug,
     get_client_name,
     get_db,
-    get_default_gap_minutes,
     get_evaluator_email,
     get_evaluator_emails,
-    get_evaluator_gap_minutes,
-    get_evaluator_nearby_appointments,
     get_placeholder_appointment,
     get_possible_private_pay_reasons,
     get_python_config,
@@ -924,34 +921,6 @@ async def evaluators_availability(
     return {npi: events_by_email.get(email, []) for npi, email in email_by_npi.items()}
 
 
-def _enforce_gap(
-    evaluator_npi: int,
-    start_time: datetime,
-    end_time: datetime,
-    exclude_appointment_id: str | None = None,
-) -> None:
-    """Raises 409 if start_time/end_time falls within the required gap of one
-    of the evaluator's other non-cancelled appointments."""
-    gap_minutes = get_evaluator_gap_minutes(evaluator_npi)
-    if gap_minutes is None:
-        gap_minutes = get_default_gap_minutes()
-    if gap_minutes <= 0:
-        return
-
-    nearby = get_evaluator_nearby_appointments(
-        evaluator_npi,
-        start_time,
-        end_time,
-        gap_minutes,
-        exclude_appointment_id=exclude_appointment_id,
-    )
-    if nearby:
-        raise HTTPException(
-            status_code=409,
-            detail=f"Requires at least {gap_minutes} minutes between this evaluator's appointments.",
-        )
-
-
 @app.post("/appointments/placeholder")
 async def create_placeholder_appointment(
     request: CreatePlaceholderAppointmentRequest,
@@ -978,8 +947,6 @@ async def create_placeholder_appointment(
     end_time_business = request.end_time.replace(tzinfo=None)
     start_time = business_to_utc(start_time_business)
     end_time = business_to_utc(end_time_business)
-
-    _enforce_gap(request.evaluator_npi, start_time, end_time)
 
     title = build_placeholder_title(client_name, request.da_eval, request.location_key)
     description = build_placeholder_description(
@@ -1067,13 +1034,6 @@ async def move_placeholder_appointment(
     end_time_business = request.end_time.replace(tzinfo=None)
     start_time = business_to_utc(start_time_business)
     end_time = business_to_utc(end_time_business)
-
-    _enforce_gap(
-        request.evaluator_npi,
-        start_time,
-        end_time,
-        exclude_appointment_id=appointment_id,
-    )
 
     title = build_placeholder_title(
         client_name, appointment["daEval"], request.location_key

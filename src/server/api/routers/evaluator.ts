@@ -36,7 +36,6 @@ export const evaluatorInputSchema = z.object({
 		.array(z.string())
 		.default(["DA", "EVAL", "DAEVAL"]),
 	writesOwnReports: z.boolean().default(false),
-	gapMinutes: z.number().int().min(0).max(480).nullable().default(null),
 	driveFolderId: z
 		.string()
 		.optional()
