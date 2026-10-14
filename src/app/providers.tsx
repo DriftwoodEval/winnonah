@@ -1,9 +1,9 @@
 "use client";
 
+import { SessionExpiryMonitor } from "@components/providers/SessionExpiryMonitor";
+import { SystemUpdateMonitor } from "@components/providers/SystemUpdateMonitor";
+import { ThemeProvider } from "@components/providers/ThemeProvider";
 import { ImageLightboxProvider } from "@components/shared/ImageLightbox";
-import { SessionExpiryMonitor } from "@components/shared/SessionExpiryMonitor";
-import { SystemUpdateMonitor } from "@components/shared/SystemUpdateMonitor";
-import { ThemeProvider } from "@components/shared/ThemeProvider";
 import { TooltipProvider } from "@ui/tooltip";
 import { SessionProvider } from "next-auth/react";
 import { RedactionProvider } from "~/app/_components/redaction/redaction";

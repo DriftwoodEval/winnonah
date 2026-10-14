@@ -1,5 +1,5 @@
-import GreeterSchedule from "@components/greeter-schedule/GreeterSchedule";
 import { Guard } from "@components/layout/Guard";
+import GreeterSchedule from "@components/scheduling/GreeterSchedule";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {

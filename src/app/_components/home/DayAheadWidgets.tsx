@@ -15,10 +15,8 @@ import { useCheckPermission } from "~/hooks/use-check-permission";
 import { hasInPersonAppointment, isVirtualAppointment } from "~/lib/checkin";
 import { formatInBusinessTime } from "~/lib/utils";
 import { api } from "~/trpc/react";
-import { CheckInOutControl } from "../appointments/CheckInOutControl";
-import { EvaluatorCheckInOutControl } from "../appointments/EvaluatorCheckInOutControl";
-import { useCheckinDateGate } from "../appointments/use-checkin-date-gate";
 import { formatTime } from "../day-ahead/CalendarGrid";
+import { CheckInOutControl } from "../day-ahead/CheckInOutControl";
 import {
 	ApptMessagesPopover,
 	ApptTypeBadges,
@@ -29,6 +27,8 @@ import {
 	GreeterLine,
 	type RecentMessagesMap,
 } from "../day-ahead/DayAheadShared";
+import { EvaluatorCheckInOutControl } from "../day-ahead/EvaluatorCheckInOutControl";
+import { useCheckinDateGate } from "../day-ahead/use-checkin-date-gate";
 import { Redact } from "../redaction/Redact";
 
 export function todayStr() {
