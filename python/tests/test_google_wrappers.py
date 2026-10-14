@@ -78,3 +78,26 @@ class TestListGmailMessages:
             patch.object(google.gmail, "list_message_stubs", side_effect=http_error()),
         ):
             assert google.list_gmail_messages("is:unread") == []
+
+
+class TestGoogleAuthenticate:
+    def test_uses_the_sidecar_scopes_and_files_and_reuses_cached_credentials(self):
+        google._creds_holder()[0] = None  # noqa: SLF001
+        first, second = MagicMock(), MagicMock()
+        try:
+            with patch.object(
+                google, "authenticate", side_effect=[first, second]
+            ) as authenticate:
+                assert google.google_authenticate() is first
+                assert google.google_authenticate() is second
+        finally:
+            google._creds_holder()[0] = None  # noqa: SLF001
+
+        calls = authenticate.call_args_list
+        assert calls[0].args == (
+            google.SCOPES,
+            "./auth_cache/credentials.json",
+            "auth_cache/token.json",
+        )
+        assert calls[0].kwargs == {"creds": None}
+        assert calls[1].kwargs == {"creds": first}

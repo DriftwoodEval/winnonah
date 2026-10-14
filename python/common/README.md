@@ -7,6 +7,7 @@ Code shared by the winnonah and questionnaires Python projects. Keep it small an
 - `driftwood_common.task_tracker`: records job runs in `emr_task` and guards against overlapping runs. Each project wraps `track_task` with its own database connection.
 - `driftwood_common.quo`: pure helpers for the Quo messaging API (phone normalization, request payloads and queries, response parsing). No HTTP library.
 - `driftwood_common.gmail`: sending, listing, reading, and marking Gmail messages, on a Gmail service the caller builds. `driftwood_common.google_service.build_google_service` builds any Google API service with a request timeout.
+- `driftwood_common.google_auth`: `authenticate`, which loads, refreshes (with retries), or logs in for Google OAuth credentials, given scopes and file paths. Each project keeps the result in memory.
 - `driftwood_common.log_format`: `json_log_format`, the one-line JSON formatter for loguru sinks, including the traceback for logged exceptions.
 - `driftwood_common.quo_client`: `QuoClient`, a synchronous client with rate limiting and retries. Async callers run it with `asyncio.to_thread`.
 

@@ -5,17 +5,15 @@ from collections import deque
 from collections.abc import Sequence
 from datetime import UTC, date, datetime, timedelta
 from functools import lru_cache
-from pathlib import Path
 
 import pandas as pd
 from dateutil import parser as dtparser
 from driftwood_common import gmail
 from driftwood_common.gmail import Attachment
+from driftwood_common.google_auth import authenticate
 from driftwood_common.google_service import build_google_service
 from driftwood_common.timezone import business_to_utc, now_business
-from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
-from google_auth_oauthlib.flow import InstalledAppFlow
 from googleapiclient.errors import HttpError
 from googleapiclient.http import MediaInMemoryUpload
 from loguru import logger
@@ -47,36 +45,23 @@ def _creds_holder() -> list[Credentials | None]:
 def google_authenticate():
     """Authenticate with Google using the credentials in ./auth_cache/credentials.json (obtained from Google Cloud Console) and ./auth_cache/token.json (user-specific).
 
-    If the credentials are not valid, the user is prompted to log in.
-    The credentials are then saved to ./auth_cache/token.json for the next run.
-    Returns the authenticated credentials.
+    If the credentials are not valid, the user is prompted to log in (unless
+    the host is headless, which raises instead). The credentials are then saved
+    to ./auth_cache/token.json for the next run. Returns the authenticated
+    credentials.
 
     Keeps the credentials object in memory across calls within a process,
-    rather than re-reading and re-writing token.json on every single call:
-    refresh() updates the cached object (and its access token) in place, so
-    a service object built from it earlier keeps working without needing to
-    be rebuilt.
+    rather than re-reading token.json on every single call: refresh() updates
+    the cached object (and its access token) in place, so a service object built
+    from it earlier keeps working without needing to be rebuilt.
     """
     holder = _creds_holder()
-    creds = holder[0]
-
-    if creds is None and Path.exists(Path("auth_cache/token.json")):
-        creds = Credentials.from_authorized_user_file("./auth_cache/token.json", SCOPES)
-
-    if not creds or not creds.valid:
-        if creds and creds.expired and creds.refresh_token:
-            creds.refresh(Request())
-        # If there are no credentials, start the manual login
-        else:
-            flow = InstalledAppFlow.from_client_secrets_file(
-                "./auth_cache/credentials.json", SCOPES
-            )
-            creds = flow.run_local_server(port=0)
-
-        # Save the credentials for the next run, only when they actually changed.
-        with Path.open(Path("auth_cache/token.json"), "w") as token:
-            token.write(creds.to_json())
-
+    creds = authenticate(
+        SCOPES,
+        "./auth_cache/credentials.json",
+        "auth_cache/token.json",
+        creds=holder[0],
+    )
     holder[0] = creds
     return creds
 
