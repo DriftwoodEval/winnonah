@@ -595,22 +595,24 @@ export const googleRouter = createTRPCRouter({
 
 				const masterRecurrenceMap = new Map<string, string[]>();
 
-				for (const masterId of recurringEventIds) {
-					try {
-						const masterEvent = await calendarApi.events.get({
-							calendarId,
-							eventId: masterId,
-						});
-						if (masterEvent.data.recurrence) {
-							masterRecurrenceMap.set(masterId, masterEvent.data.recurrence);
+				await Promise.all(
+					recurringEventIds.map(async (masterId) => {
+						try {
+							const masterEvent = await calendarApi.events.get({
+								calendarId,
+								eventId: masterId,
+							});
+							if (masterEvent.data.recurrence) {
+								masterRecurrenceMap.set(masterId, masterEvent.data.recurrence);
+							}
+						} catch (error) {
+							ctx.logger.error(
+								{ error, masterId },
+								"Error fetching master event recurrence",
+							);
 						}
-					} catch (error) {
-						ctx.logger.error(
-							{ error, masterId },
-							"Error fetching master event recurrence",
-						);
-					}
-				}
+					}),
+				);
 
 				events = events.map((event) => {
 					if (event.recurringEventId && !event.recurrence) {
