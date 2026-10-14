@@ -17,6 +17,7 @@ import { Clock, History, Send, Users } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { useCheckPermission } from "~/hooks/use-check-permission";
+import { logger } from "~/lib/logger";
 import type { Client } from "~/lib/models";
 import { hasPermission, isServerUnavailableError } from "~/lib/utils";
 import { api } from "~/trpc/react";
@@ -25,16 +26,18 @@ import { ResponsiveDialog } from "../shared/ResponsiveDialog";
 import { AdminReviewClaimHistory } from "./AdminReviewClaimHistory";
 import { AdminReviewSubmitDialog } from "./AdminReviewSubmitDialog";
 
+const log = logger.child({ module: "AdminReviewSection" });
+
 // Autosave runs in the background, so it regularly fires during brief backend
 // blips (deploys, health-check flaps) when the proxy serves an HTML error page.
-// Retry those transient failures before bothering the user.
-const retryOnServerUnavailable = (failureCount: number, error: unknown) =>
-	isServerUnavailableError(error) && failureCount < 5;
+// Keep retrying those transient failures until the save goes through.
+const retryOnServerUnavailable = (_failureCount: number, error: unknown) =>
+	isServerUnavailableError(error);
 const retryDelay = (attempt: number) => Math.min(1000 * 2 ** attempt, 15000);
 
 function describeSaveError(error: { message: string }) {
 	return isServerUnavailableError(error)
-		? "The server is temporarily unreachable. Your review notes will save automatically once the connection is back. Keep this page open."
+		? "The server is temporarily unreachable. Your review notes will save automatically once the connection is back. We'll keep retrying until it saves. Keep this page open."
 		: error.message;
 }
 
@@ -86,12 +89,26 @@ export function AdminReviewSection({ client }: AdminReviewSectionProps) {
 		retry: retryOnServerUnavailable,
 		retryDelay,
 		onError: (error) => {
+			log.error(error, "Failed to save review notes");
 			toast.error("Failed to save review notes", {
 				description: describeSaveError(error),
 				duration: 10000,
 			});
 		},
 	});
+
+	// Retries are silent in the mutation itself, so surface the first failure.
+	const { failureCount, failureReason } = updateMutation;
+	useEffect(() => {
+		if (failureCount === 1 && failureReason) {
+			log.warn(failureReason, "Review notes save failed, retrying");
+			toast.error("Failed to save review notes", {
+				id: "review-notes-retry",
+				description: describeSaveError(failureReason),
+				duration: 10000,
+			});
+		}
+	}, [failureCount, failureReason]);
 
 	const setClaimMutation = api.adminReview.setClaim.useMutation({
 		onSuccess: () => {

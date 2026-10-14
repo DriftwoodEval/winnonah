@@ -18,14 +18,14 @@ const log = logger.child({ module: "ClientNoteEditor" });
 
 // Autosave runs in the background, so it regularly fires during brief backend
 // blips (deploys, health-check flaps) when the proxy serves an HTML error page.
-// Retry those transient failures before bothering the user.
-const retryOnServerUnavailable = (failureCount: number, error: unknown) =>
-	isServerUnavailableError(error) && failureCount < 5;
+// Keep retrying those transient failures until the save goes through.
+const retryOnServerUnavailable = (_failureCount: number, error: unknown) =>
+	isServerUnavailableError(error);
 const retryDelay = (attempt: number) => Math.min(1000 * 2 ** attempt, 15000);
 
 function describeSaveError(error: { message: string }) {
 	return isServerUnavailableError(error)
-		? "The server is temporarily unreachable. Your note will save automatically once the connection is back. Keep this page open."
+		? "The server is temporarily unreachable. Your note will save automatically once the connection is back. We'll keep retrying until it saves. Keep this page open."
 		: String(error.message);
 }
 
@@ -114,6 +114,22 @@ export function ClientNoteEditor({
 			});
 		},
 	});
+
+	// Retries are silent in the mutations themselves, so surface the first failure.
+	const saveFailure = updateNoteMutation.failureReason
+		? updateNoteMutation
+		: createNoteMutation;
+	const { failureCount, failureReason } = saveFailure;
+	useEffect(() => {
+		if (failureCount === 1 && failureReason) {
+			log.warn(failureReason, "Note save failed, retrying");
+			toast.error("Failed to save note", {
+				id: "note-retry",
+				description: describeSaveError(failureReason),
+				duration: 10000,
+			});
+		}
+	}, [failureCount, failureReason]);
 
 	const stateRef = useRef({
 		note,
