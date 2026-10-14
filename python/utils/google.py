@@ -1,24 +1,21 @@
-import base64
-import mimetypes
 import os
 import re
 import time
 from collections import deque
 from collections.abc import Sequence
 from datetime import UTC, date, datetime, timedelta
-from email.message import EmailMessage
 from functools import lru_cache
 from pathlib import Path
 
-import google_auth_httplib2
-import httplib2
 import pandas as pd
 from dateutil import parser as dtparser
+from driftwood_common import gmail
+from driftwood_common.gmail import Attachment
+from driftwood_common.google_service import build_google_service
 from driftwood_common.timezone import business_to_utc, now_business
 from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import InstalledAppFlow
-from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
 from googleapiclient.http import MediaInMemoryUpload
 from loguru import logger
@@ -35,18 +32,6 @@ SCOPES = [
 
 _GOOGLE_DOC_MIME = "application/vnd.google-apps.document"
 _GOOGLE_FOLDER_MIME = "application/vnd.google-apps.folder"
-
-# googleapiclient's default transport has no socket timeout, so a stalled
-# connection blocks .execute() forever with no error or log output.
-_REQUEST_TIMEOUT_SECONDS = 90
-
-
-def build_google_service(api: str, version: str, creds):
-    """Build a Google API service with a bounded request timeout."""
-    http = google_auth_httplib2.AuthorizedHttp(
-        creds, http=httplib2.Http(timeout=_REQUEST_TIMEOUT_SECONDS)
-    )
-    return build(api, version, http=http)
 
 
 @lru_cache(maxsize=1)
@@ -870,64 +855,26 @@ def send_gmail(
     from_addr: str,
     cc_addr: str | None = None,
     html: str | None = None,
-    attachments: Sequence[str | tuple[bytes, str]] | None = None,
+    attachments: Sequence[Attachment] | None = None,
 ):
-    """Send an email using the Gmail API."""
+    """Send an email using the Gmail API.
+
+    Returns Gmail's response, or None if the API rejected the request.
+    """
     try:
-        service = get_gmail_service()
-
-        message = EmailMessage()
-        message.set_content(message_text)
-        message["Subject"] = subject
-        message["To"] = to_addr
-        message["From"] = from_addr
-        if cc_addr:
-            message["Cc"] = cc_addr
-
-        if html:
-            message.add_alternative(html, subtype="html")
-
-        if attachments:
-            for item in attachments:
-                if isinstance(item, tuple):
-                    file_data, filename = item
-
-                else:
-                    item_path = Path(item)
-                    if not Path.exists(item_path):
-                        raise Exception(f"Attachment not found: {item}")
-                    filename = item_path.name
-                    with Path.open(item_path, "rb") as f:
-                        file_data = f.read()
-
-                ctype, encoding = mimetypes.guess_type(filename)
-
-                if ctype is None or encoding is not None:
-                    ctype = "application/octet-stream"
-
-                maintype, subtype = ctype.split("/", 1)
-
-                message.add_attachment(
-                    file_data,
-                    maintype=maintype,
-                    subtype=subtype,
-                    filename=filename,
-                )
-
-        encoded_message = base64.urlsafe_b64encode(message.as_bytes()).decode()
-
-        create_message = {"raw": encoded_message}
-
-        send_message = (
-            service.users().messages().send(userId="me", body=create_message).execute()
+        return gmail.send_email(
+            get_gmail_service(),
+            message_text,
+            subject,
+            to_addr,
+            from_addr,
+            cc_addr=cc_addr,
+            html=html,
+            attachments=attachments,
         )
-
-        logger.info(f"Sent email to {to_addr}: {subject}")
-
     except HttpError as error:
         logger.exception(error)
-        send_message = None
-    return send_message
+        return None
 
 
 def list_gmail_messages(
@@ -938,55 +885,16 @@ def list_gmail_messages(
     """List Gmail message ids matching a search query (Gmail search syntax, e.g. "from:x@y.com is:unread").
 
     Paginates until max_results is reached. Returns the raw {"id", "threadId"} stubs;
-    use get_gmail_message() to fetch the full content of a message.
+    use get_gmail_message() to fetch the full content of a message. Returns an
+    empty list if the API rejected the request.
     """
-    service = get_gmail_service()
-    messages: list[dict] = []
-    page_token = None
     try:
-        while len(messages) < max_results:
-            response = (
-                service.users()
-                .messages()
-                .list(
-                    userId="me",
-                    q=query,
-                    labelIds=label_ids,
-                    pageToken=page_token,
-                    maxResults=min(max_results - len(messages), 500),
-                )
-                .execute()
-            )
-            messages.extend(response.get("messages", []))
-            page_token = response.get("nextPageToken")
-            if page_token is None:
-                break
+        return gmail.list_message_stubs(
+            get_gmail_service(), query, label_ids, max_results
+        )
     except HttpError as error:
         logger.exception(error)
-    return messages[:max_results]
-
-
-def _get_message_body(payload: dict) -> tuple[str | None, str | None]:
-    """Walk a Gmail message payload's MIME parts, returning (text_plain, text_html)."""
-    text_plain = None
-    text_html = None
-
-    def decode(data: str) -> str:
-        return base64.urlsafe_b64decode(data.encode()).decode("utf-8", errors="replace")
-
-    def walk(part: dict):
-        nonlocal text_plain, text_html
-        mime_type = part.get("mimeType", "")
-        body_data = part.get("body", {}).get("data")
-        if mime_type == "text/plain" and body_data and text_plain is None:
-            text_plain = decode(body_data)
-        elif mime_type == "text/html" and body_data and text_html is None:
-            text_html = decode(body_data)
-        for subpart in part.get("parts", []):
-            walk(subpart)
-
-    walk(payload)
-    return text_plain, text_html
+        return []
 
 
 def get_gmail_message(message_id: str) -> dict:
@@ -994,37 +902,12 @@ def get_gmail_message(message_id: str) -> dict:
 
     Returns a dict with subject, from, to, date, snippet, body_text, and body_html.
     """
-    service = get_gmail_service()
-    message = (
-        service.users()
-        .messages()
-        .get(userId="me", id=message_id, format="full")
-        .execute()
-    )
-
-    payload = message.get("payload", {})
-    headers = {h["name"].lower(): h["value"] for h in payload.get("headers", [])}
-    body_text, body_html = _get_message_body(payload)
-
-    return {
-        "id": message["id"],
-        "thread_id": message.get("threadId"),
-        "subject": headers.get("subject"),
-        "from": headers.get("from"),
-        "to": headers.get("to"),
-        "date": headers.get("date"),
-        "snippet": message.get("snippet"),
-        "body_text": body_text,
-        "body_html": body_html,
-    }
+    return gmail.get_message(get_gmail_service(), message_id)
 
 
 def mark_gmail_message_read(message_id: str) -> None:
     """Remove the UNREAD label from a Gmail message."""
-    service = get_gmail_service()
-    service.users().messages().modify(
-        userId="me", id=message_id, body={"removeLabelIds": ["UNREAD"]}
-    ).execute()
+    gmail.mark_read(get_gmail_service(), message_id)
 
 
 def _patch_gcal_event(event_id: str, calendar_id: str | None, patch_fn) -> bool:

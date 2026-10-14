@@ -504,6 +504,9 @@ name = "driftwood-common"
 version = "0.1.0"
 source = { editable = "common" }
 dependencies = [
+    { name = "google-api-python-client" },
+    { name = "google-auth-httplib2" },
+    { name = "httplib2" },
     { name = "loguru" },
     { name = "ratelimit" },
     { name = "requests" },
@@ -512,6 +515,9 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [
+    { name = "google-api-python-client", specifier = ">=2.169.0" },
+    { name = "google-auth-httplib2", specifier = ">=0.2.0" },
+    { name = "httplib2", specifier = ">=0.22.0" },
     { name = "loguru", specifier = ">=0.7.3" },
     { name = "ratelimit", specifier = ">=2.2.1" },
     { name = "requests", specifier = ">=2.33.1" },
