@@ -2,6 +2,7 @@ import json
 import re
 
 from dotenv import load_dotenv
+from driftwood_common.log_format import json_log_format
 from loguru import logger
 
 from utils.config import validate_config
@@ -14,7 +15,6 @@ from utils.database import (
     sync_punchlist_to_db,
 )
 from utils.google import get_items_in_folder, send_gmail
-from utils.misc import json_log_format
 
 logger.add(
     "logs/report-notifications.log",

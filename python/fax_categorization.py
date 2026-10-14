@@ -17,6 +17,7 @@ import os
 import tempfile
 
 from dotenv import load_dotenv
+from driftwood_common.log_format import json_log_format
 from loguru import logger
 
 from utils.config import validate_config
@@ -41,7 +42,6 @@ from utils.google import (
     normalize_name_tokens,
     update_file_content,
 )
-from utils.misc import json_log_format
 from utils.task_tracker import track_task
 
 logger.add(

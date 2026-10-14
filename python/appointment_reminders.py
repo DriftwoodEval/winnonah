@@ -9,6 +9,7 @@ from datetime import UTC, date, datetime, timedelta
 from typing import Annotated
 
 import requests
+from driftwood_common.log_format import json_log_format
 from driftwood_common.quo import fill_placeholders
 from driftwood_common.quo_client import QuoClient
 from driftwood_common.timezone import (
@@ -38,7 +39,6 @@ from utils.google import (
     find_gcal_event_by_client_and_time,
     update_gcal_event_title,
 )
-from utils.misc import json_log_format
 from utils.task_tracker import track_task
 from utils.webhook import verify_quo_signature
 

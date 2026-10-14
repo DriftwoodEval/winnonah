@@ -1,11 +1,9 @@
 from __future__ import annotations
 
-import json as _json
 import re
 from datetime import date, datetime
 from typing import Any
 
-import loguru
 import pandas as pd
 from loguru import logger
 from nameparser import HumanName
@@ -41,31 +39,6 @@ def capitalize_name_with_exceptions(name: object) -> str:
         for word in str(parsed_name).split()
     ]
     return " ".join(words)
-
-
-def json_log_format(record: loguru.Record) -> str:
-    # Escape braces so loguru's format_map treats this as a literal string, not a template.
-    # format_map then unescapes {{ → { and }} → }, restoring valid JSON.
-    # Escape < so loguru's colorizer doesn't try to parse literal angle brackets in the
-    # message (e.g. Selenium stacktraces contain "<unknown>") as color tags.
-    return (
-        (
-            _json.dumps(
-                {
-                    "time": record["time"].isoformat(),
-                    "level": record["level"].name,
-                    "module": record["name"],
-                    "function": record["function"],
-                    "line": record["line"],
-                    "message": record["message"],
-                }
-            )
-            + "\n"
-        )
-        .replace("{", "{{")
-        .replace("}", "}}")
-        .replace("<", r"\<")
-    )
 
 
 def get_column(
