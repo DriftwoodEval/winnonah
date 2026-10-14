@@ -17,7 +17,7 @@ from utils.database import (
     activate_reactivation_admin_review,
     filter_clients_with_changed_address,
     get_medicaid_clients_with_ids,
-    get_names_with_open_balance,
+    get_open_balances,
     get_python_config,
     get_services_config,
     get_sync_report_date,
@@ -1059,26 +1059,42 @@ class TestMarkPostevalPendingQuestionnaires:
         assert conn.commits == 1
 
 
-class TestGetNamesWithOpenBalance:
+class TestGetOpenBalances:
     def test_keeps_positive_balances_case_insensitively(self):
         billing = pd.DataFrame(
             {
                 "Client": ["Jane  DOE", "John Smith", "Amy Zero", None],
                 "Balance ($)": ["$1,200.50", "0.00", "0", "5"],
+                "Client Resp. ($)": ["0", "0", "0", "0"],
+                "Insurance Resp. ($)": ["0", "0", "0", "0"],
                 "Insurance": ["Aetna", "Aetna", None, "Aetna"],
             }
         )
-        assert get_names_with_open_balance(billing, set()) == {"jane doe"}
+        assert get_open_balances(billing, set()) == {"jane doe": 1200.5}
 
-    def test_skips_rows_with_ignored_insurance(self):
+    def test_skips_ignored_insurance_and_collapses_claim_duplicates(self):
         billing = pd.DataFrame(
             {
-                "Client": ["Jane Doe", "John Smith", "Amy Blank"],
-                "Balance ($)": ["10", "20", "30"],
-                "Insurance": ["  babynet ", "Aetna", None],
+                "Client": ["Jane Doe", "John Smith", "John Smith", "Amy Blank"],
+                "Balance ($)": ["10", "20", "20", "30"],
+                "Client Resp. ($)": ["10", "20", "20", "30"],
+                "Insurance Resp. ($)": ["0", "0", "0", "0"],
+                "Insurance": ["  babynet ", "Aetna", "Cigna", None],
             }
         )
-        assert get_names_with_open_balance(billing, {"BabyNet"}) == {
-            "john smith",
-            "amy blank",
+        assert get_open_balances(billing, {"BabyNet"}) == {
+            "john smith": 20.0,
+            "amy blank": 30.0,
         }
+
+    def test_sums_distinct_balance_rows(self):
+        billing = pd.DataFrame(
+            {
+                "Client": ["Jane Doe", "Jane Doe"],
+                "Balance ($)": ["10", "25"],
+                "Client Resp. ($)": ["10", "25"],
+                "Insurance Resp. ($)": ["0", "0"],
+                "Insurance": ["Aetna", "Aetna"],
+            }
+        )
+        assert get_open_balances(billing, set()) == {"jane doe": 35.0}

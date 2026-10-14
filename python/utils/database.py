@@ -1190,14 +1190,16 @@ def sync_scm_admin_reviews(connection: Connection[DictCursor]):
     logger.info(f"Created {len(rows)} SCM admin review record(s).")
 
 
-def get_names_with_open_balance(
+def get_open_balances(
     billing: pd.DataFrame, ignored_insurances: set[str]
-) -> set[str]:
-    """Returns lowercased "first last" names from the billing CSV that owe a balance.
+) -> dict[str, float]:
+    """Returns each lowercased "first last" name in the billing CSV mapped to what they owe.
 
     A row counts when its balance is above zero and its CSV Insurance is not in
     ignored_insurances (compared case-insensitively). Rows with no insurance
-    always count.
+    always count. The open-balances export is merged with one row per
+    submitted claim, which repeats a client's balance row once per claim, so
+    exact duplicates of the balance columns are dropped before summing.
     """
     balances = pd.to_numeric(
         billing["Balance ($)"].astype(str).str.replace(r"[$,]", "", regex=True),
@@ -1205,14 +1207,18 @@ def get_names_with_open_balance(
     )
     ignored = {name.lower() for name in ignored_insurances}
     insurance = billing["Insurance"].fillna("").astype(str).str.strip().str.lower()
-    owing = billing[(balances > 0) & ~insurance.isin(ignored)]
-    return {" ".join(name.split()).lower() for name in owing["Client"].dropna()}
+    owing = billing.assign(balance=balances)[(balances > 0) & ~insurance.isin(ignored)]
+    owing = owing.dropna(subset=["Client"]).drop_duplicates(
+        subset=["Client", "Balance ($)", "Client Resp. ($)", "Insurance Resp. ($)"]
+    )
+    names = owing["Client"].map(lambda name: " ".join(name.split()).lower())
+    return owing["balance"].groupby(names).sum().to_dict()
 
 
 def sync_client_outstanding_balances(
     billing: pd.DataFrame, connection: Connection[DictCursor]
 ):
-    """Flags clients that appear in the billing CSV with an open balance.
+    """Stores each client's open balance from the billing CSV.
 
     The CSV only carries "First Last" names (no preferred names, no IDs), so
     clients are matched case-insensitively on firstName + lastName. Rows whose
@@ -1236,23 +1242,21 @@ def sync_client_outstanding_balances(
         cursor.execute(f"SELECT id, firstName, lastName FROM `{TABLE_CLIENT}`")
         clients = cursor.fetchall()
 
-    with_balance = get_names_with_open_balance(billing, ignored_insurances)
-    flagged_ids = [
-        client["id"]
+    balances = get_open_balances(billing, ignored_insurances)
+    updates = [
+        (balances[name], client["id"])
         for client in clients
-        if f"{client['firstName']} {client['lastName']}".lower() in with_balance
+        if (name := f"{client['firstName']} {client['lastName']}".lower()) in balances
     ]
 
     with connection.cursor() as cursor:
         cursor.execute(f"UPDATE `{TABLE_CLIENT}` SET outstandingBalance = 0")
-        if flagged_ids:
-            placeholders = ", ".join(["%s"] * len(flagged_ids))
-            cursor.execute(
-                f"UPDATE `{TABLE_CLIENT}` SET outstandingBalance = 1 WHERE id IN ({placeholders})",
-                flagged_ids,
-            )
+        cursor.executemany(
+            f"UPDATE `{TABLE_CLIENT}` SET outstandingBalance = %s WHERE id = %s",
+            updates,
+        )
     connection.commit()
-    logger.info(f"{len(flagged_ids)} client(s) flagged with an outstanding balance.")
+    logger.info(f"{len(updates)} client(s) have an outstanding balance.")
 
 
 @provide_connection

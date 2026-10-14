@@ -26,7 +26,7 @@ import {
 } from "~/lib/colors";
 import { logger } from "~/lib/logger";
 import type { Client } from "~/lib/models";
-import { isNotesOnlyClientId } from "~/lib/utils";
+import { formatCurrency, isNotesOnlyClientId } from "~/lib/utils";
 import { api } from "~/trpc/react";
 import { Redact } from "../redaction/Redact";
 import { ResponsiveDialog } from "../shared/ResponsiveDialog";
@@ -240,6 +240,11 @@ export function ClientHeader({
 					</Badge>
 					{client.highPriority && (
 						<Badge variant="destructive">High Priority</Badge>
+					)}
+					{client.outstandingBalance > 0 && (
+						<Badge variant="destructive">
+							{formatCurrency(client.outstandingBalance)} due
+						</Badge>
 					)}
 				</div>
 

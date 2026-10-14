@@ -10,13 +10,8 @@ import {
 	TableHeader,
 	TableRow,
 } from "@ui/table";
-import { formatDateOnlyMedium } from "~/lib/utils";
+import { formatCurrency, formatDateOnlyMedium } from "~/lib/utils";
 import { api } from "~/trpc/react";
-
-const currencyFormatter = new Intl.NumberFormat("en-US", {
-	style: "currency",
-	currency: "USD",
-});
 
 export default function BabynetReportSettings() {
 	const { data: reports, isLoading } = api.babynetReport.list.useQuery();
@@ -60,9 +55,7 @@ export default function BabynetReportSettings() {
 							<TableRow key={report.id}>
 								<TableCell>{formatDateOnlyMedium(report.weekOf)}</TableCell>
 								<TableCell>{report.clientCount}</TableCell>
-								<TableCell>
-									{currencyFormatter.format(Number(report.amount))}
-								</TableCell>
+								<TableCell>{formatCurrency(Number(report.amount))}</TableCell>
 							</TableRow>
 						))}
 					</TableBody>

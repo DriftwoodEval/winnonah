@@ -251,11 +251,7 @@ def import_from_ta(
         utils.database.sync_client_insurance_from_policies(connection=conn)
         utils.database.sync_scm_admin_reviews(connection=conn)
 
-        billing_csv = utils.therapyappointment.INPUT_DIR / "clients-billing.csv"
-        if billing_csv.exists():
-            utils.database.sync_client_outstanding_balances(
-                pd.read_csv(billing_csv), connection=conn
-            )
+        sync_outstanding_balances(conn)
 
         all_clients_from_db = utils.database.get_all_clients(connection=conn)
 
@@ -297,6 +293,22 @@ def import_from_ta(
 
         appointment_sync_config = utils.config.load_appointment_sync_config()
         utils.appointments.insert_appointments_with_gcal(appointment_sync_config)
+
+
+def sync_outstanding_balances(conn) -> bool:
+    """Syncs client balances from the last downloaded billing CSV.
+
+    Returns False without touching the database when the CSV is missing, so a
+    failed download doesn't clear existing balances.
+    """
+    billing_csv = utils.therapyappointment.INPUT_DIR / "clients-billing.csv"
+    if not billing_csv.exists():
+        logger.warning(f"{billing_csv} not found, skipping balance sync")
+        return False
+    utils.database.sync_client_outstanding_balances(
+        pd.read_csv(billing_csv), connection=conn
+    )
+    return True
 
 
 def process_resync_confirmed():
@@ -471,6 +483,13 @@ def main(
         bool,
         typer.Option("--force-all", help="Force all clients through geocoding process"),
     ] = False,
+    sync_balances: Annotated[
+        bool,
+        typer.Option(
+            "--sync-balances",
+            help="Sync outstanding balances from the last downloaded billing CSV and exit",
+        ),
+    ] = False,
     medicaid: Annotated[
         bool,
         typer.Option(
@@ -559,6 +578,12 @@ def main(
         generate_report_cover_pages()
         send_close_faxes()
         send_report_faxes()
+        return
+
+    if sync_balances:
+        logger.info("Syncing outstanding balances")
+        with utils.database.db_session() as conn:
+            sync_outstanding_balances(conn)
         return
 
     if medicaid:

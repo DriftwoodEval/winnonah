@@ -3,6 +3,7 @@
 import { Skeleton } from "@ui/skeleton";
 import Link from "next/link";
 import { getHexFromColor } from "~/lib/colors";
+import { formatCurrency } from "~/lib/utils";
 import { useReportSections } from "../dashboard/ReportsDashboardSections";
 import { Redact } from "../redaction/Redact";
 
@@ -57,9 +58,9 @@ export function ReportsSectionWidget({ sectionId }: { sectionId: string }) {
 											Paused
 										</span>
 									)}
-									{r.clientOutstandingBalance && (
+									{r.clientOutstandingBalance > 0 && (
 										<span className="shrink-0 rounded-sm bg-destructive px-1 py-0.5 text-[10px] text-destructive-foreground">
-											Balance
+											{formatCurrency(r.clientOutstandingBalance)} due
 										</span>
 									)}
 								</span>

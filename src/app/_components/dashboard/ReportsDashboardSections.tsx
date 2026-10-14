@@ -14,7 +14,7 @@ import { useSession } from "next-auth/react";
 import { useEffect, useRef } from "react";
 import { usePersistedScroll } from "~/hooks/use-persisted-scroll";
 import { getHexFromColor } from "~/lib/colors";
-import { canAccessReportsBeta } from "~/lib/utils";
+import { canAccessReportsBeta, formatCurrency } from "~/lib/utils";
 import type { RouterOutputs } from "~/trpc/react";
 import { api } from "~/trpc/react";
 import { Redact } from "../redaction/Redact";
@@ -192,9 +192,9 @@ function ReportSectionItem({ id, title, reports }: ReportSection) {
 												Paused
 											</span>
 										)}
-										{r.clientOutstandingBalance && (
+										{r.clientOutstandingBalance > 0 && (
 											<span className="rounded-sm bg-destructive px-1 py-0.5 text-[10px] text-destructive-foreground">
-												Balance
+												{formatCurrency(r.clientOutstandingBalance)} due
 											</span>
 										)}
 									</Link>

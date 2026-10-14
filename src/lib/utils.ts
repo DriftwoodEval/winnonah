@@ -15,6 +15,15 @@ import {
 
 export const IS_DEV = process.env.NODE_ENV === "development";
 
+const currencyFormatter = new Intl.NumberFormat("en-US", {
+	style: "currency",
+	currency: "USD",
+});
+
+export function formatCurrency(amount: number) {
+	return currencyFormatter.format(amount);
+}
+
 export function cn(...inputs: ClassValue[]) {
 	return twMerge(clsx(inputs));
 }

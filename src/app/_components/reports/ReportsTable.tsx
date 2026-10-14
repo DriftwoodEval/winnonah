@@ -28,7 +28,7 @@ import { ChevronDown } from "lucide-react";
 import Link from "next/link";
 import { type ReactNode, useMemo, useState } from "react";
 import { toast } from "sonner";
-import { cn, formatInBusinessTime } from "~/lib/utils";
+import { cn, formatCurrency, formatInBusinessTime } from "~/lib/utils";
 import type { RouterOutputs } from "~/trpc/react";
 import { api } from "~/trpc/react";
 import { ReportNoteCell } from "./ReportNoteCell";
@@ -634,7 +634,7 @@ export function ReportsTable({
 										selectMode && "cursor-pointer select-none",
 										isBethEvaluator(r.evalEvaluatorName) &&
 											"font-bold **:font-bold",
-										r.clientOutstandingBalance &&
+										r.clientOutstandingBalance > 0 &&
 											"bg-destructive/15 hover:bg-destructive/20",
 									)}
 									data-state={selectedIds.has(r.id) ? "selected" : undefined}
@@ -644,7 +644,7 @@ export function ReportsTable({
 									<TableCell
 										className={cn(
 											"max-w-[200px] max-md:sticky max-md:left-0 max-md:z-10",
-											r.clientOutstandingBalance
+											r.clientOutstandingBalance > 0
 												? "max-md:bg-destructive/15"
 												: "max-md:bg-background",
 										)}
@@ -653,8 +653,8 @@ export function ReportsTable({
 											className="block truncate text-sm hover:underline"
 											href={`/clients/${r.clientHash}`}
 											title={
-												r.clientOutstandingBalance
-													? `${r.clientFullName} (outstanding balance)`
+												r.clientOutstandingBalance > 0
+													? `${r.clientFullName} (${formatCurrency(r.clientOutstandingBalance)} outstanding)`
 													: r.clientFullName
 											}
 										>

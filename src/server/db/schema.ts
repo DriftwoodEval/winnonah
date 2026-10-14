@@ -289,9 +289,12 @@ export const clients = createTable(
 		longitude: d.decimal({ precision: 11, scale: 8 }),
 		primaryInsurance: d.varchar({ length: 255 }),
 		secondaryInsurance: d.json("secondaryInsurance").$type<string[]>(),
-		// Set by the billing CSV sync: the client has an open balance on a row
-		// whose insurance is not marked ignoreBalance.
-		outstandingBalance: d.boolean().notNull().default(false),
+		// Set by the billing CSV sync: the client's open balance in dollars, from
+		// billing rows whose insurance is not marked ignoreBalance. 0 when none.
+		outstandingBalance: d
+			.decimal({ precision: 10, scale: 2, mode: "number" })
+			.notNull()
+			.default(0),
 		qualCategory: d.varchar({ length: 255 }),
 		paymentCategory: d.varchar({ length: 255 }),
 		medicaidOrganization: d.varchar({ length: 255 }),
