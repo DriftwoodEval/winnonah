@@ -3,6 +3,7 @@ from datetime import datetime
 from typing import Annotated
 
 import httpx
+from driftwood_common.quo import build_send_payload
 from driftwood_common.timezone import now_business
 from fastapi import APIRouter, BackgroundTasks, Header, HTTPException, Request
 from googleapiclient.discovery import build
@@ -42,7 +43,7 @@ async def send_sms(to: str, body: str) -> None:
     try:
         response = await client.post(
             "/messages",
-            json={"content": body, "from": OPENPHONE_GREETER_NUMBER_ID, "to": [to]},
+            json=build_send_payload(body, OPENPHONE_GREETER_NUMBER_ID, to),
         )
         response.raise_for_status()
         logger.info(f"SMS sent to {to} (status {response.status_code})")
