@@ -12,8 +12,8 @@ import { api } from "~/trpc/react";
 export function DashboardStatus({ clientId }: { clientId: number }) {
 	const { data: dashboardData, isLoading } =
 		api.google.getDashboardData.useQuery(undefined, {
-			staleTime: 60000,
-			refetchInterval: 60000,
+			staleTime: 5 * 60 * 1000,
+			refetchInterval: 5 * 60 * 1000,
 		});
 
 	if (isLoading) {
