@@ -46,6 +46,10 @@ jobs:
       - name: Run tests
         run: pnpm test
 
+      - name: Knip (advisory)
+        continue-on-error: true
+        run: SKIP_ENV_VALIDATION=1 pnpm exec knip --no-exit-code
+
       - name: Cache Next.js build
         uses: actions/cache@v6
         with:
