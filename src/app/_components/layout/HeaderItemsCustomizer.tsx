@@ -2,74 +2,31 @@
 
 import { Checkbox } from "@ui/checkbox";
 import { PopoverDescription, PopoverHeader, PopoverTitle } from "@ui/popover";
-import { useSession } from "next-auth/react";
-import { useCheckPermission } from "~/hooks/use-check-permission";
+import {
+	useHeaderItemAvailability,
+	useHeaderItemLabels,
+} from "~/hooks/use-header-items";
 import {
 	HEADER_ITEM_DEFS,
+	HEADER_NAV_CATEGORIES,
 	type HeaderItemCategory,
 	type HeaderItemDef,
 	type HeaderItemId,
+	isNavItemDef,
 } from "~/lib/header-items";
-import type { PermissionId } from "~/lib/types";
 import { api } from "~/trpc/react";
-
-const ITEM_PERMISSIONS: Partial<Record<HeaderItemId, PermissionId>> = {
-	dashboard: "pages:dashboard",
-	availability: "pages:availability",
-	scheduling: "pages:scheduling",
-	"scheduling-helper": "pages:scheduling-helper",
-	"fax-categorization": "fax:categorization:review",
-	"work-summary": "pages:work-summary",
-	calculator: "pages:calculator",
-	"redaction-toggle": "settings:pii-redaction",
-};
 
 const GROUP_ORDER: (HeaderItemCategory | "General")[] = [
 	"General",
-	"Clients",
-	"Schedule",
-	"Reports",
-	"Tools",
+	...HEADER_NAV_CATEGORIES.map((category) => category.label),
 ];
 
 const CHECKBOX_COLUMN_WIDTH = "w-16";
 
-function useItemAvailability(): Record<HeaderItemId, boolean> {
-	const { data: session } = useSession();
-	const can = useCheckPermission();
-
-	const canSeeEvalReportDashboard =
-		(session?.user.isEvaluator ?? false) || can("evaluator-dashboard:admin");
-	const canSeeClaimReports =
-		session?.user.maxClaimedReports !== 0 ||
-		can("reports:approve") ||
-		can("reports:billing");
-	const canSeeReports = canSeeClaimReports && can("reports:beta");
-	const canSeeQuestionnaireLogins =
-		can("settings:qsuite:services:view") || can("settings:qsuite:services");
-
-	const availability = {} as Record<HeaderItemId, boolean>;
-	for (const def of HEADER_ITEM_DEFS) {
-		if (def.id === "report-dashboard") {
-			availability[def.id] = canSeeEvalReportDashboard;
-		} else if (def.id === "claim-reports") {
-			availability[def.id] = canSeeClaimReports;
-		} else if (def.id === "reports") {
-			availability[def.id] = canSeeReports;
-		} else if (def.id === "questionnaire-logins") {
-			availability[def.id] = canSeeQuestionnaireLogins;
-		} else {
-			const permission = ITEM_PERMISSIONS[def.id];
-			availability[def.id] = permission ? can(permission) : true;
-		}
-	}
-	return availability;
-}
-
 function groupByCategory(items: HeaderItemDef[]) {
 	const groups = new Map<HeaderItemCategory | "General", HeaderItemDef[]>();
 	for (const item of items) {
-		const key = item.category ?? "General";
+		const key = (isNavItemDef(item) && item.category) || "General";
 		const arr = groups.get(key) ?? [];
 		arr.push(item);
 		groups.set(key, arr);
@@ -83,8 +40,10 @@ function HeaderItemRow({
 	mobileChecked,
 	onToggle,
 	onToggleName,
+	label,
 }: {
 	def: HeaderItemDef;
+	label: string;
 	desktopChecked: boolean;
 	mobileChecked: boolean;
 	onToggle: (surface: "desktop" | "mobile", visible: boolean) => void;
@@ -101,7 +60,7 @@ function HeaderItemRow({
 				type="button"
 			>
 				<def.icon className="h-4 w-4 shrink-0 text-muted-foreground" />
-				<span className="truncate">{def.label}</span>
+				<span className="truncate">{label}</span>
 			</button>
 			<div className={`flex shrink-0 justify-center ${CHECKBOX_COLUMN_WIDTH}`}>
 				{def.surfaces.includes("desktop") && (
@@ -151,7 +110,8 @@ export function HeaderItemsCustomizer() {
 			utils.users.getHeaderPreferences.invalidate();
 		},
 	});
-	const availability = useItemAvailability();
+	const availability = useHeaderItemAvailability();
+	const labels = useHeaderItemLabels();
 
 	const desktopHidden = new Set(prefs?.desktop ?? []);
 	const mobileHidden = new Set(prefs?.mobile ?? []);
@@ -250,6 +210,7 @@ export function HeaderItemsCustomizer() {
 										def={def}
 										desktopChecked={!desktopHidden.has(def.id)}
 										key={def.id}
+										label={labels[def.id] ?? def.label}
 										mobileChecked={!mobileHidden.has(def.id)}
 										onToggle={(surface, visible) =>
 											toggle(surface, def.id, visible)
@@ -271,6 +232,7 @@ export function HeaderItemsCustomizer() {
 										def={def}
 										desktopChecked={!desktopHidden.has(def.id)}
 										key={def.id}
+										label={labels[def.id] ?? def.label}
 										mobileChecked={!mobileHidden.has(def.id)}
 										onToggle={(surface, visible) =>
 											toggle(surface, def.id, visible)

@@ -3,6 +3,7 @@ import {
 	Bug,
 	Calculator,
 	Calendar1,
+	CalendarDays,
 	CalendarPlus,
 	CalendarRange,
 	ClipboardClock,
@@ -21,6 +22,7 @@ import {
 	Search,
 	Sun,
 	Users,
+	Wrench,
 } from "lucide-react";
 
 export type HeaderItemId =
@@ -48,18 +50,39 @@ export type HeaderItemId =
 	| "theme-switcher"
 	| "issue-form";
 
-export type HeaderItemCategory = "Clients" | "Schedule" | "Reports" | "Tools";
+/** The nav dropdown groups, in display order. */
+export const HEADER_NAV_CATEGORIES = [
+	{ label: "Clients", icon: Users },
+	{ label: "Schedule", icon: CalendarDays },
+	{ label: "Reports", icon: FileText },
+	{ label: "Tools", icon: Wrench },
+] as const;
+
+export type HeaderItemCategory =
+	(typeof HEADER_NAV_CATEGORIES)[number]["label"];
 
 export type HeaderItemSurface = "desktop" | "mobile";
 
-export type HeaderItemDef = {
+type HeaderItemBase = {
 	id: HeaderItemId;
 	label: string;
 	icon: LucideIcon;
-	area: "nav" | "action";
-	category?: HeaderItemCategory;
 	surfaces: HeaderItemSurface[];
 };
+
+export type HeaderNavItemDef = HeaderItemBase & {
+	area: "nav";
+	href: string;
+	category?: HeaderItemCategory;
+};
+
+export type HeaderActionItemDef = HeaderItemBase & { area: "action" };
+
+export type HeaderItemDef = HeaderNavItemDef | HeaderActionItemDef;
+
+export function isNavItemDef(def: HeaderItemDef): def is HeaderNavItemDef {
+	return def.area === "nav";
+}
 
 const BOTH_SURFACES: HeaderItemSurface[] = ["desktop", "mobile"];
 
@@ -69,6 +92,7 @@ export const HEADER_ITEM_DEFS: HeaderItemDef[] = [
 		label: "Home",
 		icon: Home,
 		area: "nav",
+		href: "/",
 		surfaces: BOTH_SURFACES,
 	},
 	{
@@ -76,6 +100,7 @@ export const HEADER_ITEM_DEFS: HeaderItemDef[] = [
 		label: "Dashboard",
 		icon: LayoutDashboard,
 		area: "nav",
+		href: "/dashboard",
 		category: "Clients",
 		surfaces: BOTH_SURFACES,
 	},
@@ -84,6 +109,7 @@ export const HEADER_ITEM_DEFS: HeaderItemDef[] = [
 		label: "Directory",
 		icon: Users,
 		area: "nav",
+		href: "/clients/directory",
 		category: "Clients",
 		surfaces: BOTH_SURFACES,
 	},
@@ -92,14 +118,7 @@ export const HEADER_ITEM_DEFS: HeaderItemDef[] = [
 		label: "Day Ahead",
 		icon: Calendar1,
 		area: "nav",
-		category: "Schedule",
-		surfaces: BOTH_SURFACES,
-	},
-	{
-		id: "greeter-schedule",
-		label: "Greeter Schedule",
-		icon: PhoneCall,
-		area: "nav",
+		href: "/day-ahead",
 		category: "Schedule",
 		surfaces: BOTH_SURFACES,
 	},
@@ -108,6 +127,7 @@ export const HEADER_ITEM_DEFS: HeaderItemDef[] = [
 		label: "Availability",
 		icon: Clock,
 		area: "nav",
+		href: "/availability",
 		category: "Schedule",
 		surfaces: BOTH_SURFACES,
 	},
@@ -116,6 +136,16 @@ export const HEADER_ITEM_DEFS: HeaderItemDef[] = [
 		label: "Scheduling",
 		icon: CalendarRange,
 		area: "nav",
+		href: "/scheduling",
+		category: "Schedule",
+		surfaces: BOTH_SURFACES,
+	},
+	{
+		id: "greeter-schedule",
+		label: "Greeter Schedule",
+		icon: PhoneCall,
+		area: "nav",
+		href: "/greeter-schedule",
 		category: "Schedule",
 		surfaces: BOTH_SURFACES,
 	},
@@ -124,6 +154,7 @@ export const HEADER_ITEM_DEFS: HeaderItemDef[] = [
 		label: "Scheduling Helper (Beta)",
 		icon: CalendarPlus,
 		area: "nav",
+		href: "/scheduling/helper",
 		category: "Schedule",
 		surfaces: BOTH_SURFACES,
 	},
@@ -132,6 +163,7 @@ export const HEADER_ITEM_DEFS: HeaderItemDef[] = [
 		label: "Claim Reports",
 		icon: FileText,
 		area: "nav",
+		href: "/claim-reports",
 		category: "Reports",
 		surfaces: BOTH_SURFACES,
 	},
@@ -140,6 +172,7 @@ export const HEADER_ITEM_DEFS: HeaderItemDef[] = [
 		label: "Reports (Beta)",
 		icon: FileText,
 		area: "nav",
+		href: "/reports",
 		category: "Reports",
 		surfaces: BOTH_SURFACES,
 	},
@@ -148,6 +181,7 @@ export const HEADER_ITEM_DEFS: HeaderItemDef[] = [
 		label: "Report Dashboard",
 		icon: LineChart,
 		area: "nav",
+		href: "/evaluator-dashboard",
 		category: "Reports",
 		surfaces: BOTH_SURFACES,
 	},
@@ -156,6 +190,7 @@ export const HEADER_ITEM_DEFS: HeaderItemDef[] = [
 		label: "Fax Categorization",
 		icon: LayoutGrid,
 		area: "nav",
+		href: "/fax-categorization",
 		category: "Tools",
 		surfaces: BOTH_SURFACES,
 	},
@@ -164,6 +199,7 @@ export const HEADER_ITEM_DEFS: HeaderItemDef[] = [
 		label: "Work Summary",
 		icon: ClipboardClock,
 		area: "nav",
+		href: "/work-summary",
 		category: "Tools",
 		surfaces: BOTH_SURFACES,
 	},
@@ -172,6 +208,7 @@ export const HEADER_ITEM_DEFS: HeaderItemDef[] = [
 		label: "Calculator",
 		icon: Calculator,
 		area: "nav",
+		href: "/calculator",
 		category: "Tools",
 		surfaces: BOTH_SURFACES,
 	},
@@ -180,6 +217,7 @@ export const HEADER_ITEM_DEFS: HeaderItemDef[] = [
 		label: "Questionnaire Logins",
 		icon: KeyRound,
 		area: "nav",
+		href: "/questionnaire-logins",
 		category: "Tools",
 		surfaces: BOTH_SURFACES,
 	},
@@ -188,6 +226,7 @@ export const HEADER_ITEM_DEFS: HeaderItemDef[] = [
 		label: "Docs",
 		icon: BookOpen,
 		area: "nav",
+		href: "/docs",
 		surfaces: BOTH_SURFACES,
 	},
 	{
