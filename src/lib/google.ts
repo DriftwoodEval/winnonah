@@ -993,6 +993,24 @@ export const syncPunchData = async (ctx: Context & { session: Session }) => {
 		}
 	}
 
+	// A client that has left the punchlist no longer has an open report. Skipped
+	// when the sheet yields no client ids, so a failed or empty read can't
+	// archive everything.
+	const punchClientIds = allPunchData.flatMap((c) => (c.id ? [c.id] : []));
+	if (punchClientIds.length > 0) {
+		updatePromises.push(
+			db
+				.update(reports)
+				.set({ archivedAt: new Date() })
+				.where(
+					and(
+						isNull(reports.archivedAt),
+						notInArray(reports.clientId, punchClientIds),
+					),
+				),
+		);
+	}
+
 	await Promise.all(updatePromises);
 };
 
