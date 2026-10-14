@@ -20,9 +20,9 @@ pre-commit:
       run: mise x -- uvx ruff check {staged_files} --fix --exit-non-zero-on-fix && mise x -- uvx ruff format {staged_files}
     changelog:
       glob: "src/content/docs/changelog/index.mdx"
-      run: mise x -- pnpm exec tsx scripts/validate-changelog.ts
+      run: mise x -- pnpm exec tsx scripts/ci/validate-changelog.ts
     docs:
       glob:
         - "src/content/docs/**/*"
-        - "scripts/validate-docs.ts"
-      run: mise x -- pnpm exec tsx scripts/validate-docs.ts
+        - "scripts/ci/validate-docs.ts"
+      run: mise x -- pnpm exec tsx scripts/ci/validate-docs.ts

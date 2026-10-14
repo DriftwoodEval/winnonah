@@ -1,7 +1,7 @@
 import { and, eq, isNotNull, ne } from "drizzle-orm";
-import { parsePrecertMemo } from "../src/lib/billing";
-import { db } from "../src/server/db";
-import { clientInsurancePolicies, clients } from "../src/server/db/schema";
+import { parsePrecertMemo } from "../../src/lib/billing";
+import { db } from "../../src/server/db";
+import { clientInsurancePolicies, clients } from "../../src/server/db/schema";
 
 async function main() {
 	const rows = await db

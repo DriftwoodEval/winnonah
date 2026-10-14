@@ -78,5 +78,5 @@ Before handing off, check it stands on its own for someone who can't see the cod
 ## 5. Validate and hand off
 
 - Run `mise run check:docs` (frontmatter, cross-links, image references). Fix what it flags.
-- If this documents a newly shipped user-facing feature, remind the user a `src/content/docs/changelog/index.mdx` entry may be warranted (separate validator: `pnpm exec tsx scripts/validate-changelog.ts`), but don't add one unless asked.
+- If this documents a newly shipped user-facing feature, remind the user a `src/content/docs/changelog/index.mdx` entry may be warranted (separate validator: `pnpm exec tsx scripts/ci/validate-changelog.ts`), but don't add one unless asked.
 - Give the user the new file path, a summary of what you documented, and an explicit list of anything you couldn't verify from code. Let them review before it's committed or deployed.

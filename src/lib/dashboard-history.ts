@@ -42,7 +42,7 @@ const log = logger.child({ module: "dashboard-history" });
 
 /**
  * Builds a session-shaped credential from the shared Google OAuth token used
- * by the Python sidecar and one-off scripts (see scripts/migrate-punchlist-records.ts),
+ * by the Python sidecar and one-off scripts (see scripts/oneoff/migrate-punchlist-records.ts),
  * so this background job can call the same session-scoped data fetchers
  * (getPunchData, getMissingFromPunchlistData) used by the live dashboard.
  *

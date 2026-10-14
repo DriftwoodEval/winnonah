@@ -19,9 +19,9 @@ OSD reading for each, so you can pick the upright one by eye.
 corrected.pdf. Add --apply to push that back to Drive (overwrites it).
 
 Run from the python/ dir:
-    uv run python debug_orientation.py <ID>
-    uv run python debug_orientation.py <ID> --probe 2
-    uv run python debug_orientation.py <ID> --set "2=270" --apply
+    uv run python -m oneoff.debug_orientation <ID>
+    uv run python -m oneoff.debug_orientation <ID> --probe 2
+    uv run python -m oneoff.debug_orientation <ID> --set "2=270" --apply
 """
 
 # ruff: noqa: T201  (this is a console debugging tool; print is the point)

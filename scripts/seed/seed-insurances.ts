@@ -1,10 +1,10 @@
 import { eq, sql } from "drizzle-orm";
-import { db } from "../src/server/db";
+import { db } from "../../src/server/db";
 import {
 	evaluatorsToInsurances,
 	insuranceAliases,
 	insurances,
-} from "../src/server/db/schema";
+} from "../../src/server/db/schema";
 
 const initialInsurances = [
 	{

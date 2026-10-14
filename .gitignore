@@ -53,12 +53,12 @@ yarn-error.log*
 # data files
 *.csv
 *.xlsx
-scripts/*.json
+scripts/**/*.json
 python/*.txt
 *.sql
 *.sql.gz
 # Intentional, hand-written migration scripts (not data exports) are tracked.
-!scripts/*.sql
+!scripts/**/*.sql
 q-screenshots/*
 TestPDFs/
 TestPDFs.bak/

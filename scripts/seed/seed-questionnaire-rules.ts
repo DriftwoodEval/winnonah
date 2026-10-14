@@ -1,5 +1,5 @@
-import { db } from "../src/server/db";
-import { questionnaireRules } from "../src/server/db/schema";
+import { db } from "../../src/server/db";
+import { questionnaireRules } from "../../src/server/db/schema";
 
 const rules: (typeof questionnaireRules.$inferInsert)[] = [
 	// DA + ASD

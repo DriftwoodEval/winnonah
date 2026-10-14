@@ -7,8 +7,8 @@ with the real files.
 Outputs a CSV mapping original links to new links.
 
 Usage:
-    python drive_migrate.py --dry-run        # Preview without changing anything
-    python drive_migrate.py                  # Run the actual migration
+    uv run python -m oneoff.migrate_drive --dry-run        # Preview without changing anything
+    uv run python -m oneoff.migrate_drive                  # Run the actual migration
 """
 
 import argparse

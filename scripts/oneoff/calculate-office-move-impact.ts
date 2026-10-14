@@ -1,14 +1,14 @@
 import { and, eq, inArray, isNotNull } from "drizzle-orm";
 import ExcelJS from "exceljs";
-import { env } from "../src/env";
-import { db } from "../src/server/db";
+import { env } from "../../src/env";
+import { db } from "../../src/server/db";
 import {
 	clients,
 	offices,
 	questionnaireRules,
 	questionnaires,
-} from "../src/server/db/schema";
-import { getQuestionnaireEligibilityAge } from "../src/server/questionnaire-age";
+} from "../../src/server/db/schema";
+import { getQuestionnaireEligibilityAge } from "../../src/server/questionnaire-age";
 
 const DONE_STATUSES = new Set(["COMPLETED", "EXTERNAL"]);
 
@@ -118,10 +118,10 @@ async function main() {
 	const args = process.argv.slice(2);
 	if (args.length < 3) {
 		console.error(
-			"Usage: npx tsx scripts/calculate-office-move-impact.ts <officeKey> <newLat> <newLon>",
+			"Usage: npx tsx scripts/oneoff/calculate-office-move-impact.ts <officeKey> <newLat> <newLon>",
 		);
 		console.log(
-			"Example: npx tsx scripts/calculate-office-move-impact.ts CHS 32.7765 -79.9311",
+			"Example: npx tsx scripts/oneoff/calculate-office-move-impact.ts CHS 32.7765 -79.9311",
 		);
 		process.exit(1);
 	}
