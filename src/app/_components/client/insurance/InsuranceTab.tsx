@@ -22,9 +22,9 @@ import {
 } from "~/lib/utils";
 import type { AppRouter } from "~/server/api/root";
 import { api } from "~/trpc/react";
-import { Redact } from "../redaction/Redact";
-import { ResponsiveDialog } from "../shared/ResponsiveDialog";
-import { EditPaAssignedToDialog } from "./EditPaAssignedToDialog";
+import { Redact } from "../../redaction/Redact";
+import { ResponsiveDialog } from "../../shared/ResponsiveDialog";
+import { EditPaAssignedToDialog } from "../EditPaAssignedToDialog";
 
 interface InsuranceTabProps {
 	client: Client;

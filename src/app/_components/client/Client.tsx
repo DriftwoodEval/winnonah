@@ -46,25 +46,25 @@ import {
 	sanitizeFailureReason,
 } from "~/lib/utils";
 import { api } from "~/trpc/react";
-import { AdditionalInsuranceAppointmentsDisplay } from "./AdditionalInsuranceAppointmentsDisplay";
-import { AdminReviewSection } from "./AdminReviewSection";
-import { BabyNetBoxes } from "./BabyNetBoxes";
-import { ClientAppointments } from "./ClientAppointments";
+import { AdminReviewSection } from "./admin-review/AdminReviewSection";
+import { ClientAppointments } from "./appointments/ClientAppointments";
+import { EligibleEvaluatorsList } from "./appointments/EligibleEvaluatorsList";
+import { InPersonAssessmentsTable } from "./appointments/InPersonAssessmentsTable";
 import { ClientDetailsCard } from "./ClientDetailsCard";
 import { ClientHeader } from "./ClientHeader";
-import { ClientNoteEditor } from "./ClientNoteEditor";
-import { CommunicationTimeline } from "./CommunicationTimeline";
-import { DashboardSectionTimeline } from "./DashboardSectionTimeline";
-import { EligibleEvaluatorsList } from "./EligibleEvaluatorsList";
-import { InPersonAssessmentsTable } from "./InPersonAssessmentsTable";
-import { InsuranceTab } from "./InsuranceTab";
-import { MergeRecommendationAlert } from "./MergeRecommendationAlert";
-import { PersistentStatusAlert } from "./PersistentStatusAlert";
+import { CommunicationTimeline } from "./communication/CommunicationTimeline";
+import { AdditionalInsuranceAppointmentsDisplay } from "./insurance/AdditionalInsuranceAppointmentsDisplay";
+import { InsuranceTab } from "./insurance/InsuranceTab";
+import { ClientNoteEditor } from "./notes/ClientNoteEditor";
+import { RecordsNoteEditor } from "./notes/RecordsNoteEditor";
 import { PinnedListNav } from "./PinnedListNav";
-import { QuestionnairesTable } from "./QuestionnairesTable";
-import { RecordsNoteEditor } from "./RecordsNoteEditor";
-import { ReferralTab } from "./ReferralTab";
+import { QuestionnairesTable } from "./questionnaires/QuestionnairesTable";
 import { RelatedClients } from "./RelatedClients";
+import { BabyNetBoxes } from "./referral/BabyNetBoxes";
+import { ReferralTab } from "./referral/ReferralTab";
+import { DashboardSectionTimeline } from "./status/DashboardSectionTimeline";
+import { MergeRecommendationAlert } from "./status/MergeRecommendationAlert";
+import { PersistentStatusAlert } from "./status/PersistentStatusAlert";
 
 const log = logger.child({ module: "Client" });
 

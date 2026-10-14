@@ -43,7 +43,7 @@ import type { Client, ClientWithIssueInfo } from "~/lib/models";
 import type { PermissionId } from "~/lib/types";
 import { formatInBusinessTime, formatShortDate } from "~/lib/utils";
 import { api, type RouterOutputs } from "~/trpc/react";
-import { ManualAddressDialog } from "../client/ManualAddressDialog";
+import { ManualAddressDialog } from "../client/location/ManualAddressDialog";
 import { Redact } from "../redaction/Redact";
 import { ResponsiveDialog } from "../shared/ResponsiveDialog";
 import { IssueListCustomizer } from "./IssueListCustomizer";

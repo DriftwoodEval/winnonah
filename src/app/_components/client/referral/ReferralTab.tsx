@@ -47,7 +47,7 @@ import type { Client } from "~/lib/models";
 import { REFERRAL_FIELD_LABELS } from "~/lib/referral-history";
 import { isBabyNetInsurance, isNotesOnlyClientId } from "~/lib/utils";
 import { api } from "~/trpc/react";
-import { ResponsiveDialog } from "../shared/ResponsiveDialog";
+import { ResponsiveDialog } from "../../shared/ResponsiveDialog";
 import { ReferralHistoryButton } from "./ReferralHistory";
 
 interface ReferralTabProps {

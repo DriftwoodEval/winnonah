@@ -12,8 +12,8 @@ import {
 	formatPhoneNumber,
 } from "~/lib/utils";
 import { Redact } from "../redaction/Redact";
-import { ManualAddressDialog } from "./ManualAddressDialog";
-import { OfficeDriveTimesButton } from "./OfficeDriveTimesButton";
+import { ManualAddressDialog } from "./location/ManualAddressDialog";
+import { OfficeDriveTimesButton } from "./location/OfficeDriveTimesButton";
 import { SelectHealthFormButton } from "./SelectHealthFormButton";
 
 interface ClientDetailsCardProps {

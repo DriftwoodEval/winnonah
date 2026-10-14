@@ -31,9 +31,9 @@ import {
 	sanitizeFailureReason,
 } from "~/lib/utils";
 import { api } from "~/trpc/react";
-import { NoteHistory } from "../shared/NoteHistory";
-import { ResponsiveDialog } from "../shared/ResponsiveDialog";
-import { EvaluationCheckbox } from "./EvaluationCheckbox";
+import { NoteHistory } from "../../shared/NoteHistory";
+import { ResponsiveDialog } from "../../shared/ResponsiveDialog";
+import { EvaluationCheckbox } from "../EvaluationCheckbox";
 
 const log = logger.child({ module: "RecordsNoteEditor" });
 

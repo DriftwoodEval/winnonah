@@ -31,11 +31,11 @@ import { logger } from "~/lib/logger";
 import type { Client } from "~/lib/models";
 import { cn } from "~/lib/utils";
 import { api } from "~/trpc/react";
-import { Redact } from "../redaction/Redact";
+import { Redact } from "../../redaction/Redact";
 import {
 	ResponsiveDialog,
 	useResponsiveDialog,
-} from "../shared/ResponsiveDialog";
+} from "../../shared/ResponsiveDialog";
 
 const formSchema = z.object({
 	schoolDistrict: z.string().min(1, "School district is required"),

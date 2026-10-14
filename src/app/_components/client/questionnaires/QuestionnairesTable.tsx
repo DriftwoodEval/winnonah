@@ -44,12 +44,12 @@ import {
 	sanitizeFailureReason,
 } from "~/lib/utils";
 import { api } from "~/trpc/react";
+import { ProtocolsScannedCheckbox } from "../ProtocolsScannedCheckbox";
+import { ScreenshotButton } from "../ScreenshotButton";
 import { AddQuestionnaireButton } from "./AddQuestionnaireButton";
-import { ProtocolsScannedCheckbox } from "./ProtocolsScannedCheckbox";
 import { QuestionnaireHistoryButton } from "./QuestionnaireHistory";
 import { QuestionnaireReminderOverridesSummary } from "./QuestionnaireReminderOverride";
 import { QuestionnaireActionsMenu } from "./QuestionnaireTableActionsMenu";
-import { ScreenshotButton } from "./ScreenshotButton";
 
 const truncateLink = (link: string | null, maxLength = 25) => {
 	if (!link) return "";

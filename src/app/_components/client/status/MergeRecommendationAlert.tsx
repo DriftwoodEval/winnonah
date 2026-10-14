@@ -7,7 +7,7 @@ import { GitMerge } from "lucide-react";
 import type { Client } from "~/lib/models";
 import { isNotesOnlyClientId } from "~/lib/utils";
 import { api } from "~/trpc/react";
-import { Redact } from "../redaction/Redact";
+import { Redact } from "../../redaction/Redact";
 
 interface MergeRecommendationAlertProps {
 	client: Client;

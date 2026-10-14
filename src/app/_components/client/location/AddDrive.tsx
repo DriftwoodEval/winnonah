@@ -18,7 +18,7 @@ import { api } from "~/trpc/react";
 import {
 	ResponsiveDialog,
 	useResponsiveDialog,
-} from "../shared/ResponsiveDialog";
+} from "../../shared/ResponsiveDialog";
 
 const log = logger.child({ module: "AddDrive" });
 

@@ -30,11 +30,11 @@ import { formatCurrency, isNotesOnlyClientId } from "~/lib/utils";
 import { api } from "~/trpc/react";
 import { Redact } from "../redaction/Redact";
 import { ResponsiveDialog } from "../shared/ResponsiveDialog";
-import { AddDriveButton } from "./AddDrive";
-import { DashboardStatus } from "./DashboardStatus";
 import { EditAsdAdhdDialog } from "./EditAsdAdhdDialog";
 import { ClientEditButton } from "./EditClientDialog";
-import { EditDriveForm } from "./EditDriveForm";
+import { AddDriveButton } from "./location/AddDrive";
+import { EditDriveForm } from "./location/EditDriveForm";
+import { DashboardStatus } from "./status/DashboardStatus";
 
 interface ClientHeaderProps {
 	client: Client | undefined;

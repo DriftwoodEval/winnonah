@@ -37,10 +37,10 @@ import { useCheckPermission } from "~/hooks/use-check-permission";
 import { isVirtualAppointment } from "~/lib/checkin";
 import { IS_DEV, toBusinessZonedTime } from "~/lib/utils";
 import { api } from "~/trpc/react";
-import { CheckInOutControl } from "../appointments/CheckInOutControl";
-import { useCheckinDateGate } from "../appointments/use-checkin-date-gate";
-import { todayStr } from "../home/DayAheadWidgets";
-import { AppointmentReminderTimeline } from "./AppointmentReminderTimeline";
+import { CheckInOutControl } from "../../appointments/CheckInOutControl";
+import { useCheckinDateGate } from "../../appointments/use-checkin-date-gate";
+import { todayStr } from "../../home/DayAheadWidgets";
+import { AppointmentReminderTimeline } from "../communication/AppointmentReminderTimeline";
 
 export function ClientAppointments({
 	clientId,
