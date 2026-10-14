@@ -24,17 +24,15 @@ import { format, formatDistanceToNow } from "date-fns";
 import Link from "next/link";
 import { useState } from "react";
 import { toast } from "sonner";
-import { useCheckPermission } from "~/hooks/use-check-permission";
 import { formatInBusinessTime, formatReminderOffset } from "~/lib/utils";
 import { api, type RouterOutputs } from "~/trpc/react";
+import OfficesSettings from "./OfficesSettings";
 import { ReminderTemplateDialog } from "./ReminderTemplateDialog";
 
 type ReminderTemplate = RouterOutputs["reminders"]["getTemplates"][number];
 
 export default function ReminderSettings() {
 	const utils = api.useUtils();
-	const can = useCheckPermission();
-	const canManageOffices = can("settings:evaluators");
 	const [isModalOpen, setIsModalOpen] = useState(false);
 	const [selectedTemplate, setSelectedTemplate] =
 		useState<ReminderTemplate | null>(null);
@@ -60,22 +58,6 @@ export default function ReminderSettings() {
 		onSuccess: () => {
 			void utils.reminders.getSettings.invalidate();
 			toast.success("Global settings updated");
-		},
-	});
-
-	const updateLocationPhrase = api.offices.updateLocationPhrase.useMutation({
-		onSuccess: () => {
-			void utils.offices.getAll.invalidate();
-			toast.success("Office location phrase updated");
-		},
-	});
-
-	const setOfficeArchived = api.offices.setArchived.useMutation({
-		onSuccess: (_data, variables) => {
-			void utils.offices.getAll.invalidate();
-			toast.success(
-				variables.archived ? "Office archived" : "Office unarchived",
-			);
 		},
 	});
 
@@ -140,85 +122,7 @@ export default function ReminderSettings() {
 				</CardContent>
 			</Card>
 
-			<Card>
-				<CardHeader>
-					<CardTitle>Offices</CardTitle>
-					<CardDescription>
-						Archived offices no longer appear in office pickers or count toward
-						the closest office. Past appointments and availability keep their
-						office.
-					</CardDescription>
-				</CardHeader>
-				<CardContent className="space-y-3">
-					{offices?.map((office) => (
-						<div
-							className="flex items-center justify-between gap-4"
-							key={office.key}
-						>
-							<span className="flex items-center gap-2">
-								{office.prettyName}
-								{office.archived && <Badge variant="outline">Archived</Badge>}
-							</span>
-							<Button
-								disabled={!canManageOffices || setOfficeArchived.isPending}
-								onClick={() =>
-									setOfficeArchived.mutate({
-										key: office.key,
-										archived: !office.archived,
-									})
-								}
-								size="sm"
-								variant="outline"
-							>
-								{office.archived ? "Unarchive" : "Archive"}
-							</Button>
-						</div>
-					))}
-				</CardContent>
-			</Card>
-
-			<Card>
-				<CardHeader>
-					<CardTitle>Office Location Phrases</CardTitle>
-					<CardDescription>
-						Used in message templates via{" "}
-						<code className="rounded bg-muted px-1 font-mono text-xs">
-							$LOCATION
-						</code>{" "}
-						and{" "}
-						<code className="rounded bg-muted px-1 font-mono text-xs">
-							$OFFICE_NAME
-						</code>
-						. Include the preposition, e.g.{" "}
-						<span className="italic">at 123 Main St</span> or{" "}
-						<span className="italic">
-							inside Business Center at 123 Main St
-						</span>
-						.
-					</CardDescription>
-				</CardHeader>
-				<CardContent className="space-y-3">
-					{offices?.map((office) => (
-						<div
-							className="grid grid-cols-1 gap-1.5 sm:grid-cols-[180px_1fr] sm:items-center sm:gap-4"
-							key={office.key}
-						>
-							<Label>{office.prettyName}</Label>
-							<Input
-								defaultValue={office.locationPhrase ?? ""}
-								onBlur={(e) => {
-									const val = e.target.value.trim();
-									updateLocationPhrase.mutate({
-										key: office.key,
-										locationPhrase: val || null,
-									});
-								}}
-								placeholder="at 123 Main St, Suite 100"
-							/>
-						</div>
-					))}
-				</CardContent>
-			</Card>
+			<OfficesSettings />
 
 			<div className="space-y-4">
 				<div className="flex items-center justify-between">
@@ -312,45 +216,47 @@ export default function ReminderSettings() {
 							No reminders sent yet.
 						</p>
 					) : (
-						<Table>
-							<TableHeader>
-								<TableRow>
-									<TableHead>Sent</TableHead>
-									<TableHead>Client</TableHead>
-									<TableHead>Appointment</TableHead>
-									<TableHead>Template</TableHead>
-								</TableRow>
-							</TableHeader>
-							<TableBody>
-								{logs.map((log) => (
-									<TableRow key={log.id}>
-										<TableCell
-											className="whitespace-nowrap text-muted-foreground text-xs"
-											title={format(log.sentAt, "PPpp")}
-										>
-											{formatDistanceToNow(log.sentAt, { addSuffix: true })}
-										</TableCell>
-										<TableCell>
-											<Link
-												className="hover:underline"
-												href={`/clients/${log.clientHash}`}
-											>
-												{log.clientFirstName} {log.clientLastName}
-											</Link>
-										</TableCell>
-										<TableCell className="whitespace-nowrap text-xs">
-											{formatInBusinessTime(
-												log.appointmentStart,
-												"MMM d, yyyy p",
-											)}
-										</TableCell>
-										<TableCell className="text-xs">
-											{log.templateName}
-										</TableCell>
+						<div className="max-h-96 overflow-y-auto">
+							<Table>
+								<TableHeader>
+									<TableRow>
+										<TableHead>Sent</TableHead>
+										<TableHead>Client</TableHead>
+										<TableHead>Appointment</TableHead>
+										<TableHead>Template</TableHead>
 									</TableRow>
-								))}
-							</TableBody>
-						</Table>
+								</TableHeader>
+								<TableBody>
+									{logs.map((log) => (
+										<TableRow key={log.id}>
+											<TableCell
+												className="whitespace-nowrap text-muted-foreground text-xs"
+												title={format(log.sentAt, "PPpp")}
+											>
+												{formatDistanceToNow(log.sentAt, { addSuffix: true })}
+											</TableCell>
+											<TableCell>
+												<Link
+													className="hover:underline"
+													href={`/clients/${log.clientHash}`}
+												>
+													{log.clientFirstName} {log.clientLastName}
+												</Link>
+											</TableCell>
+											<TableCell className="whitespace-nowrap text-xs">
+												{formatInBusinessTime(
+													log.appointmentStart,
+													"MMM d, yyyy p",
+												)}
+											</TableCell>
+											<TableCell className="text-xs">
+												{log.templateName}
+											</TableCell>
+										</TableRow>
+									))}
+								</TableBody>
+							</Table>
+						</div>
 					)}
 				</CardContent>
 			</Card>
@@ -369,51 +275,53 @@ export default function ReminderSettings() {
 							No confirmation replies yet.
 						</p>
 					) : (
-						<Table>
-							<TableHeader>
-								<TableRow>
-									<TableHead>Received</TableHead>
-									<TableHead>Client</TableHead>
-									<TableHead>Appointment</TableHead>
-									<TableHead>Reply</TableHead>
-									<TableHead>Sent Back</TableHead>
-								</TableRow>
-							</TableHeader>
-							<TableBody>
-								{confirmationReplies.map((reply) => (
-									<TableRow key={reply.id}>
-										<TableCell
-											className="whitespace-nowrap text-muted-foreground text-xs"
-											title={format(reply.receivedAt, "PPpp")}
-										>
-											{formatDistanceToNow(reply.receivedAt, {
-												addSuffix: true,
-											})}
-										</TableCell>
-										<TableCell>
-											<Link
-												className="hover:underline"
-												href={`/clients/${reply.clientHash}`}
-											>
-												{reply.clientFirstName} {reply.clientLastName}
-											</Link>
-										</TableCell>
-										<TableCell className="whitespace-nowrap text-xs">
-											{formatInBusinessTime(
-												reply.appointmentStart,
-												"MMM d, yyyy p",
-											)}
-										</TableCell>
-										<TableCell className="text-xs">
-											{reply.incomingText}
-										</TableCell>
-										<TableCell className="text-muted-foreground text-xs">
-											{reply.confirmationReplyText ?? "—"}
-										</TableCell>
+						<div className="max-h-96 overflow-y-auto">
+							<Table>
+								<TableHeader>
+									<TableRow>
+										<TableHead>Received</TableHead>
+										<TableHead>Client</TableHead>
+										<TableHead>Appointment</TableHead>
+										<TableHead>Reply</TableHead>
+										<TableHead>Sent Back</TableHead>
 									</TableRow>
-								))}
-							</TableBody>
-						</Table>
+								</TableHeader>
+								<TableBody>
+									{confirmationReplies.map((reply) => (
+										<TableRow key={reply.id}>
+											<TableCell
+												className="whitespace-nowrap text-muted-foreground text-xs"
+												title={format(reply.receivedAt, "PPpp")}
+											>
+												{formatDistanceToNow(reply.receivedAt, {
+													addSuffix: true,
+												})}
+											</TableCell>
+											<TableCell>
+												<Link
+													className="hover:underline"
+													href={`/clients/${reply.clientHash}`}
+												>
+													{reply.clientFirstName} {reply.clientLastName}
+												</Link>
+											</TableCell>
+											<TableCell className="whitespace-nowrap text-xs">
+												{formatInBusinessTime(
+													reply.appointmentStart,
+													"MMM d, yyyy p",
+												)}
+											</TableCell>
+											<TableCell className="text-xs">
+												{reply.incomingText}
+											</TableCell>
+											<TableCell className="text-muted-foreground text-xs">
+												{reply.confirmationReplyText ?? "—"}
+											</TableCell>
+										</TableRow>
+									))}
+								</TableBody>
+							</Table>
+						</div>
 					)}
 				</CardContent>
 			</Card>
@@ -432,47 +340,49 @@ export default function ReminderSettings() {
 							No non-confirmation replies yet.
 						</p>
 					) : (
-						<Table>
-							<TableHeader>
-								<TableRow>
-									<TableHead>Received</TableHead>
-									<TableHead>Client</TableHead>
-									<TableHead>Appointment</TableHead>
-									<TableHead>Reply</TableHead>
-								</TableRow>
-							</TableHeader>
-							<TableBody>
-								{nonConfirmationReplies.map((reply) => (
-									<TableRow key={reply.id}>
-										<TableCell
-											className="whitespace-nowrap text-muted-foreground text-xs"
-											title={format(reply.receivedAt, "PPpp")}
-										>
-											{formatDistanceToNow(reply.receivedAt, {
-												addSuffix: true,
-											})}
-										</TableCell>
-										<TableCell>
-											<Link
-												className="hover:underline"
-												href={`/clients/${reply.clientHash}`}
-											>
-												{reply.clientFirstName} {reply.clientLastName}
-											</Link>
-										</TableCell>
-										<TableCell className="whitespace-nowrap text-xs">
-											{formatInBusinessTime(
-												reply.appointmentStart,
-												"MMM d, yyyy p",
-											)}
-										</TableCell>
-										<TableCell className="text-xs">
-											{reply.incomingText}
-										</TableCell>
+						<div className="max-h-96 overflow-y-auto">
+							<Table>
+								<TableHeader>
+									<TableRow>
+										<TableHead>Received</TableHead>
+										<TableHead>Client</TableHead>
+										<TableHead>Appointment</TableHead>
+										<TableHead>Reply</TableHead>
 									</TableRow>
-								))}
-							</TableBody>
-						</Table>
+								</TableHeader>
+								<TableBody>
+									{nonConfirmationReplies.map((reply) => (
+										<TableRow key={reply.id}>
+											<TableCell
+												className="whitespace-nowrap text-muted-foreground text-xs"
+												title={format(reply.receivedAt, "PPpp")}
+											>
+												{formatDistanceToNow(reply.receivedAt, {
+													addSuffix: true,
+												})}
+											</TableCell>
+											<TableCell>
+												<Link
+													className="hover:underline"
+													href={`/clients/${reply.clientHash}`}
+												>
+													{reply.clientFirstName} {reply.clientLastName}
+												</Link>
+											</TableCell>
+											<TableCell className="whitespace-nowrap text-xs">
+												{formatInBusinessTime(
+													reply.appointmentStart,
+													"MMM d, yyyy p",
+												)}
+											</TableCell>
+											<TableCell className="text-xs">
+												{reply.incomingText}
+											</TableCell>
+										</TableRow>
+									))}
+								</TableBody>
+							</Table>
+						</div>
 					)}
 				</CardContent>
 			</Card>

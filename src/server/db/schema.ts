@@ -222,6 +222,8 @@ export const offices = createTable("office", (d) => ({
 	key: d.varchar({ length: 255 }).notNull().primaryKey(),
 	prettyName: d.varchar({ length: 255 }).notNull(),
 	locationPhrase: d.varchar({ length: 500 }),
+	// The confirmed street address the coordinates were looked up from.
+	address: d.varchar({ length: 500 }),
 	latitude: d.decimal({ precision: 10, scale: 8 }).notNull(),
 	longitude: d.decimal({ precision: 11, scale: 8 }).notNull(),
 	// Archived offices stay on past appointments and availability but are

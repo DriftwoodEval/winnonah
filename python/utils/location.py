@@ -155,6 +155,28 @@ def _search_geocodio(full_address: str) -> tuple[str, float, float] | None:
         return None
 
 
+def search_addresses(query: str, limit: int = 5) -> list[dict]:
+    """Returns up to `limit` Geocodio matches for a free-text address.
+
+    Each match has a formatted address, coordinates, and Geocodio's accuracy
+    score, so a person can confirm the right one before it is saved.
+    """
+    geocodio_api_key = os.getenv("GEOCODIO_API_KEY")
+    if not geocodio_api_key:
+        raise RuntimeError("GEOCODIO_API_KEY is not set")
+
+    response = Geocodio(geocodio_api_key).geocode(query, limit=limit)
+    return [
+        {
+            "formattedAddress": r.formatted_address,
+            "latitude": r.location.lat,
+            "longitude": r.location.lng,
+            "accuracy": r.accuracy,
+        }
+        for r in response.results
+    ]
+
+
 geopy.geocoders.options.default_timeout = 7
 geopy.geocoders.options.default_user_agent = "driftwood-winnonah"
 GEOLOCATOR = Nominatim()

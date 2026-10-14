@@ -65,6 +65,7 @@ from utils.google import (
     send_gmail,
     update_gcal_event_title,
 )
+from utils.location import search_addresses
 from utils.permissions import effective_permissions, has_permission
 from utils.waze import (
     KM_PER_MILE,
@@ -1243,6 +1244,21 @@ def download_select_health_form(
             "Content-Disposition": f'attachment; filename="select-health-{client_id}.pdf"'
         },
     )
+
+
+@app.get("/offices/address-lookup")
+def office_address_lookup(
+    q: str,
+    current_user: dict = Depends(get_current_user),  # noqa: ARG001
+) -> list[dict]:
+    """Address candidates for the office editor to confirm."""
+    if len(q.strip()) < 5:
+        raise HTTPException(status_code=422, detail="Address is too short")
+    try:
+        return search_addresses(q.strip())
+    except Exception as e:
+        logger.error(f"Address lookup failed: {e}")
+        raise HTTPException(status_code=502, detail="Address lookup failed") from e
 
 
 class OfficeDriveTime(BaseModel):
