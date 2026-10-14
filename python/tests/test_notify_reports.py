@@ -1,6 +1,6 @@
 from unittest.mock import patch
 
-from notify_reports import check_report_queue_and_notify
+from cron.notify_reports import check_report_queue_and_notify
 
 
 class FakeCursor:
@@ -53,7 +53,7 @@ class FakeConnection:
 
 def _patch_db(seen_folder_ids=None):
     return patch(
-        "notify_reports.get_db",
+        "cron.notify_reports.get_db",
         return_value=FakeConnection(seen_folder_ids=seen_folder_ids),
     )
 
@@ -61,9 +61,9 @@ def _patch_db(seen_folder_ids=None):
 class TestNoFolders:
     def test_returns_without_querying_db_when_no_items(self):
         with (
-            patch("notify_reports.get_items_in_folder", return_value=[]),
-            patch("notify_reports.get_db") as mock_get_db,
-            patch("notify_reports.send_gmail") as mock_send,
+            patch("cron.notify_reports.get_items_in_folder", return_value=[]),
+            patch("cron.notify_reports.get_db") as mock_get_db,
+            patch("cron.notify_reports.send_gmail") as mock_send,
         ):
             check_report_queue_and_notify()
         mock_get_db.assert_not_called()
@@ -74,10 +74,10 @@ class TestAllFoldersAlreadySeen:
     def test_no_notifications_sent(self):
         items = [{"id": "folder-1", "name": "Report [ABC123]"}]
         with (
-            patch("notify_reports.get_items_in_folder", return_value=items),
+            patch("cron.notify_reports.get_items_in_folder", return_value=items),
             _patch_db(seen_folder_ids={"folder-1"}),
-            patch("notify_reports.get_queue_notify_users") as mock_users,
-            patch("notify_reports.send_gmail") as mock_send,
+            patch("cron.notify_reports.get_queue_notify_users") as mock_users,
+            patch("cron.notify_reports.send_gmail") as mock_send,
         ):
             check_report_queue_and_notify()
         mock_users.assert_not_called()
@@ -89,10 +89,10 @@ class TestNoEligibleUsers:
         items = [{"id": "folder-1", "name": "Report [ABC123]"}]
         conn = FakeConnection()
         with (
-            patch("notify_reports.get_items_in_folder", return_value=items),
-            patch("notify_reports.get_db", return_value=conn),
-            patch("notify_reports.get_queue_notify_users", return_value=[]),
-            patch("notify_reports.send_gmail") as mock_send,
+            patch("cron.notify_reports.get_items_in_folder", return_value=items),
+            patch("cron.notify_reports.get_db", return_value=conn),
+            patch("cron.notify_reports.get_queue_notify_users", return_value=[]),
+            patch("cron.notify_reports.send_gmail") as mock_send,
         ):
             check_report_queue_and_notify()
         mock_send.assert_not_called()
@@ -108,13 +108,13 @@ class TestNewFolderWithoutClientId:
             {"email": "b@example.com", "blockedEvaluatorNpis": None},
         ]
         with (
-            patch("notify_reports.get_items_in_folder", return_value=items),
-            patch("notify_reports.get_db", return_value=conn),
-            patch("notify_reports.get_queue_notify_users", return_value=users),
+            patch("cron.notify_reports.get_items_in_folder", return_value=items),
+            patch("cron.notify_reports.get_db", return_value=conn),
+            patch("cron.notify_reports.get_queue_notify_users", return_value=users),
             patch(
-                "notify_reports.get_most_recent_non_billing_evaluator_npi"
+                "cron.notify_reports.get_most_recent_non_billing_evaluator_npi"
             ) as mock_npi,
-            patch("notify_reports.send_gmail") as mock_send,
+            patch("cron.notify_reports.send_gmail") as mock_send,
         ):
             check_report_queue_and_notify()
         mock_npi.assert_not_called()
@@ -130,14 +130,14 @@ class TestNewFolderWithClientId:
         conn = FakeConnection()
         users = [{"email": "a@example.com", "blockedEvaluatorNpis": None}]
         with (
-            patch("notify_reports.get_items_in_folder", return_value=items),
-            patch("notify_reports.get_db", return_value=conn),
-            patch("notify_reports.get_queue_notify_users", return_value=users),
+            patch("cron.notify_reports.get_items_in_folder", return_value=items),
+            patch("cron.notify_reports.get_db", return_value=conn),
+            patch("cron.notify_reports.get_queue_notify_users", return_value=users),
             patch(
-                "notify_reports.get_most_recent_non_billing_evaluator_npi",
+                "cron.notify_reports.get_most_recent_non_billing_evaluator_npi",
                 return_value=1234567890,
             ) as mock_npi,
-            patch("notify_reports.send_gmail") as mock_send,
+            patch("cron.notify_reports.send_gmail") as mock_send,
         ):
             check_report_queue_and_notify()
         mock_npi.assert_called_once_with("ABC-123")
@@ -154,14 +154,14 @@ class TestNewFolderWithClientId:
             {"email": "allowed@example.com", "blockedEvaluatorNpis": None},
         ]
         with (
-            patch("notify_reports.get_items_in_folder", return_value=items),
-            patch("notify_reports.get_db", return_value=conn),
-            patch("notify_reports.get_queue_notify_users", return_value=users),
+            patch("cron.notify_reports.get_items_in_folder", return_value=items),
+            patch("cron.notify_reports.get_db", return_value=conn),
+            patch("cron.notify_reports.get_queue_notify_users", return_value=users),
             patch(
-                "notify_reports.get_most_recent_non_billing_evaluator_npi",
+                "cron.notify_reports.get_most_recent_non_billing_evaluator_npi",
                 return_value=1234567890,
             ),
-            patch("notify_reports.send_gmail") as mock_send,
+            patch("cron.notify_reports.send_gmail") as mock_send,
         ):
             check_report_queue_and_notify()
         mock_send.assert_called_once()
@@ -172,13 +172,13 @@ class TestNewFolderWithClientId:
         conn = FakeConnection()
         users = [{"email": "a@example.com", "blockedEvaluatorNpis": None}]
         with (
-            patch("notify_reports.get_items_in_folder", return_value=items),
-            patch("notify_reports.get_db", return_value=conn),
-            patch("notify_reports.get_queue_notify_users", return_value=users),
+            patch("cron.notify_reports.get_items_in_folder", return_value=items),
+            patch("cron.notify_reports.get_db", return_value=conn),
+            patch("cron.notify_reports.get_queue_notify_users", return_value=users),
             patch(
-                "notify_reports.get_most_recent_non_billing_evaluator_npi"
+                "cron.notify_reports.get_most_recent_non_billing_evaluator_npi"
             ) as mock_npi,
-            patch("notify_reports.send_gmail"),
+            patch("cron.notify_reports.send_gmail"),
         ):
             check_report_queue_and_notify()
         mock_npi.assert_not_called()
@@ -193,11 +193,11 @@ class TestMultipleFolders:
         conn = FakeConnection(seen_folder_ids={"folder-seen"})
         users = [{"email": "a@example.com", "blockedEvaluatorNpis": None}]
         with (
-            patch("notify_reports.get_items_in_folder", return_value=items),
-            patch("notify_reports.get_db", return_value=conn),
-            patch("notify_reports.get_queue_notify_users", return_value=users),
-            patch("notify_reports.get_most_recent_non_billing_evaluator_npi"),
-            patch("notify_reports.send_gmail") as mock_send,
+            patch("cron.notify_reports.get_items_in_folder", return_value=items),
+            patch("cron.notify_reports.get_db", return_value=conn),
+            patch("cron.notify_reports.get_queue_notify_users", return_value=users),
+            patch("cron.notify_reports.get_most_recent_non_billing_evaluator_npi"),
+            patch("cron.notify_reports.send_gmail") as mock_send,
         ):
             check_report_queue_and_notify()
         mock_send.assert_called_once()

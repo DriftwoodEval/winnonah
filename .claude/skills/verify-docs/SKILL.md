@@ -26,9 +26,9 @@ Docs pages don't carry an explicit pointer back to the code they describe, so re
 
 - **The web app** (anything about UI labels, dashboards, screens, permissions, or business rules enforced when a user clicks something): grep `winnonah/src/*`.
 - **The winnonah Python sidecar and cron scripts** (anything about a background sync, a scheduled job, fax/document processing, appointment reminders, or an internal report that isn't a screen), all under `winnonah/python/`:
-  - `api.py` is the FastAPI sidecar the web app calls (routes are `@app.get`/`@app.post`); its lifespan also starts one in-process loop, `appointment_reminders.reminder_cron()`.
-  - `main.py` is a Typer CLI (the `main(...)` command) that the deployment's cron invokes for the recurring TherapyAppointment sync, fax, and referral work.
-  - Other root scripts run standalone on their own cron: `appointment_reminders.py`, `categorize_documents.py`, `fax_categorization.py`, `babynet_report.py`, `notify_reports.py`, `greeter_proxy.py`, plus the one-offs in `python/oneoff/`.
+  - `api/app.py` is the FastAPI sidecar the web app calls (routes are `@app.get`/`@app.post`); its lifespan also starts one in-process loop, `appointment_reminders.reminder_cron()`. `api/appointment_reminders.py` and `api/greeter_proxy.py` are routers mounted on it.
+  - `cron/main.py` is a Typer CLI (the `main(...)` command) that the deployment's cron invokes for the recurring TherapyAppointment sync, fax, and referral work.
+  - Other jobs in `python/cron/` run standalone on their own cron: `fax_categorization.py`, `babynet_report.py`, `notify_reports.py`, `office_drive_times.py`, `referral_status_faxes.py`, `exclusion_check.py`. `python/tools/categorize_documents.py` is a manual CLI, `python/failover_notify.py` is called by the host failover scripts, and the one-offs are in `python/oneoff/`.
   - Shared logic is in `winnonah/python/utils/` (`appointments.py`, `database.py`, `clients.py`, `google.py`, `therapyappointment.py`, `fax*.py`, `medicaid.py`, `constants.py`; shared timezone helpers live in `winnonah/python/common`). Cadences quoted in docs come from the deployment's crontab/compose, not the script source, so flag a stated schedule as suspected drift unless the doc itself is the source of truth for it.
 - **The questionnaires repo** (anything about sending or receiving questionnaires, records requests, or piecework/billing exports): root scripts `qsend.py`, `qreceive.py`, `records-request.py`, `piecework.py`, `log-server.py` and `questionnaires/utils/`.
 

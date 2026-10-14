@@ -1,6 +1,6 @@
 """Shared helper for querying and persisting live by-car drive time via Waze.
 
-Used both for the on-demand drive-times lookup in api.py (which doubles as a
+Used both for the on-demand drive-times lookup in api/app.py (which doubles as a
 manual per-client refresh) and for the office_drive_times.py batch job that
 backfills emr_office_drive_time in the background.
 """

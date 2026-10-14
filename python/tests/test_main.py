@@ -1,6 +1,6 @@
 import pandas as pd
 
-from main import filter_clients_by_criteria
+from cron.main import filter_clients_by_criteria
 
 
 def make_clients_df():

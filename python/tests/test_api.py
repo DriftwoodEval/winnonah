@@ -7,7 +7,7 @@ import pytest
 from fastapi import HTTPException
 from pywaze.route_calculator import CalcRoutesResponse
 
-from api import (
+from api.app import (
     _apply_confirmed_marker,
     _find_duplicates,
     col_num_to_letter,
@@ -121,7 +121,7 @@ class TestGetCurrentUser:
             "expires": datetime.now(UTC).replace(tzinfo=None) + timedelta(days=1),
         }
         conn = FakeConnection(FakeCursor(fetchone_result=row))
-        with patch("api.get_db", return_value=conn):
+        with patch("api.app.get_db", return_value=conn):
             user = get_current_user(request)
         assert user["email"] == "a@example.com"
 
@@ -129,7 +129,7 @@ class TestGetCurrentUser:
         request = _mock_request({"authjs.session-token": "tok"})
         conn = FakeConnection(FakeCursor(fetchone_result=None))
         with (
-            patch("api.get_db", return_value=conn),
+            patch("api.app.get_db", return_value=conn),
             pytest.raises(HTTPException) as exc_info,
         ):
             get_current_user(request)
@@ -149,7 +149,7 @@ class TestGetCurrentUser:
         }
         conn = FakeConnection(FakeCursor(fetchone_result=row))
         with (
-            patch("api.get_db", return_value=conn),
+            patch("api.app.get_db", return_value=conn),
             pytest.raises(HTTPException) as exc_info,
         ):
             get_current_user(request)
@@ -169,7 +169,7 @@ class TestGetCurrentUser:
         }
         conn = FakeConnection(FakeCursor(fetchone_result=row))
         with (
-            patch("api.get_db", return_value=conn),
+            patch("api.app.get_db", return_value=conn),
             pytest.raises(HTTPException) as exc_info,
         ):
             get_current_user(request)
@@ -190,7 +190,7 @@ class TestGetCurrentUser:
             "expires": datetime.now(UTC).replace(tzinfo=None) + timedelta(days=1),
         }
         conn = FakeConnection(FakeCursor(fetchone_result=row))
-        with patch("api.get_db", return_value=conn):
+        with patch("api.app.get_db", return_value=conn):
             user = get_current_user(request)
         assert user["permissions"] == {
             "reports:notifications": True,
@@ -210,7 +210,7 @@ class TestGetCurrentUser:
             "expires": datetime.now(UTC).replace(tzinfo=None) + timedelta(days=1),
         }
         conn = FakeConnection(FakeCursor(fetchone_result=row))
-        with patch("api.get_db", return_value=conn):
+        with patch("api.app.get_db", return_value=conn):
             get_current_user(request)
         assert conn.closed
 
@@ -218,7 +218,7 @@ class TestGetCurrentUser:
         request = _mock_request({"authjs.session-token": "tok"})
         conn = FakeConnection(FakeCursor(fetchone_result=None))
         with (
-            patch("api.get_db", return_value=conn),
+            patch("api.app.get_db", return_value=conn),
             pytest.raises(HTTPException),
         ):
             get_current_user(request)
@@ -228,22 +228,22 @@ class TestGetCurrentUser:
 class TestGetWriterId:
     def test_maps_full_name_to_initials(self):
         config = {"config": {"piecework": {"name_map": {"AB": "Alice Baker"}}}}
-        with patch("api.get_python_config", return_value=config):
+        with patch("api.app.get_python_config", return_value=config):
             assert get_writer_id("Alice Baker") == "AB"
 
     def test_match_is_case_and_whitespace_insensitive(self):
         config = {"config": {"piecework": {"name_map": {"AB": "Alice Baker"}}}}
-        with patch("api.get_python_config", return_value=config):
+        with patch("api.app.get_python_config", return_value=config):
             assert get_writer_id("  ALICE baker  ") == "AB"
 
     def test_returns_original_name_when_no_match(self):
         config = {"config": {"piecework": {"name_map": {}}}}
-        with patch("api.get_python_config", return_value=config):
+        with patch("api.app.get_python_config", return_value=config):
             assert get_writer_id("Unknown Person") == "Unknown Person"
 
     def test_raises_500_when_config_missing(self):
         with (
-            patch("api.get_python_config", return_value=None),
+            patch("api.app.get_python_config", return_value=None),
             pytest.raises(HTTPException) as exc_info,
         ):
             get_writer_id("Alice Baker")
@@ -332,7 +332,7 @@ class TestFindDuplicates:
                 ]
             )
         )
-        with patch("api.get_db", return_value=conn):
+        with patch("api.app.get_db", return_value=conn):
             result = _find_duplicates(service)
         assert len(result) == 1
         assert result[0]["clientId"] == "123"
@@ -349,7 +349,7 @@ class TestFindDuplicates:
             ]
         }
         conn = FakeConnection(FakeCursor(fetchall_result=[]))
-        with patch("api.get_db", return_value=conn):
+        with patch("api.app.get_db", return_value=conn):
             result = _find_duplicates(service)
         assert result == []
 
@@ -374,7 +374,7 @@ class TestFindDuplicates:
                 ]
             )
         )
-        with patch("api.get_db", return_value=conn):
+        with patch("api.app.get_db", return_value=conn):
             result = _find_duplicates(service)
         assert len(result) == 1
         assert len(result[0]["folders"]) == 2
@@ -442,9 +442,9 @@ class TestOfficeDriveTimes:
         conn = FakeConnection(cursor)
 
         with (
-            patch("api.get_db", return_value=conn),
-            patch("api.get_drive_time", side_effect=_fake_get_drive_time),
-            patch("api.WAZE_REQUEST_STAGGER_SECONDS", 0),
+            patch("api.app.get_db", return_value=conn),
+            patch("api.app.get_drive_time", side_effect=_fake_get_drive_time),
+            patch("api.app.WAZE_REQUEST_STAGGER_SECONDS", 0),
         ):
             results = asyncio.run(office_drive_times(client_id=42, current_user={}))
 
@@ -484,8 +484,8 @@ class TestOfficeDriveTimes:
         waze = MagicMock()
 
         with (
-            patch("api.get_db", return_value=conn),
-            patch("api.get_drive_time", waze),
+            patch("api.app.get_db", return_value=conn),
+            patch("api.app.get_drive_time", waze),
         ):
             results = asyncio.run(office_drive_times(client_id=42, current_user={}))
 
@@ -513,9 +513,9 @@ class TestOfficeDriveTimes:
         conn = FakeConnection(cursor)
 
         with (
-            patch("api.get_db", return_value=conn),
-            patch("api.get_drive_time", side_effect=_fake_get_drive_time),
-            patch("api.WAZE_REQUEST_STAGGER_SECONDS", 0),
+            patch("api.app.get_db", return_value=conn),
+            patch("api.app.get_drive_time", side_effect=_fake_get_drive_time),
+            patch("api.app.WAZE_REQUEST_STAGGER_SECONDS", 0),
         ):
             results = asyncio.run(office_drive_times(client_id=42, current_user={}))
 
@@ -532,9 +532,9 @@ class TestOfficeDriveTimes:
         conn = FakeConnection(cursor)
 
         with (
-            patch("api.get_db", return_value=conn),
-            patch("api.get_drive_time", side_effect=Exception("Unavailable")),
-            patch("api.WAZE_REQUEST_STAGGER_SECONDS", 0),
+            patch("api.app.get_db", return_value=conn),
+            patch("api.app.get_drive_time", side_effect=Exception("Unavailable")),
+            patch("api.app.WAZE_REQUEST_STAGGER_SECONDS", 0),
         ):
             results = asyncio.run(office_drive_times(client_id=42, current_user={}))
 
@@ -547,7 +547,7 @@ class TestOfficeDriveTimes:
     def test_raises_404_for_unknown_client(self):
         conn = FakeConnection(RoutingCursor(None, []))
         with (
-            patch("api.get_db", return_value=conn),
+            patch("api.app.get_db", return_value=conn),
             pytest.raises(HTTPException) as exc_info,
         ):
             asyncio.run(office_drive_times(client_id=999, current_user={}))
@@ -556,7 +556,7 @@ class TestOfficeDriveTimes:
     def test_raises_422_when_client_has_no_coordinates(self):
         conn = FakeConnection(RoutingCursor({"latitude": None, "longitude": None}, []))
         with (
-            patch("api.get_db", return_value=conn),
+            patch("api.app.get_db", return_value=conn),
             pytest.raises(HTTPException) as exc_info,
         ):
             asyncio.run(office_drive_times(client_id=42, current_user={}))

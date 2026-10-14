@@ -27,7 +27,7 @@ run = "docker compose down"
 [tasks."python-dev"]
 description = "Start the Python API with hot-reloading"
 dir = "python"
-run = "uv run uvicorn api:app --reload --port 8000"
+run = "uv run uvicorn api.app:app --reload --port 8000"
 
 [tasks."sync-db"]
 description = "Sync the production database down to the local container"

@@ -16,7 +16,7 @@ from datetime import datetime, timedelta
 
 import pytest
 
-from appointment_reminders import is_within_quiet_window
+from api.appointment_reminders import is_within_quiet_window
 from utils.constants import TABLE_APPOINTMENT_REMINDER_SETTINGS
 from utils.database import get_db
 

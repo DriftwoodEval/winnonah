@@ -1,11 +1,11 @@
 """Scrapes eligibility data from the SC Medicaid provider portal via Selenium.
 
-Runs as part of the normal cron pipeline (main.py) every CRON_SCHEDULE
+Runs as part of the normal cron pipeline (cron/main.py) every CRON_SCHEDULE
 interval (every 4 hours by default, see python/Dockerfile), checking clients on
 the insurances in MEDICAID_SHORT_NAMES that were never checked or were last
 checked more than MEDICAID_RECHECK_DAYS ago. A full recheck of a specific
 client, or of every client, can be forced with
-`python main.py --medicaid [--client <name-or-id>]`. Portal credentials
+`python -m cron.main --medicaid [--client <name-or-id>]`. Portal credentials
 come from the medicaid entry in the app's services config (Settings >
 QSuite tab), not from environment variables.
 """

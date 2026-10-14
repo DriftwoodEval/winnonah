@@ -236,7 +236,7 @@ export const schedulingHelperRouter = createTRPCRouter({
 				evaluatorNpi: z.number(),
 				// Naive "YYYY-MM-DDTHH:mm:ss" wall-clock strings (America/New_York, no
 				// offset). The API localizes these to true UTC before storing (see
-				// business_to_utc in python/api.py). Do not send a Date/.toISOString()
+				// business_to_utc in python/api/app.py). Do not send a Date/.toISOString()
 				// here, that would introduce a timezone shift.
 				startTime: z.string(),
 				endTime: z.string(),

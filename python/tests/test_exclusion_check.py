@@ -4,7 +4,7 @@ from unittest.mock import Mock, patch
 import pytest
 import requests as requests_module
 
-from exclusion_check import (
+from cron.exclusion_check import (
     dedupe_matches,
     fetch_sam_exclusions,
     match_workers,
@@ -323,9 +323,9 @@ def test_fetch_sam_exclusions_polls_until_ready_and_parses_csv(monkeypatch):
     responses = [kickoff_response, not_ready_response, ready_response]
 
     with (
-        patch("exclusion_check.requests.get", side_effect=responses) as mock_get,
-        patch("exclusion_check.time.sleep"),
-        patch("exclusion_check.SAM_EXCLUSIONS_MIN_ROWS", 1),
+        patch("cron.exclusion_check.requests.get", side_effect=responses) as mock_get,
+        patch("cron.exclusion_check.time.sleep"),
+        patch("cron.exclusion_check.SAM_EXCLUSIONS_MIN_ROWS", 1),
     ):
         records = fetch_sam_exclusions()
 
@@ -344,7 +344,7 @@ def test_fetch_sam_exclusions_redacts_api_key_on_error(monkeypatch):
 
     with (
         patch(
-            "exclusion_check.requests.get",
+            "cron.exclusion_check.requests.get",
             side_effect=requests_module.RequestException(
                 "boom for url https://api.sam.gov/x?api_key=super-secret-key"
             ),

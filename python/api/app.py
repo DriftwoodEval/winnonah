@@ -16,8 +16,7 @@ from googleapiclient.discovery import build
 from loguru import logger
 from pydantic import BaseModel, ConfigDict, Field
 
-import appointment_reminders
-import greeter_proxy
+from api import appointment_reminders, greeter_proxy
 from utils.appointments import (
     DAEvalType,
     build_placeholder_description,

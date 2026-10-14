@@ -6,18 +6,18 @@ Documents, Unsure) using a local LLM, optionally identifying the
 client(s)/patient(s) the document is about.
 
 Usage:
-    python categorize_documents.py path/to/file.pdf [more.pdf ...]
-    python categorize_documents.py --clients path/to/file.pdf
+    python -m tools.categorize_documents path/to/file.pdf [more.pdf ...]
+    python -m tools.categorize_documents --clients path/to/file.pdf
 
     # Check accuracy against a folder of pre-tagged PDFs, named like
     # "case123_Referral.pdf" (the segment after the last underscore is the
     # correct category):
-    python categorize_documents.py --eval path/to/tagged_pdfs/
+    python -m tools.categorize_documents --eval path/to/tagged_pdfs/
 
     # Inspect what the fax cleanup (denoise/deskew/binarize) does to scanned
     # pages before OCR, without touching the source PDFs:
-    python categorize_documents.py --save-preprocessed out/ path/to/file.pdf
-    python categorize_documents.py --no-fax-cleanup path/to/file.pdf
+    python -m tools.categorize_documents --save-preprocessed out/ path/to/file.pdf
+    python -m tools.categorize_documents --no-fax-cleanup path/to/file.pdf
 """
 
 import argparse

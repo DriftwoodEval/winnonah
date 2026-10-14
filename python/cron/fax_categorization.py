@@ -9,7 +9,7 @@ plus any candidate client matches for staff to review on the
 /fax-categorization page.
 
 Usage:
-    python fax_categorization.py
+    uv run python -m cron.fax_categorization
 """
 
 import json

@@ -5,8 +5,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 import requests
 
-import appointment_reminders
-import greeter_proxy
+from api import appointment_reminders, greeter_proxy
 
 
 def _quo(send_result=None, messages=None):
