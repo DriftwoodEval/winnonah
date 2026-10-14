@@ -1,4 +1,4 @@
-import RunSummaryList from "~/app/_components/RunSummaryList";
+import RunSummaryList from "~/app/_components/shared/RunSummaryList";
 import { WidgetShell } from "./DayAheadWidgets";
 
 export function RunSummaryWidget() {

@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
-import { SchedulingHelper } from "~/app/_components/scheduling-helper/SchedulingHelper";
+import { SchedulingHelper } from "~/app/_components/scheduling/SchedulingHelper";
 import { Guard } from "../../_components/layout/Guard";
 
 export const metadata: Metadata = {

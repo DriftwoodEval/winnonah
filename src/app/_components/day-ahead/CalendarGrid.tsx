@@ -10,11 +10,11 @@ import { createContext, useContext, useMemo, useState } from "react";
 import { hasInPersonAppointment, isVirtualAppointment } from "~/lib/checkin";
 import { cn, formatInBusinessTime, toBusinessZonedTime } from "~/lib/utils";
 import type { RouterOutputs } from "~/trpc/react";
-import { CheckInOutControl } from "../appointments/CheckInOutControl";
-import { EvaluatorCheckInOutControl } from "../appointments/EvaluatorCheckInOutControl";
-import { useCheckinDateGate } from "../appointments/use-checkin-date-gate";
 import { Redact } from "../redaction/Redact";
+import { CheckInOutControl } from "./CheckInOutControl";
 import { ApptMessagesPopover, type RecentMessagesMap } from "./DayAheadShared";
+import { EvaluatorCheckInOutControl } from "./EvaluatorCheckInOutControl";
+import { useCheckinDateGate } from "./use-checkin-date-gate";
 
 // ─── Grid constants ───────────────────────────────────────────────────────────
 

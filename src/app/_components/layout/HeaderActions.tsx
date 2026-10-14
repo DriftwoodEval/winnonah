@@ -1,7 +1,7 @@
 "use client";
 
 import { IssuesAlert } from "@components/issues/issuesAlert";
-import { TaskQueueBubble } from "@components/tasks/TaskQueueBubble";
+import { TaskQueueBubble } from "@components/layout/TaskQueueBubble";
 import { Avatar, AvatarFallback, AvatarImage } from "@ui/avatar";
 import { Button } from "@ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@ui/popover";
@@ -15,11 +15,11 @@ import { useMediaQuery } from "~/hooks/use-media-query";
 import type { HeaderItemId } from "~/lib/header-items";
 import { api } from "~/trpc/react";
 import { RedactionToggle } from "../redaction/RedactionToggle";
-import { IssueFormLink } from "../shared/IssueFormLink";
-import { ThemeSwitcher } from "../shared/ThemeSwitcher";
 import { GlobalClientSearch } from "./GlobalClientSearch";
 import { HeaderItemsCustomizer } from "./HeaderItemsCustomizer";
 import { ImpersonateUserSelect } from "./ImpersonateUserSelect";
+import { IssueFormLink } from "./IssueFormLink";
+import { ThemeSwitcher } from "./ThemeSwitcher";
 
 export function HeaderActions() {
 	const pathname = usePathname();

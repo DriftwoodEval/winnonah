@@ -29,8 +29,6 @@ import { hasInPersonAppointment, isVirtualAppointment } from "~/lib/checkin";
 import { BUSINESS_TIMEZONE } from "~/lib/constants";
 import { IS_DEV, minutesToTimeString } from "~/lib/utils";
 import { api, type RouterOutputs } from "~/trpc/react";
-import { CheckInOutControl } from "../appointments/CheckInOutControl";
-import { EvaluatorCheckInOutControl } from "../appointments/EvaluatorCheckInOutControl";
 import { Redact } from "../redaction/Redact";
 import {
 	type AvailabilityWindow,
@@ -42,6 +40,7 @@ import {
 	type DateAvailabilityWindow,
 	formatTime,
 } from "./CalendarGrid";
+import { CheckInOutControl } from "./CheckInOutControl";
 import {
 	ApptMessagesPopover,
 	ApptTypeBadges,
@@ -54,6 +53,7 @@ import {
 	type GreeterSchedule,
 	type RecentMessagesMap,
 } from "./DayAheadShared";
+import { EvaluatorCheckInOutControl } from "./EvaluatorCheckInOutControl";
 
 // ─── Availability backdrop + click-to-schedule helpers ────────────────────────
 

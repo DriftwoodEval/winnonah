@@ -1,6 +1,6 @@
 "use client";
 
-import ReportQueue from "@components/shared/ReportQueue";
+import ReportQueue from "@components/reports/ReportQueue";
 import { Skeleton } from "@ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@ui/tabs";
 import { useSession } from "next-auth/react";
