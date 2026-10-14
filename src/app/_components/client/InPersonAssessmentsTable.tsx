@@ -127,8 +127,8 @@ function AssessmentActionsMenu({ assessment }: { assessment: Assessment }) {
 					<AlertDialogFooter>
 						<AlertDialogCancel>Cancel</AlertDialogCancel>
 						<AlertDialogAction
-							className="bg-destructive"
 							onClick={() => deleteAssessment.mutate({ id: assessment.id })}
+							variant="destructive"
 						>
 							Remove
 						</AlertDialogAction>

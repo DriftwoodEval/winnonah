@@ -33,6 +33,7 @@ import { format } from "date-fns";
 import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
+import { ConfirmDialog } from "~/app/_components/shared/ConfirmDialog";
 import { HighlightedPreview } from "~/app/_components/shared/PlaceholderHighlight";
 import { getSmsSegmentInfo } from "~/lib/sms";
 import { cn } from "~/lib/utils";
@@ -68,6 +69,7 @@ export function ReminderTemplateDialog({
 	const utils = api.useUtils();
 	const isEditing = !!initialData;
 
+	const [confirmingDelete, setConfirmingDelete] = useState(false);
 	const [offsetUnit, setOffsetUnit] = useState<"hours" | "days">(() =>
 		(initialData?.sendOffsetHours ?? 24) >= 24 ? "days" : "hours",
 	);
@@ -622,15 +624,7 @@ export function ReminderTemplateDialog({
 								<Button
 									className="w-full"
 									disabled={deleteTemplate.isPending}
-									onClick={() => {
-										if (
-											window.confirm(
-												"Delete this template? This cannot be undone.",
-											)
-										) {
-											deleteTemplate.mutate({ id: initialData.id });
-										}
-									}}
+									onClick={() => setConfirmingDelete(true)}
 									type="button"
 									variant="destructive"
 								>
@@ -640,6 +634,17 @@ export function ReminderTemplateDialog({
 						</div>
 					</form>
 				</Form>
+				<ConfirmDialog
+					confirmLabel="Delete"
+					description="This template will be permanently deleted. This cannot be undone."
+					onConfirm={() => {
+						if (initialData?.id) deleteTemplate.mutate({ id: initialData.id });
+					}}
+					onOpenChange={setConfirmingDelete}
+					open={confirmingDelete}
+					title="Delete this template?"
+					variant="destructive"
+				/>
 			</DialogContent>
 		</Dialog>
 	);

@@ -367,7 +367,6 @@ export function EditAvailabilityDialog({
 					<AlertDialogFooter>
 						<AlertDialogCancel>Cancel</AlertDialogCancel>
 						<AlertDialogAction
-							className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
 							disabled={isLocked}
 							onClick={() => {
 								deleteAvailability.mutate({
@@ -377,6 +376,7 @@ export function EditAvailabilityDialog({
 									startDate: event.start,
 								});
 							}}
+							variant="destructive"
 						>
 							Delete
 						</AlertDialogAction>

@@ -373,8 +373,8 @@ function TypeActionsMenu({ qtype }: { qtype: QType }) {
 					<AlertDialogFooter>
 						<AlertDialogCancel>Cancel</AlertDialogCancel>
 						<AlertDialogAction
-							className="bg-destructive"
 							onClick={() => deleteType.mutate({ id: qtype.id })}
+							variant="destructive"
 						>
 							Delete
 						</AlertDialogAction>

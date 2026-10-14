@@ -473,8 +473,8 @@ function RuleActionsMenu({ rule }: { rule: Rule }) {
 					<AlertDialogFooter>
 						<AlertDialogCancel>Cancel</AlertDialogCancel>
 						<AlertDialogAction
-							className="bg-destructive"
 							onClick={() => deleteRule.mutate({ id: rule.id })}
+							variant="destructive"
 						>
 							Delete
 						</AlertDialogAction>

@@ -288,9 +288,9 @@ function RoleActionsMenu({ role }: { role: Role }) {
 					<AlertDialogFooter>
 						<AlertDialogCancel>Cancel</AlertDialogCancel>
 						<AlertDialogAction
-							className="bg-destructive hover:bg-destructive/90"
 							disabled={deleteRole.isPending}
 							onClick={() => deleteRole.mutate({ id: role.id })}
+							variant="destructive"
 						>
 							{deleteRole.isPending ? "Deleting..." : "Delete"}
 						</AlertDialogAction>
