@@ -1,6 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
-import { desc, eq, lt } from "drizzle-orm";
+import { inArray, lt, max } from "drizzle-orm";
 import { OAuth2Client } from "google-auth-library";
 import type { Session } from "next-auth";
 import {
@@ -204,6 +204,26 @@ export async function syncDashboardSectionHistory() {
 		...duplicateNameIds,
 	]);
 
+	// The newest history row per client (ids are autoincrement), loaded once.
+	const lastRows = await db
+		.select({
+			clientId: clientDashboardSectionHistory.clientId,
+			sections: clientDashboardSectionHistory.sections,
+		})
+		.from(clientDashboardSectionHistory)
+		.where(
+			inArray(
+				clientDashboardSectionHistory.id,
+				db
+					.select({ id: max(clientDashboardSectionHistory.id) })
+					.from(clientDashboardSectionHistory)
+					.groupBy(clientDashboardSectionHistory.clientId),
+			),
+		);
+	const lastSectionsByClientId = new Map(
+		lastRows.map((row) => [row.clientId, row.sections]),
+	);
+
 	let updatedCount = 0;
 	for (const clientId of clientIds) {
 		const matchedSections = getClientMatchedSections(
@@ -241,14 +261,8 @@ export async function syncDashboardSectionHistory() {
 			...failureSections,
 		];
 
-		const [lastRow] = await db
-			.select({ sections: clientDashboardSectionHistory.sections })
-			.from(clientDashboardSectionHistory)
-			.where(eq(clientDashboardSectionHistory.clientId, clientId))
-			.orderBy(desc(clientDashboardSectionHistory.createdAt))
-			.limit(1);
-
-		if (lastRow && sectionsKey(lastRow.sections) === sectionsKey(sections)) {
+		const lastSections = lastSectionsByClientId.get(clientId);
+		if (lastSections && sectionsKey(lastSections) === sectionsKey(sections)) {
 			continue;
 		}
 
