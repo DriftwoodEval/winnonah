@@ -8,7 +8,10 @@ import { db } from "~/server/db";
 import { tasks } from "~/server/db/schema";
 
 const RECENT_WINDOW_MS = 1000 * 60 * 15;
-const POLL_INTERVAL_MS = 3000;
+// Poll quickly while a task is running so progress feels live, and slowly
+// otherwise since nothing changes until a new task starts.
+const ACTIVE_POLL_INTERVAL_MS = 3000;
+const IDLE_POLL_INTERVAL_MS = 15000;
 
 // Task types whose runs produce a `summary` worth showing on the run summary
 // section (Downloads settings tab and the home widget).
@@ -94,7 +97,13 @@ export const taskRouter = createTRPCRouter({
 				yield active;
 			}
 
-			await new Promise((resolve) => setTimeout(resolve, POLL_INTERVAL_MS));
+			const anyRunning = active.some((task) => task.status === "running");
+			await new Promise((resolve) =>
+				setTimeout(
+					resolve,
+					anyRunning ? ACTIVE_POLL_INTERVAL_MS : IDLE_POLL_INTERVAL_MS,
+				),
+			);
 		}
 	}),
 });
