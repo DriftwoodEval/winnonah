@@ -75,7 +75,7 @@ function PostPunchBadge({ edit }: { edit?: PostPunchEdit }) {
 	const who = edit.editedBy ?? "unknown";
 	return (
 		<Badge
-			className="ml-2 border-amber-500 text-amber-600 dark:text-amber-400"
+			className="ml-2 border-warning text-warning"
 			title={`Was "${edit.previousValue ?? "(empty)"}" before push. Changed by ${who} on ${when}.`}
 			variant="outline"
 		>

@@ -5,6 +5,7 @@ import {
 	AccordionItem,
 	AccordionTrigger,
 } from "@ui/accordion";
+import { Badge } from "@ui/badge";
 import { Button } from "@ui/button";
 import { ScrollArea } from "@ui/scroll-area";
 import { Separator } from "@ui/separator";
@@ -183,19 +184,19 @@ function ReportSectionItem({ id, title, reports }: ReportSection) {
 											<Redact>{r.clientFullName}</Redact>
 										</span>
 										{r.clientAutismStop && (
-											<span className="rounded-sm bg-destructive px-1 py-0.5 text-[10px] text-destructive-foreground">
+											<Badge className="" size="sm" variant="destructive">
 												Autism Stop
-											</span>
+											</Badge>
 										)}
 										{r.clientPause && (
-											<span className="rounded-sm bg-destructive px-1 py-0.5 text-[10px] text-destructive-foreground">
+											<Badge className="" size="sm" variant="destructive">
 												Paused
-											</span>
+											</Badge>
 										)}
 										{r.clientOutstandingBalance > 0 && (
-											<span className="rounded-sm bg-destructive px-1 py-0.5 text-[10px] text-destructive-foreground">
+											<Badge className="" size="sm" variant="destructive">
 												{formatCurrency(r.clientOutstandingBalance)} due
-											</span>
+											</Badge>
 										)}
 									</Link>
 									{isSaved ? (

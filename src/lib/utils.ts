@@ -310,8 +310,8 @@ const STATUS_COLOR_MAP: Record<string, string> = {
 export function getStatusColorClass(
 	status: (typeof QUESTIONNAIRE_STATUSES)[number] | null,
 ): string {
-	if (!status) return "text-gray-500"; // Default color for unknown/null status
-	return STATUS_COLOR_MAP[status] ?? "text-gray-500";
+	if (!status) return "text-muted-foreground"; // Default color for unknown/null status
+	return STATUS_COLOR_MAP[status] ?? "text-muted-foreground";
 }
 
 export function getReminderColorClass(

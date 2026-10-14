@@ -59,10 +59,7 @@ function highlightMatches(
 	return parts.map((part, i) => {
 		const key = i;
 		return i % 2 === 1 ? (
-			<mark
-				className="rounded-sm bg-yellow-300/70 text-foreground dark:bg-yellow-500/40"
-				key={key}
-			>
+			<mark className="rounded-sm bg-warning/30 text-foreground" key={key}>
 				{part}
 			</mark>
 		) : (

@@ -30,14 +30,14 @@ export const GRID_HOURS = Array.from(
 );
 
 export const EVAL_COLORS = [
-	"border-l-blue-400 bg-blue-50 dark:bg-blue-950/30",
-	"border-l-emerald-400 bg-emerald-50 dark:bg-emerald-950/30",
-	"border-l-violet-400 bg-violet-50 dark:bg-violet-950/30",
-	"border-l-amber-400 bg-amber-50 dark:bg-amber-950/30",
-	"border-l-rose-400 bg-rose-50 dark:bg-rose-950/30",
-	"border-l-cyan-400 bg-cyan-50 dark:bg-cyan-950/30",
-	"border-l-orange-400 bg-orange-50 dark:bg-orange-950/30",
-	"border-l-teal-400 bg-teal-50 dark:bg-teal-950/30",
+	"border-l-category-1 bg-category-1/10",
+	"border-l-category-2 bg-category-2/10",
+	"border-l-category-3 bg-category-3/10",
+	"border-l-category-4 bg-category-4/10",
+	"border-l-category-5 bg-category-5/10",
+	"border-l-category-6 bg-category-6/10",
+	"border-l-category-7 bg-category-7/10",
+	"border-l-category-8 bg-category-8/10",
 ];
 export const FALLBACK_COLOR = EVAL_COLORS[0] ?? "";
 
@@ -224,18 +224,15 @@ export function GridLines() {
 const CHECKIN_STAGE_STYLES = {
 	left: {
 		icon: LogOut,
-		className:
-			"bg-emerald-100 text-emerald-700 ring-emerald-600/20 dark:bg-emerald-950/50 dark:text-emerald-400 dark:ring-emerald-400/20",
+		className: "bg-success/15 text-success ring-success/20",
 	},
 	started: {
 		icon: LogIn,
-		className:
-			"bg-blue-100 text-blue-700 ring-blue-600/20 dark:bg-blue-950/50 dark:text-blue-400 dark:ring-blue-400/20",
+		className: "bg-info/15 text-info ring-info/20",
 	},
 	arrived: {
 		icon: DoorOpen,
-		className:
-			"bg-amber-100 text-amber-700 ring-amber-600/20 dark:bg-amber-950/50 dark:text-amber-400 dark:ring-amber-400/20",
+		className: "bg-warning/15 text-warning ring-warning/20",
 	},
 	none: {
 		icon: DoorOpen,
