@@ -65,6 +65,7 @@ const createFormSchema = (unavailableAliases: Set<string>) =>
 		shortName: z.string().min(1, "Short name is required"),
 		preAuthNeeded: z.boolean(),
 		preAuthLockin: z.boolean(),
+		ignoreBalance: z.boolean(),
 		appointmentsRequired: z.number().int().min(1),
 		additionalAppts: additionalInsuranceAppointmentsSchema,
 		aliases: z.array(z.string()).superRefine((aliases, ctx) => {
@@ -248,6 +249,7 @@ function InsuranceForm({
 				shortName: initialData.shortName,
 				preAuthNeeded: initialData.preAuthNeeded,
 				preAuthLockin: initialData.preAuthLockin,
+				ignoreBalance: initialData.ignoreBalance,
 				appointmentsRequired: initialData.appointmentsRequired,
 				aliases: initialData.aliases.map((a) => a.name),
 				evaluatorNpis: initialData.evaluatorNpis,
@@ -266,6 +268,7 @@ function InsuranceForm({
 			shortName: "",
 			preAuthNeeded: false,
 			preAuthLockin: false,
+			ignoreBalance: false,
 			appointmentsRequired: 1,
 			aliases: [],
 			evaluatorNpis: [],
@@ -420,6 +423,25 @@ function InsuranceForm({
 									</FormControl>
 									<div className="space-y-1 leading-none">
 										<FormLabel className="text-sm">Provider Lock In</FormLabel>
+									</div>
+								</FormItem>
+							)}
+						/>
+						<FormField
+							control={form.control}
+							name="ignoreBalance"
+							render={({ field }) => (
+								<FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4">
+									<FormControl>
+										<Checkbox
+											checked={field.value}
+											onCheckedChange={field.onChange}
+										/>
+									</FormControl>
+									<div className="space-y-1 leading-none">
+										<FormLabel className="text-sm">
+											Ignore Outstanding Balance
+										</FormLabel>
 									</div>
 								</FormItem>
 							)}

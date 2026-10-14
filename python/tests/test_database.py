@@ -17,6 +17,7 @@ from utils.database import (
     activate_reactivation_admin_review,
     filter_clients_with_changed_address,
     get_medicaid_clients_with_ids,
+    get_names_with_open_balance,
     get_python_config,
     get_services_config,
     get_sync_report_date,
@@ -1056,3 +1057,28 @@ class TestMarkPostevalPendingQuestionnaires:
         ]
         assert audit_rows == []
         assert conn.commits == 1
+
+
+class TestGetNamesWithOpenBalance:
+    def test_keeps_positive_balances_case_insensitively(self):
+        billing = pd.DataFrame(
+            {
+                "Client": ["Jane  DOE", "John Smith", "Amy Zero", None],
+                "Balance ($)": ["$1,200.50", "0.00", "0", "5"],
+                "Insurance": ["Aetna", "Aetna", None, "Aetna"],
+            }
+        )
+        assert get_names_with_open_balance(billing, set()) == {"jane doe"}
+
+    def test_skips_rows_with_ignored_insurance(self):
+        billing = pd.DataFrame(
+            {
+                "Client": ["Jane Doe", "John Smith", "Amy Blank"],
+                "Balance ($)": ["10", "20", "30"],
+                "Insurance": ["  babynet ", "Aetna", None],
+            }
+        )
+        assert get_names_with_open_balance(billing, {"BabyNet"}) == {
+            "john smith",
+            "amy blank",
+        }

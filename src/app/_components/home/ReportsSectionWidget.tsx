@@ -57,6 +57,11 @@ export function ReportsSectionWidget({ sectionId }: { sectionId: string }) {
 											Paused
 										</span>
 									)}
+									{r.clientOutstandingBalance && (
+										<span className="shrink-0 rounded-sm bg-destructive px-1 py-0.5 text-[10px] text-destructive-foreground">
+											Balance
+										</span>
+									)}
 								</span>
 							</Link>
 						</li>

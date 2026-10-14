@@ -634,16 +634,29 @@ export function ReportsTable({
 										selectMode && "cursor-pointer select-none",
 										isBethEvaluator(r.evalEvaluatorName) &&
 											"font-bold **:font-bold",
+										r.clientOutstandingBalance &&
+											"bg-destructive/15 hover:bg-destructive/20",
 									)}
 									data-state={selectedIds.has(r.id) ? "selected" : undefined}
 									key={r.id}
 									onClick={(e) => onRowClick(e, r.id)}
 								>
-									<TableCell className="max-w-[200px] max-md:sticky max-md:left-0 max-md:z-10 max-md:bg-background">
+									<TableCell
+										className={cn(
+											"max-w-[200px] max-md:sticky max-md:left-0 max-md:z-10",
+											r.clientOutstandingBalance
+												? "max-md:bg-destructive/15"
+												: "max-md:bg-background",
+										)}
+									>
 										<Link
 											className="block truncate text-sm hover:underline"
 											href={`/clients/${r.clientHash}`}
-											title={r.clientFullName}
+											title={
+												r.clientOutstandingBalance
+													? `${r.clientFullName} (outstanding balance)`
+													: r.clientFullName
+											}
 										>
 											{r.clientFullName}
 										</Link>

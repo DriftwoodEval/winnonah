@@ -211,6 +211,7 @@ export const reportsRouter = createTRPCRouter({
 					clientActive: clients.status,
 					clientAutismStop: clients.autismStop,
 					clientPause: clients.pause,
+					clientOutstandingBalance: clients.outstandingBalance,
 					clientColor: clients.color,
 					asdAdhd: reports.asdAdhd,
 					selfWritten: reports.selfWritten,

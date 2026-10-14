@@ -251,6 +251,12 @@ def import_from_ta(
         utils.database.sync_client_insurance_from_policies(connection=conn)
         utils.database.sync_scm_admin_reviews(connection=conn)
 
+        billing_csv = utils.therapyappointment.INPUT_DIR / "clients-billing.csv"
+        if billing_csv.exists():
+            utils.database.sync_client_outstanding_balances(
+                pd.read_csv(billing_csv), connection=conn
+            )
+
         all_clients_from_db = utils.database.get_all_clients(connection=conn)
 
         force_clients_ids = (

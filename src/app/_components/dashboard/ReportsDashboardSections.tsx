@@ -192,6 +192,11 @@ function ReportSectionItem({ id, title, reports }: ReportSection) {
 												Paused
 											</span>
 										)}
+										{r.clientOutstandingBalance && (
+											<span className="rounded-sm bg-destructive px-1 py-0.5 text-[10px] text-destructive-foreground">
+												Balance
+											</span>
+										)}
 									</Link>
 									{isSaved ? (
 										<button

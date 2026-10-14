@@ -1190,6 +1190,71 @@ def sync_scm_admin_reviews(connection: Connection[DictCursor]):
     logger.info(f"Created {len(rows)} SCM admin review record(s).")
 
 
+def get_names_with_open_balance(
+    billing: pd.DataFrame, ignored_insurances: set[str]
+) -> set[str]:
+    """Returns lowercased "first last" names from the billing CSV that owe a balance.
+
+    A row counts when its balance is above zero and its CSV Insurance is not in
+    ignored_insurances (compared case-insensitively). Rows with no insurance
+    always count.
+    """
+    balances = pd.to_numeric(
+        billing["Balance ($)"].astype(str).str.replace(r"[$,]", "", regex=True),
+        errors="coerce",
+    )
+    ignored = {name.lower() for name in ignored_insurances}
+    insurance = billing["Insurance"].fillna("").astype(str).str.strip().str.lower()
+    owing = billing[(balances > 0) & ~insurance.isin(ignored)]
+    return {" ".join(name.split()).lower() for name in owing["Client"].dropna()}
+
+
+def sync_client_outstanding_balances(
+    billing: pd.DataFrame, connection: Connection[DictCursor]
+):
+    """Flags clients that appear in the billing CSV with an open balance.
+
+    The CSV only carries "First Last" names (no preferred names, no IDs), so
+    clients are matched case-insensitively on firstName + lastName. Rows whose
+    CSV Insurance matches an insurance (shortName or alias) marked
+    ignoreBalance do not count. The client's own insurance in the database is
+    not consulted.
+    """
+    logger.debug("Syncing client outstanding balances")
+    with connection.cursor() as cursor:
+        cursor.execute(
+            f"""
+            SELECT i.shortName AS name FROM `{TABLE_INSURANCE}` i WHERE i.ignoreBalance = 1
+            UNION
+            SELECT a.name FROM `{TABLE_INSURANCE_ALIAS}` a
+            JOIN `{TABLE_INSURANCE}` i ON i.id = a.insuranceId
+            WHERE i.ignoreBalance = 1
+            """
+        )
+        ignored_insurances = {row["name"] for row in cursor.fetchall()}
+
+        cursor.execute(f"SELECT id, firstName, lastName FROM `{TABLE_CLIENT}`")
+        clients = cursor.fetchall()
+
+    with_balance = get_names_with_open_balance(billing, ignored_insurances)
+    flagged_ids = [
+        client["id"]
+        for client in clients
+        if f"{client['firstName']} {client['lastName']}".lower() in with_balance
+    ]
+
+    with connection.cursor() as cursor:
+        cursor.execute(f"UPDATE `{TABLE_CLIENT}` SET outstandingBalance = 0")
+        if flagged_ids:
+            placeholders = ", ".join(["%s"] * len(flagged_ids))
+            cursor.execute(
+                f"UPDATE `{TABLE_CLIENT}` SET outstandingBalance = 1 WHERE id IN ({placeholders})",
+                flagged_ids,
+            )
+    connection.commit()
+    logger.info(f"{len(flagged_ids)} client(s) flagged with an outstanding balance.")
+
+
 @provide_connection
 def update_client_medicaid_eligibility(
     client_id: int,

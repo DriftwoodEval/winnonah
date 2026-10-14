@@ -58,6 +58,9 @@ export const insurances = createTable("insurance", (d) => ({
 	shortName: d.varchar({ length: 255 }).notNull().unique(),
 	preAuthNeeded: d.boolean().notNull().default(false),
 	preAuthLockin: d.boolean().notNull().default(false),
+	// Billing CSV rows with this insurance are not counted as an outstanding
+	// balance.
+	ignoreBalance: d.boolean().notNull().default(false),
 	appointmentsRequired: d.int().notNull().default(1),
 	additionalAppts: d
 		.json("additionalAppts")
@@ -286,6 +289,9 @@ export const clients = createTable(
 		longitude: d.decimal({ precision: 11, scale: 8 }),
 		primaryInsurance: d.varchar({ length: 255 }),
 		secondaryInsurance: d.json("secondaryInsurance").$type<string[]>(),
+		// Set by the billing CSV sync: the client has an open balance on a row
+		// whose insurance is not marked ignoreBalance.
+		outstandingBalance: d.boolean().notNull().default(false),
 		qualCategory: d.varchar({ length: 255 }),
 		paymentCategory: d.varchar({ length: 255 }),
 		medicaidOrganization: d.varchar({ length: 255 }),
