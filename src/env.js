@@ -26,6 +26,7 @@ export const env = createEnv({
 		AUTH_GOOGLE_SECRET: z.string(),
 		AUTH_GOOGLE_WORKSPACE_DOMAIN: z.string(),
 		DATABASE_URL: z.url(),
+		DB_QUERY_LOG: z.stringbool().default(false),
 		NODE_ENV: z
 			.enum(["development", "test", "production"])
 			.default("development"),
@@ -65,6 +66,7 @@ export const env = createEnv({
 		AUTH_GOOGLE_SECRET: process.env.AUTH_GOOGLE_SECRET,
 		AUTH_GOOGLE_WORKSPACE_DOMAIN: process.env.AUTH_GOOGLE_WORKSPACE_DOMAIN,
 		DATABASE_URL: process.env.DATABASE_URL,
+		DB_QUERY_LOG: process.env.DB_QUERY_LOG,
 		NODE_ENV: process.env.NODE_ENV,
 		PUNCHLIST_ID: process.env.PUNCHLIST_ID,
 		PUNCHLIST_RANGE: process.env.PUNCHLIST_RANGE,

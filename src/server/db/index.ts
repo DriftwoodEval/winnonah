@@ -25,4 +25,9 @@ const conn =
 	});
 if (env.NODE_ENV !== "production") globalForDb.conn = conn;
 
-export const db = drizzle(conn, { schema, mode: "default" });
+// Set DB_QUERY_LOG=true to print every SQL statement, e.g. to spot N+1 loops.
+export const db = drizzle(conn, {
+	schema,
+	mode: "default",
+	logger: env.DB_QUERY_LOG,
+});
