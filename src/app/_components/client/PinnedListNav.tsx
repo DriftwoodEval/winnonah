@@ -1,5 +1,6 @@
 "use client";
 
+import { Badge } from "@ui/badge";
 import { Button } from "@ui/button";
 import { ChevronDown, ChevronLeft, ChevronRight, Pin, X } from "lucide-react";
 import Link from "next/link";
@@ -45,17 +46,14 @@ function ExpandedRow({
 					<Redact>{entry.name}</Redact>
 				</span>
 				{entry.waiting && (
-					<span className="rounded-sm bg-warning px-1 py-0.5 text-[10px] text-warning-foreground">
+					<Badge className="" size="sm" variant="warning">
 						Waiting
-					</span>
+					</Badge>
 				)}
 				{entry.chips.map((chip) => (
-					<span
-						className="rounded-sm bg-destructive/10 px-1 py-0.5 text-[10px] text-destructive"
-						key={chip}
-					>
+					<Badge className="" key={chip} size="sm" variant="destructive">
 						{chip}
-					</span>
+					</Badge>
 				))}
 			</div>
 			{hasSubline && (

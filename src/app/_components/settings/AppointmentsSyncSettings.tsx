@@ -126,7 +126,7 @@ export default function AppointmentsSyncSettings() {
 								</FormDescription>
 								<FormControl>
 									<MultipleSelector
-										badgeClassName="bg-destructive text-destructive-foreground"
+										badgeClassName="bg-destructive/10 text-destructive"
 										creatable={true}
 										disabled={!canEdit}
 										emptyIndicator={

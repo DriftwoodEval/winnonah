@@ -1,5 +1,6 @@
 "use client";
 
+import { Badge } from "@ui/badge";
 import { Skeleton } from "@ui/skeleton";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
@@ -108,9 +109,9 @@ export function MyInsuranceClientsWidget() {
 						>
 							<Redact>{c.clientName}</Redact>
 							{c.waiting && (
-								<span className="rounded-sm bg-warning px-1 py-0.5 text-[10px] text-warning-foreground">
+								<Badge className="" size="sm" variant="warning">
 									Waiting
-								</span>
+								</Badge>
 							)}
 						</Link>
 					))}

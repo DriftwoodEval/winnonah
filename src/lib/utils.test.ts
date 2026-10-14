@@ -235,7 +235,7 @@ describe("getStatusColorClass", () => {
 	});
 
 	it("returns the default class for null", () => {
-		expect(getStatusColorClass(null)).toBe("text-gray-500");
+		expect(getStatusColorClass(null)).toBe("text-muted-foreground");
 	});
 });
 

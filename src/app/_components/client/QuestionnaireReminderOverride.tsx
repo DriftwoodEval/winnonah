@@ -92,7 +92,7 @@ function StageEditor({
 		<div className="space-y-1.5">
 			<Label className="text-sm">{label}</Label>
 			{alreadySent && (
-				<p className="text-amber-600 text-xs dark:text-amber-500">
+				<p className="text-warning text-xs">
 					This reminder has already gone out for this batch (or the reminder
 					limit has been reached), so it can no longer be edited.
 				</p>

@@ -1,5 +1,6 @@
 "use client";
 
+import { Badge } from "@ui/badge";
 import { Skeleton } from "@ui/skeleton";
 import Link from "next/link";
 import { getHexFromColor } from "~/lib/colors";
@@ -49,19 +50,19 @@ export function ReportsSectionWidget({ sectionId }: { sectionId: string }) {
 										<Redact>{r.clientFullName}</Redact>
 									</span>
 									{r.clientAutismStop && (
-										<span className="shrink-0 rounded-sm bg-warning px-1 py-0.5 text-[10px] text-warning-foreground">
+										<Badge className="shrink-0" size="sm" variant="warning">
 											Autism Stop
-										</span>
+										</Badge>
 									)}
 									{r.clientPause && (
-										<span className="shrink-0 rounded-sm bg-warning px-1 py-0.5 text-[10px] text-warning-foreground">
+										<Badge className="shrink-0" size="sm" variant="warning">
 											Paused
-										</span>
+										</Badge>
 									)}
 									{r.clientOutstandingBalance > 0 && (
-										<span className="shrink-0 rounded-sm bg-destructive px-1 py-0.5 text-[10px] text-destructive-foreground">
+										<Badge className="shrink-0" size="sm" variant="destructive">
 											{formatCurrency(r.clientOutstandingBalance)} due
-										</span>
+										</Badge>
 									)}
 								</span>
 							</Link>

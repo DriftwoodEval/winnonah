@@ -289,10 +289,7 @@ function PunchListAccordionItem({
 														{title === SECTION_NEEDS_OUTREACH &&
 															(client.referralData?.outreachAttempts?.length ??
 																0) > 0 && (
-																<Badge
-																	className="text-[10px]"
-																	variant="destructive"
-																>
+																<Badge className="" variant="destructive">
 																	{
 																		client.referralData?.outreachAttempts
 																			?.length
@@ -301,28 +298,42 @@ function PunchListAccordionItem({
 																</Badge>
 															)}
 														{client.failures?.map((failure) => (
-															<span
-																className="hidden rounded-sm bg-destructive/10 px-1 py-0.5 text-[10px] text-destructive md:inline-block"
+															<Badge
+																className="hidden md:inline-block"
 																key={failure.reason}
+																size="sm"
+																variant="destructive"
 															>
 																{failure.reason}
-															</span>
+															</Badge>
 														))}
 														{isRecordsNotReturnedSection &&
 															punchClient.evaluationInProcess && (
-																<span className="hidden rounded-sm bg-destructive/10 px-1 py-0.5 text-[10px] text-destructive md:inline-block">
+																<Badge
+																	className="hidden md:inline-block"
+																	size="sm"
+																	variant="destructive"
+																>
 																	Eval In Process
-																</span>
+																</Badge>
 															)}
 														{punchClient.autismStop && (
-															<span className="hidden rounded-sm bg-destructive px-1 py-0.5 text-[10px] text-destructive-foreground md:inline-block">
+															<Badge
+																className="hidden md:inline-block"
+																size="sm"
+																variant="destructive"
+															>
 																Autism Stop
-															</span>
+															</Badge>
 														)}
 														{punchClient.pause && (
-															<span className="hidden rounded-sm bg-destructive px-1 py-0.5 text-[10px] text-destructive-foreground md:inline-block">
+															<Badge
+																className="hidden md:inline-block"
+																size="sm"
+																variant="destructive"
+															>
 																Paused
-															</span>
+															</Badge>
 														)}
 													</div>
 													{(punchClient.extraInfo ||
@@ -352,28 +363,42 @@ function PunchListAccordionItem({
 													punchClient.pause) && (
 													<div className="mt-1 md:hidden">
 														{client.failures?.map((failure) => (
-															<span
-																className="mr-1 inline-block rounded-sm bg-destructive/10 px-1 py-0.5 text-[10px] text-destructive"
+															<Badge
+																className="mr-1 inline-block"
 																key={failure.reason}
+																size="sm"
+																variant="destructive"
 															>
 																{failure.reason}
-															</span>
+															</Badge>
 														))}
 														{isRecordsNotReturnedSection &&
 															punchClient.evaluationInProcess && (
-																<span className="mr-1 inline-block rounded-sm bg-destructive/10 px-1 py-0.5 text-[10px] text-destructive">
+																<Badge
+																	className="mr-1 inline-block"
+																	size="sm"
+																	variant="destructive"
+																>
 																	Eval In Process
-																</span>
+																</Badge>
 															)}
 														{punchClient.autismStop && (
-															<span className="mr-1 inline-block rounded-sm bg-destructive px-1 py-0.5 text-[10px] text-destructive-foreground">
+															<Badge
+																className="mr-1 inline-block"
+																size="sm"
+																variant="destructive"
+															>
 																Autism Stop
-															</span>
+															</Badge>
 														)}
 														{punchClient.pause && (
-															<span className="mr-1 inline-block rounded-sm bg-destructive px-1 py-0.5 text-[10px] text-destructive-foreground">
+															<Badge
+																className="mr-1 inline-block"
+																size="sm"
+																variant="destructive"
+															>
 																Paused
-															</span>
+															</Badge>
 														)}
 													</div>
 												)}
@@ -836,13 +861,17 @@ export function Dashboard() {
 																	<Redact>{c.clientName}</Redact>
 																</span>
 																{c.waiting && (
-																	<span className="rounded-sm bg-warning px-1 py-0.5 text-[10px] text-warning-foreground">
+																	<Badge
+																		className=""
+																		size="sm"
+																		variant="warning"
+																	>
 																		Waiting
-																	</span>
+																	</Badge>
 																)}
 																{c.claimedUserName && (
 																	<span
-																		className="rounded-sm px-1 py-0.5 text-[10px]"
+																		className="rounded-sm px-1 py-0.5"
 																		style={userBadgeStyle(
 																			c.claimedUserName.split(" ")[0] ??
 																				c.claimedUserName,

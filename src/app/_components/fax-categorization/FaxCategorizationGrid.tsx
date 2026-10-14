@@ -58,20 +58,15 @@ const CATEGORIES = [
 type Category = (typeof CATEGORIES)[number];
 
 const CATEGORY_BADGE_CLASSES: Record<Category, string> = {
-	Referral:
-		"border-blue-500/30 bg-blue-500/10 text-blue-700 dark:text-blue-400",
-	"Records Request":
-		"border-purple-500/30 bg-purple-500/10 text-purple-700 dark:text-purple-400",
-	Insurance:
-		"border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-400",
+	Referral: "border-info/30 bg-info/10 text-info",
+	"Records Request": "border-category-3/30 bg-category-3/10 text-category-3",
+	Insurance: "border-warning/30 bg-warning/10 text-warning",
 	"Insurance Denial":
-		"border-red-500/30 bg-red-500/10 text-red-700 dark:text-red-400",
-	"Insurance Approval":
-		"border-green-500/30 bg-green-500/10 text-green-700 dark:text-green-400",
+		"border-destructive/30 bg-destructive/10 text-destructive",
+	"Insurance Approval": "border-success/30 bg-success/10 text-success",
 	"Status Update Request":
-		"border-cyan-500/30 bg-cyan-500/10 text-cyan-700 dark:text-cyan-400",
-	"Patient Documents":
-		"border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400",
+		"border-category-6/30 bg-category-6/10 text-category-6",
+	"Patient Documents": "border-category-2/30 bg-category-2/10 text-category-2",
 	Unsure: "border-muted-foreground/30 bg-muted text-muted-foreground",
 };
 

@@ -85,7 +85,7 @@ export function RecentMessagesPopover({
 					className={cn(
 						"shrink-0 rounded-full p-1 transition-colors",
 						isRecent
-							? "bg-amber-100 text-amber-700 dark:bg-amber-950/40 dark:text-amber-400"
+							? "bg-warning/15 text-warning"
 							: "text-muted-foreground/60 hover:bg-muted hover:text-muted-foreground",
 						className,
 					)}

@@ -1,5 +1,6 @@
 "use client";
 
+import { Badge } from "@ui/badge";
 import { Skeleton } from "@ui/skeleton";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
@@ -161,27 +162,29 @@ function DashboardClientRow({
 							</span>
 						)}
 						{isRecordsNotReturnedSection && full.evaluationInProcess && (
-							<span className="shrink-0 rounded-sm bg-destructive/10 px-1 py-0.5 text-[10px] text-destructive">
+							<Badge className="shrink-0" size="sm" variant="destructive">
 								Eval In Process
-							</span>
+							</Badge>
 						)}
 						{full.autismStop && (
-							<span className="shrink-0 rounded-sm bg-warning px-1 py-0.5 text-[10px] text-warning-foreground">
+							<Badge className="shrink-0" size="sm" variant="warning">
 								Autism Stop
-							</span>
+							</Badge>
 						)}
 						{full.pause && (
-							<span className="shrink-0 rounded-sm bg-warning px-1 py-0.5 text-[10px] text-warning-foreground">
+							<Badge className="shrink-0" size="sm" variant="warning">
 								Paused
-							</span>
+							</Badge>
 						)}
 						{full.failures?.map((f) => (
-							<span
-								className="shrink-0 rounded-sm bg-destructive/10 px-1 py-0.5 text-[10px] text-destructive"
+							<Badge
+								className="shrink-0"
 								key={f.reason}
+								size="sm"
+								variant="destructive"
 							>
 								{f.reason}
-							</span>
+							</Badge>
 						))}
 					</span>
 					{full.matchedSections && (
