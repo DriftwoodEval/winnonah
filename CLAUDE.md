@@ -20,6 +20,7 @@ Docs live in `src/content/docs/` as Markdown/MDX and are read by practice staff,
 ## Commands
 - `mise run check` type-checks and lints everything (TS + Python); use `check:pnpm`/`check:ruff` to run just one side. Don't call `tsc`/`ruff` directly.
 - Trust ruff over your own syntax assumptions.
+- `mise run check` also runs knip (unused TS files, exports, and dependencies; config in `knip.json`) and deptry (Python dependencies). Both are advisory: they print findings and never fail the check or CI. Treat a new finding in code you wrote as worth fixing, and don't chase old ones as part of unrelated changes.
 - Never run `pnpm db:*` or DB migrations, leave to the user.
 - The Python sidecar is laid out by role under `python/`: `api/` (FastAPI app and routers; served as `api.app:app`), `cron/` (scheduled jobs), `tools/` and `oneoff/` (manual scripts), `utils/` (shared logic), `common/` (code shared with `questionnaires`). `failover_notify.py` stays at the top because the host failover scripts call it by name. Run any script as a module from `python/`, not by file path, so `utils` imports resolve: `uv run python -m cron.main`, `uv run python -m oneoff.remediate_noop_audit_log`.
 

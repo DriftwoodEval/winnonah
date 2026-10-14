@@ -105,7 +105,7 @@ convention = "google"
 extend-immutable-calls = ["fastapi.Depends", "fastapi.Query"]
 
 [tool.deptry]
-extend_exclude = ["^conftest\\.py$"]
+extend_exclude = ["^conftest\\.py$", "^common/"]
 
 [tool.deptry.per_rule_ignores]
 # Not imported directly - llama_cpp.Llama.from_pretrained() imports it
