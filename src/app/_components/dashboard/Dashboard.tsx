@@ -51,6 +51,7 @@ import { userBadgeStyle } from "~/lib/utils";
 import { api } from "~/trpc/react";
 import { Redact } from "../redaction/Redact";
 import { PinListButton } from "./PinListButton";
+import { ReportsDashboardSections } from "./ReportsDashboardSections";
 
 interface PunchListAccordionProps {
 	clients: DashboardClient[];
@@ -911,6 +912,7 @@ export function Dashboard() {
 						/>
 					</Fragment>
 				))}
+				<ReportsDashboardSections />
 			</Accordion>
 		</div>
 	);

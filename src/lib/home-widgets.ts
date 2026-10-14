@@ -11,6 +11,7 @@ export type HomeWidgetDef = {
 	category: WidgetCategory;
 	sizing: WidgetSizing;
 	dashboardSection?: string;
+	reportSection?: string;
 	removable?: false;
 };
 
@@ -268,6 +269,22 @@ export const HOME_WIDGET_DEFS: HomeWidgetDef[] = [
 		category: "dashboard",
 		sizing: "content",
 	},
+	// Reports (beta) lists
+	...(
+		[
+			["writer", "Reports: Writer not done"],
+			["second-review", "Reports: Second review needed"],
+			["first-review", "Reports: First review not done"],
+			["billing", "Reports: Not billed"],
+		] as const
+	).map(([section, label]) => ({
+		id: `rs-${section}`,
+		label,
+		permission: "reports:beta" as const,
+		category: "dashboard" as const,
+		sizing: "content" as const,
+		reportSection: section,
+	})),
 	// Dashboard sections
 	{
 		id: "ds-active-not-on-punchlist",

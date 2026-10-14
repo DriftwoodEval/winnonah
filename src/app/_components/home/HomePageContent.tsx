@@ -19,6 +19,7 @@ import { GreeterScheduleWidget } from "./GreeterScheduleWidget";
 import { GridWidgetCell } from "./GridWidgetCell";
 import { HomeCustomizer } from "./HomeCustomizer";
 import { IssueWidgetById } from "./IssueWidgetById";
+import { ReportsSectionWidget } from "./ReportsSectionWidget";
 import { RunSummaryWidget } from "./RunSummaryWidget";
 
 export function HomePageContent() {
@@ -73,6 +74,11 @@ export function HomePageContent() {
 											<DashboardSectionWidget
 												sectionTitle={def.dashboardSection}
 											/>
+										);
+									}
+									if (def?.reportSection) {
+										return (
+											<ReportsSectionWidget sectionId={def.reportSection} />
 										);
 									}
 									if (w.id === "clients") return <ClientWidget />;
