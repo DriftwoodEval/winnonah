@@ -5,6 +5,8 @@ Code shared by the winnonah and questionnaires Python projects. Keep it small an
 - `driftwood_common.constants`: `BUSINESS_TIMEZONE` and the `emr_task` table name.
 - `driftwood_common.timezone`: conversions between business-local wall-clock time and UTC.
 - `driftwood_common.task_tracker`: records job runs in `emr_task` and guards against overlapping runs. Each project wraps `track_task` with its own database connection.
+- `driftwood_common.quo`: pure helpers for the Quo messaging API (phone normalization, request payloads and queries, response parsing). No HTTP library.
+- `driftwood_common.quo_client`: `QuoClient`, a synchronous client with rate limiting and retries. Async callers run it with `asyncio.to_thread`.
 
 winnonah installs it from this folder (a local path dependency). questionnaires installs it from this repo's `main` branch through a git dependency, pinned to a commit by its `uv.lock`. To pick up changes there, run `uv lock --upgrade-package driftwood-common` and commit the lock file.
 

@@ -8,12 +8,9 @@ import re
 from datetime import UTC, date, datetime, timedelta
 from typing import Annotated
 
-from driftwood_common.quo import (
-    build_messages_query,
-    build_send_payload,
-    fill_placeholders,
-    to_e164,
-)
+import requests
+from driftwood_common.quo import fill_placeholders
+from driftwood_common.quo_client import QuoClient
 from driftwood_common.timezone import (
     business_to_utc,
     now_business,
@@ -21,7 +18,6 @@ from driftwood_common.timezone import (
     utc_to_business,
 )
 from fastapi import APIRouter, BackgroundTasks, Header, HTTPException, Request
-from httpx import AsyncClient, HTTPStatusError
 from loguru import logger
 from pymysql.connections import Connection
 from pymysql.cursors import DictCursor
@@ -87,20 +83,16 @@ def _reminder_destination(appt: dict, template: dict) -> str | None:
     return appt.get("phoneNumber")
 
 
-_http_client: AsyncClient | None = None
+_quo_client: QuoClient | None = None
 
 
-def get_http_client() -> AsyncClient:
-    global _http_client  # noqa: PLW0603
-    if _http_client is None:
-        _http_client = AsyncClient(
-            base_url="https://api.quo.com/v1",
-            headers={
-                "Authorization": OPENPHONE_API_TOKEN,
-                "Content-Type": "application/json",
-            },
+def get_quo_client() -> QuoClient:
+    global _quo_client  # noqa: PLW0603
+    if _quo_client is None:
+        _quo_client = QuoClient(
+            OPENPHONE_API_TOKEN, phone_number_id=OPENPHONE_NUMBER_ID
         )
-    return _http_client
+    return _quo_client
 
 
 @provide_connection
@@ -763,8 +755,6 @@ async def should_handle_reply(
     2. No manual outgoing messages from us exist (automated reminder messages are excluded
        by checking the reminder logs table).
     """
-    http = get_http_client()
-
     sent_at_utc = (
         sent_at.replace(tzinfo=UTC)
         if sent_at.tzinfo is None
@@ -772,12 +762,11 @@ async def should_handle_reply(
     )
 
     try:
-        params = build_messages_query(
-            OPENPHONE_NUMBER_ID, to_e164(client_phone), since=sent_at_utc
+        # A failed or malformed lookup returns no messages, which allows handling.
+        recent = await asyncio.to_thread(
+            get_quo_client().get_messages, client_phone, sent_at_utc
         )
-        response = await http.get("/messages", params=params)
-        response.raise_for_status()
-        messages = response.json().get("data", [])
+        messages = [message for message, _ in recent]
 
         outgoing_ids = []
         for msg in messages:
@@ -1030,19 +1019,15 @@ async def reminder_cron():
 
 
 async def send_sms(to: str, body: str) -> str | None:
-    client = get_http_client()
     try:
-        response = await client.post(
-            "/messages",
-            json=build_send_payload(body, OPENPHONE_NUMBER_ID, to, mark_done=True),
+        data = await asyncio.to_thread(
+            get_quo_client().send_text, body, to, mark_done=True
         )
-        response.raise_for_status()
-        data = response.json().get("data", {})
-        return data.get("id")
-    except HTTPStatusError as e:
-        logger.error(
-            f"Failed to send SMS to {to}: HTTP {e.response.status_code} - {e.response.text}"
-        )
+        return (data or {}).get("id")
+    except requests.HTTPError as e:
+        status = e.response.status_code if e.response is not None else "unknown"
+        detail = e.response.text if e.response is not None else str(e)
+        logger.error(f"Failed to send SMS to {to}: HTTP {status} - {detail}")
         raise
     except Exception as e:
         logger.error(f"Failed to send SMS to {to}: {e}")
