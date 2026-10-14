@@ -1,9 +1,7 @@
 import json
-from unittest.mock import patch
 
 import pytest
-
-from utils.task_tracker import track_task
+from driftwood_common.task_tracker import STALE_TASK_HOURS, track_task
 
 
 class FakeCursor:
@@ -60,8 +58,9 @@ class TestTrackTaskLockAcquired:
     def test_yields_task_handle_and_inserts_running_row(self):
         conn = FakeConnection(lock_acquired=True)
         with (
-            patch("utils.task_tracker.get_db", return_value=conn),
-            track_task("fax_categorization", "Fax categorization") as handle,
+            track_task(
+                lambda: conn, "fax_categorization", "Fax categorization"
+            ) as handle,
         ):
             assert handle is not None
             assert handle.task_id == 42
@@ -74,8 +73,7 @@ class TestTrackTaskLockAcquired:
     def test_marks_completed_on_success(self):
         conn = FakeConnection(lock_acquired=True)
         with (
-            patch("utils.task_tracker.get_db", return_value=conn),
-            track_task("fax_categorization", "Fax categorization"),
+            track_task(lambda: conn, "fax_categorization", "Fax categorization"),
         ):
             pass
         completed = [
@@ -87,9 +85,8 @@ class TestTrackTaskLockAcquired:
     def test_marks_failed_and_reraises_on_exception(self):
         conn = FakeConnection(lock_acquired=True)
         with (
-            patch("utils.task_tracker.get_db", return_value=conn),
             pytest.raises(ValueError, match="boom"),
-            track_task("fax_categorization", "Fax categorization"),
+            track_task(lambda: conn, "fax_categorization", "Fax categorization"),
         ):
             raise ValueError("boom")
         failed = [
@@ -103,8 +100,7 @@ class TestTrackTaskLockAcquired:
     def test_clears_orphaned_rows_before_inserting_new_row(self):
         conn = FakeConnection(lock_acquired=True)
         with (
-            patch("utils.task_tracker.get_db", return_value=conn),
-            track_task("fax_categorization", "Fax categorization"),
+            track_task(lambda: conn, "fax_categorization", "Fax categorization"),
         ):
             pass
         orphan_idx = next(
@@ -118,8 +114,7 @@ class TestTrackTaskLockAcquired:
     def test_releases_lock_and_closes_connection_on_success(self):
         conn = FakeConnection(lock_acquired=True)
         with (
-            patch("utils.task_tracker.get_db", return_value=conn),
-            track_task("fax_categorization", "Fax categorization"),
+            track_task(lambda: conn, "fax_categorization", "Fax categorization"),
         ):
             pass
         assert _queries_matching(conn, "RELEASE_LOCK")
@@ -128,9 +123,8 @@ class TestTrackTaskLockAcquired:
     def test_releases_lock_and_closes_connection_on_failure(self):
         conn = FakeConnection(lock_acquired=True)
         with (
-            patch("utils.task_tracker.get_db", return_value=conn),
             pytest.raises(ValueError),
-            track_task("fax_categorization", "Fax categorization"),
+            track_task(lambda: conn, "fax_categorization", "Fax categorization"),
         ):
             raise ValueError("boom")
         assert _queries_matching(conn, "RELEASE_LOCK")
@@ -141,8 +135,9 @@ class TestTrackTaskLockNotAcquired:
     def test_yields_none_and_does_not_insert_row(self):
         conn = FakeConnection(lock_acquired=False)
         with (
-            patch("utils.task_tracker.get_db", return_value=conn),
-            track_task("fax_categorization", "Fax categorization") as handle,
+            track_task(
+                lambda: conn, "fax_categorization", "Fax categorization"
+            ) as handle,
         ):
             assert handle is None
         assert not _queries_matching(conn, "INSERT INTO emr_task")
@@ -150,8 +145,7 @@ class TestTrackTaskLockNotAcquired:
     def test_closes_connection_without_releasing_lock(self):
         conn = FakeConnection(lock_acquired=False)
         with (
-            patch("utils.task_tracker.get_db", return_value=conn),
-            track_task("fax_categorization", "Fax categorization"),
+            track_task(lambda: conn, "fax_categorization", "Fax categorization"),
         ):
             pass
         assert conn.closed
@@ -162,8 +156,9 @@ class TestTaskHandleProgress:
     def test_updates_progress_fields(self):
         conn = FakeConnection(lock_acquired=True)
         with (
-            patch("utils.task_tracker.get_db", return_value=conn),
-            track_task("fax_categorization", "Fax categorization") as handle,
+            track_task(
+                lambda: conn, "fax_categorization", "Fax categorization"
+            ) as handle,
         ):
             assert handle is not None
             handle.progress(5, total=10, detail="halfway")
@@ -174,8 +169,9 @@ class TestTaskHandleProgress:
     def test_detail_defaults_to_none(self):
         conn = FakeConnection(lock_acquired=True)
         with (
-            patch("utils.task_tracker.get_db", return_value=conn),
-            track_task("fax_categorization", "Fax categorization") as handle,
+            track_task(
+                lambda: conn, "fax_categorization", "Fax categorization"
+            ) as handle,
         ):
             assert handle is not None
             handle.progress(3)
@@ -187,8 +183,7 @@ class TestTaskHandleSetSummary:
     def test_writes_summary_as_json(self):
         conn = FakeConnection(lock_acquired=True)
         with (
-            patch("utils.task_tracker.get_db", return_value=conn),
-            track_task("import_from_ta", "Importing from TA") as handle,
+            track_task(lambda: conn, "import_from_ta", "Importing from TA") as handle,
         ):
             assert handle is not None
             handle.set_summary({"new_clients": 3, "address_changes": 1})
@@ -197,3 +192,38 @@ class TestTaskHandleSetSummary:
         query_json, task_id = summary_queries[0][1]
         assert json.loads(query_json) == {"new_clients": 3, "address_changes": 1}
         assert task_id == 42
+
+
+class TestTrackTaskNonExclusive:
+    def test_takes_no_lock_and_still_records_the_run(self):
+        conn = FakeConnection(lock_acquired=False)
+        with track_task(
+            lambda: conn, "questionnaire_send", "Sending", exclusive=False
+        ) as handle:
+            assert handle is not None
+            assert handle.task_id == 42
+        assert not _queries_matching(conn, "GET_LOCK")
+        assert not _queries_matching(conn, "RELEASE_LOCK")
+        assert _queries_matching(conn, "INSERT INTO emr_task")
+        assert conn.closed
+
+    def test_only_sweeps_rows_older_than_the_stale_window(self):
+        conn = FakeConnection()
+        with track_task(lambda: conn, "questionnaire_send", "Sending", exclusive=False):
+            pass
+        sweep = [(q, p) for q, p in conn.executed if "Orphaned" in q]
+        assert len(sweep) == 1
+        assert "startedAt < NOW() - INTERVAL %s HOUR" in sweep[0][0]
+        assert sweep[0][1] == ("questionnaire_send", STALE_TASK_HOURS)
+
+
+class TestTrackTaskDevMode:
+    def test_never_opens_a_connection(self):
+        def fail():
+            raise AssertionError("dev mode must not open a connection")
+
+        with track_task(fail, "questionnaire_send", "Sending", dev_mode=True) as handle:
+            assert handle is not None
+            assert handle.task_id == 0
+            handle.progress(1, total=2, detail="x")
+            handle.set_summary({"sent": 1})

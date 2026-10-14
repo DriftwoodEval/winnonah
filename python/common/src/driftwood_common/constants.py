@@ -7,3 +7,7 @@ from typing import Final
 # the shared config (`py-config` API). Prefer a configured value where one is
 # already in scope; this is the default for code that is not handed one.
 BUSINESS_TIMEZONE: Final = "America/New_York"
+
+# Background job runs tracked by `driftwood_common.task_tracker`, in the MySQL
+# database both projects share.
+TABLE_TASK: Final = "emr_task"

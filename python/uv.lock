@@ -503,6 +503,12 @@ wheels = [
 name = "driftwood-common"
 version = "0.1.0"
 source = { editable = "common" }
+dependencies = [
+    { name = "loguru" },
+]
+
+[package.metadata]
+requires-dist = [{ name = "loguru", specifier = ">=0.7.3" }]
 
 [[package]]
 name = "et-xmlfile"
