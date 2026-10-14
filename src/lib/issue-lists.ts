@@ -36,6 +36,10 @@ import {
 	questionnaireRules,
 	questionnaires,
 } from "~/server/db/schema";
+import {
+	ageAtReference,
+	getMostRecentEvalStartTimes,
+} from "~/server/questionnaire-age";
 import { resolveApplicableRules } from "~/server/questionnaire-rules";
 
 const isNotesOnly = eq(sql`LENGTH(${clients.id})`, 5);
@@ -437,6 +441,16 @@ export async function getDuplicateQuestionnaireLinksData(db: Context["db"]) {
 	};
 }
 
+function groupByClientId<T extends { clientId: number }>(rows: T[]) {
+	const grouped = new Map<number, T[]>();
+	for (const row of rows) {
+		const group = grouped.get(row.clientId);
+		if (group) group.push(row);
+		else grouped.set(row.clientId, [row]);
+	}
+	return grouped;
+}
+
 /**
  * Active clients who need a DA and/or Eval battery, have sent some but not
  * all of the required questionnaire types for it. Mirrors the /issues page's
@@ -487,16 +501,37 @@ export async function getPartialBatteriesList(
 		hasPortalNotOpened: boolean;
 	})[] = [];
 
-	for (const client of activeClients) {
+	const needyClients = activeClients.filter((client) => {
+		const punchInfo = punchByClientId.get(client.id);
+		return (
+			punchInfo?.["DA Qs Needed"] === "TRUE" ||
+			punchInfo?.["EVAL Qs Needed"] === "TRUE"
+		);
+	});
+	const needyIds = needyClients.map((client) => client.id);
+	if (needyIds.length === 0) return results;
+
+	const [allClientQs, allFailures, evalStartByClientId] = await Promise.all([
+		ctx.db.query.questionnaires.findMany({
+			where: inArray(questionnaires.clientId, needyIds),
+		}),
+		ctx.db.query.failures.findMany({
+			where: and(
+				inArray(failures.clientId, needyIds),
+				lt(failures.reminded, 100),
+			),
+		}),
+		getMostRecentEvalStartTimes(ctx.db, needyIds),
+	]);
+	const qsByClientId = groupByClientId(allClientQs);
+	const failuresByClientId = groupByClientId(allFailures);
+
+	for (const client of needyClients) {
 		const punchInfo = punchByClientId.get(client.id);
 		const daNeeded = punchInfo?.["DA Qs Needed"] === "TRUE";
 		const evalNeeded = punchInfo?.["EVAL Qs Needed"] === "TRUE";
 
-		if (!daNeeded && !evalNeeded) continue;
-
-		const clientQs = await ctx.db.query.questionnaires.findMany({
-			where: eq(questionnaires.clientId, client.id),
-		});
+		const clientQs = qsByClientId.get(client.id) ?? [];
 
 		const { rules: applicableRules } = await resolveApplicableRules(
 			ctx.db,
@@ -504,6 +539,7 @@ export async function getPartialBatteriesList(
 			client,
 			allRules,
 			clientQs,
+			ageAtReference(client.dob, evalStartByClientId.get(client.id)),
 		);
 
 		const daQTypes = new Set<string>();
@@ -550,12 +586,7 @@ export async function getPartialBatteriesList(
 			);
 
 			if (sentTypes.length > 0 && missingTypes.length > 0) {
-				const clientFailures = await ctx.db.query.failures.findMany({
-					where: and(
-						eq(failures.clientId, client.id),
-						lt(failures.reminded, 100),
-					),
-				});
+				const clientFailures = failuresByClientId.get(client.id) ?? [];
 
 				const hasDocsNotSigned = clientFailures.some(
 					(f) => f.reason === "docs not signed",

@@ -21,7 +21,8 @@ import { getQuestionnaireEligibilityAge } from "~/server/questionnaire-age";
  * session started (`sessionStartedAt`) count, so a prior cycle's sends
  * don't satisfy the current one. If no rule in a group fully matches yet,
  * that group falls back to filtering by the client's age at their most
- * recent eval appointment.
+ * recent eval appointment. Callers resolving many clients can pass
+ * `knownAgeInYears` (from a batched eval lookup) to skip the per-client query.
  */
 export async function resolveApplicableRules(
 	db: Context["db"],
@@ -29,6 +30,7 @@ export async function resolveApplicableRules(
 	client: typeof clients.$inferSelect,
 	allRules: (typeof questionnaireRules.$inferSelect)[],
 	clientQs: (typeof questionnaires.$inferSelect)[],
+	knownAgeInYears?: number,
 ) {
 	const asdAdhd = client.asdAdhd;
 	const wantedDiagnoses = new Set<string | null>();
@@ -70,11 +72,9 @@ export async function resolveApplicableRules(
 		}
 	}
 
-	const ageInYears = await getQuestionnaireEligibilityAge(
-		db,
-		clientId,
-		client.dob,
-	);
+	const ageInYears =
+		knownAgeInYears ??
+		(await getQuestionnaireEligibilityAge(db, clientId, client.dob));
 	const resultRules: (typeof diagnosisFiltered)[number][] = [];
 
 	for (const groupRules of groups.values()) {
