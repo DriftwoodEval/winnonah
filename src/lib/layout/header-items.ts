@@ -22,6 +22,7 @@ import {
 	Search,
 	Sun,
 	Users,
+	VenetianMask,
 	Wrench,
 } from "lucide-react";
 
@@ -46,6 +47,7 @@ export type HeaderItemId =
 	| "recent-clients"
 	| "issues-alert"
 	| "task-queue"
+	| "impersonate"
 	| "redaction-toggle"
 	| "theme-switcher"
 	| "issue-form";
@@ -254,6 +256,13 @@ export const HEADER_ITEM_DEFS: HeaderItemDef[] = [
 		id: "task-queue",
 		label: "Task Queue",
 		icon: ListTodo,
+		area: "action",
+		surfaces: BOTH_SURFACES,
+	},
+	{
+		id: "impersonate",
+		label: "Acting As",
+		icon: VenetianMask,
 		area: "action",
 		surfaces: BOTH_SURFACES,
 	},

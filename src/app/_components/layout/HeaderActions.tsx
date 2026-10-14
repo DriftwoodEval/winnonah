@@ -79,8 +79,10 @@ export function HeaderActions() {
 			{session && !isHidden("issues-alert") && <IssuesAlert />}
 			{session && !isHidden("task-queue") && <TaskQueueBubble />}
 
-			{(checkPermission("settings:impersonate") ||
-				session?.user.isImpersonating) && <ImpersonateUserSelect />}
+			{/* Always shown while impersonating, so nobody can hide their only way back. */}
+			{(session?.user.isImpersonating ||
+				(checkPermission("settings:impersonate") &&
+					!isHidden("impersonate"))) && <ImpersonateUserSelect />}
 			{checkPermission("settings:pii-redaction") &&
 				!isHidden("redaction-toggle") && <RedactionToggle />}
 

@@ -12,6 +12,7 @@ const ITEM_PERMISSIONS: Partial<Record<HeaderItemId, PermissionId>> = {
 	"fax-categorization": "fax:categorization:review",
 	"work-summary": "pages:work-summary",
 	calculator: "pages:calculator",
+	impersonate: "settings:impersonate",
 	"redaction-toggle": "settings:pii-redaction",
 };
 
