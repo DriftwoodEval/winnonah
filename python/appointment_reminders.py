@@ -8,6 +8,12 @@ import re
 from datetime import UTC, date, datetime, timedelta
 from typing import Annotated
 
+from driftwood_common.quo import (
+    build_messages_query,
+    build_send_payload,
+    fill_placeholders,
+    to_e164,
+)
 from driftwood_common.timezone import (
     business_to_utc,
     now_business,
@@ -131,9 +137,7 @@ def format_message(template: str, appointment: dict) -> str:
         "$LOCATION": office_location_phrase or "",
     }
 
-    for placeholder, value in variables.items():
-        template = template.replace(placeholder, str(value))
-    return template
+    return fill_placeholders(template, {k: str(v) for k, v in variables.items()})
 
 
 def adjust_for_quiet_window(
@@ -761,21 +765,16 @@ async def should_handle_reply(
     """
     http = get_http_client()
 
-    normalized = client_phone if client_phone.startswith("+") else f"+1{client_phone}"
     sent_at_utc = (
         sent_at.replace(tzinfo=UTC)
         if sent_at.tzinfo is None
         else sent_at.astimezone(UTC)
     )
 
-    params = [
-        ("phoneNumberId", OPENPHONE_NUMBER_ID),
-        ("participants", normalized),
-        ("maxResults", 25),
-        ("createdAfter", sent_at_utc.isoformat()),
-    ]
-
     try:
+        params = build_messages_query(
+            OPENPHONE_NUMBER_ID, to_e164(client_phone), since=sent_at_utc
+        )
         response = await http.get("/messages", params=params)
         response.raise_for_status()
         messages = response.json().get("data", [])
@@ -1035,12 +1034,7 @@ async def send_sms(to: str, body: str) -> str | None:
     try:
         response = await client.post(
             "/messages",
-            json={
-                "content": body,
-                "from": OPENPHONE_NUMBER_ID,
-                "to": [to],
-                "setInboxStatus": "done",
-            },
+            json=build_send_payload(body, OPENPHONE_NUMBER_ID, to, mark_done=True),
         )
         response.raise_for_status()
         data = response.json().get("data", {})
