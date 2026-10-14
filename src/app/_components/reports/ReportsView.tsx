@@ -1,12 +1,12 @@
 "use client";
 
 import ReportQueue from "@components/reports/ReportQueue";
-import { Skeleton } from "@ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@ui/tabs";
 import { useSession } from "next-auth/react";
 import { useState } from "react";
 import { useCheckPermission } from "~/hooks/use-check-permission";
 import { api } from "~/trpc/react";
+import { ReportRowsSkeleton } from "./ReportRowsSkeleton";
 import { ReportsTable } from "./ReportsTable";
 
 type Kind = "pool" | "self" | "all";
@@ -23,13 +23,7 @@ function TabContent({
 	const { data, isLoading } = api.reports.list.useQuery({ tab, kind });
 
 	if (isLoading) {
-		return (
-			<div className="flex w-full flex-col gap-2">
-				{(["a", "b", "c", "d", "e"] as const).map((k) => (
-					<Skeleton className="h-12 w-full rounded-md" key={k} />
-				))}
-			</div>
-		);
+		return <ReportRowsSkeleton />;
 	}
 
 	const reports = data ?? [];
