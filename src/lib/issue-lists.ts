@@ -3,10 +3,8 @@ import {
 	and,
 	asc,
 	count,
-	countDistinct,
 	eq,
 	getTableColumns,
-	gt,
 	inArray,
 	isNotNull,
 	isNull,
@@ -361,7 +359,7 @@ export async function getMedicaidIneligibleList(
  * Questionnaires" list (questionnaires.ts's getDuplicateLinks).
  */
 export async function getDuplicateQuestionnaireLinksData(db: Context["db"]) {
-	const duplicatePerClient = await db
+	const linkCounts = await db
 		.select({
 			link: questionnaires.link,
 			clientId: questionnaires.clientId,
@@ -374,70 +372,51 @@ export async function getDuplicateQuestionnaireLinksData(db: Context["db"]) {
 				not(eq(questionnaires.status, "ARCHIVED")),
 			),
 		)
-		.groupBy(questionnaires.link, questionnaires.clientId)
-		.having(gt(count(), 1));
+		.groupBy(questionnaires.link, questionnaires.clientId);
 
-	const clientIdsForDuplicates = duplicatePerClient.map((row) => row.clientId);
-	const clientsForDuplicates =
-		clientIdsForDuplicates.length > 0
+	const countsByLink = new Map<string, typeof linkCounts>();
+	for (const row of linkCounts) {
+		if (row.link === null) continue;
+		const group = countsByLink.get(row.link);
+		if (group) group.push(row);
+		else countsByLink.set(row.link, [row]);
+	}
+
+	const duplicatePerClientRows = linkCounts.filter((row) => row.count > 1);
+	const sharedLinkRows = [...countsByLink.values()].filter(
+		(rows) => rows.length > 1,
+	);
+
+	const neededClientIds = [
+		...new Set(
+			[...duplicatePerClientRows, ...sharedLinkRows.flat()].map(
+				(row) => row.clientId,
+			),
+		),
+	];
+	const clientsById = new Map(
+		(neededClientIds.length > 0
 			? await db
 					.select()
 					.from(clients)
-					.where(inArray(clients.id, clientIdsForDuplicates))
-			: [];
-
-	const sharedAcrossClients = await db
-		.select({
-			link: questionnaires.link,
-		})
-		.from(questionnaires)
-		.where(
-			and(
-				isNotNull(questionnaires.link),
-				not(eq(questionnaires.status, "ARCHIVED")),
-			),
-		)
-		.groupBy(questionnaires.link)
-		.having(gt(countDistinct(questionnaires.clientId), 1));
-
-	const sharedLinksWithClients = await Promise.all(
-		sharedAcrossClients.map(async ({ link }) => {
-			if (link === null) {
-				return {
-					link: null,
-					clients: [],
-				};
-			}
-
-			const clientsWithLink = await db
-				.select({
-					client: clients,
-					count: count().as("count"),
-				})
-				.from(questionnaires)
-				.innerJoin(clients, eq(questionnaires.clientId, clients.id))
-				.where(
-					and(
-						eq(questionnaires.link, link),
-						not(eq(questionnaires.status, "ARCHIVED")),
-					),
-				)
-				.groupBy(clients.id);
-
-			return {
-				link,
-				clients: clientsWithLink,
-			};
-		}),
+					.where(inArray(clients.id, neededClientIds))
+			: []
+		).map((client) => [client.id, client]),
 	);
 
 	return {
-		duplicatePerClient: duplicatePerClient.map((row) => ({
+		duplicatePerClient: duplicatePerClientRows.map((row) => ({
 			link: row.link,
-			client: clientsForDuplicates.find((c) => c.id === row.clientId),
+			client: clientsById.get(row.clientId),
 			count: row.count,
 		})),
-		sharedAcrossClients: sharedLinksWithClients,
+		sharedAcrossClients: sharedLinkRows.map((rows) => ({
+			link: rows[0]?.link ?? null,
+			clients: rows.flatMap((row) => {
+				const client = clientsById.get(row.clientId);
+				return client ? [{ client, count: row.count }] : [];
+			}),
+		})),
 	};
 }
 

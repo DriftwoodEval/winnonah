@@ -10,6 +10,7 @@
 import { initTRPC, TRPCError } from "@trpc/server";
 import superjson from "superjson";
 import { ZodError } from "zod";
+import { invalidateIssueLists } from "~/lib/cache";
 import { logger } from "~/lib/logger";
 import { redis } from "~/lib/redis";
 import type { PermissionId, PermissionsObject } from "~/lib/types";
@@ -179,6 +180,9 @@ export const protectedProcedure = t.procedure
 		const result = await next({ ctx: { auditDetail } });
 
 		if (type !== "mutation") return result;
+
+		// Any write can change what an /issues list shows.
+		if (result.ok) await invalidateIssueLists(ctx);
 
 		try {
 			const rawInput = await getRawInput().catch(() => undefined);

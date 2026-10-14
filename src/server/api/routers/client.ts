@@ -28,7 +28,7 @@ import {
 	aggregateBillingCodes,
 	calculateAdditionalAppointments,
 } from "~/lib/billing";
-import { fetchWithCache, invalidateCache } from "~/lib/cache";
+import { fetchIssueList, fetchWithCache, invalidateCache } from "~/lib/cache";
 import {
 	getRecordsBlockerReason,
 	getUnsupportedLanguageReason,
@@ -1382,55 +1382,59 @@ export const clientRouter = createTRPCRouter({
 	getDistrictErrors: protectedProcedure.query(async ({ ctx }) => {
 		assertPermission(ctx.session.user, "issues:district-issues");
 
-		const [clientsWithoutDistrict, clientsWithPoorAddressLookup] =
-			await Promise.all([
-				ctx.db.query.clients.findMany({
-					where: and(
-						or(
-							eq(clients.schoolDistrict, "Unknown"),
-							isNull(clients.schoolDistrict),
+		return fetchIssueList(ctx, "getDistrictErrors", async () => {
+			const [clientsWithoutDistrict, clientsWithPoorAddressLookup] =
+				await Promise.all([
+					ctx.db.query.clients.findMany({
+						where: and(
+							or(
+								eq(clients.schoolDistrict, "Unknown"),
+								isNull(clients.schoolDistrict),
+							),
+							gt(
+								clients.dob,
+								localDateToDateOnly(subYears(new Date(), 21)) as string,
+							),
+							not(isNotesOnly),
+							eq(clients.status, true),
 						),
-						gt(
-							clients.dob,
-							localDateToDateOnly(subYears(new Date(), 21)) as string,
+					}),
+					ctx.db.query.clients.findMany({
+						where: and(
+							eq(clients.flag, "poor_address_lookup"),
+							not(isNotesOnly),
+							eq(clients.status, true),
 						),
-						not(isNotesOnly),
-						eq(clients.status, true),
-					),
-				}),
-				ctx.db.query.clients.findMany({
-					where: and(
-						eq(clients.flag, "poor_address_lookup"),
-						not(isNotesOnly),
-						eq(clients.status, true),
-					),
-				}),
-			]);
+					}),
+				]);
 
-		return {
-			clientsWithoutDistrict,
-			clientsWithPoorAddressLookup,
-		};
+			return {
+				clientsWithoutDistrict,
+				clientsWithPoorAddressLookup,
+			};
+		});
 	}),
 
 	getBabyNetErrors: protectedProcedure.query(async ({ ctx }) => {
 		assertPermission(ctx.session.user, "issues:babynet-ageout");
 
-		const ageOutDate = localDateToDateOnly(subYears(new Date(), 3)) as string;
+		return fetchIssueList(ctx, "getBabyNetErrors", async () => {
+			const ageOutDate = localDateToDateOnly(subYears(new Date(), 3)) as string;
 
-		const clientsTooOldForBabyNet = await ctx.db.query.clients.findMany({
-			where: and(
-				or(
-					like(clients.primaryInsurance, "%BabyNet%"),
-					sql`JSON_SEARCH(${clients.secondaryInsurance}, 'one', '%BabyNet%') IS NOT NULL`,
+			const clientsTooOldForBabyNet = await ctx.db.query.clients.findMany({
+				where: and(
+					or(
+						like(clients.primaryInsurance, "%BabyNet%"),
+						sql`JSON_SEARCH(${clients.secondaryInsurance}, 'one', '%BabyNet%') IS NOT NULL`,
+					),
+					lt(clients.dob, ageOutDate),
+					eq(clients.status, true),
 				),
-				lt(clients.dob, ageOutDate),
-				eq(clients.status, true),
-			),
-			orderBy: clients.addedDate,
-		});
+				orderBy: clients.addedDate,
+			});
 
-		return clientsTooOldForBabyNet;
+			return clientsTooOldForBabyNet;
+		});
 	}),
 
 	autoUpdateBabyNet: protectedProcedure.mutation(async ({ ctx }) => {
@@ -1474,12 +1478,14 @@ export const clientRouter = createTRPCRouter({
 	getNotInTAErrors: protectedProcedure.query(async ({ ctx }) => {
 		assertPermission(ctx.session.user, "issues:not-in-ta");
 
-		const clientsNotInTA = await ctx.db.query.clients.findMany({
-			where: isNull(clients.addedDate),
-			orderBy: clients.addedDate,
-		});
+		return fetchIssueList(ctx, "getNotInTAErrors", async () => {
+			const clientsNotInTA = await ctx.db.query.clients.findMany({
+				where: isNull(clients.addedDate),
+				orderBy: clients.addedDate,
+			});
 
-		return clientsNotInTA;
+			return clientsNotInTA;
+		});
 	}),
 
 	getDropList: protectedProcedure.query(async ({ ctx }) => {
@@ -1650,12 +1656,14 @@ export const clientRouter = createTRPCRouter({
 	getNotesOnlyClients: protectedProcedure.query(async ({ ctx }) => {
 		assertPermission(ctx.session.user, "clients:merge");
 
-		const notesOnlyClients = await ctx.db.query.clients.findMany({
-			where: and(isNotesOnly, eq(clients.status, true)),
-			orderBy: asc(clients.addedDate),
-		});
+		return fetchIssueList(ctx, "getNotesOnlyClients", async () => {
+			const notesOnlyClients = await ctx.db.query.clients.findMany({
+				where: and(isNotesOnly, eq(clients.status, true)),
+				orderBy: asc(clients.addedDate),
+			});
 
-		return notesOnlyClients;
+			return notesOnlyClients;
+		});
 	}),
 
 	getMergeSuggestionsForClient: protectedProcedure
@@ -1714,69 +1722,75 @@ export const clientRouter = createTRPCRouter({
 	getMergeSuggestions: protectedProcedure.query(async ({ ctx }) => {
 		assertPermission(ctx.session.user, "clients:merge");
 
-		const allClients = await ctx.db.query.clients.findMany({
-			where: eq(clients.status, true),
-		});
+		return fetchIssueList(ctx, "getMergeSuggestions", async () => {
+			const allClients = await ctx.db.query.clients.findMany({
+				where: eq(clients.status, true),
+			});
 
-		const notesOnlyClients = allClients.filter((c) =>
-			isNotesOnlyClientId(c.id),
-		);
-		const realClients = allClients.filter((c) => !isNotesOnlyClientId(c.id));
+			const notesOnlyClients = allClients.filter((c) =>
+				isNotesOnlyClientId(c.id),
+			);
+			const realClients = allClients.filter((c) => !isNotesOnlyClientId(c.id));
 
-		const suggestions: {
-			notesOnlyClient: typeof clients.$inferSelect;
-			suggestedRealClients: (typeof clients.$inferSelect & {
-				distance: number;
-			})[];
-		}[] = [];
+			const suggestions: {
+				notesOnlyClient: typeof clients.$inferSelect;
+				suggestedRealClients: (typeof clients.$inferSelect & {
+					distance: number;
+				})[];
+			}[] = [];
 
-		for (const notesOnly of notesOnlyClients) {
-			const notesOnlyName = notesOnly.fullName.toLowerCase();
+			for (const notesOnly of notesOnlyClients) {
+				const notesOnlyName = notesOnly.fullName.toLowerCase();
 
-			const matchingRealClients = preferExactMatches(
-				realClients
-					.map((real) => ({
-						...real,
-						...matchNotesOnlyToReal(notesOnlyName, real),
-					}))
-					.filter((c) => c.isMatch),
-			)
-				.sort((a, b) => a.distance - b.distance)
-				.slice(0, 5);
+				const matchingRealClients = preferExactMatches(
+					realClients
+						.map((real) => ({
+							...real,
+							...matchNotesOnlyToReal(notesOnlyName, real),
+						}))
+						.filter((c) => c.isMatch),
+				)
+					.sort((a, b) => a.distance - b.distance)
+					.slice(0, 5);
 
-			if (matchingRealClients.length > 0) {
-				suggestions.push({
-					notesOnlyClient: notesOnly,
-					suggestedRealClients: matchingRealClients,
-				});
+				if (matchingRealClients.length > 0) {
+					suggestions.push({
+						notesOnlyClient: notesOnly,
+						suggestedRealClients: matchingRealClients,
+					});
+				}
 			}
-		}
 
-		return suggestions;
+			return suggestions;
+		});
 	}),
 
 	getNoDriveIdErrors: protectedProcedure.query(async ({ ctx }) => {
 		assertPermission(ctx.session.user, "issues:no-drive-ids");
 
-		const noDriveId = await ctx.db.query.clients.findMany({
-			where: and(not(isNotesOnly), isNull(clients.driveId)),
-			orderBy: clients.addedDate,
-		});
+		return fetchIssueList(ctx, "getNoDriveIdErrors", async () => {
+			const noDriveId = await ctx.db.query.clients.findMany({
+				where: and(not(isNotesOnly), isNull(clients.driveId)),
+				orderBy: clients.addedDate,
+			});
 
-		return noDriveId;
+			return noDriveId;
+		});
 	}),
 
 	getDD4: protectedProcedure.query(async ({ ctx }) => {
 		assertPermission(ctx.session.user, "issues:dd4");
 
-		const dd4 = await ctx.db.query.clients.findMany({
-			where: and(
-				eq(clients.schoolDistrict, "Dorchester School District 4"),
-				eq(clients.status, true),
-			),
-			orderBy: clients.addedDate,
+		return fetchIssueList(ctx, "getDD4", async () => {
+			const dd4 = await ctx.db.query.clients.findMany({
+				where: and(
+					eq(clients.schoolDistrict, "Dorchester School District 4"),
+					eq(clients.status, true),
+				),
+				orderBy: clients.addedDate,
+			});
+			return dd4;
 		});
-		return dd4;
 	}),
 
 	getPossiblePrivatePay: protectedProcedure.query(async ({ ctx }) => {
@@ -1856,61 +1870,71 @@ export const clientRouter = createTRPCRouter({
 	getAutismStops: protectedProcedure.query(async ({ ctx }) => {
 		assertPermission(ctx.session.user, "issues:autism-stops");
 
-		const autismStops = await ctx.db.query.clients.findMany({
-			where: and(eq(clients.autismStop, true), eq(clients.status, true)),
-			orderBy: clients.addedDate,
-		});
+		return fetchIssueList(ctx, "getAutismStops", async () => {
+			const autismStops = await ctx.db.query.clients.findMany({
+				where: and(eq(clients.autismStop, true), eq(clients.status, true)),
+				orderBy: clients.addedDate,
+			});
 
-		return autismStops;
+			return autismStops;
+		});
 	}),
 
 	getNoReferralSource: protectedProcedure.query(async ({ ctx }) => {
 		assertPermission(ctx.session.user, "issues:no-referral-source");
 
-		const noReferralSource = await ctx.db.query.clients.findMany({
-			where: and(
-				or(
-					eq(clients.referralSource, "No Referral Source"),
-					isNull(clients.referralSource),
+		return fetchIssueList(ctx, "getNoReferralSource", async () => {
+			const noReferralSource = await ctx.db.query.clients.findMany({
+				where: and(
+					or(
+						eq(clients.referralSource, "No Referral Source"),
+						isNull(clients.referralSource),
+					),
+					eq(clients.status, true),
+					not(isNotesOnly),
 				),
-				eq(clients.status, true),
-				not(isNotesOnly),
-			),
-			orderBy: clients.addedDate,
-		});
+				orderBy: clients.addedDate,
+			});
 
-		return noReferralSource;
+			return noReferralSource;
+		});
 	}),
 
 	getPaused: protectedProcedure.query(async ({ ctx }) => {
 		assertPermission(ctx.session.user, "issues:paused-clients");
 
-		const pausedClients = await ctx.db.query.clients.findMany({
-			where: eq(clients.pause, true),
-			orderBy: clients.addedDate,
-		});
+		return fetchIssueList(ctx, "getPaused", async () => {
+			const pausedClients = await ctx.db.query.clients.findMany({
+				where: eq(clients.pause, true),
+				orderBy: clients.addedDate,
+			});
 
-		return pausedClients;
+			return pausedClients;
+		});
 	}),
 
 	getEvaluationInProcess: protectedProcedure.query(async ({ ctx }) => {
 		assertPermission(ctx.session.user, "issues:evaluation-in-process");
 
-		const evaluationClients = await ctx.db.query.clients.findMany({
-			where: and(
-				eq(clients.evaluationInProcess, true),
-				eq(clients.status, true),
-			),
-			orderBy: clients.addedDate,
-		});
+		return fetchIssueList(ctx, "getEvaluationInProcess", async () => {
+			const evaluationClients = await ctx.db.query.clients.findMany({
+				where: and(
+					eq(clients.evaluationInProcess, true),
+					eq(clients.status, true),
+				),
+				orderBy: clients.addedDate,
+			});
 
-		return evaluationClients;
+			return evaluationClients;
+		});
 	}),
 
 	getDuplicateNames: protectedProcedure.query(async ({ ctx }) => {
 		assertPermission(ctx.session.user, "issues:duplicate-names");
 
-		return getDuplicateNamesList(ctx.db);
+		return fetchIssueList(ctx, "getDuplicateNames", () =>
+			getDuplicateNamesList(ctx.db),
+		);
 	}),
 
 	ignoreDuplicateNamePair: protectedProcedure
@@ -2116,31 +2140,41 @@ export const clientRouter = createTRPCRouter({
 	getUnreviewedRecords: protectedProcedure.query(async ({ ctx }) => {
 		assertPermission(ctx.session.user, "issues:unreviewed-records");
 
-		return getUnreviewedRecordsList(ctx.db);
+		return fetchIssueList(ctx, "getUnreviewedRecords", () =>
+			getUnreviewedRecordsList(ctx.db),
+		);
 	}),
 
 	getUnconfirmedCharterSchool: protectedProcedure.query(async ({ ctx }) => {
 		assertPermission(ctx.session.user, "issues:charter-school-confirm");
 
-		return getUnconfirmedCharterSchoolList(ctx.db);
+		return fetchIssueList(ctx, "getUnconfirmedCharterSchool", () =>
+			getUnconfirmedCharterSchoolList(ctx.db),
+		);
 	}),
 
 	getInsuranceMismatch: protectedProcedure.query(async ({ ctx }) => {
 		assertPermission(ctx.session.user, "issues:insurance-mismatch");
 
-		return getInsuranceMismatchList(ctx.db);
+		return fetchIssueList(ctx, "getInsuranceMismatch", () =>
+			getInsuranceMismatchList(ctx.db),
+		);
 	}),
 
 	getMedicaidNotFound: protectedProcedure.query(async ({ ctx }) => {
 		assertPermission(ctx.session.user, "issues:insurance-mismatch");
 
-		return getMedicaidNotFoundList(ctx.db);
+		return fetchIssueList(ctx, "getMedicaidNotFound", () =>
+			getMedicaidNotFoundList(ctx.db),
+		);
 	}),
 
 	getMedicaidIneligible: protectedProcedure.query(async ({ ctx }) => {
 		assertPermission(ctx.session.user, "issues:insurance-mismatch");
 
-		return getMedicaidIneligibleList(ctx.db);
+		return fetchIssueList(ctx, "getMedicaidIneligible", () =>
+			getMedicaidIneligibleList(ctx.db),
+		);
 	}),
 
 	createNotesOnly: protectedProcedure

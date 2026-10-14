@@ -163,3 +163,37 @@ export async function invalidateCache(
 		log.error({ cacheKeys: keys, error: err }, "Failed to invalidate cache");
 	}
 }
+
+const ISSUE_LIST_CACHE_PREFIX = "issues:";
+const ISSUE_LIST_CACHE_TTL = 30; // seconds
+
+/**
+ * Caches an /issues list for a short time. Every mutation clears these
+ * entries (see `invalidateIssueLists`), so the TTL only has to cover writes
+ * made outside tRPC, such as the Python cron jobs. Cache only the data: run
+ * permission checks before calling this, and don't vary `fetcher` by user.
+ */
+export function fetchIssueList<T>(
+	ctx: Pick<Context, "redis">,
+	name: string,
+	fetcher: () => Promise<T>,
+): Promise<T> {
+	return fetchWithCache(
+		ctx,
+		`${ISSUE_LIST_CACHE_PREFIX}${name}`,
+		fetcher,
+		ISSUE_LIST_CACHE_TTL,
+	);
+}
+
+/** Deletes every cached issue list. Called after any successful mutation. */
+export async function invalidateIssueLists(
+	ctx: Pick<Context, "redis">,
+): Promise<void> {
+	try {
+		const keys = await ctx.redis.keys(`${ISSUE_LIST_CACHE_PREFIX}*`);
+		if (keys.length > 0) await ctx.redis.del(keys);
+	} catch (err) {
+		log.error({ error: err }, "Failed to invalidate issue lists");
+	}
+}

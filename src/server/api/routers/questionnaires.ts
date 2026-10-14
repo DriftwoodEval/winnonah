@@ -4,7 +4,7 @@ import { URL } from "node:url";
 import { TRPCError } from "@trpc/server";
 import { and, asc, desc, eq, inArray, not, or } from "drizzle-orm";
 import { z } from "zod";
-import { invalidateCache } from "~/lib/cache";
+import { fetchIssueList, invalidateCache } from "~/lib/cache";
 import { QUESTIONNAIRE_STATUSES } from "~/lib/constants";
 import { updatePunchData } from "~/lib/google";
 import {
@@ -1296,19 +1296,25 @@ export const questionnaireRouter = createTRPCRouter({
 	getDuplicateLinks: protectedProcedure.query(async ({ ctx }) => {
 		assertPermission(ctx.session.user, "issues:duplicate-questionnaires");
 
-		return getDuplicateQuestionnaireLinksData(ctx.db);
+		return fetchIssueList(ctx, "getDuplicateLinks", () =>
+			getDuplicateQuestionnaireLinksData(ctx.db),
+		);
 	}),
 
 	getJustAdded: protectedProcedure.query(async ({ ctx }) => {
 		assertPermission(ctx.session.user, "issues:just-added");
 
-		return getJustAddedQuestionnairesList(ctx.db);
+		return fetchIssueList(ctx, "getJustAdded", () =>
+			getJustAddedQuestionnairesList(ctx.db),
+		);
 	}),
 
 	getPartialBatteries: protectedProcedure.query(async ({ ctx }) => {
 		assertPermission(ctx.session.user, "issues:partial-battery");
 
-		return getPartialBatteriesList(ctx);
+		return fetchIssueList(ctx, "getPartialBatteries", () =>
+			getPartialBatteriesList(ctx),
+		);
 	}),
 
 	getLatestScreenshot: protectedProcedure
