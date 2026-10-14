@@ -492,11 +492,9 @@ function AccountSection({
 					<AlertDialogFooter>
 						<AlertDialogCancel>Cancel</AlertDialogCancel>
 						<AlertDialogAction
-							className={
-								!user.archived ? "bg-destructive hover:bg-destructive/90" : ""
-							}
 							disabled={isArchiving}
 							onClick={handleArchiveConfirm}
+							variant={user.archived ? "default" : "destructive"}
 						>
 							{isArchiving
 								? user.archived
@@ -632,11 +630,6 @@ function EvaluatorSection({
 						<AlertDialogFooter>
 							<AlertDialogCancel>Cancel</AlertDialogCancel>
 							<AlertDialogAction
-								className={
-									!evaluator.archived
-										? "bg-destructive text-destructive-foreground hover:bg-destructive/80"
-										: ""
-								}
 								onClick={() => {
 									if (evaluator.archived) {
 										unarchiveEvaluator.mutate({ npi: String(evaluator.npi) });
@@ -644,6 +637,7 @@ function EvaluatorSection({
 										archiveEvaluator.mutate({ npi: String(evaluator.npi) });
 									}
 								}}
+								variant={evaluator.archived ? "default" : "destructive"}
 							>
 								{evaluator.archived ? "Unarchive" : "Archive"}
 							</AlertDialogAction>

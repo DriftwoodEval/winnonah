@@ -1646,13 +1646,13 @@ function SchedulingHelperGrid({
 								<AlertDialogFooter>
 									<AlertDialogCancel>Cancel</AlertDialogCancel>
 									<AlertDialogAction
-										className="bg-destructive"
 										onClick={() =>
 											pendingDeleteId &&
 											deletePlaceholder.mutate({
 												appointmentId: pendingDeleteId,
 											})
 										}
+										variant="destructive"
 									>
 										Delete
 									</AlertDialogAction>

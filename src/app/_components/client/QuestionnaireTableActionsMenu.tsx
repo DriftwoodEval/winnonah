@@ -160,9 +160,9 @@ export function QuestionnaireActionsMenu({
 					<AlertDialogFooter>
 						<AlertDialogCancel>Cancel</AlertDialogCancel>
 						<AlertDialogAction
-							className="bg-destructive text-destructive-foreground hover:bg-destructive/80"
 							disabled={isDeleting}
 							onClick={handleDeleteConfirm}
+							variant="destructive"
 						>
 							{isDeleting ? "Deleting..." : "Delete"}
 						</AlertDialogAction>

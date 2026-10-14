@@ -5,6 +5,8 @@ import { Input } from "@ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@ui/popover";
 import { History } from "lucide-react";
 import { toast } from "sonner";
+import { EmptyState } from "~/app/_components/shared/EmptyState";
+import { ListSkeleton } from "~/app/_components/shared/ListSkeleton";
 import { formatInBusinessTime } from "~/lib/utils";
 import { api } from "~/trpc/react";
 
@@ -15,10 +17,10 @@ function NoteHistoryList({ reportId }: { reportId: number }) {
 	});
 
 	if (isLoading) {
-		return <p className="text-muted-foreground">Loading...</p>;
+		return <ListSkeleton rowClassName="h-4" rows={3} />;
 	}
 	if (!data?.length) {
-		return <p className="text-muted-foreground">No changes yet.</p>;
+		return <EmptyState compact title="No changes yet." />;
 	}
 	return (
 		<ul className="flex max-h-72 flex-col gap-2 overflow-y-auto">

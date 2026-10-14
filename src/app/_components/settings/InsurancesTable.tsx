@@ -662,8 +662,8 @@ function InsuranceActionsMenu({
 					<AlertDialogFooter>
 						<AlertDialogCancel>Cancel</AlertDialogCancel>
 						<AlertDialogAction
-							className="bg-destructive"
 							onClick={() => deleteInsurance.mutate({ id: insurance.id })}
+							variant="destructive"
 						>
 							Delete
 						</AlertDialogAction>

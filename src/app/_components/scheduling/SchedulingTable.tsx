@@ -84,6 +84,7 @@ import {
 	useRef,
 	useState,
 } from "react";
+import { ListSkeleton } from "~/app/_components/shared/ListSkeleton";
 import { useCheckPermission } from "~/hooks/use-check-permission";
 import { useMediaQuery } from "~/hooks/use-media-query";
 import type { ScheduledClient } from "~/lib/api-types";
@@ -675,7 +676,7 @@ function EvaluatorSelect({
 			</SelectTrigger>
 			<SelectContent>
 				{isLoading ? (
-					<div className="p-2 text-muted-foreground text-sm">Loading...</div>
+					<ListSkeleton className="p-2" rowClassName="h-5" rows={3} />
 				) : (
 					<>
 						<SelectItem value="none">None</SelectItem>
