@@ -409,6 +409,29 @@ class SyncReporter:
 
 _EVENT_PAGE_MAX_RETRIES = 3
 
+# Hold events created for unscheduled time are not real appointments. Staff
+# abbreviate and misspell "placeholder" in many ways, so titles are matched
+# against these variants after dropping case, spaces, and punctuation.
+_PLACEHOLDER_VARIANTS = (
+    "placeholder",
+    "placeholdr",
+    "placeholer",
+    "placholder",
+    "palceholder",
+    "placehodler",
+    "placehldr",
+    "plcholder",
+    "plchldr",
+    "plchld",
+    "plchdr",
+    "plhldr",
+)
+
+
+def _is_placeholder_title(title: str) -> bool:
+    letters = re.sub(r"[^a-z]", "", title.lower())
+    return any(variant in letters for variant in _PLACEHOLDER_VARIANTS)
+
 
 def _fetch_events_page(
     service,
@@ -573,6 +596,9 @@ def batch_search_calendar_events(
         for event in all_events:
             event_start = event["start"].get("dateTime", event["start"].get("date"))
             if not event_start:
+                continue
+
+            if _is_placeholder_title(event.get("summary") or ""):
                 continue
 
             # Parse and strip tzinfo for date grouping

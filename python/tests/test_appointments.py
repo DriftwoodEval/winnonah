@@ -4,6 +4,7 @@ import pandas as pd
 
 from utils.appointments import (
     SyncReporter,
+    _is_placeholder_title,
     batch_search_calendar_events,
     build_placeholder_title,
     parse_location_and_type,
@@ -219,3 +220,28 @@ class TestBatchSearchCalendarEvents:
 
         assert results[0]["calendar_id"] == "only@example.com"
         assert reporter.ambiguous_calendar_matches == []
+
+
+class TestIsPlaceholderTitle:
+    def test_matches_variants_and_typos(self):
+        for title in [
+            "PLACEHOLDER",
+            "Plchldr - Smith",
+            "plchld",
+            "plcholder",
+            "placehldr",
+            "plhldr",
+            "plc hldr",
+            "place-holder",
+            "placehodler",
+            "placholder",
+            "palceholder",
+            "placeholdr",
+            "placeholer",
+            "[COL-E] Placeholder",
+        ]:
+            assert _is_placeholder_title(title), title
+
+    def test_ignores_real_titles(self):
+        for title in ["", "Jane Doe", "[COL-E] Jane Doe", "Dr. Smith Available"]:
+            assert not _is_placeholder_title(title), title
