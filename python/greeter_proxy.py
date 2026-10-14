@@ -3,6 +3,7 @@ from datetime import datetime
 from typing import Annotated
 
 import httpx
+from driftwood_common.timezone import now_business
 from fastapi import APIRouter, BackgroundTasks, Header, HTTPException, Request
 from googleapiclient.discovery import build
 from loguru import logger
@@ -10,7 +11,6 @@ from loguru import logger
 from utils.constants import TABLE_USER
 from utils.database import get_db
 from utils.google import google_authenticate
-from utils.timezone import now_business
 from utils.webhook import verify_quo_signature
 
 router = APIRouter()

@@ -3,6 +3,7 @@ from datetime import datetime, time, timedelta
 from unittest.mock import patch
 
 import pytest
+from driftwood_common.timezone import now_business
 
 from appointment_reminders import (
     _compute_age_years,
@@ -17,7 +18,6 @@ from appointment_reminders import (
     is_negative,
     is_within_quiet_window,
 )
-from utils.timezone import now_business
 
 
 class TestOfficeFields:

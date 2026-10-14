@@ -3,8 +3,7 @@ from pathlib import Path
 
 import pymupdf as fitz
 from dateutil.relativedelta import relativedelta
-
-from utils.timezone import now_business
+from driftwood_common.timezone import now_business
 
 FORM_PATH = Path(__file__).parent.parent / "forms" / "shsc-bh-testing-form.pdf"
 

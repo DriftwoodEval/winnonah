@@ -28,6 +28,7 @@ import json
 from datetime import datetime
 
 from dateutil.relativedelta import relativedelta
+from driftwood_common.timezone import utc_to_business
 from loguru import logger
 from pymysql.connections import Connection
 from pymysql.cursors import DictCursor
@@ -45,7 +46,6 @@ from utils.constants import (
     TABLE_NOTE_HISTORY,
 )
 from utils.database import activate_reactivation_admin_review, db_session
-from utils.timezone import utc_to_business
 
 # Reactivation gaps at or above this are treated as legitimate full restarts
 # and left alone.

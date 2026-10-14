@@ -11,11 +11,6 @@ FAX_CATEGORIZATION_START_DATE: Final = datetime(2026, 8, 5)
 # report-writing queue folder instead. Hard cutoff, business-local midnight.
 REPORT_TRACKING_START_DATE: Final = datetime(2026, 8, 1)
 
-# Single source of truth for the practice's timezone. Used to convert stored
-# UTC instants to/from the business's wall-clock time for display and for
-# business-hour logic (quiet windows, daily send gates, etc).
-BUSINESS_TIMEZONE: Final = "America/New_York"
-
 # Google Drive folder that client folders are moved into when a pool report is
 # ready to be claimed ("001"). Mirrored in src/lib/constants.ts.
 REPORT_QUEUE_FOLDER_ID: Final = "1fGZavJU8bAqROKd8iTgoEtRT8orp4a4s"
