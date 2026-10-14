@@ -14,34 +14,22 @@ import {
 	DropdownMenuItem,
 	DropdownMenuTrigger,
 } from "@ui/dropdown-menu";
-import {
-	BookOpen,
-	Calculator,
-	Calendar1,
-	CalendarDays,
-	CalendarPlus,
-	CalendarRange,
-	ChevronDown,
-	ClipboardClock,
-	Clock,
-	FileText,
-	Home,
-	KeyRound,
-	LayoutDashboard,
-	LayoutGrid,
-	LineChart,
-	type LucideIcon,
-	Menu,
-	PhoneCall,
-	Users,
-	Wrench,
-} from "lucide-react";
+import { ChevronDown, type LucideIcon, Menu } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { useEffect, useRef, useState } from "react";
-import { useCheckPermission } from "~/hooks/use-check-permission";
-import type { HeaderItemId } from "~/lib/header-items";
+import {
+	useHeaderItemAvailability,
+	useHeaderItemLabels,
+} from "~/hooks/use-header-items";
+import {
+	HEADER_ITEM_DEFS,
+	HEADER_NAV_CATEGORIES,
+	type HeaderItemId,
+	type HeaderNavItemDef,
+	isNavItemDef,
+} from "~/lib/header-items";
 import { api } from "~/trpc/react";
 
 type NavItem = {
@@ -190,17 +178,9 @@ function NavigationCategory({
 
 export default function NavigationLinks() {
 	const { data: session } = useSession();
-	const can = useCheckPermission();
 	const pathname = usePathname();
-	const canSeeEvalReportDashboard =
-		(session?.user.isEvaluator ?? false) || can("evaluator-dashboard:admin");
-	const { data: evalReportDashboardConfig } =
-		api.evaluatorDashboard.getConfig.useQuery(undefined, {
-			enabled: canSeeEvalReportDashboard,
-		});
-	const evalReportDashboardLabel = evalReportDashboardConfig?.evaluatorFirstName
-		? `${evalReportDashboardConfig.evaluatorFirstName}'s Reports`
-		: "Report Dashboard";
+	const availability = useHeaderItemAvailability();
+	const labels = useHeaderItemLabels();
 	const { data: headerPrefs } = api.users.getHeaderPreferences.useQuery(
 		undefined,
 		{ enabled: !!session },
@@ -210,152 +190,30 @@ export default function NavigationLinks() {
 
 	if (!session) return null;
 
-	const home: NavItem = {
-		id: "home",
-		href: "/",
-		label: "Home",
-		icon: Home,
-		show: true,
+	const navDefs = HEADER_ITEM_DEFS.filter(isNavItemDef);
+	const toNavItem = (def: HeaderNavItemDef): NavItem => ({
+		id: def.id,
+		href: def.href,
+		label: labels[def.id] ?? def.label,
+		icon: def.icon,
+		show: availability[def.id],
+	});
+	const findNavItem = (id: HeaderItemId): NavItem => {
+		const def = navDefs.find((d) => d.id === id);
+		if (!def) throw new Error(`Missing header item definition: ${id}`);
+		return toNavItem(def);
 	};
 
-	const docs: NavItem = {
-		id: "docs",
-		href: "/docs",
-		label: "Docs",
-		icon: BookOpen,
-		show: true,
-	};
+	const home = findNavItem("home");
+	const docs = findNavItem("docs");
 
-	const categories: { label: string; icon: LucideIcon; items: NavItem[] }[] = [
-		{
-			label: "Clients",
-			icon: Users,
-			items: [
-				{
-					id: "dashboard",
-					href: "/dashboard",
-					label: "Dashboard",
-					icon: LayoutDashboard,
-					show: can("pages:dashboard"),
-				},
-				{
-					id: "directory",
-					href: "/clients/directory",
-					label: "Directory",
-					icon: Users,
-					show: true,
-				},
-			],
-		},
-		{
-			label: "Schedule",
-			icon: CalendarDays,
-			items: [
-				{
-					id: "day-ahead",
-					href: "/day-ahead",
-					label: "Day Ahead",
-					icon: Calendar1,
-					show: true,
-				},
-				{
-					id: "availability",
-					href: "/availability",
-					label: "Availability",
-					icon: Clock,
-					show: can("pages:availability"),
-				},
-				{
-					id: "scheduling",
-					href: "/scheduling",
-					label: "Scheduling",
-					icon: CalendarRange,
-					show: can("pages:scheduling"),
-				},
-				{
-					id: "greeter-schedule",
-					href: "/greeter-schedule",
-					label: "Greeter Schedule",
-					icon: PhoneCall,
-					show: true,
-				},
-				{
-					id: "scheduling-helper",
-					href: "/scheduling/helper",
-					label: "Scheduling Helper (Beta)",
-					icon: CalendarPlus,
-					show: can("pages:scheduling-helper"),
-				},
-			],
-		},
-		{
-			label: "Reports",
-			icon: FileText,
-			items: [
-				{
-					id: "claim-reports",
-					href: "/claim-reports",
-					label: "Claim Reports",
-					icon: FileText,
-					show: session.user.maxClaimedReports !== 0 || can("reports:approve"),
-				},
-				{
-					id: "reports",
-					href: "/reports",
-					label: "Reports (Beta)",
-					icon: FileText,
-					show:
-						(session.user.maxClaimedReports !== 0 ||
-							can("reports:approve") ||
-							can("reports:billing")) &&
-						can("reports:beta"),
-				},
-				{
-					id: "report-dashboard",
-					href: "/evaluator-dashboard",
-					label: evalReportDashboardLabel,
-					icon: LineChart,
-					show: canSeeEvalReportDashboard,
-				},
-			],
-		},
-		{
-			label: "Tools",
-			icon: Wrench,
-			items: [
-				{
-					id: "fax-categorization",
-					href: "/fax-categorization",
-					label: "Fax Categorization",
-					icon: LayoutGrid,
-					show: can("fax:categorization:review"),
-				},
-				{
-					id: "work-summary",
-					href: "/work-summary",
-					label: "Work Summary",
-					icon: ClipboardClock,
-					show: can("pages:work-summary"),
-				},
-				{
-					id: "calculator",
-					href: "/calculator",
-					label: "Calculator",
-					icon: Calculator,
-					show: can("pages:calculator"),
-				},
-				{
-					id: "questionnaire-logins",
-					href: "/questionnaire-logins",
-					label: "Questionnaire Logins",
-					icon: KeyRound,
-					show:
-						can("settings:qsuite:services:view") ||
-						can("settings:qsuite:services"),
-				},
-			],
-		},
-	];
+	const categories = HEADER_NAV_CATEGORIES.map((category) => ({
+		label: category.label,
+		icon: category.icon,
+		items: navDefs
+			.filter((def) => def.category === category.label)
+			.map(toNavItem),
+	}));
 
 	const desktopCategories = categories.map((category) => ({
 		...category,
