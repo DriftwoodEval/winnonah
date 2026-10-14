@@ -3,10 +3,10 @@
 import { Button } from "@ui/button";
 import { Input } from "@ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@ui/popover";
+import { Skeleton } from "@ui/skeleton";
 import { History } from "lucide-react";
 import { toast } from "sonner";
 import { EmptyState } from "~/app/_components/shared/EmptyState";
-import { ListSkeleton } from "~/app/_components/shared/ListSkeleton";
 import { formatInBusinessTime } from "~/lib/utils";
 import { api } from "~/trpc/react";
 
@@ -17,7 +17,19 @@ function NoteHistoryList({ reportId }: { reportId: number }) {
 	});
 
 	if (isLoading) {
-		return <ListSkeleton rowClassName="h-4" rows={3} />;
+		return (
+			<div className="flex flex-col gap-2">
+				{(["a", "b"] as const).map((key) => (
+					<div
+						className="flex flex-col gap-0.5 border-b pb-2 last:border-0"
+						key={key}
+					>
+						<Skeleton className="h-4 w-40" />
+						<Skeleton className="h-6 w-full" />
+					</div>
+				))}
+			</div>
+		);
 	}
 	if (!data?.length) {
 		return <EmptyState compact title="No changes yet." />;

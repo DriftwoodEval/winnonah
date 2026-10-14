@@ -676,7 +676,11 @@ function EvaluatorSelect({
 			</SelectTrigger>
 			<SelectContent>
 				{isLoading ? (
-					<ListSkeleton className="p-2" rowClassName="h-5" rows={3} />
+					<ListSkeleton
+						className="gap-1"
+						rowClassName="h-6 max-md:h-9"
+						rows={3}
+					/>
 				) : (
 					<>
 						<SelectItem value="none">None</SelectItem>
