@@ -7,7 +7,7 @@ import {
 	classifyAvailabilityEvents,
 	mergeOutOfOfficeEvents,
 	splitAvailabilityByOOO,
-} from "~/lib/google";
+} from "~/lib/integrations/google";
 import { formatInBusinessTime } from "~/lib/utils";
 import {
 	assertPermission,

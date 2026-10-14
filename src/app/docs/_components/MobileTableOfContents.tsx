@@ -1,6 +1,6 @@
 import { ChevronDown, SquarePen } from "lucide-react";
 import Link from "next/link";
-import type { DocHeading } from "~/lib/docs";
+import type { DocHeading } from "~/lib/docs/docs";
 import { cn } from "~/lib/utils";
 
 const EDIT_BASE_URL =

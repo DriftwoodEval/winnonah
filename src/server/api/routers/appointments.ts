@@ -13,7 +13,6 @@ import {
 	createTRPCRouter,
 	protectedProcedure,
 } from "~/server/api/trpc";
-import { getClientInfoData } from "~/server/client-info";
 import {
 	appointmentCheckins,
 	appointments,
@@ -24,6 +23,7 @@ import {
 	reminderLogs,
 	users,
 } from "~/server/db/schema";
+import { getClientInfoData } from "~/server/services/client-info";
 
 const checkinInputSchema = z.object({
 	appointmentId: z.string(),

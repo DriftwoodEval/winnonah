@@ -16,13 +16,13 @@ import { toast } from "sonner";
 import { HighlightedPreview } from "~/app/_components/shared/PlaceholderHighlight";
 import { useCheckPermission } from "~/hooks/use-check-permission";
 import { QUESTIONNAIRE_REMINDER_STAGES } from "~/lib/constants";
+import { getSmsSegmentInfo } from "~/lib/integrations/sms";
 import {
 	REMINDER_PLACEHOLDERS,
 	REMINDER_PORTAL_LINK,
 	reminderDeadlineDate,
 	reminderPluralization,
-} from "~/lib/reminder-messages";
-import { getSmsSegmentInfo } from "~/lib/sms";
+} from "~/lib/questionnaires/reminder-messages";
 import { formatInBusinessTime } from "~/lib/utils";
 import { api, type RouterOutputs } from "~/trpc/react";
 

@@ -1,5 +1,5 @@
 import { useCheckPermission } from "~/hooks/use-check-permission";
-import { ISSUE_TITLES } from "~/lib/issue-titles";
+import { ISSUE_TITLES } from "~/lib/issues/issue-titles";
 import { api } from "~/trpc/react";
 
 export interface IssueCount {

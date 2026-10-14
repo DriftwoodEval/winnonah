@@ -23,7 +23,7 @@ import {
 	type ReactElement,
 	type ReactNode,
 } from "react";
-import { resolveCalloutType } from "~/lib/callout-types.mjs";
+import { resolveCalloutType } from "~/lib/docs/callout-types.mjs";
 import { cn } from "~/lib/utils";
 
 type CalloutType =

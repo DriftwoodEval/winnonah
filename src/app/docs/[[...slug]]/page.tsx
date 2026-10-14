@@ -4,14 +4,14 @@ import { ChangelogList } from "~/app/docs/_components/ChangelogList";
 import { DocStatusNotice } from "~/app/docs/_components/DocStatusNotice";
 import { MobileTableOfContents } from "~/app/docs/_components/MobileTableOfContents";
 import { TableOfContents } from "~/app/docs/_components/TableOfContents";
-import { CHANGELOG_SLUG, getChangelogHeadings } from "~/lib/changelog";
+import { CHANGELOG_SLUG, getChangelogHeadings } from "~/lib/docs/changelog";
 import {
 	getAllDocSlugs,
 	getDocBySlug,
 	getDocHeadings,
 	getDocRelativePath,
 	getDocsNav,
-} from "~/lib/docs";
+} from "~/lib/docs/docs";
 
 interface PageProps {
 	params: Promise<{ slug?: string[] }>;

@@ -8,7 +8,7 @@ import {
 	questionnaireRules,
 	questionnaires,
 } from "../../src/server/db/schema";
-import { getQuestionnaireEligibilityAge } from "../../src/server/questionnaire-age";
+import { getQuestionnaireEligibilityAge } from "../../src/server/services/questionnaire-age";
 
 const DONE_STATUSES = new Set(["COMPLETED", "EXTERNAL"]);
 

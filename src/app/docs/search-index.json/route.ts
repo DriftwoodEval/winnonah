@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getAllDocSlugs, getDocBySlug } from "~/lib/docs";
+import { getAllDocSlugs, getDocBySlug } from "~/lib/docs/docs";
 
 export interface DocsSearchEntry {
 	slug: string;

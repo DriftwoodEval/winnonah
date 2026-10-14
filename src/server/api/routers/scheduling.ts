@@ -20,7 +20,7 @@ import type { Session } from "next-auth";
 import { z } from "zod";
 import { fetchWithCache } from "~/lib/cache";
 import type { ALLOWED_ASD_ADHD_VALUES } from "~/lib/constants";
-import { syncPunchData } from "~/lib/google";
+import { syncPunchData } from "~/lib/integrations/google";
 import { getClosestOfficeKey, getInsuranceShortNamesList } from "~/lib/utils";
 import {
 	getClosestOfficeKeyByDriveTime,

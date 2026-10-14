@@ -18,6 +18,7 @@ import {
 	SECTION_ISSUE_UNREVIEWED_RECORDS,
 } from "~/lib/dashboard";
 import { getFullDashboardData } from "~/lib/dashboard-data";
+import { redis } from "~/lib/integrations/redis";
 import {
 	getDuplicateNamesList,
 	getDuplicateQuestionnaireLinksData,
@@ -28,9 +29,8 @@ import {
 	getPartialBatteriesList,
 	getUnconfirmedCharterSchoolList,
 	getUnreviewedRecordsList,
-} from "~/lib/issue-lists";
+} from "~/lib/issues/issue-lists";
 import { logger } from "~/lib/logger";
-import { redis } from "~/lib/redis";
 import { db } from "~/server/db";
 import {
 	clientDashboardSectionHistory,

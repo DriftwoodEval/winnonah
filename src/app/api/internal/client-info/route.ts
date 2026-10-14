@@ -1,7 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { checkInternalApiAuth } from "~/server/auth/internal-api";
-import { getClientInfoData } from "~/server/client-info";
+import { getClientInfoData } from "~/server/services/client-info";
 
 const QuerySchema = z.object({ id: z.string().min(1) });
 

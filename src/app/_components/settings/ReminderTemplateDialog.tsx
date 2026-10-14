@@ -35,7 +35,7 @@ import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 import { ConfirmDialog } from "~/app/_components/shared/ConfirmDialog";
 import { HighlightedPreview } from "~/app/_components/shared/PlaceholderHighlight";
-import { getSmsSegmentInfo } from "~/lib/sms";
+import { getSmsSegmentInfo } from "~/lib/integrations/sms";
 import { cn } from "~/lib/utils";
 import {
 	type ReminderTemplateFormValues,

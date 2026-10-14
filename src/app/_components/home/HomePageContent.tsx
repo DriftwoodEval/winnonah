@@ -5,7 +5,7 @@ import {
 	DEFAULT_HOME_WIDGETS,
 	HOME_WIDGET_DEFS,
 	type WidgetConfig,
-} from "~/lib/home-widgets";
+} from "~/lib/layout/home-widgets";
 import { api } from "~/trpc/react";
 import { CalendarViewWidget } from "./CalendarViewWidget";
 import {

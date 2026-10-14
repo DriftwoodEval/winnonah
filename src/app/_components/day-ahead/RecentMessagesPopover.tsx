@@ -4,7 +4,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@ui/popover";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@ui/tooltip";
 import { Bot, MessageSquare } from "lucide-react";
 import { useMemo } from "react";
-import type { TimelineEvent } from "~/lib/quo";
+import type { TimelineEvent } from "~/lib/integrations/quo";
 import { cn, formatInBusinessTime, toBusinessZonedTime } from "~/lib/utils";
 import { api } from "~/trpc/react";
 import { Redact } from "../redaction/Redact";

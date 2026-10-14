@@ -34,8 +34,8 @@ import {
 	ALLOWED_ASD_ADHD_VALUES,
 	type PUNCH_SCHEMA,
 	TEST_NAMES,
-} from "./constants";
-import type { Client, FullClientInfo } from "./models";
+} from "../constants";
+import type { Client, FullClientInfo } from "../models";
 
 async function googleApiCall<T>(
 	api: string,

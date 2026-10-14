@@ -6,7 +6,7 @@ import {
 } from "~/lib/dashboard";
 import { getFullDashboardData } from "~/lib/dashboard-data";
 import { getServiceSession } from "~/lib/dashboard-history";
-import { redis } from "~/lib/redis";
+import { redis } from "~/lib/integrations/redis";
 import { db } from "~/server/db";
 import { appointments } from "~/server/db/schema";
 

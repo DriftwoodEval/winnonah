@@ -60,7 +60,7 @@ import {
 } from "~/app/_components/day-ahead/CalendarGrid";
 import type { SortedClient } from "~/lib/api-types";
 import { BUSINESS_TIMEZONE } from "~/lib/constants";
-import type { CalendarEvent } from "~/lib/google";
+import type { CalendarEvent } from "~/lib/integrations/google";
 import { formatInBusinessTime, IS_DEV } from "~/lib/utils";
 import { api, type RouterOutputs } from "~/trpc/react";
 
@@ -157,7 +157,7 @@ function isTypeAllowed(
 }
 
 // classifyAvailabilityEvents maps the "Virtual" office's prettyName to the
-// synthetic key "VIRTUAL" (see src/lib/google.ts), while everywhere else in the
+// synthetic key "VIRTUAL" (see src/lib/integrations/google.ts), while everywhere else in the
 // app (schedulingClients.office, appointments.locationKey) uses "Virtual". This
 // bridges that mismatch when matching an event's officeKeys against the office
 // key selected in this form.

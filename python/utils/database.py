@@ -3457,7 +3457,7 @@ def reconcile_pool_report_queue_state(
 
 
 # Sentinel actor recorded on report fields last changed by the punch-list sync,
-# matching the EMR side (src/lib/google.ts syncPunchData), so an audit reader can
+# matching the EMR side (src/lib/integrations/google.ts syncPunchData), so an audit reader can
 # tell a spreadsheet edit from an in-app one.
 PUNCHLIST_SYNC_ACTOR_EMAIL = "Punchlist sync"
 

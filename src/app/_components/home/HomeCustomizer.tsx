@@ -12,7 +12,7 @@ import {
 	WIDGET_CATEGORY_LABELS,
 	type WidgetCategory,
 	type WidgetConfig,
-} from "~/lib/home-widgets";
+} from "~/lib/layout/home-widgets";
 
 interface HomeCustomizerProps {
 	widgets: WidgetConfig[];

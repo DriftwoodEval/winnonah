@@ -1,4 +1,4 @@
-import { getChangelogEntries, renderChangelogBody } from "~/lib/changelog";
+import { getChangelogEntries, renderChangelogBody } from "~/lib/docs/changelog";
 import { formatChangelogDate } from "~/lib/utils.client";
 
 export function ChangelogList() {

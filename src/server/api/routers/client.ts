@@ -40,7 +40,7 @@ import {
 	renameDriveFolder,
 	syncPunchData,
 	updatePunchData,
-} from "~/lib/google";
+} from "~/lib/integrations/google";
 import {
 	getDuplicateNamesList,
 	getInsuranceMismatchList,
@@ -49,7 +49,7 @@ import {
 	getMissingAppointmentsList,
 	getUnconfirmedCharterSchoolList,
 	getUnreviewedRecordsList,
-} from "~/lib/issue-lists";
+} from "~/lib/issues/issue-lists";
 import type { ClientWithIssueInfo } from "~/lib/models";
 import {
 	formatReferralHistoryEntry,
@@ -110,7 +110,7 @@ import {
 	schoolDistricts,
 	users,
 } from "~/server/db/schema";
-import { getQuestionnaireEligibilityAge } from "~/server/questionnaire-age";
+import { getQuestionnaireEligibilityAge } from "~/server/services/questionnaire-age";
 
 const isNotesOnly = eq(sql`LENGTH(${clients.id})`, 5);
 const CACHE_KEY_DROP_LIST = "clients:drop-list";

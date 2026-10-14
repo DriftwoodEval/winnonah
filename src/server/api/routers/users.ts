@@ -11,7 +11,7 @@ import {
 	protectedProcedure,
 } from "~/server/api/trpc";
 import { invitations, users } from "~/server/db/schema";
-import { systemEmitter } from "~/server/systemEmitter";
+import { systemEmitter } from "~/server/services/systemEmitter";
 
 export const userRouter = createTRPCRouter({
 	getAll: protectedProcedure

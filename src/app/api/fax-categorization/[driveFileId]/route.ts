@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getDriveClient } from "~/lib/google";
+import { getDriveClient } from "~/lib/integrations/google";
 import { hasPermission } from "~/lib/utils";
 import { auth } from "~/server/auth";
 

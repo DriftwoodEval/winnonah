@@ -38,7 +38,7 @@ import {
 	ISSUE_TITLES,
 	type IssueListId,
 	mergeIssueListOrder,
-} from "~/lib/issue-titles";
+} from "~/lib/issues/issue-titles";
 import type { Client, ClientWithIssueInfo } from "~/lib/models";
 import type { PermissionId } from "~/lib/types";
 import { formatInBusinessTime, formatShortDate } from "~/lib/utils";

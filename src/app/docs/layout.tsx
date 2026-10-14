@@ -1,5 +1,5 @@
 import { Guard } from "@components/layout/Guard";
-import { getDocsNavTree } from "~/lib/docs";
+import { getDocsNavTree } from "~/lib/docs/docs";
 import { DocsSearch } from "./_components/DocsSearch";
 import { DocsSidebar } from "./_components/DocsSidebar";
 
