@@ -127,3 +127,31 @@ export function isCharterSchoolUnconfirmed(
 		!referralData.charterSchoolConfirmed
 	);
 }
+
+/**
+ * Flags that stop both qsend.py and records-request.py outright: a paused
+ * client is skipped by both, and so is a client with "Autism" in their
+ * records (autismStop).
+ */
+export function getHoldBlockers(client: {
+	pause: boolean;
+	autismStop: boolean;
+}): string[] {
+	const blockers: string[] = [];
+	if (client.pause) blockers.push("Client paused for review.");
+	if (client.autismStop) {
+		blockers.push('"Autism" in records, client already identified.');
+	}
+	return blockers;
+}
+
+/** Mirrors SCHOOL_RECORDS_ADULT_AGE in questionnaires/utils/constants.py. */
+export const SCHOOL_RECORDS_ADULT_AGE = 22;
+
+/**
+ * Mirrors the is_adhd_only check in get_record_ready_client_ids(): outstanding
+ * records block questionnaires for everyone except ADHD-only clients.
+ */
+export function isAdhdOnly(asdAdhd: string | null | undefined): boolean {
+	return !!asdAdhd?.includes("ADHD") && !asdAdhd.includes("ASD");
+}

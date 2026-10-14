@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+	getHoldBlockers,
 	getRecordsBlockerReason,
 	isCharterSchoolUnconfirmed,
 	type RecordsBlockerInput,
@@ -89,5 +90,15 @@ describe("isCharterSchoolUnconfirmed", () => {
 		).toBe(false);
 		expect(isCharterSchoolUnconfirmed({ charterSchool: "no" })).toBe(false);
 		expect(isCharterSchoolUnconfirmed(null)).toBe(false);
+	});
+});
+
+describe("getHoldBlockers", () => {
+	it("is empty for an unpaused client with no autism stop", () => {
+		expect(getHoldBlockers({ pause: false, autismStop: false })).toEqual([]);
+	});
+
+	it("reports pause and autism stop", () => {
+		expect(getHoldBlockers({ pause: true, autismStop: true })).toHaveLength(2);
 	});
 });

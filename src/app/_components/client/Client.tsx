@@ -25,10 +25,13 @@ import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { useCheckPermission } from "~/hooks/use-check-permission";
 import {
+	getHoldBlockers,
 	getRecordsBlockerReason,
 	getUnsupportedLanguageReason,
 	hasQuestionnairesNeeded,
+	isAdhdOnly,
 	isCharterSchoolUnconfirmed,
+	SCHOOL_RECORDS_ADULT_AGE,
 } from "~/lib/client-blockers";
 import type { ClientColor } from "~/lib/colors";
 import { logger } from "~/lib/logger";
@@ -277,7 +280,7 @@ export function Client({
 			.filter((failure) => failure.daEval !== "Records")
 			.map((failure) => capitalize(sanitizeFailureReason(failure.reason)));
 
-		if (client.pause) blockers.push("Client paused for review.");
+		blockers.push(...getHoldBlockers(client));
 
 		const unsupportedLanguageReason = getUnsupportedLanguageReason(
 			client.language,
@@ -286,8 +289,18 @@ export function Client({
 			blockers.push(capitalize(unsupportedLanguageReason));
 		}
 
+		// qsend.py waits for school records before sending, except for
+		// ADHD-only clients.
+		if (
+			client.recordsNeeded === "Needed" &&
+			!externalRecordData?.contentJson &&
+			!isAdhdOnly(client.asdAdhd)
+		) {
+			blockers.push("Waiting on school records.");
+		}
+
 		return blockers;
-	}, [client, clientFailures, punchClient]);
+	}, [client, clientFailures, punchClient, externalRecordData]);
 
 	const recordsBlockers = useMemo(() => {
 		if (!client || isNotesOnlyClientId(client.id)) return [];
@@ -302,6 +315,18 @@ export function Client({
 		if (client.recordsNeeded === null) {
 			blockers.push("Missing records-needed status.");
 			return blockers;
+		}
+
+		// Pause and autism stop also halt records requests, but only matter
+		// while records are actually outstanding.
+		if (client.recordsNeeded === "Needed" && !externalRecordData?.contentJson) {
+			blockers.push(...getHoldBlockers(client));
+			const age = calculateAgeYearsMonths(client.dob)?.years;
+			if (age !== undefined && age >= SCHOOL_RECORDS_ADULT_AGE) {
+				blockers.push(
+					`Records aren't requested for clients ${SCHOOL_RECORDS_ADULT_AGE} or older.`,
+				);
+			}
 		}
 
 		const currentSessionRequests = (externalRecordData?.requests ?? []).filter(
@@ -333,7 +358,10 @@ export function Client({
 		return blockers;
 	}, [client, clientFailures, externalRecordData]);
 
-	const sendBlockers = [...questionnaireBlockers, ...recordsBlockers];
+	// A pause or autism stop appears in both lists; show it once.
+	const sendBlockers = [
+		...new Set([...questionnaireBlockers, ...recordsBlockers]),
+	];
 	const sendBlockersTitle =
 		questionnaireBlockers.length > 0 && recordsBlockers.length > 0
 			? "Not Sending Questionnaires or Records"
