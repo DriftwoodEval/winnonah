@@ -7,10 +7,10 @@ backfills emr_office_drive_time in the background.
 
 import math
 
+from driftwood_common.timezone import now_utc
 from pywaze import route_calculator
 
 from utils.constants import TABLE_OFFICE_DRIVE_TIME
-from utils.timezone import now_utc
 
 KM_PER_MILE = 1.60934
 

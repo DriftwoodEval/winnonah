@@ -14,6 +14,7 @@ import google_auth_httplib2
 import httplib2
 import pandas as pd
 from dateutil import parser as dtparser
+from driftwood_common.timezone import business_to_utc, now_business
 from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import InstalledAppFlow
@@ -24,7 +25,6 @@ from loguru import logger
 
 import utils.database
 from utils.constants import TABLE_APPOINTMENT, TABLE_CLIENT, TABLE_EVALUATOR
-from utils.timezone import business_to_utc, now_business
 
 # If modifying these scopes, delete the file token.json.
 SCOPES = [

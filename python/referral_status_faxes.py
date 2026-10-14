@@ -8,6 +8,7 @@ import pymupdf
 import requests
 from dateutil.relativedelta import relativedelta
 from dotenv import load_dotenv
+from driftwood_common.timezone import now_business, utc_to_business
 from loguru import logger
 
 import utils.database
@@ -15,7 +16,6 @@ import utils.google
 from utils.constants import TABLE_REFERRAL_STATUS_FAX_LOGS
 from utils.misc import json_log_format
 from utils.referrals import IGNORE_SOURCES, LETTERHEAD_PATH, process_source_metadata
-from utils.timezone import now_business, utc_to_business
 
 logger.add(
     "logs/referral-status-faxes.log",
