@@ -275,7 +275,7 @@ interface SortableClient {
 	paAssignedTo: string | null;
 }
 
-// Mirrors getPriorityInfo()'s SQL buckets/tie-break (server/api/routers/client.ts)
+// Mirrors getPriorityInfo()'s SQL buckets/tie-break (server/api/routers/clients/client.ts)
 // so the default "priority" sort matches the homepage client search exactly.
 const PRIORITY_REASON_BUCKET: Record<string, number> = {
 	"BabyNet and High Priority": 0,

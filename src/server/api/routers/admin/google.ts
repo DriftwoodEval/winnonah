@@ -53,8 +53,8 @@ import {
 	reports,
 	users,
 } from "~/server/db/schema";
-import { ensurePendingExternalRecordRequest } from "./externalRecords";
-import { saveNoteInternal } from "./notes";
+import { ensurePendingExternalRecordRequest } from "../clients/externalRecords";
+import { saveNoteInternal } from "../clients/notes";
 
 const CACHE_KEY_DUPLICATES = "google:drive:duplicate-ids";
 

@@ -3,8 +3,8 @@ import { z } from "zod";
 import { fetchWithCache, invalidateCache } from "~/lib/cache";
 import { additionalInsuranceAppointmentsSchema } from "~/lib/validations/config";
 import { diffValues, setAuditDetail } from "~/server/api/audit";
-import { CACHE_KEY_MISSING_APPOINTMENTS } from "~/server/api/routers/client";
-import { CACHE_KEY_ALL_EVALUATORS } from "~/server/api/routers/evaluator";
+import { CACHE_KEY_MISSING_APPOINTMENTS } from "~/server/api/routers/clients/client";
+import { CACHE_KEY_ALL_EVALUATORS } from "~/server/api/routers/scheduling/evaluator";
 import {
 	assertPermission,
 	createTRPCRouter,

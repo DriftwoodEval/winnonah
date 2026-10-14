@@ -3,7 +3,7 @@ import z from "zod";
 import { env } from "~/env";
 import { fetchWithCache, invalidateCache } from "~/lib/cache";
 import { diffValues, setAuditDetail } from "~/server/api/audit";
-import { CACHE_KEY_POSSIBLE_PRIVATE_PAY } from "~/server/api/routers/client";
+import { CACHE_KEY_POSSIBLE_PRIVATE_PAY } from "~/server/api/routers/clients/client";
 import {
 	assertPermission,
 	createTRPCRouter,

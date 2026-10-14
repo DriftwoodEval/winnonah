@@ -740,7 +740,7 @@ export type IssueListClient = {
 	failures?: Failure[];
 };
 
-/** Mirrors the same-named /issues page queries in src/server/api/routers/client.ts. */
+/** Mirrors the same-named /issues page queries in src/server/api/routers/clients/client.ts. */
 export function getClientIssueListSections(client: IssueListClient): string[] {
 	const sections: string[] = [];
 	const isNotesOnly = isNotesOnlyClientId(client.id);

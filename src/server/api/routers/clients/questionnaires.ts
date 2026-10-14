@@ -27,7 +27,7 @@ import {
 import { formatInBusinessTime, localDateToDateOnly } from "~/lib/utils";
 import { lenientPythonConfigSchema } from "~/lib/validations/config";
 import { diffValues, setAuditDetail } from "~/server/api/audit";
-import { CACHE_KEY_MISSING_APPOINTMENTS } from "~/server/api/routers/client";
+import { CACHE_KEY_MISSING_APPOINTMENTS } from "~/server/api/routers/clients/client";
 import {
 	assertPermission,
 	type Context,

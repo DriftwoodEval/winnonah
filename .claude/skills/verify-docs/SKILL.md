@@ -32,7 +32,7 @@ Docs pages don't carry an explicit pointer back to the code they describe, so re
   - Shared logic is in `winnonah/python/utils/` (`appointments.py`, `database.py`, `clients.py`, `google.py`, `therapyappointment.py`, `fax*.py`, `medicaid.py`, `timezone.py`, `constants.py`). Cadences quoted in docs come from the deployment's crontab/compose, not the script source, so flag a stated schedule as suspected drift unless the doc itself is the source of truth for it.
 - **The questionnaires repo** (anything about sending or receiving questionnaires, records requests, or piecework/billing exports): root scripts `qsend.py`, `qreceive.py`, `records-request.py`, `piecework.py`, `log-server.py` and `questionnaires/utils/`.
 
-The two Python surfaces share config through the `py-config` tRPC router (`winnonah/src/server/api/routers/py-config.ts`) and keep `timezone.py`/`constants.py` in sync, so a business rule quoted in a doc may be defined on the TS side and consumed in Python, check both.
+The two Python surfaces share config through the `py-config` tRPC router (`winnonah/src/server/api/routers/admin/py-config.ts`) and keep `timezone.py`/`constants.py` in sync, so a business rule quoted in a doc may be defined on the TS side and consumed in Python, check both.
 
 - Pull every bolded UI label (`**Like This**`), button/field name, permission string, dashboard section name, punch-list column name, cron cadence, and script filename mentioned in the doc, then grep the exact strings across the surface identified above.
 - A doc page that's clearly about one script or one router (most of them are) usually resolves to a small, obvious set of files, read those in full rather than guessing from grep snippets alone.
