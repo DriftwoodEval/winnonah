@@ -29,6 +29,7 @@ import { hasInPersonAppointment, isVirtualAppointment } from "~/lib/checkin";
 import { BUSINESS_TIMEZONE } from "~/lib/constants";
 import { IS_DEV, minutesToTimeString } from "~/lib/utils";
 import { api, type RouterOutputs } from "~/trpc/react";
+import { PostVisitMessageButton } from "../appointments/PostVisitMessageButton";
 import { Redact } from "../redaction/Redact";
 import {
 	type AvailabilityWindow,
@@ -177,6 +178,7 @@ function AppointmentRow({
 				messages={messages}
 				messagesLoading={messagesLoading}
 			/>
+			<PostVisitMessageButton appointmentId={appt.id} />
 			{canCheckin && !isVirtualAppointment(appt.locationKey) && (
 				<CheckInOutControl
 					appointmentId={appt.id}
@@ -293,6 +295,7 @@ function EvaluatorRow({
 								messages={messages}
 								messagesLoading={messagesLoading}
 							/>
+							<PostVisitMessageButton appointmentId={appt.id} />
 							{canCheckin && !isVirtualAppointment(appt.locationKey) && (
 								<CheckInOutControl
 									appointmentId={appt.id}

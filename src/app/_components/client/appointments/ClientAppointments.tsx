@@ -1,5 +1,6 @@
 "use client";
 
+import { PostVisitMessageButton } from "@components/appointments/PostVisitMessageButton";
 import { Badge } from "@ui/badge";
 import { Button } from "@ui/button";
 import {
@@ -293,6 +294,12 @@ export function ClientAppointments({
 							</p>
 						)}
 					</div>
+
+					{!isBilling && (
+						<div className="mt-2">
+							<PostVisitMessageButton appointmentId={appt.id} />
+						</div>
+					)}
 
 					{canCheckin &&
 						!isBilling &&

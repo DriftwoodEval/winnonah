@@ -15,6 +15,7 @@ import { useCheckPermission } from "~/hooks/use-check-permission";
 import { hasInPersonAppointment, isVirtualAppointment } from "~/lib/checkin";
 import { formatInBusinessTime } from "~/lib/utils";
 import { api } from "~/trpc/react";
+import { PostVisitMessageButton } from "../appointments/PostVisitMessageButton";
 import { formatTime } from "../day-ahead/CalendarGrid";
 import { CheckInOutControl } from "../day-ahead/CheckInOutControl";
 import {
@@ -216,6 +217,7 @@ export function MyDayWidget() {
 								messages={recentMessages ?? {}}
 								messagesLoading={messagesLoading}
 							/>
+							<PostVisitMessageButton appointmentId={appt.id} />
 							{canCheckin &&
 								checkinDateGate(asDate) &&
 								!isVirtualAppointment(appt.locationKey) && (
@@ -439,6 +441,7 @@ function ExpandableEvaluator({
 								messages={messages}
 								messagesLoading={messagesLoading}
 							/>
+							<PostVisitMessageButton appointmentId={appt.id} />
 							{canCheckin &&
 								checkinDateGate(asDate) &&
 								!isVirtualAppointment(appt.locationKey) && (

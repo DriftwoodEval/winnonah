@@ -19,6 +19,7 @@ import type { PermissionsObject } from "~/lib/types";
 import type {
 	AdditionalInsuranceAppointments,
 	appointmentSyncConfigSchema,
+	postVisitMessageConfigSchema,
 	pythonConfigSchema,
 	referralDataSchema,
 } from "~/lib/validations/config";
@@ -806,6 +807,10 @@ export const appointments = createTable(
 		}),
 		evaluatorDashboardArchivedAt: d.timestamp(),
 		evaluatorDashboardShowAnyway: d.boolean().notNull().default(false),
+		// Staff clicked "Send" on the post-visit TherapyAppointment message; the
+		// Python cron sends it and stamps postVisitMessageSentAt.
+		postVisitMessageQueuedAt: d.timestamp(),
+		postVisitMessageSentAt: d.timestamp(),
 	}),
 	(t) => [
 		index("appointment_start_time_idx").on(t.startTime),
@@ -1285,7 +1290,8 @@ export const schedulingClientsRelations = relations(
 
 type ConfigData =
 	| z.infer<typeof pythonConfigSchema>
-	| z.infer<typeof appointmentSyncConfigSchema>;
+	| z.infer<typeof appointmentSyncConfigSchema>
+	| z.infer<typeof postVisitMessageConfigSchema>;
 
 export const pythonConfig = createTable("python_config", (d) => ({
 	id: d.int().notNull().primaryKey(),

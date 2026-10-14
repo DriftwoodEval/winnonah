@@ -6,6 +6,7 @@ from pathlib import Path
 from time import sleep
 
 import pandas as pd
+from driftwood_common.timezone import now_utc
 from loguru import logger
 from selenium.common.exceptions import (
     NoSuchElementException,
@@ -14,9 +15,18 @@ from selenium.common.exceptions import (
 from selenium.webdriver import ActionChains, Keys
 from selenium.webdriver.common.by import By
 from selenium.webdriver.remote.webdriver import WebDriver
+from selenium.webdriver.support import expected_conditions as ec
+from selenium.webdriver.support.ui import WebDriverWait
 
 import utils.database
 import utils.webdriving as w
+from utils.constants import (
+    POST_VISIT_ATTACHMENT,
+    POST_VISIT_MESSAGE_BODY,
+    POST_VISIT_MESSAGE_CONFIG_ID,
+    POST_VISIT_MESSAGE_SUBJECT,
+    TABLE_APPOINTMENT,
+)
 from utils.misc import get_column
 from utils.task_tracker import track_task
 
@@ -634,3 +644,133 @@ def save_ta_hashes():
                 utils.database.update_client_ta_hashes(
                     hashes_to_update, connection=conn
                 )
+
+
+def _get_post_visit_message() -> tuple[str, str]:
+    """Returns the (subject, body) set in Settings, or the defaults if never saved."""
+    try:
+        config = utils.database.get_python_config(
+            config_id=POST_VISIT_MESSAGE_CONFIG_ID
+        )
+    except RuntimeError:
+        return POST_VISIT_MESSAGE_SUBJECT, POST_VISIT_MESSAGE_BODY
+    return config["subject"], config["body"]
+
+
+def _send_ta_message(
+    driver: WebDriver,
+    actions: ActionChains,
+    client_id: str,
+    attachment: Path,
+    subject: str,
+    body: str,
+) -> None:
+    """Opens the client in TA and sends the post-visit message with its attachment."""
+    client_url = go_to_client(driver, actions, client_id)
+    if client_url is None:
+        raise RuntimeError(f"Could not open client {client_id} in TA")
+
+    logger.debug("Accessing Messages section")
+    w.click_element(
+        driver,
+        By.XPATH,
+        "//a[@role='tab' and contains(normalize-space(.), 'Messages')]",
+    )
+
+    # The page renders this link twice, in a mobile-only and a desktop-only
+    # column, with the same href. Only the desktop copy is clickable at our
+    # window size, and the mobile copy comes first in the DOM.
+    logger.debug("Initiating new message")
+    w.click_element(
+        driver,
+        By.XPATH,
+        "//div[contains(@class, 'hidden-sm') and contains(@class, 'hidden-xs')]"
+        "//a[contains(@href, 'createMessageThread')]",
+    )
+    sleep(1)
+
+    # Attach first: submitting the attachment modal refreshes the whole page,
+    # which would wipe a subject and body typed beforehand.
+    logger.debug("Attaching file")
+    w.click_element(driver, By.XPATH, "//a[@data-target='#js-attachment-modal']")
+    # Dropzone keeps its file input hidden and zero-sized, which Selenium
+    # refuses to type into, so give it a visible size first.
+    file_input = w.find_element(driver, By.CSS_SELECTOR, "input[type='file']")
+    driver.execute_script(
+        "arguments[0].style.visibility = 'visible';"
+        "arguments[0].style.width = '10px';"
+        "arguments[0].style.height = '10px';",
+        file_input,
+    )
+    file_input.send_keys(str(attachment.resolve()))
+    w.find_element(
+        driver,
+        By.CSS_SELECTOR,
+        "#js-attachment-modal .file-row.dz-success",
+        timeout=60,
+    )
+    done_button = w.find_element(driver, By.ID, "dropzone-submit")
+    w.click_element(driver, By.ID, "dropzone-submit")
+    WebDriverWait(driver, 30).until(ec.staleness_of(done_button))
+
+    logger.debug("Setting message subject and content")
+    w.find_element(driver, By.ID, "message_thread_subject").send_keys(subject)
+    text_field = w.find_element(
+        driver,
+        By.XPATH,
+        "//div[@contenteditable='true' and contains(@class, 'wysiwygtextarea')]",
+    )
+    text_field.click()
+    text_field.send_keys(body)
+    sleep(1)
+
+    text_field.click()
+    subject_field = w.find_element(driver, By.ID, "message_thread_subject")
+    w.click_element(driver, By.CSS_SELECTOR, "button[type='submit']")
+    # The compose page is replaced once TA accepts the message. Closing the
+    # browser before that can abort the send.
+    WebDriverWait(driver, 30).until(ec.staleness_of(subject_field))
+    logger.success(f"Sent post-visit TA message to client {client_id}")
+
+
+def send_queued_post_visit_messages():
+    """Sends the post-visit TA message for every appointment staff queued."""
+    with utils.database.db_session() as conn:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                f"SELECT id, clientId FROM {TABLE_APPOINTMENT} "
+                "WHERE postVisitMessageQueuedAt IS NOT NULL "
+                "AND postVisitMessageSentAt IS NULL"
+            )
+            queued = cursor.fetchall()
+        if not queued:
+            return
+        if not POST_VISIT_ATTACHMENT.exists():
+            logger.error("No post-visit attachment uploaded in settings")
+            return
+
+        subject, body = _get_post_visit_message()
+        driver, actions = w.initialize_selenium()
+        try:
+            for row in queued:
+                try:
+                    _send_ta_message(
+                        driver,
+                        actions,
+                        str(row["clientId"]),
+                        POST_VISIT_ATTACHMENT,
+                        subject,
+                        body,
+                    )
+                except Exception as e:
+                    logger.error(f"Post-visit TA message failed for {row['id']}: {e}")
+                    continue
+                with conn.cursor() as cursor:
+                    cursor.execute(
+                        f"UPDATE {TABLE_APPOINTMENT} SET postVisitMessageSentAt = %s "
+                        "WHERE id = %s",
+                        (now_utc(), row["id"]),
+                    )
+                conn.commit()
+        finally:
+            driver.quit()

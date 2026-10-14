@@ -5,7 +5,9 @@ import { Skeleton } from "@ui/skeleton";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
 import { useCheckPermission } from "~/hooks/use-check-permission";
+import { formatInBusinessTime } from "~/lib/utils";
 import { api } from "~/trpc/react";
+import { PostVisitMessageButton } from "../appointments/PostVisitMessageButton";
 import { PinListButton } from "../dashboard/PinListButton";
 import { Redact } from "../redaction/Redact";
 
@@ -116,6 +118,57 @@ export function MyInsuranceClientsWidget() {
 						</Link>
 					))}
 				</div>
+			)}
+		</div>
+	);
+}
+
+export function PostVisitMessagesWidget() {
+	const { data, isLoading, isError } =
+		api.appointments.getPostVisitMessageList.useQuery();
+
+	// A client with several qualifying visits shows once, on the latest.
+	const seen = new Set<string>();
+	const rows = data?.filter(
+		(r) => !seen.has(r.clientHash) && seen.add(r.clientHash),
+	);
+
+	return (
+		<div className="flex h-full flex-col gap-2 overflow-auto rounded-lg border bg-card p-3">
+			<span className="text-muted-foreground text-xs uppercase tracking-wide">
+				Post-Visit TA Message
+			</span>
+			{isLoading ? (
+				<Skeleton className="h-7 w-full" />
+			) : isError ? (
+				<p className="py-2 text-center text-muted-foreground text-sm">
+					Couldn't load. Try refreshing the page.
+				</p>
+			) : !rows?.length ? (
+				<p className="py-2 text-center text-muted-foreground text-sm">
+					Nobody is waiting on a message
+				</p>
+			) : (
+				rows.map((r) => (
+					<div
+						className="flex items-center justify-between gap-2"
+						key={r.appointmentId}
+					>
+						<div className="flex flex-col">
+							<Link
+								className="text-sm hover:underline"
+								href={`/clients/${r.clientHash}`}
+							>
+								<Redact>{r.clientName}</Redact>
+							</Link>
+							<span className="text-muted-foreground text-xs">
+								{formatInBusinessTime(r.startTime, "MMM d")} with{" "}
+								{r.evaluatorName}
+							</span>
+						</div>
+						<PostVisitMessageButton appointmentId={r.appointmentId} />
+					</div>
+				))
 			)}
 		</div>
 	);

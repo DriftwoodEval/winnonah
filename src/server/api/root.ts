@@ -1,6 +1,7 @@
 import { auditLogRouter } from "./routers/admin/auditLog";
 import { googleRouter } from "./routers/admin/google";
 import { insuranceRouter } from "./routers/admin/insurance";
+import { postVisitAttachmentRouter } from "./routers/admin/postVisitAttachment";
 import { pyConfigRouter } from "./routers/admin/py-config";
 import { rolesRouter } from "./routers/admin/roles";
 import { systemRouter } from "./routers/admin/system";
@@ -53,6 +54,7 @@ export const appRouter = createTRPCRouter({
 	workSummary: workSummaryRouter,
 	reportQueue: reportQueueRouter,
 	reports: reportsRouter,
+	postVisitAttachment: postVisitAttachmentRouter,
 	pyConfig: pyConfigRouter,
 	questionnaires: questionnaireRouter,
 	quo: quoRouter,

@@ -23,6 +23,8 @@ from utils.appointments import (
     build_placeholder_title,
 )
 from utils.constants import (
+    MAX_POST_VISIT_ATTACHMENT_BYTES,
+    POST_VISIT_ATTACHMENT,
     TABLE_ACCOUNT,
     TABLE_APPOINTMENT,
     TABLE_CLIENT,
@@ -845,6 +847,41 @@ def download_csv(file_key: str, current_user: dict = Depends(get_current_user)):
         raise HTTPException(status_code=404, detail="File not found")
 
     return FileResponse(path=file_path, filename=filename, media_type="text/csv")
+
+
+_POST_VISIT_ATTACHMENT_PERMISSION = "settings:post-visit-attachment:edit"
+
+
+@app.get("/post-visit-attachment")
+def get_post_visit_attachment(current_user: dict = Depends(get_current_user)):
+    if not has_permission(
+        current_user["permissions"], _POST_VISIT_ATTACHMENT_PERMISSION
+    ):
+        raise HTTPException(status_code=403, detail="Not authorized")
+
+    if not POST_VISIT_ATTACHMENT.exists():
+        return {"updatedAt": None}
+    return {"updatedAt": POST_VISIT_ATTACHMENT.stat().st_mtime}
+
+
+@app.put("/post-visit-attachment")
+async def put_post_visit_attachment(
+    request: Request, current_user: dict = Depends(get_current_user)
+):
+    if not has_permission(
+        current_user["permissions"], _POST_VISIT_ATTACHMENT_PERMISSION
+    ):
+        raise HTTPException(status_code=403, detail="Not authorized")
+
+    content = await request.body()
+    if len(content) > MAX_POST_VISIT_ATTACHMENT_BYTES:
+        raise HTTPException(status_code=413, detail="The attachment is too large")
+    if not content.startswith(b"%PDF"):
+        raise HTTPException(status_code=400, detail="The attachment must be a PDF")
+
+    POST_VISIT_ATTACHMENT.parent.mkdir(parents=True, exist_ok=True)
+    POST_VISIT_ATTACHMENT.write_bytes(content)
+    return {"updatedAt": POST_VISIT_ATTACHMENT.stat().st_mtime}
 
 
 @app.get("/gmail/pearson-verification-code")

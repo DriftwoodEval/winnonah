@@ -39,6 +39,13 @@ export const HOME_WIDGET_DEFS: HomeWidgetDef[] = [
 		sizing: "content",
 	},
 	{
+		id: "post-visit-messages",
+		label: "Post-Visit TA Messages",
+		permission: "clients:appointments:postvisitmessage",
+		category: "clients",
+		sizing: "fill",
+	},
+	{
 		id: "my-insurance-clients",
 		label: "My Insurance Clients",
 		permission: "clients:admin:review",
@@ -499,6 +506,7 @@ export const DEFAULT_WIDGET_CONFIG: Record<
 	{ cols: number; rows: number }
 > = {
 	clients: { cols: 4, rows: 4 },
+	"post-visit-messages": { cols: 2, rows: 1 },
 	"day-ahead-mine": { cols: 2, rows: 2 },
 	"day-ahead-offices": { cols: 2, rows: 2 },
 	"greeter-schedule": { cols: 2, rows: 2 },

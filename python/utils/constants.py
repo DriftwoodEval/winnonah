@@ -1,4 +1,5 @@
 from datetime import datetime
+from pathlib import Path
 from typing import Final
 
 # Faxes discovered in the Drive folder before this date are ignored, so the
@@ -115,3 +116,14 @@ CLIENT_COLUMN_MAPPING: Final = {
     "taHash": "TA_HASH",
     "referralSource": "REFERRAL_SOURCE",
 }
+
+# Post-visit TherapyAppointment message text used until Settings saves one.
+POST_VISIT_MESSAGE_SUBJECT: Final = "Thank you for visiting us"
+POST_VISIT_MESSAGE_BODY: Final = (
+    "It was nice to meet you, here is an attachment with info like we discussed."
+)
+# Row of the python config table holding the subject and body set in Settings.
+POST_VISIT_MESSAGE_CONFIG_ID: Final = 3
+# Uploaded from Settings; lives on the mounted temp volume.
+POST_VISIT_ATTACHMENT: Final = Path("temp/post-visit-attachment.pdf")
+MAX_POST_VISIT_ATTACHMENT_BYTES: Final = 5 * 1024 * 1024

@@ -230,6 +230,11 @@ export const appointmentSyncConfigSchema = z.object({
 	ignored_appointment_ids: z.array(z.string()),
 });
 
+export const postVisitMessageConfigSchema = z.object({
+	subject: z.string().trim().min(1).max(200),
+	body: z.string().trim().min(1).max(5000),
+});
+
 export type pythonConfig = z.infer<typeof pythonConfigSchema>;
 export type AppointmentSyncConfig = z.infer<typeof appointmentSyncConfigSchema>;
 export type AdditionalInsuranceAppointments = z.infer<

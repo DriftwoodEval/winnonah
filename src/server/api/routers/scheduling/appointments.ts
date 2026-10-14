@@ -1,6 +1,18 @@
 import { TRPCError } from "@trpc/server";
 import { fromZonedTime } from "date-fns-tz";
-import { and, asc, count, desc, eq, gte, lte } from "drizzle-orm";
+import {
+	and,
+	asc,
+	count,
+	desc,
+	eq,
+	gte,
+	inArray,
+	isNull,
+	lte,
+	or,
+	sql,
+} from "drizzle-orm";
 import { z } from "zod";
 import { env } from "~/env";
 import { formatAppointmentInfoBlock } from "~/lib/appointment-info-block";
@@ -619,6 +631,68 @@ export const appointmentRouter = createTRPCRouter({
 					),
 				);
 			}
+		}),
+
+	// Appointments whose DA/EVAL/DAEVAL has happened (DA only counts for ADHD)
+	// and whose post-visit TherapyAppointment message hasn't been sent yet.
+	// Visits older than 14 days drop off the list.
+	getPostVisitMessageList: protectedProcedure.query(async ({ ctx }) => {
+		assertPermission(ctx.session.user, "clients:appointments:postvisitmessage");
+		const now = new Date();
+		const windowStart = new Date(now.getTime() - 14 * 24 * 60 * 60 * 1000);
+		return ctx.db
+			.select({
+				appointmentId: appointments.id,
+				clientName: clients.fullName,
+				clientHash: clients.hash,
+				daEval: appointments.daEval,
+				startTime: appointments.startTime,
+				evaluatorName: evaluators.providerName,
+				queuedAt: appointments.postVisitMessageQueuedAt,
+			})
+			.from(appointments)
+			.innerJoin(clients, eq(clients.id, appointments.clientId))
+			.innerJoin(evaluators, eq(evaluators.npi, appointments.evaluatorNpi))
+			.where(
+				and(
+					lte(appointments.endTime, now),
+					gte(appointments.endTime, windowStart),
+					eq(appointments.cancelled, false),
+					eq(appointments.placeholder, false),
+					eq(appointments.billingOnly, false),
+					isNull(appointments.postVisitMessageSentAt),
+					or(
+						inArray(appointments.daEval, ["EVAL", "DAEVAL"]),
+						and(
+							eq(appointments.daEval, "DA"),
+							sql`${appointments.asdAdhd} like '%ADHD%'`,
+						),
+					),
+				),
+			)
+			.orderBy(desc(appointments.startTime));
+	}),
+
+	queuePostVisitMessage: protectedProcedure
+		.input(z.object({ appointmentId: z.string() }))
+		.mutation(async ({ ctx, input }) => {
+			assertPermission(
+				ctx.session.user,
+				"clients:appointments:postvisitmessage",
+			);
+			await ctx.db
+				.update(appointments)
+				.set({ postVisitMessageQueuedAt: new Date() })
+				.where(
+					and(
+						eq(appointments.id, input.appointmentId),
+						isNull(appointments.postVisitMessageSentAt),
+					),
+				);
+			ctx.logger.info(
+				{ appointmentId: input.appointmentId, by: ctx.session.user.email },
+				"Post-visit TA message queued",
+			);
 		}),
 
 	getReminderTimeline: protectedProcedure

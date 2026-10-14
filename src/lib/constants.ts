@@ -77,6 +77,10 @@ export const PERMISSIONS = {
 						title: "Check In/Out Appointments",
 					},
 					{
+						id: "clients:appointments:postvisitmessage",
+						title: "Send Post-Visit Messages",
+					},
+					{
 						id: "clients:appointments:copyinfo",
 						title: "Copy Appointment Info",
 					},
@@ -240,6 +244,10 @@ export const PERMISSIONS = {
 					{
 						id: "settings:babynet-report:view",
 						title: "View BabyNet Report",
+					},
+					{
+						id: "settings:post-visit-attachment:edit",
+						title: "Change Post-Visit Message Attachment",
 					},
 					{
 						id: "settings:exclusion-check:notifications",
@@ -442,3 +450,15 @@ export const PERMISSION_MAP = Object.values(PERMISSIONS).reduce(
 	},
 	{} as Record<string, string>,
 );
+
+// Largest PDF accepted for the post-visit message attachment (also enforced
+// by the Python sidecar).
+export const MAX_POST_VISIT_ATTACHMENT_BYTES = 5 * 1024 * 1024;
+
+// Post-visit TA message text used until staff change it in Settings. The
+// Python sender falls back to the same text (POST_VISIT_MESSAGE_* in
+// python/utils/constants.py).
+export const DEFAULT_POST_VISIT_MESSAGE = {
+	subject: "Thank you for visiting us",
+	body: "It was nice to meet you, here is an attachment with info like we discussed.",
+};

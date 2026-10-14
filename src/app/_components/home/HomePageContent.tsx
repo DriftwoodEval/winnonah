@@ -10,6 +10,7 @@ import { api } from "~/trpc/react";
 import { CalendarViewWidget } from "./CalendarViewWidget";
 import {
 	MyInsuranceClientsWidget,
+	PostVisitMessagesWidget,
 	RecentClientsWidget,
 } from "./ClientListWidgets";
 import { ClientWidget } from "./ClientWidget";
@@ -83,6 +84,8 @@ export function HomePageContent() {
 									}
 									if (w.id === "clients") return <ClientWidget />;
 									if (w.id === "recent-clients") return <RecentClientsWidget />;
+									if (w.id === "post-visit-messages")
+										return <PostVisitMessagesWidget />;
 									if (w.id === "my-insurance-clients")
 										return <MyInsuranceClientsWidget />;
 									if (w.id === "day-ahead-mine") return <MyDayWidget />;
