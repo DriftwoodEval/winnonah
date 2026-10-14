@@ -26,6 +26,8 @@ import { Fragment, useMemo, useState } from "react";
 import { cn } from "~/lib/utils";
 import { api } from "~/trpc/react";
 import { Redact } from "../redaction/Redact";
+import { EmptyState } from "../shared/EmptyState";
+import { ErrorState } from "../shared/ErrorState";
 
 const DA_EVAL_ORDER = ["DA", "EVAL", "DAEVAL"] as const;
 const ASD_ADHD_ORDER = ["ASD", "ADHD", "ASD+LD", "ADHD+LD", "LD"];
@@ -200,11 +202,12 @@ function AppointmentDetailDialog({
 	endDate: Date;
 	onClose: () => void;
 }) {
-	const { data, isLoading } = api.workSummary.getAppointmentDetail.useQuery({
-		evaluatorNpi: evaluator.npi,
-		startDate,
-		endDate,
-	});
+	const { data, isLoading, isError, refetch } =
+		api.workSummary.getAppointmentDetail.useQuery({
+			evaluatorNpi: evaluator.npi,
+			startDate,
+			endDate,
+		});
 
 	return (
 		<Dialog onOpenChange={(open) => !open && onClose()} open>
@@ -218,6 +221,8 @@ function AppointmentDetailDialog({
 						<Skeleton className="h-8 w-full" />
 						<Skeleton className="h-8 w-full" />
 					</div>
+				) : isError ? (
+					<ErrorState compact onRetry={refetch} />
 				) : data?.length ? (
 					<Table>
 						<TableHeader>
@@ -254,9 +259,7 @@ function AppointmentDetailDialog({
 						</TableBody>
 					</Table>
 				) : (
-					<p className="text-muted-foreground text-sm italic">
-						No appointments found.
-					</p>
+					<EmptyState compact title="No appointments found" />
 				)}
 			</DialogContent>
 		</Dialog>
@@ -284,13 +287,14 @@ export default function PieceworkSummary() {
 	}, [effectiveDates.startDate, effectiveDates.endDate]);
 
 	const datesReady = !!effectiveDates.startDate && !!effectiveDates.endDate;
-	const { data, isLoading } = api.workSummary.getSummary.useQuery(
-		{
-			startDate: effectiveDates.startDate ?? new Date(),
-			endDate: effectiveDates.endDate ?? new Date(),
-		},
-		{ enabled: datesReady },
-	);
+	const { data, isLoading, isError, refetch } =
+		api.workSummary.getSummary.useQuery(
+			{
+				startDate: effectiveDates.startDate ?? new Date(),
+				endDate: effectiveDates.endDate ?? new Date(),
+			},
+			{ enabled: datesReady },
+		);
 
 	const displayData = useMemo(() => {
 		const appts = data?.appointments ?? [];
@@ -440,6 +444,8 @@ export default function PieceworkSummary() {
 							<Skeleton className="h-8 w-full" />
 							<Skeleton className="h-8 w-full" />
 						</div>
+					) : isError ? (
+						<ErrorState compact onRetry={refetch} />
 					) : displayData.rows.length > 0 ? (
 						<>
 							{/* Mobile: evaluator cards */}
@@ -702,9 +708,7 @@ export default function PieceworkSummary() {
 							</div>
 						</>
 					) : (
-						<p className="px-4 pb-4 text-muted-foreground text-sm italic">
-							No appointments in this range.
-						</p>
+						<EmptyState compact title="No appointments in this range" />
 					)}
 				</CardContent>
 			</Card>
@@ -723,6 +727,8 @@ export default function PieceworkSummary() {
 							<Skeleton className="h-8 w-full" />
 							<Skeleton className="h-8 w-full" />
 						</div>
+					) : isError ? (
+						<ErrorState compact onRetry={refetch} />
 					) : data?.reports.length ? (
 						<Table classNameWrapper="px-4">
 							<TableHeader>
@@ -741,9 +747,7 @@ export default function PieceworkSummary() {
 							</TableBody>
 						</Table>
 					) : (
-						<p className="px-4 pb-4 text-muted-foreground text-sm italic">
-							No reports tracked in this range.
-						</p>
+						<EmptyState compact title="No reports tracked in this range" />
 					)}
 				</CardContent>
 			</Card>
@@ -762,6 +766,8 @@ export default function PieceworkSummary() {
 							<Skeleton className="h-8 w-full" />
 							<Skeleton className="h-8 w-full" />
 						</div>
+					) : isError ? (
+						<ErrorState compact onRetry={refetch} />
 					) : data?.timing.length ? (
 						<Table classNameWrapper="px-4">
 							<TableHeader>
@@ -808,9 +814,7 @@ export default function PieceworkSummary() {
 							</TableBody>
 						</Table>
 					) : (
-						<p className="px-4 pb-4 text-muted-foreground text-sm italic">
-							No check-in timing data in this range.
-						</p>
+						<EmptyState compact title="No check-in timing data in this range" />
 					)}
 				</CardContent>
 			</Card>
@@ -829,6 +833,8 @@ export default function PieceworkSummary() {
 							<Skeleton className="h-8 w-full" />
 							<Skeleton className="h-8 w-full" />
 						</div>
+					) : isError ? (
+						<ErrorState compact onRetry={refetch} />
 					) : data?.dayLateness.length ? (
 						<Table classNameWrapper="px-4">
 							<TableHeader>
@@ -853,9 +859,10 @@ export default function PieceworkSummary() {
 							</TableBody>
 						</Table>
 					) : (
-						<p className="px-4 pb-4 text-muted-foreground text-sm italic">
-							No evaluator day check-ins in this range.
-						</p>
+						<EmptyState
+							compact
+							title="No evaluator day check-ins in this range"
+						/>
 					)}
 				</CardContent>
 			</Card>
@@ -874,6 +881,8 @@ export default function PieceworkSummary() {
 							<Skeleton className="h-8 w-full" />
 							<Skeleton className="h-8 w-full" />
 						</div>
+					) : isError ? (
+						<ErrorState compact onRetry={refetch} />
 					) : data?.checkins.length ? (
 						<Table classNameWrapper="px-4">
 							<TableHeader>
@@ -892,9 +901,7 @@ export default function PieceworkSummary() {
 							</TableBody>
 						</Table>
 					) : (
-						<p className="px-4 pb-4 text-muted-foreground text-sm italic">
-							No check-ins tracked in this range.
-						</p>
+						<EmptyState compact title="No check-ins tracked in this range" />
 					)}
 				</CardContent>
 			</Card>

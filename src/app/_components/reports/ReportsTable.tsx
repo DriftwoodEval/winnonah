@@ -31,6 +31,7 @@ import { toast } from "sonner";
 import { cn, formatCurrency, formatInBusinessTime } from "~/lib/utils";
 import type { RouterOutputs } from "~/trpc/react";
 import { api } from "~/trpc/react";
+import { EmptyState } from "../shared/EmptyState";
 import { ReportNoteCell } from "./ReportNoteCell";
 
 type Report = RouterOutputs["reports"]["list"][number];
@@ -394,11 +395,7 @@ export function ReportsTable({
 	}
 
 	if (reports.length === 0) {
-		return (
-			<p className="py-8 text-center text-muted-foreground text-sm">
-				No reports to show.
-			</p>
-		);
+		return <EmptyState title="No reports to show" />;
 	}
 
 	return (

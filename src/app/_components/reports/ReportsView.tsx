@@ -6,6 +6,7 @@ import { useSession } from "next-auth/react";
 import { useState } from "react";
 import { useCheckPermission } from "~/hooks/use-check-permission";
 import { api } from "~/trpc/react";
+import { ErrorState } from "../shared/ErrorState";
 import { ReportRowsSkeleton } from "./ReportRowsSkeleton";
 import { ReportsTable } from "./ReportsTable";
 
@@ -20,10 +21,17 @@ function TabContent({
 	kind: Kind;
 	isApprover: boolean;
 }) {
-	const { data, isLoading } = api.reports.list.useQuery({ tab, kind });
+	const { data, isLoading, isError, refetch } = api.reports.list.useQuery({
+		tab,
+		kind,
+	});
 
 	if (isLoading) {
 		return <ReportRowsSkeleton />;
+	}
+
+	if (isError) {
+		return <ErrorState onRetry={refetch} />;
 	}
 
 	const reports = data ?? [];

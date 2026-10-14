@@ -61,6 +61,8 @@ import {
 import type { AppRouter } from "~/server/api/root";
 import { api } from "~/trpc/react";
 import { Redact } from "../redaction/Redact";
+import { EmptyState } from "../shared/EmptyState";
+import { ErrorState } from "../shared/ErrorState";
 import { NameSearchInput } from "./NameSearchInput";
 
 const FILTER_TIMEOUT_MS = 24 * 60 * 60 * 1000;
@@ -1332,6 +1334,8 @@ export function ClientDirectory() {
 		data: rawClients,
 		isLoading,
 		isFetching,
+		isError,
+		refetch,
 	} = api.clients.directory.useQuery(queryFilters, {
 		placeholderData: (previousData) => previousData,
 	});
@@ -1902,6 +1906,15 @@ export function ClientDirectory() {
 									))}
 								</TableRow>
 							))
+						) : isError ? (
+							<TableRow>
+								<TableCell
+									className="py-12"
+									colSpan={2 + TOGGLEABLE_COLUMNS.length}
+								>
+									<ErrorState onRetry={refetch} />
+								</TableCell>
+							</TableRow>
 						) : clients && clients.length > 0 ? (
 							clients.map((client) => (
 								<ClientTableRow
@@ -1917,12 +1930,10 @@ export function ClientDirectory() {
 						) : (
 							<TableRow>
 								<TableCell
-									className="py-12 text-center"
+									className="py-12"
 									colSpan={2 + TOGGLEABLE_COLUMNS.length}
 								>
-									<p className="text-muted-foreground text-sm">
-										No clients found.
-									</p>
+									<EmptyState title="No clients found" />
 								</TableCell>
 							</TableRow>
 						)}
@@ -1951,6 +1962,8 @@ export function ClientDirectory() {
 								</div>
 							</div>
 						))
+					) : isError ? (
+						<ErrorState onRetry={refetch} />
 					) : clients && clients.length > 0 ? (
 						clients.map((client) => (
 							<ClientCard
@@ -1963,9 +1976,7 @@ export function ClientDirectory() {
 							/>
 						))
 					) : (
-						<p className="py-12 text-center text-muted-foreground text-sm">
-							No clients found.
-						</p>
+						<EmptyState title="No clients found" />
 					)}
 				</div>
 			)}
