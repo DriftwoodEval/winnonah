@@ -1,5 +1,5 @@
-import { db } from "../src/server/db";
-import { assessmentTypes } from "../src/server/db/schema";
+import { db } from "../../src/server/db";
+import { assessmentTypes } from "../../src/server/db/schema";
 
 const types: (typeof assessmentTypes.$inferInsert)[] = [
 	{ name: "DP-4", site: "WPS", minAge: 0, maxAge: 22 },

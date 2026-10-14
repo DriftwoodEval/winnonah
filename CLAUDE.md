@@ -7,7 +7,7 @@ T3 stack app (Next.js, tRPC, Drizzle ORM, NextAuth) + a Python API sidecar + cro
 - Use our named color tokens, never raw Tailwind palette colors (`bg-red-500`, `text-amber-600`, etc.). The tokens are defined in `src/styles/globals.css`: semantic (`success`, `warning`, `error`, `primary`, `destructive`, `muted`, `accent`, `border`, `card`, `popover`, each with a `-foreground` where it applies) and brand (`brand-green`, `brand-teal`, `brand-tan`, `brand-cream`). Semantic tokens have Tailwind utilities (`bg-success`, `border-warning/40`); the brand tokens beyond `brand-green` (which is `primary`) are CSS vars only, reach them with `var(--brand-teal)`. If nothing fits, add a token to `globals.css` rather than hardcoding a palette color.
 
 ## Changelog
-When making significant, user-facing changes, add an entry to `src/content/docs/changelog/index.mdx`. Use today's date, group bullets under `**New**`/`**Improved**`/`**Fixed**` in that order, and validate with `pnpm exec tsx scripts/validate-changelog.ts`. Write bullets in plain, user-friendly language describing what changed for the user, not implementation details (e.g. "Insurance review now shows the waiting badge even when you can't act on it," not "gated waiting badge render behind canUse flag").
+When making significant, user-facing changes, add an entry to `src/content/docs/changelog/index.mdx`. Use today's date, group bullets under `**New**`/`**Improved**`/`**Fixed**` in that order, and validate with `pnpm exec tsx scripts/ci/validate-changelog.ts`. Write bullets in plain, user-friendly language describing what changed for the user, not implementation details (e.g. "Insurance review now shows the waiting badge even when you can't act on it," not "gated waiting badge render behind canUse flag").
 
 ## Docs
 When a change alters behavior an existing docs page under `src/content/docs/` describes (a renamed label, a changed rule, a removed or added step, a workflow that now works differently), update that page in the same change. Grep the docs for the feature name or UI label to find affected pages. Docs are written for non-technical staff: describe what the user sees and does, not the implementation. Validate with `mise run check:docs`.
@@ -21,6 +21,7 @@ Docs live in `src/content/docs/` as Markdown/MDX and are read by practice staff,
 - `mise run check` type-checks and lints everything (TS + Python); use `check:pnpm`/`check:ruff` to run just one side. Don't call `tsc`/`ruff` directly.
 - Trust ruff over your own syntax assumptions.
 - Never run `pnpm db:*` or DB migrations, leave to the user.
+- Python one-offs live in `python/oneoff/` and run as modules from `python/`, e.g. `uv run python -m oneoff.remediate_noop_audit_log`. Run them as modules, not by file path, so `utils` imports resolve.
 
 ## Local Development
 Every page requires a logged-in NextAuth session, and Claude has no way to authenticate as a real user, so starting the dev server and browser-testing a UI change is never possible here regardless of Docker/`.env` availability. Don't attempt it. Verify UI changes with `mise run check` and existing tests, and say plainly that the change wasn't browser-tested rather than claiming otherwise.

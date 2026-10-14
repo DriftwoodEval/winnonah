@@ -5,7 +5,7 @@ description: Audits one or more docs pages under src/content/docs against the ac
 
 # Verify Docs
 
-This is a periodic, human-triggered accuracy audit for the docs site at `src/content/docs/`. It exists because `scripts/validate-docs.ts` (run via `mise run check:docs`) only catches structural rot, broken links, missing images, malformed frontmatter, not whether the prose still matches what the code actually does. That's a judgment call an LLM has to make by re-reading the doc next to its source, this skill is that process.
+This is a periodic, human-triggered accuracy audit for the docs site at `src/content/docs/`. It exists because `scripts/ci/validate-docs.ts` (run via `mise run check:docs`) only catches structural rot, broken links, missing images, malformed frontmatter, not whether the prose still matches what the code actually does. That's a judgment call an LLM has to make by re-reading the doc next to its source, this skill is that process.
 
 Never auto-edit a doc as part of this skill. Report findings; let a human (or a follow-up request) decide what to change.
 
@@ -28,7 +28,7 @@ Docs pages don't carry an explicit pointer back to the code they describe, so re
 - **The winnonah Python sidecar and cron scripts** (anything about a background sync, a scheduled job, fax/document processing, appointment reminders, or an internal report that isn't a screen), all under `winnonah/python/`:
   - `api.py` is the FastAPI sidecar the web app calls (routes are `@app.get`/`@app.post`); its lifespan also starts one in-process loop, `appointment_reminders.reminder_cron()`.
   - `main.py` is a Typer CLI (the `main(...)` command) that the deployment's cron invokes for the recurring TherapyAppointment sync, fax, and referral work.
-  - Other root scripts run standalone on their own cron: `appointment_reminders.py`, `categorize_documents.py`, `fax_categorization.py`, `babynet_report.py`, `notify_reports.py`, `migrate_drive.py`, `greeter_proxy.py`, plus one-off `remediate_*.py`.
+  - Other root scripts run standalone on their own cron: `appointment_reminders.py`, `categorize_documents.py`, `fax_categorization.py`, `babynet_report.py`, `notify_reports.py`, `greeter_proxy.py`, plus the one-offs in `python/oneoff/`.
   - Shared logic is in `winnonah/python/utils/` (`appointments.py`, `database.py`, `clients.py`, `google.py`, `therapyappointment.py`, `fax*.py`, `medicaid.py`, `timezone.py`, `constants.py`). Cadences quoted in docs come from the deployment's crontab/compose, not the script source, so flag a stated schedule as suspected drift unless the doc itself is the source of truth for it.
 - **The questionnaires repo** (anything about sending or receiving questionnaires, records requests, or piecework/billing exports): root scripts `qsend.py`, `qreceive.py`, `records-request.py`, `piecework.py`, `log-server.py` and `questionnaires/utils/`.
 
