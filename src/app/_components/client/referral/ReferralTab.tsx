@@ -47,6 +47,7 @@ import type { Client } from "~/lib/models";
 import { REFERRAL_FIELD_LABELS } from "~/lib/referral-history";
 import { isBabyNetInsurance, isNotesOnlyClientId } from "~/lib/utils";
 import { api } from "~/trpc/react";
+import { ErrorState } from "../../shared/ErrorState";
 import { ResponsiveDialog } from "../../shared/ResponsiveDialog";
 import { ReferralHistoryButton } from "./ReferralHistory";
 
@@ -199,14 +200,17 @@ export function ReferralTab({ client, readOnly }: ReferralTabProps) {
 
 	const isNeedsReview = client.referralData?.needsReachOut === "review";
 
-	const { data: pushPreview, isLoading: isLoadingPreview } =
-		api.google.getPushPreview.useQuery(client.id, {
-			refetchInterval: 60_000,
-			enabled:
-				!!client.id &&
-				isNeedsReview &&
-				(can("clients:referral:pushtopunch") || canBabyNetLimited),
-		});
+	const {
+		data: pushPreview,
+		isLoading: isLoadingPreview,
+		refetch: refetchPreview,
+	} = api.google.getPushPreview.useQuery(client.id, {
+		refetchInterval: 60_000,
+		enabled:
+			!!client.id &&
+			isNeedsReview &&
+			(can("clients:referral:pushtopunch") || canBabyNetLimited),
+	});
 
 	const isOnPunch = !!punchClient;
 	// Workflow controls (mark for review, push, outreach) stay locked once the
@@ -1331,7 +1335,11 @@ export function ReferralTab({ client, readOnly }: ReferralTabProps) {
 												</span>
 											</div>
 										) : (
-											"Failed to load preview."
+											<ErrorState
+												compact
+												message="Failed to load preview."
+												onRetry={refetchPreview}
+											/>
 										)}
 									</AlertDescription>
 								</Alert>
