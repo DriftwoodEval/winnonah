@@ -20,6 +20,8 @@ export function getAppointmentLocation(title: string): string {
 				return "Summerville Office";
 			case "mb":
 				return "Myrtle Beach Office";
+			case "pi":
+				return "Pawleys Island Office";
 			case "columbia":
 			case "col":
 				return "Columbia Office";
