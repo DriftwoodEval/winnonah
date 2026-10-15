@@ -26,9 +26,9 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { formatInBusinessTime, formatReminderOffset } from "~/lib/utils";
 import { api, type RouterOutputs } from "~/trpc/react";
-import OfficesSettings from "./OfficesSettings";
 import { EmptyState } from "../shared/EmptyState";
 import { ErrorState } from "../shared/ErrorState";
+import OfficesSettings from "./OfficesSettings";
 import { ReminderTemplateDialog } from "./ReminderTemplateDialog";
 
 type ReminderTemplate = RouterOutputs["reminders"]["getTemplates"][number];
