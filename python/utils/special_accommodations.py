@@ -1,9 +1,10 @@
 """SCDHHS Special Accommodations notices.
 
 When the appointment sync schedules a new appointment for an active Medicaid
-(SCM) client who does not speak English, we email SCDHHS the client's name,
-Medicaid number, and language so they can arrange an interpreter. The notice
-goes out once per client.
+(SCM) or BabyNet client who does not speak English, a pending notice is queued
+for staff to approve or deny on the Issues page. Approved notices are emailed to
+SCDHHS (the client's name, Medicaid number, and language) so they can arrange an
+interpreter. Each client is queued once.
 """
 
 from collections.abc import Iterable
@@ -12,8 +13,10 @@ from loguru import logger
 
 from utils.constants import SPECIAL_ACCOMMODATIONS_EMAIL
 from utils.database import (
+    get_approved_special_accommodations_notices,
     get_non_english_medicaid_clients_for_notice,
-    record_special_accommodations_notice,
+    mark_special_accommodations_notice_sent,
+    queue_special_accommodations_notice,
 )
 from utils.google import send_gmail
 
@@ -37,19 +40,25 @@ def build_accommodation_email(
     return subject, body
 
 
-def notify_special_accommodations(client_ids: Iterable[int]) -> None:
-    """Email SCDHHS for each newly scheduled non-English Medicaid client in
-    client_ids that has not been reported yet, then record the send."""
-    clients = get_non_english_medicaid_clients_for_notice(client_ids)
-    if not clients:
-        return
+def queue_special_accommodations(client_ids: Iterable[int]) -> None:
+    """Queue a pending notice for each newly scheduled non-English Medicaid or
+    BabyNet client in client_ids that has no notice yet. Staff approve or deny
+    them on the Issues page; nothing is emailed until approval."""
+    for client in get_non_english_medicaid_clients_for_notice(client_ids):
+        queue_special_accommodations_notice(
+            client["id"], client["language"], client["insuranceNumber"]
+        )
+        logger.info(f"Queued Special Accommodations notice for client {client['id']}")
 
-    for client in clients:
-        name = f"{client['firstName']} {client['lastName']}".strip()
-        medicaid_number = client["insuranceNumber"]
-        language = client["language"]
 
-        subject, body = build_accommodation_email(name, medicaid_number, language)
+def send_approved_special_accommodations() -> None:
+    """Email SCDHHS for each approved notice, then mark it sent. A failed send
+    stays approved and is retried on the next run."""
+    for notice in get_approved_special_accommodations_notices():
+        name = f"{notice['firstName']} {notice['lastName']}".strip()
+        subject, body = build_accommodation_email(
+            name, notice["medicaidNumber"], notice["language"]
+        )
         result = send_gmail(
             message_text=body,
             subject=subject,
@@ -58,9 +67,11 @@ def notify_special_accommodations(client_ids: Iterable[int]) -> None:
         )
         if result is None:
             logger.error(
-                f"Failed to send Special Accommodations notice for client {client['id']}"
+                f"Failed to send Special Accommodations notice for client {notice['clientId']}"
             )
             continue
 
-        record_special_accommodations_notice(client["id"], language, medicaid_number)
-        logger.info(f"Sent Special Accommodations notice for client {client['id']}")
+        mark_special_accommodations_notice_sent(notice["clientId"])
+        logger.info(
+            f"Sent Special Accommodations notice for client {notice['clientId']}"
+        )

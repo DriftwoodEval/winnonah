@@ -87,6 +87,11 @@ export function useIssueCounts(
 		undefined,
 		query(can("issues:insurance-mismatch")),
 	);
+	const { data: specialAccommodations } =
+		api.clients.getSpecialAccommodations.useQuery(
+			undefined,
+			query(can("issues:insurance-mismatch")),
+		);
 	const { data: medicaidNotFound } = api.clients.getMedicaidNotFound.useQuery(
 		undefined,
 		query(can("issues:insurance-mismatch")),
@@ -197,6 +202,10 @@ export function useIssueCounts(
 			count: unconfirmedCharterSchool?.length,
 		},
 		{ title: ISSUE_TITLES.insuranceMismatch, count: insuranceMismatch?.length },
+		{
+			title: ISSUE_TITLES.specialAccommodations,
+			count: specialAccommodations?.length,
+		},
 		{ title: ISSUE_TITLES.medicaidNotFound, count: medicaidNotFound?.length },
 		{
 			title: ISSUE_TITLES.duplicateDriveFolders,

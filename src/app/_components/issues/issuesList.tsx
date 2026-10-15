@@ -57,7 +57,36 @@ interface IssueListProps {
 	action?: React.ReactNode;
 	fill?: boolean;
 	showOutreachLog?: boolean;
+	rowAction?: (client: ClientWithIssueInfo) => React.ReactNode;
 }
+
+const SpecialAccommodationsActions = ({ clientId }: { clientId: number }) => {
+	const utils = api.useUtils();
+	const decide = api.clients.decideSpecialAccommodations.useMutation({
+		onSuccess: () => utils.clients.getSpecialAccommodations.invalidate(),
+		onError: (error) => toast.error(error.message),
+	});
+	return (
+		<div className="flex gap-1">
+			<Button
+				disabled={decide.isPending}
+				onClick={() => decide.mutate({ clientId, decision: "approved" })}
+				size="sm"
+				variant="outline"
+			>
+				Approve
+			</Button>
+			<Button
+				disabled={decide.isPending}
+				onClick={() => decide.mutate({ clientId, decision: "denied" })}
+				size="sm"
+				variant="ghost"
+			>
+				Deny
+			</Button>
+		</div>
+	);
+};
 
 export const IssueList = ({
 	title,
@@ -66,6 +95,7 @@ export const IssueList = ({
 	action,
 	fill,
 	showOutreachLog,
+	rowAction,
 }: IssueListProps) => {
 	const utils = api.useUtils();
 	const savedClientRef = useRef<HTMLDivElement>(null);
@@ -243,6 +273,7 @@ export const IssueList = ({
 								{showOutreachLog && (
 									<LogOutreachAttemptButton client={client} />
 								)}
+								{rowAction?.(client)}
 							</div>
 							{isSavedClient(client.hash) && (
 								<button
@@ -1316,6 +1347,15 @@ export function IssuesList() {
 		enabled: can("issues:insurance-mismatch"),
 	});
 	const {
+		data: specialAccommodations,
+		isLoading: isLoadingSpecialAccommodations,
+		isError: isErrorSpecialAccommodations,
+		refetch: refetchSpecialAccommodations,
+	} = api.clients.getSpecialAccommodations.useQuery(undefined, {
+		refetchInterval: 60_000,
+		enabled: can("issues:insurance-mismatch"),
+	});
+	const {
 		data: medicaidNotFound,
 		isLoading: isLoadingMedicaidNotFound,
 		isError: isErrorMedicaidNotFound,
@@ -1851,6 +1891,26 @@ export function IssuesList() {
 						clients={insuranceMismatch}
 						description="Medicaid portal organization doesn't match either insurance on file."
 						title={ISSUE_TITLES.insuranceMismatch}
+					/>
+				)}
+			</GuardedIssue>
+		),
+		specialAccommodations: (
+			<GuardedIssue
+				isError={isErrorSpecialAccommodations}
+				isLoading={isLoadingSpecialAccommodations}
+				onRetry={refetchSpecialAccommodations}
+				permission={ISSUE_LIST_PERMISSIONS.specialAccommodations}
+				title={ISSUE_TITLES.specialAccommodations}
+			>
+				{specialAccommodations && specialAccommodations.length !== 0 && (
+					<IssueList
+						clients={specialAccommodations}
+						description="Non-English Medicaid or BabyNet clients with a new appointment. Approve to email SCDHHS Special Accommodations so an interpreter can be arranged, or deny to skip it."
+						rowAction={(client) => (
+							<SpecialAccommodationsActions clientId={client.id} />
+						)}
+						title={ISSUE_TITLES.specialAccommodations}
 					/>
 				)}
 			</GuardedIssue>

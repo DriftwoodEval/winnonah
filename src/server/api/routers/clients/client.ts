@@ -47,6 +47,7 @@ import {
 	getMedicaidIneligibleList,
 	getMedicaidNotFoundList,
 	getMissingAppointmentsList,
+	getSpecialAccommodationsList,
 	getUnconfirmedCharterSchoolList,
 	getUnreviewedRecordsList,
 } from "~/lib/issues/issue-lists";
@@ -108,6 +109,7 @@ import {
 	referralMsgLog,
 	schedulingClients,
 	schoolDistricts,
+	specialAccommodationsNotices,
 	users,
 } from "~/server/db/schema";
 import { getQuestionnaireEligibilityAge } from "~/server/services/questionnaire-age";
@@ -2160,6 +2162,37 @@ export const clientRouter = createTRPCRouter({
 			getInsuranceMismatchList(ctx.db),
 		);
 	}),
+
+	getSpecialAccommodations: protectedProcedure.query(async ({ ctx }) => {
+		assertPermission(ctx.session.user, "issues:insurance-mismatch");
+
+		return fetchIssueList(ctx, "getSpecialAccommodations", () =>
+			getSpecialAccommodationsList(ctx.db),
+		);
+	}),
+
+	// Approving queues the notice for the appointment sync to send; denying
+	// keeps the row so the client is never queued again.
+	decideSpecialAccommodations: protectedProcedure
+		.input(
+			z.object({
+				clientId: z.number(),
+				decision: z.enum(["approved", "denied"]),
+			}),
+		)
+		.mutation(async ({ ctx, input }) => {
+			assertPermission(ctx.session.user, "issues:insurance-mismatch");
+
+			await ctx.db
+				.update(specialAccommodationsNotices)
+				.set({ status: input.decision })
+				.where(
+					and(
+						eq(specialAccommodationsNotices.clientId, input.clientId),
+						eq(specialAccommodationsNotices.status, "pending"),
+					),
+				);
+		}),
 
 	getMedicaidNotFound: protectedProcedure.query(async ({ ctx }) => {
 		assertPermission(ctx.session.user, "issues:insurance-mismatch");

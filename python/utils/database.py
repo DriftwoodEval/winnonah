@@ -1409,10 +1409,11 @@ def get_non_english_medicaid_clients_for_notice(
     client_ids: Iterable[int],
     connection: Connection[DictCursor] | None = None,
 ) -> list[dict]:
-    """Active, non-English-speaking clients among client_ids who have SCM
-    (Medicaid) or BabyNet primary insurance with a policy number and have not already had a
-    SCDHHS Special Accommodations notice sent.
+    """Active, non-English-speaking clients among client_ids who have an SCM
+    (Medicaid) or BabyNet policy, primary or secondary, with a policy number and
+    no Special Accommodations notice row yet (pending, approved, denied or sent).
 
+    A client matching on both policies gets their primary policy's number.
     Returns id, firstName, lastName, language, insuranceNumber.
     """
     assert connection is not None
@@ -1421,12 +1422,12 @@ def get_non_english_medicaid_clients_for_notice(
         return []
 
     with connection.cursor() as cursor:
-        scm_names = _resolve_accommodation_insurance_names(cursor)
-        if not scm_names:
+        insurance_names = _resolve_accommodation_insurance_names(cursor)
+        if not insurance_names:
             return []
 
         id_placeholders = ", ".join(["%s"] * len(ids))
-        name_placeholders = ", ".join(["%s"] * len(scm_names))
+        name_placeholders = ", ".join(["%s"] * len(insurance_names))
         cursor.execute(
             f"""
             SELECT c.id, c.firstName, c.lastName, c.language, p.insuranceNumber
@@ -1436,8 +1437,8 @@ def get_non_english_medicaid_clients_for_notice(
               AND c.status = 1
               AND c.language IS NOT NULL
               AND LOWER(c.language) NOT IN ('', 'english')
-              AND c.primaryInsurance IN ({name_placeholders})
-              AND p.policyType = 'PRIMARY'
+              AND COALESCE(p.insuranceCompanyName, p.policyCompanyName) IN ({name_placeholders})
+              AND p.policyType IN ('PRIMARY', 'SECONDARY')
               AND (p.policyEndDate IS NULL OR p.policyEndDate >= CURDATE())
               AND p.insuranceNumber IS NOT NULL
               AND p.insuranceNumber != ''
@@ -1445,34 +1446,77 @@ def get_non_english_medicaid_clients_for_notice(
                   SELECT 1 FROM `{TABLE_SPECIAL_ACCOMMODATIONS_NOTICE}` n
                   WHERE n.clientId = c.id
               )
-            GROUP BY c.id, c.firstName, c.lastName, c.language, p.insuranceNumber
-            ORDER BY c.lastName, c.firstName
+            ORDER BY c.lastName, c.firstName, c.id, p.policyType = 'PRIMARY' DESC
             """,
-            ids + scm_names,
+            ids + insurance_names,
         )
-        return list(cursor.fetchall())
+        rows = cursor.fetchall()
+
+    # Rows are ordered primary-first, so the first row per client wins.
+    clients_by_id: dict[int, dict] = {}
+    for row in rows:
+        clients_by_id.setdefault(row["id"], row)
+    return list(clients_by_id.values())
 
 
 @provide_connection
-def record_special_accommodations_notice(
+def queue_special_accommodations_notice(
     client_id: int,
     language: str,
     medicaid_number: str,
     connection: Connection[DictCursor] | None = None,
 ) -> None:
-    """Records that the SCDHHS Special Accommodations notice was sent for this client."""
+    """Adds a pending notice for staff to approve or deny on the Issues page.
+    An existing row, whatever its status, is left alone."""
     assert connection is not None
     with connection.cursor() as cursor:
         cursor.execute(
             f"""
-            INSERT INTO `{TABLE_SPECIAL_ACCOMMODATIONS_NOTICE}`
-                (clientId, language, medicaidNumber)
-            VALUES (%s, %s, %s)
-            ON DUPLICATE KEY UPDATE
-                language = VALUES(language),
-                medicaidNumber = VALUES(medicaidNumber)
+            INSERT IGNORE INTO `{TABLE_SPECIAL_ACCOMMODATIONS_NOTICE}`
+                (clientId, status, language, medicaidNumber)
+            VALUES (%s, 'pending', %s, %s)
             """,
             (client_id, language, medicaid_number),
+        )
+    connection.commit()
+
+
+@provide_connection
+def get_approved_special_accommodations_notices(
+    connection: Connection[DictCursor] | None = None,
+) -> list[dict]:
+    """Approved notices waiting to be emailed, with the client's name.
+
+    Returns clientId, firstName, lastName, language, medicaidNumber.
+    """
+    assert connection is not None
+    with connection.cursor() as cursor:
+        cursor.execute(
+            f"""
+            SELECT n.clientId, c.firstName, c.lastName, n.language, n.medicaidNumber
+            FROM `{TABLE_SPECIAL_ACCOMMODATIONS_NOTICE}` n
+            JOIN `{TABLE_CLIENT}` c ON c.id = n.clientId
+            WHERE n.status = 'approved'
+            ORDER BY n.createdAt
+            """
+        )
+        return list(cursor.fetchall())
+
+
+@provide_connection
+def mark_special_accommodations_notice_sent(
+    client_id: int, connection: Connection[DictCursor] | None = None
+) -> None:
+    """Marks an approved notice as emailed."""
+    assert connection is not None
+    with connection.cursor() as cursor:
+        cursor.execute(
+            f"""
+            UPDATE `{TABLE_SPECIAL_ACCOMMODATIONS_NOTICE}`
+            SET status = 'sent', sentAt = UTC_TIMESTAMP()
+            WHERE clientId = %s AND status = 'approved'
+            """,
+            (client_id,),
         )
     connection.commit()
 

@@ -47,7 +47,10 @@ from utils.google import (
     send_gmail,
     set_gcal_event_drive_link,
 )
-from utils.special_accommodations import notify_special_accommodations
+from utils.special_accommodations import (
+    queue_special_accommodations,
+    send_approved_special_accommodations,
+)
 from utils.task_tracker import track_task
 
 DAEvalType = Literal["EVAL", "DA", "DAEVAL"]
@@ -1362,9 +1365,10 @@ def insert_appointments_with_gcal(appointment_sync_data: dict[str, list[str]] | 
             )
 
         try:
-            notify_special_accommodations(newly_scheduled_client_ids)
+            queue_special_accommodations(newly_scheduled_client_ids)
+            send_approved_special_accommodations()
         except Exception:
-            logger.exception("Failed to send Special Accommodations notices")
+            logger.exception("Failed to process Special Accommodations notices")
 
         try:
             reconcile_reports_from_appointments()
