@@ -160,22 +160,44 @@ def build_dds_fax_pdf(
     return pdf_bytes
 
 
+_REQUEST_SELECT = f"""
+    SELECT r.id, r.clientId, r.selectedFileId, f.driveFileId AS faxFileId,
+           c.firstName, c.lastName
+    FROM {TABLE_DDS_FAX_REQUEST} r
+    JOIN {TABLE_FAX_CATEGORIZATION} f ON f.id = r.faxCategorizationId
+    JOIN {TABLE_CLIENT} c ON c.id = r.clientId
+"""
+
+
+def get_dds_request(request_id: int) -> dict | None:
+    """A request with its selected PDF, the original fax's Drive id and the
+    client's name, whatever its status."""
+    with utils.database.get_db() as conn, conn.cursor() as cursor:
+        cursor.execute(f"{_REQUEST_SELECT} WHERE r.id = %s", (request_id,))
+        return cursor.fetchone()
+
+
 def get_approved_dds_requests() -> list[dict]:
-    """Approved requests with a selected PDF, with the original fax's Drive id
-    and the client's name."""
+    """Approved requests with a selected PDF."""
     with utils.database.get_db() as conn, conn.cursor() as cursor:
         cursor.execute(
             f"""
-            SELECT r.id, r.clientId, r.selectedFileId, f.driveFileId AS faxFileId,
-                   c.firstName, c.lastName
-            FROM {TABLE_DDS_FAX_REQUEST} r
-            JOIN {TABLE_FAX_CATEGORIZATION} f ON f.id = r.faxCategorizationId
-            JOIN {TABLE_CLIENT} c ON c.id = r.clientId
+            {_REQUEST_SELECT}
             WHERE r.status = 'approved' AND r.selectedFileId IS NOT NULL
             ORDER BY r.decidedAt
             """
         )
         return list(cursor.fetchall())
+
+
+def build_request_fax_pdf(request: dict) -> bytes:
+    """The completed fax for a request: the filled form page, then the selected
+    evaluation. This is exactly what gets sent to DDS."""
+    return build_dds_fax_pdf(
+        get_file_as_bytes(get_file_by_id(request["faxFileId"])),
+        SIGNATURE_PATH.read_bytes(),
+        get_file_as_bytes(get_file_by_id(request["selectedFileId"])),
+    )
 
 
 def mark_dds_request_sent(request_id: int) -> None:
@@ -202,15 +224,10 @@ def send_approved_dds_requests() -> None:
     if not fax_number:
         logger.error(f"{ENV_DDS_FAX_NUMBER} is not set, cannot fax DDS requests")
         return
-    signature_png = SIGNATURE_PATH.read_bytes()
 
     for request in requests:
         try:
-            pdf_bytes = build_dds_fax_pdf(
-                get_file_as_bytes(get_file_by_id(request["faxFileId"])),
-                signature_png,
-                get_file_as_bytes(get_file_by_id(request["selectedFileId"])),
-            )
+            pdf_bytes = build_request_fax_pdf(request)
         except Exception:
             logger.exception(f"Failed to build DDS fax for request {request['id']}")
             continue
