@@ -242,6 +242,13 @@ export const HOME_WIDGET_DEFS: HomeWidgetDef[] = [
 		sizing: "content",
 	},
 	{
+		id: "dds-requests",
+		label: "DDS Records to Approve",
+		permission: "issues:dds-requests",
+		category: "issues",
+		sizing: "content",
+	},
+	{
 		id: "duplicate-drive",
 		label: "Duplicate Drive Folders",
 		permission: "issues:duplicate-drive",

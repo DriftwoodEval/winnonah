@@ -172,6 +172,7 @@ services:
       - CLOSE_FAX_SENT_FOLDER_ID=${CLOSE_FAX_SENT_FOLDER_ID}
       - CLOSE_FAX_FROM_EMAIL=${CLOSE_FAX_FROM_EMAIL}
       - FAX_CATEGORIZATION_FOLDER_ID=${FAX_CATEGORIZATION_FOLDER_ID}
+      - DDS_FAX_NUMBER=${DDS_FAX_NUMBER}
       - BASE_FOLDER_ID=${BASE_FOLDER_ID}
       - ERROR_EMAILS=${ERROR_EMAILS}
       - SAM_GOV_API_KEY=${SAM_GOV_API_KEY}
@@ -184,6 +185,7 @@ services:
       - ./python/logs:/app/logs
       - ./python/shapefiles:/app/shapefiles
       - ./python/cache:/app/cache
+      - ./python/forms/dds_signature.png:/app/forms/dds_signature.png:ro
       - ../qs/logs:/app/qs-logs
 
   loki:

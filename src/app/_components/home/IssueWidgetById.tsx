@@ -3,9 +3,14 @@
 import { Button } from "@ui/button";
 import Link from "next/link";
 import { useCheckPermission } from "~/hooks/use-check-permission";
+import { ISSUE_TITLES } from "~/lib/issues/issue-titles";
 import type { ClientWithIssueInfo } from "~/lib/models";
 import type { PermissionId } from "~/lib/types";
 import { api } from "~/trpc/react";
+import {
+	DDS_REQUESTS_DESCRIPTION,
+	DdsRequestActions,
+} from "../issues/DdsRequestActions";
 import {
 	ClientsSharingQuestionnaires,
 	DuplicateDriveFoldersList,
@@ -121,6 +126,8 @@ export function IssueWidgetById({ id }: { id: string }) {
 			return <CharterSchoolConfirmWidget />;
 		case "special-accommodations":
 			return <SpecialAccommodationsWidget />;
+		case "dds-requests":
+			return <DdsRequestsWidget />;
 		case "duplicate-drive":
 			return <DuplicateDriveWidget />;
 		case "duplicate-q-links":
@@ -635,6 +642,27 @@ function SpecialAccommodationsWidget() {
 				<SpecialAccommodationsActions clientId={client.id} />
 			)}
 			title="Interpreter Notices to Approve"
+		/>
+	);
+}
+
+function DdsRequestsWidget() {
+	const can = useCheckPermission();
+	const { data, isLoading, isError, refetch } =
+		api.clients.getDdsRequests.useQuery(undefined, {
+			refetchInterval: 60_000,
+			enabled: can("issues:dds-requests"),
+		});
+	return (
+		<SimpleIssueWidget
+			clients={data}
+			description={DDS_REQUESTS_DESCRIPTION}
+			isError={isError}
+			isLoading={isLoading}
+			onRetry={refetch}
+			permission="issues:dds-requests"
+			rowAction={(client) => <DdsRequestActions client={client} />}
+			title={ISSUE_TITLES.ddsRequests}
 		/>
 	);
 }

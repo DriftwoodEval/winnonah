@@ -19,6 +19,7 @@ export type Failure = typeof failures.$inferSelect;
 export type Questionnaire = typeof questionnaires.$inferSelect;
 export interface ClientWithIssueInfo extends Client {
 	additionalInfo?: string;
+	ddsRequestId?: number;
 	initialFailureDate?: Date;
 	referralMessageSentAt?: Date | null;
 }

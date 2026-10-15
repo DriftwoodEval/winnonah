@@ -685,6 +685,58 @@ export const faxCategorizationClientLinksRelations = relations(
 	}),
 );
 
+export const DDS_REQUEST_STATUSES = [
+	"pending",
+	"approved",
+	"denied",
+	"sent",
+] as const;
+
+// One row per client matched on a Disability Determination Services fax: the
+// psychological evaluation PDF from the client's Drive folder that staff
+// approve (or deny) sending. selectedFile* starts as the most recent matching
+// PDF and staff can swap it for another file from the folder.
+export const ddsFaxRequests = createTable(
+	"dds_fax_request",
+	(d) => ({
+		id: d.int().notNull().autoincrement().primaryKey(),
+		faxCategorizationId: d.int().notNull(),
+		clientId: d.int().notNull(),
+		selectedFileId: d.varchar({ length: 255 }),
+		selectedFileName: d.varchar({ length: 255 }),
+		status: d.mysqlEnum(DDS_REQUEST_STATUSES).notNull().default("pending"),
+		decidedAt: d.timestamp(),
+		decidedBy: d.varchar({ length: 255 }),
+		sentAt: d.timestamp(),
+		createdAt: d.timestamp().default(sql`CURRENT_TIMESTAMP`).notNull(),
+	}),
+	(t) => [
+		uniqueIndex("dds_fax_request_unique").on(t.faxCategorizationId, t.clientId),
+		index("dds_fax_request_status_idx").on(t.status),
+		foreignKey({
+			columns: [t.faxCategorizationId],
+			foreignColumns: [faxCategorizations.id],
+			name: "dds_fax_request_fax_fk",
+		}).onDelete("cascade"),
+		foreignKey({
+			columns: [t.clientId],
+			foreignColumns: [clients.id],
+			name: "dds_fax_request_client_fk",
+		}).onDelete("cascade"),
+	],
+);
+
+export const ddsFaxRequestsRelations = relations(ddsFaxRequests, ({ one }) => ({
+	fax: one(faxCategorizations, {
+		fields: [ddsFaxRequests.faxCategorizationId],
+		references: [faxCategorizations.id],
+	}),
+	client: one(clients, {
+		fields: [ddsFaxRequests.clientId],
+		references: [clients.id],
+	}),
+}));
+
 export const adminReview = createTable("admin_review", (d) => ({
 	clientId: d
 		.int()

@@ -42,6 +42,7 @@ import {
 	updatePunchData,
 } from "~/lib/integrations/google";
 import {
+	getDdsRequestsList,
 	getDuplicateNamesList,
 	getInsuranceMismatchList,
 	getMedicaidIneligibleList,
@@ -2212,6 +2213,14 @@ export const clientRouter = createTRPCRouter({
 
 		return fetchIssueList(ctx, "getSpecialAccommodations", () =>
 			getSpecialAccommodationsList(ctx.db),
+		);
+	}),
+
+	getDdsRequests: protectedProcedure.query(async ({ ctx }) => {
+		assertPermission(ctx.session.user, "issues:dds-requests");
+
+		return fetchIssueList(ctx, "getDdsRequests", () =>
+			getDdsRequestsList(ctx.db),
 		);
 	}),
 

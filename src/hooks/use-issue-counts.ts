@@ -92,6 +92,10 @@ export function useIssueCounts(
 			undefined,
 			query(can("issues:special-accommodations")),
 		);
+	const { data: ddsRequests } = api.clients.getDdsRequests.useQuery(
+		undefined,
+		query(can("issues:dds-requests")),
+	);
 	const { data: medicaidNotFound } = api.clients.getMedicaidNotFound.useQuery(
 		undefined,
 		query(can("issues:insurance-mismatch")),
@@ -206,6 +210,7 @@ export function useIssueCounts(
 			title: ISSUE_TITLES.specialAccommodations,
 			count: specialAccommodations?.length,
 		},
+		{ title: ISSUE_TITLES.ddsRequests, count: ddsRequests?.length },
 		{ title: ISSUE_TITLES.medicaidNotFound, count: medicaidNotFound?.length },
 		{
 			title: ISSUE_TITLES.duplicateDriveFolders,

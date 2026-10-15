@@ -3,6 +3,7 @@ from unittest.mock import MagicMock, patch
 from cron.fax_categorization import (
     _already_seen_drive_file_ids,
     _match_clients,
+    _queue_dds_requests,
     process_faxes,
 )
 
@@ -242,3 +243,26 @@ class TestProcessFaxes:
         ):
             process_faxes()
         assert mock_reprocess.call_count == 2
+
+
+class TestQueueDdsRequests:
+    def _cursor(self, clients):
+        cursor = MagicMock()
+        cursor.fetchall.return_value = clients
+        return cursor
+
+    def test_preselects_latest_evaluation_for_client_with_folder(self):
+        cursor = self._cursor([{"id": 1, "driveId": "folder1"}])
+        with patch(
+            "cron.fax_categorization.find_latest_pdf_containing",
+            return_value={"id": "f1", "name": "Eval.pdf"},
+        ):
+            _queue_dds_requests(cursor, 9, [1])
+        assert cursor.execute.call_args.args[1] == (9, 1, "f1", "Eval.pdf")
+
+    def test_leaves_selection_empty_when_client_has_no_folder(self):
+        cursor = self._cursor([{"id": 1, "driveId": "N/A"}])
+        with patch("cron.fax_categorization.find_latest_pdf_containing") as find:
+            _queue_dds_requests(cursor, 9, [1])
+        find.assert_not_called()
+        assert cursor.execute.call_args.args[1] == (9, 1, None, None)
