@@ -10,6 +10,8 @@ import { api } from "~/trpc/react";
 import { PostVisitMessageButton } from "../appointments/PostVisitMessageButton";
 import { PinListButton } from "../dashboard/PinListButton";
 import { Redact } from "../redaction/Redact";
+import { EmptyState } from "../shared/EmptyState";
+import { ErrorState } from "../shared/ErrorState";
 
 export function RecentClientsWidget() {
 	const { data: session } = useSession();
@@ -17,6 +19,7 @@ export function RecentClientsWidget() {
 		data: recentClients,
 		isLoading,
 		isError,
+		refetch,
 	} = api.users.getRecentClients.useQuery(undefined, { enabled: !!session });
 
 	if (isLoading) {
@@ -30,19 +33,11 @@ export function RecentClientsWidget() {
 	}
 
 	if (isError) {
-		return (
-			<p className="px-3 py-4 text-center text-muted-foreground text-sm">
-				Couldn't load. Try refreshing the page.
-			</p>
-		);
+		return <ErrorState compact onRetry={refetch} />;
 	}
 
 	if (!recentClients?.length) {
-		return (
-			<p className="px-3 py-4 text-center text-muted-foreground text-sm">
-				No recent clients
-			</p>
-		);
+		return <EmptyState compact title="No recent clients" />;
 	}
 
 	return (
@@ -69,6 +64,7 @@ export function MyInsuranceClientsWidget() {
 		data: clients,
 		isLoading,
 		isError,
+		refetch,
 	} = api.adminReview.getMyClaimedClients.useQuery(undefined, {
 		enabled: can("clients:admin:review"),
 	});
@@ -94,13 +90,9 @@ export function MyInsuranceClientsWidget() {
 				<PinListButton pinned={{ kind: "adminReview" }} />
 			</div>
 			{isError ? (
-				<p className="py-2 text-center text-muted-foreground text-sm">
-					Couldn't load. Try refreshing the page.
-				</p>
+				<ErrorState compact onRetry={refetch} />
 			) : !clients?.length ? (
-				<p className="py-2 text-center text-muted-foreground text-sm">
-					No claimed admin review clients
-				</p>
+				<EmptyState compact title="No claimed admin review clients" />
 			) : (
 				<div className="flex flex-wrap items-center gap-2">
 					{clients.map((c) => (
@@ -124,7 +116,7 @@ export function MyInsuranceClientsWidget() {
 }
 
 export function PostVisitMessagesWidget() {
-	const { data, isLoading, isError } =
+	const { data, isLoading, isError, refetch } =
 		api.appointments.getPostVisitMessageList.useQuery();
 
 	// A client with several qualifying visits shows once, on the latest.
@@ -141,13 +133,9 @@ export function PostVisitMessagesWidget() {
 			{isLoading ? (
 				<Skeleton className="h-7 w-full" />
 			) : isError ? (
-				<p className="py-2 text-center text-muted-foreground text-sm">
-					Couldn't load. Try refreshing the page.
-				</p>
+				<ErrorState compact onRetry={refetch} />
 			) : !rows?.length ? (
-				<p className="py-2 text-center text-muted-foreground text-sm">
-					Nobody is waiting on a message
-				</p>
+				<EmptyState compact title="Nobody is waiting on a message" />
 			) : (
 				rows.map((r) => (
 					<div

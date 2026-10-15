@@ -19,6 +19,7 @@ import { canAccessReportsBeta, formatCurrency } from "~/lib/utils";
 import type { RouterOutputs } from "~/trpc/react";
 import { api } from "~/trpc/react";
 import { Redact } from "../redaction/Redact";
+import { ErrorState } from "../shared/ErrorState";
 
 type Report = RouterOutputs["reports"]["list"][number];
 
@@ -30,13 +31,22 @@ export interface ReportSection {
 
 /**
  * One list per column on the Reports page: the active reports still waiting on
- * that step. Returns null until loaded, and for users who cannot open the
- * Reports (beta) page.
+ * that step. `sections` is null until loaded, when the load failed, and for
+ * users who cannot open the Reports (beta) page. `isError` and `refetch`
+ * describe the reports query.
  */
-export function useReportSections(): ReportSection[] | null {
+export function useReportSectionsQuery(): {
+	sections: ReportSection[] | null;
+	isError: boolean;
+	refetch: () => void;
+} {
 	const { data: session } = useSession();
 	const enabled = !!session?.user && canAccessReportsBeta(session.user);
-	const { data: reports } = api.reports.list.useQuery(
+	const {
+		data: reports,
+		isError,
+		refetch,
+	} = api.reports.list.useQuery(
 		{ tab: "active", kind: "all" },
 		{ enabled, refetchInterval: 180000 },
 	);
@@ -44,7 +54,7 @@ export function useReportSections(): ReportSection[] | null {
 		enabled,
 	});
 
-	if (!enabled || !reports) return null;
+	if (!enabled || !reports) return { sections: null, isError, refetch };
 
 	const secondReview = config?.secondReviewLabel ?? "Second review";
 	const firstReview = config?.firstReviewLabel ?? "First review";
@@ -75,11 +85,15 @@ export function useReportSections(): ReportSection[] | null {
 		},
 		{ id: "billing", title: "Not billed", matches: (r) => !r.billed },
 	];
-	return sections.map(({ id, title, matches }) => ({
-		id,
-		title,
-		reports: inProgress.filter(matches),
-	}));
+	return {
+		sections: sections.map(({ id, title, matches }) => ({
+			id,
+			title,
+			reports: inProgress.filter(matches),
+		})),
+		isError,
+		refetch,
+	};
 }
 
 function ReportSectionItem({ id, title, reports }: ReportSection) {
@@ -245,15 +259,19 @@ function ReportSectionItem({ id, title, reports }: ReportSection) {
 
 /** The dashboard's Reports lists. Rendered inside the dashboard's Accordion. */
 export function ReportsDashboardSections() {
-	const sections = useReportSections();
-	if (!sections) return null;
+	const { sections, isError, refetch } = useReportSectionsQuery();
+	if (!sections && !isError) return null;
 
 	return (
 		<>
 			<h2 className="mt-6 mb-2 self-start font-bold text-lg">Reports</h2>
-			{sections.map((section) => (
-				<ReportSectionItem key={section.id} {...section} />
-			))}
+			{sections ? (
+				sections.map((section) => (
+					<ReportSectionItem key={section.id} {...section} />
+				))
+			) : (
+				<ErrorState compact onRetry={refetch} />
+			)}
 		</>
 	);
 }

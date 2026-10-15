@@ -45,6 +45,7 @@ import { formatInBusinessTime, formatShortDate } from "~/lib/utils";
 import { api, type RouterOutputs } from "~/trpc/react";
 import { ManualAddressDialog } from "../client/location/ManualAddressDialog";
 import { Redact } from "../redaction/Redact";
+import { EmptyState } from "../shared/EmptyState";
 import { ResponsiveDialog } from "../shared/ResponsiveDialog";
 import { IssueListCustomizer } from "./IssueListCustomizer";
 
@@ -173,6 +174,9 @@ export const IssueList = ({
 					</div>
 					{description && (
 						<p className="mb-4 text-muted-foreground text-xs">{description}</p>
+					)}
+					{clients.length === 0 && (
+						<EmptyState compact title="No clients in this list" />
 					)}
 					{clients.map((client, index) => (
 						<div
@@ -535,6 +539,9 @@ export const SuggestionIssueList = ({
 						<p className="mb-4 text-muted-foreground text-xs">{description}</p>
 					)}
 					<div>
+						{items.length === 0 && (
+							<EmptyState compact title="No clients in this list" />
+						)}
 						{items.map((item, index) => (
 							<div
 								className="scroll-mt-12"
@@ -697,6 +704,9 @@ export const DuplicateNamesList = ({
 						(case-insensitive).
 					</p>
 					<div className="space-y-4">
+						{groups.length === 0 && (
+							<EmptyState compact title="No duplicate names" />
+						)}
 						{groups.map((group) => (
 							<div className="rounded-md border bg-muted p-3" key={group.name}>
 								<div className="mb-2 font-medium text-sm">
@@ -845,6 +855,9 @@ export const DuplicateDriveFoldersList = ({
 						</p>
 					</div>
 					<div className="flex flex-col gap-4">
+						{duplicates.length === 0 && (
+							<EmptyState compact title="No clients in this list" />
+						)}
 						{duplicates.map((group) => (
 							<div
 								className="rounded-md border bg-muted p-3"
@@ -917,6 +930,9 @@ export const ClientsSharingQuestionnaires = ({
 						Multiple clients with the same questionnaire link between them.
 					</p>
 					<div className="space-y-4">
+						{sharedLinksData.length === 0 && (
+							<EmptyState compact title="No shared questionnaire links" />
+						)}
 						{sharedLinksData.map(({ link, clients }) => (
 							<div className="rounded-md border p-3" key={link}>
 								<div className="mb-2 font-medium text-muted-foreground text-sm">
@@ -1021,6 +1037,9 @@ export const PartialBatteryList = ({
 						Clients with some but not all needed questionnaires sent.
 					</p>
 					<div className="flex flex-col gap-4">
+						{clients.length === 0 && (
+							<EmptyState compact title="No clients in this list" />
+						)}
 						{clients.map(({ client, lines }) => (
 							<div className="rounded-md border bg-muted p-3" key={client.id}>
 								<div className="flex flex-wrap items-baseline gap-2">

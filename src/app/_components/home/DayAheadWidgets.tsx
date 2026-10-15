@@ -31,6 +31,8 @@ import {
 import { EvaluatorCheckInOutControl } from "../day-ahead/EvaluatorCheckInOutControl";
 import { useCheckinDateGate } from "../day-ahead/use-checkin-date-gate";
 import { Redact } from "../redaction/Redact";
+import { EmptyState } from "../shared/EmptyState";
+import { ErrorState } from "../shared/ErrorState";
 
 export function todayStr() {
 	return formatInBusinessTime(new Date(), "yyyy-MM-dd");
@@ -122,22 +124,15 @@ export function WidgetShell({
 	);
 }
 
-export function WidgetError() {
-	return (
-		<p className="text-muted-foreground text-sm">
-			Couldn't load. Try refreshing the page.
-		</p>
-	);
-}
-
 export function MyDayWidget() {
 	const can = useCheckPermission();
 	const canCheckin = can("clients:appointments:checkin");
 	const checkinDateGate = useCheckinDateGate();
 	const { date: asDate, shift, resetToToday } = useSelectedDate();
-	const { data, isLoading, isError } = api.appointments.getDayAhead.useQuery({
-		asDate,
-	});
+	const { data, isLoading, isError, refetch } =
+		api.appointments.getDayAhead.useQuery({
+			asDate,
+		});
 	const { data: greeterSchedule } = api.greeterProxy.getSchedule.useQuery({
 		date: asDate,
 	});
@@ -179,7 +174,7 @@ export function MyDayWidget() {
 		>
 			<GreeterLine greeter={greeter} />
 			{isError ? (
-				<WidgetError />
+				<ErrorState compact onRetry={refetch} />
 			) : isLoading ? (
 				<div className="flex flex-col gap-2 py-2">
 					<Skeleton className="h-4 w-full" />
@@ -187,13 +182,12 @@ export function MyDayWidget() {
 					<Skeleton className="h-4 w-3/4" />
 				</div>
 			) : !data ? null : !data.hasEvaluatorAccount ? (
-				<p className="text-muted-foreground text-sm">
-					No evaluator profile linked.
-				</p>
+				<EmptyState compact title="No evaluator profile linked" />
 			) : appts.length === 0 ? (
-				<p className="text-muted-foreground text-sm">
-					No appointments {asDate === todayStr() ? "today" : "this day"}.
-				</p>
+				<EmptyState
+					compact
+					title={`No appointments ${asDate === todayStr() ? "today" : "this day"}`}
+				/>
 			) : (
 				<div className="divide-y divide-border">
 					{appts.map((appt) => (
@@ -252,9 +246,10 @@ export function WhosInWidget() {
 	const can = useCheckPermission();
 	const canCheckin = can("clients:appointments:checkin");
 	const { date: asDate, shift, resetToToday } = useSelectedDate();
-	const { data, isLoading, isError } = api.appointments.getDayAhead.useQuery({
-		asDate,
-	});
+	const { data, isLoading, isError, refetch } =
+		api.appointments.getDayAhead.useQuery({
+			asDate,
+		});
 	const { data: greeterSchedule } = api.greeterProxy.getSchedule.useQuery({
 		date: asDate,
 	});
@@ -289,7 +284,7 @@ export function WhosInWidget() {
 			title="Who's In"
 		>
 			{isError ? (
-				<WidgetError />
+				<ErrorState compact onRetry={refetch} />
 			) : isLoading ? (
 				<div className="flex flex-col gap-2 py-2">
 					<Skeleton className="h-4 w-full" />
@@ -297,10 +292,10 @@ export function WhosInWidget() {
 					<Skeleton className="h-4 w-3/4" />
 				</div>
 			) : otherOffices.length === 0 ? (
-				<p className="text-muted-foreground text-sm">
-					No one else has appointments{" "}
-					{asDate === todayStr() ? "today" : "this day"}.
-				</p>
+				<EmptyState
+					compact
+					title={`No one else has appointments ${asDate === todayStr() ? "today" : "this day"}`}
+				/>
 			) : (
 				<div className="flex flex-col gap-4">
 					{otherOffices.map((office) => (
