@@ -12,6 +12,7 @@ import { ChevronUp } from "lucide-react";
 import React, { useState } from "react";
 import { calculateDiff, extractTextFromTipTap } from "~/lib/diff-utils";
 import { api } from "~/trpc/react";
+import { ListSkeleton } from "../shared/ListSkeleton";
 
 const UNCHANGED_THRESHOLD = 200;
 const CONTEXT_LENGTH = 50;
@@ -186,10 +187,7 @@ export function NoteHistory({
 				? isRecordHistoryLoading
 				: isAdminReviewHistoryLoading;
 
-	if (isLoading)
-		return (
-			<div className="text-muted-foreground text-sm">Loading history...</div>
-		);
+	if (isLoading) return <ListSkeleton rows={3} />;
 
 	const versionCards = history
 		?.map((version, index) => {

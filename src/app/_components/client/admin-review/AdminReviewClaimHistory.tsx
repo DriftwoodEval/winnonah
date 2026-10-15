@@ -5,15 +5,13 @@ import { Card, CardContent } from "@ui/card";
 import { ScrollArea } from "@ui/scroll-area";
 import { format, formatDistanceToNowStrict } from "date-fns";
 import { api } from "~/trpc/react";
+import { ListSkeleton } from "../../shared/ListSkeleton";
 
 export function AdminReviewClaimHistory({ clientId }: { clientId: number }) {
 	const { data: claimHistory, isLoading } =
 		api.adminReview.getClaimHistory.useQuery({ clientId });
 
-	if (isLoading)
-		return (
-			<div className="text-muted-foreground text-sm">Loading history...</div>
-		);
+	if (isLoading) return <ListSkeleton rows={3} />;
 
 	if (!claimHistory?.length)
 		return (

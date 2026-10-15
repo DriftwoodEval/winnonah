@@ -23,6 +23,7 @@ import { toast } from "sonner";
 import { z } from "zod";
 import type { Evaluator } from "~/lib/models";
 import { api } from "~/trpc/react";
+import { ListSkeleton } from "../shared/ListSkeleton";
 
 export const evaluatorFormSchema = z.object({
 	npi: z.string().length(10, {
@@ -522,7 +523,7 @@ export function EvaluatorForm({
 							<FormLabel>Insurance</FormLabel>
 							<div className="grid grid-cols-2 gap-4 rounded-md border p-4 sm:grid-cols-3">
 								{isLoadingInsurances ? (
-									<p>Loading insurances...</p>
+									<ListSkeleton className="col-span-full" rows={3} />
 								) : (
 									allInsurances?.map((insurance) => (
 										<FormField
@@ -569,7 +570,7 @@ export function EvaluatorForm({
 									<FormLabel>Offices</FormLabel>
 									<div className="flex justify-between gap-4 rounded-md border p-4 sm:justify-center">
 										{isLoadingOffices ? (
-											<p>Loading offices...</p>
+											<ListSkeleton className="w-full" rows={2} />
 										) : (
 											allOffices?.map((office) => (
 												<FormField
@@ -636,9 +637,7 @@ export function EvaluatorForm({
 												}
 												loadingIndicator={
 													isLoadingSchoolDistricts ? (
-														<p className="text-center text-muted-foreground text-sm">
-															Loading districts...
-														</p>
+														<ListSkeleton rows={3} />
 													) : undefined
 												}
 												onChange={(options) =>
@@ -678,9 +677,7 @@ export function EvaluatorForm({
 												}
 												loadingIndicator={
 													isLoadingZipCodes ? (
-														<p className="text-center text-muted-foreground text-sm">
-															Loading zips...
-														</p>
+														<ListSkeleton rows={3} />
 													) : undefined
 												}
 												onChange={(options) =>

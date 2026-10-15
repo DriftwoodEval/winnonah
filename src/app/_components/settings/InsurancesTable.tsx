@@ -59,6 +59,7 @@ import { additionalInsuranceAppointmentsSchema } from "~/lib/validations/config"
 import { api } from "~/trpc/react";
 import { EmptyState } from "../shared/EmptyState";
 import { ErrorState } from "../shared/ErrorState";
+import { ListSkeleton } from "../shared/ListSkeleton";
 
 const log = logger.child({ module: "InsurancesTable" });
 
@@ -464,7 +465,7 @@ function InsuranceForm({
 								)}
 								<div className="grid max-h-48 grid-cols-2 gap-2 overflow-y-auto rounded-md border p-4 sm:grid-cols-3">
 									{isLoadingEvaluators ? (
-										<p>Loading evaluators...</p>
+										<ListSkeleton rows={3} />
 									) : (
 										allEvaluators?.map((evaluator) => (
 											<FormField
@@ -691,8 +692,7 @@ export default function InsurancesTable() {
 	// menu opened on mobile.
 	const isMobile = useMediaQuery("(max-width: 1023px)");
 
-	if (isLoading)
-		return <p className="p-4 text-center">Loading insurances...</p>;
+	if (isLoading) return <ListSkeleton className="p-4" rows={6} />;
 
 	if (isError) return <ErrorState onRetry={refetch} />;
 

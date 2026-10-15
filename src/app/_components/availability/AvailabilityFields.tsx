@@ -24,6 +24,7 @@ import {
 	DAYS_OF_WEEK,
 } from "~/lib/validations/availability";
 import { api } from "~/trpc/react";
+import { ListSkeleton } from "../shared/ListSkeleton";
 
 interface AvailabilityFieldsProps {
 	form: UseFormReturn<AvailabilityFormValues>;
@@ -116,7 +117,7 @@ export function AvailabilityFields({
 								</FormLabel>
 
 								{isLoadingOffices ? (
-									<p>Loading offices...</p>
+									<ListSkeleton rows={2} />
 								) : (
 									<div className="flex flex-col gap-2">
 										<FormItem className="flex items-center">

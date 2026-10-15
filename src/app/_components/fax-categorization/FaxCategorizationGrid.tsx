@@ -41,6 +41,7 @@ import type { SortedClient } from "~/lib/api-types";
 import { cn, formatInBusinessTime } from "~/lib/utils";
 import { api, type RouterOutputs } from "~/trpc/react";
 import { Redact } from "../redaction/Redact";
+import { ListSkeleton } from "../shared/ListSkeleton";
 
 type FaxListItem = RouterOutputs["faxCategorization"]["list"][number];
 
@@ -315,9 +316,7 @@ function FaxGrid({
 	};
 
 	if (isLoading) {
-		return (
-			<p className="pt-4 text-muted-foreground text-sm">Loading faxes...</p>
-		);
+		return <ListSkeleton className="pt-4" rows={6} />;
 	}
 
 	if (!faxes || faxes.length === 0) {

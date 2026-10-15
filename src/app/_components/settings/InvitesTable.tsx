@@ -47,6 +47,7 @@ import { permissionsSchema } from "~/lib/types";
 import { api } from "~/trpc/react";
 import { EmptyState } from "../shared/EmptyState";
 import { ErrorState } from "../shared/ErrorState";
+import { ListSkeleton } from "../shared/ListSkeleton";
 import {
 	ResponsiveDialog,
 	useResponsiveDialog,
@@ -290,8 +291,8 @@ export default function InvitesTable() {
 					<TableBody>
 						{isLoadingInvites ? (
 							<TableRow>
-								<TableCell className="text-center" colSpan={canInvite ? 3 : 2}>
-									Loading invites...
+								<TableCell colSpan={canInvite ? 3 : 2}>
+									<ListSkeleton rows={3} />
 								</TableCell>
 							</TableRow>
 						) : isError ? (
@@ -332,9 +333,7 @@ export default function InvitesTable() {
 			{/* Card Layout for Small Screens (mobile) */}
 			<div className="space-y-4 sm:hidden">
 				{isLoadingInvites ? (
-					<p className="text-center text-muted-foreground">
-						Loading invites...
-					</p>
+					<ListSkeleton rows={3} />
 				) : isError ? (
 					<ErrorState compact onRetry={refetch} />
 				) : invites && invites.length > 0 ? (

@@ -50,6 +50,7 @@ import { permissionsSchema } from "~/lib/types";
 import { api } from "~/trpc/react";
 import { EmptyState } from "../shared/EmptyState";
 import { ErrorState } from "../shared/ErrorState";
+import { ListSkeleton } from "../shared/ListSkeleton";
 import {
 	ResponsiveDialog,
 	useResponsiveDialog,
@@ -333,11 +334,8 @@ export default function RolesTable() {
 					<TableBody>
 						{isLoading ? (
 							<TableRow>
-								<TableCell
-									className="text-center"
-									colSpan={canEditRoles ? 3 : 2}
-								>
-									Loading roles...
+								<TableCell colSpan={canEditRoles ? 3 : 2}>
+									<ListSkeleton rows={3} />
 								</TableCell>
 							</TableRow>
 						) : isError ? (
@@ -373,7 +371,7 @@ export default function RolesTable() {
 
 			<div className="space-y-4 sm:hidden">
 				{isLoading ? (
-					<p className="text-center text-muted-foreground">Loading roles...</p>
+					<ListSkeleton rows={3} />
 				) : isError ? (
 					<ErrorState compact onRetry={refetch} />
 				) : roles && roles.length > 0 ? (
