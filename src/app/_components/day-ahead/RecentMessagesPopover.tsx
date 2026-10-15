@@ -8,6 +8,7 @@ import type { TimelineEvent } from "~/lib/integrations/quo";
 import { cn, formatInBusinessTime, toBusinessZonedTime } from "~/lib/utils";
 import { api } from "~/trpc/react";
 import { Redact } from "../redaction/Redact";
+import { ListSkeleton } from "../shared/ListSkeleton";
 
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
 
@@ -101,7 +102,7 @@ export function RecentMessagesPopover({
 				onClick={(e) => e.stopPropagation()}
 			>
 				{isLoading ? (
-					<p className="text-muted-foreground text-xs">Loading messages...</p>
+					<ListSkeleton rowClassName="h-6" rows={3} />
 				) : !messages || messages.length === 0 ? (
 					<p className="text-muted-foreground text-xs">No message history.</p>
 				) : (

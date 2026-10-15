@@ -8,6 +8,7 @@ import { ScrollArea } from "@ui/scroll-area";
 import { format, formatDistanceToNowStrict } from "date-fns";
 import { calculateDiff, extractTextFromTipTap } from "~/lib/diff-utils";
 import { api } from "~/trpc/react";
+import { ListSkeleton } from "../shared/ListSkeleton";
 
 function DiffRenderer({
 	diffChanges,
@@ -44,9 +45,7 @@ export function AppointmentNoteHistory({
 		api.evaluatorDashboard.getNoteHistory.useQuery({ appointmentId });
 
 	if (isLoading) {
-		return (
-			<div className="text-muted-foreground text-sm">Loading history...</div>
-		);
+		return <ListSkeleton rows={3} />;
 	}
 
 	const versionCards = history
