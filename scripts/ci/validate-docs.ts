@@ -152,7 +152,7 @@ for (const doc of docs) {
 
 	// Relative image references, e.g. ![Description](cheddar.jpg)
 	for (const m of scannable.matchAll(/!\[[^\]]*\]\(([^)\s]+)\)/g)) {
-		const src = m[1];
+		const src = m[1]?.split("#")[0];
 		if (!src || /^([a-z]+:)?\/\//i.test(src) || src.startsWith("/")) continue;
 		const imgPath = path.join(path.dirname(doc.filePath), src);
 		if (!fs.existsSync(imgPath)) {
