@@ -114,6 +114,22 @@ def create_folder_in_folder(new_folder_name: str, parent_folder_id: str):
         logger.error(f"An error occurred: {err}")
 
 
+def upload_file(name: str, content: bytes, mime_type: str, folder_id: str) -> str:
+    """Uploads content as a new file in the given Drive folder and returns its file ID."""
+    service = get_drive_service()
+    media = MediaInMemoryUpload(content, mimetype=mime_type)
+    created = (
+        service.files()
+        .create(
+            body={"name": name, "parents": [folder_id]},
+            media_body=media,
+            fields="id",
+        )
+        .execute()
+    )
+    return created["id"]
+
+
 @lru_cache(maxsize=1)
 def get_drive_service():
     """Get the Google Drive service, reusing the same instance across calls."""

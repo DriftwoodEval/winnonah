@@ -15,7 +15,7 @@ from driftwood_common.timezone import now_business
 from loguru import logger
 
 from utils.database import get_active_workers, get_exclusion_check_notify_users
-from utils.google import send_gmail
+from utils.google import send_gmail, upload_file
 
 logger.add(
     "logs/exclusion-check.log",
@@ -62,8 +62,31 @@ SAM_POLL_DELAY_SECONDS = 120
 # download or a format change upstream, not a real shrink in the exclusion list.
 SAM_EXCLUSIONS_MIN_ROWS = 50_000
 
+# Drive folder holding the raw exclusion lists as downloaded each run, kept as
+# proof of which list versions were screened.
+EXCLUSION_ARCHIVE_FOLDER_ENV = "EXCLUSION_CHECK_FOLDER_ID"
+
 NAME_SUFFIXES = {"JR", "SR", "II", "III", "IV"}
 NAME_TITLES = {"DR", "MR", "MRS", "MS"}
+
+
+def archive_source_file(source: str, extension: str, content: bytes, mime_type: str):
+    """Uploads a downloaded exclusion list to Drive as audit proof.
+
+    A failed upload is logged but doesn't stop the screening itself.
+    """
+    folder_id = os.getenv(EXCLUSION_ARCHIVE_FOLDER_ENV)
+    if not folder_id:
+        logger.warning(
+            f"{EXCLUSION_ARCHIVE_FOLDER_ENV} is not set, not archiving {source}"
+        )
+        return
+    name = f"{now_business().strftime('%Y-%m-%d')} {source}.{extension}"
+    try:
+        upload_file(name, content, mime_type, folder_id)
+        logger.info(f"Archived {name} to Drive")
+    except Exception:
+        logger.exception(f"Failed to archive {name} to Drive")
 
 
 def get_error_recipients() -> list[str]:
@@ -94,6 +117,7 @@ def fetch_oig_leie() -> list[dict]:
     """Downloads and validates the current OIG LEIE exclusion list, returned as exclusion records."""
     response = requests.get(OIG_LEIE_URL, timeout=60)
     response.raise_for_status()
+    archive_source_file("OIG LEIE", "csv", response.content, "text/csv")
 
     df = pd.read_csv(io.BytesIO(response.content), dtype=str, keep_default_na=False)
 
@@ -209,6 +233,12 @@ def fetch_sc_exclusions() -> tuple[list[dict], str]:
     download_url = find_sc_exclusions_download_url()
     response = requests.get(download_url, timeout=60)
     response.raise_for_status()
+    archive_source_file(
+        "SC DHHS",
+        "xlsx",
+        response.content,
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    )
 
     workbook = openpyxl.load_workbook(io.BytesIO(response.content), data_only=True)
     sheet = workbook[workbook.sheetnames[0]]
@@ -312,6 +342,8 @@ def fetch_sam_exclusions() -> list[dict]:
         with zipfile.ZipFile(io.BytesIO(csv_bytes)) as archive:
             csv_name = next(n for n in archive.namelist() if n.lower().endswith(".csv"))
             csv_bytes = archive.read(csv_name)
+
+    archive_source_file("SAM.gov", "csv", csv_bytes, "text/csv")
 
     df = pd.read_csv(io.BytesIO(csv_bytes), dtype=str, keep_default_na=False)
 
