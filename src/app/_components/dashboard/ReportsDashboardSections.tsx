@@ -20,6 +20,12 @@ import type { RouterOutputs } from "~/trpc/react";
 import { api } from "~/trpc/react";
 import { Redact } from "../redaction/Redact";
 import { ErrorState } from "../shared/ErrorState";
+import {
+	DismissButton,
+	DismissedBadge,
+	HideDismissedToggle,
+	useListDismissals,
+} from "./ListDismissals";
 
 type Report = RouterOutputs["reports"]["list"][number];
 
@@ -96,8 +102,13 @@ export function useReportSectionsQuery(): {
 	};
 }
 
-function ReportSectionItem({ id, title, reports }: ReportSection) {
+function ReportSectionItem({ id, title, reports: allReports }: ReportSection) {
 	const utils = api.useUtils();
+	const dismissals = useListDismissals(
+		`reports-${id}`,
+		allReports.map((r) => r.clientId),
+	);
+	const reports = dismissals.filterVisible(allReports, (r) => r.clientId);
 	const savedClientRef = useRef<HTMLDivElement>(null);
 	const persistScrollRef = usePersistedScroll(
 		`dashboard-section:reports-${id}`,
@@ -154,6 +165,7 @@ function ReportSectionItem({ id, title, reports }: ReportSection) {
 				</span>
 			</AccordionTrigger>
 			<AccordionContent>
+				<HideDismissedToggle dismissals={dismissals} />
 				{savedPlaceHash && (
 					<div className="mb-2 flex justify-end">
 						<Button
@@ -184,35 +196,44 @@ function ReportSectionItem({ id, title, reports }: ReportSection) {
 									key={r.id}
 									ref={isSaved ? savedClientRef : null}
 								>
-									<Link
-										className="no-underline! hover:no-underline! flex flex-wrap items-center gap-2"
-										href={`/clients/${r.clientHash}`}
-									>
-										<span
-											className="h-3 w-3 shrink-0 rounded-full"
-											style={{
-												backgroundColor: getHexFromColor(r.clientColor),
-											}}
+									<div className="flex items-center justify-between gap-2">
+										<Link
+											className="no-underline! hover:no-underline! flex grow flex-wrap items-center gap-2"
+											href={`/clients/${r.clientHash}`}
+										>
+											<span
+												className="h-3 w-3 shrink-0 rounded-full"
+												style={{
+													backgroundColor: getHexFromColor(r.clientColor),
+												}}
+											/>
+											<span>
+												<Redact>{r.clientFullName}</Redact>
+											</span>
+											{r.clientAutismStop && (
+												<Badge className="" size="sm" variant="destructive">
+													Autism Stop
+												</Badge>
+											)}
+											{r.clientPause && (
+												<Badge className="" size="sm" variant="destructive">
+													Paused
+												</Badge>
+											)}
+											{r.clientOutstandingBalance > 0 && (
+												<Badge className="" size="sm" variant="destructive">
+													{formatCurrency(r.clientOutstandingBalance)} due
+												</Badge>
+											)}
+											{dismissals.isDismissed(r.clientId) && (
+												<DismissedBadge note={dismissals.noteFor(r.clientId)} />
+											)}
+										</Link>
+										<DismissButton
+											clientId={r.clientId}
+											dismissals={dismissals}
 										/>
-										<span>
-											<Redact>{r.clientFullName}</Redact>
-										</span>
-										{r.clientAutismStop && (
-											<Badge className="" size="sm" variant="destructive">
-												Autism Stop
-											</Badge>
-										)}
-										{r.clientPause && (
-											<Badge className="" size="sm" variant="destructive">
-												Paused
-											</Badge>
-										)}
-										{r.clientOutstandingBalance > 0 && (
-											<Badge className="" size="sm" variant="destructive">
-												{formatCurrency(r.clientOutstandingBalance)} due
-											</Badge>
-										)}
-									</Link>
+									</div>
 									{isSaved ? (
 										<button
 											aria-label={`Remove ${r.clientFullName} as saved client for ${title}`}

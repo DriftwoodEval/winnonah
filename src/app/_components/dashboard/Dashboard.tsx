@@ -50,6 +50,12 @@ import type { FullClientInfo } from "~/lib/models";
 import { userBadgeStyle } from "~/lib/utils";
 import { api } from "~/trpc/react";
 import { Redact } from "../redaction/Redact";
+import {
+	DismissButton,
+	DismissedBadge,
+	HideDismissedToggle,
+	useListDismissals,
+} from "./ListDismissals";
 import { PinListButton } from "./PinListButton";
 import { ReportsDashboardSections } from "./ReportsDashboardSections";
 
@@ -61,7 +67,7 @@ interface PunchListAccordionProps {
 }
 
 function PunchListAccordionItem({
-	clients,
+	clients: allClients,
 	title,
 	description,
 	scheduledClientIds,
@@ -69,6 +75,11 @@ function PunchListAccordionItem({
 	const { data: session } = useSession();
 	const can = useCheckPermission();
 	const utils = api.useUtils();
+	const dismissals = useListDismissals(
+		`section:${title}`,
+		allClients.map((c) => c.id),
+	);
+	const clients = dismissals.filterVisible(allClients, (c) => c.id);
 	const savedClientRef = useRef<HTMLDivElement>(null);
 	const persistScrollRef = usePersistedScroll(`dashboard-section:${title}`);
 	const savedPlaceKey = title
@@ -204,6 +215,7 @@ function PunchListAccordionItem({
 						<AlertDescription>{description}</AlertDescription>
 					</Alert>
 				)}
+				<HideDismissedToggle dismissals={dismissals} />
 				<div className="mb-2 flex justify-end">
 					<PinListButton pinned={{ kind: "dashboardSection", title }} />
 				</div>
@@ -297,6 +309,11 @@ function PunchListAccordionItem({
 																	/3 attempts
 																</Badge>
 															)}
+														{dismissals.isDismissed(client.id) && (
+															<DismissedBadge
+																note={dismissals.noteFor(client.id)}
+															/>
+														)}
 														{client.failures?.map((failure) => (
 															<Badge
 																className="hidden md:inline-block"
@@ -404,6 +421,10 @@ function PunchListAccordionItem({
 												)}
 											</div>
 										</Link>
+										<DismissButton
+											clientId={client.id}
+											dismissals={dismissals}
+										/>
 										{isClaimableSection && can("clients:referral:claim") && (
 											<Button
 												className="shrink-0"
@@ -584,12 +605,19 @@ export function Dashboard() {
 		setAdminFilters(next);
 		updateListFilters({ key: adminListFilterKey, filters: next });
 	};
-	const visibleAdminClients = (adminReviewClients ?? []).filter((c) => {
-		if (showMineOnly && c.claimedUserEmail !== session?.user?.email)
-			return false;
-		if (showWaitingOnly && !c.waiting) return false;
-		return true;
-	});
+	const adminDismissals = useListDismissals(
+		"adminReview",
+		(adminReviewClients ?? []).map((c) => c.clientId),
+		!!adminReviewClients,
+	);
+	const visibleAdminClients = adminDismissals
+		.filterVisible(adminReviewClients ?? [], (c) => c.clientId)
+		.filter((c) => {
+			if (showMineOnly && c.claimedUserEmail !== session?.user?.email)
+				return false;
+			if (showWaitingOnly && !c.waiting) return false;
+			return true;
+		});
 
 	const adminSavedClientRef = useRef<HTMLDivElement>(null);
 	const persistAdminScrollRef = usePersistedScroll(
@@ -820,6 +848,7 @@ export function Dashboard() {
 													</Label>
 												</div>
 											</div>
+											<HideDismissedToggle dismissals={adminDismissals} />
 											<div className="mb-2 flex justify-end">
 												<PinListButton pinned={{ kind: "adminReview" }} />
 											</div>
@@ -853,34 +882,45 @@ export function Dashboard() {
 																	: null
 															}
 														>
-															<Link
-																className="no-underline! hover:no-underline! flex items-center gap-2"
-																href={`/clients/${c.clientHash}?tab=admin-review`}
-															>
-																<span>
-																	<Redact>{c.clientName}</Redact>
-																</span>
-																{c.waiting && (
-																	<Badge
-																		className=""
-																		size="sm"
-																		variant="warning"
-																	>
-																		Waiting
-																	</Badge>
-																)}
-																{c.claimedUserName && (
-																	<span
-																		className="rounded-sm px-1 py-0.5"
-																		style={userBadgeStyle(
-																			c.claimedUserName.split(" ")[0] ??
-																				c.claimedUserName,
-																		)}
-																	>
-																		{c.claimedUserName.split(" ")[0]}
+															<div className="flex items-center justify-between gap-2">
+																<Link
+																	className="no-underline! hover:no-underline! flex grow items-center gap-2"
+																	href={`/clients/${c.clientHash}?tab=admin-review`}
+																>
+																	<span>
+																		<Redact>{c.clientName}</Redact>
 																	</span>
-																)}
-															</Link>
+																	{c.waiting && (
+																		<Badge
+																			className=""
+																			size="sm"
+																			variant="warning"
+																		>
+																			Waiting
+																		</Badge>
+																	)}
+																	{c.claimedUserName && (
+																		<span
+																			className="rounded-sm px-1 py-0.5"
+																			style={userBadgeStyle(
+																				c.claimedUserName.split(" ")[0] ??
+																					c.claimedUserName,
+																			)}
+																		>
+																			{c.claimedUserName.split(" ")[0]}
+																		</span>
+																	)}
+																	{adminDismissals.isDismissed(c.clientId) && (
+																		<DismissedBadge
+																			note={adminDismissals.noteFor(c.clientId)}
+																		/>
+																	)}
+																</Link>
+																<DismissButton
+																	clientId={c.clientId}
+																	dismissals={adminDismissals}
+																/>
+															</div>
 															{isSavedAdminClient(c.clientHash) && (
 																<button
 																	aria-label={`Remove ${c.clientName} as saved client for Admin Review`}

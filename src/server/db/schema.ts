@@ -791,6 +791,32 @@ export const adminReviewClaimHistory = createTable(
 	],
 );
 
+/**
+ * A user's "mute" mark on a client in one dashboard list. The row
+ * hides the client from that list for that user until the client leaves the
+ * list, at which point it is deleted (see `listDismissals.prune`).
+ */
+export const listDismissals = createTable(
+	"list_dismissal",
+	(d) => ({
+		id: d.int().notNull().autoincrement().primaryKey(),
+		userId: d
+			.varchar({ length: 255 })
+			.notNull()
+			.references(() => users.id, { onDelete: "cascade" }),
+		listKey: d.varchar({ length: 255 }).notNull(),
+		clientId: d
+			.int()
+			.notNull()
+			.references(() => clients.id, { onDelete: "cascade" }),
+		note: d.varchar({ length: 500 }),
+		createdAt: d.timestamp().default(sql`CURRENT_TIMESTAMP`).notNull(),
+	}),
+	(t) => [
+		uniqueIndex("list_dismissal_unique").on(t.userId, t.listKey, t.clientId),
+	],
+);
+
 export const adminReviewRelations = relations(adminReview, ({ one, many }) => ({
 	client: one(clients, {
 		fields: [adminReview.clientId],

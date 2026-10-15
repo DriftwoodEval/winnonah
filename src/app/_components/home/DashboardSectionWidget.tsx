@@ -14,6 +14,13 @@ import {
 } from "~/lib/dashboard";
 import type { Client, FullClientInfo } from "~/lib/models";
 import { api } from "~/trpc/react";
+import {
+	DismissButton,
+	DismissedBadge,
+	HideDismissedToggle,
+	type ListDismissals,
+	useListDismissals,
+} from "../dashboard/ListDismissals";
 import { PinListButton } from "../dashboard/PinListButton";
 import { Redact } from "../redaction/Redact";
 import { EmptyState } from "../shared/EmptyState";
@@ -30,6 +37,13 @@ export function DashboardSectionWidget({
 		api.google.getDashboardData.useQuery(undefined, {
 			refetchInterval: 180000,
 		});
+	const section = data?.sections.find((s) => s.title === sectionTitle);
+	const rawClients = section?.clients ?? [];
+	const dismissals = useListDismissals(
+		`section:${sectionTitle}`,
+		rawClients.map((c) => c.id),
+		!!data,
+	);
 
 	if (isLoading) {
 		return (
@@ -46,9 +60,7 @@ export function DashboardSectionWidget({
 		return <ErrorState compact onRetry={refetch} />;
 	}
 
-	const section = data?.sections.find((s) => s.title === sectionTitle);
-	const rawClients = section?.clients ?? [];
-	const clients =
+	const sortedClients =
 		sectionTitle === SECTION_RECORDS_REQUESTED_NOT_RETURNED
 			? rawClients.toSorted((a, b) => {
 					const aDate =
@@ -58,6 +70,7 @@ export function DashboardSectionWidget({
 					return aDate < bDate ? -1 : aDate > bDate ? 1 : 0;
 				})
 			: rawClients;
+	const clients = dismissals.filterVisible(sortedClients, (c) => c.id);
 
 	return (
 		<div className="flex h-full flex-col">
@@ -70,6 +83,9 @@ export function DashboardSectionWidget({
 					pinned={{ kind: "dashboardSection", title: sectionTitle }}
 				/>
 			</div>
+			<div className="px-3 pt-2 empty:hidden">
+				<HideDismissedToggle dismissals={dismissals} />
+			</div>
 			{clients.length === 0 ? (
 				<EmptyState compact title="No clients in this list" />
 			) : (
@@ -77,6 +93,7 @@ export function DashboardSectionWidget({
 					{clients.map((client) => (
 						<DashboardClientRow
 							client={client}
+							dismissals={dismissals}
 							key={client.id}
 							sectionTitle={sectionTitle}
 						/>
@@ -89,9 +106,11 @@ export function DashboardSectionWidget({
 
 function DashboardClientRow({
 	client,
+	dismissals,
 	sectionTitle,
 }: {
 	client: DashboardClient;
+	dismissals: ListDismissals;
 	sectionTitle: string;
 }) {
 	const { data: session } = useSession();
@@ -124,9 +143,9 @@ function DashboardClientRow({
 	const href = `/clients/${hash}${isOutreachSection ? "?tab=referral" : ""}`;
 
 	return (
-		<li>
+		<li className="flex items-center pr-2">
 			<Link
-				className="flex items-start justify-between gap-2 px-3 py-1.5 text-sm hover:bg-muted/50"
+				className="flex min-w-0 grow items-start justify-between gap-2 px-3 py-1.5 text-sm hover:bg-muted/50"
 				href={href}
 			>
 				<span className="flex min-w-0 flex-col gap-0.5">
@@ -162,6 +181,9 @@ function DashboardClientRow({
 								Eval In Process
 							</Badge>
 						)}
+						{dismissals.isDismissed(client.id) && (
+							<DismissedBadge note={dismissals.noteFor(client.id)} />
+						)}
 						{full.autismStop && (
 							<Badge className="shrink-0" size="sm" variant="warning">
 								Autism Stop
@@ -195,6 +217,7 @@ function DashboardClientRow({
 					</span>
 				)}
 			</Link>
+			<DismissButton clientId={client.id} dismissals={dismissals} />
 		</li>
 	);
 }
