@@ -32,6 +32,7 @@ from utils.document_categorizer import (
     extract_clients,
     fit_to_context,
     header_override_category,
+    is_dds_fax,
     limit_cpu_usage,
     limit_memory_usage,
     page_rotation,
@@ -551,3 +552,8 @@ class TestLimitMemoryUsage:
             limit_memory_usage(1.0)
 
         assert captured["limits"][0] == int(1.0 * 1024**3)
+
+
+def test_is_dds_fax_checks_only_the_letterhead():
+    assert is_dds_fax("Fax 10/1\nDisability Determination Services\nRe: client")
+    assert not is_dds_fax("x" * 600 + "Disability Determination Services")

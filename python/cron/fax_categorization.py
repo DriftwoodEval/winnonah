@@ -23,19 +23,24 @@ from loguru import logger
 from utils.config import validate_config
 from utils.constants import (
     FAX_CATEGORIZATION_START_DATE,
+    TABLE_CLIENT,
+    TABLE_DDS_FAX_REQUEST,
     TABLE_FAX_CATEGORIZATION,
     TABLE_FAX_CATEGORIZATION_CLIENT_LINK,
 )
 from utils.database import db_session, get_all_clients
+from utils.dds_fax import send_approved_dds_requests
 from utils.document_categorizer import (
     categorize_document,
     extract_text,
+    is_dds_fax,
     limit_cpu_usage,
     load_model,
 )
 from utils.google import (
     build_client_lookup,
     client_match_confidence,
+    find_latest_pdf_containing,
     get_file_as_bytes,
     get_file_by_id,
     list_files_in_folder,
@@ -51,6 +56,13 @@ logger.add(
     filter=lambda r: r["name"] == "fax_categorization",
 )
 load_dotenv()
+
+# Heading phrases that identify the psychological evaluation PDF in a client's
+# Drive folder, which DDS faxes ask for.
+PSYCH_EVAL_PHRASES = [
+    "Psychological Evaluation",
+    "Release Only with Parent/Client Permission",
+]
 
 
 def _match_clients(
@@ -78,6 +90,40 @@ def _match_clients(
             client_id: value for client_id, value in matched.items() if value[1] >= 1.0
         }
     return matched
+
+
+def _queue_dds_requests(cursor, fax_id: int, client_ids: list[int]) -> None:
+    """Add one DDS queue row per matched client, preselecting the client's
+    most recent psychological evaluation PDF (left empty when none is found,
+    for staff to pick)."""
+    if not client_ids:
+        return
+    placeholders = ", ".join(["%s"] * len(client_ids))
+    cursor.execute(
+        f"SELECT id, driveId FROM {TABLE_CLIENT} WHERE id IN ({placeholders})",
+        client_ids,
+    )
+    for client in cursor.fetchall():
+        # driveId is NULL or "N/A" when the client has no Drive folder.
+        has_folder = client["driveId"] and client["driveId"] != "N/A"
+        evaluation = (
+            find_latest_pdf_containing(client["driveId"], PSYCH_EVAL_PHRASES)
+            if has_folder
+            else None
+        )
+        cursor.execute(
+            f"""
+            INSERT INTO {TABLE_DDS_FAX_REQUEST}
+                (faxCategorizationId, clientId, selectedFileId, selectedFileName)
+            VALUES (%s, %s, %s, %s)
+            """,
+            (
+                fax_id,
+                client["id"],
+                evaluation["id"] if evaluation else None,
+                evaluation["name"] if evaluation else None,
+            ),
+        )
 
 
 def _already_seen_drive_file_ids() -> set[str]:
@@ -118,6 +164,7 @@ def _process_fax(file: dict, llm, client_lookup: list[dict]) -> None:
     document_text, category, clients, confidence = _extract_and_categorize(file, llm)
 
     matched_clients = _match_clients(clients, client_lookup)
+    is_dds = is_dds_fax(document_text)
 
     llm_raw_output = json.dumps(
         {"category": category, "clients": clients, "confidence": confidence}
@@ -125,11 +172,13 @@ def _process_fax(file: dict, llm, client_lookup: list[dict]) -> None:
 
     with db_session() as conn:
         with conn.cursor() as cursor:
+            # DDS faxes are handled in the DDS queue, so they skip the
+            # categorization review list.
             cursor.execute(
                 f"""
                 INSERT INTO {TABLE_FAX_CATEGORIZATION}
-                    (driveFileId, fileName, category, llmCategory, confidence, extractedText, llmRawOutput)
-                VALUES (%s, %s, %s, %s, %s, %s, %s)
+                    (driveFileId, fileName, category, llmCategory, confidence, extractedText, llmRawOutput, status)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
                 """,
                 (
                     file["id"],
@@ -139,6 +188,7 @@ def _process_fax(file: dict, llm, client_lookup: list[dict]) -> None:
                     confidence,
                     document_text,
                     llm_raw_output,
+                    "reviewed" if is_dds else "pending",
                 ),
             )
             fax_id = cursor.lastrowid
@@ -152,6 +202,9 @@ def _process_fax(file: dict, llm, client_lookup: list[dict]) -> None:
                     """,
                     (fax_id, client_id, matched_name, match_confidence),
                 )
+
+            if is_dds:
+                _queue_dds_requests(cursor, fax_id, list(matched_clients))
         conn.commit()
 
     logger.info(
@@ -285,6 +338,7 @@ def main() -> None:
     try:
         validate_config()
         process_faxes()
+        send_approved_dds_requests()
     except Exception:
         logger.exception("Failed to run fax categorization")
 

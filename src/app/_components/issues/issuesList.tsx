@@ -48,6 +48,10 @@ import { Redact } from "../redaction/Redact";
 import { EmptyState } from "../shared/EmptyState";
 import { ErrorState } from "../shared/ErrorState";
 import { ResponsiveDialog } from "../shared/ResponsiveDialog";
+import {
+	DDS_REQUESTS_DESCRIPTION,
+	DdsRequestActions,
+} from "./DdsRequestActions";
 import { IssueListCustomizer } from "./IssueListCustomizer";
 
 interface IssueListProps {
@@ -1368,6 +1372,15 @@ export function IssuesList() {
 		enabled: can("issues:special-accommodations"),
 	});
 	const {
+		data: ddsRequests,
+		isLoading: isLoadingDdsRequests,
+		isError: isErrorDdsRequests,
+		refetch: refetchDdsRequests,
+	} = api.clients.getDdsRequests.useQuery(undefined, {
+		refetchInterval: 60_000,
+		enabled: can("issues:dds-requests"),
+	});
+	const {
 		data: medicaidNotFound,
 		isLoading: isLoadingMedicaidNotFound,
 		isError: isErrorMedicaidNotFound,
@@ -1923,6 +1936,24 @@ export function IssuesList() {
 							<SpecialAccommodationsActions clientId={client.id} />
 						)}
 						title={ISSUE_TITLES.specialAccommodations}
+					/>
+				)}
+			</GuardedIssue>
+		),
+		ddsRequests: (
+			<GuardedIssue
+				isError={isErrorDdsRequests}
+				isLoading={isLoadingDdsRequests}
+				onRetry={refetchDdsRequests}
+				permission={ISSUE_LIST_PERMISSIONS.ddsRequests}
+				title={ISSUE_TITLES.ddsRequests}
+			>
+				{ddsRequests && ddsRequests.length !== 0 && (
+					<IssueList
+						clients={ddsRequests}
+						description={DDS_REQUESTS_DESCRIPTION}
+						rowAction={(client) => <DdsRequestActions client={client} />}
+						title={ISSUE_TITLES.ddsRequests}
 					/>
 				)}
 			</GuardedIssue>

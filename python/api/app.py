@@ -51,6 +51,7 @@ from utils.database import (
     rematch_client,
     rematch_evaluator,
 )
+from utils.dds_fax import build_request_fax_pdf, get_dds_request
 from utils.forms import fill_select_health_form
 from utils.google import (
     clear_planned_office_events,
@@ -883,6 +884,25 @@ async def put_post_visit_attachment(
     POST_VISIT_ATTACHMENT.parent.mkdir(parents=True, exist_ok=True)
     POST_VISIT_ATTACHMENT.write_bytes(content)
     return {"updatedAt": POST_VISIT_ATTACHMENT.stat().st_mtime}
+
+
+@app.get("/dds-requests/{request_id}/preview")
+def preview_dds_request(
+    request_id: int, current_user: dict = Depends(get_current_user)
+):
+    """The completed DDS fax as it would be sent, for approval."""
+    if not has_permission(current_user["permissions"], "issues:dds-requests"):
+        raise HTTPException(status_code=403, detail="Not authorized")
+
+    dds_request = get_dds_request(request_id)
+    if not dds_request or not dds_request["selectedFileId"]:
+        raise HTTPException(status_code=404, detail="No PDF selected for this request")
+
+    try:
+        pdf_bytes = build_request_fax_pdf(dds_request)
+    except ValueError as error:
+        raise HTTPException(status_code=422, detail=str(error)) from error
+    return Response(content=pdf_bytes, media_type="application/pdf")
 
 
 @app.get("/gmail/pearson-verification-code")

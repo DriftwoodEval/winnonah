@@ -28,6 +28,7 @@ import {
 	appointments,
 	clientInsurancePolicies,
 	clients,
+	ddsFaxRequests,
 	duplicateNameIgnore,
 	externalRecordRequests,
 	externalRecords,
@@ -287,6 +288,26 @@ export async function getSpecialAccommodationsList(
 		.innerJoin(clients, eq(clients.id, specialAccommodationsNotices.clientId))
 		.where(eq(specialAccommodationsNotices.status, "pending"))
 		.orderBy(asc(specialAccommodationsNotices.createdAt));
+}
+
+/**
+ * Clients named on a Disability Determination Services fax, one row per fax,
+ * waiting for staff to approve or deny sending their psychological evaluation.
+ * The fax categorization cron creates the pending rows and preselects the PDF.
+ */
+export async function getDdsRequestsList(
+	db: Context["db"],
+): Promise<ClientWithIssueInfo[]> {
+	return db
+		.select({
+			...getTableColumns(clients),
+			ddsRequestId: ddsFaxRequests.id,
+			additionalInfo: sql<string>`COALESCE(${ddsFaxRequests.selectedFileName}, 'No psychological evaluation found')`,
+		})
+		.from(ddsFaxRequests)
+		.innerJoin(clients, eq(clients.id, ddsFaxRequests.clientId))
+		.where(eq(ddsFaxRequests.status, "pending"))
+		.orderBy(asc(ddsFaxRequests.createdAt));
 }
 
 /**

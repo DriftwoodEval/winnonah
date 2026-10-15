@@ -149,8 +149,9 @@ MIN_TEXT_LENGTH_PER_PAGE = 20
 # (date/time, sender helpdesk number, page count) often get extracted ahead
 # of the actual letterhead.
 HEADER_CHARS_CHECKED = 500
+DDS_HEADER_MARKER = "DISABILITY DETERMINATION SERVICES"
 HEADER_CATEGORY_OVERRIDES = {
-    "DISABILITY DETERMINATION SERVICES": "Records Request",
+    DDS_HEADER_MARKER: "Records Request",
 }
 
 # Tokens set aside for the model's reply: a JSON object with a category
@@ -449,6 +450,11 @@ def header_override_category(document_text: str) -> str | None:
         if marker in header:
             return category
     return None
+
+
+def is_dds_fax(document_text: str) -> bool:
+    """True when the letterhead names Disability Determination Services."""
+    return DDS_HEADER_MARKER in document_text[:HEADER_CHARS_CHECKED].upper()
 
 
 def extract_text(

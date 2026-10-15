@@ -73,3 +73,6 @@ mise.local.toml
 kimai/data/
 kimai/plugins/
 kimai/local.yaml
+
+# Authorized signature image for DDS faxes; keep out of the repo
+python/forms/dds_signature.png

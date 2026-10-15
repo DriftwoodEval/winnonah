@@ -320,6 +320,10 @@ export const PERMISSIONS = {
 						id: "issues:special-accommodations",
 						title: "Interpreter Notices to Approve",
 					},
+					{
+						id: "issues:dds-requests",
+						title: "DDS Records to Approve",
+					},
 					{ id: "issues:duplicate-drive", title: "Duplicate Drive Folders" },
 					{
 						id: "issues:duplicate-questionnaires",

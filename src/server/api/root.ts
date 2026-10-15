@@ -17,6 +17,7 @@ import { questionnaireRouter } from "./routers/clients/questionnaires";
 import { quoRouter } from "./routers/clients/quo";
 import { reminderRouter } from "./routers/clients/reminders";
 import { sessionRouter } from "./routers/clients/sessions";
+import { ddsQueueRouter } from "./routers/reports/ddsQueue";
 import { evaluatorDashboardRouter } from "./routers/reports/evaluatorDashboard";
 import { faxCategorizationRouter } from "./routers/reports/faxCategorization";
 import { reportQueueRouter } from "./routers/reports/reportQueue";
@@ -44,6 +45,7 @@ export const appRouter = createTRPCRouter({
 	eiContacts: eiContactsRouter,
 	evaluators: evaluatorRouter,
 	externalRecords: externalRecordRouter,
+	ddsQueue: ddsQueueRouter,
 	faxCategorization: faxCategorizationRouter,
 	google: googleRouter,
 	greeterProxy: greeterProxyRouter,

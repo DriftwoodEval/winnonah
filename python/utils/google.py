@@ -324,6 +324,26 @@ def list_files_in_folder(
     return results
 
 
+def find_latest_pdf_containing(folder_id: str, phrases: list[str]) -> dict | None:
+    """Return the most recently modified PDF directly inside a Drive folder
+    whose text contains every phrase, or None. Matching uses
+    Drive's own full-text index (which also covers scanned PDFs)."""
+    text_clauses = " and ".join(f"fullText contains '\"{p}\"'" for p in phrases)
+    resp = (
+        get_drive_service()
+        .files()
+        .list(
+            q=f"'{folder_id}' in parents and mimeType = 'application/pdf' and trashed = false and {text_clauses}",
+            orderBy="modifiedTime desc",
+            pageSize=1,
+            fields="files(id, name)",
+        )
+        .execute()
+    )
+    files = resp.get("files", [])
+    return files[0] if files else None
+
+
 def list_subfolders(folder_id: str) -> list[dict]:
     """Return all non-trashed subfolders in a Drive folder."""
     results = []
