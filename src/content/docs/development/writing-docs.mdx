@@ -160,6 +160,15 @@ Images fill the page width by default. To show one smaller, add `#w=` and a widt
 ![Description of the screenshot](cheddar.jpg#w=300)
 ```
 
+To show an image on the same line as the surrounding text (for example a small icon), add `#inline` (or `&inline` after a width):
+
+```md
+Click the ![gear icon](cheddar.jpg#inline) to open settings.
+Click the ![gear icon](cheddar.jpg#w=20&inline) to open settings.
+```
+
+Without a width, an inline image shows at its natural size, shrunk only if it is wider than the line.
+
 Clicking an image still opens it full size.
 
 ![](cheddar.jpg)

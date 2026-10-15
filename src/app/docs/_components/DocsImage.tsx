@@ -2,11 +2,12 @@
 
 import { useLightbox } from "@components/shared/ImageLightbox";
 
-/** Splits an optional `#w=<pixels>` display width off an image URL. */
+/** Splits the optional `#w=<pixels>` display width and `inline` flag off an image URL. */
 function parseImageSrc(src: string) {
 	const [path = "", fragment = ""] = src.split("#");
-	const width = Number(new URLSearchParams(fragment).get("w")) || undefined;
-	return { path, width };
+	const params = new URLSearchParams(fragment);
+	const width = Number(params.get("w")) || undefined;
+	return { path, width, inline: params.has("inline") };
 }
 
 export function DocsImage(props: React.ComponentProps<"img">) {
@@ -14,13 +15,13 @@ export function DocsImage(props: React.ComponentProps<"img">) {
 	const { src: rawSrc, alt = "", ...rest } = props;
 
 	if (!rawSrc) return null;
-	const { path: src, width } = parseImageSrc(rawSrc as string);
+	const { path: src, width, inline } = parseImageSrc(rawSrc as string);
 
 	return (
 		<button
-			className="block max-w-full cursor-zoom-in"
+			className={`max-w-full cursor-zoom-in ${inline ? "inline-block align-middle" : "block"}`}
 			onClick={() => openLightbox({ src, alt })}
-			style={{ width: width ?? "100%" }}
+			style={{ width: width ?? (inline ? "auto" : "100%") }}
 			type="button"
 		>
 			{/* biome-ignore lint/performance/noImgElement: doc images are arbitrary local files served through a route handler, not next/image compatible without known dimensions */}
