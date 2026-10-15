@@ -114,12 +114,14 @@ export default function AuditLogTable() {
 		const expanded = expandedRows.has(row.id);
 		return (
 			<>
-				<Badge variant="outline">{row.action}</Badge>
+				<Badge className="max-w-full" variant="outline">
+					<span className="truncate">{row.action}</span>
+				</Badge>
 				{detail && (
 					<button
-						className={`block max-w-md text-left text-muted-foreground text-xs ${expanded ? "whitespace-pre-wrap break-words" : "truncate"}`}
+						className={`mt-1 block w-full max-w-md break-all text-left text-muted-foreground text-xs ${expanded ? "whitespace-pre-wrap" : "line-clamp-2"}`}
 						onClick={() => toggleExpanded(row.id)}
-						title={expanded ? undefined : "Click to expand"}
+						title={expanded ? undefined : "Show full detail"}
 						type="button"
 					>
 						{detail}
@@ -168,7 +170,7 @@ export default function AuditLogTable() {
 					<SelectTrigger className="w-full sm:w-[200px]">
 						<SelectValue placeholder="All users" />
 					</SelectTrigger>
-					<SelectContent>
+					<SelectContent position="popper">
 						<SelectItem value="all">All users</SelectItem>
 						{auditUsers?.map((user) => (
 							<SelectItem key={user.userId} value={user.userId}>
@@ -187,7 +189,7 @@ export default function AuditLogTable() {
 					<SelectTrigger className="w-full sm:w-[240px]">
 						<SelectValue placeholder="All actions" />
 					</SelectTrigger>
-					<SelectContent>
+					<SelectContent position="popper">
 						<SelectItem value="all">All actions</SelectItem>
 						{actionCategories.map(([category, names]) => (
 							<SelectGroup key={category}>
@@ -299,9 +301,11 @@ export default function AuditLogTable() {
 								</span>
 								{renderStatus(row)}
 							</div>
-							<div>{renderUser(row)}</div>
+							<div className="flex items-start justify-between gap-2">
+								<div>{renderUser(row)}</div>
+								<div className="text-right">{renderClient(row)}</div>
+							</div>
 							<div>{renderAction(row)}</div>
-							<div>{renderClient(row)}</div>
 						</div>
 					))
 				)}
