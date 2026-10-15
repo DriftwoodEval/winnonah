@@ -6,7 +6,7 @@ import json
 import os
 import re
 import time
-from collections.abc import Callable
+from collections.abc import Callable, Iterable
 from contextlib import contextmanager
 from datetime import date, datetime
 from functools import wraps
@@ -60,6 +60,7 @@ from utils.constants import (
     TABLE_REPORT,
     TABLE_ROLE,
     TABLE_SCHOOL_DISTRICT,
+    TABLE_SPECIAL_ACCOMMODATIONS_NOTICE,
     TABLE_USER,
     TEST_NAMES_LOWER,
 )
@@ -1370,6 +1371,156 @@ def get_medicaid_clients_with_ids(
     return list(clients_by_id.values())
 
 
+# Insurances whose non-English clients get a Special Accommodations notice.
+SPECIAL_ACCOMMODATIONS_INSURANCES = [SCM_ALIAS, "BabyNet"]
+
+
+def _resolve_accommodation_insurance_names(cursor: DictCursor) -> list[str]:
+    """All insurance names (shortNames + aliases) that map to SCM (Medicaid) or
+    BabyNet."""
+    alias_placeholders = ", ".join(["%s"] * len(SPECIAL_ACCOMMODATIONS_INSURANCES))
+    cursor.execute(
+        f"""
+        SELECT i.id
+        FROM `{TABLE_INSURANCE}` i
+        LEFT JOIN `{TABLE_INSURANCE_ALIAS}` a ON a.insuranceId = i.id
+        WHERE i.shortName IN ({alias_placeholders}) OR a.name IN ({alias_placeholders})
+        """,
+        SPECIAL_ACCOMMODATIONS_INSURANCES * 2,
+    )
+    scm_ids = list({row["id"] for row in cursor.fetchall()})
+    if not scm_ids:
+        return []
+
+    id_placeholders = ", ".join(["%s"] * len(scm_ids))
+    cursor.execute(
+        f"""
+        SELECT i.shortName AS name FROM `{TABLE_INSURANCE}` i WHERE i.id IN ({id_placeholders})
+        UNION
+        SELECT a.name FROM `{TABLE_INSURANCE_ALIAS}` a WHERE a.insuranceId IN ({id_placeholders})
+        """,
+        scm_ids + scm_ids,
+    )
+    return [row["name"] for row in cursor.fetchall()]
+
+
+@provide_connection
+def get_non_english_medicaid_clients_for_notice(
+    client_ids: Iterable[int],
+    connection: Connection[DictCursor] | None = None,
+) -> list[dict]:
+    """Active, non-English-speaking clients among client_ids who have an SCM
+    (Medicaid) or BabyNet policy, primary or secondary, with a policy number and
+    no Special Accommodations notice row yet (pending, approved, denied or sent).
+
+    A client matching on both policies gets their primary policy's number.
+    Returns id, firstName, lastName, language, insuranceNumber.
+    """
+    assert connection is not None
+    ids = sorted({int(cid) for cid in client_ids})
+    if not ids:
+        return []
+
+    with connection.cursor() as cursor:
+        insurance_names = _resolve_accommodation_insurance_names(cursor)
+        if not insurance_names:
+            return []
+
+        id_placeholders = ", ".join(["%s"] * len(ids))
+        name_placeholders = ", ".join(["%s"] * len(insurance_names))
+        cursor.execute(
+            f"""
+            SELECT c.id, c.firstName, c.lastName, c.language, p.insuranceNumber
+            FROM `{TABLE_CLIENT}` c
+            JOIN `{TABLE_CLIENT_INSURANCE_POLICY}` p ON p.clientId = c.id
+            WHERE c.id IN ({id_placeholders})
+              AND c.status = 1
+              AND c.language IS NOT NULL
+              AND LOWER(c.language) NOT IN ('', 'english')
+              AND COALESCE(p.insuranceCompanyName, p.policyCompanyName) IN ({name_placeholders})
+              AND p.policyType IN ('PRIMARY', 'SECONDARY')
+              AND (p.policyEndDate IS NULL OR p.policyEndDate >= CURDATE())
+              AND p.insuranceNumber IS NOT NULL
+              AND p.insuranceNumber != ''
+              AND NOT EXISTS (
+                  SELECT 1 FROM `{TABLE_SPECIAL_ACCOMMODATIONS_NOTICE}` n
+                  WHERE n.clientId = c.id
+              )
+            ORDER BY c.lastName, c.firstName, c.id, p.policyType = 'PRIMARY' DESC
+            """,
+            ids + insurance_names,
+        )
+        rows = cursor.fetchall()
+
+    # Rows are ordered primary-first, so the first row per client wins.
+    clients_by_id: dict[int, dict] = {}
+    for row in rows:
+        clients_by_id.setdefault(row["id"], row)
+    return list(clients_by_id.values())
+
+
+@provide_connection
+def queue_special_accommodations_notice(
+    client_id: int,
+    language: str,
+    medicaid_number: str,
+    connection: Connection[DictCursor] | None = None,
+) -> None:
+    """Adds a pending notice for staff to approve or deny on the Issues page.
+    An existing row, whatever its status, is left alone."""
+    assert connection is not None
+    with connection.cursor() as cursor:
+        cursor.execute(
+            f"""
+            INSERT IGNORE INTO `{TABLE_SPECIAL_ACCOMMODATIONS_NOTICE}`
+                (clientId, status, language, medicaidNumber)
+            VALUES (%s, 'pending', %s, %s)
+            """,
+            (client_id, language, medicaid_number),
+        )
+    connection.commit()
+
+
+@provide_connection
+def get_approved_special_accommodations_notices(
+    connection: Connection[DictCursor] | None = None,
+) -> list[dict]:
+    """Approved notices waiting to be emailed, with the client's name.
+
+    Returns clientId, firstName, lastName, language, medicaidNumber.
+    """
+    assert connection is not None
+    with connection.cursor() as cursor:
+        cursor.execute(
+            f"""
+            SELECT n.clientId, c.firstName, c.lastName, n.language, n.medicaidNumber
+            FROM `{TABLE_SPECIAL_ACCOMMODATIONS_NOTICE}` n
+            JOIN `{TABLE_CLIENT}` c ON c.id = n.clientId
+            WHERE n.status = 'approved'
+            ORDER BY n.createdAt
+            """
+        )
+        return list(cursor.fetchall())
+
+
+@provide_connection
+def mark_special_accommodations_notice_sent(
+    client_id: int, connection: Connection[DictCursor] | None = None
+) -> None:
+    """Marks an approved notice as emailed."""
+    assert connection is not None
+    with connection.cursor() as cursor:
+        cursor.execute(
+            f"""
+            UPDATE `{TABLE_SPECIAL_ACCOMMODATIONS_NOTICE}`
+            SET status = 'sent', sentAt = UTC_TIMESTAMP()
+            WHERE clientId = %s AND status = 'approved'
+            """,
+            (client_id,),
+        )
+    connection.commit()
+
+
 @provide_connection
 def put_client_insurance_policies_in_db(
     insurance_df: pd.DataFrame, connection: Connection[DictCursor]
@@ -1788,11 +1939,12 @@ def put_appointment_in_db(
     confirmed_at: datetime | None = None,
     billing_only: bool = False,
     placeholder: bool = False,
-) -> bool:
-    """Inserts an appointment into the database.
+) -> tuple[bool, bool]:
+    """Inserts or updates an appointment.
 
-    Returns whether an existing appointment's startTime changed (i.e. it was
-    moved/rescheduled), for the run summary shown in the app.
+    Returns (created, rescheduled): whether a new appointment row was created, and
+    whether an existing appointment's startTime changed (i.e. it was moved), for
+    the run summary shown in the app.
     """
     with connection.cursor() as cursor:
         cursor.execute(f"SELECT 1 FROM `{TABLE_CLIENT}` WHERE id = %s", (client_id,))
@@ -1800,7 +1952,7 @@ def put_appointment_in_db(
             logger.warning(
                 f"Skipping appointment {appointment_id}: no client row found for client_id={client_id}"
             )
-            return False
+            return False, False
 
         cursor.execute(
             f"""SELECT startTime, endTime, confirmedAt, cancelled, evaluatorNpi, daEval,
@@ -1953,7 +2105,7 @@ def put_appointment_in_db(
         cursor.execute(sql, params)
         connection.commit()
 
-    return rescheduled
+    return existing is None, rescheduled
 
 
 @provide_connection

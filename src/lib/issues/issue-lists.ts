@@ -33,6 +33,7 @@ import {
 	insuranceMismatchIgnore,
 	questionnaireRules,
 	questionnaires,
+	specialAccommodationsNotices,
 } from "~/server/db/schema";
 import {
 	ageAtReference,
@@ -265,6 +266,25 @@ export async function getMissingAppointmentsList(
 	}
 
 	return result;
+}
+
+/**
+ * Non-English Medicaid/BabyNet clients with a newly scheduled appointment whose
+ * SCDHHS Special Accommodations notice is waiting for staff to approve or deny.
+ * The appointment sync creates the pending rows.
+ */
+export async function getSpecialAccommodationsList(
+	db: Context["db"],
+): Promise<ClientWithIssueInfo[]> {
+	return db
+		.select({
+			...getTableColumns(clients),
+			additionalInfo: sql<string>`CONCAT('(', ${specialAccommodationsNotices.language}, ')')`,
+		})
+		.from(specialAccommodationsNotices)
+		.innerJoin(clients, eq(clients.id, specialAccommodationsNotices.clientId))
+		.where(eq(specialAccommodationsNotices.status, "pending"))
+		.orderBy(asc(specialAccommodationsNotices.createdAt));
 }
 
 /**

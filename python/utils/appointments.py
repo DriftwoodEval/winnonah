@@ -47,6 +47,10 @@ from utils.google import (
     send_gmail,
     set_gcal_event_drive_link,
 )
+from utils.special_accommodations import (
+    queue_special_accommodations,
+    send_approved_special_accommodations,
+)
 from utils.task_tracker import track_task
 
 DAEvalType = Literal["EVAL", "DA", "DAEVAL"]
@@ -1106,6 +1110,7 @@ def insert_appointments_with_gcal(appointment_sync_data: dict[str, list[str]] | 
         # there's no point clearing them for appointments well outside that window.
         office_events_window_start = now_business().date() - relativedelta(months=1)
         office_events_window_end = now_business().date() + relativedelta(months=3)
+        newly_scheduled_client_ids: set[int] = set()
 
         total_appointments = len(appointments_df)
         for i, (_, appointment) in enumerate(appointments_df.iterrows(), start=1):
@@ -1189,7 +1194,7 @@ def insert_appointments_with_gcal(appointment_sync_data: dict[str, list[str]] | 
                     logger.error(f"No title found for event ID: {gcal_event_id}")
                 continue
 
-            rescheduled = put_appointment_in_db(
+            was_new_appointment, rescheduled = put_appointment_in_db(
                 appointment_id=appointment_id,
                 client_id=client_id,
                 evaluator_npi=evaluator_npi,
@@ -1243,6 +1248,13 @@ def insert_appointments_with_gcal(appointment_sync_data: dict[str, list[str]] | 
                             f"Could not clear planned-office events for {gcal_calendar_id} on {appt_day}: {e}"
                         )
                     cleared_office_events.add(office_event_key)
+
+            # Only real, newly scheduled appointments count. This branch never
+            # writes billing-only or placeholder rows (that is the billing_df
+            # loop and the app UI respectively), so a fresh non-cancelled insert
+            # here is always a genuine appointment.
+            if was_new_appointment and not cancelled:
+                newly_scheduled_client_ids.add(client_id)
 
             if not cancelled and gcal_daeval and battery_rules:
                 client_dob = dob_map.get(client_id)
@@ -1316,7 +1328,7 @@ def insert_appointments_with_gcal(appointment_sync_data: dict[str, list[str]] | 
                     )
                     continue
 
-                rescheduled = put_appointment_in_db(
+                _, rescheduled = put_appointment_in_db(
                     appointment_id=appointment_id,
                     client_id=client_id,
                     evaluator_npi=evaluator_npi,
@@ -1351,6 +1363,12 @@ def insert_appointments_with_gcal(appointment_sync_data: dict[str, list[str]] | 
             logger.debug(
                 f"Skipped {skipped_locked_in_snapshots} assessment snapshot(s): already locked in"
             )
+
+        try:
+            queue_special_accommodations(newly_scheduled_client_ids)
+            send_approved_special_accommodations()
+        except Exception:
+            logger.exception("Failed to process Special Accommodations notices")
 
         try:
             reconcile_reports_from_appointments()

@@ -922,6 +922,30 @@ export const inPersonAssessmentHistoryRelations = relations(
 	}),
 );
 
+// One row per non-English Medicaid or BabyNet client with a newly scheduled
+// appointment. The row starts "pending" and shows on the Issues page, where
+// staff approve (queues the SCDHHS Special Accommodations email) or deny it.
+// The appointment sync sends "approved" rows and marks them "sent". Any row,
+// whatever its status, stops the client from being queued again.
+export const specialAccommodationsNotices = createTable(
+	"special_accommodations_notice",
+	(d) => ({
+		clientId: d
+			.int()
+			.notNull()
+			.primaryKey()
+			.references(() => clients.id, { onDelete: "cascade" }),
+		status: d
+			.mysqlEnum(["pending", "approved", "denied", "sent"])
+			.default("pending")
+			.notNull(),
+		language: d.varchar({ length: 255 }).notNull(),
+		medicaidNumber: d.varchar({ length: 255 }).notNull(),
+		createdAt: d.timestamp().default(sql`CURRENT_TIMESTAMP`).notNull(),
+		sentAt: d.timestamp(),
+	}),
+);
+
 export const failures = createTable(
 	"failure",
 	(d) => ({

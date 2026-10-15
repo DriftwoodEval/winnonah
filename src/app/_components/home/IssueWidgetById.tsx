@@ -12,6 +12,7 @@ import {
 	DuplicateNamesList,
 	IssueList,
 	IssueListSkeleton,
+	SpecialAccommodationsActions,
 	SuggestionIssueList,
 } from "../issues/issuesList";
 import { ErrorState } from "../shared/ErrorState";
@@ -37,6 +38,7 @@ function SimpleIssueWidget({
 	clients,
 	title,
 	description,
+	rowAction,
 }: {
 	permission: PermissionId;
 	isLoading: boolean;
@@ -45,6 +47,7 @@ function SimpleIssueWidget({
 	clients: ClientWithIssueInfo[] | undefined;
 	title: string;
 	description: string;
+	rowAction?: (client: ClientWithIssueInfo) => React.ReactNode;
 }) {
 	const can = useCheckPermission();
 	if (!can(permission)) return null;
@@ -61,6 +64,7 @@ function SimpleIssueWidget({
 				clients={clients ?? []}
 				description={description}
 				fill
+				rowAction={rowAction}
 				title={title}
 			/>
 		</Shell>
@@ -115,6 +119,8 @@ export function IssueWidgetById({ id }: { id: string }) {
 			return <UnreviewedRecordsWidget />;
 		case "charter-school-confirm":
 			return <CharterSchoolConfirmWidget />;
+		case "special-accommodations":
+			return <SpecialAccommodationsWidget />;
 		case "duplicate-drive":
 			return <DuplicateDriveWidget />;
 		case "duplicate-q-links":
@@ -606,6 +612,29 @@ function CharterSchoolConfirmWidget() {
 			onRetry={refetch}
 			permission="issues:charter-school-confirm"
 			title="Charter School Awaiting Confirmation"
+		/>
+	);
+}
+
+function SpecialAccommodationsWidget() {
+	const can = useCheckPermission();
+	const { data, isLoading, isError, refetch } =
+		api.clients.getSpecialAccommodations.useQuery(undefined, {
+			refetchInterval: 60_000,
+			enabled: can("issues:special-accommodations"),
+		});
+	return (
+		<SimpleIssueWidget
+			clients={data}
+			description="Non-English Medicaid or BabyNet clients with a new appointment. Approve to email SCDHHS Special Accommodations so an interpreter can be arranged, or deny to skip it."
+			isError={isError}
+			isLoading={isLoading}
+			onRetry={refetch}
+			permission="issues:special-accommodations"
+			rowAction={(client) => (
+				<SpecialAccommodationsActions clientId={client.id} />
+			)}
+			title="Interpreter Notices to Approve"
 		/>
 	);
 }
