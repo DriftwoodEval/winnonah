@@ -21,10 +21,12 @@ import {
 	getInsuranceMismatchSignature,
 	getInsuranceShortName,
 	getInsuranceShortNamesList,
+	isPolicyActive,
 } from "~/lib/utils";
 import type { Context } from "~/server/api/trpc";
 import {
 	appointments,
+	clientInsurancePolicies,
 	clients,
 	duplicateNameIgnore,
 	externalRecordRequests,
@@ -290,7 +292,9 @@ export async function getSpecialAccommodationsList(
 /**
  * Active clients whose Medicaid portal organization doesn't resolve to
  * either of their insurances on file. Mirrors the mismatch check in
- * getInsurancePolicies (client.ts), run fleet-wide instead of per-client.
+ * getInsurancePolicies (client.ts), run fleet-wide instead of per-client:
+ * like the banner on the client page, it needs a Medicaid policy id and an
+ * active policy to compare against.
  */
 export async function getInsuranceMismatchList(
 	db: Context["db"],
@@ -300,6 +304,7 @@ export async function getInsuranceMismatchList(
 			where: and(
 				eq(clients.status, true),
 				isNotNull(clients.medicaidOrganization),
+				isNotNull(clients.medicaidPolicyId),
 				not(isNotesOnly),
 			),
 		}),
@@ -338,7 +343,25 @@ export async function getInsuranceMismatchList(
 		}
 	}
 
-	return result;
+	const policies = await db
+		.select({
+			clientId: clientInsurancePolicies.clientId,
+			policyStartDate: clientInsurancePolicies.policyStartDate,
+			policyEndDate: clientInsurancePolicies.policyEndDate,
+		})
+		.from(clientInsurancePolicies)
+		.where(
+			inArray(
+				clientInsurancePolicies.clientId,
+				result.map((client) => client.id),
+			),
+		);
+	const clientsWithActivePolicy = new Set(
+		policies
+			.filter((p) => isPolicyActive(p.policyStartDate, p.policyEndDate))
+			.map((p) => p.clientId),
+	);
+	return result.filter((client) => clientsWithActivePolicy.has(client.id));
 }
 
 /**

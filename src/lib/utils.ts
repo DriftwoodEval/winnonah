@@ -233,7 +233,8 @@ export const getInsuranceShortNamesList = (
 /**
  * Snapshot of the fields that decide an insurance mismatch. An ignored
  * mismatch only stays ignored while the client's current signature equals the
- * one saved when it was ignored.
+ * one saved when it was ignored. Secondary insurances are sorted because the
+ * nightly summary sync writes them in no guaranteed order.
  */
 export const getInsuranceMismatchSignature = (client: {
 	medicaidOrganization: string | null;
@@ -243,7 +244,7 @@ export const getInsuranceMismatchSignature = (client: {
 	JSON.stringify([
 		client.medicaidOrganization,
 		client.primaryInsurance,
-		client.secondaryInsurance ?? [],
+		[...(client.secondaryInsurance ?? [])].sort(),
 	]);
 
 /**
