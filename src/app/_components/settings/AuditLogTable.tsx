@@ -26,6 +26,8 @@ import { useState } from "react";
 import { formatInBusinessTime } from "~/lib/utils";
 import { api } from "~/trpc/react";
 import { ClientSearchAndAdd } from "../clients/ClientSearchAndAdd";
+import { EmptyState } from "../shared/EmptyState";
+import { ErrorState } from "../shared/ErrorState";
 
 const PAGE_SIZE = 50;
 const SKELETON_ROWS = ["a", "b", "c", "d", "e"];
@@ -67,7 +69,7 @@ export default function AuditLogTable() {
 
 	const { data: auditUsers } = api.auditLog.getDistinctUsers.useQuery();
 	const { data: actionNames } = api.auditLog.getActionNames.useQuery();
-	const { data, isPending } = api.auditLog.list.useQuery(
+	const { data, isPending, isError, refetch } = api.auditLog.list.useQuery(
 		{
 			userId,
 			action: action || undefined,
@@ -247,10 +249,16 @@ export default function AuditLogTable() {
 									</TableCell>
 								</TableRow>
 							))
+						) : isError ? (
+							<TableRow>
+								<TableCell colSpan={5}>
+									<ErrorState compact onRetry={refetch} />
+								</TableCell>
+							</TableRow>
 						) : rows.length === 0 ? (
 							<TableRow>
-								<TableCell className="text-center" colSpan={5}>
-									No audit log entries found.
+								<TableCell colSpan={5}>
+									<EmptyState compact title="No audit log entries found" />
 								</TableCell>
 							</TableRow>
 						) : (
@@ -275,10 +283,10 @@ export default function AuditLogTable() {
 					SKELETON_ROWS.map((key) => (
 						<Skeleton className="h-16 w-full rounded-lg" key={key} />
 					))
+				) : isError ? (
+					<ErrorState compact onRetry={refetch} />
 				) : rows.length === 0 ? (
-					<p className="py-4 text-center text-sm">
-						No audit log entries found.
-					</p>
+					<EmptyState compact title="No audit log entries found" />
 				) : (
 					rows.map((row) => (
 						<div

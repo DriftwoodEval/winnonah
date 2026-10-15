@@ -28,6 +28,8 @@ import { logger } from "~/lib/logger";
 import type { Evaluator, Role, User } from "~/lib/models";
 import { api } from "~/trpc/react";
 import { Redact } from "../redaction/Redact";
+import { EmptyState } from "../shared/EmptyState";
+import { ErrorState } from "../shared/ErrorState";
 import { EvaluatorForm } from "./EvaluatorForm";
 import {
 	formatPhoneAsYouType,
@@ -127,6 +129,8 @@ interface PeopleListProps {
 	people: MergedPerson[];
 	roles: Role[] | undefined;
 	isLoading: boolean;
+	isError: boolean;
+	onRetry: () => void;
 	canEditUsers: boolean;
 	canEditEvaluators: boolean;
 	canManageDashboard: boolean;
@@ -137,6 +141,8 @@ function PeopleList({
 	people,
 	roles,
 	isLoading,
+	isError,
+	onRetry,
 	canEditUsers,
 	canEditEvaluators,
 	canManageDashboard,
@@ -148,6 +154,8 @@ function PeopleList({
 	const [selectedPerson, setSelectedPerson] = useState<MergedPerson | null>(
 		null,
 	);
+
+	if (isError) return <ErrorState onRetry={onRetry} />;
 
 	return (
 		<>
@@ -266,10 +274,8 @@ function PeopleList({
 							))
 						) : (
 							<TableRow>
-								<TableCell className="py-12 text-center" colSpan={6}>
-									<p className="text-muted-foreground text-sm">
-										{emptyMessage}
-									</p>
+								<TableCell colSpan={6}>
+									<EmptyState title={emptyMessage} />
 								</TableCell>
 							</TableRow>
 						)}
@@ -346,9 +352,7 @@ function PeopleList({
 						</button>
 					))
 				) : (
-					<p className="py-10 text-center text-muted-foreground text-sm">
-						{emptyMessage}
-					</p>
+					<EmptyState title={emptyMessage} />
 				)}
 			</div>
 
@@ -386,14 +390,14 @@ export default function PeopleTable() {
 	const canEditEvaluators = can("settings:evaluators");
 	const canManageDashboard = can("evaluator-dashboard:admin");
 
-	const { data: activeUsers, isLoading: isLoadingActiveUsers } =
-		api.users.getAll.useQuery({ archived: false });
-	const { data: archivedUsers, isLoading: isLoadingArchivedUsers } =
-		api.users.getAll.useQuery({ archived: true });
-	const { data: activeEvaluators, isLoading: isLoadingActiveEvaluators } =
-		api.evaluators.getAll.useQuery();
-	const { data: archivedEvaluators, isLoading: isLoadingArchivedEvaluators } =
-		api.evaluators.getArchived.useQuery();
+	const activeUsersQuery = api.users.getAll.useQuery({ archived: false });
+	const archivedUsersQuery = api.users.getAll.useQuery({ archived: true });
+	const activeEvaluatorsQuery = api.evaluators.getAll.useQuery();
+	const archivedEvaluatorsQuery = api.evaluators.getArchived.useQuery();
+	const { data: activeUsers } = activeUsersQuery;
+	const { data: archivedUsers } = archivedUsersQuery;
+	const { data: activeEvaluators } = activeEvaluatorsQuery;
+	const { data: archivedEvaluators } = archivedEvaluatorsQuery;
 	const { data: roles } = api.roles.getAll.useQuery();
 
 	const activePeople = useMemo(
@@ -406,9 +410,22 @@ export default function PeopleTable() {
 		[archivedUsers, archivedEvaluators],
 	);
 
-	const isLoadingActive = isLoadingActiveUsers || isLoadingActiveEvaluators;
+	const isLoadingActive =
+		activeUsersQuery.isLoading || activeEvaluatorsQuery.isLoading;
 	const isLoadingArchived =
-		isLoadingArchivedUsers || isLoadingArchivedEvaluators;
+		archivedUsersQuery.isLoading || archivedEvaluatorsQuery.isLoading;
+	const isErrorActive =
+		activeUsersQuery.isError || activeEvaluatorsQuery.isError;
+	const isErrorArchived =
+		archivedUsersQuery.isError || archivedEvaluatorsQuery.isError;
+	const retryActive = () => {
+		void activeUsersQuery.refetch();
+		void activeEvaluatorsQuery.refetch();
+	};
+	const retryArchived = () => {
+		void archivedUsersQuery.refetch();
+		void archivedEvaluatorsQuery.refetch();
+	};
 
 	return (
 		<div className="px-4">
@@ -441,7 +458,9 @@ export default function PeopleTable() {
 						canEditUsers={canEditUsers}
 						canManageDashboard={canManageDashboard}
 						emptyMessage="No active people found."
+						isError={isErrorActive}
 						isLoading={isLoadingActive}
+						onRetry={retryActive}
 						people={activePeople}
 						roles={roles}
 					/>
@@ -452,7 +471,9 @@ export default function PeopleTable() {
 						canEditUsers={canEditUsers}
 						canManageDashboard={canManageDashboard}
 						emptyMessage="No archived people found."
+						isError={isErrorArchived}
 						isLoading={isLoadingArchived}
+						onRetry={retryArchived}
 						people={archivedPeople}
 						roles={roles}
 					/>

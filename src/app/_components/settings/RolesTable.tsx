@@ -48,6 +48,8 @@ import { logger } from "~/lib/logger";
 import type { Role } from "~/lib/models";
 import { permissionsSchema } from "~/lib/types";
 import { api } from "~/trpc/react";
+import { EmptyState } from "../shared/EmptyState";
+import { ErrorState } from "../shared/ErrorState";
 import {
 	ResponsiveDialog,
 	useResponsiveDialog,
@@ -305,7 +307,12 @@ export default function RolesTable() {
 	const can = useCheckPermission();
 	const canEditRoles = can("settings:roles:edit");
 
-	const { data: roles, isLoading } = api.roles.getAll.useQuery();
+	const {
+		data: roles,
+		isLoading,
+		isError,
+		refetch,
+	} = api.roles.getAll.useQuery();
 
 	return (
 		<div className="px-4">
@@ -333,6 +340,12 @@ export default function RolesTable() {
 									Loading roles...
 								</TableCell>
 							</TableRow>
+						) : isError ? (
+							<TableRow>
+								<TableCell colSpan={canEditRoles ? 3 : 2}>
+									<ErrorState compact onRetry={refetch} />
+								</TableCell>
+							</TableRow>
 						) : roles && roles.length > 0 ? (
 							roles.map((role) => (
 								<TableRow key={role.id}>
@@ -349,11 +362,8 @@ export default function RolesTable() {
 							))
 						) : (
 							<TableRow>
-								<TableCell
-									className="text-center"
-									colSpan={canEditRoles ? 3 : 2}
-								>
-									No roles found.
+								<TableCell colSpan={canEditRoles ? 3 : 2}>
+									<EmptyState compact title="No roles found" />
 								</TableCell>
 							</TableRow>
 						)}
@@ -364,6 +374,8 @@ export default function RolesTable() {
 			<div className="space-y-4 sm:hidden">
 				{isLoading ? (
 					<p className="text-center text-muted-foreground">Loading roles...</p>
+				) : isError ? (
+					<ErrorState compact onRetry={refetch} />
 				) : roles && roles.length > 0 ? (
 					roles.map((role) => (
 						<div
@@ -378,7 +390,7 @@ export default function RolesTable() {
 						</div>
 					))
 				) : (
-					<p className="text-center text-muted-foreground">No roles found.</p>
+					<EmptyState compact title="No roles found" />
 				)}
 			</div>
 		</div>

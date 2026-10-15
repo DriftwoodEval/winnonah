@@ -45,6 +45,8 @@ import type { Invitation } from "~/lib/models";
 import type { PermissionsObject } from "~/lib/types";
 import { permissionsSchema } from "~/lib/types";
 import { api } from "~/trpc/react";
+import { EmptyState } from "../shared/EmptyState";
+import { ErrorState } from "../shared/ErrorState";
 import {
 	ResponsiveDialog,
 	useResponsiveDialog,
@@ -262,8 +264,12 @@ export default function InvitesTable() {
 	const can = useCheckPermission();
 	const canInvite = can("settings:users:invite");
 
-	const { data: invites, isLoading: isLoadingInvites } =
-		api.users.getPendingInvitations.useQuery();
+	const {
+		data: invites,
+		isLoading: isLoadingInvites,
+		isError,
+		refetch,
+	} = api.users.getPendingInvitations.useQuery();
 
 	return (
 		<div className="px-4">
@@ -288,6 +294,12 @@ export default function InvitesTable() {
 									Loading invites...
 								</TableCell>
 							</TableRow>
+						) : isError ? (
+							<TableRow>
+								<TableCell colSpan={canInvite ? 3 : 2}>
+									<ErrorState compact onRetry={refetch} />
+								</TableCell>
+							</TableRow>
 						) : invites && invites.length > 0 ? (
 							invites.map((invite) => (
 								<TableRow key={invite.id}>
@@ -308,8 +320,8 @@ export default function InvitesTable() {
 							))
 						) : (
 							<TableRow>
-								<TableCell className="text-center" colSpan={canInvite ? 3 : 2}>
-									No pending invites found.
+								<TableCell colSpan={canInvite ? 3 : 2}>
+									<EmptyState compact title="No pending invites" />
 								</TableCell>
 							</TableRow>
 						)}
@@ -323,6 +335,8 @@ export default function InvitesTable() {
 					<p className="text-center text-muted-foreground">
 						Loading invites...
 					</p>
+				) : isError ? (
+					<ErrorState compact onRetry={refetch} />
 				) : invites && invites.length > 0 ? (
 					invites.map((invite) => (
 						<div
@@ -336,9 +350,7 @@ export default function InvitesTable() {
 						</div>
 					))
 				) : (
-					<p className="text-center text-muted-foreground">
-						No pending invites found.
-					</p>
+					<EmptyState compact title="No pending invites" />
 				)}
 			</div>
 		</div>
