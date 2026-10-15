@@ -2148,9 +2148,6 @@ def delete_appointment(appointment_id: str, connection: Connection[DictCursor]) 
             (appointment_id,),
         )
         connection.commit()
-        # MySQL returns rowcount 1 for a fresh INSERT and 2 for an
-        # ON DUPLICATE KEY UPDATE that changed a row (0 if unchanged).
-        return cursor.rowcount == 1
 
 
 @provide_connection
