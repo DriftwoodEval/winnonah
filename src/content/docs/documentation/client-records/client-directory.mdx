@@ -7,7 +7,7 @@ The **Directory** link in the nav (`/clients/directory`) is a full, sortable, fi
 
 ## Columns
 
-Beyond the always-visible name and status, every other column can be shown or hidden from the **Columns** menu: **Priority**, **For** (ASD/ADHD), **Language**, **DA Qs**, **EVAL Qs**, **Primary Insurance**, **Secondary Insurance**, **Prior Auth Date**, **DA Scheduled**, **EVAL Scheduled**, **Location**, **Evaluator**, and **PA Assigned To**. A separate **Unresolved Failures** toggle in the same menu isn't a real column, it's a badge shown next to a client's name when they have one.
+Beyond the always-visible name and status, every other column can be shown or hidden from the **Columns** menu: **Priority**, **For** (ASD/ADHD), **Language**, **DA Qs**, **EVAL Qs**, **Primary Insurance**, **Secondary Insurance**, **Prior Auth Date**, **DA Scheduled**, **EVAL Scheduled**, **Location**, **Evaluator**, **PA Assigned To**, **Protocols Scanned**, and **Notes**. Notes shows the title from the client's note on their client page, cut off to one line. Click it to see the full text and click again to collapse it. It is read-only, edit the note from the client page. A separate **Unresolved Failures** toggle in the same menu isn't a real column, it's a badge shown next to a client's name when they have one.
 
 Each column in the menu has its own checkbox to show/hide it, plus up/down arrow buttons to reorder it relative to the others, both changes apply immediately to the table.
 
@@ -23,6 +23,6 @@ A **Status** dropdown next to the search box (Active/Inactive/All, each showing 
 
 ## Edge cases
 
-- **DA Qs, EVAL Qs, and PA Assigned To reflect the prioritization sheet, not just the EMR.** A client missing from that sheet shows blank in these columns.
+- **DA Qs, EVAL Qs, PA Assigned To, and Protocols Scanned reflect the prioritization sheet, not just the EMR.** A client missing from that sheet shows blank in these columns, and Protocols Scanned has no sort or filter.
 - **Toggling the Status column filter to "all" reveals a Status column** that's otherwise hidden while filtering to just active or just inactive clients.
 - **Column layout is shared across every filter view**, since it's a separate saved preference from the filters themselves, changing which columns show doesn't reset your active filters or vice versa.

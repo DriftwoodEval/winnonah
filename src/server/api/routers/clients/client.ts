@@ -629,6 +629,7 @@ export const clientRouter = createTRPCRouter({
 				externalRecordRows,
 				externalRecordRequestRows,
 				driveTimeRows,
+				noteTitleRows,
 			] = clientIds.length
 				? await Promise.all([
 						ctx.db
@@ -705,8 +706,12 @@ export const clientRouter = createTRPCRouter({
 							})
 							.from(officeDriveTimes)
 							.where(inArray(officeDriveTimes.clientId, clientIds)),
+						ctx.db
+							.select({ clientId: notes.clientId, title: notes.title })
+							.from(notes)
+							.where(inArray(notes.clientId, clientIds)),
 					])
-				: [[], [], [], [], [], [], []];
+				: [[], [], [], [], [], [], [], []];
 
 			const sessionStartedAtByClientId = new Map(
 				rows.map((row) => [row.id, row.sessionStartedAt]),
@@ -733,6 +738,10 @@ export const clientRouter = createTRPCRouter({
 			}
 
 			const today = formatInBusinessTime(new Date(), "yyyy-MM-dd");
+
+			const noteTitleByClientId = new Map(
+				noteTitleRows.map((row) => [row.clientId, row.title]),
+			);
 
 			const priorAuthDateByClientId = new Map<number, string | null>();
 			for (const row of primaryPolicies) {
@@ -888,6 +897,7 @@ export const clientRouter = createTRPCRouter({
 						evalScheduledDate: evalScheduledDateByClientId.get(row.id) ?? null,
 						location: getLocation(row.id),
 						evaluator: getEvaluatorFirstName(row.id),
+						noteTitle: noteTitleByClientId.get(row.id) || null,
 					};
 				},
 			);

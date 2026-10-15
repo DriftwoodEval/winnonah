@@ -100,7 +100,9 @@ type ColumnKey =
 	| "evalScheduled"
 	| "location"
 	| "evaluator"
-	| "paAssignedTo";
+	| "paAssignedTo"
+	| "protocolsScanned"
+	| "notes";
 
 const COLUMN_LABELS: Record<ColumnKey, string> = {
 	priority: "Priority",
@@ -116,6 +118,8 @@ const COLUMN_LABELS: Record<ColumnKey, string> = {
 	location: "Location",
 	evaluator: "Evaluator",
 	paAssignedTo: "PA Assigned To",
+	protocolsScanned: "Protocols Scanned",
+	notes: "Notes",
 };
 
 const TOGGLEABLE_COLUMNS: ColumnKey[] = [
@@ -132,6 +136,8 @@ const TOGGLEABLE_COLUMNS: ColumnKey[] = [
 	"location",
 	"evaluator",
 	"paAssignedTo",
+	"protocolsScanned",
+	"notes",
 ];
 
 // Not a real table column, just a badge next to the name, but its visibility
@@ -159,6 +165,8 @@ const DEFAULT_VISIBLE_COLUMNS: Record<ToggleKey, boolean> = {
 	location: true,
 	evaluator: true,
 	paAssignedTo: true,
+	protocolsScanned: true,
+	notes: true,
 	[FAILURES_TOGGLE_KEY]: true,
 };
 
@@ -251,6 +259,12 @@ function getQsStage(prefix: QsPrefix, punchRow: QsPunchRow | undefined) {
 	if (punchRow[`${prefix} Qs Sent`] === "TRUE") return "Sent";
 	if (punchRow[`${prefix} Qs Needed`] === "TRUE") return "Needed";
 	return null;
+}
+
+// Read from the Google Sheets punchlist, so a client missing from it shows blank.
+function getProtocolsScanned(punchRow: PUNCH_SCHEMA | undefined) {
+	if (!punchRow) return "—";
+	return punchRow["Protocols scanned?"] === "TRUE" ? "Yes" : "No";
 }
 
 type DirectoryClient =
@@ -648,9 +662,36 @@ function renderColumnCellContent(
 					{client.paAssignedTo || "—"}
 				</span>
 			);
+		case "protocolsScanned":
+			return (
+				<span className="text-muted-foreground">
+					{getProtocolsScanned(punchRow)}
+				</span>
+			);
+		case "notes":
+			return <NoteTitleCell title={client.noteTitle} />;
 		default:
 			return null;
 	}
+}
+
+// Read-only: click to toggle between a one-line preview and the full text.
+function NoteTitleCell({ title }: { title: string | null }) {
+	const [expanded, setExpanded] = useState(false);
+	if (!title) return <span className="text-muted-foreground">—</span>;
+	return (
+		<button
+			className={cn(
+				"block max-w-64 text-left text-muted-foreground",
+				expanded ? "wrap-break-word whitespace-pre-wrap" : "truncate",
+			)}
+			onClick={() => setExpanded((prev) => !prev)}
+			title={expanded ? undefined : title}
+			type="button"
+		>
+			{title}
+		</button>
+	);
 }
 
 const ClientTableRow = memo(function ClientTableRow({
@@ -848,6 +889,18 @@ function renderColumnField(
 					label="PA Assigned To"
 					value={client.paAssignedTo || "—"}
 				/>
+			);
+		case "protocolsScanned":
+			return (
+				<InfoField
+					key={key}
+					label="Protocols Scanned"
+					value={getProtocolsScanned(punchRow)}
+				/>
+			);
+		case "notes":
+			return (
+				<InfoField key={key} label="Notes" value={client.noteTitle ?? "—"} />
 			);
 		default:
 			return null;
@@ -1691,6 +1744,26 @@ export function ClientDirectory() {
 						sort={columnSort("paAssignedTo")}
 						values={paAssignedTo}
 					/>
+				</AnimatedCellContent>
+			</TableHead>
+		),
+		protocolsScanned: (
+			<TableHead
+				className={collapsibleCellClass(visibleColumns.protocolsScanned)}
+				key="protocolsScanned"
+			>
+				<AnimatedCellContent visible={visibleColumns.protocolsScanned}>
+					<span className="font-medium">Protocols Scanned</span>
+				</AnimatedCellContent>
+			</TableHead>
+		),
+		notes: (
+			<TableHead
+				className={collapsibleCellClass(visibleColumns.notes)}
+				key="notes"
+			>
+				<AnimatedCellContent visible={visibleColumns.notes}>
+					<span className="font-medium">Notes</span>
 				</AnimatedCellContent>
 			</TableHead>
 		),
