@@ -46,6 +46,7 @@ import { api, type RouterOutputs } from "~/trpc/react";
 import { ManualAddressDialog } from "../client/location/ManualAddressDialog";
 import { Redact } from "../redaction/Redact";
 import { EmptyState } from "../shared/EmptyState";
+import { ErrorState } from "../shared/ErrorState";
 import { ResponsiveDialog } from "../shared/ResponsiveDialog";
 import { IssueListCustomizer } from "./IssueListCustomizer";
 
@@ -1086,12 +1087,18 @@ export const PartialBatteryList = ({
 type GuardedIssueProps = {
 	permission: PermissionId;
 	isLoading: boolean;
+	isError: boolean;
+	onRetry: () => void;
+	title: string;
 	children: React.ReactNode;
 };
 
 const GuardedIssue = ({
 	permission,
 	isLoading,
+	isError,
+	onRetry,
+	title,
 	children,
 }: GuardedIssueProps) => {
 	const can = useCheckPermission();
@@ -1099,6 +1106,16 @@ const GuardedIssue = ({
 	if (!can(permission)) return null;
 
 	if (isLoading) return <IssueListSkeleton />;
+
+	if (isError) {
+		return (
+			<ErrorState
+				compact
+				message={`Could not load ${title}.`}
+				onRetry={onRetry}
+			/>
+		);
+	}
 
 	return <>{children}</>;
 };
@@ -1136,18 +1153,26 @@ export function IssuesList() {
 	const utils = api.useUtils();
 	const can = useCheckPermission();
 
-	const { data: districtErrors, isLoading: isLoadingDistrictErrors } =
-		api.clients.getDistrictErrors.useQuery(undefined, {
-			refetchInterval: 60_000,
-			enabled: can("issues:district-issues"),
-		});
+	const {
+		data: districtErrors,
+		isLoading: isLoadingDistrictErrors,
+		isError: isErrorDistrictErrors,
+		refetch: refetchDistrictErrors,
+	} = api.clients.getDistrictErrors.useQuery(undefined, {
+		refetchInterval: 60_000,
+		enabled: can("issues:district-issues"),
+	});
 	const { clientsWithoutDistrict = [], clientsWithPoorAddressLookup = [] } =
 		districtErrors ?? {};
-	const { data: babyNetErrors, isLoading: isLoadingBabyNetErrors } =
-		api.clients.getBabyNetErrors.useQuery(undefined, {
-			refetchInterval: 60_000,
-			enabled: can("issues:babynet-ageout"),
-		});
+	const {
+		data: babyNetErrors,
+		isLoading: isLoadingBabyNetErrors,
+		isError: isErrorBabyNetErrors,
+		refetch: refetchBabyNetErrors,
+	} = api.clients.getBabyNetErrors.useQuery(undefined, {
+		refetchInterval: 60_000,
+		enabled: can("issues:babynet-ageout"),
+	});
 
 	const { mutate: autoUpdateBabyNet } =
 		api.clients.autoUpdateBabyNet.useMutation({
@@ -1164,112 +1189,189 @@ export function IssuesList() {
 		}
 	}, [babyNetErrors, autoUpdateBabyNet]);
 
-	const { data: notInTAErrors, isLoading: isLoadingNotInTAErrors } =
-		api.clients.getNotInTAErrors.useQuery(undefined, {
-			refetchInterval: 60_000,
-			enabled: can("issues:not-in-ta"),
-		});
-	const { data: dropList, isLoading: isLoadingDropList } =
-		api.clients.getDropList.useQuery(undefined, {
-			refetchInterval: 60_000,
-			enabled: can("issues:droplist"),
-		});
-	const { data: autismStops, isLoading: isLoadingAutismStops } =
-		api.clients.getAutismStops.useQuery(undefined, {
-			refetchInterval: 60_000,
-			enabled: can("issues:autism-stops"),
-		});
-	const { data: pausedClients, isLoading: isLoadingPausedClients } =
-		api.clients.getPaused.useQuery(undefined, {
-			refetchInterval: 60_000,
-			enabled: can("issues:paused-clients"),
-		});
-	const { data: evaluationInProcess, isLoading: isLoadingEvaluationInProcess } =
-		api.clients.getEvaluationInProcess.useQuery(undefined, {
-			refetchInterval: 60_000,
-			enabled: can("issues:evaluation-in-process"),
-		});
-	const { data: notesOnlyClients, isLoading: isLoadingNotesOnlyClients } =
-		api.clients.getNotesOnlyClients.useQuery(undefined, {
-			refetchInterval: 60_000,
-			enabled: can("clients:merge"),
-		});
-	const { data: mergeSuggestions, isLoading: isLoadingMergeSuggestions } =
-		api.clients.getMergeSuggestions.useQuery(undefined, {
-			refetchInterval: 60_000,
-			enabled: can("clients:merge"),
-		});
-	const { data: noDriveIds, isLoading: isLoadingNoDriveIds } =
-		api.clients.getNoDriveIdErrors.useQuery(undefined, {
-			refetchInterval: 60_000,
-			enabled: can("issues:no-drive-ids"),
-		});
+	const {
+		data: notInTAErrors,
+		isLoading: isLoadingNotInTAErrors,
+		isError: isErrorNotInTAErrors,
+		refetch: refetchNotInTAErrors,
+	} = api.clients.getNotInTAErrors.useQuery(undefined, {
+		refetchInterval: 60_000,
+		enabled: can("issues:not-in-ta"),
+	});
+	const {
+		data: dropList,
+		isLoading: isLoadingDropList,
+		isError: isErrorDropList,
+		refetch: refetchDropList,
+	} = api.clients.getDropList.useQuery(undefined, {
+		refetchInterval: 60_000,
+		enabled: can("issues:droplist"),
+	});
+	const {
+		data: autismStops,
+		isLoading: isLoadingAutismStops,
+		isError: isErrorAutismStops,
+		refetch: refetchAutismStops,
+	} = api.clients.getAutismStops.useQuery(undefined, {
+		refetchInterval: 60_000,
+		enabled: can("issues:autism-stops"),
+	});
+	const {
+		data: pausedClients,
+		isLoading: isLoadingPausedClients,
+		isError: isErrorPausedClients,
+		refetch: refetchPausedClients,
+	} = api.clients.getPaused.useQuery(undefined, {
+		refetchInterval: 60_000,
+		enabled: can("issues:paused-clients"),
+	});
+	const {
+		data: evaluationInProcess,
+		isLoading: isLoadingEvaluationInProcess,
+		isError: isErrorEvaluationInProcess,
+		refetch: refetchEvaluationInProcess,
+	} = api.clients.getEvaluationInProcess.useQuery(undefined, {
+		refetchInterval: 60_000,
+		enabled: can("issues:evaluation-in-process"),
+	});
+	const {
+		data: notesOnlyClients,
+		isLoading: isLoadingNotesOnlyClients,
+		isError: isErrorNotesOnlyClients,
+		refetch: refetchNotesOnlyClients,
+	} = api.clients.getNotesOnlyClients.useQuery(undefined, {
+		refetchInterval: 60_000,
+		enabled: can("clients:merge"),
+	});
+	const {
+		data: mergeSuggestions,
+		isLoading: isLoadingMergeSuggestions,
+		isError: isErrorMergeSuggestions,
+		refetch: refetchMergeSuggestions,
+	} = api.clients.getMergeSuggestions.useQuery(undefined, {
+		refetchInterval: 60_000,
+		enabled: can("clients:merge"),
+	});
+	const {
+		data: noDriveIds,
+		isLoading: isLoadingNoDriveIds,
+		isError: isErrorNoDriveIds,
+		refetch: refetchNoDriveIds,
+	} = api.clients.getNoDriveIdErrors.useQuery(undefined, {
+		refetchInterval: 60_000,
+		enabled: can("issues:no-drive-ids"),
+	});
 	const {
 		data: duplicateFolderNames,
 		isLoading: isLoadingDuplicateFolderNames,
+		isError: isErrorDuplicateFolderNames,
+		refetch: refetchDuplicateFolderNames,
 	} = api.google.findDuplicates.useQuery(undefined, {
 		refetchInterval: 60_000,
 		enabled: can("issues:duplicate-drive"),
 	});
-	const { data: dd4, isLoading: isLoadingDD4 } = api.clients.getDD4.useQuery(
-		undefined,
-		{ refetchInterval: 60_000, enabled: can("issues:dd4") },
-	);
-	const { data: possiblePrivatePay, isLoading: isLoadingPossiblePrivatePay } =
-		api.clients.getPossiblePrivatePay.useQuery(undefined, {
-			refetchInterval: 60_000,
-			enabled: can("issues:private-pay"),
-		});
-	const { data: unreviewedRecords, isLoading: isLoadingUnreviewedRecords } =
-		api.clients.getUnreviewedRecords.useQuery(undefined, {
-			refetchInterval: 60_000,
-			enabled: can("issues:unreviewed-records"),
-		});
+	const {
+		data: dd4,
+		isLoading: isLoadingDD4,
+		isError: isErrorDD4,
+		refetch: refetchDD4,
+	} = api.clients.getDD4.useQuery(undefined, {
+		refetchInterval: 60_000,
+		enabled: can("issues:dd4"),
+	});
+	const {
+		data: possiblePrivatePay,
+		isLoading: isLoadingPossiblePrivatePay,
+		isError: isErrorPossiblePrivatePay,
+		refetch: refetchPossiblePrivatePay,
+	} = api.clients.getPossiblePrivatePay.useQuery(undefined, {
+		refetchInterval: 60_000,
+		enabled: can("issues:private-pay"),
+	});
+	const {
+		data: unreviewedRecords,
+		isLoading: isLoadingUnreviewedRecords,
+		isError: isErrorUnreviewedRecords,
+		refetch: refetchUnreviewedRecords,
+	} = api.clients.getUnreviewedRecords.useQuery(undefined, {
+		refetchInterval: 60_000,
+		enabled: can("issues:unreviewed-records"),
+	});
 	const {
 		data: unconfirmedCharterSchool,
 		isLoading: isLoadingUnconfirmedCharterSchool,
+		isError: isErrorUnconfirmedCharterSchool,
+		refetch: refetchUnconfirmedCharterSchool,
 	} = api.clients.getUnconfirmedCharterSchool.useQuery(undefined, {
 		refetchInterval: 60_000,
 		enabled: can("issues:charter-school-confirm"),
 	});
-	const { data: insuranceMismatch, isLoading: isLoadingInsuranceMismatch } =
-		api.clients.getInsuranceMismatch.useQuery(undefined, {
-			refetchInterval: 60_000,
-			enabled: can("issues:insurance-mismatch"),
-		});
-	const { data: medicaidNotFound, isLoading: isLoadingMedicaidNotFound } =
-		api.clients.getMedicaidNotFound.useQuery(undefined, {
-			refetchInterval: 60_000,
-			enabled: can("issues:insurance-mismatch"),
-		});
-	const { data: medicaidIneligible, isLoading: isLoadingMedicaidIneligible } =
-		api.clients.getMedicaidIneligible.useQuery(undefined, {
-			refetchInterval: 60_000,
-			enabled: can("issues:insurance-mismatch"),
-		});
-	const { data: duplicateQLinks, isLoading: isLoadingDuplicateQLinks } =
-		api.questionnaires.getDuplicateLinks.useQuery(undefined, {
-			refetchInterval: 60_000,
-			enabled: can("issues:duplicate-questionnaires"),
-		});
-	const { data: justAddedQuestionnaires, isLoading: isLoadingJustAdded } =
-		api.questionnaires.getJustAdded.useQuery(undefined, {
-			refetchInterval: 60_000,
-			enabled: can("issues:just-added"),
-		});
-	const { data: partialBatteries, isLoading: isLoadingPartialBatteries } =
-		api.questionnaires.getPartialBatteries.useQuery(undefined, {
-			refetchInterval: 60_000,
-			enabled: can("issues:partial-battery"),
-		});
-	const { data: punchlistIssues, isLoading: isLoadingPunchlistIssues } =
-		api.google.verifyPunchClients.useQuery(undefined, {
-			refetchInterval: 60_000,
-			enabled:
-				can("issues:clients-not-in-db") ||
-				can("issues:punchlist-inactive") ||
-				can("issues:punchlist-duplicates"),
-		});
+	const {
+		data: insuranceMismatch,
+		isLoading: isLoadingInsuranceMismatch,
+		isError: isErrorInsuranceMismatch,
+		refetch: refetchInsuranceMismatch,
+	} = api.clients.getInsuranceMismatch.useQuery(undefined, {
+		refetchInterval: 60_000,
+		enabled: can("issues:insurance-mismatch"),
+	});
+	const {
+		data: medicaidNotFound,
+		isLoading: isLoadingMedicaidNotFound,
+		isError: isErrorMedicaidNotFound,
+		refetch: refetchMedicaidNotFound,
+	} = api.clients.getMedicaidNotFound.useQuery(undefined, {
+		refetchInterval: 60_000,
+		enabled: can("issues:insurance-mismatch"),
+	});
+	const {
+		data: medicaidIneligible,
+		isLoading: isLoadingMedicaidIneligible,
+		isError: isErrorMedicaidIneligible,
+		refetch: refetchMedicaidIneligible,
+	} = api.clients.getMedicaidIneligible.useQuery(undefined, {
+		refetchInterval: 60_000,
+		enabled: can("issues:insurance-mismatch"),
+	});
+	const {
+		data: duplicateQLinks,
+		isLoading: isLoadingDuplicateQLinks,
+		isError: isErrorDuplicateQLinks,
+		refetch: refetchDuplicateQLinks,
+	} = api.questionnaires.getDuplicateLinks.useQuery(undefined, {
+		refetchInterval: 60_000,
+		enabled: can("issues:duplicate-questionnaires"),
+	});
+	const {
+		data: justAddedQuestionnaires,
+		isLoading: isLoadingJustAdded,
+		isError: isErrorJustAdded,
+		refetch: refetchJustAdded,
+	} = api.questionnaires.getJustAdded.useQuery(undefined, {
+		refetchInterval: 60_000,
+		enabled: can("issues:just-added"),
+	});
+	const {
+		data: partialBatteries,
+		isLoading: isLoadingPartialBatteries,
+		isError: isErrorPartialBatteries,
+		refetch: refetchPartialBatteries,
+	} = api.questionnaires.getPartialBatteries.useQuery(undefined, {
+		refetchInterval: 60_000,
+		enabled: can("issues:partial-battery"),
+	});
+	const {
+		data: punchlistIssues,
+		isLoading: isLoadingPunchlistIssues,
+		isError: isErrorPunchlistIssues,
+		refetch: refetchPunchlistIssues,
+	} = api.google.verifyPunchClients.useQuery(undefined, {
+		refetchInterval: 60_000,
+		enabled:
+			can("issues:clients-not-in-db") ||
+			can("issues:punchlist-inactive") ||
+			can("issues:punchlist-duplicates"),
+	});
 
 	const { mutate: updatePunchId, isPending: isFixingPunchId } =
 		api.google.updatePunchId.useMutation({
@@ -1316,21 +1418,33 @@ export function IssuesList() {
 		);
 	});
 
-	const { data: noReferralSource, isLoading: isLoadingNoReferralSource } =
-		api.clients.getNoReferralSource.useQuery(undefined, {
-			refetchInterval: 60_000,
-			enabled: can("issues:no-referral-source"),
-		});
-	const { data: missingAppointments, isLoading: isLoadingMissingAppointments } =
-		api.clients.getMissingAppointments.useQuery(undefined, {
-			refetchInterval: 60_000,
-			enabled: can("issues:missing-appointments"),
-		});
-	const { data: duplicateNames, isLoading: isLoadingDuplicateNames } =
-		api.clients.getDuplicateNames.useQuery(undefined, {
-			refetchInterval: 60_000,
-			enabled: can("issues:duplicate-names"),
-		});
+	const {
+		data: noReferralSource,
+		isLoading: isLoadingNoReferralSource,
+		isError: isErrorNoReferralSource,
+		refetch: refetchNoReferralSource,
+	} = api.clients.getNoReferralSource.useQuery(undefined, {
+		refetchInterval: 60_000,
+		enabled: can("issues:no-referral-source"),
+	});
+	const {
+		data: missingAppointments,
+		isLoading: isLoadingMissingAppointments,
+		isError: isErrorMissingAppointments,
+		refetch: refetchMissingAppointments,
+	} = api.clients.getMissingAppointments.useQuery(undefined, {
+		refetchInterval: 60_000,
+		enabled: can("issues:missing-appointments"),
+	});
+	const {
+		data: duplicateNames,
+		isLoading: isLoadingDuplicateNames,
+		isError: isErrorDuplicateNames,
+		refetch: refetchDuplicateNames,
+	} = api.clients.getDuplicateNames.useQuery(undefined, {
+		refetchInterval: 60_000,
+		enabled: can("issues:duplicate-names"),
+	});
 
 	// Lists the user can see that finished loading with no items.
 	const emptyLists = useIssueCounts({ refetchInterval: 60_000 })
@@ -1352,8 +1466,11 @@ export function IssuesList() {
 	const issueBlocks: Record<IssueListId, React.ReactNode> = {
 		dd4: (
 			<GuardedIssue
+				isError={isErrorDD4}
 				isLoading={isLoadingDD4}
+				onRetry={refetchDD4}
 				permission={ISSUE_LIST_PERMISSIONS.dd4}
+				title={ISSUE_TITLES.dd4}
 			>
 				{dd4 && dd4.length !== 0 && (
 					<IssueList
@@ -1366,8 +1483,11 @@ export function IssuesList() {
 		),
 		justAddedQuestionnaires: (
 			<GuardedIssue
+				isError={isErrorJustAdded}
 				isLoading={isLoadingJustAdded}
+				onRetry={refetchJustAdded}
 				permission={ISSUE_LIST_PERMISSIONS.justAddedQuestionnaires}
+				title={ISSUE_TITLES.justAddedQuestionnaires}
 			>
 				{justAddedQuestionnaires && justAddedQuestionnaires.length !== 0 && (
 					<IssueList
@@ -1380,8 +1500,11 @@ export function IssuesList() {
 		),
 		pausedClients: (
 			<GuardedIssue
+				isError={isErrorPausedClients}
 				isLoading={isLoadingPausedClients}
+				onRetry={refetchPausedClients}
 				permission={ISSUE_LIST_PERMISSIONS.pausedClients}
+				title={ISSUE_TITLES.pausedClients}
 			>
 				{pausedClients && pausedClients.length !== 0 && (
 					<IssueList
@@ -1394,8 +1517,11 @@ export function IssuesList() {
 		),
 		evaluationInProcess: (
 			<GuardedIssue
+				isError={isErrorEvaluationInProcess}
 				isLoading={isLoadingEvaluationInProcess}
+				onRetry={refetchEvaluationInProcess}
 				permission={ISSUE_LIST_PERMISSIONS.evaluationInProcess}
+				title={ISSUE_TITLES.evaluationInProcess}
 			>
 				{evaluationInProcess && evaluationInProcess.length !== 0 && (
 					<IssueList
@@ -1408,8 +1534,11 @@ export function IssuesList() {
 		),
 		missingAppointments: (
 			<GuardedIssue
+				isError={isErrorMissingAppointments}
 				isLoading={isLoadingMissingAppointments}
+				onRetry={refetchMissingAppointments}
 				permission={ISSUE_LIST_PERMISSIONS.missingAppointments}
+				title={ISSUE_TITLES.missingAppointments}
 			>
 				{missingAppointments && missingAppointments.length !== 0 && (
 					<IssueList
@@ -1422,8 +1551,11 @@ export function IssuesList() {
 		),
 		autismStops: (
 			<GuardedIssue
+				isError={isErrorAutismStops}
 				isLoading={isLoadingAutismStops}
+				onRetry={refetchAutismStops}
 				permission={ISSUE_LIST_PERMISSIONS.autismStops}
+				title={ISSUE_TITLES.autismStops}
 			>
 				{autismStops && autismStops.length !== 0 && (
 					<IssueList
@@ -1436,8 +1568,11 @@ export function IssuesList() {
 		),
 		punchlistNotInDb: (
 			<GuardedIssue
+				isError={isErrorPunchlistIssues}
 				isLoading={isLoadingPunchlistIssues}
+				onRetry={refetchPunchlistIssues}
 				permission={ISSUE_LIST_PERMISSIONS.punchlistNotInDb}
+				title={ISSUE_TITLES.punchlistNotInDb}
 			>
 				{punchlistIssues && punchlistIssues.clientsNotInDb.length !== 0 && (
 					<SuggestionIssueList
@@ -1463,8 +1598,11 @@ export function IssuesList() {
 		),
 		punchlistInactive: (
 			<GuardedIssue
+				isError={isErrorPunchlistIssues}
 				isLoading={isLoadingPunchlistIssues}
+				onRetry={refetchPunchlistIssues}
 				permission={ISSUE_LIST_PERMISSIONS.punchlistInactive}
+				title={ISSUE_TITLES.punchlistInactive}
 			>
 				{punchlistIssues && punchlistIssues.inactiveClients.length !== 0 && (
 					<IssueList
@@ -1477,8 +1615,11 @@ export function IssuesList() {
 		),
 		punchlistDuplicateIds: (
 			<GuardedIssue
+				isError={isErrorPunchlistIssues}
 				isLoading={isLoadingPunchlistIssues}
+				onRetry={refetchPunchlistIssues}
 				permission={ISSUE_LIST_PERMISSIONS.punchlistDuplicateIds}
+				title={ISSUE_TITLES.punchlistDuplicateIds}
 			>
 				{punchlistDuplicateIds.length !== 0 && (
 					<IssueList
@@ -1491,8 +1632,11 @@ export function IssuesList() {
 		),
 		noReferralSource: (
 			<GuardedIssue
+				isError={isErrorNoReferralSource}
 				isLoading={isLoadingNoReferralSource}
+				onRetry={refetchNoReferralSource}
 				permission={ISSUE_LIST_PERMISSIONS.noReferralSource}
+				title={ISSUE_TITLES.noReferralSource}
 			>
 				{noReferralSource && noReferralSource.length !== 0 && (
 					<IssueList
@@ -1505,8 +1649,11 @@ export function IssuesList() {
 		),
 		missingDistricts: (
 			<GuardedIssue
+				isError={isErrorDistrictErrors}
 				isLoading={isLoadingDistrictErrors}
+				onRetry={refetchDistrictErrors}
 				permission={ISSUE_LIST_PERMISSIONS.missingDistricts}
+				title={ISSUE_TITLES.missingDistricts}
 			>
 				{clientsWithoutDistrict && clientsWithoutDistrict.length !== 0 && (
 					<IssueList
@@ -1519,8 +1666,11 @@ export function IssuesList() {
 		),
 		poorAddressLookup: (
 			<GuardedIssue
+				isError={isErrorDistrictErrors}
 				isLoading={isLoadingDistrictErrors}
+				onRetry={refetchDistrictErrors}
 				permission={ISSUE_LIST_PERMISSIONS.poorAddressLookup}
+				title={ISSUE_TITLES.poorAddressLookup}
 			>
 				{clientsWithPoorAddressLookup &&
 					clientsWithPoorAddressLookup.length !== 0 && (
@@ -1534,8 +1684,11 @@ export function IssuesList() {
 		),
 		babyNetAgeOut: (
 			<GuardedIssue
+				isError={isErrorBabyNetErrors}
 				isLoading={isLoadingBabyNetErrors}
+				onRetry={refetchBabyNetErrors}
 				permission={ISSUE_LIST_PERMISSIONS.babyNetAgeOut}
+				title={ISSUE_TITLES.babyNetAgeOut}
 			>
 				{babyNetErrors && babyNetErrors.length !== 0 && (
 					<IssueList
@@ -1548,8 +1701,11 @@ export function IssuesList() {
 		),
 		notInTA: (
 			<GuardedIssue
+				isError={isErrorNotInTAErrors}
 				isLoading={isLoadingNotInTAErrors}
+				onRetry={refetchNotInTAErrors}
 				permission={ISSUE_LIST_PERMISSIONS.notInTA}
+				title={ISSUE_TITLES.notInTA}
 			>
 				{notInTAErrors && notInTAErrors.length !== 0 && (
 					<IssueList
@@ -1562,8 +1718,11 @@ export function IssuesList() {
 		),
 		dropList: (
 			<GuardedIssue
+				isError={isErrorDropList}
 				isLoading={isLoadingDropList}
+				onRetry={refetchDropList}
 				permission={ISSUE_LIST_PERMISSIONS.dropList}
+				title={ISSUE_TITLES.dropList}
 			>
 				{dropList && dropList.length !== 0 && (
 					<IssueList
@@ -1576,8 +1735,14 @@ export function IssuesList() {
 		),
 		notesOnly: (
 			<GuardedIssue
+				isError={isErrorNotesOnlyClients || isErrorMergeSuggestions}
 				isLoading={isLoadingNotesOnlyClients || isLoadingMergeSuggestions}
+				onRetry={() => {
+					refetchNotesOnlyClients();
+					refetchMergeSuggestions();
+				}}
 				permission={ISSUE_LIST_PERMISSIONS.notesOnly}
+				title={ISSUE_TITLES.notesOnly}
 			>
 				{notesOnlyClients && notesOnlyClients.length !== 0 && (
 					<SuggestionIssueList
@@ -1606,8 +1771,11 @@ export function IssuesList() {
 		),
 		noDriveIds: (
 			<GuardedIssue
+				isError={isErrorNoDriveIds}
 				isLoading={isLoadingNoDriveIds}
+				onRetry={refetchNoDriveIds}
 				permission={ISSUE_LIST_PERMISSIONS.noDriveIds}
+				title={ISSUE_TITLES.noDriveIds}
 			>
 				{noDriveIds && noDriveIds.length !== 0 && (
 					<IssueList
@@ -1620,8 +1788,11 @@ export function IssuesList() {
 		),
 		possiblePrivatePay: (
 			<GuardedIssue
+				isError={isErrorPossiblePrivatePay}
 				isLoading={isLoadingPossiblePrivatePay}
+				onRetry={refetchPossiblePrivatePay}
 				permission={ISSUE_LIST_PERMISSIONS.possiblePrivatePay}
+				title={ISSUE_TITLES.possiblePrivatePay}
 			>
 				{possiblePrivatePay && possiblePrivatePay.length !== 0 && (
 					<IssueList
@@ -1635,8 +1806,11 @@ export function IssuesList() {
 		),
 		unreviewedRecords: (
 			<GuardedIssue
+				isError={isErrorUnreviewedRecords}
 				isLoading={isLoadingUnreviewedRecords}
+				onRetry={refetchUnreviewedRecords}
 				permission={ISSUE_LIST_PERMISSIONS.unreviewedRecords}
+				title={ISSUE_TITLES.unreviewedRecords}
 			>
 				{unreviewedRecords && unreviewedRecords.length !== 0 && (
 					<IssueList
@@ -1649,8 +1823,11 @@ export function IssuesList() {
 		),
 		charterSchoolConfirm: (
 			<GuardedIssue
+				isError={isErrorUnconfirmedCharterSchool}
 				isLoading={isLoadingUnconfirmedCharterSchool}
+				onRetry={refetchUnconfirmedCharterSchool}
 				permission={ISSUE_LIST_PERMISSIONS.charterSchoolConfirm}
+				title={ISSUE_TITLES.charterSchoolConfirm}
 			>
 				{unconfirmedCharterSchool && unconfirmedCharterSchool.length !== 0 && (
 					<IssueList
@@ -1663,8 +1840,11 @@ export function IssuesList() {
 		),
 		insuranceMismatch: (
 			<GuardedIssue
+				isError={isErrorInsuranceMismatch}
 				isLoading={isLoadingInsuranceMismatch}
+				onRetry={refetchInsuranceMismatch}
 				permission={ISSUE_LIST_PERMISSIONS.insuranceMismatch}
+				title={ISSUE_TITLES.insuranceMismatch}
 			>
 				{insuranceMismatch && insuranceMismatch.length !== 0 && (
 					<IssueList
@@ -1677,8 +1857,11 @@ export function IssuesList() {
 		),
 		medicaidNotFound: (
 			<GuardedIssue
+				isError={isErrorMedicaidNotFound}
 				isLoading={isLoadingMedicaidNotFound}
+				onRetry={refetchMedicaidNotFound}
 				permission={ISSUE_LIST_PERMISSIONS.medicaidNotFound}
+				title={ISSUE_TITLES.medicaidNotFound}
 			>
 				{medicaidNotFound && medicaidNotFound.length !== 0 && (
 					<IssueList
@@ -1691,8 +1874,11 @@ export function IssuesList() {
 		),
 		medicaidIneligible: (
 			<GuardedIssue
+				isError={isErrorMedicaidIneligible}
 				isLoading={isLoadingMedicaidIneligible}
+				onRetry={refetchMedicaidIneligible}
 				permission={ISSUE_LIST_PERMISSIONS.medicaidIneligible}
+				title={ISSUE_TITLES.medicaidIneligible}
 			>
 				{medicaidIneligible && medicaidIneligible.length !== 0 && (
 					<IssueList
@@ -1705,8 +1891,11 @@ export function IssuesList() {
 		),
 		duplicateDriveFolders: (
 			<GuardedIssue
+				isError={isErrorDuplicateFolderNames}
 				isLoading={isLoadingDuplicateFolderNames}
+				onRetry={refetchDuplicateFolderNames}
 				permission={ISSUE_LIST_PERMISSIONS.duplicateDriveFolders}
+				title={ISSUE_TITLES.duplicateDriveFolders}
 			>
 				{duplicateFolderNames && duplicateFolderNames.data.length > 0 && (
 					<DuplicateDriveFoldersList
@@ -1718,8 +1907,11 @@ export function IssuesList() {
 		),
 		duplicateQuestionnaireLinks: (
 			<GuardedIssue
+				isError={isErrorDuplicateQLinks}
 				isLoading={isLoadingDuplicateQLinks}
+				onRetry={refetchDuplicateQLinks}
 				permission={ISSUE_LIST_PERMISSIONS.duplicateQuestionnaireLinks}
+				title={ISSUE_TITLES.duplicateQuestionnaireLinks}
 			>
 				{duplicateQLinks && clientsWithDuplicateLinks.length > 0 && (
 					<IssueList
@@ -1732,8 +1924,11 @@ export function IssuesList() {
 		),
 		sharedQuestionnaires: (
 			<GuardedIssue
+				isError={isErrorDuplicateQLinks}
 				isLoading={isLoadingDuplicateQLinks}
+				onRetry={refetchDuplicateQLinks}
 				permission={ISSUE_LIST_PERMISSIONS.sharedQuestionnaires}
+				title={ISSUE_TITLES.sharedQuestionnaires}
 			>
 				{duplicateQLinks?.sharedAcrossClients &&
 					duplicateQLinks.sharedAcrossClients.length > 0 && (
@@ -1745,8 +1940,11 @@ export function IssuesList() {
 		),
 		duplicateNames: (
 			<GuardedIssue
+				isError={isErrorDuplicateNames}
 				isLoading={isLoadingDuplicateNames}
+				onRetry={refetchDuplicateNames}
 				permission={ISSUE_LIST_PERMISSIONS.duplicateNames}
+				title={ISSUE_TITLES.duplicateNames}
 			>
 				{duplicateNames && duplicateNames.length > 0 && (
 					<DuplicateNamesList groups={duplicateNames} />
@@ -1755,8 +1953,11 @@ export function IssuesList() {
 		),
 		partialBatteries: (
 			<GuardedIssue
+				isError={isErrorPartialBatteries}
 				isLoading={isLoadingPartialBatteries}
+				onRetry={refetchPartialBatteries}
 				permission={ISSUE_LIST_PERMISSIONS.partialBatteries}
+				title={ISSUE_TITLES.partialBatteries}
 			>
 				{partialBatteries && partialBatteries.length > 0 && (
 					<PartialBatteryList issues={partialBatteries} />

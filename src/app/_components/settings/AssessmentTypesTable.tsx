@@ -53,6 +53,8 @@ import { z } from "zod";
 import { useCheckPermission } from "~/hooks/use-check-permission";
 import { logger } from "~/lib/logger";
 import { api, type RouterOutputs } from "~/trpc/react";
+import { EmptyState } from "../shared/EmptyState";
+import { ErrorState } from "../shared/ErrorState";
 
 const log = logger.child({ module: "AssessmentTypesTable" });
 
@@ -388,7 +390,12 @@ function TypeActionsMenu({ qtype }: { qtype: QType }) {
 export default function AssessmentTypesTable() {
 	const can = useCheckPermission();
 	const canEdit = can("settings:questionnaireRules");
-	const { data: types, isLoading } = api.questionnaires.getAllTypes.useQuery();
+	const {
+		data: types,
+		isLoading,
+		isError,
+		refetch,
+	} = api.questionnaires.getAllTypes.useQuery();
 
 	const questionnaireTypes = types?.filter((t) => !t.inPerson) ?? [];
 	const inPersonTypes = types?.filter((t) => t.inPerson) ?? [];
@@ -410,6 +417,8 @@ export default function AssessmentTypesTable() {
 				))}
 			</TableRow>
 		));
+
+	if (isError) return <ErrorState onRetry={refetch} />;
 
 	return (
 		<div className="px-4">
@@ -467,11 +476,11 @@ export default function AssessmentTypesTable() {
 									))}
 								{!isLoading && questionnaireTypes.length === 0 && (
 									<TableRow>
-										<TableCell
-											className="h-16 text-center text-muted-foreground text-sm"
-											colSpan={canEdit ? 5 : 4}
-										>
-											No online assessment types configured.
+										<TableCell colSpan={canEdit ? 5 : 4}>
+											<EmptyState
+												compact
+												title="No online assessment types configured"
+											/>
 										</TableCell>
 									</TableRow>
 								)}
@@ -519,11 +528,11 @@ export default function AssessmentTypesTable() {
 									))}
 								{!isLoading && inPersonTypes.length === 0 && (
 									<TableRow>
-										<TableCell
-											className="h-16 text-center text-muted-foreground text-sm"
-											colSpan={canEdit ? 4 : 3}
-										>
-											No in-person types configured.
+										<TableCell colSpan={canEdit ? 4 : 3}>
+											<EmptyState
+												compact
+												title="No in-person types configured"
+											/>
 										</TableCell>
 									</TableRow>
 								)}
