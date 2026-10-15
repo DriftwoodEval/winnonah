@@ -40,6 +40,11 @@ async function callSidecar(
 	const res = await fetch(`${env.PY_API}${PATH}`, {
 		...init,
 		headers: { Cookie: cookie ?? "" },
+	}).catch(() => {
+		throw new TRPCError({
+			code: "INTERNAL_SERVER_ERROR",
+			message: "Could not reach the attachment service",
+		});
 	});
 	if (!res.ok) {
 		const { detail } = (await res.json().catch(() => ({}))) as {
@@ -47,7 +52,7 @@ async function callSidecar(
 		};
 		throw new TRPCError({
 			code: res.status === 403 ? "FORBIDDEN" : "BAD_REQUEST",
-			message: detail ?? "Could not reach the attachment service",
+			message: detail ?? `The attachment service returned ${res.status}`,
 		});
 	}
 	return (await res.json()) as { updatedAt: number | null };

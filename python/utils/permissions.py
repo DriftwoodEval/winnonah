@@ -16,6 +16,7 @@ PERMISSION_GROUPS = {
     "settings:evaluators": "system:settings:all",
     "settings:exclusion-check:notifications": "system:settings:all",
     "settings:impersonate": "system:settings:all",
+    "settings:post-visit-attachment:edit": "system:settings:all",
     "settings:qsuite:services": "system:qsuite:all",
     "settings:qsuite:services:view": "system:qsuite:all",
 }
