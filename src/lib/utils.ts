@@ -451,17 +451,6 @@ export function localDateToDateOnly(
 }
 
 /**
- * Whether a date-only "YYYY-MM-DD" value is strictly before today, in terms
- * of the server's local calendar date.
- */
-export function isDateOnlyPast(date: string | undefined | null): boolean {
-	if (!date) return false;
-	const today = new Date();
-	const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
-	return date < todayStr;
-}
-
-/**
  * Whether a date-only policy start/end range covers today. A missing start
  * date means not yet active; a missing end date means no expiration.
  */

@@ -32,7 +32,7 @@ type AutomatedContext = {
 	reason: string;
 };
 
-const REMINDER_PLACEHOLDER_TOKENS = [
+const APPOINTMENT_REMINDER_TOKENS = [
 	"$START_TIME",
 	"$DATE",
 	"$OFFICE_NAME",
@@ -45,12 +45,12 @@ function escapeRegExp(value: string): string {
 
 function buildReminderTemplateRegex(template: string): RegExp {
 	const splitRegex = new RegExp(
-		`(${REMINDER_PLACEHOLDER_TOKENS.map(escapeRegExp).join("|")})`,
+		`(${APPOINTMENT_REMINDER_TOKENS.map(escapeRegExp).join("|")})`,
 	);
 	const pattern = template
 		.split(splitRegex)
 		.map((part) =>
-			REMINDER_PLACEHOLDER_TOKENS.includes(part) ? ".*?" : escapeRegExp(part),
+			APPOINTMENT_REMINDER_TOKENS.includes(part) ? ".*?" : escapeRegExp(part),
 		)
 		.join("");
 	return new RegExp(`^${pattern}$`, "s");

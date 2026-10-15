@@ -37,12 +37,6 @@ export function permissionGroupId(
 	return `${categoryKey}:${subgroupKey}:all` as PermissionGroupId;
 }
 
-export const allPermissionIds = Object.values(PERMISSIONS).flatMap((category) =>
-	Object.values(category.subgroups).flatMap((subgroup) =>
-		subgroup.permissions.map((p: { id: string }) => p.id),
-	),
-) as PermissionId[];
-
 /** The heading flag that covers each permission. */
 export const PERMISSION_GROUP_IDS = Object.fromEntries(
 	Object.entries(PERMISSIONS).flatMap(([categoryKey, category]) =>
@@ -70,9 +64,4 @@ export interface DuplicateGroup {
 	clientHash: string;
 	clientFullName: string;
 	folders: DuplicateFolder[];
-}
-
-export interface FolderResponse {
-	folders: GoogleFolder[];
-	message?: string;
 }

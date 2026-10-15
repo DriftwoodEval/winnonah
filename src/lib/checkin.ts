@@ -1,11 +1,4 @@
 /**
- * Location key written for virtual (video) appointments. Historically the
- * casing has varied ("Virtual" from calendar titles, "VIRTUAL" elsewhere), so
- * comparisons go through isVirtualAppointment.
- */
-export const VIRTUAL_LOCATION_KEY = "Virtual";
-
-/**
  * An appointment with no office, or the virtual location key, happens over
  * video. Nobody arrives in person, so there is no check-in or check-out.
  */

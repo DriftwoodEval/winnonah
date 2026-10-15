@@ -235,7 +235,6 @@ export const postVisitMessageConfigSchema = z.object({
 	body: z.string().trim().min(1).max(5000),
 });
 
-export type pythonConfig = z.infer<typeof pythonConfigSchema>;
 export type AppointmentSyncConfig = z.infer<typeof appointmentSyncConfigSchema>;
 export type AdditionalInsuranceAppointments = z.infer<
 	typeof additionalInsuranceAppointmentsSchema
