@@ -42,6 +42,7 @@ import {
 	ChevronLeft,
 	ChevronRight,
 	Info,
+	Sparkles,
 	X,
 } from "lucide-react";
 import Link from "next/link";
@@ -61,6 +62,12 @@ import {
 import type { SortedClient } from "~/lib/api-types";
 import { BUSINESS_TIMEZONE } from "~/lib/constants";
 import type { CalendarEvent } from "~/lib/integrations/google";
+import {
+	countOpenSlots,
+	freeIntervals,
+	slotStarts,
+	type TimeRange,
+} from "~/lib/scheduling-slots";
 import { formatInBusinessTime, IS_DEV } from "~/lib/utils";
 import { api, type RouterOutputs } from "~/trpc/react";
 
@@ -75,6 +82,8 @@ const SLOT_STEP_MINUTES = 30;
 const VISIBLE_DAYS = 7;
 // Snap step when manually picking a time on a day with no marked availability.
 const MANUAL_TIME_SNAP_MINUTES = 30;
+
+const MINUTE_MS = 60000;
 
 type Evaluator = NonNullable<RouterOutputs["evaluators"]["getAll"]>[number];
 
@@ -179,6 +188,36 @@ function eventCoversDay(event: CalendarEvent, day: string): boolean {
 	return event.start.getTime() < dayEnd && event.end.getTime() > dayStart;
 }
 
+// Marked availability for one evaluator-day as time ranges. All-day events
+// have no real hours, so they count as the grid's whole visible day.
+function availabilityRanges(
+	dayEvents: CalendarEvent[],
+	day: string,
+	office: string | null,
+): TimeRange[] {
+	return dayEvents
+		.filter(
+			(e) =>
+				!e.isUnavailability &&
+				!e.isPlanned &&
+				(!office || eventMatchesOffice(e.officeKeys, office)),
+		)
+		.map((e) =>
+			e.isAllDay
+				? {
+						start: fromZonedTime(
+							`${day}T${pad(DAY_START)}:00:00`,
+							BUSINESS_TIMEZONE,
+						).getTime(),
+						end: fromZonedTime(
+							`${day}T${pad(DAY_END)}:00:00`,
+							BUSINESS_TIMEZONE,
+						).getTime(),
+					}
+				: { start: e.start.getTime(), end: e.end.getTime() },
+		);
+}
+
 // The scheduling queue's `code` mirrors the CPT code TA schedules against:
 // 96136 is in-person testing (EVAL), 90791 is the virtual diagnostic intake (DA).
 // See scheduling.ts `add`/`update`, which use the same mapping to auto-pick an office.
@@ -247,9 +286,13 @@ export function SchedulingHelper() {
 
 type ClientLike = { id: number; hash: string; fullName: string };
 
-type CellStatus =
+// Open-slot estimate per appointment type an evaluator can take that day.
+type SlotsLeft = { type: AppointmentType; count: number }[];
+
+type CellKind =
 	| {
 			kind: "booked";
+			appointmentCount: number;
 			officeLabel: string;
 			locationKey: string | null;
 			placeholder: boolean;
@@ -261,6 +304,12 @@ type CellStatus =
 	| { kind: "available"; officeLabels: string[] }
 	| { kind: "ooo" }
 	| { kind: "empty" };
+
+type CellStatus = CellKind & {
+	slotsLeft: SlotsLeft;
+	// Marked availability exists but no appointment type fits anymore.
+	full: boolean;
+};
 
 // How many VISIBLE_DAYS-wide pages forward (or back) of today a given date
 // falls on, so a deep-linked date scrolls the grid to the right week.
@@ -284,10 +333,12 @@ function SchedulingHelperGrid({
 	});
 	const { data: evaluators, isLoading: isLoadingEvaluators } =
 		api.evaluators.getAll.useQuery();
+	const [pendingClient, setPendingClient] = useState<SortedClient | null>(null);
+	const effectiveClient = lockedClient ?? pendingClient;
 	const { data: queueInfo } =
 		api.schedulingHelper.getSchedulingQueueInfo.useQuery(
-			{ clientId: lockedClient?.id ?? 0 },
-			{ enabled: !!lockedClient },
+			{ clientId: effectiveClient?.id ?? 0 },
+			{ enabled: !!effectiveClient },
 		);
 
 	const [officeFilter, setOfficeFilter] = useState<string | null>(
@@ -311,19 +362,25 @@ function SchedulingHelperGrid({
 		start: Date;
 		durationMinutes: number;
 	} | null>(null);
-	const [pendingClient, setPendingClient] = useState<SortedClient | null>(null);
 	const [showDebug, setShowDebug] = useState(false);
+	const [view, setView] = useState<"evaluator" | "date">("evaluator");
 
 	// Pre-fill office/type from whatever was already set on the /scheduling
-	// queue row, once, after it loads.
-	const [defaultsApplied, setDefaultsApplied] = useState(false);
+	// queue row, once per client, after it loads. Picking a different client
+	// also brings the assigned-evaluator filter back.
+	const [defaultsAppliedFor, setDefaultsAppliedFor] = useState<number | null>(
+		null,
+	);
+	const clientId = effectiveClient?.id ?? null;
 	useEffect(() => {
-		if (defaultsApplied || !lockedClient || queueInfo === undefined) return;
+		if (clientId === null || queueInfo === undefined) return;
+		if (defaultsAppliedFor === clientId) return;
 		const queuedType = appointmentTypeForQueueCode(queueInfo.code);
 		if (queuedType) setAppointmentType(queuedType);
 		if (queueInfo.office) setOfficeFilter(queueInfo.office);
-		setDefaultsApplied(true);
-	}, [lockedClient, queueInfo, defaultsApplied]);
+		setShowAllEvaluators(false);
+		setDefaultsAppliedFor(clientId);
+	}, [clientId, queueInfo, defaultsAppliedFor]);
 
 	const office = officeFilter;
 
@@ -335,14 +392,24 @@ function SchedulingHelperGrid({
 		}
 	}, [office, appointmentType]);
 
+	// A client already assigned an evaluator on the /scheduling table only needs
+	// that evaluator's rows, unless the user opts back into everyone.
+	const assignedNpi = queueInfo?.evaluatorNpi ?? null;
+	const [showAllEvaluators, setShowAllEvaluators] = useState(false);
+
 	const typeAllowedEvaluators = useMemo(
 		() =>
 			(evaluators ?? [])
-				.filter((e) =>
-					isTypeAllowed(e.allowedAppointmentTypes as string[], appointmentType),
+				.filter(
+					(e) =>
+						(showAllEvaluators || !assignedNpi || e.npi === assignedNpi) &&
+						isTypeAllowed(
+							e.allowedAppointmentTypes as string[],
+							appointmentType,
+						),
 				)
 				.toSorted((a, b) => a.providerName.localeCompare(b.providerName)),
-		[evaluators, appointmentType],
+		[evaluators, appointmentType, assignedNpi, showAllEvaluators],
 	);
 
 	const evaluatorNpis = useMemo(
@@ -408,63 +475,120 @@ function SchedulingHelperGrid({
 		return result;
 	}, [evaluatorNpis, availabilityByNpi, appointmentsByNpi, office]);
 
-	const cellStatus = useMemo(() => {
-		return (npi: number, day: string): CellStatus => {
-			const booked = appointmentsByNpi?.[npi]?.find((a) => a.date === day);
-			if (booked) {
-				return {
-					kind: "booked",
-					officeLabel:
-						booked.officeName ??
-						officeKeyToLabel.get(booked.locationKey ?? "") ??
-						booked.locationKey ??
-						"Virtual",
-					locationKey: booked.locationKey,
-					placeholder: booked.placeholder,
-					id: booked.id,
-					startTime: booked.startTime,
-					endTime: booked.endTime,
-				};
-			}
+	const evaluatorByNpi = useMemo(
+		() => new Map((evaluators ?? []).map((e) => [e.npi, e])),
+		[evaluators],
+	);
 
-			const events = availabilityByNpi?.[npi] ?? [];
-			const dayEvents = events.filter((e) => eventCoversDay(e, day));
+	// Appointment types the evaluator can take at the current office filter
+	// (virtual visits are always DA).
+	function typesFor(evaluator: Evaluator | undefined): AppointmentType[] {
+		if (!evaluator) return [];
+		return APPOINTMENT_TYPES.filter(
+			(type) =>
+				(office !== "Virtual" || type === "DA") &&
+				isTypeAllowed(evaluator.allowedAppointmentTypes as string[], type),
+		);
+	}
 
-			const planned = dayEvents.find((e) => e.isPlanned);
-			if (planned) {
-				return {
-					kind: "planned",
-					officeLabel:
-						officeKeyToLabel.get(planned.officeKeys?.[0] ?? "") ??
-						planned.summary?.replace(/^Planned:\s*/i, "") ??
-						"Office",
-				};
-			}
+	function durationMsFor(evaluator: Evaluator, type: AppointmentType) {
+		return (
+			durationForTypeWithSource(
+				evaluator.appointmentDurations as Record<string, number>,
+				type,
+			).minutes * MINUTE_MS
+		);
+	}
 
-			if (dayEvents.some((e) => e.isUnavailability)) return { kind: "ooo" };
+	// Marked availability minus existing appointments for one evaluator-day, or
+	// null when nothing is marked (so open slots can't be estimated).
+	function freeTimeFor(npi: number, day: string): TimeRange[] | null {
+		const dayEvents = (availabilityByNpi?.[npi] ?? []).filter((e) =>
+			eventCoversDay(e, day),
+		);
+		const windows = availabilityRanges(dayEvents, day, office);
+		if (windows.length === 0) return null;
+		const busy = (appointmentsByNpi?.[npi] ?? [])
+			.filter((a) => a.date === day)
+			.map((a) => ({ start: a.startTime.getTime(), end: a.endTime.getTime() }));
+		return freeIntervals(windows, busy);
+	}
 
-			const availableEvents = dayEvents.filter(
-				(e) =>
-					!e.isUnavailability &&
-					!e.isPlanned &&
-					(!office || eventMatchesOffice(e.officeKeys, office)),
-			);
-			if (availableEvents.length > 0) {
-				const officeLabels = [
-					...new Set(
-						availableEvents.flatMap(
-							(e) =>
-								e.officeKeys?.map((key) => officeKeyToLabel.get(key) ?? key) ??
-								[],
-						),
+	function cellStatus(npi: number, day: string): CellStatus {
+		const evaluator = evaluatorByNpi.get(npi);
+		const free = freeTimeFor(npi, day);
+		const slotsLeft: SlotsLeft = free
+			? typesFor(evaluator).map((type) => ({
+					type,
+					count: countOpenSlots(
+						free,
+						evaluator ? durationMsFor(evaluator, type) : 0,
 					),
-				];
-				return { kind: "available", officeLabels };
-			}
+				}))
+			: [];
+		const full = !!free && slotsLeft.every((s) => s.count === 0);
+		return { ...baseCellStatus(npi, day), slotsLeft, full };
+	}
 
-			return { kind: "empty" };
-		};
-	}, [appointmentsByNpi, availabilityByNpi, office, officeKeyToLabel]);
+	function baseCellStatus(npi: number, day: string): CellKind {
+		const dayBooked = (appointmentsByNpi?.[npi] ?? []).filter(
+			(a) => a.date === day,
+		);
+		const booked = dayBooked[0];
+		if (booked) {
+			return {
+				kind: "booked",
+				appointmentCount: dayBooked.length,
+				officeLabel:
+					booked.officeName ??
+					officeKeyToLabel.get(booked.locationKey ?? "") ??
+					booked.locationKey ??
+					"Virtual",
+				locationKey: booked.locationKey,
+				placeholder: booked.placeholder,
+				id: booked.id,
+				startTime: booked.startTime,
+				endTime: booked.endTime,
+			};
+		}
+
+		const events = availabilityByNpi?.[npi] ?? [];
+		const dayEvents = events.filter((e) => eventCoversDay(e, day));
+
+		const planned = dayEvents.find((e) => e.isPlanned);
+		if (planned) {
+			return {
+				kind: "planned",
+				officeLabel:
+					officeKeyToLabel.get(planned.officeKeys?.[0] ?? "") ??
+					planned.summary?.replace(/^Planned:\s*/i, "") ??
+					"Office",
+			};
+		}
+
+		if (dayEvents.some((e) => e.isUnavailability)) return { kind: "ooo" };
+
+		const availableEvents = dayEvents.filter(
+			(e) =>
+				!e.isUnavailability &&
+				!e.isPlanned &&
+				(!office || eventMatchesOffice(e.officeKeys, office)),
+		);
+		if (availableEvents.length > 0) {
+			const officeLabels = [
+				...new Set(
+					availableEvents.flatMap(
+						(e) =>
+							e.officeKeys?.map((key) => officeKeyToLabel.get(key) ?? key) ??
+							[],
+					),
+				),
+			];
+			return { kind: "available", officeLabels };
+		}
+
+		return { kind: "empty" };
+	}
 
 	const selectedEvaluator = useMemo(
 		() =>
@@ -538,8 +662,6 @@ function SchedulingHelperGrid({
 			{ enabled: !!selectedCell },
 		);
 
-	const effectiveClient = lockedClient ?? pendingClient;
-
 	const { data: eligibleEvaluators } =
 		api.evaluators.getEligibleForClient.useQuery(effectiveClient?.id ?? 0, {
 			enabled: !!effectiveClient,
@@ -588,6 +710,51 @@ function SchedulingHelperGrid({
 		eligibleEvaluators,
 		hasAvailabilityInWindow,
 	]);
+
+	function openStartsFor(evaluator: Evaluator, day: string): number[] {
+		const free = freeTimeFor(evaluator.npi, day);
+		if (!free) return [];
+		return slotStarts(
+			free,
+			durationMsFor(evaluator, appointmentType),
+			SLOT_STEP_MINUTES * MINUTE_MS,
+			Date.now(),
+		);
+	}
+
+	// Earliest open slot across the eligible evaluators in the fetched window.
+	const nextAvailable = (() => {
+		if (isLoadingAvailability || isLoadingAppointments) return null;
+		const dayCount = Math.round(
+			(rangeEnd.getTime() - rangeStart.getTime()) / 86400000,
+		);
+		for (let i = 0; i < dayCount; i++) {
+			const day = dateToDayString(addDays(rangeStart, i));
+			let best: { evaluator: Evaluator; day: string; start: number } | null =
+				null;
+			for (const evaluator of eligibleList) {
+				const start = openStartsFor(evaluator, day)[0];
+				if (start !== undefined && (!best || start < best.start)) {
+					best = { evaluator, day, start };
+				}
+			}
+			if (best) return best;
+		}
+		return null;
+	})();
+
+	function pickSlot(evaluator: Evaluator, day: string, start: number) {
+		const startDate = new Date(start);
+		setSelectedCell({ npi: evaluator.npi, date: day });
+		const resolved = resolveOfficeForCell(evaluator.npi, day);
+		if (resolved) setOfficeFilter(resolved);
+		setWeekOffset(weekOffsetForDate(day));
+		setManualTime(formatInBusinessTime(startDate, "HH:mm"));
+		setSelectedSlot({
+			start: startDate,
+			durationMinutes: durationMsFor(evaluator, appointmentType) / MINUTE_MS,
+		});
+	}
 
 	const previewAppointment: CalAppt | null = useMemo(() => {
 		if (!selectedSlot || !selectedCell || !office || !selectedEvaluator) {
@@ -1144,6 +1311,23 @@ function SchedulingHelperGrid({
 
 							<div className="flex items-center gap-1">
 								<Button
+									onClick={() => setView("evaluator")}
+									size="sm"
+									variant={view === "evaluator" ? "default" : "outline"}
+								>
+									By evaluator
+								</Button>
+								<Button
+									onClick={() => setView("date")}
+									size="sm"
+									variant={view === "date" ? "default" : "outline"}
+								>
+									By date
+								</Button>
+							</div>
+
+							<div className="flex items-center gap-1">
+								<Button
 									className="h-8 w-8"
 									onClick={() => setWeekOffset((w) => Math.max(0, w - 1))}
 									size="icon"
@@ -1177,6 +1361,45 @@ function SchedulingHelperGrid({
 							</div>
 						</div>
 					</Card>
+					{(nextAvailable || (assignedNpi && !showAllEvaluators)) && (
+						<Card className="flex flex-row flex-wrap items-center gap-x-3 gap-y-2 p-3 text-sm">
+							{nextAvailable && (
+								<>
+									<Sparkles className="h-4 w-4 text-success" />
+									<span>
+										Next available:{" "}
+										<strong>{nextAvailable.evaluator.providerName}</strong>,{" "}
+										{formatInBusinessTime(
+											new Date(nextAvailable.start),
+											"EEE M/d 'at' h:mm a",
+										)}
+									</span>
+									<Button
+										onClick={() =>
+											pickSlot(
+												nextAvailable.evaluator,
+												nextAvailable.day,
+												nextAvailable.start,
+											)
+										}
+										size="sm"
+										variant="outline"
+									>
+										Use this slot
+									</Button>
+								</>
+							)}
+							{assignedNpi && !showAllEvaluators && (
+								<button
+									className="ml-auto text-muted-foreground text-xs underline"
+									onClick={() => setShowAllEvaluators(true)}
+									type="button"
+								>
+									Showing only the assigned evaluator. Show all
+								</button>
+							)}
+						</Card>
+					)}
 					<div className="flex flex-wrap items-center gap-x-4 gap-y-1 px-1 text-xs">
 						<Badge variant="default">Booked</Badge>
 						<Badge
@@ -1193,10 +1416,26 @@ function SchedulingHelperGrid({
 							Available
 						</Badge>
 						<span className="text-muted-foreground/50">OOO</span>
+						<Badge
+							className="border-destructive/40 bg-destructive/10 text-destructive"
+							variant="outline"
+						>
+							Full
+						</Badge>
 					</div>
 					<TooltipProvider>
 						<Card className="overflow-x-auto p-0">
-							{isLoadingEvaluators ? (
+							{view === "date" &&
+							!isLoadingEvaluators &&
+							typeAllowedEvaluators.length > 0 ? (
+								<DateFirstView
+									evaluators={eligibleList}
+									loading={isLoadingAvailability || isLoadingAppointments}
+									onPick={pickSlot}
+									startsFor={openStartsFor}
+									visibleDays={visibleDays}
+								/>
+							) : isLoadingEvaluators ? (
 								<Skeleton className="m-4 h-64 w-full rounded-md" />
 							) : typeAllowedEvaluators.length === 0 ? (
 								<p className="p-4 text-muted-foreground text-sm">
@@ -1772,11 +2011,11 @@ function EvaluatorRow({
 				const isSelected =
 					selectedCell?.npi === evaluator.npi && selectedCell.date === day;
 				const status = isLoading
-					? { kind: "empty" as const }
+					? { kind: "empty" as const, slotsLeft: [], full: false }
 					: cellStatus(evaluator.npi, day);
 				return (
 					<button
-						className={`border-t border-l p-1.5 text-left text-xs transition-colors hover:bg-muted/50 ${isSelected ? "bg-muted" : ""}`}
+						className={`border-t border-l p-1.5 text-left text-xs transition-colors hover:bg-muted/50 ${isSelected ? "bg-muted" : status.full ? "bg-destructive/10" : ""}`}
 						key={day}
 						onClick={() => onSelectCell(day)}
 						onDragOver={(e) => e.preventDefault()}
@@ -1854,9 +2093,112 @@ function EvaluatorRow({
 								Unavailable
 							</span>
 						)}
+						{!isLoading && <SlotsLine status={status} />}
 					</button>
 				);
 			})}
 		</>
+	);
+}
+
+// "2 appts · Left: DA 3, EVAL 1", or "Full" in red once nothing else fits.
+function SlotsLine({ status }: { status: CellStatus }) {
+	const parts: string[] = [];
+	if (status.kind === "booked") {
+		parts.push(
+			`${status.appointmentCount} appt${status.appointmentCount === 1 ? "" : "s"}`,
+		);
+	}
+	if (status.full) parts.push("Full");
+	else if (status.slotsLeft.length > 0) {
+		parts.push(
+			`Left: ${status.slotsLeft.map((s) => `${s.type} ${s.count}`).join(", ")}`,
+		);
+	}
+	if (parts.length === 0) return null;
+	return (
+		<span
+			className={`mt-0.5 block text-center text-[10px] ${status.full ? "font-medium text-destructive" : "text-muted-foreground"}`}
+		>
+			{parts.join(" · ")}
+		</span>
+	);
+}
+
+// Calendar-like alternative to the evaluator grid: each day lists the open
+// start times per evaluator, so the earliest opening is visible at a glance.
+function DateFirstView({
+	visibleDays,
+	evaluators,
+	loading,
+	startsFor,
+	onPick,
+}: {
+	visibleDays: string[];
+	evaluators: Evaluator[];
+	loading: boolean;
+	startsFor: (evaluator: Evaluator, day: string) => number[];
+	onPick: (evaluator: Evaluator, day: string, start: number) => void;
+}) {
+	if (loading) return <Skeleton className="m-4 h-64 w-[calc(100%-2rem)]" />;
+	return (
+		<div
+			className="grid min-w-[900px]"
+			style={{ gridTemplateColumns: `repeat(${VISIBLE_DAYS}, 1fr)` }}
+		>
+			{visibleDays.map((day) => {
+				const date = dayStringToLocalDate(day);
+				const rows = evaluators
+					.map((evaluator) => ({
+						evaluator,
+						starts: startsFor(evaluator, day),
+					}))
+					.filter((row) => row.starts.length > 0);
+				return (
+					<div
+						className="flex flex-col gap-2 border-l p-2 first:border-l-0"
+						key={day}
+					>
+						<div className="text-center text-xs">
+							<div className="font-medium text-muted-foreground uppercase tracking-wide">
+								{date.toLocaleDateString(undefined, { weekday: "short" })}
+							</div>
+							<div className="font-semibold text-sm">
+								{date.toLocaleDateString(undefined, {
+									month: "numeric",
+									day: "numeric",
+								})}
+							</div>
+						</div>
+						{rows.length === 0 ? (
+							<span className="text-center text-destructive text-xs">
+								No openings
+							</span>
+						) : (
+							rows.map(({ evaluator, starts }) => (
+								<div className="flex flex-col gap-1" key={evaluator.npi}>
+									<span className="truncate font-medium text-xs">
+										{evaluator.providerName}
+									</span>
+									<div className="flex flex-wrap gap-1">
+										{starts.map((start) => (
+											<Button
+												className="h-6 px-1.5 text-[11px]"
+												key={start}
+												onClick={() => onPick(evaluator, day, start)}
+												size="sm"
+												variant="outline"
+											>
+												{formatInBusinessTime(new Date(start), "h:mm a")}
+											</Button>
+										))}
+									</div>
+								</div>
+							))
+						)}
+					</div>
+				);
+			})}
+		</div>
 	);
 }
