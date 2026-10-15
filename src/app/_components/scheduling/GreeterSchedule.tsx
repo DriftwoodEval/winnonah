@@ -17,14 +17,17 @@ import { useState } from "react";
 import { formatPhoneNumber } from "~/lib/utils";
 import { api } from "~/trpc/react";
 import { Redact } from "../redaction/Redact";
+import { EmptyState } from "../shared/EmptyState";
+import { ErrorState } from "../shared/ErrorState";
 
 export default function GreeterSchedule() {
 	const [selectedDate, setSelectedDate] = useState(() =>
 		format(new Date(), "yyyy-MM-dd"),
 	);
-	const { data, isLoading } = api.greeterProxy.getSchedule.useQuery({
-		date: selectedDate,
-	});
+	const { data, isLoading, isError, refetch } =
+		api.greeterProxy.getSchedule.useQuery({
+			date: selectedDate,
+		});
 
 	const isToday = selectedDate === format(new Date(), "yyyy-MM-dd");
 
@@ -74,6 +77,8 @@ export default function GreeterSchedule() {
 							<Skeleton className="h-10 w-full" />
 							<Skeleton className="h-10 w-full" />
 						</div>
+					) : isError ? (
+						<ErrorState onRetry={refetch} />
 					) : data?.length ? (
 						<Table>
 							<TableHeader>
@@ -114,9 +119,7 @@ export default function GreeterSchedule() {
 							</TableBody>
 						</Table>
 					) : (
-						<p className="text-lg text-muted-foreground italic">
-							No schedule found for this day.
-						</p>
+						<EmptyState title="No schedule found for this day" />
 					)}
 				</CardContent>
 			</Card>

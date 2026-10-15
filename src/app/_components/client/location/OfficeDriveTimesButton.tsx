@@ -4,6 +4,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@ui/popover";
 import { Loader2Icon } from "lucide-react";
 import { useEffect, useState } from "react";
 import { api } from "~/trpc/react";
+import { ErrorState } from "../../shared/ErrorState";
 
 interface OfficeDriveTimesButtonProps {
 	clientId: number;
@@ -52,9 +53,11 @@ export function OfficeDriveTimesButton({
 						Getting drive times from Waze
 					</div>
 				) : driveTimes.isError ? (
-					<p className="p-3 text-destructive text-sm">
-						Could not load drive times.
-					</p>
+					<ErrorState
+						compact
+						message="Could not load drive times."
+						onRetry={driveTimes.refetch}
+					/>
 				) : driveTimes.data && driveTimes.data.length > 0 ? (
 					<ul className="list-disc p-3">
 						{driveTimes.data.map((office) => (

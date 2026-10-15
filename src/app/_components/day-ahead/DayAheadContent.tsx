@@ -31,6 +31,8 @@ import { IS_DEV, minutesToTimeString } from "~/lib/utils";
 import { api, type RouterOutputs } from "~/trpc/react";
 import { PostVisitMessageButton } from "../appointments/PostVisitMessageButton";
 import { Redact } from "../redaction/Redact";
+import { EmptyState } from "../shared/EmptyState";
+import { ErrorState } from "../shared/ErrorState";
 import {
 	type AvailabilityWindow,
 	buildColorMap,
@@ -423,28 +425,36 @@ export function DayAheadContent() {
 
 	const todayInRange = dateRange.includes(todayStr);
 
-	const { data: listData, isLoading: listLoading } =
-		api.appointments.getDayAhead.useQuery(
-			{
-				asDate: selectedDate,
-				asUserId: canUseDevControls ? asUserId : undefined,
-			},
-			{ enabled: viewMode === "list" },
-		);
+	const {
+		data: listData,
+		isLoading: listLoading,
+		isError: listError,
+		refetch: refetchList,
+	} = api.appointments.getDayAhead.useQuery(
+		{
+			asDate: selectedDate,
+			asUserId: canUseDevControls ? asUserId : undefined,
+		},
+		{ enabled: viewMode === "list" },
+	);
 	const { data: greeterSchedule } = api.greeterProxy.getSchedule.useQuery(
 		{ date: selectedDate },
 		{ enabled: viewMode === "list" },
 	);
 
-	const { data: calData, isLoading: calLoading } =
-		api.appointments.getCalendarRange.useQuery(
-			{
-				startDate: dateRange.at(0) ?? format(new Date(), "yyyy-MM-dd"),
-				endDate: dateRange.at(-1) ?? format(new Date(), "yyyy-MM-dd"),
-				asUserId: canUseDevControls ? asUserId : undefined,
-			},
-			{ enabled: viewMode !== "list" },
-		);
+	const {
+		data: calData,
+		isLoading: calLoading,
+		isError: calError,
+		refetch: refetchCal,
+	} = api.appointments.getCalendarRange.useQuery(
+		{
+			startDate: dateRange.at(0) ?? format(new Date(), "yyyy-MM-dd"),
+			endDate: dateRange.at(-1) ?? format(new Date(), "yyyy-MM-dd"),
+			asUserId: canUseDevControls ? asUserId : undefined,
+		},
+		{ enabled: viewMode !== "list" },
+	);
 
 	const { data: evaluatorCheckinsData } =
 		api.appointments.getEvaluatorCheckins.useQuery(
@@ -589,6 +599,8 @@ export function DayAheadContent() {
 
 	const displayDate = displayDateLabel(viewMode, dateRange);
 	const isLoading = viewMode === "list" ? listLoading : calLoading;
+	const isError = viewMode === "list" ? listError : calError;
+	const refetch = viewMode === "list" ? refetchList : refetchCal;
 
 	return (
 		<TooltipProvider>
@@ -656,6 +668,8 @@ export function DayAheadContent() {
 						<Skeleton className="h-12 w-full" />
 						<Skeleton className="h-12 w-3/4" />
 					</div>
+				) : isError ? (
+					<ErrorState onRetry={refetch} />
 				) : viewMode === "list" ? (
 					listData && (
 						<ListContent
@@ -761,13 +775,12 @@ function ListContent({
 				</div>
 				<GreeterLine greeter={myGreeter} />
 				{!data.hasEvaluatorAccount ? (
-					<p className="text-muted-foreground text-sm">
-						Your account is not linked to an evaluator profile.
-					</p>
+					<EmptyState
+						compact
+						title="Your account is not linked to an evaluator profile"
+					/>
 				) : data.myAppointments.length === 0 ? (
-					<p className="text-muted-foreground text-sm">
-						No appointments scheduled for this day.
-					</p>
+					<EmptyState compact title="No appointments scheduled for this day" />
 				) : (
 					<div className="divide-y divide-border">
 						{data.myAppointments.map((appt) => (

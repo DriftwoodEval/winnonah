@@ -17,6 +17,8 @@ import { useCheckPermission } from "~/hooks/use-check-permission";
 import type { ClientGetOneOutput } from "~/lib/api-types";
 import { api } from "~/trpc/react";
 import { Redact } from "../../redaction/Redact";
+import { EmptyState } from "../../shared/EmptyState";
+import { ErrorState } from "../../shared/ErrorState";
 
 interface EligibleEvaluatorsListProps {
 	client: ClientGetOneOutput;
@@ -33,11 +35,15 @@ export function EligibleEvaluatorsList({
 	const canViewDebug = checkPermission("settings:evaluators");
 	const [showDebug, setShowDebug] = useState(false);
 
-	const { data: eligibleEvaluators, isLoading: isLoadingEvaluators } =
-		api.evaluators.getEligibleForClient.useQuery(client.id ?? 0, {
-			refetchInterval: 60_000,
-			enabled: typeof client.id === "number" && client.id > 0,
-		});
+	const {
+		data: eligibleEvaluators,
+		isLoading: isLoadingEvaluators,
+		isError: evaluatorsError,
+		refetch: refetchEvaluators,
+	} = api.evaluators.getEligibleForClient.useQuery(client.id ?? 0, {
+		refetchInterval: 60_000,
+		enabled: typeof client.id === "number" && client.id > 0,
+	});
 	const { data: offices } = api.offices.getAll.useQuery();
 	const closestOffices = client.closestOffices || [];
 	const initialOfficeKey = closestOffices[0]?.key ?? "all";
@@ -94,6 +100,8 @@ export function EligibleEvaluatorsList({
 								/>
 							))}
 						</div>
+					) : evaluatorsError ? (
+						<ErrorState compact onRetry={refetchEvaluators} />
 					) : filteredEvaluators && filteredEvaluators.length > 0 ? (
 						filteredEvaluators.map((evaluator, index) => (
 							<div key={evaluator.npi}>
@@ -106,9 +114,7 @@ export function EligibleEvaluatorsList({
 							</div>
 						))
 					) : (
-						<p className="text-muted-foreground text-sm">
-							No eligible evaluators found.
-						</p>
+						<EmptyState compact title="No eligible evaluators found" />
 					)}
 				</ScrollArea>
 			</div>
@@ -130,9 +136,7 @@ export function EligibleEvaluatorsList({
 					{isLoadingDebug ? (
 						<Skeleton className="h-(--text-sm) w-full rounded-md" />
 					) : !debugData ? (
-						<p className="text-muted-foreground text-sm">
-							No eligibility details available.
-						</p>
+						<EmptyState compact title="No eligibility details available" />
 					) : (
 						<div className="flex flex-col gap-3">
 							<div className="text-muted-foreground text-xs">

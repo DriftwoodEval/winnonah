@@ -17,6 +17,8 @@ import {
 	REPORT_WRITERS_FOLDER_ID,
 } from "~/lib/constants";
 import { api } from "~/trpc/react";
+import { EmptyState } from "../shared/EmptyState";
+import { ErrorState } from "../shared/ErrorState";
 
 interface ReportQueueProps {
 	sourceId?: string;
@@ -33,11 +35,15 @@ export default function ReportQueue({
 	const can = useCheckPermission();
 	const canApprove = can("reports:approve");
 
-	const { data: folders, isLoading: foldersLoading } =
-		api.google.getFolders.useQuery(
-			{ parentId: sourceId },
-			{ refetchOnWindowFocus: false, enabled: canApprove },
-		);
+	const {
+		data: folders,
+		isLoading: foldersLoading,
+		isError: foldersError,
+		refetch: refetchFolders,
+	} = api.google.getFolders.useQuery(
+		{ parentId: sourceId },
+		{ refetchOnWindowFocus: false, enabled: canApprove },
+	);
 
 	const { data: queueCount, isLoading: queueCountLoading } =
 		api.google.getQueueCount.useQuery(
@@ -198,7 +204,9 @@ export default function ReportQueue({
 									</div>
 								)}
 
-								{folders && folders.length > 0 ? (
+								{foldersError ? (
+									<ErrorState onRetry={refetchFolders} />
+								) : folders && folders.length > 0 ? (
 									<div className="grid gap-1 py-2">
 										{folders.map((folder) => (
 											<button
@@ -226,12 +234,11 @@ export default function ReportQueue({
 										))}
 									</div>
 								) : (
-									<div className="flex h-[200px] flex-col items-center justify-center text-center text-muted-foreground">
-										<InboxIcon className="mb-2 h-8 w-8 opacity-20" />
-										<p className="text-sm italic">
-											No folders found in this directory.
-										</p>
-									</div>
+									<EmptyState
+										className="h-[200px]"
+										icon={InboxIcon}
+										title="No folders found in this directory"
+									/>
 								)}
 							</>
 						)}
