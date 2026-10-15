@@ -105,7 +105,11 @@ export function PersistentStatusAlert({
 				<AlertDescription className={descriptionStyles}>
 					{description}
 				</AlertDescription>
-				{action && <div className="col-start-2 mt-2">{action}</div>}
+				{action && (
+					// Outline buttons don't set a text color, so without this they
+					// inherit the alert's light foreground on a light button background.
+					<div className="col-start-2 mt-2 text-foreground">{action}</div>
+				)}
 			</Alert>
 
 			{showPopup && (
