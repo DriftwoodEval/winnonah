@@ -85,6 +85,7 @@ const getPreviewData = async (ctx: Context, clientId: number) => {
 	const allInsurances = await ctx.db.query.insurances.findMany({
 		with: {
 			aliases: true,
+			evaluators: { with: { evaluator: true } },
 		},
 	});
 
@@ -114,12 +115,14 @@ const getPreviewData = async (ctx: Context, clientId: number) => {
 	// Use the more restrictive of primary/secondary insurance: more
 	// appointments required is more restrictive. If either insurance
 	// requires 2 appointments, the DA and eval visits are separate, so
-	// only DA questionnaires are needed now.
+	// only DA questionnaires are needed now. Insurances no active evaluator
+	// accepts are ignored, since the client can't be scheduled under them.
 	const appointmentsRequired = [
 		findInsuranceRecord(client.primaryInsurance),
 		...(client.secondaryInsurance ?? []).map(findInsuranceRecord),
 	].reduce<number | undefined>((max, record) => {
 		if (record?.appointmentsRequired === undefined) return max;
+		if (!record.evaluators.some((e) => !e.evaluator.archived)) return max;
 		return max === undefined
 			? record.appointmentsRequired
 			: Math.max(max, record.appointmentsRequired);
