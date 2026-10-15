@@ -107,6 +107,7 @@ import {
 	officeDriveTimes,
 	questionnaires,
 	referralMsgLog,
+	reports,
 	schedulingClients,
 	schoolDistricts,
 	specialAccommodationsNotices,
@@ -630,6 +631,7 @@ export const clientRouter = createTRPCRouter({
 				externalRecordRequestRows,
 				driveTimeRows,
 				noteTitleRows,
+				writerRows,
 			] = clientIds.length
 				? await Promise.all([
 						ctx.db
@@ -710,8 +712,24 @@ export const clientRouter = createTRPCRouter({
 							.select({ clientId: notes.clientId, title: notes.title })
 							.from(notes)
 							.where(inArray(notes.clientId, clientIds)),
+						ctx.db
+							.select({
+								clientId: reports.clientId,
+								status: reports.status,
+								writerName: users.name,
+								writerEmail: reports.writerEmail,
+							})
+							.from(reports)
+							.leftJoin(users, eq(users.id, reports.writerUserId))
+							.where(
+								and(
+									inArray(reports.clientId, clientIds),
+									isNull(reports.archivedAt),
+								),
+							)
+							.orderBy(desc(reports.createdAt)),
 					])
-				: [[], [], [], [], [], [], [], []];
+				: [[], [], [], [], [], [], [], [], []];
 
 			const sessionStartedAtByClientId = new Map(
 				rows.map((row) => [row.id, row.sessionStartedAt]),
@@ -742,6 +760,20 @@ export const clientRouter = createTRPCRouter({
 			const noteTitleByClientId = new Map(
 				noteTitleRows.map((row) => [row.clientId, row.title]),
 			);
+
+			// Rows are newest first, so the first report seen per client is the one
+			// currently in play (archived reports are excluded in the query).
+			const reportByClientId = new Map<
+				number,
+				{ writer: string | null; status: string }
+			>();
+			for (const row of writerRows) {
+				if (reportByClientId.has(row.clientId)) continue;
+				reportByClientId.set(row.clientId, {
+					writer: row.writerName ?? row.writerEmail,
+					status: row.status,
+				});
+			}
 
 			const priorAuthDateByClientId = new Map<number, string | null>();
 			for (const row of primaryPolicies) {
@@ -898,6 +930,8 @@ export const clientRouter = createTRPCRouter({
 						location: getLocation(row.id),
 						evaluator: getEvaluatorFirstName(row.id),
 						noteTitle: noteTitleByClientId.get(row.id) || null,
+						reportWriter: reportByClientId.get(row.id)?.writer ?? null,
+						reportStatus: reportByClientId.get(row.id)?.status ?? null,
 					};
 				},
 			);

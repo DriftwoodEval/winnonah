@@ -101,6 +101,7 @@ type ColumnKey =
 	| "location"
 	| "evaluator"
 	| "paAssignedTo"
+	| "reportWriter"
 	| "protocolsScanned"
 	| "notes";
 
@@ -118,6 +119,7 @@ const COLUMN_LABELS: Record<ColumnKey, string> = {
 	location: "Location",
 	evaluator: "Evaluator",
 	paAssignedTo: "PA Assigned To",
+	reportWriter: "Report Writer",
 	protocolsScanned: "Protocols Scanned",
 	notes: "Notes",
 };
@@ -136,6 +138,7 @@ const TOGGLEABLE_COLUMNS: ColumnKey[] = [
 	"location",
 	"evaluator",
 	"paAssignedTo",
+	"reportWriter",
 	"protocolsScanned",
 	"notes",
 ];
@@ -165,6 +168,7 @@ const DEFAULT_VISIBLE_COLUMNS: Record<ToggleKey, boolean> = {
 	location: true,
 	evaluator: true,
 	paAssignedTo: true,
+	reportWriter: true,
 	protocolsScanned: true,
 	notes: true,
 	[FAILURES_TOGGLE_KEY]: true,
@@ -189,6 +193,7 @@ const SORT_KEYS = [
 	"location",
 	"evaluator",
 	"paAssignedTo",
+	"reportWriter",
 ] as const;
 type SortKey = (typeof SORT_KEYS)[number];
 
@@ -238,6 +243,7 @@ const FILTER_PARAM_KEYS = [
 	"location",
 	"evaluator",
 	"paAssignedTo",
+	"reportWriter",
 	"hasFailures",
 ] as const;
 
@@ -289,6 +295,7 @@ interface SortableClient {
 	location: string | null;
 	evaluator: string | null;
 	paAssignedTo: string | null;
+	reportWriter: string | null;
 }
 
 // Mirrors getPriorityInfo()'s SQL buckets/tie-break (server/api/routers/clients/client.ts)
@@ -364,6 +371,8 @@ function compareClients(
 			return compareStrings(a.evaluator, b.evaluator) * dir;
 		case "paAssignedTo":
 			return compareStrings(a.paAssignedTo, b.paAssignedTo) * dir;
+		case "reportWriter":
+			return compareStrings(a.reportWriter, b.reportWriter) * dir;
 		default:
 			return compareStrings(a.fullName, b.fullName) * dir;
 	}
@@ -558,6 +567,7 @@ interface DirectoryFilters {
 	location?: string[];
 	evaluator?: string[];
 	paAssignedTo?: string[];
+	reportWriter?: string[];
 	hasFailures?: boolean;
 	sort?: string;
 	sortDir?: string;
@@ -660,6 +670,15 @@ function renderColumnCellContent(
 			return (
 				<span className="text-muted-foreground">
 					{client.paAssignedTo || "—"}
+				</span>
+			);
+		case "reportWriter":
+			return (
+				<span
+					className="text-muted-foreground"
+					title={client.reportStatus ?? undefined}
+				>
+					{client.reportWriter ?? "—"}
 				</span>
 			);
 		case "protocolsScanned":
@@ -890,6 +909,14 @@ function renderColumnField(
 					value={client.paAssignedTo || "—"}
 				/>
 			);
+		case "reportWriter":
+			return (
+				<InfoField
+					key={key}
+					label="Report Writer"
+					value={client.reportWriter ?? "—"}
+				/>
+			);
 		case "protocolsScanned":
 			return (
 				<InfoField
@@ -1003,6 +1030,7 @@ export function ClientDirectory() {
 	const locationFilter = getArrayParam("location");
 	const evaluatorFilter = getArrayParam("evaluator");
 	const paAssignedTo = getArrayParam("paAssignedTo");
+	const reportWriterFilter = getArrayParam("reportWriter");
 	const hasFailures = searchParams.get("hasFailures") === "true";
 	// "priority" is the default, matching the homepage client search sort.
 	const rawSort = searchParams.get("sort");
@@ -1091,6 +1119,9 @@ export function ClientDirectory() {
 		? evaluatorFilter
 		: [];
 	const effectivePaAssignedTo = visibleColumns.paAssignedTo ? paAssignedTo : [];
+	const effectiveReportWriterFilter = visibleColumns.reportWriter
+		? reportWriterFilter
+		: [];
 	const effectiveHasFailures = visibleColumns[FAILURES_TOGGLE_KEY]
 		? hasFailures
 		: false;
@@ -1115,6 +1146,7 @@ export function ClientDirectory() {
 		location: visibleColumns.location,
 		evaluator: visibleColumns.evaluator,
 		paAssignedTo: visibleColumns.paAssignedTo,
+		reportWriter: visibleColumns.reportWriter,
 	};
 	const effectiveSort: SortKey = sortColumnVisible[sort] ? sort : "name";
 
@@ -1335,6 +1367,8 @@ export function ClientDirectory() {
 		if (evalScheduledFilter.length)
 			filtersToSave.evalScheduled = evalScheduledFilter;
 		if (paAssignedTo.length) filtersToSave.paAssignedTo = paAssignedTo;
+		if (reportWriterFilter.length)
+			filtersToSave.reportWriter = reportWriterFilter;
 		if (hasFailures) filtersToSave.hasFailures = true;
 		if (sort !== "priority") filtersToSave.sort = sort;
 		if (sort !== "priority" && sortDir !== "asc")
@@ -1444,6 +1478,10 @@ export function ClientDirectory() {
 				const assignedTo = client.paAssignedTo || NONE_FILTER_VALUE;
 				if (!effectivePaAssignedTo.includes(assignedTo)) return false;
 			}
+			if (effectiveReportWriterFilter.length > 0) {
+				const writer = client.reportWriter || NONE_FILTER_VALUE;
+				if (!effectiveReportWriterFilter.includes(writer)) return false;
+			}
 
 			if (effectiveHasFailures && client.unresolvedFailures.length === 0) {
 				return false;
@@ -1471,6 +1509,7 @@ export function ClientDirectory() {
 		effectiveLocationFilter,
 		effectiveEvaluatorFilter,
 		effectivePaAssignedTo,
+		effectiveReportWriterFilter,
 		effectiveHasFailures,
 		effectiveSort,
 		sortDir,
@@ -1489,6 +1528,14 @@ export function ClientDirectory() {
 		const names = new Set<string>();
 		for (const client of rawClients ?? []) {
 			if (client.paAssignedTo) names.add(client.paAssignedTo);
+		}
+		return toFilterOptions([...names].sort());
+	}, [rawClients]);
+
+	const reportWriterOptions: FilterOption[] = useMemo(() => {
+		const names = new Set<string>();
+		for (const client of rawClients ?? []) {
+			if (client.reportWriter) names.add(client.reportWriter);
 		}
 		return toFilterOptions([...names].sort());
 	}, [rawClients]);
@@ -1743,6 +1790,23 @@ export function ClientDirectory() {
 						options={withNone(paAssignedToOptions)}
 						sort={columnSort("paAssignedTo")}
 						values={paAssignedTo}
+					/>
+				</AnimatedCellContent>
+			</TableHead>
+		),
+		reportWriter: (
+			<TableHead
+				className={collapsibleCellClass(visibleColumns.reportWriter)}
+				key="reportWriter"
+			>
+				<AnimatedCellContent visible={visibleColumns.reportWriter}>
+					<DirectoryColumnFilter
+						label="Report Writer"
+						onClear={() => clearArrayParam("reportWriter")}
+						onToggle={(value) => toggleArrayParam("reportWriter", value)}
+						options={withNone(reportWriterOptions)}
+						sort={columnSort("reportWriter")}
+						values={reportWriterFilter}
 					/>
 				</AnimatedCellContent>
 			</TableHead>
