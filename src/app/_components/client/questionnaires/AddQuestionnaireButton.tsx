@@ -133,9 +133,14 @@ export function AddQuestionnaireButton({
 			addSingleQDialog.closeDialog();
 
 			qsSent &&
-				["PENDING", "COMPLETED", "IGNORING", "SPANISH", "LANGUAGE"].includes(
-					data?.status ?? "",
-				) &&
+				[
+					"PENDING",
+					"COMPLETED",
+					"IGNORING",
+					"RESPONDED",
+					"SPANISH",
+					"LANGUAGE",
+				].includes(data?.status ?? "") &&
 				(!qsSent?.["DA Qs Sent"] || !qsSent?.["EVAL Qs Sent"]) &&
 				setShouldBlockNavigation(true);
 		},

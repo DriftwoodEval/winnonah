@@ -306,6 +306,7 @@ const STATUS_COLOR_MAP: Record<string, string> = {
 	PENDING: "text-warning",
 	SPANISH: "text-warning",
 	IGNORING: "text-error",
+	RESPONDED: "text-error",
 };
 
 export function getStatusColorClass(

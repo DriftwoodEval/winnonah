@@ -100,6 +100,7 @@ const QUESTIONNAIRE_STATUS_DESCRIPTIONS: Partial<
 	POSTEVAL_PENDING:
 		"Reminders with 'additional info needed' wording will be sent.",
 	IGNORING: `${noRemind} Will remind admins to check on.`,
+	RESPONDED: `${noRemind} Client replied to a text. Will remind admins to check on.`,
 	SPANISH: noRemind,
 	LANGUAGE: noCheck,
 	TEACHER: noCheck,
