@@ -10,6 +10,7 @@ from driftwood_common.quo_client import (
     is_transient_error,
     should_continue_polling,
 )
+from driftwood_common.timezone import now_business
 from ratelimit import RateLimitException
 
 
@@ -198,14 +199,16 @@ class TestHasSentMessage:
     def test_matches_identical_text_ignoring_whitespace(self):
         client = self._client([TestGetMessages._msg("Hello  there,\nfriend")])  # noqa: SLF001
         assert client.has_sent_message(
-            "8435550100", "Hello there, friend", date.today()
+            "8435550100", "Hello there, friend", now_business().date()
         )
 
     def test_different_text_does_not_match(self):
         client = self._client([TestGetMessages._msg("A different reminder")])  # noqa: SLF001
-        assert not client.has_sent_message("8435550100", "Hello there", date.today())
+        assert not client.has_sent_message(
+            "8435550100", "Hello there", now_business().date()
+        )
 
     def test_matching_text_before_since_does_not_match(self):
         old = {"text": "Hello", "createdAt": "2000-01-01T00:00:00+00:00"}
         client = self._client([old])
-        assert not client.has_sent_message("8435550100", "Hello", date.today())
+        assert not client.has_sent_message("8435550100", "Hello", now_business().date())
