@@ -235,6 +235,13 @@ export const HOME_WIDGET_DEFS: HomeWidgetDef[] = [
 		sizing: "content",
 	},
 	{
+		id: "special-accommodations",
+		label: "Interpreter Notices to Approve",
+		permission: "issues:special-accommodations",
+		category: "issues",
+		sizing: "content",
+	},
+	{
 		id: "duplicate-drive",
 		label: "Duplicate Drive Folders",
 		permission: "issues:duplicate-drive",

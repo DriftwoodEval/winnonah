@@ -60,7 +60,11 @@ interface IssueListProps {
 	rowAction?: (client: ClientWithIssueInfo) => React.ReactNode;
 }
 
-const SpecialAccommodationsActions = ({ clientId }: { clientId: number }) => {
+export const SpecialAccommodationsActions = ({
+	clientId,
+}: {
+	clientId: number;
+}) => {
 	const utils = api.useUtils();
 	const decide = api.clients.decideSpecialAccommodations.useMutation({
 		onSuccess: () => utils.clients.getSpecialAccommodations.invalidate(),
