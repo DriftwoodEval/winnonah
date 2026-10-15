@@ -61,6 +61,8 @@ import { useCheckPermission } from "~/hooks/use-check-permission";
 import { useMediaQuery } from "~/hooks/use-media-query";
 import { logger } from "~/lib/logger";
 import { api, type RouterOutputs } from "~/trpc/react";
+import { EmptyState } from "../shared/EmptyState";
+import { ErrorState } from "../shared/ErrorState";
 
 const log = logger.child({ module: "QuestionnaireRulesTable" });
 
@@ -488,12 +490,19 @@ function RuleActionsMenu({ rule }: { rule: Rule }) {
 export default function QuestionnaireRulesTable() {
 	const can = useCheckPermission();
 	const canEdit = can("settings:questionnaireRules");
-	const { data: rules, isLoading } = api.questionnaires.getAllRules.useQuery();
+	const {
+		data: rules,
+		isLoading,
+		isError,
+		refetch,
+	} = api.questionnaires.getAllRules.useQuery();
 	// Renders only one of the table/card layouts (rather than both, CSS-hidden)
 	// since each row mounts its own DropdownMenu/Dialog/AlertDialog - doubling
 	// them up caused Radix's scroll-lock bookkeeping to fight itself when a
 	// menu opened on mobile.
 	const isMobile = useMediaQuery("(max-width: 1023px)");
+
+	if (isError) return <ErrorState onRetry={refetch} />;
 
 	return (
 		<div className="px-4">
@@ -611,11 +620,8 @@ export default function QuestionnaireRulesTable() {
 								))}
 							{!isLoading && rules?.length === 0 && (
 								<TableRow>
-									<TableCell
-										className="h-24 text-center"
-										colSpan={canEdit ? 6 : 5}
-									>
-										No rules configured.
+									<TableCell colSpan={canEdit ? 6 : 5}>
+										<EmptyState title="No rules configured" />
 									</TableCell>
 								</TableRow>
 							)}
@@ -715,9 +721,7 @@ export default function QuestionnaireRulesTable() {
 							</div>
 						))}
 					{!isLoading && rules?.length === 0 && (
-						<p className="py-12 text-center text-muted-foreground text-sm">
-							No rules configured.
-						</p>
+						<EmptyState title="No rules configured" />
 					)}
 				</div>
 			)}

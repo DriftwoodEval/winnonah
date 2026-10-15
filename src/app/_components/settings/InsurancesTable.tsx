@@ -57,6 +57,8 @@ import { logger } from "~/lib/logger";
 import type { Insurance } from "~/lib/models";
 import { additionalInsuranceAppointmentsSchema } from "~/lib/validations/config";
 import { api } from "~/trpc/react";
+import { EmptyState } from "../shared/EmptyState";
+import { ErrorState } from "../shared/ErrorState";
 
 const log = logger.child({ module: "InsurancesTable" });
 
@@ -677,7 +679,12 @@ function InsuranceActionsMenu({
 export default function InsurancesTable() {
 	const can = useCheckPermission();
 	const canEdit = can("settings:insurances");
-	const { data: insurances, isLoading } = api.insurances.getAll.useQuery();
+	const {
+		data: insurances,
+		isLoading,
+		isError,
+		refetch,
+	} = api.insurances.getAll.useQuery();
 	// Renders only one of the table/card layouts (rather than both, CSS-hidden)
 	// since each row mounts its own DropdownMenu/Dialog/AlertDialog - doubling
 	// them up caused Radix's scroll-lock bookkeeping to fight itself when a
@@ -686,6 +693,8 @@ export default function InsurancesTable() {
 
 	if (isLoading)
 		return <p className="p-4 text-center">Loading insurances...</p>;
+
+	if (isError) return <ErrorState onRetry={refetch} />;
 
 	return (
 		<div className="px-4">
@@ -776,8 +785,8 @@ export default function InsurancesTable() {
 							))}
 							{insurances?.length === 0 && (
 								<TableRow>
-									<TableCell className="h-24 text-center" colSpan={6}>
-										No insurances found.
+									<TableCell colSpan={6}>
+										<EmptyState title="No insurances found" />
 									</TableCell>
 								</TableRow>
 							)}
@@ -862,9 +871,7 @@ export default function InsurancesTable() {
 						</div>
 					))}
 					{insurances?.length === 0 && (
-						<p className="py-12 text-center text-muted-foreground text-sm">
-							No insurances found.
-						</p>
+						<EmptyState title="No insurances found" />
 					)}
 				</div>
 			)}

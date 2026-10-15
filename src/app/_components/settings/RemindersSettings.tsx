@@ -26,6 +26,8 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { formatInBusinessTime, formatReminderOffset } from "~/lib/utils";
 import { api, type RouterOutputs } from "~/trpc/react";
+import { EmptyState } from "../shared/EmptyState";
+import { ErrorState } from "../shared/ErrorState";
 import OfficesSettings from "./OfficesSettings";
 import { ReminderTemplateDialog } from "./ReminderTemplateDialog";
 
@@ -42,11 +44,19 @@ export default function ReminderSettings() {
 	const { data: offices } = api.offices.getAll.useQuery({
 		includeArchived: true,
 	});
-	const { data: logs } = api.reminders.getLogs.useQuery({
+	const {
+		data: logs,
+		isError: logsError,
+		refetch: refetchLogs,
+	} = api.reminders.getLogs.useQuery({
 		limit: 50,
 		offset: 0,
 	});
-	const { data: replyLogs } = api.reminders.getReplyLogs.useQuery({
+	const {
+		data: replyLogs,
+		isError: repliesError,
+		refetch: refetchReplies,
+	} = api.reminders.getReplyLogs.useQuery({
 		limit: 50,
 		offset: 0,
 	});
@@ -211,10 +221,10 @@ export default function ReminderSettings() {
 					<CardDescription>The 50 most recent reminders sent.</CardDescription>
 				</CardHeader>
 				<CardContent>
-					{!logs?.length ? (
-						<p className="text-muted-foreground text-sm">
-							No reminders sent yet.
-						</p>
+					{logsError ? (
+						<ErrorState compact onRetry={refetchLogs} />
+					) : !logs?.length ? (
+						<EmptyState compact title="No reminders sent yet" />
 					) : (
 						<div className="max-h-96 overflow-y-auto">
 							<Table>
@@ -270,10 +280,10 @@ export default function ReminderSettings() {
 					</CardDescription>
 				</CardHeader>
 				<CardContent>
-					{!confirmationReplies?.length ? (
-						<p className="text-muted-foreground text-sm">
-							No confirmation replies yet.
-						</p>
+					{repliesError ? (
+						<ErrorState compact onRetry={refetchReplies} />
+					) : !confirmationReplies?.length ? (
+						<EmptyState compact title="No confirmation replies yet" />
 					) : (
 						<div className="max-h-96 overflow-y-auto">
 							<Table>
@@ -335,10 +345,10 @@ export default function ReminderSettings() {
 					</CardDescription>
 				</CardHeader>
 				<CardContent>
-					{!nonConfirmationReplies?.length ? (
-						<p className="text-muted-foreground text-sm">
-							No non-confirmation replies yet.
-						</p>
+					{repliesError ? (
+						<ErrorState compact onRetry={refetchReplies} />
+					) : !nonConfirmationReplies?.length ? (
+						<EmptyState compact title="No non-confirmation replies yet" />
 					) : (
 						<div className="max-h-96 overflow-y-auto">
 							<Table>
