@@ -39,6 +39,7 @@ declare module "next-auth" {
 			permissions: PermissionsObject;
 			roleId?: number | null;
 			isEvaluator?: boolean;
+			hasEvaluatorDashboard?: boolean;
 			clientFilters?: string;
 			archived?: boolean | null;
 			claimedReportFolder?: { name: string; id: string }[] | null;
@@ -302,9 +303,11 @@ export const authConfig = {
 
 				const evaluatorProfile = await db.query.evaluators.findFirst({
 					where: eq(evaluators.email, targetUser.email ?? ""),
-					columns: { npi: true },
+					columns: { npi: true, evaluatorDashboard: true },
 				});
 				session.user.isEvaluator = !!evaluatorProfile;
+				session.user.hasEvaluatorDashboard =
+					evaluatorProfile?.evaluatorDashboard ?? false;
 
 				session.user.isImpersonating =
 					isImpersonating && targetUser.id === approvedImpersonationTargetId;

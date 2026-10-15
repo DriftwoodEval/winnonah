@@ -49,7 +49,7 @@ export function EvaluatorDashboard() {
 	const can = useCheckPermission();
 	const { data: session, status } = useSession();
 	const isAdmin = can("evaluator-dashboard:admin");
-	const isEvaluator = session?.user.isEvaluator ?? false;
+	const isEvaluator = session?.user.hasEvaluatorDashboard ?? false;
 	const [tab, setTab] = useState<"active" | "archived">("active");
 	const [previewing, setPreviewing] = useState(false);
 

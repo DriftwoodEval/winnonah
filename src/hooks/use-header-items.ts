@@ -25,7 +25,8 @@ export function useHeaderItemAvailability(): Record<HeaderItemId, boolean> {
 	const can = useCheckPermission();
 
 	const canSeeEvalReportDashboard =
-		(session?.user.isEvaluator ?? false) || can("evaluator-dashboard:admin");
+		(session?.user.hasEvaluatorDashboard ?? false) ||
+		can("evaluator-dashboard:admin");
 	const canSeeClaimReports =
 		session?.user.maxClaimedReports !== 0 || can("reports:approve");
 	const canSeeReports =
@@ -59,7 +60,8 @@ export function useHeaderItemLabels(): Partial<Record<HeaderItemId, string>> {
 	const { data: session } = useSession();
 	const can = useCheckPermission();
 	const canSeeEvalReportDashboard =
-		(session?.user.isEvaluator ?? false) || can("evaluator-dashboard:admin");
+		(session?.user.hasEvaluatorDashboard ?? false) ||
+		can("evaluator-dashboard:admin");
 	const { data: config } = api.evaluatorDashboard.getConfig.useQuery(
 		undefined,
 		{ enabled: canSeeEvalReportDashboard },
