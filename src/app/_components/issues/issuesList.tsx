@@ -229,7 +229,7 @@ export const IssueList = ({
 										<Redact>{client.fullName}</Redact>{" "}
 										{client.additionalInfo && (
 											<span className="text-muted-foreground">
-												{client.additionalInfo}
+												<Redact>{client.additionalInfo}</Redact>
 											</span>
 										)}
 										{client.initialFailureDate && (
@@ -258,7 +258,11 @@ export const IssueList = ({
 														{lastAttempt.attemptedBy
 															? ` – ${lastAttempt.attemptedBy}`
 															: ""}
-														{lastAttempt.notes ? `: ${lastAttempt.notes}` : ""}
+														{lastAttempt.notes ? (
+															<>
+																: <Redact>{lastAttempt.notes}</Redact>
+															</>
+														) : null}
 													</div>
 												);
 											})()}
@@ -417,7 +421,11 @@ function LogOutreachAttemptButton({ client }: { client: ClientWithIssueInfo }) {
 								<li className="text-muted-foreground" key={attempt.attemptedAt}>
 									{format(new Date(attempt.attemptedAt), "MMM d, yyyy h:mm a")}
 									{attempt.attemptedBy ? ` – ${attempt.attemptedBy}` : ""}
-									{attempt.notes ? `: ${attempt.notes}` : ""}
+									{attempt.notes ? (
+										<>
+											: <Redact>{attempt.notes}</Redact>
+										</>
+									) : null}
 								</li>
 							))}
 						</ul>
@@ -974,7 +982,7 @@ export const ClientsSharingQuestionnaires = ({
 								<div className="mb-2 font-medium text-muted-foreground text-sm">
 									Link:{" "}
 									<Link href={link ?? "#"} target="_blank">
-										{link}
+										<Redact>{link}</Redact>
 									</Link>
 								</div>
 								<div className="space-y-2">

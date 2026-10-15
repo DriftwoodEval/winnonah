@@ -14,6 +14,7 @@ import { useCheckPermission } from "~/hooks/use-check-permission";
 import { useMediaQuery } from "~/hooks/use-media-query";
 import type { HeaderItemId } from "~/lib/layout/header-items";
 import { api } from "~/trpc/react";
+import { Redact } from "../redaction/Redact";
 import { RedactionToggle } from "../redaction/RedactionToggle";
 import { GlobalClientSearch } from "./GlobalClientSearch";
 import { HeaderItemsCustomizer } from "./HeaderItemsCustomizer";
@@ -68,7 +69,7 @@ export function HeaderActions() {
 									href={`/clients/${client.hash}`}
 									key={client.hash}
 								>
-									{client.name}
+									<Redact>{client.name}</Redact>
 								</Link>
 							))}
 						</div>
