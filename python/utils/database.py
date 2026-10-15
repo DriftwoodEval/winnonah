@@ -1371,16 +1371,22 @@ def get_medicaid_clients_with_ids(
     return list(clients_by_id.values())
 
 
-def _resolve_scm_insurance_names(cursor: DictCursor) -> list[str]:
-    """All insurance names (shortNames + aliases) that map to SCM (Medicaid)."""
+# Insurances whose non-English clients get a Special Accommodations notice.
+SPECIAL_ACCOMMODATIONS_INSURANCES = [SCM_ALIAS, "BabyNet"]
+
+
+def _resolve_accommodation_insurance_names(cursor: DictCursor) -> list[str]:
+    """All insurance names (shortNames + aliases) that map to SCM (Medicaid) or
+    BabyNet."""
+    alias_placeholders = ", ".join(["%s"] * len(SPECIAL_ACCOMMODATIONS_INSURANCES))
     cursor.execute(
         f"""
         SELECT i.id
         FROM `{TABLE_INSURANCE}` i
         LEFT JOIN `{TABLE_INSURANCE_ALIAS}` a ON a.insuranceId = i.id
-        WHERE i.shortName = %s OR a.name = %s
+        WHERE i.shortName IN ({alias_placeholders}) OR a.name IN ({alias_placeholders})
         """,
-        (SCM_ALIAS, SCM_ALIAS),
+        SPECIAL_ACCOMMODATIONS_INSURANCES * 2,
     )
     scm_ids = list({row["id"] for row in cursor.fetchall()})
     if not scm_ids:
@@ -1404,7 +1410,7 @@ def get_non_english_medicaid_clients_for_notice(
     connection: Connection[DictCursor] | None = None,
 ) -> list[dict]:
     """Active, non-English-speaking clients among client_ids who have SCM
-    (Medicaid) primary insurance with a policy number and have not already had a
+    (Medicaid) or BabyNet primary insurance with a policy number and have not already had a
     SCDHHS Special Accommodations notice sent.
 
     Returns id, firstName, lastName, language, insuranceNumber.
@@ -1415,7 +1421,7 @@ def get_non_english_medicaid_clients_for_notice(
         return []
 
     with connection.cursor() as cursor:
-        scm_names = _resolve_scm_insurance_names(cursor)
+        scm_names = _resolve_accommodation_insurance_names(cursor)
         if not scm_names:
             return []
 
