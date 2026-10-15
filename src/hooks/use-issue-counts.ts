@@ -90,7 +90,7 @@ export function useIssueCounts(
 	const { data: specialAccommodations } =
 		api.clients.getSpecialAccommodations.useQuery(
 			undefined,
-			query(can("issues:insurance-mismatch")),
+			query(can("issues:special-accommodations")),
 		);
 	const { data: medicaidNotFound } = api.clients.getMedicaidNotFound.useQuery(
 		undefined,

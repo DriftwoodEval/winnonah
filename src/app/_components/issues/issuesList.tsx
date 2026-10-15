@@ -1353,7 +1353,7 @@ export function IssuesList() {
 		refetch: refetchSpecialAccommodations,
 	} = api.clients.getSpecialAccommodations.useQuery(undefined, {
 		refetchInterval: 60_000,
-		enabled: can("issues:insurance-mismatch"),
+		enabled: can("issues:special-accommodations"),
 	});
 	const {
 		data: medicaidNotFound,

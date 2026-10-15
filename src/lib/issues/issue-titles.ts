@@ -60,7 +60,7 @@ export const ISSUE_LIST_PERMISSIONS: Record<IssueListId, PermissionId> = {
 	unreviewedRecords: "issues:unreviewed-records",
 	charterSchoolConfirm: "issues:charter-school-confirm",
 	insuranceMismatch: "issues:insurance-mismatch",
-	specialAccommodations: "issues:insurance-mismatch",
+	specialAccommodations: "issues:special-accommodations",
 	medicaidNotFound: "issues:insurance-mismatch",
 	medicaidIneligible: "issues:insurance-mismatch",
 	duplicateDriveFolders: "issues:duplicate-drive",

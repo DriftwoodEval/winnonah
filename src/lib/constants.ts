@@ -316,6 +316,10 @@ export const PERMISSIONS = {
 						id: "issues:charter-school-confirm",
 						title: "Charter School Awaiting Confirmation",
 					},
+					{
+						id: "issues:special-accommodations",
+						title: "Interpreter Notices to Approve",
+					},
 					{ id: "issues:duplicate-drive", title: "Duplicate Drive Folders" },
 					{
 						id: "issues:duplicate-questionnaires",

@@ -2164,7 +2164,7 @@ export const clientRouter = createTRPCRouter({
 	}),
 
 	getSpecialAccommodations: protectedProcedure.query(async ({ ctx }) => {
-		assertPermission(ctx.session.user, "issues:insurance-mismatch");
+		assertPermission(ctx.session.user, "issues:special-accommodations");
 
 		return fetchIssueList(ctx, "getSpecialAccommodations", () =>
 			getSpecialAccommodationsList(ctx.db),
@@ -2181,7 +2181,7 @@ export const clientRouter = createTRPCRouter({
 			}),
 		)
 		.mutation(async ({ ctx, input }) => {
-			assertPermission(ctx.session.user, "issues:insurance-mismatch");
+			assertPermission(ctx.session.user, "issues:special-accommodations");
 
 			await ctx.db
 				.update(specialAccommodationsNotices)
