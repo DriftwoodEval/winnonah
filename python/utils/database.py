@@ -1106,7 +1106,10 @@ MEDICAID_SHORT_NAMES = [
     "Molina",
     "MolinaMarketplace",
 ]
-MEDICAID_RECHECK_DAYS = 30
+# Clients are rechecked once per calendar month (business time). Each cron run
+# rechecks at most this many of them, oldest first, so the portal isn't hit with
+# every active client at once on the 1st. Clients never checked are not capped.
+MEDICAID_RECHECK_BATCH_SIZE = 30
 DEFAULT_EMAIL = "barbara@driftwoodeval.com"
 
 
@@ -1336,11 +1339,18 @@ def get_medicaid_clients_with_ids(
     """
     assert connection is not None
     shortname_placeholders = ", ".join(["%s"] * len(MEDICAID_SHORT_NAMES))
+    month_start_utc = business_to_utc(
+        now_business().replace(
+            day=1, hour=0, minute=0, second=0, microsecond=0, tzinfo=None
+        )
+    ).replace(tzinfo=None)
 
     with connection.cursor() as cursor:
         cursor.execute(
             f"""
-            SELECT c.id, c.firstName, c.lastName, p.policyId, TRIM(p.insuranceNumber) AS insuranceNumber
+            SELECT c.id, {
+                "c.medicaidCheckedAt, " if only_due else ""
+            }c.firstName, c.lastName, p.policyId, TRIM(p.insuranceNumber) AS insuranceNumber
             FROM `{TABLE_CLIENT}` c
             JOIN `{TABLE_CLIENT_INSURANCE_POLICY}` p ON p.clientId = c.id
             WHERE COALESCE(p.insuranceCompanyName, p.policyCompanyName) IN (
@@ -1356,13 +1366,13 @@ def get_medicaid_clients_with_ids(
               AND (p.policyEndDate IS NULL OR p.policyEndDate >= CURDATE())
               AND TRIM(p.insuranceNumber) REGEXP '^[0-9]{{10}}$'
               {
-                " AND (c.medicaidCheckedAt IS NULL OR c.medicaidCheckedAt < UTC_TIMESTAMP() - INTERVAL %s DAY)"
+                " AND (c.medicaidCheckedAt IS NULL OR c.medicaidCheckedAt < %s)"
                 if only_due
                 else ""
             }
             ORDER BY c.lastName, c.firstName, c.id, p.policyType = 'PRIMARY' DESC
             """,
-            MEDICAID_SHORT_NAMES * 2 + ([MEDICAID_RECHECK_DAYS] if only_due else []),
+            MEDICAID_SHORT_NAMES * 2 + ([month_start_utc] if only_due else []),
         )
         rows = cursor.fetchall()
 
@@ -1370,7 +1380,16 @@ def get_medicaid_clients_with_ids(
     clients_by_id: dict[int, dict] = {}
     for row in rows:
         clients_by_id.setdefault(row["id"], row)
-    return list(clients_by_id.values())
+    result = list(clients_by_id.values())
+    if not only_due:
+        return result
+
+    new_clients = [c for c in result if c["medicaidCheckedAt"] is None]
+    stale = sorted(
+        (c for c in result if c["medicaidCheckedAt"] is not None),
+        key=lambda c: c["medicaidCheckedAt"],
+    )
+    return new_clients + stale[:MEDICAID_RECHECK_BATCH_SIZE]
 
 
 # Insurances whose non-English clients get a Special Accommodations notice.

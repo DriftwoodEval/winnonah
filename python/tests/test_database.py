@@ -7,7 +7,7 @@ import pandas as pd
 import pytest
 
 from utils.database import (
-    MEDICAID_RECHECK_DAYS,
+    MEDICAID_RECHECK_BATCH_SIZE,
     _build_reactivation_note_block,
     _build_reactivation_review_separator,
     _get_date_cache,
@@ -916,6 +916,7 @@ class TestGetMedicaidClientsWithIds:
     def test_client_with_primary_and_secondary_is_returned_once_using_primary(self):
         primary = {
             "id": 1,
+            "medicaidCheckedAt": None,
             "firstName": "A",
             "lastName": "B",
             "insuranceNumber": "1111111111",
@@ -923,6 +924,7 @@ class TestGetMedicaidClientsWithIds:
         secondary = {**primary, "insuranceNumber": "2222222222"}
         other = {
             "id": 2,
+            "medicaidCheckedAt": None,
             "firstName": "C",
             "lastName": "D",
             "insuranceNumber": "3333333333",
@@ -957,9 +959,31 @@ class TestGetMedicaidClientsWithIds:
         due_query, due_params = due_cursor.executed[0]
         all_query, all_params = all_cursor.executed[0]
         assert "medicaidCheckedAt" in due_query
-        assert due_params[-1] == MEDICAID_RECHECK_DAYS
+        assert isinstance(due_params[-1], dt.datetime)
         assert "medicaidCheckedAt" not in all_query
         assert len(due_params) == len(all_params) + 1
+
+    def test_only_due_caps_rechecks_but_not_new_clients(self):
+        def row(i, checked):
+            return {
+                "id": i,
+                "medicaidCheckedAt": checked,
+                "firstName": "A",
+                "lastName": "B",
+                "insuranceNumber": "1111111111",
+            }
+
+        stale = [
+            row(i, dt.datetime(2020, 1, 1) + dt.timedelta(days=i))
+            for i in range(MEDICAID_RECHECK_BATCH_SIZE + 5)
+        ]
+        new = [row(1000, None), row(1001, None)]
+        conn = FakeConnection(FakeCursor(fetchall_result=list(reversed(stale)) + new))
+
+        result = get_medicaid_clients_with_ids(only_due=True, connection=conn)
+
+        assert [c["id"] for c in result[:2]] == [1000, 1001]
+        assert [c["id"] for c in result[2:]] == list(range(MEDICAID_RECHECK_BATCH_SIZE))
 
 
 FIELDS = {
