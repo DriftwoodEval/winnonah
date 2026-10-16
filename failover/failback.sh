@@ -153,9 +153,9 @@ slack "Standby tunnel stopped. Starting primary tunnel..."
 # The regular cron sync (sync-kimai-data.sh) only runs primary -> standby, so
 # without this pull primary would come back up serving stale attachments.
 log "Pulling kimai data/plugins from standby..."
-rsync -az -e "ssh -i ${STANDBY_SSH_KEY_PATH} -o LogLevel=quiet" \
+rsync -az --omit-dir-times -e "ssh -i ${STANDBY_SSH_KEY_PATH} -o LogLevel=quiet" \
   "${STANDBY_SSH_USER}@${STANDBY_TAILSCALE_IP}:~/winnonah/kimai/data/" "$ROOT/kimai/data/"
-rsync -az -e "ssh -i ${STANDBY_SSH_KEY_PATH} -o LogLevel=quiet" \
+rsync -az --omit-dir-times -e "ssh -i ${STANDBY_SSH_KEY_PATH} -o LogLevel=quiet" \
   "${STANDBY_SSH_USER}@${STANDBY_TAILSCALE_IP}:~/winnonah/kimai/plugins/" "$ROOT/kimai/plugins/"
 
 # 4. Start primary caddy, cloudflared, and winnonah-a
