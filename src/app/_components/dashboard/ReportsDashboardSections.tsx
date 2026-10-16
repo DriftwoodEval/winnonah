@@ -5,20 +5,18 @@ import {
 	AccordionItem,
 	AccordionTrigger,
 } from "@ui/accordion";
-import { Badge } from "@ui/badge";
 import { Button } from "@ui/button";
 import { ScrollArea } from "@ui/scroll-area";
 import { Separator } from "@ui/separator";
 import { MapIcon, Pin, PinOff } from "lucide-react";
-import Link from "next/link";
 import { useSession } from "next-auth/react";
 import { useEffect, useRef } from "react";
 import { usePersistedScroll } from "~/hooks/use-persisted-scroll";
-import { getHexFromColor } from "~/lib/colors";
-import { canAccessReportsBeta, formatCurrency } from "~/lib/utils";
+import { canAccessReportsBeta } from "~/lib/utils";
 import type { RouterOutputs } from "~/trpc/react";
 import { api } from "~/trpc/react";
-import { Redact } from "../redaction/Redact";
+import { type BillingField, SectionReportCard } from "../reports/ReportCards";
+import { ReportsLegend } from "../reports/report-shared";
 import { ErrorState } from "../shared/ErrorState";
 import {
 	DismissButton,
@@ -32,6 +30,10 @@ type Report = RouterOutputs["reports"]["list"][number];
 export interface ReportSection {
 	id: string;
 	title: string;
+	// The step this section waits on, and the label for the control that
+	// completes it.
+	doneField: "writerCompletedAt" | BillingField;
+	doneLabel: string;
 	reports: Report[];
 }
 
@@ -69,32 +71,41 @@ export function useReportSectionsQuery(): {
 	const inProgress = reports.filter(
 		(r) => r.status !== "pending" && r.status !== "queued",
 	);
-	const sections: {
-		id: string;
-		title: string;
+	const sections: (Omit<ReportSection, "reports"> & {
 		matches: (r: Report) => boolean;
-	}[] = [
+	})[] = [
 		{
 			id: "writer",
 			title: "Writer not done",
+			doneField: "writerCompletedAt",
+			doneLabel: "Writer done",
 			matches: (r) => !r.writerCompletedAt,
 		},
 		{
 			id: "second-review",
 			title: `${secondReview} needed`,
+			doneField: "secondReviewDone",
+			doneLabel: `${secondReview} done`,
 			matches: (r) => r.secondReviewNeeded && !r.secondReviewDone,
 		},
 		{
 			id: "first-review",
 			title: `${firstReview} not done`,
+			doneField: "firstReviewDone",
+			doneLabel: `${firstReview} done`,
 			matches: (r) => !!r.writerCompletedAt && !r.firstReviewDone,
 		},
-		{ id: "billing", title: "Not billed", matches: (r) => !r.billed },
+		{
+			id: "billing",
+			title: "Not billed",
+			doneField: "billed",
+			doneLabel: "Billed",
+			matches: (r) => !r.billed,
+		},
 	];
 	return {
-		sections: sections.map(({ id, title, matches }) => ({
-			id,
-			title,
+		sections: sections.map(({ matches, ...section }) => ({
+			...section,
 			reports: inProgress.filter(matches),
 		})),
 		isError,
@@ -102,7 +113,13 @@ export function useReportSectionsQuery(): {
 	};
 }
 
-function ReportSectionItem({ id, title, reports: allReports }: ReportSection) {
+function ReportSectionItem({
+	id,
+	title,
+	doneField,
+	doneLabel,
+	reports: allReports,
+}: ReportSection) {
 	const utils = api.useUtils();
 	const dismissals = useListDismissals(
 		`reports-${id}`,
@@ -196,44 +213,19 @@ function ReportSectionItem({ id, title, reports: allReports }: ReportSection) {
 									key={r.id}
 									ref={isSaved ? savedClientRef : null}
 								>
-									<div className="flex items-center justify-between gap-2">
-										<Link
-											className="no-underline! hover:no-underline! flex grow flex-wrap items-center gap-2"
-											href={`/clients/${r.clientHash}`}
-										>
-											<span
-												className="h-3 w-3 shrink-0 rounded-full"
-												style={{
-													backgroundColor: getHexFromColor(r.clientColor),
-												}}
-											/>
-											<span>
-												<Redact>{r.clientFullName}</Redact>
-											</span>
-											{r.clientAutismStop && (
-												<Badge className="" size="sm" variant="destructive">
-													Autism Stop
-												</Badge>
-											)}
-											{r.clientPause && (
-												<Badge className="" size="sm" variant="destructive">
-													Paused
-												</Badge>
-											)}
-											{r.clientOutstandingBalance > 0 && (
-												<Badge className="" size="sm" variant="destructive">
-													{formatCurrency(r.clientOutstandingBalance)} due
-												</Badge>
-											)}
-											{dismissals.isDismissed(r.clientId) && (
-												<DismissedBadge note={dismissals.noteFor(r.clientId)} />
-											)}
-										</Link>
+									<SectionReportCard
+										doneField={doneField}
+										doneLabel={doneLabel}
+										report={r}
+									>
+										{dismissals.isDismissed(r.clientId) && (
+											<DismissedBadge note={dismissals.noteFor(r.clientId)} />
+										)}
 										<DismissButton
 											clientId={r.clientId}
 											dismissals={dismissals}
 										/>
-									</div>
+									</SectionReportCard>
 									{isSaved ? (
 										<button
 											aria-label={`Remove ${r.clientFullName} as saved client for ${title}`}
@@ -286,6 +278,9 @@ export function ReportsDashboardSections() {
 	return (
 		<>
 			<h2 className="mt-6 mb-2 self-start font-bold text-lg">Reports</h2>
+			<div className="mb-2 w-full">
+				<ReportsLegend />
+			</div>
 			{sections ? (
 				sections.map((section) => (
 					<ReportSectionItem key={section.id} {...section} />
