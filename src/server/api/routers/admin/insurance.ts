@@ -50,7 +50,14 @@ export const insuranceRouter = createTRPCRouter({
 			.selectDistinct({ name: clients.medicaidOrganization })
 			.from(clients);
 
+		const medicaidProviderIds = await ctx.db
+			.selectDistinct({ name: clients.medicaidProviderId })
+			.from(clients);
+
 		const allNames = new Set<string>();
+		for (const row of medicaidProviderIds) {
+			if (row.name) allNames.add(row.name);
+		}
 		for (const row of primaryInsurances) {
 			if (row.name) allNames.add(row.name);
 		}

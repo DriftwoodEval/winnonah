@@ -19,8 +19,8 @@ import { CACHE_KEY_PUNCHLIST, getPunchData } from "~/lib/integrations/google";
 import type { ClientWithIssueInfo } from "~/lib/models";
 import {
 	getInsuranceMismatchSignature,
-	getInsuranceShortName,
 	getInsuranceShortNamesList,
+	getMedicaidInsuranceShortName,
 	isPolicyActive,
 } from "~/lib/utils";
 import type { Context } from "~/server/api/trpc";
@@ -344,8 +344,8 @@ export async function getInsuranceMismatchList(
 			continue;
 		}
 
-		const organizationInsurance = getInsuranceShortName(
-			client.medicaidOrganization,
+		const organizationInsurance = getMedicaidInsuranceShortName(
+			client,
 			allInsurances,
 		);
 		const organizationMismatch =

@@ -64,6 +64,7 @@ import {
 	getInsuranceMismatchSignature,
 	getInsuranceShortName,
 	getInsuranceShortNamesList,
+	getMedicaidInsuranceShortName,
 	getOfficeDistanceMiles,
 	hasPermission,
 	isBabyNetInsurance,
@@ -3560,6 +3561,7 @@ export const clientRouter = createTRPCRouter({
 						primaryInsurance: true,
 						secondaryInsurance: true,
 						medicaidOrganization: true,
+						medicaidProviderId: true,
 					},
 				}),
 				ctx.db.query.insurances.findMany({ with: { aliases: true } }),
@@ -3568,10 +3570,11 @@ export const clientRouter = createTRPCRouter({
 				}),
 			]);
 
-			// The portal Organization is resolved through insurance aliases. An
-			// unresolved name comes back unchanged, so it also counts as a mismatch.
-			const organizationInsurance = getInsuranceShortName(
-				client?.medicaidOrganization ?? null,
+			// The portal Provider ID, then Organization, is resolved through
+			// insurance aliases. An unresolved name comes back unchanged, so it also
+			// counts as a mismatch.
+			const organizationInsurance = getMedicaidInsuranceShortName(
+				client ?? { medicaidProviderId: null, medicaidOrganization: null },
 				allInsurances,
 			);
 			const hasOrganizationMismatch =
@@ -3610,6 +3613,7 @@ export const clientRouter = createTRPCRouter({
 				where: eq(clients.id, input.clientId),
 				columns: {
 					medicaidOrganization: true,
+					medicaidProviderId: true,
 					primaryInsurance: true,
 					secondaryInsurance: true,
 				},

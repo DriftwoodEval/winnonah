@@ -298,6 +298,9 @@ export const clients = createTable(
 		qualCategory: d.varchar({ length: 255 }),
 		paymentCategory: d.varchar({ length: 255 }),
 		medicaidOrganization: d.varchar({ length: 255 }),
+		// Portal "Provider ID" (e.g. "HM4200"); matched against insurance aliases
+		// before the Organization name.
+		medicaidProviderId: d.varchar({ length: 255 }),
 		medicaidCarrier1: d.varchar({ length: 255 }),
 		medicaidCarrier2: d.varchar({ length: 255 }),
 		limitedBenefit: d.varchar({ length: 255 }),

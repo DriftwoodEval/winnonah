@@ -231,17 +231,39 @@ export const getInsuranceShortNamesList = (
 };
 
 /**
+ * Resolves the insurance a Medicaid portal lookup points at. The portal's
+ * Provider ID (stored as an insurance alias) is tried first; when it matches
+ * no insurance, the Organization name is resolved instead.
+ */
+export const getMedicaidInsuranceShortName = (
+	client: {
+		medicaidProviderId: string | null;
+		medicaidOrganization: string | null;
+	},
+	insurances: InsuranceWithAliases[],
+) => {
+	const byProviderId = resolveInsuranceShortName(
+		client.medicaidProviderId,
+		insurances,
+	);
+	if (byProviderId.resolved) return byProviderId.shortName;
+	return getInsuranceShortName(client.medicaidOrganization, insurances);
+};
+
+/**
  * Snapshot of the fields that decide an insurance mismatch. An ignored
  * mismatch only stays ignored while the client's current signature equals the
  * one saved when it was ignored. Secondary insurances are sorted because the
  * nightly summary sync writes them in no guaranteed order.
  */
 export const getInsuranceMismatchSignature = (client: {
+	medicaidProviderId: string | null;
 	medicaidOrganization: string | null;
 	primaryInsurance: string | null;
 	secondaryInsurance: string[] | null;
 }) =>
 	JSON.stringify([
+		client.medicaidProviderId,
 		client.medicaidOrganization,
 		client.primaryInsurance,
 		[...(client.secondaryInsurance ?? [])].sort(),

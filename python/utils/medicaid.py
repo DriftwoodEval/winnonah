@@ -243,6 +243,9 @@ def read_eligibility(driver: WebDriver) -> dict[str, str | None]:
     organization = driver.find_elements(
         By.XPATH, "//td[normalize-space()='Organization:']/following-sibling::td[1]"
     )
+    provider_id = driver.find_elements(
+        By.XPATH, "//td[normalize-space()='Provider ID:']/following-sibling::td[1]"
+    )
     carriers = driver.find_elements(
         By.XPATH,
         "//td[contains(normalize-space(), 'Carrier')]/following-sibling::td[1]",
@@ -265,6 +268,7 @@ def read_eligibility(driver: WebDriver) -> dict[str, str | None]:
         if beneficiary_status
         else None,
         "medicaidOrganization": organization[0].text if organization else None,
+        "medicaidProviderId": provider_id[0].text if provider_id else None,
         "medicaidCarrier1": carriers[0].text if len(carriers) > 0 else None,
         "medicaidCarrier2": carriers[1].text if len(carriers) > 1 else None,
         "limitedBenefit": limited_benefit[0].text if limited_benefit else None,

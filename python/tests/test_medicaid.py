@@ -14,6 +14,7 @@ RESULTS_PAGE = (
     "<li><label>Limited Benefit:</label><p>NO</p></li>"
     "</ul><table>"
     "<tr><td class='td3b'>Organization:</td><td class='td4'>SELECT HEALTH OF SOUTH CAR</td></tr>"
+    "<tr><td class='td3b'>Provider ID:</td><td class='td4'>HM4200</td></tr>"
     "{carriers}"
     "</table></body></html>"
 )
@@ -45,6 +46,7 @@ class TestReadEligibility:
             "paymentCategory": "TEFRA",
             "medicaidBeneficiaryStatus": None,
             "medicaidOrganization": "SELECT HEALTH OF SOUTH CAR",
+            "medicaidProviderId": "HM4200",
             "medicaidCarrier1": "CARRIER ONE",
             "medicaidCarrier2": "CARRIER TWO",
             "limitedBenefit": "NO",

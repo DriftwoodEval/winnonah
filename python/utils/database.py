@@ -1288,6 +1288,7 @@ def update_client_medicaid_eligibility(
                 f"""
                 UPDATE `{TABLE_CLIENT}`
                 SET qualCategory = %s, paymentCategory = %s, medicaidOrganization = %s,
+                    medicaidProviderId = %s,
                     medicaidCarrier1 = %s, medicaidCarrier2 = %s, limitedBenefit = %s,
                     medicaidSpecialProgram = %s, medicaidSpecialProgramMessage = %s,
                     medicaidBeneficiaryStatus = %s,
@@ -1299,6 +1300,7 @@ def update_client_medicaid_eligibility(
                     eligibility["qualCategory"],
                     eligibility["paymentCategory"],
                     eligibility["medicaidOrganization"],
+                    eligibility["medicaidProviderId"],
                     eligibility["medicaidCarrier1"],
                     eligibility["medicaidCarrier2"],
                     eligibility["limitedBenefit"],
